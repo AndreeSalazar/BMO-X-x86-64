@@ -1272,7 +1272,7 @@ se quiere clasificar programas por lo que le PIDEN al kernel (AOT / GC / GIL).
 toolchain/
   lang/    frontends (esencia): c, cobol, cpp, base(stdlib)
   forge/   pipeline compartido: sem-asm(encoder ✅), bmo-verify(gate ✅)
-  tools/   generadores: bef-bootstrap, hello-bex, fontgen, bmo-linker, cobol-gen(Python)
+  tools/   generadores: hello-bex, fontgen, bmo-linker, cobol-gen(Python)
 ```
 
 ### ★ El emulador, y hasta donde llega (auditado 2026-08-02)

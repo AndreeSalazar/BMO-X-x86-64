@@ -20,10 +20,11 @@ bmo_abi/
 +-- types/              calling convention (IMPORTED by the C and INTI emitters)
 |                       + aggregate layout rule (C, C++, COBOL, INTI)
 +-- syscalls/           INVOKE (0x00), WAIT (0x02), syscall0..syscall6
-+-- bef/                header, sections, relocations, symbols, signing (BLAKE3),
-|                       requisitos, recursos, paquete, katanas, objeto (.bo),
-|                       writer (BefBuilder), validator
-+-- bex.rs              BEX = an executable BEF
++-- bef2/               THE FORMAT: 64-byte header with four regions in fixed
+|                       slots, annexes, one reloc kind, mandatory signature;
+|                       writer, judge (reader), object (.bo), package
++-- bef/                what travels INSIDE annexes: katanas, recursos,
+|                       requisitos, symbols, blake3
 +-- dynobj/             text, list, table: INTI's runtime objects
 ```
 

@@ -302,7 +302,7 @@ impl Codegen {
             });
         }
 
-        bmo_abi::bef::writer::simbolos_en_bytes(&entradas, &cadenas)
+        bmo_abi::bef::symbols::en_bytes(&entradas, &cadenas)
     }
 
     /// **Escribe el `.bex` en BEF2** (2026-09-19, B5 de
@@ -350,27 +350,8 @@ impl Codegen {
         //
         // Solo se emite si hay alguna. Un `.bex` sin punteros en datos no lleva
         // seccion de relocs, igual que uno sin syscalls dejo de llevar el stub.
-        if !self.relocs.is_empty() {
-            for r in core::mem::take(&mut self.relocs) {
-                // ** La numeracion de dentro del emisor (0 code, 1 data,
-                // 2 rodata) NO es la de las regiones: la traduce el contrato,
-                // en un solo sitio (`Region::de_seccion_de_emisor`).
-                let (Some(donde), Some(destino)) = (
-                    bef2::Region::de_seccion_de_emisor(r.target_section),
-                    bef2::Region::de_seccion_de_emisor(r.symbol_idx as u8),
-                ) else {
-                    self.errors.push(String::from(
-                        "un reloc nombra una seccion que no existe: es un bug del compilador",
-                    ));
-                    continue;
-                };
-                b.reloc(bef2::Reloc {
-                    donde,
-                    destino,
-                    offset: r.offset as u32,
-                    addend: r.addend as u64,
-                });
-            }
+        for r in core::mem::take(&mut self.relocs) {
+            b.reloc(r);
         }
 
         // ** LA SECCION `Symbols`: que funcion vive en cada offset.

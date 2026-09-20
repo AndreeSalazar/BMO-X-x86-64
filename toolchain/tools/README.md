@@ -55,7 +55,6 @@ documento recien escrito esta huerfano un rato por definicion.
 | [`bmo-pack`](bmo-pack/) | mete los recursos DENTRO del `.bex` |
 | [`bmo-enlazar`](bmo-enlazar/) | **el enlazador ESTATICO**: N objetos (`.bo`) -> un `.bex`. E3 de [`PLAN_EL_ENLAZADOR`](../../docs/plan/PLAN_EL_ENLAZADOR.md) |
 | [`bmo-firmar`](bmo-firmar/) | **la firma Ed25519 de un `.bex` YA construido**, y la unica del arbol que puede firmar. Ver abajo |
-| [`bef-bootstrap`](bef-bootstrap/) | el arranque del formato BEF |
 | [`c-gen`](c-gen/) | los ejemplos de C |
 | [`cobol-gen`](cobol-gen/) | los de COBOL |
 | [`fontgen`](fontgen/) | la fuente de la consola |

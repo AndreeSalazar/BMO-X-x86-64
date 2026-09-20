@@ -93,7 +93,7 @@ impl Codegen {
                         // are laid out: the linker's job. See `objeto.rs`.
                         self.obj_rel32.push((
                             f.lea_offset,
-                            objeto::Destino::Seccion(SectionKind::RoData, off_en_seccion as u64),
+                            objeto::Destino::Region(Region::Constantes, off_en_seccion as u64),
                         ));
                         continue;
                     }
@@ -124,9 +124,9 @@ impl Codegen {
                     let destino = if self.enlace.solo_externos.contains(name) {
                         objeto::Destino::Simbolo(name.clone())
                     } else if (off as usize) < data_len {
-                        objeto::Destino::Seccion(SectionKind::Data, off as u64)
+                        objeto::Destino::Region(Region::Datos, off as u64)
                     } else {
-                        objeto::Destino::Seccion(SectionKind::Bss, (off as usize - data_len) as u64)
+                        objeto::Destino::Region(Region::Ceros, (off as usize - data_len) as u64)
                     };
                     self.obj_rel32.push((lea_offset, destino));
                     continue;
@@ -172,12 +172,12 @@ impl Codegen {
                 ));
                 continue;
             };
-            self.relocs.push(Relocation::seccion_abs64(
-                SEC_DATA,
-                off_en_data as u64,
-                SEC_RODATA,
-                destino as i64,
-            ));
+            self.relocs.push(Reloc {
+                donde: Region::Datos,
+                destino: Region::Constantes,
+                offset: off_en_data as u32,
+                addend: destino as u64,
+            });
         }
 
         // Las de GLOBAL. Se cierran aqui porque una tabla puede nombrar algo
@@ -194,12 +194,12 @@ impl Codegen {
                 ));
                 continue;
             };
-            self.relocs.push(Relocation::seccion_abs64(
-                SEC_DATA,
-                off_en_data as u64,
-                SEC_DATA,
-                destino as i64 + sumando,
-            ));
+            self.relocs.push(Reloc {
+                donde: Region::Datos,
+                destino: Region::Datos,
+                offset: off_en_data as u32,
+                addend: (destino as i64 + sumando) as u64,
+            });
         }
 
         // Y las de FUNCION, que ya se pueden cerrar: aqui los offsets del
@@ -216,12 +216,12 @@ impl Codegen {
                 ));
                 continue;
             };
-            self.relocs.push(Relocation::seccion_abs64(
-                SEC_DATA,
-                off_en_data as u64,
-                SEC_CODE,
-                destino as i64,
-            ));
+            self.relocs.push(Reloc {
+                donde: Region::Datos,
+                destino: Region::Codigo,
+                offset: off_en_data as u32,
+                addend: destino as u64,
+            });
         }
     }
 

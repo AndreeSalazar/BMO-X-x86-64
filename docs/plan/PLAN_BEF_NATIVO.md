@@ -3,12 +3,13 @@
 > Pedido por Eddi el 2026-09-19: *"investigar BEF: no quiero que sea ELF como
 > tipico, empieza por completo BEF"*.
 >
-> Estado: **DECIDIDO por Eddi el 2026-09-19** -- *"BEF reemplaza el ELF
-> maestro, DALE"*: el formato se sigue llamando **BEF** y es PROPIO, se cambia
-> de golpe (un formato, no dos), y la regla congelada se reescribe. El magic
-> nuevo es `BEF2` (donde abajo pone "BEX2", leer `BEF2`). Hechos: corte 0
-> (seccion 3) y B1, las paginas de solo lectura. Queda por medir la decision 2
-> (paginas alineadas o compacto).
+> Estado: **HECHO el 2026-09-19, B0-B6** -- *"BEF reemplaza el ELF
+> maestro, DALE"*: el formato se llama **BEF2**, es PROPIO, y **BEF1 murio**
+> (un formato, no dos). La regla congelada esta reescrita en
+> `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md`. Las secciones 1 y 4 de abajo
+> describen lo que HABIA y lo que se propuso; la implementacion es
+> `platform/abi/bmo-abi/src/bef2/`. Quedan B7 (cabecera firmada), B8 (Ring 0
+> por regiones) y B9 (medir paginas), y el METAL para todo.
 
 ---
 
@@ -204,17 +205,32 @@ Lo que cambia, y por que es BMO y no ELF:
   (`Region::de_seccion_de_emisor` es la unica traduccion); simbolos,
   manifiesto, katanas y recursos son anexos. Los 41 ejecutables del build
   son BEF2 y el metro dice las MISMAS instrucciones y salidas (857.700).
-- [ ] **B6 -- borrar BEF1.** Regenerados ya los cinco `.bex` de
-  `task/payloads/` (init_hello 4.288 -> 424 B); DOOM y las apps salen del
-  build. Lo que queda escribe o lee BEF1 y se va con el:
-  - los OBJETOS `.bo` (`c/codegen/objeto.rs`, `bmo-enlazar` al leerlos):
-    necesitan `Rel32` a simbolo, que BEF2 no tiene a proposito. Decision:
-    un anexo `ENLACE` de objeto (kind + offset + simbolo + addend) que solo
-    consume el enlazador, o dos formatos para siempre
-  - `bef/writer.rs`, `bef/validator.rs`, `bef/loader.rs`, `bex.rs`, el camino
-    BEF1 de `emu/cargar.rs`, del metro y de `hashes_del_disco.rs`, la mitad
-    BEF1 de `bmo-bex-gate`, y las filas del banco que construyen BEF1
-  - reescribir `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md` secciones 3 y 4
+- [x] **B6 -- BEF1 MUERTO. HECHO el 2026-09-19.** Fuera `bef::{header,
+  sections, relocations, writer, validator, objeto, paquete, signing}`,
+  `bex.rs`, `bef-bootstrap`, la mitad BEF1 de `bmo-bex-gate` (que ahora
+  rechaza `BEF1` por el magic como a un ELF), el camino BEF1 del emulador,
+  del metro y de `hashes_del_disco`, y todas las filas que construian BEF1.
+  Los OBJETOS `.bo` son BEF2 con la bandera `OBJETO`: simbolos en el anexo
+  `SIMBOLOS` (nombran REGIONES) y un anexo `ENLACE` (`Rel32`, `Abs64`,
+  `Region`; 24 B) que solo consume `bmo-enlazar` y que la puerta rechaza en
+  un ejecutable. De rebote, un puntero al `bss` ya se puede nombrar
+  (`BssNoSeSabeNombrar` se fue). Lo que queda de `bef/` son los CONTENIDOS
+  de anexos (katanas, recursos, requisitos, simbolos, blake3).
+  *** Y LO QUE SALIO AL HACERLO, y es de metal: **B3 mentia en los relocs**.
+  El kernel descodificaba el registro de 24 B de BEF1 (secciones 0 code /
+  1 data / 2 rodata) sobre el anexo de 16 B de BEF2 (regiones 0 codigo / 1
+  constantes / 2 datos / 3 ceros): en el Ryzen, todo programa con un puntero
+  en sus datos --DOOM, INTI con su monton-- habria muerto en "relocation
+  fuera de su seccion". Ahora `bex::leer_reloc` y `gate::reloc` son BEF2 y
+  `el_kernel_lee_los_relocs_de_un_bef2` lo ata con el codigo del kernel
+  copiado. Dos filas mas que estaban VERDES midiendo nada: `codigo_de` de
+  `bmo-enlazar` leia la tabla de BEF1 sobre un BEF2, y la fila del sector de
+  INTI no encontraba ninguna seccion. **Y las regiones vuelven a empezar en
+  un SECTOR** (512): BEF1 lo hacia desde el 10-08 para que el HBA escriba
+  sectores enteros en el marco del proceso, la primera version de BEF2 lo
+  pego a 16 y cada region empezaba con una cabeza rebotada. +24 KB en los 41
+  ejecutables, y `ram.rs` mide ahora "empieza en pagina?" como unica
+  pregunta (B9).
 - [ ] **B7 -- la CABECERA firmada.** Hoy los hashes cubren regiones y
   anexos; `entrada`, `xcr0`, `ceros` y las banderas no los cubre nadie: un
   `.bex` firmado admite que le cambien el punto de entrada sin que nada se
@@ -222,9 +238,10 @@ Lo que cambia, y por que es BMO y no ELF:
   reservado. Una entrada de firma mas (`que = 0x7F`: los 64 B + la tabla de
   anexos), comprobada en los DOS jueces.
 - [ ] **B8 -- Ring 0 lee REGIONES.** B3 presenta las regiones al kernel como
-  secciones para no tocarlo (pintura al reves, a proposito). Mientras
-  `task/admitir.rs` y `landing.rs` piensen en secciones, "el permiso lo da
-  el hueco" vive en el adaptador. El final es el kernel mapeando las cuatro
-  regiones por su `Vista` y `PermisoImagen` por region. Pide metal.
+  secciones para no tocarlo (pintura al reves, a proposito); los relocs ya
+  los lee por region desde B6. Mientras `task/admitir.rs` y `landing.rs`
+  piensen en secciones, "el permiso lo da el hueco" vive en el adaptador. El
+  final es el kernel mapeando las cuatro regiones por su `Vista` y
+  `PermisoImagen` por region. Pide metal.
 - [ ] **B9 -- medir la decision 2** (paginas alineadas o compacto) con DOOM
   en el Ryzen antes de elegirla: `alinear_a_pagina()` es la palanca.

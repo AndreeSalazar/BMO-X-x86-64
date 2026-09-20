@@ -7,9 +7,7 @@
 //!            * y sale de su `[aparece]`, no de una opinion: ver toolchain/tools/fases/
 
 use std::collections::HashMap;
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
-use bmo_abi::bef::sections::SectionKind;
-use bmo_abi::bef::relocations::{Relocation, SEC_CODE, SEC_DATA, SEC_RODATA};
+use bmo_abi::bef2::{Region, Reloc};
 use crate::ast::*;
 use crate::CError;
 
@@ -291,7 +289,10 @@ struct Codegen {
     /// ofrecerle la ventana. Con las dos, `WANTS_SCREEN` NO se pone: ver abajo.
     sabe_componerse: bool,
     /// Las relocations ya resueltas que van en la seccion `Relocs` del BEF.
-    relocs: Vec<bmo_abi::bef::relocations::Relocation>,
+    /// Los relocs del ejecutable: punteros en los datos a otra region. Desde
+    /// el 2026-09-19 son los de BEF2 directamente -- el emisor habla de
+    /// REGIONES por dentro, y la traduccion que habia se fue.
+    relocs: Vec<Reloc>,
     instruction_end: usize,
     string_data_end: usize,
     /// Functions from userland_ring3 that need imports.

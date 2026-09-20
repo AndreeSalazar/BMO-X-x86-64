@@ -20,7 +20,6 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use bmo_abi::bmo_abi::bef::paquete;
 use bmo_abi::bmo_abi::bef2::{leer, Region};
 
 /// Los bytes de una REGION de un `.ibx` BEF2 (2026-09-19).

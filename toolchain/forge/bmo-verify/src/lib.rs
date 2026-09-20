@@ -11,7 +11,7 @@
 //! ```
 //!
 //! **NO es un stub**: delega en el validador estructural REAL de
-//! `bmo_abi::bef::validator` (header, tabla de secciones, imports/exports,
+//! `bmo_abi::bef2::lector` (cabecera, regiones, anexos, relocs,
 //! relocs, firma, flags). Este crate es la CARA de toolchain de ese gate:
 //! los frontends llaman `verify()` sin acoplarse a la estructura interna de
 //! bmo-abi.
@@ -40,8 +40,6 @@
 //! salir del toolchain si el kernel lo va a rechazar es una garantia real. Pero
 //! es una garantia de integridad y de contrato, no de seguridad de memoria.
 
-use bmo_abi::bef::validator;
-
 // -- ** RAM_VERIFY: que puede hacer el cargador con este fichero --------------
 //
 // Fichero aparte porque es otra pregunta. `verify()` contesta *"es admisible?"*;
@@ -63,13 +61,10 @@ pub mod ram;
 // `verify()` rechazaria hoy todo lo que compila BMO C, COBOL y Ada.
 pub mod declaracion;
 
-
-/// Veredicto de la verificacion de un BEF.
+/// Lo que dice el gate de un `.bex`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Verdict {
-    /// Paso: admisible al ABI, apto para SIP.
     Ok,
-    /// Rechazado, con las razones (mensajes de error del validador).
     Rejected(Vec<String>),
 }
 
@@ -79,136 +74,58 @@ impl Verdict {
     }
 }
 
-/// Verifica un buffer BEF completo. FUNCIONA: corre el validador estructural
-/// real y colapsa su resultado a un veredicto binario con razones.
+/// **El gate del toolchain**: la puerta del kernel (`bmo-bex-gate`, lo que
+/// decidira Ring 0 sobre estos mismos bytes) y despues el juez del contrato
+/// (`bef2::leer`, que ademas comprueba cada hash). Los dos tienen que decir
+/// que si; el primero que diga que no, lo dice con su nombre.
 ///
-/// Las advertencias (secciones inusuales, etc.) no rechazan -- solo los
-/// errores (magic malo, secciones fuera de rango, ABI incompatible...).
+/// ** BEF2 y solo BEF2 desde el 2026-09-19 (B6): BEF1 murio, y un `.bex` con
+/// su magic se rechaza aqui igual que en el kernel.
 pub fn verify(bef: &[u8]) -> Verdict {
-    // ** LA PUERTA PRIMERO, Y ES LA MISMA QUE CORRE EN RING 0 (2026-08-10).
-    //
-    // `bmo-bex-gate` es la decision, sin `alloc` y sin dependencias, y la comparte
-    // este verificador con el cargador del kernel. Preguntarle aqui **antes** que
-    // al validador convierte una promesa en una garantia:
-    //
-    // > Nada que el kernel vaya a rechazar puede salir de este toolchain.
-    //
-    // Sin esto, las dos listas de comprobaciones podian separarse y el sintoma
-    // seria el peor de todos: un binario que **compila limpio y no carga**, con
-    // el compilador diciendo que todo esta bien.
-    //
-    // El validador se sigue ejecutando detras porque hace mas: avisos que no
-    // rechazan, y mensajes con numeros dentro que en Ring 0 no se pueden
-    // construir. La puerta decide; el validador explica.
     if let Err(falta) = bmo_bex_gate::revisar(bef, bef.len()) {
         return Verdict::Rejected(vec![String::from(falta.nombre())]);
     }
-
-    // ** BEF2 tiene su propio juez y no pasa por el validador de BEF1: son dos
-    // formatos, no dos versiones del mismo (2026-09-19).
-    if es_bef2(bef) {
-        return match bmo_abi::bef2::leer(bef) {
-            Ok(_) => Verdict::Ok,
-            Err(f) => Verdict::Rejected(vec![String::from(f.nombre())]),
-        };
-    }
-
-    let result = validator::validate(bef);
-    if result.is_valid {
-        Verdict::Ok
-    } else {
-        let reasons = result
-            .issues
-            .iter()
-            .filter(|i| matches!(i.severity, validator::IssueSeverity::Error))
-            .map(|i| i.message.clone())
-            .collect();
-        Verdict::Rejected(reasons)
+    match bmo_abi::bef2::leer(bef) {
+        Ok(_) => Verdict::Ok,
+        Err(f) => Verdict::Rejected(vec![String::from(f.nombre())]),
     }
 }
 
-/// Es una imagen del formato nuevo?
-pub fn es_bef2(bef: &[u8]) -> bool {
-    bef.len() >= 4
-        && u32::from_le_bytes([bef[0], bef[1], bef[2], bef[3]]) == bmo_abi::bef2::MAGIC
-}
-
-/// **El gate de un OBJETO (`.bo`)**, que no es el de una imagen.
-///
-/// Un objeto no pasa por `bmo_bex_gate`: esa puerta es la del kernel, y un
-/// objeto no se carga -- se enlaza. Lo que si tiene que cumplir es el contrato
-/// (`bmo_abi::bef::objeto`) y el validador estructural, que es lo que un
-/// frontend debe comprobar antes de escribirlo. E2 de `PLAN_EL_ENLAZADOR`.
+/// Un OBJETO (`.bo`) por su contrato: `bef2::objeto::read`, que es lo que
+/// lee `bmo-enlazar`. La puerta del kernel NO se le pregunta: un objeto nunca
+/// llega al kernel, y la puerta lo rechazaria (`EsUnObjetoSinEnlazar`).
 pub fn verify_object(bef: &[u8]) -> Verdict {
-    if let Err(falta) = bmo_abi::bef::objeto::read(bef) {
-        return Verdict::Rejected(vec![format!("{falta:?}")]);
-    }
-    let result = validator::validate(bef);
-    if result.is_valid {
-        Verdict::Ok
-    } else {
-        Verdict::Rejected(
-            result
-                .issues
-                .iter()
-                .filter(|i| matches!(i.severity, validator::IssueSeverity::Error))
-                .map(|i| i.message.clone())
-                .collect(),
-        )
+    match bmo_abi::bef2::objeto::read(bef) {
+        Ok(_) => Verdict::Ok,
+        Err(falta) => Verdict::Rejected(vec![format!("{falta:?}")]),
     }
 }
 
-/// Igual que `verify`, pero devuelve TAMBIEN las advertencias (para
-/// herramientas que quieran inspeccionar sin rechazar).
+/// Como `verify`, con avisos aparte. BEF2 no tiene avisos: el juez dice si o
+/// dice no, y un aviso seria un no que se deja pasar.
 pub fn verify_verbose(bef: &[u8]) -> (Verdict, Vec<String>) {
-    // ** BEF2 no tiene avisos: su juez dice SI o dice NO con su motivo. Una
-    // herramienta que quiera inspeccionar sin rechazar recibe la lista vacia,
-    // que es la verdad -- y no una lista de quejas de otro formato.
-    if es_bef2(bef) {
-        return (verify(bef), Vec::new());
-    }
-    let result = validator::validate(bef);
-    let warnings = result
-        .issues
-        .iter()
-        .filter(|i| matches!(i.severity, validator::IssueSeverity::Warning))
-        .map(|i| i.message.clone())
-        .collect();
-    let verdict = if result.is_valid {
-        Verdict::Ok
-    } else {
-        let reasons = result
-            .issues
-            .iter()
-            .filter(|i| matches!(i.severity, validator::IssueSeverity::Error))
-            .map(|i| i.message.clone())
-            .collect();
-        Verdict::Rejected(reasons)
-    };
-    (verdict, warnings)
+    (verify(bef), Vec::new())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bmo_abi::bef::writer::{BefBuilder, BefSection};
+    use bmo_abi::bef2::Escritor;
 
     fn minimal_valid_bef() -> Vec<u8> {
-        let mut b = BefBuilder::new();
-        b.add_section(BefSection::code(vec![0xC3; 16])); // ret
-        b.add_section(BefSection::rodata(b"ok\0".to_vec()));
-        b.build().unwrap()
+        let mut e = Escritor::ejecutable();
+        e.codigo(vec![0xC3; 16]).constantes(b"ok\0".to_vec());
+        e.construir().unwrap()
     }
 
     #[test]
     fn accepts_a_real_valid_bef() {
-        // FUNCIONA de verdad: construye un BEF valido y lo verifica.
         assert_eq!(verify(&minimal_valid_bef()), Verdict::Ok);
     }
 
     #[test]
     fn rejects_garbage_with_reasons() {
-        let v = verify(&[0u8; 48]); // magic malo
+        let v = verify(&[0u8; 64]); // magic malo
         match v {
             Verdict::Rejected(reasons) => assert!(!reasons.is_empty(), "debe dar razones"),
             Verdict::Ok => panic!("basura no debe pasar el gate"),
@@ -220,49 +137,24 @@ mod tests {
         assert!(!verify(&[0u8; 4]).is_ok());
     }
 
+    /// BEF1 murio: su magic se rechaza como cualquier otro fichero ajeno.
     #[test]
-    fn verbose_reports_warnings_without_rejecting() {
-        // BEF valido pero con Code duplicada = advertencia, no rechazo.
-        let mut b = BefBuilder::new();
-        b.add_section(BefSection::code(vec![0xC3; 16]));
-        b.add_section(BefSection::code(vec![0xCC; 16]));
-        let bytes = b.build().unwrap();
-        let (verdict, warnings) = verify_verbose(&bytes);
-        assert_eq!(verdict, Verdict::Ok, "duplicado es warning, no error");
-        assert!(warnings.iter().any(|w| w.contains("duplicate")));
+    fn rejects_bef1() {
+        let mut b = minimal_valid_bef();
+        b[0..4].copy_from_slice(b"BEF1");
+        assert!(!verify(&b).is_ok());
+    }
+
+    #[test]
+    fn un_objeto_es_valido_como_objeto_y_no_como_programa() {
+        let mut e = Escritor::objeto();
+        e.codigo(vec![0xC3; 16]);
+        let bo = e.construir().unwrap();
+        assert_eq!(verify_object(&bo), Verdict::Ok);
+        assert!(!verify(&bo).is_ok(), "la puerta no carga un objeto");
     }
 }
 
-// =====================================================================
-//  LA AUDITORIA DEL DCE -- que no sobre, y que no falte
-// =====================================================================
-//
-// El enlazador tira lo que nadie referencia, y acierta. El problema es que
-// **nadie lo comprueba**: se confia, que es otra forma de decir que se reza.
-//
-// Ya mordio una vez. El 2026-08-09 se borro un `static mut` de 8 MiB del kernel
-// esperando recuperar RAM, y el `.bss` no se movio ni un byte: el enlazador ya
-// lo habia tirado. La suposicion era "esto ocupa" y el numero dijo que no.
-//
-// Y la vuelta de esa misma pregunta es la que importa: **si se comio aquello,
-// como se sabe que no se comio algo que si hacia falta?**
-//
-// Un `.bex` puede contestar las dos sin ejecutarse, porque lleva su tabla de
-// secciones con tamanos exactos y sus relocations:
-//
-//   QUE NO FALTE   toda relocation apunta dentro de una seccion que EXISTE.
-//                  El cargador de Ring 0 ya lo comprueba -- pero al ARRANCAR,
-//                  cuando ya es tarde y el sintoma es una pantalla negra.
-//   QUE NO SOBRE   una seccion con bytes y sin una sola referencia entrante es
-//                  peso muerto. No es un error: es un numero que hay que mirar.
-//
-// * Y esto NO es un DCE. Es un AUDITOR de lo que el DCE dejo. La diferencia
-// importa: aqui no se borra nada -- se cuenta, y el que decide es una persona
-// mirando el numero. Un verificador que ademas modifica es un compilador con
-// mala conciencia.
-
-/// Lo que la auditoria encontro. Son numeros, no un veredicto: **sobra** no es
-/// un error, es una cifra que alguien tiene que mirar.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Auditoria {
     /// Bytes que el `.bex` lleva en secciones con contenido.

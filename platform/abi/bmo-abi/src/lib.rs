@@ -16,11 +16,21 @@
 //! +-- types/          -- la CONVENCION de llamada (la importan C e INTI) y la
 //! |                      regla de disposicion de agregados (C, C++, COBOL, INTI)
 //! +-- syscalls/       -- las DOS puertas (INVOKE 0x00, WAIT 0x02) y su superficie
-//! +-- bef/            -- el formato BEF: cabecera, secciones, relocs, firma,
-//! |                      requisitos, recursos, objetos (.bo), writer y validator
-//! +-- bex.rs          -- el .bex es un BEF ejecutable
+//! +-- bef2/           -- EL FORMATO: cabecera de 64 B con las cuatro regiones
+//! |                      en sitio fijo, anexos, un reloc, firma; el escritor,
+//! |                      el juez, los objetos (.bo) y el paquete (recursos)
+//! +-- bef/            -- lo que viaja DENTRO de los anexos y no cambio de bytes:
+//! |                      katanas, recursos, requisitos, simbolos, blake3
 //! +-- dynobj/         -- texto, lista, tabla: los objetos del runtime de INTI
 //! ```
+//!
+//! *** BEF1 MURIO el 2026-09-19 (B6 de `docs/plan/PLAN_BEF_NATIVO.md`): la
+//! cabecera de 48 B con tabla de secciones tipadas era la idea central de ELF
+//! con otro nombre, y el permiso de cada pagina lo decidia una BANDERA (por eso
+//! RoData fue escribible en el Ryzen hasta `8c3ac5c0`). Se fueron con el:
+//! `bef::{header, sections, relocations, writer, validator, objeto, paquete,
+//! signing}`, `bex.rs`, `bef-bootstrap`, y la mitad BEF1 de la puerta del
+//! kernel. Un solo formato, y el permiso lo da el HUECO.
 //!
 //! ** Se fueron el 19-09, ~6.700 lineas sin un solo usuario vivo y tapadas por
 //! veinticinco `#![allow(dead_code)]`: `values/`, `runtime/`, `ir/`,
@@ -46,13 +56,13 @@
 //! llamada normal usa SEIS registros, `rdi, rsi, rdx, rcx, r8, r9`, y devuelve
 //! en `rax` (ver `types::convention`, que es lo que leen los emisores); NO hay
 //! puntero de hilo -- ningun emisor usa `fs:` y el kernel no programa
-//! `FS_BASE` para Ring 3 --, y el formato BEF solo admite imagenes de
-//! arquitectura `0x01`. Nada de eso se abstrae: una capa que "podria ser otra CPU" es un
-//! camino que ninguna maquina de este repositorio ejecuta.
+//! `FS_BASE` para Ring 3 --, y el formato BEF2 no tiene byte de arquitectura:
+//! el magic ya dice BMO-X x86-64. Nada de eso se abstrae: una capa que "podria
+//! ser otra CPU" es un camino que ninguna maquina de este repositorio ejecuta.
 //!
 //! En BMO-X todo es x86-64 MENOS los frontends de los compiladores
 //! (`toolchain/tools/isa`). Un BMO-X de otra CPU es otro repositorio con su
-//! propio ABI; lo unico que comparten es el byte de arquitectura del BEF.
+//! propio ABI y su propio magic; no comparten ni un byte.
 #![no_std]
 extern crate alloc;
 pub mod fundamentals;
@@ -61,7 +71,6 @@ pub mod types;
 pub mod bef;
 /// **BEF2**: el formato propio, sin herencia de ELF. Ver docs/plan/PLAN_BEF_NATIVO.md.
 pub mod bef2;
-pub mod bex;
 pub mod syscalls;
 
 // --- Re-exports planos para uso ergonomico -------------------------

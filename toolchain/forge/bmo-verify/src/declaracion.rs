@@ -25,19 +25,19 @@
 //! Esta es la mitad que faltaba para que lo sea.
 
 use bmo_abi::bef::katanas;
-use bmo_abi::bef::paquete;
-use bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bef2::{leer, Region, ANEXO_KATANAS, ANEXO_MANIFIESTO};
 
 use crate::Verdict;
 
 /// Los bytes del CODIGO, venga del formato que venga.
 fn codigo_de(bef: &[u8]) -> Option<&[u8]> {
-    if crate::es_bef2(bef) {
-        let v = bmo_abi::bef2::leer(bef).ok()?;
-        let c = v.region(bmo_abi::bef2::Region::Codigo);
-        return if c.is_empty() { None } else { Some(c) };
+    let v = leer(bef).ok()?;
+    let c = v.region(Region::Codigo);
+    if c.is_empty() {
+        None
+    } else {
+        Some(c)
     }
-    paquete::seccion(bef, SectionKind::Code)
 }
 
 /// Los bytes del manifiesto, si el binario lo trae.
@@ -46,18 +46,15 @@ fn codigo_de(bef: &[u8]) -> Option<&[u8]> {
 /// escribio el manifiesto sabe leerlo; aqui solo se comprueba que exista y que
 /// sea texto.
 pub fn manifiesto(bef: &[u8]) -> Option<&[u8]> {
-    trozo(bef, bmo_abi::bef2::ANEXO_MANIFIESTO, SectionKind::Manifest)
+    trozo(bef, ANEXO_MANIFIESTO)
 }
 
 /// Los bytes de un anexo (BEF2) o de su seccion equivalente (BEF1).
 ///
 /// ** Los dos caminos mientras dure la mudanza, y ni uno mas: cuando BEF1 se
 /// borre (B6 de `docs/plan/PLAN_BEF_NATIVO.md`), aqui queda una linea.
-fn trozo(bef: &[u8], anexo: u8, kind: SectionKind) -> Option<&[u8]> {
-    if crate::es_bef2(bef) {
-        return bmo_abi::bef2::leer(bef).ok()?.anexo(anexo);
-    }
-    paquete::seccion(bef, kind)
+fn trozo(bef: &[u8], anexo: u8) -> Option<&[u8]> {
+    leer(bef).ok()?.anexo(anexo)
 }
 
 /// **`verify()` mas una exigencia: que el binario declare lo que es.**
@@ -128,7 +125,7 @@ pub fn exige_katanas(bef: &[u8]) -> Verdict {
     if !base.is_ok() {
         return base;
     }
-    let tabla = match trozo(bef, bmo_abi::bef2::ANEXO_KATANAS, SectionKind::Katanas) {
+    let tabla = match trozo(bef, ANEXO_KATANAS) {
         Some(t) => t,
         None => {
             return Verdict::Rejected(vec![String::from(
@@ -180,21 +177,20 @@ pub fn exige_katanas(bef: &[u8]) -> Verdict {
 #[cfg(test)]
 mod pruebas {
     use super::*;
-    use bmo_abi::bef::writer::{BefBuilder, BefSection};
-
-    fn con(secciones: Vec<BefSection>) -> Vec<u8> {
-        let mut b = BefBuilder::new();
-        for s in secciones {
-            b.add_section(s);
+    fn con(manifiesto: Option<Vec<u8>>) -> Vec<u8> {
+        let mut e = bmo_abi::bef2::Escritor::ejecutable();
+        e.codigo(vec![0xC3; 16]);
+        if let Some(m) = manifiesto {
+            e.anexo(ANEXO_MANIFIESTO, m);
         }
-        b.build().expect("no se escribe")
+        e.construir().expect("no se escribe")
     }
 
     /// Sin manifiesto pasa el gate normal y **no** pasa la exigencia. Las dos
     /// mitades: si pasara las dos, la exigencia no exige nada.
     #[test]
     fn un_binario_mudo_pasa_verify_y_no_pasa_la_exigencia() {
-        let bytes = con(vec![BefSection::code(vec![0xC3; 16])]);
+        let bytes = con(None);
         assert!(crate::verify(&bytes).is_ok(), "el gate normal no lo rechaza");
         match exige_manifiesto(&bytes) {
             Verdict::Rejected(r) => assert!(
@@ -208,10 +204,7 @@ mod pruebas {
 
     #[test]
     fn un_binario_que_se_declara_pasa_las_dos() {
-        let bytes = con(vec![
-            BefSection::code(vec![0xC3; 16]),
-            BefSection::manifest_toml(b"[modulo]\nlenguaje = \"inti\"\n".to_vec()),
-        ]);
+        let bytes = con(Some(b"[modulo]\nlenguaje = \"inti\"\n".to_vec()));
         assert!(exige_manifiesto(&bytes).is_ok());
         assert_eq!(
             manifiesto(&bytes).map(|d| d.starts_with(b"[modulo]")),
@@ -219,13 +212,11 @@ mod pruebas {
         );
     }
 
-    /// Una seccion vacia es peor que ninguna: parece que declara.
+    /// Un anexo vacio es peor que ninguno: parece que declara. En BEF2 ni
+    /// siquiera se escribe: el juez lo rechaza antes (`AnexoQueNoVaAqui`).
     #[test]
     fn declarar_nada_no_es_declarar() {
-        let bytes = con(vec![
-            BefSection::code(vec![0xC3; 16]),
-            BefSection::manifest_toml(Vec::new()),
-        ]);
+        let bytes = con(Some(Vec::new()));
         assert!(!exige_manifiesto(&bytes).is_ok());
     }
 }

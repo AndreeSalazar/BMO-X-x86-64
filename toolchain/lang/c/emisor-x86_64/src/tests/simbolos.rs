@@ -22,28 +22,27 @@
 //! crates es la forma de que un dia digan cosas distintas.
 
 use super::*;
-use bmo_abi::bef::sections::{SectionEntry, SectionKind};
-use bmo_abi::bef::symbols::{name_hash, Symbol};
+use bmo_abi::bef::symbols::{name_hash, Symbol, TablaCadenas};
 
 /// Los bytes de una seccion por su tipo, o `None` si no esta.
 /// Los bytes del anexo de SIMBOLOS (BEF2, 2026-09-19). Antes esto recorria la
 /// tabla de secciones a mano; ahora se pide por su tipo.
-fn seccion(bef: &[u8], _kind: bmo_abi::bef::sections::SectionKind) -> Option<&[u8]> {
+fn simbolos_de(bef: &[u8]) -> Option<&[u8]> {
     bmo_abi::bef2::leer(bef).ok()?.anexo(bmo_abi::bef2::ANEXO_SIMBOLOS)
 }
 
 /// Los simbolos de un `.bex`, ya emparejados con su nombre.
 fn simbolos(bef: &[u8]) -> Vec<(String, u64, u64)> {
-    let datos = seccion(bef, SectionKind::Symbols).expect("no hay seccion Symbols");
+    let datos = simbolos_de(bef).expect("no hay anexo de simbolos");
     // ** La CABECERA dice cuantas entradas hay. La primera version de esta
     // prueba lo adivinaba --contaba entradas mientras el campo `kind` valiera
     // `Function`-- y por eso daba verde con un binario que `bmo-verify`
     // rechazaba: el validador contaba de otra forma. Adivinar el limite es
     // exactamente el fallo que `TablaCadenas` vino a cerrar.
-    let (n, cadenas_en) = bmo_abi::bef::sections::TablaCadenas::leer(datos, Symbol::SIZE)
+    let (n, cadenas_en) = TablaCadenas::leer(datos, Symbol::SIZE)
         .expect("la cabecera declara mas entradas de las que caben");
     let cadenas = &datos[cadenas_en..];
-    let base = bmo_abi::bef::sections::TablaCadenas::SIZE;
+    let base = TablaCadenas::SIZE;
     let mut v = Vec::new();
     for i in 0..n {
         let e = base + i * Symbol::SIZE;

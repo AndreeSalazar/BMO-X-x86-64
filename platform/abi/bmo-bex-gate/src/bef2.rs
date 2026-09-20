@@ -45,6 +45,8 @@ pub const ANEXO_RECURSOS: u8 = 0x04;
 pub const ANEXO_MANIFIESTO: u8 = 0x05;
 pub const ANEXO_KATANAS: u8 = 0x06;
 pub const ANEXO_SIMBOLOS: u8 = 0x07;
+/// Los enlaces de un OBJETO: en un ejecutable no pueden ir.
+pub const ANEXO_ENLACE: u8 = 0x08;
 
 /// El tipo de seccion con el que se le presenta al kernel cada anexo. Un anexo
 /// que este kernel no conoce se presenta como `DESCONOCIDO`, y `se_carga` dice
@@ -209,13 +211,22 @@ pub(crate) fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>
     if fin_tabla > total {
         return Err(Falta::TablaFueraDelFichero);
     }
+    // ** Un anexo ENLACE es de un OBJETO: lo que llega aqui es un ejecutable, y
+    // uno que lo traiga es una unidad sin enlazar disfrazada. Mismo veredicto
+    // que `bef2::lector` (`AnexoQueNoVaAqui`).
+    for i in 0..cuantos_anexos {
+        if let Some((tipo, _, _)) = anexo(prologo, i) {
+            if tipo == ANEXO_ENLACE {
+                return Err(Falta::EsUnObjetoSinEnlazar);
+            }
+        }
+    }
 
     let rev = Revisada {
         prologo,
-        tabla: CABECERA2,
         cuantas: cuantas(prologo),
         entry_offset,
-        formato: Formato::Bef2,
+
         fin_tabla,
     };
 

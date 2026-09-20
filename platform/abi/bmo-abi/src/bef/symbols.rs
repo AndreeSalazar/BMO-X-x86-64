@@ -99,6 +99,33 @@ const _: () = assert!(core::mem::size_of::<Symbol>() == 32);
 /// 0xFF and 0xFE were already taken by ABS and COMMON.
 pub const SECTION_UNDEFINED: bx_u8 = 0xFD;
 
+/// **Los bytes de una tabla de simbolos**: cabecera (`TablaCadenas`), entradas
+/// y cadenas. Es lo que viaja en el anexo `SIMBOLOS` de BEF2 -- de un objeto,
+/// para enlazar; de un ejecutable, para que el DIRECTOR anote una autopsia.
+pub fn en_bytes(entradas: &[Symbol], cadenas: &[u8]) -> alloc::vec::Vec<u8> {
+    let cab = TablaCadenas::de(entradas.len() as u32);
+    let mut data = alloc::vec::Vec::with_capacity(
+        TablaCadenas::SIZE + entradas.len() * Symbol::SIZE + cadenas.len(),
+    );
+    data.extend_from_slice(&cab.count.to_le_bytes());
+    data.extend_from_slice(&cab._reserved.to_le_bytes());
+    for e in entradas {
+        // Campo a campo y en little-endian: los mismos bytes que `#[repr(C)]`
+        // en x86-64, sin depender de que el struct este alineado en memoria.
+        data.extend_from_slice(&e.name_off.to_le_bytes());
+        data.extend_from_slice(&e.name_hash.to_le_bytes());
+        data.extend_from_slice(&e.virt_addr.to_le_bytes());
+        data.extend_from_slice(&e.size.to_le_bytes());
+        data.push(e.kind);
+        data.push(e.binding);
+        data.push(e.visibility);
+        data.push(e.section_idx);
+        data.extend_from_slice(&e._reserved.to_le_bytes());
+    }
+    data.extend_from_slice(cadenas);
+    data
+}
+
 pub fn name_hash(name: &str) -> bx_u32 {
     let mut h: u32 = 0x811C_9DC5; // offset basis
     for b in name.as_bytes() {
@@ -167,5 +194,52 @@ impl<'a> SymbolTable<'a> {
         let rest = self.strings.get(sym.name_off as usize..)?;
         let end = rest.iter().position(|&b| b == 0)?;
         core::str::from_utf8(&rest[..end]).ok()
+    }
+}
+
+/// **La cabecera de una tabla con cadenas detras**: cuantas entradas de
+/// tamano fijo vienen, y despues los nombres.
+///
+/// ```text
+///   [TablaCadenas][entrada; count][cadenas]
+///                  ^^^^^^^^^^^^^^  `name_off` es relativo a AQUI
+/// ```
+///
+/// Vivia en `sections.rs` (BEF1) y se quedo porque los simbolos la usan: los
+/// bytes del anexo SIMBOLOS no cambiaron al cambiar el contenedor.
+#[repr(C, align(8))]
+#[derive(Debug, Clone, Copy)]
+pub struct TablaCadenas {
+    /// Cuantas entradas de tamano fijo vienen detras.
+    pub count: bx_u32,
+    /// Reservado. **Debe ser cero** -- misma regla que el resto del formato:
+    /// un campo futuro no puede heredar basura de un productor de hoy.
+    pub _reserved: bx_u32,
+}
+const _: () = assert!(core::mem::size_of::<TablaCadenas>() == 8);
+
+impl TablaCadenas {
+    pub const SIZE: usize = 8;
+
+    pub const fn de(count: u32) -> Self {
+        Self { count, _reserved: 0 }
+    }
+
+    /// Lee la cabecera y devuelve `(count, donde_empiezan_las_cadenas)`.
+    ///
+    /// `None` si no da ni para la cabecera, o si el numero de entradas que
+    /// declara no cabe en lo que mide. Un `count` inventado haria que el lector
+    /// recorriera cadenas creyendo que son entradas -- que es exactamente el
+    /// fallo que esta cabecera viene a cerrar.
+    pub fn leer(data: &[u8], tamano_de_entrada: usize) -> Option<(usize, usize)> {
+        if data.len() < Self::SIZE {
+            return None;
+        }
+        let count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        let fin = Self::SIZE.checked_add(count.checked_mul(tamano_de_entrada)?)?;
+        if fin > data.len() {
+            return None;
+        }
+        Some((count, fin))
     }
 }

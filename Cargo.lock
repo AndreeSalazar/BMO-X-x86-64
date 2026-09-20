@@ -50,13 +50,6 @@ name = "bmo-audio"
 version = "1.0.0"
 
 [[package]]
-name = "bmo-bef-bootstrap"
-version = "0.1.0"
-dependencies = [
- "bmo-abi",
-]
-
-[[package]]
 name = "bmo-bex-gate"
 version = "1.0.0"
 dependencies = [

@@ -7,7 +7,7 @@
 //! ## Lo que hace, en orden
 //!
 //! ```text
-//!   1. LEER      cada objeto con su contrato (`bmo_abi::bef::objeto`)
+//!   1. LEER      cada objeto con su contrato (`bmo_abi::bef2::objeto`)
 //!   2. COLOCAR   las secciones de todas las unidades, una detras de otra
 //!   3. RESOLVER  cada nombre: definido aqui, o definido por otra unidad
 //!   4. PARCHEAR  lo que ya se sabe; dejar para el CARGADOR lo que depende
@@ -34,12 +34,9 @@
 
 use std::collections::HashMap;
 
-use bmo_abi::bef::header::BefFlags;
-use bmo_abi::bef::objeto::{self, Object, REL_CODE, REL_DATA, REL_RODATA};
-use bmo_abi::bef::relocations::{Relocation, RelocationKind};
-use bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bef2::objeto::{self, Clase, Object};
+use bmo_abi::bef2::{Region, Reloc};
 use bmo_abi::bef::symbols::{name_hash, Symbol, SymbolBinding, SymbolKind, SymbolVisibility};
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
 
 mod tirar;
 
@@ -68,10 +65,6 @@ pub enum Fallo {
     /// Un trozo que se conserva apunta a uno que se tiro. Es un bug de la poda
     /// (E5b) y no un fallo de quien enlaza: por eso lo dice asi.
     PodaIncoherente { nombre: String, unidad: String },
-    /// Un puntero GUARDADO EN UN DATO que apunta al `bss`. El objeto sabe
-    /// nombrar tres secciones --codigo, datos, rodata-- y `bss` no es una de
-    /// ellas, asi que esa direccion no se puede expresar todavia.
-    BssNoSeSabeNombrar { unidad: String, nombre: String },
 }
 
 impl core::fmt::Display for Fallo {
@@ -96,10 +89,6 @@ impl core::fmt::Display for Fallo {
                 f,
                 "la poda tiro algo que {unidad} sigue usando ('{nombre}'): esto es un bug del enlazador"
             ),
-            Fallo::BssNoSeSabeNombrar { unidad, nombre } => write!(
-                f,
-                "{unidad}: '{nombre}' guarda en un dato la direccion de algo del bss, y el objeto solo sabe nombrar codigo, datos y rodata"
-            ),
         }
     }
 }
@@ -117,7 +106,7 @@ struct Sitio {
 #[derive(Clone, Copy)]
 pub(crate) struct Definicion {
     pub unidad: usize,
-    pub seccion: SectionKind,
+    pub seccion: Region,
     pub offset: u64,
 }
 
@@ -219,55 +208,44 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
     let va_rodata = a_pagina(code.len() as u64);
     let va_data = va_rodata + a_pagina(rodata.len() as u64);
     let va_bss = va_data + a_pagina(data.len() as u64);
-    let va_de = |k: SectionKind| match k {
-        SectionKind::Code => va_code,
-        SectionKind::RoData => va_rodata,
-        SectionKind::Data => va_data,
-        _ => va_bss,
+    let va_de = |k: Region| match k {
+        Region::Codigo => va_code,
+        Region::Constantes => va_rodata,
+        Region::Datos => va_data,
+        Region::Ceros => va_bss,
     };
-    let sitio_de = |s: &Sitio, k: SectionKind| match k {
-        SectionKind::Code => s.code,
-        SectionKind::RoData => s.rodata,
-        SectionKind::Data => s.data,
-        _ => s.bss,
-    };
-    let codigo_de = |k: SectionKind| match k {
-        SectionKind::Code => Some(REL_CODE),
-        SectionKind::Data => Some(REL_DATA),
-        SectionKind::RoData => Some(REL_RODATA),
-        // El objeto sabe nombrar TRES secciones, y `bss` no es una de ellas.
-        _ => None,
+    let sitio_de = |s: &Sitio, k: Region| match k {
+        Region::Codigo => s.code,
+        Region::Constantes => s.rodata,
+        Region::Datos => s.data,
+        Region::Ceros => s.bss,
     };
 
     // -- 5. Parchear. --
-    let mut salida: Vec<Relocation> = Vec::new();
+    let mut salida: Vec<Reloc> = Vec::new();
     for (i, o) in objs.iter().enumerate() {
-        for r in &o.relocs {
-            let patch_sec = match r.target_section {
-                REL_CODE => SectionKind::Code,
-                REL_DATA => SectionKind::Data,
-                _ => SectionKind::RoData,
-            };
-            // Si el sitio que habia que parchear se fue con la poda, la reloc
+        for r in &o.enlaces {
+            let patch_sec = r.donde;
+            // Si el sitio que habia que parchear se fue con la poda, el enlace
             // se va con el: ya no hay bytes que escribir.
-            let en_unidad = if patch_sec == SectionKind::Code {
-                match poda.nuevo(i, r.offset) {
+            let en_unidad = if patch_sec == Region::Codigo {
+                match poda.nuevo(i, r.offset as u64) {
                     Some(x) => x,
                     None => continue,
                 }
             } else {
-                r.offset
+                r.offset as u64
             };
             let en = sitio_de(&sitio[i], patch_sec) + en_unidad;
 
             // A donde apunta. UNA sola cuenta, en `tirar.rs`: la poda usa la
             // misma para saber quien llama a quien.
             let b = tirar::blanco_de(&objs, unidades, &publicos, i, r)?;
-            let nombre = || match o.symbols.get(r.symbol_idx as usize) {
-                Some(s) if r.kind != RelocationKind::SeccionAbs64 as u8 => s.name.to_string(),
-                _ => String::from("(una seccion)"),
+            let nombre = || match o.symbols.get(r.simbolo as usize) {
+                Some(s) if r.clase != Clase::Region => s.name.to_string(),
+                _ => String::from("(una region)"),
             };
-            let destino_en_unidad = if b.seccion == SectionKind::Code {
+            let destino_en_unidad = if b.seccion == Region::Codigo {
                 // Un trozo vivo no puede apuntar a uno tirado: si pasa, la poda
                 // se equivoco, y eso se dice -- no se enlaza igual.
                 match poda.nuevo(b.unidad, b.offset) {
@@ -286,11 +264,11 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
 
             let at = en as usize;
             let buffer = match patch_sec {
-                SectionKind::Code => &mut code,
-                SectionKind::Data => &mut data,
+                Region::Codigo => &mut code,
+                Region::Datos => &mut data,
                 _ => &mut rodata,
             };
-            if r.kind == RelocationKind::Rel32 as u8 {
+            if r.clase == Clase::Rel32 {
                 // Una DISTANCIA dentro de la imagen: se sabe aqui. El `rip`
                 // apunta detras del hueco de 4 bytes, de ahi el -4.
                 let p = (va_de(patch_sec) + en) as i64;
@@ -304,22 +282,14 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
                 buffer[at..at + 4].copy_from_slice(&disp.to_le_bytes());
             } else {
                 // Una DIRECCION: depende de donde cargue el programa, y eso lo
-                // sabe el cargador. Se reescribe contra la seccion ya junta.
-                let (Some(hacia), Some(desde)) = (codigo_de(b.seccion), codigo_de(patch_sec))
-                else {
-                    return Err(Fallo::BssNoSeSabeNombrar {
-                        unidad: unidades[i].0.clone(),
-                        nombre: nombre(),
-                    });
-                };
+                // sabe el cargador. Se reescribe contra la region ya junta --
+                // y en BEF2 los ceros tambien se pueden nombrar.
                 buffer[at..at + 8].copy_from_slice(&0u64.to_le_bytes());
-                salida.push(Relocation {
-                    offset: en,
-                    symbol_idx: hacia as u32,
-                    kind: RelocationKind::SeccionAbs64 as u8,
-                    target_section: desde,
-                    _pad: [0; 2],
-                    addend: destino as i64,
+                salida.push(Reloc {
+                    donde: patch_sec,
+                    destino: b.seccion,
+                    offset: en as u32,
+                    addend: destino,
                 });
             }
         }
@@ -335,17 +305,13 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
             unidad: unidades[principal.unidad].0.clone(),
         });
     };
-    let entry = sitio_de(&sitio[principal.unidad], SectionKind::Code) + entry_en_unidad;
+    let entry = sitio_de(&sitio[principal.unidad], Region::Codigo) + entry_en_unidad;
 
     // -- 6. Escribir y verificar. --
-    // ** El ejecutable sale en BEF2 (2026-09-19). Los OBJETOS que entran siguen
-    // siendo BEF1 mientras dure la mudanza: un `.bo` nunca llega al kernel, y
-    // convertirlos es el ultimo escalon (B6 de `docs/plan/PLAN_BEF_NATIVO.md`).
+    // ** Todo BEF2 (2026-09-19, B6): los objetos que entran y el ejecutable
+    // que sale. Un `.bo` nunca llega al kernel.
     let mut b = bmo_abi::bef2::Escritor::ejecutable();
-    let quiere_pantalla = unidades.iter().any(|(_, bytes)| {
-        let f = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
-        BefFlags::from_bits_truncate(f).contains(BefFlags::WANTS_SCREEN)
-    });
+    let quiere_pantalla = objs.iter().any(|o| o.quiere_pantalla);
     if quiere_pantalla {
         b.quiere_pantalla();
     }
@@ -368,7 +334,7 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
     let mut cadenas: Vec<u8> = Vec::new();
     for (i, o) in objs.iter().enumerate() {
         for s in &o.symbols {
-            if !s.function || s.section != Some(SectionKind::Code) {
+            if !s.function || s.section != Some(Region::Codigo) {
                 continue;
             }
             // Una funcion que se tiro no deja nombre: el simbolo apuntaria a
@@ -393,27 +359,14 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
     if !entradas.is_empty() {
         b.anexo(
             bmo_abi::bef2::ANEXO_SIMBOLOS,
-            bmo_abi::bef::writer::simbolos_en_bytes(&entradas, &cadenas),
+            bmo_abi::bef::symbols::en_bytes(&entradas, &cadenas),
         );
     }
+    // Lo que sale del enlazado son direcciones de region: los `Rel32` a
+    // simbolos ya se resolvieron aqui dentro, que es para lo que existe un
+    // enlazador.
     for r in salida {
-        // ** En BEF2 un reloc nombra REGIONES. Lo que sale del enlazado es
-        // siempre `SeccionAbs64`: los `Rel32` a simbolos ya se resolvieron aqui
-        // dentro, que es para lo que existe un enlazador.
-        let (Some(donde), Some(destino)) = (
-            bmo_abi::bef2::Region::de_seccion_de_emisor(r.target_section),
-            bmo_abi::bef2::Region::de_seccion_de_emisor(r.symbol_idx as u8),
-        ) else {
-            return Err(Fallo::NoPasaElGate(vec![String::from(
-                "un reloc de salida nombra una seccion que no existe",
-            )]));
-        };
-        b.reloc(bmo_abi::bef2::Reloc {
-            donde,
-            destino,
-            offset: r.offset as u32,
-            addend: r.addend as u64,
-        });
+        b.reloc(r);
     }
 
     let bytes = b.construir().unwrap_or_default();

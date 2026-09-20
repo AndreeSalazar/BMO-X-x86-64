@@ -264,18 +264,18 @@ pub(crate) fn admit_payload_desde(
         }
     }
 
-    // La VA de una seccion por su CODIGO DE RELOCATION (`0` = code, `1` = data,
-    // `2` = rodata), que **no** es el de `SECTION_*`. La traduccion se hace aqui,
-    // en un solo sitio, porque es exactamente donde se cruzarian las dos
-    // numeraciones.
+    // El INDICE de una seccion por su REGION de BEF2 (0 codigo, 1 constantes,
+    // 2 datos, 3 ceros): la numeracion de los relocs es la de las regiones,
+    // que es la misma con la que la puerta las presenta. Una sola numeracion.
     // ** Devuelve el INDICE y no la VA desde el 2026-08-25: con la VA sola no se
     // puede comprobar si la reloc CABE en su seccion, y esa comprobacion la
     // tenia el toolchain y el cargador no. Ver `gate::reloc_cabe`.
     let seccion_por_codigo_reloc = |cod: u8| -> Option<usize> {
         let buscado = match cod {
             0 => bex::SECTION_CODE,
-            1 => bex::SECTION_DATA,
-            2 => bex::SECTION_RODATA,
+            1 => bex::SECTION_RODATA,
+            2 => bex::SECTION_DATA,
+            3 => bex::SECTION_BSS,
             _ => return None,
         };
         for i in 0..plan.section_count {
@@ -722,14 +722,9 @@ pub(crate) fn admit_payload_desde(
                 crate::ring0::cabina::fault("proc", "la tabla de relocations esta mal formada", r as u64);
                     return None;
                 };
-                if rel.kind != bex::RELOC_SECCION_ABS64 {
-                    // Aplicar una reloc que no se entiende seria escribir un
-                    // numero inventado en la memoria de un proceso. Se rechaza
-                    // el programa entero.
-                    log("[proc] FATAL: tipo de relocation desconocido\n");
-                crate::ring0::cabina::fault("proc", "tipo de relocation DESCONOCIDO", rel.kind as u64);
-                    return None;
-                }
+                // (En BEF2 solo hay un tipo de reloc: no hay `kind` que
+                // rechazar. Lo que se comprueba es que las dos regiones
+                // existan y que el parche quepa.)
                 let (Some(i_donde), Some(i_destino)) = (
                     seccion_por_codigo_reloc(rel.donde_sec),
                     seccion_por_codigo_reloc(rel.destino_sec),

@@ -40,6 +40,8 @@
 
 mod escritor;
 mod lector;
+/// El objeto (`.bo`): lo que el enlazador junta.
+pub mod objeto;
 /// Una app es UN fichero: el .bex con sus recursos dentro.
 pub mod paquete;
 
@@ -155,6 +157,10 @@ pub const ANEXO_KATANAS: u8 = 0x06;
 /// se enterara hasta el siguiente fallo en el Ryzen. Son data para OTRO: el
 /// kernel los SALTA, que es lo que hace que puedan viajar.
 pub const ANEXO_SIMBOLOS: u8 = 0x07;
+/// **Los enlaces de un OBJETO** (`objeto::Enlace`): lo que `bmo-enlazar`
+/// resuelve al juntar unidades. Solo va en un `.bo`: un ejecutable con esto
+/// dentro es una unidad sin enlazar disfrazada, y se rechaza.
+pub const ANEXO_ENLACE: u8 = 0x08;
 
 /// **Los tres que el kernel abre.** Todo otro anexo es data para OTRO -- el
 /// enlazador, el verificador, el runtime de un lenguaje -- y se SALTA: es la

@@ -28,9 +28,8 @@
 
 use std::collections::HashMap;
 
-use bmo_abi::bef::objeto::{Object, REL_CODE, REL_DATA};
-use bmo_abi::bef::relocations::{Relocation, RelocationKind};
-use bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bef2::objeto::{Clase, Enlace, Object};
+use bmo_abi::bef2::Region;
 
 use crate::{Definicion, Fallo};
 
@@ -42,19 +41,11 @@ use crate::{Definicion, Fallo};
 /// desbordaba -- el `-4` de un `lea` sumado a un `u64`, el 2026-09-17.
 pub(crate) struct Blanco {
     pub unidad: usize,
-    pub seccion: SectionKind,
+    pub seccion: Region,
     /// El byte exacto dentro de esa seccion de esa unidad, con el addend ya
     /// contado: el `-4` que un `rel32` lleva porque el `rip` apunta detras del
     /// hueco se suma aqui UNA vez y no vuelve a aparecer.
     pub offset: u64,
-}
-
-fn seccion_de(codigo: u8) -> SectionKind {
-    match codigo {
-        REL_CODE => SectionKind::Code,
-        REL_DATA => SectionKind::Data,
-        _ => SectionKind::RoData,
-    }
 }
 
 pub(crate) fn blanco_de<'a>(
@@ -62,20 +53,21 @@ pub(crate) fn blanco_de<'a>(
     unidades: &[(String, Vec<u8>)],
     publicos: &HashMap<&'a str, Definicion>,
     i: usize,
-    r: &Relocation,
+    r: &Enlace,
 ) -> Result<Blanco, Fallo> {
-    let ajuste = if r.kind == RelocationKind::Rel32 as u8 { 4 } else { 0 };
-    if r.kind == RelocationKind::SeccionAbs64 as u8 {
+    let ajuste = if r.clase == Clase::Rel32 { 4 } else { 0 };
+    if r.clase == Clase::Region {
+        // `objeto::read` ya comprobo que la region existe.
         return Ok(Blanco {
             unidad: i,
-            seccion: seccion_de(r.symbol_idx as u8),
+            seccion: Region::de(r.simbolo as u8).unwrap_or(Region::Codigo),
             offset: (r.addend + ajuste).max(0) as u64,
         });
     }
-    let Some(s) = objs[i].symbols.get(r.symbol_idx as usize) else {
+    let Some(s) = objs[i].symbols.get(r.simbolo as usize) else {
         return Err(Fallo::NoEsObjeto {
             unidad: unidades[i].0.clone(),
-            motivo: format!("una reloc apunta al simbolo {} y no hay tantos", r.symbol_idx),
+            motivo: format!("un enlace apunta al simbolo {} y no hay tantos", r.simbolo),
         });
     };
     let (unidad, seccion, base) = match s.section {
@@ -133,7 +125,7 @@ fn trozos_de(o: &Object<'_>) -> (Vec<Trozo>, bool) {
     let mut t: Vec<Trozo> = o
         .symbols
         .iter()
-        .filter(|s| s.function && s.section == Some(SectionKind::Code) && !s.seccion_ancla)
+        .filter(|s| s.function && s.section == Some(Region::Codigo) && !s.seccion_ancla)
         .map(|s| Trozo { ini: s.offset, fin: s.offset + s.size, nombre: s.name.to_string() })
         .collect();
     t.sort_by_key(|x| x.ini);
@@ -200,7 +192,7 @@ pub(crate) fn podar<'a>(
     }
     // `main`, que es por donde el programa empieza a correr.
     if let Some(d) = publicos.get("main") {
-        if d.seccion == SectionKind::Code {
+        if d.seccion == Region::Codigo {
             if let Some(p) = cual(d.unidad, d.offset) {
                 if !vivos[d.unidad][p] {
                     vivos[d.unidad][p] = true;
@@ -213,12 +205,12 @@ pub(crate) fn podar<'a>(
     // funcion no la llama nadie con un `call`, y sin esta raiz se caeria justo
     // lo que se invoca por puntero.
     for (i, o) in objs.iter().enumerate() {
-        for r in &o.relocs {
-            if r.target_section == REL_CODE {
+        for r in &o.enlaces {
+            if r.donde == Region::Codigo {
                 continue;
             }
             let b = blanco_de(objs, unidades, publicos, i, r)?;
-            if b.seccion != SectionKind::Code {
+            if b.seccion != Region::Codigo {
                 continue;
             }
             if let Some(p) = cual(b.unidad, b.offset) {
@@ -233,13 +225,13 @@ pub(crate) fn podar<'a>(
     // -- Las aristas: quien llama a quien. --
     let mut llama: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
     for (i, o) in objs.iter().enumerate() {
-        for r in &o.relocs {
-            if r.target_section != REL_CODE {
+        for r in &o.enlaces {
+            if r.donde != Region::Codigo {
                 continue;
             }
-            let Some(desde) = cual(i, r.offset) else { continue };
+            let Some(desde) = cual(i, r.offset as u64) else { continue };
             let b = blanco_de(objs, unidades, publicos, i, r)?;
-            if b.seccion != SectionKind::Code {
+            if b.seccion != Region::Codigo {
                 continue;
             }
             if let Some(hasta) = cual(b.unidad, b.offset) {

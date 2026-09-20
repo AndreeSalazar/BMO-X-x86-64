@@ -7,7 +7,6 @@
 //! quiere saber es si el `.bex` corre donde va a correr.
 
 use super::*;
-use bmo_abi::bef::sections::SectionEntry;
 
 fn objeto(nombre: &str, fuente: &str) -> (String, Vec<u8>) {
     let bytes = bmo_c_x86_64::compile_source_to_object(fuente)
@@ -220,7 +219,7 @@ fn enlazar_dos_veces_da_los_mismos_bytes() {
 fn lo_enlazado_pasa_el_gate_del_kernel() {
     let bex = enlazar(&[objeto("principal.bo", PRINCIPAL), objeto("suma.bo", SUMA)]).unwrap();
     assert!(bmo_verify::verify(&bex).is_ok());
-    assert!(bmo_abi::bef::objeto::read(&bex).is_err(), "un programa ya NO es un objeto");
+    assert!(bmo_abi::bef2::objeto::read(&bex).is_err(), "un programa ya NO es un objeto");
 }
 
 // -- E5: la libc, una vez -------------------------------------------------
@@ -309,16 +308,15 @@ fn enlazar_contra_la_libc_entera_ya_no_cuesta_mas() {
     );
 }
 
-/// Los bytes de la seccion de codigo de un `.bex`.
+/// Los bytes de la region de codigo de un `.bex`.
+///
+/// ** Hasta B6 esto leia la TABLA DE SECCIONES de BEF1 sobre un fichero BEF2:
+/// los bytes 32..40 son el tramo de las constantes, y la "suma" salia de
+/// leer basura que casualmente no reventaba. La fila de arriba estaba verde
+/// midiendo nada. Ahora lo dice la cabecera y lo comprueba el juez.
 fn codigo_de(bex: &[u8]) -> usize {
-    use bmo_abi::bef::sections::{SectionEntry, SectionKind};
-    let tabla = u64::from_le_bytes(bex[32..40].try_into().unwrap()) as usize;
-    let n = u32::from_le_bytes(bex[40..44].try_into().unwrap()) as usize;
-    (0..n)
-        .map(|i| tabla + i * SectionEntry::SIZE)
-        .filter(|&e| bex[e] == SectionKind::Code as u8)
-        .map(|e| u64::from_le_bytes(bex[e + 16..e + 24].try_into().unwrap()) as usize)
-        .sum()
+    let v = bmo_abi::bef2::leer(bex).expect("el .bex que sale de enlazar tiene que ser valido");
+    v.tramo(bmo_abi::bef2::Region::Codigo).bytes as usize
 }
 
 /// Dos unidades que usan la MISMA funcion de cabecera no chocan: cada una se

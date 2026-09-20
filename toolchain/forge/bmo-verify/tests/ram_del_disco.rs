@@ -96,13 +96,17 @@ fn cuanto_de_cada_bex_podria_no_leerse() {
         t_map
     );
 
-    // ** LO UNICO QUE SE AFIRMA, porque es lo unico que hoy es cierto siempre.
+    // ** LO UNICO QUE SE AFIRMA, porque es lo unico que hoy es cierto siempre:
+    // el escritor NO alinea a pagina (`alinear_a_pagina` es la palanca de B9,
+    // sin decidir), asi que la mayor parte se COPIA. Una region suelta puede
+    // caer en pagina por casualidad (`guia.bex` lo hace con sus datos), y por
+    // eso no se afirma "cero mapeables" sino "no todo mapeable".
     //
     // Si algun dia esto falla, es que el escritor empezo a alinear a pagina y el
     // escalon 7 dejo de ser teoria. Entonces se borra la asercion y se celebra.
-    assert_eq!(
-        t_map, 0,
-        "hay {t_map} bytes mapeables: el escritor de BEF empezo a alinear a pagina. \
+    assert!(
+        t_cop > t_map,
+        "se mapean {t_map} B y se copian {t_cop} B: el escritor de BEF empezo a alinear a pagina. \
          Borra esta asercion, actualiza el escalon 7 de docs/identidad/LA_RAM.md, y celebra"
     );
 

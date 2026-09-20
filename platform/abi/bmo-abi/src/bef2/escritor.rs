@@ -17,7 +17,7 @@ use alloc::vec::Vec;
 
 use super::*;
 use crate::bef::requisitos;
-use crate::bef::signing::blake3_256;
+use crate::bef::blake3::blake3_256;
 
 /// Lo que el programa necesita ademas de su memoria: pantalla, audio, lo que
 /// declare. Es [`requisitos::Declaracion`] con el motivo en propiedad.
@@ -247,7 +247,17 @@ impl Escritor {
             + if self.ed25519.is_some() { FIRMA_ED25519 } else { 0 };
 
         // -- La colocacion ---------------------------------------------------
-        let paso = if self.alinear_a_pagina { 4096 } else { 16 };
+        //
+        // ** LAS REGIONES EMPIEZAN EN UN SECTOR (512) desde B6 (2026-09-19).
+        // El cargador del kernel pide cada region al disco por rangos y el HBA
+        // escribe los sectores ENTEROS directamente en el marco del proceso;
+        // lo que empieza a mitad de sector pasa por el sector de rebote y se
+        // copia (`bmo_fat32::leer_en`, "correcto siempre, rapido cuando el
+        // formato ayuda"). BEF1 alineaba a 512 desde el 10-08 por esto mismo y
+        // la primera version de BEF2 lo perdio (16): cada region empezaba con
+        // una cabeza rebotada. Con pagina (`alinear_a_pagina`, la decision B9)
+        // se puede ademas REFLEJAR en vez de copiar.
+        let paso = if self.alinear_a_pagina { 4096 } else { 512 };
         let mut cursor = CABECERA + cuantos * ANEXO;
         let tramo = |datos: &[u8], cursor: &mut usize, paso: usize| -> (u32, u32) {
             if datos.is_empty() {

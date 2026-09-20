@@ -19,7 +19,7 @@
 //!    lea [rip+string]       codegen, loader's pages     Rel32 -> .rodata + off
 //!    lea [rip+global]       codegen, loader's pages     Rel32 -> .data/.bss + off
 //!    lea [rip+extern g]     (it had its own copy)       Rel32 -> undefined g
-//!    pointer in data        SeccionAbs64                the same SeccionAbs64
+//!    pointer in data        Reloc (region+offset)       Enlace::Region, the same
 //!    pointer to extern      ERROR                       Abs64 -> undefined
 //! ```
 //!
@@ -29,20 +29,19 @@
 //! between and every one of those distances would read the wrong bytes without
 //! failing. In an object they are left at zero and handed to the linker.
 //!
-//! The contract these bytes follow is `bmo_abi::bef::objeto`, and
-//! `compile_to_object` refuses to return anything `objeto::read` would reject.
+//! The contract these bytes follow is `bmo_abi::bef2::objeto` (a BEF2 with
+//! the OBJETO flag, symbols and ENLACE as anexos), and `compile_to_object`
+//! refuses to return anything `objeto::read` would reject.
 
 use super::*;
-use bmo_abi::bef::header::BefFlags;
-use bmo_abi::bef::objeto::{REL_CODE, REL_DATA};
-use bmo_abi::bef::relocations::{Relocation, RelocationKind};
+use bmo_abi::bef2::objeto::{Clase, Enlace};
 use bmo_abi::bef::symbols::{name_hash, Symbol, SymbolBinding, SymbolKind, SymbolVisibility, SECTION_UNDEFINED};
 
 /// What a reference left for the linker points at.
 #[derive(Clone, Debug)]
 pub(super) enum Destino {
-    /// A place inside one of this unit's own sections.
-    Seccion(SectionKind, u64),
+    /// A place inside one of this unit's own regions.
+    Region(Region, u64),
     /// A name: defined in this unit or, if not, in another one.
     Simbolo(String),
 }
@@ -56,9 +55,9 @@ pub fn compile_to_object(program: &Program) -> Result<Vec<u8>> {
     let bytes = cg.build_object();
     // The codegen must not hand out what the contract refuses: it is checked
     // here, once, with the reason -- not discovered by the linker later.
-    if let Err(falta) = bmo_abi::bef::objeto::read(&bytes) {
+    if let Err(falta) = bmo_abi::bef2::objeto::read(&bytes) {
         return Err(CError::new(0, format!(
-            "el objeto emitido no cumple el contrato (bef::objeto): {falta:?} -- esto es un bug del compilador"
+            "el objeto emitido no cumple el contrato (bef2::objeto): {falta:?} -- esto es un bug del compilador"
         )));
     }
     Ok(bytes)
@@ -71,41 +70,40 @@ impl Codegen {
     }
 
     pub(super) fn build_object(&mut self) -> Vec<u8> {
+        use bmo_abi::bef2::{self, Escritor};
+
         let all = core::mem::take(&mut self.code);
         let code = all[..self.instruction_end].to_vec();
         let rodata = all[self.instruction_end..self.string_data_end].to_vec();
         let data = all[self.string_data_end..].to_vec();
         let data_len = data.len() as u64;
 
-        let mut b = BefBuilder::new();
-        let mut flags = BefFlags::OBJECT.bits();
+        // ** BEF2 (2026-09-19): un objeto es un BEF2 con la bandera OBJETO. Las
+        // cuatro regiones con su medida; los simbolos nombran REGIONES (0
+        // codigo, 1 constantes, 2 datos, 3 ceros), no indices de una tabla.
+        let mut b = Escritor::objeto();
         if self.quiere_pantalla && !self.sabe_componerse {
-            flags |= BefFlags::WANTS_SCREEN.bits();
+            b.quiere_pantalla();
         }
-        b.header.flags = flags;
-        b.entry_offset = 0;
-
-        // -- Sections, and the table index each one gets. --
-        let mut indice: Vec<(SectionKind, u8, u64)> = Vec::new();
-        b.add_section(BefSection::code(code.clone()));
-        indice.push((SectionKind::Code, 0, code.len() as u64));
+        let mut regiones: Vec<(Region, u64)> = vec![(Region::Codigo, code.len() as u64)];
+        b.codigo(code);
         if !rodata.is_empty() {
-            indice.push((SectionKind::RoData, indice.len() as u8, rodata.len() as u64));
-            b.add_section(BefSection::rodata(rodata));
+            regiones.push((Region::Constantes, rodata.len() as u64));
+            b.constantes(rodata);
         }
         if !data.is_empty() {
-            indice.push((SectionKind::Data, indice.len() as u8, data_len));
-            b.add_section(BefSection::data(data));
+            regiones.push((Region::Datos, data_len));
+            b.datos(data);
         }
         if self.bss_len > 0 {
-            indice.push((SectionKind::Bss, indice.len() as u8, self.bss_len as u64));
-            b.add_section(BefSection::bss(self.bss_len as u64));
+            regiones.push((Region::Ceros, self.bss_len as u64));
+            b.ceros(self.bss_len as u32);
         }
 
         let mut entradas: Vec<Symbol> = Vec::new();
         let mut cadenas: Vec<u8> = Vec::new();
         let mut por_nombre: HashMap<String, u32> = HashMap::new();
-        let mut por_seccion: HashMap<u8, u32> = HashMap::new();
+        let mut por_region: HashMap<u8, u32> = HashMap::new();
         let mut push = |entradas: &mut Vec<Symbol>, nombre: &str, kind: SymbolKind, local: bool, sec: u8, off: u64, size: u64| -> u32 {
             let name_off = cadenas.len() as u32;
             cadenas.extend_from_slice(nombre.as_bytes());
@@ -124,19 +122,19 @@ impl Codegen {
             (entradas.len() - 1) as u32
         };
 
-        // One Local symbol per section: what a reference "inside this unit"
+        // One Local symbol per region: what a reference "inside this unit"
         // is relative to.
-        for (kind, idx, len) in &indice {
-            let n = match kind {
-                SectionKind::Code => ".code",
-                SectionKind::RoData => ".rodata",
-                SectionKind::Data => ".data",
-                _ => ".bss",
+        for (r, len) in &regiones {
+            let n = match r {
+                Region::Codigo => ".code",
+                Region::Constantes => ".rodata",
+                Region::Datos => ".data",
+                Region::Ceros => ".bss",
             };
-            let i = push(&mut entradas, n, SymbolKind::Section, true, *idx, 0, *len);
-            por_seccion.insert(*kind as u8, i);
+            let i = push(&mut entradas, n, SymbolKind::Section, true, *r as u8, 0, *len);
+            por_region.insert(*r as u8, i);
         }
-        let idx_de = |kind: SectionKind| indice.iter().find(|(k, ..)| *k == kind).map(|e| e.1);
+        let hay = |r: Region| regiones.iter().any(|(k, _)| *k == r);
 
         // Functions, in code order. A function the program did not write --a
         // synthesized one, like `__bmo_syscall_stub`-- is this unit's private
@@ -147,7 +145,7 @@ impl Codegen {
         for (i, (off, n)) in funcs.iter().enumerate() {
             let fin = funcs.get(i + 1).map(|e| e.0).unwrap_or(self.instruction_end);
             let local = self.enlace.estaticos.contains(n) || !escritas.contains(n);
-            let s = push(&mut entradas, n, SymbolKind::Function, local, 0, *off as u64, (fin - off) as u64);
+            let s = push(&mut entradas, n, SymbolKind::Function, local, Region::Codigo as u8, *off as u64, (fin - off) as u64);
             por_nombre.insert(n.clone(), s);
         }
 
@@ -166,14 +164,16 @@ impl Codegen {
         for (i, (off, n)) in globs.iter().enumerate() {
             let off = *off as u64;
             let fin = globs.get(i + 1).map(|e| e.0 as u64).unwrap_or(fin_total);
-            let (sec, rel, lim) = if off < data_len {
-                (idx_de(SectionKind::Data), off, data_len)
+            let (region, rel, lim) = if off < data_len {
+                (Region::Datos, off, data_len)
             } else {
-                (idx_de(SectionKind::Bss), off - data_len, fin_total)
+                (Region::Ceros, off - data_len, fin_total)
             };
-            let Some(sec) = sec else { continue };
+            if !hay(region) {
+                continue;
+            }
             let local = self.enlace.estaticos.contains(n) || n.contains('.') || n.starts_with("__bmo");
-            let s = push(&mut entradas, n, SymbolKind::Object, local, sec, rel, fin.min(lim) - off);
+            let s = push(&mut entradas, n, SymbolKind::Object, local, region as u8, rel, fin.min(lim) - off);
             por_nombre.insert(n.clone(), s);
         }
 
@@ -196,41 +196,54 @@ impl Codegen {
             por_nombre.insert(n, s);
         }
 
-        // -- Relocations. --
-        let mut relocs = core::mem::take(&mut self.relocs);
+        // -- Enlaces: lo que el enlazador resuelve. --
+        let mut enlaces: Vec<Enlace> = Vec::new();
+        // Los punteros a una region de esta misma unidad (`p = &tabla`): los
+        // mismos relocs del ejecutable, con nombre de enlace.
+        for r in core::mem::take(&mut self.relocs) {
+            enlaces.push(Enlace {
+                clase: Clase::Region,
+                donde: r.donde,
+                offset: r.offset,
+                simbolo: r.destino as u32,
+                addend: r.addend as i64,
+            });
+        }
         let resolver = |d: &Destino| -> (u32, i64) {
             match d {
-                Destino::Seccion(k, off) => (por_seccion[&(*k as u8)], *off as i64),
+                Destino::Region(r, off) => (por_region[&(*r as u8)], *off as i64),
                 Destino::Simbolo(n) => (por_nombre[n], 0),
             }
         };
         for (at, d) in &self.obj_rel32 {
             let (sym, base) = resolver(d);
-            relocs.push(Relocation {
-                offset: *at as u64,
-                symbol_idx: sym,
-                kind: RelocationKind::Rel32 as u8,
-                target_section: REL_CODE,
-                _pad: [0; 2],
+            enlaces.push(Enlace {
+                clase: Clase::Rel32,
+                donde: Region::Codigo,
+                offset: *at as u32,
+                simbolo: sym,
                 addend: base - 4,
             });
         }
         for (at, d, suma) in &self.obj_abs64 {
             let (sym, base) = resolver(d);
-            relocs.push(Relocation {
-                offset: *at as u64,
-                symbol_idx: sym,
-                kind: RelocationKind::Abs64 as u8,
-                target_section: REL_DATA,
-                _pad: [0; 2],
+            enlaces.push(Enlace {
+                clase: Clase::Abs64,
+                donde: Region::Datos,
+                offset: *at,
+                simbolo: sym,
                 addend: base + suma,
             });
         }
 
-        b.add_section(BefSection::symbols(entradas, cadenas));
-        if !relocs.is_empty() {
-            b.add_section(BefSection::relocs(relocs));
+        b.anexo(bef2::ANEXO_SIMBOLOS, bmo_abi::bef::symbols::en_bytes(&entradas, &cadenas));
+        if !enlaces.is_empty() {
+            let mut raw = Vec::with_capacity(enlaces.len() * bef2::objeto::ENLACE);
+            for e in &enlaces {
+                raw.extend_from_slice(&e.a_bytes());
+            }
+            b.anexo(bef2::ANEXO_ENLACE, raw);
         }
-        b.build().unwrap_or_default()
+        b.construir().unwrap_or_default()
     }
 }

@@ -21,7 +21,6 @@ toolchain/
 |   #  CON codigo real al empezar su fase -- sin stubs vacios en el arbol.
 |
 +-- tools/    <- GENERADORES build-time
-    +-- bef-bootstrap/  primer payload BEF auditable
     +-- hello-bex/      genera el init_hello.bex embebido del kernel
     +-- fontgen/        genera font16_data.rs (tabla de glifos)
     +-- bmo-linker/     extrae simbolos de .elf -> BMO_SYMBOLS.toml

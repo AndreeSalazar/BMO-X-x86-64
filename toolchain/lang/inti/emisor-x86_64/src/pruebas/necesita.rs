@@ -15,7 +15,7 @@
 //! primera reserva -- exactamente lo que hacia antes de existir la palabra.
 
 use super::*;
-use bmo_abi::bef::{requisitos, SectionKind};
+use bmo_abi::bef::requisitos;
 
 /// Un programa de `pleno` que junta dos textos: el minimo que pide monton.
 ///
@@ -41,7 +41,7 @@ fn bytes_de(fuente: &str) -> Vec<u8> {
 /// Los bytes de un ANEXO (BEF2, 2026-09-19). Antes esto recorria la tabla de
 /// secciones a mano; ahora se pide por su tipo y el juez ya comprobo los
 /// limites.
-fn seccion(bytes: &[u8], _kind: SectionKind) -> Option<&[u8]> {
+fn requisitos_de(bytes: &[u8]) -> Option<&[u8]> {
     bmo_abi::bef2::leer(bytes).ok()?.anexo(bmo_abi::bef2::ANEXO_REQUISITOS)
 }
 
@@ -90,7 +90,7 @@ fn lo_declarado_se_escribe_en_el_paquete() {
     let bytes = bytes_de(&con(
         "necesita monton 64 megas \"los pesos del modelo viven en RAM\"",
     ));
-    let sec = seccion(&bytes, SectionKind::Requisitos)
+    let sec = requisitos_de(&bytes)
         .expect("un programa que declara tiene que traer su seccion");
     let t = requisitos::Tabla::abrir(sec).expect("la tabla tiene que abrirse");
 
@@ -128,7 +128,7 @@ fn lo_declarado_se_escribe_en_el_paquete() {
 #[test]
 fn quien_no_declara_nada_trae_solo_lo_que_el_escritor_deduce() {
     let bytes = bytes_de(&con(""));
-    let sec = seccion(&bytes, SectionKind::Requisitos).expect("siempre esta");
+    let sec = requisitos_de(&bytes).expect("siempre esta");
     let t = requisitos::Tabla::abrir(sec).unwrap();
     assert_eq!(t.cuantos(), 1);
     assert_eq!(t.requisito(0).unwrap().clase, requisitos::CLASE_MEMORIA);

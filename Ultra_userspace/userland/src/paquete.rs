@@ -53,14 +53,15 @@
 
 use crate::archivo::Archivo;
 
-/// `"BEF1"`, la firma del contenedor.
-const BEF_MAGIC: u32 = 0x3146_4542;
-/// La cabecera BEF: 48 bytes antes de nada.
-const BEF_CABECERA: u64 = 48;
-/// Cada entrada de la tabla de secciones.
-const BEF_ENTRADA: u64 = 48;
-/// La seccion `Resources` de `bmo_abi::bef::SectionKind`.
-const SECCION_RECURSOS: u8 = 0x0B;
+/// `"BEF2"`, la firma del contenedor.
+const BEF_MAGIC: u32 = 0x3246_4542; // "BEF2"
+/// La cabecera BEF2: 64 bytes, y la tabla de anexos justo detras.
+const BEF_CABECERA: u64 = 64;
+/// Cada entrada de la tabla de anexos: `{tipo u8, 0 x3, offset u32, bytes u32, 0 u32}`.
+const BEF_ENTRADA: u64 = 16;
+/// El anexo `RECURSOS` de `bmo_abi::bef2` (2026-09-19; antes era la seccion
+/// `0x0B` de BEF1, que murio).
+const ANEXO_RECURSOS: u8 = 0x04;
 /// `"BRES"`, la firma del indice de recursos.
 const BRES_MAGIC: u32 = 0x5345_5242;
 /// La cabecera del indice: magic + cuantos.
@@ -117,7 +118,7 @@ impl Paquete {
         Self::montar(Archivo::leer_de(ruta).ok()?)
     }
 
-    /// Con el fichero ya abierto: localiza la seccion `0x0B` y su indice.
+    /// Con el fichero ya abierto: localiza el anexo `RECURSOS` y su indice.
     fn montar(f: Archivo) -> Option<Self> {
         let mut cab = [0u8; BEF_CABECERA as usize];
         f.saltar(0);
@@ -127,22 +128,23 @@ impl Paquete {
         if u32le(&cab, 0) != BEF_MAGIC {
             return None;
         }
-        let tabla = u64le(&cab, 32);
-        let count = u32le(&cab, 40) as u64;
+        // BEF2: cuantos anexos hay lo dice el byte 20, y su tabla empieza en
+        // el 64. No hay offset de tabla que leer ni que creerse.
+        let count = (u32le(&cab, 20) as u64).min(16);
 
         // La tabla, entrada a entrada, buscando la de recursos. Recorrido
-        // lineal: las secciones de un `.bex` son unas pocas.
+        // lineal: los anexos de un `.bex` son unos pocos.
         let mut off = 0u64;
         let mut largo = 0u64;
         let mut ent = [0u8; BEF_ENTRADA as usize];
         for i in 0..count {
-            f.saltar(tabla + i * BEF_ENTRADA);
+            f.saltar(BEF_CABECERA + i * BEF_ENTRADA);
             if f.read(&mut ent) < ent.len() {
                 return None;
             }
-            if ent[0] == SECCION_RECURSOS {
-                off = u64le(&ent, 8);
-                largo = u64le(&ent, 16);
+            if ent[0] == ANEXO_RECURSOS {
+                off = u32le(&ent, 4) as u64;
+                largo = u32le(&ent, 8) as u64;
                 break;
             }
         }

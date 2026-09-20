@@ -333,9 +333,14 @@ pub fn inspect(bytes: &[u8], tam_fichero: usize) -> Result<BexLoadPlan, BexError
     Ok(plan)
 }
 
-// `read_u16` se fue con `inspect`: los campos de 16 bits los lee la puerta. Los
-// dos que quedan leen las RELOCATIONS, que es trabajo del que CARGA y no del que
-// decide -- por eso se quedan aqui y no bajan al crate de la puerta.
+// Estos leen los RELOCS, que es trabajo del que CARGA y no del que decide --
+// por eso se quedan aqui y no bajan al crate de la puerta. (`read_u16` volvio
+// con BEF2: el relleno de un reloc mide dos bytes y tiene que ser cero.)
+
+fn read_u16(bytes: &[u8], offset: usize) -> Option<u16> {
+    let end = offset.checked_add(2)?;
+    Some(u16::from_le_bytes(bytes.get(offset..end)?.try_into().ok()?))
+}
 
 fn read_u32(bytes: &[u8], offset: usize) -> Option<u32> {
     let end = offset.checked_add(4)?;
@@ -366,43 +371,46 @@ fn read_u64(bytes: &[u8], offset: usize) -> Option<u64> {
 /// `bmo-abi` los clava a su struct con `offset_of!` en
 /// `tests/bef_dos_lectores.rs`. De dos verdades a una verdad y una prueba.
 pub use gate::RELOC_SIZE;
-/// `SeccionAbs64`: escribe la direccion de `(seccion, offset)`. El unico tipo
-/// que este cargador aplica; cualquier otro se rechaza diciendolo, porque
-/// aplicar una reloc que no se entiende es escribir un numero inventado en la
-/// memoria de un proceso.
-pub const RELOC_SECCION_ABS64: u8 = 0x04;
+/// ** En BEF2 hay UN solo tipo de reloc -- "aqui va la direccion de
+/// region+offset", ocho bytes -- y por eso ya no hay campo `kind` que
+/// comprobar: lo que antes era "rechazar un tipo desconocido" ahora es que el
+/// formato no tiene donde escribirlo.
 
-/// Lo que hace falta de una reloc, ya descodificado.
+/// Lo que hace falta de un reloc, ya descodificado.
+///
+/// ** BEF2 (2026-09-19): las dos secciones son REGIONES, con la numeracion de
+/// `bmo_abi::bef2::Region` -- 0 codigo, 1 constantes, 2 datos, 3 ceros --, que
+/// es la misma con la que la puerta las presenta y la firma las nombra. La
+/// tabla cruzada que habia aqui ("esta numeracion NO es la de SECTION_*") se
+/// fue con BEF1.
 #[derive(Clone, Copy)]
 pub struct BexReloc {
-    /// En que seccion se escribe (`0` = code, `1` = data, `2` = rodata).
-    ///
-    /// [!] **Esta numeracion NO es la de `SECTION_*`** (donde code=1, rodata=2,
-    /// data=3): es la del propio struct de relocations, donde data y rodata
-    /// estan cambiados. Ver la nota en `bmo_abi::bef::relocations`.
+    /// La region que se parchea (0 codigo, 1 constantes, 2 datos).
     pub donde_sec: u8,
-    /// Offset dentro de esa seccion.
+    /// Offset dentro de esa region.
     pub donde_off: u64,
-    /// En que seccion vive el destino, misma numeracion que `donde_sec`.
+    /// La region a la que apunta (las cuatro).
     pub destino_sec: u8,
-    /// Offset del destino dentro de su seccion.
+    /// Offset del destino dentro de su region.
     pub destino_off: i64,
-    pub kind: u8,
 }
 
-/// Descodifica la reloc numero `n` de la tabla, o `None` si no cabe.
+/// Descodifica el reloc numero `n` de la tabla, o `None` si no cabe o el
+/// relleno no es cero (un reloc con basura en el relleno no es un reloc).
 pub fn leer_reloc(bytes: &[u8], tabla_off: u64, tabla_size: u64, n: usize) -> Option<BexReloc> {
     let dentro = n.checked_mul(RELOC_SIZE)?;
     if (dentro + RELOC_SIZE) as u64 > tabla_size {
         return None;
     }
     let base = (tabla_off as usize).checked_add(dentro)?;
+    if read_u16(bytes, base + gate::reloc::RELLENO)? != 0 {
+        return None;
+    }
     // Los offsets vienen del crate compartido, no de aqui. Ver `RELOC_SIZE`.
     Some(BexReloc {
-        donde_off: read_u64(bytes, base + gate::reloc::OFFSET)?,
-        destino_sec: read_u32(bytes, base + gate::reloc::SYMBOL_IDX)? as u8,
-        kind: *bytes.get(base + gate::reloc::KIND)?,
-        donde_sec: *bytes.get(base + gate::reloc::TARGET_SECTION)?,
+        donde_sec: *bytes.get(base + gate::reloc::DONDE)?,
+        destino_sec: *bytes.get(base + gate::reloc::DESTINO)?,
+        donde_off: read_u32(bytes, base + gate::reloc::OFFSET)? as u64,
         destino_off: read_u64(bytes, base + gate::reloc::ADDEND)? as i64,
     })
 }

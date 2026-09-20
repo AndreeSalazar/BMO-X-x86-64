@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   307 casillas ABIERTAS en 36 planes
-   227 hechas
+   306 casillas ABIERTAS en 36 planes
+   228 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -269,15 +269,6 @@
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 4 abiertas, 6 hechas
-
-*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
-
-- [ ] B6 -- borrar BEF1. Regenerados ya los cinco .bex de
-- [ ] B7 -- la CABECERA firmada. Hoy los hashes cubren regiones y
-- [ ] B8 -- Ring 0 lee REGIONES. B3 presenta las regiones al kernel como
-- ... y 1 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -295,6 +286,14 @@
 - [ ] sacar titular/ a platform/shared/bmo-marcos, con la tabla como
 - [ ] sus filas de banco -- las ocho reglas del DMA, en el anfitrion
 - ... y 1 mas
+
+## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 3 abiertas, 7 hechas
+
+*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
+
+- [ ] B7 -- la CABECERA firmada. Hoy los hashes cubren regiones y
+- [ ] B8 -- Ring 0 lee REGIONES. B3 presenta las regiones al kernel como
+- [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
 
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 

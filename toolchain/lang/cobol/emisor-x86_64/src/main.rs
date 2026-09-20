@@ -119,7 +119,7 @@ fn main() {
     match result {
         Ok(bef_bytes) => {
             let out_path = out_override.unwrap_or_else(|| {
-                Path::new(path).with_extension(bmo_abi::bex::BEX_EXTENSION)
+                Path::new(path).with_extension("bex")
             });
                         // -- * EL GATE, ANTES DE ESCRIBIR --------------------------
             //

@@ -12,3 +12,9 @@
 //! Todo lo que usaba `crate::bef::blake3::hash` sigue funcionando igual.
 
 pub use bmo_hash::{hash, Hasher};
+
+/// Hash BLAKE3 de 256 bits del buffer. Es lo que firma cada region y cada
+/// anexo de un BEF2 (`bef2::escritor` lo escribe, `bef2::lector` lo exige).
+pub fn blake3_256(bytes: &[u8]) -> [u8; 32] {
+    hash(bytes)
+}

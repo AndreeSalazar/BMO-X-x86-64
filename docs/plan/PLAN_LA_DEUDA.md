@@ -154,7 +154,7 @@ que fallen:
       cuadran, dejar el fichero tocado) estan escritos y ninguno tiene prueba.
 - [ ] **D4c -- `bmo-pack` y `bmo-bex-link`.** Fabrican lo que el kernel carga.
 - [ ] **D4d -- los binarios de demostracion** (`bmo-hello-bex`, `bmo-rpc-demo`,
-      `bmo-vista-ciudad`, `bmo-fontgen`, `bmo-bef-bootstrap`, `bmo-estratos-fmt`)
+      `bmo-vista-ciudad`, `bmo-fontgen`, `bmo-estratos-fmt`)
       y `bmo-input`, `bmo-audio`, `bmo-maqueta`, `boot-context`: decidir UNO A UNO
       si llevan prueba o se declaran "herramienta sin banco" con su motivo.
 

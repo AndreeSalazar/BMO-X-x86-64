@@ -32,7 +32,7 @@ pub fn compile_source_to_bef(source: &str) -> Result<Vec<u8>, CError> {
 
 /// **Compile ONE unit to an object (`.bo`)**, to be joined by `bmo-enlazar`.
 /// E2 of `docs/plan/PLAN_EL_ENLAZADOR.md`; the contract is
-/// `bmo_abi::bef::objeto`.
+/// `bmo_abi::bef2::objeto`.
 pub fn compile_source_to_object(source: &str) -> Result<Vec<u8>, CError> {
     let program = parse(source)?;
     codegen::compile_to_object(&program)

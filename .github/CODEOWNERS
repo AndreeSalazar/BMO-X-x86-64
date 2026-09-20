@@ -65,7 +65,6 @@
 /toolchain/tools/bmo-enlazar/                @AndreeSalazar
 /toolchain/tools/bex-link/                   @AndreeSalazar
 /toolchain/tools/bmo-pack/                   @AndreeSalazar
-/toolchain/tools/bef-bootstrap/              @AndreeSalazar
 
 # == 3. Lo que lo JUZGA =======================================================
 #

@@ -7,7 +7,6 @@
 //! Aqui viven los ayudantes; cada tema tendra su fichero segun crezca.
 
 use super::*;
-use bmo_abi::bef::sections::{SectionEntry, SectionKind};
 use bmo_lower::emu::{run, Machine};
 
 mod matriz;

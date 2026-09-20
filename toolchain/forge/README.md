@@ -132,5 +132,5 @@ toolchain/
       tables/     (arch/, standards/, stdlib/ -- las TOML)
     bmo-verify/   (gate: delega en bmo-abi::bef::validator)
     bmo-lower/    (L1: la puerta INVOKE -- console::*, task::*)
-  tools/          <- generadores: linker, bef-bootstrap, hello-bex, fontgen
+  tools/          <- generadores: linker, hello-bex, fontgen
 ```

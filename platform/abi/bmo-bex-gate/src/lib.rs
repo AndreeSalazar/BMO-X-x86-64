@@ -41,110 +41,6 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-// -- El contrato en el cable ------------------------------------------------
-//
-// Estos numeros son **BEX v1 (= BEF1)** y no se deducen de ningun struct de Rust
-// a proposito: el fichero viene del disco, no de un `#[repr(C)]` que casualmente
-// coincida. Si el formato cambiara, este es el unico sitio a tocar.
-
-/// `"BEF1"` en little-endian.
-pub const MAGIC: u32 = u32::from_le_bytes(*b"BEF1");
-/// Bytes de la cabecera.
-pub const CABECERA: usize = 48;
-/// Bytes de cada entrada de la tabla de secciones.
-pub const ENTRADA: usize = 48;
-/// La unica version mayor que este sistema lee.
-pub const VERSION_MAYOR: u16 = 1;
-
-// -- La version del ABI que admite este cargador -----------------------------
-//
-// *** POR QUE ESTOS CUATRO NUMEROS ESTAN AQUI Y NO SE PIDEN A `bmo-abi`.
-//
-// Porque este crate tiene CERO DEPENDENCIAS y ese es su punto entero: lo
-// consumen el toolchain (con `alloc`, en Windows) y Ring 0 (sin asignador, en
-// el metal). Depender de `bmo-abi` lo dejaria fuera del kernel, que es justo el
-// consumidor por el que existe.
-//
-// ** Y la flecha tampoco se puede invertir: `bmo-abi` es el CONTRATO y esto es
-// UNA PUERTA. Que el contrato dependa de una puerta impide que exista otra.
-//
-// [!] Asi que son dos copias de la misma decision, a sabiendas, **y atadas por
-// una prueba**: `bmo-abi/tests/gate_y_validador_no_se_separan.rs` le pregunta
-// lo mismo a las dos y exige la misma respuesta. Es la forma que ya usa este
-// arbol cuando la arquitectura no deja juntar dos reglas.
-
-/// Version MAYOR del ABI que implementa este sistema.
-pub const ABI_MAYOR: u8 = 2;
-/// Version MENOR mas alta que entiende del mayor en curso.
-pub const ABI_MENOR: u8 = 0;
-// ** Hasta el 2026-09-19 aqui habia un MAYOR HEREDADO (1.0) que tambien
-// entraba. Ningun productor escribe 1.0 desde el ABI 2, y lo que un 1.0 lleva
-// dentro son puertas de la tabla v1 (0x100..0x1FF) que el kernel contesta con
-// "no existe": el ultimo 1.0 que hubo en el repo (un `hola.bef` de COBOL del
-// 03-08, borrado el 19-09) salia por 0x1F0 para `DISPLAY` y por 0x181 para
-// `STOP RUN` -- ni escribia ni terminaba. Admitirlo era cargar un programa que no puede hacer lo que dice.
-
-/// **Puede correr aqui un binario que pide `mayor.menor`?**
-///
-/// # [!] LA GRIETA QUE ESTO CIERRA (2026-08-26)
-///
-/// Aqui ponia, escrito a mano dentro de la comprobacion:
-///
-/// ```text
-///    if !((abi_mayor == 1 || abi_mayor == 2) && abi_menor == 0)
-/// ```
-///
-/// `abi_menor == 0` **no es aditivo: es exacto.** Y `bmo-abi` declara justo lo
-/// contrario en la misma frase que define la regla:
-///
-/// > *"Major versions are incompatible; minor versions are additive."*
-///
-/// *** O sea que el dia que el ABI subiera a `2.1` --el primer dia que se
-/// "mejorase" de la forma que el propio contrato declara segura-- un `.bex`
-/// compilado contra `2.1` habria sido **rechazado por el cargador** mientras el
-/// contrato decia que tenia que entrar.
-///
-/// No habia hecho dano porque **nadie ha subido el menor nunca**. Es el perfil
-/// exacto de fallo que este arbol ya conoce: dos sitios que dicen lo mismo, uno
-/// se queda atras, y el dia que se separan no lo nota nadie.
-pub const fn abi_admisible(mayor: u8, menor: u8) -> bool {
-    admisible_con(mayor, menor, ABI_MAYOR, ABI_MENOR)
-}
-
-/// **La misma regla, separada de los numeros de hoy.**
-///
-/// # *** POR QUE ESTA PARTIDA EN DOS, Y NO ES ESTILO
-///
-/// Porque la version de hoy es `2.0`, o sea que **el menor maximo es cero**. Una
-/// prueba que solo pueda preguntar por las versiones que existen no distingue
-/// `menor <= 0` de `menor == 0`: las dos contestan exactamente lo mismo en todo
-/// el espacio de versiones reales.
-///
-/// > Lo que separa dos reglas no es el caso que se usa: es el que todavia no.
-///
-/// Con los limites como argumentos, una prueba puede preguntar *"y si el menor
-/// maximo fuera 2, entraria un binario de 2.1?"* -- que es la pregunta que la
-/// grieta del 26-08 habria contestado mal, y que ninguna cifra de hoy formula.
-///
-/// [!] Este arbol ya tiene la cicatriz de lo contrario: nueve pruebas de coma
-/// flotante en verde y **ninguna que ejecute la ruta**. Una prueba que no puede
-/// ver el fallo no es una prueba, es una firma.
-pub const fn admisible_con(
-    mayor: u8,
-    menor: u8,
-    mayor_max: u8,
-    menor_max: u8,
-) -> bool {
-    mayor == mayor_max && menor <= menor_max
-}
-/// x86-64.
-pub const ARCH_X86_64: u8 = 0x01;
-/// Little-endian.
-pub const ENDIAN_LE: u8 = 0x00;
-
-/// Cuantas secciones admite una tabla. **Auditable a ojo**, que es el motivo:
-/// una tabla que no se puede leer entera en una pantalla es una tabla en la que
-/// se puede esconder algo.
 pub const MAX_SECCIONES: usize = 16;
 
 // -- Tipos de seccion --------------------------------------------------------
@@ -174,40 +70,11 @@ pub fn se_carga(kind: u8) -> bool {
 /// resolvera mis llamadas al cargar", y en BMO-X no hay nadie (enlaza estatico
 /// desde el 17-09 y no tiene TLS). Saltarlos era cargar un programa con
 /// llamadas a ninguna parte.
-pub const PIDEN_ENLAZADO_DINAMICO: [u8; 3] = [0x05, 0x06, 0x0C];
-
-/// El cargador la LEE aunque no la mapee.
 pub fn se_lee(kind: u8) -> bool {
     se_carga(kind) || matches!(kind, RELOCS | SIGNATURE | REQUISITOS)
 }
 
 // -- Banderas de la cabecera -------------------------------------------------
-
-pub const FLAG_EJECUTABLE: u32 = 1 << 0;
-/// An unlinked OBJECT (`.bo`, `BefFlags::OBJECT`). It is never loaded: it goes
-/// through `bmo-enlazar` first. See `bmo_abi::bef::objeto`.
-pub const FLAG_OBJETO: u32 = 1 << 11;
-pub const FLAG_COMPRIMIDO: u32 = 1 << 4;
-pub const FLAG_FIRMADO: u32 = 1 << 5;
-pub const FLAG_RECARGABLE: u32 = 1 << 7;
-/// Pide TLS: BMO-X no tiene (2026-09-19).
-pub const FLAG_TLS: u32 = 1 << 6;
-/// Pide shaders: no existe la seccion ni quien la lea (2026-09-19).
-pub const FLAG_SHADERS: u32 = 1 << 3;
-
-/// Banderas que **cambian lo que significan las secciones** y que no implementa
-/// nadie en este sistema.
-///
-/// [!] Y esto NO contradice la regla de que un tipo de seccion desconocido se
-/// salta. Una SECCION que no me incumbe es data para otro y no afecta a lo que
-/// yo hago con las mias. Una BANDERA que no entiendo **cambia el significado de
-/// las secciones que si me incumben**: `COMPRIMIDO` dice que los bytes del
-/// fichero no son los bytes que van a memoria. Ignorarla es cargar un bloque
-/// comprimido en crudo y saltar a el.
-///
-/// Saltarse una seccion es tolerancia. Saltarse una bandera es leer mal a
-/// proposito.
-pub const FLAGS_NO_IMPLEMENTADAS: u32 = FLAG_COMPRIMIDO | FLAG_RECARGABLE | FLAG_TLS | FLAG_SHADERS;
 
 pub const SECCION_FLAG_EXEC: u32 = 1 << 2;
 
@@ -290,16 +157,6 @@ impl Falta {
 /// lo presenta al kernel como secciones, para que Ring 0 no cambie.
 pub mod bef2;
 
-/// Que formato trae la imagen. Lo decide el MAGIC y nada mas.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Formato {
-    /// `BEF1`: cabecera + tabla de secciones. El ELF con pintura, en retirada
-    /// (ver `docs/plan/PLAN_BEF_NATIVO.md`).
-    Bef1,
-    /// `BEF2`: cuatro regiones en sitio fijo y anexos.
-    Bef2,
-}
-
 /// Una seccion, ya comprobada. Los numeros son los del fichero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Seccion {
@@ -323,10 +180,8 @@ pub struct Seccion {
 #[derive(Clone, Copy)]
 pub struct Revisada<'a> {
     prologo: &'a [u8],
-    tabla: usize,
     cuantas: usize,
     entry_offset: u64,
-    formato: Formato,
     /// Donde acaba el prologo: la cabecera mas su tabla. Los dos formatos la
     /// tienen en sitios distintos y todo lo demas empieza detras.
     fin_tabla: usize,
@@ -339,35 +194,16 @@ impl<'a> Revisada<'a> {
     pub fn cuantas(&self) -> usize {
         self.cuantas
     }
-    /// **Que formato trae**: `true` si es BEF2.
-    pub fn es_bef2(&self) -> bool {
-        matches!(self.formato, Formato::Bef2)
-    }
-    /// La seccion `i`. El indice es el **de la tabla del fichero**.
+    /// La seccion `i`, con el indice con el que la firma la nombra.
     ///
-    /// ** En BEF2 no hay tabla de secciones: lo que se devuelve son las cuatro
+    /// ** BEF2 no tiene tabla de secciones: lo que se devuelve son las cuatro
     /// REGIONES y los ANEXOS presentados como secciones, con el mismo tipo y el
     /// mismo indice de hash. Ver `bef2::seccion`.
     pub fn seccion(&self, i: usize) -> Option<Seccion> {
         if i >= self.cuantas {
             return None;
         }
-        if matches!(self.formato, Formato::Bef2) {
-            return bef2::seccion(self.prologo, i);
-        }
-        let e = self.tabla + i * ENTRADA;
-        Some(Seccion {
-            indice: i,
-            kind: *self.prologo.get(e)?,
-            flags: u32_en(self.prologo, e + 4)?,
-            file_offset: u64_en(self.prologo, e + 8)?,
-            file_size: u64_en(self.prologo, e + 16)?,
-            mem_size: u64_en(self.prologo, e + 24)?,
-            alignment: match u16_en(self.prologo, e + 40)? {
-                0 => 8,
-                a => a,
-            },
-        })
+        bef2::seccion(self.prologo, i)
     }
     /// Recorre las secciones en el orden del fichero.
     pub fn secciones(&self) -> impl Iterator<Item = Seccion> + '_ {
@@ -399,8 +235,8 @@ impl<'a> Revisada<'a> {
 /// **LA PUERTA.** Comprueba una imagen BEX y no hace nada mas.
 ///
 /// - `prologo`: los primeros bytes del fichero. Tiene que llegar al menos a la
-///   cabecera y a la tabla de secciones entera; con **2 KiB sobra para cualquier
-///   `.bex` que pueda existir** (48 + 16*48 = 816 bytes).
+///   cabecera y a la tabla de anexos entera; con **2 KiB sobra para cualquier
+///   `.bex` que pueda existir** (64 + 16*16 = 320 bytes).
 /// - `tam_fichero`: lo que mide el archivo ENTERO en el disco.
 ///
 /// == Los dos numeros no son el mismo, y confundirlos es el bug ==
@@ -411,189 +247,19 @@ impl<'a> Revisada<'a> {
 /// de todas ellas. Medirlas contra el prologo rechazaria toda imagen que no
 /// cupiera en dos kilos, o sea todas.
 pub fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>, Falta> {
-    if prologo.len() < CABECERA {
+    if prologo.len() < 4 {
         return Err(Falta::NoLlegaNiALaCabecera);
     }
-
     let magic = u32_en(prologo, 0).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    // ** EL FORMATO LO DICE EL MAGIC, y los dos caminos no se mezclan: BEF2 se
-    // lee entero en `bef2.rs` y de aqui no toca una sola linea. BEF1 esta en
-    // retirada (`docs/plan/PLAN_BEF_NATIVO.md`, B6 lo borra).
-    if magic == bef2::MAGIC {
-        return bef2::revisar(prologo, tam_fichero);
-    }
-    let version_mayor = u16_en(prologo, 4).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let flags = u32_en(prologo, 8).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let arch = *prologo.get(12).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let endian = *prologo.get(13).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let cpu = u16_en(prologo, 14).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let abi_mayor = *prologo.get(16).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let abi_menor = *prologo.get(17).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let entry_offset = u64_en(prologo, 24).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    let tabla = u64_en(prologo, 32).ok_or(Falta::NoLlegaNiALaCabecera)? as usize;
-    let cuantas = u32_en(prologo, 40).ok_or(Falta::NoLlegaNiALaCabecera)? as usize;
-    let total_size = u32_en(prologo, 44).ok_or(Falta::NoLlegaNiALaCabecera)? as usize;
-
-    if magic != MAGIC || version_mayor != VERSION_MAYOR || cuantas == 0 {
+    // ** EL FORMATO LO DICE EL MAGIC. Solo hay uno: BEF2 (2026-09-19, B6 de
+    // `docs/plan/PLAN_BEF_NATIVO.md`). BEF1 --la cabecera con tabla de
+    // secciones, ELF con otro nombre-- se rechaza por el primer numero, como
+    // cualquier otro fichero que no sea de BMO-X.
+    if magic != bef2::MAGIC {
         return Err(Falta::CabeceraInvalida);
     }
-
-    // ** LA IMAGEN DECLARA SU PROPIO TAMANO, y se comprueba antes que nada mas.
-    //
-    // Va delante de la tabla a proposito: si faltan bytes, las secciones apuntan
-    // mas alla y la primera que se salga contesta `SeccionFueraDelFichero` -- que
-    // es cierto y es la pista equivocada, porque manda a mirar el FORMATO cuando
-    // lo que fallo es el TRANSPORTE.
-    //
-    // `0` se acepta: las imagenes que un kernel EMBEBE no pasan por el escritor y
-    // lo dejan sin poner. Comprobar solo cuando el dato existe es mejor que
-    // rechazar a quien nunca prometio nada.
-    if total_size != 0 && tam_fichero < total_size {
-        return Err(Falta::ImagenIncompleta);
-    }
-
-    if arch != ARCH_X86_64 {
-        return Err(Falta::OtraArquitectura);
-    }
-    if endian != ENDIAN_LE {
-        return Err(Falta::OtroOrdenDeBytes);
-    }
-    // Un bit que no conozco = una parte del estado del procesador que no se que
-    // existe y que por tanto NO voy a preservar en un cambio de contexto. Se
-    // rechaza, y ese rechazo es la mejora: convierte una corrupcion silenciosa en
-    // un "no" con nombre.
-    if cpu != 0 {
-        return Err(Falta::ExtensionDeCpuQueNoSePreserva);
-    }
-    if !abi_admisible(abi_mayor, abi_menor) {
-        return Err(Falta::OtraVersionDelAbi);
-    }
-    // ** Before "not executable": an object is a file the user MEANT to
-    // build, and the useful answer names the missing step.
-    if flags & FLAG_OBJETO != 0 {
-        return Err(Falta::EsUnObjetoSinEnlazar);
-    }
-    if flags & FLAG_EJECUTABLE == 0 {
-        return Err(Falta::NoEsEjecutable);
-    }
-    if flags & FLAGS_NO_IMPLEMENTADAS != 0 {
-        return Err(Falta::PideAlgoQueNadieImplementa);
-    }
-    if cuantas > MAX_SECCIONES {
-        return Err(Falta::DemasiadasSecciones);
-    }
-
-    let bytes_tabla = cuantas.checked_mul(ENTRADA).ok_or(Falta::TablaFueraDelFichero)?;
-    let fin_tabla = tabla.checked_add(bytes_tabla).ok_or(Falta::TablaFueraDelFichero)?;
-    if fin_tabla > tam_fichero {
-        return Err(Falta::TablaFueraDelFichero);
-    }
-    // Distinto de lo anterior: la tabla SI cabe en el fichero, pero no en lo que
-    // se leyo. Quien llama puede traer mas y volver a preguntar, que no es lo
-    // mismo que rechazar la imagen.
-    if fin_tabla > prologo.len() {
-        return Err(Falta::TablaFueraDeLoLeido);
-    }
-
-    let rev = Revisada {
-        prologo,
-        tabla,
-        cuantas,
-        entry_offset,
-        formato: Formato::Bef1,
-        fin_tabla: tabla + cuantas * ENTRADA,
-    };
-
-    // -- Cada seccion por su cuenta --
-    let mut hay_codigo = false;
-    let mut tam_codigo = 0u64;
-    let mut hay_firma = false;
-    for s in rev.secciones() {
-        if PIDEN_ENLAZADO_DINAMICO.contains(&s.kind) {
-            return Err(Falta::EnlazadoDinamico);
-        }
-        if s.kind == 0 || s.file_size > s.mem_size {
-            return Err(Falta::SeccionInvalida);
-        }
-        // Solo la Bss puede no ocupar fichero: sus ceros se declaran y no viajan.
-        if s.kind != BSS && s.file_size == 0 {
-            return Err(Falta::SeccionInvalida);
-        }
-        if !s.alignment.is_power_of_two() {
-            return Err(Falta::SeccionInvalida);
-        }
-        if s.kind != BSS {
-            let fin = s
-                .file_offset
-                .checked_add(s.file_size)
-                .ok_or(Falta::SeccionInvalida)?;
-            if fin > tam_fichero as u64 {
-                return Err(Falta::SeccionFueraDelFichero);
-            }
-        }
-        if s.kind == CODE {
-            if s.flags & SECCION_FLAG_EXEC == 0 {
-                return Err(Falta::LaCodigoNoEsEjecutable);
-            }
-            hay_codigo = true;
-            tam_codigo = s.mem_size;
-        }
-        if s.kind == SIGNATURE {
-            hay_firma = true;
-        }
-    }
-
-    // ** QUE NO HAYA DOS PELEANDOSE POR LOS MISMOS BYTES.
-    //
-    // Cada una ya paso sus limites: ninguna se sale del fichero. Y aun asi la
-    // tabla puede decir que `.code` vive en `[100, 200)` y `.data` en `[150, 250)`
-    // -- dos afirmaciones que **no pueden ser ciertas a la vez**. Un cargador que
-    // se lo cree monta un proceso donde cincuenta bytes son a la vez codigo
-    // ejecutable y datos escribibles, que es la forma clasica de meter codigo en
-    // una pagina que deberia ser de solo lectura.
-    //
-    // Todas contra todas y no solo las contiguas: la tabla no tiene por que venir
-    // ordenada por offset, y ordenarla aqui seria reordenar algo que viene del
-    // disco. Con dieciseis de tope son 120 comparaciones de dos enteros.
-    for a in rev.secciones() {
-        if a.kind == BSS || a.file_size == 0 {
-            continue;
-        }
-        let fa = a.file_offset.saturating_add(a.file_size);
-        for b in rev.secciones().skip(a.indice + 1) {
-            if b.kind == BSS || b.file_size == 0 {
-                continue;
-            }
-            let fb = b.file_offset.saturating_add(b.file_size);
-            if a.file_offset < fb && b.file_offset < fa {
-                return Err(Falta::SeccionesSeSolapan);
-            }
-        }
-    }
-
-    if !hay_codigo {
-        return Err(Falta::SinCodigo);
-    }
-    if entry_offset >= tam_codigo {
-        return Err(Falta::EntryFueraDelCodigo);
-    }
-    // ** LA MENTIRA MAS BARATA DE CONTAR: un bit puesto a mano en un binario
-    // cualquiera lo hace parecer avalado por alguien. Se rechaza el fichero
-    // entero en vez de bajarle el nivel -- uno que miente sobre su propia
-    // identidad no es un extranjero, es uno que se hace pasar por otra cosa.
-    if flags & FLAG_FIRMADO != 0 && !hay_firma {
-        return Err(Falta::CabeceraQueSeDesmiente);
-    }
-
-    Ok(rev)
+    bef2::revisar(prologo, tam_fichero)
 }
-
-// -- Lectores acotados -------------------------------------------------------
-//
-// Los bytes vienen del disco, asi que **nada se indexa sin comprobar**. Un
-// `bytes[o+3]` en un lector de formato es un panic en Ring 0 esperando a un
-// fichero mal escrito -- y este crate lo compila `#![forbid(unsafe_code)]` para
-// que eso no sea una promesa sino una imposibilidad.
 
 fn u16_en(b: &[u8], o: usize) -> Option<u16> {
     Some(u16::from_le_bytes(b.get(o..o.checked_add(2)?)?.try_into().ok()?))
@@ -643,30 +309,41 @@ mod tests;
 // que la ata. Es el mismo movimiento que el guardian de `bmo.h`, salvo que alli
 // los nombres no se podian unificar y aqui si.
 
-/// Bytes que ocupa una relocation. Espejo de `size_of::<Relocation>()`.
-pub const RELOC_SIZE: usize = 24;
-
-/// Offsets dentro de una relocation, en el orden en que estan.
+/// Bytes que ocupa un reloc de BEF2. Espejo de `bmo_abi::bef2::RELOC`.
 ///
-/// [!] `SYMBOL_IDX` es de 32 bits en el formato y el cargador solo usa su byte
-/// bajo: el indice de seccion cabe de sobra. Leer los cuatro y truncar es lo
-/// correcto -- leer solo el byte funcionaria hoy y se rompeia el dia que el
-/// formato use el resto del campo.
+/// *** ERA 24, Y ERA MENTIRA DESDE B3 (2026-09-19). El paso B3 decia "Ring 0
+/// no cambia una linea", y para los relocs era falso: el kernel descodificaba
+/// el registro de 24 bytes de BEF1 (`offset u64, symbol_idx u32, kind,
+/// target_section, addend i64`, secciones 0 code / 1 data / 2 rodata) sobre un
+/// anexo de registros de 16 bytes de BEF2. En el Ryzen, cualquier programa con
+/// un puntero en sus datos --DOOM, INTI con su monton-- habria caido en
+/// "relocation fuera de su seccion". Lo cazo la lectura de B6, no el metal.
+pub const RELOC_SIZE: usize = 16;
+
+/// Offsets dentro de un reloc de BEF2, en el orden en que estan.
+///
+/// ```text
+///    0  donde    u8    REGION donde se escribe (0 codigo, 1 constantes, 2 datos)
+///    1  destino  u8    REGION a la que apunta (las cuatro; 3 = ceros)
+///    2  0        u16
+///    4  offset   u32   dentro de `donde`
+///    8  addend   u64   dentro de `destino`
+/// ```
+///
+/// La numeracion es la de `bmo_abi::bef2::Region`, la MISMA con la que la
+/// firma nombra las regiones y con la que `bef2.rs` las presenta como
+/// secciones: una sola numeracion, y por eso ya no hay tabla que cruzar.
 pub mod reloc {
-    /// `offset`: donde se escribe, dentro de su seccion. `u64`.
-    pub const OFFSET: usize = 0;
-    /// `symbol_idx`: en el `SeccionAbs64` es la SECCION del destino. `u32`.
-    pub const SYMBOL_IDX: usize = 8;
-    /// `kind`: que clase de relocation es. `u8`.
-    pub const KIND: usize = 12;
-    /// `target_section`: en que seccion se escribe. `u8`.
-    ///
-    /// [!] Su numeracion **NO es la de `SectionKind`**: aqui code/data/rodata
-    /// son 0/1/2 y alli 1/3/2. Cruzar las dos tablas acierta en rodata y falla
-    /// en las otras dos, o sea que parece funcionar a medias.
-    pub const TARGET_SECTION: usize = 13;
-    /// `addend`: offset del destino dentro de su seccion. `i64` con signo.
-    pub const ADDEND: usize = 16;
+    /// `donde`: la region que se parchea. `u8`.
+    pub const DONDE: usize = 0;
+    /// `destino`: la region a la que apunta. `u8`.
+    pub const DESTINO: usize = 1;
+    /// Dos bytes a cero. Un reloc con relleno sucio no es un reloc.
+    pub const RELLENO: usize = 2;
+    /// `offset`: donde se escribe, dentro de `donde`. `u32`.
+    pub const OFFSET: usize = 4;
+    /// `addend`: offset del destino dentro de `destino`. `u64`.
+    pub const ADDEND: usize = 8;
 }
 
 /// **CABE ESTA RELOCATION DENTRO DE LA SECCION QUE DICE PARCHEAR?**
@@ -730,25 +407,3 @@ pub fn reloc_cabe(offset: u64, parche: u64, fichero: u64, mem: u64) -> bool {
     }
 }
 
-/// Bytes que ocupa una entrada de la tabla de secciones.
-pub const SECTION_ENTRY_SIZE: usize = 48;
-
-/// Offsets dentro de una entrada de la tabla de secciones.
-pub mod seccion {
-    /// `kind`: `SectionKind as u8`.
-    pub const KIND: usize = 0;
-    /// `flags`. `u32`.
-    pub const FLAGS: usize = 4;
-    /// `file_offset`: donde estan sus bytes en el fichero. `u64`.
-    pub const FILE_OFFSET: usize = 8;
-    /// `file_size`: cuantos hay. **`0` es legal si la seccion es `Bss`.**
-    pub const FILE_SIZE: usize = 16;
-    /// `mem_size`: cuanto ocupa ya cargada. Nunca menor que `file_size`.
-    pub const MEM_SIZE: usize = 24;
-    /// `virt_addr`: donde la quiere el fichero. `0` = decide el cargador.
-    pub const VIRT_ADDR: usize = 32;
-    /// `alignment`: potencia de dos. `u16`.
-    pub const ALIGNMENT: usize = 40;
-    /// `hash_index`: que seccion `Signature` lleva su digest, o `0xFFFF`.
-    pub const HASH_INDEX: usize = 42;
-}

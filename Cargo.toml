@@ -225,7 +225,6 @@ members = [
     # ponia lejos de la mitad en C con la que tiene que crecer a la vez.
     "toolchain/lang/base/bmo-rt",
     # -- TOOLS (generadores build-time) -----------------------------
-    "toolchain/tools/bef-bootstrap",
     "toolchain/tools/hello-bex",
     "toolchain/tools/fontgen",
     # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del diseno).

@@ -45,8 +45,9 @@ pub enum Falta {
     DemasiadosAnexos,
     /// Dos anexos del mismo tipo: cual de los dos vale?
     AnexoRepetido,
-    /// Un anexo con el tipo 0, o VACIO: no existe, y un cero suele ser una
-    /// tabla sin rellenar. (La puerta del kernel lo rechaza igual.)
+    /// Un anexo con el tipo 0, o VACIO (no existe, y un cero suele ser una
+    /// tabla sin rellenar); o un ENLACE en un ejecutable (una unidad sin
+    /// enlazar disfrazada). La puerta del kernel lo rechaza igual.
     AnexoQueNoVaAqui,
     /// El anexo de relocs esta mal formado, o un reloc apunta fuera.
     RelocMal,
@@ -203,7 +204,7 @@ impl<'a> Vista<'a> {
         let firma = self.anexo(ANEXO_FIRMA)?;
         let cuantos = u32_en(firma, 0)? as usize;
         let fin = FIRMA_CABECERA + cuantos * FIRMA_HASH;
-        Some(crate::bef::signing::blake3_256(firma.get(FIRMA_CABECERA..fin)?))
+        Some(crate::bef::blake3::blake3_256(firma.get(FIRMA_CABECERA..fin)?))
     }
 
     /// Los relocs, ya comprobados al leer.
@@ -315,7 +316,7 @@ pub fn leer(bytes: &[u8]) -> Result<Vista<'_>, Falta> {
     let mut vistos = [0u8; MAX_ANEXOS];
     for i in 0..cuantos {
         let a = anexo_en(bytes, i).ok_or(Falta::ReservadoNoEsCero)?;
-        if a.tipo == 0 || a.tramo.bytes == 0 {
+        if a.tipo == 0 || a.tramo.bytes == 0 || (ejecutable && a.tipo == ANEXO_ENLACE) {
             return Err(Falta::AnexoQueNoVaAqui);
         }
         if vistos[..i].contains(&a.tipo) {
@@ -437,7 +438,7 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
             cubre_region[que as usize] = true;
             v.region(r)
         };
-        if crate::bef::signing::blake3_256(trozo)[..] != *digest {
+        if crate::bef::blake3::blake3_256(trozo)[..] != *digest {
             return Err(Falta::NoCuadraElHash);
         }
     }

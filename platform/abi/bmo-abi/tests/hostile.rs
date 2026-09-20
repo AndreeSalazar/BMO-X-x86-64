@@ -6,8 +6,8 @@
 //! Checked: nothing panics. The validator's own tests check that it REJECTS
 //! what it must.
 
-use bmo_abi::bef::{katanas, sections, validator};
-use bmo_abi::bef2::{self, paquete};
+use bmo_abi::bef::{katanas, symbols::TablaCadenas};
+use bmo_abi::bef2::{self, objeto, paquete};
 use bmo_abi::dynobj::{lista, tabla, texto};
 use bmo_hostile::{attack, DEFAULT_SEED};
 
@@ -28,9 +28,8 @@ fn hostile_bex_never_panics() {
     let owned = samples();
     let refs: Vec<&[u8]> = owned.iter().map(|v| v.as_slice()).collect();
     attack("bef readers", DEFAULT_SEED, 6_000, &refs, 16_000, |x| {
-        // ** BEF2 (2026-09-19): el juez del contrato y la puerta del kernel,
-        // que lo lee por su cuenta y sin `alloc`. Los lectores de BEF1 se
-        // quedan hasta B6: reciben basura y tampoco pueden caerse.
+        // ** BEF2 (2026-09-19): el juez del contrato, el lector de objetos y
+        // la puerta del kernel, que lo lee por su cuenta y sin `alloc`.
         if let Ok(v) = bef2::leer(x) {
             for r in [bef2::Region::Codigo, bef2::Region::Constantes, bef2::Region::Datos] {
                 let _ = v.region(r);
@@ -42,9 +41,8 @@ fn hostile_bex_never_panics() {
             }
         }
         let _ = bmo_bex_gate::revisar(x, x.len());
-        let _ = validator::validate(x);
-        let _ = bmo_abi::bex::validate(x);
-        let _ = sections::TablaCadenas::leer(x, 48);
+        let _ = objeto::read(x);
+        let _ = TablaCadenas::leer(x, 48);
         if let Some(dir) = paquete::directorio(x) {
             for i in 0..dir.len() + 2 {
                 let _ = (dir.nombre(i), dir.entrada(i), dir.datos(i));

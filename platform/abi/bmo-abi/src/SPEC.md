@@ -79,25 +79,23 @@ bmo_abi/
 |   +-- sync/           BmoSpinLock y atomicos
 +-- types/              convencion de llamada + regla de disposicion
 +-- syscalls/           INVOKE (0x00), WAIT (0x02) + syscall0..syscall6
-+-- bef/                el formato: header, sections, relocations, symbols,
-|                       imports, exports, signing (BLAKE3), requisitos,
-|                       recursos, paquete, katanas, objeto (.bo),
-|                       writer (BefBuilder) y validator
-+-- bex.rs              BEX = BEF ejecutable
++-- bef2/               EL FORMATO: cabecera de 64 B con cuatro regiones en
+|                       sitio fijo, anexos, un reloc, firma; escritor, juez
+|                       (lector), objeto (.bo) y paquete (recursos)
++-- bef/                lo que viaja DENTRO de los anexos: katanas, recursos,
+|                       requisitos, simbolos, blake3
 +-- dynobj/             texto, lista, tabla (runtime de INTI)
-+-- profile/            BmoLanguageProfile
 ```
 
 ### Tipos repr(C) y tamanos verificados
 
 | Tipo | Tamano | Area |
 |------|--------|------|
-| `BefHeader` | 48 B | bef |
-| `SectionEntry` | 48 B | bef |
+| cabecera BEF2 | 64 B | bef2 |
+| entrada de anexo | 16 B | bef2 |
+| `Reloc` | 16 B | bef2 |
+| `objeto::Enlace` | 24 B | bef2 |
 | `Symbol` | 32 B | bef |
-| `Relocation` | 24 B | bef |
-| `ImportEntry` | 24 B | bef |
-| `ExportEntry` | 32 B | bef |
 | `SectionHash` | 40 B | bef |
 | `SignatureHeader` | 8 B | bef |
 | `BmoStatus` | 16 B | fundamentals |
@@ -145,46 +143,48 @@ Wrappers: `syscall0()` .. `syscall6()` en `syscalls/` (inline asm, `no_std`).
 
 ---
 
-## 4. BEF (Binary Executable Format)
+## 4. BEF2 (el formato de un programa de BMO-X)
+
+** BEF1 --cabecera de 48 B con tabla de secciones tipadas, la idea de ELF con
+otro nombre-- **murio el 2026-09-19**. Ver `docs/plan/PLAN_BEF_NATIVO.md`.
 
 ```
-+--------------------------------------+
-| BefHeader (48 bytes, align 16)       |
-|   magic: "BEF1" (u32 LE)             |
-|   version: (1, 0)                    |
-|   flags: BefFlags (EXECUTABLE, PIE)  |
-|   arch: X86_64                       |
-|   entry_offset: u64                  |
-|   section_table_offset: u64          |
-|   section_count: u32                 |
-|   total_size: u32                    |
-+--------------------------------------+
-| Section table (entries x 48 B)       |
-|   10 tipos: Code, RoData, Data, Bss, |
-|   Imports, Exports, Relocs, Symbols, |
-|   Manifest, Tls, Signature           |
-+--------------------------------------+
-| Section data (alin. a 8..4096)       |
-+--------------------------------------+
-| Signature trailer (BLAKE3 hashes)    |
-+--------------------------------------+
++--------------------------------------------------+
+| cabecera (64 B, una linea de cache)              |
+|    0  magic "BEF2"    4 abi=2    5 banderas      |
+|    8  xcr0            16 entrada  20 anexos      |
+|   24  codigo {off, bytes}          R+X           |
+|   32  constantes {off, bytes}      R+NX          |
+|   40  datos {off, bytes}           R+W+NX        |
+|   48  ceros bytes                  R+W+NX        |
+|   52  total                                      |
++--------------------------------------------------+
+| tabla de anexos: {tipo, off, bytes} x N (16 B)   |
+|   RELOCS FIRMA REQUISITOS  <- los abre el kernel |
+|   RECURSOS MANIFIESTO KATANAS SIMBOLOS ENLACE    |
++--------------------------------------------------+
+| regiones (cada una empieza en un sector)         |
+| anexos                                           |
++--------------------------------------------------+
 ```
 
-- **Header fijo de 48 B** (vs 64+ ELF, 264+ PE).
-- **21 tipos de seccion** planeados, 10 implementados.
-- **3 tipos de relocacion**: Abs64, Rel32, Got64.
-- **Hashing**: BLAKE3 256-bit por seccion.
-- **Firma**: Ed25519 (infraestructura lista).
-- **Multiboot**: detecta PE (`MZ`) y ELF (`\x7FELF`) via `BefMagic::detect()`.
-- **Devour**: PE/ELF -> BEF (traduccion nativa).
+- **El permiso lo da el HUECO**: no hay campo para un codigo escribible.
+- **Un reloc** (`donde`+`offset` <- `destino`+`addend`, 16 B), y solo en
+  ejecutables; un `.bo` lleva `ENLACE` (`Rel32`, `Abs64`, `Region`) que
+  resuelve `bmo-enlazar` y nunca llega al kernel.
+- **`xcr0`** en vez de "extensiones": la mascara literal de XSAVE.
+- **Firma obligatoria**: BLAKE3 por region y por anexo que el kernel lee;
+  Ed25519 opcional encima (`bmo-firmar`).
+- **Sin `arch` ni `endianness`**: el magic ya dice BMO-X x86-64.
 
-### Writer, Validator, y la puerta del kernel
+### Escritor, juez, y la puerta del kernel
 
 | Componente | Archivo | Funcion |
 |------------|---------|---------|
-| Writer | `bef/writer.rs` | `BefBuilder` + `BefSection` -> produce `Vec<u8>` BEF |
-| Validator | `bef/validator.rs` | `validate()` -- comprueba magic, bounds, duplicados, firma |
-| Puerta de carga | `platform/abi/bmo-bex-gate` | `revisar()` -- lo que corre en Ring 0 antes de mapear nada; el cargador es el del kernel |
+| Escritor | `bef2/escritor.rs` | `Escritor` -> `Vec<u8>` BEF2; `de_imagen` reabre para `bmo-pack` y `bmo-firmar` |
+| Juez | `bef2/lector.rs` | `leer()` -- dice SI o NO con `Falta`; comprueba cada hash |
+| Objeto | `bef2/objeto.rs` | `read()` -- el contrato del `.bo` para `bmo-enlazar` |
+| Puerta de carga | `platform/abi/bmo-bex-gate` | `revisar()` -- lo que corre en Ring 0 antes de mapear nada; atada al juez por `tests/gate_y_validador_no_se_separan.rs` |
 
 ---
 

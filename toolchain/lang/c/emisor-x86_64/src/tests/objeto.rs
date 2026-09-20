@@ -2,12 +2,11 @@
 //!
 //! Lo que estas filas comprueban es lo unico que distingue un objeto de una
 //! imagen: **quien cierra cada referencia**. Se lee el `.bo` con el contrato
-//! (`bmo_abi::bef::objeto`), que es el mismo lector que usara `bmo-enlazar`.
+//! (`bmo_abi::bef2::objeto`), que es el mismo lector que usa `bmo-enlazar`.
 
 use super::*;
-use bmo_abi::bef::objeto::{self, REL_CODE};
-use bmo_abi::bef::relocations::RelocationKind;
-use bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bef2::objeto::{self, Clase};
+use bmo_abi::bef2::Region;
 
 fn objeto_de(fuente: &str) -> objeto::Object<'static> {
     let bytes = crate::compile_source_to_object(fuente).expect("la unidad debe compilar");
@@ -79,37 +78,30 @@ fn static_es_privado_y_lo_demas_es_publico() {
 #[test]
 fn las_referencias_a_datos_quedan_como_relocaciones() {
     let o = objeto_de(USA);
-    let indice = |k: SectionKind| {
+    let indice = |k: Region| {
         o.symbols
             .iter()
             .position(|s| s.section == Some(k) && s.name.starts_with('.'))
-            .unwrap_or_else(|| panic!("falta el simbolo de seccion de {k:?}")) as u32
+            .unwrap_or_else(|| panic!("falta el simbolo de region de {k:?}")) as u32
     };
-    let rodata = indice(SectionKind::RoData);
-    let rel32: Vec<_> = o
-        .relocs
-        .iter()
-        .filter(|r| r.kind == RelocationKind::Rel32 as u8)
-        .collect();
-    assert!(!rel32.is_empty(), "un programa con cadenas y globales deja relocs");
+    let rodata = indice(Region::Constantes);
+    let rel32: Vec<_> = o.enlaces.iter().filter(|r| r.clase == Clase::Rel32).collect();
+    assert!(!rel32.is_empty(), "un programa con cadenas y globales deja enlaces");
     assert!(
-        rel32.iter().any(|r| r.symbol_idx == rodata),
+        rel32.iter().any(|r| r.simbolo == rodata),
         "la cadena del printf tiene que apuntar a .rodata"
     );
     // Y un global leido desde el codigo, a .data o a .bss.
-    let datos = indice(SectionKind::Data);
-    assert!(rel32.iter().any(|r| r.symbol_idx == datos), "un global vive en .data");
+    let datos = indice(Region::Datos);
+    assert!(rel32.iter().any(|r| r.simbolo == datos), "un global vive en .data");
     // La cadena que INICIALIZA un global no es un `lea`: es un puntero dentro
-    // de .data, y eso ya era una SeccionAbs64 antes de que hubiera objetos.
-    assert!(o
-        .relocs
-        .iter()
-        .any(|r| r.kind == RelocationKind::SeccionAbs64 as u8));
+    // de .data a una region de esta unidad -- el mismo reloc del ejecutable.
+    assert!(o.enlaces.iter().any(|r| r.clase == Clase::Region));
     // Todas parchean dentro del codigo, que es donde vive un `lea`.
-    assert!(rel32.iter().all(|r| r.target_section == REL_CODE));
+    assert!(rel32.iter().all(|r| r.donde == Region::Codigo));
     // Y el `call suma` apunta al simbolo indefinido, no a un hueco en cero.
     let suma = o.symbols.iter().position(|s| s.name == "suma").unwrap() as u32;
-    assert!(rel32.iter().any(|r| r.symbol_idx == suma), "el call a suma");
+    assert!(rel32.iter().any(|r| r.simbolo == suma), "el call a suma");
 }
 
 /// Un objeto no es un programa: no necesita `main`. Una imagen si, y eso no

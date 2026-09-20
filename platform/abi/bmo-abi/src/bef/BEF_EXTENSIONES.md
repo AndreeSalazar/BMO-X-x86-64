@@ -1,28 +1,28 @@
-# BEF -- reglas de extension (CONGELADAS)
+# BEF2 -- reglas de extension (CONGELADAS)
 
 > *La puerta no pregunta el idioma. Pregunta que uses la puerta.*
 
-**Estado**: en vigor. Implementado en `kernel/src/ring0/bex.rs` y
-`platform/abi/bmo-abi/src/bef/header.rs`.
+**Estado**: en vigor desde el 2026-09-19 sobre BEF2. Implementado en
+`platform/abi/bmo-abi/src/bef2/` (el contrato) y `platform/abi/bmo-bex-gate/src/bef2.rs`
+(la puerta del kernel, sin `alloc`).
 
 Este documento existe para que BEF pueda crecer **sin que el kernel crezca
 con el**, y para que nadie --ni yo a las tres de la manana-- le anada un campo
 "porque hacia falta".
 
+** BEF1 --la cabecera de 48 B con TABLA DE SECCIONES tipadas, la idea central
+de ELF con otro nombre-- **murio el 2026-09-19** (B6 de `docs/plan/PLAN_BEF_NATIVO.md`).
+Lo que sigue es la regla reescrita para BEF2. De la vieja sobrevive UNA idea
+(la seccion 2), y sobrevive porque es la que deja crecer el formato sin que
+crezca Ring 0.
+
 ---
 
 ## 1. El problema que resuelve
 
-BMO-X ya ejecuta tres lenguajes sobre la misma puerta:
-
-```
-  asm     4 288 B  ->  INVOKE  ->  Ring 0
-  C      12 376 B  ->  INVOKE  ->  Ring 0
-  COBOL   5 144 B  ->  INVOKE  ->  Ring 0
-```
-
-Tres origenes, tres compiladores, cero adaptadores. La pregunta natural es
-que pasa cuando entren Ada, un runtime de Java o el lenguaje que sea.
+BMO-X ejecuta cinco lenguajes sobre la misma puerta --asm, C, C++, COBOL, Ada
+e INTI-- con cero adaptadores. La pregunta natural es que pasa cuando entre el
+siguiente.
 
 La respuesta **equivocada** seria darle a BEF un encabezado por lenguaje: un
 bloque "Java", uno "C#", uno para el GIL de un interprete. Eso obligaria al
@@ -31,45 +31,49 @@ congelada dejaria de estar congelada, porque cada lenguaje nuevo anadiria un
 campo que Ring 0 tendria que entender. Seria el embudo central disfrazado de
 cabecera.
 
-La respuesta **correcta** ya estaba medio construida: BEF tiene tabla de
-secciones con tipo. Solo faltaba la regla.
+La respuesta **correcta**: la cabecera dice lo que el kernel MAPEA (cuatro
+regiones, en sitio fijo) y una tabla de ANEXOS lleva todo lo demas.
 
 ---
 
 ## 2. LA REGLA
 
-> **Una seccion de tipo desconocido se SALTA. No se rechaza, no se mapea.**
+> **Un anexo de tipo desconocido se SALTA. No se rechaza, no se mapea.**
 
-Es lo que ha mantenido vivo a ELF treinta anios: la seccion que no te incumbe
-no es un error, es data que no vas a abrir.
+Es la unica idea de BEF1 que sobrevive: lo que no te incumbe no es un error,
+es data que no vas a abrir.
 
-Concretamente, el kernel mapea **cuatro** tipos y nada mas:
+Concretamente, el kernel mapea **cuatro regiones** y nada mas, y **el permiso
+lo da el HUECO de la cabecera**, no una bandera:
 
-| Tipo | Que es | Como se mapea |
+| Region | Byte de la cabecera | Como se mapea |
 |---|---|---|
-| `0x01` Code | Codigo | R+X |
-| `0x02` RoData | Datos constantes | R |
-| `0x03` Data | Datos mutables | R+W |
-| `0x04` Bss | Sin inicializar | R+W, a ceros |
+| codigo | 24 `{offset, bytes}` | R+X |
+| constantes | 32 `{offset, bytes}` | R+NX |
+| datos | 40 `{offset, bytes}` | R+W+NX |
+| ceros | 48 `bytes` | R+W+NX, a ceros; no ocupa fichero |
 
-Todo lo demas --`Relocs`, `Symbols`, `Manifest`, `Resources`, `Signature`,
-`Requisitos`, `Katanas`, **y cualquier tipo que este kernel no conozca**-- es
-data para OTRO: para el enlazador, para
-el verificador, para el runtime de un lenguaje del que Ring 0 no tiene por que
-saber que existe.
+No hay forma de escribir un BEF2 con codigo escribible o constantes
+escribibles, porque no hay campo donde decirlo. (En BEF1 lo decidia una
+bandera, y `RoData` fue escribible en el Ryzen hasta `8c3ac5c0`.)
 
-** **La excepcion, 2026-09-19: `0x05` Imports, `0x06` Exports y `0x0C` Tls
-se RECHAZAN** (`Falta::EnlazadoDinamico`). No son data para otro: dicen "alguien
-resolvera mis llamadas al cargar", y BMO-X enlaza estatico y no tiene TLS. Ver
-`docs/plan/PLAN_BEF_NATIVO.md`, que ademas propone reemplazar este formato.
+De los anexos, el kernel abre **tres**: `RELOCS` (0x01), `FIRMA` (0x02) y
+`REQUISITOS` (0x03). Todo lo demas --`RECURSOS`, `MANIFIESTO`, `KATANAS`,
+`SIMBOLOS`, **y cualquier tipo que este kernel no conozca**-- es data para
+OTRO: para el enlazador, para el verificador, para el DIRECTOR, para el
+runtime de un lenguaje del que Ring 0 no tiene por que saber que existe.
 
-**Se salta, pero se valida.** Sus limites tienen que caber dentro del archivo:
-una seccion mal formada sigue siendo un rechazo. Lo que no hace el kernel es
-gastar paginas en ella ni mapearla en el espacio del programa.
+** Las dos excepciones, y por que no son "data para otro":
 
-*(Antes se mapeaban todas. Un manifiesto o una tabla de depuracion acababan en
-el espacio de usuario como memoria escribible: gasto y superficie de ataque a
-cambio de nada.)*
+- `ENLACE` (0x08) en un EJECUTABLE se RECHAZA (`EsUnObjetoSinEnlazar`): dice
+  "alguien resolvera mis llamadas", y BMO-X enlaza estatico. Solo va en un
+  `.bo`, que el kernel nunca ve.
+- Un anexo VACIO o de tipo 0 se rechaza: no existe, y un cero suele ser una
+  tabla sin rellenar.
+
+**Se salta, pero se valida.** Sus limites tienen que caber dentro del fichero
+y no pisar a nadie: un anexo mal formado sigue siendo un rechazo. Lo que no
+hace el kernel es gastar paginas en el ni mapearlo en el espacio del programa.
 
 ### Consecuencia practica
 
@@ -80,64 +84,53 @@ sabe donde esta y que significa. Ring 0 nunca lo abre.
 
 ---
 
-## 3. Lo que el kernel SI lee del encabezado
+## 3. Lo que el kernel SI lee de la cabecera
 
-Siete cosas. **Ninguna nombra un lenguaje.**
+Sesenta y cuatro bytes, una linea de cache. **Ninguno nombra un lenguaje, ni
+una arquitectura: el magic ya dice BMO-X x86-64.**
 
 | Offset | Campo | Por que lo necesita el kernel |
 |---|---|---|
-| 0 | `magic` | Es un BEF o no lo es |
-| 4 | `version_major/minor` | Contrato del formato |
-| 8 | `flags` | Es ejecutable? |
-| 12 | `arch` | Es mi CPU? |
-| **13** | **`endianness`** | Puedo leer sus numeros? |
-| **14** | **`cpu_features`** | Se preservar su estado al cambiar de contexto? |
-| 16 | `abi_version` | Habla mi ABI? |
-| 24 | `entry_offset` | Donde empieza |
-| 32/40 | tabla de secciones | Que mapear |
+| 0 | `magic` `BEF2` | Es un programa de ESTA maquina o no lo es |
+| 4 | `abi` (u8, = 2) | Habla mi ABI? |
+| 5 | `banderas` | EJECUTABLE, OBJETO, QUIERE_PANTALLA; otra se rechaza |
+| 6 | reservado (u16 = 0) | basura o version que no entiendo: se rechaza |
+| 8 | **`xcr0`** | Se preservar su estado al cambiar de contexto? |
+| 16 | `entrada` | Donde empieza, dentro del codigo |
+| 20 | `anexos` | Cuantos hay; la tabla va en el byte 64 |
+| 24..52 | las cuatro regiones | Que mapear, y con que permiso |
+| 52 | `total` | Cuanto mide el fichero: lo que no cuadre, no se carga |
+| 56 | reservado (u64 = 0) | igual que el 6 |
 
-Un binario de Ada y uno de C# rellenan **los mismos campos** con numeros
+Un binario de Ada y uno de INTI rellenan **los mismos campos** con numeros
 distintos. Eso es un contrato. Lo otro habria sido un catalogo.
 
 ---
 
-## 4. Los dos campos nuevos, y por que valen HOY
+## 4. `xcr0`, y por que un bit desconocido se RECHAZA
 
-### `endianness` (offset 13)
+BEF1 tenia `cpu_features`, un mapa de bits inventado ("vectores de 256",
+"de 512"). BEF2 lleva **la mascara de XCR0**, que es literalmente lo que
+`XSAVE`/`XRSTOR` necesitan: bit 0 x87, bit 1 SSE, bit 2 AVX...
 
-`0` = little, `1` = big. Hoy el kernel solo lee little y rechaza lo demas.
+**Un bit que el kernel no preserva se RECHAZA** (`XCR0_PRESERVADO`, hoy x87 y
+SSE) -- al reves que un anexo desconocido, y por un motivo exacto:
 
-Esta congelado ahora aunque no exista todavia un objetivo big-endian, porque
-el dia que lo haya --PowerPC, un RISC-V configurado asi-- este byte es la
-diferencia entre **anadir una comprobacion** y **reescribir todos los parsers
-del sistema**. Todo el codigo de formato usa hoy `from_le_bytes`: BEF, GPT,
-BPB de FAT32. El byte cuesta cero ahora.
+> Un anexo que no entiendo es data inerte.
+> Un estado de CPU que no preservo es **corrupcion silenciosa** a la primera
+> interrupcion del temporizador.
 
-### `cpu_features` (offset 14, mapa de bits)
+Hoy `trap.rs` guarda x87 y SSE. Un programa que declare AVX se rechaza con
+nombre (`ExtensionDeCpuQueNoSePreserva`) **antes** de correr. Cuando el
+kernel guarde mas, `XCR0_PRESERVADO` crece; no antes. Y el programa **puede**
+declararlo porque su compilador lo sabe: los cinco emisores son de esta casa.
 
-| Bit | Significa |
-|---|---|
-| 0 | Vectores de 256 bits (AVX/AVX2, SVE) |
-| 1 | Vectores de 512 bits (AVX-512) |
-
-**Un bit desconocido se RECHAZA** -- al reves que una seccion desconocida, y por
-un motivo exacto:
-
-> Una seccion que no entiendo es data inerte.
-> Una extension de CPU que no entiendo es **estado que no voy a preservar**.
-
-Hoy `trap.rs` usa `FXSAVE`, que guarda x87 y SSE pero **no** la mitad alta de
-los YMM. Un programa que use AVX se corromperia en silencio a la primera
-interrupcion del temporizador -- la peor clase de fallo que hay.
-
-Por eso el kernel **rechaza hoy cualquier `cpu_features != 0`**. Ese rechazo
-no es una limitacion: es la mejora. Convierte una corrupcion silenciosa en un
-"no" con nombre (`UnsupportedCpuFeature`), **antes** de que exista el XSAVE.
-Cuando el kernel sepa guardar el estado ancho, esa linea se relaja. No antes.
-
-Y el programa **puede** declararlo porque su compilador lo sabe: BMO C y BMO
-COBOL son tuyos y saben perfectamente si emitieron una instruccion ancha.
-Declararlo es un contrato verificable; adivinarlo en ejecucion no lo es.
+** Lo que BEF1 tenia y BEF2 NO: `arch` (el magic lo dice), `endianness`
+(x86-64 es little y otra CPU es otro repositorio con otro magic),
+`version_major/minor` (una version, en el magic), `alignment` por seccion
+(las regiones van a sector, o a pagina si el escritor lo pide), `virt_addr`
+(lo decide el cargador), `hash_index` (la firma nombra las regiones por su
+numero y los anexos por `0x80 | indice`).
 
 ---
 
@@ -156,7 +149,7 @@ que es Java**:
    `.bex` mas.
 2. **Portar la VM como programa de Ring 3.** Entonces la JVM es una *app*, y
    los `.class` son **datos que esa app lee**. Sus metadatos viajan en
-   secciones que el kernel salta.
+   anexos que el kernel salta.
 
 **El GIL de un interprete** no es asunto del kernel: es un mutex *dentro* de
 un interprete. Si alguien porta CPython a BMO, el GIL es problema de CPython.

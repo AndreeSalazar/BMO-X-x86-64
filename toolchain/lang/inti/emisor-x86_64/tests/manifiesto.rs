@@ -14,7 +14,6 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-use bmo_abi::bmo_abi::bef::paquete;
 
 /// El manifiesto de un `.bex` BEF2 (antes era la seccion `0x09`).
 fn manifiesto_de(bex: &[u8]) -> Option<&[u8]> {
@@ -27,7 +26,7 @@ fn codigo_de(bex: &[u8]) -> Option<&[u8]> {
     let c = v.region(bmo_abi::bmo_abi::bef2::Region::Codigo);
     if c.is_empty() { None } else { Some(c) }
 }
-use bmo_abi::bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bef2::{leer, Region};
 use bmo_inti_front::manifiesto::Manifiesto;
 
 fn caja(nombre: &str) -> PathBuf {
@@ -286,10 +285,17 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     //     11.632  el MISMO codigo, ya en BEF2 (2026-09-19)
     //
     // ** Esos -512 no son codigo: es el ENVASE. BEF1 gastaba 48 B de cabecera
-    // mas 48 por cada seccion y alineaba cada una a 4 KiB; BEF2 son 64 B de
-    // cabecera, 16 por anexo, y las regiones se pegan a 16. El programa que
-    // corre es byte por byte el mismo.
-    assert_eq!(sin.len(), 11632, "la emision de la sonda cambio de tamano");
+    // mas 48 por cada seccion; BEF2 son 64 B de cabecera y 16 por anexo. El
+    // programa que corre es byte por byte el mismo.
+    //
+    //     12.048  las regiones a SECTOR (2026-09-19, B6)
+    //
+    // ** Y estos +416 tampoco son codigo: la primera version de BEF2 pegaba
+    // las regiones a 16 y el cargador del kernel pide cada una al disco por
+    // rangos -- lo que empieza a mitad de sector pasa por el sector de rebote.
+    // BEF1 alineaba a 512 desde el 10-08 por eso; BEF2 lo recupera. Es lo que
+    // mide `anadir_el_manifiesto_no_rompe_la_frontera_de_sector`, mas abajo.
+    assert_eq!(sin.len(), 12048, "la emision de la sonda cambio de tamano");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**
@@ -344,16 +350,23 @@ fn anadir_el_manifiesto_no_rompe_la_frontera_de_sector() {
     std::fs::write(&fuente, CON_PIEZAS).unwrap();
     let bex = compila(&fuente);
 
-    for clase in [SectionKind::Code, SectionKind::RoData, SectionKind::Data] {
-        if let Some((off, _)) = paquete::localizar(&bex, clase) {
-            assert_eq!(
-                off % 512,
-                0,
-                "la seccion {:?} empieza en {} y no es multiplo de 512",
-                clase,
-                off
-            );
+    // ** Hasta B6 esto usaba `paquete::localizar` de BEF1 sobre un fichero
+    // BEF2: no encontraba ninguna seccion y la fila estaba verde sin mirar
+    // nada. Ahora se pregunta a la cabecera, y BEF2 alinea las regiones a
+    // sector desde el 19-09 (`bef2::escritor`).
+    let v = leer(&bex).expect("el .ibx es un BEF2 valido");
+    for region in [Region::Codigo, Region::Constantes, Region::Datos] {
+        let t = v.tramo(region);
+        if t.bytes == 0 {
+            continue;
         }
+        assert_eq!(
+            t.offset % 512,
+            0,
+            "la region {:?} empieza en {} y no es multiplo de 512",
+            region,
+            t.offset
+        );
     }
 }
 

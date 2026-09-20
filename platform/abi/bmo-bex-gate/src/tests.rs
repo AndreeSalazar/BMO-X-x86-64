@@ -12,326 +12,249 @@
 //!
 //! Con la decision en un solo sitio, es un test unitario y ya esta -- y lo que
 //! demuestra lo heredan **los dos** consumidores sin escribir nada.
+//!
+//! ** BEF2 desde el 2026-09-19 (B6: BEF1 murio). Las filas que mentian con
+//! banderas, arquitectura, orden de bytes o alineacion se fueron con los campos
+//! que mentian: BEF2 no los tiene.
 
 extern crate std;
 use super::*;
 use std::vec;
 use std::vec::Vec;
 
-/// Escribe un `.bex` a mano. Sin usar el escritor de `bmo-abi` **a proposito**:
-/// si las pruebas de la puerta usaran el mismo codigo que fabrica los ficheros
-/// buenos, comprobarian que el escritor es coherente consigo mismo, que no es la
-/// pregunta. Un extranjero no usa nuestro escritor.
+/// Escribe un `.bex` BEF2 a mano. Sin usar el escritor de `bmo-abi` **a
+/// proposito**: si las pruebas de la puerta usaran el mismo codigo que fabrica
+/// los ficheros buenos, comprobarian que el escritor es coherente consigo
+/// mismo, que no es la pregunta. Un extranjero no usa nuestro escritor.
 struct Imagen {
-    flags: u32,
-    entry: u64,
-    secciones: Vec<(u8, u32, u64, u64, u64, u16)>, // kind, flags, off, fsize, msize, align
-    total_size: u32,
-    abi: (u8, u8),
-    cpu: u16,
-    arch: u8,
+    banderas: u8,
+    xcr0: u64,
+    entrada: u32,
+    /// (offset, bytes) de codigo, constantes y datos, y los bytes de ceros.
+    codigo: (u32, u32),
+    constantes: (u32, u32),
+    datos: (u32, u32),
+    ceros: u32,
+    /// (tipo, offset, bytes)
+    anexos: Vec<(u8, u32, u32)>,
+    total: u32,
+    abi: u8,
 }
 
 impl Imagen {
-    /// Una imagen minima y VALIDA: codigo ejecutable y nada mas.
+    /// Codigo en 0x100 (64 B), constantes en 0x140 (16), datos en 0x150 (16),
+    /// relocs en 0x160 (16 = un reloc) y firma en 0x170 (8: cero hashes). 768 B.
     fn buena() -> Self {
         Self {
-            flags: FLAG_EJECUTABLE,
-            entry: 0,
-            // La tabla acaba en 48 + 48 = 96, asi que el codigo empieza en 512.
-            secciones: vec![(CODE, SECCION_FLAG_EXEC, 512, 256, 256, 8)],
-            total_size: 768,
-            abi: (2, 0),
-            cpu: 0,
-            arch: ARCH_X86_64,
+            banderas: bef2::EJECUTABLE,
+            xcr0: bef2::XCR0_PRESERVADO,
+            entrada: 0,
+            codigo: (0x100, 64),
+            constantes: (0x140, 16),
+            datos: (0x150, 16),
+            ceros: 4096,
+            anexos: vec![(bef2::ANEXO_RELOCS, 0x160, 16), (bef2::ANEXO_FIRMA, 0x170, 8)],
+            total: 768,
+            abi: bef2::ABI,
         }
     }
 
     fn bytes(&self) -> Vec<u8> {
-        let n = self.secciones.len();
-        let mut b = vec![0u8; 48 + n * 48];
-        b[0..4].copy_from_slice(&MAGIC.to_le_bytes());
-        b[4..6].copy_from_slice(&1u16.to_le_bytes());
-        b[8..12].copy_from_slice(&self.flags.to_le_bytes());
-        b[12] = self.arch;
-        b[13] = ENDIAN_LE;
-        b[14..16].copy_from_slice(&self.cpu.to_le_bytes());
-        b[16] = self.abi.0;
-        b[17] = self.abi.1;
-        b[24..32].copy_from_slice(&self.entry.to_le_bytes());
-        b[32..40].copy_from_slice(&48u64.to_le_bytes());
-        b[40..44].copy_from_slice(&(n as u32).to_le_bytes());
-        b[44..48].copy_from_slice(&self.total_size.to_le_bytes());
-        for (i, (k, f, off, fs, ms, al)) in self.secciones.iter().enumerate() {
-            let e = 48 + i * 48;
-            b[e] = *k;
-            b[e + 4..e + 8].copy_from_slice(&f.to_le_bytes());
-            b[e + 8..e + 16].copy_from_slice(&off.to_le_bytes());
-            b[e + 16..e + 24].copy_from_slice(&fs.to_le_bytes());
-            b[e + 24..e + 32].copy_from_slice(&ms.to_le_bytes());
-            b[e + 40..e + 42].copy_from_slice(&al.to_le_bytes());
+        let mut b = vec![0u8; self.total as usize];
+        b[0..4].copy_from_slice(&bef2::MAGIC.to_le_bytes());
+        b[4] = self.abi;
+        b[5] = self.banderas;
+        b[8..16].copy_from_slice(&self.xcr0.to_le_bytes());
+        b[16..20].copy_from_slice(&self.entrada.to_le_bytes());
+        b[20..24].copy_from_slice(&(self.anexos.len() as u32).to_le_bytes());
+        for (o, (off, len)) in [(24usize, self.codigo), (32, self.constantes), (40, self.datos)] {
+            b[o..o + 4].copy_from_slice(&off.to_le_bytes());
+            b[o + 4..o + 8].copy_from_slice(&len.to_le_bytes());
+        }
+        b[48..52].copy_from_slice(&self.ceros.to_le_bytes());
+        b[52..56].copy_from_slice(&self.total.to_le_bytes());
+        for (i, (tipo, off, len)) in self.anexos.iter().enumerate() {
+            let e = 64 + i * 16;
+            if e + 16 > b.len() {
+                break;
+            }
+            b[e] = *tipo;
+            b[e + 4..e + 8].copy_from_slice(&off.to_le_bytes());
+            b[e + 8..e + 12].copy_from_slice(&len.to_le_bytes());
+        }
+        // Un reloc: datos[0] <- constantes + 0.
+        b[0x160] = 2;
+        b[0x161] = 1;
+        // Codigo: `ret`s.
+        for x in &mut b[0x100..0x140] {
+            *x = 0xC3;
         }
         b
     }
-
-    /// El veredicto de la puerta sobre esta imagen.
-    fn puerta(&self) -> Result<(), Falta> {
-        let b = self.bytes();
-        revisar(&b, self.total_size as usize).map(|_| ())
-    }
 }
 
-/// La fila que hace utiles a todas las demas: **una imagen buena PASA**. Un
-/// verificador que dijera "no" siempre tambien cazaria todas las mentiras.
+fn falta_de(img: &Imagen) -> Falta {
+    let b = img.bytes();
+    revisar(&b, b.len()).err().expect("tenia que fallar")
+}
+
 #[test]
 fn una_imagen_buena_pasa() {
-    assert_eq!(Imagen::buena().puerta(), Ok(()));
-}
-
-/// ** DOS SECCIONES PELEANDOSE POR LOS MISMOS BYTES.
-///
-/// Es la mentira que mas dano hace y la que ninguna comprobacion de limites ve:
-/// las dos secciones caben en el fichero, y aun asi no pueden ser ciertas las
-/// dos. Quien se lo cree monta un proceso donde los mismos bytes son codigo
-/// ejecutable y datos escribibles a la vez.
-#[test]
-fn dos_secciones_no_pueden_pisarse() {
-    let mut img = Imagen::buena();
-    // `.code` en [512, 768) y `.data` en [640, 896): se pisan 128 bytes.
-    img.secciones.push((DATA, 0, 640, 256, 256, 8));
-    img.total_size = 1024;
-    assert_eq!(img.puerta(), Err(Falta::SeccionesSeSolapan));
-}
-
-/// Pegadas SI vale: `[512, 768)` y `[768, 1024)` no comparten ni un byte. Sin
-/// esta prueba, un `<=` en vez de un `<` rechazaria todo fichero bien empaquetado
-/// y nadie sabria por que.
-#[test]
-fn dos_secciones_pegadas_no_se_pisan() {
-    let mut img = Imagen::buena();
-    img.secciones.push((DATA, 0, 768, 256, 256, 8));
-    img.total_size = 1024;
-    assert_eq!(img.puerta(), Ok(()));
-}
-
-/// La `Bss` no ocupa fichero, asi que su offset no apunta a ningun byte y **no
-/// puede pisar a nadie**. Si contara, toda imagen con Bss seria rechazada.
-#[test]
-fn la_bss_no_pisa_a_nadie() {
-    let mut img = Imagen::buena();
-    img.secciones.push((BSS, 0, 512, 0, 4096, 8)); // mismo offset que el codigo
-    assert_eq!(img.puerta(), Ok(()));
-}
-
-/// ** BANDERAS QUE CAMBIAN LO QUE SIGNIFICAN LAS SECCIONES.
-///
-/// Un `.bex` que dice `COMPRIMIDO` esta diciendo *"mis bytes no son los que van a
-/// memoria"*. Ignorarlo es cargar el bloque en crudo y saltar a el.
-#[test]
-fn las_banderas_que_nadie_implementa_se_rechazan() {
-    for flag in [FLAG_COMPRIMIDO, FLAG_RECARGABLE] {
-        let mut img = Imagen::buena();
-        img.flags |= flag;
-        assert_eq!(
-            img.puerta(),
-            Err(Falta::PideAlgoQueNadieImplementa),
-            "la bandera {flag:#x} tiene que rechazar"
-        );
+    let b = Imagen::buena().bytes();
+    let r = revisar(&b, b.len()).expect("la buena pasa");
+    assert_eq!(r.entry_offset(), 0);
+    // Cuatro regiones presentadas como secciones, mas dos anexos.
+    assert_eq!(r.cuantas(), 6);
+    assert!(r.buscar(CODE).is_some());
+    assert!(r.buscar(RODATA).is_some());
+    assert!(r.buscar(DATA).is_some());
+    assert!(r.buscar(BSS).is_some());
+    assert!(r.buscar(RELOCS).is_some());
+    assert!(r.buscar(SIGNATURE).is_some());
+    // Solo el codigo es ejecutable.
+    for s in r.secciones() {
+        assert_eq!(s.flags & SECCION_FLAG_EXEC != 0, s.kind == CODE);
     }
 }
 
-/// ** Y UNA BANDERA DESCONOCIDA QUE NO CAMBIA NADA, SI PASA.
-///
-/// Es la otra mitad de la regla y sin ella el formato no podria crecer: `PIE` y
-/// las demas que el escritor pone hoy (bits 8, 9, 10) no significan nada para
-/// este lector y **no cambian lo que hacen las secciones**. Rechazarlas seria
-/// negarse a cargar los `.bex` que el propio sistema fabrica.
+/// BEF1 murio: su magic se rechaza por el primer numero, como un ELF o un PE.
 #[test]
-fn una_bandera_desconocida_e_inofensiva_pasa() {
-    let mut img = Imagen::buena();
-    img.flags |= 1 << 9;
-    assert_eq!(img.puerta(), Ok(()));
+fn otro_magic_no_es_un_bex() {
+    let mut b = Imagen::buena().bytes();
+    b[0..4].copy_from_slice(b"BEF1");
+    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::CabeceraInvalida);
+    b[0..4].copy_from_slice(&[0x7F, b'E', b'L', b'F']);
+    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::CabeceraInvalida);
 }
 
-/// Dice venir firmado y no trae firma. Es la mentira mas barata: un bit cambiado
-/// a mano hace que un binario cualquiera parezca avalado por alguien.
 #[test]
-fn decir_que_viene_firmado_sin_firma_no_cuela() {
+fn otro_abi_no_pasa() {
     let mut img = Imagen::buena();
-    img.flags |= FLAG_FIRMADO;
-    assert_eq!(img.puerta(), Err(Falta::CabeceraQueSeDesmiente));
+    img.abi = 3;
+    assert_eq!(falta_de(&img), Falta::OtraVersionDelAbi);
 }
 
-/// Y con firma de verdad, pasa.
 #[test]
-fn decir_que_viene_firmado_con_firma_pasa() {
+fn una_bandera_desconocida_se_rechaza() {
     let mut img = Imagen::buena();
-    img.flags |= FLAG_FIRMADO;
-    img.secciones.push((SIGNATURE, 0, 768, 128, 128, 8));
-    img.total_size = 1024;
-    assert_eq!(img.puerta(), Ok(()));
+    img.banderas |= 1 << 6;
+    assert_eq!(falta_de(&img), Falta::PideAlgoQueNadieImplementa);
 }
 
-/// ** LA IMAGEN DECLARA SU PROPIO TAMANO, y se comprueba antes que la tabla.
-///
-/// Si faltan bytes, las secciones apuntan mas alla y la primera que se salga
-/// contesta `SeccionFueraDelFichero` -- cierto, y la pista equivocada: manda a
-/// mirar el FORMATO cuando lo que fallo es el TRANSPORTE.
 #[test]
-fn una_imagen_cortada_lo_dice_como_transporte() {
-    let img = Imagen::buena();
+fn un_objeto_no_se_carga_y_se_dice_por_que() {
+    let mut img = Imagen::buena();
+    img.banderas = bef2::OBJETO;
+    assert_eq!(falta_de(&img), Falta::EsUnObjetoSinEnlazar);
+    // Y un ejecutable con un anexo ENLACE es un objeto disfrazado.
+    let mut img = Imagen::buena();
+    img.anexos.push((bef2::ANEXO_ENLACE, 0x180, 24));
+    assert_eq!(falta_de(&img), Falta::EsUnObjetoSinEnlazar);
+}
+
+#[test]
+fn ni_ejecutable_ni_objeto_no_es_nada() {
+    let mut img = Imagen::buena();
+    img.banderas = 0;
+    assert_eq!(falta_de(&img), Falta::NoEsEjecutable);
+}
+
+#[test]
+fn una_extension_de_cpu_que_no_se_preserva_se_rechaza() {
+    let mut img = Imagen::buena();
+    img.xcr0 = bef2::XCR0_PRESERVADO | (1 << 2); // AVX
+    assert_eq!(falta_de(&img), Falta::ExtensionDeCpuQueNoSePreserva);
+}
+
+#[test]
+fn dos_regiones_no_pueden_pisarse() {
+    let mut img = Imagen::buena();
+    img.constantes = (0x100, 16); // encima del codigo
+    assert_eq!(falta_de(&img), Falta::SeccionesSeSolapan);
+    let mut img = Imagen::buena();
+    img.anexos[1] = (bef2::ANEXO_FIRMA, 0x160, 8); // encima de los relocs
+    assert_eq!(falta_de(&img), Falta::SeccionesSeSolapan);
+}
+
+#[test]
+fn dos_regiones_pegadas_no_se_pisan() {
+    let mut img = Imagen::buena();
+    img.constantes = (0x140, 16);
+    img.datos = (0x150, 16);
     let b = img.bytes();
-    assert_eq!(revisar(&b, 700).map(|_| ()), Err(Falta::ImagenIncompleta));
+    assert!(revisar(&b, b.len()).is_ok());
 }
 
-/// `total_size = 0` se acepta: las imagenes que un kernel EMBEBE no pasan por el
-/// escritor y lo dejan sin poner. Exigirselo a quien nunca lo prometio seria
-/// dejar de arrancar.
 #[test]
-fn sin_tamano_declarado_no_se_exige_nada() {
+fn una_region_no_puede_salirse_del_fichero() {
     let mut img = Imagen::buena();
-    img.total_size = 0;
-    let b = img.bytes();
-    assert_eq!(revisar(&b, 768).map(|_| ()), Ok(()));
+    img.datos = (0x2F8, 16);
+    assert_eq!(falta_de(&img), Falta::SeccionFueraDelFichero);
+    // Ni una VACIA con el offset fuera: lo encontro la pasada hostil.
+    let mut img = Imagen::buena();
+    img.datos = (0xFFFF_0000, 0);
+    assert_eq!(falta_de(&img), Falta::SeccionFueraDelFichero);
 }
 
-/// Una seccion que promete bytes fuera del fichero.
 #[test]
-fn una_seccion_no_puede_salirse_del_fichero() {
+fn un_anexo_vacio_no_es_un_anexo() {
     let mut img = Imagen::buena();
-    img.secciones[0].2 = 700; // offset 700 + 256 = 956 > 768
-    assert_eq!(img.puerta(), Err(Falta::SeccionFueraDelFichero));
+    img.anexos[0] = (bef2::ANEXO_RELOCS, 0x160, 0);
+    assert_eq!(falta_de(&img), Falta::SeccionInvalida);
 }
 
-/// El punto de entrada fuera del codigo: saltaria a cualquier sitio.
 #[test]
 fn el_entry_no_puede_caer_fuera_del_codigo() {
     let mut img = Imagen::buena();
-    img.entry = 999;
-    assert_eq!(img.puerta(), Err(Falta::EntryFueraDelCodigo));
+    img.entrada = 64;
+    assert_eq!(falta_de(&img), Falta::EntryFueraDelCodigo);
 }
 
-/// Una seccion de codigo sin el bit de ejecutable: o miente el tipo o miente la
-/// bandera, y en cualquier caso no se mapea RX algo que no lo pide.
 #[test]
-fn el_codigo_tiene_que_declararse_ejecutable() {
+fn sin_codigo_no_hay_programa() {
     let mut img = Imagen::buena();
-    img.secciones[0].1 = 0;
-    assert_eq!(img.puerta(), Err(Falta::LaCodigoNoEsEjecutable));
+    img.codigo = (0x100, 0);
+    assert_eq!(falta_de(&img), Falta::SinCodigo);
 }
 
-/// Sin codigo no hay nada que ejecutar.
 #[test]
-fn sin_seccion_de_codigo_no_hay_programa() {
+fn sin_firma_no_pasa() {
     let mut img = Imagen::buena();
-    img.secciones[0].0 = DATA;
-    assert_eq!(img.puerta(), Err(Falta::SinCodigo));
-}
-
-/// `file_size > mem_size` es una seccion que trae mas bytes de los que dice
-/// ocupar: al copiarla se escribiria fuera de lo reservado.
-#[test]
-fn una_seccion_no_puede_traer_mas_de_lo_que_ocupa() {
-    let mut img = Imagen::buena();
-    img.secciones[0].4 = 128; // mem 128 < file 256
-    assert_eq!(img.puerta(), Err(Falta::SeccionInvalida));
-}
-
-/// Alineacion que no es potencia de dos: la cuenta de redondeo del cargador da
-/// basura silenciosa.
-#[test]
-fn la_alineacion_tiene_que_ser_potencia_de_dos() {
-    let mut img = Imagen::buena();
-    img.secciones[0].5 = 300;
-    assert_eq!(img.puerta(), Err(Falta::SeccionInvalida));
-}
-
-/// Extensiones de CPU que el sistema no sabe preservar en un cambio de contexto:
-/// un programa con AVX se corromperia en silencio a la primera interrupcion.
-#[test]
-fn una_extension_de_cpu_desconocida_se_rechaza() {
-    let mut img = Imagen::buena();
-    img.cpu = 1;
-    assert_eq!(img.puerta(), Err(Falta::ExtensionDeCpuQueNoSePreserva));
+    img.anexos.pop();
+    assert_eq!(falta_de(&img), Falta::CabeceraQueSeDesmiente);
 }
 
 #[test]
-fn lo_basico_de_la_cabecera() {
-    let mut otra_arch = Imagen::buena();
-    otra_arch.arch = 0x02;
-    assert_eq!(otra_arch.puerta(), Err(Falta::OtraArquitectura));
-
-    let mut otro_abi = Imagen::buena();
-    otro_abi.abi = (9, 0);
-    assert_eq!(otro_abi.puerta(), Err(Falta::OtraVersionDelAbi));
-
-    // ** El 1.0 ya no entra (2026-09-19): solo sabia llamar a la tabla v1.
-    let mut abi_1_0 = Imagen::buena();
-    abi_1_0.abi = (1, 0);
-    assert_eq!(abi_1_0.puerta(), Err(Falta::OtraVersionDelAbi));
-
-    let mut no_ejecutable = Imagen::buena();
-    no_ejecutable.flags = 0;
-    assert_eq!(no_ejecutable.puerta(), Err(Falta::NoEsEjecutable));
-
-    // * An unlinked object is refused naming the missing step, and even if a
-    // confused producer also set EXECUTABLE (2026-09-17).
-    let mut objeto = Imagen::buena();
-    objeto.flags = FLAG_OBJETO;
-    assert_eq!(objeto.puerta(), Err(Falta::EsUnObjetoSinEnlazar));
-    objeto.flags = FLAG_OBJETO | FLAG_EJECUTABLE;
-    assert_eq!(objeto.puerta(), Err(Falta::EsUnObjetoSinEnlazar));
-
+fn una_imagen_cortada_lo_dice_como_transporte() {
     let b = Imagen::buena().bytes();
-    let mut magia = b.clone();
-    magia[0] = b'X';
-    assert_eq!(revisar(&magia, 768).map(|_| ()), Err(Falta::CabeceraInvalida));
-
-    let mut version = b.clone();
-    version[4] = 9;
-    assert_eq!(revisar(&version, 768).map(|_| ()), Err(Falta::CabeceraInvalida));
-
-    assert_eq!(
-        revisar(&b[..20], 768).map(|_| ()),
-        Err(Falta::NoLlegaNiALaCabecera)
-    );
+    assert_eq!(revisar(&b, 700).err().unwrap(), Falta::ImagenIncompleta);
 }
 
-/// ** LA DISTINCION QUE VALE UNA TARDE: la tabla cabe en el FICHERO pero no en lo
-/// que se LEYO.
-///
-/// No es lo mismo que una imagen mal formada. Quien llama puede traer mas bytes y
-/// volver a preguntar, y por eso son dos faltas distintas y no una.
+#[test]
+fn demasiados_anexos() {
+    let mut img = Imagen::buena();
+    for i in 0..15u32 {
+        img.anexos.push((0x20 + i as u8, 0x200 + i * 16, 16));
+    }
+    assert_eq!(falta_de(&img), Falta::DemasiadasSecciones);
+}
+
 #[test]
 fn tabla_que_no_cabe_en_lo_leido_no_es_tabla_invalida() {
-    let img = Imagen::buena();
-    let b = img.bytes(); // 96 bytes: cabecera + una entrada
-    assert_eq!(revisar(&b[..60], 768).map(|_| ()), Err(Falta::TablaFueraDeLoLeido));
-    // Y si tampoco cabe en el fichero, eso ya es otra cosa.
-    assert_eq!(revisar(&b, 60).map(|_| ()), Err(Falta::ImagenIncompleta));
+    let mut img = Imagen::buena();
+    for i in 0..10u32 {
+        img.anexos.push((0x20 + i as u8, 0x200 + i * 16, 16));
+    }
+    let b = img.bytes();
+    // 64 + 12 * 16 = 256 > 200: se puede leer mas y volver.
+    assert_eq!(revisar(&b[..200], b.len()).err().unwrap(), Falta::TablaFueraDeLoLeido);
+    assert!(revisar(&b, b.len()).is_ok());
 }
 
-/// Mas secciones de las que la tabla admite. El numero viene del disco, asi que
-/// se comprueba antes de multiplicarlo por nada.
-#[test]
-fn demasiadas_secciones() {
-    let img = Imagen::buena();
-    let mut b = img.bytes();
-    b[40..44].copy_from_slice(&99u32.to_le_bytes());
-    assert_eq!(revisar(&b, 768).map(|_| ()), Err(Falta::DemasiadasSecciones));
-}
-
-/// ** Y NINGUNA MENTIRA PUEDE HACER QUE EL LECTOR SE SALGA.
-///
-/// El caso que de verdad importa: estos bytes vienen del disco, y el disco es de
-/// quien tenga la maquina. Se truca cada campo de la cabecera con el valor mas
-/// hostil que cabe, y **ninguno puede acabar en un panic** -- el crate compila
-/// con `#![forbid(unsafe_code)]` para que eso no sea una promesa sino una
-/// imposibilidad, pero un indexado fuera de rango tambien mata en Rust seguro.
 #[test]
 fn ningun_campo_trucado_puede_reventar_al_lector() {
     let base = Imagen::buena().bytes();
-    for campo in [24usize, 32, 40, 44] {
+    for campo in (4..64).step_by(4) {
         for valor in [u32::MAX, 0x8000_0000, 1, 0] {
             let mut b = base.clone();
             b[campo..campo + 4].copy_from_slice(&valor.to_le_bytes());
@@ -341,8 +264,8 @@ fn ningun_campo_trucado_puede_reventar_al_lector() {
             let _ = revisar(&b[..50], 768);
         }
     }
-    // Y la tabla de secciones entera, byte a byte.
-    for i in 48..base.len() {
+    // Y la tabla de anexos entera, byte a byte.
+    for i in 64..96 {
         let mut b = base.clone();
         b[i] = 0xFF;
         let _ = revisar(&b, 768);
@@ -355,14 +278,13 @@ fn ningun_campo_trucado_puede_reventar_al_lector() {
 #[test]
 fn los_recursos_no_cuentan_para_lo_que_hay_que_leer() {
     let mut img = Imagen::buena();
-    const RESOURCES: u8 = 0x0B;
-    img.secciones.push((RESOURCES, 0, 768, 1_000_000, 1_000_000, 8));
-    img.total_size = 1_000_768;
+    img.anexos.push((bef2::ANEXO_RECURSOS, 768, 1_000_000));
+    img.total = 1_000_768;
     let b = img.bytes();
-    let rev = revisar(&b, img.total_size as usize).expect("tiene que pasar");
+    let rev = revisar(&b, img.total as usize).expect("tiene que pasar");
     assert_eq!(
         rev.hasta_donde_hace_falta(),
-        768,
+        0x178,
         "el millon de bytes de recursos NO hay que traerlos para ejecutar"
     );
 }
@@ -450,8 +372,8 @@ fn un_offset_imposible_no_da_la_vuelta() {
 fn hostile_prologues_never_panic() {
     let one = Imagen::buena().bytes();
     let mut two = Imagen::buena();
-    two.secciones.push((DATA, 0, 768, 256, 256, 8));
-    two.total_size = 1024;
+    two.anexos.push((bef2::ANEXO_RECURSOS, 0x200, 256));
+    two.total = 1024;
     let two = two.bytes();
     bmo_hostile::attack("bex gate", bmo_hostile::DEFAULT_SEED, 30_000, &[&one, &two], 256, |x| {
         for size in [x.len(), x.len().saturating_sub(1), 768, 1024, usize::MAX] {
