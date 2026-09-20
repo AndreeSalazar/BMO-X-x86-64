@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   307 casillas ABIERTAS en 36 planes
-   224 hechas
+   306 casillas ABIERTAS en 36 planes
+   225 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -269,15 +269,6 @@
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 4 abiertas, 3 hechas
-
-*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
-
-- [ ] **B3 -- bmo-bex-gate y el cargador del kernel (task/bex.rs,
-- [ ] B4 -- bmo-enlazar, bmo-pack, bmo-firma, bmo-verify en BEF2.
-- [ ] B5 -- los emisores: escriben por bef/writer.rs, asi que casi nada.
-- ... y 1 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -295,6 +286,14 @@
 - [ ] sacar titular/ a platform/shared/bmo-marcos, con la tabla como
 - [ ] sus filas de banco -- las ocho reglas del DMA, en el anfitrion
 - ... y 1 mas
+
+## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 3 abiertas, 4 hechas
+
+*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
+
+- [ ] B4 -- bmo-enlazar, bmo-pack, bmo-firma, bmo-verify en BEF2.
+- [ ] B5 -- los emisores: escriben por bef/writer.rs, asi que casi nada.
+- [ ] **B6 -- regenerar los .bex de task/payloads/, DOOM y las apps, y
 
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 

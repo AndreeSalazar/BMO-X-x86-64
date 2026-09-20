@@ -182,8 +182,11 @@ Lo que cambia, y por que es BMO y no ELF:
   regiones en sitio fijo, anexos, `xcr0`, un reloc, firma obligatoria; 15
   filas con una mutacion por cada una de las 20 faltas. Prologo 112 B contra
   los 384 de BEF1. Nadie lo usa todavia.
-- [ ] **B3 -- `bmo-bex-gate` y el cargador del kernel (`task/bex.rs`,
-  `task/admitir.rs`) leen BEF2.**
+- [x] **B3 -- la PUERTA lee BEF2. HECHO el 2026-09-19** (`5ac020aa`):
+  `bmo-bex-gate/src/bef2.rs` y `revisar()` despacha por el magic. El kernel
+  (`task/bex.rs`, `task/admitir.rs`, `task/landing.rs`) NO cambia: las
+  regiones se le presentan como secciones con su tipo y su indice de hash, y
+  la entrada de firma de BEF2 son los mismos bytes que la de BEF1.
 - [ ] **B4 -- `bmo-enlazar`, `bmo-pack`, `bmo-firma`, `bmo-verify` en BEF2.**
 - [ ] **B5 -- los emisores**: escriben por `bef/writer.rs`, asi que casi nada.
 - [ ] **B6 -- regenerar los `.bex` de `task/payloads/`, DOOM y las apps, y
