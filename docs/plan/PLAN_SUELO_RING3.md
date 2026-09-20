@@ -1,5 +1,7 @@
 # PLAN SUELO RING 3 -- las tres cosas que hay que construir antes de bajar nada
 
+> Estado: **CERRADO** -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.
+
 > Escrito el **2026-08-26**, despues del censo de
 > [`RING3_MAESTRO.md`](../maestro/RING3_MAESTRO.md) y con el visto bueno del
 > dueno: *"si, tira por ahi, empieza con el suelo de Ring 3"*.

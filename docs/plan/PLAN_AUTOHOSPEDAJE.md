@@ -8,6 +8,7 @@
 >
 > Escrito el **2026-09-06**. Es el primer plan de esto en el arbol: se busco
 > `autohospeda`, `self-host` y `compilar en la maquina` y no habia ninguno.
+> Estado: **APARCADO** -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea `no_std` y que Ring 3 tenga monton y ficheros maduros (`PLAN_ESTRUCTURA.md` es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.
 
 ---
 

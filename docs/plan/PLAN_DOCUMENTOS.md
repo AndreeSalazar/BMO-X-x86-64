@@ -1,6 +1,6 @@
 # PLAN DE LOS DOCUMENTOS -- el escritorio deja de listar PROGRAMAS y lista lo que abres
 
-> Estado: **IDEA DEL DUENO, sin decidir a proposito.** Lo que hay aqui es el
+> Estado: **ESPERA** -- una decision del dueno (`.datex`, `.window`/`.data`): idea suya, sin decidir a proposito; lo que si existe ya es `CLASE_PANTALLA` en los requisitos del BEF. Lo que hay aqui es el
 > terreno medido -- que existe ya, que falta de verdad, y que cuesta cada
 > camino. La eleccion no esta tomada porque el dueno pidio pensarla mas, y un
 > plan que decide por el es un plan que le quita la decision.

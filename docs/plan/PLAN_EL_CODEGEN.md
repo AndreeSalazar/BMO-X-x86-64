@@ -1,5 +1,7 @@
 # PLAN EL CODEGEN -- 35 instrucciones para escribir 8 bytes
 
+> Estado: **SUPERADO** -- por `PLAN_EL_TROQUEL.md` (18/19-09): plegado (`decidir/plegado.rs`), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.
+
 > Escrito el **2026-09-09**, persiguiendo por que la expansion de DOOM costaba
 > 6.738 us por fotograma. La cuenta no cuadraba por un factor de cien, y la
 > respuesta no estaba en DOOM.

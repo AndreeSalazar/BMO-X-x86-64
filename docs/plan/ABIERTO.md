@@ -7,11 +7,15 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   301 casillas ABIERTAS en 36 planes
+   232 casillas ABIERTAS en 29 planes
    233 hechas
-     3 planes CUMPLIDOS (ni una casilla pendiente)
+     0 planes CUMPLIDOS (ni una casilla pendiente)
+    10 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
+       (sus 69 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
+
+Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 ---
 
@@ -35,15 +39,6 @@
 - [ ] 1.2 (S) La misma comprobacion en EXIT: una salida limpia tambien
 - ... y 14 mas
 
-## [`PLAN_EL_GUARDIAN.md`](PLAN_EL_GUARDIAN.md) -- 15 abiertas, 0 hechas
-
-*PLAN EL GUARDIAN -- BMO-X como aparato, no como invitado*
-
-- [ ] G1.1 -- una placa. VisionFive 2 / Milk-V, ~60-100 EUR. Sin PCIe
-- [ ] G1.2 -- backend RISC-V en el toolchain. El emisor de x86-64 vive en
-- [ ] G1.3 -- el arranque. No hay UEFI GOP: en RISC-V es SBI + device tree.
-- ... y 12 mas
-
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
 *PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe*
@@ -61,24 +56,6 @@
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
-
-## [`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md) -- 13 abiertas, 2 hechas
-
-*PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X*
-
-- [ ] 1a -- exp en INTI (dias). Lo unico que falta de matematicas --
-- [ ] 1b -- el reparto de nucleos en el ABI (semanas). plat/smp/crew.rs
-- [ ] 1c -- el motor de inferencia en INTI (semanas). El cargador de GGUF,
-- ... y 10 mas
-
-## [`PLAN_DOCUMENTOS.md`](PLAN_DOCUMENTOS.md) -- 12 abiertas, 0 hechas
-
-*PLAN DE LOS DOCUMENTOS -- el escritorio deja de listar PROGRAMAS y lista lo que abres*
-
-- [ ] un programa recibe QUE abrir: MI_DOCUMENTO, hermano de MI_PAQUETE
-- [ ] y decidir si viaja como DERECHO (capability) o como NOMBRE, sabiendo
-- [ ] o que el kernel sepa reabrir un fichero para reescribirlo sin
-- ... y 9 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 0 hechas
 
@@ -116,15 +93,6 @@
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
 - ... y 6 mas
 
-## [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) -- 9 abiertas, 0 hechas
-
-*PLAN EL CODEGEN -- 35 instrucciones para escribir 8 bytes*
-
-- [ ] C1 -- PLEGAR CONSTANTES. 1 * 8 es 8. Un operador binario con los
-- [ ] C2 -- LITERALES PEQUENOS SIN movabsq. movabsq $0x1,%rax son diez
-- [ ] C3 -- NO PASAR POR LA PILA CUANDO EL OTRO OPERANDO ES CONSTANTE.
-- ... y 6 mas
-
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -133,15 +101,6 @@
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 5 mas
-
-## [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) -- 7 abiertas, 1 hechas
-
-*PLAN DEL AUTOHOSPEDAJE -- que BMO-X compile SOBRE SI MISMO*
-
-- [ ] 1 la sonda del hueco quitar std de toolchain/lang/ada y CONTAR
-- [ ] 2 BTreeMap en Ada los 7 HashMap de toolchain/lang/ada
-- [ ] 4 ada como lib no_std toolchain/lang/ada/src/lib.rs con
-- ... y 4 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
@@ -161,15 +120,6 @@
 - [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
 - ... y 4 mas
 
-## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 7 abiertas, 0 hechas
-
-*PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
-
-- [ ] el tubo abre (A1) <- lo unico que bloquea M1, y es un ARRANQUE
-- [ ] M1 WAV dias despues del tubo
-- [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
-- ... y 4 mas
-
 ## [`PLAN_NUNCA_ADIVINA.md`](PLAN_NUNCA_ADIVINA.md) -- 7 abiertas, 3 hechas
 
 *PLAN -- NUNCA ADIVINA: lo que el compilador no puede saber, no lo supone*
@@ -178,15 +128,6 @@
 - [ ] A5 -- LA TABLA DEL UB, que era el encargo original
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
 - ... y 4 mas
-
-## [`PLAN_DOOM.md`](PLAN_DOOM.md) -- 6 abiertas, 3 hechas
-
-*El plan largo: de "BMO C compila 69 de 81" a "DOOM se juega en el Ryzen"*
-
-- [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
-- [ ] DOOM EN UNA VENTANA -- escrito el 2026-09-11, sin metal todavia
-- [ ] 2 A: tipar la binaria las 3 casillas nuevas en verde, y 449 sin
-- ... y 3 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
@@ -331,12 +272,20 @@
 
 ---
 
-# CUMPLIDOS -- todas sus casillas marcadas
+# CERRADOS, SUPERADOS, APARCADOS Y EN ESPERA -- cada uno con su motivo
 
-** No se archivan ni se mueven: siguen siendo la razon por la
-que algo se hizo asi, y eso se consulta mas que la casilla.
+** Lo dice el propio plan en su cabecera (`> Estado: ...`), y
+esta herramienta lo copia. Sus casillas sueltas no son deuda: o
+ya no aplican, o esperan a alguien que no es el codigo.
 
-- [`PLAN_ALMACENAMIENTO.md`](PLAN_ALMACENAMIENTO.md) -- 5 hechas, 205 lineas
-- [`PLAN_EL_PERFIL_TOTAL.md`](PLAN_EL_PERFIL_TOTAL.md) -- 8 hechas, 611 lineas
-- [`PLAN_SUELO_RING3.md`](PLAN_SUELO_RING3.md) -- 4 hechas, 316 lineas
+- **APARCADO** [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
+- **APARCADO** [`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md) -- decision del dueno (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(2 hechas, 13 sueltas)*
+- **APARCADO** [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- la respuesta a "VLC" es un no con motivo (parte 1); lo alcanzable (parte 4) vive en PLAN_AUDIO.md (A1 negado por el metal, sin ejecutar desde el 26-08) y en PLAN_CLOUD_LOCAL.md S4 (MPEG-1 por la antena). Se retoma cuando el tubo abra en el Ryzen.  *(0 hechas, 7 sueltas)*
+- **CERRADO** [`PLAN_ALMACENAMIENTO.md`](PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
+- **CERRADO** [`PLAN_DOOM.md`](PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(3 hechas, 6 sueltas)*
+- **CERRADO** [`PLAN_EL_PERFIL_TOTAL.md`](PLAN_EL_PERFIL_TOTAL.md) -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en PERFIL/.  *(8 hechas, 0 sueltas)*
+- **CERRADO** [`PLAN_SUELO_RING3.md`](PLAN_SUELO_RING3.md) -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.  *(4 hechas, 0 sueltas)*
+- **ESPERA** [`PLAN_DOCUMENTOS.md`](PLAN_DOCUMENTOS.md) -- una decision del dueno (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
+- **SUPERADO** [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
+- **SUPERADO** [`PLAN_EL_GUARDIAN.md`](PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
 

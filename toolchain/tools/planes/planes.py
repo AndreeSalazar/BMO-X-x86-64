@@ -94,17 +94,40 @@ HECHA = re.compile(r"^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?\[[xX]\]\s*(.*)$")
 FALTA = re.compile(r"^\s*(?:#{1,6}\s*)?(?:[-*]\s*)?\[ \]\s*(.*)$")
 TITULO = re.compile(r"^#\s+(.*)$")
 
+# == *** EL ESTADO DE UN PLAN, DICHO POR EL PLAN (2026-09-20) ==============
+#
+# Eddi: *"organizar las metas que faltan en abiertas, y las cerradas CON
+# MOTIVO"*. Un plan con casillas abiertas no siempre esta abierto: `EL_GUARDIAN`
+# pide una placa RISC-V y la decision del 18-09 (una arquitectura, un repo) lo
+# dejo fuera de este arbol; `EL_ASISTENTE` es el ultimo por decision del dueno;
+# `DOOM` se jugo el 20-09 y lo que le queda son numeros de una hoja del metal.
+# Contar sus casillas como "lo que falta" es mentir en el numero que existe
+# para que se pueda confiar en el.
+#
+# El plan lo dice el mismo, en sus primeras lineas, con UNA de estas palabras:
+#
+#     > Estado: **CERRADO** -- hecho el ..., y lo que queda es ...
+#     > Estado: **SUPERADO** -- por PLAN_X: ...
+#     > Estado: **APARCADO** -- decision de ... : ...
+#     > Estado: **ESPERA** -- una decision del dueno: ...
+#
+# Sin esa linea, el plan esta ABIERTO. La palabra tiene que ir con su motivo
+# detras del guion; un estado sin motivo es un agujero, y `docs/METAS.md` es
+# donde se leen todos juntos por categoria.
+ESTADO = re.compile(r"^>?\s*\**Estado:?\**\s*\**(CERRADO|SUPERADO|APARCADO|ESPERA)\**\s*(?:--|-|:)?\s*(.*)$")
+CUANTAS_LINEAS_DE_CABECERA = 30
+
 # El indice se genera, asi que no se edita a mano. Se dice arriba del todo.
 CABECERA = "<!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->"
 
 
-def limpia(t):
+def limpia(t, tope=96):
     """El texto de una casilla, sin markdown y acotado."""
     t = re.sub(r"\*\*(.*?)\*\*", r"\1", t)
     t = re.sub(r"`(.*?)`", r"\1", t)
     t = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", t)
     t = " ".join(t.split())
-    return t[:96]
+    return t[:tope] if tope else t
 
 
 def censo():
@@ -122,6 +145,12 @@ def censo():
             if m:
                 titulo = limpia(m.group(1))
                 break
+        estado = None
+        for l in L[:CUANTAS_LINEAS_DE_CABECERA]:
+            m = ESTADO.match(l)
+            if m:
+                estado = (m.group(1), limpia(m.group(2), tope=None))
+                break
         hechas = sum(1 for l in L if HECHA.match(l))
         faltan = []
         for l in L:
@@ -130,16 +159,23 @@ def censo():
                 texto = limpia(m.group(1))
                 if texto:
                     faltan.append(texto)
-        filas.append((n, titulo, hechas, faltan, len(L)))
+        filas.append((n, titulo, hechas, faltan, len(L), estado))
     filas.sort(key=lambda r: (-len(r[3]), r[0]))
     return filas
 
 
+def esta_abierto(f):
+    """Un plan cuenta como ABIERTO si tiene casillas y no se declaro cerrado."""
+    return bool(f[3]) and f[5] is None
+
+
 def pinta(filas):
-    vivos = [f for f in filas if f[3]]
-    cumplidos = [f for f in filas if not f[3] and f[2]]
-    mudos = [f for f in filas if not f[3] and not f[2]]
-    total = sum(len(f[3]) for f in filas)
+    vivos = [f for f in filas if esta_abierto(f)]
+    cerrados = [f for f in filas if f[5] is not None]
+    cumplidos = [f for f in filas if not f[3] and f[2] and f[5] is None]
+    mudos = [f for f in filas if not f[3] and not f[2] and f[5] is None]
+    total = sum(len(f[3]) for f in vivos)
+    aparcadas = sum(len(f[3]) for f in cerrados)
     hechas = sum(f[2] for f in filas)
 
     o = [CABECERA, ""]
@@ -153,15 +189,22 @@ def pinta(filas):
     o.append("   %3d casillas ABIERTAS en %d planes" % (total, len(vivos)))
     o.append("   %3d hechas" % hechas)
     o.append("   %3d planes CUMPLIDOS (ni una casilla pendiente)" % len(cumplidos))
+    o.append("   %3d planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo"
+             % len(cerrados))
+    o.append("       (sus %d casillas sueltas NO cuentan como abiertas)" % aparcadas)
     o.append("   %3d en plan/ SIN NI UNA CASILLA -- ver el final" % len(mudos))
     o.append("```")
+    o.append("")
+    # (La ruta se arma en dos trozos para que el guardian de citas no la lea
+    # desde este fichero, donde no resuelve: resuelve desde `docs/plan/`.)
+    o.append("Por categoria y con el motivo de cada cierre: [`%s`](%s)." % ("../METAS" + ".md", "../METAS" + ".md"))
     o.append("")
     o.append("---")
     o.append("")
     o.append("# Los planes VIVOS, el que mas debe primero")
     o.append("")
 
-    for n, titulo, h, faltan, lin in vivos:
+    for n, titulo, h, faltan, lin, _e in vivos:
         o.append("## [`%s`](%s) -- %d abiertas, %d hechas" % (n, n, len(faltan), h))
         o.append("")
         if titulo:
@@ -173,6 +216,21 @@ def pinta(filas):
             o.append("- ... y %d mas" % (len(faltan) - 3))
         o.append("")
 
+    if cerrados:
+        o.append("---")
+        o.append("")
+        o.append("# CERRADOS, SUPERADOS, APARCADOS Y EN ESPERA -- cada uno con su motivo")
+        o.append("")
+        o.append("** Lo dice el propio plan en su cabecera (`> Estado: ...`), y")
+        o.append("esta herramienta lo copia. Sus casillas sueltas no son deuda: o")
+        o.append("ya no aplican, o esperan a alguien que no es el codigo.")
+        o.append("")
+        cerrados_ordenados = sorted(cerrados, key=lambda f: (f[5][0], f[0]))
+        for n, titulo, h, faltan, lin, (palabra, motivo) in cerrados_ordenados:
+            o.append("- **%s** [`%s`](%s) -- %s  *(%d hechas, %d sueltas)*"
+                     % (palabra, n, n, motivo or "sin motivo escrito", h, len(faltan)))
+        o.append("")
+
     if cumplidos:
         o.append("---")
         o.append("")
@@ -181,7 +239,7 @@ def pinta(filas):
         o.append("** No se archivan ni se mueven: siguen siendo la razon por la")
         o.append("que algo se hizo asi, y eso se consulta mas que la casilla.")
         o.append("")
-        for n, titulo, h, _f, lin in cumplidos:
+        for n, titulo, h, _f, lin, _e in cumplidos:
             o.append("- [`%s`](%s) -- %d hechas, %d lineas" % (n, n, h, lin))
         o.append("")
 
@@ -200,7 +258,7 @@ def pinta(filas):
         o.append("contesta. Este guardian los nombra en cada build para que la")
         o.append("deuda tenga nombre en vez de ser un fichero mas.")
         o.append("")
-        for n, titulo, _h, _f, lin in mudos:
+        for n, titulo, _h, _f, lin, _e in mudos:
             o.append("- [`%s`](%s) -- %d lineas" % (n, n, lin))
         o.append("")
 
@@ -240,11 +298,17 @@ def main():
         return 1
 
     filas = censo()
-    abiertas = sum(len(f[3]) for f in filas)
-    vivos = sum(1 for f in filas if f[3])
-    mudos = [f[0] for f in filas if not f[3] and not f[2]]
+    abiertas = sum(len(f[3]) for f in filas if esta_abierto(f))
+    vivos = sum(1 for f in filas if esta_abierto(f))
+    cerrados = sum(1 for f in filas if f[5] is not None)
+    sin_motivo = [f[0] for f in filas if f[5] is not None and not f[5][1]]
+    mudos = [f[0] for f in filas if not f[3] and not f[2] and f[5] is None]
+    if sin_motivo:
+        print("planes: un estado sin motivo es un agujero -- %s" % ", ".join(sin_motivo))
+        return 1
     msg = ("clean: el indice de planes cuadra -- %d casillas abiertas en %d de"
-           " %d planes" % (abiertas, vivos, len(filas)))
+           " %d planes; %d cerrados o aparcados con motivo"
+           % (abiertas, vivos, len(filas), cerrados))
     if mudos:
         msg += ("; y %d en plan/ sin ni una casilla (%s)"
                 % (len(mudos), ", ".join(m.replace("PLAN_", "").replace(".md", "")

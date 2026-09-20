@@ -1,5 +1,7 @@
 # PLAN EL GUARDIAN -- BMO-X como aparato, no como invitado
 
+> Estado: **SUPERADO** -- por la decision del 2026-09-18 (el guardian `isa`, `toolchain/tools/isa/isa.py`: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.
+
 > Escrito el **2026-09-08**. La idea es del dueno, y la trajo asi:
 >
 > > *"si crean un PCI con RISC-V donde BMO-X vive gracias a DMA, se convierte en

@@ -1,5 +1,7 @@
 # PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X
 
+> Estado: **APARCADO** -- decision del dueno (2026-09-10, `EL_ORDEN.md`): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.
+
 > Escrito el 2026-08-23, el dia que entraron AVX2 y el monton grande.
 >
 > **Este documento fusiona cuatro que ya existian** y que contestaban trozos de

@@ -1,5 +1,7 @@
 # El plan largo: de "BMO C compila 69 de 81" a "DOOM se juega en el Ryzen"
 
+> Estado: **CERRADO** -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (`docs/metal/METAL_2026-09-18.md`, 3b), no casillas de DOOM.
+
 > Escrito el **2026-08-08**, el dia que la sonda paso de 0 a 69 ficheros sueltos
 > y el unity build empezo a parsear las 56.465 lineas enteras.
 >

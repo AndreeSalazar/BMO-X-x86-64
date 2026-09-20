@@ -1,5 +1,7 @@
 # PLAN DE ALMACENAMIENTO -- repartir la pila de disco
 
+> Estado: **CERRADO** -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en `dev/disk/`).
+
 > Escrito el 2026-08-14. Mismo formato que `PLAN_DOOM.md` y `PLAN_BANCA.md`:
 > casillas ordenadas, cada una con **que la bloquea** y **como se sabe que
 > quedo hecha**.

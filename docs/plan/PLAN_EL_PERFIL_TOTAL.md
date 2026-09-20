@@ -1,5 +1,7 @@
 # PLAN EL PERFIL TOTAL -- todo lo que ESTA maquina puede dar sin comprar nada
 
+> Estado: **CERRADO** -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en `PERFIL/`.
+
 > Escrito el 2026-08-24, a peticion del dueno: *"me gustaria plan total, TODO lo
 > que es perfil a base de mi PC para construir. El plan alcanzable, lo que hay,
 > menos la GPU."*

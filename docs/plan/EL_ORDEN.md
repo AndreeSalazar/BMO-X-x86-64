@@ -7,6 +7,11 @@
 > [`ABIERTO.md`](ABIERTO.md) dice **QUE** falta -- 162 casillas en 22 planes. Lo
 > que no existia es **QUE VA PRIMERO**, y eso no es una lista mas larga: es un
 > criterio.
+>
+> ** 20-09: el CRITERIO de la seccion 1 sigue en pie y es el que ordena. La
+> LISTA de abajo es del 10-09 (hoy hay 39 planes y 232 casillas): lo que se ha
+> cerrado desde entonces, y por que, esta en [`../METAS.md`](../METAS.md), por
+> categoria. Esta pagina no se reescribe: se lee con su fecha.
 
 ---
 

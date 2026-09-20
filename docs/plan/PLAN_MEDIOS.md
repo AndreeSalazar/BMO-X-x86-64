@@ -1,5 +1,7 @@
 # PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay
 
+> Estado: **APARCADO** -- la respuesta a "VLC" es un no con motivo (parte 1); lo alcanzable (parte 4) vive en `PLAN_AUDIO.md` (A1 negado por el metal, sin ejecutar desde el 26-08) y en `PLAN_CLOUD_LOCAL.md` S4 (MPEG-1 por la antena). Se retoma cuando el tubo abra en el Ryzen.
+
 > Escrito el **2026-08-26**, a peticion del dueno: *"analizar el VLC como
 > objetivo para meter esa app en mi BMO-X"*.
 >

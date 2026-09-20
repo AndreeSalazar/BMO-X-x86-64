@@ -181,7 +181,21 @@ Los ocho declaran seguir el metodo de `SMP_MAESTRO.md`.
 El formato, dicho por `PLAN_ALMACENAMIENTO.md`: *"casillas ordenadas, cada una
 con **que la bloquea** y **como se sabe que quedo hecha**"*.
 
-### ★★ [`EL_ORDEN.md`](plan/EL_ORDEN.md) -- **que va PRIMERO**
+### ★★★ [`METAS.md`](METAS.md) -- **las metas por CATEGORIA, abiertas y cerradas CON MOTIVO**
+
+Pedido por Eddi el 20-09. Vive en `docs/` y no en `plan/` porque no es un plan:
+es la vista de TODOS los planes agrupados por lo que persiguen (formato,
+lenguajes, metal, escritorio, red, seguridad, comunidad), y cada meta dice en
+que estado esta y por que: HECHA con fecha, SUPERADA por que decision, APARCADA
+hasta que, o ESPERA de que decision del dueno.
+
+** Y trae una regla que la herramienta hace cumplir: un plan cerrado, superado,
+aparcado o en espera lo DICE en su cabecera (`> Estado: **PALABRA** -- motivo`),
+no se mueve de `plan/` (sigue siendo la razon por la que algo se hizo asi), y
+sus casillas sueltas dejan de contar como deuda en `ABIERTO.md`. Un estado sin
+motivo pone el build en rojo.
+
+### ★★ [`EL_ORDEN.md`](plan/EL_ORDEN.md) -- **que va PRIMERO** (el criterio; la lista es del 10-09)
 
 `ABIERTO.md` dice que falta. Este dice **en que orden**, con el criterio
 delante: lo que DESBLOQUEA, lo que CORRIGE UNA MENTIRA, lo que ya esta medido,
@@ -199,9 +213,11 @@ Son **26 planes y 10.803 lineas**. Para saber que queda pendiente habia que
 abrirlos uno a uno y contar a mano, asi que no lo hacia nadie y la respuesta a
 *"que falta"* salia de la memoria en vez de salir del arbol.
 
-`ABIERTO.md` es el mapa de las **126 casillas abiertas**, ordenado por el que
-mas debe. Lo genera `toolchain/tools/planes` y **el build comprueba que dice lo
-mismo que los planes**, asi que no puede envejecer sin ponerse rojo.
+`ABIERTO.md` es el mapa de las casillas abiertas (232 el 20-09, en 29 de 39
+planes), ordenado por el que mas debe, y debajo los 10 planes cerrados,
+superados, aparcados o en espera con el motivo que cada uno declara. Lo genera
+`toolchain/tools/planes` y **el build comprueba que dice lo mismo que los
+planes**, asi que no puede envejecer sin ponerse rojo.
 
 ```bash
 python toolchain/tools/planes/planes.py --apply    # tras marcar una casilla
@@ -292,7 +308,9 @@ se deshace va al final.**
 | [`METAL_2026-08-25.md`](metal/METAL_2026-08-25.md) | **2026-08-25** | lo que hay que teclear, y las DOS que pueden impedir el arranque |
 | [`METAL_2026-09-07.md`](metal/METAL_2026-09-07.md) | **2026-09-07** | la purga: el fallo que ya tenia receta y veredicto |
 | [`METAL_2026-09-10.md`](metal/METAL_2026-09-10.md) | **2026-09-10** | seis preguntas y UN arranque. Contesto: `y callo` en microsegundos, y las 320 columnas de DOOM visitadas -- **el fallo del fondo no esta en las columnas** |
-| [`METAL_2026-09-11.md`](metal/METAL_2026-09-11.md) | **2026-09-11** | ★ **la vigente**: la semana de los vatios. Los TRES cortes de Ring 0 (arranca?), W0/W1, W4b y la primera medida de R-APP8 -- minimizar DOOM y ver si bajan los vatios |
+| [`METAL_2026-09-11.md`](metal/METAL_2026-09-11.md) | **2026-09-11** | la semana de los vatios. Los TRES cortes de Ring 0 (arranca?), W0/W1, W4b y la primera medida de R-APP8 -- minimizar DOOM y ver si bajan los vatios. Sin contestar |
+| [`METAL_2026-09-13.md`](metal/METAL_2026-09-13.md) | **2026-09-13** | la red: la RTL8168 RECIBIO (5 -> 14 tramas, malas 0), y lo que quedo por fotografiar |
+| [`METAL_2026-09-18.md`](metal/METAL_2026-09-18.md) | **2026-09-18** | ★ **la vigente**: el enlazador, el emisor de C (3b), **BEF2 (3c, 20-09)**, C++, la red por dentro, la antena. El 20-09 el Ryzen contesto la mitad: arranca en BEF2 y DOOM se juega; faltan los NUMEROS |
 
 ### ⚠ Las dos cosas que esta tabla existe para decir
 
