@@ -449,13 +449,45 @@ pub struct ProgramRecord {
     pub code_len: u64,
     /// `false` = el BEX no paso la admision (formato, memoria, slots).
     pub admitted: bool,
+
+    // -- Lo que el BEF2 DECLARO y lo que el cargador hizo con ello (2026-09-20)
+    //
+    // Eddi: *"con el SAVE ese mismo tiene que redactar TODO"*. El cargador
+    // sabia todo esto en el momento de admitir y lo tiraba; el escritorio solo
+    // podia decir "pid y MiB". Ahora cada programa deja su ficha: que regiones
+    // trajo y cuanto miden, que extensiones de CPU declaro, cuantas relocs se
+    // aplicaron, cuantos cierres cuadraron con su hash, y QUIEN lo firmo.
+    /// Bytes en memoria de cada region, por `Cual`: codigo, constantes, datos,
+    /// ceros. Cero = no la trae.
+    pub regiones: [u32; 4],
+    /// Los componentes XSAVE que la imagen declaro (`xcr0` de la cabecera).
+    pub xcr0: u64,
+    /// Relocs aplicadas sobre las regiones ya copiadas.
+    pub relocs: u16,
+    /// Cierres (regiones y relocs) que CUADRARON con su hash.
+    pub cuadran: u8,
+    /// Cierres sin hash con el que comparar (una imagen embebida no promete).
+    pub sin_hash: u8,
+    /// `FIRMA_*`: que dijo el gate de autoria.
+    pub firma: u8,
+    /// Indice de la clave en el ancla, cuando `firma == FIRMA_FIRMADO`.
+    pub clave: u8,
 }
+
+/// La imagen no trae tabla de hashes (las que el kernel embebe).
+pub const FIRMA_SIN_TABLA: u8 = 0;
+/// Trae hashes y `ALGO_NINGUNO`: dice "llego lo que se escribio", no quien.
+pub const FIRMA_SOLO_INTEGRIDAD: u8 = 1;
+/// Ed25519 cuadra Y la clave esta en el ancla: se sabe QUIEN.
+pub const FIRMA_FIRMADO: u8 = 2;
 
 const MAX_PROGRAMS: usize = 8;
 const EMPTY_RECORD: ProgramRecord = ProgramRecord {
     tag: "", name: "", pid: 0, tid: 0,
     image_bytes: 0, code_bytes: 0, sections: 0, entry_va: 0,
     code_va: 0, code_len: 0, admitted: false,
+    regiones: [0; 4], xcr0: 0, relocs: 0, cuadran: 0, sin_hash: 0,
+    firma: FIRMA_SIN_TABLA, clave: 0,
 };
 static mut PROGRAMS: [ProgramRecord; MAX_PROGRAMS] = [EMPTY_RECORD; MAX_PROGRAMS];
 static mut PROGRAM_COUNT: usize = 0;
@@ -488,11 +520,7 @@ pub(crate) fn record_open(tag: &'static str, name: &'static str, pid: u32, image
             PROGRAM_COUNT = MAX_PROGRAMS - 1;
             PROGRAMS_OLVIDADOS += 1;
         }
-        PROGRAMS[PROGRAM_COUNT] = ProgramRecord {
-            tag, name, pid, tid: 0, image_bytes,
-            code_bytes: 0, sections: 0, entry_va: 0,
-            code_va: 0, code_len: 0, admitted: false,
-        };
+        PROGRAMS[PROGRAM_COUNT] = ProgramRecord { tag, name, pid, image_bytes, ..EMPTY_RECORD };
         PROGRAM_COUNT += 1;
     }
 }
@@ -524,6 +552,11 @@ pub fn rango_de_codigo(pid: u32) -> Option<(u64, u64)> {
         }
     }
     None
+}
+
+/// La ficha `i` del registro, para `INFO_PROG_*`. `None` = no hay tal.
+pub fn programa(i: usize) -> Option<&'static ProgramRecord> {
+    programs().get(i)
 }
 
 /// Todos los programas que el kernel ha intentado ejecutar.

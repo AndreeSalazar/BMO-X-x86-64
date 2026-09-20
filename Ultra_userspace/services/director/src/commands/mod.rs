@@ -39,6 +39,9 @@ pub(crate) mod antenista;
 pub(crate) mod reports;
 /// Lo que `save` no decia y CABINA si: usb, prestamos, avisos (2026-09-17).
 pub(crate) mod save_cabina;
+/// `save` sin tema: el informe MAESTRO, siete capitulos en un fichero, y la
+/// ficha BEF2 de cada programa (2026-09-20).
+pub(crate) mod save_maestro;
 /// La TIPOGRAFIA de los informes: filas, barras y unidades. Salio de `reports`
 /// el 12-09 porque alli convivian dos clases de coste -- lo que pregunta a la
 /// maquina (DATO) y lo que solo coloca un numero (NADA). Ver su cabecera.

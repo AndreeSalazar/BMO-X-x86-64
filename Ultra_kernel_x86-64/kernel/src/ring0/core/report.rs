@@ -211,6 +211,13 @@ const INFO_CPU_CACHE_L1D: u64 = 0x73;
 const INFO_CPU_CACHE_L1I: u64 = 0x74;
 const INFO_CPU_CACHE_L2: u64 = 0x75;
 const INFO_CPU_CACHE_L3: u64 = 0x76;
+// ** LA FICHA DE CADA PROGRAMA (2026-09-20): lo que su BEF2 declaro y lo que
+// el cargador hizo con ello. El indice en los bits altos, como
+// `INFO_MEM_QUIEN_*`; el formato de cada campo esta en el ABI.
+const INFO_PROG_QUIEN: u64 = 0x77;
+const INFO_PROG_IMAGEN: u64 = 0x78;
+const INFO_PROG_REGION: u64 = 0x79;
+const INFO_PROG_CIERRE: u64 = 0x7A;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -378,6 +385,9 @@ const INFO_TXT_EXT_NOMBRE: u64 = 0x05;
 const INFO_TXT_EXT_NOTA: u64 = 0x06;
 const INFO_TXT_USB_QUE_ES: u64 = 0x07;
 const INFO_TXT_USB_MOTIVO: u64 = 0x08;
+/// El nombre y la etiqueta ("C", "INTI") del programa `n >> 8` del registro.
+const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
+const INFO_TXT_PROG_TAG: u64 = 0x0A;
 
 const PAGE: u64 = 4096;
 
@@ -519,6 +529,43 @@ pub fn campo(n: u64) -> Option<u64> {
             crate::ring0::dev::usb::portero::veredicto_de((c >> 8) as usize)
         }
         INFO_PRESTAMOS => crate::ring0::obj::loan::resumen(),
+        // La ficha del programa `n >> 8`. Cero = no hay tal programa, y el
+        // cero es la condicion de parada del que recorre.
+        c if c & 0xFF == INFO_PROG_QUIEN => {
+            match crate::ring0::task::proc::programa((c >> 8) as usize) {
+                Some(r) => (r.pid as u64 & 0xFFFF)
+                    | ((r.tid as u64 & 0xFFFF) << 16)
+                    | ((r.sections as u64) << 32)
+                    | ((r.firma as u64) << 40)
+                    | ((r.clave as u64) << 48)
+                    | ((r.admitted as u64) << 63),
+                None => 0,
+            }
+        }
+        c if c & 0xFF == INFO_PROG_IMAGEN => {
+            match crate::ring0::task::proc::programa((c >> 8) as usize) {
+                Some(r) => (r.image_bytes as u64) | ((r.code_bytes as u64) << 32),
+                None => 0,
+            }
+        }
+        // `n >> 8` = programa * 4 + region (0 codigo, 1 constantes, 2 datos,
+        // 3 ceros): bytes en memoria de esa region.
+        c if c & 0xFF == INFO_PROG_REGION => {
+            let i = (c >> 8) as usize;
+            match crate::ring0::task::proc::programa(i / 4) {
+                Some(r) => r.regiones[i % 4] as u64,
+                None => 0,
+            }
+        }
+        c if c & 0xFF == INFO_PROG_CIERRE => {
+            match crate::ring0::task::proc::programa((c >> 8) as usize) {
+                Some(r) => (r.relocs as u64)
+                    | ((r.cuadran as u64) << 16)
+                    | ((r.sin_hash as u64) << 24)
+                    | ((r.xcr0 & 0xFFFF_FFFF) << 32),
+                None => 0,
+            }
+        }
         INFO_CPU_CACHE_L1D | INFO_CPU_CACHE_L1I | INFO_CPU_CACHE_L2 | INFO_CPU_CACHE_L3 => {
             use crate::ring0::cpu_vendor::ryzen_5_5600x::{bmo_cpu, cache};
             let esperada = cache::esperado_5600x();
@@ -761,7 +808,14 @@ pub fn campo(n: u64) -> Option<u64> {
 /// campo de otros, quien lo escribe esta mirando esta funcion.
 pub fn es_de_otros(n: u64) -> bool {
     let base = n & 0xFF;
-    base == INFO_MEM_QUIEN_PID || base == INFO_MEM_QUIEN_BYTES || base == INFO_MEM_QUIEN_PETICIONES
+    base == INFO_MEM_QUIEN_PID
+        || base == INFO_MEM_QUIEN_BYTES
+        || base == INFO_MEM_QUIEN_PETICIONES
+        // La ficha de cada programa tambien es de los demas.
+        || base == INFO_PROG_QUIEN
+        || base == INFO_PROG_IMAGEN
+        || base == INFO_PROG_REGION
+        || base == INFO_PROG_CIERRE
 }
 
 /// La topologia, **por el perfil y no por el nombre del fabricante**.
@@ -796,6 +850,13 @@ pub fn texto(n: u64, trozo: u64) -> u64 {
         }
         c if c & 0xFF == INFO_TXT_USB_MOTIVO => {
             crate::ring0::dev::usb::portero::motivo_de((c >> 8) as usize)
+        }
+        c if c & 0xFF == INFO_TXT_PROG_NOMBRE || c & 0xFF == INFO_TXT_PROG_TAG => {
+            match crate::ring0::task::proc::programa((c >> 8) as usize) {
+                Some(r) if c & 0xFF == INFO_TXT_PROG_NOMBRE => r.name,
+                Some(r) => r.tag,
+                None => "",
+            }
         }
         c if c & 0xFF == INFO_TXT_EXT_NOMBRE || c & 0xFF == INFO_TXT_EXT_NOTA => {
             let i = (c >> 8) as usize;

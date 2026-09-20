@@ -210,12 +210,18 @@ pub(crate) fn write(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8], text
 /// [!] La ruta se distingue del tema por **igualdad exacta**: `mem` es el tema y
 /// `mem.txt` es una ruta. Adivinar cual queria seria escribir en el sitio
 /// equivocado, que en un disco es peor que no escribir.
+///
+/// `apps` lleva las dos tablas de programas: la memoria pedida y la ficha
+/// BEF2 (2026-09-20). `disco` y `autopsia` entraron el mismo dia: eran los dos
+/// capitulos del maestro que no se podian pedir sueltos.
 fn tema(arg: &[u8]) -> Option<(&'static [u8], u8)> {
     match arg {
         b"cpu" => Some((b"datos/cpu.txt", 0)),
         b"mem" | b"ram" => Some((b"datos/mem.txt", 1)),
         b"consumo" | b"gasto" | b"w" => Some((b"datos/consumo.txt", 2)),
-        b"apps" | b"programas" => Some((b"datos/apps.txt", 3)),
+        b"apps" | b"programas" | b"bef" => Some((b"datos/apps.txt", 3)),
+        b"disco" => Some((b"datos/disco.txt", 4)),
+        b"autopsia" => Some((b"datos/autopsia.txt", 5)),
         _ => None,
     }
 }
@@ -232,7 +238,12 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
             0 => super::reports::report_cpu(&mut dsk.out.grid, dsk.tick.consumo.ultimo),
             1 => super::reports::report_memory(&mut dsk.out.grid),
             2 => super::reports::report_consumo(&mut dsk.out.grid, &dsk.tick),
-            _ => super::reports::report_apps(&mut dsk.out.grid),
+            3 => {
+                super::reports::report_apps(&mut dsk.out.grid);
+                super::save_maestro::report_programas(&mut dsk.out.grid);
+            }
+            4 => super::reports::report_disco(&mut dsk.out.grid),
+            _ => super::reports::report_autopsy(&mut dsk.out.grid),
         }
         let (from, to) = dsk.out.grid.rows_since(marca);
         match dump_output(&dsk.out.grid, dest, from, to) {
@@ -262,31 +273,19 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     }
 
     let dest = if arg.is_empty() { DEFAULT_DUMP } else { arg };
-    // ** LA TABLA DE CONSUMO VA DENTRO DEL VOLCADO, y va ANTES de tomar el
-    // rango para que entre en el fichero.
+    // ** `save` A SECAS ES EL INFORME MAESTRO (2026-09-20): la sesion y
+    // despues TODO lo que la maquina sabe decir, en siete capitulos y siempre
+    // en el mismo orden. Hasta hoy era el historial con la tabla de consumo
+    // pegada al final --una mitad de la maquina--, y cada vez que hacia falta
+    // la otra mitad habia que pedir otro arranque con un informe puesto a
+    // mano. Este `.txt` es lo unico que cruza del Ryzen al otro lado, y en
+    // esta maquina un viaje se mide en reinicios.
     //
-    // El motivo es el bucle de trabajo real: este `.txt` es lo unico que cruza
-    // del Ryzen al otro lado, y hasta hoy llegaba contando lo que hizo el
-    // programa **sin decir en que estado estaba la maquina**. Cada vez que hacia
-    // falta esa mitad --cuanta RAM quedaba, a que reloj iba, cuantos nucleos en
-    // pie-- habia que pedir otro arranque con un `info` puesto a mano.
-    //
-    // Ahora todo volcado la lleva. Cuesta veinte lineas de texto y ahorra un
-    // viaje entero, que en esta maquina se mide en reinicios.
-    //
-    // [!] Y por eso se pinta aqui y no en `dump_output`: lo que se guarda es el
-    // historial de la PANTALLA, asi que para que algo salga en el fichero tiene
-    // que estar antes en la pantalla. Escribirlo solo al fichero seria tener dos
-    // caminos de salida que pueden decir cosas distintas.
-    super::reports::report_consumo(&mut dsk.out.grid, &dsk.tick);
-    // El rango se toma ANTES de escribir nada:
-    // los mensajes de abajo son de esta orden, no
-    // de lo que se estaba guardando, y colarlos
-    // dentro haria que el archivo hablara de si
-    // mismo.
-    let (from, to) = dsk.out.grid.all_rows();
-    match dump_output(&dsk.out.grid, dest, from, to) {
-        Ok(bytes) => {
+    // Sigue pasando TODO por la pantalla (un solo camino de salida: lo que
+    // esta en el fichero se vio); el porque va por capitulos esta en la
+    // cabecera de `save_maestro.rs`.
+    match super::save_maestro::maestro(dsk, dest) {
+        Ok((bytes, lineas)) => {
             dsk.out.grid.with_ink(INK_GOOD);
             dsk.out.grid.text(b"  guardado en ");
             dsk.out.grid.text(dest);
@@ -295,9 +294,9 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
             let k = decimal(bytes as u64, &mut d);
             dsk.out.grid.text(&d[..k]);
             dsk.out.grid.text(b" bytes, ");
-            let k = decimal((to - from + 1) as u64, &mut d);
+            let k = decimal(lineas as u64, &mut d);
             dsk.out.grid.text(&d[..k]);
-            dsk.out.grid.text(b" lineas\n");
+            dsk.out.grid.text(b" lineas, 7 capitulos\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             paint_status(&p, &dsk.run_box, "volcado", INK_OK);
         }

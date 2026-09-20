@@ -321,7 +321,11 @@ pub(crate) fn admit_payload_desde(
     // [!] Va AQUI y no en `launch.rs` porque aqui es donde la seccion de firma
     // ya esta en memoria. En `launch` solo hay el prologo, y la seccion
     // `Signature` esta al final del fichero.
+    // Lo que dijo el gate de autoria, para la ficha del programa.
+    let mut firma_estado = FIRMA_SIN_TABLA;
+    let mut firma_clave = 0u8;
     if let Some(f) = firmas.as_ref() {
+        firma_estado = FIRMA_SOLO_INTEGRIDAD;
         let mut ancla = [[0u8; confianza::CLAVE]; 8];
         let cuantas = confianza::claves(&mut ancla);
         let tam_firma = plan.firma.bytes as usize;
@@ -349,6 +353,8 @@ pub(crate) fn admit_payload_desde(
                 if let bmo_firma::Veredicto::Firmado { clave } = v {
                     // Y cuando SI, se dice QUIEN. Un `si` no distingue a nadie.
                     crate::ring0::cabina::info("firma", confianza::nombre(clave), clave as u64);
+                    firma_estado = FIRMA_FIRMADO;
+                    firma_clave = clave as u8;
                 }
             }
         }
@@ -466,6 +472,7 @@ pub(crate) fn admit_payload_desde(
     }
 
     let mut sin_firma = 0usize;
+    let mut cuadran = 0usize;
 
     // * PASE 2: reservar, copiar, CERRAR, PARCHEAR y mapear.
     let mut entry_va: u64 = 0;
@@ -532,7 +539,7 @@ pub(crate) fn admit_payload_desde(
         let mut cierre = landing::Aterrizaje::abrir(plan.relocs.que, esperado);
         cierre.trozo(dst);
         match cierre.cerrar() {
-            Ok(landing::Cierre::Cuadra) => {}
+            Ok(landing::Cierre::Cuadra) => cuadran += 1,
             Ok(landing::Cierre::SinFirma) => sin_firma += 1,
             Err(_) => {
                 set_status("relocs corruptas");
@@ -833,7 +840,7 @@ pub(crate) fn admit_payload_desde(
         // cuadra" cuando ya hay tres secciones mapeadas y ninguna pista de por
         // donde empezar a mirar.
         match cierre.cerrar() {
-            Ok(landing::Cierre::Cuadra) => {}
+            Ok(landing::Cierre::Cuadra) => cuadran += 1,
             Ok(landing::Cierre::SinFirma) => sin_firma += 1,
             Err(_) => {
                 // ** ESTO ERA MUDO PARA CABINA, y era el sospechoso principal.
@@ -963,6 +970,16 @@ pub(crate) fn admit_payload_desde(
             r.code_va = code_va;
             r.code_len = code_len;
             r.admitted = true;
+            // La ficha BEF2: lo que declaro y lo que se hizo con ello.
+            for s in &plan.regiones[..plan.cuantas] {
+                r.regiones[s.cual as usize] = s.mem_size as u32;
+            }
+            r.xcr0 = plan.xcr0;
+            r.relocs = total_relocs.min(u16::MAX as usize) as u16;
+            r.cuadran = cuadran.min(u8::MAX as usize) as u8;
+            r.sin_hash = sin_firma.min(u8::MAX as usize) as u8;
+            r.firma = firma_estado;
+            r.clave = firma_clave;
         }
     }
     Some(tid)

@@ -406,6 +406,42 @@ pub const INFO_CPU_CACHE_L1I: u64 = 0x74;
 pub const INFO_CPU_CACHE_L2: u64 = 0x75;
 pub const INFO_CPU_CACHE_L3: u64 = 0x76;
 
+/// -- ** LA FICHA DE CADA PROGRAMA (2026-09-20) -----------------------------
+///
+/// Eddi: *"con el SAVE ese mismo tiene que redactar TODO"*. El cargador sabia
+/// todo esto al admitir un `.bex` y lo tiraba; el escritorio solo podia decir
+/// "pid y MiB". Ahora el registro de programas del kernel (8 fichas, las mas
+/// viejas se caen y `INFO_PROGRAMAS_OLVIDADOS` las cuenta) se lee entero desde
+/// Ring 3: lo que el BEF2 DECLARO y lo que el cargador hizo con ello.
+///
+/// El indice del programa viaja en `n >> 8`, como en `INFO_MEM_QUIEN_*`; el
+/// nombre y la etiqueta salen por `OP_INFO_TEXTO` con `INFO_TXT_PROG_*`.
+/// **Cero = no hay tal programa**, y es la condicion de parada. Son campos de
+/// OTROS (piden la autoridad LANZAR, que el escritorio tiene).
+///
+/// `INFO_PROG_QUIEN`:
+/// ```text
+///    bits  0..15   pid
+///    bits 16..31   tid
+///    bits 32..39   regiones que trajo (1..=4)
+///    bits 40..47   firma: 0 sin tabla de hashes (imagen embebida), 1 solo
+///                  integridad (ALGO_NINGUNO), 2 Ed25519 y la clave en el ancla
+///    bits 48..55   indice de la clave en el ancla, cuando firma == 2
+///    bit  63       admitido (0 = no paso la puerta)
+/// ```
+pub const INFO_PROG_QUIEN: u64 = 0x77;
+/// `[0..32)` bytes del fichero, `[32..64)` bytes mapeados en el proceso.
+pub const INFO_PROG_IMAGEN: u64 = 0x78;
+/// **Dos indices**: `n >> 8` = `programa * 4 + region`, con la region como en
+/// la cabecera de BEF2 (0 codigo, 1 constantes, 2 datos, 3 ceros). Bytes en
+/// memoria de esa region; 0 = no la trae.
+pub const INFO_PROG_REGION: u64 = 0x79;
+/// El cierre: `[0..16)` relocs aplicadas, `[16..24)` cierres que CUADRARON con
+/// su hash (regiones + relocs), `[24..32)` cierres sin hash con el que
+/// comparar, `[32..64)` el `xcr0` que la imagen declaro (los 32 bits bajos,
+/// que son los que existen).
+pub const INFO_PROG_CIERRE: u64 = 0x7A;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de
@@ -1123,6 +1159,10 @@ pub const INFO_TXT_EXT_NOTA: u64 = 0x06;
 pub const INFO_TXT_USB_QUE_ES: u64 = 0x07;
 /// Que se hizo con la ficha `n >> 8`, con las palabras de CABINA.
 pub const INFO_TXT_USB_MOTIVO: u64 = 0x08;
+/// El nombre del programa `n >> 8` del registro ("c/cubo.bex"), y su etiqueta
+/// ("C", "INTI", "asm"). Vacio si no hay tal programa. Ver [`INFO_PROG_QUIEN`].
+pub const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
+pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
 
 /// Campos de [`TASK_OP_KLOG_INFO`].
 pub const KLOG_DISPONIBLES: u64 = 0x00;

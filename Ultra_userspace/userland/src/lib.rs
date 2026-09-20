@@ -370,6 +370,13 @@ pub const INFO_CPU_CACHE_L1D: u64 = 0x73;
 pub const INFO_CPU_CACHE_L1I: u64 = 0x74;
 pub const INFO_CPU_CACHE_L2: u64 = 0x75;
 pub const INFO_CPU_CACHE_L3: u64 = 0x76;
+/// La ficha del programa `n >> 8`: lo que su BEF2 declaro y lo que el cargador
+/// hizo con ello. El formato de cada campo esta en el ABI (`informe.rs`).
+pub const INFO_PROG_QUIEN: u64 = 0x77;
+pub const INFO_PROG_IMAGEN: u64 = 0x78;
+/// `n >> 8` = `programa * 4 + region` (0 codigo, 1 constantes, 2 datos, 3 ceros).
+pub const INFO_PROG_REGION: u64 = 0x79;
+pub const INFO_PROG_CIERRE: u64 = 0x7A;
 
 /// El metro de la puerta: puertas servidas y ciclos dentro de `dispatch`.
 /// **Se leen como DELTA** -- antes y despues del bucle que se quiera medir.
@@ -803,6 +810,9 @@ pub const INFO_TXT_EXT_NOMBRE: u64 = 0x05;
 pub const INFO_TXT_EXT_NOTA: u64 = 0x06;
 pub const INFO_TXT_USB_QUE_ES: u64 = 0x07;
 pub const INFO_TXT_USB_MOTIVO: u64 = 0x08;
+/// El nombre y la etiqueta del programa `n >> 8` del registro.
+pub const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
+pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
 
 // Operaciones sobre un handle de directorio (`KIND_DIRECTORIO`).
 pub const DIR_OP_SIGUIENTE: u32 = 0x01;
