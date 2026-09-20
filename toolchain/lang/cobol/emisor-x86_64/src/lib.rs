@@ -81,18 +81,14 @@ pub fn compile_source_to_bex(source: &str) -> Result<Vec<u8>, CobolError> {
     validate_generated_bex(bytes)
 }
 
+/// **Nada sale de aqui sin pasar por el juez del formato** (BEF2 desde el
+/// 2026-09-19). Es el mismo que corre en la puerta del kernel, asi que lo que
+/// este compilador escriba y pase por aqui, carga.
 fn validate_generated_bex(bytes: Vec<u8>) -> Result<Vec<u8>, CobolError> {
-    let validation = bmo_abi::bex::validate(&bytes);
-    if validation.is_valid {
-        return Ok(bytes);
+    match bmo_abi::bef2::leer(&bytes) {
+        Ok(_) => Ok(bytes),
+        Err(f) => Err(CobolError::new(0, format!("generated invalid BEF: {}", f.nombre()))),
     }
-
-    let details = validation.issues.iter()
-        .filter(|issue| matches!(issue.severity, bmo_abi::bef::validator::IssueSeverity::Error))
-        .map(|issue| issue.message.as_str())
-        .collect::<Vec<_>>()
-        .join("; ");
-    Err(CobolError::new(0, format!("generated invalid BEF: {details}")))
 }
 
 /// Los decodificadores del visor: los de `bmo-lower`, al lado de sus gemelos
@@ -140,6 +136,6 @@ STOP RUN.
         // Pipeline NUEVO completo: tokens -> AST -> BEF (ejecutable real).
         let bef = crate::codegen::compile_to_bef_bytes(&prog).unwrap();
         assert!(bef.len() > 48, "el BEF debe tener cabecera + codigo");
-        assert_eq!(&bef[..4], b"BEF1"); // magic del contenedor
+        assert_eq!(&bef[..4], b"BEF2"); // magic del contenedor
     }
 }

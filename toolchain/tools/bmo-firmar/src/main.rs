@@ -184,7 +184,7 @@ fn generar(destino: &Path) -> Result<(), String> {
 }
 
 fn firmar(ruta: &Path, clave: &Path) -> Result<(), String> {
-    let mut b = std::fs::read(ruta).map_err(|e| format!("no se pudo leer {}: {e}", ruta.display()))?;
+    let b = std::fs::read(ruta).map_err(|e| format!("no se pudo leer {}: {e}", ruta.display()))?;
     let f = bex::Bex::abrir(&b)?;
 
     // == 1. NO SE FIRMA LO QUE NO SE HA COMPROBADO =======================
@@ -204,7 +204,10 @@ fn firmar(ruta: &Path, clave: &Path) -> Result<(), String> {
     let (secreta, publica) = llave::leer(clave)?;
     let cadena = f.cadena(&b);
     let sig = bmo_cripto::ed25519::firmar(&secreta, &cadena);
-    f.estampar(&mut b, &sig, &publica)?;
+    // ** BEF2: la imagen se REESCRIBE con la firma dentro (ver `bex.rs`). La
+    // cadena que se acaba de firmar tiene que ser la de la imagen nueva, y eso
+    // se comprueba abajo con el crate del kernel, no se supone.
+    let b = f.estampar(&b, &sig, &publica)?;
     std::fs::write(ruta, &b).map_err(|e| format!("no se pudo escribir: {e}"))?;
 
     println!("cadena  {}", llave::en_hex(&cadena));
@@ -215,6 +218,9 @@ fn firmar(ruta: &Path, clave: &Path) -> Result<(), String> {
     // No con una comprobacion de aqui. Lo que decida `bmo-firma` es literalmente
     // lo que decidira `task/admitir.rs` en el Ryzen sobre estos mismos bytes.
     let f2 = bex::Bex::abrir(&b)?;
+    if f2.cadena(&b) != cadena {
+        return Err("la cadena de la imagen reescrita no es la que se firmo -- no se toca el fichero hasta entender esto".into());
+    }
     let v = bmo_firma::examinar(f2.seccion(&b), &f2.cadena(&b), &[publica]);
     match v {
         bmo_firma::Veredicto::Firmado { .. } => {
@@ -232,7 +238,7 @@ fn firmar(ruta: &Path, clave: &Path) -> Result<(), String> {
 fn ver(ruta: &Path, ancla_hex: &[String]) -> Result<(), String> {
     let b = std::fs::read(ruta).map_err(|e| format!("no se pudo leer {}: {e}", ruta.display()))?;
     let f = bex::Bex::abrir(&b)?;
-    println!("seccion Signature en 0x{:X}, {} bytes", f.sec_off, f.sec_len);
+    println!("anexo de firma en 0x{:X}, {} bytes", f.sec_off, f.sec_len);
     println!("digests   {}", f.cuantos);
     println!("sig_algo  {}", f.algo(&b));
 

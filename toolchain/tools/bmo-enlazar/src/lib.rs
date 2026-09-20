@@ -338,33 +338,28 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
     let entry = sitio_de(&sitio[principal.unidad], SectionKind::Code) + entry_en_unidad;
 
     // -- 6. Escribir y verificar. --
-    let mut b = BefBuilder::new();
+    // ** El ejecutable sale en BEF2 (2026-09-19). Los OBJETOS que entran siguen
+    // siendo BEF1 mientras dure la mudanza: un `.bo` nunca llega al kernel, y
+    // convertirlos es el ultimo escalon (B6 de `docs/plan/PLAN_BEF_NATIVO.md`).
+    let mut b = bmo_abi::bef2::Escritor::ejecutable();
     let quiere_pantalla = unidades.iter().any(|(_, bytes)| {
         let f = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]);
         BefFlags::from_bits_truncate(f).contains(BefFlags::WANTS_SCREEN)
     });
     if quiere_pantalla {
-        b.header.flags |= BefFlags::WANTS_SCREEN.bits();
+        b.quiere_pantalla();
     }
-    b.entry_offset = entry;
+    b.entrada(entry as u32);
 
-    let mut code_sec = BefSection::code(code);
-    code_sec.alignment = PAGINA as u16;
-    b.add_section(code_sec);
+    b.codigo(code);
     if !rodata.is_empty() {
-        let mut s = BefSection::rodata(rodata);
-        s.alignment = PAGINA as u16;
-        b.add_section(s);
+        b.constantes(rodata);
     }
     if !data.is_empty() {
-        let mut s = BefSection::data(data);
-        s.alignment = PAGINA as u16;
-        b.add_section(s);
+        b.datos(data);
     }
     if bss > 0 {
-        let mut s = BefSection::bss(bss);
-        s.alignment = PAGINA as u16;
-        b.add_section(s);
+        b.ceros(bss as u32);
     }
 
     // Los simbolos de FUNCION, ya con su sitio definitivo: es lo que convierte
@@ -396,13 +391,32 @@ pub fn enlazar_informado(unidades: &[(String, Vec<u8>)], poda: bool) -> Result<I
         }
     }
     if !entradas.is_empty() {
-        b.add_section(BefSection::symbols(entradas, cadenas));
+        b.anexo(
+            bmo_abi::bef2::ANEXO_SIMBOLOS,
+            bmo_abi::bef::writer::simbolos_en_bytes(&entradas, &cadenas),
+        );
     }
-    if !salida.is_empty() {
-        b.add_section(BefSection::relocs(salida));
+    for r in salida {
+        // ** En BEF2 un reloc nombra REGIONES. Lo que sale del enlazado es
+        // siempre `SeccionAbs64`: los `Rel32` a simbolos ya se resolvieron aqui
+        // dentro, que es para lo que existe un enlazador.
+        let (Some(donde), Some(destino)) = (
+            bmo_abi::bef2::Region::de_seccion_de_emisor(r.target_section),
+            bmo_abi::bef2::Region::de_seccion_de_emisor(r.symbol_idx as u8),
+        ) else {
+            return Err(Fallo::NoPasaElGate(vec![String::from(
+                "un reloc de salida nombra una seccion que no existe",
+            )]));
+        };
+        b.reloc(bmo_abi::bef2::Reloc {
+            donde,
+            destino,
+            offset: r.offset as u32,
+            addend: r.addend as u64,
+        });
     }
 
-    let bytes = b.build().unwrap_or_default();
+    let bytes = b.construir().unwrap_or_default();
     if let bmo_verify::Verdict::Rejected(razones) = bmo_verify::verify(&bytes) {
         return Err(Fallo::NoPasaElGate(razones));
     }

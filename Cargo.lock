@@ -233,6 +233,7 @@ dependencies = [
 name = "bmo-firmar"
 version = "0.1.0"
 dependencies = [
+ "bmo-abi",
  "bmo-cripto",
  "bmo-firma",
  "bmo-hash",

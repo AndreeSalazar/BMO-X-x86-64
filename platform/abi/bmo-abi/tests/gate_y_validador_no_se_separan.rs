@@ -335,7 +335,7 @@ fn la_puerta_dice_cuanto_hay_que_traer_de_un_bef2() {
 /// leer BEF2-- todas estas filas fallan en la primera linea.
 #[test]
 fn los_dos_rechazan_las_mismas_mentiras_de_un_bef2() {
-    let cambios: [(&str, fn(&mut Vec<u8>)); 8] = [
+    let cambios: [(&str, fn(&mut Vec<u8>)); 10] = [
         ("otro abi", |i| i[4] = 9),
         ("bandera inventada", |i| i[5] |= 1 << 6),
         ("reservado sucio", |i| i[6] = 1),
@@ -346,6 +346,15 @@ fn los_dos_rechazan_las_mismas_mentiras_de_un_bef2() {
         ("codigo fuera del fichero", |i| {
             i[28..32].copy_from_slice(&0xFFFF_0000u32.to_le_bytes())
         }),
+        // ** Las dos las encontro la pasada hostil (19-09): una region VACIA
+        // con el offset fuera del fichero pasaba al lector (no ocupa sitio) y
+        // luego rebanarla panicaba; y un anexo vacio lo tragaba el lector y lo
+        // rechazaba la puerta. Los dos jueces contestan lo mismo, y es NO.
+        ("region vacia fuera del fichero", |i| {
+            i[40..44].copy_from_slice(&0xFFFF_0000u32.to_le_bytes()); // datos: offset
+            i[44..48].copy_from_slice(&0u32.to_le_bytes()); // datos: 0 bytes
+        }),
+        ("anexo vacio", |i| i[64 + 8..64 + 12].copy_from_slice(&0u32.to_le_bytes())),
     ];
     for (que, cambio) in cambios {
         let mut img = bef2_buena();

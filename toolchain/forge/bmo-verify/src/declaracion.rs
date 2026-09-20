@@ -30,13 +30,34 @@ use bmo_abi::bef::sections::SectionKind;
 
 use crate::Verdict;
 
+/// Los bytes del CODIGO, venga del formato que venga.
+fn codigo_de(bef: &[u8]) -> Option<&[u8]> {
+    if crate::es_bef2(bef) {
+        let v = bmo_abi::bef2::leer(bef).ok()?;
+        let c = v.region(bmo_abi::bef2::Region::Codigo);
+        return if c.is_empty() { None } else { Some(c) };
+    }
+    paquete::seccion(bef, SectionKind::Code)
+}
+
 /// Los bytes del manifiesto, si el binario lo trae.
 ///
 /// No lo interpreta: **este crate no sabe TOML y no tiene por que**. Quien
 /// escribio el manifiesto sabe leerlo; aqui solo se comprueba que exista y que
 /// sea texto.
 pub fn manifiesto(bef: &[u8]) -> Option<&[u8]> {
-    paquete::seccion(bef, SectionKind::Manifest)
+    trozo(bef, bmo_abi::bef2::ANEXO_MANIFIESTO, SectionKind::Manifest)
+}
+
+/// Los bytes de un anexo (BEF2) o de su seccion equivalente (BEF1).
+///
+/// ** Los dos caminos mientras dure la mudanza, y ni uno mas: cuando BEF1 se
+/// borre (B6 de `docs/plan/PLAN_BEF_NATIVO.md`), aqui queda una linea.
+fn trozo(bef: &[u8], anexo: u8, kind: SectionKind) -> Option<&[u8]> {
+    if crate::es_bef2(bef) {
+        return bmo_abi::bef2::leer(bef).ok()?.anexo(anexo);
+    }
+    paquete::seccion(bef, kind)
 }
 
 /// **`verify()` mas una exigencia: que el binario declare lo que es.**
@@ -107,7 +128,7 @@ pub fn exige_katanas(bef: &[u8]) -> Verdict {
     if !base.is_ok() {
         return base;
     }
-    let tabla = match paquete::seccion(bef, SectionKind::Katanas) {
+    let tabla = match trozo(bef, bmo_abi::bef2::ANEXO_KATANAS, SectionKind::Katanas) {
         Some(t) => t,
         None => {
             return Verdict::Rejected(vec![String::from(
@@ -115,7 +136,7 @@ pub fn exige_katanas(bef: &[u8]) -> Verdict {
             )])
         }
     };
-    let codigo = match paquete::seccion(bef, SectionKind::Code) {
+    let codigo = match codigo_de(bef) {
         Some(c) => c,
         None => {
             return Verdict::Rejected(vec![String::from(

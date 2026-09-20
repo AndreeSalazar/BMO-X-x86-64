@@ -26,18 +26,10 @@ use bmo_abi::bef::sections::{SectionEntry, SectionKind};
 use bmo_abi::bef::symbols::{name_hash, Symbol};
 
 /// Los bytes de una seccion por su tipo, o `None` si no esta.
-fn seccion(bef: &[u8], kind: SectionKind) -> Option<&[u8]> {
-    let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-    let tabla = hdr.section_table_offset as usize;
-    for i in 0..hdr.section_count as usize {
-        let e = tabla + i * SectionEntry::SIZE;
-        if bef[e] == kind as u8 {
-            let off = u64::from_le_bytes(bef[e + 8..e + 16].try_into().unwrap()) as usize;
-            let sz = u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap()) as usize;
-            return Some(&bef[off..off + sz]);
-        }
-    }
-    None
+/// Los bytes del anexo de SIMBOLOS (BEF2, 2026-09-19). Antes esto recorria la
+/// tabla de secciones a mano; ahora se pide por su tipo.
+fn seccion(bef: &[u8], _kind: bmo_abi::bef::sections::SectionKind) -> Option<&[u8]> {
+    bmo_abi::bef2::leer(bef).ok()?.anexo(bmo_abi::bef2::ANEXO_SIMBOLOS)
 }
 
 /// Los simbolos de un `.bex`, ya emparejados con su nombre.

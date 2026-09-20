@@ -219,6 +219,17 @@ pub(crate) fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>
         fin_tabla,
     };
 
+    // -- Una region VACIA no se presenta al kernel, pero su offset tiene que
+    // caer dentro del fichero igual que en `bef2::lector`: la pasada hostil
+    // encontro una de 0 bytes en el 65536 de un fichero de 704, y los dos
+    // jueces tienen que contestar lo mismo.
+    for o in [24usize, 32, 40] {
+        let (off, len) = tramo(prologo, o).ok_or(Falta::NoLlegaNiALaCabecera)?;
+        if off.saturating_add(len) > total as u64 {
+            return Err(Falta::SeccionFueraDelFichero);
+        }
+    }
+
     // -- Cada trozo dentro del fichero, y ninguno pisando a otro -------------
     let mut hay_codigo = false;
     let mut tam_codigo = 0u64;
@@ -250,11 +261,6 @@ pub(crate) fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>
         }
         if s.kind == SIGNATURE {
             hay_firma = true;
-        }
-        if s.kind == 0x08 {
-            // Simbolos en un EJECUTABLE: enlazo estatico, no hay nada que
-            // resolver. Llevarlos es peso y superficie.
-            return Err(Falta::EnlazadoDinamico);
         }
     }
     let n = rev.cuantas();

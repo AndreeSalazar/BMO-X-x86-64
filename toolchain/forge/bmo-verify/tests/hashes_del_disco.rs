@@ -65,8 +65,16 @@ fn secciones(d: &[u8]) -> Vec<Seccion> {
 
 /// `Err(motivo)` en el primer digest que no cuadre.
 fn comprobar(d: &[u8]) -> Result<usize, String> {
+    // ** BEF2 (2026-09-19): el juez del contrato comprueba cada hash contra
+    // sus bytes al abrir la imagen; si abre, cuadran. Lo que se cuenta es lo
+    // que declara el anexo de firma. BEF1 sigue debajo hasta B6.
+    if d.len() >= 4 && &d[..4] == b"BEF2" {
+        let v = bmo_abi::bef2::leer(d).map_err(|f| format!("BEF2: {}", f.nombre()))?;
+        let firma = v.anexo(bmo_abi::bef2::ANEXO_FIRMA).ok_or("BEF2 sin anexo de firma")?;
+        return Ok(u32::from_le_bytes(firma[..4].try_into().unwrap()) as usize);
+    }
     if d.len() < 48 || &d[..4] != b"BEF1" {
-        return Err("no es un BEF1".into());
+        return Err("ni BEF2 ni BEF1".into());
     }
     let secs = secciones(d);
     let firma = match secs.iter().find(|s| s.kind == SECTION_SIGNATURE) {

@@ -20,7 +20,7 @@
 //! ## Lo que este programa NO decide
 //!
 //! Nada del formato. La disposicion del indice vive en
-//! `bmo_abi::bef::recursos` y la reemision en `bmo_abi::bef::paquete`, las dos
+//! `bmo_abi::bef::recursos` y la reemision en `bmo_abi::bef2::paquete`, las dos
 //! con sus filas en el anfitrion. Aqui solo hay lectura de argumentos y de
 //! ficheros -- si esta herramienta y el kernel discreparan alguna vez sobre
 //! donde empieza un recurso, seria porque alguien escribio el formato dos
@@ -30,7 +30,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use bmo_abi::bef::paquete;
+use bmo_abi::bef2::paquete;
 
 fn uso() -> ExitCode {
     eprintln!(

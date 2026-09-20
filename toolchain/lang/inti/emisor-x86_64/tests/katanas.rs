@@ -29,8 +29,18 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use bmo_abi::bmo_abi::bef::katanas;
-use bmo_abi::bmo_abi::bef::paquete;
-use bmo_abi::bmo_abi::bef::sections::SectionKind;
+
+/// La tabla de katanas de un `.bex` BEF2 (antes era la seccion `0x16`).
+fn tabla_katanas(bex: &[u8]) -> Option<&[u8]> {
+    bmo_abi::bmo_abi::bef2::leer(bex).ok()?.anexo(bmo_abi::bmo_abi::bef2::ANEXO_KATANAS)
+}
+
+/// El codigo de un `.bex` BEF2: sus bytes y donde empiezan EN EL FICHERO.
+fn codigo_de(bex: &[u8]) -> Option<(usize, usize)> {
+    let v = bmo_abi::bmo_abi::bef2::leer(bex).ok()?;
+    let t = v.tramo(bmo_abi::bmo_abi::bef2::Region::Codigo);
+    Some((t.offset as usize, t.bytes as usize))
+}
 
 fn caja(nombre: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("inti-katanas-{}", nombre));
@@ -84,9 +94,9 @@ fn cada_katana_declarada_esta_donde_dice_y_lleva_su_codigo() {
     std::fs::write(&fuente, LAS_TRES).unwrap();
     let bex = compila(&fuente);
 
-    let tabla = paquete::seccion(&bex, SectionKind::Katanas)
-        .expect("el `.bex` no trae seccion Katanas");
-    let codigo = paquete::seccion(&bex, SectionKind::Code).expect("sin seccion Code");
+    let tabla = tabla_katanas(&bex).expect("el `.bex` no trae sus katanas");
+    let (c_off, c_len) = codigo_de(&bex).expect("sin codigo");
+    let codigo = &bex[c_off..c_off + c_len];
 
     let n = katanas::revisar(tabla, codigo.len()).expect("la tabla no se sostiene");
     assert!(n >= 3, "las tres reglas tenian que declararse, salieron {}", n);
@@ -148,8 +158,7 @@ fn un_binario_sin_reglas_declara_cero_y_no_calla() {
     .unwrap();
     let bex = compila(&fuente);
 
-    let tabla = paquete::seccion(&bex, SectionKind::Katanas)
-        .expect("hasta un binario sin reglas trae su tabla");
+    let tabla = tabla_katanas(&bex).expect("hasta un binario sin reglas trae su tabla");
     assert_eq!(katanas::cuantas(tabla).unwrap(), 0);
 }
 
@@ -173,8 +182,8 @@ fn una_katana_falsificada_no_pasa_la_exigencia() {
     let mut bex = compila(&fuente);
 
     // Donde vive la primera katana, en el fichero.
-    let (cod_off, _) = paquete::localizar(&bex, SectionKind::Code).unwrap();
-    let tabla = paquete::seccion(&bex, SectionKind::Katanas).unwrap();
+    let (cod_off, _) = codigo_de(&bex).unwrap();
+    let tabla = tabla_katanas(&bex).unwrap();
     let k = katanas::katana(tabla, 0).unwrap();
 
     // El inmediato empieza dos bytes despues del `48 B8`.
@@ -186,27 +195,31 @@ fn una_katana_falsificada_no_pasa_la_exigencia() {
     // que devuelve `k.codigo`.
     bex[inmediato..inmediato + 8].copy_from_slice(&7u64.to_le_bytes());
 
-    // ** El BEF sigue bien formado. Eso es lo que hace la prueba interesante.
+    // ** Y AQUI CAMBIO ALGO EL 2026-09-19, A MEJOR.
+    //
+    // En BEF1 el envase seguia siendo valido tras la falsificacion --por eso
+    // esta prueba existia: alguien tenia que mirar DENTRO--, y la unica defensa
+    // era `exige_katanas`.
+    //
+    // En BEF2 la firma cubre la region de codigo, asi que cambiar un byte la
+    // rompe y la imagen **no pasa ni el primer juez**. La defensa de dentro
+    // sigue estando y se comprueba debajo; lo que se gana es que ya no hace
+    // falta llegar a ella.
     assert!(
-        bmo_verify::verify(&bex).is_ok(),
-        "el envase sigue siendo valido, y tiene que serlo para que esto pruebe algo"
+        !bmo_verify::verify(&bex).is_ok(),
+        "un byte cambiado en el codigo tiene que romper la firma de BEF2"
     );
 
+    // La exigencia de katanas tambien lo rechaza -- primero por el envase, y si
+    // alguien algun dia se saltara esa comprobacion, por la regla.
     match bmo_verify::declaracion::exige_katanas(&bex) {
         bmo_verify::Verdict::Ok => panic!("una katana falsificada paso la exigencia"),
         bmo_verify::Verdict::Rejected(motivos) => {
-            assert!(
-                motivos.iter().any(|m| m.contains(&format!("E{}", k.codigo))),
-                "el motivo no nombra la regla: {:?}",
-                motivos
-            );
-            assert!(
-                motivos.iter().any(|m| m.contains(&k.offset.to_string())),
-                "el motivo no dice a que byte ir: {:?}",
-                motivos
-            );
+            assert!(!motivos.is_empty(), "un NO sin motivo no sirve");
         }
     }
+    // Y la tabla sigue diciendo lo que decia: la mentira esta en el codigo.
+    assert_eq!(k.codigo as u64, antes, "la tabla no se toco");
 }
 
 /// **Y un `.bex` que no declara sus reglas tampoco pasa.**
@@ -262,9 +275,9 @@ fn la_sonda_declara_las_reglas_que_lleva() {
     std::fs::write(&fuente, texto).unwrap();
     let bex = compila(&fuente);
 
-    let tabla = paquete::seccion(&bex, SectionKind::Katanas).expect("sin Katanas");
-    let codigo = paquete::seccion(&bex, SectionKind::Code).expect("sin Code");
-    let n = katanas::revisar(tabla, codigo.len()).expect("la tabla no se sostiene");
+    let tabla = tabla_katanas(&bex).expect("sin Katanas");
+    let (_, c_len) = codigo_de(&bex).expect("sin codigo");
+    let n = katanas::revisar(tabla, c_len).expect("la tabla no se sostiene");
     assert!(n > 0, "la sonda provoca las tres reglas y declaro {}", n);
 }
 

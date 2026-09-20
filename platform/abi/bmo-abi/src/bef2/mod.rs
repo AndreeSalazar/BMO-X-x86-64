@@ -40,12 +40,15 @@
 
 mod escritor;
 mod lector;
+/// Una app es UN fichero: el .bex con sus recursos dentro.
+pub mod paquete;
 
 #[cfg(test)]
 mod pruebas;
 
 pub use escritor::{Escritor, Requisito};
-pub use lector::{leer, Falta, Vista};
+pub use lector::{leer, Anexo, Falta, Tramo, Vista};
+pub use paquete::{directorio, empaquetar, localizar_recursos};
 
 /// `b"BEF2"` en little-endian.
 pub const MAGIC: u32 = u32::from_le_bytes(*b"BEF2");
@@ -101,6 +104,22 @@ pub enum Region {
 }
 
 impl Region {
+    /// **La numeracion que usan los emisores por dentro** (`SEC_CODE = 0`,
+    /// `SEC_DATA = 1`, `SEC_RODATA = 2`), que NO es la de las regiones.
+    ///
+    /// ** Existe aqui y no copiada en cada emisor a proposito: son dos
+    /// numeraciones del mismo concepto, y dos traducciones acaban
+    /// discrepando. Se ira el dia que los emisores hablen de regiones por
+    /// dentro; mientras tanto, la conversion tiene un solo sitio.
+    pub const fn de_seccion_de_emisor(sec: u8) -> Option<Self> {
+        match sec {
+            0 => Some(Self::Codigo),
+            1 => Some(Self::Datos),
+            2 => Some(Self::Constantes),
+            _ => None,
+        }
+    }
+
     pub const fn de(n: u8) -> Option<Self> {
         match n {
             0 => Some(Self::Codigo),
@@ -126,7 +145,15 @@ pub const ANEXO_RECURSOS: u8 = 0x04;
 pub const ANEXO_MANIFIESTO: u8 = 0x05;
 /// Las katanas (`bef::katanas`).
 pub const ANEXO_KATANAS: u8 = 0x06;
-/// Los simbolos de un OBJETO. Un ejecutable no los lleva.
+/// **Que funcion vive en cada offset.** Los llevan los objetos (para enlazar)
+/// y tambien los EJECUTABLES, porque el DIRECTOR los lee para anotar una
+/// autopsia: `SHA1_Update+0x18` en vez de `rip 0x400815f2`
+/// (`Ultra_userspace/services/director/src/simbolos.rs`).
+///
+/// ** El primer diseno los prohibia en un ejecutable -- *"se enlazo estatico,
+/// no hay nada que resolver"* -- y eso habria roto esa anotacion sin que nadie
+/// se enterara hasta el siguiente fallo en el Ryzen. Son data para OTRO: el
+/// kernel los SALTA, que es lo que hace que puedan viajar.
 pub const ANEXO_SIMBOLOS: u8 = 0x07;
 
 /// **Los tres que el kernel abre.** Todo otro anexo es data para OTRO -- el
@@ -157,8 +184,14 @@ pub const FIRMA_HASH: usize = 40;
 /// `que` de un hash que cubre un ANEXO: `0x80 | indice en la tabla`. Los
 /// valores 0..=2 son las regiones con bytes.
 pub const FIRMA_ANEXO: u8 = 0x80;
-/// Sin firma de autor: solo integridad.
+/// Sin firma de autor: solo integridad (los hashes dicen "llego lo que se
+/// escribio", no "esto lo escribi YO").
 pub const ALGO_NINGUNO: u32 = 0;
+/// Ed25519: firma de AUTOR sobre la cadena de hashes. Detras de los hashes van
+/// 64 bytes de firma y 32 de clave publica.
+pub const ALGO_ED25519: u32 = 1;
+/// Lo que ocupa una firma Ed25519 detras de los hashes.
+pub const FIRMA_ED25519: usize = 96;
 
 // -- Reloc -----------------------------------------------------------------
 

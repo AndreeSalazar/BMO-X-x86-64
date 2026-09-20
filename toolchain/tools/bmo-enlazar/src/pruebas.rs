@@ -17,61 +17,41 @@ fn objeto(nombre: &str, fuente: &str) -> (String, Vec<u8>) {
 
 /// Carga la imagen como la carga el kernel y la ejecuta.
 fn correr(bex: &[u8]) -> String {
-    const PAGE: usize = 4096;
-    let hdr_entry = u64::from_le_bytes(bex[24..32].try_into().unwrap()) as usize;
-    let sec_off = u64::from_le_bytes(bex[32..40].try_into().unwrap()) as usize;
-    let cuantas = u32::from_le_bytes(bex[40..44].try_into().unwrap()) as usize;
+    use bmo_abi::bef2::{leer, Region};
 
-    let mut imagen = Vec::new();
-    let mut base = [usize::MAX; 3];
-    for (kind, cod) in [
-        (SectionKind::Code, 0usize),
-        (SectionKind::RoData, 2usize),
-        (SectionKind::Data, 1usize),
-        (SectionKind::Bss, usize::MAX),
-    ] {
-        for i in 0..cuantas {
-            let e = sec_off + i * SectionEntry::SIZE;
-            if bex[e] != kind as u8 {
-                continue;
-            }
-            let off = u64::from_le_bytes(bex[e + 8..e + 16].try_into().unwrap()) as usize;
-            let size = u64::from_le_bytes(bex[e + 16..e + 24].try_into().unwrap()) as usize;
-            let mem = u64::from_le_bytes(bex[e + 24..e + 32].try_into().unwrap()) as usize;
-            while !imagen.is_empty() && imagen.len() % PAGE != 0 {
-                imagen.push(0xCC);
-            }
-            if cod != usize::MAX {
-                base[cod] = imagen.len();
-            }
-            imagen.extend_from_slice(&bex[off..off + size]);
-            imagen.resize(imagen.len() + mem.saturating_sub(size), 0);
-        }
-    }
-    // Las relocaciones, como las aplica el cargador.
-    for i in 0..cuantas {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if bex[e] != SectionKind::Relocs as u8 {
+    // ** BEF2 (2026-09-19): cuatro regiones en la cabecera, un reloc que nombra
+    // regiones, y el juez ya comprobo los limites. Este arnes solo coloca cada
+    // region en su pagina, como el cargador.
+    let v = leer(bex).expect("lo que sale del enlazador tiene que ser valido");
+
+    const PAGE: usize = 4096;
+    let mut imagen: Vec<u8> = Vec::new();
+    let mut base = [usize::MAX; 4];
+    for (n, r) in [Region::Codigo, Region::Constantes, Region::Datos, Region::Ceros]
+        .iter()
+        .enumerate()
+    {
+        let bytes = v.region(*r);
+        let ceros = if matches!(r, Region::Ceros) { v.ceros as usize } else { 0 };
+        if bytes.is_empty() && ceros == 0 {
             continue;
         }
-        let off = u64::from_le_bytes(bex[e + 8..e + 16].try_into().unwrap()) as usize;
-        let size = u64::from_le_bytes(bex[e + 16..e + 24].try_into().unwrap()) as usize;
-        for k in 0..size / Relocation::SIZE {
-            let r = off + k * Relocation::SIZE;
-            let donde = u64::from_le_bytes(bex[r..r + 8].try_into().unwrap()) as usize;
-            let destino = u32::from_le_bytes(bex[r + 8..r + 12].try_into().unwrap()) as usize;
-            let kind = bex[r + 12];
-            let donde_sec = bex[r + 13] as usize;
-            let addend = i64::from_le_bytes(bex[r + 16..r + 24].try_into().unwrap());
-            assert_eq!(kind, RelocationKind::SeccionAbs64 as u8, "el cargador solo aplica SeccionAbs64");
-            let at = base[donde_sec] + donde;
-            let valor = (base[destino] as i64 + addend) as u64;
-            imagen[at..at + 8].copy_from_slice(&valor.to_le_bytes());
+        while !imagen.is_empty() && imagen.len() % PAGE != 0 {
+            imagen.push(0xCC);
         }
+        base[n] = imagen.len();
+        imagen.extend_from_slice(bytes);
+        imagen.resize(imagen.len() + ceros, 0);
+    }
+
+    for r in v.relocs() {
+        let at = base[r.donde as usize] + r.offset as usize;
+        let valor = (base[r.destino as usize] as u64).wrapping_add(r.addend);
+        imagen[at..at + 8].copy_from_slice(&valor.to_le_bytes());
     }
 
     let mut m = bmo_lower::emu::Machine::new(imagen);
-    m.rip = hdr_entry as usize;
+    m.rip = v.entrada as usize;
     let m = bmo_lower::emu::run(m, 2_000_000);
     assert!(m.exited, "el programa debe terminar por INVOKE(EXIT)");
     m.console

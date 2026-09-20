@@ -270,7 +270,8 @@ fn el_bex_que_sale_pasa_el_gate() {
     let e = emitido(SUMA);
     let bex = empaquetar(&e, None).expect("el gate lo rechazo");
     assert!(bex.len() > 64, "un .bex de verdad tiene cabecera");
-    assert_eq!(&bex[0..4], b"BEF1", "la marca del contenedor");
+    assert_eq!(&bex[0..4], b"BEF2", "la marca del contenedor");
+    bmo_abi::bef2::leer(&bex).expect("y tiene que pasar su propio juez");
 }
 
 #[test]

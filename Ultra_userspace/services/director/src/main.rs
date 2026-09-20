@@ -424,21 +424,22 @@ pub(crate) fn uncover(
 /// prestando**, que es el lado seguro.
 fn wants_screen(path: &[u8]) -> bool {
     let Ok(f) = bmo::Archivo::leer_de(path) else { return false };
-    let mut cab = [0u8; 12];
-    if f.read(&mut cab) < 12 {
+    let mut cab = [0u8; 8];
+    if f.read(&mut cab) < 8 {
         return false;
     }
-    // El magic se comprueba antes de creerse los flags: doce bytes de un `.txt`
-    // tambien tienen un bit 10.
+    // El magic se comprueba antes de creerse las banderas: ocho bytes de un
+    // `.txt` tambien tienen un bit puesto.
     let magic = u32::from_le_bytes([cab[0], cab[1], cab[2], cab[3]]);
     if magic != bmo_abi_magic() {
         return false;
     }
-    let flags = u32::from_le_bytes([cab[8], cab[9], cab[10], cab[11]]);
-    flags & (1 << 10) != 0
+    // BEF2 (2026-09-19): las banderas son UN byte, el 5, y la de la pantalla
+    // es el bit 2.
+    cab[5] & (1 << 2) != 0
 }
 
-/// El magic de un BEF: los cuatro bytes `BEF1`.
+/// El magic de un BEF: los cuatro bytes `BEF2`.
 ///
 /// Escrito aqui y no importado de `bmo-abi` por el mismo motivo que el kernel lo
 /// lee a mano en `bex.rs`: el compositor es `no_std` sin `alloc` y no enlaza esa
@@ -446,7 +447,7 @@ fn wants_screen(path: &[u8]) -> bool {
 /// hexadecimal a mano: un numero copiado se equivoca de orden de bytes en
 /// silencio, y las cuatro letras no.
 const fn bmo_abi_magic() -> u32 {
-    u32::from_le_bytes(*b"BEF1")
+    u32::from_le_bytes(*b"BEF2")
 }
 
 /// * PRESTAR LA PANTALLA a un programa y recuperarla cuando muera.

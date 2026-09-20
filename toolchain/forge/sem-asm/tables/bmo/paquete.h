@@ -14,8 +14,8 @@
  *
  * == Como se lee un paquete, en tres saltos ==
  *
- *   1. la cabecera BEF (48 B) dice donde esta la tabla de secciones,
- *   2. la tabla dice donde esta la seccion `0x0B` (Resources),
+ *   1. la cabecera BEF2 (64 B) dice cuantos ANEXOS hay,
+ *   2. la tabla de anexos dice donde esta el `0x04` (recursos),
  *   3. dentro de ella, el indice "BRES" dice donde esta cada recurso.
  *
  * Los tres son un `fseek` y un `fread`. No hace falta maquinaria nueva.
@@ -60,10 +60,10 @@
  * no puede importar de Rust; si algun dia dejan de coincidir, la fila de
  * pruebas que empaqueta con la herramienta y lee con esta cabecera es la que
  * lo dice. */
-#define BMO_BEF_MAGIC        0x31464542  /* "BEF1" */
-#define BMO_BEF_CABECERA     48
-#define BMO_BEF_ENTRADA      48
-#define BMO_SECCION_RECURSOS 0x0B
+#define BMO_BEF_MAGIC        0x32464542  /* "BEF2" */
+#define BMO_BEF_CABECERA     64
+#define BMO_BEF_ENTRADA      16          /* una entrada de la tabla de anexos */
+#define BMO_SECCION_RECURSOS 0x04        /* ANEXO_RECURSOS */
 #define BMO_BRES_MAGIC       0x53455242  /* "BRES" */
 #define BMO_BRES_CABECERA    16
 #define BMO_BRES_ENTRADA     64
@@ -127,18 +127,22 @@ PAQUETE *bmo_pq_montar(PAQUETE *p) {
 
     if (!bmo_pq_leer(p, 0, BMO_BEF_CABECERA)) return 0;
     if (bmo_u32le(s, 0) != BMO_BEF_MAGIC) return 0;
-    tabla = bmo_u64le(s, 32);
-    count = bmo_u32le(s, 40);
+    /* BEF2: la tabla de anexos va justo detras de la cabecera, y el numero de
+     * anexos esta en el byte 20. Ya no hay que leer un offset de tabla: el
+     * formato dice donde esta, y eso es un campo menos que puede mentir. */
+    tabla = BMO_BEF_CABECERA;
+    count = bmo_u32le(s, 20);
 
-    /* La tabla, entrada a entrada. Se busca la seccion 0x0B. */
+    /* La tabla, entrada a entrada. Se busca el anexo de recursos (0x04).
+     * Una entrada mide 16: tipo, tres de relleno, offset (u32) y bytes (u32). */
     off = 0;
     largo = 0;
     i = 0;
     while (i < count) {
         if (!bmo_pq_leer(p, tabla + i * BMO_BEF_ENTRADA, BMO_BEF_ENTRADA)) return 0;
         if ((s[0] & 0xFF) == BMO_SECCION_RECURSOS) {
-            off = bmo_u64le(s, 8);
-            largo = bmo_u64le(s, 16);
+            off = bmo_u32le(s, 4);
+            largo = bmo_u32le(s, 8);
             i = count;
         } else {
             i = i + 1;

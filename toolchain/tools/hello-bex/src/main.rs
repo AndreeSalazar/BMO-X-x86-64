@@ -15,8 +15,6 @@
 
 use std::path::PathBuf;
 
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
-
 // Mirror of the frozen BMO ABI v2 surface (see bmo-abi syscalls::surface).
 const CURRENT_TASK: u64 = 0xFFFF_FFFF_FFFF_FFFE;
 const TASK_OP_EXIT: u32 = 0x04;
@@ -66,10 +64,10 @@ fn main() {
     code.extend_from_slice(&[0xF3, 0x90]); // pause
     code.extend_from_slice(&[0xEB, 0xFC]); // jmp -4 (back to pause)
 
-    let mut builder = BefBuilder::new();
-    builder.add_section(BefSection::code(code));
-    builder.entry_offset = 0;
-    let image = builder.build().expect("hello BEX must be valid");
+    // BEF2 (2026-09-19): solo codigo, entrada en el byte 0.
+    let mut builder = bmo_abi::bef2::Escritor::ejecutable();
+    builder.codigo(code).entrada(0);
+    let image = builder.construir().expect("hello BEX must be valid");
     if image.len() > 16 * 1024 {
         panic!("hello BEX exceeds the 16 KiB boot contract");
     }

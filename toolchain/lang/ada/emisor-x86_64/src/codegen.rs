@@ -19,7 +19,6 @@
 
 use std::collections::HashMap;
 
-use bmo_abi::bef::{BefBuilder, BefSection};
 use bmo_lower::x86;
 
 use bmo_ada_front::ast::*;
@@ -33,10 +32,10 @@ const RDX: u8 = 2;
 pub fn compilar(p: &Programa) -> Result<Vec<u8>, AdaError> {
     let mut c = Codegen::nuevo();
     c.programa(p)?;
-    let mut b = BefBuilder::new();
-    b.add_section(BefSection::code(core::mem::take(&mut c.code)));
-    b.entry_offset = 0;
-    Ok(b.build().unwrap_or_default())
+    // BEF2 (2026-09-19).
+    let mut b = bmo_abi::bef2::Escritor::ejecutable();
+    b.codigo(core::mem::take(&mut c.code)).entrada(0);
+    Ok(b.construir().unwrap_or_default())
 }
 
 struct Codegen {

@@ -130,9 +130,14 @@ fn compilar(lenguaje: &str, ruta: &Path, rel: &str, fuente: &str) -> Result<Vec<
     }
 }
 
-/// Los bytes de la seccion de codigo del `.bex`.
+/// Los bytes de la region de codigo del `.bex`.
 fn bytes_de_codigo(bex: &[u8]) -> u64 {
     use bmo_abi::bef::sections::{SectionEntry, SectionKind};
+    // ** BEF2 (2026-09-19): la cabecera dice donde esta el codigo y cuanto
+    // mide; el juez del contrato lo comprueba. BEF1 se va en B6.
+    if let Ok(v) = bmo_abi::bef2::leer(bex) {
+        return v.tramo(bmo_abi::bef2::Region::Codigo).bytes as u64;
+    }
     let tabla = u64::from_le_bytes(bex[32..40].try_into().unwrap()) as usize;
     let cuantas = u32::from_le_bytes(bex[40..44].try_into().unwrap()) as usize;
     (0..cuantas)

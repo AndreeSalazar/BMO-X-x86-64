@@ -331,7 +331,7 @@ return x;
 }
 "#;
     let bef = compile_source_to_bef(src).unwrap();
-    assert_eq!(u32::from_le_bytes(bef[..4].try_into().unwrap()), bmo_abi::bef::BEF_MAGIC);
+    assert_eq!(u32::from_le_bytes(bef[..4].try_into().unwrap()), bmo_abi::bef2::MAGIC);
     // Verify that the codegen doesn't crash and returns valid BEF
     assert!(bef.len() > 48);
 }

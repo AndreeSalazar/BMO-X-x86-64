@@ -30,12 +30,12 @@ const PUERTAS: &str = "unsigned long long bmo_valor(unsigned long long h, unsign
      long bmo_codigo(unsigned long long h, unsigned long long op, \
      unsigned long long a, unsigned long long b, unsigned long long c) { return (long)(h + op); } ";
 
-/// Los `flags` de la cabecera BEF: offset 8, cuatro bytes little-endian.
+/// Las BANDERAS de la cabecera BEF2: el byte 5, uno solo (2026-09-19).
 fn flags_de(bef: &[u8]) -> u32 {
-    u32::from_le_bytes([bef[8], bef[9], bef[10], bef[11]])
+    bef[5] as u32
 }
 
-const WANTS_SCREEN: u32 = 1 << 10;
+const WANTS_SCREEN: u32 = bmo_abi::bef2::QUIERE_PANTALLA as u32;
 
 fn quiere_pantalla_el_programa(src: &str) -> bool {
     let bef = compile_source_to_bef(src).expect("tiene que compilar");

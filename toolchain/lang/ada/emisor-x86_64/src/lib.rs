@@ -28,18 +28,10 @@ mod tests {
     /// asi el test cruza el MISMO formato que va a cruzar la maquina, y un BEF
     /// mal construido se cae aqui y no en el arranque.
     fn seccion_codigo(bef: &[u8]) -> Vec<u8> {
-        use bmo_abi::bef::sections::{SectionEntry, SectionKind};
-        let sec_off = u64::from_le_bytes(bef[32..40].try_into().unwrap()) as usize;
-        let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-        for i in 0..hdr.section_count as usize {
-            let entry = sec_off + i * SectionEntry::SIZE;
-            if bef[entry] == SectionKind::Code as u8 {
-                let off = u64::from_le_bytes(bef[entry + 8..entry + 16].try_into().unwrap()) as usize;
-                let size = u64::from_le_bytes(bef[entry + 16..entry + 24].try_into().unwrap()) as usize;
-                return bef[off..off + size].to_vec();
-            }
-        }
-        panic!("el BEF no tiene seccion CODE");
+        // BEF2: el codigo es una REGION con sitio fijo en la cabecera, y el
+        // juez ya comprobo que cae dentro del fichero.
+        let v = bmo_abi::bef2::leer(bef).expect("el .bex tiene que ser valido");
+        v.region(bmo_abi::bef2::Region::Codigo).to_vec()
     }
 
     /// Compila y EJECUTA. Devuelve lo que el programa escribio.

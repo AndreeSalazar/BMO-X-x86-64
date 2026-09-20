@@ -63,77 +63,57 @@ fn ejecutar_bef(bef: &[u8]) -> String {
 /// (`maquina_de_bef_con`), per `HERENCIA.md` rule 4: each language owns its
 /// bench.
 fn maquina_de_bef(bef: &[u8]) -> Machine {
+    use bmo_abi::bef2::{leer, Region};
+
+    // ** BEF2 (2026-09-19): las cuatro regiones estan en la cabecera y el juez
+    // ya las comprobo. Este arnes solo las COLOCA como el cargador -- cada una
+    // en su pagina -- y aplica los relocs.
+    let v = leer(bef).expect("el .bex que sale del compilador tiene que ser valido");
+
     const PAGE: usize = 4096;
-    let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-    let entry = hdr.entry_offset as usize;
-    let sec_off = hdr.section_table_offset as usize;
+    let mut imagen: Vec<u8> = Vec::new();
+    let mut base = [usize::MAX; 4];
+    let mut solo_lectura = Vec::new();
 
-    let mut code = Vec::new();
-    // Where each section landed, indexed by the RELOCATION section code
-    // (0 = code, 1 = data, 2 = rodata) -- not by `SectionKind`.
-    let mut base = [usize::MAX; 3];
-    for (kind, reloc_code) in [
-        (SectionKind::Code, 0usize),
-        (SectionKind::RoData, 2usize),
-        (SectionKind::Data, 1usize),
-        (SectionKind::Bss, usize::MAX),
-    ] {
-        for i in 0..hdr.section_count as usize {
-            let e = sec_off + i * SectionEntry::SIZE;
-            if bef[e] == kind as u8 {
-                let off = u64::from_le_bytes(bef[e + 8..e + 16].try_into().unwrap()) as usize;
-                let size = u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap()) as usize;
-                let mem = u64::from_le_bytes(bef[e + 24..e + 32].try_into().unwrap()) as usize;
-                while !code.is_empty() && code.len() % PAGE != 0 {
-                    code.push(0xCC);
-                }
-                if reloc_code != usize::MAX {
-                    base[reloc_code] = code.len();
-                }
-                code.extend_from_slice(&bef[off..off + size]);
-                code.resize(code.len() + mem.saturating_sub(size), 0);
-            }
-        }
-    }
-    assert!(!code.is_empty(), "el BEF no tiene seccion CODE");
-
-    for i in 0..hdr.section_count as usize {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if bef[e] != SectionKind::Relocs as u8 {
+    for (n, r) in [Region::Codigo, Region::Constantes, Region::Datos, Region::Ceros]
+        .iter()
+        .enumerate()
+    {
+        let bytes = v.region(*r);
+        let ceros = if matches!(r, Region::Ceros) { v.ceros as usize } else { 0 };
+        if bytes.is_empty() && ceros == 0 {
             continue;
         }
-        let off = u64::from_le_bytes(bef[e + 8..e + 16].try_into().unwrap()) as usize;
-        let size = u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap()) as usize;
-        let rsize = bmo_abi::bef::relocations::Relocation::SIZE;
-        for k in 0..size / rsize {
-            let r = off + k * rsize;
-            let at_off = u64::from_le_bytes(bef[r..r + 8].try_into().unwrap()) as usize;
-            let target_sec = u32::from_le_bytes(bef[r + 8..r + 12].try_into().unwrap()) as usize;
-            let kind = bef[r + 12];
-            let at_sec = bef[r + 13] as usize;
-            let addend = i64::from_le_bytes(bef[r + 16..r + 24].try_into().unwrap());
-            assert_eq!(
-                kind,
-                bmo_abi::bef::relocations::RelocationKind::SeccionAbs64 as u8,
-                "the harness only applies SeccionAbs64; got kind={kind}"
-            );
-            assert!(at_sec < 3 && target_sec < 3, "reloc section code out of range");
-            assert!(
-                base[at_sec] != usize::MAX && base[target_sec] != usize::MAX,
-                "a reloc names a section this .bex does not carry"
-            );
-            let at = base[at_sec] + at_off;
-            let value = (base[target_sec] as i64 + addend) as u64;
-            assert!(at + 8 <= code.len(), "reloc outside the image");
-            code[at..at + 8].copy_from_slice(&value.to_le_bytes());
+        while !imagen.is_empty() && imagen.len() % PAGE != 0 {
+            imagen.push(0xCC);
+        }
+        base[n] = imagen.len();
+        let desde = imagen.len();
+        imagen.extend_from_slice(bytes);
+        imagen.resize(imagen.len() + ceros, 0);
+        if matches!(r, Region::Codigo | Region::Constantes) {
+            let hasta = (imagen.len() + PAGE - 1) / PAGE * PAGE;
+            solo_lectura.push((desde as u64, hasta as u64));
         }
     }
+    assert!(base[0] != usize::MAX, "el .bex no trae codigo");
 
-    let mut machine = Machine::new(code);
-    machine.rip = entry;
-    let machine = run(machine, 500_000);
-    assert!(machine.exited, "el programa debe terminar por INVOKE(EXIT)");
-    machine
+    for r in v.relocs() {
+        let donde = base[r.donde as usize];
+        let destino = base[r.destino as usize];
+        assert!(
+            donde != usize::MAX && destino != usize::MAX,
+            "un reloc nombra una region que este .bex no lleva"
+        );
+        let at = donde + r.offset as usize;
+        let valor = (destino as u64).wrapping_add(r.addend);
+        imagen[at..at + 8].copy_from_slice(&valor.to_le_bytes());
+    }
+
+    let mut m = Machine::new(imagen);
+    m.solo_lectura = solo_lectura;
+    m.rip = v.entrada as usize;
+    run(m, 500_000)
 }
 
 /// *** THE EXAMPLE THAT GOES TO THE DISK says what its header promises, byte
@@ -160,10 +140,13 @@ fn el_ejemplo_cuentas_dice_lo_que_promete() {
 fn emite_un_bef_de_verdad() {
     let bef = compile_source_to_bef("int main() { return 42; }")
         .expect("el paso 0 es que ESTO compile");
-    assert!(bef.len() > 48, "un BEF con cabecera y nada dentro no es un BEF");
+    assert!(
+        bef.len() > bmo_abi::bef2::CABECERA,
+        "un BEF con cabecera y nada dentro no es un BEF"
+    );
     assert_eq!(
         u32::from_le_bytes(bef[..4].try_into().unwrap()),
-        bmo_abi::bef::BEF_MAGIC,
+        bmo_abi::bef2::MAGIC,
         "los primeros cuatro bytes tienen que ser el magic del BEF",
     );
 }

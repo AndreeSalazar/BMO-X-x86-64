@@ -137,7 +137,7 @@ fn la_sonda_entera_compila_y_pasa_el_gate() {
     );
     assert!(e.arranca, "la sonda tiene que arrancar sola");
     let bytes = empaquetar(&e, None).expect("el `.bex` no pasa el gate");
-    assert_eq!(&bytes[..4], b"BEF1");
+    assert_eq!(&bytes[..4], b"BEF2");
 }
 
 /// ** M3: LAS TRES REGLAS ATRAPAN, y con SU codigo.

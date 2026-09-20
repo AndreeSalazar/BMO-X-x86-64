@@ -21,7 +21,19 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use bmo_abi::bmo_abi::bef::paquete;
-use bmo_abi::bmo_abi::bef::sections::SectionKind;
+use bmo_abi::bmo_abi::bef2::{leer, Region};
+
+/// Los bytes de una REGION de un `.ibx` BEF2 (2026-09-19).
+fn region_de(bex: &[u8], r: Region) -> Option<&[u8]> {
+    let v = leer(bex).ok()?;
+    let b = v.region(r);
+    if b.is_empty() { None } else { Some(b) }
+}
+
+/// Los relocs, ya comprobados por el juez.
+fn relocs_de(bex: &[u8]) -> Vec<bmo_abi::bmo_abi::bef2::Reloc> {
+    leer(bex).expect("imagen valida").relocs().collect()
+}
 
 fn caja(nombre: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("inti-rodata-{}", nombre));
@@ -74,7 +86,7 @@ fn u64_en(b: &[u8], i: usize) -> u64 {
 #[test]
 fn una_tabla_constante_acaba_en_rodata() {
     let bex = compila(PRIMOS, "primos");
-    let rodata = paquete::seccion(&bex, SectionKind::RoData)
+    let rodata = region_de(&bex, Region::Constantes)
         .expect("el `.ibx` no trae seccion RoData");
 
     assert_eq!(rodata.len(), 8 * 8, "ocho primos de ocho bytes");
@@ -95,25 +107,19 @@ fn una_tabla_constante_acaba_en_rodata() {
 #[test]
 fn el_codigo_apunta_a_la_tabla_con_una_reubicacion() {
     let bex = compila(PRIMOS, "reloc");
-    let relocs = paquete::seccion(&bex, SectionKind::Relocs)
-        .expect("el `.ibx` no trae seccion Relocs");
-    let codigo = paquete::seccion(&bex, SectionKind::Code).expect("sin Code");
+    let relocs = relocs_de(&bex);
+    let codigo = region_de(&bex, Region::Codigo).expect("sin Code");
 
-    assert_eq!(relocs.len(), 24, "una sola reubicacion, de 24 bytes");
-    let donde = u64_en(relocs, 0) as usize;
-    let seccion_destino = u32::from_le_bytes(relocs[8..12].try_into().unwrap());
-    let tipo = relocs[12];
-    let seccion_del_hueco = relocs[13];
-    let dentro = i64::from_le_bytes(relocs[16..24].try_into().unwrap());
+    assert_eq!(relocs.len(), 1, "una sola reubicacion");
+    let r = relocs[0];
+    let donde = r.offset as usize;
 
-    // `SeccionAbs64 = 0x04`: una posicion dentro de otra seccion, sin simbolo.
-    assert_eq!(tipo, 0x04, "tiene que ser SeccionAbs64");
-    // ** Y ojo con la trampa que el propio formato deja escrita: los codigos de
-    // seccion de una reubicacion NO son los de `SectionKind`. Aqui 2 = rodata,
-    // 0 = code.
-    assert_eq!(seccion_destino, 2, "el destino es rodata");
-    assert_eq!(seccion_del_hueco, 0, "el hueco vive en el codigo");
-    assert_eq!(dentro, 0, "la primera tabla empieza en el byte 0 de rodata");
+    // ** En BEF2 un reloc nombra REGIONES y hay UN solo tipo, asi que aqui se
+    // acabo la trampa que este mismo test dejaba escrita: los codigos de
+    // seccion de una reubicacion ya no son otra numeracion que cruzar.
+    assert_eq!(r.destino, Region::Constantes, "el destino son las constantes");
+    assert_eq!(r.donde, Region::Codigo, "el hueco vive en el codigo");
+    assert_eq!(r.addend, 0, "la primera tabla empieza en el byte 0");
 
     // Los dos bytes de antes son `mov rax, imm64`, y el hueco son OCHO CEROS.
     assert_eq!(
@@ -149,16 +155,14 @@ funcion principal devuelve entero32
     devuelve 0
 ";
     let bex = compila(f, "dos");
-    let rodata = paquete::seccion(&bex, SectionKind::RoData).expect("sin RoData");
-    let relocs = paquete::seccion(&bex, SectionKind::Relocs).expect("sin Relocs");
+    let rodata = region_de(&bex, Region::Constantes).expect("sin RoData");
+    let relocs = relocs_de(&bex);
 
     assert_eq!(rodata.len(), 5 * 8, "tres unos y dos doses");
     assert_eq!(u64_en(rodata, 0), 1);
     assert_eq!(u64_en(rodata, 24), 2, "la segunda tabla empieza en el byte 24");
 
-    let mut destinos: Vec<i64> = (0..relocs.len() / 24)
-        .map(|i| i64::from_le_bytes(relocs[i * 24 + 16..i * 24 + 24].try_into().unwrap()))
-        .collect();
+    let mut destinos: Vec<u64> = relocs.iter().map(|r| r.addend).collect();
     destinos.sort_unstable();
     destinos.dedup();
     assert_eq!(destinos, vec![0, 24], "las dos tablas tienen que ir a sitios distintos");
@@ -195,7 +199,7 @@ fn el_gate_acepta_un_binario_con_tabla() {
 #[test]
 fn la_tabla_no_esta_en_la_seccion_de_codigo() {
     let bex = compila(PRIMOS, "puro");
-    let codigo = paquete::seccion(&bex, SectionKind::Code).expect("sin Code");
+    let codigo = region_de(&bex, Region::Codigo).expect("sin Code");
 
     // Los primos, en little-endian, no pueden aparecer dentro del codigo.
     for p in [11u64, 13, 17, 19] {
@@ -256,7 +260,7 @@ funcion principal devuelve entero32
 #[test]
 fn un_literal_de_texto_llega_a_rodata_con_su_cabecera_inmortal() {
     let bef = compila(SALUDO, "texto");
-    let bytes = paquete::seccion(&bef, SectionKind::RoData)
+    let bytes = region_de(&bef, Region::Constantes)
         .expect("no hay RoData: el literal no llego");
 
     // Los bytes del texto tienen que estar, y enteros.
@@ -299,7 +303,7 @@ fn un_literal_de_texto_llega_a_rodata_con_su_cabecera_inmortal() {
 #[test]
 fn los_bytes_de_un_texto_no_viven_en_la_seccion_de_codigo() {
     let bef = compila(SALUDO, "texto-fuera-del-codigo");
-    let bytes = paquete::seccion(&bef, SectionKind::Code).expect("no hay codigo");
+    let bytes = region_de(&bef, Region::Codigo).expect("no hay codigo");
     assert!(
         bytes.windows(4).all(|w| w != b"hola"),
         "el literal se colo en la seccion de codigo y el barrido lineal se cae"

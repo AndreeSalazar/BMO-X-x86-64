@@ -15,6 +15,18 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use bmo_abi::bmo_abi::bef::paquete;
+
+/// El manifiesto de un `.bex` BEF2 (antes era la seccion `0x09`).
+fn manifiesto_de(bex: &[u8]) -> Option<&[u8]> {
+    bmo_abi::bmo_abi::bef2::leer(bex).ok()?.anexo(bmo_abi::bmo_abi::bef2::ANEXO_MANIFIESTO)
+}
+
+/// Los bytes del CODIGO de un `.bex` BEF2.
+fn codigo_de(bex: &[u8]) -> Option<&[u8]> {
+    let v = bmo_abi::bmo_abi::bef2::leer(bex).ok()?;
+    let c = v.region(bmo_abi::bmo_abi::bef2::Region::Codigo);
+    if c.is_empty() { None } else { Some(c) }
+}
 use bmo_abi::bmo_abi::bef::sections::SectionKind;
 use bmo_inti_front::manifiesto::Manifiesto;
 
@@ -62,7 +74,7 @@ fn el_bex_dice_su_perfil_su_crudo_y_de_que_esta_hecho() {
     std::fs::write(&fuente, CON_PIEZAS).unwrap();
     let bex = compila(&fuente);
 
-    let seccion = paquete::seccion(&bex, SectionKind::Manifest)
+    let seccion = manifiesto_de(&bex)
         .expect("el `.bex` no trae seccion Manifest");
     let texto = std::str::from_utf8(seccion).expect("el manifiesto no es UTF-8");
     let m = Manifiesto::de_toml(texto).unwrap_or_else(|| panic!("no se parsea:\n{}", texto));
@@ -127,7 +139,7 @@ fn un_fuente_portable_declara_la_lista_vacia() {
     .unwrap();
     let bex = compila(&fuente);
     let texto =
-        std::str::from_utf8(paquete::seccion(&bex, SectionKind::Manifest).unwrap()).unwrap();
+        std::str::from_utf8(manifiesto_de(&bex).unwrap()).unwrap();
     let m = Manifiesto::de_toml(texto).unwrap();
     assert!(m.arquitecturas.is_empty(), "{:?}", m.arquitecturas);
     assert_eq!(m.crudo, 0);
@@ -140,27 +152,21 @@ fn un_fuente_portable_declara_la_lista_vacia() {
 /// bandera el binario seria correcto por dentro y mudo por fuera: *"un
 /// consumidor que se fie de la bandera no la mirara"*.
 #[test]
-fn el_header_anuncia_el_manifiesto_y_el_gate_no_se_queja() {
-    let d = caja("bandera");
-    let fuente = d.join("prog.inti");
+fn el_manifiesto_ESTA_y_el_gate_no_se_queja() {
+    // ** En BEF1 el header traia una bandera `HAS_MANIFEST` y el validador
+    // exigia que cuadrara con la seccion. En BEF2 esa bandera NO existe, y es
+    // una decision: la verdad es que el ANEXO este. Una bandera que promete lo
+    // que hay dentro es un segundo sitio donde mentir, y el formato nuevo no
+    // los tiene.
+    let d = caja("anuncia");
+    let fuente = d.join("m.inti");
     std::fs::write(&fuente, CON_PIEZAS).unwrap();
     let bex = compila(&fuente);
 
-    // `flags` vive en el byte 8: magic(4) + major(2) + minor(2).
-    const HAS_MANIFEST: u32 = 1 << 2;
-    let flags = u32::from_le_bytes(bex[8..12].try_into().unwrap());
+    assert!(manifiesto_de(&bex).is_some(), "el .bex tiene que traer su manifiesto");
     assert!(
-        flags & HAS_MANIFEST != 0,
-        "el header no anuncia el manifiesto: flags = {:#010x}",
-        flags
-    );
-
-    let (veredicto, avisos) = bmo_verify::verify_verbose(&bex);
-    assert!(veredicto.is_ok(), "el gate lo rechaza: {:?}", veredicto);
-    assert!(
-        !avisos.iter().any(|a| a.contains("no lo anuncia")),
-        "el validador se queja del manifiesto: {:?}",
-        avisos
+        bmo_verify::verify(&bex).is_ok(),
+        "y el gate no se queja de que lo traiga"
     );
 }
 
@@ -196,8 +202,8 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     let con = bmo_inti_x86_64::empaquetar(&emitido, Some(&manifiesto)).expect("el gate lo rechazo");
 
     assert_eq!(
-        paquete::seccion(&sin, SectionKind::Code),
-        paquete::seccion(&con, SectionKind::Code),
+        codigo_de(&sin),
+        codigo_de(&con),
         "el manifiesto cambio el codigo de la sonda"
     );
     // ** LA LINEA BASE, Y SE MOVIO A PROPOSITO EL 2026-08-22.
@@ -277,7 +283,13 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     //
     // [!] Y `cpu.ibx` vuelve a no ser el fichero que corrio el 22-08 ni el
     // 17-09. La medida del reloj que salga de ESTE es la que compara.
-    assert_eq!(sin.len(), 12144, "la emision de la sonda cambio de tamano");
+    //     11.632  el MISMO codigo, ya en BEF2 (2026-09-19)
+    //
+    // ** Esos -512 no son codigo: es el ENVASE. BEF1 gastaba 48 B de cabecera
+    // mas 48 por cada seccion y alineaba cada una a 4 KiB; BEF2 son 64 B de
+    // cabecera, 16 por anexo, y las regiones se pegan a 16. El programa que
+    // corre es byte por byte el mismo.
+    assert_eq!(sin.len(), 11632, "la emision de la sonda cambio de tamano");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**
@@ -306,8 +318,8 @@ fn la_seccion_de_codigo_es_identica_con_manifiesto_y_sin_el() {
     let emitido = bmo_inti_x86_64::emitir(&ir);
     let sin = bmo_inti_x86_64::empaquetar(&emitido, None).expect("el gate lo rechazo");
 
-    let a = paquete::seccion(&con, SectionKind::Code).expect("sin seccion Code");
-    let b = paquete::seccion(&sin, SectionKind::Code).expect("sin seccion Code");
+    let a = codigo_de(&con).expect("sin seccion Code");
+    let b = codigo_de(&sin).expect("sin seccion Code");
     assert_eq!(
         a.len(),
         b.len(),

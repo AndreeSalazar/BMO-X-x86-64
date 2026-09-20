@@ -38,20 +38,11 @@ fn bytes_de(fuente: &str) -> Vec<u8> {
 
 /// Saca los bytes de una seccion por su tipo, leyendo la tabla como la lee el
 /// cargador. Sin esto estas pruebas mirarian offsets a mano.
-fn seccion(bytes: &[u8], kind: SectionKind) -> Option<&[u8]> {
-    use bmo_abi::bef::SectionEntry;
-    let count = u32::from_le_bytes(bytes[40..44].try_into().ok()?) as usize;
-    let tabla = u64::from_le_bytes(bytes[32..40].try_into().ok()?) as usize;
-    for i in 0..count {
-        let e = tabla + i * SectionEntry::SIZE;
-        if bytes[e] != kind as u8 {
-            continue;
-        }
-        let off = u64::from_le_bytes(bytes[e + 8..e + 16].try_into().ok()?) as usize;
-        let len = u64::from_le_bytes(bytes[e + 16..e + 24].try_into().ok()?) as usize;
-        return bytes.get(off..off + len);
-    }
-    None
+/// Los bytes de un ANEXO (BEF2, 2026-09-19). Antes esto recorria la tabla de
+/// secciones a mano; ahora se pide por su tipo y el juez ya comprobo los
+/// limites.
+fn seccion(bytes: &[u8], _kind: SectionKind) -> Option<&[u8]> {
+    bmo_abi::bef2::leer(bytes).ok()?.anexo(bmo_abi::bef2::ANEXO_REQUISITOS)
 }
 
 /// *** SIN DECIR NADA, SIGUE SIENDO 4096 -- y eso es lo que no podia romperse.

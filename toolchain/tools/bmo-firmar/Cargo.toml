@@ -27,6 +27,8 @@ bmo-cripto = { path = "../../../platform/shared/bmo-cripto", features = ["firmar
 # enlazar el mismo crate, un desacuerdo entre las dos es imposible por
 # construccion en vez de por cuidado.
 bmo-firma = { path = "../../../platform/abi/bmo-firma" }
+# El formato: leer la imagen por su juez y reescribirla con la firma (BEF2).
+bmo-abi = { path = "../../../platform/abi/bmo-abi" }
 
 # El unico BLAKE3 del sistema, por la misma razon.
 bmo-hash = { path = "../../../platform/shared/bmo-hash" }

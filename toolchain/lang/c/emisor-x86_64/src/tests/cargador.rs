@@ -8,31 +8,23 @@ use super::*;
 #[test]
 fn emits_bef() {
     let bef = compile_source_to_bef("int main() { printf(\"HOLA C\"); return 0; }").unwrap();
-    assert!(bef.len() > 48);
-    assert_eq!(u32::from_le_bytes(bef[..4].try_into().unwrap()), bmo_abi::bef::BEF_MAGIC);
+    assert!(bef.len() > bmo_abi::bef2::CABECERA);
+    assert_eq!(
+        u32::from_le_bytes(bef[..4].try_into().unwrap()),
+        bmo_abi::bef2::MAGIC,
+        "desde el 2026-09-19 BMO C escribe BEF2"
+    );
+    bmo_abi::bef2::leer(&bef).expect("y tiene que pasar su propio juez");
 }
 
 #[test]
 fn emits_bef_with_correct_string_offset() {
-    use bmo_abi::bef::sections::{SectionEntry, SectionKind};
     let bef = compile_source_to_bef("int main() { printf(\"HOLA C\"); return 0; }").unwrap();
-    let sec_off = u64::from_le_bytes(bef[32..40].try_into().unwrap()) as usize;
-    let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-    let count = hdr.section_count as usize;
-    // Find rodata section
-    let mut rodata_off = 0usize;
-    let mut rodata_sz = 0usize;
-    for i in 0..count {
-        let entry_off = sec_off + i * SectionEntry::SIZE;
-        let kind = bef[entry_off];
-        if kind == SectionKind::RoData as u8 {
-            rodata_off = u64::from_le_bytes(bef[entry_off+8..entry_off+16].try_into().unwrap()) as usize;
-            rodata_sz = u64::from_le_bytes(bef[entry_off+16..entry_off+24].try_into().unwrap()) as usize;
-            break;
-        }
-    }
-    assert!(rodata_sz > 0, "rodata section not found");
-    let rodata = &bef[rodata_off..rodata_off+rodata_sz];
+    // ** En BEF2 no hay que buscar una seccion: las CONSTANTES tienen sitio
+    // fijo en la cabecera, y el juez ya comprobo que caen dentro del fichero.
+    let v = bmo_abi::bef2::leer(&bef).unwrap();
+    let rodata = v.region(bmo_abi::bef2::Region::Constantes);
+    assert!(!rodata.is_empty(), "la cadena tiene que estar en las constantes");
     let end = rodata.iter().position(|&b| b == 0).unwrap();
     let s = core::str::from_utf8(&rodata[..end]).unwrap();
     assert_eq!(s, "HOLA C");
@@ -78,17 +70,14 @@ fn loaded_bef_has_global_data() {
 // eso, estos tests no probarian nada.
 
 /// El tamano declarado de la seccion `kind`.
-fn tamano_seccion(bef: &[u8], kind: bmo_abi::bef::sections::SectionKind) -> Option<usize> {
-    use bmo_abi::bef::sections::SectionEntry;
-    let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-    let sec_off = hdr.section_table_offset as usize;
-    for i in 0..hdr.section_count as usize {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if bef[e] == kind as u8 {
-            return Some(u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap()) as usize);
-        }
+fn tamano_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
+    let v = bmo_abi::bef2::leer(bef).ok()?;
+    let n = v.region(r).len();
+    if n == 0 {
+        None
+    } else {
+        Some(n)
     }
-    None
 }
 
 /// * Un programa pequeno ocupa lo que ocupa.
@@ -99,9 +88,8 @@ fn tamano_seccion(bef: &[u8], kind: bmo_abi::bef::sections::SectionKind) -> Opti
 /// cualquier ahorro de codigo por debajo de una pagina.
 #[test]
 fn la_seccion_de_codigo_ya_no_se_redondea_a_pagina() {
-    use bmo_abi::bef::sections::SectionKind;
     let bef = compile_source_to_bef("int main() { printf(\"hola\"); return 0; }").unwrap();
-    let code = tamano_seccion(&bef, SectionKind::Code).expect("tiene que haber seccion code");
+    let code = tamano_region(&bef, bmo_abi::bef2::Region::Codigo).expect("tiene que haber codigo");
     assert!(
         code % 4096 != 0,
         "un programa de este tamano no puede medir un multiplo exacto de pagina: {code}"
@@ -140,17 +128,14 @@ fn una_cadena_se_alcanza_aunque_el_codigo_no_llene_la_pagina() {
 
 /// El tamano DECLARADO en memoria de la seccion `kind` (`mem_size`), que para
 /// una `Bss` es lo unico que dice algo -- su `file_size` es cero por definicion.
-fn memoria_seccion(bef: &[u8], kind: bmo_abi::bef::sections::SectionKind) -> Option<usize> {
-    use bmo_abi::bef::sections::SectionEntry;
-    let hdr = unsafe { &*(bef.as_ptr() as *const bmo_abi::bef::header::BefHeader) };
-    let sec_off = hdr.section_table_offset as usize;
-    for i in 0..hdr.section_count as usize {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if bef[e] == kind as u8 {
-            return Some(u64::from_le_bytes(bef[e + 24..e + 32].try_into().unwrap()) as usize);
-        }
+/// Los CEROS que declara la imagen, que no viajan en el fichero.
+fn ceros_declarados(bef: &[u8]) -> Option<usize> {
+    let v = bmo_abi::bef2::leer(bef).ok()?;
+    if v.ceros == 0 {
+        None
+    } else {
+        Some(v.ceros as usize)
     }
-    None
 }
 
 /// ** Una tabla de 32 KiB a cero **no engorda el fichero**.
@@ -160,9 +145,8 @@ fn memoria_seccion(bef: &[u8], kind: bmo_abi::bef::sections::SectionKind) -> Opt
 /// entera en memoria.
 #[test]
 fn una_tabla_grande_a_cero_no_engorda_el_fichero() {
-    use bmo_abi::bef::sections::SectionKind;
     let bef = compile_source_to_bef("int enorme[8192]; int main() { return enorme[0]; }").unwrap();
-    let bss = memoria_seccion(&bef, SectionKind::Bss).expect("tiene que haber seccion bss");
+    let bss = ceros_declarados(&bef).expect("tiene que declarar ceros");
     assert!(
         bss >= 32768,
         "la tabla son 8192 enteros = 32 KiB, y la bss mide {bss}"
@@ -180,11 +164,10 @@ fn una_tabla_grande_a_cero_no_engorda_el_fichero() {
 /// en cada proceso del sistema.
 #[test]
 fn sin_globales_a_cero_no_se_declara_bss() {
-    use bmo_abi::bef::sections::SectionKind;
     let bef = compile_source_to_bef("int g = 42; int main() { return g; }").unwrap();
     assert!(
-        memoria_seccion(&bef, SectionKind::Bss).is_none(),
-        "no hay ningun global a cero: no debe declararse seccion bss"
+        ceros_declarados(&bef).is_none(),
+        "no hay ningun global a cero: no se declara ni un byte de ceros"
     );
 }
 
@@ -308,7 +291,7 @@ int main() {
     assert_eq!(esperado, "0,7,14,\n");
 
     let wad = vec![0x5Au8; 4096];
-    let paquete = bmo_abi::bef::paquete::empaquetar(
+    let paquete = bmo_abi::bef2::empaquetar(
         &desnudo,
         &[("datos.wad", &wad), ("leeme.txt", b"hola")],
     )
@@ -329,9 +312,9 @@ fn los_recursos_se_recuperan_del_paquete() {
     let desnudo = compile_source_to_bef("int main() { printf(\"x\"); return 0; }").unwrap();
     let wad: Vec<u8> = (0..1000u32).map(|i| (i % 251) as u8).collect();
     let paquete =
-        bmo_abi::bef::paquete::empaquetar(&desnudo, &[("doom1.wad", &wad)]).unwrap();
+        bmo_abi::bef2::empaquetar(&desnudo, &[("doom1.wad", &wad)]).unwrap();
 
-    let d = bmo_abi::bef::paquete::directorio(&paquete).expect("trae directorio");
+    let d = bmo_abi::bef2::directorio(&paquete).expect("trae directorio");
     let i = d.buscar("doom1.wad").expect("esta");
     assert_eq!(d.datos(i).unwrap(), &wad[..]);
 }
@@ -342,31 +325,16 @@ fn los_recursos_se_recuperan_del_paquete() {
 /// suma no puede cambiar al empaquetar.
 #[test]
 fn los_recursos_no_ocupan_memoria_del_proceso() {
-    use bmo_abi::bef::sections::SectionKind;
-
+    /// Lo que el proceso tendra mapeado: las CUATRO REGIONES y nada mas. Un
+    /// anexo --recursos, firma, simbolos-- viaja en el fichero y el kernel lo
+    /// salta, asi que no cuesta ni una pagina.
     fn memoria_mapeada(bex: &[u8]) -> u64 {
-        let tabla = u64::from_le_bytes(bex[32..40].try_into().unwrap()) as usize;
-        let count = u32::from_le_bytes(bex[40..44].try_into().unwrap()) as usize;
-        let mut total = 0u64;
-        for i in 0..count {
-            let e = &bex[tabla + i * 48..tabla + (i + 1) * 48];
-            let cargable = matches!(
-                e[0],
-                x if x == SectionKind::Code as u8
-                    || x == SectionKind::RoData as u8
-                    || x == SectionKind::Data as u8
-                    || x == SectionKind::Bss as u8
-            );
-            if cargable {
-                total += u64::from_le_bytes(e[24..32].try_into().unwrap());
-            }
-        }
-        total
+        bmo_abi::bef2::leer(bex).expect("imagen valida").memoria()
     }
 
     let desnudo = compile_source_to_bef("int main() { printf(\"x\"); return 0; }").unwrap();
     let gordo = vec![0u8; 4 * 1024 * 1024];
-    let paquete = bmo_abi::bef::paquete::empaquetar(&desnudo, &[("gordo", &gordo)]).unwrap();
+    let paquete = bmo_abi::bef2::empaquetar(&desnudo, &[("gordo", &gordo)]).unwrap();
 
     assert!(paquete.len() > 4 * 1024 * 1024, "el fichero SI crece");
     assert_eq!(

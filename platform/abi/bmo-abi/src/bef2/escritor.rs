@@ -29,6 +29,10 @@ pub struct Requisito {
     pub motivo: String,
 }
 
+/// El motivo de la linea de memoria que el escritor pone el solo. Es lo que
+/// [`Escritor::de_imagen`] usa para reconocerla y no arrastrarla.
+const MOTIVO_MEMORIA: &str = "codigo, constantes, datos y ceros de la imagen";
+
 /// Escribe una imagen BEF2.
 pub struct Escritor {
     banderas: u8,
@@ -42,6 +46,8 @@ pub struct Escritor {
     anexos: Vec<(u8, Vec<u8>)>,
     requisitos: Vec<Requisito>,
     alinear_a_pagina: bool,
+    /// La firma de AUTOR, si la hay: `(sig 64, pubkey 32)`.
+    ed25519: Option<([u8; 64], [u8; 32])>,
 }
 
 impl Escritor {
@@ -61,6 +67,7 @@ impl Escritor {
             anexos: Vec::new(),
             requisitos: Vec::new(),
             alinear_a_pagina: false,
+            ed25519: None,
         }
     }
 
@@ -128,6 +135,69 @@ impl Escritor {
         self
     }
 
+    /// **Vuelve a abrir una imagen ya escrita** para cambiarle algo y
+    /// reescribirla: lo que hacen `bmo-pack` (anadir recursos) y `bmo-firmar`
+    /// (poner la firma de autor).
+    ///
+    /// ** La firma y los relocs se fabrican otra vez al construir, porque
+    /// dependen de lo que acabe habiendo dentro. De los requisitos se rehace
+    /// SOLO la linea de memoria (la cuenta de ayer); **lo que el programa
+    /// DECLARO viaja**: pantalla, audio, lo que sea. La primera version tiraba
+    /// la tabla entera, y un `.ibx` que declaraba la pantalla la perdia al
+    /// pasar por `bmo-pack` para llevarse su icono -- sin que nadie se
+    /// enterara hasta el DIRECTOR. Lo ata `lo_declarado_sobrevive_a_reabrir`.
+    pub fn de_imagen(bytes: &[u8]) -> Result<Self, super::Falta> {
+        let v = super::leer(bytes)?;
+        let mut e = Self::ejecutable();
+        e.banderas = v.banderas;
+        e.xcr0 = v.xcr0;
+        e.entrada = v.entrada;
+        e.ceros = v.ceros;
+        e.codigo = v.region(Region::Codigo).to_vec();
+        e.constantes = v.region(Region::Constantes).to_vec();
+        e.datos = v.region(Region::Datos).to_vec();
+        for r in v.relocs() {
+            e.relocs.push(r);
+        }
+        for a in v.anexos() {
+            let desde = a.tramo.offset as usize;
+            let cuerpo = &bytes[desde..desde + a.tramo.bytes as usize];
+            match a.tipo {
+                // Los que fabrica el escritor se rehacen.
+                ANEXO_RELOCS | ANEXO_FIRMA => {}
+                // De los requisitos, todo menos la linea que pone el escritor.
+                ANEXO_REQUISITOS => {
+                    if let Some(t) = requisitos::Tabla::abrir(cuerpo) {
+                        for r in t.iter() {
+                            let motivo = t.motivo(&r);
+                            if r.clase == requisitos::CLASE_MEMORIA && motivo == MOTIVO_MEMORIA {
+                                continue;
+                            }
+                            e.requisitos.push(Requisito {
+                                clase: r.clase,
+                                unidad: r.unidad,
+                                obligatorio: r.es_obligatorio(),
+                                cantidad: r.cantidad,
+                                motivo: String::from(motivo),
+                            });
+                        }
+                    }
+                }
+                // El resto es data para otro y viaja tal cual.
+                _ => e.anexos.push((a.tipo, cuerpo.to_vec())),
+            }
+        }
+        Ok(e)
+    }
+
+    /// **La firma de AUTOR.** `sig` es Ed25519 sobre la cadena de hashes de la
+    /// imagen (`cadena_de_hashes`), y `pubkey` la clave con la que se
+    /// comprueba. Sin esto, un `.bex` solo dice "llego entero".
+    pub fn ed25519(&mut self, sig: [u8; 64], pubkey: [u8; 32]) -> &mut Self {
+        self.ed25519 = Some((sig, pubkey));
+        self
+    }
+
     pub fn construir(&mut self) -> Result<Vec<u8>, &'static str> {
         if self.banderas & EJECUTABLE != 0 && self.codigo.is_empty() {
             return Err("un ejecutable sin codigo");
@@ -172,7 +242,9 @@ impl Escritor {
                 cubre.push(FIRMA_ANEXO | i as u8);
             }
         }
-        let firma_bytes = FIRMA_CABECERA + cubre.len() * FIRMA_HASH;
+        let firma_bytes = FIRMA_CABECERA
+            + cubre.len() * FIRMA_HASH
+            + if self.ed25519.is_some() { FIRMA_ED25519 } else { 0 };
 
         // -- La colocacion ---------------------------------------------------
         let paso = if self.alinear_a_pagina { 4096 } else { 16 };
@@ -246,7 +318,8 @@ impl Escritor {
         // La firma, al final y sobre los bytes ya puestos.
         let f = sitio_firma.0 as usize;
         img[f..f + 4].copy_from_slice(&(cubre.len() as u32).to_le_bytes());
-        img[f + 4..f + 8].copy_from_slice(&ALGO_NINGUNO.to_le_bytes());
+        let algo = if self.ed25519.is_some() { ALGO_ED25519 } else { ALGO_NINGUNO };
+        img[f + 4..f + 8].copy_from_slice(&algo.to_le_bytes());
         for (i, que) in cubre.iter().enumerate() {
             let h = f + FIRMA_CABECERA + i * FIRMA_HASH;
             img[h] = *que;
@@ -259,6 +332,11 @@ impl Escritor {
             };
             let digest = blake3_256(trozo);
             img[h + 8..h + FIRMA_HASH].copy_from_slice(&digest);
+        }
+        if let Some((sig, pubkey)) = self.ed25519 {
+            let s = f + FIRMA_CABECERA + cubre.len() * FIRMA_HASH;
+            img[s..s + 64].copy_from_slice(&sig);
+            img[s + 64..s + 96].copy_from_slice(&pubkey);
         }
         Ok(img)
     }
@@ -275,7 +353,7 @@ impl Escritor {
             unidad: requisitos::UNIDAD_BYTES,
             obligatorio: true,
             cantidad: memoria,
-            motivo: "codigo, constantes, datos y ceros de la imagen",
+            motivo: MOTIVO_MEMORIA,
         }];
         for r in self.requisitos.iter() {
             decls.push(requisitos::Declaracion {

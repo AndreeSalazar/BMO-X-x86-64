@@ -147,11 +147,7 @@ impl BefSection {
     /// La cabecera dice CUANTAS entradas hay; sin ella el lector no puede
     /// saber donde acaban y empieza el blob. Ver [`TablaCadenas`].
     pub fn symbols(entries: Vec<Symbol>, strings: Vec<u8>) -> Self {
-        let cab = TablaCadenas::de(entries.len() as u32);
-        let mut data = Vec::from(bytes_from_struct(&cab));
-        data.extend_from_slice(&bytes_from_slice(&entries));
-        data.extend_from_slice(&strings);
-        Self::new(SectionKind::Symbols, data)
+        Self::new(SectionKind::Symbols, simbolos_en_bytes(&entries, &strings))
     }
 
     pub fn relocs(entries: Vec<Relocation>) -> Self {
@@ -162,6 +158,19 @@ impl BefSection {
         Self::new(SectionKind::Manifest, toml)
     }
 
+}
+
+/// **Los bytes de una tabla de simbolos**: cabecera, entradas y cadenas.
+///
+/// Aparte desde el 2026-09-19 porque ya no es "una seccion": en BEF2 los
+/// simbolos viajan en un ANEXO, y quien los escribe es el emisor. El formato de
+/// dentro no cambia -- el DIRECTOR lo lee igual.
+pub fn simbolos_en_bytes(entradas: &[Symbol], cadenas: &[u8]) -> Vec<u8> {
+    let cab = TablaCadenas::de(entradas.len() as u32);
+    let mut data = Vec::from(bytes_from_struct(&cab));
+    data.extend_from_slice(&bytes_from_slice(entradas));
+    data.extend_from_slice(cadenas);
+    data
 }
 
 /// Un requisito que declara el PROGRAMA, no el escritor.

@@ -442,8 +442,10 @@ fn without_extension(n: &[u8]) -> &[u8] {
 // Si alguno cambia, esto deja de encontrar iconos -- y eso es visible al
 // primer arranque, que es lo mejor que le puede pasar a una divergencia.
 
-const SECTION_RESOURCES: u8 = 0x0B;
-const SPLASH_SECTION: usize = 48;
+/// El anexo de RECURSOS de BEF2 (antes era la seccion `0x0B`).
+const SECTION_RESOURCES: u8 = 0x04;
+/// Una entrada de la tabla de ANEXOS de BEF2 (2026-09-19).
+const SPLASH_SECTION: usize = 16;
 const HEADER_BRES: usize = 16;
 const SPLASH_BRES: usize = 64;
 
@@ -453,17 +455,18 @@ fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
     let Ok(f) = bmo::Archivo::leer_de(path) else {
         return false;
     };
-    // -- La cabecera del BEF: cuantas secciones y donde esta su tabla --
-    let mut cab = [0u8; 48];
-    if f.read(&mut cab) < 48 {
+    // -- La cabecera BEF2: cuantos ANEXOS hay. Su tabla va justo detras, en
+    // el byte 64, asi que no hay offset que leer ni que creerse.
+    let mut cab = [0u8; 64];
+    if f.read(&mut cab) < 64 {
         return false;
     }
-    if &cab[0..4] != b"BEF1" {
+    if &cab[0..4] != b"BEF2" {
         return false;
     }
-    let lookup = read_u64(&cab, 32) as u64;
-    let count = read_u32(&cab, 40) as usize;
-    if count == 0 || count > 255 {
+    let lookup = 64u64;
+    let count = read_u32(&cab, 20) as usize;
+    if count == 0 || count > 16 {
         return false;
     }
     // -- Buscar la seccion de recursos --
@@ -476,8 +479,8 @@ fn read_icon(path: &[u8], px: &mut [u32; PIXELS]) -> bool {
             return false;
         }
         if e[0] == SECTION_RESOURCES {
-            sec_off = read_u64(&e, 8);
-            sec_len = read_u64(&e, 16);
+            sec_off = read_u32(&e, 4) as u64;
+            sec_len = read_u32(&e, 8) as u64;
             break;
         }
     }

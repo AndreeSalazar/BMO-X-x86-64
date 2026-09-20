@@ -17,7 +17,7 @@
 //! una funcion que todavia no tiene. Cuando C sepa expresarlo, se reescriben.
 
 use std::path::PathBuf;
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
+use bmo_abi::bef2::Escritor;
 
 const CURRENT_TASK: u64 = 0xFFFF_FFFF_FFFF_FFFE;
 
@@ -242,9 +242,10 @@ fn cliente() -> Vec<u8> {
 
 fn write(name: &str, code: Vec<u8>, destino: &PathBuf) {
     let n = code.len();
-    let mut b = BefBuilder::new();
-    b.add_section(BefSection::code(code));
-    let bytes = b.build().expect("construyendo el BEF");
+    // BEF2 (2026-09-19): solo codigo, entrada en el byte 0.
+    let mut b = Escritor::ejecutable();
+    b.codigo(code).entrada(0);
+    let bytes = b.construir().expect("construyendo el BEF");
     std::fs::write(destino, &bytes).expect("escribiendo el .bex");
     println!("  {:<10} {:>5} B de codigo  ->  {} ({} B)", name, n, destino.display(), bytes.len());
 }

@@ -42,7 +42,7 @@
 
 use std::path::PathBuf;
 
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
+use bmo_abi::bef2::Escritor;
 
 /// Lo que hace falta de un ELF64. Nada mas que esto.
 struct Elf {
@@ -141,7 +141,12 @@ fn main() {
     println!("== bex-link ==");
     println!("  entrada  {}", entrada.display());
 
-    let mut b = BefBuilder::new();
+    // ** BEF2 (2026-09-19, B4 de `docs/plan/PLAN_BEF_NATIVO.md`): las cuatro
+    // secciones del ELF van a las cuatro REGIONES de la cabecera, y el permiso
+    // de cada una lo da su hueco. El DIRECTOR es el `.bex` mas grande del
+    // sistema y el primero que carga el kernel: si esto se escribe mal, no
+    // hay escritorio.
+    let mut b = Escritor::ejecutable();
     let mut base_text = None;
     // La direccion que el kernel ira calculando, para poder comprobar que
     // coincide con la que el enlazador escribio. Empieza en USER_IMAGE_BASE.
@@ -169,23 +174,24 @@ fn main() {
             name, s.addr, s.size
         );
 
-        let mut seccion = if s.tipo == SHT_NOBITS {
+        if s.tipo == SHT_NOBITS {
             // `.bss` no aporta bytes: el kernel pone la pagina a cero.
-            BefSection::bss(s.size)
+            b.ceros(s.size as u32);
         } else {
             let datos = bytes[s.offset as usize..(s.offset + s.size) as usize].to_vec();
             match name {
                 ".text" => {
                     base_text = Some(s.addr);
-                    BefSection::code(datos)
+                    b.codigo(datos);
                 }
-                ".rodata" => BefSection::rodata(datos),
-                _ => BefSection::data(datos),
+                ".rodata" => {
+                    b.constantes(datos);
+                }
+                _ => {
+                    b.datos(datos);
+                }
             }
-        };
-        // TODAS a 4096: es lo que hace predecible la colocacion del kernel.
-        seccion.alignment = 4096;
-        b.add_section(seccion);
+        }
 
         va_kernel += (s.size + 4095) & !4095;
     }
@@ -201,9 +207,10 @@ fn main() {
         );
         std::process::exit(1);
     }
-    // El kernel lo lee como desplazamiento DENTRO de la seccion de codigo.
-    b.entry_offset = elf.entry - base_text;
-    println!("  entrada en +0x{:X} de .text", b.entry_offset);
+    // El kernel lo lee como desplazamiento DENTRO de la region de codigo.
+    let entrada = elf.entry - base_text;
+    b.entrada(entrada as u32);
+    println!("  entrada en +0x{:X} de .text", entrada);
 
     if desajuste {
         eprintln!(
@@ -213,7 +220,7 @@ fn main() {
         std::process::exit(1);
     }
 
-    let salida_bytes = b.build().unwrap_or_else(|e| {
+    let salida_bytes = b.construir().unwrap_or_else(|e| {
         eprintln!("bex-link: construyendo el BEF: {e}");
         std::process::exit(1);
     });

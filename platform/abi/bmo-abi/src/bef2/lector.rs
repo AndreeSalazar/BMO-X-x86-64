@@ -45,7 +45,8 @@ pub enum Falta {
     DemasiadosAnexos,
     /// Dos anexos del mismo tipo: cual de los dos vale?
     AnexoRepetido,
-    /// Un anexo que este formato no permite aqui (simbolos en un ejecutable).
+    /// Un anexo con el tipo 0, o VACIO: no existe, y un cero suele ser una
+    /// tabla sin rellenar. (La puerta del kernel lo rechaza igual.)
     AnexoQueNoVaAqui,
     /// El anexo de relocs esta mal formado, o un reloc apunta fuera.
     RelocMal,
@@ -148,7 +149,21 @@ impl<'a> Vista<'a> {
         if matches!(r, Region::Ceros) {
             return &[];
         }
-        let t = self.tramo(r);
+        self.trozo(self.tramo(r))
+    }
+
+    /// Los bytes de un tramo que el juez ya dio por bueno.
+    ///
+    /// ** Un tramo VACIO no se rebana: la pasada hostil (`tests/hostile.rs`)
+    /// encontro que una region de 0 bytes con un offset fuera del fichero
+    /// pasaba el juez -- no ocupa sitio, no se compara con nadie -- y despues
+    /// `bytes[65536..65536]` sobre 704 bytes panicaba. El juez ya lo rechaza
+    /// (`SeSaleDelFichero`); esto es el cinturon por si algun dia deja de
+    /// hacerlo: un `Vista` no puede panicar por construccion.
+    fn trozo(&self, t: Tramo) -> &'a [u8] {
+        if t.bytes == 0 {
+            return &[];
+        }
         &self.bytes[t.offset as usize..t.offset as usize + t.bytes as usize]
     }
 
@@ -178,7 +193,17 @@ impl<'a> Vista<'a> {
     /// Los bytes de un anexo por su tipo.
     pub fn anexo(&self, tipo: u8) -> Option<&'a [u8]> {
         let a = self.anexos().find(|a| a.tipo == tipo)?;
-        Some(&self.bytes[a.tramo.offset as usize..a.tramo.offset as usize + a.tramo.bytes as usize])
+        Some(self.trozo(a.tramo))
+    }
+
+    /// **La CADENA de hashes**: el BLAKE3 de todas las entradas de la firma,
+    /// en orden. Es lo que firma `bmo-firmar` con Ed25519 -- una firma sobre un
+    /// solo numero que ya resume la imagen entera, en vez de N firmas.
+    pub fn cadena_de_hashes(&self) -> Option<[u8; 32]> {
+        let firma = self.anexo(ANEXO_FIRMA)?;
+        let cuantos = u32_en(firma, 0)? as usize;
+        let fin = FIRMA_CABECERA + cuantos * FIRMA_HASH;
+        Some(crate::bef::signing::blake3_256(firma.get(FIRMA_CABECERA..fin)?))
     }
 
     /// Los relocs, ya comprobados al leer.
@@ -268,11 +293,14 @@ pub fn leer(bytes: &[u8]) -> Result<Vista<'_>, Falta> {
     let mut trozos = [(0u64, 0u64); MAX_TROZOS];
     let mut n = 0usize;
     let apunta = |t: Tramo, trozos: &mut [(u64, u64); MAX_TROZOS], n: &mut usize| -> Result<(), Falta> {
-        if t.bytes == 0 {
-            return Ok(());
-        }
+        // Un tramo vacio no ocupa sitio y no se pelea con nadie, pero su
+        // offset tiene que caer DENTRO del fichero igual: uno que apunte fuera
+        // es basura, y la basura no pasa aunque no haga dano.
         if t.fin() > total as u64 {
             return Err(Falta::SeSaleDelFichero);
+        }
+        if t.bytes == 0 {
+            return Ok(());
         }
         trozos[*n] = (t.offset as u64, t.fin());
         *n += 1;
@@ -287,18 +315,13 @@ pub fn leer(bytes: &[u8]) -> Result<Vista<'_>, Falta> {
     let mut vistos = [0u8; MAX_ANEXOS];
     for i in 0..cuantos {
         let a = anexo_en(bytes, i).ok_or(Falta::ReservadoNoEsCero)?;
-        if a.tipo == 0 {
+        if a.tipo == 0 || a.tramo.bytes == 0 {
             return Err(Falta::AnexoQueNoVaAqui);
         }
         if vistos[..i].contains(&a.tipo) {
             return Err(Falta::AnexoRepetido);
         }
         vistos[i] = a.tipo;
-        if ejecutable && a.tipo == ANEXO_SIMBOLOS {
-            // Un ejecutable no lleva simbolos: se enlazo estatico y ya no hay
-            // nada que resolver. Llevarlos seria peso y superficie.
-            return Err(Falta::AnexoQueNoVaAqui);
-        }
         apunta(a.tramo, &mut trozos, &mut n)?;
     }
     for i in 0..n {
@@ -377,7 +400,15 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
     if fin > firma.len() {
         return Err(Falta::FirmaMal);
     }
-    if algo == ALGO_NINGUNO && fin != firma.len() {
+    // Lo que va DETRAS de los hashes lo dice el algoritmo, y no se admite un
+    // sobrante sin nombre: un anexo con bytes de mas es un sitio donde
+    // esconder algo que nadie mira.
+    let esperado = match algo {
+        ALGO_NINGUNO => fin,
+        ALGO_ED25519 => fin + FIRMA_ED25519,
+        _ => return Err(Falta::FirmaMal),
+    };
+    if esperado != firma.len() {
         return Err(Falta::FirmaMal);
     }
 
@@ -397,7 +428,7 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
                 return Err(Falta::FirmaMal);
             }
             cubiertos[idx] = true;
-            &v.bytes[a.tramo.offset as usize..a.tramo.offset as usize + a.tramo.bytes as usize]
+            v.trozo(a.tramo)
         } else {
             let r = Region::de(que).ok_or(Falta::FirmaMal)?;
             if matches!(r, Region::Ceros) {

@@ -69,9 +69,6 @@ pub mod puerta;
 
 use bmo_abi::bef::katanas::{self, Katana};
 use bmo_abi::dynobj::texto as dynobj_texto;
-use bmo_abi::bef::relocations::{Relocation, RelocationKind};
-use bmo_abi::bef::sections::SectionKind;
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
 use bmo_abi::syscalls::surface::{NR_INVOKE, NR_WAIT};
 use bmo_inti_front::ir::{
     Clase, ClaseCongelada, Comprobacion, Const, FuncionIr, Instr, Local, ModuloIr, Valor,
@@ -748,12 +745,14 @@ pub fn rodata_de(e: &Emitido) -> (Vec<u8>, Vec<u64>) {
 /// Ningun `.bex` del sistema se escribe sin pasar por `bmo-verify`: es el unico
 /// checkpoint comun, y aqui no se abre un quinto camino que lo esquive.
 pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, String> {
-    let mut b = BefBuilder::new();
+    use bmo_abi::bef2;
+
+    let mut b = bef2::Escritor::ejecutable();
     // Por donde entra el kernel. El arranque es lo primero que se emitio, asi
     // que es cero -- pero se dice, porque un cero que coincide con el valor por
     // defecto no distingue "decidido" de "olvidado".
-    b.entry_offset = 0;
-    b.add_section(BefSection::code(e.codigo.clone()));
+    b.entrada(0);
+    b.codigo(e.codigo.clone());
 
     // *** LAS TABLAS CONGELADAS, EN `RoData` -- y NO dentro del codigo.
     //
@@ -778,53 +777,50 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
     // `Data = 0x03`, y aqui es **1** (`0` = code, `1` = data, `2` = rodata), que
     // es lo que `relocations.rs` deja escrito. Cruzar las dos daria un binario
     // que carga y escribe el monton encima del codigo.
-    let mut relocs_data: Vec<Relocation> = Vec::new();
+    // ** EN BEF2 UN RELOC NOMBRA REGIONES, no numeros de seccion.
+    //
+    // Aqui habia una nota larga avisando de que "la numeracion de las
+    // reubicaciones NO es la de `SectionKind`" y de que cruzarlas daba un
+    // binario que escribe el monton encima del codigo. Esa trampa se fue con la
+    // tabla de secciones: el hueco vive en el CODIGO y apunta a DATOS o a
+    // CONSTANTES, y eso se lee en la linea.
     if !e.reubicaciones_del_monton.is_empty() {
-        b.add_section(BefSection::data(vec![0u8; 8]));
-        relocs_data = e
-            .reubicaciones_del_monton
-            .iter()
-            .map(|off| Relocation {
-                offset: *off as u64,
-                symbol_idx: 1, // data, en la numeracion de las reubicaciones
-                kind: RelocationKind::SeccionAbs64 as u8,
-                target_section: 0, // el hueco vive en el codigo
-                _pad: [0; 2],
+        // OCHO BYTES, y son el monton de la tarea: lo que vive aqui es UNA
+        // DIRECCION, no el monton. El monton lo da el kernel y vive donde el
+        // kernel diga. Nace a cero y la escribe el arranque.
+        b.datos(vec![0u8; 8]);
+        for off in &e.reubicaciones_del_monton {
+            b.reloc(bef2::Reloc {
+                donde: bef2::Region::Codigo,
+                destino: bef2::Region::Datos,
+                offset: *off as u32,
                 addend: 0,
-            })
-            .collect();
+            });
+        }
     }
 
+    // *** LAS TABLAS CONGELADAS, EN LAS CONSTANTES -- y NO dentro del codigo.
+    //
+    // Meterlas en el codigo habria sido mas corto: no harian falta
+    // reubicaciones y la direccion se sabria al emitir. **Y habria roto el
+    // barrido lineal**, que es lo que hace que un `.ibx` se pueda recorrer de
+    // principio a fin -- la exclusividad tecnica de INTI, escrita en
+    // `barrido.rs`. Un binario de C mete datos entre las instrucciones y por
+    // eso no se puede recorrer.
     if !e.congelados.is_empty() {
         let (rodata, donde) = rodata_de(e);
-        b.add_section(BefSection::rodata(rodata));
+        b.constantes(rodata);
 
-        // ** `SeccionAbs64` y no `Abs64`: no hay simbolo de por medio, hay una
-        // POSICION dentro de otra seccion de este mismo binario. Y ojo con la
-        // trampa que el propio formato deja escrita -- los codigos de seccion de
-        // una reubicacion **no son los de `SectionKind`**: aqui `2` es rodata.
-        relocs_data.extend(e.reubicaciones.iter().filter_map(|(off, i)| {
-            donde.get(*i as usize).map(|d| Relocation {
-                offset: *off as u64,
-                symbol_idx: 2, // rodata, en la numeracion de las reubicaciones
-                kind: RelocationKind::SeccionAbs64 as u8,
-                target_section: 0, // el hueco vive en el codigo
-                _pad: [0; 2],
-                addend: *d as i64,
-            })
-        }));
-    }
-
-    // ** LAS REUBICACIONES VAN JUNTAS Y AL FINAL, y esto era un fallo esperando.
-    //
-    // Estaban DENTRO del `if` de las tablas congeladas, asi que un programa que
-    // pidiera el monton de la tarea **y no tuviera ni una tabla** se habria
-    // llevado su seccion `Data` sin la reubicacion que la alcanza: el inmediato
-    // se quedaria a cero y el monton estaria en la direccion 0.
-    //
-    // Compilaria, pasaria el gate, y moriria al primer `texto + texto`.
-    if !relocs_data.is_empty() {
-        b.add_section(BefSection::relocs(relocs_data));
+        for (off, i) in e.reubicaciones.iter() {
+            if let Some(d) = donde.get(*i as usize) {
+                b.reloc(bef2::Reloc {
+                    donde: bef2::Region::Codigo,
+                    destino: bef2::Region::Constantes,
+                    offset: *off as u32,
+                    addend: *d as u64,
+                });
+            }
+        }
     }
 
     // *** LO QUE EL PROGRAMA DECLARO QUE NECESITA -- la seccion que llevaba en
@@ -842,7 +838,7 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
     // decision que se toma con el caso delante -- hoy no hay ninguno que valga
     // decir "si puedes".
     for n in &e.necesita {
-        b.requerir(bmo_abi::bef::writer::RequisitoDeclarado {
+        b.requerir(bef2::Requisito {
             clase: n.clase,
             unidad: n.unidad,
             obligatorio: true,
@@ -880,7 +876,7 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
     // P1 -- y hay una prueba que lo fija en 8.752 bytes sobre la sonda de
     // verdad, para que esa linea base no se pueda mover sin querer.
     if let Some(t) = manifiesto {
-        b.add_section(BefSection::manifest_toml(t.as_bytes().to_vec()));
+        b.anexo(bef2::ANEXO_MANIFIESTO, t.as_bytes().to_vec());
 
         // Por cada regla, su codigo y DONDE esta su bloque de trampa. Es lo que
         // convierte *"este binario atrapa"* en algo que se puede ir a mirar:
@@ -906,11 +902,11 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
         // Comprobarlo despues seria dejar el fichero escrito con la mentira
         // dentro.
         katanas::revisar(&tabla, e.codigo.len()).map_err(|f| f.nombre().to_string())?;
-        b.add_section(BefSection::new(SectionKind::Katanas, tabla));
+        b.anexo(bef2::ANEXO_KATANAS, tabla);
     }
 
 
-    let bytes = b.build().map_err(|x| x.to_string())?;
+    let bytes = b.construir().map_err(|x| x.to_string())?;
 
     // ** EL GATE SE EXIGE A SI MISMO LO QUE ACABA DE PROMETER.
     //

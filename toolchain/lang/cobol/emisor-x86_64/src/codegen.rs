@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use bmo_abi::bef::writer::{BefBuilder, BefSection};
 use bmo_sem_asm::Instructions;
 use bmo_sem_asm::x86_64::{Asm, Reg};
 use bmo_lower::x86;
@@ -2834,10 +2833,13 @@ impl Codegen {
 
     fn build_bef(&mut self) -> Vec<u8> {
         let all = core::mem::take(&mut self.code);
-        let mut b = BefBuilder::new();
-        b.add_section(BefSection::code(all));
-        b.entry_offset = 0;
-        b.build().unwrap_or_default()
+        // BEF2 (2026-09-19): un programa de COBOL es CODIGO y nada mas -- sus
+        // cadenas viven dentro de el. La entrada es cero, y se dice: un cero
+        // que coincide con el valor por defecto no distingue "decidido" de
+        // "olvidado".
+        let mut b = bmo_abi::bef2::Escritor::ejecutable();
+        b.codigo(all).entrada(0);
+        b.construir().unwrap_or_default()
     }
 }
 

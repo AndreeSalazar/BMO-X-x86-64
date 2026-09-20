@@ -187,7 +187,44 @@ Lo que cambia, y por que es BMO y no ELF:
   (`task/bex.rs`, `task/admitir.rs`, `task/landing.rs`) NO cambia: las
   regiones se le presentan como secciones con su tipo y su indice de hash, y
   la entrada de firma de BEF2 son los mismos bytes que la de BEF1.
-- [ ] **B4 -- `bmo-enlazar`, `bmo-pack`, `bmo-firma`, `bmo-verify` en BEF2.**
-- [ ] **B5 -- los emisores**: escriben por `bef/writer.rs`, asi que casi nada.
-- [ ] **B6 -- regenerar los `.bex` de `task/payloads/`, DOOM y las apps, y
-  borrar BEF1** (y reescribir `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md` secciones 3 y 4).
+- [x] **B4 -- las herramientas en BEF2. HECHO el 2026-09-19**: `bmo-enlazar`
+  (el ejecutable sale en BEF2; los `.bo` que entran siguen en BEF1),
+  `bmo-pack` (`bef2::paquete`, misma API), `bmo-firmar` (firmar es REABRIR
+  y reescribir: `Escritor::de_imagen` + `ed25519`, y se relee con
+  `bmo-firma` antes de dar el fichero por bueno), `bmo-verify`, `bex-link`
+  (el DIRECTOR), `hello-bex` y `rpc-demo`; el emulador (`emu/cargar.rs`) y el
+  metro leen BEF2 por el juez. ** Y dos fallos que salieron al hacerlo:
+  `Escritor::de_imagen` TIRABA los requisitos declarados (un `.ibx` que
+  pedia pantalla la perdia al pasar por `bmo-pack` para llevarse el icono),
+  y la pasada hostil cazo que una region VACIA con offset fuera del fichero
+  pasaba el juez y luego `region()` panicaba -- ahora los dos jueces la
+  rechazan con nombre, y un anexo vacio tambien.
+- [x] **B5 -- los emisores. HECHO el 2026-09-19**: C, C++, COBOL, Ada e
+  INTI escriben por `bef2::Escritor`; los relocs nombran regiones
+  (`Region::de_seccion_de_emisor` es la unica traduccion); simbolos,
+  manifiesto, katanas y recursos son anexos. Los 41 ejecutables del build
+  son BEF2 y el metro dice las MISMAS instrucciones y salidas (857.700).
+- [ ] **B6 -- borrar BEF1.** Regenerados ya los cinco `.bex` de
+  `task/payloads/` (init_hello 4.288 -> 424 B); DOOM y las apps salen del
+  build. Lo que queda escribe o lee BEF1 y se va con el:
+  - los OBJETOS `.bo` (`c/codegen/objeto.rs`, `bmo-enlazar` al leerlos):
+    necesitan `Rel32` a simbolo, que BEF2 no tiene a proposito. Decision:
+    un anexo `ENLACE` de objeto (kind + offset + simbolo + addend) que solo
+    consume el enlazador, o dos formatos para siempre
+  - `bef/writer.rs`, `bef/validator.rs`, `bef/loader.rs`, `bex.rs`, el camino
+    BEF1 de `emu/cargar.rs`, del metro y de `hashes_del_disco.rs`, la mitad
+    BEF1 de `bmo-bex-gate`, y las filas del banco que construyen BEF1
+  - reescribir `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md` secciones 3 y 4
+- [ ] **B7 -- la CABECERA firmada.** Hoy los hashes cubren regiones y
+  anexos; `entrada`, `xcr0`, `ceros` y las banderas no los cubre nadie: un
+  `.bex` firmado admite que le cambien el punto de entrada sin que nada se
+  queje. El plan tenia `hash_cab` en el byte 56 y la implementacion lo dejo
+  reservado. Una entrada de firma mas (`que = 0x7F`: los 64 B + la tabla de
+  anexos), comprobada en los DOS jueces.
+- [ ] **B8 -- Ring 0 lee REGIONES.** B3 presenta las regiones al kernel como
+  secciones para no tocarlo (pintura al reves, a proposito). Mientras
+  `task/admitir.rs` y `landing.rs` piensen en secciones, "el permiso lo da
+  el hueco" vive en el adaptador. El final es el kernel mapeando las cuatro
+  regiones por su `Vista` y `PermisoImagen` por region. Pide metal.
+- [ ] **B9 -- medir la decision 2** (paginas alineadas o compacto) con DOOM
+  en el Ryzen antes de elegirla: `alinear_a_pagina()` es la palanca.

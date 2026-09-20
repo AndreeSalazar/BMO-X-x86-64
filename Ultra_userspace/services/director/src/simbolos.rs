@@ -47,9 +47,11 @@ use bmo_userland as bmo;
 // devolvia `None` siempre: indistinguible de "este binario no trae tabla".
 // Un desplazamiento inventado en un lector escrito a mano no da error, da
 // SILENCIO. Ver `scratchpad/valida_lector.py`.
-const SECTION_SYMBOLS: u8 = 0x08;
+/// El anexo de SIMBOLOS de BEF2 (antes era la seccion `0x08`).
+const SECTION_SYMBOLS: u8 = 0x07;
 /// Una entrada de la tabla de secciones.
-const SECTION_ENTRY: usize = 48;
+/// Una entrada de la tabla de ANEXOS de BEF2.
+const SECTION_ENTRY: usize = 16;
 /// Un `Symbol`: `name_off` u32, `name_hash` u32, `virt_addr` u64, `size` u64,
 /// `kind` u8, `binding` u8, `visibility` u8, `section_idx` u8, `_reserved` u32.
 const SYMBOL: usize = 32;
@@ -83,13 +85,14 @@ fn u64_en(b: &[u8], o: usize) -> u64 {
 ///
 /// Devuelve `(offset_de_la_seccion, cuantos_simbolos, offset_de_las_cadenas)`.
 fn localizar(f: &bmo::Archivo) -> Option<(u64, usize, u64)> {
-    let mut cab = [0u8; 48];
-    if f.read(&mut cab) < 48 || &cab[0..4] != b"BEF1" {
+    // BEF2 (2026-09-19): cabecera de 64 B y la tabla de ANEXOS detras.
+    let mut cab = [0u8; 64];
+    if f.read(&mut cab) < 64 || &cab[0..4] != b"BEF2" {
         return None;
     }
-    let tabla = u64_en(&cab, 32);
-    let count = u32_en(&cab, 40) as usize;
-    if count == 0 || count > 255 {
+    let tabla = 64u64;
+    let count = u32_en(&cab, 20) as usize;
+    if count == 0 || count > 16 {
         return None;
     }
 
@@ -102,8 +105,10 @@ fn localizar(f: &bmo::Archivo) -> Option<(u64, usize, u64)> {
             return None;
         }
         if e[0] == SECTION_SYMBOLS {
-            sec_off = u64_en(&e, 8);
-            sec_len = u64_en(&e, 16);
+            // Una entrada de anexo: tipo, tres de relleno, offset y bytes, los
+            // dos de 32 bits.
+            sec_off = u32_en(&e, 4) as u64;
+            sec_len = u32_en(&e, 8) as u64;
             break;
         }
     }

@@ -260,7 +260,11 @@ impl Codegen {
     /// direccion virtual, y `section_idx` dice cual es esa seccion. El
     /// compilador no decide donde se carga el programa -- eso es del cargador, y
     /// escribir aqui una direccion absoluta seria repetir una decision ajena.
-    fn seccion_de_simbolos(&self) -> BefSection {
+    /// ** Los mismos bytes que antes llevaba la seccion `Symbols`, ahora en el
+    /// ANEXO `SIMBOLOS` de BEF2: cabecera de tabla, entradas y cadenas. El
+    /// DIRECTOR los lee igual (`services/director/src/simbolos.rs`); lo unico
+    /// que cambia es donde los encuentra.
+    fn simbolos_en_bytes(&self) -> Vec<u8> {
         use bmo_abi::bef::symbols::{name_hash, Symbol, SymbolBinding, SymbolKind, SymbolVisibility};
 
         let mut orden: Vec<(usize, &String)> =
@@ -298,31 +302,32 @@ impl Codegen {
             });
         }
 
-        BefSection::symbols(entradas, cadenas)
+        bmo_abi::bef::writer::simbolos_en_bytes(&entradas, &cadenas)
     }
 
+    /// **Escribe el `.bex` en BEF2** (2026-09-19, B5 de
+    /// `docs/plan/PLAN_BEF_NATIVO.md`).
+    ///
+    /// ** Lo que antes eran SECCIONES con banderas ahora son las cuatro
+    /// REGIONES de la cabecera, y el permiso de cada una lo da su hueco: no hay
+    /// forma de escribir un `.bex` con las constantes escribibles. Los relocs,
+    /// los simbolos y la firma viajan como ANEXOS.
     pub(super) fn build_bef(&mut self) -> Vec<u8> {
+        use bmo_abi::bef2;
+
         let all = core::mem::take(&mut self.code);
-        let mut b = BefBuilder::new();
+        let mut b = bef2::Escritor::ejecutable();
 
         let code_bytes = &all[..self.instruction_end];
         let rodata_bytes = &all[self.instruction_end..self.string_data_end];
         let data_bytes = &all[self.string_data_end..];
 
-        let mut code_sec = BefSection::code(code_bytes.to_vec());
-        code_sec.alignment = 4096;
-        b.add_section(code_sec);
-
+        b.codigo(code_bytes.to_vec());
         if !rodata_bytes.is_empty() {
-            let mut rodata_sec = BefSection::rodata(rodata_bytes.to_vec());
-            rodata_sec.alignment = 4096;
-            b.add_section(rodata_sec);
+            b.constantes(rodata_bytes.to_vec());
         }
-
         if !data_bytes.is_empty() {
-            let mut data_sec = BefSection::data(data_bytes.to_vec());
-            data_sec.alignment = 4096;
-            b.add_section(data_sec);
+            b.datos(data_bytes.to_vec());
         }
 
         // * LA SECCION `Bss`: los globales que son todo ceros. No lleva ni un
@@ -334,9 +339,7 @@ impl Codegen {
         // en el orden de la tabla y `patch_all_fixups` calculo `va_bss`
         // contando con que `.data` va justo delante.
         if self.bss_len > 0 {
-            let mut bss_sec = BefSection::bss(self.bss_len as u64);
-            bss_sec.alignment = 4096;
-            b.add_section(bss_sec);
+            b.ceros(self.bss_len as u32);
         }
 
         // * LA SECCION `Relocs`, y va DESPUES de las tres cargables a proposito:
@@ -348,8 +351,26 @@ impl Codegen {
         // Solo se emite si hay alguna. Un `.bex` sin punteros en datos no lleva
         // seccion de relocs, igual que uno sin syscalls dejo de llevar el stub.
         if !self.relocs.is_empty() {
-            let relocs = core::mem::take(&mut self.relocs);
-            b.add_section(BefSection::relocs(relocs));
+            for r in core::mem::take(&mut self.relocs) {
+                // ** La numeracion de dentro del emisor (0 code, 1 data,
+                // 2 rodata) NO es la de las regiones: la traduce el contrato,
+                // en un solo sitio (`Region::de_seccion_de_emisor`).
+                let (Some(donde), Some(destino)) = (
+                    bef2::Region::de_seccion_de_emisor(r.target_section),
+                    bef2::Region::de_seccion_de_emisor(r.symbol_idx as u8),
+                ) else {
+                    self.errors.push(String::from(
+                        "un reloc nombra una seccion que no existe: es un bug del compilador",
+                    ));
+                    continue;
+                };
+                b.reloc(bef2::Reloc {
+                    donde,
+                    destino,
+                    offset: r.offset as u32,
+                    addend: r.addend as u64,
+                });
+            }
         }
 
         // ** LA SECCION `Symbols`: que funcion vive en cada offset.
@@ -378,7 +399,7 @@ impl Codegen {
         // que **no cuesta ni una pagina al proceso**: viaja en el fichero y el
         // cargador la salta.
         if !self.function_offsets.is_empty() {
-            b.add_section(self.seccion_de_simbolos());
+            b.anexo(bef2::ANEXO_SIMBOLOS, self.simbolos_en_bytes());
         }
 
         // * La bandera de la pantalla, deducida al recorrer el programa. Ver
@@ -394,10 +415,10 @@ impl Codegen {
         // La bandera dice lo que el programa HACE, y lo que hace un programa
         // con los dos caminos es preferir la ventana.
         if self.quiere_pantalla && !self.sabe_componerse {
-            b.header.flags |= bmo_abi::bef::header::BefFlags::WANTS_SCREEN.bits();
+            b.quiere_pantalla();
         }
 
-        b.entry_offset = self.entry_offset as u64;
-        b.build().unwrap_or_default()
+        b.entrada(self.entry_offset as u32);
+        b.construir().unwrap_or_default()
     }
 }

@@ -159,6 +159,21 @@ fn el_juez_caza_una_region_imposible() {
         falta_de(|i| i[28..32].copy_from_slice(&0u32.to_le_bytes())),
         Falta::SinCodigo
     );
+    // ** Una region VACIA con el offset fuera del fichero. La encontro la
+    // pasada hostil: no ocupaba sitio, el juez la saltaba, y `region()` la
+    // rebanaba y panicaba. Ahora es una falta con nombre, ANTES de la firma.
+    assert_eq!(
+        falta_de(|i| {
+            i[40..44].copy_from_slice(&0xFFFF_0000u32.to_le_bytes());
+            i[44..48].copy_from_slice(&0u32.to_le_bytes());
+        }),
+        Falta::SeSaleDelFichero
+    );
+    // Y un anexo vacio, que la puerta del kernel ya rechazaba.
+    assert_eq!(
+        falta_de(|i| i[CABECERA + 8..CABECERA + 12].copy_from_slice(&0u32.to_le_bytes())),
+        Falta::AnexoQueNoVaAqui
+    );
 }
 
 #[test]
@@ -228,22 +243,29 @@ fn una_firma_que_no_cubre_los_relocs_no_vale() {
     );
 }
 
+/// ** Los SIMBOLOS viajan tambien en un ejecutable, y esta fila existe porque
+/// el primer diseno los prohibia: el DIRECTOR los lee para anotar una autopsia
+/// (`services/director/src/simbolos.rs`), asi que prohibirlos habria roto esa
+/// anotacion sin que nadie se enterara hasta el siguiente fallo en el Ryzen.
 #[test]
-fn un_ejecutable_no_lleva_simbolos() {
+fn un_ejecutable_lleva_sus_simbolos_para_la_autopsia() {
     let mut e = Escritor::ejecutable();
-    e.codigo(vec![0xC3; 16]).anexo(ANEXO_SIMBOLOS, vec![0u8; 8]);
+    e.codigo(vec![0xC3; 16]).anexo(ANEXO_SIMBOLOS, vec![7u8; 8]);
     let img = e.construir().unwrap();
-    assert_eq!(leer(&img).err(), Some(Falta::AnexoQueNoVaAqui));
+    let v = leer(&img).expect("los simbolos son data para OTRO, no un error");
+    assert_eq!(v.anexo(ANEXO_SIMBOLOS).unwrap(), &[7u8; 8]);
+    // Y el kernel no los abre.
+    assert!(!lo_lee_el_kernel(ANEXO_SIMBOLOS));
 }
 
 #[test]
 fn un_objeto_si_los_lleva_y_no_pide_firma() {
     let mut e = Escritor::objeto();
-    e.codigo(vec![0xC3; 16]).anexo(ANEXO_SIMBOLOS, vec![7u8; 8]);
+    e.codigo(vec![0xC3; 16]).anexo(ANEXO_SIMBOLOS, vec![9u8; 8]);
     let img = e.construir().unwrap();
     let v = leer(&img).expect("un objeto es una imagen valida");
     assert!(v.es_objeto() && !v.es_ejecutable());
-    assert_eq!(v.anexo(ANEXO_SIMBOLOS).unwrap(), &[7u8; 8]);
+    assert_eq!(v.anexo(ANEXO_SIMBOLOS).unwrap(), &[9u8; 8]);
 }
 
 #[test]
@@ -290,4 +312,80 @@ fn un_anexo_desconocido_se_lleva_y_no_estorba() {
     let v = leer(&img).expect("un anexo desconocido no es un error");
     assert_eq!(v.anexo(0x40).unwrap(), b"para otro");
     assert!(!lo_lee_el_kernel(0x40));
+}
+
+/// **Reabrir una imagen, cambiarla y reescribirla**: lo que hacen `bmo-pack`
+/// (anadir recursos) y `bmo-firmar` (poner la firma de autor).
+#[test]
+fn una_imagen_se_reabre_se_le_anade_y_sigue_valiendo() {
+    let antes = buena();
+    let mut e = Escritor::de_imagen(&antes).expect("se reabre");
+    e.anexo(ANEXO_RECURSOS, b"un wad".to_vec());
+    let despues = e.construir().unwrap();
+
+    let a = leer(&antes).unwrap();
+    let d = leer(&despues).expect("la reescrita tambien vale");
+    // Lo que el programa ES no cambia.
+    assert_eq!(a.region(Region::Codigo), d.region(Region::Codigo));
+    assert_eq!(a.region(Region::Constantes), d.region(Region::Constantes));
+    assert_eq!(a.ceros, d.ceros);
+    assert_eq!(a.entrada, d.entrada);
+    assert_eq!(a.relocs().count(), d.relocs().count());
+    // Y lo nuevo viaja.
+    assert_eq!(d.anexo(ANEXO_RECURSOS).unwrap(), b"un wad");
+    // La firma se rehace: cubre tambien lo que se anadio, si el kernel lo lee.
+    assert!(d.anexo(ANEXO_FIRMA).is_some());
+}
+
+/// Lo que el programa DECLARO (pantalla, audio) sobrevive a reabrir la imagen
+/// -- que es lo que le pasa a todo `.ibx` con icono al pasar por `bmo-pack` --
+/// y la linea de memoria no se duplica: se rehace.
+#[test]
+fn lo_declarado_sobrevive_a_reabrir() {
+    use crate::bef::requisitos::{Tabla, CLASE_MEMORIA, CLASE_PANTALLA, UNIDAD_UNIDADES};
+    let mut e = Escritor::ejecutable();
+    e.codigo(vec![0xC3; 16]).requerir(Requisito {
+        clase: CLASE_PANTALLA,
+        unidad: UNIDAD_UNIDADES,
+        obligatorio: true,
+        cantidad: 1,
+        motivo: String::from("dibuja"),
+    });
+    let antes = e.construir().unwrap();
+    let mut r = Escritor::de_imagen(&antes).unwrap();
+    r.anexo(ANEXO_RECURSOS, b"icono".to_vec());
+    let despues = r.construir().unwrap();
+    let v = leer(&despues).unwrap();
+    let t = Tabla::abrir(v.anexo(ANEXO_REQUISITOS).unwrap()).unwrap();
+    assert_eq!(t.total_de(CLASE_PANTALLA), 1, "la pantalla declarada se perdio al reabrir");
+    assert_eq!(t.cuantos(), 2, "una linea de memoria y una de pantalla, ni una mas");
+    let mem = t.iter().find(|r| r.clase == CLASE_MEMORIA).unwrap();
+    assert_eq!(mem.cantidad, 16, "la memoria se rehace con la medida de ahora");
+    assert_eq!(t.iter().find(|r| r.clase == CLASE_PANTALLA).map(|r| t.motivo(&r)), Some("dibuja"));
+}
+
+/// La firma de AUTOR: 64 de firma y 32 de clave detras de los hashes.
+#[test]
+fn una_firma_ed25519_viaja_en_el_anexo() {
+    let mut e = Escritor::de_imagen(&buena()).unwrap();
+    e.ed25519([7u8; 64], [9u8; 32]);
+    let img = e.construir().unwrap();
+    let v = leer(&img).expect("firmada tambien vale");
+    let firma = v.anexo(ANEXO_FIRMA).unwrap();
+    let cuantos = u32_en(firma, 0).unwrap() as usize;
+    assert_eq!(u32_en(firma, 4).unwrap(), ALGO_ED25519);
+    let s = FIRMA_CABECERA + cuantos * FIRMA_HASH;
+    assert_eq!(&firma[s..s + 64], &[7u8; 64]);
+    assert_eq!(&firma[s + 64..s + 96], &[9u8; 32]);
+    // Y hay una cadena que firmar: un solo numero que resume la imagen.
+    assert!(v.cadena_de_hashes().is_some());
+}
+
+/// Un algoritmo de firma que este sistema no conoce NO se ignora.
+#[test]
+fn un_algoritmo_de_firma_desconocido_no_pasa() {
+    let img = buena();
+    let v = leer(&img).unwrap();
+    let f = v.anexos().find(|a| a.tipo == ANEXO_FIRMA).unwrap().tramo.offset as usize;
+    assert_eq!(falta_de(|i| i[f + 4] = 9), Falta::FirmaMal);
 }

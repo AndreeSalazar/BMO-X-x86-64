@@ -770,7 +770,7 @@ int main() {
 "#;
     let bef = compile_with_preprocessor(fuente, std::path::Path::new("p.c"), CStandard::C11)
         .expect("debe compilar");
-    let paquete = bmo_abi::bef::paquete::empaquetar(
+    let paquete = bmo_abi::bef2::empaquetar(
         &bef,
         &[("saludo.txt", b"hola desde dentro"), ("otro.bin", &[7u8; 40])],
     )

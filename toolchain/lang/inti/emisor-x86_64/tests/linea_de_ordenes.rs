@@ -71,7 +71,7 @@ fn un_fuente_de_disco_produce_un_bex_de_disco() {
     // ** Y es un BEF de verdad, no un fichero con la extension puesta. El gate
     // ya lo dijo dentro del compilador; esto lo comprueba desde fuera, que es
     // donde importa.
-    assert_eq!(&bytes[..4], b"BEF1", "no lleva la marca del formato");
+    assert_eq!(&bytes[..4], b"BEF2", "no lleva la marca del formato");
 }
 
 /// `-o` manda sobre el nombre por defecto.

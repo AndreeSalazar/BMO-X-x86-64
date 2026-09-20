@@ -104,6 +104,15 @@ pub fn verify(bef: &[u8]) -> Verdict {
         return Verdict::Rejected(vec![String::from(falta.nombre())]);
     }
 
+    // ** BEF2 tiene su propio juez y no pasa por el validador de BEF1: son dos
+    // formatos, no dos versiones del mismo (2026-09-19).
+    if es_bef2(bef) {
+        return match bmo_abi::bef2::leer(bef) {
+            Ok(_) => Verdict::Ok,
+            Err(f) => Verdict::Rejected(vec![String::from(f.nombre())]),
+        };
+    }
+
     let result = validator::validate(bef);
     if result.is_valid {
         Verdict::Ok
@@ -116,6 +125,12 @@ pub fn verify(bef: &[u8]) -> Verdict {
             .collect();
         Verdict::Rejected(reasons)
     }
+}
+
+/// Es una imagen del formato nuevo?
+pub fn es_bef2(bef: &[u8]) -> bool {
+    bef.len() >= 4
+        && u32::from_le_bytes([bef[0], bef[1], bef[2], bef[3]]) == bmo_abi::bef2::MAGIC
 }
 
 /// **El gate de un OBJETO (`.bo`)**, que no es el de una imagen.
@@ -146,6 +161,12 @@ pub fn verify_object(bef: &[u8]) -> Verdict {
 /// Igual que `verify`, pero devuelve TAMBIEN las advertencias (para
 /// herramientas que quieran inspeccionar sin rechazar).
 pub fn verify_verbose(bef: &[u8]) -> (Verdict, Vec<String>) {
+    // ** BEF2 no tiene avisos: su juez dice SI o dice NO con su motivo. Una
+    // herramienta que quiera inspeccionar sin rechazar recibe la lista vacia,
+    // que es la verdad -- y no una lista de quejas de otro formato.
+    if es_bef2(bef) {
+        return (verify(bef), Vec::new());
+    }
     let result = validator::validate(bef);
     let warnings = result
         .issues
@@ -281,76 +302,47 @@ impl Auditoria {
 /// una debilidad conocida -- por eso `bmo-abi/tests/abi_layout.rs` fija los
 /// offsets a mano.
 pub fn auditar(bef: &[u8]) -> Auditoria {
-    use bmo_abi::bef::header::BefHeader;
-    use bmo_abi::bef::relocations::Relocation;
-    use bmo_abi::bef::sections::{SectionEntry, SectionKind};
+    use bmo_abi::bef2::{leer, Region};
 
     let mut a = Auditoria::default();
-    if bef.len() < core::mem::size_of::<BefHeader>() {
+    let Ok(v) = leer(bef) else {
         return a;
-    }
-    let hdr = unsafe { &*(bef.as_ptr() as *const BefHeader) };
-    let sec_off = hdr.section_table_offset as usize;
-    let n = hdr.section_count as usize;
+    };
 
-    // Codigos de seccion TAL COMO LOS NOMBRAN LAS RELOCS: 0 = code, 1 = data,
-    // 2 = rodata.
-    //
-    // [!] **No son los de `SectionKind`**, que son 1/2/3 -- y rodata coincide
-    // en 2 en las dos tablas, asi que cruzarlas acierta en rodata y falla en
-    // las otras dos: parece funcionar a medias. Es la trampa que ya esta
-    // apuntada en `bef::relocations` y esta funcion la respeta.
+    // ** En BEF2 las regiones son TRES con bytes (codigo, constantes, datos) y
+    // estan en la cabecera: no hay tabla que recorrer ni dos numeraciones que
+    // cruzar. La trampa que esta funcion tenia apuntada --los codigos de las
+    // relocs no son los de `SectionKind`, y rodata coincide en las dos-- se fue
+    // con la tabla: un reloc nombra una REGION y punto.
+    let regiones = [Region::Codigo, Region::Constantes, Region::Datos];
     let mut tam = [0u64; 3];
     let mut existe = [false; 3];
-    for i in 0..n {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if e + SectionEntry::SIZE > bef.len() {
-            break;
-        }
-        let cod = match bef[e] {
-            x if x == SectionKind::Code as u8 => 0usize,
-            x if x == SectionKind::Data as u8 => 1usize,
-            x if x == SectionKind::RoData as u8 => 2usize,
-            _ => continue,
-        };
-        let size = u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap_or([0; 8]));
-        tam[cod] = size;
-        existe[cod] = size > 0;
-        a.bytes_totales += size;
+    for (i, r) in regiones.iter().enumerate() {
+        let n = v.region(*r).len() as u64;
+        tam[i] = n;
+        existe[i] = n > 0;
+        a.bytes_totales += n;
     }
 
     // El CODIGO siempre es alcanzable: es por donde se entra. Sin esta linea,
     // un programa sin una sola reloc --que es lo normal-- saldria entero
     // muerto, y un auditor que grita en el caso comun no lo lee nadie.
-    let mut alcanzada = [false, false, false];
+    let mut alcanzada = [false; 3];
     alcanzada[0] = existe[0];
 
-    for i in 0..n {
-        let e = sec_off + i * SectionEntry::SIZE;
-        if e + SectionEntry::SIZE > bef.len() || bef[e] != SectionKind::Relocs as u8 {
+    for r in v.relocs() {
+        let destino = r.destino as usize;
+        let donde = r.donde as usize;
+        // Los CEROS no tienen bytes: apuntar ahi no alcanza nada que auditar.
+        if destino >= 3 || !existe[destino] {
+            a.relocs_al_vacio += 1;
             continue;
         }
-        let off = u64::from_le_bytes(bef[e + 8..e + 16].try_into().unwrap_or([0; 8])) as usize;
-        let size = u64::from_le_bytes(bef[e + 16..e + 24].try_into().unwrap_or([0; 8])) as usize;
-        for k in 0..(size / Relocation::SIZE) {
-            let r = off + k * Relocation::SIZE;
-            if r + Relocation::SIZE > bef.len() {
-                break;
-            }
-            let destino = u32::from_le_bytes(bef[r + 8..r + 12].try_into().unwrap_or([0; 4])) as usize;
-            let donde = bef[r + 13] as usize;
-            let donde_off = u64::from_le_bytes(bef[r..r + 8].try_into().unwrap_or([0; 8]));
-
-            if destino >= 3 || !existe[destino] {
-                a.relocs_al_vacio += 1;
-                continue;
-            }
-            alcanzada[destino] = true;
-            // Y que el sitio donde se PARCHEA quepa: ocho bytes escritos justo
-            // en el borde de una seccion pisan la siguiente.
-            if donde >= 3 || donde_off + 8 > tam[donde] {
-                a.relocs_desbordadas += 1;
-            }
+        alcanzada[destino] = true;
+        // Y que el sitio donde se PARCHEA quepa: ocho bytes escritos justo en
+        // el borde de una region pisan la siguiente.
+        if donde >= 3 || r.offset as u64 + 8 > tam[donde] {
+            a.relocs_desbordadas += 1;
         }
     }
 

@@ -36,9 +36,9 @@ STOP RUN.
 "#;
     let bef = compile_source_to_bef(src).unwrap();
     assert!(bef.len() > 48);
-    assert_eq!(u32::from_le_bytes(bef[..4].try_into().unwrap()), bmo_abi::bef::BEF_MAGIC);
-    let validation = bmo_abi::bef::validate(&bef);
-    assert!(validation.is_valid, "generated BEF must validate: {:?}", validation.issues);
+    assert_eq!(u32::from_le_bytes(bef[..4].try_into().unwrap()), bmo_abi::bef2::MAGIC);
+    let validation = bmo_abi::bef2::leer(&bef);
+    assert!(validation.is_ok(), "generated BEF must validate: {:?}", validation.err());
     // Por la puerta del kernel, no por el cargador v1 que se borro (19-09).
     let img = bmo_bex_gate::revisar(&bef, bef.len()).unwrap();
     assert!(img.buscar(bmo_bex_gate::CODE).is_some());
@@ -376,8 +376,8 @@ DISPLAY "HOLA BMO".
 STOP RUN.
 "#;
     let bex = compile_source_to_bex(src).unwrap();
-    assert!(bmo_abi::bex::validate(&bex).is_valid);
-    assert_eq!(bmo_abi::bex::BEX_WIRE_MAGIC, bmo_abi::bef::BEF_MAGIC);
+    assert!(bmo_abi::bef2::leer(&bex).is_ok());
+    assert_eq!(u32::from_le_bytes(bex[..4].try_into().unwrap()), bmo_abi::bef2::MAGIC);
 }
 
 /// La E/S de ficheros, tal y como se escribe de verdad: el `SELECT` le da
