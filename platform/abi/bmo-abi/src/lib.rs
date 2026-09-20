@@ -59,6 +59,8 @@ pub mod fundamentals;
 pub mod dynobj;
 pub mod types;
 pub mod bef;
+/// **BEF2**: el formato propio, sin herencia de ELF. Ver docs/plan/PLAN_BEF_NATIVO.md.
+pub mod bef2;
 pub mod bex;
 pub mod syscalls;
 
