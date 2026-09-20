@@ -666,6 +666,14 @@ try {
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.bmp'), (Nuevo-Bmp))
     [System.IO.File]::WriteAllBytes((Join-Path $imgDst 'foto.qoi'), (Nuevo-Qoi))
     Write-Host '    [datos] foto.bmp y foto.qoi (16x16, para inti/bico.ibx)' -ForegroundColor DarkGray
+    # ** Y un PNG y un JPEG de verdad (2026-09-20), para el visor: son los
+    # ficheros con los que `bmo-imagen` se prueba en el anfitrion contra
+    # Pillow, asi que lo que se ve en el Ryzen es lo que el banco ya juzgo.
+    # Binarios pequenos que viven en `pruebas/` de la crate, no aqui.
+    $imgPruebas = Join-Path $repo 'platform\shared\bmo-imagen\pruebas'
+    Copy-Item (Join-Path $imgPruebas 'inti256.png') (Join-Path $imgDst 'inti.png') -Force
+    Copy-Item (Join-Path $imgPruebas 'foto.jpg') (Join-Path $imgDst 'arranque.jpg') -Force
+    Write-Host '    [datos] inti.png (256x256 RGBA) y arranque.jpg (640x362 4:2:0), para el visor' -ForegroundColor DarkGray
     # La melodia que `musica.ibx` toca si no le dan otra. Es TEXTO: esta en el
     # repo y se lee en un diff.
     Copy-Item (Join-Path $repo 'toolchain\lang\inti\ejemplos\tema.mus') (Join-Path $imgDst 'tema.mus') -Force

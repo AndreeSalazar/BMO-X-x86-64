@@ -114,7 +114,9 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | Los DOCUMENTOS: el escritorio lista lo que abres (`.datex`) | **ESPERA** | idea de Eddi sin decidir; `CLASE_PANTALLA` ya existe en los requisitos |
 | REX: `<bmo/latido.h>`, `<bmo/corriente.h>` | ABIERTA (2) | `plan/PLAN_REX.md` 5b, 5c; 15 hechas |
 | El explorador de ESTRATOS (5 pasos) | ABIERTA | `bmo-explorador-plan`: pintar navegaba |
-| VLC / medios | **APARCADA** | `plan/PLAN_MEDIOS.md`: "no" con motivo; lo alcanzable esta en AUDIO y en la antena (MPEG-1) |
+| Ver imagenes: BMP, QOI, BICO, **PNG, JPEG** | **HECHA** 20-09 | `bmo-imagen`: inflate propio, IDCT entera, 40 filas contra Pillow/libjpeg; el visor abre `.png` y `.jpg`. Falta VERLO en el Ryzen (`datos/inti.png`, `datos/arranque.jpg`) |
+| MP3 | ABIERTA | `plan/PLAN_MEDIOS.md` 7.2: el decodificador es codigo (~2.500 lineas Rust propias); OIRLO pide A1 (`TUBO ABIERTO`), que el Ryzen nego el 25-08 y no se ha vuelto a arrancar |
+| MP4 | **SUPERADA** por MPEG-1 | `PLAN_MEDIOS.md` 7.3: H.264+AAC sin FFmpeg ni GPU es un proyecto por codec; lo que cabe es `pl_mpeg` en ventana y convertir fuera (o la antena). VLC sigue siendo "no" con motivo |
 | Audio en metal (A1 SET_INTERFACE) | ABIERTA (2) | `plan/PLAN_AUDIO.md`: el Ryzen lo nego el 25-08, corregido el 26-08, sin ejecutar desde entonces |
 
 ## 5. LA RED Y LA ANTENA -- lo que entra de fuera

@@ -94,8 +94,13 @@ const TIPOS: &[Tipo] = &[
     Tipo { ext: b"bic", clase: Clase::Imagen, abre: Abre::Visor },
     Tipo { ext: b"bmp", clase: Clase::Imagen, abre: Abre::Visor },
     Tipo { ext: b"qoi", clase: Clase::Imagen, abre: Abre::Visor },
-    Tipo { ext: b"png", clase: Clase::Imagen, abre: Abre::Falta("PNG: falta el descompresor (inflate)") },
-    Tipo { ext: b"jpg", clase: Clase::Imagen, abre: Abre::Falta("JPG: falta el decodificador (Huffman + IDCT)") },
+    // ** PNG desde el 20-09: `bmo-imagen` trae su inflate propio y el visor
+    // le da el taller que pide (`data/visor.rs`, IMG_TALLER).
+    Tipo { ext: b"png", clase: Clase::Imagen, abre: Abre::Visor },
+    // ** JPEG baseline desde el 20-09 (Huffman + IDCT entera en `bmo-imagen`);
+    // un progresivo lo dice el visor con nombre.
+    // (`.jpeg` no cabe: el FAT32 es 8.3, tres letras. Se guarda como `.jpg`.)
+    Tipo { ext: b"jpg", clase: Clase::Imagen, abre: Abre::Visor },
     Tipo { ext: b"txt", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"log", clase: Clase::Texto, abre: Abre::Visor },
     Tipo { ext: b"md", clase: Clase::Texto, abre: Abre::Visor },

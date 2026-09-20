@@ -27,11 +27,25 @@
 
 #![cfg_attr(not(test), no_std)]
 
+/// INFLATE propio (RFC 1951/1950): lo que hay dentro de un PNG.
+pub mod inflate;
+/// PNG: profundidad 8, cinco tipos de color, tRNS, varios IDAT.
+pub mod png;
+/// JPEG baseline: Huffman, IDCT entera, 4:4:4 / 4:2:2 / 4:2:0 y gris.
+pub mod jpeg;
+
+/// **Bytes de taller que piden los formatos comprimidos** (PNG hoy). Los
+/// formatos planos no lo necesitan; un PNG sin taller es `SinTaller`, y el
+/// visor lo pide al kernel como pide el bufer de pixeles.
+pub const TALLER: usize = png::TALLER;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Formato {
     Bico,
     Bmp,
     Qoi,
+    Png,
+    Jpeg,
 }
 
 impl Formato {
@@ -40,6 +54,8 @@ impl Formato {
             Formato::Bico => "BICO",
             Formato::Bmp => "BMP",
             Formato::Qoi => "QOI",
+            Formato::Png => "PNG",
+            Formato::Jpeg => "JPEG",
         }
     }
 }
@@ -56,16 +72,19 @@ pub enum Error {
     Medidas,
     /// El bufer de quien llama es mas pequeno que la imagen.
     NoCabe,
+    /// Un formato comprimido sin `taller` (ver [`TALLER`]).
+    SinTaller,
 }
 
 impl Error {
     pub fn motivo(self) -> &'static str {
         match self {
             Error::Corto => "la imagen esta CORTADA: faltan bytes que su cabecera promete",
-            Error::NoEsImagen => "no es BICO, BMP ni QOI",
-            Error::Variante => "variante no soportada (BMP comprimido, 16 bits...)",
+            Error::NoEsImagen => "no es BICO, BMP, QOI, PNG ni JPEG",
+            Error::Variante => "variante no soportada (BMP comprimido, PNG de 16 bits o entrelazado, JPEG progresivo...)",
             Error::Medidas => "medidas imposibles: cero, o mas de 1024 de lado",
             Error::NoCabe => "no cabe en el bufer del visor",
+            Error::SinTaller => "un PNG pide taller para descomprimir, y no llego",
         }
     }
 }
@@ -105,6 +124,12 @@ pub fn medir(b: &[u8]) -> Result<Medidas, Error> {
     if b.len() < 4 {
         return Err(Error::Corto);
     }
+    if b[0] == 0x89 && &b[1..4] == b"PNG" {
+        return png::medir(b);
+    }
+    if b[0] == 0xFF && b[1] == 0xD8 {
+        return jpeg::medir(b);
+    }
     if &b[..4] == b"BICO" {
         let (w, h) = (le16(b, 4).ok_or(Error::Corto)?, le16(b, 6).ok_or(Error::Corto)?);
         lados(w, h)?;
@@ -127,8 +152,16 @@ pub fn medir(b: &[u8]) -> Result<Medidas, Error> {
     Err(Error::NoEsImagen)
 }
 
-/// **Decodifica en `dst`** (fila a fila, `ancho * alto` pixeles).
+/// **Decodifica en `dst`** (fila a fila, `ancho * alto` pixeles). Los
+/// formatos planos; un PNG contesta `SinTaller` (ver [`decodificar_con`]).
 pub fn decodificar(b: &[u8], dst: &mut [u32]) -> Result<Medidas, Error> {
+    decodificar_con(b, dst, &mut [])
+}
+
+/// **Decodifica en `dst`** con un `taller` de [`TALLER`] bytes para los
+/// formatos comprimidos. El taller es de quien llama por lo mismo que el
+/// bufer: Ring 3 tiene 64 KiB de pila y una ventana de inflate son 32.
+pub fn decodificar_con(b: &[u8], dst: &mut [u32], taller: &mut [u8]) -> Result<Medidas, Error> {
     let m = medir(b)?;
     // Con los lados acotados a 1024 el producto cabe de sobra en u32.
     let n = (m.ancho * m.alto) as usize;
@@ -139,6 +172,8 @@ pub fn decodificar(b: &[u8], dst: &mut [u32]) -> Result<Medidas, Error> {
         Formato::Bico => bico(b, n, &mut dst[..n])?,
         Formato::Bmp => bmp(b, &m, &mut dst[..n])?,
         Formato::Qoi => qoi(b, &mut dst[..n])?,
+        Formato::Png => png::decodificar(b, &m, &mut dst[..n], taller)?,
+        Formato::Jpeg => jpeg::decodificar(b, &m, &mut dst[..n])?,
     }
     Ok(m)
 }

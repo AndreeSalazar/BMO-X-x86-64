@@ -76,6 +76,12 @@ const IMG_PIXELES: u64 = (bmo_imagen::LADO_MAX as u64) * (bmo_imagen::LADO_MAX a
 
 static mut IMG_FICHERO: Option<bmo::Memoria> = None;
 static mut IMG_BUFER: Option<bmo::Memoria> = None;
+/// ** EL TALLER de los formatos comprimidos (PNG, 20-09): la ventana del
+/// inflate y dos filas. Es un bloque del kernel y no un array en la pila
+/// porque la pila de Ring 3 son 64 KiB y esto son 41.
+static mut IMG_TALLER: Option<bmo::Memoria> = None;
+/// Redondeado a pagina: el kernel entrega paginas enteras.
+const IMG_TALLER_BYTES: u64 = ((bmo_imagen::TALLER as u64) + 4095) & !4095;
 
 fn pedido(slot: *mut Option<bmo::Memoria>, bytes: u64) -> Option<&'static bmo::Memoria> {
     unsafe {
@@ -181,9 +187,10 @@ impl Visor {
             self.fallo = Some("la imagen pasa de 4 MiB: no se abre a medias");
             return;
         }
-        let (Some(fichero), Some(bufer)) = (
+        let (Some(fichero), Some(bufer), Some(taller)) = (
             pedido(core::ptr::addr_of_mut!(IMG_FICHERO), IMG_TOPE),
             pedido(core::ptr::addr_of_mut!(IMG_BUFER), IMG_PIXELES),
+            pedido(core::ptr::addr_of_mut!(IMG_TALLER), IMG_TALLER_BYTES),
         ) else {
             self.fallo = Some("sin memoria para la imagen");
             return;
@@ -196,7 +203,11 @@ impl Visor {
         let pixeles = unsafe {
             core::slice::from_raw_parts_mut(bufer.base() as *mut u32, (IMG_PIXELES / 4) as usize)
         };
-        match bmo_imagen::decodificar(bytes, pixeles) {
+        // SAFETY: un bloque de este proceso de IMG_TALLER_BYTES, que es >= TALLER.
+        let taller = unsafe {
+            core::slice::from_raw_parts_mut(taller.base() as *mut u8, IMG_TALLER_BYTES as usize)
+        };
+        match bmo_imagen::decodificar_con(bytes, pixeles, taller) {
             Ok(m) => self.imagen = Some(m),
             Err(e) => self.fallo = Some(e.motivo()),
         }

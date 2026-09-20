@@ -7,11 +7,11 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   232 casillas ABIERTAS en 29 planes
-   233 hechas
+   248 casillas ABIERTAS en 30 planes
+   236 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
-    10 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
-       (sus 69 casillas sueltas NO cuentan como abiertas)
+     9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
+       (sus 62 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
 
@@ -38,6 +38,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1.1 (S) Si algo no volvio, la linea sale en ROJO y dice que no
 - [ ] 1.2 (S) La misma comprobacion en EXIT: una salida limpia tambien
 - ... y 14 mas
+
+## [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- 16 abiertas, 3 hechas
+
+*PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay*
+
+- [ ] el tubo abre (A1) <- lo unico que bloquea M1, y es un ARRANQUE
+- [ ] M1 WAV dias despues del tubo
+- [ ] M2 MP3 (= A5) media tarde de comprobar la coma flotante antes
+- ... y 13 mas
 
 ## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
 
@@ -280,7 +289,6 @@ ya no aplican, o esperan a alguien que no es el codigo.
 
 - **APARCADO** [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
 - **APARCADO** [`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md) -- decision del dueno (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(2 hechas, 13 sueltas)*
-- **APARCADO** [`PLAN_MEDIOS.md`](PLAN_MEDIOS.md) -- la respuesta a "VLC" es un no con motivo (parte 1); lo alcanzable (parte 4) vive en PLAN_AUDIO.md (A1 negado por el metal, sin ejecutar desde el 26-08) y en PLAN_CLOUD_LOCAL.md S4 (MPEG-1 por la antena). Se retoma cuando el tubo abra en el Ryzen.  *(0 hechas, 7 sueltas)*
 - **CERRADO** [`PLAN_ALMACENAMIENTO.md`](PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
 - **CERRADO** [`PLAN_DOOM.md`](PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(3 hechas, 6 sueltas)*
 - **CERRADO** [`PLAN_EL_PERFIL_TOTAL.md`](PLAN_EL_PERFIL_TOTAL.md) -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en PERFIL/.  *(8 hechas, 0 sueltas)*
