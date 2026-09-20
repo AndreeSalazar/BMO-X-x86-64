@@ -41,7 +41,7 @@ STOP RUN.
     assert!(validation.is_ok(), "generated BEF must validate: {:?}", validation.err());
     // Por la puerta del kernel, no por el cargador v1 que se borro (19-09).
     let img = bmo_bex_gate::revisar(&bef, bef.len()).unwrap();
-    assert!(img.buscar(bmo_bex_gate::CODE).is_some());
+    assert!(img.region(bmo_bex_gate::Cual::Codigo).is_some());
 }
 
 /// Matriz de conformidad de COBOL: ejecuta cada verbo y compara.

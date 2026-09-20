@@ -272,15 +272,28 @@ impl Escritor {
         let t_constantes = tramo(&self.constantes, &mut cursor, paso);
         let t_datos = tramo(&self.datos, &mut cursor, paso);
 
-        let mut sitio_anexo: Vec<(u32, u32)> = Vec::with_capacity(cuantos);
-        for (_, bytes) in anexos.iter() {
+        // ** LO QUE EL KERNEL LEE VA PRIMERO EN EL FICHERO, y la firma detras
+        // de eso; el resto (recursos, manifiesto, simbolos...) al final. Asi
+        // `hasta_donde_hace_falta` acaba en la firma y un paquete con un WAD
+        // de seis megas se ejecuta leyendo ochocientos kilos. La primera version
+        // ponia la firma la ULTIMA de todas, detras de los recursos, y la
+        // puerta tenia que pedir el fichero entero para llegar a los hashes.
+        // (El indice de la tabla no cambia: la firma sigue siendo la ultima
+        // ENTRADA, y `que` nombra por entrada, no por posicion.)
+        let mut sitio_anexo: Vec<(u32, u32)> = vec![(0, 0); anexos.len()];
+        for (i, (_, bytes)) in anexos.iter().enumerate().filter(|(_, (t, _))| lo_lee_el_kernel(*t)) {
             cursor = (cursor + 7) / 8 * 8;
-            sitio_anexo.push((cursor as u32, bytes.len() as u32));
+            sitio_anexo[i] = (cursor as u32, bytes.len() as u32);
             cursor += bytes.len();
         }
         cursor = (cursor + 7) / 8 * 8;
         let sitio_firma = (cursor as u32, firma_bytes as u32);
         cursor += firma_bytes;
+        for (i, (_, bytes)) in anexos.iter().enumerate().filter(|(_, (t, _))| !lo_lee_el_kernel(*t)) {
+            cursor = (cursor + 7) / 8 * 8;
+            sitio_anexo[i] = (cursor as u32, bytes.len() as u32);
+            cursor += bytes.len();
+        }
         let total = cursor;
         if total > u32::MAX as usize {
             return Err("la imagen no cabe en 4 GiB");

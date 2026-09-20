@@ -8,8 +8,9 @@
 > (un formato, no dos). La regla congelada esta reescrita en
 > `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md`. Las secciones 1 y 4 de abajo
 > describen lo que HABIA y lo que se propuso; la implementacion es
-> `platform/abi/bmo-abi/src/bef2/`. Quedan B7 (cabecera firmada), B8 (Ring 0
-> por regiones) y B9 (medir paginas), y el METAL para todo.
+> `platform/abi/bmo-abi/src/bef2/`. **B8 HECHO el 2026-09-20**: Ring 0 lee
+> REGIONES y la "pintura al reves" de B3 se fue. Quedan B7 (cabecera
+> firmada) y B9 (medir paginas), y el METAL para todo.
 
 ---
 
@@ -183,11 +184,15 @@ Lo que cambia, y por que es BMO y no ELF:
   regiones en sitio fijo, anexos, `xcr0`, un reloc, firma obligatoria; 15
   filas con una mutacion por cada una de las 20 faltas. Prologo 112 B contra
   los 384 de BEF1. Nadie lo usa todavia.
-- [x] **B3 -- la PUERTA lee BEF2. HECHO el 2026-09-19** (`5ac020aa`):
-  `bmo-bex-gate/src/bef2.rs` y `revisar()` despacha por el magic. El kernel
-  (`task/bex.rs`, `task/admitir.rs`, `task/landing.rs`) NO cambia: las
-  regiones se le presentan como secciones con su tipo y su indice de hash, y
-  la entrada de firma de BEF2 son los mismos bytes que la de BEF1.
+- [x] **B3 -- la PUERTA lee BEF2. HECHO el 2026-09-19** (`5ac020aa`) **y
+  REDEFINIDO por B8 el 2026-09-20.** La primera B3 era un adaptador:
+  `bmo-bex-gate/src/bef2.rs` leia BEF2 y se lo presentaba al kernel "como
+  secciones" (tipo `CODE`/`RODATA`/`DATA`/`BSS`/`RELOCS`/`SIGNATURE` e indice
+  de hash) para que `task/*` no cambiara ni una linea. Sirvio para un dia: con
+  ella se pudo hacer B4-B6 sin tocar Ring 0. Pero era BEF1 al reves, y mintio
+  una vez (los relocs, ver B6). **Hoy B3 es esto**: la puerta lee BEF2 y
+  habla de lo que BEF2 tiene, `Cual::{Codigo, Constantes, Datos, Ceros}` y
+  `Anexo {tipo, que}`, y el kernel mapea por `Cual`.
 - [x] **B4 -- las herramientas en BEF2. HECHO el 2026-09-19**: `bmo-enlazar`
   (el ejecutable sale en BEF2; los `.bo` que entran siguen en BEF1),
   `bmo-pack` (`bef2::paquete`, misma API), `bmo-firmar` (firmar es REABRIR
@@ -237,11 +242,27 @@ Lo que cambia, y por que es BMO y no ELF:
   queje. El plan tenia `hash_cab` en el byte 56 y la implementacion lo dejo
   reservado. Una entrada de firma mas (`que = 0x7F`: los 64 B + la tabla de
   anexos), comprobada en los DOS jueces.
-- [ ] **B8 -- Ring 0 lee REGIONES.** B3 presenta las regiones al kernel como
-  secciones para no tocarlo (pintura al reves, a proposito); los relocs ya
-  los lee por region desde B6. Mientras `task/admitir.rs` y `landing.rs`
-  piensen en secciones, "el permiso lo da el hueco" vive en el adaptador. El
-  final es el kernel mapeando las cuatro regiones por su `Vista` y
-  `PermisoImagen` por region. Pide metal.
+- [x] **B8 -- Ring 0 lee REGIONES. HECHO el 2026-09-20.** Se fue
+  `bmo-bex-gate/src/bef2.rs` (309 lineas) y la puerta es UN fichero
+  (`lib.rs`, 409 -> 605 con el contrato entero dentro): `Revisada` da
+  `region(Cual)`, `regiones()`, `anexo(tipo)`, `anexos()`,
+  `hasta_donde_hace_falta()`; no queda `kind`, `flags` ni `indice`.
+  Kernel: `task/bex.rs` 428 -> 318 (`BexLoadPlan {regiones: [Region; 4],
+  relocs, firma, requisitos: Tramo}`; el plan ya no tiene una lista de
+  secciones que recorrer buscando tipos), `task/landing.rs` 253 -> 243
+  (`Aterrizaje::abrir(que, ..)` y `Firmas::digest_de(que)` con el byte de
+  la firma, sin "indice propio" que excluir porque la firma es un anexo y
+  no se nombra a si misma), `task/admitir.rs` 987 -> 969 (`PermisoImagen`
+  sale de `s.cual` -- **"el permiso lo da el hueco" vive ahora donde se
+  mapea**; las VA se calculan por region en el orden de la cabecera; los
+  tres anexos que el kernel lee tienen su tramo con nombre). La fila espejo
+  `la_puerta_y_el_juez_ven_las_mismas_regiones` exige campo a campo que la
+  puerta y `bef2::leer` digan lo mismo (tramos, `que`, anexos, `xcr0`,
+  `lo_lee_el_kernel`), y `la_puerta_dice_cuanto_hay_que_traer_de_un_bef2`
+  que 100 KB de recursos detras NO se traigan para ejecutar -- para eso el
+  escritor pone los anexos que el kernel lee (relocs, requisitos, firma)
+  ANTES que el resto. 25 filas en la puerta, 16 espejo; el kernel compila en
+  `x86_64-unknown-none` sin un aviso en `task/`. **Pide metal**: es el
+  mismo cargador con otro vocabulario, pero es el cargador.
 - [ ] **B9 -- medir la decision 2** (paginas alineadas o compacto) con DOOM
   en el Ryzen antes de elegirla: `alinear_a_pagina()` es la palanca.

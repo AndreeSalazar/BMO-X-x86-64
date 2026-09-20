@@ -10,110 +10,65 @@
 
 use bmo_bex_gate as gate;
 
-// ** EL CONTRATO YA NO SE WRITES AQUI. Se re-exporta de la puerta.
-//
-// Aqui vivian los mismos numeros que en `bmo-abi` y en `bmo-bex-gate`: magic,
-// tamano de cabecera, tipos de seccion, banderas. Tres copias del mismo contrato,
-// y la unica forma de que no se separaran era que nadie las tocara nunca.
-//
-// Se re-exportan en vez de borrarse porque medio kernel las nombra por su nombre
-// viejo (`bex::SECTION_CODE`), y renombrar cincuenta sitios para no ganar nada
-// seria ruido. Lo que importa es que **ya no hay tres definiciones, hay una**.
-pub use gate::{
-    CODE as SECTION_CODE, DATA as SECTION_DATA, RELOCS as SECTION_RELOCS,
-    REQUISITOS as SECTION_REQUISITOS, RODATA as SECTION_RODATA, BSS as SECTION_BSS,
-    SIGNATURE as SECTION_SIGNATURE, SECCION_FLAG_EXEC as SECTION_FLAG_EXEC,
-    se_carga as is_loadable,
-};
+// ** EL CONTRATO NO SE ESCRIBE AQUI: viene de la puerta (`bmo-bex-gate`), una
+// sola copia atada por prueba al juez de `bmo-abi`.
+pub use gate::{Anexo, Cual, Region, ANEXO_FIRMA, ANEXO_RELOCS, ANEXO_REQUISITOS};
 
-/// The first BEX process supports a compact, auditable section table.
-pub const MAX_BEX_SECTIONS: usize = 16;
+/// Lo mas que puede medir el anexo de firma, **segun el formato**: la cabecera
+/// son 8 bytes y hay como mucho una entrada de 40 por region con bytes (3) y
+/// por anexo (16). Un limite que sale del contrato no hay que subirlo nunca.
+pub const MAX_FIRMA: usize = 8 + (3 + gate::MAX_ANEXOS) * 40;
 
+/// Un trozo del fichero que el cargador LEE y no mapea: relocs, firma,
+/// requisitos. `bytes == 0` = la imagen no lo trae.
 #[derive(Clone, Copy)]
-pub struct BexMapping {
-    pub kind: u8,
-    pub flags: u32,
+pub struct Tramo {
     pub file_offset: u64,
-    pub file_size: u64,
-    pub mem_size: u64,
-    pub alignment: u16,
-    /// ** SU INDICE EN LA TABLA DEL FICHERO, no en este plan.
-    ///
-    /// El plan solo lleva lo cargable, asi que sus posiciones **no** son las del
-    /// fichero: una imagen con `Code, Manifest, Data` deja `Data` en el hueco 1
-    /// del plan y en el 2 del fichero. Y la tabla de hashes indexa por el del
-    /// FICHERO. Confundirlos comprueba el `Code` contra el digest del `Data` --
-    /// que no cuadra, y manda a buscar una corrupcion que no existe.
-    pub indice: usize,
+    pub bytes: u64,
+    /// El `que` con el que la firma lo nombra (`0x80 | indice`).
+    pub que: u8,
 }
 
-const EMPTY_MAPPING: BexMapping = BexMapping {
-    kind: 0,
-    flags: 0,
-    file_offset: 0,
-    file_size: 0,
-    mem_size: 0,
-    alignment: 0,
-    indice: usize::MAX,
-};
+const SIN_TRAMO: Tramo = Tramo { file_offset: 0, bytes: 0, que: 0 };
 
-/// Validated inputs required by the future Ring 3 mapper.
+/// **El plan de carga de un BEF2**: lo que hay que MAPEAR y lo que hay que
+/// LEER, y nada mas. Sale de la puerta ya comprobado.
+///
+/// ** B8 (2026-09-20): el plan habla de REGIONES. Hasta B8 la puerta
+/// presentaba las regiones de BEF2 "como secciones" para que Ring 0 no
+/// cambiara, y el permiso de cada pagina se decidia mirando un `kind` --la
+/// propiedad central del formato, *el permiso lo da el HUECO*, vivia en un
+/// adaptador. Ahora el permiso lo da `Cual`, que es el hueco.
 pub struct BexLoadPlan {
-    /// Offset within the executable Code section; it is not a Ring 0 address.
-    pub entry_offset: u64,
-    /// SOLO las secciones que se mapean (ver `is_loadable`).
-    pub sections: [BexMapping; MAX_BEX_SECTIONS],
-    pub section_count: usize,
-    /// Cuantas secciones se saltaron por no ser memoria del programa
-    /// (manifiesto, firma, depuracion... o un tipo que este kernel no conoce).
-    /// Se cuenta para poder DECIRLO, no para decidir nada con ello.
-    pub skipped_sections: usize,
-    /// * Donde esta la tabla de relocations DENTRO DEL FICHERO, si la hay.
-    ///
-    /// No es un `BexMapping` porque no se mapea: el cargador la lee, aplica lo
-    /// que dice sobre las secciones ya copiadas, y la olvida. Cero paginas en el
-    /// proceso.
-    ///
-    /// `relocs_file_size == 0` significa "este programa no tiene punteros que
-    /// rellenar", que es el caso de todos los `.bex` escritos hasta hoy.
-    pub relocs_file_offset: u64,
-    pub relocs_file_size: u64,
-    /// Indice de la tabla de relocations en el FICHERO, para buscar su hash.
-    /// `usize::MAX` si no hay.
-    pub relocs_indice: usize,
+    /// Offset del punto de entrada DENTRO del codigo; no es una direccion.
+    pub entrada: u64,
+    /// Los componentes XSAVE que el programa declara. La puerta ya rechazo lo
+    /// que este kernel no preserva.
+    pub xcr0: u64,
+    /// Las regiones que existen, en el orden de la cabecera (que es el del
+    /// fichero): codigo, constantes, datos, ceros.
+    pub regiones: [Region; 4],
+    pub cuantas: usize,
+    /// Los relocs: se leen, se aplican sobre las regiones ya copiadas, y se
+    /// olvidan. Cero paginas en el proceso.
+    pub relocs: Tramo,
+    /// Los hashes con los que se cierra cada region y cada anexo al aterrizar.
+    /// Ver `task/landing.rs`.
+    pub firma: Tramo,
+    /// Lo que el programa DECLARA que va a pedir (regla 7 de `LA_RAM.md`): se
+    /// lee ANTES de reservar el primer marco. Ver `bmo-carga-juicio`.
+    pub requisitos: Tramo,
+}
 
-    /// * DONDE ESTA LA TABLA DE REQUISITOS, si la hay. **Regla 7 de `LA_RAM.md`.**
-    ///
-    /// Tampoco es un `BexMapping`: no se mapea, se LEE -- y se lee **antes de
-    /// asignar el primer marco**, que es la razon entera de que exista.
-    ///
-    /// > *"hoy se dice 'no' al quinto `malloc`; con el manifiesto se puede
-    /// > decir 'no' antes de empezar, que es cuando el fallo no cuesta nada"*
-    /// > -- `docs/identidad/LA_RAM.md`, Parte IV
-    ///
-    /// [!] `0` en los dos = el `.bex` no declara. **No es un fallo**: los
-    /// binarios de antes de esta regla no la llevan, y rechazarlos seria romper
-    /// el disco del dueno el dia que se enciende. Ver `bmo-carga-juicio`.
-    pub requisitos_file_offset: u64,
-    pub requisitos_file_size: u64,
-
-    /// ** DONDE ESTA LA TABLA DE HASHES, para que la comprobacion la haga QUIEN
-    /// COPIA y no este modulo.
-    ///
-    /// Antes esto se resolvia aqui dentro y se comprobaba todo de una pasada
-    /// sobre el bufer de la imagen. El sitio era el equivocado: entre ese bufer
-    /// y la memoria del proceso hay una COPIA, asi que se estaba certificando el
-    /// origen y no el destino. Ahora `inspect` dice donde estan los digests y
-    /// `proc::admit_payload` cierra cada seccion con el suyo **al aterrizar**.
-    /// Ver `task/aterrizaje.rs`.
-    ///
-    /// `firma_file_size == 0` = la imagen no trae firma. Es lo normal en las que
-    /// el kernel embebe, que no pasan por el escritor.
-    pub firma_file_offset: u64,
-    pub firma_file_size: u64,
-    /// Indice de la propia seccion de firma. No puede contener su hash, y hace
-    /// falta saber cual es para excluirla.
-    pub firma_indice: usize,
+impl BexLoadPlan {
+    /// La region `cual`, si la imagen la trae.
+    pub fn region(&self, cual: Cual) -> Option<&Region> {
+        self.regiones[..self.cuantas].iter().find(|r| r.cual == cual)
+    }
+    /// El indice en `regiones` de la region `cual`.
+    pub fn indice_de(&self, cual: Cual) -> Option<usize> {
+        self.regiones[..self.cuantas].iter().position(|r| r.cual == cual)
+    }
 }
 
 /// **Por que no se admitio.**
@@ -166,8 +121,8 @@ impl BexError {
     pub fn name(&self) -> &'static str {
         match self {
             BexError::Formato(f) => f.nombre(),
-            BexError::HashNoCuadra => "una seccion NO CUADRA con su hash: la imagen esta corrupta",
-            BexError::PrologoCorto => "la tabla de secciones no cabe en el prologo leido",
+            BexError::HashNoCuadra => "una region NO CUADRA con su hash: la imagen esta corrupta",
+            BexError::PrologoCorto => "la tabla de anexos no cabe en el prologo leido",
         }
     }
 }
@@ -181,16 +136,17 @@ impl BexError {
 /// eso es traerse cinco megabytes de bodega para ejecutar ochocientos kilos.
 ///
 /// ** La pregunta correcta no es *"cuanto mide"* sino **"que necesita"**, y el
-/// fichero sabe contestarla: la tabla de secciones esta en el byte 48 --el
-/// escritor la pone siempre ahi-- y dice donde acaba cada cosa. De todas ellas,
-/// el cargador solo toca cuatro:
+/// fichero sabe contestarla: la cabecera de 64 B dice donde esta cada region
+/// y la tabla de anexos donde esta cada anexo. De todo eso, el cargador solo
+/// toca:
 ///
 /// | | Para que |
 /// |---|---|
-/// | `Code`, `RoData`, `Data` | se copian al espacio del proceso |
-/// | `Bss` | no ocupa fichero: son ceros que se declaran |
-/// | `Relocs` | se leen, se aplican y se olvidan |
-/// | `Signature` | los hashes con los que se comprueba lo anterior |
+/// | codigo, constantes, datos | se copian al espacio del proceso |
+/// | ceros | no ocupan fichero: se declaran |
+/// | RELOCS | se leen, se aplican y se olvidan |
+/// | FIRMA | los hashes con los que se comprueba lo anterior |
+/// | REQUISITOS | lo que el programa declara, antes de reservar nada |
 ///
 /// Todo lo demas --recursos, simbolos, depuracion, manifiesto, y **cualquier
 /// tipo que este kernel no conozca**-- es data para otro. Los recursos se leen
@@ -218,118 +174,52 @@ pub fn necesita(prologo: &[u8]) -> Result<usize, BexError> {
 }
 
 
-/// Validate an untrusted BEX image and produce a fixed-size mapping plan.
+/// **El plan de carga de una imagen que todavia no es de fiar.**
 ///
-/// No `alloc`, file access, relocation, page-table mutation or control transfer
-/// happens here.  This boundary is therefore safe to call before a process is
-/// admitted to the kernel.
+/// No `alloc`, no disco, no relocs, no tablas de paginas, no salto: solo la
+/// decision (la puerta) y el plan encima. Por eso se puede llamar antes de
+/// admitir nada.
 ///
 /// ## Los DOS limites, que no son el mismo (2026-08-10)
 ///
-/// - `bytes` es **lo que se leyo**: el prologo mas las secciones que el cargador
-///   va a usar. Lo que se toque tiene que caber aqui.
-/// - `tam_fichero` es **lo que mide el fichero en el disco**. Es contra este
-///   contra el que se comprueba el `total_size` de la cabecera y contra el que
-///   se validan los limites declarados de TODAS las secciones, incluidas las que
-///   no se leyeron.
+/// - `bytes` es **lo que se leyo**: el prologo (cabecera + tabla de anexos).
+/// - `tam_fichero` es **lo que mide el fichero en el disco**, contra el que se
+///   comprueban `total` y los limites de TODAS las regiones y anexos,
+///   incluidos los que no se leyeron.
 ///
 /// ** Confundirlos convierte una imagen cortada en una imagen valida, que es el
-/// fallo que `ImagenIncompleta` existe para cazar. Por eso son dos parametros y
-/// no se deduce uno del otro: antes coincidian porque se leia el fichero entero,
-/// y una igualdad que se cumple por casualidad es una igualdad que un dia no.
+/// fallo que `ImagenIncompleta` existe para cazar.
 pub fn inspect(bytes: &[u8], tam_fichero: usize) -> Result<BexLoadPlan, BexError> {
-    // ** LA DECISION NO SE TOMA AQUI (2026-08-10).
-    //
-    // Aqui vivian doscientas lineas de comprobaciones --magic, version, ABI,
-    // limites, solapamientos, banderas-- que eran **las mismas** que las de
-    // `bmo-abi::bef::validator`, escritas otra vez porque aquella usa `alloc` y
-    // en Ring 0 no hay a quien pedirle memoria.
-    //
-    // Dos copias de una decision son dos decisiones esperando a separarse. Y no
-    // se podian compartir mientras la decision viviera **incrustada en dos
-    // trabajos distintos**: alli construyendo mensajes, aqui construyendo el
-    // plan de mapeo.
-    //
-    // Ahora la decision es una cosa por su cuenta (`bmo-bex-gate`: sin `alloc`,
-    // sin dependencias) y este modulo hace lo unico que solo el puede hacer:
-    // **el plan**. Ninguno de los dos consumidores es dueno del veredicto, asi
-    // que ninguno puede desviarse de el.
+    // ** LA DECISION NO SE TOMA AQUI. Aqui vivian doscientas lineas de
+    // comprobaciones que eran las MISMAS que las del contrato, escritas otra
+    // vez porque aquel usa `alloc`. Ahora la decision es `bmo-bex-gate`, sin
+    // `alloc` y sin dependencias, y este modulo hace lo unico que solo el
+    // puede hacer: **el plan**.
     let rev = gate::revisar(bytes, tam_fichero).map_err(BexError::Formato)?;
 
+    const VACIA: Region = Region { cual: Cual::Codigo, file_offset: 0, file_size: 0, mem_size: 0 };
     let mut plan = BexLoadPlan {
-        entry_offset: rev.entry_offset(),
-        sections: [EMPTY_MAPPING; MAX_BEX_SECTIONS],
-        section_count: 0,
-        skipped_sections: 0,
-        relocs_file_offset: 0,
-        relocs_file_size: 0,
-        relocs_indice: usize::MAX,
-        requisitos_file_offset: 0,
-        requisitos_file_size: 0,
-        firma_file_offset: 0,
-        firma_file_size: 0,
-        firma_indice: usize::MAX,
+        entrada: rev.entrada(),
+        xcr0: rev.xcr0(),
+        regiones: [VACIA; 4],
+        cuantas: 0,
+        relocs: SIN_TRAMO,
+        firma: SIN_TRAMO,
+        requisitos: SIN_TRAMO,
     };
-    let mut loadable = 0usize;
-    let mut skipped = 0usize;
-
-    for s in rev.secciones() {
-        // * LAS RELOCATIONS se apuntan y NO se mapean: no son memoria del
-        // programa --el proceso nunca las ve-- pero el cargador las necesita
-        // para rellenar punteros con direcciones que solo se conocen al colocar
-        // las secciones.
-        if s.kind == gate::RELOCS {
-            plan.relocs_file_offset = s.file_offset;
-            plan.relocs_file_size = s.file_size;
-            plan.relocs_indice = s.indice;
-            continue;
-        }
-        // * LA FIRMA tampoco se mapea, y tambien se lee: es con lo que se cierra
-        // cada seccion al aterrizar. Ver `task/aterrizaje.rs`.
-        if s.kind == gate::SIGNATURE {
-            plan.firma_file_offset = s.file_offset;
-            plan.firma_file_size = s.file_size;
-            plan.firma_indice = s.indice;
-            continue;
-        }
-        // * LOS REQUISITOS: lo que el programa DECLARA que va a pedir.
-        //
-        // ** Esta seccion llevaba escrita desde el 2026-08-10 --cada `.bex` que
-        // sale del escritor la trae-- y el kernel importaba su constante y no
-        // la leia en ninguna linea. Era la regla 7 de `LA_RAM.md` declarada y
-        // sin cumplir, que es la misma forma que ya tuvieron `Resources 0x0B` y
-        // `Manifest 0x09`: un hueco del formato que nadie abre.
-        //
-        // Aqui solo se apunta DONDE esta. Quien la lee es `admitir`, y la lee
-        // antes de reservar nada.
-        if s.kind == gate::REQUISITOS {
-            plan.requisitos_file_offset = s.file_offset;
-            plan.requisitos_file_size = s.file_size;
-            skipped += 1;
-            continue;
-        }
-        // * Y lo demas --manifiesto, recursos, simbolos, o un tipo que este
-        // kernel no conoce-- se valido y no se mapea. Ver `gate::se_carga`: un
-        // tipo desconocido se SALTA, no se rechaza.
-        if !gate::se_carga(s.kind) {
-            skipped += 1;
-            continue;
-        }
-        plan.sections[loadable] = BexMapping {
-            kind: s.kind,
-            flags: s.flags,
-            file_offset: s.file_offset,
-            file_size: s.file_size,
-            mem_size: s.mem_size,
-            alignment: s.alignment,
-            indice: s.indice,
-        };
-        loadable += 1;
+    for r in rev.regiones() {
+        plan.regiones[plan.cuantas] = r;
+        plan.cuantas += 1;
     }
-
-    // El plan solo describe lo que se mapea.
-    plan.section_count = loadable;
-    plan.skipped_sections = skipped;
+    let tramo = |a: Option<Anexo>| match a {
+        Some(a) => Tramo { file_offset: a.file_offset, bytes: a.file_size, que: a.que },
+        None => SIN_TRAMO,
+    };
+    plan.relocs = tramo(rev.anexo(ANEXO_RELOCS));
+    plan.firma = tramo(rev.anexo(ANEXO_FIRMA));
+    plan.requisitos = tramo(rev.anexo(ANEXO_REQUISITOS));
+    // Todo otro anexo --recursos, manifiesto, katanas, simbolos, o un tipo que
+    // este kernel no conoce-- se valido y NO se lee: data para otro.
     Ok(plan)
 }
 
@@ -423,6 +313,6 @@ pub fn cuantas_relocs(tabla_size: u64) -> usize {
 /// Report the currently available BEX admission capability over serial.
 pub fn announce() {
     crate::ring0::dev::console::serial_write(
-        "[bex] x86-64 admission gate ready; Ring 3 mapping pending storage/process phase\n",
+        "[bex] BEF2 x86-64: puerta de admision lista\n",
     );
 }

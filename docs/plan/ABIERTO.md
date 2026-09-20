@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   306 casillas ABIERTAS en 36 planes
-   228 hechas
+   305 casillas ABIERTAS en 36 planes
+   229 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -287,14 +287,6 @@
 - [ ] sus filas de banco -- las ocho reglas del DMA, en el anfitrion
 - ... y 1 mas
 
-## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 3 abiertas, 7 hechas
-
-*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
-
-- [ ] B7 -- la CABECERA firmada. Hoy los hashes cubren regiones y
-- [ ] B8 -- Ring 0 lee REGIONES. B3 presenta las regiones al kernel como
-- [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
-
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
 *PLAN EL SILICIO*
@@ -317,6 +309,13 @@
 
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
+
+## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 2 abiertas, 8 hechas
+
+*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
+
+- [ ] B7 -- la CABECERA firmada. Hoy los hashes cubren regiones y
+- [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
 
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 

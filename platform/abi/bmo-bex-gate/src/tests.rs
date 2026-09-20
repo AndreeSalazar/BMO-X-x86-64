@@ -46,22 +46,22 @@ impl Imagen {
     /// relocs en 0x160 (16 = un reloc) y firma en 0x170 (8: cero hashes). 768 B.
     fn buena() -> Self {
         Self {
-            banderas: bef2::EJECUTABLE,
-            xcr0: bef2::XCR0_PRESERVADO,
+            banderas: EJECUTABLE,
+            xcr0: XCR0_PRESERVADO,
             entrada: 0,
             codigo: (0x100, 64),
             constantes: (0x140, 16),
             datos: (0x150, 16),
             ceros: 4096,
-            anexos: vec![(bef2::ANEXO_RELOCS, 0x160, 16), (bef2::ANEXO_FIRMA, 0x170, 8)],
+            anexos: vec![(ANEXO_RELOCS, 0x160, 16), (ANEXO_FIRMA, 0x170, 8)],
             total: 768,
-            abi: bef2::ABI,
+            abi: ABI,
         }
     }
 
     fn bytes(&self) -> Vec<u8> {
         let mut b = vec![0u8; self.total as usize];
-        b[0..4].copy_from_slice(&bef2::MAGIC.to_le_bytes());
+        b[0..4].copy_from_slice(&MAGIC.to_le_bytes());
         b[4] = self.abi;
         b[5] = self.banderas;
         b[8..16].copy_from_slice(&self.xcr0.to_le_bytes());
@@ -102,19 +102,21 @@ fn falta_de(img: &Imagen) -> Falta {
 fn una_imagen_buena_pasa() {
     let b = Imagen::buena().bytes();
     let r = revisar(&b, b.len()).expect("la buena pasa");
-    assert_eq!(r.entry_offset(), 0);
-    // Cuatro regiones presentadas como secciones, mas dos anexos.
-    assert_eq!(r.cuantas(), 6);
-    assert!(r.buscar(CODE).is_some());
-    assert!(r.buscar(RODATA).is_some());
-    assert!(r.buscar(DATA).is_some());
-    assert!(r.buscar(BSS).is_some());
-    assert!(r.buscar(RELOCS).is_some());
-    assert!(r.buscar(SIGNATURE).is_some());
-    // Solo el codigo es ejecutable.
-    for s in r.secciones() {
-        assert_eq!(s.flags & SECCION_FLAG_EXEC != 0, s.kind == CODE);
-    }
+    assert_eq!(r.entrada(), 0);
+    assert_eq!(r.xcr0(), XCR0_PRESERVADO);
+    assert!(!r.quiere_pantalla());
+    // Las cuatro regiones, en el orden de la cabecera, y con su `que`.
+    let cuales: Vec<Cual> = r.regiones().map(|x| x.cual).collect();
+    assert_eq!(cuales, Cual::TODAS);
+    assert_eq!(r.region(Cual::Codigo).unwrap(), Region { cual: Cual::Codigo, file_offset: 0x100, file_size: 64, mem_size: 64 });
+    assert_eq!(r.region(Cual::Ceros).unwrap(), Region { cual: Cual::Ceros, file_offset: 0, file_size: 0, mem_size: 4096 });
+    assert_eq!(r.region(Cual::Datos).unwrap().que(), 2);
+    // Y los dos anexos, con el `que` de la firma.
+    assert_eq!(r.cuantos_anexos(), 2);
+    assert_eq!(r.anexo(ANEXO_RELOCS).unwrap().que, FIRMA_ANEXO);
+    assert_eq!(r.anexo(ANEXO_FIRMA).unwrap().que, FIRMA_ANEXO | 1);
+    assert!(r.anexo(ANEXO_RECURSOS).is_none());
+    assert_eq!(r.hasta_donde_hace_falta(), 0x178);
 }
 
 /// BEF1 murio: su magic se rechaza por el primer numero, como un ELF o un PE.
@@ -122,9 +124,9 @@ fn una_imagen_buena_pasa() {
 fn otro_magic_no_es_un_bex() {
     let mut b = Imagen::buena().bytes();
     b[0..4].copy_from_slice(b"BEF1");
-    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::CabeceraInvalida);
+    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::OtroFormato);
     b[0..4].copy_from_slice(&[0x7F, b'E', b'L', b'F']);
-    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::CabeceraInvalida);
+    assert_eq!(revisar(&b, b.len()).err().unwrap(), Falta::OtroFormato);
 }
 
 #[test]
@@ -144,11 +146,11 @@ fn una_bandera_desconocida_se_rechaza() {
 #[test]
 fn un_objeto_no_se_carga_y_se_dice_por_que() {
     let mut img = Imagen::buena();
-    img.banderas = bef2::OBJETO;
+    img.banderas = OBJETO;
     assert_eq!(falta_de(&img), Falta::EsUnObjetoSinEnlazar);
     // Y un ejecutable con un anexo ENLACE es un objeto disfrazado.
     let mut img = Imagen::buena();
-    img.anexos.push((bef2::ANEXO_ENLACE, 0x180, 24));
+    img.anexos.push((ANEXO_ENLACE, 0x180, 24));
     assert_eq!(falta_de(&img), Falta::EsUnObjetoSinEnlazar);
 }
 
@@ -162,7 +164,7 @@ fn ni_ejecutable_ni_objeto_no_es_nada() {
 #[test]
 fn una_extension_de_cpu_que_no_se_preserva_se_rechaza() {
     let mut img = Imagen::buena();
-    img.xcr0 = bef2::XCR0_PRESERVADO | (1 << 2); // AVX
+    img.xcr0 = XCR0_PRESERVADO | (1 << 2); // AVX
     assert_eq!(falta_de(&img), Falta::ExtensionDeCpuQueNoSePreserva);
 }
 
@@ -170,10 +172,10 @@ fn una_extension_de_cpu_que_no_se_preserva_se_rechaza() {
 fn dos_regiones_no_pueden_pisarse() {
     let mut img = Imagen::buena();
     img.constantes = (0x100, 16); // encima del codigo
-    assert_eq!(falta_de(&img), Falta::SeccionesSeSolapan);
+    assert_eq!(falta_de(&img), Falta::TramosSeSolapan);
     let mut img = Imagen::buena();
-    img.anexos[1] = (bef2::ANEXO_FIRMA, 0x160, 8); // encima de los relocs
-    assert_eq!(falta_de(&img), Falta::SeccionesSeSolapan);
+    img.anexos[1] = (ANEXO_FIRMA, 0x160, 8); // encima de los relocs
+    assert_eq!(falta_de(&img), Falta::TramosSeSolapan);
 }
 
 #[test]
@@ -189,18 +191,22 @@ fn dos_regiones_pegadas_no_se_pisan() {
 fn una_region_no_puede_salirse_del_fichero() {
     let mut img = Imagen::buena();
     img.datos = (0x2F8, 16);
-    assert_eq!(falta_de(&img), Falta::SeccionFueraDelFichero);
+    assert_eq!(falta_de(&img), Falta::TramoFueraDelFichero);
     // Ni una VACIA con el offset fuera: lo encontro la pasada hostil.
     let mut img = Imagen::buena();
     img.datos = (0xFFFF_0000, 0);
-    assert_eq!(falta_de(&img), Falta::SeccionFueraDelFichero);
+    assert_eq!(falta_de(&img), Falta::TramoFueraDelFichero);
 }
 
 #[test]
 fn un_anexo_vacio_no_es_un_anexo() {
     let mut img = Imagen::buena();
-    img.anexos[0] = (bef2::ANEXO_RELOCS, 0x160, 0);
-    assert_eq!(falta_de(&img), Falta::SeccionInvalida);
+    img.anexos[0] = (ANEXO_RELOCS, 0x160, 0);
+    assert_eq!(falta_de(&img), Falta::AnexoInvalido);
+    // Y uno repetido: cual de los dos vale?
+    let mut img = Imagen::buena();
+    img.anexos.push((ANEXO_RELOCS, 0x180, 16));
+    assert_eq!(falta_de(&img), Falta::AnexoInvalido);
 }
 
 #[test]
@@ -221,7 +227,7 @@ fn sin_codigo_no_hay_programa() {
 fn sin_firma_no_pasa() {
     let mut img = Imagen::buena();
     img.anexos.pop();
-    assert_eq!(falta_de(&img), Falta::CabeceraQueSeDesmiente);
+    assert_eq!(falta_de(&img), Falta::SinFirma);
 }
 
 #[test]
@@ -236,7 +242,7 @@ fn demasiados_anexos() {
     for i in 0..15u32 {
         img.anexos.push((0x20 + i as u8, 0x200 + i * 16, 16));
     }
-    assert_eq!(falta_de(&img), Falta::DemasiadasSecciones);
+    assert_eq!(falta_de(&img), Falta::DemasiadosAnexos);
 }
 
 #[test]
@@ -278,7 +284,7 @@ fn ningun_campo_trucado_puede_reventar_al_lector() {
 #[test]
 fn los_recursos_no_cuentan_para_lo_que_hay_que_leer() {
     let mut img = Imagen::buena();
-    img.anexos.push((bef2::ANEXO_RECURSOS, 768, 1_000_000));
+    img.anexos.push((ANEXO_RECURSOS, 768, 1_000_000));
     img.total = 1_000_768;
     let b = img.bytes();
     let rev = revisar(&b, img.total as usize).expect("tiene que pasar");
@@ -372,18 +378,20 @@ fn un_offset_imposible_no_da_la_vuelta() {
 fn hostile_prologues_never_panic() {
     let one = Imagen::buena().bytes();
     let mut two = Imagen::buena();
-    two.anexos.push((bef2::ANEXO_RECURSOS, 0x200, 256));
+    two.anexos.push((ANEXO_RECURSOS, 0x200, 256));
     two.total = 1024;
     let two = two.bytes();
     bmo_hostile::attack("bex gate", bmo_hostile::DEFAULT_SEED, 30_000, &[&one, &two], 256, |x| {
         for size in [x.len(), x.len().saturating_sub(1), 768, 1024, usize::MAX] {
             if let Ok(r) = revisar(x, size) {
-                let _ = (r.entry_offset(), r.cuantas(), r.hasta_donde_hace_falta());
-                for i in 0..r.cuantas() + 2 {
-                    let _ = r.seccion(i);
+                let _ = (r.entrada(), r.xcr0(), r.cuantas_regiones(), r.hasta_donde_hace_falta());
+                for c in Cual::TODAS {
+                    let _ = r.region(c);
                 }
-                let _ = r.secciones().count();
-                let _ = (r.buscar(CODE), r.buscar(DATA), r.buscar(0xFF));
+                for i in 0..r.cuantos_anexos() + 2 {
+                    let _ = r.anexo_n(i);
+                }
+                let _ = (r.anexo(ANEXO_RELOCS), r.anexo(ANEXO_FIRMA), r.anexo(0xFF));
             }
         }
     });

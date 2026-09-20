@@ -58,20 +58,17 @@ use super::bex::{self, BexError};
 /// Bytes de un digest BLAKE3.
 pub const DIGEST: usize = 32;
 
-/// El nombre de una seccion, para decirlo en voz alta.
+/// El nombre de lo que aterriza, para decirlo en voz alta.
 ///
-/// Un indice no sirve: *"la seccion 3 no cuadra"* obliga a abrir el fichero con
-/// otra herramienta para saber cual era, y eso es justo lo que no se puede hacer
-/// con una foto de una pantalla.
-pub fn nombre(kind: u8) -> &'static str {
-    match kind {
-        bex::SECTION_CODE => "Code",
-        bex::SECTION_RODATA => "RoData",
-        bex::SECTION_DATA => "Data",
-        bex::SECTION_BSS => "Bss",
-        bex::SECTION_RELOCS => "Relocs",
-        bex::SECTION_SIGNATURE => "Signature",
-        _ => "(desconocida)",
+/// Un numero no sirve: *"el 3 no cuadra"* obliga a abrir el fichero con otra
+/// herramienta para saber cual era, y eso es justo lo que no se puede hacer
+/// con una foto de una pantalla. `que` es el byte con el que la firma lo
+/// nombra: 0..=3 las regiones, `0x80 | i` el anexo `i`.
+pub fn nombre(que: u8) -> &'static str {
+    match bex::Cual::de(que) {
+        Some(c) => c.nombre(),
+        None if que & 0x80 != 0 => "un anexo",
+        None => "(desconocido)",
     }
 }
 
@@ -94,7 +91,8 @@ pub enum Cierre {
 /// cumple el bucle que copia pagina a pagina, y se dice aqui para que nadie
 /// reordene ese bucle sin enterarse.
 pub struct Aterrizaje {
-    kind: u8,
+    /// Que aterriza: el `que` de la firma (region 0..=3, o `0x80 | anexo`).
+    que: u8,
     hasher: bmo_hash::Hasher,
     esperado: Option<[u8; DIGEST]>,
     vistos: u64,
@@ -103,8 +101,8 @@ pub struct Aterrizaje {
 impl Aterrizaje {
     /// Abre el cierre de una seccion. `esperado` es su digest declarado, o
     /// `None` si la imagen no trae firma para ella.
-    pub fn abrir(kind: u8, esperado: Option<[u8; DIGEST]>) -> Self {
-        Self { kind, hasher: bmo_hash::Hasher::new(), esperado, vistos: 0 }
+    pub fn abrir(que: u8, esperado: Option<[u8; DIGEST]>) -> Self {
+        Self { que, hasher: bmo_hash::Hasher::new(), esperado, vistos: 0 }
     }
 
     /// Un trozo que acaba de aterrizar. Se le pasa **lo que se copio**, no la
@@ -141,13 +139,12 @@ impl Aterrizaje {
         if calculado != esperado {
             crate::ring0::cabina::fault(
                 "proc",
-                match self.kind {
-                    bex::SECTION_CODE => "la seccion Code no cuadra con su hash",
-                    bex::SECTION_RODATA => "la seccion RoData no cuadra con su hash",
-                    bex::SECTION_DATA => "la seccion Data no cuadra con su hash",
-                    bex::SECTION_BSS => "la seccion Bss no cuadra con su hash",
-                    bex::SECTION_RELOCS => "la seccion Relocs no cuadra con su hash",
-                    _ => "una seccion no cuadra con su hash",
+                match bex::Cual::de(self.que) {
+                    Some(bex::Cual::Codigo) => "el CODIGO no cuadra con su hash",
+                    Some(bex::Cual::Constantes) => "las CONSTANTES no cuadran con su hash",
+                    Some(bex::Cual::Datos) => "los DATOS no cuadran con su hash",
+                    Some(bex::Cual::Ceros) => "los ceros no cuadran con su hash",
+                    None => "un anexo (relocs o requisitos) no cuadra con su hash",
                 },
                 self.vistos,
             );
@@ -159,28 +156,23 @@ impl Aterrizaje {
 
 /// **Los digests declarados por la imagen**, ya localizados.
 ///
-/// Se saca UNA vez por imagen y despues se le pregunta por indice de seccion.
-/// Guarda offsets, no copias: los 32 bytes de cada digest se sacan cuando hacen
-/// falta, que es una vez por seccion.
+/// Se saca UNA vez por imagen y despues se le pregunta por `que`: el numero de
+/// una region (0..=2) o `0x80 | indice` de un anexo. Guarda offsets, no copias:
+/// los 32 bytes de cada digest se sacan cuando hacen falta.
 ///
-/// [!] Toma prestados los bytes donde vive la seccion `Signature`. Hoy es el
-/// bufer de la imagen; cuando llegue la pieza B sera un trozo pequeno leido
-/// aparte, y **esta estructura no cambia** -- por eso recibe el rango de la
-/// firma y no la imagen entera.
+/// [!] Toma prestados los bytes del anexo FIRMA, leido aparte del resto: por
+/// eso recibe el rango de la firma y no la imagen entera.
 pub struct Firmas<'a> {
-    /// Los bytes de la seccion `Signature`, desde su primer byte.
+    /// Los bytes del anexo FIRMA, desde su primer byte.
     firma: &'a [u8],
-    /// Cuantas entries declara su cabecera.
+    /// Cuantas entradas declara su cabecera.
     cuantos: usize,
-    /// El indice de la propia seccion de firma: no puede contener su hash, y el
-    /// escritor la excluye. Se guarda para excluirla tambien al leer.
-    propio: usize,
 }
 
 impl<'a> Firmas<'a> {
-    /// Cabecera de la seccion de firma: `hash_count` (u32) + `sig_algo` (u32).
+    /// Cabecera del anexo de firma: `cuantos` (u32) + `algoritmo` (u32).
     const CAB: usize = 8;
-    /// Una entrada: `section_index` (u16) + relleno (6) + digest (32).
+    /// Una entrada: `que` (u8) + relleno (7) + digest (32).
     const ENTRADA: usize = 40;
 
     /// Abre la tabla de digests sobre los bytes de la seccion `Signature`.
@@ -190,7 +182,7 @@ impl<'a> Firmas<'a> {
     /// promete mas entries de las que caben no es una imagen sin firma, pero
     /// **tampoco es una con la que se pueda comprobar nada**, y arrancar la
     /// comprobacion sobre ella seria leer bytes de la seccion siguiente.
-    pub fn abrir(firma: &'a [u8], indice_propio: usize) -> Option<Self> {
+    pub fn abrir(firma: &'a [u8]) -> Option<Self> {
         if firma.len() < Self::CAB {
             return None;
         }
@@ -199,18 +191,16 @@ impl<'a> Firmas<'a> {
         if necesita > firma.len() {
             return None;
         }
-        Some(Self { firma, cuantos, propio: indice_propio })
+        Some(Self { firma, cuantos })
     }
 
-    /// El digest declarado para la seccion `idx`, si lo hay.
-    pub fn digest_de(&self, idx: usize) -> Option<[u8; DIGEST]> {
-        if idx == self.propio {
-            return None;
-        }
+    /// El digest declarado para `que`, si lo hay.
+    pub fn digest_de(&self, que: u8) -> Option<[u8; DIGEST]> {
         for k in 0..self.cuantos {
             let e = Self::CAB + k * Self::ENTRADA;
-            let quien = u16::from_le_bytes(self.firma.get(e..e + 2)?.try_into().ok()?) as usize;
-            if quien != idx {
+            // `que` es el primer byte; los siete siguientes son relleno a cero.
+            let quien = *self.firma.get(e)?;
+            if quien != que {
                 continue;
             }
             let mut d = [0u8; DIGEST];

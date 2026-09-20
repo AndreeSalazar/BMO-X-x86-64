@@ -124,12 +124,9 @@ impl Origen<'_> {
     }
 }
 
-/// Lo mas grande que puede medir una seccion `Signature`, **segun el formato**.
-///
-/// No es un numero inventado como lo era `MAX_BEX`: la cabecera son 8 bytes y hay
-/// como mucho una entrada de 40 por seccion, con `MAX_BEX_SECTIONS` de tope. Un
-/// limite que sale del contrato no hay que subirlo nunca.
-const MAX_FIRMA: usize = 8 + bex::MAX_BEX_SECTIONS * 40;
+/// Lo mas grande que puede medir el anexo de firma, **segun el formato**. Ver
+/// `bex::MAX_FIRMA`: sale del contrato, no se sube nunca.
+const MAX_FIRMA: usize = bex::MAX_FIRMA;
 
 /// Admite UN programa BEX como proceso Ring 3 con el `pid` indicado.
 ///
@@ -251,40 +248,27 @@ pub(crate) fn admit_payload_desde(
     //
     // La cuenta es la de siempre y no cambia --alinear, tantas paginas como pida
     // `mem_size`, y la siguiente empieza tras ellas--, solo se hace antes.
-    let mut va_de = [0u64; bex::MAX_BEX_SECTIONS];
+    // ** Cada REGION empieza en una pagina nueva, en el orden de la cabecera
+    // (codigo, constantes, datos, ceros). No hay `alignment` que leer: BEF2 no
+    // lo tiene, y la regla es una y del cargador.
+    let mut va_de = [0u64; 4];
     {
         let mut va_cursor = vmm::USER_IMAGE_BASE;
-        for i in 0..plan.section_count {
-            let s = plan.sections[i];
-            let align = s.alignment as u64;
-            va_cursor = (va_cursor + align - 1) & !(align - 1);
+        for i in 0..plan.cuantas {
+            let r = plan.regiones[i];
             va_de[i] = va_cursor;
-            let pages = (s.mem_size + mm::PAGE - 1) / mm::PAGE;
+            let pages = (r.mem_size + mm::PAGE - 1) / mm::PAGE;
             va_cursor = va_cursor + pages * mm::PAGE;
         }
     }
 
-    // El INDICE de una seccion por su REGION de BEF2 (0 codigo, 1 constantes,
-    // 2 datos, 3 ceros): la numeracion de los relocs es la de las regiones,
-    // que es la misma con la que la puerta las presenta. Una sola numeracion.
+    // El INDICE en el plan de una region por su numero (0 codigo, 1 constantes,
+    // 2 datos, 3 ceros): la numeracion de los relocs es la de las regiones.
+    // Una sola numeracion.
     // ** Devuelve el INDICE y no la VA desde el 2026-08-25: con la VA sola no se
-    // puede comprobar si la reloc CABE en su seccion, y esa comprobacion la
+    // puede comprobar si el reloc CABE en su region, y esa comprobacion la
     // tenia el toolchain y el cargador no. Ver `gate::reloc_cabe`.
-    let seccion_por_codigo_reloc = |cod: u8| -> Option<usize> {
-        let buscado = match cod {
-            0 => bex::SECTION_CODE,
-            1 => bex::SECTION_RODATA,
-            2 => bex::SECTION_DATA,
-            3 => bex::SECTION_BSS,
-            _ => return None,
-        };
-        for i in 0..plan.section_count {
-            if plan.sections[i].kind == buscado {
-                return Some(i);
-            }
-        }
-        None
-    };
+    let region_por_numero = |cod: u8| -> Option<usize> { plan.indice_de(bex::Cual::de(cod)?) };
 
     // ** LOS DIGESTS DECLARADOS, localizados UNA vez.
     //
@@ -297,8 +281,8 @@ pub(crate) fn admit_payload_desde(
     // pero no se rechaza: exigirle una prueba a quien nunca la prometio seria
     // dejar de arrancar.
     let mut buf_firma = [0u8; MAX_FIRMA];
-    let firmas = if plan.firma_file_size > 0 && plan.firma_file_size as usize <= MAX_FIRMA {
-        let n = plan.firma_file_size as usize;
+    let firmas = if plan.firma.bytes > 0 && plan.firma.bytes as usize <= MAX_FIRMA {
+        let n = plan.firma.bytes as usize;
         // ** SUELTA, y ese detalle es la diferencia entre arrancar y no.
         //
         // La seccion `Signature` esta **al final del fichero** --en `gui.bex`, en
@@ -308,12 +292,12 @@ pub(crate) fn admit_payload_desde(
         // contestaria `0` --correctamente, solo avanza-- y el cargador lo diria
         // como `una seccion se quedo a medias al aterrizar =0`, que manda a
         // mirar el disco cuando el disco esta bien.
-        let leidos = origen.traer_suelto(plan.firma_file_offset as usize, &mut buf_firma[..n]);
+        let leidos = origen.traer_suelto(plan.firma.file_offset as usize, &mut buf_firma[..n]);
         if leidos != n {
             crate::ring0::cabina::fault("proc", "la tabla de hashes se quedo sin leer", leidos as u64);
             return None;
         }
-        landing::Firmas::abrir(&buf_firma[..n], plan.firma_indice)
+        landing::Firmas::abrir(&buf_firma[..n])
     } else {
         None
     };
@@ -340,7 +324,7 @@ pub(crate) fn admit_payload_desde(
     if let Some(f) = firmas.as_ref() {
         let mut ancla = [[0u8; confianza::CLAVE]; 8];
         let cuantas = confianza::claves(&mut ancla);
-        let tam_firma = plan.firma_file_size as usize;
+        let tam_firma = plan.firma.bytes as usize;
         match f.cadena() {
             None => {
                 // La tabla no da para leer sus propios digests. No se puede
@@ -388,8 +372,8 @@ pub(crate) fn admit_payload_desde(
     // direcciones. Decir que no despues de eso obliga a DESMONTARLO -- que es
     // justo la ruta que lleva dos dias dando pantallas azules. **El no barato
     // es el que se da antes de la primera reserva.**
-    if plan.requisitos_file_size > 0 {
-        let n = (plan.requisitos_file_size as usize).min(REQUISITOS_MAX);
+    if plan.requisitos.bytes > 0 {
+        let n = (plan.requisitos.bytes as usize).min(REQUISITOS_MAX);
         let buf = unsafe { &mut *core::ptr::addr_of_mut!(REQUISITOS_BUF) };
         // [!] `traer_suelto` y NO `traer`, y esto costo un arranque el mismo dia.
         //
@@ -408,7 +392,7 @@ pub(crate) fn admit_payload_desde(
         // *** Es la trampa que este fichero ya tenia contada en `traer_suelto`,
         // veinte lineas mas arriba, escrita el dia que le paso a los hashes. La
         // lei al escribirla y use la otra igual.
-        let leidos = origen.traer_suelto(plan.requisitos_file_offset as usize, &mut buf[..n]);
+        let leidos = origen.traer_suelto(plan.requisitos.file_offset as usize, &mut buf[..n]);
         // ** SI NO SE PUDO LEER LA TABLA, SE DICE. (2026-08-31)
         //
         // `Tabla::abrir` valida entero --magic, cuantos, y que los motivos no
@@ -420,15 +404,15 @@ pub(crate) fn admit_payload_desde(
         // correcta --un `.bex` legitimo no se queda fuera por un tope mio-- pero
         // **callarlo no lo es**. Un gate que a veces no juzga y nunca lo dice es
         // un gate que un dia deja de juzgar del todo sin que nada cambie.
-        if plan.requisitos_file_size as usize > REQUISITOS_MAX {
+        if plan.requisitos.bytes as usize > REQUISITOS_MAX {
             crate::ring0::cabina::warn(
                 "carga", "la tabla de requisitos no cabe en el buffer: NO se juzga",
-                plan.requisitos_file_size);
+                plan.requisitos.bytes);
         }
         let tabla = bmo_carga_juicio::Tabla::abrir(&buf[..leidos]);
         if tabla.is_none() {
             crate::ring0::cabina::warn(
-                "carga", "hay seccion de requisitos y NO se pudo leer: entra sin juzgar",
+                "carga", "hay anexo de requisitos y NO se pudo leer: entra sin juzgar",
                 leidos as u64);
         }
         if let Some(tabla) = tabla {
@@ -490,7 +474,7 @@ pub(crate) fn admit_payload_desde(
     // autopsia la necesita para distinguir un retorno de un puntero a datos.
     let mut code_va: u64 = 0;
     let mut code_len: u64 = 0;
-    let total_relocs = bex::cuantas_relocs(plan.relocs_file_size);
+    let total_relocs = bex::cuantas_relocs(plan.relocs.bytes);
 
     // ** Y LA TABLA DE RELOCATIONS TAMBIEN SE CIERRA, antes de aplicar ni una.
     //
@@ -517,7 +501,7 @@ pub(crate) fn admit_payload_desde(
     // el mismo arreglo.
     let mut relocs_marcos: Option<(u64, u64)> = None;
     let relocs: &[u8] = if total_relocs > 0 {
-        let n = plan.relocs_file_size as usize;
+        let n = plan.relocs.bytes as usize;
         let paginas = ((n as u64) + mm::PAGE - 1) / mm::PAGE;
         // ** EL SOSPECHOSO DE DOOM, y por eso lleva el numero puesto.
         //
@@ -539,13 +523,13 @@ pub(crate) fn admit_payload_desde(
         };
         // Suelta por lo mismo que la de hashes: la tabla va detras de todo lo
         // que se ejecuta, y esto corre antes de aterrizar nada.
-        let leidos = origen.traer_suelto(plan.relocs_file_offset as usize, dst);
+        let leidos = origen.traer_suelto(plan.relocs.file_offset as usize, dst);
         if leidos != n {
             crate::ring0::cabina::fault("proc", "la tabla de relocs se quedo sin leer", leidos as u64);
             return None;
         }
-        let esperado = firmas.as_ref().and_then(|f| f.digest_de(plan.relocs_indice));
-        let mut cierre = landing::Aterrizaje::abrir(bex::SECTION_RELOCS, esperado);
+        let esperado = firmas.as_ref().and_then(|f| f.digest_de(plan.relocs.que));
+        let mut cierre = landing::Aterrizaje::abrir(plan.relocs.que, esperado);
         cierre.trozo(dst);
         match cierre.cerrar() {
             Ok(landing::Cierre::Cuadra) => {}
@@ -555,7 +539,7 @@ pub(crate) fn admit_payload_desde(
                 crate::ring0::cabina::fault(
                     "proc",
                     "el HASH de la tabla de relocs NO cuadra",
-                    plan.relocs_file_size,
+                    plan.relocs.bytes,
                 );
                 return None;
             }
@@ -581,43 +565,42 @@ pub(crate) fn admit_payload_desde(
     //
     // La colocacion en memoria NO se toca -- `va_de[]` se calculo en el pase 1 y
     // sigue mandando. Lo unico que se ordena es en que orden se rellenan.
-    let mut orden = [0usize; bex::MAX_BEX_SECTIONS];
-    for i in 0..plan.section_count {
+    let mut orden = [0usize; 4];
+    for i in 0..plan.cuantas {
         orden[i] = i;
     }
-    // Insercion, que para dieciseis como mucho es lo correcto: sin recursion,
-    // sin memoria extra, y estable -- dos secciones con el mismo offset (solo la
-    // `Bss`, que no ocupa fichero) conservan el orden del plan.
-    for a in 1..plan.section_count {
+    // Insercion, que para cuatro es lo correcto: sin recursion, sin memoria
+    // extra, y estable -- los ceros, que no ocupan fichero, conservan su sitio.
+    for a in 1..plan.cuantas {
         let mut b = a;
         while b > 0
-            && plan.sections[orden[b - 1]].file_offset > plan.sections[orden[b]].file_offset
+            && plan.regiones[orden[b - 1]].file_offset > plan.regiones[orden[b]].file_offset
         {
             orden.swap(b - 1, b);
             b -= 1;
         }
     }
 
-    for paso in 0..plan.section_count {
+    for paso in 0..plan.cuantas {
         let i = orden[paso];
-        let s = plan.sections[i];
+        let s = plan.regiones[i];
         let va_start = va_de[i];
         let pages = (s.mem_size + mm::PAGE - 1) / mm::PAGE;
-        // ** EL PERMISO LO DA LO QUE LA SECCION ES (2026-09-19). Antes era
-        // `writable = !EXEC`, y con dos estados `RoData` salia ESCRIBIBLE: una
-        // cadena literal se podia pisar. Ver `vmm::PermisoImagen`.
-        let permiso = match s.kind {
-            bex::SECTION_CODE => vmm::PermisoImagen::Codigo,
-            bex::SECTION_RODATA => vmm::PermisoImagen::Constantes,
-            _ => vmm::PermisoImagen::Datos,
+        // ** EL PERMISO LO DA EL HUECO (B8, 2026-09-20). Antes era `writable =
+        // !EXEC` sobre una bandera, y con dos estados `RoData` salia
+        // ESCRIBIBLE: una cadena literal se podia pisar. Despues fue un `kind`
+        // que un adaptador fabricaba. Ahora es la REGION, que es el hueco de
+        // la cabecera: no hay forma de que el codigo sea escribible. Ver
+        // `vmm::PermisoImagen`.
+        let permiso = match s.cual {
+            bex::Cual::Codigo => vmm::PermisoImagen::Codigo,
+            bex::Cual::Constantes => vmm::PermisoImagen::Constantes,
+            bex::Cual::Datos | bex::Cual::Ceros => vmm::PermisoImagen::Datos,
         };
-        // ** EL CIERRE DE ESTA SECCION, abierto antes de su primer byte.
-        //
-        // Se busca su digest por `s.indice` --el indice en la tabla del
-        // FICHERO-- y no por `i`, que es el de este plan y solo cuenta lo
-        // cargable. Ver la nota de `BexMapping::indice`.
+        // ** EL CIERRE DE ESTA REGION, abierto antes de su primer byte. La
+        // firma la nombra por su numero (`que`), el mismo de los relocs.
         let mut cierre =
-            landing::Aterrizaje::abrir(s.kind, firmas.as_ref().and_then(|f| f.digest_de(s.indice)));
+            landing::Aterrizaje::abrir(s.que(), firmas.as_ref().and_then(|f| f.digest_de(s.que())));
         // **Lo que le falta a una relocation partida en la frontera de pagina.**
         // `(valor, cuantos bytes ya se escribieron)`. Ver la nota larga abajo.
         //
@@ -630,7 +613,7 @@ pub(crate) fn admit_payload_desde(
             let Some(frame) = phys::alloc_frame() else {
                 crate::ring0::cabina::fault(
                     "proc",
-                    "sin marcos libres para una pagina de seccion",
+                    "sin marcos libres para una pagina de region",
                     va_start + p * mm::PAGE,
                 );
                 return None;
@@ -662,7 +645,7 @@ pub(crate) fn admit_payload_desde(
                         // otro -- pero eso no lo convierte en valido.
                         crate::ring0::cabina::fault(
                             "proc",
-                            "una seccion se quedo a medias al aterrizar",
+                            "una region se quedo a medias al aterrizar",
                             leidos as u64,
                         );
                         return None;
@@ -717,7 +700,7 @@ pub(crate) fn admit_payload_desde(
                 // entera, y desde la pieza B `bytes` es solo el prologo: la tabla
                 // de DOOM (30.840 B) cae mucho mas alla y no habria ni una reloc
                 // que aplicar.
-                let Some(rel) = bex::leer_reloc(relocs, 0, plan.relocs_file_size, r) else {
+                let Some(rel) = bex::leer_reloc(relocs, 0, plan.relocs.bytes, r) else {
                     log("[proc] FATAL: tabla de relocations mal formada\n");
                 crate::ring0::cabina::fault("proc", "la tabla de relocations esta mal formada", r as u64);
                     return None;
@@ -726,11 +709,11 @@ pub(crate) fn admit_payload_desde(
                 // rechazar. Lo que se comprueba es que las dos regiones
                 // existan y que el parche quepa.)
                 let (Some(i_donde), Some(i_destino)) = (
-                    seccion_por_codigo_reloc(rel.donde_sec),
-                    seccion_por_codigo_reloc(rel.destino_sec),
+                    region_por_numero(rel.donde_sec),
+                    region_por_numero(rel.destino_sec),
                 ) else {
-                    log("[proc] FATAL: relocation a una seccion que no existe\n");
-                crate::ring0::cabina::fault("proc", "relocation a una seccion que NO EXISTE", ((rel.donde_sec as u64) << 8) | rel.destino_sec as u64);
+                    log("[proc] FATAL: reloc a una region que no existe\n");
+                crate::ring0::cabina::fault("proc", "reloc a una region que NO EXISTE", ((rel.donde_sec as u64) << 8) | rel.destino_sec as u64);
                     return None;
                 };
                 // *** CABE ESTA RELOC EN LA SECCION QUE DICE PARCHEAR? (25-08)
@@ -745,13 +728,12 @@ pub(crate) fn admit_payload_desde(
                 // pagina que estoy parcheando"-- se cumplia, y se escribia.
                 //
                 // Y el hash tampoco lo caza: se cierra ANTES de parchear.
-                let sec_donde = plan.sections[i_donde];
+                let sec_donde = plan.regiones[i_donde];
                 if !gate::reloc_cabe(rel.donde_off, 8, sec_donde.file_size, sec_donde.mem_size) {
-                    log("[proc] FATAL: relocation fuera de su seccion
-");
+                    log("[proc] FATAL: reloc fuera de su region\n");
                     crate::ring0::cabina::fault(
                         "proc",
-                        "una relocation se sale de la seccion que dice parchear",
+                        "un reloc se sale de la region que dice parchear",
                         rel.donde_off,
                     );
                     return None;
@@ -824,7 +806,7 @@ pub(crate) fn admit_payload_desde(
                 log("[proc] FATAL: section map failed\n");
                 crate::ring0::cabina::fault(
                     "proc",
-                    "no se pudo mapear una pagina de seccion",
+                    "no se pudo mapear una pagina de region",
                     pagina_va,
                 );
                 return None;
@@ -839,7 +821,7 @@ pub(crate) fn admit_payload_desde(
         if cola.is_some() {
             crate::ring0::cabina::fault(
                 "proc",
-                "una relocation se sale por el FINAL de su seccion",
+                "un reloc se sale por el FINAL de su region",
                 va_start + pages * mm::PAGE,
             );
             return None;
@@ -861,17 +843,17 @@ pub(crate) fn admit_payload_desde(
                 // motivo mas probable de que un `.bex` firmado no arranque se
                 // decia justo donde nadie podia leerlo, y desde fuera se veia
                 // como `el .bex no paso la admision` a secas.
-                set_status("una seccion no cuadra con su hash");
+                set_status("una region no cuadra con su hash");
                 crate::ring0::cabina::fault(
                     "proc",
-                    "el HASH de una seccion NO cuadra: la imagen que llego no es la firmada",
-                    s.kind as u64,
+                    "el HASH de una region NO cuadra: la imagen que llego no es la firmada",
+                    s.que() as u64,
                 );
                 return None;
             }
         }
-        if s.kind == bex::SECTION_CODE {
-            entry_va = va_start + plan.entry_offset;
+        if s.cual == bex::Cual::Codigo {
+            entry_va = va_start + plan.entrada;
             code_va = va_start;
             code_len = s.mem_size;
         }
@@ -884,7 +866,7 @@ pub(crate) fn admit_payload_desde(
     // esto sube en un `.bex` que SI paso por el escritor, es que el escritor
     // dejo de firmar algo y nadie se habria enterado.
     if sin_firma > 0 {
-        crate::ring0::cabina::info("proc", "secciones sin hash con el que comparar", sin_firma as u64);
+        crate::ring0::cabina::info("proc", "regiones sin hash con el que comparar", sin_firma as u64);
     }
     // ** Y LOS MARCOS DE LAS RELOCATIONS SE SUELTAN. Ya se aplicaron: la tabla
     // no es memoria del programa y no tiene por que sobrevivirle ni un tick.
@@ -975,7 +957,7 @@ pub(crate) fn admit_payload_desde(
     unsafe {
         if let Some(r) = record_mut(pid) {
             r.tid = tid;
-            r.sections = plan.section_count as u8;
+            r.sections = plan.cuantas as u8;
             r.entry_va = entry_va;
             r.code_bytes = code_bytes;
             r.code_va = code_va;

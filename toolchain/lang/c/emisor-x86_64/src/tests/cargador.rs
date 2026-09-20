@@ -37,23 +37,23 @@ fn pasa_la_puerta_del_kernel() {
     // verdad y que solo usaban estas pruebas.
     let bef = compile_source_to_bef("int main() { return 42; }").unwrap();
     let img = bmo_bex_gate::revisar(&bef, bef.len()).unwrap();
-    let code = img.buscar(bmo_bex_gate::CODE).expect("should have Code section");
-    assert!(code.file_size >= 16, "code section should be at least 16 bytes");
-    assert!(img.entry_offset() < code.mem_size, "the entry point lives in the code");
+    let code = img.region(bmo_bex_gate::Cual::Codigo).expect("tiene codigo");
+    assert!(code.file_size >= 16, "el codigo mide al menos 16 bytes");
+    assert!(img.entrada() < code.mem_size, "la entrada vive en el codigo");
 }
 
 #[test]
 fn loaded_bef_has_rodata() {
     let bef = compile_source_to_bef("int main() { printf(\"hello\"); return 0; }").unwrap();
     let img = bmo_bex_gate::revisar(&bef, bef.len()).unwrap();
-    assert!(img.buscar(bmo_bex_gate::RODATA).is_some(), "printf should create RoData section with the string");
+    assert!(img.region(bmo_bex_gate::Cual::Constantes).is_some(), "printf deja la cadena en CONSTANTES");
 }
 
 #[test]
 fn loaded_bef_has_global_data() {
     let bef = compile_source_to_bef("int g = 42; int main() { return g; }").unwrap();
     let img = bmo_bex_gate::revisar(&bef, bef.len()).unwrap();
-    assert!(img.buscar(bmo_bex_gate::DATA).is_some(), "global vars should create Data section");
+    assert!(img.region(bmo_bex_gate::Cual::Datos).is_some(), "una global con valor va a DATOS");
 }
 
 

@@ -1,39 +1,45 @@
-//! **LA DECISION: es admisible este BEX?** Y nada mas.
+//! **LA DECISION: es admisible este `.bex`?** Y nada mas.
 //!
 //! ## Por que existe este crate
 //!
-//! La respuesta a *"se puede ejecutar esto?"* estaba escrita **dos veces**:
-//!
-//! ```text
-//!   bmo-abi/bef/validator.rs   1.281 lineas   con alloc   decide Y explica
-//!   kernel/task/bex.rs           ~200 lineas   sin alloc   decide Y planifica
-//! ```
-//!
-//! Y no estaban duplicadas por descuido. Estaban duplicadas porque **la decision
-//! vivia incrustada en dos trabajos distintos**: una construye mensajes de error
-//! con `String` para el que compila, la otra construye el plan de mapeo para el
-//! que ejecuta. Compartirlas era imposible mientras la decision no fuera una cosa
-//! por su cuenta.
-//!
-//! Aqui es una cosa por su cuenta. Los dos siguen haciendo lo suyo encima:
+//! La respuesta a *"se puede ejecutar esto?"* la necesitan dos que no se pueden
+//! compartir codigo: el toolchain (con `alloc`, en el anfitrion) y Ring 0 (sin
+//! asignador, en el metal). Este crate es la decision **por su cuenta**: cero
+//! dependencias, cero `alloc`, y una prueba en `bmo-abi`
+//! (`tests/gate_y_validador_no_se_separan.rs`) que le pregunta lo mismo a esta
+//! puerta y al juez del contrato (`bmo_abi::bef2::lector`) y exige la misma
+//! respuesta.
 //!
 //! ```text
 //!                     bmo-bex-gate        <- la DECISION
 //!                      /          \
-//!       validator (alloc)          bex.rs (Ring 0)
-//!       anade MENSAJES             anade el PLAN
+//!       bef2::lector (alloc)       bex.rs (Ring 0)
+//!       anade los HASHES           anade el PLAN
 //! ```
 //!
-//! **Ninguno de los dos es dueno de la decision, asi que ninguno puede desviarse
-//! de ella.** Que es distinto de tener una prueba que compare los dos: eso caza
-//! la divergencia despues de escribirla; esto la hace imposible.
+//! ## BEF2, y solo BEF2 (2026-09-19)
+//!
+//! BEF1 --la cabecera de 48 B con TABLA DE SECCIONES tipadas, la idea de ELF
+//! con otro nombre-- murio en B6. Y en B8 murio tambien la PINTURA AL REVES:
+//! hasta entonces esta puerta leia BEF2 y se lo **presentaba al kernel como
+//! secciones** ("mismo tipo, mismo indice") para no tocar Ring 0. Eso dejaba
+//! la propiedad central del formato --*el permiso lo da el HUECO de la
+//! cabecera*-- viviendo en un adaptador, y el 19-09 se vio que el adaptador
+//! mentia en los relocs. Ahora la puerta habla de lo que el fichero TIENE:
+//!
+//! ```text
+//!    cuatro REGIONES   codigo, constantes, datos, ceros   (sitio fijo, permiso fijo)
+//!    ANEXOS            relocs, firma, requisitos           (los abre el kernel)
+//!                      recursos, manifiesto, katanas...    (data para otro: se saltan)
+//! ```
 //!
 //! ## Y lo que esto NO hace
 //!
-//! No mapea, no reserva, no lee disco, no explica en prosa, y **no opina**. Una
-//! imagen que pasa por aqui es una imagen **bien formada**, y eso no quiere decir
-//! que sea buena, ni segura, ni tuya. Quien decide si se ejecuta es el sistema,
-//! con esto y con lo demas -- la firma, los requisitos, quien la lanza.
+//! No mapea, no reserva, no lee disco, no comprueba hashes (eso es de quien
+//! COPIA: `task/landing.rs`), no explica en prosa, y **no opina**. Una imagen
+//! que pasa por aqui es una imagen **bien formada**, y eso no quiere decir que
+//! sea buena, ni segura, ni tuya. Quien decide si se ejecuta es el sistema, con
+//! esto y con lo demas -- la firma, los requisitos, quien la lanza.
 //!
 //! > Bien formado no es lo mismo que de fiar. Confundirlo es como creerse un
 //! > documento porque la letra es bonita.
@@ -41,42 +47,140 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-pub const MAX_SECCIONES: usize = 16;
+// -- El contrato en el cable (espejo de `bmo_abi::bef2`) ----------------------
+//
+// *** POR QUE ESTOS NUMEROS ESTAN AQUI Y NO SE PIDEN A `bmo-abi`.
+//
+// Porque este crate tiene CERO DEPENDENCIAS y ese es su punto entero: lo
+// consumen el toolchain y Ring 0. Depender de `bmo-abi` lo dejaria fuera del
+// kernel, que es justo el consumidor por el que existe. Y la flecha tampoco se
+// puede invertir: `bmo-abi` es el CONTRATO y esto es UNA PUERTA.
+//
+// [!] Asi que son dos copias de la misma decision, a sabiendas, **y atadas por
+// una prueba**: `bmo-abi/tests/gate_y_validador_no_se_separan.rs`.
 
-// -- Tipos de seccion --------------------------------------------------------
+/// `"BEF2"` en little-endian.
+pub const MAGIC: u32 = u32::from_le_bytes(*b"BEF2");
+/// El ABI que habla la imagen. Uno solo.
+pub const ABI: u8 = 2;
+/// La cabecera: 64 B, una linea de cache.
+pub const CABECERA: usize = 64;
+/// Una entrada de la tabla de anexos.
+pub const ANEXO: usize = 16;
+/// Tope de anexos: la tabla entera cabe en el prologo.
+pub const MAX_ANEXOS: usize = 16;
 
-pub const CODE: u8 = 0x01;
-pub const RODATA: u8 = 0x02;
-pub const DATA: u8 = 0x03;
-pub const BSS: u8 = 0x04;
-pub const RELOCS: u8 = 0x07;
-pub const SIGNATURE: u8 = 0x0F;
-pub const REQUISITOS: u8 = 0x15;
+/// Banderas de la cabecera (byte 5).
+pub const EJECUTABLE: u8 = 1 << 0;
+pub const OBJETO: u8 = 1 << 1;
+pub const QUIERE_PANTALLA: u8 = 1 << 2;
+const BANDERAS: u8 = EJECUTABLE | OBJETO | QUIERE_PANTALLA;
 
-/// Se mapea en el espacio del programa?
-///
-/// **LA REGLA**: solo cuatro tipos son memoria del programa. Todo lo demas
-/// --manifiesto, firma, simbolos, recursos, y **cualquier tipo desconocido**--
-/// es data para otro, y se salta. Un tipo que no me incumbe no es un error: es
-/// data que no voy a abrir. Es lo que ha mantenido vivo a ELF treinta anios.
-pub fn se_carga(kind: u8) -> bool {
-    matches!(kind, CODE | RODATA | DATA | BSS)
+/// **Lo que este kernel PRESERVA en un cambio de contexto**: x87 y SSE. Un
+/// programa que declare mas en `xcr0` se rechaza con nombre -- sin esto, usar
+/// AVX corromperia sus ymm en silencio a la primera interrupcion.
+pub const XCR0_PRESERVADO: u64 = (1 << 0) | (1 << 1);
+
+/// Tipos de anexo.
+pub const ANEXO_RELOCS: u8 = 0x01;
+pub const ANEXO_FIRMA: u8 = 0x02;
+pub const ANEXO_REQUISITOS: u8 = 0x03;
+pub const ANEXO_RECURSOS: u8 = 0x04;
+pub const ANEXO_MANIFIESTO: u8 = 0x05;
+pub const ANEXO_KATANAS: u8 = 0x06;
+pub const ANEXO_SIMBOLOS: u8 = 0x07;
+/// Los enlaces de un OBJETO: en un ejecutable no pueden ir.
+pub const ANEXO_ENLACE: u8 = 0x08;
+
+/// **Los tres anexos que el kernel ABRE.** Todo otro anexo es data para OTRO
+/// --el enlazador, el verificador, el DIRECTOR, el runtime de un lenguaje-- y
+/// se SALTA: es la unica idea de la regla congelada que sobrevive, y sobrevive
+/// porque es la que deja crecer el formato sin que crezca el kernel.
+pub const fn lo_lee_el_kernel(tipo: u8) -> bool {
+    matches!(tipo, ANEXO_RELOCS | ANEXO_FIRMA | ANEXO_REQUISITOS)
 }
 
-/// ** Los tipos que piden ENLAZADO DINAMICO o TLS: `Imports` 0x05, `Exports`
-/// 0x06, `Tls` 0x0C (2026-09-19).
-///
-/// Un tipo desconocido se salta -- es data para otro. Estos NO: dicen "alguien
-/// resolvera mis llamadas al cargar", y en BMO-X no hay nadie (enlaza estatico
-/// desde el 17-09 y no tiene TLS). Saltarlos era cargar un programa con
-/// llamadas a ninguna parte.
-pub fn se_lee(kind: u8) -> bool {
-    se_carga(kind) || matches!(kind, RELOCS | SIGNATURE | REQUISITOS)
+/// El `que` de un hash de la firma que cubre un ANEXO: `0x80 | indice`. Los
+/// valores 0..=2 son las regiones con bytes.
+pub const FIRMA_ANEXO: u8 = 0x80;
+
+// -- Las cuatro regiones ------------------------------------------------------
+
+/// Las cuatro regiones de un programa, en el orden de la cabecera. El numero es
+/// el que usan los relocs y con el que la firma las nombra.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Cual {
+    Codigo = 0,
+    Constantes = 1,
+    Datos = 2,
+    Ceros = 3,
 }
 
-// -- Banderas de la cabecera -------------------------------------------------
+impl Cual {
+    pub const TODAS: [Cual; 4] = [Cual::Codigo, Cual::Constantes, Cual::Datos, Cual::Ceros];
 
-pub const SECCION_FLAG_EXEC: u32 = 1 << 2;
+    pub const fn de(n: u8) -> Option<Self> {
+        match n {
+            0 => Some(Self::Codigo),
+            1 => Some(Self::Constantes),
+            2 => Some(Self::Datos),
+            3 => Some(Self::Ceros),
+            _ => None,
+        }
+    }
+
+    /// El nombre, para decirlo en voz alta: un numero en una foto de pantalla
+    /// obliga a abrir el fichero con otra herramienta.
+    pub const fn nombre(self) -> &'static str {
+        match self {
+            Self::Codigo => "codigo",
+            Self::Constantes => "constantes",
+            Self::Datos => "datos",
+            Self::Ceros => "ceros",
+        }
+    }
+
+    /// Donde esta su tramo en la cabecera. Los ceros solo tienen medida.
+    const fn en_cabecera(self) -> usize {
+        match self {
+            Self::Codigo => 24,
+            Self::Constantes => 32,
+            Self::Datos => 40,
+            Self::Ceros => 48,
+        }
+    }
+}
+
+/// Una region que EXISTE, ya comprobada. Los numeros son los del fichero.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Region {
+    pub cual: Cual,
+    /// Donde empiezan sus bytes en el fichero. Los ceros no tienen.
+    pub file_offset: u64,
+    /// Cuantos bytes hay en el fichero. Los ceros: 0.
+    pub file_size: u64,
+    /// Cuanto ocupa en memoria. En las tres con bytes es `file_size`; en los
+    /// ceros es lo que hay que poner a cero.
+    pub mem_size: u64,
+}
+
+impl Region {
+    /// El `que` con el que la firma la nombra.
+    pub const fn que(&self) -> u8 {
+        self.cual as u8
+    }
+}
+
+/// Un anexo, ya comprobado.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Anexo {
+    pub tipo: u8,
+    pub file_offset: u64,
+    pub file_size: u64,
+    /// El `que` con el que la firma lo nombra: `0x80 | indice en la tabla`.
+    pub que: u8,
+}
 
 /// **Por que no se admite.** Cada una manda a mirar un sitio distinto, que es la
 /// razon de que sean variantes y no un booleano.
@@ -87,34 +191,38 @@ pub const SECCION_FLAG_EXEC: u32 = 1 << 2;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Falta {
     NoLlegaNiALaCabecera,
-    /// Magic, version mayor, o cero secciones.
+    /// No es un BEF2: otro magic (un BEF1, un ELF, un PE, basura).
+    OtroFormato,
+    /// Un campo reservado que no es cero: basura, o una version que este
+    /// sistema no entiende.
     CabeceraInvalida,
-    OtraArquitectura,
-    OtroOrdenDeBytes,
-    /// Declara una extension de CPU cuyo estado el sistema no sabe preservar.
+    /// Declara en `xcr0` un estado de CPU que el sistema no sabe preservar.
     ExtensionDeCpuQueNoSePreserva,
     OtraVersionDelAbi,
+    /// Ni ejecutable ni objeto, o las dos a la vez.
     NoEsEjecutable,
-    /// An object that nobody linked: the fix is `bmo-enlazar`, not a flag.
+    /// Un objeto que nadie enlazo (o un ejecutable con un anexo ENLACE): la
+    /// respuesta es `bmo-enlazar`, no una bandera.
     EsUnObjetoSinEnlazar,
-    /// Ver [`FLAGS_NO_IMPLEMENTADAS`].
+    /// Una bandera que este sistema no conoce: cambia el significado de lo
+    /// que viene detras.
     PideAlgoQueNadieImplementa,
-    /// Trae una seccion de imports, exports o TLS: pide que alguien la
-    /// enlace al cargar, y BMO-X enlaza estatico. Ver [`PIDEN_ENLAZADO_DINAMICO`].
-    EnlazadoDinamico,
-    /// Dice `FIRMADO` y no trae seccion de firma.
-    CabeceraQueSeDesmiente,
-    DemasiadasSecciones,
+    /// Un ejecutable sin anexo de firma: no hay con que comprobar que llego
+    /// entero.
+    SinFirma,
+    DemasiadosAnexos,
     /// La tabla no cabe en lo que se paso. Quien llama puede leer mas y volver.
     TablaFueraDeLoLeido,
     TablaFueraDelFichero,
-    SeccionInvalida,
-    /// Dos secciones se pelean por los mismos bytes del fichero.
-    SeccionesSeSolapan,
-    /// Una seccion declara bytes que caen fuera del fichero.
-    SeccionFueraDelFichero,
+    /// Un anexo de tipo 0, vacio, repetido, o con el relleno sucio.
+    AnexoInvalido,
+    /// Dos trozos (regiones, anexos, la cabecera) se pelean por los mismos
+    /// bytes del fichero.
+    TramosSeSolapan,
+    /// Una region o un anexo declara bytes que caen fuera del fichero.
+    TramoFueraDelFichero,
+    /// Un ejecutable sin codigo.
     SinCodigo,
-    LaCodigoNoEsEjecutable,
     EntryFueraDelCodigo,
     /// La cabecera dice medir mas de lo que el fichero mide.
     ImagenIncompleta,
@@ -129,45 +237,25 @@ impl Falta {
     pub fn nombre(self) -> &'static str {
         match self {
             Falta::NoLlegaNiALaCabecera => "la imagen no llega ni a la cabecera",
-            Falta::CabeceraInvalida => "cabecera invalida (magic, version o 0 secciones)",
-            Falta::OtraArquitectura => "otra arquitectura",
-            Falta::OtroOrdenDeBytes => "otro orden de bytes",
-            Falta::ExtensionDeCpuQueNoSePreserva => "pide una extension de CPU que no se preserva",
+            Falta::OtroFormato => "no es un BEF2 (otro magic: BEF1, ELF, PE o basura)",
+            Falta::CabeceraInvalida => "cabecera invalida: un campo reservado no es cero",
+            Falta::ExtensionDeCpuQueNoSePreserva => "pide un estado de CPU (xcr0) que no se preserva",
             Falta::OtraVersionDelAbi => "otra version del ABI",
-            Falta::NoEsEjecutable => "no esta marcado como ejecutable",
+            Falta::NoEsEjecutable => "ni ejecutable ni objeto, o las dos a la vez",
             Falta::EsUnObjetoSinEnlazar => "es un OBJETO sin enlazar (.bo): pasalo por bmo-enlazar",
-            Falta::PideAlgoQueNadieImplementa => "la cabecera pide algo que este sistema no hace",
-            Falta::EnlazadoDinamico => "pide enlazado dinamico o TLS: BMO-X enlaza estatico (pasalo por bmo-enlazar)",
-            Falta::CabeceraQueSeDesmiente => "dice venir firmado y no trae firma",
-            Falta::DemasiadasSecciones => "demasiadas secciones",
-            Falta::TablaFueraDeLoLeido => "la tabla de secciones no cabe en lo leido",
-            Falta::TablaFueraDelFichero => "la tabla de secciones cae fuera del fichero",
-            Falta::SeccionInvalida => "una seccion esta mal formada",
-            Falta::SeccionesSeSolapan => "dos secciones se pelean por los mismos bytes",
-            Falta::SeccionFueraDelFichero => "una seccion cae fuera del fichero",
-            Falta::SinCodigo => "no hay seccion de codigo",
-            Falta::LaCodigoNoEsEjecutable => "la seccion de codigo no es ejecutable",
+            Falta::PideAlgoQueNadieImplementa => "trae una bandera que este sistema no conoce",
+            Falta::SinFirma => "un ejecutable sin firma: no hay con que comprobar que llego entero",
+            Falta::DemasiadosAnexos => "demasiados anexos",
+            Falta::TablaFueraDeLoLeido => "la tabla de anexos no cabe en lo leido",
+            Falta::TablaFueraDelFichero => "la tabla de anexos cae fuera del fichero",
+            Falta::AnexoInvalido => "un anexo esta mal formado (tipo 0, vacio, repetido o relleno sucio)",
+            Falta::TramosSeSolapan => "dos trozos se pelean por los mismos bytes",
+            Falta::TramoFueraDelFichero => "una region o un anexo cae fuera del fichero",
+            Falta::SinCodigo => "un ejecutable sin codigo",
             Falta::EntryFueraDelCodigo => "el punto de entrada cae fuera del codigo",
             Falta::ImagenIncompleta => "llegaron menos bytes de los que la imagen dice medir",
         }
     }
-}
-
-/// **BEF2**: el formato propio (`bmo_abi::bef2`). La puerta lo lee aqui y se
-/// lo presenta al kernel como secciones, para que Ring 0 no cambie.
-pub mod bef2;
-
-/// Una seccion, ya comprobada. Los numeros son los del fichero.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Seccion {
-    /// Su indice **en la tabla del fichero**. Es con lo que la firma la nombra.
-    pub indice: usize,
-    pub kind: u8,
-    pub flags: u32,
-    pub file_offset: u64,
-    pub file_size: u64,
-    pub mem_size: u64,
-    pub alignment: u16,
 }
 
 /// **Una imagen que ya paso la puerta.** Solo se puede construir con
@@ -180,50 +268,97 @@ pub struct Seccion {
 #[derive(Clone, Copy)]
 pub struct Revisada<'a> {
     prologo: &'a [u8],
-    cuantas: usize,
-    entry_offset: u64,
-    /// Donde acaba el prologo: la cabecera mas su tabla. Los dos formatos la
-    /// tienen en sitios distintos y todo lo demas empieza detras.
+    entrada: u32,
+    xcr0: u64,
+    banderas: u8,
+    cuantos_anexos: usize,
+    /// Donde acaba el prologo: la cabecera mas su tabla.
     fin_tabla: usize,
 }
 
 impl<'a> Revisada<'a> {
-    pub fn entry_offset(&self) -> u64 {
-        self.entry_offset
+    /// Offset del punto de entrada DENTRO del codigo.
+    pub fn entrada(&self) -> u64 {
+        self.entrada as u64
     }
-    pub fn cuantas(&self) -> usize {
-        self.cuantas
+    /// Los componentes XSAVE que el programa declara usar.
+    pub fn xcr0(&self) -> u64 {
+        self.xcr0
     }
-    /// La seccion `i`, con el indice con el que la firma la nombra.
-    ///
-    /// ** BEF2 no tiene tabla de secciones: lo que se devuelve son las cuatro
-    /// REGIONES y los ANEXOS presentados como secciones, con el mismo tipo y el
-    /// mismo indice de hash. Ver `bef2::seccion`.
-    pub fn seccion(&self, i: usize) -> Option<Seccion> {
-        if i >= self.cuantas {
+    pub fn quiere_pantalla(&self) -> bool {
+        self.banderas & QUIERE_PANTALLA != 0
+    }
+
+    /// Una region, si existe (tiene bytes, o ceros que poner).
+    pub fn region(&self, cual: Cual) -> Option<Region> {
+        let o = cual.en_cabecera();
+        let (file_offset, file_size, mem_size) = if matches!(cual, Cual::Ceros) {
+            let ceros = u32_en(self.prologo, o)? as u64;
+            (0, 0, ceros)
+        } else {
+            let off = u32_en(self.prologo, o)? as u64;
+            let len = u32_en(self.prologo, o + 4)? as u64;
+            (off, len, len)
+        };
+        if mem_size == 0 {
             return None;
         }
-        bef2::seccion(self.prologo, i)
+        Some(Region { cual, file_offset, file_size, mem_size })
     }
-    /// Recorre las secciones en el orden del fichero.
-    pub fn secciones(&self) -> impl Iterator<Item = Seccion> + '_ {
-        (0..self.cuantas).filter_map(move |i| self.seccion(i))
+
+    /// Las regiones que existen, en el orden de la cabecera (que es tambien el
+    /// orden del fichero: el escritor las coloca asi, y el cargador las pide al
+    /// disco hacia adelante).
+    pub fn regiones(&self) -> impl Iterator<Item = Region> + '_ {
+        Cual::TODAS.iter().filter_map(move |c| self.region(*c))
     }
-    /// La primera seccion de un tipo, si la hay.
-    pub fn buscar(&self, kind: u8) -> Option<Seccion> {
-        self.secciones().find(|s| s.kind == kind)
+
+    /// Cuantas regiones existen.
+    pub fn cuantas_regiones(&self) -> usize {
+        self.regiones().count()
     }
+
+    /// El anexo `i` de la tabla, si lo hay.
+    pub fn anexo_n(&self, i: usize) -> Option<Anexo> {
+        if i >= self.cuantos_anexos {
+            return None;
+        }
+        let (tipo, off, len) = entrada_de_anexo(self.prologo, i)?;
+        Some(Anexo { tipo, file_offset: off, file_size: len, que: FIRMA_ANEXO | i as u8 })
+    }
+
+    /// Los anexos, en el orden de su tabla.
+    pub fn anexos(&self) -> impl Iterator<Item = Anexo> + '_ {
+        (0..self.cuantos_anexos).filter_map(move |i| self.anexo_n(i))
+    }
+
+    /// Cuantos anexos trae.
+    pub fn cuantos_anexos(&self) -> usize {
+        self.cuantos_anexos
+    }
+
+    /// El anexo de un tipo, si lo hay. (`revisar` ya exigio que no se repita.)
+    pub fn anexo(&self, tipo: u8) -> Option<Anexo> {
+        self.anexos().find(|a| a.tipo == tipo)
+    }
+
     /// Hasta que byte del fichero hace falta leer para tener **todo lo que el
-    /// cargador toca**: codigo, datos, relocations, hashes y requisitos.
-    ///
-    /// Los recursos van detras y no entran: se leen en ejecucion, por su puerta.
+    /// cargador toca**: las tres regiones con bytes y los anexos que el kernel
+    /// abre. Los recursos, el manifiesto y los simbolos van detras y no entran:
+    /// se leen en ejecucion, por su puerta.
     pub fn hasta_donde_hace_falta(&self) -> u64 {
         let mut hasta = self.fin_tabla as u64;
-        for s in self.secciones() {
-            if s.kind == BSS || !se_lee(s.kind) {
+        for r in self.regiones() {
+            let fin = r.file_offset.saturating_add(r.file_size);
+            if fin > hasta {
+                hasta = fin;
+            }
+        }
+        for a in self.anexos() {
+            if !lo_lee_el_kernel(a.tipo) {
                 continue;
             }
-            let fin = s.file_offset.saturating_add(s.file_size);
+            let fin = a.file_offset.saturating_add(a.file_size);
             if fin > hasta {
                 hasta = fin;
             }
@@ -232,7 +367,25 @@ impl<'a> Revisada<'a> {
     }
 }
 
-/// **LA PUERTA.** Comprueba una imagen BEX y no hace nada mas.
+/// La entrada `i` de la tabla de anexos: `(tipo, offset, bytes)`. `None` si no
+/// esta en el prologo o su relleno no es cero.
+fn entrada_de_anexo(prologo: &[u8], i: usize) -> Option<(u8, u64, u64)> {
+    let e = CABECERA + i * ANEXO;
+    let tipo = *prologo.get(e)?;
+    if *prologo.get(e + 1)? | *prologo.get(e + 2)? | *prologo.get(e + 3)? != 0 {
+        return None;
+    }
+    if u32_en(prologo, e + 12)? != 0 {
+        return None;
+    }
+    Some((tipo, u32_en(prologo, e + 4)? as u64, u32_en(prologo, e + 8)? as u64))
+}
+
+/// Cuantos trozos se comparan entre si: tres regiones, la cabecera con su
+/// tabla, y los anexos.
+const MAX_TROZOS: usize = 4 + MAX_ANEXOS;
+
+/// **LA PUERTA.** Comprueba una imagen y no hace nada mas.
 ///
 /// - `prologo`: los primeros bytes del fichero. Tiene que llegar al menos a la
 ///   cabecera y a la tabla de anexos entera; con **2 KiB sobra para cualquier
@@ -241,24 +394,138 @@ impl<'a> Revisada<'a> {
 ///
 /// == Los dos numeros no son el mismo, y confundirlos es el bug ==
 ///
-/// Los limites de las secciones se comprueban contra `tam_fichero` --el fichero
-/// completo-- y **no** contra lo que quepa en `prologo`. Desde que el cargador
-/// trae las secciones una a una, "no esta en el prologo" es la situacion normal
-/// de todas ellas. Medirlas contra el prologo rechazaria toda imagen que no
-/// cupiera en dos kilos, o sea todas.
+/// Los limites de regiones y anexos se comprueban contra `tam_fichero` --el
+/// fichero completo-- y **no** contra lo que quepa en `prologo`. Desde que el
+/// cargador trae las regiones una a una, "no esta en el prologo" es la
+/// situacion normal de todas ellas.
+///
+/// Las mismas reglas que `bmo_abi::bef2::lector::leer`, sin `alloc` y sin
+/// hashes (los hashes los comprueba quien COPIA, al aterrizar cada trozo).
 pub fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>, Falta> {
-    if prologo.len() < 4 {
+    if prologo.len() < CABECERA {
         return Err(Falta::NoLlegaNiALaCabecera);
     }
-    let magic = u32_en(prologo, 0).ok_or(Falta::NoLlegaNiALaCabecera)?;
-    // ** EL FORMATO LO DICE EL MAGIC. Solo hay uno: BEF2 (2026-09-19, B6 de
-    // `docs/plan/PLAN_BEF_NATIVO.md`). BEF1 --la cabecera con tabla de
-    // secciones, ELF con otro nombre-- se rechaza por el primer numero, como
-    // cualquier otro fichero que no sea de BMO-X.
-    if magic != bef2::MAGIC {
+    // ** EL FORMATO LO DICE EL MAGIC. Solo hay uno. BEF1 --la cabecera con
+    // tabla de secciones, ELF con otro nombre-- se rechaza por el primer
+    // numero, como cualquier otro fichero que no sea de BMO-X.
+    if u32_en(prologo, 0) != Some(MAGIC) {
+        return Err(Falta::OtroFormato);
+    }
+    if prologo[4] != ABI {
+        return Err(Falta::OtraVersionDelAbi);
+    }
+    let banderas = prologo[5];
+    if banderas & !BANDERAS != 0 {
+        return Err(Falta::PideAlgoQueNadieImplementa);
+    }
+    let ejecutable = banderas & EJECUTABLE != 0;
+    let objeto = banderas & OBJETO != 0;
+    if ejecutable && objeto {
+        return Err(Falta::NoEsEjecutable);
+    }
+    if objeto {
+        return Err(Falta::EsUnObjetoSinEnlazar);
+    }
+    if !ejecutable {
+        return Err(Falta::NoEsEjecutable);
+    }
+    if u16_en(prologo, 6).ok_or(Falta::NoLlegaNiALaCabecera)? != 0
+        || u64_en(prologo, 56).ok_or(Falta::NoLlegaNiALaCabecera)? != 0
+    {
         return Err(Falta::CabeceraInvalida);
     }
-    bef2::revisar(prologo, tam_fichero)
+    // ** Un bit de estado que el kernel no guarda es una corrupcion silenciosa
+    // en la primera interrupcion, no una limitacion. Se dice y no se carga.
+    let xcr0 = u64_en(prologo, 8).ok_or(Falta::NoLlegaNiALaCabecera)?;
+    if xcr0 & !XCR0_PRESERVADO != 0 {
+        return Err(Falta::ExtensionDeCpuQueNoSePreserva);
+    }
+    let entrada = u32_en(prologo, 16).ok_or(Falta::NoLlegaNiALaCabecera)?;
+    let cuantos_anexos = u32_en(prologo, 20).ok_or(Falta::NoLlegaNiALaCabecera)? as usize;
+    if cuantos_anexos > MAX_ANEXOS {
+        return Err(Falta::DemasiadosAnexos);
+    }
+    let total = u32_en(prologo, 52).ok_or(Falta::NoLlegaNiALaCabecera)? as usize;
+    if total > tam_fichero {
+        return Err(Falta::ImagenIncompleta);
+    }
+    let fin_tabla = CABECERA + cuantos_anexos * ANEXO;
+    if fin_tabla > prologo.len() {
+        return Err(Falta::TablaFueraDeLoLeido);
+    }
+    if fin_tabla > total {
+        return Err(Falta::TablaFueraDelFichero);
+    }
+
+    let rev = Revisada { prologo, entrada, xcr0, banderas, cuantos_anexos, fin_tabla };
+
+    // -- Cada trozo dentro del fichero, y ninguno pisando a otro -------------
+    //
+    // Un tramo VACIO no ocupa sitio y no se pelea con nadie, pero su offset
+    // tiene que caer DENTRO del fichero igual: uno que apunte fuera es basura,
+    // y la basura no pasa aunque no haga dano (lo encontro la pasada hostil).
+    let mut trozos = [(0u64, 0u64); MAX_TROZOS];
+    let mut n = 0usize;
+    let mut apunta = |off: u64, len: u64| -> Result<(), Falta> {
+        let fin = off.checked_add(len).ok_or(Falta::TramoFueraDelFichero)?;
+        if fin > total as u64 {
+            return Err(Falta::TramoFueraDelFichero);
+        }
+        if len == 0 {
+            return Ok(());
+        }
+        trozos[n] = (off, fin);
+        n += 1;
+        Ok(())
+    };
+    // La cabecera y su tabla ocupan sitio como cualquier otra cosa.
+    apunta(0, fin_tabla as u64)?;
+    for c in [Cual::Codigo, Cual::Constantes, Cual::Datos] {
+        let o = c.en_cabecera();
+        let off = u32_en(prologo, o).ok_or(Falta::NoLlegaNiALaCabecera)? as u64;
+        let len = u32_en(prologo, o + 4).ok_or(Falta::NoLlegaNiALaCabecera)? as u64;
+        apunta(off, len)?;
+    }
+    let mut vistos = [0u8; MAX_ANEXOS];
+    let mut hay_firma = false;
+    for i in 0..cuantos_anexos {
+        let (tipo, off, len) = entrada_de_anexo(prologo, i).ok_or(Falta::AnexoInvalido)?;
+        if tipo == 0 || len == 0 || vistos[..i].contains(&tipo) {
+            return Err(Falta::AnexoInvalido);
+        }
+        // Un anexo ENLACE es de un OBJETO: lo que llega aqui es un ejecutable,
+        // y uno que lo traiga es una unidad sin enlazar disfrazada.
+        if tipo == ANEXO_ENLACE {
+            return Err(Falta::EsUnObjetoSinEnlazar);
+        }
+        if tipo == ANEXO_FIRMA {
+            hay_firma = true;
+        }
+        vistos[i] = tipo;
+        apunta(off, len)?;
+    }
+    for i in 0..n {
+        for j in i + 1..n {
+            let (a, b) = (trozos[i], trozos[j]);
+            if a.0 < b.1 && b.0 < a.1 {
+                return Err(Falta::TramosSeSolapan);
+            }
+        }
+    }
+
+    let Some(codigo) = rev.region(Cual::Codigo) else {
+        return Err(Falta::SinCodigo);
+    };
+    if entrada as u64 >= codigo.file_size {
+        return Err(Falta::EntryFueraDelCodigo);
+    }
+    // ** En BEF2 la firma NO es opcional: sin ella no hay con que comprobar que
+    // lo que aterrizo es lo que se escribio, y el kernel aplica relocs que
+    // vienen del mismo fichero.
+    if !hay_firma {
+        return Err(Falta::SinFirma);
+    }
+    Ok(rev)
 }
 
 fn u16_en(b: &[u8], o: usize) -> Option<u16> {
@@ -274,50 +541,19 @@ fn u64_en(b: &[u8], o: usize) -> Option<u64> {
 #[cfg(test)]
 mod tests;
 
-// == ** LA DISPOSICION DEL FORMATO, EN UN SOLO SITIO =========================
+// -- Lo que el CARGADOR necesita ademas de la decision -------------------------
 //
-// # El agujero que esto cierra
-//
-// El BEF tiene **DOS lectores y ningun compilador entre ellos**:
-//
-// ```text
-//    bmo-abi/bef/*.rs        structs con `repr(C)`, para el toolchain
-//    kernel/task/bex.rs      bytes a mano, porque el kernel NO importa bmo-abi
-// ```
-//
-// Y no importarlo es una decision correcta --`bmo-abi` trae `alloc` y el kernel
-// no puede-- pero tiene un precio que hasta hoy nadie pagaba: **los offsets
-// estaban escritos dos veces**, una como campos de un struct y otra como
-// literales dentro de `leer_reloc`. El propio comentario del kernel lo decia:
-//
-// > *"Tamano y disposicion fijados por `bmo_abi::bef::relocations::Relocation`,
-// >  que este kernel no importa a proposito... si el struct cambiara de forma,
-// >  estos offsets son el unico sitio a tocar."*
-//
-// "El unico sitio a tocar" **es la definicion de una duplicacion que se olvida**.
-// Mover un campo del struct compila igual, pasa todos los tests del toolchain, y
-// el cargador escribe la direccion equivocada dentro de un proceso.
-//
-// # La salida: no vigilar la copia, QUITARLA
-//
-// Este crate ya lo comparten los dos --el kernel lo importa para la puerta, y
-// `bmo-verify` para no separarse de el-- y no tiene dependencias. Asi que los
-// offsets viven aqui, los usa el kernel, y `bmo-abi` los CLAVA a su struct con
-// `offset_of!` en una prueba.
-//
-// De dos verdades que hay que mantener a mano se pasa a una verdad y una prueba
-// que la ata. Es el mismo movimiento que el guardian de `bmo.h`, salvo que alli
-// los nombres no se podian unificar y aqui si.
+// Son numeros del contrato que Ring 0 usa al aplicar relocs. Viven aqui y no en
+// el kernel por lo mismo de siempre: una sola copia, atada por prueba.
 
 /// Bytes que ocupa un reloc de BEF2. Espejo de `bmo_abi::bef2::RELOC`.
 ///
 /// *** ERA 24, Y ERA MENTIRA DESDE B3 (2026-09-19). El paso B3 decia "Ring 0
 /// no cambia una linea", y para los relocs era falso: el kernel descodificaba
-/// el registro de 24 bytes de BEF1 (`offset u64, symbol_idx u32, kind,
-/// target_section, addend i64`, secciones 0 code / 1 data / 2 rodata) sobre un
-/// anexo de registros de 16 bytes de BEF2. En el Ryzen, cualquier programa con
-/// un puntero en sus datos --DOOM, INTI con su monton-- habria caido en
-/// "relocation fuera de su seccion". Lo cazo la lectura de B6, no el metal.
+/// el registro de 24 bytes de BEF1 sobre un anexo de registros de 16 bytes de
+/// BEF2. En el Ryzen, cualquier programa con un puntero en sus datos --DOOM,
+/// INTI con su monton-- habria caido en "relocation fuera de su seccion". Lo
+/// cazo la lectura de B6, no el metal.
 pub const RELOC_SIZE: usize = 16;
 
 /// Offsets dentro de un reloc de BEF2, en el orden en que estan.
@@ -330,9 +566,8 @@ pub const RELOC_SIZE: usize = 16;
 ///    8  addend   u64   dentro de `destino`
 /// ```
 ///
-/// La numeracion es la de `bmo_abi::bef2::Region`, la MISMA con la que la
-/// firma nombra las regiones y con la que `bef2.rs` las presenta como
-/// secciones: una sola numeracion, y por eso ya no hay tabla que cruzar.
+/// La numeracion es la de [`Cual`], la MISMA con la que la firma nombra las
+/// regiones: una sola numeracion, y por eso ya no hay tabla que cruzar.
 pub mod reloc {
     /// `donde`: la region que se parchea. `u8`.
     pub const DONDE: usize = 0;
@@ -346,57 +581,19 @@ pub mod reloc {
     pub const ADDEND: usize = 8;
 }
 
-/// **CABE ESTA RELOCATION DENTRO DE LA SECCION QUE DICE PARCHEAR?**
+/// **CABE ESTE RELOC DENTRO DE LA REGION QUE DICE PARCHEAR?**
 ///
 /// # Por que esta regla vive AQUI y no en el cargador (2026-08-25)
 ///
-/// El toolchain juzga un `.bex` con DOS capas --`revisar()` y
-/// `bmo_abi::bef::validator`-- y el cargador del kernel solo con la primera.
-/// Esta comprobacion vivia unicamente en la segunda, o sea que **un `.bex`
-/// copiado a mano al FAT32 entraba sin que nadie mirara sus relocations**.
+/// El toolchain la tenia y el cargador no, asi que un `.bex` copiado a mano al
+/// FAT32 entraba con sus relocs sin mirar. Las regiones van seguidas en
+/// memoria, o sea que un offset pasado de rosca CAE EN LA SIGUIENTE: no se sale
+/// de la imagen, se mete en la region de al lado.
 ///
-/// La respuesta obvia era anadirle la comprobacion al kernel. Es la
-/// equivocada: serian **dos copias de la misma decision**, que es exactamente
-/// el problema que `bmo-bex-gate` se creo el 2026-08-10 para terminar.
-///
-/// ```text
-///    la REGLA        vive aqui, una vez, sin alloc y sin dependencias
-///    los DATOS       los pone cada llamante, porque cada uno tiene otros
-/// ```
-///
-/// [!] Y hacen falta los dos, porque `revisar()` **no puede** hacerlo: en el
-/// kernel recibe solo el PROLOGO del fichero, y la tabla de relocations vive
-/// mucho mas alla --la de DOOM son 30.840 bytes al final--. No es que no se
-/// quisiera: es que ahi todavia no estan esos bytes. Por eso la regla es una
-/// funcion suelta y no una linea mas dentro de `revisar`.
-///
-/// # Que pasa si no se comprueba
-///
-/// Las secciones se colocan **seguidas** desde `USER_IMAGE_BASE`, asi que un
-/// `offset` mas grande que su seccion no se sale de la imagen: **cae en la
-/// SIGUIENTE**. El cargador comprueba que el destino este dentro de la pagina
-/// que esta parcheando --lo esta-- y escribe.
-///
-/// > Una reloc que dice `.data + 0x9000` en una `.data` de 0x400 no falla:
-/// > **acierta en otra seccion.** Y como el hash de cada seccion se cierra
-/// > ANTES de parchear, tampoco lo caza el hash.
-///
-/// No es una fuga fuera del proceso --el marco es suyo-- pero si es un
-/// programa que se corrompe a si mismo en silencio, que es la clase de fallo
-/// que tarda semanas en atribuirse.
-///
-/// # Los parametros, y por que `mem` y `fichero` son dos
-///
-/// Una `.bss` ocupa en memoria y no en el fichero, y una `.data` con relleno
-/// tiene `mem_size > file_size`. Se parchea sobre lo que hay **en memoria**,
-/// asi que manda `mem`; se pasa `fichero` porque una seccion cuyo `mem` fuera
-/// menor ya seria invalida y aqui se ve gratis.
-///
-/// `parche` son los bytes que la relocation escribe: 8 para `SeccionAbs64`.
+/// `parche` son los bytes que escribe (8). El tope es el mayor de `fichero` y
+/// `mem` --el mismo criterio que el juez del contrato-- porque los ceros no
+/// tienen bytes en el fichero y si se pueden parchear.
 pub fn reloc_cabe(offset: u64, parche: u64, fichero: u64, mem: u64) -> bool {
-    // El tope es el mayor de los dos: `validator` lo hace asi desde el
-    // principio y aqui se conserva el mismo criterio A PROPOSITO -- dos jueces
-    // que dan veredictos distintos sobre el mismo fichero son peor que uno.
     let tope = if mem > fichero { mem } else { fichero };
     match offset.checked_add(parche) {
         // ** El desbordamiento es un NO, no un panico. `offset` viene del
@@ -406,4 +603,3 @@ pub fn reloc_cabe(offset: u64, parche: u64, fichero: u64, mem: u64) -> bool {
         Some(fin) => fin <= tope,
     }
 }
-
