@@ -226,7 +226,16 @@ Lo ultimo es lo que le falta a DOOM para sacar su WAD **sin que nadie reserve
 
 ---
 
-# PARTE 2b -- LA FIRMA (apuntado el 2026-08-10, no hecho)
+# PARTE 2b -- LA FIRMA (apuntado el 2026-08-10; el 1 y el 2 HECHOS)
+
+> Estado el 2026-09-20: **el 1 esta hecho** -- BEF2 firma el INDICE
+> (`FIRMA_INDICE`, cabecera + tabla de anexos) y CADA region y anexo, y el
+> kernel comprueba el indice con el prologo antes de reservar un marco
+> (`PLAN_BEF_NATIVO.md`, B7). **El 2 esta hecho** desde el 10-09: la clave
+> publica viaja en la firma y el ancla (`task/confianza.rs`) dice de quien
+> se fia. **El 3 y el 4 no**: la llave todavia no DECIDE nada distinto (un
+> firmado y un extranjero reciben lo mismo), y esa es la decision que este
+> documento deja para Eddi -- ver la parte 2c.
 
 No entra hoy y no bloquea a nadie. Se escribe porque las dos decisiones de abajo
 son baratas ahora y caras despues, y porque la tercera --de quien es la llave--

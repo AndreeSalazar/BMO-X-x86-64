@@ -137,7 +137,8 @@ impl Region {
 
 /// Los relocs de la imagen: [`Reloc`] x N. Los aplica el kernel.
 pub const ANEXO_RELOCS: u8 = 0x01;
-/// La firma: hashes BLAKE3 de lo que el kernel carga y lee, y Ed25519 opcional.
+/// La firma: el hash BLAKE3 del INDICE, de cada region con bytes y de CADA
+/// anexo, y Ed25519 opcional sobre la cadena de todos ellos.
 pub const ANEXO_FIRMA: u8 = 0x02;
 /// Lo que el programa necesita para arrancar (`bmo-carga-juicio`).
 pub const ANEXO_REQUISITOS: u8 = 0x03;
@@ -166,6 +167,11 @@ pub const ANEXO_ENLACE: u8 = 0x08;
 /// enlazador, el verificador, el runtime de un lenguaje -- y se SALTA: es la
 /// unica idea de la regla congelada de BEF1 que sobrevive, y sobrevive porque
 /// es la que deja crecer el formato sin que crezca el kernel.
+///
+/// [!] Saltarlo no es dejarlo sin firmar: **la firma cubre TODOS los anexos**
+/// (2026-09-20). El kernel solo comprueba los que lee; el que lea los otros
+/// --el DIRECTOR con los recursos, `bmo-verify` con las katanas-- tiene su
+/// hash en la misma tabla, y la firma de autor responde por ellos.
 pub const fn lo_lee_el_kernel(tipo: u8) -> bool {
     matches!(tipo, ANEXO_RELOCS | ANEXO_FIRMA | ANEXO_REQUISITOS)
 }
@@ -190,6 +196,21 @@ pub const FIRMA_HASH: usize = 40;
 /// `que` de un hash que cubre un ANEXO: `0x80 | indice en la tabla`. Los
 /// valores 0..=2 son las regiones con bytes.
 pub const FIRMA_ANEXO: u8 = 0x80;
+/// **`que` del hash del INDICE: la cabecera (64 B) y la tabla de anexos.**
+///
+/// *** LA FIRMA ES DEL INDICE (`docs/identidad/EL_CONTRATO_DE_CARGA.md`,
+/// parte 2b, apuntado el 2026-08-10 y HECHO el 2026-09-20). Hasta hoy los
+/// hashes cubrian las regiones y los anexos y NADIE cubria lo que dice donde
+/// esta cada cosa: un `.bex` firmado admitia que le cambiaran la ENTRADA, el
+/// `xcr0`, los `ceros` o el tamano de un anexo sin que ninguna comprobacion
+/// se quejara -- el hash de la region cuadraba igual, porque la region no
+/// habia cambiado; habia cambiado a DONDE saltaba el kernel.
+///
+/// Es la PRIMERA entrada de la firma, y el kernel la comprueba con el
+/// prologo que ya tiene en la mano, antes de reservar un solo marco: si el
+/// indice no cuadra, no se lee ni el 0,03 % del fichero. Con ella, la cadena
+/// que firma Ed25519 resume la imagen ENTERA, cabecera incluida.
+pub const FIRMA_INDICE: u8 = 0x7F;
 /// Sin firma de autor: solo integridad (los hashes dicen "llego lo que se
 /// escribio", no "esto lo escribi YO").
 pub const ALGO_NINGUNO: u32 = 0;

@@ -303,6 +303,46 @@ pub(crate) fn admit_payload_desde(
     };
 
     // ===================================================================
+    //  *** LA FIRMA ES DEL INDICE (2026-09-20)
+    // ===================================================================
+    //
+    // `EL_CONTRATO_DE_CARGA.md`, parte 2b: *"se firma la tabla de huellas,
+    // y esos bytes responden por todo lo demas"*. Hasta hoy respondian por
+    // las regiones y los anexos, y NADIE respondia por la cabecera: un
+    // `.bex` firmado admitia que le cambiaran la ENTRADA, el `xcr0` o los
+    // `ceros`, porque el hash de cada region cuadraba igual -- la region no
+    // habia cambiado; habia cambiado a donde saltaba este kernel.
+    //
+    // ** Se comprueba AQUI, con el prologo que ya esta en la mano y antes de
+    // reservar un marco: si el indice no cuadra, no se lee ni el 0,03 % del
+    // fichero. Y es lo primero que se comprueba de la firma porque es lo que
+    // dice donde esta todo lo demas -- comprobar una region contra un hash
+    // cuyo sitio en la tabla nadie ha comprobado es empezar por el tejado.
+    let mut cuadran = 0usize;
+    if let Some(f) = firmas.as_ref() {
+        let Some(esperado) = f.digest_de(bex::FIRMA_INDICE) else {
+            set_status("la firma no cubre el indice");
+            crate::ring0::cabina::fault(
+                "firma",
+                "la firma NO CUBRE EL INDICE (cabecera y tabla de anexos): un .bex de antes del 20-09",
+                f.cuantos() as u64,
+            );
+            return None;
+        };
+        let indice = bytes.get(..plan.indice_bytes)?;
+        if bmo_hash::hash(indice) != esperado {
+            set_status("el indice no cuadra con su hash");
+            crate::ring0::cabina::fault(
+                "firma",
+                "el INDICE no cuadra con su hash: la entrada, el xcr0, los ceros o la tabla de anexos cambiaron",
+                plan.indice_bytes as u64,
+            );
+            return None;
+        }
+        cuadran += 1;
+    }
+
+    // ===================================================================
     //  *** EL GATE DE AUTORIA (2026-08-25)
     // ===================================================================
     //
@@ -472,7 +512,6 @@ pub(crate) fn admit_payload_desde(
     }
 
     let mut sin_firma = 0usize;
-    let mut cuadran = 0usize;
 
     // * PASE 2: reservar, copiar, CERRAR, PARCHEAR y mapear.
     let mut entry_va: u64 = 0;
@@ -841,7 +880,15 @@ pub(crate) fn admit_payload_desde(
         // donde empezar a mirar.
         match cierre.cerrar() {
             Ok(landing::Cierre::Cuadra) => cuadran += 1,
-            Ok(landing::Cierre::SinFirma) => sin_firma += 1,
+            // Los ceros no ocupan fichero: no hay bytes que hashear ni hash
+            // que echar en falta. Contarlos como "sin hash" ponia un 1 en
+            // rojo en la ficha de TODOS los programas (visto en el Ryzen el
+            // 20-09).
+            Ok(landing::Cierre::SinFirma) => {
+                if s.file_size > 0 {
+                    sin_firma += 1;
+                }
+            }
             Err(_) => {
                 // ** ESTO ERA MUDO PARA CABINA, y era el sospechoso principal.
                 //

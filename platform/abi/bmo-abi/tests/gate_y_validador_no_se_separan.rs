@@ -101,6 +101,7 @@ fn la_puerta_y_el_juez_ven_las_mismas_regiones() {
     assert_eq!(bmo_bex_gate::XCR0_PRESERVADO, bef2::XCR0_PRESERVADO);
     assert_eq!(bmo_bex_gate::MAX_ANEXOS, bef2::MAX_ANEXOS);
     assert_eq!(bmo_bex_gate::FIRMA_ANEXO, bef2::FIRMA_ANEXO);
+    assert_eq!(bmo_bex_gate::FIRMA_INDICE, bef2::FIRMA_INDICE);
     for t in 0..0x10u8 {
         assert_eq!(bmo_bex_gate::lo_lee_el_kernel(t), bef2::lo_lee_el_kernel(t), "anexo {t}");
     }
@@ -293,4 +294,63 @@ fn el_kernel_encuentra_los_hashes_de_un_bef2() {
         digest_de(relocs.que as usize).expect("los relocs tienen digest"),
         bmo_abi::bef::blake3::blake3_256(suyos)
     );
+    // *** Y EL INDICE (2026-09-20): el kernel lo comprueba con el prologo que
+    // ya tiene en la mano, antes de reservar un marco. Copiado de
+    // `admitir.rs`: los bytes son `0..CABECERA + anexos * ANEXO`.
+    let indice = &img[..bmo_bex_gate::CABECERA + rev.cuantos_anexos() * bmo_bex_gate::ANEXO];
+    assert_eq!(
+        digest_de(bmo_bex_gate::FIRMA_INDICE as usize).expect("el indice tiene digest"),
+        bmo_abi::bef::blake3::blake3_256(indice)
+    );
+    // Y la ENTRADA VALIDADA que la puerta contesta es parte de lo firmado.
+    assert!(rev.entrada() < codigo.mem_size);
+}
+
+/// **La cadena que se FIRMA es la que el kernel COMPRUEBA.**
+///
+/// `bmo-firmar` firma `Vista::cadena_de_hashes()` con Ed25519 y el kernel
+/// verifica la firma contra `Firmas::cadena()` (`task/landing.rs`). Si los dos
+/// no hashean exactamente los mismos bytes, un `.bex` firmado cuadra en el
+/// anfitrion y sale `NoCuadra` en el Ryzen -- y una firma que no cuadra NO
+/// arranca. Del 19-09 al 20-09 pasaba: el anfitrion hasheaba las entradas
+/// enteras (40 B) y el kernel solo los digests (32 B). Esta fila lo ata con el
+/// codigo del kernel copiado a mano.
+#[test]
+fn la_cadena_que_se_firma_es_la_que_el_kernel_comprueba() {
+    const CAB: usize = 8;
+    const ENTRADA: usize = 40;
+    const DIGEST: usize = 32;
+
+    let img = bef2_buena();
+    let v = bmo_abi::bef2::leer(&img).unwrap();
+    let rev = bmo_bex_gate::revisar(&img, img.len()).unwrap();
+    let firma = rev.anexo(bmo_bex_gate::ANEXO_FIRMA).expect("trae firma");
+    let bytes = &img[firma.file_offset as usize..(firma.file_offset + firma.file_size) as usize];
+
+    // -- Copiado de `Firmas::cadena` -----------------------------------------
+    let cuantos = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+    let mut h = bmo_hash::Hasher::new();
+    for k in 0..cuantos {
+        let e = CAB + k * ENTRADA;
+        h.update(&bytes[e + 8..e + 8 + DIGEST]);
+    }
+    let del_kernel = h.finalize();
+
+    assert_eq!(v.cadena_de_hashes().expect("hay cadena"), del_kernel);
+    // Y con una entrada mas (recursos), sigue siendo la misma cadena.
+    let mut e = bmo_abi::bef2::Escritor::de_imagen(&img).unwrap();
+    e.anexo(bmo_abi::bef2::ANEXO_RECURSOS, vec![1u8; 64]);
+    let con = e.construir().unwrap();
+    let v2 = bmo_abi::bef2::leer(&con).unwrap();
+    let rev2 = bmo_bex_gate::revisar(&con, con.len()).unwrap();
+    let f2 = rev2.anexo(bmo_bex_gate::ANEXO_FIRMA).unwrap();
+    let b2 = &con[f2.file_offset as usize..(f2.file_offset + f2.file_size) as usize];
+    let n2 = u32::from_le_bytes(b2[0..4].try_into().unwrap()) as usize;
+    let mut h = bmo_hash::Hasher::new();
+    for k in 0..n2 {
+        let e = CAB + k * ENTRADA;
+        h.update(&b2[e + 8..e + 8 + DIGEST]);
+    }
+    assert_eq!(v2.cadena_de_hashes().unwrap(), h.finalize());
+    assert_ne!(v2.cadena_de_hashes().unwrap(), del_kernel, "otro anexo, otra cadena");
 }

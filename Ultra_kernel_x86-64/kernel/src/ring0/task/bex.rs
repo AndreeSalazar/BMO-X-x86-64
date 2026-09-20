@@ -12,7 +12,7 @@ use bmo_bex_gate as gate;
 
 // ** EL CONTRATO NO SE ESCRIBE AQUI: viene de la puerta (`bmo-bex-gate`), una
 // sola copia atada por prueba al juez de `bmo-abi`.
-pub use gate::{Anexo, Cual, Region, ANEXO_FIRMA, ANEXO_RELOCS, ANEXO_REQUISITOS};
+pub use gate::{Anexo, Cual, Region, ANEXO_FIRMA, ANEXO_RELOCS, ANEXO_REQUISITOS, FIRMA_INDICE};
 
 /// Lo mas que puede medir el anexo de firma, **segun el formato**: la cabecera
 /// son 8 bytes y hay como mucho una entrada de 40 por region con bytes (3) y
@@ -58,6 +58,10 @@ pub struct BexLoadPlan {
     /// Lo que el programa DECLARA que va a pedir (regla 7 de `LA_RAM.md`): se
     /// lee ANTES de reservar el primer marco. Ver `bmo-carga-juicio`.
     pub requisitos: Tramo,
+    /// **Cuanto mide el INDICE**: la cabecera y la tabla de anexos, que es lo
+    /// que cubre el hash `FIRMA_INDICE` (2026-09-20). Cabe en el prologo por
+    /// construccion: la puerta ya rechazo una tabla que no llegara.
+    pub indice_bytes: usize,
 }
 
 impl BexLoadPlan {
@@ -206,6 +210,7 @@ pub fn inspect(bytes: &[u8], tam_fichero: usize) -> Result<BexLoadPlan, BexError
         relocs: SIN_TRAMO,
         firma: SIN_TRAMO,
         requisitos: SIN_TRAMO,
+        indice_bytes: gate::CABECERA + rev.cuantos_anexos() * gate::ANEXO,
     };
     for r in rev.regiones() {
         plan.regiones[plan.cuantas] = r;

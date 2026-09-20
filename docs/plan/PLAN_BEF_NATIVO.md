@@ -8,9 +8,10 @@
 > (un formato, no dos). La regla congelada esta reescrita en
 > `platform/abi/bmo-abi/src/bef/BEF_EXTENSIONES.md`. Las secciones 1 y 4 de abajo
 > describen lo que HABIA y lo que se propuso; la implementacion es
-> `platform/abi/bmo-abi/src/bef2/`. **B8 HECHO el 2026-09-20**: Ring 0 lee
-> REGIONES y la "pintura al reves" de B3 se fue. Quedan B7 (cabecera
-> firmada) y B9 (medir paginas), y el METAL para todo.
+> `platform/abi/bmo-abi/src/bef2/`. **B8 y B7 HECHOS el 2026-09-20**: Ring
+> 0 lee REGIONES, la "pintura al reves" de B3 se fue, y LA FIRMA ES DEL
+> INDICE (y de cada anexo). Queda B9 (medir paginas), y el METAL para todo.
+> El 20-09 el Ryzen arranco con BEF2 (B0-B6 + B8) y DOOM se jugo.
 
 ---
 
@@ -236,12 +237,23 @@ Lo que cambia, y por que es BMO y no ELF:
   pego a 16 y cada region empezaba con una cabeza rebotada. +24 KB en los 41
   ejecutables, y `ram.rs` mide ahora "empieza en pagina?" como unica
   pregunta (B9).
-- [ ] **B7 -- la CABECERA firmada.** Hoy los hashes cubren regiones y
-  anexos; `entrada`, `xcr0`, `ceros` y las banderas no los cubre nadie: un
-  `.bex` firmado admite que le cambien el punto de entrada sin que nada se
-  queje. El plan tenia `hash_cab` en el byte 56 y la implementacion lo dejo
-  reservado. Una entrada de firma mas (`que = 0x7F`: los 64 B + la tabla de
-  anexos), comprobada en los DOS jueces.
+- [x] **B7 -- la CABECERA firmada. HECHO el 2026-09-20.** Una entrada de
+  firma mas, la PRIMERA (`FIRMA_INDICE = 0x7F`: los 64 B + la tabla de
+  anexos), obligatoria en los dos jueces; el kernel la comprueba con el
+  prologo que ya tiene, antes de reservar un marco (`admitir.rs`, "LA FIRMA
+  ES DEL INDICE"). Y de paso **la firma cubre CADA anexo**, no solo los tres
+  que el kernel lee: un icono o un WAD dentro del paquete ya no se puede
+  cambiar sin que `bmo-verify` lo vea, y la firma de autor responde por
+  ellos. +40 B por imagen y +40 por anexo antes descubierto (3.200 B en los
+  41). *** Y AL HACERLO SALIO UN FALLO DE METAL: `cadena_de_hashes` (lo que
+  firma `bmo-firmar`) hasheaba las ENTRADAS de 40 B y el kernel
+  (`Firmas::cadena`) los DIGESTS de 32 B -- desde B4 (19-09). El primer
+  `.bex` firmado con la clave del ancla habria cuadrado en el anfitrion y
+  salido `NoCuadra` en el Ryzen, y una firma que no cuadra NO arranca.
+  Ahora es una sola cadena y la fila
+  `la_cadena_que_se_firma_es_la_que_el_kernel_comprueba` la ata con el
+  codigo del kernel copiado. Los ceros ya no cuentan como "sin hash" en la
+  ficha (el 1 en rojo que salio en el Ryzen).
 - [x] **B8 -- Ring 0 lee REGIONES. HECHO el 2026-09-20.** Se fue
   `bmo-bex-gate/src/bef2.rs` (309 lineas) y la puerta es UN fichero
   (`lib.rs`, 409 -> 605 con el contrato entero dentro): `Revisada` da

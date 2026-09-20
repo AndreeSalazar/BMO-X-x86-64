@@ -228,19 +228,18 @@ impl Escritor {
             return Err("demasiados anexos");
         }
 
-        // -- La firma: un hash por region con bytes y por anexo que el kernel
-        //    lee. Se sabe CUANTOS antes de colocar nada, que es lo que deja
-        //    calcular el tamano del anexo y por tanto los offsets.
-        let mut cubre: Vec<u8> = Vec::new();
+        // -- La firma: el INDICE primero, un hash por region con bytes, y uno
+        //    por CADA anexo (2026-09-20: antes solo los que el kernel lee, y
+        //    el indice ninguno). Se sabe CUANTOS antes de colocar nada, que es
+        //    lo que deja calcular el tamano del anexo y por tanto los offsets.
+        let mut cubre: Vec<u8> = vec![FIRMA_INDICE];
         for (i, r) in [&self.codigo, &self.constantes, &self.datos].iter().enumerate() {
             if !r.is_empty() {
                 cubre.push(i as u8);
             }
         }
-        for (i, (tipo, _)) in anexos.iter().enumerate() {
-            if lo_lee_el_kernel(*tipo) {
-                cubre.push(FIRMA_ANEXO | i as u8);
-            }
+        for i in 0..anexos.len() {
+            cubre.push(FIRMA_ANEXO | i as u8);
         }
         let firma_bytes = FIRMA_CABECERA
             + cubre.len() * FIRMA_HASH
@@ -338,7 +337,9 @@ impl Escritor {
             }
         }
 
-        // La firma, al final y sobre los bytes ya puestos.
+        // La firma, al final y sobre los bytes ya puestos: la cabecera y la
+        // tabla de anexos estan completas (la entrada de la firma incluida),
+        // asi que el hash del indice se calcula sobre lo que el kernel leera.
         let f = sitio_firma.0 as usize;
         img[f..f + 4].copy_from_slice(&(cubre.len() as u32).to_le_bytes());
         let algo = if self.ed25519.is_some() { ALGO_ED25519 } else { ALGO_NINGUNO };
@@ -346,7 +347,9 @@ impl Escritor {
         for (i, que) in cubre.iter().enumerate() {
             let h = f + FIRMA_CABECERA + i * FIRMA_HASH;
             img[h] = *que;
-            let trozo: &[u8] = if que & FIRMA_ANEXO != 0 {
+            let trozo: &[u8] = if *que == FIRMA_INDICE {
+                &img[..CABECERA + cuantos * ANEXO]
+            } else if que & FIRMA_ANEXO != 0 {
                 let (off, len) = sitio_anexo[(que & !FIRMA_ANEXO) as usize];
                 &img[off as usize..off as usize + len as usize]
             } else {

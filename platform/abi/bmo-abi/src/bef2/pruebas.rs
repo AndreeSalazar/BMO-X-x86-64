@@ -220,13 +220,15 @@ fn un_byte_cambiado_en_cualquier_sitio_rompe_su_hash() {
     assert_eq!(falta_de(|i| i[o + 8] = 1), Falta::NoCuadraElHash);
 }
 
+/// Se le quita el ULTIMO hash a la firma: el anexo sigue bien formado y
+/// cubre menos. En la imagen buena el ultimo es el de los requisitos (el
+/// orden es indice, regiones, anexos en el orden de la tabla).
 #[test]
-fn una_firma_que_no_cubre_los_relocs_no_vale() {
+fn una_firma_que_no_cubre_un_anexo_no_vale() {
     let img = buena();
     let v = leer(&img).unwrap();
     let f = v.anexos().find(|a| a.tipo == ANEXO_FIRMA).unwrap().tramo.offset as usize;
     let cuantos = u32_en(&img, f).unwrap() as usize;
-    // Se le quita el ultimo hash: el anexo sigue bien formado y cubre menos.
     assert_eq!(
         falta_de(|i| {
             i[f..f + 4].copy_from_slice(&((cuantos - 1) as u32).to_le_bytes());
@@ -241,6 +243,86 @@ fn una_firma_que_no_cubre_los_relocs_no_vale() {
         }),
         Falta::FirmaIncompleta
     );
+}
+
+/// *** LA FIRMA ES DEL INDICE (2026-09-20). Hasta hoy un `.bex` firmado
+/// admitia que le cambiaran la entrada o los ceros: el hash de cada region
+/// cuadraba igual, porque la region no habia cambiado. Habia cambiado a DONDE
+/// saltaba el kernel.
+#[test]
+fn la_firma_cubre_el_indice_y_tocar_la_cabecera_la_rompe() {
+    let img = buena();
+    let v = leer(&img).unwrap();
+    let firma = v.anexo(ANEXO_FIRMA).unwrap();
+    // La primera entrada es el indice, y su hash es el de cabecera + tabla.
+    assert_eq!(firma[FIRMA_CABECERA], FIRMA_INDICE);
+    let esperado = crate::bef::blake3::blake3_256(v.indice());
+    assert_eq!(&firma[FIRMA_CABECERA + 8..FIRMA_CABECERA + FIRMA_HASH], &esperado[..]);
+    assert_eq!(v.indice().len(), CABECERA + v.cuantos_anexos() * ANEXO);
+    // Otra entrada VALIDA (el codigo mide 64): ninguna region cambia, y aun
+    // asi no pasa. Es exactamente el ataque que antes no se veia.
+    assert_eq!(falta_de(|i| i[16] = 1), Falta::NoCuadraElHash);
+    // Mas ceros: la memoria que pide cambia sin tocar un byte firmado.
+    assert_eq!(
+        falta_de(|i| i[48..52].copy_from_slice(&8192u32.to_le_bytes())),
+        Falta::NoCuadraElHash
+    );
+}
+
+/// Una firma SIN la entrada del indice no vale, aunque cubra todo lo demas.
+#[test]
+fn una_firma_sin_el_indice_no_vale() {
+    let img = buena();
+    let v = leer(&img).unwrap();
+    let f = v.anexos().find(|a| a.tipo == ANEXO_FIRMA).unwrap().tramo.offset as usize;
+    let cuantos = u32_en(&img, f).unwrap() as usize;
+    let idx_firma = v.cuantos_anexos() - 1;
+    assert_eq!(
+        falta_de(|i| {
+            // Se quita la PRIMERA entrada corriendo las demas hacia arriba;
+            // el anexo mide 40 menos y lo que sobra al final queda sin dueno.
+            let ini = f + FIRMA_CABECERA;
+            i.copy_within(ini + FIRMA_HASH..ini + cuantos * FIRMA_HASH, ini);
+            i[f..f + 4].copy_from_slice(&((cuantos - 1) as u32).to_le_bytes());
+            let anexo = CABECERA + idx_firma * ANEXO;
+            let nuevo = (FIRMA_CABECERA + (cuantos - 1) * FIRMA_HASH) as u32;
+            i[anexo + 8..anexo + 12].copy_from_slice(&nuevo.to_le_bytes());
+        }),
+        Falta::FirmaIncompleta
+    );
+}
+
+/// ** LA FIRMA CUBRE TODOS LOS ANEXOS, tambien los que el kernel no lee: los
+/// recursos de una app tienen su hash en la misma tabla, y la firma de autor
+/// responde por ellos. Antes (19-09) solo cubria relocs y requisitos, y un
+/// icono o un WAD dentro del paquete se podia cambiar sin que nadie lo viera.
+#[test]
+fn la_firma_cubre_los_anexos_que_el_kernel_no_lee() {
+    let mut e = Escritor::de_imagen(&buena()).unwrap();
+    e.anexo(ANEXO_RECURSOS, vec![7u8; 300]);
+    let img = e.construir().unwrap();
+    let v = leer(&img).expect("con recursos tambien vale");
+    let firma = v.anexo(ANEXO_FIRMA).unwrap();
+    let cuantos = u32_en(firma, 0).unwrap() as usize;
+    // indice + 3 regiones + relocs + requisitos + recursos.
+    assert_eq!(cuantos, 7);
+    let rec = v.anexos().position(|a| a.tipo == ANEXO_RECURSOS).unwrap() as u8;
+    let ult = FIRMA_CABECERA + (cuantos - 1) * FIRMA_HASH;
+    assert_eq!(firma[ult], FIRMA_ANEXO | rec);
+    // Un byte del icono cambiado ya no pasa.
+    let o = v.anexos().find(|a| a.tipo == ANEXO_RECURSOS).unwrap().tramo.offset as usize;
+    let mut rota = img.clone();
+    rota[o] ^= 0xFF;
+    assert_eq!(leer(&rota).err(), Some(Falta::NoCuadraElHash));
+    // Y una firma que no lo cubra tampoco.
+    let f = v.anexos().find(|a| a.tipo == ANEXO_FIRMA).unwrap().tramo.offset as usize;
+    let idx_firma = v.anexos().position(|a| a.tipo == ANEXO_FIRMA).unwrap();
+    let mut sin = img.clone();
+    sin[f..f + 4].copy_from_slice(&((cuantos - 1) as u32).to_le_bytes());
+    let anexo = CABECERA + idx_firma * ANEXO;
+    let nuevo = (FIRMA_CABECERA + (cuantos - 1) * FIRMA_HASH) as u32;
+    sin[anexo + 8..anexo + 12].copy_from_slice(&nuevo.to_le_bytes());
+    assert_eq!(leer(&sin).err(), Some(Falta::FirmaIncompleta));
 }
 
 /// ** Los SIMBOLOS viajan tambien en un ejecutable, y esta fila existe porque

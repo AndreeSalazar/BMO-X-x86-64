@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   305 casillas ABIERTAS en 36 planes
-   229 hechas
+   304 casillas ABIERTAS en 36 planes
+   230 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -310,19 +310,18 @@
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
 
-## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 2 abiertas, 8 hechas
-
-*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
-
-- [ ] B7 -- la CABECERA firmada. Hoy los hashes cubren regiones y
-- [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
-
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 
 *REX -- la puerta de los terceros, ORDENADA*
 
 - [ ] 5b <bmo/latido.h> LATIDO + WAIT el tiempo, y la 2a puerta
 - [ ] 5c <bmo/corriente.h> ARCHIVO_ASINC + LISTO leer a ritmo de quien lee
+
+## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 1 abiertas, 9 hechas
+
+*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
+
+- [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 1 abiertas, 8 hechas
 

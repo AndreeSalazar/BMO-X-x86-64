@@ -75,6 +75,24 @@ runtime de un lenguaje del que Ring 0 no tiene por que saber que existe.
 y no pisar a nadie: un anexo mal formado sigue siendo un rechazo. Lo que no
 hace el kernel es gastar paginas en el ni mapearlo en el espacio del programa.
 
+**Se salta, pero se FIRMA** (2026-09-20). La firma cubre TODO el fichero:
+
+```text
+   que 0x7F   el INDICE: la cabecera (64 B) y la tabla de anexos   OBLIGATORIO
+   que 0..=2  cada region con bytes (los ceros no ocupan fichero)  OBLIGATORIO
+   que 0x80|i CADA anexo, lo lea el kernel o no                    OBLIGATORIO
+```
+
+El kernel comprueba el indice con el prologo que ya tiene en la mano, antes
+de reservar un marco; despues cada region y cada anexo que lee, al aterrizar.
+Lo que no lee (recursos, katanas, simbolos) tiene su hash en la misma tabla
+para quien lo lea --el DIRECTOR, `bmo-verify`-- y la firma de autor
+(Ed25519 sobre la cadena de los digests, 32 B cada uno, en orden) responde por
+todos ellos. *"La firma es del indice, no del bulto"*
+(`docs/identidad/EL_CONTRATO_DE_CARGA.md`, parte 2b): hasta hoy respondia por
+el bulto y NO por el indice, y un `.bex` firmado admitia que le cambiaran la
+entrada.
+
 ### Consecuencia practica
 
 Un lenguaje con runtime propio puede meter en el contenedor lo que necesite

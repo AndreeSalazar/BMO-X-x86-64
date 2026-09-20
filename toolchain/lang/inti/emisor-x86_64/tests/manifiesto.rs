@@ -295,7 +295,13 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     // rangos -- lo que empieza a mitad de sector pasa por el sector de rebote.
     // BEF1 alineaba a 512 desde el 10-08 por eso; BEF2 lo recupera. Es lo que
     // mide `anadir_el_manifiesto_no_rompe_la_frontera_de_sector`, mas abajo.
-    assert_eq!(sin.len(), 12048, "la emision de la sonda cambio de tamano");
+    //
+    //     12.088  LA FIRMA ES DEL INDICE y de cada anexo (2026-09-20, B7)
+    //
+    // ** +40: el hash del indice (cabecera + tabla de anexos), que antes no
+    // cubria nadie. Otros +40 por cada anexo que antes no se firmaba (aqui
+    // ninguno mas: la sonda sin manifiesto solo trae relocs y requisitos).
+    assert_eq!(sin.len(), 12088, "la emision de la sonda cambio de tamano");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**

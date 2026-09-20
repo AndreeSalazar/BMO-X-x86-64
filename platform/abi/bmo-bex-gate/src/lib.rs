@@ -103,6 +103,9 @@ pub const fn lo_lee_el_kernel(tipo: u8) -> bool {
 /// El `que` de un hash de la firma que cubre un ANEXO: `0x80 | indice`. Los
 /// valores 0..=2 son las regiones con bytes.
 pub const FIRMA_ANEXO: u8 = 0x80;
+/// El `que` del hash del INDICE: la cabecera (64 B) y la tabla de anexos. El
+/// kernel lo comprueba con el prologo que ya tiene, antes de reservar nada.
+pub const FIRMA_INDICE: u8 = 0x7F;
 
 // -- Las cuatro regiones ------------------------------------------------------
 

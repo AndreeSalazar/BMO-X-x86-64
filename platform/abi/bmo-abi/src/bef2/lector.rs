@@ -55,7 +55,7 @@ pub enum Falta {
     SinFirma,
     /// La firma esta mal formada.
     FirmaMal,
-    /// La firma no cubre algo que el kernel carga o lee.
+    /// La firma no cubre algo: el indice, una region con bytes o un anexo.
     FirmaIncompleta,
     /// Un hash no cuadra con los bytes que dice cubrir.
     NoCuadraElHash,
@@ -82,7 +82,7 @@ impl Falta {
             Falta::RelocMal => "un reloc mal formado o que apunta fuera",
             Falta::SinFirma => "un ejecutable sin firma",
             Falta::FirmaMal => "la firma esta mal formada",
-            Falta::FirmaIncompleta => "la firma no cubre todo lo que el kernel toca",
+            Falta::FirmaIncompleta => "la firma no cubre el indice, una region o un anexo",
             Falta::NoCuadraElHash => "un hash no cuadra con sus bytes",
         }
     }
@@ -180,6 +180,12 @@ impl<'a> Vista<'a> {
         self.cuantos_anexos
     }
 
+    /// **El INDICE**: la cabecera y la tabla de anexos, los bytes que dicen
+    /// donde esta cada cosa. Es lo que cubre el hash `FIRMA_INDICE`.
+    pub fn indice(&self) -> &'a [u8] {
+        &self.bytes[..CABECERA + self.cuantos_anexos * ANEXO]
+    }
+
     pub fn anexo_n(&self, i: usize) -> Option<Anexo> {
         if i >= self.cuantos_anexos {
             return None;
@@ -197,14 +203,28 @@ impl<'a> Vista<'a> {
         Some(self.trozo(a.tramo))
     }
 
-    /// **La CADENA de hashes**: el BLAKE3 de todas las entradas de la firma,
-    /// en orden. Es lo que firma `bmo-firmar` con Ed25519 -- una firma sobre un
-    /// solo numero que ya resume la imagen entera, en vez de N firmas.
+    /// **La CADENA de hashes**: el BLAKE3 de los DIGESTS de la firma, en
+    /// orden (`digest_0 || digest_1 || ...`, 32 bytes cada uno, sin el `que`
+    /// ni el relleno). Es lo que firma `bmo-firmar` con Ed25519 -- una firma
+    /// sobre un solo numero que ya resume la imagen entera, en vez de N
+    /// firmas.
+    ///
+    /// *** ES LA MISMA CADENA QUE CALCULA EL KERNEL (`task/landing.rs`,
+    /// `Firmas::cadena`), y la fila `la_cadena_que_se_firma_es_la_que_el_kernel_comprueba`
+    /// lo ata con el codigo del kernel copiado. Del 2026-09-19 al 20 esto
+    /// hasheaba las ENTRADAS enteras (40 B) y el kernel los digests (32 B): un
+    /// `.bex` firmado por `bmo-firmar` habria cuadrado en el anfitrion y
+    /// salido `NoCuadra` en el Ryzen -- y como una firma que no cuadra NO
+    /// arranca, el primer programa firmado de esta casa no habria arrancado.
     pub fn cadena_de_hashes(&self) -> Option<[u8; 32]> {
         let firma = self.anexo(ANEXO_FIRMA)?;
         let cuantos = u32_en(firma, 0)? as usize;
-        let fin = FIRMA_CABECERA + cuantos * FIRMA_HASH;
-        Some(crate::bef::blake3::blake3_256(firma.get(FIRMA_CABECERA..fin)?))
+        let mut h = crate::bef::blake3::Hasher::new();
+        for k in 0..cuantos {
+            let e = FIRMA_CABECERA + k * FIRMA_HASH;
+            h.update(firma.get(e + 8..e + FIRMA_HASH)?);
+        }
+        Some(h.finalize())
     }
 
     /// Los relocs, ya comprobados al leer.
@@ -387,9 +407,13 @@ fn comprobar_relocs(v: &Vista<'_>) -> Result<(), Falta> {
     Ok(())
 }
 
-/// La firma cubre TODO lo que el kernel carga o lee: las regiones con bytes,
-/// los relocs y los requisitos. Lo que no cubre puede cambiar sin que nadie se
-/// entere, y el kernel lo aplica igual.
+/// La firma cubre TODO: el INDICE (cabecera + tabla de anexos), las regiones
+/// con bytes y CADA anexo. Lo que no cubre puede cambiar sin que nadie se
+/// entere -- y hasta el 2026-09-20 eso incluia la entrada y el `xcr0`.
+///
+/// ** Primero la FORMA (que cubre) y despues los HASHES: asi "no cubre los
+/// relocs" sale como `FirmaIncompleta` aunque el indice tampoco cuadre, que
+/// es lo que le pasa a una imagen a la que le quitaron un hash.
 fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
     let firma = v.anexo(ANEXO_FIRMA).ok_or(Falta::SinFirma)?;
     if firma.len() < FIRMA_CABECERA {
@@ -413,6 +437,8 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
         return Err(Falta::FirmaMal);
     }
 
+    // -- 1. La forma: que cubre cada entrada, y que no falte nada -----------
+    let mut cubre_indice = false;
     let mut cubre_region = [false; 3];
     let mut cubiertos = [false; MAX_ANEXOS];
     for i in 0..cuantos {
@@ -421,28 +447,31 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
         if firma[e + 1..e + 8].iter().any(|b| *b != 0) {
             return Err(Falta::FirmaMal);
         }
-        let digest = &firma[e + 8..e + FIRMA_HASH];
-        let trozo: &[u8] = if que & FIRMA_ANEXO != 0 {
+        // Una entrada repetida es un sitio donde esconder un hash que nadie
+        // mira: cada `que` va una vez.
+        if que == FIRMA_INDICE {
+            if cubre_indice {
+                return Err(Falta::FirmaMal);
+            }
+            cubre_indice = true;
+        } else if que & FIRMA_ANEXO != 0 {
             let idx = (que & !FIRMA_ANEXO) as usize;
             let a = v.anexo_n(idx).ok_or(Falta::FirmaMal)?;
-            if a.tipo == ANEXO_FIRMA {
+            if a.tipo == ANEXO_FIRMA || cubiertos[idx] {
                 return Err(Falta::FirmaMal);
             }
             cubiertos[idx] = true;
-            v.trozo(a.tramo)
         } else {
             let r = Region::de(que).ok_or(Falta::FirmaMal)?;
-            if matches!(r, Region::Ceros) {
+            if matches!(r, Region::Ceros) || cubre_region[que as usize] {
                 return Err(Falta::FirmaMal);
             }
             cubre_region[que as usize] = true;
-            v.region(r)
-        };
-        if crate::bef::blake3::blake3_256(trozo)[..] != *digest {
-            return Err(Falta::NoCuadraElHash);
         }
     }
-
+    if !cubre_indice {
+        return Err(Falta::FirmaIncompleta);
+    }
     for (i, r) in [Region::Codigo, Region::Constantes, Region::Datos].iter().enumerate() {
         if v.tramo(*r).bytes > 0 && !cubre_region[i] {
             return Err(Falta::FirmaIncompleta);
@@ -450,8 +479,26 @@ fn comprobar_firma(v: &Vista<'_>) -> Result<(), Falta> {
     }
     for i in 0..v.cuantos_anexos() {
         let a = v.anexo_n(i).ok_or(Falta::FirmaMal)?;
-        if lo_lee_el_kernel(a.tipo) && a.tipo != ANEXO_FIRMA && !cubiertos[i] {
+        if a.tipo != ANEXO_FIRMA && !cubiertos[i] {
             return Err(Falta::FirmaIncompleta);
+        }
+    }
+
+    // -- 2. Los hashes: cada uno contra sus bytes ---------------------------
+    for i in 0..cuantos {
+        let e = FIRMA_CABECERA + i * FIRMA_HASH;
+        let que = firma[e];
+        let digest = &firma[e + 8..e + FIRMA_HASH];
+        let trozo: &[u8] = if que == FIRMA_INDICE {
+            v.indice()
+        } else if que & FIRMA_ANEXO != 0 {
+            let a = v.anexo_n((que & !FIRMA_ANEXO) as usize).ok_or(Falta::FirmaMal)?;
+            v.trozo(a.tramo)
+        } else {
+            v.region(Region::de(que).ok_or(Falta::FirmaMal)?)
+        };
+        if crate::bef::blake3::blake3_256(trozo)[..] != *digest {
+            return Err(Falta::NoCuadraElHash);
         }
     }
     Ok(())

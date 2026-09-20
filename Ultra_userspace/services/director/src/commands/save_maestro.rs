@@ -263,14 +263,14 @@ pub(crate) fn report_programas(s: &mut Output) {
     s.text(b"    n");
     der(s, b"pid", 6);
     der(s, b"tid", 6);
-    s.text(b"  lenguaje  nombre              ");
+    s.text(b"  nombre                        ");
     der(s, b"fichero", 10);
     der(s, b"mapeado", 9);
     s.text(b"  admitido\n");
     s.text(b"    -");
     der(s, b"---", 6);
     der(s, b"---", 6);
-    s.text(b"  --------  --------------------");
+    s.text(b"  ------------------------------");
     der(s, b"-------", 10);
     der(s, b"-------", 9);
     s.text(b"  --------\n");
@@ -286,10 +286,11 @@ pub(crate) fn report_programas(s: &mut Output) {
         s.dec(n);
         s.dec_right(quien & 0xFFFF, 6);
         s.dec_right((quien >> 16) & 0xFFFF, 6);
+        // El nombre con el que se lanzo. (La etiqueta del kernel,
+        // `INFO_TXT_PROG_TAG`, es el mismo nombre para lo que viene del disco
+        // y solo distingue a los demos embebidos: no se ensena.)
         s.text(b"  ");
-        texto_a(s, bmo::INFO_TXT_PROG_TAG | (n << 8), 8);
-        s.text(b"  ");
-        texto_a(s, bmo::INFO_TXT_PROG_NOMBRE | (n << 8), 20);
+        texto_a(s, bmo::INFO_TXT_PROG_NOMBRE | (n << 8), 30);
         s.dec_right(imagen & 0xFFFF_FFFF, 10);
         s.dec_right(imagen >> 32, 9);
         s.text(b"  ");
@@ -369,9 +370,10 @@ pub(crate) fn report_programas(s: &mut Output) {
         n += 1;
     }
     s.with_ink(INK_ECHO);
-    s.text(b"    firma: sin tabla = imagen embebida, no promete hashes; integridad = hashes y\n");
-    s.text(b"    ALGO_NINGUNO (llego lo que se escribio, no quien); firmado #k = Ed25519 y la\n");
-    s.text(b"    clave k del ancla. xcr0 = componentes XSAVE declarados (0x7 = x87+SSE+AVX).\n");
+    s.text(b"    cuadran = el INDICE (cabecera y tabla de anexos) + cada region con bytes + los\n");
+    s.text(b"    relocs; s/hash tiene que ser 0. firma: integridad = hashes sin autor (llego lo\n");
+    s.text(b"    que se escribio, no quien); firmado #k = Ed25519 con la clave k del ancla.\n");
+    s.text(b"    xcr0 = componentes XSAVE declarados (0x3 = x87+SSE, lo que el kernel preserva).\n");
     s.with_ink(INK_PLAIN);
 }
 
