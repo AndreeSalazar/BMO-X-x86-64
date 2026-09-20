@@ -236,7 +236,15 @@ pub fn destroy_address_space(pml4: u64) -> (u64, u64) {
     // La estacion 17, y la unica que no vive en `revoke_all`: el espacio se
     // destruye despues, en `reap`. Se apunta con pid 0 porque aqui ya no hay
     // pid -- solo un PML4 y un cadaver.
-    crate::ring0::core::desmontaje::entra(17, 0);
+    //
+    // *** Y SE APAGA SOLA (2026-09-20). Esto era un `entra(17, 0)` a secas, y
+    // el unico `sale()` del kernel esta al final de `revoke_all` -- o sea
+    // despues de la 16. La 17 no la apagaba nadie: en cuanto moria el primer
+    // proceso, TODAS las azules siguientes de la maquina salian acusando a esta
+    // funcion. Con `testigo` se apaga en los SEIS retornos de aqui abajo porque
+    // se le acaba el alcance, no porque alguien se acuerde; y si la maquina
+    // revienta dentro, el `Drop` no corre y la acusacion vuelve a ser verdad.
+    let _testigo = crate::ring0::core::desmontaje::testigo(17, 0);
     let mut hojas = 0u64;
     let mut tablas = 0u64;
     let mut ya_libres = 0u64;

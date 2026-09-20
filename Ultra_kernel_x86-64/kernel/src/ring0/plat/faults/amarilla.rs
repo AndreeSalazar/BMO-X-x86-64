@@ -182,6 +182,26 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
         inf.push(l);
     }
 
+    // *** UN `Location` PODRIDO, SI LLEGO ALGUNO (2026-09-20).
+    //
+    // El que graba ya no se muere leyendo el fichero de quien habla: lo juzga,
+    // lo descarta y sigue (ver `cabina::ring::sitio_de_fiar`). Pero descartar
+    // en silencio seria cambiar una maquina parada por un dato perdido, y el
+    // dato es el hallazgo: las 534 llamadas del binario empujan una constante
+    // buena, asi que un puntero malo aqui significa **que alguien piso una
+    // pila del kernel**.
+    //
+    // [!] Que NO salga la linea tambien es veredicto: descarta de golpe toda
+    // esa familia y manda a buscar a otro sitio.
+    let (podridos, ultimo) = crate::ring0::cabina::sitios_podridos();
+    if podridos != 0 {
+        let mut l = Line::new();
+        l.s("*** SITIO PODRIDO x"); l.dec(podridos);
+        l.s("  ultimo=0x"); l.hex(ultimo, 16);
+        l.s("  (alguien piso una pila del kernel)");
+        inf.push(l);
+    }
+
     let mut l = Line::new();
     l.s("cr2=0x"); l.hex(cr2, 16);
     inf.push(l);

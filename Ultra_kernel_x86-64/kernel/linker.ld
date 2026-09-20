@@ -20,7 +20,17 @@ SECTIONS
     }
 
     .rodata ALIGN(4K) : {
+        /* ** LOS DOS LIMITES DE LAS CONSTANTES, y existen por lo mismo que los
+         * de `.text`: para poder preguntar "esto es mio?" ANTES de leerlo.
+         *
+         * El 2026-09-20 la maquina murio en `cabina::ring::record_fmt` leyendo
+         * el ultimo byte de `Location::caller().file()` -- o sea que no murio
+         * haciendo el trabajo: murio APUNTANDOLO. Ese `&'static str` vive aqui
+         * dentro, y sin estos dos numeros no hay forma de que el que graba
+         * compruebe el puntero que le dan antes de dereferenciarlo. */
+        __rodata_start = .;
         *(.rodata .rodata.*)
+        __rodata_end = .;
     }
 
     .data ALIGN(4K) : {

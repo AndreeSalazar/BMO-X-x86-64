@@ -126,6 +126,52 @@ pub fn sale() {
     DESMONTAJES.fetch_add(1, Ordering::Relaxed);
 }
 
+/// **EL TESTIGO QUE SE APAGA SOLO. Y es el que faltaba.**
+///
+/// *** LO QUE ESTE FICHERO SE PROMETIO Y NO CUMPLIA (cerrado 2026-09-20)
+///
+/// La cabecera de [`sale`] dice, con todas las letras, que dejar una estacion
+/// puesta haria que un `#PF` de cualquier otro sitio saliera acusando a la 17.
+/// **Eso era exactamente lo que pasaba.** `sale()` se llama en UN solo sitio
+/// --al final de `obj::cap::revoke_all`, o sea despues de la estacion 16-- y la
+/// 17 vive fuera, en `reap`. O sea que en cuanto moria el primer proceso,
+/// `PASO` se quedaba clavado en 17 **para siempre**, y todas las azules
+/// posteriores de la maquina --vinieran de donde vinieran-- mandaban a auditar
+/// `destroy_address_space`.
+///
+/// El 2026-09-20 mando a auditarlo con el fallo en `cabina::ring::record_fmt`,
+/// que no tiene nada que ver.
+///
+/// ** Y NO SE ARREGLA CON UN `sale()` AL FINAL. `destroy_address_space` tiene
+/// SEIS retornos tempranos --uno por cada juez que puede cortar el recorrido--
+/// y poner la llamada a mano en los seis es volver a firmar el mismo fallo el
+/// dia que alguien anada el septimo. El testigo se apaga porque se le acaba el
+/// alcance, no porque alguien se acuerde.
+///
+/// [!] Si la maquina revienta DENTRO, el `Drop` no corre y la estacion se queda
+/// puesta -- que es justo lo que se quiere: entonces la acusacion es verdad.
+///
+/// ** No cuenta en [`desmontajes`] a proposito: ese numero significa
+/// *"`revoke_all` enteros"* y lo sube `sale()`. Una estacion suelta que se
+/// apaga no es un desmontaje terminado, y dos jueces de la misma palabra en la
+/// misma pantalla es el `[riesgo] ESPEJO` de la cabecera cobrandose otra vez.
+pub struct Testigo(());
+
+/// Entrar en una estacion **que se apaga sola al salir del alcance**. Para las
+/// estaciones que no viven dentro de la cadena de `revoke_all`.
+#[inline]
+pub fn testigo(paso: u32, pid: u32) -> Testigo {
+    entra(paso, pid);
+    Testigo(())
+}
+
+impl Drop for Testigo {
+    #[inline]
+    fn drop(&mut self) {
+        PASO.store(0, Ordering::Relaxed);
+    }
+}
+
 /// Lo que la pantalla azul pregunta: `(estacion, nombre, pid, desmontajes)`.
 ///
 /// `None` significa **el fallo no fue desmontando**, y eso tambien es una

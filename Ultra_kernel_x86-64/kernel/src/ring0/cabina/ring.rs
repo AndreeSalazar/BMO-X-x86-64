@@ -78,6 +78,106 @@ pub(crate) fn irq_restore(flags: u64) {
 /// deducia lo que el fichero podia declarar; `tramo_dma` preguntaba una
 /// traduccion que el mapeo ya garantizaba; una falta de cabecera no ensenaba los
 /// bytes que la provocaron. **Quitar la pregunta, no mejorarla.**
+// -- ** EL SITIO: EL UNICO DATO DE ESTA FUNCION QUE NO LO PONE QUIEN LLAMA ---
+//
+// *** LA MAQUINA MURIO APUNTANDO, NO TRABAJANDO (2026-09-20)
+//
+// La azul del Ryzen traia `rip = record_fmt +0x6C6`. Ahi no hay trabajo: hay
+// esto --
+//
+// ```text
+//    mov   rsi, [r14]        ; ruta.ptr     <- Location::caller()
+//    mov   rcx, [r14+8]      ; ruta.len
+//    lea   rdx, [rsi+rcx]
+//    movsx eax, byte [rdx-1] ; <-- #PF, no-presente, leyendo
+// ```
+//
+// -- o sea el `ruta.rfind(['/', '\\'])` de `Event::en` leyendo el ultimo byte
+// del fichero de quien hablaba. **CABINA se murio escribiendo la acusacion de
+// otro**, y se llevo la maquina por delante y el hallazgo con ella.
+//
+// ** Y ESE PUNTERO ES EL UNICO QUE ESTA FUNCION NO PUEDE EXIGIRLE A NADIE. El
+// modulo, el mensaje y el valor los pone el sitio de llamada y se ven en el
+// grep. El `&Location` lo pone el compilador y llega por la PILA (`[rsp+0x308]`
+// en este build). Se revisaron las 534 llamadas del binario: las 534 empujan
+// una constante correcta. O sea que si llega podrido, no llega de un fallo de
+// quien llama: llega de que **alguien piso esa pila**, y eso es un hallazgo de
+// primera -- no un motivo para morirse.
+//
+// [!] LA REGLA QUE ESTO ESCRIBE: el que graba no puede matar a la maquina.
+// Un dato que no se puede creer se APUNTA como no creible y se sigue. Es lo
+// mismo que hace `caminable` antes de bajar por una tabla, en el otro extremo
+// del kernel.
+
+/// Cuantas veces llego un `Location` que no vive en las constantes del kernel.
+/// **Cero es la respuesta buena**, y no cero es la pista entera.
+static SITIOS_PODRIDOS: AtomicU64 = AtomicU64::new(0);
+/// El ultimo de esos punteros. Se guarda porque el NUMERO dice que paso y la
+/// DIRECCION dice donde mirar: si cae en el physmap es una pila pisada, si cae
+/// en ningun sitio conocido es basura de verdad.
+static ULTIMO_SITIO_PODRIDO: AtomicU64 = AtomicU64::new(0);
+
+/// `(cuantos, el ultimo)`. Lo pregunta la pantalla azul.
+pub fn sitios_podridos() -> (u64, u64) {
+    (
+        SITIOS_PODRIDOS.load(Ordering::Relaxed),
+        ULTIMO_SITIO_PODRIDO.load(Ordering::Relaxed),
+    )
+}
+
+/// Los dos limites de `.rodata`, del enlazador.
+///
+/// ** No se comparte con `texto_del_kernel()` de `plat::faults` A PROPOSITO:
+/// son dos hechos distintos --donde vive el CODIGO y donde viven las
+/// CONSTANTES-- y juntarlos obligaria a `cabina` a depender de `plat`, que esta
+/// por encima. Lo que si tienen que compartir es la fuente, y la comparten: los
+/// dos pares de simbolos salen del mismo `linker.ld`.
+///
+/// [!] Sin `unsafe`: TOMAR la direccion de un `static` externo es seguro; lo
+/// que no lo seria es leerlo. Aqui no se lee ni un byte.
+fn constantes_del_kernel() -> (u64, u64) {
+    extern "C" {
+        static __rodata_start: u8;
+        static __rodata_end: u8;
+    }
+    (
+        core::ptr::addr_of!(__rodata_start) as u64,
+        core::ptr::addr_of!(__rodata_end) as u64,
+    )
+}
+
+/// **De donde salio esta linea, SI es que se puede preguntar.**
+///
+/// Devuelve `("?", 0)` cuando el `Location` no es de fiar, y entonces el evento
+/// sale sin fichero -- que es una perdida pequena y honesta al lado de la
+/// alternativa, que es la maquina parada. El renglon sigue diciendo el modulo,
+/// el mensaje y el valor, que es lo que el que llama quiso decir.
+fn sitio_de_fiar(sitio: &'static core::panic::Location<'static>) -> (&'static str, u32) {
+    let (ini, fin) = constantes_del_kernel();
+    // `a .. a+n` entero dentro de `.rodata`. Con `checked_add` porque un `len`
+    // podrido es justo el caso que se esta cazando.
+    let cabe = |a: u64, n: u64| match a.checked_add(n) {
+        Some(f) => a >= ini && f <= fin,
+        None => false,
+    };
+    let p = sitio as *const _ as u64;
+    // `Location` son dos palabras de `&str` mas dos `u32`. Se comprueba ENTERO
+    // antes de tocarlo: leer el `file()` de un `Location` que no existe es
+    // exactamente la instruccion que mato al Ryzen.
+    if !cabe(p, core::mem::size_of::<core::panic::Location<'static>>() as u64) {
+        SITIOS_PODRIDOS.fetch_add(1, Ordering::Relaxed);
+        ULTIMO_SITIO_PODRIDO.store(p, Ordering::Relaxed);
+        return ("?", 0);
+    }
+    let ruta = sitio.file();
+    if !cabe(ruta.as_ptr() as u64, ruta.len() as u64) {
+        SITIOS_PODRIDOS.fetch_add(1, Ordering::Relaxed);
+        ULTIMO_SITIO_PODRIDO.store(ruta.as_ptr() as u64, Ordering::Relaxed);
+        return ("?", 0);
+    }
+    (ruta, sitio.line())
+}
+
 #[track_caller]
 pub fn record(sev: Severity, module: &str, msg: &str, value: u64) {
     record_fmt(sev, module, msg, value, Fmt::Raw);
@@ -90,7 +190,9 @@ pub fn record(sev: Severity, module: &str, msg: &str, value: u64) {
 /// What changes is that from here on a call site CAN say what it always knew.
 #[track_caller]
 pub fn record_fmt(sev: Severity, module: &str, msg: &str, value: u64, fmt: Fmt) {
-    let sitio = core::panic::Location::caller();
+    // ** Y SE JUZGA ANTES DE CREERSELO. Ver `sitio_de_fiar`: el 20-09 la
+    // maquina murio aqui dentro leyendo esta ruta.
+    let (ruta, linea) = sitio_de_fiar(core::panic::Location::caller());
     let flags = irq_save();
     let layer = Layer::from_module(module);
     unsafe {
@@ -116,7 +218,7 @@ pub fn record_fmt(sev: Severity, module: &str, msg: &str, value: u64, fmt: Fmt) 
         }
 
         let mut ev = Event::new(sev, layer, Entity::Module, module, 0, msg, value)
-            .en(sitio.file(), sitio.line())
+            .en(ruta, linea)
             .como(fmt);
         ev.intento = INTENTO_ACTUAL;
         // Ya lo sumo el barrido, arriba. El evento y su cuenta llevan el MISMO

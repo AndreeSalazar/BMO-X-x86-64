@@ -80,14 +80,53 @@ impl Line {
             self.byte(c);
         }
     }
+    /// Un numero en base dieciseis con `digits` digitos. **`digits = 0` son los
+    /// que hagan falta**, no ninguno.
+    ///
+    /// *** POR QUE HIZO FALTA (2026-09-20)
+    ///
+    /// Esto era `for i in 0..digits`, o sea que con `digits = 0` **no escribia
+    /// un solo byte**. Y hay cuatro llamadas asi, todas en el bloque que situa
+    /// el `rip`, que es el unico bloque de la pantalla que existe para mandar a
+    /// un sitio. La azul del 20-09 salio literalmente con:
+    ///
+    /// ```text
+    ///    en .text del kernel, +0x
+    ///    nombralo:  py toolchain/tools/simbolo/simbolo.py 0x
+    /// ```
+    ///
+    /// ** Y la cuarta es la peor: el rango de `.text` de la linea
+    /// `*** NO ES CODIGO DEL KERNEL`. O sea que la unica linea de esta pantalla
+    /// que esta puesta para GRITAR habria gritado sin un solo numero. Es la
+    /// misma familia que el `11` hexadecimal de [`Self::dec`] y que los cinco
+    /// ceros del 25-08: **el instrumento contestando de una forma que no se
+    /// puede usar.**
+    ///
+    /// [!] Y `digits` se acota a 16 de paso: `tmp` tiene 16 bytes y un ancho
+    /// mayor era un `panic` en Ring 0, o sea la maquina muda. Nadie lo pide
+    /// hoy; el dia que alguien se equivoque, se corta el numero y no la
+    /// autopsia.
     pub(super) fn hex(&mut self, mut v: u64, digits: usize) {
         const H: &[u8; 16] = b"0123456789ABCDEF";
         let mut tmp = [0u8; 16];
-        for i in 0..digits {
-            tmp[digits - 1 - i] = H[(v & 0xF) as usize];
+        let n = if digits == 0 {
+            let mut d = 1;
+            let mut t = v >> 4;
+            while t != 0 {
+                d += 1;
+                t >>= 4;
+            }
+            d
+        } else if digits > 16 {
+            16
+        } else {
+            digits
+        };
+        for i in 0..n {
+            tmp[n - 1 - i] = H[(v & 0xF) as usize];
             v >>= 4;
         }
-        for i in 0..digits {
+        for i in 0..n {
             self.byte(tmp[i]);
         }
     }
