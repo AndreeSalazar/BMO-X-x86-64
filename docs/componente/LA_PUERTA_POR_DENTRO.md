@@ -10,6 +10,42 @@
 
 ---
 
+## ** AVISO: LOS 969 ESTAN SUPERADOS (2026-09-20)
+
+Este fichero fecha su tanda el **2026-08-17** y promete que todo numero suyo o
+esta MEDIDO o lo dice. Cumpliendo esa promesa: **desde entonces la puerta
+cambio, y hacia abajo.**
+
+```text
+   70ea8db5  M0b: FUERA el cerrojo que pagaba TODA puerta    -147 ticks
+   01c09d94  WAIT no habia bloqueado NUNCA
+   289d8340  ~6.300 lineas de bmo-abi fuera
+             syscall/ + cap.rs: 2.314 lineas anadidas, 576 quitadas
+```
+
+M0b sola son **147 ticks = ~179 ciclos, el 18 %** de los 969, y su mensaje lo
+demuestra con tres hechos del arbol --`s.current` tiene un solo escritor,
+ningun AP planifica, y quien pregunta ya esta en un trap con IF a cero--. El
+`cli` del cerrojo apagaba algo que el hardware ya habia apagado.
+
+*** Asi que hasta la tanda nueva: **la direccion es hacia abajo y el numero
+exacto no lo sabe nadie**. Quien cite 969 tiene que citar tambien la fecha.
+
+Repetir la tanda no es trabajo nuevo, la herramienta existe:
+
+```text
+   .mo.ps1 -Metro     kernel con `--features metro_puerta`, a otro
+                        --target-dir para que no pise al normal
+   sys\precio.bex       el testigo de Ring 3
+```
+
+[!] El metro anade **~112 ciclos por puerta** (los dos `rdtsc` de `dispatch`),
+y eso ya esta escrito en el build. La cifra se corrige, no se olvida.
+
+Ver `docs/plan/PLAN_LA_VIDA_UTIL.md` seccion 6, paso 3.
+
+---
+
 ## 0. La unidad, antes que nada: **ciclos, no ticks**
 
 La maquina trajo sus dos relojes en la misma pantalla, y son distintos:

@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 39 planes
+# LO QUE FALTA -- las casillas abiertas de los 40 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   248 casillas ABIERTAS en 30 planes
+   257 casillas ABIERTAS en 31 planes
    236 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -100,6 +100,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 6 mas
+
+## [`PLAN_LA_VIDA_UTIL.md`](PLAN_LA_VIDA_UTIL.md) -- 9 abiertas, 0 hechas
+
+*PLAN: LA VIDA UTIL*
+
+- [ ] 0. EL AGUJERO PRIMERO. No se toca nada de aqui hasta cerrar el
+- [ ] 1. EL GUARDIAN DE RIGHT_WAIT. Cruzar los `grant(..., RIGHT_WAIT,
+- [ ] 2. KIND_ARCHIVO ESPERABLE, o quitarle RIGHT_WAIT y decir por que.
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
