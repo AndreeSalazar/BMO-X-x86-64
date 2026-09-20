@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   308 casillas ABIERTAS en 36 planes
-   223 hechas
+   307 casillas ABIERTAS en 36 planes
+   224 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -233,15 +233,6 @@
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
 
-## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 5 abiertas, 2 hechas
-
-*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
-
-- [ ] B2 -- BEF2 en bmo-abi: cabecera, writer, validator y sus
-- [ ] **B3 -- bmo-bex-gate y el cargador del kernel (task/bex.rs,
-- [ ] B4 -- bmo-enlazar, bmo-pack, bmo-firma, bmo-verify en BEF2.
-- ... y 2 mas
-
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas
 
 *PLAN DEL CODEGEN DE BMO C -- el censo, los cortes y el numero que los ordena*
@@ -277,6 +268,15 @@
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
+
+## [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 4 abiertas, 3 hechas
+
+*PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
+
+- [ ] **B3 -- bmo-bex-gate y el cargador del kernel (task/bex.rs,
+- [ ] B4 -- bmo-enlazar, bmo-pack, bmo-firma, bmo-verify en BEF2.
+- [ ] B5 -- los emisores: escriben por bef/writer.rs, asi que casi nada.
+- ... y 1 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 

@@ -177,8 +177,11 @@ Lo que cambia, y por que es BMO y no ELF:
   `cargador.rs::escribir_en_una_cadena_literal_es_un_fallo_de_pagina` dice que
   muerde; el banco de C (609) y el metro (30 programas) pasan con la
   proteccion puesta. **Falta el metal**: DOOM no corre en el emulador.
-- [ ] **B2 -- BEF2 en `bmo-abi`**: cabecera, `writer`, `validator` y sus
-  pruebas, con el magic `BEF2`.
+- [x] **B2 -- BEF2 en `bmo-abi`. HECHO el 2026-09-19** (`cd23a873`):
+  `platform/abi/bmo-abi/src/bef2/` -- cabecera de 64 B con las cuatro
+  regiones en sitio fijo, anexos, `xcr0`, un reloc, firma obligatoria; 15
+  filas con una mutacion por cada una de las 20 faltas. Prologo 112 B contra
+  los 384 de BEF1. Nadie lo usa todavia.
 - [ ] **B3 -- `bmo-bex-gate` y el cargador del kernel (`task/bex.rs`,
   `task/admitir.rs`) leen BEF2.**
 - [ ] **B4 -- `bmo-enlazar`, `bmo-pack`, `bmo-firma`, `bmo-verify` en BEF2.**
