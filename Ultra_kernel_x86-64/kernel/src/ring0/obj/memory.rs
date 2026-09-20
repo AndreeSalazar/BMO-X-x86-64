@@ -406,6 +406,28 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
     };
     unsafe {
         if (*core::ptr::addr_of!(CUENTAS))[slot].peticiones >= MAX_PETICIONES {
+            // *** EL UNICO NO DE ESTA FUNCION QUE NO SE DECIA (2026-09-20).
+            //
+            // Los otros dos --sin ranura, sin RAM contigua-- gritan en CABINA.
+            // Este no, y **es el que se cobra de verdad**: la cabecera de
+            // arriba promete que un programa que pide de mas falla "pronto y
+            // DICIENDOLO", y hasta hoy fallaba pronto y callado.
+            //
+            // ** Lo que se ve cuando calla: el visor del escritorio pide TRES
+            // bloques para una imagen, se queda sin cupo, y la pantalla dice
+            // *"vacio, o no se pudo leer"*. Eso se lee como **el kernel no sabe
+            // leer el fichero**, que es el sitio equivocado entero: el fichero
+            // se lee perfectamente y lo que falta es una RANURA. Un limite que
+            // no se nombra se disfraza del subsistema de al lado.
+            //
+            // [!] Va con los DOS numeros --lo que ya lleva y el tope-- porque
+            // "te pasaste" sin decir de cuanto no dice si el programa pide uno
+            // de mas o cien.
+            crate::ring0::cabina::count(
+                "mem",
+                "SIN CUPO: este proceso ya gasto sus peticiones (tope 4)",
+                (*core::ptr::addr_of!(CUENTAS))[slot].peticiones as u64,
+            );
             return Err(ERROR_TOO_MANY);
         }
     }
