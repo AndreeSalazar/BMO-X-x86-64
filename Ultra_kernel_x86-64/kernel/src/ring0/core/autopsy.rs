@@ -220,6 +220,33 @@ impl Captura {
         }
         self.agujero_ini = ini;
         self.agujero_pags = n;
+        // *** Y SALE AL KERNEL LOG, no solo al informe (2026-09-20, tarde).
+        //
+        // ** La linea roja de la pantalla la escribe `veredicto_corto`, que es
+        // `&'static str` y por eso no puede llevar numeros. Los numeros viven
+        // en el informe, "a un `fallo` de distancia" -- y esa distancia es
+        // exactamente la que el dueno no puede recorrer: **el escritorio acaba
+        // de morir**, y es el escritorio el que tiene el teclado.
+        //
+        // *** Y este numero no es un adorno: es EL que parte el caso.
+        //
+        //    1 pagina                   -> alguien desmapeo UNA
+        //    512 desde un multiplo de 2 MiB -> murio una TABLA entera
+        //    el bloque entero           -> se desmapeo el bloque
+        //
+        // Tres culpables en tres ficheros distintos. Un veredicto que nombra la
+        // clase de fallo y se calla cual de las tres es, manda a mirar los tres.
+        //
+        // [!] DOS renglones y no uno: `cabina` lleva UN valor por linea, y
+        // partir "cuantas" de "desde donde" en dos es mas barato que inventar
+        // un formato que empaquete dos numeros en uno -- que es justo como se
+        // lee mal un renglon (ver el `11` hexadecimal del 04-09).
+        if n != 0 {
+            crate::ring0::cabina::count(
+                "mem", "AGUJERO: paginas seguidas que FALTAN", n);
+            crate::ring0::cabina::addr(
+                "mem", "AGUJERO: la primera que falta", ini);
+        }
     }
 }
 

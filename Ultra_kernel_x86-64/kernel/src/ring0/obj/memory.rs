@@ -524,6 +524,54 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         off += mm::PAGE;
     }
 
+    // *** COMPROBAR LO QUE SE ACABA DE PROMETER (2026-09-20).
+    //
+    // ** `map_page` es todo-o-nada: o mapea la pagina o devuelve `Err`, y el
+    // bucle de arriba deshace y se rinde. O sea que si este bucle LLEGO al
+    // final, **las 2.025 paginas de un doble bufer estan mapeadas**. Eso es lo
+    // que dice el codigo.
+    //
+    // Y el 20-09 el Ryzen dijo otra cosa: el escritorio murio escribiendo en
+    // `0xE0368948`, que la contabilidad da por DENTRO de su bloque y la MMU da
+    // por ausente. Las dos no pueden tener razon.
+    //
+    // *** ESTO PARTE EL CASO EN DOS, Y ES LA PARTICION ENTERA:
+    //
+    //    grita AQUI    -> el agujero nace con el bloque, y el fallo esta en
+    //                     este fichero, en `map_page` o en el asignador
+    //    NO grita      -> el bloque nacio entero y alguien le quito paginas
+    //                     DESPUES, y entonces hay que buscar quien desmapea
+    //
+    // Sin esta linea las dos hipotesis se ven igual desde la pantalla azul, y
+    // llevan a ficheros distintos.
+    //
+    // [!] Cuesta un paseo de cuatro niveles por pagina, UNA vez, cuando alguien
+    // pide memoria. Un doble bufer son 2.025 paseos en el arranque; nadie pide
+    // memoria en el bucle del escritorio. No corre en reposo.
+    //
+    // ** Y NO se rinde: el bloque ya esta entregado y quitarselo ahora seria
+    // cambiar un hallazgo por una negativa. Se ACUSA y se sigue -- la misma
+    // conducta que `caminable` en el otro extremo del kernel.
+    {
+        let mut faltan = 0u64;
+        let mut primera = 0u64;
+        let mut o = 0u64;
+        while o < paginas * mm::PAGE {
+            if vmm::translate(aspace, base + o).is_none() {
+                if faltan == 0 {
+                    primera = base + o;
+                }
+                faltan += 1;
+            }
+            o += mm::PAGE;
+        }
+        if faltan != 0 {
+            crate::ring0::cabina::fault(
+                "mem", "EL BLOQUE NACE CON AGUJEROS: paginas sin traduccion", faltan);
+            crate::ring0::cabina::addr("mem", "la primera que falta", primera);
+        }
+    }
+
     let handle = match cap::grant(
         pid,
         cap::KIND_MEMORIA,
