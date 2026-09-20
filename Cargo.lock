@@ -185,6 +185,7 @@ dependencies = [
  "bmo-abi",
  "bmo-c-x86-64",
  "bmo-cpp-x86-64",
+ "bmo-inti-x86-64",
  "bmo-lower",
  "bmo-verify",
 ]
