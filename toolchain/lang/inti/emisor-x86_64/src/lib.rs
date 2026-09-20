@@ -58,6 +58,9 @@
 
 pub mod arranque;
 pub mod cadena;
+/// El `.bo` de INTI: la unidad que el enlazador junta con las de C y C++.
+pub mod objeto;
+pub use objeto::empaquetar_objeto;
 pub mod barrido;
 pub mod funcion;
 use funcion::emitir_funcion;
@@ -171,6 +174,13 @@ pub struct Emitido {
     /// de ordenes. Un `.bex` que arranca por accidente y otro que no arranca
     /// porque faltaba un flag son el mismo fallo con dos caras.
     pub arranca: bool,
+    /// **Las llamadas a nombres que este modulo no trae**: `(hueco, nombre)`.
+    ///
+    /// En un `.ibx` son un NO (`E0075`: no hay quien las resuelva). En un
+    /// `.bo` son simbolos INDEFINIDOS que `bmo-enlazar` resuelve contra otra
+    /// unidad -- de C, de C++ o de INTI. Es la lista que hace que los tres
+    /// lenguajes puedan llamarse (2026-09-20).
+    pub externas: Vec<(usize, String)>,
 }
 
 /// Lo que el emisor lee ANTES de escribir un byte.
@@ -262,6 +272,7 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
         en_pila: 0,
         locales_en_registro: 0,
         huecos_de_llamada: Vec::new(),
+        externas: Vec::new(),
         sin_emitir: Vec::new(),
         arranca: false,
     };
@@ -390,19 +401,35 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
         //
         // Hace falta enlazado para arreglarlo de verdad. Hasta entonces, lo
         // unico honesto es que se sepa.
+        // ** Y desde el 20-09 SI hay enlazado: la llamada se apunta en
+        // `externas`, y es el que EMPAQUETA quien decide -- un `.ibx` la
+        // convierte en E0075 (`sin_destino`), un `.bo` en un simbolo indefinido.
         match destino {
             Some(d) => {
                 let rel = (d as i64 - (hueco as i64 + 4)) as i32;
                 salida.codigo[hueco..hueco + 4].copy_from_slice(&rel.to_le_bytes());
             }
-            None => salida.sin_emitir.push(format!(
-                "{}: la llamada no tiene destino -- no esta en este modulo y no hay enlazado",
-                nombre
-            )),
+            None => salida.externas.push((hueco, nombre)),
         }
     }
 
     salida
+}
+
+impl Emitido {
+    /// **Las llamadas sin destino, dichas como lo que son en un `.ibx`**: un
+    /// programa suelto no tiene quien las resuelva. Un `.bo` no las cuenta
+    /// aqui porque para el son simbolos que el enlazador resolvera.
+    pub fn sin_destino(&self) -> Vec<String> {
+        let mut v: Vec<String> = self
+            .externas
+            .iter()
+            .map(|(_, n)| format!("{n}: la llamada no tiene destino -- no esta en este modulo; para llamar fuera, compila a `.bo` y enlaza"))
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    }
 }
 
 /// Lo que una funcion aprende mientras se emite.

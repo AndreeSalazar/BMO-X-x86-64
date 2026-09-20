@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   302 casillas ABIERTAS en 36 planes
-   232 hechas
+   301 casillas ABIERTAS en 36 planes
+   233 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -152,15 +152,6 @@
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
-## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 7 abiertas, 9 hechas
-
-*PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
-
-- [ ] E4 -- EL METAL. Ese .bex enlazado, en el Ryzen. Hoy corre en el
-- [ ] E5f -- errno, Y LOS extern QUE NADIE DEFINE. Lo encontro DOOM al
-- [ ] E5d -- EL bss NO SE SABE NOMBRAR. Salio al hacer E5b: una reloc del
-- ... y 4 mas
-
 ## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 7 abiertas, 1 hechas
 
 *PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
@@ -195,6 +186,15 @@
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] DOOM EN UNA VENTANA -- escrito el 2026-09-11, sin metal todavia
 - [ ] 2 A: tipar la binaria las 3 casillas nuevas en verde, y 449 sin
+- ... y 3 mas
+
+## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
+
+*PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
+
+- [ ] E4 -- EL METAL. Ese .bex enlazado, en el Ryzen. Hoy corre en el
+- [ ] E5f -- errno, Y LOS extern QUE NADIE DEFINE. Lo encontro DOOM al
+- [ ] E5d -- EL bss NO SE SABE NOMBRAR. Salio al hacer E5b: una reloc del
 - ... y 3 mas
 
 ## [`PLAN_EL_NEUTRO_VIGILADO.md`](PLAN_EL_NEUTRO_VIGILADO.md) -- 6 abiertas, 12 hechas

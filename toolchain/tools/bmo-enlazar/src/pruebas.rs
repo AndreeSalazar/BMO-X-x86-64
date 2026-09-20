@@ -505,6 +505,77 @@ int main() {
     );
 }
 
+/// *** LOS TRES LENGUAJES EN UN `.bex` (2026-09-20). Eddi: *"INTI, C y C++,
+/// los tres para poder tener apps basicas"*. Hasta hoy INTI era una isla:
+/// solo sabia salir como `.ibx`. Ahora sale como `.bo` con el MISMO contrato
+/// que C y C++, y el enlazador junta a los tres sin saber de que lenguaje es
+/// cada unidad. Un `entero64` de INTI es un `long long` de C en el mismo
+/// registro: la convencion (`types/convention.rs`) la importan los tres.
+#[test]
+fn un_programa_de_c_llama_a_inti_y_a_cpp() {
+    const MATES_INTI: &str = "perfil llano
+
+funcion suma(a es entero64, b es entero64) devuelve entero64
+    devuelve a + b
+
+funcion doble(x es entero64) devuelve entero64
+    devuelve suma(x, x)
+";
+    const CUENTA_CPP: &str = r#"
+class Cuenta {
+    long long saldo;
+public:
+    Cuenta(long long s) : saldo(s) {}
+    long long ingresar(long long cuanto) { saldo = saldo + cuanto; return saldo; }
+};
+extern "C" long long cobrar(long long base, long long extra) {
+    Cuenta c(base);
+    return c.ingresar(extra);
+}
+"#;
+    const PRINCIPAL_C: &str = r#"
+long long suma(long long a, long long b);
+long long doble(long long x);
+long long cobrar(long long base, long long extra);
+int main() {
+    printf("%d %d %d", (int)suma(20, 22), (int)doble(21), (int)cobrar(suma(1, 2), doble(2)));
+    return 0;
+}
+"#;
+    let mates = bmo_inti_x86_64::cadena::compilar_objeto_fuente(MATES_INTI, "mates.inti")
+        .unwrap_or_else(|e| panic!("el INTI debe compilar a objeto: {e}"));
+    // El objeto de INTI cumple el contrato del `.bo` y exporta sus funciones.
+    let obj = bmo_abi::bef2::objeto::read(&mates).expect("es un objeto");
+    let nombres: Vec<&str> = obj.symbols.iter().map(|s| s.name).collect();
+    assert!(nombres.contains(&"suma") && nombres.contains(&"doble"), "{nombres:?}");
+    let cuenta = bmo_cpp_x86_64::compile_source_to_object(CUENTA_CPP)
+        .unwrap_or_else(|e| panic!("el C++ debe compilar a objeto: {}", e.message));
+    let principal = bmo_c_x86_64::compile_source_to_object(PRINCIPAL_C)
+        .unwrap_or_else(|e| panic!("el C debe compilar a objeto: {}", e.message));
+    let bex = enlazar(&[
+        ("principal.bo".to_string(), principal),
+        ("mates.bo".to_string(), mates),
+        ("cuenta.bo".to_string(), cuenta),
+    ])
+    .expect("los tres tienen que enlazar");
+    assert_eq!(correr(&bex), "42 42 7");
+}
+
+/// Y una funcion de INTI que llama a un nombre que no trae sale como simbolo
+/// INDEFINIDO en el `.bo`, y el enlazador lo dice con nombre si nadie lo trae.
+#[test]
+fn una_llamada_de_inti_sin_destino_es_un_simbolo_para_el_enlazador() {
+    const USA_C: &str = "perfil llano
+
+funcion triple(x es entero64) devuelve entero64
+    devuelve x * 3
+";
+    let obj = bmo_inti_x86_64::cadena::compilar_objeto_fuente(USA_C, "usa.inti").expect("compila a objeto");
+    // Sola, es una biblioteca sin `main`: el enlazador se niega con nombre.
+    let solo = enlazar(&[("usa.bo".to_string(), obj)]);
+    assert!(solo.is_err(), "sin main no hay programa");
+}
+
 /// *** E5c: LOS EJEMPLOS DEL ARBOL, POR LOS DOS CAMINOS, Y LA MISMA SALIDA.
 ///
 /// Desde el 2026-09-17 el build NO compila los ejemplos de C a imagen: los

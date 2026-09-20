@@ -17,7 +17,7 @@
 
 use std::path::Path;
 
-use crate::{empaquetar, emitir, Emitido};
+use crate::{empaquetar, empaquetar_objeto, emitir, Emitido};
 
 /// Lo que sale de la cadena cuando todo fue bien.
 pub struct Compilado {
@@ -54,6 +54,17 @@ impl std::fmt::Display for Fallo {
 /// `raices` son las tablas (`bmo_mods::Roots::find()` desde la linea de
 /// ordenes); se pasan para que quien llame varias veces las cargue una.
 pub fn compilar(texto: &str, nombre: &str, raices: &bmo_mods::Roots) -> Result<Compilado, Fallo> {
+    compilar_como(texto, nombre, raices, false)
+}
+
+/// **El `.bo`**: la misma cadena, y al final un OBJETO en vez de un programa.
+/// Las llamadas que este modulo no trae no son un NO: son simbolos que
+/// `bmo-enlazar` resuelve contra otra unidad (2026-09-20).
+pub fn compilar_objeto(texto: &str, nombre: &str, raices: &bmo_mods::Roots) -> Result<Compilado, Fallo> {
+    compilar_como(texto, nombre, raices, true)
+}
+
+fn compilar_como(texto: &str, nombre: &str, raices: &bmo_mods::Roots, objeto: bool) -> Result<Compilado, Fallo> {
     // ** Por `informar` y no montando los analisis a mano: si esto compilara
     // por otro camino, estaria probando otro compilador.
     let (parte, eventos) = bmo_inti_front::informar(texto, nombre);
@@ -95,8 +106,18 @@ pub fn compilar(texto: &str, nombre: &str, raices: &bmo_mods::Roots) -> Result<C
 
     // ** LO QUE NO LLEGO A UN BYTE es un NO, no un aviso: un binario al que le
     // falta algo no hace lo que dice su fuente (ver `main.rs`, 2026-08-23).
-    if !emitido.sin_emitir.is_empty() {
-        return Err(Fallo::SinEmitir(emitido.sin_emitir.clone()));
+    // Una llamada sin destino cuenta aqui en un PROGRAMA; en un objeto es un
+    // simbolo indefinido que resolvera el enlazador.
+    let mut faltan = emitido.sin_emitir.clone();
+    if !objeto {
+        faltan.extend(emitido.sin_destino());
+    }
+    if !faltan.is_empty() {
+        return Err(Fallo::SinEmitir(faltan));
+    }
+    if objeto {
+        let bytes = empaquetar_objeto(&emitido).map_err(Fallo::Gate)?;
+        return Ok(Compilado { bytes, emitido, parte, eventos: eventos.len() });
     }
 
     // -- LO QUE EL BINARIO VA A DECIR DE SI MISMO: sale de `arbol` y de
@@ -107,6 +128,15 @@ pub fn compilar(texto: &str, nombre: &str, raices: &bmo_mods::Roots) -> Result<C
     // -- EL GATE, y va antes de escribir: `empaquetar` llama a `bmo-verify`.
     let bytes = empaquetar(&emitido, Some(&manifiesto)).map_err(Fallo::Gate)?;
     Ok(Compilado { bytes, emitido, parte, eventos: eventos.len() })
+}
+
+/// El `.bo` de un fuente, para quien enlaza desde un banco (el de
+/// `bmo-enlazar` junta INTI con C y C++).
+pub fn compilar_objeto_fuente(texto: &str, nombre: &str) -> Result<Vec<u8>, String> {
+    let raices = bmo_mods::Roots::find();
+    compilar_objeto(texto, nombre, &raices)
+        .map(|c| c.bytes)
+        .map_err(|f| f.to_string())
 }
 
 /// Lo mismo, leyendo el fichero. Es lo que usa el metro.

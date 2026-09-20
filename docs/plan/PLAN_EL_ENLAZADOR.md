@@ -347,9 +347,19 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
       pregunta que E9 le hizo a C++ con las tablas de clase, y conviene que la
       conteste UNA vez para los dos.
 
-- [ ] **E8 -- INTI decide.** INTI compila hoy un fichero con sus modulos dentro;
-      si quiere objetos, los pide aqui. No es obligatorio: el formato es
-      opcional para quien no lo necesite (regla 2).
+- [x] **E8 -- INTI decide. DECIDIO QUE SI, el 2026-09-20.** Eddi: *"INTI, C
+      y C++, los tres para poder tener apps basicas"*. `bmo-inti-x86-64
+      --objeto` escribe un `.bo` (`emisor-x86_64/src/objeto.rs`): las
+      funciones como simbolos globales, las tablas congeladas y el monton
+      como enlaces de region, y **cada llamada sin destino como simbolo
+      indefinido** con su `Rel32` -- la lista `Emitido::externas`, que en un
+      `.ibx` sigue siendo E0075 y en un `.bo` es trabajo del enlazador. Fila
+      `un_programa_de_c_llama_a_inti_y_a_cpp`: un `main` de C, `suma` y
+      `doble` de INTI y una clase de C++ en un `.bex`, y sale `42 42 7`. Lo
+      que NO hace: INTI no tiene forma de DECLARAR una funcion ajena (no hay
+      `externo` en la gramatica), asi que hoy INTI es biblioteca de C y no al
+      reves; los requisitos y las katanas de un `.bo` no los junta el
+      enlazador (E9); y los objetos de INTI (`texto`, `lista`) no cruzan.
 
 ---
 
@@ -360,7 +370,7 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
    BMO C++    SI    `-c`        E5e -- gratis: usa el codegen de C
    COBOL      NO                E6 -- codegen propio, 2.947 lineas, 0 relocs
    Ada        NO                E7 -- codegen propio, 602 lineas, 0 relocs
-   INTI       NO                E8 -- y es OPCIONAL a proposito (regla 2)
+   INTI       SI    `--objeto` E8 -- desde el 20-09; emisor propio, `objeto.rs`
 ```
 
 Las dos columnas de la derecha son la respuesta a "por que C++ fue barato y los

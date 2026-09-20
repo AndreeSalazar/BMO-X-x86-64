@@ -44,6 +44,7 @@ fn main() {
     let mut salida: Option<PathBuf> = None;
     let mut informe = false;
     let mut solo_mirar = false;
+    let mut objeto = false;
 
     let mut i = 1;
     while i < args.len() {
@@ -63,6 +64,10 @@ fn main() {
             // Compila y no escribe. Para saber si un fuente esta bien sin
             // ensuciar el disco con un `.bex` que no se va a usar.
             "-c" | "--comprueba" => solo_mirar = true,
+            // ** UN OBJETO (`.bo`) y no un programa: lo que este modulo llama
+            // y no trae queda como simbolo para `bmo-enlazar`, que lo junta
+            // con unidades de C y C++ (2026-09-20).
+            "-b" | "--objeto" => objeto = true,
             // ** LO QUE SI SE HACER. Ver `puedo()`.
             "-p" | "--puedo" => {
                 puedo();
@@ -94,7 +99,11 @@ fn main() {
     // metro del emisor los necesita por el MISMO camino: aqui solo se pinta lo
     // que salio. Lo que la cadena explica de si misma esta alli.
     let raices = bmo_mods::Roots::find();
-    let compilado = match bmo_inti_x86_64::cadena::compilar(&texto, &nombre, &raices) {
+    let compilado = match if objeto {
+        bmo_inti_x86_64::cadena::compilar_objeto(&texto, &nombre, &raices)
+    } else {
+        bmo_inti_x86_64::cadena::compilar(&texto, &nombre, &raices)
+    } {
         Ok(c) => c,
         Err(bmo_inti_x86_64::cadena::Fallo::Avisos(pintados)) => {
             eprint!("{pintados}");
@@ -145,7 +154,9 @@ fn main() {
     // Y se llama `.ibx` y no `.i` a proposito: **el linaje se ve en el
     // nombre**. Es un BEX, se carga con el mismo cargador, lo lee el mismo gate.
     // Lo unico que anade es a que se ha comprometido.
-    let destino = salida.unwrap_or_else(|| Path::new(&ruta).with_extension("ibx"));
+    // Un objeto es `.bo` como los de C y C++: el enlazador no pregunta de que
+    // lenguaje viene una unidad, y el nombre tampoco.
+    let destino = salida.unwrap_or_else(|| Path::new(&ruta).with_extension(if objeto { "bo" } else { "ibx" }));
     match std::fs::write(&destino, &bytes) {
         Ok(_) => println!(
             "ok: {} bytes -> {}{}",
@@ -204,6 +215,7 @@ fn ayuda(programa: &str) {
     println!("  -o, --salida <ruta>   donde dejar el `.bex` (por defecto, al lado)");
     println!("  -i, --informe         los numeros que el compilador sabe");
     println!("  -c, --comprueba       compila y no escribe nada");
+    println!("  -b, --objeto          un `.bo` para bmo-enlazar, con C y C++");
     println!("  -p, --puedo           lo que se hacer hoy, y lo que no y por que");
     println!("  -h, --ayuda           esto");
     println!();

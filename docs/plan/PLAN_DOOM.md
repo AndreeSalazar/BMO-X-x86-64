@@ -3,6 +3,16 @@
 > Escrito el **2026-08-08**, el dia que la sonda paso de 0 a 69 ficheros sueltos
 > y el unity build empezo a parsear las 56.465 lineas enteras.
 >
+> ★★★★ **CERRADO EL 2026-09-20: DOOM SE JUEGA EN EL RYZEN.** Ese dia se jugo
+> hasta que el personaje murio, sobre el formato BEF2 recien estrenado
+> (`PLAN_BEF_NATIVO.md`, 1.285 relocs de 16 B, hashes al aterrizar) y sobre el
+> emisor de C de septiembre (`PLAN_EL_TROQUEL.md`: -59 % de instrucciones,
+> convencion de llamada hibrida, residencia en registros, reenvio `jmp`), que
+> ningun CPU habia ejecutado antes. 742 KB de `.bex` (eran 912 en agosto), 58
+> fps en ventana. Lo que queda de DOOM ya no es de DOOM: es del escalado por
+> CPU (`bmo-doom-rendimiento`) y de la GPU, que esta aparcada con plan. Todo
+> lo de abajo es la historia de como se llego, y se deja entera.
+>
 > ★★★ **AL DIA EL 2026-08-13. Si vienes a saber por que DOOM no se juega, salta
 > directo a [DONDE MUERE DOOM HOY](#-donde-muere-doom-hoy----2026-08-13-y-ya-no-es-una-teoria)**,
 > al final. Lo de aqui arriba es el plan y su historia; la respuesta esta abajo

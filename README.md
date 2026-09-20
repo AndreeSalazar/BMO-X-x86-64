@@ -4,20 +4,22 @@
 
 # BMO-X
 
-**A bare-metal orchestrator that boots on real hardware and runs COBOL, C, Ada
-and INTI -- compiled by its own toolchain. No LLVM. No GCC. No QEMU.**
+**A bare-metal orchestrator that boots on real hardware and runs COBOL, C, C++,
+Ada and INTI -- compiled by its own toolchain into its own executable format.
+No LLVM. No GCC. No ELF. No QEMU.**
 
 ![status](https://img.shields.io/badge/boots_on-real_hardware-2ea043)
 ![cpu](https://img.shields.io/badge/verified_on-Ryzen_5_5600X-2ea043)
 ![ram](https://img.shields.io/badge/RAM_footprint-5.4_MiB-1f6feb)
 ![syscalls](https://img.shields.io/badge/syscalls-2_frozen-1f6feb)
-![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_Ada_-_INTI-8957e5)
+![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_C%2B%2B_-_Ada_-_INTI-8957e5)
+![format](https://img.shields.io/badge/executable_format-BEF2_(own)-8957e5)
 ![inti](https://img.shields.io/badge/system_language-INTI-f0883e)
 ![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
 
 Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
-filesystem, and **four native compilers**. It boots on an AMD Ryzen 5 5600X and
-occupies **5.4 MiB of 14.8 GiB of RAM**.
+filesystem, **five native compilers** and the executable format they emit. It
+boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
 
 **1.792 commits - 1.204 files - 17 April to 5 September 2026 - one developer.**
 
@@ -40,8 +42,9 @@ escrito --y las tres cosas que cuesta-- estan en
 [`docs/identidad/EL_ORQUESTAL.md`](docs/identidad/EL_ORQUESTAL.md).
 
 Esta escrito desde cero en Rust, en Lima, por una persona: la cadena de
-arranque, el kernel, los drivers, el sistema de ficheros y cuatro compiladores
-nativos (C, COBOL, Ada e INTI) que no usan LLVM ni GCC. Arranca en un AMD Ryzen
+arranque, el kernel, los drivers, el sistema de ficheros, cinco compiladores
+nativos (C, C++, COBOL, Ada e INTI) que no usan LLVM ni GCC, y el formato
+ejecutable que emiten (BEF2, propio: no hay ELF). Arranca en un AMD Ryzen
 5 5600X **de verdad**, no en QEMU.
 
 La documentacion tecnica esta en espanol --`BITACORA.md`, `ARQUITECTURA.md`,
@@ -88,14 +91,16 @@ under it is a slogan.
 | | |
 |---|---|
 | Boots UEFI -> Ring 0 -> Ring 3 | kernel up at **47 ms**. The desktop's 1.100 ms nap was removed on 2026-09-08 -- it now waits only if something was **not** handed over; the new figure is not yet measured on metal |
-| Runs its own compilers' output | COBOL, C and Ada binaries, launched from disk |
+| Runs its own compilers' output | COBOL, C, C++, Ada and INTI binaries, launched from disk |
+| Its own executable format, on metal | **BEF2** (2026-09-20): a 64-byte header with four fixed regions -- the page permission comes from *where* a region sits, not from a flag -- and a signature that covers the index, every region and every attachment. ELF is gone from the tree; the desktop and DOOM booted on it the day it landed |
+| Three languages in one program | C, C++ and INTI compile to the same `.bo` object and `bmo-enlazar` links them into one `.bex` -- a C `main` calling an INTI function and a C++ class, `42 42 7`, in the host bank |
 | Decimal arithmetic that is exact | a bank batch totalling `$1,135.00` from a file it read |
 | USB keyboard and mouse | xHCI + HID written here, no BIOS help |
 | Disk | AHCI, FAT32 read *and* write, plus ESTRATOS, its own copy-on-write volume |
 | 12 cores | SMP bring-up, `12 of 12` |
 | Ring 3 isolation | a fault kills the task; the kernel takes the screen back and prints its last four lines |
 | Traps its own undefined behaviour | INTI `llano` on the Ryzen: overflow, divide-by-zero and bad conversion all caught **in metal** |
-| Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **27 fps** -- every pixel expanded and blitted by the CPU, no GPU |
+| Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **58 fps** in a window -- every pixel expanded and blitted by the CPU, no GPU. Played to the character's death on 2026-09-20 on the new format and the new C emitter (**-59 %** instructions on the metro, hybrid register calling convention), which no CPU had run before that day |
 | 12 cores doing real work | a kernel-side workload measured at **11,52x** over one core |
 | Explains its own crashes in Spanish | a page fault inside the framebuffer prints `ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231`, not just an address |
 | Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
@@ -272,13 +277,13 @@ Measured from a real build, not estimated:
 
 | | bytes | what it is |
 |---|---:|---|
-| `BOOTX64.EFI` | **1.218.048** | boot chain + 2 stages + the Ring 0 kernel. **This one file is the OS** |
-| `sys/d.bex` | 623.448 | the desktop and compositor -- Ring 3, loaded from disk |
-| 28 more programs | 271.264 | C, COBOL, Ada and INTI examples, all compiled here |
-| `apps/doom.bex` | 912.512 | optional, GPL, built only if the port is present |
+| `BOOTX64.EFI` | **1.264.640** | boot chain + 2 stages + the Ring 0 kernel. **This one file is the OS** |
+| `sys/d.bex` | 963.232 | the desktop and compositor -- Ring 3, loaded from disk |
+| 38 more programs | 376.465 | C, C++, COBOL, Ada and INTI examples, all compiled here, all BEF2 |
+| `apps/doom.bex` | 731.280 | optional, GPL, built only if the port is present (was 912 KB before the C emitter's September campaign) |
 | `apps/doom1.wad` | 4.196.020 | id Software's shareware data, not ours |
 
-**The operating system is 1,16 MiB.** Not the kernel -- the boot chain, the
+**The operating system is 1,2 MiB.** Not the kernel -- the boot chain, the
 kernel, the drivers, the filesystems, USB, AHCI and the capability engine, in a
 single file the firmware loads. It uses **5,4 MiB of RAM** once running.
 
@@ -332,8 +337,12 @@ a mano`), so it is checked, not claimed.
 *Cost*: every new ability needs a handle kind to hang from, so there is no quick
 way to add "just one syscall".
 
-**Its own compilers.** COBOL, C, Ada and INTI, straight to machine code and
-BMO's own `.bex` container. No LLVM, no libc, no linker.
+**Its own compilers, and its own format.** COBOL, C, C++, Ada and INTI,
+straight to machine code and BMO's own **BEF2** container: 64-byte header,
+four regions in fixed slots, one relocation kind, a signature that is *of the
+index* (header and attachment table) and of every region and attachment. No
+LLVM, no libc, no ELF. There *is* a linker now -- `bmo-enlazar`, static only,
+and it joins C, C++ and INTI objects without knowing which language wrote them.
 *Cost*: every bug in every language is ours, and a missing corner of C is found
 by a program that dies, not by a spec.
 
@@ -802,7 +811,7 @@ because the reason a decision was made is worth more than the decision.
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | The bar, and why Ring 0 is closed |
 | [Ultra_kernel_x86-64](Ultra_kernel_x86-64/README.md) | Ring 0: boot chain, drivers, filesystems |
 | [Ultra_userspace](Ultra_userspace/README.md) | Ring 3: the runtime and the compositor |
-| [toolchain](toolchain/README.md) | The four native compilers (C, COBOL, Ada, INTI) and the shared backend |
+| [toolchain](toolchain/README.md) | The five native compilers (C, C++, COBOL, Ada, INTI), the linker and the shared backend |
 | [platform](platform/README.md) | The ABI, the `.bex` container, the drivers as crates |
 | [docs/](docs/) | The master plans: audio, network, SMP, self-healing, DOOM, RAM |
 
