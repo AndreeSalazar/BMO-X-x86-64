@@ -291,7 +291,7 @@ pub(crate) fn shell_bex() {
         s_log("[bex] ningun programa admitido todavia");
         return;
     }
-    s_log("== programas BEX (BEF1 x86-64) ==");
+    s_log("== programas BEX (BEF2 x86-64) ==");
     s_log(" tag     imagen  secc  entry       pid tid  estado     lineas");
     // Formateo con columnas de ancho fijo: quietas se leen de un vistazo.
     fn txt(b: &mut [u8; 80], o: &mut usize, t: &str) {
