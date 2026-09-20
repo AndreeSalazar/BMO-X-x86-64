@@ -88,7 +88,10 @@ pub(crate) fn cargar(p: &bmo::Pantalla) {
     let bytes = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, n) };
     let medidas = match bmo_imagen::medir(bytes) {
         Ok(m) => m,
-        Err(e) => return fallar(e.motivo()),
+        Err(e) => {
+            fichero.soltar();
+            return fallar(e.motivo());
+        }
     };
     let lleva = (medidas.ancho as u64 * medidas.alto as u64 * 4).max(4);
     unsafe { *addr_of_mut!(BUFER) = bmo::Memoria::request(lleva) };
@@ -99,8 +102,23 @@ pub(crate) fn cargar(p: &bmo::Pantalla) {
     let px = unsafe { core::slice::from_raw_parts_mut(bufer.base() as *mut u32, (lleva / 4) as usize) };
     let m = match bmo_imagen::decodificar(bytes, px) {
         Ok(m) => m,
-        Err(e) => return fallar(e.motivo()),
+        Err(e) => {
+            fichero.soltar();
+            return fallar(e.motivo());
+        }
     };
+    // *** Y AQUI SE SUELTA DE VERDAD (2026-09-20).
+    //
+    // La linea de arriba decia "el fichero se suelta al acabar" desde que se
+    // escribio, y **no se soltaba**: `Memoria` no tenia `Drop` y el kernel no
+    // tenia con que. Este bloque se quedaba cogido para siempre, y con el una
+    // de las cuatro peticiones que tenia el proceso en toda su vida. Es el
+    // motivo por el que el visor de imagenes no podia pedir las suyas.
+    //
+    // [!] DESPUES de decodificar, no antes: `bytes` apunta aqui dentro. Y sale
+    // de `from_raw_parts`, o sea que el compilador NO lo sabe -- moverlo antes
+    // compilaria y leeria memoria desmapeada.
+    fichero.soltar();
     // CUBRIR: la escala es la MENOR de las dos proporciones imagen/pantalla
     // (en milesimas de pixel de imagen por pixel de pantalla), y lo que sobra
     // se reparte a los dos lados.

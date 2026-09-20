@@ -39,12 +39,17 @@
 //!
 //! === Lo que NO hay, dicho entero ===
 //!
-//! - **No se devuelve.** No hay `liberar`. Lo pedido vive hasta que el proceso
-//!   muere, y entonces se destruye su espacio de direcciones entero. Para un
-//!   programa que pide un bloque al arrancar eso es exactamente lo correcto;
-//!   para uno que pida y suelte en un bucle, no -- y por eso hay un tope de
-//!   peticiones, para que ese caso falle **pronto y diciendolo** en vez de
-//!   comerse la RAM en silencio.
+//! - **SE DEVUELVE desde el 2026-09-20** ([`MEM_OP_SOLTAR`]). Aqui ponia *"no
+//!   hay `liberar`"*, y Ring 3 estaba escrito como si lo hubiera:
+//!   `fondo.rs` decia literalmente *"el fichero se suelta al acabar"* sobre un
+//!   valor que solo se caia del alcance. Las dos mitades no se hablaban, y lo
+//!   pago el escritorio -- cuatro peticiones gastadas antes de abrir nada, y el
+//!   visor de imagenes sin cupo para las suyas.
+//!   Lo que sigue sin haber es un `malloc`: se devuelve **el bloque entero**,
+//!   el que se pidio, y no un trozo.
+//! - **La VA no se reusa.** Soltar devuelve los marcos y la ranura; la
+//!   direccion no. Ver el techo en `request`: gastar VA sale mas barato que
+//!   razonar sobre un handle viejo que vuelve a resolver.
 //! - **Contiguo en fisico.** Se piden marcos seguidos porque un bloque que el
 //!   programa recorre como un array tiene que serlo. Si la RAM esta
 //!   fragmentada y no hay hueco, se rechaza y **se dice** -- entregar memoria a
@@ -62,13 +67,39 @@ use crate::ring0::obj::cap;
 /// el, un `request(-1)` mal calculado se lleva la maquina entera.
 pub const MAX_BYTES: u64 = 64 * 1024 * 1024;
 
-/// Cuantas veces puede pedir un proceso.
+/// Cuantos bloques puede tener un proceso **A LA VEZ**.
 ///
-/// Cuatro. No hay forma de devolver memoria, asi que el numero de peticiones
-/// ES el numero de fugas posibles. Con esto, un programa que pida en un bucle
-/// falla a la cuarta vuelta con un motivo, en vez de agotar la RAM y tumbar lo
-/// que estuviera corriendo al lado.
-pub const MAX_PETICIONES: usize = 4;
+/// *** ERAN CUATRO, Y LO QUE CONTABAN NO ERA ESTO (2026-09-20).
+///
+/// El numero llevaba escrito su propio motivo: *"no hay forma de devolver
+/// memoria, asi que el numero de peticiones ES el numero de fugas posibles"*.
+/// Cierto mientras no se pudiera devolver -- y por eso cuatro era **el
+/// presupuesto de toda la vida del proceso**, no un limite de concurrencia.
+///
+/// ** Lo que costaba, medido en el escritorio: el doble bufer, el fichero del
+/// fondo, los pixeles del fondo y la consola son CUATRO, y se gastan antes de
+/// que el dueno abra nada. El visor de imagenes pide tres mas --fichero,
+/// pixeles y el taller del inflate-- y los tres se estrellaban.
+///
+/// Con [`MEM_OP_SOLTAR`] el contador baja, asi que esto vuelve a ser lo que su
+/// nombre dice: **cuantos a la vez**. Ocho porque es lo que cabe en una sesion
+/// del escritorio con el visor abierto y todavia sobra, y porque dimensiona la
+/// tabla `bloques` de cada ranura: 8 x 16 procesos x 24 B = 3 KiB, y ni una
+/// asignacion.
+///
+/// [!] Subirlo YA NO es subir el numero de fugas. Lo era antes, y por eso no se
+/// subio antes.
+pub const MAX_PETICIONES: usize = 8;
+
+/// **El techo de la VA de bloques.** Justo debajo de donde empiezan los
+/// PRESTAMOS (`loan::PRESTAMO_VA_BASE`), que es el vecino de arriba.
+///
+/// ** Se escribe el numero y no se importa el de al lado a proposito: `loan`
+/// esta en la misma familia y elige SU base diciendo *"lejos de
+/// `MEMORIA_VA_BASE`"*. Las dos constantes se miran, y un guardian que las
+/// compare es trabajo que todavia no existe; lo que si existe es que pasarse de
+/// aqui se dice en voz alta en vez de mapear encima de lo ajeno.
+const MEMORIA_VA_TOPE: u64 = 0x0000_0001_0000_0000;
 
 /// Donde empieza el bloque. Espejo de `bmo_abi::...::MEM_OP_BASE`.
 pub const MEM_OP_BASE: u64 = 0x01;
@@ -108,6 +139,13 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 /// propia capability. Saber donde vive la memoria del vecino no le hace falta a
 /// nadie.
 pub const MEM_OP_FISICA: u64 = 0x04;
+
+/// **Devolver el bloque.** Espejo de `bmo_abi::...::MEM_OP_SOLTAR`.
+///
+/// Contesta 1 si se devolvio y 0 si no se pudo --hoy el unico motivo es que
+/// siga PRESTADO a otro--, y el motivo va a CABINA. **Un cero no es un fallo
+/// del que llama**: es que hay alguien leyendo esa memoria ahora mismo.
+pub const MEM_OP_SOLTAR: u64 = 0x05;
 
 pub const ERROR_TOO_BIG: u32 = 0xE001;
 pub const ERROR_NO_RAM: u32 = 0xE002;
@@ -450,6 +488,25 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         }
         c.cursor
     };
+    // *** EL CURSOR NO VUELVE, NI SIQUIERA AL SOLTAR, y por eso hay techo.
+    //
+    // Soltar devuelve los MARCOS y la RANURA; la direccion no se reusa a
+    // proposito: una VA que vuelve es una VA que un handle viejo podria volver
+    // a resolver, y ese es justo el fallo que `loan::OP_SOLTAR` documenta y que
+    // la generacion de la capability existe para impedir. Sale mas barato
+    // gastar VA --hay 512 MiB aqui-- que razonar sobre alias.
+    //
+    // ** Pero gastar sin techo es caminar hacia la region de los PRESTAMOS
+    // (`0x1_0000_0000`), y entonces un bloque nuevo se mapearia encima de lo
+    // que otro proceso te presto **sin que nada fallara**. Con techo, el que
+    // se pasa recibe un no con su motivo.
+    if base < vmm::MEMORIA_VA_BASE
+        || base.saturating_add(paginas * mm::PAGE) > MEMORIA_VA_TOPE
+    {
+        crate::ring0::cabina::warn(
+            "mem", "SIN SITIO: esta sesion agoto los 512 MiB de VA de bloques", base);
+        return Err(ERROR_NO_RAM);
+    }
 
     let mut off = 0u64;
     while off < paginas * mm::PAGE {
@@ -489,8 +546,18 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         c.cursor = base + paginas * mm::PAGE;
         // El bloque se apunta ANTES de subir el contador de peticiones, que es
         // lo que hace que el indice sea siempre uno libre.
-        if c.peticiones < MAX_PETICIONES {
-            c.bloques[c.peticiones] = Bloque { base, fisica, bytes: paginas * mm::PAGE };
+        // *** POR RANURA LIBRE, Y NO POR EL CONTADOR (2026-09-20).
+        //
+        // Esto era `c.bloques[c.peticiones]`, que vale mientras el contador y
+        // el numero de ranuras ocupadas sean el mismo numero -- o sea mientras
+        // NO se pueda devolver. Con `MEM_OP_SOLTAR` dejan de serlo: se suelta
+        // el bloque 1 de tres, el contador baja a 2, y la siguiente peticion
+        // escribiria encima del bloque 2 **que sigue vivo**. El proceso se
+        // quedaria con un bloque mapeado que la contabilidad ya no conoce: no
+        // lo liberaria nadie al morir, y `donde_cae` diria "fuera" de algo que
+        // es suyo. Se busca hueco, que es lo unico que sobrevive a soltar.
+        if let Some(i) = c.bloques.iter().position(|b| b.base == 0) {
+            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE };
         }
         c.peticiones += 1;
         c.entregados += paginas * mm::PAGE;
@@ -661,6 +728,82 @@ pub fn fisica_de(pid: u32, va: u64, len: u64) -> Option<u64> {
     None
 }
 
+/// **DEVOLVER UN BLOQUE: los marcos, la ranura y el handle.**
+///
+/// `Some(1)` devuelto, `Some(0)` no se pudo y el motivo esta en CABINA,
+/// `None` ese bloque no es de este proceso.
+///
+/// # *** EL ORDEN DE LOS TRES PASOS, QUE NO ES LIBRE
+///
+/// ```text
+///    1  DESMAPEAR   quitarle las PTE al proceso
+///    2  liberar     devolver los marcos al asignador
+///    3  revocar     invalidar el handle
+/// ```
+///
+/// ** Uno antes que dos, y a vida o muerte. Al reves, el marco vuelve al
+/// asignador **mientras el proceso todavia lo tiene mapeado**: se lo entregan a
+/// otro, los dos escriben encima del mismo sitio y nada falla hasta tres
+/// arranques despues. Es exactamente la familia que `caminable` y
+/// `esta_libre` existen para cazar en el otro extremo del kernel.
+///
+/// ** Y tres, porque un handle que sobrevive a su bloque es lo que
+/// `loan::OP_SOLTAR` ya documenta: la generacion de la capability esta para
+/// esto y basta con dejarla trabajar.
+///
+/// # Lo unico que puede decir que NO
+///
+/// Que el bloque siga **prestado** a otro proceso. `memory::process_died` ya
+/// hace esa misma pregunta al morir --y por el mismo motivo-- asi que aqui no
+/// hay una politica nueva: hay la misma, aplicada tambien al caso vivo.
+///
+/// [!] `TOTAL` no baja, y es a proposito: significa *"cuanta memoria ha pedido
+/// Ring 3 en esta sesion"*, no cuanta tiene. `entregados` SI baja, porque ese
+/// es el numero que contesta `MEM_OP_BYTES` y ahi la pregunta es *"cuanta
+/// tengo"*.
+///
+/// [!] Se desmapea en `read_cr3()`. Durante un syscall desde Ring 3 el CR3
+/// sigue siendo el del llamante, que es de quien es este bloque. Es la misma
+/// nota que llevan `memory::request` y `loan::OP_SOLTAR`.
+fn soltar(pid: u32, base: u64) -> Option<u64> {
+    let slot = slot(pid)?;
+    let (i, b) = unsafe {
+        let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
+        let i = c.bloques.iter().position(|x| x.base == base && x.bytes != 0)?;
+        (i, c.bloques[i])
+    };
+    if crate::ring0::obj::loan::hay_prestado_en(pid, b.base, b.bytes) {
+        crate::ring0::cabina::warn(
+            "mem", "NO se suelta: ese bloque sigue PRESTADO a otro", b.base);
+        return Some(0);
+    }
+    let aspace = vmm::read_cr3();
+    let paginas = b.bytes / mm::PAGE;
+    // 1: quitarselo de delante ANTES de que vuelva al asignador.
+    for p in 0..paginas {
+        vmm::unmap_page(aspace, b.base + p * mm::PAGE);
+    }
+    // 2: y limpiarlos al devolverlos, por lo mismo que `process_died`: el
+    // asignador no limpia al entregar, asi que el siguiente leeria lo de este.
+    for p in 0..paginas {
+        let marco = b.fisica + p * mm::PAGE;
+        mm::phys::zero_frame(marco);
+        mm::phys::free_frame(marco);
+    }
+    unsafe {
+        let c = &mut (*core::ptr::addr_of_mut!(CUENTAS))[slot];
+        c.bloques[i] = SIN_BLOQUE;
+        c.peticiones = c.peticiones.saturating_sub(1);
+        c.entregados = c.entregados.saturating_sub(b.bytes);
+    }
+    // 3.
+    if let Some(h) = cap::find(pid, cap::KIND_MEMORIA, base) {
+        cap::revoke(pid, h);
+    }
+    crate::ring0::cabina::bytes("mem", "bloque DEVUELTO por su dueno", b.bytes);
+    Some(1)
+}
+
 /// Las operaciones sobre el handle. `base` es la VA con la que se concedio.
 pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
     match operation {
@@ -682,6 +825,7 @@ pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
         // bloque ya lo contesta `MEM_OP_BYTES`, y pedir dos numeros por dos
         // caminos distintos es como se acaban desacoplando.
         MEM_OP_FISICA => fisica_de(pid, base, 1),
+        MEM_OP_SOLTAR => soltar(pid, base),
         _ => None,
     }
 }

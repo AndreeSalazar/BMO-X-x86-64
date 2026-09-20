@@ -65,6 +65,28 @@ impl Memoria {
         self.base as *mut u8
     }
 
+    /// **Devolverlo.** Consume el bloque: despues de esto su memoria ya no es
+    /// tuya y escribir en ella es un `#PF`.
+    ///
+    /// `true` devuelto, `false` no se pudo -- hoy el unico motivo es que siga
+    /// PRESTADO a otro proceso, y el motivo esta en CABINA (F11).
+    ///
+    /// *** TOMA `self` Y NO `&self`, y es la mitad del valor de esto. Con una
+    /// referencia quedaria un `Memoria` en manos del programa con una `base`
+    /// que ya no esta mapeada -- exactamente el mismo argumento que lleva
+    /// escrito `Pantalla::soltar` desde que existe.
+    ///
+    /// ** Y NO hay `Drop`, a proposito. Soltar automaticamente al salir del
+    /// alcance parece lo correcto hasta que se mira quien pide memoria aqui:
+    /// `Pantalla::activar_doble_bufer` pide ~8 MB, se queda con la direccion y
+    /// **deja caer el `Memoria`** porque ese bloque tiene que vivir lo que viva
+    /// el proceso. Con `Drop`, el escritorio se quedaria sin lienzo en la linea
+    /// siguiente. Un `Drop` aqui seria correcto en el 80 % de los sitios y
+    /// mortal en el otro 20, y eso no es una politica: es una trampa.
+    pub fn soltar(self) -> bool {
+        invoke(self.cap, MEM_OP_SOLTAR, 0, 0, 0).valor().unwrap_or(0) == 1
+    }
+
     /// **El handle del bloque**, para las operaciones que lo reciben.
     ///
     /// * Es una capability, no una direccion: quien la recibe puede comprobar

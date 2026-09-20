@@ -188,6 +188,8 @@ pub const OFRECER_PADRE_NO_VIVE: u32 = 5;
 /// **Donde vive de verdad el bloque**, para escribirlo en un descriptor de DMA.
 /// Solo el dueno. Ver [`crate::sys::memoria_fisica`].
 pub const MEM_OP_FISICA: u32 = 0x04;
+/// Devolver el bloque entero. 1 = devuelto, 0 = no se pudo (sigue prestado).
+pub const MEM_OP_SOLTAR: u32 = 0x05;
 /// **Quien me lanzo**, como TID. `0` si nadie -- ver [`crate::sys::mi_padre`].
 pub const OP_MI_PADRE: u32 = 0x26;
 

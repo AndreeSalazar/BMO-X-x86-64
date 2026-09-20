@@ -524,6 +524,30 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 /// capability. Saber donde vive la memoria del vecino no le hace falta a nadie.
 pub const MEM_OP_FISICA: u64 = 0x04;
 
+/// **Devolver el bloque entero.** Contesta 1 si se devolvio, 0 si no se pudo.
+///
+/// *** POR QUE APARECE EN SEPTIEMBRE Y NO ANTES
+///
+/// Porque hasta el 2026-09-20 el kernel decia, en su cabecera y con esas
+/// palabras, *"no se devuelve, no hay `liberar`"*. Y Ring 3 estaba escrito como
+/// si lo hubiera: el escritorio pide el fichero de su fondo, lo decodifica y
+/// **cree que lo suelta** -- un comentario que describia un mecanismo que no
+/// existia. La cuenta la pagaba el usuario sin poder verla: cuatro peticiones
+/// por proceso y de por vida, gastadas antes de abrir nada, y el visor de
+/// imagenes sin cupo para las suyas.
+///
+/// ** Lo que se devuelve es EL BLOQUE, el que se pidio, y no un trozo de el.
+/// Esto sigue sin ser un `malloc`: el kernel entrega y recoge paginas, y quien
+/// quiera trocearlas lo hace en Ring 3 con la politica que prefiera.
+///
+/// [!] Un **0** no es un fallo de quien llama. Hoy el unico motivo es que ese
+/// bloque siga PRESTADO a otro proceso, y devolver memoria que otro esta
+/// leyendo seria mucho peor que negarse. El motivo va a CABINA.
+///
+/// [!] La direccion NO se reusa. El handle se revoca y la VA se abandona: una
+/// VA que vuelve es una VA que un handle viejo podria volver a resolver.
+pub const MEM_OP_SOLTAR: u64 = 0x05;
+
 /// `INVOKE` operations accepted by a channel (estuary) capability.
 pub const CHANNEL_OP_GET_SEQ: u64 = 0x01;
 
