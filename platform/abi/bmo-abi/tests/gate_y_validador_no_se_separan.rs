@@ -248,3 +248,200 @@ fn los_dos_rechazan_lo_que_no_es_x86_64() {
         assert_eq!(gate, val, "la puerta y el validador discrepan en arch {arch:#04x}");
     }
 }
+
+// =======================================================================
+//  BEF2: la puerta del kernel y el lector del contrato, sobre el formato
+//  nuevo (2026-09-19, B3 de docs/plan/PLAN_BEF_NATIVO.md)
+// =======================================================================
+//
+// ** La puerta NO puede importar `bmo-abi` (cero dependencias: la enlaza Ring
+// 0), asi que vuelve a haber dos lectores del mismo formato. Es la misma
+// situacion que con BEF1 y se paga igual: estas filas le preguntan lo mismo a
+// los dos y exigen la misma respuesta.
+
+fn bef2_buena() -> Vec<u8> {
+    let mut e = bmo_abi::bef2::Escritor::ejecutable();
+    e.codigo(vec![0xC3; 64])
+        .constantes(b"hola\0".to_vec())
+        .datos(vec![0u8; 8])
+        .ceros(4096)
+        .reloc(bmo_abi::bef2::Reloc {
+            donde: bmo_abi::bef2::Region::Datos,
+            destino: bmo_abi::bef2::Region::Constantes,
+            offset: 0,
+            addend: 0,
+        });
+    e.construir().unwrap()
+}
+
+/// La puerta ve las REGIONES como secciones, con el tipo que el kernel ya
+/// sabia mapear y el indice con el que la firma las nombra.
+#[test]
+fn la_puerta_ve_un_bef2_como_las_secciones_que_el_kernel_espera() {
+    let img = bef2_buena();
+    bmo_abi::bef2::leer(&img).expect("el lector la acepta");
+    let rev = bmo_bex_gate::revisar(&img, img.len()).expect("la puerta la acepta");
+    assert!(rev.es_bef2());
+    assert_eq!(rev.entry_offset(), 0);
+
+    let kinds: Vec<u8> = rev.secciones().map(|s| s.kind).collect();
+    assert!(kinds.contains(&bmo_bex_gate::CODE));
+    assert!(kinds.contains(&bmo_bex_gate::RODATA));
+    assert!(kinds.contains(&bmo_bex_gate::DATA));
+    assert!(kinds.contains(&bmo_bex_gate::BSS));
+    assert!(kinds.contains(&bmo_bex_gate::RELOCS));
+    assert!(kinds.contains(&bmo_bex_gate::SIGNATURE));
+    assert!(kinds.contains(&bmo_bex_gate::REQUISITOS));
+
+    // El codigo es lo unico ejecutable, y los ceros no ocupan fichero.
+    for s in rev.secciones() {
+        assert_eq!(
+            s.flags & bmo_bex_gate::SECCION_FLAG_EXEC != 0,
+            s.kind == bmo_bex_gate::CODE,
+            "kind {:#04x}",
+            s.kind
+        );
+        if s.kind == bmo_bex_gate::BSS {
+            assert_eq!(s.file_size, 0);
+            assert_eq!(s.mem_size, 4096);
+        }
+    }
+    // Y la firma nombra a las regiones por su numero: 0 codigo, 1 constantes,
+    // 2 datos. Es el mismo byte que escribe el escritor.
+    let codigo = rev.secciones().find(|s| s.kind == bmo_bex_gate::CODE).unwrap();
+    assert_eq!(codigo.indice, 0);
+}
+
+/// Lo que hay que traer del disco cubre todo lo que el kernel lee.
+#[test]
+fn la_puerta_dice_cuanto_hay_que_traer_de_un_bef2() {
+    let img = bef2_buena();
+    let rev = bmo_bex_gate::revisar(&img, img.len()).unwrap();
+    let hasta = rev.hasta_donde_hace_falta();
+    for s in rev.secciones() {
+        if s.kind == bmo_bex_gate::BSS || !bmo_bex_gate::se_lee(s.kind) {
+            continue;
+        }
+        assert!(
+            s.file_offset + s.file_size <= hasta,
+            "la seccion {:#04x} se queda fuera de lo que se trae",
+            s.kind
+        );
+    }
+    assert!(hasta <= img.len() as u64);
+}
+
+/// **Las dos copias contestan lo mismo.** Con la puerta de ayer --que no sabia
+/// leer BEF2-- todas estas filas fallan en la primera linea.
+#[test]
+fn los_dos_rechazan_las_mismas_mentiras_de_un_bef2() {
+    let cambios: [(&str, fn(&mut Vec<u8>)); 8] = [
+        ("otro abi", |i| i[4] = 9),
+        ("bandera inventada", |i| i[5] |= 1 << 6),
+        ("reservado sucio", |i| i[6] = 1),
+        ("pide AVX", |i| i[8..16].copy_from_slice(&0b111u64.to_le_bytes())),
+        ("sin codigo", |i| i[28..32].copy_from_slice(&0u32.to_le_bytes())),
+        ("entrada fuera", |i| i[16..20].copy_from_slice(&9999u32.to_le_bytes())),
+        ("demasiados anexos", |i| i[20..24].copy_from_slice(&99u32.to_le_bytes())),
+        ("codigo fuera del fichero", |i| {
+            i[28..32].copy_from_slice(&0xFFFF_0000u32.to_le_bytes())
+        }),
+    ];
+    for (que, cambio) in cambios {
+        let mut img = bef2_buena();
+        cambio(&mut img);
+        assert!(
+            bmo_abi::bef2::leer(&img).is_err(),
+            "el lector traga '{que}'"
+        );
+        assert!(
+            bmo_bex_gate::revisar(&img, img.len()).is_err(),
+            "la puerta traga '{que}'"
+        );
+    }
+}
+
+/// Un OBJETO es una imagen valida y NO se carga: la puerta manda al enlazador.
+#[test]
+fn un_objeto_bef2_es_valido_y_la_puerta_no_lo_carga() {
+    let mut e = bmo_abi::bef2::Escritor::objeto();
+    e.codigo(vec![0xC3; 16]);
+    let img = e.construir().unwrap();
+    assert!(bmo_abi::bef2::leer(&img).is_ok());
+    assert_eq!(
+        bmo_bex_gate::revisar(&img, img.len()).err(),
+        Some(bmo_bex_gate::Falta::EsUnObjetoSinEnlazar)
+    );
+}
+
+/// Sin firma no se carga: el kernel aplica relocs que vienen del mismo
+/// fichero, y sin hashes no hay con que comprobar que llegaron enteros.
+#[test]
+fn un_bef2_sin_firma_no_pasa_la_puerta() {
+    let mut img = bef2_buena();
+    // Se le quita el anexo de firma de la tabla (es el ultimo).
+    let cuantos = u32::from_le_bytes(img[20..24].try_into().unwrap()) as usize;
+    img[20..24].copy_from_slice(&((cuantos - 1) as u32).to_le_bytes());
+    assert!(bmo_bex_gate::revisar(&img, img.len()).is_err());
+    assert!(bmo_abi::bef2::leer(&img).is_err());
+}
+
+/// **La firma de un BEF2, leida COMO LA LEE EL KERNEL.**
+///
+/// `task/landing.rs::Firmas` lee cada entrada como `section_index: u16` +
+/// relleno + digest, y BEF2 escribe `que: u8` + cero + relleno. Son los mismos
+/// bytes mientras el indice quepa en uno, y en BEF2 cabe siempre. Esta fila lo
+/// comprueba con el codigo del kernel copiado a mano: si algun dia dejan de
+/// coincidir, se pone roja aqui y no en el Ryzen.
+#[test]
+fn el_kernel_encuentra_los_hashes_de_un_bef2() {
+    const CAB: usize = 8;
+    const ENTRADA: usize = 40;
+    const DIGEST: usize = 32;
+
+    let img = bef2_buena();
+    let rev = bmo_bex_gate::revisar(&img, img.len()).unwrap();
+    let firma = rev
+        .secciones()
+        .find(|s| s.kind == bmo_bex_gate::SIGNATURE)
+        .expect("trae firma");
+    let bytes = &img[firma.file_offset as usize..(firma.file_offset + firma.file_size) as usize];
+
+    // -- Copiado de `Firmas::abrir` / `Firmas::digest_de` --------------------
+    let cuantos = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+    assert!(CAB + cuantos * ENTRADA <= bytes.len(), "la tabla no cuadra");
+    let digest_de = |idx: usize| -> Option<[u8; DIGEST]> {
+        for k in 0..cuantos {
+            let e = CAB + k * ENTRADA;
+            let quien = u16::from_le_bytes(bytes[e..e + 2].try_into().unwrap()) as usize;
+            if quien != idx {
+                continue;
+            }
+            let mut d = [0u8; DIGEST];
+            d.copy_from_slice(&bytes[e + 8..e + 8 + DIGEST]);
+            return Some(d);
+        }
+        None
+    };
+
+    // El codigo es el indice 0, y su digest tiene que cuadrar con sus bytes.
+    let codigo = rev
+        .secciones()
+        .find(|s| s.kind == bmo_bex_gate::CODE)
+        .unwrap();
+    let suyos = &img[codigo.file_offset as usize..(codigo.file_offset + codigo.file_size) as usize];
+    assert_eq!(
+        digest_de(codigo.indice).expect("el codigo tiene digest"),
+        bmo_abi::bef::signing::blake3_256(suyos)
+    );
+    // Y los RELOCS, que el kernel aplica, tambien: se nombran `0x80 | n`.
+    let relocs = rev
+        .secciones()
+        .find(|s| s.kind == bmo_bex_gate::RELOCS)
+        .unwrap();
+    let suyos = &img[relocs.file_offset as usize..(relocs.file_offset + relocs.file_size) as usize];
+    assert_eq!(
+        digest_de(relocs.indice).expect("los relocs tienen digest"),
+        bmo_abi::bef::signing::blake3_256(suyos)
+    );
+}

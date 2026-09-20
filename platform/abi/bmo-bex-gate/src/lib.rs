@@ -286,6 +286,20 @@ impl Falta {
     }
 }
 
+/// **BEF2**: el formato propio (`bmo_abi::bef2`). La puerta lo lee aqui y se
+/// lo presenta al kernel como secciones, para que Ring 0 no cambie.
+pub mod bef2;
+
+/// Que formato trae la imagen. Lo decide el MAGIC y nada mas.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Formato {
+    /// `BEF1`: cabecera + tabla de secciones. El ELF con pintura, en retirada
+    /// (ver `docs/plan/PLAN_BEF_NATIVO.md`).
+    Bef1,
+    /// `BEF2`: cuatro regiones en sitio fijo y anexos.
+    Bef2,
+}
+
 /// Una seccion, ya comprobada. Los numeros son los del fichero.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Seccion {
@@ -312,6 +326,10 @@ pub struct Revisada<'a> {
     tabla: usize,
     cuantas: usize,
     entry_offset: u64,
+    formato: Formato,
+    /// Donde acaba el prologo: la cabecera mas su tabla. Los dos formatos la
+    /// tienen en sitios distintos y todo lo demas empieza detras.
+    fin_tabla: usize,
 }
 
 impl<'a> Revisada<'a> {
@@ -321,10 +339,21 @@ impl<'a> Revisada<'a> {
     pub fn cuantas(&self) -> usize {
         self.cuantas
     }
+    /// **Que formato trae**: `true` si es BEF2.
+    pub fn es_bef2(&self) -> bool {
+        matches!(self.formato, Formato::Bef2)
+    }
     /// La seccion `i`. El indice es el **de la tabla del fichero**.
+    ///
+    /// ** En BEF2 no hay tabla de secciones: lo que se devuelve son las cuatro
+    /// REGIONES y los ANEXOS presentados como secciones, con el mismo tipo y el
+    /// mismo indice de hash. Ver `bef2::seccion`.
     pub fn seccion(&self, i: usize) -> Option<Seccion> {
         if i >= self.cuantas {
             return None;
+        }
+        if matches!(self.formato, Formato::Bef2) {
+            return bef2::seccion(self.prologo, i);
         }
         let e = self.tabla + i * ENTRADA;
         Some(Seccion {
@@ -353,7 +382,7 @@ impl<'a> Revisada<'a> {
     ///
     /// Los recursos van detras y no entran: se leen en ejecucion, por su puerta.
     pub fn hasta_donde_hace_falta(&self) -> u64 {
-        let mut hasta = (self.tabla + self.cuantas * ENTRADA) as u64;
+        let mut hasta = self.fin_tabla as u64;
         for s in self.secciones() {
             if s.kind == BSS || !se_lee(s.kind) {
                 continue;
@@ -387,6 +416,12 @@ pub fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>, Falta
     }
 
     let magic = u32_en(prologo, 0).ok_or(Falta::NoLlegaNiALaCabecera)?;
+    // ** EL FORMATO LO DICE EL MAGIC, y los dos caminos no se mezclan: BEF2 se
+    // lee entero en `bef2.rs` y de aqui no toca una sola linea. BEF1 esta en
+    // retirada (`docs/plan/PLAN_BEF_NATIVO.md`, B6 lo borra).
+    if magic == bef2::MAGIC {
+        return bef2::revisar(prologo, tam_fichero);
+    }
     let version_mayor = u16_en(prologo, 4).ok_or(Falta::NoLlegaNiALaCabecera)?;
     let flags = u32_en(prologo, 8).ok_or(Falta::NoLlegaNiALaCabecera)?;
     let arch = *prologo.get(12).ok_or(Falta::NoLlegaNiALaCabecera)?;
@@ -460,7 +495,14 @@ pub fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>, Falta
         return Err(Falta::TablaFueraDeLoLeido);
     }
 
-    let rev = Revisada { prologo, tabla, cuantas, entry_offset };
+    let rev = Revisada {
+        prologo,
+        tabla,
+        cuantas,
+        entry_offset,
+        formato: Formato::Bef1,
+        fin_tabla: tabla + cuantas * ENTRADA,
+    };
 
     // -- Cada seccion por su cuenta --
     let mut hay_codigo = false;

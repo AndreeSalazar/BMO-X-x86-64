@@ -142,6 +142,17 @@ pub const fn lo_lee_el_kernel(tipo: u8) -> bool {
 /// Cabecera del anexo de firma: `cuantos u32`, `algoritmo u32`.
 pub const FIRMA_CABECERA: usize = 8;
 /// Un hash: `que u8`, 7 de relleno, BLAKE3 de 32 bytes.
+///
+/// ** LOS 40 BYTES SON LOS MISMOS QUE LOS DE BEF1, Y ES A PROPOSITO. El kernel
+/// lee esa entrada como `section_index: u16` + 6 de relleno + digest
+/// (`task/landing.rs::Firmas`). Con `que` en el primer byte y el segundo a
+/// cero, los dos formatos escriben bytes IDENTICOS mientras el indice quepa en
+/// un byte -- y aqui cabe siempre: tres regiones y hasta dieciseis anexos.
+///
+/// Asi Ring 0 encuentra los digests de un BEF2 **sin cambiar una linea**, y eso
+/// no es una casualidad que haya que descubrir: es la razon de que el campo
+/// mida un byte y no dos. Una prueba de `gate_y_validador_no_se_separan` lee
+/// la firma con el codigo del kernel copiado a mano.
 pub const FIRMA_HASH: usize = 40;
 /// `que` de un hash que cubre un ANEXO: `0x80 | indice en la tabla`. Los
 /// valores 0..=2 son las regiones con bytes.
