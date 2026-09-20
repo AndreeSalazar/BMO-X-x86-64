@@ -101,6 +101,33 @@ pub struct Captura {
     /// la funcion, esto da la INSTRUCCION: juntos son el sitio exacto.
     codigo: [u8; CODIGO_BYTES],
     codigo_n: usize,
+    /// **Donde cae el `cr2` respecto de lo que el kernel le ENTREGO a este
+    /// proceso**, preguntado aqui y no en `clasificar` por una razon de reloj:
+    /// la estacion 10 de `revoke_all` --que corre entre una cosa y la otra--
+    /// cierra la contabilidad del muerto. Preguntar tarde devuelve `SinCuenta`
+    /// y **no se distingue de "no pidio nada"**: el instrumento contestaria
+    /// que no hay bloques cuando lo que pasa es que llego tarde.
+    caida: crate::ring0::obj::memory::Caida,
+    /// Si esa direccion tiene traduccion en el espacio del muerto. Se lee con
+    /// su CR3 todavia puesto, que es el unico momento en que se puede.
+    traducida: bool,
+    /// **El TAMANO del agujero**, cuando lo hay: primera pagina sin traduccion
+    /// y cuantas seguidas le faltan, dentro del bloque.
+    ///
+    /// *** ESTE ES EL NUMERO QUE NOMBRA AL CULPABLE, y por eso se mide.
+    ///
+    /// ```text
+    ///    1 pagina                 -> alguien desmapeo UNA
+    ///    512 y empieza en 2 MiB   -> murio una TABLA entera (un PT)
+    ///    todo el bloque           -> se desmapeo el bloque
+    /// ```
+    ///
+    /// ** Las tres mandan a ficheros distintos, y sin la cuenta las tres se
+    /// ven igual: *"falta una pagina"*. El 04-09 ya enseno lo que vale contar
+    /// -- trece casillas malas EN LA MISMA tabla dejaron de ser trece sustos y
+    /// pasaron a ser un marco que no era una tabla.
+    agujero_ini: u64,
+    agujero_pags: u64,
 }
 
 /// Cuantas palabras de pila se miran. Veinticuatro y no cuatro porque las
@@ -116,11 +143,23 @@ impl Captura {
         pila: [None; PILA_PALABRAS],
         codigo: [0; CODIGO_BYTES],
         codigo_n: 0,
+        caida: crate::ring0::obj::memory::Caida::SinCuenta,
+        traducida: false,
+        agujero_ini: 0,
+        agujero_pags: 0,
     };
 
     /// **Se llama con el CR3 del proceso TODAVIA puesto.** Ver la cabecera.
-    pub fn tomar(rip: u64, rsp: u64) -> Self {
+    pub fn tomar(rip: u64, rsp: u64, cr2: u64, pid: u32) -> Self {
         let mut c = Self::VACIA;
+        // ** LO PRIMERO, y antes que la pila: esto es lo unico de aqui que
+        // caduca. Los bytes de la pila y del codigo siguen ahi mientras el
+        // espacio viva; la contabilidad del bloque la borra `revoke_all` unas
+        // lineas mas abajo, en la estacion 10.
+        c.caida = crate::ring0::obj::memory::donde_cae(pid, cr2);
+        c.traducida = crate::ring0::mm::vmm::translate(
+            crate::ring0::mm::vmm::read_cr3(), cr2).is_some();
+        c.medir_agujero(cr2);
         for k in 0..PILA_PALABRAS {
             c.pila[k] = leer_palabra_de_ring3(rsp.wrapping_add((k as u64) * 8));
             if c.pila[k].is_none() {
@@ -140,6 +179,47 @@ impl Captura {
             }
         }
         c
+    }
+
+    /// **Cuanto falta, y desde donde.** Solo se llama cuando el `cr2` cae
+    /// dentro de un bloque entregado y no traduce.
+    ///
+    /// Se camina hacia ATRAS hasta la primera que falta y hacia ADELANTE hasta
+    /// la primera que vuelve, **sin salirse del bloque**: fuera del bloque no
+    /// hay nada que este kernel prometiera, asi que contar ahi seria contar
+    /// otra cosa.
+    ///
+    /// [!] Con tope. `translate` es un paseo de cuatro niveles por pagina, y
+    /// esto corre dentro de un manejador de fallos: un bloque de 64 MiB son
+    /// 16.384 paseos y colgarse aqui cambia un volcado legible por una maquina
+    /// muda. El tope se dice en el numero --si sale el tope redondo, el agujero
+    /// es AL MENOS eso-- que es mejor que un numero exacto que no llega.
+    fn medir_agujero(&mut self, cr2: u64) {
+        use crate::ring0::obj::memory::Caida;
+        const TOPE: u64 = 1024;
+        const PAGINA: u64 = 4096;
+        let Caida::Dentro { off, bytes, .. } = self.caida else { return };
+        if self.traducida {
+            return;
+        }
+        let cr3 = crate::ring0::mm::vmm::read_cr3();
+        let hay = |va: u64| crate::ring0::mm::vmm::translate(cr3, va).is_some();
+        let base = cr2 - off;
+        let fin = base + bytes;
+        let mut ini = cr2 & !(PAGINA - 1);
+        let mut pasos = 0;
+        while ini > base && pasos < TOPE && !hay(ini - PAGINA) {
+            ini -= PAGINA;
+            pasos += 1;
+        }
+        let mut tras = ini;
+        let mut n = 0u64;
+        while tras < fin && n < TOPE && !hay(tras) {
+            tras += PAGINA;
+            n += 1;
+        }
+        self.agujero_ini = ini;
+        self.agujero_pags = n;
     }
 }
 
@@ -472,6 +552,14 @@ enum Causa {
     EscrituraEnImagen,
     SaltoSinCodigo,
     SinMapear,
+    /// **La direccion cae DENTRO de un bloque que el kernel le entrego a este
+    /// proceso, y la pagina no esta.** Ver `obj::memory::donde_cae`: esto NO
+    /// acusa al programa. Lo que un `#PF` asi dice es que alguien le quito una
+    /// pagina por debajo, y eso se busca en el kernel.
+    BloqueConAgujero,
+    /// La direccion cae PASADO el final de un bloque entregado: eso si es un
+    /// indice fuera de rango, y se busca en el programa.
+    BloquePasado,
     NoEsInstruccion,
     /// Instruccion que Ring 3 no puede ejecutar (`hlt`, `cli`, `in`, `wrmsr`...).
     Privilegiada,
@@ -510,6 +598,20 @@ fn clasificar(vector: u64, error: u64, cr2: u64, cap: &Captura) -> Causa {
         // inicializar, vtabla mal, o una direccion de retorno pisada.
         if error & 16 != 0 {
             return Causa::SaltoSinCodigo;
+        }
+        // *** Y AQUI SE PARTE EL "O" (2026-09-20).
+        //
+        // `SinMapear` decia *"puntero basura o indice fuera de rango"*, que son
+        // DOS respuestas y las dos acusan al programa. Falta la tercera, que no
+        // lo acusa: la direccion cae dentro de algo que el kernel le dio. La
+        // contabilidad de `obj::memory` lo sabe exacto y no se le preguntaba.
+        use crate::ring0::obj::memory::Caida;
+        match cap.caida {
+            // Dentro y sin traduccion: el bloque es suyo, la pagina no esta.
+            // No hay nada que el programa pudiera haber hecho distinto.
+            Caida::Dentro { .. } if !cap.traducida => return Causa::BloqueConAgujero,
+            Caida::Pasado { .. } => return Causa::BloquePasado,
+            _ => {}
         }
         return Causa::SinMapear;
     }
@@ -595,7 +697,14 @@ fn nombre(c: Causa) -> &'static str {
         Causa::PunteroNulo => "*** PUNTERO NULO",
         Causa::EscrituraEnImagen => "*** ESCRITURA SOBRE CODIGO O CONSTANTES (solo lectura)",
         Causa::SaltoSinCodigo => "*** SALTO A MEMORIA QUE NO ES CODIGO: puntero de funcion",
-        Causa::SinMapear => "*** SIN MAPEAR: puntero basura o indice fuera de rango",
+        // ** Ya NO dice "o indice fuera de rango": esa rama tiene su propio
+        // caso y su propio numero. Lo que queda aqui es lo que de verdad
+        // significa -- una direccion que no cae en nada que este proceso tenga.
+        Causa::SinMapear => "*** SIN MAPEAR: no cae en nada que este proceso tenga",
+        Causa::BloqueConAgujero =>
+            "*** AGUJERO EN UN BLOQUE QUE EL KERNEL ENTREGO: no es el programa",
+        Causa::BloquePasado =>
+            "*** INDICE FUERA DE RANGO: pasado el final de un bloque entregado",
         Causa::NoEsInstruccion => "*** SE EJECUTARON BYTES QUE NO SON UNA INSTRUCCION",
         Causa::Privilegiada => "*** INSTRUCCION QUE RING 3 NO PUEDE EJECUTAR",
         Causa::SseDesalineado => "*** MOVIMIENTO SSE ALINEADO SOBRE UNA DIRECCION QUE NO LO ESTA",
@@ -635,6 +744,42 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
         Causa::PunteroNulo => {
             r.s(" en 0+");
             r.hex(cr2);
+        }
+        // ** LOS NUMEROS SON EL VEREDICTO AQUI. "Dentro de un bloque" sin decir
+        // CUAL ni CUANTO no se puede ir a mirar; con el desplazamiento y el
+        // tamano, el que lee sabe si fallo en la primera fila o en la ultima.
+        Causa::BloqueConAgujero | Causa::BloquePasado => {
+            use crate::ring0::obj::memory::Caida;
+            match cap.caida {
+                Caida::Dentro { bloque, off, bytes } => {
+                    r.s(": bloque ");
+                    r.dec(bloque as u64);
+                    r.s(", +0x");
+                    r.hex(off);
+                    r.s(" de 0x");
+                    r.hex(bytes);
+                    // ** Y EL TAMANO DEL AGUJERO, que es lo que nombra al que
+                    // lo hizo. Ver `Captura::medir_agujero`.
+                    if cap.agujero_pags != 0 {
+                        r.s(" -- faltan ");
+                        r.dec(cap.agujero_pags);
+                        r.s(" pag desde 0x");
+                        r.hex(cap.agujero_ini);
+                        // 512 paginas que empiezan en un multiplo de 2 MiB no
+                        // son 512 desmapeos: son UNA tabla que murio.
+                        if cap.agujero_pags == 512 && cap.agujero_ini % (2 * 1024 * 1024) == 0 {
+                            r.s(" = UNA TABLA ENTERA");
+                        }
+                    }
+                }
+                Caida::Pasado { bloque, cuanto } => {
+                    r.s(": 0x");
+                    r.hex(cuanto);
+                    r.s(" B pasado el final del bloque ");
+                    r.dec(bloque as u64);
+                }
+                _ => {}
+            }
         }
         _ => {}
     }

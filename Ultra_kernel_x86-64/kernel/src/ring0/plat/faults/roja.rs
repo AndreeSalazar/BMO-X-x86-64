@@ -267,7 +267,7 @@ extern "C" fn fault_dispatch(
         //
         // Aqui se leen los bytes crudos y ya esta: el formateo, el veredicto y
         // todo lo demas pasan luego y no vuelven a tocar memoria de nadie.
-        let cap = crate::ring0::core::autopsy::Captura::tomar(rip, fault_rsp);
+        let cap = crate::ring0::core::autopsy::Captura::tomar(rip, fault_rsp, cr2, pid);
         // Capabilities die with the process (same order as EXIT: revoke
         // completes before the final switch -- no lock nesting).
         crate::ring0::obj::cap::revoke_all(pid);

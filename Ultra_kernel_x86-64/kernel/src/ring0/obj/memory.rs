@@ -238,6 +238,74 @@ pub fn titular_de_fisica(fisica: u64) -> Option<(u32, u64)> {
 
 
 /// La ranura de este proceso, si tiene una.
+/// **DONDE CAE UNA DIRECCION RESPECTO DE LO QUE ESTE PID TIENE ENTREGADO.**
+///
+/// *** POR QUE EXISTE, Y ES UNA MENTIRA MENOS (2026-09-20)
+///
+/// La autopsia de Ring 3 contestaba a un `#PF` sin resolver asi:
+///
+/// ```text
+///    *** SIN MAPEAR: puntero basura o indice fuera de rango
+/// ```
+///
+/// ** Eso es una **O**, y las dos ramas mandan a sitios opuestos. *"Puntero
+/// basura"* acusa al programa. *"Indice fuera de rango"* acusa al programa. Y
+/// falta la tercera, que no acusa al programa en absoluto: **la direccion cae
+/// DENTRO de un bloque que el kernel le entrego, y la pagina no esta**. Eso no
+/// es un fallo de quien escribe: es una pagina que alguien le quito.
+///
+/// El 20-09 el escritorio murio escribiendo en `0xE0368948`, que con el modo de
+/// ese panel cae a mitad de su doble bufer -- y la pantalla lo llamo puntero
+/// basura. Esta tabla sabia la verdad y **nadie le preguntaba**.
+///
+/// [!] Se pregunta ANTES de `revoke_all`, y no es un detalle de orden: la
+/// estacion 10 de ese desmontaje llama a [`process_died`], que pone la ranura
+/// a `FREE_SLOT`. Quien pregunte despues recibe `SinCuenta` y no se entera de
+/// que llega tarde. Por eso la captura de la autopsia es lo PRIMERO que corre.
+#[derive(Clone, Copy, PartialEq)]
+pub enum Caida {
+    /// Este pid no tiene contabilidad: o no pidio nada, o ya se la cerraron.
+    SinCuenta,
+    /// Cae DENTRO del bloque `bloque`: `off` bytes de los `bytes` que mide.
+    Dentro { bloque: usize, off: u64, bytes: u64 },
+    /// Cae PASADO el final del bloque `bloque`, por `cuanto` bytes. Se da por
+    /// suyo lo que cae a menos de un bloque de distancia por arriba: mas lejos
+    /// no se puede decir de quien se paso.
+    Pasado { bloque: usize, cuanto: u64 },
+    /// Tiene bloques y no cae cerca de ninguno.
+    Fuera,
+}
+
+pub fn donde_cae(pid: u32, va: u64) -> Caida {
+    let Some(slot) = slot(pid) else { return Caida::SinCuenta };
+    let bloques = unsafe { (*core::ptr::addr_of!(CUENTAS))[slot].bloques };
+    // Primero DENTRO, y en una pasada aparte: un bloque puede quedar justo
+    // detras de otro --el cursor los pone seguidos-- y "dentro del segundo"
+    // gana siempre a "pasado del primero". Mezclar las dos preguntas en un
+    // solo bucle haria que el orden de la tabla decidiera el veredicto.
+    for (i, b) in bloques.iter().enumerate() {
+        if b.base != 0 && b.bytes != 0 && va >= b.base && va < b.base + b.bytes {
+            return Caida::Dentro { bloque: i, off: va - b.base, bytes: b.bytes };
+        }
+    }
+    let mut hay = false;
+    for (i, b) in bloques.iter().enumerate() {
+        if b.base == 0 || b.bytes == 0 {
+            continue;
+        }
+        hay = true;
+        let fin = b.base + b.bytes;
+        if va >= fin && va - fin < b.bytes {
+            return Caida::Pasado { bloque: i, cuanto: va - fin };
+        }
+    }
+    if hay {
+        Caida::Fuera
+    } else {
+        Caida::SinCuenta
+    }
+}
+
 fn slot(pid: u32) -> Option<usize> {
     unsafe {
         let t = &*core::ptr::addr_of!(CUENTAS);
