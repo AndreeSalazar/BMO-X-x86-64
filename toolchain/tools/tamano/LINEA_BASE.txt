@@ -3,7 +3,7 @@
 # Se regenera con:  py toolchain/tools/tamano/tamano.py --fijar
 ada/cierre.bex 2296
 apps/doom.bex 731280
-apps/navegar.ibx 47080
+apps/navegar.ibx 46568
 c/blit.bex 4752
 c/caja.bex 8332
 c/ciclos.bex 10609
@@ -35,10 +35,10 @@ cobol/7/cuentas.bex 6304
 cobol/8/cierre.bex 5048
 cobol/9/comisio.bex 9960
 cpp/cuentas.bex 2898
-inti/bico.ibx 17464
-inti/cpu.ibx 12856
-inti/musica.ibx 24096
-inti/pulso.ibx 6344
+inti/bico.ibx 17136
+inti/cpu.ibx 12520
+inti/musica.ibx 23888
+inti/pulso.ibx 6312
 inti/ventana.ibx 21008
 sys/d.bex 963232
 sys/precio.bex 30024

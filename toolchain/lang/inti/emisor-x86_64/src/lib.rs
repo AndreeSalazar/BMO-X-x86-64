@@ -122,6 +122,8 @@ pub struct Emitido {
     /// estimacion, se puede seguir en el tiempo -- igual que los `crudo`.
     pub en_registros: usize,
     pub en_pila: usize,
+    /// Locales que viven en un preservado (I2, 2026-09-20).
+    pub locales_en_registro: usize,
     /// **Las tablas congeladas del modulo**, tal y como van a `RoData`.
     pub congelados: Vec<bmo_inti_front::ir::Congelado>,
     /// Los huecos del codigo que hay que rellenar con la direccion del **slot
@@ -198,6 +200,9 @@ pub struct Taller {
     /// Los que sobreviven a una llamada (`preservados_en_uso`): el reparto de
     /// una funcion que LLAMA solo puede usar estos.
     pub preservados: Vec<u8>,
+    /// Los libres (`[reparto] libres`): locales de una funcion que no llama,
+    /// sin guardar nada (I2, 2026-09-20).
+    pub libres: Vec<u8>,
     /// La tabla de ESTA maquina: como se llama en INTI cada instruccion.
     pub maquina: Option<bmo_inti_front::arquitectura::Maquina>,
     /// Y los bytes que hay detras de cada nombre de instruccion.
@@ -219,12 +224,14 @@ impl Taller {
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| marco::RESPALDO.to_vec());
         let preservados = maquina.as_ref().map(|m| m.preservados()).unwrap_or_default();
+        let libres = maquina.as_ref().map(|m| m.libres()).unwrap_or_default();
         Self {
             puerta: Puerta::de(maquina.as_ref()),
             nombres_de_puerta: modulos.trae("bmo").to_vec(),
             recoge: modulos,
             temporales,
             preservados,
+            libres,
             maquina,
             intrinsecos: bmo_sem_asm::Intrinsics::load_x86_64().ok(),
         }
@@ -253,6 +260,7 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
         comprobaciones: 0,
         en_registros: 0,
         en_pila: 0,
+        locales_en_registro: 0,
         huecos_de_llamada: Vec::new(),
         sin_emitir: Vec::new(),
         arranca: false,
@@ -319,6 +327,7 @@ pub fn emitir_con(m: &ModuloIr, taller: &Taller) -> Emitido {
         salida.comprobaciones += cuenta.comprobaciones;
         salida.en_registros += cuenta.en_registros;
         salida.en_pila += cuenta.en_pila;
+        salida.locales_en_registro += cuenta.locales_en_registro;
         salida.katanas.extend(cuenta.katanas);
         // ** Los huecos YA vienen en coordenadas del MODULO: `emitir_funcion`
         // escribe sobre `salida.codigo`, no sobre un buffer propio, asi que
@@ -407,6 +416,8 @@ struct Cuenta {
     comprobaciones: usize,
     en_registros: usize,
     en_pila: usize,
+    /// Locales que viven en un preservado (I2).
+    locales_en_registro: usize,
     huecos_de_llamada: Vec<(usize, String)>,
     /// Lo que se pidio emitir y NO se pudo, con el motivo.
     ///
@@ -623,7 +634,15 @@ pub(crate) fn carga(out: &mut Vec<u8>, reg: u8, v: &Valor, marco: &Marco) {
         Valor::Const(Const::Decimal(_)) | Valor::Const(Const::Texto(_)) => {
             x86::zero_r32(out, reg)
         }
-        Valor::Local(l) => mov_de_marco(out, reg, marco.local(*l)),
+        // ** I2: una local en un preservado es un `mov` entre registros.
+        Valor::Local(l) => match marco.local(*l) {
+            Sitio::Registro(r) => {
+                if r != reg {
+                    x86::mov_r64_r64(out, reg, r);
+                }
+            }
+            Sitio::Pila(disp) => mov_de_marco(out, reg, disp),
+        },
         // ** F3: si el temporal vive en un registro, esto es un `mov` entre
         // registros en vez de una lectura de memoria. Ese es el 2-4x, y cabe en
         // estas tres lineas porque la IR ya traia los temporales.
@@ -638,6 +657,18 @@ pub(crate) fn carga(out: &mut Vec<u8>, reg: u8, v: &Valor, marco: &Marco) {
         // Una funcion o algo de un `usa`: lo resuelve el enlazado, que todavia
         // no existe.
         Valor::Nombre(_) => x86::zero_r32(out, reg),
+    }
+}
+
+/// Escribe `reg` en la local `l`, viva donde viva (I2).
+pub(crate) fn guarda_local(out: &mut Vec<u8>, reg: u8, l: bmo_inti_front::ir::Local, marco: &Marco) {
+    match marco.local(l) {
+        Sitio::Registro(r) => {
+            if r != reg {
+                x86::mov_r64_r64(out, r, reg);
+            }
+        }
+        Sitio::Pila(disp) => mov_a_marco(out, disp, reg),
     }
 }
 

@@ -224,6 +224,16 @@ temporales = ["rdx", "rsi", "rdi"]
 #  `rbp` no esta porque es el marco; `rsp`, porque es la pila.
 preservados_en_uso = ["rbx", "r12", "r13", "r14", "r15"]
 
+#  ** LOS LIBRES, PARA LAS LOCALES DE UNA FUNCION QUE NO LLAMA (I2, 2026-09-20).
+#  `r10` y `r11` no son de argumento, no son de trabajo y nadie tiene que
+#  devolverlos: en una funcion sin llamadas una local puede vivir ahi SIN
+#  guardar nada en el prologo. En una funcion que llama no valen (la llamada
+#  los pisa) y las locales van a los preservados de arriba, que si cuestan
+#  guardarse. Lo eligio el metro: con las locales en preservados tambien en
+#  las funciones hoja, `pulso` subia 7.960 instrucciones (los guardados de
+#  cada llamada) aunque bajara 88.000 accesos a memoria.
+libres = ["r10", "r11"]
+
 # ===================================================================
 #  Los nombres: como se llama en INTI cada instruccion
 # ===================================================================

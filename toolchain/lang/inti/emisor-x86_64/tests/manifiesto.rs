@@ -301,7 +301,14 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     // ** +40: el hash del indice (cabecera + tabla de anexos), que antes no
     // cubria nadie. Otros +40 por cada anexo que antes no se firmaba (aqui
     // ninguno mas: la sonda sin manifiesto solo trae relocs y requisitos).
-    assert_eq!(sin.len(), 12088, "la emision de la sonda cambio de tamano");
+    //
+    //     11.752  I2: las LOCALES en registro (2026-09-20)
+    //
+    // ** -336 y ESTOS SI son codigo: un `mov reg, [rbp-8]` de 7 bytes pasa a
+    // `mov reg, r10` de 3 en cada uso de una local con peso. Por eso `cpu.ibx`
+    // vuelve a no ser el fichero del 17-09 ni del 19-09: la medida del reloj
+    // que salga de ESTE es la que compara.
+    assert_eq!(sin.len(), 11752, "la emision de la sonda cambio de tamano");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**

@@ -140,10 +140,28 @@ atacar.
   registro / 331 en pila, `bico` 95 / 229, `cpu` 108 / 115. Lo que sigue en
   el marco: las LOCALES (`cambiante`), siempre, y lo que no cabe en cinco.
   Precio: `cpu.ibx` engorda 1.608 bytes de guardar/devolver.
+- ~~**Las LOCALES viven siempre en el marco.**~~ **CERRADO el 2026-09-20 (I2)**,
+  y el metro lo eligio: INTI gastaba el **30,2 %** de sus pasos en el marco
+  (C: 4,2 %). Ahora el frontend calcula los HECHOS de cada local
+  (`ir/hechos.rs`: a cuales se les toma la direccion, cuanto PESA cada una
+  con los bucles contados, si la funcion llama) y `marco.rs` les da
+  registro por peso: en una funcion que NO llama, `r10`/`r11` (`[reparto]
+  libres`, gratis); en una que llama, hasta tres preservados, que cuestan
+  guardarse. Los umbrales los puso el metro: 6 en las hojas, **24** con
+  llamadas (por debajo, `bico` y `navegar` --que salen por "no pude"--
+  pagaban guardados sin cobrar nada). Resultado: **240.870 -> 158.526
+  accesos a memoria (-34 %)** en los 30 programas del metro con las MISMAS
+  instrucciones (857.700), `pulso` 209.322 -> 126.986 accesos, el marco de
+  INTI 30,2 % -> 15,9 % de sus pasos, y `cpu.ibx` 12.088 -> 11.752 bytes.
+  Y un fallo de ORDEN cazado por cinco filas del banco: los preservados se
+  guardaban DESPUES de bajar los parametros, asi que una funcion cuyo
+  parametro caia en `rbx` guardaba el parametro y devolvia basura a quien
+  llamo. Ahora se guardan antes.
 
 Las dos primeras son decisiones, no deudas. Lo que seria deuda es no
-escribirlas. Y lo que queda de la tercera --las locales en el marco-- es la
-siguiente, y ya tiene numero delante.
+escribirlas. Lo que queda de la tercera y la cuarta es I3 (la residencia:
+los parametros que no bajan) e I4 (el reenvio), y estan en
+`docs/plan/PLAN_EL_TROQUEL.md` 12.3.
 
 ---
 

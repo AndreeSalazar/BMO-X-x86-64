@@ -45,6 +45,37 @@
 
 use bmo_inti_front::ir::{FuncionIr, Instr, Local, Temporal, Valor};
 
+/// **Cuantos usos ponderados paga un registro para una LOCAL** (I2,
+/// 2026-09-20). Un preservado cuesta guardarlo y devolverlo en cada llamada a
+/// esta funcion, y solo devuelve algo si la local se usa mas veces de las que
+/// cuesta. Es el 6 de BMO C (`UMBRAL_DE_USOS`, elegido midiendo 3, 4, 6 y 8
+/// contra el metro) hasta que el metro de INTI diga otro.
+pub const UMBRAL_DE_PESO: u32 = 6;
+
+/// **El umbral en una funcion que LLAMA**: ahi el registro es un preservado,
+/// que cuesta un guardado y una vuelta POR LLAMADA A ESTA FUNCION aunque la
+/// local no se use ni una vez -- un programa que sale por "no pude" paga el
+/// prologo entero y no cobra nada. Veinticuatro se ELIGIO midiendo contra el
+/// metro (accesos a memoria, base -> con I2), y es el mas bajo con el que
+/// ninguno de los cinco programas de INTI sube en nada:
+///
+/// ```text
+///    umbral      6       12      16      20      22      24
+///    pulso     113.280  113.280  114.488  114.488  126.986  126.986   (base 209.322)
+///    bico          246      242      238      238      238      234   (base 234)
+///    navegar       953    1.021    1.047    1.109    1.109    1.108   (base 1.112)
+/// ```
+///
+/// `bico` y `navegar` salen por "no pude" en el emulador y solo corren sus
+/// prologos: por debajo de 24 pagan guardados que no cobran. `pulso` pierde
+/// 13.700 accesos respecto del 6, y el trinquete manda: NINGUNO sube.
+pub const UMBRAL_CON_LLAMADAS: u32 = 24;
+
+/// **Cuantos preservados pueden llevarse las locales**, como mucho. Los que
+/// queden se reparten entre los temporales de una funcion que llama, que sin
+/// ellos vuelven todos al marco (el 90 % del 18-09).
+pub const PRESERVADOS_PARA_LOCALES: usize = 3;
+
 /// El ancho de una palabra en esta maquina.
 ///
 /// Sale de `arch/x86_64/inti.toml` cuando el compilador corre de verdad; aqui
@@ -75,13 +106,21 @@ pub enum Sitio {
 
 #[derive(Debug, Clone)]
 pub struct Marco {
-    /// **Donde cae cada local**, ya en desplazamiento negativo desde `rbp`.
+    /// **Donde cae cada local**: en el marco (desplazamiento negativo desde
+    /// `rbp`) o, desde I2 (2026-09-20), en un PRESERVADO.
     ///
     /// *** Antes esto no existia y el sitio se calculaba: `-((l+1) * PALABRA)`.
     /// Valia mientras toda local midiera una palabra -- y `numero` mide 16, asi
     /// que su segunda mitad se habria comido la local de al lado **en
     /// silencio**, que es la clase de fallo que este proyecto persigue.
-    sitios_locales: Vec<i32>,
+    ///
+    /// ** I2: el 30,2 % de los pasos de INTI eran el marco (C: 4,2 %), porque
+    /// TODA local vivia en la pila. Ahora las de mas PESO (los hechos de
+    /// `ir::hechos`, calculados en el frontend) viven en un preservado si
+    /// caben en una palabra y nadie les toma la direccion. Toda local conserva
+    /// su hueco en el marco aunque viva en registro: el desplazamiento de las
+    /// demas no depende de a quien le toco.
+    sitios_locales: Vec<Sitio>,
     /// Lo que ocupan todas las locales juntas, ya alineado.
     bytes_locales: i32,
     temporales: u32,
@@ -96,7 +135,7 @@ impl Marco {
     /// El reparto con los registros de respaldo. Solo lo usa el banco.
     #[cfg(test)]
     pub fn de(f: &FuncionIr) -> Self {
-        Self::con_registros(f, &RESPALDO, &[])
+        Self::con_registros(f, &RESPALDO, &[], &[])
     }
 
 
@@ -108,7 +147,10 @@ impl Marco {
     ///
     /// `preservados` son los que sobreviven a una llamada: en una funcion que
     /// llama son los UNICOS que se reparten, y los que se repartan se guardan.
-    pub fn con_registros(f: &FuncionIr, disponibles: &[u8], preservados: &[u8]) -> Self {
+    ///
+    /// `libres` son los que nadie devuelve y ninguna llamada respeta: en una
+    /// funcion que NO llama, una local puede vivir ahi sin guardar nada.
+    pub fn con_registros(f: &FuncionIr, disponibles: &[u8], preservados: &[u8], libres: &[u8]) -> Self {
         // *** EL REPARTO DE LAS LOCALES, por MEDIDA y no por cuenta.
         //
         // Cada una se alinea a lo que pide --una palabra si no dice otra cosa--
@@ -134,9 +176,52 @@ impl Marco {
             if cursor % alineacion != 0 {
                 cursor += alineacion - (cursor % alineacion);
             }
-            sitios_locales.push(-cursor);
+            sitios_locales.push(Sitio::Pila(-cursor));
         }
         let bytes_locales = cursor;
+
+        // ** I2: LAS LOCALES DE MAS PESO, A UN REGISTRO. Se reparten ANTES
+        // que los temporales porque viven toda la funcion: un registro que se
+        // lleva una local no vuelve al bote. Los que sobren van al reparto de
+        // temporales de siempre.
+        //
+        // Cual registro lo dice si la funcion LLAMA (`hechos.pisa`): si no
+        // llama, primero los LIBRES, que no cuestan nada; si llama, solo los
+        // preservados, que cuestan guardarse pero sobreviven. Lo decidio el
+        // metro: con preservados en las hojas, `pulso` subia 7.960
+        // instrucciones (un guardado y una vuelta por cada llamada a una
+        // funcion pequena) aunque bajara 88.000 accesos.
+        let hechos = f.hechos();
+        let mut candidatas: Vec<(u32, usize)> = (0..f.locales as usize)
+            .filter(|&i| {
+                let medida = f.medidas_locales.get(i).copied().unwrap_or(PALABRA as u32);
+                medida <= PALABRA as u32 && hechos.candidata(Local(i as u32))
+            })
+            .map(|i| (hechos.peso[i], i))
+            .filter(|(peso, _)| *peso >= if hechos.pisa { UMBRAL_CON_LLAMADAS } else { UMBRAL_DE_PESO })
+            .collect();
+        // Por peso descendente y a igualdad por indice: dos compilaciones del
+        // mismo fuente tienen que dar el mismo binario.
+        candidatas.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        let bote: Vec<u8> = if hechos.pisa {
+            preservados.iter().copied().take(PRESERVADOS_PARA_LOCALES).collect()
+        } else {
+            libres
+                .iter()
+                .copied()
+                .chain(preservados.iter().copied().take(PRESERVADOS_PARA_LOCALES))
+                .collect()
+        };
+        let mut para_locales: Vec<u8> = Vec::new();
+        for ((_, i), reg) in candidatas.iter().zip(bote.iter()) {
+            sitios_locales[*i] = Sitio::Registro(*reg);
+            para_locales.push(*reg);
+        }
+        let quedan: Vec<u8> = preservados
+            .iter()
+            .copied()
+            .filter(|r| !para_locales.contains(r))
+            .collect();
 
         let mut m = Self {
             sitios_locales,
@@ -145,9 +230,10 @@ impl Marco {
             sitios: Vec::new(),
             guardados: Vec::new(),
         };
-        m.sitios = m.reparte(f, disponibles, preservados);
-        // Lo que se repartio de los preservados, en orden, es lo que se guarda.
-        let mut usados: Vec<u8> = Vec::new();
+        m.sitios = m.reparte(f, disponibles, &quedan);
+        // Lo que se repartio de los preservados, en orden, es lo que se guarda:
+        // primero los de las locales, despues los de los temporales.
+        let mut usados: Vec<u8> = para_locales.into_iter().filter(|r| preservados.contains(r)).collect();
         for s in &m.sitios {
             if let Sitio::Registro(r) = s {
                 if preservados.contains(r) && !usados.contains(r) {
@@ -157,6 +243,14 @@ impl Marco {
         }
         m.guardados = usados;
         m
+    }
+
+    /// Cuantas locales viven en un registro.
+    pub fn locales_en_registro(&self) -> usize {
+        self.sitios_locales
+            .iter()
+            .filter(|s| matches!(s, Sitio::Registro(_)))
+            .count()
     }
 
     /// Los preservados que esta funcion guarda y devuelve.
@@ -187,17 +281,27 @@ impl Marco {
         (bruto + 15) & !15
     }
 
-    /// El desplazamiento de una local desde `rbp`. Negativo: el marco crece
-    /// hacia abajo, que es lo que dice `la_pila_crece` en la tabla.
-    pub fn local(&self, l: Local) -> i32 {
+    /// Donde vive una local: en un preservado (I2) o en el marco, a un
+    /// desplazamiento negativo desde `rbp` (el marco crece hacia abajo, que es
+    /// lo que dice `la_pila_crece` en la tabla).
+    pub fn local(&self, l: Local) -> Sitio {
         self.sitios_locales
             .get(l.0 as usize)
             .copied()
-            // [!] El respaldo es la cuenta de antes, y solo se usa si alguien
+            // [!] El respaldo es la cuenta de antes, y solo lo usa si alguien
             // pregunta por una local que la IR no declaro. No deberia pasar, y
             // si pasa es mejor un sitio coherente que un panico dentro del
             // emisor.
-            .unwrap_or_else(|| -((l.0 as i32 + 1) * PALABRA))
+            .unwrap_or_else(|| Sitio::Pila(-((l.0 as i32 + 1) * PALABRA)))
+    }
+
+    /// El hueco de una local en el marco, viva donde viva. Lo pide quien
+    /// necesita una DIRECCION: una local en registro no tiene.
+    pub fn hueco_local(&self, l: Local) -> Option<i32> {
+        match self.local(l) {
+            Sitio::Pila(d) => Some(d),
+            Sitio::Registro(_) => None,
+        }
     }
 
     /// Donde vive un temporal.
@@ -487,9 +591,9 @@ mod pruebas {
     #[test]
     fn cada_local_tiene_su_sitio_y_no_se_pisan() {
         let m = Marco::de(&funcion(3, 0, vec![]));
-        assert_eq!(m.local(Local(0)), -8);
-        assert_eq!(m.local(Local(1)), -16);
-        assert_eq!(m.local(Local(2)), -24);
+        assert_eq!(m.local(Local(0)), Sitio::Pila(-8));
+        assert_eq!(m.local(Local(1)), Sitio::Pila(-16));
+        assert_eq!(m.local(Local(2)), Sitio::Pila(-24));
     }
 
     /// Los temporales van DETRAS de las locales. Si empezaran en el mismo
@@ -497,7 +601,7 @@ mod pruebas {
     #[test]
     fn los_temporales_no_pisan_a_las_locales() {
         let m = Marco::de(&funcion(2, 2, vec![]));
-        assert_eq!(m.local(Local(1)), -16);
+        assert_eq!(m.local(Local(1)), Sitio::Pila(-16));
         assert_eq!(m.en_pila(Temporal(0)), -24);
         assert_eq!(m.en_pila(Temporal(1)), -32);
     }

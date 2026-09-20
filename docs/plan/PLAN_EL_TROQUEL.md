@@ -566,16 +566,20 @@ viajan como campos de la IR. `marco.rs` los lee y reparte por rol.
 - [x] **I0 -- INTI en el metro** (= C5, 19-09). Cinco `.ibx` (`cpu` fuera
       por `cpuid`), tres numeros y las salidas fijas: 673.831 instrucciones,
       y el 30,2 % en el marco
-- [ ] **I1 -- los hechos en la IR.** `FuncionIr` gana `pisa: bool`,
-      `tomadas: Vec<Local>`, `peso: Vec<u32>` (por local), y
-      `reenvia: Option<Reenvio>`. Calculados en `ir/`, probados en `ir/`
-      sin un emisor. El test que prohibe nombrar la maquina sigue en pie y
-      es el que vigila que ningun campo nuevo sea un numero de registro
-- [ ] **I2 -- las LOCALES en registro** (ESTADO.md 2.3, *"lo que sigue en
-      el marco"*). `marco.rs` reparte `preservados_en_uso` entre las locales
-      con mas `peso` que no esten en `tomadas`, con el umbral de C (6) hasta
-      que el metro de INTI diga otro. Es el troquel, y el asignador lineal
-      de temporales no cambia
+- [x] **I1 -- los hechos en la IR. HECHO el 2026-09-20** como
+      `FuncionIr::hechos()` (`ir/hechos.rs`): `pisa`, `tomadas`, `peso`
+      (usos por local, `1 + 3 x profundidad de bucle`, y un bucle es un
+      salto hacia atras). Siete filas en `ir/`, sin emisor;
+      `tests/agnostico.rs` sigue en pie. `reenvia` queda para I4
+- [x] **I2 -- las LOCALES en registro. HECHO el 2026-09-20.** `marco.rs`
+      reparte por peso: en una hoja, `[reparto] libres` (`r10`, `r11`,
+      gratis) y despues preservados; con llamadas, hasta tres preservados.
+      Umbrales medidos: 6 en las hojas, **24** con llamadas (la tabla esta
+      en `marco.rs`; por debajo `bico` y `navegar` pagaban guardados sin
+      cobrar). **240.870 -> 158.526 accesos (-34 %)** con las mismas
+      857.700 instrucciones; INTI 30,2 % -> 15,9 % en el marco; `cpu.ibx`
+      -336 B. Y un fallo de orden cazado: los preservados se guardaban
+      DESPUES de bajar los parametros (`funcion.rs`)
 - [ ] **I3 -- la residencia.** Con `pisa == false`, los parametros 1-2 no
       bajan al marco: `marco.local(Local(i))` contesta `Sitio::Registro(
       argumento[i])`. Hoy el prologo baja los seis SIEMPRE (`funcion.rs`:

@@ -278,7 +278,8 @@ fn dos_numeros_seguidos_no_se_pisan_en_el_marco() {
     let f = m.funciones.iter().find(|f| f.nombre == "f").unwrap();
     let marco = crate::marco::Marco::de(f);
 
-    let sitios: Vec<i32> = (0..f.locales).map(|i| marco.local(bmo_inti_front::ir::Local(i))).collect();
+    // El HUECO de cada una: toda local lo conserva aunque viva en registro (I2).
+    let sitios: Vec<i32> = (0..f.locales).map(|i| marco.hueco_local(bmo_inti_front::ir::Local(i)).unwrap_or(0)).collect();
     // Cada local tiene que caber entre su sitio y el de la anterior.
     for (i, medida) in f.medidas_locales.iter().enumerate() {
         let m_i = if *medida == 0 { 8 } else { *medida as i32 };

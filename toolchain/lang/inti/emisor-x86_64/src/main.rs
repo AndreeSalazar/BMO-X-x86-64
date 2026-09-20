@@ -191,6 +191,7 @@ fn pinta_informe(
     println!();
     println!("  temporales en registro  {}", e.en_registros);
     println!("  temporales en pila      {}", e.en_pila);
+    println!("  locales en registro     {}", e.locales_en_registro);
     println!("  eventos a CABINA        {}", eventos);
     println!();
 }

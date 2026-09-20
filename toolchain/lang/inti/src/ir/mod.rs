@@ -49,10 +49,14 @@ mod descenso;
 mod expresion;
 use descenso::Descenso;
 pub mod forma;
+/// Los HECHOS de una funcion (tomadas, peso, pisa): lo que el emisor necesita
+/// de sus locales, calculado aqui y sin nombrar una maquina (I1, 2026-09-20).
+pub mod hechos;
 
 pub use forma::{ClaseCongelada, Congelado,
     Clase, Comprobacion, Const, Etiqueta, FuncionIr, Instr, Local, ModuloIr, Temporal, Valor,
 };
+pub use hechos::Hechos;
 
 use crate::arbol::{self, Bloque, Decl, Expr, Modulo, Op, Repeticion, Sent};
 use crate::aviso::Cosecha;

@@ -39,10 +39,17 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
         .copied()
         .filter(|r| !pisados.contains(r))
         .collect();
-    let marco = Marco::con_registros(f, &libres, &preservados);
+    let sin_dueno: Vec<u8> = taller
+        .libres
+        .iter()
+        .copied()
+        .filter(|r| !pisados.contains(r))
+        .collect();
+    let marco = Marco::con_registros(f, &libres, &preservados, &sin_dueno);
     let mut cuenta = Cuenta {
         en_registros: marco.en_registros(),
         en_pila: f.temporales as usize - marco.en_registros(),
+        locales_en_registro: marco.locales_en_registro(),
         ..Default::default()
     };
     let mut comprobaciones = 0usize;
@@ -66,14 +73,30 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
         }
     }
 
+    // ** SE GUARDAN LOS PRESERVADOS QUE ESTA FUNCION REPARTE (2026-09-18):
+    // son de quien llamo, y se le devuelven en cada epilogo. Solo los que se
+    // usen: una funcion que no reparte ninguno no paga nada.
+    //
+    // *** Y VAN ANTES DE BAJAR LOS PARAMETROS (I2, 20-09). Con las locales en
+    // preservados, bajar un parametro puede ESCRIBIR rbx; si rbx se guardara
+    // despues, lo guardado seria el parametro y no lo que traia quien llamo,
+    // y el epilogo le devolveria basura. Lo cazaron cinco filas de `tabla` y
+    // `objetos` en el banco: el runtime de INTI llama a funciones de INTI.
+    for (k, reg) in marco.guardados().iter().enumerate() {
+        mov_a_marco(out, marco.sitio_guardado(k), *reg);
+    }
+
     // ** Los parametros llegan en registros y las locales viven en el marco,
     // asi que lo primero que hace toda funcion es bajarlos.
     //
     // El orden de esos registros es la convencion de llamada de esta maquina, y
     // por eso esta linea solo puede existir en este crate: el frontend tiene
     // prohibido saber que existe algo llamado "registro de argumento".
+    // ** Y desde I2 (20-09) una local puede vivir en un PRESERVADO: entonces
+    // "bajarlo" es un `mov` entre registros. Los preservados no son de
+    // argumento, asi que el orden de estos movimientos no pisa a nadie.
     for i in 0..f.parametros.min(6) as usize {
-        mov_a_marco(out, marco.local(Local(i as u32)), ARGUMENTOS[i]);
+        guarda_local(out, ARGUMENTOS[i], Local(i as u32), &marco);
     }
     // ** DEL SEPTIMO EN ADELANTE LLEGAN POR LA PILA (2026-09-18). Hasta hoy
     // el `.min(6)` de arriba y el `.take(6)` de la llamada se callaban el
@@ -85,13 +108,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
     // Se bajan al marco por `rax`, que a la entrada no lleva nada.
     for i in 6..f.parametros as usize {
         mov_de_marco(out, 0, 16 + ((i - 6) as i32) * 8);
-        mov_a_marco(out, marco.local(Local(i as u32)), 0);
-    }
-    // ** Y SE GUARDAN LOS PRESERVADOS QUE ESTA FUNCION REPARTE (2026-09-18):
-    // son de quien llamo, y se le devuelven en cada epilogo. Solo los que se
-    // usen: una funcion que no reparte ninguno no paga nada.
-    for (k, reg) in marco.guardados().iter().enumerate() {
-        mov_a_marco(out, marco.sitio_guardado(k), *reg);
+        guarda_local(out, 0, Local(i as u32), &marco);
     }
 
     // Los saltos se rellenan al final, cuando se sabe donde cayo cada etiqueta.
@@ -115,7 +132,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
 
             Instr::Guarda { destino, valor } => {
                 carga(out, IZQ, valor, &marco);
-                mov_a_marco(out, marco.local(*destino), IZQ);
+                guarda_local(out, IZQ, *destino, &marco);
             }
 
             Instr::Binaria {
@@ -536,7 +553,13 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
             // ** Y `lea` no toca banderas, que importa aqui: entre una operacion
             // y su Regla 1 no puede meterse nada que las pise.
             Instr::DireccionDeLocal { destino, local } => {
-                let disp = marco.local(*local);
+                // Una local senalada esta en `tomadas` y el reparto la deja en
+                // el marco. Si no lo estuviera, seria un fallo del reparto y se
+                // dice, no se inventa una direccion.
+                let Some(disp) = marco.hueco_local(*local) else {
+                    sin_emitir.push(format!("direccion de la local {} que vive en registro", local.0));
+                    continue;
+                };
                 out.push(0x48 | (((IZQ >> 3) & 1) << 2));
                 out.push(0x8D); // lea
                 out.push(0x85 | ((IZQ & 7) << 3)); // [rbp + disp32]

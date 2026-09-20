@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   304 casillas ABIERTAS en 36 planes
-   230 hechas
+   302 casillas ABIERTAS en 36 planes
+   232 hechas
      3 planes CUMPLIDOS (ni una casilla pendiente)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
@@ -35,15 +35,6 @@
 - [ ] 1.2 (S) La misma comprobacion en EXIT: una salida limpia tambien
 - ... y 14 mas
 
-## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 17 abiertas, 12 hechas
-
-*PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe*
-
-- [ ] S1 -- EL CONTRATO, EN PAPEL Y ANTES QUE EL CODIGO. Que entra y que
-- [ ] S2 -- LA TABLA DE REGISTROS COMO DATO, no como codigo. x86-64 nombra
-- [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
-- ... y 14 mas
-
 ## [`PLAN_EL_GUARDIAN.md`](PLAN_EL_GUARDIAN.md) -- 15 abiertas, 0 hechas
 
 *PLAN EL GUARDIAN -- BMO-X como aparato, no como invitado*
@@ -51,6 +42,15 @@
 - [ ] G1.1 -- una placa. VisionFive 2 / Milk-V, ~60-100 EUR. Sin PCIe
 - [ ] G1.2 -- backend RISC-V en el toolchain. El emisor de x86-64 vive en
 - [ ] G1.3 -- el arranque. No hay UEFI GOP: en RISC-V es SBI + device tree.
+- ... y 12 mas
+
+## [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) -- 15 abiertas, 14 hechas
+
+*PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe*
+
+- [ ] S1 -- EL CONTRATO, EN PAPEL Y ANTES QUE EL CODIGO. Que entra y que
+- [ ] S2 -- LA TABLA DE REGISTROS COMO DATO, no como codigo. x86-64 nombra
+- [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
