@@ -226,6 +226,59 @@ pub fn quien_corre() -> (u32, bool) {
 ///
 /// [!] Sin cerrojo, por lo mismo que `quien_corre`: esto lo llama la pantalla
 /// de fallo, y colgarse ahi convierte un volcado legible en una maquina muda.
+/// **EL CENTINELA: la palabra que se pone en el FONDO de cada pila de hilo.**
+///
+/// *** POR QUE (2026-09-20)
+///
+/// La azul del 20-09 murio con un `&Location` podrido en la pila de tid=05 --
+/// un puntero que el compilador empuja como constante y que llego basura. Las
+/// 534 llamadas del binario lo empujan bien, o sea que **alguien escribio
+/// encima de esa pila**. Y a esa pregunta el kernel no tenia con que contestar:
+/// se sabia de QUIEN es cada pila (`titular_de_pila`) y no si estaba ENTERA.
+///
+/// Una palabra conocida en la direccion mas baja contesta las dos cosas que
+/// hacen falta, y las separa:
+///
+/// ```text
+///    rota, y el `rsp` estaba CERCA del fondo   -> se desbordo sola
+///    rota, y el `rsp` estaba LEJOS del fondo   -> la piso OTRO
+/// ```
+///
+/// ** Y el valor que hay donde deberia estar el centinela es la pista, no el
+/// hecho de que falte: un PTE, un marco, ASCII o un puntero **nombran al que
+/// escribio**. Es lo mismo que enseno `4D2000` el 04-09, cuando trece casillas
+/// resultaron ser `push r15; push r14; push r12`.
+///
+/// [!] Cuesta OCHO BYTES de los 16 KiB de cada pila, y se pagan en el punto
+/// mas profundo -- el ultimo sitio al que llega un uso normal.
+/// ** El valor se elige para que no pueda salir por accidente: sus bits altos
+/// lo hacen NO CANONICO como puntero, asi que ninguna direccion del kernel lo
+/// vale, y no es ni 0 ni todo unos -- los dos valores que la basura produce
+/// sola.
+pub const CENTINELA: u64 = 0xBEFA_5EDE_CE17_11A5;
+
+/// El rango de la pila VIVA en la que cae `rsp`: `(tid, fisica, paginas)`.
+///
+/// `titular_de_pila` contesta de QUIEN es; esto contesta DONDE empieza, que es
+/// lo que hace falta para mirarle el centinela y para preguntarle al asignador
+/// por cada uno de sus marcos.
+///
+/// [!] Sin cerrojo, por lo mismo que sus vecinas: lo llama la pantalla de
+/// fallo.
+pub fn rango_de_pila(rsp: u64) -> Option<(u32, u64, u64)> {
+    let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
+    for t in &s.tasks {
+        if t.stack_phys == 0 || t.stack_pages == 0 {
+            continue;
+        }
+        let base = mm::phys_to_virt(t.stack_phys);
+        if rsp >= base && rsp < base + t.stack_pages * mm::PAGE {
+            return Some((t.tid, t.stack_phys, t.stack_pages));
+        }
+    }
+    None
+}
+
 pub fn titular_de_pila(rsp: u64) -> Option<(u32, bool)> {
     let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
     for t in &s.tasks {

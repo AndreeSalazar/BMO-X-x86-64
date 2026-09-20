@@ -759,6 +759,7 @@ pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
     // pasa de *contabilidad rota* a decir en que se convirtio el marco -- que
     // es el nombre de quien se lo llevo.
     let stack_base = phys::alloc_frames_contig_de(TASK_STACK_PAGES, phys::Titular::Pila)?;
+    sellar_pila(stack_base);
     // *** LA OTRA MITAD DEL TESTIGO. Ver `reap`.
     //
     // ** La cabecera de `reap` lleva escrito desde el 14-08 COMO se cobra una
@@ -816,6 +817,25 @@ pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
 /// Register a Ring 3 task whose initial context was fabricated by the
 /// process loader. `kernel_stack` = the trap/syscall landing stack,
 /// `cr3` = the user address space. Returns the new TID.
+/// **Poner el centinela en el fondo de una pila recien nacida.**
+///
+/// Ocho bytes en la direccion mas baja de las cuatro paginas. Ver
+/// [`super::verde::CENTINELA`]: lo que contesta no es *"esta rota?"* sino
+/// **quien la rompio**, porque el valor que aparezca en su sitio nombra al que
+/// escribio.
+///
+/// [!] Va en los DOS nacimientos --`spawn_kernel` y `spawn_user`-- y no en el
+/// asignador: sellar ahi marcaria tambien los marcos que no son pilas, y el
+/// centinela dejaria de significar una sola cosa.
+fn sellar_pila(stack_phys: u64) {
+    if stack_phys == 0 {
+        return;
+    }
+    unsafe {
+        (mm::phys_to_virt(stack_phys) as *mut u64).write_volatile(super::verde::CENTINELA);
+    }
+}
+
 pub fn spawn_user(
     pid: u32,
     context_rsp: u64,
@@ -825,6 +845,7 @@ pub fn spawn_user(
     cr3: u64,
     priority: u8,
 ) -> Option<u32> {
+    sellar_pila(kernel_stack_phys);
     let _g = SCHED_LOCK.lock();
     let s = sched();
     let index = s.tasks.iter().position(|t| t.state == TaskState::Empty)?;

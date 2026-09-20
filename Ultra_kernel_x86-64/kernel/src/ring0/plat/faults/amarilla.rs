@@ -158,10 +158,14 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // anfitrion en diez segundos.
     let mut l = Line::new();
     l.s("   ");
-    let (ini, fin) = texto_del_kernel();
-    if rip >= ini && rip < fin {
-        l.s("en .text del kernel, +0x");
-        l.hex(rip - ini, 0);
+    let (ini, fin) = super::testigo::roja::texto_del_kernel();
+    // ** EL DESPLAZAMIENTO SE PIDE, NO SE CALCULA AQUI. Es el renglon que el
+    // 20-09 salio literalmente como `+0x` y nada mas, y `Dato` es lo que hace
+    // que no pueda volver a salir mudo: o trae numero, o trae motivo.
+    let desp = super::testigo::roja::desplazamiento_en_texto(rip);
+    if desp.se_sabe() {
+        l.s("en .text del kernel, +");
+        desp.pinta(&mut l, 0);
         inf.push(l);
         let mut l = Line::new();
         l.s("   nombralo:  py toolchain/tools/simbolo/simbolo.py 0x");
@@ -193,11 +197,12 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     //
     // [!] Que NO salga la linea tambien es veredicto: descarta de golpe toda
     // esa familia y manda a buscar a otro sitio.
-    let (podridos, ultimo) = crate::ring0::cabina::sitios_podridos();
-    if podridos != 0 {
+    if let Some((podridos, ultimo)) = super::testigo::roja::sitios_podridos() {
         let mut l = Line::new();
-        l.s("*** SITIO PODRIDO x"); l.dec(podridos);
-        l.s("  ultimo=0x"); l.hex(ultimo, 16);
+        l.s("*** SITIO PODRIDO x");
+        podridos.cuenta(&mut l);
+        l.s("  ultimo=");
+        ultimo.pinta(&mut l, 16);
         l.s("  (alguien piso una pila del kernel)");
         inf.push(l);
     }
@@ -362,6 +367,54 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // `marco OCUPADO` dice que el asignador lo da por entregado; esto dice A
     // QUIEN, que es lo unico que convierte "se entrego dos veces" en algo que
     // se pueda ir a mirar.
+
+    // *** Y ESTA PILA, ESTA ENTERA? (2026-09-20)
+    //
+    // ** Las dos preguntas que esta pantalla sabia hacer sobre una pila son de
+    // PROPIEDAD --de quien es, y de quien FUE si ya no es de nadie--. Ninguna
+    // es de INTEGRIDAD, y el caso del 20-09 cayo justo en medio: la pila era de
+    // tid=05, que estaba vivo y corriendo, y lo que estaba pisado era su
+    // CONTENIDO.
+    //
+    // Ver `testigo/roja.rs`: el centinela separa *se desbordo sola* de *la
+    // escribio otro*, y el valor que aparece en su sitio NOMBRA al que
+    // escribio -- igual que `4D2000` el 04-09.
+    match super::testigo::roja::pila_viva(fault_rsp) {
+        // ** Que la pila este entera NO se dice, y que no sea de nadie vivo
+        // tampoco: lo primero es el caso normal y lo segundo ya lo cuenta la
+        // morgue de aqui arriba. Un renglon por cada cosa que esta bien es
+        // como se tapa la que esta mal -- la leccion del cepo del 30-08.
+        super::testigo::roja::Pila::NoEsDeNadieVivo => {}
+        super::testigo::roja::Pila::Entera { .. } => {}
+        super::testigo::roja::Pila::Pisada { tid, hay, hueco } => {
+            let mut l = Line::new();
+            l.s("*** PILA PISADA de tid="); l.hex(tid as u64, 2);
+            l.s(": en su fondo hay 0x"); l.hex(hay, 16);
+            inf.push(l);
+            let mut l = Line::new();
+            // ** El hueco es lo que le quedaba al `rsp` hasta el fondo, y es el
+            // digito que parte el caso en dos. El marco de `record_fmt` son
+            // 0x2C8 bytes: si cabian de sobra, esa pila no se desbordo sola.
+            l.s("    al rsp le quedaban 0x"); l.hex(hueco, 0);
+            l.s(if hueco < 0x400 { "  SE DESBORDO SOLA" } else { "  LO ESCRIBIO OTRO" });
+            inf.push(l);
+        }
+    }
+    // Y las cuatro paginas de esa misma pila viva, contra el asignador y contra
+    // la morgue. Si alguna contesta, lo del 31-08 deja de ser una sospecha.
+    if let Some((pag, fis, que)) = super::testigo::roja::pagina_sospechosa(fault_rsp) {
+        let mut l = Line::new();
+        l.s("*** pagina "); l.dec(pag);
+        l.s(" de esa pila VIVA (0x"); l.hex(fis, 8);
+        l.s("): ");
+        l.s(match que {
+            1 => "el asignador la da por LIBRE",
+            2 => "la MORGUE la tiene: se solto y se re-entrego",
+            _ => "se DEVOLVIO DOS VECES",
+        });
+        inf.push(l);
+    }
+
     if let Some(fisica) = titular_del_marco {
         let mut l = Line::new();
         if let Some((pid, desp)) = crate::ring0::obj::memory::titular_de_fisica(fisica) {
@@ -635,25 +688,4 @@ pub(super) fn pantalla_de_fallo(titulo: &str, informe: &Informe) -> ! {
         }
     }
     crate::ring0::plat::reinicio::ahora();
-}
-
-/// **Donde empieza y donde acaba el codigo del kernel**, del linker.
-///
-/// Los dos simbolos los pone `linker.ld`, que es el unico sitio que sabe la
-/// respuesta: el `0x400000` esta escrito ahi y en ningun otro lado. Preguntarlo
-/// aqui con una constante seria tener el numero en dos sitios, que es como
-/// empieza el `[riesgo] ESPEJO` de siempre.
-fn texto_del_kernel() -> (u64, u64) {
-    extern "C" {
-        static __text_start: u8;
-        static __text_end: u8;
-    }
-    // [!] Sin `unsafe`, y el trinquete de avisos lo cazo al primer intento:
-    // TOMAR la direccion de un `static` externo es seguro -- lo que no lo seria
-    // es LEERLO. Aqui no se lee ni un byte: los dos simbolos no tienen
-    // contenido, su valor ES su direccion.
-    (
-        core::ptr::addr_of!(__text_start) as u64,
-        core::ptr::addr_of!(__text_end) as u64,
-    )
 }

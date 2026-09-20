@@ -22,6 +22,10 @@
 //!    amarilla.rs   el informe y la pantalla azul. No es peligroso de
 //!                  EJECUTAR: es peligroso de CREER, y cambia cada semana
 //!    verde.rs      `Line`, los colores y el plazo. Equivocarse pinta feo
+//!    testigo/      lo que se le PREGUNTA al resto del kernel, y como se dice
+//!                  una respuesta que no se sabe. Se partio de `amarilla.rs`
+//!                  el 20-09, el dia que la pantalla mintio en dos sitios a la
+//!                  vez: un valor rancio y una respuesta vacia
 //! ```
 //!
 //! *** El corte que mas dice es el de en medio. `fault_report` "solo imprime",
@@ -32,6 +36,7 @@
 
 mod amarilla;
 mod roja;
+mod testigo;
 mod verde;
 
 pub use roja::{init, contexto_podrido, PODRIDO_CABECERA, PODRIDO_CS, PODRIDO_SELLO};
