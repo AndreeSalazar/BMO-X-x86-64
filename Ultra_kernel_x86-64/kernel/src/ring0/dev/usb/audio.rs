@@ -33,9 +33,11 @@
 
 use crate::ring0::cabina;
 
-/// **Walks the enumerated SLOTS and reports the first playback pipe it finds.**
+/// **Reports the playback pipe of the CLAIMED headset and opens it.**
 ///
-/// [!] Decia *"the untaken ports"* y por eso no encontraba nada: ver el cuerpo.
+/// [!] Decia *"the untaken ports"* y por eso no encontraba nada; despues
+/// recorrio slots leyendo descriptores desde un syscall; desde el 2026-09-21
+/// no lee nada: ver el cuerpo.
 ///
 /// Returns `true` if it found one. Everything it learns goes to CABINA, because
 /// the point of this step is a photograph that can be compared against what the
@@ -64,24 +66,19 @@ pub unsafe fn censar() -> bool {
     //    la REPRODUCCION   recorria puertos      -> no lo veia nunca
     // ```
     //
-    // ** Dos caminos que buscan el mismo aparato mirando cosas distintas. Ahora
-    // los dos recorren slots, y **usan el mismo lector de descriptores** --
-    // `uaudio::leer_configuracion`-- porque dos lectores del mismo descriptor
-    // son dos sitios donde ese descriptor se puede leer distinto.
-    let mut buf = [0u8; crate::ring0::dev::uaudio::DESCRIPTOR_MAX];
-    let mut mirados = 0u64;
-
-    for slot in 1u8..=8 {
-        let Some(n) = crate::ring0::dev::uaudio::leer_configuracion(slot, &mut buf) else {
-            continue;
-        };
-        mirados += 1;
-        let Some(p) = bmo_uaudio::stream::find_playback(&buf[..n]) else {
-            continue;
-        };
-
-        // -- The four numbers. Each with its unit, so nobody converts by hand.
-        cabina::count("audio", "interfaz AudioStreaming, alt", p.alt_setting as u64);
+    // ** Dos caminos que buscan el mismo aparato mirando cosas distintas. Se
+    // hizo que los dos recorrieran slots con el mismo lector de descriptores.
+    //
+    // ** Y YA NO SE LEE NINGUN DESCRIPTOR AQUI (2026-09-21). El que enumera
+    // lo leyo y `uaudio::reclamar` lo guardo; esto corre desde un syscall
+    // (`op_aparato`) con `IF=0`, y una transferencia bloqueante aqui era el
+    // segundo conductor del xHC que el `save` de las 13:52 midio en 244 ms.
+    let Some((slot, p)) = crate::ring0::dev::uaudio::reproduccion() else {
+        cabina::warn("audio", "no hay audifono reclamado con interfaz de reproduccion", 0);
+        return false;
+    };
+    {
+    cabina::count("audio", "interfaz AudioStreaming, alt", p.alt_setting as u64);
         cabina::count("audio", "canales", p.channels as u64);
         cabina::count("audio", "bits por muestra", p.bits as u64);
         cabina::bytes("audio", "bytes por trama (wMaxPacketSize)", p.max_packet as u64);
@@ -107,17 +104,8 @@ pub unsafe fn censar() -> bool {
         cabina::count("audio", "y vive en el slot", slot as u64);
         // *** Y AQUI SE ABRE EL TUBO (A1).
         abrir(slot, &p);
-        return true;
+        true
     }
-
-    // ** DECIR "no hay" Y DECIR "no mire" SON COSAS DISTINTAS, y sin el numero
-    // de slots mirados se ven igual. Esa distincion es la que resolvio este
-    // fallo: el `=0` de la version anterior dijo exactamente donde estaba.
-    cabina::count("audio", "slots mirados, y ninguno reproduce", mirados);
-    if mirados == 0 {
-        cabina::warn("audio", "ningun slot contesto su descriptor: no hay nada enumerado", 0);
-    }
-    false
 }
 
 // ===================================================================

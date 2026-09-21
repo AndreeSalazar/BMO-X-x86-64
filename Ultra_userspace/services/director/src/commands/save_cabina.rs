@@ -82,7 +82,7 @@ pub(crate) fn report_usb(s: &mut Output) {
         let papeles = bmo::info(bmo::INFO_USB_FICHA | (i << 8));
         let empaquetado = bmo::info(bmo::INFO_USB_FICHA_VEREDICTO | (i << 8));
         let veredicto = empaquetado & 0xFF;
-        let detalle = (empaquetado >> 8) & 0xFF;
+        let detalle = (empaquetado >> 8) & 0xFFFF;
         s.text(b"      ");
         s.dec_right(((papeles >> 24) & 0xFF) + 1, 4);
         s.text(b"    ");
@@ -95,8 +95,9 @@ pub(crate) fn report_usb(s: &mut Output) {
         for _ in n..13 {
             s.byte(b' ');
         }
-        // Teclado, raton y "configurado" son lo bueno; el resto, lo que falta.
-        s.with_ink(if veredicto == 1 || veredicto == 2 || veredicto == 11 { INK_GOOD } else { INK_ECHO });
+        // Teclado, raton, "configurado" y "reclamado" son lo bueno; el resto,
+        // lo que falta.
+        s.with_ink(if veredicto == 1 || veredicto == 2 || veredicto == 11 || veredicto == 12 { INK_GOOD } else { INK_ECHO });
         let n = bmo::info_texto(bmo::INFO_TXT_USB_MOTIVO | (i << 8), &mut txt);
         s.text(&txt[..n]);
         if veredicto == 7 {
@@ -106,6 +107,24 @@ pub(crate) fn report_usb(s: &mut Output) {
             s.text(b" (cc=");
             s.dec(detalle);
             s.byte(b')');
+        }
+        if veredicto == 10 {
+            // "Sin descriptores" con el PASO en que se quedo (2026-09-21) y,
+            // si llego a decirlo, cuanto declaro medir su configuracion. Es
+            // lo que separa un aparato mudo de un audifono que no cabia.
+            s.text(match detalle & 0xF {
+                1 => b" (ni el descriptor del aparato)" as &[u8],
+                2 => b" (sin cabecera de configuracion)",
+                3 => b" (configuracion de menos de 9 B)",
+                4 => b" (la configuracion NO CABE:",
+                5 => b" (la configuracion vino corta:",
+                _ => b"",
+            });
+            if detalle & 0xF >= 4 {
+                s.byte(b' ');
+                s.dec(detalle >> 4);
+                s.text(b" B)");
+            }
         }
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');

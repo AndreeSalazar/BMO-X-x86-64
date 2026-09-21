@@ -94,7 +94,12 @@ struct Ficha {
     /// agenda periodica, 17 = un campo del contexto no vale, 0xFE = no
     /// contesto. Sin esto, "no se pudo preparar" era todo lo que se sabia
     /// del raton que no entro.
-    detalle: u8,
+    ///
+    /// Y desde el 2026-09-21, con `VEREDICTO_SIN_DESCRIPTORES`, el PASO en
+    /// que se quedo (bits 0..4) y el `wTotalLength` que declaro (bits
+    /// 4..16): un audifono cuya configuracion no cabia y un aparato mudo
+    /// salian con la misma ficha.
+    detalle: u16,
 }
 
 const VACIA: Ficha =
@@ -137,7 +142,7 @@ pub fn papeles_de(i: usize) -> u64 {
     }
 }
 
-/// El veredicto de la ficha `i` en los 8 bits bajos y su detalle en los 8
+/// El veredicto de la ficha `i` en los 8 bits bajos y su detalle en los 16
 /// siguientes (`veredicto | detalle << 8`), o 0 si no hay tal ficha.
 pub fn veredicto_de(i: usize) -> u64 {
     ficha(i).map_or(0, |f| f.veredicto as u64 | ((f.detalle as u64) << 8))
@@ -183,7 +188,7 @@ pub(super) fn apunta(
     subclase: u8,
     proto: u8,
     veredicto: u8,
-    detalle: u8,
+    detalle: u16,
 ) {
     let f = Ficha { vid, pid, puerto, iface, clase, subclase, proto, veredicto, detalle };
     unsafe {
@@ -239,6 +244,22 @@ pub(super) fn apunta(
         // el codigo con que el controlador dijo que no.
         crate::ring0::cabina::warn("portero", "  ...el xHC nego el Configure Endpoint con cc", detalle as u64);
     }
+    if veredicto == uhid::VEREDICTO_SIN_DESCRIPTORES {
+        crate::ring0::cabina::warn("portero", paso_sin_descriptores(detalle), (detalle >> 4) as u64);
+    }
+}
+
+/// En que paso se quedo un "sin descriptores", en palabras. El numero que
+/// acompana es el `wTotalLength` que declaro (0 si no llego a decirlo).
+pub fn paso_sin_descriptores(detalle: u16) -> &'static str {
+    match detalle & 0xF {
+        1 => "  ...ni el descriptor del APARATO llego (tres lecturas)",
+        2 => "  ...dio el aparato y NO la cabecera de configuracion",
+        3 => "  ...su configuracion declara menos de 9 bytes: miente",
+        4 => "  ...su configuracion NO CABE (bytes declarados; el tope es MAX_CFG)",
+        5 => "  ...la configuracion entera vino CORTA (bytes declarados)",
+        _ => "  ...sin decir en que paso",
+    }
 }
 
 /// **"No es HID" no dice QUE es** (2026-09-14). Con el movil de Eddi enchufado,
@@ -277,6 +298,7 @@ fn motivo(v: u8) -> &'static str {
         uhid::VEREDICTO_SIN_DIRECCION => "un puerto con algo dentro NO se pudo direccionar",
         uhid::VEREDICTO_SIN_DESCRIPTORES => "direccionado, pero sus descriptores no se leyeron",
         uhid::VEREDICTO_CONFIGURADO => "sin driver, pero CONFIGURADO: ya sabe que hay anfitrion",
+        uhid::VEREDICTO_RECLAMADO => "no es HID y el KERNEL lo reclamo (audio): su ranura sigue viva",
         // Un veredicto que este kernel no conoce es un `bmo_uhid` mas nuevo que
         // el codigo que lo lee. Se dice asi en vez de inventarle un nombre.
         _ => "llego algo con un veredicto que este kernel no sabe nombrar",

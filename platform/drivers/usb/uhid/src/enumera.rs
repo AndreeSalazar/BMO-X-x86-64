@@ -15,7 +15,28 @@
 /// driver corre dentro de Ring 0 de BMO, que no tiene allocator).
 pub const MAX_IFACES: usize = 8;
 /// Tamano maximo aceptado del config descriptor completo (fijo, sin alloc).
-pub const MAX_CFG: usize = 512;
+/// * 512 hasta el 2026-09-21. Un audifono USB Audio "7.1" declara sus
+/// terminales, sus Feature Units y sus formatos en la configuracion, y se
+/// va de 512 con facilidad: el del puerto 1 del Ryzen salia como "sin
+/// papeles" sin que nadie pudiera decir si era mudo o solo grande. Con
+/// 1024 caben los de clase audio normales; el que no quepa lo dice el
+/// detalle de la ficha (paso 4, con su `wTotalLength`).
+pub const MAX_CFG: usize = 1024;
+
+/// **En que paso se quedo una lectura de descriptores que no acabo**, para
+/// el `detalle` de `VEREDICTO_SIN_DESCRIPTORES`: `paso | (wTotalLength << 4)`.
+pub const PASO_SIN_APARATO: u16 = 1;
+pub const PASO_SIN_CABECERA: u16 = 2;
+pub const PASO_CFG_MENOR_DE_9: u16 = 3;
+pub const PASO_CFG_NO_CABE: u16 = 4;
+pub const PASO_CFG_CORTA: u16 = 5;
+
+/// El detalle de una ficha "sin descriptores": el paso y, si se llego a
+/// saber, cuanto declaro medir la configuracion.
+pub fn detalle_sin_descriptores(paso: u16, total_len: usize) -> u16 {
+    paso | ((total_len.min(4095) as u16) << 4)
+}
+
 
 /// Clase HID de una interfaz, ya interpretada.
 pub const CLASE_HID: u8 = 3;
@@ -309,10 +330,12 @@ pub const MAX_REPORT: usize = 512;
 /// mismo binario da "no dev desc" en un encendido y enumera bien en el
 /// siguiente. Un dispositivo recien reseteado puede no estar listo para el
 /// primer control transfer.
+///
+/// `Err(detalle)` dice en que paso se quedo (ver `detalle_sin_descriptores`).
 pub unsafe fn leer_descriptores(
     slot: u8,
     cfg: &mut [u8; MAX_CFG],
-) -> Option<(u8, usize, u16, u16)> {
+) -> Result<(u8, usize, u16, u16), u16> {
     let h = bmo_xhci::hal();
 
     let mut dev_desc = [0u8; 18];
@@ -328,7 +351,7 @@ pub unsafe fn leer_descriptores(
     }
     if n < 8 {
         h.log("[uhid] no dev desc\n");
-        return None;
+        return Err(detalle_sin_descriptores(PASO_SIN_APARATO, 0));
     }
     h.log_u64(" class=", dev_desc[4] as u64);
     // == ** EL NOMBRE DEL APARATO, QUE YA ESTABA AQUI (2026-09-07) ==========
@@ -362,7 +385,7 @@ pub unsafe fn leer_descriptores(
     }
     if n2 < 9 {
         h.log("[uhid] no cfg hdr\n");
-        return None;
+        return Err(detalle_sin_descriptores(PASO_SIN_CABECERA, 0));
     }
     let total_len = le_u16(&cfg_hdr, 2) as usize;
     let cfg_val = cfg_hdr[5];
@@ -373,18 +396,18 @@ pub unsafe fn leer_descriptores(
     // smaller total is a device lying about itself (see `declared_total`).
     if total_len < 9 {
         h.log("[uhid] cfg too small\n");
-        return None;
+        return Err(detalle_sin_descriptores(PASO_CFG_MENOR_DE_9, total_len));
     }
     if total_len > MAX_CFG {
         h.log("[uhid] cfg too big\n");
-        return None;
+        return Err(detalle_sin_descriptores(PASO_CFG_NO_CABE, total_len));
     }
     let n3 = bmo_xhci::get_config_descriptor(slot, 0, &mut cfg[..total_len]);
     if n3 < total_len {
         h.log("[uhid] cfg short\n");
-        return None;
+        return Err(detalle_sin_descriptores(PASO_CFG_CORTA, total_len));
     }
-    Some((cfg_val, total_len, vid, pid))
+    Ok((cfg_val, total_len, vid, pid))
 }
 
 /// Enciende un puerto y direcciona lo que haya. `None` = ahi no hay nada, o no

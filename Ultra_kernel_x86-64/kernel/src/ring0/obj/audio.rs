@@ -223,10 +223,11 @@ pub fn owner() -> Option<u32> {
 /// Que aparatos hay. Publico porque `informe.rs` lo puede querer sin handle:
 /// preguntar QUE HAY no es lo mismo que tener derecho a usarlo.
 pub fn devices() -> u64 {
-    // Se busca aqui porque es la primera pregunta que hace todo programa de
-    // sonido: si el audifono esta, que salga en la respuesta desde el principio
-    // y no en la segunda llamada.
-    crate::ring0::dev::uaudio::buscar();
+    // ** AQUI SE LLAMABA A `uaudio::buscar()` (hasta el 2026-09-21): ocho
+    // ranuras con transferencias bloqueantes DENTRO del syscall, con las
+    // interrupciones cerradas -- 244 ms en el Ryzen, a cargo de `musica.ibx`.
+    // Hoy el audifono lo apunta el que enumera (`uaudio::reclamar`) y esto
+    // es una lectura de un atomico.
     // El puerto del altavoz existe en todo x86. Que haya algo conectado al
     // otro lado no se puede saber desde aqui, y por eso este bit dice "hay
     // camino", no "vas a oir algo".

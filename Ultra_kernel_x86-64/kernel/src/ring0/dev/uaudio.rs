@@ -49,130 +49,97 @@ static VOL_MAX: AtomicI16 = AtomicI16::new(0);
 /// STALL contado como fallo esconde el volumen que si llego.
 static TIENE_MUTE: AtomicBool = AtomicBool::new(false);
 static CANALES: AtomicU8 = AtomicU8::new(0);
-static BUSCADO: AtomicBool = AtomicBool::new(false);
 
 /// Hay un aparato de audio USB localizado y con volumen?
 pub fn hay() -> bool {
     SLOT.load(Ordering::SeqCst) != 0
 }
 
-/// Busca un aparato USB Audio entre los slots enumerados, UNA sola vez.
+/// **El que enumera pregunta: es tuyo?** (2026-09-21). Lo llama
+/// `XhciHal::reclamar` desde `bmo_uhid::instalar`, con la configuracion
+/// entera del aparato en la mano y `SET_CONFIGURATION` ya mandado. Si es
+/// USB Audio con volumen, se apunta su ranura --que a partir de aqui sigue
+/// viva-- y se le pregunta su rango. `true` = me lo quedo.
 ///
-/// Se barren los slots en vez de engancharse a la enumeracion a proposito: el
-/// camino de enumeracion de `dev/usb.rs` costo mucho estabilizarse --el bucle
-/// que se comia a si mismo, el anillo de eventos compartido-- y meterle un
-/// tercer interesado ahora seria tocar lo unico del USB que ya funciona.
+/// *** ANTES ESTO ERA `buscar()`: recorrer las ranuras 1..8 pidiendo el
+/// descriptor de configuracion, con transferencias BLOQUEANTES, desde
+/// `AUDIO_OP_DEVICES` --o sea desde un syscall, con `IF=0` por `SFMASK`.
+/// El `save` de las 13:52 lo midio: `latido tarde 244 ms`, `el reloj dio 3
+/// ticks`, `el CPU lo tuvo tid 6` = `musica.ibx`. Un cuarto de segundo con
+/// las interrupciones cerradas, y un segundo conductor del xHC fuera del
+/// hilo del bus (la regla A0 lo prohibe al escritorio; a esto se le habia
+/// pasado). Y encima no podia encontrar nada: desde el 17-09 un aparato sin
+/// driver se configura y su ranura SE DEVUELVE, asi que `get_config_descriptor`
+/// contestaba `no ep0 ring` en todas.
 ///
-/// El precio esta dicho: si el aparato se enchufa DESPUES, no se ve hasta que
-/// alguien vuelva a llamar a [`olvidar`].
-pub fn buscar() {
-    if BUSCADO.swap(true, Ordering::SeqCst) {
+/// El que lee los descriptores es el que enumera. Que pregunte una vez.
+pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
+    let Some(ac) = bmo_uaudio::find_audio_control(cfg) else {
+        return false;
+    };
+    if !ac.has_volume {
+        // Existe y NO deja cambiar el volumen. Es un caso real, y la
+        // respuesta correcta es decirlo, no fingir que se puso.
+        crate::ring0::cabina::warn("uaudio", "aparato de audio SIN control de volumen", slot as u64);
+        return false;
+    }
+    if SLOT.load(Ordering::SeqCst) != 0 {
+        crate::ring0::cabina::warn("uaudio", "un SEGUNDO aparato de audio: solo se maneja uno, ranura", slot as u64);
+        return false;
+    }
+    SLOT.store(slot, Ordering::SeqCst);
+    IFACE.store(ac.interface, Ordering::SeqCst);
+    UNIT.store(ac.feature_unit, Ordering::SeqCst);
+    TIENE_MUTE.store(ac.has_mute, Ordering::SeqCst);
+    CANALES.store(ac.channels, Ordering::SeqCst);
+    // El rango son dos transferencias contra un aparato que ACABA de
+    // contestar sus descriptores: microsegundos, en el hilo que enumera.
+    leer_rango(&ac);
+    crate::ring0::cabina::info("uaudio", "audifono USB con volumen, en la ranura", slot as u64);
+    // Y su tubo de reproduccion, si lo declara: se guarda para `censar`, que
+    // asi deja de leer descriptores desde un syscall.
+    match bmo_uaudio::stream::find_playback(cfg) {
+        Some(p) => unsafe {
+            REPRODUCCION = p;
+            HAY_REPRODUCCION.store(true, Ordering::SeqCst);
+        },
+        None => crate::ring0::cabina::info("uaudio", "  ...y sin interfaz de reproduccion", 0),
+    }
+    true
+}
+
+/// El aparato reclamado se fue: se olvida todo. Lo llama `XhciHal::soltado`
+/// ANTES de que la ranura se devuelva.
+pub fn soltado(slot: u8) {
+    if SLOT.load(Ordering::SeqCst) != slot {
         return;
     }
-    let mut buf = [0u8; DESCRIPTOR_MAX];
-    // Los slots bajos son los que reparte el xHC al enumerar. Ocho sobran para
-    // esta maquina y no cuesta nada equivocarse por arriba.
-    for slot in 1u8..=8 {
-        let Some(n) = leer_configuracion(slot, &mut buf) else {
-            continue;
-        };
-        let cfg = &buf[..n];
-        if let Some(ac) = bmo_uaudio::find_audio_control(cfg) {
-            if !ac.has_volume {
-                // Existe y NO deja cambiar el volumen. Es un caso real, y la
-                // respuesta correcta es decirlo, no fingir que se puso.
-                crate::ring0::cabina::warn(
-                    "uaudio",
-                    "aparato de audio SIN control de volumen",
-                    slot as u64,
-                );
-                continue;
-            }
-            SLOT.store(slot, Ordering::SeqCst);
-            IFACE.store(ac.interface, Ordering::SeqCst);
-            UNIT.store(ac.feature_unit, Ordering::SeqCst);
-            TIENE_MUTE.store(ac.has_mute, Ordering::SeqCst);
-            CANALES.store(ac.channels, Ordering::SeqCst);
-            leer_rango(&ac);
-            crate::ring0::cabina::info("uaudio", "audifono USB con volumen", slot as u64);
-            return;
-        }
-    }
-    // Que NO haya nada tambien es una respuesta, y hasta ahora se daba
-    // callando. Una linea que no sale no distingue "mire y no habia" de "no
-    // llegue a mirar", y son dos sitios distintos donde buscar.
-    crate::ring0::cabina::info("uaudio", "ningun aparato de audio en los slots 1..8", 0);
-}
-
-/// Cuanto descriptor de configuracion cabe. **512 y no 256**: ver
-/// [`leer_configuracion`].
-pub(crate) const DESCRIPTOR_MAX: usize = 512;
-
-/// Lee el descriptor de configuracion ENTERO de un slot, en dos pasos.
-///
-/// # Por que dos pasos, y no una lectura y ya
-///
-/// Un control transfer entrega **como mucho lo que se le pide**: el `wLength`
-/// es `buf.len()`. Con un buffer de 256 bytes, un aparato cuyo descriptor mida
-/// mas devuelve los 256 primeros **y el resto no existe para nosotros**.
-///
-/// Y eso importa justo aqui: un audifono USB corriente trae cuatro interfaces
-/// --AudioControl, dos de AudioStreaming y una HID para los botones-- y pasa de
-/// los 256 bytes con facilidad. El Feature Unit puede quedar **detras** del
-/// corte. El sintoma seria un aparato enchufado, enumerado y funcionando al que
-/// este codigo dice que no encuentra: ni una linea, ni una causa.
-///
-/// Asi que primero se piden los **9 bytes de la cabecera**, que traen
-/// `wTotalLength`, y luego se pide exactamente eso. Es lo que hace cualquier
-/// pila USB, y por el mismo motivo.
-/// **Se comparte con el censo de reproduccion a proposito (2026-08-25).**
-///
-/// Los dos caminos del audio buscan el MISMO aparato, y hasta hoy lo buscaban de
-/// formas distintas: este por slots --aparatos ya enumerados-- y el de
-/// reproduccion por puertos libres. En el Ryzen eso dio `puertos libres mirados
-/// =0`: el audifono ya tenia slot, asi que su puerto no estaba libre y **el
-/// censo de reproduccion no llego a mirarlo nunca**.
-///
-/// *** Dos lectores del mismo descriptor son dos sitios donde ese descriptor se
-/// puede leer distinto. Hay uno.
-pub(crate) fn leer_configuracion(slot: u8, buf: &mut [u8; DESCRIPTOR_MAX]) -> Option<usize> {
-    let mut cab = [0u8; 9];
-    let n = unsafe { bmo_xhci::get_config_descriptor(slot, 0, &mut cab) };
-    if n < 9 {
-        return None;
-    }
-    // wTotalLength va en los bytes 2 y 3 del descriptor de CONFIGURACION.
-    let total = u16::from_le_bytes([cab[2], cab[3]]) as usize;
-    if total < 9 {
-        return None;
-    }
-    if total > DESCRIPTOR_MAX {
-        // Se lee lo que cabe y se sigue, pero se DICE: si luego no aparece el
-        // Feature Unit, esta linea es la diferencia entre "no es de audio" y
-        // "no me cupo".
-        crate::ring0::cabina::warn(
-            "uaudio",
-            "el descriptor no cabe entero: puede que el Feature Unit quede fuera",
-            total as u64,
-        );
-    }
-    let quiero = total.min(DESCRIPTOR_MAX);
-    let n = unsafe { bmo_xhci::get_config_descriptor(slot, 0, &mut buf[..quiero]) };
-    if n == 0 {
-        return None;
-    }
-    Some(n.min(quiero))
-}
-
-/// Vuelve a mirar en la proxima llamada. Para cuando se enchufa algo despues.
-pub fn olvidar() {
-    BUSCADO.store(false, Ordering::SeqCst);
     SLOT.store(0, Ordering::SeqCst);
+    HAY_REPRODUCCION.store(false, Ordering::SeqCst);
+    crate::ring0::cabina::warn("uaudio", "el audifono se DESENCHUFO: se olvida su ranura", slot as u64);
 }
 
-/// Le pregunta al aparato **su** rango. Si no contesta, se queda un rango
-/// conservador -- pero se avisa, porque un rango inventado da un volumen que
-/// salta de mudo a ensordecedor.
+/// La interfaz de reproduccion del audifono reclamado, con su ranura, si la
+/// declaro. Es lo que `censar` abria antes leyendo descriptores por su
+/// cuenta.
+pub fn reproduccion() -> Option<(u8, bmo_uaudio::stream::Playback)> {
+    if !HAY_REPRODUCCION.load(Ordering::SeqCst) {
+        return None;
+    }
+    let slot = SLOT.load(Ordering::SeqCst);
+    if slot == 0 {
+        return None;
+    }
+    Some((slot, unsafe { REPRODUCCION }))
+}
+
+/// Lo que `find_playback` saco del descriptor, guardado en el instante de
+/// reclamar. Se escribe SOLO desde `reclamar` (el hilo que enumera) y se lee
+/// con `HAY_REPRODUCCION` delante; el valor de arranque es un relleno que
+/// nadie lee.
+static mut REPRODUCCION: bmo_uaudio::stream::Playback = bmo_uaudio::stream::Playback::VACIA;
+static HAY_REPRODUCCION: AtomicBool = AtomicBool::new(false);
+
 fn leer_rango(ac: &bmo_uaudio::AudioControl) {
     let min = leer(ac, bmo_uaudio::GET_MIN);
     let max = leer(ac, bmo_uaudio::GET_MAX);
@@ -220,7 +187,6 @@ fn leer(ac: &bmo_uaudio::AudioControl, cual: u8) -> Option<i16> {
 /// ese es 0 dB, o sea el maximo. Confundirlos pone el audifono a tope creyendo
 /// que se apaga, con los cascos puestos.
 pub fn set_volume(pct: u8) -> bool {
-    buscar();
     let slot = SLOT.load(Ordering::SeqCst);
     if slot == 0 {
         return false;

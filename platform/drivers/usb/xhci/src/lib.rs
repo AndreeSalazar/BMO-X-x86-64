@@ -82,6 +82,25 @@ pub trait XhciHal {
     fn hay_bombeo(&self) -> bool {
         false
     }
+    /// **Un aparato que NO es HID acaba de contestar sus descriptores: lo
+    /// quiere el kernel?** (2026-09-21). `cfg` es su configuracion entera,
+    /// ya con `SET_CONFIGURATION` mandado. `true` = el kernel se lo queda:
+    /// la ranura sigue viva y las peticiones de clase (el volumen del
+    /// audifono, su tubo) van por ella. `false` = se configura y se
+    /// devuelve la ranura, como siempre.
+    ///
+    /// Existe porque el kernel buscaba el audifono DESPUES, recorriendo
+    /// ranuras 1..8 con transferencias bloqueantes desde un syscall: 244 ms
+    /// con las interrupciones cerradas en el Ryzen, y encima una ranura que
+    /// ya estaba devuelta. El que lee los descriptores es el que enumera;
+    /// que pregunte una vez, con el descriptor en la mano.
+    #[allow(unused_variables)]
+    fn reclamar(&self, slot: u8, puerto: u8, vid: u16, pid: u16, cfg: &[u8]) -> bool {
+        false
+    }
+    /// El aparato reclamado se fue (desenchufe): la ranura `slot` deja de
+    /// valer. Se avisa ANTES de devolverla.
+    fn soltado(&self, _slot: u8) {}
 
     /// **LOS PAPELES DE UN APARATO QUE LLEGO, Y QUE SE LE CONTESTO.**
     ///
@@ -100,6 +119,12 @@ pub trait XhciHal {
     ///
     /// Por defecto no hace nada: un HAL de prueba no tiene donde apuntar, y una
     /// implementacion vacia deja que este metodo se anada sin tocar a nadie.
+    /// `detalle` (2026-09-21): lo que el veredicto solo no dice. Para
+    /// `VEREDICTO_SIN_DESCRIPTORES`, en que PASO se quedo (bits 0..4:
+    /// 1 = ni el descriptor del aparato, 2 = sin cabecera de configuracion,
+    /// 3 = configuracion menor de 9 B, 4 = no cabe, 5 = vino corta) y el
+    /// `wTotalLength` que declaro (bits 4..16). Sin esto, un audifono cuya
+    /// configuracion no cabe y un aparato mudo salian con la misma ficha.
     #[allow(clippy::too_many_arguments)]
     fn papeles(
         &self,
@@ -111,6 +136,7 @@ pub trait XhciHal {
         _subclase: u8,
         _proto: u8,
         _veredicto: u8,
+        _detalle: u16,
     ) {
     }
 }

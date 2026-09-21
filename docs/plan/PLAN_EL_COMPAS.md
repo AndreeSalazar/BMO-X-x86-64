@@ -231,6 +231,16 @@ cual sea el veredicto del metal:
       `disable_slot` bloquearon contra un aparato que si contesto, y ese es
       el siguiente corte.
 
+      ** CONTESTADO a las 13:52: `peor trabajo bombeo` 932.898 -> 7.922 us,
+      `incumplio` 176 -> 20 (peor vuelta 8 ms = `instalar`), `vuelta del bus`
+      0 ms en el latido tarde. CONFIRMADO. Y el latido tarde que quedo (244
+      ms, 3 ticks, tid de `musica.ibx`) era `uaudio::buscar()` desde un
+      syscall con `IF=0`: un segundo conductor del xHC fuera del hilo del
+      bus. Cerrado la misma tarde con `XhciHal::reclamar` (el que enumera
+      ofrece el aparato sin driver con su descriptor en la mano; el audio lo
+      reclama y su ranura sigue viva). Queda como deuda, dicha: `abrir` (el
+      tubo, `op_aparato`) sigue mandando comandos al xHC desde un syscall.
+
 - [ ] **E0 -- LA TAREA IDLE.** Prioridad minima, siempre lista, cuerpo
       `loop { hlt }`. Hoy no existe: `choose_next` devuelve `self.current` cuando
       nadie mas esta listo, y `schedule_locked` vuelve sin cambiar, **asi que una

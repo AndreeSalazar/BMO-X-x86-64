@@ -221,17 +221,27 @@ impl XhciHal for KernelXhciHal {
         subclase: u8,
         proto: u8,
         veredicto: u8,
+        detalle: u16,
     ) {
         // El detalle de "no se pudo preparar" es el cc del ultimo Configure
         // Endpoint, que el driver del controlador ya guardaba y nadie leia.
         // Se pregunta AQUI, en el instante del veredicto, que es cuando es
-        // el de este aparato y no el del siguiente.
+        // el de este aparato y no el del siguiente. Los demas detalles los
+        // trae el driver (el PASO de "sin descriptores", 2026-09-21).
         let detalle = if veredicto == bmo_uhid::VEREDICTO_SIN_PREPARAR {
-            bmo_xhci::last_cfg_ep_cc()
+            bmo_xhci::last_cfg_ep_cc() as u16
         } else {
-            0
+            detalle
         };
         portero::apunta(vid, pid, puerto, iface, clase, subclase, proto, veredicto, detalle);
+    }
+    /// Un aparato sin driver HID, con sus papeles: el audio lo reclama si es
+    /// suyo. Corre en el hilo que enumera (el del bus, o el arranque).
+    fn reclamar(&self, slot: u8, _puerto: u8, _vid: u16, _pid: u16, cfg: &[u8]) -> bool {
+        crate::ring0::dev::uaudio::reclamar(slot, cfg)
+    }
+    fn soltado(&self, slot: u8) {
+        crate::ring0::dev::uaudio::soltado(slot);
     }
 }
 

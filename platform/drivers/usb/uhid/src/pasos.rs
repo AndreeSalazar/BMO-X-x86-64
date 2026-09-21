@@ -40,7 +40,10 @@
 //! vueltas, que un aparato mudo cuesta tres lecturas y devuelve su ranura--
 //! sin encender la maquina. Ver las pruebas al final.
 
-use crate::enumera::{le_u16, MAX_CFG};
+use crate::enumera::{
+    detalle_sin_descriptores, le_u16, MAX_CFG, PASO_CFG_CORTA, PASO_CFG_MENOR_DE_9, PASO_CFG_NO_CABE,
+    PASO_SIN_APARATO, PASO_SIN_CABECERA,
+};
 
 /// Sin corriente antes de un reintento: lo que tarda un firmware en darse por
 /// apagado (2026-09-17).
@@ -132,9 +135,10 @@ pub enum Marcha {
     /// ranuras): `VEREDICTO_SIN_DIRECCION`. La ranura, si la hubo, ya esta
     /// devuelta.
     SinDireccion,
-    /// Con direccion y sin descriptores: `VEREDICTO_SIN_DESCRIPTORES`. La
+    /// Con direccion y sin descriptores: `VEREDICTO_SIN_DESCRIPTORES`, con el
+    /// detalle de en que paso (`enumera::detalle_sin_descriptores`). La
     /// ranura ya esta devuelta.
-    SinDescriptores,
+    SinDescriptores(u16),
     /// Descriptores en la mano: `slot()`, `cfg()`, `cfg_val()`, `vid_pid()`.
     Lista,
 }
@@ -303,7 +307,7 @@ impl Enumeracion {
             Paso::PedirDispositivo => {
                 self.lecturas += 1;
                 if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 18) {
-                    return self.sin_descriptores(m, "[uhid] no dev desc\n");
+                    return self.sin_descriptores(m, "[uhid] no dev desc\n", PASO_SIN_APARATO);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDispositivo)
             }
@@ -318,13 +322,13 @@ impl Enumeracion {
                         self.paso = Paso::PedirCabecera;
                         Marcha::Sigue
                     }
-                    Some(_) => self.otra_lectura(m, ahora, Paso::PausaDispositivo, "[uhid] no dev desc\n"),
+                    Some(_) => self.otra_lectura(m, ahora, Paso::PausaDispositivo, "[uhid] no dev desc\n", PASO_SIN_APARATO),
                     None => {
                         if ahora < self.hasta {
                             return Marcha::Sigue;
                         }
                         m.dejar_de_esperar();
-                        self.otra_lectura(m, ahora, Paso::PausaDispositivo, "[uhid] no dev desc\n")
+                        self.otra_lectura(m, ahora, Paso::PausaDispositivo, "[uhid] no dev desc\n", PASO_SIN_APARATO)
                     }
                 }
             }
@@ -332,7 +336,7 @@ impl Enumeracion {
             Paso::PedirCabecera => {
                 self.lecturas += 1;
                 if !m.pedir_descriptor(self.slot, Descriptor::Configuracion, 9) {
-                    return self.sin_descriptores(m, "[uhid] no cfg hdr\n");
+                    return self.sin_descriptores(m, "[uhid] no cfg hdr\n", PASO_SIN_CABECERA);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoCabecera)
             }
@@ -348,28 +352,29 @@ impl Enumeracion {
                         // de nueve bytes; menos es un aparato mintiendo sobre
                         // si mismo. Y mas que `MAX_CFG` no cabe.
                         if self.total_len < 9 {
-                            return self.sin_descriptores(m, "[uhid] cfg too small\n");
+                            return self.sin_descriptores(m, "[uhid] cfg too small\n", PASO_CFG_MENOR_DE_9);
                         }
                         if self.total_len > MAX_CFG {
-                            return self.sin_descriptores(m, "[uhid] cfg too big\n");
+                            m.log_u64("[uhid] cfg too big: ", self.total_len as u64);
+                            return self.sin_descriptores(m, "[uhid] cfg too big\n", PASO_CFG_NO_CABE);
                         }
                         self.paso = Paso::PedirEntera;
                         Marcha::Sigue
                     }
-                    Some(_) => self.otra_lectura(m, ahora, Paso::PausaCabecera, "[uhid] no cfg hdr\n"),
+                    Some(_) => self.otra_lectura(m, ahora, Paso::PausaCabecera, "[uhid] no cfg hdr\n", PASO_SIN_CABECERA),
                     None => {
                         if ahora < self.hasta {
                             return Marcha::Sigue;
                         }
                         m.dejar_de_esperar();
-                        self.otra_lectura(m, ahora, Paso::PausaCabecera, "[uhid] no cfg hdr\n")
+                        self.otra_lectura(m, ahora, Paso::PausaCabecera, "[uhid] no cfg hdr\n", PASO_SIN_CABECERA)
                     }
                 }
             }
             Paso::PausaCabecera => self.si_cumplio(ahora, Paso::PedirCabecera),
             Paso::PedirEntera => {
                 if !m.pedir_descriptor(self.slot, Descriptor::Configuracion, self.total_len) {
-                    return self.sin_descriptores(m, "[uhid] cfg short\n");
+                    return self.sin_descriptores(m, "[uhid] cfg short\n", PASO_CFG_CORTA);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoEntera)
             }
@@ -383,13 +388,13 @@ impl Enumeracion {
                     // La entera se pide UNA vez, como en `leer_descriptores`:
                     // un aparato que dio la cabecera y no da el resto no va a
                     // darlo por insistir.
-                    Some(_) => self.sin_descriptores(m, "[uhid] cfg short\n"),
+                    Some(_) => self.sin_descriptores(m, "[uhid] cfg short\n", PASO_CFG_CORTA),
                     None => {
                         if ahora < self.hasta {
                             return Marcha::Sigue;
                         }
                         m.dejar_de_esperar();
-                        self.sin_descriptores(m, "[uhid] cfg short\n")
+                        self.sin_descriptores(m, "[uhid] cfg short\n", PASO_CFG_CORTA)
                     }
                 }
             }
@@ -436,17 +441,18 @@ impl Enumeracion {
         self.acabar(Marcha::SinDireccion)
     }
 
-    fn sin_descriptores(&mut self, m: &mut dyn Metal, motivo: &str) -> Marcha {
+    fn sin_descriptores(&mut self, m: &mut dyn Metal, motivo: &str, paso: u16) -> Marcha {
         m.log(motivo);
         self.devolver(m);
-        self.acabar(Marcha::SinDescriptores)
+        let detalle = detalle_sin_descriptores(paso, self.total_len);
+        self.acabar(Marcha::SinDescriptores(detalle))
     }
 
     /// Otra lectura del mismo descriptor tras `ENTRE_LECTURAS_MS`, o rendirse
     /// si ya fueron `LECTURAS`.
-    fn otra_lectura(&mut self, m: &mut dyn Metal, ahora: u64, pausa: Paso, motivo: &str) -> Marcha {
+    fn otra_lectura(&mut self, m: &mut dyn Metal, ahora: u64, pausa: Paso, motivo: &str, paso: u16) -> Marcha {
         if self.lecturas >= LECTURAS {
-            return self.sin_descriptores(m, motivo);
+            return self.sin_descriptores(m, motivo, paso);
         }
         self.esperar(ahora, ENTRE_LECTURAS_MS, pausa)
     }
@@ -591,6 +597,9 @@ mod pruebas {
         Mudo,
         /// No hay nada: el reset no se lanza.
         Vacio,
+        /// Contesta, y su configuracion declara mas de `MAX_CFG`: el audifono
+        /// 7.1 que se salia de los 512 de antes.
+        Grande,
     }
 
     struct Fingido {
@@ -736,12 +745,14 @@ mod pruebas {
                     Some(n)
                 }
                 Vuelo::Descriptor(Descriptor::Configuracion, n) => {
-                    // Cabecera de 9 con total 34, y el resto relleno.
+                    // Cabecera de 9 con total 34, y el resto relleno. El
+                    // Grande declara 1500: mas de lo que cabe.
                     let mut c = [0xAAu8; 64];
                     c[0] = 9;
                     c[1] = 2;
-                    c[2] = 34;
-                    c[3] = 0;
+                    let total: u16 = if self.aparato == Aparato::Grande { 1500 } else { 34 };
+                    c[2] = (total & 0xFF) as u8;
+                    c[3] = (total >> 8) as u8;
                     c[5] = 1;
                     buf[..n].copy_from_slice(&c[..n]);
                     Some(n)
@@ -784,7 +795,9 @@ mod pruebas {
         let mut m = Fingido::nuevo(Aparato::Mudo);
         let mut e = Enumeracion::nueva(1, false, m.ahora);
         let r = m.bombear(&mut e, 2_000);
-        assert_eq!(r, Marcha::SinDescriptores);
+        // Y el detalle dice DONDE: ni el descriptor del aparato (paso 1), y
+        // por tanto sin largo que declarar.
+        assert_eq!(r, Marcha::SinDescriptores(PASO_SIN_APARATO));
         assert_eq!(m.descriptores_pedidos, LECTURAS as u32);
         assert_eq!(m.dejo_de_esperar, LECTURAS as u32);
         assert_eq!(m.ranuras_pedidas, 1);
@@ -809,6 +822,17 @@ mod pruebas {
         // 200 sin corriente + 20 VBUS (sin los 100 de debounce) + reset...
         let ms = e.lleva_ms(m.ahora);
         assert!((260..320).contains(&ms), "tardo {} ms", ms);
+    }
+
+    #[test]
+    fn una_configuracion_que_no_cabe_lo_dice_con_su_largo() {
+        let mut m = Fingido::nuevo(Aparato::Grande);
+        let mut e = Enumeracion::nueva(1, false, m.ahora);
+        let r = m.bombear(&mut e, 2_000);
+        assert_eq!(r, Marcha::SinDescriptores(detalle_sin_descriptores(PASO_CFG_NO_CABE, 1500)));
+        // Se supo en la cabecera: no se pidio la entera, y la ranura volvio.
+        assert_eq!(m.descriptores_pedidos, 2);
+        assert_eq!(m.ranuras_devueltas, 1);
     }
 
     #[test]

@@ -142,6 +142,25 @@ pub struct Playback {
 }
 
 impl Playback {
+    /// A zeroed `Playback`, for a static that is filled later. `Sync::None`
+    /// and zero everywhere: nothing here is a valid pipe, and the kernel
+    /// guards it with a flag before reading.
+    pub const VACIA: Playback = Playback {
+        interface: 0,
+        alt_setting: 0,
+        endpoint: 0,
+        dci: 0,
+        max_packet: 0,
+        interval: 0,
+        sync: Sync::None,
+        channels: 0,
+        subframe: 0,
+        bits: 0,
+        rates: [0; MAX_RATES],
+        n_rates: 0,
+        continuous: false,
+    };
+
     /// **Bytes that one interval of `rate` occupies.**
     ///
     /// This is the number that has to fit in [`Self::max_packet`], and checking

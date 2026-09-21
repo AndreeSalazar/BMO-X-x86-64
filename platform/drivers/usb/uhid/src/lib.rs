@@ -158,6 +158,12 @@ pub struct UsbHidHal {
     /// Los verbos con los que esa enumeracion toca el xHC, con la
     /// transferencia en vuelo entre un bombeo y el siguiente.
     xhc: pasos::Xhc,
+    /// **El aparato que NO es HID y el kernel RECLAMO** (2026-09-21):
+    /// `(puerto, ranura)`. Su ranura sigue viva --por ella van el volumen y
+    /// el tubo del audifono-- y se devuelve al desenchufarlo. UNO: es lo que
+    /// hay hoy (un audifono); un segundo se configura y se devuelve como
+    /// cualquier otro, y la ficha lo dice.
+    reclamado: Option<(u8, u8)>,
 }
 
 /// Lo que dio una enumeracion por pasos al terminar (EX4). El kernel lo
@@ -196,6 +202,7 @@ impl UsbHidHal {
             reinicios: 0,
             en_curso: None,
             xhc: pasos::Xhc::nuevo(),
+            reclamado: None,
         }
     }
 
@@ -286,6 +293,20 @@ impl UsbHidHal {
             self.raton = None;
             self.puerto_raton = None;
             solto_aparato = true;
+        }
+        // Y el reclamado por el kernel: se le avisa ANTES de devolver la
+        // ranura, que es suya hasta ese instante. Quien llama (el desenchufe
+        // y el barrido) corre dentro del bombeo, con el CR3 del kernel: la
+        // ranura se devuelve aqui mismo, como en `instalar`.
+        if let Some((p, slot)) = self.reclamado {
+            if p == port {
+                bmo_xhci::hal().soltado(slot);
+                self.reclamado = None;
+                unsafe {
+                    bmo_xhci::disable_slot(slot);
+                }
+                solto_aparato = true;
+            }
         }
         solto_aparato
     }
@@ -426,17 +447,18 @@ impl UsbHidHal {
             None => {
                 // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver
                 // EL PORTERO, al final de este fichero.
-                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DIRECCION);
+                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DIRECCION, 0);
                 return cosecha;
             }
         };
         let mut cfg = [0u8; enumera::MAX_CFG];
         let (cfg_val, largo, vid, pid) = match enumera::leer_descriptores(slot, &mut cfg) {
-            Some(v) => v,
-            None => {
+            Ok(v) => v,
+            Err(detalle) => {
                 // Sin descriptores tampoco hay nombre: los dos salen del mismo
-                // camino. Cero es "no se sabe", y se dice como tal.
-                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DESCRIPTORES);
+                // camino. Cero es "no se sabe", y se dice como tal. El
+                // detalle dice en que PASO se quedo (y cuanto declaro medir).
+                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DESCRIPTORES, detalle);
                 return cosecha;
             }
         };
@@ -496,7 +518,7 @@ impl UsbHidHal {
             h.log_u64(" proto=", *proto as u64);
             if *clase != enumera::CLASE_HID {
                 h.log(" (no es HID)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_NO_ES_HID);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_NO_ES_HID, 0);
                 continue;
             }
             if *subclase != enumera::SUBCLASE_BOOT {
@@ -511,14 +533,14 @@ impl UsbHidHal {
                 // CPU lo ha ejecutado. Primero se confirma en el Ryzen que el
                 // descriptor del raton actual se lee bien; despues se ensancha.
                 h.log(" (HID sin subclase BOOT: no lo adopto todavia)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_HID_SIN_BOOT);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_HID_SIN_BOOT, 0);
                 continue;
             }
             let es_teclado = *proto == enumera::PROTO_TECLADO && self.teclado.is_none();
             let es_raton = *proto == enumera::PROTO_RATON && self.raton_libre(sale_del_teclado);
             if !es_teclado && !es_raton {
                 h.log(" (ya cubierto)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_YA_CUBIERTO);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_YA_CUBIERTO, 0);
                 continue;
             }
             h.log(" -> lo tomo\n");
@@ -526,7 +548,7 @@ impl UsbHidHal {
             let (_addr, mps, interval, dci) = match enumera::intr_in(cfg, *iface) {
                 Some(e) => e,
                 None => {
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_ENDPOINT);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_ENDPOINT, 0);
                     continue;
                 }
             };
@@ -542,7 +564,7 @@ impl UsbHidHal {
                         // por un comando que fallo una vez. Se marca para que
                         // el barrido lo reintente (con su corte de corriente).
                         cosecha.controlador_fallo = true;
-                        h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_PREPARAR);
+                        h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_PREPARAR, 0);
                         continue;
                     }
                 };
@@ -558,7 +580,7 @@ impl UsbHidHal {
                 self.puerto_teclado = Some(port);
                 cosecha.teclado = true;
                 h.log("[uhid] teclado listo\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_TECLADO);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_TECLADO, 0);
             } else {
                 if sale_del_teclado {
                     h.log("[uhid] iface de raton en MI TECLADO: provisional\n");
@@ -590,12 +612,12 @@ impl UsbHidHal {
                     self.puerto_raton = Some(port);
                     cosecha.raton = true;
                     h.log("[uhid] raton listo\n");
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON, 0);
                 } else {
                     // Choco de direccion con uno ya puesto. Sin esta rama, el
                     // unico raton que no entra sale del libro como si no
                     // hubiera llegado nunca.
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON_NO_ENTRO);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON_NO_ENTRO, 0);
                 }
             }
         }
@@ -632,7 +654,18 @@ impl UsbHidHal {
                     h.log_u64("[uhid] sin driver: lo CONFIGURO para que sepa que hay anfitrion, cfg=", cfg_val as u64);
                     bmo_xhci::control_transfer(slot, 0x00, 0x09, cfg_val as u16, 0, &mut [], false);
                     let (i0, c0, s0, p0) = ifaces[0];
-                    h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_CONFIGURADO);
+                    // ** Y SE LE OFRECE AL KERNEL, YA CONFIGURADO (2026-09-21).
+                    // El audifono es esto: no es HID, y el kernel sabe
+                    // hablarle (volumen, tubo). Si lo reclama, la ranura
+                    // sigue viva y el puerto queda aparcado como un aparato
+                    // mio mas. Solo uno: ver `reclamado`.
+                    if self.reclamado.is_none() && h.reclamar(slot, port, vid, pid, cfg) {
+                        h.log_u64("[uhid] el kernel RECLAMA el aparato: la ranura sigue viva, ", slot as u64);
+                        self.reclamado = Some((port, slot));
+                        h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_RECLAMADO, 0);
+                        return cosecha;
+                    }
+                    h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_CONFIGURADO, 0);
                 }
                 h.log_u64("[uhid] nada que adoptar, devuelvo el slot ", slot as u64);
                 bmo_xhci::disable_slot(slot);
@@ -756,18 +789,18 @@ impl UsbHidHal {
     pub unsafe fn avanzar_enumeracion(&mut self) -> Option<Terminada> {
         let marcha = self.en_curso.as_mut()?.avanzar(&mut self.xhc);
         let h = bmo_xhci::hal();
-        let veredicto = match marcha {
+        let (veredicto, detalle) = match marcha {
             pasos::Marcha::Sigue => return None,
-            pasos::Marcha::SinDireccion => VEREDICTO_SIN_DIRECCION,
-            pasos::Marcha::SinDescriptores => VEREDICTO_SIN_DESCRIPTORES,
-            pasos::Marcha::Lista => 0,
+            pasos::Marcha::SinDireccion => (VEREDICTO_SIN_DIRECCION, 0),
+            pasos::Marcha::SinDescriptores(d) => (VEREDICTO_SIN_DESCRIPTORES, d),
+            pasos::Marcha::Lista => (0, 0),
         };
         let e = self.en_curso.take()?;
         let (port, pasos, ms) = (e.port(), e.pasos(), e.lleva_ms(h.ahora_ms()));
         if veredicto != 0 {
             // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver EL
             // PORTERO, al final de este fichero. Ceros = "no se sabe".
-            h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto);
+            h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto, detalle);
             return Some(Terminada { port, adopcion: Adopcion::NoContesto, pasos, ms });
         }
         let (vid, pid) = e.vid_pid();
@@ -1218,3 +1251,7 @@ pub const VEREDICTO_SIN_DESCRIPTORES: u8 = 10;
 /// ofrece ni "transferir archivos" ni el anclaje: para el no hay nadie al otro
 /// lado del cable. Sigue sin driver -- eso no cambia -- pero ya no esta mudo.
 pub const VEREDICTO_CONFIGURADO: u8 = 11;
+/// Un aparato que NO es HID y el KERNEL reclamo (2026-09-21): su ranura
+/// sigue viva y por ella hablan el volumen y el tubo del audifono. Ver
+/// `UsbHidHal::reclamado` y `XhciHal::reclamar`.
+pub const VEREDICTO_RECLAMADO: u8 = 12;
