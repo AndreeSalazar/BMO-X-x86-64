@@ -36,11 +36,11 @@ mod verde;
 pub use roja::{
     pilas_liberadas,
     limpieza_de_ring3,
-    cpu_propio, delante, exit_and_park, exit_current, expropiadas, init, init_idle,
+    compas_de, cpu_propio, declarar_compas, delante, exit_and_park, exit_current, expropiadas, init, init_idle,
     kill_current_and_pick, on_timer,
     park_until, pilas_rotas, sello_de,
     spawn_kernel, spawn_user, terminar, wait_current, wait_current_checked, wake_by_key,
-    yield_current, Task,
+    yield_current, Compas, Task,
 };
 pub use verde::{
     ciclos_de_tareas, context_rsp_of, counts, cr3_de_pid, current_pid, current_pid_en_trap, current_state,

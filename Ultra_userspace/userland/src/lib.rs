@@ -383,6 +383,8 @@ pub const INFO_USB_LATIDO: u64 = 0x7B;
 pub const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 pub const INFO_SPIN_RETENIDO: u64 = 0x7D;
 pub const INFO_EXPROPIADAS: u64 = 0x7E;
+pub const INFO_COMPAS: u64 = 0x7F;
+pub const INFO_COMPAS_VUELTAS: u64 = 0x80;
 
 /// El metro de la puerta: puertas servidas y ciclos dentro de `dispatch`.
 /// **Se leen como DELTA** -- antes y despues del bucle que se quiera medir.
@@ -820,6 +822,7 @@ pub const INFO_TXT_USB_MOTIVO: u64 = 0x08;
 pub const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
 pub const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
+pub const INFO_TXT_COMPAS_NOMBRE: u64 = 0x0C;
 
 // Operaciones sobre un handle de directorio (`KIND_DIRECTORIO`).
 pub const DIR_OP_SIGUIENTE: u32 = 0x01;

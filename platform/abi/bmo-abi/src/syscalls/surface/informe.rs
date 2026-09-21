@@ -467,6 +467,16 @@ pub const INFO_SPIN_RETENIDO: u64 = 0x7D;
 /// cuenta de la expropiacion al despertar (`scheduler::on_timer`).
 pub const INFO_EXPROPIADAS: u64 = 0x7E;
 
+/// **El COMPAS del n-esimo hilo de kernel con contrato** (n en `[8..)`), EX3
+/// del `PLAN_EL_COMPAS` (2026-09-21): `[0..8)` tid, `[8..24)` periodo en ms,
+/// `[24..40)` presupuesto en us por periodo, `[40..64)` periodos que cerro
+/// con mas gastado que presupuesto (los incumplimientos). `0` = no hay mas.
+/// El nombre, en [`INFO_TXT_COMPAS_NOMBRE`].
+pub const INFO_COMPAS: u64 = 0x7F;
+/// La otra mitad: `[0..32)` el turno mas largo visto, en us; `[32..64)` los
+/// turnos contados. Con los dos se lee si el hilo cumple lo que declaro.
+pub const INFO_COMPAS_VUELTAS: u64 = 0x80;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de
@@ -1190,6 +1200,8 @@ pub const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
 /// El nombre del cerrojo de [`INFO_SPIN_RETENIDO`]. `-` si ninguno se solto.
 pub const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
+/// El nombre del hilo de [`INFO_COMPAS`] (n en los bits altos).
+pub const INFO_TXT_COMPAS_NOMBRE: u64 = 0x0C;
 
 /// Campos de [`TASK_OP_KLOG_INFO`].
 pub const KLOG_DISPONIBLES: u64 = 0x00;

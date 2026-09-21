@@ -117,11 +117,39 @@ cual sea el veredicto del metal:
       retiene, el reloj no suena y ninguna prioridad puede hacer nada, y `0
       choques` no decia nada de eso. Lo que NO mide: los `cli` sueltos fuera de
       un `SpinLock` (`cabina/ring.rs`, `red/puerta.rs`, `timer.rs`).
-- [ ] **EX3 -- EL CONTRATO POR HILO.** Cada hilo de kernel declara (periodo,
-      presupuesto) y el `save` dice por hilo si cumple. Es E2 para los hilos
-      del kernel, y va detras del veredicto del metal (hoja 3e): si el bus
-      llega tarde por el propio bus, el presupuesto se mira DENTRO de la vuelta
-      y el aparato que lo rompe se enfria (ya existe a medias: 5 s).
+- [x] **EX3 -- EL CONTRATO POR HILO. HECHO el 21-09** (`scheduler::Compas`).
+      Cada hilo de kernel declara `(periodo, presupuesto)` con su nombre
+      (`declarar_compas`, justo detras de `spawn_kernel`): el bus USB 4 ms / 3
+      ms, el latido de red 4 ms / 1 ms. El kernel le COBRA cada turno al salir
+      del CPU (`cobrar_compas`): el periodo avanza por multiplos enteros desde
+      que se declaro (dormir tres periodos no deja deuda), y un periodo que
+      cierra con mas gastado que presupuesto es un `incumplio` que APARTA al
+      hilo hasta el final de ese periodo: `choose_next` no lo elige y la
+      expropiacion de EX1 no lo cuenta. Esa es la patada: no se mata a un hilo
+      de Ring 0 a medias --deja hardware a medias--, se le niega el turno el
+      resto de SU periodo, y vuelve solo. El `save` (`tareas`) trae una fila
+      por hilo: periodo, presupuesto, vueltas, incumplio (verde en 0, rojo si
+      no) y peor vuelta (`INFO_COMPAS` 0x7F, `INFO_COMPAS_VUELTAS` 0x80,
+      `INFO_TXT_COMPAS_NOMBRE` 0x0C). CABINA lo grita la primera vez y cada
+      vez que el peor turno sube.
+
+      ** Y LA PREGUNTA DEL DUENO, contestada: *"se puede reemplazar el
+      quantum o estoy hablando pendejadas?"* No es pendejada, y no se quita:
+      se CONVIERTE. Un quantum es un presupuesto SIN periodo ("tantos ticks
+      seguidos y luego el siguiente"): reparte por igual entre iguales, que es
+      ser generoso. Un compas es un presupuesto CON periodo ("tanto trabajo por
+      cada tanto tiempo"): lo declarado se cumple y lo que se pasa se aparta,
+      que es ser celoso. Lo que el quantum sigue haciendo y ningun compas
+      puede: parar a quien NO declaro nada y gira sin soltar el CPU (un
+      programa de C en un bucle). Por eso se queda debajo, como suelo. El dia
+      que TODA tarea declare su compas (E2, y eso es un campo en el `.bex`:
+      decision del dueno), el quantum pasa a ser el compas por defecto de quien
+      no dijo nada -- y ahi si deja de existir como cosa aparte.
+
+      Lo que NO hace, dicho: no mide dentro de una vuelta (un turno de 1,26 s
+      se cobra entero al acabar); el que cierra el aparato que no contesta es
+      el bus, con su enfriamiento de 5 s. Sin metal: los dos numeros (3 ms, 1
+      ms) son generosos a proposito y `save` dira si sobran.
 
 - [ ] **E0 -- LA TAREA IDLE.** Prioridad minima, siempre lista, cuerpo
       `loop { hlt }`. Hoy no existe: `choose_next` devuelve `self.current` cuando

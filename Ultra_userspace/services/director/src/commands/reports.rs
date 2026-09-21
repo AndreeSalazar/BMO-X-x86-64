@@ -301,6 +301,7 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
     fila(s, b"ticks", bmo::info(bmo::INFO_TICKS), b"", b"");
     fila(s, b"expropiadas", bmo::info(bmo::INFO_EXPROPIADAS), b"",
          b"veces que el tick le quito el CPU a uno porque otro de mas rango estaba en pie");
+    report_compas(s);
 
     // == *** EL DMA, y hasta hoy no llegaba aqui =========================
     //
@@ -637,6 +638,52 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.text(b" RECURSOS SIN DEVOLVER");
         s.with_ink(INK_PLAIN);
         s.text(b"   escribe `fallo`\n");
+    }
+}
+
+/// **El compas de cada hilo de kernel: lo que declaro y si lo cumple** (EX3).
+///
+/// Un hilo con contrato dice (periodo, presupuesto). El kernel le cobra cada
+/// turno; un periodo que cierra por encima del presupuesto es un
+/// `incumplio`, y el hilo queda apartado hasta que ese periodo acabe. Lo
+/// que se lee aqui: si `incumplio` es 0, el hilo es parte de la musica; si
+/// no, `peor vuelta` dice cuanto se salio y el nombre dice quien.
+fn report_compas(s: &mut Output) {
+    let mut n = 0u64;
+    let mut cabecera = false;
+    let mut txt = [0u8; 32];
+    loop {
+        let v = bmo::info(bmo::INFO_COMPAS | (n << 8));
+        if v == 0 {
+            break;
+        }
+        if !cabecera {
+            s.with_ink(INK_ECHO);
+            s.text(b"      compas -- el contrato de cada hilo de kernel, y si lo cumple\n");
+            s.text(b"      hilo          tid  periodo  presupuesto     vueltas  incumplio  peor vuelta\n");
+            s.with_ink(INK_PLAIN);
+            cabecera = true;
+        }
+        let w = bmo::info(bmo::INFO_COMPAS_VUELTAS | (n << 8));
+        let k = bmo::info_texto(bmo::INFO_TXT_COMPAS_NOMBRE | (n << 8), &mut txt);
+        let incumplio = v >> 40;
+        s.text(b"      ");
+        s.text(&txt[..k]);
+        for _ in k..14 {
+            s.byte(b' ');
+        }
+        s.dec_right(v & 0xFF, 3);
+        s.dec_right((v >> 8) & 0xFFFF, 6);
+        s.text(b" ms");
+        s.dec_right((v >> 24) & 0xFFFF, 10);
+        s.text(b" us");
+        s.dec_right(w >> 32, 12);
+        s.with_ink(if incumplio == 0 { INK_GOOD } else { INK_ERR });
+        s.dec_right(incumplio, 11);
+        s.with_ink(INK_PLAIN);
+        s.dec_right(w & 0xFFFF_FFFF, 10);
+        s.text(b" us\n");
+        n += 1;
     }
 }
 

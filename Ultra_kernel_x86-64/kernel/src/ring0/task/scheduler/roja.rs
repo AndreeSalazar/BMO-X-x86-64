@@ -20,7 +20,7 @@
 
 use super::verde::{
     TaskState, DEFAULT_QUANTUM_TICKS, MAX_TASKS, QUANTUM_DELANTE,
-    TASK_STACK_PAGES, current_state, rdtsc,
+    TASK_STACK_PAGES, current_state, ns_to_tsc, rdtsc, tsc_freq,
 };
 
 use crate::ring0::mm::{self, phys};
@@ -37,6 +37,55 @@ const _: () = assert!(
     "la pila de tarea de kernel no cubre un contexto con XSAVE"
 );
 
+
+/// **EL COMPAS DE UN HILO DE KERNEL: su contrato (periodo, presupuesto) y su
+/// cuenta** (2026-09-21, `PLAN_EL_COMPAS` EX3).
+///
+/// El dueno: *"se puede reemplazar el quantum o estoy hablando pendejadas?"*
+/// No: el quantum no se QUITA, se CONVIERTE. Un quantum es un presupuesto sin
+/// periodo ("tantos ticks seguidos, y luego el siguiente"): reparte por igual
+/// entre iguales, que es ser generoso. Un compas es un presupuesto CON periodo
+/// ("tanto trabajo por cada tanto tiempo"): lo que se declaro se cumple, lo que
+/// se pasa se apunta y se aparta hasta el periodo siguiente, que es ser
+/// celoso. Lo que el quantum sigue haciendo y ningun compas puede hacer: parar
+/// a quien no declaro nada y gira sin soltar el CPU. Por eso se queda.
+///
+/// ```text
+///    nombre       ""  = sin contrato: se planifica como siempre
+///    periodo      T, en ciclos de TSC
+///    presupuesto  C, en ciclos de TSC, por cada T
+///    gastado      lo corrido en el periodo actual
+///    peor_vuelta  el turno mas largo visto (ciclos)
+///    vueltas      turnos contados
+///    incumplio    veces que un periodo cerro con gastado > C
+///    apartada     hasta cuando no se elige (TSC): el resto del periodo que rompio
+/// ```
+#[derive(Clone, Copy)]
+pub struct Compas {
+    pub nombre: &'static str,
+    pub periodo: u64,
+    pub presupuesto: u64,
+    pub inicio: u64,
+    pub gastado: u64,
+    pub peor_vuelta: u64,
+    pub vueltas: u64,
+    pub incumplio: u64,
+    pub apartada: u64,
+}
+
+impl Compas {
+    pub const NINGUNO: Self = Self {
+        nombre: "",
+        periodo: 0,
+        presupuesto: 0,
+        inicio: 0,
+        gastado: 0,
+        peor_vuelta: 0,
+        vueltas: 0,
+        incumplio: 0,
+        apartada: 0,
+    };
+}
 
 #[derive(Clone, Copy)]
 pub struct Task {
@@ -75,6 +124,8 @@ pub struct Task {
     /// ** Un instrumento que atribuye mal no te deja ignorante: te MANDA a un
     /// sitio. Con esto, quien pregunte recibe su tiempo y no el del reloj.
     pub cpu_ciclos: u64,
+    /// El contrato del hilo, si lo declaro. Ver [`Compas`].
+    pub compas: Compas,
     /// Cuando entro al CPU esta vez. `0` = no esta corriendo.
     pub entro_en: u64,
 }
@@ -98,6 +149,7 @@ impl Task {
         kernel_stack_top: 0,
         cpu_ciclos: 0,
         entro_en: 0,
+        compas: Compas::NINGUNO,
     };
 }
 
@@ -114,7 +166,7 @@ impl Scheduler {
         Self { tasks: [Task::EMPTY; MAX_TASKS], current: 0, next_tid: 1 }
     }
 
-    fn choose_next(&self) -> usize {
+    fn choose_next(&self, ahora: u64) -> usize {
         let mut best = None;
         let mut best_priority = 0;
         let idle = unsafe { IDLE };
@@ -128,6 +180,13 @@ impl Scheduler {
                 continue;
             }
             let task = self.tasks[index];
+            // ** LA APARTADA NO SE ELIGE hasta que acabe el periodo que rompio
+            // (EX3). Es la patada: no se la mata --un hilo de Ring 0 a medias
+            // deja hardware a medias--, se le niega el turno el resto de SU
+            // periodo. Como vuelve sola, no hay nadie a quien olvidar despertar.
+            if task.compas.apartada > ahora {
+                continue;
+            }
             if task.state == TaskState::Ready && (best.is_none() || task.priority > best_priority) {
                 best = Some(index);
                 best_priority = task.priority;
@@ -578,7 +637,8 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
     if s.tasks[s.current].state == TaskState::Running {
         s.tasks[s.current].state = TaskState::Ready;
     }
-    let next = s.choose_next();
+    let ahora_eleccion = rdtsc();
+    let next = s.choose_next(ahora_eleccion);
     if next == s.current {
         if s.tasks[next].state == TaskState::Ready {
             s.tasks[next].state = TaskState::Running;
@@ -632,6 +692,7 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
         s.tasks[s.current].cpu_ciclos =
             s.tasks[s.current].cpu_ciclos.wrapping_add(corrido);
         s.tasks[s.current].entro_en = 0;
+        cobrar_compas(&mut s.tasks[s.current], corrido, ahora);
     }
     s.tasks[next].entro_en = ahora;
     s.tasks[next].state = TaskState::Running;
@@ -798,7 +859,9 @@ pub fn on_timer() {
     let current = &mut s.tasks[s.current];
     if current.state == TaskState::Running && current.remaining_ticks > 1 {
         let mi_rango = current.priority;
-        let alguien_mayor = s.tasks.iter().any(|t| t.state == TaskState::Ready && t.priority > mi_rango);
+        let alguien_mayor = s.tasks.iter().any(|t| {
+            t.state == TaskState::Ready && t.priority > mi_rango && t.compas.apartada <= now
+        });
         if !alguien_mayor {
             s.tasks[s.current].remaining_ticks -= 1;
             return;
@@ -808,6 +871,82 @@ pub fn on_timer() {
     let current = &mut s.tasks[s.current];
     current.remaining_ticks = current.quantum;
     schedule_locked(s, Saliente::Publicado);
+}
+
+/// **Cobrar un turno contra el compas del hilo** (EX3). Se llama con el
+/// cerrojo del planificador en la mano, al salir la tarea del CPU.
+///
+/// El periodo avanza por multiplos enteros desde que se declaro, no desde el
+/// ultimo turno: un hilo que durmio tres periodos empieza el cuarto con la
+/// cuenta a cero, no con una deuda. Cuando un periodo cierra con mas gastado
+/// que presupuesto, se apunta el incumplimiento y la tarea queda APARTADA
+/// hasta el final de ese periodo. Si el turno que se pasa fue largo, ese final
+/// ya paso y la patada no aparta nada: queda la cuenta y el `peor_vuelta`, que
+/// son lo que nombra al culpable.
+fn cobrar_compas(t: &mut Task, corrido: u64, ahora: u64) {
+    let c = &mut t.compas;
+    if c.periodo == 0 {
+        return;
+    }
+    let pasados = ahora.wrapping_sub(c.inicio) / c.periodo;
+    if pasados > 0 {
+        c.inicio = c.inicio.wrapping_add(pasados * c.periodo);
+        c.gastado = 0;
+    }
+    c.gastado = c.gastado.wrapping_add(corrido);
+    c.vueltas = c.vueltas.wrapping_add(1);
+    if corrido > c.peor_vuelta {
+        c.peor_vuelta = corrido;
+    }
+    if c.gastado > c.presupuesto && c.apartada < c.inicio {
+        c.incumplio = c.incumplio.wrapping_add(1);
+        c.apartada = c.inicio.wrapping_add(c.periodo);
+        // Solo la primera vez y cada vez que el peor turno sube: un renglon por
+        // periodo roto taparia el que lo explica.
+        if c.incumplio == 1 || corrido == c.peor_vuelta {
+            crate::ring0::cabina::warn("sched", c.nombre, 0);
+            crate::ring0::cabina::count(
+                "sched", "...rompio su compas: el turno duro us", corrido / (tsc_freq() / 1_000_000).max(1));
+        }
+    }
+}
+
+/// **Declarar el compas de un hilo de kernel**: `(periodo, presupuesto)` en
+/// nanosegundos, con su nombre. Lo llama quien lanza el hilo, justo despues
+/// de `spawn_kernel`. Un hilo sin compas se planifica como siempre.
+pub fn declarar_compas(tid: u32, nombre: &'static str, periodo_ns: u64, presupuesto_ns: u64) -> bool {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let ahora = rdtsc();
+    for t in &mut s.tasks {
+        if t.tid == tid && t.state != TaskState::Empty {
+            t.compas = Compas {
+                nombre,
+                periodo: ns_to_tsc(periodo_ns),
+                presupuesto: ns_to_tsc(presupuesto_ns),
+                inicio: ahora,
+                ..Compas::NINGUNO
+            };
+            return true;
+        }
+    }
+    false
+}
+
+/// **El n-esimo hilo con compas**, para el `save`: `(tid, compas)`. `None` =
+/// no hay mas. Sin cerrojo: es una foto, y la lee Ring 3 por INFO.
+pub fn compas_de(n: usize) -> Option<(u32, Compas)> {
+    let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
+    let mut k = 0;
+    for t in &s.tasks {
+        if t.state != TaskState::Empty && t.compas.periodo != 0 {
+            if k == n {
+                return Some((t.tid, t.compas));
+            }
+            k += 1;
+        }
+    }
+    None
 }
 
 /// Cuantas veces el tick le quito el CPU a una tarea ANTES de acabarse su
@@ -895,6 +1034,7 @@ pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
         kernel_stack_top: stack_top,
         cpu_ciclos: 0,
         entro_en: 0,
+        compas: Compas::NINGUNO,
     };
     Some(tid)
 }
@@ -1004,6 +1144,7 @@ pub fn spawn_user(
         kernel_stack_top,
         cpu_ciclos: 0,
         entro_en: 0,
+        compas: Compas::NINGUNO,
     };
     Some(tid)
 }

@@ -276,7 +276,13 @@ pub fn abrir(pid: u32, aspace: u64, autoridad: bool, ms: u64, cupo: u32) -> Resu
     };
 
     // FUERA del cerrojo: `spawn_kernel` toma el del planificador.
-    if scheduler::spawn_kernel(latir as *const () as usize as u64, 0, PRIORIDAD_LATIDO).is_none() {
+    let tid_latido = scheduler::spawn_kernel(latir as *const () as usize as u64, 0, PRIORIDAD_LATIDO);
+    if let Some(t) = tid_latido {
+        // El compas del radar (EX3): late cada `LATIDO_MS` y una vuelta son
+        // unas restas; 1 ms de presupuesto es cuatro veces sobrado.
+        scheduler::declarar_compas(t, "latido red", radar::LATIDO_MS * 1_000_000, 1_000_000);
+    }
+    if tid_latido.is_none() {
         LATIDO_VIVO.store(false, Ordering::Release);
         {
             let _c = Cerrojo::tomar();

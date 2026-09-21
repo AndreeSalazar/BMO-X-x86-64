@@ -701,6 +701,13 @@ pub fn start_bus_thread() -> Option<u32> {
     match tid {
         Some(t) => {
             unsafe { BUS_TID = Some(t) };
+            // ** EL COMPAS DEL BUS (EX3): 4 ms de periodo y 3 ms de presupuesto.
+            // Tres de cuatro es GENEROSO a proposito: una vuelta normal son
+            // decenas de us, asi que lo unico que cae aqui es una vuelta que
+            // de verdad se atasco (un aparato que no contesta). El numero
+            // exacto lo pone el metal: `save` dice `peor vuelta`.
+            crate::ring0::task::scheduler::declarar_compas(
+                t, "bus USB", BUS_PERIOD_MS * 1_000_000, 3_000_000);
             crate::ring0::cabina::id("usb", "el bus tiene hilo propio, tid", t as u64);
             Some(t)
         }

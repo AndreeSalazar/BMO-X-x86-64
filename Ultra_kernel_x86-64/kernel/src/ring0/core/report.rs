@@ -226,6 +226,10 @@ const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 // hizo valer el rango. Ver `plat/spin.rs` y `scheduler::on_timer`.
 const INFO_SPIN_RETENIDO: u64 = 0x7D;
 const INFO_EXPROPIADAS: u64 = 0x7E;
+// El compas del n-esimo hilo de kernel con contrato (n en los bits altos):
+// contrato + cuenta, y la segunda mitad. Ver `scheduler::Compas`.
+const INFO_COMPAS: u64 = 0x7F;
+const INFO_COMPAS_VUELTAS: u64 = 0x80;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -397,6 +401,7 @@ const INFO_TXT_USB_MOTIVO: u64 = 0x08;
 const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 const INFO_TXT_PROG_TAG: u64 = 0x0A;
 const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
+const INFO_TXT_COMPAS_NOMBRE: u64 = 0x0C;
 
 const PAGE: u64 = 4096;
 
@@ -747,6 +752,23 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_USB_RITMO => crate::ring0::dev::usb::ritmo_y_peor(),
         INFO_USB_LATIDO => crate::ring0::dev::usb::latido_peor(),
         INFO_SPIN_RETENIDO => crate::ring0::plat::spin::retenido_peor(),
+        c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
+            Some((tid, k)) => {
+                let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+                (tid as u64 & 0xFF)
+                    | ((k.periodo / por_us / 1000).min(0xFFFF) << 8)
+                    | ((k.presupuesto / por_us).min(0xFFFF) << 24)
+                    | (k.incumplio.min(0xFF_FFFF) << 40)
+            }
+            None => 0,
+        },
+        c if c & 0xFF == INFO_COMPAS_VUELTAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
+            Some((_, k)) => {
+                let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+                (k.peor_vuelta / por_us).min(0xFFFF_FFFF) | (k.vueltas.min(0xFFFF_FFFF) << 32)
+            }
+            None => 0,
+        },
         INFO_EXPROPIADAS => crate::ring0::task::scheduler::expropiadas(),
         INFO_USB_LATIDO_CUANDO => crate::ring0::dev::usb::latido_peor_cuando(),
         // * Las cuatro leen la foto que dejo `identify()` en el arranque, no el
@@ -865,6 +887,12 @@ pub fn texto(n: u64, trozo: u64) -> u64 {
             crate::ring0::dev::usb::portero::motivo_de((c >> 8) as usize)
         }
         INFO_TXT_CERROJO_PEOR => crate::ring0::plat::spin::retenido_peor_quien(),
+        c if c & 0xFF == INFO_TXT_COMPAS_NOMBRE => {
+            match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
+                Some((_, k)) => k.nombre,
+                None => "",
+            }
+        }
         c if c & 0xFF == INFO_TXT_PROG_NOMBRE || c & 0xFF == INFO_TXT_PROG_TAG => {
             match crate::ring0::task::proc::programa((c >> 8) as usize) {
                 Some(r) if c & 0xFF == INFO_TXT_PROG_NOMBRE => r.name,
