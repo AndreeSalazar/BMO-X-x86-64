@@ -297,7 +297,44 @@ impl Scheduler {
                     j != i && o.state != TaskState::Empty && o.tid != tid_muerto && o.cr3 == cr3
                 });
                 if !compartido {
-                    let (hojas, tablas) = mm::vmm::destroy_address_space(cr3);
+                    // *** LOS ESPACIOS QUE SIGUEN VIVOS, y se le pasan al que
+                    // desmonta (2026-09-20).
+                    //
+                    // ** El Ryzen enseno el PD del escritorio VIVO, marcado como
+                    // tabla en uso, y VACIO ENTERO -- y con el, el doble bufer y
+                    // la pantalla. `destroy_address_space` preguntaba si una
+                    // tabla ya estaba libre y si era una tabla; nunca si era LA
+                    // DE OTRO. Esa pregunta necesita saber quien esta vivo, y eso
+                    // solo lo sabe esta tabla de tareas: por eso se pasa desde
+                    // aqui y `mm` no depende de `task` (L8: la dependencia solo
+                    // baja).
+                    //
+                    // [!] Entran tambien los `Exited` todavia sin recoger: sus
+                    // tablas siguen enlazadas hasta su propio `reap`, y liberar
+                    // una que otro muerto aun cuelga es el mismo fallo con un
+                    // arranque de retraso.
+                    let mut vivos = [(0u32, 0u64); 64];
+                    let mut nv = 0usize;
+                    let kpml4 = mm::vmm::kernel_pml4();
+                    if kpml4 != 0 {
+                        vivos[0] = (0, kpml4);
+                        nv = 1;
+                    }
+                    for (j, o) in self.tasks.iter().enumerate() {
+                        if nv >= vivos.len() {
+                            break;
+                        }
+                        if j != i
+                            && o.state != TaskState::Empty
+                            && o.cr3 != 0
+                            && o.cr3 != cr3
+                            && o.cr3 != kpml4
+                        {
+                            vivos[nv] = (o.tid, o.cr3);
+                            nv += 1;
+                        }
+                    }
+                    let (hojas, tablas) = mm::vmm::destroy_address_space(cr3, &vivos[..nv]);
                     crate::ring0::cabina::info("mm", "hojas devueltas al reciclar", hojas);
                     crate::ring0::cabina::info("mm", "tablas devueltas al reciclar", tablas);
                 }

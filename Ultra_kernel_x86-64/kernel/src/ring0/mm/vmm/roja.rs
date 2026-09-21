@@ -232,7 +232,89 @@ fn es_tabla(fisica: u64, nivel: &'static str) -> bool {
     false
 }
 
-pub fn destroy_address_space(pml4: u64) -> (u64, u64) {
+/// **Es este marco una tabla de OTRO espacio que sigue vivo?** Devuelve su tid.
+///
+/// *** EL JUEZ QUE FALTABA, Y LO PIDIO EL METAL (2026-09-20)
+///
+/// La foto del Ryzen, con la autopsia nueva:
+///
+/// ```text
+///    faltan 2160/2160 pag desde 0xE0000000 = EL BLOQUE ENTERO | nacieron rotos: 0
+///    se corta en el PD (tabla 0x2105000 ocupada TABLA) | pantalla MUERTA
+/// ```
+///
+/// El PD del escritorio --el que cubre canales, pantalla y bloques, 0xC0.. a
+/// 0xFF..-- seguia enlazado, seguia marcado como tabla en uso, y estaba **a
+/// cero entero**. Eso solo lo hace un marco que se libero con alguien encima y
+/// se volvio a entregar como tabla nueva: `get_or_create` lo pone a cero al
+/// entregarlo, y por eso ahora sale `ocupada`.
+///
+/// ** Y este recorrido es el unico del kernel que libera tablas y pone hojas a
+/// cero. Tenia dos jueces antes de bajar -- `esta_libre` ("ya es de nadie?")
+/// y `es_tabla` ("es una tabla?")-- y los dos contestan BIEN sobre la tabla
+/// viva de otro: no esta libre, y si es una tabla. **Faltaba la tercera
+/// pregunta, que es la unica que importa aqui: DE QUIEN ES.**
+///
+/// Mira los dos pisos de arriba de cada espacio vivo --su PDPT y cada PD que
+/// cuelga de el-- porque ahi es donde el Ryzen enseno el cadaver. Son 64
+/// tareas por 512 entradas como mucho, una vez por proceso que muere.
+///
+/// [!] Lo que NO mira: que dos procesos compartan un PT (un piso mas abajo,
+/// 512 veces mas caro). Si alguna vez hace falta, se anade con su numero.
+fn de_otro_vivo(marco: u64, vivos: &[(u32, u64)]) -> Option<u32> {
+    for &(tid, cr3) in vivos {
+        if cr3 == marco {
+            return Some(tid);
+        }
+        if !caminable(cr3, "vivo: su CR3 no es caminable", cr3, 0, 0) {
+            continue;
+        }
+        let e = table(cr3)[0];
+        if e & PTE_PRESENT == 0 {
+            continue;
+        }
+        let pdpt = e & ADDR_MASK;
+        if pdpt == marco {
+            return Some(tid);
+        }
+        if !caminable(pdpt, "vivo: su PDPT no es caminable", e, cr3, 0) {
+            continue;
+        }
+        let t = table(pdpt);
+        for i3 in 0..512 {
+            let e = t[i3];
+            if e & PTE_PRESENT != 0 && e & PTE_HUGE == 0 && (e & ADDR_MASK) == marco {
+                return Some(tid);
+            }
+        }
+    }
+    None
+}
+
+/// **Cuantas veces el desmontaje se NEGO a tocar algo de un vivo**, y el ultimo
+/// `(tid, marco)`. Lo lee la autopsia.
+///
+/// ** Parte el caso siguiente en dos: si el escritorio vuelve a morir con esto
+/// en cero, el que vacia su PD NO es este recorrido y hay que buscar en otro
+/// sitio; si esta por encima de cero, el juez paro a este.
+static SALVADAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static SALVADA_ULTIMA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// `(cuantas, tid << 48 | marco)` de la ultima.
+pub fn salvadas() -> (u64, u64) {
+    use core::sync::atomic::Ordering::Relaxed;
+    (SALVADAS.load(Relaxed), SALVADA_ULTIMA.load(Relaxed))
+}
+
+fn salvar(tid: u32, marco: u64, que: &'static str) {
+    use core::sync::atomic::Ordering::Relaxed;
+    SALVADAS.fetch_add(1, Relaxed);
+    SALVADA_ULTIMA.store(((tid as u64) << 48) | (marco & 0xFFFF_FFFF_FFFF), Relaxed);
+    crate::ring0::cabina::fault("vmm", que, marco);
+    crate::ring0::cabina::id("vmm", "...y es del tid VIVO", tid as u64);
+}
+
+pub fn destroy_address_space(pml4: u64, vivos: &[(u32, u64)]) -> (u64, u64) {
     // La estacion 17, y la unica que no vive en `revoke_all`: el espacio se
     // destruye despues, en `reap`. Se apunta con pid 0 porque aqui ya no hay
     // pid -- solo un PML4 y un cadaver.
@@ -377,6 +459,13 @@ pub fn destroy_address_space(pml4: u64) -> (u64, u64) {
                         ya_libres += 1;
                         continue;
                     }
+                    // *** UNA HOJA QUE ES LA TABLA DE UN VIVO NO SE BORRA.
+                    // `zero_frame` sobre ella le vacia a otro proceso un GiB de
+                    // golpe: lo que el Ryzen enseno el 20-09.
+                    if let Some(t) = de_otro_vivo(marco, vivos) {
+                        salvar(t, marco, "HOJA que es la TABLA de un vivo: NO se borra");
+                        continue;
+                    }
                     // Se limpia por el mismo motivo que en `obj::memory`: el
                     // asignador no limpia al entregar, asi que si no se limpia
                     // al devolver, el siguiente programa lee lo del anterior.
@@ -384,14 +473,27 @@ pub fn destroy_address_space(pml4: u64) -> (u64, u64) {
                     phys::free_frame(marco);
                     hojas += 1;
                 }
-                phys::free_frame_de(pt_phys, phys::Titular::Tabla);
+                if let Some(t) = de_otro_vivo(pt_phys, vivos) {
+                    salvar(t, pt_phys, "PT que es tabla de un vivo: NO se libera");
+                } else {
+                    phys::free_frame_de(pt_phys, phys::Titular::Tabla);
+                    tablas += 1;
+                }
+            }
+            // *** EL SITIO EXACTO DEL 20-09: un PD que tambien era de otro.
+            if let Some(t) = de_otro_vivo(pd_phys, vivos) {
+                salvar(t, pd_phys, "PD que es tabla de un VIVO: NO se libera");
+            } else {
+                phys::free_frame_de(pd_phys, phys::Titular::Tabla);
                 tablas += 1;
             }
-            phys::free_frame_de(pd_phys, phys::Titular::Tabla);
+        }
+        if let Some(t) = de_otro_vivo(pdpt_phys, vivos) {
+            salvar(t, pdpt_phys, "PDPT que es tabla de un vivo: NO se libera");
+        } else {
+            phys::free_frame_de(pdpt_phys, phys::Titular::Tabla);
             tablas += 1;
         }
-        phys::free_frame_de(pdpt_phys, phys::Titular::Tabla);
-        tablas += 1;
     }
     phys::free_frame_de(pml4, phys::Titular::Tabla);
     tablas += 1;
@@ -463,7 +565,7 @@ pub fn self_test() -> (bool, u64) {
     if ok {
         ok = translate(aspace, va).is_none();
     }
-    destroy_address_space(aspace);
+    destroy_address_space(aspace, &[]);
     phys::free_frame(frame);
     let (_, libres_despues) = phys::stats();
     let sobrantes = libres_antes.saturating_sub(libres_despues);

@@ -58,6 +58,7 @@ pub use amarilla::{
     map_page, map_page_imagen, map_page_propia, map_page_wc, unmap_page, PermisoImagen, PTE_NUESTRA, PTE_NX, PTE_PAT_4K,
 };
 pub use roja::{
+    salvadas,
     destroy_address_space, init, kernel_half_holes, kernel_pml4, new_address_space, read_cr3,
     self_test, switch_to,
 };

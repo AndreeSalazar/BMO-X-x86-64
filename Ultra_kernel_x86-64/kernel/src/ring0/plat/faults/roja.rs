@@ -390,6 +390,11 @@ extern "C" fn fault_dispatch(
                 c.s(titular);
                 c.s(") | pantalla ");
                 c.s(if pantalla { "viva" } else { "MUERTA" });
+                // ** Y cuantas veces el desmontaje se nego a tocar la tabla de
+                // un vivo. Cero con el escritorio muerto = el que vacia su PD
+                // NO es `destroy_address_space`, y hay que buscar en otro sitio.
+                c.s(" | salvadas ");
+                c.dec(crate::ring0::mm::vmm::salvadas().0);
                 serial_write("[fault] ");
                 serial_write(c.as_str());
                 serial_write("
