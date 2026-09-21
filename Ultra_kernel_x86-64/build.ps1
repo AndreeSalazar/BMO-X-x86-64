@@ -469,6 +469,38 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail 'kernel build failed' }
 } finally { Pop-Location }
 
+# -- ** CUANTO BAJA EL KERNEL POR CADA PILA DE TAREA (2026-09-21) ---
+#
+# Un syscall corre sobre la pila de kernel de 32 KiB de la tarea que lo pide,
+# y por un syscall pasa el cargador entero. El 20-09 el camino de `LANZAR`
+# bajaba 14.232 bytes de 16.384 y una interrupcion encima lo saco por el
+# fondo: el PD del escritorio, en el marco vecino, aparecio a cero. Nadie lo
+# vio porque el numero no existia. Ahora lo mide `toolchain/tools/pila/pila.py`
+# sobre el ELF que se acaba de construir: el camino estatico mas hondo desde
+# `syscall_entry` mas la puerta mas honda de la IDT tiene que caber con una
+# pagina de margen -- y los topes los lee del fuente, no de una lista.
+#
+# [!] Va AQUI, sobre `$kd`, por lo mismo que el objcopy de abajo: con `-Metro`
+# el kernel que se mide es el instrumentado, que es el que se va a flashear.
+Step 'Measuring how deep the kernel goes on each task stack'
+$pilaPy = Join-Path (Split-Path -Parent $root) 'toolchain/tools/pila/pila.py'
+if (-not (Test-Path $pilaPy)) { Fail ('guardian MUERTO: falta ' + $pilaPy) }
+$pilaPython = (Get-Command python -ErrorAction SilentlyContinue)
+if ($pilaPython) {
+    $pilaElf = Join-Path $kd (Join-Path 'x86_64-unknown-none' (Join-Path 'release' 'bmo-kernel'))
+    $env:PYTHONIOENCODING = 'utf-8'
+    $pilaSalida = & $pilaPython.Source $pilaPy --check --elf $pilaElf
+    if ($LASTEXITCODE -ne 0) {
+        $pilaSalida | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
+        Fail 'a kernel stack does not hold its deepest path plus one interrupt (see toolchain/tools/pila/pila.py)'
+    }
+    $pilaSalida | Where-Object { $_ -match 'clean:' } | ForEach-Object {
+        Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host '    [!] python no encontrado: no se mide la pila del kernel' -ForegroundColor Yellow
+}
+
 # -- Embed payloads + build unified uefi_chain ---------------------
 Step 'Preparing embedded payloads'
 $embedDir = Join-Path $target 'embed'

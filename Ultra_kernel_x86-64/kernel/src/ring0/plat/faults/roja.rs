@@ -325,6 +325,43 @@ extern "C" fn fault_dispatch(
                 crate::ring0::core::dashboard::dashboard_log(v.as_str());
             }
         }
+        // *** LA PILA DE KERNEL DE LA TAREA QUE MUERE (2026-09-21).
+        //
+        // ** El fallo es de Ring 3, y el sello es de Ring 0 -- y por eso va
+        // aqui. El escritorio murio con su PD a cero y "nadie lo solto": lo que
+        // lo puso a cero fue el cargador saliendose por el FONDO de esta pila
+        // durante `LANZAR` (16 KiB, y el camino medido baja 14.232 antes de
+        // la primera interrupcion). Una pagina de tabla no se defiende sola;
+        // esta linea es lo que dice, en la foto, si la pila de kernel de quien
+        // muere sigue entera. `rotas` es la cuenta de todos los cambios de
+        // tarea, no solo de esta.
+        //
+        //    pila K: sello intacto | rotas 0   -> el fondo no es el culpable
+        //    pila K: sello ROTO                 -> se salio por el fondo
+        {
+            let mut k = Line::new();
+            k.s("    pila K: sello ");
+            k.s(match crate::ring0::task::scheduler::sello_de(tid) {
+                Some(true) => "intacto",
+                Some(false) => "ROTO",
+                None => "(sin pila)",
+            });
+            let (rotas, ultima) = crate::ring0::task::scheduler::pilas_rotas();
+            k.s(" | rotas ");
+            k.dec(rotas);
+            if rotas != 0 {
+                k.s(" (ultima tid ");
+                k.dec(ultima as u64);
+                k.s(")");
+            }
+            serial_write("[fault] ");
+            serial_write(k.as_str());
+            serial_write("
+");
+            if crate::info::has_fb() {
+                crate::ring0::core::dashboard::dashboard_log(k.as_str());
+            }
+        }
         // *** EL TAMANO DEL AGUJERO, EN EL SITIO QUE SE FOTOGRAFIA (2026-09-20).
         //
         // ** El 20-09 la autopsia acerto --"AGUJERO EN UN BLOQUE QUE EL KERNEL

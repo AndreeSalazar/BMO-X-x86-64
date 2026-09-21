@@ -21,14 +21,55 @@ use crate::ring0::plat::trap;
 /// Paginas de pila de Ring 3. **Se DERIVA de `vmm::USER_STACK_SIZE`**, que es
 /// la unica fuente: antes eran dos numeros sin relacion y uno mentia.
 pub(crate) const USER_STACK_PAGES: u64 = vmm::USER_STACK_SIZE / mm::PAGE;
-/// 16 KiB de pila de kernel por tarea.
+/// **32 KiB de pila de kernel por tarea de Ring 3.**
 ///
 /// Eran 8 KiB cuando el contexto guardado ocupaba 720 bytes. Con XSAVE ocupa
 /// ~3,3 KiB --el area de estado extendido es de 3072-- y cada trap se lleva eso
 /// de la pila antes de que el despachador de Rust haga nada. Con 8 KiB un
-/// fault anidado sobre un tick de timer se salia. El coste de subirlo son dos
-/// paginas por tarea; el coste de no subirlo es corromper la pila de al lado.
-pub(crate) const KERNEL_STACK_PAGES: u64 = 4;
+/// fault anidado sobre un tick de timer se salia. Subieron a 16.
+///
+/// *** Y 16 TAMPOCO ALCANZABAN, y esto es lo que costo saberlo (2026-09-21).
+///
+/// Un syscall corre **sobre esta pila** (`schedule_locked` publica
+/// `kernel_stack_top` como rampa de SYSCALL), y por un syscall pasa el
+/// CARGADOR ENTERO: `LANZAR` desde el escritorio es `dispatch -> lanzar ->
+/// ruta -> con_buffer -> admit_payload_desde -> ...`. Medido en el binario
+/// (`toolchain/tools/pila/pila.py`, que ahora lo mide en cada build):
+///
+/// ```text
+///    syscall_entry + dispatch + lanzar + ruta          1.744
+///    con_buffer   (prologo de 2 KiB en la pila)        4.168
+///    admit_payload_desde                               4.152
+///    bmo_hash::hash  (el indice de B7, 20-09 11:01)    4.168
+///    ---------------------------------------------------------
+///    profundidad ESTATICA al comprobar el indice      14.232  de 16.384
+///
+///    un tick del timer o el aviso del disco encima:
+///    marco de iretq + 15 push + XSAVE + timer_entry    ~1.300 .. 5.700
+/// ```
+///
+/// O sea que desde B7 **cualquier interrupcion durante la admision se salia
+/// por el fondo** -- y el aviso del AHCI llega justo detras del DMA de la
+/// firma, que es justo antes del hash del indice. Lo que hay debajo del fondo
+/// de esta pila es el marco fisico vecino, y en el Ryzen era una TABLA del
+/// escritorio: su PD de `0xC0..-0xFF..` (canales, pantalla, bloques) aparecio
+/// enlazado, marcado `TABLA`, y **a cero** -- `faltan 2160/2160 pag`,
+/// `pantalla MUERTA`, "nadie lo solto". Y antes, el 20-09 al mediodia, la azul
+/// con un `&Location` podrido en la pila de otro hilo: la misma escritura por
+/// debajo del fondo, cayendo en otra pila. DOOM arrancaba por la manana (sin
+/// el hash: 10 KiB de fondo) y no por la tarde. **El culpable era B7, y era
+/// mio.**
+///
+/// ** Y no es solo el cargador: guardar en ESTRATOS desde Ring 3
+/// (`aplicar -> traer -> empujar -> colgar`) son **19.416 bytes estaticos**,
+/// mas que la pila entera de 16 KiB, sin interrupcion ninguna.
+///
+/// El numero de aqui ya no es una apuesta: `pila.py` lee este valor de esta
+/// linea, suma el camino mas hondo del binario con la interrupcion mas honda,
+/// y para el build si no cabe con una pagina de margen. El coste de subirlo son
+/// 16 KiB mas por tarea de Ring 3 (con 64 tareas, 1 MiB); el coste de no
+/// subirlo esta contado arriba.
+pub(crate) const KERNEL_STACK_PAGES: u64 = 8;
 
 // Que quepa no es una esperanza: se comprueba al compilar. Si alguien sube
 // XSAVE_AREA sin tocar esto, el build se para aqui y no en el hardware.

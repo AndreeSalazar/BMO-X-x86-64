@@ -601,6 +601,14 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
     // su direccion sigue siendo valida hasta que esta tarea vuelva a entrar.
     // Guardarlo antes de este punto era anotar como vigente un contexto que un
     // instante despues se restauraba y quedaba caduco.
+    // *** EL SELLO DEL FONDO SE MIRA AL SOLTAR EL TURNO (2026-09-21).
+    //
+    // La tarea que sale acaba de correr sobre su pila. Si en el fondo ya no
+    // esta el centinela, alguien escribio por debajo: o ella misma se
+    // desbordo (el cargador entero cabe en un syscall, y el 20-09 no cabia) o
+    // la piso un vecino. Se mira AQUI porque es el unico sitio por el que pasan
+    // todas las tareas, vivas, sin esperar a que una muera para enterarse.
+    revisar_sello(&s.tasks[s.current]);
     if saliente == Saliente::Publicado && outgoing != 0 {
         s.tasks[s.current].context_rsp = outgoing;
         // El dueno, en el propio contexto. El stub ya puso la firma en
@@ -871,6 +879,56 @@ fn sellar_pila(stack_phys: u64) {
     unsafe {
         (mm::phys_to_virt(stack_phys) as *mut u64).write_volatile(super::verde::CENTINELA);
     }
+}
+
+/// Cuantas veces un cambio de tarea encontro el sello del fondo ROTO, y de
+/// que tid fue la ultima. Lo leen la autopsia de Ring 3 y el panel.
+static PILAS_ROTAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static PILA_ROTA_ULTIMA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// `(cuantas, tid de la ultima)`.
+pub fn pilas_rotas() -> (u64, u32) {
+    use core::sync::atomic::Ordering::Relaxed;
+    (PILAS_ROTAS.load(Relaxed), PILA_ROTA_ULTIMA.load(Relaxed) as u32)
+}
+
+/// **Sigue el centinela en el fondo de la pila de `tid`?** `None` = no tiene
+/// pila que mirar. Sin cerrojo: lo llama la pantalla de fallo.
+pub fn sello_de(tid: u32) -> Option<bool> {
+    let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
+    for t in &s.tasks {
+        if t.tid == tid && t.state != TaskState::Empty && t.stack_phys != 0 {
+            let hay = unsafe { (mm::phys_to_virt(t.stack_phys) as *const u64).read_volatile() };
+            return Some(hay == super::verde::CENTINELA);
+        }
+    }
+    None
+}
+
+/// **El sello del fondo, mirado al cambiar de tarea.** Si no esta, se grita
+/// con el tid y con lo que hay en su sitio --que es la pista, igual que en la
+/// azul--, se cuenta, y se vuelve a sellar.
+///
+/// [!] Volver a sellar no borra nada que importe: son ocho bytes que ya no
+/// eran el centinela. Sin esto, cada cambio de tarea repetiria el mismo
+/// renglon y taparia su propio mensaje -- el cepo del 30-08. La cuenta queda
+/// en `PILAS_ROTAS`.
+fn revisar_sello(t: &Task) {
+    if t.stack_phys == 0 || t.stack_pages == 0 || t.state == TaskState::Empty {
+        return;
+    }
+    let fondo = mm::phys_to_virt(t.stack_phys) as *mut u64;
+    let hay = unsafe { fondo.read_volatile() };
+    if hay == super::verde::CENTINELA {
+        return;
+    }
+    use core::sync::atomic::Ordering::Relaxed;
+    PILAS_ROTAS.fetch_add(1, Relaxed);
+    PILA_ROTA_ULTIMA.store(t.tid as u64, Relaxed);
+    crate::ring0::cabina::fault(
+        "sched", "PILA DE KERNEL DESBORDADA: el sello del fondo esta roto (tid)", t.tid as u64);
+    crate::ring0::cabina::fault("sched", "...y esto es lo que hay en su sitio", hay);
+    unsafe { fondo.write_volatile(super::verde::CENTINELA) };
 }
 
 pub fn spawn_user(

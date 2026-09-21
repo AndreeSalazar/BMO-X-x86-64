@@ -254,6 +254,14 @@ Lo que cambia, y por que es BMO y no ELF:
   `la_cadena_que_se_firma_es_la_que_el_kernel_comprueba` la ata con el
   codigo del kernel copiado. Los ceros ya no cuentan como "sin hash" en la
   ficha (el 1 en rojo que salio en el Ryzen).
+  *** Y B7 SE COBRO EL METAL (21-09): el `bmo_hash::hash(indice)` que anadio
+  la admision fueron 3.712 bytes mas en una pila de kernel de 16 KiB por la que
+  ya bajaba el cargador entero dentro de un syscall (14.232 con el hash); la
+  primera interrupcion encima salio por el fondo y puso a cero el PD del
+  escritorio (tres fotos: `faltan 2160/2160`, `pantalla MUERTA`). No era del
+  formato: era de la pila. Ver `KERNEL_STACK_PAGES` en `task/proc.rs` (ahora
+  8) y `toolchain/tools/pila/pila.py`, que desde hoy mide ese numero en cada
+  build.
 - [x] **B8 -- Ring 0 lee REGIONES. HECHO el 2026-09-20.** Se fue
   `bmo-bex-gate/src/bef2.rs` (309 lineas) y la puerta es UN fichero
   (`lib.rs`, 409 -> 605 con el contrato entero dentro): `Revisada` da

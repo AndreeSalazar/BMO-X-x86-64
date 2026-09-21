@@ -51,9 +51,15 @@ pub const DEFAULT_QUANTUM_TICKS: u16 = 4;
 /// ** El foco no decide QUIEN corre. Decide CUANTO.
 pub const QUANTUM_DELANTE: u16 = 8;
 
-/// 16 KiB, por el mismo motivo que en `proc.rs`: el contexto con XSAVE ocupa
+/// 32 KiB, por el mismo motivo que en `proc.rs`: el contexto con XSAVE ocupa
 /// ~3,3 KiB de pila en cada trap, contra los 720 bytes de cuando eran 8 KiB.
-pub(super) const TASK_STACK_PAGES: u64 = 4;
+///
+/// ** Y la misma medida (2026-09-21): el hilo del bus baja 6.544 bytes
+/// estaticos (`pump_bus -> bombear_interno -> adoptar_puerto ->
+/// direccionar_puerto`), y el tick mas hondo encima son ~5.700. Con 16 KiB
+/// quedaban 31 bytes por debajo del margen de una pagina que exige
+/// `toolchain/tools/pila/pila.py`. Treinta y un bytes no es margen.
+pub(super) const TASK_STACK_PAGES: u64 = 8;
 
 
 #[repr(u8)]
@@ -249,7 +255,7 @@ pub fn quien_corre() -> (u32, bool) {
 /// escribio**. Es lo mismo que enseno `4D2000` el 04-09, cuando trece casillas
 /// resultaron ser `push r15; push r14; push r12`.
 ///
-/// [!] Cuesta OCHO BYTES de los 16 KiB de cada pila, y se pagan en el punto
+/// [!] Cuesta OCHO BYTES de los 32 KiB de cada pila, y se pagan en el punto
 /// mas profundo -- el ultimo sitio al que llega un uso normal.
 /// ** El valor se elige para que no pueda salir por accidente: sus bits altos
 /// lo hacen NO CANONICO como puntero, asi que ninguna direccion del kernel lo
