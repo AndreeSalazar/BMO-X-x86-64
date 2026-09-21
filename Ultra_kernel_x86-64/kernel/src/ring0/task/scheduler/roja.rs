@@ -769,13 +769,54 @@ pub fn on_timer() {
     //
     // [!] El arreglo es una condicion, no un mecanismo nuevo: si la tarea
     // actual ya NO esta `Running`, su quantum no es suyo. Se reparte ahora.
+    // == *** LA EXPROPIACION AL DESPERTAR (2026-09-21) =====================
+    //
+    // El dueno, con el latido del bus 1.266 ms tarde en dos saves seguidos:
+    // *"el orquestador existe por algo: puedes salirte del rango PERO si
+    // cumples lo que eres; si no es parte de la musica, se saca a patada"*.
+    //
+    // Hasta hoy una tarea que despertaba con MAS rango que la que corria
+    // --el hilo del bus, prioridad 2, con hora fija cada 4 ms-- se quedaba
+    // `Ready` esperando a que a la otra se le ACABARA EL QUANTUM: hasta 8 ms
+    // detras de la app de delante (`QUANTUM_DELANTE`). Un hilo con hora fija
+    // que espera el turno de otro no tiene hora fija. `choose_next` ya es de
+    // prioridad estricta; lo que faltaba era PREGUNTARLE en el instante en
+    // que alguien de mas rango se pone en pie, y no solo cuando el quantum
+    // dice que toca.
+    //
+    // ** Se miran TODAS las `Ready`, no solo las que despertaron en este
+    // tick: `wake_by_key` (un canal, un prestamo devuelto) las pone en pie
+    // desde un syscall, y esas tambien tienen derecho al CPU en el acto.
+    // Son 64 lecturas por tick. La que corre no se castiga: su quantum se
+    // le devuelve entero para la proxima vez (`remaining_ticks = quantum`).
+    //
+    // [!] Lo que esto NO arregla, dicho antes de que alguien lo crea: un
+    // retraso de 1.266 ms. Esto quita hasta UN quantum de espera (8 ms). Si
+    // el bus sigue llegando tarde con esto puesto, el culpable no es el
+    // reparto del CPU: es alguien con las interrupciones cerradas (ver
+    // `plat/spin.rs::retenido_peor`) o el propio bus.
     let current = &mut s.tasks[s.current];
     if current.state == TaskState::Running && current.remaining_ticks > 1 {
-        current.remaining_ticks -= 1;
-        return;
+        let mi_rango = current.priority;
+        let alguien_mayor = s.tasks.iter().any(|t| t.state == TaskState::Ready && t.priority > mi_rango);
+        if !alguien_mayor {
+            s.tasks[s.current].remaining_ticks -= 1;
+            return;
+        }
+        EXPROPIADAS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
     }
+    let current = &mut s.tasks[s.current];
     current.remaining_ticks = current.quantum;
     schedule_locked(s, Saliente::Publicado);
+}
+
+/// Cuantas veces el tick le quito el CPU a una tarea ANTES de acabarse su
+/// quantum porque otra de mas rango estaba en pie. Lo lee `INFO_EXPROPIADAS`:
+/// es la cuenta de las veces que el orquestador hizo valer el rango.
+static EXPROPIADAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+pub fn expropiadas() -> u64 {
+    EXPROPIADAS.load(core::sync::atomic::Ordering::Relaxed)
 }
 
 

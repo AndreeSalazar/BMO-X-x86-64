@@ -64,13 +64,18 @@ pub struct SpinLock {
     hits: AtomicU32,
     /// Spin rounds waited here in total.
     spins: AtomicU64,
+
     /// The longest single wait on this lock.
     peak: AtomicU32,
+    /// Lo mas que se retuvo este cerrojo, en ciclos de TSC.
+    retenido: AtomicU64,
 }
 
 pub struct Guard<'a> {
     lock: &'a SpinLock,
     rflags: u64,
+    /// El `rdtsc` de cuando se tomo. Ver `RETENIDO_PEAK`.
+    desde: u64,
 }
 
 impl SpinLock {
@@ -81,6 +86,7 @@ impl SpinLock {
             hits: AtomicU32::new(0),
             spins: AtomicU64::new(0),
             peak: AtomicU32::new(0),
+            retenido: AtomicU64::new(0),
         }
     }
 
@@ -90,7 +96,7 @@ impl SpinLock {
 
         // The fast path, untouched: one `swap` and out.
         if !self.locked.swap(true, Ordering::Acquire) {
-            return Guard { lock: self, rflags };
+            return Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() } };
         }
 
         // From here on the lock was already held, which is the event worth
@@ -107,7 +113,12 @@ impl SpinLock {
             }
         }
         self.record(rounds);
-        Guard { lock: self, rflags }
+        Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() } }
+    }
+
+    /// Lo mas que se retuvo este cerrojo, en ciclos de TSC.
+    pub fn retenido(&self) -> u64 {
+        self.retenido.load(Ordering::Relaxed)
     }
 
     /// `(hits, spin rounds, longest wait)` for this lock alone.
@@ -150,8 +161,37 @@ fn raise(cell: &AtomicU32, v: u32) -> bool {
     false
 }
 
+// == *** CUANTO SE RETIENE, no solo cuanto se pelea (2026-09-21) ==========
+//
+// `hits`/`spins`/`peak` cuentan la PELEA: cuantas veces alguien encontro el
+// cerrojo tomado y cuanto giro. En una maquina de un nucleo la pelea es cero
+// siempre --el `save` dice `0 choques (lo correcto: nadie pelea)`-- y eso no
+// dice NADA de lo que importa aqui: `lock()` hace `cli`, asi que **mientras
+// alguien tiene un cerrojo, el reloj no suena y el orquestador esta ciego**.
+// Un cerrojo retenido 1.266 ms es un latido del bus 1.266 ms tarde sin que
+// ninguna prioridad pueda hacer nada. Y no lo contaba nadie.
+//
+// Ahora cada `Guard` apunta el `rdtsc` al tomar y resta al soltar. Se guarda
+// lo PEOR por cerrojo y lo peor de todos con su nombre: un maximo, no una
+// media, porque una media de retenciones esconde justo el pico que se nota
+// con la mano. Dos `rdtsc` por cerrojo: unos 50 ciclos, en el sitio donde el
+// cerrojo ya costo mas que eso.
+//
+// [!] `_rdtsc` de `core::arch` y no `scheduler::rdtsc()`: este fichero esta
+// DEBAJO del planificador (el planificador lo usa), y L8 no deja subir.
+static RETENIDO_PEAK: AtomicU64 = AtomicU64::new(0);
+static RETENIDO_PTR: AtomicUsize = AtomicUsize::new(0);
+static RETENIDO_LEN: AtomicUsize = AtomicUsize::new(0);
+
 impl Drop for Guard<'_> {
     fn drop(&mut self) {
+        // Se mide ANTES de soltar: lo que cuenta es el tiempo con el cerrojo
+        // en la mano (y las interrupciones cerradas), no el de despues.
+        let retenido = unsafe { core::arch::x86_64::_rdtsc() }.wrapping_sub(self.desde);
+        if raise64(&self.lock.retenido, retenido) && raise64(&RETENIDO_PEAK, retenido) {
+            RETENIDO_PTR.store(self.lock.name.as_ptr() as usize, Ordering::Relaxed);
+            RETENIDO_LEN.store(self.lock.name.len(), Ordering::Relaxed);
+        }
         self.lock.locked.store(false, Ordering::Release);
         if self.rflags & (1 << 9) != 0 {
             unsafe { core::arch::asm!("sti", options(nomem, nostack)); }
@@ -163,6 +203,34 @@ impl Drop for Guard<'_> {
 /// kernel. **Both are supposed to be zero.**
 pub fn contention() -> (u32, u32) {
     (HITS.load(Ordering::Relaxed), PEAK.load(Ordering::Relaxed))
+}
+
+fn raise64(cell: &AtomicU64, v: u64) -> bool {
+    let mut seen = cell.load(Ordering::Relaxed);
+    while v > seen {
+        match cell.compare_exchange_weak(seen, v, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => return true,
+            Err(actual) => seen = actual,
+        }
+    }
+    false
+}
+
+/// **La retencion mas larga de cualquier cerrojo**, en ciclos de TSC. Con
+/// `retenido_peor_quien` dice cual. Cero = ningun cerrojo se ha soltado aun.
+pub fn retenido_peor() -> u64 {
+    RETENIDO_PEAK.load(Ordering::Relaxed)
+}
+
+pub fn retenido_peor_quien() -> &'static str {
+    let ptr = RETENIDO_PTR.load(Ordering::Relaxed);
+    let len = RETENIDO_LEN.load(Ordering::Relaxed);
+    if ptr == 0 || len == 0 {
+        return "-";
+    }
+    unsafe {
+        core::str::from_utf8_unchecked(core::slice::from_raw_parts(ptr as *const u8, len))
+    }
 }
 
 /// The lock that set the current peak, or `"-"` if nothing ever waited.

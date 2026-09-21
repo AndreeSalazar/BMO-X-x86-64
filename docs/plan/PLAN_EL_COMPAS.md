@@ -92,6 +92,37 @@ corazon de este plan y no una de sus mejoras.
 
 # 4. LA ESCALERA, Y EL ORDEN IMPORTA MAS QUE LAS PIEZAS
 
+## ★ Lo que entro el 21-09 antes de la escalera, y con las palabras del dueno
+
+El latido del bus USB llego 1.266 ms tarde en dos saves seguidos, y el dueno
+puso la doctrina en una frase: *"el orquestador existe por algo: PUEDES salirte
+del rango PERO si es que cumples lo que eres; si no es parte de la musica, se
+saca a patada"*. Un hilo con hora fija (el bus, cada 4 ms) que espera el turno
+de otro no tiene hora fija. Dos piezas, las dos baratas, las dos valen sea
+cual sea el veredicto del metal:
+
+- [x] **EX1 -- LA EXPROPIACION AL DESPERTAR. HECHO el 21-09**
+      (`scheduler::on_timer`): si en un tick hay una tarea `Ready` de MAS rango
+      que la que corre, se replanifica en el acto en vez de esperar a que se le
+      acabe el quantum (hasta 8 ms detras de la app de delante). Se miran todas
+      las `Ready`, no solo las despertadas en ese tick: `wake_by_key` las pone
+      en pie desde un syscall. La que corre recupera su quantum entero para la
+      proxima. Cuenta en `INFO_EXPROPIADAS` (`save`, `tareas: expropiadas`). Lo
+      que NO arregla: 1.266 ms. Quita hasta UN quantum.
+- [x] **EX2 -- EL CERROJO SE MIDE. HECHO el 21-09** (`plat/spin.rs`): cada
+      `Guard` apunta `rdtsc` al tomar y resta al soltar; se guarda lo peor por
+      cerrojo y lo peor de todos CON SU NOMBRE (`INFO_SPIN_RETENIDO` +
+      `INFO_TXT_CERROJO_PEOR`; `save`: `retenido N us (cerrojo)`, en rojo por
+      encima de 4.000 us = un latido del bus). Un cerrojo es `cli`: mientras se
+      retiene, el reloj no suena y ninguna prioridad puede hacer nada, y `0
+      choques` no decia nada de eso. Lo que NO mide: los `cli` sueltos fuera de
+      un `SpinLock` (`cabina/ring.rs`, `red/puerta.rs`, `timer.rs`).
+- [ ] **EX3 -- EL CONTRATO POR HILO.** Cada hilo de kernel declara (periodo,
+      presupuesto) y el `save` dice por hilo si cumple. Es E2 para los hilos
+      del kernel, y va detras del veredicto del metal (hoja 3e): si el bus
+      llega tarde por el propio bus, el presupuesto se mira DENTRO de la vuelta
+      y el aparato que lo rompe se enfria (ya existe a medias: 5 s).
+
 - [ ] **E0 -- LA TAREA IDLE.** Prioridad minima, siempre lista, cuerpo
       `loop { hlt }`. Hoy no existe: `choose_next` devuelve `self.current` cuando
       nadie mas esta listo, y `schedule_locked` vuelve sin cambiar, **asi que una

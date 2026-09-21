@@ -222,6 +222,10 @@ const INFO_PROG_CIERRE: u64 = 0x7A;
 // `dev/usb/bus.rs::latido_peor`.
 const INFO_USB_LATIDO: u64 = 0x7B;
 const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
+// El cerrojo que mas tiempo se retuvo (ciclos de TSC) y las veces que el tick
+// hizo valer el rango. Ver `plat/spin.rs` y `scheduler::on_timer`.
+const INFO_SPIN_RETENIDO: u64 = 0x7D;
+const INFO_EXPROPIADAS: u64 = 0x7E;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -392,6 +396,7 @@ const INFO_TXT_USB_MOTIVO: u64 = 0x08;
 /// El nombre y la etiqueta ("C", "INTI") del programa `n >> 8` del registro.
 const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 const INFO_TXT_PROG_TAG: u64 = 0x0A;
+const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
 
 const PAGE: u64 = 4096;
 
@@ -741,6 +746,8 @@ pub fn campo(n: u64) -> Option<u64> {
         // del propio kernel, sin MMIO de por medio. Ver `dev/usb/bus.rs`.
         INFO_USB_RITMO => crate::ring0::dev::usb::ritmo_y_peor(),
         INFO_USB_LATIDO => crate::ring0::dev::usb::latido_peor(),
+        INFO_SPIN_RETENIDO => crate::ring0::plat::spin::retenido_peor(),
+        INFO_EXPROPIADAS => crate::ring0::task::scheduler::expropiadas(),
         INFO_USB_LATIDO_CUANDO => crate::ring0::dev::usb::latido_peor_cuando(),
         // * Las cuatro leen la foto que dejo `identify()` en el arranque, no el
         // aparato: mandar un IDENTIFY aqui seria hablarle al disco con el CR3
@@ -857,6 +864,7 @@ pub fn texto(n: u64, trozo: u64) -> u64 {
         c if c & 0xFF == INFO_TXT_USB_MOTIVO => {
             crate::ring0::dev::usb::portero::motivo_de((c >> 8) as usize)
         }
+        INFO_TXT_CERROJO_PEOR => crate::ring0::plat::spin::retenido_peor_quien(),
         c if c & 0xFF == INFO_TXT_PROG_NOMBRE || c & 0xFF == INFO_TXT_PROG_TAG => {
             match crate::ring0::task::proc::programa((c >> 8) as usize) {
                 Some(r) if c & 0xFF == INFO_TXT_PROG_NOMBRE => r.name,

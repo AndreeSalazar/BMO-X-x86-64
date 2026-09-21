@@ -299,6 +299,8 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
     fila(s, b"listas", bmo::info(bmo::INFO_TAREAS_LISTAS), b"", b"");
     fila(s, b"lanzados", bmo::info(bmo::INFO_PROGRAMAS), b"", b"desde el arranque");
     fila(s, b"ticks", bmo::info(bmo::INFO_TICKS), b"", b"");
+    fila(s, b"expropiadas", bmo::info(bmo::INFO_EXPROPIADAS), b"",
+         b"veces que el tick le quito el CPU a uno porque otro de mas rango estaba en pie");
 
     // == *** EL DMA, y hasta hoy no llegaba aqui =========================
     //
@@ -591,6 +593,27 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.text(b"   espera mayor ");
         s.dec(bmo::info(bmo::INFO_SPIN_PICO));
         s.text(b" vueltas\n");
+    }
+    // ** Y LA OTRA MITAD DEL CERROJO: no cuanto se pelea, cuanto se RETIENE.
+    // Un cerrojo tomado son interrupciones cerradas; el reloj no suena y el
+    // orquestador esta ciego. Se dice en microsegundos, con el TSC de la
+    // maquina, y con el nombre del cerrojo: un numero sin nombre manda a
+    // auditar los tres.
+    {
+        let ciclos = bmo::info(bmo::INFO_SPIN_RETENIDO);
+        let hz = bmo::info(bmo::INFO_TSC_HZ);
+        let us = if hz > 0 { ciclos / (hz / 1_000_000).max(1) } else { 0 };
+        let mut nombre = [0u8; 32];
+        let n = bmo::info_texto(bmo::INFO_TXT_CERROJO_PEOR, &mut nombre);
+        label(s, b"retenido");
+        s.with_ink(if us > 4000 { INK_ERR } else { INK_PLAIN });
+        s.dec(us);
+        s.text(b" us");
+        s.with_ink(INK_ECHO);
+        s.text(b"   lo MAS que un cerrojo cerro las interrupciones: `");
+        s.text(&nombre[..n]);
+        s.text(b"`; por encima de 4.000 us se pierde un latido del bus\n");
+        s.with_ink(INK_PLAIN);
     }
 
     // * Y la otra mitad de lo mismo: cuando una tarea muere, el kernel dice

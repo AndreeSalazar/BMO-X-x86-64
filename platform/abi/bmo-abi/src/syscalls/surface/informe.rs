@@ -455,6 +455,18 @@ pub const INFO_USB_LATIDO: u64 = 0x7B;
 /// El tick del reloj en que paso ese peor retraso. `0` = nunca paso.
 pub const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 
+/// **La retencion mas larga de un cerrojo del kernel**, en ciclos de TSC
+/// (2026-09-21). Un cerrojo tomado es `cli`: mientras se retiene, el reloj no
+/// suena y el orquestador esta ciego. `0 choques` no dice nada de esto: en un
+/// nucleo nadie pelea y aun asi un cerrojo puede retenerse un segundo. El
+/// nombre del cerrojo, en [`INFO_TXT_CERROJO_PEOR`]. Se convierte a tiempo
+/// con [`INFO_TSC_HZ`].
+pub const INFO_SPIN_RETENIDO: u64 = 0x7D;
+/// **Las veces que el tick hizo valer el rango**: le quito el CPU a una tarea
+/// antes de acabarse su quantum porque otra de mas rango estaba en pie. Es la
+/// cuenta de la expropiacion al despertar (`scheduler::on_timer`).
+pub const INFO_EXPROPIADAS: u64 = 0x7E;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de
@@ -1176,6 +1188,8 @@ pub const INFO_TXT_USB_MOTIVO: u64 = 0x08;
 /// ("C", "INTI", "asm"). Vacio si no hay tal programa. Ver [`INFO_PROG_QUIEN`].
 pub const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
+/// El nombre del cerrojo de [`INFO_SPIN_RETENIDO`]. `-` si ninguno se solto.
+pub const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
 
 /// Campos de [`TASK_OP_KLOG_INFO`].
 pub const KLOG_DISPONIBLES: u64 = 0x00;
