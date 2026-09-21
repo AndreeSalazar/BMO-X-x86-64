@@ -105,6 +105,63 @@ pub fn translate(pml4: u64, va: u64) -> Option<u64> {
     Some(e & ADDR_MASK)
 }
 
+/// **Donde se corta el paseo de `va`**: `(nivel, tabla)`.
+///
+/// `nivel` es el piso cuya ENTRADA falta -- 4 = la del PML4, 3 = la del PDPT,
+/// 2 = la del PD, 1 = la del PT -- y `tabla` es la fisica de la tabla que
+/// tiene esa entrada a cero. `nivel = 0` = la direccion traduce.
+///
+/// *** POR QUE HACE FALTA, SI YA ESTA `translate` (2026-09-20)
+///
+/// `translate` contesta *"traduce o no"*, y el 20-09 el Ryzen dijo *no* sobre
+/// el doble bufer del escritorio con un agujero de **al menos 1024 paginas que
+/// empieza justo en la base del bloque**. Eso tiene dos lecturas, y mandan a
+/// sitios opuestos:
+///
+/// ```text
+///    un bucle de unmap pagina a pagina   -> nivel 1: el PT sigue ahi, vacio
+///    una TABLA que murio entera          -> nivel 2 o 3: la entrada que la
+///                                           apuntaba es la que falta
+/// ```
+///
+/// ** Un solo marco de tabla puesto a cero se lleva 2 MiB (un PT) o 1 GiB (un
+/// PD) sin que nadie llame a `unmap`, y desde `translate` las dos se ven igual.
+/// Esto es lo que las separa -- y la `tabla` que devuelve es la que hay que
+/// llevarle al asignador para preguntarle *"esto es tuyo, o esta LIBRE?"*.
+///
+/// [!] Lee y nada mas, igual que su vecina. Mismo carril, mismo motivo.
+pub fn donde_se_corta(pml4: u64, va: u64) -> (u8, u64) {
+    let i4 = ((va >> 39) & 0x1FF) as usize;
+    let i3 = ((va >> 30) & 0x1FF) as usize;
+    let i2 = ((va >> 21) & 0x1FF) as usize;
+    let i1 = ((va >> 12) & 0x1FF) as usize;
+    let e = table(pml4)[i4];
+    if e & PTE_PRESENT == 0 {
+        return (4, pml4);
+    }
+    let pdpt_f = e & ADDR_MASK;
+    let e = table(pdpt_f)[i3];
+    if e & PTE_PRESENT == 0 {
+        return (3, pdpt_f);
+    }
+    if e & PTE_HUGE != 0 {
+        return (0, 0);
+    }
+    let pd_f = e & ADDR_MASK;
+    let e = table(pd_f)[i2];
+    if e & PTE_PRESENT == 0 {
+        return (2, pd_f);
+    }
+    if e & PTE_HUGE != 0 {
+        return (0, 0);
+    }
+    let pt_f = e & ADDR_MASK;
+    if table(pt_f)[i1] & PTE_PRESENT == 0 {
+        return (1, pt_f);
+    }
+    (0, 0)
+}
+
 /// **La direccion FISICA EXACTA de `va`**, sea cual sea el tamano de pagina.
 ///
 /// == [!] Por que existe, y por que no vale [`translate`] ==

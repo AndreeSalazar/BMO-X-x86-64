@@ -341,9 +341,15 @@ extern "C" fn fault_dispatch(
             let mut a = Line::new();
             a.s("    faltan ");
             a.dec(faltan);
+            // ** `/M`: sin el tamano del bloque, "faltan 1024" no dice si es
+            // un trozo o todo. El 20-09 no lo decia, y 1024 era el TOPE.
+            a.s("/");
+            a.dec(cap.bloque_pags());
             a.s(" pag desde 0x");
             a.hex(desde, 0);
-            if faltan == 512 && desde % (2 * 1024 * 1024) == 0 {
+            if faltan != 0 && faltan == cap.bloque_pags() {
+                a.s(" = EL BLOQUE ENTERO");
+            } else if faltan == 512 && desde % (2 * 1024 * 1024) == 0 {
                 a.s(" = UNA TABLA");
             }
             a.s(" | nacieron rotos: ");
@@ -354,6 +360,43 @@ extern "C" fn fault_dispatch(
 ");
             if crate::info::has_fb() {
                 crate::ring0::core::dashboard::dashboard_log(a.as_str());
+            }
+            // *** Y DONDE SE CORTA EL PASEO, que parte el caso en dos.
+            //
+            //    PT          un bucle de unmap: el PT sigue, vacio
+            //    PD / PDPT   murio una TABLA entera
+            //    LIBRE       y el asignador la da por libre mientras este
+            //                proceso la usa = marco de tabla ENTREGADO DOS VECES
+            //    pantalla MUERTA   el GiB entero (0xC0.. a 0xFF..) se fue:
+            //                      lo que murio es el PD
+            let (nivel, tabla, libre, titular, pantalla) = cap.corte();
+            if nivel != 0 {
+                let mut c = Line::new();
+                c.s("    se corta en el ");
+                c.s(match nivel {
+                    1 => "PT",
+                    2 => "PD",
+                    3 => "PDPT",
+                    _ => "PML4",
+                });
+                c.s(" (tabla 0x");
+                c.hex(tabla, 0);
+                c.s(match libre {
+                    Some(true) => " LIBRE!",
+                    Some(false) => " ocupada",
+                    None => " fuera",
+                });
+                c.s(" ");
+                c.s(titular);
+                c.s(") | pantalla ");
+                c.s(if pantalla { "viva" } else { "MUERTA" });
+                serial_write("[fault] ");
+                serial_write(c.as_str());
+                serial_write("
+");
+                if crate::info::has_fb() {
+                    crate::ring0::core::dashboard::dashboard_log(c.as_str());
+                }
             }
         }
         // ** Y LA AUTOPSIA ENTERA, no una linea.

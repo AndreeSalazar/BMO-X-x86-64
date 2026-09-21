@@ -128,6 +128,22 @@ pub struct Captura {
     /// pasaron a ser un marco que no era una tabla.
     agujero_ini: u64,
     agujero_pags: u64,
+    /// Paginas que mide el bloque, para escribir `faltan N/M`.
+    bloque_pags: u64,
+    /// **Donde se corta el paseo del `cr2`**: `(nivel, tabla)`. Ver
+    /// `vmm::donde_se_corta`: nivel 1 es un unmap suelto; 2 o 3 es una TABLA
+    /// que murio entera.
+    corte: (u8, u64),
+    /// Lo que el asignador dice de ESA tabla. `Some(true)` = **la da por
+    /// LIBRE mientras este proceso la usa** -- que es la prueba de un marco de
+    /// tabla entregado dos veces.
+    tabla_libre: Option<bool>,
+    /// Y para quien se pidio. Una tabla de un proceso vivo que el asignador
+    /// apunta como pila, bloque o `Nadie` es el mismo hallazgo con otra cara.
+    tabla_titular: &'static str,
+    /// Si la PANTALLA (`FRAMEBUFFER_VA_BASE`, en el MISMO GiB que el bloque)
+    /// sigue traduciendo. Si tambien falta, lo que murio es el PD entero.
+    pantalla_viva: bool,
 }
 
 /// Cuantas palabras de pila se miran. Veinticuatro y no cuatro porque las
@@ -147,6 +163,11 @@ impl Captura {
         traducida: false,
         agujero_ini: 0,
         agujero_pags: 0,
+        bloque_pags: 0,
+        corte: (0, 0),
+        tabla_libre: None,
+        tabla_titular: "",
+        pantalla_viva: false,
     };
 
     /// **Se llama con el CR3 del proceso TODAVIA puesto.** Ver la cabecera.
@@ -181,6 +202,16 @@ impl Captura {
         c
     }
 
+    /// Paginas del bloque del agujero. Cero si no se midio.
+    pub fn bloque_pags(&self) -> u64 {
+        self.bloque_pags
+    }
+
+    /// `(nivel, tabla, libre?, titular, pantalla viva?)`. Ver los campos.
+    pub fn corte(&self) -> (u8, u64, Option<bool>, &'static str, bool) {
+        (self.corte.0, self.corte.1, self.tabla_libre, self.tabla_titular, self.pantalla_viva)
+    }
+
     /// **El agujero medido, para quien lo pinta:** `(paginas que faltan,
     /// primera que falta)`. `None` si no se midio ninguno.
     pub fn agujero(&self) -> Option<(u64, u64)> {
@@ -206,7 +237,13 @@ impl Captura {
     /// es AL MENOS eso-- que es mejor que un numero exacto que no llega.
     fn medir_agujero(&mut self, cr2: u64) {
         use crate::ring0::obj::memory::Caida;
-        const TOPE: u64 = 1024;
+        // ** El tope era 1024 y el 20-09 SE COMIO EL DATO: la foto dijo
+        // `faltan 1024`, y 1024 era el tope. O sea "al menos 4 MiB", justo
+        // cuando la pregunta era si faltaba el bloque entero. Ahora el tope es
+        // el propio bloque, que `MAX_BYTES` deja en 16.384 paginas como mucho:
+        // del orden de un milisegundo de paseos, una vez, con la tarea ya
+        // muerta. Lo que no se puede es contestar recortado.
+        const TOPE: u64 = 16_384;
         const PAGINA: u64 = 4096;
         let Caida::Dentro { off, bytes, .. } = self.caida else { return };
         if self.traducida {
@@ -230,6 +267,21 @@ impl Captura {
         }
         self.agujero_ini = ini;
         self.agujero_pags = n;
+        self.bloque_pags = bytes / PAGINA;
+        // *** Y DONDE SE CORTA, que es lo que parte el caso en dos.
+        //
+        // Un agujero que empieza en la base exacta del bloque tiene dos
+        // lecturas: un bucle de `unmap` que arranco ahi, o una TABLA que murio
+        // entera. `donde_se_corta` las separa, y la tabla que devuelve se le
+        // lleva al asignador: si la da por LIBRE mientras este proceso la usa,
+        // es un marco de tabla entregado dos veces -- la familia de la primera
+        // azul del 20-09, la de `destroy_address_space`.
+        self.corte = crate::ring0::mm::vmm::donde_se_corta(cr3, cr2);
+        if self.corte.0 != 0 {
+            self.tabla_libre = crate::ring0::mm::phys::esta_libre(self.corte.1);
+            self.tabla_titular = crate::ring0::mm::phys::titular_de(self.corte.1).nombre();
+        }
+        self.pantalla_viva = hay(crate::ring0::mm::vmm::FRAMEBUFFER_VA_BASE);
         // *** Y AQUI PONIA "SALE AL KERNEL LOG", Y ERA FALSO (corregido 20-09).
         //
         // CABINA no llega al KERNEL LOG: va al anillo de eventos. Estas dos
