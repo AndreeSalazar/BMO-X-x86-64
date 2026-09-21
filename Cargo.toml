@@ -311,6 +311,25 @@ exclude = [
 [profile.dev]
 panic = "abort"
 
+# ** EL EMULADOR SE OPTIMIZA TAMBIEN EN `cargo test` (2026-09-21).
+#
+# El banco entero tardaba 154 s y 108 de ellos eran UN crate: las siete filas
+# de NAVEGAR (`tests/navegar.rs` de bmo-inti-x86-64) corren el programa en el
+# emulador de `bmo-lower` hasta 400 millones de pasos, y en el perfil `dev` el
+# emulador va sin optimizar: 60-100 s por fila. Con `opt-level = 3` SOLO en el
+# crate del emulador, el resto del arbol sigue compilando en debug (rapido de
+# compilar, con sus `debug_assert`) y las mismas filas bajan a segundos. No es
+# quitar pruebas: es dejar de pagar 20x por una decision de perfil.
+[profile.dev.package.bmo-lower]
+opt-level = 3
+# Y lo mismo, por lo mismo, para los dos que DECODIFICAN en sus filas: las 40
+# de `bmo-imagen` (inflate + IDCT sobre imagenes de 256x256) tardaban 11 s y
+# las 74 de `bmo-ciudad` (la intro, pintada entera) 6,5 s.
+[profile.dev.package.bmo-imagen]
+opt-level = 3
+[profile.dev.package.bmo-ciudad]
+opt-level = 3
+
 [profile.release]
 panic = "abort"
 opt-level = 3

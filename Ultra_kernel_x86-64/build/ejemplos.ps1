@@ -54,7 +54,7 @@ $compositorBex = Join-Path $dataBase 'sys\d.bex'
 Push-Location (Split-Path -Parent $root)
 try {
     if (Test-Path $compositorBex) { Remove-Item $compositorBex -Force }
-    $out = cargo run -p bmo-bex-link --quiet -- $compositorElf $compositorBex 2>&1
+    $out = & (Obrero bmo-bex-link) $compositorElf $compositorBex 2>&1
     $out | ForEach-Object {
         $linea = $_.ToString()
         if ($linea -match '^\s+(\.text|\.rodata|\.data|\.bss|entrada|->)|error|!!') {
@@ -83,7 +83,7 @@ try {
     # CANTIDAD, que tienen que coincidir. Si difieren, una miente.
     $costeBex = Join-Path $dataBase 'sys\precio.bex'
     if (Test-Path $costeBex) { Remove-Item $costeBex -Force }
-    $out = cargo run -p bmo-bex-link --quiet -- $costeElf $costeBex 2>&1
+    $out = & (Obrero bmo-bex-link) $costeElf $costeBex 2>&1
     $out | ForEach-Object {
         $linea = $_.ToString()
         if ($linea -match '^\s+(\.text|->)|error|!!') {
@@ -470,13 +470,13 @@ function Compilar-Ejemplos {
             # El `.bo` es intermedio y no vive en el espejo: lo que se despliega
             # es el programa, no la unidad con la que se hizo.
             $bo = Join-Path $env:TEMP ($tallo + '.bo')
-            $out = cargo run -p $crate --quiet -- (Join-Path $repo $e.src) -c -o $bo 2>&1
+            $out = & (Obrero $crate) (Join-Path $repo $e.src) -c -o $bo 2>&1
             $out | ForEach-Object {
                 if ($_ -match $patron) { Write-Host ('    [' + $etiqueta + '] ' + $_) -ForegroundColor DarkGray }
             }
             if ($LASTEXITCODE -ne 0) { Fail ('no compilo ' + $e.src) }
             if (-not (Test-Path $bo)) { Fail ('no salio la unidad de ' + $e.src) }
-            $out = cargo run -p bmo-enlazar --quiet -- -o $dst $bo 2>&1
+            $out = & (Obrero bmo-enlazar) -o $dst $bo 2>&1
             $out | ForEach-Object {
                 if ($_ -match 'ok:|error|poda:|aviso:') { Write-Host ('    [' + $etiqueta + '] ' + $_) -ForegroundColor DarkGray }
             }
@@ -484,7 +484,7 @@ function Compilar-Ejemplos {
             Remove-Item $bo -ErrorAction SilentlyContinue
             if ($fallo -ne 0) { Fail ('no enlazo ' + $e.src) }
         } else {
-            $out = cargo run -p $crate --quiet -- (Join-Path $repo $e.src) -o $dst 2>&1
+            $out = & (Obrero $crate) (Join-Path $repo $e.src) -o $dst 2>&1
             $out | ForEach-Object {
                 if ($_ -match $patron) { Write-Host ('    [' + $etiqueta + '] ' + $_) -ForegroundColor DarkGray }
             }
@@ -732,7 +732,7 @@ try {
                 $args += @('-r', ($r.nombre + '=' + $f))
             }
             $args += @('-o', $bex)
-            $out = cargo run -p bmo-pack --quiet -- @args 2>&1
+            $out = & (Obrero bmo-pack) @args 2>&1
             # Solo las lineas de ESTE paso. Un `-match '->'` a secas se traga
             # los `-->` de las advertencias de cargo, y entonces el paso que
             # importa queda enterrado en avisos que no son suyos.
@@ -788,7 +788,7 @@ try {
             $modsPrevio = $env:BMO_MODS
             $env:BMO_MODS = $doomInc
             try {
-                $out = cargo run -p bmo-c-x86-64 --quiet -- $doomFte -o $doomDst 2>&1
+                $out = & (Obrero bmo-c-x86-64) $doomFte -o $doomDst 2>&1
                 $out | ForEach-Object {
                     if ($_ -match 'ok:|error') { Write-Host ('    [doom] ' + $_) -ForegroundColor DarkGray }
                 }
@@ -829,7 +829,7 @@ try {
                 '................',
                 '................'
             )))
-            $out = cargo run -p bmo-pack --quiet -- $doomDst '-r' ('icono=' + $doomIco) '-o' $doomDst 2>&1
+            $out = & (Obrero bmo-pack) $doomDst '-r' ('icono=' + $doomIco) '-o' $doomDst 2>&1
             $out | ForEach-Object {
                 if ($_ -match 'recurso\(s\)' -or $_ -match '\[X\]') {
                     Write-Host ('    [doom] ' + $_) -ForegroundColor DarkGray

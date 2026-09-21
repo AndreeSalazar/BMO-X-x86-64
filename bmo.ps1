@@ -202,56 +202,88 @@ if (-not $Rapido) {
         $ErrorActionPreference = $antes
         $paquetes = $meta.packages | ForEach-Object { $_.name } |
                     Where-Object { -not $noSePueden.ContainsKey($_) } | Sort-Object
+        # ** UNA SOLA LLAMADA A CARGO, NO OCHENTA Y DOS (2026-09-21).
+        #
+        # El bucle de antes hacia `cargo test -q -p <crate>` por cada paquete.
+        # Cada llamada resuelve el workspace entero antes de ejecutar nada
+        # --0,2-0,5 s-- y con 82 paquetes son 15-25 s de cargo decidiendo que
+        # no hay nada que compilar. Medido con la marca de tiempo de cada
+        # renglon: el banco tardaba 154 s y 108 eran UN crate (el emulador
+        # sin optimizar, arreglado en `Cargo.toml` con `profile.dev.package`),
+        # y de los 46 restantes, la mitad era este arranque repetido.
+        #
+        # Ahora es `cargo test --workspace --exclude bmo-kernel` UNA vez, y las
+        # cifras por crate se sacan de lo que cargo imprime: cada binario de
+        # pruebas se anuncia con `Running ... (target/.../deps/<crate>-<hash>)`
+        # o `Doc-tests <crate>`, y cierra con `test result: ok. N passed; M
+        # failed`. El nombre va con guion bajo en la ruta y con guion en el
+        # paquete; se casan por eso. Lo que se ve en pantalla es lo MISMO que
+        # antes, crate por crate, y muere por lo mismo: una roja o un crate
+        # que no compilo. `--no-fail-fast` es para que una roja no tape a las
+        # demas: se ven todas en la misma vuelta.
+        $antes = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        # `-q` va DETRAS del `--`: es el binario de pruebas el que calla (puntos en
+        # vez de nombres); cargo sigue anunciando cada binario, que es lo que
+        # se necesita para saber de que crate es cada `test result`.
+        #
+        # [!] Los anuncios van por STDERR y los resultados por STDOUT, y mezclar
+        # los dos canales con `2>&1` los DESORDENA (la primera version conto
+        # 298 filas a bmo-ciudad y 7 a bmo-c-x86-64: un instrumento que
+        # miente). Se capturan aparte y se casan POR ORDEN: cargo corre los
+        # binarios en secuencia, asi que el anuncio i-esimo es del resultado
+        # i-esimo. Si las cuentas no cuadran, se muere en vez de adivinar.
+        # [!] Y por `cmd`, no por PowerShell: `2>fichero` en PowerShell 5.1
+        # envuelve cada linea de stderr en un ErrorRecord y la PARTE al ancho de
+        # la consola, con lo que un `Running tests/x.rs (ruta)` pierde la ruta.
+        # `cmd` escribe los bytes tal cual.
+        $errBanco = Join-Path $env:TEMP 'bmo_banco_err.txt'
+        $salida = (& cmd /c ('cargo test --workspace --exclude bmo-kernel --no-fail-fast -- -q 2>"' + $errBanco + '"') | Out-String)
+        $ErrorActionPreference = $antes
+        $anuncios = Get-Content $errBanco | Where-Object {
+            $_ -match '^\s*Running ' -or $_ -match '^\s*Doc-tests '
+        }
+        $resultados = ($salida -split "`r?`n") | Where-Object { $_ -match 'test result: ' }
+        $porCrate = @{}
+        foreach ($p in $paquetes) { $porCrate[$p] = @{ pasadas = 0; rojas = 0 } }
+        $porRuta = @{}
+        foreach ($p in $paquetes) { $porRuta[($p -replace '-', '_')] = $p }
+        $compilo = -not ([regex]::IsMatch((Get-Content $errBanco | Out-String), '(?m)^error'))
+        if ($compilo -and $anuncios.Count -ne $resultados.Count) {
+            Muere "banco: cargo anuncio $($anuncios.Count) binarios y contesto $($resultados.Count) resultados -- no se puede decir de quien es cada fila"
+        }
+        $sinDueno = 0
+        for ($i = 0; $i -lt $anuncios.Count; $i++) {
+            $a = $anuncios[$i]
+            $crate = $null
+            if ($a -match 'Running .*[\\/]build[\\/]([A-Za-z0-9_\-]+)[\\/][0-9a-f]{16}[\\/]out[\\/]') {
+                # La carpeta del binario lleva el nombre del PAQUETE (con
+                # guiones): vale igual para `lib` que para los de `tests/`.
+                if ($porCrate.ContainsKey($Matches[1])) { $crate = $Matches[1] }
+            } elseif ($a -match 'Running .*[\\/]deps[\\/]([A-Za-z0-9_]+?)-[0-9a-f]{16}') {
+                if ($porRuta.ContainsKey($Matches[1])) { $crate = $porRuta[$Matches[1]] }
+            } elseif ($a -match '^\s*Doc-tests ([A-Za-z0-9_]+)') {
+                if ($porRuta.ContainsKey($Matches[1])) { $crate = $porRuta[$Matches[1]] }
+            }
+            if (-not $crate) { $sinDueno++; continue }
+            if ($resultados[$i] -match 'test result: \w+\. (\d+) passed; (\d+) failed') {
+                $porCrate[$crate].pasadas += [int]$Matches[1]
+                $porCrate[$crate].rojas += [int]$Matches[2]
+            }
+        }
+        if ($sinDueno -gt 0) { Muere "banco: $sinDueno binario(s) de pruebas sin crate conocido" }
+        $rojasTotal = ($porCrate.Values | ForEach-Object { $_.rojas } | Measure-Object -Sum).Sum
+        if ($rojasTotal -gt 0 -or -not $compilo) {
+            # Lo que dijo el compilador (stderr) y lo que dijeron las filas (stdout).
+            Get-Content $errBanco | Where-Object { $_ -notmatch '^\s*(Running|Doc-tests|Compiling|Finished)' } | ForEach-Object { Write-Host $_ }
+            Write-Host $salida
+            $malos = ($porCrate.Keys | Where-Object { $porCrate[$_].rojas -gt 0 } | Sort-Object) -join ', '
+            Muere "banco: $rojasTotal rojas ($malos), compilo=$compilo"
+        }
         $total = 0
         $sinBanco = @()
         foreach ($p in $paquetes) {
-            # [!] AQUI SE DECIDE POR CONTEO, NO POR FRASE NI POR CODIGO DE SALIDA.
-            #
-            # Costo tres intentos y los tres fallaron distinto, asi que queda
-            # escrito: PowerShell 5.1 envuelve cada linea de stderr de un
-            # ejecutable nativo en un ErrorRecord.
-            #
-            #   `$LASTEXITCODE`     ensuciado por los warnings del compilador:
-            #                       dio `bmo-c-front FALLA` con 321 filas en verde.
-            #   buscar `test result: ok`  fallo dentro del bucle aunque el texto
-            #                       estaba: los cinco paquetes en rojo.
-            #   `2>$null` y `cmd /c`      lo mismo.
-            #
-            # Lo que SI funciona es sumar los numeros: `N passed` y `N failed`
-            # salen del propio resumen de cargo y no dependen de como este shell
-            # trate stderr. Un paquete esta bien si no fallo ninguna.
-            #
-            # ** 24-08 CERO PASADAS YA NO ES ROJO, y hubo que cambiarlo al
-            # quitar la lista. Con veinte crates elegidos a dedo, cero pasadas
-            # solo podia significar "no llego a ejecutar". Con los 55, hay
-            # crates que legitimamente no tienen banco de anfitrion --drivers
-            # no_std como `bmo-ahci` o `bmo-xhci`-- y matar por eso seria
-            # cambiar una mentira por otra.
-            #
-            # El discriminador bueno no era el conteo: es si COMPILO. Un `^error`
-            # en la salida es no haber llegado a ejecutar; cero filas habiendo
-            # compilado es no tener pruebas, que es otra cosa y se anota aparte.
-            # [!] Y `Stop` se BAJA para esta linea, o el guion se muere en el
-            # primer warning del compilador.
-            #
-            # Con `$ErrorActionPreference = 'Stop'` arriba, el ErrorRecord que
-            # PowerShell fabrica por cada linea de stderr de un nativo pasa a
-            # ser TERMINANTE: `cargo test 2>&1` aborta el guion entero aunque
-            # los tests vayan bien. Se probo este bucle suelto en una consola
-            # --donde `Stop` no estaba puesto-- y paso; dentro del guion murio
-            # en la primera vuelta. Otra vez lo mismo: probado en un contexto,
-            # roto en otro.
-            $antes = $ErrorActionPreference
-            $ErrorActionPreference = 'Continue'
-            $salida = (cargo test -q -p $p 2>&1 | Out-String)
-            $ErrorActionPreference = $antes
-            $n = ([regex]::Matches($salida, '(\d+) passed') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Sum).Sum
-            $rojas = ([regex]::Matches($salida, '(\d+) failed') | ForEach-Object { [int]$_.Groups[1].Value } | Measure-Object -Sum).Sum
-            $compilo = -not ([regex]::IsMatch($salida, '(?m)^error'))
-            if ($rojas -gt 0 -or -not $compilo) {
-                Write-Host $salida
-                Muere "banco de ${p}: $n pasadas, $rojas rojas, compilo=$compilo"
-            }
+            $n = $porCrate[$p].pasadas
             if ($n -eq 0) { $sinBanco += $p; continue }
             $total += $n
             Bien "$p -- $n filas"

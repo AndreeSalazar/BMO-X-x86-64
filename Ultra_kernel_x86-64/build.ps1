@@ -57,6 +57,43 @@ $buildStart = Get-Date
 
 function Step { param($m) Write-Host ('  => ' + $m) -ForegroundColor Cyan }
 function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; exit 1 }
+
+# ** UN OBRERO SE CONSTRUYE UNA VEZ Y SE LLAMA MUCHAS (2026-09-21).
+#
+# El build llamaba `cargo run -p <crate> -- ...` por CADA programa de ejemplo:
+# 20 de C por dos (compilar + enlazar), 12 de COBOL, los de INTI, los `pack`...
+# unas 50 veces. Cada `cargo run` resuelve el workspace entero antes de decidir
+# que no hay nada que compilar: 0,3-0,4 s por llamada, 15 s del build sin que
+# nada se compile. `Obrero` construye el crate UNA vez (`cargo build`, que
+# recompila si el fuente cambio, igual que `run`) y devuelve el ejecutable que
+# cargo dice haber producido -- del propio mensaje de cargo, no de una lista de
+# nombres de binarios.
+$script:obreros = @{}
+function Obrero {
+    param([string]$crate)
+    if ($script:obreros.ContainsKey($crate)) { return $script:obreros[$crate] }
+    $antes = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $lineas = cargo build -p $crate --message-format=json-render-diagnostics 2>&1
+    $codigo = $LASTEXITCODE
+    $ErrorActionPreference = $antes
+    if ($codigo -ne 0) {
+        $lineas | Where-Object { "$_" -notmatch '^\{' } | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
+        Fail ('no compilo el obrero ' + $crate)
+    }
+    $exe = $null
+    foreach ($l in $lineas) {
+        $t = "$l"
+        if (-not $t.StartsWith('{')) { continue }
+        try { $m = $t | ConvertFrom-Json } catch { continue }
+        if ($m.reason -eq 'compiler-artifact' -and $m.executable -and ($m.target.kind -contains 'bin') -and $m.package_id -match ('(^|[ /#])' + [regex]::Escape($crate) + '[@# ]')) {
+            $exe = $m.executable
+        }
+    }
+    if (-not $exe) { Fail ('cargo construyo ' + $crate + ' y no dijo donde esta su ejecutable') }
+    $script:obreros[$crate] = $exe
+    return $exe
+}
 function Hash256 { param($p) (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() }
 
 # ** LOS GUARDIANES DE PYTHON, en un sitio: habia DOS bloques identicos y el
