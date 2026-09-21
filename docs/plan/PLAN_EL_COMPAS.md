@@ -151,6 +151,28 @@ cual sea el veredicto del metal:
       el bus, con su enfriamiento de 5 s. Sin metal: los dos numeros (3 ms, 1
       ms) son generosos a proposito y `save` dira si sobran.
 
+- [ ] **EX4 -- LA VUELTA SE PARTE: enumerar sin congelar el bombeo.** El
+      `save` de las 12:48 (21-09) cerro el caso del latido tarde con nombres:
+      `retenido 4651 us phys roja.rs:108` = `init()` en el arranque (sin
+      consecuencia; desde hoy la medida empieza cuando nace el bus), y
+      `latido tarde 929 ms`, `la vuelta del bus 255 ms`, **`peor trabajo bombeo
+      932898 us`**: un solo `pump_bus` de 933 ms, que es UN intento de
+      enumerar el puerto 1 mudo (encender, debounce, reset, address, y cada
+      descriptor que no llega son 100 ms de plazo), con el raton y el
+      teclado sin leer mientras tanto. Eso son los *"tirones como que esta
+      verificando mi mouse y teclado"* del dueno. Hoy se recorta la POLITICA
+      (`ABANDONO_DESCANSOS` 4 -> 2: 6 intentos en ~30 s en vez de 12 en 75);
+      el arreglo de verdad es que un intento NO ocupe una vuelta: la
+      enumeracion como maquina de estados que avanza UN paso por bombeo
+      (encender -> volver; debounce cumplido -> reset -> volver; ...) con las
+      esperas como "vuelve dentro de N ms", y los plazos de los descriptores
+      como plazos, no como giros. Asi el bombeo del HID sigue a 250 Hz
+      mientras un aparato mudo se enumera. Cuesta: `uhid/enumera.rs` +
+      `xhci/enumerar.rs` + `evt_poll_block` (los tres bloquean); es el mismo
+      hilo, sin segundo escritor del xHC (el guardian `escritores` lo exige).
+      Con esto el compas del bus (3 ms de 4) pasa a cumplirse tambien mientras
+      enumera, y `incumplio` deja de ser 163-176 por sesion.
+
 - [ ] **E0 -- LA TAREA IDLE.** Prioridad minima, siempre lista, cuerpo
       `loop { hlt }`. Hoy no existe: `choose_next` devuelve `self.current` cuando
       nadie mas esta listo, y `schedule_locked` vuelve sin cambiar, **asi que una

@@ -315,7 +315,7 @@ pub(crate) fn barrer_si_toca() {
         crate::ring0::cabina::info("usb", "BARRIDO: puertos reabiertos (vacios, o que ya descansaron)", r.reabiertos as u64);
     }
     if r.abandonados != 0 {
-        crate::ring0::cabina::warn("usb", "BARRIDO: puertos MUDOS tras 75 s de intentos, ABANDONADOS hasta desenchufar", r.abandonados as u64);
+        crate::ring0::cabina::warn("usb", "BARRIDO: puertos MUDOS tras 6 intentos (~30 s), ABANDONADOS hasta desenchufar", r.abandonados as u64);
     }
     if r.descansando != 0 {
         // UNA vez por descanso. La primera version avisaba en cada evento y

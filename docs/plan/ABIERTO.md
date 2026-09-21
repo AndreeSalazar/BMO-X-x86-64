@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   252 casillas ABIERTAS en 31 planes
+   253 casillas ABIERTAS en 31 planes
    244 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -66,14 +66,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
 
-## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 3 hechas
+## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 13 abiertas, 3 hechas
 
 *PLAN EL COMPAS -- el quantum se retira, y el turno se CONCEDE*
 
+- [ ] EX4 -- LA VUELTA SE PARTE: enumerar sin congelar el bombeo. El
 - [ ] E0 -- LA TAREA IDLE. Prioridad minima, siempre lista, cuerpo
 - [ ] E1 -- EL TIEMPO DE CPU POR TAREA. Un contador en el cambio de contexto
-- [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
-- ... y 9 mas
+- ... y 10 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

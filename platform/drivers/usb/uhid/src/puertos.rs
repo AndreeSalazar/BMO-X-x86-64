@@ -85,13 +85,26 @@ pub const ENFRIAMIENTO_BARRIDOS: u8 = 10;
 pub const MAX_DOBLADOS: u8 = 3;
 
 /// **Tras cuantos descansos cumplidos se ABANDONA el puerto** hasta que se
-/// desenchufe (2026-09-17, noche). Con `ENFRIAMIENTO_BARRIDOS` y
-/// `MAX_DOBLADOS` son 5 + 10 + 20 + 40 = 75 segundos de intentos. Un aparato
-/// de verdad contesta en segundos; uno que lleva mas de un minuto mudo no va a
-/// entrar a base de resets, y cada reset congela el bus --y el teclado--
-/// medio segundo. El Ryzen lo enseno con algo en el puerto 1 que acepta
-/// direccion y no da descriptores. Desenchufar lo devuelve todo.
-pub const ABANDONO_DESCANSOS: u8 = 4;
+/// desenchufe (2026-09-17, noche). Un aparato de verdad contesta en segundos;
+/// uno que lleva mudo mas de eso no va a entrar a base de resets, y cada
+/// reset congela el bus --y el teclado--. El Ryzen lo enseno con algo en el
+/// puerto 1 que acepta direccion y no da descriptores. Desenchufar lo
+/// devuelve todo.
+///
+/// *** ERAN CUATRO (5 + 10 + 20 + 40 = 75 s de intentos) Y SE BAJA A DOS
+/// (2026-09-21). El `save` de las 12:48 puso el numero que faltaba: cada
+/// intento contra ese puerto mudo cuesta al hilo del bus **933 ms** de
+/// `bombeo` (`peor trabajo bombeo 932898 us`: encender, 100 ms de debounce,
+/// reset, address, y cada descriptor que no llega son 100 ms de plazo), y
+/// mientras dura no se lee ni el raton ni el teclado. Con cuatro descansos
+/// eran 12 intentos en 75 s: doce tirones de casi un segundo en el primer
+/// minuto de cada sesion, que es exactamente lo que el dueno sintio como
+/// *"tirones como que esta verificando mi mouse y teclado"*. Con dos son
+/// 6 intentos en ~30 s. Lo que un descanso mas iba a ganar --un movil que
+/// arranca despacio-- lo cubre el CSC: cambiar de modo es volver a
+/// presentarse, y eso reabre el puerto. El arreglo de verdad no es este
+/// numero: es que un intento no congele la vuelta (`PLAN_EL_COMPAS` EX4).
+pub const ABANDONO_DESCANSOS: u8 = 2;
 
 /// **Barridos de espera entre un intento fallido y el siguiente**: `1 <<
 /// intentos` (2, 4, 8 barridos = 1, 2, 4 s). Antes los tres intentos caian
@@ -432,8 +445,11 @@ mod tests {
             assert!(!p.abandonado(5));
         }
         gastar(&mut p, 5);
-        // El ultimo descanso no devuelve los intentos.
-        for _ in 0..(ENFRIAMIENTO_BARRIDOS as u32) << MAX_DOBLADOS {
+        // El ultimo descanso no devuelve los intentos. Mide lo que mide el
+        // ultimo descanso ANTES del abandono: `ABANDONO_DESCANSOS - 1`
+        // doblados, con el tope de `MAX_DOBLADOS`.
+        let ultimo = (ENFRIAMIENTO_BARRIDOS as u32) << (ABANDONO_DESCANSOS - 1).min(MAX_DOBLADOS);
+        for _ in 0..ultimo {
             assert!(!p.enfriar(5));
         }
         assert!(p.abandonado(5));

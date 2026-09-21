@@ -706,6 +706,10 @@ pub fn start_bus_thread() -> Option<u32> {
     match tid {
         Some(t) => {
             unsafe { BUS_TID = Some(t) };
+            // Desde aqui hay un latido al que robarle: lo que un cerrojo
+            // retuvo ANTES (el `init` del asignador, 4,6 ms en el arranque)
+            // no le quito el turno a nadie. Ver `spin::reiniciar_retenciones`.
+            crate::ring0::plat::spin::reiniciar_retenciones();
             // ** EL COMPAS DEL BUS (EX3): 4 ms de periodo y 3 ms de presupuesto.
             // Tres de cuatro es GENEROSO a proposito: una vuelta normal son
             // decenas de us, asi que lo unico que cae aqui es una vuelta que
