@@ -613,7 +613,13 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.with_ink(INK_ECHO);
         s.text(b"   lo MAS que un cerrojo cerro las interrupciones: `");
         s.text(&nombre[..n]);
-        s.text(b"`; por encima de 4.000 us se pierde un latido del bus\n");
+        s.text(b"` en ");
+        let mut sitio = [0u8; 48];
+        let k = bmo::info_texto(bmo::INFO_TXT_CERROJO_SITIO, &mut sitio);
+        s.text(&sitio[..k]);
+        s.byte(b':');
+        s.dec(bmo::info(bmo::INFO_SPIN_RETENIDO_LINEA));
+        s.text(b"; por encima de 4.000 us se pierde un latido del bus\n");
         s.with_ink(INK_PLAIN);
     }
 

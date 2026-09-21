@@ -343,6 +343,11 @@ fn cerrar_ventana(ahora: u64, hz: u64) {
 }
 
 /// `(nombre del que mas tardo alguna vez, sus microsegundos)`.
+/// El nombre del trabajo `i` de la vuelta (ver `NOMBRES`), para el `save`.
+pub fn nombre_de_trabajo(i: usize) -> &'static str {
+    NOMBRES.get(i).copied().unwrap_or("")
+}
+
 pub fn peor_trabajo() -> (&'static str, u64) {
     unsafe {
         // ** EL DE LA VENTANA, no el de siempre. Ver `cerrar_ventana`: un maximo

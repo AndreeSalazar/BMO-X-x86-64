@@ -76,6 +76,10 @@ pub struct Guard<'a> {
     rflags: u64,
     /// El `rdtsc` de cuando se tomo. Ver `RETENIDO_PEAK`.
     desde: u64,
+    /// Quien lo tomo: fichero y linea, gratis con `#[track_caller]`. Es lo que
+    /// convierte "`phys` retuvo 4.658 us" en "`phys` en `roja.rs:335`": el
+    /// nombre dice que cerrojo, el sitio dice que FUNCION.
+    sitio: &'static core::panic::Location<'static>,
 }
 
 impl SpinLock {
@@ -90,13 +94,15 @@ impl SpinLock {
         }
     }
 
+    #[track_caller]
     pub fn lock(&self) -> Guard<'_> {
+        let sitio = core::panic::Location::caller();
         let rflags: u64;
         unsafe { core::arch::asm!("pushfq", "pop {}", "cli", out(reg) rflags); }
 
         // The fast path, untouched: one `swap` and out.
         if !self.locked.swap(true, Ordering::Acquire) {
-            return Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() } };
+            return Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() }, sitio };
         }
 
         // From here on the lock was already held, which is the event worth
@@ -113,7 +119,7 @@ impl SpinLock {
             }
         }
         self.record(rounds);
-        Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() } }
+        Guard { lock: self, rflags, desde: unsafe { core::arch::x86_64::_rdtsc() }, sitio }
     }
 
     /// Lo mas que se retuvo este cerrojo, en ciclos de TSC.
@@ -182,6 +188,8 @@ fn raise(cell: &AtomicU32, v: u32) -> bool {
 static RETENIDO_PEAK: AtomicU64 = AtomicU64::new(0);
 static RETENIDO_PTR: AtomicUsize = AtomicUsize::new(0);
 static RETENIDO_LEN: AtomicUsize = AtomicUsize::new(0);
+/// El `Location` de quien tomo el cerrojo en la retencion mas larga.
+static RETENIDO_SITIO: AtomicUsize = AtomicUsize::new(0);
 
 impl Drop for Guard<'_> {
     fn drop(&mut self) {
@@ -191,6 +199,7 @@ impl Drop for Guard<'_> {
         if raise64(&self.lock.retenido, retenido) && raise64(&RETENIDO_PEAK, retenido) {
             RETENIDO_PTR.store(self.lock.name.as_ptr() as usize, Ordering::Relaxed);
             RETENIDO_LEN.store(self.lock.name.len(), Ordering::Relaxed);
+            RETENIDO_SITIO.store(self.sitio as *const _ as usize, Ordering::Relaxed);
         }
         self.lock.locked.store(false, Ordering::Release);
         if self.rflags & (1 << 9) != 0 {
@@ -220,6 +229,17 @@ fn raise64(cell: &AtomicU64, v: u64) -> bool {
 /// `retenido_peor_quien` dice cual. Cero = ningun cerrojo se ha soltado aun.
 pub fn retenido_peor() -> u64 {
     RETENIDO_PEAK.load(Ordering::Relaxed)
+}
+
+/// **Donde se tomo** el cerrojo de la retencion mas larga: `(fichero, linea)`.
+/// `None` si ninguno se ha soltado aun.
+pub fn retenido_peor_sitio() -> Option<(&'static str, u32)> {
+    let p = RETENIDO_SITIO.load(Ordering::Relaxed);
+    if p == 0 {
+        return None;
+    }
+    let l = unsafe { &*(p as *const core::panic::Location<'static>) };
+    Some((l.file(), l.line()))
 }
 
 pub fn retenido_peor_quien() -> &'static str {

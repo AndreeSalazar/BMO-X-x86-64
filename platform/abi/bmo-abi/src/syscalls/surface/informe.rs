@@ -476,6 +476,10 @@ pub const INFO_COMPAS: u64 = 0x7F;
 /// La otra mitad: `[0..32)` el turno mas largo visto, en us; `[32..64)` los
 /// turnos contados. Con los dos se lee si el hilo cumple lo que declaro.
 pub const INFO_COMPAS_VUELTAS: u64 = 0x80;
+/// La LINEA del fichero donde se tomo el cerrojo de [`INFO_SPIN_RETENIDO`];
+/// el fichero, en [`INFO_TXT_CERROJO_SITIO`]. El nombre dice que cerrojo; el
+/// sitio dice que funcion lo retuvo. `0` = ninguno se ha soltado aun.
+pub const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
@@ -1202,6 +1206,13 @@ pub const INFO_TXT_PROG_TAG: u64 = 0x0A;
 pub const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
 /// El nombre del hilo de [`INFO_COMPAS`] (n en los bits altos).
 pub const INFO_TXT_COMPAS_NOMBRE: u64 = 0x0C;
+/// El fichero (recortado desde `ring0/`) donde se tomo el cerrojo de
+/// [`INFO_SPIN_RETENIDO`].
+pub const INFO_TXT_CERROJO_SITIO: u64 = 0x0D;
+/// El nombre del trabajo de la vuelta del bus USB que MAS tardo desde el
+/// arranque (`bombeo`, `rescate`, `emergencia`, `purga`, `radar`, ...). Los
+/// microsegundos van en [`INFO_USB_RITMO`] `[16..48)`.
+pub const INFO_TXT_USB_TRABAJO: u64 = 0x0E;
 
 /// Campos de [`TASK_OP_KLOG_INFO`].
 pub const KLOG_DISPONIBLES: u64 = 0x00;

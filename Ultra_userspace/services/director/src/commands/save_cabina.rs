@@ -135,6 +135,20 @@ fn report_latido(s: &mut Output) {
     fila(s, b"  el CPU lo tuvo", tid, b"tid", b"la tarea que corrio mientras el bus esperaba (4 = escritorio)");
     fila(s, b"  durante", suyo, b"ms", b"de esos ms, los que fueron de ese tid");
     fila(s, b"  la vuelta del bus", vuelta, b"ms", b"lo que costo la vuelta anterior; si es ~ el retraso, fue el BUS");
+    // Y de los trabajos de la vuelta, el que MAS tardo desde el arranque: si
+    // la vuelta fue el culpable, esto dice que parte de la vuelta.
+    let ritmo = bmo::info(bmo::INFO_USB_RITMO);
+    let mut txt = [0u8; 16];
+    let k = bmo::info_texto(bmo::INFO_TXT_USB_TRABAJO, &mut txt);
+    s.text(b"    peor trabajo   ");
+    s.text(&txt[..k]);
+    for _ in k..11 {
+        s.byte(b' ');
+    }
+    s.dec((ritmo >> 16) & 0xFFFF_FFFF);
+    s.with_ink(INK_ECHO);
+    s.text(b" us   el trabajo de la vuelta del bus que mas tardo, desde el arranque\n");
+    s.with_ink(INK_PLAIN);
 }
 
 /// **Los prestamos: las ventanas.**

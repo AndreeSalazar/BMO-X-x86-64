@@ -230,6 +230,7 @@ const INFO_EXPROPIADAS: u64 = 0x7E;
 // contrato + cuenta, y la segunda mitad. Ver `scheduler::Compas`.
 const INFO_COMPAS: u64 = 0x7F;
 const INFO_COMPAS_VUELTAS: u64 = 0x80;
+const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -402,6 +403,8 @@ const INFO_TXT_PROG_NOMBRE: u64 = 0x09;
 const INFO_TXT_PROG_TAG: u64 = 0x0A;
 const INFO_TXT_CERROJO_PEOR: u64 = 0x0B;
 const INFO_TXT_COMPAS_NOMBRE: u64 = 0x0C;
+const INFO_TXT_CERROJO_SITIO: u64 = 0x0D;
+const INFO_TXT_USB_TRABAJO: u64 = 0x0E;
 
 const PAGE: u64 = 4096;
 
@@ -752,6 +755,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_USB_RITMO => crate::ring0::dev::usb::ritmo_y_peor(),
         INFO_USB_LATIDO => crate::ring0::dev::usb::latido_peor(),
         INFO_SPIN_RETENIDO => crate::ring0::plat::spin::retenido_peor(),
+        INFO_SPIN_RETENIDO_LINEA => crate::ring0::plat::spin::retenido_peor_sitio().map_or(0, |(_, l)| l as u64),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
             Some((tid, k)) => {
                 let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
@@ -887,6 +891,15 @@ pub fn texto(n: u64, trozo: u64) -> u64 {
             crate::ring0::dev::usb::portero::motivo_de((c >> 8) as usize)
         }
         INFO_TXT_CERROJO_PEOR => crate::ring0::plat::spin::retenido_peor_quien(),
+        // El sitio del cerrojo: el fichero, recortado como en la autopsia. La
+        // linea va aparte por `INFO_SPIN_RETENIDO_LINEA`: un `&str` no se
+        // puede fabricar aqui sin un bufer, y un numero cabe en un numero.
+        INFO_TXT_CERROJO_SITIO => match crate::ring0::plat::spin::retenido_peor_sitio() {
+            Some((f, _)) => crate::ring0::core::autopsy::recortar_ruta(f),
+            None => "",
+        },
+        INFO_TXT_USB_TRABAJO => crate::ring0::dev::usb::nombre_de_trabajo(
+            ((crate::ring0::dev::usb::ritmo_y_peor() >> 48) & 0xFF) as usize),
         c if c & 0xFF == INFO_TXT_COMPAS_NOMBRE => {
             match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
                 Some((_, k)) => k.nombre,
