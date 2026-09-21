@@ -20,7 +20,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 
 ---
 
-# 2. LOS GUARDIANES -- 17, y que dice que NO cada uno
+# 2. LOS GUARDIANES -- 18, y que dice que NO cada uno
 
 | herramienta | dice que NO cuando |
 |---|---|
@@ -39,6 +39,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`relevo`](relevo/) | una bandera del traspaso se pierde entre una etapa y la siguiente |
 | [`contrato`](contrato/) | cualquiera de sus **20 reglas**, y las 20 estan probadas con 90 casos. Es el mayor de todos |
 | [`tamano`](tamano/) | un ejecutable cambia de tamano sin que nadie lo acepte |
+| [`esperable`](esperable/) | un objeto se concede con `RIGHT_WAIT` y `wait()` **no tiene brazo** para su `KIND_`: una promesa escrita contra un mecanismo que no existe (nacio el 21-09 de `KIND_ARCHIVO`) |
 | [`pila`](pila/) | el camino mas hondo de un syscall (o de un hilo de kernel) mas la interrupcion mas honda **no cabe en la pila de kernel de una tarea** con una pagina de margen. Lo mide en el ELF con `llvm-objdump`; los topes los lee del fuente. Nacio el 21-09 del PD del escritorio a cero: 14.232 bytes de cargador en 16 KiB |
 | [`procedencia`](procedencia/) | -- corre a mano; no esta en el build |
 

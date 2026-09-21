@@ -30,8 +30,8 @@ pub fn klog_texto(n: u64, dst: &mut [u8]) -> usize {
 /// **Un bloque de memoria pedido al kernel.**
 ///
 /// * Esto NO es un `malloc` y no lo pretende. Es memoria entregada entera:
-/// pides una vez, te dan un bloque contiguo, y **no hay forma de devolverlo**
-/// -- vive hasta que el proceso muere.
+/// pides una vez, te dan un bloque contiguo, y **se devuelve entero** -- solo
+/// (`request`, al salir del alcance) o nunca (`residente`, y hay que decirlo).
 ///
 /// El asignador se escribe ENCIMA, aqui en Ring 3, con la politica que quiera
 /// cada uno. Esa es la razon de que el kernel no traiga uno: un `malloc`
@@ -45,15 +45,53 @@ pub struct Memoria {
     cap: u64,
     base: u64,
     bytes: u64,
+    /// `true` = vive lo que viva el proceso y `Drop` no lo toca. Se pide con
+    /// [`Memoria::residente`], que es la forma de DECIRLO.
+    residente: bool,
 }
 
 impl Memoria {
-    /// Pide `bytes`. `None` si no hay RAM contigua, si pasa del tope por
-    /// peticion (64 MiB) o si este proceso ya gasto sus cuatro peticiones.
+    /// **Pide `bytes` PRESTADOS: vuelven solos al salir del alcance.**
+    ///
+    /// `None` si no hay RAM contigua, si pasa del tope por peticion (64 MiB) o
+    /// si este proceso ya gasto sus ocho peticiones.
+    ///
+    /// *** LA VIDA UTIL SE DECLARA AL PEDIR (2026-09-21, `PLAN_LA_VIDA_UTIL`
+    /// 2a). Hasta hoy todo bloque era residente POR ACCIDENTE: esto no tenia
+    /// `Drop`, asi que dejar caer un `Memoria` era fugarlo, y el fichero de
+    /// `fondo.rs` decia "se suelta al acabar" sobre un valor que solo se caia.
+    /// El dueno lo pidio con estas palabras: *"liberar la memoria cuando ya
+    /// entra pero tiene que salir, en tiempo real"*. Eso no es un recolector:
+    /// es propiedad. Quien pide ya sabe cuando sale, y el compilador tambien.
+    ///
+    /// ```text
+    ///    request(bytes)     PRESTADA    Drop -> MEM_OP_SOLTAR. Sale, vuelve
+    ///    residente(bytes)   PERMANENTE  sin Drop. Se dice, y se cuenta
+    /// ```
     pub fn request(bytes: u64) -> Option<Self> {
+        Self::pedir(bytes, false)
+    }
+
+    /// **Pide `bytes` PARA SIEMPRE: vive lo que viva el proceso.**
+    ///
+    /// Es lo que necesita `Pantalla::activar_doble_bufer`: pide ~8 MB, se
+    /// queda con la direccion y deja caer el `Memoria`, porque ese lienzo se
+    /// usa hasta el ultimo fotograma. Con `request` se quedaria sin lienzo en
+    /// la linea siguiente. La diferencia entre las dos no es una excepcion
+    /// vergonzante: es la vida util, dicha donde se pide.
+    pub fn residente(bytes: u64) -> Option<Self> {
+        Self::pedir(bytes, true)
+    }
+
+    fn pedir(bytes: u64, residente: bool) -> Option<Self> {
         let cap = invoke(CURRENT_TASK, OP_MEMORIA_PEDIR, bytes, 0, 0).valor()?;
         let base = invoke(cap, MEM_OP_BASE, 0, 0, 0).valor()?;
-        Some(Self { cap, base, bytes })
+        Some(Self { cap, base, bytes, residente })
+    }
+
+    /// Se pidio con [`Memoria::residente`]?
+    pub fn es_residente(&self) -> bool {
+        self.residente
     }
 
     /// La direccion del primer byte.
@@ -76,15 +114,18 @@ impl Memoria {
     /// que ya no esta mapeada -- exactamente el mismo argumento que lleva
     /// escrito `Pantalla::soltar` desde que existe.
     ///
-    /// ** Y NO hay `Drop`, a proposito. Soltar automaticamente al salir del
-    /// alcance parece lo correcto hasta que se mira quien pide memoria aqui:
-    /// `Pantalla::activar_doble_bufer` pide ~8 MB, se queda con la direccion y
-    /// **deja caer el `Memoria`** porque ese bloque tiene que vivir lo que viva
-    /// el proceso. Con `Drop`, el escritorio se quedaria sin lienzo en la linea
-    /// siguiente. Un `Drop` aqui seria correcto en el 80 % de los sitios y
-    /// mortal en el otro 20, y eso no es una politica: es una trampa.
+    /// ** El `Drop` (2026-09-21) hace esto mismo para lo PRESTADO, y nada
+    /// para lo RESIDENTE. Esta funcion queda para quien quiere el veredicto
+    /// --`false` = sigue prestado a otro-- o soltar un residente a mano.
+    ///
+    /// [!] `forget` despues del syscall: sin el, `Drop` volveria a pedir
+    /// SOLTAR sobre un handle que ya no existe. No romperia nada --el kernel
+    /// lo niega--, pero seria un renglon de CABINA por cada bloque devuelto,
+    /// y un "no" que se produce a proposito no es un no.
     pub fn soltar(self) -> bool {
-        invoke(self.cap, MEM_OP_SOLTAR, 0, 0, 0).valor().unwrap_or(0) == 1
+        let ok = invoke(self.cap, MEM_OP_SOLTAR, 0, 0, 0).valor().unwrap_or(0) == 1;
+        core::mem::forget(self);
+        ok
     }
 
     /// **El handle del bloque**, para las operaciones que lo reciben.
@@ -107,6 +148,21 @@ impl Memoria {
     /// paginas enteras.
     pub fn entregado(&self) -> u64 {
         invoke(self.cap, MEM_OP_BYTES, 0, 0, 0).value
+    }
+}
+
+/// **Lo prestado vuelve al salir del alcance.** Lo residente, no.
+///
+/// Si el kernel contesta que NO (el bloque sigue PRESTADO a otro proceso), el
+/// bloque se queda: el kernel no lo suelta y este `Drop` no puede esperar --
+/// no hay a quien devolverle un veredicto. El motivo esta en CABINA, y el paso
+/// siguiente (`soltar -> WAIT -> soltar`) es la clave nueva de WAIT del
+/// `PLAN_LA_VIDA_UTIL` 7, que todavia no existe.
+impl Drop for Memoria {
+    fn drop(&mut self) {
+        if !self.residente {
+            invoke(self.cap, MEM_OP_SOLTAR, 0, 0, 0);
+        }
     }
 }
 

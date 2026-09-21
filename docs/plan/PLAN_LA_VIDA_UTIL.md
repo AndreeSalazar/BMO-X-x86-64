@@ -244,30 +244,46 @@ y eso esta escrito en el build. La cifra se corrige, no se olvida.
 
 ## 7. EL PLAN
 
-- [ ] **0. EL AGUJERO PRIMERO.** No se toca nada de aqui hasta cerrar el
-      agujero del doble bufer del escritorio. Motivo, y es el que manda: un
-      bloque liberado demasiado pronto y una pagina que se esfuma sola
-      **producen la misma pantalla**. Empezar por aqui seria enterrar el fallo
-      que estamos a un arranque de cerrar, con un mecanismo que produce su
-      mismo sintoma.
+- [x] **0. EL AGUJERO PRIMERO. CERRADO el 2026-09-21 (`55f2525e`), y NO era
+      una liberacion temprana.** Era la pila de kernel del escritorio (16 KiB)
+      saliendose por el fondo durante el syscall de LANZAR: el cargador entero
+      baja 14.232 bytes estaticos y la primera interrupcion encima puso a cero
+      el PD vecino. Confirmado en el Ryzen a las 02:12: DOOM lanzado, jugado,
+      cerrado, `ningun fallo de Ring 3`, `fugas 0`. La mitad 2a **no cambia de
+      sentido** (ver 8): faltaba `Drop`, no sobraba una llamada.
 
-- [ ] **1. EL GUARDIAN DE `RIGHT_WAIT`.** Cruzar los `grant(..., RIGHT_WAIT,
-      ...)` contra los brazos del `match` de `wait()` y romper el build si
-      sobra uno. Hoy sobra `KIND_ARCHIVO`. Va PRIMERO porque es el unico paso
-      que no depende de ninguna decision: una promesa que no se puede ejercer
-      es un fallo, se decida lo que se decida despues.
+- [x] **1. EL GUARDIAN DE `RIGHT_WAIT`. HECHO el 21-09**:
+      `toolchain/tools/esperable/esperable.py`, en `build.ps1`. Lee cada
+      `grant(...)` con `RIGHT_WAIT` del kernel y cada `.kind == KIND_` del
+      cuerpo de `wait()`; un `KIND_` concedido sin brazo para el build. Sin
+      lista de kinds: si manana entra `KIND_MEMORIA` con las dos mitades, pasa
+      solo. Contra el arbol del 20-09 contesta `KIND_ARCHIVO se concede con
+      RIGHT_WAIT y wait() NO sabe esperarlo`.
 
-- [ ] **2. `KIND_ARCHIVO` ESPERABLE**, o quitarle `RIGHT_WAIT` y decir por que.
-      Las dos cierran el paso 1; la primera cumple lo que el fichero promete y
-      la segunda deroga la promesa. Lo que no vale es dejarlo como esta.
+- [x] **2. `KIND_ARCHIVO`: DEROGADO con motivo el 21-09.** `abrir_asinc`
+      concede lectura y nada mas. No podia ser esperable: el avance de la carga
+      lo empuja **el que pregunta** (`cargando::avanzar`, en el turno del
+      lector), asi que no hay ninguna secuencia que se mueva sola sobre la que
+      dormir. Ningun programa de Ring 3 esperaba sobre un archivo. El dia que la
+      cadena la siga alguien fuera del lector, el derecho vuelve con su brazo,
+      y el guardian del paso 1 exige que lleguen juntos.
 
 - [ ] **3. LA TANDA DEL METRO.** `-Metro` + `precio.bex` en el Ryzen, y
       reescribir `LA_PUERTA_POR_DENTRO.md` con la fecha nueva. Hasta entonces,
       **ningun documento cita 969 sin decir que es del 17-08**.
 
-- [ ] **4. `residente` CONTRA `request`.** Partir la peticion en dos por vida
-      util, `Drop` en la prestada, y `activar_doble_bufer` pidiendo
-      `residente` con su motivo escrito.
+- [x] **4. `residente` CONTRA `request`. HECHO el 21-09** en
+      `userland/src/memoria.rs`: `Memoria::request` es PRESTADA y lleva `Drop`
+      (`MEM_OP_SOLTAR` al salir del alcance); `Memoria::residente` es
+      PERMANENTE y `Drop` no la toca; `soltar(self)` hace `forget` despues del
+      syscall para no pedirlo dos veces. `activar_doble_bufer` pide
+      `residente` con el motivo escrito. **Y el primer cliente del `Drop` es el
+      visor**: al cerrar una imagen devuelve el fichero (4 MiB), los pixeles
+      (4 MiB) y el taller poniendo sus `static` a `None` -- 8 MiB que hasta hoy
+      se quedaban residentes por haber mirado una foto. Lo que NO se toco: los
+      `static mut Option<Memoria>` del escritorio (consola, antenista, ensayo,
+      fondo) siguen siendo residentes de hecho -- un `static` no se deja caer
+      nunca --, y eso es lo que el censo del paso 5 tiene que contar.
 
 - [ ] **5. EL CENSO DE LO PERMANENTE.** Trinquete de `residente` en el build:
       cuantos bloques de este sistema son permanentes a proposito, y solo
@@ -289,12 +305,46 @@ y eso esta escrito en el build. La cifra se corrige, no se olvida.
 
 ## 8. Que TUMBARIA este plan
 
-- **Que el agujero del escritorio resulte ser una liberacion temprana.** Si el
-  paso 0 descubre que alguien ya esta soltando memoria de mas, la mitad 2a
-  cambia de sentido: no faltaria `Drop`, sobraria una llamada.
+- ~~**Que el agujero del escritorio resulte ser una liberacion temprana.**~~
+  No lo era (21-09): era la pila de kernel. La mitad 2a sigue en pie tal cual.
 - **Que la tanda del metro diga que la puerta sigue cerca de 969.** Entonces el
   paso 7 --un syscall para esperar-- hay que pesarlo otra vez contra girar unas
   pocas vueltas, y el numero decide, no la elegancia.
 - **Que `entregar en cero` salga mas caro medido que limpiar al devolver.** Es
   el mismo trabajo en otro sitio; si el sitio importa mas de lo que parece, la
   seccion 4 se cae y queda solo la cola de limpieza, que es mas maquinaria.
+
+---
+
+## 9. Lo que el 21-09 deja claro sobre WAIT y sobre "liberar en caliente"
+
+El dueno volvio a preguntar por las dos cosas juntas: *"analiza el WAIT ... y
+algo para liberar la RAM en tiempo real como hot free"*. Con los pasos 0, 1, 2
+y 4 hechos, la respuesta se puede dar con numeros del arbol y del Ryzen:
+
+**Lo que "liberar en caliente" es en esta casa.** Es el `Drop` del paso 4: la
+memoria vuelve **en el instante en que su dueno la suelta**, sin que nadie la
+busque. El `save` de las 02:12 lo enseno por el otro lado: `fugas 0 (los
+muertos devolvieron todo)` y `a Ring 3 20,9 MiB` HISTORICO contra `8 MiB` vivos
+-- DOOM pidio y devolvio al morir. Lo que faltaba era que un proceso VIVO
+devolviera, y eso es lo que hace el visor ahora al cerrar.
+
+**Lo que WAIT tiene que ver con eso, y lo que no.** WAIT no libera nada y no
+debe: el unico juez de si un bloque se puede soltar es `loan::hay_prestado_en`
+(seccion 2b). Lo que WAIT aporta es que el dueno de un bloque PRESTADO pueda
+**dormir** hasta que el prestatario lo suelte, en vez de girar preguntando. Hoy
+`Drop` sobre un bloque prestado se queda sin paso siguiente: el kernel dice que
+no, `Drop` no puede esperar, y el bloque se queda hasta que el proceso muere.
+Eso es el paso 7, y es la unica pieza de WAIT que falta para que "liberar en
+caliente" sea verdad tambien entre procesos. Cuesta: una secuencia por oferta
+en `loan.rs` (se mueve cuando el prestatario suelta o muere), un brazo
+`KIND_MEMORIA` en `wait()` (`wait_current_checked` sobre la base del bloque,
+como CHANNEL), y que `MEM_OP_SOLTAR` devuelva la secuencia que vio cuando dice
+que no. Ni un syscall nuevo, y el guardian del paso 1 obliga a que el brazo y
+el `grant` lleguen juntos.
+
+**Lo que NO se ha medido.** El coste de soltar (seccion 4: 2.048 paginas a
+cero por cada 8 MiB) sigue siendo una cuenta. El visor ahora suelta 8 MiB al
+cerrar: ese es el sitio donde medirlo en el Ryzen (`cabina fallos` no lo dice;
+hace falta el `[perf]` del escritorio alrededor de `cerrar`). Hasta ese numero,
+el paso 6 (entregar en cero) no se toca: se moveria un coste que no se conoce.

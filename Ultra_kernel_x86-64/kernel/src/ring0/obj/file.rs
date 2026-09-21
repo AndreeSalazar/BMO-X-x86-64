@@ -599,9 +599,22 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
 /// propio handle -- el `wait` sabe hacerlo-- mientras el resto del sistema corre.
 /// Es la mitad de Ring 3 del escalon 4.
 ///
-/// El handle sale con `RIGHT_WAIT` ademas de lectura, y es lo que le da sentido:
-/// sin ese derecho el unico modo de esperar seria preguntar en un bucle, que es
-/// exactamente lo que se estaba quitando.
+/// *** EL HANDLE SALIA CON `RIGHT_WAIT`, Y ERA UNA PROMESA ROTA (2026-09-21).
+///
+/// Este comentario decia que *"entre trozo y trozo puede dormirse sobre su
+/// propio handle -- el `wait` sabe hacerlo"*. **No sabia.** El despachador de
+/// `wait()` conoce ENDPOINT, LATIDO, RED y CHANNEL; un `KIND_ARCHIVO` caia en
+/// `unsupported()`. Y no podia saber: aqui el avance lo empuja **el que
+/// pregunta** (`cargando::avanzar`, en el turno del lector), asi que no hay
+/// ninguna secuencia que se mueva sola sobre la que dormir. Conceder el
+/// derecho era escribir contra un mecanismo que no existe, la misma familia
+/// que el "se suelta al acabar" de `fondo.rs` (`PLAN_LA_VIDA_UTIL` 3b).
+///
+/// Se DEROGA con motivo: el handle sale con lectura y nada mas. El dia que la
+/// cadena la siga alguien fuera del lector (el aviso del disco, un hilo), el
+/// derecho vuelve **con su brazo en `wait()`**, y el guardian
+/// `toolchain/tools/esperable/esperable.py` es el que exige que las dos cosas
+/// lleguen juntas.
 pub fn abrir_asinc(pid: u32, ruta: &str) -> Result<u64, u32> {
     let i = match free_slot() {
         Some(i) => i,
@@ -630,7 +643,7 @@ pub fn abrir_asinc(pid: u32, ruta: &str) -> Result<u64, u32> {
         // Un archivo vacio ya esta entero: nunca hay carga en curso para el, y
         // marcarla dejaria a quien pregunte esperando un trozo que no existe.
         super::cargando::LOAD_CLUSTER[i] = if mide == 0 { 0 } else { cluster };
-        match cap::grant(pid, cap::KIND_ARCHIVO, cap::RIGHT_READ | cap::RIGHT_WAIT, i as u64) {
+        match cap::grant(pid, cap::KIND_ARCHIVO, cap::RIGHT_READ, i as u64) {
             Some(h) => {
                 crate::ring0::cabina::info("arch", "archivo abierto SIN terminar de leer", mide as u64);
                 Ok(h)

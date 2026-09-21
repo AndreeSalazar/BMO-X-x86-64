@@ -233,6 +233,12 @@ Guardian 'Validating the x86-64 emitters do not get worse' `
 # no protege igual que el que se corre solo.
 #
 # El trato lo pone `Guardian`, arriba, y es el mismo para los tres.
+# ** WAIT: un derecho que no se puede ejercer no es un derecho. Cada `grant`
+# con RIGHT_WAIT tiene su brazo en `wait()`, o el build para. Nacio el 21-09
+# de `KIND_ARCHIVO`, que prometia dormir sobre un mecanismo que no existia.
+Guardian 'Validating every RIGHT_WAIT has an arm in wait()' `
+    'toolchain\tools\esperable\esperable.py' 'los esperables' `
+    'esperable: hay un KIND_ con RIGHT_WAIT que wait() no sabe esperar (ver arriba)'
 Guardian 'Validating document citations resolve' `
     'toolchain\tools\enlaces\enlaces.py' 'las citas' `
     'citas: hay documentos citados que no existen (ver arriba)'

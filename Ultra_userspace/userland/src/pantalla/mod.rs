@@ -192,7 +192,10 @@ impl Pantalla {
         // lados, y el volcado completo se hace con una unica instruccion. Con
         // dos strides distintos habria que ir fila a fila siempre.
         let bytes = (self.stride as u64) * (self.alto as u64) * 4;
-        let Some(m) = Memoria::request(bytes) else {
+        // RESIDENTE, y dicho: el lienzo vive lo que viva el proceso. Con
+        // `request` el `Drop` de la linea siguiente lo devolveria y el primer
+        // `rect` seria un `#PF`.
+        let Some(m) = Memoria::residente(bytes) else {
             return false;
         };
         self.lienzo = m.base() as *mut u32;

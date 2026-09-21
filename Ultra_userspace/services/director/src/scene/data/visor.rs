@@ -213,9 +213,24 @@ impl Visor {
         }
     }
 
+    /// Cierra, y **devuelve la memoria de la imagen** (2026-09-21): el
+    /// fichero (4 MiB), los pixeles (4 MiB) y el taller. Son PRESTADOS: poner
+    /// el `static` a `None` deja caer el `Memoria` y su `Drop` llama a
+    /// `MEM_OP_SOLTAR`. Se vuelven a pedir en el proximo `abrir`; lo que se
+    /// paga es un syscall por bloque al cerrar y otro al abrir, no 8 MiB
+    /// residentes por haber mirado una foto una vez.
+    ///
+    /// El bloque de texto (`CONTENIDO`, 64 KiB) se queda: es pequeno y se usa
+    /// en cada fichero de texto que se abre.
     pub(crate) fn cerrar(&mut self) {
         self.abierto = false;
         self.desde = 0;
+        self.imagen = None;
+        unsafe {
+            *core::ptr::addr_of_mut!(IMG_FICHERO) = None;
+            *core::ptr::addr_of_mut!(IMG_BUFER) = None;
+            *core::ptr::addr_of_mut!(IMG_TALLER) = None;
+        }
     }
 
     /// Mueve el scroll. `true` si algo cambio y hay que repintar.

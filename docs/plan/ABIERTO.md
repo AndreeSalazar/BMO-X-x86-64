@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   257 casillas ABIERTAS en 31 planes
-   236 hechas
+   253 casillas ABIERTAS en 31 planes
+   240 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 62 casillas sueltas NO cuentan como abiertas)
@@ -100,15 +100,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
-- ... y 6 mas
-
-## [`PLAN_LA_VIDA_UTIL.md`](PLAN_LA_VIDA_UTIL.md) -- 9 abiertas, 0 hechas
-
-*PLAN: LA VIDA UTIL*
-
-- [ ] 0. EL AGUJERO PRIMERO. No se toca nada de aqui hasta cerrar el
-- [ ] 1. EL GUARDIAN DE RIGHT_WAIT. Cruzar los `grant(..., RIGHT_WAIT,
-- [ ] 2. KIND_ARCHIVO ESPERABLE, o quitarle RIGHT_WAIT y decir por que.
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
@@ -226,6 +217,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1. ARRANCAR Y LEER. Reproducir --matar Ring 3, volver a entrar-- y
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
+- ... y 2 mas
+
+## [`PLAN_LA_VIDA_UTIL.md`](PLAN_LA_VIDA_UTIL.md) -- 5 abiertas, 4 hechas
+
+*PLAN: LA VIDA UTIL*
+
+- [ ] 3. LA TANDA DEL METRO. -Metro + precio.bex en el Ryzen, y
+- [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
+- [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 2 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
