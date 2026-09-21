@@ -39,7 +39,10 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 # no es cosmetica: `c\`, `cobol\` y `ada\` los llena este build desde el repo, y
 # `apps\` lo llena lo que alguien traiga de fuera -- hoy DOOM. Hasta ahora no lo
 # creaba nadie aunque varios mensajes ya nombraban rutas `apps/...`.
-foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps')) {
+# `informe\` es donde `save` deja sus hojas (una por capitulo, 2026-09-21).
+# FAT32 sabe crear ficheros y no carpetas, y ensenarle seria codigo de Ring 0
+# para ahorrarse esta linea: la carpeta nace aqui, con un LEEME que dice que es.
+foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
 # * Y dentro de cobol\, un nivel por carpeta. Ver el bloque de $cobolEjemplos
@@ -869,6 +872,25 @@ try {
     # Ahora viven en toolchain\lang\cobol\examples\datos\ y se despliegan como
     # se despliega un .bex.
     Step 'Staging example data...'
+    $leeme = @(
+        'INFORME -- las hojas que escribe `save` desde el escritorio',
+        '',
+        '  ..\datos\salida.txt   el informe ENTERO (7 capitulos), como siempre',
+        '  INDICE.TXT             la cabecera y que hoja es que',
+        '  SESION.TXT             1. lo que se tecleo y lo que contesto',
+        '  MAQUINA.TXT            2. cpu, caches medidas, extensiones',
+        '  MEMORIA.TXT            3. marcos, entregas, cache de disco',
+        '  CONSUMO.TXT            4. escritorio, RAM, tareas, DMA, usb, prestamos, avisos',
+        '  PROGRAMA.TXT           5. memoria pedida y la ficha BEF2 de cada programa',
+        '  DISCO.TXT              6. aparato, particiones, ESTRATOS',
+        '  AUTOPSIA.TXT           7. el ultimo fallo de Ring 3',
+        '',
+        '  save cpu|mem|consumo|apps|disco|autopsia   un tema suelto, aqui mismo (cpu.txt, ...)',
+        '',
+        'Cada `save` REESCRIBE estas hojas. Lo que haya que conservar, se copia fuera.'
+    )
+    Set-Content -LiteralPath (Join-Path $dataBase 'informe\LEEME.TXT') -Value $leeme -Encoding ascii
+    Write-Host '    [informe] LEEME.TXT (la carpeta de las hojas de save)' -ForegroundColor DarkGray
     $datosSrc = Join-Path $repo 'toolchain\lang\cobol\examples\datos'
     $datosDst = Join-Path $dataBase 'datos'
     foreach ($d in (Get-ChildItem -LiteralPath $datosSrc -Filter '*.txt')) {

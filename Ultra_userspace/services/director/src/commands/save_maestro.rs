@@ -41,6 +41,29 @@
 //! 200 filas o se recorta por arriba sin aviso -- `rows_since` devuelve solo lo
 //! que queda. Hoy el mas largo (consumo) anda por 90.
 //!
+//! # ** Y CADA CAPITULO EN SU HOJA (2026-09-21)
+//!
+//! Eddi, con el primer informe de 412 lineas delante: *"dividir en hojas, el
+//! uso, el consumo y todo eso, dividiendo en .txt en otros archivos para
+//! facilitar las lecturas nada mas"*. El mismo `save` escribe ahora DOS cosas:
+//!
+//! ```text
+//!    datos/salida.txt      el informe ENTERO, como hasta hoy (lo lee
+//!                          `c/leer.bex`, y es lo que se compara de un
+//!                          arranque a otro)
+//!    informe/INDICE.TXT    la cabecera y que hoja es que
+//!    informe/SESION.TXT    1     informe/PROGRAMA.TXT   5
+//!    informe/MAQUINA.TXT   2     informe/DISCO.TXT      6
+//!    informe/MEMORIA.TXT   3     informe/AUTOPSIA.TXT   7
+//!    informe/CONSUMO.TXT   4
+//! ```
+//!
+//! Cada fila se pinta UNA vez y se escribe en las dos: el camino de salida
+//! sigue siendo uno. Los nombres son 8.3 porque el volumen es FAT32 y el
+//! kernel no inventa nombres largos. La carpeta `informe/` la pone el build en
+//! el disco de datos (`ejemplos.ps1`): FAT32 sabe crear ficheros, no carpetas,
+//! y ensenarle seria codigo de Ring 0 para ahorrarse una linea de PowerShell.
+//!
 //! -- EL SEMAFORO (L6g) y las dos preguntas de antes (L6e, L6f) --------
 //!
 //! [carril]  VERDE     pinta lo que el kernel contesta y lo escribe; no decide
@@ -60,71 +83,101 @@ use crate::scene::OUT_COLS;
 /// Cuantas fichas tiene el registro del kernel. Se recorre hasta el cero.
 const FICHAS: u64 = 8;
 
-/// **El informe entero, a `dest`.** Devuelve `(bytes, lineas)` escritas.
+/// Donde van las hojas. La barra va dentro para que el nombre se pegue.
+const CARPETA: &[u8] = b"informe/";
+
+/// Las siete hojas, en el orden de los capitulos, y el fichero de cada una.
+const HOJAS: [(&[u8], &[u8]); 7] = [
+    (b"SESION.TXT",   b"1. LA SESION -- lo que se tecleo y lo que contesto"),
+    (b"MAQUINA.TXT",  b"2. LA MAQUINA -- cpu, caches medidas, extensiones"),
+    (b"MEMORIA.TXT",  b"3. LA MEMORIA -- marcos, entregas, cache de disco"),
+    (b"CONSUMO.TXT",  b"4. EL CONSUMO -- escritorio, RAM, tareas, DMA, usb, prestamos, avisos"),
+    (b"PROGRAMA.TXT", b"5. LOS PROGRAMAS -- memoria pedida y la ficha BEF2 de cada uno"),
+    (b"DISCO.TXT",    b"6. EL DISCO -- aparato, particiones, ESTRATOS"),
+    (b"AUTOPSIA.TXT", b"7. LA AUTOPSIA -- el ultimo fallo de Ring 3"),
+];
+
+/// **El informe entero, a `dest`, y cada capitulo a su hoja en `informe/`.**
+/// Devuelve `(bytes, lineas, hojas)`: los bytes y las lineas del informe
+/// entero, y cuantas hojas se pudieron abrir (8 = el indice y las siete).
+///
+/// [!] Una hoja que no se pueda crear NO para el informe: `dest` se escribe
+/// igual y el numero de hojas dice cuantas faltaron. La carpeta puede no
+/// existir en un disco de datos viejo, y eso no es motivo para perder el
+/// informe entero.
 #[inline(never)]
-pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize), u32> {
+pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, usize), u32> {
     let a = bmo::Archivo::create(dest)?;
     let mut c = Cuenta { bytes: 0, lineas: 0 };
+    let mut hojas = 0usize;
     let tick = &dsk.tick;
     let g = &mut dsk.out.grid;
 
-    // La portada y el rotulo del capitulo 1 se pintan y se vuelcan ANTES que
-    // la sesion, aunque en la pantalla queden debajo: el fichero empieza por
-    // decir que es. Y la sesion --lo que ya estaba-- va justo despues, con los
-    // indices tomados en el mismo instante, antes de que otro capitulo mueva
-    // el anillo.
+    // La cabecera va al informe entero y al INDICE, que ademas lista las hojas.
     let m = g.mark();
     cabecera(g);
-    capitulo(g, b"1. LA SESION -- lo que se tecleo y lo que contesto");
     let (f, t) = g.rows_since(m);
     volcar(&a, g, f, t, &mut c);
-    let (desde, _) = g.all_rows();
-    if desde < f {
-        volcar(&a, g, desde, f - 1, &mut c);
+    if let Some(h) = hoja(b"INDICE.TXT") {
+        let mut ch = Cuenta { bytes: 0, lineas: 0 };
+        volcar(&h, g, f, t, &mut ch);
+        h.write(b"\r\n    hojas de este informe, una por capitulo:\r\n");
+        for (fichero, titulo) in HOJAS.iter() {
+            h.write(b"      ");
+            h.write(fichero);
+            for _ in fichero.len()..14 {
+                h.write(b" ");
+            }
+            h.write(titulo);
+            h.write(b"\r\n");
+        }
+        if h.close() {
+            hojas += 1;
+        }
     }
-
-    // 2..7. Un capitulo, un tramo.
-    let m = g.mark();
-    capitulo(g, b"2. LA MAQUINA -- cpu, caches medidas, extensiones");
-    super::reports::report_cpu(g, tick.consumo.ultimo);
-    super::reports::report_cache(g);
-    super::reports::report_ext(g);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    let m = g.mark();
-    capitulo(g, b"3. LA MEMORIA -- marcos, entregas, cache de disco");
-    super::reports::report_memory(g);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    let m = g.mark();
-    capitulo(g, b"4. EL CONSUMO -- escritorio, RAM, tareas, DMA, usb, prestamos, avisos");
-    super::reports::report_consumo(g, tick);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    let m = g.mark();
-    capitulo(g, b"5. LOS PROGRAMAS -- memoria pedida y la ficha BEF2 de cada uno");
-    super::reports::report_apps(g);
-    report_programas(g);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    let m = g.mark();
-    capitulo(g, b"6. EL DISCO -- aparato, particiones, ESTRATOS");
-    super::reports::report_disco(g);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    let m = g.mark();
-    capitulo(g, b"7. LA AUTOPSIA -- el ultimo fallo de Ring 3");
-    super::reports::report_autopsy(g);
-    let (f, t) = g.rows_since(m);
-    volcar(&a, g, f, t, &mut c);
-
-    // El cierre dice cuanto se escribio: un fichero cortado por un disco lleno
-    // se nota porque le falta esta linea.
+    for (n, (fichero, titulo)) in HOJAS.iter().enumerate() {
+        let m = g.mark();
+        capitulo(g, titulo);
+        match n {
+            0 => {}
+            1 => {
+                super::reports::report_cpu(g, tick.consumo.ultimo);
+                super::reports::report_cache(g);
+                super::reports::report_ext(g);
+            }
+            2 => super::reports::report_memory(g),
+            3 => super::reports::report_consumo(g, tick),
+            4 => {
+                super::reports::report_apps(g);
+                report_programas(g);
+            }
+            5 => super::reports::report_disco(g),
+            _ => super::reports::report_autopsy(g),
+        }
+        let (f, t) = g.rows_since(m);
+        let h = hoja(fichero);
+        volcar(&a, g, f, t, &mut c);
+        let mut ch = Cuenta { bytes: 0, lineas: 0 };
+        if let Some(h) = h.as_ref() {
+            volcar(h, g, f, t, &mut ch);
+        }
+        // La sesion es lo que ya estaba en el anillo ANTES del rotulo: se
+        // vuelca despues de el, y es lo primero que el anillo tira.
+        if n == 0 {
+            let (desde, _) = g.all_rows();
+            if desde < f {
+                volcar(&a, g, desde, f - 1, &mut c);
+                if let Some(h) = h.as_ref() {
+                    volcar(h, g, desde, f - 1, &mut ch);
+                }
+            }
+        }
+        if let Some(h) = h {
+            if h.close() {
+                hojas += 1;
+            }
+        }
+    }
     let m = g.mark();
     regla(g);
     g.with_ink(INK_ECHO);
@@ -136,12 +189,25 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize), 
     volcar(&a, g, f, t, &mut c);
 
     if a.close() {
-        Ok((c.bytes, c.lineas))
+        Ok((c.bytes, c.lineas, hojas))
     } else {
         // El kernel no dice el motivo -- se queda en la CABINA (F11). Lo que
         // si se sabe con certeza es que en el disco NO hay nada.
         Err(0)
     }
+}
+
+/// Abre `informe/<fichero>` para escribir. `None` = no se pudo (la carpeta no
+/// esta, o el kernel no tiene ranura): el informe entero sigue.
+fn hoja(fichero: &[u8]) -> Option<bmo::Archivo> {
+    let mut ruta = [0u8; 32];
+    let n = CARPETA.len() + fichero.len();
+    if n > ruta.len() {
+        return None;
+    }
+    ruta[..CARPETA.len()].copy_from_slice(CARPETA);
+    ruta[CARPETA.len()..n].copy_from_slice(fichero);
+    bmo::Archivo::create(&ruta[..n]).ok()
 }
 
 struct Cuenta {

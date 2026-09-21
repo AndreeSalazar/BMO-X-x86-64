@@ -214,14 +214,17 @@ pub(crate) fn write(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8], text
 /// `apps` lleva las dos tablas de programas: la memoria pedida y la ficha
 /// BEF2 (2026-09-20). `disco` y `autopsia` entraron el mismo dia: eran los dos
 /// capitulos del maestro que no se podian pedir sueltos.
+/// Los temas sueltos van a la misma carpeta que las hojas del informe
+/// maestro (2026-09-21): `informe/` es donde se lee, `datos/` es lo que
+/// leen los programas.
 fn tema(arg: &[u8]) -> Option<(&'static [u8], u8)> {
     match arg {
-        b"cpu" => Some((b"datos/cpu.txt", 0)),
-        b"mem" | b"ram" => Some((b"datos/mem.txt", 1)),
-        b"consumo" | b"gasto" | b"w" => Some((b"datos/consumo.txt", 2)),
-        b"apps" | b"programas" | b"bef" => Some((b"datos/apps.txt", 3)),
-        b"disco" => Some((b"datos/disco.txt", 4)),
-        b"autopsia" => Some((b"datos/autopsia.txt", 5)),
+        b"cpu" => Some((b"informe/cpu.txt", 0)),
+        b"mem" | b"ram" => Some((b"informe/mem.txt", 1)),
+        b"consumo" | b"gasto" | b"w" => Some((b"informe/consumo.txt", 2)),
+        b"apps" | b"programas" | b"bef" => Some((b"informe/apps.txt", 3)),
+        b"disco" => Some((b"informe/disco.txt", 4)),
+        b"autopsia" => Some((b"informe/autopsia.txt", 5)),
         _ => None,
     }
 }
@@ -285,7 +288,7 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     // esta en el fichero se vio); el porque va por capitulos esta en la
     // cabecera de `save_maestro.rs`.
     match super::save_maestro::maestro(dsk, dest) {
-        Ok((bytes, lineas)) => {
+        Ok((bytes, lineas, hojas)) => {
             dsk.out.grid.with_ink(INK_GOOD);
             dsk.out.grid.text(b"  guardado en ");
             dsk.out.grid.text(dest);
@@ -296,7 +299,19 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
             dsk.out.grid.text(b" bytes, ");
             let k = decimal(lineas as u64, &mut d);
             dsk.out.grid.text(&d[..k]);
-            dsk.out.grid.text(b" lineas, 7 capitulos\n");
+            dsk.out.grid.text(b" lineas, 7 capitulos");
+            // ** Y las hojas de `informe/`: 8 es el indice y las siete. Menos
+            // de 8 no es un fallo del informe --ya esta escrito--, es la
+            // carpeta que no estaba o una ranura que no habia, y se dice.
+            if hojas == 8 {
+                dsk.out.grid.text(b"; y 8 hojas en informe/\n");
+            } else {
+                dsk.out.grid.with_ink(INK_ERR);
+                dsk.out.grid.text(b"; en informe/ solo ");
+                let k = decimal(hojas as u64, &mut d);
+                dsk.out.grid.text(&d[..k]);
+                dsk.out.grid.text(b" de 8 hojas (falta la carpeta en el disco de datos?)\n");
+            }
             dsk.out.grid.with_ink(INK_PLAIN);
             paint_status(&p, &dsk.run_box, "volcado", INK_OK);
         }
