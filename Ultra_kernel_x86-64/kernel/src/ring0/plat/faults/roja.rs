@@ -390,17 +390,44 @@ extern "C" fn fault_dispatch(
                 c.s(titular);
                 c.s(") | pantalla ");
                 c.s(if pantalla { "viva" } else { "MUERTA" });
-                // ** Y cuantas veces el desmontaje se nego a tocar la tabla de
-                // un vivo. Cero con el escritorio muerto = el que vacia su PD
-                // NO es `destroy_address_space`, y hay que buscar en otro sitio.
-                c.s(" | salvadas ");
-                c.dec(crate::ring0::mm::vmm::salvadas().0);
                 serial_write("[fault] ");
                 serial_write(c.as_str());
                 serial_write("
 ");
                 if crate::info::has_fb() {
                     crate::ring0::core::dashboard::dashboard_log(c.as_str());
+                }
+                // *** QUIEN SOLTO ESA TABLA, en su propio renglon (2026-09-21).
+                //
+                // ** Iba pegado detras de `pantalla MUERTA` y el 21-09 el panel
+                // lo corto en `| salvad`: el unico numero que decidia no se
+                // vio. Un renglon del panel son unas 80 letras, y lo que no cabe
+                // no existe -- la misma leccion que el `marco OCUPADO` cortado
+                // del 02-09.
+                //
+                //    lo solto: <fichero>:<linea>   el nombre del culpable
+                //    salvadas N                    el desmontaje se nego N veces
+                //    negadas M                     `free_frame` se nego a soltar
+                //                                  una tabla M veces
+                let mut q = Line::new();
+                q.s("    lo solto: ");
+                match cap.solto() {
+                    Some((fichero, linea)) => {
+                        q.s(fichero);
+                        q.s(":");
+                        q.dec(linea as u64);
+                    }
+                    None => q.s("nadie en los ultimos 1024"),
+                }
+                q.s(" | salvadas ");
+                q.dec(crate::ring0::mm::vmm::salvadas().0);
+                q.s(" | negadas ");
+                q.dec(crate::ring0::mm::phys::tablas_negadas().0);
+                serial_write("[fault] ");
+                serial_write(q.as_str());
+                serial_write("\n");
+                if crate::info::has_fb() {
+                    crate::ring0::core::dashboard::dashboard_log(q.as_str());
                 }
             }
         }

@@ -62,6 +62,6 @@ pub use super::titular::{
 };
 pub use roja::{
     alloc_frame, alloc_frame_de, alloc_frames_contig, alloc_frames_contig_de, esta_libre,
-    se_devolvio_dos_veces,
+    se_devolvio_dos_veces, quien_solto, tablas_negadas,
     free_frame, free_frame_de, init, stats, tramos,
 };

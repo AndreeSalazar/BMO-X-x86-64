@@ -440,10 +440,110 @@ pub fn se_devolvio_dos_veces(phys: u64) -> Option<u64> {
 }
 
 
-/// Free a frame previously returned by `alloc_frame`. Freeing anything else
-/// (reserved, unaligned, out of range, or double free) is a kernel bug and is
-/// silently ignored -- callers must keep their own ownership straight.
+// -- *** EL LIBRO DE QUIEN SUELTA (2026-09-21) ------------------------------
+//
+// ** El Ryzen enseno el PD del escritorio ENLAZADO, marcado como tabla en uso,
+// y VACIO ENTERO. Eso es un marco que alguien solto con el escritorio encima y
+// que se volvio a entregar como tabla nueva. El juez de `destroy_address_space`
+// (el tercero, "de quien es") no bajo la cuenta de muertes: o no era el, o no
+// era el unico.
+//
+// *** Y la pregunta que de verdad cierra esto no es "esta libre?" ni "es una
+// tabla?": es **QUIEN LO SOLTO**. El asignador era el unico que lo veia pasar
+// y no lo apuntaba.
+//
+// Asi que cada `free_frame` deja su renglon: el marco y el SITIO del codigo que
+// lo solto, gratis con `#[track_caller]` -- el compilador ya sabe el fichero y
+// la linea de cada llamada, y guardarlo no es deducir nada: es dejar de tirar un
+// dato que ya se tenia. La autopsia busca ahi el marco de la tabla que murio.
+//
+// [!] 1024 renglones. En el arranque se sueltan del orden de un centenar de
+// marcos por cada proceso de demo que muere; con cuatro, sobra. Si alguna vez
+// el marco no aparece, la linea lo dice ("nadie en los ultimos 1024") en vez de
+// callarse.
+const LIBRO: usize = 1024;
+static mut LIBRO_MARCO: [u64; LIBRO] = [0; LIBRO];
+static mut LIBRO_SITIO: [usize; LIBRO] = [0; LIBRO];
+static mut LIBRO_I: usize = 0;
+/// Cuantas veces se pidio `free_frame` sobre una TABLA, y quien la ultima vez.
+static mut TABLAS_NEGADAS: u64 = 0;
+static mut NEGADA_SITIO: usize = 0;
+
+/// Se llama con `LOCK` en la mano.
+fn apuntar(phys: u64, sitio: &'static core::panic::Location<'static>) {
+    unsafe {
+        let i = LIBRO_I % LIBRO;
+        LIBRO_MARCO[i] = phys & !(PAGE - 1);
+        LIBRO_SITIO[i] = sitio as *const _ as usize;
+        LIBRO_I = LIBRO_I.wrapping_add(1);
+    }
+}
+
+/// **Quien solto este marco la ultima vez**: el sitio del codigo.
+///
+/// [!] Sin el cerrojo, por lo mismo que [`se_devolvio_dos_veces`]: lo llama la
+/// pantalla de fallo, y colgarse ahi cambia un volcado por una maquina muda.
+pub fn quien_solto(phys: u64) -> Option<&'static core::panic::Location<'static>> {
+    let base = phys & !(PAGE - 1);
+    unsafe {
+        let n = LIBRO_I.min(LIBRO);
+        for k in 1..=n {
+            let i = LIBRO_I.wrapping_sub(k) % LIBRO;
+            if LIBRO_MARCO[i] == base && LIBRO_SITIO[i] != 0 {
+                return Some(&*(LIBRO_SITIO[i] as *const core::panic::Location<'static>));
+            }
+        }
+    }
+    None
+}
+
+/// `(cuantas, sitio de la ultima)` de las veces que `free_frame` se nego a
+/// soltar una tabla.
+pub fn tablas_negadas() -> (u64, Option<&'static core::panic::Location<'static>>) {
+    unsafe {
+        let n = TABLAS_NEGADAS;
+        let s = NEGADA_SITIO;
+        if s == 0 {
+            (n, None)
+        } else {
+            (n, Some(&*(s as *const core::panic::Location<'static>)))
+        }
+    }
+}
+
+/// Free a frame previously returned by `alloc_frame`.
+///
+/// *** Y YA NO SUELTA UNA TABLA (2026-09-21).
+///
+/// ** Esta era la puerta sin nombre: `free_frame_de` pregunta de quien es el
+/// marco antes de soltarlo, y esta no preguntaba nada. Cualquier camino que le
+/// pasara el numero de una tabla viva --un `stack_phys` rancio, un `fisica` de
+/// otro bloque, una cuenta mal hecha-- la liberaba en silencio, y el siguiente
+/// `get_or_create` la entregaba A CERO a otro. Que es exactamente la forma del
+/// PD que el Ryzen enseno vacio.
+///
+/// Una tabla solo se suelta con `free_frame_de(_, Titular::Tabla)`, que es lo
+/// que hacen los que tienen derecho. Por aqui se NIEGA, se grita, y se apunta
+/// QUIEN lo pidio: en el peor caso, una fuga anunciada.
+#[track_caller]
 pub fn free_frame(phys: u64) {
+    if phys % PAGE == 0
+        && phys < MAX_PHYS
+        && titular::titular_de(phys) == titular::Titular::Tabla
+    {
+        unsafe {
+            TABLAS_NEGADAS += 1;
+            NEGADA_SITIO = core::panic::Location::caller() as *const _ as usize;
+        }
+        crate::ring0::cabina::fault("phys", "free_frame sobre una TABLA: NO se suelta", phys);
+        return;
+    }
+    soltar(phys, core::panic::Location::caller());
+}
+
+/// El cuerpo de siempre: devolver el marco al mapa de bits. Sin preguntar de
+/// quien es -- eso lo hacen `free_frame` y `free_frame_de` antes de llamar.
+fn soltar(phys: u64, sitio: &'static core::panic::Location<'static>) {
     if phys % PAGE != 0 || phys >= MAX_PHYS {
         return;
     }
@@ -459,6 +559,7 @@ pub fn free_frame(phys: u64) {
             // siga entregado tiene que poder decirse de quien es, y eso incluye
             // el instante en que la pantalla azul lo pregunta.
             titular::marcar(phys, titular::Titular::Nadie);
+            apuntar(phys, sitio);
         } else {
             // ** UN MARCO QUE SE DEVUELVE DOS VECES YA NO ES MUDO (2026-09-01).
             //
@@ -542,6 +643,7 @@ pub fn alloc_frames_contig_de(count: u64, quien: titular::Titular) -> Option<u64
     Some(base)
 }
 
+#[track_caller]
 pub fn free_frame_de(phys: u64, quien: titular::Titular) -> bool {
     match titular::puede_soltar(phys, quien) {
         titular::Veredicto::NoEsTuyo(tiene, suelta) => {
@@ -557,7 +659,9 @@ pub fn free_frame_de(phys: u64, quien: titular::Titular) -> bool {
             false
         }
         _ => {
-            free_frame(phys);
+            // `soltar` y no `free_frame`: este SI tiene derecho a soltar una
+            // tabla, y el sitio que se apunta es el de quien llamo aqui.
+            soltar(phys, core::panic::Location::caller());
             true
         }
     }

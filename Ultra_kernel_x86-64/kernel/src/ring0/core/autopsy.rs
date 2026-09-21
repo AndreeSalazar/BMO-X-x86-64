@@ -144,6 +144,11 @@ pub struct Captura {
     /// Si la PANTALLA (`FRAMEBUFFER_VA_BASE`, en el MISMO GiB que el bloque)
     /// sigue traduciendo. Si tambien falta, lo que murio es el PD entero.
     pantalla_viva: bool,
+    /// **Quien solto por ultima vez el marco de la tabla donde se corta el
+    /// paseo**: el sitio del codigo, sacado del libro del asignador. Es el dato
+    /// que convierte "un marco de tabla se libero con alguien encima" en un
+    /// fichero y una linea.
+    solto: Option<&'static core::panic::Location<'static>>,
 }
 
 /// Cuantas palabras de pila se miran. Veinticuatro y no cuatro porque las
@@ -168,6 +173,7 @@ impl Captura {
         tabla_libre: None,
         tabla_titular: "",
         pantalla_viva: false,
+        solto: None,
     };
 
     /// **Se llama con el CR3 del proceso TODAVIA puesto.** Ver la cabecera.
@@ -200,6 +206,13 @@ impl Captura {
             }
         }
         c
+    }
+
+    /// `(fichero, linea)` de quien solto la tabla del corte. El fichero va
+    /// recortado a lo que sigue a `ring0`, que es lo que cabe en un renglon.
+    pub fn solto(&self) -> Option<(&'static str, u32)> {
+        let l = self.solto?;
+        Some((recortar_ruta(l.file()), l.line()))
     }
 
     /// Paginas del bloque del agujero. Cero si no se midio.
@@ -282,6 +295,9 @@ impl Captura {
             self.tabla_titular = crate::ring0::mm::phys::titular_de(self.corte.1).nombre();
         }
         self.pantalla_viva = hay(crate::ring0::mm::vmm::FRAMEBUFFER_VA_BASE);
+        if self.corte.0 != 0 {
+            self.solto = crate::ring0::mm::phys::quien_solto(self.corte.1);
+        }
         // *** Y AQUI PONIA "SALE AL KERNEL LOG", Y ERA FALSO (corregido 20-09).
         //
         // CABINA no llega al KERNEL LOG: va al anillo de eventos. Estas dos
@@ -785,6 +801,22 @@ fn clasificar_gp(cap: &Captura) -> Causa {
     // Instruccion corriente: entonces el problema esta en lo que apunta, y en
     // un `#GP` eso significa una direccion cuyos bits altos no son copia del 47.
     Causa::NoCanonica
+}
+
+/// Lo que sigue a `ring0` en una ruta, con la barra que sea. Si no esta, las
+/// ultimas 34 letras: un renglon del panel son unas 80.
+pub fn recortar_ruta(r: &'static str) -> &'static str {
+    if let Some(i) = r.find("ring0") {
+        let j = i + 5;
+        if j < r.len() {
+            return &r[j + 1..];
+        }
+    }
+    if r.len() > 34 {
+        &r[r.len() - 34..]
+    } else {
+        r
+    }
 }
 
 fn nombre(c: Causa) -> &'static str {
