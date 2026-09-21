@@ -73,7 +73,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | C++: plantillas (paso 6) | ABIERTA | `toolchain/lang/cpp/BRECHA.md`; pasos 0-5 hechos (clases, RAII, sobrecarga, herencia, vtables). Sin excepciones ni RTTI a proposito |
 | Autohospedaje: compilar SOBRE BMO-X | **APARCADA** | `plan/PLAN_AUTOHOSPEDAJE.md`: no bloquea nada; pide Ada `no_std` y `PLAN_ESTRUCTURA` (F1) antes |
 | El taller en F1 (`estructura.bex`) | ABIERTA | `plan/PLAN_ESTRUCTURA.md`: la ventana vacia es la primera casilla |
-| El asistente de IA dentro de BMO-X | **APARCADA** | decision de Eddi (10-09): es el ultimo. `plan/PLAN_EL_ASISTENTE.md` |
+| El asistente de IA dentro de BMO-X | **APARCADA** | decision de Eddi (10-09): es el ultimo. `plan/PLAN_EL_ASISTENTE.md`. Datos del 21-09 (seccion 9, "System One"): la decision con TIPO antes que la prosa; hay un escalon 0 que no necesita modelo ni GPU, y el `save` ya escribe su entrada (`informe/DATOS.TXT`, 0a HECHO) |
 
 ## 3. EL METAL Y EL KERNEL -- lo que corre en Ring 0
 

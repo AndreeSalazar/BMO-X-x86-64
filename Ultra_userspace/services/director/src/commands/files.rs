@@ -300,17 +300,17 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
             let k = decimal(lineas as u64, &mut d);
             dsk.out.grid.text(&d[..k]);
             dsk.out.grid.text(b" lineas, 7 capitulos");
-            // ** Y las hojas de `informe/`: 8 es el indice y las siete. Menos
+            // ** Y las hojas de `informe/`: 9 es el indice, las siete y DATOS.TXT. Menos
             // de 8 no es un fallo del informe --ya esta escrito--, es la
             // carpeta que no estaba o una ranura que no habia, y se dice.
-            if hojas == 8 {
-                dsk.out.grid.text(b"; y 8 hojas en informe/\n");
+            if hojas == 9 {
+                dsk.out.grid.text(b"; y 9 hojas en informe/ (DATOS.TXT para maquinas)\n");
             } else {
                 dsk.out.grid.with_ink(INK_ERR);
                 dsk.out.grid.text(b"; en informe/ solo ");
                 let k = decimal(hojas as u64, &mut d);
                 dsk.out.grid.text(&d[..k]);
-                dsk.out.grid.text(b" de 8 hojas (falta la carpeta en el disco de datos?)\n");
+                dsk.out.grid.text(b" de 9 hojas (falta la carpeta en el disco de datos?)\n");
             }
             dsk.out.grid.with_ink(INK_PLAIN);
             paint_status(&p, &dsk.run_box, "volcado", INK_OK);

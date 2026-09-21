@@ -122,6 +122,9 @@ fn nota_partida(s: &mut Output, nota: &[u8]) {
 /// derecha (`dec_right`) para que las unidades y las decenas caigan una debajo
 /// de otra y se puedan comparar dos volcados de un vistazo.
 pub(crate) fn fila(s: &mut Output, que: &[u8], valor: u64, unidad: &[u8], nota: &[u8]) {
+    // Y el mismo numero a la grabadora, para `informe/DATOS.TXT` (un `if`
+    // sobre un bool fuera de un `save`). Ver `datos.rs`.
+    super::datos::anotar(que, valor, unidad);
     s.text(b"    ");
     s.text(que);
     for _ in que.len()..16 {
@@ -154,6 +157,7 @@ pub(crate) fn fila(s: &mut Output, que: &[u8], valor: u64, unidad: &[u8], nota: 
 /// que falta**. El total va por su propio parametro para que no se pueda
 /// escribir la primera mitad sin la segunda.
 pub(crate) fn fila_de(s: &mut Output, que: &[u8], valor: u64, total: u64, nota: &[u8]) {
+    super::datos::anotar_de(que, valor, total);
     s.text(b"    ");
     s.text(que);
     for _ in que.len()..16 {
@@ -172,6 +176,12 @@ pub(crate) fn fila_de(s: &mut Output, que: &[u8], valor: u64, total: u64, nota: 
 /// Igual, pero para un numero con UN decimal guardado en milesimas: los vatios
 /// llegan en milivatios y `57432` se lee como `57.4`.
 pub(crate) fn fila_mili(s: &mut Output, que: &[u8], milis: u64, unidad: &[u8], nota: &[u8]) {
+    // A la grabadora van las MILESIMAS con la unidad en mili-: `57432 mW`, no
+    // `57.4 W`. Un decimal es tipografia; una maquina prefiere el entero.
+    let mut mu = [b'm'; 8];
+    let k = unidad.len().min(7);
+    mu[1..1 + k].copy_from_slice(&unidad[..k]);
+    super::datos::anotar(que, milis, &mu[..1 + k]);
     s.text(b"    ");
     s.text(que);
     for _ in que.len()..16 {

@@ -1,6 +1,8 @@
 # PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X
 
 > Estado: **APARCADO** -- decision del dueno (2026-09-10, `EL_ORDEN.md`): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.
+>
+> Datos actualizados el 2026-09-21 (seccion 9, "System One"): el plan sigue aparcado; lo que cambia es que hay un escalon ANTES del motor de inferencia que no necesita ni GPU ni ancho de memoria, y que el `save` ya escribe su entrada (`informe/DATOS.TXT`).
 
 > Escrito el 2026-08-23, el dia que entraron AVX2 y el monton grande.
 >
@@ -379,6 +381,32 @@ literalmente lo que hace SDMA.
 Lo que sigue no es una lista de deseos ordenada por ganas: cada escalon
 **desbloquea al siguiente** o **cobra algo que ya esta pagado**.
 
+## Escalon 0 -- EL DIAGNOSTICADOR: decisiones acotadas sobre el `save` (dias, sin modelo)
+
+Ver la seccion 9. No es el asistente que conversa: es la capa que contesta
+preguntas CERRADAS sobre el estado de la maquina, con el `save` como entrada.
+
+- [x] **0a -- la entrada para una maquina.** HECHO el 21-09: `save` escribe
+      `informe/DATOS.TXT`, `capitulo.clave = valor unidad`, una linea por
+      dato, los mismos numeros que las siete hojas (la grabadora de
+      `tabla::fila`, `director/commands/datos.rs`). Sin esto no hay
+      System One que leer.
+- [ ] **0b -- las preguntas, escritas como contratos.** Cada tabla
+      *"que / afirma / como se cae"* de `docs/metal/METAL_*.md` es ya un
+      `Choice` con dos etiquetas y un umbral; se pasan a un fichero de
+      reglas (un VEREDICTOS en `docs/metal/`, md o toml, que hoy no existe): pregunta, datos que
+      mira, etiquetas posibles, umbral, y cuanto de lejos del umbral es
+      "seguro". Sin codigo: es el catalogo.
+- [ ] **0c -- `veredicto`, en el escritorio.** Un comando que lee DATOS.TXT
+      (o pregunta a `OP_INFO` directamente) y contesta las preguntas de 0b
+      con etiqueta + distancia al umbral. Reglas, no un modelo: con veinte
+      saves no se entrena nada, y las reglas ya estan escritas a mano en
+      las hojas del metal. Es el `Choice` de Jev hecho con `if`.
+- [ ] **0d -- el modelo pequeno, SI algun dia hay datos.** Cientos de saves
+      etiquetados (que paso de verdad) antes de cambiar un `if` por pesos.
+      Y entonces es un clasificador de UNA pasada sobre unos KB de texto,
+      no un 7B: no espera a `A0` ni a la GPU.
+
 ## Escalon 1 -- El asistente LOCAL, sin red (semanas)
 
 - [ ] **1a -- `exp` en INTI** (dias). Lo unico que falta de matematicas --
@@ -518,6 +546,87 @@ porque las cuatro corrigen algo que se habia dicho mal:
    11 con la ley 11 citada dos lineas mas arriba.
 
 ---
+
+---
+
+# 9. "SYSTEM ONE": LA DECISION ANTES QUE LA PROSA (datos del 2026-09-21)
+
+Lo que se miro: *Jev*, el primer modelo de la categoria que TypeSafe AI
+llama "System One" (articulo de meetcody.ai, 17-09-2026). Se resume aqui lo
+que sirve a BMO-X, lo que no, y por que -- con la regla de siempre: primero
+que es, despues que se toma.
+
+## 9.1 -- Que es, en cuatro lineas
+
+Un modelo que **no genera texto**: convierte una entrada (hasta 64K tokens de
+estado + pregunta) en una DECISION acotada, de tres tipos:
+
+```text
+   Choice   elige entre opciones fijas (hasta 255): etiqueta + distribucion + confianza
+   Score    un valor en una escala ordenada
+   Noul     la probabilidad (0-1) de una afirmacion
+```
+
+La salida **tiene que ajustarse al tipo declarado** (no puede contestar prosa
+a una pregunta de etiqueta); se muestrea en paralelo en vez de token a token
+(de ahi que el proveedor diga 40-200x mas rapido que un LLM general y 70-500
+ms de extremo a extremo); y las probabilidades estan calibradas (RLCD) para
+que "0,9" signifique algo. Precio y limites son los de un servicio en la nube
+($0,042 por millon de tokens de entrada; acceso anticipado).
+
+** Y lo honesto que el propio articulo dice: la calibracion NO es certeza.
+Puede elegir la etiqueta equivocada con una respuesta bien formada; falla en
+aritmetica, fechas y contexto adversario; no explica nada. *"La confianza
+ayuda a gestionar el error... pero no es prueba."*
+
+## 9.2 -- Lo que NO se toma, y por que
+
+- **No es codigo ni arquitectura que se pueda traer.** Es una API cerrada
+  en la nube. Nada de esto corre en Ring 3, y traerlo por red seria pagar
+  la criptografia (escalon 3) para hablar con un servicio ajeno -- que es
+  exactamente lo contrario de un asistente que corre DENTRO.
+- **Las cifras (latencia, precio, 40-200x) no son de BMO-X.** Son de su
+  nube contra su LLM. Ley 24: una estimacion generica es una estimacion de
+  otro proyecto.
+
+## 9.3 -- Lo que SI se toma: la FORMA del contrato
+
+*** **La idea que vale es que una decision tiene TIPO, y el tipo es un
+contrato.** Eso ya es la regla de esta casa ("contratos y formatos, nunca
+cerebros") aplicada a la IA: un `Choice` de 255 etiquetas es una tabla; un
+`Score` es un numero con escala; un `Noul` es una probabilidad. Ninguno es
+prosa, y por eso ninguno puede alucinar FORMA -- solo contenido, y eso se
+mide.
+
+Y con eso se ve algo que el plan de arriba no decia: **el asistente tiene
+dos mitades y solo una es cara.**
+
+| | System Two (lo que planea 1c) | System One (escalon 0) |
+|---|---|---|
+| que hace | conversa, explica, escribe | contesta preguntas cerradas |
+| que necesita | un 7B, `exp`, 12 nucleos, y el ANCHO DE MEMORIA (A0) | reglas hoy; un clasificador de unos MB manana |
+| coste por respuesta | tokens/s = ancho / tamano del modelo, token a token | UNA pasada sobre unos KB |
+| que lo bloquea | A0, y la GPU para pasar de 3B | nada: `DATOS.TXT` ya existe |
+| donde falla | inventa | elige mal, y lo dice con un numero |
+
+** Lo que BMO-X ya tiene de System One sin saberlo: cada tabla *"que /
+afirma / como se cae"* de las hojas del metal es un `Choice` de dos
+etiquetas con su umbral (`peor trabajo bombeo < 10.000 us` = bien; si no,
+mal, y ESTO es lo que hay que mirar). El `save` pinta esos umbrales en rojo
+y verde desde hace semanas. Lo que faltaba era (a) que la entrada se pudiera
+leer sin ojos --hecho, 0a-- y (b) escribir las preguntas como catalogo en
+vez de dentro de cada hoja --0b.
+
+## 9.4 -- Lo que esto cambia en el plan, y lo que no
+
+- El escalon 0 **no espera a nada**: ni `exp`, ni el reparto de nucleos, ni
+  A0, ni la GPU. Va antes del 1 y se hace en dias, con `if`.
+- El orden del dueno **no cambia**: el asistente sigue aparcado y es el
+  ultimo. El escalon 0 se apunta porque el `save` ya paga su entrada y
+  porque el catalogo de veredictos (0b) sirve al METAL aunque nunca haya IA:
+  es la lista de lo que un `save` tiene que contestar.
+- Lo de "meses" tampoco cambia: sigue siendo la criptografia, y esto no la
+  toca.
 
 ---
 

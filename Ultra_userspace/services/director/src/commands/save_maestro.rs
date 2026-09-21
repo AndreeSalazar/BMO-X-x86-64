@@ -99,7 +99,8 @@ const HOJAS: [(&[u8], &[u8]); 7] = [
 
 /// **El informe entero, a `dest`, y cada capitulo a su hoja en `informe/`.**
 /// Devuelve `(bytes, lineas, hojas)`: los bytes y las lineas del informe
-/// entero, y cuantas hojas se pudieron abrir (8 = el indice y las siete).
+/// entero, y cuantas hojas se pudieron abrir (9 = el indice, las siete y
+/// DATOS.TXT).
 ///
 /// [!] Una hoja que no se pueda crear NO para el informe: `dest` se escribe
 /// igual y el numero de hojas dice cuantas faltaron. La carpeta puede no
@@ -110,6 +111,9 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, u
     let a = bmo::Archivo::create(dest)?;
     let mut c = Cuenta { bytes: 0, lineas: 0 };
     let mut hojas = 0usize;
+    // La grabadora: cada `fila` de aqui hasta `parar` va tambien a
+    // DATOS.TXT, la hoja para maquinas. Ver `datos.rs`.
+    super::datos::empezar();
     let tick = &dsk.tick;
     let g = &mut dsk.out.grid;
 
@@ -131,6 +135,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, u
             h.write(titulo);
             h.write(b"\r\n");
         }
+        h.write(b"      DATOS.TXT     los numeros de todas, una linea por dato, para una maquina\r\n");
         if h.close() {
             hojas += 1;
         }
@@ -138,6 +143,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, u
     for (n, (fichero, titulo)) in HOJAS.iter().enumerate() {
         let m = g.mark();
         capitulo(g, titulo);
+        super::datos::capitulo(n as u8 + 1);
         match n {
             0 => {}
             1 => {
@@ -178,12 +184,24 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, u
             }
         }
     }
+    // ** LA HOJA PARA MAQUINAS, la ultima: lo mismo que las siete, sin
+    // tipografia. Se escribe directa al fichero, no pasa por la pantalla:
+    // es la unica, y a proposito -- son los mismos numeros que ya se vieron.
+    super::datos::parar();
+    if let Some(h) = hoja(b"DATOS.TXT") {
+        super::datos::volcar(&h);
+        if h.close() {
+            hojas += 1;
+        }
+    }
     let m = g.mark();
     regla(g);
     g.with_ink(INK_ECHO);
     g.text(b"  fin del informe: ");
     g.dec(c.lineas as u64);
-    g.text(b" lineas hasta aqui\n");
+    g.text(b" lineas hasta aqui; ");
+    g.dec(super::datos::cuantos() as u64);
+    g.text(b" datos en DATOS.TXT\n");
     g.with_ink(INK_PLAIN);
     let (f, t) = g.rows_since(m);
     volcar(&a, g, f, t, &mut c);

@@ -884,6 +884,7 @@ try {
         '  PROGRAMA.TXT           5. memoria pedida y la ficha BEF2 de cada programa',
         '  DISCO.TXT              6. aparato, particiones, ESTRATOS',
         '  AUTOPSIA.TXT           7. el ultimo fallo de Ring 3',
+        '  DATOS.TXT              los numeros de las siete, una linea por dato (capitulo.clave = valor unidad), para una maquina',
         '',
         '  save cpu|mem|consumo|apps|disco|autopsia   un tema suelto, aqui mismo (cpu.txt, ...)',
         '',
