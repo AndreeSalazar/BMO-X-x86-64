@@ -151,7 +151,8 @@ cual sea el veredicto del metal:
       el bus, con su enfriamiento de 5 s. Sin metal: los dos numeros (3 ms, 1
       ms) son generosos a proposito y `save` dira si sobran.
 
-- [ ] **EX4 -- LA VUELTA SE PARTE: enumerar sin congelar el bombeo.** El
+- [x] **EX4 -- LA VUELTA SE PARTE: enumerar sin congelar el bombeo. HECHO el
+      21-09 (tarde), sin metal aun.** El
       `save` de las 12:48 (21-09) cerro el caso del latido tarde con nombres:
       `retenido 4651 us phys roja.rs:108` = `init()` en el arranque (sin
       consecuencia; desde hoy la medida empieza cuando nace el bus), y
@@ -172,6 +173,63 @@ cual sea el veredicto del metal:
       hilo, sin segundo escritor del xHC (el guardian `escritores` lo exige).
       Con esto el compas del bus (3 ms de 4) pasa a cumplirse tambien mientras
       enumera, y `incumplio` deja de ser 163-176 por sesion.
+
+      ** LO HECHO, en tres capas y el mismo hilo:
+
+      1. `bmo_xhci` parte cada primitiva que bloqueaba en LANZAR + REMATAR:
+         `port_reset` = `port_reset_lanzar` + `port_reset_acabo` +
+         `port_habilitado`; `enable_slot` = `enable_slot_lanzar` +
+         `slot_de_complecion`; `address_device` = `address_lanzar` +
+         `address_rematar`; `control_transfer` = `control_lanzar` (devuelve
+         un `EnVuelo`) + `control_rematar`. Las bloqueantes SIGUEN EXISTIENDO
+         y son la composicion de las dos mitades con `evt_poll_block` en
+         medio: el arranque y `preparar_endpoint` van por ahi, sin cambiar.
+         Y la ESPERA VIGILADA (`vigilar_comando` / `vigilar_transferencia` /
+         `vigilado_llego` / `dejar_de_vigilar`): quien enumera dice que
+         espera y se va; `poll_transfer_event` --el bombeo de cada vuelta--
+         caza ese evento al drenar el anillo y lo guarda en vez de tirarlo
+         (`cazar_vigilado`). Es la regla del aparcadero aplicada al tiempo.
+      2. `bmo_uhid::pasos`: la maquina de estados. Veinte pasos
+         (`Apagar`, `SinCorriente`, `Encender`, `Encendido`, `Reset`,
+         `Reseteando`, `Recuperando`, `PedirRanura`, `EsperandoRanura`,
+         `Direccionar`, `EsperandoDireccion`, `PedirDispositivo`,
+         `EsperandoDispositivo`, `PausaDispositivo`, `PedirCabecera`, ...,
+         `EsperandoEntera`), con los MISMOS plazos que la version de una
+         pieza (200 sin corriente, 20 VBUS + 100 debounce, 120 reset, 10
+         recuperacion, 100 por respuesta, 3 lecturas con 10 entre ellas) como
+         constantes con nombre, contra el reloj (`XhciHal::ahora_ms`) y no
+         como giros. Once verbos en un trait `Metal`; el de verdad es `Xhc`
+         sobre `bmo_xhci`, y hay uno FINGIDO con reloj a mano: seis pruebas
+         en el banco (un sano llega a `Lista` con su configuracion en 160-220
+         ms; un MUDO cuesta tres lecturas, ~500 ms de pared y mas de cien
+         pasos, y devuelve la ranura; el reintento corta la corriente y no
+         hace debounce; el vacio no pide ranura; mil `avanzar` sin mover el
+         reloj no mueven nada; abandonar a medias devuelve la ranura).
+      3. `adoptar_puerto` decide el camino con `XhciHal::hay_bombeo()`: en el
+         hilo del bus (y con TSC medido) arranca la maquina y contesta
+         `Adopcion::EnCurso`; el bombeo la avanza UN paso por vuelta
+         (`avanzar_enumeracion`, DESPUES de drenar los eventos) y al terminar
+         desemboca en `instalar` --la segunda mitad de `cosechar_puerto`,
+         que sigue siendo la misma para los dos caminos-- y el kernel lo
+         cuenta en CABINA con lo que costo: `en bombeos (cada uno leyo el
+         raton)` y `ms de pared`. Fuera del hilo (el arranque) se enumera de
+         una pieza como siempre. Un desenchufe a medias abandona la
+         enumeracion y devuelve la ranura.
+
+      Lo que NO cambia, dicho: `instalar` sigue bloqueando (SET_CONFIGURATION,
+      Configure Endpoint, SET_PROTOCOL, GET_REPORT_DESCRIPTOR), pero a un
+      aparato que YA contesto sus descriptores: microsegundos, no plazos
+      agotados. Y el tiempo de PARED de un intento contra el mudo es el mismo
+      (~500 ms): lo que cambia es que son ~125 vueltas de 4 ms con el raton
+      leido, no una de 933 con el raton parado.
+
+      ** VEREDICTO PENDIENTE del Ryzen: en el `save` tras el arranque,
+      `peor trabajo bombeo` tiene que bajar de 932.898 us a unos pocos miles;
+      `compas: bus USB incumplio` a ~0; CABINA con `enumeracion POR PASOS
+      terminada` y sus bombeos; y los tirones del primer minuto, fuera. Si
+      `peor trabajo bombeo` sigue en cientos de miles: `instalar` o
+      `disable_slot` bloquearon contra un aparato que si contesto, y ese es
+      el siguiente corte.
 
 - [ ] **E0 -- LA TAREA IDLE.** Prioridad minima, siempre lista, cuerpo
       `loop { hlt }`. Hoy no existe: `choose_next` devuelve `self.current` cuando

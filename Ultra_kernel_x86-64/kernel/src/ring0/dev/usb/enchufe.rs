@@ -82,6 +82,31 @@ fn atender_enchufe(puerto: u8) {
         let hid = &mut *core::ptr::addr_of_mut!(HID);
         hid.adoptar_puerto(idx)
     };
+    if adopcion == bmo_uhid::Adopcion::EnCurso {
+        // ** POR PASOS (EX4, 2026-09-21): el veredicto llega unos bombeos
+        // despues, por `atender_terminada`, y mientras tanto el raton se
+        // sigue leyendo. Se dice para que las dos lineas se lean juntas.
+        crate::ring0::cabina::info("usb", "puerto: ENCHUFADO, se enumera POR PASOS (sin parar el bombeo)", puerto as u64);
+        return;
+    }
+    informar_adopcion(puerto, adopcion);
+}
+
+/// **Termino una enumeracion por pasos** (EX4): el mismo veredicto que da
+/// `adoptar_puerto` de una pieza, contado igual, mas lo que costo -- en
+/// bombeos y en milisegundos. Los bombeos son la prueba de que el raton se
+/// leyo mientras tanto: antes eran UNO.
+pub(crate) fn atender_terminada(t: bmo_uhid::Terminada) {
+    let puerto = t.port as u64 + 1;
+    crate::ring0::cabina::info("usb", "puerto: enumeracion POR PASOS terminada", puerto);
+    crate::ring0::cabina::count("usb", "  ...en bombeos (cada uno leyo el raton)", t.pasos as u64);
+    crate::ring0::cabina::count("usb", "  ...y en ms de pared", t.ms);
+    informar_adopcion(puerto as u8, t.adopcion);
+}
+
+/// Lo que se dice de una adopcion, sea de una pieza o por pasos.
+fn informar_adopcion(puerto: u8, adopcion: bmo_uhid::Adopcion) {
+    let idx = puerto.saturating_sub(1);
     // ** Contesto y no era mio (2026-09-17): un movil, un disco, un hub. Sus
     // papeles estan en el portero, se le dijo que hay anfitrion, y queda en
     // paz hasta que se desenchufe. Antes esto ni se intentaba con teclado y

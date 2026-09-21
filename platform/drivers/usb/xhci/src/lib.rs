@@ -66,6 +66,22 @@ pub trait XhciHal {
     fn respirar(&self) -> bool {
         false
     }
+    /// **La hora, en milisegundos desde un origen cualquiera**, o `0` si no
+    /// hay reloj. Es lo que la enumeracion POR PASOS (`bmo_uhid::pasos`)
+    /// usa para decir "vuelve dentro de N ms" en vez de girar N ms: un plazo
+    /// es una resta contra esto.
+    fn ahora_ms(&self) -> u64 {
+        0
+    }
+    /// **Hay alguien que va a volver a llamar dentro de unos milisegundos?**
+    /// `true` solo dentro del hilo del bus, que late cada 4 ms: ahi una
+    /// espera se hace DEVOLVIENDO el control y siguiendo en la vuelta
+    /// siguiente. Fuera (el arranque, un bombeo desde un syscall) no hay
+    /// vuelta siguiente garantizada, y se espera bloqueando como siempre.
+    /// Ver EX4 en `PLAN_EL_COMPAS`.
+    fn hay_bombeo(&self) -> bool {
+        false
+    }
 
     /// **LOS PAPELES DE UN APARATO QUE LLEGO, Y QUE SE LE CONTESTO.**
     ///
@@ -393,6 +409,110 @@ static mut COMANDOS_TARDIOS: u32 = 0;
 
 pub fn comandos_tardios() -> u32 {
     unsafe { COMANDOS_TARDIOS }
+}
+
+// -- LA ESPERA VIGILADA: esperar sin quedarse (EX4, 2026-09-21) --------
+//
+// `evt_poll_block` espera GIRANDO (o durmiendo de milisegundo en milisegundo)
+// hasta que llega lo suyo, y mientras tanto nadie lee el raton: un aparato
+// mudo en el puerto 1 le costaba al hilo del bus 933 ms POR INTENTO, que el
+// dueno sintio como tirones. La espera vigilada es la misma pregunta hecha de
+// otra forma: **"cuando pase X, guardamelo"**. Quien enumera lanza el comando
+// o la transferencia, dice que espera, y se VA; el bombeo de cada vuelta
+// (`poll_transfer_event`) sigue drenando el anillo como siempre y, si lo que
+// pasa es lo vigilado, lo guarda aqui en vez de tirarlo o darselo a otro. En
+// la vuelta siguiente, `vigilado_llego` lo entrega.
+//
+// UNA sola espera vigilada a la vez: la enumeracion es de un puerto en un
+// puerto, y un segundo vigilante pisaria al primero. `vigilar_*` lo deja
+// dicho: vigilar de nuevo OLVIDA lo anterior.
+//
+// Es la misma regla que el aparcadero, aplicada al tiempo: un evento que no es
+// del que mira no se tira, se guarda para el que lo espera.
+pub type Evento = (u32, u32, u32, u32);
+static mut VIGILADA: Option<Espera> = None;
+static mut VIGILADA_LLEGO: Option<Evento> = None;
+
+/// Vigila la complecion del comando cuyo TRB quedo en `trb`.
+pub fn vigilar_comando(trb: u64) {
+    unsafe {
+        VIGILADA = Some(Espera::Comando { trb });
+        VIGILADA_LLEGO = None;
+    }
+}
+
+/// Vigila el Transfer Event del EP0 de `slot` (una transferencia de control).
+pub fn vigilar_transferencia(slot: u8) {
+    unsafe {
+        VIGILADA = Some(Espera::Transferencia { slot, ep: 1 });
+        VIGILADA_LLEGO = None;
+    }
+}
+
+/// Deja de vigilar: el plazo se agoto y ya no lo quiere nadie. Si llega
+/// despues, es una complecion tardia (`comandos_tardios`) o un Transfer
+/// Event huerfano, exactamente como cuando `evt_poll_block` se agotaba.
+pub fn dejar_de_vigilar() {
+    unsafe {
+        VIGILADA = None;
+        VIGILADA_LLEGO = None;
+    }
+}
+
+/// Lo que el bombeo cazo por el camino, o lo que haya en el anillo AHORA.
+///
+/// No espera: mira lo guardado, despues el aparcadero, y despues el anillo
+/// --acotado a un aparcadero entero-- y devuelve `None` si lo vigilado no ha
+/// llegado. Lo que saca del anillo y no es suyo se aparca, como en
+/// `evt_poll_block`; el bombeo lo drena en su vuelta.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn vigilado_llego() -> Option<Evento> {
+    if let Some(ev) = VIGILADA_LLEGO.take() {
+        VIGILADA = None;
+        return Some(ev);
+    }
+    let esp = VIGILADA?;
+    if let Some(ev) = desaparcar_que_cuadre(esp) {
+        VIGILADA = None;
+        return Some(ev);
+    }
+    let ctrl = CTRL.as_mut()?;
+    for _ in 0..APARCADOS_MAX {
+        match evt_poll_nb(ctrl) {
+            Some(ev) => {
+                if cuadra(&ev, esp) {
+                    VIGILADA = None;
+                    return Some(ev);
+                }
+                if (ev.3 >> 10) & 0x3F == TRB_COMPLETION {
+                    COMANDOS_TARDIOS = COMANDOS_TARDIOS.wrapping_add(1);
+                    continue;
+                }
+                aparcar(ev);
+            }
+            None => break,
+        }
+    }
+    None
+}
+
+/// El bombeo pregunta por cada evento que saca: **es el vigilado?** Si lo es,
+/// se guarda y el bombeo no lo ve. Ver `VIGILADA`.
+pub(crate) unsafe fn cazar_vigilado(ev: &Evento) -> bool {
+    if let Some(esp) = VIGILADA {
+        if cuadra(ev, esp) {
+            VIGILADA_LLEGO = Some(*ev);
+            return true;
+        }
+    }
+    false
+}
+
+/// Codigo de complecion de un evento (`cc`, xHCI 6.4.2).
+pub fn cc_de(ev: &Evento) -> u8 {
+    ((ev.2 >> 24) & 0xFF) as u8
 }
 
 unsafe fn aparcar(ev: (u32, u32, u32, u32)) {

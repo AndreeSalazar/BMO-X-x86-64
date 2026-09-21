@@ -37,20 +37,64 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
     w_value: u16, w_index: u16, buf: &mut [u8], data_in: bool) -> usize
 {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return 0 };
+    let vuelo = match control_lanzar(slot, bm_req_type, b_request, w_value, w_index, buf.len(), buf, data_in) {
+        Some(v) => v,
+        None => return 0,
+    };
+    // Espera el Transfer Event de ESTE EP0 y de nadie mas.
+    //
+    // El bucle de antes descartaba todo lo que no fuera suyo -- incluidos los
+    // informes de interrupcion de un raton ya enumerado, que es exactamente el
+    // camino por el que el teclado y el raton se quedaban mudos los dos.
+    let ev = match evt_poll_block(ctrl, Espera::Transferencia { slot, ep: 1 }) {
+        Some(e) => e,
+        None => return 0,
+    };
+    control_rematar(&vuelo, &ev, buf)
+}
+
+/// **Una transferencia de control en el aire.** Lo que `control_lanzar` dejo
+/// encolado y `control_rematar` necesita para leer la respuesta: la pagina de
+/// datos y cuanto se pidio. Es un valor, no un estatico, para que la
+/// enumeracion por pasos lo guarde donde guarda su estado.
+#[derive(Clone, Copy)]
+pub struct EnVuelo {
+    data_page: u64,
+    len: usize,
+    data_in: bool,
+}
+
+/// Encola Setup/Data/Status en el EP0 de `slot`, toca el timbre y **se va**.
+/// La mitad de arriba de `control_transfer` (EX4, 2026-09-21): la espera es
+/// del llamante, bloqueando (`control_transfer`) o vigilando
+/// (`vigilar_transferencia` + `vigilado_llego`).
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn control_lanzar(slot: u8, bm_req_type: u8, b_request: u8,
+    w_value: u16, w_index: u16, largo: usize, datos_out: &[u8], data_in: bool) -> Option<EnVuelo>
+{
     let h = hal();
-    let ep0 = match ep0_mut(slot) { Some(e) => e, None => { h.log("no ep0 ring\n"); return 0; } };
+    let ep0 = match ep0_mut(slot) { Some(e) => e, None => { h.log("no ep0 ring\n"); return None; } };
+    // `largo` es lo que se pide o se manda; `datos_out` solo cuenta hacia
+    // fuera (`!data_in`), y entonces tiene que traer al menos `largo` bytes.
+    if !data_in && datos_out.len() < largo {
+        h.log("[xhci] control_lanzar: datos de salida mas cortos que el largo\n");
+        return None;
+    }
+    let buf_len = largo;
 
     // ** UNA pagina de DMA para la etapa de datos, y ni un byte mas (2026-09-14).
-    // El bucle de abajo copia `buf.len()` bytes en ESA pagina: con un bufer de
+    // El bucle de abajo copia `buf_len` bytes en ESA pagina: con un bufer de
     // mas de 4096 escribiria en la memoria fisica de al lado, y un TRB con una
     // fisica que no es no da fault. Hoy nadie llama con tanto (el mayor es la
     // configuracion, 512); esto hace que manana tampoco pueda.
-    if buf.len() > 4096 {
-        h.log_u64("[xhci] control_transfer: bufer de mas de una pagina, NEGADO: ", buf.len() as u64);
-        return 0;
+    if buf_len > 4096 {
+        h.log_u64("[xhci] control_transfer: bufer de mas de una pagina, NEGADO: ", buf_len as u64);
+        return None;
     }
 
-    let has_data = !buf.is_empty();
+    let has_data = buf_len != 0;
     let data_page = if has_data {
         // Quedarse sin paginas DMA se trataba igual que "el aparato no mando
         // nada": devolver 0. Dos causas opuestas --una es memoria del sistema,
@@ -61,11 +105,11 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
         let dp = crate::paginas::de_ranura(slot, crate::paginas::Uso::Datos).unwrap_or(0);
         if dp == 0 {
             h.log("[xhci] control_transfer: SIN PAGINAS DMA (no es el aparato, es la memoria)\n");
-            return 0;
+            return None;
         }
         if !data_in {
             let dv = h.phys_to_virt(dp);
-            for i in 0..buf.len() { dv.add(i).write_volatile(buf[i]); }
+            for i in 0..buf_len { dv.add(i).write_volatile(datos_out[i]); }
         }
         dp
     } else { 0 };
@@ -77,7 +121,7 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
     // silicio real (AMD) responde con Transaction Error (cc=4).
     let setup = Trb {
         dw0: (bm_req_type as u32) | ((b_request as u32) << 8) | ((w_value as u32) << 16),
-        dw1: (w_index as u32) | ((buf.len() as u32) << 16),
+        dw1: (w_index as u32) | ((buf_len as u32) << 16),
         dw2: 8,
         dw3: (TRB_SETUP << 10) | (1 << 6) | (trt << 16), // IDT; sin CH
     };
@@ -96,7 +140,7 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
         let db = d_idx * 4;
         ep0.ring_virt.add(db).write_volatile((data_page & 0xFFFF_FFFF) as u32);
         ep0.ring_virt.add(db + 1).write_volatile(((data_page >> 32) & 0xFFFF_FFFF) as u32);
-        ep0.ring_virt.add(db + 2).write_volatile(buf.len() as u32 & 0x1FFFF);
+        ep0.ring_virt.add(db + 2).write_volatile(buf_len as u32 & 0x1FFFF);
         let dir = if data_in { 1u32 << 16 } else { 0 };
         // Data Stage de un solo TRB = TD propio: sin CH (ver nota del Setup).
         ep0.ring_virt.add(db + 3).write_volatile(
@@ -121,16 +165,17 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
 
     // Ring EP0 doorbell
     ring_doorbell(slot, 1);
+    Some(EnVuelo { data_page, len: buf_len, data_in })
+}
 
-    // Espera el Transfer Event de ESTE EP0 y de nadie mas.
-    //
-    // El bucle de antes descartaba todo lo que no fuera suyo -- incluidos los
-    // informes de interrupcion de un raton ya enumerado, que es exactamente el
-    // camino por el que el teclado y el raton se quedaban mudos los dos.
-    let ev = match evt_poll_block(ctrl, Espera::Transferencia { slot, ep: 1 }) {
-        Some(e) => e,
-        None => return 0,
-    };
+/// Lee la respuesta de una transferencia lanzada con `control_lanzar` cuando
+/// su Transfer Event `ev` ya esta en la mano. Devuelve los bytes transferidos
+/// (`0` si el aparato contesto con error), copiando en `buf` lo que entro.
+///
+/// # Safety
+/// Lee la pagina DMA de la ranura: con el CR3 del kernel puesto.
+pub unsafe fn control_rematar(vuelo: &EnVuelo, ev: &Evento, buf: &mut [u8]) -> usize {
+    let h = hal();
     let dw2 = ev.2;
     let cc = (dw2 >> 24) & 0xFF;
     if cc != CC_SUCCESS && cc != CC_SHORT {
@@ -138,13 +183,27 @@ pub unsafe fn control_transfer(slot: u8, bm_req_type: u8, b_request: u8,
         return 0;
     }
     let rem = dw2 & 0xFFFFFF;
-    let xfer = buf.len().saturating_sub(rem as usize);
-    if data_in && has_data && data_page != 0 {
-        let dv = h.phys_to_virt(data_page);
-        for i in 0..xfer.min(buf.len()) { buf[i] = dv.add(i).read_volatile(); }
+    let xfer = vuelo.len.saturating_sub(rem as usize);
+    if vuelo.data_in && vuelo.len != 0 && vuelo.data_page != 0 {
+        let dv = h.phys_to_virt(vuelo.data_page);
+        let n = xfer.min(buf.len()).min(vuelo.len);
+        for i in 0..n { buf[i] = dv.add(i).read_volatile(); }
     }
     xfer
 }
+
+/// `GET_DESCRIPTOR` lanzado sin esperar: ver `control_lanzar`. `tipo` es
+/// `USB_DESC_DEVICE` o `USB_DESC_CONFIG`; `largo` lo que se pide.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn get_descriptor_lanzar(slot: u8, tipo: u16, index: u8, largo: usize) -> Option<EnVuelo> {
+    control_lanzar(slot, 0x80, USB_REQ_GET_DESCRIPTOR, (tipo << 8) | index as u16, 0, largo, &[], true)
+}
+
+/// Los dos tipos de descriptor que la enumeracion pide por pasos.
+pub const DESC_DEVICE: u16 = USB_DESC_DEVICE;
+pub const DESC_CONFIG: u16 = USB_DESC_CONFIG;
 
 // ===================================================================
 //  Descriptor helpers
@@ -841,6 +900,11 @@ pub unsafe fn poll_transfer_event() -> Option<(u8, u8, u8)> {
             None => evt_poll_nb(ctrl)?,
         };
         RAW_EVENTS = RAW_EVENTS.wrapping_add(1);
+        // Lo que alguien dejo vigilado se le guarda y no cuenta como suyo de
+        // nadie mas: es la complecion o el EP0 de la enumeracion por pasos.
+        if cazar_vigilado(&ev) {
+            continue;
+        }
         let typ = (ev.3 >> 10) & 0x3F;
         if typ == TRB_TRANSFER {
             XFER_EVENTS = XFER_EVENTS.wrapping_add(1);

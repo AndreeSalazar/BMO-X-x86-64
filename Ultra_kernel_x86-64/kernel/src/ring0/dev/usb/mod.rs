@@ -195,6 +195,20 @@ impl XhciHal for KernelXhciHal {
         );
         true
     }
+    /// El TSC en milisegundos; `0` mientras no este medido (entonces la
+    /// enumeracion por pasos no se usa: ver `hay_bombeo`).
+    fn ahora_ms(&self) -> u64 {
+        let f = crate::ring0::task::scheduler::tsc_freq();
+        if f == 0 {
+            return 0;
+        }
+        crate::ring0::task::scheduler::rdtsc() / (f / 1000).max(1)
+    }
+    /// Solo el hilo del bus vuelve cada 4 ms; y solo con reloj, porque sin
+    /// el un plazo no es nada. Ver EX4 en `PLAN_EL_COMPAS`.
+    fn hay_bombeo(&self) -> bool {
+        bus::soy_el_hilo_del_bus() && crate::ring0::task::scheduler::tsc_freq() != 0
+    }
     /// **EL PORTERO.** El driver ya tenia el veredicto; hasta hoy solo lo
     /// mandaba al log, que se va con el scroll. Ver `portero.rs`.
     fn papeles(
@@ -507,11 +521,25 @@ fn bombear_interno() {
     }
 
     let mut evs = [InputEvent::empty(); 16];
-    let (n, reinicio) = unsafe {
+    let (n, reinicio, terminada) = unsafe {
         let hid = &mut *core::ptr::addr_of_mut!(HID);
         let n = hid.poll(&mut evs);
-        (n, hid.reinicio_pendiente())
+        // ** UN PASO DE LA ENUMERACION QUE VA A MEDIAS (EX4, 2026-09-21),
+        // DESPUES de drenar los eventos: lo que esperaba ya esta cazado. Es
+        // lo que convierte "un intento = una vuelta de 933 ms" en "un
+        // intento = ciento y pico vueltas de 4 ms con el raton leido".
+        // Solo en el hilo del bus: fuera no hay vuelta siguiente, y el
+        // driver tampoco arranca nada por pasos fuera de el.
+        let terminada = if !bus::hay_hilo() || bus::soy_el_hilo_del_bus() {
+            hid.avanzar_enumeracion()
+        } else {
+            None
+        };
+        (n, hid.reinicio_pendiente(), terminada)
     };
+    if let Some(t) = terminada {
+        enchufe::atender_terminada(t);
+    }
     // ** LA ESCALERA DE LINUX (2026-09-17): un aparato con un segundo de
     // errores seguidos se solto y el barrido lo adopta de cero. Aqui se dice
     // y se refresca la presencia; lo demas ya lo hizo el driver.

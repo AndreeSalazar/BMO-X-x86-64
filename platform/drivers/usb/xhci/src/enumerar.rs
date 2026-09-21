@@ -92,6 +92,27 @@ pub unsafe fn port_power_off(port: u8) {
 /// Reset del puerto con TIEMPOS REALES. Un reset USB2 tarda ~10-50 ms; el
 /// firmware/PHY latchea PED solo cuando termina. Poll a 1 ms, hasta 120 ms.
 pub unsafe fn port_reset(port: u8) -> bool {
+    if !port_reset_lanzar(port) {
+        return false;
+    }
+    for _ in 0..120 {
+        hal().delay_ms(1);
+        if port_reset_acabo(port) {
+            // Recovery post-reset (spec: 10 ms) y comprobar habilitacion.
+            hal().delay_ms(10);
+            return port_habilitado(port);
+        }
+    }
+    false
+}
+
+/// **Pide el reset y se va.** La mitad de arriba de `port_reset` (EX4): el
+/// que enumera por pasos pregunta despues con `port_reset_acabo`, a su ritmo.
+/// `false` = no hay nada en el puerto.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn port_reset_lanzar(port: u8) -> bool {
     let c = match CTRL.as_mut() { Some(c) => c, None => return false };
     let pb = c.op_base as u64 + 0x400 + port as u64 * 0x10;
     let sc = r32(c.mmio + pb + PORTSC as u64);
@@ -99,21 +120,36 @@ pub unsafe fn port_reset(port: u8) -> bool {
     // Escribir PR preservando bits RW1C (no re-limpiar cambios por error):
     // solo PP + PR, el resto a 0 (los bits de estado son RO/RW1C).
     w32(c.mmio + pb + PORTSC as u64, (sc & PORTSC_PP) | PORTSC_PR);
-    for _ in 0..120 {
-        hal().delay_ms(1);
-        let s = r32(c.mmio + pb + PORTSC as u64);
-        // Reset completo cuando PR se auto-limpia. Reconocer PRC.
-        if s & PORTSC_PR == 0 {
-            if s & PORTSC_PRC != 0 {
-                w32(c.mmio + pb + PORTSC as u64, (s & PORTSC_PP) | PORTSC_PRC);
-            }
-            // Recovery post-reset (spec: 10 ms) y comprobar habilitacion.
-            hal().delay_ms(10);
-            let e = r32(c.mmio + pb + PORTSC as u64);
-            return e & PORTSC_PED != 0;
-        }
+    true
+}
+
+/// **Termino el reset?** PR se auto-limpia al acabar; entonces se reconoce
+/// PRC y se contesta que si. No espera. Tras el si, el aparato necesita sus
+/// 10 ms de recuperacion (USB 2.0, 7.1.7.5) antes de `port_habilitado`.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn port_reset_acabo(port: u8) -> bool {
+    let c = match CTRL.as_mut() { Some(c) => c, None => return false };
+    let pb = c.op_base as u64 + 0x400 + port as u64 * 0x10;
+    let s = r32(c.mmio + pb + PORTSC as u64);
+    if s & PORTSC_PR != 0 {
+        return false;
     }
-    false
+    if s & PORTSC_PRC != 0 {
+        w32(c.mmio + pb + PORTSC as u64, (s & PORTSC_PP) | PORTSC_PRC);
+    }
+    true
+}
+
+/// PED: el puerto quedo habilitado tras el reset.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn port_habilitado(port: u8) -> bool {
+    let c = match CTRL.as_ref() { Some(c) => c, None => return false };
+    let pb = c.op_base as u64 + 0x400 + port as u64 * 0x10;
+    r32(c.mmio + pb + PORTSC as u64) & PORTSC_PED != 0
 }
 
 // ===================================================================
@@ -123,6 +159,24 @@ pub unsafe fn port_reset(port: u8) -> bool {
 pub unsafe fn enable_slot() -> Option<u8> {
     hal().log("[xhci] enable_slot\n");
     let ev = send_cmd(Trb { dw0: 0, dw1: 0, dw2: 0, dw3: TRB_ENABLE << 10 })?;
+    slot_de_complecion(&ev)
+}
+
+/// **Pide una ranura y se va** (EX4): devuelve la fisica del TRB del comando,
+/// que es lo que `vigilar_comando` necesita para reconocer su complecion.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn enable_slot_lanzar() -> Option<u64> {
+    let ctrl = CTRL.as_mut()?;
+    hal().log("[xhci] enable_slot (por pasos)\n");
+    let mio = ctrl.cmd_ring.enqueue(&Trb { dw0: 0, dw1: 0, dw2: 0, dw3: TRB_ENABLE << 10 });
+    ring_doorbell(0, 0);
+    Some(mio)
+}
+
+/// La ranura que trae la complecion de un `Enable Slot`, si salio bien.
+pub fn slot_de_complecion(ev: &Evento) -> Option<u8> {
     let cc = (ev.2 >> 24) & 0xFF;
     let slot = ((ev.3 >> 24) & 0xFF) as u8;
     hal().log_u64(" cc=", cc as u64);
@@ -242,6 +296,25 @@ pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
 
 unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8) -> Option<u8> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
+    let mio = address_lanzar(port, speed, slot)?;
+    // * Esto tomaba el primer evento SIN MIRAR EL TIPO y le leia el `cc`. Un
+    // Transfer Event correcto tambien trae `cc=1`, asi que un informe del
+    // raton se leia como "el Address Device salio bien" -- y de paso ese
+    // informe desaparecia. Y despues tomaba CUALQUIER complecion: la de este
+    // comando, o la tardia del anterior. Ver `Espera::Comando`.
+    let ev = evt_poll_block(ctrl, Espera::Comando { trb: mio })?;
+    if address_rematar(slot, &ev) { Some(slot) } else { None }
+}
+
+/// **Prepara los contextos, encola el `Address Device` y se va** (EX4). La
+/// mitad de arriba de `direccionar_en_slot`; devuelve la fisica del TRB para
+/// `vigilar_comando`. Si devuelve `None`, la ranura sigue pedida y es del
+/// llamante devolverla (`disable_slot`), como en `address_device`.
+///
+/// # Safety
+/// MMIO del xHC y paginas DMA de la ranura: con el CR3 del kernel puesto.
+pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8) -> Option<u64> {
+    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
     let h = hal();
     let cs = ctx_sz(ctrl);
 
@@ -298,20 +371,34 @@ unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8) -> Option<u8> {
     };
     let mio = ctrl.cmd_ring.enqueue(&trb);
     ring_doorbell(0, 0);
-    // * Esto tomaba el primer evento SIN MIRAR EL TIPO y le leia el `cc`. Un
-    // Transfer Event correcto tambien trae `cc=1`, asi que un informe del
-    // raton se leia como "el Address Device salio bien" -- y de paso ese
-    // informe desaparecia. Y despues tomaba CUALQUIER complecion: la de este
-    // comando, o la tardia del anterior. Ver `Espera::Comando`.
-    let ev = evt_poll_block(ctrl, Espera::Comando { trb: mio })?;
+    Some(mio)
+}
+
+/// La complecion del `Address Device` ya esta en la mano: **salio bien?** Si
+/// si, deja el dequeue del EP0 escrito en el Device Context, que es lo que el
+/// timbre recarga en cada transferencia. La mitad de abajo de
+/// `direccionar_en_slot`.
+///
+/// # Safety
+/// Escribe el Device Context de la ranura: con el CR3 del kernel puesto.
+pub unsafe fn address_rematar(slot: u8, ev: &Evento) -> bool {
+    let ctrl = match CTRL.as_ref() { Some(c) => c, None => return false };
+    let h = hal();
+    let cs = ctx_sz(ctrl);
     let cc = (ev.2 >> 24) & 0xFF;
     h.log_u64(" addr_dev cc=", cc as u64);
-    if cc != CC_SUCCESS { return None; }
-
+    if cc != CC_SUCCESS { return false; }
+    // Las dos paginas son las de la RANURA: las mismas que `address_lanzar`
+    // pidio, porque `de_ranura` devuelve siempre la misma para el mismo uso.
+    let ep0_phys = match ep0_mut(slot) { Some(e) => e.ring_phys, None => return false };
+    let dev_phys = match crate::paginas::de_ranura(slot, crate::paginas::Uso::Dispositivo) {
+        Some(p) => p,
+        None => return false,
+    };
+    let dev_virt = h.phys_to_virt(dev_phys);
     // Write EP0 dequeue into Device Context EP0 for future doorbell reloads
     let d_ep0 = dev_virt.add(cs) as *mut u32;
     d_ep0.add(2).write_volatile((ep0_phys & !0xF) as u32 | 1);
     d_ep0.add(3).write_volatile(((ep0_phys >> 32) & 0xFFFF_FFFF) as u32);
-
-    Some(slot)
+    true
 }

@@ -50,6 +50,7 @@ pub mod enumera;
 /// El Report Descriptor, leido. Es lo que convierte "8 o 16 bits?" de una
 /// discusion sobre una foto en una pregunta que contesta el aparato.
 pub mod formato;
+pub mod pasos;
 /// La contabilidad de puertos: a cual se puede tocar y a cual no. Es la unica
 /// parte del driver que se puede probar sin un xHC delante -- y era la que
 /// estaba mal.
@@ -149,6 +150,26 @@ pub struct UsbHidHal {
     reinicio_pendiente: Option<u8>,
     /// Cuantos aparatos se reiniciaron enteros desde el arranque.
     reinicios: u32,
+
+    /// **La enumeracion que va a medias** (EX4, 2026-09-21): un puerto que se
+    /// esta enumerando POR PASOS, uno por bombeo, para que el raton se siga
+    /// leyendo mientras tanto. `None` = ninguna. Ver [`pasos`].
+    en_curso: Option<pasos::Enumeracion>,
+    /// Los verbos con los que esa enumeracion toca el xHC, con la
+    /// transferencia en vuelo entre un bombeo y el siguiente.
+    xhc: pasos::Xhc,
+}
+
+/// Lo que dio una enumeracion por pasos al terminar (EX4). El kernel lo
+/// cuenta en CABINA como contaba antes el resultado de `adoptar_puerto`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Terminada {
+    pub port: u8,
+    pub adopcion: Adopcion,
+    /// Cuantos bombeos costo.
+    pub pasos: u32,
+    /// Cuanto tiempo de pared, en ms.
+    pub ms: u64,
 }
 
 impl Default for UsbHidHal {
@@ -173,6 +194,8 @@ impl UsbHidHal {
             racha_raton: Racha::nueva(),
             reinicio_pendiente: None,
             reinicios: 0,
+            en_curso: None,
+            xhc: pasos::Xhc::nuevo(),
         }
     }
 
@@ -246,6 +269,13 @@ impl UsbHidHal {
     /// teclado no son la misma noticia.
     pub fn soltar_puerto(&mut self, port: u8) -> bool {
         self.puertos.release(port);
+        // Si se estaba enumerando POR PASOS, se abandona: lo lanzado deja de
+        // esperarse y la ranura vuelve. Seguir seria direccionar un vacio.
+        if self.en_curso.as_ref().is_some_and(|e| e.port() == port) {
+            if let Some(mut e) = self.en_curso.take() {
+                e.abandonar(&mut self.xhc);
+            }
+        }
         let mut solto_aparato = false;
         if self.puerto_teclado == Some(port) {
             self.teclado = None;
@@ -379,7 +409,7 @@ impl UsbHidHal {
     /// Toca MMIO del xHC: hay que llamarlo con el CR3 del kernel puesto.
     unsafe fn cosechar_puerto(&mut self, port: u8) -> Cosecha {
         let h = bmo_xhci::hal();
-        let mut cosecha = Cosecha { teclado: false, raton: false, contesto: false, controlador_fallo: false };
+        let cosecha = Cosecha { teclado: false, raton: false, contesto: false, controlador_fallo: false };
 
         // ** UN PUERTO VACIO NO SE COSECHA (2026-09-17). El arranque llamaba
         // a esto para TODOS los puertos y cada vacio acababa en el libro del
@@ -410,8 +440,24 @@ impl UsbHidHal {
                 return cosecha;
             }
         };
-        let cfg = &cfg[..largo];
-        cosecha.contesto = true;
+        self.instalar(port, slot, &cfg[..largo], cfg_val, vid, pid)
+    }
+
+    /// **Con los descriptores en la mano, instala lo que sea mio.** La
+    /// segunda mitad de `cosechar_puerto`, separada el 2026-09-21 para que
+    /// la enumeracion por pasos ([`pasos`]) desemboque aqui igual que la
+    /// bloqueante: un solo sitio decide que es un teclado, que es un raton y
+    /// que se aparca.
+    ///
+    /// Lo que hace sigue bloqueando --`SET_CONFIGURATION`, `Configure
+    /// Endpoint`, `SET_PROTOCOL`...-- pero a un aparato que YA contesto sus
+    /// descriptores: microsegundos, no plazos agotados.
+    ///
+    /// # Safety
+    /// Toca MMIO del xHC: hay que llamarlo con el CR3 del kernel puesto.
+    unsafe fn instalar(&mut self, port: u8, slot: u8, cfg: &[u8], cfg_val: u8, vid: u16, pid: u16) -> Cosecha {
+        let h = bmo_xhci::hal();
+        let mut cosecha = Cosecha { teclado: false, raton: false, contesto: true, controlador_fallo: false };
 
         let mut ifaces = [(0u8, 0u8, 0u8, 0u8); enumera::MAX_IFACES];
         let n_ifs = enumera::interfaces(cfg, &mut ifaces);
@@ -651,10 +697,32 @@ impl UsbHidHal {
         if !self.puertos.se_puede_intentar(port) {
             return Adopcion::Cerrado;
         }
+        // Una enumeracion a la vez: si hay una a medias, esta espera a que
+        // acabe. El intento NO se gasta: no se ha tocado el bus.
+        if self.en_curso.is_some() {
+            return Adopcion::EnCurso;
+        }
         // Contar ANTES de tocar el bus: si la enumeracion se va por otro
         // camino, el intento ya esta gastado.
         self.puertos.anotar_intento(port);
+        // ** POR PASOS si hay quien bombee (EX4, 2026-09-21): dentro del
+        // hilo del bus una espera se hace devolviendo el control, y el
+        // resultado llega por `avanzar_enumeracion` unos bombeos despues.
+        // Fuera del hilo --el arranque-- no hay vuelta siguiente, y se
+        // enumera de una pieza como siempre.
+        if bmo_xhci::hal().hay_bombeo() && bmo_xhci::hay_dispositivo(port) {
+            let reintento = self.puertos.intentos(port) >= 2;
+            let ahora = bmo_xhci::hal().ahora_ms();
+            self.en_curso = Some(pasos::Enumeracion::nueva(port, reintento, ahora));
+            return Adopcion::EnCurso;
+        }
         let cosecha = self.cosechar_puerto(port);
+        self.rematar_adopcion(port, cosecha)
+    }
+
+    /// De la cosecha al veredicto de la adopcion. La cola de `adoptar_puerto`,
+    /// compartida con la enumeracion por pasos.
+    fn rematar_adopcion(&mut self, port: u8, cosecha: Cosecha) -> Adopcion {
         if cosecha.teclado || cosecha.raton {
             self.arrancar_bombas();
             return Adopcion::Instalado;
@@ -673,6 +741,44 @@ impl UsbHidHal {
             return Adopcion::Aparcado;
         }
         Adopcion::NoContesto
+    }
+
+    /// **Un paso mas de la enumeracion que va a medias**, si la hay (EX4).
+    ///
+    /// Lo llama el bombeo en cada vuelta, DESPUES de drenar los eventos: lo
+    /// que la enumeracion esperaba ya esta cazado (`bmo_xhci::vigilar_*`) y
+    /// el paso lo encuentra sin mirar el anillo. Devuelve `Some` en el bombeo
+    /// en que la enumeracion termina, con el mismo veredicto que daria
+    /// `adoptar_puerto` de una pieza.
+    ///
+    /// # Safety
+    /// Toca MMIO del xHC: hay que llamarlo con el CR3 del kernel puesto.
+    pub unsafe fn avanzar_enumeracion(&mut self) -> Option<Terminada> {
+        let marcha = self.en_curso.as_mut()?.avanzar(&mut self.xhc);
+        let h = bmo_xhci::hal();
+        let veredicto = match marcha {
+            pasos::Marcha::Sigue => return None,
+            pasos::Marcha::SinDireccion => VEREDICTO_SIN_DIRECCION,
+            pasos::Marcha::SinDescriptores => VEREDICTO_SIN_DESCRIPTORES,
+            pasos::Marcha::Lista => 0,
+        };
+        let e = self.en_curso.take()?;
+        let (port, pasos, ms) = (e.port(), e.pasos(), e.lleva_ms(h.ahora_ms()));
+        if veredicto != 0 {
+            // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver EL
+            // PORTERO, al final de este fichero. Ceros = "no se sabe".
+            h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto);
+            return Some(Terminada { port, adopcion: Adopcion::NoContesto, pasos, ms });
+        }
+        let (vid, pid) = e.vid_pid();
+        let cosecha = self.instalar(port, e.slot(), e.cfg(), e.cfg_val(), vid, pid);
+        let adopcion = self.rematar_adopcion(port, cosecha);
+        Some(Terminada { port, adopcion, pasos, ms })
+    }
+
+    /// Hay una enumeracion por pasos a medias?
+    pub fn enumerando(&self) -> Option<u8> {
+        self.en_curso.as_ref().map(|e| e.port())
     }
 
     /// **El barrido: mirar los puertos de verdad y reparar la diferencia.**
@@ -707,7 +813,8 @@ impl UsbHidHal {
         // Con una por barrido, recuperar un aparato tarda medio segundo mas y no
         // se nota; sin ella, el arreglo del teclado seria un tiron de un segundo
         // y medio en el arranque. La red no puede costar mas que el agujero.
-        let mut ya_enumere = false;
+        // Y una que vaya a medias por pasos cuenta como la de este barrido.
+        let mut ya_enumere = self.en_curso.is_some();
         // Solo los puertos que el controlador declara. Cero puertos = todavia no
         // hay controlador, y entonces no hay nada que barrer.
         let n = bmo_xhci::puertos_totales().min(puertos::MAX_PUERTOS as u8);
@@ -744,6 +851,8 @@ impl UsbHidHal {
                     match self.adoptar_puerto(port) {
                         Adopcion::Instalado => r.adoptados = r.adoptados.saturating_add(1),
                         Adopcion::Aparcado => r.aparcados = r.aparcados.saturating_add(1),
+                        // El veredicto llega por `avanzar_enumeracion`.
+                        Adopcion::EnCurso => {}
                         _ => r.fallidos = r.fallidos.saturating_add(1),
                     }
                 }
@@ -782,6 +891,10 @@ pub enum Adopcion {
     Fallo,
     /// Ni se intento: puerto tomado, aparcado, o descansando.
     Cerrado,
+    /// Se esta enumerando POR PASOS (EX4): el veredicto llega unos bombeos
+    /// despues por `avanzar_enumeracion`. O habia otra a medias y esta
+    /// espera su turno sin gastar intento.
+    EnCurso,
 }
 
 struct Cosecha {
