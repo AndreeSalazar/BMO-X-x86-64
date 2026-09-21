@@ -1052,6 +1052,23 @@ fn wait(frame: &TrapFrame) -> BmoStatus {
         // la decision 3 de `docs/plan/PLAN_SUELO_RING3.md`. El dia que la
         // fuente sea la IRQ de una tarjeta, este brazo no cambia: cambia quien
         // llama a `tic()`.
+        // *** UN BLOQUE PRESTADO ES ESPERABLE (2026-09-21, PLAN_LA_VIDA_UTIL 7).
+        //
+        // El dueno pidio soltar, el kernel dijo que no (sigue prestado) y le
+        // dio la secuencia que vio. Aqui duerme hasta que esa secuencia se
+        // mueva --el prestatario solto o murio-- o venza el plazo. Lo que
+        // vuelve es la secuencia, NO un veredicto: el paso siguiente es otro
+        // `soltar`, y quien dice si se puede sigue siendo `hay_prestado_en`.
+        if r.kind == cap::KIND_MEMORIA {
+            let base = r.object;
+            let seq = scheduler::wait_current_checked(
+                crate::ring0::obj::memory::llave_de(pid, base),
+                deadline,
+                frame.rsi,
+                || crate::ring0::obj::memory::secuencia_de(pid, base),
+            );
+            return BmoStatus::ok_value(seq);
+        }
         if r.kind == cap::KIND_LATIDO {
             let visto = frame.rsi;
             let seq = scheduler::wait_current_checked(

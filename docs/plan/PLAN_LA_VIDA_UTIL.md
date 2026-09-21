@@ -123,7 +123,8 @@ esperar sin girar.
 | `LATIDO` | `obj/latido.rs` | secuencia de `latido::cuenta` |
 | `RED` | `op_maquina.rs` | secuencia de `puerta::secuencia` |
 | `CHANNEL` | `obj/cap.rs` | `channel::complete_seq` |
-| `ARCHIVO` | `obj/file.rs` | **NADIE** |
+| `MEMORIA` (21-09) | `obj/memory.rs::request` | `memory::secuencia_de`: cuantas veces volvio un prestamo del bloque |
+| ~~`ARCHIVO`~~ | ~~`obj/file.rs`~~ | derogado el 21-09: la carga la empuja el lector, no habia secuencia |
 
 ### 3b. *** LA PROMESA ROTA: `KIND_ARCHIVO`
 
@@ -292,11 +293,17 @@ y eso esta escrito en el build. La cifra se corrige, no se olvida.
 - [ ] **6. ENTREGAR EN CERO.** Mover el borrado del devolver al entregar, UNA
       invariante, y medir el antes y el despues en el mismo sitio donde duele.
 
-- [ ] **7. LA CLAVE NUEVA DE WAIT.** Secuencia sobre el bloque prestado, que
-      se mueve cuando el prestatario suelta, y `soltar` devolviendo la
-      secuencia que vio. Con eso el bucle correcto es `soltar -> WAIT ->
-      soltar`, y **nunca** `WAIT -> dar por hecho`: lo que WAIT devuelve es una
-      secuencia, no un veredicto.
+- [x] **7. LA CLAVE NUEVA DE WAIT. HECHO el 21-09.** Cada `Bloque` lleva
+      `devueltas` (sube en `loan.rs` cuando el prestatario suelta o muere, y
+      despierta la llave `memory::llave_de(pid, base)`); el `grant` de
+      `KIND_MEMORIA` lleva `RIGHT_WAIT` y `wait()` tiene su brazo
+      (`wait_current_checked` sobre `secuencia_de`); `MEM_OP_SOLTAR` contesta
+      **1** o un **PAR** = la secuencia que vio por dos. En Ring 3,
+      `Memoria::soltar_esperando(plazo_ns)` hace el bucle `soltar -> WAIT ->
+      soltar` y devuelve `Err(self)` si vence el plazo. Ni un syscall nuevo; el
+      guardian del paso 1 vio llegar el brazo y el `grant` juntos (5 kinds).
+      **Sin metal todavia**: el primer cliente real sera una app que preste su
+      lamina al escritorio y quiera soltarla (NAVEGAR con N3).
 
 - [ ] **8. EL `invlpg` DEL OTRO NUCLEO.** Cerrarlo o declararlo con fecha,
       alcance y motivo. Ver la seccion 5.

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   253 casillas ABIERTAS en 31 planes
-   240 hechas
+   252 casillas ABIERTAS en 31 planes
+   241 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 62 casillas sueltas NO cuentan como abiertas)
@@ -219,15 +219,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
 - ... y 2 mas
 
-## [`PLAN_LA_VIDA_UTIL.md`](PLAN_LA_VIDA_UTIL.md) -- 5 abiertas, 4 hechas
-
-*PLAN: LA VIDA UTIL*
-
-- [ ] 3. LA TANDA DEL METRO. -Metro + precio.bex en el Ryzen, y
-- [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
-- [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
-- ... y 2 mas
-
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas
 
 *PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que*
@@ -244,6 +235,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] un arranque verde con lo que ya hay (vuelo, mudo, ajenos, centinela)
 - [ ] sacar titular/ a platform/shared/bmo-marcos, con la tabla como
 - [ ] sus filas de banco -- las ocho reglas del DMA, en el anfitrion
+- ... y 1 mas
+
+## [`PLAN_LA_VIDA_UTIL.md`](PLAN_LA_VIDA_UTIL.md) -- 4 abiertas, 5 hechas
+
+*PLAN: LA VIDA UTIL*
+
+- [ ] 3. LA TANDA DEL METRO. -Metro + precio.bex en el Ryzen, y
+- [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
+- [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
 
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas

@@ -197,9 +197,15 @@ struct Bloque {
     /// El primer marco fisico. Los `bytes` siguientes van seguidos.
     fisica: u64,
     bytes: u64,
+    /// **La secuencia del bloque: cuantas veces VOLVIO un prestamo suyo.**
+    ///
+    /// Es lo que `WAIT` compara (`PLAN_LA_VIDA_UTIL` 7): `soltar` la devuelve
+    /// cuando dice que no, y el dueno duerme hasta que se mueva. Sube en
+    /// `loan.rs` cuando el prestatario suelta o muere. Nunca baja.
+    devueltas: u64,
 }
 
-const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0 };
+const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0, devueltas: 0 };
 
 /// La contabilidad de un proceso que tiene memoria pedida.
 #[derive(Clone, Copy)]
@@ -595,10 +601,13 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         }
     }
 
+    // ** RIGHT_WAIT (2026-09-21): un bloque es ESPERABLE. Su secuencia es
+    // `devueltas`, y el brazo esta en `syscall/mod.rs::wait` -- el guardian
+    // `esperable.py` exige que las dos mitades esten.
     let handle = match cap::grant(
         pid,
         cap::KIND_MEMORIA,
-        cap::RIGHT_READ | cap::RIGHT_WRITE,
+        cap::RIGHT_READ | cap::RIGHT_WRITE | cap::RIGHT_WAIT,
         base,
     ) {
         Some(h) => h,
@@ -628,7 +637,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         // lo liberaria nadie al morir, y `donde_cae` diria "fuera" de algo que
         // es suyo. Se busca hueco, que es lo unico que sobrevive a soltar.
         if let Some(i) = c.bloques.iter().position(|b| b.base == 0) {
-            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE };
+            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE, devueltas: 0 };
         }
         c.peticiones += 1;
         c.entregados += paginas * mm::PAGE;
@@ -846,7 +855,19 @@ fn soltar(pid: u32, base: u64) -> Option<u64> {
     if crate::ring0::obj::loan::hay_prestado_en(pid, b.base, b.bytes) {
         crate::ring0::cabina::warn(
             "mem", "NO se suelta: ese bloque sigue PRESTADO a otro", b.base);
-        return Some(0);
+        // *** EL NO TRAE LA SECUENCIA QUE VIO (2026-09-21, PLAN_LA_VIDA_UTIL 7).
+        //
+        // Un 0 a secas dejaba al dueno sin paso siguiente: reintentar cuando?
+        // Girar? Ahora contesta `devueltas << 1` (par, nunca 1): la secuencia
+        // del bloque EN ESTE INSTANTE. El bucle correcto en Ring 3 es
+        //
+        //    soltar -> par  -> WAIT(bloque, ese par >> 1) -> soltar -> 1
+        //
+        // y `wait_current_checked` compara bajo el cerrojo del planificador:
+        // si el prestatario solto entre este renglon y el WAIT, la secuencia
+        // ya no es la vista y el WAIT vuelve en el acto. WAIT dice CUANDO
+        // volver a preguntar; quien dice SI sigue siendo `hay_prestado_en`.
+        return Some(b.devueltas << 1);
     }
     let aspace = vmm::read_cr3();
     let paginas = b.bytes / mm::PAGE;
@@ -876,6 +897,52 @@ fn soltar(pid: u32, base: u64) -> Option<u64> {
 }
 
 /// Las operaciones sobre el handle. `base` es la VA con la que se concedio.
+/// **La llave de espera de un bloque**: unica por `(pid, base)`, en un
+/// espacio que no pisa a las otras llaves (`latido::LLAVE`, `puerta::LLAVE`,
+/// las paginas fisicas de los canales). El pid cabe en 16 bits (MAX_TASKS) y
+/// la base en pagina en 20: el resto es la marca `MEM`.
+pub fn llave_de(pid: u32, base: u64) -> u64 {
+    0x4D45_4D00_0000_0000 | ((pid as u64 & 0xFFFF) << 24) | ((base >> 12) & 0xF_FFFF)
+}
+
+/// **La secuencia de un bloque**: cuantas veces volvio un prestamo suyo.
+/// `0` si no hay tal bloque -- y WAIT sobre un bloque que no existe no
+/// bloquea: la `cap` ya no resolveria.
+pub fn secuencia_de(pid: u32, base: u64) -> u64 {
+    let Some(slot) = slot(pid) else { return 0 };
+    unsafe {
+        let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
+        for b in c.bloques.iter() {
+            if b.base != 0 && b.base == base {
+                return b.devueltas;
+            }
+        }
+    }
+    0
+}
+
+/// **Un prestamo salido de `origen` VOLVIO.** Lo llama `loan.rs` cuando el
+/// prestatario suelta o muere: sube la secuencia del bloque del dueno y
+/// despierta a quien la este esperando. Si el dueno ya no tiene cuenta (murio
+/// antes: prestamo huerfano), no hay a quien avisar y no pasa nada.
+pub fn devuelto(owner: u32, origen: u64) {
+    let Some(slot) = slot(owner) else { return };
+    let mut llave = 0u64;
+    unsafe {
+        let c = &mut (*core::ptr::addr_of_mut!(CUENTAS))[slot];
+        for b in c.bloques.iter_mut() {
+            if b.base != 0 && origen >= b.base && origen < b.base + b.bytes {
+                b.devueltas = b.devueltas.wrapping_add(1);
+                llave = llave_de(owner, b.base);
+                break;
+            }
+        }
+    }
+    if llave != 0 {
+        crate::ring0::task::scheduler::wake_by_key(llave);
+    }
+}
+
 pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
     match operation {
         MEM_OP_BASE => Some(base),

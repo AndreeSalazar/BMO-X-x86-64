@@ -362,6 +362,9 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
             let paginas = mapeado_de(&ofertas[i]);
             undo(vmm::read_cr3(), ofertas[i].va_destino, paginas);
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
+            // El dueno puede estar DURMIENDO sobre su bloque (WAIT): la
+            // secuencia del bloque sube y se le despierta. Ver `memory::devuelto`.
+            super::memory::devuelto(ofertas[i].owner, ofertas[i].origen);
             ofertas[i] = NOTHING;
             // ** Y EL HANDLE SE REVOCA, que no es limpieza cosmetica.
             //
@@ -453,6 +456,8 @@ pub fn process_died(pid: u32, aspace: u64) {
             let paginas = mapeado_de(o);
             undo(aspace, o.va_destino, paginas);
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
+            // Morir tambien es devolver: el dueno que espere se entera igual.
+            super::memory::devuelto(o.owner, o.origen);
             *o = NOTHING;
         } else if o.owner == pid && !o.tomada {
             // Murio el que prestaba y nadie llego a tomarlo. La oferta no vale:

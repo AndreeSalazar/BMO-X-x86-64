@@ -524,7 +524,14 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 /// capability. Saber donde vive la memoria del vecino no le hace falta a nadie.
 pub const MEM_OP_FISICA: u64 = 0x04;
 
-/// **Devolver el bloque entero.** Contesta 1 si se devolvio, 0 si no se pudo.
+/// **Devolver el bloque entero.** Contesta **1** si se devolvio; si no se
+/// pudo, contesta un numero **PAR**: la secuencia del bloque que vio, por dos.
+///
+/// *** EL NO TRAE CON QUE ESPERAR (2026-09-21, `PLAN_LA_VIDA_UTIL` 7). Un
+/// bloque es esperable (`RIGHT_WAIT`): `WAIT(bloque, secuencia, plazo)` duerme
+/// hasta que un prestamo salido de el VUELVA (el prestatario suelta o muere).
+/// El bucle correcto es `soltar -> par -> WAIT(par >> 1) -> soltar -> 1`, y
+/// nunca `WAIT -> dar por hecho`: WAIT devuelve una secuencia, no un veredicto.
 ///
 /// *** POR QUE APARECE EN SEPTIEMBRE Y NO ANTES
 ///
@@ -540,7 +547,7 @@ pub const MEM_OP_FISICA: u64 = 0x04;
 /// Esto sigue sin ser un `malloc`: el kernel entrega y recoge paginas, y quien
 /// quiera trocearlas lo hace en Ring 3 con la politica que prefiera.
 ///
-/// [!] Un **0** no es un fallo de quien llama. Hoy el unico motivo es que ese
+/// [!] Un **par** no es un fallo de quien llama. El unico motivo es que ese
 /// bloque siga PRESTADO a otro proceso, y devolver memoria que otro esta
 /// leyendo seria mucho peor que negarse. El motivo va a CABINA.
 ///

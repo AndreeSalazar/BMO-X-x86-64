@@ -128,6 +128,34 @@ impl Memoria {
         ok
     }
 
+    /// **Devolverlo, y si sigue PRESTADO a otro, DORMIR hasta que vuelva.**
+    ///
+    /// Es el bucle `soltar -> WAIT -> soltar` del `PLAN_LA_VIDA_UTIL` 7:
+    /// `MEM_OP_SOLTAR` contesta 1 (devuelto) o un PAR (la secuencia del bloque
+    /// que vio, por dos); con esa secuencia `WAIT` duerme --no gira-- hasta
+    /// que el prestatario suelte o muera, o venza `plazo_ns`. Lo que WAIT
+    /// devuelve es una secuencia, no un veredicto: por eso se vuelve a
+    /// preguntar, y quien dice que si sigue siendo el kernel.
+    ///
+    /// `Err(self)` = vencio el plazo y el bloque sigue siendo tuyo, entero.
+    /// `plazo_ns = 0` es esperar sin plazo, y no es lo normal: un compositor
+    /// que se duerme sin plazo sobre un bloque de una app que no suelta es
+    /// un compositor que no pinta.
+    pub fn soltar_esperando(self, plazo_ns: u64) -> Result<(), Self> {
+        loop {
+            let v = invoke(self.cap, MEM_OP_SOLTAR, 0, 0, 0).valor().unwrap_or(0);
+            if v == 1 {
+                core::mem::forget(self);
+                return Ok(());
+            }
+            let visto = v >> 1;
+            let r = crate::sys::wait(self.cap, visto, plazo_ns);
+            if r.value == visto {
+                return Err(self);
+            }
+        }
+    }
+
     /// **El handle del bloque**, para las operaciones que lo reciben.
     ///
     /// * Es una capability, no una direccion: quien la recibe puede comprobar
