@@ -379,6 +379,8 @@ pub const INFO_PROG_IMAGEN: u64 = 0x78;
 /// `n >> 8` = `programa * 4 + region` (0 codigo, 1 constantes, 2 datos, 3 ceros).
 pub const INFO_PROG_REGION: u64 = 0x79;
 pub const INFO_PROG_CIERRE: u64 = 0x7A;
+pub const INFO_USB_LATIDO: u64 = 0x7B;
+pub const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 
 /// El metro de la puerta: puertas servidas y ciclos dentro de `dispatch`.
 /// **Se leen como DELTA** -- antes y despues del bucle que se quiera medir.

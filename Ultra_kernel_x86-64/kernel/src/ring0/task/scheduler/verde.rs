@@ -194,6 +194,29 @@ pub fn tid_state(tid: u32) -> u8 {
 ///
 /// Leer sin cerrojo puede dar un valor a medias. **Para un diagnostico eso es
 /// aceptable y colgarse no**: el mismo criterio que ya usa `context_rsp_of`.
+/// **Cuantos ciclos de CPU lleva cada tarea viva**: escribe `(tid, ciclos)` en
+/// `salida` y devuelve cuantas puso. Los ciclos son los que el cambio de tarea
+/// va sumando (`cpu_ciclos`), asi que una tarea que esta corriendo AHORA no
+/// tiene contado su turno actual -- para quien pregunta desde otra tarea eso es
+/// exacto, porque la que corre es el.
+///
+/// ** Nace del latido del bus USB (2026-09-21): `el latido del bus llego
+/// TARDE 1266 ms` salio en dos saves seguidos y el numero no decia QUIEN se
+/// quedo el CPU. Dos fotos de esto, una al dormirse y otra al despertar, y la
+/// resta nombra al que corrio en medio. Sin cerrojo, como sus vecinas: son
+/// 64 lecturas de `u64` y una foto movida un ciclo no cambia el veredicto.
+pub fn ciclos_de_tareas(salida: &mut [(u32, u64); MAX_TASKS]) -> usize {
+    let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
+    let mut n = 0;
+    for t in &s.tasks {
+        if t.state != TaskState::Empty {
+            salida[n] = (t.tid, t.cpu_ciclos);
+            n += 1;
+        }
+    }
+    n
+}
+
 pub fn quien_corre() -> (u32, bool) {
     let s = unsafe { &*core::ptr::addr_of!(SCHEDULER) };
     let t = &s.tasks[s.current];

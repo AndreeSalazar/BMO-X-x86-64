@@ -43,7 +43,7 @@ pub use roja::{
     yield_current, Task,
 };
 pub use verde::{
-    context_rsp_of, counts, cr3_de_pid, current_pid, current_pid_en_trap, current_state,
+    ciclos_de_tareas, context_rsp_of, counts, cr3_de_pid, current_pid, current_pid_en_trap, current_state,
     current_tid, current_tid_en_trap, titular_de_pila,
     fue_de_quien, rango_de_pila, CENTINELA,
     hay_hueco, huecos_libres, queda_alguna_de_ring3, ns_to_tsc, pid_de, quien_corre, rdtsc, rdtsc_serial, switch_snap,

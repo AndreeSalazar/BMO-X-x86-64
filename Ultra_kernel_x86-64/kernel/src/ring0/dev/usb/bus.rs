@@ -172,6 +172,65 @@ static mut LATIDOS_PERDIDOS: u64 = 0; // [escribe] bus
 /// de latencias esconde justo el pico que el dueno nota con la mano.
 static mut PEOR_RETRASO_MS: u64 = 0; // [escribe] bus
 
+/// **La foto de antes de dormir**, para que un retraso diga QUIEN (2026-09-21).
+///
+/// `el latido del bus llego TARDE (peor caso, en ms) =1266` salio en dos
+/// saves seguidos del Ryzen, mismo numero, y no decia nada mas: ni cuando, ni
+/// quien tenia el CPU, ni si el reloj siguio andando. Con eso se auditan los
+/// cinco trabajos de la vuelta y no se encuentra nada, porque el culpable esta
+/// FUERA de la vuelta. Antes de `park_until` se apunta el tick del reloj y los
+/// ciclos de cada tarea; al despertar tarde se resta, y el renglon nuevo dice:
+///
+/// ```text
+///    ...en el tick N                     cuando (arranque? al lanzar DOOM?)
+///    ...el reloj dio T ticks mientras    T ~ ms: el planificador no dio el
+///                                        turno; T ~ 0: ALGUIEN TENIA LAS
+///                                        INTERRUPCIONES CERRADAS ese tiempo
+///    ...el CPU lo tuvo el tid X          quien corrio en medio
+///    ...durante ms                       cuanto de los ms fueron suyos
+///    ...la vuelta anterior costo us      si es ~ el retraso, el culpable era
+///                                        ESTE hilo (un pump_bus atascado)
+/// ```
+static mut FOTO_TICK: u64 = 0; // [escribe] bus
+/// La foto de los ciclos por tarea de antes de dormir.
+static mut FOTO_CICLOS: [(u32, u64); 64] = [(0, 0); 64]; // [escribe] bus
+const _: () = assert!(crate::ring0::task::scheduler::MAX_TASKS == 64, "FOTO_CICLOS mide MAX_TASKS");
+static mut FOTO_N: usize = 0; // [escribe] bus
+/// Lo que costo la vuelta entera del bus, en us, medida de rdtsc a rdtsc.
+static mut VUELTA_US: u64 = 0; // [escribe] bus
+/// El veredicto del PEOR retraso, para `INFO_USB_LATIDO` (el `save`): en que
+/// tick fue, cuantos ticks dio el reloj mientras tanto, que tid tuvo el CPU,
+/// cuantos ms fueron suyos, y lo que costo la vuelta del bus de antes.
+static mut PEOR_TICK: u64 = 0; // [escribe] bus
+static mut PEOR_TICKS_DURANTE: u64 = 0; // [escribe] bus
+static mut PEOR_TID: u32 = 0; // [escribe] bus
+static mut PEOR_TID_MS: u64 = 0; // [escribe] bus
+static mut PEOR_VUELTA_US: u64 = 0; // [escribe] bus
+
+/// **El veredicto del peor retraso, empaquetado** (`INFO_USB_LATIDO`):
+///
+/// ```text
+///    [0..16)   peor retraso, ms          [16..24)  tid que tuvo el CPU
+///    [24..40)  ms que fueron de ese tid  [40..56)  ticks del reloj durante el retraso
+///    [56..64)  la vuelta del bus de antes, en ms (tope 255)
+/// ```
+///
+/// Y `INFO_USB_LATIDO_CUANDO`: el tick en que paso (0 = nunca paso).
+pub fn latido_peor() -> u64 {
+    unsafe {
+        let ms = PEOR_RETRASO_MS.min(0xFFFF);
+        let tid = (PEOR_TID as u64) & 0xFF;
+        let suyo = PEOR_TID_MS.min(0xFFFF);
+        let ticks = PEOR_TICKS_DURANTE.min(0xFFFF);
+        let vuelta = (PEOR_VUELTA_US / 1000).min(0xFF);
+        ms | (tid << 16) | (suyo << 24) | (ticks << 40) | (vuelta << 56)
+    }
+}
+
+pub fn latido_peor_cuando() -> u64 {
+    unsafe { PEOR_TICK }
+}
+
 /// A partir de aqui un retraso deja de ser ruido y se dice en CABINA.
 ///
 /// Veinte milisegundos son CINCO latidos, y mas del doble de lo que pide un
@@ -482,6 +541,7 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
         // TSC medido: entonces se hace la vuelta igual y no se mide nada.
         let por_us = scheduler::tsc_freq() / 1_000_000;
         let mut t = scheduler::rdtsc();
+        let vuelta_t0 = t;
         pump_bus();
         t = anota(0, t, por_us);
         watch_rescue();
@@ -514,6 +574,9 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
         // ventana, que es como un contador se queda corto y nadie lo nota.
         cerrar_ventana(scheduler::rdtsc(), scheduler::tsc_freq());
         unsafe {
+            if por_us != 0 {
+                VUELTA_US = scheduler::rdtsc().wrapping_sub(vuelta_t0) / por_us;
+            }
             BUS_TURNS = BUS_TURNS.wrapping_add(1);
             // El latido se sella DESPUES de la vuelta, no antes: lo que
             // interesa saber es que la vuelta TERMINO. Un hilo que entra en
@@ -567,9 +630,57 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
         if aviso != 0 {
             crate::ring0::cabina::warn(
                 "usb", "el latido del bus llego TARDE (peor caso, en ms)", aviso);
+            acusar(aviso, por_ms);
+        }
+        // La foto de antes de dormir. Ver `FOTO_TICK`.
+        unsafe {
+            FOTO_TICK = crate::ring0::plat::timer::ticks();
+            FOTO_N = scheduler::ciclos_de_tareas(&mut *core::ptr::addr_of_mut!(FOTO_CICLOS));
         }
         scheduler::park_until(wake_at);
     }
+}
+
+/// **Quien se quedo el CPU mientras el bus esperaba.** Ver `FOTO_TICK`.
+///
+/// Se resta la foto de ahora contra la de antes de dormir. Cinco renglones y
+/// solo en un PEOR NUEVO por encima del umbral, por lo mismo que el aviso al
+/// que acompanan: un renglon por retraso taparia el que lo explica.
+fn acusar(ms: u64, por_ms: u64) {
+    use crate::ring0::task::scheduler;
+    let tick = crate::ring0::plat::timer::ticks();
+    let (foto_tick, n) = unsafe { (FOTO_TICK, FOTO_N) };
+    crate::ring0::cabina::id("usb", "...en el tick", tick);
+    crate::ring0::cabina::count(
+        "usb", "...y el reloj dio ticks mientras tanto (0 = interrupciones CERRADAS)",
+        tick.wrapping_sub(foto_tick));
+    let mut ahora = [(0u32, 0u64); scheduler::MAX_TASKS];
+    let m = scheduler::ciclos_de_tareas(&mut ahora);
+    let mut peor_tid = 0u32;
+    let mut peor_ciclos = 0u64;
+    let antes = unsafe { &*core::ptr::addr_of!(FOTO_CICLOS) };
+    for &(tid, c) in ahora[..m].iter() {
+        let previo = antes[..n].iter().find(|(t, _)| *t == tid).map_or(0, |(_, c0)| *c0);
+        let delta = c.wrapping_sub(previo);
+        if delta > peor_ciclos {
+            peor_ciclos = delta;
+            peor_tid = tid;
+        }
+    }
+    crate::ring0::cabina::id("usb", "...el CPU lo tuvo el tid", peor_tid as u64);
+    let suyo_ms = if por_ms != 0 { peor_ciclos / por_ms } else { 0 };
+    crate::ring0::cabina::count("usb", "...durante ms", suyo_ms);
+    crate::ring0::cabina::count(
+        "usb", "...y la vuelta anterior del bus costo us (si es ~ el retraso, fue ESTE hilo)",
+        unsafe { VUELTA_US });
+    unsafe {
+        PEOR_TICK = tick;
+        PEOR_TICKS_DURANTE = tick.wrapping_sub(foto_tick);
+        PEOR_TID = peor_tid;
+        PEOR_TID_MS = suyo_ms;
+        PEOR_VUELTA_US = VUELTA_US;
+    }
+    let _ = ms;
 }
 
 /// Starts [`bus_thread`]. Returns its tid, or `None` if there was no slot.

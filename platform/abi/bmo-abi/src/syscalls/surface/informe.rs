@@ -442,6 +442,19 @@ pub const INFO_PROG_REGION: u64 = 0x79;
 /// que son los que existen).
 pub const INFO_PROG_CIERRE: u64 = 0x7A;
 
+/// **El veredicto del PEOR retraso del latido del bus USB** (2026-09-21).
+///
+/// `el latido del bus llego TARDE 1266 ms` salio en dos saves seguidos y no
+/// decia QUIEN. Esto lo dice: `[0..16)` el retraso en ms, `[16..24)` el tid que
+/// tuvo el CPU mientras el bus esperaba, `[24..40)` cuantos de esos ms fueron
+/// suyos, `[40..56)` cuantos ticks dio el reloj durante el retraso (0 con un
+/// retraso grande = alguien tenia las interrupciones CERRADAS), `[56..64)` lo
+/// que costo la vuelta anterior del propio bus, en ms (si es ~ el retraso, el
+/// culpable era el bus). Todo cero = nunca llego tarde por encima del umbral.
+pub const INFO_USB_LATIDO: u64 = 0x7B;
+/// El tick del reloj en que paso ese peor retraso. `0` = nunca paso.
+pub const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de

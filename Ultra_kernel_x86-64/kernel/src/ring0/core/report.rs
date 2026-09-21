@@ -218,6 +218,10 @@ const INFO_PROG_QUIEN: u64 = 0x77;
 const INFO_PROG_IMAGEN: u64 = 0x78;
 const INFO_PROG_REGION: u64 = 0x79;
 const INFO_PROG_CIERRE: u64 = 0x7A;
+// El veredicto del peor retraso del latido del bus USB, y cuando fue. Ver
+// `dev/usb/bus.rs::latido_peor`.
+const INFO_USB_LATIDO: u64 = 0x7B;
+const INFO_USB_LATIDO_CUANDO: u64 = 0x7C;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -736,6 +740,8 @@ pub fn campo(n: u64) -> Option<u64> {
         // * Esta SI mira el hilo y no una foto, y puede: son dos `static`
         // del propio kernel, sin MMIO de por medio. Ver `dev/usb/bus.rs`.
         INFO_USB_RITMO => crate::ring0::dev::usb::ritmo_y_peor(),
+        INFO_USB_LATIDO => crate::ring0::dev::usb::latido_peor(),
+        INFO_USB_LATIDO_CUANDO => crate::ring0::dev::usb::latido_peor_cuando(),
         // * Las cuatro leen la foto que dejo `identify()` en el arranque, no el
         // aparato: mandar un IDENTIFY aqui seria hablarle al disco con el CR3
         // del programa que pregunta, y ademas robarle la unica ranura de

@@ -110,6 +110,31 @@ pub(crate) fn report_usb(s: &mut Output) {
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }
+    report_latido(s);
+}
+
+/// **El peor retraso del latido del bus, y QUIEN** (2026-09-21).
+///
+/// `[!] usb el latido del bus llego TARDE 1266 ms` salio en dos saves seguidos
+/// y era solo un numero. Esto es lo que lo explica, en el mismo informe.
+fn report_latido(s: &mut Output) {
+    let v = bmo::info(bmo::INFO_USB_LATIDO);
+    let cuando = bmo::info(bmo::INFO_USB_LATIDO_CUANDO);
+    let ms = v & 0xFFFF;
+    if ms == 0 && cuando == 0 {
+        fila_cero(s, b"latido tarde", 0, b"el bus nunca llego tarde por encima de 20 ms");
+        return;
+    }
+    let tid = (v >> 16) & 0xFF;
+    let suyo = (v >> 24) & 0xFFFF;
+    let ticks = (v >> 40) & 0xFFFF;
+    let vuelta = (v >> 56) & 0xFF;
+    fila(s, b"latido tarde", ms, b"ms", b"el PEOR retraso del hilo del bus USB (peor caso)");
+    fila(s, b"  en el tick", cuando, b"", b"cuando: ~1000 por segundo desde el arranque");
+    fila(s, b"  el reloj dio", ticks, b"ticks", b"mientras tanto; 0 con retraso grande = interrupciones CERRADAS");
+    fila(s, b"  el CPU lo tuvo", tid, b"tid", b"la tarea que corrio mientras el bus esperaba (4 = escritorio)");
+    fila(s, b"  durante", suyo, b"ms", b"de esos ms, los que fueron de ese tid");
+    fila(s, b"  la vuelta del bus", vuelta, b"ms", b"lo que costo la vuelta anterior; si es ~ el retraso, fue el BUS");
 }
 
 /// **Los prestamos: las ventanas.**
