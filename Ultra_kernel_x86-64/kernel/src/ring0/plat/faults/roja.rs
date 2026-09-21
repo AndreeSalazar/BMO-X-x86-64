@@ -325,6 +325,37 @@ extern "C" fn fault_dispatch(
                 crate::ring0::core::dashboard::dashboard_log(v.as_str());
             }
         }
+        // *** EL TAMANO DEL AGUJERO, EN EL SITIO QUE SE FOTOGRAFIA (2026-09-20).
+        //
+        // ** El 20-09 la autopsia acerto --"AGUJERO EN UN BLOQUE QUE EL KERNEL
+        // ENTREGO"-- y el numero que nombra al culpable no salio: lo mandaba a
+        // CABINA, que NO llega a este panel. Va aqui, por el mismo
+        // `dashboard_log` que el veredicto de encima, que es el unico canal que
+        // se ve cuando el que muere es el escritorio.
+        //
+        // Y en UN renglon las dos preguntas que parten el caso:
+        //
+        //    faltan N pag desde X     1 = un desmapeo; 512 alineado = una TABLA
+        //    nacieron rotos: M        0 = la pagina se perdio DESPUES
+        if let Some((faltan, desde)) = cap.agujero() {
+            let mut a = Line::new();
+            a.s("    faltan ");
+            a.dec(faltan);
+            a.s(" pag desde 0x");
+            a.hex(desde, 0);
+            if faltan == 512 && desde % (2 * 1024 * 1024) == 0 {
+                a.s(" = UNA TABLA");
+            }
+            a.s(" | nacieron rotos: ");
+            a.dec(crate::ring0::obj::memory::nacieron_rotos());
+            serial_write("[fault] ");
+            serial_write(a.as_str());
+            serial_write("
+");
+            if crate::info::has_fb() {
+                crate::ring0::core::dashboard::dashboard_log(a.as_str());
+            }
+        }
         // ** Y LA AUTOPSIA ENTERA, no una linea.
         //
         // La linea de arriba lleva el `rip` y nada mas: sirve para saber QUE

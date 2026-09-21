@@ -181,6 +181,16 @@ impl Captura {
         c
     }
 
+    /// **El agujero medido, para quien lo pinta:** `(paginas que faltan,
+    /// primera que falta)`. `None` si no se midio ninguno.
+    pub fn agujero(&self) -> Option<(u64, u64)> {
+        if self.agujero_pags == 0 {
+            None
+        } else {
+            Some((self.agujero_pags, self.agujero_ini))
+        }
+    }
+
     /// **Cuanto falta, y desde donde.** Solo se llama cuando el `cr2` cae
     /// dentro de un bloque entregado y no traduce.
     ///
@@ -220,7 +230,14 @@ impl Captura {
         }
         self.agujero_ini = ini;
         self.agujero_pags = n;
-        // *** Y SALE AL KERNEL LOG, no solo al informe (2026-09-20, tarde).
+        // *** Y AQUI PONIA "SALE AL KERNEL LOG", Y ERA FALSO (corregido 20-09).
+        //
+        // CABINA no llega al KERNEL LOG: va al anillo de eventos. Estas dos
+        // lineas se quedan --el anillo sobrevive y `save` las recoge-- pero lo
+        // que de verdad se VE lo pinta `plat/faults/roja.rs` leyendo
+        // [`Captura::agujero`], con el mismo `dashboard_log` que pinta el
+        // veredicto de encima. La frase de abajo se deja como estaba para que
+        // se lea que motivo la llevo aqui.
         //
         // ** La linea roja de la pantalla la escribe `veredicto_corto`, que es
         // `&'static str` y por eso no puede llevar numeros. Los numeros viven

@@ -276,6 +276,28 @@ pub fn titular_de_fisica(fisica: u64) -> Option<(u32, u64)> {
 
 
 /// La ranura de este proceso, si tiene una.
+/// **Cuantos bloques NACIERON con agujeros desde el arranque.**
+///
+/// *** POR QUE UN CONTADOR Y NO SOLO LA LINEA DE CABINA (2026-09-20)
+///
+/// La comprobacion de `request` avisa por CABINA, y CABINA **no llega al
+/// KERNEL LOG** -- el panel que se fotografia. Lo escribi el 20-09 dando por
+/// hecho que si, y no: CABINA va al anillo de eventos (`cabina`, F11, `save`).
+/// Y llamar a `dashboard_log` desde aqui no vale: esto corre dentro de un
+/// syscall con la pantalla cedida a Ring 3, y `dashboard.rs` avisa con todas
+/// las letras de que un llamante de fondo **pinta encima de la app**.
+///
+/// Asi que el dato viaja hasta donde SI se pinta sin pisar a nadie: la
+/// autopsia de Ring 3 lo lee y lo escribe en su propio renglon. Y con un solo
+/// numero parte el caso: **cero significa que ningun bloque nacio roto, o sea
+/// que la pagina se perdio DESPUES.**
+static NACIERON_ROTOS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Lo lee la autopsia. Ver [`NACIERON_ROTOS`].
+pub fn nacieron_rotos() -> u64 {
+    NACIERON_ROTOS.load(core::sync::atomic::Ordering::Relaxed)
+}
+
 /// **DONDE CAE UNA DIRECCION RESPECTO DE LO QUE ESTE PID TIENE ENTREGADO.**
 ///
 /// *** POR QUE EXISTE, Y ES UNA MENTIRA MENOS (2026-09-20)
@@ -569,6 +591,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
             crate::ring0::cabina::fault(
                 "mem", "EL BLOQUE NACE CON AGUJEROS: paginas sin traduccion", faltan);
             crate::ring0::cabina::addr("mem", "la primera que falta", primera);
+            NACIERON_ROTOS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
         }
     }
 
