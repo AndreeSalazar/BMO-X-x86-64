@@ -73,6 +73,12 @@ const CELL_W: u32 = 104;
 const CELL_H: u32 = 72;
 /// Donde empieza la rejilla. Debajo de la barra de titulo, con aire.
 const GRID_X: u32 = 24;
+
+/// Donde empieza la rejilla: a la derecha de la barra lateral, si esta a la
+/// vista (HUD 3). Un solo sitio, porque la rejilla se mide en cuatro.
+fn grid_x() -> u32 {
+    GRID_X + super::lateral::margen()
+}
 const GRID_Y: u32 = 56;
 
 const PIXELS: usize = (ICON_SIDE * ICON_SIDE) as usize;
@@ -224,10 +230,10 @@ impl Launcher {
     /// pulsando.
     pub fn app_at(&self, p: &bmo::Pantalla, x: u32, y: u32) -> Option<usize> {
         let per_row = self.per_row(p);
-        if per_row == 0 || y < GRID_Y || x < GRID_X {
+        if per_row == 0 || y < GRID_Y || x < grid_x() {
             return None;
         }
-        let col = (x - GRID_X) / CELL_W;
+        let col = (x - grid_x()) / CELL_W;
         let row = (y - GRID_Y) / CELL_H;
         if col >= per_row {
             return None;
@@ -241,17 +247,17 @@ impl Launcher {
     }
 
     fn per_row(&self, p: &bmo::Pantalla) -> u32 {
-        if p.ancho <= GRID_X * 2 {
+        if p.ancho <= grid_x() + GRID_X {
             return 0;
         }
-        ((p.ancho - GRID_X * 2) / CELL_W).max(1)
+        ((p.ancho - grid_x() - GRID_X) / CELL_W).max(1)
     }
 
     fn cell(&self, p: &bmo::Pantalla, i: usize) -> (u32, u32) {
         let per_row = self.per_row(p).max(1);
         let col = (i as u32) % per_row;
         let row = (i as u32) / per_row;
-        (GRID_X + col * CELL_W, GRID_Y + row * CELL_H)
+        (grid_x() + col * CELL_W, GRID_Y + row * CELL_H)
     }
 }
 
@@ -328,7 +334,7 @@ pub fn area(p: &bmo::Pantalla, l: &Launcher) -> (u32, u32, u32, u32) {
     let rows = ((l.count as u32) + per_row - 1) / per_row;
     let cols = (l.count as u32).min(per_row);
     (
-        GRID_X,
+        grid_x(),
         GRID_Y,
         cols * CELL_W,
         rows * CELL_H,

@@ -52,6 +52,35 @@ pub(crate) mod sonido;
 /// **EL BORDE DE FOCO**: cuando el foco cambia, el marco de la nueva lleva el
 /// acento y el de la vieja lo pierde. HUD 2.
 pub(crate) mod foco;
+/// **EL MOSAICO** (Super+T, HUD 4): las ventanas se reparten el area util,
+/// maestro y pila, sin taparse.
+pub(crate) mod mosaico;
+
+/// **La barra lateral aparecio o se fue** (Super+B, HUD 3): el area util y la
+/// rejilla cambian, asi que las ventanas se recolocan dentro de lo que queda
+/// (`fit`) y se repinta el escritorio entero. Las ventanas las repinta
+/// `foco::seguir` en la vuelta, al darle por perdido el borde.
+pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla) {
+    dsk.run_box.chrome.fit(p);
+    dsk.run_box.relayout();
+    // Con el mosaico puesto, el area cambio: que vuelva a repartir.
+    mosaico::recolocar();
+    dsk.win.data.chrome.fit(p);
+    dsk.win.data.relayout();
+    dsk.win.cabina.chrome.fit(p);
+    dsk.win.estructura.chrome.fit(p);
+    dsk.win.cpu.chrome.fit(p);
+    dsk.win.mem.chrome.fit(p);
+    dsk.win.sound.chrome.fit(p);
+    for i in 0..crate::scene::surface::MAX {
+        if let Some(s) = dsk.table.get_mut(i) {
+            s.chrome.fit(p);
+            s.repaint_all();
+        }
+    }
+    crate::repintar_escritorio(p, dsk, "barra lateral");
+    dsk.win.foco_pintado = None;
+}
 pub(crate) use boot::boot;
 /// **Which window is which.** An id is a TYPE here, not a loose `u8` -- the
 /// why is written where it lives, and it cost a repeated `3` to learn.

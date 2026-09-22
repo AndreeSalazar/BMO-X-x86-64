@@ -252,7 +252,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] H1 -- LA TECLA SUPER (2026-09-22)
 - [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
-- [ ] H3 -- LA BARRA LATERAL EN VIVO
+- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

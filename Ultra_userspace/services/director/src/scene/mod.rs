@@ -132,6 +132,9 @@ pub(crate) mod sound;
 /// **ESTRUCTURA, el taller (F1).** Escalon 1 de
 /// `docs/plan/PLAN_ESTRUCTURA.md`: la ventana y su confesion, sin terminal.
 pub(crate) mod estructura;
+/// **LA BARRA LATERAL EN VIVO** (HUD 3): lo que la maquina hace ahora, con su
+/// historia, en una columna que ninguna ventana pisa.
+pub(crate) mod lateral;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".
@@ -452,6 +455,9 @@ pub(crate) fn paint_background(p: &bmo::Pantalla) {
     // al borrar el cursor: la pastilla flotante o la tira de siempre, segun
     // `sys/director.cfg`. El filo de `TASKBAR_TOP` sigue en la de siempre.
     barra::pintar(p);
+    // Y la barra lateral se ha quedado debajo del fondo: la vuelta siguiente
+    // la pinta entera (HUD 3).
+    lateral::olvidar();
 }
 
 // -- La caja -------------------------------------------------------------
@@ -679,6 +685,10 @@ pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32
         // huecos de fondo. Ver `barra::color_en`.
         return barra::color_en(x, y, height);
     }
+    // Y la barra lateral, igual: su pastilla y su borde (HUD 3).
+    if let Some(col) = lateral::color_en(x, y, height) {
+        return col;
+    }
     // * Se pregunta por el rectangulo REDONDEADO y no por `contains`. Si el
     // modelo creyera que la caja es cuadrada, al taparla y destaparla quedarian
     // cuatro pellizcos de su color en las esquinas -- un redondeo que solo sabe
@@ -686,7 +696,9 @@ pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32
     if visible && inside_rounded(x, y, c.x, c.y, c.w(), c.h()) {
         let on_edge = !inside_rounded(x, y, c.x + 1, c.y + 1, c.w() - 2, c.h() - 2);
         if on_edge {
-            return BOX_EDGE;
+            // El borde de la terminal es del acento cuando tiene el foco (HUD 2):
+            // este modelo tiene que decir lo mismo que `paint_chrome`.
+            return if c.chrome.foco { acento() } else { BOX_EDGE };
         }
         // El acento va en `TITLE_H - 1`, que es donde lo pone `paint_chrome`.
         // Si este modelo dijera otra fila, destapar la caja dejaria la raya

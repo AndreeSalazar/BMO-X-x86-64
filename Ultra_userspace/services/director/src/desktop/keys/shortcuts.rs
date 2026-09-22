@@ -83,6 +83,26 @@ if super_ && (c == b'm' || c == b'M') {
 //
 // Va con `Alt` por lo mismo que el Tab y la M, y por una razon mas: es el
 // atajo que ya esta en los dedos de cualquiera que haya jugado a algo.
+// ** SUPER+B: LA BARRA LATERAL, fuera o dentro (HUD 3). Cambia el area util y
+// la rejilla, asi que se repinta el escritorio entero, y las ventanas que la
+// columna pisaria se corren (`fit` ya lee el tope nuevo).
+if super_ && (c == b'b' || c == b'B') {
+    scene::lateral::alternar();
+    crate::desktop::lateral_cambio(dsk, &p);
+    return Key::Taken;
+}
+// ** SUPER+T: EL MOSAICO, puesto o quitado (HUD 4). Se dice en la linea de
+// estado, porque un modo que cambia en silencio se descubre tarde.
+if super_ && (c == b't' || c == b'T') {
+    crate::desktop::mosaico::alternar(dsk, &p);
+    let dice = if crate::desktop::mosaico::encendido() {
+        "mosaico: las ventanas se reparten la pantalla (Super+T lo quita)"
+    } else {
+        "mosaico quitado: las ventanas se quedan donde estan"
+    };
+    paint_status(&p, &dsk.run_box, dice, acento());
+    return Key::Taken;
+}
 // ** SUPER+ENTER: EJECUTAR, delante y con el teclado. Es el "abre la terminal"
 // de Hyprland, y aqui la terminal es la casa.
 if super_ && (c == 0x0D || c == 0x0A) {

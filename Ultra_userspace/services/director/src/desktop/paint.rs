@@ -385,6 +385,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // repintan si su texto cambio. Ver `scene::barra`.
     if dsk.tick.will_paint && !fs {
         scene::barra::widgets(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete));
+        // HUD 3: la barra lateral toma su muestra (4 por segundo) y se repinta.
+        scene::lateral::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete), dsk.tick.loops_per_second);
         // Y el MAESTRO: su indicador en la barra y, si el panel esta abierto,
         // su medidor. Se mira a su propio ritmo, no al de estos widgets.
         crate::desktop::sonido::latido(dsk, &p);

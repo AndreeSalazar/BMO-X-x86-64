@@ -21,7 +21,7 @@ cabe en una linea, no es una pieza: son dos, o es decoracion.
    pieza                    el motivo
    H1  la tecla Super       el gestor tiene tecla PROPIA y no le quita ninguna a nadie
    H2  borde + huecos       ver de un vistazo a DONDE van las teclas
-   H3  la barra lateral     lo abierto y lo que hace la maquina, SIN abrir nada
+   H3  la barra lateral     lo que hace la maquina, SIN abrir nada
    H4  el mosaico           ninguna ventana TAPA a otra, y no se ordena a mano
 ```
 
@@ -88,22 +88,53 @@ dia que lo tenga no haya escrito una `x` antes.
 | clic en CABINA con Datos abierta | CABINA con borde azul, Datos con el suyo | los dos azules: `seguir` no corre |
 | Super+izquierda y Super+derecha en dos ventanas | 8 px entre ellas y con los bordes | pegadas: `snap` no mide en `area_util` |
 
-## [ ] H3 -- LA BARRA LATERAL EN VIVO
+## [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 
-**Motivo:** lo abierto y lo que hace la maquina, sin abrir nada.
+> Codigo hecho; se cierra cuando el metal diga la tabla.
 
-Una columna a la izquierda. Arriba, las apps (se lanzan con un clic); en
-medio, las ventanas abiertas (la del foco resaltada); abajo, lo que la maquina
-hace AHORA: CPU, memoria, vatios, el medidor del sonido. Super+B la esconde.
-`area_util` le deja su columna: encajar, maximizar y el mosaico no la pisan.
+**Motivo:** ver lo que hace la maquina, sin abrir nada.
 
-## [ ] H4 -- EL MOSAICO
+Al escribirla el motivo se afino: "lo abierto" ya lo dicen las fichas de
+arriba, y ponerlo otra vez aqui era dos sitios para lo mismo. La barra es el
+HUD EN TIEMPO REAL: una columna de 112 px con cinco instrumentos --cpu,
+memoria, vatios, pulso (vueltas del escritorio) y sonido (el medidor del
+maestro)--, cada uno con su cifra y su grafica de los ultimos 11 s (44
+muestras a 4 por segundo). Super+B la esconde.
+
+* `scene/lateral.rs`: su caja, su color para `scene_color`, la historia y el
+  pintado. Las mismas cuentas que la barra de arriba.
+* La columna es RESERVADA (la `exclusive zone` de Hyprland): `area_util`, los
+  topes del arrastre, de las flechas y de `fit`, y la rejilla de iconos leen
+  `lateral::margen()`. Por eso su repintado de 4 Hz nunca pinta encima de una
+  ventana.
+
+| que | afirma | como se cae |
+|---|---|---|
+| arrancar el escritorio | la columna a la izquierda, con las cinco graficas moviendose | vacia: `latido` no corre o `will_paint` no llega |
+| DOOM sonando | la grafica de sonido sube en verde/ambar | quieta: el medidor del maestro no se lee |
+| arrastrar una ventana a la izquierda | se para en el borde de la columna | la tapa: un tope no lee `margen()` |
+| Super+B | se va, y la rejilla y las ventanas ocupan su sitio | queda un trozo pintado: `repintar_escritorio` no la borra |
+
+## [ ] H4 -- EL MOSAICO (2026-09-22)
+
+> Codigo hecho; se cierra cuando el metal diga la tabla.
 
 **Motivo:** ninguna ventana tapa a otra, y no se ordena a mano.
 
-Super+T lo enciende y lo apaga. Con el mosaico puesto, las ventanas abiertas
-se reparten `area_util` como en el `dwindle` de Hyprland: la primera entera;
-con dos, mitades; cada nueva parte en dos la ultima. Con huecos.
+Super+T lo enciende y lo apaga (y lo dice en la linea de estado). Al
+escribirlo se eligio MAESTRO Y PILA (dwm, el `master` de Hyprland) y no
+`dwindle`: es el que se predice sin mirar. Una ventana: el area util entera;
+dos o mas: la primera a la izquierda, las demas apiladas a la derecha, con
+huecos. La primera es la app si hay una, si no Ejecutar. Solo recoloca
+cuando CAMBIA que ventanas hay (`desktop/mosaico.rs`), asi que arrastrar una
+no se pelea con la mano.
+
+| que | afirma | como se cae |
+|---|---|---|
+| Super+T con Ejecutar y Datos abiertas | Ejecutar a la izquierda, Datos a la derecha, sin taparse | nada se mueve: `seguir` no corre o la firma no cambia |
+| abrir CABINA (F11) con el mosaico puesto | la pila de la derecha se parte en dos | se abre encima: la firma no ve la ventana nueva |
+| con DOOM en ventana | DOOM a la izquierda, lo demas apilado | DOOM no se mueve: su marco no se coloca |
+| lo que se dice | una ventana con minimo mayor que su hueco (Ejecutar) asoma: es a proposito | -- |
 
 ---
 

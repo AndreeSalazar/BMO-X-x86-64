@@ -141,12 +141,20 @@ pub(crate) const HUECO: u32 = 8;
 /// sitio: el dia que la barra lateral ocupe su columna, cambia esta cuenta y
 /// nada mas.
 pub(crate) fn area_util(p: &bmo::Pantalla) -> (u32, u32, u32, u32) {
+    let izq = super::lateral::margen();
     (
-        HUECO,
+        izq + HUECO,
         TASKBAR_H + HUECO,
-        p.ancho.saturating_sub(2 * HUECO),
+        p.ancho.saturating_sub(izq + 2 * HUECO),
         p.alto.saturating_sub(TASKBAR_H + 2 * HUECO),
     )
+}
+
+/// **Lo mas a la izquierda que puede estar una ventana**: la columna de la
+/// barra lateral es RESERVADA (HUD 3). Los topes del arrastre, de las flechas y
+/// de `fit` la leen aqui, para que ninguna mano deje una ventana encima.
+fn tope_izq() -> u32 {
+    super::lateral::margen()
 }
 
 impl Chrome {
@@ -168,12 +176,13 @@ impl Chrome {
     ) -> Self {
         let width = (p.ancho * pct_w / 100)
             .max(min_w)
-            .min(p.ancho.saturating_sub(16));
+            .min(p.ancho.saturating_sub(16 + tope_izq()));
         let height = (p.alto * pct_h / 100)
             .max(min_h)
             .min(p.alto.saturating_sub(TASKBAR_H + 16));
         Self {
-            x: p.ancho.saturating_sub(width) / 2,
+            // Centrada, y nunca en la columna de la barra lateral.
+            x: (p.ancho.saturating_sub(width) / 2).max(tope_izq()),
             // Centrada en el hueco que queda BAJO la barra del sistema, no en
             // la pantalla: centrarla en la pantalla la deja siempre un poco
             // alta, y con la barra encima parece descolocada.
@@ -207,10 +216,10 @@ impl Chrome {
     /// Se recorta contra el panel: una app puede pedir una superficie mas grande
     /// que la pantalla, y una ventana que no cabe no se puede ni agarrar.
     pub(crate) fn for_content(p: &bmo::Pantalla, width: u32, height: u32) -> Self {
-        let width = (width + 2).min(p.ancho.saturating_sub(16)).max(3 * BTN_SIDE + 16);
+        let width = (width + 2).min(p.ancho.saturating_sub(16 + tope_izq())).max(3 * BTN_SIDE + 16);
         let height = (height + TITLE_H + 1).min(p.alto.saturating_sub(TASKBAR_H + 16));
         Self {
-            x: p.ancho.saturating_sub(width) / 2,
+            x: (p.ancho.saturating_sub(width) / 2).max(tope_izq()),
             y: TASKBAR_H + (p.alto.saturating_sub(TASKBAR_H + height)) / 2,
             width,
             height,
@@ -368,7 +377,10 @@ impl Chrome {
     /// lo que habia agarrado.
     pub(crate) fn follow_pointer(&mut self, p: &bmo::Pantalla, px: u32, py: u32) -> bool {
         if let Some((ax, ay)) = self.drag {
-            let nx = px.saturating_sub(ax).min(p.ancho.saturating_sub(self.width));
+            let nx = px
+                .saturating_sub(ax)
+                .min(p.ancho.saturating_sub(self.width))
+                .max(tope_izq());
             // Nunca por encima de la barra del sistema: una ventana con el asa
             // debajo de la barra no se puede volver a coger.
             let ny = py
@@ -425,7 +437,7 @@ impl Chrome {
             return false;
         }
         let (nx, ny) = match heading {
-            Heading::Left => (self.x.saturating_sub(KEY_STEP), self.y),
+            Heading::Left => (self.x.saturating_sub(KEY_STEP).max(tope_izq()), self.y),
             Heading::Right => (
                 (self.x + KEY_STEP).min(p.ancho.saturating_sub(self.width)),
                 self.y,
@@ -529,17 +541,31 @@ impl Chrome {
         old
     }
 
+    /// **Ponerla en un sitio EXACTO** (el mosaico, HUD 4). Por debajo de su
+    /// minimo no se encoge: una ventana inservible es peor que una que asoma.
+    /// Deja de estar maximizada y suelta cualquier agarre a medias.
+    pub(crate) fn colocar(&mut self, x: u32, y: u32, w: u32, h: u32) {
+        self.x = x;
+        self.y = y;
+        self.width = w.max(self.min_w);
+        self.height = h.max(self.min_h);
+        self.saved = None;
+        self.drag = None;
+        self.resizing = false;
+    }
+
     /// Recoloca la ventana si se ha quedado fuera del panel.
     ///
     /// Hace falta al restaurar una minimizada y al cambiar de resolucion: una
     /// geometria guardada puede haber dejado de ser valida mientras no se veia.
     pub(crate) fn fit(&mut self, p: &bmo::Pantalla) {
-        self.width = self.width.min(p.ancho).max(self.min_w.min(p.ancho));
+        let libre = p.ancho.saturating_sub(tope_izq());
+        self.width = self.width.min(libre).max(self.min_w.min(libre));
         self.height = self
             .height
             .min(p.alto.saturating_sub(TASKBAR_H))
             .max(self.min_h.min(p.alto));
-        self.x = self.x.min(p.ancho.saturating_sub(self.width));
+        self.x = self.x.min(p.ancho.saturating_sub(self.width)).max(tope_izq());
         self.y = self
             .y
             .max(TASKBAR_H)

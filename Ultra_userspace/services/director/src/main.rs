@@ -1147,6 +1147,8 @@ pub extern "C" fn _start() -> ! {
         // HUD 2: si el foco cambio en esta vuelta (teclado, raton, una app que
         // nace), el borde del acento se muda. Antes de componer, para que salga
         // en el mismo fotograma.
+        // HUD 4: con el mosaico puesto, si cambio QUE ventanas hay, se reparten.
+        desktop::mosaico::seguir(&mut dsk, &p);
         desktop::foco::seguir(&mut dsk, &p);
         desktop::paint::compose(&mut dsk, &p, dead);
 
