@@ -204,6 +204,20 @@ pub struct ObservedSyscall {
     pub capability: u64,
     pub operation: u64,
     pub arg0: u64,
+    /// **El cuarto argumento, el que viaja en `r10`** (2026-09-22).
+    ///
+    /// *** ESTO FALTABA, Y ERA UN INSTRUMENTO CIEGO. La puerta lleva CINCO
+    /// argumentos y esta estructura guardaba tres, asi que **ninguna prueba
+    /// del banco podia mirar `a1` ni `a2`**. Y ahi es justo por donde pasa el
+    /// dato del audio: `bmo_tubo(cap, campo, dato)` reenvia `campo` a `a0` y
+    /// `dato` a `a1`, que es la forma con la que DOOM pide su tubo.
+    ///
+    /// El 22-09 esa emision se comprobo A MANO, desensamblando el `.bex`. Salio
+    /// correcta -- pero una comprobacion a mano no vuelve a correr sola. Con
+    /// estos dos campos, la misma afirmacion es una fila del banco.
+    pub arg1: u64,
+    /// Y el quinto, en `r8`.
+    pub arg2: u64,
 }
 
 /// Un archivo abierto dentro del emulador.

@@ -418,13 +418,10 @@ Y tres cosas que hubo que quitar de en medio, todas dichas donde pasan:
    que se salta. Van en `doomgeneric_bmo.c` **antes** del agregado, porque BMO
    C resuelve los nombres en el orden en que los lee.
 
-**El precio, y es un arreglo dicho como tal**: el bufer prestado es LINEAL, no un
-anillo (el kernel sirve desde `fisica + leido` y el juez rechaza lo que se
-sale). Para seguir sonando hay que volver a ofrecerlo, y eso pone los indices a
-cero -- o sea que hay que esperar a que el aparato consuma todo. Con 4 MiB eso
-pasa **una vez cada 21,8 s** y cuesta unos milisegundos de silencio que el tubo
-rellena solo y cuenta como `huecos`. Lo correcto es que el bufer sea un ANILLO
-en el kernel; se apunta y no se finge.
+**El precio que esto tenia, y que ya NO tiene** (ver 5.3c): el bufer prestado
+se usaba como si fuera lineal, con 4 MiB y un re-ofrecer cada 21,8 segundos.
+Era un rodeo, este fichero lo decia, y el propietario lo mando quitar: *"que no
+sea parche, cambiar piezas"*. Se cambio la pieza en el kernel.
 
 DOOM compila con el: **740.232 B**, +8.440 sobre la version muda (+1,2 %).
 
@@ -502,6 +499,72 @@ DOOM: **740.784 B**. Sin metal todavia.
 | el `intento N` | dice si entro a la primera o por la escalera del bus | -- |
 | el `save` despues | ya NO sale `el propietario del sonido MURIO` con el pid de DOOM | si sale, queda una salida sin soltar |
 
+## [X] 5.3c -- EL BUFER PRESTADO ES UN ANILLO DE VERDAD (2026-09-22)
+
+El propietario, al leer el arreglo de los 4 MiB: *"fijate que no sea parche... NO
+PARCHE, si CAMBIAR piezas y madurar"*. Tenia razon, y la pieza estaba en el
+kernel.
+
+### Lo que habia: un circulo de palabra
+
+`dev/usb/audio.rs` decia en un comentario que *"el bufer es circular por acuerdo
+con la app, que reinicia su `escrito` al mismo tiempo"*. Pero:
+
+```rust
+let hay = p.escrito.checked_sub(p.leido)?;   // <- el atasco
+```
+
+**En cuanto la app daba la vuelta**, `escrito` quedaba por DEBAJO de `leido`, la
+resta devolvia `None` y el tubo se quedaba sin nada que mandar **hasta que
+`leido` llegara al final** -- que no llegaba, porque `leido` solo avanza cuando
+hay algo que mandar. Un punto muerto.
+
+Por eso todos los productores acabaron inventandose el mismo rodeo: volver a
+OFRECER el bloque para poner los dos indices a cero. `musica.inti` lo hace en
+`vacia()`; el modulo de DOOM lo hacia en `bmo_snd_sitio`. **Dos programas con
+el mismo parche para el mismo agujero es la prueba de que el agujero es de la
+pieza, no de los programas.**
+
+Y habia una segunda mitad: el bufer daba la vuelta en `bytes`, y `bytes` no
+tiene por que ser multiplo de una trama (4.096 entre 192 son 21 y sobran 64).
+El corte caia en mitad de una muestra, y **la app no tenia forma de saber
+donde**, porque nadie se lo decia.
+
+### Lo que hay: un anillo con su medida dicha
+
+| pieza | que cambia |
+|---|---|
+| `Prestado.anillo` | `bytes` redondeado hacia abajo a tramas enteras. Una trama **no cruza nunca** el final |
+| `hay_en()` | cuenta la vuelta: `escrito >= leido` es la resta; si no, `(anillo - leido) + escrito` |
+| `escrito()` | dar la vuelta es LEGAL, y el tope es el anillo, no `bytes` |
+| `siguiente_trama()` | usa `hay_en` y envuelve en `anillo` |
+| `BMO_TUBO_ANILLO` (campo 14) | **la app pregunta donde dar la vuelta en vez de adivinarlo**, en C y en Rust |
+
+Y lo que se cae solo detras:
+
+* DOOM pasa de **4 MiB a 256 KiB** --dieciseis veces menos memoria-- y
+  `bmo_snd_sitio` desaparece. Ya no hay silencios cada 21,8 s.
+* `musica.inti` deja de poder escribir mas alla del anillo: su `medida_pcm`
+  separa el bloque (4 MiB) de lo escribible, con el margen de una trama larga
+  (1 KiB) porque esa funcion no tiene el handle para preguntar y en INTI no hay
+  globales donde guardarlo. Su `vacia()` sigue valiendo: re-ofrecer no esta
+  prohibido, solo ha dejado de ser obligatorio.
+
+### Y lo del compilador: la comprobacion a mano pasa a ser una FILA
+
+Antes de tocar nada se desensamblo la llamada y salio **correcta** (ver 5.3b).
+Pero una comprobacion a mano no vuelve a correr sola, y el banco **no podia
+hacerla**: `ObservedSyscall` guardaba tres de los cinco argumentos de la
+puerta, asi que **ninguna prueba podia mirar `a1`** -- que es justo por donde
+viaja el `dato` de `bmo_tubo`.
+
+Ahora el emulador observa los cinco, y `convencion.rs` tiene la fila
+`el_reenvio_de_dos_parametros_llega_a_r10`: dos parametros reenviados a las
+ranuras tercera y cuarta, que es la forma exacta con la que se pide el tubo. Si
+alguien pisa `rdx` antes de tiempo, `a1` llegaria con el valor de `a0` y la
+fila cae.
+
+DOOM: **740.098 B**. Sin metal todavia.
 ---
 
 # La cuenta, para poder repartir

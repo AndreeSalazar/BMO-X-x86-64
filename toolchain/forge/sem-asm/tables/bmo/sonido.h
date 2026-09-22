@@ -118,6 +118,15 @@
  * llega. Es de la APP, al reves que `tarde`. */
 #define BMO_TUBO_HUECOS 12
 #define BMO_TUBO_SOLTAR 13
+/* **La medida del ANILLO**: `bytes` del bloque redondeado hacia abajo a un
+ * numero entero de tramas. Es DONDE hay que dar la vuelta.
+ *
+ * *** SIN ESTE NUMERO EL ANILLO NO ERA UN ANILLO (2026-09-22). El bufer daba
+ * la vuelta en el kernel y la app tenia que adivinar donde; y como `bytes` no
+ * suele ser multiplo de una trama (4.096 entre 192 son 21 y sobran 64), el
+ * corte caia en mitad de una muestra. Ahora las dos partes dan la vuelta en el
+ * mismo sitio, y una trama no cruza nunca el final. */
+#define BMO_TUBO_ANILLO 14
 
 /* Tope de duracion de un pitido, en ms. El kernel recorta igual; esto solo
  * evita la sorpresa de pedir 5000 y recibir 250. */

@@ -126,6 +126,7 @@ const TUBO_LEIDO: u64 = 10;
 const TUBO_PENDIENTES: u64 = 11;
 const TUBO_HUECOS: u64 = 12;
 const TUBO_SOLTAR: u64 = 13;
+const TUBO_ANILLO: u64 = 14;
 
 impl Sonido {
     /// El tubo de este aparato, mientras se tenga el sonido reclamado.
@@ -223,6 +224,21 @@ impl Tubo<'_> {
     /// separa "suena bien" de "chasquea".**
     pub fn tarde(&self) -> u64 {
         self.pedir(TUBO_TARDE, 0)
+    }
+
+    /// **La medida del ANILLO**: los bytes del bloque redondeados hacia abajo
+    /// a un numero entero de tramas. **Es donde hay que dar la vuelta.**
+    ///
+    /// *** SIN ESTE NUMERO EL ANILLO NO ERA UN ANILLO (2026-09-22). El kernel
+    /// daba la vuelta en `bytes` y la app tenia que adivinarlo; y como
+    /// `bytes` no suele ser multiplo de una trama, el corte caia en mitad de
+    /// una muestra. Peor: `pendientes` se calculaba con una resta a secas, y
+    /// **en cuanto la app daba la vuelta el tubo se quedaba sin nada que
+    /// mandar** hasta que el aparato llegara al final -- lo que no pasaba
+    /// nunca. Por eso todos los productores acababan volviendo a OFRECER el
+    /// bloque para poner los indices a cero: un rodeo, no un esquema.
+    pub fn anillo(&self) -> u64 {
+        self.pedir(TUBO_ANILLO, 0)
     }
 
     /// Devolver el bloque. Se hace solo si el proceso muere, pero un programa

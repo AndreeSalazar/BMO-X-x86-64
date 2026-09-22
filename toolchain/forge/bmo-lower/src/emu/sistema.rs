@@ -572,6 +572,9 @@ impl Machine {
             capability: self.regs[RDI],
             operation: self.regs[RSI],
             arg0: self.regs[RDX],
+            // Los dos que ya se leian mas abajo y no se guardaban.
+            arg1: self.regs[R10],
+            arg2: self.regs[crate::x86::R8 as usize],
         };
         self.syscalls.push(call);
 

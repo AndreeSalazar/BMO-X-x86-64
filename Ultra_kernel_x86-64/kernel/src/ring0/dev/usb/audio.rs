@@ -527,10 +527,46 @@ struct Prestado {
     /// La base FISICA. Los `bytes` siguientes van seguidos.
     fisica: u64,
     bytes: u64,
-    /// **Hasta donde ha escrito la app.** Lo mueve ella.
+    /// **La medida del ANILLO: `bytes` redondeado hacia abajo a un numero
+    /// entero de tramas.**
+    ///
+    /// *** ESTO ES LA PIEZA QUE FALTABA (2026-09-22). Antes el bufer daba la
+    /// vuelta en `bytes`, y `bytes` no tiene por que ser multiplo de una
+    /// trama: 4.096 entre 192 son 21 tramas y sobran 64 bytes. Al dar la
+    /// vuelta quedaba un trozo de media trama que ni se mandaba ni se
+    /// saltaba, y la app no tenia forma de saber donde estaba el corte --
+    /// porque **nadie se lo decia**. Con el anillo dicho (`BMO_TUBO_ANILLO`)
+    /// las dos partes dan la vuelta en el MISMO sitio, y una trama no cruza
+    /// nunca el final: `anillo` es multiplo de `largo` y `leido` avanza de
+    /// `largo` en `largo`.
+    anillo: u64,
+    /// **Hasta donde ha escrito la app**, como desplazamiento dentro del
+    /// anillo. Lo mueve ella, y puede dar la vuelta.
     escrito: u64,
-    /// **Por donde va el tubo.** Lo mueve el latido.
+    /// **Por donde va el tubo.** Lo mueve el latido, y da la vuelta en
+    /// `anillo`.
     leido: u64,
+}
+
+/// **Cuantos bytes hay escritos y sin mandar**, contando la vuelta.
+///
+/// *** AQUI ESTABA EL ATASCO, Y ERA DE VERDAD. Esto era
+/// `escrito.checked_sub(leido)?`, o sea que **en cuanto la app daba la vuelta
+/// --lo que la propia nota de este fichero le decia que hiciera-- `escrito`
+/// quedaba por DEBAJO de `leido`, la resta daba `None` y el tubo se quedaba
+/// sin nada que mandar hasta que `leido` llegara al final**. Que no llegaba,
+/// porque solo avanza cuando hay algo que mandar. Un punto muerto.
+///
+/// Por eso todo el mundo --`musica.inti` y el modulo de DOOM-- acababa
+/// volviendo a OFRECER el bloque para poner los dos indices a cero: el
+/// "acuerdo circular" no funcionaba, y cada uno se invento su propio rodeo.
+fn hay_en(p: &Prestado) -> u64 {
+    if p.escrito >= p.leido {
+        p.escrito - p.leido
+    } else {
+        // La app dio la vuelta: lo que queda hasta el final, mas lo de delante.
+        (p.anillo - p.leido) + p.escrito
+    }
 }
 
 static mut PRESTADO: Option<Prestado> = None; // [escribe] ambos
@@ -557,19 +593,34 @@ pub fn ofrecer(pid: u32, va: u64, bytes: u64) -> bool {
         cabina::warn("audio", "no hay tubo abierto al que ofrecer", 0);
         return false;
     }
-    unsafe { PRESTADO = Some(Prestado { pid, fisica, bytes, escrito: 0, leido: 0 }) };
+    // El anillo: `bytes` redondeado hacia abajo a un numero entero de tramas.
+    // Lo de arriba se descarta a proposito -- media trama no se manda nunca
+    // (ver `siguiente_trama`), asi que tenerla dentro del anillo solo serviria
+    // para que el corte cayera en mitad de una muestra.
+    let largo = unsafe { TUBO.map(|t| t.bytes_por_trama as u64).unwrap_or(0) };
+    let anillo = if largo > 0 && bytes >= largo { bytes - (bytes % largo) } else { bytes };
+    unsafe { PRESTADO = Some(Prestado { pid, fisica, bytes, anillo, escrito: 0, leido: 0 }) };
     cabina::bytes("audio", "bufer PRESTADO al tubo, bytes", bytes);
+    cabina::bytes("audio", "  ...y su ANILLO (tramas enteras), bytes", anillo);
     true
 }
 
-/// La app dice **hasta donde ha escrito**. Es uno de los dos numeros que cruzan.
+/// La app dice **hasta donde ha escrito**, como desplazamiento dentro del
+/// anillo. Es uno de los dos numeros que cruzan.
 ///
-/// [!] Solo puede CRECER dentro de la vuelta. Un `escrito` que retroceda seria
-/// la app pisando lo que el aparato todavia no ha leido, y eso se oye.
+/// **Dar la vuelta es legal**: un `escrito` menor que el de antes significa que
+/// la app volvio al principio, no que se haya equivocado. El tope es el ANILLO
+/// --no `bytes`-- porque el trozo de arriba no es parte del circulo.
+///
+/// [!] Lo que este contrato NO puede comprobar es que la app no PISE lo que el
+/// aparato aun no ha leido: los dos indices no bastan para distinguir "el
+/// anillo esta vacio" de "esta lleno". Se dice aqui en vez de fingir que hay
+/// una comprobacion: el que escribe mira `pendientes` y no pasa del anillo.
+/// Lo que si esta protegido es la MEMORIA, y eso lo hace el juez del DMA.
 pub fn escrito(pid: u32, hasta: u64) -> bool {
     unsafe {
         match PRESTADO.as_mut() {
-            Some(p) if p.pid == pid && hasta <= p.bytes => {
+            Some(p) if p.pid == pid && hasta <= p.anillo => {
                 p.escrito = hasta;
                 true
             }
@@ -578,16 +629,21 @@ pub fn escrito(pid: u32, hasta: u64) -> bool {
     }
 }
 
+/// La medida del anillo, para que la app de la vuelta en el MISMO sitio.
+pub fn anillo() -> u64 {
+    unsafe { PRESTADO.map(|p| p.anillo).unwrap_or(0) }
+}
+
 /// Y el tubo dice **por donde va**. El otro numero.
 pub fn leido() -> u64 {
     unsafe { PRESTADO.map(|p| p.leido).unwrap_or(0) }
 }
 
-/// Cuantos bytes hay listos y sin entregar.
+/// Cuantos bytes hay listos y sin entregar, contando la vuelta.
 pub fn pendientes() -> u64 {
     unsafe {
         match PRESTADO {
-            Some(p) => p.escrito.saturating_sub(p.leido),
+            Some(p) => hay_en(&p),
             None => 0,
         }
     }
@@ -656,7 +712,7 @@ pub fn soltar(pid: u32) {
 fn siguiente_trama(largo: u64) -> Option<(u64, u16)> {
     unsafe {
         let p = PRESTADO.as_mut()?;
-        let hay = p.escrito.checked_sub(p.leido)?;
+        let hay = hay_en(p);
         if hay < largo {
             // ** MEDIA TRAMA NO SE MANDA. Entregar los bytes que hay y rellenar
             // con lo que fuera es inventar muestras -- y lo que se inventa en
@@ -713,9 +769,11 @@ fn siguiente_trama(largo: u64) -> Option<(u64, u16)> {
             return None;
         }
         p.leido += largo;
-        // La vuelta al principio: el bufer es circular por acuerdo con la app,
-        // que reinicia su `escrito` al mismo tiempo.
-        if p.leido >= p.bytes {
+        // **La vuelta, en el sitio que la app CONOCE** (`BMO_TUBO_ANILLO`), no
+        // en uno que tuviera que adivinar. Y una trama no cruza nunca el
+        // final: `anillo` es multiplo de `largo` y esto avanza de `largo` en
+        // `largo` desde cero.
+        if p.leido >= p.anillo {
             p.leido = 0;
         }
         Some((desde, largo as u16))

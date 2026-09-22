@@ -349,6 +349,9 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
                 10 => tubo::leido(),
                 11 => tubo::pendientes(),
                 12 => tubo::huecos(),
+                // La medida del ANILLO, para que la app de la vuelta donde
+                // el kernel la da. Sin esto tenia que adivinarla.
+                14 => tubo::anillo(),
                 13 => {
                     let pid = crate::ring0::task::scheduler::current_pid();
                     tubo::soltar(pid);

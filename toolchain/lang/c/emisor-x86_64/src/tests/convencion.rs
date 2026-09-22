@@ -111,6 +111,47 @@ fn el_reenvio_mueve_los_registros_y_salta() {
     assert_eq!(v[0], (0, 0xFFFF_FFFF_FFFF_FFFE, 3, 77));
 }
 
+/// **LA FORMA CON LA QUE SE LLAMA AL AUDIO**, y por que tiene fila propia.
+///
+/// `<bmo/sonido.h>` envuelve el tubo asi:
+///
+/// ```c
+///    bmo_tubo(cap, campo, dato)  ->  bmo_valor(cap, BMO_SONIDO_TUBO, campo, dato, 0)
+/// ```
+///
+/// O sea: **DOS parametros reenviados a las ranuras tercera y cuarta** de una
+/// llamada de cinco, y la cuarta viaja en `r10` porque `syscall` machaca
+/// `rcx`. La fila de arriba cubre UN parametro reenviado; esta cubre dos, que
+/// es la que DOOM usa para pedir su tubo.
+///
+/// *** Y TIENE FILA PORQUE EL 22-09 SE COMPROBO A MANO. DOOM salio mudo, se
+/// sospecho del emisor y se desensamblo el `.bex`: la emision estaba bien
+/// --`mov rcx, rdx` ANTES de pisar `rdx`, y `mov r10, rcx` en la puerta-- y el
+/// fallo era de otro sitio. Pero una comprobacion a mano no vuelve a correr
+/// sola, y el banco no podia hacerla: `ObservedSyscall` guardaba tres
+/// argumentos de cinco. Ahora guarda los cinco y esto es una fila.
+#[test]
+fn el_reenvio_de_dos_parametros_llega_a_r10() {
+    let m = run_c_maquina(
+        "unsigned long puerta(unsigned long cap, unsigned long op, unsigned long a0, unsigned long a1, unsigned long a2) { \
+           return __syscall(0, cap, op, a0, a1, a2); } \
+         unsigned long tubo(unsigned long cap, unsigned long campo, unsigned long dato) { \
+           return puerta(cap, 5, campo, dato, 0); } \
+         int main() { tubo(0x11, 9, 1234); tubo(0x11, 0, 0); return 0; }",
+    );
+    let v: Vec<(u64, u64, u64, u64, u64)> = m
+        .syscalls
+        .iter()
+        .map(|s| (s.capability, s.operation, s.arg0, s.arg1, s.arg2))
+        .collect();
+    // `campo` a la tercera ranura y `dato` a la cuarta, sin pisarse: el orden
+    // en que el emisor mueve los registros es lo unico que separa esto de
+    // mandar `dato` dos veces.
+    assert_eq!(v[0], (0x11, 5, 9, 1234, 0));
+    // Y con los dos a cero, que es como DOOM pregunta si hay tubo.
+    assert_eq!(v[1], (0x11, 5, 0, 0, 0));
+}
+
 /// La RESIDENCIA: en una funcion hoja los dos primeros parametros viven en
 /// rdi y rsi. Se modifican, se comparan, se guardan en globales (que ya no
 /// usan rdi), llegan recortados a su tipo, y con `&a` no hay residencia.

@@ -66,8 +66,22 @@ funcion medida_texto devuelve natural64
 
 # 4 MiB de muestras: 21 segundos a 48 kHz en estereo antes de volver a empezar
 # el bloque.
-funcion medida_pcm devuelve natural64
+funcion medida_bloque devuelve natural64
     devuelve 4194304
+
+# ** LO QUE SE PUEDE ESCRIBIR, QUE NO ES TODO EL BLOQUE (2026-09-22).
+#
+# El kernel hace del bufer prestado un ANILLO de TRAMAS ENTERAS: redondea el
+# bloque hacia abajo al mayor multiplo de la trama del aparato, y lo de arriba
+# se queda fuera del circulo. Un `escrito` que pase de ahi se rechaza.
+#
+# La medida exacta la dice `BMO_TUBO_ANILLO` (campo 14), pero esta funcion no
+# tiene el handle y en INTI no hay globales donde guardarlo. Asi que se deja el
+# margen MAYOR que puede hacer falta: una trama de 1 KiB, que es mas que la de
+# cualquier aparato de clase audio (un 7.1 a 48 kHz en 16 bits son 768 B/ms).
+# Con eso se cumple el tope sea cual sea el aparato, y sin preguntar.
+funcion medida_pcm devuelve natural64
+    devuelve 4193280
 
 funcion palabra(w es natural64)
     invoca(mi_tarea, op_consola_escribir, w, 0, 0)
@@ -500,7 +514,7 @@ funcion principal devuelve entero32
     si cap = 0
         informa(et_fin(), 4)
         devuelve 4
-    pcm es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, medida_pcm(), 0, 0)
+    pcm es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, medida_bloque(), 0, 0)
     cambiante pbase es natural64 = 0
     cambiante fmt es natural64 = 0
     si pcm no es 0
