@@ -284,54 +284,60 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 /// gastando de uno en uno hasta agotar los 64 del controlador. La pareja
 /// pedir/devolver tiene que estar en la misma funcion o no esta.
 ///
-/// *** EL ESQUEMA DE WINDOWS, ENTERO (2026-09-21, noche; decision del propietario:
-/// *"mata el viejo y usa el nuevo, vamos a empezar por completo como
-/// Windows"*). Un aparato USB se prueba en la fabrica contra Windows, y
-/// esta es la secuencia que vio alli; Linux la copio (`hub.c`, "new scheme")
-/// porque hay aparatos que solo entran asi:
+/// *** LA ENUMERACION EN DOS TIEMPOS (2026-09-21/22). Un aparato recien
+/// reseteado esta en `Default`: contesta en la direccion 0 y solo sabe decir
+/// quien es (USB 2.0, 9.1.1.3 y 9.4.3). Lo primero que un anfitrion necesita
+/// de el no es su nombre: es COMO habla, el paquete maximo de su EP0, que va
+/// en el byte 7 de su descriptor y que no se sabe hasta que contesta
+/// (5.5.3). Por eso son dos tiempos y no uno:
 ///
 /// ```text
+///   PRIMER TIEMPO -- oirlo en la direccion 0
 ///   1. Enable Slot
-///   2. Address Device con BSR = 1: el xHC monta la ranura y el EP0 (paquete
-///      supuesto 64 para Full Speed) y la deja en `Default`, SIN mandar
-///      SET_ADDRESS: el aparato sigue en la direccion 0
+///   2. Address Device con BSR = 1 (xHCI 4.3.4): el xHC monta la ranura y
+///      el EP0 con el paquete SUPUESTO (`mps0_supuesto`: el maximo que su
+///      velocidad permite) y la deja en `Default`, sin SET_ADDRESS
 ///   3. GET_DESCRIPTOR(aparato, 64) en la direccion 0: un aparato de 8
-///      contesta 8 y para; uno de 64, los 18. En los 8 primeros va el byte 7
-///   4. si el byte 7 no es lo supuesto: Evaluate Context
-///   5. RESET del puerto otra vez (lo que el aparato espera)
-///   6. Address Device con BSR = 0: ahora si, SET_ADDRESS. Con el MISMO
-///      contexto de entrada que ya tiene la ranura: el paquete del EP0 que
-///      se evaluo, y el anillo por donde va
-///   7. 10 ms para que asiente (USB 2.0: 2 ms; Linux da 10)
+///      contesta 8 y para (paquete corto: cierra la transferencia, legal);
+///      uno de 64, los 18. En los 8 primeros ya viene el byte 7
+///   4. si el byte 7 no es lo supuesto: Evaluate Context (xHCI 4.6.7)
+///
+///   SEGUNDO TIEMPO -- darle su direccion, limpio
+///   5. RESET del puerto otra vez: el aparato vuelve a `Default` con su EP0
+///      en DATA0 (9.1.1.3), pase lo que haya pasado en el primer tiempo
+///   6. Address Device con BSR = 0: SET_ADDRESS. El xHC copia el contexto de
+///      entrada ENTERO (4.6.5), asi que lleva el paquete evaluado y el
+///      anillo por donde va, no otra ranura nueva
+///   7. `PLAZO_ASENTAR_MS` (9.2.6.3 da 2 ms al aparato; se le dan cinco
+///      veces eso), y entonces los 18, la cabecera y la configuracion
 /// ```
 ///
-/// Lo de antes (reset, SET_ADDRESS, y despues los descriptores con paquete
-/// supuesto 8) es el "esquema viejo" de Linux, correcto por el protocolo y
-/// suficiente para teclados y ratones. Se retira porque el que importa es
-/// el que los aparatos VIERON.
+/// Es el orden en el que un aparato lo ha visto todo antes de llegar aqui
+/// (los anfitriones contra los que se prueba en fabrica hacen estos dos
+/// tiempos, y se leyeron para esto: `PLAN_AUDIO.md` 6.1). Aqui no se llama
+/// como ellos: cada paso tiene su motivo en el protocolo, arriba, y es lo
+/// que BMO-X hace. Lo de antes (un tiempo: reset, SET_ADDRESS, y los
+/// descriptores con paquete supuesto 8) era correcto por el protocolo y
+/// suficiente para teclados y ratones; se retiro el 21-09.
 ///
 /// *** DOS PASOS QUE SOBRABAN, y que dejaron SIN TECLADO NI RATON dos
 /// arranques del Ryzen (2026-09-22; el propietario: *"entre 2 veces en mi
-/// BMO-X pero mi teclado y mouse no respondio"*). La primera version de
-/// esto (6d4a0457) metia un `Reset Device` (xHCI 4.6.11) entre el segundo
-/// reset y el `SET_ADDRESS`, y rehacia los contextos enteros en el segundo
-/// `Address Device`:
+/// BMO-X pero mi teclado y mouse no respondio"*). La primera version
+/// (6d4a0457) metia un `Reset Device` entre el 5 y el 6, y en el 6 rehacia
+/// los contextos enteros:
 ///
-/// * `Reset Device` solo vale para una ranura en `Addressed` o
-///   `Configured`. Aqui la ranura esta en `Default` (BSR = 1 no da
-///   direccion), y el xHC contesta **Context State Error** (cc = 19). Linux
-///   lo manda igual desde `hub_port_reset` y se lo traga a proposito
-///   (`xhci_discover_or_reset_device`: *"Can't reset device in Default
-///   state... Don't treat this as an error"*). Aqui `cc != 1` era "NO acepta
+/// * `Reset Device` (xHCI 4.6.11) solo vale para una ranura en `Addressed`
+///   o `Configured`. Tras el paso 2 esta en `Default`, y el xHC contesta
+///   **Context State Error** (cc = 19). Aqui `cc != 1` era "NO acepta
 ///   direccion" y la ranura volvia: TODOS los aparatos, no solo el mudo.
-///   El comando no aporta nada en este esquema y se quita, no se ignora.
-/// * El segundo `Address Device` volvia a suponer el paquete del EP0 (64
-///   para Full Speed) y pisaba el `Evaluate Context` de antes: un teclado
-///   Full Speed de paquete 8 volvia a un EP0 de 64, y sus 9 bytes de
-///   cabecera llegaban como 8 (paquete corto), tres veces. Linux reusa el
-///   contexto de entrada y solo le pone el dequeue actual del EP0
-///   (`xhci_copy_ep0_dequeue_into_input_ctx`). Ahora igual: `address_lanzar`
-///   con `bsr = false` no toca el anillo ni el contexto de salida.
+///   El comando no aporta nada en estos dos tiempos y se quita, no se
+///   ignora.
+/// * El paso 6 volvia a suponer el paquete del EP0 (64 para Full Speed) y
+///   pisaba el Evaluate Context del 4: un teclado Full Speed de paquete 8
+///   volvia a un EP0 de 64, y sus 9 bytes de cabecera llegaban como 8
+///   (paquete corto), tres veces. Ahora `address_lanzar` con `bsr = false`
+///   no toca el anillo ni el contexto de salida: solo rehace el de entrada
+///   con la verdad.
 ///
 /// Las pruebas de `pasos.rs` estaban verdes con los dos fallos porque el
 /// `Metal` fingido decia que si a todo: contestaba `Reset Device` con exito
@@ -342,7 +348,7 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 /// MMIO del xHC: con el CR3 del kernel puesto.
 pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
     let slot = enable_slot()?;
-    match direccionar_como_windows(port, speed, slot) {
+    match direccionar_en_dos_tiempos(port, speed, slot) {
         Some(s) => Some(s),
         None => {
             disable_slot(slot);
@@ -351,9 +357,9 @@ pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
     }
 }
 
-unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> {
+unsafe fn direccionar_en_dos_tiempos(port: u8, speed: u8, slot: u8) -> Option<u8> {
     let h = hal();
-    // 2. En la direccion 0.
+    // PRIMER TIEMPO. 2. En la direccion 0.
     if direccionar_en_slot(port, speed, slot, true, 0).is_none() {
         h.log("[xhci] address (BSR=1) FALLO\n");
         return None;
@@ -381,7 +387,7 @@ unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> 
         }
         mps0 = declarado;
     }
-    // 5. El segundo reset.
+    // SEGUNDO TIEMPO. 5. El reset que lo deja limpio.
     if !port_reset(port) {
         h.log("[xhci] el segundo reset FALLO\n");
         return None;
@@ -393,8 +399,9 @@ unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> 
 }
 
 /// Lo que se le da a un aparato para asentar su direccion nueva antes de
-/// pedirle nada: USB 2.0 dice 2 ms; Linux da 10, y hay aparatos que los
-/// necesitan.
+/// pedirle nada: USB 2.0 (9.2.6.3) le concede 2 ms para hacer caso al
+/// SET_ADDRESS; se le dan cinco veces eso, porque el aparato que los
+/// necesita no avisa y 8 ms una vez por enchufe no se notan.
 pub const PLAZO_ASENTAR_MS: u64 = 10;
 
 // ** AQUI HUBO un `Reset Device` (xHCI 4.6.11) durante un dia (6d4a0457 ->
@@ -421,12 +428,14 @@ unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u1
 /// el byte 7 de su descriptor, y si no coincide se le dice al xHC
 /// (`evaluar_mps0`) antes de pedirle nada mas.
 ///
-/// *** 64 Y NO 8 PARA FULL SPEED, y es el esquema de Windows (2026-09-21,
-/// noche; ver `address_device`). Suponer 8 y pedir 18 bytes rompe con un
-/// aparato de 64 (Babble). Suponer 64 y pedir 64 NO rompe con ninguno: un
-/// aparato de 8 contesta un paquete de 8 --corto, y un paquete corto cierra
-/// la transferencia sin error-- y en esos 8 ya viene el byte 7. Es la
-/// asimetria que hace que el orden de Windows funcione con todo.
+/// *** 64 Y NO 8 PARA FULL SPEED: se supone el MAXIMO que la velocidad
+/// permite (USB 2.0, 5.5.3: Full Speed 8, 16, 32 o 64; ver
+/// `address_device`). Suponer menos de lo que el aparato tiene rompe: pide
+/// 18 bytes a uno de 64 y el xHC ve un paquete mayor que el contexto,
+/// Babble. Suponer el maximo NO rompe con ninguno: un aparato de 8 contesta
+/// un paquete de 8 --corto, y un paquete corto cierra la transferencia sin
+/// error (8.5.3.2)-- y en esos 8 ya viene el byte 7. Es la asimetria del
+/// protocolo sobre la que se apoya el primer tiempo.
 pub fn mps0_supuesto(speed: u8) -> u16 {
     match speed { 2 => 8, 1 | 3 => 64, 4 | 5 => 512, _ => 64 }
 }
@@ -449,14 +458,16 @@ pub fn mps0_declarado(byte7: u8, speed: u8) -> u16 {
 /// mps0 = 64: manda los 18 bytes en UN paquete, el xHC ve un paquete mas
 /// grande que el maximo del contexto y contesta Babble (cc = 3): "acepta
 /// direccion y no da descriptores", exactamente lo que dijo la ficha
-/// (`ni el descriptor del aparato`). La regla de todos los anfitriones:
-/// primero OCHO bytes (caben en cualquier mps0), leer el byte 7, y si no
-/// coincide con lo supuesto, `Evaluate Context`; despues los 18.
+/// (`ni el descriptor del aparato`). La regla: primero lo que cabe en
+/// cualquier paquete, leer el byte 7, y si no coincide con lo supuesto,
+/// `Evaluate Context`; despues el resto. Hoy es el paso 4 del primer tiempo
+/// (`address_device`).
 ///
 /// El contexto de entrada se rellena copiando el EP0 del Device Context de
 /// SALIDA (lo que el xHC tiene ahora, con su dequeue actual) y cambiando
-/// solo el Max Packet Size, con `A1` puesto: es lo que hace Linux
-/// (`xhci_endpoint_copy` + `MAX_PACKET`), y lo unico que el xHC evalua.
+/// solo el Max Packet Size, con `A1` puesto: de un EP0 el `Evaluate
+/// Context` solo evalua ese campo (xHCI 6.2.3.1), y todo lo demas tiene
+/// que ser lo que el xHC ya tiene o lo pisaria con ceros.
 ///
 /// # Safety
 /// MMIO del xHC y paginas DMA de la ranura: con el CR3 del kernel puesto.
@@ -518,16 +529,16 @@ pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> bool {
 /// `bsr` = Block Set Address Request (xHCI 4.6.5): con `true` el xHC monta
 /// los contextos y deja la ranura en `Default` SIN mandar `SET_ADDRESS`; el
 /// aparato sigue en la direccion 0 y se le puede hablar por su EP0. Es el
-/// paso 2 del esquema de Windows, y la ranura se monta ENTERA: anillo del
-/// EP0 nuevo, contexto de salida a cero, DCBAA.
+/// paso 2 del primer tiempo (`address_device`), y la ranura se monta
+/// ENTERA: anillo del EP0 nuevo, contexto de salida a cero, DCBAA.
 ///
 /// Con `false` es el paso 6, sobre una ranura que YA esta montada y en
 /// `Default`: **no se toca ni el anillo ni el contexto de salida** (son del
 /// xHC mientras la ranura viva), solo se rehace el contexto de ENTRADA con
 /// el paquete del EP0 de verdad (`mps0`; 0 = el supuesto por velocidad) y
-/// el dequeue por donde va el anillo. Es lo que hace Linux
-/// (`xhci_copy_ep0_dequeue_into_input_ctx`), y lo que no se hacia el
-/// 2026-09-21 (ver `address_device`).
+/// el dequeue por donde va el anillo. El xHC copia ese contexto entero al
+/// de salida (4.6.5): lo que no vaya en el, se pierde. Es lo que no se
+/// hacia el 2026-09-21 (ver `address_device`).
 pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u16) -> Option<u64> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
     let h = hal();

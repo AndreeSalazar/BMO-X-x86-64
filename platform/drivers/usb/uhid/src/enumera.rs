@@ -343,7 +343,7 @@ pub unsafe fn leer_descriptores(
     let mut n = 0usize;
     // El paquete del EP0 ya es el de verdad: `address_device` leyo los 8
     // primeros bytes en la direccion 0 y ajusto el EP0 antes de dar la
-    // direccion (el esquema de Windows). Aqui van los 18 enteros.
+    // direccion (el primer tiempo). Aqui van los 18 enteros.
     //
     // Tres lecturas con 10 ms entre ellas (eran 50): un aparato sano contesta
     // en menos de un milisegundo, y un mudo se llevaba 150 ms del raton en

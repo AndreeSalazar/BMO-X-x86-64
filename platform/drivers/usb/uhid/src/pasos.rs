@@ -43,8 +43,8 @@
 //! ## Lo que el fingido NO cazo (2026-09-22)
 //!
 //! Dos arranques del Ryzen sin teclado ni raton con estas pruebas en verde.
-//! El esquema de Windows (6d4a0457) traia un `Reset Device` sobre una
-//! ranura en `Default`, que el xHC rechaza (Context State Error), y un
+//! La enumeracion en dos tiempos (6d4a0457) traia un `Reset Device` sobre
+//! una ranura en `Default`, que el xHC rechaza (Context State Error), y un
 //! segundo `Address Device` que volvia a suponer el paquete del EP0 y
 //! pisaba el `Evaluate Context`. El fingido contestaba que si al reset en
 //! cualquier estado y conservaba el paquete al direccionar: **un fingido
@@ -142,7 +142,7 @@ enum Paso {
     PedirRanura,
     EsperandoRanura,
     /// `Address Device` con BSR = 1: la ranura en `Default`, el aparato en la
-    /// direccion 0. El paso 2 del esquema de Windows.
+    /// direccion 0. El primer tiempo (`bmo_xhci::address_device`).
     Direccionar,
     EsperandoDireccion,
     /// 64 bytes del descriptor del aparato EN LA DIRECCION 0: un aparato de
@@ -154,8 +154,9 @@ enum Paso {
     /// El paquete declarado no es el supuesto: `Evaluate Context`.
     Evaluar,
     EsperandoEvaluar,
-    /// El SEGUNDO reset (lo que el aparato espera). Sin `Reset Device`
-    /// detras: la ranura esta en `Default` y el xHC lo rechazaria.
+    /// El SEGUNDO reset: el segundo tiempo empieza con el aparato limpio en
+    /// `Default`. Sin `Reset Device` detras: la ranura esta en `Default` y
+    /// el xHC lo rechazaria.
     Reset2,
     Reseteando2,
     Recuperando2,
@@ -799,7 +800,7 @@ mod pruebas {
         /// Cuanto tardo cada llamada a `avanzar` (la prueba lo mide fuera).
         eventos: Vec<&'static str>,
         /// El paquete que el xHC cree que tiene el EP0 (64 al direccionar un
-        /// Full Speed: el esquema de Windows).
+        /// Full Speed: el maximo que su velocidad permite).
         mps0_xhc: u16,
         ultimo_cc: u8,
         /// Los `Address Device` que se mandaron, con su BSR.
@@ -1020,8 +1021,8 @@ mod pruebas {
         assert_eq!(e.cfg_val(), 1);
         assert_eq!(e.cfg().len(), 34);
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
-        // El esquema de Windows, entero: direccion 0, 64 bytes (un teclado
-        // de paquete 8 contesta 8: hay que decirselo al xHC), segundo reset,
+        // Los dos tiempos enteros: direccion 0, 64 bytes (un teclado de
+        // paquete 8 contesta 8: hay que decirselo al xHC), segundo reset,
         // la direccion de verdad, y entonces los descriptores.
         assert_eq!(
             m.eventos,
@@ -1095,8 +1096,8 @@ mod pruebas {
     #[test]
     fn un_paquete_de_64_entra_sin_evaluate_y_sin_babble() {
         // El caso del audifono: con el paquete supuesto de 8 y 18 bytes de
-        // golpe contestaba Babble. Con el esquema de Windows (64 supuesto,
-        // 64 pedidos en la direccion 0) entra a la primera y sin evaluate.
+        // golpe contestaba Babble. Con los dos tiempos (64 supuesto, 64
+        // pedidos en la direccion 0) entra a la primera y sin evaluate.
         let mut m = Fingido::nuevo(Aparato::Paquete64);
         let mut e = Enumeracion::nueva(1, false, m.ahora);
         assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);

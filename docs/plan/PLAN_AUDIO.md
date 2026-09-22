@@ -531,11 +531,21 @@ ranura en `Default` sin mandar `SET_ADDRESS`, y despues un segundo `Address
 Device` con BSR = 0. El reajuste del EP0 es `usb_ep0_reinit` ->
 `xhci_check_maxpacket` -> `Evaluate Context`.
 
-**BMO-X hoy** (tras A8, la misma noche): el esquema NUEVO, entero, en los
-dos caminos. El viejo se retiro. Lo que sigue sin tener: alternar esquemas
-entre reintentos (Linux lo hace; aqui el segundo intento corta la corriente,
-que es otra medicina) y una tabla de quirks (`USB_QUIRK_DELAY_INIT`,
-aparatos que necesitan mas tras `SET_ADDRESS`).
+**BMO-X hoy** (tras A8 y A9): **la enumeracion en DOS TIEMPOS**, y con
+ese nombre, no con el de nadie (el propietario, 22-09: *"si es Linux y
+Windows conviertelo como sopa para convertir en BMO-X"*). Lo de arriba se
+leyo para saber que orden ven los aparatos; lo que hay en
+`bmo_xhci::address_device` y `pasos.rs` es ese orden con el motivo de cada
+paso en el protocolo: primer tiempo, oir al aparato en la direccion 0 (USB
+2.0 9.1.1.3: en `Default` contesta ahi; 5.5.3: su paquete no se sabe hasta
+que contesta; se supone el maximo de su velocidad porque un paquete corto
+cierra sin error, 8.5.3.2) y `Evaluate Context` si no coincide (xHCI
+4.6.7); segundo tiempo, reset (vuelve a `Default` con DATA0, 9.1.1.3),
+`Address Device` con el contexto que ya tiene (4.6.5 lo copia entero) y
+`PLAZO_ASENTAR_MS` (9.2.6.3). Sin `Reset Device` (4.6.11: no vale en
+`Default`). Lo que sigue sin tener: alternar entre este orden y el de un
+tiempo entre reintentos (aqui el segundo intento corta la corriente, que es
+otra medicina) y una tabla de rarezas por vid:pid.
 
 ## 6.2 -- Reproducir: lo que hace `snd-usb-audio` (Linux) / `usbaudio.sys` (Windows)
 
@@ -551,10 +561,9 @@ aparatos que necesitan mas tras `SET_ADDRESS`).
 
 ## 6.3 -- Que se toma de esto, y en que orden
 
-1. Lo que el siguiente save diga del puerto 1 decide 6.1: si sigue mudo con
-   el evaluate puesto, se hace el esquema nuevo (BSR = 1, 64 bytes en la
-   direccion 0, segundo reset). Son tres pasos mas en `pasos.rs` y un
-   `address_lanzar` con BSR.
+1. ~~Lo que el siguiente save diga del puerto 1 decide 6.1~~ Hecho sin
+   esperar (A8/A9): los dos tiempos, con su nombre y sus motivos, en los dos
+   caminos. El siguiente arranque dice si el puerto 1 entra con ellos.
 2. La fraccion de 44.100 y UAC2 son de A1/A5: cuando SUENE a 48.000.
 3. El feedback y los quirks, cuando haya un aparato que los pida: el save
    dira `tarde`/`huecos` con el nombre del aparato, y esa es la fila 1 de la
