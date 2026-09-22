@@ -110,7 +110,7 @@ struct Offer {
     /// Quien presta, y su espacio: hace falta para traducir sus paginas.
     /// Se captura al ofrecer, que es cuando ese espacio esta cargado.
     owner: u32,
-    aspace_dueno: u64,
+    aspace_propietario: u64,
     /// Donde empieza lo ofrecido, **en el espacio del propietario**.
     origen: u64,
     bytes: u64,
@@ -125,12 +125,12 @@ struct Offer {
     /// `bmo_prestamo_juicio`.
     dentro: u64,
     /// **El propietario murio y esto sigue mapeado.** Ver [`process_died`]: las
-    /// paginas se quedan, y lo unico que cambia es que [`OP_DUENO`] contesta 0.
+    /// paginas se quedan, y lo unico que cambia es que [`OP_PROPIETARIO`] contesta 0.
     huerfana: bool,
 }
 
 const NOTHING: Offer = Offer {
-    viva: false, owner: 0, aspace_dueno: 0, origen: 0, bytes: 0,
+    viva: false, owner: 0, aspace_propietario: 0, origen: 0, bytes: 0,
     destino: 0, tomada: false, va_destino: 0, dentro: 0, huerfana: false,
 };
 static mut OFERTAS: [Offer; MAX] = [NOTHING; MAX];
@@ -145,7 +145,7 @@ pub const OP_BYTES: u64 = 0x02;
 /// compone la memoria de otro proceso; cuando ese proceso muere, la unica forma
 /// de enterarse seria mirar la superficie y ver que la secuencia no sube -- que
 /// no se distingue de una app pensando. Aqui se pregunta y se contesta.
-pub const OP_DUENO: u64 = 0x03;
+pub const OP_PROPIETARIO: u64 = 0x03;
 /// **Devolver lo prestado**: se desmapea de MI espacio y la ranura queda libre.
 ///
 /// La contrapartida de `take`, y hace falta desde que hay mas de un prestamo: si
@@ -246,14 +246,14 @@ pub fn offer(owner: u32, aspace: u64, base: u64, entregado: u64, desde: u64, byt
         if o.viva && o.owner == owner && o.destino == destino && !o.tomada {
             o.origen = base + desde;
             o.bytes = bytes;
-            o.aspace_dueno = aspace;
+            o.aspace_propietario = aspace;
             return OFRECIDO;
         }
     }
     for o in ofertas.iter_mut() {
         if !o.viva {
             *o = Offer {
-                viva: true, owner, aspace_dueno: aspace, origen: base + desde,
+                viva: true, owner, aspace_propietario: aspace, origen: base + desde,
                 bytes, destino, tomada: false, va_destino: 0, dentro: 0, huerfana: false,
             };
             crate::ring0::cabina::info("prestamo", "ofrecido al pid", destino as u64);
@@ -272,8 +272,8 @@ pub fn offer(owner: u32, aspace: u64, base: u64, entregado: u64, desde: u64, byt
 pub fn take(pid: u32, aspace: u64) -> Option<u64> {
     let ofertas = unsafe { &mut *core::ptr::addr_of_mut!(OFERTAS) };
     let i = ofertas.iter().position(|o| o.viva && o.destino == pid && !o.tomada)?;
-    let (origen, bytes, aspace_dueno) =
-        (ofertas[i].origen, ofertas[i].bytes, ofertas[i].aspace_dueno);
+    let (origen, bytes, aspace_propietario) =
+        (ofertas[i].origen, ofertas[i].bytes, ofertas[i].aspace_propietario);
     // La direccion la decide LA RANURA, no un contador: ver `PRESTAMO_VENTANA`.
     let va = va_de_ranura(i);
 
@@ -291,7 +291,7 @@ pub fn take(pid: u32, aspace: u64) -> Option<u64> {
     let paginas = t.mapeado;
     let mut off = 0u64;
     while off < paginas {
-        let Some(fisica) = vmm::translate(aspace_dueno, t.pagina + off) else {
+        let Some(fisica) = vmm::translate(aspace_propietario, t.pagina + off) else {
             undo(aspace, va, off);
             crate::ring0::cabina::warn("prestamo", "lo ofrecido no esta mapeado en el propietario", off);
             return None;
@@ -334,7 +334,7 @@ fn undo(aspace: u64, va: u64, hasta: u64) {
     }
 }
 
-/// Lo que contesta el handle. Ver [`OP_BASE`], [`OP_BYTES`], [`OP_DUENO`] y
+/// Lo que contesta el handle. Ver [`OP_BASE`], [`OP_BYTES`], [`OP_PROPIETARIO`] y
 /// [`OP_SOLTAR`].
 ///
 /// `OP_SOLTAR` escribe --desmapea-- y por eso lee `read_cr3()`: durante un
@@ -350,7 +350,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
         // El handle sigue siendo `va`, que es lo que se busca arriba.
         OP_BASE => Some(ofertas[i].va_destino + ofertas[i].dentro),
         OP_BYTES => Some(ofertas[i].bytes),
-        OP_DUENO => {
+        OP_PROPIETARIO => {
             if ofertas[i].huerfana {
                 // El propietario murio. Se contesta 0 en vez de quitar el mapeo: ver
                 // `process_died`.
@@ -410,7 +410,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
 /// Los marcos siguen siendo validos: `destroy_address_space` libera las tablas
 /// de paginas, no las hojas. Asi que lo prestado se queda quieto y legible hasta
 /// que el que lo tomo lo suelte con [`OP_SOLTAR`] -- y como sabe que soltarlo,
-/// [`OP_DUENO`] le contesta 0 desde el fotograma siguiente.
+/// [`OP_PROPIETARIO`] le contesta 0 desde el fotograma siguiente.
 /// **Queda algo de `pid` PRESTADO Y TOMADO dentro de `[base, base+bytes)`?**
 ///
 /// La pregunta la hace [`super::memory::process_died`] antes de devolver los
@@ -467,7 +467,7 @@ pub fn process_died(pid: u32, aspace: u64) {
             *o = NOTHING;
         } else if o.owner == pid {
             // Ver la cabecera: se queda mapeado a proposito. Lo unico que cambia
-            // es que a partir de aqui `OP_DUENO` contesta 0.
+            // es que a partir de aqui `OP_PROPIETARIO` contesta 0.
             o.huerfana = true;
             crate::ring0::cabina::info("prestamo", "murio el propietario: queda huerfano", pid as u64);
         }

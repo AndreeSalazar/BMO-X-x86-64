@@ -52,7 +52,7 @@ use super::{modificadores, HELD_CODE, MOD_ALT, MOD_CTRL};
 /// Devuelve `None` para que el atajo no acabe ademas escrito en la caja del
 /// escritorio ni movido al programa. Un atajo que hace dos cosas es un atajo que
 /// hay que deshacer.
-pub(super) fn tecla_del_dueno(t: Option<u8>) -> Option<u8> {
+pub(super) fn tecla_del_propietario(t: Option<u8>) -> Option<u8> {
     let b = t?;
     // 27 = ESC. Con Ctrl y Alt a la vez: tres teclas, imposible de pulsar por
     // accidente y con la misma memoria muscular que el Ctrl+Alt+Del de toda la
@@ -71,7 +71,7 @@ pub(super) fn tecla_del_dueno(t: Option<u8>) -> Option<u8> {
 ///
 /// # Why this function exists, and it is a bug that reached metal
 ///
-/// The rescue used to live entirely inside [`tecla_del_dueno`], which only looks
+/// The rescue used to live entirely inside [`tecla_del_propietario`], which only looks
 /// at the CHARACTER queue. And there are two keyboard doors, not one:
 ///
 /// * `INPUT_OP_TECLA` -> [`poll_ascii`] -> characters. This one was checked.
@@ -270,7 +270,7 @@ static mut SWALLOW_ESC_RELEASE: bool = false; // [escribe] ambos
 /// levanto. Ver `segunda_pulsacion`.
 static mut SOLTADA: bool = true; // [escribe] ambos
 
-/// [`rescue_owner`] seen from the RAW door. Counterpart of [`tecla_del_dueno`].
+/// [`rescue_owner`] seen from the RAW door. Counterpart of [`tecla_del_propietario`].
 pub(super) fn raw_key_from_owner(t: Option<(u8, bool)>) -> Option<(u8, bool)> {
     let (sc, pressed) = t?;
     if sc != SC1_ESC {

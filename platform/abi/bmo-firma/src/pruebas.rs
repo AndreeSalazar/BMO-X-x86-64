@@ -167,7 +167,7 @@ fn un_algoritmo_que_no_conozco_no_se_degrada_a_sin_firma() {
 /// con `n` hostil da la vuelta en 32 bits y apunta DENTRO de la seccion. Por eso
 /// la cuenta se hace en `u64`.
 #[test]
-fn una_cabecera_que_miente_sobre_su_tamano_es_seccion_rota() {
+fn una_cabecera_que_miente_sobre_su_medida_es_seccion_rota() {
     let mut s = seccion(2, ALGO_ED25519, Some(([0u8; 64], [0u8; 32])));
     s[0..4].copy_from_slice(&9999u32.to_le_bytes());
     assert_eq!(examinar(&s, &CADENA, &[]), Veredicto::SeccionRota);

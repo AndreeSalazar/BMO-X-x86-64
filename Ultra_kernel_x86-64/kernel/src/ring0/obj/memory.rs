@@ -135,7 +135,7 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 ///    que hay un contrato que respetar. Una propiedad verdadera por accidente
 ///    deja de serlo sin que nadie lo note.
 ///
-/// [!] Solo la contesta el DUENO del bloque, porque es una operacion sobre su
+/// [!] Solo la contesta el PROPIETARIO del bloque, porque es una operacion sobre su
 /// propia capability. Saber donde vive la memoria del vecino no le hace falta a
 /// nadie.
 pub const MEM_OP_FISICA: u64 = 0x04;

@@ -14,7 +14,7 @@
 /// Maximo de interfaces que consideramos por dispositivo (fijo, sin alloc: el
 /// driver corre dentro de Ring 0 de BMO, que no tiene allocator).
 pub const MAX_IFACES: usize = 8;
-/// Tamano maximo aceptado del config descriptor completo (fijo, sin alloc).
+/// Medida maximo aceptado del config descriptor completo (fijo, sin alloc).
 /// * 512 hasta el 2026-09-21. Un audifono USB Audio "7.1" declara sus
 /// terminales, sus Feature Units y sus formatos en la configuracion, y se
 /// va de 512 con facilidad: el del puerto 1 del Ryzen salia como "sin

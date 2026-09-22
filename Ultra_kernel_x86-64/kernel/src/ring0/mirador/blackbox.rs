@@ -96,7 +96,7 @@ pub fn dump_to_disk() -> usize {
     }
 }
 
-/// Anade texto al buffer de volcado sin desbordarlo. Devuelve el nuevo final.
+/// Agrega texto al buffer de volcado sin desbordarlo. Devuelve el nuevo final.
 pub(crate) fn append(mut n: usize, s: &str) -> usize {
     unsafe {
         let buf = &mut *core::ptr::addr_of_mut!(DUMP);

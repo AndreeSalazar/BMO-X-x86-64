@@ -219,7 +219,7 @@ en `toolchain/tools/contrato/LINEA_BASE.txt` con su motivo escrito al lado, y un
 numero NUEVO en las dos tablas para la comprobacion hasta que alguien decida
 cual de las dos cosas es. **La lista solo puede encoger.**
 
-[!] Por eso `KIND_MMIO` entro con `0x74`, **libre en las dos**. Anadir a una
+[!] Por eso `KIND_MMIO` entro con `0x74`, **libre en las dos**. Agregar a una
 divergencia que ya existe es la unica forma de que deje de ser deuda y pase a
 ser fallo.
 

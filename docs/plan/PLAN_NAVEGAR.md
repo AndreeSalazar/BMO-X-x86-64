@@ -168,10 +168,10 @@ de esta casa; prometer 60 fps por ESPEJO es S6 y cuesta lo que dice la seccion
 
 ---
 
-# 5. LO QUE NAVEGAR ENSENA Y LO QUE NO
+# 5. LO QUE NAVEGAR MUESTRA Y LO QUE NO
 
 ```text
-   ENSENA    cajas, texto (8x16, escala 1..4, Latin-1), imagenes (QOI/BICO),
+   MUESTRA    cajas, texto (8x16, escala 1..4, Latin-1), imagenes (QOI/BICO),
              enlaces (el cursor cambia encima), campos (se teclea dentro),
              el nombre de la antena y su estado (conectada / cuarentena /
              desterrada), y de que fecha es la lamina

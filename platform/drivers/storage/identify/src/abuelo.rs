@@ -178,7 +178,7 @@ mod pruebas {
     }
 
     #[test]
-    fn la_cadena_no_desborda_una_salida_pequena() {
+    fn la_cadena_no_desborda_una_salida_chica() {
         let s = sector(&[(27, 0x4142), (28, 0x4344)]);
         let id = Identify::nuevo(&s).unwrap();
         let mut buf = [0u8; 2];

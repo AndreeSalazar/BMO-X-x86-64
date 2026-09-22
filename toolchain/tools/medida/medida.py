@@ -32,7 +32,7 @@ semana. Esto **REPORTA**.
 ⚠ Y el aviso que hay que llevar puesto al leerlo
 =================================================
 
-    EL TAMANO NO ES LA VELOCIDAD.
+    EL MEDIDA NO ES LA VELOCIDAD.
 
 Van juntos en un caso concreto --pasar de maquina de pila a registros quita
 instrucciones, y menos instrucciones son menos bytes-- y no en general: desplegar
@@ -46,7 +46,7 @@ de DOOM. Esto solo dice **que se movio**, no si se movio a mejor.
 
     "MIDEN LO MISMO" NO ES "NO CAMBIO NADA".
 
-Las secciones del `.bex` van rellenadas a pagina, asi que un cambio pequeno cabe
+Las secciones del `.bex` van rellenadas a pagina, asi que un cambio chico cabe
 DENTRO del relleno y el total no se mueve. Ese dia se puso y se quito un
 `call` de 5 bytes en DOOM: este reportero dijo `clean` las dos veces y las dos
 imagenes **diferian en 20.252 bytes**.
@@ -95,7 +95,7 @@ def leer_base():
 
 def escribir_base(m):
     with open(BASE, "w", encoding="utf-8", newline="\n") as f:
-        f.write("# Tamano de cada ejecutable de staging/, en bytes.\n")
+        f.write("# Medida de cada ejecutable de staging/, en bytes.\n")
         f.write("# REPORTERO, no trinquete: ver toolchain/tools/medida/medida.py\n")
         f.write("# Se regenera con:  py toolchain/tools/medida/medida.py --fijar\n")
         for n in sorted(m):

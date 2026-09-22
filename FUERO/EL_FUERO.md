@@ -83,7 +83,7 @@ pantalla-- es una **operacion sobre una capability**, y hoy son **93**
 (medidas el 19-08 sobre `platform/abi/bmo-abi/src/syscalls/surface/`; eran 69 el
 11-08 y 88 el 18-08).
 
-⚠ **Dos puertas es la FORMA; 93 es el TAMANO.** Confundirlas hace que la ley
+⚠ **Dos puertas es la FORMA; 93 es el MEDIDA.** Confundirlas hace que la ley
 suene mejor de lo que es. Lo que impide que 93 se conviertan en 350 es la regla
 `R-REX3`: *comodidad es cabecera, autoridad es operacion*.
 
@@ -225,7 +225,7 @@ discutir; uno sin motivo es un agujero.**
 | hueco | estado real hoy | que lo desbloquea |
 |---|---|---|
 | **mas de un fichero por proyecto** | ★ una sola unidad de traduccion. Es el techo que mas se nota viniendo de fuera | compilacion separada |
-| **entrada dentro de una ventana** | una app puede ENSENAR; no la puedes TOCAR | la casilla 4 de META-APP |
+| **entrada dentro de una ventana** | una app puede MOSTRAR; no la puedes TOCAR | la casilla 4 de META-APP |
 | **sonido de verdad** | hay contrato (`KIND_AUDIO`) y el altavoz del PC; no hay driver HDA ni isocrono por USB | [`AUDIO_MAESTRO.md`](../docs/maestro/AUDIO_MAESTRO.md) |
 | **hilos** | no hay hilos de Ring 3, y `BRECHA.md` lo dice cuatro veces | SMP cableado, y no antes |
 | **red** | no hay pila | [`RED_MAESTRO.md`](../docs/maestro/RED_MAESTRO.md) |

@@ -18,7 +18,7 @@
 //! ## Una tabla, no una operacion por dato
 //!
 //! Dos operaciones (`TASK_OP_INFO` y `TASK_OP_INFO_TEXTO`) y una tabla de
-//! campos. Anadir "cuantos programas se han lanzado" es **una fila**, no un
+//! campos. Agregar "cuantos programas se han lanzado" es **una fila**, no un
 //! numero de syscall nuevo -- que es la misma forma que tienen las tablas de
 //! `sem-asm` y la razon de que la superficie no crezca.
 //!
@@ -240,7 +240,7 @@ const INFO_AUDIO_RANGO: u64 = 0x83;
 const INFO_AUDIO_TUBO: u64 = 0x84;
 const INFO_AUDIO_TRAMAS: u64 = 0x85;
 const INFO_AUDIO_HUECOS: u64 = 0x86;
-const INFO_AUDIO_DUENO: u64 = 0x87;
+const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -283,7 +283,7 @@ const INFO_CPU_HILOS_POR_NUCLEO: u64 = 0x4E;
 /// `0` como "de nadie" y no `u32::MAX`: el pid 0 no se concede a un proceso de
 /// Ring 3, asi que no hay ambiguedad, y desde Ring 3 un `0` se lee sin tener
 /// que conocer el centinela del kernel.
-const INFO_PANTALLA_DUENO: u64 = 0x1A;
+const INFO_PANTALLA_PROPIETARIO: u64 = 0x1A;
 const INFO_TAREAS_TOTAL: u64 = 0x08;
 const INFO_TAREAS_LISTAS: u64 = 0x09;
 const INFO_TAREAS_LIBRES: u64 = 0x0A;
@@ -295,7 +295,7 @@ const INFO_DISCO_LISTO: u64 = 0x0F;
 const INFO_DATOS_MONTADO: u64 = 0x10;
 // -- ESTRATOS --
 //
-// El volumen grande. Ring 3 los necesita para poder ENSENAR el estado del
+// El volumen grande. Ring 3 los necesita para poder MOSTRAR el estado del
 // almacen; anadirlos es una fila cada uno, no una operacion nueva.
 const INFO_ES_MONTADO: u64 = 0x11;
 const INFO_ES_GENERACION: u64 = 0x12;
@@ -633,7 +633,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_CPU_HILOS_POR_NUCLEO => cpu_topo().map(|t| t.hilos_por_nucleo as u64).unwrap_or(0),
         INFO_TAREAS_TOTAL => crate::ring0::task::scheduler::counts().0 as u64,
         INFO_TAREAS_LISTAS => crate::ring0::task::scheduler::counts().1 as u64,
-        INFO_PANTALLA_DUENO => crate::ring0::obj::fb::owner().unwrap_or(0) as u64,
+        INFO_PANTALLA_PROPIETARIO => crate::ring0::obj::fb::owner().unwrap_or(0) as u64,
         INFO_TAREAS_LIBRES => crate::ring0::task::scheduler::huecos_libres() as u64,
         INFO_TICKS => crate::ring0::plat::timer::ticks(),
         INFO_SYSCALL_CUENTA => crate::ring0::syscall::meter::doors(),
@@ -793,7 +793,7 @@ pub fn campo(n: u64) -> Option<u64> {
             use crate::ring0::dev::usb::audio as tubo;
             (tubo::huecos() & 0xFFFF_FFFF) | (tubo::vetos_dma() << 32)
         }
-        INFO_AUDIO_DUENO => {
+        INFO_AUDIO_PROPIETARIO => {
             (crate::ring0::obj::audio::owner().unwrap_or(0) as u64)
                 | ((crate::ring0::dev::usb::audio::pendientes() & 0xFFFF_FFFF) << 32)
         }

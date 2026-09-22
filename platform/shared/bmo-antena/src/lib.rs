@@ -45,7 +45,7 @@
 //!    un verbo que no esta arriba                                   Verbo
 //!    un id fuera de [a-z0-9_-]{1,32}                               Id
 //!    un formato que no es mpeg1                                    Formato
-//!    un medida impar, menor de 16 o mayor que 1280x720             Tamano
+//!    un medida impar, menor de 16 o mayor que 1280x720             Medida
 //!    otra version del protocolo                                    Version
 //! ```
 //!
@@ -84,7 +84,7 @@ pub enum Rechazo {
     Numero,
     Id,
     Formato,
-    Tamano,
+    Medida,
     Version,
     Corto,
     /// Una linea que no toca en este momento de la conversacion.
@@ -111,7 +111,7 @@ impl Rechazo {
             Rechazo::Numero => "un numero imposible",
             Rechazo::Id => "un id fuera de [a-z0-9_-]{1,32}",
             Rechazo::Formato => "un formato de video que no es mpeg1",
-            Rechazo::Tamano => "un medida impar, chico o mayor que 1280x720",
+            Rechazo::Medida => "un medida impar, chico o mayor que 1280x720",
             Rechazo::Version => "otra version del protocolo",
             Rechazo::Corto => "no cabe en el bufer",
             Rechazo::Orden => "una linea que no toca ahora: la antena se sale del protocolo",
@@ -215,11 +215,11 @@ pub fn leer(linea: &[u8]) -> Result<Respuesta<'_>, Rechazo> {
             if formato != b"mpeg1" {
                 return Err(Rechazo::Formato);
             }
-            let x = size.iter().position(|&c| c == b'x').ok_or(Rechazo::Tamano)?;
-            let ancho = numero(&size[..x], ANCHO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
-            let alto = numero(&size[x + 1..], ALTO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
+            let x = size.iter().position(|&c| c == b'x').ok_or(Rechazo::Medida)?;
+            let ancho = numero(&size[..x], ANCHO_MAX as u64).map_err(|_| Rechazo::Medida)? as u32;
+            let alto = numero(&size[x + 1..], ALTO_MAX as u64).map_err(|_| Rechazo::Medida)? as u32;
             if ancho < LADO_MIN || alto < LADO_MIN || ancho % 2 != 0 || alto % 2 != 0 {
-                return Err(Rechazo::Tamano);
+                return Err(Rechazo::Medida);
             }
             Ok(Respuesta::Video { bytes, ancho, alto })
         }
@@ -514,10 +514,10 @@ mod pruebas {
         assert_eq!(leer(b"VIDEO 0 mpeg1 640x360"), Ok(Respuesta::Video { bytes: 0, ancho: 640, alto: 360 }));
         assert_eq!(leer(b"VIDEO 12345 mpeg1 1280x720"), Ok(Respuesta::Video { bytes: 12345, ancho: 1280, alto: 720 }));
         assert_eq!(leer(b"VIDEO 0 h264 640x360"), Err(Rechazo::Formato));
-        assert_eq!(leer(b"VIDEO 0 mpeg1 641x360"), Err(Rechazo::Tamano), "impar");
-        assert_eq!(leer(b"VIDEO 0 mpeg1 1920x1080"), Err(Rechazo::Tamano), "demasiado");
-        assert_eq!(leer(b"VIDEO 0 mpeg1 8x8"), Err(Rechazo::Tamano), "demasiado chico");
-        assert_eq!(leer(b"VIDEO 0 mpeg1 640360"), Err(Rechazo::Tamano));
+        assert_eq!(leer(b"VIDEO 0 mpeg1 641x360"), Err(Rechazo::Medida), "impar");
+        assert_eq!(leer(b"VIDEO 0 mpeg1 1920x1080"), Err(Rechazo::Medida), "demasiado");
+        assert_eq!(leer(b"VIDEO 0 mpeg1 8x8"), Err(Rechazo::Medida), "demasiado chico");
+        assert_eq!(leer(b"VIDEO 0 mpeg1 640360"), Err(Rechazo::Medida));
         assert_eq!(leer(b"VIDEO 0 mpeg1 640x360 extra"), Err(Rechazo::Campos));
         assert_eq!(leer(b"VIDEO 99999999999999999999 mpeg1 640x360"), Err(Rechazo::Numero), "no cabe en u64");
     }

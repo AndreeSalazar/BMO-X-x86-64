@@ -5,7 +5,7 @@
 El 2026-09-20 por la tarde el escritorio empezo a morir al lanzar DOOM:
 `faltan 2160/2160 pag desde 0xE0000000`, `se corta en el PD (tabla ... ocupada
 TABLA)`, `pantalla MUERTA`. Su PD entero a cero, enlazado, en uso, y NADIE lo
-habia soltado. Por la manana DOOM se jugaba. Entre las dos horas entro B7: un
+habia soltado. Por la luego DOOM se jugaba. Entre las dos horas entro B7: un
 `bmo_hash::hash(indice)` mas en la admision.
 
 Un syscall corre sobre la pila de kernel de la tarea que lo pide, y por un

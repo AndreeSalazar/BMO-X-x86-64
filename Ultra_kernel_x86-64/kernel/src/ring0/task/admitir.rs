@@ -36,7 +36,7 @@
 //! ```text
 //!    lo que se hizo hoy    sacarla del fichero de al lado -> MECANICO
 //!    lo que falta          su estado local compartido tiene que volverse una
-//!                          estructura -> CAMBIO DE DISENO, y un hash no lo
+//!                          estructura -> CAMBIO DE ESQUEMA, y un hash no lo
 //!                          puede demostrar. Otro dia y otro metodo
 //! ```
 //!
@@ -597,7 +597,7 @@ pub(crate) fn admit_payload_desde(
     let mut aplicadas = 0usize;
     // ** EL ORDEN DE ATERRIZAJE: POR OFFSET DE FICHERO, no por direccion virtual.
     //
-    // === Hoy no cambia nada. Manana lo decide todo ===
+    // === Hoy no cambia nada. Luego lo decide todo ===
     //
     // Mientras las secciones se copien de un bufer que ya esta entero en RAM, el
     // orden da igual: `copy_nonoverlapping` va a donde le digan. Por eso esto se

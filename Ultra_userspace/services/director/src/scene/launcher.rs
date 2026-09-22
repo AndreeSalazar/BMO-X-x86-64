@@ -112,7 +112,7 @@ impl App {
 pub struct Launcher {
     apps: [App; MAX_APPS],
     count: usize,
-    /// El icono SENALADO, si hay alguno.
+    /// El icono MARCADO, si hay alguno.
     ///
     /// ** Antes no existia porque un clic LANZABA, y lo que se lanza no hace
     /// falta senalarlo. Pero un escritorio en el que pulsar un icono arranca un
@@ -194,7 +194,7 @@ impl Launcher {
     ///
     /// Es la misma regla que la rejilla de ESTRATOS, y desde el 2026-08-23 es
     /// literalmente el mismo codigo --`scene::double_click`-- y no dos copias
-    /// que se parecen: el primero SENALA, el segundo ABRE. Dos rejillas con dos
+    /// que se parecen: el primero MARCA, el segundo ABRE. Dos rejillas con dos
     /// costumbres distintas en el mismo escritorio serian dos cosas que
     /// aprender donde deberia haber una.
     pub fn clic(&mut self, i: usize) -> bool {

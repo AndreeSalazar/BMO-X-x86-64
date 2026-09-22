@@ -12,7 +12,7 @@
 //!
 //! Sin esta ventanita, Alt+Tab es adivinar. Con dos ventanas se aguanta; con
 //! tres ya no se sabe cuantos Tabs faltan, y el resultado es pulsar de mas y
-//! acabar donde no querias. Ensenar **la lista y cual esta marcada** convierte
+//! acabar donde no querias. Mostrar **la lista y cual esta marcada** convierte
 //! un atajo de memoria en uno que se mira.
 //!
 //! Es lo que Eddi pidio con estas palabras: *"requiere la chica ventana que

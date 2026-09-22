@@ -82,7 +82,7 @@ fn la_tabla_trae_los_dieciseis_registros() {
 /// ** Y el reparto: el emisor no DECIDE que registros usar, los LEE.
 ///
 /// Es lo que arregla el asignador de F3, que llevaba la lista escrita a mano en
-/// Rust. Anadir una instruccion es una fila de TOML; un registro tambien.
+/// Rust. Agregar una instruccion es una fila de TOML; un registro tambien.
 #[test]
 fn el_reparto_sale_de_la_tabla_y_no_del_emisor() {
     let m = x86();

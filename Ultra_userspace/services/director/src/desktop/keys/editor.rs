@@ -366,7 +366,7 @@ match c {
     // ```
     //
     // ** Esa linea es todo el esquema. Una tecla que escribe es una tecla que
-    // ENSENA --pulsas F7, ves `banda`, y luego lo escribes tu-- y una que abre
+    // MUESTRA --pulsas F7, ves `banda`, y luego lo escribes tu-- y una que abre
     // una ventana no puede mostrar nada porque no hay orden que aprender. Que
     // las dos clases no se mezclen en la misma fila es lo que hace que la tabla
     // se lea sin memorizarla.

@@ -63,7 +63,7 @@ fn dos_textos_iguales_en_objetos_distintos_son_la_misma_clave() {
 
 /// Y volver a poner la misma clave PISA el valor y no agrega una pareja.
 #[test]
-fn poner_dos_veces_la_misma_clave_no_anade_una_pareja() {
+fn poner_dos_veces_la_misma_clave_no_agrega_una_pareja() {
     let f = con_tabla(
         "        pon(t, k1, 11)\n        pon(t, k1, 99)\n        si parejas(t) no es 1\n            devuelve 0\n        devuelve lee_natural64(busca(t, k1, 0))\n",
     );

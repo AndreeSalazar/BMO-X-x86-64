@@ -70,7 +70,7 @@ documento recien escrito esta huerfano un rato por definicion.
 
 ---
 
-# 4. COMO SE ANADE UN GUARDIAN
+# 4. COMO SE AGREGA UN GUARDIAN
 
 ```text
    1. un .py con --check / --apply / --dry-run

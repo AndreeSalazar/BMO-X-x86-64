@@ -72,7 +72,7 @@ POR QUE ESE NUMERO DECIDE UN PROYECTO
 
   De docs/plan/PLAN_EL_ASISTENTE.md, seccion 8.5:
 
-      tokens/s = ancho de memoria / tamano del modelo.  NO es potencia de calculo
+      tokens/s = ancho de memoria / medida del modelo.  NO es potencia de calculo
       este CPU SOBRA TRES VECES para un 7B: el limite es la memoria
 
   Y lo que sale de aplicar eso a un modelo de 7B en Q4 (~4 GB), con las tres

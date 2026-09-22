@@ -203,7 +203,7 @@ mod pruebas {
     /// Anchos y altos degenerados no pintan y no rompen. Salen solos de restar
     /// dos coordenadas que se cruzaron.
     #[test]
-    fn los_tamanos_degenerados_no_pintan() {
+    fn las_medidas_degeneradas_no_pintan() {
         let mut t = Testigo::nuevo(100, 50);
         t.rect(10, 10, 0, 10, ROJO);
         t.rect(10, 10, 10, 0, ROJO);

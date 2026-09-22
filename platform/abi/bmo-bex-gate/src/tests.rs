@@ -357,7 +357,7 @@ fn una_reloc_que_apunta_a_la_seccion_de_al_lado_no_cabe() {
 /// hay EN MEMORIA. Con el tope puesto en `file_size` esto diria que no, y
 /// rechazaria programas correctos.
 #[test]
-fn manda_el_tamano_en_memoria_y_no_el_del_fichero() {
+fn manda_la_medida_en_memoria_y_no_el_del_fichero() {
     assert!(super::reloc_cabe(0x100, 8, 0, 0x1000), "una .bss: 0 en fichero, 0x1000 en memoria");
 }
 

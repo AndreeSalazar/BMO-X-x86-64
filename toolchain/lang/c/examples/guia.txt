@@ -19,10 +19,10 @@ Se escribe la ruta de un .bex y Enter.
 
 Y sin "run", estas ordenes contestan ahi mismo:
 
-  disco    que discos hay y de que tamano
+  disco    que discos hay y de que medida
   info     lo que el kernel sabe de esta maquina
   ls       lo que hay en la carpeta
-  lee      ensena un fichero
+  lee      muestra un fichero
   guarda   escribe lo que salio en datos/salida.txt
   ayuda    la lista entera
 

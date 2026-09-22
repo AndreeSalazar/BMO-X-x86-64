@@ -119,7 +119,7 @@ son del kernel.
 
 [!] **Y el paso 0 sigue sin foto.** `smp prueba` contesto `0.00x` en metal el
 2026-08-08, y desde entonces lleva tres testigos --`ENTRARON`/`VIERON`/`HECHOS`--
-que nadie ha fotografiado. Disenar la puerta sobre un reparto que no se sabe si
+que nadie ha fotografiado. Trazar la puerta sobre un reparto que no se sabe si
 funciona seria trazar sobre nada: **esa foto va antes.**
 
 Lo que MWAIT arregla es otra cosa y hay que separarla: hoy un obrero en espera

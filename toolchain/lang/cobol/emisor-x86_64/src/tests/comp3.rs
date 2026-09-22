@@ -192,7 +192,7 @@ fn los_usage_que_no_estan_se_rechazan_diciendo_por_que() {
         ("01 A PIC 9(3)V99 COMP-1.", "FLOTANTE"),
         ("01 A COMP-3.", "sin PIC"),
         ("01 A PIC X(10) COMP-3.", "solo se empaqueta lo numerico"),
-        ("01 A PIC $$$,$$9.99 COMP-3.", "es para ENSENAR"),
+        ("01 A PIC $$$,$$9.99 COMP-3.", "es para MOSTRAR"),
     ];
     for (decl, pista) in casos {
         let src = program(decl, "DISPLAY \"x\".");

@@ -619,7 +619,7 @@ mod hostiles {
     /// Y un `Report Size` de cero con cuenta enorme: cada vuelta suma 0 bits,
     /// asi que ni siquiera el saturado de `bits_por_id` cortaria el bucle.
     #[test]
-    fn tamano_cero_con_cuenta_enorme_tampoco() {
+    fn medida_cero_con_cuenta_enorme_tampoco() {
         let desc = [
             0x05, 0x01, 0x09, 0x02, 0xA1, 0x01,
             0x75, 0x00, // Report Size (0)

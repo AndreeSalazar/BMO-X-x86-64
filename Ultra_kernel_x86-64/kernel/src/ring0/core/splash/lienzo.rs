@@ -165,7 +165,7 @@ impl Pantalla {
         Some(Pantalla { fb, stride, w, h })
     }
 
-    /// **Ensena lo pintado.** Una barrera por fotograma, no una por rectangulo.
+    /// **Muestra lo pintado.** Una barrera por fotograma, no una por rectangulo.
     ///
     /// Mientras esto no se llame, lo escrito puede estar todavia en el buffer
     /// de escritura combinada y no haber llegado a la VRAM.

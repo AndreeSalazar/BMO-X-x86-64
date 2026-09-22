@@ -61,13 +61,13 @@ fn un_offset_que_no_cuadra_se_rechaza() {
     );
 }
 
-/// ** Y EL TAMANO TOTAL, que es la otra mitad.
+/// ** Y EL MEDIDA TOTAL, que es la otra mitad.
 ///
 /// Un medida equivocado no mueve ningun campo de este struct: mueve al
 /// SIGUIENTE elemento de cualquier array que lo contenga. Por eso se juzga
 /// aparte de los offsets.
 #[test]
-fn un_tamano_que_no_cuadra_se_rechaza() {
+fn un_medida_que_no_cuadra_se_rechaza() {
     let mut p = programa_con_struct();
     p.disposiciones.get_mut("P").expect("struct P colocado").size += 8;
 

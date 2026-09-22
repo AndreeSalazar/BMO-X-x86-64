@@ -18,7 +18,7 @@
 //!                     `unreachable!` no es decorativo: es el juez de que no
 //!                     se hayan separado
 //!
-//! # *** POR QUE SE PARTIO, Y LO PIDIO EL DUENO ASI
+//! # *** POR QUE SE PARTIO, Y LO PIDIO EL PROPIETARIO ASI
 //!
 //! > *"DIVIDIR todos los archivos que emiten, y por que, para evitar problemas
 //! > y que cada uno cumpla su porque."*
@@ -41,7 +41,7 @@
 //! `[aparece]` que este compilador estreno el mismo dia. El color, aqui, es esa
 //! escala con otro nombre.
 //!
-//! # *** EL DESPACHO SE QUEDA EXHAUSTIVO, Y ES LA UNICA DECISION DE DISENO
+//! # *** EL DESPACHO SE QUEDA EXHAUSTIVO, Y ES LA UNICA DECISION DE ESQUEMA
 //!
 //! El `match` de abajo cubre las cincuenta formas **sin brazo comodin**. Eso no
 //! es estilo: es lo que hace que el dia que nazca una forma nueva de expresion,

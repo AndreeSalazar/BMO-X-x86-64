@@ -51,7 +51,7 @@ intrinsecos = "intrinsics.toml"
 [maquina]
 ancho_de_puntero = 8
 alineacion_maxima = 16
-orden_de_bytes = "pequeno_primero"
+orden_de_bytes = "chico_primero"
 la_pila_crece = "hacia_abajo"
 
 # ===================================================================

@@ -316,9 +316,9 @@ fn una_lista_nueva_tiene_capacidad_y_ningun_elemento() {
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 0), 1);
 }
 
-/// Anadir guarda de verdad, y `sitio_de` devuelve donde esta.
+/// Agregar guarda de verdad, y `sitio_de` devuelve donde esta.
 #[test]
-fn anadir_guarda_y_el_indice_lo_encuentra() {
+fn agregar_guarda_y_el_indice_lo_encuentra() {
     let f = con_lista(
         "        agrega(l, 11, 8)\n        agrega(l, 22, 8)\n        si cuantos(l) no es 2\n            devuelve 0\n        d = sitio_de(l, 1, 8)\n        devuelve lee_natural64(d)\n",
     );

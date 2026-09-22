@@ -458,7 +458,7 @@ pub struct ProgramRecord {
     pub name: &'static str,
     pub pid: u32,
     pub tid: u32,
-    /// Tamano del archivo .bex embebido.
+    /// Medida del archivo .bex embebido.
     pub image_bytes: u32,
     /// Bytes de codigo+datos realmente mapeados en el espacio de usuario.
     pub code_bytes: u32,

@@ -94,7 +94,7 @@ pub enum Falta {
     /// La base de la arena no esta alineada a [`ALINEACION`].
     NoAlineada,
     /// La arena no da para el anillo y sus buferes.
-    Pequena,
+    Chica,
     /// La arena se sale del espacio direccionable al sumarle su medida.
     Desborda,
 }
@@ -128,7 +128,7 @@ impl Plan {
             return Err(Falta::Desborda);
         }
         if bytes < bytes_necesarios() {
-            return Err(Falta::Pequena);
+            return Err(Falta::Chica);
         }
         Ok(Plan { base, bytes })
     }
@@ -238,7 +238,7 @@ mod pruebas {
 
     #[test]
     fn una_arena_corta_no_pasa() {
-        assert_eq!(Plan::nuevo(0x1000, bytes_necesarios() - 1), Err(Falta::Pequena));
+        assert_eq!(Plan::nuevo(0x1000, bytes_necesarios() - 1), Err(Falta::Chica));
         assert!(Plan::nuevo(0x1000, bytes_necesarios()).is_ok());
     }
 

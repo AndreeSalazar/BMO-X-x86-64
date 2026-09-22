@@ -55,7 +55,7 @@ fn una_imagen_buena_pasa_y_dice_lo_que_lleva() {
 /// por cada seccion (siete en un programa asi: code, rodata, data, bss,
 /// relocs, requisitos, firma) = 384 B de prologo. BEF2 son 64 + 16 por anexo.
 #[test]
-fn el_prologo_es_mas_pequeno_que_el_de_bef1() {
+fn el_prologo_es_mas_chico_que_el_de_bef1() {
     let img = buena();
     let cuantos = u32_en(&img, 20).unwrap() as usize;
     let prologo = CABECERA + cuantos * ANEXO;
@@ -399,7 +399,7 @@ fn un_anexo_desconocido_se_lleva_y_no_estorba() {
 /// **Reabrir una imagen, cambiarla y reescribirla**: lo que hacen `bmo-pack`
 /// (agregar recursos) y `bmo-firmar` (poner la firma de autor).
 #[test]
-fn una_imagen_se_reabre_se_le_anade_y_sigue_valiendo() {
+fn una_imagen_se_reabre_se_le_agrega_y_sigue_valiendo() {
     let antes = buena();
     let mut e = Escritor::de_imagen(&antes).expect("se reabre");
     e.anexo(ANEXO_RECURSOS, b"un wad".to_vec());

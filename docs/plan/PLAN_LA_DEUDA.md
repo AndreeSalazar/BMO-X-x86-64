@@ -175,7 +175,7 @@ duplicar casillas.
 
 ---
 
-## D6 -- Pequenas, y se dicen para que no se pierdan
+## D6 -- Chicas, y se dicen para que no se pierdan
 
 - [ ] **D6a -- la linea base de medidas esta vieja.** `bmo.ps1` avisa en cada
       corrida: 14 de 40 ejecutables cambiaron y `sys/d.bex` crecio un 39,8 %.

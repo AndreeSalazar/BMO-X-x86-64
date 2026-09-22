@@ -794,7 +794,7 @@ escribir tipos ayuden. **La brevedad no es facilidad.** ABC era brevisimo.
 
 ---
 
-## 10. EL DISENO DE INTI
+## 10. EL ESQUEMA DE INTI
 
 ### 10.1 Los seis principios
 
@@ -1393,7 +1393,7 @@ optimizacion:
 ```text
    1. ANALISIS OBLIGATORIO   perfil, mutabilidad, las doce reglas
                              -> sin esto el lenguaje no cumple lo que promete
-   2. LA IR, y lo que ENSENA  rangos, tramos de vida, lo que se puede probar
+   2. LA IR, y lo que MUESTRA  rangos, tramos de vida, lo que se puede probar
                              -> el subproducto del paso 1
    3. EMISION                 usar lo aprendido para NO emitir lo que sobra
                              -> aqui se suelta el potencial
@@ -1443,7 +1443,7 @@ anios**:
    Ivy Bridge      llega ERMSB y `rep movsb` se vuelve el camino rapido...
    (2012)          ...pero con ~35 ciclos de ARRANQUE, asi que para cadenas
                    cortas sigue perdiendo. La respuesta correcta depende del
-                   TAMANO
+                   MEDIDA
    Ice Lake        llega FSRM y el arranque casi desaparece
 ```
 

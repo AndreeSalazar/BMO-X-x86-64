@@ -133,7 +133,7 @@ cual sea el veredicto del metal:
       `INFO_TXT_COMPAS_NOMBRE` 0x0C). CABINA lo grita la primera vez y cada
       vez que el peor turno sube.
 
-      ** Y LA PREGUNTA DEL DUENO, contestada: *"se puede reemplazar el
+      ** Y LA PREGUNTA DEL PROPIETARIO, contestada: *"se puede reemplazar el
       quantum o estoy hablando pendejadas?"* No es pendejada, y no se quita:
       se CONVIERTE. Un quantum es un presupuesto SIN periodo ("tantos ticks
       seguidos y luego el siguiente"): reparte por igual entre iguales, que es
@@ -302,7 +302,7 @@ cual sea el veredicto del metal:
 
       ```text
          hoy        1.000 disparos por segundo, y nadie puede decir por que el 743
-         un disparo  N disparos, y CADA UNO TIENE DUENO Y MOTIVO
+         un disparo  N disparos, y CADA UNO TIENE PROPIETARIO Y MOTIVO
       ```
 
       *** Eso es literalmente *"que cada uno diga que aporta"*. La diferencia es

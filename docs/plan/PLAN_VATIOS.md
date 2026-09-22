@@ -313,7 +313,7 @@ por cada cosa que de verdad pase.**
 
 ```text
    cuesta   TAREA en el DIRECTOR + DATO: el esperable de entrada tiene que
-            SENALAR, y hoy la entrada no marca porque no interrumpe (W3)
+            MARCAR, y hoy la entrada no marca porque no interrumpe (W3)
    riesgo   RELOJ -- todo lo que hoy se repinta "en la vuelta" (cursor,
             testigos de la barra, animaciones) pasa a repintarse por evento
             o por el plazo de 250 ms. Lo que dependa de la vuelta se nota

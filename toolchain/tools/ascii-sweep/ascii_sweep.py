@@ -64,6 +64,10 @@ LANGS = {
     # INTI va en castellano por decision del dueno (2026-08-20), y por eso
     # mismo sus fuentes pasan por aqui: una palabra rota tampoco es INTI.
     ".inti": "inti",
+    # Y la prosa suelta (2026-09-22): un .txt es prosa entera. Los .py NO:
+    # sus cadenas van a la consola del anfitrion en UTF-8 y contarlas aqui
+    # subiria el techo del anfitrion sin motivo; sus enes se miran a mano.
+    ".txt": "markdown",
 }
 
 # ---------------------------------------------------------------------------
@@ -248,6 +252,9 @@ def scan(text, lang):
         return
     if lang == "inti":
         yield from scan_line_comment(text, ("#",), ('"',))
+        return
+    if lang == "python":
+        yield from scan_line_comment(text, ("#",), ('"""', "'''", '"', "'"))
         return
     if lang == "ada":
         yield from scan_ada(text)
@@ -855,8 +862,8 @@ ENES_CAIDAS = [
 ]
 
 # Compilado una vez: (regex de palabra entera, remedio o None).
-_ENES = [(re.compile(r"\b" + pat + r"\b"), rem) for pat, rem in ENES_CAIDAS
-         if rem is not None]
+_ENES = [(re.compile(r"\b" + pat + r"\b", re.IGNORECASE), rem)
+         for pat, rem in ENES_CAIDAS if rem is not None]
 
 
 def _con_la_forma(original, remedio):
@@ -892,11 +899,18 @@ def reponer_enes(texto):
     return "\n".join(lineas), cambios
 
 
-RE_PALABRA_LLANA = re.compile("[A-Za-z]+")
+# Un identificador se parte por sus mayusculas ANTES de mirarlo: `Tamano`,
+# `RechazoTamano`, `tamanoPy` y `TAMANO` llevan la misma palabra rota que
+# `tamano`. Sin esto el diccionario solo veia la prosa (2026-09-22).
+RE_PALABRA_LLANA = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
+
+_ENES_ENTERAS = [(re.compile(pat + "$"), rem) for pat, rem in ENES_CAIDAS
+                 if rem is not None]
 
 
 def la_ene_caida(texto):
-    """Las palabras con la ene caida que quedan, por palabra.
+    """Las palabras con la ene caida que quedan, por palabra, y en
+    cualquier forma: prosa, `snake_case` o `CamelCase`.
 
     Linea a linea, para que `MARCA_ADREDE` pueda eximir UNA sin apagar el
     fichero entero.
@@ -905,17 +919,19 @@ def la_ene_caida(texto):
     for linea in texto.splitlines():
         if MARCA_ADREDE in linea:
             continue
-        for rx, _ in _ENES:
-            for m in rx.finditer(linea):
-                w = m.group(0).lower()
-                fuera[w] = fuera.get(w, 0) + 1
+        for bruto in RE_PALABRA_LLANA.findall(linea):
+            w = bruto.lower()
+            for rx, _ in _ENES_ENTERAS:
+                if rx.match(w):
+                    fuera[w] = fuera.get(w, 0) + 1
+                    break
     return fuera
 
 
 def remedio_de(palabra):
     """Lo que la casa escribe en vez de `palabra`, para decirlo en el FAIL."""
-    for rx, rem in _ENES:
-        m = rx.fullmatch(palabra)
+    for rx, rem in _ENES_ENTERAS:
+        m = rx.match(palabra)
         if m:
             return m.expand(rem)
     return "?"

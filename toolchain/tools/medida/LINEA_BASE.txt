@@ -1,4 +1,4 @@
-# Tamano de cada ejecutable de staging/, en bytes.
+# Medida de cada ejecutable de staging/, en bytes.
 # REPORTERO, no trinquete: ver toolchain/tools/medida/medida.py
 # Se regenera con:  py toolchain/tools/medida/medida.py --fijar
 ada/cierre.bex 2296
@@ -9,7 +9,7 @@ c/caja.bex 8332
 c/ciclos.bex 10609
 c/coste.bex 13061
 c/cubo.bex 23480
-c/guia.bex 22370
+c/guia.bex 22371
 c/holac.bex 2735
 c/imagen.bex 18048
 c/leer.bex 7736

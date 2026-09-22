@@ -62,13 +62,13 @@ fn dieciseis_cifras_no_dejan_hueco() {
     assert_eq!(lo_escrito(&m), vec!["tick    ", "12345678", "90123456", "\n"]);
 }
 
-/// ** ENSENA LO QUE LE DAN, y pregunta solo lo que no se resta.
+/// ** MUESTRA LO QUE LE DAN, y pregunta solo lo que no se resta.
 ///
 /// Desde el 2026-09-12 la frecuencia y los vatios los calcula la sonda restando
 /// sus propias lecturas; `muestra` recibe los numeros hechos y solo pregunta los
 /// dos que no son contadores: obreros vivos y puertas.
 #[test]
-fn ensena_escribe_lo_que_le_dan_y_pregunta_vivos_y_puertas() {
+fn muestra_escribe_lo_que_le_dan_y_pregunta_vivos_y_puertas() {
     let m = arranca(&con_principal("    muestra(1, 2, 3, 4)\n"));
     let preguntas: Vec<u64> = m
         .syscalls

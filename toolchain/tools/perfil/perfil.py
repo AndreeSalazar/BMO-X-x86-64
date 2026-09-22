@@ -3,7 +3,7 @@
 Por que existe
 ==============
 
-Idea del dueno, 2026-09-07:
+Idea del propietario, 2026-09-07:
 
     "que esos PERFIL digan exposicion, para que explique cada perfil que fallan
      para facilitar procesos. Es como que uno perfila, pero si falla el guardian

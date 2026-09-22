@@ -70,7 +70,7 @@ pub fn vuelos() -> (u64, u64, u64) {
 /// el juez"*; esto contesta *"cuanta RAM de esta maquina esta fuera del celo"*.
 ///
 /// ```text
-///    vivos     PEQUENO Y QUIETO. Los aparatos piden al arrancar y ya.
+///    vivos     CHICO Y QUIETO. Los aparatos piden al arrancar y ya.
 ///              Si sube en marcha, alguien reparte DMA en caliente
 ///    soltados  ** CERO. Cualquier otra cosa es N3 rota, y con su cuenta
 /// ```

@@ -221,7 +221,7 @@ int accion_de_scancode(int sc) {
  * encendidos como vale. Se lee de un vistazo y no promete un idioma que este
  * programa no sabe escribir.
  *
- * La fila SENALADA lleva su marca a la izquierda. Es la unica diferencia que
+ * La fila MARCADA lleva su marca a la izquierda. Es la unica diferencia que
  * hace falta para poder navegar sin leer.
  *
  * ** LA GEOMETRIA VIVE EN CUATRO FUNCIONES Y NO EN DOS COPIAS, y eso no es
@@ -424,7 +424,7 @@ int main() {
     unsigned int col_techo;
     unsigned int col_suelo;
 
-    /* * LA PANTALLA TIENE UN SOLO DUENO, y eso no es una limitacion de este
+    /* * LA PANTALLA TIENE UN SOLO PROPIETARIO, y eso no es una limitacion de este
      * programa: es el modelo. `gui.bex` la reclama al arrancar y no la suelta,
      * asi que mientras el escritorio viva, aqui se contesta que no.
      *
@@ -469,7 +469,7 @@ int main() {
          *
          * Se sale por el boton de cerrar del marco, que lo pone el DIRECTOR. */
     } else {
-        /* * LA PANTALLA TIENE UN SOLO DUENO. Si no hay compositor que preste
+        /* * LA PANTALLA TIENE UN SOLO PROPIETARIO. Si no hay compositor que preste
          * una caja, se toma entera, que es lo que este ejemplo hacia siempre. */
         if (bmo_pantalla_abrir(&pan) == 0) {
             printf("ni ventana ni pantalla: no hay donde dibujar\n");
@@ -878,7 +878,7 @@ int main() {
         }
         if (menu == 1 && se_ve == 1) menu_pinta(fb, stride, ancho, alto, sel, fov, vel, tema, hov);
 
-        /* ** SEGUIMOS SIENDO LOS DUENOS DE LA PANTALLA?
+        /* ** SEGUIMOS SIENDO LOS PROPIETARIOS DE LA PANTALLA?
          *
          * Esta pregunta es la que faltaba, y su ausencia es lo que dejo dos
          * `#PF` en `datos/fallos.txt` el 2026-08-13, los dos **escribiendo** y

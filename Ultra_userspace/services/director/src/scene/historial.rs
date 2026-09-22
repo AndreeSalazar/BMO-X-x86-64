@@ -1,4 +1,4 @@
-//! **LA PESTANA `historial`**: la cadena de versiones, dibujada.
+//! **LA SOLAPA `historial`**: la cadena de versiones, dibujada.
 //!
 //! [consumo] NADA      no corre en reposo por su cuenta: pinta cuando el
 //!                     compositor se lo pide, y el compositor solo pinta si

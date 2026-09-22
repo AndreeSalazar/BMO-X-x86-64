@@ -108,7 +108,7 @@ esperando a su fase.
 | `r03_division` | 3 -- dividir entre cero atrapa | `E1003` |
 | `r04_sin_valor` | 4 -- ★ leer sin inicializar **no se puede escribir** | `E0031` |
 | `r07_desplaza` | 7 -- desplazar de mas da cero, con aviso | **COMPILA** + `A2007` + `0` |
-| `r09_tamanos` | 9 -- medidas exactos | **COMPILA** |
+| `r09_medidas` | 9 -- medidas exactos | **COMPILA** |
 | `r11_flotante` | 11 -- las cuatro operaciones y la conversion existen | **COMPILA** |
 | `r11_bits_flotante` | 11 -- los bits sobre un flotante **no compilan** | `E0123` |
 | `r12_conversion` | 12 -- flotante fuera de rango atrapa | `E1012` |

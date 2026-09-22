@@ -33,7 +33,7 @@ LAS EXTENSIONES -- que sabe hacer este silicio
 -----------------------------------------------
 
   ** Es la primera tabla de PERFIL/ que lee una MAQUINA, y nacio el 18-09 de
-  una pregunta del dueno: "el emisor pregunta al perfil antes de emitir".
+  una pregunta del propietario: "el emisor pregunta al perfil antes de emitir".
   Antes de que un emisor pueda preguntar, el perfil tiene que contestar, y
   hasta hoy hablaba de nucleos y cache y de extensiones nada.
 
@@ -99,7 +99,7 @@ LAS EXTENSIONES -- que sabe hacer este silicio
 LAS CACHES -- de la linea al L3 (2026-09-19)
 ---------------------------------------------
 
-  ** La base para que un compilador entienda la maquina: sin el tamano de la
+  ** La base para que un compilador entienda la maquina: sin el medida de la
   linea y quien comparte cada cache no se puede avisar de que dos hilos se
   pisan los mismos 64 bytes, ni de que una tabla no cabe en L1.
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """R22 -- SI ES SI Y NO ES NO: una puerta no contesta EXITO cuando niega.
 
-Pedida por el dueno el 2026-09-12, con estas palabras:
+Pedida por el propietario el 2026-09-12, con estas palabras:
 
     *"que el orquestador sea ESTRICTO, que diga si si y no no, porque si es
     ambiguo se rompe TODO"*
@@ -12,7 +12,7 @@ lo cruzo por encima de las 1.000 lineas y L6a la echo el mismo dia.
 
 # El fallo que la trajo
 
-El DIRECTOR no ensenaba la ventana de DOOM. El motivo estaba tres capas abajo,
+El DIRECTOR no mostraba la ventana de DOOM. El motivo estaba tres capas abajo,
 en el brazo de `MEM_OP_OFRECER`:
 
 ```rust
@@ -260,7 +260,7 @@ def ficheros_del_despachador():
     """`{ruta: texto}` de los `.rs` de `ring0/syscall/`.
 
     Solo el despachador: una funcion interna que devuelva `None` no le miente a
-    nadie de fuera. **La ambiguedad solo hace dano donde se cruza la frontera**,
+    nadie de fuera. **La ambiguedad solo hace perjuicio donde se cruza la frontera**,
     y la frontera es esta carpeta.
     """
     d = os.path.join(raiz(), SYSCALL_DIR.replace("/", os.sep))

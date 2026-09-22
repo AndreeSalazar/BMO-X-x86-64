@@ -28,7 +28,7 @@
  * En BMO son **una fila de TOML**:
  * `forge/sem-asm/tables/arch/x86_64/intrinsics.toml`. Ahi esta el nombre, los
  * bytes EXACTOS, a que registro va cada argumento y de cual sale el resultado.
- * Anadir una instruccion es una fila. Cero Rust.
+ * Agregar una instruccion es una fila. Cero Rust.
  *
  * Y esa tabla se verifica: hay una prueba que **compila una llamada a cada
  * fila**, asi que un nombre de registro mal escrito falla en el banco y no en

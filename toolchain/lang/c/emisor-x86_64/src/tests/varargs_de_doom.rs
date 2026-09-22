@@ -170,7 +170,7 @@ fn un_entero_sigue_avanzando_de_uno() {
 /// Es el mismo medida que ya usa el subindice, y el que fallaba esta luego por
 /// el otro camino (`Expr::Add`).
 #[test]
-fn un_puntero_a_struct_avanza_su_tamano() {
+fn un_puntero_a_struct_avanza_su_medida() {
     let out = run_c_con_pp(
         "typedef struct { char *nombre; int v; } item_t;\n\
          item_t lista[3] = { {\"a\", 10}, {\"b\", 20}, {\"c\", 30} };\n\

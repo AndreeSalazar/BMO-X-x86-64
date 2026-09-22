@@ -79,7 +79,7 @@ descartadas -- esta en [`docs/maestro/INTI_MAESTRO.md`](../../../docs/maestro/IN
 
 ```text
    INTI LLANO   sin monton, sin contador de referencias, sin recoleccion.
-                Tamanos exactos, todo en la pila o estatico, y `crudo` para
+                Medidas exactos, todo en la pila o estatico, y `crudo` para
                 tocar puertos. Corre a la velocidad de C.
 
    INTI PLENO   lo de arriba mas texto, listas, tablas, `numero` decimal

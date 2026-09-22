@@ -39,13 +39,13 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
         .copied()
         .filter(|r| !pisados.contains(r))
         .collect();
-    let sin_dueno: Vec<u8> = taller
+    let sin_propietario: Vec<u8> = taller
         .libres
         .iter()
         .copied()
         .filter(|r| !pisados.contains(r))
         .collect();
-    let marco = Marco::con_registros(f, &libres, &preservados, &sin_dueno);
+    let marco = Marco::con_registros(f, &libres, &preservados, &sin_propietario);
     let mut cuenta = Cuenta {
         en_registros: marco.en_registros(),
         en_pila: f.temporales as usize - marco.en_registros(),

@@ -57,7 +57,7 @@ impl PicField {
         self.integer_digits + self.scale
     }
 
-    /// Tamano en bytes del almacenamiento.
+    /// Medida en bytes del almacenamiento.
     pub fn size(&self) -> usize {
         if !self.numeric {
             return self.char_count.max(1) as usize;

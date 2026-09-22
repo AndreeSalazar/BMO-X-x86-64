@@ -221,7 +221,7 @@ mod pruebas {
     /// Una curva grande merece mas tramos que una chica. Sin esto, o se
     /// pagan llamadas de mas o se ve poligonal.
     #[test]
-    fn el_numero_de_tramos_sigue_al_tamano() {
+    fn el_numero_de_tramos_sigue_a_la_medida() {
         assert_eq!(tramos((0, 0), (1, 0), (2, 0), (3, 0)), 4, "el minimo");
         assert_eq!(tramos((0, 0), (0, 0), (0, 0), (2000, 2000)), 64, "el tope");
         let medio = tramos((0, 0), (40, 0), (40, 80), (80, 80));

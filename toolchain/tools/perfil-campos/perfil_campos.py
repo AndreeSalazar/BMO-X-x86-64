@@ -183,7 +183,7 @@ def caches_del_perfil(texto):
 
 def caches_del_kernel():
     """`{nombre: (kib, linea, vias, hilos)}` de `esperado_5600x()`. La linea es
-    64 en todas (`fila()` la fija) y el tamano puede venir como `32 * 1024`."""
+    64 en todas (`fila()` la fija) y el medida puede venir como `32 * 1024`."""
     with open(CACHE_RS, "r", encoding="utf-8", errors="replace") as fh:
         texto = fh.read()
     cuerpo = texto[texto.index("pub const fn esperado_5600x()"):]
@@ -339,7 +339,7 @@ def main():
                 quejas.append(
                     "** DISCO: FALTA EL CIERRE '%s' en build/discos.ps1. Ese "
                     "fichero es el unico del repo que puede escribir en el disco "
-                    "del dueno -- ver PERFIL/DISCO.txt" % que)
+                    "del propietario -- ver PERFIL/DISCO.txt" % que)
 
     if quejas:
         print("los perfiles y el codigo NO dicen lo mismo:")

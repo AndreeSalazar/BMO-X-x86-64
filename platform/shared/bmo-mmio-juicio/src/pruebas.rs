@@ -78,10 +78,10 @@ fn el_largo_tiene_que_ser_multiplo_de_pagina() {
 /// pagina, asi que cederlo cede los 4.096 bytes que lo rodean -- y ahi pueden
 /// vivir los registros de otro aparato.
 #[test]
-fn un_bar_mas_pequeno_que_una_pagina_no_se_cede() {
+fn un_bar_mas_chico_que_una_pagina_no_se_cede() {
     assert_eq!(
         cedible(0x8000_0000, 256, &mapa(), &[]),
-        Err(Veto::MasPequenoQueUnaPagina { bytes: 256 })
+        Err(Veto::MasChicoQueUnaPagina { bytes: 256 })
     );
 }
 
@@ -92,10 +92,10 @@ fn un_bar_mas_pequeno_que_una_pagina_no_se_cede() {
 /// 0x1800 si: se redondea a 0x2000 y ya. Si el juez los mezclara, el primero se
 /// leeria como un error de calculo del que llama.
 #[test]
-fn el_largo_pequeno_y_el_largo_torcido_no_dicen_lo_mismo() {
+fn el_largo_chico_y_el_largo_torcido_no_dicen_lo_mismo() {
     assert_eq!(
         cedible(0x8000_0000, 256, &mapa(), &[]),
-        Err(Veto::MasPequenoQueUnaPagina { bytes: 256 })
+        Err(Veto::MasChicoQueUnaPagina { bytes: 256 })
     );
     assert_eq!(
         cedible(0x8000_0000, 0x1800, &mapa(), &[]),
@@ -233,7 +233,7 @@ fn cada_veto_tiene_nombre_y_ninguno_esta_vacio() {
         Veto::NoAlineado { base: 1 },
         Veto::LargoNoAlineado { bytes: 1 },
         Veto::SeSaleDelEspacio { base: 1, bytes: 1 },
-        Veto::MasPequenoQueUnaPagina { bytes: 1 },
+        Veto::MasChicoQueUnaPagina { bytes: 1 },
         Veto::DebajoDeUnMega { base: 1 },
         Veto::PisaRam { base: 1, tramo_base: 2, tramo_bytes: 3 },
         Veto::EsElApic { base: 1 },

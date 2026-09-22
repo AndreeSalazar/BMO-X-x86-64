@@ -82,7 +82,7 @@ pub mod rescate;
 
 pub use bus::{bus_stats, bus_thread, latido_peor, latido_peor_cuando, nombre_de_trabajo, peor_trabajo, ritmo, ritmo_y_peor, start_bus_thread};
 use bus::pump_bus;
-use rescate::{raw_key_from_owner, tecla_del_dueno};
+use rescate::{raw_key_from_owner, tecla_del_propietario};
 pub use panel::*;
 
 // Line buffer for the driver's diagnostic stream. The driver logs in
@@ -451,7 +451,7 @@ pub fn poll_ascii() -> Option<u8> {
     if cambiado {
         vmm::switch_to(kpml4);
     }
-    let r = tecla_del_dueno(poll_ascii_interno());
+    let r = tecla_del_propietario(poll_ascii_interno());
     // Se devuelve SIEMPRE, por un solo camino. `poll_ascii_interno` tiene
     // varios `return` y dejar el CR3 del kernel puesto al volver a Ring 3 seria
     // mucho peor que el fallo original: la tarea seguiria corriendo con el

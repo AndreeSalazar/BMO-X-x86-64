@@ -28,7 +28,7 @@ en `Ultra_userspace/services/director/src/scene/` pasa a ser texto que se lee.
 
 ```
    HOY       calc.rs:       CALC_BTN = 72;  CALC_GAP = 6;  fn button(row,col)
-   MANANA    calc.maqueta:  display:flex; gap:6px
+   LUEGO    calc.maqueta:  display:flex; gap:6px
 ```
 
 ### ⚠ El medida del problema, MEDIDO el 17-08 (y era menor de lo que dije)

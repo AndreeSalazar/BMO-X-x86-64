@@ -191,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    fn los_umbrales_caen_donde_dice_el_diseno() {
+    fn los_umbrales_caen_donde_dice_el_esquema() {
         let en = |porcentaje: u64| Ocupacion::de(porcentaje * 10, 1000, 4096).nivel();
         assert_eq!(en(69), Nivel::Holgado);
         assert_eq!(en(70), Nivel::Ambar);

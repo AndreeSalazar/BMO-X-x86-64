@@ -190,7 +190,7 @@ mod pruebas {
     }
 
     #[test]
-    fn opciones_que_harian_dano() {
+    fn opciones_que_harian_perjuicio() {
         // Largo 0: el bucle infinito. Largo que se sale: leer fuera.
         for opciones in [[3u8, 0, 0, 0], [3, 9, 0, 0], [2, 3, 5, 0], [8, 1, 0, 0]] {
             let mut b = [0u8; 24];

@@ -10,7 +10,7 @@
 
 ---
 
-# 0. EL DATO QUE HAY QUE DECIR ANTES DE DISENAR NADA
+# 0. EL DATO QUE HAY QUE DECIR ANTES DE TRAZAR NADA
 
 **Hoy BMO-X no tiene trabajo pesado que repartir.**
 
@@ -232,7 +232,7 @@ rindio esperando. Ya lleva los tres testigos puestos y **nadie los ha
 fotografiado**. Antes de escribir una linea de AXION hay que saber si los
 obreros entran al bucle, ven la ronda, o mueren en la faena.
 
-**Disenar sobre un reparto que no se sabe si funciona es trazar sobre nada.**
+**Trazar sobre un reparto que no se sabe si funciona es trazar sobre nada.**
 
 ### Paso 1 -- LA TABLA DE ESTADOS, y decirla
 
@@ -353,7 +353,7 @@ enteros, las unidades y las barras son de Ring 3** -- y ese contrato ya funciona
 2. **Vatios del paquete.** Tres `rdmsr` mas. Y con eso, la seccion 5 deja de ser
    teoria: se mide `smp stop` con un numero.
 3. **F7, la vista.** Ring 3, con lo que ya existe: `TASK_OP_INFO` y una fila mas
-   en su tabla de campos. Anadir un dato es una fila.
+   en su tabla de campos. Agregar un dato es una fila.
 4. **Temperatura.** Config PCI indirecta. Va la cuarta porque es la unica que
    depende del modelo de CPU y hay que leerla por PERFIL (seccion 2), no a mano.
 5. **Ocupacion por nucleo.** Toca el planificador, y **va detras de que los APs

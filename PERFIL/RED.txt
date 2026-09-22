@@ -60,7 +60,7 @@ LO QUE ESTE PERFIL NO GUARDA, A PROPOSITO
 
   ** Un perfil describe el HARDWARE y viaja en un repositorio publico. La
   identidad de la red se aprende al arrancar y se queda en la maquina:
-  `red perfil` en el escritorio ensena lo aprendido, recortado. Es la seccion 5
+  `red perfil` en el escritorio muestra lo aprendido, recortado. Es la seccion 5
   de docs/plan/PLAN_RED_TX.md.
 
 

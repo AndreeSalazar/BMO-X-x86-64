@@ -514,7 +514,7 @@ desbloquea por hora de trabajo.
 
 Lo que la puerta **ya da**: `TASK_OP_ARCHIVO_ABRIR` (0x10) y `_CREAR` (0x11);
 sobre el handle, `ARCH_OP_LEER` (7 bytes crudos), `ARCH_OP_LEER_LINEA`,
-`ARCH_OP_ESCRIBIR`, `ARCH_OP_TAMANO` y `ARCH_OP_CERRAR`.
+`ARCH_OP_ESCRIBIR`, `ARCH_OP_MEDIDA` y `ARCH_OP_CERRAR`.
 
 ## ★ Revision 4 (2026-08-03): las tres primeras son UNA, y no la que se creia
 
@@ -526,7 +526,7 @@ dos cosas, y solo una es de verdad:
 |---|---|
 | *"No existe ninguna operacion de cursor"* | **Existe**: `CURSOR[i]` en `obj/archivo.rs`, uno por ranura, y `leer`/`leer_linea` ya lo mueven. `3.3` es exponerlo con una guarda de rango -- decenas de lineas, no una M |
 | *"Un handle que lea y escriba"* | El fichero **entero vive ya en RAM** por ranura (marcos contiguos que se doblan al llenarse) y `cerrar` lo vuelca de una vez. Leer-y-escribir no pide modelo nuevo: pide que `abrir` deje `ESCRIBE = true` y que `escribir` respete el cursor en vez de agregar al final |
-| *"Anadir al final"* | Cae solo con lo anterior: `CURSOR = LARGO` al abrir |
+| *"Agregar al final"* | Cae solo con lo anterior: `CURSOR = LARGO` al abrir |
 
 ★ **Lo que falta de verdad es que FAT32 sepa REEMPLAZAR.**
 `create_file_in_dir` devuelve `WriteError::Exists` si el nombre ya esta, y
@@ -567,7 +567,7 @@ ella.**
       que salir el nuevo.
 
 - [ ] **3.1 - `KIND_ARCHIVO`: modo EXTEND** -- S ⛔ (3.0)
-      Anadir al final. Hoy `OPEN EXTEND` se rechaza a proposito: solo hay
+      Agregar al final. Hoy `OPEN EXTEND` se rechaza a proposito: solo hay
       `_CREAR`, que crea de cero, asi que compilarlo como `OUTPUT` borraria el
       historico y el programa pareceria funcionar hasta que alguien buscara el
       mes pasado.

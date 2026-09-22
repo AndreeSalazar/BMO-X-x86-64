@@ -260,7 +260,7 @@ mod tests {
 
     /// Un tipo sin declarar no se toma por entero: se dice como declararlo.
     #[test]
-    fn un_tipo_que_no_existe_se_rechaza_ensenando_la_forma() {
+    fn un_tipo_que_no_existe_se_rechaza_mostrando_la_forma() {
         let e = error_de(&programa("S : Saldo := 1.00;", "Put_Line(S);"));
         assert!(e.contains("delta") && e.contains("digits"), "{e}");
     }

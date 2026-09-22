@@ -70,7 +70,7 @@ fn loaded_bef_has_global_data() {
 // eso, estos tests no probarian nada.
 
 /// El medida declarado de la seccion `kind`.
-fn tamano_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
+fn medida_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
     let v = bmo_abi::bef2::leer(bef).ok()?;
     let n = v.region(r).len();
     if n == 0 {
@@ -89,7 +89,7 @@ fn tamano_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
 #[test]
 fn la_seccion_de_codigo_ya_no_se_redondea_a_pagina() {
     let bef = compile_source_to_bef("int main() { printf(\"hola\"); return 0; }").unwrap();
-    let code = tamano_region(&bef, bmo_abi::bef2::Region::Codigo).expect("tiene que haber codigo");
+    let code = medida_region(&bef, bmo_abi::bef2::Region::Codigo).expect("tiene que haber codigo");
     assert!(
         code % 4096 != 0,
         "un programa de esta medida no puede medir un multiplo exacto de pagina: {code}"

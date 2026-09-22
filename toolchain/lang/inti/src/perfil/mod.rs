@@ -688,7 +688,7 @@ impl<'c> Vigia<'c> {
     fn falta_tipo(&mut self, nombre: &str, sitio: Sitio) {
         self.acusa(
             Aviso::nuevo(
-                codigos::FALTA_TAMANO,
+                codigos::FALTA_MEDIDA,
                 format!("En `llano`, `{}` tiene que decir su tipo.", nombre),
                 sitio,
             )
@@ -736,7 +736,7 @@ impl<'c> Vigia<'c> {
                 } else if self.cat.sin_medida(n) {
                     self.acusa(
                         Aviso::nuevo(
-                            codigos::FALTA_TAMANO,
+                            codigos::FALTA_MEDIDA,
                             format!("En el perfil `llano` no existe `{}`.", n),
                             sitio,
                         )

@@ -556,7 +556,7 @@ def probar():
 def main():
     ap = argparse.ArgumentParser(description='El metro de L8: capas entre crates, nudos y familias dentro.')
     ap.add_argument('--check', action='store_true', help='sale con 1 si algo sube de capa, hay un nudo o una subida nueva, o falta una familia')
-    ap.add_argument('--mapa', action='store_true', help='ensena el mapa entero')
+    ap.add_argument('--mapa', action='store_true', help='muestra el mapa entero')
     ap.add_argument('--conecta', action='store_true', help='imprime, por subsistema del kernel, a que familias conecta HOY')
     ap.add_argument('--sellar', action='store_true', help='graba nudos y subidas de hoy en la linea base')
     ap.add_argument('--motivo', default='', help='POR QUE entra algo nuevo en la base. Sin esto, se rechaza')

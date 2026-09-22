@@ -66,7 +66,7 @@ def juzgar_bytes(datos):
                 x, y = _numero(p[1].decode(), ANCHO_MAX), _numero(p[2].decode(), ALTO_LAMINA_MAX)
                 e = _numero(p[3].decode(), ESCALA_MAX)
                 if e == 0:
-                    raise ValueError("Tamano: escala 0")
+                    raise ValueError("Medida: escala 0")
                 _color(p[4].decode())
                 w, h = len(texto) * LETRA_ANCHO * e, LETRA_ALTO * e
             else:
@@ -79,7 +79,7 @@ def juzgar_bytes(datos):
                 x, y = _numero(p[1].decode(), ANCHO_MAX), _numero(p[2].decode(), ALTO_LAMINA_MAX)
                 w, h = _numero(p[3].decode(), ANCHO_MAX), _numero(p[4].decode(), ALTO_LAMINA_MAX)
                 if w == 0 or h == 0:
-                    raise ValueError("Tamano: sin area")
+                    raise ValueError("Medida: sin area")
                 (_color if verbo == "CAJA" else _id)(p[5].decode())
             if x + w > W or y + h > H:
                 raise ValueError("Fuera: %d+%d > %d o %d+%d > %d" % (x, w, W, y, h, H))

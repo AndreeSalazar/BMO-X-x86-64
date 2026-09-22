@@ -109,7 +109,7 @@ fn deduce(e: &Expr, sabidos: &HashMap<String, Tipo>, plano: Option<&Plano>) -> O
     match e {
         // `x = Registro(...)` -- el constructor.
         //
-        // *** Y LA SENAL ES MAS FUERTE DE LO QUE PARECE: el arbol no trae un
+        // *** Y LA SIGNAL ES MAS FUERTE DE LO QUE PARECE: el arbol no trae un
         // `Nombre` aqui, trae un `Tipo`. La gramatica dice que **los tipos
         // empiezan por mayuscula**, asi que el parser ya separo las dos cosas
         // mucho antes de llegar aqui.

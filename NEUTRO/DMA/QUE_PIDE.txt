@@ -1,7 +1,7 @@
 QUE PIDE UN APARATO CON DMA -- y por que se prueba EN USO
 ==========================================================
 
-  Pregunta del dueno, 2026-09-10: "en DMA que se solicita para aplicar? [...]
+  Pregunta del propietario, 2026-09-10: "en DMA que se solicita para aplicar? [...]
   no es ir lo tipico sino en que se basa, por que, y que quiere -- es mas
   profundo".
 
@@ -88,7 +88,7 @@ Y LO QUE QUIERE, QUE ES OTRA COSA
   quiere es NO TENER QUE PREGUNTAR.
 
   *** De ahi sale una consecuencia incomoda y honesta: **cada comprobacion que
-  anadimos es una que el aparato no pidio.** No son para el. Son para nosotros.
+  agregamos es una que el aparato no pidio.** No son para el. Son para nosotros.
 
     el aparato pide          4 cosas
     el sistema necesita      7 respuestas
@@ -101,7 +101,7 @@ Y LO QUE QUIERE, QUE ES OTRA COSA
 POR QUE SE PRUEBA EN USO Y NO CON UNA SONDA
 ---------------------------------------------
 
-  Peticion del dueno, la misma frase: "para saber como test pero inteligente,
+  Peticion del propietario, la misma frase: "para saber como test pero inteligente,
   EN USO CONSTANTE".
 
   ** Una sonda contesta *"funciono cuando la corri"*. Y ningun fallo de esta
@@ -109,7 +109,7 @@ POR QUE SE PRUEBA EN USO Y NO CON UNA SONDA
 
     un marco pisado         se ve tres arranques despues, con otra cara
     dos aparatos a la vez   hace falta que coincidan
-    un desbordamiento       hace falta un tamano raro, un lote raro, un dia raro
+    un desbordamiento       hace falta un medida raro, un lote raro, un dia raro
     un aparato muerto       hace falta que se muera
 
   *** Todos son fallos DE COINCIDENCIA. Una sonda no puede provocarlos porque
@@ -144,7 +144,7 @@ POR QUE SE PRUEBA EN USO Y NO CON UNA SONDA
 *** EL CENTINELA, Y POR QUE SOLO MIRA EL BORDE
 -----------------------------------------------
 
-  La ultima de la lista es la mas nueva y la que mejor ensena la idea.
+  La ultima de la lista es la mas nueva y la que mejor muestra la idea.
 
   La pagina de rebote son 4096 bytes y un lote los llena enteros. Asi que se
   piden DOS marcos contiguos y el segundo no se usa para nada: es el centinela,

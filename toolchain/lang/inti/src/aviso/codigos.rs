@@ -73,7 +73,7 @@ pub const PAREJA_ROTA: Codigo = Codigo("E0017");
 pub const NUMERO_ENORME: Codigo = Codigo("E0018");
 
 /// En `llano` hay que decir la medida: `numero` no existe alli.
-pub const FALTA_TAMANO: Codigo = Codigo("E0020");
+pub const FALTA_MEDIDA: Codigo = Codigo("E0020");
 /// Un `quiza T` usado sin mirarlo antes.
 pub const QUIZA_SIN_MIRAR: Codigo = Codigo("E0021");
 /// Conversion implicita entre tipos. Aqui se piden con nombre.
@@ -231,7 +231,7 @@ pub const TODOS: &[Codigo] = &[
     SIGNO_DESCONOCIDO,
     NUMERO_RARO,
     PAREJA_ROTA,
-    FALTA_TAMANO,
+    FALTA_MEDIDA,
     QUIZA_SIN_MIRAR,
     SIN_CONVERSION,
     NO_ES_CAMBIANTE,

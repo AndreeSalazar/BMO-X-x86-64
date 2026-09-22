@@ -178,7 +178,7 @@ fn generar(destino: &Path) -> Result<(), String> {
     }
     println!("], \"...\"),");
     println!();
-    println!("[!] Anadir una clave al ancla es conceder ejecucion a todo lo que");
+    println!("[!] Agregar una clave al ancla es conceder ejecucion a todo lo que");
     println!("    esa clave firme, PARA SIEMPRE. No hay revocacion.");
     Ok(())
 }

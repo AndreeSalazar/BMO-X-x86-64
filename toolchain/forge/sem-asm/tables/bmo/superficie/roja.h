@@ -196,7 +196,7 @@ BMO_SUPERFICIE *bmo_superficie_crear_con_buzon(int ancho, int alto, int ranuras)
 
 /* La superficie de siempre: sin buzon.
  *
- * Se queda con el nombre corto a proposito. Una app que solo ENSENA es el caso
+ * Se queda con el nombre corto a proposito. Una app que solo MUESTRA es el caso
  * normal --un reloj, un medidor, un visor--, y pedir entrada tiene que costar
  * escribirlo: quien no la lee no debe quitarle las teclas al escritorio.
  */

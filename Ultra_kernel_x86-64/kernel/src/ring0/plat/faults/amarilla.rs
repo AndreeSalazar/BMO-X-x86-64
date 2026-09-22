@@ -321,7 +321,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
                     // > decia que la pila no tiene propietaria y no decia quien la
                     // > solto.
                     //
-                    // Se pregunta a las tablas que llevan DUENO y direccion
+                    // Se pregunta a las tablas que llevan PROPIETARIO y direccion
                     // FISICA, por turno y de la mas probable a la menos:
                     //
                     //    KIND_MEMORIA   el bloque de un proceso de Ring 3
@@ -331,7 +331,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
                     // es una respuesta y de las caras: un marco que el
                     // asignador da por entregado y que ninguna tabla reconoce
                     // es contabilidad rota, no un propietario que falta.
-                    // ** Y EL DUENO VA EN SU PROPIA LINEA. (2026-09-02)
+                    // ** Y EL PROPIETARIO VA EN SU PROPIA LINEA. (2026-09-02)
                     //
                     // La primera version lo pegaba detras de `marco OCUPADO`, y
                     // en el Ryzen la foto acaba en `marco OCUPADO,` -- el dato,
@@ -667,7 +667,7 @@ pub(super) fn pantalla_de_fallo(titulo: &str, informe: &Informe) -> ! {
         }
         // La barra MENGUA: se ve cuanto queda, no cuanto ha pasado.
         let restante = ((total - pasado) as u128 * barra_w as u128 / total as u128) as u32;
-        // * Repintar por DANO, no la barra entera.
+        // * Repintar por PERJUICIO, no la barra entera.
         //
         // Antes este bucle borraba y redibujaba los ~1200 px de la barra en
         // CADA vuelta, tan rapido como el CPU pudiera: decenas de miles de

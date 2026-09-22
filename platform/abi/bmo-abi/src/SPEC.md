@@ -33,7 +33,7 @@ resuelve imports y ofrece syscalls BMO; no compila lenguajes en Ring 0.
 | 1 | **Modular** | Cada sub-modulo es autocontenido. Una app puede importar solo lo que necesita. |
 | 2 | **Sin VM obligatoria** | AOT es preferido, pero se permite runtime modular por lenguaje. |
 | 3 | **BEF es el formato canonico** | Todo programa compilado a BEF puede cargarse. |
-| 4 | **ABI explicito, no implicito** | Tamanos, alineaciones, layouts documentados + `static_assert!` en codigo. |
+| 4 | **ABI explicito, no implicito** | Medidas, alineaciones, layouts documentados + `static_assert!` en codigo. |
 | 5 | **Manejo de errores unificado** | `BmoStatus` de 16 bytes en RAX:RDX. Sin TLS, sin errno. |
 | 6 | **Zero-copy donde sea posible** | IPC, surfaces, strings: pasar `(ptr, len)`, no copiar. |
 | 7 | **Handles opacos** | `BmoHandle(0xABCD)` con tag + generation + index. |
@@ -89,7 +89,7 @@ bmo_abi/
 
 ### Tipos repr(C) y medidas verificados
 
-| Tipo | Tamano | Area |
+| Tipo | Medida | Area |
 |------|--------|------|
 | cabecera BEF2 | 64 B | bef2 |
 | entrada de anexo | 16 B | bef2 |

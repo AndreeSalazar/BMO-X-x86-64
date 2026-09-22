@@ -4,7 +4,7 @@ no hace nada.
 Vive en su propio fichero **y no dentro de `contrato.py`**, y el motivo es el
 de `contrato_drivers.py`, repetido palabra por palabra el 2026-09-11:
 
-  *** AL ANADIR R21 AHI DENTRO, `contrato.py` CRUZO LAS 1.000 LINEAS y L6a lo
+  *** AL AGREGAR R21 AHI DENTRO, `contrato.py` CRUZO LAS 1.000 LINEAS y L6a lo
   cazo en el mismo build.
 
 [!] Y esta vez con un agravante que hay que dejar escrito: la cabecera de
@@ -29,7 +29,7 @@ from contrato_ley import CARRILES_FUERA_DEL_KERNEL, CONSUMO, raiz
 # compositor seria un muro, no un letrero"*. Era verdad el 11-09: el DIRECTOR
 # tenia DOS ficheros sellados de 71.
 #
-# ** El muro ya no existe. El 12-09 el dueno pidio *"analizar todas, consumo de
+# ** El muro ya no existe. El 12-09 el propietario pidio *"analizar todas, consumo de
 # watts y por que razones"* y el DIRECTOR paso a 72 de 72. O sea que la excepcion
 # no estaba ahi porque exigirlo fuera malo: estaba porque el trabajo no se habia
 # hecho. Hecho el trabajo, la excepcion caduca -- y si no se cierra, el fichero
@@ -50,7 +50,7 @@ RE_CONSUMO = re.compile(r"^//!? \[consumo\]\s+(\S+)", re.M)
 def r21_el_consumo(ficheros, fuera=None):
     """L6h -- **todo fichero de Ring 0 dice que gasta en reposo**. `{ruta: texto}`.
 
-    Peticion del dueno, 2026-09-11: *"dividir en archivos que consumen y no,
+    Peticion del propietario, 2026-09-11: *"dividir en archivos que consumen y no,
     por motivos"*. Tres exigencias en Ring 0, y una fuera:
 
       1. declara `[consumo]`. Sin trinquete, como R10: se empieza en 180 de 180.
@@ -121,7 +121,7 @@ def lo_que_gasta_fuera(fuera):
     """**La nota del COMPOSITOR**: sus ficheros que no son NADA.
 
     La hermana de [`lo_que_gasta_en_reposo`], y existe por la misma razon: una
-    regla que solo comprueba no ensena. Lo que el build IMPRIME es lo que se lee
+    regla que solo comprueba no muestra. Lo que el build IMPRIME es lo que se lee
     sin preguntar, y esta lista es la respuesta entera a *"que gasta el
     escritorio cuando no hago nada"*.
 

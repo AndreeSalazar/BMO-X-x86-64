@@ -79,7 +79,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >
 > **Tres defectos arreglados sin encender la maquina**, y los tres tocan a DOOM:
 >
-> 1. **El alineado se deducia del TAMANO** -- un array se alinea como su
+> 1. **El alineado se deducia del MEDIDA** -- un array se alinea como su
 >    ELEMENTO. Todos los structs que DOOM castea sobre los bytes del WAD salian
 >    corridos (`maplinedef_t` media 16 y son 14, o sea el nivel entero a partir
 >    del segundo registro).
@@ -510,7 +510,7 @@ Se ve en `info` (dos renglones, verde a cero y rojo si no), en CABINA al acabar
 La implementa el kernel, la declara el ABI y la consume el userland. Una fila
 escrita en dos de los tres sitios es un campo que contesta otra cosa de la que
 se pidio, **y no falla al compilar**. Al escribir el guardian salio el caso
-real: `INFO_PANTALLA_DUENO` estaba en el kernel y en el userland y **no en el
+real: `INFO_PANTALLA_PROPIETARIO` estaba en el kernel y en el userland y **no en el
 ABI**. `build.ps1` lo comprueba ahora, y la lista no se escribe a mano.
 
 ⚠ Y otra que no compilaba en `main`: `commands/mod.rs` decia `mod complete;` con
@@ -1575,7 +1575,7 @@ no una imposibilidad tecnica.
 
 **Filosofia politica grabada (2026-07-24)**: BMO-X = "dictadura absoluta pero
 benevolente" -- cero-confianza en el CODIGO (capabilities + bmo-verify), soberania
-del DUENO, transparencia total (CABINA lo confiesa todo). Trade-off honesto:
+del PROPIETARIO, transparencia total (CABINA lo confiesa todo). Trade-off honesto:
 software que exige opacidad (DRM/anti-cheat de kernel) se auto-excluye. No es
 pirateria; es "esta maquina me obedece solo a mi". Consola-con-esteroides + PC.
 

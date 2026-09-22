@@ -36,7 +36,7 @@
 //! 2. **Dos perifericos no pueden compartir direccion.** Instalar un raton en
 //!    la direccion del teclado se rechaza y se dice. Ver [`dir::Direccion::choca_con`].
 //!
-//! Anadir un tercer aparato es un modulo mas y un brazo mas en el reparto; no
+//! Agregar un tercer aparato es un modulo mas y un brazo mas en el reparto; no
 //! se toca ni el bus ni los otros dos.
 
 #![no_std]

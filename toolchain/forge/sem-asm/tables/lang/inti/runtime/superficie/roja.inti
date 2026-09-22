@@ -159,7 +159,7 @@ funcion superficie_crear_con_buzon(ancho es natural64, alto es natural64, ranura
         devuelve 0
     devuelve s
 
-# La superficie de siempre: sin buzon. Una app que solo ENSENA no le quita las
+# La superficie de siempre: sin buzon. Una app que solo MUESTRA no le quita las
 # teclas al escritorio.
 funcion superficie_crear(ancho es natural64, alto es natural64) devuelve natural64
     devuelve superficie_crear_con_buzon(ancho, alto, 0)

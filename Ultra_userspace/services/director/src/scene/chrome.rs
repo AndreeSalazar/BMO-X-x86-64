@@ -12,7 +12,7 @@
 //! algoritmo, que es la forma en que dos ventanas del mismo sistema acaban
 //! comportandose distinto sin que nadie lo decida.
 //!
-//! Anadir minimizar, maximizar y cerrar a cada una habria sido escribir tres
+//! Agregar minimizar, maximizar y cerrar a cada una habria sido escribir tres
 //! veces la misma maquina de estados. Aqui se escribe una.
 //!
 //! * **El criterio no es la estetica: es que la CUARTA ventana salga gratis.**

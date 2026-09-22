@@ -95,7 +95,7 @@ int main() {
 /// 4. Y como en `SHA1_Final(digest, &context)`: el puntero NO es el primer
 /// argumento, y el que lo reenvia le pone mas argumentos delante y detras.
 #[test]
-fn un_puntero_reenviado_como_segundo_argumento_y_con_companeros() {
+fn un_puntero_reenviado_como_segundo_argumento_y_con_colegas() {
     let salida = run_c(
         "
 struct Ctx { int count; int extra; };

@@ -312,7 +312,7 @@ impl Parser {
                         format!("el array tiene {n} elementos y se inicializa el {i}"),
                     ));
                 }
-                Ok(((**elem).clone(), i as u32 * self.tamano_de(elem)))
+                Ok(((**elem).clone(), i as u32 * self.medida_de(elem)))
             }
             TypeSpec::StructRef(s) | TypeSpec::UnionRef(s) => {
                 let campos = self.struct_fields.get(s).ok_or_else(|| {
@@ -393,12 +393,12 @@ impl Parser {
     /// usarla aqui ponia todos los elementos de un `struct P v[2]` en el mismo
     /// offset: `v[1]` escribia encima de `v[0]`. Compilaba, corria, y daba
     /// numeros que parecian plausibles.
-    pub(super) fn tamano_de(&self, tipo: &TypeSpec) -> u32 {
+    pub(super) fn medida_de(&self, tipo: &TypeSpec) -> u32 {
         match tipo {
             TypeSpec::StructRef(s) | TypeSpec::UnionRef(s) => {
                 self.struct_sizes.get(s).copied().unwrap_or(8)
             }
-            TypeSpec::Array(elem, n) => self.tamano_de(elem) * n,
+            TypeSpec::Array(elem, n) => self.medida_de(elem) * n,
             otro => otro.stack_size(),
         }
     }

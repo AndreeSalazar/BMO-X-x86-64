@@ -282,7 +282,7 @@ mod tests {
     /// del tope da la vuelta, y una comprobacion escrita como
     /// `offset + size > len` diria que si cabe.
     #[test]
-    fn un_tamano_que_desborda_no_pasa_la_suma() {
+    fn un_medida_que_desborda_no_pasa_la_suma() {
         let mut bytes = construir(&[("x", b"12345")]).unwrap();
         bytes[CABECERA_LEN + 8..CABECERA_LEN + 16].copy_from_slice(&u64::MAX.to_le_bytes());
         assert!(Directorio::nuevo(&bytes).is_none());

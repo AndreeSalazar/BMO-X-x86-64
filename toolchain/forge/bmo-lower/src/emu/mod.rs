@@ -414,7 +414,7 @@ pub struct Machine {
     /// la lista de `(hercios, milisegundos)` que el programa mando-- y eso es
     /// justo lo que hace comprobable una libreria de musica: que `LA4` en negra
     /// a 120 pulsos son 440 Hz durante 425 ms, y no algo aproximado.
-    audio_dueno: bool,
+    audio_propietario: bool,
     audio_volumen: u64,
     /// **Todos** los volumenes que se pidieron, en orden. `audio_volumen` solo
     /// guarda el ultimo, y eso no distingue "se puso una vez" de "se puso
@@ -490,7 +490,7 @@ impl Machine {
             mi_paquete: None,
             mem: HashMap::new(),
             solo_lectura: Vec::new(),
-            audio_dueno: false,
+            audio_propietario: false,
             audio_volumen: 50,
             audio_volumenes: Vec::new(),
             audio_partitura: Vec::new(),

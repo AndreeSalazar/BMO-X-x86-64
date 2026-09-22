@@ -296,7 +296,7 @@ motivo real**.
 
 ---
 
-# ★ 5. QUIEN ES DUENO DE QUE, Y QUE PASA CUANDO ALGO MUERE
+# ★ 5. QUIEN ES PROPIETARIO DE QUE, Y QUE PASA CUANDO ALGO MUERE
 
 Esto hay que decidirlo antes de escribir, porque es donde se rompen los sistemas
 de ventanas:

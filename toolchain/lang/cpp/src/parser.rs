@@ -110,9 +110,9 @@ struct Clase {
     /// Nombre de metodo -> ranura. Es lo que convierte una llamada en un
     /// despacho: si el nombre esta aqui, la llamada es virtual.
     ranura_de: HashMap<String, usize>,
-    /// Tamano total, que el derivado necesita para colocar sus campos detras.
+    /// Medida total, que el derivado necesita para colocar sus campos detras.
     tam: u32,
-    // El TAMANO no esta aqui a proposito: el parser no lo necesita para nada
+    // El MEDIDA no esta aqui a proposito: el parser no lo necesita para nada
     // --resolver `p.x` solo pide offset y tipo-- y viaja en `Class::size`, que
     // es donde lo leera `new P()` en el paso 3. Guardar una copia que nadie
     // lee es exactamente la clase de dato que se queda obsoleto en silencio.
@@ -1174,7 +1174,7 @@ impl Parser {
 
     /// Los binarios por **escalada de precedencia**: un solo bucle con una
     /// tabla, en vez de nueve funciones que solo se diferencian en la fila.
-    /// Anadir un operador es agregar una fila de [`Self::precedencia`].
+    /// Agregar un operador es agregar una fila de [`Self::precedencia`].
     fn binario(&mut self, minima: u8) -> Result<Expr, CppError> {
         let mut izq = self.unario()?;
         loop {

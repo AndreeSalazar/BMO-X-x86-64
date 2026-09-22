@@ -7,7 +7,7 @@
  * y no publicaba `TASK_OP_TOMAR` ni `PRESTADO_OP_*`. Una app de C podia
  * PRESTAR memoria y no podia RECIBIRLA.
  *
- * == ** POR QUE ESTE EJEMPLO NO PUEDE ENSENAR EL CICLO ENTERO ==
+ * == ** POR QUE ESTE EJEMPLO NO PUEDE MOSTRAR EL CICLO ENTERO ==
  *
  * Porque el kernel **prohibe prestarse a uno mismo**, y con razon:
  *
@@ -94,7 +94,7 @@ int main() {
         return 0;
     }
 
-    owner = bmo_prestado_dueno(&p);
+    owner = bmo_prestado_propietario(&p);
     printf("prestado_C: recibidos %llu bytes del TID %d\n", p.bytes, owner);
 
     /* Se lee con la comprobacion puesta: el medida lo eligio OTRO proceso, asi

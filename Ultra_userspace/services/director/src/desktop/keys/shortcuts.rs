@@ -129,7 +129,7 @@ if alt_alone && (0x80..=0x83).contains(&c) {
     };
     let fit = m & bmo::MOD_SHIFT != 0;
     let mut moved = false;
-    // -- ** SE MUEVE LA SENALADA, NO LA QUE TIENE EL FOCO --
+    // -- ** SE MUEVE LA MARCADA, NO LA QUE TIENE EL FOCO --
     //
     // `focus.actual()` parece lo obvio y es justo lo que no vale:
     // **no cambia mientras conmutas**, a proposito --lo dice su

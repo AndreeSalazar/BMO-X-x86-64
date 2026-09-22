@@ -33,7 +33,7 @@
 
 use bmo_abi::bef2::{leer, Region};
 
-/// Tamano de pagina. **No se importa del kernel a proposito**: este crate corre
+/// Medida de pagina. **No se importa del kernel a proposito**: este crate corre
 /// en el anfitrion y no puede depender de `Ultra_kernel`. 4096 no se va a mover.
 pub const PAGE: u64 = 4096;
 

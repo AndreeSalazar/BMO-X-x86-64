@@ -97,7 +97,7 @@ escritorio por delante, y el fallo de pagina lo cobra el DIRECTOR.
 
 ### R-APP6 -- Muere sin llevarse a nadie
 
-Se pregunta cada fotograma con `PRESTADO_OP_DUENO`. Una app muerta deja su
+Se pregunta cada fotograma con `PRESTADO_OP_PROPIETARIO`. Una app muerta deja su
 `sequence` congelada, que es **indistinguible de una app pensando**. **Sin
 esto**: la ventana de un programa que ya no existe se queda en pantalla para
 siempre.

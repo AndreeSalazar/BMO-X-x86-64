@@ -29,7 +29,7 @@
 use crate::console;
 use crate::x86::{self, Jump, RAX, RCX, RDI, RDX, RSI, RSP, R10, R11, R8, R9};
 
-/// Tamano del buffer en pila. 20 digitos (el maximo de un u64) + signo,
+/// Medida del buffer en pila. 20 digitos (el maximo de un u64) + signo,
 /// redondeado a 32 para mantener la pila alineada.
 pub const BUFFER: i8 = 32;
 

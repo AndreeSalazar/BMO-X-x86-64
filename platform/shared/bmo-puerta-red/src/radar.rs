@@ -39,7 +39,7 @@ pub const MALFORMADAS_MAX: u64 = 16;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u32)]
 pub enum Motivo {
-    CerradoPorElDueno = 1,
+    CerradoPorElPropietario = 1,
     Caducado = 2,
     CupoGastado = 3,
     IndiceImposible = 4,
@@ -47,7 +47,7 @@ pub enum Motivo {
     Suplantacion = 6,
     Inundacion = 7,
     Malformadas = 8,
-    DuenoMurio = 9,
+    PropietarioMurio = 9,
     EnlaceCaido = 10,
     BuzonRoto = 11,
 }
@@ -59,7 +59,7 @@ impl Motivo {
 
     pub fn desde_codigo(c: u32) -> Option<Motivo> {
         Some(match c {
-            1 => Motivo::CerradoPorElDueno,
+            1 => Motivo::CerradoPorElPropietario,
             2 => Motivo::Caducado,
             3 => Motivo::CupoGastado,
             4 => Motivo::IndiceImposible,
@@ -67,7 +67,7 @@ impl Motivo {
             6 => Motivo::Suplantacion,
             7 => Motivo::Inundacion,
             8 => Motivo::Malformadas,
-            9 => Motivo::DuenoMurio,
+            9 => Motivo::PropietarioMurio,
             10 => Motivo::EnlaceCaido,
             11 => Motivo::BuzonRoto,
             _ => return None,
@@ -76,7 +76,7 @@ impl Motivo {
 
     pub fn texto(self) -> &'static str {
         match self {
-            Motivo::CerradoPorElDueno => "lo cerro quien lo abrio",
+            Motivo::CerradoPorElPropietario => "lo cerro quien lo abrio",
             Motivo::Caducado => "paso el plazo concedido",
             Motivo::CupoGastado => "se gastaron las tramas concedidas",
             Motivo::IndiceImposible => "el proceso escribio un indice imposible en el buzon",
@@ -84,7 +84,7 @@ impl Motivo {
             Motivo::Suplantacion => "intento salir con una MAC de origen que no es la nuestra",
             Motivo::Inundacion => "100 ms seguidos por encima del ritmo",
             Motivo::Malformadas => "mas de 16 tramas malformadas",
-            Motivo::DuenoMurio => "el proceso murio",
+            Motivo::PropietarioMurio => "el proceso murio",
             Motivo::EnlaceCaido => "el enlace se cayo",
             Motivo::BuzonRoto => "el buzon del kernel no tiene su forma",
         }
@@ -92,7 +92,7 @@ impl Motivo {
 
     /// Lo decidio el propietario o el plazo, y no un fallo: no se grita en CABINA.
     pub fn es_normal(self) -> bool {
-        matches!(self, Motivo::CerradoPorElDueno | Motivo::Caducado | Motivo::CupoGastado | Motivo::DuenoMurio)
+        matches!(self, Motivo::CerradoPorElPropietario | Motivo::Caducado | Motivo::CupoGastado | Motivo::PropietarioMurio)
     }
 }
 

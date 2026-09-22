@@ -22,7 +22,7 @@
 //! # Por que este fichero existe
 //!
 //! Salio de `codegen/mod.rs` el 2026-09-02, y lo pidio L6a: aquel fichero esta
-//! en la lista del trinquete y **solo puede encoger**. Anadir el cotejo lo hizo
+//! en la lista del trinquete y **solo puede encoger**. Agregar el cotejo lo hizo
 //! crecer 34 lineas de codigo, y la regla contesto que no.
 //!
 //! ** Y tenia razon por el motivo de fondo, no por la aritmetica: colocar un

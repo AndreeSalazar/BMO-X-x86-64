@@ -226,7 +226,7 @@ mod pruebas {
 
     /// Un medida de clave que no se soporta se dice, no se recorta.
     #[test]
-    fn una_clave_de_otro_tamano_se_contesta_que_no() {
+    fn una_clave_de_otro_medida_se_contesta_que_no() {
         assert!(Aes::nueva(&[0u8; 24]).is_none(), "AES-192 no esta, y se dice");
         assert!(Aes::nueva(&[0u8; 15]).is_none());
         assert!(Aes::nueva(&[]).is_none());

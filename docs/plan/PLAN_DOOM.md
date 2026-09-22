@@ -41,7 +41,7 @@
 ⚠    tiene una decision dentro que hay que tomar antes de escribir codigo
 ```
 
-Tamano: **S** una sesion - **M** dos o tres - **L** una semana de verdad -
+Medida: **S** una sesion - **M** dos o tres - **L** una semana de verdad -
 **XL** la pieza grande de su fase.
 
 ## La regla que no se negocia
@@ -646,7 +646,7 @@ El arreglo no es cambiar el `0` por otro numero. Son dos cosas y **hay que hacer
 las dos**:
 
 ```text
-   A. ENSENAR a `resolve_expr_type` a tipar una binaria de puntero:
+   A. MOSTRAR a `resolve_expr_type` a tipar una binaria de puntero:
       `p - n`, `p + n` y `&arr[i]` conservan el tipo de `p`.
       Eso es lo que arregla a DOOM.
 

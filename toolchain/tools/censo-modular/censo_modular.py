@@ -225,7 +225,7 @@ def solo_codigo(texto):
     *** POR QUE L6a PASO A MEDIR ESTO Y NO EL TOTAL (2026-08-24)
     ===========================================================
 
-    Lo cazo el dueno, y con razon. El 24-08 se le anadio a `syscall/mod.rs` una
+    Lo cazo el propietario, y con razon. El 24-08 se le anadio a `syscall/mod.rs` una
     cabecera explicando **por que** se habia repartido, y el fichero cruzo las
     mil lineas y salto la regla. Al medirlo:
 
@@ -262,7 +262,7 @@ def solo_codigo(texto):
     hubiera vaciado la lista, el cambio seria sospechoso; que deje dentro a los
     cinco mas grandes es lo que dice que mide lo que dice medir.
 
-    ** El TOTAL se sigue enseNando al lado, para que nadie tenga que creerse
+    ** El TOTAL se sigue mostrando al lado, para que nadie tenga que creerse
     esta cuenta: las dos columnas estan en el informe.
     """
     codigo = 0
@@ -288,7 +288,7 @@ def solo_codigo(texto):
 def mayor_funcion(texto, ruta):
     """**Cuanto ocupa la funcion MAS GRANDE.** `None` si no se sabe contar.
 
-    *** POR QUE ESTA MEDIDA HACIA FALTA, y lo enseno un fichero de verdad
+    *** POR QUE ESTA MEDIDA HACIA FALTA, y lo mostro un fichero de verdad
     ==================================================================
 
     El 2026-08-24 el censo llamaba CAJON a `task/proc.rs` --media 58 lineas por
@@ -296,10 +296,10 @@ def mayor_funcion(texto, ruta):
 
         `admit_payload_desde` era UNA FUNCION DE 607 LINEAS
 
-    **Diecinueve funciones pequenas y un monstruo dan la misma media que veinte
+    **Diecinueve funciones chicas y un monstruo dan la misma media que veinte
     medianas.** La media es un promedio, y un promedio esconde exactamente lo
     que este censo existe para separar: un cajon se parte mecanicamente y un
-    monstruo pide un cambio de diseNo.
+    monstruo pide un cambio de esquema.
 
     ** La medida es una APROXIMACION y se dice: se toma la distancia entre dos
     aperturas de funcion consecutivas. Un `fn` anidado la partiria en dos y daria
@@ -320,8 +320,8 @@ def mayor_funcion(texto, ruta):
 
     # *** Y CUANTO ESTADO COMPARTE, que es lo que decide si se puede partir.
     #
-    # ** Lo enseno `syscall/mod.rs` el 2026-08-24. Tenia una funcion de 795
-    # lineas y este censo la marcaba `CON MONSTRUO` -- *"partirla es diseno, no
+    # ** Lo mostro `syscall/mod.rs` el 2026-08-24. Tenia una funcion de 795
+    # lineas y este censo la marcaba `CON MONSTRUO` -- *"partirla es esquema, no
     # tijeras"*. Al medirla:
     #
     #     locales a nivel del cuerpo   0
@@ -331,7 +331,7 @@ def mayor_funcion(texto, ruta):
     # independientes**, y cada brazo era una funcion esperando nombre. Se partio
     # moviendo texto en una tarde.
     #
-    # *** La media dijo `mixto`, el tamano dijo `CON MONSTRUO`, y los dos se
+    # *** La media dijo `mixto`, el medida dijo `CON MONSTRUO`, y los dos se
     # equivocaron igual: **midieron lo GRANDE que es la funcion y no lo que
     # decide si se puede partir, que es su ESTADO.** El propio doc de este
     # fichero lo llevaba escrito --*"el estado local compartido tiene que
@@ -373,7 +373,7 @@ class Ficha:
         # se parte moviendo texto o si pide un struct antes. Ver `mayor_funcion`.
         self.estado = estado
         # **La funcion mas grande.** Ver `mayor_funcion`: la media esconde un
-        # monstruo entre pequenas, y este censo existe para separarlos.
+        # monstruo entre chicas, y este censo existe para separarlos.
         self.mayor = mayor
         # ** El anillo se guarda en la ficha y no se pregunta cada vez: es un
         # hecho sobre el fichero, igual que sus lineas.
@@ -415,14 +415,14 @@ def especie(ficha):
     #
     # ** Una funcion que se lleva mas de un tercio del fichero manda sobre el
     # promedio, y no al reves: `task/proc.rs` tenia media 58 --CAJON, "se parte
-    # moviendo texto"-- y dentro una funcion de 607 lineas. Diecinueve pequenas
+    # moviendo texto"-- y dentro una funcion de 607 lineas. Diecinueve chicas
     # y un monstruo dan la misma media que veinte medianas.
     #
     # El umbral es UN TERCIO y no la mitad porque lo que se quiere cazar no es
     # "el fichero ES una funcion" --eso ya lo dice la media-- sino **"hay una
-    # que no se va a poder mover sin diseNo"**.
+    # que no se va a poder mover sin esquema"**.
     if ficha.mayor and ficha.codigo and ficha.mayor * 3 > ficha.codigo:
-        # *** Y AQUI SE MIRA EL ESTADO, no el tamano. Una funcion enorme que no
+        # *** Y AQUI SE MIRA EL ESTADO, no el medida. Una funcion enorme que no
         # declara casi nada no es un monstruo: es un DESPACHADOR, y se parte
         # moviendo texto. Ver `mayor_funcion`.
         #
@@ -444,9 +444,9 @@ def especie(ficha):
 
 COMO_SE_PARTE = {
     'CAJON': 'mecanico: mover texto, y demostrable byte a byte (L6d)',
-    'GIGANTE': 'pide DISENO: el estado local tiene que volverse un struct',
-    'mixto': 'a mano: hay funciones grandes entre las pequenas',
-    'CON MONSTRUO': 'UNA funcion se lleva >1/3 Y comparte estado: PARTIRLA es diseno',
+    'GIGANTE': 'pide ESQUEMA: el estado local tiene que volverse un struct',
+    'mixto': 'a mano: hay funciones grandes entre las chicas',
+    'CON MONSTRUO': 'UNA funcion se lleva >1/3 Y comparte estado: PARTIRLA es esquema',
     'DESPACHADOR': 'UNA funcion enorme SIN estado: son brazos sueltos, se parten moviendo texto',
     'TABLA': 'son datos, no logica: mirar si lo deberia emitir una fabrica',
     'desconocida': 'sin cuenta de funciones para este lenguaje',
@@ -513,7 +513,7 @@ def sellar(fichas, exentos, techos, subidas, motivo):
     techo (`syscall/mod.rs`, +14) y el unico sitio donde quedo el por que fue
     un mensaje de commit, que es donde nadie lo va a buscar dentro de un anio.
 
-    Es la regla del dueno aplicada a la propia herramienta: **todo tiene su por
+    Es la regla del propietario aplicada a la propia herramienta: **todo tiene su por
     que; lo que no lo tiene, se quita.**
     """
     # *** PARA RING 0 NO HAY LINEA BASE NUEVA. NUNCA. (2026-08-24)
@@ -630,7 +630,7 @@ def sellar(fichas, exentos, techos, subidas, motivo):
     hoy.append('# un fichero mas facil de auditar, no mas dificil.')
     hoy.append('#')
     hoy.append('# No se edita a mano: se regenera con `--sellar` cuando un')
-    hoy.append('# reparto baja un numero, y el commit ensena cuanto bajo.')
+    hoy.append('# reparto baja un numero, y el commit muestra cuanto bajo.')
     hoy.append('')
     hoy.append('[TECHOS]')
     for f in fichas:
@@ -720,7 +720,7 @@ def informe(fichas, techos, exentos, nuevos, crecidos, encogidos, salidos, subid
     # cosa. Y no lo son: un fichero de 1.200 lineas en el kernel y uno de 1.200
     # en un compilador del anfitrion **cuestan distinto cuando fallan**.
     #
-    # Lo que este bloque anade no es una regla nueva -- es la capacidad de DECIR
+    # Lo que este bloque agrega no es una regla nueva -- es la capacidad de DECIR
     # cuales importan. Y lo primero que dijo, el dia que se escribio, fue que
     # los dos ficheros mas grandes que corren en Ring 0 viven bajo `platform/` y
     # **no parecen Ring 0 desde la carpeta**.

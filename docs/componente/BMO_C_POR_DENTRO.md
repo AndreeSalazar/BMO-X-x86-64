@@ -346,7 +346,7 @@ decir que NO.**
 
 ### L6a mordio, y tenia razon
 
-Anadir el cotejo hizo crecer `codegen/mod.rs` 34 lineas de codigo, y ese fichero
+Agregar el cotejo hizo crecer `codegen/mod.rs` 34 lineas de codigo, y ese fichero
 esta en la lista del trinquete: **solo puede encoger**. La respuesta no fue
 levantar el techo sino repartir, que es para lo que la regla existe -- colocar
 un agregado y comprobar esa colocacion son **un solo concepto**, y estaban entre

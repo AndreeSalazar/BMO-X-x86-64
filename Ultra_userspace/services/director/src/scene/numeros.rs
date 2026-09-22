@@ -1,4 +1,4 @@
-//! **LA PESTANA `numeros`**: como esta el almacen, de un vistazo.
+//! **LA SOLAPA `numeros`**: como esta el almacen, de un vistazo.
 //!
 //! [consumo] NADA      no corre en reposo por su cuenta: pinta cuando el
 //!                     compositor se lo pide, y el compositor solo pinta si
@@ -178,7 +178,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow, tx: u32) {
         // La bandera es una Y de varias condiciones, y cada una manda a mirar
         // un sitio distinto: no hay volumen (se formatea), es de otro disco (se
         // clono), no cabe (hay que recoger), o el gate del disco no armo (eso
-        // es del arranque, no de ESTRATOS). Ensenar solo "NO" obligaria a
+        // es del arranque, no de ESTRATOS). Mostrar solo "NO" obligaria a
         // adivinar entre cuatro -- que es lo que costo una vuelta al metal en
         // el recorte del 17-08.
         //

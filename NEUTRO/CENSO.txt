@@ -77,7 +77,7 @@ LO QUE NO ENTRA, Y POR QUE
   Ver FRONTERA.txt: la palabra "neutro" es util mientras no se estire.
 
 
-COMO SE ANADE UNO
+COMO SE AGREGA UNO
 -----------------
 
   1. se escribe su fila AQUI, con la maquina apagada  (N1)

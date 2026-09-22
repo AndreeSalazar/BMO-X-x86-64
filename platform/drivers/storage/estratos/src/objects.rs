@@ -296,7 +296,7 @@ impl Nodo {
         Self { tipo, attrs: [None; ATTRS_MAX] }
     }
 
-    /// Anade un atributo. Falla si ya existe uno con ese nombre o no hay sitio.
+    /// Agrega un atributo. Falla si ya existe uno con ese nombre o no hay sitio.
     pub fn con(mut self, a: Attr) -> Result<Self, FormatError> {
         if self.attr(a.nombre_str()).is_some() { return Err(FormatError::BadField); }
         for slot in self.attrs.iter_mut() {
@@ -482,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn los_niveles_crecen_con_el_tamano() {
+    fn los_niveles_crecen_con_el_medida() {
         // Un .bex de 12 KiB no cabe en un bloque pero si en un nivel.
         assert_eq!(niveles_para(4096), Some(0));
         assert_eq!(niveles_para(4097), Some(1));

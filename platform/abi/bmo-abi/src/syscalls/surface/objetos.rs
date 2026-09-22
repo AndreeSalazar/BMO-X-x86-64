@@ -354,7 +354,7 @@ pub const ARCH_OP_SALTAR: u64 = 0x07;
 pub const ARCH_OP_ESCRIBIR_DE: u64 = 0x08;
 
 /// Bytes que quedan por leer, o los acumulados si es de escritura.
-pub const ARCH_OP_TAMANO: u64 = 0x03;
+pub const ARCH_OP_MEDIDA: u64 = 0x03;
 
 /// Cierra. En uno de escritura **es donde el contenido llega al disco**.
 pub const ARCH_OP_CERRAR: u64 = 0x04;
@@ -380,7 +380,7 @@ pub const PRESTADO_OP_BYTES: u64 = 0x02;
 /// **El TID de quien me lo presto, o `0` si ya no vive.** Es el detector de vida
 /// de una ventana: componer la memoria de otro proceso sin poder preguntar si
 /// sigue ahi seria no distinguir una app muerta de una app pensando.
-pub const PRESTADO_OP_DUENO: u64 = 0x03;
+pub const PRESTADO_OP_PROPIETARIO: u64 = 0x03;
 
 /// **Devolverlo**: se desmapea de mi espacio y la ranura queda libre. Sin esto,
 /// abrir y cerrar ventanas agota las ranuras de prestamo hasta reiniciar.
@@ -392,7 +392,7 @@ pub const PRESTADO_OP_SOLTAR: u64 = 0x04;
 /// --`next_tid` solo sube--, asi que un handle viejo nunca puede acabar
 /// nombrando a otro proceso. Es la misma propiedad que `PRESTADO_OP_SOLTAR`
 /// tuvo que ganarse revocando el handle: aqui sale gratis.
-/// Sigue vivo? `1` o `0`. Es el mismo detector que `PRESTADO_OP_DUENO`, pero
+/// Sigue vivo? `1` o `0`. Es el mismo detector que `PRESTADO_OP_PROPIETARIO`, pero
 /// preguntado desde el otro lado y sin necesitar un prestamo por medio.
 pub const TAREA_OP_VIVE: u64 = 0x01;
 
@@ -520,7 +520,7 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 ///    se escribe **por eso**: una propiedad verdadera por accidente deja de
 ///    serlo sin que nadie lo note.
 ///
-/// [!] Solo la contesta el DUENO del bloque: es una operacion sobre su propia
+/// [!] Solo la contesta el PROPIETARIO del bloque: es una operacion sobre su propia
 /// capability. Saber donde vive la memoria del vecino no le hace falta a nadie.
 pub const MEM_OP_FISICA: u64 = 0x04;
 

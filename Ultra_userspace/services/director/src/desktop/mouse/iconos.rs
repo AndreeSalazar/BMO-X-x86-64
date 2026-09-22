@@ -36,7 +36,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
         && !dsk.win.cabina_open
         && !dsk.win.sound_open
     {
-        // -- ** UN CLIC SENALA. DOS ABREN. Y ENTRAR tambien abre.
+        // -- ** UN CLIC MARCA. DOS ABREN. Y ENTRAR tambien abre.
         //
         // Antes un solo clic LANZABA. Eso deja un escritorio en el que no se
         // puede mirar sin ejecutar: pulsar para ver como se llama un icono

@@ -315,7 +315,7 @@ impl Parser {
                 if let Ok(t) = self.parse_type_spec() {
                     if *self.peek() == Token::CloseParen {
                         self.advance();
-                        return Ok(Expr::Int(self.tamano_de(&t) as i64));
+                        return Ok(Expr::Int(self.medida_de(&t) as i64));
                     }
                 }
                 self.pos = guardado;
@@ -327,7 +327,7 @@ impl Parser {
                         "sizeof: no se de que tipo es esa expresion".to_string(),
                     )
                 })?;
-                Ok(Expr::Int(self.tamano_de(&t) as i64))
+                Ok(Expr::Int(self.medida_de(&t) as i64))
             }
             Token::OpenParen => {
                 let save = self.pos;

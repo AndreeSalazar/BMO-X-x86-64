@@ -245,7 +245,7 @@ impl Codegen {
 
     /// **La tabla de simbolos del `.bex`.** Ver la llamada en `build_bef`.
     ///
-    /// ## El TAMANO se deduce, y por eso vale mas que `--map`
+    /// ## El MEDIDA se deduce, y por eso vale mas que `--map`
     ///
     /// `--map` da la direccion de inicio de cada funcion. Con eso, un `rip`
     /// entre dos funciones se atribuye a la de arriba **aunque caiga fuera de

@@ -9,7 +9,7 @@
 > --`.window` para lo que muestra pantalla, `.data` para los datos-- y al ir a
 > medirla salio que **eso ya existe dentro del `.bex`**: cuatro secciones del
 > BEF, con `CLASE_PANTALLA` escrita en cada binario desde el 10-08. Asi que la
-> pregunta deja de ser *que extension* y pasa a ser *por que nadie lo ENSENA*.
+> pregunta deja de ser *que extension* y pasa a ser *por que nadie lo MUESTRA*.
 
 ## 0. De donde sale
 
@@ -191,7 +191,7 @@ equivocada es un fichero en la carpeta equivocada, no un fichero de otro tipo.
 
 ---
 
-## 3b. ** LA CORRECCION DEL DUENO: `.window`, `.data` -- Y YA EXISTE
+## 3b. ** LA CORRECCION DEL PROPIETARIO: `.window`, `.data` -- Y YA EXISTE
 
 El 2026-09-11, mas tarde, el propietario corrigio su propia idea. Y el motivo es el
 mejor de esta pagina:
@@ -282,7 +282,7 @@ Los medidas del build del 11-09 lo dicen enteros:
 
 Un hola mundo son **2,7 KB**. Eso es lo que Windows no puede decir, y es la
 mitad del problema del propietario ya pagada. **La otra mitad es la que falta**: nadie
-le ENSENA lo que un `.bex` declara. Las secciones estan, el kernel usa una parte
+le MUESTRA lo que un `.bex` declara. Las secciones estan, el kernel usa una parte
 --hoy solo juzga las clases que se miden en BYTES; PANTALLA, AUDIO y ENTRADA se
 declaran y todavia no se juzgan-- y ni el escritorio ni una herramienta se lo
 cuentan a nadie. Ninguna herramienta de `toolchain/tools/` lee `Requisitos` ni
@@ -313,7 +313,7 @@ tipo viaja con el fichero. Lo que no funciona es para los PROGRAMAS, donde el
 papel no es uno y la declaracion se puede comprobar.
 
 ```text
-   [ ] ENSENAR lo que un `.bex` declara: una herramienta que vuelque
+   [ ] MOSTRAR lo que un `.bex` declara: una herramienta que vuelque
        `Manifest` + `Requisitos` + `Katanas` + `Resources`. Hoy NINGUNA de
        `toolchain/tools/` lee las dos primeras -- y es la queja literal del
        propietario: *"ni para leer"*

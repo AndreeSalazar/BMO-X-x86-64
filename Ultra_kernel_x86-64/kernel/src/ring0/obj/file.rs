@@ -123,7 +123,7 @@ pub const MAX_ABIERTOS: usize = 16;
 /// ni una vez.
 pub const INITIAL: usize = 16 * 1024;
 
-/// Tamano de pagina. El buffer se pide en marcos, que es lo que el asignador
+/// Medida de pagina. El buffer se pide en marcos, que es lo que el asignador
 /// entrega.
 const PAGE: usize = 4096;
 
@@ -172,7 +172,7 @@ pub const ARCH_OP_LEER: u64 = 0x01;
 pub const ARCH_OP_ESCRIBIR: u64 = 0x02;
 
 /// Bytes del archivo (los que quedan por leer, o los escritos hasta ahora).
-pub const ARCH_OP_TAMANO: u64 = 0x03;
+pub const ARCH_OP_MEDIDA: u64 = 0x03;
 
 /// Cierra. En un archivo de ESCRITURA es donde el contenido llega al disco:
 /// devuelve `1` si se guardo, `0` si no. En uno de lectura devuelve `1`.
@@ -269,7 +269,7 @@ static mut BUF_PAGS: [u64; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// si se trajo a trozos, o lo acumulado si se esta escribiendo.
 ///
 /// Los tres son "cuantos bytes hay que contar", que es lo que preguntan
-/// `ARCH_OP_TAMANO` y `ARCH_OP_SALTAR`. Lo que cambia entre los tres es **donde
+/// `ARCH_OP_MEDIDA` y `ARCH_OP_SALTAR`. Lo que cambia entre los tres es **donde
 /// estan esos bytes**, y eso lo dice [`REFLEJO`].
 pub(super) static mut LARGO: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// Por donde va la lectura.
@@ -551,7 +551,7 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         // La ventana, no el archivo. Un fichero mas chico que ella entra
         // entero en la primera lectura y todo esto se comporta como antes.
         if !reserve(i, mide.min(WINDOW)) {
-            // Ya no puede pasar por el TAMANO del archivo -- son dieciseis
+            // Ya no puede pasar por el MEDIDA del archivo -- son dieciseis
             // marcos como mucho. Si pasa, es que no queda RAM contigua ni para
             // eso, y entonces el sistema tiene un problema mas grande.
             crate::ring0::cabina::warn("arch", "sin RAM para la ventana del archivo", mide as u64);
@@ -908,7 +908,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
         ARCH_OP_LEER if !escribe => Some(read(i)),
         ARCH_OP_LEER_LINEA if !escribe => Some(read_line(i)),
         ARCH_OP_ESCRIBIR if escribe => Some(write(i, arg0)),
-        ARCH_OP_TAMANO => Some(unsafe {
+        ARCH_OP_MEDIDA => Some(unsafe {
             if escribe { LARGO[i] as u64 } else { (LARGO[i] - CURSOR[i]) as u64 }
         }),
         // * `fseek`. **Sigue costando lo que cuesta poner un numero**, y ahora
@@ -918,7 +918,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
         // lectura y no este salto (ver `reflejar`).
         //
         // Se acota al medida en vez de rechazar: un cursor mas alla del final
-        // significa "no queda nada", que es lo que contesta `ARCH_OP_TAMANO` sin
+        // significa "no queda nada", que es lo que contesta `ARCH_OP_MEDIDA` sin
         // inventarse un error.
         ARCH_OP_SALTAR if !escribe => Some(unsafe {
             let d = if arg0 as usize > LARGO[i] { LARGO[i] } else { arg0 as usize };

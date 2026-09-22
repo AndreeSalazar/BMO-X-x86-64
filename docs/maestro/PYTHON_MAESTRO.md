@@ -174,7 +174,7 @@ hueco de esta tabla desbloquea mas cosas que Python**.
 
 | CPython pide | Por donde entra | BMO-X hoy | Veredicto |
 |---|---|---|---|
-| abrir / leer / escribir / seek / cerrar | `posixmodule` | `TASK_OP_ARCHIVO_ABRIR/CREAR` + `ARCH_OP_LEER_EN` / `ESCRIBIR_DE` / `SALTAR` / `TAMANO` / `CERRAR` | 🟢 **ya esta** |
+| abrir / leer / escribir / seek / cerrar | `posixmodule` | `TASK_OP_ARCHIVO_ABRIR/CREAR` + `ARCH_OP_LEER_EN` / `ESCRIBIR_DE` / `SALTAR` / `MEDIDA` / `CERRAR` | 🟢 **ya esta** |
 | stdin / stdout / stderr | `_io` | `TASK_OP_CONSOLE_WRITE` / `CONSOLE_READ` | 🟢 ya esta |
 | `stat` (medida, tipo, fecha) | `os.stat`, el importador | `ES_NODO_HIJO_BYTES` / `_TIPO` -- **solo sobre ESTRATOS** | 🟡 no hay `stat` de FAT32 desde Ring 3 |
 | listar un directorio | el importador, `os.listdir` | `TASK_OP_DIR_ABRIR`, `ES_NODO_*` | 🟡 parcial y por dos caminos distintos |

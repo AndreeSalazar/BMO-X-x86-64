@@ -24,7 +24,7 @@ no caduque: un `static mut` nuevo sin etiqueta para el build, y la cuenta de
 La etiqueta va en la misma linea del `static mut`. Lo que dice es un hecho
 sobre el codigo de hoy, no una intencion: si un cambio hace que el escritorio
 escriba algo que decia `bus`, la etiqueta miente y hay que cambiarla -- y el
-diff lo ensena, que es lo que se quiere.
+diff lo muestra, que es lo que se quiere.
 
     --check   lo que corre el build
 """

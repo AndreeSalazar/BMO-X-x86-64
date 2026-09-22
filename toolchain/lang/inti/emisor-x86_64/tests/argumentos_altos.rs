@@ -74,7 +74,7 @@ fn el_quinto_y_el_sexto_no_se_cruzan() {
 /// desplazamiento (cuarto) y la medida (quinto) son variables.
 #[test]
 fn leer_un_fichero_al_bloque_con_variables() {
-    let f = "perfil llano\nusa bmo\nusa memoria\n\nfuncion principal devuelve entero32\n    bloque es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, 1048576, 0, 0)\n    invoca(mi_tarea, op_ruta, 8027155558672130404, 0, 0)\n    invoca(mi_tarea, op_ruta, 123615100956532, 0, 0)\n    f es natural64 = invoca_valor(mi_tarea, op_archivo_abrir, 0, 0, 0)\n    medida es natural64 = invoca_valor(f, op_arch_tamano, 0, 0, 0)\n    cambiante hechos es natural64 = 0\n    leidos es natural64 = invoca_valor(f, op_arch_leer_en, bloque, hechos, medida - hechos)\n    devuelve leidos\n";
+    let f = "perfil llano\nusa bmo\nusa memoria\n\nfuncion principal devuelve entero32\n    bloque es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, 1048576, 0, 0)\n    invoca(mi_tarea, op_ruta, 8027155558672130404, 0, 0)\n    invoca(mi_tarea, op_ruta, 123615100956532, 0, 0)\n    f es natural64 = invoca_valor(mi_tarea, op_archivo_abrir, 0, 0, 0)\n    medida es natural64 = invoca_valor(f, op_arch_medida, 0, 0, 0)\n    cambiante hechos es natural64 = 0\n    leidos es natural64 = invoca_valor(f, op_arch_leer_en, bloque, hechos, medida - hechos)\n    devuelve leidos\n";
     let m = corre(f, Some(b"XMabcdefghij"));
     assert!(m.exited);
     assert_eq!(m.syscalls.last().unwrap().arg0, 12, "los doce bytes del fichero");

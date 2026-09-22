@@ -294,7 +294,7 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     // las regiones a 16 y el cargador del kernel pide cada una al disco por
     // rangos -- lo que empieza a mitad de sector pasa por el sector de rebote.
     // BEF1 alineaba a 512 desde el 10-08 por eso; BEF2 lo recupera. Es lo que
-    // mide `anadir_el_manifiesto_no_rompe_la_frontera_de_sector`, mas abajo.
+    // mide `agregar_el_manifiesto_no_rompe_la_frontera_de_sector`, mas abajo.
     //
     //     12.088  LA FIRMA ES DEL INDICE y de cada anexo (2026-09-20, B7)
     //
@@ -342,7 +342,7 @@ fn la_seccion_de_codigo_es_identica_con_manifiesto_y_sin_el() {
     assert_eq!(
         a.len(),
         b.len(),
-        "el manifiesto cambio el TAMANO del codigo: {} contra {}",
+        "el manifiesto cambio el MEDIDA del codigo: {} contra {}",
         a.len(),
         b.len()
     );
@@ -352,12 +352,12 @@ fn la_seccion_de_codigo_es_identica_con_manifiesto_y_sin_el() {
 /// **LO QUE SE CARGA SIGUE EMPEZANDO EN FRONTERA DE SECTOR.**
 ///
 /// ** Es la condicion que deja al disco escribir una seccion directamente en
-/// los marcos del proceso. Anadir una seccion mueve todos los offsets del
+/// los marcos del proceso. Agregar una seccion mueve todos los offsets del
 /// fichero, asi que es exactamente el invariante que este cambio podia romper
 /// -- y el sintoma aparaceria lejos de aqui: un `.bex` que no carga desde
 /// disco, meses despues.
 #[test]
-fn anadir_el_manifiesto_no_rompe_la_frontera_de_sector() {
+fn agregar_el_manifiesto_no_rompe_la_frontera_de_sector() {
     let d = caja("sector");
     let fuente = d.join("prog.inti");
     std::fs::write(&fuente, CON_PIEZAS).unwrap();

@@ -12,7 +12,7 @@
 //! El propietario lo puso por su nombre el 2026-08-12: *"si unes tendre deudas.
 //! Siempre modular"*.
 //!
-//! # ** EL ORDEN NO ES ALFABETICO NI POR TAMANO: ES POR LO QUE PUEDE PASAR
+//! # ** EL ORDEN NO ES ALFABETICO NI POR MEDIDA: ES POR LO QUE PUEDE PASAR
 //!
 //! De lo que solo MIRA a lo que NO SE DESHACE:
 //!

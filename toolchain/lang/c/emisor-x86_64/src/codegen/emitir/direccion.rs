@@ -91,7 +91,7 @@ impl Codegen {
                 self.emit_dec_var(name);
                 self.code.push(0x58);
             }
-            // `*p` debe leer el TAMANO DEL APUNTADO, no siempre 8 bytes.
+            // `*p` debe leer el MEDIDA DEL APUNTADO, no siempre 8 bytes.
             // Antes `*(p+1)` con `int *p` leia 8 bytes desde la posicion
             // correcta, o sea dos enteros pegados: devolvia 504403158366158848
             // en vez de 6.
@@ -181,7 +181,7 @@ impl Codegen {
                 }
             }
             Expr::Subscript(name, index) => {
-                // direccion exacta (array o puntero) + carga del TAMANO del elemento
+                // direccion exacta (array o puntero) + carga del MEDIDA del elemento
                 self.emit_subscript_addr(name, index);
                 let elem = self.elem_type_of(name);
                 self.emit_load_elem(&elem);

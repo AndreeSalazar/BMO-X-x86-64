@@ -102,7 +102,7 @@ cuenta, y despues se declara que hace donde el estandar si le deja elegir.
 
 ## [ ] A4 -- LAS SUPOSICIONES DE DISPOSICION
 
-Quedan cuatro que eligen un TAMANO en vez de un tipo, y viven en el parser, que
+Quedan cuatro que eligen un MEDIDA en vez de un tipo, y viven en el parser, que
 no tiene donde apuntar un error de emision:
 
 ```text

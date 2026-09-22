@@ -89,11 +89,11 @@
 0x02 DEVICE_HDA                     BMO_APARATO_HDA                  HD Audio, 1<<1. **Hoy siempre 0**: no hay driver
 0x02 FB_OP_DIMS                     BMO_FB_DIMS                      la pantalla. DOOM y raycaster_C los tenian COPIADOS hasta el 01-09
 0x02 PRESTADO_OP_BYTES              BMO_PRESTADO_BYTES               cuanto se presto. Lo eligio el otro, no se supone
-0x03 ARCH_OP_TAMANO                 BMO_ARCH_TAMANO                  operacion sobre KIND_ARCHIVO
+0x03 ARCH_OP_MEDIDA                 BMO_ARCH_MEDIDA                  operacion sobre KIND_ARCHIVO
 0x03 AUDIO_OP_VOLUME                BMO_SONIDO_VOLUMEN               volume / volumen
 0x03 FB_OP_STRIDE                   BMO_FB_STRIDE                    la pantalla. DOOM y raycaster_C los tenian COPIADOS hasta el 01-09
 0x03 MEM_OP_OFRECER                 BMO_MEM_OFRECER                  prestar un trozo del bloque propio al DIRECTOR
-0x03 PRESTADO_OP_DUENO              BMO_PRESTADO_DUENO               el TID del que presto, o 0 si murio. Se pregunta CADA VEZ
+0x03 PRESTADO_OP_PROPIETARIO        BMO_PRESTADO_PROPIETARIO         el TID del que presto, o 0 si murio. Se pregunta CADA VEZ
 0x04 ARCH_OP_CERRAR                 BMO_ARCH_CERRAR                  operacion sobre KIND_ARCHIVO
 0x04 AUDIO_OP_SILENCE               BMO_SONIDO_CALLAR                silence / callar
 0x04 FB_OP_BYTES                    BMO_FB_BYTES                     la pantalla. DOOM y raycaster_C los tenian COPIADOS hasta el 01-09

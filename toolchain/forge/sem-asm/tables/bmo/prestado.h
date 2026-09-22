@@ -42,7 +42,7 @@
  *
  * == ** LO QUE HAY QUE PREGUNTAR CADA VEZ: si el propietario sigue vivo ==
  *
- * `bmo_prestado_dueno` **cruza la puerta cada llamada, a proposito**. Es un
+ * `bmo_prestado_propietario` **cruza la puerta cada llamada, a proposito**. Es un
  * estado que vive en el kernel y que cambia sin avisar: el proceso que presto
  * puede morirse en cualquier momento, y entonces contesta `0`.
  *
@@ -136,7 +136,7 @@
 /* Cuantos bytes son. */
 #define BMO_PRESTADO_BYTES  0x02
 /* El TID de quien lo presto, o 0 si ya no vive. Ver la nota de arriba. */
-#define BMO_PRESTADO_DUENO  0x03
+#define BMO_PRESTADO_PROPIETARIO  0x03
 /* Devolverlo: se desmapea, y la ranura queda libre para el siguiente. */
 #define BMO_PRESTADO_SOLTAR 0x04
 
@@ -225,17 +225,17 @@ int bmo_prestado_tomar(BMO_PRESTADO *p) {
  * ** CRUZA LA PUERTA CADA VEZ, y no se guarda. Ver la cabecera: es el unico
  * dato del prestamo que cambia sin avisar, y cachearlo seria no distinguir una
  * app muerta de una app pensando -- que es justo para lo que existe. */
-int bmo_prestado_dueno(BMO_PRESTADO *p) {
+int bmo_prestado_propietario(BMO_PRESTADO *p) {
     if (p == 0 || p->cap == 0) {
         return 0;
     }
-    return (int)bmo_valor(p->cap, BMO_PRESTADO_DUENO, 0, 0, 0);
+    return (int)bmo_valor(p->cap, BMO_PRESTADO_PROPIETARIO, 0, 0, 0);
 }
 
-/* Sigue vivo el que presto? `1` / `0`. Es `bmo_prestado_dueno` con nombre de
+/* Sigue vivo el que presto? `1` / `0`. Es `bmo_prestado_propietario` con nombre de
  * pregunta, porque el 90% de las veces lo que se quiere saber es eso. */
 int bmo_prestado_vive(BMO_PRESTADO *p) {
-    if (bmo_prestado_dueno(p) != 0) {
+    if (bmo_prestado_propietario(p) != 0) {
         return 1;
     }
     return 0;

@@ -150,7 +150,7 @@ impl Plan {
             return Err(Falta::Desborda);
         }
         if bytes < bytes_necesarios() {
-            return Err(Falta::Pequena);
+            return Err(Falta::Chica);
         }
         Ok(Plan { base, bytes })
     }
@@ -565,7 +565,7 @@ mod pruebas {
     fn la_cuenta_y_las_arenas_que_no_valen() {
         assert_eq!(bytes_necesarios(), 16 * 16 + 2048 * 16);
         assert_eq!(Plan::nuevo(0x1000 + 1, bytes_necesarios()), Err(Falta::NoAlineada));
-        assert_eq!(Plan::nuevo(0x1000, bytes_necesarios() - 1), Err(Falta::Pequena));
+        assert_eq!(Plan::nuevo(0x1000, bytes_necesarios() - 1), Err(Falta::Chica));
         assert_eq!(Plan::nuevo(u64::MAX - 255, bytes_necesarios()), Err(Falta::Desborda));
     }
 

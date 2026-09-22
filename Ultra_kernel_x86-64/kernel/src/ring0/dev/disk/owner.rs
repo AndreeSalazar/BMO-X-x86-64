@@ -23,7 +23,7 @@
 use super::*;
 
 /// Tid de quien tiene el disco ahora mismo. `0` = libre.
-static DUENO: AtomicU32 = AtomicU32::new(0);
+static PROPIETARIO: AtomicU32 = AtomicU32::new(0);
 /// Cuantas veces hubo que esperar a que otro soltara. Es la medida de si esto
 /// hacia falta: si nunca sube, es que nadie se solapaba; si sube, cada punto
 /// era una lectura corrupta antes de existir esto.
@@ -32,7 +32,7 @@ static ESPERAS: AtomicU32 = AtomicU32::new(0);
 static ROBOS: AtomicU32 = AtomicU32::new(0);
 
 /// `(esperas, robos)` desde el arranque.
-pub fn cuentas_dueno() -> (u32, u32) {
+pub fn cuentas_propietario() -> (u32, u32) {
     (ESPERAS.load(Ordering::Relaxed), ROBOS.load(Ordering::Relaxed))
 }
 
@@ -50,7 +50,7 @@ pub struct Testigo(bool);
 impl Drop for Testigo {
     fn drop(&mut self) {
         if self.0 {
-            DUENO.store(0, Ordering::Release);
+            PROPIETARIO.store(0, Ordering::Release);
         }
     }
 }
@@ -68,10 +68,10 @@ pub(super) fn tomar_disco() -> Testigo {
     let yo = crate::ring0::task::scheduler::current_tid().max(1);
     let mut vueltas = 0u64;
     loop {
-        if DUENO.compare_exchange(0, yo, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+        if PROPIETARIO.compare_exchange(0, yo, Ordering::Acquire, Ordering::Relaxed).is_ok() {
             return Testigo(true);
         }
-        let otro = DUENO.load(Ordering::Relaxed);
+        let otro = PROPIETARIO.load(Ordering::Relaxed);
         if otro == yo {
             // ** Anidado: alguien de arriba ya lo tiene. No deberia pasar --las
             // funciones que lo toman no se llaman entre ellas-- asi que se dice
@@ -86,7 +86,7 @@ pub(super) fn tomar_disco() -> Testigo {
         // El propietario ya no existe? Entonces murio con el disco en la mano.
         if vueltas % CADA_CUANTO_MIRAR == 0
             && crate::ring0::task::scheduler::pid_de(otro).is_none()
-            && DUENO.compare_exchange(otro, yo, Ordering::Acquire, Ordering::Relaxed).is_ok()
+            && PROPIETARIO.compare_exchange(otro, yo, Ordering::Acquire, Ordering::Relaxed).is_ok()
         {
             ROBOS.fetch_add(1, Ordering::Relaxed);
             crate::ring0::cabina::warn("disk", "el propietario del disco murio: se le quita", otro as u64);

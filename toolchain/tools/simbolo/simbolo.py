@@ -91,7 +91,7 @@ def buscar_elf():
 
 
 def simbolos_de(ruta):
-    """`[(valor, tamano, nombre)]` de las tablas de simbolos del ELF, ordenado.
+    """`[(valor, medida, nombre)]` de las tablas de simbolos del ELF, ordenado.
 
     Se leen SYMTAB y DYNSYM y se mezclan. Un ELF sin tabla de simbolos --con
     `strip`-- devuelve la lista vacia, y eso se dice: es distinto de "no
@@ -197,7 +197,7 @@ def physmap():
 
 
 def humano(n):
-    """Un tamano en la unidad que se lee de un vistazo."""
+    """Un medida en la unidad que se lee de un vistazo."""
     for u, d in (("TiB", 1 << 40), ("GiB", 1 << 30), ("MiB", 1 << 20), ("KiB", 1 << 10)):
         if n >= d:
             return "%.1f %s" % (n / float(d), u)
@@ -316,7 +316,7 @@ def main():
             print("              0x%X +0x%X  (la funcion mide 0x%X)" % (v, addr - v, sz))
             print("              crudo: %s" % n)
         if not dentro:
-            print("   ningun simbolo la contiene por tamano. Vecinos:")
+            print("   ningun simbolo la contiene por medida. Vecinos:")
         print("   -- antes --")
         for v, sz, n in antes:
             print("      0x%X  +0x%-6X %s" % (v, addr - v, legible(n)))

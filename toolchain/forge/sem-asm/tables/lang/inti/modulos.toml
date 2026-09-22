@@ -223,7 +223,7 @@ op_arch_cerrar     = "0x04"
 #  desplazamiento dentro. El kernel comprueba con una resta que cabe en lo que
 #  entrego -- por eso un programa no puede pedirle que lea encima de otro.
 op_archivo_abrir     = "0x10"
-op_arch_tamano       = "0x03"
+op_arch_medida       = "0x03"
 op_arch_leer_en      = "0x06"
 op_arch_escribir_de  = "0x08"
 
@@ -302,7 +302,7 @@ op_tomar             = "0x1C"
 op_mi_padre          = "0x26"
 prestado_base        = "0x01"
 prestado_bytes       = "0x02"
-prestado_dueno       = "0x03"
+prestado_propietario       = "0x03"
 prestado_soltar      = "0x04"
 
 #  ** LOS ARGUMENTOS DEL PROGRAMA (2026-09-13).

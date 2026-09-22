@@ -59,7 +59,7 @@ fn sin_corral_esa_misma_peticion_rebota() {
     assert_eq!(elegir(&p).forma, Forma::Rebote);
 }
 
-// == EL TAMANO: y va ANTES que el sitio, a proposito ========================
+// == EL MEDIDA: y va ANTES que el sitio, a proposito ========================
 
 #[test]
 fn menos_de_un_sector_no_cabe() {

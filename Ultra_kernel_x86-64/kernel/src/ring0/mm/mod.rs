@@ -10,7 +10,7 @@
 //! `HIGH_MEM_BASE`) is the single mechanism Ring 0 uses to touch page-table
 //! memory. No temporary mappings, no remap dances.
 
-/// **EL DUENO DE CADA MARCO**: la columna que el mapa de bits de `phys` no
+/// **EL PROPIETARIO DE CADA MARCO**: la columna que el mapa de bits de `phys` no
 /// tiene. Vive aqui y no dentro de `phys/` porque no es un carril del
 /// asignador: no reparte RAM, opina sobre lo repartido. Ver su cabecera.
 pub mod titular;

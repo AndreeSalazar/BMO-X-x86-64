@@ -2,7 +2,7 @@
 """ascii_idents -- de-accent Rust identifiers. Same spelling, ASCII letters.
 
 This is the companion to `ascii_sweep` and it stops exactly where that one
-does: it does NOT translate. `senalando` stays `senalando`; turning it into
+does: it does NOT translate. `marcando` stays `marcando`; turning it into
 `pointing` is a different job with different risks, and mixing the two would
 make the diff impossible to review.
 
@@ -13,8 +13,8 @@ Why it is needed at all
 comment -- which left a real case behind. In `platform/drivers/usb/input/foco.rs`
 the tilde is not in a comment and not in a string: it is in the NAMES.
 
-    senalando: Option<usize>          <- the field
-    pub fn senalada(&self) -> ...     <- the method
+    marcando: Option<usize>          <- the field
+    pub fn marcada(&self) -> ...     <- the method
 
 Rust accepts Unicode identifiers, so this compiled and nobody noticed. But once
 the comments around them were swept to ASCII, the comment and the code spelled

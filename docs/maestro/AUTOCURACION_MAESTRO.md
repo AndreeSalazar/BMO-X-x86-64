@@ -200,7 +200,7 @@ diferencia es toda la diferencia.
 bufer de imagen UNICO**. Eso no es escalada de privilegios, es superficie: es
 donde vive la clase de fallo que un pentest de verdad busca primero.
 
-## Por que si seria un buen sitio para ENSENAR
+## Por que si seria un buen sitio para MOSTRAR
 
 No porque sea inexpugnable -- no lo es, y acaba de listar por que. Sino porque:
 

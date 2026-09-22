@@ -48,7 +48,7 @@ LOS CASOS QUE SE PARECEN Y NO SON
 EL MALENTENDIDO QUE HAY QUE MATAR PRONTO
 -----------------------------------------
 
-  El dueno lo dijo asi el 07-09, y es lo que casi todo el mundo piensa:
+  El propietario lo dijo asi el 07-09, y es lo que casi todo el mundo piensa:
 
       "si la GPU fuera simplemente sin PSP ni nada, ya normal al RING 0"
 

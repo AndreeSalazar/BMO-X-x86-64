@@ -26,7 +26,7 @@
 # y dos escrituras del mismo numero se separan el dia que alguien toca una. Hay
 # una prueba que exige que coincidan, por lo mismo que la hay para el contador.
 #
-# ## *** Y NACE CON UN DUENO, no inmortal
+# ## *** Y NACE CON UN PROPIETARIO, no inmortal
 #
 #     un literal        INMORTAL   vive en RoData, nadie lo cuenta, no muere
 #     uno construido    refs = 1   lo tiene quien lo pidio, y puede morir

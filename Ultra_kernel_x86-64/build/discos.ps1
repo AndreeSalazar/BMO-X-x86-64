@@ -150,7 +150,7 @@ if ($Data) {
     }
     if (-not (Test-Path $dataRoot)) { Fail ('no existe la unidad ' + $dataRoot) }
 
-    # Cierre 2: tiene que ser el tipo de volumen correcto, y se ENSENA cual es
+    # Cierre 2: tiene que ser el tipo de volumen correcto, y se MUESTRA cual es
     # antes de preguntar. Una confirmacion a ciegas no es una confirmacion.
     $dataVol = Get-Volume -DriveLetter $dataLetter -ErrorAction SilentlyContinue
     if ($dataVol) {

@@ -1,4 +1,4 @@
-//! **LA RED, DESDE DONDE VIVE EL DUENO.**
+//! **LA RED, DESDE DONDE VIVE EL PROPIETARIO.**
 //!
 //! ## Por que este fichero existe (2026-08-24)
 //!

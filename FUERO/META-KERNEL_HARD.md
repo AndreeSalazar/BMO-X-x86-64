@@ -680,7 +680,7 @@ mal**: o el dato sube como parametro, o las dos son la misma generacion.
 operativo y no corre un test."*
 
 ****** L7c. La generacion se comprueba entre CRATES, nunca entre ficheros.**
-Anadida el 2026-08-18, al ponerle metro a L7 y descubrir por que el metro obvio
+Agregada el 2026-08-18, al ponerle metro a L7 y descubrir por que el metro obvio
 --leer los `use`-- habria condenado codigo correcto en su primera vuelta:
 
 ```
@@ -812,7 +812,7 @@ un eje se declara donde se conoce quien llama y cuantas veces.
 | eje | el recurso escaso | unidad | quien lo paga | sacrificio tipico | juez hoy |
 |---|---|---|---|---|---|
 | **LATENCIA** | tiempo hasta la respuesta de UNA operacion | ciclos/op (minimo) | el que espera bloqueado | medida y cache | **SI** |
-| **TAMANO** | el sitio donde tiene que caber | bytes contra un techo fisico | el cargador y la pila | ciclos (mas saltos) | parcial |
+| **MEDIDA** | el sitio donde tiene que caber | bytes contra un techo fisico | el cargador y la pila | ciclos (mas saltos) | parcial |
 | **THROUGHPUT** | la tasa agregada | bytes/s, frames/s | nadie en concreto | latencia individual, memoria | no |
 | **CACHE** | espacio con jerarquia de velocidad | fallos por operacion | el eje de ciclos, sin verlo | ciclos (recalcular) | **NO** |
 | **ENERGIA** | julios y grados | milivatios | la bateria y el ventilador | latencia de despertar | metro si, propietario uno |
@@ -843,7 +843,7 @@ del censo, y multiplica a unos ejes y a otros no:
 | CACHE | fallos por vez | **SI** -> fallos/s |
 | ENERGIA | julios por vez | **SI** -> vatios |
 | THROUGHPUT | ya es por segundo | **ya viene multiplicado** |
-| **TAMANO** | bytes, una vez | ** **NO. Y es el unico** |
+| **MEDIDA** | bytes, una vez | ** **NO. Y es el unico** |
 
 **Un binario ocupa lo mismo si se ejecuta una vez o un millon.** El medida no se
 paga por uso: se paga por **tener que caber**. Por eso `MAX_BEX` y el marco de
@@ -861,7 +861,7 @@ suyo.
 
 ```
    para CICLOS / CACHE / ENERGIA   ordenar por VECES POR SEGUNDO
-   para TAMANO                     ordenar por % DE SU TECHO   (>90% = roto)
+   para MEDIDA                     ordenar por % DE SU TECHO   (>90% = roto)
    para THROUGHPUT                 no se ordena: se compara contra el ancho de banda
 ```
 
@@ -870,7 +870,7 @@ suyo.
 ```
    CORRECCION                                   siempre, y no es un eje
    > LATENCIA      en la superficie del sistema (la puerta, los traps)
-   > TAMANO        en lo que se carga y en lo que vive en la pila
+   > MEDIDA        en lo que se carga y en lo que vive en la pila
    > THROUGHPUT    en lo que mueve datos (blit, disco, red)
    > CACHE         sin juez: hoy no se puede invocar para ganar una discusion
    > ENERGIA       un solo propietario declarado (el ocio y AXION)
@@ -884,7 +884,7 @@ frase de `presupuesto.rs` y vale para los cinco ejes.
 | eje | lo que hay hoy | lo que falta para que muerda |
 |---|---|---|
 | LATENCIA | doble testigo (`sys/precio.bex` y `c/coste.bex`, coinciden en 1 ciclo), juez `bmo-juicio` con 16 pruebas fuera del metal, 3 filas con techo/meta/porque, margen de ruido 5% | nada. Es el modelo |
-| TAMANO | el build IMPRIME los medidas; `MAX_BEX` = 4 MiB; pila de Ring 3 = 65.536 B | trinquete y marco maximo por funcion con `llvm-objdump`. **Ojo: con LTO el medida SALTA, no crece suave -- el margen del 5% del ruido no sirve aqui** |
+| MEDIDA | el build IMPRIME los medidas; `MAX_BEX` = 4 MiB; pila de Ring 3 = 65.536 B | trinquete y marco maximo por funcion con `llvm-objdump`. **Ojo: con LTO el medida SALTA, no crece suave -- el margen del 5% del ruido no sirve aqui** |
 | THROUGHPUT | numeros sueltos medidos a mano (blit ~300 MB/s, fps de DOOM) | ventana declarada limpia, fila y juez |
 | CACHE | **nada**: no hay PMC en el arbol (`rdpmc`/`PERFEVTSEL` no aparecen) | leer los contadores de rendimiento. Proyecto aparte |
 | ENERGIA | RAPL leido de verdad: milivatios de paquete y de nucleo, con la unidad preguntada al chip | un propietario y un antes/despues (`smp stop`) |
@@ -959,7 +959,7 @@ Y exige tres cosas mas que no son de rendimiento sino de verdad:
   y deja la lista corta -- las transiciones de privilegio, los `swapgs` y la
   mitad Rust. Contar es gratis; suponer cuesta tandas.
 
-- **R-CPU8.** **** **UN PRESUPUESTO TIENE DUENO: LA MAQUINA EN QUE SE MIDIO.** Un
+- **R-CPU8.** **** **UN PRESUPUESTO TIENE PROPIETARIO: LA MAQUINA EN QUE SE MIDIO.** Un
   techo en ticks pertenece a un CPU y a un TSC concretos; el mismo kernel
   arranca en cualquier x86-64, y alli esos numeros no son estrictos ni laxos,
   son **de otra maquina** -- falsa regresion en un CPU mas lento, falso aprobado
@@ -1603,7 +1603,7 @@ formato es el mismo que ya usan las cabeceras de este arbol:
 ```rust
 //! `syscall::dispatch` -- el reparto de una puerta.
 //!
-//! [eje]     LATENCIA -- paga TAMANO y CACHE
+//! [eje]     LATENCIA -- paga MEDIDA y CACHE
 //! [fila]    DISPATCH (techo 105, meta 60)
 //! [exige]   R-CPU1, R-CPU2, R-TIME1, R-BUS2
 ```
@@ -1668,7 +1668,7 @@ ciclos hace una semana, y por eso se sabe cuanto cuesta arreglarlo.
 ### El orden en que conviene cerrarlas
 
 ```
-   1  TAMANO       marco maximo por funcion + trinquete de .bex   barato, ya sabes hacerlo
+   1  MEDIDA       marco maximo por funcion + trinquete de .bex   barato, ya sabes hacerlo
    2  CACHE        la sonda de latencias (4 numeros, una tarde)   desbloquea R-CACHE1
    3  ENERGIA      un antes/despues de `smp stop`                 el metro ya existe
    4  THROUGHPUT   ventana limpia para el blit                    el mas caro de los cuatro

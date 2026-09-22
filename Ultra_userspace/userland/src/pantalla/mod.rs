@@ -87,7 +87,7 @@ pub use verde::{GLIFO_ALTO, GLIFO_ANCHO};
 /// === Lo sucio, y por que varias cajas y no la pantalla entera ===
 ///
 /// Volcar 8 MB por fotograma contradiria la regla que ya estaba escrita aqui:
-/// *lo que se repinta en un bucle es el DANO, no la pantalla*. Asi que se llevan
+/// *lo que se repinta en un bucle es el PERJUICIO, no la pantalla*. Asi que se llevan
 /// hasta ocho cajas de lo escrito desde el ultimo volcado y solo se copia eso.
 /// Ver [`crate::sin_gpu::sucio`], y `amarilla.rs` para la contabilidad.
 pub struct Pantalla {

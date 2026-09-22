@@ -352,7 +352,7 @@ mod tests {
     /// el encoder contra si mismo-- sino que el DECODIFICADOR de siempre, el que
     /// usan el kernel y el formateador, saca lo que se metio.
     #[test]
-    fn un_fichero_pequeno_cabe_dentro_de_su_nodo_y_vuelve_entero() {
+    fn un_fichero_chico_cabe_dentro_de_su_nodo_y_vuelve_entero() {
         let texto = b"hola desde BMO-X";
         let bytes = nodo_de_fichero(texto).unwrap();
         let n = Nodo::decode(&bytes).unwrap();

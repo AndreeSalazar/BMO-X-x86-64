@@ -23,7 +23,7 @@
 //! con lo que va a soltar listado antes de hacerlo"*. Por eso:
 //!
 //! ```text
-//!   disco trim       ENSENA la propuesta y NO manda nada
+//!   disco trim       MUESTRA la propuesta y NO manda nada
 //!   disco trim ya    la manda
 //! ```
 //!

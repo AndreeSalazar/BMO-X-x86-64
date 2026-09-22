@@ -448,7 +448,7 @@ mod pruebas {
     }
 
     #[test]
-    fn un_bufer_pequeno_es_no_cabe_y_no_una_escritura_de_mas() {
+    fn un_bufer_chico_es_no_cabe_y_no_una_escritura_de_mas() {
         let mut dst = vec![0u32; 3];
         let b = bico(2, 2, &[1, 2, 3, 4]);
         assert_eq!(decodificar(&b, &mut dst).unwrap_err(), Error::NoCabe);

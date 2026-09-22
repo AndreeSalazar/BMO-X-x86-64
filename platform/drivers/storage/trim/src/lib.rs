@@ -190,7 +190,7 @@ mod casillas {
     }
 
     #[test]
-    fn un_rango_pequeno_cabe_en_un_descriptor_y_en_un_bloque() {
+    fn un_rango_chico_cabe_en_un_descriptor_y_en_un_bloque() {
         let mut r = Rango::nuevo(206_848, 8).unwrap();
         let mut buf = [0xAAu8; 4096];
         let t = r.siguiente(&mut buf, 8).unwrap();

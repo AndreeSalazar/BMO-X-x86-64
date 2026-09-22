@@ -43,9 +43,9 @@ de terceros dentro de la antena es codigo que no se leyo).
     arrancar.sh); los `<img>` conservan su caja y la lamina sale byte a
     byte igual (comprobado con cmp en Windows). BMO-X pedira las imagenes
     que quiera aparte, en QOI (seccion 11 del plan)
-  - no abre una pestana por pagina: UNA pestana fija, que se reutiliza;
+  - no abre una solapa por pagina: UNA solapa fija, que se reutiliza;
     abrir una costaba 0,7-0,9 s en el HONOR (arrancar un proceso bajo
-    proot). Si algo falla a mitad, se tira esa pestana y la siguiente
+    proot). Si algo falla a mitad, se tira esa solapa y la siguiente
     PAGINA abre otra limpia
   - no sondea `document.readyState`: espera el evento de carga del propio
     navegador (`Page.lifecycleEvent` con el loaderId de ESA navegacion,
@@ -54,7 +54,7 @@ de terceros dentro de la antena es codigo que no se leyo).
 == Lo que mide ==
 
 Cada `lamina_de` deja en `self.medida` cuanto tardo cada tramo, en segundos:
-`pestana` (solo la primera vez, o tras un fallo), `carga` (navegar hasta el
+`solapa` (solo la primera vez, o tras un fallo), `carga` (navegar hasta el
 evento de carga; dentro, `html`/`dom`/`todo` del propio navegador),
 `lamina` (metricaBMO + lamina.js dentro del navegador; y dentro, `metrica`
 y `maqueta` medidos por el script mismo, con lo que la diferencia es
@@ -173,7 +173,7 @@ class Navegador:
         self.lamina_js = lamina_js
         self.siguiente = 1
         self.ws = None
-        self.pestana = None
+        self.solapa = None
         self.medida = {}
 
     def _http(self, metodo, ruta):
@@ -222,11 +222,11 @@ class Navegador:
         raise SinNavegador("la pagina no termino de cargar en %d s" % espera)
 
     def _abrir_pestana(self):
-        """La pestana fija: se abre una vez y se fija su ancho una vez."""
+        """La solapa fija: se abre una vez y se fija su ancho una vez."""
         try:
             nueva = json.loads(self._http("PUT", "/json/new?about:blank"))
         except ValueError:
-            raise SinNavegador("el navegador no supo abrir una pestana")
+            raise SinNavegador("el navegador no supo abrir una solapa")
         ws = WebSocket(nueva["webSocketDebuggerUrl"], CARGA_S)
         try:
             self._orden(ws, "Page.enable")
@@ -239,18 +239,18 @@ class Navegador:
             ws.cerrar()
             raise
         self.ws = ws
-        self.pestana = nueva["id"]
+        self.solapa = nueva["id"]
 
     def _tirar_pestana(self):
         if self.ws is not None:
             self.ws.cerrar()
             self.ws = None
-        if self.pestana is not None:
+        if self.solapa is not None:
             try:
-                self._http("GET", "/json/close/" + self.pestana)
+                self._http("GET", "/json/close/" + self.solapa)
             except SinNavegador:
                 pass
-            self.pestana = None
+            self.solapa = None
 
     def cerrar(self):
         self._tirar_pestana()
@@ -270,7 +270,7 @@ class Navegador:
         try:
             if self.ws is None:
                 self._abrir_pestana()
-                tramo("pestana")
+                tramo("solapa")
             ws = self.ws
             r = self._orden(ws, "Page.navigate", {"url": url}, CARGA_S)
             if r.get("errorText"):
@@ -309,7 +309,7 @@ class Navegador:
             # ASCII y 0xA0..0xFF en las tiras.
             return resultado["lamina"].encode("latin-1", "replace")
         except SinNavegador:
-            # Lo que quede en esa pestana no se reutiliza: la siguiente
+            # Lo que quede en esa solapa no se reutiliza: la siguiente
             # PAGINA abre otra limpia.
             self._tirar_pestana()
             raise

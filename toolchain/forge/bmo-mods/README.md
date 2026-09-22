@@ -95,7 +95,7 @@ repetia todavia.
 
 Esto quita el Rust de **DECLARAR** una extension, no de implementarla.
 
-Anadir `mi_extension = true` es gratis. Que el compilador haga algo distinto
+Agregar `mi_extension = true` es gratis. Que el compilador haga algo distinto
 sigue siendo codigo. Es la misma frontera que la fabrica de COBOL: lo tabular
 se genera, la semantica de cada verbo se escribe. Prometer mas seria vender
 compatibilidad que no existe -- que es justo el fallo del que este proyecto

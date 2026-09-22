@@ -26,7 +26,7 @@
 //! le pongan nombre.
 //!
 //! [!] La media dijo `mixto`, el detector de monstruos dijo `CON MONSTRUO`, y
-//! **los dos se equivocaron de la misma forma**: midieron el TAMANO de la
+//! **los dos se equivocaron de la misma forma**: midieron el MEDIDA de la
 //! funcion y no lo que decide si se puede partir, que es su ESTADO.
 //!
 //! ## Y por que estas tres y no otras

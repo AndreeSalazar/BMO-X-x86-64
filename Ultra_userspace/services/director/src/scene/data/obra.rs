@@ -42,7 +42,7 @@ use crate::text::decimal;
 
 pub(crate) fn obra(p: &bmo::Pantalla, c: &DataWindow) {
     let z = Zonas::repartir(&c.chrome, c.consola.abierta);
-    // ** LAS PESTANAS DE VOLUMEN van PRIMERO y siempre (2026-09-13): si
+    // ** LAS SOLAPAS DE VOLUMEN van PRIMERO y siempre (2026-09-13): si
     // ESTRATOS no monta, tiene que seguir pudiendose ir a DATOS o a EFI. Ver
     // `fuente`.
     let mx = solapas(p, &z.miga);
@@ -134,8 +134,8 @@ fn miga(p: &bmo::Pantalla, z: &Zona, x0: u32) {
 
 /// **Donde cae cada solapa de volumen**: `(x inicial, x final)`, en el orden de
 /// `Volumen::TODOS`. ** La comparten quien pinta y quien acierta con el raton
-/// (`DataWindow::pestana_en`): dos copias de una geometria se separan solas.
-pub(crate) fn pestanas_x(z: &Zona) -> [(u32, u32); 3] {
+/// (`DataWindow::solapa_en`): dos copias de una geometria se separan solas.
+pub(crate) fn solapas_x(z: &Zona) -> [(u32, u32); 3] {
     let mut x = z.x;
     let mut out = [(0u32, 0u32); 3];
     for (k, v) in fuente::Volumen::TODOS.iter().enumerate() {
@@ -155,7 +155,7 @@ pub(crate) fn pestanas_x(z: &Zona) -> [(u32, u32); 3] {
 fn solapas(p: &bmo::Pantalla, z: &Zona) -> u32 {
     let ty = z.y + (MIGA_H - bmo::GLIFO_ALTO) / 2;
     let activo = fuente::activo();
-    let xs = pestanas_x(z);
+    let xs = solapas_x(z);
     for (k, v) in fuente::Volumen::TODOS.iter().enumerate() {
         let (x0, x1) = xs[k];
         let es = *v == activo;

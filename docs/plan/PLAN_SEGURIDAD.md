@@ -634,7 +634,7 @@ adversarias**, no de camino feliz:
 ```text
    un_descriptor_truncado_no_da_formato
    un_aparato_que_no_sabemos_adoptar_no_gira_para_siempre
-   un_tamano_de_entrada_absurdo_se_rechaza_en_vez_de_leer_en_diagonal
+   una_medida_de_entrada_absurdo_se_rechaza_en_vez_de_leer_en_diagonal
    un_sector_corto_no_se_parsea_a_medias
 ```
 

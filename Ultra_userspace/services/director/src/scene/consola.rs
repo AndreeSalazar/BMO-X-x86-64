@@ -349,7 +349,7 @@ impl Consola {
         let (verbo, resto) = partir(orden);
         match verbo {
             b"ayuda" | b"?" => self.ayuda(),
-            // ** LA BUSCO EL DUENO EL PRIMER DIA Y NO ESTABA.
+            // ** LA BUSCO EL PROPIETARIO EL PRIMER DIA Y NO ESTABA.
             //
             // Con seis lineas de salida, limpiar no es una comodidad: es la
             // unica forma de que la respuesta siguiente se lea entera. Se

@@ -1,4 +1,4 @@
-//! Teclado: scancodes Set 1 -> caracteres, con distribucion ESPANOLA.
+//! Teclado: scancodes Set 1 -> caracteres, con distribucion CASTELLANA.
 //!
 //! [carril]  AMARILLO  scancodes a caracteres, con distribucion castellana
 //! [consumo] NADA      PS/2: lo pregunta la espera del shell; late ESA
@@ -207,11 +207,11 @@ pub fn lock_state() -> (bool, bool) { (unsafe { CAPS }, NUMLOCK) }
 pub enum Layout {
     /// US QWERTY (la de siempre).
     Us,
-    /// Espanol LATINOAMERICANO -- la del teclado del usuario (SEISA). Se
+    /// Castellano LATINOAMERICANO -- la del teclado del usuario (SEISA). Se
     /// distingue de la de Espana en que `{ } [ ]` estan en las teclas de la
     /// derecha y `@` es AltGr+Q.
     EsLatam,
-    /// Espanol de ESPANA: c junto al Enter, o/a a la izquierda del 1,
+    /// Castellano de ESPANA: c junto al Enter, o/a a la izquierda del 1,
     /// `@` es AltGr+2.
     EsSpain,
 }
@@ -549,7 +549,7 @@ fn resolve_us(code: u8, shift: bool) -> Out {
     Out::Ch(c)
 }
 
-/// Espanol LATINOAMERICANO -- el teclado del usuario.
+/// Castellano LATINOAMERICANO -- el teclado del usuario.
 fn resolve_es_latam(code: u8, shift: bool, altgr: bool) -> Out {
     match code {
         0x02 => Out::Ch(if shift { b'!' } else { b'1' }),
@@ -579,7 +579,7 @@ fn resolve_es_latam(code: u8, shift: bool, altgr: bool) -> Out {
     }
 }
 
-/// Espanol de ESPANA.
+/// Castellano de ESPANA.
 fn resolve_es_spain(code: u8, shift: bool, altgr: bool) -> Out {
     match code {
         0x02 => Out::Ch(if altgr { b'|' } else if shift { b'!' } else { b'1' }),

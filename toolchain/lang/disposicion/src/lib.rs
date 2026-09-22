@@ -64,7 +64,7 @@
 //! ```ignore
 //! let mut d = Disposicion::nueva();
 //! for m in miembros {
-//!     let offset = d.coloca(tamano_de(m), alineado_de_tipo(m));
+//!     let offset = d.coloca(medida_de(m), alineado_de_tipo(m));
 //!     // ...guardar (m, offset) donde le convenga al llamante
 //! }
 //! let total = d.total();
@@ -219,7 +219,7 @@ mod tests {
     }
 
     #[test]
-    fn todo_del_mismo_tamano_va_pegado() {
+    fn todo_de_la_misma_medida_va_pegado() {
         let mut d = Disposicion::nueva();
         assert_eq!(escalar(&mut d, 4), 0);
         assert_eq!(escalar(&mut d, 4), 4);

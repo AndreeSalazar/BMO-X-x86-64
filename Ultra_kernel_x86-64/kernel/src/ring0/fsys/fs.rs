@@ -538,7 +538,7 @@ pub fn leer_trozo(
     v.leer_tramo(cluster, ya, size, dst, tope)
 }
 
-/// **Trae solo el PRINCIPIO del archivo.** Devuelve `(leidos, tamano_real)`.
+/// **Trae solo el PRINCIPIO del archivo.** Devuelve `(leidos, medida_real)`.
 ///
 /// === Por que existe, y por que no es `load` con otro nombre ===
 ///

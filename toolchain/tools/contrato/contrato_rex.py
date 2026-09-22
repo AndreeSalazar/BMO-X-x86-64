@@ -147,7 +147,7 @@ ABI_CHOQUES_TOLERADOS = {
     #
     # Tuvo una entrada exactamente un dia: `TASK_OP_LIENZO_REFLEJO` compartia el
     # `0x1C` con `TASK_OP_TOMAR`. Era una constante MUERTA --de `KIND_LIENZO`,
-    # un diseno que salio del kernel-- okupando un numero VIVO, asi que la
+    # un esquema que salio del kernel-- okupando un numero VIVO, asi que la
     # salida no fue tolerarla: fue borrarla.
     #
     # [!] Si algo vuelve aqui, la fila lleva su motivo y **la lista solo puede
@@ -168,7 +168,7 @@ ABI_CHOQUES_TOLERADOS = {
 #
 # El emparejamiento es JUICIO y no deduccion: los dos lados se llaman distinto a
 # proposito --uno habla ingles de kernel (`TASK_OP_FRAMEBUFFER_CLAIM`), el otro
-# espanol de app (`BMO_OP_PANTALLA_RECLAMAR`)-- asi que un juez que dedujera la
+# castellano de app (`BMO_OP_PANTALLA_RECLAMAR`)-- asi que un juez que dedujera la
 # pareja estaria adivinando. Lo que hay aqui es el mapa de familias que cubre lo
 # mecanico, y `REX_A_MANO` para lo que no tiene cola comun.
 REX_FAMILIAS = (
@@ -313,7 +313,7 @@ def carpetas_de_carriles_rex():
 
     Una carpeta ES de carriles si tiene al menos un `.h` con nombre de carril.
     No hay lista que mantener: **el arbol se declara solo**, igual que en Ring
-    0. Partir manana `entrada.h` ya viene vigilado sin tocar esto.
+    0. Partir luego `entrada.h` ya viene vigilado sin tocar esto.
     """
     d = os.path.join(raiz(), REX_DIR.replace("/", os.sep))
     if not os.path.isdir(d):
@@ -735,7 +735,7 @@ def r16_la_cobertura_solo_sube(cubiertas, superficie, suelo):
     """R16 -- cuantas operaciones del contrato tienen funcion en REX.
 
     ** Convierte *"REX no tiene X"* de sensacion en cifra con trinquete. Es la
-    respuesta a la pregunta del dueno --*"que reglas para que el ABI se
+    respuesta a la pregunta del propietario --*"que reglas para que el ABI se
     aproveche TODO?"*-- y la respuesta honesta no es "se expone todo": es **el
     hueco es este numero, y no puede crecer**.
 

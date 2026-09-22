@@ -1,4 +1,4 @@
-//! **EL DUENO DE CADA MARCO: la columna que el mapa de bits no tiene.**
+//! **EL PROPIETARIO DE CADA MARCO: la columna que el mapa de bits no tiene.**
 //!
 //! [carril]  ROJO      el VOCABULARIO de los tres: el byte por marco,
 //!                     `indice`, `de_byte` y las cinco cuentas

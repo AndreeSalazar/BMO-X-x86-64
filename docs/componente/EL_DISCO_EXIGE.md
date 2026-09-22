@@ -266,7 +266,7 @@ capitulo agrega:
   paga un borrado por cada escritura"*, que se arregla en el formato. Confundir
   los dos manda a optimizar en la capa equivocada.
 
-- **R-DISCO8.** ★★ **LO QUE DECIDE EL DISENO ES JUSTO LO QUE EL DISCO NO
+- **R-DISCO8.** ★★ **LO QUE DECIDE EL ESQUEMA ES JUSTO LO QUE EL DISCO NO
   DECLARA.** El medida del **bloque de borrado** --el numero que dice si una
   escritura de 4 KB cuesta 4 KB o 2 MB-- **no lo expone ningun SSD de consumo**,
   en ninguna palabra del IDENTIFY. Tampoco el TBW, ni si hay DRAM, ni si hay
@@ -540,7 +540,7 @@ Va como **R-DISCO11**: *una capacidad declarada que nadie ejercita no es una
 capacidad, es una afirmacion sin probar.* Es L4 --*"un guardian que nunca ha
 rechazado nada no esta probado"*-- dicha desde el otro lado del cable.
 
-### 3. ★★ Y el escalon que cambia el DISENO: la unidad de confianza no es el
+### 3. ★★ Y el escalon que cambia el ESQUEMA: la unidad de confianza no es el
 ### aparato
 
 El caso Samsung lo demuestra y es la parte que mas cuesta ver: **el mismo disco,

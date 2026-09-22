@@ -7,7 +7,7 @@
 //
 // Este fichero llego a 1.166 lineas con 186 constantes en una sola lista plana:
 // las dos puertas, las operaciones de tarea, las de cada handle, el teclado y
-// los campos de informe, todo seguido. Anadir un campo era buscar sitio en mil
+// los campos de informe, todo seguido. Agregar un campo era buscar sitio en mil
 // lineas, y el resultado se notaba -- `INFO_CPU_HZ_REAL` se escribio en `0x1E`,
 // que ya era `INFO_FUGAS`, y dos campos con el mismo numero **no dan error de
 // compilacion: dan un panel que muestra el dato de otro**.

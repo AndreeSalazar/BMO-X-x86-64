@@ -6,7 +6,7 @@ Por que existe
 `desplegar.ps1` es un relevo: declara unas banderas y se las pasa a `bmo.ps1`.
 El 2026-09-07 se descubrio que declaraba `-Si` y **no se lo pasaba**.
 
-    el dueno tecleo    .\\desplegar.ps1 -Si -Arranque A -Datos A
+    el propietario tecleo    .\\desplegar.ps1 -Si -Arranque A -Datos A
     lo que paso        se acepto sin protestar, la bandera se la trago el
                        relevo, y el despliegue pregunto igual
 
@@ -44,7 +44,7 @@ import sys
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
-# (fichero relevo, a quien llama). Hoy hay uno; la lista existe para que anadir
+# (fichero relevo, a quien llama). Hoy hay uno; la lista existe para que agregar
 # otro no sea inventar el guardian otra vez.
 RELEVOS = [("desplegar.ps1", "bmo.ps1")]
 

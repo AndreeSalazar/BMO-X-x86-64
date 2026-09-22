@@ -113,7 +113,7 @@ Tres cosas que Linux, por estructura, no puede hacer:
 
 FAT32 deja los punteros a funcion y toma `&'static dyn BlockDevice`.
 
-* **Tamano real, medido**: FAT32 embudo TODO su I/O en **cuatro metodos**
+* **Medida real, medido**: FAT32 embudo TODO su I/O en **cuatro metodos**
   (`leer_directo`, `read_sector`, `write_sector`, `write_from`). Un solo sitio
   invoca `(self.read)`. El fichero son 2.453 lineas y la conversion toca cuatro.
 * **Que gana**: identidad, capacidad, `flush` de verdad, `writable()` y errores

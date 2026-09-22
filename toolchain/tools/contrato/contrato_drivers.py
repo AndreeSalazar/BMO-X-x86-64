@@ -5,11 +5,11 @@ el segundo es el que manda:
 
   1. `contrato_ley.py` y `contrato_rex.py` ya lo hacian. Una regla nueva que se
      mete en el monolito porque "es una mas" es como el monolito se hizo.
-  2. *** AL ANADIR R20 AHI DENTRO, `contrato.py` CRUZO LAS 1.000 LINEAS y L6a
+  2. *** AL AGREGAR R20 AHI DENTRO, `contrato.py` CRUZO LAS 1.000 LINEAS y L6a
      lo caza en el mismo build. O sea que la ley de esta casa dijo que no a la
      forma de aplicar otra ley de esta casa, **el mismo dia**.
 
-    > Un guardian que crece cada vez que se le anade una regla acaba siendo el
+    > Un guardian que crece cada vez que se le agrega una regla acaba siendo el
     > modulo mas grande del arbol. Y entonces nadie lo toca.
 
 La regla y el porque estan en `r20_el_semaforo_de_los_drivers`.

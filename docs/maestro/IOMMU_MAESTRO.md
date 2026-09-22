@@ -127,7 +127,7 @@ No contesta:
 
 ---
 
-# 5. LA LETRA PEQUENA: LO QUE CUESTA CUANDO FUNCIONA
+# 5. LA LETRA CHICA: LO QUE CUESTA CUANDO FUNCIONA
 
 ```text
    1. ES UN VMM ENTERO      tablas, cache de traducciones del aparato, cola de

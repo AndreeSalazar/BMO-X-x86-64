@@ -28,7 +28,7 @@ LAS COLUMNAS
   sitios        cuantas lineas escriben una direccion fisica en su descriptor
   fichero       donde
   de donde      como consigue esa direccion quien la escribe
-  comprueba     que valida ANTES de dársela al aparato
+  comprueba     que valida ANTES de darsela al aparato
 
 
 EL CENSO, AL 2026-09-09
@@ -82,7 +82,7 @@ EL CENSO, AL 2026-09-09
     NIC    *** LA UNICA QUE YA ESTA BIEN. Pide UN corral contiguo entero
            (red/mod.rs:325, `Titular::Neutro`) y todos sus bufers salen de
            ahi. La direccion fisica no se valida porque NO PUEDE estar mal:
-           se calcula como `base + i * tamano` dentro de la arena
+           se calcula como `base + i * medida` dentro de la arena
 
 
 LO QUE ESTE NUMERO TIENE QUE LLEGAR A SER
@@ -91,7 +91,7 @@ LO QUE ESTE NUMERO TIENE QUE LLEGAR A SER
   1
 
   No porque catorce sea feo, sino porque un juez solo sirve si no se le puede
-  rodear. Mientras haya catorce puertas, anadir la comprobacion a una deja las
+  rodear. Mientras haya catorce puertas, agregar la comprobacion a una deja las
   otras trece abiertas -- y peor: hace creer que el problema esta resuelto.
 
   ** Y el camino ya esta descubierto: la NIC no necesita comprobacion porque

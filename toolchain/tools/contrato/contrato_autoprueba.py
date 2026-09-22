@@ -487,7 +487,7 @@ def autoprueba():
     # que dice un numero viejo con toda la confianza del mundo.
     #
     # *** Y las REGLAS estaban en esa misma situacion, con el aviso escrito
-    # justo encima: "DIECISIETE" era una palabra a mano. Al anadir R18 el 08-09
+    # justo encima: "DIECISIETE" era una palabra a mano. Al agregar R18 el 08-09
     # habria dicho diecisiete con dieciocho, que es exactamente el fallo que el
     # parrafo de arriba describe. Ahora salen del nombre de los casos.
     print("clean: las %d reglas saben decir que NO (%d casos)"

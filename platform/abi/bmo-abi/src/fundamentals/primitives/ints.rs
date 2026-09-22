@@ -29,7 +29,7 @@ pub type bx_i32 = i32;
 pub type bx_i64 = i64;
 pub type bx_i128 = i128;
 
-// --- Tamanos/punteros -------------------------------------------------
+// --- Medidas/punteros -------------------------------------------------
 //   En x86-64 ambos son 64-bit. Si algun dia se porta a otra arch, este
 //   alias se actualiza UN solo punto.
 pub type bx_usize = u64;

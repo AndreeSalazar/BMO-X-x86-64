@@ -272,7 +272,7 @@ fn una_tabla_con_un_solo_valor_conserva_sus_ceros() {
 /// El medida de la tabla tiene que ser el de N structs, no el de uno: el global
 /// que venga despues no puede caer dentro.
 #[test]
-fn una_tabla_de_structs_reserva_el_tamano_de_todos() {
+fn una_tabla_de_structs_reserva_la_medida_de_todos() {
     let fuente = "struct P { int x; int y; }; \
                   struct P tabla[4] = { {1,2}, {3,4}, {5,6}, {7,8} }; \
                   int centinela = 999; \

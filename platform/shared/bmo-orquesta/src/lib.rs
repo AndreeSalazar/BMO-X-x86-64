@@ -10,7 +10,7 @@
 //!
 //! [riesgo]  ESPEJO SILENCIO
 //!           ESPEJO   -- el catalogo de partes vive AQUI y las funciones que las
-//!                       ejecutan viven en Ring 0. Anadir una alli y no aqui
+//!                       ejecutan viven en Ring 0. Agregar una alli y no aqui
 //!                       --o al reves-- hace que un numero signifique dos cosas
 //!                       segun quien lo lea. El guardian del final cuenta las
 //!                       dos y rompe el build si no coinciden.
@@ -71,7 +71,7 @@
 
 /// **LAS PARTES ESCRITAS.** Catalogo cerrado, como los opcodes.
 ///
-/// El numero viaja por la puerta y **no cambia nunca**: es contrato. Anadir se
+/// El numero viaja por la puerta y **no cambia nunca**: es contrato. Agregar se
 /// hace por el final; renumerar seria que un `.bex` viejo pidiera otra cosa.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u32)]
@@ -236,13 +236,13 @@ pub enum Rechazo {
     /// mediria cero y el bucle no escribiria nada mientras el llamador cree que
     /// si.
     EscalaImposible,
-    /// `Escalar` a un destino MAS PEQUENO que la imagen en algun eje. Escalar
+    /// `Escalar` a un destino MAS CHICO que la imagen en algun eje. Escalar
     /// hacia abajo es otra parte --que pixel se descarta es una decision-- y
     /// recortar sin decirlo seria entregar media imagen como si fuera entera.
     DestinoMenor,
     /// Algun medida de `Escalar` es cero, pasa de 16 bits, o el `dato` trae
     /// bits por encima de los tres campos que empaqueta. Ver [`Escala::de`].
-    TamanoImposible,
+    MedidaImposible,
 }
 
 /// **Se puede tocar esto?** El juez, entero, y sin tocar un solo byte.
@@ -329,10 +329,10 @@ impl Escala {
         let src_alto = (dato >> 16) & 0xFFFF;
         let dst_ancho = (dato >> 32) & 0xFFFF;
         if dato >> 48 != 0 || dst_alto > 0xFFFF {
-            return Err(Rechazo::TamanoImposible);
+            return Err(Rechazo::MedidaImposible);
         }
         if src_ancho == 0 || src_alto == 0 || dst_ancho == 0 || dst_alto == 0 {
-            return Err(Rechazo::TamanoImposible);
+            return Err(Rechazo::MedidaImposible);
         }
         if dst_ancho < src_ancho || dst_alto < src_alto {
             return Err(Rechazo::DestinoMenor);
@@ -581,7 +581,7 @@ mod pruebas {
     /// **Un trabajo chico NO se reparte**, porque la barrera cuesta mas que
     /// el trabajo.
     #[test]
-    fn lo_pequeno_no_se_reparte() {
+    fn lo_chico_no_se_reparte() {
         assert_eq!(cuantos_atriles(0, 12), 1);
         assert_eq!(cuantos_atriles(1, 12), 1);
         assert_eq!(cuantos_atriles(7, 12), 1);
@@ -681,7 +681,7 @@ mod pruebas {
         assert_eq!(se_puede_tocar(Parte::Escalar, &chico), Err(Rechazo::DestinoMenor));
 
         let cero = Encargo { destino: 0x2000, origen: 0x1000, total: 1011, dato: 0 };
-        assert_eq!(se_puede_tocar(Parte::Escalar, &cero), Err(Rechazo::TamanoImposible));
+        assert_eq!(se_puede_tocar(Parte::Escalar, &cero), Err(Rechazo::MedidaImposible));
 
         let basura = Encargo {
             destino: 0x2000,
@@ -689,7 +689,7 @@ mod pruebas {
             total: 1011,
             dato: bueno | (1 << 50),
         };
-        assert_eq!(se_puede_tocar(Parte::Escalar, &basura), Err(Rechazo::TamanoImposible));
+        assert_eq!(se_puede_tocar(Parte::Escalar, &basura), Err(Rechazo::MedidaImposible));
 
         let ok = Encargo { destino: 0x2000, origen: 0x1000, total: 1011, dato: bueno };
         assert_eq!(se_puede_tocar(Parte::Escalar, &ok), Ok(()));

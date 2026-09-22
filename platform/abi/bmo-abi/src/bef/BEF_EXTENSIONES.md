@@ -280,7 +280,7 @@ corren en esta maquina**:
 - **Ada**: la *elaboracion* de paquetes es exactamente lo mismo con otro nombre.
 
 Es un tipo de seccion con una lista de punteros a funcion y un bucle en el
-`crt0`. Pequeno, y es la pieza que hace que C++ sea C++ y no C con clases.
+`crt0`. Chico, y es la pieza que hace que C++ sea C++ y no C con clases.
 
 ### 2 - Versionado de simbolos
 

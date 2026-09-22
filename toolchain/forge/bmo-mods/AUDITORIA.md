@@ -23,7 +23,7 @@ tablas viven en el disco del PC y se consumen al compilar.
 
 Eso obliga a separar dos ideas que suenan igual:
 
-| | Que es | Tamano |
+| | Que es | Medida |
 |---|---|---|
 | **Compilar en BMO** | que el compilador CORRA sobre BMO-X y lea las tablas de su propio disco | autoalojamiento; otro proyecto entero |
 | **Auditar en BMO** | que las tablas y la procedencia VIAJEN al disco y se puedan inspeccionar alli | acotado, y es lo que pide un banco |

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """R23 -- UN NUMERO, UN ERROR: ningun codigo significa dos cosas.
 
-Pedida por el dueno el 2026-09-12: *"dale con la tabla de errores tambien, que
+Pedida por el propietario el 2026-09-12: *"dale con la tabla de errores tambien, que
 no se repitan; no romper todas las reglas, busca y redefinir, y otras si romper
 si no entran"*.
 
@@ -105,7 +105,7 @@ def r23_un_numero_un_error(ficheros):
 
     ** SIN TRINQUETE, al reves que R22: el arbol quedo en CERO el dia que nacio
     la regla, asi que no hay deuda que tolerar. Una regla que se estrena limpia
-    se puede permitir ser estricta -- y esta es justo la que el dueno pidio
+    se puede permitir ser estricta -- y esta es justo la que el propietario pidio
     estricta.
     """
     codigos = codigos_de_error(ficheros)
@@ -140,7 +140,7 @@ def las_parejas(ficheros):
 
     Una pareja es un numero declarado con el MISMO nombre en el kernel y en el
     userland -- o sea, los dos lados del contrato diciendo lo mismo. Es la mitad
-    buena de la cuenta y por eso se ensena: sin ella, "31 codigos" no dice si el
+    buena de la cuenta y por eso se muestra: sin ella, "31 codigos" no dice si el
     contrato esta emparejado o si cada lado va por su cuenta.
     """
     codigos = codigos_de_error(ficheros)

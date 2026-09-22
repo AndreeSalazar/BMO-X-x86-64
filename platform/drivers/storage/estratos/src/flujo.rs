@@ -11,7 +11,7 @@
 //! desde el primer dia (`Attr::en_bloques`) y **nadie los habia escrito nunca**:
 //! el unico que construia arboles era el formateador del anfitrion, con `Vec`.
 //!
-//! === ** SIN `alloc`, Y ESO MANDA EN EL DISENO ===
+//! === ** SIN `alloc`, Y ESO MANDA EN EL ESQUEMA ===
 //!
 //! El constructor del anfitrion junta todos los punteros de un nivel en un
 //! `Vec` y despues los agrupa. Aqui no hay `Vec`, y tampoco se puede fingir con
@@ -331,7 +331,7 @@ mod tests {
     /// que el lector devuelve los bytes que se metieron y no los 4096 del sitio
     /// donde viven.
     #[test]
-    fn el_ultimo_trozo_vuelve_con_su_tamano_y_no_relleno() {
+    fn el_ultimo_trozo_vuelve_con_su_medida_y_no_relleno() {
         let datos: Vec<u8> = (0..BLOQUE + 7).map(|i| (i % 199) as u8).collect();
         let vuelta = ida_y_vuelta(&datos);
         assert_eq!(vuelta.len(), BLOQUE + 7);

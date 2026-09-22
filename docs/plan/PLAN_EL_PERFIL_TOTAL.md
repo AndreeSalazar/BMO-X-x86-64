@@ -306,7 +306,7 @@ falta es el escalon 2, y no es un invento: es una operacion en el ABI. `crew`
 reparte trabajo y corre 12 de 12 en metal; lo que no hay es camino para una
 funcion de Ring 3.
 
-[!] Y el escalon 2 va **detras de la foto de `smp prueba`**. Disenar la puerta
+[!] Y el escalon 2 va **detras de la foto de `smp prueba`**. Trazar la puerta
 sobre un reparto que contesto `0.00x` y nadie ha vuelto a mirar seria trazar
 sobre nada.
 
@@ -399,7 +399,7 @@ lista de nucleos que declara la placa. Y cuando no coinciden, grita:
 
 O sea que **el bring-up NO despierta 54 fantasmas**: despierta los que declara
 la MADT, y el `hilos-1` solo se usa cuando no hay MADT. **Lo que esta roto es lo
-que se ENSENA, no lo que se hace.**
+que se MUESTRA, no lo que se hace.**
 
 *** Y de ahi sale la casilla, que es de una linea de esquema y no de codigo:
 

@@ -249,7 +249,7 @@ fn read_u64(bytes: &[u8], offset: usize) -> Option<u64> {
 
 /// * UNA RELOCATION, leida del fichero. Ver `SECTION_RELOCS`.
 ///
-/// Tamano de una relocation. **Ya no se escribe aqui**: viene de
+/// Medida de una relocation. **Ya no se escribe aqui**: viene de
 /// `bmo-bex-gate`, que es el crate que los dos lados comparten.
 ///
 /// === Por que se movio (2026-08-12) ===

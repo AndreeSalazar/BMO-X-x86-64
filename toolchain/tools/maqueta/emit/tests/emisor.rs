@@ -39,7 +39,7 @@ fn el_fichero_dice_de_donde_salio_y_que_no_se_toca() {
 }
 
 #[test]
-fn el_tamano_que_nadie_escribio_sale_como_constante() {
+fn la_medida_que_nadie_escribio_sale_como_constante() {
     let g = generado();
     assert!(g.contains("pub const ANCHO: u32 = 322;"));
     assert!(g.contains("pub const ALTO: u32 = 446;"));

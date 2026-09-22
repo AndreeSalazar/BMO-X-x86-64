@@ -101,7 +101,7 @@ fn scanf_con_una_conversion_desconocida_se_rechaza() {
 /// Y las escrituras llevan el medida EXACTO del campo: escribir 8 bytes
 /// donde hay un `int` pisaria el campo siguiente.
 #[test]
-fn cada_escritura_usa_el_tamano_de_su_campo() {
+fn cada_escritura_usa_la_medida_de_su_campo() {
     let out = run_c("struct M { char a; int b; char c; }; \
                      int main() { struct M m = {.a = 65, .b = 1000, .c = 66}; \
                      printf(\"%d %d %d\\n\", m.a, m.b, m.c); return 0; }");

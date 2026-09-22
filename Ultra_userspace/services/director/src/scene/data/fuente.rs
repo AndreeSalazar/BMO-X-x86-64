@@ -7,7 +7,7 @@
 //!
 //! Eddi: *"expande ESTRATOS para que vea otros discos como FAT32 ... y EFI ...
 //! alli estan mis apps"*. El explorador del F12 hablaba con UNA cosa --el cursor
-//! de ESTRATOS-- en 110 llamadas repartidas por doce ficheros. Anadir otro
+//! de ESTRATOS-- en 110 llamadas repartidas por doce ficheros. Agregar otro
 //! volumen llamada a llamada habria sido un `if` en cada una, y el dia que
 //! alguien olvidara uno, un clic en DATOS moveria el cursor de ESTRATOS.
 //!

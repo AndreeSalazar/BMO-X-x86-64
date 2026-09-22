@@ -93,7 +93,7 @@ CABECERA_CUESTAS = """# EL SUELO DE L6e -- cuantos ficheros declaran `[cuesta]`.
 # tambien por lo que cuesta que la pieza se equivoque, y la cabecera lo declara.
 #
 # ** Esto NO exige la etiqueta a los ~150 ficheros de `ring0`. Exige dos cosas
-# mas pequenas: que quien la declare use el vocabulario cerrado, y que este
+# mas chicas: que quien la declare use el vocabulario cerrado, y que este
 # numero **no baje nunca**. Cada fichero nuevo que la ponga sube el suelo, y el
 # suelo no se vuelve a bajar.
 #
@@ -104,7 +104,7 @@ CABECERA_CUESTAS = """# EL SUELO DE L6e -- cuantos ficheros declaran `[cuesta]`.
 
 CABECERA_COBERTURA = """# EL SUELO DE R16 -- cuantas constantes del ABI tienen cabecera en REX.
 #
-# La pregunta del dueno era *"que reglas para que el ABI se aproveche TODO?"*, y
+# La pregunta del propietario era *"que reglas para que el ABI se aproveche TODO?"*, y
 # la respuesta honesta no es "se expone todo": es **el hueco es este numero, y
 # no puede crecer**.
 #
@@ -143,7 +143,7 @@ CABECERA_BASE = """# LINEA BASE del contrato -- los numeros que USAN LAS DOS TAB
 # esta aqui se tolera con su motivo escrito al lado; un numero NUEVO en las dos
 # tablas para el build hasta que alguien decida cual de las dos cosas es.
 #
-# Hoy no hace dano porque el `kind` del handle **solo lo interpreta el kernel**:
+# Hoy no hace perjuicio porque el `kind` del handle **solo lo interpreta el kernel**:
 # el ABI declara la taxonomia y no la usa para resolver nada. Es deuda, no
 # fallo. El dia que alguien de Ring 3 mire ese byte, deja de serlo.
 #

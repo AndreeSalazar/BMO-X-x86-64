@@ -253,7 +253,7 @@ def r6_el_coste_declarado(declarantes, minimo):
     Hay ~150 ficheros solo en `ring0`. Exigirles la etiqueta a todos de golpe
     seria un guardian que grita 150 veces el primer dia, y **uno que grita sin
     motivo se apaga en una semana** -- lo dice el guardian de los enlaces y lo
-    repite L6a. Asi que se exigen dos cosas mucho mas pequenas:
+    repite L6a. Asi que se exigen dos cosas mucho mas chicas:
 
       * quien la declare, que la declare BIEN (vocabulario cerrado);
       * y que el numero de los que la declaran **no baje nunca**.
@@ -305,7 +305,7 @@ def r8_el_juez_nombrado_existe(ficheros):
     exigirlo a los 162 seria pedir un banco de pruebas por cortesia. Lo que no se
     tolera es prometerlo y que no este.
 
-    *** REDEFINIDA EL 2026-09-17, con el principio del dueno: *"si no cumple es
+    *** REDEFINIDA EL 2026-09-17, con el principio del propietario: *"si no cumple es
     mejor abolir"*. No se abolio, porque su proposito vale; se la hizo cumplir
     su PROPIO texto, que decia dos cosas y comprobaba una:
 
@@ -489,7 +489,7 @@ RE_CARRIL = re.compile(r"^//!? \[carril\]\s+(\S+)", re.M)
 def r10_el_semaforo(ficheros):
     """L6g -- **TODO fichero de Ring 0 lleva su color**. `{ruta: texto}`.
 
-    Es el trabajo del 2026-08-31, y el dueno lo dijo mejor que la ley: *"es como
+    Es el trabajo del 2026-08-31, y el propietario lo dijo mejor que la ley: *"es como
     poner titulos"*. No hay que partir 162 ficheros -- hay que **etiquetarlos**,
     para que el dia que haya que cambiar algo deprisa se sepa de un vistazo si
     se puede jugar o si hay que ir con las dos manos.
@@ -536,7 +536,7 @@ def r10_el_semaforo(ficheros):
 def r9_los_carriles_del_modulo(carpetas):
     """L6g -- los carriles dentro del modulo. `{carpeta: {fichero: texto}}`.
 
-    Dos exigencias, y las dos son de LETRERO, no de tamano:
+    Dos exigencias, y las dos son de LETRERO, no de medida:
 
       1. **una carpeta de carriles no mezcla.** Si hay un `roja.rs`, todo `.rs`
          de al lado (menos `mod.rs`) es un carril. Un `ayudas.rs` colado entre
@@ -547,7 +547,7 @@ def r9_los_carriles_del_modulo(carpetas):
 
     ** Lo que NO se exige aqui, y hay que decirlo: ni el tope de 300 lineas ni
     el `[prueba]`. Los dos son de `critic/`, que guarda JUECES -- piezas
-    pequenas, puras y con banco. Un carril de modulo no es un juez: es la mitad
+    chicas, puras y con banco. Un carril de modulo no es un juez: es la mitad
     de un fichero de Ring 0 que ya existia. `task/scheduler/roja.rs` son 744
     lineas de cambio de contexto y no puede ser otra cosa. Poner el tope de un
     juez a un carril seria pedirle a la ley que mienta.
@@ -622,7 +622,7 @@ def r19_nadie_se_copia_una_operacion(copias, vistos=None):
     quejas = []
     # *** El exito de esta regla es "encontre CERO", asi que es la mas expuesta
     # a quedarse ciega sin que se note: un arbol vacio tambien da cero. Una
-    # regla que no mira nada no cumple nada (el dueno, 17-09: "si no hay nada
+    # regla que no mira nada no cumple nada (el propietario, 17-09: "si no hay nada
     # que cumplen, abolir"), y aqui se dice en vez de pasar en silencio.
     if vistos == 0:
         quejas.append("no recorrio NI UN fichero de app: una regla ciega no juzga (R19)")
@@ -683,7 +683,7 @@ def carpetas_de_carriles(base=None):
 
     Una carpeta ES de carriles si tiene al menos un `.rs` con nombre de carril.
     No hay lista que mantener: **el arbol se declara solo**, que es lo que hace
-    que partir un fichero manana ya venga vigilado sin tocar esto.
+    que partir un fichero luego ya venga vigilado sin tocar esto.
 
     [!] Ya no hay excepciones. La habia --`critic/`, que juzgaba R8 con reglas
     mas duras-- y desaparecio con la carpeta el 2026-08-31: un color solo

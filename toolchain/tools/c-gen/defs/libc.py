@@ -70,7 +70,7 @@ FUNCIONES = [
     ("wchar_t / wcs*", "wchar.h", "FUERA",
      "la consola de BMO es de un byte por caracter a proposito", None),
     ("signal", "signal.h", "FUERA",
-     "no hay senales que mandar: aqui un fallo mata la tarea y lo dice", None),
+     "no hay signales que mandar: aqui un fallo mata la tarea y lo dice", None),
     ("setjmp/longjmp", "setjmp.h", "FUERA",
      "DOOM no lo necesita y emitirlo pide guardar el marco entero", None),
 ]

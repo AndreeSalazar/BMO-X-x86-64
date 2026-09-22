@@ -7,7 +7,7 @@
 
 ## La frase que ordena el documento
 
-**Hoy el kernel DEDUCE lo que un programa necesita. Manana el programa DECLARA,
+**Hoy el kernel DEDUCE lo que un programa necesita. Luego el programa DECLARA,
 el sistema CONCEDE, y el kernel solo COMPRUEBA.**
 
 Es la misma linea que ya ordena el resto de BMO-X y que aqui se rompio sin que
@@ -132,7 +132,7 @@ serializa **toda la maquina** por lanzamiento).
 
 ```
    HOY       disco --> bufer estatico de 4 MiB --> copia --> paginas del proceso
-   MANANA    disco ------------------------------------> paginas del proceso
+   LUEGO    disco ------------------------------------> paginas del proceso
 ```
 
 Y aqui esta lo que hace que esto no sea solo mas limpio, sino **correcto por

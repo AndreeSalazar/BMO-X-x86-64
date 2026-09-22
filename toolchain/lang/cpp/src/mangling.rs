@@ -279,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn los_arrays_llevan_su_tamano() {
+    fn los_arrays_llevan_su_medida() {
         assert_eq!(codigo(&T::Array(Box::new(T::Int), 4)), "A4i");
         assert_ne!(
             codigo(&T::Array(Box::new(T::Int), 4)),

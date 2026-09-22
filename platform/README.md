@@ -29,7 +29,7 @@ no tiene arquitectura.
 2. **El emisor de cada frontend** -- la ultima fase de cada lenguaje: `sem-asm`
    con sus tablas TOML por arquitectura
    (`toolchain/forge/sem-asm/tables/arch/<arch>/`), y `bmo_lower::x86` con su
-   equivalente. Anadir una instruccion sigue siendo **una entrada TOML**; agregar
+   equivalente. Agregar una instruccion sigue siendo **una entrada TOML**; agregar
    una arquitectura es un directorio de tablas y un encoder.
 
 Lo que **si** hay de CPU en `abi/` es **dato enumerado, no codigo**:

@@ -139,7 +139,7 @@ funcion lee_melodia(bloque es natural64) devuelve natural64
     f es natural64 = invoca_valor(mi_tarea, op_archivo_abrir, 0, 0, 0)
     si f = 0
         devuelve max_texto() + 1
-    medida es natural64 = invoca_valor(f, op_arch_tamano, 0, 0, 0)
+    medida es natural64 = invoca_valor(f, op_arch_medida, 0, 0, 0)
     si medida > max_texto()
         invoca(f, op_arch_cerrar, 0, 0, 0)
         devuelve max_texto() + 2

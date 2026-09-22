@@ -256,7 +256,7 @@ impl Codegen {
     ///
     /// El catalogo y los cuerpos NO estan aqui, y el corte es deliberado: este
     /// fichero sabe que es una reloc y que es el `Codegen`; aquel sabe que
-    /// bytes implementan `strlen`. Anadir una funcion sintetizable no toca este
+    /// bytes implementan `strlen`. Agregar una funcion sintetizable no toca este
     /// metodo.
     ///
     /// Va ANTES de [`Self::patch_call_relocs`] y no puede ir despues: ese es

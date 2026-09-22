@@ -48,7 +48,7 @@ nombrarlo**. Donde quedo cada pieza:
    tipicamente el compositor. Un dato falso es peor que ninguno.
 3. **`scheduler::tid_de(pid)`** -- el inverso de `pid_de`. Y devolver `None` para
    un proceso muerto no es un hueco: es lo que convierte esta pregunta en **el
-   detector de vida** del que tira `PRESTADO_OP_DUENO`.
+   detector de vida** del que tira `PRESTADO_OP_PROPIETARIO`.
 4. **`syscall.rs`**: `0x26` y su brazo. El guardian de opcodes dice ahora
    **`38 opcodes, ninguno repetido`**, como estaba previsto.
 5. **`bmo-abi/.../surface.rs`** y **`userland/src/lib.rs`**: el mismo id en los
@@ -96,7 +96,7 @@ toda en una funcion a proposito.
 
 ## Y una app que MUERE
 
-Se pregunta cada fotograma con `PRESTADO_OP_DUENO`, y no por prudencia: una app
+Se pregunta cada fotograma con `PRESTADO_OP_PROPIETARIO`, y no por prudencia: una app
 muerta deja la secuencia **congelada**, que es indistinguible de una app
 pensando. Sin esa pregunta, la ventana de un programa que ya no existe se
 quedaria en pantalla con su ultimo fotograma y sus tres botones, como si fuera a
@@ -112,7 +112,7 @@ una por ventana, y ahi aparecieron tres cosas que no estaban:
 | Lo que faltaba | Por que |
 |---|---|
 | **Que dos prestamos no se pisen** | `take` mapeaba SIEMPRE en `PRESTAMO_VA_BASE`. El segundo caia encima del primero, y como la capability se concede con la VA como objeto, dos handles distintos contestaban lo del otro. **La segunda ventana mostraria los pixeles de la primera y nada fallaria.** Ahora la direccion la decide la ranura: `BASE + ranura * 64 MiB` |
-| **`PRESTADO_OP_DUENO` (0x03)** | preguntar si el que presto sigue vivo. Sin esto no hay forma de distinguir una app muerta de una app pensando |
+| **`PRESTADO_OP_PROPIETARIO` (0x03)** | preguntar si el que presto sigue vivo. Sin esto no hay forma de distinguir una app muerta de una app pensando |
 | **`PRESTADO_OP_SOLTAR` (0x04)** | devolverlo. Sin esto, abrir y cerrar ventanas agota las ranuras y a partir de ahi ninguna app vuelve a tener caja hasta reiniciar |
 
 Mas `MAX` de 8 a 16 ranuras, que es el mismo censo que `paquete` y `familia`.
@@ -127,7 +127,7 @@ por debajo mientras las recorre es un fallo de pagina en el compositor, o sea qu
 
 Asi que la oferta queda **huerfana**: los marcos siguen siendo validos
 --`destroy_address_space` libera las tablas de paginas, no las hojas-- y el
-DIRECTOR lo suelta cuando quiere, avisado por `OP_DUENO`. Al lado de una ventana
+DIRECTOR lo suelta cuando quiere, avisado por `OP_PROPIETARIO`. Al lado de una ventana
 congelada un fotograma de mas, no hay debate.
 
 ## Lo que sigue pendiente de la RAM, y no bloquea esto
@@ -205,9 +205,9 @@ que hacerla con el codigo delante, no con la memoria.
 
 ---
 
-# ★★ PASO 2c -- LA ENTRADA: hoy una app puede ENSENAR, no la puedes TOCAR
+# ★★ PASO 2c -- LA ENTRADA: hoy una app puede MOSTRAR, no la puedes TOCAR
 
-> Anadido el **2026-08-18**, al preguntar el propietario por que la calculadora no
+> Agregado el **2026-08-18**, al preguntar el propietario por que la calculadora no
 > puede ser `apps/calculadora.bex` con su icono. La respuesta salio de leer este
 > mismo plan: **los pasos 1, 2, 2b, 3, 4 y 5 hablan todos de PIXELES**. Ninguno
 > manda un clic hacia dentro.
@@ -349,7 +349,7 @@ una heuristica*. Aqui el orden lo da el foco.
 ## 2c.4 -- Y una app que no contesta
 
 Un evento mandado a un proceso muerto no puede colgar al DIRECTOR. Ya hay con
-que preguntarlo (`PRESTADO_OP_DUENO`, del paso 2), asi que es la misma pregunta
+que preguntarlo (`PRESTADO_OP_PROPIETARIO`, del paso 2), asi que es la misma pregunta
 en el mismo sitio, no una nueva.
 
 ⚠ Con el camino A esto importa mas: una llamada bloqueante a una app que no
@@ -788,7 +788,7 @@ no depende de que nadie este vivo.
 
 ★ **No hay comprobacion de parentesco, y es a proposito.** El permiso ES el
 handle: `TASK_OP_HIJO` es un `cap::find`, igual que `CHANNEL_OPEN`, asi que a
-quien no lanzo ese proceso no hay nada que darle. Anadir ademas un *"es tu
+quien no lanzo ese proceso no hay nada que darle. Agregar ademas un *"es tu
 hijo?"* seria la misma regla en dos sitios, que es como se acaba con dos reglas
 que no dicen lo mismo.
 
@@ -936,7 +936,7 @@ cargador de programas eso es ejecutar otro binario.
 
 ## Lo que se encontro, y no era uno sino tres
 
-El 19-08 (`249a0f13`) un clic paso a SENALAR y el lanzamiento a **doble** clic.
+El 19-08 (`249a0f13`) un clic paso a MARCAR y el lanzamiento a **doble** clic.
 El gesto se media contando `Tick::frames` contra una constante:
 
 ```text

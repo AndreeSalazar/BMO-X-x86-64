@@ -54,7 +54,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
         if derecho && !dsk.tick.derecho_before {
             let sobre = match dsk.win.data.fila_rejilla_en(pos.x, pos.y) {
                 Some(i) => {
-                    // Senalar y abrir el menu son la misma pulsacion: si no, el
+                    // Marcar y abrir el menu son la misma pulsacion: si no, el
                     // menu hablaria de una fila y el realce estaria en otra.
                     dsk.win.data.sel = i;
                     dsk.win.data.verified = None;
@@ -174,9 +174,9 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         servido = true;
                     }
                     if dsk.win.data.view == scene::data::View::Obra {
-                        // ** LAS PESTANAS DE VOLUMEN, antes que nada: estan en
+                        // ** LAS SOLAPAS DE VOLUMEN, antes que nada: estan en
                         // la miga, que no es de ningun otro panel.
-                        if let Some(v) = dsk.win.data.pestana_en(pos.x, pos.y) {
+                        if let Some(v) = dsk.win.data.solapa_en(pos.x, pos.y) {
                             dsk.win.data.cambiar_volumen(v);
                             scene::data::paint(&p, &dsk.win.data);
                             dsk.win.top_before = Ventana::Data;
@@ -230,7 +230,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                                 if scene::data::fuente::entrar(i as u64) {
                                     dsk.win.data.to_top();
                                 } else {
-                                    dsk.win.data.abrir_senalado();
+                                    dsk.win.data.abrir_marcado();
                                 }
                             }
                             scene::data::paint(&p, &dsk.win.data);

@@ -111,7 +111,7 @@ pub struct Captura {
     /// Si esa direccion tiene traduccion en el espacio del muerto. Se lee con
     /// su CR3 todavia puesto, que es el unico momento en que se puede.
     traducida: bool,
-    /// **El TAMANO del agujero**, cuando lo hay: primera pagina sin traduccion
+    /// **El MEDIDA del agujero**, cuando lo hay: primera pagina sin traduccion
     /// y cuantas seguidas le faltan, dentro del bloque.
     ///
     /// *** ESTE ES EL NUMERO QUE NOMBRA AL CULPABLE, y por eso se mide.
@@ -752,7 +752,7 @@ fn clasificar(vector: u64, error: u64, cr2: u64, cap: &Captura) -> Causa {
 /// Solo distingue las tres familias que un programa de Ring 3 puede tocar. Todo
 /// lo que no reconozca cae en *"no canonica"*, que es lo que queda cuando la
 /// instruccion es corriente: la causa entonces esta en un OPERANDO, no en la
-/// instruccion. Anadir mas opcodes es agregar filas; agregar modos de
+/// instruccion. Agregar mas opcodes es agregar filas; agregar modos de
 /// direccionamiento seria escribir un desensamblador en un manejador de fallos.
 fn clasificar_gp(cap: &Captura) -> Causa {
     let c = &cap.codigo[..cap.codigo_n];
@@ -886,7 +886,7 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
                     r.hex(off);
                     r.s(" de 0x");
                     r.hex(bytes);
-                    // ** Y EL TAMANO DEL AGUJERO, que es lo que nombra al que
+                    // ** Y EL MEDIDA DEL AGUJERO, que es lo que nombra al que
                     // lo hizo. Ver `Captura::medir_agujero`.
                     if cap.agujero_pags != 0 {
                         r.s(" -- faltan ");

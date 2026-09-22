@@ -123,9 +123,9 @@ fn un_programa_que_empieza_por_un_parrafo() {
         "01 A PIC 9(3).",
         "1000-PRINCIPAL.\n\
          MOVE 7 TO A.\n\
-         PERFORM 2000-ENSENA.\n\
+         PERFORM 2000-MUESTRA.\n\
          STOP RUN.\n\
-         2000-ENSENA.\n\
+         2000-MUESTRA.\n\
          DISPLAY A.",
     );
     assert_eq!(run_cobol(&src), "7\n");

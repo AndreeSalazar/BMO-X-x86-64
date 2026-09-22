@@ -24,7 +24,7 @@ escribir la maquetacion como un **recurso** que se lee en ejecucion.
 
 ```
    HOY (emisor A)   .maqueta -> calc_gen.rs -> se compila con el compositor
-   MANANA (B)       .maqueta -> calc.recurso -> se LEE al arrancar la app
+   LUEGO (B)       .maqueta -> calc.recurso -> se LEE al arrancar la app
 ```
 
 Ninguna de las cinco generaciones cambia. **Ninguna sabe que existe un emisor**,

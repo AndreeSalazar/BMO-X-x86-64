@@ -72,7 +72,7 @@ Todo lo de arriba, mas:
 | `openat` | `TASK_OP_ARCHIVO_ABRIR` / `_CREAR` |
 | `close` | `ARCH_OP_CERRAR` |
 | `lseek` | `ARCH_OP_POSICIONAR` <- *pieza `3.3`, aun no esta* |
-| `fstat` | `ARCH_OP_TAMANO` (parcial) |
+| `fstat` | `ARCH_OP_MEDIDA` (parcial) |
 | `mprotect` `munmap` | no-op honesto o rechazo |
 | `readlink` `access` | rechazo con "no existe" |
 | `ioctl(TCGETS)` | lo usa `isatty`: se contesta "no soy terminal" |

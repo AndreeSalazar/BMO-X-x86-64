@@ -1,7 +1,7 @@
 DMA INTELIGENTE -- las TRES formas de darle memoria a un aparato
 =================================================================
 
-  Pregunta del dueno, y la ha hecho tres veces con palabras distintas:
+  Pregunta del propietario, y la ha hecho tres veces con palabras distintas:
   "el mapeo y el hot unmapping, ambos tienen que aplicarse inteligente que
   trate de no costar por algo" ... "DMA inteligente?".
 
@@ -28,7 +28,7 @@ LAS TRES, Y LAS TRES ESTAN EN EL CODIGO HOY
     red/mod.rs:325            pedida entera como `Titular::Neutro`
 
     La tarjeta de red no valida sus direcciones fisicas PORQUE NO PUEDEN ESTAR
-    MAL: se calculan como `base + i * tamano` dentro de un corral que es suyo.
+    MAL: se calculan como `base + i * medida` dentro de un corral que es suyo.
 
     *** Y ESA ES LA FORMA MAS INTELIGENTE DE LAS TRES, por un motivo que no es
     de velocidad:
@@ -38,7 +38,7 @@ LAS TRES, Y LAS TRES ESTAN EN EL CODIGO HOY
 
     lo que cuesta   la memoria se reserva y no se devuelve. Para tres aparatos
                     que piden al arrancar es gratis; para treinta, no
-    cuando vale     un aparato con un flujo constante y un tamano conocido:
+    cuando vale     un aparato con un flujo constante y un medida conocido:
                     la red, los anillos del xHC, el DCBAA
 
 
@@ -85,7 +85,7 @@ LAS TRES, Y LAS TRES ESTAN EN EL CODIGO HOY
 LA REGLA, EN UNA TABLA
 -----------------------
 
-  el flujo es constante y del tamano conocido   ->  1. CORRAL
+  el flujo es constante y del medida conocido   ->  1. CORRAL
   el destino ya sirve tal cual                  ->  2. PRESTADO
   el destino no sirve                           ->  3. REBOTE
 
@@ -116,7 +116,7 @@ LO QUE FALTA PARA QUE SEA INTELIGENTE DE VERDAD
 *** EL PRIMER PASO, HECHO EL 2026-09-10: LA ELECCION DICE POR QUE
 ------------------------------------------------------------------
 
-  Peticion del dueno: *"DMA inteligente dinamico que TODOS tengan motivos
+  Peticion del propietario: *"DMA inteligente dinamico que TODOS tengan motivos
   porque, y siempre aislando todo en modulos para evitar sorpresas"*.
 
   El AHCI ya elegia entre PRESTADO y REBOTE. Lo hacia dentro de `tramo_dma`,
@@ -137,7 +137,7 @@ LO QUE FALTA PARA QUE SEA INTELIGENTE DE VERDAD
     > deshacer entera y ver que pasa.
 
   EL VOCABULARIO ES CERRADO --seis motivos-- y eso es lo que le da valor. Si un
-  caso nuevo no cabe en las seis palabras, no se ha entendido el caso. Anadir
+  caso nuevo no cabe en las seis palabras, no se ha entendido el caso. Agregar
   `Otros` seria volver al estado de antes con el trabajo hecho.
 
   Y ESTA AISLADO DE VERDAD: crate propio en `platform/shared/bmo-dma-forma`,

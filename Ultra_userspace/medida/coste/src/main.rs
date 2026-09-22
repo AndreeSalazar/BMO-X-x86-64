@@ -100,7 +100,7 @@ const VUELTAS: u64 = 16;
 // Por eso ahora no se corrige el 0x0F -- se BORRAN los siete. Lo que no se
 // copia no se puede copiar mal.
 use bmo::{
-    ARCH_OP_CERRAR as ARCH_CERRAR, ARCH_OP_TAMANO as ARCH_TAMANO, CURRENT_TASK as TAREA_ACTUAL,
+    ARCH_OP_CERRAR as ARCH_CERRAR, ARCH_OP_MEDIDA as ARCH_MEDIDA, CURRENT_TASK as TAREA_ACTUAL,
     NR_INVOKE, OP_GET_PID as OP_PID, OP_INFO, OP_MI_PAQUETE,
 };
 /// **`INFO_TICKS`, y el numero importa.**
@@ -216,7 +216,7 @@ unsafe fn rdtsc_suelto(n: u64) {
 // planteada la comparacion.
 //
 //     fila A:  pseudo-capability + operacion barata   (TAREA_ACTUAL, PID)
-//     fila B:  capability REAL   + operacion gorda    (handle, TAMANO)
+//     fila B:  capability REAL   + operacion gorda    (handle, MEDIDA)
 //
 // **Cambia DOS variables a la vez.** Los +246 pueden ser el handle o pueden ser
 // la operacion, y esa resta no puede separarlos. Una tanda mas de lo mismo iba
@@ -238,7 +238,7 @@ unsafe fn rdtsc_suelto(n: u64) {
 //
 //     1  TAREA_ACTUAL + PID      el suelo: no se camina ninguna tabla
 //     2  TAREA_ACTUAL + INFO     MISMA capability, operacion mas gorda
-//     3  handle real  + TAMANO   capability REAL
+//     3  handle real  + MEDIDA   capability REAL
 //
 //     2 - 1  =  lo que cuesta una operacion mas complicada
 //     3 - 2  =  lo que cuesta tener un handle de verdad
@@ -633,7 +633,7 @@ pub extern "C" fn _start() -> ! {
             op: OP_INFO as u64,
             a0: CAMPO_TICKS,
         },
-        Fila { nombre: "3 medida (cap REAL, op gorda)   ", cap: paquete, op: ARCH_TAMANO as u64, a0: 0 },
+        Fila { nombre: "3 medida (cap REAL, op gorda)   ", cap: paquete, op: ARCH_MEDIDA as u64, a0: 0 },
     ];
 
     let mut minimos = [0u64; 3];

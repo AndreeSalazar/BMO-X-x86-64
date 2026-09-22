@@ -31,7 +31,7 @@ Lo que hace
 
     cuenta los avisos y los compara con LINEA_BASE.txt
 
-      suben  -> PARA. Y ensena cuales son los nuevos
+      suben  -> PARA. Y muestra cuales son los nuevos
       bajan  -> lo dice, y pide bajar la linea base
 
 **Trinquete, no muro**, que es la regla que escribio `censo_modular` y repite
@@ -46,12 +46,12 @@ Lo que NO hace, y hay que decirlo
 
 Son otro arbol y otra linea base; meterlos aqui haria que una limpieza en fat32
 tapara un aviso nuevo en Ring 0, que es justo lo contrario de para lo que existe
-esto. El dia que hagan falta, se anaden con su propia cifra.
+esto. El dia que hagan falta, se agregan con su propia cifra.
 
 [!] Y si `cargo` no esta o el target no esta instalado, este guardian **lo dice y
 no mata**. Mismo trato que el sello de VALKYRIE: un guardian que no puede mirar
 tiene que confesarlo, no aprobar en silencio -- pero tampoco puede impedir que se
-construya en una maquina que no es la del dueno.
+construya en una maquina que no es la del propietario.
 """
 
 import argparse

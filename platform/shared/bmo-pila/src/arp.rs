@@ -16,7 +16,7 @@
 //!
 //! ## Determinista
 //!
-//! Tamanos fijos, sin reloj propio: el tiempo lo pasa quien llama (`ahora`, en
+//! Medidas fijos, sin reloj propio: el tiempo lo pasa quien llama (`ahora`, en
 //! milisegundos). Con la misma secuencia de llamadas, la misma cache. Llena, se
 //! pisa la fila MAS VIEJA, y si hay empate la de indice menor.
 

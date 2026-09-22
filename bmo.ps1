@@ -252,7 +252,7 @@ if (-not $Rapido) {
         if ($compilo -and $anuncios.Count -ne $resultados.Count) {
             Muere "banco: cargo anuncio $($anuncios.Count) binarios y contesto $($resultados.Count) resultados -- no se puede decir de quien es cada fila"
         }
-        $sinDueno = 0
+        $sinPropietario = 0
         for ($i = 0; $i -lt $anuncios.Count; $i++) {
             $a = $anuncios[$i]
             $crate = $null
@@ -265,13 +265,13 @@ if (-not $Rapido) {
             } elseif ($a -match '^\s*Doc-tests ([A-Za-z0-9_]+)') {
                 if ($porRuta.ContainsKey($Matches[1])) { $crate = $porRuta[$Matches[1]] }
             }
-            if (-not $crate) { $sinDueno++; continue }
+            if (-not $crate) { $sinPropietario++; continue }
             if ($resultados[$i] -match 'test result: \w+\. (\d+) passed; (\d+) failed') {
                 $porCrate[$crate].pasadas += [int]$Matches[1]
                 $porCrate[$crate].rojas += [int]$Matches[2]
             }
         }
-        if ($sinDueno -gt 0) { Muere "banco: $sinDueno binario(s) de pruebas sin crate conocido" }
+        if ($sinPropietario -gt 0) { Muere "banco: $sinPropietario binario(s) de pruebas sin crate conocido" }
         $rojasTotal = ($porCrate.Values | ForEach-Object { $_.rojas } | Measure-Object -Sum).Sum
         if ($rojasTotal -gt 0 -or -not $compilo) {
             # Lo que dijo el compilador (stderr) y lo que dijeron las filas (stdout).

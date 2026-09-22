@@ -32,7 +32,7 @@ fn la_sombra_interior_no_pisa_a_la_exterior() {
 }
 
 #[test]
-fn un_array_sombreado_tiene_su_propio_tamano() {
+fn un_array_sombreado_tiene_su_propia_medida() {
     // Antes: `t` tenia UN hueco, el del primero (2 bytes -> 8 alineados), y el
     // `long t[8]` del segundo bloque escribia 64 bytes encima de `guarda`.
     let out = run_c(

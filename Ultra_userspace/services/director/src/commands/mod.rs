@@ -70,7 +70,7 @@ pub(crate) enum Command<'a> {
     Launch(&'a [u8]),
     Clear,
     Help,
-    /// Ensena o esconde la calculadora.
+    /// Muestra o esconde la calculadora.
     Calculator,
     /// El editor de aspecto: `aspecto` (2026-09-13). Ver `desktop::aspecto`.
     Aspecto,

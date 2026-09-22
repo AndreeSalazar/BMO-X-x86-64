@@ -114,7 +114,7 @@ SI ESTE PERFIL ESTA MAL, ASI SE NOTA
       ya no hacen falta y nadie se entera. Es el motivo entero de esta carpeta
 
   una mana que ya no hace falta y sigue escrita
-      lo mismo, en pequeno. `uefi_chain` sigue pesando lo que pesan los tres
+      lo mismo, en chico. `uefi_chain` sigue pesando lo que pesan los tres
       binarios juntos aunque el firmware nuevo si lea el ESP
 
   una mana que hace falta y se quito

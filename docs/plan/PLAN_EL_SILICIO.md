@@ -27,7 +27,7 @@ que corte otro.
 
 ```text
    HOY      el compilador emite la comprobacion    llano y pleno, igual
-   MANANA   `llano`  la lleva el programa          porque puede SER el manejador
+   LUEGO   `llano`  la lleva el programa          porque puede SER el manejador
             `pleno`  la lleva el silicio           porque tiene a quien volver
 ```
 

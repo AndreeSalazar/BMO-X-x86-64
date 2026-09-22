@@ -332,7 +332,7 @@ fn s_valida(s: &[u8; 32]) -> bool {
     false
 }
 
-/// **Tiene este punto orden PEQUENO?** O sea: `[8]P` es el neutro.
+/// **Tiene este punto orden CHICO?** O sea: `[8]P` es el neutro.
 ///
 /// # *** ESTA FUNCION LA PIDIO UNA PRUEBA, EL 2026-08-25
 ///
@@ -370,7 +370,7 @@ fn s_valida(s: &[u8; 32]) -> bool {
 /// [!] Y se aplica **a la clave publica Y a la `R` de la firma**. La `R` de una
 /// firma honrada es `[r]B` con `r` aleatorio, asi que su orden es grande: no se
 /// rechaza nada que alguien haya firmado de verdad.
-fn orden_pequeno(p: &Punto) -> bool {
+fn orden_chico(p: &Punto) -> bool {
     let p2 = suma(p, p);
     let p4 = suma(&p2, &p2);
     let p8 = suma(&p4, &p4);
@@ -385,7 +385,7 @@ fn orden_pequeno(p: &Punto) -> bool {
 ///    1. S en rango          `0 <= S < L`, o la firma es maleable
 ///    2. A descomprime       o esa clave publica no es un punto
 ///    3. R descomprime       o esa firma no lleva un punto dentro
-///    4. ni A ni R de orden PEQUENO   <- la que una prueba destapo el 25-08
+///    4. ni A ni R de orden CHICO   <- la que una prueba destapo el 25-08
 ///    5. [S]B == R + [k]A    k = SHA-512(R || A || mensaje)
 /// ```
 ///
@@ -413,10 +413,10 @@ pub fn verificar(publica: &[u8; CLAVE], mensaje: &[u8], firma: &[u8; FIRMA]) -> 
     let Some(r) = descomprimir(&r_bytes) else {
         return false;
     };
-    // *** Y NI A NI R PUEDEN SER DE ORDEN PEQUENO. Ver `orden_pequeno`: sin
+    // *** Y NI A NI R PUEDEN SER DE ORDEN CHICO. Ver `orden_chico`: sin
     // esto, una clave de ceros --que ES un punto-- hace que la ecuacion se
     // cumpla una de cada cuatro veces.
-    if orden_pequeno(&a) || orden_pequeno(&r) {
+    if orden_chico(&a) || orden_chico(&r) {
         return false;
     }
 
@@ -563,7 +563,7 @@ mod escalar {
 /// ```
 ///
 /// Lo primero mata el cofactor: cualquier componente de torsion chica queda
-/// multiplicada por 8 y desaparece -- **es la misma amenaza que `orden_pequeno`
+/// multiplicada por 8 y desaparece -- **es la misma amenaza que `orden_chico`
 /// cierra en el otro lado**. Lo ultimo fija la longitud del escalar, para que
 /// una escalera de tiempo constante haga siempre las mismas vueltas.
 #[cfg(feature = "firmar")]

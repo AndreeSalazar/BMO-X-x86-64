@@ -443,7 +443,7 @@ Cada escalon deja el sistema funcionando, que es la regla de la casa.
 | 1 | **El asignador de Ring 3** sobre `KIND_MEMORIA` | -- (desbloquea `realloc`, los >4 `malloc` y el contrato de `fread`) | M |
 | 2 | ★ **Que el cargador NO lea el fichero entero** -- cabecera + tabla + secciones cargables | **[x] 2026-08-10** -- `bex::necesita`. DOOM+WAD: 6.313.632 -> **813.552 B leidos (-87,1%)** | L |
 | 3 | ★ **DMA al bufer del llamante**, fuera la pagina de rebote | **[x] 2026-08-10** -- `disk::tramo_dma` + un comando por CLUSTER en FAT32 | M |
-| 4 | **E/S asincrona**: que pedir no bloquee | **a medias 2026-08-10** -- el disco tiene DUENO y el driver se deja preguntar; falta que el que pide pueda irse | L |
+| 4 | **E/S asincrona**: que pedir no bloquee | **a medias 2026-08-10** -- el disco tiene PROPIETARIO y el driver se deja preguntar; falta que el que pide pueda irse | L |
 | 5 | **Las 32 ranuras**, varias peticiones en vuelo | el 4 | M |
 | 6 | **El manifiesto declara lo que va a pedir** | -- | S |
 | 7 | **Demand paging**: el recurso no se lee, se MAPEA | ⚠ **DOS bloqueantes, y el primero no estaba escrito** -- ver abajo | XL |
@@ -746,7 +746,7 @@ Quien podia entrar en medio, hoy, sin inventar nada:
 Dos de esos solapados **escriben la misma ranura**, y el primero acaba leyendo el
 `PRDBC` del segundo: sectores del sitio equivocado, sin que nada falle.
 
-**Ahora el disco tiene DUENO**, con dos decisiones dichas:
+**Ahora el disco tiene PROPIETARIO**, con dos decisiones dichas:
 
 - **Un propietario, no un cerrojo.** Un `SpinLock` que tome alguien que despues muere
   se queda cerrado para siempre. Aqui se apunta *quien* lo tiene: el que espera
@@ -756,7 +756,7 @@ Dos de esos solapados **escriben la misma ranura**, y el primero acaba leyendo e
   version con dos llamadas se olvida en la sexta, y el sintoma es un disco que
   deja de contestar para siempre.
 
-`disk::cuentas_dueno()` cuenta las esperas y los robos, y el lanzamiento los
+`disk::cuentas_propietario()` cuenta las esperas y los robos, y el lanzamiento los
 apunta. **Cada espera era, antes de esto, una lectura solapada.**
 
 ### El driver ya se deja preguntar

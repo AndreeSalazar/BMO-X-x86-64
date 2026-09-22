@@ -82,7 +82,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 ///
 /// ```text
 ///    watch_rescue()      <- el hilo del bus. Hilo de kernel, pila propia. OK
-///    tecla_del_dueno()   <- desde `poll_ascii`, o sea DENTRO DE UN SYSCALL
+///    tecla_del_propietario()   <- desde `poll_ascii`, o sea DENTRO DE UN SYSCALL
 /// ```
 ///
 /// ** Por el segundo, `purgar()` corre **dentro de una llamada de una tarea de

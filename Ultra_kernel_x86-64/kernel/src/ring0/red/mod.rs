@@ -396,7 +396,7 @@ pub fn rx_start() -> bool {
         Err(e) => {
             let cual = match e {
                 bmo_net::anillo::Falta::NoAlineada => 1,
-                bmo_net::anillo::Falta::Pequena => 2,
+                bmo_net::anillo::Falta::Chica => 2,
                 bmo_net::anillo::Falta::Desborda => 3,
             };
             crate::ring0::cabina::fault("red", "el corral no pasa su propia revision (1=alineacion 2=corta 3=desborda)", cual);

@@ -393,7 +393,7 @@ fn sintetiza_escribir(code: &mut Vec<u8>) {
 
 /// Quien emite el cuerpo de `name`, si es de los que este modulo sabe hacer.
 ///
-/// Es la UNICA puerta: `mod.rs` no ve la tabla ni los emisores. Anadir una
+/// Es la UNICA puerta: `mod.rs` no ve la tabla ni los emisores. Agregar una
 /// funcion sintetizable es tocar este fichero y nada mas.
 pub(super) fn find_by(name: &str) -> Option<Sintetizador> {
     SINTETIZABLES

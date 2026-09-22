@@ -20,7 +20,7 @@
 #  su biblioteca o no crece**.
 #
 #  Asi que cada vez que algo se escriba largo en INTI, la respuesta por defecto
-#  es una fila en este fichero, y NO una palabra clave nueva. Anadir sintaxis es
+#  es una fila en este fichero, y NO una palabra clave nueva. Agregar sintaxis es
 #  la ultima opcion, no la primera.
 #
 #  == Que hace el compilador con esto ==

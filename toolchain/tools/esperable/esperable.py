@@ -23,7 +23,7 @@ una vez con fecha (`01c09d94`: no bloqueo NUNCA hasta que alguien lo miro).
   2. Al reves se AVISA, no se para: un brazo sin ningun `grant` con
      `RIGHT_WAIT` es codigo que nadie puede alcanzar, y se dice.
 
-Los dos lados se leen del fuente. No hay lista de kinds aqui: si manana aparece
+Los dos lados se leen del fuente. No hay lista de kinds aqui: si luego aparece
 `KIND_MEMORIA` con su brazo y su `grant`, pasa solo.
 
 == Antes de juzgar, demuestra que ve ==

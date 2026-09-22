@@ -32,7 +32,7 @@ pub(crate) fn decimal(mut v: u64, dst: &mut [u8; 10]) -> usize {
 /// una casualidad:
 ///
 /// - Windows CICLA: pulsas TAB y te pone un candidato, otra vez y te pone el
-///   siguiente. Nunca te ENSENA lo que hay, asi que a ciegas vas probando.
+///   siguiente. Nunca te MUESTRA lo que hay, asi que a ciegas vas probando.
 /// - Aqui se completa hasta el PREFIJO COMUN mas largo y, si quedaba mas de
 ///   un candidato, **se listan todos**. Un TAB te dice cuanto se puede
 ///   avanzar sin riesgo y que opciones te quedan. Es lo que hace bash, y es

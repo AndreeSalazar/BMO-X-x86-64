@@ -13,7 +13,7 @@ EL PERFIL DEL DISCO -- y el unico perfil de esta carpeta que puede BORRAR ALGO
   ** LO PRIMERO, Y NO ES UN DATO: EL NVMe NO SE TOCA
 ==========================================================================
 
-  nvme: EL WINDOWS DEL DUENO
+  nvme: EL WINDOWS DEL PROPIETARIO
   nvme_escritura: CERRADA A PROPOSITO
 
   *** No es que "todavia no este hecho". Es una decision, y esta cableada en
@@ -29,7 +29,7 @@ EL PERFIL DEL DISCO -- y el unico perfil de esta carpeta que puede BORRAR ALGO
   (`-Si` solo salta la pregunta por debajo de 64 GiB).
 
   [!] SI ALGUIEN QUITA UNO DE LOS TRES, este perfil miente y el precio es el
-  disco de trabajo del dueno. Es el unico sitio de todo el repo donde eso puede
+  disco de trabajo del propietario. Es el unico sitio de todo el repo donde eso puede
   pasar.
 
 

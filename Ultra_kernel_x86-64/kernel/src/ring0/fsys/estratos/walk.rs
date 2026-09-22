@@ -105,7 +105,7 @@ pub fn flujo(a: &Attr, dst: &mut [u8]) -> Option<usize> {
 
 /// **Lee el principio del archivo Y comprueba su firma, en UNA sola pasada.**
 ///
-/// Devuelve `(copiados, tamano_real, veredicto)`.
+/// Devuelve `(copiados, medida_real, veredicto)`.
 ///
 /// === El problema que resuelve, que es el escalon 2 entero ===
 ///

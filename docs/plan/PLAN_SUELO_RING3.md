@@ -100,8 +100,8 @@ el anfitrion -- misma forma que `bmo-disco-juicio` y `bmo-bex-gate`.
 | `EsElApic` | `0xFEC0_0000 .. +0x140_0000` es LAPIC / IO-APIC / HPET. Ceder el APIC es ceder el control de las interrupciones, o sea **ceder Ring 0 con otro nombre** |
 | `DebajoDeUnMega` | el megabyte legacy (BIOS, VGA, la rampa de SMP) no es de nadie |
 | `NoAlineado` | una pagina es la unidad minima. Ceder media pagina no existe |
-| `MasPequenoQueUnaPagina` | ⚠ un BAR de 256 bytes ocupa una pagina, y **en esa pagina pueden vivir los registros de otro aparato**. Conceder eso es conceder dos cosas y nombrar una |
-| `YaTieneDueno` | dos procesos con el mismo aparato es el bug de `KIND_AUDIO` del 09-08, otra vez |
+| `MasChicoQueUnaPagina` | ⚠ un BAR de 256 bytes ocupa una pagina, y **en esa pagina pueden vivir los registros de otro aparato**. Conceder eso es conceder dos cosas y nombrar una |
+| `YaTienePropietario` | dos procesos con el mismo aparato es el bug de `KIND_AUDIO` del 09-08, otra vez |
 
 ★★ **Y la regla que ordena el juez, copiada de `bmo-disco-juicio`: ninguna
 funcion contesta `true` por defecto. Cuando falta un dato, la respuesta es la

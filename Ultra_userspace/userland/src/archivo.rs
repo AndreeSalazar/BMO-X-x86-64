@@ -330,7 +330,7 @@ impl Archivo {
         puestos
     }
 
-    /// Anade bytes. Devuelve cuantos se aceptaron -- menos de los pedidos
+    /// Agrega bytes. Devuelve cuantos se aceptaron -- menos de los pedidos
     /// significa que se lleno, y entonces `close` devolvera `false`.
     ///
     /// Los bytes viajan de 7 en 7 con su cuenta en el byte alto, no cortando
@@ -372,7 +372,7 @@ impl Archivo {
 
     /// Bytes que quedan por leer, o bytes acumulados si es de escritura.
     pub fn size(&self) -> u64 {
-        invoke(self.cap, ARCH_OP_TAMANO, 0, 0, 0).value
+        invoke(self.cap, ARCH_OP_MEDIDA, 0, 0, 0).value
     }
 
     /// Cierra. En uno de escritura es **donde el contenido llega al disco**:

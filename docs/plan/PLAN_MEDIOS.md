@@ -220,7 +220,7 @@ este repo.
 
 ---
 
-# 7. LO QUE PIDIO EL DUENO EL 20-09, Y LO QUE ES CADA COSA
+# 7. LO QUE PIDIO EL PROPIETARIO EL 20-09, Y LO QUE ES CADA COSA
 
 ## 7.1 Imagenes -- HECHO el 20-09, y va antes que el sonido a proposito
 

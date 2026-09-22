@@ -659,7 +659,7 @@ arbol**. Existe porque se lee como una frase, y **cuesta cero gramatica**.
 
 ## 14b. `bufer de T` -- lo que se indexa en `llano`
 
-Anadido el **2026-08-20**, y es la palabra clave numero 50.
+Agregado el **2026-08-20**, y es la palabra clave numero 50.
 
 ```inti
 funcion pinta(pantalla es bufer de natural32, cuantos es entero64, color es entero64)

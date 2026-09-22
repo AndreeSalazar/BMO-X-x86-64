@@ -59,7 +59,7 @@
  *
  * == EL BUZON: el camino de vuelta, y por que no cuesta un syscall ==
  *
- * Una superficie deja que una app ENSENE. El buzon deja que la TOQUES.
+ * Una superficie deja que una app MUESTRE. El buzon deja que la TOQUES.
  *
  * Y va aqui dentro, en el mismo bloque, por el mismo motivo que la cabecera:
  * el kernel presta BYTES y no tiene por que saber que hay dentro. El bloque

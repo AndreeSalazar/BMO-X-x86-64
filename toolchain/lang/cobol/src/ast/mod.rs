@@ -88,7 +88,7 @@ impl CobolProgram {
         self.data_items.push(item);
     }
 
-    /// Anade al sitio que toca: al parrafo abierto, o al cuerpo principal si
+    /// Agrega al sitio que toca: al parrafo abierto, o al cuerpo principal si
     /// todavia no hay ninguno.
     pub fn add_statement(&mut self, stmt: CobolStatement) {
         match self.parrafos.last_mut() {

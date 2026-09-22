@@ -224,7 +224,7 @@ const ART: [[&str; ROWS]; 95] = [
 
 
 // ===========================================================================
-//  Glifos ESPANOLES (Latin-1) -- COMPUESTOS, no dibujados a mano
+//  Glifos CASTELLANOS (Latin-1) -- COMPUESTOS, no dibujados a mano
 // ===========================================================================
 //
 // La n es la a con una tilde encima; la a es la a con un acento. Dibujar 23

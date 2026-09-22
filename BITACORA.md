@@ -1445,7 +1445,7 @@ Nueve sondas, **143 casillas, medio segundo**:
 
 ## Lo que cayo, y ninguno se habria visto arrancando
 
-**1. El alineado se deducia del TAMANO del miembro.** Falso para todo lo que no
+**1. El alineado se deducia del MEDIDA del miembro.** Falso para todo lo que no
 sea un escalar: un array se alinea como su ELEMENTO. `char name[8]` mide ocho
 bytes igual que un `long` y se alinea a UNO. Consecuencia, con los numeros del
 formato WAD al lado:
@@ -1457,7 +1457,7 @@ formato WAD al lado:
    mapnode_t entero        32 bytes     el disco dice 28
 ```
 
-Los dos que son el TAMANO son los peores: `p_setup.c` recorre el lump como un
+Los dos que son el MEDIDA son los peores: `p_setup.c` recorre el lump como un
 array, asi que **el primer registro del nivel sale bien y todos los demas
 corridos**. Ese sintoma no se parece a un fallo de disposicion; se parece a un
 nivel roto.
@@ -3037,7 +3037,7 @@ rectangulo centrado, ni el compositor, que ya no es propietario de la pantalla.
 rejilla, caja y olvida las huellas de los cuatro chips--. El agujero estaba solo
 en la ida, que es la mitad que nadie escribio dos veces.
 
-### ★ Y EL REPORTERO DE TAMANOS TIENE UN PUNTO CIEGO, dicho antes de que confunda
+### ★ Y EL REPORTERO DE MEDIDAS TIENE UN PUNTO CIEGO, dicho antes de que confunda
 
 `medida.py` dijo `clean: los 30 ejecutables miden lo mismo`. Con el arreglo
 puesto y quitado, `doom.bex` mide **865.408 B las dos veces** -- y las dos
@@ -3812,7 +3812,7 @@ eso pide la ene con tilde"*. Tiene razon, y hay un argumento mejor que "es feo".
    Duenno                                        <- se doblaba
 ```
 
-*** Era **la excepcion a su propia regla**, y no por descuido: `Dueno` con una
+*** Era **la excepcion a su propia regla**, y no por descuido: `Propietario` con una
 sola ene se lee mal, asi que la palabra misma era el problema. Un barrido de
 todo el arbol confirma que era la unica: los demas `nn` son `channel`, `inner`,
 `running` -- inglesas de verdad.
@@ -3831,7 +3831,7 @@ todo el arbol confirma que era la unica: los demas `nn` son `channel`, `inner`,
 
 ```text
    duenno  (nn)  el TIPO                      73 veces
-   propietario   (n)   la prosa sobre el DUENO       852 veces
+   propietario   (n)   la prosa sobre el PROPIETARIO       852 veces
 ```
 
 *** Las dos palabras eran **distinguibles por un `sed`**, y eso no se dio por

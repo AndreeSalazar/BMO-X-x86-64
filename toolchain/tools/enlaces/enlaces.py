@@ -126,9 +126,9 @@ def tracked_files(root):
         # *** Paso el mismo dia que se escribio esta linea: el test del
         # contrato de arquitectura citaba el CONTRATO con una
         # ruta que no resuelve, el build lo dio por bueno, y el fallo
-        # aparecio en la siguiente compilacion del dueno.
+        # aparecio en la siguiente compilacion del propietario.
         #
-        # `--others --exclude-standard` anade lo no rastreado SIN traerse
+        # `--others --exclude-standard` agrega lo no rastreado SIN traerse
         # `target/` ni lo demas que `.gitignore` ya descarta. Un guardian
         # que solo mira el pasado avisa tarde.
         ["git", "-C", root, "ls-files", "--cached", "--others", "--exclude-standard"],
@@ -152,9 +152,9 @@ def index_basenames(root):
         # *** Paso el mismo dia que se escribio esta linea: el test del
         # contrato de arquitectura citaba el CONTRATO con una
         # ruta que no resuelve, el build lo dio por bueno, y el fallo
-        # aparecio en la siguiente compilacion del dueno.
+        # aparecio en la siguiente compilacion del propietario.
         #
-        # `--others --exclude-standard` anade lo no rastreado SIN traerse
+        # `--others --exclude-standard` agrega lo no rastreado SIN traerse
         # `target/` ni lo demas que `.gitignore` ya descarta. Un guardian
         # que solo mira el pasado avisa tarde.
         ["git", "-C", root, "ls-files", "--cached", "--others", "--exclude-standard"],

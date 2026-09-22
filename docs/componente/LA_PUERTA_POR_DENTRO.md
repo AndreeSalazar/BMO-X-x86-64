@@ -317,7 +317,7 @@ durmiendo.
 
 ### Entonces, para que sirve el numero de 945 ciclos
 
-**No para el % de CPU: para DISENAR APPS.** La cifra que manda no es el
+**No para el % de CPU: para TRAZAR APPS.** La cifra que manda no es el
 porcentaje, es la razon contra una llamada normal:
 
 ```
@@ -338,7 +338,7 @@ Y de ahi sale la unica regla que una app tiene que respetar:
 
 ★ **El umbral, con numeros**: mientras una app cruce la puerta **menos de
 ~50.000 veces por segundo**, se lleva menos del 1% de un nucleo y no hay nada que
-optimizar. Por encima de eso el que esta mal es el DISENO de la app, no el
+optimizar. Por encima de eso el que esta mal es el ESQUEMA de la app, no el
 kernel -- y ninguna cantidad de afinado del stub lo va a salvar. Es R-CPU1 con
 su cifra al lado.
 

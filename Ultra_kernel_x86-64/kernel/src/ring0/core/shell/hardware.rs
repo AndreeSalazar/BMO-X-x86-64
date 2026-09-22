@@ -173,7 +173,7 @@ pub(crate) fn shell_red(arg: &[u8]) {
     consumo_de_red();
 
     if arg != b"rx" {
-        s_log("[red] `net rx` arma el receptor y enseNa las tramas que lleguen");
+        s_log("[red] `net rx` arma el receptor y muestra las tramas que lleguen");
         s_log("[red] no se transmite nada: ver docs/maestro/RED_MAESTRO.md, paso 1");
         return;
     }

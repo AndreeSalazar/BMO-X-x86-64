@@ -5,7 +5,7 @@
 > de quien quiera escribirle, y que le devuelve a la cara**.
 >
 > Escrito el **2026-08-17**. Este documento **es el contrato**: lo que no esta
-> aqui, no compila. Anadir algo a MAQUETA empieza por anadirlo a este fichero.
+> aqui, no compila. Agregar algo a MAQUETA empieza por anadirlo a este fichero.
 
 ---
 

@@ -140,7 +140,7 @@ funcion lee_fichero(bloque es natural64, r1 es natural64, r2 es natural64) devue
     f es natural64 = invoca_valor(mi_tarea, op_archivo_abrir, 0, 0, 0)
     si f = 0
         devuelve max_entrada() + 1
-    medida es natural64 = invoca_valor(f, op_arch_tamano, 0, 0, 0)
+    medida es natural64 = invoca_valor(f, op_arch_medida, 0, 0, 0)
     si medida > max_entrada()
         invoca(f, op_arch_cerrar, 0, 0, 0)
         devuelve max_entrada() + 2

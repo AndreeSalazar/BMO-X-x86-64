@@ -17,7 +17,7 @@
 | Que hace falta de la GPU | **un motor**: SDMA (copia de rectangulos) | **todo**: 3D, sombreadores, memoria, sincronizacion |
 | Toca el display (DCN)? | **no** -- el firmware UEFI ya lo dejo programado | no, si se sigue usando el framebuffer del GOP |
 | Compilador de sombreadores? | **no** | ★ **si, y es un proyecto propio** |
-| Tamano | como el driver de AHCI | como el propio BMO-X |
+| Medida | como el driver de AHCI | como el propio BMO-X |
 | Sirve a la banca? | ◐ un poco: el escritorio va mas suelto | ✗ nada |
 
 **La meta A es alcanzable y esta bien planificada. La meta B es este documento
@@ -90,7 +90,7 @@ garantia      nunca los dos derechos sobre la misma pagina a la vez
 
 ## Las piezas de B1
 
-| # | Pieza | Tamano |
+| # | Pieza | Medida |
 |---|---|---|
 | 1 | Cargador de SPIR-V (parsear el bytecode) | semanas -- es un formato documentado y sencillo |
 | 2 | SPIR-V -> x86-64 (interprete primero, JIT despues) | ★ meses |
@@ -228,7 +228,7 @@ Dos cosas mas que caen del mismo sitio y que esta ruta va a usar:
 
 ### Lo que NO se movio, para que nadie lo cuente dos veces
 
-- **`KIND_CODIGO` + `SELLAR` (W^X) siguen solo DISENADOS.** Cuidado con el
+- **`KIND_CODIGO` + `SELLAR` (W^X) siguen solo TRAZADOS.** Cuidado con el
   nombre: el `SELLAR` que existe en el kernel es `ESTRATOS_SELLAR`, que cierra
   una transaccion del sistema de ficheros y no tiene nada que ver. El de las
   paginas ejecutables no esta escrito.
@@ -563,7 +563,7 @@ disciplina de una consola en un sistema que ademas puede demostrarla.**
 |---|---|
 | Se escribe ya? | **no.** No hay nada que lea sombreadores todavia |
 | Cuando? | con la ruta B1 (Vulkan por software), cuando exista un consumidor |
-| Tamano? | chico: una cabecera y una tabla. Como el BEF pero diminuto |
+| Medida? | chico: una cabecera y una tabla. Como el BEF pero diminuto |
 | Bloquea a algo? | no. Se apunta para que el dia que toque no se redisene de cero |
 
 **La frase que lo resume**: *no inventes el idioma, inventa el sobre*. El
@@ -573,9 +573,9 @@ verificable**.
 
 ---
 
-# ★★ EL RECORTE DEL DUENO -- 1.0, UNA GPU PERFILADA, y lo que eso QUITA
+# ★★ EL RECORTE DEL PROPIETARIO -- 1.0, UNA GPU PERFILADA, y lo que eso QUITA
 
-> Anadido el **2026-09-07**. Lo dijo el propietario y cambia la forma del documento:
+> Agregado el **2026-09-07**. Lo dijo el propietario y cambia la forma del documento:
 >
 > > *"yo queria Vulkan integrado en 1.0, no quiero JUEGOS TODO, quiero jugar
 > > algunos juegos aparte del DOOM... solo con shader y eso y video, que ya hay
@@ -704,7 +704,7 @@ que puede convertir este plan en imposible, y cuesta un dia averiguarlo.
 
 # ★★ EL BSF Y "UNA GPU PERFILADA" SON LA MISMA DECISION
 
-> Anadido el **2026-09-07**. El propietario volvio al BSF y le puso el motivo que le
+> Agregado el **2026-09-07**. El propietario volvio al BSF y le puso el motivo que le
 > faltaba: *"que la GPU no pierda el tiempo"*. Y al ponerlo, las dos ideas de
 > este documento --el sobre de sombreadores y la GPU perfilada-- resultan ser
 > **una sola**, que ninguna de las dos secciones decia.

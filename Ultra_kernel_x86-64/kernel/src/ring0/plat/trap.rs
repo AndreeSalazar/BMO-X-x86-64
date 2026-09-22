@@ -126,7 +126,7 @@ pub const XSAVE_RESERVA: usize = XSAVE_AREA + 8 + 64;
 /// es la diferencia entre "el iretq murio con cs=0" y "el contexto del tid 3
 /// lo piso algo entre que se guardo y que se restauro".
 pub const SELLO_FIRMA: usize = XSAVE_AREA - 16;
-pub const SELLO_DUENO: usize = XSAVE_AREA - 8;
+pub const SELLO_PROPIETARIO: usize = XSAVE_AREA - 8;
 
 /// Firma del sello. Cabe en un `imm32` con signo, que es lo que admite
 /// `mov qword ptr [mem], imm` en los stubs.
@@ -434,7 +434,7 @@ pub fn seal(xsave_base: u64, tid: u32) {
     }
     unsafe {
         ((xsave_base + SELLO_FIRMA as u64) as *mut u64).write_volatile(SELLO_MAGIA);
-        ((xsave_base + SELLO_DUENO as u64) as *mut u64).write_volatile(tid as u64);
+        ((xsave_base + SELLO_PROPIETARIO as u64) as *mut u64).write_volatile(tid as u64);
     }
 }
 
@@ -446,7 +446,7 @@ pub fn leer_sello(xsave_base: u64) -> (u64, u64) {
     unsafe {
         (
             ((xsave_base + SELLO_FIRMA as u64) as *const u64).read_volatile(),
-            ((xsave_base + SELLO_DUENO as u64) as *const u64).read_volatile(),
+            ((xsave_base + SELLO_PROPIETARIO as u64) as *const u64).read_volatile(),
         )
     }
 }

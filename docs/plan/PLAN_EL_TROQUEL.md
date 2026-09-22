@@ -48,7 +48,7 @@ Su primera linea, sin tocar:
 
 ---
 
-# 2. PERO LO QUE PROPONE EL DUENO NO ES `sem-asm`
+# 2. PERO LO QUE PROPONE EL PROPIETARIO NO ES `sem-asm`
 
 Y esa distincion es toda la propuesta. `sem-asm` traduce **un mnemonico a
 bytes**: le dices `mov rax, 8` y te da `48 C7 C0 08 00 00 00`. Es una tabla.
@@ -474,7 +474,7 @@ el 18-09: **451.306 -> 183.875, -59 %**.
       `pisa`-- en UNA instruccion con el recorte dentro (`movsxd r10, edx`,
       `emit_recorte_de_a`); rdi, rsi, r8 y r9 se quedan. `llamada::residencia`
       es la decision. Lo que dio: 183.875 -> 183.869 instrucciones, accesos
-      29.358 -> **29.262**, -81 B; DOOM -512 B. Pequeno, como el censo dijo;
+      29.358 -> **29.262**, -81 B; DOOM -512 B. Chico, como el censo dijo;
       y la primera version (traslado en dos instrucciones) el trinquete la
       paro por +48 instrucciones
 - [x] **C3 -- el troquel y la residencia NO se pelean**: `build_var_map`

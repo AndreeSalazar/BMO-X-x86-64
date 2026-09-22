@@ -56,7 +56,7 @@ COSTES = ("NADA", "TAREA", "APARATO", "DATO", "MAQUINA", "PUERTA")
 # segunda es la que ahorra el tiempo -- un fallo no dice en que fichero mirar,
 # y con esto la lista de sospechosos deja de ser el arbol entero.
 #
-# Peticion del dueno, con sus palabras: *"no se trata de cortar codigo sino ES
+# Peticion del propietario, con sus palabras: *"no se trata de cortar codigo sino ES
 # capturar cual de ellas SON potenciales que pueden sufrir bug y eso elimina la
 # posibilidad de la aguja en el pajar."*
 #
@@ -82,12 +82,12 @@ RIESGOS_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "RIESGOS.
 # -- L6g nivel 3: LOS CARRILES ----------------------------------------------
 #
 # ** Aqui vivia `critic/`, una carpeta GLOBAL con nombre de carril, y era mi
-# primera lectura --equivocada-- de L6g. Se retiro el 2026-08-31 y el dueno lo
+# primera lectura --equivocada-- de L6g. Se retiro el 2026-08-31 y el propietario lo
 # dijo por su nombre: *"no me gusta esa palabra ahi"*.
 #
 # *** Y el nombre solo era el sintoma. **Un color solo significa algo DENTRO de
-# un modulo**: `critic/amarilla.rs` era "amarilla respecto a que?". Una senal
-# ilegible justo en el sitio donde la senal ERA el objetivo.
+# un modulo**: `critic/amarilla.rs` era "amarilla respecto a que?". Una signal
+# ilegible justo en el sitio donde la signal ERA el objetivo.
 #
 # Sus dos inquilinas volvieron a casa --`mm/vmm/amarilla.rs` y
 # `mm/phys/amarilla.rs`-- y lo que las ataba viaja ahora donde tiene que viajar:
@@ -97,7 +97,7 @@ RIESGOS_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "RIESGOS.
 #
 # ** `critic/` de arriba es una CARPETA GLOBAL, y por eso sus carriles no
 # incluyen el verde: alli dentro todo es critico por definicion. Pero el modelo
-# que de verdad usa el arbol --y el que pidio el dueno-- es otro: **un fichero
+# que de verdad usa el arbol --y el que pidio el propietario-- es otro: **un fichero
 # de Ring 0 se parte DENTRO DE SU PROPIA CARPETA**, y ahi el verde es la mitad
 # del mensaje. `mm/vmm/verde.rs` no dice "esto no importa": dice **"esto se
 # puede tocar sin miedo"**, que es justo lo que hace falta saber el dia que la
@@ -110,7 +110,7 @@ RIESGOS_TXT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "RIESGOS.
 # anadiera sin `[cuesta]` no lo habria dicho nadie.
 VIAS_MODULO = ("roja", "amarilla", "verde")
 
-# -- EL SEMAFORO, y es lo que el dueno pidio con esas palabras ---------------
+# -- EL SEMAFORO, y es lo que el propietario pidio con esas palabras ---------------
 #
 #    ROJO      critico. Cambiarlo puede parar la maquina o corromperla callando
 #    AMARILLO  posible cambio: esta en obras, o es un instrumento que si se
@@ -131,7 +131,7 @@ RING0_DIR = "Ultra_kernel_x86-64/kernel/src/ring0"
 
 # -- R21 / L6h: EL CONSUMO, 2026-09-11 ----------------------------------------
 #
-# El dueno: *"dividir en archivos que consumen y no, por motivos"*. El eje es
+# El propietario: *"dividir en archivos que consumen y no, por motivos"*. El eje es
 # UNO: en reposo, este codigo corre?
 #
 #    NADA      no corre por su cuenta: se pide, es del arranque, o no corre
@@ -169,7 +169,7 @@ def ficheros_de_ring0():
 # -- R18: los carriles TAMBIEN fuera del kernel, 2026-09-08 -------------------
 #
 # ** L6g nacio mirando a Ring 0 porque alli vive lo que puede parar la maquina.
-# Y el 08-09 el dueno partio `scene/pulso` --un modulo de RING 3-- en carriles,
+# Y el 08-09 el propietario partio `scene/pulso` --un modulo de RING 3-- en carriles,
 # con esta peticion: *"necesito saber que todo lo cumpla por completo"*.
 #
 # *** Cumplir por completo es justo lo que NO pasaba: la carpeta traia sus

@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-101
+113
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -37,6 +37,8 @@
 #                    Ultra_kernel_x86-64/kernel/src/ring0/obj/fb/verde.rs
 # SILENCIO ESPEJO    Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/amarilla.rs
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/roja.rs
+# AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/roja.rs
+# SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/verde.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/verde.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/plat/perfil_placa.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/atril.rs
@@ -46,8 +48,10 @@
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/task/admitir.rs
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/roja.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/verde.rs
+# ESPEJO             Ultra_userspace/services/director/src/commands/datos.rs
 # AJENO SILENCIO     Ultra_userspace/services/director/src/commands/reports.rs
 # ESPEJO             Ultra_userspace/services/director/src/commands/save_cabina.rs
+# ESPEJO             Ultra_userspace/services/director/src/commands/save_maestro.rs
 # ESPEJO             Ultra_userspace/services/director/src/commands/tabla.rs
 # RELOJ SILENCIO     Ultra_userspace/services/director/src/desktop/tick/amarilla.rs
 # RELOJ SILENCIO     Ultra_userspace/services/director/src/desktop/tick/mod.rs
@@ -59,6 +63,12 @@
 # AJENO SILENCIO     Ultra_userspace/userland/src/pantalla/roja.rs
 # ESPEJO             Ultra_userspace/userland/src/pantalla/verde.rs
 # AJENO ESPEJO       Ultra_userspace/userland/src/paquete.rs
+# ESPEJO             platform/abi/bmo-abi/src/bef/mod.rs
+# ESPEJO             platform/abi/bmo-abi/src/bef2/escritor.rs
+# ESPEJO             platform/abi/bmo-abi/src/bef2/lector.rs
+# ESPEJO             platform/abi/bmo-abi/src/bef2/mod.rs
+# UNICO              platform/abi/bmo-abi/src/bef2/objeto.rs
+# UNICO              platform/abi/bmo-abi/src/bef2/paquete.rs
 # ESPEJO UNICO       platform/abi/bmo-abi/src/fundamentals/handle/kind.rs
 # UNICO              platform/abi/bmo-abi/src/fundamentals/handle/mod.rs
 # SILENCIO           platform/abi/bmo-abi/src/fundamentals/handle/opaque.rs
@@ -80,6 +90,7 @@
 # SILENCIO           platform/drivers/storage/ahci/src/arranque.rs
 # SILENCIO           platform/drivers/storage/ahci/src/comando.rs
 # SILENCIO           platform/drivers/storage/ahci/src/controller.rs
+# SILENCIO           platform/drivers/usb/uhid/src/pasos.rs
 # RELOJ              platform/drivers/usb/uhid/src/racha.rs
 # SILENCIO           platform/drivers/usb/xhci/src/enumerar.rs
 # SILENCIO           platform/drivers/usb/xhci/src/lib.rs
@@ -110,6 +121,7 @@
 # AJENO              toolchain/lang/c/emisor-x86_64/src/codegen/emitir/orden.rs
 # SILENCIO           toolchain/lang/c/emisor-x86_64/src/codegen/emitir/valor.rs
 # ESPEJO SILENCIO    toolchain/lang/c/src/tipos.rs
+# ESPEJO             toolchain/lang/inti/emisor-x86_64/src/objeto.rs
 # ESPEJO             toolchain/tools/bmo-firmar/src/bex.rs
 # UNICO              toolchain/tools/bmo-firmar/src/llave.rs
 # ESPEJO             toolchain/tools/bmo-firmar/src/main.rs

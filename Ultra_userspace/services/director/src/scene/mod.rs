@@ -44,9 +44,9 @@ pub(crate) mod pictos;
 /// LA BARRA: la pastilla flotante, su modelo de color y los widgets.
 pub(crate) mod barra;
 /// CON QUE SE ABRE CADA COSA: la tabla de tipos que leen el explorador y la
-/// biblioteca. Anadir un tipo es una fila (2026-09-13).
+/// biblioteca. Agregar un tipo es una fila (2026-09-13).
 pub(crate) mod asociaciones;
-/// LA PESTANA `numeros`: como esta el almacen. Salio de `data.rs` por L6a, y
+/// LA SOLAPA `numeros`: como esta el almacen. Salio de `data.rs` por L6a, y
 /// el corte se eligio por nombres libres: no comparte nada con el explorador.
 pub(crate) mod numeros;
 /// EL REPARTO de la ventana de ESTRATOS en paneles. Un solo sitio donde se
@@ -64,7 +64,7 @@ pub(crate) mod consola;
 /// EL MENU DEL CLIC DERECHO: lo que se puede hacer con lo que senalas. Se
 /// construye del CONTEXTO, y lo que eliges se escribe en la consola.
 pub(crate) mod menu;
-/// LA PESTANA `historial`: la cadena de versiones, dibujada. Existia en el
+/// LA SOLAPA `historial`: la cadena de versiones, dibujada. Existia en el
 /// disco desde el primer dia; lo que faltaba eran las fechas y los nombres.
 pub(crate) mod historial;
 pub(crate) mod cursor;
@@ -73,7 +73,7 @@ pub(crate) mod splash;
 /// El LOGO, en dos mascaras de 1 bit. Generado por `docs/arte/gato_a_mascara.py`.
 pub(crate) mod gato;
 /// La REJILLA de iconos del escritorio: un `.bex` por celda, con la cara que
-/// trae dentro. Senalar es un clic; abrir son dos -- ver `double_click`.
+/// trae dentro. Marcar es un clic; abrir son dos -- ver `double_click`.
 pub(crate) mod launcher;
 /// El MARCO compartido: geometria, arrastre, estirar, maximizar y los tres
 /// botones. Lo que toda ventana tiene y ninguna deberia escribir dos veces.
@@ -757,7 +757,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
         // F12 hace dias y aqui contesta "se mudo"-- y **no nombraba `disco`**,
         // que es la orden mas nueva y la unica destructiva.
         //
-        // El comentario que estaba en este sitio celebraba haber ANADIDO
+        // El comentario que estaba en este sitio celebraba haber AGREGADO
         // `estratos` por lo mismo: *"una funcion que no se anuncia no es una
         // funcion discreta, es una funcion que no esta"*. Cierto, y por eso la
         // linea se lleno -- hasta que anunciar se volvio mantener dos verdades.
@@ -767,7 +767,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
         //
         // Ahora nombra **las puertas** --lo que se teclea a diario y lo que hay
         // que saber que existe-- y manda a `ayuda`, que es la lista entera, por
-        // categorias y en un solo sitio. Anadir una orden ya no obliga a tocar
+        // categorias y en un solo sitio. Agregar una orden ya no obliga a tocar
         // esto; si algun dia obliga, es que esta linea volvio a ser un catalogo.
         "ruta de un .bex y Enter.   disco / info / ls / lee / guarda.   ayuda: la lista entera",
         INK_DIM,

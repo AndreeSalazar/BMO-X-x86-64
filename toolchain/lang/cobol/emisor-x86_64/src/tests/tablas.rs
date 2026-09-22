@@ -12,7 +12,7 @@ use super::comun::*;
 /// Un `OCCURS` en el nivel 01 no existe en el estandar. Se dice, y se
 /// muestra la forma buena: el grupo.
 #[test]
-fn occurs_en_nivel_01_se_rechaza_ensenando_el_grupo() {
+fn occurs_en_nivel_01_se_rechaza_mostrando_el_grupo() {
     let src = program("01 E PIC 9(3) OCCURS 3 TIMES.", "MOVE 1 TO E(1).");
     let t = format!("{:?}", compile_source_to_bef(&src).unwrap_err());
     assert!(t.contains("OCCURS en el nivel 01"), "{t}");

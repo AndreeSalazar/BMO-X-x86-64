@@ -68,7 +68,7 @@
       * * La mascara lleva CR, y eso NO es decoracion. Con `$$$,$$9.99` a
       * secas, un saldo de -890,10 sale impreso como `$890.10`: el numero es
       * negativo por dentro y el extracto dice que no. Un campo editado sin
-      * simbolo de signo NO ENSENA EL SIGNO, y ese es el fallo que convierte un
+      * simbolo de signo NO MUESTRA EL SIGNO, y ese es el fallo que convierte un
       * descubierto en un abono a ojos de quien lee el papel.
        01 LINEA    PIC ZZ,ZZ9.99CR.
        PROCEDURE DIVISION.

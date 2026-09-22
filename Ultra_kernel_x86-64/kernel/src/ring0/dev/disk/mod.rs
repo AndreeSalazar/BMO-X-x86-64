@@ -39,7 +39,7 @@ use crate::ring0::mm::{self, phys};
 use crate::ring0::dev::pci::{self, StorageKind};
 use bmo_ahci::{storage_hal, StorageHal};
 
-/// Tamano de sector de un disco SATA moderno visto por LBA de 512 B.
+/// Medida de sector de un disco SATA moderno visto por LBA de 512 B.
 
 /// **THE IDENTITY GATE**: the eighty lines that decide whether this machine may
 /// write to this disk at all. On the owner's machine the other drive holds
@@ -59,7 +59,7 @@ pub use trim::{cuentas_trim, recortar, ultimo_fallo, Recorte};
 pub use gate::verify_identity;
 /// WHO HOLDS THE DISK: one owner at a time, with a count of waits and thefts.
 mod owner;
-pub use owner::{cuentas_dueno, Testigo};
+pub use owner::{cuentas_propietario, Testigo};
 
 mod centinela;
 pub use centinela::cuentas as cuentas_centinela;
@@ -483,7 +483,7 @@ fn identify() {
     crate::ring0::cabina::info("disk", que_es, cifra);
 }
 
-// -- ** EL DISCO TIENE UN DUENO CADA VEZ ------------------------------------
+// -- ** EL DISCO TIENE UN PROPIETARIO CADA VEZ ------------------------------------
 //
 // === El fallo que esto tapa, y no era teorico ===
 //
@@ -499,7 +499,7 @@ fn identify() {
 // ranura, y la primera acaba leyendo el `PRDBC` de la segunda -- **sectores del
 // sitio equivocado, sin que nada falle**.
 //
-// === Por que un DUENO y no un cerrojo ===
+// === Por que un PROPIETARIO y no un cerrojo ===
 //
 // Un `SpinLock` giraria con el planificador expropiando por debajo, y quien lo
 // tomara y muriera lo dejaria tomado para siempre. Aqui se apunta **quien** lo

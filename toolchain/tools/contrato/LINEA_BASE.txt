@@ -9,7 +9,7 @@
 # esta aqui se tolera con su motivo escrito al lado; un numero NUEVO en las dos
 # tablas para el build hasta que alguien decida cual de las dos cosas es.
 #
-# Hoy no hace dano porque el `kind` del handle **solo lo interpreta el kernel**:
+# Hoy no hace perjuicio porque el `kind` del handle **solo lo interpreta el kernel**:
 # el ABI declara la taxonomia y no la usa para resolver nada. Es deuda, no
 # fallo. El dia que alguien de Ring 3 mire ese byte, deja de serlo.
 #

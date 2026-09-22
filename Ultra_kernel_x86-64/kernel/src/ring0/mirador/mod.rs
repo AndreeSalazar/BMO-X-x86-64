@@ -1,4 +1,4 @@
-//! **EL MIRADOR** -- lo que CABINA ENSENA y VUELCA, separado de lo que APUNTA.
+//! **EL MIRADOR** -- lo que CABINA MUESTRA y VUELCA, separado de lo que APUNTA.
 //!
 //! [familia] mirador  nivel 13 -- lo que CABINA muestra y vuelca: cockpit, vigilancias y caja negra
 //! [conecta] cabina, core, dev, fsys, mm, plat, task, uconsole

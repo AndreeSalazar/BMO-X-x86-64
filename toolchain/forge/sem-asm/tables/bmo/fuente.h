@@ -9,7 +9,7 @@
  * porque *"no hay fuente de texto en este ejemplo"*.
  *
  * Sin esto no hay un bloc de notas, ni una lista, ni una etiqueta debajo de un
- * boton. Era el techo de lo que una app podia ENSENAR.
+ * boton. Era el techo de lo que una app podia MOSTRAR.
  *
  * == De donde salen los glifos: del MISMO sitio que los del kernel ==
  *

@@ -10,7 +10,7 @@
 //! `keys/` la nombraba solo para dejarla fuera. Teclear `7 + 3 =` no hacia
 //! absolutamente nada.
 //!
-//! Anadir el teclado copiando ese bloque a `keys/` habria reconstruido el fallo
+//! Agregar el teclado copiando ese bloque a `keys/` habria reconstruido el fallo
 //! que este mismo aparato acababa de borrar: `button()` y `key_at()` eran la
 //! misma aritmetica escrita dos veces, y el lanzamiento del motor habria pasado
 //! a estarlo tambien -- con uno de los dos arreglandose el dia que cambie y el

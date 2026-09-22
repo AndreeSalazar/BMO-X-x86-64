@@ -508,7 +508,7 @@ pub const INFO_AUDIO_TRAMAS: u64 = 0x85;
 pub const INFO_AUDIO_HUECOS: u64 = 0x86;
 /// `[0..32)` pid del propietario del audio (0 = nadie) | `[32..64)` bytes
 /// pendientes en el bufer prestado.
-pub const INFO_AUDIO_DUENO: u64 = 0x87;
+pub const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
@@ -824,7 +824,7 @@ pub const INFO_DATOS_MONTADO: u64 = 0x10;
 
 /// -- ESTRATOS ------------------------------------------------------
 ///
-/// El volumen de datos grande. Ring 3 los necesita para poder ENSENAR el estado
+/// El volumen de datos grande. Ring 3 los necesita para poder MOSTRAR el estado
 /// del almacen sin cruzar a Ring 0 por cada dato: son una fila mas de la tabla
 /// de `OP_INFO`, que es como crece esta superficie sin tocar el ABI.
 pub const INFO_ES_MONTADO: u64 = 0x11;
@@ -877,7 +877,7 @@ pub const INFO_MEM_ENTREGADA: u64 = 0x19;
 ///
 /// Estaba en el kernel y en el userland y **faltaba aqui**, que es justo la
 /// deriva que ahora vigila `build.ps1`.
-pub const INFO_PANTALLA_DUENO: u64 = 0x1A;
+pub const INFO_PANTALLA_PROPIETARIO: u64 = 0x1A;
 
 /// -- SMP ------------------------------------------------------------
 ///

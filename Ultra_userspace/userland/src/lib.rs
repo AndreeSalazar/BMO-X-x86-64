@@ -19,7 +19,7 @@
 //!
 //! Todo lo demas --abrir un endpoint, escribir en consola, reclamar la
 //! pantalla-- es una *operacion* sobre una capability. La API crece por dentro,
-//! en la pareja `(tipo de objeto, operation)`, y el ABI no se toca. Anadir
+//! en la pareja `(tipo de objeto, operation)`, y el ABI no se toca. Agregar
 //! "abrir ventana" no es cambiar la frontera: es un numero mas en una tabla.
 //!
 //! ## Por que se fue el tercero, y por que no se van los dos a uno
@@ -217,8 +217,8 @@ pub const ARCH_OP_LISTO: u32 = 0x09;
 pub const PRESTADO_OP_BASE: u32 = 0x01;
 pub const PRESTADO_OP_BYTES: u32 = 0x02;
 /// El TID de quien lo presto, o `0` si ya no vive. El detector de vida de una
-/// ventana: ver [`crate::sys::prestado_dueno`].
-pub const PRESTADO_OP_DUENO: u32 = 0x03;
+/// ventana: ver [`crate::sys::prestado_propietario`].
+pub const PRESTADO_OP_PROPIETARIO: u32 = 0x03;
 /// Devolverlo. Ver [`crate::sys::soltar_prestado`].
 pub const PRESTADO_OP_SOLTAR: u32 = 0x04;
 
@@ -391,7 +391,7 @@ pub const INFO_AUDIO_RANGO: u64 = 0x83;
 pub const INFO_AUDIO_TUBO: u64 = 0x84;
 pub const INFO_AUDIO_TRAMAS: u64 = 0x85;
 pub const INFO_AUDIO_HUECOS: u64 = 0x86;
-pub const INFO_AUDIO_DUENO: u64 = 0x87;
+pub const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
 
 /// El metro de la puerta: puertas servidas y ciclos dentro de `dispatch`.
 /// **Se leen como DELTA** -- antes y despues del bucle que se quiera medir.
@@ -510,7 +510,7 @@ pub const INFO_TAREAS_LISTAS: u64 = 0x09;
 /// Se PREGUNTA en vez de intentar reclamarla, y la diferencia importa: probar a
 /// reclamarla para saber si esta libre **te la deja puesta**, y entonces se la
 /// robas al programa al que se la ibas a prestar.
-pub const INFO_PANTALLA_DUENO: u64 = 0x1A;
+pub const INFO_PANTALLA_PROPIETARIO: u64 = 0x1A;
 pub const INFO_TAREAS_LIBRES: u64 = 0x0A;
 
 // ** LA FORMA DE UNA SUPERFICIE (2026-09-16). Copia con nombre de
@@ -545,7 +545,7 @@ pub const INFO_DISCO_LISTO: u64 = 0x0F;
 pub const INFO_DATOS_MONTADO: u64 = 0x10;
 /// -- ESTRATOS ------------------------------------------------------
 ///
-/// El volumen de datos grande. Ring 3 los necesita para poder ENSENAR el estado
+/// El volumen de datos grande. Ring 3 los necesita para poder MOSTRAR el estado
 /// del almacen sin cruzar a Ring 0 por cada dato: son una fila mas de la tabla
 /// de `OP_INFO`, que es como crece esta superficie sin tocar el ABI.
 pub const INFO_ES_MONTADO: u64 = 0x11;
@@ -842,7 +842,7 @@ pub const DIR_OP_CERRAR: u32 = 0x03;
 // Operaciones sobre un handle de archivo (`KIND_ARCHIVO`).
 pub const ARCH_OP_LEER: u32 = 0x01;
 pub const ARCH_OP_ESCRIBIR: u32 = 0x02;
-pub const ARCH_OP_TAMANO: u32 = 0x03;
+pub const ARCH_OP_MEDIDA: u32 = 0x03;
 pub const ARCH_OP_CERRAR: u32 = 0x04;
 /// Mueve el cursor a una posicion absoluta. Ver [`archivo::Archivo::saltar`].
 pub const ARCH_OP_SALTAR: u32 = 0x07;

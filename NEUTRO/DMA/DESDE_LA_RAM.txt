@@ -1,7 +1,7 @@
 EL DMA DESDE EL LADO DE LA RAM -- y si la premisa es cierta
 =============================================================
 
-  Pregunta del dueno, 2026-09-10: "si DMA es solo en RAM, podemos definir reglas
+  Pregunta del propietario, 2026-09-10: "si DMA es solo en RAM, podemos definir reglas
   de DMA? investiga TODO en DMA en general [...] la RAM es tratada como
   quirofano EXTREMO, NO HAY PIEDAD".
 
@@ -41,7 +41,7 @@ EL DMA DESDE EL LADO DE LA RAM -- y si la premisa es cierta
      con otro sin tocar la RAM, peer-to-peer PCIe-- HAY QUE VOLVER AQUI, no
      inventarle un hueco en DMA/"
 
-  ** O sea que la premisa del dueno **es la regla de la casa dicha al reves**, y
+  ** O sea que la premisa del propietario **es la regla de la casa dicha al reves**, y
   el sitio donde deja de valer ya tiene fecha: cuando entre la GPU.
 
     > Una premisa que solo es cierta por el censo de hoy no es una ley: es una
@@ -62,7 +62,7 @@ EL DMA DESDE EL LADO DE LA RAM -- y si la premisa es cierta
   Los dos son DMA. Los dos son el aparato yendo a la memoria por su cuenta. Y
   **fallan de formas distintas**:
 
-    reasignar un marco que el aparato ESCRIBE  -> corrupcion en el nuevo dueno
+    reasignar un marco que el aparato ESCRIBE  -> corrupcion en el nuevo propietario
     reasignar un marco que el aparato LEE      -> el aparato actua con datos
                                                   viejos, y lo que haga con
                                                   ellos puede ser otra escritura
@@ -111,7 +111,7 @@ EL DMA DESDE EL LADO DE LA RAM -- y si la premisa es cierta
   Las ocho de `REGLAS.txt` estan escritas desde el lado del APARATO: *"toda
   direccion que llega a un aparato ha pasado por el juez"*. Mirarlas desde el
   lado de la RAM --que es lo que pide la pregunta-- da otra forma, y la forma
-  ensena algo.
+  muestra algo.
 
   UN MARCO, VISTO DESDE EL MARCO:
 
@@ -174,7 +174,7 @@ EL DMA DESDE EL LADO DE LA RAM -- y si la premisa es cierta
 6. EL QUIROFANO, QUE ES DE DONDE SALE TODO ESTO
 ------------------------------------------------
 
-  `docs/identidad/LA_RAM.md` trata la RAM como un quirofano y la frase del dueno es "EXTREMO,
+  `docs/identidad/LA_RAM.md` trata la RAM como un quirofano y la frase del propietario es "EXTREMO,
   NO HAY PIEDAD". La disciplina del DMA es el mismo principio aplicado a un
   cirujano que no obedece:
 
@@ -200,7 +200,7 @@ LO QUE ESTA INVESTIGACION DEJA ABIERTO
   [ ] la GPU rompe la premisa de la seccion 1 (P2P) -> volver a ORDEN.md
   [ ] la IOMMU, al encenderse, se convierte ELLA en un maestro del bus: lee sus
       tablas de dispositivo y de paginas de la RAM. N7 no solo vigila neutros,
-      **anade uno**
+      **agrega uno**
   [ ] R-DMA-9 espera al primer aparato expuesto y no neutro
   [ ] el motor de copia del propio CPU (el CCP/PTDMA de AMD) es un maestro que
       no esta en el censo porque nadie lo enciende. Si algun dia se enciende,

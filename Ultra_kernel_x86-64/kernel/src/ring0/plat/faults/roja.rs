@@ -362,7 +362,7 @@ extern "C" fn fault_dispatch(
                 crate::ring0::core::dashboard::dashboard_log(k.as_str());
             }
         }
-        // *** EL TAMANO DEL AGUJERO, EN EL SITIO QUE SE FOTOGRAFIA (2026-09-20).
+        // *** EL MEDIDA DEL AGUJERO, EN EL SITIO QUE SE FOTOGRAFIA (2026-09-20).
         //
         // ** El 20-09 la autopsia acerto --"AGUJERO EN UN BLOQUE QUE EL KERNEL
         // ENTREGO"-- y el numero que nombra al culpable no salio: lo mandaba a

@@ -351,7 +351,7 @@ pub fn alive() -> (u32, u32) {
 /// En que estado esta un nucleo. Ver `docs/maestro/AXION_MAESTRO.md`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Estado {
-    /// El BSP. Dueno del kernel entero, y no se negocia.
+    /// El BSP. Propietario del kernel entero, y no se negocia.
     Maestro,
     /// En pie y aceptando faenas. **Gira** mientras espera: ver el coste.
     Obrero,

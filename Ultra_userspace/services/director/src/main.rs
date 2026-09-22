@@ -202,7 +202,7 @@ fn dump_name(target: &[u8], dst: &mut [u8; 32]) -> usize {
 /// comparacion de enteros por vuelta del bucle, que es lo que permite que esto
 /// viva en el camino de cada fotograma sin costar nada.
 ///
-/// Se ANADE al fichero abriendolo entero cada vez y reescribiendo los cuatro
+/// Se AGREGA al fichero abriendolo entero cada vez y reescribiendo los cuatro
 /// que el kernel guarda: `Archivo::create` trunca, y llevar un cursor entre
 /// arranques seria estado que hay que sincronizar. Cuatro informes de ocho
 /// renglones son dos kilobytes; reescribirlos es mas barato que acordarse.
@@ -463,7 +463,7 @@ const fn bmo_abi_magic() -> u32 {
 /// se la quitamos al programa antes de que llegue a pedirla. Reclamar para
 /// averiguar si esta libre te la deja puesta.
 ///
-/// De ahi `INFO_PANTALLA_DUENO`, que contesta el `pid` del propietario (o `0`) sin
+/// De ahi `INFO_PANTALLA_PROPIETARIO`, que contesta el `pid` del propietario (o `0`) sin
 /// tocar nada.
 ///
 /// # Y por que no vale `has_child()`
@@ -686,7 +686,7 @@ fn lend_screen(
     // por el binario. Lo unico que puede acabar la espera es que la tome o que
     // se muera, y las dos se saben preguntando:
     //
-    //     INFO_PANTALLA_DUENO != 0        la tomo
+    //     INFO_PANTALLA_PROPIETARIO != 0        la tomo
     //     INFO_TAREAS_TOTAL   < antes     se murio sin llegar a pedirla
     //
     // [!] El tope se queda, pero cambia de oficio: ya no decide nada, es el
@@ -700,7 +700,7 @@ fn lend_screen(
     if hz > 0 {
         let limit = bmo::ciclos() + hz * 30;
         while bmo::ciclos() < limit {
-            if bmo::info(bmo::INFO_PANTALLA_DUENO) != 0 {
+            if bmo::info(bmo::INFO_PANTALLA_PROPIETARIO) != 0 {
                 took_it = true;
                 break;
             }
@@ -731,7 +731,7 @@ fn lend_screen(
         // lo que hace que la frase de la casa --"un juego de un solo hilo
         // tiene el nucleo entero por construccion"-- sea cierta tambien
         // cuando lo lanza el escritorio y no el shell.
-        while bmo::info(bmo::INFO_PANTALLA_DUENO) != 0 {
+        while bmo::info(bmo::INFO_PANTALLA_PROPIETARIO) != 0 {
             dormir_un_rato();
         }
     }

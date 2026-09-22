@@ -376,7 +376,7 @@ se ponga en el alt que trae el endpoint.**
 
 ---
 
-# 3. LA PRUEBA QUE PIDIO EL DUENO, y en que orden llega
+# 3. LA PRUEBA QUE PIDIO EL PROPIETARIO, y en que orden llega
 
 ```text
    1. el silencio        ceros en bucle. EL SILENCIO NO PUEDE SONAR MAL

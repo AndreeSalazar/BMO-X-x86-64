@@ -246,7 +246,7 @@ funcion lee_lamina(bloque es natural64) devuelve natural64
         f = invoca_valor(mi_tarea, op_archivo_abrir, 0, 0, 0)
     si f = 0
         devuelve SIN_LAMINA
-    medida es natural64 = invoca_valor(f, op_arch_tamano, 0, 0, 0)
+    medida es natural64 = invoca_valor(f, op_arch_medida, 0, 0, 0)
     si medida = 0 o medida > BLOQUE_BYTES
         invoca(f, op_arch_cerrar, 0, 0, 0)
         devuelve SIN_LAMINA

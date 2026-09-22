@@ -193,7 +193,7 @@ mod pruebas {
     }
 
     #[test]
-    fn a_la_desterrada_solo_la_perdona_el_dueno() {
+    fn a_la_desterrada_solo_la_perdona_el_propietario() {
         let mut c = Cuarentena::nueva();
         for _ in 0..FALTAS_MAX {
             c.falta(0, Falta::Cupo);

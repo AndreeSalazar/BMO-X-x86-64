@@ -103,7 +103,7 @@ pub enum Veto {
     /// cederlo: la unidad de la MMU es la pagina, asi que ceder ese BAR cede
     /// **los 4.096 bytes que lo rodean**, y ahi pueden vivir los registros de
     /// otro aparato. Conceder eso seria conceder dos cosas y nombrar una.
-    MasPequenoQueUnaPagina { bytes: u64 },
+    MasChicoQueUnaPagina { bytes: u64 },
     /// El megabyte legacy.
     DebajoDeUnMega { base: u64 },
     /// **El veto que sostiene todos los demas.** El rango pisa memoria usable:
@@ -161,7 +161,7 @@ pub fn cedible(base: u64, bytes: u64, mapa: &[Tramo], reservas: &[Reserva]) -> R
     // ** EL ORDEN DE ESTOS DOS NO ES ESTILO: DECIDE SI UNO DE ELLOS EXISTE.
     //
     // Al reves --primero el multiplo-- un BAR de 256 bytes sale como "el largo
-    // no es multiplo de pagina", y `MasPequenoQueUnaPagina` **no se alcanza
+    // no es multiplo de pagina", y `MasChicoQueUnaPagina` **no se alcanza
     // nunca**: cualquier largo alineado y distinto de cero ya es >= PAGINA.
     // Seria un veto muerto, y un veto muerto es peor que no tenerlo: parece que
     // el caso esta cubierto.
@@ -170,7 +170,7 @@ pub fn cedible(base: u64, bytes: u64, mapa: &[Tramo], reservas: &[Reserva]) -> R
     // redondeando. "Mas chico que una pagina" **no se arregla**: ceder ese BAR
     // cede los 4.096 bytes que lo rodean, y ahi puede vivir otro aparato.
     if bytes < PAGINA {
-        return Err(Veto::MasPequenoQueUnaPagina { bytes });
+        return Err(Veto::MasChicoQueUnaPagina { bytes });
     }
     if bytes % PAGINA != 0 {
         return Err(Veto::LargoNoAlineado { bytes });
@@ -212,7 +212,7 @@ impl Veto {
             Veto::NoAlineado { .. } => "la base no empieza en una pagina",
             Veto::LargoNoAlineado { .. } => "el largo no es multiplo de pagina",
             Veto::SeSaleDelEspacio { .. } => "base+largo se sale del espacio",
-            Veto::MasPequenoQueUnaPagina { .. } => "mas chico que una pagina",
+            Veto::MasChicoQueUnaPagina { .. } => "mas chico que una pagina",
             Veto::DebajoDeUnMega { .. } => "el megabyte legacy no se cede",
             Veto::PisaRam { .. } => "PISA RAM: una ventana al kernel",
             Veto::EsElApic { .. } => "es el APIC: seria ceder las IRQ",
@@ -227,7 +227,7 @@ impl Veto {
             Veto::NoAlineado { base } => base,
             Veto::LargoNoAlineado { bytes } => bytes,
             Veto::SeSaleDelEspacio { base, .. } => base,
-            Veto::MasPequenoQueUnaPagina { bytes } => bytes,
+            Veto::MasChicoQueUnaPagina { bytes } => bytes,
             Veto::DebajoDeUnMega { base } => base,
             Veto::PisaRam { base, .. } => base,
             Veto::EsElApic { base } => base,

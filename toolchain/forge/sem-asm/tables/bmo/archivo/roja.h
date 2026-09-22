@@ -36,7 +36,7 @@
 #include <string.h>
 
 #define BMO_ARCH_LEER     0x01
-#define BMO_ARCH_TAMANO   0x03
+#define BMO_ARCH_MEDIDA   0x03
 #define BMO_ARCH_CERRAR   0x04
 #define BMO_ARCH_LEER_EN  0x06
 #define BMO_ARCH_SALTAR   0x07

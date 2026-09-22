@@ -2,10 +2,10 @@
 
 == De donde sale, y con fecha ==
 
-La regla es del dueno, del 2026-09-13: *ni MAC entera ni IP en el repo
+La regla es del propietario, del 2026-09-13: *ni MAC entera ni IP en el repo
 PUBLICO*. La pantalla y CABINA recortan la MAC al fabricante desde entonces.
 
-Y el 2026-09-18 se rompio SIN QUE NADA AVISARA: la IP de la antena del dueno
+Y el 2026-09-18 se rompio SIN QUE NADA AVISARA: la IP de la antena del propietario
 --una `192.168.0.x`-- entro en cuatro sitios en un solo dia (dos textos de uso en
 `red_tcp.rs` y dos "como se sabe" en los planes), y dos de ellos llegaron a
 GitHub. La regla existia y estaba bien escrita; lo que no tenia era quien la

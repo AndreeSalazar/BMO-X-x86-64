@@ -1685,7 +1685,7 @@ impl Codegen {
         let escribe = match m.as_str() {
             "INPUT" => false,
             "OUTPUT" => true,
-            // `EXTEND` es ANADIR al final, y la puerta que hay abre con
+            // `EXTEND` es AGREGAR al final, y la puerta que hay abre con
             // `TASK_OP_ARCHIVO_CREAR`: crea de cero. Compilarlo como OUTPUT
             // BORRARIA el historico entero y el programa pareceria funcionar
             // --el fichero existe, tiene lineas nuevas-- hasta que alguien

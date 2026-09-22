@@ -41,7 +41,7 @@ mod tests {
     /// ponerse de acuerdo sobre el medida -- y ese desacuerdo produce basura
     /// silenciosa. Una regla, sin casos de esquina.
     #[test]
-    fn un_agregado_pequeno_ocupa_una_ranura_entera() {
+    fn un_agregado_chico_ocupa_una_ranura_entera() {
         assert_eq!(ranuras(1), 1);
         assert_eq!(ranuras(8), 1);
         assert_eq!(ranuras(9), 2);

@@ -112,7 +112,7 @@ pub static PRESUPUESTO: Presupuestos = Presupuestos {
     //
     // [!] Y ES DE UN SOLO ARRANQUE, no de tres como el 915 de antes. Si el
     // proximo lo pasa, el trinquete gritara y habra aprendido la dispersion --
-    // que es lo que un trinquete demasiado apretado ENSENA. Lo que no se hace
+    // que es lo que un trinquete demasiado apretado MUESTRA. Lo que no se hace
     // es ponerlo flojo por si acaso: eso es no tener trinquete.
     //
     // ** Lo que M0b compro, medido contra la tanda de una hora antes:
@@ -268,7 +268,7 @@ pub static PRESUPUESTO: Presupuestos = Presupuestos {
     // camino no se va a poner una tercera hipotesis por escrito. Lo que la
     // resuelve es UNA sonda concreta: una fila mas en `c/coste.bex` que use un
     // handle REAL con la operacion mas barata que exista. Si esa fila tambien
-    // carga los 243, es el camino del handle; si no, es `BMO_ARCH_TAMANO`.
+    // carga los 243, es el camino del handle; si no, es `BMO_ARCH_MEDIDA`.
     handle: Fila {
         // 338 fue la peor observada, +5% de margen de ruido.
         techo: 355,

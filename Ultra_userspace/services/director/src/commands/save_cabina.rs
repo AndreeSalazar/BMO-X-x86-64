@@ -230,7 +230,7 @@ pub(crate) fn report_audio(s: &mut Output) {
             fila(s, b"pedido", pedido, b"%", b"pedido por Ring 3 y aun no mandado: lo manda el hilo del bus");
         }
     }
-    let d = bmo::info(bmo::INFO_AUDIO_DUENO);
+    let d = bmo::info(bmo::INFO_AUDIO_PROPIETARIO);
     fila(s, b"propietario", d & 0xFFFF_FFFF, b"pid", b"el proceso que tiene el audio; 0 = nadie");
     let t = bmo::info(bmo::INFO_AUDIO_TUBO);
     fila(s, b"tubo", (t >> 56) & 1, b"", b"1 = el endpoint isocrono esta configurado y con su alt puesto");

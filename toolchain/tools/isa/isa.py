@@ -2,7 +2,7 @@
 
 == De donde sale, y con fecha ==
 
-El 2026-09-18 el dueno decidio: **una arquitectura, un repositorio**. Este es
+El 2026-09-18 el propietario decidio: **una arquitectura, un repositorio**. Este es
 BMO-X para x86-64 -- kernel, escritorio, compiladores y todo lo que emiten. Si
 algun dia hay ARM64 o RISC-V, sera OTRO repositorio (`BMO-X-aarch64`, ...)
 que empieza como una copia de este y cambia lo que haga falta; los dos no se
@@ -10,7 +10,7 @@ tocan nunca.
 
 El motivo, en sus palabras: mezclar arquitecturas en un mismo arbol trae
 choques, y BMO-X no es Linux. Un arbol con `#[cfg(target_arch)]` por todas
-partes tiene caminos que NINGUNA maquina del dueno ejecuta, y un camino que
+partes tiene caminos que NINGUNA maquina del propietario ejecuta, y un camino que
 nadie ejecuta compila y miente. El ejemplo lo tenia dentro: hasta el 18-09 el
 validador de BEF solo AVISABA de un `.bex` de ARM, y `CallingConvention::NATIVE`
 cambiaba de valor segun la CPU del que compilaba.

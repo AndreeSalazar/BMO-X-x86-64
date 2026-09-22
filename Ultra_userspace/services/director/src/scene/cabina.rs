@@ -95,7 +95,7 @@ pub(crate) struct CabinaWindow {
     /// lleva**: el klog no, y por eso su filtro tenia que adivinar por el
     /// prefijo de la linea.
     pub(crate) minima: u64,
-    /// **Ensenar SOLO lo que produjo la ultima accion.**
+    /// **Mostrar SOLO lo que produjo la ultima accion.**
     ///
     /// === Por que este filtro es distinto de los otros ===
     ///

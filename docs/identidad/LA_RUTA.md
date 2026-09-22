@@ -67,7 +67,7 @@ generalizacion de lo que este sistema ya hace tres veces.
 
 ---
 
-# 2. ⚠ LA MITAD QUE FALTA, Y ES LA QUE EL DUENO PUSO AL FINAL
+# 2. ⚠ LA MITAD QUE FALTA, Y ES LA QUE EL PROPIETARIO PUSO AL FINAL
 
 Los tiempos 1, 2 y 3 estan. **El 4 no.**
 

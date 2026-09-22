@@ -235,7 +235,7 @@ int main() {
     if (otra == 0) {
         printf("exclusivo\n");
     } else {
-        printf("DOS DUENOS\n");
+        printf("DOS PROPIETARIOS\n");
     }
     return 0;
 }

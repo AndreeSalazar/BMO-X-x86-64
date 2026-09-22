@@ -190,7 +190,7 @@ struct Pase {
 
 static mut PASE: Option<Pase> = None;
 static ABIERTO: AtomicBool = AtomicBool::new(false);
-static DUENO: AtomicU32 = AtomicU32::new(0);
+static PROPIETARIO: AtomicU32 = AtomicU32::new(0);
 static GENERACION: AtomicU64 = AtomicU64::new(0);
 static SECUENCIA: AtomicU64 = AtomicU64::new(0);
 static LATIDO_VIVO: AtomicBool = AtomicBool::new(false);
@@ -218,7 +218,7 @@ pub fn secuencia() -> u64 {
 
 /// Sigue valiendo el pase que nombra este handle?
 pub fn vigente(pid: u32, generacion: u64) -> bool {
-    abierto() && DUENO.load(Ordering::Acquire) == pid && GENERACION.load(Ordering::Acquire) == generacion
+    abierto() && PROPIETARIO.load(Ordering::Acquire) == pid && GENERACION.load(Ordering::Acquire) == generacion
 }
 
 /// El motivo del ultimo cierre, `0` si nunca se cerro ninguno.
@@ -269,7 +269,7 @@ pub fn abrir(pid: u32, aspace: u64, autoridad: bool, ms: u64, cupo: u32) -> Resu
         salida::abrir_grifo(ahora, c.ms, c.cupo);
         SECUENCIA.store(0, Ordering::Release);
         ULTIMO_MOTIVO.store(0, Ordering::Release);
-        DUENO.store(pid, Ordering::Release);
+        PROPIETARIO.store(pid, Ordering::Release);
         ABIERTO.store(true, Ordering::Release);
         LATIDO_VIVO.store(true, Ordering::Release);
         GENERACION.fetch_add(1, Ordering::AcqRel) + 1
@@ -298,13 +298,13 @@ pub fn abrir(pid: u32, aspace: u64, autoridad: bool, ms: u64, cupo: u32) -> Resu
 
 /// **Cierra el pase de `pid`**, si es suyo. `false` si no tenia.
 pub fn cerrar(pid: u32) -> bool {
-    cerrar_por(pid, radar::Motivo::CerradoPorElDueno)
+    cerrar_por(pid, radar::Motivo::CerradoPorElPropietario)
 }
 
 /// Lo llama `cap::revoke_all`. El espacio del muerto se destruye despues, asi
 /// que aqui no se toca su tabla de paginas.
 pub fn process_died(pid: u32) {
-    cerrar_por(pid, radar::Motivo::DuenoMurio);
+    cerrar_por(pid, radar::Motivo::PropietarioMurio);
 }
 
 fn cerrar_por(pid: u32, motivo: radar::Motivo) -> bool {
@@ -331,12 +331,12 @@ fn revocar(motivo: radar::Motivo) {
     let codigo = motivo.codigo();
     buzon::escribir32(&mut Fisica::buzon(), buzon::campo::ESTADO, codigo);
     sellar_lapida(codigo);
-    if motivo != radar::Motivo::DuenoMurio {
+    if motivo != radar::Motivo::PropietarioMurio {
         a_la_lapida(p.aspace);
     }
     unsafe { PASE = None };
     ABIERTO.store(false, Ordering::Release);
-    DUENO.store(0, Ordering::Release);
+    PROPIETARIO.store(0, Ordering::Release);
     ULTIMO_MOTIVO.store(codigo, Ordering::Release);
     // El que duerme en WAIT despierta y lee el porque en la lapida.
     SECUENCIA.fetch_add(1, Ordering::AcqRel);

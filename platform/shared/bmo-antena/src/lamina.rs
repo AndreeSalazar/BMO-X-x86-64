@@ -158,7 +158,7 @@ fn recortar(linea: &[u8]) -> Result<&[u8], Rechazo> {
     Ok(linea)
 }
 
-/// Cuatro numeros `x y ancho alto` y lo que sobra. Una zona sin area es `Tamano`.
+/// Cuatro numeros `x y ancho alto` y lo que sobra. Una zona sin area es `Medida`.
 fn zona(resto: &[u8]) -> Result<(Zona, &[u8]), Rechazo> {
     let (x, resto) = partir(resto);
     let (y, resto) = partir(resto);
@@ -171,7 +171,7 @@ fn zona(resto: &[u8]) -> Result<(Zona, &[u8]), Rechazo> {
         alto: numero(alto, ALTO_LAMINA_MAX)?,
     };
     if z.ancho == 0 || z.alto == 0 {
-        return Err(Rechazo::Tamano);
+        return Err(Rechazo::Medida);
     }
     Ok((z, resto))
 }
@@ -207,7 +207,7 @@ pub fn leer_cabecera(linea: &[u8]) -> Result<Cabecera, Rechazo> {
         elementos: numero(n, ELEMENTOS_MAX)?,
     };
     if cab.ancho == 0 || cab.alto == 0 {
-        return Err(Rechazo::Tamano);
+        return Err(Rechazo::Medida);
     }
     Ok(cab)
 }
@@ -237,7 +237,7 @@ pub fn leer_elemento<'a>(linea: &'a [u8], cab: &Cabecera) -> Result<Elemento<'a>
             }
             let escala = numero(escala, ESCALA_MAX)?;
             if escala == 0 {
-                return Err(Rechazo::Tamano);
+                return Err(Rechazo::Medida);
             }
             let z = Zona {
                 x: numero(x, ANCHO_MAX)?,
@@ -403,7 +403,7 @@ mod pruebas {
         assert_eq!(leer_cabecera(b"LAMINA 1281 2000 5"), Err(Rechazo::Numero), "mas ancho que la pantalla");
         assert_eq!(leer_cabecera(b"LAMINA 640 40000 5"), Err(Rechazo::Numero), "mas alta que el tope");
         assert_eq!(leer_cabecera(b"LAMINA 640 2000 4097"), Err(Rechazo::Numero), "mas lineas que el cupo");
-        assert_eq!(leer_cabecera(b"LAMINA 0 2000 5"), Err(Rechazo::Tamano));
+        assert_eq!(leer_cabecera(b"LAMINA 0 2000 5"), Err(Rechazo::Medida));
         assert_eq!(leer_cabecera(b"LAMINA 640 2000 -1"), Err(Rechazo::Numero));
     }
 
@@ -431,7 +431,7 @@ mod pruebas {
         assert_eq!(leer_elemento(b"CAJA 540 0 100 30 000000", &CAB).map(|e| e.zona().x), Ok(540), "justo al borde cabe");
         assert_eq!(leer_elemento(b"TEXTO 600 0 1 000000 123456", &CAB), Err(Rechazo::Fuera), "6 letras son 48 px: 648 > 640");
         assert_eq!(leer_elemento(b"TEXTO 0 1990 1 000000 a", &CAB), Err(Rechazo::Fuera), "16 px de alto: 2006 > 2000");
-        assert_eq!(leer_elemento(b"CAJA 0 0 0 30 000000", &CAB), Err(Rechazo::Tamano), "sin area no es una caja");
+        assert_eq!(leer_elemento(b"CAJA 0 0 0 30 000000", &CAB), Err(Rechazo::Medida), "sin area no es una caja");
     }
 
     #[test]
@@ -445,7 +445,7 @@ mod pruebas {
         assert_eq!(leer_elemento(b"ENLACE 0 0 10 10 Mayus", &CAB), Err(Rechazo::Id));
         assert_eq!(leer_elemento(b"ENLACE 0 0 10 10", &CAB), Err(Rechazo::Id), "sin id");
         assert_eq!(leer_elemento(b"TEXTO 0 0 5 000000 a", &CAB), Err(Rechazo::Numero), "escala 5 no existe");
-        assert_eq!(leer_elemento(b"TEXTO 0 0 0 000000 a", &CAB), Err(Rechazo::Tamano), "escala 0 tampoco");
+        assert_eq!(leer_elemento(b"TEXTO 0 0 0 000000 a", &CAB), Err(Rechazo::Medida), "escala 0 tampoco");
         assert_eq!(leer_elemento(b"TEXTO 0 0 1 000000", &CAB), Err(Rechazo::Campos), "sin texto");
         assert_eq!(leer_elemento(b"TEXTO 0 0 1 000000 con\ttab", &CAB), Err(Rechazo::NoAscii), "un control dentro del texto");
         let larga = [b'a'; LINEA_MAX + 1];

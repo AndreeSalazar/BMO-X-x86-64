@@ -169,7 +169,7 @@ pub struct Presupuestos {
 /// ```text
 ///    SUELO       cruzar el anillo en ESE silicio. Cambia con el CPU y
 ///                BMO no puede hacer nada al respecto.
-///    SOBRECOSTE  lo que BMO ANADE encima. Eso SI es este kernel, y NO
+///    SOBRECOSTE  lo que BMO AGREGA encima. Eso SI es este kernel, y NO
 ///                depende del CPU.
 /// ```
 ///

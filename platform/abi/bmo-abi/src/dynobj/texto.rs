@@ -111,7 +111,7 @@ pub enum Falta {
     /// Dice medir mas de lo que hay en el bloque.
     NoCabeEnLoQueMide,
     /// Contador a cero y no es inmortal: nadie lo tiene y sigue vivo.
-    SinDuenoYVivo,
+    SinPropietarioYVivo,
     /// **Sus bytes no son UTF-8.**
     ///
     /// ** Existe porque la gramatica lo promete --*"un texto es UTF-8 y se
@@ -126,7 +126,7 @@ impl Falta {
         match self {
             Falta::Corta => "el texto no llega ni a su cabecera",
             Falta::NoCabeEnLoQueMide => "el texto dice medir mas de lo que hay",
-            Falta::SinDuenoYVivo => "el texto tiene cero referencias y no es inmortal",
+            Falta::SinPropietarioYVivo => "el texto tiene cero referencias y no es inmortal",
             Falta::NoEsUtf8 => "los bytes del texto no son UTF-8",
         }
     }
@@ -213,7 +213,7 @@ pub fn contenido(bloque: &[u8]) -> Option<&[u8]> {
 pub fn revisar(bloque: &[u8]) -> Result<Texto, Falta> {
     let t = leer(bloque).ok_or(Falta::Corta)?;
     if t.refs == 0 && !super::header::is_immortal(t.refs) {
-        return Err(Falta::SinDuenoYVivo);
+        return Err(Falta::SinPropietarioYVivo);
     }
     let hacen_falta = bytes_para(t.bytes).ok_or(Falta::NoCabeEnLoQueMide)?;
     if (bloque.len() as u64) < hacen_falta {
@@ -251,7 +251,7 @@ mod pruebas {
     }
 
     #[test]
-    fn nace_con_un_dueno_y_se_lee_entero() {
+    fn nace_con_un_propietario_y_se_lee_entero() {
         let b = con("hola", false);
         let t = revisar(&b).unwrap();
         assert_eq!(t.refs, 1, "nace con una referencia: la de quien lo pidio");
@@ -314,10 +314,10 @@ mod pruebas {
     }
 
     #[test]
-    fn sin_dueno_y_vivo_no_puede_existir() {
+    fn sin_propietario_y_vivo_no_puede_existir() {
         let mut b = con("hola", false);
         b[O_REFS..O_REFS + 8].copy_from_slice(&0u64.to_le_bytes());
-        assert_eq!(revisar(&b), Err(Falta::SinDuenoYVivo));
+        assert_eq!(revisar(&b), Err(Falta::SinPropietarioYVivo));
     }
 
     #[test]

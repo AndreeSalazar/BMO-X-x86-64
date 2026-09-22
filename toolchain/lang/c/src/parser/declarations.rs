@@ -906,7 +906,7 @@ impl Parser {
         escrituras: &[Escritura],
     ) -> TypeSpec {
         let TypeSpec::Array(elem, 0) = &typ else { return typ };
-        let tam = self.tamano_de(elem).max(1);
+        let tam = self.medida_de(elem).max(1);
         let n = escrituras
             .iter()
             .map(|e| e.offset / tam + 1)

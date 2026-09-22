@@ -107,7 +107,7 @@ pub(crate) fn complete(path: &mut [u8; PATH_MAX], n: usize, output: &mut Output)
         end += 1;
     }
 
-    // Con mas de uno, ENSENAR lo que hay. Es la diferencia con ciclar.
+    // Con mas de uno, MOSTRAR lo que hay. Es la diferencia con ciclar.
     if how_many > 1 {
         let d2 = match bmo::Directorio::open(dir) { Ok(d) => d, Err(_) => return end };
         let mut frames = 0u32;

@@ -332,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn el_tamano_es_el_de_zos() {
+    fn la_medida_es_el_de_zos() {
         assert_eq!(bytes_para(1), 1);
         assert_eq!(bytes_para(2), 2);
         assert_eq!(bytes_para(5), 3);

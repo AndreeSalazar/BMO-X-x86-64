@@ -33,7 +33,7 @@ arbol.
 > Dos cosas de esa cifra, y ninguna es cosmetica. La primera: **la fuente de la
 > medicion se movio** -- `surface.rs` es hoy un directorio de siete ficheros, y
 > por eso el numero envejecio sin que nadie lo notara. La segunda: **dos puertas
-> es la FORMA, 88 es el TAMANO**, y prometer que la superficie cabe en la cabeza
+> es la FORMA, 88 es el MEDIDA**, y prometer que la superficie cabe en la cabeza
 > hay que hacerlo con el numero de hoy. Donde va lo que crece sin tocar la
 > puerta esta en [`META-SDK_HARD.md`](../../FUERO/META-SDK_HARD.md) 1.1: *comodidad es
 > cabecera, autoridad es operacion*.
@@ -89,7 +89,7 @@ exactamente para esto. TLS sigue siendo aparte.
 
 C ya esta en 32/32. Todo esto se porta con el frontend que ya existe.
 
-| App | Lengua | Tamano | Que falta | Tiempo |
+| App | Lengua | Medida | Que falta | Tiempo |
 |---|---|---|---|---|
 | **DOOM** | C | ~35k | libc (`malloc`, `sprintf`, `atoi`, `exit`), unity build | ★ objetivo ya declarado -- **semanas** |
 | **Lua** | C | ~30k | libc + `setjmp`/`longjmp` | semanas |
@@ -169,7 +169,7 @@ una verdad mas chica: informa de otra.**
 
 #### Lo que falta para DOOM, en orden
 
-| # | Pieza | Tamano |
+| # | Pieza | Medida |
 |---|---|---|
 | 1 | ~~Declaradores con coma, `[]` sin medida, `inline`, `#define` con `\`, `[a][b]`, punteros a funcion como parametro~~ -- ✅ **hechas el 08-08**. Lo que queda del front: una invocacion de macro-funcion repartida en varias lineas, `%p` en `printf`, y unos pocos casos sueltos que el guion de la sonda lista uno a uno | dias |
 | 2 | **Compilacion separada, o un unity build de 56k lineas** | ★ el techo de verdad |
@@ -186,7 +186,7 @@ con licencia Apache-2.0.
 
 Asume los 6 pasos del frontend hechos (ver `toolchain/lang/cpp/BRECHA.md`).
 
-| App | Tamano | Que usa de C++ | Tiempo tras el frontend |
+| App | Medida | Que usa de C++ | Tiempo tras el frontend |
 |---|---|---|---|
 | ★ **Dear ImGui** | ~40k, nucleo en pocos ficheros | clases, sobrecarga de operadores, contenedores propios (no usa la STL) | ★ **el mejor retorno de la lista**: una GUI completa de herramientas sobre el framebuffer crudo. **1-2 meses** |
 | **Box2D** (fisica 2D) | ~15k | clases, herencia simple, virtuales | ~1 mes |
@@ -377,7 +377,7 @@ deseos, es un **mapa de dependencias**.
 
 # ★★ LAS PIEZAS, CONTADAS
 
-> Anadido el **2026-08-04**, a peticion del propietario y **con dos correcciones
+> Agregado el **2026-08-04**, a peticion del propietario y **con dos correcciones
 > suyas incorporadas**. La version anterior de este documento despachaba la GPU
 > con *"anios"* y el JIT con *"no encaja"*. Las dos eran pereza: un "anios" sin
 > desglosar no es una estimacion, es una forma educada de no pensar.
@@ -478,7 +478,7 @@ Detras caen RRDS, ESDS y **KSDS** -- o sea el indice, o sea la banca.
 
 ## 5 - RED -- 5 piezas, cuatro razonables y una enorme
 
-| # | Pieza | Tamano |
+| # | Pieza | Medida |
 |---|---|---|
 | 1 | [!] **CORREGIDO 2026-08-24.** Decia *"cablear el e1000"*, y el e1000 **ya no existe**: era la NIC de QEMU y esta maquina lleva una **Realtek RTL8111/8168**. Las 287 lineas se borraron. Lo que hay es un perfil del aparato de verdad, con el paso 0 **verificado en el Ryzen** y el anillo RX escrito. Falta TX | ~300 lineas |
 | 2 | **smoltcp**: ARP, IPv4, ICMP, UDP, TCP | crate `no_std` **ya hecha** -- integrarla. ** Y traerla es CORRECTO por la ley 24: una pila TCP es **software**, no nombra ningun aparato. Traer un driver de NIC generico era lo incorrecto, y es la misma ley contestando distinto a los dos lados |

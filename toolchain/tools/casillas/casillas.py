@@ -4,7 +4,7 @@
 Por que existe
 ==============
 
-El 2026-08-24 el dueno pregunto: *"no verificas que faltan eso las escaleras
+El 2026-08-24 el propietario pregunto: *"no verificas que faltan eso las escaleras
 para completar?"*. Se recontaron las escaleras de los planes contra el codigo y
 **ocho casillas de cincuenta y cuatro estaban mal**:
 
@@ -22,7 +22,7 @@ arbol ya tiene quien cuente ficheros (`censo_modular`), quien cuente crates
 (el banco de `bmo.ps1`) y quien compruebe que las citas resuelven (`enlaces`).
 **Las casillas no las contaba nadie.**
 
-*** EL PRIMER INTENTO DE ESTE GUARDIAN NO CAZO NINGUNA, Y ESO ENSENO LA REGLA
+*** EL PRIMER INTENTO DE ESTE GUARDIAN NO CAZO NINGUNA, Y ESO MOSTRO LA REGLA
 
 Se escribio buscando casillas `[ ]` que nombraran un crate existente entre
 comillas invertidas. Se probo contra el documento de ANTES del arreglo y
@@ -44,7 +44,7 @@ fichero o una fecha. Una escalera cuyos escalones citan su prueba se recuenta
 en un rato; una que no, se queda como estaba durante meses.
 
 ** Y la comprobacion de "nombra codigo que existe y esta probado" se queda
-igual, como segunda senal. Caza otra forma --la casilla que cita bien y se
+igual, como segunda signal. Caza otra forma --la casilla que cita bien y se
 quedo atras-- y las dos juntas cubren las dos maneras de mentir.
 
 [!] Las dos AVISAN y ninguna mata. Un guardian que mata con una heuristica
@@ -132,7 +132,7 @@ def revisar():
                 if estado != " ":
                     continue
 
-                # ** LA SENAL PRINCIPAL: la casilla no dice donde mirar.
+                # ** LA SIGNAL PRINCIPAL: la casilla no dice donde mirar.
                 #
                 # Ni un crate, ni un fichero, ni una fecha. Nadie puede
                 # comprobarla -- y por eso se quedan como estan durante meses.

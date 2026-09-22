@@ -1,6 +1,6 @@
 //! ESTRATOS -- el formato en disco.
 //!
-//! Diseno completo en `ESTRATOS.md`, **en la raiz de esta crate**.
+//! Esquema completo en `ESTRATOS.md`, **en la raiz de esta crate**.
 //!
 //! ## [!] Y ese documento estuvo BORRADO doce dias
 //!
@@ -89,7 +89,7 @@ pub const MAGIC: [u8; 8] = *b"ESTRATOS";
 /// y un aviso, nunca una interpretacion a la buena de dios.
 pub const VERSION: u32 = 1;
 
-/// Tamano de bloque de ESTRATOS. Ocho sectores de 512 B.
+/// Medida de bloque de ESTRATOS. Ocho sectores de 512 B.
 pub const BLOCK_SIZE: u32 = 4096;
 
 /// El superbloque se escribe en un sector completo aunque no lo llene: es la
@@ -148,7 +148,7 @@ impl FormatError {
 /// Asi que se graba el BLAKE3 de modelo, serie **y capacidad**, que es
 /// exactamente lo que compara `bmo_block::DeviceId::same_device`: el modelo
 /// dice que disco es, la serie cual, y la capacidad caza la imagen clonada a
-/// un disco de otro medida. Tamano fijo, comparacion exacta, y el mismo hash
+/// un disco de otro medida. Medida fijo, comparacion exacta, y el mismo hash
 /// que todo lo demas.
 pub fn disk_id(model: &[u8], serial: &[u8], blocks: u64) -> Hash {
     let mut h = bmo_hash::Hasher::new();

@@ -3,7 +3,7 @@
 
 Corre en Termux (Android) o en cualquier maquina con Python 3 y ffmpeg. Sirve
 los videos de UNA carpeta a UNA sola IP, convertidos EN VIVO a MPEG-1 + MP2
-640x360, que es lo que BMO-X sabe ensenar con pl_mpeg.
+640x360, que es lo que BMO-X sabe mostrar con pl_mpeg.
 
     python antena.py --carpeta ~/storage/movies --permitir <IP de BMO-X>
 
@@ -205,7 +205,7 @@ def servir_pagina(conexion, navegador, url, carpeta=None):
     mandar la primera linea. Cualquier fallo es un NO con su motivo.
 
     Y MIDE: cuanto tardo cada tramo (los del navegador mas juzgar y enviar)
-    sale por pantalla y se anade a `medidas.txt` en la carpeta, para saber
+    sale por pantalla y se agrega a `medidas.txt` en la carpeta, para saber
     donde va el tiempo antes de tocar nada (ley 24)."""
     if navegador is None:
         enviar(conexion, "NO la antena no tiene navegador (arranca con --navegador)")

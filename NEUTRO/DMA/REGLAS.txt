@@ -1,7 +1,7 @@
 LAS OCHO REGLAS DEL DMA -- lo que vale para CUALQUIERA de ellos
 ================================================================
 
-  Peticion del dueno, 2026-09-09: "crea reglas ESTRICTAS de DMA, cuales son EN
+  Peticion del propietario, 2026-09-09: "crea reglas ESTRICTAS de DMA, cuales son EN
   GENERAL, que SIEMPRE es DMA cualquiera de ellas, para ser convertido en DMA
   inteligente".
 
@@ -90,7 +90,7 @@ LAS OCHO
   es una deuda con nombre. Sin escribir habria sido un agujero sin nombre.
 
   ** LA NOVENA es de la misma familia y se escribe por lo mismo. Salio de mirar
-  el DMA desde el lado de la RAM (`DESDE_LA_RAM.txt`), y lo que enseno es que
+  el DMA desde el lado de la RAM (`DESDE_LA_RAM.txt`), y lo que mostro es que
   **EXPUESTO no es lo mismo que EN VUELO**:
 
     en vuelo    empieza al tocar la campana y acaba al recoger el fin
@@ -158,12 +158,12 @@ LAS OCHO
   LO QUE FALTA ES EL NUMERO (N5b), y no se elige:
 
     `mm::titular::peor_silencio()` guarda lo peor visto por aparato, y CABINA
-    lo ensena como `mudo=aparato:microsegundos`. El plazo sale de ahi con
+    lo muestra como `mudo=aparato:microsegundos`. El plazo sale de ahi con
     margen despues de varios arranques. `PLAZO_SIN_MEDIR = 0` significa SIN
     PLAZO, y no es un valor prudente: es la negativa a inventarse uno.
 
     ** Y esta medida se lee AL REVES que todas las demas de esta casa.
-    `ciclos.bex` lo ensena midiendo un bucle vacio en el Ryzen:
+    `ciclos.bex` lo muestra midiendo un bucle vacio en el Ryzen:
 
       bucle vacio      min  11 ticks     media 122 ticks
       llamada normal   min  30 ticks     media  31 ticks
@@ -177,7 +177,7 @@ LAS OCHO
 *** R5c: LA UNICA QUE YA NO SOLO CUENTA
 ----------------------------------------
 
-  Peticion del dueno, 2026-09-09: *un portero duro con hot unmapping*.
+  Peticion del propietario, 2026-09-09: *un portero duro con hot unmapping*.
 
   Sin IOMMU no se puede desmapear una pagina. Lo que si se puede es quitarle
   al aparato **la capacidad de emitir**: el bit 2 del registro Command, Bus

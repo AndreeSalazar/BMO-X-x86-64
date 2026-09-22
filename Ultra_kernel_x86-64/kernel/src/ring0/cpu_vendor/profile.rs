@@ -200,7 +200,7 @@ pub struct CpuProfile {
 /// `despertar()`**, y a `despertar()` solo se llega tecleando `smp`.
 ///
 /// ```text
-///    el careo existia   ->  pero solo corria si el DUENO lo pedia
+///    el careo existia   ->  pero solo corria si el PROPIETARIO lo pedia
 ///    el numero malo     ->  se mostraba en CADA panel, desde el arranque
 /// ```
 ///

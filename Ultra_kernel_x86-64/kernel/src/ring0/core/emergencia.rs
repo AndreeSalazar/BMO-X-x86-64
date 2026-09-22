@@ -36,7 +36,7 @@
 //! sitio donde aterrizar**, y quitarle la pantalla al escritorio ya no es
 //! romper la maquina: es volver al sitio del que se salio.
 //!
-//! # [!] LO QUE ESTO **NO** HACE, Y ES LA MITAD DEL DISENO
+//! # [!] LO QUE ESTO **NO** HACE, Y ES LA MITAD DEL ESQUEMA
 //!
 //! **No se dispara porque una app se muera.** Que un programa reviente y el
 //! escritorio siga es el aislamiento haciendo exactamente lo que promete: es la

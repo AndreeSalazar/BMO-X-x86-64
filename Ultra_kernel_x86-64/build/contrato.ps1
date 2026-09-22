@@ -112,7 +112,7 @@ foreach ($name in @('NR_INVOKE', 'NR_CHANNEL_KICK', 'NR_WAIT')) {
 # Un guardian con lista tiene el mismo fallo que vigila: alguien tiene que
 # acordarse de agregar la fila. Ahora se barren TODOS los `TASK_OP_*` y
 # `ARCH_OP_*` del kernel y se exige que cada uno exista en el ABI con el MISMO
-# numero. Anadir una operacion pasa a ser imposible de olvidar.
+# numero. Agregar una operacion pasa a ser imposible de olvidar.
 #
 # ** Y DESDE EL 2026-08-16 tambien las CLASES del histograma (`SYSCALL_CLASS_*`).
 # No son operaciones, pero cruzan a Ring 3 igual que ellas y tienen el mismo modo
@@ -268,11 +268,11 @@ Write-Host ('    operaciones: ' + $porNumero.Count + ' opcodes, ninguno repetido
 
 # Y LA TABLA DE `OP_INFO`, que existe TRES veces: la implementa el kernel
 # (`core\report.rs`), la declara el ABI (`surface.rs`) y la consume el userland
-# (`userland\src\lib.rs`). Anadir un dato es una fila -- y una fila escrita en
+# (`userland\src\lib.rs`). Agregar un dato es una fila -- y una fila escrita en
 # dos de los tres sitios es un campo que contesta otra cosa de la que se pidio,
 # sin que nada falle al compilar.
 #
-# No es hipotetico: al escribir esta comprobacion, `INFO_PANTALLA_DUENO` estaba
+# No es hipotetico: al escribir esta comprobacion, `INFO_PANTALLA_PROPIETARIO` estaba
 # en el kernel y en el userland y NO en el ABI. La lista no se escribe a mano
 # --se saca de los tres ficheros-- porque una lista a mano es lo que ya se
 # quedo congelada una vez, ahi arriba.

@@ -296,7 +296,7 @@ mod pruebas {
         assert!(!es_cero(&s1));
     }
 
-    /// *** UN PUNTO DE ORDEN PEQUENO DA CERO, y por eso hay que mirarlo.
+    /// *** UN PUNTO DE ORDEN CHICO DA CERO, y por eso hay que mirarlo.
     ///
     /// ** El `0` como clave publica es el caso mas simple: quien lo mande hace
     /// que el secreto compartido sea cero **sea cual sea tu clave privada**. Si
@@ -305,7 +305,7 @@ mod pruebas {
     ///
     /// Es exactamente la frase que gobierna este crate, en su forma mas literal.
     #[test]
-    fn una_publica_de_orden_pequeno_da_cero_y_se_puede_ver() {
+    fn una_publica_de_orden_chico_da_cero_y_se_puede_ver() {
         let mi = de_hex("77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a");
         let malo = [0u8; 32];
         let s = secreto_compartido(&mi, &malo);

@@ -110,7 +110,7 @@ const PAREJAS: &[(&str, &str, u64)] = &[
     ("BMO_INFO_PRESUPUESTO_PUERTA", "INFO_PRESUPUESTO_PUERTA", 0x37),
     ("BMO_INFO_PRESUPUESTO_DISPATCH", "INFO_PRESUPUESTO_DISPATCH", 0x38),
     ("BMO_INFO_PRESUPUESTO_HANDLE", "INFO_PRESUPUESTO_HANDLE", 0x39),
-    // Un presupuesto tiene DUENO: la maquina en que se midio. Si el silicio no
+    // Un presupuesto tiene PROPIETARIO: la maquina en que se midio. Si el silicio no
     // cuadra, las tres filas de arriba contestan cero y el juez se calla. Y el
     // suelo del cruce es lo que permite separar el merito de BMO del coste del
     // CPU. Ver R-CPU8 y R-CPU10.
@@ -126,7 +126,7 @@ const PAREJAS: &[(&str, &str, u64)] = &[
     // de administracion va a querer saber es si el recorte de ayer llego.
     ("BMO_INFO_DISCO_TRIM_SECTORES", "INFO_DISCO_TRIM_SECTORES", 0x43),
     ("BMO_INFO_DISCO_TRIM_ORDENES", "INFO_DISCO_TRIM_ORDENES", 0x44),
-    // Y el rango que se va a recortar, que es el que la propuesta ENSENA y la
+    // Y el rango que se va a recortar, que es el que la propuesta MUESTRA y la
     // orden EJECUTA -- una sola cuenta, servida por el kernel.
     ("BMO_INFO_DISCO_COLA_LBA", "INFO_DISCO_COLA_LBA", 0x45),
     ("BMO_INFO_DISCO_COLA_SECTORES", "INFO_DISCO_COLA_SECTORES", 0x46),
@@ -387,7 +387,7 @@ fn ningun_define_del_h_se_queda_sin_pareja() {
         .collect();
     assert!(
         huerfanos.is_empty(),
-        "bmo.h tiene constantes sin pareja en el ABI. Anade su fila a PAREJAS \
+        "bmo.h tiene constantes sin pareja en el ABI. Agrega su fila a PAREJAS \
          --o a NO_SON_CONTRATO si de verdad no cruzan-- porque entre el .h y \
          Rust no hay compilador que las cace:\n  {}",
         huerfanos.join("\n  ")

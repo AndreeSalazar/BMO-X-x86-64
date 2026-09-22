@@ -27,7 +27,7 @@
 //! ## La frontera honesta
 //!
 //! Esto quita el Rust de **DECLARAR** una extension, no de implementarla.
-//! Anadir `mi_extension = true` a un TOML es gratis; que el compilador haga
+//! Agregar `mi_extension = true` a un TOML es gratis; que el compilador haga
 //! algo distinto sigue siendo codigo. Es la misma frontera que la fabrica de
 //! COBOL: lo tabular se genera, la semantica de cada verbo se escribe.
 //!

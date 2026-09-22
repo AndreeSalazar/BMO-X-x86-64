@@ -62,7 +62,7 @@ pub struct Symbol {
     pub name_hash: bx_u32,
     /// Direccion virtual relativa al base.
     pub virt_addr: bx_u64,
-    /// Tamano en bytes.
+    /// Medida en bytes.
     pub size: bx_u64,
     /// `SymbolKind`.
     pub kind: bx_u8,
@@ -231,12 +231,12 @@ impl TablaCadenas {
     /// declara no cabe en lo que mide. Un `count` inventado haria que el lector
     /// recorriera cadenas creyendo que son entradas -- que es exactamente el
     /// fallo que esta cabecera viene a cerrar.
-    pub fn leer(data: &[u8], tamano_de_entrada: usize) -> Option<(usize, usize)> {
+    pub fn leer(data: &[u8], medida_de_entrada: usize) -> Option<(usize, usize)> {
         if data.len() < Self::SIZE {
             return None;
         }
         let count = u32::from_le_bytes([data[0], data[1], data[2], data[3]]) as usize;
-        let fin = Self::SIZE.checked_add(count.checked_mul(tamano_de_entrada)?)?;
+        let fin = Self::SIZE.checked_add(count.checked_mul(medida_de_entrada)?)?;
         if fin > data.len() {
             return None;
         }

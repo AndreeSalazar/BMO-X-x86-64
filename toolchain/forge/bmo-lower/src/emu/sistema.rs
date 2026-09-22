@@ -337,7 +337,7 @@ impl Machine {
         use bmo_abi::syscalls::surface::{
             ARCH_OP_CERRAR, ARCH_OP_ESCRIBIR, ARCH_OP_ESCRIBIR_DE, ARCH_OP_LEER, ARCH_OP_LEER_EN,
             ARCH_OP_LEER_LINEA,
-            ARCH_OP_SALTAR, ARCH_OP_TAMANO,
+            ARCH_OP_SALTAR, ARCH_OP_MEDIDA,
         };
         let i = match (handle as usize).checked_sub(1) {
             Some(i) if i < self.abiertos.len() => i,
@@ -388,7 +388,7 @@ impl Machine {
                 }
                 n as u64
             }
-            ARCH_OP_TAMANO => {
+            ARCH_OP_MEDIDA => {
                 let a = &self.abiertos[i];
                 if a.escribe { a.datos.len() as u64 } else { (a.datos.len() - a.cursor) as u64 }
             }
@@ -565,7 +565,7 @@ impl Machine {
             TASK_OP_CONSOLE_WRITE, TASK_OP_EXIT, TASK_OP_INPUT_CLAIM, TASK_OP_MEMORIA_PEDIR,
             TASK_OP_MI_PADRE, TASK_OP_RUTA, TASK_OP_TOMAR, TASK_OP_YIELD,
         };
-        use bmo_abi::syscalls::surface::{PRESTADO_OP_BASE, PRESTADO_OP_BYTES, PRESTADO_OP_DUENO, PRESTADO_OP_SOLTAR};
+        use bmo_abi::syscalls::surface::{PRESTADO_OP_BASE, PRESTADO_OP_BYTES, PRESTADO_OP_PROPIETARIO, PRESTADO_OP_SOLTAR};
 
         let call = ObservedSyscall {
             nr: self.regs[RAX],
@@ -731,14 +731,14 @@ impl Machine {
                 // es la propiedad entera de un aparato exclusivo, y modelarla
                 // aqui es lo que permite probarla sin encender el Ryzen.
                 op if op == TASK_OP_AUDIO_CLAIM => {
-                    let h = if self.audio_dueno { 0 } else { CAP_AUDIO };
-                    self.audio_dueno = true;
+                    let h = if self.audio_propietario { 0 } else { CAP_AUDIO };
+                    self.audio_propietario = true;
                     self.finalizar_syscall(h);
                     return;
                 }
                 op if op == TASK_OP_AUDIO_RELEASE => {
-                    if self.audio_dueno {
-                        self.audio_dueno = false;
+                    if self.audio_propietario {
+                        self.audio_propietario = false;
                         self.finalizar_syscall(0);
                     } else {
                         // No era suyo. El kernel contesta ERROR_BUSY, no OK:
@@ -761,7 +761,7 @@ impl Machine {
             // y en el kernel de verdad no resuelve porque la generacion cambio.
             // Si el emulador no modelara esto, la prueba que lo comprueba
             // pasaria con el kernel roto.
-            if !self.audio_dueno {
+            if !self.audio_propietario {
                 self.fallar_syscall(2); // ERROR_INVALID_HANDLE
                 return;
             }
@@ -777,7 +777,7 @@ impl Machine {
             let v = match call.operation {
                 op if op == PRESTADO_OP_BASE => base,
                 op if op == PRESTADO_OP_BYTES => bytes,
-                op if op == PRESTADO_OP_DUENO => self.padre,
+                op if op == PRESTADO_OP_PROPIETARIO => self.padre,
                 op if op == PRESTADO_OP_SOLTAR => 1,
                 _ => 0,
             };

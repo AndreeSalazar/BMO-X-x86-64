@@ -83,7 +83,7 @@ pub enum Forma {
 /// **EL MOTIVO. Vocabulario CERRADO, y esa es toda su gracia.**
 ///
 /// *** Si un caso nuevo no cabe en estas seis palabras, **no se ha entendido el
-/// caso**. Anadir `Otros` seria devolver al estado de antes --todos los rebotes
+/// caso**. Agregar `Otros` seria devolver al estado de antes --todos los rebotes
 /// iguales-- con el trabajo hecho y sin el beneficio.
 ///
 /// ** Y se cuentan por separado porque los tres motivos de rebote se arreglan

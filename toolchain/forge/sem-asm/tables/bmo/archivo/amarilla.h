@@ -38,7 +38,7 @@
  *
  * El kernel solo sabe SALTAR a una posicion absoluta, y esta bien que sea asi:
  * `SEEK_CUR` y `SEEK_END` son aritmetica sobre dos numeros que este lado ya
- * tiene -- el cursor propio y el medida que da `BMO_ARCH_TAMANO`. Se resuelven
+ * tiene -- el cursor propio y el medida que da `BMO_ARCH_MEDIDA`. Se resuelven
  * aqui y por la puerta sigue pasando una sola cosa.
  *
  * El desplazamiento va con SIGNO porque el estandar lo define asi y porque
@@ -54,7 +54,7 @@ int fseek(FILE *f, long long desplazamiento, int desde) {
         destino = (long long)f->pos + desplazamiento;
     } else if (desde == 2) {
         /* [!] `bmo_quedan` son los bytes QUE QUEDAN, no el medida: lo dice el
-         * kernel en `ARCH_OP_TAMANO` y lo repite el ABI. El final del fichero
+         * kernel en `ARCH_OP_MEDIDA` y lo repite el ABI. El final del fichero
          * es cursor + lo que queda; usarlo como si fuera el medida da un
          * `SEEK_END` que se mueve segun donde estuviera el cursor. */
         destino = (long long)(f->pos + bmo_quedan(f)) + desplazamiento;
@@ -71,7 +71,7 @@ int fseek(FILE *f, long long desplazamiento, int desde) {
 
 unsigned long long bmo_quedan(FILE *f) {
     if (f == 0) return 0;
-    return bmo_valor(f->cap, BMO_ARCH_TAMANO, 0, 0, 0);
+    return bmo_valor(f->cap, BMO_ARCH_MEDIDA, 0, 0, 0);
 }
 
 /* -- Las tres ultimas de la lista de DOOM ------------------------------- */
@@ -101,7 +101,7 @@ int feof(FILE *f) {
     /* ** ESTO DECIA `f->pos >= bmo_quedan(f)`, Y ESTABA MAL DESPLEGADO.
      *
      * `bmo_quedan` son los bytes QUE QUEDAN por leer, no el medida del fichero
-     * -- `ARCH_OP_TAMANO` lo dice con esas palabras y el ABI lo repite. Contra
+     * -- `ARCH_OP_MEDIDA` lo dice con esas palabras y el ABI lo repite. Contra
      * un fichero de diez bytes con el cursor en el seis quedan cuatro, y
      * `6 >= 4` es cierto: **`feof` daba EOF pasada la mitad de cualquier
      * fichero**. Un `while (!feof(f))` leia poco mas de la mitad y salia

@@ -24,17 +24,17 @@ LO PRIMERO, Y ES LA MITAD DE ESTE FICHERO
 LO QUE SI SE SUPONE, Y NO SE PUEDE PREGUNTAR
 ---------------------------------------------
 
-  distribucion: espanol (ISO)
+  distribucion: castellano (ISO)
 
   ** ESTA ES LA DE VERDAD. Un teclado manda SCANCODES, no letras. Que la tecla
   de al lado del 1 sea un `!` o un `"` no lo dice el aparato: lo decide el
   sistema, y aqui esta decidido en `uhid/teclado.rs`:
 
-      la tecla ISO de mas          en espanol es la de  } ] `
+      la tecla ISO de mas          en castellano es la de  } ] `
       el tercer nivel con AltGr    @ # \ | { } [ ]
       AltGr con scancode PROPIO    porque llegaba como Alt izquierdo y el
                                    tercer nivel era inalcanzable
-      la division del numpad       resuelta aparte: en espanol esa tecla es
+      la division del numpad       resuelta aparte: en castellano esa tecla es
                                    '-' y el numpad escribia guiones
 
   [!] Un teclado americano enchufado aqui funciona -- y escribe otras letras

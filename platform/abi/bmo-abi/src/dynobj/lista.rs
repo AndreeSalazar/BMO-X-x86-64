@@ -20,7 +20,7 @@
 //! completo y no lo habia instanciado nadie.** Lo dice el propio `dynobj`:
 //! *"the CONTRACT may be complete, the IMPLEMENTATION is the seed"*.
 //!
-//! ## *** LO QUE INTI ANADE, Y POR QUE NO PODIA SALIR DE OTRO SITIO
+//! ## *** LO QUE INTI AGREGA, Y POR QUE NO PODIA SALIR DE OTRO SITIO
 //!
 //! **`capacidad`**: cuantos elementos CABEN, frente a los `count` que hay.
 //!
@@ -124,7 +124,7 @@ pub enum Falta {
     /// Los elementos no caben en los bytes que hay.
     NoCabeEnLoQueMide,
     /// Contador a cero y no es inmortal: nadie la tiene y sigue viva.
-    SinDuenoYViva,
+    SinPropietarioYViva,
 }
 
 impl Falta {
@@ -133,7 +133,7 @@ impl Falta {
             Falta::Corta => "la lista no llega ni a su cabecera",
             Falta::MasDeLosQueCaben => "la lista dice tener mas elementos de los que caben",
             Falta::NoCabeEnLoQueMide => "los elementos de la lista no caben en su bloque",
-            Falta::SinDuenoYViva => "la lista tiene cero referencias y no es inmortal",
+            Falta::SinPropietarioYViva => "la lista tiene cero referencias y no es inmortal",
         }
     }
 }
@@ -203,7 +203,7 @@ pub fn revisar(bloque: &[u8], ancho: bx_u64) -> Result<Lista, Falta> {
     // que no puede existir, y por eso se caza -- una lista que se lee despues
     // de soltarla es el fallo clasico de un contador, y aqui al menos se ve.
     if l.refs == 0 && !super::header::is_immortal(l.refs) {
-        return Err(Falta::SinDuenoYViva);
+        return Err(Falta::SinPropietarioYViva);
     }
     let hacen_falta = bytes_para(l.capacidad, ancho).ok_or(Falta::NoCabeEnLoQueMide)?;
     if (bloque.len() as u64) < hacen_falta {
@@ -232,7 +232,7 @@ mod pruebas {
     }
 
     #[test]
-    fn nace_con_un_dueno_y_sin_elementos() {
+    fn nace_con_un_propietario_y_sin_elementos() {
         let mut b = bloque(4, 8);
         nacer(&mut b, 7, 4).unwrap();
         let l = revisar(&b, 8).unwrap();
@@ -274,16 +274,16 @@ mod pruebas {
 
     /// **Cero referencias y mortal es el estado que no puede existir.**
     #[test]
-    fn una_lista_sin_dueno_y_viva_no_pasa() {
+    fn una_lista_sin_propietario_y_viva_no_pasa() {
         let mut b = bloque(2, 8);
         nacer(&mut b, 0, 2).unwrap();
         b[O_REFS..O_REFS + 8].copy_from_slice(&0u64.to_le_bytes());
-        assert_eq!(revisar(&b, 8), Err(Falta::SinDuenoYViva));
+        assert_eq!(revisar(&b, 8), Err(Falta::SinPropietarioYViva));
     }
 
     /// Una lista INMORTAL no cuenta referencias, y eso no la invalida.
     #[test]
-    fn una_lista_inmortal_no_necesita_dueno() {
+    fn una_lista_inmortal_no_necesita_propietario() {
         let mut b = bloque(2, 8);
         nacer(&mut b, 0, 2).unwrap();
         b[O_REFS..O_REFS + 8]

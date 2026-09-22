@@ -327,7 +327,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_TOCAR => op_maquina::tocar(arg0, arg1),
         TASK_OP_ESTRATOS_SELLAR => op_maquina::estratos_sellar(arg0, arg1),
         TASK_OP_DISCO => op_maquina::disco(arg0, arg1),
-        // ** LOS DOS QUE LE DEVUELVEN AL DUENO SU MAQUINA (2026-08-24).
+        // ** LOS DOS QUE LE DEVUELVEN AL PROPIETARIO SU MAQUINA (2026-08-24).
         //
         // `net rx` y `placa` existian SOLO en el shell de Ring 0, y al shell de
         // Ring 0 no se vuelve. Un camino que solo existe alli es un camino que
@@ -759,7 +759,7 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                     Err(err) => return cap_err(err),
                 };
                 let base = bloque.object;
-                // *** EL TAMANO DE **ESTE** BLOQUE, no la suma de los del
+                // *** EL MEDIDA DE **ESTE** BLOQUE, no la suma de los del
                 // proceso. Ver `memory::bytes_de_bloque`: comparar contra el
                 // total dejaba leer 4 KiB fuera del bloque que el handle
                 // autoriza, y si esa VA no estaba mapeada el que fallaba era el
@@ -843,7 +843,7 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                     Err(err) => return cap_err(err),
                 };
                 let base = bloque.object;
-                // *** EL TAMANO DE **ESTE** BLOQUE, no la suma de los del
+                // *** EL MEDIDA DE **ESTE** BLOQUE, no la suma de los del
                 // proceso. Ver `memory::bytes_de_bloque`: comparar contra el
                 // total dejaba leer 4 KiB fuera del bloque que el handle
                 // autoriza, y si esa VA no estaba mapeada el que fallaba era el

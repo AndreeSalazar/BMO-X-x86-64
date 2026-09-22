@@ -261,9 +261,9 @@ brutal:
 
 ```text
    una superficie GRANDE y estable   -> caro de mantener, facil de adoptar
-   una superficie PEQUENA y estable  -> barato de mantener, hay que aprender
+   una superficie CHICA y estable  -> barato de mantener, hay que aprender
    una superficie GRANDE e inestable -> nadie construye encima
-   una superficie PEQUENA e inestable-> ni eso
+   una superficie CHICA e inestable-> ni eso
 ```
 
 ★★ **BMO-X eligio la segunda, y esa eleccion ES el producto.** Dos puertas

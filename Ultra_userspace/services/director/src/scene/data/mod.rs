@@ -25,9 +25,9 @@
 //! Hasta hoy las teclas de funcion llegaban al kernel y morian ahi: la
 //! distribucion no las resolvia a ningun byte. El hueco estaba limpio.
 //!
-//! === Lo que ENSENA, y lo que todavia no hace ===
+//! === Lo que MUESTRA, y lo que todavia no hace ===
 //!
-//! Ensena. Y dice, en alto, que todavia no escribe.
+//! Muestra. Y dice, en alto, que todavia no escribe.
 //!
 //! La maquina de estados de la transaccion existe y esta probada
 //! (`bmo_estratos::escritura`, 12 tests), pero **nadie la ha cableado al
@@ -409,7 +409,7 @@ impl DataWindow {
     /// se abre igual como ruta, y el visor mostraria sus entradas crudas como si
     /// fueran texto. Y desde el 2026-09-13 tambien por el tipo del FICHERO: un
     /// `.bex` se lanza, un `.mus` lo toca el reproductor. Ver [`Self::abrir_ruta`].
-    pub(crate) fn abrir_senalado(&mut self) -> bool {
+    pub(crate) fn abrir_marcado(&mut self) -> bool {
         if self.sel >= fuente::hijos() as usize {
             return false;
         }
@@ -535,8 +535,8 @@ impl DataWindow {
     }
 
     /// **Sobre que solapa de VOLUMEN cayo el puntero**, si sobre alguna. La
-    /// geometria es la misma que pinta (`obra::pestanas_x`).
-    pub(crate) fn pestana_en(&self, px: u32, py: u32) -> Option<fuente::Volumen> {
+    /// geometria es la misma que pinta (`obra::solapas_x`).
+    pub(crate) fn solapa_en(&self, px: u32, py: u32) -> Option<fuente::Volumen> {
         if self.view != View::Obra || self.chrome.minimized {
             return None;
         }
@@ -544,7 +544,7 @@ impl DataWindow {
         if !z.contiene(px, py) {
             return None;
         }
-        obra::pestanas_x(&z)
+        obra::solapas_x(&z)
             .iter()
             .position(|&(a, b)| px >= a && px < b)
             .map(|k| fuente::Volumen::TODOS[k])

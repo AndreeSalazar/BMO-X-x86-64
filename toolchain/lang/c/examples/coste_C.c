@@ -21,7 +21,7 @@
  * dos casillas que la pieza 1 atacaba se desplomaron a 30 cada una y `dispatch`
  * se quedo en 311 contra 318/319: el control aguanta.
  *
- * ** DOS COSAS QUE ESTA TANDA ENSENO Y QUE NO ESTABAN EN EL PLAN:
+ * ** DOS COSAS QUE ESTA TANDA MOSTRO Y QUE NO ESTABAN EN EL PLAN:
  *
  *   1. **El instrumento cuesta el DOBLE de lo estimado.** Un `rdtsc` suelto son
  *      69 ciclos, no ~25. La fila 5 existia para que esto fuera una resta y no
@@ -143,7 +143,7 @@
  *   3. bare door       `BMO_OP_PID` on `BMO_TAREA_ACTUAL`. This is the FLOOR:
  *                      the current task is a special-cased pseudo-capability,
  *                      so no handle table is walked. Nothing can be cheaper.
- *   4. door + handle   `BMO_ARCH_TAMANO` on a real capability. This is the
+ *   4. door + handle   `BMO_ARCH_MEDIDA` on a real capability. This is the
  *                      HONEST number: it pays handle resolution, the
  *                      generation check and the capability table lookup, which
  *                      is what every real operation pays.
@@ -628,7 +628,7 @@ int main() {
         for (round = 0; round < ROUNDS; round++) {
             start = __rdtsc();
             for (i = 0; i < BATCH; i++) {
-                sink = sink + bmo_valor(handle, BMO_ARCH_TAMANO, 0, 0, 0);
+                sink = sink + bmo_valor(handle, BMO_ARCH_MEDIDA, 0, 0, 0);
             }
             elapsed = __rdtsc() - start;
             if (best == 0 || elapsed < best) { best = elapsed; }

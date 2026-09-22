@@ -241,7 +241,7 @@ hace cumplir.
 **[!] SUS TRES SACRIFICIOS (L3):**
 
 ```text
-   1. ES UN PROYECTO DEL TAMANO DEL VMM, no un `if`. Tablas, cache de
+   1. ES UN PROYECTO DEL MEDIDA DEL VMM, no un `if`. Tablas, cache de
       traducciones del aparato, invalidacion, y una cola de comandos
    2. LA VENTANA DEL ARRANQUE. La IOMMU tiene que estar programada ANTES de
       que ningun aparato haga DMA, o sea antes de AHCI y del xHC. Y entre que

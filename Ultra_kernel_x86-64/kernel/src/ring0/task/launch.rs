@@ -692,7 +692,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     if armada {
         crate::ring0::cabina::info("disk", "avisos del disco por interrupcion", avisos);
     }
-    let (esperas, robos) = crate::ring0::dev::disk::cuentas_dueno();
+    let (esperas, robos) = crate::ring0::dev::disk::cuentas_propietario();
     if esperas > 0 {
         crate::ring0::cabina::info("disk", "veces que hubo que esperar al disco", esperas as u64);
     }

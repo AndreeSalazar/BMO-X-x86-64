@@ -175,7 +175,7 @@ int main() {
 /// Los dos bordes del estandar, que son los que se olvidan: `realloc(0, n)` es
 /// `malloc(n)` y `realloc(p, 0)` es `free(p)` devolviendo 0.
 #[test]
-fn realloc_con_puntero_nulo_o_tamano_cero() {
+fn realloc_con_puntero_nulo_o_medida_cero() {
     let out = corre(
         r#"
 int main() {

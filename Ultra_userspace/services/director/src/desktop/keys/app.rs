@@ -4,7 +4,7 @@
 //!                     tecla o el raton se movio. Sin entrada, no se entra
 //!                     aqui (L6h)
 //!
-//! Hasta hoy una app con superficie podia ENSENAR y no la podias TOCAR. El
+//! Hasta hoy una app con superficie podia MOSTRAR y no la podias TOCAR. El
 //! plan lo decia sin adornos: *"los pasos 1, 2, 2b, 3, 4 y 5 hablan todos de
 //! PIXELES. Ninguno manda un clic hacia dentro."*
 //!

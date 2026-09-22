@@ -25,7 +25,7 @@ WAIT(esperable, visto, timeout_ns)   bloquearse
 
 Todo lo demas --abrir un endpoint, escribir en consola, reclamar la pantalla-- es
 una *operacion* sobre una capability. La API crece en la pareja `(tipo de
-objeto, operacion)`; el ABI no se toca. Anadir "abrir ventana" no es cambiar la
+objeto, operacion)`; el ABI no se toca. Agregar "abrir ventana" no es cambiar la
 frontera: es un numero mas en una tabla.
 
 ## Como llega esto a ejecutarse

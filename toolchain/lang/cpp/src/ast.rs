@@ -43,7 +43,7 @@ pub struct Class {
     /// la tabla**. Cada entrada es el simbolo manglado que va en esa ranura.
     /// La calcula el parser, que es quien tiene delante la jerarquia.
     pub vtabla: Vec<String>,
-    /// Tamano total, ya alineado. Lo calcula el parser.
+    /// Medida total, ya alineado. Lo calcula el parser.
     pub size: u32,
 }
 

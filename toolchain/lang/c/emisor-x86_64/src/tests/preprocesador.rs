@@ -241,7 +241,7 @@ int main() { printf(\"%d\", DOS); return 0; }",
 /// Medido antes del arreglo: un `hola mundo` con una sola `n` daba un `.bex`
 /// de **492.032 bytes**, y donde iba la `n` habia 65.536 bytes de basura. Con
 /// `MAX_BEX` en 1 MiB, dos palabras acentuadas dejaban un programa que ya no
-/// carga -- o sea que un acento se manifestaba como un problema de TAMANO, que
+/// carga -- o sea que un acento se manifestaba como un problema de MEDIDA, que
 /// es el ultimo sitio donde uno lo busca.
 #[test]
 fn una_enye_no_multiplica_el_binario() {

@@ -2,7 +2,7 @@
 """Valida el lector de simbolos de Ring 3 SIN el Ryzen.
 
 `simbolos.rs` vive en el compositor, que es `no_std`/`no_main`: no admite
-`#[cfg(test)]` que corra (misma leccion que el kernel esta manana). Asi que se
+`#[cfg(test)]` que corra (misma leccion que el kernel esta luego). Asi que se
 reproduce AQUI su algoritmo exacto --los mismos desplazamientos codificados a
 mano-- contra un `.bex` de verdad, y se compara con lo que dice `--map`.
 

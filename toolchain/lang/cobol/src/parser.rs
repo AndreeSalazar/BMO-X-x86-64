@@ -740,7 +740,7 @@ impl Parser {
                 return Err(CobolError::new(
                     line_no,
                     format!(
-                        "{}: una PIC de EDICION ({}) es para ENSENAR, y COMP-3 es como se GUARDA. \
+                        "{}: una PIC de EDICION ({}) es para MOSTRAR, y COMP-3 es como se GUARDA. \
                          Guarda en un COMP-3 y muevelo a un campo editado para el informe",
                         item.name,
                         item.pic.as_deref().unwrap_or("?")

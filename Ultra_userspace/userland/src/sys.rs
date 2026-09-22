@@ -509,8 +509,8 @@ pub fn tomar_prestado_de() -> Option<(u64, u64, u64)> {
 /// seria que la secuencia de la superficie deje de subir -- y eso no se
 /// distingue de una app pensando. Se pregunta una vez por ventana y fotograma:
 /// un `invoke` que no toca nada.
-pub fn prestado_dueno(handle: u64) -> u32 {
-    invoke(handle, PRESTADO_OP_DUENO, 0, 0, 0).value as u32
+pub fn prestado_propietario(handle: u64) -> u32 {
+    invoke(handle, PRESTADO_OP_PROPIETARIO, 0, 0, 0).value as u32
 }
 
 /// **Devuelve lo prestado**: se desmapea de mi espacio y la ranura queda libre.

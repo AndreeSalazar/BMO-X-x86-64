@@ -4,14 +4,14 @@
 # tambien por lo que cuesta que la pieza se equivoque, y la cabecera lo declara.
 #
 # ** Esto NO exige la etiqueta a los ~150 ficheros de `ring0`. Exige dos cosas
-# mas pequenas: que quien la declare use el vocabulario cerrado, y que este
+# mas chicas: que quien la declare use el vocabulario cerrado, y que este
 # numero **no baje nunca**. Cada fichero nuevo que la ponga sube el suelo, y el
 # suelo no se vuelve a bajar.
 #
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-109
+121
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -40,6 +40,8 @@
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/obj/mmio.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/amarilla.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/roja.rs
+# MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/roja.rs
+# NADA      Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/verde.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/verde.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/plat/perfil_placa.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/atril.rs
@@ -49,8 +51,10 @@
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/task/admitir.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/roja.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/verde.rs
+# NADA      Ultra_userspace/services/director/src/commands/datos.rs
 # DATO      Ultra_userspace/services/director/src/commands/reports.rs
 # DATO      Ultra_userspace/services/director/src/commands/save_cabina.rs
+# DATO      Ultra_userspace/services/director/src/commands/save_maestro.rs
 # NADA      Ultra_userspace/services/director/src/commands/tabla.rs
 # NADA      Ultra_userspace/services/director/src/desktop/tick/amarilla.rs
 # TAREA     Ultra_userspace/services/director/src/desktop/tick/mod.rs
@@ -62,6 +66,12 @@
 # MAQUINA   Ultra_userspace/userland/src/pantalla/roja.rs
 # NADA      Ultra_userspace/userland/src/pantalla/verde.rs
 # TAREA     Ultra_userspace/userland/src/paquete.rs
+# TAREA     platform/abi/bmo-abi/src/bef/mod.rs
+# TAREA     platform/abi/bmo-abi/src/bef2/escritor.rs
+# MAQUINA   platform/abi/bmo-abi/src/bef2/lector.rs
+# MAQUINA   platform/abi/bmo-abi/src/bef2/mod.rs
+# TAREA     platform/abi/bmo-abi/src/bef2/objeto.rs
+# TAREA     platform/abi/bmo-abi/src/bef2/paquete.rs
 # PUERTA    platform/abi/bmo-abi/src/fundamentals/handle/kind.rs
 # PUERTA    platform/abi/bmo-abi/src/fundamentals/handle/mod.rs
 # PUERTA    platform/abi/bmo-abi/src/fundamentals/handle/opaque.rs
@@ -85,6 +95,7 @@
 # APARATO   platform/drivers/storage/ahci/src/controller.rs
 # NADA      platform/drivers/storage/ahci/src/lib.rs
 # NADA      platform/drivers/storage/ahci/src/storage_hal.rs
+# APARATO   platform/drivers/usb/uhid/src/pasos.rs
 # TAREA     platform/drivers/usb/uhid/src/racha.rs
 # TAREA     platform/drivers/usb/xhci/src/avisos.rs
 # APARATO   platform/drivers/usb/xhci/src/enumerar.rs
@@ -118,6 +129,7 @@
 # TAREA     toolchain/lang/c/emisor-x86_64/src/codegen/emitir/orden.rs
 # DATO      toolchain/lang/c/emisor-x86_64/src/codegen/emitir/valor.rs
 # DATO      toolchain/lang/c/src/tipos.rs
+# TAREA     toolchain/lang/inti/emisor-x86_64/src/objeto.rs
 # NADA      toolchain/tools/bmo-firmar/src/bex.rs
 # NADA      toolchain/tools/bmo-firmar/src/llave.rs
 # NADA      toolchain/tools/bmo-firmar/src/main.rs

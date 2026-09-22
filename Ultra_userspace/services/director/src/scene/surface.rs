@@ -117,7 +117,7 @@ impl Header {
         // ** LA COMPROBACION QUE IMPIDE QUE UNA APP TUMBE AL ESCRITORIO.
         //
         // En `u64` y no en `u32`: `stride * height * 4` con numeros grandes se
-        // desborda en 32 bits y da un total PEQUENO, o sea que la comprobacion
+        // desborda en 32 bits y da un total CHICO, o sea que la comprobacion
         // pasaria justo en el caso que tiene que parar.
         let necesita = HEADER_TAG + stride as u64 * height as u64 * 4;
         if necesita > bytes {
@@ -604,7 +604,7 @@ impl Surface {
     }
 
     pub(crate) fn alive(&self) -> bool {
-        bmo::prestado_dueno(self.handle) != 0
+        bmo::prestado_propietario(self.handle) != 0
     }
 
     /// Devuelve el prestamo al kernel. **Despues de esto `base` no se toca**:
@@ -892,7 +892,7 @@ impl Table {
         let Some((handle, base, bytes)) = bmo::tomar_prestado_de() else {
             return Adopcion::NadieOfrece;
         };
-        let tid = bmo::prestado_dueno(handle);
+        let tid = bmo::prestado_propietario(handle);
         // ** UNA APP, UNA VENTANA (2026-09-12). Si este tid ya tiene caja, lo
         // que ofrece es su respuesta a un CONFIGURE, y va a SU ranura.
         //

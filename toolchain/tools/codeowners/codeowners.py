@@ -2,7 +2,7 @@
 
 == De donde sale, y con fecha ==
 
-El 2026-09-17 el dueno cerro Ring 0 a contribuciones externas (ver
+El 2026-09-17 el propietario cerro Ring 0 a contribuciones externas (ver
 CONTRIBUTING.md), y "Ring 0" quedo escrito como una LISTA en CODEOWNERS: lo que
 el kernel enlaza, sacado de `cargo tree`. Ese mismo dia se dejo dicho que la
 lista se desfasaria el dia que el kernel enlazara un crate nuevo, porque
@@ -15,9 +15,9 @@ la lleva es un texto, y un texto se incumple sin ruido.
 
 == Que comprueba, en las dos direcciones ==
 
-  1. Todo crate que el kernel ENLAZA tiene dueno en CODEOWNERS.
+  1. Todo crate que el kernel ENLAZA tiene propietario en CODEOWNERS.
   2. Ninguno es de TERCEROS -- hoy son cero, y la regla del 17-09 es lo que
-     mantiene ese cero (el modelo es xz). Si algun dia el dueno decide
+     mantiene ese cero (el modelo es xz). Si algun dia el propietario decide
      enlazar uno, va a `PERMITIDOS` con fecha y motivo, no por la puerta de
      atras.
   3. Toda linea de CODEOWNERS apunta a algo que EXISTE. Una linea que ya no
@@ -37,7 +37,7 @@ import shutil
 import subprocess
 import sys
 
-# Crates de TERCEROS que el dueno decidio enlazar en Ring 0, cada uno con su
+# Crates de TERCEROS que el propietario decidio enlazar en Ring 0, cada uno con su
 # fecha y su motivo. Vacia a proposito: el 2026-09-17 el kernel enlazaba 37
 # crates y los 37 eran del repositorio.
 PERMITIDOS = {}
@@ -124,11 +124,11 @@ def juzgar(crates, pats, existe):
         if rel is None:
             if nombre not in PERMITIDOS:
                 quejas.append("%s lo enlaza el kernel y es de TERCEROS: Ring 0 no enlaza nada "
-                              "que no sea del repositorio salvo decision del dueno, con fecha "
+                              "que no sea del repositorio salvo decision del propietario, con fecha "
                               "y motivo en PERMITIDOS" % nombre)
             continue
         if not any(cubre(p, rel) for _, p in pats):
-            quejas.append("%s (%s) lo enlaza el kernel y NO tiene dueno en CODEOWNERS"
+            quejas.append("%s (%s) lo enlaza el kernel y NO tiene propietario en CODEOWNERS"
                           % (nombre, rel))
     for n, p in pats:
         if not existe(p.lstrip("/").rstrip("/")):
@@ -143,7 +143,7 @@ def autoprueba():
     todo = lambda p: True
     casos = [
         ("un crate cubierto pasa", juzgar([("k", "Ultra_kernel_x86-64/kernel")], pats, todo), False),
-        ("un crate sin dueno se dice", juzgar([("c", "platform/shared/bmo-cola")], pats, todo), True),
+        ("un crate sin propietario se dice", juzgar([("c", "platform/shared/bmo-cola")], pats, todo), True),
         ("uno de terceros se dice", juzgar([("x", None)], pats, todo), True),
         ("un patron que no existe se dice", juzgar([], pats, lambda p: p != "bmo.ps1"), True),
         ("un prefijo no es la carpeta", juzgar([("n", "platform/drivers-x/a")], pats, todo), True),
@@ -172,7 +172,7 @@ def comprobar():
         print("codeowners: %d incumplimiento(s)" % len(quejas))
         return 1
     terceros = sum(1 for _, rel in crates if rel is None)
-    print("clean: el kernel enlaza %d crate(s), %d de terceros, y todos tienen dueno; "
+    print("clean: el kernel enlaza %d crate(s), %d de terceros, y todos tienen propietario; "
           "%d linea(s) de CODEOWNERS y todas apuntan a algo que existe"
           % (len(crates), terceros, len(pats)))
     return 0

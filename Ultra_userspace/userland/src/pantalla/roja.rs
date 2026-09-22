@@ -183,7 +183,7 @@ impl Pantalla {
     ///
     /// Solo para el primer pintado. Repetirlo por fotograma seria recorrer
     /// varios MB de memoria sin cache: un pase de diapositivas. Lo que se
-    /// repinta en un bucle es el DANO, no la pantalla.
+    /// repinta en un bucle es el PERJUICIO, no la pantalla.
     ///
     /// ** Es UNA instruccion desde el 09-09, y es literalmente lo que el
     /// comentario de `FB_OP_BYTES` llevaba un mes prediciendo.

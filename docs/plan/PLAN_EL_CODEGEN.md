@@ -138,7 +138,7 @@ miran dos o tres instrucciones seguidas y las sustituyen.
       cadena y dos `movabsq`.
       ★ Es el mas barato de los cuatro y el que mas quita del camino caliente.
 
-- [ ] **C2 -- LITERALES PEQUENOS SIN `movabsq`.** `movabsq $0x1,%rax` son diez
+- [ ] **C2 -- LITERALES CHICOS SIN `movabsq`.** `movabsq $0x1,%rax` son diez
       bytes para un uno. `movl $1,%eax` son cinco, y como operando inmediato de
       la instruccion que lo usa, cero.
       ⚠ **Sacrificio**: hay que distinguir el ancho, y ensanchar mal un literal

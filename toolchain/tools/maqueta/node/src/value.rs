@@ -348,7 +348,7 @@ pub fn unknown_prop(span: Span, name: &[u8]) -> Error {
         &format!("propiedad no soportada -- `{n}`"),
         "la lista de propiedades esta CERRADA: diecisiete, contadas sobre lo que el \
          escritorio hace de verdad hoy.",
-        "la lista entera esta en la seccion 3 de `LA_MAQUETA_EXIGE.md`. Anadir una \
+        "la lista entera esta en la seccion 3 de `LA_MAQUETA_EXIGE.md`. Agregar una \
          empieza por anadirla ahi.",
     )
 }

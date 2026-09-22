@@ -4,7 +4,7 @@
 Por que existe
 ==============
 
-El 2026-09-10 el dueno dijo: *"los planes me gustaria que se mezclen [...] pero
+El 2026-09-10 el propietario dijo: *"los planes me gustaria que se mezclen [...] pero
 dividiendo los planes que faltan [...] me esta fastidiando, me gustaria que
 organices profesionalmente"*.
 
@@ -49,7 +49,7 @@ Modos
 
     --check     el indice y los planes dicen lo mismo? (lo que corre en el build)
     --apply     regenera el indice
-    --dry-run   ensena lo que escribiria
+    --dry-run   muestra lo que escribiria
 """
 
 import argparse
@@ -99,7 +99,7 @@ TITULO = re.compile(r"^#\s+(.*)$")
 # Eddi: *"organizar las metas que faltan en abiertas, y las cerradas CON
 # MOTIVO"*. Un plan con casillas abiertas no siempre esta abierto: `EL_GUARDIAN`
 # pide una placa RISC-V y la decision del 18-09 (una arquitectura, un repo) lo
-# dejo fuera de este arbol; `EL_ASISTENTE` es el ultimo por decision del dueno;
+# dejo fuera de este arbol; `EL_ASISTENTE` es el ultimo por decision del propietario;
 # `DOOM` se jugo el 20-09 y lo que le queda son numeros de una hoja del metal.
 # Contar sus casillas como "lo que falta" es mentir en el numero que existe
 # para que se pueda confiar en el.
@@ -109,7 +109,7 @@ TITULO = re.compile(r"^#\s+(.*)$")
 #     > Estado: **CERRADO** -- hecho el ..., y lo que queda es ...
 #     > Estado: **SUPERADO** -- por PLAN_X: ...
 #     > Estado: **APARCADO** -- decision de ... : ...
-#     > Estado: **ESPERA** -- una decision del dueno: ...
+#     > Estado: **ESPERA** -- una decision del propietario: ...
 #
 # Sin esa linea, el plan esta ABIERTO. La palabra tiene que ir con su motivo
 # detras del guion; un estado sin motivo es un agujero, y `docs/METAS.md` es

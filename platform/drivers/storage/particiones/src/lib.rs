@@ -84,7 +84,7 @@ pub enum GptError {
     /// `entry_size` fuera de lo que la especificacion permite (>= 128 y que
     /// quepa en un sector). Con un medida inventado, el recorrido de entradas
     /// leeria en diagonal y devolveria particiones que no existen.
-    TamanoDeEntradaAbsurdo(u32),
+    MedidaDeEntradaAbsurda(u32),
 }
 
 impl GptError {
@@ -92,7 +92,7 @@ impl GptError {
         match self {
             GptError::SinFirma => "el disco no tiene tabla GPT",
             GptError::SectorCorto => "el sector no mide 512 bytes",
-            GptError::TamanoDeEntradaAbsurdo(_) => "medida de entrada GPT inesperado",
+            GptError::MedidaDeEntradaAbsurda(_) => "medida de entrada GPT inesperado",
         }
     }
 }
@@ -126,7 +126,7 @@ pub fn cabecera(sec: &[u8]) -> Result<Gpt, GptError> {
     // El limite superior importa tanto como el inferior: `por_sector` divide
     // por este numero y el recorrido lo usa como paso.
     if entry_size < 128 || entry_size as usize > SECTOR {
-        return Err(GptError::TamanoDeEntradaAbsurdo(entry_size));
+        return Err(GptError::MedidaDeEntradaAbsurda(entry_size));
     }
     Ok(Gpt {
         last_lba: le64(sec, 48),
@@ -261,15 +261,15 @@ mod censo {
     /// saldrian particiones que no existen, con rangos inventados. Un disco
     /// con basura en ese campo se convertiria en un mapa de un disco que no es.
     #[test]
-    fn un_tamano_de_entrada_absurdo_se_rechaza_en_vez_de_leer_en_diagonal() {
+    fn una_medida_de_entrada_absurdo_se_rechaza_en_vez_de_leer_en_diagonal() {
         let mut s = cabecera_buena();
         s[84..88].copy_from_slice(&7u32.to_le_bytes());
-        assert_eq!(cabecera(&s), Err(GptError::TamanoDeEntradaAbsurdo(7)));
+        assert_eq!(cabecera(&s), Err(GptError::MedidaDeEntradaAbsurda(7)));
 
         // Y por arriba tambien: 4096 no cabe en un sector de 512.
         let mut g = cabecera_buena();
         g[84..88].copy_from_slice(&4096u32.to_le_bytes());
-        assert_eq!(cabecera(&g), Err(GptError::TamanoDeEntradaAbsurdo(4096)));
+        assert_eq!(cabecera(&g), Err(GptError::MedidaDeEntradaAbsurda(4096)));
     }
 
     #[test]

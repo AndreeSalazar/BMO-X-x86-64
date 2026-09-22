@@ -98,7 +98,7 @@ pantalla tal cual.
 - [ ] **S1 -- el reproductor LOCAL.** Una app `.bex` en BMO C con pl_mpeg
       (licencia MIT, un solo fichero) que abre un `.mpg` del disco y lo pinta en
       su ventana, con el audio por el tubo. Sin red: primero se prueba que BMO-X
-      sabe ENSENAR video. **Como se sabe:** un `.mpg` hecho en Windows con
+      sabe MOSTRAR video. **Como se sabe:** un `.mpg` hecho en Windows con
       `ffmpeg -i video.mp4 -c:v mpeg1video -c:a mp2 -s 640x360 video.mpg` se ve y
       se oye en el Ryzen, sin desfase notable en 60 segundos.
 
@@ -1129,7 +1129,7 @@ mismo generalizado:
 ```
 
 ** La regla que lo hace inteligente no es la lista de tipos: es que **BMO-X
-nunca recibe codigo, y la antena nunca recibe codigo SIN DUENO**. Lo primero
+nunca recibe codigo, y la antena nunca recibe codigo SIN PROPIETARIO**. Lo primero
 ya estaba (seccion 8). Lo segundo es lo que faltaba, y es 12.3.
 
 ## 12.3 Lo mas inteligente: EMPAREJAR, para que "codigo arbitrario" deje de ser la regla dura
@@ -1315,7 +1315,7 @@ decision de estilo, es el blit.
    bmo-antena habla ANTENA/1 con banco             ENTRADA de vuelta: TECLA/RATON de BMO-X a
                                                    la antena, y SendInput en Windows
    el stream se verifico en VLC (A1, 16-09)        S1: pl_mpeg en BMO-X. **BMO-X todavia no
-                                                   sabe ENSENAR video**; y G5 (TCP) para
+                                                   sabe MOSTRAR video**; y G5 (TCP) para
                                                    traerlo por el cable, y N3 (el ANTENISTA)
    la antena en Windows es 7x mas rapida           P0: EMPAREJAR. Una consola sin propietario es
    que el HONOR (L3b)                              una pantalla que cualquiera de la LAN mueve

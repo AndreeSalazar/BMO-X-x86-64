@@ -21,16 +21,16 @@ C89 = [
     "volatile", "while",
 ]
 
-# C99 anade cinco.
+# C99 agrega cinco.
 C99 = ["inline", "restrict", "_Bool", "_Complex", "_Imaginary"]
 
-# C11 anade siete.
+# C11 agrega siete.
 C11 = [
     "_Alignas", "_Alignof", "_Atomic", "_Generic", "_Noreturn",
     "_Static_assert", "_Thread_local",
 ]
 
-# C23 anade estas (las que importan; el resto son alias de <stdbool.h> etc).
+# C23 agrega estas (las que importan; el resto son alias de <stdbool.h> etc).
 C23 = ["bool", "true", "false", "nullptr", "typeof", "constexpr", "static_assert"]
 
 

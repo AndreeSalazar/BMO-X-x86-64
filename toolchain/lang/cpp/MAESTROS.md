@@ -134,7 +134,7 @@ documentada el mismo dia que se implementa** (ver la leccion de MSVC).
 `gcc/cp/` es del orden de doscientas mil lineas. Lo util no es el medida, es el
 **reparto**, porque no esta donde uno espera:
 
-| Fichero | Que hace | Tamano relativo |
+| Fichero | Que hace | Medida relativo |
 |---|---|---|
 | `pt.cc` | plantillas | **el mas grande, con diferencia** |
 | `call.cc` | resolucion de sobrecarga | **el segundo, y sorprende** |

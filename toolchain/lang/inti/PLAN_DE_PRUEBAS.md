@@ -43,7 +43,7 @@ anterior este, y saltarse uno hace que el siguiente mida otra cosa.
    1  EL CORPUS       las sondas dicen la verdad          -> ya
    2  EL EMULADOR     lo que compila, corre y acierta     -> ya, con limite
    3  EL METAL        lo que el emulador no puede dar     -> AQUI ESTAMOS
-   4  EL TAMANO       un programa de mil lineas
+   4  EL MEDIDA       un programa de mil lineas
    5  EL HOSTIL       lo que rompe a proposito
    6  EL TIEMPO       cuanto cuesta, medido
    7  EL AJENO        alguien que no lo escribio
@@ -237,7 +237,7 @@ el emisor.
 
 ---
 
-## 5. PELDANO 4 -- EL TAMANO: un programa grande
+## 5. PELDANO 4 -- EL MEDIDA: un programa grande
 
 **Estado: ⛔ CERO. El programa mas grande que INTI ha compilado tiene ONCE
 lineas.**
@@ -322,7 +322,7 @@ los puede aprobar el que escribio el lenguaje; este no.
    1 CORPUS   ->  sin el, los demas miden contra un veredicto que miente
    2 EMULADOR ->  sin el, el metal no dice si el fallo es del CPU o del emisor
    3 METAL    ->  sin el, medir tiempo da numeros de un emulador
-   4 TAMANO   ->  sin el, lo hostil prueba programas de once lineas
+   4 MEDIDA   ->  sin el, lo hostil prueba programas de once lineas
    5 HOSTIL   ->  sin el, el ajeno se estrella con el primer fichero raro
    6 TIEMPO   ->  sin el, no se puede decir lo que cuesta
    7 AJENO    ->  y sin el, todo lo anterior lo aprobo quien lo escribio

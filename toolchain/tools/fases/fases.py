@@ -4,7 +4,7 @@
 Por que existe, y por que NO es roja/amarilla/verde
 ====================================================
 
-El dueno lo pidio el 2026-09-09 con estas palabras:
+El propietario lo pidio el 2026-09-09 con estas palabras:
 
     "el modulo nivel 3 es bueno PERO no es suficiente. Hablo de modular propio
      que tenga enfoque en C, porque si es archivo y codegen hasta AST TODO SON
@@ -50,7 +50,7 @@ Lo que este guardian hace
 
     cuenta los ficheros que declaran las dos etiquetas y NO deja que bajen,
     comprueba que los valores estan en el vocabulario CERRADO,
-    y ENSENA LA LISTA DE LOS `DENTRO`
+    y MUESTRA LA LISTA DE LOS `DENTRO`
 
 *** Lo tercero es lo que de verdad se viene a buscar. Esa lista es **el mapa de
 las sorpresas**: los ficheros donde un error no va a avisar. Antes de tocar uno,
@@ -94,7 +94,7 @@ RE_CARRIL = re.compile(r"^//!\s*\[carril\]\s+([A-Z]+)\b", re.M)
 
 # *** EL SEMAFORO DEL COMPILADOR SE DERIVA, NO SE OPINA.
 #
-# El dueno lo pidio el 09-09 asi: "la regla en el compilador, el estandar es
+# El propietario lo pidio el 09-09 asi: "la regla en el compilador, el estandar es
 # semaforo de rojo y verde, EL PORQUE". Y el porque ya estaba medido: el color
 # de una pieza de compilador es **quien te sujeta si la rompes**.
 #
@@ -233,7 +233,7 @@ def main():
 
     orden = [f for f in FASES if f in por_fase]
     # ** El recuento de `DENTRO` va en la PRIMERA linea a proposito: el
-    # envoltorio del build solo ensena esa, y ese numero es el que hay que ver
+    # envoltorio del build solo muestra esa, y ese numero es el que hay que ver
     # sin ir a buscarlo. La lista entera sale al correr el guardian a mano.
     # ** SE DICE "N DE N". Un numero suelto se lee como cobertura completa
     # aunque no lo sea; con el denominador delante, el dia que no cuadren se

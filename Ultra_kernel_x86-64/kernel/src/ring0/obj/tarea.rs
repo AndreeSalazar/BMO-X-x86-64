@@ -30,7 +30,7 @@
 //! `TASK_OP_HIJO` --que solo busca lo ya concedido, como `CHANNEL_OPEN`-- no
 //! encuentra nada que darle.
 //!
-//! Anadir ademas una comprobacion de "es tu hijo?" seria tener la misma regla
+//! Agregar ademas una comprobacion de "es tu hijo?" seria tener la misma regla
 //! en dos sitios, que es como se acaba con dos reglas que no dicen lo mismo.
 //!
 //! ## El TID como objeto, y por que aqui sale gratis
@@ -92,7 +92,7 @@ pub fn buscar(pid: u32, tid: u64) -> Option<u64> {
 /// `None` = operacion que este objeto no conoce, y quien llama la convierte en
 /// el error de siempre. No se inventa un `0`: un cero aqui seria
 /// indistinguible de *"esta muerto"*, y esa es exactamente la confusion que
-/// `PRESTADO_OP_DUENO` documenta al otro lado.
+/// `PRESTADO_OP_PROPIETARIO` documenta al otro lado.
 pub fn operation(objeto: u64, op: u64, arg: u64) -> Option<u64> {
     let tid = objeto as u32;
     match op {

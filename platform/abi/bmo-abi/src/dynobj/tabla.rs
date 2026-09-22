@@ -85,7 +85,7 @@ pub enum Falta {
     /// Las ranuras no caben en el bloque.
     NoCabeEnLoQueMide,
     /// Contador a cero y no es inmortal: nadie la tiene y sigue viva.
-    SinDuenoYViva,
+    SinPropietarioYViva,
     /// **Llena del todo, o mintiendo sobre cuantas parejas tiene.**
     ///
     /// *** Esta es la que separa una tabla de una lista. Una tabla de
@@ -102,7 +102,7 @@ impl Falta {
         match self {
             Falta::Corta => "la tabla no llega ni a su cabecera",
             Falta::NoCabeEnLoQueMide => "las ranuras de la tabla no caben en su bloque",
-            Falta::SinDuenoYViva => "la tabla tiene cero referencias y no es inmortal",
+            Falta::SinPropietarioYViva => "la tabla tiene cero referencias y no es inmortal",
             Falta::SinMargen => "la tabla esta llena: buscar en ella no terminaria",
             Falta::SinRanuras => "la tabla no tiene ni una ranura",
         }
@@ -166,7 +166,7 @@ pub fn leer(bloque: &[u8]) -> Option<Tabla> {
 pub fn revisar(bloque: &[u8]) -> Result<Tabla, Falta> {
     let t = leer(bloque).ok_or(Falta::Corta)?;
     if t.refs == 0 && !super::header::is_immortal(t.refs) {
-        return Err(Falta::SinDuenoYViva);
+        return Err(Falta::SinPropietarioYViva);
     }
     if t.capacidad == 0 {
         return Err(Falta::SinRanuras);
@@ -194,7 +194,7 @@ mod pruebas {
     }
 
     #[test]
-    fn nace_vacia_con_un_dueno_y_sus_ranuras() {
+    fn nace_vacia_con_un_propietario_y_sus_ranuras() {
         let b = con(8);
         let t = revisar(&b).unwrap();
         assert_eq!(t.refs, 1);
@@ -247,9 +247,9 @@ mod pruebas {
     }
 
     #[test]
-    fn sin_dueno_y_viva_no_puede_existir() {
+    fn sin_propietario_y_viva_no_puede_existir() {
         let mut b = con(4);
         b[O_REFS..O_REFS + 8].copy_from_slice(&0u64.to_le_bytes());
-        assert_eq!(revisar(&b), Err(Falta::SinDuenoYViva));
+        assert_eq!(revisar(&b), Err(Falta::SinPropietarioYViva));
     }
 }

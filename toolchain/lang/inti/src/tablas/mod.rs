@@ -518,7 +518,7 @@ impl Catalogo {
     }
 
     /// **Las piezas que SI bajan, ordenadas.** Sale de la tabla, no de un `if`,
-    /// y por eso se puede ENSENAR: es la lista que contesta *"que puedes
+    /// y por eso se puede MOSTRAR: es la lista que contesta *"que puedes
     /// hacer?"* en vez de esperar a que alguien choque con un `E0073`.
     pub fn piezas_que_bajan(&self) -> Vec<String> {
         let mut v: Vec<String> = self.bajan.iter().cloned().collect();

@@ -83,7 +83,7 @@ panel de la propia maquina.
 | P2 | **el pintado** | cada frame | 60 (deseado) | ~98 M [ARITM] | > 1 nucleo | THROUGHPUT | **VIVO, el que manda** |
 | P3 | **la consola** | cada `printf` | segun el programa | **2,2 M** [MEDIDO] | 21 printf/s = 1% | THROUGHPUT | **VIVO** |
 | P4 | cambio de contexto | tick + ceder | ~1.000 + N | ~2.000 [ESTIM] | ~2 M = 0,04% | LATENCIA | **TACHADO** |
-| P5 | la carga de un `.bex` | cada `run` | ~0 | irrelevante | ~0 | TAMANO | **vivo por el TECHO** |
+| P5 | la carga de un `.bex` | cada `run` | ~0 | irrelevante | ~0 | MEDIDA | **vivo por el TECHO** |
 | P6 | el disco | por bloque | rafagas | 100 us+ [SPEC] | -- | THROUGHPUT | sin metro |
 | P7 | la entrada | por pulsacion | < 20 | microframe 125 us | ~0 | ninguno | **TACHADO** |
 | P8 | el arranque | una vez | 0 | -- | 0 | ninguno | **TACHADO** |
@@ -194,7 +194,7 @@ codigo cualquiera. No es la misma pieza aunque se llame igual.
 cambiar CR3** (C3/C2), que no se paga en el cambio sino **despues**, en fallos
 de TLB del que entra. Hoy no hay forma de medirlo: entra en la lista de C2.
 
-### P5 -- LA CARGA DE UN `.bex` | eje TAMANO | componentes C3, C6
+### P5 -- LA CARGA DE UN `.bex` | eje MEDIDA | componentes C3, C6
 
 ```
    ring0/task/{launch,bex,proc}.rs        MAX_BEX = 4 MiB | pila Ring 3 = 65.536 B
@@ -310,7 +310,7 @@ por descuido -- los cuatro sellos que lo partian existieron, contestaron
 el 17%**. El cableado hasta Ring 3 sigue puesto y `coste.bex` dice `NO MEDIDO`
 en vez de imprimir ceros.
 
-★★ **2. EL TERMOMETRO ES DEL TAMANO DEL ENFERMO, y la tanda del 16-08 lo dejo
+★★ **2. EL TERMOMETRO ES DEL MEDIDA DEL ENFERMO, y la tanda del 16-08 lo dejo
 sin discusion.** Los dos testigos midieron el coste de un `rdtsc` suelto y **no
 coinciden**:
 
@@ -457,7 +457,7 @@ es lo que hace que la lista de lo que si importa sea corta.
    3  C2 LA SONDA DE CACHE                  4 numeros (L1/L2/L3/DRAM) con el metro que hay
                                             desbloquea R-CACHE1 para P2 y P3
 
-   4  P5 EL TRINQUETE DE TAMANO             marco maximo por funcion + techo del .bex
+   4  P5 EL TRINQUETE DE MEDIDA             marco maximo por funcion + techo del .bex
 
    5  P9 EL ANTES/DESPUES DE `smp stop`     el metro de RAPL ya existe
 

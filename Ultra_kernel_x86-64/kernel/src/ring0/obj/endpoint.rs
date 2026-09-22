@@ -8,7 +8,7 @@
 //! guardian de L7 no la juzga (ver L7c en `META-KERNEL_HARD.md`).
 //! no sabe: quien lo llamo ni por que
 //!
-//! Diseno en `platform/abi/bmo-abi/src/ENDPOINT_RPC.md`. Es la pieza que
+//! Esquema en `platform/abi/bmo-abi/src/ENDPOINT_RPC.md`. Es la pieza que
 //! faltaba para F4 (drivers en Ring 3) y F5 (compositor): hasta ahora `INVOKE`
 //! solo alcanzaba operaciones implementadas **en el kernel**, asi que ningun
 //! proceso podia atender a otro.

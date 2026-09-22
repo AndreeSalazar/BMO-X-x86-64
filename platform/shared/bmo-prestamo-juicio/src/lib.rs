@@ -113,7 +113,7 @@ impl Tramo {
 /// ```text
 ///    bytes == 0              no hay nada que prestar. Mapear una pagina "por
 ///                            si acaso" seria prestar memoria que nadie ofrecio
-///    origen + bytes desborda  el tramo daria la vuelta y saldria PEQUENO, que
+///    origen + bytes desborda  el tramo daria la vuelta y saldria CHICO, que
 ///                            es el caso que tiene que parar
 /// ```
 pub fn tramo(origen: u64, bytes: u64) -> Option<Tramo> {

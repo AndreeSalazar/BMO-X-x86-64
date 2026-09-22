@@ -31,7 +31,7 @@ pub(super) struct Descenso<'t> {
     pub(super) siguiente_etiqueta: u32,
     pub(super) locales: Vec<String>,
     pub(super) textos: &'t mut Vec<String>,
-    /// Los congelados del modulo, para poder ANADIR el de un literal de texto.
+    /// Los congelados del modulo, para poder AGREGAR el de un literal de texto.
     ///
     /// ** Es `&mut` y las tablas constantes no lo son porque las tablas se
     /// conocen enteras antes de bajar nada --son declaraciones-- y un literal

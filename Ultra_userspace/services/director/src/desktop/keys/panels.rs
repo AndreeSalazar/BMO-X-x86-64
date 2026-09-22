@@ -367,7 +367,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
             let v = scene::data::fuente::Volumen::TODOS[(c - b'1') as usize];
             dsk.win.data.cambiar_volumen(v);
         }
-        // ** F2 RENOMBRA LO SENALADO, como en cualquier explorador.
+        // ** F2 RENOMBRA LO MARCADO, como en cualquier explorador.
         //
         // No estrena camino: escribe `renombra <lo marcado> ` en la consola y
         // **deja el cursor puesto**, que es exactamente lo que hace la entrada
@@ -413,7 +413,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                 // se acababa: la tecla no hacia nada y parecia que la lista
                 // estuviera muerta. Un archivo no tiene dentro donde bajar,
                 // pero SI tiene dentro que ver -- y es la misma intencion.
-                dsk.win.data.abrir_senalado();
+                dsk.win.data.abrir_marcado();
             }
         }
         // RETROCESO / IZQUIERDA: subir al padre.

@@ -42,7 +42,7 @@ fallar el guardian desde el primer dia, y un guardian que falla siempre se apaga
 en una semana. Es el mismo razonamiento que `censo_modular.py` escribe entero.
 
 Y la lista arranca con TODO lo que ya se usaba, ruido incluido. Podarla es
-trabajo del dueno con la lista delante, no un juicio de quien escribio esto:
+trabajo del propietario con la lista delante, no un juicio de quien escribio esto:
 borrar una linea de `AMBITOS.txt` es lo que hace que ese nombre deje de valer.
 
 Uso

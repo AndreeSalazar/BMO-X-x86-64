@@ -1,4 +1,4 @@
-# tables/ -- DOS DUENOS EN UNA CARPETA, y cual abre cada cosa
+# tables/ -- DOS PROPIETARIOS EN UNA CARPETA, y cual abre cada cosa
 
 > `tables/` es **la puerta de los terceros**: quien escribe C para BMO-X abre
 > esta carpeta, y `$BMO_MODS` la tapa sin bifurcar el repo. La ley esta en

@@ -417,7 +417,7 @@ pub struct FuncionIr {
     ///
     /// ## *** Por que esto tuvo que existir (2026-08-23)
     ///
-    /// Aqui ponia *"el TAMANO de cada una lo decide el emisor con el perfil de
+    /// Aqui ponia *"el MEDIDA de cada una lo decide el emisor con el perfil de
     /// la maquina: aqui solo se cuentan"*, y el emisor le daba **una palabra a
     /// cada una**: `local(l) = -((l+1) * PALABRA)`.
     ///

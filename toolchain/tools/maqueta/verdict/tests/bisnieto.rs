@@ -79,7 +79,7 @@ fn una_caja_fuera_de_su_padre_sale_con_las_dos_geometrias() {
 }
 
 #[test]
-fn una_caja_de_tamano_cero_se_caza_porque_no_se_puede_ver() {
+fn una_caja_de_medida_cero_se_caza_porque_no_se_puede_ver() {
     let v = veredicto("<maqueta><div class=\"a\"></div></maqueta><style>.a{height:0}</style>");
     assert!(v.contains("no se va a ver"));
     assert!(v.contains("propiedad que se olvido"));
