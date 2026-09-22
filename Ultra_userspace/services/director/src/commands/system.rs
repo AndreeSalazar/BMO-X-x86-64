@@ -245,6 +245,57 @@ pub(crate) fn audio(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         dsk.field.n = 0;
         return After::Settle;
     }
+    // ** `audio volumen N` (2026-09-22). El propietario, tras oir por primera vez
+    // el audifono: *"dijiste el audio mas fuerte pero no sentia mas fuerte el
+    // sonido"*. Y tenia razon: el aparato declara -45,0 a 0,0 dB y **nadie le
+    // habia mandado nunca un volumen** (`volumen 0 -- nadie ha puesto un
+    // volumen todavia`, arranque tras arranque). Sonaba con lo que trajera de
+    // fabrica.
+    if let Some(resto) = arg.strip_prefix(b"volumen") {
+        let resto = resto.strip_prefix(b" ").unwrap_or(resto);
+        let mut pct = 0u64;
+        let mut cifras = 0;
+        for &b in resto {
+            if b.is_ascii_digit() {
+                pct = pct * 10 + (b - b'0') as u64;
+                cifras += 1;
+            } else if b != b' ' {
+                cifras = 0;
+                break;
+            }
+        }
+        if cifras == 0 || pct > 100 {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  `audio volumen N`, con N de 0 a 100
+");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            dsk.out.grid.text(b"  es el volumen DEL APARATO, sobre su escala (mira `save`)
+");
+        } else {
+            let puesto = bmo::audio_volumen(pct);
+            dsk.out.grid.with_ink(if puesto != 0 || pct == 0 { INK_GOOD } else { INK_ERR });
+            dsk.out.grid.text(b"  volumen del aparato a ");
+            dsk.out.grid.dec(puesto);
+            dsk.out.grid.text(b" %
+");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            // Lo que el propietario tiene que saber para no buscar donde no es: el
+            // aparato topa en 0,0 dB y por encima ya no da mas.
+            dsk.out.grid.text(b"  lo manda el hilo del bus en su vuelta; `save` dice si
+");
+            dsk.out.grid.text(b"  el aparato lo CONFIRMO y en que dB quedo.
+");
+            if pct == 100 {
+                dsk.out.grid.text(b"  100 % es el TECHO DEL APARATO (0,0 dB): mas alto que eso
+");
+                dsk.out.grid.text(b"  solo lo da amplificar por software, y eso es otra perilla.
+");
+            }
+        }
+        paint_status(&p, &dsk.run_box, "audio", INK_DIM);
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     if arg == b"calla" || arg == b"para" {
         bmo::audio_tubo(2);
         dsk.out.grid.text(b"  tubo callado\n");

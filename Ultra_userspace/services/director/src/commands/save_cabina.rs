@@ -389,15 +389,34 @@ fn tabla_de_formatos(s: &mut Output) {
         let n_hz = (p >> 48) & 0xFF;
         let cabe = (p >> 56) & 1 == 1;
         let elegido = (p >> 57) & 1 == 1;
-        let primera = bmo::info(bmo::INFO_AUDIO_FRECUENCIA | (i << 8));
+        // *** LA FRECUENCIA CON LA QUE SE HACE LA CUENTA, Y EL METAL LA
+        // CAZO. La primera version usaba la PRIMERA que el aparato declara, y
+        // el save del 22-09 a las 08:23 salio con `B/ms 176` para un formato
+        // que estaba sonando a 48.000 (192): el audifono declara `44100/48000`
+        // en ese orden. Un numero con la unidad correcta y la entrada
+        // equivocada es peor que no ponerlo. Ahora: del elegido se toma la que
+        // el tubo tiene PUESTA, y de los demas la mas alta que declaren.
+        let mut hz = 0u64;
+        for k in 0..n_hz.min(6) {
+            let r = bmo::info(bmo::INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12));
+            if r > hz {
+                hz = r;
+            }
+        }
+        if elegido {
+            let en_uso = bmo::info(bmo::INFO_AUDIO_TUBO) & 0xFF_FFFF;
+            if en_uso != 0 {
+                hz = en_uso;
+            }
+        }
         s.with_ink(if elegido { INK_GOOD } else { INK_PLAIN });
         s.text(b"      ");
-        s.dec_right((p & 0xFF) + 0, 3);
+        s.dec_right(p & 0xFF, 3);
         s.dec_right(canales, 9);
         s.dec_right(bits, 7);
-        // Los bytes por milisegundo a SU primera frecuencia: la cuenta que
-        // decide si cabe, hecha aqui para que nadie tenga que hacerla.
-        s.dec_right((primera / 1000) * canales * sub, 6);
+        // Los bytes por milisegundo A ESA frecuencia: la cuenta que decide si
+        // cabe, hecha aqui para que nadie tenga que hacerla.
+        s.dec_right((hz / 1000) * canales * sub, 6);
         s.dec_right(maxpkt, 9);
         s.text(match (p >> 58) & 3 {
             1 => b"  async" as &[u8],
@@ -420,14 +439,18 @@ fn tabla_de_formatos(s: &mut Output) {
         s.with_ink(INK_PLAIN);
         s.byte(10);
         // Y a DATOS.TXT, crudo, para el que lee con una maquina.
-        anotar_formato(i, p, primera);
+        anotar_formato(i, p, hz);
     }
     s.with_ink(INK_ECHO);
-    s.text(b"      la cuenta: B/ms = (Hz / 1000) x canales x bytes por muestra. Si pasa de
+    s.text(b"      la cuenta: B/ms = (Hz / 1000) x canales x bytes por muestra, a la que el
 ");
-    s.text(b"      `max pkt`, ese formato NO cabe en el milisegundo del bus y no se puede usar.
+    s.text(b"      tubo tiene PUESTA (el elegido) o a la mas alta que declare (los demas).
 ");
-    s.text(b"      192 B/ms a 48 kHz son 48 x 2 x 2: ESTEREO. Un 5.1 pediria 576.
+    s.text(b"      Si pasa de `max pkt`, ese formato NO cabe en el milisegundo del bus.
+");
+    s.text(b"      192 B/ms a 48 kHz son 48 x 2 x 2: ESTEREO. Un 5.1 pediria 576, un 7.1 768.
+");
+    s.text(b"      Una sola fila de 2 canales = este aparato NO lleva multicanal por el cable.
 ");
     s.with_ink(INK_PLAIN);
 }

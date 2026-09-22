@@ -476,6 +476,48 @@ reloj y el nuestro se separan), y una tabla de rarezas por `vid:pid`.
 
 ---
 
+# 3.5 -- LO QUE EL METAL CONTESTO EL 22-09 A LAS 08:23
+
+**SONO.** `run inti/musica.ibx` con el audifono puesto: `tubo USB`,
+`encoladas 15920`, `tarde 0`. El camino entero funciona.
+
+Y la tabla de S0, escrita horas antes justo para esta pregunta, contesta la
+grande:
+
+```text
+      alt  canales   bits  B/ms  max pkt  sinc    frecuencias
+        1        2     16   192      192  --     44100/48000  <- ELEGIDO
+```
+
+**UN solo formato, DOS canales.** El audifono "7.1" no lleva multicanal por el
+cable: su 7.1 es virtual. Eso mueve S6 y S7 de sitio:
+
+* **S6 (5.1 y 7.1 de verdad) se escribe y no se ejecuta** en esta casa, y asi
+  queda dicho. Sirve el dia que haya un aparato que los ofrezca; la tabla de
+  S0 lo dira sin que nadie lo suponga.
+* **S7 (el 3D en dos oidos) deja de ser un lujo y pasa a ser EL camino**: es
+  la unica forma de que este aparato situe un sonido, porque es la unica que
+  tiene. Sube de sitio en el orden.
+
+Y declara **44.100 y 48.000 en el mismo alt**: con S2 hecho, un CD se toca a su
+frecuencia sin remuestrear.
+
+## Lo que NO sono fuerte, y por que: DOS perillas, ninguna puesta
+
+El propietario: *"dijiste el audio mas fuerte pero no sentia mas fuerte el
+sonido"*. Tenia razon, y no era el amplificador:
+
+| perilla | donde | estaba en |
+|---|---|---|
+| el volumen **del aparato** | Feature Unit, -45,0 a 0,0 dB | **sin poner** -- el escritorio no tenia orden |
+| el nivel **de la fuente** | `musica.inti` sintetiza a +-3.000 de 32.767 | **-20,7 dBFS**, a proposito |
+| la **ganancia** por software | `bmo-amplificador` | escrita, sin enchufar (P2/P3) |
+
+Lo primero se arregla el mismo dia: **`audio volumen N`** (0..100 sobre la
+escala del aparato). Es gratis y llega hasta el techo del aparato; la ganancia
+por software empieza donde eso se acaba. Subir la segunda sin haber subido la
+primera es amplificar algo que el aparato todavia podia dar limpio.
+
 # 4. EL ORDEN, Y POR QUE ES ESE
 
 ```text

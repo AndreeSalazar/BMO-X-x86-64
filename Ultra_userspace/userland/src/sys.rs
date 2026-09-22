@@ -322,6 +322,36 @@ pub fn audio_tubo(que: u64) -> u64 {
     v
 }
 
+/// **El volumen DEL APARATO**, 0..100, sobre su propia escala (el Feature
+/// Unit). Devuelve el porcentaje que quedo puesto, o 0 si no hay aparato.
+///
+/// *** ESTA ERA LA PERILLA QUE FALTABA (2026-09-22). El kernel sabe mandarlo
+/// desde A6 y `Sonido::volumen` lo envuelve, pero **el escritorio no tenia
+/// orden para pedirlo**: el `save` decia `volumen 0  nadie ha puesto un
+/// volumen todavia` arranque tras arranque, y el audifono sonaba con lo que
+/// trajera de fabrica. El propietario lo dijo en una frase: *"no sentia mas
+/// fuerte el sonido"*.
+///
+/// Son DOS perillas distintas y conviene no confundirlas:
+///
+/// ```text
+///    esta            el volumen del APARATO   -45,0 .. 0,0 dB, lo pone el aparato
+///    la ganancia     el volumen del SOFTWARE  hasta +24 dB, y por encima de 0,0
+/// ```
+///
+/// La primera es gratis y llega hasta el techo del aparato; la segunda empieza
+/// donde la primera se acaba. Subir la segunda sin haber subido la primera es
+/// amplificar por software algo que el aparato todavia podia dar limpio.
+pub fn audio_volumen(pct: u64) -> u64 {
+    let h = match invoke(CURRENT_TASK, OP_AUDIO_CLAIM, 0, 0, 0).valor() {
+        Some(h) => h,
+        None => return 0,
+    };
+    let v = invoke(h, AUDIO_OP_VOLUME as u32, pct.min(100), 0, 0).valor().unwrap_or(0);
+    let _ = invoke(CURRENT_TASK, OP_AUDIO_RELEASE, h, 0, 0);
+    v
+}
+
 pub fn audio_censo() -> bool {
     invoke(CURRENT_TASK, OP_AUDIO_CENSO, 0, 0, 0).value != 0
 }
