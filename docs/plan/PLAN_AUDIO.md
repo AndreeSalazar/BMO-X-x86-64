@@ -23,6 +23,7 @@
 | **4** -- el bufer prestado | dos indices, y CERO copias | ✅ **HECHO 25-08**, sin ejecutar |
 | **5** -- MP3 | encima del mismo tubo | ⛔ falta, **y va el ultimo** |
 | **6** -- el audio se INTEGRA (21-09) | el audifono lo RECLAMA el que enumera; el volumen va por el hilo del bus; el `save` lo cuenta entero | ✅ **HECHO 21-09**, sin ejecutar. Ver A6 |
+| **7** -- el audifono ENTRA en el metal (22-09) | `1B3F:2008` reclamado, ranura 3, rango -45 a 0 dB, **tubo abierto** a 48.000 Hz | ✅✅ **CONFIRMADO en el Ryzen 00:21**. Falta que SUENE (`musica`) |
 
 ★★ **Y la fila que importa cambio el 25-08: el camino entero esta escrito.**
 Descriptor, endpoint, alt, frecuencia, TRB isocrono y el bucle que alimenta.
@@ -468,6 +469,20 @@ pasa por `address0, get_dev, evaluate, reset, address, get_dev, ...` (11
 hechos, en 260-340 ms de plazos); el de paquete 64 entra SIN evaluate y sin
 Babble. El esquema viejo (`mps0_supuesto` 8 para Full Speed y los
 descriptores tras el SET_ADDRESS) esta retirado, no aparcado. Sin metal.
+
+## [X] A10 -- EL AUDIFONO ENTRO EN EL METAL (2026-09-22, 00:21)
+
+El plazo de datos a 500 ms (USB 2.0 9.2.6.4) fue lo ultimo que faltaba: el
+`1B3F:2008` da sus descriptores, el kernel lo reclama (`audifono 3 ranura`,
+3 canales, mute, **-45,0 a 0,0 dB**) y **el tubo isocrono se abre solo**
+(`tubo 1`, 48.000 Hz, 192 B por trama, max packet 192). Cinco fichas suyas
+en el libro. Lo que NO esta: `encoladas 0`, `armado 0`, `volumen 0` --nadie
+ha mandado una muestra todavia--, y el precio: `peor trabajo bombeo 62.020
+us` porque `instalar` + `reclamar` + `pedir_tubo` bloquean en UN bombeo.
+Corregido de paso: la hipotesis de A7 (el audifono declaraba paquete 64)
+era FALSA --declara 8 a Full Speed--; el `Evaluate Context` hacia falta
+igual, pero la causa del "sin papeles" era el plazo. Detalle en
+[`METAL_2026-09-18.md`](../metal/METAL_2026-09-18.md) 3e-quater.
 
 ## [X] A9 -- LOS DOS PASOS DE MAS: sin teclado ni raton dos arranques (2026-09-22)
 

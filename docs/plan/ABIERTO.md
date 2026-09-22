@@ -8,7 +8,7 @@
 
 ```text
    252 casillas ABIERTAS en 31 planes
-   250 hechas
+   251 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 65 casillas sueltas NO cuentan como abiertas)
@@ -262,7 +262,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] N5 -- el HISTORIAL. Cada lamina que entra se guarda en ESTRATOS con
 - [ ] AA0 -- la app Android, en el repo. toolchain/tools/antena/android/
 
-## [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 2 abiertas, 14 hechas
+## [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 2 abiertas, 15 hechas
 
 *PLAN AUDIO -- las casillas de su MAESTRO, medidas contra el codigo*
 

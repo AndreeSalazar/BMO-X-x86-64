@@ -151,7 +151,9 @@ pub(crate) fn report_usb(s: &mut Output) {
             }
             s.text(b", ");
             s.dec((detalle >> 9) * 8);
-            s.text(b" ms]");
+            // El campo son 7 bits de octavos de ms: 1016 es su TECHO, no
+            // una medida. Decirlo, o el que lo lea creera que midio.
+            s.text(if (detalle >> 9) == 127 { b" ms o MAS]" as &[u8] } else { b" ms]" });
         }
         // Y para la maquina (DATOS.TXT): una clave por ficha, con el
         // veredicto y su detalle crudos.
