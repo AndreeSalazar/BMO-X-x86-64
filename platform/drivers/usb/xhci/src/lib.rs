@@ -536,6 +536,29 @@ pub(crate) unsafe fn cazar_vigilado(ev: &Evento) -> bool {
     false
 }
 
+/// **EL RELOJ DEL BUS: por que microtrama va el controlador** (xHCI 5.5.1).
+///
+/// `MFINDEX` es el primer registro del espacio de *runtime*: un contador de 14
+/// bits que el xHC sube cada **125 us** --una microtrama-- y que da la vuelta
+/// cada 16.384 (2,048 s). Es el reloj con el que el controlador sirve los
+/// endpoints isocronos, o sea **el unico reloj que dice cuantas tramas de audio
+/// se han consumido de verdad**.
+///
+/// *** POR QUE HACE FALTA (2026-09-22). El latido del audio encolaba un numero
+/// FIJO de tramas cada vez que el hilo del bus pasaba por el -- ocho cada 4 ms,
+/// o sea el DOBLE de lo que el aparato come. Ver `dev/usb/audio.rs`,
+/// `latido`. Con este numero el latido encola lo que se CONSUMIO, ni mas ni
+/// menos, sin depender de cuando le toque al hilo.
+///
+/// `None` si no hay controlador.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn mfindex() -> Option<u16> {
+    let c = CTRL.as_ref()?;
+    Some((r32(c.mmio + c.rt_base as u64) & 0x3FFF) as u16)
+}
+
 /// Codigo de complecion de un evento (`cc`, xHCI 6.4.2).
 pub fn cc_de(ev: &Evento) -> u8 {
     ((ev.2 >> 24) & 0xFF) as u8

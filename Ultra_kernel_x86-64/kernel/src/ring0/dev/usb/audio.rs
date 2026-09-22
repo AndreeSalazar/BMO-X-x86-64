@@ -361,16 +361,64 @@ static mut CEROS: u64 = 0; // [escribe] ambos
 /// Esta el tubo empujando?
 static mut ARMADO: bool = false; // [escribe] escritorio
 
-/// **Cuantas tramas se encolan en cada latido del bus.**
+/// **Cuantas tramas tiene que haber EN VUELO en el xHC**: encoladas y aun no
+/// servidas. El latido rellena hasta aqui, y nada mas.
 ///
 /// El bus late cada 4 ms y una trama isocrona dura 1 ms, asi que hacen falta
 /// **cuatro** para cubrir el latido -- mas [`bmo_xhci::ISOCH_ADELANTO`] de
 /// colchon, porque un latido que llegue tarde no puede dejar el tubo seco.
+/// Cuatro mas cuatro son 8 ms, que es lo que `AUDIO_MAESTRO` llama audio y no un
+/// problema.
 ///
-/// [!] Y pasarse tampoco es gratis: cada trama de mas es latencia que el que
-/// escucha nota al parar la musica. Cuatro mas cuatro son 8 ms, que es lo que
-/// `AUDIO_MAESTRO` llama audio y no un problema.
-const TRAMAS_POR_LATIDO: usize = 4 + bmo_xhci::ISOCH_ADELANTO as usize;
+/// *** ESTE NUMERO ERA "CUANTAS POR LATIDO", Y ESE ERA EL FALLO (2026-09-22).
+///
+/// Se llamaba `TRAMAS_POR_LATIDO` y el latido encolaba esas ocho **cada vez**,
+/// con independencia de cuantas hubiera servido el xHC. Cada 4 ms entraban 8 ms
+/// de audio: **el doble de lo que el aparato come**. El `save` de las 12:38 lo
+/// dijo con el numero exacto sin que nadie lo supiera leer:
+///
+/// ```text
+///    encoladas  77.192   en ~38 s de DOOM   =  ~2.030 por segundo
+///    lo que un aparato Full Speed come      =   1.000 por segundo
+/// ```
+///
+/// Y lo que eso hace, en cadena: el latido consume el bufer de la app al DOBLE
+/// de velocidad (`siguiente_trama` avanza `leido` por cada una), el productor
+/// no llega (`huecos 7.540`), y el anillo de TRBs del xHC se pisa a si mismo
+/// porque `queue_isoch_out` no mira si esta lleno. El propietario lo oyo en una
+/// palabra: *"raro"*. El colchon (`ISOCH_ADELANTO`) tenia que ponerse UNA VEZ,
+/// al armar; se estaba poniendo en cada latido.
+///
+/// Y `musica.inti` lo tenia igual: sus `encoladas 15.920` del 22-09 a las 08:23
+/// no eran "casi dieciseis segundos" de musica, como se escribio entonces --
+/// eran unos ocho, servidos al doble. Una onda cuadrada lo disimula; los
+/// efectos de DOOM, no.
+const TRAMAS_EN_VUELO: u32 = 4 + bmo_xhci::ISOCH_ADELANTO as u32;
+
+/// **Microtramas por trama**: 8, porque una microtrama son 125 us y el tubo de
+/// hoy sirve una trama cada 1 ms. Es la misma suposicion que ya hace
+/// `bmo_uaudio::stream::Playback::bytes_per_interval` --`rate / 1000`--, y se
+/// dice aqui para que sea UNA suposicion escrita y no dos escondidas: un
+/// aparato High Speed con `bInterval` de microtrama cambia las dos a la vez.
+const MICROTRAMAS_POR_TRAMA: u32 = 8;
+
+/// Tramas encoladas y aun no servidas, segun el reloj del bus.
+static mut EN_VUELO: u32 = 0; // [escribe] bombeo
+/// El `MFINDEX` de la ultima vez que el latido miro.
+static mut ULTIMO_MF: u16 = 0; // [escribe] bombeo
+/// Las microtramas que sobraron de la cuenta anterior: 8 hacen una trama, y
+/// tirar las que no llegan a 8 haria que el latido se retrasara un poco en
+/// cada vuelta.
+static mut RESTO_UF: u32 = 0; // [escribe] bombeo
+/// Cuando miro por ultima vez, en ms: el `MFINDEX` da la vuelta cada 2,048 s y
+/// un hilo que tarde mas en volver leeria una resta que miente.
+static mut ULTIMO_MS: u64 = 0; // [escribe] bombeo
+/// **Lo que el LATIDO cree del armado**, que no es `ARMADO`: `ARMADO` lo pone la
+/// app desde su syscall, y este lo copia el hilo del bus. Cuando no coinciden,
+/// es que acaban de armarlo --o de callarlo-- y el ritmo empieza de cero. Asi
+/// todo el estado del ritmo tiene UN escritor, y la etiqueta de arriba es
+/// verdad.
+static mut LATIDO_ARMADO: bool = false; // [escribe] bombeo
 
 /// **Armar o desarmar el empuje de silencio.** `false` deja de alimentar.
 ///
@@ -395,9 +443,38 @@ pub fn armar_silencio(si: bool) -> bool {
         crate::ring0::mm::phys::zero_frame(f);
         unsafe { CEROS = f };
     }
+    // ** Aqui NO se pone el ritmo a cero, aunque seria lo natural. `armar`
+    // corre en el syscall de la app y el ritmo lo lleva el hilo del bus: si los
+    // dos lo escribieran, el guardian `escritores` tendria que decir `ambos` y
+    // su linea base solo puede bajar. El latido se entera solo de que acaban
+    // de armarlo (`LATIDO_ARMADO`) y empieza de cero el mismo.
     unsafe { ARMADO = si };
     cabina::count("audio", if si { "tubo ARMADO: empujando silencio" } else { "tubo callado" }, 0);
     true
+}
+
+/// **Cuantas tramas sirvio el xHC desde la ultima vez**, segun SU reloj.
+///
+/// La cuenta es `(MFINDEX_ahora - MFINDEX_antes) / 8`, con la vuelta de los 14
+/// bits y el resto guardado. Y una guarda: si el hilo del bus tardo mas de un
+/// segundo en volver --el `save` ha visto latidos de 60 ms, no de 2 s, pero no
+/// se supone--, la resta de 14 bits ya no dice la verdad, y lo honrado es dar
+/// el vuelo por vaciado entero.
+unsafe fn servidas_desde_la_ultima() -> u32 {
+    let ahora_ms = bmo_xhci::hal().ahora_ms();
+    let Some(mf) = bmo_xhci::mfindex() else { return TRAMAS_EN_VUELO };
+    let delta = (mf.wrapping_sub(ULTIMO_MF) & 0x3FFF) as u32;
+    let paso_mucho = ahora_ms.saturating_sub(ULTIMO_MS) > 1000;
+    ULTIMO_MF = mf;
+    ULTIMO_MS = ahora_ms;
+    if paso_mucho {
+        RESTO_UF = 0;
+        return TRAMAS_EN_VUELO;
+    }
+    RESTO_UF += delta;
+    let tramas = RESTO_UF / MICROTRAMAS_POR_TRAMA;
+    RESTO_UF %= MICROTRAMAS_POR_TRAMA;
+    tramas
 }
 
 /// Esta armado?
@@ -415,7 +492,20 @@ pub fn armado() -> bool {
 /// despues de encolar las ocho es exactamente igual de efectivo.
 pub fn latido() {
     if !unsafe { ARMADO } {
+        unsafe { LATIDO_ARMADO = false };
         return;
+    }
+    if !unsafe { LATIDO_ARMADO } {
+        // Acaban de armarlo: nada en vuelo, y el reloj del bus desde AHORA. El
+        // primer latido llena el colchon entero; los siguientes solo reponen
+        // lo consumido.
+        unsafe {
+            EN_VUELO = 0;
+            RESTO_UF = 0;
+            ULTIMO_MF = bmo_xhci::mfindex().unwrap_or(0);
+            ULTIMO_MS = bmo_xhci::hal().ahora_ms();
+            LATIDO_ARMADO = true;
+        }
     }
     let Some(t) = tubo() else { return };
     let ceros = unsafe { CEROS };
@@ -426,7 +516,19 @@ pub fn latido() {
     // Un `wMaxPacketSize` mas grande que la trama real es legal --el aparato
     // acepta hasta ahi-- y mandarle de mas seria inventar muestras.
     let largo = t.bytes_por_trama.min(t.max_packet as u32) as u16;
-    for i in 0..TRAMAS_POR_LATIDO {
+    // ** CUANTAS, Y ES LA PREGUNTA QUE FALTABA. Las que el xHC sirvio desde la
+    // ultima vez salen del vuelo; se encolan las que falten para volver a
+    // tener `TRAMAS_EN_VUELO`. Ni una mas: cada trama de mas era muestra de la
+    // app consumida al doble de velocidad.
+    let a_encolar = unsafe {
+        let servidas = servidas_desde_la_ultima();
+        EN_VUELO = EN_VUELO.saturating_sub(servidas);
+        TRAMAS_EN_VUELO.saturating_sub(EN_VUELO)
+    };
+    if a_encolar == 0 {
+        return;
+    }
+    for i in 0..a_encolar {
         // *** UNA SOLA PIDE AVISO POR LATIDO, Y ES LA ULTIMA.
         //
         // ** Antes lo pedian las OCHO --`queue_isoch_out` ponia IOC fijo-- y
@@ -441,7 +543,7 @@ pub fn latido() {
         //
         // [!] La ULTIMA y no la primera: lo que interesa saber es que la tanda
         // entera entro, y eso lo dice el aviso de la de atras.
-        let avisar = i + 1 == TRAMAS_POR_LATIDO;
+        let avisar = i + 1 == a_encolar;
         // *** LAS MUESTRAS DE VERDAD PRIMERO, Y SI NO HAY, SILENCIO **CONTADO**.
         //
         // Un hueco no se deja vacio: el endpoint tiene una cita cada
@@ -461,6 +563,7 @@ pub fn latido() {
             if !bmo_xhci::queue_isoch_out(t.slot, t.dci, donde, n, avisar) {
                 break;
             }
+            EN_VUELO += 1;
         }
     }
     unsafe { bmo_xhci::ring_doorbell(t.slot, t.dci) };

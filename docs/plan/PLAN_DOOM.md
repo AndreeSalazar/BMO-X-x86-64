@@ -565,6 +565,20 @@ alguien pisa `rdx` antes de tiempo, `a1` llegaria con el valor de `a0` y la
 fila cae.
 
 DOOM: **740.098 B**. Sin metal todavia.
+
+## [X] 5.3d -- *"ESCUCHO TODO, PERO ESTA RARO"*: el latido servia el DOBLE (2026-09-22)
+
+DOOM sono a la primera (`intento 1`) y el propietario lo oyo todo, raro. El `save`
+lo decia con un numero: `encoladas 77.192` en ~38 s son **~2.030 por segundo**,
+y un aparato Full Speed come **1.000**. El latido del kernel encolaba ocho
+tramas cada 4 ms sin preguntar cuantas habia servido el xHC: el bufer de DOOM
+se consumia al doble (efectos acelerados y con saltos) y el productor no
+llegaba (`huecos 7.540`). **No era de este modulo: era de la pieza de abajo**,
+y `musica.inti` lo tenia igual desde el primer dia.
+
+El latido ahora se acompasa a **`MFINDEX`**, el reloj con el que el propio xHC
+sirve los isocronos, y repone solo lo servido. Detalle y tabla en
+[`METAL_2026-09-18.md`](../metal/METAL_2026-09-18.md) 3e-sexies.
 ---
 
 # La cuenta, para poder repartir
