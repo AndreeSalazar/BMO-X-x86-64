@@ -336,7 +336,7 @@ y `AUDIO_OP_BEEP` va **solo** al altavoz -- que en esta placa no tiene zumbador.
 | 5.0 | ~~Decidir el aparato~~ | M | ~~HD Audio o AC'97~~ **Contestado por el metal: USB** |
 | 5.1 | Enumerar el aparato y abrir un stream de salida | XL | ✅ **CONFIRMADO en el Ryzen 2026-09-22, 00:21**: `1B3F:2008` reclamado, ranura 3, `tubo 1`, 48.000 Hz, 192 B por trama |
 | 5.2 | `KIND_AUDIO` como capability | M | ✅ **HECHO**: un propietario a la vez, y se recupera solo si muere |
-| 5.3 | ★ **El modulo de sonido de DOOM, y su mezclador** | L | **LO UNICO QUE FALTA para los efectos.** Ver abajo |
+| 5.3 | ★ El modulo de sonido de DOOM, y su mezclador | L | ✅ **ESCRITO el 2026-09-22**: `bmo_sonido.c`, y DOOM compila con el. Falta el metal |
 | 5.4 | Musica MUS -> MIDI (`mus2mid.c` ya compila) | XL | y sin sintetizador MIDI no suena: es OTRO proyecto |
 
 ★ **La linea honesta**: 5.0 a 5.3 son "DOOM con efectos". 5.4 es "DOOM con
@@ -391,6 +391,49 @@ detras. Sin SDL, sin libsamplerate y sin tocar el kernel.
 frecuencia del aparato, sin mezclar ni remuestrear: si eso no se oye, el
 mezclador de DOOM solo pondria ocho veces el mismo silencio.
 
+## [X] 5.3 -- HECHO el 2026-09-22 (sin metal): `bmo_sonido.c`
+
+`musica` sono a las 08:23, asi que el orden se cumplio y le toco a esto. El
+modulo vive en `BMO-externo/doom/doomgeneric/doomgeneric/bmo_sonido.c` --DOOM
+es GPL-2.0 y este arbol es Apache-2.0-- y tiene cuatro piezas:
+
+| pieza | que hace |
+|---|---|
+| el lector de DMX | la cabecera de 24 B del lump: formato, frecuencia y cuantas muestras. **Toma el menor entre lo declarado y lo que hay**: un WAD tocado que declare de mas seria leer memoria de otro y mandarla por el altavoz |
+| el mezclador | ocho canales, remuestreo en coma fija 16.16 (de 11.025 a 48.000 el paso es 15.059), `vol` y `sep` de DOOM a dos ganancias, **suma en 32 bits** y recorte al salir |
+| el tubo | reclama el sonido, lee `BYTES_MS` y `FRECUENCIA` del aparato --**los canales se CALCULAN**: 192/(48x2) = 2, no se suponen--, presta un bloque de 4 MiB y arma |
+| el modulo de musica | un armazon que contesta `false` y lo DICE: sin sintetizador MIDI no hay musica (5.4) |
+
+Y tres cosas que hubo que quitar de en medio, todas dichas donde pasan:
+
+1. **`sonido.h` no conocia el tubo.** La cabecera de C tenia pitar, volumen y
+   callar, y el altavoz de esta placa no tiene zumbador: un programa de C solo
+   podia pitar al vacio. Ahora trae `BMO_SONIDO_TUBO` con sus catorce campos y
+   `bmo_tubo()`. **Eso esta en el repo** (`tables/bmo/sonido.h`) y vale para
+   cualquier tercero, no solo para DOOM.
+2. **`i_sound.c` incluye `<SDL_mixer.h>` bajo `FEATURE_SOUND` y no usa ni un
+   simbolo suyo** (comprobado con grep: las tres apariciones son comentarios).
+   Un armazon vacio en `doom-port/include` en vez de tocar DOOM.
+3. **`use_libsamplerate` y `libsamplerate_scale`** los definia `i_sdlsound.c`,
+   que se salta. Van en `doomgeneric_bmo.c` **antes** del agregado, porque BMO
+   C resuelve los nombres en el orden en que los lee.
+
+**El precio, y es un arreglo dicho como tal**: el bufer prestado es LINEAL, no un
+anillo (el kernel sirve desde `fisica + leido` y el juez rechaza lo que se
+sale). Para seguir sonando hay que volver a ofrecerlo, y eso pone los indices a
+cero -- o sea que hay que esperar a que el aparato consuma todo. Con 4 MiB eso
+pasa **una vez cada 21,8 s** y cuesta unos milisegundos de silencio que el tubo
+rellena solo y cuenta como `huecos`. Lo correcto es que el bufer sea un ANILLO
+en el kernel; se apunta y no se finge.
+
+DOOM compila con el: **740.232 B**, +8.440 sobre la version muda (+1,2 %).
+
+| que | afirma | como se cae |
+|---|---|---|
+| `run apps/doom.bex` con el audifono | `[bmo] sonido: tubo USB a 48000 Hz, 2 canales, 192 B/ms`, y **se oyen los disparos** | `no hay tubo`: el audifono no entro en ese arranque; `lo tiene otro programa`: algo no solto el sonido |
+| el `save` despues | `encoladas` sube, `tarde 0`, `huecos` unas pocas decenas | `huecos` en cientos: la ventaja de 100 ms no basta y hay que subirla |
+| la musica | no suena, **y lo dice al arrancar** | -- |
+
 ---
 
 # La cuenta, para poder repartir
@@ -404,7 +447,7 @@ Actualizada el **2026-08-13**.
 | 2 -- la plataforma | 6 | 0 | **[x]** escrita, `doomgeneric_bmo.c` |
 | 3 -- el WAD | 3 | 0 | **[x]** escrito -- `-iwad apps/doom1.wad` |
 | 4 -- jugable | 3 | 2 | guardar partida pide `fwrite`, que devuelve 0 |
-| 5 -- sonido | 6 | **1** (5.3, el mezclador) | 5.0b/5.0/5.1/5.2 confirmados en metal el 22-09; 5.4 es otro proyecto |
+| 5 -- sonido | 6 | **0 para los efectos** | 5.0b/5.0/5.1/5.2 en metal el 22-09, 5.3 escrito el mismo dia; 5.4 (musica) es otro proyecto |
 
 ★★ **NO QUEDA NINGUNA CASILLA POR ESCRIBIR.** Lo que queda es **un defecto del
 compilador**, localizado el 2026-08-13 y con reproduccion en el emulador.

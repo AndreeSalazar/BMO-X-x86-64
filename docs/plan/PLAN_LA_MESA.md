@@ -99,34 +99,15 @@ saber que hay mesa (regla 5 de abajo).
    cualquiera espera de una mesa.
 5. **El que no pide pista va a `otros`.** Un programa viejo sigue sonando.
 6. **Cuando no caben mas, se DICE y no se roba una.**
+7. **Derivar no es bajar el volumen.** Una pista que se graba se escribe con
+   su ganancia puesta y *antes* del maestro, porque el maestro es para los
+   oidos y la grabacion es para despues.
 
 ## 1.3 -- Y por que esto es lo mismo que ya hay
 
 Una pista es una [`Ganancia`] con su medidor; un grupo, lo mismo; el maestro es
 el [`Amplificador`] entero. No hay pieza nueva: **hay un arreglo de las que ya
-estan** (`bmo-amplificador`, del 22-09).
-
-
-
-Una pista es una fuente con nombre y sus perillas. Y aqui viene lo que hace
-esto barato: **una pista ES el amplificador que ya existe**
-(`bmo-amplificador`, hecho el 22-09), y la mesa es la suma de todas ellas, que
-tambien es el amplificador. No hay pieza nueva: hay un ARREGLO de piezas.
-
-```text
-   PISTA 1  juego        [ganancia] [mudo] [solo] [medidor] --.
-   PISTA 2  musica       [ganancia] [mudo] [solo] [medidor] --+--> [MAESTRO]
-   PISTA 3  sistema      [ganancia] [mudo] [solo] [medidor] --+    ganancia
-   PISTA 4  voz          [ganancia] [mudo] [solo] [medidor] --'    limite
-                                                                  medidor
-                                                                     |
-                             cada pista puede DERIVARSE a fichero     v
-                             (esa es la parte que Windows no da)    el tubo
-```
-
-7. **Derivar no es bajar el volumen.** Una pista derivada a fichero se graba
-   con su ganancia puesta y *antes* del maestro, porque el maestro es para los
-   oidos y la grabacion es para despues.
+estan** (`bmo-amplificador`, del 22-09), y por eso M0 costo un fichero.
 
 ---
 
