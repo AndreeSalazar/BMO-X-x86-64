@@ -99,6 +99,15 @@ struct Ficha {
     /// que se quedo (bits 0..4) y el `wTotalLength` que declaro (bits
     /// 4..16): un audifono cuya configuracion no cabia y un aparato mudo
     /// salian con la misma ficha.
+    ///
+    /// Y desde el 2026-09-22, TODAS las demas lo llevan (el propietario: *"pon
+    /// eso en save para ayudar que funcionan y que no"*): con
+    /// `VEREDICTO_SIN_DIRECCION`, el paso de los dos tiempos en que se quedo
+    /// (bits 0..4, `bmo_xhci::PASO_DIR_*`) y el `cc` con que el xHC dijo que
+    /// no (bits 4..12); con cualquier veredicto de un aparato que SI entro,
+    /// COMO entro (`bmo_xhci::como_entro`): su paquete de EP0 (bits 0..8),
+    /// si hubo que evaluarlo (bit 8) y los ms de los dos tiempos en octavos
+    /// (bits 9..16).
     detalle: u16,
 }
 
@@ -246,6 +255,24 @@ pub(super) fn apunta(
     }
     if veredicto == uhid::VEREDICTO_SIN_DESCRIPTORES {
         crate::ring0::cabina::warn("portero", paso_sin_descriptores(detalle), (detalle >> 4) as u64);
+    }
+    if veredicto == uhid::VEREDICTO_SIN_DIRECCION {
+        crate::ring0::cabina::warn("portero", paso_sin_direccion(detalle), (detalle >> 4) as u64);
+    }
+}
+
+/// En que paso de los dos tiempos se quedo un "sin direccion", en palabras.
+/// El numero que acompana es el `cc` del xHC (0 = no hubo comando, 254 = no
+/// contesto en plazo, 19 = la ranura no estaba en el estado que pide).
+pub fn paso_sin_direccion(detalle: u16) -> &'static str {
+    match detalle & 0xF {
+        1 => "  ...el RESET del puerto no acabo o no lo dejo habilitado (cc)",
+        2 => "  ...el controlador no dio RANURA (cc)",
+        3 => "  ...Address Device en la direccion 0 (BSR=1) nego (cc)",
+        4 => "  ...Evaluate Context nego el paquete del EP0 (cc)",
+        5 => "  ...el SEGUNDO reset vacio el puerto o no acabo (cc)",
+        6 => "  ...Address Device de verdad (SET_ADDRESS) nego (cc)",
+        _ => "  ...sin decir en que paso (cc)",
     }
 }
 

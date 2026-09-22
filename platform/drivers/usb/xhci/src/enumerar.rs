@@ -344,25 +344,76 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 /// en cualquier estado y no perdia el paquete al direccionar. Ahora modela
 /// las dos cosas (ver `Fingido::direccionar`).
 ///
+/// Devuelve la ranura y COMO entro (`como_entro`: su paquete de EP0, si hubo
+/// que evaluarlo; los ms los pone el llamante, que tiene el reloj). Si no
+/// entro, en que paso y con que `cc` (`Tropiezo`): es lo que la ficha del
+/// portero muestra y lo que el `save` lee para decir que funciona y que no.
+///
 /// # Safety
 /// MMIO del xHC: con el CR3 del kernel puesto.
-pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
-    let slot = enable_slot()?;
+pub unsafe fn address_device(port: u8, speed: u8) -> Result<(u8, u16), Tropiezo> {
+    let slot = match enable_slot() {
+        Some(s) => s,
+        None => return Err(Tropiezo::Direccion { paso: PASO_DIR_RANURA, cc: 0 }),
+    };
     match direccionar_en_dos_tiempos(port, speed, slot) {
-        Some(s) => Some(s),
-        None => {
+        Ok(como) => Ok((slot, como)),
+        Err(t) => {
             disable_slot(slot);
-            None
+            Err(t)
         }
     }
 }
 
-unsafe fn direccionar_en_dos_tiempos(port: u8, speed: u8, slot: u8) -> Option<u8> {
+/// **En que paso de los dos tiempos se quedo un aparato que no entro**, y
+/// con que `cc` (0 = no hubo comando que contestara; 254 = no contesto en
+/// plazo). Va en el detalle de la ficha del portero como `paso | cc << 4`,
+/// la misma forma que el "sin papeles".
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tropiezo {
+    /// Sin direccion: `PASO_DIR_*`.
+    Direccion { paso: u8, cc: u8 },
+    /// Con la ranura en la direccion 0 y sin los 8 primeros bytes: es un
+    /// "sin papeles" en el paso 1, con el `cc` de la ultima lectura.
+    Papeles { cc: u8 },
+}
+
+/// El reset del puerto no se pudo lanzar, no acabo, o no dejo el puerto
+/// habilitado: no hay con quien hablar.
+pub const PASO_DIR_RESET: u8 = 1;
+/// `Enable Slot`: el controlador no dio ranura.
+pub const PASO_DIR_RANURA: u8 = 2;
+/// `Address Device` con BSR = 1 (la direccion 0).
+pub const PASO_DIR_DIRECCION0: u8 = 3;
+/// `Evaluate Context`: el paquete del EP0 declarado no se pudo poner.
+pub const PASO_DIR_EVALUAR: u8 = 4;
+/// El segundo reset: el puerto se vacio o no acabo.
+pub const PASO_DIR_RESET2: u8 = 5;
+/// `Address Device` con BSR = 0: el `SET_ADDRESS`.
+pub const PASO_DIR_DIRECCION: u8 = 6;
+
+/// El detalle de una ficha "sin direccion": `paso | cc << 4`.
+pub fn detalle_sin_direccion(paso: u8, cc: u8) -> u16 {
+    (paso as u16 & 0xF) | ((cc as u16) << 4)
+}
+
+/// **COMO entro un aparato que si entro**, para el detalle de su ficha:
+/// bits 0..8 su paquete de EP0 declarado (0 = no se supo; 255 = 255 o mas),
+/// bit 8 = hubo que evaluarlo (el supuesto no era el suyo), bits 9..16 los
+/// ms que costaron los dos tiempos en octavos (tope 1016). Con esto el
+/// `save` dice, aparato por aparato, que hizo falta y cuanto tardo.
+pub fn como_entro(mps0_declarado: u16, evaluado: bool, ms: u64) -> u16 {
+    let paquete = mps0_declarado.min(255);
+    let octavos = (ms / 8).min(127) as u16;
+    paquete | ((evaluado as u16) << 8) | (octavos << 9)
+}
+
+unsafe fn direccionar_en_dos_tiempos(port: u8, speed: u8, slot: u8) -> Result<u16, Tropiezo> {
     let h = hal();
     // PRIMER TIEMPO. 2. En la direccion 0.
-    if direccionar_en_slot(port, speed, slot, true, 0).is_none() {
+    if let Err(cc) = direccionar_en_slot(port, speed, slot, true, 0) {
         h.log("[xhci] address (BSR=1) FALLO\n");
-        return None;
+        return Err(Tropiezo::Direccion { paso: PASO_DIR_DIRECCION0, cc });
     }
     // 3. Los 64 bytes en la direccion 0: solo hacen falta los 8 primeros.
     let mut cabeza = [0u8; 64];
@@ -374,28 +425,30 @@ unsafe fn direccionar_en_dos_tiempos(port: u8, speed: u8, slot: u8) -> Option<u8
     }
     if n < 8 {
         h.log("[xhci] ni los 8 primeros bytes en la direccion 0\n");
-        return None;
+        return Err(Tropiezo::Papeles { cc: crate::transferencia::last_event().2 });
     }
     // 4. El paquete de verdad.
     let declarado = mps0_declarado(cabeza[7], speed);
     let mut mps0 = 0u16;
     if declarado != mps0_supuesto(speed) && declarado != 0 {
         h.log_u64("[xhci] mps0 declarado=", declarado as u64);
-        if !evaluar_mps0(slot, declarado) {
+        if let Err(cc) = evaluar_mps0(slot, declarado) {
             h.log("[xhci] evaluate context FALLO\n");
-            return None;
+            return Err(Tropiezo::Direccion { paso: PASO_DIR_EVALUAR, cc });
         }
         mps0 = declarado;
     }
     // SEGUNDO TIEMPO. 5. El reset que lo deja limpio.
     if !port_reset(port) {
         h.log("[xhci] el segundo reset FALLO\n");
-        return None;
+        return Err(Tropiezo::Direccion { paso: PASO_DIR_RESET2, cc: 0 });
     }
     // 6. SET_ADDRESS de verdad (con el paquete evaluado), y 7. que asiente.
-    direccionar_en_slot(port, speed, slot, false, mps0)?;
+    if let Err(cc) = direccionar_en_slot(port, speed, slot, false, mps0) {
+        return Err(Tropiezo::Direccion { paso: PASO_DIR_DIRECCION, cc });
+    }
     h.delay_ms(PLAZO_ASENTAR_MS);
-    Some(slot)
+    Ok(como_entro(declarado, mps0 != 0, 0))
 }
 
 /// Lo que se le da a un aparato para asentar su direccion nueva antes de
@@ -410,16 +463,17 @@ pub const PLAZO_ASENTAR_MS: u64 = 10;
 // resetear un aparato YA direccionado sin devolver la ranura, es el sitio;
 // hoy un aparato que se atasca se suelta entero (`soltar_puerto`).
 
-unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u16) -> Option<u8> {
-    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
-    let mio = address_lanzar(port, speed, slot, bsr, mps0)?;
+/// `Err(cc)`: 0 = no se pudo ni lanzar, 254 = no contesto en plazo.
+unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u16) -> Result<(), u8> {
+    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return Err(0) };
+    let mio = address_lanzar(port, speed, slot, bsr, mps0).ok_or(0u8)?;
     // * Esto tomaba el primer evento SIN MIRAR EL TIPO y le leia el `cc`. Un
     // Transfer Event correcto tambien trae `cc=1`, asi que un informe del
     // raton se leia como "el Address Device salio bien" -- y de paso ese
     // informe desaparecia. Y despues tomaba CUALQUIER complecion: la de este
     // comando, o la tardia del anterior. Ver `Espera::Comando`.
-    let ev = evt_poll_block(ctrl, Espera::Comando { trb: mio })?;
-    if address_rematar(slot, &ev) { Some(slot) } else { None }
+    let ev = evt_poll_block(ctrl, Espera::Comando { trb: mio }).ok_or(254u8)?;
+    if address_rematar(slot, &ev) { Ok(()) } else { Err(cc_de(&ev)) }
 }
 
 /// **El medida de paquete del EP0 que se SUPONE al direccionar**, por
@@ -502,19 +556,20 @@ pub unsafe fn evaluar_mps0_lanzar(slot: u8, mps: u16) -> Option<u64> {
 }
 
 /// `evaluar_mps0_lanzar` + la espera bloqueante. Para el arranque.
+/// `Err(cc)`: 0 = no se pudo lanzar, 254 = no contesto en plazo.
 ///
 /// # Safety
 /// MMIO del xHC: con el CR3 del kernel puesto.
-pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> bool {
-    let mio = match evaluar_mps0_lanzar(slot, mps) { Some(m) => m, None => return false };
-    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return false };
+pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> Result<(), u8> {
+    let mio = evaluar_mps0_lanzar(slot, mps).ok_or(0u8)?;
+    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return Err(0) };
     match evt_poll_block(ctrl, Espera::Comando { trb: mio }) {
         Some(ev) => {
             let cc = (ev.2 >> 24) & 0xFF;
             hal().log_u64(" eval_ctx cc=", cc as u64);
-            cc == CC_SUCCESS
+            if cc == CC_SUCCESS { Ok(()) } else { Err(cc as u8) }
         }
-        None => false,
+        None => Err(254),
     }
 }
 

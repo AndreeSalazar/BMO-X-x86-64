@@ -24,7 +24,7 @@ pub const MAX_IFACES: usize = 8;
 pub const MAX_CFG: usize = 1024;
 
 /// **En que paso se quedo una lectura de descriptores que no acabo**, para
-/// el `detalle` de `VEREDICTO_SIN_DESCRIPTORES`: `paso | (wTotalLength << 4)`.
+/// el `detalle` de `crate::VEREDICTO_SIN_DESCRIPTORES`: `paso | (wTotalLength << 4)`.
 pub const PASO_SIN_APARATO: u16 = 1;
 pub const PASO_SIN_CABECERA: u16 = 2;
 pub const PASO_CFG_MENOR_DE_9: u16 = 3;
@@ -425,9 +425,12 @@ pub unsafe fn leer_descriptores(
 /// veian **exactamente igual**, o sea nada. El vacio sigue callado porque no es
 /// un fallo.
 ///
-/// Devuelve `(ranura, velocidad del puerto)`: la velocidad hace falta
-/// despues, para saber que paquete de EP0 se supuso (`leer_descriptores`).
-pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Option<(u8, u8)> {
+/// Devuelve `(ranura, velocidad del puerto, como entro)`: la velocidad hace
+/// falta despues, para saber que paquete de EP0 se supuso
+/// (`leer_descriptores`); el "como" es para la ficha (`bmo_xhci::como_entro`,
+/// sin los ms: los pone el llamante). Si no entro, `Err((veredicto, detalle))`
+/// tal como van a la ficha: en que paso de los dos tiempos y con que `cc`.
+pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Result<(u8, u8, u16), (u8, u16)> {
     let h = bmo_xhci::hal();
     if reintento {
         // ** SEGUNDO INTENTO: SE LE QUITA LA CORRIENTE (2026-09-17). Un
@@ -459,23 +462,30 @@ pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Option<(u8, u8)> 
     for _ in 0..50000 {
         core::hint::spin_loop();
     }
+    let sin_reset = (crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(bmo_xhci::PASO_DIR_RESET, 0));
     if !bmo_xhci::port_reset(port) {
         h.log_u64("[uhid] puerto sin reset: ", port as u64);
-        return None;
+        return Err(sin_reset);
     }
     let speed = bmo_xhci::port_speed(port);
     if speed == 0 {
-        return None;
+        return Err(sin_reset);
     }
     h.log_u64("[uhid] puerto con algo: ", port as u64);
     match bmo_xhci::address_device(port, speed) {
-        Some(s) => {
+        Ok((s, como)) => {
             h.log_u64("[uhid] slot=", s as u64);
-            Some((s, speed))
+            Ok((s, speed, como))
         }
-        None => {
+        Err(bmo_xhci::Tropiezo::Direccion { paso, cc }) => {
             h.log_u64("[uhid] NO acepta direccion, puerto ", port as u64);
-            None
+            h.log_u64("  ...en el paso ", paso as u64);
+            h.log_u64(" con cc=", cc as u64);
+            Err((crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(paso, cc)))
+        }
+        Err(bmo_xhci::Tropiezo::Papeles { cc }) => {
+            h.log_u64("[uhid] en la direccion 0 y sin los 8 primeros bytes, puerto ", port as u64);
+            Err((crate::VEREDICTO_SIN_DESCRIPTORES, detalle_sin_descriptores(PASO_SIN_APARATO, cc as usize)))
         }
     }
 }

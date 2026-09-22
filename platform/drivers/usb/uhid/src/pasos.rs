@@ -56,7 +56,10 @@ use crate::enumera::{
     detalle_sin_descriptores, le_u16, MAX_CFG, PASO_CFG_CORTA, PASO_CFG_MENOR_DE_9, PASO_CFG_NO_CABE,
     PASO_SIN_APARATO, PASO_SIN_CABECERA,
 };
-use bmo_xhci::{mps0_declarado, mps0_supuesto};
+use bmo_xhci::{
+    como_entro, detalle_sin_direccion, mps0_declarado, mps0_supuesto, PASO_DIR_DIRECCION,
+    PASO_DIR_DIRECCION0, PASO_DIR_EVALUAR, PASO_DIR_RANURA, PASO_DIR_RESET, PASO_DIR_RESET2,
+};
 
 /// Sin corriente antes de un reintento: lo que tarda un firmware en darse por
 /// apagado (2026-09-17).
@@ -115,8 +118,10 @@ pub trait Metal {
     fn pedir_descriptor(&mut self, slot: u8, cual: Descriptor, largo: usize) -> bool;
     /// Los bytes que llegaron (0 = el aparato contesto con error).
     fn descriptor_llego(&mut self, buf: &mut [u8]) -> Option<usize>;
-    /// El codigo de complecion del ultimo `descriptor_llego` (xHCI 6.4.2;
-    /// 1 = bien, 3 = Babble, 4 = error de transaccion). Para la ficha.
+    /// El codigo de complecion de lo ultimo que llego, transferencia o
+    /// comando (xHCI 6.4.2; 1 = bien, 3 = Babble, 4 = error de transaccion,
+    /// 19 = la ranura no estaba en el estado que el comando pide). Para la
+    /// ficha.
     fn ultimo_cc(&self) -> u8;
     /// `Evaluate Context`: el EP0 pasa a `mps` bytes de paquete. Lanzado y
     /// vigilado.
@@ -181,9 +186,10 @@ pub enum Marcha {
     /// Vuelve en el bombeo siguiente.
     Sigue,
     /// El aparato no acepto direccion (o el puerto no reseteo, o no hay
-    /// ranuras): `VEREDICTO_SIN_DIRECCION`. La ranura, si la hubo, ya esta
-    /// devuelta.
-    SinDireccion,
+    /// ranuras): `VEREDICTO_SIN_DIRECCION`, con el detalle de en que paso de
+    /// los dos tiempos y con que `cc` (`bmo_xhci::detalle_sin_direccion`).
+    /// La ranura, si la hubo, ya esta devuelta.
+    SinDireccion(u16),
     /// Con direccion y sin descriptores: `VEREDICTO_SIN_DESCRIPTORES`, con el
     /// detalle de en que paso (`enumera::detalle_sin_descriptores`). La
     /// ranura ya esta devuelta.
@@ -205,6 +211,8 @@ pub struct Enumeracion {
     velocidad: u8,
     /// El paquete del EP0 que el aparato declaro, si no es el supuesto.
     mps0: u16,
+    /// Y el que declaro, fuera el que fuera: para la ficha (`como`).
+    mps0_declarado: u16,
     empezo: u64,
     pasos: u32,
     dev_desc: [u8; 18],
@@ -227,6 +235,7 @@ impl Enumeracion {
             slot: 0,
             velocidad: 0,
             mps0: 0,
+            mps0_declarado: 0,
             empezo: ahora,
             pasos: 0,
             dev_desc: [0; 18],
@@ -266,6 +275,12 @@ impl Enumeracion {
     pub fn lleva_ms(&self, ahora: u64) -> u64 {
         ahora.saturating_sub(self.empezo)
     }
+    /// **Como entro**, para la ficha de un aparato que llego a `Lista`: su
+    /// paquete de EP0, si hubo que evaluarlo, y cuanto tardaron los dos
+    /// tiempos (`bmo_xhci::como_entro`).
+    pub fn como(&self, ahora: u64) -> u16 {
+        como_entro(self.mps0_declarado, self.mps0 != 0, self.lleva_ms(ahora))
+    }
 
     /// **Un paso.** Lanza o mira, y se vuelve. Nunca espera.
     pub fn avanzar(&mut self, m: &mut dyn Metal) -> Marcha {
@@ -295,7 +310,7 @@ impl Enumeracion {
             Paso::Reset => {
                 if !m.reset_lanzar(port) {
                     m.log_u64("[uhid] puerto sin reset: ", port as u64);
-                    return self.acabar(Marcha::SinDireccion);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESET_MS, Paso::Reseteando)
             }
@@ -305,7 +320,7 @@ impl Enumeracion {
                 }
                 if ahora >= self.hasta {
                     m.log_u64("[uhid] puerto sin reset: ", port as u64);
-                    return self.acabar(Marcha::SinDireccion);
+                    return self.no_acepta(m, 254);
                 }
                 Marcha::Sigue
             }
@@ -315,11 +330,11 @@ impl Enumeracion {
                 }
                 if !m.habilitado(port) {
                     m.log_u64("[uhid] puerto sin reset: ", port as u64);
-                    return self.acabar(Marcha::SinDireccion);
+                    return self.no_acepta(m, 0);
                 }
                 self.velocidad = m.velocidad(port);
                 if self.velocidad == 0 {
-                    return self.acabar(Marcha::SinDireccion);
+                    return self.no_acepta(m, 0);
                 }
                 m.log_u64("[uhid] puerto con algo: ", port as u64);
                 self.paso = Paso::PedirRanura;
@@ -327,7 +342,7 @@ impl Enumeracion {
             }
             Paso::PedirRanura => {
                 if !m.pedir_ranura() {
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoRanura)
             }
@@ -337,12 +352,15 @@ impl Enumeracion {
                     self.paso = Paso::Direccionar;
                     Marcha::Sigue
                 }
-                Some(None) => self.no_acepta(m),
+                Some(None) => {
+                    let cc = m.ultimo_cc();
+                    self.no_acepta(m, cc)
+                },
                 None => self.o_plazo(m, ahora),
             },
             Paso::Direccionar => {
                 if !m.direccionar(port, self.velocidad, self.slot, true, 0) {
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion)
             }
@@ -353,7 +371,10 @@ impl Enumeracion {
                     self.paso = Paso::PedirOcho;
                     Marcha::Sigue
                 }
-                Some(false) => self.no_acepta(m),
+                Some(false) => {
+                    let cc = m.ultimo_cc();
+                    self.no_acepta(m, cc)
+                },
                 None => self.o_plazo(m, ahora),
             },
             Paso::PedirOcho => {
@@ -370,6 +391,7 @@ impl Enumeracion {
                         self.lecturas = 0;
                         // El byte 7 es el paquete de verdad del EP0.
                         let declarado = mps0_declarado(buf[7], self.velocidad);
+                        self.mps0_declarado = declarado;
                         if declarado != mps0_supuesto(self.velocidad) && declarado != 0 {
                             m.log_u64("[uhid] mps0 declarado=", declarado as u64);
                             self.mps0 = declarado;
@@ -392,7 +414,7 @@ impl Enumeracion {
             Paso::PausaOcho => self.si_cumplio(ahora, Paso::PedirOcho),
             Paso::Evaluar => {
                 if !m.evaluar_mps0(self.slot, self.mps0) {
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoEvaluar)
             }
@@ -403,14 +425,17 @@ impl Enumeracion {
                 }
                 Some(false) => {
                     m.log("[uhid] evaluate context FALLO\n");
-                    self.no_acepta(m)
+                    {
+                    let cc = m.ultimo_cc();
+                    self.no_acepta(m, cc)
+                }
                 }
                 None => self.o_plazo(m, ahora),
             },
             Paso::Reset2 => {
                 if !m.reset_lanzar(port) {
                     m.log_u64("[uhid] segundo reset: puerto vacio ", port as u64);
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESET_MS, Paso::Reseteando2)
             }
@@ -420,7 +445,7 @@ impl Enumeracion {
                 }
                 if ahora >= self.hasta {
                     m.log_u64("[uhid] segundo reset sin acabar: ", port as u64);
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 254);
                 }
                 Marcha::Sigue
             }
@@ -430,14 +455,14 @@ impl Enumeracion {
                 }
                 if !m.habilitado(port) {
                     m.log_u64("[uhid] tras el segundo reset, sin habilitar: ", port as u64);
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.paso = Paso::Direccionar2;
                 Marcha::Sigue
             }
             Paso::Direccionar2 => {
                 if !m.direccionar(port, self.velocidad, self.slot, false, self.mps0) {
-                    return self.no_acepta(m);
+                    return self.no_acepta(m, 0);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion2)
             }
@@ -447,7 +472,10 @@ impl Enumeracion {
                     self.lecturas = 0;
                     self.esperar(ahora, PLAZO_ASENTAR_MS, Paso::Asentando)
                 }
-                Some(false) => self.no_acepta(m),
+                Some(false) => {
+                    let cc = m.ultimo_cc();
+                    self.no_acepta(m, cc)
+                },
                 None => self.o_plazo(m, ahora),
             },
             Paso::Asentando => self.si_cumplio(ahora, Paso::PedirDispositivo),
@@ -579,13 +607,34 @@ impl Enumeracion {
             return Marcha::Sigue;
         }
         m.dejar_de_esperar();
-        self.no_acepta(m)
+        self.no_acepta(m, 254)
     }
 
-    fn no_acepta(&mut self, m: &mut dyn Metal) -> Marcha {
+    /// `cc`: el codigo con que el xHC dijo que no (0 = no llego a haber
+    /// comando; 254 = no contesto en plazo). El paso lo dice `self.paso`,
+    /// que todavia es el que fallo.
+    fn no_acepta(&mut self, m: &mut dyn Metal, cc: u8) -> Marcha {
         m.log_u64("[uhid] NO acepta direccion, puerto ", self.port as u64);
+        let paso = self.paso_de_los_dos_tiempos();
+        m.log_u64("  ...en el paso ", paso as u64);
+        m.log_u64(" con cc=", cc as u64);
         self.devolver(m);
-        self.acabar(Marcha::SinDireccion)
+        self.acabar(Marcha::SinDireccion(detalle_sin_direccion(paso, cc)))
+    }
+
+    /// En que paso de los dos tiempos esta (`bmo_xhci::PASO_DIR_*`), para
+    /// la ficha. Los pasos de descriptores no cuentan aqui: esos salen como
+    /// "sin papeles".
+    fn paso_de_los_dos_tiempos(&self) -> u8 {
+        match self.paso {
+            Paso::Reset | Paso::Reseteando | Paso::Recuperando => PASO_DIR_RESET,
+            Paso::PedirRanura | Paso::EsperandoRanura => PASO_DIR_RANURA,
+            Paso::Direccionar | Paso::EsperandoDireccion => PASO_DIR_DIRECCION0,
+            Paso::Evaluar | Paso::EsperandoEvaluar => PASO_DIR_EVALUAR,
+            Paso::Reset2 | Paso::Reseteando2 | Paso::Recuperando2 => PASO_DIR_RESET2,
+            Paso::Direccionar2 | Paso::EsperandoDireccion2 => PASO_DIR_DIRECCION,
+            _ => 0,
+        }
     }
 
     fn sin_descriptores(&mut self, m: &mut dyn Metal, motivo: &str, paso: u16) -> Marcha {
@@ -687,6 +736,7 @@ impl Metal for Xhc {
     }
     fn ranura_llego(&mut self) -> Option<Option<u8>> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
+        self.ultimo_cc = bmo_xhci::cc_de(&ev);
         Some(bmo_xhci::slot_de_complecion(&ev))
     }
     fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool, mps0: u16) -> bool {
@@ -700,6 +750,7 @@ impl Metal for Xhc {
     }
     fn direccion_llego(&mut self, slot: u8) -> Option<bool> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
+        self.ultimo_cc = bmo_xhci::cc_de(&ev);
         Some(unsafe { bmo_xhci::address_rematar(slot, &ev) })
     }
     fn devolver_ranura(&mut self, slot: u8) {
@@ -740,7 +791,8 @@ impl Metal for Xhc {
     }
     fn evaluacion_llego(&mut self) -> Option<bool> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
-        Some(bmo_xhci::cc_de(&ev) == 1)
+        self.ultimo_cc = bmo_xhci::cc_de(&ev);
+        Some(self.ultimo_cc == 1)
     }
     fn dejar_de_esperar(&mut self) {
         bmo_xhci::dejar_de_vigilar();
@@ -905,7 +957,10 @@ mod pruebas {
         }
         fn ranura_llego(&mut self) -> Option<Option<u8>> {
             match self.llego()? {
-                Vuelo::Ranura => Some(Some(7)),
+                Vuelo::Ranura => {
+                    self.ultimo_cc = 1;
+                    Some(Some(7))
+                }
                 _ => panic!("se esperaba la ranura"),
             }
         }
@@ -927,6 +982,7 @@ mod pruebas {
                 // Esto es lo que el fingido no modelaba el 21-09.
                 Vuelo::Direccion(mps) => {
                     self.mps0_xhc = mps;
+                    self.ultimo_cc = 1;
                     Some(true)
                 }
                 _ => panic!("se esperaba la direccion"),
@@ -1113,8 +1169,28 @@ mod pruebas {
     fn un_puerto_vacio_se_rinde_sin_pedir_ranura() {
         let mut m = Fingido::nuevo(Aparato::Vacio);
         let mut e = Enumeracion::nueva(3, false, m.ahora);
-        assert_eq!(m.bombear(&mut e, 2_000), Marcha::SinDireccion);
+        // Y la ficha dice DONDE: el reset, sin cc (no hubo comando).
+        assert_eq!(m.bombear(&mut e, 2_000), Marcha::SinDireccion(detalle_sin_direccion(PASO_DIR_RESET, 0)));
         assert_eq!(m.ranuras_pedidas, 0);
+    }
+
+    #[test]
+    fn la_ficha_de_un_sano_dice_como_entro() {
+        let mut m = Fingido::nuevo(Aparato::Sano);
+        let mut e = Enumeracion::nueva(0, false, m.ahora);
+        assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);
+        let como = e.como(m.ahora);
+        // Paquete 8, evaluado (el supuesto era 64), y los ms en octavos.
+        assert_eq!(como & 0xFF, 8);
+        assert_eq!(como & 0x100, 0x100);
+        let ms = ((como >> 9) as u64) * 8;
+        assert!((256..344).contains(&ms), "la ficha dice {} ms", ms);
+        // El de paquete 64 no necesito evaluate, y la ficha lo dice.
+        let mut m = Fingido::nuevo(Aparato::Paquete64);
+        let mut e = Enumeracion::nueva(1, false, m.ahora);
+        assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);
+        let como = e.como(m.ahora);
+        assert_eq!(como & 0x1FF, 64);
     }
 
     #[test]

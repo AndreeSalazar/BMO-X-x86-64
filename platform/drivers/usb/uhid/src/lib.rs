@@ -442,15 +442,20 @@ impl UsbHidHal {
         // Del segundo intento en adelante, con ciclo de corriente. El intento
         // ya esta anotado (`anotar_intento` va antes de tocar el bus).
         let reintento = self.puertos.intentos(port) >= 2;
-        let (slot, speed) = match enumera::direccionar_puerto(port, reintento) {
-            Some(s) => s,
-            None => {
+        let empezo = h.ahora_ms();
+        let (slot, speed, como) = match enumera::direccionar_puerto(port, reintento) {
+            Ok(s) => s,
+            Err((veredicto, detalle)) => {
                 // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver
-                // EL PORTERO, al final de este fichero.
-                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DIRECCION, 0);
+                // EL PORTERO, al final de este fichero. El detalle dice en
+                // que paso de los dos tiempos y con que cc.
+                h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto, detalle);
                 return cosecha;
             }
         };
+        // Los ms de los dos tiempos, para la ficha: aqui hay reloj, en
+        // `address_device` no.
+        let como = bmo_xhci::como_entro(como & 0xFF, como & 0x100 != 0, h.ahora_ms().saturating_sub(empezo));
         let mut cfg = [0u8; enumera::MAX_CFG];
         let (cfg_val, largo, vid, pid) = match enumera::leer_descriptores(slot, speed, &mut cfg) {
             Ok(v) => v,
@@ -462,7 +467,7 @@ impl UsbHidHal {
                 return cosecha;
             }
         };
-        self.instalar(port, slot, &cfg[..largo], cfg_val, vid, pid)
+        self.instalar(port, slot, &cfg[..largo], cfg_val, vid, pid, como)
     }
 
     /// **Con los descriptores en la mano, instala lo que sea mio.** La
@@ -475,9 +480,13 @@ impl UsbHidHal {
     /// Endpoint`, `SET_PROTOCOL`...-- pero a un aparato que YA contesto sus
     /// descriptores: microsegundos, no plazos agotados.
     ///
+    /// `como` = como entro (`bmo_xhci::como_entro`): va en el detalle de
+    /// cada ficha de este aparato, para que el `save` diga que hizo falta y
+    /// cuanto tardo, aparato por aparato.
+    ///
     /// # Safety
     /// Toca MMIO del xHC: hay que llamarlo con el CR3 del kernel puesto.
-    unsafe fn instalar(&mut self, port: u8, slot: u8, cfg: &[u8], cfg_val: u8, vid: u16, pid: u16) -> Cosecha {
+    unsafe fn instalar(&mut self, port: u8, slot: u8, cfg: &[u8], cfg_val: u8, vid: u16, pid: u16, como: u16) -> Cosecha {
         let h = bmo_xhci::hal();
         let mut cosecha = Cosecha { teclado: false, raton: false, contesto: true, controlador_fallo: false };
 
@@ -518,7 +527,7 @@ impl UsbHidHal {
             h.log_u64(" proto=", *proto as u64);
             if *clase != enumera::CLASE_HID {
                 h.log(" (no es HID)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_NO_ES_HID, 0);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_NO_ES_HID, como);
                 continue;
             }
             if *subclase != enumera::SUBCLASE_BOOT {
@@ -533,14 +542,14 @@ impl UsbHidHal {
                 // CPU lo ha ejecutado. Primero se confirma en el Ryzen que el
                 // descriptor del raton actual se lee bien; despues se ensancha.
                 h.log(" (HID sin subclase BOOT: no lo adopto todavia)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_HID_SIN_BOOT, 0);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_HID_SIN_BOOT, como);
                 continue;
             }
             let es_teclado = *proto == enumera::PROTO_TECLADO && self.teclado.is_none();
             let es_raton = *proto == enumera::PROTO_RATON && self.raton_libre(sale_del_teclado);
             if !es_teclado && !es_raton {
                 h.log(" (ya cubierto)\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_YA_CUBIERTO, 0);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_YA_CUBIERTO, como);
                 continue;
             }
             h.log(" -> lo tomo\n");
@@ -548,7 +557,7 @@ impl UsbHidHal {
             let (_addr, mps, interval, dci) = match enumera::intr_in(cfg, *iface) {
                 Some(e) => e,
                 None => {
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_ENDPOINT, 0);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_SIN_ENDPOINT, como);
                     continue;
                 }
             };
@@ -580,7 +589,7 @@ impl UsbHidHal {
                 self.puerto_teclado = Some(port);
                 cosecha.teclado = true;
                 h.log("[uhid] teclado listo\n");
-                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_TECLADO, 0);
+                h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_TECLADO, como);
             } else {
                 if sale_del_teclado {
                     h.log("[uhid] iface de raton en MI TECLADO: provisional\n");
@@ -612,12 +621,12 @@ impl UsbHidHal {
                     self.puerto_raton = Some(port);
                     cosecha.raton = true;
                     h.log("[uhid] raton listo\n");
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON, 0);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON, como);
                 } else {
                     // Choco de direccion con uno ya puesto. Sin esta rama, el
                     // unico raton que no entra sale del libro como si no
                     // hubiera llegado nunca.
-                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON_NO_ENTRO, 0);
+                    h.papeles(vid, pid, port, *iface, *clase, *subclase, *proto, VEREDICTO_RATON_NO_ENTRO, como);
                 }
             }
         }
@@ -662,10 +671,10 @@ impl UsbHidHal {
                     if self.reclamado.is_none() && h.reclamar(slot, port, vid, pid, cfg) {
                         h.log_u64("[uhid] el kernel RECLAMA el aparato: la ranura sigue viva, ", slot as u64);
                         self.reclamado = Some((port, slot));
-                        h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_RECLAMADO, 0);
+                        h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_RECLAMADO, como);
                         return cosecha;
                     }
-                    h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_CONFIGURADO, 0);
+                    h.papeles(vid, pid, port, i0, c0, s0, p0, VEREDICTO_CONFIGURADO, como);
                 }
                 h.log_u64("[uhid] nada que adoptar, devuelvo el slot ", slot as u64);
                 bmo_xhci::disable_slot(slot);
@@ -791,12 +800,13 @@ impl UsbHidHal {
         let h = bmo_xhci::hal();
         let (veredicto, detalle) = match marcha {
             pasos::Marcha::Sigue => return None,
-            pasos::Marcha::SinDireccion => (VEREDICTO_SIN_DIRECCION, 0),
+            pasos::Marcha::SinDireccion(d) => (VEREDICTO_SIN_DIRECCION, d),
             pasos::Marcha::SinDescriptores(d) => (VEREDICTO_SIN_DESCRIPTORES, d),
             pasos::Marcha::Lista => (0, 0),
         };
         let e = self.en_curso.take()?;
-        let (port, pasos, ms) = (e.port(), e.pasos(), e.lleva_ms(h.ahora_ms()));
+        let ahora = h.ahora_ms();
+        let (port, pasos, ms) = (e.port(), e.pasos(), e.lleva_ms(ahora));
         if veredicto != 0 {
             // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver EL
             // PORTERO, al final de este fichero. Ceros = "no se sabe".
@@ -804,7 +814,7 @@ impl UsbHidHal {
             return Some(Terminada { port, adopcion: Adopcion::NoContesto, pasos, ms });
         }
         let (vid, pid) = e.vid_pid();
-        let cosecha = self.instalar(port, e.slot(), e.cfg(), e.cfg_val(), vid, pid);
+        let cosecha = self.instalar(port, e.slot(), e.cfg(), e.cfg_val(), vid, pid, e.como(ahora));
         let adopcion = self.rematar_adopcion(port, cosecha);
         Some(Terminada { port, adopcion, pasos, ms })
     }

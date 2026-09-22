@@ -108,6 +108,42 @@ pub(crate) fn report_usb(s: &mut Output) {
             s.dec(detalle);
             s.byte(b')');
         }
+        if veredicto == 9 {
+            // "Sin direccion" con el PASO de los dos tiempos en que se quedo
+            // (2026-09-22) y el cc con que el xHC dijo que no. Es lo que
+            // separa "no hay nada" de "el SET_ADDRESS fallo con cc=19".
+            s.text(match detalle & 0xF {
+                1 => b" (en el reset del puerto" as &[u8],
+                2 => b" (sin ranura",
+                3 => b" (en la direccion 0, BSR=1",
+                4 => b" (en el evaluate context",
+                5 => b" (en el segundo reset",
+                6 => b" (en el SET_ADDRESS",
+                _ => b" (sin decir el paso",
+            });
+            s.text(b", cc=");
+            s.dec(detalle >> 4);
+            s.text(cc_en_palabras(detalle >> 4));
+            s.byte(b')');
+        }
+        if veredicto != 7 && veredicto != 9 && veredicto != 10 && detalle != 0 {
+            // Un aparato que SI entro: COMO (2026-09-22). Su paquete de EP0,
+            // si hubo que decirselo al xHC (evaluate), y lo que costaron los
+            // dos tiempos. Con esto se ve, aparato por aparato, cual entro
+            // a la primera y cual necesito el paso 4.
+            s.with_ink(INK_PLAIN);
+            s.text(b"  [paquete ");
+            s.dec(detalle & 0xFF);
+            if detalle & 0x100 != 0 {
+                s.text(b" evaluado");
+            }
+            s.text(b", ");
+            s.dec((detalle >> 9) * 8);
+            s.text(b" ms]");
+        }
+        // Y para la maquina (DATOS.TXT): una clave por ficha, con el
+        // veredicto y su detalle crudos.
+        anotar_ficha(i, papeles, veredicto, detalle);
         if veredicto == 10 {
             // "Sin descriptores" con el PASO en que se quedo (2026-09-21) y,
             // si llego a decirlo, cuanto declaro medir su configuracion. Es
@@ -143,6 +179,57 @@ pub(crate) fn report_usb(s: &mut Output) {
         s.byte(b'\n');
     }
     report_latido(s);
+}
+
+/// El `cc` del xHC en palabras, para el que lee el save sin la tabla 6.4.2
+/// delante.
+fn cc_en_palabras(cc: u64) -> &'static [u8] {
+    match cc {
+        0 => b" sin comando",
+        1 => b" bien",
+        3 => b" babble",
+        4 => b" error de transaccion",
+        5 => b" el TRB no vale",
+        6 => b" stall",
+        9 => b" sin ranuras",
+        11 => b" la ranura no estaba habilitada",
+        17 => b" un campo del contexto no vale",
+        19 => b" la ranura no estaba en ese estado",
+        254 => b" no contesto",
+        _ => b"",
+    }
+}
+
+/// La ficha para DATOS.TXT: `usb.ficha.N = puerto:vid:pid:veredicto:detalle`
+/// no cabe en un numero, asi que van dos claves por ficha: los papeles
+/// (puerto en los bits 24..32, vid en 48..64, pid en 32..48, como
+/// `INFO_USB_FICHA`) y el veredicto con su detalle (`veredicto | detalle << 8`).
+fn anotar_ficha(i: u64, papeles: u64, veredicto: u64, detalle: u64) {
+    let mut clave = [0u8; 20];
+    let n = clave_ficha(&mut clave, i, b"papeles");
+    super::datos::anotar(&clave[..n], papeles, b"");
+    let n = clave_ficha(&mut clave, i, b"veredicto");
+    super::datos::anotar(&clave[..n], veredicto | (detalle << 8), b"");
+}
+
+fn clave_ficha(buf: &mut [u8; 20], i: u64, que: &[u8]) -> usize {
+    let mut n = 0;
+    for &b in b"ficha" {
+        buf[n] = b;
+        n += 1;
+    }
+    // Dos cifras bastan: el libro tiene menos de cien fichas.
+    buf[n] = b'0' + ((i / 10) % 10) as u8;
+    buf[n + 1] = b'0' + (i % 10) as u8;
+    buf[n + 2] = b' ';
+    n += 3;
+    for &b in que {
+        if n < buf.len() {
+            buf[n] = b;
+            n += 1;
+        }
+    }
+    n
 }
 
 /// **El peor retraso del latido del bus, y QUIEN** (2026-09-21).
