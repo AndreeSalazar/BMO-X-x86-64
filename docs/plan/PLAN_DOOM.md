@@ -770,6 +770,13 @@ Y el numero que ya no se adivina: al acabar cada cancion DOOM escribe
 `[bmo] musica: N s renderizados en M ms = X us por segundo de musica`. Esa
 linea es el juez; la estimacion de arriba queda como lo que fue.
 
+**16:27, el metal otra vez:** con el presupuesto de 2 ms DOOM iba a **44-45 fps
+TODA la sesion** (fotograma 22 ms). El render corria a ~2,5 veces el tiempo
+real y cobraba el presupuesto en cada fotograma mientras la cancion no
+estuviera hecha. Ahora `Poll` solo renderiza lo que falta para ir **8 s por
+delante** de lo que suena: en regimen, lo que suena en un fotograma (~500
+muestras). El presupuesto y el apuro se quedan como techo, no como costumbre.
+
 ---
 
 # La cuenta, para poder repartir
