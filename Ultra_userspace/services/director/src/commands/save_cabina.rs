@@ -113,8 +113,8 @@ pub(crate) fn report_usb(s: &mut Output) {
             // si llego a decirlo, cuanto declaro medir su configuracion. Es
             // lo que separa un aparato mudo de un audifono que no cabia.
             s.text(match detalle & 0xF {
-                1 => b" (ni el descriptor del aparato)" as &[u8],
-                2 => b" (sin cabecera de configuracion)",
+                1 => b" (ni el descriptor del aparato" as &[u8],
+                2 => b" (sin cabecera de configuracion",
                 3 => b" (configuracion de menos de 9 B)",
                 4 => b" (la configuracion NO CABE:",
                 5 => b" (la configuracion vino corta:",
@@ -124,6 +124,19 @@ pub(crate) fn report_usb(s: &mut Output) {
                 s.byte(b' ');
                 s.dec(detalle >> 4);
                 s.text(b" B)");
+            } else if detalle & 0xF == 1 || detalle & 0xF == 2 {
+                // El `cc` de la ultima respuesta: 3 = Babble (el paquete
+                // era mas grande de lo que el xHC creia: el caso del
+                // audifono), 4 = error de transaccion, 254 = no contesto,
+                // 0 = el arranque, que no lo apunta.
+                s.text(b", cc=");
+                s.dec(detalle >> 4);
+                s.text(match detalle >> 4 {
+                    3 => b" babble)" as &[u8],
+                    4 => b" error)",
+                    254 => b" no contesto)",
+                    _ => b")",
+                });
             }
         }
         s.with_ink(INK_PLAIN);

@@ -437,6 +437,21 @@ Lo que el `save` de las 13:52 enseno y lo que se hizo con ello, en tres piezas:
 
 ---
 
+## [X] A7 -- EL PAQUETE DEL EP0, y el pitido que dormia mal (2026-09-21, noche)
+
+El save de las 19:45 dijo `sin papeles (ni el descriptor del aparato)` para
+el puerto 1, y eso apunto a lo que faltaba en la enumeracion desde el
+principio: **el `Evaluate Context`**. `address_device` supone un paquete de
+8 bytes para un aparato Full Speed y se pedian los 18 bytes del descriptor de
+golpe. Teclados y ratones tienen paquete de 8 y contestan en tres; un
+audifono USB Audio suele declarar 64 y contesta en UNO, que el xHC rechaza
+como Babble. Ahora los dos caminos piden 8, leen el byte 7 y, si no
+coincide, `bmo_xhci::evaluar_mps0` (input context copiado del de salida, A1,
+`TRB_EVAL_CTX`) antes de los 18; la ficha lleva el `cc`. Y el mismo save
+enseno que el `latido tarde 244 ms` de las 13:52 era el PITIDO girando en
+el syscall, no `buscar()`: `AUDIO_OP_BEEP` ahora duerme con `wait_current`.
+Sin metal.
+
 # 5. Y DESPUES: LA API DE ACCESORIOS EN RUST (idea del dueno, 21-09)
 
 *"Construir una API ULTRA simplificada para los accesorios nuevos que quieran

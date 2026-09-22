@@ -274,7 +274,28 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
             // divisor del PIT desborda mucho antes de ser util.
             let freq = a0.min(20_000) as u32;
             let ms = a1.min(MAX_MS);
-            bmo_audio::beep(freq, ms as u32);
+            // *** EL PITIDO DUERME, NO GIRA (2026-09-21). `bmo_audio::beep`
+            // esperaba la nota DANDO VUELTAS dentro del syscall, y un
+            // syscall corre con las interrupciones cerradas (`SFMASK`): cada
+            // nota de `musica.ibx` eran hasta 250 ms sin tick, sin bus y
+            // sin escritorio. Dos saves seguidos lo ensenaron igual:
+            // `latido tarde 244/245 ms`, `el reloj dio 3-4 ticks`, `el CPU lo
+            // tuvo` el tid de musica -- y el bombeo que dormia 1 ms dentro
+            // de una vuelta se quedo 194 ms sin poder despertar. El
+            // contrato no cambia: el llamante sigue bloqueado lo que dura
+            // la nota. Cambia QUIEN espera: el planificador, como en WAIT.
+            bmo_audio::encender(freq, bmo_audio::get_volume());
+            if ms > 0 {
+                let f = crate::ring0::task::scheduler::tsc_freq();
+                if f != 0 {
+                    let hasta = crate::ring0::task::scheduler::rdtsc()
+                        .saturating_add((f / 1000).saturating_mul(ms));
+                    crate::ring0::task::scheduler::wait_current(0, hasta);
+                } else {
+                    bmo_audio::delay_ms(ms);
+                }
+            }
+            bmo_audio::apagar();
             Some(ms)
         }
         AUDIO_OP_VOLUME => {

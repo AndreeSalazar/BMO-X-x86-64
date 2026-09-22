@@ -253,8 +253,8 @@ pub(super) fn apunta(
 /// acompana es el `wTotalLength` que declaro (0 si no llego a decirlo).
 pub fn paso_sin_descriptores(detalle: u16) -> &'static str {
     match detalle & 0xF {
-        1 => "  ...ni el descriptor del APARATO llego (tres lecturas)",
-        2 => "  ...dio el aparato y NO la cabecera de configuracion",
+        1 => "  ...ni el descriptor del APARATO llego (cc de la ultima: 3 Babble, 4 error, 254 no contesto)",
+        2 => "  ...dio el aparato y NO la cabecera de configuracion (cc de la ultima)",
         3 => "  ...su configuracion declara menos de 9 bytes: miente",
         4 => "  ...su configuracion NO CABE (bytes declarados; el tope es MAX_CFG)",
         5 => "  ...la configuracion entera vino CORTA (bytes declarados)",

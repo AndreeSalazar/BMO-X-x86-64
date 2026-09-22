@@ -60,21 +60,29 @@ pub fn beep(freq_hz: u32, duration_ms: u32) {
     beep_ex(freq_hz, duration_ms, vol);
 }
 
-/// Emite un tono en el PC Speaker con volumen explicito.
+/// Emite un tono en el PC Speaker con volumen explicito, y ESPERA girando
+/// lo que dure. Para Ring 0 (el arranque, un panic): desde un syscall se
+/// usa `encender` + dormir + `apagar`, ver `obj/audio.rs`.
 /// - volume == 0: Silencio
 /// - volume <= 50: Volumen bajo (PIT Modo 2)
 /// - volume > 50: Volumen alto (PIT Modo 3)
 pub fn beep_ex(freq_hz: u32, duration_ms: u32, volume: u8) {
+    encender(freq_hz, volume);
+    delay_ms(duration_ms as u64);
+    apagar();
+}
+
+/// **Programa el altavoz y VUELVE**: el tono queda sonando hasta `apagar`.
+/// La mitad de arriba de `beep_ex` (2026-09-21). Con `freq_hz == 0` o
+/// `volume == 0` apaga, que es lo que significa una pausa.
+pub fn encender(freq_hz: u32, volume: u8) {
     unsafe {
         if freq_hz == 0 || volume == 0 {
             let p = inb(0x61);
             outb(0x61, p & 0xFC);
-            delay_ms(duration_ms as u64);
             return;
         }
-        
         let div = (1_193_180u32 / freq_hz) as u16;
-        
         // Volumen bajo usa PIT modo 2 (Rate Generator, pulsos muy estrechos)
         // Volumen alto usa PIT modo 3 (Square Wave Generator, 50% duty cycle)
         if volume <= 50 {
@@ -82,20 +90,20 @@ pub fn beep_ex(freq_hz: u32, duration_ms: u32, volume: u8) {
         } else {
             outb(0x43, 0xB6); // Canal 2, LSB/MSB, Modo 3, Binario
         }
-        
         outb(0x42, (div & 0xFF) as u8);
         outb(0x42, ((div >> 8) & 0xFF) as u8);
-        
         let p = inb(0x61);
         outb(0x61, p | 0x03);
-
-        delay_ms(duration_ms as u64);
-
-        let p2 = inb(0x61);
-        outb(0x61, p2 & 0xFC);
     }
 }
 
+/// **Calla el altavoz.** La mitad de abajo de `beep_ex`.
+pub fn apagar() {
+    unsafe {
+        let p = inb(0x61);
+        outb(0x61, p & 0xFC);
+    }
+}
 /// Reproduce la melodia tipica de logon de Windows 10/11 (pentatonica de G# mayor).
 pub fn play_logon_chime() {
     // G#4 (415 Hz), D#5 (622 Hz), C#5 (554 Hz), G#5 (830 Hz)

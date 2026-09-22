@@ -306,6 +306,91 @@ unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8) -> Option<u8> {
     if address_rematar(slot, &ev) { Some(slot) } else { None }
 }
 
+/// **El tamano de paquete del EP0 que se SUPONE al direccionar**, por
+/// velocidad del puerto (xHCI 4.3.3 / USB 2.0 9.6.1): 8 para Low y Full
+/// Speed, 64 para High, 512 para Super. El aparato declara el suyo en el
+/// byte 7 de su descriptor, y si no coincide hay que decirselo al xHC
+/// (`evaluar_mps0`) ANTES de pedirle nada mas largo que 8 bytes.
+pub fn mps0_supuesto(speed: u8) -> u16 {
+    match speed { 1 | 2 => 8, 3 => 64, 4 | 5 => 512, _ => 8 }
+}
+
+/// Lo que el aparato DECLARA en `bMaxPacketSize0` (byte 7 del descriptor
+/// del aparato): bytes en USB 2, y un EXPONENTE en Super Speed (9 = 512).
+pub fn mps0_declarado(byte7: u8, speed: u8) -> u16 {
+    if speed >= 4 { 1u16 << byte7.min(12) } else { byte7 as u16 }
+}
+
+/// **`Evaluate Context`: el EP0 pasa a tener el tamano de paquete que el
+/// aparato declaro** (2026-09-21). Lanzado y sin esperar; devuelve la fisica
+/// del TRB para `vigilar_comando`.
+///
+/// *** ESTO FALTABA, y es la causa mas probable del "sin papeles" del
+/// puerto 1 del Ryzen. `address_lanzar` supone 8 bytes de paquete para un
+/// aparato Full Speed, y `leer_descriptores` pedia los 18 bytes del
+/// descriptor de golpe. Un teclado o un raton (mps0 = 8) contestan en tres
+/// paquetes de 8 y todo cuadra. Un audifono USB Audio suele declarar
+/// mps0 = 64: manda los 18 bytes en UN paquete, el xHC ve un paquete mas
+/// grande que el maximo del contexto y contesta Babble (cc = 3): "acepta
+/// direccion y no da descriptores", exactamente lo que dijo la ficha
+/// (`ni el descriptor del aparato`). La regla de todos los anfitriones:
+/// primero OCHO bytes (caben en cualquier mps0), leer el byte 7, y si no
+/// coincide con lo supuesto, `Evaluate Context`; despues los 18.
+///
+/// El contexto de entrada se rellena copiando el EP0 del Device Context de
+/// SALIDA (lo que el xHC tiene ahora, con su dequeue actual) y cambiando
+/// solo el Max Packet Size, con `A1` puesto: es lo que hace Linux
+/// (`xhci_endpoint_copy` + `MAX_PACKET`), y lo unico que el xHC evalua.
+///
+/// # Safety
+/// MMIO del xHC y paginas DMA de la ranura: con el CR3 del kernel puesto.
+pub unsafe fn evaluar_mps0_lanzar(slot: u8, mps: u16) -> Option<u64> {
+    let ctrl = CTRL.as_mut()?;
+    let h = hal();
+    let cs = ctx_sz(ctrl);
+    let in_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::Entrada)?;
+    let in_virt = h.phys_to_virt(in_phys) as *mut u8;
+    core::ptr::write_bytes(in_virt, 0, 4096);
+    let in32 = in_virt as *mut u32;
+    in32.add(0).write_volatile(0); // Drop: nada
+    in32.add(1).write_volatile(1 << 1); // Add: solo el EP0 (A1)
+    let dev_phys = dcbaa_get(slot)?;
+    let dev_ep0 = (h.phys_to_virt(dev_phys) as *const u32).add(cs / 4);
+    let in_ep0 = in_virt.add(2 * cs) as *mut u32;
+    for i in 0..cs / 4 {
+        in_ep0.add(i).write_volatile(dev_ep0.add(i).read_volatile());
+    }
+    let dw1 = in_ep0.add(1).read_volatile();
+    in_ep0.add(1).write_volatile((dw1 & 0xFFFF) | ((mps as u32) << 16));
+    let trb = Trb {
+        dw0: (in_phys & 0xFFFF_FFFF) as u32,
+        dw1: ((in_phys >> 32) & 0xFFFF_FFFF) as u32,
+        dw2: 0,
+        dw3: ((slot as u32) << 24) | (TRB_EVAL_CTX << 10),
+    };
+    let mio = ctrl.cmd_ring.enqueue(&trb);
+    ring_doorbell(0, 0);
+    h.log_u64("[xhci] evaluate context, mps0=", mps as u64);
+    Some(mio)
+}
+
+/// `evaluar_mps0_lanzar` + la espera bloqueante. Para el arranque.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> bool {
+    let mio = match evaluar_mps0_lanzar(slot, mps) { Some(m) => m, None => return false };
+    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return false };
+    match evt_poll_block(ctrl, Espera::Comando { trb: mio }) {
+        Some(ev) => {
+            let cc = (ev.2 >> 24) & 0xFF;
+            hal().log_u64(" eval_ctx cc=", cc as u64);
+            cc == CC_SUCCESS
+        }
+        None => false,
+    }
+}
+
 /// **Prepara los contextos, encola el `Address Device` y se va** (EX4). La
 /// mitad de arriba de `direccionar_en_slot`; devuelve la fisica del TRB para
 /// `vigilar_comando`. Si devuelve `None`, la ranura sigue pedida y es del

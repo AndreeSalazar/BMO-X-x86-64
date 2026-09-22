@@ -44,6 +44,7 @@ use crate::enumera::{
     detalle_sin_descriptores, le_u16, MAX_CFG, PASO_CFG_CORTA, PASO_CFG_MENOR_DE_9, PASO_CFG_NO_CABE,
     PASO_SIN_APARATO, PASO_SIN_CABECERA,
 };
+use bmo_xhci::{mps0_declarado, mps0_supuesto};
 
 /// Sin corriente antes de un reintento: lo que tarda un firmware en darse por
 /// apagado (2026-09-17).
@@ -94,6 +95,13 @@ pub trait Metal {
     fn pedir_descriptor(&mut self, slot: u8, cual: Descriptor, largo: usize) -> bool;
     /// Los bytes que llegaron (0 = el aparato contesto con error).
     fn descriptor_llego(&mut self, buf: &mut [u8]) -> Option<usize>;
+    /// El codigo de complecion del ultimo `descriptor_llego` (xHCI 6.4.2;
+    /// 1 = bien, 3 = Babble, 4 = error de transaccion). Para la ficha.
+    fn ultimo_cc(&self) -> u8;
+    /// `Evaluate Context`: el EP0 pasa a `mps` bytes de paquete. Lanzado y
+    /// vigilado.
+    fn evaluar_mps0(&mut self, slot: u8, mps: u16) -> bool;
+    fn evaluacion_llego(&mut self) -> Option<bool>;
     /// El plazo se agoto: lo lanzado ya no lo espera nadie.
     fn dejar_de_esperar(&mut self);
     fn log(&self, msg: &str);
@@ -115,6 +123,14 @@ enum Paso {
     EsperandoRanura,
     Direccionar,
     EsperandoDireccion,
+    /// Los OCHO primeros bytes del descriptor del aparato: caben en
+    /// cualquier paquete. Ver `bmo_xhci::evaluar_mps0`.
+    PedirOcho,
+    EsperandoOcho,
+    PausaOcho,
+    /// El paquete declarado no es el supuesto: `Evaluate Context`.
+    Evaluar,
+    EsperandoEvaluar,
     PedirDispositivo,
     EsperandoDispositivo,
     PausaDispositivo,
@@ -154,6 +170,8 @@ pub struct Enumeracion {
     lecturas: u8,
     slot: u8,
     velocidad: u8,
+    /// El paquete del EP0 que el aparato declaro, si no es el supuesto.
+    mps0: u16,
     empezo: u64,
     pasos: u32,
     dev_desc: [u8; 18],
@@ -175,6 +193,7 @@ impl Enumeracion {
             lecturas: 0,
             slot: 0,
             velocidad: 0,
+            mps0: 0,
             empezo: ahora,
             pasos: 0,
             dev_desc: [0; 18],
@@ -298,10 +317,61 @@ impl Enumeracion {
                 Some(true) => {
                     m.log_u64("[uhid] slot=", self.slot as u64);
                     self.lecturas = 0;
-                    self.paso = Paso::PedirDispositivo;
+                    self.paso = Paso::PedirOcho;
                     Marcha::Sigue
                 }
                 Some(false) => self.no_acepta(m),
+                None => self.o_plazo(m, ahora),
+            },
+            Paso::PedirOcho => {
+                self.lecturas += 1;
+                if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 8) {
+                    return self.sin_descriptores(m, "[uhid] no dev desc\n", PASO_SIN_APARATO);
+                }
+                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoOcho)
+            }
+            Paso::EsperandoOcho => {
+                let mut buf = [0u8; 8];
+                match m.descriptor_llego(&mut buf) {
+                    Some(n) if n >= 8 => {
+                        self.lecturas = 0;
+                        // El byte 7 es el paquete de verdad del EP0.
+                        let declarado = mps0_declarado(buf[7], self.velocidad);
+                        if declarado != mps0_supuesto(self.velocidad) && declarado != 0 {
+                            m.log_u64("[uhid] mps0 declarado=", declarado as u64);
+                            self.mps0 = declarado;
+                            self.paso = Paso::Evaluar;
+                        } else {
+                            self.paso = Paso::PedirDispositivo;
+                        }
+                        Marcha::Sigue
+                    }
+                    Some(_) => self.otra_lectura(m, ahora, Paso::PausaOcho, "[uhid] no dev desc\n", PASO_SIN_APARATO),
+                    None => {
+                        if ahora < self.hasta {
+                            return Marcha::Sigue;
+                        }
+                        m.dejar_de_esperar();
+                        self.otra_lectura(m, ahora, Paso::PausaOcho, "[uhid] no dev desc\n", PASO_SIN_APARATO)
+                    }
+                }
+            }
+            Paso::PausaOcho => self.si_cumplio(ahora, Paso::PedirOcho),
+            Paso::Evaluar => {
+                if !m.evaluar_mps0(self.slot, self.mps0) {
+                    return self.no_acepta(m);
+                }
+                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoEvaluar)
+            }
+            Paso::EsperandoEvaluar => match m.evaluacion_llego() {
+                Some(true) => {
+                    self.paso = Paso::PedirDispositivo;
+                    Marcha::Sigue
+                }
+                Some(false) => {
+                    m.log("[uhid] evaluate context FALLO\n");
+                    self.no_acepta(m)
+                }
                 None => self.o_plazo(m, ahora),
             },
             Paso::PedirDispositivo => {
@@ -444,7 +514,16 @@ impl Enumeracion {
     fn sin_descriptores(&mut self, m: &mut dyn Metal, motivo: &str, paso: u16) -> Marcha {
         m.log(motivo);
         self.devolver(m);
-        let detalle = detalle_sin_descriptores(paso, self.total_len);
+        // En los pasos sin largo declarado (1 y 2) el sitio del largo lleva
+        // el `cc` de la ultima respuesta: 3 = Babble (el paquete era mas
+        // grande de lo supuesto), 4 = error de transaccion, 254 = no
+        // contesto. Es lo que separa "mudo" de "hablamos distinto".
+        let extra = if paso == PASO_SIN_APARATO || paso == PASO_SIN_CABECERA {
+            m.ultimo_cc() as usize
+        } else {
+            self.total_len
+        };
+        let detalle = detalle_sin_descriptores(paso, extra);
         self.acabar(Marcha::SinDescriptores(detalle))
     }
 
@@ -482,11 +561,14 @@ impl Enumeracion {
 /// sin conocer el controlador.
 pub struct Xhc {
     vuelo: Option<bmo_xhci::EnVuelo>,
+    /// El `cc` de la ultima transferencia de control que llego; 254 si la
+    /// ultima espera se agoto sin respuesta.
+    ultimo_cc: u8,
 }
 
 impl Xhc {
     pub const fn nuevo() -> Self {
-        Self { vuelo: None }
+        Self { vuelo: None, ultimo_cc: 0 }
     }
 }
 
@@ -564,11 +646,30 @@ impl Metal for Xhc {
     fn descriptor_llego(&mut self, buf: &mut [u8]) -> Option<usize> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
         let vuelo = self.vuelo.take()?;
+        self.ultimo_cc = bmo_xhci::cc_de(&ev);
         Some(unsafe { bmo_xhci::control_rematar(&vuelo, &ev, buf) })
+    }
+    fn ultimo_cc(&self) -> u8 {
+        self.ultimo_cc
+    }
+    fn evaluar_mps0(&mut self, slot: u8, mps: u16) -> bool {
+        match unsafe { bmo_xhci::evaluar_mps0_lanzar(slot, mps) } {
+            Some(trb) => {
+                bmo_xhci::vigilar_comando(trb);
+                true
+            }
+            None => false,
+        }
+    }
+    fn evaluacion_llego(&mut self) -> Option<bool> {
+        let ev = unsafe { bmo_xhci::vigilado_llego()? };
+        Some(bmo_xhci::cc_de(&ev) == 1)
     }
     fn dejar_de_esperar(&mut self) {
         bmo_xhci::dejar_de_vigilar();
         self.vuelo = None;
+        // Un plazo agotado es "no contesto", y asi lo dira la ficha.
+        self.ultimo_cc = 254;
     }
     fn log(&self, msg: &str) {
         bmo_xhci::hal().log(msg);
@@ -600,6 +701,10 @@ mod pruebas {
         /// Contesta, y su configuracion declara mas de `MAX_CFG`: el audifono
         /// 7.1 que se salia de los 512 de antes.
         Grande,
+        /// Full Speed con paquete de EP0 de 64: contesta los 8 primeros
+        /// bytes, y los 18 de golpe SOLO despues del `Evaluate Context`
+        /// (antes, Babble). El audifono del puerto 1, si es lo que parece.
+        Paquete64,
     }
 
     struct Fingido {
@@ -617,6 +722,9 @@ mod pruebas {
         dejo_de_esperar: u32,
         /// Cuanto tardo cada llamada a `avanzar` (la prueba lo mide fuera).
         eventos: Vec<&'static str>,
+        /// El paquete que el xHC cree que tiene el EP0 (8 al direccionar).
+        mps0_xhc: u16,
+        ultimo_cc: u8,
     }
 
     #[derive(Clone, Copy)]
@@ -624,6 +732,7 @@ mod pruebas {
         Ranura,
         Direccion,
         Descriptor(Descriptor, usize),
+        Evaluacion(u16),
     }
 
     impl Fingido {
@@ -640,6 +749,8 @@ mod pruebas {
                 encendidos: 0,
                 dejo_de_esperar: 0,
                 eventos: Vec::new(),
+                mps0_xhc: 8,
+                ultimo_cc: 0,
             }
         }
         /// El bombeo: cada 4 ms un paso, hasta que acabe o pasen `tope` ms.
@@ -740,7 +851,18 @@ mod pruebas {
         fn descriptor_llego(&mut self, buf: &mut [u8]) -> Option<usize> {
             match self.llego()? {
                 Vuelo::Descriptor(Descriptor::Dispositivo, n) => {
-                    let d = [18u8, 1, 0, 2, 0, 0, 0, 8, 0x6D, 0x04, 0x77, 0xC0, 0, 0, 0, 0, 0, 1];
+                    let mut d = [18u8, 1, 0, 2, 0, 0, 0, 8, 0x6D, 0x04, 0x77, 0xC0, 0, 0, 0, 0, 0, 1];
+                    if self.aparato == Aparato::Paquete64 {
+                        d[7] = 64;
+                        // Pide mas de lo que el xHC cree que cabe en un
+                        // paquete: el aparato lo manda entero y el xHC lo
+                        // rechaza como Babble (cc = 3), sin datos.
+                        if n > self.mps0_xhc as usize {
+                            self.ultimo_cc = 3;
+                            return Some(0);
+                        }
+                    }
+                    self.ultimo_cc = 1;
                     buf[..n].copy_from_slice(&d[..n]);
                     Some(n)
                 }
@@ -760,9 +882,27 @@ mod pruebas {
                 _ => panic!("se esperaba un descriptor"),
             }
         }
+        fn ultimo_cc(&self) -> u8 {
+            self.ultimo_cc
+        }
+        fn evaluar_mps0(&mut self, _slot: u8, mps: u16) -> bool {
+            self.eventos.push("evaluate");
+            self.vuelo = Some((self.ahora + 1, Vuelo::Evaluacion(mps)));
+            true
+        }
+        fn evaluacion_llego(&mut self) -> Option<bool> {
+            match self.llego()? {
+                Vuelo::Evaluacion(mps) => {
+                    self.mps0_xhc = mps;
+                    Some(true)
+                }
+                _ => panic!("se esperaba la evaluacion"),
+            }
+        }
         fn dejar_de_esperar(&mut self) {
             self.dejo_de_esperar += 1;
             self.vuelo = None;
+            self.ultimo_cc = 254;
         }
         fn log(&self, _m: &str) {}
         fn log_u64(&self, _m: &str, _v: u64) {}
@@ -780,7 +920,7 @@ mod pruebas {
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
         assert_eq!(
             m.eventos,
-            ["encender", "reset", "enable_slot", "address", "get_dev", "get_cfg", "get_cfg"]
+            ["encender", "reset", "enable_slot", "address", "get_dev", "get_dev", "get_cfg", "get_cfg"]
         );
         // La ranura NO se devuelve: es del aparato que se va a instalar.
         assert_eq!(m.ranuras_devueltas, 0);
@@ -795,9 +935,9 @@ mod pruebas {
         let mut m = Fingido::nuevo(Aparato::Mudo);
         let mut e = Enumeracion::nueva(1, false, m.ahora);
         let r = m.bombear(&mut e, 2_000);
-        // Y el detalle dice DONDE: ni el descriptor del aparato (paso 1), y
-        // por tanto sin largo que declarar.
-        assert_eq!(r, Marcha::SinDescriptores(PASO_SIN_APARATO));
+        // Y el detalle dice DONDE y COMO: ni el descriptor del aparato (paso
+        // 1), y el `cc` 254 = el plazo se agoto sin respuesta.
+        assert_eq!(r, Marcha::SinDescriptores(detalle_sin_descriptores(PASO_SIN_APARATO, 254)));
         assert_eq!(m.descriptores_pedidos, LECTURAS as u32);
         assert_eq!(m.dejo_de_esperar, LECTURAS as u32);
         assert_eq!(m.ranuras_pedidas, 1);
@@ -820,8 +960,9 @@ mod pruebas {
         assert_eq!(m.encendidos, 1);
         assert_eq!(&m.eventos[..3], ["cortar", "encender", "reset"]);
         // 200 sin corriente + 20 VBUS (sin los 100 de debounce) + reset...
+        // y desde el 21-09 una lectura mas (los 8 bytes), en pasos de 4.
         let ms = e.lleva_ms(m.ahora);
-        assert!((260..320).contains(&ms), "tardo {} ms", ms);
+        assert!((260..330).contains(&ms), "tardo {} ms", ms);
     }
 
     #[test]
@@ -831,8 +972,24 @@ mod pruebas {
         let r = m.bombear(&mut e, 2_000);
         assert_eq!(r, Marcha::SinDescriptores(detalle_sin_descriptores(PASO_CFG_NO_CABE, 1500)));
         // Se supo en la cabecera: no se pidio la entera, y la ranura volvio.
-        assert_eq!(m.descriptores_pedidos, 2);
+        // Tres lecturas: los 8 bytes, los 18, y la cabecera.
+        assert_eq!(m.descriptores_pedidos, 3);
         assert_eq!(m.ranuras_devueltas, 1);
+    }
+
+    #[test]
+    fn un_paquete_de_64_pasa_por_evaluate_context_y_entra() {
+        // El caso del audifono: sin el Evaluate Context, la version de una
+        // pieza pedia 18 bytes contra un EP0 de 8 y el xHC contestaba Babble.
+        let mut m = Fingido::nuevo(Aparato::Paquete64);
+        let mut e = Enumeracion::nueva(1, false, m.ahora);
+        assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);
+        assert_eq!(e.vid_pid(), (0x046D, 0xC077));
+        assert_eq!(
+            &m.eventos[4..],
+            ["get_dev", "evaluate", "get_dev", "get_cfg", "get_cfg"]
+        );
+        assert_eq!(m.mps0_xhc, 64);
     }
 
     #[test]

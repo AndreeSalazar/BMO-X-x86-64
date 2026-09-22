@@ -442,7 +442,7 @@ impl UsbHidHal {
         // Del segundo intento en adelante, con ciclo de corriente. El intento
         // ya esta anotado (`anotar_intento` va antes de tocar el bus).
         let reintento = self.puertos.intentos(port) >= 2;
-        let slot = match enumera::direccionar_puerto(port, reintento) {
+        let (slot, speed) = match enumera::direccionar_puerto(port, reintento) {
             Some(s) => s,
             None => {
                 // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver
@@ -452,7 +452,7 @@ impl UsbHidHal {
             }
         };
         let mut cfg = [0u8; enumera::MAX_CFG];
-        let (cfg_val, largo, vid, pid) = match enumera::leer_descriptores(slot, &mut cfg) {
+        let (cfg_val, largo, vid, pid) = match enumera::leer_descriptores(slot, speed, &mut cfg) {
             Ok(v) => v,
             Err(detalle) => {
                 // Sin descriptores tampoco hay nombre: los dos salen del mismo
