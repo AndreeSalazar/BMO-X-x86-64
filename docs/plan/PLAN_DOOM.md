@@ -434,6 +434,74 @@ DOOM compila con el: **740.232 B**, +8.440 sobre la version muda (+1,2 %).
 | el `save` despues | `encoladas` sube, `tarde 0`, `huecos` unas pocas decenas | `huecos` en cientos: la ventaja de 100 ms no basta y hay que subirla |
 | la musica | no suena, **y lo dice al arrancar** | -- |
 
+## [X] 5.3b -- EL METAL DIJO QUE NO, y el fallo era de ESQUEMA (2026-09-22, 09:42)
+
+El mismo arranque dijo las dos cosas, y las dos eran verdad:
+
+```text
+   DOOM:  [bmo] sonido: no hay tubo (audifono USB) -- DOOM en silencio
+   save:  tubo 1      frecuencia 48000 Hz     bytes por ms 192
+```
+
+## Lo PRIMERO fue descartar al compilador, con bytes
+
+Antes de tocar nada se desensamblo la llamada, que es la regla de esta casa
+(*"desensamblar con llvm-objdump ANTES de sospechar del metal"*). `--map` del
+compilador da el offset de cada funcion, y la cabecera BEF2 dice donde empieza
+la region de codigo (byte 24):
+
+```text
+   bmo_tubo:
+     48 8b ca               mov rcx, rdx     ; dato  -> a1
+     48 8b d6               mov rdx, rsi     ; campo -> a0   (en ESTE orden)
+     48 c7 c6 05 00 00 00   mov rsi, 5       ; op = BMO_SONIDO_TUBO
+     49 c7 c0 00 00 00 00   mov r8, 0        ; a2
+     e9 05 fe ff ff         jmp bmo_valor    ; rdi = cap, intacto
+
+   bmo_valor:
+     4c 8b d1               mov r10, rcx     ; a1 al registro que `syscall` no pisa
+     48 c7 c0 00 00 00 00   mov rax, 0       ; NR_INVOKE
+     0f 05                  syscall
+     48 89 d0               mov rax, rdx     ; el VALOR vuelve en rdx
+     c3                     ret
+```
+
+**Correcto byte a byte**, incluido el detalle que podia haberlo roto: `rcx` se
+carga desde `rdx` ANTES de que `rdx` se pise. La emision a x86-64 esta limpia,
+y la sospecha era del ayudante, no del codigo del propietario.
+
+## El fallo, entonces: un tubo NO es una constante del arranque
+
+El audifono de esta casa **falla su primer intento de enumeracion** --su ficha
+sale `sin papeles`-- y entonces el puerto entra en la escalera de descanso del
+bus: **5, 10, 20 y 40 segundos** (`uhid/puertos.rs`, `MAX_DOBLADOS`). Su tubo
+puede abrirse medio minuto despues del arranque. DOOM pregunto UNA vez, a los
+tres segundos, y se rindio para siempre.
+
+Y habia una segunda mitad, peor: al rendirse **se quedaba la capability del
+sonido**. El `save` lo dijo con el pid: `[!] audio el propietario del sonido
+MURIO ... =2`. O sea que DOOM, ademas de no sonar, **dejaba al resto de la
+maquina sin poder sonar** mientras corria.
+
+## El arreglo
+
+| era | es |
+|---|---|
+| preguntar una vez en `Init` | `bmo_snd_abrir()`, que se puede llamar muchas veces |
+| rendirse para siempre | `Update` vuelve a mirar **dos veces por segundo** (`BMO_SND_MIRAR_CADA` 18 de ~35 vueltas/s) |
+| `Init` devuelve `false` si no hay tubo | devuelve `true`: si devolviera `false`, `i_sound.c` dejaria `sound_module` a nulo y **`I_UpdateSound` no se llamaria nunca**, o sea que no quedaria quien reintentara |
+| quedarse la capability al fallar | **se suelta** en todas las salidas |
+| `ya va sobrado` | el motivo dicho: escribir de mas es RETRASO entre el disparo y el ruido, que es lo unico que el jugador nota |
+| `no hay tubo` a secas | `(intento N)` al entrar, y `nunca hubo tubo (N miradas)` al salir |
+
+DOOM: **740.784 B**. Sin metal todavia.
+
+| que | afirma | como se cae |
+|---|---|---|
+| `run apps/doom.bex` y esperar | `aun no hay tubo; se sigue mirando` y, unos segundos despues, `tubo USB a 48000 Hz, 2 canales, 192 B/ms (intento N)`; y se OYE | `nunca hubo tubo (N miradas)` al salir: el audifono no entro en ese arranque -- el `save` lo confirma con `audifono 0 ranura` |
+| el `intento N` | dice si entro a la primera o por la escalera del bus | -- |
+| el `save` despues | ya NO sale `el propietario del sonido MURIO` con el pid de DOOM | si sale, queda una salida sin soltar |
+
 ---
 
 # La cuenta, para poder repartir
