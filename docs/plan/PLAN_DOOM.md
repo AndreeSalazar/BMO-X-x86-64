@@ -595,6 +595,39 @@ silencio). El mezclador crece 141 bytes (0x3A5 -> 0x432 en el `--map`); el
 **Y la palanca de volumen limpia la tiene DOOM**: su volumen de efectos viene
 a 8 de 15. En su menu (Options -> Sound Volume) a 15 son **+5,5 dB sin tocar
 el limite**, que es lo que el maestro no puede dar sin aplastar.
+
+## [ ] 5.3f -- EL SONIDO VA CON EL RELOJ, NO CON EL FOTOGRAMA (2026-09-22)
+
+> Codigo hecho; se cierra cuando `tirones` salga en 0 (o casi) en el metal.
+
+El contador que separo los tirones del arranque contesto a las 14:26, y los
+tirones **eran de verdad**:
+
+```text
+   huecos 4.854 | en marcha 3.626 | tirones 29 | el mas largo 1.420 ms | tarde 0
+```
+
+`tarde 0`: el aparato y el kernel sirvieron todo a su hora. El que no llegaba
+era el MEZCLADOR de DOOM: solo se rellenaba desde `I_UpdateSound`, una vez por
+fotograma, y DOOM tiene bucles que no vuelven al fotograma. El grande es la
+pantalla que se derrite entre mapa y mapa: `D_Display` hace
+`do { ... } while (!done)` durante ~1,5 s --el `1.420 ms`--. Con 100 ms de
+ventaja, todo lo que pase de 100 ms es un corte.
+
+**La pieza.** Un port con SDL mezcla en un hilo de audio que no depende del
+juego; BMO-X no le da hilos a una app. Pero todos esos bucles hacen algo que
+el fotograma no: **preguntar la hora** (`wipe_ScreenWipe` en cada vuelta,
+`TryRunTics` mientras espera). Asi que el relleno (`bmo_snd_rellenar`) se
+cuelga del RELOJ: `DG_GetTicksMs` llama a `bmo_snd_reloj`, que rellena como
+mucho cada 4 ms, y solo con el juego en marcha (`main_loop_started`) para que
+la carga inicial no vuelva a contar como tiron. `I_UpdateSound` sigue
+rellenando tambien.
+
+| que | afirma | como se cae |
+|---|---|---|
+| `tirones` tras jugar y cambiar de mapa | 0, o muy pocos | siguen: hay otro bucle sin reloj |
+| `el mas largo` | por debajo de 100 ms | cientos de ms: CARGAR un mapa (`P_SetupLevel`) no mira la hora, y es la siguiente pieza |
+| el derretido entre mapas | suena entero, sin corte | se corta: el reloj no llega a la pieza |
 ---
 
 # La cuenta, para poder repartir

@@ -191,10 +191,21 @@ impl Maestro {
     /// el tubo manda ceros sin pasar por aqui, pero el medidor tiene que CAER
     /// y la rampa tiene que seguir andando -- un mudo pulsado en silencio que
     /// no avanzara saltaria de golpe al volver el sonido.
+    ///
+    /// *** Y EL LIMITE SUELTA, que no lo hacia (2026-09-22). El silencio no
+    /// pasaba por el limite, asi que la reduccion se quedaba CONGELADA donde
+    /// la dejo el ultimo golpe: el `save` de las 14:26 decia `limite -5,2 dB`
+    /// con DOOM ya cerrado, un numero que parecia de la partida y era del
+    /// ultimo disparo. Y con la reduccion puesta, `en_reposo` no volvia nunca.
+    /// Ahora los ceros pasan por el limite, que suelta con su relajo como lo
+    /// haria con onda: el cero no se sale, asi que no cambia ni una muestra.
     pub fn silencio(&mut self, muestras: usize, canales: usize) {
         let canales = canales.max(1);
         if !self.en_reposo() {
             let _ = self.avanzar();
+            for _ in 0..muestras {
+                let _ = self.limite.muestra(0);
+            }
         }
         for i in 0..muestras {
             self.medidores[(i % canales) & 1].mirar_uno(0);
@@ -442,6 +453,29 @@ mod pruebas {
         // ...y MAS hondo que lo que el limite baja al cerrar la ventana, que
         // es lo que antes se contaba.
         assert!(l.reduccion < ahora - 2 * DB, "pozo {} ahora {}", l.reduccion, ahora);
+    }
+
+    #[test]
+    fn en_el_silencio_el_limite_suelta_y_el_maestro_vuelve_al_reposo() {
+        let mut m = Maestro::nuevo(48_000, 2);
+        m.pedir(24 * DB, false);
+        for _ in 0..30 {
+            let mut b = cuadrada(20_000, 48);
+            m.pasar(&mut b, 2);
+        }
+        assert!(m.limite.reduccion_db() < -10 * DB);
+        // Un segundo y medio de silencio, bloque a bloque como lo da el tubo.
+        for _ in 0..1500 {
+            m.silencio(96, 2);
+        }
+        let _ = m.lectura();
+        assert_eq!(m.lectura().reduccion, 0, "el limite se quedo congelado");
+        // Y bajando el fader a 0, vuelve a ser un cable.
+        m.pedir(0, false);
+        for _ in 0..30 {
+            m.silencio(96, 2);
+        }
+        assert!(m.en_reposo());
     }
 
     #[test]

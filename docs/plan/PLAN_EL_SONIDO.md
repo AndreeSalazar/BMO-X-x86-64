@@ -507,6 +507,15 @@ fuerza"*.
 | `tirones` en el `save` tras jugar | 0, o pocos y cortos (`el mas largo` < 20 ms) | cientos: el productor SI llega tarde en partida |
 | `huecos` | sigue en miles (el arranque), y ya no importa | -- |
 
+**14:26, contestado**: `en marcha 3.626`, `tirones 29`, `el mas largo 1.420 ms`
+y `tarde 0`. Los tirones SON de verdad y NO son del kernel ni del aparato: son
+del mezclador de DOOM, que solo se rellenaba desde el fotograma. La pieza, en
+[`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3f. El `limite -5,2 dB` de ese `save` NO es lo
+que aplasto en partida: es donde se quedo el limite cuando DOOM callo (en
+silencio no pasaba onda y no se movia). **Arreglado en la pieza**: el silencio
+pasa ahora por el limite, que suelta con su relajo, y el maestro vuelve al
+reposo (prueba `en_el_silencio_el_limite_suelta_y_el_maestro_vuelve_al_reposo`).
+
 ### Lo que NO es
 
 No es LA MESA: una sola perilla para todo lo que suena, no una por programa ni
