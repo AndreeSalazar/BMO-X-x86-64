@@ -39,6 +39,10 @@ name = "bmo-ahci"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-amplificador"
+version = "1.0.0"
+
+[[package]]
 name = "bmo-antena"
 version = "0.1.0"
 dependencies = [
