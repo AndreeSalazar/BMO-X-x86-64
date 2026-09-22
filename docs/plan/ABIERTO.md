@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 40 planes
+# LO QUE FALTA -- las casillas abiertas de los 41 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   252 casillas ABIERTAS en 31 planes
+   261 casillas ABIERTAS en 32 planes
    251 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -100,6 +100,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 6 mas
+
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 0 hechas
+
+*PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
+
+- [ ] S0 -- EL CENSO DICE LA VERDAD, y la tabla la llena el aparato
+- [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
+- [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
