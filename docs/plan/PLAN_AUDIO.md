@@ -460,16 +460,28 @@ con **BSR = 1** (la ranura en `Default`, el aparato en la direccion 0, EP0
 con paquete supuesto **64** para Full Speed); `GET_DESCRIPTOR(64)` en la
 direccion 0 (un aparato de 8 contesta 8 y para: paquete corto, legal; uno de
 64, los 18); byte 7 y `Evaluate Context` si no coincide; **segundo reset**
-del puerto; `Reset Device` (xHCI 4.6.11, `TRB_RESET_DEV`, para que el xHC
-sepa del reset); `Address Device` con BSR = 0; 10 ms para asentar; y
-entonces los 18, la cabecera y la configuracion. En `pasos.rs` son nueve
-pasos mas (`Reset2`, `Reseteando2`, `Recuperando2`, `ResetDevice`,
-`EsperandoResetDevice`, `Direccionar2`, `EsperandoDireccion2`, `Asentando`).
-Las pruebas: un teclado de paquete 8 pasa por `address0, get_dev, evaluate,
-reset, reset_device, address, get_dev, ...` (12 hechos, en 260-340 ms de
-plazos); el de paquete 64 entra SIN evaluate y sin Babble. El esquema viejo
-(`mps0_supuesto` 8 para Full Speed y los descriptores tras el SET_ADDRESS)
-esta retirado, no aparcado. Sin metal.
+del puerto; `Address Device` con BSR = 0; 10 ms para asentar; y entonces
+los 18, la cabecera y la configuracion. En `pasos.rs` son siete pasos mas
+(`Reset2`, `Reseteando2`, `Recuperando2`, `Direccionar2`,
+`EsperandoDireccion2`, `Asentando`). Las pruebas: un teclado de paquete 8
+pasa por `address0, get_dev, evaluate, reset, address, get_dev, ...` (11
+hechos, en 260-340 ms de plazos); el de paquete 64 entra SIN evaluate y sin
+Babble. El esquema viejo (`mps0_supuesto` 8 para Full Speed y los
+descriptores tras el SET_ADDRESS) esta retirado, no aparcado. Sin metal.
+
+## [X] A9 -- LOS DOS PASOS DE MAS: sin teclado ni raton dos arranques (2026-09-22)
+
+A8 tal como se escribio la noche del 21 traia un `Reset Device` entre el
+segundo reset y el `SET_ADDRESS`, y el segundo `Address Device` rehacia los
+contextos enteros. El Ryzen arranco dos veces sin teclado ni raton. Leido
+contra `xhci.c` de Linux: `Reset Device` sobre una ranura en `Default` es
+**Context State Error** (Linux lo manda y lo ignora a proposito; aqui era
+"NO acepta direccion" para todos), y el segundo `Address Device` copiaba
+el paquete supuesto encima del evaluado (Linux reusa el contexto y solo
+pone el dequeue). Los dos arreglados en `bmo_xhci::address_device` y
+`pasos.rs`; el fingido ahora pierde el paquete al direccionar como el xHC,
+y con la maquina de antes cae. Detalle en
+[`METAL_2026-09-18.md`](../metal/METAL_2026-09-18.md) 3e-bis. Sin metal.
 
 # 6. EL ADN: lo que hacen Windows y Linux, contra lo nuestro (2026-09-21, noche)
 

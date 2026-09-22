@@ -299,15 +299,44 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 ///      contesta 8 y para; uno de 64, los 18. En los 8 primeros va el byte 7
 ///   4. si el byte 7 no es lo supuesto: Evaluate Context
 ///   5. RESET del puerto otra vez (lo que el aparato espera)
-///   6. Reset Device: el xHC se entera del reset (xHCI 4.6.11)
-///   7. Address Device con BSR = 0: ahora si, SET_ADDRESS
-///   8. 10 ms para que asiente (USB 2.0: 2 ms; Linux da 10)
+///   6. Address Device con BSR = 0: ahora si, SET_ADDRESS. Con el MISMO
+///      contexto de entrada que ya tiene la ranura: el paquete del EP0 que
+///      se evaluo, y el anillo por donde va
+///   7. 10 ms para que asiente (USB 2.0: 2 ms; Linux da 10)
 /// ```
 ///
 /// Lo de antes (reset, SET_ADDRESS, y despues los descriptores con paquete
 /// supuesto 8) es el "esquema viejo" de Linux, correcto por el protocolo y
 /// suficiente para teclados y ratones. Se retira porque el que importa es
 /// el que los aparatos VIERON.
+///
+/// *** DOS PASOS QUE SOBRABAN, y que dejaron SIN TECLADO NI RATON dos
+/// arranques del Ryzen (2026-09-22; el propietario: *"entre 2 veces en mi
+/// BMO-X pero mi teclado y mouse no respondio"*). La primera version de
+/// esto (6d4a0457) metia un `Reset Device` (xHCI 4.6.11) entre el segundo
+/// reset y el `SET_ADDRESS`, y rehacia los contextos enteros en el segundo
+/// `Address Device`:
+///
+/// * `Reset Device` solo vale para una ranura en `Addressed` o
+///   `Configured`. Aqui la ranura esta en `Default` (BSR = 1 no da
+///   direccion), y el xHC contesta **Context State Error** (cc = 19). Linux
+///   lo manda igual desde `hub_port_reset` y se lo traga a proposito
+///   (`xhci_discover_or_reset_device`: *"Can't reset device in Default
+///   state... Don't treat this as an error"*). Aqui `cc != 1` era "NO acepta
+///   direccion" y la ranura volvia: TODOS los aparatos, no solo el mudo.
+///   El comando no aporta nada en este esquema y se quita, no se ignora.
+/// * El segundo `Address Device` volvia a suponer el paquete del EP0 (64
+///   para Full Speed) y pisaba el `Evaluate Context` de antes: un teclado
+///   Full Speed de paquete 8 volvia a un EP0 de 64, y sus 9 bytes de
+///   cabecera llegaban como 8 (paquete corto), tres veces. Linux reusa el
+///   contexto de entrada y solo le pone el dequeue actual del EP0
+///   (`xhci_copy_ep0_dequeue_into_input_ctx`). Ahora igual: `address_lanzar`
+///   con `bsr = false` no toca el anillo ni el contexto de salida.
+///
+/// Las pruebas de `pasos.rs` estaban verdes con los dos fallos porque el
+/// `Metal` fingido decia que si a todo: contestaba `Reset Device` con exito
+/// en cualquier estado y no perdia el paquete al direccionar. Ahora modela
+/// las dos cosas (ver `Fingido::direccionar`).
 ///
 /// # Safety
 /// MMIO del xHC: con el CR3 del kernel puesto.
@@ -325,7 +354,7 @@ pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
 unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> {
     let h = hal();
     // 2. En la direccion 0.
-    if direccionar_en_slot(port, speed, slot, true).is_none() {
+    if direccionar_en_slot(port, speed, slot, true, 0).is_none() {
         h.log("[xhci] address (BSR=1) FALLO\n");
         return None;
     }
@@ -343,24 +372,22 @@ unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> 
     }
     // 4. El paquete de verdad.
     let declarado = mps0_declarado(cabeza[7], speed);
+    let mut mps0 = 0u16;
     if declarado != mps0_supuesto(speed) && declarado != 0 {
         h.log_u64("[xhci] mps0 declarado=", declarado as u64);
         if !evaluar_mps0(slot, declarado) {
             h.log("[xhci] evaluate context FALLO\n");
             return None;
         }
+        mps0 = declarado;
     }
-    // 5. El segundo reset, y 6. que el xHC lo sepa.
+    // 5. El segundo reset.
     if !port_reset(port) {
         h.log("[xhci] el segundo reset FALLO\n");
         return None;
     }
-    if !reset_device(slot) {
-        h.log("[xhci] reset device FALLO\n");
-        return None;
-    }
-    // 7. SET_ADDRESS de verdad, y 8. que asiente.
-    direccionar_en_slot(port, speed, slot, false)?;
+    // 6. SET_ADDRESS de verdad (con el paquete evaluado), y 7. que asiente.
+    direccionar_en_slot(port, speed, slot, false, mps0)?;
     h.delay_ms(PLAZO_ASENTAR_MS);
     Some(slot)
 }
@@ -370,44 +397,15 @@ unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> 
 /// necesitan.
 pub const PLAZO_ASENTAR_MS: u64 = 10;
 
-/// **`Reset Device`: el xHC se entera de que el puerto se reseteo** (xHCI
-/// 4.6.11). La ranura vuelve a `Default` con su EP0; los demas endpoints se
-/// deshabilitan. Sin esto, un `Address Device` tras un reset trabaja sobre
-/// un estado que el xHC cree distinto del real. Lanzado; devuelve la fisica
-/// del TRB para `vigilar_comando`.
-///
-/// # Safety
-/// MMIO del xHC: con el CR3 del kernel puesto.
-pub unsafe fn reset_device_lanzar(slot: u8) -> Option<u64> {
-    let ctrl = CTRL.as_mut()?;
-    let mio = ctrl.cmd_ring.enqueue(&Trb {
-        dw0: 0, dw1: 0, dw2: 0,
-        dw3: ((slot as u32) << 24) | (TRB_RESET_DEV << 10),
-    });
-    ring_doorbell(0, 0);
-    Some(mio)
-}
+// ** AQUI HUBO un `Reset Device` (xHCI 4.6.11) durante un dia (6d4a0457 ->
+// 2026-09-22). No va: la ranura esta en `Default` y el xHC lo rechaza con
+// Context State Error. Ver `address_device`. Si algun dia hace falta
+// resetear un aparato YA direccionado sin devolver la ranura, es el sitio;
+// hoy un aparato que se atasca se suelta entero (`soltar_puerto`).
 
-/// `reset_device_lanzar` + la espera bloqueante.
-///
-/// # Safety
-/// MMIO del xHC: con el CR3 del kernel puesto.
-pub unsafe fn reset_device(slot: u8) -> bool {
-    let mio = match reset_device_lanzar(slot) { Some(m) => m, None => return false };
-    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return false };
-    match evt_poll_block(ctrl, Espera::Comando { trb: mio }) {
-        Some(ev) => {
-            let cc = (ev.2 >> 24) & 0xFF;
-            hal().log_u64(" reset_dev cc=", cc as u64);
-            cc == CC_SUCCESS
-        }
-        None => false,
-    }
-}
-
-unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool) -> Option<u8> {
+unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u16) -> Option<u8> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
-    let mio = address_lanzar(port, speed, slot, bsr)?;
+    let mio = address_lanzar(port, speed, slot, bsr, mps0)?;
     // * Esto tomaba el primer evento SIN MIRAR EL TIPO y le leia el `cc`. Un
     // Transfer Event correcto tambien trae `cc=1`, asi que un informe del
     // raton se leia como "el Address Device salio bien" -- y de paso ese
@@ -520,30 +518,54 @@ pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> bool {
 /// `bsr` = Block Set Address Request (xHCI 4.6.5): con `true` el xHC monta
 /// los contextos y deja la ranura en `Default` SIN mandar `SET_ADDRESS`; el
 /// aparato sigue en la direccion 0 y se le puede hablar por su EP0. Es el
-/// paso 2 del esquema de Windows.
-pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool) -> Option<u64> {
+/// paso 2 del esquema de Windows, y la ranura se monta ENTERA: anillo del
+/// EP0 nuevo, contexto de salida a cero, DCBAA.
+///
+/// Con `false` es el paso 6, sobre una ranura que YA esta montada y en
+/// `Default`: **no se toca ni el anillo ni el contexto de salida** (son del
+/// xHC mientras la ranura viva), solo se rehace el contexto de ENTRADA con
+/// el paquete del EP0 de verdad (`mps0`; 0 = el supuesto por velocidad) y
+/// el dequeue por donde va el anillo. Es lo que hace Linux
+/// (`xhci_copy_ep0_dequeue_into_input_ctx`), y lo que no se hacia el
+/// 2026-09-21 (ver `address_device`).
+pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool, mps0: u16) -> Option<u64> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
     let h = hal();
     let cs = ctx_sz(ctrl);
 
-    // ** Las tres paginas son de la RANURA: pedidas la primera vez que se usa
-    // este numero, reutilizadas en cada enchufe despues (`paginas.rs`).
-    let ep0_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::AnilloEp0)?;
-    let ep0_virt = h.phys_to_virt(ep0_phys) as *mut u32;
-    core::ptr::write_bytes(ep0_virt as *mut u8, 0, 4096);
-    let mut ring = TransferRing::new(ep0_virt, ep0_phys);
-    // El productor (control_transfer) alterna su cycle state al dar la
-    // vuelta -- el Link TRB necesita Toggle Cycle para que el xHC haga lo
-    // mismo, o el anillo se desincroniza tras el primer wrap.
-    ring.enable_toggle_cycle();
-    ep0_reg(slot, ep0_phys & !0xF, ep0_virt);
+    let (dq, mps) = if bsr {
+        // ** Las tres paginas son de la RANURA: pedidas la primera vez que
+        // se usa este numero, reutilizadas en cada enchufe despues
+        // (`paginas.rs`).
+        let ep0_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::AnilloEp0)?;
+        let ep0_virt = h.phys_to_virt(ep0_phys) as *mut u32;
+        core::ptr::write_bytes(ep0_virt as *mut u8, 0, 4096);
+        let mut ring = TransferRing::new(ep0_virt, ep0_phys);
+        // El productor (control_transfer) alterna su cycle state al dar la
+        // vuelta -- el Link TRB necesita Toggle Cycle para que el xHC haga
+        // lo mismo, o el anillo se desincroniza tras el primer wrap.
+        ring.enable_toggle_cycle();
+        ep0_reg(slot, ep0_phys & !0xF, ep0_virt);
+
+        let dev_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::Dispositivo)?;
+        let dev_virt = h.phys_to_virt(dev_phys) as *mut u8;
+        core::ptr::write_bytes(dev_virt, 0, 4096);
+        // DCBAA[slot]
+        let dcbaa = h.phys_to_virt(ctrl.dcbaa_phys) as *mut u64;
+        dcbaa.add(slot as usize).write_volatile(dev_phys & !0x3F);
+
+        ((ep0_phys & !0xF) | 1, mps0_supuesto(speed) as u32)
+    } else {
+        // La ranura ya tiene su anillo: el dequeue es por donde va el
+        // productor, con su cycle state (`ep0_dequeue`).
+        let ep0 = ep0_mut(slot)?;
+        let mps = if mps0 != 0 { mps0 as u32 } else { mps0_supuesto(speed) as u32 };
+        (ep0_dequeue(ep0), mps)
+    };
 
     let in_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::Entrada)?;
     let in_virt = h.phys_to_virt(in_phys) as *mut u8;
     core::ptr::write_bytes(in_virt, 0, 4096);
-    let dev_phys = crate::paginas::de_ranura(slot, crate::paginas::Uso::Dispositivo)?;
-    let dev_virt = h.phys_to_virt(dev_phys) as *mut u8;
-    core::ptr::write_bytes(dev_virt, 0, 4096);
 
     // Input Control Context
     let in32 = in_virt as *mut u32;
@@ -555,9 +577,6 @@ pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool) -> Option
     sc.add(0).write_volatile(((speed as u32) & 0xF) << 20 | (1 << 27));
     sc.add(1).write_volatile((port as u32 + 1) << 16);
 
-    let mps: u32 = mps0_supuesto(speed) as u32;
-    let dq = (ep0_phys & !0xF) | 1;
-
     // EP0 Context
     let ep0 = in_virt.add(2 * cs) as *mut u32;
     ep0.add(0).write_volatile(0);
@@ -565,10 +584,6 @@ pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool) -> Option
     ep0.add(2).write_volatile((dq & 0xFFFF_FFFF) as u32);
     ep0.add(3).write_volatile(((dq >> 32) & 0xFFFF_FFFF) as u32);
     ep0.add(4).write_volatile(8);
-
-    // DCBAA[slot]
-    let dcbaa = h.phys_to_virt(ctrl.dcbaa_phys) as *mut u64;
-    dcbaa.add(slot as usize).write_volatile(dev_phys & !0x3F);
 
     // Address Device TRB
     let trb = Trb {
@@ -598,7 +613,9 @@ pub unsafe fn address_rematar(slot: u8, ev: &Evento) -> bool {
     if cc != CC_SUCCESS { return false; }
     // Las dos paginas son las de la RANURA: las mismas que `address_lanzar`
     // pidio, porque `de_ranura` devuelve siempre la misma para el mismo uso.
-    let ep0_phys = match ep0_mut(slot) { Some(e) => e.ring_phys, None => return false };
+    // El dequeue que se escribe es POR DONDE VA el anillo (tras el segundo
+    // `Address Device` ya lleva una transferencia hecha), no su principio.
+    let dq = match ep0_mut(slot) { Some(e) => ep0_dequeue(e), None => return false };
     let dev_phys = match crate::paginas::de_ranura(slot, crate::paginas::Uso::Dispositivo) {
         Some(p) => p,
         None => return false,
@@ -606,7 +623,15 @@ pub unsafe fn address_rematar(slot: u8, ev: &Evento) -> bool {
     let dev_virt = h.phys_to_virt(dev_phys);
     // Write EP0 dequeue into Device Context EP0 for future doorbell reloads
     let d_ep0 = dev_virt.add(cs) as *mut u32;
-    d_ep0.add(2).write_volatile((ep0_phys & !0xF) as u32 | 1);
-    d_ep0.add(3).write_volatile(((ep0_phys >> 32) & 0xFFFF_FFFF) as u32);
+    d_ep0.add(2).write_volatile((dq & 0xFFFF_FFFF) as u32);
+    d_ep0.add(3).write_volatile(((dq >> 32) & 0xFFFF_FFFF) as u32);
     true
+}
+
+/// El TR Dequeue Pointer que describe el anillo del EP0 tal como va: la
+/// fisica del proximo TRB que el productor va a escribir, con su cycle
+/// state en el bit 0 (DCS). Sobre un anillo recien montado es su principio
+/// con DCS = 1.
+fn ep0_dequeue(e: &Ep0Info) -> u64 {
+    ((e.ring_phys & !0xF) + (e.enqueue as u64) * 16) | if e.pcs { 1 } else { 0 }
 }

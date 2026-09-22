@@ -34,11 +34,23 @@
 //!
 //! ## Por que esto se prueba sin xHC
 //!
-//! `Metal` es la unica puerta al hardware y tiene once verbos. Un `Metal`
-//! fingido con un reloj que avanza a mano permite comprobar lo que importa
-//! --que ningun paso ESPERA, que los plazos se cumplen en tiempo y no en
-//! vueltas, que un aparato mudo cuesta tres lecturas y devuelve su ranura--
-//! sin encender la maquina. Ver las pruebas al final.
+//! `Metal` es la unica puerta al hardware. Un `Metal` fingido con un reloj
+//! que avanza a mano permite comprobar lo que importa --que ningun paso
+//! ESPERA, que los plazos se cumplen en tiempo y no en vueltas, que un
+//! aparato mudo cuesta tres lecturas y devuelve su ranura-- sin encender la
+//! maquina. Ver las pruebas al final.
+//!
+//! ## Lo que el fingido NO cazo (2026-09-22)
+//!
+//! Dos arranques del Ryzen sin teclado ni raton con estas pruebas en verde.
+//! El esquema de Windows (6d4a0457) traia un `Reset Device` sobre una
+//! ranura en `Default`, que el xHC rechaza (Context State Error), y un
+//! segundo `Address Device` que volvia a suponer el paquete del EP0 y
+//! pisaba el `Evaluate Context`. El fingido contestaba que si al reset en
+//! cualquier estado y conservaba el paquete al direccionar: **un fingido
+//! que dice que si a todo no prueba nada**. Ahora pierde el paquete al
+//! direccionar como el xHC (copia el contexto de entrada), y el `Reset
+//! Device` ya no existe. Ver `bmo_xhci::address_device`.
 
 use crate::enumera::{
     detalle_sin_descriptores, le_u16, MAX_CFG, PASO_CFG_CORTA, PASO_CFG_MENOR_DE_9, PASO_CFG_NO_CABE,
@@ -75,8 +87,8 @@ pub enum Descriptor {
     Configuracion,
 }
 
-/// **Los once verbos con los que la enumeracion toca el bus.** Ninguno
-/// espera: los que lanzan algo devuelven si se pudo lanzar, y los `*_llego`
+/// **Los verbos con los que la enumeracion toca el bus.** Ninguno espera:
+/// los que lanzan algo devuelven si se pudo lanzar, y los `*_llego`
 /// contestan `None` mientras no haya llegado.
 pub trait Metal {
     /// Milisegundos desde un origen cualquiera. Todo plazo es una resta.
@@ -91,12 +103,13 @@ pub trait Metal {
     /// `Some(Some(slot))`, `Some(None)` = contesto que no, `None` = aun no.
     fn ranura_llego(&mut self) -> Option<Option<u8>>;
     /// `Address Device` lanzado y vigilado. `bsr` = sin `SET_ADDRESS`: la
-    /// ranura queda en `Default` y el aparato en la direccion 0.
-    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool) -> bool;
+    /// ranura queda en `Default` y el aparato en la direccion 0. `mps0` =
+    /// el paquete del EP0 que el aparato declaro (0 = el supuesto por
+    /// velocidad): el xHC copia el contexto de entrada ENTERO, asi que el
+    /// segundo `Address Device` tiene que llevar el paquete evaluado o lo
+    /// pierde.
+    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool, mps0: u16) -> bool;
     fn direccion_llego(&mut self, slot: u8) -> Option<bool>;
-    /// `Reset Device` lanzado y vigilado: el xHC se entera del segundo reset.
-    fn reset_device(&mut self, slot: u8) -> bool;
-    fn reset_device_llego(&mut self) -> Option<bool>;
     fn devolver_ranura(&mut self, slot: u8);
     /// `GET_DESCRIPTOR` lanzado y vigilado.
     fn pedir_descriptor(&mut self, slot: u8, cual: Descriptor, largo: usize) -> bool;
@@ -141,12 +154,11 @@ enum Paso {
     /// El paquete declarado no es el supuesto: `Evaluate Context`.
     Evaluar,
     EsperandoEvaluar,
-    /// El SEGUNDO reset (lo que el aparato espera), y que el xHC lo sepa.
+    /// El SEGUNDO reset (lo que el aparato espera). Sin `Reset Device`
+    /// detras: la ranura esta en `Default` y el xHC lo rechazaria.
     Reset2,
     Reseteando2,
     Recuperando2,
-    ResetDevice,
-    EsperandoResetDevice,
     /// `Address Device` con BSR = 0: ahora si, `SET_ADDRESS`, y 10 ms.
     Direccionar2,
     EsperandoDireccion2,
@@ -328,7 +340,7 @@ impl Enumeracion {
                 None => self.o_plazo(m, ahora),
             },
             Paso::Direccionar => {
-                if !m.direccionar(port, self.velocidad, self.slot, true) {
+                if !m.direccionar(port, self.velocidad, self.slot, true, 0) {
                     return self.no_acepta(m);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion)
@@ -419,28 +431,11 @@ impl Enumeracion {
                     m.log_u64("[uhid] tras el segundo reset, sin habilitar: ", port as u64);
                     return self.no_acepta(m);
                 }
-                self.paso = Paso::ResetDevice;
+                self.paso = Paso::Direccionar2;
                 Marcha::Sigue
             }
-            Paso::ResetDevice => {
-                if !m.reset_device(self.slot) {
-                    return self.no_acepta(m);
-                }
-                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoResetDevice)
-            }
-            Paso::EsperandoResetDevice => match m.reset_device_llego() {
-                Some(true) => {
-                    self.paso = Paso::Direccionar2;
-                    Marcha::Sigue
-                }
-                Some(false) => {
-                    m.log("[uhid] reset device FALLO\n");
-                    self.no_acepta(m)
-                }
-                None => self.o_plazo(m, ahora),
-            },
             Paso::Direccionar2 => {
-                if !m.direccionar(port, self.velocidad, self.slot, false) {
+                if !m.direccionar(port, self.velocidad, self.slot, false, self.mps0) {
                     return self.no_acepta(m);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion2)
@@ -637,7 +632,7 @@ impl Enumeracion {
 //  El Metal de verdad: bmo_xhci
 // ===================================================================
 
-/// Los once verbos sobre el xHC. Guarda la transferencia en vuelo entre un
+/// Los verbos sobre el xHC. Guarda la transferencia en vuelo entre un
 /// bombeo y el siguiente, que es lo unico que la maquina no puede guardar
 /// sin conocer el controlador.
 pub struct Xhc {
@@ -693,8 +688,8 @@ impl Metal for Xhc {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
         Some(bmo_xhci::slot_de_complecion(&ev))
     }
-    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool) -> bool {
-        match unsafe { bmo_xhci::address_lanzar(port, velocidad, slot, bsr) } {
+    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool, mps0: u16) -> bool {
+        match unsafe { bmo_xhci::address_lanzar(port, velocidad, slot, bsr, mps0) } {
             Some(trb) => {
                 bmo_xhci::vigilar_comando(trb);
                 true
@@ -705,19 +700,6 @@ impl Metal for Xhc {
     fn direccion_llego(&mut self, slot: u8) -> Option<bool> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
         Some(unsafe { bmo_xhci::address_rematar(slot, &ev) })
-    }
-    fn reset_device(&mut self, slot: u8) -> bool {
-        match unsafe { bmo_xhci::reset_device_lanzar(slot) } {
-            Some(trb) => {
-                bmo_xhci::vigilar_comando(trb);
-                true
-            }
-            None => false,
-        }
-    }
-    fn reset_device_llego(&mut self) -> Option<bool> {
-        let ev = unsafe { bmo_xhci::vigilado_llego()? };
-        Some(bmo_xhci::cc_de(&ev) == 1)
     }
     fn devolver_ranura(&mut self, slot: u8) {
         unsafe {
@@ -822,16 +804,16 @@ mod pruebas {
         ultimo_cc: u8,
         /// Los `Address Device` que se mandaron, con su BSR.
         direcciones: Vec<bool>,
-        resets_device: u32,
     }
 
     #[derive(Clone, Copy)]
     enum Vuelo {
         Ranura,
-        Direccion,
+        /// Un `Address Device`, con el paquete de EP0 que lleva su contexto
+        /// de entrada.
+        Direccion(u16),
         Descriptor(Descriptor, usize),
         Evaluacion(u16),
-        ResetDevice,
     }
 
     impl Fingido {
@@ -851,7 +833,6 @@ mod pruebas {
                 mps0_xhc: 64,
                 ultimo_cc: 0,
                 direcciones: Vec::new(),
-                resets_device: 0,
             }
         }
         /// El paquete de EP0 del aparato fingido: 8 (teclado, raton) o 64
@@ -927,28 +908,26 @@ mod pruebas {
                 _ => panic!("se esperaba la ranura"),
             }
         }
-        fn direccionar(&mut self, _port: u8, _v: u8, slot: u8, bsr: bool) -> bool {
+        fn direccionar(&mut self, _port: u8, v: u8, slot: u8, bsr: bool, mps0: u16) -> bool {
             assert_eq!(slot, 7);
             self.eventos.push(if bsr { "address0" } else { "address" });
             self.direcciones.push(bsr);
-            self.vuelo = Some((self.ahora + 1, Vuelo::Direccion));
+            // Lo que lleva el contexto de entrada: el declarado, o el
+            // supuesto por velocidad (64 para Full Speed).
+            let mps = if mps0 != 0 { mps0 } else { mps0_supuesto(v) };
+            self.vuelo = Some((self.ahora + 1, Vuelo::Direccion(mps)));
             true
-        }
-        fn reset_device(&mut self, _slot: u8) -> bool {
-            self.eventos.push("reset_device");
-            self.resets_device += 1;
-            self.vuelo = Some((self.ahora + 1, Vuelo::ResetDevice));
-            true
-        }
-        fn reset_device_llego(&mut self) -> Option<bool> {
-            match self.llego()? {
-                Vuelo::ResetDevice => Some(true),
-                _ => panic!("se esperaba el reset device"),
-            }
         }
         fn direccion_llego(&mut self, _slot: u8) -> Option<bool> {
             match self.llego()? {
-                Vuelo::Direccion => Some(true),
+                // ** El xHC COPIA el contexto de entrada al de salida
+                // (xHCI 4.6.5): el paquete del EP0 es el que vino en el
+                // comando, se haya evaluado antes lo que se haya evaluado.
+                // Esto es lo que el fingido no modelaba el 21-09.
+                Vuelo::Direccion(mps) => {
+                    self.mps0_xhc = mps;
+                    Some(true)
+                }
                 _ => panic!("se esperaba la direccion"),
             }
         }
@@ -1043,15 +1022,19 @@ mod pruebas {
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
         // El esquema de Windows, entero: direccion 0, 64 bytes (un teclado
         // de paquete 8 contesta 8: hay que decirselo al xHC), segundo reset,
-        // Reset Device, la direccion de verdad, y entonces los descriptores.
+        // la direccion de verdad, y entonces los descriptores.
         assert_eq!(
             m.eventos,
             [
                 "encender", "reset", "enable_slot", "address0", "get_dev", "evaluate", "reset",
-                "reset_device", "address", "get_dev", "get_cfg", "get_cfg"
+                "address", "get_dev", "get_cfg", "get_cfg"
             ]
         );
         assert_eq!(m.direcciones, [true, false]);
+        // Y el paquete evaluado SOBREVIVE al segundo Address Device. Con el
+        // fingido de antes esto daba 8 aunque el segundo comando llevara 64;
+        // en el metal el teclado se quedaba en 64 y la cabecera de 9 bytes
+        // llegaba como 8.
         assert_eq!(m.mps0_xhc, 8);
         // La ranura NO se devuelve: es del aparato que se va a instalar.
         assert_eq!(m.ranuras_devueltas, 0);
@@ -1120,10 +1103,9 @@ mod pruebas {
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
         assert_eq!(
             &m.eventos[3..],
-            ["address0", "get_dev", "reset", "reset_device", "address", "get_dev", "get_cfg", "get_cfg"]
+            ["address0", "get_dev", "reset", "address", "get_dev", "get_cfg", "get_cfg"]
         );
         assert_eq!(m.mps0_xhc, 64);
-        assert_eq!(m.resets_device, 1);
     }
 
     #[test]
