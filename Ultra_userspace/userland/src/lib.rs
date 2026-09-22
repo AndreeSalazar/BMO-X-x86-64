@@ -201,6 +201,14 @@ pub const OP_HIJO: u32 = 0x2B;
 /// [`crate::proceso::argumentos`].
 pub const OP_ARGUMENTOS: u32 = 0x33;
 
+/// **El mando del maestro del sonido**: no reclama el aparato, y solo lo puede
+/// usar quien tiene la pantalla. Ver [`crate::sys::audio_mando`].
+pub const OP_AUDIO_MANDO: u32 = 0x34;
+/// Mover el fader (1/256 dB con signo).
+pub const AUDIO_MANDO_FADER: u64 = 1;
+/// Callar (1) o descallar (0).
+pub const AUDIO_MANDO_MUDO: u64 = 2;
+
 /// Operaciones sobre un handle de hijo. Ver `obj/tarea.rs` en el kernel.
 pub const TAREA_OP_VIVE: u32 = 0x01;
 pub const TAREA_OP_TID: u32 = 0x02;
@@ -399,6 +407,15 @@ pub const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
 /// y no habia forma de saber si ofrecia mas. El `save` los muestra todos porque
 /// **la tabla la escribe el aparato, no el programador**.
 pub const INFO_AUDIO_FORMATOS: u64 = 0x88;
+/// El maestro: fader, parte del aparato, ganancia digital, mudo y estado.
+/// Espejo de `bmo_abi::...::INFO_AUDIO_MAESTRO`.
+pub const INFO_AUDIO_MAESTRO: u64 = 0x8B;
+/// Picos y RMS izquierdo y derecho de lo que sale al cable (ventanas de 50 ms).
+pub const INFO_AUDIO_MEDIDOR: u64 = 0x8C;
+/// Doblegadas, reduccion del limite y ventanas del medidor.
+pub const INFO_AUDIO_LIMITE: u64 = 0x8D;
+/// El volumen con el que vino el aparato (`GET_CUR` al reclamarlo).
+pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

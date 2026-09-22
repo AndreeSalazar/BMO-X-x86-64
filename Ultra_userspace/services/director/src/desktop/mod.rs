@@ -46,6 +46,9 @@ pub(crate) mod paint;
 pub(crate) use crate::ventana;
 /// El gato que sale cuando alguien teclea Linux aqui. Vivia en `scene`; necesita el escritorio entero, asi que es de aqui (L8).
 pub(crate) mod nya;
+/// **El mando del sonido**: abrir y cerrar el panel del maestro, sus teclas, su
+/// raton y el refresco del medidor. La cara la pinta `scene::sound`.
+pub(crate) mod sonido;
 pub(crate) use boot::boot;
 /// **Which window is which.** An id is a TYPE here, not a loose `u8` -- the
 /// why is written where it lives, and it cost a repeated `3` to learn.
@@ -269,12 +272,10 @@ pub(crate) struct Out {
 /// decision of the whole window: `KIND_AUDIO` is exclusive, so claiming it at
 /// startup would mean nothing launched from here could ever make a sound.
 pub(crate) struct SoundState {
-    pub cap: Option<bmo::Sonido>,
-    pub devices: u64,
-    /// Session state, not the painting module's: the volume survives closing
-    /// and reopening the window.
-    pub volume: u8,
-    pub pressed: Option<usize>,
+    /// **El panel del maestro**: la marca de pico, la luz de RECORTE y el
+    /// arrastre. Ya no hay handle del sonido aqui: el mando no lo necesita
+    /// (ver `scene::sound`), y el volumen lo sabe el kernel, no el escritorio.
+    pub panel: crate::scene::sound::Panel,
 }
 
 
@@ -455,10 +456,7 @@ pub(crate) fn install(p: &bmo::Pantalla, console: Option<bmo::Consola>) -> &'sta
         core::ptr::addr_of_mut!((*slot).out.run).write(None);
         core::ptr::addr_of_mut!((*slot).out.faults_seen).write(bmo::autopsia_total());
         core::ptr::addr_of_mut!((*slot).snd).write(SoundState {
-            cap: None,
-            devices: 0,
-            volume: 80,
-            pressed: None,
+            panel: crate::scene::sound::Panel::nuevo(),
         });
         core::ptr::addr_of_mut!((*slot).tick).write(Tick::nuevo());
         core::ptr::addr_of_mut!((*slot).resp).write([0; 24]);

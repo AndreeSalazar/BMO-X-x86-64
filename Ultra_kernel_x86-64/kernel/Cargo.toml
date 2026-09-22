@@ -72,6 +72,10 @@ bmo-audio = { path = "../../platform/drivers/audio" }
 # USB Audio Class: decide QUE peticiones mandar. No toca hardware --por eso se
 # prueba entero en el anfitrion-- y quien las manda es `dev/uaudio.rs`.
 bmo-uaudio = { path = "../../platform/drivers/usb/uaudio" }
+# EL MAESTRO del sonido (2026-09-22): ganancia con rampa, limite y medidor, en
+# la ultima etapa antes del tubo (`dev/usb/maestro.rs`). Aritmetica entera, sin
+# dependencias y sin `unsafe`: lo mismo que el anfitrion prueba es lo que corre.
+bmo-amplificador = { path = "../../platform/shared/bmo-amplificador" }
 bmo-rtc = { path = "../../platform/drivers/rtc" }
 # Red: de momento solo sabe RECONOCER una Realtek 8169/8168 -- leer su MAC y su
 # enlace. Cero escrituras al aparato, cero dependencias propias. Quien la llama

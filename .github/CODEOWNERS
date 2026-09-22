@@ -33,6 +33,9 @@
 /platform/drivers/                           @AndreeSalazar
 /platform/abi/                               @AndreeSalazar
 /platform/services/cabina-core/              @AndreeSalazar
+# bmo-amplificador entro en Ring 0 el 22-09: el MAESTRO del sonido (la ultima
+# etapa antes del tubo) lo corre el kernel, por decision del propietario.
+/platform/shared/bmo-amplificador/           @AndreeSalazar
 /platform/shared/bmo-carga-juicio/           @AndreeSalazar
 /platform/shared/bmo-channel/                @AndreeSalazar
 /platform/shared/bmo-ciudad/                 @AndreeSalazar

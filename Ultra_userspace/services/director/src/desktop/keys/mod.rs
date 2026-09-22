@@ -272,14 +272,7 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
                 // toca turno, que es lo que las diferencia de `info`.
                 Ventana::Cpu => scene::vitals::paint(&p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
                 Ventana::Mem => scene::vitals::paint(&p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
-                Ventana::Sound => scene::sound::paint(
-                    &p,
-                    &dsk.win.sound,
-                    dsk.snd.cap.is_some(),
-                    dsk.snd.devices,
-                    dsk.snd.volume,
-                    dsk.snd.pressed,
-                ),
+                Ventana::Sound => scene::sound::paint(&p, &dsk.win.sound, &dsk.snd.panel),
                 Ventana::Run => uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, sal, repintar),
             }
         };

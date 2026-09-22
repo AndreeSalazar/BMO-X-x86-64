@@ -388,6 +388,24 @@ impl Limite {
         }
     }
 
+    /// **Un limite SIN ataque: el de la etapa pegada al oido.**
+    ///
+    /// El de [`Limite::nuevo`] tarda ~1 ms en bajar, y en ese milisegundo lo
+    /// que se pasa se doblega a pelo. Para una mezcla vale; para la ULTIMA
+    /// etapa no: el 2026-09-22 la prueba del maestro lo conto --una cuadrada
+    /// fuerte con +12 dB, **982 muestras doblegadas** en 200 ms-- y cada una es
+    /// una punta cortada que suena sucia justo cuando mas alto esta.
+    ///
+    /// Este baja la reduccion **en la misma muestra** que se pasaria y la
+    /// devuelve con el mismo relajo de ~100 ms. Es lo que hace un limitador de
+    /// seguridad: el arranque de un golpe se sujeta de una vez (y el golpe
+    /// mismo tapa el cambio), y lo que viene detras baja y sube despacio.
+    pub fn inmediato(hz: u32) -> Limite {
+        let mut l = Limite::nuevo(hz);
+        l.ataque = 1 << 16;
+        l
+    }
+
     /// El techo puesto.
     pub fn techo(&self) -> i32 {
         self.techo
@@ -601,6 +619,10 @@ impl Amplificador {
 
 /// **LA MESA**: N pistas con nombre y un maestro. Ver [`mesa`].
 pub mod mesa;
+
+/// **EL MAESTRO**: la ultima etapa, pegada al cable, con rampa y medidor por
+/// lado. La corre el kernel antes del tubo. Ver [`maestro`].
+pub mod maestro;
 
 #[cfg(test)]
 mod pruebas;

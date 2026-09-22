@@ -586,6 +586,29 @@ pub const TASK_OP_TOCAR: u64 = 0x32;
 /// fichero se lo pasa a `OP_RUTA` palabra a palabra, sin copiarlo.
 pub const TASK_OP_ARGUMENTOS: u64 = 0x33;
 
+/// **EL MANDO DEL MAESTRO**: mover el fader del sonido o callarlo (2026-09-22).
+/// `arg0` = [`AUDIO_MANDO_FADER`] o [`AUDIO_MANDO_MUDO`], `arg1` = el valor.
+///
+/// *** NO PIDE EL SONIDO, y esa es la razon de que exista. Reclamar el sonido es
+/// EXCLUSIVO: mientras DOOM suena, nadie mas puede tenerlo, y hasta hoy el
+/// volumen solo se movia reclamandolo -- o sea que con un juego sonando el
+/// escritorio no podia tocar ni el volumen. Producir y mandar eran el mismo
+/// permiso; en una mesa de verdad no: el que toca no lleva el fader maestro.
+///
+/// ** Y SOLO LA PUEDE USAR QUIEN TIENE LA PANTALLA, o sea el escritorio. El
+/// maestro es la perilla de la habitacion: un programa puede producir sonido,
+/// no subirle la ganancia al oido de nadie. Cualquier otro recibe
+/// `ERROR_PERMISSION_DENIED`, con el motivo en CABINA.
+///
+/// Lo que el mando deja puesto se LEE sin handle, por `OP_INFO`:
+/// `INFO_AUDIO_MAESTRO`, `INFO_AUDIO_MEDIDOR` e `INFO_AUDIO_LIMITE`.
+pub const TASK_OP_AUDIO_MANDO: u64 = 0x34;
+/// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
+/// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
+pub const AUDIO_MANDO_FADER: u64 = 1;
+/// Callar (`arg1 != 0`) o descallar. Con rampa: no es un corte seco.
+pub const AUDIO_MANDO_MUDO: u64 = 2;
+
 /// Ocho bytes del nombre del hijo `arg0`; `arg1` numera el trozo.
 ///
 /// De ocho en ocho porque la superficie congelada no acepta punteros, y es el

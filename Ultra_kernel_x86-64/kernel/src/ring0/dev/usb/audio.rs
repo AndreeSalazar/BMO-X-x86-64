@@ -212,6 +212,11 @@ pub struct Tubo {
     /// `max_packet`**, y eso se comprueba antes de abrir.
     pub bytes_por_trama: u32,
     pub max_packet: u16,
+    /// Canales y bits por muestra del alt elegido. Los pide el MAESTRO
+    /// (`maestro.rs`): una ganancia sobre muestras que no sabe leer seria
+    /// ruido, asi que si no son 16 bits no toca nada y lo dice.
+    pub canales: u8,
+    pub bits: u8,
 }
 
 /// El tubo abierto, si lo hay.
@@ -341,6 +346,8 @@ pub fn abrir(slot: u8, p: &bmo_uaudio::stream::Playback) -> bool {
             frecuencia,
             bytes_por_trama: bytes,
             max_packet: p.max_packet,
+            canales: p.channels,
+            bits: p.bits,
         });
     }
     cabina::bytes("audio", "TUBO ABIERTO -- bytes por trama", bytes as u64);
@@ -550,12 +557,17 @@ pub fn latido() {
         // milisegundo y no esperar es todo el trato. Lo que cambia es que **se
         // apunta**, porque "sono un clic" y "el productor no llego a tiempo"
         // son dos cosas distintas y solo este contador las separa.
+        //
+        // ** Y POR EL MAESTRO, las dos (2026-09-22): la trama de la app pasa
+        // por la ultima etapa --ganancia, limite, medidor-- y el silencio le
+        // dice al medidor que caiga. Ver `maestro.rs`.
         let (donde, n) = match siguiente_trama(largo as u64) {
-            Some(t) => t,
+            Some((desde, n)) => (unsafe { super::maestro::pasar(desde, n, &t) }, n),
             None => {
                 if unsafe { PRESTADO.is_some() } {
                     unsafe { HUECOS = HUECOS.wrapping_add(1) };
                 }
+                unsafe { super::maestro::silencio(largo, &t) };
                 (ceros, largo)
             }
         };

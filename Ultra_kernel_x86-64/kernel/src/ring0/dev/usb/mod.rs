@@ -65,6 +65,9 @@ use crate::ring0::dev::keyboard;
 /// Preguntarle al aparato de audio como quiere las muestras. Paso 0 de
 /// `docs/maestro/AUDIO_MAESTRO.md`: no le escribe un byte.
 pub mod audio;
+/// **EL MAESTRO**: la ultima etapa del sonido --ganancia con rampa, limite y
+/// medidor-- entre el bufer de la app y el tubo. La mueve solo el escritorio.
+pub mod maestro;
 /// El hilo de kernel que bombea el bus. Sin el, el teclado depende de que
 /// alguien pregunte -- ver su cabecera.
 pub mod bus;

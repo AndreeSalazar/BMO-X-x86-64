@@ -357,15 +357,13 @@ if let Some(open) = toggle_klog {
     return Key::Taken;
 }
 
-// -- F10: la ventana del SONIDO --
+// -- F10: el panel del SONIDO, el maestro --
 //
-// Calcada de F11, y con una diferencia que no es cosmetica:
-// aqui abrir y cerrar **toman y devuelven un aparato**, no solo
-// pintan. Por eso el orden importa en los dos sentidos --
-// reclamar antes de pintar (para que la ventana muestre lo que
-// de verdad hay) y CALLAR antes de soltar (un tono que sigue
-// sonando despues de devolver el aparato es del sistema, y el
-// sistema no pidio ese tono).
+// Calcada de F11. Hasta el 2026-09-22 abrir y cerrar TOMABAN Y
+// DEVOLVIAN el aparato, y por eso con un juego sonando la ventana
+// decia "lo tiene OTRO": ahora manda sin reclamar, y abrir y cerrar
+// entran por la misma puerta que el indicador de la barra
+// (`desktop::sonido::abrir_o_cerrar`).
 let toggle_sound = if c == 0x92 {
     Some(!dsk.win.sound_open)
 } else if c == 0x1B && dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
@@ -374,50 +372,7 @@ let toggle_sound = if c == 0x92 {
     None
 };
 if let Some(open) = toggle_sound {
-    dsk.win.sound_open = open;
-    if open {
-        // Puede fallar, y entonces la ventana lo DICE en vez de
-        // pintar un volumen que no manda sobre nada.
-        dsk.snd.cap = bmo::Sonido::claim();
-        dsk.snd.devices = match &dsk.snd.cap {
-            Some(s) => {
-                s.volumen(dsk.snd.volume);
-                s.aparatos()
-            }
-            None => 0,
-        };
-        dsk.snd.pressed = None;
-        dsk.win.focus.open(Ventana::Sound);
-        scene::sound::paint(
-            &p, &dsk.win.sound, dsk.snd.cap.is_some(),
-            dsk.snd.devices, dsk.snd.volume, dsk.snd.pressed,
-        );
-        dsk.win.top_before = if dsk.win.focus.es_para(Ventana::Sound) { Ventana::Sound } else { Ventana::Run };
-        if dsk.win.top_before == Ventana::Run {
-            uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-        }
-    } else {
-        // * DEVOLVER EL APARATO. Esto es lo que impide que el
-        // escritorio deje mudos a todos los programas que lanza.
-        if let Some(s) = dsk.snd.cap.take() {
-            s.callar();
-            s.release();
-        }
-        dsk.win.focus.close(Ventana::Sound);
-        erase_window(
-            &p, &dsk.run_box, dsk.win.sound.chrome.x, dsk.win.sound.chrome.y,
-            dsk.win.sound.chrome.width, dsk.win.sound.chrome.height, dsk.win.visible,
-        );
-        dsk.win.top_before = Ventana::Run;
-        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-        // Si habia ventanas debajo, vuelven a verse.
-        if dsk.win.data_open {
-            scene::data::paint(&p, &dsk.win.data);
-        }
-        if dsk.win.cabina_open {
-            scene::cabina::paint(&p, &dsk.win.cabina);
-        }
-    }
+    crate::desktop::sonido::abrir_o_cerrar(dsk, &p, open, false);
     return Key::Taken;
 }
     Key::Pass

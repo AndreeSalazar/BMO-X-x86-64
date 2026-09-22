@@ -15,66 +15,11 @@ use crate::desktop::{Desktop, Ventana};
 use crate::scene::{self};
 
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, _alt_alone: bool, ctrl: bool) -> Key {
-// Las teclas de la ventana del sonido. **Solo con el foco
-// AQUI**: con el foco en Ejecutar, una `z` es una letra que el
-// propietario esta escribiendo, y robarsela para un atajo seria el
-// peor intercambio posible. Es la misma regla que la `f` del
-// klog.
-if dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
-    if let Some(s) = &dsk.snd.cap {
-        // Flechas: el volumen, de diez en diez.
-        //
-        // * `KEY_LEFT` es 0x82 y `KEY_RIGHT` 0x83 -- ver
-        // `ring0/dev/keyboard.rs`. Esto se escribio con 0x83 y
-        // 0x84, y **0x84 es INICIO**: la flecha izquierda no
-        // habria bajado el volumen y la tecla Inicio lo habria
-        // subido. No da error, da un control que obedece a la
-        // tecla equivocada.
-        if c == 0x82 || c == 0x83 {
-            dsk.snd.volume = if c == 0x83 {
-                (dsk.snd.volume + 10).min(100)
-            } else {
-                dsk.snd.volume.saturating_sub(10)
-            };
-            s.volumen(dsk.snd.volume);
-            scene::sound::paint(
-                &p, &dsk.win.sound, true, dsk.snd.devices,
-                dsk.snd.volume, dsk.snd.pressed,
-            );
-            return Key::Taken;
-        }
-        // Z..M: una octava. Se pinta la tecla ANTES de pitar
-        // porque `pitar` bloquea el nucleo mientras suena: al
-        // reves, la tecla se veria encendida cuando ya callo.
-        let min = c.to_ascii_lowercase();
-        if let Some(i) = scene::sound::NOTES.iter().position(|note| note.0 == min) {
-            dsk.snd.pressed = Some(i);
-            scene::sound::paint(
-                &p, &dsk.win.sound, true, dsk.snd.devices,
-                dsk.snd.volume, dsk.snd.pressed,
-            );
-            s.pitar(scene::sound::NOTES[i].1, 160);
-            dsk.snd.pressed = None;
-            scene::sound::paint(
-                &p, &dsk.win.sound, true, dsk.snd.devices,
-                dsk.snd.volume, dsk.snd.pressed,
-            );
-            return Key::Taken;
-        }
-        // P: la frase. La misma que toca `c/musica.bex`, para
-        // que la ventana y el programa suenen igual -- si no,
-        // no se sabria cual de los dos esta mal.
-        if min == b'p' {
-            for (hz, ms) in [
-                (440u32, 170u32), (523, 170), (659, 240),
-                (587, 170), (523, 170), (659, 300),
-            ] {
-                s.pitar(hz, ms);
-                s.pitar(0, 30);
-            }
-            return Key::Taken;
-        }
-    }
+// Las teclas del panel del sonido: el fader y el mudo. **Solo con el
+// foco AQUI** -- la guarda vive dentro de `sonido::on_key`, con el resto
+// de lo que hace el panel. Con Ctrl no: Ctrl+flecha mueve la ventana.
+if !ctrl && crate::desktop::sonido::on_key(dsk, p, c) {
+    return Key::Taken;
 }
 
 // -- ** LAS LETRAS DE CABINA: `G` y `A` --

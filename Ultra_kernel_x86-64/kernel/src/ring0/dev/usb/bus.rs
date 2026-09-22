@@ -515,6 +515,8 @@ pub(super) fn pump_bus() {
     // Y el volumen que Ring 3 haya pedido: una o dos transferencias contra
     // el audifono, aqui y no en el syscall (2026-09-21). Ver `uaudio.rs`.
     crate::ring0::dev::uaudio::atender();
+    // Y el que pide el MAESTRO del escritorio, en dB (2026-09-22).
+    crate::ring0::dev::uaudio::atender_db();
     super::audio::atender_tubo();
     t = anota(6, t, por_us);
     // ** LA FOTO DE SALUD SE SACA AQUI DENTRO, y ese es su sitio exacto: leer

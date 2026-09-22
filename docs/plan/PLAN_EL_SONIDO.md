@@ -402,6 +402,66 @@ El orden que sale de ahi, y que sustituye al "S4b":
 de un camino roto y el fallo se buscaria en el sitio equivocado -- que es
 exactamente lo que paso el 21-09 con el paquete del EP0.
 
+## [ ] S4c -- EL MAESTRO: la ultima etapa, en el kernel, y su panel en el escritorio (2026-09-22)
+
+> Codigo HECHO el 22-09; la casilla se cierra cuando el metal conteste la tabla
+> de abajo.
+
+El propietario, con DOOM sonando: *"funcionan pero no tengo control de audio...
+un control que viva en mi escritorio, no como app... inspirado en Premiere, para
+amplificar sonido maestro"*.
+
+### Por que no tenia control: producir y mandar eran el MISMO permiso
+
+Mover el volumen pasaba por reclamar el sonido, y reclamarlo es exclusivo. Con
+DOOM sonando, el escritorio no podia ni tocar el volumen: `audio volumen`
+devolvia 0 y la ventana F10 decia *"lo tiene OTRO proceso"*. En una mesa de
+verdad el que toca no lleva el fader maestro.
+
+### La decision, con su coste delante (el propietario eligio)
+
+| camino | lo que da | lo que cuesta |
+|---|---|---|
+| **kernel, ultima etapa** (ELEGIDO) | vale para DOOM, `musica` y cualquiera **sin tocarlos** | `bmo-amplificador` entra en Ring 0 (nuestro, sin dependencias ni `unsafe`) y la frase de la seccion 5 se corrige |
+| el escritorio mezcla | el arbol entero de LA MESA | DOOM y `musica` cambian de contrato, y si el escritorio se atasca se corta TODO |
+| solo el aparato | nada nuevo | no pasa de 0 dB: no amplifica |
+
+Y dos mas: **solo el escritorio mueve el maestro** (el kernel lo concede a quien
+tiene la pantalla), y **el techo lo pone la interfaz** (*"tener control de
+interfaz"*): el fader llega hasta donde llega el crate, +24 dB.
+
+### Lo que hay
+
+| pieza | donde | que hace |
+|---|---|---|
+| `Maestro` | `bmo-amplificador/src/maestro.rs` (9 pruebas) | rampa de 1 dB por ms (8 por debajo de -40), limite **sin ataque** y medidor izquierdo/derecho; en reposo es un cable **bit a bit** |
+| `Limite::inmediato` | `bmo-amplificador/src/lib.rs` | el limite de mezcla (1 ms de ataque) dejaba 982 muestras cortadas a pelo con +12 dB; este, cero |
+| la etapa | `kernel/.../dev/usb/maestro.rs` | copia cada trama a un marco SUYO y le pasa el maestro; **en reposo** el xHC sigue leyendo del bufer de la app, como antes |
+| el mando | `TASK_OP_AUDIO_MANDO` (0x34) | fader en 1/256 dB y mudo; **no reclama nada**; `PERMISSION_DENIED` a quien no tenga la pantalla, con el motivo en CABINA |
+| las dos etapas | `maestro::mover` | dentro del rango del aparato lo da **el aparato** (limpio); por encima, aparato a tope y el resto digital |
+| el de fabrica | `uaudio::leer_rango` | un `GET_CUR` al reclamar: el volumen que TRAIA el audifono, antes de que nadie le mande nada |
+| lo que se lee | `INFO_AUDIO_MAESTRO/MEDIDOR/LIMITE/FABRICA` (0x8B-0x8E) | sin handle, como el resto del audio |
+| el panel | `director/src/scene/sound.rs` + `desktop/sonido.rs` | F10 o el indicador de la barra: fader vertical en dB, medidores I/D con marca de pico y luz de RECORTE, numeros al lado, MUDO |
+| el `save` | `save_cabina::report_maestro` | todo lo que el panel muestra, y a DATOS.TXT |
+
+### Lo que el metal tiene que contestar
+
+| que | afirma | como se cae |
+|---|---|---|
+| abrir F10 (o clic en `vol` de la barra) con DOOM sonando | el panel se abre y **DOOM sigue sonando** | "lo tiene OTRO": el mando sigue pidiendo el aparato |
+| el panel sin tocar nada | `maestro` = el de fabrica, `aparato ... de fabrica` | 0 dB inventado: no se leyo el `GET_CUR` |
+| los medidores con DOOM | se mueven con los disparos, verde/ambar | quietos: `ventanas` del `save` no sube |
+| subir con la flecha hasta 0 dB | sube el volumen DEL APARATO, sin luz de recorte | no cambia nada: el `SET_CUR` en dB no llega |
+| seguir subiendo a +12 dB | mas fuerte que nunca; `digital +12.0`; `limite` negativo en los golpes | igual de fuerte: la etapa no actua (mirar `estado` en el `save`) |
+| la luz de RECORTE | apagada o casi: `dobladas` en decenas como mucho | cientos: el limite no sujeta |
+| `M` | se calla en ~50 ms, sin chasquido, y vuelve igual | chasquido: la rampa no corre |
+| el `save` despues | `estado 1`, `tocado 1`, las filas del maestro | `estado 2/3/4`: el maestro no actua y el panel lo dice |
+
+### Lo que NO es
+
+No es LA MESA: una sola perilla para todo lo que suena, no una por programa ni
+por pista. El arbol sigue siendo de Ring 3 ([`PLAN_LA_MESA.md`](PLAN_LA_MESA.md)).
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:
@@ -551,10 +611,13 @@ para su propietario no esta terminado, por muchos canales que tenga.
 * **No hay entrada.** Microfono, grabacion y captura no estan en este plan.
   El dia que entren, la tabla de 1.4 vale igual, pero la cadena va al reves y
   eso se escribe entonces.
-* **Nada de esto es del kernel.** El kernel entrega el tubo, el bloque prestado
-  y el volumen del aparato. Mezclar, amplificar y situar es Ring 3 -- y por eso
-  un tercero puede escribir el suyo sin pedir permiso a nadie
-  ([`PLAN_AUDIO.md`](PLAN_AUDIO.md) 5).
+* **Casi nada de esto es del kernel.** El kernel entrega el tubo, el bloque
+  prestado, el volumen del aparato **y, desde el 22-09, el MAESTRO**: la ultima
+  etapa (ganancia con rampa, limite y medidor), por decision del propietario y
+  con su coste escrito en S4c. Mezclar varias fuentes, el arbol de pistas y
+  situar en el espacio siguen siendo Ring 3 -- y por eso un tercero puede
+  escribir el suyo sin pedir permiso a nadie ([`PLAN_AUDIO.md`](PLAN_AUDIO.md) 5).
+  *(Aqui ponia "Nada de esto es del kernel", y era verdad hasta S4c.)*
 
 ---
 

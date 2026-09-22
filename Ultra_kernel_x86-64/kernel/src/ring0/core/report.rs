@@ -247,6 +247,14 @@ const INFO_AUDIO_FORMATOS: u64 = 0x88;
 const INFO_AUDIO_FORMATO: u64 = 0x89;
 /// La frecuencia `k` del formato `i`: `INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12)`.
 const INFO_AUDIO_FRECUENCIA: u64 = 0x8A;
+/// El maestro: fader, parte del aparato, ganancia digital, mudo y estado.
+const INFO_AUDIO_MAESTRO: u64 = 0x8B;
+/// El medidor del maestro: picos y RMS izquierdo y derecho.
+const INFO_AUDIO_MEDIDOR: u64 = 0x8C;
+/// El limite del maestro: doblegadas, reduccion y ventanas.
+const INFO_AUDIO_LIMITE: u64 = 0x8D;
+/// El volumen de fabrica del aparato.
+const INFO_AUDIO_FABRICA: u64 = 0x8E;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -778,6 +786,10 @@ pub fn campo(n: u64) -> Option<u64> {
             crate::ring0::dev::uaudio::info_aparato() | (crate::ring0::obj::audio::devices() << 40)
         }
         INFO_AUDIO_RANGO => crate::ring0::dev::uaudio::info_rango(),
+        INFO_AUDIO_MAESTRO => crate::ring0::dev::usb::maestro::info(),
+        INFO_AUDIO_MEDIDOR => crate::ring0::dev::usb::maestro::info_medidor(),
+        INFO_AUDIO_LIMITE => crate::ring0::dev::usb::maestro::info_limite(),
+        INFO_AUDIO_FABRICA => crate::ring0::dev::uaudio::info_fabrica(),
         INFO_AUDIO_FORMATOS => crate::ring0::dev::uaudio::info_formatos(),
         c if c & 0xFF == INFO_AUDIO_FORMATO => {
             crate::ring0::dev::uaudio::info_formato(((c >> 8) & 0xF) as usize)

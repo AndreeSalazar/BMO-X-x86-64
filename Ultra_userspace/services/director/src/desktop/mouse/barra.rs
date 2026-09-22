@@ -29,6 +29,13 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
     // se olvida de mis clics"*, y con razon: un control que a veces
     // responde y a veces no es peor que uno que no esta.
     if button && !dsk.tick.button_before && pos.y < TASKBAR_H {
+        // ** EL INDICADOR DEL SONIDO: su ficha es el propio indicador. Abre y
+        // cierra el panel del maestro por la MISMA puerta que F10.
+        if scene::sound::en_la_barra(pos.x, pos.y) {
+            let abrir = !dsk.win.sound_open;
+            crate::desktop::sonido::abrir_o_cerrar(dsk, &p, abrir, true);
+            return;
+        }
         let (fichas, n) = dsk.table.fichas();
         if let Some(i) = scene::chip_at(pos.x, pos.y, scene::FICHA_APPS + n as u32) {
             if i >= scene::FICHA_APPS {

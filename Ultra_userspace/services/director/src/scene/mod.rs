@@ -117,15 +117,16 @@ pub(crate) fn olvidar_la_barra() {
     volcado::olvidar();
     entrada::olvidar();
     barra::olvidar();
+    sound::olvidar_barra();
     // [!] EL PULSO NO ESTA, y no es un olvido: no lleva huella. Su aguja es la
     // prueba de vida del bucle, asi que **tiene que repintarse siempre** --su
     // propio `amarilla.rs` lo dice desde el 08-09: *"lo que se muestra no es el
     // valor, es que haya latido"*. Un chip que se calla cuando no cambia nada
     // seria, justo aqui, un chip que se calla cuando el bucle se muere.
 }
-/// **La ventana del SONIDO** (F10). Reclama `KIND_AUDIO` al abrirse y lo
-/// DEVUELVE al cerrarse -- ver la cabecera del modulo: es lo unico que impide
-/// que el escritorio deje mudos a todos los programas que lanza.
+/// **El SONIDO: el maestro en el escritorio** (F10 y el indicador de la
+/// barra). Ya NO reclama `KIND_AUDIO`: manda por `OP_AUDIO_MANDO`, que convive
+/// con quien este sonando. Ver la cabecera del modulo.
 pub(crate) mod sound;
 
 /// **ESTRUCTURA, el taller (F1).** Escalon 1 de

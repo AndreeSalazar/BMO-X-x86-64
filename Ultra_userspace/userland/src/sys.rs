@@ -352,6 +352,16 @@ pub fn audio_volumen(pct: u64) -> u64 {
     v
 }
 
+/// **Mueve el maestro del sonido** sin reclamar el aparato: `que` es
+/// [`crate::AUDIO_MANDO_FADER`] (valor en 1/256 dB) o
+/// [`crate::AUDIO_MANDO_MUDO`]. Devuelve lo que quedo puesto, o `None` si el
+/// kernel dijo que no --y dice que no a quien no tiene la pantalla--.
+pub fn audio_mando(que: u64, valor: i64) -> Option<i64> {
+    invoke(CURRENT_TASK, crate::OP_AUDIO_MANDO, que, valor as u64, 0)
+        .valor()
+        .map(|v| v as i64)
+}
+
 pub fn audio_censo() -> bool {
     invoke(CURRENT_TASK, OP_AUDIO_CENSO, 0, 0, 0).value != 0
 }

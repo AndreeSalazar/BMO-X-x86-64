@@ -287,6 +287,11 @@ pub(crate) const TASK_OP_HIJO: u64 = 0x2B;
 /// acabo. Espejo de `bmo_abi::...::TASK_OP_ARGUMENTOS`. Ver `task/argumentos.rs`.
 pub(crate) const TASK_OP_ARGUMENTOS: u64 = 0x33;
 
+/// **El mando del maestro del sonido**: `arg0` = que (1 fader, 2 mudo), `arg1`
+/// = el valor. Solo para quien tiene la pantalla. Espejo de
+/// `bmo_abi::...::TASK_OP_AUDIO_MANDO`. Ver `dev/usb/maestro.rs`.
+pub(crate) const TASK_OP_AUDIO_MANDO: u64 = 0x34;
+
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
 /// ## *** POR QUE ESTA OPERACION EXISTE (2026-08-24)

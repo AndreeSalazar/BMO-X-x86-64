@@ -111,7 +111,7 @@ pub(crate) fn color_en(x: u32, y: u32, alto: u32) -> u32 {
 const TEXTO: usize = 48;
 /// El sitio que se reserva a la derecha. Fijo, para que un numero que crece una
 /// cifra no deje restos del anterior.
-const ZONA: u32 = TEXTO as u32 * bmo::GLIFO_ANCHO;
+pub(crate) const ZONA: u32 = TEXTO as u32 * bmo::GLIFO_ANCHO;
 
 static mut ULTIMO: [u8; TEXTO] = [0; TEXTO];
 static mut ULTIMO_N: usize = 0;

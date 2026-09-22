@@ -31,7 +31,7 @@
 //! Es el mismo reparto que hizo util al driver del raton: la decision separada
 //! del registro.
 
-use core::sync::atomic::{AtomicBool, AtomicI16, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicI16, AtomicI32, AtomicU8, Ordering};
 
 /// El slot xHCI del aparato de audio, o 0 si no se ha encontrado.
 static SLOT: AtomicU8 = AtomicU8::new(0);
@@ -75,6 +75,57 @@ pub fn pedir_volumen(pct: u8) {
     VOL_PEDIDO.store(pct.min(100), Ordering::SeqCst);
 }
 
+// -- ** Y EN DECIBELIOS, PARA EL MAESTRO (2026-09-22) ------------------------
+//
+// El porcentaje es la perilla de `audio volumen N`: una curva sobre la escala
+// del aparato. El MAESTRO del escritorio no habla en porcentajes: su fader va
+// en dB, y la parte que cae dentro del rango del aparato se le pide AL APARATO
+// --que la da limpia, sin perder bits-- y solo lo que sobra por encima la pone
+// la etapa digital (`dev/usb/maestro.rs`). Pasar por el porcentaje para volver
+// a dB seria redondear dos veces un numero que ya venia exacto.
+
+/// Lo pedido en 1/256 dB y aun no mandado. [`NADA_DB`] = nada pendiente.
+static VOL_PEDIDO_DB: AtomicI32 = AtomicI32::new(NADA_DB);
+/// El ultimo pedido en dB que se mando: se restaura al volver a enchufar.
+static VOL_DB_ULTIMO: AtomicI32 = AtomicI32::new(NADA_DB);
+const NADA_DB: i32 = i32::MIN;
+/// `VOL_PCT` cuando el ultimo volumen llego en dB y no en porcentaje: el
+/// numero de la perilla no dice nada, y el `save` lo tiene que saber.
+pub const PCT_POR_DB: u8 = 0xFE;
+/// El mute del aparato quedo PUESTO: `audio volumen 0` lo pone, y un volumen
+/// en dB que llegue despues tiene que quitarlo o no suena nada.
+static CALLADO: AtomicBool = AtomicBool::new(false);
+/// **El volumen con el que vino el aparato**, leido con `GET_CUR` al
+/// reclamarlo, antes de que BMO-X le mande nada.
+///
+/// *** El `save` decia *"volumen 0 -- nadie ha puesto un volumen todavia"*
+/// arranque tras arranque, y era verdad a medias: nadie de BMO-X, pero el
+/// aparato SI tiene uno puesto, el de fabrica, y nadie sabia cual. Si viene por
+/// debajo de su tope, una parte del "mas fuerte" sale gratis y limpia.
+static VOL_FABRICA: AtomicI16 = AtomicI16::new(0);
+static FABRICA_LEIDA: AtomicBool = AtomicBool::new(false);
+
+/// **El maestro pide un volumen del aparato en 1/256 dB.** Se recorta al rango
+/// que el aparato declaro al mandarlo, no aqui: el rango puede no conocerse aun.
+pub fn pedir_volumen_db(db: i16) {
+    VOL_PEDIDO_DB.store(db as i32, Ordering::SeqCst);
+}
+
+/// El rango del aparato en 1/256 dB, si hay aparato.
+pub fn rango_db() -> Option<(i16, i16)> {
+    if !hay() {
+        return None;
+    }
+    Some((VOL_MIN.load(Ordering::SeqCst), VOL_MAX.load(Ordering::SeqCst)))
+}
+
+/// El de fabrica para `INFO_AUDIO_FABRICA`: `[0..16)` el `i16` que dijo el
+/// aparato | bit 16 = se leyo (0 = no contesto o no hay aparato).
+pub fn info_fabrica() -> u64 {
+    (VOL_FABRICA.load(Ordering::SeqCst) as u16 as u64)
+        | ((FABRICA_LEIDA.load(Ordering::SeqCst) as u64) << 16)
+}
+
 /// **El bombeo manda lo pedido**, si hay audifono. Lo llama `pump_bus` en
 /// cada vuelta, con el CR3 del kernel: fuera de un pedido es una lectura de
 /// un atomico. Sin audifono lo pedido se queda esperando a que lo haya.
@@ -85,6 +136,18 @@ pub fn atender() {
     }
     VOL_PEDIDO.store(0xFF, Ordering::SeqCst);
     set_volume(pct);
+}
+
+/// La otra mitad de `atender`: lo pedido en dB. Va aparte y no dentro para que
+/// un porcentaje y un dB pedidos en la misma vuelta se manden LOS DOS, en el
+/// orden en que se leen, en vez de que uno se coma al otro sin decirlo.
+pub fn atender_db() {
+    let db = VOL_PEDIDO_DB.load(Ordering::SeqCst);
+    if db == NADA_DB || SLOT.load(Ordering::SeqCst) == 0 {
+        return;
+    }
+    VOL_PEDIDO_DB.store(NADA_DB, Ordering::SeqCst);
+    set_volume_db(db as i16);
 }
 
 /// **El estado del audifono, empaquetado** para `INFO_AUDIO_APARATO`:
@@ -160,8 +223,13 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     // El ultimo volumen que se mando (a este o al de antes) se restaura: un
     // audifono que se desenchufa y vuelve no tiene por que volver a cero.
     let ultimo = VOL_PCT.load(Ordering::SeqCst);
-    if ultimo != 0xFF && VOL_PEDIDO.load(Ordering::SeqCst) == 0xFF {
+    if ultimo != 0xFF && ultimo != PCT_POR_DB && VOL_PEDIDO.load(Ordering::SeqCst) == 0xFF {
         VOL_PEDIDO.store(ultimo, Ordering::SeqCst);
+    }
+    // Y si lo ultimo fue del maestro, en dB: se restaura en dB.
+    let ultimo_db = VOL_DB_ULTIMO.load(Ordering::SeqCst);
+    if ultimo == PCT_POR_DB && ultimo_db != NADA_DB && VOL_PEDIDO_DB.load(Ordering::SeqCst) == NADA_DB {
+        VOL_PEDIDO_DB.store(ultimo_db, Ordering::SeqCst);
     }
     // Y su tubo de reproduccion, si lo declara: se guarda para `censar`, que
     // asi deja de leer descriptores desde un syscall.
@@ -203,6 +271,8 @@ pub fn soltado(slot: u8) {
     SLOT.store(0, Ordering::SeqCst);
     HAY_REPRODUCCION.store(false, Ordering::SeqCst);
     VOL_CONFIRMADO.store(false, Ordering::SeqCst);
+    FABRICA_LEIDA.store(false, Ordering::SeqCst);
+    CALLADO.store(false, Ordering::SeqCst);
     crate::ring0::cabina::warn("uaudio", "el audifono se DESENCHUFO: se olvida su ranura", slot as u64);
 }
 
@@ -296,6 +366,15 @@ pub fn info_frecuencia(i: usize, k: usize) -> u64 {
 fn leer_rango(ac: &bmo_uaudio::AudioControl) {
     let min = leer(ac, bmo_uaudio::GET_MIN);
     let max = leer(ac, bmo_uaudio::GET_MAX);
+    // ** Y EL QUE TRAE PUESTO, antes de que nadie le mande nada: una
+    // transferencia mas en el mismo sitio que las otras dos.
+    match leer(ac, bmo_uaudio::GET_CUR) {
+        Some(c) => {
+            VOL_FABRICA.store(c, Ordering::SeqCst);
+            FABRICA_LEIDA.store(true, Ordering::SeqCst);
+        }
+        None => FABRICA_LEIDA.store(false, Ordering::SeqCst),
+    }
     if let (Some(a), Some(b)) = (min, max) {
         // La validacion vive en `bmo-uaudio` y no aqui: un rango del reves y un
         // minimo que en realidad es el marcador de silencio son decisiones, y
@@ -367,6 +446,24 @@ fn set_volume(pct: u8) -> bool {
     }
 }
 
+/// Manda un volumen en 1/256 dB AHORA, recortado al rango del aparato. Solo
+/// desde `atender_db` (el hilo del bus).
+fn set_volume_db(db: i16) -> bool {
+    let slot = SLOT.load(Ordering::SeqCst);
+    if slot == 0 {
+        return false;
+    }
+    let ac = actual();
+    let valor = db.clamp(VOL_MIN.load(Ordering::SeqCst), VOL_MAX.load(Ordering::SeqCst));
+    // El mute va delante, igual que en `set_volume`: un aparato callado que
+    // acepta el numero y no suena parece el camino roto entero.
+    if ac.has_mute && CALLADO.load(Ordering::SeqCst) {
+        mandar_mute(slot, &ac, false);
+    }
+    VOL_DB_ULTIMO.store(valor as i32, Ordering::SeqCst);
+    mandar_volumen(slot, &ac, PCT_POR_DB, valor)
+}
+
 /// El Feature Unit tal como lo declaro el aparato. **Se lee de lo guardado**, y
 /// no se inventa: la version anterior construia esta struct con
 /// `channels: 2, has_mute: true` a pelo en cada llamada, o sea que le mandaba
@@ -399,6 +496,7 @@ fn mandar_mute(slot: u8, ac: &bmo_uaudio::AudioControl, callar: bool) -> bool {
         crate::ring0::cabina::warn("uaudio", "el aparato rechazo el mute", callar as u64);
         return false;
     }
+    CALLADO.store(callar, Ordering::SeqCst);
     true
 }
 

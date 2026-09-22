@@ -523,6 +523,27 @@ pub const INFO_AUDIO_FORMATO: u64 = 0x89;
 /// La frecuencia `k` del formato `i`, en Hz:
 /// `INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12)`.
 pub const INFO_AUDIO_FRECUENCIA: u64 = 0x8A;
+/// **EL MAESTRO** (2026-09-22): `[0..16)` el fader | `[16..32)` la parte que
+/// se le pidio al APARATO | `[32..48)` la ganancia DIGITAL que hay puesta ahora
+/// (por donde va la rampa); los tres `i16` en 1/256 dB | bit 48 mudo | bit 49
+/// el escritorio lo ha movido alguna vez (antes, el aparato tiene el volumen de
+/// fabrica y no se le toca) | `[56..64)` el estado: 0 sin tubo, 1 en marcha,
+/// 2 no es PCM de 16 bits, 3 la trama no cabe en la etapa, 4 sin marco. En 2,
+/// 3 y 4 el sonido pasa SIN TOCAR y el fader no hace nada: se dice.
+pub const INFO_AUDIO_MAESTRO: u64 = 0x8B;
+/// El medidor del maestro, **lo que sale al cable**, en ventanas de 50 ms:
+/// cuatro `i16` en 1/256 dBFS -- `[0..16)` pico izquierdo | `[16..32)` pico
+/// derecho | `[32..48)` RMS izquierdo | `[48..64)` RMS derecho. -96 dB = nada.
+pub const INFO_AUDIO_MEDIDOR: u64 = 0x8C;
+/// El limite del maestro: `[0..32)` muestras DOBLEGADAS desde el arranque (la
+/// luz de RECORTE: si sube, lo que sale ya no es la onda) | `[32..48)` lo que
+/// el limite esta bajando ahora (`i16`, 0 = nada) | `[48..64)` ventanas del
+/// medidor cerradas (da la vuelta): si no sube, el medidor esta parado.
+pub const INFO_AUDIO_LIMITE: u64 = 0x8D;
+/// **El volumen con el que vino el aparato**, leido con `GET_CUR` al
+/// reclamarlo y antes de mandarle nada: `[0..16)` el `i16` en 1/256 dB |
+/// bit 16 = se leyo.
+pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

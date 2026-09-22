@@ -321,6 +321,12 @@ pub(crate) fn report_audio(s: &mut Output) {
         let pct = (a >> 24) & 0xFF;
         if pct == 0xFF {
             fila_cero(s, b"volumen", 0, b"nadie ha puesto un volumen todavia");
+        } else if pct == 0xFE {
+            // 0xFE = lo ultimo llego en dB, del MAESTRO: el porcentaje no dice
+            // nada, y escribir "254 %" seria un numero sin procedencia.
+            fila_db(s, b"mandado", (r >> 32) & 0xFFFF, b"lo puso el MAESTRO, en dB: ver su tabla abajo");
+            fila_db(s, b"tiene", (r >> 48) & 0xFFFF, b"lo que el aparato dijo tener al confirmar");
+            fila(s, b"confirmado", (a >> 18) & 1, b"", b"1 = tiene lo mandado; 0 = guardo OTRO, o no contesto");
         } else {
             fila(s, b"volumen", pct, b"%", b"el ultimo que se MANDO al aparato");
             fila_db(s, b"mandado", (r >> 32) & 0xFFFF, b"lo que ese % vale en su escala");
@@ -353,6 +359,42 @@ pub(crate) fn report_audio(s: &mut Output) {
     if ranura != 0 {
         tabla_de_formatos(s);
     }
+    report_maestro(s);
+}
+
+/// **EL MAESTRO: el fader del escritorio y la etapa del kernel** (2026-09-22).
+///
+/// Cada numero que el panel muestra --fader, las dos partes, el medidor, el
+/// limite-- sale aqui tambien, para que un `save` diga lo mismo que la pantalla
+/// y DATOS.TXT lo lleve a quien lee con una maquina. Un panel cuyos numeros no
+/// estan en el informe es un panel que no se puede comprobar despues.
+fn report_maestro(s: &mut Output) {
+    subregla(s, b"el MAESTRO -- el fader del escritorio, la etapa del kernel y su medidor");
+    let m = bmo::info(bmo::INFO_AUDIO_MAESTRO);
+    let estado = m >> 56;
+    fila(s, b"estado", estado, b"",
+         b"1 en marcha; 0 sin tubo; 2 no es 16 bits, 3 no cabe, 4 sin marco: en esos NO actua");
+    let tocado = (m >> 49) & 1;
+    fila(s, b"tocado", tocado, b"", b"1 = el escritorio lo movio; 0 = el aparato sigue con su volumen de fabrica");
+    let f = bmo::info(bmo::INFO_AUDIO_FABRICA);
+    if (f >> 16) & 1 == 1 {
+        fila_db(s, b"de fabrica", f & 0xFFFF, b"el que TRAIA el aparato al reclamarlo (GET_CUR)");
+    } else {
+        fila_cero(s, b"de fabrica", 0, b"no se leyo: no hay aparato o no contesto su GET_CUR");
+    }
+    fila_db(s, b"fader", m & 0xFFFF, b"lo que pidio el escritorio");
+    fila_db(s, b"parte aparato", (m >> 16) & 0xFFFF, b"la que se le pidio AL APARATO: sale limpia");
+    fila_db(s, b"digital", (m >> 32) & 0xFFFF, b"la de la etapa del kernel, por donde va su rampa");
+    fila(s, b"mudo", (m >> 48) & 1, b"", b"1 = callado por el maestro (con rampa, no en seco)");
+    let med = bmo::info(bmo::INFO_AUDIO_MEDIDOR);
+    fila_db(s, b"pico izq", med & 0xFFFF, b"la ultima ventana de 50 ms de lo que SALE al cable; -96 = nada");
+    fila_db(s, b"pico der", (med >> 16) & 0xFFFF, b"");
+    fila_db(s, b"rms izq", (med >> 32) & 0xFFFF, b"la fuerza que se OYE, no la punta");
+    fila_db(s, b"rms der", (med >> 48) & 0xFFFF, b"");
+    let lim = bmo::info(bmo::INFO_AUDIO_LIMITE);
+    fila_cero(s, b"dobladas", lim & 0xFFFF_FFFF, b"muestras que el limite corto a pelo: es la luz de RECORTE");
+    fila_db(s, b"limite", (lim >> 32) & 0xFFFF, b"lo que el limite esta bajando ahora; 0 = nada");
+    fila(s, b"ventanas", lim >> 48, b"", b"del medidor, cerradas (da la vuelta en 65536): si no sube, no mide");
 }
 
 /// **QUE FORMATOS DECLARA EL APARATO, Y CUAL SE COGIO** (2026-09-22).

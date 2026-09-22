@@ -161,6 +161,11 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
         }
     }
 
+    // ** EL PANEL DEL MAESTRO: el fader, el MUDO y los tres botones. Antes que
+    // el arrastre del titulo: un gesto que se queda el panel no es un arrastre.
+    if crate::desktop::sonido::raton(dsk, &p, pos.x, pos.y, button, dsk.tick.button_before) {
+        return;
+    }
     if dsk.win.sound_open && !dsk.win.sound.chrome.minimized {
         if button && !dsk.win.sound.chrome.grabbed() && dsk.win.focus.es_para(Ventana::Sound)
             && dsk.win.sound.chrome.on_the_grip(pos.x, pos.y)
@@ -187,10 +192,8 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
                     dsk.win.visible,
                 );
                 uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-                scene::sound::paint(
-                    &p, &dsk.win.sound, dsk.snd.cap.is_some(),
-                    dsk.snd.devices, dsk.snd.volume, dsk.snd.pressed,
-                );
+                dsk.snd.panel.olvidar();
+                scene::sound::paint(&p, &dsk.win.sound, &dsk.snd.panel);
                 dsk.win.top_before = Ventana::Sound;
             }
         }

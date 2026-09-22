@@ -115,6 +115,37 @@ pub(super) fn audio_censo(_arg0: u64, _arg1: u64) -> BmoStatus {
         BmoStatus::ok_value(hubo as u64)
 }
 
+//// * EL MANDO DEL MAESTRO (2026-09-22). No reclama el sonido --eso es de
+//// quien produce-- y por eso puede convivir con DOOM sonando. Pero SOLO lo usa
+//// quien tiene la pantalla: el maestro es la perilla de la habitacion, y un
+//// programa cualquiera no le sube la ganancia al oido de nadie.
+////
+//// El NO se dice con su motivo (L6j): un fader que no se mueve sin explicar
+//// por que es un mando que parece roto.
+pub(super) fn audio_mando(arg0: u64, arg1: u64) -> BmoStatus {
+        let pid = scheduler::current_pid();
+        if crate::ring0::obj::fb::owner() != Some(pid) {
+            crate::ring0::cabina::warn(
+                "audio",
+                "el MAESTRO es del escritorio (quien tiene la pantalla): negado al pid",
+                pid as u64,
+            );
+            return BmoStatus::err(cap::ERROR_PERMISSION_DENIED);
+        }
+        use crate::ring0::dev::usb::maestro;
+        match arg0 {
+            1 => {
+                let puesto = maestro::mover(arg1 as i64 as i32);
+                BmoStatus::ok_value(puesto as i64 as u64)
+            }
+            2 => {
+                maestro::callar(arg1 != 0);
+                BmoStatus::ok_value((arg1 != 0) as u64)
+            }
+            _ => BmoStatus::err(ERROR_INVALID_ARGUMENT),
+        }
+}
+
 //// * TOMAR LA VENTANA DE UN APARATO (S1 del suelo de Ring 3).
 ////
 //// `arg0` = cual, de la lista cerrada de `obj::mmio`. **No es una direccion**, y

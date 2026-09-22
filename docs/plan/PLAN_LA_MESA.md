@@ -229,6 +229,14 @@ Con M0 hecho esto es pegamento, no invento.
 
 ## [ ] M2 -- LA VENTANA
 
+> **22-09, S4c de [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md):** el propietario pidio
+> el control *"en mi escritorio, no como app"*, y el MAESTRO ya vive ahi --un
+> panel del DIRECTOR (F10 o el indicador de la barra) sobre una etapa del
+> kernel--. Lo que sigue abierto aqui es el ARBOL. Y la pregunta del lenguaje
+> de abajo se contesta sola si la mesa crece dentro de ese mismo panel: el
+> DIRECTOR es Rust y enlaza `bmo-amplificador` sin puente. Queda decidirlo con
+> el propietario cuando haya dos fuentes que mezclar.
+
 La app de 2, con el aspecto de Premiere y el teclado: flechas para la ganancia,
 `M` y `S`, `F1`/`F2`/`F3` para las tablas. Ofrece su lamina al DIRECTOR como
 cualquier otra app (`MEM_OP_OFRECER`), asi que **no necesita nada nuevo del

@@ -86,9 +86,7 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let pintar = |dsk: &mut Desktop, v: Ventana| match v {
         Ventana::Data => scene::data::paint(p, &dsk.win.data),
         Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
-        Ventana::Sound => scene::sound::paint(
-            p, &dsk.win.sound, dsk.snd.cap.is_some(), dsk.snd.devices, dsk.snd.volume, dsk.snd.pressed,
-        ),
+        Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),
         Ventana::Estructura => scene::estructura::paint(p, &dsk.win.estructura),
         Ventana::Run => uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field),
         _ => {}
@@ -356,6 +354,9 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // repintan si su texto cambio. Ver `scene::barra`.
     if dsk.tick.will_paint && !fs {
         scene::barra::widgets(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete));
+        // Y el MAESTRO: su indicador en la barra y, si el panel esta abierto,
+        // su medidor. Se mira a su propio ritmo, no al de estos widgets.
+        crate::desktop::sonido::latido(dsk, &p);
     }
 
     // El parpadeo del cursor de escritura. Solo repinta cuando cambia de
