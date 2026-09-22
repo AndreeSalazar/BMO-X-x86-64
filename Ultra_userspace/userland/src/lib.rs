@@ -418,6 +418,10 @@ pub const INFO_AUDIO_LIMITE: u64 = 0x8D;
 pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
 /// Silencio con el productor en marcha: tramas, cortes y el corte mas largo.
 pub const INFO_AUDIO_TIRONES: u64 = 0x8F;
+/// Las voces: cuales suenan, el banco y su pid.
+pub const INFO_AUDIO_VOCES: u64 = 0x90;
+/// Las voces: tocadas, rechazadas y ordenes perdidas.
+pub const INFO_AUDIO_VOCES_CUENTA: u64 = 0x91;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.
@@ -838,6 +842,8 @@ pub const AUDIO_OP_SILENCE: u32 = 0x04;
 /// [!] Armar es TRAFICO, no configuracion: 250 latidos por segundo empujando
 /// tramas al bus. Por eso no se enciende solo al arrancar y hay que pedirlo.
 pub const AUDIO_OP_TUBO: u32 = 0x05;
+/// Las voces del orquestador: banco, tocar, ajustar, callar, suena.
+pub const AUDIO_OP_VOZ: u32 = 0x06;
 /// Bits que devuelve [`AUDIO_OP_DEVICES`].
 pub const DEVICE_SPEAKER: u64 = 1 << 0;
 pub const DEVICE_HDA: u64 = 1 << 1;

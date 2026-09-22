@@ -993,7 +993,7 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
             // El audio no tiene `object`: la capability no apunta a nada, ES el
             // derecho. Lo que viaja son los argumentos -- frecuencia y duracion.
             cap::KIND_AUDIO => {
-                match crate::ring0::obj::audio::operation(frame.rsi, frame.rdx, frame.r10) {
+                match crate::ring0::obj::audio::operation(frame.rsi, frame.rdx, frame.r10, frame.r8) {
                     Some(v) => BmoStatus::ok_value(v),
                     None => unsupported(),
                 }

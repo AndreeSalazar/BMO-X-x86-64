@@ -68,6 +68,9 @@ pub mod audio;
 /// **EL MAESTRO**: la ultima etapa del sonido --ganancia con rampa, limite y
 /// medidor-- entre el bufer de la app y el tubo. La mueve solo el escritorio.
 pub mod maestro;
+/// **LAS VOCES DEL ORQUESTADOR**: la app declara sus sonidos sobre un banco que
+/// presta, y el bus los mezcla cada trama antes del maestro.
+pub mod voces;
 /// El hilo de kernel que bombea el bus. Sin el, el teclado depende de que
 /// alguien pregunte -- ver su cabecera.
 pub mod bus;

@@ -362,6 +362,19 @@ pub(crate) fn report_audio(s: &mut Output) {
         fila_cero(s, b"vetos DMA", h >> 32, b"tramos del bufer prestado que el juez nego (R-DMA)");
         fila(s, b"pendientes", d >> 32, b"B", b"lo escrito en el bufer prestado y aun no leido");
     }
+    // ** LAS VOCES DEL ORQUESTADOR (22-09): la app declara, el kernel toca.
+    // Van FUERA del `if tubo`: un banco prestado sin tubo tambien se cuenta.
+    {
+        let v = bmo::info(bmo::INFO_AUDIO_VOCES);
+        let c = bmo::info(bmo::INFO_AUDIO_VOCES_CUENTA);
+        fila(s, b"voces sonando", (v & 0xFFFF).count_ones() as u64, b"",
+             b"cuantas toca AHORA el orquestador (la app declara, el kernel mezcla)");
+        fila(s, b"banco", (v >> 16) & 0xFFFF_FFFF, b"B", b"lo que la app presto con sus muestras; 0 = nadie");
+        fila(s, b"banco de", v >> 48, b"pid", b"de quien es el banco");
+        fila(s, b"tocadas", c & 0xFFFF_FFFF, b"", b"sonidos que se pidieron desde el arranque");
+        fila_cero(s, b"rechazadas", (c >> 32) & 0xFFFF, b"las que el juez nego (el motivo, en `cabina fallos`)");
+        fila_cero(s, b"perdidas", c >> 48, b"ordenes que no cupieron en la cola");
+    }
     if ranura != 0 {
         tabla_de_formatos(s);
     }

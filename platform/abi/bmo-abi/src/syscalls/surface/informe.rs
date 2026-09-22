@@ -550,6 +550,12 @@ pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
 /// marcha | `[32..48)` cuantos CORTES (rachas seguidas) | `[48..64)` el corte
 /// mas largo, en ms.
 pub const INFO_AUDIO_TIRONES: u64 = 0x8F;
+/// **LAS VOCES** (2026-09-22): `[0..16)` canales que suenan (bit n = canal n)
+/// | `[16..48)` bytes del banco | `[48..64)` pid del banco (0 = no hay).
+pub const INFO_AUDIO_VOCES: u64 = 0x90;
+/// `[0..32)` voces tocadas | `[32..48)` rechazadas por el juez (el motivo, en
+/// CABINA) | `[48..64)` ordenes que no cupieron en la cola.
+pub const INFO_AUDIO_VOCES_CUENTA: u64 = 0x91;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

@@ -628,6 +628,63 @@ rellenando tambien.
 | `tirones` tras jugar y cambiar de mapa | 0, o muy pocos | siguen: hay otro bucle sin reloj |
 | `el mas largo` | por debajo de 100 ms | cientos de ms: CARGAR un mapa (`P_SetupLevel`) no mira la hora, y es la siguiente pieza |
 | el derretido entre mapas | suena entero, sin corte | se corta: el reloj no llega a la pieza |
+
+> **5.3f queda SUPERADA por 5.3g sin llegar al metal.** Colgar el relleno del
+> reloj curaba un sintoma: seguia siendo DOOM quien marcaba el tiempo.
+
+## [ ] 5.3g -- LAS VOCES DEL ORQUESTADOR: DOOM declara, el kernel toca (2026-09-22)
+
+> Codigo hecho y banco verde (3.046 filas); se cierra cuando el metal diga
+> la tabla de abajo.
+
+El propietario, tras tres arreglos seguidos a los tirones: *"mas elegante, por
+completo: por algo es BMO, Bare Metal ORQUESTADOR"*. Lo que estaba mal era el
+REPARTO: con el anillo PCM, DOOM tenia que ir SIEMPRE 100 ms por delante del
+aparato, y cualquier bucle suyo que no volviera al fotograma (el derretido,
+cargar un mapa) era un corte.
+
+Ahora DOOM hace lo que hacia un juego con una tarjeta de voces (la GUS, la
+AWE32 --que DOOM ya nombra en su lista de aparatos--, y en PC DirectSound con
+sus bufer estaticos, u OpenAL con buffers y sources):
+
+```text
+   DOOM presta UN banco (2 MiB) con los efectos     bmo_voz_banco
+   dice "toca este, a este volumen, a este lado"    bmo_voz_tocar
+   mueve el lado cuando el monstruo anda            bmo_voz_ajustar
+   y se olvida                                      -- lo mezcla el kernel cada trama
+```
+
+| pieza | donde |
+|---|---|
+| el mezclador (16 voces, recta entre muestras, paneo, sin coma flotante) | `platform/shared/bmo-amplificador/src/voces.rs`, 8 pruebas |
+| el banco, la cola de ordenes y la mezcla en el hilo del bus | `Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/voces.rs` |
+| anillo + voces sumados en 32 bits, y por el MAESTRO al cable | `dev/usb/maestro.rs`, `componer` |
+| la puerta: `AUDIO_OP_VOZ` (0x06), seis verbos por `arg0` | `bmo-abi` `objetos.rs`, `obj/audio.rs` |
+| C: `bmo_voz_banco/tocar/ajustar/callar/suena` | `toolchain/forge/sem-asm/tables/bmo/sonido.h`, 2 filas en `toolchain/lang/c/emisor-x86_64/src/tests/voces.rs` |
+| el modulo de DOOM, que ya NO mezcla | `BMO-externo/doom/doomgeneric/doomgeneric/bmo_sonido.c` (fuera del arbol, GPL) |
+| el `save` | `voces sonando`, `banco`, `banco de`, `tocadas`, `rechazadas`, `perdidas` |
+
+Y el mismo dia se cerro un hueco que existia desde A4: `memory::soltar`
+devolvia al asignador un bloque que el TUBO (o ahora el banco) seguia
+leyendo, porque solo preguntaba por los prestamos de `loan`. Ahora avisa al
+audio antes (`audio::block_returned`).
+
+**Lo que se gana:** si DOOM se atasca, lo que sonaba SIGUE sonando; del
+disparo al ruido pasa de hasta 100 ms a lo que tarde una trama; y
+`I_UpdateSound` ya no hace nada con el tubo abierto.
+
+| que | afirma | como se cae |
+|---|---|---|
+| al arrancar DOOM | `[bmo] sonido: VOCES del orquestador, banco de 2048 KiB, tubo a 48000 Hz` | `el kernel no acepto el banco`: `cabina fallos` dice el motivo |
+| disparar, puertas, monstruos | se oyen, con su lado | silencio con `tocadas` subiendo: la mezcla no llega al cable |
+| el derretido entre mapas | los efectos que sonaban acaban enteros | se cortan: algo sigue dependiendo de DOOM |
+| `tirones` en el `save` | 0 (el anillo ya no se usa en DOOM) | sube: mirar si otro programa usa el anillo a la vez |
+| `rechazadas` y `perdidas` | 0 | >0: el motivo en `cabina fallos` |
+| el panel F10 | el medidor se mueve con los disparos | quieto: las voces no pasan por el maestro |
+
+**Lo que NO hace:** musica (5.4), sonido posicional de verdad (`sep` es un
+paneo de dos canales) ni pistas para LA MESA (van a 0 hasta M3).
+
 ---
 
 # La cuenta, para poder repartir
@@ -641,7 +698,7 @@ Actualizada el **2026-08-13**.
 | 2 -- la plataforma | 6 | 0 | **[x]** escrita, `doomgeneric_bmo.c` |
 | 3 -- el WAD | 3 | 0 | **[x]** escrito -- `-iwad apps/doom1.wad` |
 | 4 -- jugable | 3 | 2 | guardar partida pide `fwrite`, que devuelve 0 |
-| 5 -- sonido | 6 | **0 para los efectos** | 5.0b/5.0/5.1/5.2 en metal el 22-09, 5.3 escrito el mismo dia; 5.4 (musica) es otro proyecto |
+| 5 -- sonido | 6 | **0 para los efectos** | 5.0b/5.0/5.1/5.2 en metal el 22-09, 5.3 escrito el mismo dia y pasado a VOCES (5.3g); 5.4 (musica) es otro proyecto |
 
 ★★ **NO QUEDA NINGUNA CASILLA POR ESCRIBIR.** Lo que queda es **un defecto del
 compilador**, localizado el 2026-08-13 y con reproduccion en el emulador.

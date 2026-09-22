@@ -76,6 +76,12 @@
  * --DOOM incluido-- solo podia pitar al vacio. El kernel ofrece el contrato
  * entero desde A4 y `musica.inti` lo usa; lo que faltaba era decirlo AQUI. */
 #define BMO_SONIDO_TUBO 0x05
+/* **LAS VOCES DEL ORQUESTADOR** (2026-09-22). La app DECLARA sus sonidos
+ * --tocar, ajustar, callar-- sobre un banco de muestras que presta, y el
+ * kernel los mezcla cada milisegundo. Al reves que el tubo, aqui la app NO
+ * tiene que llegar a tiempo a nada: si se atasca, lo que sonaba sigue
+ * sonando. `a0` es el verbo (BMO_VOZ_*). */
+#define BMO_SONIDO_VOZ 0x06
 
 /* -- Lo que puede contestar BMO_SONIDO_APARATO ------------------------- */
 #define BMO_APARATO_ALTAVOZ 1
@@ -127,6 +133,22 @@
  * corte caia en mitad de una muestra. Ahora las dos partes dan la vuelta en el
  * mismo sitio, y una trama no cruza nunca el final. */
 #define BMO_TUBO_ANILLO 14
+
+/* -- Los verbos de las VOCES (BMO_SONIDO_VOZ) -------------------------- */
+#define BMO_VOZ_BANCO 1
+#define BMO_VOZ_TOCAR 2
+#define BMO_VOZ_AJUSTAR 3
+#define BMO_VOZ_CALLAR 4
+#define BMO_VOZ_SUENA 5
+#define BMO_VOZ_SOLTAR 6
+/* Callar TODOS los canales. */
+#define BMO_VOZ_TODOS 0xFF
+/* Como estan las muestras en el banco. Siempre MONO. */
+#define BMO_VOZ_U8 0
+#define BMO_VOZ_S16 1
+/* Cuantos canales hay, y el volumen pleno de un lado. */
+#define BMO_VOZ_CANALES 16
+#define BMO_VOZ_PLENO 256
 
 /* Tope de duracion de un pitido, en ms. El kernel recorta igual; esto solo
  * evita la sorpresa de pedir 5000 y recibir 250. */
@@ -199,6 +221,55 @@ unsigned long long bmo_tubo(unsigned long long cap,
                             unsigned long long campo,
                             unsigned long long dato) {
     return bmo_valor(cap, BMO_SONIDO_TUBO, campo, dato, 0);
+}
+
+/* -- Las VOCES: la app declara, el orquestador toca -------------------- */
+
+/* Prestar el BANCO: un bloque propio con las muestras dentro. Devuelve sus
+ * bytes, o 0 si esa memoria no es de quien la presta. Un banco nuevo calla lo
+ * que sonaba del anterior.
+ *
+ * == El camino entero ==
+ *
+ *     cap = bmo_sonido_reclamar();
+ *     bmo_tubo(cap, BMO_TUBO_ARMAR, 0);             el tubo, como siempre
+ *     bmo_voz_banco(cap, mi_bloque);                 las muestras, una vez
+ *     bmo_voz_tocar(cap, canal, inicio, n, BMO_VOZ_U8, 11025, 200, 120, 0);
+ *     ... y se olvida: el orquestador la toca hasta el final ...
+ */
+unsigned long long bmo_voz_banco(unsigned long long cap, void *bloque) {
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_BANCO, (unsigned long long)bloque, 0);
+}
+
+/* TOCAR `muestras` muestras desde `inicio` (en BYTES dentro del banco), a `hz`,
+ * con `izq`/`der` de 0 a 256, en `canal` (0..15). Si el canal sonaba, el sonido
+ * nuevo lo sustituye. `pista` es de LA MESA (hoy 0). Devuelve 1 si queda
+ * pedida y 0 si el juez dijo que no (el motivo, en CABINA). */
+unsigned long long bmo_voz_tocar(unsigned long long cap, unsigned long long canal,
+                                 unsigned long long inicio, unsigned long long muestras,
+                                 unsigned long long formato, unsigned long long hz,
+                                 unsigned long long izq, unsigned long long der,
+                                 unsigned long long pista) {
+    unsigned long long donde = (inicio & 0xFFFFFFFFULL) | (muestras << 32);
+    unsigned long long como = (canal & 0xFF) | ((formato & 3) << 8) | ((pista & 0xFF) << 10)
+        | ((izq & 0x1FF) << 18) | ((der & 0x1FF) << 27) | ((hz & 0xFFFFF) << 36);
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_TOCAR, donde, como);
+}
+
+/* Mover el volumen y el lado de una voz que suena, sin reiniciarla. */
+unsigned long long bmo_voz_ajustar(unsigned long long cap, unsigned long long canal,
+                                   unsigned long long izq, unsigned long long der) {
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_AJUSTAR, canal, (izq & 0xFFFF) | ((der & 0xFFFF) << 16));
+}
+
+/* Callar un canal, o todos con BMO_VOZ_TODOS. */
+unsigned long long bmo_voz_callar(unsigned long long cap, unsigned long long canal) {
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_CALLAR, canal, 0);
+}
+
+/* Suena ese canal? Cuenta tambien lo pedido y aun no empezado. */
+unsigned long long bmo_voz_suena(unsigned long long cap, unsigned long long canal) {
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_SUENA, canal, 0);
 }
 
 #endif /* BMO_SONIDO_H */

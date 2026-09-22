@@ -221,12 +221,24 @@ pub unsafe fn pasar(desde: u64, n: u16, t: &super::audio::Tubo) -> u64 {
         return desde;
     }
 
-    // La ranura: alineada a 64, que es lo que el xHC pide a un bufer de datos.
+    let Some(destino) = ranura(n) else { return desde };
+    let dst = crate::ring0::mm::phys_to_virt(destino) as *mut i16;
+    core::ptr::copy_nonoverlapping(origen, dst, muestras);
+    m.pasar(core::slice::from_raw_parts_mut(dst, muestras), canales);
+    ventana(m);
+    ESTADO.store(ESTADO_EN_MARCHA, Ordering::SeqCst);
+    destino
+}
+
+/// **La siguiente ranura del rebote**, alineada a 64 (lo que el xHC pide a un
+/// bufer de datos). `None` si la trama no cabe o no hubo marco, y el ESTADO lo
+/// dice.
+unsafe fn ranura(n: u16) -> Option<u64> {
     let paso = (n as u64 + 63) & !63;
     let ranuras = (crate::ring0::mm::PAGE / paso.max(1)) as u32;
     if ranuras < RANURAS_MINIMAS {
         ESTADO.store(ESTADO_NO_CABE, Ordering::SeqCst);
-        return desde;
+        return None;
     }
     if REBOTE == 0 {
         match crate::ring0::mm::phys::alloc_frame() {
@@ -237,18 +249,78 @@ pub unsafe fn pasar(desde: u64, n: u16, t: &super::audio::Tubo) -> u64 {
             }
             None => {
                 ESTADO.store(ESTADO_SIN_MARCO, Ordering::SeqCst);
-                return desde;
+                return None;
             }
         }
     }
     let destino = REBOTE + (RANURA % ranuras) as u64 * paso;
     RANURA = (RANURA + 1) % ranuras;
-    let dst = crate::ring0::mm::phys_to_virt(destino) as *mut i16;
-    core::ptr::copy_nonoverlapping(origen, dst, muestras);
-    m.pasar(core::slice::from_raw_parts_mut(dst, muestras), canales);
+    Some(destino)
+}
+
+/// Muestras de una trama que caben en la suma: 512 son 5,3 ms de estereo a
+/// 48 kHz, y una trama es 1 ms. Un aparato con tramas mayores sigue sonando
+/// por el camino del anillo, sin voces, y el ESTADO lo dice.
+const SUMA_MAX: usize = 512;
+/// La suma de la trama, en 32 bits: el anillo mas las voces.
+static mut SUMA: [i32; SUMA_MAX] = [0; SUMA_MAX]; // [escribe] bombeo
+
+/// **COMPONER LA TRAMA**: lo que el anillo trae (`pcm`) MAS las voces del
+/// orquestador, por el maestro, al cable. Devuelve la fisica y los bytes que
+/// hay que encolar, o `None` si no hay nada que mandar (y entonces van los
+/// ceros de siempre).
+///
+/// ```text
+///    sin voces   el camino de siempre: la trama del anillo por `pasar`
+///                (y en reposo, sin copia), o silencio
+///    con voces   anillo + voces sumados en 32 bits -> maestro -> rebote
+/// ```
+///
+/// # Safety
+/// Desde el hilo del bus, con `pcm` ya juzgada (`siguiente_trama`).
+pub unsafe fn componer(pcm: Option<(u64, u16)>, largo: u16, t: &super::audio::Tubo) -> Option<(u64, u16)> {
+    super::voces::atender(t.frecuencia);
+    if !super::voces::hay() {
+        return match pcm {
+            Some((desde, n)) => Some((pasar(desde, n, t), n)),
+            None => {
+                silencio(largo, t);
+                None
+            }
+        };
+    }
+    if t.bits != 16 {
+        ESTADO.store(ESTADO_NO_ES_16, Ordering::SeqCst);
+        return pcm;
+    }
+    let n = pcm.map(|p| p.1).unwrap_or(largo);
+    let muestras = n as usize / 2;
+    if muestras > SUMA_MAX {
+        ESTADO.store(ESTADO_NO_CABE, Ordering::SeqCst);
+        return pcm;
+    }
+    let Some(destino) = ranura(n) else { return pcm };
+    let canales = t.canales.max(1) as usize;
+    let suma = &mut (&mut *core::ptr::addr_of_mut!(SUMA))[..muestras];
+    match pcm {
+        Some((desde, _)) => {
+            let origen = core::slice::from_raw_parts(
+                crate::ring0::mm::phys_to_virt(desde) as *const i16,
+                muestras,
+            );
+            for (s, &o) in suma.iter_mut().zip(origen.iter()) {
+                *s = o as i32;
+            }
+        }
+        None => suma.fill(0),
+    }
+    super::voces::mezclar(suma, canales);
+    let m = etapa(t.frecuencia, t.canales);
+    let dst = core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(destino) as *mut i16, muestras);
+    m.pasar_acumulador(suma, dst, canales);
     ventana(m);
     ESTADO.store(ESTADO_EN_MARCHA, Ordering::SeqCst);
-    destino
+    Some((destino, n))
 }
 
 /// **Una trama de silencio** (no habia muestras): el medidor cae y la rampa

@@ -257,6 +257,10 @@ const INFO_AUDIO_LIMITE: u64 = 0x8D;
 const INFO_AUDIO_FABRICA: u64 = 0x8E;
 /// Los tirones: silencio con el productor ya en marcha, en cortes.
 const INFO_AUDIO_TIRONES: u64 = 0x8F;
+/// Las voces: cuales suenan, el banco y de quien es.
+const INFO_AUDIO_VOCES: u64 = 0x90;
+/// Las voces: tocadas, rechazadas y ordenes perdidas.
+const INFO_AUDIO_VOCES_CUENTA: u64 = 0x91;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -792,6 +796,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_AUDIO_MEDIDOR => crate::ring0::dev::usb::maestro::info_medidor(),
         INFO_AUDIO_LIMITE => crate::ring0::dev::usb::maestro::info_limite(),
         INFO_AUDIO_FABRICA => crate::ring0::dev::uaudio::info_fabrica(),
+        INFO_AUDIO_VOCES => crate::ring0::dev::usb::voces::info(),
+        INFO_AUDIO_VOCES_CUENTA => crate::ring0::dev::usb::voces::info_cuenta(),
         INFO_AUDIO_TIRONES => {
             let (en_marcha, cortes, peor) = crate::ring0::dev::usb::audio::tirones();
             en_marcha.min(0xFFFF_FFFF) | (cortes.min(0xFFFF) << 32) | (peor.min(0xFFFF) << 48)

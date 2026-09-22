@@ -645,5 +645,10 @@ pub mod mesa;
 /// lado. La corre el kernel antes del tubo. Ver [`maestro`].
 pub mod maestro;
 
+/// **LAS VOCES DEL ORQUESTADOR**: la app declara sus sonidos (tocar, ajustar,
+/// callar) sobre un banco que presta, y el kernel los mezcla cada milisegundo.
+/// Ver [`voces`].
+pub mod voces;
+
 #[cfg(test)]
 mod pruebas;

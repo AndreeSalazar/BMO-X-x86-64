@@ -869,6 +869,10 @@ fn soltar(pid: u32, base: u64) -> Option<u64> {
         // volver a preguntar; quien dice SI sigue siendo `hay_prestado_en`.
         return Some(b.devueltas << 1);
     }
+    // 0: el audio lo puede estar LEYENDO sin prestamo de `loan` --el bufer del
+    // tubo y el banco de las voces se adoptan por su fisica--, asi que se le
+    // avisa antes de que el marco cambie de propietario (2026-09-22).
+    crate::ring0::dev::usb::audio::block_returned(pid, b.fisica, b.bytes);
     let aspace = vmm::read_cr3();
     let paginas = b.bytes / mm::PAGE;
     // 1: quitarselo de delante ANTES de que vuelva al asignador.

@@ -521,6 +521,39 @@ reposo (prueba `en_el_silencio_el_limite_suelta_y_el_maestro_vuelve_al_reposo`).
 No es LA MESA: una sola perilla para todo lo que suena, no una por programa ni
 por pista. El arbol sigue siendo de Ring 3 ([`PLAN_LA_MESA.md`](PLAN_LA_MESA.md)).
 
+## [ ] S4d -- LAS VOCES DEL ORQUESTADOR: la app declara, el kernel toca (2026-09-22)
+
+El anillo PCM obliga a la app a llegar SIEMPRE a tiempo: es multiplexar, el
+sistema espera a la app. Las voces son lo contrario, y por eso son de un
+ORQUESTADOR: la app presta un banco con sus muestras y dice *"toca este, asi"*;
+el hilo del bus las mezcla cada trama, justo antes del maestro.
+
+```text
+                         ANILLO (el tubo, A4)     VOCES (esto)
+   quien marca el paso   la app                   el orquestador
+   si la app se atasca   CORTE                    sigue sonando
+   para que es           un FLUJO (cancion)       un SONIDO (empieza, dura, acaba)
+```
+
+Los dos conviven: `maestro::componer` suma anillo + voces en 32 bits y el
+limite del maestro lo devuelve a 16 (`pasar_acumulador`: sin atajo de reposo,
+porque dos disparos a pleno ya se pasan a 0 dB). Sin voces, el camino es el de
+antes, bit a bit.
+
+**La forma no es nueva, y eso es lo que la valida**: el Sound Manager del Mac
+(canales con ordenes), DirectSound (bufer estatico + voz) y OpenAL (buffers +
+sources) llegaron a lo mismo. Lo que esos traian y esto NO: bucle y tono. No
+entran hasta que un programa los pida.
+
+**La frontera, que sale del precedente**: XP mezclaba en el kernel (KMixer) y
+Vista lo saco a un proceso; el Mac clasico tambien mezclaba en el kernel y Apple
+lo fue sacando. Los motivos fueron codigo de terceros y efectos enchufables en
+el anillo cero. Aqui no aplican --Ring 0 cerrado, crate `forbid(unsafe_code)`,
+16 voces acotadas-- **mientras ningun efecto enchufable entre en Ring 0**. Esa
+es la condicion de esta casilla.
+
+Detalle, piezas y la tabla del metal: [`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3g.
+
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
 Una fuente mono con una posicion (angulo y distancia) en dos canales:

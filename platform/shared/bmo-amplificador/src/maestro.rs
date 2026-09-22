@@ -187,6 +187,33 @@ impl Maestro {
         }
     }
 
+    /// **Un bloque que llega SUMADO**, en 32 bits: las voces del orquestador
+    /// mas lo que hubiera en el anillo. La ganancia con su cuesta, el limite
+    /// que lo devuelve a 16 bits y el medidor de lo que sale.
+    ///
+    /// ** Aqui NO hay atajo de reposo, y es a proposito: dos disparos a tope
+    /// suman mas de lo que caben 16 bits aunque el fader este a 0 dB, y el que
+    /// lo sujeta es el limite. Con el atajo, esa suma saldria recortada a pelo.
+    pub fn pasar_acumulador(&mut self, acc: &[i32], salida: &mut [i16], canales: usize) {
+        let canales = canales.max(1);
+        let n = acc.len().min(salida.len());
+        let (antes, despues) = self.avanzar();
+        let f0 = Ganancia::db(antes).factor_q16() as i64;
+        let f1 = Ganancia::db(despues).factor_q16() as i64;
+        let tramas = (n / canales).max(1) as i64;
+        for i in 0..n {
+            let k = (i / canales) as i64;
+            let f = f0 + (f1 - f0) * (k + 1) / tramas;
+            let x = ((acc[i] as i64 * f) >> 16).clamp(i32::MIN as i64, i32::MAX as i64) as i32;
+            let y = self.limite.muestra(x);
+            salida[i] = y;
+            self.medidores[(i % canales) & 1].mirar_uno(y as i32);
+            if self.limite.reduccion < self.pozo {
+                self.pozo = self.limite.reduccion;
+            }
+        }
+    }
+
     /// **Un bloque de silencio que no se ha escrito**: cuando no hay muestras,
     /// el tubo manda ceros sin pasar por aqui, pero el medidor tiene que CAER
     /// y la rampa tiene que seguir andando -- un mudo pulsado en silencio que
@@ -476,6 +503,27 @@ mod pruebas {
             m.silencio(96, 2);
         }
         assert!(m.en_reposo());
+    }
+
+    #[test]
+    fn la_suma_de_voces_que_se_pasa_la_sujeta_el_limite_aun_a_cero_db() {
+        let mut m = Maestro::nuevo(48_000, 2);
+        // Dos disparos de 25.000 sumados: 50.000, que no caben en 16 bits.
+        let acc = [50_000i32; 96];
+        let mut sal = [0i16; 96];
+        m.pasar_acumulador(&acc, &mut sal, 2);
+        // Sujeta al pleno, no lo corta: la salida llega al techo y se queda.
+        assert!(sal.iter().all(|&x| x >= 32_000), "bajo de mas: {}", sal[0]);
+        let l = m.lectura();
+        assert_eq!(l.dobladas, 0, "el limite corto a pelo");
+        // 50.000 contra 32.767 son -3,7 dB, y eso tiene que bajar el limite.
+        assert!(l.reduccion < -3 * DB, "no sujeto: {}", l.reduccion);
+        // Y una suma que cabe sale tal cual a 0 dB.
+        let mut m = Maestro::nuevo(48_000, 2);
+        let acc = [1_234i32; 96];
+        let mut sal = [0i16; 96];
+        m.pasar_acumulador(&acc, &mut sal, 2);
+        assert!(sal.iter().all(|&x| x == 1_234));
     }
 
     #[test]

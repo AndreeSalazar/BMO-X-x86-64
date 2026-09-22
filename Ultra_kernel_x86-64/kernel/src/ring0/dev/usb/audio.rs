@@ -561,11 +561,13 @@ pub fn latido() {
         // ** Y POR EL MAESTRO, las dos (2026-09-22): la trama de la app pasa
         // por la ultima etapa --ganancia, limite, medidor-- y el silencio le
         // dice al medidor que caiga. Ver `maestro.rs`.
-        let (donde, n) = match siguiente_trama(largo as u64) {
-            Some((desde, n)) => {
-                unsafe { RACHA = 0 };
-                (unsafe { super::maestro::pasar(desde, n, &t) }, n)
-            }
+        //
+        // ** Y LAS VOCES (2026-09-22): `componer` suma a la trama del anillo
+        // las voces que el orquestador toca por su cuenta. Sin voces, es el
+        // camino de antes tal cual.
+        let pcm = siguiente_trama(largo as u64);
+        match pcm {
+            Some(_) => unsafe { RACHA = 0 },
             None => {
                 if let Some(p) = unsafe { PRESTADO } {
                     unsafe {
@@ -584,10 +586,9 @@ pub fn latido() {
                         }
                     }
                 }
-                unsafe { super::maestro::silencio(largo, &t) };
-                (ceros, largo)
             }
-        };
+        }
+        let (donde, n) = unsafe { super::maestro::componer(pcm, largo, &t) }.unwrap_or((ceros, largo));
         unsafe {
             if !bmo_xhci::queue_isoch_out(t.slot, t.dci, donde, n, avisar) {
                 break;
@@ -817,11 +818,37 @@ pub fn pendientes() -> u64 {
 
 /// Soltar el prestamo. Lo llama tambien la muerte del proceso.
 pub fn soltar(pid: u32) {
+    // Y su banco de voces, por la misma puerta: se muere o suelta, y lo que
+    // prestaba deja de sonar.
+    super::voces::soltar(pid);
     unsafe {
         if let Some(p) = PRESTADO {
             if p.pid == pid {
                 PRESTADO = None;
                 cabina::count("audio", "bufer prestado SOLTADO, pid", pid as u64);
+            }
+        }
+    }
+}
+
+/// **La app devolvio un bloque suyo al asignador** (`memory::soltar`).
+///
+/// Si era el bufer prestado al tubo --o el banco de las voces--, se suelta
+/// ANTES de que los marcos vuelvan al asignador. Hasta el 2026-09-22 nadie lo
+/// miraba: `memory::soltar` solo preguntaba por los prestamos de `loan`, asi
+/// que una app que devolviera su bufer sin soltar el tubo dejaba al aparato
+/// leyendo, por DMA, marcos que ya eran de otro proceso.
+///
+/// [!] Las tramas que ya estaban en el anillo del xHC (las de `TRAMAS_EN_VUELO`)
+/// apuntan a esos marcos y se sirven igual: unos milisegundos de lo que haya
+/// alli, que `memory::soltar` acaba de poner a cero.
+pub fn block_returned(pid: u32, fisica: u64, bytes: u64) {
+    super::voces::block_returned(pid, fisica, bytes);
+    unsafe {
+        if let Some(p) = PRESTADO {
+            if p.pid == pid && p.fisica < fisica.saturating_add(bytes) && fisica < p.fisica.saturating_add(p.bytes) {
+                PRESTADO = None;
+                cabina::warn("audio", "la app devolvio el bufer prestado SIN soltar el tubo: soltado, pid", pid as u64);
             }
         }
     }

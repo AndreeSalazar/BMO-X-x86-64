@@ -152,6 +152,14 @@ no esta en lo que sobra --el enlazador ya se lo come-- sino en lo que se usa.
 
 # LIDER 2 -- `audio.bex`, el sonido
 
+> ⚠ **SUPERADO EN PARTE el 2026-09-22, por decision del propietario.** El
+> maestro (S4c) y las voces (S4d de [`PLAN_EL_SONIDO.md`](../plan/PLAN_EL_SONIDO.md))
+> corren en el KERNEL, en el hilo del bus: la frase de arriba --*"un mezclador
+> dentro del kernel no tiene esa salida"*-- queda desmentida para esas dos
+> piezas. Lo que se sostiene: la POLITICA (el arbol de LA MESA, que suena y que
+> no) sigue siendo de Ring 3, y la condicion para que esto no sea el error que
+> se describe aqui es que **ningun efecto enchufable entre nunca en Ring 0**.
+
 ## Lo que hay hoy
 
 `KIND_AUDIO` (el contrato), `<bmo/sonido.h>` y `<bmo/musica.h>` (las librerias),

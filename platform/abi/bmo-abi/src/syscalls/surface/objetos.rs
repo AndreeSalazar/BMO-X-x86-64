@@ -464,6 +464,28 @@ pub const AUDIO_OP_SILENCE: u64 = 0x04;
 /// tramas al bus. Por eso no se enciende solo al arrancar y hay que pedirlo.
 pub const AUDIO_OP_TUBO: u64 = 0x05;
 
+/// **LAS VOCES DEL ORQUESTADOR** (2026-09-22): la app DECLARA sus sonidos y el
+/// kernel los mezcla cada milisegundo, antes del maestro. Una app que se
+/// atasca ya no corta el sonido: el que marca el tiempo es el orquestador.
+/// `arg0` dice que:
+///
+/// ```text
+///    1  prestar el BANCO    arg1 = la VA de un bloque propio   -> sus bytes (0 = no)
+///    2  TOCAR               arg1 = inicio en bytes | muestras << 32
+///                           arg2 = canal | formato << 8 | pista << 10 |
+///                                  izq << 18 | der << 27 | hz << 36   -> 1 / 0
+///    3  AJUSTAR             arg1 = canal, arg2 = izq | der << 16
+///    4  CALLAR              arg1 = canal (0xFF = todos)
+///    5  SUENA?              arg1 = canal                         -> 1 / 0
+///    6  soltar el banco
+/// ```
+///
+/// El formato es `0` 8 bits sin signo (los WAD de DOOM) o `1` 16 bits con
+/// signo; siempre MONO: el lado lo ponen `izq` y `der` (0..256). La `pista`
+/// es de LA MESA: hoy no cambia la mezcla. Un `tocar` que se sale del banco se
+/// niega en el acto, con el motivo en CABINA.
+pub const AUDIO_OP_VOZ: u64 = 0x06;
+
 /// Hay altavoz de PC (el puerto que lo controla; ver la nota de
 /// [`AUDIO_OP_DEVICES`]).
 pub const DEVICE_SPEAKER: u64 = 1 << 0;

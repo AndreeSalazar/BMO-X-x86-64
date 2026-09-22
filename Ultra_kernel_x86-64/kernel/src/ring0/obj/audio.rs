@@ -108,6 +108,9 @@ pub const AUDIO_OP_VOLUME: u64 = 0x03;
 pub const AUDIO_OP_SILENCE: u64 = 0x04;
 /// El tubo isocrono: abrirlo, armarlo y preguntarle. Ver el ABI.
 pub const AUDIO_OP_TUBO: u64 = 0x05;
+/// **Las voces del orquestador**: prestar el banco, tocar, ajustar, callar,
+/// preguntar. `a0` dice que. Ver el ABI y `dev/usb/voces.rs`.
+pub const AUDIO_OP_VOZ: u64 = 0x06;
 
 /// Hay altavoz de PC (o al menos el puerto que lo controla: ver la nota del
 /// modulo -- que el puerto exista no prueba que haya un zumbador conectado).
@@ -179,6 +182,8 @@ pub fn release(pid: u32) -> Result<(), u32> {
         return Err(ERROR_BUSY);
     }
     bmo_audio::beep_ex(0, 0, 0);
+    // Soltar el sonido es soltar tambien su banco de voces.
+    crate::ring0::dev::usb::voces::soltar(pid);
     let h = HANDLE.swap(0, Ordering::SeqCst);
     if h != 0 {
         cap::revoke(pid, h);
@@ -264,7 +269,7 @@ pub fn kernel_beep(freq_hz: u32, ms: u32) {
 ///
 /// `a0`/`a1` son los argumentos del `INVOKE`. Devuelve `None` para una
 /// operacion que no existe, que es lo que el syscall traduce a "no soportado".
-pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
+pub fn operation(operation: u64, a0: u64, a1: u64, a2: u64) -> Option<u64> {
     calibrate();
     match operation {
         AUDIO_OP_DEVICES => Some(devices()),
@@ -315,6 +320,25 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
             // vuelta (`uaudio::atender`), no este syscall (2026-09-21).
             crate::ring0::dev::uaudio::pedir_volumen(v);
             Some(v as u64)
+        }
+        // ** LAS VOCES (2026-09-22). La primera operacion de audio que usa
+        // tres argumentos: tocar un sonido son seis numeros, y en dos palabras
+        // de 64 bits no caben con su canal.
+        AUDIO_OP_VOZ => {
+            use crate::ring0::dev::usb::voces;
+            let pid = crate::ring0::task::scheduler::current_pid();
+            Some(match a0 {
+                1 => voces::banco(pid, a1),
+                2 => voces::tocar(pid, a1, a2),
+                3 => voces::ajustar(pid, a1, a2),
+                4 => voces::callar(pid, a1),
+                5 => voces::suena(a1),
+                6 => {
+                    voces::soltar(pid);
+                    1
+                }
+                _ => 0,
+            })
         }
         // ** EL TUBO. Todo por `arg0` y no por cinco operaciones nuevas: la
         // superficie esta congelada y esto son preguntas sobre UN aparato, que

@@ -7,11 +7,11 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   267 casillas ABIERTAS en 33 planes
+   268 casillas ABIERTAS en 33 planes
    262 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
-       (sus 66 casillas sueltas NO cuentan como abiertas)
+       (sus 67 casillas sueltas NO cuentan como abiertas)
      0 en plan/ SIN NI UNA CASILLA -- ver el final
 ```
 
@@ -102,14 +102,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
 - ... y 6 mas
 
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 8 abiertas, 4 hechas
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
 
 *PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
 
 - [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 5 mas
+- ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
 
@@ -317,7 +317,7 @@ ya no aplican, o esperan a alguien que no es el codigo.
 - **APARCADO** [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
 - **APARCADO** [`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md) -- decision del propietario (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(3 hechas, 16 sueltas)*
 - **CERRADO** [`PLAN_ALMACENAMIENTO.md`](PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
-- **CERRADO** [`PLAN_DOOM.md`](PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(8 hechas, 7 sueltas)*
+- **CERRADO** [`PLAN_DOOM.md`](PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(8 hechas, 8 sueltas)*
 - **CERRADO** [`PLAN_EL_PERFIL_TOTAL.md`](PLAN_EL_PERFIL_TOTAL.md) -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en PERFIL/.  *(8 hechas, 0 sueltas)*
 - **CERRADO** [`PLAN_SUELO_RING3.md`](PLAN_SUELO_RING3.md) -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.  *(4 hechas, 0 sueltas)*
 - **ESPERA** [`PLAN_DOCUMENTOS.md`](PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*

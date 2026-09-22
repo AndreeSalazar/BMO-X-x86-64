@@ -61,6 +61,7 @@ mod monton;
 /// nada -- se comprueba la PARTITURA, que es lo unico que una libreria de
 /// musica puede prometer sin un altavoz delante.
 mod musica;
+mod voces;
 mod parseo;
 mod simbolos;
 mod sonda_param_array;
