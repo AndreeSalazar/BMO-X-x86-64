@@ -430,7 +430,7 @@ pub unsafe fn leer_descriptores(
 /// (`leer_descriptores`); el "como" es para la ficha (`bmo_xhci::como_entro`,
 /// sin los ms: los pone el llamante). Si no entro, `Err((veredicto, detalle))`
 /// tal como van a la ficha: en que paso de los dos tiempos y con que `cc`.
-pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Result<(u8, u8, u16), (u8, u16)> {
+pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Result<(u8, u8, u16), (u8, u16, u8)> {
     let h = bmo_xhci::hal();
     if reintento {
         // ** SEGUNDO INTENTO: SE LE QUITA LA CORRIENTE (2026-09-17). Un
@@ -455,14 +455,16 @@ pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Result<(u8, u8, u
     // milisegundo de aqui es un milisegundo sin leer el raton: el Ryzen
     // mostro `el latido del bus llego TARDE 646 ms` y el propietario lo vio como
     // tirones en la pantalla (2026-09-17, noche).
-    if !reintento {
-        h.delay_ms(100);
-    }
+    // ** Y tambien en el reintento desde el 2026-09-22: acaba de recibir
+    // un corte de corriente, y un aparato recien encendido no esta para un
+    // reset a los 20 ms (ver `pasos::Paso::Encender`).
+    let _ = reintento;
+    h.delay_ms(100);
     // Margen tras encender (chipset AMD).
     for _ in 0..50000 {
         core::hint::spin_loop();
     }
-    let sin_reset = (crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(bmo_xhci::PASO_DIR_RESET, 0));
+    let sin_reset = (crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(bmo_xhci::PASO_DIR_RESET, 0), 0);
     if !bmo_xhci::port_reset(port) {
         h.log_u64("[uhid] puerto sin reset: ", port as u64);
         return Err(sin_reset);
@@ -481,11 +483,11 @@ pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Result<(u8, u8, u
             h.log_u64("[uhid] NO acepta direccion, puerto ", port as u64);
             h.log_u64("  ...en el paso ", paso as u64);
             h.log_u64(" con cc=", cc as u64);
-            Err((crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(paso, cc)))
+            Err((crate::VEREDICTO_SIN_DIRECCION, bmo_xhci::detalle_sin_direccion(paso, cc), speed))
         }
         Err(bmo_xhci::Tropiezo::Papeles { cc }) => {
             h.log_u64("[uhid] en la direccion 0 y sin los 8 primeros bytes, puerto ", port as u64);
-            Err((crate::VEREDICTO_SIN_DESCRIPTORES, detalle_sin_descriptores(PASO_SIN_APARATO, cc as usize)))
+            Err((crate::VEREDICTO_SIN_DESCRIPTORES, detalle_sin_descriptores(PASO_SIN_APARATO, cc as usize), speed))
         }
     }
 }

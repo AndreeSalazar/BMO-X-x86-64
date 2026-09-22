@@ -599,6 +599,67 @@ un endpoint. Para un tercero eso seria: un `.bex` de Ring 3 que declare
 como syscalls sobre SU ranura y nada mas. Cuando toque: despues de que el
 audio suene en el metal, no antes.
 
+## 5.1 -- EL SAVE COMO BANCO DE PRUEBAS DEL ACCESORIO (22-09; *"documentar por que puse con versiones en tiempo real asi para que ayude"*)
+
+El propietario lo pregunta medio en broma (*"es XD pero si sirven"*) y la
+respuesta va en serio, porque es la pieza que hace posible la puerta de
+arriba. Lo que el save hace desde el 20-09 no es "imprimir numeros": cada
+fila lleva su valor, su unidad y **la frase que dice como se lee**, y desde
+el 22-09 la ficha de cada aparato USB dice **en que paso de la enumeracion
+se quedo y con que codigo del controlador**. Es un instrumento que se
+explica solo, en tiempo real, sobre la maquina de verdad. Por que asi y no
+un log:
+
+1. **El que lo lee no es el que lo escribio.** El propietario vive en el
+   escritorio y no vuelve al shell de Ring 0; un tercero con un accesorio
+   nuevo no tiene ni el codigo ni a quien lo escribio. Un numero sin su
+   frase es un numero para el autor. Un numero con su frase es un numero
+   para cualquiera, y la frase viaja con el numero, no en un documento
+   aparte que nadie abre.
+2. **La version que importa es la de ESTA maquina, ESTE arranque.** El 22-09
+   el kernel arranco dos veces sin teclado y el diagnostico salio de leer
+   codigo, sin un solo dato: eso es lo caro. Con el save de las 23:56, el
+   puerto 1 paso de "no contesta" a `cc=254`, y ese numero solo --ni error
+   ni babble-- dijo *"esta vivo y NAKea"*, y de ahi salio que el plazo estaba
+   por debajo del protocolo. Un dato del metal vale mas que una tarde de
+   lectura, y el save es lo que lo trae.
+3. **Predecir antes, leer despues.** Cada cambio sin metal deja en
+   `docs/metal/` una tabla *que afirma / como se cae* ANTES del arranque
+   (3e-bis, 3e-ter). El save siguiente se lee contra esa tabla y no contra
+   el animo: o cuadra, o dice exactamente que se cayo. Es lo que el
+   propietario llama madurar, y es el metodo, no un habito.
+
+**El potencial para los accesorios de terceros** (la pregunta de fondo):
+un tercero que enchufe "algo raro" hoy ya recibe, sin escribir una linea:
+
+```text
+   la ficha:  puerto, vid:pid, que es (clase), que se hizo, y
+              - si no entro: EN QUE PASO de los dos tiempos y el cc del xHC
+                (reset / ranura / direccion 0 / evaluate / segundo reset /
+                SET_ADDRESS; o sin papeles: aparato / cabecera / configuracion)
+              - si entro: su paquete de EP0, si hubo que evaluarlo, y los ms
+              - la velocidad del puerto (Low / Full / High / Super)
+   F11:       lo mismo, renglon a renglon, sin teclado si hace falta
+   DATOS.TXT: las fichas crudas, para una maquina (el escalon 0 del asistente)
+```
+
+Es lo que un analizador USB de mil euros da, en la parte que importa para
+saber POR QUE un aparato no entra, y lo da el sistema en el que el aparato
+tiene que entrar. Cuando la API de accesorios exista (arriba), el tercero
+no depurara contra un log del kernel: depurara contra su ficha. Y cuando
+su accesorio entre, la ficha dira `[paquete 64, 300 ms]` y el sabra que el
+suyo va, en esta maquina, con este arranque. **Eso es lo que "versiones en
+tiempo real" compra: que el tercero y el propietario lean el mismo
+instrumento, y que el instrumento no mienta** (memoria del 20-09:
+*"instrumentos que MIENTEN, numero sin procedencia"*, que es justo lo que
+esto evita: cada numero dice de donde sale).
+
+Lo que todavia NO da, y se apunta: el cc de la transferencia que se quedo
+a medias entre dos lecturas (el TRB sigue en el anillo tras el plazo; hoy
+se resuelve al devolver la ranura), y una tabla de rarezas por vid:pid
+(`USB_QUIRK_*` en el ADN de 6.1) que empezaria con la primera ficha que la
+pida.
+
 # 4. LO QUE ESTE PLAN NO PROMETE
 
 Las cinco de la parte 8 del maestro, sin cambiar ninguna: **resampleo**,

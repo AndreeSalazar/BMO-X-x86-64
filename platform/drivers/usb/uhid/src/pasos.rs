@@ -210,7 +210,6 @@ pub enum Marcha {
 /// mientras dura.
 pub struct Enumeracion {
     port: u8,
-    reintento: bool,
     paso: Paso,
     /// Hasta cuando (ms del reloj de `Metal`) espera el paso actual.
     hasta: u64,
@@ -236,7 +235,6 @@ impl Enumeracion {
     pub fn nueva(port: u8, reintento: bool, ahora: u64) -> Self {
         Self {
             port,
-            reintento,
             paso: if reintento { Paso::Apagar } else { Paso::Encender },
             hasta: 0,
             lecturas: 0,
@@ -259,6 +257,12 @@ impl Enumeracion {
     }
     pub fn slot(&self) -> u8 {
         self.slot
+    }
+    /// La velocidad del puerto (xHCI PORTSC: 1 Full, 2 Low, 3 High, 4
+    /// Super), 0 si no se llego a saber. Para la ficha de un aparato que no
+    /// entro: un audifono 7.1 es Full o High, y un hub tambien.
+    pub fn velocidad(&self) -> u8 {
+        self.velocidad
     }
     /// La configuracion entera, tal como la mando el aparato.
     pub fn cfg(&self) -> &[u8] {
@@ -308,11 +312,14 @@ impl Enumeracion {
             Paso::SinCorriente => self.si_cumplio(ahora, Paso::Encender),
             Paso::Encender => {
                 m.corriente(port, true);
-                // VBUS estable, y el DEBOUNCE (USB 2.0, 7.1.7.3) solo la
-                // primera vez: en un reintento el aparato lleva segundos
-                // enchufado, o acaba de recibir su corte de corriente.
-                let plazo = PLAZO_VBUS_MS + if self.reintento { 0 } else { PLAZO_DEBOUNCE_MS };
-                self.esperar(ahora, plazo, Paso::Encendido)
+                // VBUS estable, y el DEBOUNCE (USB 2.0, 7.1.7.3). Hasta el
+                // 2026-09-22 el reintento se lo saltaba ("el aparato lleva
+                // segundos enchufado"): pero el reintento ACABA DE CORTARLE
+                // LA CORRIENTE, y un aparato recien encendido --un audifono
+                // con DSP que carga su firmware-- no esta para un reset a
+                // los 20 ms. Los 100 ms van siempre; en el hilo del bus son
+                // un plazo, no una espera.
+                self.esperar(ahora, PLAZO_VBUS_MS + PLAZO_DEBOUNCE_MS, Paso::Encendido)
             }
             Paso::Encendido => self.si_cumplio(ahora, Paso::Reset),
             Paso::Reset => {
@@ -1132,17 +1139,18 @@ mod pruebas {
     }
 
     #[test]
-    fn el_reintento_corta_la_corriente_y_no_hace_debounce() {
+    fn el_reintento_corta_la_corriente_y_hace_debounce_igual() {
         let mut m = Fingido::nuevo(Aparato::Sano);
         let mut e = Enumeracion::nueva(1, true, m.ahora);
         assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);
         assert_eq!(m.cortes, 1);
         assert_eq!(m.encendidos, 1);
         assert_eq!(&m.eventos[..3], ["cortar", "encender", "reset"]);
-        // 200 sin corriente + 20 VBUS (sin los 100 de debounce) + los dos
-        // resets + asentar, en pasos de 4.
+        // 200 sin corriente + 20 VBUS + los 100 de debounce (desde el
+        // 22-09 tambien en el reintento) + los dos resets + asentar, en
+        // pasos de 4.
         let ms = e.lleva_ms(m.ahora);
-        assert!((360..440).contains(&ms), "tardo {} ms", ms);
+        assert!((460..540).contains(&ms), "tardo {} ms", ms);
     }
 
     #[test]

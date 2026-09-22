@@ -108,6 +108,18 @@ pub(crate) fn report_usb(s: &mut Output) {
             s.dec(detalle);
             s.byte(b')');
         }
+        if veredicto == 9 || veredicto == 10 {
+            // De un aparato sin papeles el bus solo sabe decir a que
+            // VELOCIDAD va el puerto (2026-09-22): es lo que separa un
+            // audifono Full Speed de un hub High Speed o un aparato USB 3.
+            s.text(match papeles & 0xFF {
+                1 => b" a Full Speed" as &[u8],
+                2 => b" a Low Speed",
+                3 => b" a High Speed",
+                4 | 5 => b" a Super Speed",
+                _ => b"",
+            });
+        }
         if veredicto == 9 {
             // "Sin direccion" con el PASO de los dos tiempos en que se quedo
             // (2026-09-22) y el cc con que el xHC dijo que no. Es lo que

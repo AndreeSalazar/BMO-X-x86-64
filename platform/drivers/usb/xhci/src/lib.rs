@@ -627,9 +627,18 @@ unsafe fn evt_poll_block(
 ) -> Option<(u32, u32, u32, u32)> {
     // El plazo: 500.000 miradas al anillo girando (decenas de ms), o, si el
     // HAL sabe dormir, 4.000 girando (~medio ms: lo que un controlador sano
-    // tarda en contestar) y despues 100 respiros de ~1 ms. Ver `respirar`.
+    // tarda en contestar) y despues los respiros de ~1 ms. Ver `respirar`.
+    //
+    // ** Un COMANDO del xHC contesta en microsegundos: 100 respiros sobran.
+    // Una TRANSFERENCIA con datos la contesta el APARATO, y USB 2.0 (9.2.6.4)
+    // le concede 500 ms para el primer paquete de datos. Hasta el 2026-09-22
+    // eran 100 para las dos, y el puerto 1 del Ryzen --vivo, NAK tras NAK--
+    // salia como mudo. El mismo plazo que `pasos::PLAZO_DATOS_MS`.
     const GIRANDO: u32 = 4_000;
-    const RESPIROS: u32 = 100;
+    let respiros_tope: u32 = match esp {
+        Espera::Comando { .. } => 100,
+        Espera::Transferencia { .. } => 500,
+    };
     let mut vacias = 0u32;
     let mut respiros = 0u32;
     for _ in 0..500000 {
@@ -658,7 +667,7 @@ unsafe fn evt_poll_block(
                 vacias += 1;
                 if vacias >= GIRANDO && hal().respirar() {
                     respiros += 1;
-                    if respiros >= RESPIROS {
+                    if respiros >= respiros_tope {
                         return None;
                     }
                 } else {

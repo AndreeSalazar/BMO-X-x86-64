@@ -445,11 +445,14 @@ impl UsbHidHal {
         let empezo = h.ahora_ms();
         let (slot, speed, como) = match enumera::direccionar_puerto(port, reintento) {
             Ok(s) => s,
-            Err((veredicto, detalle)) => {
+            Err((veredicto, detalle, speed)) => {
                 // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver
                 // EL PORTERO, al final de este fichero. El detalle dice en
-                // que paso de los dos tiempos y con que cc.
-                h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto, detalle);
+                // que paso de los dos tiempos y con que cc; y en el sitio
+                // del protocolo va la VELOCIDAD del puerto (2026-09-22): de
+                // un aparato sin papeles es lo unico que el bus sabe decir,
+                // y separa un audifono Full Speed de un hub High Speed.
+                h.papeles(0, 0, port, 0xFF, 0, 0, speed, veredicto, detalle);
                 return cosecha;
             }
         };
@@ -462,8 +465,9 @@ impl UsbHidHal {
             Err(detalle) => {
                 // Sin descriptores tampoco hay nombre: los dos salen del mismo
                 // camino. Cero es "no se sabe", y se dice como tal. El
-                // detalle dice en que PASO se quedo (y cuanto declaro medir).
-                h.papeles(0, 0, port, 0xFF, 0, 0, 0, VEREDICTO_SIN_DESCRIPTORES, detalle);
+                // detalle dice en que PASO se quedo (y cuanto declaro medir);
+                // la velocidad, en el sitio del protocolo.
+                h.papeles(0, 0, port, 0xFF, 0, 0, speed, VEREDICTO_SIN_DESCRIPTORES, detalle);
                 return cosecha;
             }
         };
@@ -809,8 +813,9 @@ impl UsbHidHal {
         let (port, pasos, ms) = (e.port(), e.pasos(), e.lleva_ms(ahora));
         if veredicto != 0 {
             // `iface` = 0xFF: no llego a haber interfaz que mirar. Ver EL
-            // PORTERO, al final de este fichero. Ceros = "no se sabe".
-            h.papeles(0, 0, port, 0xFF, 0, 0, 0, veredicto, detalle);
+            // PORTERO, al final de este fichero. Ceros = "no se sabe"; la
+            // velocidad del puerto, en el sitio del protocolo.
+            h.papeles(0, 0, port, 0xFF, 0, 0, e.velocidad(), veredicto, detalle);
             return Some(Terminada { port, adopcion: Adopcion::NoContesto, pasos, ms });
         }
         let (vid, pid) = e.vid_pid();
