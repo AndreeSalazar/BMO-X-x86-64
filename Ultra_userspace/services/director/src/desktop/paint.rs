@@ -112,6 +112,37 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
 }
 
 /// Everything that happens after the input has been read and understood.
+/// **Pinta UNA ventana del sistema**, si esta abierta. Las apps no: sus
+/// pixeles los pega `compose` y su marco la mesa de superficies.
+///
+/// Vivia como un cierre dentro de `keys::edges` (el Alt que se suelta), y el
+/// borde de foco necesitaba lo mismo: dos copias de "como se pinta cada
+/// ventana" es la lista escrita a mano que se queda corta con la ventana
+/// siguiente. El `match` no lleva `_`: agregar una ventana no compila hasta
+/// decir como se pinta.
+pub(crate) fn pintar_ventana(dsk: &mut Desktop, p: &bmo::Pantalla, v: Ventana) {
+    if !dsk.win.abierta(v) {
+        return;
+    }
+    match v {
+        Ventana::App(_) => {}
+        Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
+        Ventana::Data => scene::data::paint(p, &dsk.win.data),
+        Ventana::Estructura => scene::estructura::paint(p, &dsk.win.estructura),
+        Ventana::Cpu => scene::vitals::paint(p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
+        Ventana::Mem => scene::vitals::paint(p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
+        Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),
+        Ventana::Run => uncover(
+            p,
+            &dsk.run_box,
+            &dsk.launcher,
+            dsk.win.visible,
+            &mut dsk.out.grid,
+            &mut dsk.tick.repaint_field,
+        ),
+    }
+}
+
 pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // Aqui y no antes: `will_paint` no es definitivo hasta que la recogida de
     // entrada termina, y ella lo puede subir. Ver `Tick::pintados_por_segundo`.

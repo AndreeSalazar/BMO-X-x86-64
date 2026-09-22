@@ -124,6 +124,29 @@ pub(crate) struct Chrome {
     /// Minimizar SI puede, que es lo que de verdad se quiere cuando estorba --
     /// y de ahi vuelve con Alt+Tab o con su atajo.
     closable: bool,
+    /// ** TIENE EL FOCO (2026-09-22, HUD 2). El marco no sabe QUE ventana es,
+    /// y no lo necesita: sabe si las teclas van a ella, y entonces su borde es
+    /// del color de acento (el `col.active_border` de Hyprland). Lo pone UN
+    /// sitio -- `desktop::foco::seguir` -- cuando el foco cambia.
+    pub(crate) foco: bool,
+}
+
+/// ** LOS HUECOS (HUD 2): lo que queda libre entre dos ventanas encajadas, y
+/// entre una ventana y la barra o el borde de la pantalla. Los `gaps` de
+/// Hyprland: una ventana pegada a otra se lee como UNA; con aire se leen dos.
+pub(crate) const HUECO: u32 = 8;
+
+/// **El sitio donde caben las ventanas**: la pantalla menos la barra y menos
+/// los huecos. Encajar, maximizar y el mosaico miden AQUI y en ningun otro
+/// sitio: el dia que la barra lateral ocupe su columna, cambia esta cuenta y
+/// nada mas.
+pub(crate) fn area_util(p: &bmo::Pantalla) -> (u32, u32, u32, u32) {
+    (
+        HUECO,
+        TASKBAR_H + HUECO,
+        p.ancho.saturating_sub(2 * HUECO),
+        p.alto.saturating_sub(TASKBAR_H + 2 * HUECO),
+    )
 }
 
 impl Chrome {
@@ -166,6 +189,7 @@ impl Chrome {
             minimized: false,
             hover: None,
             closable: true,
+            foco: false,
         }
     }
 
@@ -201,6 +225,7 @@ impl Chrome {
             minimized: false,
             hover: None,
             closable: true,
+            foco: false,
         }
     }
 
@@ -442,12 +467,15 @@ impl Chrome {
         if self.minimized {
             return false;
         }
-        let usable_h = p.alto.saturating_sub(TASKBAR_H);
-        let avg = (p.ancho / 2).max(self.min_w).min(p.ancho);
+        // ** Con HUECOS (HUD 2): las dos mitades se reparten el area util
+        // dejando uno entre ellas, y el maximizado no toca ni la barra ni el
+        // borde de la pantalla.
+        let (ax, ay, aw, ah) = area_util(p);
+        let avg = (aw.saturating_sub(HUECO) / 2).max(self.min_w).min(aw);
         let dest = match heading {
-            Heading::Left => (0, TASKBAR_H, avg, usable_h),
-            Heading::Right => (p.ancho - avg, TASKBAR_H, avg, usable_h),
-            Heading::Up => (0, TASKBAR_H, p.ancho, usable_h),
+            Heading::Left => (ax, ay, avg, ah),
+            Heading::Right => (ax + aw - avg, ay, avg, ah),
+            Heading::Up => (ax, ay, aw, ah),
             // `take` aunque no se vaya a usar: si no estaba maximizada no hay
             // nada que quitar, y si lo estaba deja de estarlo aqui mismo.
             Heading::Down => match self.saved.take() {
@@ -491,10 +519,11 @@ impl Chrome {
             }
             None => {
                 self.saved = Some(old);
-                self.x = 0;
-                self.y = TASKBAR_H;
-                self.width = p.ancho;
-                self.height = p.alto.saturating_sub(TASKBAR_H);
+                let (ax, ay, aw, ah) = area_util(p);
+                self.x = ax;
+                self.y = ay;
+                self.width = aw;
+                self.height = ah;
             }
         }
         old
@@ -539,6 +568,9 @@ impl Chrome {
             return;
         }
         shadow(p, self.x, self.y, self.width, self.height);
+        // ** EL BORDE DE FOCO: el de la ventana a la que van las teclas es del
+        // acento; los demas, del color de su ventana (que dice CUAL es).
+        let edge = if self.foco { super::acento() } else { edge };
         rounded_rect(p, self.x, self.y, self.width, self.height, edge);
         rounded_rect(p, self.x + 1, self.y + 1, self.width - 2, self.height - 2, cuerpo);
 

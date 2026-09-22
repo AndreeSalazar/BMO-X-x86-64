@@ -1144,6 +1144,10 @@ pub extern "C" fn _start() -> ! {
             desktop::mouse::on_pointer(&mut dsk, &p, g.pos, g.wheel, g.ctrl);
         }
 
+        // HUD 2: si el foco cambio en esta vuelta (teclado, raton, una app que
+        // nace), el borde del acento se muda. Antes de componer, para que salga
+        // en el mismo fotograma.
+        desktop::foco::seguir(&mut dsk, &p);
         desktop::paint::compose(&mut dsk, &p, dead);
 
         // == *** EL PRESUPUESTO DE ESTE BUCLE, y lo pone el HARDWARE =========

@@ -57,6 +57,9 @@ use crate::desktop::{Desktop, Ventana};
 const SC_F1: u8 = 0x3B;
 /// F10, y con ella acaba el tramo seguido.
 const SC_F10: u8 = 0x44;
+/// Tab y Enter: con Alt siguen siendo del escritorio (Alt+Tab, Alt+Enter).
+const SC_TAB: u8 = 0x0F;
+const SC_ENTER: u8 = 0x1C;
 const SC_F11: u8 = 0x57;
 const SC_F12: u8 = 0x58;
 
@@ -113,11 +116,21 @@ const POR_VUELTA: usize = 32;
 /// cocida la lee `gather` para la linea de Ejecutar, y esta es la cruda. No hay
 /// forma de saber que caracter salio de que scancode, asi que la regla se
 /// escribe una vez, aqui, y se comprueba contra el scancode.
+///
+/// *** Y DESDE EL 2026-09-22 EL QUE REPARTE VENTANAS TIENE TECLA PROPIA: SUPER.
+/// Es la de Hyprland y la de Windows 7 (Win+flechas). Hasta hoy todo Alt era
+/// del escritorio, y eso tenia un precio escrito en la memoria del proyecto:
+/// *a DOOM no le llega el ladeo* (Alt+flechas). Ahora Alt es de la app,
+/// menos los tres gestos que ya estan en los dedos de cualquiera: Alt+Tab,
+/// Alt+F4 (va en el tramo de las F) y Alt+Enter.
 fn del_escritorio(sc: u8, m: u8) -> bool {
-    // Alt: Alt+Tab conmuta, Alt+flechas mueve, Alt+M minimiza. Ctrl: los atajos
-    // de las ventanas del sistema. Quedarselos seria que la ventana de delante
-    // decidiera si se puede salir de ella.
-    if m & (bmo::MOD_ALT | bmo::MOD_CTRL) != 0 {
+    // Super y Ctrl: el gestor y los atajos de las ventanas del sistema.
+    // Quedarselos seria que la ventana de delante decidiera si se puede salir
+    // de ella.
+    if m & (bmo::MOD_GUI | bmo::MOD_CTRL) != 0 {
+        return true;
+    }
+    if m & bmo::MOD_ALT != 0 && (sc == SC_TAB || sc == SC_ENTER) {
         return true;
     }
     (SC_F1..=SC_F10).contains(&sc) || sc == SC_F11 || sc == SC_F12

@@ -22,7 +22,7 @@ use crate::desktop::{Desktop, Ventana};
 use crate::scene::{self};
 use crate::{erase_window, uncover};
 
-pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: bool) -> Key {
+pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: bool, super_: bool) -> Key {
 // == ALT+F4: CERRAR LO DE DELANTE ====================================
 //
 // Lo pidio el propietario con estas palabras: *"agregar esa ventanita para cerrar
@@ -122,7 +122,9 @@ if ctrl_c {
     }
 }
 
-if (c == 0x8C && alt_alone) || ctrl_c {
+// ** SUPER+Q es el mismo cierre (el `killactive` de Hyprland), por la misma
+// puerta: tres gestos --la X, Alt+F4, Super+Q-- y UN cierre.
+if (c == 0x8C && alt_alone) || (super_ && (c == b'q' || c == b'Q')) || ctrl_c {
     match dsk.win.focus.actual() {
         // Una app: se cierra de verdad, por el MISMO camino que la X.
         Some(Ventana::App(i)) => {

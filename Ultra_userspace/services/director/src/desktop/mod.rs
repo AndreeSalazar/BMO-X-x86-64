@@ -49,6 +49,9 @@ pub(crate) mod nya;
 /// **El mando del sonido**: abrir y cerrar el panel del maestro, sus teclas, su
 /// raton y el refresco del medidor. La cara la pinta `scene::sound`.
 pub(crate) mod sonido;
+/// **EL BORDE DE FOCO**: cuando el foco cambia, el marco de la nueva lleva el
+/// acento y el de la vieja lo pierde. HUD 2.
+pub(crate) mod foco;
 pub(crate) use boot::boot;
 /// **Which window is which.** An id is a TYPE here, not a loose `u8` -- the
 /// why is written where it lives, and it cost a repeated `3` to learn.
@@ -177,6 +180,9 @@ pub(crate) struct Windows {
     pub focus: Focus,
     /// Who covered whom last turn, so the paint happens only on a change.
     pub top_before: Ventana,
+    /// A quien se le pinto el borde de foco la ultima vez (HUD 2). Cuando no
+    /// coincide con el foco, `desktop::foco::seguir` repinta.
+    pub foco_pintado: Option<Ventana>,
     pub visible: bool,
     pub taskbar_dirty: bool,
     /// El ultimo `u8` son las APPS (`Table::estado_fichas`): sin el, minimizar o
@@ -208,6 +214,7 @@ impl Windows {
             estructura_open: false,
             focus,
             top_before: Ventana::Run,
+            foco_pintado: None,
             visible: true,
             taskbar_dirty: true,
             taskbar_state_before: (false, Ventana::Run, false, false, false, 0),

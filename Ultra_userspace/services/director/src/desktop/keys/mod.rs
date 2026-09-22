@@ -253,29 +253,9 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         // compila hasta que se diga que hacer con ella, y la condicion de
         // "esta abierta" se pregunta DENTRO de su rama en vez de en la
         // guarda -- que es lo que deja el `match` exhaustivo de verdad.
-        let paint_one = |v: Ventana, repintar: &mut bool, sal: &mut scene::output::Output| {
-            // "Esta abierta?" se pregunta UNA vez y fuera del `match`. Estaba
-            // seis veces dentro, una por rama, y cada una nombraba su bandera
-            // a mano.
-            if !dsk.win.abierta(v) {
-                return;
-            }
-            match v {
-                // Una app se pinta sola: el DIRECTOR pega su superficie en
-                // `compose`, no la dibuja. Repintarla desde aqui seria
-                // inventarse sus pixeles.
-                Ventana::App(_) => {}
-                Ventana::Cabina => scene::cabina::paint(&p, &dsk.win.cabina),
-                Ventana::Data => scene::data::paint(&p, &dsk.win.data),
-                Ventana::Estructura => scene::estructura::paint(&p, &dsk.win.estructura),
-                // Las vitales son VISTAS: se repintan cada vez que les
-                // toca turno, que es lo que las diferencia de `info`.
-                Ventana::Cpu => scene::vitals::paint(&p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
-                Ventana::Mem => scene::vitals::paint(&p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
-                Ventana::Sound => scene::sound::paint(&p, &dsk.win.sound, &dsk.snd.panel),
-                Ventana::Run => uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, sal, repintar),
-            }
-        };
+        // ** Como se pinta cada ventana vive ahora en UN sitio,
+        // `desktop::paint::pintar_ventana`: el borde de foco (HUD 2) lo
+        // necesitaba tambien, y un cierre aqui dentro era la segunda copia.
         // ** Y LA LISTA ES `Ventana::TODAS`, NO UNA COPIA A MANO.
         //
         // Aqui decia `[Ventana::Run, Ventana::Data, Ventana::Cabina,
@@ -286,10 +266,10 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         // de lo que las hubiera tapado.
         for v in Ventana::TODAS {
             if v != top_now {
-                paint_one(v, &mut dsk.tick.repaint_field, &mut dsk.out.grid);
+                crate::desktop::paint::pintar_ventana(dsk, p, v);
             }
         }
-        paint_one(top_now, &mut dsk.tick.repaint_field, &mut dsk.out.grid);
+        crate::desktop::paint::pintar_ventana(dsk, p, top_now);
         dsk.win.top_before = top_now;
     }
     dsk.win.alt_before = g.alt_alone;
@@ -344,10 +324,16 @@ pub(crate) fn dispatch(
         if g.combo {
             dsk.tick.key_during_combo = true;
         }
-        if windows::on_key(dsk, p, c, g.alt_alone) == Key::Taken {
+        if windows::on_key(dsk, p, c, g.alt_alone, g.m & bmo::MOD_GUI != 0) == Key::Taken {
             continue;
         }
         if panels::on_key(dsk, p, c, g.alt_alone, g.ctrl) == Key::Taken {
+            continue;
+        }
+        // ** CON SUPER PULSADO NADA SE ESCRIBE: la tecla es del gestor, y si no
+        // tiene atajo se tira. Si cayera en la app o en Ejecutar, un Super+X que
+        // algun dia sea un atajo hoy escribiria una x.
+        if g.m & bmo::MOD_GUI != 0 {
             continue;
         }
         // -- * DE QUIEN es esta tecla? --

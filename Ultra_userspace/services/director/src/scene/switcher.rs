@@ -97,7 +97,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &s
     // un modo que se lee pero no se toca invita a pensar que esta averiado.
     let mx = p.texto(x + 14, fy + 4, "modo: ", INK_DIM);
     let mx = p.texto(mx, fy + 4, modo, acento());
-    p.texto(mx, fy + 4, "   (Alt+M)", INK_DIM);
+    p.texto(mx, fy + 4, "   (Super+M)", INK_DIM);
     fy += ROW_H;
 
     // ** Las flechas se anuncian AQUI y no en el pie de cada ventana.

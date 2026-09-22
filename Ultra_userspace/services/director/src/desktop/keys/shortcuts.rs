@@ -1,5 +1,8 @@
-//! **Window management without letting go of the keyboard**: Alt+Tab, Alt+M,
-//! Alt+arrows.
+//! **Window management without letting go of the keyboard**: Alt+Tab, and the
+//! SUPER key (2026-09-22): Super+arrows snaps, Super+Shift+arrows moves,
+//! Super+M changes the focus mode, Super+F goes full screen, Super+Enter
+//! brings Ejecutar. Alt belongs to the app now -- except Alt+Tab, Alt+F4 and
+//! Alt+Enter, which are already in everyone's fingers.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
 //!                     tecla o el raton se movio. Sin entrada, no se entra
@@ -23,6 +26,10 @@ pub(crate) fn on_key(
     alt_alone: bool,
     m: u8,
 ) -> Key {
+// ** LA TECLA DEL GESTOR. Llegaba al escritorio desde el 01-09 (`MOD_GUI`) y
+// nadie la usaba. Super solo no produce caracter en ninguna distribucion, igual
+// que Alt, y a diferencia de Alt ninguna app la quiere.
+let super_ = m & bmo::MOD_GUI != 0;
 if alt_alone && c == 0x09 {
     if m & bmo::MOD_SHIFT != 0 {
         dsk.win.focus.conmutar_atras();
@@ -45,7 +52,7 @@ if alt_alone && c == 0x09 {
 // por lo mismo que el Tab --`Alt` solo no produce caracter en
 // ninguna distribucion, `Ctrl+Alt` SI (es AltGr)-- y se anuncia
 // en la propia ventanita, que es donde se lee el modo.
-if alt_alone && (c == b'm' || c == b'M') {
+if super_ && (c == b'm' || c == b'M') {
     dsk.win.focus.poner_modo(dsk.win.focus.modo().next());
     if dsk.win.switcher_painted {
         scene::switcher::paint(
@@ -76,7 +83,24 @@ if alt_alone && (c == b'm' || c == b'M') {
 //
 // Va con `Alt` por lo mismo que el Tab y la M, y por una razon mas: es el
 // atajo que ya esta en los dedos de cualquiera que haya jugado a algo.
-if alt_alone && (c == 0x0D || c == 0x0A) {
+// ** SUPER+ENTER: EJECUTAR, delante y con el teclado. Es el "abre la terminal"
+// de Hyprland, y aqui la terminal es la casa.
+if super_ && (c == 0x0D || c == 0x0A) {
+    if !dsk.win.visible {
+        dsk.win.visible = true;
+    }
+    dsk.win.focus.open(Ventana::Run);
+    dsk.win.focus.clic_en(Ventana::Run);
+    uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
+    paint_status(&p, &dsk.run_box, "listo", acento());
+    dsk.win.top_before = Ventana::Run;
+    dsk.win.taskbar_dirty = true;
+    return Key::Taken;
+}
+// ** Y SUPER+F es el mismo gesto que Alt+Enter: pantalla completa (la F de
+// Hyprland). Se quedan los dos: uno para los dedos de Windows, otro para los
+// del gestor.
+if (alt_alone && (c == 0x0D || c == 0x0A)) || (super_ && (c == b'f' || c == b'F')) {
     if let Some(Ventana::App(i)) = dsk.win.focus.pointed_at() {
         if let Some((_viejo, completa)) = dsk.table.pantalla_completa(i as usize, p) {
             if completa {
@@ -119,7 +143,10 @@ if alt_alone && (c == 0x0D || c == 0x0A) {
 // [!] Se atiende ANTES que las flechas de las ventanas, y por eso
 // no les quita nada: sin `Alt` esto no entra, y las flechas de
 // Datos y el volumen de Sonido siguen llegando enteras.
-if alt_alone && (0x80..=0x83).contains(&c) {
+// ** Y DESDE EL 2026-09-22 VA CON SUPER, y se invierte el reparto: a secas
+// ENCAJA (Win+flechas de Windows 7) y con Shift mueve. Con Alt estas flechas
+// eran el ladeo de DOOM, que nunca le llegaba.
+if super_ && (0x80..=0x83).contains(&c) {
     use scene::chrome::Heading;
     let heading = match c {
         0x80 => Heading::Up,
@@ -127,7 +154,7 @@ if alt_alone && (0x80..=0x83).contains(&c) {
         0x82 => Heading::Left,
         _ => Heading::Right,
     };
-    let fit = m & bmo::MOD_SHIFT != 0;
+    let fit = m & bmo::MOD_SHIFT == 0;
     let mut moved = false;
     // -- ** SE MUEVE LA MARCADA, NO LA QUE TIENE EL FOCO --
     //

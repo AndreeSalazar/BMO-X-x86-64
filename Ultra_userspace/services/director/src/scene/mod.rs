@@ -784,7 +784,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     p.texto(
         c.x + 18,
         c.y + c.h() - 22,
-        "F11 kernel  F12 datos  ESC cierra   |   arrastra la barra  Alt+flechas mueve  Ctrl+Alt esconde",
+        "F11 kernel  F12 datos  ESC cierra   |   Super+flechas encaja  Super+Q cierra  Ctrl+Alt esconde",
         INK_DIM,
     );
 
