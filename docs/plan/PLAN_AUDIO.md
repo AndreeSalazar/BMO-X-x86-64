@@ -452,6 +452,87 @@ enseno que el `latido tarde 244 ms` de las 13:52 era el PITIDO girando en
 el syscall, no `buscar()`: `AUDIO_OP_BEEP` ahora duerme con `wait_current`.
 Sin metal.
 
+# 6. EL ADN: lo que hacen Windows y Linux, contra lo nuestro (2026-09-21, noche)
+
+El dueno, tras el save de las 19:45: *"que tal si estudiar como se hizo
+Windows el driver generico, y lo mismo con Linux, para tener ese ADN"*. La
+sospecha es correcta, y el `Evaluate Context` que faltaba (A7) es la prueba:
+no era un invento, era un paso que los dos anfitriones dan desde hace veinte
+anos y aqui no estaba. Lo que sigue es ese ADN escrito como LISTA contra el
+codigo de BMO-X. Se lee, no se copia: Linux es GPL y este repo es Apache-2.0,
+y Ring 0 esta cerrado a codigo de terceros. La secuencia y los numeros son
+del protocolo, no de nadie.
+
+## 6.1 -- Enumerar: la secuencia contra la que los aparatos se PRUEBAN
+
+Un aparato USB se prueba en la fabrica contra Windows. Por eso Linux, en
+`drivers/usb/core/hub.c` (`hub_port_init`), tiene DOS esquemas y el que usa
+por defecto en USB 2 es el que imita a Windows (el comentario del fichero lo
+dice: los aparatos "solo funcionan con el esquema de Windows"):
+
+```text
+  ESQUEMA NUEVO (Windows, y Linux por defecto en USB 2)
+    reset del puerto
+    EP0 con paquete SUPUESTO de 64 (Full Speed), 8 (Low), 64 (High), 512 (Super)
+    GET_DESCRIPTOR(aparato, 64 bytes) EN LA DIRECCION 0   <- sin SET_ADDRESS
+       un aparato de paquete 8 contesta 8 y para (paquete CORTO: legal)
+       uno de 64 contesta los 18 en uno (cabe en 64)
+       -> del byte 7 sale bMaxPacketSize0; se reajusta el EP0
+    reset del puerto OTRA VEZ
+    SET_ADDRESS, y 10 ms para que asiente
+    GET_DESCRIPTOR(aparato, 18)
+    GET_DESCRIPTOR(configuracion, 9) y despues entera
+    SET_CONFIGURATION
+
+  ESQUEMA VIEJO (Linux en USB 3, y como reserva si el nuevo falla)
+    reset, SET_ADDRESS, GET_DESCRIPTOR(8) con paquete supuesto 8,
+    reajustar el EP0 si el byte 7 no coincide, GET_DESCRIPTOR(18)
+```
+
+Los reintentos y los tiempos (`hub.c`): `GET_DESCRIPTOR_TRIES` 2 con 100 ms
+entre ellos, `GET_MAXPACKET0_TRIES` 3, `SET_ADDRESS_TRIES` 2, `PORT_RESET_TRIES`
+5, `HUB_ROOT_RESET_TIME` 60 ms, debounce de 100 ms estables sobre un plazo de
+2 s, `TRSTRCY` 10 ms tras el reset, `USB_QUIRK_DELAY_INIT` para los que piden
+mas. Y si el esquema nuevo falla dos veces, prueba el viejo (y al reves con
+`old_scheme_first`). Sobre xHCI, "direccion 0" se hace con `Address Device`
+con **BSR = 1** (Block Set Address Request, xHCI 4.3.4): el xHC deja la
+ranura en `Default` sin mandar `SET_ADDRESS`, y despues un segundo `Address
+Device` con BSR = 0. El reajuste del EP0 es `usb_ep0_reinit` ->
+`xhci_check_maxpacket` -> `Evaluate Context`.
+
+**BMO-X hoy** (tras A7): el esquema VIEJO, entero: reset, `Address Device`
+(BSR = 0), 8 bytes, byte 7, `Evaluate Context`, 18. Es correcto por el
+protocolo. Lo que NO tiene y el nuevo si: la lectura en la direccion 0 y el
+segundo reset -- que es lo que algunos aparatos ESPERAN porque es lo que
+vieron en la fabrica. **Es el siguiente candidato si el proximo save sigue
+diciendo `cc=254 no contesto` en el puerto 1 con el evaluate ya puesto.**
+Tampoco tiene: alternar esquemas entre reintentos, ni una tabla de quirks
+(`USB_QUIRK_DELAY_INIT`, aparatos que necesitan 2 ms extra tras
+`SET_ADDRESS`).
+
+## 6.2 -- Reproducir: lo que hace `snd-usb-audio` (Linux) / `usbaudio.sys` (Windows)
+
+| que | Linux / Windows | BMO-X hoy |
+|---|---|---|
+| encontrar el aparato | el nucleo enumera y OFRECE al driver de clase por (clase, subclase); el driver dice "es mio" | `reclamar` (21-09): la misma forma |
+| elegir formato | recorre TODOS los alt settings de AudioStreaming, elige por (PCM, bits, canales, frecuencia); UAC1 y UAC2 | `find_playback`: UAC1, el primero que sirve; **UAC2 no** (un 7.1 High Speed seria UAC2) |
+| tamano de paquete | `bytes_per_interval` con FRACCION acumulada: 44.100 Hz son 44 y 45 muestras alternando (`phase`); sin eso el reloj deriva y se oye | `rate / 1000 * canales * subframe`: exacto a 48.000, TRUNCA a 44.100 |
+| cuantas tramas en vuelo | 8-12 URBs de varios paquetes cada uno; el anillo nunca se vacia | el latido encola las de 4 ms; `huecos` cuenta cuando no llega |
+| sincronia | endpoint de FEEDBACK (asincrono): el aparato dice cuantas muestras quiere por trama y el host ajusta | `Sync` se PARSEA y no se usa: si el aparato es asincrono, deriva |
+| volumen | Feature Unit: GET_MIN/MAX/RES y CUR; mute aparte; por canal si el maestro no vale | igual (`uaudio.rs`) |
+| rarezas | tabla de quirks por vid:pid de cientos de filas (retrasos tras SET_INTERFACE, aparatos que mienten el rango, que no aceptan GET_MIN...) | ninguna; el `save` dice el vid:pid y el cc, que es por donde empieza una tabla asi |
+
+## 6.3 -- Que se toma de esto, y en que orden
+
+1. Lo que el siguiente save diga del puerto 1 decide 6.1: si sigue mudo con
+   el evaluate puesto, se hace el esquema nuevo (BSR = 1, 64 bytes en la
+   direccion 0, segundo reset). Son tres pasos mas en `pasos.rs` y un
+   `address_lanzar` con BSR.
+2. La fraccion de 44.100 y UAC2 son de A1/A5: cuando SUENE a 48.000.
+3. El feedback y los quirks, cuando haya un aparato que los pida: el save
+   dira `tarde`/`huecos` con el nombre del aparato, y esa es la fila 1 de la
+   tabla.
+
 # 5. Y DESPUES: LA API DE ACCESORIOS EN RUST (idea del dueno, 21-09)
 
 *"Construir una API ULTRA simplificada para los accesorios nuevos que quieran
