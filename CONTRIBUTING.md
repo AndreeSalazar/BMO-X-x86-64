@@ -171,6 +171,19 @@ get a contribution rejected on principle.
    Spanish and the build enforces that too. Toolchain messages go to a host
    console and are exempt.
 
+7. **Dropping an accent is fine. Dropping the tilde of the n is not.** A word
+   that lost that letter is not Spanish written in ASCII, it is a *broken*
+   word -- the maimed form of *owner* means nothing and the maimed form of
+   *year* means something else -- so it is written as the word that survives
+   whole: `propietario`, `medida`, `chico`, `mostrar`, `agregar`, `castellano`.
+   The dictionary is closed and lives in `ascii_sweep.py` (`ENES_CAIDAS`);
+   `--check` fails the build on any of them, in prose, in strings and inside
+   identifiers (`CamelCase` and `snake_case` are split before looking), and
+   `--apply` rewrites comments, `.md`, `.txt`, screen strings and `.inti`.
+   Identifiers you rename by hand, to English. A line that needs the broken
+   form on purpose (there is exactly one: a byte-count test) carries
+   `ene-caida-adrede`. <!-- ene-caida-adrede -->
+
 ---
 
 ## Issues

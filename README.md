@@ -10,6 +10,7 @@ No LLVM. No GCC. No ELF. No QEMU.**
 
 ![status](https://img.shields.io/badge/boots_on-real_hardware-2ea043)
 ![cpu](https://img.shields.io/badge/verified_on-Ryzen_5_5600X-2ea043)
+![arch](https://img.shields.io/badge/architecture-x86--64_only-1f6feb)
 ![ram](https://img.shields.io/badge/RAM_footprint-5.4_MiB-1f6feb)
 ![syscalls](https://img.shields.io/badge/syscalls-2_frozen-1f6feb)
 ![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_C%2B%2B_-_Ada_-_INTI-8957e5)
@@ -21,7 +22,15 @@ Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
 filesystem, **five native compilers** and the executable format they emit. It
 boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
 
-**1.792 commits - 1.204 files - 17 April to 5 September 2026 - one developer.**
+**2.197 commits - 1.523 files - 17 April to 21 September 2026 - one developer.**
+
+**One architecture, on purpose.** The name of the kernel directory is
+`Ultra_kernel_x86-64` and that is the whole portability story: BMO-X targets
+x86-64 and nothing else, by decision (2026-09-18). The only architecture-neutral
+code in the tree is the compiler *frontends*; every emitter, every driver and
+every page table is x86-64, and a guardian (`isa`) fails the build if a second
+architecture starts growing inside. ARM or RISC-V would be another repository
+with another name -- not a `#[cfg]`.
 
 <details>
 <summary><b>En castellano</b> -- que es esto, en un parrafo</summary>
@@ -106,6 +115,11 @@ under it is a slogan.
 | Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
 | Survives its own userspace dying | DOOM launched **five times**, Ring 3 killed in between, the system never broke |
 | Measures where its own second goes | the taskbar shows `latido N/s  pinta N  cuerpo Nms  puerta Nms` -- loop rate, frames that painted, and the split between working and waiting for a turn |
+| Shows images | PNG (own inflate) and JPEG (integer IDCT) decoded and painted in a window on the Ryzen (2026-09-21); zoom is next |
+| Writes its own report | `save` from the desktop: seven chapters (machine, memory, consumption, programs, disk, autopsy) as sheets in `informe/`, plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
+| The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
+| Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
+| The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 32 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3` |
 
 ### Watch it boot
 
@@ -391,13 +405,24 @@ And the decimal is the part that matters: Hopper's `PICTURE` clause is why
 money can be counted without a float. Ada's Annex F later copied the same idea,
 which is why **Ada's decimal was already paid for** when it arrived here.
 
-### 2. Sixteen guardians do the remembering
+### 2. Thirty-three guardians do the remembering
 
 The A-0 automated *translation*. This tree automates *vigilance*. Every build
-runs sixteen guardians whose only job is to say NO with a name: broken document
-citations, plan boxes that cannot be checked, a module that grew past a
-thousand lines, a device that reaches RAM without a census row, a commit scope
-that does not exist.
+runs thirty-three guardians (`toolchain/tools/README.md` lists them) whose only
+job is to say NO with a name: broken document citations, plan boxes that
+cannot be checked, a module that grew past a thousand lines, a device that
+reaches RAM without a census row, a commit scope that does not exist, a kernel
+stack path that does not fit, a second CPU architecture growing in the tree.
+
+One of them guards the language itself. Sources are ASCII and the screen
+speaks Spanish without accents -- and a Spanish word that lost its **tilde
+on the n** is not Spanish with an accent removed, it is a *broken* word:
+the maimed form of *owner* means nothing, and the maimed form of *year* means
+something else entirely. <!-- ene-caida-adrede --> Since 2026-09-21 the build fails on any
+of them and the sweep replaces each with the word that survives whole
+(`propietario`, `medida`, `mostrar`, `agregar`). A fork that switches that
+guardian off stops being BMO-X on its first commit, and that is the point:
+the rules travel inside the tree, not in anyone's memory.
 
 None of that is the author's memory any more. **The machine holds the rules so
 the person can hold the problem** -- which is the same trade the compiler made,
@@ -453,7 +478,7 @@ unimplemented feature is refused with a reason instead of stubbed. For sixteen
 days a `.bex` shipped with `sig_algo = 0` and the trust anchor empty -- written
 down as a debt with a name rather than hidden behind a green check, and paid on
 2026-09-10 when the debt turned out to be a missing command rather than missing
-cryptography. The sixteen guardians exist to say NO to *this codebase*, not to
+cryptography. The thirty-three guardians exist to say NO to *this codebase*, not to
 its users.
 
 > A system that lets itself be corrupted does not stop working for its owner.
@@ -562,7 +587,9 @@ over sockets, no package manager, no accounts. Some of those are queued and some
 are refused; **[ARQUITECTURA.md](ARQUITECTURA.md)** says which is which and why.
 
 It is also not a Linux, not a hobby OS aiming at POSIX, and not trying to run
-anybody else's binaries. A program for BMO-X is compiled for BMO-X.
+anybody else's binaries. A program for BMO-X is compiled for BMO-X. And it is
+not portable: **x86-64 only**, one repository, one architecture -- the title
+says so and a guardian enforces it.
 
 ---
 
@@ -658,8 +685,8 @@ row below is **work on top of something that already runs**, except the last one
 | 🟡 | **Give the 12 cores work from Ring 3** -- the door is built (`ATRIL` / `TOCAR`, two operations, a closed catalogue of parts) and the kernel side already measured **11,52x** | one boot: `smp orquesta` has never been executed |
 | 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
 | ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
-| ⚪ | **Sound** -- volume already reaches the USB headset by control transfer | isochronous transfers in xHCI |
-| ⚪ | **A local assistant**, running as a Ring 3 app over your own files | `exp`, and the core door |
+| 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and the enumeration now follows the sequence devices are tested against in the factory (the Windows one: 64 bytes at address 0, a second reset). All written 2026-09-21 | the next boot: the `save` says whether the 7.1 headset answered |
+| ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
 | ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
 
 **The ceiling has a name.** Everything above it is work; cryptography is the one
