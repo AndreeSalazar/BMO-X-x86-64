@@ -332,15 +332,64 @@ y `AUDIO_OP_BEEP` va **solo** al altavoz -- que en esta placa no tiene zumbador.
 
 | # | Casilla | Tam | Nota |
 |---|---|---|---|
-| 5.0b | ★ **Isocronas de salida en `bmo-xhci`** | L | El camino corto. Un anillo de TRBs isocronos y el alt-setting 1 del aparato |
-| 5.0 | ~~Decidir el aparato~~ | M | ~~HD Audio o AC'97~~ **Contestado por el metal: USB**, porque ya esta enumerado y contestando |
-| 5.1 | Enumerar el codec y abrir un stream de salida | XL | es un driver entero, con DMA y su anillo de buffers |
-| 5.2 | `KIND_AUDIO` como capability | M | un proceso que no la tiene **no hace ruido**, igual que la pantalla |
-| 5.3 | Mezclar los canales de DOOM (`i_sound.c`) | L | DOOM mezcla el mismo, solo pide un buffer |
+| 5.0b | ★ Isocronas de salida en `bmo-xhci` | L | ✅ **HECHO**: `queue_isoch_out`, y el tubo se abre solo al reclamar |
+| 5.0 | ~~Decidir el aparato~~ | M | ~~HD Audio o AC'97~~ **Contestado por el metal: USB** |
+| 5.1 | Enumerar el aparato y abrir un stream de salida | XL | ✅ **CONFIRMADO en el Ryzen 2026-09-22, 00:21**: `1B3F:2008` reclamado, ranura 3, `tubo 1`, 48.000 Hz, 192 B por trama |
+| 5.2 | `KIND_AUDIO` como capability | M | ✅ **HECHO**: un propietario a la vez, y se recupera solo si muere |
+| 5.3 | ★ **El modulo de sonido de DOOM, y su mezclador** | L | **LO UNICO QUE FALTA para los efectos.** Ver abajo |
 | 5.4 | Musica MUS -> MIDI (`mus2mid.c` ya compila) | XL | y sin sintetizador MIDI no suena: es OTRO proyecto |
 
 ★ **La linea honesta**: 5.0 a 5.3 son "DOOM con efectos". 5.4 es "DOOM con
 musica", y eso pide un sintetizador. **Se paran en 5.3 y se dice.**
+
+## 5.3 -- POR QUE DOOM NO SONO EL 22-09, y no es del tubo (2026-09-22)
+
+El propietario jugo con el audifono ya reclamado y el tubo abierto, y no oyo nada.
+La causa no esta en el bus: **este DOOM esta compilado SIN sonido**. En
+`i_sound.c`:
+
+```c
+static sound_module_t *sound_modules[] = {
+    #ifdef FEATURE_SOUND
+    &DG_sound_module,
+    #endif
+    NULL,
+};
+```
+
+`FEATURE_SOUND` no se define en la construccion de BMO-X, y
+`doom-port/unity.py` salta `i_sdlsound.c` e `i_allegrosound.c` (los dos unicos
+ficheros que definen `DG_sound_module`, y los dos arrastran SDL). O sea que la
+lista tiene un solo elemento, `NULL`; `InitSfxModule` no encuentra modulo,
+`sound_module` se queda en `NULL`, y **cada `I_StartSound` es un `if` que no
+hace nada**. DOOM no es que no suene: es que **no lo pide**.
+
+Asi que la respuesta a *"se necesitan todo eso?"* es NO. De las cinco
+casillas de la fase 5, cuatro ya estan pagadas por el metal. Queda UNA, y vive
+en Ring 3:
+
+```text
+   DOOM da                         el tubo quiere
+   -------                         --------------
+   11.025 Hz                       48.000 Hz
+   8 bits sin signo                16 bits con signo
+   mono                            2 canales (192 B/ms = 48 x 2 x 2)
+   hasta 8 canales a la vez        UNO ya mezclado
+   por canal: volumen y `sep`      la mezcla decide izquierda/derecha
+```
+
+Entre las dos columnas hay un **mezclador**, y es aritmetica entera: remuestrear
+x4,3537 (48.000/11.025), escalar por volumen, repartir por `sep` en dos canales,
+sumar los ocho con saturacion, y escribir en el bloque PRESTADO que el aparato
+lee por DMA (A4) -- el mismo que `musica.inti` ya usa. Lo que hay que escribir
+es `bmo_sonido.c` en el puerto: los ocho verbos de `sound_module_t`
+(`Init`, `Shutdown`, `GetSfxLumpNum`, `Update`, `UpdateSoundParams`,
+`StartSound`, `StopSound`, `SoundIsPlaying`, `CacheSounds`) y el mezclador
+detras. Sin SDL, sin libsamplerate y sin tocar el kernel.
+
+**El orden**: antes de esto, `musica` tiene que SONAR. Es un stream, ya a la
+frecuencia del aparato, sin mezclar ni remuestrear: si eso no se oye, el
+mezclador de DOOM solo pondria ocho veces el mismo silencio.
 
 ---
 
@@ -355,7 +404,7 @@ Actualizada el **2026-08-13**.
 | 2 -- la plataforma | 6 | 0 | **[x]** escrita, `doomgeneric_bmo.c` |
 | 3 -- el WAD | 3 | 0 | **[x]** escrito -- `-iwad apps/doom1.wad` |
 | 4 -- jugable | 3 | 2 | guardar partida pide `fwrite`, que devuelve 0 |
-| 5 -- sonido | 5 | 5, y **empieza de cero** | nada lo bloquea |
+| 5 -- sonido | 6 | **1** (5.3, el mezclador) | 5.0b/5.0/5.1/5.2 confirmados en metal el 22-09; 5.4 es otro proyecto |
 
 ★★ **NO QUEDA NINGUNA CASILLA POR ESCRIBIR.** Lo que queda es **un defecto del
 compilador**, localizado el 2026-08-13 y con reproduccion en el emulador.
