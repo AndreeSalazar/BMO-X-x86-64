@@ -247,7 +247,7 @@ frecuencia, sus canales y su estado. Suma en 32 bits. Reglas:
 
 **Tam: L.**
 
-## [ ] S4 -- EL AMPLIFICADOR, con medidor y limitador (*"como DaVinci"*)
+## [X] S4 -- EL AMPLIFICADOR, con medidor y limitador (*"como DaVinci"*) -- **HECHO el 2026-09-22**
 
 Lo que el propietario pidio, y tiene un motivo concreto suyo: *"soy una persona
 medio sordo"*. Su audifono declara **-45,0 a 0,0 dB**: 0 dB es su techo, y por
@@ -291,6 +291,46 @@ y suena MAL, y el que lo escucha no tiene forma de saberlo. Aqui si:
 
 Con eso, subir hasta oirlo bien es una decision con su numero delante, no una
 ruleta. **Tam: L.**
+
+### [X] HECHO: `platform/shared/bmo-amplificador` (2026-09-22)
+
+El propietario corrigio el orden de este plan y tenia razon: *"solo ponle
+amplificador porque es personal, y para sorpresa el amplificador es lo que SUMA
+LA BASE... empezamos desde el inicio, GENESIS"*. Lo es, y se ve en una lista:
+
+```text
+   mezclar N fuentes  =  SUMAR con ganancia, y no pasarse
+   amplificar         =  ganancia, y no pasarse
+   bajar 5.1 a 2      =  SUMAR con ganancia (0,707), y no pasarse
+   situar en el 3D    =  ganancia distinta por canal, y no pasarse
+```
+
+Los cuatro son la MISMA pieza, asi que se escribio primero. Un crate `puro`,
+sin dependencias, sin `unsafe` (`forbid`) y **sin una sola coma flotante**:
+
+* `Ganancia` en 1/256 de dB --la unidad del Feature Unit de USB, o sea la que
+  ya sale en el `save`--, resuelta a un factor Q16.16 con dos tablas (dB
+  enteros y dieciseisavos) mas una interpolacion. `porcentaje(200)` = +6 dB;
+  `db_entero(-3)`; `SILENCIO` es cero de verdad y no un susurro;
+* `sumar()` en un acumulador de 32 bits, que es **la base**: ocho fuentes a
+  pleno caben enteras antes de que el limite decida;
+* `Limite` con envolvente (ataque ~1 ms, relajo ~100 ms): **baja la ganancia
+  en vez de cortar la punta**, que es la diferencia entre un limitador y un
+  recortador. Cuenta `sujetadas` y `dobladas`;
+* `Medidor` con pico y **RMS** en dBFS (raiz entera y `log2` en coma fija),
+  porque el pico no dice si algo se oye flojo y el RMS si.
+
+**26 pruebas**, y tres de ellas cazaron tres defectos de la primera version
+antes de que llegaran a ningun sitio:
+
+| la prueba | lo que cazo |
+|---|---|
+| `la_ganancia_sube_siempre_que_se_le_pide_mas` | por debajo de -24 dB el reciproco pedia a la tabla un factor que no tiene y **saturaba**: la curva de volumen bajaba al subir |
+| `el_limite_baja_la_ganancia_en_vez_de_recortar` | el relajo empujaba hacia "ninguna reduccion" en vez de hacia lo que la onda permite: sube-y-baja, y **888 muestras recortadas a pelo** con una onda sostenida |
+| `el_rms_distingue_una_cancion_floja_de_una_fuerte` | el margen que este ayudante habia puesto a ojo (30 dB) contra el que sale de la cuenta (29,6) |
+
+Falta llevarlo a Ring 3 (una orden `audio ganancia N` y las filas del `save`):
+eso es S4b y no cambia una linea de este crate.
 
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 

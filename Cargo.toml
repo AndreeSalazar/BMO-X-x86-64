@@ -67,6 +67,11 @@ members = [
     "platform/shared/bmo-maqueta-cara",
     # Que hay dentro de un fichero de audio. Ver AUDIO_MAESTRO paso 3.
     "platform/shared/bmo-sonido",
+    # EL AMPLIFICADOR: la suma con ganancia, el limite con envolvente y el
+    # medidor. Es la BASE del sonido (mezclar, bajar 5.1 a 2 y situar en el 3D
+    # son esta misma pieza con otros parametros), y por eso va primero.
+    # Ver docs/plan/PLAN_EL_SONIDO.md, casilla S4.
+    "platform/shared/bmo-amplificador",
     # LA RESTA: un clic de pantalla -> un clic de la app. Vive aqui y no dentro
     # del compositor por lo mismo que el juez de las medidas: aqui se PRUEBA.
     # Paso 2c.1 de `docs/plan/PLAN_DIRECTOR.md`.

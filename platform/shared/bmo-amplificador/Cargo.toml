@@ -1,0 +1,11 @@
+[package]
+name = "bmo-amplificador"
+version = "1.0.0"
+edition = "2021"
+description = "La suma con ganancia, su limite con envolvente y su medidor. Aritmetica entera, sin E/S."
+license = "Apache-2.0"
+
+# ** CERO DEPENDENCIAS. Lo consume Ring 3 --sin asignador-- y el anfitrion, que
+# lo prueba. Aqui entran enteros y salen enteros: ni un fichero, ni un aparato,
+# ni una coma flotante.
+[dependencies]

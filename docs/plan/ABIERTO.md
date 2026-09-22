@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   261 casillas ABIERTAS en 32 planes
-   251 hechas
+   260 casillas ABIERTAS en 32 planes
+   253 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 65 casillas sueltas NO cuentan como abiertas)
@@ -102,14 +102,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
 - ... y 6 mas
 
-## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 0 hechas
+## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 8 abiertas, 2 hechas
 
 *PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
 
 - [ ] S0 -- EL CENSO DICE LA VERDAD, y la tabla la llena el aparato
 - [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
-- ... y 6 mas
+- ... y 5 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 8 abiertas, 4 hechas
 
