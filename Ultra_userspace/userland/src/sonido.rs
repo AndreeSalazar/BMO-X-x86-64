@@ -74,3 +74,160 @@ impl Sonido {
         let _ = invoke(self.cap, AUDIO_OP_SILENCE, 0, 0, 0);
     }
 }
+
+// ===================================================================
+//  EL TUBO: lo unico que de verdad suena en esta maquina
+// ===================================================================
+
+/// **El tubo isocrono del audifono USB, con su bufer PRESTADO.**
+///
+/// *** ESTO FALTABA, Y ERA EL BLOQUEO (2026-09-22). El kernel expone el
+/// contrato entero del productor desde A4 --ofrecer un bloque, decir hasta
+/// donde se escribio, preguntar por donde va el aparato-- y `musica.inti` lo
+/// usa. Pero desde Rust **no se podia**: el unico envoltorio era
+/// [`crate::sys::audio_tubo`], que manda `(que, 0, 0)` y por tanto no puede
+/// pasar el argumento que llevan `ofrecer` y `escrito`; y ademas reclamaba y
+/// soltaba el aparato en cada llamada, o sea que no se podia sostener mientras
+/// suena.
+///
+/// Consecuencia, dicha por su nombre: **ningun programa de Ring 3 escrito en
+/// Rust podia hacer ruido**, y eso incluye al DIRECTOR. Por eso el
+/// amplificador ([`bmo-amplificador`]) no tenia donde enchufarse: la pieza
+/// estaba, el cable no.
+///
+/// # Los dos numeros que cruzan, y por que son dos
+///
+/// ```text
+///    escrito   hasta donde ha llenado la APP        (solo crece)
+///    leido     por donde va el APARATO              (lo dice el kernel)
+/// ```
+///
+/// Con esos dos y un bloque en medio no hace falta una puerta por muestra: la
+/// app escribe delante del aparato y el aparato come detras de la app. Cero
+/// copias (el xHC lee la memoria de la app por DMA) y una puerta por vuelta,
+/// no por trama.
+pub struct Tubo<'a> {
+    sonido: &'a Sonido,
+}
+
+/// Los campos de `AUDIO_OP_TUBO`. Se nombran para no escribir numeros sueltos
+/// en el sitio de la llamada; el orden lo fija el kernel (`obj/audio.rs`).
+const TUBO_ABIERTO: u64 = 0;
+const TUBO_ARMAR: u64 = 1;
+const TUBO_CALLAR: u64 = 2;
+const TUBO_BYTES_TRAMA: u64 = 3;
+const TUBO_FRECUENCIA: u64 = 4;
+const TUBO_ENCOLADAS: u64 = 5;
+const TUBO_TARDE: u64 = 6;
+const TUBO_ARMADO: u64 = 7;
+const TUBO_OFRECER: u64 = 8;
+const TUBO_ESCRITO: u64 = 9;
+const TUBO_LEIDO: u64 = 10;
+const TUBO_PENDIENTES: u64 = 11;
+const TUBO_HUECOS: u64 = 12;
+const TUBO_SOLTAR: u64 = 13;
+
+impl Sonido {
+    /// El tubo de este aparato, mientras se tenga el sonido reclamado.
+    pub fn tubo(&self) -> Tubo<'_> {
+        Tubo { sonido: self }
+    }
+}
+
+impl Tubo<'_> {
+    fn pedir(&self, que: u64, dato: u64) -> u64 {
+        invoke(self.sonido.cap, AUDIO_OP_TUBO, que, dato, 0).valor().unwrap_or(0)
+    }
+
+    /// **Hay tubo?** `false` = no hay audifono, o no dio sus papeles. Es la
+    /// primera pregunta de cualquier productor: sin esto, lo demas es escribir
+    /// en un bloque que nadie lee.
+    pub fn abierto(&self) -> bool {
+        self.pedir(TUBO_ABIERTO, 0) != 0
+    }
+
+    /// **Bytes por milisegundo**, que es lo que el aparato come de una vez.
+    ///
+    /// [!] De aqui salen los CANALES, y no hay otra forma de saberlos: a
+    /// 48.000 Hz, `192 = 48 muestras x 2 canales x 2 bytes`. Suponer estereo
+    /// es exactamente el error que este numero existe para evitar. Ver
+    /// `docs/plan/PLAN_EL_SONIDO.md` 1.4.
+    pub fn bytes_por_trama(&self) -> u64 {
+        self.pedir(TUBO_BYTES_TRAMA, 0)
+    }
+
+    /// La frecuencia que el aparato acepto, en Hz. **No se supone.**
+    pub fn frecuencia(&self) -> u64 {
+        self.pedir(TUBO_FRECUENCIA, 0)
+    }
+
+    /// Empezar a empujar tramas (silencio si no hay nada que mandar).
+    ///
+    /// [!] Armar es TRAFICO: 250 latidos por segundo. Por eso no se enciende
+    /// solo y hay que pedirlo, y por eso [`Tubo::callar`] existe.
+    pub fn armar(&self) -> bool {
+        self.pedir(TUBO_ARMAR, 0) != 0
+    }
+
+    /// Dejar de empujar.
+    pub fn callar(&self) {
+        let _ = self.pedir(TUBO_CALLAR, 0);
+    }
+
+    pub fn armado(&self) -> bool {
+        self.pedir(TUBO_ARMADO, 0) != 0
+    }
+
+    /// **Prestar un bloque propio al aparato.** `va` es la direccion del
+    /// bloque tal como lo devolvio la peticion de memoria; los bytes los mira
+    /// el kernel en el bloque, no se los dice la app (una app no declara la
+    /// medida de su propia memoria: se la preguntan al que la dio).
+    ///
+    /// `false` = esa memoria no es suya, o no hay tubo al que ofrecerla.
+    pub fn ofrecer(&self, va: u64) -> bool {
+        self.pedir(TUBO_OFRECER, va) != 0
+    }
+
+    /// **Hasta donde ha llenado la app**, en bytes desde el principio del
+    /// bloque. Solo puede CRECER: un `escrito` que retrocede es la app pisando
+    /// lo que el aparato no ha leido, y eso se oye.
+    pub fn escrito(&self, hasta: u64) -> bool {
+        self.pedir(TUBO_ESCRITO, hasta) != 0
+    }
+
+    /// Por donde va el APARATO. La distancia con `escrito` es lo que queda
+    /// por sonar.
+    pub fn leido(&self) -> u64 {
+        self.pedir(TUBO_LEIDO, 0)
+    }
+
+    /// Lo escrito y aun no sonado, en bytes. **Es el mando del productor**: si
+    /// baja de una trama, el aparato se queda sin nada y eso es un hueco.
+    pub fn pendientes(&self) -> u64 {
+        self.pedir(TUBO_PENDIENTES, 0)
+    }
+
+    /// Vueltas en las que no habia trama que mandar. **Tiene que ser cero**;
+    /// si sube, el productor no llega.
+    pub fn huecos(&self) -> u64 {
+        self.pedir(TUBO_HUECOS, 0)
+    }
+
+    /// Tramas mandadas al bus desde el arranque. Tiene que SUBIR SOLA mientras
+    /// algo suena: es la prueba de que las muestras salen de verdad.
+    pub fn encoladas(&self) -> u64 {
+        self.pedir(TUBO_ENCOLADAS, 0)
+    }
+
+    /// Tramas que el xHC no llego a servir en su microtrama. **Es la cifra que
+    /// separa "suena bien" de "chasquea".**
+    pub fn tarde(&self) -> u64 {
+        self.pedir(TUBO_TARDE, 0)
+    }
+
+    /// Devolver el bloque. Se hace solo si el proceso muere, pero un programa
+    /// que sigue vivo tiene que poder soltarlo sin morirse.
+    pub fn soltar(&self) {
+        let _ = self.pedir(TUBO_SOLTAR, 0);
+    }
+}

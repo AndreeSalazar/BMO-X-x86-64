@@ -329,8 +329,44 @@ antes de que llegaran a ningun sitio:
 | `el_limite_baja_la_ganancia_en_vez_de_recortar` | el relajo empujaba hacia "ninguna reduccion" en vez de hacia lo que la onda permite: sube-y-baja, y **888 muestras recortadas a pelo** con una onda sostenida |
 | `el_rms_distingue_una_cancion_floja_de_una_fuerte` | el margen que este ayudante habia puesto a ojo (30 dB) contra el que sale de la cuenta (29,6) |
 
-Falta llevarlo a Ring 3 (una orden `audio ganancia N` y las filas del `save`):
-eso es S4b y no cambia una linea de este crate.
+### El orden, corregido otra vez (2026-09-22): S4b NO era lo siguiente
+
+El propietario pregunto *"S4b, haber, es correcto ese camino?"*, y no lo era. Una
+orden `audio ganancia N` con sus filas en el `save` es un mando **sobre una
+onda que no existe**: `encoladas 0` desde que el tubo se abrio, o sea que NI UNA
+MUESTRA ha llegado nunca al audifono. Poner un medidor ahi seria un numero
+bonito midiendo silencio, que es la definicion de escrito-y-sin-ejecutar.
+
+Y al mirarlo salio el bloqueo de verdad, que no estaba en ningun plan:
+
+```text
+   el kernel ofrece el contrato del productor       A4, campos 8..13 de AUDIO_OP_TUBO
+   `musica.inti` lo usa                             invoca(cap, tubo, 8, pcm, 0)
+   Rust NO PODIA                                    audio_tubo(que) manda (que, 0, 0)
+```
+
+`userland::sys::audio_tubo` pasa un solo argumento y ademas reclama y suelta el
+aparato en cada llamada. O sea: **ningun programa de Ring 3 escrito en Rust
+podia hacer ruido**, el DIRECTOR incluido. El amplificador estaba escrito y no
+tenia donde enchufarse: la pieza existia, el cable no.
+
+**HECHO el mismo dia: [`Sonido::tubo()`] y `Tubo`** en `userland/src/sonido.rs`,
+con los verbos completos (`abierto`, `bytes_por_trama`, `frecuencia`, `armar`,
+`callar`, `ofrecer`, `escrito`, `leido`, `pendientes`, `huecos`, `encoladas`,
+`tarde`, `soltar`), sosteniendo la capability en vez de pedirla por llamada.
+
+El orden que sale de ahi, y que sustituye al "S4b":
+
+| # | que | quien lo aprueba |
+|---|---|---|
+| **P0** | correr `musica` en el Ryzen | **el metal**: suena algo, si o no? Cuesta un arranque y **no hay codigo que escribir** |
+| **P1** | los verbos del tubo en Rust | ✅ hecho: compila; lo aprueba P2 |
+| **P2** | un productor en Rust por la cadena entera (fuente -> amplificador -> bloque prestado -> tubo) | el metal: `encoladas` sube y `huecos` es 0 |
+| **P3** | `audio ganancia N` y las filas del `save` (`ganancia`, `pico`, `dobladas`) | lo que era "S4b", y ahora tiene onda que medir |
+
+★ **P0 va primero y es gratis.** Si `musica` no suena, P2 se escribiria encima
+de un camino roto y el fallo se buscaria en el sitio equivocado -- que es
+exactamente lo que paso el 21-09 con el paquete del EP0.
 
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
