@@ -99,7 +99,7 @@ fn sacar_crudo() -> Option<(u8, bool)> {
 /// Eventos crudos tirados por cola llena. Para el panel.
 /// **VACIAR la cola cruda.** Se llama al enchufar y al desenchufar.
 ///
-/// # Por que hace falta, y lo dijo el dueno
+/// # Por que hace falta, y lo dijo el propietario
 ///
 /// > *"cuando mi teclado estaba siendo usado hay datos e informacion basura que
 /// > me gustaria que a la hora de conectar no tenga ese problema"*
@@ -169,7 +169,7 @@ pub fn modificadores() -> u8 {
     }
 }
 
-/// * OJO al usar esto para atajos: en la distribucion espanola `Ctrl+Alt` ES
+/// * OJO al usar esto para atajos: en la distribucion castellana `Ctrl+Alt` ES
 /// `AltGr` -- es lo que produce `@`, `#`, `[`, `]`, `\`, `|` y `EUR`. Un atajo
 /// que dispare al PULSAR `Ctrl+Alt` rompe escribir todos esos caracteres. Ver
 /// como lo resuelve el compositor: dispara al SOLTAR, y solo si no se escribio

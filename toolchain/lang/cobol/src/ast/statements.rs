@@ -100,7 +100,7 @@ pub enum CobolStatement {
     /// Eran lo mismo --una `String` que siempre se imprimia literal-- y por eso
     /// el programa de ejemplo CALCULA 59.97 y luego imprime la cadena
     /// "total exacto: 59.97" escrita a mano. La aritmetica era de verdad; lo
-    /// que se veia, no. Un `DISPLAY` que no sabe ensenar lo que acaba de
+    /// que se veia, no. Un `DISPLAY` que no sabe mostrar lo que acaba de
     /// calcular deja al lenguaje sin salida.
     Display(DisplayArg),
     Accept(String),

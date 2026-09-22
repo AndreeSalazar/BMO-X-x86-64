@@ -10,13 +10,13 @@ use super::comun::*;
 // -- OCCURS: lo que se RECHAZA, y diciendo que hacer -----------------
 
 /// Un `OCCURS` en el nivel 01 no existe en el estandar. Se dice, y se
-/// ensena la forma buena: el grupo.
+/// muestra la forma buena: el grupo.
 #[test]
 fn occurs_en_nivel_01_se_rechaza_ensenando_el_grupo() {
     let src = program("01 E PIC 9(3) OCCURS 3 TIMES.", "MOVE 1 TO E(1).");
     let t = format!("{:?}", compile_source_to_bef(&src).unwrap_err());
     assert!(t.contains("OCCURS en el nivel 01"), "{t}");
-    assert!(t.contains("05 E PIC"), "el error tiene que ensenar el grupo: {t}");
+    assert!(t.contains("05 E PIC"), "el error tiene que mostrar el grupo: {t}");
 }
 
 /// Una tabla sin subindice no es "el primer elemento": es una pregunta sin

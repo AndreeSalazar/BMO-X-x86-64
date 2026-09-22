@@ -211,7 +211,7 @@ fn lo_generado_esta_equilibrado_y_no_tiene_sorpresas() {
     // con un `)` de mas y esta prueba salto. El codigo estaba perfecto.
     //
     // Sigue siendo una HEURISTICA: un texto del `.maqueta` con un parentesis
-    // suelto la volveria a enganar. Se queda porque avisa en tres milisegundos,
+    // suelto la volveria a burlar. Se queda porque avisa en tres milisegundos,
     // y quien dice la verdad de verdad es `bmo.ps1`, que compila esto de veras.
     let codigo: String = g
         .lines()

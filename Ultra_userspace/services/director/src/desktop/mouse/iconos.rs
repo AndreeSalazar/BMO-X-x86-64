@@ -4,7 +4,7 @@
 //!                     tecla o el raton se movio. Sin entrada, no se entra
 //!                     aqui (L6h)
 //!
-//! Un clic senala, dos abren. La regla entera --y por que ese gesto se mide en
+//! Un clic marca, dos abren. La regla entera --y por que ese gesto se mide en
 //! ciclos y no en vueltas del bucle-- vive en `scene::double_click`; aqui solo
 //! esta quien la llama y que hace con la respuesta.
 
@@ -45,7 +45,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
         // ** Lo bonito es que ENTRAR sale gratis. El primer clic deja escrito
         // `run <ruta>` en la caja de Ejecutar pero **no inyecta el salto de
         // linea**, asi que la orden queda preparada y es ENTRAR quien la
-        // dispara -- que es exactamente lo que el dueno pidio, y sin una
+        // dispara -- que es exactamente lo que el propietario pidio, y sin una
         // segunda regla que mantener.
         if let Some(i) = dsk.launcher.app_at(&p, pos.x, pos.y) {
             let doble = dsk.launcher.clic(i);

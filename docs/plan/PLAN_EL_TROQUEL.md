@@ -1,6 +1,6 @@
 # PLAN EL TROQUEL -- la geometria de los registros, estampada de un golpe
 
-> Propuesta del dueno, **2026-09-09**, y la trajo mirando la jerarquia de caches:
+> Propuesta del propietario, **2026-09-09**, y la trajo mirando la jerarquia de caches:
 >
 > > *"pensaba que INTI mas cerca del registro, esa jerarquia, para que INTI
 > > salte y asi facilitar. Podemos preparar la propuesta, pero ya no seria
@@ -64,14 +64,14 @@ Lo que falta es la pregunta de **antes**: *"este valor, donde vive?"*.
    L0  SUPERFICIE       INVOKE / WAIT                       congelada
 ```
 
-★ El diagrama de arriba es **el del propio `bmo-lower`**, con una fila anadida.
+★ El diagrama de arriba es **el del propio `bmo-lower`**, con una fila agregada.
 El hueco estaba dibujado y sin nombre.
 
 ---
 
 # 3. POR QUE ESTO ES "MAS CERCA DEL REGISTRO"
 
-La jerarquia que el dueno nombro, con el nivel que se le olvida a todo el mundo
+La jerarquia que el propietario nombro, con el nivel que se le olvida a todo el mundo
 puesto arriba:
 
 ```text
@@ -106,7 +106,7 @@ tiene que asumir lo peor y volver a leerla.
    adivinar el ALIAS   -> tiene que escribir a memoria      ESTE plan
 ```
 
-★★ **Las dos son la misma palabra del dueno: adivinar.** Y la segunda es
+★★ **Las dos son la misma palabra del propietario: adivinar.** Y la segunda es
 justamente la que aleja del registro.
 
 Una libreria del sitio no adivina: **recibe lo que el lenguaje declara**.
@@ -124,7 +124,7 @@ puede exigir lo que un lenguaje de 1972 tiene que suponer.
 
 # 5. ⚠ LA CORRECCION AL PLANTEAMIENTO, Y ES IMPORTANTE
 
-El dueno lo dijo como *"INTI ya no seria compilador sino libreria"*. No:
+El propietario lo dijo como *"INTI ya no seria compilador sino libreria"*. No:
 
 ```text
    INTI el LENGUAJE          se queda. Es "el C de BMO-X" y tiene su gramatica
@@ -137,7 +137,7 @@ El dueno lo dijo como *"INTI ya no seria compilador sino libreria"*. No:
 Sacar el emisor de INTI y llamarlo libreria seria heredar su acoplamiento al
 AST de INTI, y entonces C y COBOL no podrian usarla. El sitio de un valor no
 depende del lenguaje: **por eso puede ser una libreria, y por eso tiene que
-nacer sin dueno.**
+nacer sin propietario.**
 
 ---
 
@@ -151,7 +151,7 @@ registro la variable de un bucle-- lleva escrito este sacrificio:
 
 *** Con la libreria **esa objecion desaparece**: la complejidad del analisis de
 vivos vive FUERA, en una crate con su propio banco, y BMO C sigue cabiendo en
-una tarde de lectura. El dueno resolvio sin saberlo la pega que bloqueaba `C4`.
+una tarde de lectura. El propietario resolvio sin saberlo la pega que bloqueaba `C4`.
 
 Y hay un segundo premio: **una asignacion de registros escrita SEIS veces no se
 escribe nunca.** Hoy hay seis sitios que emiten x86-64. Escrita una vez, la
@@ -189,11 +189,11 @@ heredan los cinco restantes el dia que la enlacen.
 
 # 8. LAS TRES PREGUNTAS, Y DE AHI SALE EL NOMBRE
 
-El dueno lo ordeno mejor que este documento: *"el compilador procesa, pero si
+El propietario lo ordeno mejor que este documento: *"el compilador procesa, pero si
 quieres mas, esto se encarga para que INTI procese; y si hablamos de x86-64 es
 esto en libreria, porque **INTI es agnostico**"*.
 
-Escrito como tres preguntas, cada una con su dueno y ninguno sabiendo el
+Escrito como tres preguntas, cada una con su propietario y ninguno sabiendo el
 trabajo de los otros dos:
 
 ```text
@@ -208,7 +208,7 @@ lado): es donde el software agnostico deja de serlo. LEY 24 dice que el hardware
 se PERFILA y el software es agnostico -- **aqui esta la linea exacta donde se
 cruza**, y hasta hoy no tenia sitio.
 
-## ★★★ EL NOMBRE: **TROQUEL**, y lo puso el dueno
+## ★★★ EL NOMBRE: **TROQUEL**, y lo puso el propietario
 
 Un troquel estampa una forma sobre metal **de un golpe**. No amasa: da una
 decision seca y sale la pieza. Y el vocabulario entero viene puesto:
@@ -261,14 +261,14 @@ El caso a favor traia dos frases que hay que arreglar antes de que se repitan:
    bmo-sitio                      nombraba la respuesta, no el trabajo
 ```
 
-[!] Y aun asi el nombre lo pone el dueno. `CUPO` se rechazo por lo que recordaba
+[!] Y aun asi el nombre lo pone el propietario. `CUPO` se rechazo por lo que recordaba
 en Peru, y esa clase de cosa no la puede saber quien escribe el plan.
 
 ---
 
 # 9. ★★ COMO SE VERA -- y lo primero es lo que NO va a cambiar
 
-Pregunta del dueno: *"si entra en BMO-X, cambia el comportamiento? Para ver los
+Pregunta del propietario: *"si entra en BMO-X, cambia el comportamiento? Para ver los
 cambios en general, ya sabes, DOOM y otros"*. Si, pero no en todas partes, y la
 mitad de la respuesta es la mitad que no cambia.
 
@@ -288,7 +288,7 @@ un `latido 300/s` que son de otro compilador.
    1. el banco de BMO C        500 filas que EJECUTAN. Es el primero que
                                habla, en 0,3 s, y ya cazo cinco de quinientas
                                el 09-09 con un plegado de mas
-   2. el tamano de los .bex    el build imprime los 25. Menos instrucciones
+   2. el medida de los .bex    el build imprime los 25. Menos instrucciones
                                es menos bytes, y se ve sin arrancar la maquina
    3. `expansion N us`         el `[perf]` de DOOM. **Este es EL juez**: es
                                donde vivian los 157 ciclos por escritura
@@ -324,11 +324,11 @@ grande; declarar el alias es el ultimo tramo, no el primero.
 
 ## Lo que faltaria para verlo de un vistazo
 
-El build ya imprime el tamano de los 25 programas, pero **nadie los compara con
-los de ayer**. Una linea base de tamanos --como `avisos` y como `fases`-- haria
-que cualquier cambio del toolchain ensenara de golpe su efecto sobre los 25.
+El build ya imprime el medida de los 25 programas, pero **nadie los compara con
+los de ayer**. Una linea base de medidas --como `avisos` y como `fases`-- haria
+que cualquier cambio del toolchain mostrara de golpe su efecto sobre los 25.
 
-[!] Con un aviso: **el tamano no es la velocidad**. Van juntos en este caso
+[!] Con un aviso: **el medida no es la velocidad**. Van juntos en este caso
 concreto --pasar de pila a registros quita instrucciones-- y no en general. Seria
 un REPORTERO, no un trinquete: los programas pueden crecer con razon.
 
@@ -359,7 +359,7 @@ un REPORTERO, no un trinquete: los programas pueden crecer con razon.
 
 El metro del emisor (`toolchain/tools/metro`: 25 programas, trinquete en el
 build, `--desglose` por clase y `--caliente` por direccion) hizo en un dia lo
-que la seccion 8 pedia y mas: la linea base de tamanos existe (`tamano.py`,
+que la seccion 8 pedia y mas: la linea base de medidas existe (`medida.py`,
 41 ejecutables) y ADEMAS la de instrucciones. Con el se eligieron seis pasos,
 cada uno por el desensamblado del bucle caliente y no por corazonada, y C paso
 de 451.306 a 225.124 instrucciones (**-50 %**) con las 25 salidas identicas:
@@ -378,7 +378,7 @@ tocan si el metro las pide:
       guardar el valor extendido (la invariante de `emit_guardar_en_registro`)
       o a asumir que el desborde de `int` no ocurre -- y el banco protege el
       desborde (`int x = 2147483647; x + 1 == -2147483648`). Se deja con su
-      numero; no se toca sin cambiar la regla, y eso es decision del dueno
+      numero; no se toca sin cambiar la regla, y eso es decision del propietario
 - [x] **T2 -- leer la matriz sin `mov rax, rN`**: `t[i] = v` con `v` en la
       matriz escribe `mov [rdx], r12d` directo (`c833ace2`); `and`/`or`/`xor`
       con el izquierdo en la matriz siguen con `mov` + `op` (no hay forma de
@@ -405,7 +405,7 @@ las cuentas y sumando por bytes de opcode), que no estaba en esta lista:
 - [x] los argumentos de un intrinseco directos a su registro: el envoltorio
       de la puerta pasa de 31 a 13 instrucciones (`c833ace2`)
 
-Cierre de la manana del 19-09: 451.306 -> 197.052 instrucciones (**-56 %**
+Cierre de la luego del 19-09: 451.306 -> 197.052 instrucciones (**-56 %**
 desde el 18-09), accesos 40.737, y el reparto sigue plano: `jcc` 9 %, el
 recorte de T1 6 %, `lea [rip]` de los globales 5 %, `push` de argumentos de
 llamada 4 %, `mov rax, rN` 4 %. Lo siguiente grande no era una instruccion:
@@ -552,7 +552,7 @@ emisor no tiene por que recorrer el arbol. La frontera es exactamente esa.
 
 Ni una fila tiene un registro a la izquierda ni un `Stmt` a la derecha. Eso
 es el 50/50: no *la mitad de las lineas en cada crate*, sino **que cada
-decision tenga UN dueno** y que se pueda probar en su lado sin el otro
+decision tenga UN propietario** y que se pueda probar en su lado sin el otro
 (`clasificar` tiene tres tests sin emisor; `bailar` cuatro; `marco.rs` se
 prueba con `RESPALDO` sin la tabla).
 

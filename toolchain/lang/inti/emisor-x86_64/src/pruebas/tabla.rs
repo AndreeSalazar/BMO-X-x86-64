@@ -61,7 +61,7 @@ fn dos_textos_iguales_en_objetos_distintos_son_la_misma_clave() {
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 0), 55, "mismos bytes = misma clave");
 }
 
-/// Y volver a poner la misma clave PISA el valor y no anade una pareja.
+/// Y volver a poner la misma clave PISA el valor y no agrega una pareja.
 #[test]
 fn poner_dos_veces_la_misma_clave_no_anade_una_pareja() {
     let f = con_tabla(
@@ -127,5 +127,5 @@ fn la_tabla_que_construye_inti_la_acepta_el_abi() {
     let t = abi::revisar(&bytes).expect("el ABI rechazo la tabla que construyo INTI");
     assert_eq!(t.cuantos, 2, "dos parejas");
     assert_eq!(t.capacidad, 8);
-    assert_eq!(t.refs, 1, "nace con UN dueno");
+    assert_eq!(t.refs, 1, "nace con UN propietario");
 }

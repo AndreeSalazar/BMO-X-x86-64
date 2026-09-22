@@ -30,10 +30,10 @@
 //!
 //! # Que NO hace este modulo
 //!
-//! No cifra la clave con contrasena. Y se dice aqui porque callarlo seria peor
+//! No cifra la clave con clave. Y se dice aqui porque callarlo seria peor
 //! que no hacerlo: hoy la proteccion de la privada es **el sistema de ficheros
 //! del anfitrion y que no este en el repo**, ni mas ni menos. Cifrarla pedia
-//! una derivacion de contrasena (Argon2 o scrypt) que este arbol no tiene, y
+//! una derivacion de clave (Argon2 o scrypt) que este arbol no tiene, y
 //! traerla de fuera rompe la regla de `bmo-cripto`: sin dependencias, para que
 //! quien audite pueda leer las lineas.
 

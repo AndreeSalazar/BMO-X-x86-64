@@ -1,6 +1,6 @@
 # INTI Y LA GPU -- por que la unidad no es el REGISTRO, y que si lo es
 
-> Escrito el **2026-09-10**, a partir de una idea del dueno:
+> Escrito el **2026-09-10**, a partir de una idea del propietario:
 >
 > *"que potencial tiene INTI para que hablen como intermedio directo en
 > registro de CPU y GPU, que es la que se hablan para orquestar por completo?"*
@@ -118,7 +118,7 @@ y no un driver.
 
 # 4. EL ORDEN QUE EVITA EL CHOQUE
 
-El dueno lo pidio asi, y es el orden correcto:
+El propietario lo pidio asi, y es el orden correcto:
 
 ## Primero: x86-64 solido, y eso significa DOS cosas concretas
 
@@ -146,7 +146,7 @@ demostrar que sus trozos son independientes, no se reparte**.
 
 ## Y al final: la GPU como un EJECUTOR mas, no como un lenguaje mas
 
-Si las partes existen y el reparto vive en un sitio, anadir la GPU es:
+Si las partes existen y el reparto vive en un sitio, agregar la GPU es:
 
 ```text
    1. el PSP contesta                    (el muro de verdad, y es de firmware)
@@ -193,7 +193,7 @@ depurar, y este arbol tiene una regla sobre eso que lleva escrita desde agosto:
 
 # 6. ★★ INDEPENDIENTES Y DEPENDIENTES A LA VEZ (2026-09-12)
 
-> El dueno, jugando Left 4 Dead 2: *"mi GPU trabaja independiente de la CPU si
+> El propietario, jugando Left 4 Dead 2: *"mi GPU trabaja independiente de la CPU si
 > es frame... necesito que cambies los planes para que la CPU y la GPU sean
 > independientes y al mismo tiempo dependientes"*.
 
@@ -246,7 +246,7 @@ ocupado no frena a la app. **Es el modelo de L4D2 con la app haciendo de CPU y e
 DIRECTOR haciendo de GPU.** Cuando llegue una tarjeta no hay que inventar el
 contrato: hay que ponerle un tercer participante.
 
-Lo que NO tiene todavia, y es exactamente lo que la pregunta del dueno pide:
+Lo que NO tiene todavia, y es exactamente lo que la pregunta del propietario pide:
 
 ```text
    la COLA acotada   hoy la "cola" es de 1 y se pisa: el DIRECTOR ve el ultimo

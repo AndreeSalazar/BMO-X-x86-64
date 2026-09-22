@@ -61,8 +61,8 @@
 //! ```
 //!
 //! `count` y `capacidad` miden lo mismo --elementos-- y son del mismo ancho a
-//! proposito: dos campos que se comparan en cada `anade` y que no pueden
-//! desbordar el uno contra el otro por ser de distinto tamano.
+//! proposito: dos campos que se comparan en cada `agrega` y que no pueden
+//! desbordar el uno contra el otro por ser de distinto medida.
 //!
 //! ## LO QUE ESTA FORMA NO PROMETIA, Y YA SI (2026-08-23)
 //!
@@ -255,7 +255,7 @@ mod pruebas {
     }
 
     /// **Mas elementos de los que caben se caza.** Es la mentira que esta forma
-    /// existe para cerrar, y la que haria que un `anade` escribiera fuera.
+    /// existe para cerrar, y la que haria que un `agrega` escribiera fuera.
     #[test]
     fn una_lista_que_dice_tener_de_mas_no_pasa() {
         let mut b = bloque(4, 8);
@@ -300,7 +300,7 @@ mod pruebas {
         assert_eq!(donde(10, 4).unwrap(), 72);
     }
 
-    /// Una multiplicacion que se sale NO devuelve un numero pequeno.
+    /// Una multiplicacion que se sale NO devuelve un numero chico.
     ///
     /// ** Es el fallo clasico de esta forma de codigo: `capacidad * ancho` da la
     /// vuelta y el bloque parece caber. Aqui da `None`, que es una respuesta.

@@ -29,10 +29,10 @@
 //!
 //! ## Y por eso esto no es una linea de depuracion
 //!
-//! > **Una medida que hay que anadir para diagnosticar es una medida que no
+//! > **Una medida que hay que agregar para diagnosticar es una medida que no
 //! > existe el dia que hace falta.**
 //!
-//! El plan del 08-10 era anadir un volcado de los primeros bytes, mirarlo en una
+//! El plan del 08-10 era agregar un volcado de los primeros bytes, mirarlo en una
 //! foto y quitarlo. Esto lo sustituye: el sistema lo dice **siempre**, en el
 //! sitio exacto, sin que nadie lo pida y sin que haya que reconstruir el kernel
 //! para preguntarlo.

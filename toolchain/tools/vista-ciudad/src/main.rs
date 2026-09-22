@@ -10,7 +10,7 @@
 //! Y hasta hoy la regla se cumplia a medias. Los NUMEROS del guion se prueban
 //! desde siempre --que nada de un salto, que los actos entreguen-- pero **la
 //! imagen no se podia ver**. Para juzgar si el gato se separa del fondo habia que
-//! grabar el disco, reiniciar el Ryzen y grabarlo con el movil. El dueno lo hizo
+//! grabar el disco, reiniciar el Ryzen y grabarlo con el movil. El propietario lo hizo
 //! tres veces en dos dias, y en la tercera dijo lo que estaba mal: *"la capa
 //! estan mezcladas"*.
 //!
@@ -31,7 +31,7 @@
 //! mentira esperando a divergir.
 //!
 //! [!] Lo que NO se comparte es la fuente del kernel, asi que el titulo `BMO-X`
-//! sale como un bloque macizo del tamano que ocupa. Para juzgar el ENCUADRE --que
+//! sale como un bloque macizo del medida que ocupa. Para juzgar el ENCUADRE --que
 //! es lo que se rompio-- eso basta y sobra: lo que importa es donde cae y cuanto
 //! mide, no que letra es.
 //!

@@ -66,7 +66,7 @@ impl Tipo {
         }
     }
 
-    /// Su casilla en [`Contadores::tipos`]. Es el orden que ensena `red rx`.
+    /// Su casilla en [`Contadores::tipos`]. Es el orden que muestra `red rx`.
     pub const fn casilla(self) -> usize {
         match self {
             Tipo::Arp => 0,
@@ -133,7 +133,7 @@ pub fn juzgar<'a>(
 
 /// **Lo que ha pasado por el anillo desde que se armo**, contado por veredicto.
 ///
-/// Es lo que ensena `red rx`. Antes eran CINCO `static mut` sueltos en el
+/// Es lo que muestra `red rx`. Antes eran CINCO `static mut` sueltos en el
 /// kernel, sumados a mano en cinco sitios del bucle; ahora es uno, y se suma
 /// en un solo sitio que tiene banco.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]

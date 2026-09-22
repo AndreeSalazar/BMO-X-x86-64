@@ -21,7 +21,7 @@
 //! encontrar un Transfer Event: cada TRB de puerto que se cruza en esa vuelta
 //! sobrescribe al anterior y solo sobrevive el ultimo.
 //!
-//! Dicho con lo que le pasa al dueno delante de la maquina:
+//! Dicho con lo que le pasa al propietario delante de la maquina:
 //!
 //! ```text
 //!   desenchufa el teclado   -> el xHC postea (4, desconectado)
@@ -69,7 +69,7 @@ pub const MAX_AVISOS: usize = 17;
 /// Un aviso: `(puerto 1-based tal cual lo manda el xHC, hay algo conectado)`.
 pub type Aviso = (u8, bool);
 
-/// La cola. FIFO, tamano fijo, sin asignacion.
+/// La cola. FIFO, medida fijo, sin asignacion.
 #[derive(Debug, Clone, Copy)]
 pub struct Avisos {
     buf: [Aviso; MAX_AVISOS],
@@ -240,7 +240,7 @@ mod tests {
     }
 
     /// Desbordar tira lo NUEVO y conserva lo viejo: lo viejo es lo que aun no se
-    /// ha atendido. Y se cuenta, porque un desborde es la senal de que los
+    /// ha atendido. Y se cuenta, porque un desborde es la signal de que los
     /// avisos ya no bastan y hay que ir a mirar los puertos.
     #[test]
     fn desbordar_conserva_lo_viejo_y_se_cuenta() {

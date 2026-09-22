@@ -3,7 +3,7 @@
 //! ## La idea, y es de Eddi
 //!
 //! > *"no olvides algo TAN ESENCIAL: CABINA. Ese mismo va a estar vigilando a
-//! > INTI por completo, porque es el PRINCIPAL para decir y senalar: que fallo?
+//! > INTI por completo, porque es el PRINCIPAL para decir y marcar: que fallo?
 //! > Para asi mejorar todo eso en avances."*
 //!
 //! Y encaja sin forzar nada, porque **CABINA ya tenia el sitio hecho**:
@@ -79,7 +79,7 @@ pub struct Parte {
     ///
     /// Y es lo que hace que un intrinseco mudo deje de ser invisible: no rompe
     /// la compilacion --el resto del programa esta bien-- asi que sin esta
-    /// lista la unica senal seria un binario que hace otra cosa en metal.
+    /// lista la unica signal seria un binario que hace otra cosa en metal.
     pub sin_emitir: Vec<String>,
 }
 
@@ -107,7 +107,7 @@ pub fn gravedad(codigo: &str) -> Severity {
 ///
 /// El `[DONDE]` del contrato de cuatro partes cae en los campos `fichero` y
 /// `linea` que CABINA ya tenia: **no hubo que inventar ningun formato**, y eso
-/// es la senal de que los dos lados habian entendido lo mismo por separado.
+/// es la signal de que los dos lados habian entendido lo mismo por separado.
 pub fn de_aviso(a: &Aviso, fichero: &str) -> Event {
     Event::new(
         gravedad(a.codigo.0),
@@ -172,7 +172,7 @@ pub fn eventos(parte: &Parte, avisos: &[Aviso]) -> Vec<Event> {
     // una estadistica: es un fallo, y va con la gravedad que le toca.
     //
     // Un intrinseco mudo no rompe la compilacion. Por eso tiene que salir aqui:
-    // sin este evento, la unica senal seria el binario haciendo otra cosa en
+    // sin este evento, la unica signal seria el binario haciendo otra cosa en
     // metal -- y en una tabla de driver eso se descubre seis meses tarde.
     for m in &parte.sin_emitir {
         v.push(

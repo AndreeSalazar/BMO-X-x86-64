@@ -3,7 +3,7 @@
 //! [carril]  VERDE     no decide nada y no lee la maquina: recibe un numero y
 //!           lo coloca. Su modo de fallo es una columna torcida
 //! [consumo] NADA      no corre en reposo: lo llama un informe, y un informe
-//!                     lo pide el dueno escribiendo `cpu`, `mem` o `consumo`
+//!                     lo pide el propietario escribiendo `cpu`, `mem` o `consumo`
 //!                     (L6h)
 //!
 //! [cuesta]  NADA -- una columna mal alineada no rompe una app, ni un dato, ni

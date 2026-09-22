@@ -1,6 +1,6 @@
 # AXION MAESTRO -- el mando de los nucleos, por PERFIL
 
-> Escrito el **2026-08-11**, antes del crate. Pregunta del dueno: *"AXION,
+> Escrito el **2026-08-11**, antes del crate. Pregunta del propietario: *"AXION,
 > inspirado en la PS3, para usar todo el CPU pero teniendo CONTROL: apagar o
 > encender, inteligente. No tengo la Cell, pero quiero aplicarlo a mi chip a
 > base de perfil -- que va en cada nucleo y POR QUE"*.
@@ -25,7 +25,7 @@ nada que sature un nucleo:
 | Shell, CABINA, el arranque | no: son microsegundos |
 | BLAKE3 de las secciones al cargar | **si**, y es el unico real hoy |
 
-O sea que si `smp prueba` diera **6x** manana, el escritorio no iria mas rapido
+O sea que si `smp prueba` diera **6x** luego, el escritorio no iria mas rapido
 ni un fotograma. Y eso **no invalida AXION**: lo ordena.
 
 > **AXION es el mecanismo. Lo que falta es la demanda.**
@@ -68,7 +68,7 @@ al perfil, que ya existe (`ring0/cpu_vendor/profile.rs`) y ya contesta:
 ```
 
 En un 5950X serian 16 / 32 / 2, y en un CCX doble **la regla de reparto cambia**
---dos grupos que no comparten L3 son dos maquinas pequenas--. Un numero fijo
+--dos grupos que no comparten L3 son dos maquinas chicas--. Un numero fijo
 haria que AXION acertara en esta maquina y mintiera en la siguiente. Es la misma
 regla que ya costo dos bugs este mes:
 
@@ -129,7 +129,7 @@ exactamente lo que hace imposible depurar un sistema al mes siguiente.
 
 | Estado | Que significa | Quien lo pone |
 |---|---|---|
-| **MAESTRO** | dueno del kernel: drivers, CABINA, scheduler, los 236 `static mut` | fijo, el BSP. **No se negocia** |
+| **MAESTRO** | propietario del kernel: drivers, CABINA, scheduler, los 236 `static mut` | fijo, el BSP. **No se negocia** |
 | **OBRERO** | acepta faenas cerradas. **Nunca toca un driver** | el mando |
 | **DORMIDO** | no gira, no consume, y **puede volver** | el mando |
 | **RESERVADO** | existe y se deja en paz a proposito | el mando, con motivo escrito |
@@ -232,7 +232,7 @@ rindio esperando. Ya lleva los tres testigos puestos y **nadie los ha
 fotografiado**. Antes de escribir una linea de AXION hay que saber si los
 obreros entran al bucle, ven la ronda, o mueren en la faena.
 
-**Disenar sobre un reparto que no se sabe si funciona es disenar sobre nada.**
+**Disenar sobre un reparto que no se sabe si funciona es trazar sobre nada.**
 
 ### Paso 1 -- LA TABLA DE ESTADOS, y decirla
 
@@ -284,7 +284,7 @@ entonces vive aqui, que es donde se decide.
 
 # 9. LA TERMINAL DEL CPU -- F7 y F8
 
-> Pedido por el dueno el 2026-08-12: *"me gustaria que el CPU tenga como su
+> Pedido por el propietario el 2026-08-12: *"me gustaria que el CPU tenga como su
 > terminal que avise... cuantos consumen y la parte de temperatura y en general,
 > lo mismo pasaria con RAM y otros elementos, eso podria usar en F8 y F7... para
 > verificar por que o cuales se consumen en tiempo real"*.
@@ -360,12 +360,12 @@ enteros, las unidades y las barras son de Ring 3** -- y ese contrato ya funciona
    tengan trabajo**: hoy la ocupacion de once nucleos girando en vacio seria
    100% y no significaria nada.
 6. **F8, memoria.** La mitad ya esta medida; lo que falta es refrescarla y partir
-   el reparto por dueno.
+   el reparto por propietario.
 
 ## 9.5 -- Lo que esta seccion se niega a prometer
 
 - **Cambiar la frecuencia.** Leer es seguro; escribir `P-states` es meterse con
-  el silicio del dueno, y este documento ya dijo en la seccion 4 que el mando es
+  el silicio del propietario, y este documento ya dijo en la seccion 4 que el mando es
   por PERFIL. Primero medir un mes, despues hablar.
 - **Un numero por nucleo sin SMP de verdad.** `APERF`/`MPERF` **se leen en el
   nucleo que se quiere medir**: para los otros once hace falta que ellos mismos

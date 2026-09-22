@@ -8,11 +8,11 @@
 //!    expresion   COMO se calcula un VALOR
 //! ```
 //!
-//! ** La diferencia no es de tamano: una sentencia **no devuelve nada** y una
+//! ** La diferencia no es de medida: una sentencia **no devuelve nada** y una
 //! expresion **siempre devuelve un `Valor`**. Esa firma es la frontera, y por
 //! eso el corte cae aqui y no en cualquier sitio que sumara mil lineas.
 //!
-//! *** Y es donde vive lo caro: cada tipo que baja a bytes anade un brazo aqui
+//! *** Y es donde vive lo caro: cada tipo que baja a bytes agrega un brazo aqui
 //! --`texto + texto` llama a `junta`, `numero + numero` a `suma`, `a[i]` de una
 //! lista a `sitio_de`-- asi que este fichero crece con el lenguaje. Tenerlo
 //! aparte es lo que hace que crecer no arrastre al recorrido.
@@ -182,7 +182,7 @@ impl Descenso<'_> {
                 // Bajarlo a un `add` sumaria las DOS DIRECCIONES y devolveria un
                 // numero que no apunta a ningun sitio. Compilaria, correria, y
                 // daria basura -- la misma familia que el signo de esta misma
-                // manana: **una respuesta equivocada, en silencio**.
+                // luego: **una respuesta equivocada, en silencio**.
                 //
                 // Lo que hace falta es reservar y copiar, porque un `texto` es
                 // INMUTABLE: si `a + b` no puede tocar ni `a` ni `b`, el
@@ -298,7 +298,7 @@ impl Descenso<'_> {
                 // emisor. La diferencia importa: hay una prueba que exige que lo
                 // que la IR pide y lo que el binario lleva cuadren, y esa resta
                 // es la que dira lo que quito el optimizador el dia que haya uno.
-                // Un emisor que anade reglas por su cuenta rompe esa cuenta.
+                // Un emisor que agrega reglas por su cuenta rompe esa cuenta.
                 //
                 // Y lleva DOS valores porque el cociente solo se sale cuando el
                 // dividendo es el minimo Y el divisor es -1. Es la unica de las
@@ -653,7 +653,7 @@ impl Descenso<'_> {
             }
             Expr::OSiNo { intento, .. } => self.expresion(intento),
             // ** Sin `_ =>`. El `match` cubre todas las formas del arbol, y
-            // dejarlo cerrado significa que **anadir una forma nueva no
+            // dejarlo cerrado significa que **agregar una forma nueva no
             // compila** hasta que alguien decida como se baja. Con el comodin,
             // la forma nueva se habria bajado a `nada` en silencio -- que es
             // como se pierde una funcionalidad sin un solo test en rojo.

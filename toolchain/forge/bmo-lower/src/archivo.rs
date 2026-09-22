@@ -296,7 +296,7 @@ pub fn escribir_buffer(code: &mut Vec<u8>) {
     x86::test_r64_r64(code, R9, R9);
     let done = x86::emit_jump(code, Jump::IfZero);
 
-    // rcx = min(r9, 7) -- el tamano de este trozo.
+    // rcx = min(r9, 7) -- el medida de este trozo.
     x86::mov_r64_r64(code, RCX, R9);
     x86::cmp_r64_imm8(code, RCX, 7);
     let tengo_n = x86::emit_jump(code, Jump::IfBelowOrEqual);

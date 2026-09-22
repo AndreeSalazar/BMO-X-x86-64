@@ -26,7 +26,7 @@
 //!
 //! `admit_payload_desde` es **UNA FUNCION DE 607 LINEAS**. El censo modular
 //! llamaba a `proc.rs` un CAJON --media 58 lineas por funcion-- y esa media
-//! MIENTE: diecinueve funciones pequenas y un monstruo dan el mismo promedio
+//! MIENTE: diecinueve funciones chicas y un monstruo dan el mismo promedio
 //! que veinte medianas.
 //!
 //! *** Asi que este reparto **mueve el monstruo, no lo desarma**. Mover texto se
@@ -156,7 +156,7 @@ static mut REQUISITOS_BUF: [u8; REQUISITOS_MAX] = [0; REQUISITOS_MAX];
 /// > donde ya no hay quien lo cuente.
 ///
 /// [!] El numero vive AQUI y no dentro del juez, a proposito: `bmo-carga-juicio`
-/// no tiene ni una constante de tamano, igual que `bmo-fisica-juicio`. Un juez
+/// no tiene ni una constante de medida, igual que `bmo-fisica-juicio`. Un juez
 /// que no puede inventarse el techo no puede equivocarse en el techo.
 const MARGEN_DEL_KERNEL: u64 = 64 * 1024 * 1024;
 
@@ -210,7 +210,7 @@ pub(crate) fn admit_payload_desde(
             // | `...31464542` (BEF1 corrido) | un desfase, no una corrupcion |
             //
             // No es una linea de depuracion que se quita: **un error que no
-            // puede ensenar su evidencia es un error a medias**, y este camino
+            // puede mostrar su evidencia es un error a medias**, y este camino
             // --el prologo de una imagen que viene del disco-- es justo donde
             // menos se puede permitir adivinar.
             let mut ocho = [0u8; 8];
@@ -525,7 +525,7 @@ pub(crate) fn admit_payload_desde(
     // ** Y LA TABLA DE RELOCATIONS TAMBIEN SE CIERRA, antes de aplicar ni una.
     //
     // No se mapea, asi que no cae en el bucle de abajo -- y es la seccion cuya
-    // corrupcion hace mas dano en silencio: una reloc torcida escribe un puntero
+    // corrupcion hace mas perjuicio en silencio: una reloc torcida escribe un puntero
     // inventado dentro de `.data` y el proceso arranca, corre, y muere mucho
     // despues en un sitio que no se parece a la causa. Comprobarla DESPUES de
     // aplicarla no serviria de nada.
@@ -536,7 +536,7 @@ pub(crate) fn admit_payload_desde(
     // relocs, y pedirlas al disco de 24 en 24 bytes serian mil lecturas por
     // pagina.
     //
-    // Se piden marcos por su tamano REAL en vez de reservar un maximo. En DOOM
+    // Se piden marcos por su medida REAL en vez de reservar un maximo. En DOOM
     // son 30.840 bytes --ocho marcos-- que se sueltan en cuanto se aplican. Es
     // el modelo quirofano: entra lo que hace falta para la operacion en curso.
     //
@@ -925,7 +925,7 @@ pub(crate) fn admit_payload_desde(
     // ** Y LOS MARCOS DE LAS RELOCATIONS SE SUELTAN. Ya se aplicaron: la tabla
     // no es memoria del programa y no tiene por que sobrevivirle ni un tick.
     //
-    // Es el modelo quirofano en pequeno -- entro lo que hacia falta para la
+    // Es el modelo quirofano en chico -- entro lo que hacia falta para la
     // operacion, y sale cuando termina. En DOOM son ocho marcos; en un `.bex`
     // sin punteros que rellenar, ninguno.
     if let Some((base, paginas)) = relocs_marcos {

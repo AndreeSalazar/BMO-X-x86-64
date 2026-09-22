@@ -8,7 +8,7 @@
 //! sobre la IR de INTI:
 //!
 //! ```text
-//!    tomadas   a que locales se les toma la DIRECCION. Una local senalada
+//!    tomadas   a que locales se les toma la DIRECCION. Una local marcada
 //!              tiene que vivir en memoria: alguien va a leerla por ahi
 //!    peso      cuantas veces se usa cada local, y un uso dentro de un bucle
 //!              vale mas -- es el orden en el que merecen un sitio rapido
@@ -46,7 +46,7 @@ pub struct Hechos {
 }
 
 impl Hechos {
-    /// Una local que puede vivir fuera del marco: se usa y nadie la senala.
+    /// Una local que puede vivir fuera del marco: se usa y nadie la marca.
     pub fn candidata(&self, l: Local) -> bool {
         !self.tomadas.contains(&l) && self.peso.get(l.0 as usize).copied().unwrap_or(0) > 0
     }

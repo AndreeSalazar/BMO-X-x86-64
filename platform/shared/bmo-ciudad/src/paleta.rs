@@ -1,11 +1,11 @@
 //! **LA PALETA** -- los colores, y solo los colores.
 //!
-//! Sale de las dos capturas que enseno el dueno: fondo casi negro con tinte
+//! Sale de las dos capturas que mostro el propietario: fondo casi negro con tinte
 //! violeta, torres en morados frios, y el neon repartido en cian, magenta y
 //! ambar.
 //!
 //! ** Pocos tonos y muy separados**, que es lo que hace que el pixel art se lea.
-//! Una paleta de treinta grises no es pixel art: es una foto pequena.
+//! Una paleta de treinta grises no es pixel art: es una foto chica.
 //!
 //! Vive en su propio fichero porque es lo unico de este crate que se toca **a
 //! ojo**. Todo lo demas se juzga con una prueba; esto se juzga mirando, y
@@ -58,7 +58,7 @@ pub const TORRE_BORDE: Color = 0xFF2E1D57;
 // eso la escena tiene profundidad pero sigue siendo **una vista**: no hay nada
 // entre el ojo y la ciudad.
 //
-// En la referencia que enseno el dueno --y en cualquier plano de callejon-- los
+// En la referencia que mostro el propietario --y en cualquier plano de callejon-- los
 // bordes izquierdo y derecho son masas de edificio casi negras. Eso es lo unico
 // que separa "una foto de una ciudad" de "estas de pie en un callejon
 // mirandola", y no se consigue con detalle: se consigue con **un valor mas

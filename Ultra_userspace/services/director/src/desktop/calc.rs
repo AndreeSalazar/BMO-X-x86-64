@@ -26,7 +26,7 @@
 //!
 //! La misma ley que la consola de ESTRATOS (`scene/consola.rs`) y por el mismo
 //! motivo: con la calculadora abierta **las cifras significan dos cosas** --lo
-//! que estas escribiendo en la linea de Ejecutar, y el operando--. Dos duenos
+//! que estas escribiendo en la linea de Ejecutar, y el operando--. Dos propietarios
 //! para una tecla se resuelve con un ORDEN, nunca con una adivinanza.
 //!
 //! ```text
@@ -55,9 +55,9 @@ use crate::scene::{paint_status, INK_BAD, INK_DIM};
 
 /// El atajo que PIDE y DEVUELVE el teclado.
 ///
-/// La `n` produce el byte `0xF1` en la distribucion espanola
+/// La `n` produce el byte `0xF1` en la distribucion castellana
 /// (`ring0/dev/keyboard.rs`) y `MOD_CTRL` llega entero a Ring 3, asi que no
-/// choca con AltGr --que en espanol es `Ctrl+Alt`--, la trampa que ya costo una
+/// choca con AltGr --que en castellano es `Ctrl+Alt`--, la trampa que ya costo una
 /// sesion entera de teclado. Ver `scene/consola.rs`.
 const PEDIR_TECLADO: u8 = 0xF1;
 
@@ -121,7 +121,7 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, ctrl: bool) ->
 
     // Mientras el motor no ha contestado las teclas SIGUEN siendo suyas aunque
     // no hagan nada: dejarlas caer a la linea escribiria un `7` dentro de un
-    // comando que el dueno no esta mirando.
+    // comando que el propietario no esta mirando.
     //
     // ** PERO UNA ESPERA NO PUEDE SER UNA CARCEL.
     //
@@ -174,7 +174,7 @@ fn tecla_de_teclado(c: u8) -> Option<u8> {
         // para el raton, que es lo que hace inutil media calculadora.
         b'n' | b'N' => b'~',
         // ** La COMA tambien es el punto decimal, y no es un capricho: en el
-        // teclado espanol el separador del bloque numerico es la coma, y
+        // teclado castellano el separador del bloque numerico es la coma, y
         // `calcgui.cob` lee un `PIC S9(9)V99`, que quiere un PUNTO. Traducirlo
         // aqui es una linea; no traducirlo es que el bloque numerico no sirva.
         b'.' | b',' => b'.',

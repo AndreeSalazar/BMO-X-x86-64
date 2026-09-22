@@ -161,7 +161,7 @@ fn la_maquina_entra_por_la_tabla() {
     assert_eq!(m.de("bufer"), Some(4));
 }
 
-/// ** Y lo que NO se mueve, que es la mitad del diseno.
+/// ** Y lo que NO se mueve, que es la mitad del esquema.
 ///
 /// `natural64` mide ocho bytes en toda maquina **porque lo dice su nombre**. Si
 /// cambiar de maquina le cambiara la medida, INTI no tendria tipos exactos --

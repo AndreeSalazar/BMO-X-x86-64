@@ -22,7 +22,7 @@ La tercera clase es la trampa, porque parece trabajo pendiente y no lo es.
 
 ### ★ El caso que lo zanja: Itanium
 
-Intel y HP disenaron **IA-64** sobre una promesa concreta: el hardware dejaria
+Intel y HP trazaron **IA-64** sobre una promesa concreta: el hardware dejaria
 de reordenar instrucciones porque **el compilador lo haria mejor**, en tiempo
 de compilacion, con toda la informacion del programa delante. La arquitectura
 entera --predicacion, ranuras explicitas, especulacion-- se apoyaba en ese
@@ -64,7 +64,7 @@ Prueba de fuego: *esto me deja decir donde esta el byte?* Si si, es C.
 ### COBOL -- el numero que no se puede redondear
 
 COBOL existe por **una** razon que ningun otro lenguaje resuelve igual de bien:
-**decimal exacto y registros de tamano fijo**. `PICTURE` no es formato, es el
+**decimal exacto y registros de medida fijo**. `PICTURE` no es formato, es el
 tipo. Un banco no puede permitirse que 0,10 + 0,20 no sea 0,30.
 
 - **Entra**: `PICTURE`, edicion, `OCCURS`, ficheros secuenciales, niveles.
@@ -97,7 +97,7 @@ Y aqui hay que ser honesto en dos direcciones a la vez:
 juego, Office y Photoshop -- sistemas grandes y de rendimiento. La mayoria del
 software de negocio de hoy es Java, C#, JavaScript o Python.
 
-**Pero no se puede subestimar**: donde hace falta rendimiento y tamano, no hay
+**Pero no se puede subestimar**: donde hace falta rendimiento y medida, no hay
 sustituto con la misma adopcion.
 
 #### Por que C++ es mas dificil de lo que parece

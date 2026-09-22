@@ -8,7 +8,7 @@
 //!
 //! ```text
 //!    control (por el endpoint 0, SEND/GET_ENCAPSULATED)
-//!       INITIALIZE      ->  INITIALIZE_CMPLT   status, tamanos
+//!       INITIALIZE      ->  INITIALIZE_CMPLT   status, medidas
 //!       QUERY MAC       ->  QUERY_CMPLT        la MAC que el movil nos da
 //!       SET FILTRO      ->  SET_CMPLT          para empezar a recibir
 //!    datos (por los endpoints BULK)
@@ -98,7 +98,7 @@ fn cabecera(b: &[u8], esperado: u32) -> Result<usize, Rechazo> {
     Ok(largo)
 }
 
-/// `INITIALIZE_MSG`: RNDIS 1.0 y el tamano de transferencia.
+/// `INITIALIZE_MSG`: RNDIS 1.0 y el medida de transferencia.
 pub fn inicializar(dst: &mut [u8], pedido: u32) -> Result<usize, Rechazo> {
     if dst.len() < 24 {
         return Err(Rechazo::Corto);

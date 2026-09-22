@@ -61,6 +61,9 @@ LANGS = {
     ".rs": "rust", ".c": "c", ".h": "c",
     ".toml": "toml", ".ps1": "powershell", ".md": "markdown",
     ".cob": "cobol", ".cpy": "cobol", ".adb": "ada", ".ads": "ada",
+    # INTI va en castellano por decision del dueno (2026-08-20), y por eso
+    # mismo sus fuentes pasan por aqui: una palabra rota tampoco es INTI.
+    ".inti": "inti",
 }
 
 # ---------------------------------------------------------------------------
@@ -242,6 +245,9 @@ def scan(text, lang):
         return
     if lang == "toml":
         yield from scan_line_comment(text, ("#",), ('"""', "'''", '"', "'"))
+        return
+    if lang == "inti":
+        yield from scan_line_comment(text, ("#",), ('"',))
         return
     if lang == "ada":
         yield from scan_ada(text)
@@ -616,21 +622,44 @@ def transliterate(s, unknown, keep_symbols=False):
     return "".join(out)
 
 
+def _linea_eximida(text, a, b):
+    """La linea que contiene `text[a:b]` lleva `MARCA_ADREDE`? La marca puede
+    ir en el comentario de al lado, fuera del trozo que se esta mirando."""
+    ini = text.rfind("\n", 0, a) + 1
+    fin = text.find("\n", b)
+    fin = len(text) if fin < 0 else fin
+    return MARCA_ADREDE in text[ini:fin]
+
+
 def sweep_text(text, lang, unknown, repaired, metal=False):
     out = []
     for kind, a, b in scan(text, lang):
         chunk = text[a:b]
+        if _linea_eximida(text, a, b):
+            out.append(chunk)
+            continue
         if kind == "comment":
             # Repair first, transliterate second. The other order would turn
             # broken text into confidently wrong ASCII.
             chunk = transliterate(repair_mojibake(chunk, repaired), unknown,
                                   keep_symbols=(lang == "markdown"))
-        elif metal and chunk[:1] == '"':
+            # And the fallen enes: the word that survives whole, never the
+            # broken one. Identifiers are not here, so this cannot rename
+            # anything -- `verify_only_comments_changed` proves it.
+            chunk, _ = reponer_enes(chunk)
+        elif metal and es_literal(chunk):
             # A string that reaches the Latin-1 renderer. Same table, same
             # Spanish words -- Spanish that can actually be READ on the screen.
+            # `b"..."` too: the desktop paints byte strings (2026-09-21).
             chunk = transliterate(repair_mojibake(chunk, repaired), unknown)
+            chunk, _ = reponer_enes(chunk)
         out.append(chunk)
     return "".join(out)
+
+
+def es_literal(seg):
+    """A string literal span: `"..."`, `b"..."`, `r"..."`, `br"..."`."""
+    return seg[:1] == '"' or seg[:2] in ('b"', 'r"') or seg[:3] == 'br"'
 
 
 def strip_comments_and_strings(text, lang):
@@ -640,7 +669,7 @@ def strip_comments_and_strings(text, lang):
         seg = text[a:b]
         if kind == "comment":
             continue
-        if seg[:1] == '"':
+        if es_literal(seg):
             out.append('""')          # the literal is there, its text is not
             continue
         out.append(seg)
@@ -715,18 +744,159 @@ def iter_sources():
 # apaga.
 MARCA_ADREDE = "ene-caida-adrede"
 
-LA_ENE_QUE_CAMBIA_LA_PALABRA = {
-    "ano": "anio",
-    "anos": "anios",
-    "sueno": "reposo",
-    "suenos": "reposos",
-}
+# == *** Y DESDE EL 2026-09-21 (noche) LA REGLA ES ESTRICTA ==================
+#
+# El dueno, literal: *"que sea estricto: ni con ene con tilde, ni con tilde,
+# ni "duenno" o "dueno" porque no tiene sentido, y ano eso es estupido; es
+# spanglish pero vamos a madurar eso"*. La regla del 2026-08-20 (INTI) ya lo
+# decia para una palabra: **perder una TILDE no es perder una letra; perder
+# la ene SI**, y una palabra a la que le falta una letra no es ni castellano
+# ni ingles: es una palabra rota. `tamano` se fue a `medida` entonces. Hoy se
+# van TODAS, con el mismo remedio: **la palabra que sobrevive entera** (un
+# sinonimo castellano, o el ingles cuando es lo natural en un comentario).
+#
+# ** Sigue siendo un diccionario CERRADO, por lo mismo de antes: un patron
+# marcaria `campana` (la CAMPANA del AHCI, correcta), `pena` ("vale la
+# pena", correcta), `una`, `mono`, `cuna`. Cada entrada de aqui se comprobo
+# contra lo que el repositorio dice de verdad; las ambiguas NO estan, y se
+# miran a ojo cuando se escriben.
+#
+# Cada entrada: (patron, remedio). El patron casa la palabra ENTERA en
+# minusculas; el remedio puede usar los grupos. `reponer_enes` conserva la
+# forma --minuscula, Capital, MAYUSCULA-- de lo que habia.
+ENES_CAIDAS = [
+    # dueno, duena, duenos, duenas
+    (r"duen(o|a|os|as)", r"propietari\1"),
+    # tamano(s): la decision del 2026-08-20 (INTI), extendida
+    (r"tamano(s?)", r"medida\1"),
+    # senal, senales -> signal(s); senalar y su conjugacion -> marcar
+    (r"senal(es)?", r"signal\1"),
+    (r"senal(ar|a|an|o|ado|ada|ados|adas|aba|aban|ando|amos|aron|ara|aran)", r"marc\1"),
+    (r"senal(e|en)", r"marqu\1"),
+    # pequeno/a/os/as, pequenito...
+    (r"pequen(o|a|os|as|ito|ita|itos|itas|isimo|isima)", r"chic\1"),
+    # nino/a/os/as
+    (r"nin(o|a|os|as)", r"cri\1"),
+    # sueno(s), y el ano que dice otra cosa
+    (r"suen(o|os)", r"repos\1"),
+    (r"ano", "anualidad"),
+    (r"anos", "anualidades"),
+    # diseno(s) el nombre; disenar y su conjugacion
+    (r"diseno", "esquema"),
+    (r"disenos", "esquemas"),
+    (r"disen(ar|a|an|ado|ada|ados|adas|aba|aban|ando|amos|aron|ara|aran)", r"traz\1"),
+    (r"disen(e|en)", r"trac\1"),
+    (r"disenador(es)?", r"trazador\1"),
+    # companero/a/os/as -> colega(s)
+    (r"companer(o|a)", "colega"),
+    (r"companer(os|as)", "colegas"),
+    # contrasena(s) -> clave(s)
+    (r"contrasena(s?)", r"clave\1"),
+    # manana: el adverbio y el nombre
+    (r"manana(s?)", "luego"),
+    # ensenar y su conjugacion -> mostrar; ensenanza -> leccion
+    (r"ensen(a|an|e|en)", r"muestr\1"),
+    (r"ensen(ar|o|ado|ada|ados|adas|aba|aban|ando|amos|aron|ara|aran|aria|arian)", r"mostr\1"),
+    (r"ensenanza(s?)", r"leccion\1"),
+    (r"ensenanzas", "lecciones"),
+    # anadir y su conjugacion -> agregar
+    (r"anadir", "agregar"),
+    (r"anade", "agrega"),
+    (r"anaden", "agregan"),
+    (r"anado", "agrego"),
+    (r"anadi", "agregue"),
+    (r"anadido", "agregado"),
+    (r"anadida", "agregada"),
+    (r"anadidos", "agregados"),
+    (r"anadidas", "agregadas"),
+    (r"anadiendo", "agregando"),
+    (r"anadimos", "agregamos"),
+    (r"anadia", "agregaba"),
+    (r"anadian", "agregaban"),
+    (r"anadira", "agregara"),
+    (r"anadiran", "agregaran"),
+    (r"anadiria", "agregaria"),
+    (r"anadan", "agreguen"),
+    (r"anadidura", "propina"),
+    # espanol(a/es/as) -> castellano
+    (r"espanol", "castellano"),
+    (r"espanola", "castellana"),
+    (r"espanoles", "castellanos"),
+    (r"espanolas", "castellanas"),
+    # dano(s) -> perjuicio; danar y su conjugacion -> perjudicar
+    (r"dan(o|os)", r"perjuici\1"),
+    (r"dan(ar|ado|ada|ados|adas|ando|aba|aban|aron|ara|aran)", r"perjudic\1"),
+    # extrano/a -> raro/a; extraneza -> rareza
+    (r"extran(o|a|os|as)", r"rar\1"),
+    (r"extraneza(s?)", r"rareza\1"),
+    # engano(s) -> trampa(s); enganar -> burlar; enganoso -> falaz
+    (r"engan(o|os)", r"tramp\1"),
+    (r"enganos", "trampas"),
+    (r"engan(ar|a|an|ado|ada|ados|adas|ando|aba|aban|aron)", r"burl\1"),
+    (r"enganoso", "falaz"),
+    (r"enganosa", "falaz"),
+    (r"enganosos", "falaces"),
+    (r"enganosas", "falaces"),
+    # pestana(s) (la de una ventana) -> solapa(s)
+    (r"pestana(s?)", r"solapa\1"),
+    # montana(s) -> sierra(s)
+    (r"montana(s?)", r"sierra\1"),
+    # apano(s) -> arreglo(s)
+    (r"apano(s?)", r"arreglo\1"),
+    # entrana(s) -> tripa(s)
+    (r"entrana(s?)", r"tripa\1"),
+    # bano(s) -> aseo(s); puno(s) -> punal no: -> mano cerrada; senor -> don
+    (r"bano(s?)", r"aseo\1"),
+    (r"punetazo(s?)", r"golpe\1"),
+    (r"senor(es)?", r"don"),
+    (r"senora(s?)", r"dona"),
+    (r"carino", "afecto"),
+    (r"canon(es)?", None),   # ambigua a proposito: se mira a ojo, no se cambia
+]
+
+# Compilado una vez: (regex de palabra entera, remedio o None).
+_ENES = [(re.compile(r"\b" + pat + r"\b"), rem) for pat, rem in ENES_CAIDAS
+         if rem is not None]
+
+
+def _con_la_forma(original, remedio):
+    """El remedio con la forma de lo que habia: `Dueno` -> `Propietario`."""
+    if original.isupper() and len(original) > 1:
+        return remedio.upper()
+    if original[:1].isupper():
+        return remedio[:1].upper() + remedio[1:]
+    return remedio
+
+
+def reponer_enes(texto):
+    """Cambia cada palabra con la ene caida por la que sobrevive entera.
+
+    Solo palabras ENTERAS y solo las del diccionario. Devuelve el texto y
+    cuantas cambio.
+    """
+    cambios = 0
+    lineas = []
+    for linea in texto.split("\n"):
+        # La linea eximida a proposito (`MARCA_ADREDE`) se queda como esta:
+        # es la mitad ASCII de una pareja que existe para medir bytes.
+        if MARCA_ADREDE in linea:
+            lineas.append(linea)
+            continue
+        for rx, rem in _ENES:
+            def _sub(m):
+                nonlocal cambios
+                cambios += 1
+                return _con_la_forma(m.group(0), m.expand(rem))
+            linea = rx.sub(_sub, linea)
+        lineas.append(linea)
+    return "\n".join(lineas), cambios
+
 
 RE_PALABRA_LLANA = re.compile("[A-Za-z]+")
 
 
 def la_ene_caida(texto):
-    """Las palabras que sin su ene con tilde dicen otra cosa.
+    """Las palabras con la ene caida que quedan, por palabra.
 
     Linea a linea, para que `MARCA_ADREDE` pueda eximir UNA sin apagar el
     fichero entero.
@@ -735,11 +905,20 @@ def la_ene_caida(texto):
     for linea in texto.splitlines():
         if MARCA_ADREDE in linea:
             continue
-        for bruto in RE_PALABRA_LLANA.findall(linea):
-            w = bruto.lower()
-            if w in LA_ENE_QUE_CAMBIA_LA_PALABRA:
+        for rx, _ in _ENES:
+            for m in rx.finditer(linea):
+                w = m.group(0).lower()
                 fuera[w] = fuera.get(w, 0) + 1
     return fuera
+
+
+def remedio_de(palabra):
+    """Lo que la casa escribe en vez de `palabra`, para decirlo en el FAIL."""
+    for rx, rem in _ENES:
+        m = rx.fullmatch(palabra)
+        if m:
+            return m.expand(rem)
+    return "?"
 
 
 def main():
@@ -807,9 +986,10 @@ def main():
                 strings_left.append((in_string, rel))
             continue
 
-        if all(ord(c) < 128 for c in before):
-            continue
-        touched += 1
+        # ** Un fichero ya en ASCII tambien pasa por aqui desde el 21-09: las
+        # enes caidas son ASCII, y son lo que `reponer_enes` arregla.
+        if any(ord(c) >= 128 for c in before):
+            touched += 1
         after = sweep_text(before, lang, unknown, repaired,
                                metal=prints_on_metal(rel, lang))
         if after == before:
@@ -882,18 +1062,21 @@ def main():
             return 1
         if enes_caidas:
             total = sum(sum(c.values()) for _, c in enes_caidas)
-            print("FAIL: %d palabra(s) que sin su ene con tilde dicen OTRA"
-                  " COSA, en %d fichero(s)" % (total, len(enes_caidas)))
+            print("FAIL: %d palabra(s) con la ene CAIDA, en %d fichero(s)"
+                  % (total, len(enes_caidas)))
             for rel, caidas in sorted(enes_caidas)[:12]:
                 detalle = ", ".join(
-                    "%s -> %s (x%d)" % (w, LA_ENE_QUE_CAMBIA_LA_PALABRA[w], n)
+                    "%s -> %s (x%d)" % (w, remedio_de(w), n)
                     for w, n in sorted(caidas.items()))
                 print("  %s: %s" % (rel, detalle))
-            print("      La regla de la casa es QUITAR la tilde, y funciona")
-            print("      mientras lo que queda no sea otra palabra. Estas si.")
+            print("      Una palabra sin su ene es una palabra ROTA: ni castellano")
+            print("      ni ingles. Se escribe la que sobrevive entera (la de la")
+            print("      flecha), o `ascii_sweep.py --apply` lo hace en comentarios,")
+            print("      .md y cadenas. En un NOMBRE (identificador, fichero) se")
+            print("      renombra a mano, al ingles.")
             return 1
         print("clean: no comment in any scanned source has a non-ASCII"
-              " byte, y ninguna ene caida dice otra cosa")
+              " byte, y ninguna palabra lleva la ene caida")
         return 0
 
     verb = "rewritten" if args.apply else "would be rewritten"

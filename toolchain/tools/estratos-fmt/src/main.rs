@@ -1,7 +1,7 @@
 //! `estratos-fmt` -- formatea un volumen ESTRATOS desde el anfitrion.
 //!
 //! Paso 4c del orden de construccion (section 10 de `ESTRATOS.md`, que vive en
-//! la raiz de la crate `bmo-estratos`). El diseno lo pide
+//! la raiz de la crate `bmo-estratos`). El esquema lo pide
 //! asi a proposito: *"formatear desde el anfitrion con una herramienta del
 //! toolchain, y que el kernel lo monte y lea. Sin riesgo: si el formato esta
 //! mal, se reformatea"*.
@@ -36,8 +36,8 @@ use bmo_estratos::objects::{
 
 // -- El log: se escribe SIEMPRE hacia adelante -------------------------------
 //
-// section 5 del diseno. No hay "buscar un hueco": el log crece, y los objetos
-// pequenos se empaquetan en el bloque en curso para no gastar 4096 bytes en un
+// section 5 del esquema. No hay "buscar un hueco": el log crece, y los objetos
+// chicos se empaquetan en el bloque en curso para no gastar 4096 bytes en un
 // nodo de 560.
 
 struct Log {
@@ -65,7 +65,7 @@ impl Log {
         Ok(())
     }
 
-    /// Un objeto pequeno (nodo, estrato): comparte bloque con sus vecinos.
+    /// Un objeto chico (nodo, estrato): comparte bloque con sus vecinos.
     fn objeto(&mut self, datos: &[u8]) -> std::io::Result<BlockPtr> {
         assert!(datos.len() <= BLOQUE);
         if self.usado + datos.len() > BLOQUE { self.volcar()?; }
@@ -144,7 +144,7 @@ fn escribir_arbol(log: &mut Log, datos: &[u8]) -> std::io::Result<(BlockPtr, u8)
 /// que miente, no de alguien que quiere colar un binario.
 fn escribir_archivo(log: &mut Log, datos: &[u8]) -> std::io::Result<BlockPtr> {
     let attr = if datos.len() <= RESIDENTE_MAX {
-        // Lo pequeno no gasta bloque (decision 3).
+        // Lo chico no gasta bloque (decision 3).
         Attr::residente(ATTR_DATOS, datos).expect("residente cabe")
     } else {
         let (raiz, niveles) = escribir_arbol(log, datos)?;
@@ -415,7 +415,7 @@ fn ayuda() -> ! {
 
   estratos-fmt <destino> [opciones]
 
-  --tam-mib N        tamano del volumen en MiB (imagen). Por defecto 64
+  --tam-mib N        medida del volumen en MiB (imagen). Por defecto 64
   --desde CARPETA    mete el contenido de esa carpeta en el volumen
   --motivo TEXTO     motivo del primer estrato. Por defecto \"formato inicial\"
   --verificar        NO escribe: solo lee el volumen y comprueba sus sumas
@@ -500,7 +500,7 @@ fn main() {
     // herramienta no lo hace por accidente ni por descuido de quien la llama.
     if o.volumen && !o.seguro {
         eprintln!("estratos-fmt: `--volumen` DESTRUYE todo lo que haya en {}.", o.destino.display());
-        eprintln!("              Si es lo que quieres, anade --si-estoy-seguro.");
+        eprintln!("              Si es lo que quieres, agrega --si-estoy-seguro.");
         std::process::exit(1);
     }
 
@@ -510,7 +510,7 @@ fn main() {
     println!("== estratos-fmt ==");
     println!("  destino          {}", o.destino.display());
     println!("  modo             {}", if o.volumen { "VOLUMEN REAL" } else { "imagen en archivo" });
-    if !o.volumen { println!("  tamano           {} MiB ({} bloques)", o.tam_mib, total_bloques); }
+    if !o.volumen { println!("  medida           {} MiB ({} bloques)", o.tam_mib, total_bloques); }
     if o.modelo.is_empty() || o.serie.is_empty() || o.sectores == 0 {
         println!("  identidad        SIN identidad de disco — el kernel lo montara en SOLO LECTURA");
     } else {

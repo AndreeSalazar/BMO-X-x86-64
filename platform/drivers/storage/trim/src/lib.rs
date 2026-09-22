@@ -148,7 +148,7 @@ impl Rango {
 
         // ** Se mandan los bloques que se USARON, no los que se pusieron a cero.
         //
-        // Un rango pequeno cabe en un descriptor: mandar los ocho bloques de la
+        // Un rango chico cabe en un descriptor: mandar los ocho bloques de la
         // pagina serian 511 descriptores vacios viajando por el cable en cada
         // orden. El disco los ignoraria, y aun asi es transferencia que nadie
         // pidio.

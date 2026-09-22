@@ -1,7 +1,7 @@
 //! **Preguntarle al silicio y contar lo que contesta.**
 //!
 //! [carril]  AMARILLO  preguntar al silicio y contarlo; el informe cambia siempre
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! Las once ordenes del shell de Ring 0 que hablan con el hardware: el CPU y lo
 //! que gasta, la memoria, la red, el audio, el disco y los nucleos.
@@ -164,7 +164,7 @@ pub(crate) fn shell_red(arg: &[u8]) {
     // deliberate. This is the first code that lets a device write into this
     // machine's memory on its own, so it must not be something you get by typing
     // the diagnostic command.
-    // *** EL CONSUMO, SIEMPRE. Es lo que F9 viene a ensenar.
+    // *** EL CONSUMO, SIEMPRE. Es lo que F9 viene a mostrar.
     //
     // ** Y va aqui --antes del `return` de la palabra sola-- a proposito: F9
     // escribe `net` a secas, o sea que ESTA es la pantalla que se ve al pulsar
@@ -219,7 +219,7 @@ pub(crate) fn shell_red(arg: &[u8]) {
 /// ** Sin la segunda, la primera no tiene denominador. "40 tramas recibidas"
 /// suena a que la red funciona igual si por detras se perdieron cuatro que si
 /// se perdieron cuatro mil, y son dos sistemas distintos: uno anda y el otro
-/// tiene el anillo pequeno. La ley 11 pide medir, y medir solo lo que sali
+/// tiene el anillo chico. La ley 11 pide medir, y medir solo lo que sali
 /// bien no es medir.
 ///
 /// [!] `MPC` solo se LEE. Escribirlo lo pone a cero, y un instrumento que borra
@@ -242,7 +242,7 @@ fn consumo_de_red() {
 
     let mut b = [0u8; 80];
     if !net::rx_activo() {
-        s_log("[red] receptor SIN ARMAR: no hay consumo que ensenar todavia");
+        s_log("[red] receptor SIN ARMAR: no hay consumo que mostrar todavia");
         s_log("[red]   `net rx` lo arma. No transmite nada.");
         return;
     }
@@ -324,7 +324,7 @@ pub(crate) fn shell_disk() {
     }
 
     // Quien es el disco, segun el mismo. Con tres discos en la maquina y el
-    // sistema del dueno en uno de ellos, esta linea es la que autoriza (o no)
+    // sistema del propietario en uno de ellos, esta linea es la que autoriza (o no)
     // a escribir algun dia.
     {
         let mut b = [0u8; 80];
@@ -431,7 +431,7 @@ pub(crate) fn shell_cpu() {
         }
     });
 
-    // Cada componente con su tamano y su sitio, tal como los declara el CPU.
+    // Cada componente con su medida y su sitio, tal como los declara el CPU.
     for c in inf.comps() {
         let mut l = L::new();
         l.txt("   bit ");
@@ -514,9 +514,9 @@ pub(crate) fn shell_info(ctx: &BootContext) {
     row("usada", |l| { l.size(used_b); l.txt("   "); l.pct(used_b, total_b); l.txt("   "); l.dec(total_frames - free_frames); l.txt(" marcos"); });
     row("libre", |l| { l.size(free_b); l.txt("   "); l.pct(free_b, total_b); l.txt("   "); l.dec(free_frames); l.txt(" marcos"); });
 
-    // El tamano REAL del kernel en RAM: desde donde lo linkea el script hasta
+    // El medida REAL del kernel en RAM: desde donde lo linkea el script hasta
     // el final de su .bss (que incluye la pila de 64 KiB). Es un dato medido,
-    // no el tamano del archivo.
+    // no el medida del archivo.
     extern "C" { static __bss_end: u8; }
     let kernel_end = unsafe { &__bss_end as *const u8 as u64 };
     row("kernel", |l| { l.size(kernel_end.saturating_sub(0x400000)); l.txt("   en 0x400000"); });
@@ -533,7 +533,7 @@ pub(crate) fn shell_info(ctx: &BootContext) {
         if disk::is_ready() {
             row("disco", |l| { l.txt(disk::model()); l.txt("  puerto "); l.dec(disk::port() as u64); });
             row("serie", |l| { l.txt(disk::serial()); });
-            row("tamano", |l| { l.size(disk::total_sectors() * 512); l.txt("   "); l.dec(disk::total_sectors()); l.txt(" sectores"); });
+            row("medida", |l| { l.size(disk::total_sectors() * 512); l.txt("   "); l.dec(disk::total_sectors()); l.txt(" sectores"); });
             row("escrit.", |l| { l.txt(if disk::write_armed() { "ARMADA" } else { "cerrada" }); });
         } else {
             row("disco", |l| { l.txt("sin disco listo"); });
@@ -586,7 +586,7 @@ pub(crate) fn shell_tasks() {
 /// algo, porque hasta ahora la unica pregunta que el sistema sabia contestar
 /// era *cuantos* estan en pie.
 ///
-/// ** Y la ultima fila es la que el dueno olio: cuantos nucleos estan al 100%
+/// ** Y la ultima fila es la que el propietario olio: cuantos nucleos estan al 100%
 /// **sin hacer nada**. Hoy son todos los obreros, porque el que espera gira en
 /// vez de dormir. Ese numero es el que tiene que bajar a cero el dia que entre
 /// `MWAIT`, y por eso se pinta ANTES de que exista: una mejora que no se puede
@@ -644,7 +644,7 @@ pub(crate) fn shell_smp_tabla() {
             }
         });
     }
-    // *** UN OBRERO POR NUCLEO: la lista que pidio el dueno el 03-09.
+    // *** UN OBRERO POR NUCLEO: la lista que pidio el propietario el 03-09.
     //
     // No es lo mismo que `cores`, y por eso se pinta aparte: aquella cuenta
     // cuantos IDs son primer hilo de su nucleo; esta dice cuantos de esos
@@ -675,7 +675,7 @@ pub(crate) fn shell_smp_tabla() {
     // que no se puede comparar con el numero de antes no se puede
     // demostrar"*. Hoy tiene con que compararse.
     //
-    // ** Se ensena `dormidas` al lado: si `MONITORX` esta y los obreros
+    // ** Se muestra `dormidas` al lado: si `MONITORX` esta y los obreros
     // duermen, ese numero sube y `girando` deja de significar lo que decia.
     // Si sale CERO con los doce en pie, o el silicio no lo trae o nadie llego
     // a esperar -- y las dos cosas se arreglan en sitios distintos.
@@ -694,7 +694,7 @@ pub(crate) fn shell_smp_tabla() {
             let por_ms = if hz >= 1000 { hz / 1000 } else { 1 };
             l.dec(smp::dormir::ticks_dormidos() / por_ms);
             l.txt(" ms apagados, C");
-            // `EAX` bits 7:4 = el C-state menos uno. Se ensena el numero de
+            // `EAX` bits 7:4 = el C-state menos uno. Se muestra el numero de
             // verdad, no el codigo: C1 duerme poco y C6 apaga el nucleo.
             l.dec(((smp::dormir::profundidad() >> 4) + 1) as u64);
         } else {
@@ -1068,10 +1068,10 @@ pub(crate) fn shell_mem() {
     // tercera vez el mismo dia: un numero que el kernel calcula y esconde no
     // cumple una regla que dice "se cuenta".
     //
-    // *** Y el segundo contesta una pregunta que hizo el dueno: *"y si DOOM
+    // *** Y el segundo contesta una pregunta que hizo el propietario: *"y si DOOM
     // trata la puerta como un syscall clasico?"*. `RETROCESOS` es exactamente
     // eso medido: cada `fseek` hacia atras que obligo al cursor de FAT32 a
-    // volver a recorrer la cadena desde el principio. El diseno lo permite y no
+    // volver a recorrer la cadena desde el principio. El esquema lo permite y no
     // miente; lo que no hacia era **decir lo que vale**.
     let (directos, rebotados) = crate::ring0::dev::disk::cuentas_dma();
     let (reflejados, retrocesos) = crate::ring0::obj::file::cuentas();

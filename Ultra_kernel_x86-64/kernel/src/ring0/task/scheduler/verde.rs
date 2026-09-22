@@ -251,7 +251,7 @@ pub fn quien_corre() -> (u32, bool) {
 ///
 /// ** El dato estaba en la tabla desde siempre: cada tarea guarda `stack_phys`
 /// y `stack_pages` porque `reap` los necesita para devolver los marcos. Lo
-/// unico que faltaba era preguntar al reves -- de la direccion al dueno.
+/// unico que faltaba era preguntar al reves -- de la direccion al propietario.
 ///
 /// [!] Sin cerrojo, por lo mismo que `quien_corre`: esto lo llama la pantalla
 /// de fallo, y colgarse ahi convierte un volcado legible en una maquina muda.
@@ -275,7 +275,7 @@ pub fn quien_corre() -> (u32, bool) {
 ///
 /// ** Y el valor que hay donde deberia estar el centinela es la pista, no el
 /// hecho de que falte: un PTE, un marco, ASCII o un puntero **nombran al que
-/// escribio**. Es lo mismo que enseno `4D2000` el 04-09, cuando trece casillas
+/// escribio**. Es lo mismo que mostro `4D2000` el 04-09, cuando trece casillas
 /// resultaron ser `push r15; push r14; push r12`.
 ///
 /// [!] Cuesta OCHO BYTES de los 32 KiB de cada pila, y se pagan en el punto
@@ -504,7 +504,7 @@ pub fn current_pid() -> u32 {
 /// ```
 ///
 /// ** No se cambian los ~60 sitios que llaman a las de cerrojo: solo los TRES
-/// que el metro senala --`registrar_publicacion`, `TASK_OP_GET_PID` y
+/// que el metro marca --`registrar_publicacion`, `TASK_OP_GET_PID` y
 /// `TASK_OP_GET_TID`--. Quitarle el cerrojo a una funcion con sesenta clientes
 /// que no se han auditado es cambiar sesenta cosas para arreglar tres.
 ///
@@ -532,7 +532,7 @@ pub unsafe fn current_pid_en_trap() -> u32 {
 /// no es solo marcarla libre: hay que **desmapear sus paginas de framebuffer**,
 /// y para eso hace falta su `cr3`. Sin esto, un programa al que se le retira la
 /// pantalla seguiria teniendola mapeada y seguiria escribiendo encima del
-/// escritorio -- dos duenos pintando el mismo sitio, que es peor que uno solo
+/// escritorio -- dos propietarios pintando el mismo sitio, que es peor que uno solo
 /// pintando mal.
 ///
 /// Se busca por `pid` y no por `tid` porque las capabilities son del PROCESO:
@@ -587,8 +587,8 @@ pub fn pid_de(tid: u32) -> Option<u32> {
 ///
 /// ** Devolver `None` cuando el proceso ya murio es parte del contrato, no un
 /// hueco: es lo que convierte esta pregunta en un detector de vida. El DIRECTOR
-/// pregunta por el dueno de una superficie cada fotograma y **el cero es la
-/// senal de que hay que cerrar la ventana**.
+/// pregunta por el propietario de una superficie cada fotograma y **el cero es la
+/// signal de que hay que cerrar la ventana**.
 pub fn tid_de(pid: u32) -> Option<u32> {
     let _g = SCHED_LOCK.lock();
     let s = sched();

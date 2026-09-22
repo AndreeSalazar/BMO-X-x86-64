@@ -77,7 +77,7 @@ fn un_sector_justo_si_cabe() {
 fn lo_pequenio_se_queja_del_tamanio_aunque_este_fuera() {
     // *** ESTA ES LA FILA QUE FIJA EL ORDEN DE LAS PREGUNTAS.
     //
-    // La peticion es pequena Y esta fuera del espejo. Si el sitio se preguntara
+    // La peticion es chica Y esta fuera del espejo. Si el sitio se preguntara
     // primero saldria `FueraDelEspejo`, y la cuenta de motivos diria "hay
     // bufers mal colocados" cuando el problema es que se pide de poco en poco.
     // Los dos se arreglan de formas que no se parecen en nada.
@@ -243,7 +243,7 @@ fn los_seis_motivos_tienen_indice_propio() {
     assert_eq!(todos.len(), PorQue::CUANTOS);
     for (i, a) in todos.iter().enumerate() {
         assert!(a.indice() < PorQue::CUANTOS, "un indice fuera de la tabla");
-        assert!(!a.nombre().is_empty(), "un motivo sin nombre no se puede ensenar");
+        assert!(!a.nombre().is_empty(), "un motivo sin nombre no se puede mostrar");
         for b in todos.iter().skip(i + 1) {
             assert_ne!(a.indice(), b.indice(), "dos motivos con el mismo indice");
         }

@@ -16,7 +16,7 @@
 //! Un generador de codigo tiene dos trabajos que se parecen y no lo son:
 //!
 //! ```text
-//!    DECIDIR   que hay que emitir      -> aritmetica, formas, tamanos
+//!    DECIDIR   que hay que emitir      -> aritmetica, formas, medidas
 //!              es PURO: entra un AST, sale un numero. Se prueba en el
 //!              anfitrion, en milisegundos, sin CPU y sin emulador
 //!    EMITIR    los bytes               -> una tabla de opcodes
@@ -32,7 +32,7 @@
 //!
 //! El **2026-09-09** se desensamblo el bucle interior de la expansion de DOOM:
 //! **35 instrucciones para escribir 8 bytes**, con un `imulq` dentro para
-//! multiplicar `1 x 8` -- el tamano de un `unsigned long long`, conocido al
+//! multiplicar `1 x 8` -- el medida de un `unsigned long long`, conocido al
 //! compilar, calculado en cada vuelta.
 //!
 //! *** Y el plegador de constantes **ya existia**: `constante_de` lleva meses

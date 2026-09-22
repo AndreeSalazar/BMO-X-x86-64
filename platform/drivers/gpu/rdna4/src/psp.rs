@@ -16,7 +16,7 @@
 //!
 //! **No hay tarjeta.** Escribir aqui lecturas y escrituras de MMIO seria
 //! escribir codigo que nadie puede ejecutar ni comprobar, que es exactamente lo
-//! que el dueno prohibio: *"no quiero promesas"*.
+//! que el propietario prohibio: *"no quiero promesas"*.
 //!
 //! Asi que esto no toca hardware. **Dice QUE hay que escribir y en que orden**,
 //! y contesta a lo que se le lee. Con eso:
@@ -65,11 +65,11 @@ pub const VERSION_SOS: u16 = 58;
 pub const ANILLO_ORDEN: u16 = 64;
 /// El puntero de escritura del anillo.
 pub const ANILLO_WPTR: u16 = 67;
-/// Direccion del anillo: mitad baja, mitad alta, y su tamano.
+/// Direccion del anillo: mitad baja, mitad alta, y su medida.
 pub const ANILLO_BAJA: u16 = 69;
 pub const ANILLO_ALTA: u16 = 70;
 pub const ANILLO_TAM: u16 = 71;
-/// **La senal de vida del SOS.** Distinto de cero = ya esta arrancado, y
+/// **La signal de vida del SOS.** Distinto de cero = ya esta arrancado, y
 /// entonces casi toda la secuencia se salta.
 pub const SOS_VIVO: u16 = 81;
 
@@ -238,7 +238,7 @@ enum Estado {
     /// Tras el SOS: dormir y esperar a que cambie SOS_VIVO.
     DurmiendoSos,
     EsperandoSos,
-    /// El anillo: direccion baja, alta, tamano, orden, confirmacion.
+    /// El anillo: direccion baja, alta, medida, orden, confirmacion.
     AnilloBaja,
     AnilloAlta,
     AnilloTam,

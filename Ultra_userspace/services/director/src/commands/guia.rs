@@ -1,11 +1,11 @@
 //! **`guia` -- por donde empezar.** La orden que faltaba, y la pidio quien lo
 //! escribio todo.
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
-//! === Por que existe, dicho con las palabras del dueno ===
+//! === Por que existe, dicho con las palabras del propietario ===
 //!
 //! *"la verdad no hay archivos y eso es algo que me puse a pensar... eso tendria
 //! que poner guias, ironicamente yo como creador no se usar"*.
@@ -80,7 +80,7 @@ pub(crate) fn guia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     s.text(b"  GUARDAR EN ESTRATOS, el almacen propio\n");
     s.with_ink(INK_PLAIN);
     s.text(b"    estratos escribe nota.txt hola    lo guarda DE VERDAD\n");
-    s.text(b"    F12 lo ensena, y tras reiniciar tiene que seguir ahi.\n");
+    s.text(b"    F12 lo muestra, y tras reiniciar tiene que seguir ahi.\n");
     s.with_ink(INK_GOOD);
     s.text(b"  LO QUE TODAVIA NO SE PUEDE, para no buscarlo\n");
     s.with_ink(INK_PLAIN);

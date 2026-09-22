@@ -31,7 +31,7 @@
       *    Los datos de CALCULO: enteros escalados, sin coma flotante.
        01 SALDO     PIC S9(7)V99.
        01 CARGO     PIC S9(7)V99.
-      *    Los campos de PRESENTACION. Guardan lo mismo; se ensenan distinto.
+      *    Los campos de PRESENTACION. Guardan lo mismo; se muestran distinto.
        01 L-SALDO   PIC $$$,$$9.99.
        01 L-CHEQUE  PIC **,**9.99.
        01 L-BALANCE PIC Z,ZZ9.99CR.
@@ -50,7 +50,7 @@
            MOVE SALDO TO L-SALDO.
            DISPLAY L-SALDO.
 
-      *    Un talon pequeno: los huecos van con asterisco para que nadie
+      *    Un talon chico: los huecos van con asterisco para que nadie
       *    pueda escribir una cifra encima. Esa es la razon de que `*` exista.
            DISPLAY "talon a cobrar:".
            MOVE 0.45 TO L-CHEQUE.

@@ -10,7 +10,7 @@
 //!                     en caliente, y eso no lo decide este kernel: lo decide el
 //!                     firmware. Es una hipotesis hasta que el Ryzen conteste
 //!
-//! # La pregunta del dueno (2026-09-11)
+//! # La pregunta del propietario (2026-09-11)
 //!
 //! > *"podemos hacer que el arranque escriba en tiempo real para saber?"*
 //!
@@ -150,7 +150,7 @@ pub fn anotar(b: u8) {
 /// Se llama desde `mm::phys::init`, justo despues de reservar el rango y con
 /// el physmap ya en pie. `dentro_de_ram` lo comprueba quien llama, que es
 /// quien tiene el mapa: si la region no cae en RAM usable, esto no se abre y
-/// se dice. `base_virtual` es donde el physmap ensena `BASE`.
+/// se dice. `base_virtual` es donde el physmap muestra `BASE`.
 pub fn abrir(dentro_de_ram: bool, base_virtual: u64) {
     unsafe { VIRT = base_virtual };
     if !dentro_de_ram {

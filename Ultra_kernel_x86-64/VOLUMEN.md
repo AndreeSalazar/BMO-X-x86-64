@@ -25,7 +25,7 @@ BMO-DATA/
 
 Eso convierte el bucle de depuracion. Antes era *flashear y hacerle una foto a
 la pantalla*: no se compara con la de ayer, no se busca dentro, y no se le puede
-ensenar a nadie que no este delante de la maquina. Ahora se arranca BMO-X, se
+mostrar a nadie que no este delante de la maquina. Ahora se arranca BMO-X, se
 corre lo que sea, se apaga, se enchufa el disco a un Windows y **se abre el
 `.txt`**.
 

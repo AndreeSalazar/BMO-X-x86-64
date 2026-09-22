@@ -1,6 +1,6 @@
       * CALCULADORA -- COBOL sobre BMO-X, en metal desnudo.
       *
-      * Lee dos importes por teclado, los suma, y ensena el total. Suena a
+      * Lee dos importes por teclado, los suma, y muestra el total. Suena a
       * poco y es la cadena entera de este sistema funcionando de una punta a
       * la otra:
       *

@@ -140,7 +140,7 @@ fn rounded_vale_en_las_cinco() {
 }
 
 /// El signo. `-9.995` con el clasico va **lejos del cero**: `-10.00`.
-/// Redondear hacia arriba un descubierto lo haria mas pequeno de lo que es.
+/// Redondear hacia arriba un descubierto lo haria mas chico de lo que es.
 #[test]
 fn rounded_respeta_el_signo() {
     let src = program(

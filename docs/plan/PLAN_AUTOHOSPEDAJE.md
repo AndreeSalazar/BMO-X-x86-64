@@ -70,7 +70,7 @@ aparte que no tiene nada que ver con compilar.
 
 ---
 
-## 2. ⚠ LA FORMA QUE OBLIGA EL CELO -- leer esto antes de disenar nada
+## 2. ⚠ LA FORMA QUE OBLIGA EL CELO -- leer esto antes de trazar nada
 
 `EJECUTAR` pide **autoridad**, se fija al nacer y **solo la puede fijar Ring 0**
 (`Ultra_kernel_x86-64/kernel/src/ring0/task/autoridad.rs`). La cabecera de ese
@@ -78,7 +78,7 @@ fichero ya dice quien la tiene:
 
 ```text
    el escritorio         lo arranca el KERNEL      SI
-   `run` del shell 0     lo teclea el dueno        SI
+   `run` del shell 0     lo teclea el propietario        SI
    un hijo de Ring 3     lo lanza otro proceso     NO
 ```
 
@@ -89,11 +89,11 @@ Asi que un compilador de a bordo **compila, y no lanza lo que compilo**:
    el ESCRITORIO    lo lanza                                      <- tiene autoridad
 ```
 
-** Y esto **no es un obstaculo que rodear: es el diseno cobrandose en su primer
+** Y esto **no es un obstaculo que rodear: es el esquema cobrandose en su primer
 caso de uso real.** En Linux `gcc` puede lanzar lo que produce porque hereda tu
-uid; aqui no hereda nada. El dueno no pierde nada --el escritorio es suyo y lanza
+uid; aqui no hereda nada. El propietario no pierde nada --el escritorio es suyo y lanza
 lo que quiera-- y lo que se impide es que **un programa lance otro sin que el
-dueno lo pida**. Es exactamente lo que `EL_ORQUESTAL.md` llama el celo.
+propietario lo pida**. Es exactamente lo que `EL_ORQUESTAL.md` llama el celo.
 
 > [!] **La tentacion que hay que rechazar**: darle autoridad al compilador
 > "porque es una herramienta del sistema". Ese es el tercer bit de autoridad, y
@@ -192,13 +192,13 @@ si algo se rompe ahi, se rompio en el sitio barato.
 
    [ ] 5  ada.bex ARRANCA        `bex-link` sobre el frontend, y en el Ryzen
                                  dice su version SIN compilar nada. Es el
-                                 primer .bex de Rust de este tamano en Ring 3
+                                 primer .bex de Rust de este medida en Ring 3
 
    [ ] 6  compila EN LA MAQUINA  un `.ada` trivial leido del disco de BMO-X,
                                  y el `.bex` escrito en ESTRATOS. Pasa por
                                  `bmo-verify` como cualquier otro
 
-   [ ] 7  el ESCRITORIO lo lanza el ciclo cerrado, y el dueno lo cierra con un
+   [ ] 7  el ESCRITORIO lo lanza el ciclo cerrado, y el propietario lo cierra con un
                                  clic porque la autoridad no viaja (seccion 2)
 
    [ ] 8  ESPEJO.txt VIAJA       `VALKYRIE-ABI/ESPEJO.txt` al stick, y el
@@ -266,7 +266,7 @@ fuente unica de verdad.
 ## 6. LO QUE SERIA UN ERROR
 
 * **Empezar por C o por INTI** porque son los que mas se usan. Son los dos que
-  arrastran `toml`, y portar un parser de configuracion de terceros no ensena
+  arrastran `toml`, y portar un parser de configuracion de terceros no muestra
   nada sobre autohospedar un compilador.
 * **Darle autoridad al compilador.** Ver la seccion 2.
 * **Que el `.bex` de a bordo salga distinto al del anfitrion.** El escalon 3
@@ -297,7 +297,7 @@ fichero de especificaciones y unas rutas. Aqui no hay nada de eso que instalar:
 ** El tercero no es una idea nueva: **ya funciona**. `bmo-pack` mete recursos
 dentro de un `.bex` --hoy `caja.bex` lleva `saludo.txt` y `cuenta.bin`-- y
 `<bmo/paquete.h>` los lee en ejecucion sin copiar nada. La cabecera cita al
-dueno diciendo la idea entera:
+propietario diciendo la idea entera:
 
 > *"es un bef pero ese bex es el mismo que abre la caja: no lo duplica, lo lee y
 > punto. Es una app como Windows pero no lo copia, lo deja en el lugar correcto

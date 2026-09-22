@@ -2,7 +2,7 @@
 
 > Escrito el **2026-09-16**, el mismo dia que la LAMINA paso su banco
 > (`platform/shared/bmo-antena/src/lamina.rs`) y que un articulo real salio
-> maquetado de `toolchain/tools/antena/lamina.js`. Lo pidio el dueno asi:
+> maquetado de `toolchain/tools/antena/lamina.js`. Lo pidio el propietario asi:
 >
 > > *"primero con mi BMO-X una app simple pero que tenga mensaje que se
 > > necesita conectar con ANTENA (da igual cual) pero ANTENA SIEMPRE, y eso es
@@ -35,7 +35,7 @@ en la antena (`docs/plan/PLAN_CLOUD_LOCAL.md`, seccion 11), y esta app es
 ```
 
 ** El nombre dice lo que HACE la persona --navegar--, no lo que ES el programa.
-No es un navegador, y la diferencia no es de tamano: es de direccion (la misma
+No es un navegador, y la diferencia no es de medida: es de direccion (la misma
 frase que abre `docs/plan/PLAN_MAQUETA.md`).
 
 ---
@@ -153,7 +153,7 @@ escalones:
    la pagina que CAMBIA la antena vigila el DOM (MutationObserver) y reemite
                         la lamina ENTERA cuando cambia, con un suelo de 250 ms:
                         4 laminas/s = 360 KB/s = 2,9 Mbit. Cabe, justo. Un
-                        chat que anade un mensaje se ve en un cuarto de segundo
+                        chat que agrega un mensaje se ve en un cuarto de segundo
    animacion            NO por lamina: 30 laminas/s serian 22 Mbit. Lo que se
                         mueve dentro de un rectangulo es VIDEO (S4, MPEG-1 a
                         1,5 Mbit) o es ESPEJO (S6). La lamina dice DONDE esta
@@ -205,12 +205,12 @@ de esta casa; prometer 60 fps por ESPEJO es S6 y cuesta lo que dice la seccion
       el Ryzen es N1.
 
 - [x] **N1 -- Navegar v1: la ventana con el mensaje, en el METAL.** HECHO el
-      2026-09-18: la foto del Ryzen ensena la ventana `tid 5 482x141` con el
+      2026-09-18: la foto del Ryzen muestra la ventana `tid 5 482x141` con el
       fondo oscuro, el titulo en blanco y el aviso de la ANTENA en naranja,
       y `save` no acusa ninguna oferta negada. La "ventana blanca" del 17-09
       no volvio tras los arreglos del USB de esa noche (el escritorio sin
       turno); no se aislo la causa exacta, y se dice. Lo que la foto tambien
-      ensena: el texto se corta por la derecha (482 px para 8 palabras de 8
+      muestra: el texto se corta por la derecha (482 px para 8 palabras de 8
       letras) y el titulo dice `tid 5`, no NAVEGAR -- dos cosas del DIRECTOR,
       no de la app. El original:
       El
@@ -288,7 +288,7 @@ de esta casa; prometer 60 fps por ESPEJO es S6 y cuesta lo que dice la seccion
       el nombre de la antena y la hora (`Ultra_userspace/userland/src/estratos.rs`,
       `crear_desde`), y Navegar la reabre sin antena marcada como "de ayer, de
       la antena X" -- que no es fingir: es decir de cuando es. **Como se sabe:**
-      `historial` lista las laminas, y con la antena apagada Navegar ensena una
+      `historial` lista las laminas, y con la antena apagada Navegar muestra una
       con su fecha y sin quitar el mensaje de que no hay antena.
 
 ---
@@ -542,7 +542,7 @@ se leia de la direccion cero -- del CODIGO -- y `glifo_fila` devolvia opcodes
 (`0x48, 0x8a, 0x8b`). `pruebas.rs::ejecuta_en` ya lo contaba del 23-08; ahora
 `tests/fuente.rs` rearma `RoData` con el mismo `rodata_de` que usa el `.ibx`.
 
-** Lo que esto ensena de "cooperar": el ORACULO (C) cazo tres cosas en INTI el
+** Lo que esto muestra de "cooperar": el ORACULO (C) cazo tres cosas en INTI el
 primer dia, y ninguna estaba en la tabla de glifos.
 
 - [x] **N0b -- fontgen, la cuarta salida.** HECHO el 2026-09-16:

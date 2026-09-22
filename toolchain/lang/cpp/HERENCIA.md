@@ -130,8 +130,8 @@ C++** -- estaba en su lista de "falta" antes de esta conversacion.
 ### 4. Los tests no se mezclan
 
 Los 216 de C siguen siendo de C. C++ tiene **su propia matriz de conformidad**
-sobre el mismo emulador (`bmo_lower::emu`), con la misma regla: *al anadir una
-caracteristica al codegen, se le anade su fila*. Una matriz de C++ en verde con
+sobre el mismo emulador (`bmo_lower::emu`), con la misma regla: *al agregar una
+caracteristica al codegen, se le agrega su fila*. Una matriz de C++ en verde con
 la de C en rojo es informacion; las dos revueltas en un fichero no son nada.
 
 ---
@@ -172,7 +172,7 @@ que diga esto mismo, igual que C declara por que elige `sem-asm` y `bmo-lower`.
 | verificado en hardware real | si | no |
 
 C++ empieza con el backend **hecho y probado**, y puede gastar el cien por cien
-del esfuerzo en las dos montanas que `MAESTROS.md` identifica: **resolucion de
+del esfuerzo en las dos sierras que `MAESTROS.md` identifica: **resolucion de
 sobrecarga** y **monomorfizacion de plantillas**.
 
 Eso es lo que quiere decir "que se enfoque en lo que ya importa para funcionar".

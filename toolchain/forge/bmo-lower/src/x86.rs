@@ -31,7 +31,7 @@ pub fn mov_r64_imm64(out: &mut Vec<u8>, reg: u8, imm: u64) {
 
 /// `mov <r32>, imm32` -- 5 bytes. Escribir el registro de 32 bits pone a cero
 /// la mitad alta del de 64, que es justo lo que queremos para constantes
-/// pequenas (una operacion, un contador) sin pagar el `mov` de 10 bytes.
+/// chicas (una operacion, un contador) sin pagar el `mov` de 10 bytes.
 pub fn mov_r32_imm32(out: &mut Vec<u8>, reg: u8, imm: u32) {
     if reg >= 8 {
         out.push(0x41); // REX.B
@@ -159,7 +159,7 @@ pub fn shr_r64_imm8(out: &mut Vec<u8>, reg: u8, imm: u8) {
 /// OJO con lo que hace cuando el contador es GRANDE: el silicio se queda con
 /// los 6 bits bajos, asi que desplazar 64 posiciones desplaza CERO y devuelve el
 /// numero intacto. La Regla 7 de INTI dice que tiene que dar cero, asi que quien
-/// la emita tiene que anadir la comprobacion. No se hace aqui: esto emite la
+/// la emita tiene que agregar la comprobacion. No se hace aqui: esto emite la
 /// instruccion que EXISTE, no la que a un lenguaje le gustaria.
 pub fn shl_r64_cl(out: &mut Vec<u8>, reg: u8) {
     out.push(0x48 | ((reg >> 3) & 1));
@@ -186,7 +186,7 @@ pub fn shr_r64_cl(out: &mut Vec<u8>, reg: u8) {
 ///
 /// ** El hermano con signo de [`shr_r64_cl`], y la unica diferencia en los
 /// bytes es el campo `/7` en vez de `/5`. La diferencia en el resultado no es
-/// pequena: `-8 >> 1` da -4 con este y 9.223.372.036.854.775.804 con el otro.
+/// chica: `-8 >> 1` da -4 con este y 9.223.372.036.854.775.804 con el otro.
 pub fn sar_r64_cl(out: &mut Vec<u8>, reg: u8) {
     out.push(0x48 | ((reg >> 3) & 1));
     out.push(0xD3);
@@ -415,7 +415,7 @@ pub enum Jump {
 
 /// Emite el salto y devuelve el offset del campo rel32, para `patch_jump`.
 ///
-/// Todos los saltos son rel32 aunque el cuerpo quepa en rel8: el tamano de
+/// Todos los saltos son rel32 aunque el cuerpo quepa en rel8: el medida de
 /// la secuencia deja de depender de la distancia, asi el emisor es
 /// determinista y no hay forma de que un cambio futuro rompa un rango.
 #[must_use]
@@ -518,7 +518,7 @@ pub fn mov_at_reg_disp32_from_r64(out: &mut Vec<u8>, base: u8, disp: i32, src: u
 }
 
 /// `cmp <reg64>, imm32`. La hermana de [`cmp_r64_imm8`] para cuando el numero
-/// no cabe en un byte -- el tamano de un registro, por ejemplo.
+/// no cabe en un byte -- el medida de un registro, por ejemplo.
 pub fn cmp_r64_imm32(out: &mut Vec<u8>, reg: u8, imm: i32) {
     out.push(rex_w(0, reg));
     out.push(0x81);
@@ -580,7 +580,7 @@ pub fn movzx_r32_word_at_reg(out: &mut Vec<u8>, dst: u8, base: u8) {
 
 /// `mov word [<base>], <src16>` -- escribe dos bytes.
 ///
-/// El `0x66` de delante es el prefijo de tamano de operando: la misma
+/// El `0x66` de delante es el prefijo de medida de operando: la misma
 /// instruccion que escribe cuatro bytes escribe dos cuando lo lleva.
 pub fn mov_word_at_reg_from_r16(out: &mut Vec<u8>, base: u8, src: u8) {
     out.push(0x66);
@@ -607,7 +607,7 @@ pub fn mov_word_at_reg_from_r16(out: &mut Vec<u8>, base: u8, src: u8) {
 //  llamada no cambian ni una linea**.
 //
 //  No es la version rapida y no pretende serlo. Es la version que se puede
-//  escribir entera hoy y medir manana: el dia que haya reparto de `xmm`, lo que
+//  escribir entera hoy y medir luego: el dia que haya reparto de `xmm`, lo que
 //  cambia es donde viven los valores, no que operacion se emite.
 
 /// `movq <xmm>, <r64>` -- el patron de bits, tal cual, al registro de coma

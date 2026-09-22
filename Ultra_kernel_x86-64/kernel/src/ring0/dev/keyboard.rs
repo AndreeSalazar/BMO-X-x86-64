@@ -1,6 +1,6 @@
 //! Teclado: scancodes Set 1 -> caracteres, con distribucion ESPANOLA.
 //!
-//! [carril]  AMARILLO  scancodes a caracteres, con distribucion espanola
+//! [carril]  AMARILLO  scancodes a caracteres, con distribucion castellana
 //! [consumo] NADA      PS/2: lo pregunta la espera del shell; late ESA
 //!
 //! Dos productores entran por aqui: el i8042 (PS/2, muerto post-EBS en esta
@@ -9,8 +9,8 @@
 //!
 //! El scancode dice QUE TECLA se pulso, nunca que letra es: eso lo decide la
 //! distribucion impresa en el teclado. La tabla US daba `;` donde el teclado
-//! del usuario tiene `n`, y `-` donde tiene `'`. Aqui viven US, espanol
-//! latinoamericano y espanol de Espana, y se cambian en caliente con el
+//! del usuario tiene `n`, y `-` donde tiene `'`. Aqui viven US, castellano
+//! latinoamericano y castellano de Espana, y se cambian en caliente con el
 //! comando `layout` del shell.
 
 const DATA: u16 = 0x60;
@@ -84,7 +84,7 @@ static mut SHIFT: bool = false;
 /// Caps Lock activo (toggle, como Windows). Afecta SOLO las letras:
 /// el caso efectivo de una letra es Shift XOR Caps; los simbolos ignoran Caps.
 static mut CAPS: bool = false;
-/// AltGr (Alt derecho) mantenido: el tercer nivel del teclado espanol, donde
+/// AltGr (Alt derecho) mantenido: el tercer nivel del teclado castellano, donde
 /// viven @ # \ | { } [ ] ~ -- todo lo que hace falta para programar.
 static mut ALTGR: bool = false;
 /// Ctrl mantenido: convierte las letras en codigos de control (Ctrl+A = 0x01),
@@ -94,7 +94,7 @@ static mut CTRL: bool = false;
 ///
 /// == *** POR QUE DEJO DE SER UN MODO (2026-09-08) =========================
 ///
-/// Lo trajo el dueno con dos palabras exactas: *"eso hace MOVER, y pues no
+/// Lo trajo el propietario con dos palabras exactas: *"eso hace MOVER, y pues no
 /// tiene sentido"*.
 ///
 /// Y era literal. Con Bloq Num apagado, este fichero convertia el teclado
@@ -111,7 +111,7 @@ static mut CTRL: bool = false;
 ///                                Ring 0, y ese esta tapado --`has_fb()` lo
 ///                                apaga en cuanto la pantalla se cede
 ///    lo cambia una tecla         que no escribe nada y no avisa de nada
-///    y encima esa tecla          era la que el dueno usaba para forzar un
+///    y encima esa tecla          era la que el propietario usaba para forzar un
 ///                                fotograma cuando el escritorio no tenia
 ///                                reloj propio. O sea que la pulsaba MUCHO
 /// ```
@@ -153,7 +153,7 @@ pub const KEY_PGDN: u8 = 0x88;
 //
 // * **Una tecla de funcion no produce caracter en NINGUNA distribucion.** No
 //   puede chocar con escribir. Cualquier combinacion con `Ctrl+Alt` si puede --
-//   en espanol `Ctrl+Alt` *es* AltGr, lo que da `@ # [ ] \ | EUR`, y el
+//   en castellano `Ctrl+Alt` *es* AltGr, lo que da `@ # [ ] \ | EUR`, y el
 //   compositor ya lleva una danza entera (disparar al soltar, y solo si no
 //   llego ningun caracter mientras tanto) para que su atajo no rompa nada.
 //   Encadenar otro combo encima empeoraria justo lo que costo arreglar.
@@ -228,7 +228,7 @@ pub fn layout_name() -> &'static str {
     }
 }
 
-// Bytes Latin-1 que produce el teclado espanol (el font los dibuja: ver
+// Bytes Latin-1 que produce el teclado castellano (el font los dibuja: ver
 // toolchain/tools/fontgen). Un caracter = un byte, sin UTF-8 en Ring 0.
 const N_TILDE_MIN: u8 = 0xF1; // n
 const N_TILDE_MAY: u8 = 0xD1; // N
@@ -472,7 +472,7 @@ fn resolve(code: u8, shift: bool, altgr: bool, caps: bool) -> Out {
         // Va en `common` --antes de la distribucion-- a proposito: ESC es la
         // misma tecla en US, en Espana y en Latinoamerica, y ponerla aqui la
         // deja fuera del nivel de AltGr. Eso importa, porque en la
-        // distribucion espanola `Ctrl+Alt` ES AltGr (ver `altgr_active`), y si
+        // distribucion castellana `Ctrl+Alt` ES AltGr (ver `altgr_active`), y si
         // ESC dependiera del nivel, el atajo de rescate seria justo la
         // combinacion que lo apaga.
         0x01 => Some(27),    // ESC
@@ -497,7 +497,7 @@ fn resolve(code: u8, shift: bool, altgr: bool, caps: bool) -> Out {
         0x52 => Some(b'0'), 0x53 => Some(b'.'),
         0x37 => Some(b'*'),
         // '/' del numpad: codigo propio (ver bmo_uhid) para no chocar
-        // con la tecla 0x35, que en espanol es '-'.
+        // con la tecla 0x35, que en castellano es '-'.
         0x62 => Some(b'/'),
         _ => None,
     };

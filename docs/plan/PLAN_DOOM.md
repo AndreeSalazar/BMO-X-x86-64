@@ -381,7 +381,7 @@ solo**, sin fallo del kernel:
 ```
 
 ```text
-   103 WARN fb:    el dueno de la pantalla MURIO
+   103 WARN fb:    el propietario de la pantalla MURIO
    104 WARN gui:   murio sin decir una sola linea
    105 INFO ring3: proceso termino por su cuenta (EXIT)
 ```
@@ -455,7 +455,7 @@ silencio, el siguiente hueco costaba otro dia de fotos.
 
 **3. Y el tercero, que es el peor por lo general**: `pointer_scale` media con
 `TypeSpec::stack_size()`, que contesta **0** para un `StructRef` porque desde el
-AST no hay tabla de tamanos. Con `0`, la funcion decidia *"esto no es un
+AST no hay tabla de medidas. Con `0`, la funcion decidia *"esto no es un
 puntero"* y no escalaba: **`p + 1` sobre un `struct T *` avanzaba UN BYTE**. No
 es un caso raro de DOOM -- es cualquier recorrido de una tabla de structs con
 aritmetica en vez de subindice. Ahora mide con `type_stack_size`, que es la
@@ -485,7 +485,7 @@ ya no habra es una muerte muda.
   frente a `el fichero mide = 815.496` **no es una lectura corta**: los 1.928 de
   diferencia son la seccion `Resources` (el icono), que `admitir_por_rangos` no
   se trae a proposito.
-- **No es el WAD.** Esta en el disco y con su tamano exacto --`A:\apps\doom1.wad`,
+- **No es el WAD.** Esta en el disco y con su medida exacto --`A:\apps\doom1.wad`,
   4.196.020 B-- y en las fotos **no aparece ni una linea `arch` con ese numero**:
   DOOM muere antes de `W_Init`, o sea antes de abrirlo.
 - **No es la pantalla.** DOOM la reclama (`fb: pantalla cedida a Ring 3`) y muere
@@ -548,7 +548,7 @@ DIRECTOR pegue 576.000 pixeles por fotograma NO ESTA MEDIDO.
 Cuando DOOM muere ahi, **no ha pintado un solo pixel**. Lo que queda en el
 monitor son los restos de tres pintores encima del mismo framebuffer: la ventana
 de consola con las nueve lineas, el panel del kernel --que vuelve al morir el
-dueno-- y el repintado del compositor al recuperarla.
+propietario-- y el repintado del compositor al recuperarla.
 
 O sea que la pantalla rota **es el sintoma de que DOOM no llego a dibujar**, no
 un fallo del blit ni del troceado por cajas sucias (`4ea125c7`), que no toca a
@@ -557,7 +557,7 @@ DOOM: DOOM pinta con su propio blit.
 [!] El camino de recuperacion (`main.rs:2294`) repinta fondo, lanzador, barra,
 caja y salida -- **pero no las ventanas que estuvieran abiertas**. Con F11 o F12
 abiertas al lanzar, esos rectangulos se quedan con lo que hubiera debajo. Es un
-defecto propio y pequeno, y se ve exactamente igual que el otro.
+defecto propio y chico, y se ve exactamente igual que el otro.
 
 ## Lo que SI se vio, y no es poco
 
@@ -581,7 +581,7 @@ estado y `BMO-externo/doom-port/` (fuera del repo) para la sonda y el unity.
 
 # ★★★ EL PLAN DE 2026-08-23 -- Y LA MUERTE DE DOOM, LOCALIZADA EN UNA LINEA
 
-> La pregunta del dueno: *"entonces el plan para arrancar a DOOM no es por abrir
+> La pregunta del propietario: *"entonces el plan para arrancar a DOOM no es por abrir
 > o compilar sino por sondas rojas, no?"*. **Si.** Y son tres puertas
 > independientes, que es lo que hacia falta separar.
 
@@ -640,7 +640,7 @@ inventa: 8 bytes.
 verdes --variable intermedia si, en linea no-- es lo que apunta al TIPO y no a
 la aritmetica ni al `->`.
 
-## 2 -- ⚠ LA BIFURCACION, que es de diseno y no de teclado
+## 2 -- ⚠ LA BIFURCACION, que es de esquema y no de teclado
 
 El arreglo no es cambiar el `0` por otro numero. Son dos cosas y **hay que hacer
 las dos**:
@@ -716,7 +716,7 @@ campo del offset 0 es `size`.
    [x] 1  localizar                sonda que dice `1 0`, no solo ROJA
    [ ] 2  A: tipar la binaria      las 3 casillas nuevas en verde, y 449 sin
                                    una roja nueva
-   [ ] 3  recompilar `doom.bex`    y comparar el tamano contra 880.250
+   [ ] 3  recompilar `doom.bex`    y comparar el medida contra 880.250
    [ ] 4  ARRANQUE                 pasa del primer fotograma dibujado?  y el
                                    monton, sale sano?  (la prediccion de 4)
    [ ] 5  B: el cero deja de ser   por su cuenta, con el radio medido: cuantos

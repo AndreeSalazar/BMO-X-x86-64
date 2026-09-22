@@ -103,7 +103,7 @@ struct Clase {
     /// * **La vtabla: una ranura por metodo virtual, y el ORDEN es la tabla.**
     ///
     /// Un derivado empieza copiando la del padre; un `override` **sustituye**
-    /// su ranura y un virtual nuevo se **anade** al final. Por eso un puntero
+    /// su ranura y un virtual nuevo se **agrega** al final. Por eso un puntero
     /// a la base sirve tal cual sobre un derivado: las primeras ranuras
     /// significan lo mismo en los dos.
     vtabla: Vec<String>,
@@ -587,7 +587,7 @@ impl Parser {
         // -- La vtabla --
         //
         // Se parte de la del padre. Un `override` **sustituye** su ranura; un
-        // virtual nuevo se **anade** al final. Ese es el motivo por el que un
+        // virtual nuevo se **agrega** al final. Ese es el motivo por el que un
         // puntero a la base sirve sobre un derivado sin tocar nada: las
         // primeras ranuras significan lo mismo en los dos.
         let mut vtabla = padre.as_ref().map(|p| p.vtabla.clone()).unwrap_or_default();
@@ -660,7 +660,7 @@ impl Parser {
         // y el resultado era un struct al que le faltaban los heredados -- y
         // ademas con los offsets corridos, porque el emparejado se desalineaba.
         //
-        // El `vptr` se salta: lo anade el descenso, que es quien decide como
+        // El `vptr` se salta: lo agrega el descenso, que es quien decide como
         // se llama el campo del lado de C.
         let acceso_de: HashMap<&str, Access> =
             campos.iter().map(|m| (m.name.as_str(), m.access)).collect();
@@ -807,7 +807,7 @@ impl Parser {
     /// En `int *a, b;` la `b` es un `int`. Es un bug que BMO C ya pago una vez
     /// --guardaba como base el tipo *ya con punteros*-- y por eso aqui el tipo
     /// base se pasa **por valor** a cada declarador: cada uno se lleva su
-    /// copia y le anade lo suyo.
+    /// copia y le agrega lo suyo.
     fn declarador(&mut self, base: TypeSpec) -> Result<(TypeSpec, String), CppError> {
         let mut t = base;
         loop {
@@ -824,7 +824,7 @@ impl Parser {
             let n = match self.avanzar() {
                 Token::IntLit(v) if v > 0 => v as u32,
                 otro => return Err(self.err(format!(
-                    "el tamano de un array tiene que ser un entero positivo, vino {otro:?}"))),
+                    "la medida de un array tiene que ser un entero positivo, vino {otro:?}"))),
             };
             self.exige(&Token::CloseBracket)?;
             t = TypeSpec::Array(Box::new(t), n);
@@ -861,7 +861,7 @@ impl Parser {
         // secuencia de tokens, dos arboles distintos, y **las dos compilan**:
         // si se elige mal, el programa hace otra cosa sin quejarse.
         //
-        // Es el hermano pequeno de `a<b>(c)` (ver `MAESTROS.md`), y llego en
+        // Es el hermano chico de `a<b>(c)` (ver `MAESTROS.md`), y llego en
         // cuanto existieron las clases -- antes de lo previsto, porque no hace
         // falta una plantilla para que C++ muerda.
         let Token::Ident(n) = self.peek() else { return false };
@@ -1174,7 +1174,7 @@ impl Parser {
 
     /// Los binarios por **escalada de precedencia**: un solo bucle con una
     /// tabla, en vez de nueve funciones que solo se diferencian en la fila.
-    /// Anadir un operador es anadir una fila de [`Self::precedencia`].
+    /// Anadir un operador es agregar una fila de [`Self::precedencia`].
     fn binario(&mut self, minima: u8) -> Result<Expr, CppError> {
         let mut izq = self.unario()?;
         loop {
@@ -1265,7 +1265,7 @@ impl Parser {
                     let Expr::Var(n) = e else {
                         return Err(self.pendiente("indexar algo que no es una variable", 2));
                     };
-                    // La escala sale de la tabla de simbolos: es el tamano del
+                    // La escala sale de la tabla de simbolos: es el medida del
                     // ELEMENTO, no el del array.
                     let escala = match self.ambitos.tipo(&n) {
                         Some(TypeSpec::Array(t, _)) => t.size() as u32,

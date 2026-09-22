@@ -2,7 +2,7 @@
 //!
 //! # De donde salen, y no se buscaban
 //!
-//! El dueno pidio que BMO C dejara de adivinar con el UB. Al barrer las formas
+//! El propietario pidio que BMO C dejara de adivinar con el UB. Al barrer las formas
 //! clasicas aparecio que **el compilador ya adivinaba en C perfectamente
 //! ordinario**, y en el sitio mas usado que hay: `1 << n`.
 //!
@@ -25,7 +25,7 @@
 //! `recortar_a_32` metia su `mov eax,eax` detras de la cuenta y se llevaba la
 //! mitad de arriba.
 //!
-//! *** El arreglo no anade un caso a ningun juez: el sufijo **se desazucara a
+//! *** El arreglo no agrega un caso a ningun juez: el sufijo **se desazucara a
 //! un `Cast`**, que es lo que el estandar dice que un sufijo ES. `tipo_de`,
 //! `expr_is_float` y `expr_is_unsigned` ya leian `Expr::Cast`.
 //!
@@ -46,7 +46,7 @@
 //! *** Y cero es la peor respuesta posible, porque **cero es un numero valido**:
 //! el programa sigue, y la comprobacion que dependia de esa constante deja de
 //! comprobar. Ahora se prueba `i64`, luego `u64`, y si no cabe **se dice** --que
-//! es lo que el dueno pidio con estas palabras: *si adivina, no lo convierte en
+//! es lo que el propietario pidio con estas palabras: *si adivina, no lo convierte en
 //! BEX*.
 
 use super::*;

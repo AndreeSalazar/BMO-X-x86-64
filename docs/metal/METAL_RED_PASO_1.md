@@ -325,7 +325,7 @@ already guarantees mDNS"*-- que es falso: mDNS va a `01:00:5E:00:00:FB`.
 ```
 
 [!] **La linea que importa es la segunda.** Hasta hoy esa prueba solo se podia
-hacer con `net` en el shell de Ring 0 --o sea en un sitio al que el dueno no
+hacer con `net` en el shell de Ring 0 --o sea en un sitio al que el propietario no
 vuelve-- y por eso llevaba semanas sin hacerse.
 
 ## 7.3 -- Y los 10 Mbit, que siguen abiertos

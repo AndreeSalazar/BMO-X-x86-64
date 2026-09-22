@@ -41,7 +41,7 @@ pub enum HandleKind {
     /// **La pantalla.** El derecho a escribir pixeles directamente: el kernel
     /// mapea el framebuffer en el espacio del proceso UNA VEZ y a partir de
     /// ahi no vuelve a tocarlo. No hay syscall por pixel porque no hay
-    /// frontera que cruzar -- es el momento library-OS del diseno.
+    /// frontera que cruzar -- es el momento library-OS del esquema.
     ///
     /// Es exclusiva por construccion: un solo proceso la tiene a la vez.
     Framebuffer = 0x0F,

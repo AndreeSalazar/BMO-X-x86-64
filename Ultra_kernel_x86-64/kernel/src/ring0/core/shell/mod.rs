@@ -1,7 +1,7 @@
 //! **Las ordenes del shell de Ring 0**, repartidas por lo que hacen.
 //!
 //! [carril]  VERDE     reparto de las ordenes por lo que hacen
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! # Por que existe esta carpeta
 //!
@@ -9,7 +9,7 @@
 //! 2.328 lineas. El fichero del ARRANQUE era, en dos tercios, un interprete de
 //! ordenes -- dos trabajos que no comparten nada salvo el bucle que los junta.
 //!
-//! El dueno lo puso por su nombre el 2026-08-12: *"si unes tendre deudas.
+//! El propietario lo puso por su nombre el 2026-08-12: *"si unes tendre deudas.
 //! Siempre modular"*.
 //!
 //! # ** EL ORDEN NO ES ALFABETICO NI POR TAMANO: ES POR LO QUE PUEDE PASAR
@@ -24,7 +24,7 @@
 //! | 4 | [`peligro`] | reinicia, para, provoca un fault | **no se sigue** |
 //!
 //! Esa columna de la derecha es el criterio entero. Ordenar un shell por lo que
-//! cuesta equivocarse hace que anadir una orden nueva sea una pregunta con
+//! cuesta equivocarse hace que agregar una orden nueva sea una pregunta con
 //! respuesta --*"que pasa si esto falla?"*-- en vez de una eleccion de gusto.
 //!
 //! [!] Y `pantalla` va DESPUES de `ficheros` aunque parezca menos grave: pintar
@@ -42,7 +42,7 @@
 /// 1 -- pregunta al SILICIO y cuenta lo que contesta.
 pub mod hardware;
 /// **`placa`**: lo que el firmware cuenta de si mismo. Aparte de `hardware`
-/// porque contesta otra pregunta -- aquel ensena APARATOS y este ensena la
+/// porque contesta otra pregunta -- aquel muestra APARATOS y este muestra la
 /// TABLA que la placa dejo en memoria.
 pub mod placa;
 /// 1b -- el CENSO de extensiones. Mismo grupo que [`hardware`] --solo mira--
@@ -54,7 +54,7 @@ pub mod extensions;
 /// --solo mira-- y fichero propio porque contesta otra pregunta: aquel mide
 /// **cuanto acelera** repartir y esto mide **un caudal**, en bytes por segundo.
 /// El numero que produce no se compara con ninguno de este shell: se compara
-/// con el tamano de un modelo.
+/// con el medida de un modelo.
 pub mod banda;
 /// 2 -- toca el DISCO. El unico grupo donde un fallo se lleva datos.
 pub mod files;

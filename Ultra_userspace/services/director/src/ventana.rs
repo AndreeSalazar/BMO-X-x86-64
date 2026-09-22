@@ -89,7 +89,7 @@ pub(crate) enum Ventana {
     ///
     /// Lo que hacia es peor que no compilar. `Foco` guarda las ventanas **por
     /// id**, asi que dos ventanas con el mismo id eran UNA para la politica:
-    /// abrir la segunda no anadia fila --`open` no duplica, y Alt+Tab no podia
+    /// abrir la segunda no agregaba fila --`open` no duplica, y Alt+Tab no podia
     /// llegar a ella-- y cerrar cualquiera de las dos le quitaba la fila **a
     /// las dos**. Con Sonido y CPU abiertas, cerrar CPU con F7 dejaba la
     /// ventana de sonido en la pantalla y fuera de la lista: sus notas `Z..M`
@@ -116,7 +116,7 @@ impl Ventana {
     /// Antes era una lista escrita a mano en `keys/mod.rs` que se quedo en
     /// cuatro: las vitales no estaban, y lo unico que las salvaba de no verse
     /// era que se repintan solas cada 15 fotogramas. Aqui no se puede olvidar
-    /// una, porque el tamano del array lo cuenta el compilador.
+    /// una, porque el medida del array lo cuenta el compilador.
     pub(crate) const TODAS: [Ventana; 7] = [
         Ventana::Run,
         Ventana::Data,
@@ -133,7 +133,7 @@ impl Ventana {
     /// Todo lo demas habla en `Ventana`, y por eso ya no se puede escribir un
     /// 3 donde iba un 5.
     /// Los ids de las apps empiezan DESPUES de los fijos, y el 6 no es magia:
-    /// es `TODAS.len()`, o sea que anadir una ventana fija los corre solos.
+    /// es `TODAS.len()`, o sea que agregar una ventana fija los corre solos.
     pub(crate) const PRIMERA_APP: u8 = Ventana::TODAS.len() as u8;
 
     pub(crate) fn id(self) -> u8 {
@@ -168,7 +168,7 @@ impl Ventana {
         })
     }
 
-    /// El nombre que ensena el conmutador de Alt+Tab.
+    /// El nombre que muestra el conmutador de Alt+Tab.
     ///
     /// ** SIN `_` A PROPOSITO. Esta tabla ya mintio dos veces --CABINA y
     /// Sonido salieron como `?` por no ampliarla, y la de CPU se anunciaba
@@ -209,7 +209,7 @@ impl Ventana {
 /// * Los nombres de los metodos son los mismos que los de `Foco`. Es aposta:
 /// asi quien lea `focus.es_para(...)` aqui y luego abra `foco.rs` encuentra la
 /// misma palabra, y lo unico que cambia entre los dos sitios es el tipo del
-/// argumento -- que es exactamente lo que este fichero anade.
+/// argumento -- que es exactamente lo que este fichero agrega.
 pub(crate) struct Focus(bmo_foco::Foco);
 
 impl Focus {

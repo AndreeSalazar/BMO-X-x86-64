@@ -1,6 +1,6 @@
 //! **Which command goes where.** A router and nothing else.
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -91,8 +91,8 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
             (b"barrera" | b"flush" | b"vacia", _) => disco::barrera(dsk, p),
             (b"trim" | b"recorta" | b"recortar", b"ya") => disco::trim_ya(dsk, p),
             (b"trim" | b"recorta" | b"recortar", b"") => disco::trim_propuesta(dsk, p),
-            // `disco trim manana` no es "no lo conozco": es un `trim` con una
-            // palabra que sobra. Se ensena la propuesta --que es inofensiva-- y
+            // `disco trim luego` no es "no lo conozco": es un `trim` con una
+            // palabra que sobra. Se muestra la propuesta --que es inofensiva-- y
             // se dice cual era la palabra buena, en vez de mandar a leer `help`.
             (b"trim" | b"recorta" | b"recortar", otro) => disco::trim_argumento(dsk, p, otro),
             (otro, _) => disco::no_existe(dsk, p, otro),

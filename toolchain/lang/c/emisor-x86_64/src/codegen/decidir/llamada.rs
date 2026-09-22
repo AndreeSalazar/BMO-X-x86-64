@@ -27,7 +27,7 @@
 //!    funciones VARIADICAS                      TODO por la pila
 //! ```
 //!
-//! ** La regla de las variadicas es la que decide el diseno. El `va_arg` de
+//! ** La regla de las variadicas es la que decide el esquema. El `va_arg` de
 //! BMO C es `*ap++` sobre la pila (ver `frame.rs`): si los seis primeros
 //! llegaran en registros, el `va_list` tendria que saltar de un area de guardado
 //! a la pila del llamante, que es exactamente la `struct va_list` de SysV y sus

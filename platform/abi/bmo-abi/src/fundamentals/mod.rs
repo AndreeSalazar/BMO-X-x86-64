@@ -20,7 +20,7 @@
 //! # El liston de verdad, que es el que estos tipos SI cumplen
 //!
 //! > Aqui vive lo que **cruza la frontera del ABI**: lo que viaja en un
-//! > registro, lo que nombra un objeto del kernel, o lo que fija el tamano de
+//! > registro, lo que nombra un objeto del kernel, o lo que fija el medida de
 //! > un campo que dos lenguajes tienen que leer igual.
 //!
 //! Eso es una prueba que se puede hacer mirando el tipo, no un porcentaje que
@@ -29,7 +29,7 @@
 //! ```text
 //!    viaja en un registro   BmoStatus (rax/rdx al volver), BmoCap
 //!    nombra un objeto       BmoHandle con su generacion, HandleKind
-//!    fija un tamano         primitives, BmoStr, BmoSlice, BmoBuffer
+//!    fija un medida         primitives, BmoStr, BmoSlice, BmoBuffer
 //!    lo exige el metal      sync -- ordenes de memoria; lo usa `bmo-rt`
 //! ```
 //!
@@ -76,7 +76,7 @@
 //! sistema**. `BmoRead`/`BmoWrite`/`BmoSeek` son la tripa de `std::io`, y
 //! `BmoPipe` es de un SO que reparte descriptores. Este no lo es.
 //!
-//! *** Y eso es lo que hace dano, no estar sin usar. Un ABI puede declarar
+//! *** Y eso es lo que hace perjuicio, no estar sin usar. Un ABI puede declarar
 //! superficie antes de tener el motor --`<bmo/sonido.h>` lo hace a proposito,
 //! *"el contrato va ANTES que el driver"*-- pero lo que declara tiene que ser
 //! la forma de ESTE sistema. Un tercero que leyera `io` concluiria que BMO-X

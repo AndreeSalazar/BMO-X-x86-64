@@ -16,7 +16,7 @@ use super::*;
 //  es una direccion mas un desplazamiento, y el desplazamiento sale de las
 //  medidas de los campos de antes.
 //
-//  ** Y las dos se arreglan con la MISMA cuenta, que es la senal de que el
+//  ** Y las dos se arreglan con la MISMA cuenta, que es la signal de que el
 //  arreglo es el correcto: `p.x`, `p.x = 3`, `a[i]` y `a[i] = 3` calculan
 //  exactamente lo mismo y solo cambian la instruccion del final.
 

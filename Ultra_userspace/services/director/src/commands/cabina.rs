@@ -1,6 +1,6 @@
 //! **`cabina` -- la caja negra del kernel, LEIDA DESDE EL ESCRITORIO.**
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -25,7 +25,7 @@
 //! Es el caso de `banda`, escrito cuatro lineas mas abajo en el despachador:
 //!
 //! > *"estaba escrita, compilada y probada, y era inalcanzable desde el unico
-//! > sitio donde el dueno trabaja."*
+//! > sitio donde el propietario trabaja."*
 //!
 //! ## Lo que lo destapo, y es lo que hace que valga la pena
 //!
@@ -377,7 +377,7 @@ pub(crate) fn report_cabina(s: &mut Output, arg: &[u8]) {
 /// Un numero decimal, o `None` si no lo es.
 ///
 /// [!] Devuelve `None` para una palabra desconocida en vez de tratarla como
-/// cero: `cabina xyz` tiene que ensenar lo de siempre, no un anillo vacio.
+/// cero: `cabina xyz` tiene que mostrar lo de siempre, no un anillo vacio.
 fn numero(arg: &[u8]) -> Option<u64> {
     if arg.is_empty() {
         return None;

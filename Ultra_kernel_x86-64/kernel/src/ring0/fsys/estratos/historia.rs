@@ -21,7 +21,7 @@
 //! que ya costo el detalle de cada hijo del cursor.
 //!
 //! Asi que se recorre a mano ([`releer`]) y lo demas contesta de memoria. Se
-//! pide al abrir la pestana y despues de escribir, que son los dos momentos en
+//! pide al abrir la solapa y despues de escribir, que son los dos momentos en
 //! los que la historia cambia.
 //!
 //! === Lo que se guarda de cada version, y lo que no ===
@@ -39,7 +39,7 @@
 //!
 //! [!] Y el TOPE es real: se guardan las [`MAX`] mas recientes. Un volumen con
 //! mil versiones no cabe en un panel ni en `.bss`, y **se dice** en vez de
-//! ensenar las veinte primeras como si fueran todas.
+//! mostrar las veinte primeras como si fueran todas.
 
 use bmo_estratos as es;
 use bmo_estratos::objects::BlockPtr;

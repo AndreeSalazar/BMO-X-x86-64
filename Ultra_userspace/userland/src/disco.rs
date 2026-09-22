@@ -4,7 +4,7 @@
 //!
 //! Porque no es la misma clase de llamada. `info`, el klog, CABINA y el cursor
 //! de ESTRATOS **contestan**; esto **manda**, y sobre el aparato donde vive el
-//! trabajo del dueno. Un fichero propio hace que se vea al abrir la carpeta, y
+//! trabajo del propietario. Un fichero propio hace que se vea al abrir la carpeta, y
 //! esa es toda la ambicion del corte.
 //!
 //! === Lo que no se puede pedir desde aqui, y es a proposito ===

@@ -85,7 +85,7 @@ sistema crecia.
 `docs/maestro/AUTOCURACION_MAESTRO.md` llevaban una cifra vieja, y el segundo la
 usaba para prometer que *"la superficie cabe en la cabeza"*. Sigue cabiendo --88
 operaciones detras de dos puertas se auditan en una tarde-- pero la promesa
-tiene que decir el numero de hoy. **Dos puertas es la forma; 88 es el tamano.**
+tiene que decir el numero de hoy. **Dos puertas es la forma; 88 es el medida.**
 Confundirlas es lo que hace que una ley suene mejor de lo que es.
 
 ---
@@ -98,7 +98,7 @@ las dos preguntas que lo impiden, y se contestan antes de escribir codigo:
 
 ### La PRUEBA DEL FRAMEWORK
 
-> *Si REX desapareciera manana, la app se podria reescribir contra la superficie
+> *Si REX desapareciera luego, la app se podria reescribir contra la superficie
 > **sin cambiar el sistema**?*
 
 - **Si** -> es una **libreria**: entra en el `.bex` como codigo, y el contrato
@@ -162,14 +162,14 @@ de lineas repetidas cuatro veces.
 mismo que derivan en silencio, exactamente lo que le paso a `ORDENES` en el
 Ep. 39 de [`BITACORA.md`](../BITACORA.md).
 
-### R-REX5 -- Se EXTRAE de dos apps, no se disena para diez
+### R-REX5 -- Se EXTRAE de dos apps, no se traza para diez
 
 Una pieza entra en REX cuando **dos apps ya la escribieron por separado**. No
 antes.
 
 *De donde sale*: [`META-APP_HARD.md`](META-APP_HARD.md) seccion 6 -- *"una API
 general antes de tener clientes es coste sin comprador"*. Y el precedente
-ajeno: SDL no se diseno en una pizarra, se **extrajo** de los ports de juegos
+ajeno: SDL no se esquema en una pizarra, se **extrajo** de los ports de juegos
 reales.
 
 **Sin esto**: REX crece con funciones que nadie llamo nunca, y cada una hay que
@@ -236,7 +236,7 @@ Puestas al lado de la descomposicion de SDL, sin haberla leido:
 | `SDL_timer` | `INFO_TICKS` + `WAIT`, en `bmo.h` |
 | `SDL_thread`, `SDL_cdrom`, `SDL_joystick`, dynapi | -- y esta bien que no |
 
-★★ **Dos disenos que no se hablaron llegaron a las mismas siete cajas.** Eso no
+★★ **Dos esquemas que no se hablaron llegaron a las mismas siete cajas.** Eso no
 es una casualidad bonita: es la mejor evidencia disponible de que el corte esta
 bien hecho, porque el reparto de aqui no salio de copiar a nadie, salio de la
 superficie.
@@ -255,7 +255,7 @@ SDL es tan grande**:
 >
 > ★★ La capa por la que a SDL le pagan **aqui no tiene a quien cobrarle**.
 
-De ahi sale el numero: **el tamano de SDL es el precio de la portabilidad, y
+De ahi sale el numero: **el medida de SDL es el precio de la portabilidad, y
 BMO-X no es portable -- es UN sistema.** Fuera los backends por plataforma,
 fuera la seleccion de driver en ejecucion, fuera sus hilos, fuera su asignador,
 fuera el bosque de `#ifdef`... y lo que queda es del orden de lo que ya esta

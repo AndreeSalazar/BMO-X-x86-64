@@ -74,7 +74,7 @@ const RATON: u64 = bmo::SUP_EV_RATON;
 /// ** POR QUE HACIA FALTA UN TERCER TIPO DE RANURA, y por que no es un capricho
 /// de formato: **el mapa de teclado existe UNA sola vez y esta en el kernel.**
 /// Una app que recibe scancodes y quiere letras tiene que traducirlos, y
-/// traducirlos significa copiar la distribucion espanola --tildes, la ene,
+/// traducirlos significa copiar la distribucion castellana --tildes, la ene,
 /// AltGr, las teclas muertas-- a un segundo sitio. Dos mapas son dos teclados,
 /// y se separan el dia que alguien arregle una tecla en uno de los dos.
 ///
@@ -102,7 +102,7 @@ const POR_VUELTA: usize = 32;
 /// `Ctrl+n` abre la consola de ESTRATOS **y ademas** le llegaba a la app, o sea
 /// que una pulsacion hacia dos cosas. Ampliarlo a Ctrl no es taparlo con una
 /// excepcion mas: es que la lista deja de ser una lista y pasa a ser una regla,
-/// y una regla no se queda vieja cuando manana alguien anada un atajo.
+/// y una regla no se queda vieja cuando luego alguien anada un atajo.
 ///
 /// [!] Y su precio, dicho: **hoy una app no puede tener un `Ctrl+algo` propio.**
 /// Es el intercambio que hace cualquier compositor, y se puede revisar el dia

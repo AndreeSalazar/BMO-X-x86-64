@@ -1,6 +1,6 @@
 # PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar
 
-> Propuesta del dueno, **2026-09-09**:
+> Propuesta del propietario, **2026-09-09**:
 >
 > > *"me gustaria saber si es posible hacer que aunque syscall esta definido
 > > como es, que sea division que divida los syscall como son pero que no se
@@ -8,7 +8,7 @@
 > > ese ciclo es 969 ciclos pero me gustaria que se divida en 10, lo que MAS
 > > PUEDA para que llegue el destino."*
 >
-> [!] **La idea funciona. Pero no sobre la pieza que senala**, y esa distincion
+> [!] **La idea funciona. Pero no sobre la pieza que marca**, y esa distincion
 > es todo este documento.
 
 ---
@@ -25,7 +25,7 @@ del CPU que hace, de una vez y sin puntos intermedios:
 ```
 
 No hay forma de ejecutar "un tercio de un `syscall`". No es una limitacion de
-BMO-X ni una decision de diseno que se pueda revisar: **es una instruccion**. El
+BMO-X ni una decision de esquema que se pueda revisar: **es una instruccion**. El
 perfil de esta placa la estima en **~150 ticks** y lo declara como estimacion
 (`suelo: Suelo { ticks: 150, medido: false }`).
 
@@ -40,7 +40,7 @@ tiene es otra, y es mejor:
    SI   como hago que 150 sirvan para DIEZ operaciones en vez de una
 ```
 
-Eso no es un juego de palabras: es exactamente lo que el dueno describio --*"que
+Eso no es un juego de palabras: es exactamente lo que el propietario describio --*"que
 se divida en 10"*-- aplicado a la parte que si se puede repartir.
 
 ---
@@ -126,7 +126,7 @@ Y la tabla, con los numeros de verdad:
 
 ** **Ocho operaciones por puerta cumplen la meta**, no cuatro. La proyeccion de
 antes se hizo con el 784/86 viejo y salio optimista: el trabajo es mas gordo de
-lo que se creia y el fijo mas pequeno.
+lo que se creia y el fijo mas chico.
 
 ## ★★ Y LA SEGUNDA TANDA, TRAS M0b -- el mismo dia
 
@@ -287,7 +287,7 @@ es la primera vez que cobra.
 
 # 5. [!] LO QUE ESTE PLAN SACRIFICA (L3)
 
-Toda regla trae su sacrificio, y estos son cuatro y ninguno es pequeno.
+Toda regla trae su sacrificio, y estos son cuatro y ninguno es chico.
 
 ```text
    1. NO SE PUEDE RAMIFICAR DENTRO DE UN LOTE
@@ -353,7 +353,7 @@ es el paso M1.
 
 # 6b. [!] EL PRECIO DE NO CRUZAR ES EL DESMAPEO EN CALIENTE
 
-> Pregunta del dueno, **2026-09-09**: *"el hot-unmapping, podemos agregar? Eso
+> Pregunta del propietario, **2026-09-09**: *"el hot-unmapping, podemos agregar? Eso
 > podria ser habilidad de mi BMO-X porque si es como ya sabemos tipico por
 > ciclos, puede ayudar?"*
 
@@ -420,7 +420,7 @@ implementacion: es lo que hace que la via de 4 ticks no sea gratis.
       ** AXION ya apaga nucleos y todavia no los enciende (falta MWAIT). O
       sea que **esta deuda crece el dia que SMP funcione**, que es una
       funcion planificada. Cada `unmap_page` de hoy es un shootdown de
-      manana, y hay siete sitios.
+      luego, y hay siete sitios.
 ```
 
 ## 4. Que hacer con esto
@@ -433,7 +433,7 @@ ganancia mas grande con un coste que hay que medir antes**. De ahi el M1b.
 
 # 6c. EL DMA SI TIENE OPORTUNIDAD, Y SE LLAMA IOMMU
 
-> Pregunta del dueno, **2026-09-09**: *"el DMA se puede tener oportunidad?
+> Pregunta del propietario, **2026-09-09**: *"el DMA se puede tener oportunidad?
 > [...] el mapping y el hot unmapping, ambos tienen que aplicarse inteligente
 > que trate de no costar por algo."*
 
@@ -462,7 +462,7 @@ estatica**, no AML. *"Tablas ACPI estaticas SI, AML NUNCA."*
 
 ** Lo que cuesta, dicho: encender un IOMMU es construir y mantener un segundo
 juego de tablas de pagina, mas su cache, mas su invalidacion. Es un proyecto del
-tamano del VMM, no un `if`. Aqui solo queda escrito que el camino existe y donde
+medida del VMM, no un `if`. Aqui solo queda escrito que el camino existe y donde
 empieza -- y ese *donde* ya esta en el arbol.
 
 ## 2. ★★ "QUE NO CUESTE POR ALGO": la regla del desmapeo inteligente
@@ -493,7 +493,7 @@ que esta maquina puede medir.
 ```text
    la pregunta    a partir de cuantas paginas sale mas barato el `cr3`?
    quien contesta M1b: `soltar()` + `abrir()` cronometrados, con el
-                  framebuffer entero (2.025) y con una region pequena
+                  framebuffer entero (2.025) y con una region chica
 ```
 
 ** Y la regla que sale de ahi es la respuesta a *"que se aplique inteligente"*:
@@ -537,7 +537,7 @@ que esta maquina puede medir.
      tiene UN escritor (`schedule_locked`), ningun AP planifica (lo declara
      `plat/smp/crew.rs` de si mismo), y en un trap `IF` ya esta en cero por el
      `SFMASK` -- o sea que el `cli` del cerrojo apagaba algo ya apagado
-  2. usadas en los TRES sitios que el metro senala y en ninguno mas:
+  2. usadas en los TRES sitios que el metro marca y en ninguno mas:
      `registrar_publicacion` (el coste FIJO de toda puerta), `TASK_OP_GET_PID`
      y `TASK_OP_GET_TID`. Los otros ~45 se quedan: cambiar sesenta cosas para
      arreglar tres no es un arreglo

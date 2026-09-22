@@ -4,7 +4,7 @@
 > componente**; este dice **por donde pasa el trabajo de verdad** y, sobre todo,
 > **que se puede TACHAR**.
 >
-> Escrito el **2026-08-16**. El objetivo del dueno es optimizar; el objetivo de
+> Escrito el **2026-08-16**. El objetivo del propietario es optimizar; el objetivo de
 > este fichero es que la lista de lo optimizable sea **corta, finita y
 > justificada con numeros**, en vez de infinita y elegida por intuicion.
 
@@ -87,7 +87,7 @@ panel de la propia maquina.
 | P6 | el disco | por bloque | rafagas | 100 us+ [SPEC] | -- | THROUGHPUT | sin metro |
 | P7 | la entrada | por pulsacion | < 20 | microframe 125 us | ~0 | ninguno | **TACHADO** |
 | P8 | el arranque | una vez | 0 | -- | 0 | ninguno | **TACHADO** |
-| P9 | el ocio | siempre que no hay nada | -- | -- | -- | ENERGIA | vivo, un dueno |
+| P9 | el ocio | siempre que no hay nada | -- | -- | -- | ENERGIA | vivo, un propietario |
 | P10 | el toolchain | al compilar | 0 en la maquina | -- | 0 | ninguno | **TACHADO (es productor)** |
 
 ### P1 -- LA PUERTA | eje LATENCIA | componentes C1, C2, C8
@@ -243,7 +243,7 @@ sangrado siempre.
 Ocurre **una vez**. Aqui no se optimiza: **aqui se comprueba**. Con una sola
 excepcion, y esta ya hecha: `init_pat` decide el rendimiento de todo lo demas
 (el framebuffer en WC en vez de UC), asi que **una decision del arranque es
-la duena del eje de otro camino**.
+la propietaria del eje de otro camino**.
 
 ### P9 -- EL OCIO | eje ENERGIA | componentes C10, C12
 
@@ -262,7 +262,7 @@ sigue faltando (MWAIT).
 ```
 
 No corre en el camino caliente de la maquina. **Pero es el PRODUCTOR de todos
-los demas**: el codigo maquina que emite decide el tamano y los ciclos de P1..P9.
+los demas**: el codigo maquina que emite decide el medida y los ciclos de P1..P9.
 
 ★ Por eso el toolchain no tiene eje propio y **tiene el de su salida**: una
 decision de codegen se juzga por lo que le hace al camino que ejecuta ese
@@ -419,7 +419,7 @@ Y hay que decir las dos cosas, no una:
 1. **El trabajo en la puerta fue correcto** y no se toca: es el suelo que paga
    toda operacion, es la superficie que BMO-X promete a quien programe encima, y
    es **el unico camino del arbol con juez** -- o sea que ademas de bajar 2618 a
-   884, es lo que enseno a medir. Sin el, este censo no se podria escribir.
+   884, es lo que mostro a medir. Sin el, este censo no se podria escribir.
 2. **Pero no es donde estan los ciclos.** Si el objetivo es *"la maquina va
    rapida"*, el orden es P2, P3 y luego todo lo demas.
 

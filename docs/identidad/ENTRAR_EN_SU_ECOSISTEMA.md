@@ -1,6 +1,6 @@
 # ENTRAR EN SU ECOSISTEMA -- las tres estrategias, y sus listas
 
-> Escrito el **2026-08-04**. La pregunta del dueno: *"podriamos adaptar que sea
+> Escrito el **2026-08-04**. La pregunta del propietario: *"podriamos adaptar que sea
 > un poco mas generalista para poder entrar en su ecosistema?"*
 >
 > Respuesta corta: **si, y hay tres caminos distintos** con costes muy
@@ -88,8 +88,8 @@ Mas `clock_gettime`, `getdents64`, `stat`, `getcwd`, `uname`.
 ### Nivel 3 -- donde se acaba - **+300 llamadas**
 
 `clone`, `futex`, `rt_sigaction`, `fork`, `execve`, `wait4`, `pipe`, `poll`,
-`epoll`, `socket`... Aqui ya no es una tabla: es implementar hilos, senales,
-procesos y red. **Es exactamente la frontera que el dueno dijo no querer**, y
+`epoll`, `socket`... Aqui ya no es una tabla: es implementar hilos, signales,
+procesos y red. **Es exactamente la frontera que el propietario dijo no querer**, y
 resulta que la frontera cae en un sitio muy concreto y muy defendible.
 
 ## ★★ Lo que hace que esto NO cueste identidad
@@ -112,7 +112,7 @@ maquina virtual.
 | Programas con enlazado dinamico | piden `ld.so` y `.so` que no existen |
 | Cualquier cosa con hilos | `clone` no tiene a donde traducirse |
 | Rutas de Linux (`/etc/...`, `/usr/...`) | el disco es FAT32 con nombres 8.3 |
-| Todo lo que use red, senales o `fork` | nivel 3 |
+| Todo lo que use red, signales o `fork` | nivel 3 |
 | **Steam, Chrome, navegadores, juegos** | los cuatro de arriba a la vez |
 
 | | |
@@ -175,7 +175,7 @@ decision, no un olvido.
 
 # ★ EL ORDEN, y por que
 
-1. **Seguir portando (A)** mientras el catalogo sea pequeno. Es lo que hay.
+1. **Seguir portando (A)** mientras el catalogo sea chico. Es lo que hay.
 2. **El enlazador** -- que no es de este documento pero bloquea el B, porque la
    tabla de traduccion tiene que poder ser una libreria.
 3. **`3.3` posicionar por byte** -- sin `lseek` no hay herramienta de Unix que
@@ -189,6 +189,6 @@ decision, no un olvido.
 > en el cuesta el proyecto.**
 
 Los niveles 0, 1 y 2 son una tabla de traduccion en Ring 3 y no comprometen
-nada. Del nivel 3 en adelante hay que implementar hilos, senales y procesos --
+nada. Del nivel 3 en adelante hay que implementar hilos, signales y procesos --
 y para entonces ya no estas adaptando BMO-X: estas escribiendo un Linux, con
 veinte anios de retraso y una persona.

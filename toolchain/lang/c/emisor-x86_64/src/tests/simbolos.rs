@@ -13,7 +13,7 @@
 //! de una linea-- sino las cuatro cosas que la hacen util:
 //!
 //! 1. que los offsets sean **los mismos** que resuelven las llamadas,
-//! 2. que el tamano permita decir *"aqui NO hay ninguna funcion"*,
+//! 2. que el medida permita decir *"aqui NO hay ninguna funcion"*,
 //! 3. y que un `rip` de verdad se traduzca a un nombre.
 //!
 //! No se comprueba aqui que la seccion **no se cargue** --y no cuesta una
@@ -104,7 +104,7 @@ fn los_offsets_son_los_MISMOS_que_resuelven_las_llamadas() {
 /// ** EL TAMANO, que es lo que `--map` no daba.
 ///
 /// Con solo los inicios, un `rip` entre dos funciones se atribuye a la de
-/// arriba aunque caiga fuera. Con el tamano se puede contestar *"esa direccion
+/// arriba aunque caiga fuera. Con el medida se puede contestar *"esa direccion
 /// no esta en ninguna funcion"*, que es una respuesta distinta y correcta.
 #[test]
 fn el_tamano_permite_decir_que_una_direccion_NO_es_de_nadie() {
@@ -112,11 +112,11 @@ fn el_tamano_permite_decir_que_una_direccion_NO_es_de_nadie() {
     let s = simbolos(&bef);
 
     for (nombre, _, size) in &s {
-        assert!(*size > 0, "{} tiene tamano cero", nombre);
+        assert!(*size > 0, "{} tiene medida cero", nombre);
     }
 
     // Nadie se solapa con nadie: cada funcion acaba antes de que empiece la
-    // siguiente. Si esto falla, los tamanos son ficcion.
+    // siguiente. Si esto falla, los medidas son ficcion.
     let mut orden: Vec<_> = s.iter().map(|(n, a, t)| (*a, *t, n)).collect();
     orden.sort();
     for par in orden.windows(2) {

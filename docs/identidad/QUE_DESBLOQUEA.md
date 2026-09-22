@@ -43,7 +43,7 @@ arbol.
 > `CHANNEL_KICK` se retiro el 10-08 --era una operacion sobre un handle, o sea
 > la definicion de `INVOKE`-- y las operaciones casi se doblaron. **La puerta se
 > hizo mas estrecha mientras el sistema crecia**, que es exactamente lo que el
-> diseno prometia y ahora tiene numeros.
+> esquema prometia y ahora tiene numeros.
 
 | Pieza | Estado | Que habilita |
 |---|---|---|
@@ -51,7 +51,7 @@ arbol.
 | Teclado + raton USB | ✅ en metal | entrada real |
 | Tiempo (TSC) + espera | ✅ | bucles de juego, temporizacion |
 | **Memoria (`KIND_MEMORIA`)** | ✅ `TASK_OP_MEMORIA_PEDIR`, `MEM_OP_BASE`, `MEM_OP_BYTES` | ★ `malloc`/`new` **ya no esta bloqueado**; falta el asignador encima, que es codigo de usuario |
-| Ficheros | ✅ abrir / crear / leer / leer-linea / escribir / tamano / cerrar | E/S de datos, FAT32 lectura + ESTRATOS |
+| Ficheros | ✅ abrir / crear / leer / leer-linea / escribir / medida / cerrar | E/S de datos, FAT32 lectura + ESTRATOS |
 | Consola | ✅ escribir y leer | stdin/stdout |
 | Lanzar programas, rutas, info | ✅ | un shell de verdad |
 | **Red** | ⏳ **la NIC se RECONOCE** (11-08): `find_net` + MAC + enlace, cero escrituras. Sin `KIND_RED`, sin anillos y **sin pila TCP/IP** | nada conectado todavia |
@@ -93,11 +93,11 @@ C ya esta en 32/32. Todo esto se porta con el frontend que ya existe.
 |---|---|---|---|---|
 | **DOOM** | C | ~35k | libc (`malloc`, `sprintf`, `atoi`, `exit`), unity build | ★ objetivo ya declarado -- **semanas** |
 | **Lua** | C | ~30k | libc + `setjmp`/`longjmp` | semanas |
-| **SQLite** | C | ~150k, **un solo fichero** | libc + VFS sobre `ARCH_OP_*` | ★ el *amalgamation* ya es unity build **por diseno** -- semanas |
+| **SQLite** | C | ~150k, **un solo fichero** | libc + VFS sobre `ARCH_OP_*` | ★ el *amalgamation* ya es unity build **por esquema** -- semanas |
 | zlib, stb_*, libpng, libjpeg | C | 5-30k c/u | libc | dias cada una |
 | **Quake 1** (renderer software) | C | ~100k | libc; unity build a 100k empieza a doler | 1-2 meses |
 | **NetSurf** (navegador propio) | C | ~200k | **red + TLS + FreeType** | bloqueado por RED, no por lenguaje |
-| Git, Vim, CPython | C | 250k-400k | POSIX grande: `fork`, senales, `mmap`, permisos | **no con 22 operaciones** |
+| Git, Vim, CPython | C | 250k-400k | POSIX grande: `fork`, signales, `mmap`, permisos | **no con 22 operaciones** |
 
 ### ★★ DOOM, ya no estimado: MEDIDO (2026-08-08)
 
@@ -105,7 +105,7 @@ La fila de arriba decia *"libc (`malloc`, `sprintf`, `atoi`, `exit`), unity
 build"*. Era una suposicion razonable y **tres de sus cuatro partes no eran el
 problema**. Se bajo el codigo (`ozkl/doomgeneric`, GPL-2.0) y se conto.
 
-**El tamano real**: 56.465 lineas de C en **81 ficheros** de nucleo, mas 10.637
+**El medida real**: 56.465 lineas de C en **81 ficheros** de nucleo, mas 10.637
 de cabeceras. 49 funciones distintas de libc.
 
 ★ **Tres hallazgos que cambian la estimacion, y los tres van en contra de lo
@@ -165,7 +165,7 @@ el opcode en la mano en vez de inventarse el valor.
 ⚠ Y dos de esos "fallos del compilador" eran de las cabeceras de sonda: un
 `<stdbool.h>` sin `__bool_true_false_are_defined` se llevo 52 ficheros por
 delante, y un `<inttypes.h>` vacio otros 77. **Un stub equivocado no informa de
-una verdad mas pequena: informa de otra.**
+una verdad mas chica: informa de otra.**
 
 #### Lo que falta para DOOM, en orden
 
@@ -237,7 +237,7 @@ falten esas piezas.
 
 ---
 
-## ★★ Nivel 4b -- YouTube, y MAQUETA: lo que el dueno pregunto el 07-09
+## ★★ Nivel 4b -- YouTube, y MAQUETA: lo que el propietario pregunto el 07-09
 
 > *"un dia entrar YouTube, porque todo es documentos enviando datos XD. Eso por
 > algo `.maqueta` es el motivo, son listas largas para eso, no?"*
@@ -289,9 +289,9 @@ manda ya tiene veredicto en el Nivel 3 de este mismo documento:
    lo que falta para YouTube         ** una decision de identidad, al reves
 ```
 
-*** No es que BMO-X sea pequeno para YouTube. Es que **el celo lo prohibe**: un
+*** No es que BMO-X sea chico para YouTube. Es que **el celo lo prohibe**: un
 JIT necesita escribir memoria y luego ejecutarla, y `EL_ORQUESTAL.md` existe
-justo para que eso no se pueda. Cambiarlo no seria anadir una pieza -- seria
+justo para que eso no se pueda. Cambiarlo no seria agregar una pieza -- seria
 dejar de ser BMO-X.
 
 > Lo que impide ver YouTube aqui no es lo que le falta a BMO-X. Es lo que BMO-X
@@ -321,7 +321,7 @@ es el que uno espera:
 | # | Palanca | Que desbloquea | Necesita C++? |
 |---|---|---|---|
 | 1 | **Compilacion separada** | todo lo que pase de ~100k lineas. Hoy es el techo duro del sistema, **y es lo que bloquea a SDL** | **NO** |
-| 2 | **Portar SDL 1.2** -- es C, y su capa de plataforma es pequena y esta bien delimitada | ★ **cientos** de juegos y aplicaciones de golpe, sin tocarlos uno a uno | **NO** |
+| 2 | **Portar SDL 1.2** -- es C, y su capa de plataforma es chica y esta bien delimitada | ★ **cientos** de juegos y aplicaciones de golpe, sin tocarlos uno a uno | **NO** |
 | 3 | **Pila de red + TLS** | navegador, servidores, actualizaciones, todo lo conectado | **NO** |
 | 4 | El **C++ acotado** | ImGui, Box2D, y escribir lo grande de BMO sin ahogarse | -- |
 | ~~x~~ | ~~**libc: el asignador sobre `KIND_MEMORIA`**~~ | **HECHO** el 2026-08-09: `<bmo/monton.h>` | -- |
@@ -341,7 +341,7 @@ tiene las cuatro**"*. Medida contra el arbol, se cae por tres sitios:
 2. **Faltaba nombrar los HILOS.** SDL 1.2 trae subsistema de hilos y su audio
    arranca uno propio; aqui no hay hilos de Ring 3 y
    `toolchain/lang/c/BRECHA.md` lo repite cuatro veces. Se puede construir sin
-   ellos, pero es una decision de diseno que hay que tomar antes.
+   ellos, pero es una decision de esquema que hay que tomar antes.
 3. ★★ **SDL son del orden de cien ficheros `.c`, y hoy solo hay unity build.**
    Dos `static` con el mismo nombre en ficheros distintos dejan de ocultarse y
    pasan a ser una redefinicion. O sea: **SDL no adelanta a la compilacion
@@ -377,7 +377,7 @@ deseos, es un **mapa de dependencias**.
 
 # ★★ LAS PIEZAS, CONTADAS
 
-> Anadido el **2026-08-04**, a peticion del dueno y **con dos correcciones
+> Anadido el **2026-08-04**, a peticion del propietario y **con dos correcciones
 > suyas incorporadas**. La version anterior de este documento despachaba la GPU
 > con *"anios"* y el JIT con *"no encaja"*. Las dos eran pereza: un "anios" sin
 > desglosar no es una estimacion, es una forma educada de no pensar.
@@ -437,7 +437,7 @@ otro nombre.**
 
 ---
 
-## 2 - LAS TRES OPS DE `KIND_ARCHIVO` -- 3 piezas pequenas
+## 2 - LAS TRES OPS DE `KIND_ARCHIVO` -- 3 piezas chicas
 
 Baratas desde que `3.0` (reemplazar en FAT32) esta hecho.
 
@@ -491,7 +491,7 @@ de area local, que ya es mucho para un banco con terminales.
 
 ---
 
-## 6 - GPU + VULKAN -- 6 piezas, y **la correccion del dueno era justa**
+## 6 - GPU + VULKAN -- 6 piezas, y **la correccion del propietario era justa**
 
 > *"No subestimes, no es anios; no es meter Vulkan entero, es meter Vulkan 1.0
 > hasta 1.3 con proceso -- por algo se llama estrategia."*
@@ -506,7 +506,7 @@ Tiene razon y el "anios" de este documento estaba mal escrito. Desglosado:
 | 4 | Gestor de memoria de video: VRAM, GTT, page tables de la GPU | ★ meses, y es un asignador de verdad |
 | 5 | Compilador de shaders: SPIR-V -> ISA de RDNA | ★ **es otro compilador entero** |
 | 6 | La API Vulkan 1.0 encima: instance, device, queue, command buffer, pipeline, swapchain | meses, pero es fontaneria sobre 1-5 |
-| + | 1.1 - 1.2 - 1.3 | **incrementos**, no reescrituras -- y ahi la estrategia del dueno es la correcta |
+| + | 1.1 - 1.2 - 1.3 | **incrementos**, no reescrituras -- y ahi la estrategia del propietario es la correcta |
 
 **La estimacion honesta corregida**: no son "anios de imposible". Son **seis
 piezas de las que dos son proyectos propios** (la 4 y la 5) y **una es un muro
@@ -520,7 +520,7 @@ Y sigue sin servir a la banca. Pero ya no esta mal contado.
 
 > *"Podria crear un intermedio para que no choque con capabilities."*
 
-★★ **La idea del dueno es correcta y mejor que la objecion original de este
+★★ **La idea del propietario es correcta y mejor que la objecion original de este
 documento.** Decir "W+X contradice el modelo" era mirar solo el caso malo. Lo
 que hace falta no es W+X -- es **W^X con transicion explicita**, y eso no
 contradice las capabilities: **es exactamente como se expresan.**
@@ -537,7 +537,7 @@ y el sistema **nunca** ha entregado una pagina W+X. Es lo que hacen macOS
 derecho es un objeto y no un bit de una `mmap`.
 
 **No sirve a la banca ni desbloquea Chrome por si solo.** Pero es una pieza de
-diseno que estaba mal descartada, y descartarla mal habria cerrado una puerta
+esquema que estaba mal descartada, y descartarla mal habria cerrado una puerta
 por un motivo falso.
 
 ---
@@ -548,7 +548,7 @@ Ordenado por **piezas que faltan de verdad**, no por piezas totales:
 
 | Hueco | Piezas | Ya escritas | **Faltan** | Sirve al banco? |
 |---|---|---|---|---|
-| **Las 3 ops de `KIND_ARCHIVO`** | 3 | 0 | **3 pequenas** | ★★★ |
+| **Las 3 ops de `KIND_ARCHIVO`** | 3 | 0 | **3 chicas** | ★★★ |
 | **El enlazador** | 5 | 1 | **4** | ★★★ |
 | **ESTRATOS escribir** | 5 | 1 | **4**, una gorda | ★★★ |
 | El JIT sin romper capabilities | 3 | 0 | 3 | ✗ |

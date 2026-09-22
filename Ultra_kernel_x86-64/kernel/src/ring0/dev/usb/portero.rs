@@ -14,7 +14,7 @@
 //!
 //! # *** POR QUE ESTE FICHERO EXISTE
 //!
-//! El dueno lo pidio el 2026-09-07 con la imagen entera dentro de la frase:
+//! El propietario lo pidio el 2026-09-07 con la imagen entera dentro de la frase:
 //!
 //! > *"es como un guardian con que busca nombres y papeles, y si no sale le
 //! > avisa al kernel y ya"*
@@ -77,7 +77,7 @@ struct Ficha {
     /// El NOMBRE: `idVendor`/`idProduct`. Cero = no se pudo leer.
     ///
     /// Clase y subclase dicen QUE es --un HID de arranque--; solo esto dice
-    /// CUAL es. Es lo que Windows ensena como `USB\VID_046D&PID_C077`, y sin
+    /// CUAL es. Es lo que Windows muestra como `USB\VID_046D&PID_C077`, y sin
     /// ello un aparato rechazado no se puede ni buscar.
     vid: u16,
     pid: u16,
@@ -129,7 +129,7 @@ pub fn escritas() -> u64 {
 /// ya llenan los 64 bits.
 ///
 /// Existe para `save`: el libro se escribia y solo se podia leer en F11, y el
-/// dueno vive en el escritorio.
+/// propietario vive en el escritorio.
 pub fn papeles_de(i: usize) -> u64 {
     match ficha(i) {
         Some(f) => ((f.vid as u64) << 48)

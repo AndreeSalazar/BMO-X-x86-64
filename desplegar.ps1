@@ -2,18 +2,18 @@
 #
 # == Por que existe, en vez de quitar el flag ==
 #
-# El dueno lo pidio asi: *"el build.ps1, puedes quitar la escritura? da
+# El propietario lo pidio asi: *"el build.ps1, puedes quitar la escritura? da
 # flojera"*. Y tenia razon en la molestia -- escribir `.\bmo.ps1 -Desplegar`
 # veinte veces al dia cansa -- pero el arreglo NO es que `bmo.ps1` escriba por
-# defecto, y el motivo no es el dueno: es quien MAS lo ejecuta.
+# defecto, y el motivo no es el propietario: es quien MAS lo ejecuta.
 #
 # `bmo.ps1` se corre una docena de veces por sesion solo para ver si compila.
 # Si desplegar fuera el defecto, **cada comprobacion de compilacion seria una
-# escritura en disco**. El flag no esta ahi para que el dueno lo teclee: esta
+# escritura en disco**. El flag no esta ahi para que el propietario lo teclee: esta
 # para que un `bmo.ps1` suelto --tecleado por quien sea, o por un script-- no
 # toque nunca un disco.
 #
-# > En esta maquina el NVMe es el Windows del dueno. La orden que escribe es la
+# > En esta maquina el NVMe es el Windows del propietario. La orden que escribe es la
 # > unica de este repositorio capaz de estropear algo que no es suyo.
 #
 # Asi que se separa lo que de verdad estaba junto: **la SEGURIDAD se queda y la
@@ -42,7 +42,7 @@ param(
 # el relevo, y el despliegue preguntaba igual.
 #
 # ** Y es la peor clase de fallo de esta casa: **algo que se acepta y no hace
-# nada**. Ni un error, ni un aviso -- el dueno tecleo la bandera que el mismo
+# nada**. Ni un error, ni un aviso -- el propietario tecleo la bandera que el mismo
 # habia pedido y penso que la pregunta era irremediable.
 #
 # La cabecera de arriba lo decia y no lo cumplia: *"todo lo demas se pasa tal

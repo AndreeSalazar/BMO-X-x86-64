@@ -77,7 +77,7 @@ pub const SUP_BUZON_RANURA: u64 = 8;
 pub const SUP_EV_RATON: u64 = 0x8000_0000_0000_0000;
 /// Bit 62: el evento es una LETRA (Latin-1) ya cocinada por el kernel.
 pub const SUP_EV_CARACTER: u64 = 0x4000_0000_0000_0000;
-/// Bit 61: la ventana cambio de estado (`SUP_ESTADO_*`) o de tamano.
+/// Bit 61: la ventana cambio de estado (`SUP_ESTADO_*`) o de medida.
 pub const SUP_EV_CONFIGURE: u64 = 0x2000_0000_0000_0000;
 
 /// `SUP_EV_CONFIGURE`: es una ventana normal.

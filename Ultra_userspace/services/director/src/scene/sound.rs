@@ -3,10 +3,10 @@
 //! [consumo] APARATO   reclama `KIND_AUDIO` --que es EXCLUSIVO-- al abrir la
 //!                     ventana y lo suelta al cerrarla. Mientras este abierta,
 //!                     ningun programa lanzado puede sonar, y eso esta
-//!                     explicado abajo: es huesped del aparato, no su dueno
+//!                     explicado abajo: es huesped del aparato, no su propietario
 //!                     (L6h)
 //!
-//! === Lo que ensena, y por que ese orden ===
+//! === Lo que muestra, y por que ese orden ===
 //!
 //! Arriba el APARATO, porque es la pregunta que decide todo lo demas: si no hay
 //! camino, el volumen y las notas no significan nada. Debajo el volumen, y
@@ -28,7 +28,7 @@
 //! `PANTALLA_SOLTAR` despues, con el fallo delante.
 //!
 //! Aqui se hace al reves desde el primer dia: **se toma al abrir y se devuelve
-//! al cerrar**. La ventana es un huesped del aparato, no su dueno. Por eso
+//! al cerrar**. La ventana es un huesped del aparato, no su propietario. Por eso
 //! `Sonido::release` existia antes de que hubiera nadie que lo llamara.
 //!
 //! === Por que F10 ===
@@ -43,7 +43,7 @@ use super::chrome::Chrome;
 use super::*;
 use crate::text::decimal;
 
-// Proporcion de la pantalla y no un tamano fijo, como las demas: ver
+// Proporcion de la pantalla y no un medida fijo, como las demas: ver
 // `docs/identidad/LIDERES.md`. Los minimos existen para que no se pueda dejar
 // inservible con el raton -- el teclado de abajo son siete teclas de 52 px y
 // por debajo de eso no se puede tocar.

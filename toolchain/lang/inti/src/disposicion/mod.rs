@@ -304,8 +304,8 @@ impl Plano {
             // Si `texto` llegara a tener una fila en `medidas.toml` --por un
             // mod, o por un descuido-- ganaria la fila y un campo de texto
             // mediria lo que dijera ese numero. Y estaria MAL: lo que crece no
-            // cabe en un campo de tamano fijo, se mire como se mire. Preguntando
-            // por aqui primero, ese numero no puede hacer dano; preguntando
+            // cabe en un campo de medida fijo, se mire como se mire. Preguntando
+            // por aqui primero, ese numero no puede hacer perjuicio; preguntando
             // despues, lo haria en silencio.
             Tipo::Nombre(n) if self.crece(n) => self.medidas.de("referencia"),
             Tipo::Nombre(n) => self

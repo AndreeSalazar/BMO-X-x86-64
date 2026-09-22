@@ -90,7 +90,7 @@ pub const ERROR_NO_ADMITIDO: u32 = 23;
 
 /// Todo lo que se supo del intento, salga bien o mal.
 ///
-/// El origen y el tamano se rellenan aunque el gate rechace despues: el shell
+/// El origen y el medida se rellenan aunque el gate rechace despues: el shell
 /// los pintaba ANTES de comprobar la firma y esa informacion sigue siendo util
 /// cuando el rechazo llega. Un informe que solo habla cuando todo va bien no
 /// sirve para depurar nada.
@@ -392,7 +392,7 @@ impl Fuente {
     /// El arreglo no es dejar que el cursor retroceda --eso mata la garantia
     /// para todo el mundo por dos lecturas-- sino **reconocer que son dos
     /// patrones de acceso distintos**: uno secuencial y grande (las secciones) y
-    /// otro suelto y pequeno (las dos tablas). Cada uno con su cursor.
+    /// otro suelto y chico (las dos tablas). Cada uno con su cursor.
     ///
     /// Cuesta un recorrido de la cadena por llamada, y se llama **dos veces por
     /// carga**. El flujo de las secciones -- que es el 99,9% de los bytes --
@@ -424,7 +424,7 @@ impl Fuente {
     }
 
     /// Lo que mide el archivo. `0` si no se encontro.
-    pub fn tamano(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             Fuente::Fat32 { tam, .. } => *tam as usize,
             Fuente::Estratos(_) => 0,
@@ -451,7 +451,7 @@ impl Fuente {
         }
     }
 
-    /// **Lo que hace falta de verdad.** `(leidos, tamano real, veredicto)`.
+    /// **Lo que hace falta de verdad.** `(leidos, medida real, veredicto)`.
     ///
     /// El veredicto es la unica asimetria real entre los dos: en ESTRATOS todos
     /// los bytes le pasan al hasher por delante en la misma pasada, asi que la
@@ -487,7 +487,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     // recurso compartido entero, que es lo unico que obliga a `EN_USO` a
     // serializar la maquina.
     //
-    // Aqui es un local, y el tamano no es una eleccion: la cabecera son 48 bytes
+    // Aqui es un local, y el medida no es una eleccion: la cabecera son 48 bytes
     // y la tabla como mucho `16 * 48`, o sea **816 bytes que salen del formato**.
     // Dos kilos dejan sitio a que ese contrato crezca, y contra los 64 KiB de
     // pila del kernel es el 3%.
@@ -544,7 +544,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     // candado se va con la mesa: sin recurso compartido no hay nada que
     // serializar. Ver `Fuente::rango`.
     if fuente.por_rangos() {
-        let tam = fuente.tamano();
+        let tam = fuente.size();
         // ** DE DONDE SE VA A LEER, dicho ANTES de leer.
         //
         // El 2026-08-11 el sistema supo decir que los ocho primeros bytes no eran
@@ -678,7 +678,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
         crate::ring0::cabina::info("lanzar", "bytes que tuvieron que rebotar", r1 - r0);
     }
     // ** Y si alguien mas queria el disco mientras. Cada una de estas esperas
-    // era, antes de que el disco tuviera dueno, **una lectura que se solapaba
+    // era, antes de que el disco tuviera propietario, **una lectura que se solapaba
     // con otra sobre la misma ranura del HBA**. El numero es la prueba de que
     // el candado hacia falta; el cero, la de que no estorba.
     // ** Y si el disco AVISO por su cuenta o hubo que seguir preguntandole.
@@ -716,7 +716,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     // firmado por un desconocido; y uno firmado por quien toca puede llegar a
     // medias. Un gate solo dejaria una de las dos sin contestar.
     //
-    // section 7 del diseno de ESTRATOS: `open(nodo, EJECUTAR)` comprueba `:firma` y
+    // section 7 del esquema de ESTRATOS: `open(nodo, EJECUTAR)` comprueba `:firma` y
     // si no cuadra NO entrega un handle ejecutable. Se aplica antes de admitir
     // nada, que es el unico momento en que sirve de algo.
     //
@@ -755,7 +755,7 @@ fn con_buffer(path: &str, autoridad: u64) -> Informe {
     // `BEF1` legible. Si despues de la larga ya no lo es, ningun fichero ha
     // cambiado en el disco entre las dos: **lo que fallo fue traerlo**.
     //
-    // Eso no es una linea de depuracion que se anade para una foto y se quita.
+    // Eso no es una linea de depuracion que se agrega para una foto y se quita.
     // Es la unica conclusion que esta funcion esta en posicion de sacar, y
     // callarla fue lo que costo la tanda de fotos del 2026-08-10. Ver
     // `docs/identidad/EL_CONTRATO_DE_CARGA.md`, pieza A.

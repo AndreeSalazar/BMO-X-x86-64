@@ -29,7 +29,7 @@
 //! ```
 //!
 //! **No compiten: escalan distinto.** Emitir en linea es perfecto para las
-//! seis funciones que un programa pequeno usa --y por eso es lo que corre hoy--
+//! seis funciones que un programa chico usa --y por eso es lo que corre hoy--
 //! y deja de serlo en cuanto un programa usa doscientas. DOOM no es un
 //! programa que llame a `memcpy`: es un programa que llama a media libc, y
 //! meterle una copia de cada funcion en cada sitio de llamada infla la imagen
@@ -38,7 +38,7 @@
 //! La regla que decide, y que hay que aplicar funcion por funcion:
 //!
 //! > **En linea lo que no tiene semantica de lenguaje y se usa poco. Enlazado
-//! > lo que tiene estado, tamano, o se llama desde muchos sitios.**
+//! > lo que tiene estado, medida, o se llama desde muchos sitios.**
 //!
 //! `malloc` es el ejemplo claro: tiene **estado** (la lista de libres). Emitirlo
 //! en linea significaria un monton por sitio de llamada, que no es un monton.
@@ -77,7 +77,7 @@
 //! incluido `test_many_small_allocs`) esta **probado de verdad**, y eso es lo
 //! unico que cambio de estado -- la misma categoria que las seis librerias
 //! que se borraron el 2026-08-02, y se conserva por una razon concreta y no
-//! por carino: es **el punto 12 de la hoja de ruta**, lo que DOOM necesita, y
+//! por afecto: es **el punto 12 de la hoja de ruta**, lo que DOOM necesita, y
 //! esta escrito.
 //!
 //! Lo que le falta para ser una libc de verdad, en orden de lo que mas duele:
@@ -115,7 +115,7 @@ pub mod fmt;
 /// antes de ejecutar nada.
 ///
 /// Por eso los 6 tests del monton **no habian corrido nunca**: no fallaban,
-/// que seria una senal -- es que no llegaban a existir. `cargo test -p bmo-rt`
+/// que seria una signal -- es que no llegaban a existir. `cargo test -p bmo-rt`
 /// no imprimia ni un `test result:`, y "escrita y probada" era una hipotesis.
 #[cfg(not(test))]
 pub mod crt0;

@@ -1,4 +1,4 @@
-//! **El compositor de BMO.** El proceso Ring 3 que es dueno de la pantalla.
+//! **El compositor de BMO.** El proceso Ring 3 que es propietario de la pantalla.
 //!
 //! [consumo] LATE      el bucle del escritorio: mil vueltas por segundo sobre
 //!                     el LATIDO, y en cada una sondea la entrada. Donde
@@ -8,12 +8,12 @@
 //!
 //! No hay terminal. Habia uno planeado --`apps/terminal`, doce lineas de
 //! esqueleto-- y se ha quitado, porque un terminal de verdad es una pila entera:
-//! scrollback, PTY, senales, un interprete, edicion de linea, historial. Nada de
+//! scrollback, PTY, signales, un interprete, edicion de linea, historial. Nada de
 //! eso hace falta para lo unico que hoy se quiere hacer desde la pantalla, que
 //! es **arrancar un programa**.
 //!
 //! Asi que lo que hay es una caja de una linea, como el `Win+R` de Windows.
-//! Escribes una ruta, pulsas Enter, y el `.bex` corre. Es la forma mas pequena
+//! Escribes una ruta, pulsas Enter, y el `.bex` corre. Es la forma mas chica
 //! de "terminal" que sigue siendo util, y no arrastra nada de lo otro.
 //!
 //! * Y no es una API prestada de nadie: `Win+R` tampoco lo es alli. Es UI del
@@ -63,7 +63,7 @@ use bmo_userland as bmo;
 // ** LOS NOMBRES SON INGLESES DESDE EL 2026-08-14, y la frontera de ese
 // cambio es la comilla: un identificador es un CONTRATO --puede tener gemelo
 // en `bmo-userland`, en `bmo-input` o en el `.bex`-- y una cadena es SALIDA,
-// que se queda en espanol porque es lo que se lee en pantalla.
+// que se queda en castellano porque es lo que se lee en pantalla.
 //
 // Lo que NO se toco, a proposito:
 //
@@ -97,7 +97,7 @@ use watch::{watch_run, Run};
 /// a un Windows y se abre con el bloc de notas. Ese es el motivo entero de que
 /// esto exista: hasta hoy, saber que habia hecho una corrida de BMO-X era
 /// hacerle una foto a la pantalla. Una foto no se compara con la de ayer, no se
-/// busca dentro, y no se le puede ensenar a nadie que no este delante.
+/// busca dentro, y no se le puede mostrar a nadie que no este delante.
 ///
 /// **No va a ESTRATOS aunque ESTRATOS sea el sistema de ficheros bueno**, y no
 /// es una concesion: ningun otro sistema operativo sabe leerlo. Un volcado que
@@ -214,7 +214,7 @@ fn save_autopsies(vistos: &mut u64) -> bool {
     *vistos = total;
     let Ok(a) = bmo::Archivo::create(b"datos/fallos.txt") else {
         // Sin fichero no se pierde el informe: sigue en el kernel y `fallo` lo
-        // ensena. Se contesta `true` igual porque el fallo SI ocurrio, que es
+        // muestra. Se contesta `true` igual porque el fallo SI ocurrio, que es
         // lo que el que mira la pantalla tiene que saber.
         return true;
     };
@@ -288,7 +288,7 @@ pub(crate) fn dump_output(output: &Output, path: &[u8], from: usize, to: usize) 
         let line = output.line(f);
         bytes += a.write(line);
         // `\r\n` y no `\n`: esto lo va a abrir el bloc de notas de Windows, y
-        // el Notepad viejo ensena un archivo con saltos de Unix como una sola
+        // el Notepad viejo muestra un archivo con saltos de Unix como una sola
         // linea kilometrica. Aqui el destinatario manda sobre la elegancia.
         bytes += a.write(b"\r\n");
     }
@@ -353,7 +353,7 @@ pub(crate) fn uncover(
     // Se repinta entera aunque lo borrado no la tocara. Cuesta unos 6.000
     // tests de pixel; lo que acaba de pasar por delante fueron 325.000
     // escrituras pixel a pixel, asi que no es donde esta el gasto. Recortarlo
-    // al area danada es el trabajo del `.maqueta` -- ver PLAN_LA_CARA_VIAJA.
+    // al area perjudicada es el trabajo del `.maqueta` -- ver PLAN_LA_CARA_VIAJA.
     //
     // ** Y NO se repinta si la caja la tapa entera, y eso no es ahorro: es
     // CORRECCION. La rejilla va por debajo de las ventanas, asi que pintarla
@@ -398,12 +398,12 @@ pub(crate) fn uncover(
 ///
 /// # Por que esto es lo que hacia falta, y `presta` no
 ///
-/// `presta <path>` funcionaba y era el diseno equivocado: ponia la POLITICA en
+/// `presta <path>` funcionaba y era el esquema equivocado: ponia la POLITICA en
 /// los dedos del usuario, que tenia que saberse de memoria que programas son
 /// graficos. Con la bandera, **el compositor decide** -- que es su trabajo, y la
 /// razon de que exista un compositor.
 ///
-/// Tres capas, cada una con lo suyo: el kernel arbitra (un dueno, `release`), el
+/// Tres capas, cada una con lo suyo: el kernel arbitra (un propietario, `release`), el
 /// BEF declara, y aqui se manda. La misma separacion que un planificador de GPU:
 /// el hardware no sabe que es importante, el planificador si.
 ///
@@ -463,7 +463,7 @@ const fn bmo_abi_magic() -> u32 {
 /// se la quitamos al programa antes de que llegue a pedirla. Reclamar para
 /// averiguar si esta libre te la deja puesta.
 ///
-/// De ahi `INFO_PANTALLA_DUENO`, que contesta el `pid` del dueno (o `0`) sin
+/// De ahi `INFO_PANTALLA_DUENO`, que contesta el `pid` del propietario (o `0`) sin
 /// tocar nada.
 ///
 /// # Y por que no vale `has_child()`
@@ -472,7 +472,7 @@ const fn bmo_abi_magic() -> u32 {
 /// vivo"* -- lo dice el vigilante de la corrida en este mismo archivo. `ray.bex`
 /// dibuja durante minutos sin imprimir una letra, asi que esperarlo por ahi
 /// habria vuelto en el primer fotograma. Lo que si es exacto es la propiedad de
-/// la pantalla: el kernel la libera en `fb::process_died`, o sea que el dueno
+/// la pantalla: el kernel la libera en `fb::process_died`, o sea que el propietario
 /// volviendo a `0` **es** el programa terminando.
 ///
 /// # Las dos fases, y el tope de la primera
@@ -635,7 +635,7 @@ fn lend_screen(
         Some((p, e))
     };
     if !p.release() {
-        // No eramos el dueno: raro, pero no se sigue a ciegas. Se intenta
+        // No eramos el propietario: raro, pero no se sigue a ciegas. Se intenta
         // recuperar y punto.
         return recover();
     }
@@ -675,7 +675,7 @@ fn lend_screen(
     // Y lo que pasaba al vencer el plazo no era esperar de mas: era lo
     // contrario. El escritorio decidia *"no la queria"*, **volvia a reclamar la
     // pantalla**, y cuando DOOM por fin la pedia se encontraba con que ya tenia
-    // dueno -> `DOOM: no hay pantalla (la tiene otro proceso)`. O sea que el
+    // propietario -> `DOOM: no hay pantalla (la tiene otro proceso)`. O sea que el
     // unico camino que sabe devolver la pantalla al escritorio era justo el que
     // no se podia usar, y habia que lanzar desde el shell de Ring 0 -- donde no
     // hay nadie que la recupere y se acaba en el panel del kernel.
@@ -719,7 +719,7 @@ fn lend_screen(
         // Este bucle dura **lo que dure el programa** -- una partida entera de
         // DOOM. Y hasta hoy era `yield_screen()` a pelo, o sea que el
         // escritorio se quedaba en la lista de LISTOS dando vueltas: pide el
-        // dueno de la pantalla, cede, y el planificador se lo vuelve a
+        // propietario de la pantalla, cede, y el planificador se lo vuelve a
         // encontrar en la siguiente ronda. No quema el quantum --ceder es lo
         // correcto-- pero **sigue siendo una tarea despierta que no tiene nada
         // que hacer**, y cada vuelta son dos syscalls y dos cambios de
@@ -738,7 +738,7 @@ fn lend_screen(
 
     // == *** FASE 3: DEVOLVER LA PANTALLA TERMINA EL PRESTAMO ================
     //
-    // ** El dueno lo dijo asi: *"no me deja cerrar el juego"*, *"la pantalla no
+    // ** El propietario lo dijo asi: *"no me deja cerrar el juego"*, *"la pantalla no
     // tengo control cuando entro"*.
     //
     // Y no le faltaba una tecla: le faltaba ESTO. `Ctrl+Alt+Esc` en Ring 0
@@ -817,14 +817,14 @@ pub extern "C" fn _start() -> ! {
         // que ya existia y ninguna cola nueva.
         // *** Y LO QUE PASE SE DICE EN LA CAJA, no en el panel del kernel.
         //
-        // El 12-09 el dueno tuvo DOOM corriendo a 68 fps, publicando sus
+        // El 12-09 el propietario tuvo DOOM corriendo a 68 fps, publicando sus
         // fotogramas, y **sin ventana**. El escritorio no tenia una sola linea
         // que decir, y el instrumento que yo habia puesto --el veredicto de la
         // VISTA-- escribia por `bmo::consola`, o sea al PANEL DEL KERNEL (F11).
         // Estaba mirando la ventana correcta para DOOM y la equivocada para mi
         // instrumento.
         //
-        // ** Un instrumento que no sale donde mira el dueno no es un
+        // ** Un instrumento que no sale donde mira el propietario no es un
         // instrumento: es una nota para mi. Estas tres lineas salen en la caja
         // de Ejecutar, que es donde ya estaba mirando.
         let mut born = false;
@@ -844,9 +844,9 @@ pub extern "C" fn _start() -> ! {
             // ** LAS CUATRO RANURAS LLENAS. La app se queda ofrecida para
             // siempre y hasta hoy nadie lo decia -- el sintoma es "abri una
             // quinta ventana y no salio".
-            // ** LA APP CONTESTO A UN CONFIGURE: cambio de tamano en su misma
+            // ** LA APP CONTESTO A UN CONFIGURE: cambio de medida en su misma
             // ventana. No se le da el foco otra vez -- ya lo tenia o no, y un
-            // cambio de tamano no es motivo para robarselo a nadie.
+            // cambio de medida no es motivo para robarselo a nadie.
             scene::surface::Adopcion::Reconfigurada { tid, ancho, alto } => {
                 born = true;
                 let mut l = [0u8; 64];
@@ -868,7 +868,7 @@ pub extern "C" fn _start() -> ! {
             }
             scene::surface::Adopcion::NadieOfrece => {}
         }
-        // Y las que se quedaron sin dueno. Va ANTES de pintar nada: la ventana
+        // Y las que se quedaron sin propietario. Va ANTES de pintar nada: la ventana
         // de una app muerta tiene que desaparecer en el mismo fotograma en que
         // se sabe, no en el siguiente.
         let dead = dsk.table.reap_dead(&mut dsk.tick.dead_boxes);
@@ -877,7 +877,7 @@ pub extern "C" fn _start() -> ! {
         // DIRECTOR decide que se ve de cada caja y se lo deja a su app en el
         // buzon; la que vuelve a verse se repega con lo ultimo que entrego. Y a
         // la que sigue pintando oculta se la acusa, una vez por racha.
-        // ** Y EL VEREDICTO SALE EN LA CAJA, que es donde mira el dueno.
+        // ** Y EL VEREDICTO SALE EN LA CAJA, que es donde mira el propietario.
         let (_, cambio) = dsk.table.vistas(&p);
         if let Some((tid, nombre)) = cambio {
             let mut l = [0u8; 48];
@@ -940,7 +940,7 @@ pub extern "C" fn _start() -> ! {
         // la entrada llegaba cada doce mil iteraciones -- segundos en esta
         // maquina.
         //
-        // El dueno lo describio sin saber que describia esta linea:
+        // El propietario lo describio sin saber que describia esta linea:
         //
         // > *"los FPS dependen de un teclado que no tiene sentido"*
         //
@@ -1108,7 +1108,7 @@ pub extern "C" fn _start() -> ! {
                     // [!] Este codigo tapa DOS causas: que el
                     // archivo no este, y que este pero no se
                     // pueda cargar --por ejemplo si pasa de
-                    // `MAX_BEX`, 1 MiB--. Le paso al dueno con
+                    // `MAX_BEX`, 1 MiB--. Le paso al propietario con
                     // `c/read.bex`, que SALIA EN `ls` y aqui
                     // decia que no estaba.
                     //

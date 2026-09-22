@@ -186,7 +186,7 @@ impl Codegen {
         self.emit_store_elem_desde_rax_en_rdx(tipo, offset);
     }
 
-    /// `[rdx + disp] = rax`, con el tamano exacto del elemento.
+    /// `[rdx + disp] = rax`, con el medida exacto del elemento.
     pub(super) fn emit_store_elem_desde_rax_en_rdx(&mut self, elem: &TypeSpec, disp: u32) {
         let op: &[u8] = match self.type_stack_size(elem) {
             1 => &[0x88],
@@ -213,7 +213,7 @@ impl Codegen {
         false
     }
 
-    /// Tipo del elemento de un array/puntero (para cargas/stores del tamano exacto).
+    /// Tipo del elemento de un array/puntero (para cargas/stores del medida exacto).
     /// El tipo del ELEMENTO de `name[i]`.
     ///
     /// ** AQUI TAMPOCO SE ADIVINA, y este sitio casi se escapa: su suposicion
@@ -238,7 +238,7 @@ impl Codegen {
     }
 
     /// rax = rax * scale (shl si es potencia de 2; imul si no -- structs)
-    /// * Escalar el indice por el tamano de UN paso.
+    /// * Escalar el indice por el medida de UN paso.
     ///
     /// El paso ya no cabe siempre en un byte: en `int grid[2][3]` un paso del
     /// indice de fuera es una FILA entera --doce bytes--, y en
@@ -339,7 +339,7 @@ impl Codegen {
         self.code.extend_from_slice(&[0x48, 0x01, 0xD0]); // add rax, rdx
     }
 
-    /// Carga [rax] -> rax con el tamano y signo EXACTOS del elemento.
+    /// Carga [rax] -> rax con el medida y signo EXACTOS del elemento.
     /// Antes siempre era `mov rax,[rax]` (8 bytes): leer int[i] traia basura vecina.
     pub(super) fn emit_load_elem(&mut self, elem: &TypeSpec) {
         match elem {
@@ -355,7 +355,7 @@ impl Codegen {
         }
     }
 
-    /// Guarda rdx -> [rax] con el tamano EXACTO del elemento.
+    /// Guarda rdx -> [rax] con el medida EXACTO del elemento.
     /// Antes un store de 8 bytes a int[i] pisaba el elemento siguiente.
     /// **La direccion de `name[index]` en `dst`** (0 = rax, 2 = rdx), sin
     /// pila y con la escala dentro del `lea` (2026-09-18, noche):
@@ -392,7 +392,7 @@ impl Codegen {
         true
     }
 
-    /// `[rdx] = rax`, con el tamano exacto del elemento: la pareja de
+    /// `[rdx] = rax`, con el medida exacto del elemento: la pareja de
     /// `emit_store_elem` para cuando la DIRECCION esta en rdx y el valor en rax.
     pub(super) fn emit_store_elem_desde_rax(&mut self, elem: &TypeSpec) {
         match self.type_stack_size(elem) {
@@ -420,7 +420,7 @@ impl Codegen {
     /// ```text
     ///   direccion de E1  -> rax     UNA vez. Aqui corren los efectos de E1.
     ///   push rax                    la direccion se guarda; nada la vuelve a calcular
-    ///   load [rax]       -> rax     el valor viejo, con el tamano exacto del elemento
+    ///   load [rax]       -> rax     el valor viejo, con el medida exacto del elemento
     ///   push rax
     ///   E2               -> rax     el operando derecho
     ///   pop rdx                     rdx = viejo, rax = derecho
@@ -436,7 +436,7 @@ impl Codegen {
     /// ejecutar el `i++` del indice.
     ///
     /// [!] Y `<op>` se pide a la misma funcion que sirve al operador binario, no
-    /// a una copia: si manana `>>=` tiene que distinguir el signo, lo hereda. Una
+    /// a una copia: si luego `>>=` tiene que distinguir el signo, lo hereda. Una
     /// segunda tabla de operaciones seria una segunda tabla donde equivocarse.
     pub(super) fn emit_assign_op(&mut self, lvalue: &Expr, kind: AssignOpKind, rhs: &Expr) {
         // El tipo del elemento decide el ancho del load y del store. Sacarlo del

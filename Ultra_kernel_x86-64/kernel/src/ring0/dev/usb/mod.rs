@@ -1,6 +1,6 @@
 //! USB HID bridge: xHCI controller + boot-protocol keyboard/mouse en Ring 0.
 //!
-//! [carril]  ROJO      el xHCI y el puente HID: el teclado del dueno cuelga de aqui
+//! [carril]  ROJO      el xHCI y el puente HID: el teclado del propietario cuelga de aqui
 //! [consumo] NADA      el puente HID: corre cuando alguien pregunta por una
 //!                     tecla
 //!
@@ -39,7 +39,7 @@ use crate::ring0::dev::keyboard;
 // tiene de todo el kernel, o sea tambien el peor bloqueante de SMP. Y no era un
 // fichero grande: eran cuatro trabajos distintos compartiendo un cajon.
 //
-// La regla de esta casa es MODULAR, y el dueno la nombro por su nombre:
+// La regla de esta casa es MODULAR, y el propietario la nombro por su nombre:
 // *"si el xHCI esta mezclado con el mouse y el teclado y audifono ME VA A ROMPER
 // EL HUEVO para modificar luego"*.
 //
@@ -77,7 +77,7 @@ pub mod salud;
 /// **EL PORTERO**: el libro de quien llego y que se le contesto. No decide
 /// nada -- el veredicto lo toma `bmo_uhid`; esto lo apunta y lo dice UNA vez.
 pub mod portero;
-/// El atajo que le devuelve la maquina al dueno. Politica, no driver.
+/// El atajo que le devuelve la maquina al propietario. Politica, no driver.
 pub mod rescate;
 
 pub use bus::{bus_stats, bus_thread, latido_peor, latido_peor_cuando, nombre_de_trabajo, peor_trabajo, ritmo, ritmo_y_peor, start_bus_thread};
@@ -250,7 +250,7 @@ static mut HID: UsbHidHal = UsbHidHal::new(); // [escribe] bombeo
 static mut READY: bool = false; // [escribe] arranque
 static mut SHIFT: bool = false; // [escribe] bombeo
 static mut CAPS: bool = false; // [escribe] bombeo
-/// AltGr mantenido (Alt derecho): abre el tercer nivel del teclado espanol.
+/// AltGr mantenido (Alt derecho): abre el tercer nivel del teclado castellano.
 static mut ALTGR: bool = false; // [escribe] bombeo
 /// Ctrl mantenido (cualquiera de los dos).
 static mut CTRL: bool = false; // [escribe] bombeo
@@ -293,7 +293,7 @@ static mut HELD_CODE: u8 = 0; // [escribe] bombeo
 ///
 /// # *** EL FALLO QUE ESTO CIERRA, y es de raiz
 ///
-/// El dueno: *"aunque funcione a veces no me responde... es como reinicio
+/// El propietario: *"aunque funcione a veces no me responde... es como reinicio
 /// constante para mi kernel que deje entrar"*.
 ///
 /// ** Los modificadores se ACUMULAN desde make/break, al estilo PS/2:
@@ -317,7 +317,7 @@ static mut HELD_CODE: u8 = 0; // [escribe] bombeo
 ///
 /// [!] `CAPS` tambien se olvida, y eso es una decision: es un `toggle` y su LED
 /// vive en el aparato. Al reconectar, el teclado nuevo llega con su LED apagado,
-/// asi que quedarse con el `true` de antes seria mentir sobre lo que el dueno
+/// asi que quedarse con el `true` de antes seria mentir sobre lo que el propietario
 /// ve encendido en su mesa.
 pub fn olvidar_estado_de_teclado(motivo: &'static str) {
     let colgados = unsafe {
@@ -391,7 +391,7 @@ static HID_EVENTS: AtomicU32 = AtomicU32::new(0);   // no TOTAL de InputEvents d
 /// entrega el panel.
 ///
 /// [!] Y tampoco vale hacerlo al primer movimiento. Eso centraria el puntero
-/// **cuando el dueno ya lo esta moviendo**, o sea un salto en la cara. El sitio
+/// **cuando el propietario ya lo esta moviendo**, o sea un salto en la cara. El sitio
 /// es cuando aparece el escritorio, que es cuando el puntero se ve por primera
 /// vez y todavia no lo ha tocado nadie.
 ///
@@ -483,7 +483,7 @@ fn poll_ascii_interno() -> Option<u8> {
 ///
 /// *** POR QUE EXISTE ESTA PUERTA (2026-08-24)
 ///
-/// El dueno corrio `smp prueba` en el Ryzen y **la maquina dejo de hacerle
+/// El propietario corrio `smp prueba` en el Ryzen y **la maquina dejo de hacerle
 /// caso**: el teclado se quedo mudo y `reboot` no llego nunca al kernel. Los
 /// tres sintomas eran UNO.
 ///
@@ -587,7 +587,7 @@ fn repartir_eventos(evs: &[InputEvent]) {
                     unsafe { SHIFT = true };
                     continue;
                 }
-                // AltGr: el tercer nivel del teclado espanol. Llega con
+                // AltGr: el tercer nivel del teclado castellano. Llega con
                 // codigo propio (ver bmo_uhid::SC_ALTGR) para no confundirse
                 // con el Alt izquierdo.
                 if ev.code == bmo_uhid::SC_ALTGR {
@@ -650,7 +650,7 @@ fn repartir_eventos(evs: &[InputEvent]) {
                 // contra el borde, cobrandose.
                 //
                 // El recorte tiene que estar DONDE SE SUMA. Recortar al leer
-                // ensena bien el numero y deja el estado mintiendo, que es la
+                // muestra bien el numero y deja el estado mintiendo, que es la
                 // forma mas cara de tener razon.
                 let (ancho, alto) = (
                     crate::info::FB_WIDTH.max(1) as i32 - 1,

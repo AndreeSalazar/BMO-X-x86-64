@@ -23,7 +23,7 @@
 //!                                 recompone las apps, que van encima
 //! ```
 //!
-//! Treinta llamadas no tienen que acordarse de nada: la que se escriba manana
+//! Treinta llamadas no tienen que acordarse de nada: la que se escriba luego
 //! tambien queda cubierta, porque borrar YA es apuntar.
 //!
 //! Se guardan hasta OCHO rectangulos sueltos y no su envolvente: arrastrar una

@@ -15,14 +15,14 @@
 //! hecho a mano que partia lineas por `=` e IGNORABA las secciones: metia
 //! `[features]`, `[type_rules]` y `[predefined_macros]` en el mismo saco.
 //! Funcionaba porque ninguna clave se repetia entre secciones -- por suerte,
-//! no por diseno. Y llevaba copiada la lista de rutas candidatas que un dia
+//! no por esquema. Y llevaba copiada la lista de rutas candidatas que un dia
 //! se quedo muerta y dejo el gating cayendo al default en silencio.
 //!
 //! `StandardFeatures` sigue siendo el struct de las once caracteristicas que
 //! el parser consulta a diario, porque preguntarlas por cadena en el camino
 //! caliente no mejora nada. Lo que cambia es que **ya no es la unica forma de
 //! preguntar**: `StandardFeatures::table()` da la tabla entera, y por ahi se
-//! lee cualquier clave que un mod haya anadido sin que este Rust la conozca.
+//! lee cualquier clave que un mod haya agregado sin que este Rust la conozca.
 
 use bmo_mods::{Roots, Standard};
 use std::path::Path;
@@ -82,7 +82,7 @@ pub struct StandardFeatures {
     pub implicit_function_decl: bool,
     pub return_without_value: bool,
     /// La tabla entera, si se cargo. Es la puerta a lo que este struct no
-    /// sabe: un mod que anade `mi_extension = true` se lee por aqui sin
+    /// sabe: un mod que agrega `mi_extension = true` se lee por aqui sin
     /// tocar Rust. Ver `bmo_mods`.
     tabla: Option<Standard>,
 }

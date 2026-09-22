@@ -120,7 +120,7 @@ fn informar_adopcion(puerto: u8, adopcion: bmo_uhid::Adopcion) {
         unsafe { refrescar_presencia() };
 
         // ** ADOPTADO NO ES LO MISMO QUE VIVO, y el metal del 12-08 lo
-        // enseno: la adopcion salio bien --esta linea de arriba-- y el
+        // mostro: la adopcion salio bien --esta linea de arriba-- y el
         // teclado seguia sin escribir.
         //
         // Entre las dos cosas hay UN paso mas: encolar la transferencia
@@ -150,10 +150,10 @@ fn informar_adopcion(puerto: u8, adopcion: bmo_uhid::Adopcion) {
     // -- ** NO ADOPTAR TIENE TRES MOTIVOS, Y SALIAN LOS TRES IGUAL ---------
     //
     // `puerto: ENCHUFADO, nada que adoptar` era tecnicamente cierto y contaba
-    // la historia equivocada. El dueno volvia a enchufar el teclado, salia esta
+    // la historia equivocada. El propietario volvia a enchufar el teclado, salia esta
     // linea, y la verdad era *"sigo creyendo que lo tengo"*. Se le puso al lado
     // el `creo tener teclado:raton` para que la mentira se pudiera ver -- y se
-    // vio: `=257`, o sea `0x101`, o sea "tengo los dos", con el dueno mirando un
+    // vio: `=257`, o sea `0x101`, o sea "tengo los dos", con el propietario mirando un
     // teclado que no escribia.
     //
     // Pero ver la mentira no es saber por que. `adoptar_puerto` devuelve `false`
@@ -344,7 +344,7 @@ pub(crate) fn barrer_si_toca() {
     }
     if r.descansando != 0 {
         // UNA vez por descanso. La primera version avisaba en cada evento y
-        // el Ryzen enseno un aviso cada cinco segundos (2026-09-17).
+        // el Ryzen mostro un aviso cada cinco segundos (2026-09-17).
         crate::ring0::cabina::warn("usb", "BARRIDO: puertos que no contestan y entran en descanso (5 s, y cada vez mas)", r.descansando as u64);
     }
     if r.aparcados != 0 {

@@ -4,7 +4,7 @@
 > los dos dialectos habla.**
 >
 > Escrito el **2026-08-22**, el mismo dia que la sonda contesto `reglas = 0` en
-> el Ryzen. Nace de tres frases del dueno:
+> el Ryzen. Nace de tres frases del propietario:
 >
 > > *"que mi Inti aprenda hablar el idioma de CPU a base de que tipo de perfil
 > > para respetar y asi poder hacer que la CPU ejecute las katanas"*
@@ -47,7 +47,7 @@ Toda regla anti-UB tiene tres partes, y **solo la tercera se discute**:
 |---|---|---|---|
 | **nadie** | C | 0 | el programa sigue con un numero inventado |
 | **el compilador** | INTI hoy | 1 a 6 instrucciones | atrapa |
-| **el silicio** | INTI manana, en `pleno` | **0** | atrapa |
+| **el silicio** | INTI luego, en `pleno` | **0** | atrapa |
 
 Y ahi esta el argumento entero: la columna del coste de `pleno` es **la misma
 que la de C**. Salir del comportamiento indefinido sin pagar nada es alcanzable
@@ -109,7 +109,7 @@ La Regla 1 no tiene nada que ganar: el `jo` **ya es** leerle la bandera al
 silicio. Es la prueba de que el modelo funciona, y por eso es la que corre desde
 F0.
 
-Las otras dos **pagan en software por una senal que el hardware regala**. Y no
+Las otras dos **pagan en software por una signal que el hardware regala**. Y no
 por ignorancia: el propio emisor lo tiene escrito.
 
 > *"mirar el resultado no sirve de nada porque dividir entre cero no deja
@@ -233,7 +233,7 @@ De ahi salen los dos dialectos, y **no son una preferencia: son un teorema**.
 | por que asi | **puede ser el que atiende la trampa** | tiene a quien volver |
 | si el sistema cae | sigue cortando | tambien cae |
 
-Y esto es lo que le faltaba al perfil para ser lo que el dueno pedia. Hasta hoy
+Y esto es lo que le faltaba al perfil para ser lo que el propietario pedia. Hasta hoy
 `perfil` contestaba *"que puedo ESCRIBIR"*. A partir de aqui contesta **"quien
 ejecuta mis reglas"**, que es una afirmacion sobre el binario y no sobre el
 fuente -- y por eso tiene que viajar dentro del `.bex`.
@@ -247,7 +247,7 @@ pedir** -- dicho por delante para que nadie lo proponga.
 
 ### 4.1 Lo que se puede pedir
 
-| senal | vector | para que regla | como se enciende | estado |
+| signal | vector | para que regla | como se enciende | estado |
 |---|---|---|---|---|
 | `of` / `cf` | -- | **1** desborde | ya viene puesta | **en uso** |
 | `#DE` | 0 | **3** entre cero, y el cociente de 2.4 | ya viene puesta | falta P4 |
@@ -331,7 +331,7 @@ exigirlo firmado"*. **No va.** `bmo-verify` no tiene ni la palabra.
    gate       `exige_manifiesto`  y el compilador de INTI se lo exige a SI MISMO
 ```
 
-★★★ **La ultima linea es la que impide que esto se deshaga.** Si manana alguien
+★★★ **La ultima linea es la que impide que esto se deshaga.** Si luego alguien
 rompe el cableado, el compilador **se niega a escribir el fichero** en vez de
 sacar un `.bex` correcto por dentro y mudo por fuera. No se anadio una
 comprobacion nueva: se uso el gate que ya se llamaba, con la politica puesta.
@@ -352,9 +352,9 @@ INTI es el primero que la elige sobre si mismo.**
 | lo que se pregunta | prediccion | si sale otra cosa | salio |
 |---|---|---|---|
 | **el codigo emitido** | **identico byte a byte.** El manifiesto no toca `Code` | algo del manifiesto se colo en la emision | ✅ **acertada.** Byte a byte, y el `.bex` sin manifiesto sigue midiendo **8.752** exactos |
-| **el tamano de `cpu.bex`** | crece de **8.752** a algo entre 9.000 y 9.800: el TOML son ~400 bytes, mas una entrada de tabla, mas el relleno hasta la frontera de sector | no crece = no se escribio; crece mucho mas = el TOML lleva algo que no toca | ✅ **acertada. 9.183** (predije 9.000-9.800) |
+| **el medida de `cpu.bex`** | crece de **8.752** a algo entre 9.000 y 9.800: el TOML son ~400 bytes, mas una entrada de tabla, mas el relleno hasta la frontera de sector | no crece = no se escribio; crece mucho mas = el TOML lleva algo que no toca | ✅ **acertada. 9.183** (predije 9.000-9.800) |
 | **el gate** | **sigue diciendo que si.** La seccion `Manifest` ya tiene validador (UTF-8 no vacio) desde antes de este trabajo | rechaza = el header miente sobre si mismo, y hay que mirar `validate_flag_coherence` | ✅ **acertada** |
-| **el aviso de coherencia** | **no sale.** `HAS_MANIFEST` se pone SOLA al anadir la seccion | *"hay seccion manifest y el header no lo anuncia"* = se olvido, y se va a olvidar siempre | ✅ **acertada**, y mejor de lo previsto: la bandera la pone ahora `BefBuilder::build()` |
+| **el aviso de coherencia** | **no sale.** `HAS_MANIFEST` se pone SOLA al agregar la seccion | *"hay seccion manifest y el header no lo anuncia"* = se olvido, y se va a olvidar siempre | ✅ **acertada**, y mejor de lo previsto: la bandera la pone ahora `BefBuilder::build()` |
 | **la frontera de sector** | **se conserva.** Lo que se carga tiene que empezar en multiplo de 512 o el disco no puede escribir en los marcos del proceso | si se rompe, el `.bex` no se carga desde disco y el sintoma aparece lejos de aqui | ✅ **acertada.** `Code` en el 512 |
 | **la carga en el Ryzen** | **no cambia nada.** El cargador solo mapea `Code`, `RoData`, `Data` y `Bss`: `Manifest` es inerte | no arranca = la seccion no era inerte | ⏳ **ABIERTA.** No se puede cerrar en esta maquina |
 | **leer el perfil sin el fuente** | `perfil = "llano"`, `crudo = 1`, `arquitecturas = ["x86_64"]`, y **las piezas del monton con SU perfil declarado** | ❌ **FALLO EN EL NUMERO.** Perfil, arquitecturas y piezas acertados; `crudo` NO es 1: es **10** |
@@ -459,7 +459,7 @@ Con "el mas estricto" un `llano` que trajera un `pleno` saldria declarado
 `llano`, que es exactamente la firma equivocada: **el cargador leeria ese campo
 para decidir Ring 0.**
 
-⚠ Y el aviso nuevo (`E0074`) senala **al fichero del usuario**, al reves que los
+⚠ Y el aviso nuevo (`E0074`) marca **al fichero del usuario**, al reves que los
 de una pieza. No es incoherencia: el fallo esta ahi, en la linea donde escribio
 `perfil llano`.
 
@@ -518,7 +518,7 @@ excepcion, o dejar una de las dos en software.
 
 ---
 
-### ⚙ P4 -- LO QUE SE MIDIO EL 2026-08-23, y el diseno que sale de ahi
+### ⚙ P4 -- LO QUE SE MIDIO EL 2026-08-23, y el esquema que sale de ahi
 
 Se fue a construirlo y salieron cuatro cosas. Tres cambian el plan.
 
@@ -595,7 +595,7 @@ excepciones**, donde un fallo no da un test rojo: da una maquina que muere mal. 
 el workspace **excluye `bmo-kernel` de las pruebas**, asi que no hay forma de
 comprobarlo sin el Ryzen.
 
-★ Se deja el diseno entero escrito --con las cuatro decisiones tomadas-- en vez
+★ Se deja el esquema entero escrito --con las cuatro decisiones tomadas-- en vez
 de codigo de Ring 0 sin probar. Es la regla de esta casa: **el CONTRATO antes que
 el codigo**, y aqui el contrato es lo unico que se puede verificar leyendo.
 
@@ -679,7 +679,7 @@ Se midio antes de decidir.
 | arranca BMO-X con un `.bex`? | **no.** UEFI + `BOOTX64.EFI` + `kernel.elf` + las etapas faggin. El kernel nunca fue un `.bex` |
 
 ★★★ **El dato que decidio**: `bmo-bex-gate` nacio para unir una decision que se
-habia partido en dos, y su cabecera dice *"ninguno de los dos es dueno de la
+habia partido en dos, y su cabecera dice *"ninguno de los dos es propietario de la
 decision, asi que ninguno puede desviarse de ella"*. Un formato hermano
 **volveria a partirla, a proposito**. Seria deshacer ese trabajo con mas trabajo.
 
@@ -758,7 +758,7 @@ sostiene.
 ### 8.6 Y por que la exclusividad NO es el formato
 
 INTI emite **una sola seccion de codigo y ni un byte de datos dentro** (medido:
-`empaquetar` anade `Code`, `Manifest` y `Katanas`, y nada mas). Eso hace su
+`empaquetar` agrega `Code`, `Manifest` y `Katanas`, y nada mas). Eso hace su
 codigo **decodificable en linea recta de principio a fin**, cosa que un binario
 de C no garantiza -- tablas de saltos, datos incrustados.
 
@@ -782,7 +782,7 @@ se cae.
 
 ## 6. C, Y QUE SITIO LE TOCA
 
-La pregunta del dueno, contestada sin adornos.
+La pregunta del propietario, contestada sin adornos.
 
 **Lo que NO se sostiene:** C como *el lenguaje de sistema* de BMO-X. En una
 maquina sola, con un toolchain propio y todas las fuentes a mano, el

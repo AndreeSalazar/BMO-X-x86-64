@@ -7,7 +7,7 @@
 //! === Por que este fichero existe, dicho de una vez ===
 //!
 //! Las cinco primeras exigencias del teclado estan cumplidas **y cada una tiene
-//! su contador**. Y aun asi, el dueno del 2026-08-17 solo veia *"el teclado no
+//! su contador**. Y aun asi, el propietario del 2026-08-17 solo veia *"el teclado no
 //! responde"*: los contadores viven en funciones de kernel, los avisos se dicen
 //! UNA vez, y al shell de Ring 0 --donde se leen-- no se vuelve.
 //!
@@ -15,7 +15,7 @@
 //! >
 //! > Un `fault()` informa a quien ya estaba mirando. Una averia que **sigue
 //! > ocurriendo** necesita un indicador encendido mientras dure, y en el sitio
-//! > donde vive el dueno.
+//! > donde vive el propietario.
 //!
 //! Esto es la mitad de kernel de esa regla: **dos numeros** que se leen con
 //! `OP_INFO` desde Ring 3 y que dicen, sin abrir nada, cual de las seis
@@ -186,7 +186,7 @@ pub(super) fn refrescar() {
             // MIRARLA -- con F11, o sea con el teclado. El mismo teclado que
             // acaba de morirse.
             //
-            // ** El dueno lo topo al dia siguiente: *"entre pero veia el
+            // ** El propietario lo topo al dia siguiente: *"entre pero veia el
             // puntero y teclado que no respondia"*. Reinicio, y no se llevo ni
             // un dato. La averia se anuncio en un sitio al que solo se llega
             // con lo que la averia acaba de romper.
@@ -203,7 +203,7 @@ pub(super) fn refrescar() {
             // [!] Y quitarle la pantalla al escritorio se puede JUSTIFICAR aqui
             // y no en cualquier sitio: sin teclado ni raton, lo que hay debajo
             // ya no se puede usar. **No se interrumpe a nadie: se le da al
-            // dueno lo unico que todavia funciona.**
+            // propietario lo unico que todavia funciona.**
             //
             // [!] Una vez. `declarar` guarda el PRIMER motivo y `atender`
             // consume la bandera, y esta rama es un FLANCO -- si el

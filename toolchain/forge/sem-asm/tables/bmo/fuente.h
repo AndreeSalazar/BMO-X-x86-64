@@ -64,9 +64,9 @@
 /* El indice del glifo de un byte, o -1 si esta fuente no lo tiene.
  *
  * ASCII 32..126 van seguidos desde el 0. Los acentos y la ene son Latin-1 (un
- * byte por letra, que es lo que entrega el teclado espanol del kernel) y viven
+ * byte por letra, que es lo que entrega el teclado castellano del kernel) y viven
  * detras, en el orden de `bmo_fuente_latin1`. Un byte sin glifo contesta -1 y
- * quien dibuja pone un hueco: **inventar un glifo seria ensenar otra letra**. */
+ * quien dibuja pone un hueco: **inventar un glifo seria mostrar otra letra**. */
 int bmo_fuente_indice(int byte) {
     int i;
     if (byte >= 32 && byte <= 126) {

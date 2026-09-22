@@ -110,9 +110,9 @@ posicion.
 | **Sistema operativo** | POSIX, multiplexar, correr lo que sea | la superficie son **2 syscalls**, no trescientas; y no multiplexa: reparte |
 | **RTOS** | un peor caso en microsegundos, herencia de prioridad | **no esta medido**, y decir *tiempo real* sin el numero es la mentira mas cara del gremio |
 | **Unikernel** | UNA app enlazada con el kernel | aqui corren varias, aisladas, y una puede morir sin llevarse la maquina |
-| **Exokernel** | ensenar el hardware y que la app lo gestione | es el primo mas cercano y aun asi no: un exokernel no compone un escritorio ni **presta** una pantalla |
+| **Exokernel** | mostrar el hardware y que la app lo gestione | es el primo mas cercano y aun asi no: un exokernel no compone un escritorio ni **presta** una pantalla |
 | **Microkernel** | poco dentro, servicios fuera | **el linaje SI se hereda** -- 2 syscalls, servicios en Ring 3, capabilities. Ver la seccion siguiente |
-| **"Linux pero pequeno"** | portar cualquier cosa | no hay nada que portar sin recompilar, y ese es el punto entero |
+| **"Linux pero chico"** | portar cualquier cosa | no hay nada que portar sin recompilar, y ese es el punto entero |
 
 ---
 

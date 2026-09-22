@@ -110,7 +110,7 @@ foreach ($name in @('NR_INVOKE', 'NR_CHANNEL_KICK', 'NR_WAIT')) {
 # en la HISTORIA del fichero y no en el CONTRATO.
 #
 # Un guardian con lista tiene el mismo fallo que vigila: alguien tiene que
-# acordarse de anadir la fila. Ahora se barren TODOS los `TASK_OP_*` y
+# acordarse de agregar la fila. Ahora se barren TODOS los `TASK_OP_*` y
 # `ARCH_OP_*` del kernel y se exige que cada uno exista en el ABI con el MISMO
 # numero. Anadir una operacion pasa a ser imposible de olvidar.
 #

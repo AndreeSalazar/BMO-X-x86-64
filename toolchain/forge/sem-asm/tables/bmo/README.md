@@ -82,10 +82,10 @@ encontrado`, da un simbolo sin declarar a nueve capas de distancia.
 ★★ **El hueco de `entrada.h` se cerro el 2026-09-01**, y lo cerro la cabecera
 que faltaba. Llevaba abierto desde el 19-08 y el README lo decia cada dia:
 *"ninguno"*. La razon de que no llegara antes estaba escrita aqui mismo --*"un
-ejemplo ensenaria a reclamar la pantalla entera, que es el modelo del que se
+ejemplo mostraria a reclamar la pantalla entera, que es el modelo del que se
 sale"*-- y era cierta: no habia cabecera para eso.
 
-`examples/pantalla_C.c` ensena las dos a la vez porque el caso real es UNO:
+`examples/pantalla_C.c` muestra las dos a la vez porque el caso real es UNO:
 quien toma la pantalla necesita el teclado para poder salir. Y demuestra lo
 que ningun otro ejemplo podia demostrar -- que se **devuelven**, y el proceso
 sigue vivo.
@@ -120,7 +120,7 @@ no encuentra `tables/`.
 
 ## Con que viaja tu app: imagenes, tablas, y lo que no cabe dentro
 
-La pregunta del dueno el 2026-09-11: *"si los programadores quieren poner
+La pregunta del propietario el 2026-09-11: *"si los programadores quieren poner
 imagenes, sintaxis y eso... aunque en `.bex` se lleva todo, como DOOM"*.
 
 **La regla no es "todo dentro".** Son tres sitios, y el criterio no es el gusto:

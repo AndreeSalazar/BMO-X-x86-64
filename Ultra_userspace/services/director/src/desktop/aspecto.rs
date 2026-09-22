@@ -7,7 +7,7 @@
 //! leer es `sys/director.cfg` (`scene::estilo`); esta es la de CAMBIAR: se ve el
 //! resultado en el acto y se guarda en el mismo fichero.
 //!
-//! ## Donde se ensena, y por que ahi
+//! ## Donde se muestra, y por que ahi
 //!
 //! En la rejilla de salida de Ejecutar, como una lista, y no en un panel
 //! flotante nuevo. La rejilla ya es parte del modelo de la escena: el cursor
@@ -69,7 +69,7 @@ pub(crate) fn activo() -> bool {
     ACTIVO.load(Ordering::Relaxed)
 }
 
-/// Abre el editor: apunta el estilo de ahora para poder deshacer, y lo ensena.
+/// Abre el editor: apunta el estilo de ahora para poder deshacer, y lo muestra.
 pub(crate) fn abrir(dsk: &mut Desktop, p: &bmo::Pantalla) {
     unsafe {
         *addr_of_mut!(ANTES) = *estilo::estilo();
@@ -77,7 +77,7 @@ pub(crate) fn abrir(dsk: &mut Desktop, p: &bmo::Pantalla) {
         AVISO = "";
     }
     ACTIVO.store(true, Ordering::Relaxed);
-    ensenar(dsk, p);
+    mostrar(dsk, p);
 }
 
 fn paso(paleta: &[u32], actual: u32, delta: isize) -> u32 {
@@ -145,7 +145,7 @@ fn valor(e: &Estilo, campo: usize, dst: &mut [u8; 8]) -> usize {
 }
 
 /// Escribe la lista en la rejilla y repinta el escritorio con el estilo de ahora.
-fn ensenar(dsk: &mut Desktop, p: &bmo::Pantalla) {
+fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let e = *estilo::estilo();
     let campo = unsafe { CAMPO };
     let g = &mut dsk.out.grid;
@@ -226,5 +226,5 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) {
     if unsafe { AVISO }.starts_with("guardado") {
         unsafe { *addr_of_mut!(ANTES) = *estilo::estilo() };
     }
-    ensenar(dsk, p);
+    mostrar(dsk, p);
 }

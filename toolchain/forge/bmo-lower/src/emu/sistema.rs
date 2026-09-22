@@ -12,7 +12,7 @@
 //!                                         entrada, audio -- y como se siembra
 //! ```
 //!
-//! ** Y la senal de que el corte esta bien puesto es cual de los dos crece: el
+//! ** Y la signal de que el corte esta bien puesto es cual de los dos crece: el
 //! de arriba crece cuando un lenguaje emite una instruccion nueva; este crece
 //! cuando el SISTEMA gana una operacion. Son dos calendarios distintos, y
 //! juntarlos en un fichero hacia que cada uno pareciera culpa del otro.
@@ -470,7 +470,7 @@ impl Machine {
                 self.abiertos[i].datos.extend_from_slice(&trozo);
                 n as u64
             }
-            // Mover el cursor. Se RECORTA al tamano, que es lo que hace el
+            // Mover el cursor. Se RECORTA al medida, que es lo que hace el
             // kernel: un seek mas alla del final deja el cursor al final y lo
             // dice devolviendo donde quedo, no falla.
             ARCH_OP_SALTAR if !self.abiertos[i].escribe => {
@@ -742,7 +742,7 @@ impl Machine {
                         self.finalizar_syscall(0);
                     } else {
                         // No era suyo. El kernel contesta ERROR_BUSY, no OK:
-                        // un "si" a quien no era dueno le haria creer que lo
+                        // un "si" a quien no era propietario le haria creer que lo
                         // solto.
                         self.fallar_syscall(16);
                     }

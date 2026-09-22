@@ -180,9 +180,9 @@ unsafe extern "C" fn syscall_entry() -> ! {
         //
         // ===== ** PIEZA 2: SE SALE POR `sysretq`, NO POR `iretq` ============
         //
-        // `iretq` es el companero de una INTERRUPCION: reconstruye el nivel de
+        // `iretq` es el colega de una INTERRUPCION: reconstruye el nivel de
         // privilegio leyendo cinco palabras de la pila y comprobando el
-        // descriptor de cada selector. `sysretq` es el companero de `syscall`,
+        // descriptor de cada selector. `sysretq` es el colega de `syscall`,
         // y no comprueba nada porque no hace falta: los selectores salen de
         // `IA32_STAR` --que solo escribe el kernel-- y el destino lo trae el
         // propio CPU.

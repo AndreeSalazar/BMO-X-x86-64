@@ -31,7 +31,7 @@
 //!
 //! > `Cabecera::leer` valida ancho/alto/stride **contra los bytes que dijo el
 //! > kernel**, en `u64` (en 32 bits el producto se desborda y da un total
-//! > pequeno). Sin eso, una app que declare 4000x4000 en 1 MiB hace que el
+//! > chico). Sin eso, una app que declare 4000x4000 en 1 MiB hace que el
 //! > compositor lea fuera del prestamo.
 //!
 //! *** Y LAS DOS LISTAS SON DISTINTAS, que es lo que hay que tener claro:
@@ -55,7 +55,7 @@
 //!    cadenas     N B      los textos y los nombres, uno detras de otro
 //! ```
 //!
-//! Las cuentas van **todas en la cabecera** y los bloques son de tamano fijo, asi
+//! Las cuentas van **todas en la cabecera** y los bloques son de medida fijo, asi
 //! que **donde empieza cada uno se sabe sin recorrer nada**. Un formato que
 //! obligue a recorrer para localizar es un formato que hay que recorrer con
 //! datos que todavia no se han comprobado.
@@ -140,7 +140,7 @@ pub enum Falta {
     NoEsUnaCara,
     /// Es una cara de otra version.
     OtraVersion,
-    /// Un campo que tiene que ser cero no lo es. **Es la senal mas barata de que
+    /// Un campo que tiene que ser cero no lo es. **Es la signal mas barata de que
     /// el fichero viene de otro sitio**: nadie escribe basura ahi por accidente,
     /// y un emisor futuro que use ese hueco tendra que subir la version.
     ReservadoSucio,
@@ -247,7 +247,7 @@ fn u32_en(b: &[u8], i: usize) -> Option<u32> {
 ///
 /// *** La 2 va antes que la 3 y la 4 **porque las otras dos leen usando esas
 /// cuentas**. Comprobar que un rect cabe leyendo el rect de una tabla cuyo
-/// tamano no se ha comprobado es hacer la pregunta con la respuesta ya perdida.
+/// medida no se ha comprobado es hacer la pregunta con la respuesta ya perdida.
 pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Cara<'_>, Falta> {
     // -- 1. Que esto sea una cara, y de esta version ------------------------
     if bytes.len() < CABECERA {
@@ -274,7 +274,7 @@ pub fn leer(bytes: &[u8], pantalla_ancho: u16, pantalla_alto: u16) -> Result<Car
     // Es la comprobacion de la que penden las otras tres, y es la que el
     // precedente del compositor dice como hacer: **en `u64`**. Con `usize` de 32
     // bits, `n_trazos * TRAZO` de una cabecera hostil da la vuelta y contesta un
-    // total pequeno -- que pasa la comprobacion y luego lee fuera.
+    // total chico -- que pasa la comprobacion y luego lee fuera.
     //
     // Aqui `usize` son 64 en las dos maquinas de hoy, y aun asi se hace en `u64`
     // explicito: **la correccion no puede depender de en que maquina se compila.**

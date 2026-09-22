@@ -15,7 +15,7 @@ toolchain/lang/c/examples/memoria_C.c 34343 6329 3756 083f502191c643b9
 toolchain/lang/c/examples/musica_C.c 23346 4611 5297 d496ad39602704b5
 toolchain/lang/c/examples/raycaster_C.c 960 376 14299 90aed363b3605449
 toolchain/lang/c/examples/scroll_C.c 16267 2534 2660 b077773f1a24534f
-toolchain/lang/c/examples/sonda_C.c 11779 964 5521 f04bf0e27dd47cff
+toolchain/lang/c/examples/sonda_C.c 11779 964 5521 470d7a0872ab5f2f
 toolchain/lang/c/examples/sonido_C.c 751 66 3331 85b9ef055c293701
 toolchain/lang/c/examples/vivaldi_C.c 24759 5134 2141 d7e59bfde4882cd0
 toolchain/lang/cobol/examples/1-basico/hola.cob 39 1 286 7e9187edfd16728f

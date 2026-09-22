@@ -29,7 +29,7 @@
 //! ```
 //!
 //! *** El corte que mas dice es el de en medio. `fault_report` "solo imprime",
-//! y aun asi es el que mas caro ha salido: tres veces en una semana enseno algo
+//! y aun asi es el que mas caro ha salido: tres veces en una semana mostro algo
 //! que no era, y cada una mando a mirar donde no estaba el fallo.
 //!
 //! [!] Fuera no cambia nada: `pub use` deja el modulo con la misma cara.

@@ -1,6 +1,6 @@
 # EL ORDEN -- que va primero entre veintidos planes, y por que
 
-> Peticion del dueno, **2026-09-10**: *"puedes preparar el plan critico
+> Peticion del propietario, **2026-09-10**: *"puedes preparar el plan critico
 > importante? hacer listas, dividir [...] para aplicar inteligente y poco a poco
 > mejorar"*.
 >
@@ -36,7 +36,7 @@ Paso dos veces en septiembre y las dos las cazo mirar el metal, no una prueba.
 
 > Lo que falta se nota. Lo que miente, no. Por eso lo que miente va antes.
 
-[!] Y una decision del dueno que reordena la lista entera: **el asistente de IA
+[!] Y una decision del propietario que reordena la lista entera: **el asistente de IA
 NO es prioridad.** Es el ultimo. Lo que arrastraba consigo --medir el ancho de
 memoria, `exp` en INTI-- baja con el, salvo lo que sirva a otra cosa.
 
@@ -201,7 +201,7 @@ y por eso salio de fabrica en `Mirar`.
 78 ticks, no cero**. La meta de 300 se cruza en N=4, y eso ya no es una
 esperanza: es aritmetica sobre una medida.
 
-Es el trabajo de `INVOKE` que el dueno pide, y vive en
+Es el trabajo de `INVOKE` que el propietario pide, y vive en
 [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 8 casillas ya
 hechas de 19.
 
@@ -252,7 +252,7 @@ hace falsa ninguna promesa.
 | [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) | 12 | el turno se CONCEDE en vez de gastarse |
 | [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) | 9 | 35 instrucciones para escribir 8 bytes |
 | [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) | 9 | la geometria de los registros, de un golpe |
-| [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) | 9 | la compilacion separada. **Desbloquea CINCO lenguajes** -- C, C++, COBOL, Ada y los ports --, y aun asi va aqui: es grande y empieza por una DECISION del dueno (E0), no por codigo |
+| [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) | 9 | la compilacion separada. **Desbloquea CINCO lenguajes** -- C, C++, COBOL, Ada y los ports --, y aun asi va aqui: es grande y empieza por una DECISION del propietario (E0), no por codigo |
 
 [!] `EL_PLAZO` y `EL_COMPAS` son **el mismo eje** --quien recibe turno y
 cuando-- y `EL_FANTASMA` ya nombro su fallo: prioridad estricta sin
@@ -261,7 +261,7 @@ miran juntos.
 
 ---
 
-# 6. ⚫ EL ULTIMO, por decision del dueno
+# 6. ⚫ EL ULTIMO, por decision del propietario
 
 **[`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md)** -- 13 abiertas. *"El
 asistente IA no lo necesitamos, eso es el ultimo."*

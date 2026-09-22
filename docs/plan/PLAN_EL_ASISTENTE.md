@@ -1,6 +1,6 @@
 # PLAN EL ASISTENTE -- un ayudante que corre DENTRO de BMO-X
 
-> Estado: **APARCADO** -- decision del dueno (2026-09-10, `EL_ORDEN.md`): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.
+> Estado: **APARCADO** -- decision del propietario (2026-09-10, `EL_ORDEN.md`): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.
 >
 > Datos actualizados el 2026-09-21 (seccion 9, "System One"): el plan sigue aparcado; lo que cambia es que hay un escalon ANTES del motor de inferencia que no necesita ni GPU ni ancho de memoria, y que el `save` ya escribe su entrada (`informe/DATOS.TXT`).
 
@@ -12,12 +12,12 @@
 > | de donde | que aporta |
 > |---|---|
 > | `docs/maestro/RED_MAESTRO.md` | por que los protocolos son de Ring 3, y el orden de la red |
-> | `platform/drivers/gpu/rdna4/src/lib.rs` | la meta A: SDMA, del tamano de AHCI |
+> | `platform/drivers/gpu/rdna4/src/lib.rs` | la meta A: SDMA, del medida de AHCI |
 > | `platform/drivers/gpu/rdna4/PLAN_VULKAN.md` | la meta B: el 3D y el muro del PSP |
 > | `docs/maestro/INTI_MAESTRO.md` | que sabe hacer hoy el lenguaje |
 >
 > Y existe porque a la pregunta *"cuanto falta"* se contesto **"meses"** sin
-> desglosarlo, y el dueno pidio el desglose. Tenia razon: **"meses" era una
+> desglosarlo, y el propietario pidio el desglose. Tenia razon: **"meses" era una
 > palabra, no una medida** -- y al medirlo salieron tres cosas que la palabra
 > escondia. Estan en la seccion 7.
 
@@ -90,7 +90,7 @@ de golpe.
 ### El reparto entre nucleos -- [!] EL HALLAZGO QUE CORRIGE LO QUE SE DIJO
 
 Se dijo *"SMP: semanas, AXION apaga pero no enciende"*. **Las dos mitades eran
-enganosas**, y `crew.rs` lo dice en su primera linea:
+falaces**, y `crew.rs` lo dice en su primera linea:
 
 ```text
    los APs arrancaron -- 12 de 12 en el Ryzen
@@ -120,7 +120,7 @@ son del kernel.
 [!] **Y el paso 0 sigue sin foto.** `smp prueba` contesto `0.00x` en metal el
 2026-08-08, y desde entonces lleva tres testigos --`ENTRARON`/`VIERON`/`HECHOS`--
 que nadie ha fotografiado. Disenar la puerta sobre un reparto que no se sabe si
-funciona seria disenar sobre nada: **esa foto va antes.**
+funciona seria trazar sobre nada: **esa foto va antes.**
 
 Lo que MWAIT arregla es otra cosa y hay que separarla: hoy un obrero en espera
 **gira al 100%** en vez de dormir. Eso es consumo, no capacidad. Para un
@@ -132,14 +132,14 @@ asistente que calcula, los obreros no esperan: trabajan.
 ```
 
 **Son dos trabajos distintos y solo el primero bloquea.** Coste del primero:
-semanas, y es diseno de contrato, no de silicio.
+semanas, y es esquema de contrato, no de silicio.
 
 ---
 
-# 2. POR QUE INTI Y NO C? -- la pregunta del dueno, contestada con lo concreto
+# 2. POR QUE INTI Y NO C? -- la pregunta del propietario, contestada con lo concreto
 
 Se podria escribir el motor en BMO C, que existe y compila. La respuesta es que
-si, INTI, y **no por preferencia**: por cuatro cosas que se pueden senalar.
+si, INTI, y **no por preferencia**: por cuatro cosas que se pueden marcar.
 
 ### 2.1 -- El bucle interior es exactamente donde C miente
 
@@ -258,7 +258,7 @@ Ring 3, y se escribe en INTI por los mismos cuatro motivos.**
 
 > **[!] Esta seccion decia "meses" y estaba mal medida.** No por optimismo ni
 > por pesimismo: **le puso precio al proyecto equivocado**. Lo dejo escrito el
-> dueno el mismo dia: *"si hablas de meses en RDNA4 SOLO UNO para perfilar con
+> propietario el mismo dia: *"si hablas de meses en RDNA4 SOLO UNO para perfilar con
 > todo generico ahi estas chocando"*.
 >
 > Se conserva el error porque el error es la leccion. Ver `BITACORA.md`, ley 24.
@@ -293,7 +293,7 @@ delante:
 
 *** **Y la fila 5 es la que mas cambia al mirarla asi.** "Escribir un compilador
 de sombreadores" suena a proyecto de anios. Pero `sem-asm` existe y su promesa
-esta escrita: *"anadir una instruccion = 1 entrada TOML, CERO Rust"*. Un
+esta escrita: *"agregar una instruccion = 1 entrada TOML, CERO Rust"*. Un
 `tables/arch/gfx1200/` es **la misma forma** que `tables/arch/x86_64/`, que ya
 tiene cuatro ficheros y 72 intrinsecos.
 
@@ -329,7 +329,7 @@ sobre el PSP es **"no esta medido"**, y no es lo mismo que "es largo".
 
 ## 4.4 -- Por que AMD, y por que no es una preferencia
 
-Palabras del dueno (2026-08-23): *"tenia RTX 3060 12G y lo use pero ingenieria
+Palabras del propietario (2026-08-23): *"tenia RTX 3060 12G y lo use pero ingenieria
 inversa, la verdad es historia. Con AMD es el motivo, no me importa el costo,
 porque se que se puede y punto."*
 
@@ -364,7 +364,7 @@ Dos cosas de la version anterior sobreviven enteras:
    con computo (meta B2) son proyectos distintos, y confundirlos es *"la forma
    clasica de no terminar ninguna de las dos"*. La meta A **no toca el display**
    --hereda el framebuffer del UEFI y se salta DCN entero-- y por eso es del
-   tamano del driver de AHCI.
+   medida del driver de AHCI.
 
 2. **Manda la regla 4: PRIMERO EL NUMERO.** `perf` dice KiB por fotograma. La
    respuesta puede ser que la GPU no compre nada para lo que BMO-X hace hoy. Eso
@@ -402,7 +402,7 @@ preguntas CERRADAS sobre el estado de la maquina, con el `save` como entrada.
       con etiqueta + distancia al umbral. Reglas, no un modelo: con veinte
       saves no se entrena nada, y las reglas ya estan escritas a mano en
       las hojas del metal. Es el `Choice` de Jev hecho con `if`.
-- [ ] **0d -- el modelo pequeno, SI algun dia hay datos.** Cientos de saves
+- [ ] **0d -- el modelo chico, SI algun dia hay datos.** Cientos de saves
       etiquetados (que paso de verdad) antes de cambiar un `if` por pesos.
       Y entonces es un clasificador de UNA pasada sobre unos KB de texto,
       no un 7B: no espera a `A0` ni a la GPU.
@@ -432,11 +432,11 @@ internet, en tu maquina.** Que es lo que se pidio.
       un `kind` nuevo en `platform/abi/bmo-abi/`
 - [ ] **2c -- transmitir + ARP en Ring 3**, sobre `platform/drivers/net/`
 - [ ] **2d -- IP + UDP, y un `ping` que conteste.** Trae la unica prueba
-      honesta de que el diseno vale: la latencia de ida y vuelta contra la
+      honesta de que el esquema vale: la latencia de ida y vuelta contra la
       que da Windows en el mismo cable
 
-El paso 2d es el que `RED_MAESTRO.md` llama *"lo que el dueno queria"*, y trae
-la unica prueba honesta de que el diseno vale: **la latencia de ida y vuelta,
+El paso 2d es el que `RED_MAESTRO.md` llama *"lo que el propietario queria"*, y trae
+la unica prueba honesta de que el esquema vale: **la latencia de ida y vuelta,
 en microsegundos, contra la que da Windows en el mismo cable.**
 
 [!] **Esto NO da "buscar en internet".** Da red que funciona y se puede medir.
@@ -499,11 +499,11 @@ trabajo no se veia por ninguna parte.
 
 | lo que se quiere | cuanto | que lo bloquea de verdad |
 |---|---|---|
-| un asistente local, sobre tus ficheros | **semanas** | nada de diseno: es trabajo |
+| un asistente local, sobre tus ficheros | **semanas** | nada de esquema: es trabajo |
 | que use los 12 nucleos | +semanas | una operacion de reparto en el ABI, y la foto de `smp prueba` |
 | red que funciona y se mide | **semanas** | nada: el paso 0 ya esta en metal |
 | **buscar en internet** | **meses** | *** la CRIPTOGRAFIA, no la red |
-| que DOOM vaya fino | meta A (SDMA) | **no toca el display**: del tamano de AHCI |
+| que DOOM vaya fino | meta A (SDMA) | **no toca el display**: del medida de AHCI |
 | Vulkan en Ring 3 (meta B2) | ⚠ **NO MEDIDO** | el PSP -- ver 4.3, y **es un dia de lectura** |
 
 *** **La ultima fila NO dice "meses", y esa es la correccion.** Decia el
@@ -535,7 +535,7 @@ porque las cuatro corrigen algo que se habia dicho mal:
    deuda ya estaba apuntada en otro sitio con otro nombre.** Es la misma que
    impide firmar un `.bex`. Pagarla una vez cobra dos.
 
-4. *** **Y la cuarta la caza el dueno, sobre esta misma pagina (2026-08-23):**
+4. *** **Y la cuarta la caza el propietario, sobre esta misma pagina (2026-08-23):**
    el "meses" de la GPU le ponia precio a `amdgpu`, que es generico, cuando lo
    que aqui se escribe es **un perfil de una tarjeta**. Es la ley 24, y no
    estaba escrita -- su evidencia llevaba repartida en cuatro sitios del repo
@@ -604,8 +604,8 @@ dos mitades y solo una es cara.**
 | | System Two (lo que planea 1c) | System One (escalon 0) |
 |---|---|---|
 | que hace | conversa, explica, escribe | contesta preguntas cerradas |
-| que necesita | un 7B, `exp`, 12 nucleos, y el ANCHO DE MEMORIA (A0) | reglas hoy; un clasificador de unos MB manana |
-| coste por respuesta | tokens/s = ancho / tamano del modelo, token a token | UNA pasada sobre unos KB |
+| que necesita | un 7B, `exp`, 12 nucleos, y el ANCHO DE MEMORIA (A0) | reglas hoy; un clasificador de unos MB luego |
+| coste por respuesta | tokens/s = ancho / medida del modelo, token a token | UNA pasada sobre unos KB |
 | que lo bloquea | A0, y la GPU para pasar de 3B | nada: `DATOS.TXT` ya existe |
 | donde falla | inventa | elige mal, y lo dice con un numero |
 
@@ -621,7 +621,7 @@ vez de dentro de cada hoja --0b.
 
 - El escalon 0 **no espera a nada**: ni `exp`, ni el reparto de nucleos, ni
   A0, ni la GPU. Va antes del 1 y se hace en dias, con `if`.
-- El orden del dueno **no cambia**: el asistente sigue aparcado y es el
+- El orden del propietario **no cambia**: el asistente sigue aparcado y es el
   ultimo. El escalon 0 se apunta porque el `save` ya paga su entrada y
   porque el catalogo de veredictos (0b) sirve al METAL aunque nunca haya IA:
   es la lista de lo que un `save` tiene que contestar.
@@ -632,13 +632,13 @@ vez de dentro de cada hoja --0b.
 
 # 8. *** QUE ES UN TOKEN/S, Y QUE PUEDE DAR ESTA MAQUINA
 
-> Pregunta del dueno (2026-08-24): *"que significan token/s? calcula que
+> Pregunta del propietario (2026-08-24): *"que significan token/s? calcula que
 > potencial tiene BMO-X para eso, y en teoria con la GPU cuando venga."*
 
 ## 8.1 -- Que es un token
 
 Un **token** es un trozo de palabra. No es una letra ni una palabra entera: el
-modelo parte el texto en piezas de tamano desigual --las comunes enteras, las
+modelo parte el texto en piezas de medida desigual --las comunes enteras, las
 raras en cachos-- y cada pieza es un token.
 
 ```text
@@ -762,7 +762,7 @@ mas rapido**:
    GDDR6 de una tarjeta  varias veces eso
 ```
 
-Y como `tokens/s = ancho / tamano`, multiplicar el ancho multiplica los tokens
+Y como `tokens/s = ancho / medida`, multiplicar el ancho multiplica los tokens
 **directamente**.
 
 [!] **Y el numero exacto de la RX 9060 XT NO se pone aqui.** Su ancho de banda
@@ -798,7 +798,7 @@ el motor de COMPUTO, que es la meta B2 -- detras del PSP, que **no esta medido**
 ## 8.5 -- EL RESUMEN, en tres lineas
 
 ```text
-   1. tokens/s = ancho de memoria / tamano del modelo. NO es potencia de calculo
+   1. tokens/s = ancho de memoria / medida del modelo. NO es potencia de calculo
    2. este CPU SOBRA tres veces para un 7B: el limite es la memoria
    3. la GPU multiplica el ancho, y sus 16 GB deciden QUE MODELOS caben
 ```

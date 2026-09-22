@@ -34,7 +34,7 @@ pub const TASK_OP_CONSOLE_WRITE: u64 = 0x06;
 /// Crea un endpoint atendido por este proceso: `arg0` es el estuario por el
 /// que se le entregaran las llamadas, y devuelve el handle del endpoint.
 ///
-/// Es lo unico que Endpoint RPC anade a la superficie. Llamar, atender y
+/// Es lo unico que Endpoint RPC agrega a la superficie. Llamar, atender y
 /// responder NO son operaciones nuevas: son lo que `INVOKE` y `WAIT` ya
 /// significan cuando el handle resuelve a un endpoint o a un reply. La
 /// superficie sigue siendo de tres puertas.
@@ -44,7 +44,7 @@ pub const TASK_OP_ENDPOINT_CREATE: u64 = 0x07;
 ///
 /// Sin esto un programa lanzado desde un terminal no puede recibir nada: la
 /// capability del teclado la tiene el compositor, y darsela a cada hijo seria
-/// romper la exclusividad que hace que la entrada tenga un solo dueno. El
+/// romper la exclusividad que hace que la entrada tenga un solo propietario. El
 /// terminal que lo lanzo le pasa lo que se teclea, por el mismo objeto que ya
 /// usa para hablar.
 ///
@@ -164,7 +164,7 @@ pub const TASK_OP_AUDIO_CENSO: u64 = 0x28;
 /// ```text
 ///    UNA pagina      la primera del BAR
 ///    SOLO LECTURA    la pagina se mapea sin escritura, y sin RIGHT_WRITE
-///    exclusiva       un dueno a la vez, como la pantalla y el audio
+///    exclusiva       un propietario a la vez, como la pantalla y el audio
 /// ```
 ///
 /// ** Escribir en un aparato desde Ring 3 es otra decision, y va **despues** de
@@ -350,7 +350,7 @@ pub const TASK_OP_ARCHIVO_ASINC: u64 = 0x27;
 pub const TASK_OP_TOMAR: u64 = 0x1C;
 // ** ESTE 0x1C LO COMPARTIA `TASK_OP_LIENZO_REFLEJO`, y no era simetria: era una
 // constante MUERTA okupando un numero VIVO. Quien escribiera el nombre bonito
-// habria invocado esto. Borrada el 2026-09-02; el diseno de `KIND_LIENZO` salio
+// habria invocado esto. Borrada el 2026-09-02; el esquema de `KIND_LIENZO` salio
 // del kernel hace tiempo (ver `obj/loan.rs` y `docs/identidad/LIENZO.md`).
 //
 // [!] Y no se RESERVA el numero, al reves que con `BMO_CHANNEL_KICK`. Alli la
@@ -364,10 +364,10 @@ pub const TASK_OP_TOMAR: u64 = 0x1C;
 
 pub const TASK_OP_AUDIO_CLAIM: u64 = 0x21;
 
-/// Soltar el sonido siendo su dueno y **seguir vivo**.
+/// Soltar el sonido siendo su propietario y **seguir vivo**.
 ///
 /// Va desde el primer dia por lo que costo que faltara en la pantalla: alli la
-/// unica forma de dejar de ser dueno era morir, asi que el escritorio no podia
+/// unica forma de dejar de ser propietario era morir, asi que el escritorio no podia
 /// prestarla ni queriendo. El mismo hueco aqui seria que el primer programa que
 /// pite se queda el aparato para siempre.
 pub const TASK_OP_AUDIO_RELEASE: u64 = 0x22;
@@ -377,7 +377,7 @@ pub const TASK_OP_AUDIO_RELEASE: u64 = 0x22;
 ///
 /// * Existe porque el comando `smp` vivia **solo en el shell de Ring 0**, y ese
 /// shell deja de leer el teclado en cuanto el compositor reclama `KIND_INPUT`.
-/// O sea: habia codigo que no se podia ejecutar desde donde el dueno estaba
+/// O sea: habia codigo que no se podia ejecutar desde donde el propietario estaba
 /// sentado. Un mando al que no se llega es un mando que no existe.
 ///
 /// Y encaja sin tocar nada de lo congelado: la superficie sigue siendo tres
@@ -396,7 +396,7 @@ pub const TASK_OP_SMP_DESPERTAR: u64 = 0x1B;
 /// por eso lleva su propia operacion en vez de esconderse detras de un campo de
 /// otra: lo que cambia el estado del almacen se pide por su nombre.
 ///
-/// Lo que hace es deliberadamente lo mas pequeno posible: ni un bloque de
+/// Lo que hace es deliberadamente lo mas chico posible: ni un bloque de
 /// datos, el mismo estrato, y el commit va a **la copia del superbloque que no
 /// manda**. Recorre el camino entero --`FLUSH CACHE`, barrera, commit, vaciar
 /// otra vez-- sin poder perder nada aunque salga mal. Ver
@@ -458,15 +458,15 @@ pub const TASK_OP_ES_NODO: u64 = 0x19;
 /// puede (ver `DISCO_TRIM_*`).
 pub const TASK_OP_DISCO: u64 = 0x29;
 
-/// **ARMAR Y SONDEAR LA RED desde donde vive el dueno.** `arg0` = `RED_OP_*`.
+/// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
 /// ## *** Por que esta operacion existe (2026-08-24)
 ///
-/// El `net` del escritorio esta escrito para SOLO INFORMAR, y cuando el dueno
+/// El `net` del escritorio esta escrito para SOLO INFORMAR, y cuando el propietario
 /// pidio `net rx` en el Ryzen le contesto *"receptor apagado (net rx en Ring
 /// 0)"* -- mandandole a un shell **al que no se vuelve**.
 ///
-/// > Un camino que solo existe en Ring 0 es un camino que el dueno de su propia
+/// > Un camino que solo existe en Ring 0 es un camino que el propietario de su propia
 /// > maquina no puede tomar.
 ///
 /// La respuesta no es que el escritorio toque la NIC: es que **Ring 3 pida y el
@@ -543,7 +543,7 @@ pub const PLACA_OP_IOMMU: u64 = 0x04;
 // corriendo con el privilegio del kernel, en un nucleo que ni siquiera tiene
 // TSS propia. No hay forma de hacerla segura y no se intenta.
 //
-// Y la segunda no es un apano: **es lo que hace una orquesta**. A una orquesta
+// Y la segunda no es un arreglo: **es lo que hace una orquesta**. A una orquesta
 // se le dan partituras escritas. BMO-X ya hace exactamente esto dos veces --dos
 // syscalls con un opcode, y los 62 intrinsecos de `sem-asm` en una tabla-- asi
 // que el catalogo es el mismo concepto un piso mas arriba. El catalogo vive en

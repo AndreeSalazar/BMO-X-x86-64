@@ -25,7 +25,7 @@ fn con_dos_textos(cuerpo: &str) -> String {
 
 /// ***JUNTAR DOS TEXTOS RESERVA, COPIA, Y EL RESULTADO ES VALIDO.***
 ///
-/// `"ho" + "la!"` -> `"hola!"`, cinco bytes, un dueno.
+/// `"ho" + "la!"` -> `"hola!"`, cinco bytes, un propietario.
 ///
 /// ** Y reserva porque un texto es INMUTABLE: si `a + b` no puede tocar ni `a`
 /// ni `b`, el resultado es un TERCER objeto. No es una torpeza que se arreglara
@@ -84,7 +84,7 @@ fn el_texto_que_junta_construye_lo_acepta_el_abi() {
 
     let t = abi::revisar(&bytes).expect("el ABI rechazo el texto que construyo INTI");
     assert_eq!(t.bytes, 5, "cinco bytes");
-    assert_eq!(t.refs, 1, "nace con UN dueno, no inmortal: lo construyo alguien");
+    assert_eq!(t.refs, 1, "nace con UN propietario, no inmortal: lo construyo alguien");
     assert_eq!(abi::contenido(&bytes).unwrap(), b"hola!");
 }
 
@@ -113,8 +113,8 @@ fn el_desplazamiento_del_contenido_coincide_con_el_del_abi() {
 ///
 /// > *"TODOS los componentes deberian tener detector de UB?"*
 ///
-/// Si `na + nb` diera la vuelta: `total` sale pequeno, `pide` devuelve un bloque
-/// pequeno, y los dos bucles escriben **fuera** -- un desbordamiento de bufer,
+/// Si `na + nb` diera la vuelta: `total` sale chico, `pide` devuelve un bloque
+/// chico, y los dos bucles escriben **fuera** -- un desbordamiento de bufer,
 /// el fallo mas caro de los ultimos veinte anios.
 ///
 /// ** Y LO PARA EL PROPIO LENGUAJE. Aqui hubo una guardia escrita a mano con el
@@ -257,7 +257,7 @@ fn el_arranque_monta_el_monton_y_ya_no_se_confiesa() {
         !e.reubicaciones_del_monton.is_empty(),
         "nadie apunta al slot del monton"
     );
-    // El tamano y el codigo de muerte, en los bytes.
+    // El medida y el codigo de muerte, en los bytes.
     assert!(
         e.codigo
             .windows(4)
@@ -307,7 +307,7 @@ fn con_lista(cuerpo: &str) -> String {
     )
 }
 
-/// ***UNA LISTA NUEVA NACE CON SITIO Y SIN NADA, y con un dueno.***
+/// ***UNA LISTA NUEVA NACE CON SITIO Y SIN NADA, y con un propietario.***
 #[test]
 fn una_lista_nueva_tiene_capacidad_y_ningun_elemento() {
     let f = con_lista(
@@ -368,7 +368,7 @@ fn el_limite_es_cuantos_hay_y_no_cuantos_caben() {
 ///
 /// ** No crece sola todavia, y se dice igual que `suelta` estuvo diciendo
 /// durante meses que no soltaba. Crecer pide decidir quien manda cuando alguien
-/// guardo la direccion antigua, y eso es diseno, no trabajo mecanico.
+/// guardo la direccion antigua, y eso es esquema, no trabajo mecanico.
 #[test]
 fn una_lista_llena_contesta_que_no_cabe() {
     let f = con_lista(
@@ -419,7 +419,7 @@ fn la_lista_que_construye_inti_la_acepta_el_abi() {
     let l = abi::revisar(&bytes, 8).expect("el ABI rechazo la lista que construyo INTI");
     assert_eq!(l.count, 2, "dos elementos");
     assert_eq!(l.capacidad, 4, "y sitio para cuatro");
-    assert_eq!(l.refs, 1, "nace con UN dueno: la construyo alguien");
+    assert_eq!(l.refs, 1, "nace con UN propietario: la construyo alguien");
 }
 
 /// ***LA REGLA 2 SALE EN LOS BYTES, Y ATRAPA (2026-08-23).***

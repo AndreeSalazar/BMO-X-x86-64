@@ -344,7 +344,7 @@ fn vista(p: &bmo::Pantalla, z: &Zona, sel: usize) {
     y += 64 + 18;
     let nombre = &it.ruta[it.nombre as usize..it.largo as usize];
     let nombre_s = core::str::from_utf8(nombre).unwrap_or("?");
-    // El nombre en grande, si cabe; si no, a su tamano. Recortado en grande no
+    // El nombre en grande, si cabe; si no, a su medida. Recortado en grande no
     // se lee mejor, se lee peor.
     if nombre.len() as u32 * bmo::GLIFO_ANCHO * 2 <= z.w.saturating_sub(40) {
         p.texto_escala(x, y, nombre_s, INK, 2);
@@ -365,7 +365,7 @@ fn vista(p: &bmo::Pantalla, z: &Zona, sel: usize) {
     let mut t = [0u8; 12];
     t[..nb].copy_from_slice(&b[..nb]);
     t[nb..nb + 2].copy_from_slice(b" B");
-    fila(p, y, "tamano", &t[..nb + 2]);
+    fila(p, y, "medida", &t[..nb + 2]);
     y += bmo::GLIFO_ALTO + 6;
     fila(p, y, "tipo", it.clase.nombre().as_bytes());
     y += bmo::GLIFO_ALTO + 18;
@@ -398,7 +398,7 @@ fn lista(p: &bmo::Pantalla, z: &Zona, from: usize, sel: usize, caben: usize) {
         let msg = if de_clase(None) == 0 {
             "no hay nada que yo sepa abrir en DATOS. R vuelve a mirar."
         } else {
-            "nada de esta clase. 0 ensena todo."
+            "nada de esta clase. 0 muestra todo."
         };
         p.texto(z.x + 14, z.y + CAB + 8, msg, INK_DIM);
         return;
@@ -412,7 +412,7 @@ fn lista(p: &bmo::Pantalla, z: &Zona, from: usize, sel: usize, caben: usize) {
         }
         icono(p, z.x + 16, y + 7, 20, it.clase);
         let ty = y + (FILA - bmo::GLIFO_ALTO) / 2;
-        // Derecha: el tamano; delante, la carpeta. Lo que no cabe se come la
+        // Derecha: el medida; delante, la carpeta. Lo que no cabe se come la
         // carpeta, nunca el nombre.
         let nb = decimal(it.bytes as u64, &mut b);
         let xs = z.x + z.w - 16 - nb as u32 * bmo::GLIFO_ANCHO;

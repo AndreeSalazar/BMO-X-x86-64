@@ -6,7 +6,7 @@ pub const MODULE_MAX: usize = 32;
 pub const MSG_MAX: usize = 128;
 /// Lo que mide el nombre de un fichero fuente, sin ruta. El mas largo del arbol
 /// es `aterrizaje.rs`, trece. Veinticuatro dejan sitio de sobra y mantienen el
-/// evento en un tamano fijo -- que es la condicion para que el anillo de CABINA
+/// evento en un medida fijo -- que es la condicion para que el anillo de CABINA
 /// no reserve memoria nunca.
 pub const FILE_MAX: usize = 24;
 
@@ -413,7 +413,7 @@ pub struct Event {
     // Es el mismo movimiento que ya se hizo tres veces esta semana:
     // `bex::necesita` deducia lo que el fichero podia declarar; `tramo_dma`
     // preguntaba una traduccion que el mapeo ya garantiza; la falta de cabecera
-    // no ensenaba los bytes que la provocaron. **Quitar la pregunta, no
+    // no mostraba los bytes que la provocaron. **Quitar la pregunta, no
     // mejorarla.**
     /// Nombre del fichero, sin ruta. `bex.rs` cabe; la ruta entera no aporta.
     pub fichero: [u8; FILE_MAX],

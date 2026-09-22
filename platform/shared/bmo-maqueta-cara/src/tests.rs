@@ -166,7 +166,7 @@ fn comprobacion_1_una_version_que_no_entiendo() {
     assert_eq!(leer(&b, 1920, 1080).unwrap_err(), Falta::OtraVersion);
 }
 
-/// **1c.** El reservado sucio. Es la senal mas barata de que esto viene de otro
+/// **1c.** El reservado sucio. Es la signal mas barata de que esto viene de otro
 /// sitio: nadie escribe ahi por accidente.
 #[test]
 fn comprobacion_1_el_reservado_tiene_que_estar_limpio() {

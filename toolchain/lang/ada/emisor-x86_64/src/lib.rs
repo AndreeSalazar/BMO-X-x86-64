@@ -58,7 +58,7 @@ mod tests {
     /// * MATRIZ DE CONFORMIDAD DE ADA.
     ///
     /// Cada cosa que este compilador dice compilar tiene su fila, y la fila se
-    /// EJECUTA. Al anadir una caracteristica al emisor hay que anadirle la
+    /// EJECUTA. Al agregar una caracteristica al emisor hay que anadirle la
     /// suya -- es la misma regla que en C y en COBOL.
     #[test]
     fn matriz_de_ada_corre_correctamente() {

@@ -51,7 +51,7 @@
 //!              de toda la vida. Sin clic: pasar por encima basta.
 //! ```
 
-/// Cuantas ventanas puede haber. Fijo y pequeno a proposito: aqui no hay
+/// Cuantas ventanas puede haber. Fijo y chico a proposito: aqui no hay
 /// allocator, y un escritorio con mas de ocho ventanas no es este proyecto.
 /// De 8 a 10 el 2026-08-19: seis ventanas fijas del escritorio **mas las
 /// cuatro cajas de apps** (`scene::surface::MAX`). Con ocho, la tercera app
@@ -112,7 +112,7 @@ pub struct Foco {
     orden: [u8; MAX_VENTANAS],
     n: usize,
     modo: Modo,
-    /// Indice que el conmutador esta senalando mientras `Alt` sigue pulsado.
+    /// Indice que el conmutador esta marcando mientras `Alt` sigue pulsado.
     ///
     /// * Es lo que hace que Alt+Tab se comporte como en cualquier sistema: la
     /// pila **no se reordena hasta que sueltas Alt**. Reordenar en cada Tab
@@ -163,7 +163,7 @@ impl Foco {
     /// > Las teclas de **ESCRITURA** son de la ventana con el FOCO.
     /// > Las teclas de **NAVEGACION** son de la ventana que se VE DELANTE.
     ///
-    /// El 2026-08-09 el dueno abrio CABINA con F11 y RePag/AvPag no movieron
+    /// El 2026-08-09 el propietario abrio CABINA con F11 y RePag/AvPag no movieron
     /// nada, aunque el pie de la ventana los anuncia. El motivo no era un fallo:
     /// era la politica funcionando -- **abrir no es enfocar**, asi que las
     /// teclas seguian yendo a Ejecutar, que estaba detras y usa RePag/AvPag para
@@ -230,7 +230,7 @@ impl Foco {
     /// * Hace falta en TODO lo que mueve la lista --abrir, cerrar, un clic-- y no
     /// es cosmetico: `pointing_at` es un **indice**, no un id. Insertar o quitar
     /// una ventana desplaza las filas por debajo del resaltado, asi que un
-    /// indice que sobrevive a un cambio de lista senala a otra ventana. Es el
+    /// indice que sobrevive a un cambio de lista marca a otra ventana. Es el
     /// clasico de guardar una posicion en vez de una identidad.
     pub fn cancelar_conmutacion(&mut self) {
         self.pointing_at = None;
@@ -290,7 +290,7 @@ impl Foco {
         self.orden[0] = v;
     }
 
-    /// Un `Tab` con Alt pulsado: senala la siguiente.
+    /// Un `Tab` con Alt pulsado: marca la siguiente.
     ///
     /// No reordena nada todavia -- ver [`Foco::soltar_conmutador`].
     pub fn conmutar(&mut self) {
@@ -316,7 +316,7 @@ impl Foco {
         self.pointing_at.is_some()
     }
 
-    /// Se solto Alt: la senalada pasa al frente **de verdad**.
+    /// Se solto Alt: la marcada pasa al frente **de verdad**.
     ///
     /// Aqui es donde la pila se reordena, y es lo que hace que pulsar Alt+Tab
     /// dos veces seguidas te devuelva a donde estabas: la primera vez mueve A
@@ -515,7 +515,7 @@ mod tests {
     }
 
     /// Con una sola ventana no hay nada que conmutar, y sobre todo no se puede
-    /// quedar senalando fuera de la lista.
+    /// quedar marcando fuera de la lista.
     #[test]
     fn con_una_sola_ventana_conmutar_no_hace_nada() {
         let mut f = Foco::nuevo();

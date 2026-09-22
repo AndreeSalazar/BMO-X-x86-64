@@ -24,7 +24,7 @@
 //!                                 estaba esperando a la app
 //!    diferencia 1     PUBLICADO   un fotograma nuevo, y se vio
 //!    diferencia d>1   PERDIDOS    la app publico d, el DIRECTOR vio el
-//!                                 ultimo: d-1 no se ensenaron nunca
+//!                                 ultimo: d-1 no se mostraron nunca
 //! ```
 //!
 //! ## ** Lo que NO es un fotograma perdido, y hay que separarlo
@@ -84,7 +84,7 @@ pub enum Quien {
     /// El DIRECTOR miro mas veces sin nada nuevo que con algo: espera a la
     /// app. En un juego seria "CPU-bound".
     LaApp,
-    /// Mas del 10% de lo publicado no se llego a ensenar: la app produce mas
+    /// Mas del 10% de lo publicado no se llego a mostrar: la app produce mas
     /// deprisa de lo que el DIRECTOR compone. Seria "GPU-bound".
     ElDirector,
     /// Ninguno de los dos espera al otro de forma notable.

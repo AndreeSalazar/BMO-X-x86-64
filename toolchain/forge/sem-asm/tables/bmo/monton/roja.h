@@ -8,7 +8,7 @@
  *                        trozo y no hay pagina de guarda entre vecinos. Quien
  *                        toca el reparto toca donde aterriza todo lo que el
  *                        programa reserve despues
- * [cuesta]  DATO         repartir dos veces el mismo trozo es dos duenos de un
+ * [cuesta]  DATO         repartir dos veces el mismo trozo es dos propietarios de un
  *                        byte, y el segundo no se entera
  * [riesgo]  AJENO SILENCIO
  *                        AJENO: `free` y `bmo_monton_tam` reciben punteros que
@@ -26,7 +26,7 @@
 /* La cabecera de cada bloque: 16 bytes.
  *
  * Son 16 y no 12 para que la carga util quede alineada a 16 -- la arena empieza
- * en una frontera de pagina, asi que base+16 lo esta, y todos los tamanos se
+ * en una frontera de pagina, asi que base+16 lo esta, y todos los medidas se
  * redondean a 16. Un `double` mal alineado aqui no falla en x86, pero un dia
  * habra un `movaps` y entonces si. */
 struct BMO_TROZO {
@@ -86,7 +86,7 @@ void *malloc(unsigned long long bytes) {
     /* Cabecera + carga util, redondeado a 16. */
     pide = bytes + 16;
     pide = (pide + 15) & 0xFFFFFFFFFFFFFFF0;
-    /* Un tamano absurdo se desborda al sumarle 16 y daria un `pide` pequenito
+    /* Un medida absurdo se desborda al sumarle 16 y daria un `pide` chicito
      * que SI cabe: entonces se repartiria un bloque diminuto para una peticion
      * enorme y quien escriba se lleva por delante el monton entero. */
     if (pide < bytes) {

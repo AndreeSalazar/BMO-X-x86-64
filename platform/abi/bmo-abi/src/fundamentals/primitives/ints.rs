@@ -1,6 +1,6 @@
 //! Tipos enteros canonicos del BMO ABI. Reemplaza `<stdint.h>` y `<stddef.h>`.
 //!
-//! Garantizado en todas las plataformas BMO (x86-64): tamanos fijos,
+//! Garantizado en todas las plataformas BMO (x86-64): medidas fijos,
 //! sin `int` ambiguo, sin `long` que cambie con la plataforma.
 //!
 //! -- EL SEMAFORO (L6g) y las dos preguntas de antes (L6e, L6f) --------

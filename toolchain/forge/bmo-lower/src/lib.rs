@@ -30,7 +30,7 @@
 //! Antes de esto, `lang/c/codegen.rs` y `lang/cobol/codegen.rs` emitian cada
 //! uno su propia "impresion" contra numeros de syscall planos (`0x1F0`,
 //! `NR_DEBUG_PRINT`) que el kernel **ya no despacha**, y encima pasaban un
-//! puntero, cosa que la superficie congelada rechaza por diseno. Ninguno de
+//! puntero, cosa que la superficie congelada rechaza por esquema. Ninguno de
 //! los dos imprimia nada en hardware. Un solo emisor correcto, compartido,
 //! elimina la clase entera de bug.
 //!

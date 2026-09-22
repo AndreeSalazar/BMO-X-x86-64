@@ -30,7 +30,7 @@ fn gap_sin_flex(f: &Frame, out: &mut Vec<Error>) {
         "`gap` solo separa elementos de un contenedor flex, y esta caja es `block`. \
          En un navegador tampoco haria nada -- la diferencia es que alli no te lo \
          dice nadie y aqui si.",
-        "anadir `display:flex`, o quitar el `gap`.",
+        "agregar `display:flex`, o quitar el `gap`.",
     ));
 }
 

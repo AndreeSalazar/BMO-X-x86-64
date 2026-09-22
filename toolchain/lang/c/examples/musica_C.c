@@ -7,7 +7,7 @@
  *     bmo_sonido_pitar(cap, 440, 425);      dato fisico
  *     bmo_nota(cap, LA4, NEGRA);            musica
  *
- * La segunda sigue siendo correcta si manana cambia el tempo, el aparato o el
+ * La segunda sigue siendo correcta si luego cambia el tempo, el aparato o el
  * driver. La primera hay que reescribirla entera.
  *
  * == La interfaz ==

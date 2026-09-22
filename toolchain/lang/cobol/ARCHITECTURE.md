@@ -111,7 +111,7 @@ GnuCOBOL.
 >
 > ★ **Y las TAREAS de todo, ordenadas y con sus dependencias, en
 > [`PLAN_BANCA.md`](PLAN_BANCA.md)** -- nueve fases con casillas, de "el suelo
-> del compilador" a "un banco pequeno de punta a punta en el Ryzen". La lista de
+> del compilador" a "un banco chico de punta a punta en el Ryzen". La lista de
 > aqui abajo es la fase 0 y la fase 2 de aquel plan, vistas desde el compilador.
 
 1. **Parser sobre tokens**: migrar `parser.rs` del modo por-lineas al flujo

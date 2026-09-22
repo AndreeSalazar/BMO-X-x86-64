@@ -12,7 +12,7 @@
 //!           en sitios distintos: el parser lo mete dentro del nodo (`Arrow`
 //!           lleva su `u32`) y el codegen lo usa para escalar. Equivocarse no
 //!           da un mensaje: da un programa compilado que guarda en el campo de
-//!           al lado, o con el tamano de al lado.
+//!           al lado, o con el medida de al lado.
 //!
 //! [riesgo]  ESPEJO SILENCIO
 //!           ESPEJO   -- este fichero NACE de que dos funciones juzgaban esta
@@ -131,7 +131,7 @@ pub fn tipo_de<A: Ambito + ?Sized>(amb: &A, e: &Expr) -> Option<TypeSpec> {
         // ** `p++` SIGUE SIENDO UN PUNTERO. Sin estos brazos `*p++` no sabia a
         // que apuntaba y leia ocho bytes por defecto -- que es EXACTAMENTE la
         // macro `va_arg`, y acerto por casualidad mientras se probo con un
-        // tipo cuyo tamano coincide con el de por defecto.
+        // tipo cuyo medida coincide con el de por defecto.
         Expr::PreInc(n) | Expr::PreDec(n) | Expr::PostInc(n) | Expr::PostDec(n) => {
             amb.tipo_de_variable(n)
         }
@@ -163,7 +163,7 @@ pub fn tipo_de<A: Ambito + ?Sized>(amb: &A, e: &Expr) -> Option<TypeSpec> {
         // *** CAUSA B: sin este brazo el codegen no reconocia `&arr[5]` como
         // una direccion, el brazo de `Expr::Sub` no veia "puntero menos
         // puntero" sino "puntero menos ENTERO", y MULTIPLICABA el segundo
-        // operando por el tamano del elemento. De ahi salia -679168 donde
+        // operando por el medida del elemento. De ahi salia -679168 donde
         // tocaba -5: no se olvido de dividir, multiplico.
         Expr::AddrOf(inner) => Some(TypeSpec::Ptr(Box::new(tipo_de(amb, inner)?))),
 

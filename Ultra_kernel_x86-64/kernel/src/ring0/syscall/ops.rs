@@ -124,20 +124,20 @@ pub(crate) const TASK_OP_ENDPOINT_CREATE: u64 = 0x07;
 /// endpoint por su indice, y eso NO es disciplina de capabilities. Existe para
 /// arrancar, y muere cuando haya un servicio de nombres que entregue el handle
 /// a quien deba tenerlo. Se dice aqui para que nadie lo confunda con el
-/// diseno final.
+/// esquema final.
 pub(crate) const TASK_OP_ENDPOINT_CONNECT: u64 = 0x08;
 /// Reclamar la pantalla. Devuelve un handle `KIND_FRAMEBUFFER` y, con el, el
 /// framebuffer mapeado en el espacio del proceso. Ver `ring0/fb.rs`: a partir
 /// de aqui el kernel deja de dibujar y el proceso escribe pixeles con `mov`.
 pub(crate) const TASK_OP_FRAMEBUFFER_CLAIM: u64 = 0x09;
-/// Soltar la pantalla siendo su dueno y **seguir vivo**. Pareja de
+/// Soltar la pantalla siendo su propietario y **seguir vivo**. Pareja de
 /// `FRAMEBUFFER_CLAIM`.
 ///
 /// `0x1D` elegido tras listar los opcodes ORDENADOS, que es la regla desde que
 /// `MEMORIA_PEDIR` se puso en `0x12` --ya ocupado por `REINICIAR`-- y pedir
 /// memoria habria reiniciado la maquina.
 pub(crate) const TASK_OP_PANTALLA_SOLTAR: u64 = 0x1D;
-/// Soltar la ENTRADA siendo su dueno y seguir vivo. Pareja de `INPUT_CLAIM`.
+/// Soltar la ENTRADA siendo su propietario y seguir vivo. Pareja de `INPUT_CLAIM`.
 ///
 /// Va con `PANTALLA_SOLTAR` porque el caso de uso es el mismo y **separarlas fue
 /// el bug**: prestar la pantalla sin la entrada dejo a `ray.bex` pintando sin
@@ -260,12 +260,12 @@ pub(crate) const TASK_OP_ESTRATOS_SELLAR: u64 = 0x18;
 ///
 /// Dos operaciones y no diez. `INFO_ES_*` ya contestaba *como esta* el almacen;
 /// esto contesta **que hay dentro**, que es lo que la ventana de Datos no podia
-/// ensenar porque `raiz`, `nodo`, `entries` y `entrada` eran funciones de
+/// mostrar porque `raiz`, `nodo`, `entries` y `entrada` eran funciones de
 /// Ring 0 sin puerta. Mismo criterio que `INFO` y que el klog: contesta y no
 /// concede -- aqui no hay una sola operacion que escriba.
 pub(crate) const TASK_OP_ES_NODO: u64 = 0x19;
 pub(crate) const TASK_OP_ES_TEXTO: u64 = 0x1A;
-/// **ADMINISTRAR EL DISCO desde donde vive el dueno.** `arg0` = `DISCO_OP_*`.
+/// **ADMINISTRAR EL DISCO desde donde vive el propietario.** `arg0` = `DISCO_OP_*`.
 ///
 /// La segunda operacion de la tabla que cambia el estado del almacen, y la
 /// primera que se lo dice al APARATO en vez de al volumen. Ninguna de sus
@@ -287,11 +287,11 @@ pub(crate) const TASK_OP_HIJO: u64 = 0x2B;
 /// acabo. Espejo de `bmo_abi::...::TASK_OP_ARGUMENTOS`. Ver `task/argumentos.rs`.
 pub(crate) const TASK_OP_ARGUMENTOS: u64 = 0x33;
 
-/// **ARMAR Y SONDEAR LA RED desde donde vive el dueno.** `arg0` = `RED_OP_*`.
+/// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
 /// ## *** POR QUE ESTA OPERACION EXISTE (2026-08-24)
 ///
-/// El 24-08 el dueno tecleo `net rx` en el Ryzen y le contesto:
+/// El 24-08 el propietario tecleo `net rx` en el Ryzen y le contesto:
 ///
 /// ```text
 ///    receptor    apagado   (net rx en Ring 0)
@@ -301,7 +301,7 @@ pub(crate) const TASK_OP_ARGUMENTOS: u64 = 0x33;
 /// --*"ninguna transmite ni un byte: son campos de INFORME"*-- y te manda al
 /// shell de Ring 0. **Al que no se vuelve.**
 ///
-/// > Un camino que solo existe en Ring 0 es un camino que el dueno de su propia
+/// > Un camino que solo existe en Ring 0 es un camino que el propietario de su propia
 /// > maquina no puede tomar.
 ///
 /// ** Y la respuesta no es *"que el escritorio toque la NIC"*: es que Ring 3
@@ -319,7 +319,7 @@ pub(crate) const TASK_OP_RED: u64 = 0x2C;
 
 /// **QUE CUENTA LA PLACA DE SI MISMA.** `arg0` = `PLACA_OP_*`, `arg1` = indice.
 ///
-/// El companero del de arriba, y por el mismo motivo: el censo del firmware
+/// El colega del de arriba, y por el mismo motivo: el censo del firmware
 /// --que tablas hay, donde vive la config de PCIe, si hay IOMMU-- vivia solo en
 /// el shell de Ring 0, y `placa` desde el escritorio contestaba *"no es un
 /// comando ni una ruta"*.
@@ -430,7 +430,7 @@ pub(crate) const TASK_OP_ATRIL: u64 = 0x31;
 pub(crate) const TASK_OP_TOCAR: u64 = 0x32;
 /// **El censo de audio, pedido desde Ring 3.**
 ///
-/// El 2026-08-12 la orden `audio` se anadio SOLO al shell de Ring 0, y el dueno
+/// El 2026-08-12 la orden `audio` se anadio SOLO al shell de Ring 0, y el propietario
 /// la escribio en el compositor -- que tiene su propia lista. Contesto
 /// *"no es un comando ni una ruta"* y la prueba del paso 0 se quedo sin hacer.
 ///
@@ -478,7 +478,7 @@ pub(crate) const TASK_OP_TOMAR: u64 = 0x1C;
 /// ruido, exclusivo como la pantalla. Ver `ring0/obj/audio.rs` -- es el
 /// CONTRATO, no un driver: lo unico que suena hoy es el altavoz del PC.
 pub(crate) const TASK_OP_AUDIO_CLAIM: u64 = 0x21;
-/// Soltar el sonido siendo su dueno y seguir vivo. Va desde el primer dia por
+/// Soltar el sonido siendo su propietario y seguir vivo. Va desde el primer dia por
 /// lo que costo que faltara en la pantalla: sin esto, el primero que pite se
 /// queda el aparato hasta que muera.
 pub(crate) const TASK_OP_AUDIO_RELEASE: u64 = 0x22;
@@ -490,7 +490,7 @@ pub(crate) const TASK_OP_CABINA_TEXTO: u64 = 0x24;
 ///
 /// ** Y ES LA UNICA COPIA, desde el 2026-08-17. Habia otra dentro de `mod.rs`
 /// que decia `0x02` --o sea `MEM_OP_BYTES`-- y era la que usaba el despacho:
-/// prestar memoria no llegaba a su brazo y preguntar el tamano de un bloque
+/// prestar memoria no llegaba a su brazo y preguntar el medida de un bloque
 /// entraba en el de prestar. Ninguna de las dos fallaba en voz alta.
 pub(crate) const MEM_OP_OFRECER: u64 = 0x03;
 // ** ESTAS CONSTANTES SON `pub(crate)` POR CORRECCION, NO POR ESTILO.
@@ -529,7 +529,7 @@ pub(crate) const ES_NODO_VERIFICAR: u64 = 0x0B;
 // -- ** Las tres del ARBOL: preguntar por un nivel que NO es donde estas ----
 //
 // Reciben el nivel en `arg1`, y las que ademas necesitan un hijo lo empaquetan:
-// **`arg1 = (nivel << 32) | indice`**. Se reparte el argumento en vez de anadir
+// **`arg1 = (nivel << 32) | indice`**. Se reparte el argumento en vez de agregar
 // una operacion por combinacion, que es la misma decision que ya tomo
 // `ES_TEXTO` con sus bits altos.
 pub(crate) const ES_NODO_NIVEL_HIJOS: u64 = 0x0C;
@@ -596,7 +596,7 @@ pub(crate) const ERROR_NEGADO: u32 = 11;
 /// 22 en `launch`. Tres aparatos, dos puertas y un nombre para cinco cosas.
 ///
 /// Aqui hay UNA, y el nombre dice de que habla: no es "ocupado" en abstracto,
-/// es **un aparato exclusivo que ya tiene dueno**. Ver L6j.
+/// es **un aparato exclusivo que ya tiene propietario**. Ver L6j.
 pub(crate) const ERROR_APARATO_OCUPADO: u32 = 16;
 
 #[repr(C)]
@@ -720,7 +720,7 @@ pub(crate) const SYSCALL_CLASS_COUNT: u64 = 0x04;
 
 // ** Y LA RELACION SE COMPRUEBA, igual que con los selectores de abajo: el
 // histograma tiene tantas casillas como clases, y la ultima clase es la ultima
-// casilla. Escrito como assert y no como comentario porque anadir una clase
+// casilla. Escrito como assert y no como comentario porque agregar una clase
 // quinta sin ampliar el array daria un contador que se descarta en silencio --
 // y un contador que se pierde no se nota, que es justo lo que este fichero
 // existe para impedir.

@@ -352,7 +352,7 @@ pub fn leer_mcfg(bytes: &[u8], salida: &mut [RangoEcam]) -> usize {
 //  direccion -- sin pasar por el kernel, sin pasar por las tablas de pagina, y
 //  sin que nadie se entere.
 //
-//  *** O sea: **hoy el modelo de seguridad de BMO-X tiene un agujero del tamano
+//  *** O sea: **hoy el modelo de seguridad de BMO-X tiene un agujero del medida
 //  de cualquier aparato con bus-master.** Un anillo de descriptores mal armado
 //  no da un fallo: da la tarjeta escribiendo en memoria de otro, y el sintoma
 //  tres arranques despues. Ya se piso esa mina con el PRDT de AHCI.
@@ -488,7 +488,7 @@ const MADT_X2APIC: u8 = 9;
 /// Devuelve cuantos escribio en `salida`. Un array y no un `Vec`, igual que sus
 /// dos hermanas: esto se llama sin monton.
 ///
-/// # Las cuatro formas en que una MADT hostil puede hacer dano
+/// # Las cuatro formas en que una MADT hostil puede hacer perjuicio
 ///
 /// ```text
 ///    1. `largo` mayor que los bytes que hay   -> se lee fuera de la tabla
@@ -503,7 +503,7 @@ const MADT_X2APIC: u8 = 9;
 /// capabilities de PCI lleva por el mismo motivo.
 ///
 /// [!] Y la 1 hace falta porque **`largo` lo escribe la placa**: la cabecera de
-/// una tabla ACPI declara su propio tamano, y creerselo es leer donde diga.
+/// una tabla ACPI declara su propio medida, y creerselo es leer donde diga.
 pub fn leer_madt(bytes: &[u8], salida: &mut [NucleoDeclarado]) -> usize {
     if bytes.len() < MADT_CABECERA || salida.is_empty() {
         return 0;
@@ -816,7 +816,7 @@ mod pruebas {
         assert_eq!(ivinfo(&[0u8; 10]), None);
     }
 
-    // === MADT: la que faltaba, y sus cuatro formas de hacer dano ==========
+    // === MADT: la que faltaba, y sus cuatro formas de hacer perjuicio ==========
 
     /// Arma una MADT con las entradas dadas: `(tipo, largo, apic, banderas)`.
     fn madt(entradas: &[(u8, u8, u32, u32)]) -> Vec<u8> {

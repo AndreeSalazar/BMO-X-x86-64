@@ -6,14 +6,14 @@
 //! Y sigue siendo **una vista**: no hay nada entre el ojo y la ciudad, asi que
 //! se lee como un fondo de pantalla por muchas ventanas que se le pongan.
 //!
-//! Lo que falta es un plano delante. En la referencia que enseno el dueno --y en
+//! Lo que falta es un plano delante. En la referencia que mostro el propietario --y en
 //! cualquier plano de callejon, y en el arranque de medio videojuego-- los bordes
 //! izquierdo y derecho son masas de edificio casi negras. Eso es lo unico que
 //! separa *"una foto de una ciudad"* de *"estas de pie en un callejon
 //! mirandola"*.
 //!
 //! Y no se consigue con detalle. Se consigue con **un valor mas oscuro que todo
-//! lo demas, ocupando los bordes, y sin nada dentro**. El propio dueno lo acoto
+//! lo demas, ocupando los bordes, y sin nada dentro**. El propio propietario lo acoto
 //! asi: *"NO es necesario tener TANTOS DETALLES ni es como juegos"*.
 //!
 //! === La perspectiva sale de la FORMA, no del dibujo ===
@@ -198,7 +198,7 @@ impl Marco {
     /// bloque exterior de cada lado-- se estira hasta pasado el borde de la
     /// pantalla para que la deriva de la camara no abra una rendija de cielo
     /// pegada al canto. En cuanto la camara se mueve, `x` de ese bloque es
-    /// negativa por diseno.
+    /// negativa por esquema.
     ///
     /// Lo emite crudo porque tiene dos consumidores que quieren cosas
     /// distintas: el lienzo, que lo recorta y lo pinta, y

@@ -65,7 +65,7 @@ fn la_tecla_del_dinero_devuelve_la_mascara_de_un_banco() {
     //
     // ** La plantilla se gasta AL COMPILAR: en el `.bex` no queda ni la mascara
     // ni un interprete que la lea. Eso es lo que ninguna calculadora de
-    // escritorio puede ensenar.
+    // escritorio puede mostrar.
     assert_eq!(preguntar("12345.67", 6, "0"), "0\n    $12,345.67\n");
 }
 

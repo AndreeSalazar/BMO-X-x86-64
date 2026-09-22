@@ -14,7 +14,7 @@
 //! y capacidad-- y **no sabia si su disco giraba**. La palabra que lo dice es la
 //! 217 y estaba a una lectura de 16 bits del buffer que ya se pedia.
 //!
-//! Mientras tanto el arbol **si opinaba**: el diseno de ESTRATOS razona sobre
+//! Mientras tanto el arbol **si opinaba**: el esquema de ESTRATOS razona sobre
 //! TRIM, y la ley dice que un disco *"da caudal cuando tiene cola"*. Ninguna de
 //! las dos frases es falsa. **Ninguna estaba comprobada.** Eso es L5 al reves
 //! --*hardcodea contratos, pregunta hechos*-- y este crate es el hecho.
@@ -127,7 +127,7 @@ mod pruebas {
         assert_eq!(d.enlace.negociada, 3);
         assert!(d.trim.soportado);
 
-        // Con las 32 usadas no queda nada que senalar.
+        // Con las 32 usadas no queda nada que marcar.
         let c = d.contraste(32);
         assert!(!c.enlace_por_debajo);
         assert!(!c.solido_sin_trim);

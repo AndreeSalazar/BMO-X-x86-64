@@ -65,7 +65,7 @@
 //!
 //! Y de rebote salio un tercero, mas general y peor: `pointer_scale` media con
 //! `TypeSpec::stack_size()`, que contesta **0** para `StructRef` porque desde el
-//! AST no hay tabla de tamanos. O sea que `p + 1` sobre un `struct T *`
+//! AST no hay tabla de medidas. O sea que `p + 1` sobre un `struct T *`
 //! avanzaba **UN BYTE**. Ahora mide con `type_stack_size`, que es la cuenta con
 //! la tabla delante -- la misma que ya usaba el subindice. El subindice acertaba
 //! y la suma no, siendo la misma direccion escrita de dos formas.
@@ -303,7 +303,7 @@ fn la_direccion_de_un_campo_por_punto_y_por_flecha() {
 ///
 /// El tercero, y el mas general de los tres: `pointer_scale` media con
 /// `TypeSpec::stack_size()`, que contesta `0` para un `StructRef` --desde el AST
-/// no hay tabla de tamanos-- y con `0` la funcion decidia que "esto no es un
+/// no hay tabla de medidas-- y con `0` la funcion decidia que "esto no es un
 /// puntero" y no escalaba nada.
 ///
 /// La prueba compara las DOS formas de escribir la misma direccion: si el

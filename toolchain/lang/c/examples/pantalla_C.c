@@ -1,8 +1,8 @@
 /* pantalla_C.c -- tomar la pantalla, usarla, y DEVOLVERLA.
  *
- * == Que ensena, y por que hacia falta ==
+ * == Que muestra, y por que hacia falta ==
  *
- * Dos cosas que hasta el 2026-09-01 no se podian ensenar:
+ * Dos cosas que hasta el 2026-09-01 no se podian mostrar:
  *
  *   1. `<bmo/pantalla.h>`, que no existia. Los programas que tomaban el panel
  *      entero se copiaban los cuatro numeros del kernel a mano.
@@ -98,7 +98,7 @@ int main() {
 
     printf("pantalla_C: pido la pantalla\n");
 
-    /* ** SE COMPRUEBA, y no es formalidad. La pantalla tiene UN dueno: si el
+    /* ** SE COMPRUEBA, y no es formalidad. La pantalla tiene UN propietario: si el
      * DIRECTOR esta vivo, esto contesta 0 y quien no lo mire escribe en la
      * direccion 0 -- un fallo de pagina que no se parece en nada a "no te
      * toca". */

@@ -2,7 +2,7 @@
 #
 # ** Por que esto es un fichero y no un parrafo de `build.ps1` (2026-08-28)
 #
-# Porque L6e no elige el corte solo por el tamano: elige tambien por LO QUE
+# Porque L6e no elige el corte solo por el medida: elige tambien por LO QUE
 # CUESTA EQUIVOCARSE. Y aqui equivocarse no es un build rojo -- es escribir en
 # el disco que no era. Todo lo demas que hace este build se deshace borrando
 # `staging`; esto no.
@@ -24,7 +24,7 @@
 # -- Flash --------------------------------------------------------
 # -- EL TECHO DEL `-Si`, Y POR QUE NO ES UN CHEQUE EN BLANCO ------------------
 #
-# El dueno pidio quitar la pregunta: *"da flojera"*. Y la pregunta se puede
+# El propietario pidio quitar la pregunta: *"da flojera"*. Y la pregunta se puede
 # quitar porque **no es ella la que protege** -- lo que protege son las tres
 # comprobaciones duras que ya estaban y que NO se tocan:
 #
@@ -36,7 +36,7 @@
 # OTRO volumen que tambien es FAT32**. Contra eso la pregunta si servia.
 #
 # Asi que en vez de quitarla del todo, el `-Si` **se gana el derecho a no
-# preguntar**: vale mientras el destino sea pequeno. Un ESP y un pendrive estan
+# preguntar**: vale mientras el destino sea chico. Un ESP y un pendrive estan
 # muy por debajo; un disco de datos, muy por encima. Windows ni siquiera
 # formatea FAT32 por encima de 32 GiB sin herramientas de terceros, asi que
 # nada legitimo llega a este techo.
@@ -64,7 +64,7 @@ if ($Flash -or $Verify) {
 
     $efiDest = Join-Path $targetRoot (Join-Path 'EFI' 'BOOT')
     if ($Flash) {
-        # ** El `-Si` vale solo si el destino es pequeno. Ver el techo, arriba.
+        # ** El `-Si` vale solo si el destino es chico. Ver el techo, arriba.
         $grande = ($volume -and ($volume.Size / 1GB) -gt $TECHO_SIN_PREGUNTA_GIB)
         if ($grande -and $Yes) {
             Write-Host ('  [!] -Si NO se aplica: ' + $targetLetter + ': mide mas de ' + `
@@ -143,7 +143,7 @@ if ($Data) {
     $dataRoot = $dataLetter + ':\'
 
     # Cierre 1: nunca el disco del sistema. Es el que tiene el Windows del
-    # dueno de la maquina, y una copia ahi no es un error recuperable.
+    # propietario de la maquina, y una copia ahi no es un error recuperable.
     $sistema = ($env:SystemDrive).TrimEnd([char]':').ToUpper()
     if ($dataLetter -eq $sistema) {
         Fail ('NO: ' + $dataLetter + ': es el disco del sistema (' + $env:SystemDrive + '). BMO no escribe ahi.')
@@ -216,7 +216,7 @@ if ($Data) {
     # no lo decia nunca -- y el disco es el que se pulsa.
     #
     # [!] Y esto SOLO MIRA. No borra, no propone borrar y no falla: imprime la
-    # lista y decide el dueno. Es la misma regla de veinte lineas mas arriba
+    # lista y decide el propietario. Es la misma regla de veinte lineas mas arriba
     # --un deploy no tiene derecho a decidir sobre lo que no puso el-- pero
     # ahora con la cuenta delante en vez de en la cabeza de nadie.
     #

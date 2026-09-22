@@ -4,7 +4,7 @@
 > *un documento sobre UNA PIEZA DE CODIGO vive junto a esa pieza* -- como
 > `PLAN_BANCA.md` en `cobol/`.
 >
-> Escrito el **2026-09-17**, cuando el dueno pidio madurar *"por completo"* los
+> Escrito el **2026-09-17**, cuando el propietario pidio madurar *"por completo"* los
 > lenguajes AOT. Medido contra `toolchain/lang/ada/src` ese dia.
 
 ---

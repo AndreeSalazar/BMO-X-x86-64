@@ -23,7 +23,7 @@
  * asignador que no sabe contarse a si mismo no puede prometer nada.
  */
 
-/* Bytes libres SUMADOS. No es lo mismo que "cabe una peticion de este tamano":
+/* Bytes libres SUMADOS. No es lo mismo que "cabe una peticion de este medida":
  * pueden estar repartidos en huecos sueltos, y esa diferencia es justo la
  * fragmentacion. Por eso hay tambien `bmo_monton_hueco_mayor`. */
 unsigned long long bmo_monton_libre() {

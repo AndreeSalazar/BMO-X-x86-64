@@ -519,7 +519,7 @@ pub(crate) fn latir(s: &mut Output) {
             let Some(p) = tcp() else { terminar(); return };
             match p.estado(t.asa) {
                 // TIME-WAIT ya es el cierre hecho: los dos FIN cruzaron. Los
-                // 60 s de espera son de la pila, no del dueno.
+                // 60 s de espera son de la pila, no del propietario.
                 Estado::TiempoEspera | Estado::Cerrada(Cierre::Normal) => {
                     s.with_ink(INK_GOOD);
                     s.text(b"  [hola] CIERRE LIMPIO en ");

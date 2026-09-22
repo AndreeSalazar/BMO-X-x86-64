@@ -57,7 +57,7 @@ const CON_AVISO_MS: u64 = 1100;
 ///
 /// **1.100 de los 1.205 ms hasta el escritorio eran esta espera.** El sistema
 /// estaba listo en 52 ms y se quedaba mirando al techo el 91% del arranque. Y
-/// el dueno lo leyo como un fallo, que es la senal de que algo va mal aunque
+/// el propietario lo leyo como un fallo, que es la signal de que algo va mal aunque
 /// sea intencionado: si tu instrumento de medida hace que la gente sospeche de
 /// la maquina, la espera es demasiado larga.
 ///
@@ -109,7 +109,7 @@ fn wait_ms(ms: u64, input: Option<&bmo::Entrada>) {
 /// El fondo no se dibuja: la mascara no lo lleva, porque el fondo del splash ya
 /// es negro. Solo se encienden los pixeles del trazo y los de los ojos -- 1.622
 /// de los 27.360 del rectangulo, o sea que dibujarlo cuesta menos que un `rect`
-/// de ese tamano.
+/// de ese medida.
 ///
 /// `escala` multiplica en enteros y a proposito: interpolar un dibujo de lineas
 /// de un pixel lo convierte en una mancha gris. Aqui un pixel de la mascara es
@@ -176,7 +176,7 @@ pub(crate) fn paint(
     // La escala del gato sale de la ALTURA de la pantalla y no de un numero
     // fijo: en 1080 sale a x2 y en 720 a x1, y en las dos ocupa la misma
     // fraccion. Un `3` puesto a mano se sale por abajo en el primer monitor
-    // pequeno que se enchufe.
+    // chico que se enchufe.
     let escala = if p.alto >= 900 { 2 } else { 1 };
     let gato_w = gato::WIDTH * escala;
 
@@ -197,7 +197,7 @@ pub(crate) fn paint(
     // * METAKERNEL, y no es una etiqueta bonita: es lo que hace.
     //
     // Un kernel normal falla y te deja un shell. Este guarda las ultimas cuatro
-    // lineas de cada proceso (`uconsole`), y cuando el dueno de la pantalla
+    // lineas de cada proceso (`uconsole`), y cuando el propietario de la pantalla
     // MUERE las vuelca el a mano --con la CR3 del kernel puesta, que si no es un
     // #PF recursivo-- para poder decir DONDE se rompio. No presume de no fallar:
     // presume de contarlo. De ahi el gato: se cae, se rompe algo, y sigue.
@@ -313,7 +313,7 @@ pub(crate) fn paint(
         y += bmo::GLIFO_ALTO + 6;
     }
 
-    // La memoria, con el numero que a esta maquina le gusta ensenar: cuanto
+    // La memoria, con el numero que a esta maquina le gusta mostrar: cuanto
     // ocupa el sistema entero.
     let total = bmo::info(bmo::INFO_RAM_TOTAL);
     let free_one = bmo::info(bmo::INFO_RAM_LIBRE);
@@ -367,7 +367,7 @@ pub(crate) fn paint(
 
     // == *** LA ESPERA DEPENDE DE SI HAY ALGO QUE LEER (2026-09-08) ========
     //
-    // Peticion del dueno, con sus palabras: *"cuando entro, que no cargue por
+    // Peticion del propietario, con sus palabras: *"cuando entro, que no cargue por
     // procesos -- que YA entre, como en Windows 11: entro y ya esta todo
     // listo"*.
     //
@@ -376,7 +376,7 @@ pub(crate) fn paint(
     // espera**. El sistema estaba listo en 52 ms.
     //
     // Esto ya se intento arreglar el 07-08 haciendola saltable con una tecla, y
-    // la idea era buena. *** Lo que la tumbo fue el metal: el teclado del dueno
+    // la idea era buena. *** Lo que la tumbo fue el metal: el teclado del propietario
     // lleva meses siendo el aparato menos fiable de la maquina --el xHC llego a
     // MORIRSE en marcha-- asi que la salida de emergencia estaba detras del
     // aparato roto. La misma leccion que ya obligo a poner CABINA y el pulso

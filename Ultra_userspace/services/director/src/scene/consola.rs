@@ -27,20 +27,20 @@
 //! borrar, el nombre hay que teclearlo -- y un cuadro de dialogo por cada verbo
 //! es lo que convierte un escritorio en un formulario.
 //!
-//! El reparto es el que ya usa esta casa: **los paneles para mirar y senalar,
+//! El reparto es el que ya usa esta casa: **los paneles para mirar y marcar,
 //! el terminal para decir**.
 //!
 //! === `Ctrl+n`, y por que ese ===
 //!
-//! Lo pidio el dueno por parecido con el panel de VS Code. Y sale bien por una
+//! Lo pidio el propietario por parecido con el panel de VS Code. Y sale bien por una
 //! razon que no es el parecido: la `n` produce el byte `0xF1` en la
-//! distribucion espanola (`ring0/dev/keyboard.rs`), `MOD_CTRL` llega a Ring 3 y
-//! **no choca con AltGr**, que en espanol es `Ctrl+Alt` -- la trampa que ya
+//! distribucion castellana (`ring0/dev/keyboard.rs`), `MOD_CTRL` llega a Ring 3 y
+//! **no choca con AltGr**, que en castellano es `Ctrl+Alt` -- la trampa que ya
 //! costo una sesion entera de teclado.
 //!
 //! === QUIEN SE QUEDA LAS TECLAS ===
 //!
-//! * Lo pidio el dueno tal cual: *"al seleccionar el terminal eso es prioridad
+//! * Lo pidio el propietario tal cual: *"al seleccionar el terminal eso es prioridad
 //! para que se active el atajo"*. Y hace falta, no es un adorno: las flechas
 //! **ya significan algo** en esta ventana --mueven la seleccion del explorador--
 //! y en un terminal significan otra cosa.
@@ -56,9 +56,9 @@
 //!
 //! === ** TODO ACTUA DONDE ESTAS, y eso costo bajar hasta el disco ===
 //!
-//! Hasta el 19-08 `nuevo` **se negaba fuera de la raiz**: el kernel anadia la
+//! Hasta el 19-08 `nuevo` **se negaba fuera de la raiz**: el kernel agregaba la
 //! entrada en `dir::raiz()` y punto, asi que crear en `/` mientras la ventana
-//! ensena `/datos` habria sido la ventana mintiendo sobre su propio contexto --
+//! muestra `/datos` habria sido la ventana mintiendo sobre su propio contexto --
 //! justo lo que esta consola existe para evitar. Se nego, y dijo por que.
 //!
 //! Ya no hace falta. La maquina de abajo republica la rama entera hasta la raiz
@@ -69,7 +69,7 @@
 //! lo unico que un terminal dentro de una ventana tiene y uno de fuera no.
 //!
 //! [!] Y despues de cada gesto se manda `recargar`. Sin eso el cursor seguiria
-//! ensenando el estrato de antes: borrarias un fichero y ahi seguiria.
+//! mostrando el estrato de antes: borrarias un fichero y ahi seguiria.
 
 use bmo_userland as bmo;
 
@@ -268,7 +268,7 @@ impl Consola {
     ///
     /// Porque `true` solo decia *"hay que repintar"* y quien llamaba no tenia
     /// forma de saber CUANTO. Repintaba la ventana ENTERA --sombra, borde,
-    /// barra, los tres botones, las pestanas, el arbol, la rejilla con sus
+    /// barra, los tres botones, las solapas, el arbol, la rejilla con sus
     /// iconos y el historial-- **en cada letra tecleada**. Escribir `ls` eran
     /// dos repintados completos de un panel de varios cientos de miles de
     /// pixeles, sobre memoria de video sin cache.
@@ -365,11 +365,11 @@ impl Consola {
             b"cd" => self.cd(resto),
             // ** `new` es el nombre y `nuevo` sigue valiendo.
             //
-            // Lo pidio el dueno: *"da flojera poner nuevo, ta raro decir
+            // Lo pidio el propietario: *"da flojera poner nuevo, ta raro decir
             // nuevo"*. Y no rompe nada de lo ya tecleado -- la casa ya acepta
             // las dos formas en `clear`/`limpia` y en `mkdir`/`carpeta`. Lo que
             // cambia es cual se ANUNCIA en la ayuda, que es lo unico que
-            // ensena que palabra usar.
+            // muestra que palabra usar.
             b"new" | b"nuevo" => self.nuevo(resto),
             b"carpeta" | b"mkdir" => self.carpeta(resto),
             b"copia" | b"copy" | b"cp" => self.copia(resto),
@@ -408,8 +408,8 @@ impl Consola {
     /// **La ruta del sitio donde esta el cursor, con `nombre` al final.**
     ///
     /// ** Esto es lo que convierte a esta consola en lo que decia ser. Antes
-    /// mandaba solo el nombre, el kernel lo anadia a la raiz, y por eso `nuevo`
-    /// se NEGABA fuera de la raiz: crear en `/` mientras la ventana ensena
+    /// mandaba solo el nombre, el kernel lo agregaba a la raiz, y por eso `nuevo`
+    /// se NEGABA fuera de la raiz: crear en `/` mientras la ventana muestra
     /// `/datos` habria sido la ventana mintiendo sobre su propio contexto.
     ///
     /// Ahora se manda el destino entero. **El contexto es el cursor**, que es
@@ -440,7 +440,7 @@ impl Consola {
     /// Lo que se hace despues de CUALQUIER gesto que salga bien.
     ///
     /// [!] `recargar` no es un adorno: el cursor guarda el listado de cada nivel
-    /// desde que se paso por el, asi que sin esto la ventana seguiria ensenando
+    /// desde que se paso por el, asi que sin esto la ventana seguiria mostrando
     /// el estrato de antes -- borrarias un fichero y ahi seguiria.
     fn hecho(&mut self, g: u64, que: &[u8]) {
         if g == 0 {
@@ -500,7 +500,7 @@ impl Consola {
         let mut i = 0u64;
         // El tope son las lineas que caben: escupir cuarenta entradas en una
         // salida de seis dejaria ver solo las ultimas, que es la mitad inutil.
-        // Se ensena lo que cabe y se DICE cuantas quedan.
+        // Se muestra lo que cabe y se DICE cuantas quedan.
         let caben = (LINEAS - 1) as u64;
         while i < cuantos && i < caben {
             let mut nom = [0u8; 64];
@@ -702,7 +702,7 @@ impl Consola {
         // es justo al reves de lo que se quiere.
         //
         // Ahora publica la version nueva del MISMO fichero, y el historial las
-        // ensena las dos. Es la demostracion mas corta que hay de para que
+        // muestra las dos. Es la demostracion mas corta que hay de para que
         // existe ESTRATOS: guardar encima sin perder lo de antes.
         let g = bmo::estratos::guardar_desde(&ruta[..k], m.handle(), 0, n as u64);
         self.hecho(g, b"volcado");
@@ -717,7 +717,7 @@ impl Consola {
         let n = numero(a);
         if n == 0 {
             self.di(b"vuelve N   (N versiones hacia atras, 1 o mas)", T_BAD);
-            self.di(b"mira la pestana historial para ver cuales hay.", T_DIM);
+            self.di(b"mira la solapa historial para ver cuales hay.", T_DIM);
             return;
         }
         let g = bmo::estratos::volver(n);
@@ -801,7 +801,7 @@ impl Consola {
     /// ** No pide confirmacion, y no es un descuido: **en ESTRATOS borrar no
     /// destruye**. Se publica un arbol sin esa entrada; el nodo, su contenido y
     /// el estrato de ayer siguen enteros. Pedir un "seguro?" para algo que no
-    /// pierde nada ensena a contestar que si sin leer -- y entonces el dia que
+    /// pierde nada muestra a contestar que si sin leer -- y entonces el dia que
     /// se pregunte de verdad, tampoco se leera.
     fn borra(&mut self, a: &[u8]) {
         if a.is_empty() {

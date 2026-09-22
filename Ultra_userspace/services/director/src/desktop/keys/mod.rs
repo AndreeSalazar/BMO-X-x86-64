@@ -97,7 +97,7 @@ pub(crate) struct Gathered {
 pub(crate) fn gather(dsk: &mut Desktop, e: &bmo::Entrada) -> Gathered {
     let m = e.modificadores();
     let ctrl = m & bmo::MOD_CTRL != 0;
-    // En la distribucion espanola `Ctrl+Alt` **es** `AltGr` -- lo que produce
+    // En la distribucion castellana `Ctrl+Alt` **es** `AltGr` -- lo que produce
     // `@`, `#`, `[`, `]`, `\` y `EUR`. Por eso el atajo se dispara al SOLTAR y
     // solo si no llego ningun caracter mientras estaban pulsados.
     let combo = ctrl && m & bmo::MOD_ALT != 0;
@@ -228,7 +228,7 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         // estar arriba**, que es el sintoma suave de siempre.
         //
         // El `filter` es la unica parte que no es evidente: el foco puede
-        // senalar una ventana ya CERRADA --se cierra sin sacarla de la MRU en
+        // marcar una ventana ya CERRADA --se cierra sin sacarla de la MRU en
         // algun camino-- y entonces manda Ejecutar, que es lo que la cadena
         // hacia cayendose hasta el `else`.
         let top_now = dsk
@@ -249,7 +249,7 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
         //
         // Llevaba uno --`_ => {}`-- y ademas cada rama iba con guarda, asi
         // que una ventana olvidada aqui no daba error: daba una ventana que
-        // no se repintaba. Con `Ventana` y sin `_`, anadir la septima no
+        // no se repintaba. Con `Ventana` y sin `_`, agregar la septima no
         // compila hasta que se diga que hacer con ella, y la condicion de
         // "esta abierta" se pregunta DENTRO de su rama en vez de en la
         // guarda -- que es lo que deja el `match` exhaustivo de verdad.
@@ -377,7 +377,7 @@ pub(crate) fn dispatch(
             // ahi. O sea que una app con foco recibia la tecla que fue y nunca
             // la letra que produjo, y **el unico sitio del sistema que sabe esa
             // letra es el kernel**. Sin esto, escribir dentro de una ventana
-            // pedia copiar la distribucion espanola a la app. Ver
+            // pedia copiar la distribucion castellana a la app. Ver
             // `app::caracter`.
             app::caracter(dsk, c);
             continue;

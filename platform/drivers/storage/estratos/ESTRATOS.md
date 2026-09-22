@@ -5,7 +5,7 @@
 > Nacio en `9da276ab` y lo borro **`b33f3966` el 2026-08-03** --*"chore: fuera
 > seis librerias huerfanas - 3671 lineas que nadie cableo"*--. Vivia dentro de
 > `platform/services/timeback/`, y al quitar la carpeta de codigo que nadie
-> cableaba **se fue el diseno del sistema de ficheros con ella**. Nadie lo noto
+> cableaba **se fue el esquema del sistema de ficheros con ella**. Nadie lo noto
 > en dos semanas: un puntero roto no falla, manda al lector a la nada.
 >
 > Lo destapo el guardian de citas (`toolchain/tools/enlaces/enlaces.py`,
@@ -36,14 +36,14 @@ documento se borro el **03-08** y el barrido de las fuentes corrio el **08-08**.
 Escapo de la regla por estar ausente. Ninguna palabra cambia de significado; lo
 que cambia es que ahora cumple lo que cumple el resto del arbol.
 
-Esta section 0 es la unica parte nueva, y existe para lo que pidio el dueno el
+Esta section 0 es la unica parte nueva, y existe para lo que pidio el propietario el
 17-08: *modelar todo para poder mejorar, y hacer un 1.0 que funcione, porque lo
 que habia era ALFA.*
 
 ### La regla que hace falta antes de que alguien cite el cuerpo
 
 El cuerpo se escribio **antes** de que existiera casi nada del codigo, y el
-codigo le ha llevado la contraria en sitios concretos. Un documento de diseno que
+codigo le ha llevado la contraria en sitios concretos. Un documento de esquema que
 se lee como si fuera el estado actual es peor que no tenerlo: se cita, y lo
 citado es falso.
 
@@ -114,7 +114,7 @@ El copy-on-write se ve en el reparto, que es lo unico propio de esa pieza:
 ```
 
 Los tres ultimos no son del fichero: son **la version nueva del arbol**. En un
-sistema que sobreescribe, anadir una entrada toca UN bloque; aqui no se toca
+sistema que sobreescribe, agregar una entrada toca UN bloque; aqui no se toca
 ninguno, se copian los que cambian. Por eso el arbol de ayer sigue entero y
 alcanzable, que es la razon de que este sistema de ficheros exista.
 
@@ -275,7 +275,7 @@ se habia enterado.
 
 ```
    ES_GESTO_ORIGEN      handle de KIND_MEMORIA + desplazamiento. Anota, no lee
-   ES_GESTO_FICHERO_DE  los bytes a tomar. DOS llamadas para cualquier tamano
+   ES_GESTO_FICHERO_DE  los bytes a tomar. DOS llamadas para cualquier medida
 ```
 
 ★ **Y lo que quita es un rodeo que era obligatorio.** Sin esto, la unica forma
@@ -331,7 +331,7 @@ La frase que define a ESTRATOS ya es cierta del FICHERO, no solo del arbol.
 --conservar el nombre y cambiar el NODO-- ya estaba escrita y probada:
 `entradas_repuntando`, que es lo que se le hace a cada nivel de paso de una
 ruta al republicarla. **El quinto verbo era la misma maquina mirada desde otro
-sitio**, y por eso costo cablear y no disenar.
+sitio**, y por eso costo cablear y no trazar.
 
 ```
    ES_GESTO_GUARDAR  0x0B   mismo renglon del origen, misma puerta que 1.2b
@@ -361,7 +361,7 @@ el Ryzen y ver las dos versiones en el historial.
 
 ## 0.1.1 EL PLAN DESPUES DEL 1.0, ORDENADO (2026-08-18)
 
-Reordenado a peticion del dueno: *"vamos a terminar con ESTRATOS, reorganizar el
+Reordenado a peticion del propietario: *"vamos a terminar con ESTRATOS, reorganizar el
 plan para llegar a completar la base"*. Lo que sigue **no es una lista de deseos
 por orden de ganas**: cada tramo desbloquea al siguiente, y donde no lo hace se
 dice.
@@ -383,7 +383,7 @@ en dos mitades que no son el mismo trabajo.
 |---|---|---|
 | 1.1 | **leer el contenido desde Ring 3** | **HECHO** (19-08). `Archivo` resuelve ESTRATOS primero y FAT32 despues, con la misma regla que usa `launch`. |
 | 1.2a | **el techo de 96, por el lado del DISCO** | **HECHO** (19-08). `flujo.rs` construye el arbol de indireccion sin `alloc`, y `Gesto::Copia` lo usa: una copia de FAT32 escribe lo que mida. |
-| 1.2b | **el techo de 96, por el lado de la PUERTA** | **HECHO** (19-08). `ES_GESTO_ORIGEN` + `ES_GESTO_FICHERO_DE`: el contenido viaja por una capability de `KIND_MEMORIA`, dos llamadas para cualquier tamano. Ver *"La puerta"* mas arriba. ** Y esa misma puerta es la que necesita `guardar`, que ya no esta bloqueada. |
+| 1.2b | **el techo de 96, por el lado de la PUERTA** | **HECHO** (19-08). `ES_GESTO_ORIGEN` + `ES_GESTO_FICHERO_DE`: el contenido viaja por una capability de `KIND_MEMORIA`, dos llamadas para cualquier medida. Ver *"La puerta"* mas arriba. ** Y esa misma puerta es la que necesita `guardar`, que ya no esta bloqueada. |
 | 1.3 | **subir el tope de 36 por carpeta** | `ENTRADAS_POR_BLOQUE` = un bloque de entradas. Necesita que `:entradas` use indireccion **al republicar** -- la misma maquinaria de 1.2a, asi que sale casi gratis. Junta de paso los tres numeros distintos (36 escribir / 64 listar / 36 formatear). |
 | 1.4 | **el guardia de los topes** | **HECHO** (19-08). No sube ningun tope: impide que se pasen en silencio. Ver *"El guardia de los topes"* en la section 0.1. |
 
@@ -397,7 +397,7 @@ Ver *"El quinto verbo"* mas abajo.
 
 ### TRAMO 2 -- GESTIONAR: crear en cualquier sitio, borrar, renombrar, carpetas
 
-[!] **Este tramo se reagrupo el 19-08, y la correccion la pidio el dueno.** El
+[!] **Este tramo se reagrupo el 19-08, y la correccion la pidio el propietario.** El
 "crear fuera de la raiz" estaba en el tramo 1 como si fuera otra cosa. No lo es:
 
 ```
@@ -426,14 +426,14 @@ tenga un boton de borrar sin que de miedo.
 
 ### TRAMO 3 -- las comodidades de la ventana
 
-Lo que el dueno llama *"agregar con `clear` eso para facilitar"*. Van aqui y no
+Lo que el propietario llama *"agregar con `clear` eso para facilitar"*. Van aqui y no
 antes porque **ninguna desbloquea nada**: mejoran el uso de lo que ya funciona.
 Pulsar una fila de la rejilla, scroll propio para el grafo, recortar nombres
 largos, y las que salgan de usarlo.
 
 ### TRAMO 4 -- EL RECOLECTOR: **APLAZADO A PROPOSITO** (decision del 19-08)
 
-El dueno lo dijo asi: *"COMPACTAR no es tan mal, asi que abandono el GC si es
+El propietario lo dijo asi: *"COMPACTAR no es tan mal, asi que abandono el GC si es
 por motivos, aunque igual es Git viviente, no es necesario el GC"*. Y tiene los
 dos motivos de su parte.
 
@@ -454,7 +454,7 @@ suelto**. Solo hay dos salidas y las dos son tanda grande:
 
 ★ **Elegido B**, y no por gusto: el cuerpo de este documento ya apostaba por ese
 mundo --escritura siempre secuencial, *"lo que ama un SSD"*-- asi que A seria
-contradecir el diseno para arreglar algo que todavia no duele.
+contradecir el esquema para arreglar algo que todavia no duele.
 
 **2. Y todavia no duele, con numero.** En 414 GiB caben mas de **veinte
 millones** de estratos antes del 70 %, y hay prueba
@@ -500,7 +500,7 @@ bloquea nada de arriba.
 [!] **El riesgo de la section 12 sigue igual, y no baja con el progreso**:
 *"aqui un bug no da un fault bonito en pantalla: se lleva el trabajo de
 alguien."* El 1.0 se estrena en F: --el disco de datos-- y no en el NVMe, que es
-el Windows del dueno.
+el Windows del propietario.
 
 ---
 
@@ -513,7 +513,7 @@ que se cambio.
 **1. `disco_id` no es `[u8; 20]`.** La section 5 lo declara asi y **no caben**:
 el `IDENTIFY` da 40 bytes de modelo y 20 de serie. Es el BLAKE3 de
 modelo+serie+capacidad. La propiedad que importa --dos discos distintos dan
-identidades distintas-- se conserva; el tamano no.
+identidades distintas-- se conserva; el medida no.
 
 **2. `Superblock.estrato` es un `BlockPtr`, no un `Hash`.** Lo destapo escribir
 el formateador, y el motivo esta escrito al lado del campo: *"con un hash solo
@@ -548,20 +548,20 @@ persistencia; todo lo demas ya esta o es post-1.0.
 [!] **Y el riesgo que el cuerpo dice en su section 12 sigue siendo el mismo: no
 se ha reducido con el progreso.** *"Aqui un bug no da un fault bonito en
 pantalla: se lleva el trabajo de alguien."* El 1.0 se estrena en F:, que es el
-disco de datos -- no en el NVMe, que es el Windows del dueno.
+disco de datos -- no en el NVMe, que es el Windows del propietario.
 
 ---
 
 ## 0.4 LO QUE ESTRATOS VA A SER, Y NO ESTA EN EL CUERPO
 
-Dicho por el dueno el 17-08, y cambia para que sirve el diseno: ESTRATOS no es
+Dicho por el propietario el 17-08, y cambia para que sirve el esquema: ESTRATOS no es
 solo el formato en disco, es **la vista del disco entera**.
 
 - **Explorador de ficheros al estilo del de Windows 11.** El cuerpo no lo
   contempla porque se escribio pensando en un formato, no en una interfaz. La
-  tercera pestana `carpetas` --el mismo cursor pintado como lista de
+  tercera solapa `carpetas` --el mismo cursor pintado como lista de
   explorador-- ya es el primer trozo de esto.
-- **Vistas de nodos graficos, y su verbo es RESTABLECER.** La pestana `nodos` ya
+- **Vistas de nodos graficos, y su verbo es RESTABLECER.** La solapa `nodos` ya
   pinta el arbol como grafo. Lo nuevo es para que: **ver los estratos como nodos
   y volver a uno**. Es la interfaz natural del copy-on-write, porque el historial
   ya tiene forma de grafo -- no hay que construirlo, hay que pintarlo.
@@ -578,12 +578,12 @@ solo el formato en disco, es **la vista del disco entera**.
   donde no esta la cosa.
 
 Eso convierte el recolector de la section 9 --hoy una politica escrita-- en algo
-que **se VE**: el dueno mira los estratos y decide, en vez de leer una regla de
-adelgazado. La section 9 ya dice *"politica, no automatismo"* y *"el dueno
+que **se VE**: el propietario mira los estratos y decide, en vez de leer una regla de
+adelgazado. La section 9 ya dice *"politica, no automatismo"* y *"el propietario
 manda"*; lo que faltaba era el sitio donde mandar.
 
 [!] **Nada de esto entra en 1.0.** 1.0 es escribir y releer. Se escribe aqui
-para que el diseno del paso 5 no cierre puertas que estas tres cosas van a
+para que el esquema del paso 5 no cierre puertas que estas tres cosas van a
 necesitar.
 
 ---
@@ -648,7 +648,7 @@ carpeta, sino una propiedad del suelo**:
 4. **La verificacion vive dentro.** El FS no entrega una capability
    *ejecutable* sobre una imagen que no paso `bmo-verify`. La admision deja
    de ser un paso del arranque y pasa a ser una propiedad del almacenamiento.
-5. **El dueno manda sobre el espacio.** El recolector nunca decide solo que
+5. **El propietario manda sobre el espacio.** El recolector nunca decide solo que
    se pierde: avisa, propone y obedece (section 9).
 6. **La particion de arranque NUNCA depende de ESTRATOS** hasta que ESTRATOS
    se lo haya ganado. A: se queda en FAT32; ESTRATOS vive en BMO-DATA.
@@ -659,7 +659,7 @@ carpeta, sino una propiedad del suelo**:
 
 | Sistema | Lo que vale | Lo que se deja |
 |---|---|---|
-| **NTFS** | **Todo es un archivo, incluidos los metadatos** (la tabla maestra es ella misma un archivo, y por eso el FS puede hacer crecer sus propias estructuras con su propio asignador). **Atributos con nombre**: un archivo no es un chorro de bytes, es un conjunto de flujos. **Archivos pequenos residentes**: los que caben viven *dentro* de su registro y no gastan bloque | 30 anios de compatibilidad hacia atras |
+| **NTFS** | **Todo es un archivo, incluidos los metadatos** (la tabla maestra es ella misma un archivo, y por eso el FS puede hacer crecer sus propias estructuras con su propio asignador). **Atributos con nombre**: un archivo no es un chorro de bytes, es un conjunto de flujos. **Archivos chicos residentes**: los que caben viven *dentro* de su registro y no gastan bloque | 30 anios de compatibilidad hacia atras |
 | **ZFS / btrfs** | Copy-on-write, checksums en todo, arbol de Merkle (el hash raiz valida el arbol entero), instantaneas gratis | Volumenes, RAID, cache ARC, compresion -- nada de eso hace falta todavia |
 | **Git** | Direccionamiento por contenido: **deduplicacion gratis**, y el historial son solo raices extra | Que viva en una carpeta aparte del FS |
 | **Log-structured (NILFS2, LFS)** | Escribir **siempre secuencial**, que es exactamente lo que ama un SSD, y da instantaneas continuas | -- (pero trae el recolector: section 9) |
@@ -674,7 +674,7 @@ Cuatro tipos, todos identificados por el **hash BLAKE3 de su contenido**.
 
 ```
   BLOQUE     bytes crudos. La unidad de datos.
-  ATRIBUTO   un flujo con nombre: lista de bloques + tamano.
+  ATRIBUTO   un flujo con nombre: lista de bloques + medida.
   NODO       un archivo o directorio = conjunto de atributos.
   ESTRATO    una raiz: nodo raiz + padre(s) + marca de tiempo + autor.
 ```
@@ -770,7 +770,7 @@ sin un disco delante. Hay 12 tests.
 
 **Es una maquina de estados y no una lista de escrituras** porque la crate es
 `no_std` sin `alloc`: un plan son varios KiB por bloque y no hay `Vec` que
-devolver. Y la restriccion mejoro el diseno -- una lista se puede reordenar por
+devolver. Y la restriccion mejoro el esquema -- una lista se puede reordenar por
 accidente; **una maquina de estados no deja**: `commit()` antes de
 `barrera_hecha()` devuelve `FueraDeOrden`, no depende de que nadie se acuerde.
 
@@ -881,7 +881,7 @@ que decidir que se puede soltar. Esta es la parte dificil de verdad -- la que
 todo el mundo subestima y la razon por la que a btrfs le costo una decada ser
 fiable.
 
-**Decision del dueno**: se implementa, con avisos, y el usuario manda.
+**Decision del propietario**: se implementa, con avisos, y el usuario manda.
 
 ### Como funciona
 
@@ -941,7 +941,7 @@ recogida interna suya-- **todos los bloques que el volumen no ha usado nunca**,
 que recien formateado son casi todos.
 
 Se pide desde la terminal del escritorio, y **obedece a la regla de esta
-seccion**: `disco trim` ensena la propuesta --cuanto, desde que bloque, cuantas
+seccion**: `disco trim` muestra la propuesta --cuanto, desde que bloque, cuantas
 ordenes-- y no manda nada; `disco trim ya` la manda. Politica, no automatismo:
 no hay ningun demonio que recorte solo, y no va a haberlo.
 
@@ -1025,12 +1025,12 @@ uno que hace treinta a medias -- y sobre todo, es uno que **se puede terminar**.
   section 2 y el orden de la section 10.
 - **El recolector es lo dificil**, no el formato.
 - **Las barreras de escritura hay que respetarlas.** Un SSD que dice "ya esta"
-  cuando el dato sigue en su cache convierte cualquier diseno transaccional en
+  cuando el dato sigue en su cache convierte cualquier esquema transaccional en
   decoracion. `FLUSH CACHE` no es opcional.
 - **Nunca dos escritores.** Mientras no haya SMP y bloqueo de verdad, ESTRATOS
   se monta desde un solo sitio.
 
 ---
 
-*Documento de diseno. La implementacion empieza cuando los pasos 1 a 3 de la
+*Documento de esquema. La implementacion empieza cuando los pasos 1 a 3 de la
 section 10 esten hechos y probados en hardware real.*

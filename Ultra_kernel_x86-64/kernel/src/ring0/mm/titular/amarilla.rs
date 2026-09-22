@@ -19,10 +19,10 @@
 //! de caminar una direccion, y si la respuesta no cuadra se planta y lo dice
 //! con nombre en CABINA. El de al lado no tiene quien le grite.
 //!
-//! > El color no es cuanto dano hace. Es cuanto tarda en saberse.
+//! > El color no es cuanto perjuicio hace. Es cuanto tarda en saberse.
 //!
 //! ** Y este carril hace algo mas que etiquetar: es el UNICO sitio por el que
-//! un marco cambia de dueno, asi que es donde se cazan **las dos reglas que
+//! un marco cambia de propietario, asi que es donde se cazan **las dos reglas que
 //! no se pueden vigilar desde el camino rojo de devolucion** -- N3 (un neutro
 //! no se suelta) y R-DMA-3 (un marco en vuelo no cambia de titular). Se ven
 //! desde aqui sin entrar ahi, que es lo que `NEUTRO/REQUISITOS.md` R4 exige.

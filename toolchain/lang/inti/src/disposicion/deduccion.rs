@@ -11,7 +11,7 @@
 //!
 //! ** La primera es aritmetica sobre tipos escritos. La segunda mira el arbol y
 //! decide -- y crece con el lenguaje: cada forma nueva que se pueda deducir
-//! anade un brazo aqui y ninguno alli.
+//! agrega un brazo aqui y ninguno alli.
 //!
 //! *** Y las reglas de aqui son POCAS a proposito, con su motivo escrito en
 //! `tipos_de_con`: **deducir mal es peor que no deducir.** Un tipo que falta se

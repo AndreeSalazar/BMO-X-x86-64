@@ -1,17 +1,17 @@
 //! **Lo que NO SE DESHACE.** `ktest`, `panic`, `reboot` y `halt`.
 //!
 //! [carril]  ROJO      `panic`, `reboot` y `halt`: lo que NO se deshace
-//! [consumo] NADA      panic, reboot, halt y ktest: solo si el dueno los teclea
+//! [consumo] NADA      panic, reboot, halt y ktest: solo si el propietario los teclea
 //!
 //! # Por que estas cuatro tienen fichero propio siendo veintiseis lineas
 //!
-//! Porque el tamano no es el criterio. Estas cuatro comparten la unica
+//! Porque el medida no es el criterio. Estas cuatro comparten la unica
 //! propiedad que de verdad importa al ordenar un shell: **despues de ellas no
 //! se sigue**. Una reinicia, otra para la maquina, otra provoca un fault a
 //! proposito y la cuarta lanza un hilo que no muere.
 //!
 //! Tenerlas juntas y al final hace visible una regla que antes habia que
-//! recordar: si estas anadiendo algo aqui, para y pregunta si de verdad va
+//! recordar: si estas agregando algo aqui, para y pregunta si de verdad va
 //! aqui. Un fichero de veintiseis lineas que evita eso una sola vez ya se pago.
 //!
 //! # Y por que `panic` existe

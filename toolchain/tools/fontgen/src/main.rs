@@ -378,7 +378,7 @@ fn main() {
     //
     // `[carril]` (L6g) y `[consumo]` (L6h) se los exige `contrato.py` a TODO
     // fichero de Ring 0, y estos dos lo son aunque los escriba una herramienta.
-    // Estaban anadidos a mano: regenerar la fuente los borraba, y el build caia
+    // Estaban agregados a mano: regenerar la fuente los borraba, y el build caia
     // por una regla que nadie habia incumplido. Lo que se genera, se genera
     // entero -- letreros incluidos.
     let letreros = |que: &str| {

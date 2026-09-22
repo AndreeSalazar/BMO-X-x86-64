@@ -1,6 +1,6 @@
 # PLAN DEL CODEGEN DE BMO C -- el censo, los cortes y el numero que los ordena
 
-> Pedido por el dueno el 2026-09-12: *"ir profundo en C por completo, en el
+> Pedido por el propietario el 2026-09-12: *"ir profundo en C por completo, en el
 > codegen, analizar y modular por completo"*.
 >
 > Y se empieza por el CENSO y no por el codigo, que es la regla principal de la
@@ -64,7 +64,7 @@ nada grite.
 
 ---
 
-## 2. EL PRIMER CORTE, y por que NO es de tamano -- HECHO
+## 2. EL PRIMER CORTE, y por que NO es de medida -- HECHO
 
 `codegen/mod.rs` declaraba en su cabecera `[fase] EMISION`. Y **360 de sus
 1.738 lineas eran IMAGEN**:
@@ -103,7 +103,7 @@ que sale, se compara lo que sale.
 
 ## 3. LOS CORTES QUE QUEDAN, por el mismo criterio
 
-No por tamano: **por lo que cada trozo cuesta si se equivoca** (L6e, la regla de
+No por medida: **por lo que cada trozo cuesta si se equivoca** (L6e, la regla de
 corte) y por la fase que de verdad hace.
 
 ```text

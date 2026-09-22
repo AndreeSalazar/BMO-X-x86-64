@@ -64,7 +64,7 @@ fn analizar_pic(pic: &str, usage: Usage) -> Result<(PicField, Option<Plantilla>)
     let campo = PicField {
         integer_digits: plantilla.digitos() as u32 - escala,
         scale: escala,
-        // Una PIC editada puede ensenar signo (`-`, `CR`, `DB`), asi que el
+        // Una PIC editada puede mostrar signo (`-`, `CR`, `DB`), asi que el
         // dato que la alimenta se guarda con signo. Al reves --guardarlo sin
         // signo-- un saldo en rojo saldria en verde.
         signed: true,

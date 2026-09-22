@@ -19,7 +19,7 @@
 //! ```text
 //!    categoria  que es                     que se le deja
 //!    MANOS      teclado y raton            entra solo, al enchufar
-//!    SONIDO     audio USB                  solo cuando el dueno lo pide (`audio`)
+//!    SONIDO     audio USB                  solo cuando el propietario lo pide (`audio`)
 //!    RED        RNDIS / NCM / ECM          NUNCA sola: orden explicita, UNA a la vez,
 //!                                          y su corral PRESTADO en el titular del DMA
 //!    PASO       hubs                       solo hace de paso: no tiene datos propios
@@ -28,7 +28,7 @@
 //!    MOVIL      MTP y ADB                  NEGADO SIEMPRE: son la puerta a los
 //!                                          ficheros y a la shell del movil
 //!    OJOS       camaras                    NEGADO: una camara no se enciende sin que
-//!                                          su dueno lo sepa
+//!                                          su propietario lo sepa
 //!    OPACO      del fabricante, o sin      NEGADO: lo que no dice que es, no entra
 //!               clase conocida
 //! ```
@@ -67,7 +67,7 @@ pub enum Motivo {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {
     Adopta,
-    /// Solo con una orden explicita del dueno.
+    /// Solo con una orden explicita del propietario.
     SoloConOrden,
     Niega(Motivo),
 }
@@ -85,7 +85,7 @@ pub fn categoria(t: Tipo) -> Categoria {
     }
 }
 
-/// **El veredicto.** `orden` = el dueno lo pidio por su nombre; `ya_hay_red` =
+/// **El veredicto.** `orden` = el propietario lo pidio por su nombre; `ya_hay_red` =
 /// otra red USB esta adoptada.
 pub fn decidir(t: Tipo, orden: bool, ya_hay_red: bool) -> Decision {
     match categoria(t) {
@@ -124,9 +124,9 @@ pub fn frase(t: Tipo) -> &'static str {
         Tipo::Mtp => "MOVIL en modo archivos (MTP): NEGADO siempre -- es la puerta a sus ficheros",
         Tipo::Adb => "MOVIL, depuracion (ADB): NEGADO siempre -- es la puerta a su shell",
         Tipo::Almacenamiento => "ALMACEN (disco USB): NEGADO -- no hay driver; el dia que lo haya, solo lectura",
-        Tipo::Video => "OJOS (camara USB): NEGADO -- no se enciende sin que su dueno lo sepa",
+        Tipo::Video => "OJOS (camara USB): NEGADO -- no se enciende sin que su propietario lo sepa",
         Tipo::Hid => "MANOS (HID)",
-        Tipo::Audio => "SONIDO (audio USB): entra cuando el dueno lo pide",
+        Tipo::Audio => "SONIDO (audio USB): entra cuando el propietario lo pide",
         Tipo::Hub => "PASO (hub)",
         Tipo::DelFabricante => "OPACO (clase del fabricante): NEGADO -- lo que no dice que es, no entra",
         Tipo::Otro => "OPACO (clase sin nombre): NEGADO -- lo que no dice que es, no entra",

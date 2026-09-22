@@ -435,7 +435,7 @@ fn lo_escrito(m: &Machine) -> Vec<String> {
 // ===================================================================
 //
 //  Era UN fichero de 2.409 lineas y el guardian L6a lo tumbo. El corte NO es por
-//  tamano: cada trozo contesta una pregunta distinta, y el nombre la dice.
+//  medida: cada trozo contesta una pregunta distinta, y el nombre la dice.
 //
 //     marco        donde vive un valor, y como se sale
 //     memoria      tocar memoria: el monton, los anchos, el framebuffer
@@ -482,7 +482,7 @@ mod tabla;
 /// ## Por que hace falta esta prueba
 ///
 /// Desde que existe `--puedo`, la respuesta a *"que reglas sabes emitir?"* vive
-/// en DOS sitios: la tabla de `ir::forma` --que es la que se le ensena a una
+/// en DOS sitios: la tabla de `ir::forma` --que es la que se le muestra a una
 /// persona-- y el `match` de `Instr::Comprueba` --que es la que emite bytes.
 ///
 /// *** Dos listas que dicen lo mismo se separan el dia que alguien toca una. Y
@@ -593,7 +593,7 @@ funcion f(notas es lista de entero64) devuelve entero64
 /// *** Para probar lo segundo hay que ejecutarlo, y el emulador no conocia
 /// `sqrtsd`: manejaba `0F 58..5F` de la aritmetica y `0x51` se le quedaba fuera.
 /// O sea que INTI podia emitir una instruccion **que ninguna prueba podia
-/// ejecutar**. Se le enseno al emulador antes de escribir esto.
+/// ejecutar**. Se le mostro al emulador antes de escribir esto.
 #[test]
 fn la_raiz_cuadrada_da_la_raiz_cuadrada() {
     let f = "perfil llano\nusa matematica\n\nfuncion r(x es flotante64) devuelve flotante64\n    devuelve raiz(x)\n";

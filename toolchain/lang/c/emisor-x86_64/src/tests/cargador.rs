@@ -69,7 +69,7 @@ fn loaded_bef_has_global_data() {
 // arnes de pruebas coloca las secciones por pagina como el cargador real -- sin
 // eso, estos tests no probarian nada.
 
-/// El tamano declarado de la seccion `kind`.
+/// El medida declarado de la seccion `kind`.
 fn tamano_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
     let v = bmo_abi::bef2::leer(bef).ok()?;
     let n = v.region(r).len();
@@ -80,7 +80,7 @@ fn tamano_region(bef: &[u8], r: bmo_abi::bef2::Region) -> Option<usize> {
     }
 }
 
-/// * Un programa pequeno ocupa lo que ocupa.
+/// * Un programa chico ocupa lo que ocupa.
 ///
 /// Antes la seccion de codigo de CUALQUIER programa era multiplo de 4096, asi
 /// que un `hola` media una pagina entera y no se podia distinguir de un
@@ -92,7 +92,7 @@ fn la_seccion_de_codigo_ya_no_se_redondea_a_pagina() {
     let code = tamano_region(&bef, bmo_abi::bef2::Region::Codigo).expect("tiene que haber codigo");
     assert!(
         code % 4096 != 0,
-        "un programa de este tamano no puede medir un multiplo exacto de pagina: {code}"
+        "un programa de esta medida no puede medir un multiplo exacto de pagina: {code}"
     );
     assert!(code < 4096, "y tiene que caber de sobra en una pagina: {code}");
 }
@@ -126,7 +126,7 @@ fn una_cadena_se_alcanza_aunque_el_codigo_no_llene_la_pagina() {
 // proceso NO cambia (1.268.584 las dos veces), que es justo lo correcto: lo que
 // se quita es el transporte, no el sitio.
 
-/// El tamano DECLARADO en memoria de la seccion `kind` (`mem_size`), que para
+/// El medida DECLARADO en memoria de la seccion `kind` (`mem_size`), que para
 /// una `Bss` es lo unico que dice algo -- su `file_size` es cero por definicion.
 /// Los CEROS que declara la imagen, que no viajan en el fichero.
 fn ceros_declarados(bef: &[u8]) -> Option<usize> {
@@ -270,7 +270,7 @@ fn un_global_unsigned_no_se_extiende_con_signo() {
 ///
 /// Un paquete es un `.bex` con una seccion `Resources` (`0x0B`) dentro -- el
 /// codigo y los datos en un solo fichero. Que eso no rompa nada no es evidente:
-/// anadir una seccion hace crecer la tabla, y **todos los offsets en fichero se
+/// agregar una seccion hace crecer la tabla, y **todos los offsets en fichero se
 /// mueven**. Si el cargador leyera un offset de otro sitio, o si las secciones
 /// cambiaran de indice, el programa cargaria y haria otra cosa.
 ///

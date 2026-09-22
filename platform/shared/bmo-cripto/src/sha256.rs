@@ -218,7 +218,7 @@ impl Sha256 {
     ///
     /// ## El relleno, que es donde SHA-256 se rompe si se hace a ojo
     ///
-    /// Al final se anade un `0x80`, luego ceros, y al final **el largo del
+    /// Al final se agrega un `0x80`, luego ceros, y al final **el largo del
     /// mensaje EN BITS, en ocho bytes big-endian**. El relleno se estira hasta
     /// que el total sea multiplo de 64.
     ///

@@ -1,6 +1,6 @@
 //! **LOS VISPLANES DE DOOM: donde el metal dijo que se pierden los spans.**
 //!
-//! # El instrumento senalo (2026-09-11)
+//! # El instrumento marco (2026-09-11)
 //!
 //! ```text
 //!    [bmo/c3] vistas 320 de 320, tramos 1, iscale0 0      paredes: todo

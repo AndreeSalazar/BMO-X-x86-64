@@ -12,7 +12,7 @@
 //!    SHA-512   [X] 25-08   debajo de Ed25519, y de NADA MAS por ahora
 //! ```
 //!
-//! ** Y eso ultimo hay que decirlo: **esto no se anade porque sea "el hermano
+//! ** Y eso ultimo hay que decirlo: **esto no se agrega porque sea "el hermano
 //! grande" ni porque sea mas seguro.** SHA-256 sigue siendo el que usa todo lo
 //! demas. SHA-512 entra porque una firma concreta lo exige por especificacion, y
 //! si Ed25519 no hiciera falta, esta pagina no existiria.

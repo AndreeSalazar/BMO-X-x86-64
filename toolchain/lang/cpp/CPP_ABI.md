@@ -47,7 +47,7 @@ el codegen de BMO C. No hay una regla de C++ aparte, y por eso una clase sin
 metodos es indistinguible de un `struct`.
 
 - Los miembros van **en orden de declaracion**.
-- Cada uno se alinea a `min(tamano, 8)`, minimo 1.
+- Cada uno se alinea a `min(medida, 8)`, minimo 1.
 - El total se redondea al alineado del miembro mas grande.
 
 ### El `vptr` y la herencia (paso 5)
@@ -77,7 +77,7 @@ offsets; los suyos van detras. Ese es todo el mecanismo de la herencia simple:
 
 Una global por clase, `vtabla.<Clase>`, de `n` ranuras de 8 bytes. **El orden
 es la tabla**: un derivado copia la del padre, un `override` **sustituye** su
-ranura y un virtual nuevo se **anade** al final. Por eso las primeras ranuras
+ranura y un virtual nuevo se **agrega** al final. Por eso las primeras ranuras
 significan lo mismo en la base y en el derivado.
 
 ⚠ **Se rellena en ejecucion, al principio de `main`**, y no con un
@@ -115,7 +115,7 @@ donde esta escrito `doble`.
 ## 2. Paso de parametros
 
 Por la pila, derecha a izquierda, en ranuras de 8 bytes; un agregado ocupa
-`techo(tamano/8)` ranuras. No hay clasificacion por *eightbytes* de SysV porque
+`techo(medida/8)` ranuras. No hay clasificacion por *eightbytes* de SysV porque
 **BMO no pasa argumentos en registros**.
 
 La regla vive en **`bmo_abi::types::disposicion::ranuras`**, con sus tests -- no
@@ -126,7 +126,7 @@ segundo lenguaje copia.
 
 ★ Un agregado de 8 bytes o menos **tambien** ocupa una ranura entera: podria
 caber en un registro, pero tratarlo distinto obligaria al llamante y a la
-funcion a ponerse de acuerdo sobre el tamano, y ese es justo el desacuerdo que
+funcion a ponerse de acuerdo sobre el medida, y ese es justo el desacuerdo que
 produce basura silenciosa.
 
 `this` es **un parametro mas**, y va **el primero**. Ahi acaba toda la magia
@@ -217,7 +217,7 @@ libera) aparecera el dia que existan `new`/`delete`.
 
 **`new P(args)`** (2026-09-18) llama a `P.P#<args>.nuevo(args)` --o `P.nuevo`
 si `P` no tiene constructor--, una funcion que se emite solo si la unidad usa
-ese `new`: `malloc` del tamano de `P`, y si no es nulo, el `vptr` y el
+ese `new`: `malloc` del medida de `P`, y si no es nulo, el `vptr` y el
 constructor. Sin excepciones, un `new` sin memoria devuelve nulo sin construir
 nada (lo que en C++ estandar es `new (std::nothrow)`).
 
@@ -265,7 +265,7 @@ Tres escalones, y se comparan **sumando** el de cada argumento. Menos es mejor.
 Un argumento que no encaje en ninguno **descarta la candidata entera**.
 
 **El empate es un error**, con los dos simbolos escritos. Resolverlo solo
---"gana la primera declarada"-- haria que anadir una sobrecarga cambiara a donde
+--"gana la primera declarada"-- haria que agregar una sobrecarga cambiara a donde
 va una llamada existente, **en silencio**.
 
 Fuera del alcance, con motivo en `BRECHA.md`: ADL, conversiones definidas por

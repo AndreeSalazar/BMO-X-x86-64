@@ -157,7 +157,7 @@ impl Pantalla {
     /// Para recuperarla, [`Pantalla::claim`] otra vez -- y hay que **repintar
     /// entero**: mientras no era suya pudo pintar otro.
     ///
-    /// Devuelve `false` si no era el dueno, en vez de fingir que la solto.
+    /// Devuelve `false` si no era el propietario, en vez de fingir que la solto.
     pub fn release(self) -> bool {
         invoke(CURRENT_TASK, OP_PANTALLA_SOLTAR, 0, 0, 0).valor().is_some()
     }
@@ -246,7 +246,7 @@ impl Pantalla {
     ///
     /// === *** EL SEGUNDO CUELLO DE BOTELLA, y no estaba en los pixeles ===
     ///
-    /// `marcar` no es barato, y la razon es su tamano: `Sucias` son **136
+    /// `marcar` no es barato, y la razon es su medida: `Sucias` son **136
     /// bytes** --ocho cajas de 16 mas la cuenta-- y vive en una `Cell`, asi que
     /// cada llamada hace `get()` y `set()`: **272 bytes copiados por pixel**.
     ///

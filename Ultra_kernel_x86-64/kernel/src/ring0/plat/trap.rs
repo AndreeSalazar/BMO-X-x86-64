@@ -38,7 +38,7 @@
 //! ## El area es fija, y por eso se verifica al arrancar
 //!
 //! El ensamblador necesita el desplazamiento del back-pointer como constante,
-//! asi que el area tiene tamano fijo. Lo que ocupa de verdad lo decide el CPU
+//! asi que el area tiene medida fijo. Lo que ocupa de verdad lo decide el CPU
 //! (CPUID hoja 0xD), asi que `cpu_vendor::xsave::init()` lo comprueba **antes
 //! de que exista el primer trap** y se planta si no cabe. Reservar de mas
 //! cuesta unos KiB; quedarse corto desborda la pila de una tarea.
@@ -122,7 +122,7 @@ pub const XSAVE_RESERVA: usize = XSAVE_AREA + 8 + 64;
 /// `cpu_vendor::xsave::init()` se planta al arrancar si algun CPU necesitara
 /// meterse aqui, asi que este espacio es nuestro por contrato verificado.
 ///
-/// Se usa como SELLO del contexto: una firma fija y el dueno. No es adorno --
+/// Se usa como SELLO del contexto: una firma fija y el propietario. No es adorno --
 /// es la diferencia entre "el iretq murio con cs=0" y "el contexto del tid 3
 /// lo piso algo entre que se guardo y que se restauro".
 pub const SELLO_FIRMA: usize = XSAVE_AREA - 16;
@@ -223,11 +223,11 @@ pub fn armar_guardia_cabecera(xcr0: u64) {
 // La guardia de cabecera dice QUE contexto se rompio y DE QUIEN era. Lo que no
 // puede decir es **quien escribio encima**, y esa es justo la pregunta que
 // queda cuando el sello aparece intacto: un sello sin consumir significa que el
-// contexto se guardo bien y que el vandalo llego despues, mientras su dueno
+// contexto se guardo bien y que el vandalo llego despues, mientras su propietario
 // estaba descolocado.
 //
 // Cada stub de entrada talla su area en la pila y la publica. Anotando las
-// ultimas, el informe puede ensenar si dos areas se solapan -- y de que tarea es
+// ultimas, el informe puede mostrar si dos areas se solapan -- y de que tarea es
 // cada una. Dos bases separadas por menos de `XSAVE_AREA` en la misma pila es
 // la respuesta entera, sin interpretacion.
 //
@@ -423,11 +423,11 @@ pub unsafe fn fabricate(
 /// room for the task's own frames.
 pub const MIN_TASK_STACK: usize = CONTEXT_BYTES + 4096;
 
-/// Pone el sello en un contexto: firma + tid del dueno.
+/// Pone el sello en un contexto: firma + tid del propietario.
 ///
 /// Lo llama `fabricate` al crear el contexto y el planificador cada vez que
 /// guarda uno saliente. Los stubs ponen la firma en ensamblador nada mas
-/// publicar el contexto; el dueno lo pone Rust, que es quien sabe de tids.
+/// publicar el contexto; el propietario lo pone Rust, que es quien sabe de tids.
 pub fn seal(xsave_base: u64, tid: u32) {
     if xsave_base == 0 {
         return;

@@ -38,12 +38,12 @@ pub(crate) const CHAR_H: usize   = 20;  // 4px line spacing
 static FONT16: [[u8; 16]; 120] = include!("../font16_data.rs");
 /// Bytes Latin-1 de los glifos extra, en el mismo orden en que aparecen en
 /// FONT16 a partir del indice 95. Generado junto al font: si crece la tabla
-/// del generador crecen los dos archivos y aqui solo cambia el tamano.
+/// del generador crecen los dos archivos y aqui solo cambia el medida.
 static FONT_EXTRA: [u8; 25] = include!("../font16_extra.rs");
 /// Cuantos glifos ASCII (32..=126) van primero en FONT16.
 const ASCII_GLYPHS: usize = 95;
 
-/// Byte -> indice de glifo. ASCII directo; para el espanol (n~, a-acento, ,
+/// Byte -> indice de glifo. ASCII directo; para el castellano (n~, a-acento, ,
 /// ...) se busca el byte Latin-1 en la tabla de extras.
 ///
 /// Latin-1 y no UTF-8 a proposito: en Ring 0 un caracter es UN byte, asi el
@@ -136,7 +136,7 @@ pub(crate) fn draw_str_scaled(x: u32, y: u32, s: &str, color: u32, scale: u32) {
 //
 // ** POR QUE HAY DOS PUERTAS Y NO DOS IMPLEMENTACIONES.
 //
-// Las de arriba escriben en la pantalla y la ensenan al momento: es lo que
+// Las de arriba escriben en la pantalla y la muestran al momento: es lo que
 // quieren el panel de arranque, la CABINA y la pantalla de fallo, que pintan una
 // linea y ya. Las de aqui escriben **donde se les diga**, que es lo que necesita
 // la intro desde que pinta en una superficie en RAM para volcarla de una vez.
@@ -167,7 +167,7 @@ pub(crate) fn glifo_en(l: &mut (impl Lienzo + ?Sized), x: i32, y: i32, c: u8, co
     }
 }
 
-/// Una cadena, en el lienzo que sea. `escala = 1` es el tamano normal.
+/// Una cadena, en el lienzo que sea. `escala = 1` es el medida normal.
 pub(crate) fn cadena_en(l: &mut (impl Lienzo + ?Sized), x: i32, y: i32, s: &str, color: u32, escala: i32) {
     let escala = escala.max(1);
     let mut cx = x;

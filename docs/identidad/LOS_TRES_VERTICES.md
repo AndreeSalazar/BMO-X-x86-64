@@ -1,6 +1,6 @@
 # LOS TRES VERTICES -- de que esta hecho BMO-X, y por que esos tres
 
-> El triangulo es del dueno, con sus palabras y su dibujo:
+> El triangulo es del propietario, con sus palabras y su dibujo:
 >
 > ```text
 >                [ LA ELEGANCIA DE MAC ]
@@ -21,14 +21,14 @@
 > mundo, y lo que le cuesta a los otros dos.**
 >
 > Un triangulo donde los tres lados solo suman es un folleto. Los tres se
-> estorban, y **saber donde** es lo que lo convierte en un diseno.
+> estorban, y **saber donde** es lo que lo convierte en un esquema.
 
 ---
 
 # 0. LA TESIS, EN UNA FRASE
 
 > **Los tres vertices estan en tension en cualquier sistema, y aqui no, por UNA
-> decision: la superficie es pequena.**
+> decision: la superficie es chica.**
 
 Y esa no es una virtud abstracta. Es un numero:
 
@@ -52,7 +52,7 @@ convivir.
 | **bare metal** | potencia: nada entre tu y el silicio | **las dos**: te lo escribes todo |
 
 ★★ **Cada uno de los tres compra su vertice pagando con otro.** Un sistema que
-prometa los tres sin decir con que los paga esta vendiendo, no disenando.
+prometa los tres sin decir con que los paga esta vendiendo, no trazando.
 
 ---
 
@@ -80,7 +80,7 @@ BMO-X tiene exactamente esa propiedad, y la tiene escrita como ley:
 
 ★ La fila de MAQUETA es la que mas se parece a Apple y menos lo parece: **quitarle
 el motor de composicion a la app** es lo que hace que dos apps no se vean
-distintas. Es coherencia comprada por la via de quitar, no de anadir.
+distintas. Es coherencia comprada por la via de quitar, no de agregar.
 
 ## 1.3 -- ⚠ Lo que este vertice le cuesta a los otros dos
 
@@ -97,7 +97,7 @@ escritorio sea uno.
 
 *** **A pantalla completa esta maquina no llega a 60 fotogramas por segundo
 ANTES de dibujar nada.** Asi que la elegancia cede: el primer video va en ventana
-pequena, y las animaciones que no caben en el presupuesto no se hacen. **Medido,
+chica, y las animaciones que no caben en el presupuesto no se hacen. **Medido,
 no supuesto.**
 
 ---
@@ -179,7 +179,7 @@ reventar cada minuto sin ser una vulnerabilidad, y un kernel que lleva un anio s
 caerse puede estar lleno de agujeros.
 
 ★ Y desde el 26-08 hay un cuarto escalon que casi ningun sistema tiene: **la
-patada.** Cuando el kernel ve que su propia contabilidad esta danada, **recupera
+patada.** Cuando el kernel ve que su propia contabilidad esta perjudicada, **recupera
 la maquina el solo**, limpia la pantalla y explica por que. No espera a que se lo
 pidan.
 
@@ -206,7 +206,7 @@ Vuelve la tesis, ya con los tres vertices puestos:
 **Una promesa que cabe en una pagina se puede cumplir diez anios.** Y de ahi salen
 los tres a la vez:
 
-| porque la superficie es pequena... | ...se puede |
+| porque la superficie es chica... | ...se puede |
 |---|---|
 | cabe en la cabeza de una persona | **mantener la coherencia** (Mac) |
 | se puede prometer entera | **no romperla nunca** (Windows) |
@@ -217,16 +217,16 @@ operaciones en una semana y las dos puertas no se movieron.** Lo que impide que
 93 se conviertan en 350 es una regla de una linea -- `R-REX3`: *comodidad es
 cabecera, autoridad es operacion*.
 
-## 4.1 -- Y el peaje, que es como se mantiene pequena
+## 4.1 -- Y el peaje, que es como se mantiene chica
 
-Nada entra gratis. Seis cosas paga todo lo que se anade a la superficie, y desde
+Nada entra gratis. Seis cosas paga todo lo que se agrega a la superficie, y desde
 el 26-08 **las cobra una herramienta**, no la memoria de nadie:
 
 ```text
    1  un numero que quepa en su campo
    2  libre en las DOS tablas
    3  un NO con nombre para cada forma de negarlo
-   4  se suelta al morir el dueno
+   4  se suelta al morir el propietario
    5  una prueba que pueda VER el fallo -- no una que pase
    6  una linea en las tres tablas: kernel, ABI, userland
 ```
@@ -249,7 +249,7 @@ que las seis filas signifiquen algo.
 - **El DMA no esta cerrado.** Sin IOMMU, un aparato mal mandado escribe donde
   quiere. Se dice en el vertice de la potencia y se repite aqui.
 - **Y los tres vertices no estan terminados.** Estan **empezados y medidos**, que
-  es otra cosa -- y la unica que se puede ensenar sin mentir.
+  es otra cosa -- y la unica que se puede mostrar sin mentir.
 
 ---
 

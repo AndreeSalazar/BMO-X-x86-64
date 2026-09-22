@@ -170,7 +170,7 @@ pub fn desempaquetar(code: &mut Vec<u8>, bytes: usize) {
 ///
 /// Hace falta para las herramientas que miran un fichero **sin ejecutarlo**: un
 /// visor de registros tiene que decodificar los mismos nibbles que el programa,
-/// y si las dos reglas divergieran, el visor ensenaria un importe y el programa
+/// y si las dos reglas divergieran, el visor mostraria un importe y el programa
 /// leeria otro -- que es peor que no tener visor.
 ///
 /// * Hay un test que compara esta con la emitida, byte a byte, sobre todos los

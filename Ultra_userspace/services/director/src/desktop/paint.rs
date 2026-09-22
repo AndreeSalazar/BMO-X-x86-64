@@ -60,16 +60,16 @@ fn repintar_apps_encima(dsk: &mut Desktop) {
 /// **Devuelve las ventanas del sistema que un borrado destapo** (2026-09-13).
 ///
 /// Visto en el Ryzen: mover el cubo por encima de la biblioteca dejaba la FOTO
-/// de fondo donde estaba la lista. Ver `scene::dano`, que es quien apunta.
+/// de fondo donde estaba la lista. Ver `scene::perjuicio`, que es quien apunta.
 ///
 /// El orden es el Z-order: primero las ventanas que NO estan arriba, despues
 /// la de arriba, y las apps se recomponen al final porque van encima de todas.
 fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
-    if !scene::dano::hay() {
+    if !scene::dirty::hay() {
         return;
     }
     let toca = |dsk: &Desktop, v: Ventana| -> bool {
-        let caja = |c: &scene::chrome::Chrome| !c.minimized && scene::dano::toca(c.x, c.y, c.width, c.height);
+        let caja = |c: &scene::chrome::Chrome| !c.minimized && scene::dirty::toca(c.x, c.y, c.width, c.height);
         match v {
             Ventana::Data => dsk.win.data_open && caja(&dsk.win.data.chrome),
             Ventana::Cabina => dsk.win.cabina_open && caja(&dsk.win.cabina.chrome),
@@ -77,7 +77,7 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
             Ventana::Estructura => dsk.win.estructura_open && caja(&dsk.win.estructura.chrome),
             Ventana::Run => {
                 dsk.win.visible
-                    && scene::dano::toca(dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())
+                    && scene::dirty::toca(dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())
             }
             // Las vitales se repintan solas cada 15 vueltas; las apps, abajo.
             _ => false,
@@ -110,7 +110,7 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
             s.repaint_all();
         }
     }
-    scene::dano::olvidar();
+    scene::dirty::olvidar();
 }
 
 /// Everything that happens after the input has been read and understood.
@@ -177,7 +177,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
                             dsk.calc.respondio = false;
                             // Lo que no es una cifra es una PRESENTACION (`$`)
                             // o un motivo: en los dos casos, teclear encima
-                            // empieza de cero en vez de anadir al final.
+                            // empieza de cero en vez de agregar al final.
                             dsk.calc.presentado = !dsk.calc.bien
                                 || dsk.calc.input[..k].iter().any(|c| {
                                     !c.is_ascii_digit() && *c != b'.' && *c != b'-'
@@ -263,7 +263,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // * Lo que las ensucia se calcula AQUI, comparando el estado con el del
     // fotograma anterior, en vez de poner `taskbar_dirty = true` en los seis
     // sitios que cambian algo. Un `sucio` que hay que acordarse de poner es
-    // un `sucio` que un dia no se pone, y entonces la barra ensena un
+    // un `sucio` que un dia no se pone, y entonces la barra muestra un
     // estado viejo sin que nada falle -- el peor tipo de fallo de interfaz.
     let taskbar_state = (
         dsk.win.visible,
@@ -340,7 +340,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // El testigo del USB vive en la misma barra, en la ranura siguiente a
         // CABINA. Repintar las fichas no lo toca --esta despues-- pero SI lo
         // tapa lo que repinta la barra entera, y de ahi se vuelve por aqui:
-        // `taskbar_dirty` es la senal comun de "la barra se ha vuelto a
+        // `taskbar_dirty` es la signal comun de "la barra se ha vuelto a
         // pintar". Olvidando lo pintado, la luz se dibuja en la vuelta
         // siguiente.
         //
@@ -348,7 +348,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // es la peor cosa que puede decir un instrumento que se borro.
         // ** UNA llamada para los tres, y la lista vive en `scene`. Ver
         // `scene::olvidar_la_barra`: tres olvidos repartidos por aqui es
-        // como se anade un chip y se olvida el suyo.
+        // como se agrega un chip y se olvida el suyo.
         scene::olvidar_la_barra();
         dsk.win.taskbar_dirty = false;
     }
@@ -426,7 +426,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // El hueco de las que murieron se devuelve ANTES de componer las vivas:
     // borrar despues taparia a una ventana que si esta.
     // Un borrado de esta vuelta obliga a pintar: lo destapado se devuelve abajo.
-    if scene::dano::hay() {
+    if scene::dirty::hay() {
         dsk.tick.will_paint = true;
     }
     if dsk.tick.will_paint {
@@ -538,7 +538,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         // El orden de las preguntas es el Z-order otra vez: lo que esta
         // encima manda. Un boton de la calculadora tapado por la consola
         // del kernel no puede pedir la mano -- senalaria algo que no se
-        // puede pulsar, que es peor que no senalar nada.
+        // puede pulsar, que es peor que no marcar nada.
         let shape = if dsk.calc.visible
             && dsk.win.top_before == Ventana::Run
             && dsk.calc_pad.key_at(dsk.tick.ax, dsk.tick.ay).is_some()

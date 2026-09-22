@@ -5,7 +5,7 @@
 //!                     aqui (L6h)
 //!
 //! Es el bloque mas grande de los que reparte `super::on_pointer`, y por eso
-//! sale el primero: dentro hay cuatro cosas que no se parecen --las pestanas,
+//! sale el primero: dentro hay cuatro cosas que no se parecen --las solapas,
 //! la rejilla, el menu del clic derecho y la consola del pie-- y todas quieren
 //! la misma pulsacion.
 //!
@@ -13,7 +13,7 @@
 //! cortaba la vuelta ENTERA del puntero, no solo este bloque: convertirlo en un
 //! `bool` es lo que conserva ese significado al sacarlo de la funcion grande.
 //! Si se hubiera dejado como `return`, la barra de tareas y el Z-order
-//! seguirian corriendo detras de un clic que ya tenia dueno.
+//! seguirian corriendo detras de un clic que ya tenia propietario.
 
 use bmo_userland as bmo;
 
@@ -82,7 +82,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
         //
         // [!] **Y ese comentario describia lo que aqui NO se hacia.** Decia
         // 1.700 pixeles y llamaba a `data::paint`, que repinta la ventana
-        // ENTERA: marco, pestanas, arbol, rejilla con iconos e historial. Pasar
+        // ENTERA: marco, solapas, arbol, rejilla con iconos e historial. Pasar
         // el puntero por encima de los tres botones cambia el realce cinco o
         // seis veces --entrar y salir de cada uno-- asi que un gesto de medio
         // segundo eran seis repintados completos del panel. Es exactamente lo
@@ -114,7 +114,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                 }
                 Some(Button::Minimize) => {
                     // Minimizar NO es cerrar: la ventana sigue abierta
-                    // y conserva su sitio, su tamano y lo que estuviera
+                    // y conserva su sitio, su medida y lo que estuviera
                     // mirando. Se va a su ficha de la barra.
                     let (vx, vy, va, vl) = (
                         dsk.win.data.x(), dsk.win.data.y(),
@@ -202,16 +202,16 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                             }
                             servido = true;
                         }
-                        // -- ** CLIC EN LA REJILLA: senalar, y abrir al SEGUNDO
+                        // -- ** CLIC EN LA REJILLA: marcar, y abrir al SEGUNDO
                         //
                         // Faltaba entero. `fila_rejilla_en` existia desde que
                         // hay menu contextual, pero solo lo miraba el boton
                         // DERECHO: con el izquierdo se podia abrir un menu
-                        // sobre un archivo y no se podia senalar ese archivo.
+                        // sobre un archivo y no se podia marcar ese archivo.
                         // Una lista en la que se pulsa y no pasa nada parece
                         // rota aunque el teclado la recorra bien.
                         //
-                        // ** El primero SOLO senala. Abrir con un clic suelto
+                        // ** El primero SOLO marca. Abrir con un clic suelto
                         // en una lista donde tambien se arrastra la ventana
                         // seria entrar en carpetas sin querer.
                         //
@@ -219,7 +219,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         // lo mismo: `entrar` dice que no cuando es un archivo,
                         // y entonces no pasa nada -- que es correcto, porque un
                         // archivo no tiene dentro. El dia que haya con que
-                        // abrirlo, se anade en `entrar` y las dos formas lo
+                        // abrirlo, se agrega en `entrar` y las dos formas lo
                         // heredan a la vez.
                         else if let Some(i) = dsk.win.data.fila_rejilla_en(pos.x, pos.y) {
                             let doble = dsk.win.data.clic_rejilla(i);
@@ -264,8 +264,8 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                             // del nombre de otro.
                             dsk.win.data.verified = None;
                             // * Ctrl+clic BAJA de una vez, sin tener que
-                            // senalar y pulsar ENTRAR. El clic a secas
-                            // solo senala, porque senalar tiene que
+                            // marcar y pulsar ENTRAR. El clic a secas
+                            // solo marca, porque marcar tiene que
                             // poder hacerse sin miedo a moverte de sitio.
                             if ctrl && scene::data::fuente::entrar(i as u64) {
                                 dsk.win.data.to_top();

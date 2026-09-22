@@ -47,7 +47,7 @@
 use bmo_userland as bmo;
 
 /// Lado del dibujo. El mismo 16 que `BICO`, y por la misma razon: se guarda
-/// pequeno y se agranda si hace falta.
+/// chico y se agranda si hace falta.
 pub(crate) const LADO: u32 = 16;
 
 /// Los papeles, no los colores:
@@ -65,7 +65,7 @@ pub(crate) const LADO: u32 = 16;
 /// una mancha.
 const CONTORNO: u32 = 0x0010_141B;
 
-/// **La carpeta.** La pestana arriba a la izquierda, que es lo que la hace
+/// **La carpeta.** La solapa arriba a la izquierda, que es lo que la hace
 /// reconocible en cualquier sistema desde hace cuarenta anios.
 pub(crate) const CARPETA: [&str; LADO as usize] = [
     "................",

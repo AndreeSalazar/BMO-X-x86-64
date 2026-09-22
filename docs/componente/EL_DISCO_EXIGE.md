@@ -4,7 +4,7 @@
 > hace BMO-X con el disco"* sino **que exige el disco de quien quiera
 > escribirle**.
 >
-> Escrito el **2026-08-17**. Nace de una pregunta del dueno que separa el
+> Escrito el **2026-08-17**. Nace de una pregunta del propietario que separa el
 > problema mejor de lo que estaba separado en el arbol:
 >
 > > *"la placa base entrega los perfiles, y segun el perfil se exprime todo el
@@ -25,7 +25,7 @@
    lo que se le preguntaba          modelo (27..46), serie (10..19),
                                     sectores (100..103)
 
-   lo que NO, y decide el diseno entero de la escritura
+   lo que NO, y decide el esquema entero de la escritura
       palabra 217        ** ROTACIONAL O NO **   <- a una palabra de distancia
       palabra 169 bit 0  soporta TRIM
       palabras 106/209   sector FISICO y alineacion del LBA 0
@@ -35,7 +35,7 @@
 
 Y sin embargo el arbol **si tenia una opinion**: `ESTRATOS.md` habla de soltar
 bloques *"o el SSD sigue creyendo"*, y la ley dice que un disco *"da caudal
-cuando tiene cola"*. O sea que el diseno **daba por hecho** lo que el codigo no
+cuando tiene cola"*. O sea que el esquema **daba por hecho** lo que el codigo no
 habia comprobado. Es L5 al reves --*hardcodea contratos, pregunta hechos*-- y el
 hecho estaba a una lectura de 16 bits **en un buffer que ya se pedia**.
 
@@ -73,7 +73,7 @@ section 10.
 
 ## 1. ★★ TRES PREGUNTAS, NO UNA
 
-Lo que el dueno separo, y hay que mantener separado porque **se contradicen**:
+Lo que el propietario separo, y hay que mantener separado porque **se contradicen**:
 
 ```
    EL MEDIO      gira o no gira        decide QUE es caro
@@ -143,7 +143,7 @@ miente sobre donde estan las cosas para no tener que hacer eso.
 
 **Las cuatro consecuencias, cada una con su regla:**
 
-- **Escribir en el sitio es caro; escribir hacia adelante es gratis.** Un diseno
+- **Escribir en el sitio es caro; escribir hacia adelante es gratis.** Un esquema
   que nunca sobrescribe le ahorra al FTL su trabajo mas caro.
 - **Hay un numero de escrituras y se acaba.** Se declara como TBW (terabytes
   escritos). No es una alarma lejana si el sistema reescribe metadatos a lo
@@ -158,7 +158,7 @@ miente sobre donde estan las cosas para no tener que hacer eso.
 
 ### ★ Y aqui hay una coincidencia que conviene decir en voz alta
 
-**ESTRATOS ya esta disenado para lo que un SSD quiere.** Copy-on-write, log que
+**ESTRATOS ya esta trazado para lo que un SSD quiere.** Copy-on-write, log que
 solo crece hacia adelante, nunca sobrescribir: es exactamente lo que reduce la
 amplificacion de escritura. No fue por eso --se eligio por el historial-- pero el
 resultado es que el FS de esta casa **le pide a la NAND justo lo que la NAND hace
@@ -180,8 +180,8 @@ vuelo a la vez**. Y en un SSD eso es casi todo el rendimiento.
 ```
 
 ★★ **La diferencia que importa no es el ancho: es la segunda columna.** AHCI se
-diseno para un aparato con un brazo, donde no tiene sentido pedir mil cosas a la
-vez. NVMe se diseno para un aparato que puede atender cientos en paralelo. Poner
+esquema para un aparato con un brazo, donde no tiene sentido pedir mil cosas a la
+vez. NVMe se esquema para un aparato que puede atender cientos en paralelo. Poner
 un SSD detras de AHCI le deja la fisica y le quita el paralelismo.
 
 ### Lo que esta maquina tiene, MEDIDO
@@ -189,18 +189,18 @@ un SSD detras de AHCI le deja la fisica y le quita el paralelismo.
 ```
    [MEDIDO]   HBA AHCI, CAP = 0xEF36FF27
    [MEDIDO]   el disco de BMO: Kingston SA400S37480G, SATA, 447 GiB
-   [HECHO]    el NVMe de esta maquina es el Windows del dueno: NO se escribe
+   [HECHO]    el NVMe de esta maquina es el Windows del propietario: NO se escribe
    [HECHO]    ** el driver usa la RANURA 0, SIEMPRE ** -- 1 de 32
 ```
 
 Esa ultima esta escrita en el propio driver, con su motivo: *"un comando en vuelo
 es un estado global del puerto (...) dos lecturas solapadas escriben la misma
-ranura"*. La solucion que se puso fue **un dueno**, no una cola -- correcta para
+ranura"*. La solucion que se puso fue **un propietario**, no una cola -- correcta para
 la correccion, y deja el caudal donde estaba.
 
 > ★★ **BMO-X corre hoy su SSD a profundidad de cola 1, que es la unica
 > configuracion en la que un SSD se parece a un disco duro.** No es un defecto
-> del diseno: es una casilla que nadie ha abierto porque hasta ahora no habia
+> del esquema: es una casilla que nadie ha abierto porque hasta ahora no habia
 > nada que escribiera.
 
 Y la ley ya lo decia sin numero: *"un disco da caudal cuando tiene cola. Una
@@ -241,8 +241,8 @@ el patron que peor le sienta.
 su cache volatil, no cuando esta en la NAND.
 
 > ★★★ **Eso convierte el `FLUSH CACHE` de ESTRATOS en la unica cosa que separa
-> una transaccion de la corrupcion.** El diseno ya lo dice --*"un SSD que dice
-> ya esta cuando el dato sigue en su cache convierte cualquier diseno
+> una transaccion de la corrupcion.** El esquema ya lo dice --*"un SSD que dice
+> ya esta cuando el dato sigue en su cache convierte cualquier esquema
 > transaccional en decoracion"*-- y aqui queda dicho de quien se sospecha y por
 > que: de este disco, porque no tiene condensadores para terminar lo que
 > empezo.
@@ -252,7 +252,7 @@ su cache volatil, no cuando esta en la NAND.
 ## 6. LAS REGLAS
 
 Las cinco de la ley (`R-DISCO1..5`) siguen enteras. Estas son las que este
-capitulo anade:
+capitulo agrega:
 
 - **R-DISCO6.** ★★ **EL MEDIO SE PREGUNTA, NO SE SUPONE.** La palabra 217 del
   IDENTIFY dice si el medio gira (`0x0001` = no rotacional; `0x0401`-`0xFFFE` =
@@ -267,7 +267,7 @@ capitulo anade:
   los dos manda a optimizar en la capa equivocada.
 
 - **R-DISCO8.** ★★ **LO QUE DECIDE EL DISENO ES JUSTO LO QUE EL DISCO NO
-  DECLARA.** El tamano del **bloque de borrado** --el numero que dice si una
+  DECLARA.** El medida del **bloque de borrado** --el numero que dice si una
   escritura de 4 KB cuesta 4 KB o 2 MB-- **no lo expone ningun SSD de consumo**,
   en ninguna palabra del IDENTIFY. Tampoco el TBW, ni si hay DRAM, ni si hay
   condensadores. Por eso hace falta un PERFIL: no para repetir lo que el aparato
@@ -305,13 +305,13 @@ capitulo no lo cambia -- le pone tres condiciones que hoy no se cumplen:
 ```
    1  LEER LA PALABRA 217 ANTES DE ESCRIBIR NADA
       Es una lectura de 16 bits en un buffer que YA se pide. Sin ella, el paso 5
-      se disena a ciegas.
+      se traza a ciegas.
 
    2  ALINEAR EL LOG CON EL BLOQUE DE BORRADO
       El log de ESTRATOS crece hacia adelante, que es lo correcto. Si ademas su
       frente cae en frontera de bloque de borrado, la amplificacion tiende a 1.
       Si no, cada avance puede tocar dos bloques.
-      [!] El tamano no se puede preguntar (R-DISCO8) -> va al perfil.
+      [!] El medida no se puede preguntar (R-DISCO8) -> va al perfil.
 
    3  EL FLUSH CACHE ES LA UNICA RED
       Ya esta puesto y en el orden correcto. Lo que falta es la prueba, y es la
@@ -327,7 +327,7 @@ equivocada.
 
 ---
 
-## 8. EL PERFIL: lo que pidio el dueno, y por que encaja sin torcer nada
+## 8. EL PERFIL: lo que pidio el propietario, y por que encaja sin torcer nada
 
 > *"la placa base entrega los perfiles, y segun el perfil se exprime todo el
 > potencial"*
@@ -387,7 +387,7 @@ obligatoriamente es tambien el unico que se puede **cazar por su sombra**.
 
 ## 9. LO QUE ESTE CAPITULO NO CUBRE, Y POR QUE
 
-- **NVMe.** No hay driver, y en esta maquina el NVMe es el Windows del dueno: la
+- **NVMe.** No hay driver, y en esta maquina el NVMe es el Windows del propietario: la
   escritura esta cerrada a proposito. Cuando haya otro disco NVMe, la section 4
   crece con su columna -- las colas cambian el analisis entero, no un parametro.
 - **SMART.** Es la via para leer horas encendido, sectores realojados y **el TBW
@@ -437,7 +437,7 @@ pagina, ni el bloque de borrado, que es la unica frontera que importa al
 escribir.
 
 O sea que la geometria que el aparato SI declara es la que no sirve, y la que
-decide el diseno **no tiene campo donde vivir**. Eso era R-DISCO8 escrito como
+decide el esquema **no tiene campo donde vivir**. Eso era R-DISCO8 escrito como
 prediccion; ahora esta impreso en pantalla, en dos renglones consecutivos.
 
 ### [!] Y un defecto que la tanda destapo, y era mio
@@ -509,7 +509,7 @@ y `info` lo dice al lado del perfil en vez de callarlo.
 
 Windows no se fio de la palabra 217. Linux tuvo que prohibir el TRIM encolado en
 una familia entera de discos. **Las dos historias parecen "hay firmware malo", y
-esa lectura no sirve para nada**: no dice cual creer manana.
+esa lectura no sirve para nada**: no dice cual creer luego.
 
 Debajo hay algo que si predice, y son tres escalones.
 
@@ -568,7 +568,7 @@ controlador. Escrito antes de que haga falta, que es cuando sale barato.
 
 ## 12. ★★ QUE PUEDE APROVECHAR BMO-X QUE LOS OTROS NO
 
-La pregunta del dueno --*"que BMO-X USE TODO lo que ofrece TODO"*-- tiene una
+La pregunta del propietario --*"que BMO-X USE TODO lo que ofrece TODO"*-- tiene una
 respuesta concreta, y sale justo de la section anterior.
 
 ### La asimetria, en una linea

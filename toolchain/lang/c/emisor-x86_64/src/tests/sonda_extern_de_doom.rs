@@ -10,7 +10,7 @@
 //!
 //! En DOOM `floorclip` y `ceilingclip` se declaran `extern` en `r_plane.h` y se
 //! DEFINEN en `r_plane.c`, y el unity build los ve en ese orden. Si el `extern`
-//! reserva otro sitio, o con otro tamano, los dos arrays se solapan: escribir
+//! reserva otro sitio, o con otro medida, los dos arrays se solapan: escribir
 //! `ceilingclip[i] = -1` pisaria `floorclip`.
 
 use super::*;

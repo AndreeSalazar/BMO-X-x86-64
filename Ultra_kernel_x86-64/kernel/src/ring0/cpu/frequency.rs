@@ -92,7 +92,7 @@ pub fn init() {
     if hay {
         // La primera lectura se toma YA, para que la segunda --la del primer
         // panel que pregunte-- tenga con que restar. Sin esto, el primer numero
-        // que ve el dueno seria siempre 0 y pareceria que no funciona.
+        // que ve el propietario seria siempre 0 y pareceria que no funciona.
         unsafe {
             PREV_MPERF = rdmsr(MSR_MPERF);
             PREV_APERF = rdmsr(MSR_APERF);

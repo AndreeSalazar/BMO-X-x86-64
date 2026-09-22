@@ -4,7 +4,7 @@
  * explica por que existe esta pieza-- esta en la fachada; aqui va lo
  * que cambia de color.
  *
- * [carril]  VERDE        anadir un dato es una FILA, y el fichero ya lo decia
+ * [carril]  VERDE        agregar un dato es una FILA, y el fichero ya lo decia
  *                        con esas palabras. Nadie hereda de aqui y ningun
  *                        binario viejo se entera de una fila nueva
  * [cuesta]  NADA         un numero mal en un panel. Se ve y se arregla -- es
@@ -18,7 +18,7 @@
 
 #include <bmo/bmo/roja.h>
 
-/* Campos de BMO_OP_INFO. Son una TABLA: anadir un dato es una fila, no una
+/* Campos de BMO_OP_INFO. Son una TABLA: agregar un dato es una fila, no una
  * operacion nueva. */
 #define BMO_INFO_RAM_TOTAL 0x01
 #define BMO_INFO_RAM_LIBRE 0x02
@@ -108,7 +108,7 @@
  *
  * Tres filas de HECHOS y una de VEREDICTO. Hasta hoy BMO-X le preguntaba al
  * disco modelo, serie y capacidad, y **no sabia si giraba** -- mientras el
- * diseno de ESTRATOS razonaba sobre TRIM y la ley sobre colas. Ninguna de esas
+ * esquema de ESTRATOS razonaba sobre TRIM y la ley sobre colas. Ninguna de esas
  * frases era falsa; ninguna estaba comprobada.
  *
  * Capitulo con los numeros: docs/componente/EL_DISCO_EXIGE.md
@@ -149,7 +149,7 @@
  * COLA_LBA / COLA_SECTORES son la cola libre del volumen ESTRATOS **tal como
  * la va a usar el recorte**: los sirve la misma funcion del kernel que manda
  * la orden. Se podian deducir de las filas `INFO_ES_*`, y deducirlos era tener
- * dos cuentas de la misma verdad -- la que se ensena y la que se ejecuta.
+ * dos cuentas de la misma verdad -- la que se muestra y la que se ejecuta.
  * 0 = no hay volumen montado, o la cola esta vacia.
  *
  * TRIM_BLOQUES es la palabra 105: bloques de payload de 512 B por orden, y uno
@@ -217,7 +217,7 @@
 #define BMO_INFO_CPU_HZ_REAL 0x20
 #define BMO_INFO_CPU_MW_PAQUETE 0x21
 /* [!] Del nucleo EN EL QUE SE LEE, no de todos: `CORE_ENERGY_STAT` es un
- * contador por nucleo. El metal del 12-08 lo enseno a base de mentira -- con
+ * contador por nucleo. El metal del 12-08 lo mostro a base de mentira -- con
  * once nucleos GIRANDO al 100% este numero BAJO de 11,9 a 9,2 W, porque los
  * otros once no aparecen aqui en absoluto. */
 #define BMO_INFO_CPU_MW_NUCLEO_ACTUAL 0x22

@@ -60,14 +60,14 @@ seccion 12 dice por que.
 |---|---|
 | 1969 | Unix v1, **en ensamblador de PDP-7**. C no existe |
 | 1970 | Thompson escribe **B** (sin tipos, heredado de BCPL). No basta: no sabe de bytes ni de `struct` |
-| 1971-72 | Ritchie le anade **tipos, punteros y `struct`** a B. Sale **C**. Se le anaden justo las cosas que el kernel necesitaba y no cabian |
+| 1971-72 | Ritchie le agrega **tipos, punteros y `struct`** a B. Sale **C**. Se le agregan justo las cosas que el kernel necesitaba y no cabian |
 | **1973** | ★ **Se reescribe el kernel de Unix en C.** ~**9.000 lineas** de C y ensamblador |
 | 1977-78 | Johnson y Ritchie **portan Unix al Interdata 8/32**. Es la prueba: el sistema se movio de maquina porque estaba escrito en C |
 
 ★★ **Dos cosas de esa tabla hay que grabarlas:**
 
 1. **C no existia antes que Unix: crecio PARA Unix.** B no valia y le anadieron
-   exactamente lo que faltaba. **El lenguaje se diseno contra un sistema real
+   exactamente lo que faltaba. **El lenguaje se esquema contra un sistema real
    que ya estaba escrito**, no contra una idea de lenguaje.
 2. **Ni siquiera despues de 1973 se escribio todo en C.** El arranque y el
    cambio de contexto siguieron en ensamblador **y siguen hoy**. *El lenguaje
@@ -77,7 +77,7 @@ seccion 12 dice por que.
 ★★★ **Y el paralelismo que da miedo de lo exacto que es:** aquel kernel eran
 ~9.000 lineas. La estimacion de la seccion 12 para llevar INTI hasta correr en
 el Ryzen es **~9.000 lineas**. No es una casualidad profunda -- es que ese es
-el tamano de una pieza de sistema que una persona puede sostener en la cabeza.
+el medida de una pieza de sistema que una persona puede sostener en la cabeza.
 
 ### 1.2 Las tres cosas que C le dio a Unix
 
@@ -92,7 +92,7 @@ La tercera es la que decide la arquitectura de INTI, y la seccion 1.4 la cobra.
 ### 1.3 ★ Y lo que C le COBRO a Unix: el comportamiento indefinido
 
 Esta es la parte que la frase *"como lo hizo C pero para Unix"* no debe copiar,
-y hay que decirlo antes de disenar nada.
+y hay que decirlo antes de trazar nada.
 
 **C consiguio su portabilidad VENDIENDO el comportamiento definido.** En 1978
 las maquinas eran genuinamente distintas: complemento a dos, complemento a uno
@@ -136,7 +136,7 @@ respuesta es un PERFIL**, y en INTI son dos:
 ```text
    INTI LLANO   (perfil de sistema)
       sin monton, sin contador de referencias, sin recoleccion.
-      Todo en la pila o estatico, tamanos conocidos en compilacion.
+      Todo en la pila o estatico, medidas conocidos en compilacion.
       Puede tocar puertos, MMIO y registros.
       -> es lo que hoy se escribe en C o en Rust no_std.
 
@@ -159,17 +159,17 @@ no una sorpresa en ejecucion.
 
 ## 2. ABC: alguien ya intento "Python pero ultra mas facil". Y fracaso.
 
-Va antes que el diseno porque **es literalmente el proyecto que planteaste,
+Va antes que el esquema porque **es literalmente el proyecto que planteaste,
 hecho por gente muy buena, y salio mal**.
 
-ABC se diseno en el CWI de Amsterdam (Meertens, Pemberton) como *lenguaje para
+ABC se esquema en el CWI de Amsterdam (Meertens, Pemberton) como *lenguaje para
 no-programadores*: indentacion en vez de llaves, tipos de alto nivel dentro del
 lenguaje, sin declaraciones, sin gestion de memoria, entorno interactivo con el
 prompt `>>>`. **Guido van Rossum trabajo en su implementacion**, y en las
 navidades de 1989 se llevo a Python la indentacion, los tipos de alto nivel y
 el `>>>` literalmente.
 
-**Por que murio**, en palabras del propio Guido: *un diseno precioso y un
+**Por que murio**, en palabras del propio Guido: *un esquema precioso y un
 fracaso total*, por ser **un sistema cerrado**:
 
 | lo que fallo | por que mata |
@@ -188,7 +188,7 @@ correcta al documento anterior**: un lenguaje que puede escribir su propio
 sistema es, por definicion, un lenguaje del que se puede salir. **INTI LLANO no
 es un lujo de rendimiento: es la vacuna contra ABC.**
 
-**Regla no negociable, que se aplica linea por linea del diseno:** *ninguna
+**Regla no negociable, que se aplica linea por linea del esquema:** *ninguna
 simplificacion puede costar la capacidad de salir del lenguaje.*
 
 ---
@@ -226,7 +226,7 @@ La sorpresa no es filosofica, es de comportamiento:
    a = 257;  b = 257;  a is b     # False   <-- la sorpresa
 ```
 
-Es la cache de enteros pequenos (-5 a 256) asomando. **El lenguaje te obligo a
+Es la cache de enteros chicos (-5 a 256) asomando. **El lenguaje te obligo a
 saber donde vive un valor para poder predecir lo que hace.**
 
 ★ Y no hace falta inventar la alternativa: **Swift ya la tiene**. Sus `struct`
@@ -303,7 +303,7 @@ lo que le salio caro. Una sola tabla, y cada fila termina en una decision.
 | 2 | `[lambda: i for i in range(3)]` da `2,2,2` | **no hay closures**: sin captura no hay *late binding* | 10.5 |
 | 3 | `a is b` con 256 y con 257 dan cosas distintas | **`es` no existe**: un VALOR no tiene identidad | 10.2 |
 | 4 | `b = a` con listas no copia | pasar no permite cambiar (+ copia-al-escribir) | 10.7 |
-| 5 | `t[1] += [3]` **anade y ademas falla** | un congelado no se toca, y falla **antes** | 10.2 |
+| 5 | `t[1] += [3]` **agrega y ademas falla** | un congelado no se toca, y falla **antes** | 10.2 |
 | 6 | `x.sort()` ordena y devuelve `None` | toda operacion **devuelve su resultado** | P3 |
 | 7 | `UnboundLocalError` | no existe: un nombre es del bloque donde nacio | 10.8 |
 | 8 | `global` / `nonlocal`, que solo existen para tapar el 7 | no existen | 10.8 |
@@ -321,7 +321,7 @@ dicho de siete maneras:
 > **la IDENTIDAD de un valor es observable, y la MUTABILIDAD es el estado por
 > defecto.**
 
-Quitando esas dos, **siete de quince desaparecen solas**, sin anadir ninguna
+Quitando esas dos, **siete de quince desaparecen solas**, sin agregar ninguna
 regla nueva. **No se tapan: dejan de poder existir.** Y las ocho restantes caen
 de decisiones que ademas compran otra cosa -- ninguna necesita un parche.
 
@@ -377,7 +377,7 @@ que se puede pagar a sabiendas**. Eso es 6.3.
 ★★★ **La lectura, y es la frase que justifica la decision entera:**
 
 > **Comprobar cuesta el 1%. Reparar C a posteriori cuesta el 30%. La diferencia
-> no es la comprobacion: es hacerlo desde el diseno o hacerlo con parches.**
+> no es la comprobacion: es hacerlo desde el esquema o hacerlo con parches.**
 
 Y hay un motivo de silicio: un procesador moderno fuera de orden **predice bien
 la comprobacion**, porque en ejecucion normal nunca salta. La comprobacion se
@@ -411,7 +411,7 @@ indefinido a la vez.** C dijo que habia que elegir. Ya no.
 | 6 | orden de evaluacion de argumentos: **no especificado** | **izquierda a derecha, siempre** |
 | 7 | desplazar mas bits que el ancho: **UB** | **definido**: da cero, y el compilador avisa si es constante |
 | 8 | alias estricto (`int*` y `float*`): **UB** | **no existe**: dos nombres pueden ver los mismos bytes y esta definido |
-| 9 | `int` mide "al menos 16 bits" | **tamanos exactos**: `entero8/16/32/64`, y `numero` para lo demas |
+| 9 | `int` mide "al menos 16 bits" | **medidas exactos**: `entero8/16/32/64`, y `numero` para lo demas |
 | 10 | orden de bytes: de la maquina | **little-endian fijado** en todo lo que se serializa |
 | 11 | el compilador puede reasociar flotantes y meter FMA | **IEEE-754 estricto**: el mismo programa da el mismo bit en cualquier maquina |
 | 12 | conversion flotante->entero fuera de rango: **UB** | **atrapa** (lo mismo que hace WASM) |
@@ -452,7 +452,7 @@ distintas y **INTI necesita las dos, por motivos distintos**:
 
 ★★ **Y la B ya esta a medio camino en este arbol, aunque nadie lo haya
 llamado asi:** `tables/arch/x86_64/intrinsics.toml`. Las instrucciones de la
-maquina **ya viven en una tabla**, no en el compilador -- por eso *"anadir una
+maquina **ya viven en una tabla**, no en el compilador -- por eso *"agregar una
 instruccion = 1 entrada TOML, CERO Rust"*. **La forma de la portabilidad ya
 esta elegida: otra arquitectura es otra carpeta de tablas**, no otro compilador.
 
@@ -509,7 +509,7 @@ esta en su 1973, con la sonda pasada.
 
 ### 7.1 CONTROL NO ES PRIVILEGIO -- y INTI no da root
 
-> Duda de Eddi, 2026-08-19: *"que viva en control... pero suena extrano, control
+> Duda de Eddi, 2026-08-19: *"que viva en control... pero suena raro, control
 > total como root, pero neh... no es root, no? Es por motivos, necesito eso para
 > portabilidad."*
 
@@ -518,7 +518,7 @@ independientes**, porque cada uno lo concede alguien distinto:
 
 | eje | la pregunta | quien lo concede | INTI |
 |---|---|---|---|
-| **EXPRESION** | *puedo DECIRLO?* -- este byte aqui, este tamano exacto, esta instruccion | **el lenguaje** | ✅ **esto es lo que INTI da** |
+| **EXPRESION** | *puedo DECIRLO?* -- este byte aqui, este medida exacto, esta instruccion | **el lenguaje** | ✅ **esto es lo que INTI da** |
 | **PERMISO** | *me DEJAN hacerlo?* -- tocar esa pagina, reclamar la pantalla, leer ese disco | el kernel: capabilities, MMU y anillo | ⛔ INTI no lo toca |
 | **CONFIANZA** | *alguien FIRMO que esto puede correr?* | `bmo-verify` y la firma del BEF | ⛔ tampoco |
 
@@ -547,7 +547,7 @@ esta en Rust: nadie diria que Rust "da root".
 
 Va al grano: la mitad B de la seccion 7 -- *el SISTEMA se porta* -- solo se
 cumple si **lo que hoy solo se puede escribir en ensamblador se puede escribir
-en INTI**. Disposicion exacta, tamanos exactos, la instruccion concreta cuando
+en INTI**. Disposicion exacta, medidas exactos, la instruccion concreta cuando
 hace falta.
 
 Si INTI no tuviera ese control, habria partes de BMO-X **atadas para siempre al
@@ -585,11 +585,11 @@ la maquina vive en `tables/arch/<arquitectura>/`, que es una carpeta de
 
 `tests/agnostico.rs` recorre el frontend entero y falla si aparece `rax`,
 `x86`, `sysv`, `modrm`... **incluidos los comentarios**, a proposito: un
-comentario que explica algo en terminos de `rax` es la senal de que alguien
+comentario que explica algo en terminos de `rax` es la signal de que alguien
 estaba pensando en x86 mientras escribia una parte que no debia saber de eso.
 
 Una regla asi **se cumple sola el primer dia y se rompe el tercero**, cuando
-alguien necesita el tamano de un puntero y escribe un `8`. No se rompe por
+alguien necesita el medida de un puntero y escribe un `8`. No se rompe por
 descuido: se rompe porque en ese momento es *lo mas facil* -- exactamente igual
 que meter el syscall en el compilador. Por eso se vigila como se vigila la
 codificacion con `ascii-sweep`.
@@ -647,10 +647,10 @@ Hay cosas que **no se pueden escribir sin dinamismo**, y no son pocas:
 | una tabla con valores de tipos distintos | el tipo depende de la clave |
 | un REPL | el tipo de lo que se teclea se sabe al teclearlo |
 | pasar datos entre programas | el que envia y el que recibe se compilaron aparte |
-| un depurador que ensena la memoria | tiene que saber que ES cada cosa |
+| un depurador que muestra la memoria | tiene que saber que ES cada cosa |
 
 La ultima es la que decide, porque es una promesa de este documento: **P5, el
-lenguaje ensena su maquina.**
+lenguaje muestra su maquina.**
 
 #### ★★ Y la pieza clave YA EXISTE
 
@@ -714,7 +714,7 @@ distintas** y confundirlas es lo que hace que la gente rebote con Rust:
 
 | | Rust | INTI |
 |---|---|---|
-| **sobre que es estricto** | sobre la **PROPIEDAD**: quien es dueno de que, cuanto vive, quien lo presta | sobre la **DEFINICION**: que pasa exactamente en cada caso |
+| **sobre que es estricto** | sobre la **PROPIEDAD**: quien es propietario de que, cuanto vive, quien lo presta | sobre la **DEFINICION**: que pasa exactamente en cada caso |
 | **que te obliga a hacer** | **demostrarle al compilador** que no hay dos referencias mutables. Eso es una disciplina nueva que hay que aprender | **decir que quieres** cuando hay dos respuestas razonables |
 | **cuando falla** | te pide que reestructures el programa | te pide que anadas una palabra |
 | **coste de aprendizaje** | semanas | minutos |
@@ -725,7 +725,7 @@ demuestres nada: **se compromete el, y a cambio te obliga a no dejar huecos.**
 
 Y "te ayuda" tiene forma concreta, porque hay evidencia de que el mensaje de
 error **es la interfaz principal del lenguaje** (9.2). El formato es un contrato
-de cuatro partes, disenado contra los cuatro factores que el estudio de CHI 2021
+de cuatro partes, trazado contra los cuatro factores que el estudio de CHI 2021
 midio -- longitud, jerga, estructura y vocabulario:
 
 ```text
@@ -770,8 +770,8 @@ sacar la media) mostro que lo caro es **componer planes**, no las construcciones
 sueltas.
 
 ★★★ **Y aqui BMO-X tiene ventaja injusta:** una *maquina nocional* solo se puede
-ensenar si es pequena y visible. La de Python no lo es. **La de INTI cabe en una
-hoja, y ademas se puede ensenar DE VERDAD porque el sistema es tuyo entero**: un
+mostrar si es chica y visible. La de Python no lo es. **La de INTI cabe en una
+hoja, y ademas se puede mostrar DE VERDAD porque el sistema es tuyo entero**: un
 depurador de INTI puede mostrar la memoria real y no una metafora.
 
 ### 9.4 El idioma es una barrera medida
@@ -784,8 +784,8 @@ caso es masivo: **PSeInt** (Pablo Novara, 2003) -- `Proceso`, `Escribir`,
 
 ### 9.5 Las cuatro palancas, y la que NO existe
 
-1. **Mensajes de error que ensenan** (la interfaz principal, 73%).
-2. **Una maquina nocional pequena y visible**.
+1. **Mensajes de error que muestran** (la interfaz principal, 73%).
+2. **Una maquina nocional chica y visible**.
 3. **Sintaxis que se aparta de C** (lo unico que batio al placebo).
 4. **El idioma de quien escribe**.
 
@@ -804,14 +804,14 @@ escribir tipos ayuden. **La brevedad no es facilidad.** ABC era brevisimo.
 | **P2** | **Si dos cosas se ven iguales, se comportan igual.** Sin identidad observable | sec. 5 |
 | **P3** | **Lo que no dices, no pasa.** Ni conversiones, ni copias, ni mutacion a distancia | sec. 5 (4, 5, 6) |
 | **P4** | **Un error es un dato con nombre, no un salto** | 9.2 |
-| **P5** | **El lenguaje ensena su maquina** | 9.3 |
+| **P5** | **El lenguaje muestra su maquina** | 9.3 |
 | **P6** | **Se puede salir del lenguaje: INTI escribe sistema** | sec. 2, la leccion de ABC; sec. 1, la de C |
 
 ### 10.2 El modelo de valores: TRES clases, no una
 
 ```text
    VALOR       cabe en la mano. Se copia. NO tiene identidad.
-               numero, si/no, letra, nada, registro pequeno
+               numero, si/no, letra, nada, registro chico
                -> comparar es comparar. `es` NO EXISTE.
                -> es el `struct` de Swift, y es todo lo que hay en LLANO.
 
@@ -1052,7 +1052,7 @@ funcion**. Con eso `global`, `nonlocal` y `UnboundLocalError` **no existen**.
 
 ### 10.10b ⚠ LA REGLA DE LA ENE: ASCII se ELIGE, no se mutila
 
-> Eddi, 2026-08-23: *"cuando dijiste `anade` en vez de la palabra con ENE:
+> Eddi, 2026-08-23: *"cuando dijiste `agrega` en vez de la palabra con ENE:
 > elimina eso por
 > ASCII y que sea logico, y piensa en sinonimos correctos. Si no hay, usa el
 > ingles como `add`."*
@@ -1062,7 +1062,7 @@ funcion**. Con eso `global`, `nonlocal` y `UnboundLocalError` **no existen**.
 ```text
    1. una palabra castellana que YA sea ASCII       `agrega`
    2. si no la hay, la inglesa                      `size`
-   3. NUNCA la castellana sin su ene                `anade`, `tamano`
+   3. NUNCA la castellana sin su ene                `agrega`, `medida`
 ```
 
 ★★ **Y el motivo no es estetico.** Una palabra mutilada no es ASCII: es una
@@ -1070,14 +1070,14 @@ palabra MAL ESCRITA que resulta caber en ASCII. Cuesta tres cosas a la vez:
 
 - **no se puede buscar** -- quien escriba la palabra entera y la busque en el
   fuente no encuentra nada;
-- **entrena a escribir mal** -- el primero que copie el estilo escribira `nino`
-  y `pequeno` en sus propios identificadores;
+- **entrena a escribir mal** -- el primero que copie el estilo escribira `crio`
+  y `chico` en sus propios identificadores;
 - **y no ahorra nada**, porque el sinonimo correcto casi siempre existe.
 
-★ Ya se pago una vez: `tamano()` paso a `size()` el 2026-08-20 (`c0bc7c7b`,
+★ Ya se pago una vez: `medida()` paso a `size()` el 2026-08-20 (`c0bc7c7b`,
 *"fuera las palabras sin su ene"*). Aquel dia no habia sinonimo castellano
 --`medida` estaba ocupada, `largo` significa otra cosa-- y se cogio el ingles,
-que es el escalon 2. **`anade` si lo tenia y se colo igual**: `agrega` es
+que es el escalon 2. **`agrega` si lo tenia y se colo igual**: `agrega` es
 castellano, correcto, y ASCII sin tocarle una letra.
 
 ⚠ **Y esto vale SOLO para los identificadores.** La prosa de los comentarios
@@ -1087,17 +1087,17 @@ La diferencia es que **un comentario se lee y un identificador se ESCRIBE**.
 
 ---
 
-### 10.10 El idioma: espanol en ASCII, y en una TABLA
+### 10.10 El idioma: castellano en ASCII, y en una TABLA
 
 | pieza | decision | motivo |
 |---|---|---|
-| palabras clave | **espanol sin tildes**: `funcion`, `si`, `sino`, `mientras`, `para cada`, `devuelve`, `escribe`, `cambiante`, `registro`, `crudo` | ASCII puro; el lexer no necesita unicode |
+| palabras clave | **castellano sin tildes**: `funcion`, `si`, `sino`, `mientras`, `para cada`, `devuelve`, `escribe`, `cambiante`, `registro`, `crudo` | ASCII puro; el lexer no necesita unicode |
 | la tilde | **alias**: la version con tilde lexa igual | quien escribe con tildes no tropieza |
 | identificadores | UTF-8 permitido, con aviso | son sus nombres |
-| textos | UTF-8, pasan tal cual | ⚠ la consola del kernel es Latin-1 por diseno: **una tilde en un literal ya inflo un `.bex` de 512 bytes a 492.032**. La conversion la hace `escribe`, no el usuario |
-| mensajes de error | espanol | son la interfaz principal |
+| textos | UTF-8, pasan tal cual | ⚠ la consola del kernel es Latin-1 por esquema: **una tilde en un literal ya inflo un `.bex` de 512 bytes a 492.032**. La conversion la hace `escribe`, no el usuario |
+| mensajes de error | castellano | son la interfaz principal |
 
-⚠ **La parte incomoda:** palabras clave en espanol significa que **nadie fuera
+⚠ **La parte incomoda:** palabras clave en castellano significa que **nadie fuera
 de tu idioma va a contribuir**. Es un intercambio real. ★ La salida es barata
 **si se toma ahora**: la tabla de palabras clave es **una tabla**, no codigo --
 el mismo patron que `intrinsics.toml`. Un fichero mas y INTI habla ingles sin
@@ -1111,8 +1111,8 @@ cuesta el parser entero.**
    funcion media(numeros es lista de numero) devuelve numero
 ```
 
-★ En **LLANO son obligatorios**, y no por rigor: **sin tipos no hay tamanos, y
-sin tamanos no hay perfil sin monton.** La obligacion sale del perfil, no del
+★ En **LLANO son obligatorios**, y no por rigor: **sin tipos no hay medidas, y
+sin medidas no hay perfil sin monton.** La obligacion sale del perfil, no del
 gusto.
 
 ⚠ **No es tipado gradual sonoro y hay que decirlo:** Typed Racket demostro que
@@ -1157,7 +1157,7 @@ puerto de E/S si**. No es incoherencia -- al otro lado de una capability hay un
 kernel que comprueba; al otro lado de un `outb` no hay nadie. `crudo` no marca
 *"bajo nivel"*, marca **"aqui nadie comprueba por ti"**.
 
-★★★ **Y la que responde a P5:** el depurador de INTI puede ensenar la memoria
+★★★ **Y la que responde a P5:** el depurador de INTI puede mostrar la memoria
 **de verdad**, no un dibujo. Nada de lo que Sorva llama *maquina nocional* tiene
 por que ser una metafora aqui. **Eso no lo puede copiar nadie que corra sobre
 Linux.**
@@ -1177,7 +1177,7 @@ INTI el orden es el contrario**, y el motivo es la seccion 1: **el lenguaje del
 sistema tiene que producir un `.bex` que corra sin nada debajo**. Un interprete
 no puede escribir un driver. Asi que:
 
-| fase | entregable | como se sabe que esta | tamano |
+| fase | entregable | como se sabe que esta | medida |
 |---|---|---|---|
 | **F0** | ✅ **HECHO el 2026-08-19**: `toolchain/lang/inti/` -- [`GRAMATICA.md`](../../toolchain/lang/inti/GRAMATICA.md) (sintaxis + EBNF), [`REGLAS.md`](../../toolchain/lang/inti/REGLAS.md) (las doce), [`CENSO.md`](../../toolchain/lang/inti/CENSO.md) + **35 sondas** en `censo/*.inti` | cada sonda lleva su veredicto en la primera linea; el test comparara el informe **entero** contra la constante | ~1.100 lineas |
 | **F1** | Lexer + parser -> AST, en el anfitrion | un `.inti` entra, un arbol sale, y **los mensajes ya cumplen el formato de 4 partes** | ~2.000 |
@@ -1211,7 +1211,7 @@ habria sido fingir que estan cubiertas.
 despues** -- una regla de 6.5 mal puesta se paga en cada programa que se escriba
 nunca --, es texto y sondas (cero riesgo de que algo deje de arrancar), y es lo
 que este proyecto ya acordo: **el CONTRATO antes que el codigo**, igual que
-`Resources = 0x0B`, declarada y vacia desde que se diseno BEF.
+`Resources = 0x0B`, declarada y vacia desde que se esquema BEF.
 
 ---
 
@@ -1344,7 +1344,7 @@ No es una lista interminable. Contra el ensamblador, casi todo esta aqui:
 | **2** | **Meter funciones en linea** | aqui vale mas que en otros lenguajes: **las comprobaciones de INTI son funciones**, y sin inline cada una cuesta una llamada (20 ciclos) en vez de dos instrucciones | ~300 lineas, si ya hay IR |
 | **3** | **Borrar la comprobacion que se puede demostrar** | es lo que hace que "sin UB" cueste **1% y no 30%** | ~400 lineas |
 
-★★★ Y una ventaja de INTI que es GRATIS, porque es diseno y no optimizacion:
+★★★ Y una ventaja de INTI que es GRATIS, porque es esquema y no optimizacion:
 **`para cada x en lista` no tiene indice.** No hay nada que comprobar porque no
 hay nada que pueda salirse. **El bucle idiomatico del lenguaje es justamente el
 que no paga**, y por eso el 1% es alcanzable de verdad y no una esperanza.
@@ -1432,7 +1432,7 @@ un kernel entero en ensamblador porque el compilador pierda un 8%.
 **Tiene razon, y los casos son mejores de lo que esperaba.** Los tres primeros
 son de velocidad; el cuarto es el ironico de verdad.
 
-#### 1. El ensamblador de ayer es el codigo lento de manana
+#### 1. El ensamblador de ayer es el codigo lento de luego
 
 Copiar memoria en x86 tuvo **tres respuestas correctas distintas en veinte
 anios**:
@@ -1456,7 +1456,7 @@ cambio; cambio el silicio debajo.
 Medido y publicado: una copia escrita a mano con SSE2 da **3,97 GiB/s**, y el
 `memcpy` de la biblioteca del sistema da **6,51 GiB/s** en la misma maquina.
 **El ensamblador a mano pierde por un 39%**, y no por estar mal escrito: pierde
-porque la biblioteca **elige estrategia segun el tamano** y el codigo a mano
+porque la biblioteca **elige estrategia segun el medida** y el codigo a mano
 hace siempre lo mismo.
 
 ★ La leccion no es "el humano escribe peor". Es que **un humano escribe UNA
@@ -1495,7 +1495,7 @@ darse cuenta de que su resultado no se usa. Cada bloque es un muro.
 `crudo` es exactamente eso: un bloque que el compilador no puede tocar. Asi que
 hereda el problema del punto 4, y de ahi salen dos reglas:
 
-1. **Un `crudo` se escribe lo mas pequeno posible.** No "esta funcion es de bajo
+1. **Un `crudo` se escribe lo mas chico posible.** No "esta funcion es de bajo
    nivel, la meto entera en `crudo`", sino las dos lineas que de verdad no se
    pueden decir de otra forma.
 2. ★★ **El contador de `crudo` mide dos cosas a la vez**, y esto no se habia
@@ -1539,19 +1539,19 @@ equivocado no sirve para nada.
 > inspira (o roba) con todo eso?"*
 
 Se inspira, y **conviene decir de quien en vez de disimularlo**. Todo lenguaje
-se construye sobre otros; lo que separa un diseno de una copia es si se sabe
+se construye sobre otros; lo que separa un esquema de una copia es si se sabe
 **por que** se tomo cada cosa.
 
 | pieza | de quien | y por que se tomo |
 |---|---|---|
 | Bloques por sangria | ABC -> Python | 9.1: es lo unico que batio al placebo |
-| `=` que compara y asigna sin ambiguedad | **Quorum** | porque asignar no es una expresion. Y Quorum es el unico lenguaje disenado con evidencia |
+| `=` que compara y asigna sin ambiguedad | **Quorum** | porque asignar no es una expresion. Y Quorum es el unico lenguaje trazado con evidencia |
 | Congelar al terminar el modulo | **Starlark** | es lo que quita el GIL sin cerrojos |
 | VALOR / COSA, con copia-al-escribir | **Swift** | prueba de que refcount + valores funciona en un lenguaje de sistema |
 | Definirlo TODO, sin nada indefinido | **WebAssembly** | portabilidad y cero UB a la vez: C decia que habia que elegir |
 | Aislamiento en vez de cerrojos | **Erlang, Pony** | 40 anios sin un data race |
 | Errores como datos | Go, Rust | pero sin `panic`: aqui un error es un valor y punto |
-| Mensajes que ensenan | **Elm, Rust** | 9.2: el error es la interfaz principal |
+| Mensajes que muestran | **Elm, Rust** | 9.2: el error es la interfaz principal |
 | Una sola estructura y pocas palabras | **Lua** | un lenguaje se juzga por lo que RESERVA |
 | Salir del lenguaje, `crudo` como `unsafe` | **C, Rust** | 2: la leccion de ABC |
 | Niveles graduales, idioma propio | **Hedy, PSeInt** | 9.4: la barrera del idioma esta medida |
@@ -1620,7 +1620,7 @@ sola.
 | **2** | **Funciones de biblioteca**: copiar memoria, formatear, comparar textos | todos. Y son **funciones normales**: se enlazan y ya |
 | **3** | **Gestion de memoria**: pedir y soltar | solo los que tienen cosas que **crecen** |
 | **4** | **Una maquina virtual** que interpreta | Python, Java, los interpretados |
-| **5** | **Servicios de fondo**: hilos del recolector, planificador propio, manejadores de senales | **Go**, Java, Erlang |
+| **5** | **Servicios de fondo**: hilos del recolector, planificador propio, manejadores de signales | **Go**, Java, Erlang |
 
 ★★ Cuando alguien dice *"C no tiene runtime"* esta diciendo que no tiene 3, 4 ni
 5. Tiene 1 y 2 como todo el mundo. Y cuando alguien dice *"Go tiene un runtime
@@ -1691,7 +1691,7 @@ copiarse** (`MEM_OP_OFRECER`, *"se abre, no se carga"*).
 ```
 
 **El segundo programa de INTI que arranca no paga el runtime otra vez.** Eso no
-es una optimizacion que se pueda anadir a Go: necesita un sistema operativo que
+es una optimizacion que se pueda agregar a Go: necesita un sistema operativo que
 sepa prestar paginas inmortales, y el unico que hay es este.
 
 ### El numero, y cual de los dos ya se puede mirar
@@ -1735,7 +1735,7 @@ estan**, y esos son los que pesan.
 ### 13c-bis. ***Y EL PUNTO 3 YA NO ES UN NUMERO ESCRITO A MANO*** (2026-08-23)
 
 El arranque de `pleno` pide un monton antes de llamar a `principal`. Durante un
-dia ese tamano fue **4096 escrito en `arranque.rs`**, con esta sentencia debajo
+dia ese medida fue **4096 escrito en `arranque.rs`**, con esta sentencia debajo
 del propio numero:
 
 > *"es un numero y no una tabla todavia a proposito -- el dia que haya un
@@ -1786,7 +1786,7 @@ La tabla es `lang/inti/necesidades.toml`: `monton`, `recursos`, `pantalla`,
 Su ausencia es la decision: `CLASE_MEMORIA` es lo que tiene que existir antes de
 la primera instruccion --codigo, datos, pila-- y eso lo sabe el cargador mirando
 el fichero, mejor de lo que lo sabe el programa. Dejarlo declarar seria dejar
-que un programa **mienta sobre su propio tamano**.
+que un programa **mienta sobre su propio medida**.
 
 Por eso el monton tiene clase propia (`CLASE_MONTON`, 0x0008) en vez de sumarse
 a la de memoria: son dos decisiones distintas y necesitan dos numeros distintos.
@@ -1814,7 +1814,7 @@ una correccion, y las tres correcciones juntas son la arquitectura.
 ```
 
 Un contrato es **estrecho y congelado** -- tiene que serlo, porque cosas que tu
-no escribiste dependen de el. Un material es **ancho y mutable** -- manana puede
+no escribiste dependen de el. Un material es **ancho y mutable** -- luego puede
 tener una palabra clave mas.
 
 ★★ Confundirlos es lo que produce sistemas donde tocar el lenguaje rompe
@@ -1851,7 +1851,7 @@ memoria, ficheros, tiempo, todo. Aqui no, porque la puerta no es para trabajar:
 es para pedir permiso.
 
 Los **969 ciclos contra 20** no son un problema que INTI esquiva. Son la razon
-por la que el ABI se diseno como se diseno, y INTI esta de pie encima de esa
+por la que el ABI se esquema como se esquema, y INTI esta de pie encima de esa
 decision. Eso es mas fuerte que la hermandad.
 
 ### 13d.4 "Toma el control de BMO-X" -- mitad verdad, y la mitad buena
@@ -1892,7 +1892,7 @@ comprueba en las dos direcciones.
 ★ **El encuadre es defendible ante alguien de fuera precisamente porque INTI no
 se dio un atajo.**
 
-### 13d.6 Una correccion mas, pequena: el ABI no es "para extranjeros"
+### 13d.6 Una correccion mas, chica: el ABI no es "para extranjeros"
 
 El kernel tambien lo usa por dentro. La frontera no es *nativo contra
 extranjero*: es la frontera de **AUTORIDAD**. La cruza cualquiera que salga de
@@ -1918,7 +1918,7 @@ erosiona las que si.
 *"Escrito a mano en ensamblador va mas rapido."* Fue verdad hasta los noventa y
 dejo de serlo, y el caso mas citado esta en el propio Linux: **rutinas escritas a
 mano que el compilador acabo superando**, porque el ensamblador de ayer no sabe
-nada del silicio de manana -- no reordena, no conoce la latencia nueva de una
+nada del silicio de luego -- no reordena, no conoce la latencia nueva de una
 instruccion, no aprovecha una unidad que no existia cuando se escribio.
 
 ★★ Un `rep movsb` fue el camino lento durante una decada y hoy es el rapido. El
@@ -1982,7 +1982,7 @@ tiene tres consecuencias concretas aqui:
 
 La tercera es la que mas se nota: en BMO-X, un `.bex` de INTI llega con **cuantas
 ventanas sin comprobar tiene y a que maquina se ata**, y eso va a CABINA con un
-numero que se puede seguir en el tiempo. Eso no se puede anadir a Rust desde
+numero que se puede seguir en el tiempo. Eso no se puede agregar a Rust desde
 fuera: pide que el compilador sea del sistema.
 
 ### La frase correcta
@@ -2122,14 +2122,14 @@ existe.
 
 ## 15. LOS RIESGOS
 
-| riesgo | senal temprana | que lo desactiva |
+| riesgo | signal temprana | que lo desactiva |
 |---|---|---|
 | ★★★ **El fantasma de ABC**: precioso y cerrado | que pase un mes sin un programa que pinte, lea el teclado y guarde | F2 y F4 son de sistema, no de REPL. **P6 no es negociable** |
 | ★★ **Los dos perfiles se separan** y acaban siendo dos lenguajes | que LLANO necesite su propia sintaxis para algo | una sola gramatica; **lo unico que cambia es que biblioteca admite**, y el compilador lo comprueba |
 | **"Lenguaje de juguete"** | que solo sirva para el REPL | el criterio de DOOM: un programa **real** en INTI corriendo en el Ryzen |
-| **El 1% resulta ser 30%** | F3 mide y sale caro | ya esta previsto donde: comprobar en el diseno cuesta 1%, parchear despues cuesta 29,1%. Si sale caro, **es que se puso una comprobacion en el sitio equivocado** |
+| **El 1% resulta ser 30%** | F3 mide y sale caro | ya esta previsto donde: comprobar en el esquema cuesta 1%, parchear despues cuesta 29,1%. Si sale caro, **es que se puso una comprobacion en el sitio equivocado** |
 | **Sintaxis por gusto** | discutir palabras clave mas de un dia | manda la seccion 9: sin evidencia, se copia lo que funciona |
-| **La deriva a Python** | *"esto seria facil de anadir y Python lo tiene"* | releer la seccion 14 antes de anadir |
+| **La deriva a Python** | *"esto seria facil de agregar y Python lo tiene"* | releer la seccion 14 antes de agregar |
 
 ---
 
@@ -2167,7 +2167,7 @@ funcion principal
          escribe("'", partes[1], "' no es un numero. La salto.")
          continua
 
-      anade Alumno(partes[0], nota) a alumnos
+      agrega Alumno(partes[0], nota) a alumnos
 
    m = media(alumnos)
    escribe "media:", m                    # 4.15, no 4.1499999999999995
@@ -2243,7 +2243,7 @@ sintaxis**: es la biblioteca base, y la biblioteca base **viaja dentro**. Ver
   [free threading en 3.14](https://docs.python.org/3/howto/free-threading-python.html)
 - **Congelar para paralelizar**: [Starlark: design principles](https://github.com/bazelbuild/starlark/blob/master/design.md) --
   [spec](https://github.com/bazelbuild/starlark/blob/master/spec.md)
-- **Un lenguaje pequeno hecho bien**: [The Evolution of Lua (HOPL III)](https://www.lua.org/doc/hopl.pdf)
+- **Un lenguaje chico hecho bien**: [The Evolution of Lua (HOPL III)](https://www.lua.org/doc/hopl.pdf)
 - **Representacion de valores**: [Crafting Interpreters: Optimization (NaN boxing)](https://craftinginterpreters.com/optimization.html)
 - **El coste del boxing**: [Pyjion OPT-16](https://pyjion.readthedocs.io/en/latest/opt/opt-16.html)
 - **Tipado gradual**: [Gradual Soundness: Lessons from Static Python](https://arxiv.org/pdf/2206.13831)

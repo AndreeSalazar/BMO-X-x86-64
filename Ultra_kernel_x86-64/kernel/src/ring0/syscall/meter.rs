@@ -100,9 +100,9 @@
 //! saldria mas barato: metido ahi, los dos contadores volatiles y el epilogo de
 //! `dispatch` caerian dentro de `RESTAURA`, que es donde ese codigo no esta.
 //! Puesto aqui **`start`/`stop` no cambian ni un byte**, y ese es justo el
-//! control que hace comparable el 319 de esta manana.
+//! control que hace comparable el 319 de esta luego.
 //!
-//! **`resto` es la cifra que decide.** Si es pequeno, el coste esta en codigo
+//! **`resto` es la cifra que decide.** Si es chico, el coste esta en codigo
 //! que se puede reescribir. Si se lleva los 1.600 que no cuadran, esta en las
 //! DOS TRANSICIONES DE PRIVILEGIO y entonces la accion no es afinar el stub: es
 //! `sysretq` en vez de `iretq` para el camino normal, o agrupar las llamadas --
@@ -131,7 +131,7 @@
 //! ```text
 //!    1. bucle vacio    min   44
 //!    2. llamada        min   64
-//!    3. puerta pelada  min 1625   (era 2618 esta manana)
+//!    3. puerta pelada  min 1625   (era 2618 esta luego)
 //!       dispatch 311, stub 1314
 //!       guardar 30, devolver 30, resto 1254
 //!    5. rdtsc suelto   min  113   -> 113 - 44 = 69 ciclos POR SELLO
@@ -142,7 +142,7 @@
 //! que la pieza 1 atacaba-- y `dispatch` en 311 contra 318/319 de antes: el
 //! control aguanta, asi que las que se movieron se movieron de verdad.
 //!
-//! ** Y UNA CONCLUSION MIA QUE ESTO CORRIGE. Por la manana quedo escrito que
+//! ** Y UNA CONCLUSION MIA QUE ESTO CORRIGE. Por la luego quedo escrito que
 //! *"el guardado del estado extendido NO es donde se van los 2.300"*. Era
 //! cierto **del guardado** y falso **del estado extendido**: el experimento del
 //! `xsaveopt64` solo tocaba la mitad de guardar y compro 45, pero quitar la
@@ -167,8 +167,8 @@
 //!
 //! [!] Y por eso `start`/`stop` siguen usando `rdtsc()` --el NO serializante--
 //! aunque `rdtsc_serial()` existe una puerta mas alla y seria mas correcto:
-//! cambiarlo en la misma tanda que anade las etapas dejaria el 319 sin poder
-//! compararse con el 318 y el 319 de esta manana. **Un instrumento se cambia de
+//! cambiarlo en la misma tanda que agrega las etapas dejaria el 319 sin poder
+//! compararse con el 318 y el 319 de esta luego. **Un instrumento se cambia de
 //! una cosa cada vez.** El sesgo que introduce son decenas de ciclos, no miles,
 //! asi que no toca ninguna de las conclusiones de arriba.
 //!
@@ -224,7 +224,7 @@ static mut CYCLES: u64 = 0;
 /// ES QUE MIENTE. Los contadores de arriba pierden sumas cuando dos nucleos
 /// escriben la misma palabra, y una suma perdida se nota. Esta casilla es
 /// distinta -- si el nucleo B escribe su sello A entre el sello A y el sello B
-/// del nucleo A, la resta que sale no es pequena: **es una diferencia entre
+/// del nucleo A, la resta que sale no es chica: **es una diferencia entre
 /// sellos de dos puertas distintas**, y puede salir negativa y envolver a un
 /// numero cercano a `u64::MAX` que envenena la suma entera. Hoy no puede pasar
 /// --el informe dice `en pie 1 de 12` y las APs no ejecutan codigo de usuario--

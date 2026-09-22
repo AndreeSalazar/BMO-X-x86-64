@@ -25,7 +25,7 @@
 //! === Que se lee, y que no ===
 //!
 //! Se sacan cuatro campos: botones, X, Y y rueda, con su posicion en BITS y su
-//! tamano. Nada mas. No hay tabla de usages completa, ni Feature reports, ni
+//! medida. Nada mas. No hay tabla de usages completa, ni Feature reports, ni
 //! unidades fisicas, ni Push/Pop de estado global -- este parser existe para
 //! localizar cuatro numeros en un informe de raton, y todo lo que no sirva a eso
 //! es superficie que mantener sin nadie que la use.

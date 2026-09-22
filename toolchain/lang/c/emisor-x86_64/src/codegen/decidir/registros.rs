@@ -11,7 +11,7 @@
 //!
 //! # De donde sale, y el vocabulario ya venia hecho
 //!
-//! `docs/plan/PLAN_EL_TROQUEL.md`. El dueno lo nombro asi y con el llegaron las
+//! `docs/plan/PLAN_EL_TROQUEL.md`. El propietario lo nombro asi y con el llegaron las
 //! tres palabras:
 //!
 //! ```text

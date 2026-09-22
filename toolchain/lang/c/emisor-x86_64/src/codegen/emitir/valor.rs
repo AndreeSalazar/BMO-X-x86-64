@@ -47,7 +47,7 @@ impl Codegen {
     }
 
     /// Los brazos de este carril. El despacho vive en `emitir/mod.rs`
-    /// y es EXHAUSTIVO: si manana nace una forma nueva de expresion,
+    /// y es EXHAUSTIVO: si luego nace una forma nueva de expresion,
     /// el compilador para alli y no aqui.
     pub(super) fn emitir_valor(&mut self, expr: &Expr) {
         match expr {
@@ -139,7 +139,7 @@ impl Codegen {
                     // `b - a` sobre cinco elementos contestaba **20**.
                     //
                     // Es la cuenta inversa de `p + n`: aquella multiplica por el
-                    // tamano del elemento, esta divide. Y la division va CON
+                    // medida del elemento, esta divide. Y la division va CON
                     // SIGNO, porque `a - b` con `a` antes que `b` es negativo y
                     // eso es legal en C -- una division sin signo lo convertiria
                     // en un numero gigante.
@@ -225,7 +225,7 @@ impl Codegen {
             Expr::Shl(a, b) => self.emit_desplazamiento(a, b, true, expr),
             Expr::Shr(a, b) => self.emit_desplazamiento(a, b, false, expr),
             Expr::Cast(t, inner) => {
-                // cast REAL: trunca/extiende rax al tamano del tipo destino.
+                // cast REAL: trunca/extiende rax al medida del tipo destino.
                 // Antes era no-op: (char)300 quedaba como 300.
                 self.emit_expr(inner);
                 // ** Salvo cuando el de dentro ya cabe: `(unsigned char)(x &

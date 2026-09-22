@@ -183,7 +183,7 @@ pub struct Peticion {
     /// **EL KERNEL DECLARA QUE ESTA PRESTANDO ESTE MARCO.**
     ///
     /// *** Este campo nacio el 2026-09-09 al cablear el juez de verdad (N2), y
-    /// arregla un fallo de diseno del propio juez:
+    /// arregla un fallo de esquema del propio juez:
     ///
     /// ```text
     ///    `Marco.en_vuelo_para`   es un HECHO sobre el marco: quien lo tiene
@@ -228,13 +228,13 @@ pub enum Veto {
 /// microsegundos.
 ///
 /// ** El orden de las preguntas no es casual: **de la mas barata de contestar a
-/// la mas cara**, y de la que mas dano hace a la que menos. Un marco que no es
+/// la mas cara**, y de la que mas perjuicio hace a la que menos. Un marco que no es
 /// de un aparato se rechaza antes de mirar ninguna aritmetica.
 pub fn juzgar(p: Peticion, m: Marco) -> Result<Prenda, Veto> {
     // 1 y 2. De quien es esto, y hay DOS formas legitimas de que sea suyo.
     //
     // ** Se mira PRIMERO si otro lo tiene en vuelo, y eso vale para los dos
-    // casos: **ni el dueno del corral puede escribir en un bufer que otro
+    // casos: **ni el propietario del corral puede escribir en un bufer que otro
     // aparato esta usando ahora mismo**. Es el unico veto que no tiene
     // explicacion inocente ninguna.
     if let Some(a) = m.en_vuelo_para {

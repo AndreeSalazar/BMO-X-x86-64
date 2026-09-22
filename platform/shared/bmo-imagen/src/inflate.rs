@@ -27,7 +27,7 @@
 //! pila (Ring 3 tiene 64 KiB de pila y esto corre dentro del escritorio):
 //! lo trae el `taller` de quien llama. Cada byte que sale se entrega a un
 //! `pozo` y se guarda en el anillo, y nada mas: el descompresor no conoce el
-//! tamano de la salida.
+//! medida de la salida.
 
 /// Bytes de ventana que pide un flujo DEFLATE.
 pub const VENTANA: usize = 32 * 1024;

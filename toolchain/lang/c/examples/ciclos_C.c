@@ -90,7 +90,7 @@
 #include <stdio.h>
 
 /* Llamadas dentro de UN bloque cronometrado. Grande para que los dos `rdtsc`
- * sean ruido, pequeno para que una expropiacion no toque a la mayoria. Los
+ * sean ruido, chico para que una expropiacion no toque a la mayoria. Los
  * mismos numeros que `coste_C.c`, para que las dos medidas se puedan comparar
  * -- cambiarlos aqui sin cambiarlos alli seria comparar dos cosas distintas. */
 #define LOTE 4096
@@ -219,10 +219,10 @@ int main(void) {
     /* -- 2. EL TERMOMETRO: un `rdtsc` suelto --------------------------
      *
      * ** Se mide antes de usarlo para juzgar a nadie. El instrumento es del
-     * tamano del enfermo: la casa ya midio que un `rdtsc` cuesta 69 ticks en un
+     * medida del enfermo: la casa ya midio que un `rdtsc` cuesta 69 ticks en un
      * bucle largo y 107 en uno corto, porque el CPU es fuera de orden y un
      * bucle largo lo solapa. Sin este escalon, "la puerta cuesta X" lleva
-     * dentro un instrumento del que no se sabe el tamano. */
+     * dentro un instrumento del que no se sabe el medida. */
     mejor = 0; total = 0;
     for (vuelta = 0; vuelta < VUELTAS; vuelta++) {
         inicio = __rdtsc();

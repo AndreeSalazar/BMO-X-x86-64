@@ -228,8 +228,8 @@ fn main() {
             //
             // Va ANTES del `write` a proposito. Verificar despues dejaria un
             // fichero malo en el disco con un mensaje de error al lado, y el
-            // que lo encuentre manana vera el `.bex` y no el mensaje. Un gate
-            // que avisa cuando el dano ya esta hecho es un informe, no un gate.
+            // que lo encuentre luego vera el `.bex` y no el mensaje. Un gate
+            // que avisa cuando el perjuicio ya esta hecho es un informe, no un gate.
             let veredicto = if solo_objeto {
                 bmo_verify::verify_object(&bef_bytes)
             } else {

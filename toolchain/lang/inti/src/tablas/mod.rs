@@ -2,7 +2,7 @@
 //!
 //! ## Por que existe este modulo, y quien lo pidio
 //!
-//! No lo pidio un diseno: lo pidio `tests/linaje.rs`.
+//! No lo pidio un esquema: lo pidio `tests/linaje.rs`.
 //!
 //! `Modulos` --que nombres trae cada `usa`, que recoge cada uno de la puerta,
 //! que ancho tiene cada acceso a memoria-- vivia dentro de `nombres` porque
@@ -245,7 +245,7 @@ impl Modulos {
     ///
     /// ** Existe porque el analisis de NOMBRES tiene que saber que existen. El
     /// descenso las resolvia --`self.tabla.constante(n)`-- y nadie se las habia
-    /// ensenado a quien busca nombres desconocidos, asi que `mi_tarea` era un
+    /// mostrado a quien busca nombres desconocidos, asi que `mi_tarea` era un
     /// error de ortografia para el compilador.
     ///
     /// No se noto durante dias porque la linea de ordenes tiraba los avisos de
@@ -351,7 +351,7 @@ impl Runtime {
 //  EL CATALOGO DE LA BIBLIOTECA
 // ===================================================================
 //
-//  ** Se mudo aqui desde `perfil` el 2026-08-23, y no lo pidio un diseno:
+//  ** Se mudo aqui desde `perfil` el 2026-08-23, y no lo pidio un esquema:
 //  lo pidio `tests/linaje.rs`, con la misma frase con la que este modulo nacio.
 //
 //      disposicion (gen 3) mira a perfil (gen 4) en mod.rs
@@ -380,7 +380,7 @@ const INCRUSTADA: &str =
 /// Lo que el compilador sabe de la biblioteca sin conocerla.
 ///
 /// Sale de `biblioteca.toml` por el mismo motivo que las palabras: **son datos
-/// sobre la biblioteca, no sobre el lenguaje**. Si vivieran aqui, anadir una
+/// sobre la biblioteca, no sobre el lenguaje**. Si vivieran aqui, agregar una
 /// operacion de sistema obligaria a recompilar el compilador.
 #[derive(Debug, Clone)]
 pub struct Catalogo {

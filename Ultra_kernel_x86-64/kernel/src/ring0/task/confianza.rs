@@ -78,7 +78,7 @@
 //!   > Una firma que no se reconoce es peor noticia que ninguna firma: alguien
 //!   > se molesto en decir quien era, y no es nadie de aqui.
 //!
-//! [!] Y una advertencia para ese dia: **anadir una clave aqui es conceder
+//! [!] Y una advertencia para ese dia: **agregar una clave aqui es conceder
 //! ejecucion a todo lo que esa clave firme, para siempre.** No hay revocacion.
 //! Escribir la lista de revocados antes de la primera clave seria construir la
 //! puerta antes de la casa; escribirla despues de la segunda seria tarde.
@@ -119,7 +119,7 @@ pub static ANCLA: &[([u8; CLAVE], &str)] = &[
 
 /// Solo las claves, que es lo que `bmo-firma` pide.
 ///
-/// * Se copia a un array de tamano fijo en vez de devolver un `Vec`: en Ring 0
+/// * Se copia a un array de medida fijo en vez de devolver un `Vec`: en Ring 0
 /// no hay a quien pedirle memoria, y el tope --ocho-- es generoso para lo que
 /// esto va a tener nunca. Si algun dia se pasa, **se para en ocho y lo dice**
 /// en vez de recortar en silencio.

@@ -339,7 +339,7 @@ impl Parser {
                         if *self.peek() == Token::CloseParen {
                             self.advance();
                             let expr = self.parse_unary()?;
-                            // cast REAL: codegen trunca/extiende al tamano del tipo
+                            // cast REAL: codegen trunca/extiende al medida del tipo
                             return Ok(Expr::Cast(typ, Box::new(expr)));
                         }
                     }
@@ -402,7 +402,7 @@ impl Parser {
                     match &expr {
                         Expr::Var(n) => {
                             // ** El PASO ya no se pone aqui: lo contesta el codegen,
-                            // que es quien tiene la tabla de tamanos.
+                            // que es quien tiene la tabla de medidas.
                             expr = Expr::Subscript(n.clone(), Box::new(index));
                         }
                         // base compuesta (p->arr[i], (a+1)[i]): el elemento sale
@@ -454,7 +454,7 @@ impl Parser {
             // desazucara a `(unsigned long)1`, que es la misma frase escrita
             // con una forma que este arbol ya entiende.
             //
-            // ** Y por eso este arreglo no anade un caso a ningun juez.
+            // ** Y por eso este arreglo no agrega un caso a ningun juez.
             // `tipo_de`, `expr_is_float` y `expr_is_unsigned` llevan un brazo
             // para `Expr::Cast` desde el principio -- el dato faltaba, no la
             // maquinaria.

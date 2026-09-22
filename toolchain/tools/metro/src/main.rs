@@ -266,7 +266,7 @@ fn caliente(rel: &str, salida: Option<&str>) {
     if let Some(s) = salida {
         std::fs::write(s, &codigo).expect("escribir el codigo");
         // y TODAS las cuentas al lado, `direccion veces`, para sumar por
-        // patron con lo que sea: la tabla de abajo solo ensena 40
+        // patron con lo que sea: la tabla de abajo solo muestra 40
         let cuentas_txt: String = cuentas.iter().map(|(a, c)| format!("{a:x} {c}
 ")).collect();
         std::fs::write(format!("{s}.cuentas"), cuentas_txt).expect("escribir las cuentas");

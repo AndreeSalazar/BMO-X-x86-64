@@ -155,7 +155,7 @@ al informe del `.bex`.
 
 **Y lo que NO decide el compilador**: que crece y que pide `crudo` sale de
 `tables/lang/inti/biblioteca.toml`. Son datos sobre la biblioteca, no sobre el
-lenguaje -- si vivieran en el compilador, anadir una operacion de sistema
+lenguaje -- si vivieran en el compilador, agregar una operacion de sistema
 obligaria a recompilarlo.
 
 ### `lexico` -- el barrido
@@ -181,7 +181,7 @@ Dos reglas, y las dos vienen de la ley del proyecto (*"contratos y formatos,
 NUNCA cerebros"*):
 
 1. **Las flechas van hacia abajo.** `aviso` no importa nada del crate. Si algun
-   dia `aviso` necesitara conocer una pieza, seria senal de que el mensaje ha
+   dia `aviso` necesitara conocer una pieza, seria signal de que el mensaje ha
    dejado de ser un mensaje.
 2. **Nadie llama hacia los lados.** `sangria` no llama al barrido; el barrido le
    pregunta. Por eso `sangria` se puede probar sola y por eso el barrido puede
@@ -192,7 +192,7 @@ Y una regla de fuera:
 3. **Este crate no enlaza `bmo-abi`, `bmo-lower` ni `bmo-verify`** -- que es lo
    que enlazan los otros cuatro frontends. **F1 no emite bytes.** Atar el
    frontend a la forma del emisor antes de tener nada que emitir es el orden que
-   este proyecto evita. Cuando llegue F2, se anadiran los tres y `bmo-verify`
+   este proyecto evita. Cuando llegue F2, se agregaran los tres y `bmo-verify`
    sera obligatorio: *ningun frontend puede escribir un ejecutable que no haya
    pasado por el gate*.
 
@@ -231,7 +231,7 @@ la lee*. Ahora lo comprueba una matriz que recorre la tabla entera.
 
 ---
 
-## 5. Como se anade un modulo
+## 5. Como se agrega un modulo
 
 1. **Pasa la prueba del nombre libre**: escribe su primera frase de
    documentacion sin mencionar otro modulo. Si no puedes, va dentro de otro.

@@ -1,6 +1,6 @@
 # OPTIMIZACION MAESTRO -- la regla es que es LO ULTIMO, y el respeto es saber por que
 
-> Escrito el 2026-08-24, a peticion del dueno: *"vamos a optimizar TODO en CPU en
+> Escrito el 2026-08-24, a peticion del propietario: *"vamos a optimizar TODO en CPU en
 > ciclo, en Red, en teclado y mouse sus ciclos propios que necesita tiempo --
 > cada uno existe por la doc de reglas de optimizacion y respeto, y cada uno es
 > EL ULTIMO para aplicar."*
@@ -234,7 +234,7 @@ optimizar el camino de recepcion antes de que exista el de transmision seria
 optimizar un camino que todavia no lleva nada.
 
 ** El camino sin copia --el anillo prestado por `MEM_OP_OFRECER`-- ya esta
-disenado, y lo que hace falta no es acelerarlo: es **contar si se esta tomando**.
+trazado, y lo que hace falta no es acelerarlo: es **contar si se esta tomando**.
 Un camino rapido que nadie mide es un camino rapido que un dia deja de tomarse
 en silencio.
 

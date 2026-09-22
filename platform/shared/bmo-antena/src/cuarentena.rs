@@ -16,7 +16,7 @@
 //!    falta 2   corta, y 2 s                     una falta: la memoria se enfria
 //!    falta 3   corta, y 4 s
 //!    falta 4   corta, y 8 s   (x2 cada vez, techo 5 min)
-//!    falta 5   DESTERRADA: solo vuelve si el dueno lo dice en BMO-X
+//!    falta 5   DESTERRADA: solo vuelve si el propietario lo dice en BMO-X
 //! ```
 //!
 //! ** "Reiniciar" es la SESION, nunca la maquina. Si una falta pudiera reiniciar
@@ -69,7 +69,7 @@ pub enum Puerta {
     Abierta,
     /// Cerrada todavia `ms` milisegundos.
     Esperar { ms: u64 },
-    /// Solo el dueno la abre (`perdonar`).
+    /// Solo el propietario la abre (`perdonar`).
     Desterrada,
 }
 
@@ -123,7 +123,7 @@ impl Cuarentena {
         }
     }
 
-    /// El dueno, en BMO-X, la perdona. La unica salida del destierro.
+    /// El propietario, en BMO-X, la perdona. La unica salida del destierro.
     pub fn perdonar(&mut self) {
         *self = Self::nueva();
     }

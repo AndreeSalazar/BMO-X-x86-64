@@ -37,8 +37,8 @@ use super::*;
 // === Lo que faltaba, dicho ===
 //
 // `raiz`, `nodo`, `entries` y `entrada` llevaban desde el principio siendo
-// funciones de Ring 0 sin puerta. La ventana F12 podia ensenar los NUMEROS del
-// volumen --generacion, ocupacion, nivel-- y no podia ensenar **que hay dentro**,
+// funciones de Ring 0 sin puerta. La ventana F12 podia mostrar los NUMEROS del
+// volumen --generacion, ocupacion, nivel-- y no podia mostrar **que hay dentro**,
 // porque no tenia de donde sacarlo. Esto es esa puerta.
 pub mod cursor {
     use super::nivel::{Detalle, Nivel};
@@ -345,14 +345,14 @@ pub mod cursor {
 
     // -- El DETALLE de un hijo -------------------------------------------
     //
-    // * Un grafo que solo ensena nombres contesta *que hay*; no contesta *que
+    // * Un grafo que solo muestra nombres contesta *que hay*; no contesta *que
     // es esto*. Lo de abajo es lo que el nodo ya lleva dentro y la ventana no
     // podia pedir: cuanto mide, cuantos atributos tiene y si va firmado.
     //
     // Los tres se leyeron al listar el nivel y aqui solo se sacan. Antes cada
     // uno era una lectura de bloque, por fila y en cada repintado.
 
-    /// Bytes del contenido del hijo `i`. Un directorio contesta el tamano de su
+    /// Bytes del contenido del hijo `i`. Un directorio contesta el medida de su
     /// lista de entries, que tambien es un dato: dice cuanto ocupa el propio
     /// directorio, no lo que hay dentro.
     pub fn hijo_bytes(i: usize) -> u64 {

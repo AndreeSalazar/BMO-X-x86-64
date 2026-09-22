@@ -2,7 +2,7 @@
 //!
 //! ## Por que sale de `lib.rs` (L6a, 2026-08-23)
 //!
-//! Porque `lib.rs` hacia dos trabajos de tamano muy distinto:
+//! Porque `lib.rs` hacia dos trabajos de medida muy distinto:
 //!
 //! ```text
 //!    lib       el MODULO: reparte sitios, resuelve llamadas, empaqueta
@@ -13,7 +13,7 @@
 //! la IR-- y crece cada vez que el lenguaje aprende algo. El primero no.
 //!
 //! ** Y el censo lo llamaba `mixto`: *"a mano, hay funciones grandes entre las
-//! pequenas"*. La grande era esta.
+//! chicas"*. La grande era esta.
 //!
 //! [!] El `match` sigue CERRADO, que es lo que obliga a atender una instruccion
 //! nueva en vez de dejarla caer en un comodin. Mudarlo de fichero no le quita
@@ -247,7 +247,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
                     // ** Con `jo` para todo, `2^64-1 + 3` sobre `natural64` NO
                     // atrapaba: el resultado daba la vuelta a 2 y nadie decia
                     // nada. Era la cuarta familia del fallo del signo de esta
-                    // manana, y la unica que se quedo sin arreglar -- el commit
+                    // luego, y la unica que se quedo sin arreglar -- el commit
                     // de aquel arreglo la daba por hecha y no lo estaba.
                     //
                     // Lo destapo quitar una guardia REDUNDANTE en `junta`: el
@@ -548,12 +548,12 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
             //
             // `lea IZQ, [rbp + disp]` calcula la direccion sin leer la memoria,
             // que es exactamente lo que hace falta: un `numero` mide 16 bytes y
-            // **no se puede cargar**, solo senalar.
+            // **no se puede cargar**, solo marcar.
             //
             // ** Y `lea` no toca banderas, que importa aqui: entre una operacion
             // y su Regla 1 no puede meterse nada que las pise.
             Instr::DireccionDeLocal { destino, local } => {
-                // Una local senalada esta en `tomadas` y el reparto la deja en
+                // Una local marcada esta en `tomadas` y el reparto la deja en
                 // el marco. Si no lo estuviera, seria un fallo del reparto y se
                 // dice, no se inventa una direccion.
                 let Some(disp) = marco.hueco_local(*local) else {
@@ -702,7 +702,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
         // ## [!] Y LA TERCERA ES POR LO QUE NO SE APLICO
         //
         // `sondas/cpu.inti` --la que corrio en el Ryzen el 22-08 y dio
-        // `reglas = 0x00`-- tiene su diseno escrito en su propia cabecera:
+        // `reglas = 0x00`-- tiene su esquema escrito en su propia cabecera:
         //
         //     "Una funcion que atrapa DEVUELVE EL CODIGO: la trampa pone el
         //      numero en el registro de retorno y sale, asi que preguntar
@@ -715,7 +715,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
         //
         // *** O sea que P4(c) no es una linea del emisor: es un cambio en la
         // forma de la MEDIDA que produjo el mejor resultado de este proyecto. Y
-        // eso lo decide el dueno, no el compilador.
+        // eso lo decide el propietario, no el compilador.
         //
         // El plan ya sabe cual es la salida completa: P4(b) --que el KERNEL
         // aterrice en vez de enterrar-- y el error como dato. Con (b), la sonda

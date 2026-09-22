@@ -71,10 +71,10 @@ por encima-- y el raton en medio.
    vez por vuelta; casi siempre dice que no.
 2. **Leer la cabecera** `BSUP` y **no creersela**: ver el paso 2.5.
 3. **Pegar solo si la secuencia cambio**, que es la regla entera. Un fotograma a
-   medias no cambia el numero, asi que no se pinta, y el peor caso es ensenar el
+   medias no cambia el numero, asi que no se pinta, y el peor caso es mostrar el
    anterior un fotograma mas. ** NO es un cerrojo y no debe serlo.
 4. **Dentro del marco** que `scene/chrome.rs` ya dibuja: `Chrome::for_content`
-   --el unico constructor en pixeles, porque el tamano lo eligio la app-- y los
+   --el unico constructor en pixeles, porque el medida lo eligio la app-- y los
    tres botones salen gratis. **Ese fue el cobro de haber escrito `marco.rs`.**
 5. **Pantalla completa = no dibujar el borde.** Sigue pendiente: hoy maximizar da
    el hueco bajo la barra, como las demas. Lo que ya es cierto es lo que
@@ -86,11 +86,11 @@ por encima-- y el raton en medio.
 La cabecera la escribe **otro proceso**. Una app que declare `4000 x 4000` dentro
 de un bloque de 1 MiB --por un fallo o a proposito-- leeria fuera del prestamo, y
 **el fallo de pagina lo cobra el compositor**, no ella: una app rota se lleva el
-escritorio, que es justo lo que este diseno existe para impedir.
+escritorio, que es justo lo que este esquema existe para impedir.
 
 `Cabecera::leer` comprueba que **lo que la cabecera declara cabe en los bytes que
 el kernel dijo que presto**, en `u64` --en 32 bits `stride * alto * 4` se
-desborda y da un total pequeno, o sea que la comprobacion pasaria justo en el
+desborda y da un total chico, o sea que la comprobacion pasaria justo en el
 caso que tiene que parar--. Es la unica frontera de confianza del modulo y va
 toda en una funcion a proposito.
 
@@ -111,7 +111,7 @@ una por ventana, y ahi aparecieron tres cosas que no estaban:
 
 | Lo que faltaba | Por que |
 |---|---|
-| **Que dos prestamos no se pisen** | `take` mapeaba SIEMPRE en `PRESTAMO_VA_BASE`. El segundo caia encima del primero, y como la capability se concede con la VA como objeto, dos handles distintos contestaban lo del otro. **La segunda ventana ensenaria los pixeles de la primera y nada fallaria.** Ahora la direccion la decide la ranura: `BASE + ranura * 64 MiB` |
+| **Que dos prestamos no se pisen** | `take` mapeaba SIEMPRE en `PRESTAMO_VA_BASE`. El segundo caia encima del primero, y como la capability se concede con la VA como objeto, dos handles distintos contestaban lo del otro. **La segunda ventana mostraria los pixeles de la primera y nada fallaria.** Ahora la direccion la decide la ranura: `BASE + ranura * 64 MiB` |
 | **`PRESTADO_OP_DUENO` (0x03)** | preguntar si el que presto sigue vivo. Sin esto no hay forma de distinguir una app muerta de una app pensando |
 | **`PRESTADO_OP_SOLTAR` (0x04)** | devolverlo. Sin esto, abrir y cerrar ventanas agota las ranuras y a partir de ahi ninguna app vuelve a tener caja hasta reiniciar |
 
@@ -119,7 +119,7 @@ Mas `MAX` de 8 a 16 ranuras, que es el mismo censo que `paquete` y `familia`.
 
 ## ★★ Y la decision que sostiene el modelo: **el prestamo sobrevive al que lo presto**
 
-Cuando muere el dueno de algo ya tomado, lo tentador es quitarselo al que lo tomo
+Cuando muere el propietario de algo ya tomado, lo tentador es quitarselo al que lo tomo
 --tenemos su `cr3` con `scheduler::cr3_de_pid`-- y es justo lo que no se puede
 hacer: **el que lo tomo es el DIRECTOR, y esta componiendo**. Desmapearle paginas
 por debajo mientras las recorre es un fallo de pagina en el compositor, o sea que
@@ -154,7 +154,7 @@ aparece en una caja con sus tres botones. Cuatro cosas, en orden:
 
 ⚠ Y hay una trampa apuntada de antes que aplica aqui: **el mapa del raycaster
 valia CERO**, asi que `ray.bex` va a dibujar otro laberinto del que se recuerda.
-Que la ventana ensene algo distinto no quiere decir que la superficie falle.
+Que la ventana muestre algo distinto no quiere decir que la superficie falle.
 
 ## ★ HECHO el 2026-08-19 -- y con dos cosas que no estaban en la lista
 
@@ -207,7 +207,7 @@ que hacerla con el codigo delante, no con la memoria.
 
 # ★★ PASO 2c -- LA ENTRADA: hoy una app puede ENSENAR, no la puedes TOCAR
 
-> Anadido el **2026-08-18**, al preguntar el dueno por que la calculadora no
+> Anadido el **2026-08-18**, al preguntar el propietario por que la calculadora no
 > puede ser `apps/calculadora.bex` con su icono. La respuesta salio de leer este
 > mismo plan: **los pasos 1, 2, 2b, 3, 4 y 5 hablan todos de PIXELES**. Ninguno
 > manda un clic hacia dentro.
@@ -327,7 +327,7 @@ NUMERO: cuantos eventos por segundo.** Y para el primer cliente --la
 calculadora-- la respuesta es A, sin discusion y sin escribir una linea de
 mecanismo nuevo.
 
-**Que la bloquea**: la pregunta 1, que es de leer `endpoint.rs`, no de disenar.
+**Que la bloquea**: la pregunta 1, que es de leer `endpoint.rs`, no de trazar.
 
 **Como se sabe que quedo hecha**: una app con superficie recibe un clic por su
 anillo y no necesita un segundo mecanismo de recepcion -- que es literalmente lo
@@ -343,7 +343,7 @@ teclado**, y es lo mismo que gobierna las ventanas del escritorio. Una app con
 superficie es una ventana mas.
 
 ★ Y la regla ya se escribio dos veces en esta casa --la consola de ESTRATOS y la
-calculadora--: *dos duenos para una tecla se resuelve con un ORDEN, nunca con
+calculadora--: *dos propietarios para una tecla se resuelve con un ORDEN, nunca con
 una heuristica*. Aqui el orden lo da el foco.
 
 ## 2c.4 -- Y una app que no contesta
@@ -397,7 +397,7 @@ emisor de MAQUETA nunca supo donde estaba la ventana.
 
 # [x] ★★★ 2c.3 -- `ray.bex` RECIBE UNA TECLA EN SU VENTANA. HECHO el 2026-08-23
 
-> Pedido asi por el dueno: *"solo iniciar con el DOOM en Ring 3 tiene que ser
+> Pedido asi por el propietario: *"solo iniciar con el DOOM en Ring 3 tiene que ser
 > como uso MUY GENERALES de app, ventanas, TODO ESO"*. Y con el remate que
 > convirtio la casilla en algo que se puede mirar: *"dale con menu y
 > configuracion con tecla"*.
@@ -448,13 +448,13 @@ bytes y no se entera de que ahora hay un buzon dentro.
 
 ★★ **Y ES OPCIONAL, que es lo que decide quien se queda las teclas.**
 `bmo_superficie_crear` sigue sin pedirlo; hay que llamar a
-`bmo_superficie_crear_con_buzon`. Una app que solo ensena --un reloj, un
+`bmo_superficie_crear_con_buzon`. Una app que solo muestra --un reloj, un
 medidor-- no lo declara, y entonces el DIRECTOR no le manda nada y el escritorio
 conserva el teclado. **Pedirlo es decir "yo se leer".**
 
 ## DE QUIEN ES UNA TECLA: el orden, escrito una vez
 
-La regla de la casa --*dos duenos para una tecla se resuelve con un ORDEN, nunca
+La regla de la casa --*dos propietarios para una tecla se resuelve con un ORDEN, nunca
 con una heuristica*-- aplicada en `desktop::keys::app`:
 
 ```text
@@ -524,7 +524,7 @@ ajustes, y los tres se ven en el mismo fotograma:
 
 ★ No hay texto: **son barras**. REX no trae fuente para una app de C, y
 dibujarla aqui seria meter una fuente en un ejemplo. Una fila por ajuste, tantos
-segmentos encendidos como vale, y la fila senalada con su marca. Se lee de un
+segmentos encendidos como vale, y la fila marcada con su marca. Se lee de un
 vistazo y no promete un idioma que este programa no sabe escribir.
 
 ★★ **Y lo que de verdad prueba el menu no es el menu**: es que una app en una
@@ -609,7 +609,7 @@ funcion que recorta los pixeles.
    se descartarian los nuevos, o sea que la app leeria posiciones VIEJAS--. Lo
    que quiere el raton es un CAMPO DE ESTADO en la cabecera, no una ranura.
 2. **El foco se le da a cualquier app**, tenga buzon o no. Una app que solo
-   ensena y se lleva el foco deja la linea de Ejecutar muda mientras este
+   muestra y se lleva el foco deja la linea de Ejecutar muda mientras este
    delante. Se sabe como se arregla --preguntarle al buzon-- y no se hizo aqui
    porque el foco significa DOS cosas a la vez (quien tiene las teclas, y quien
    esta delante para Alt+Tab) y separarlas es otra casilla.
@@ -632,7 +632,7 @@ funcion que recorta los pixeles.
 
 Estaba en **995 lineas, a cinco** de que L6a lo rechazara, y clasificado
 `GIGANTE`: dos funciones, media de 497. La especie cara, y el censo dice por
-que: *"el estado local tiene que volverse un struct primero, y eso es diseno"*.
+que: *"el estado local tiene que volverse un struct primero, y eso es esquema"*.
 
 Ese struct es `Golpe` --posicion, los dos botones y Ctrl-- y una vez escrito el
 corte sale solo, porque **un puntero siempre esta sobre algo**:
@@ -671,7 +671,7 @@ igual: **un corte que se puede demostrar no hay que creerselo.**
 entera del puntero**, no su bloque. Dejarlos como `return` al sacarlos los
 habria convertido en *"sal de esta funcion y sigue con lo de abajo"*, que es
 otro programa: la barra de tareas y el Z-order correrian detras de un clic que
-ya tenia dueno. Devuelven `true`, y quien llama corta.
+ya tenia propietario. Devuelven `true`, y quien llama corta.
 
 ## 2 -- EL PUNTERO ES UN ESTADO, NO UN EVENTO
 
@@ -743,7 +743,7 @@ dos cosas.
 
 ★ **Ampliarlo a Ctrl no es taparlo con una excepcion mas**: es que la lista deja
 de ser una lista y pasa a ser una REGLA -- y una regla no se queda vieja cuando
-manana alguien anada un atajo.
+luego alguien anada un atajo.
 
 [!] Su precio, dicho: **hoy una app no puede tener un `Ctrl+algo` propio.** Es
 el intercambio que hace cualquier compositor, y se puede revisar el dia que una
@@ -907,7 +907,7 @@ describe algo hecho, no una intencion.*
 `director` son **ocho caracteres exactos**: cabe en 8.3. O sea que el limite del
 sistema de ficheros --el que decidio `gui` en su dia-- aqui no decide nada.
 
-Lo que decide es del dueno: *"es para escritura en caso de que mi Ring 3 se caiga
+Lo que decide es del propietario: *"es para escritura en caso de que mi Ring 3 se caiga
 y tenga que escribir"*. **Con el escritorio muerto esto se teclea a mano** desde
 el shell de Ring 0, y ahi lo que cuenta son las letras.
 
@@ -930,7 +930,7 @@ cargador de programas eso es ejecutar otro binario.
 
 # ★★ EL RITMO DEL ESCRITORIO ERA UNA SUPOSICION -- 2026-08-23
 
-> Lo trajo el dueno como una queja de uso: *"el DIRECTOR algo falla en darle
+> Lo trajo el propietario como una queja de uso: *"el DIRECTOR algo falla en darle
 > autoridad en pantalla para que DOOM tome"*. La autoridad estaba bien. Lo que
 > fallaba era **que el icono no llegaba a lanzar nada.**
 
@@ -1014,7 +1014,7 @@ de una persona, y eso no se prueba en un emulador.
 
 # PANTALLA COMPLETA, Y LO QUE LE FALTA (2026-09-11)
 
-Pedido por el dueno: *"que sea que la app tome TODA la pantalla es como que
+Pedido por el propietario: *"que sea que la app tome TODA la pantalla es como que
 voy a jugar con configuracion pantalla completa en tiempo real"*. Y una
 sorpresa suya que conviene anotar: *"VENTANAS o WINDOW eso no lo tengo y me
 sorprendo como que DOOM abre ventana"*.
@@ -1025,7 +1025,7 @@ sorprendo como que DOOM abre ventana"*.
    estado propio      `Chrome::fs`, y NO es maximizar: maximizar deja la
                       barra a la vista a proposito; esto se la come
    sin cromo          ni sombra, ni borde, ni titulo, ni botones, ni agarre
-   Alt+Enter          entra y sale EN CALIENTE, sobre la app senalada. El
+   Alt+Enter          entra y sale EN CALIENTE, sobre la app marcada. El
                       mismo gesto para las dos direcciones
    centrada en negro  la superficie mide lo que la app declaro; lo que sobra
                       lo pinta el DIRECTOR una vez
@@ -1055,13 +1055,13 @@ que no existe:
 
 [!] Escalar en el DIRECTOR seria lo facil y es lo que NO se hace: una
 conversion por pixel y por fotograma en el proceso que menos puede
-permitirsela. La app sabe dibujar a su tamano; lo que le falta es saberlo.
+permitirsela. La app sabe dibujar a su medida; lo que le falta es saberlo.
 
 ---
 
 # ESCRIBIR DENTRO DE UNA VENTANA (2026-09-11)
 
-Pedido por el dueno junto con la pantalla completa: *"y que si es texto me
+Pedido por el propietario junto con la pantalla completa: *"y que si es texto me
 gustaria que ese mismo como texto.bex ejecute a bloc de notas elegante"*.
 
 ## El hueco que lo impedia, y donde estaba
@@ -1126,7 +1126,7 @@ superficie, que para eso llega el raton.
        FUERA del repo" (lo dice `build/ejemplos.ps1`). Asi que `texto.bex`
        vive en `c\` y hay que escribir `run c/texto.bex`: no tiene icono en
        el escritorio aunque lo lleve dentro. Dos salidas, y la eleccion es
-       del dueno -- que el lanzador mire tambien `c\`, o que haya una carpeta
+       del propietario -- que el lanzador mire tambien `c\`, o que haya una carpeta
        para las apps de la casa. **No se decide colando una excepcion en el
        build** -- `scene/launcher.rs`
    [ ] sin portapapeles: no hay marcar con el raton, ni copiar, ni pegar, y

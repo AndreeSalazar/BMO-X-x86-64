@@ -1,6 +1,6 @@
 //! **RAM_VERIFY -- que puede hacer con este fichero el que lo cargue.**
 //!
-//! Idea del dueno, 2026-08-12: *"eso es para ser RAM_verify, para verificar los
+//! Idea del propietario, 2026-08-12: *"eso es para ser RAM_verify, para verificar los
 //! archivos que se van a aplicar... porque asi las tablas que pusimos son el
 //! motivo para cumplir lo que necesita, NO por condicion"*.
 //!

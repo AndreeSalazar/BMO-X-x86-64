@@ -2,7 +2,7 @@
  *
  * == Que problema resuelve ==
  *
- * Una rejilla de salida guarda N filas y ensena M. Lo que sale por arriba se
+ * Una rejilla de salida guarda N filas y muestra M. Lo que sale por arriba se
  * pierde para siempre a menos que alguien lleve la cuenta de CUANTO se ha
  * subido. Esa cuenta es todo lo que hay aqui: un entero, `vista`, que dice
  * cuantas filas hacia atras esta mirando el usuario.
@@ -20,7 +20,7 @@
  * == Lo que evita cada tope ==
  *
  * El clamp de los dos extremos no es cosmetico. Sin el:
- *   - pasarse por arriba ensena filas en blanco, y parece que se ha perdido
+ *   - pasarse por arriba muestra filas en blanco, y parece que se ha perdido
  *     todo el historial;
  *   - pasarse por abajo deja `vista` en negativo, y la siguiente escritura
  *     pinta por encima de lo que ya habia.
@@ -38,7 +38,7 @@
  * [carril]  VERDE        funciones puras: no tocan memoria y no llaman a
  *                        nadie. Reciben la vista de ahora y devuelven la de
  *                        despues
- * [cuesta]  NADA         se equivoca y la ventana ensena la fila que no es
+ * [cuesta]  NADA         se equivoca y la ventana muestra la fila que no es
  * [riesgo]  ESPEJO       el convenio `positivo = hacia atras` lo comparte con
  *                        el compositor. Si cambia aqui, la rueda gira al reves
  *                        para uno
@@ -131,7 +131,7 @@ int bmo_scroll_primera(int vista, int guardadas, int visibles) {
 /* Se esta mirando el pasado?
  *
  * Sirve para poner un aviso en pantalla. No es un adorno: una ventana que
- * ensena el pasado sin decirlo se confunde con una que se ha colgado, y la
+ * muestra el pasado sin decirlo se confunde con una que se ha colgado, y la
  * reaccion normal a eso es reiniciar la maquina. */
 int bmo_scroll_en_historial(int vista) {
     return vista > 0;

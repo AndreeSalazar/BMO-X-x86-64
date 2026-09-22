@@ -12,7 +12,7 @@ use super::comun::*;
 // Hasta aqui un `PIC X` reservaba sitio y se cargaba como un entero de 64
 // bits: no habia campos de texto. Por eso `VALUE "HOLA"` se rechazaba.
 
-/// Lo minimo: declarar, inicializar y ensenar.
+/// Lo minimo: declarar, inicializar y mostrar.
 #[test]
 fn un_campo_de_texto_guarda_caracteres() {
     let src = program(

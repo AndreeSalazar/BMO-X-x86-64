@@ -11,7 +11,7 @@
 //! raycaster, dejo la maquina de rehen porque el ESC nunca coincidia.
 
 /// Donde esta el puntero y que botones tiene: `(x << 32) | (y << 16) | botones`.
-/// Ya viene recortado al panel: el kernel es quien sabe de que tamano es.
+/// Ya viene recortado al panel: el kernel es quien sabe de que medida es.
 pub const INPUT_OP_PUNTERO: u64 = 0x01;
 
 /// Cuantos informes HID se han visto desde el arranque. Distingue "el raton no
@@ -96,7 +96,7 @@ pub const TECLA_AVPAG: u8 = 0x88;
 ///
 /// * Son el sitio correcto para un atajo del sistema porque **no producen
 /// caracter en ninguna distribucion**: no pueden chocar con escribir. Una
-/// combinacion con `Ctrl+Alt` si puede -- en espanol `Ctrl+Alt` *es* AltGr.
+/// combinacion con `Ctrl+Alt` si puede -- en castellano `Ctrl+Alt` *es* AltGr.
 pub const TECLA_F1: u8 = 0x89;
 
 pub const TECLA_F2: u8 = 0x8A;

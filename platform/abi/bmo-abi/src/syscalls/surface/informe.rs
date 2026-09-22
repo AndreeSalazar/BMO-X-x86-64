@@ -69,12 +69,12 @@ pub const INFO_USB_RITMO: u64 = 0x50;
 
 // == *** LOS DOCE DEL DMA -- que el `save` diga lo que CABINA ya decia =======
 //
-// Peticion del dueno, 2026-09-10: *"el save actualizar por completo, y cabina
+// Peticion del propietario, 2026-09-10: *"el save actualizar por completo, y cabina
 // tambien"*.
 //
 // El bit en vuelo, el perro guardian del plazo, el portero duro y el centinela
 // se cablearon entre el 09-09 y el 10-09, y los cuatro contaban **solo para una
-// pantalla de RING 0**. El dueno vive en el escritorio y al shell de Ring 0 no
+// pantalla de RING 0**. El propietario vive en el escritorio y al shell de Ring 0 no
 // se vuelve: o sea que los numeros existian y **no llegaban a quien los pidio**.
 //
 // ** Es exactamente lo que le paso a `INFO_USB_RITMO` el 09-09, y esta escrito
@@ -224,7 +224,7 @@ pub const INFO_CPU_MW_PAQUETE: u64 = 0x21;
 /// **Milivatios del NUCLEO EN EL QUE SE LEE.** No de todos.
 ///
 /// [!] La primera version de esta linea decia "de los nucleos", en plural, y el
-/// metal del 12-08 enseno por que eso es poner un dato que no existe: con once
+/// metal del 12-08 mostro por que eso es poner un dato que no existe: con once
 /// nucleos GIRANDO al 100%, este numero **bajo** de 11,9 a 9,2 W. No es que
 /// consumieran menos: es que `CORE_ENERGY_STAT` es un contador **por nucleo** y
 /// solo se lee el del BSP. Los otros once no aparecen aqui en absoluto.
@@ -321,7 +321,7 @@ pub const INFO_NET_MAC: u64 = 0x29;
 /// ** Y va crudo a proposito, que es la misma decision que ya tomo el driver:
 /// *"se guarda sin interpretar ademas de interpretado: el dia que un bit no
 /// cuadre, el byte entero es la prueba y las funciones son la opinion"*. Un
-/// panel que solo ensena la opinion no puede ayudar el dia que la opinion falle.
+/// panel que solo muestra la opinion no puede ayudar el dia que la opinion falle.
 pub const INFO_NET_PHY_CRUDO: u64 = 0x2A;
 
 /// Megabits que declara el enlace: 10, 100, 1000 -- o `0` si esta abajo.
@@ -361,7 +361,7 @@ pub const INFO_NET_RX_MALAS: u64 = 0x6D;
 /// Eddi: *"Save tiene que decir todo en CABINA... mas organizado"*. Tres cosas
 /// que solo se leian en F11 o en `cabina fallos`: que controlador USB maneja
 /// este kernel y que llego por cada puerto, como van los prestamos (las
-/// ventanas), y los avisos. El movil del dueno enchufado en el xHC que no se
+/// ventanas), y los avisos. El movil del propietario enchufado en el xHC que no se
 /// maneja fue lo que lo hizo visible: F11 callaba y `save` no sabia nada.
 ///
 /// # `INFO_USB_CENSO`: los controladores, empaquetados
@@ -391,7 +391,7 @@ pub const INFO_PRESTAMOS: u64 = 0x72;
 /// imprimia como si la hubiera preguntado.
 ///
 /// ```text
-///    bits  0..23   tamano en KiB
+///    bits  0..23   medida en KiB
 ///    bits 24..31   linea en bytes
 ///    bits 32..39   vias (0 = totalmente asociativa)
 ///    bits 40..47   hilos que la comparten
@@ -484,7 +484,7 @@ pub const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
 /// -- ** EL AUDIO, ENTERO Y SIN HANDLE (2026-09-21) ------------------------
 ///
 /// Preguntar QUE HAY no es lo mismo que tener derecho a usarlo: estas se
-/// leen por `OP_INFO`, sin el handle de audio, que es de un solo dueno.
+/// leen por `OP_INFO`, sin el handle de audio, que es de un solo propietario.
 ///
 /// El audifono USB reclamado: `[0..8)` su ranura (0 = no hay) | `[8..16)`
 /// canales | bit 16 tiene mute | bit 17 declara reproduccion | bit 18 el
@@ -506,7 +506,7 @@ pub const INFO_AUDIO_TRAMAS: u64 = 0x85;
 /// `[0..32)` huecos (vueltas sin trama que mandar) | `[32..64)` tramos del
 /// bufer prestado que el juez del DMA VETO.
 pub const INFO_AUDIO_HUECOS: u64 = 0x86;
-/// `[0..32)` pid del dueno del audio (0 = nadie) | `[32..64)` bytes
+/// `[0..32)` pid del propietario del audio (0 = nadie) | `[32..64)` bytes
 /// pendientes en el bufer prestado.
 pub const INFO_AUDIO_DUENO: u64 = 0x87;
 
@@ -656,7 +656,7 @@ pub const INFO_PRESUPUESTO_HANDLE: u64 = 0x39;
 /// **1 si las tres filas de arriba se midieron en LA MAQUINA QUE ESTA
 /// CORRIENDO**; 0 si no.
 ///
-/// # Por que un presupuesto tiene dueno
+/// # Por que un presupuesto tiene propietario
 ///
 /// Un techo son **ticks del TSC de una placa concreta**. El mismo kernel
 /// arranca en cualquier x86-64, y alli esos numeros no son ni estrictos ni
@@ -736,7 +736,7 @@ pub const INFO_SUELO_CRUCE: u64 = 0x3E;
 /// El censo se escribio como orden `ext` del shell de Ring 0, y a ese shell no
 /// se vuelve una vez arranca el escritorio -- el rescate `Ctrl+Alt+Esc` se
 /// niega a echar al compositor a proposito. O sea que era una tabla correcta
-/// que su dueno no podia mirar. Estas filas son la respuesta, y son filas de
+/// que su propietario no podia mirar. Estas filas son la respuesta, y son filas de
 /// tabla y no un syscall nuevo, que es para lo que `OP_INFO` existe.
 ///
 /// # Por que mascaras y no una linea de texto ya pintada
@@ -786,7 +786,7 @@ pub const INFO_CPU_NUCLEOS: u64 = 0x07;
 /// numero malo se pinta igual de nitido que uno bueno.
 ///
 /// *** El aviso existia --en el log del arranque, y solo si alguien tecleaba
-/// `smp`-- y ahi no lo ve nadie: **el dueno vive en el escritorio y al shell de
+/// `smp`-- y ahi no lo ve nadie: **el propietario vive en el escritorio y al shell de
 /// Ring 0 no se vuelve.** Un diagnostico al que no se llega desde donde se ve el
 /// sintoma no es un diagnostico.
 pub const INFO_CPU_TOPOLOGIA_DUDA: u64 = 0x4D;
@@ -808,7 +808,7 @@ pub const INFO_TAREAS_LIBRES: u64 = 0x0A;
 pub const INFO_TICKS: u64 = 0x0B;
 
 /// Bytes que ocupa el kernel en RAM, medidos (hasta el final de su `.bss`,
-/// pila incluida). No es el tamano del archivo.
+/// pila incluida). No es el medida del archivo.
 pub const INFO_KERNEL_BYTES: u64 = 0x0C;
 
 /// Programas que se han intentado admitir, y los que ya no caben en la
@@ -883,7 +883,7 @@ pub const INFO_PANTALLA_DUENO: u64 = 0x1A;
 ///
 /// Nucleos de aplicacion en pie, **sin contar el BSP**. Es lo que contesto el
 /// bring-up, no lo que declara el CPU: la diferencia entre los dos es
-/// exactamente el fallo que un panel tiene que poder ensenar.
+/// exactamente el fallo que un panel tiene que poder mostrar.
 pub const INFO_SMP_VIVOS: u64 = 0x1B;
 
 /// * Choques de cerrojo, y la espera mas larga en vueltas de giro.
@@ -922,7 +922,7 @@ pub const INFO_FECHA: u64 = 0x1F;
 ///
 /// > **Una averia viva es un ESTADO, no un evento.** Un aviso se dice una vez e
 /// > informa a quien ya estaba mirando; una averia que sigue ocurriendo
-/// > necesita una luz encendida mientras dure, y donde vive el dueno.
+/// > necesita una luz encendida mientras dure, y donde vive el propietario.
 ///
 /// Las cinco exigencias anteriores del teclado estan cumplidas y **cada una
 /// tiene su contador** -- pero todos vivian en funciones de kernel que solo se
@@ -996,12 +996,12 @@ pub const INFO_USB_AVERIAS: u64 = 0x3C;
 //
 // Hasta hoy BMO-X le preguntaba al disco tres cosas --modelo, serie y
 // capacidad-- y **no sabia si su disco giraba**. Mientras tanto el arbol si
-// opinaba: el diseno de ESTRATOS razona sobre TRIM y la ley dice que un disco
+// opinaba: el esquema de ESTRATOS razona sobre TRIM y la ley dice que un disco
 // *"da caudal cuando tiene cola"*. Ninguna de las dos frases es falsa; ninguna
 // estaba comprobada. Es L5 al reves -- hardcodea contratos, pregunta hechos.
 //
 // ** Los tres primeros campos son HECHOS y el cuarto es el VEREDICTO, y estan
-// separados a proposito (L7): quien pinte puede ensenar lo que dijo el aparato
+// separados a proposito (L7): quien pinte puede mostrar lo que dijo el aparato
 // aunque no este de acuerdo con lo que se concluyo de ello. Un veredicto sin su
 // evidencia al lado no se puede discutir.
 //
@@ -1115,7 +1115,7 @@ pub const DISCO_GEO_TRIM: u64 = 1 << 23;
 /// kernel **porque alli se puede probar** (L7b). En este componente equivocarse
 /// no da un fault en pantalla: se lleva el trabajo de alguien.
 ///
-/// ** **El bit 2 vale 1 tambien cuando NO hay perfil**, y ese es el diseno: no
+/// ** **El bit 2 vale 1 tambien cuando NO hay perfil**, y ese es el esquema: no
 /// saber si el disco tiene condensadores **no autoriza a suponer que los
 /// tiene**. Un juez de rendimiento que se calla deja una cifra sin publicar; uno
 /// de almacenamiento que se calla tiene que dejar el sistema en el camino que no
@@ -1165,7 +1165,7 @@ pub const INFO_DISCO_TRIM_ORDENES: u64 = 0x44;
 /// podia sacarlos de `INFO_ES_BLOQUES`, `INFO_ES_USADOS` y `INFO_ES_BLOQUE_TAM`,
 /// y esa cuenta paralela es exactamente la clase de cosa que esta casa persigue:
 /// dos fuentes de una sola verdad se separan, y separarse aqui significa
-/// **ensenar un rango y recortar otro**. Los dos lados llaman ahora a
+/// **mostrar un rango y recortar otro**. Los dos lados llaman ahora a
 /// `estratos::cola_libre()`.
 ///
 /// [!] Y siguen siendo una FOTO: entre preguntar y mandar la orden, el volumen
@@ -1212,7 +1212,7 @@ pub const INFO_TXT_FAMILIA: u64 = 0x04;
 /// ** El indice viaja en los bits altos del campo, que es el idioma que esta
 /// superficie ya habla (`INFO_MEM_QUIEN_*`, `AUTOPSIA_TEXTO`). Con esto los
 /// treinta y seis nombres viven **en un solo sitio del arbol** --el `match`
-/// exhaustivo del kernel, que el compilador obliga a completar al anadir una
+/// exhaustivo del kernel, que el compilador obliga a completar al agregar una
 /// fila-- en vez de en una copia de Ring 3 que envejece en silencio.
 pub const INFO_TXT_EXT_NOMBRE: u64 = 0x05;
 

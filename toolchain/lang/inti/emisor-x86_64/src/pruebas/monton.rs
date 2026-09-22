@@ -91,7 +91,7 @@ fn soltar_no_baja_el_cursor() {
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 4096), 1);
 }
 
-/// Un hueco demasiado pequeno NO se reutiliza: se sigue mirando, y si ninguno
+/// Un hueco demasiado chico NO se reutiliza: se sigue mirando, y si ninguno
 /// cabe, avanza el cursor.
 ///
 /// ** Sin esta, `pide` podria estar devolviendo el primer hueco de la lista sin
@@ -100,7 +100,7 @@ fn soltar_no_baja_el_cursor() {
 #[test]
 fn un_hueco_que_no_cabe_no_se_reutiliza() {
     let f = con_monton(
-        "        pequeno = pide(base, 16)\n        suelta(base, pequeno)\n        grande = pide(base, 500)\n        si grande = pequeno\n            devuelve 0\n        devuelve 1\n",
+        "        chico = pide(base, 16)\n        suelta(base, chico)\n        grande = pide(base, 500)\n        si grande = chico\n            devuelve 0\n        devuelve 1\n",
     );
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 4096), 1);
 }
@@ -144,7 +144,7 @@ const INMORTAL: u64 = 1 << 63;
 /// declara la semantica --`retain`, `release`, `is_last`-- y `contador.inti` la
 /// vuelve a escribir en otro lenguaje. **Dos escrituras de la misma regla se
 /// separan el dia que alguien toca una**, y este proyecto ya se comio ese fallo
-/// con la tabla de intrinsecos esta misma manana.
+/// con la tabla de intrinsecos esta misma luego.
 ///
 /// Asi que no se comprueba "que suba": se comprueba que **coincida**.
 #[test]
@@ -185,7 +185,7 @@ fn al_morir_el_trozo_vuelve_al_monton() {
     let f = con_objeto("        libera(base, o)\n        devuelve queda_suelto(base)\n");
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 1), 64);
 
-    // Y con dos duenos NO vuelve: solo baja el contador.
+    // Y con dos propietarios NO vuelve: solo baja el contador.
     assert_eq!(ejecuta_en(&f, "prueba", 0x40000, 2), 0);
 }
 
@@ -193,7 +193,7 @@ fn al_morir_el_trozo_vuelve_al_monton() {
 ///
 /// ** Y no basta con dejar el numero igual: **escribir los mismos bytes en una
 /// pagina de solo lectura falla igual**. Un literal de texto vive en `RoData`
-/// desde esta misma manana, asi que esto dejo de ser teorico hoy.
+/// desde esta misma luego, asi que esto dejo de ser teorico hoy.
 #[test]
 fn un_inmortal_ni_se_cuenta_ni_se_suelta() {
     let f = con_objeto(

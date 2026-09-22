@@ -25,12 +25,12 @@ fn main() {
                 }
             }
             // * El COPYBOOK: el byte exacto de cada campo, sacado de la MISMA
-            // tabla que emite el READ y el WRITE. No compila nada -- ensena el
+            // tabla que emite el READ y el WRITE. No compila nada -- muestra el
             // formato del fichero y se va.
             "--copybook" => {
                 solo_copybook = true;
             }
-            // * El VISOR: ensena un fichero de registros binarios decodificado
+            // * El VISOR: muestra un fichero de registros binarios decodificado
             // con el copybook de este programa. Desde que un COMP-3 sale al
             // disco, ese fichero no se puede mirar con un `cat`.
             "--ver" => {
@@ -73,7 +73,7 @@ fn main() {
         }
     };
 
-    // * El copybook sale del PARSER, no del binario: ensena el formato aunque
+    // * El copybook sale del PARSER, no del binario: muestra el formato aunque
     // el programa todavia no compile entero. Quien tiene que acordar un fichero
     // con otro equipo no puede esperar a que el batch este terminado.
     if let Some(datos_path) = ver_datos {
@@ -130,7 +130,7 @@ fn main() {
             //
             // Va ANTES del `write` a proposito: verificar despues dejaria un
             // fichero malo en el disco con un mensaje al lado, y quien lo
-            // encuentre manana vera el `.bex`, no el mensaje.
+            // encuentre luego vera el `.bex`, no el mensaje.
             if let bmo_verify::Verdict::Rejected(razones) = bmo_verify::verify(&bef_bytes) {
                 eprintln!("error: el BEF no pasa el gate de verificacion:");
                 for r in &razones { eprintln!("  - {r}"); }

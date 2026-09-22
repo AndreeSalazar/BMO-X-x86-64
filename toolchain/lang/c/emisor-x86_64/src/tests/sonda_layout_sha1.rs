@@ -4,7 +4,7 @@
 //!
 //! La forma del contexto de SHA-1 no es una eleccion de doomgeneric: **la dicta
 //! el algoritmo**. Cinco palabras de estado (`h0..h4`), un contador de bloques,
-//! un bufer de 64 bytes --el tamano de bloque de SHA-1-- y un contador de lo
+//! un bufer de 64 bytes --el medida de bloque de SHA-1-- y un contador de lo
 //! que hay dentro. Todas las implementaciones derivadas de la de gnupg tienen
 //! esa forma, con o sin el fichero delante.
 //!
@@ -67,7 +67,7 @@ int main() {{
     );
 }
 
-/// El tamano entero. Con `buf[64]` dentro, son 92 bytes.
+/// El medida entero. Con `buf[64]` dentro, son 92 bytes.
 #[test]
 fn el_contexto_entero_mide_lo_que_suma() {
     let salida = run_c(&format!(

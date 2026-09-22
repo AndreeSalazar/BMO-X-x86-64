@@ -87,7 +87,7 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // que distingue "no funciona" de "no me la dieron".
     // * Y la espera del final se puede SALTAR con una tecla, por eso va la
     // capability y no un `bool`: 1.100 de los 1.205 ms hasta el escritorio eran
-    // esa espera, y el dueno la leyo como un fallo mirando el cronometro del
+    // esa espera, y el propietario la leyo como un fallo mirando el cronometro del
     // klog. Tenia razon en sospechar.
     scene::splash::paint(&p, input.as_ref(), has_console);
     bmo::consola("entrada a Ring 3 pintada\n");
@@ -118,7 +118,7 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // Recorrer `apps\` y sacarle el icono a cada `.bex` son varias lecturas de
     // disco por app, y ninguna cambia mientras la maquina esta encendida. Un
     // escritorio que releyera el directorio por fotograma haria E/S sesenta
-    // veces por segundo para ensenar exactamente lo mismo.
+    // veces por segundo para mostrar exactamente lo mismo.
     //
     // Va JUSTO DESPUES del fondo y antes de todo lo demas: los iconos son lo de
     // mas atras que se pinta, igual que en cualquier escritorio.

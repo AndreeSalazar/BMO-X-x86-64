@@ -330,7 +330,7 @@ pub unsafe fn write_sectors_phys(port_idx: u8, lba: u64, sector_count: u16, buf_
 /// **TRIM: decirle al disco que estos sectores ya no le importan a nadie.**
 ///
 /// `buf_phys` apunta al payload que arma `bmo_trim` --descriptores de rango-- y
-/// `bloques` es su tamano **en bloques de 512 B**, que es la unidad en la que
+/// `bloques` es su medida **en bloques de 512 B**, que es la unidad en la que
 /// cuenta este comando. No mueve datos del disco: los mueve HACIA el.
 ///
 /// === Las tres cosas que no se parecen a una escritura ===
@@ -374,7 +374,7 @@ pub unsafe fn flush_cache(port_idx: u8) -> Result<(), DiskError> {
 ///
 /// Es la forma de que BMO sepa A QUE DISCO le esta hablando, en vez de fiarse
 /// del orden de enumeracion. Con dos discos en la maquina y el sistema del
-/// dueno en uno de ellos, eso no es un lujo.
+/// propietario en uno de ellos, eso no es un lujo.
 pub unsafe fn identify_phys(port_idx: u8, buf_phys: u64) -> Result<u16, DiskError> {
     // IDENTIFY entrega exactamente un sector y no usa LBA ni contador.
     run_command(port_idx, ATA_CMD_IDENTIFY, 0, 0, 1, Some((buf_phys, SECTOR as u32)), false)
@@ -387,7 +387,7 @@ pub fn controller() -> Option<&'static AhciController> {
 
 /// Olvida el controlador actual para poder probar OTRO.
 ///
-/// Una placa puede traer mas de un HBA SATA (el del chipset y alguno anadido),
+/// Una placa puede traer mas de un HBA SATA (el del chipset y alguno agregado),
 /// y el disco que buscamos puede estar en el segundo. Sin esto, `probe` se
 /// queda con el primero para siempre por su guarda de inicializacion.
 pub fn reset_ctrl() {

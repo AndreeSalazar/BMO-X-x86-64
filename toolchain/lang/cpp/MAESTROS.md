@@ -83,7 +83,7 @@ medio**. Por encima quedan el *offset-to-top* y el puntero de RTTI; por debajo,
 los punteros a las funciones virtuales en orden de declaracion.
 
 **Lo que BMO toma**: el orden por declaracion y que la base ocupe las primeras
-ranuras (asi el derivado solo anade al final, y un puntero a base sirve tal
+ranuras (asi el derivado solo agrega al final, y un puntero a base sirve tal
 cual). **Lo que BMO tira**: la ranura de RTTI (descartado) y el *offset-to-top*
 (solo hace falta con herencia multiple, descartada). Con eso el `vptr` puede
 apuntar al **principio** de la tabla, que es lo que se escribiria a mano en C.
@@ -131,7 +131,7 @@ documentada el mismo dia que se implementa** (ver la leccion de MSVC).
 
 ## GCC -- donde esta el peso DE VERDAD
 
-`gcc/cp/` es del orden de doscientas mil lineas. Lo util no es el tamano, es el
+`gcc/cp/` es del orden de doscientas mil lineas. Lo util no es el medida, es el
 **reparto**, porque no esta donde uno espera:
 
 | Fichero | Que hace | Tamano relativo |
@@ -141,10 +141,10 @@ documentada el mismo dia que se implementa** (ver la leccion de MSVC).
 | `class.cc` | disposicion de objetos y construccion de vtables | mediano |
 | `search.cc` | recorrer jerarquias de bases | mediano |
 | `except.cc`, `rtti.cc` | excepciones y RTTI | subsistemas enteros |
-| `mangle.cc` | mangling | **pequeno: es una tabla** |
+| `mangle.cc` | mangling | **chico: es una tabla** |
 
 **Lo que se extrae**: las vtables son baratas --una tabla-- y el mangling tambien.
-Las montanas son **plantillas** y **sobrecarga**. Coincide exactamente con lo
+Las sierras son **plantillas** y **sobrecarga**. Coincide exactamente con lo
 que ya dice `PROPOSITO.md` (*"nombres y sobrecarga: es donde se va el tiempo
 cuando el resto ya funciona"*), y ahora esta medido en otro sitio.
 
@@ -163,7 +163,7 @@ Lo que hay que mirar:
 
 - `lib/AST/ItaniumMangle.cpp` **y** `lib/AST/MicrosoftMangle.cpp`
 - `lib/AST/VTableBuilder.cpp` -- construye **las dos** disposiciones
-- `lib/Sema/SemaOverload.cpp` -- la montana de la sobrecarga
+- `lib/Sema/SemaOverload.cpp` -- la sierra de la sobrecarga
 - `lib/CodeGen/CGClass.cpp` -- emision de constructores y destructores
 
 ★ **El mismo frontend habla dos ABIs incompatibles y se cambia con una
@@ -180,7 +180,7 @@ la ejecuta en cada salida. Con excepciones eso se ramifica en dos caminos
 
 **Sin excepciones colapsa a una lista por ambito que se recorre al reves en
 cada salida** -- `return`, `break`, `continue`, y el final de las llaves. Eso es
-pequeno, se audita leyendo una funcion, y es exactamente la forma que BMO
+chico, se audita leyendo una funcion, y es exactamente la forma que BMO
 necesita para RAII. Es el prestamo mas rentable de toda esta lista.
 
 ---
@@ -231,11 +231,11 @@ de 1991, y lo hizo un punado de personas.
    haber escrito mejor a mano.* Es la pregunta que decide cada fila del censo.
 2. **"Remember the Vasa"**: el barco que se hundio en el puerto por meterle
    todo lo que pidieron. Apunta hacia dentro de este proyecto, no hacia fuera.
-3. ★ Y la que sostiene el plan entero: **C++ se diseno para poder implementarse
+3. ★ Y la que sostiene el plan entero: **C++ se esquema para poder implementarse
    como una traduccion sobre C.** Por eso `this` es un puntero y no magia, por
    eso una clase es un struct con funciones, por eso una virtual es una tabla.
    No estamos forzando el lenguaje a una forma que no tiene: **estamos usando
-   la forma con la que se diseno.**
+   la forma con la que se esquema.**
 
 ---
 
@@ -268,11 +268,11 @@ Lo que hay que escribir de nuevo, y donde esta el peso real:
 | disposicion de clases y vtables | **bajo** | offsets y una tabla; BMO C ya hace ambos |
 | mangling | **bajo** | es una tabla |
 | insercion de ctor/dtor en salidas de ambito | medio | la pila de limpieza de Clang, sin la rama de excepciones |
-| resolucion de sobrecarga | **alto** | ★ montana 1 |
-| monomorfizacion de plantillas | **alto** | ★ montana 2 |
+| resolucion de sobrecarga | **alto** | ★ sierra 1 |
+| monomorfizacion de plantillas | **alto** | ★ sierra 2 |
 | descenso a bytes | **CERO** | se hereda de BMO C. Ver `HERENCIA.md` |
 
-Dos montanas, ambas identificadas, ambas acotadas por el censo. Y el backend
+Dos sierras, ambas identificadas, ambas acotadas por el censo. Y el backend
 --donde se van los anios en un compilador de verdad-- cuesta cero porque ya
 existe, tiene 216 tests y esta verificado en el Ryzen.
 
@@ -296,5 +296,5 @@ se muerde la cola, y hay que decidirlos antes de escribir la primera linea:
    cosas.
 
 Los cuatro se resuelven con **parser y tabla de simbolos hablandose**, que es
-la decision de diseno mas cara de deshacer. Por eso esta escrita aqui y no se
+la decision de esquema mas cara de deshacer. Por eso esta escrita aqui y no se
 descubre en el paso 3.

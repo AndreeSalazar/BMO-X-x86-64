@@ -3,7 +3,7 @@
 > Capitulo de componente, en la forma de `META-KERNEL_HARD.md`: no *"que hace
 > BMO-X con el teclado"* sino **que exige el teclado de quien quiera leerlo**.
 >
-> Escrito el **2026-08-17** con el sintoma delante, dicho por el dueno:
+> Escrito el **2026-08-17** con el sintoma delante, dicho por el propietario:
 > *"funciona un rato y se muere, y arranco desde Windows; el teclado sufre mas,
 > el raton no"*.
 
@@ -11,7 +11,7 @@
 
 ## 0. Por que este componente tiene capitulo propio
 
-Porque es el unico que puede dejar la maquina **sin dueno**. El escritorio no
+Porque es el unico que puede dejar la maquina **sin propietario**. El escritorio no
 tiene salida --al shell de Ring 0 no se vuelve-- asi que un teclado mudo no es
 un periferico averiado: es una maquina que ya no es de nadie.
 
@@ -46,7 +46,7 @@ Cinco hechos del aparato y del controlador. Ninguno es opinable:
    SIEMPRE**, dejando el endpoint en `Running` y sin un solo error.
 4. **El anillo de eventos es UNO para todo el controlador.** Compleciones de
    comando, informes del teclado, del raton y cambios de puerto salen por el
-   mismo sitio. Lo que uno saca y no es suyo, se lo quita a su dueno.
+   mismo sitio. Lo que uno saca y no es suyo, se lo quita a su propietario.
 5. **Un endpoint puede quedarse PARADO** (`Halted`) por un error del bus, y
    **el xHC ignora el timbre de un endpoint parado**. Desde fuera se ve
    exactamente igual que un aparato desenchufado.
@@ -147,10 +147,10 @@ primero sube y el segundo no, el bus esta sano.
 
 ### E6 -- ★★ Que la averia se VEA
 
-**Exige:** que cuando el teclado muera, el dueno lo sepa **sin buscarlo**.
+**Exige:** que cuando el teclado muera, el propietario lo sepa **sin buscarlo**.
 
 **Si no:** las cinco exigencias de arriba pueden estar cumplidas, tener sus
-contadores, ser vigiladas... y el dueno sigue viendo *"el teclado no responde"* y
+contadores, ser vigiladas... y el propietario sigue viendo *"el teclado no responde"* y
 nada mas.
 
 **Hoy: HECHO, y sin verificar en metal** (2026-08-17). Los avisos que ya habia
@@ -187,7 +187,7 @@ que la ficha de CABINA esta siempre, escrita con otras palabras.
 >
 > Un `fault()` informa a quien ya estaba mirando. Una averia que **sigue
 > ocurriendo** necesita un indicador que siga encendido mientras dure, y en el
-> sitio donde vive el dueno --el escritorio--, no en un log que hay que abrir.
+> sitio donde vive el propietario --el escritorio--, no en un log que hay que abrir.
 >
 > *"El bus no late"* no es una noticia: es una **condicion**. Y una condicion se
 > pinta como una luz, no como un renglon que pasa.
@@ -200,7 +200,7 @@ aqui sale por uno abierto **pero una sola vez**. Y no es solo del teclado --
 
 ## 3. La asimetria teclado/raton es un INSTRUMENTO, y es gratis
 
-El dueno lo dijo asi: *"el teclado sufre mas, no mi raton"*. Eso no es una queja:
+El propietario lo dijo asi: *"el teclado sufre mas, no mi raton"*. Eso no es una queja:
 **es media busqueda hecha**, porque descarta todo lo que afectaria a los dos por
 igual.
 
@@ -251,7 +251,7 @@ Cinco numeros. Entre los cinco dicen **cual** de las seis exigencias fallo:
    todos limpios y sigue mudo      -> falta una septima exigencia. Escribirla aqui
 ```
 
-### ★ Y los cinco se leen ya DESDE EL ESCRITORIO, que es donde vive el dueno
+### ★ Y los cinco se leen ya DESDE EL ESCRITORIO, que es donde vive el propietario
 
 Desde el 2026-08-17 no hace falta el shell de Ring 0 --al que no se vuelve-- ni
 que el teclado funcione para poder mirarlos:
@@ -289,11 +289,11 @@ hilo -- un diagnostico que manda a mirar el aparato equivocado.
 
 ## 5. Lo que falta para que sea "como Windows"
 
-El dueno lo pidio asi: *"SIEMPRE estar abierto para cuando desconecte mi teclado
+El propietario lo pidio asi: *"SIEMPRE estar abierto para cuando desconecte mi teclado
 o conecte con el USB, como Windows, para escribir basicamente"*.
 
 De las seis, **las seis estan puestas** desde el 2026-08-17. Enchufar y
-desenchufar ya funcionaba por diseno --aviso reactivo en 4 ms, red de 500 ms, y
+desenchufar ya funcionaba por esquema --aviso reactivo en 4 ms, red de 500 ms, y
 el desenchufe libera puerto, intentos y aparato--; lo que faltaba era enterarse,
 y eso es E6.
 
@@ -322,7 +322,7 @@ es lo mismo que funciona.**
 
    2. escribir `info` y leer la seccion `teclado y raton`
       los cinco en su sitio  -> el cuadro de mandos entero es alcanzable
-                                desde donde vive el dueno. Guardalo.
+                                desde donde vive el propietario. Guardalo.
 
    3. DESENCHUFAR el teclado y mirar la luz (~1 s)
       SIN TECLADO USB        -> E5 (b) hace lo que dice, y la luz reacciona
@@ -331,7 +331,7 @@ es lo mismo que funciona.**
    4. VOLVER A ENCHUFARLO
       vuelve a verde y ESCRIBE  -> las seis exigencias, cerradas
       vuelve a verde y NO escribe -> es la fila de arriba: el bus lo readopto
-                                pero la ENTRADA no volvio a su dueno. Eso no
+                                pero la ENTRADA no volvio a su propietario. Eso no
                                 es del teclado: es del escritorio.
 
    5. usarlo hasta que se muera, y entonces mirar la luz SIN tocar nada
@@ -368,7 +368,7 @@ del eje de ciclos.*
 > seccion 6 decia que si los cinco numeros salian limpios *"falta una septima
 > exigencia y hay que escribirla aqui"*. Esta es.
 
-**El sintoma, dicho por el dueno:**
+**El sintoma, dicho por el propietario:**
 
 > *"reinicie desde Windows para bootear mi BMO-X y no paso nada malo, el mouse
 > se movio, pero mi kernel le cierra la puerta: NO aparece mi teclado dentro
@@ -452,7 +452,7 @@ del testigo puesta, que dira cual.
 
 ## 8. ★★ E8 -- QUE EL TURNO LLEGUE A SU HORA, Y PARA CUALQUIER APARATO
 
-> Escrito el **2026-09-07**, pedido por el dueno con Windows y Linux delante:
+> Escrito el **2026-09-07**, pedido por el propietario con Windows y Linux delante:
 > *"el teclado y mouse tiene que tener intervalo y algo que siempre esten
 > abierto... que el kernel o el orquestador le de tiempo aunque llegue tarde,
 > pero que el orquestador prepare eso para cualquier dispositivo -- claro, que
@@ -571,7 +571,7 @@ Cuando llegue, la fila es esta y la restriccion del punto 2 va dentro:
    red rx        ?         hay tarjeta    fuera (aun por medir)
 ```
 
-`hay()` es el *"que reconozca si HAY codigos"* del dueno, hecho mecanismo: un
+`hay()` es el *"que reconozca si HAY codigos"* del propietario, hecho mecanismo: un
 turno cuyo aparato no existe **no se salta a mano en el bucle** -- se apaga en su
 propia fila, que es el unico sitio donde se puede leer sin abrir el bucle.
 
@@ -635,7 +635,7 @@ clase-- y tiraba los bytes 8..12, que son `idVendor` e `idProduct`.
 O sea que BMO-X no tenia en ninguna parte esto:
 
 ```
-   USB\VID_046D&PID_C077        <- lo que ensena Windows
+   USB\VID_046D&PID_C077        <- lo que muestra Windows
 ```
 
 Y es lo unico con lo que un aparato rechazado se puede **identificar**, o
@@ -755,7 +755,7 @@ dice con el puerto cuando pasa.
 ## 10. E10 -- QUE ENUMERAR NO PARE LA PANTALLA, Y QUE UN NO DEL CONTROLADOR NO SEA PARA SIEMPRE (2026-09-18)
 
 La foto del Ryzen de esa noche, con el raton de verdad (`4E53:5406`, puerto
-3) muerto y el dueno viendo *"tirones de FPS que baja a 0"*:
+3) muerto y el propietario viendo *"tirones de FPS que baja a 0"*:
 
 ```text
    3    4E53:5406  HID   su endpoint NO se pudo preparar en el controlador
@@ -800,7 +800,7 @@ paz hasta desenchufar". Un raton muerto hasta el reinicio por un comando que
 fallo una vez. *Exige*: `Adopcion::Fallo`, que se reintenta como si no
 hubiera contestado (enfriando, y con corte de corriente del segundo intento
 en adelante). Y la ficha lleva ahora el `cc` con que el controlador dijo que
-no (`save` lo ensena como `(cc=N)`; 8 = no cabe en la agenda periodica, 17 =
+no (`save` lo muestra como `(cc=N)`; 8 = no cabe en la agenda periodica, 17 =
 un campo del contexto no vale, 254 = no contesto), que es lo que faltaba para
 saber POR QUE.
 

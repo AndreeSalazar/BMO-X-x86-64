@@ -7,7 +7,7 @@
 //!
 //! [cuesta]  MAQUINA -- aqui vive el cambio de contexto y `reap`. Un fallo no
 //!           mata una tarea: deja la maquina sin nadie a quien darle el CPU, o
-//!           con dos duenos del mismo marco.
+//!           con dos propietarios del mismo marco.
 //!
 //! [riesgo]  AJENO -- `reap` desmonta el espacio de un MUERTO, y lo que lee de
 //!           su ranura es lo que mas motivos tiene para estar pisado. El
@@ -41,7 +41,7 @@ const _: () = assert!(
 /// **EL COMPAS DE UN HILO DE KERNEL: su contrato (periodo, presupuesto) y su
 /// cuenta** (2026-09-21, `PLAN_EL_COMPAS` EX3).
 ///
-/// El dueno: *"se puede reemplazar el quantum o estoy hablando pendejadas?"*
+/// El propietario: *"se puede reemplazar el quantum o estoy hablando pendejadas?"*
 /// No: el quantum no se QUITA, se CONVIERTE. Un quantum es un presupuesto sin
 /// periodo ("tantos ticks seguidos, y luego el siguiente"): reparte por igual
 /// entre iguales, que es ser generoso. Un compas es un presupuesto CON periodo
@@ -359,7 +359,7 @@ impl Scheduler {
                     // *** LOS ESPACIOS QUE SIGUEN VIVOS, y se le pasan al que
                     // desmonta (2026-09-20).
                     //
-                    // ** El Ryzen enseno el PD del escritorio VIVO, marcado como
+                    // ** El Ryzen mostro el PD del escritorio VIVO, marcado como
                     // tabla en uso, y VACIO ENTERO -- y con el, el doble bufer y
                     // la pantalla. `destroy_address_space` preguntaba si una
                     // tabla ya estaba libre y si era una tabla; nunca si era LA
@@ -406,7 +406,7 @@ impl Scheduler {
 
 /* -- ** LA MORGUE: las ultimas pilas de kernel que se liberaron -------------
  *
- * ** Nace de una pantalla azul que se repite y que el dueno sabe provocar:
+ * ** Nace de una pantalla azul que se repite y que el propietario sabe provocar:
  * matar el servidor de Ring 3 y volver a entrar. Sale asi, dos arranques
  * seguidos, con el mismo vecindario:
  *
@@ -421,7 +421,7 @@ impl Scheduler {
  *
  * *** Y `de NADIE VIVO` es honesto: `spawn_user` SI guarda la pila de kernel de
  * una tarea de Ring 3 en `stack_phys`, asi que `titular_de_pila` la habria visto
- * si su duena estuviera viva. No lo esta. Alguien libero esa pila y el kernel
+ * si su propietaria estuviera viva. No lo esta. Alguien libero esa pila y el kernel
  * siguio corriendo encima.
  *
  * == Por que un registro y no mas razonamiento ==
@@ -542,7 +542,7 @@ pub(super) static mut TSC_FREQ: u64 = 0;
 ///
 /// ```text
 ///    BMO-X has stopped -- ROTTEN CONTEXT: the seal is gone
-///    motivo=01   sello=0x00000000   dueno=tid 0003
+///    motivo=01   sello=0x00000000   propietario=tid 0003
 ///    pub0..pub3 = 80000209BB00 t03   <- la MISMA area, cuatro veces
 /// ```
 ///
@@ -671,7 +671,7 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
     revisar_sello(&s.tasks[s.current]);
     if saliente == Saliente::Publicado && outgoing != 0 {
         s.tasks[s.current].context_rsp = outgoing;
-        // El dueno, en el propio contexto. El stub ya puso la firma en
+        // El propietario, en el propio contexto. El stub ya puso la firma en
         // ensamblador; el tid lo sabe Rust. Con los dos, un epilogo que se
         // encuentre algo raro puede decir DE QUIEN era, no solo que estaba
         // roto.
@@ -679,7 +679,7 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
     }
     // == *** LA CONTABILIDAD DEL CPU, y va AQUI y en ningun otro sitio ======
     //
-    // Este es el unico punto del kernel donde el CPU cambia de dueno de verdad
+    // Este es el unico punto del kernel donde el CPU cambia de propietario de verdad
     // --arriba hay dos `return` que NO cambian nada-- asi que cerrar el tramo
     // del saliente y abrir el del entrante aqui es lo que hace que la suma no
     // pueda descuadrar. Escalon E1 de `PLAN_EL_COMPAS.md`.
@@ -810,7 +810,7 @@ pub fn on_timer() {
     // --que NO reprograma-- y se queda haciendo `hlt` hasta que la vuelvan a
     // elegir.
     //
-    // ** Asi que el hilo que se acaba de dormir **seguia siendo el dueno del
+    // ** Asi que el hilo que se acaba de dormir **seguia siendo el propietario del
     // CPU** durante el resto de su quantum, hasta 4 ms, HALTADO y sin hacer
     // nada. Y no hay un parker, hay dos: el hilo del bus late 250 veces por
     // segundo y el shell de Ring 0 descansa otras tantas.
@@ -832,7 +832,7 @@ pub fn on_timer() {
     // actual ya NO esta `Running`, su quantum no es suyo. Se reparte ahora.
     // == *** LA EXPROPIACION AL DESPERTAR (2026-09-21) =====================
     //
-    // El dueno, con el latido del bus 1.266 ms tarde en dos saves seguidos:
+    // El propietario, con el latido del bus 1.266 ms tarde en dos saves seguidos:
     // *"el orquestador existe por algo: puedes salirte del rango PERO si
     // cumples lo que eres; si no es parte de la musica, se saca a patada"*.
     //
@@ -995,7 +995,7 @@ pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
     //   >  escribe encima. Ese retraso es justo lo que lo hace dificil de
     //   >  encontrar."
     //
-    // *** Y el 2026-08-30 el dueno reprodujo esa frase con las manos: DOOM
+    // *** Y el 2026-08-30 el propietario reprodujo esa frase con las manos: DOOM
     // entero SIN morir, **cerrar Ring 3**, volver a entrar a `d.bex` --que pasa
     // por aqui-- y DOOM otra vez. La azul salio en la segunda.
     //
@@ -1268,7 +1268,7 @@ pub fn delante(tid: u32) -> bool {
             // se VE. Un proceso que corre el doble se parece a uno que corre
             // normal en una maquina que va bien, asi que sin esta linea la
             // unica forma de saber si el foco movio algo seria leer el
-            // codigo. El dueno vive en el escritorio: lo que no llega a
+            // codigo. El propietario vive en el escritorio: lo que no llega a
             // CABINA, para el no ha pasado.
             crate::ring0::cabina::info("sched", "turno largo, esta delante (tid)", tid as u64);
         } else {
@@ -1302,17 +1302,17 @@ pub fn terminar(tid: u32) -> bool {
 
 /// **LA LIMPIEZA TOTAL DE RING 3.** Devuelve `(cuantas, marcos_antes)`.
 ///
-/// # *** POR QUE EXISTE, y lo pidio el dueno con la maquina en la mano
+/// # *** POR QUE EXISTE, y lo pidio el propietario con la maquina en la mano
 ///
 /// > *"que haga limpieza total en la RAM en Ring 3 como si estuviera
 /// > reiniciando, porque ya llevo asi repitiendo constantemente"*
 ///
-/// La patada de `Ctrl+Alt+Esc` echaba **al dueno de la pantalla** y a nadie
+/// La patada de `Ctrl+Alt+Esc` echaba **al propietario de la pantalla** y a nadie
 /// mas. Eso devuelve la imagen, que era el problema del 26-08 -- pero deja en
 /// pie a todos los demas procesos de Ring 3, con su espacio de direcciones, sus
 /// capabilities y sus marcos. Y despues se relanza el escritorio ENCIMA.
 ///
-/// ** Lo que el dueno describe --*"mato el servidor y revivo, y sale la azul
+/// ** Lo que el propietario describe --*"mato el servidor y revivo, y sale la azul
 /// otra vez"*-- es exactamente la forma de un estado que sobrevive al ciclo. No
 /// importa si esta es la causa de la azul o no: **una patada que limpia a medias
 /// no se puede usar para descartar nada**, porque despues del segundo intento ya

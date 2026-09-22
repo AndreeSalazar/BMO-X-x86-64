@@ -316,7 +316,7 @@ pub fn leer(bytes: &[u8]) -> Result<Vista<'_>, Falta> {
     let apunta = |t: Tramo, trozos: &mut [(u64, u64); MAX_TROZOS], n: &mut usize| -> Result<(), Falta> {
         // Un tramo vacio no ocupa sitio y no se pelea con nadie, pero su
         // offset tiene que caer DENTRO del fichero igual: uno que apunte fuera
-        // es basura, y la basura no pasa aunque no haga dano.
+        // es basura, y la basura no pasa aunque no haga perjuicio.
         if t.fin() > total as u64 {
             return Err(Falta::SeSaleDelFichero);
         }

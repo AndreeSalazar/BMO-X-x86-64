@@ -138,7 +138,7 @@ pub fn hijo_nombre(i: u64, dst: &mut [u8]) -> usize {
 
 // == ** EL ARBOL: los niveles por los que YA se ha pasado ===================
 //
-// Un panel de arbol --el de la izquierda de cualquier explorador-- ensena a la
+// Un panel de arbol --el de la izquierda de cualquier explorador-- muestra a la
 // vez los hijos de la raiz, los del nivel siguiente y los del siguiente, con la
 // rama por la que has bajado marcada. Con las funciones de arriba no se puede:
 // todas contestan del nivel donde ESTA el cursor.
@@ -176,7 +176,7 @@ pub const NINGUNO: u64 = u64::MAX;
 /// **Relee el arbol y deja el cursor donde estaba.**
 ///
 /// Se manda DESPUES de cualquier gesto que escriba. Sin esto el cursor sigue
-/// ensenando el estrato de antes: borrarias un fichero y ahi seguiria.
+/// mostrando el estrato de antes: borrarias un fichero y ahi seguiria.
 ///
 /// Es la unica del cursor que toca el disco, y por eso se pide a mano en vez de
 /// hacerse sola en cada repintado.
@@ -351,7 +351,7 @@ pub fn crear_fichero(ruta: &[u8], datos: &[u8]) -> u64 {
 ///
 /// ** Aqui el contenido **no viaja: viaja donde esta**. Se le da al kernel el
 /// handle de un bloque propio y el se lo lleva al disco. Son DOS llamadas para
-/// cualquier tamano, y el kernel comprueba el rango con una resta contra lo que
+/// cualquier medida, y el kernel comprueba el rango con una resta contra lo que
 /// el mismo entrego -- no hay ningun puntero de Ring 3 que validar.
 ///
 /// [!] Sin esto, la unica forma de meter en ESTRATOS algo mas grande que 96
@@ -377,7 +377,7 @@ pub fn crear_desde(ruta: &[u8], bloque: u64, desde: u64, n: u64) -> u64 {
 /// nuevo en la MISMA entrada, y el fichero pasa a tener dos versiones.
 ///
 /// ** Y guardar encima aqui no puede perder nada. El nodo viejo, su contenido y
-/// el estrato que lo nombraba siguen enteros: la pestana `historial` ensena las
+/// el estrato que lo nombraba siguen enteros: la solapa `historial` muestra las
 /// dos y `vuelve N` va a la de antes cambiando un puntero. Es lo unico que
 /// ningun sistema de ficheros clasico puede dar, y hasta hoy ESTRATOS lo tenia
 /// para el ARBOL y no para el FICHERO.
@@ -457,7 +457,7 @@ pub fn marcar(nombre: &[u8]) -> u64 {
 /// fuente el mismo -- por eso esta es la unica forma de meter en ESTRATOS algo
 /// mas grande que los 96 bytes del renglon.
 ///
-/// Y por eso tampoco hay un tope de tamano en esta funcion: el que hay es el
+/// Y por eso tampoco hay un tope de medida en esta funcion: el que hay es el
 /// del volumen, y lo dice el nivel de ocupacion.
 pub fn copiar(destino: &[u8], origen: &[u8]) -> u64 {
     mandar_ruta(destino);

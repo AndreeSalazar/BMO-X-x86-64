@@ -1,6 +1,6 @@
 //! **NUNCA ADIVINA.** Donde el compilador tendria que suponer, NO compila.
 //!
-//! # La regla, con las palabras del dueno (2026-09-10)
+//! # La regla, con las palabras del propietario (2026-09-10)
 //!
 //! > *"si encuentra lo que es adivinar, no compila hasta que lo aclares. No me
 //! > gustaria que la CPU tenga que perder tiempo en adivinar. NUNCA ADIVINA."*

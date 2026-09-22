@@ -21,7 +21,7 @@ La palabra se usa para tres cosas distintas y solo una vale.
 |---|---|---|
 | **Watchdog que reinicia** | vuelve a arrancar la maquina cuando se cuelga | ⛔ **tapa el fallo**: el bug sigue, y ahora sin rastro |
 | **Reintentar en bucle** | repite la operacion que fallo | ⛔ si el fallo es determinista, es un bucle; si no, esconde la causa |
-| **Contener + restaurar + INFORMAR** | aisla el dano, devuelve el servicio, y deja escrito que paso | ✅ es lo unico que deja el sistema mejor que antes |
+| **Contener + restaurar + INFORMAR** | aisla el perjuicio, devuelve el servicio, y deja escrito que paso | ✅ es lo unico que deja el sistema mejor que antes |
 
 ★ **La linea que las separa**: una cura que no deja constancia no es una cura, es
 un encubrimiento. Un sistema que se reinicia solo y no dice por que **parece mas
@@ -58,7 +58,7 @@ tiene handles: no los tiene mal, **no los tiene**.
 > Un reinicio en BMO-X empieza de un estado limpio **por construccion**, no
 > porque alguien se acordo de limpiar.
 
-Y eso es exactamente lo que el dueno llama *"no hereda el pasado"*.
+Y eso es exactamente lo que el propietario llama *"no hereda el pasado"*.
 
 ---
 
@@ -68,7 +68,7 @@ Y eso es exactamente lo que el dueno llama *"no hereda el pasado"*.
 
 Es lo primero que se propone y es lo peor: reiniciar la maquina cuando algo se
 cuelga. Convierte un fallo con causa en un arranque sin historia. **BMO-X ya
-tiene lo contrario** -- la autopsia-- y anadir un watchdog encima seria borrar
+tiene lo contrario** -- la autopsia-- y agregar un watchdog encima seria borrar
 justo lo que se acaba de construir.
 
 Si algun dia hace falta un watchdog, la regla es: **escribe el informe primero y
@@ -148,7 +148,7 @@ Se escriben antes de construirla, porque despues se defienden.
 | **Bucle de caidas** | el sistema relanza y relanza | la cuarentena, **antes** que el supervisor |
 | **Cura silenciosa** | parece sano, va mal | toda degradacion sale por CABINA, sin excepcion |
 | **Herencia por la puerta de atras** | el supervisor guarda handles "para ahorrar" | el supervisor **concede desde cero**, nunca guarda |
-| **Estado curado y equivocado** | el sistema se recupera a un estado que no es valido | solo se restaura lo que tiene dueno claro; lo demas se rinde y lo dice |
+| **Estado curado y equivocado** | el sistema se recupera a un estado que no es valido | solo se restaura lo que tiene propietario claro; lo demas se rinde y lo dice |
 | **El informe que causa el fallo** | escribir la autopsia toca el disco que acaba de caerse | el kernel **captura en RAM**; Ring 3 persiste |
 
 ★ La ultima ya esta resuelta y esta escrita en `ring0/core/autopsia.rs`. Las
@@ -212,11 +212,11 @@ No porque sea inexpugnable -- no lo es, y acaba de listar por que. Sino porque:
   reales, estan documentadas, y cerrarlas es trabajo de verdad con un resultado
   comprobable.
 
-> Un sistema es buen material de ensenanza cuando sus agujeros son **legibles**,
+> Un sistema es buen material de leccion cuando sus agujeros son **legibles**,
 > no cuando no los tiene.
 
 ---
 
 Ver [`PLAN_AUTOCURACION.md`](../plan/PLAN_AUTOCURACION.md) para las casillas,
 `ring0/core/autopsia.rs` para lo que ya se captura, y `BITACORA.md` para los
-fallos que ensenaron cada regla de aqui.
+fallos que mostraron cada regla de aqui.

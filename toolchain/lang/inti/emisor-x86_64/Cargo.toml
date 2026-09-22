@@ -26,7 +26,7 @@ bmo-lower = { path = "../../../forge/bmo-lower" }
 # El contenedor BEF.
 bmo-abi = { path = "../../../../platform/abi/bmo-abi" }
 # EL GATE. Ningun .bex se escribe sin pasar por aqui: es el "unico checkpoint
-# comun" de la filosofia, y no se anade un quinto camino que lo esquive.
+# comun" de la filosofia, y no se agrega un quinto camino que lo esquive.
 bmo-verify = { path = "../../../forge/bmo-verify" }
 # Las raices de las tablas. El emisor lee SU tabla de maquina.
 bmo-mods = { path = "../../../forge/bmo-mods" }

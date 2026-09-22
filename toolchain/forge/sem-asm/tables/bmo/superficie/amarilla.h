@@ -78,7 +78,7 @@ int bmo_sup_raton_botones(unsigned long long e) {
  * Un scancode dice QUE TECLA FUE; un caracter dice QUE LETRA SALIO. No son la
  * misma pregunta y un juego solo necesita la primera -- pero un editor de texto
  * necesita la segunda, y sacarla del scancode significa copiar la distribucion
- * espanola entera --tildes, la ene, AltGr, teclas muertas-- dentro de la app.
+ * castellana entera --tildes, la ene, AltGr, teclas muertas-- dentro de la app.
  *
  * ** Y ESE MAPA EXISTE UNA SOLA VEZ, en el kernel. Dos mapas de teclado son dos
  * teclados, y se separan el dia que alguien arregle una tecla en uno de los
@@ -116,7 +116,7 @@ int bmo_sup_caracter(unsigned long long e) {
 
 /* -- *** CONFIGURE: EL DIRECTOR TE DICE EL HUECO QUE TIENES (2026-09-12) ----
  *
- * Hasta hoy mandaba la app: declaraba su tamano al crear la superficie y el
+ * Hasta hoy mandaba la app: declaraba su medida al crear la superficie y el
  * DIRECTOR se aguantaba -- a pantalla completa solo podia centrarla con bordes
  * negros. Ahora, cuando el marco cambia (Alt+Enter, maximizar), llega por el
  * buzon un evento con el hueco nuevo. Es el `configure` de Wayland, sin socket.

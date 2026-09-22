@@ -10,7 +10,7 @@
 //!
 //! ## Habla con el contrato, no con SATA
 //!
-//! Todo lo de aqui pasa por [`bmo_block::device()`]. Es lo que el diseno pedia
+//! Todo lo de aqui pasa por [`bmo_block::device()`]. Es lo que el esquema pedia
 //! en su section 10.3 y la razon de que la capa de bloques se hiciera antes: el dia
 //! que haya un NVMe cableado, este modulo no se entera.
 //!
@@ -118,7 +118,7 @@ pub fn ocupacion() -> Option<es::Ocupacion> {
 ///
 /// === Para que existe: es la mitad HONESTA del recolector ===
 ///
-/// La seccion 9 del diseno tiene dos trabajos dentro y conviene no confundirlos:
+/// La seccion 9 del esquema tiene dos trabajos dentro y conviene no confundirlos:
 ///
 /// ```text
 ///   marcar lo alcanzable y soltar lo demas   <- eso es el RECOLECTOR, y no existe
@@ -204,7 +204,7 @@ pub(crate) fn write_block(bloque: u64, src: &[u8; BLOQUE]) -> bool {
 /// sin decir una palabra.
 ///
 /// La regla que deja: **la unidad de escritura la decide la garantia que hace
-/// falta, no el tamano del buffer que hay a mano.**
+/// falta, no el medida del buffer que hay a mano.**
 pub(crate) fn write_superblock(bloque: u64, sb: &[u8; es::SUPER_LEN]) -> bool {
     let base = unsafe { BASE_LBA };
     let lba = base + bloque * SECTORES_POR_BLOQUE as u64;
@@ -344,7 +344,7 @@ impl WriteError {
     }
 }
 
-/// **SELLAR: la transaccion mas pequena que existe, y la que estrena el camino.**
+/// **SELLAR: la transaccion mas chica que existe, y la que estrena el camino.**
 ///
 /// === Que hace ===
 ///
@@ -408,7 +408,7 @@ pub fn seal() -> Result<u64, WriteError> {
     let (destino, nuevo) = t.commit(sb.estrato).map_err(WriteError::Rechazada)?;
 
     // El superbloque serializado: 512 bytes, o sea UN SECTOR. Ver
-    // `write_superblock` -- el tamano de esta escritura es la garantia de
+    // `write_superblock` -- el medida de esta escritura es la garantia de
     // atomicidad, no un detalle de implementacion.
     let sector = nuevo.encode();
 
@@ -438,7 +438,7 @@ pub fn seal() -> Result<u64, WriteError> {
 ///
 /// Existe para que `escribir.rs` no toque el estatico: quien cambia el estado
 /// montado es este modulo, y el que escribe le dice lo que quedo. Un `static
-/// mut` que se asigna desde dos sitios es un estado con dos duenos.
+/// mut` que se asigna desde dos sitios es un estado con dos propietarios.
 pub(crate) fn fijar_superbloque(nuevo: es::Superblock) {
     unsafe { SUPER = Some(nuevo) };
 }

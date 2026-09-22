@@ -24,7 +24,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 
 | herramienta | dice que NO cuando |
 |---|---|
-| [`ascii-sweep`](ascii-sweep/) | un comentario lleva un byte no-ASCII, **o una ene caida cambia la palabra** -- los dos ejemplos del diccionario van citados aqui con su exencion <!-- ene-caida-adrede --> (`ano`, `sueno`) |
+| [`ascii-sweep`](ascii-sweep/) | un comentario lleva un byte no-ASCII, **o una palabra lleva la ene CAIDA** (`propietario`, no la forma rota; desde el 21-09 el diccionario es estricto: ~60 palabras, y `--apply` las repone por la que sobrevive entera) |
 | [`enlaces`](enlaces/) | una cita apunta a un documento que no existe. Y desde el 10-09 tambien avisa de **documentos que no cita nadie** |
 | [`censo-modular`](censo-modular/) | un modulo nuevo pasa de 1.000 lineas, o uno de la linea base crecio (L6a: trinquete, no muro) |
 | [`casillas`](casillas/) | una casilla de un plan **no dice donde mirar**, o sea que nadie la puede comprobar |
@@ -38,7 +38,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`perfil-campos`](perfil-campos/) | un campo de un perfil dice un numero y el codigo dice otro |
 | [`relevo`](relevo/) | una bandera del traspaso se pierde entre una etapa y la siguiente |
 | [`contrato`](contrato/) | cualquiera de sus **20 reglas**, y las 20 estan probadas con 90 casos. Es el mayor de todos |
-| [`tamano`](tamano/) | un ejecutable cambia de tamano sin que nadie lo acepte |
+| [`medida`](medida/) | un ejecutable cambia de medida sin que nadie lo acepte |
 | [`esperable`](esperable/) | un objeto se concede con `RIGHT_WAIT` y `wait()` **no tiene brazo** para su `KIND_`: una promesa escrita contra un mecanismo que no existe (nacio el 21-09 de `KIND_ARCHIVO`) |
 | [`pila`](pila/) | el camino mas hondo de un syscall (o de un hilo de kernel) mas la interrupcion mas honda **no cabe en la pila de kernel de una tarea** con una pagina de margen. Lo mide en el ELF con `llvm-objdump`; los topes los lee del fuente. Nacio el 21-09 del PD del escritorio a cero: 14.232 bytes de cargador en 16 KiB |
 | [`procedencia`](procedencia/) | -- corre a mano; no esta en el build |
@@ -62,7 +62,7 @@ documento recien escrito esta huerfano un rato por definicion.
 | [`fontgen`](fontgen/) | la fuente de la consola |
 | [`maqueta`](maqueta/) | compila un `.maqueta` a Rust |
 | [`estratos-fmt`](estratos-fmt/) | formatea el sistema de ficheros propio |
-| [`hello-bex`](hello-bex/) | el `.bex` mas pequeno que existe, para probar la puerta |
+| [`hello-bex`](hello-bex/) | el `.bex` mas chico que existe, para probar la puerta |
 | [`rpc-demo`](rpc-demo/) | la demostracion de IPC |
 | [`vista-ciudad`](vista-ciudad/) | la vista de `bmo-ciudad` |
 | [`simbolo`](simbolo/) | la tabla de simbolos |

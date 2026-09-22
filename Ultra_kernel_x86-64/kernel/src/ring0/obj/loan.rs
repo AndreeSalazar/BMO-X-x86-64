@@ -12,14 +12,14 @@
 //! === Lo que este modulo NO sabe ===
 //!
 //! No sabe que es un lienzo, ni una ventana, ni un escritorio. **No sabe para
-//! que se presta.** Mueve paginas y comprueba que quien las presta es su dueno.
+//! que se presta.** Mueve paginas y comprueba que quien las presta es su propietario.
 //!
 //! Y eso es el cambio entero respecto a la version anterior, que si lo sabia:
 //! tenia `KIND_LIENZO`, una operacion para *"declarar mi lienzo"* y otra para
 //! *"pedir un reflejo"*. Funcionaba, y metia un concepto de escritorio dentro
 //! de Ring 0.
 //!
-//! * La pregunta del dueno lo destapo: *"Ring 3 no puede administrar eso el?"*.
+//! * La pregunta del propietario lo destapo: *"Ring 3 no puede administrar eso el?"*.
 //! Si puede, y debe. Lo unico que Ring 3 **no** puede hacer es tocar las tablas
 //! de paginas -- y eso es lo unico que se queda aqui.
 //!
@@ -78,7 +78,7 @@ const PRESTAMO_VA_BASE: u64 = 0x0000_0001_0000_0000;
 /// segundo prestamo caia encima del primero, la capability se concedia con el
 /// mismo objeto --la VA-- y `operation` buscaba por `va_destino == base`, o sea
 /// que dos handles distintos apuntaban al mismo sitio y contestaban lo del otro.
-/// Con una app en una caja no se nota; con dos, la segunda ventana ensena los
+/// Con una app en una caja no se nota; con dos, la segunda ventana muestra los
 /// pixeles de la primera y nada falla en ningun sitio.
 ///
 /// La direccion la decide **la ranura**: `BASE + ranura * WINDOW`. Sin cursor,
@@ -111,7 +111,7 @@ struct Offer {
     /// Se captura al ofrecer, que es cuando ese espacio esta cargado.
     owner: u32,
     aspace_dueno: u64,
-    /// Donde empieza lo ofrecido, **en el espacio del dueno**.
+    /// Donde empieza lo ofrecido, **en el espacio del propietario**.
     origen: u64,
     bytes: u64,
     /// A quien va. Solo el puede tomarla.
@@ -124,7 +124,7 @@ struct Offer {
     /// antes de donde la app la escribio -- "NO es BSUP". Ver
     /// `bmo_prestamo_juicio`.
     dentro: u64,
-    /// **El dueno murio y esto sigue mapeado.** Ver [`process_died`]: las
+    /// **El propietario murio y esto sigue mapeado.** Ver [`process_died`]: las
     /// paginas se quedan, y lo unico que cambia es que [`OP_DUENO`] contesta 0.
     huerfana: bool,
 }
@@ -188,13 +188,13 @@ pub const PADRE_NO_VIVE: u32 = 5;
 /// el rango lo concedio el kernel y lo tiene apuntado.
 /// Cuantas ofertas se NEGARON desde el arranque, por cualquier motivo.
 ///
-/// `save` la ensena al lado de las vivas y las tomadas (2026-09-17): la
+/// `save` la muestra al lado de las vivas y las tomadas (2026-09-17): la
 /// ventana que no sale es la negativa mas cara de esta casa, y hasta hoy solo
 /// se contaba en CABINA.
 static mut NEGADAS: u64 = 0;
 
 /// **El resumen para `save`**, en un `u64`: `[0..8)` ofertas vivas, `[8..16)`
-/// de ellas tomadas, `[16..24)` huerfanas (el dueno murio con la oferta viva),
+/// de ellas tomadas, `[16..24)` huerfanas (el propietario murio con la oferta viva),
 /// `[32..64)` negadas desde el arranque.
 pub fn resumen() -> u64 {
     let ofertas = unsafe { &*core::ptr::addr_of!(OFERTAS) };
@@ -226,7 +226,7 @@ pub fn offer(owner: u32, aspace: u64, base: u64, entregado: u64, desde: u64, byt
     }
     // Y que quepa en SU WINDOW, que es lo que decide donde se mapea. Se
     // comprueba al ofrecer y no al tomar porque el que ofrece es quien puede
-    // hacer algo al respecto: pedir una superficie mas pequena.
+    // hacer algo al respecto: pedir una superficie mas chica.
     // ** Con lo MAPEADO y no con lo pedido (12-09): una superficie que empieza
     // unos bytes dentro de su pagina necesita una pagina mas, y esa pagina
     // caeria en la ventana del prestamo de al lado.
@@ -240,7 +240,7 @@ pub fn offer(owner: u32, aspace: u64, base: u64, entregado: u64, desde: u64, byt
         return negada(A_MI_MISMO);
     }
     let ofertas = unsafe { &mut *core::ptr::addr_of_mut!(OFERTAS) };
-    // Una oferta por pareja (dueno, destino): reofrecer sustituye, no apila.
+    // Una oferta por pareja (propietario, destino): reofrecer sustituye, no apila.
     // Un programa que reintenta no debe llenar la tabla.
     for o in ofertas.iter_mut() {
         if o.viva && o.owner == owner && o.destino == destino && !o.tomada {
@@ -267,7 +267,7 @@ pub fn offer(owner: u32, aspace: u64, base: u64, entregado: u64, desde: u64, byt
 /// **Tomar lo que me ofrecieron.** Devuelve el handle, o `None`.
 ///
 /// El mapeo ocurre aqui, en el espacio del que llama. Se traduce pagina a
-/// pagina en el espacio del dueno y se mapea en el del que toma: **los marcos
+/// pagina en el espacio del propietario y se mapea en el del que toma: **los marcos
 /// son los mismos, las direcciones no.** Eso es todo el prestamo.
 pub fn take(pid: u32, aspace: u64) -> Option<u64> {
     let ofertas = unsafe { &mut *core::ptr::addr_of_mut!(OFERTAS) };
@@ -293,7 +293,7 @@ pub fn take(pid: u32, aspace: u64) -> Option<u64> {
     while off < paginas {
         let Some(fisica) = vmm::translate(aspace_dueno, t.pagina + off) else {
             undo(aspace, va, off);
-            crate::ring0::cabina::warn("prestamo", "lo ofrecido no esta mapeado en el dueno", off);
+            crate::ring0::cabina::warn("prestamo", "lo ofrecido no esta mapeado en el propietario", off);
             return None;
         };
         if vmm::map_page(aspace, va + off, fisica, true, true).is_err() {
@@ -352,7 +352,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
         OP_BYTES => Some(ofertas[i].bytes),
         OP_DUENO => {
             if ofertas[i].huerfana {
-                // El dueno murio. Se contesta 0 en vez de quitar el mapeo: ver
+                // El propietario murio. Se contesta 0 en vez de quitar el mapeo: ver
                 // `process_died`.
                 return Some(0);
             }
@@ -362,7 +362,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
             let paginas = mapeado_de(&ofertas[i]);
             undo(vmm::read_cr3(), ofertas[i].va_destino, paginas);
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
-            // El dueno puede estar DURMIENDO sobre su bloque (WAIT): la
+            // El propietario puede estar DURMIENDO sobre su bloque (WAIT): la
             // secuencia del bloque sube y se le despierta. Ver `memory::devuelto`.
             super::memory::devuelto(ofertas[i].owner, ofertas[i].origen);
             ofertas[i] = NOTHING;
@@ -394,7 +394,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
 /// Se limpian las dos puntas: lo que este proceso tomo (se desmapea) y lo que
 /// ofrecio (se retira, porque su espacio ya no existe para traducir).
 ///
-/// ## ** Y si murio el dueno de algo que YA ESTABA TOMADO, no se desmapea
+/// ## ** Y si murio el propietario de algo que YA ESTABA TOMADO, no se desmapea
 ///
 /// Es la decision que sostiene todo el modelo de superficies, asi que va dicha:
 /// **el prestamo sobrevive al que lo presto.**
@@ -403,7 +403,7 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
 /// `scheduler::cr3_de_pid`-- y es justo lo que no se puede hacer: el que lo tomo
 /// es el DIRECTOR, y esta componiendo. Desmapearle paginas por debajo mientras
 /// las recorre es un fallo de pagina **en el compositor**, o sea que **una app
-/// que se cierra se lleva el escritorio**. Que es exactamente lo que este diseno
+/// que se cierra se lleva el escritorio**. Que es exactamente lo que este esquema
 /// existe para impedir: al lado de eso, una ventana congelada un fotograma de
 /// mas no es nada.
 ///
@@ -456,20 +456,20 @@ pub fn process_died(pid: u32, aspace: u64) {
             let paginas = mapeado_de(o);
             undo(aspace, o.va_destino, paginas);
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
-            // Morir tambien es devolver: el dueno que espere se entera igual.
+            // Morir tambien es devolver: el propietario que espere se entera igual.
             super::memory::devuelto(o.owner, o.origen);
             *o = NOTHING;
         } else if o.owner == pid && !o.tomada {
             // Murio el que prestaba y nadie llego a tomarlo. La oferta no vale:
             // su espacio de direcciones se destruye y no habria contra que
             // traducir. Aqui si se puede tirar, porque no hay nadie mapeado.
-            crate::ring0::cabina::warn("prestamo", "murio el dueno: oferta retirada", pid as u64);
+            crate::ring0::cabina::warn("prestamo", "murio el propietario: oferta retirada", pid as u64);
             *o = NOTHING;
         } else if o.owner == pid {
             // Ver la cabecera: se queda mapeado a proposito. Lo unico que cambia
             // es que a partir de aqui `OP_DUENO` contesta 0.
             o.huerfana = true;
-            crate::ring0::cabina::info("prestamo", "murio el dueno: queda huerfano", pid as u64);
+            crate::ring0::cabina::info("prestamo", "murio el propietario: queda huerfano", pid as u64);
         }
     }
 }

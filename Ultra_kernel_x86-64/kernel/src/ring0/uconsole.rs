@@ -103,7 +103,7 @@ pub fn lines_of(pid: u32) -> u32 {
 // seguidos con la respuesta delante y nadie pudo leerla.
 //
 // Un registrador de vuelo que borra la caja negra al aterrizar no es un
-// registrador de vuelo. Estas cuatro lineas por proceso sobreviven a su dueno y
+// registrador de vuelo. Estas cuatro lineas por proceso sobreviven a su propietario y
 // se imprimen cuando hace falta -- que es justo cuando ya no se le puede
 // preguntar a el.
 const ULTIMAS: usize = 4;

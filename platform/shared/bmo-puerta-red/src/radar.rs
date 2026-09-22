@@ -90,7 +90,7 @@ impl Motivo {
         }
     }
 
-    /// Lo decidio el dueno o el plazo, y no un fallo: no se grita en CABINA.
+    /// Lo decidio el propietario o el plazo, y no un fallo: no se grita en CABINA.
     pub fn es_normal(self) -> bool {
         matches!(self, Motivo::CerradoPorElDueno | Motivo::Caducado | Motivo::CupoGastado | Motivo::DuenoMurio)
     }

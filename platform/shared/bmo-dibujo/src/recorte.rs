@@ -54,7 +54,7 @@ pub struct Recorte {
 }
 
 impl Recorte {
-    /// Desde esquina y tamano, que es como piensa quien llama.
+    /// Desde esquina y medida, que es como piensa quien llama.
     pub fn nuevo(x: i32, y: i32, ancho: i32, alto: i32) -> Self {
         Recorte { x0: x, y0: y, x1: x + ancho, y1: y + alto }
     }
@@ -121,7 +121,7 @@ impl Recorte {
 // Esa version es correcta y es una trampa: una linea de (-2.000.000, 0) a
 // (5, 5) daria dos millones de vueltas descartando pixeles uno a uno. El
 // bucle no se ve en una pantalla de 1920 porque los numeros de una ventana
-// son pequenos; se ve el dia que alguien calcula una coordenada y le sale
+// son chicos; se ve el dia que alguien calcula una coordenada y le sale
 // grande.
 //
 // Cohen-Sutherland corta la linea ANTES de empezar a andarla, con cuatro bits

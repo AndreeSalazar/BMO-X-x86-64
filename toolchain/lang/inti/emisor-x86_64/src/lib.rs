@@ -159,7 +159,7 @@ pub struct Emitido {
     ///
     /// Porque un intrinseco que no sale **no rompe la compilacion**: el resto
     /// del programa esta bien y el `.bex` se escribe. Sin una lista, la unica
-    /// senal seria que el binario hace otra cosa en metal -- y en una tabla de
+    /// signal seria que el binario hace otra cosa en metal -- y en una tabla de
     /// driver eso se descubre seis meses tarde.
     ///
     /// Va a CABINA con su numero, y hay un test que lo exige VACIO para la
@@ -435,7 +435,7 @@ impl Emitido {
 /// Lo que una funcion aprende mientras se emite.
 ///
 /// Se DEVUELVE en vez de escribirse sobre la marcha porque el codigo esta
-/// prestado mientras se emite. No es una pelea con el prestamo: es la senal de
+/// prestado mientras se emite. No es una pelea con el prestamo: es la signal de
 /// que emitir y contabilizar son dos cosas, y mezclarlas fue lo primero que
 /// probe.
 #[derive(Default)]
@@ -469,7 +469,7 @@ struct Cuenta {
 
 /// **EL BARRIDO, COMO GATE: ninguna operacion sin su regla.**
 ///
-/// ## Lo que anade sobre `exige_katanas`
+/// ## Lo que agrega sobre `exige_katanas`
 ///
 /// Aquella comprueba que las reglas DECLARADAS estan donde dice. Esta pregunta
 /// al reves y cierra la otra mitad: **por cada operacion que pide regla, esta la
@@ -790,7 +790,7 @@ pub fn rodata_de(e: &Emitido) -> (Vec<u8>, Vec<u64>) {
             // `type_index` = 0 mientras no exista el mapa de tipos.
             // Cero significa "el `TypeMap` no existe", no "el tipo cero".
             dynobj_texto::congelado(&mut cab, 0, n)
-                .expect("la cabecera de un texto siempre cabe en su propio tamano");
+                .expect("la cabecera de un texto siempre cabe en su propia medida");
             rodata.extend_from_slice(&cab);
         }
         rodata.extend_from_slice(&c.bytes);
@@ -970,7 +970,7 @@ pub fn empaquetar(e: &Emitido, manifiesto: Option<&str>) -> Result<Vec<u8>, Stri
     //
     // Si se paso un manifiesto, el `.bex` TIENE que traerlo. Sin esta linea, el
     // dia que alguien rompa el cableado --un `None` que se cuela, una seccion
-    // que no se anade-- saldria un binario correcto por dentro y **mudo por
+    // que no se agrega-- saldria un binario correcto por dentro y **mudo por
     // fuera**, con el gate diciendo que todo esta bien.
     //
     // Es la clase de fallo que este proyecto ya conoce: el que no rompe nada y

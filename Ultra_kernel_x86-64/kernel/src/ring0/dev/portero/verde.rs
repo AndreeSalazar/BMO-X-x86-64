@@ -15,7 +15,7 @@
 //!
 //! # *** LA SEGUNDA PUERTA DEL PORTERO
 //!
-//! Hermano de `dev/usb/portero.rs`, y con la misma frase del dueno detras:
+//! Hermano de `dev/usb/portero.rs`, y con la misma frase del propietario detras:
 //!
 //! > *"es como un guardian con que busca nombres y papeles, y si no sale le
 //! > avisa al kernel y ya"*
@@ -43,14 +43,14 @@
 //! mira**. Asi que una tarjeta grafica, una de sonido o un Wi-Fi pueden estar
 //! ahi dentro y BMO-X no los nombra ni una vez -- ni para decir que los ignora.
 //!
-//! El dueno lo topo con la pregunta de la GPU: tiene una RTX 3060 en la maquina
+//! El propietario lo topo con la pregunta de la GPU: tiene una RTX 3060 en la maquina
 //! y **el sistema no dice que existe**. Antes de escribir una linea de driver,
 //! lo primero es que la maquina sepa decir lo que tiene delante.
 //!
 //! > Un aparato que el sistema no nombra ni para descartarlo es indistinguible
 //! > de un aparato que no esta puesto.
 //!
-//! # Lo que NO hace, y es la mitad del diseno
+//! # Lo que NO hace, y es la mitad del esquema
 //!
 //! ```text
 //!    [ ] no habilita nada          ni MEM, ni Bus Master, ni un BAR
@@ -246,7 +246,7 @@ fn interesante(base: u8) -> Option<&'static str> {
     INTERESANTES.iter().find(|(c, _)| *c == base).map(|(_, q)| *q)
 }
 
-/// **Hay codigo para esto en BMO-X?** La pregunta entera del dueno, en una
+/// **Hay codigo para esto en BMO-X?** La pregunta entera del propietario, en una
 /// funcion.
 ///
 /// [!] Y contesta por lo que los tres `find_*` buscan DE VERDAD, no por la

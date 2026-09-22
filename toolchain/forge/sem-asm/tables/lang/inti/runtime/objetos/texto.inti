@@ -48,9 +48,9 @@ funcion mide(texto es natural64) devuelve natural64
 #
 # ## *** LO QUE PASA SI DOS CABECERAS MIENTEN, y quien lo para
 #
-# `na + nb` puede dar la vuelta. Si lo hiciera: `total` sale pequeno, `pide` da
-# un bloque pequeno, y los dos bucles de abajo escriben **fuera** -- un
-# desbordamiento de bufer, el fallo mas caro de los ultimos veinte anos.
+# `na + nb` puede dar la vuelta. Si lo hiciera: `total` sale chico, `pide` da
+# un bloque chico, y los dos bucles de abajo escriben **fuera** -- un
+# desbordamiento de bufer, el fallo mas caro de las ultimas dos decadas.
 #
 # ** Y LO PARA LA REGLA 1, SOLA. Aqui hubo una guardia escrita a mano con un
 # comentario que decia *"la guardia que `crudo` apago"*, y **era falso**: `crudo`
@@ -93,7 +93,7 @@ funcion junta(monton es natural64, a es natural64, b es natural64) devuelve natu
         si nuevo = 0
             devuelve 0
 
-        # La cabecera. Un dueno, y sin banderas: no esta prestado ni vigilado.
+        # La cabecera. Un propietario, y sin banderas: no esta prestado ni vigilado.
         escribe_natural64(nuevo, 1)
         escribe_natural32(nuevo + 8, 0)
         escribe_natural32(nuevo + 12, 0)

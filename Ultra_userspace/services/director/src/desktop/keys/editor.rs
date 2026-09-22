@@ -122,7 +122,7 @@ match c {
         // El cursor detras de la linea, SIEMPRE. Las ramas que
         // vacian el campo ponian `n = 0` y dejaban `cur` donde
         // estaba: la tecla siguiente se escribia en `path[cur]`
-        // --fuera de lo que se dibuja-- y el campo ensenaba los
+        // --fuera de lo que se dibuja-- y el campo mostraba los
         // bytes VIEJOS del comando anterior. Escribir `2` tras
         // `run apps/calc.bex` mostraba una `r`. Las ramas de
         // error conservan la ruta a proposito para poder
@@ -194,7 +194,7 @@ match c {
     // hay que reescribirlo todo.
     //
     // Ctrl+C para copiar y no para interrumpir, que es lo que
-    // significa en Unix. Aqui no hay senales que mandar, y el
+    // significa en Unix. Aqui no hay signales que mandar, y el
     // dedo que ya sabe Ctrl+C sabe copiar -- no interrumpir.
     0x03 => {
         dsk.field.clipboard_n = dsk.field.n;
@@ -205,7 +205,7 @@ match c {
     }
     0x16 => {
         if dsk.field.clipboard_n > 0 && dsk.field.n + dsk.field.clipboard_n <= PATH_MAX {
-            // Hueco del tamano del pegado, y meterlo.
+            // Hueco del medida del pegado, y meterlo.
             let mut k = dsk.field.n;
             while k > dsk.field.cur {
                 dsk.field.path[k + dsk.field.clipboard_n - 1] = dsk.field.path[k - 1];
@@ -342,7 +342,7 @@ match c {
     // Ahora suben y bajan la ventana sobre 200 filas guardadas.
     0x87 => {
         // Una pagina es lo que SE VE, no el tope: con la constante, en una
-        // ventana pequena RePag saltaria por encima de filas que nunca se
+        // ventana chica RePag saltaria por encima de filas que nunca se
         // llegaron a leer.
         dsk.out.grid.scroll_view(dsk.run_box.out_rows() as i32 - 1);
     }
@@ -365,9 +365,9 @@ match c {
     //    F11 F12   ABREN UNA VENTANA. No escriben nada
     // ```
     //
-    // ** Esa linea es todo el diseno. Una tecla que escribe es una tecla que
-    // ENSENA --pulsas F7, ves `banda`, y manana lo escribes tu-- y una que abre
-    // una ventana no puede ensenar nada porque no hay orden que aprender. Que
+    // ** Esa linea es todo el esquema. Una tecla que escribe es una tecla que
+    // ENSENA --pulsas F7, ves `banda`, y luego lo escribes tu-- y una que abre
+    // una ventana no puede mostrar nada porque no hay orden que aprender. Que
     // las dos clases no se mezclen en la misma fila es lo que hace que la tabla
     // se lea sin memorizarla.
     //

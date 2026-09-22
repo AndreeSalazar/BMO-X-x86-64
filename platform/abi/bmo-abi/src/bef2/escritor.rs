@@ -136,7 +136,7 @@ impl Escritor {
     }
 
     /// **Vuelve a abrir una imagen ya escrita** para cambiarle algo y
-    /// reescribirla: lo que hacen `bmo-pack` (anadir recursos) y `bmo-firmar`
+    /// reescribirla: lo que hacen `bmo-pack` (agregar recursos) y `bmo-firmar`
     /// (poner la firma de autor).
     ///
     /// ** La firma y los relocs se fabrican otra vez al construir, porque
@@ -231,7 +231,7 @@ impl Escritor {
         // -- La firma: el INDICE primero, un hash por region con bytes, y uno
         //    por CADA anexo (2026-09-20: antes solo los que el kernel lee, y
         //    el indice ninguno). Se sabe CUANTOS antes de colocar nada, que es
-        //    lo que deja calcular el tamano del anexo y por tanto los offsets.
+        //    lo que deja calcular el medida del anexo y por tanto los offsets.
         let mut cubre: Vec<u8> = vec![FIRMA_INDICE];
         for (i, r) in [&self.codigo, &self.constantes, &self.datos].iter().enumerate() {
             if !r.is_empty() {

@@ -1,9 +1,9 @@
 //! **EL MIRADOR** -- lo que CABINA ENSENA y VUELCA, separado de lo que APUNTA.
 //!
-//! [familia] mirador  nivel 13 -- lo que CABINA ensena y vuelca: cockpit, vigilancias y caja negra
+//! [familia] mirador  nivel 13 -- lo que CABINA muestra y vuelca: cockpit, vigilancias y caja negra
 //! [conecta] cabina, core, dev, fsys, mm, plat, task, uconsole
 //!
-//! [carril]  AMARILLO  presentacion y volcado: lo que se ve a las 3 de la manana
+//! [carril]  AMARILLO  presentacion y volcado: lo que se ve a las 3 de la luego
 //! [consumo] NADA      pinta o vuelca cuando `core` lo llama
 //!
 //! ## Por que se partio CABINA (L8b, 2026-09-13)

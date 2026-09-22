@@ -1,6 +1,6 @@
 # PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez
 
-> Peticion del dueno, **2026-09-17**: *"los lenguajes de programacion como C,
+> Peticion del propietario, **2026-09-17**: *"los lenguajes de programacion como C,
 > C++ y eso, TODO menos Rust [...] TODO tipo de AOT y madurar por completo"*.
 >
 > **Lo que afirma**: que dos ficheros fuente --de C, o uno de C y otro de COBOL--
@@ -14,7 +14,7 @@
 ## 0. Por que este plan y no "madurar cada lenguaje"
 
 Se midio donde se atasca cada frontend, y **cinco planes distintos citan la
-misma pieza como bloqueante sin que ninguno sea su dueno**:
+misma pieza como bloqueante sin que ninguno sea su propietario**:
 
 | quien | lo que no puede hacer hoy | donde esta escrito |
 |---|---|---|
@@ -44,7 +44,7 @@ existir.
               Ada        el fallo que se caza antes de correr
               INTI       el de BMO-X: sintaxis de Python, control de ASM, sin UB
               C++        APARCADO con dos condiciones escritas
-   QUITADO    Python AOT 2026-09-17, decision del dueno: es INTI
+   QUITADO    Python AOT 2026-09-17, decision del propietario: es INTI
                          (`docs/maestro/PYTHON_MAESTRO.md`, seccion 4b)
    APARTE     PL/I, Modula-2    proyectos aparte, no fases
    FUERA      GraalVM, NativeAOT, TinyGo, LDC, Zig, Nim, Crystal, Free Pascal
@@ -52,7 +52,7 @@ existir.
               Fortran, RPG -- no aportan a banca o no tienen oraculo libre
 ```
 
-[!] Recordatorio pedido por el propio dueno (regla 7): *"TODO tipo de AOT"*
+[!] Recordatorio pedido por el propio propietario (regla 7): *"TODO tipo de AOT"*
 contradice su regla 0 si se lee como "mas lenguajes". Leido como **"que los que
 hay maduren por completo"**, es exactamente este plan.
 
@@ -92,13 +92,13 @@ verdad, semanas) y **B** (funciones sintetizadas, una sesion), con la pregunta
 **DOOM llego** -- se juega en el Ryzen desde el 12-09, en una sola unidad y con
 `<bmo/monton.h>` resolviendo el `malloc`. O sea que el argumento a favor de B ya
 cobro lo que tenia que cobrar. **Lo que queda en la mesa es A**, y la decision
-sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
+sigue siendo del propietario: este plan escribe los escalones para cuando la tome.
 
 ---
 
 ## 3. Los escalones -- lo que no toca nada va primero
 
-- [x] **E0 -- LA DECISION: ESTATICO.** Tomada por el dueno el 2026-09-17:
+- [x] **E0 -- LA DECISION: ESTATICO.** Tomada por el propietario el 2026-09-17:
       *"si, estatico, borra lo dinamico y empieza"*. Un `.bex` lleva dentro todo
       lo que ejecuta, asi que la firma lo cubre entero y corre igual en cualquier
       BMO-X. El enlazador dinamico de `bmo-abi` se borro con epitafio en
@@ -190,7 +190,7 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
       en una impresion.
 
       [!] **Se hizo antes que E4, que la seccion 4 llama un error**, por orden
-      del dueno (17-09). El aviso sigue en pie y por eso E5 queda en `[~]` y no
+      del propietario (17-09). El aviso sigue en pie y por eso E5 queda en `[~]` y no
       en `[x]`: la libc aparte no la ha ejecutado ningun CPU. E4 es su condicion.
 
 - [x] **E5b -- TIRAR LO QUE NADIE LLAMA. HECHO el 2026-09-17**, en
@@ -226,12 +226,12 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
       aristas tumba tres.
 
 - [x] **E5c -- EL ARBOL POR EL CAMINO DEL OBJETO. HECHO el 2026-09-17**, por
-      decision del dueno (*"si, haz E5c, cambia los 41 ejecutables"*). El build
+      decision del propietario (*"si, haz E5c, cambia los 41 ejecutables"*). El build
       ya no compila los ejemplos de C y C++ a imagen: los compila a unidad
       (`-c`) y los enlaza. **19 ejecutables cambiaron de camino** --los 18 de C y
       el de C++-- y entre todos pasan de **384.118 a 237.825 bytes (-38,1 %)**.
-      De esos 19, quince cambiaron de tamano (los otros cuatro no tenian nada
-      que sobrara), tamanos finales ya con sus recursos dentro:
+      De esos 19, quince cambiaron de medida (los otros cuatro no tenian nada
+      que sobrara), medidas finales ya con sus recursos dentro:
 
       ```text
          c/ciclos.bex     37.717 -> 11.729   -68,9 %
@@ -277,7 +277,7 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
       `<errno.h>` **declara** `extern int errno;` y no lo define nadie en
       ningun sitio. En modo imagen no se notaba porque BMO C le reservaba ocho
       bytes de relleno a todo nombre externo que no encontraba -- o sea que
-      funcionaba por un apano, no por un diseno. Enlazando ya no cuela.
+      funcionaba por un arreglo, no por un esquema. Enlazando ya no cuela.
 
       Lo suyo es que **la libc lo defina**, y ahi aparece la pieza que falta:
       `politica_libc` sabe que FUNCIONES vinieron de una cabecera del sistema
@@ -295,7 +295,7 @@ sigue siendo del dueno: este plan escribe los escalones para cuando la tome.
       (`BssNoSeSabeNombrar`) en vez de escribir una direccion de `rodata`, que
       es lo que hacia la cuenta anterior sin decirlo.
       **Como se cierra**: un cuarto codigo, y el cargador del kernel sabiendo
-      aplicarlo -- toca Ring 0, y por eso es casilla y no un apano.
+      aplicarlo -- toca Ring 0, y por eso es casilla y no un arreglo.
 
 - [x] **E5e -- C++ COMPILA POR SEPARADO. HECHO el 2026-09-17**, y costo cuatro
       lineas: C++ baja al arbol de BMO C y usa SU codegen, asi que quien decide
@@ -387,7 +387,7 @@ otros no": no es el lenguaje, es **de quien es el emisor**.
 - **E5 antes que E4.** Mover la libc a una biblioteca sin un enlace probado en
   metal es apilar sobre un camino que nadie ha visto funcionar -- la misma frase
   con la que se aparco C++.
-  ** 17-09: se hizo igual, por orden del dueno. El aviso no se borra ni se
+  ** 17-09: se hizo igual, por orden del propietario. El aviso no se borra ni se
   rebaja: E5 queda en `[~]`, y lo que lo cierra sigue siendo la foto del Ryzen.
 - **Contar esto como "madurar C++".** C++ sigue aparcado hasta que su condicion
   1 (SSE ejecutado en el emulador) se compruebe tambien. Nota del 17-09: el

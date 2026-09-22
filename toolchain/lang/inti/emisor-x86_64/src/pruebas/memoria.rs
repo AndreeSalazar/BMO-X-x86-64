@@ -150,7 +150,7 @@ fn la_puerta_tiene_dos_registros_de_respuesta() {
 //      monton + 8   fin     la primera que ya no es suya
 //      monton + 16  ...     desde aqui se reparte
 //
-//  ** Y eso no es un apano para esquivar una funcionalidad que falta: es mejor.
+//  ** Y eso no es un arreglo para esquivar una funcionalidad que falta: es mejor.
 //  Un `malloc` con estado global es autoridad ambiente -- cualquiera reparte de
 //  lo mismo sin haberlo pedido. `pide(monton, n)` tiene la forma de una
 //  capability: **para repartir de un monton hay que tenerlo**.

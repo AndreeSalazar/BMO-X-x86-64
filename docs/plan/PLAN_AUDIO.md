@@ -34,7 +34,7 @@ lleva repitiendo desde su primera linea, y esta vez la pago el.
 
 ★ Lo que se encontro leyendo esta en A1. Y lo que se aprendio del proceso vale
 mas que el fallo: **la linea que decia POR QUE salia por el cable de serie**, o
-sea a un sitio al que el dueno no vuelve. Un fallo que solo se puede diagnosticar
+sea a un sitio al que el propietario no vuelve. Un fallo que solo se puede diagnosticar
 desde Ring 0 es un fallo que no se puede diagnosticar.
 
 ---
@@ -163,7 +163,7 @@ con `CH=1` encadenando las etapas de control contestaba Transaction Error donde
 QEMU lo toleraba.
 
 ** Y el segundo numero clavado, que no da error sino **tramas tarde**: el
-`Average TRB Length` estaba en `8`, el tamano de un informe de teclado boot. Para
+`Average TRB Length` estaba en `8`, el medida de un informe de teclado boot. Para
 192 bytes cada milisegundo es declarar **24 veces menos ancho de banda del que se
 va a gastar**.
 
@@ -272,9 +272,9 @@ hace despues, **hay que deshacer una copia**"*. Se hizo antes.
 
 ### *** Y AQUI HAY ALGO QUE SOLO SE VE DESPUES DE SMAP
 
-Desde el 25-08 Ring 0 **no puede tocar memoria de Ring 3**. Un diseno que hiciera
+Desde el 25-08 Ring 0 **no puede tocar memoria de Ring 3**. Un esquema que hiciera
 al kernel **leer** las muestras del bufer de la app estaria muerto desde esa
-misma manana: `#PF` en la primera trama.
+misma luego: `#PF` en la primera trama.
 
 ★★ **Este no lee nada.** El TRB isocrono lleva una direccion **FISICA**, y quien
 va a buscar los bytes es **el xHC por DMA** -- no el CPU. El kernel solo traduce
@@ -293,8 +293,8 @@ falta un TRB por pagina y el corte no caeria en la frontera de una trama.
    leido     lo mueve el TUBO:  "voy por alla"
 ```
 
-** `escrito` se comprueba contra el tamano del bloque, y el tamano **lo dice el
-bloque, no la app**: preguntarselo a ella seria dejar que declare un tamano que
+** `escrito` se comprueba contra el medida del bloque, y el medida **lo dice el
+bloque, no la app**: preguntarselo a ella seria dejar que declare un medida que
 no tiene. Y `fisica_de` busca en **sus** bloques y en ninguno mas, que es lo que
 impide ofrecer la memoria de otro.
 
@@ -319,11 +319,11 @@ produce.** Los dos salen en `audio`, con su etiqueta al lado.
 
 `revoke_all` suelta el prestamo. Sin eso, **el aparato seguiria leyendo por DMA
 marcos de un proceso que ya no existe** -- que es peor que un fallo: es un ruido
-que no para y que no tiene dueno a quien pedirle que pare.
+que no para y que no tiene propietario a quien pedirle que pare.
 
 ## ⛔ A5 -- MP3, y **por que va el ultimo aunque sea lo que se pidio**
 
-El dueno lo pidio por nombre, y la respuesta honesta es el orden, no un no.
+El propietario lo pidio por nombre, y la respuesta honesta es el orden, no un no.
 
 ```text
    un .wav   ->  PCM              ->  el endpoint
@@ -338,7 +338,7 @@ caro:
 > no hay donde soltar las muestras. Es la cicatriz de los nueve tests de coma
 > flotante del frontend de C, otra vez.
 
-**Que trae**: `minimp3` es **un solo fichero**, o sea unity build por diseno --
+**Que trae**: `minimp3` es **un solo fichero**, o sea unity build por esquema --
 como la amalgamation de SQLite. Va en Ring 3.
 
 ⚠ **Y hay un bloqueante que hay que mirar antes de traerlo**: `minimp3` usa coma
@@ -387,13 +387,13 @@ se ponga en el alt que trae el endpoint.**
 
 ★★ **El 1 es el equivalente de `net rx`**: si el endpoint no se atasca y
 `isoch_encoladas` sube sola con `isoch_tarde` en cero, **el tubo esta vivo** sin
-haber arriesgado un solo ruido raro en los oidos del dueno.
+haber arriesgado un solo ruido raro en los oidos del propietario.
 
 ---
 
 ## [X] A6 -- EL AUDIO SE INTEGRA: reclamado, el volumen por el hilo del bus, y el `save` lo cuenta (2026-09-21)
 
-Lo que el `save` de las 13:52 enseno y lo que se hizo con ello, en tres piezas:
+Lo que el `save` de las 13:52 mostro y lo que se hizo con ello, en tres piezas:
 
 1. **El audifono no se ENCONTRABA desde el 17-09.** Ese dia lo no adoptado
    empezo a configurarse y a DEVOLVER su ranura; `uaudio::buscar()` seguia
@@ -418,12 +418,12 @@ Lo que el `save` de las 13:52 enseno y lo que se hizo con ello, en tres piezas:
 3. **El `save` tiene seccion de audio** (`consumo`, entre usb y prestamos):
    aparatos, la ranura del reclamado, canales, mute, reproduce, rango en dB,
    volumen mandado / lo que vale / lo que tiene / confirmado / pedido, el
-   dueno, y el tubo (abierto, armado, frecuencia, trama, max packet,
+   propietario, y el tubo (abierto, armado, frecuencia, trama, max packet,
    encoladas, tarde, huecos, vetos DMA, pendientes). `INFO_AUDIO_*`
    0x82-0x87, sin handle. Todo por `fila`: DATOS.TXT lo lleva.
 
 4. **Y el tubo tambien lo abre el hilo del bus** (misma tarde, a peticion
-   del dueno: *"dale con `abrir` por el hilo del bus tambien"*). `censar`
+   del propietario: *"dale con `abrir` por el hilo del bus tambien"*). `censar`
    (el comando `audio` / `op_aparato`) ya no toca el xHC: lee lo reclamado y
    PIDE el tubo (`pedir_tubo`); `pump_bus` lo abre en su vuelta
    (`atender_tubo`), una vez. Y **al reclamar el audifono se pide solo**, asi
@@ -448,7 +448,7 @@ audifono USB Audio suele declarar 64 y contesta en UNO, que el xHC rechaza
 como Babble. Ahora los dos caminos piden 8, leen el byte 7 y, si no
 coincide, `bmo_xhci::evaluar_mps0` (input context copiado del de salida, A1,
 `TRB_EVAL_CTX`) antes de los 18; la ficha lleva el `cc`. Y el mismo save
-enseno que el `latido tarde 244 ms` de las 13:52 era el PITIDO girando en
+mostro que el `latido tarde 244 ms` de las 13:52 era el PITIDO girando en
 el syscall, no `buscar()`: `AUDIO_OP_BEEP` ahora duerme con `wait_current`.
 Sin metal.
 
@@ -473,7 +473,7 @@ esta retirado, no aparcado. Sin metal.
 
 # 6. EL ADN: lo que hacen Windows y Linux, contra lo nuestro (2026-09-21, noche)
 
-El dueno, tras el save de las 19:45: *"que tal si estudiar como se hizo
+El propietario, tras el save de las 19:45: *"que tal si estudiar como se hizo
 Windows el driver generico, y lo mismo con Linux, para tener ese ADN"*. La
 sospecha es correcta, y el `Evaluate Context` que faltaba (A7) es la prueba:
 no era un invento, era un paso que los dos anfitriones dan desde hace veinte
@@ -531,7 +531,7 @@ aparatos que necesitan mas tras `SET_ADDRESS`).
 |---|---|---|
 | encontrar el aparato | el nucleo enumera y OFRECE al driver de clase por (clase, subclase); el driver dice "es mio" | `reclamar` (21-09): la misma forma |
 | elegir formato | recorre TODOS los alt settings de AudioStreaming, elige por (PCM, bits, canales, frecuencia); UAC1 y UAC2 | `find_playback`: UAC1, el primero que sirve; **UAC2 no** (un 7.1 High Speed seria UAC2) |
-| tamano de paquete | `bytes_per_interval` con FRACCION acumulada: 44.100 Hz son 44 y 45 muestras alternando (`phase`); sin eso el reloj deriva y se oye | `rate / 1000 * canales * subframe`: exacto a 48.000, TRUNCA a 44.100 |
+| medida de paquete | `bytes_per_interval` con FRACCION acumulada: 44.100 Hz son 44 y 45 muestras alternando (`phase`); sin eso el reloj deriva y se oye | `rate / 1000 * canales * subframe`: exacto a 48.000, TRUNCA a 44.100 |
 | cuantas tramas en vuelo | 8-12 URBs de varios paquetes cada uno; el anillo nunca se vacia | el latido encola las de 4 ms; `huecos` cuenta cuando no llega |
 | sincronia | endpoint de FEEDBACK (asincrono): el aparato dice cuantas muestras quiere por trama y el host ajusta | `Sync` se PARSEA y no se usa: si el aparato es asincrono, deriva |
 | volumen | Feature Unit: GET_MIN/MAX/RES y CUR; mute aparte; por canal si el maestro no vale | igual (`uaudio.rs`) |
@@ -548,18 +548,18 @@ aparatos que necesitan mas tras `SET_ADDRESS`).
    dira `tarde`/`huecos` con el nombre del aparato, y esa es la fila 1 de la
    tabla.
 
-# 5. Y DESPUES: LA API DE ACCESORIOS EN RUST (idea del dueno, 21-09)
+# 5. Y DESPUES: LA API DE ACCESORIOS EN RUST (idea del propietario, 21-09)
 
 *"Construir una API ULTRA simplificada para los accesorios nuevos que quieran
 programar con Rust."* Se apunta con su condicion, que es la regla del 17-09:
 **Ring 0 esta cerrado a terceros**. Un accesorio de tercero no es un driver en
 el kernel: es un programa de Ring 3 (o la antena) que habla con el kernel por
-un contrato pequeno. Y ese contrato ya tiene TRES piezas hechas hoy, sin
+un contrato chico. Y ese contrato ya tiene TRES piezas hechas hoy, sin
 nombre de API:
 
 ```text
    ver que hay          INFO_AUDIO_*, las fichas del portero      (OP_INFO, sin handle)
-   tener derecho        AUDIO claim -> un dueno                    (capability)
+   tener derecho        AUDIO claim -> un propietario                    (capability)
    mover datos          el bufer PRESTADO (A4): dos indices, cero copias
 ```
 
@@ -568,7 +568,7 @@ de `bmo_uhid::pasos::Metal` --lanzar, llego, devolver, plazo-- que es lo que
 un driver necesita del bus y nada mas. La API "ultra simplificada" seria ESE
 trait, publicado, con el kernel como unico `Metal` de verdad.
 
-El dueno lo acoto asi (21-09): *"accesorios nuevos, para facilitar a los que
+El propietario lo acoto asi (21-09): *"accesorios nuevos, para facilitar a los que
 quieren meter algo raro y ya"*. O sea: no un SDK, una PUERTA. Lo que hoy ya
 hace el kernel con el audifono es la forma exacta de esa puerta: el que
 enumera OFRECE el aparato con sus papeles (`reclamar(slot, vid, pid, cfg)`),

@@ -6,7 +6,7 @@
 > que forma tiene una cabecera para que la numero 11 se parezca a la numero 1.
 
 Se escribe el 2026-09-01, al dia siguiente de que el semaforo (L6g) llegara a
-REX, y por un motivo concreto que dijo el dueno: *"no quiero fideos
+REX, y por un motivo concreto que dijo el propietario: *"no quiero fideos
 desordenados"*. Sin esto, las cinco cabeceras que faltan entran una a una segun
 vayan haciendo falta, y en tres semanas REX es un cajon.
 
@@ -119,7 +119,7 @@ es opcional:
 
 [!] La casilla 6 tiene UN incumplimiento conocido y viejo: `entrada.h` no tiene
 ejemplo. Lo dice el README desde el 19-08. No se tapa aqui -- se arregla en el
-paso 1, que es cuando por fin habra algo que ensenar.
+paso 1, que es cuando por fin habra algo que mostrar.
 
 ---
 
@@ -251,7 +251,7 @@ ya funciona para los kinds:
 
 ** **El emparejamiento lo escribe una persona y la comprobacion la hace la
 maquina.** Los dos lados se llaman distinto A PROPOSITO --uno habla ingles de
-kernel, el otro espanol de app-- asi que un juez que dedujera el par estaria
+kernel, el otro castellano de app-- asi que un juez que dedujera el par estaria
 adivinando. Tablas y no cerebros.
 
 ## Casillas
@@ -354,7 +354,7 @@ Aparecio mirando ese `0x1C`. En `bmo-abi`:
    TASK_OP_LIENZO_REFLEJO  0x1C     nadie la implementa
 ```
 
-Misma familia, mismo numero, ninguna nota. `KIND_LIENZO` fue un diseno
+Misma familia, mismo numero, ninguna nota. `KIND_LIENZO` fue un esquema
 **retirado** --salio del kernel cuando el prestamo se hizo generico, y lo
 cuentan `obj/loan.rs` y `docs/identidad/LIENZO.md`-- asi que es **una constante
 muerta okupando un numero vivo**: quien la escriba invocara `TOMAR`.
@@ -370,7 +370,7 @@ opcode de `PANTALLA_SOLTAR`:
 que lee quien escribe una app. R15 lo vigila ahora; en todo el ABI hay
 exactamente UN choque, y es ese.
 
-### ★ BORRADAS el 2026-09-02, a peticion del dueno
+### ★ BORRADAS el 2026-09-02, a peticion del propietario
 
 Ocho constantes fuera: `TASK_OP_LIENZO_REFLEJO`, `LIENZO_FMT_*`,
 `LIENZO_OP_*`, `LIENZO_UNICO` y `LIENZO_FILAS_RESERVADAS_ARRIBA`. **La lista de
@@ -460,7 +460,7 @@ una persona las miro.
 # PASO 5 -- REESCRITO: **el zero copy, y el streaming a ritmo de quien lee**
 
 La version anterior decia *"`<bmo/tarea.h>`: lanzar un hijo y esperarlo... es
-la I/O en segundo plano"*. **Esa etiqueta era mia y era mala**, y el dueno la
+la I/O en segundo plano"*. **Esa etiqueta era mia y era mala**, y el propietario la
 cuestiono con la pregunta correcta:
 
 > *"I/O no se si me beneficia porque mi BMO-X es zero copy, es MAS en tiempo
@@ -500,11 +500,11 @@ publica.
 ```text
    MEM_OP_OFRECER     SI esta en REX   (superficie/roja.h)   prestar
    TASK_OP_TOMAR      NO               tomar lo prestado
-   PRESTADO_OP_*      NO               medirlo, ver si el dueno vive, soltarlo
+   PRESTADO_OP_*      NO               medirlo, ver si el propietario vive, soltarlo
 ```
 
 **Una app de C puede PRESTAR memoria y no puede RECIBIRLA.** Justo el eje que
-el dueno dice que le importa, y esta cortado por la mitad. `superficie.h` usa
+el propietario dice que le importa, y esta cortado por la mitad. `superficie.h` usa
 `OFRECER` porque una ventana ofrece sus pixeles al DIRECTOR; el camino de
 vuelta --recibir un bloque de otro sin copiarlo-- no tiene cabecera.
 
@@ -526,7 +526,7 @@ vuelta --recibir un bloque de otro sin copiarlo-- no tiene cabecera.
 **El kernel prohibe prestarse a uno mismo** --`if destino == owner { return
 false; }` en `obj/loan.rs`-- asi que un solo `.bex` no puede ser las dos
 puntas. El ejemplo hace las dos cosas que SI caben solas (prestar al padre,
-tomar lo que haya) y **dice que no puede ensenar el ciclo entero** en vez de
+tomar lo que haya) y **dice que no puede mostrar el ciclo entero** en vez de
 fingir uno.
 
 Y tirando de ahi salio el hueco de verdad:
@@ -558,6 +558,6 @@ prestamo, asi que la mitad de esa cabecera es zero copy con otro nombre.
 - **Enlace de COBOL y Ada a REX.** No existe y no lo pide nadie todavia.
 - **`ascii-sweep` no mira los bytes de CONTROL.** Vigila lo de arriba (>127) y
   no lo de abajo: un `NUL` en un comentario paso su `--check` mientras hacia
-  que `grep` tratara el fichero como binario. Es pequeno --unas quince lineas--
+  que `grep` tratara el fichero como binario. Es chico --unas quince lineas--
   y no bloquea nada de este plan, pero un fichero invisible para `grep` es un
   fichero que las herramientas dejan de auditar sin decirlo.

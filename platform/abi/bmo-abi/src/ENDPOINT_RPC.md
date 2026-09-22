@@ -1,6 +1,6 @@
-# Endpoint RPC -- diseno (pre-implementacion)
+# Endpoint RPC -- esquema (pre-implementacion)
 
-**Estado**: diseno aprobado, implementacion DIFERIDA hasta que el round-trip
+**Estado**: esquema aprobado, implementacion DIFERIDA hasta que el round-trip
 de contexto Ring 3 este verde en hardware (el #GP del iretq del timer debe
 estar resuelto antes de construir RPC bloqueante encima).
 

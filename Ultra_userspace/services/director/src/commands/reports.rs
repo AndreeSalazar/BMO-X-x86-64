@@ -26,7 +26,7 @@ use bmo_userland as bmo;
 use crate::scene::output::{Output, INK_GOOD, INK_ECHO, INK_ERR, INK_PLAIN};
 use crate::scene::OUT_COLS;
 
-// ** LA TIPOGRAFIA SE FUE A `tabla.rs` EL 12-09, y no por tamano: porque aqui
+// ** LA TIPOGRAFIA SE FUE A `tabla.rs` EL 12-09, y no por medida: porque aqui
 // dentro habia dos clases de coste. Lo que queda PREGUNTA A LA MAQUINA --91
 // puertas-- y lo que se fue solo coloca un numero en una rejilla. Ver L6e y la
 // cabecera de `tabla.rs`.
@@ -117,7 +117,7 @@ pub(crate) fn report_apps(s: &mut Output) {
 ///
 /// Porque lo dicen **repartido y en prosa**. `cpu` explica la maquina, `mem`
 /// explica la RAM, y para saber "que esta gastando esto ahora mismo" hay que
-/// leer dos informes y juntarlos a ojo. Lo pidio el dueno con esas palabras:
+/// leer dos informes y juntarlos a ojo. Lo pidio el propietario con esas palabras:
 /// *"detallar el consumo... cuantos nucleos y hilos, y W tambien, y otros mas,
 /// en orden como tablas para facilitar, con separacion"*.
 ///
@@ -136,7 +136,7 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
     //
     // Las otras tres secciones dicen lo que gasta LA MAQUINA. Esta dice lo
     // que gasta EL QUE PREGUNTA, y va arriba porque es la unica sobre la
-    // que el dueno puede hacer algo desde aqui.
+    // que el propietario puede hacer algo desde aqui.
     subregla(s, b"escritorio");
     fila(s, b"vueltas", t.loops_per_second as u64, b"/s",
          b"el techo UTIL son 250: lo pone el bus USB, que late cada 4 ms");
@@ -180,8 +180,8 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
     //
     // Ese numero eran CICLOS POR SEGUNDO sin unidad, y la barra redondeaba a
     // cero porque lo que gasta el escritorio son centesimas de un por ciento.
-    // Una barra que siempre sale vacia no ensena nada; un numero sin unidad
-    // ensena algo falso. Partes por millon de UN nucleo se leen enteras.
+    // Una barra que siempre sale vacia no muestra nada; un numero sin unidad
+    // muestra algo falso. Partes por millon de UN nucleo se leen enteras.
     if techo > 0 && hz_t > 0 && t.loops_per_second > 0 {
         let ppm = (ticks_vuelta * t.loops_per_second as u64)
             .saturating_mul(1_000_000) / hz_t;
@@ -217,7 +217,7 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
              b"1 = solo para el nucleo, 6 = lo apaga. Lo dice CPUID hoja 5");
         fila(s, b"apagados", bmo::info(bmo::INFO_SMP_MS_APAGADOS) / por_ms, b"ms",
              b"sumando todos los obreros -- ESTE es el ahorro");
-        // ** LAS DOS JUNTAS, y la de abajo es la que ensena. Una siesta que
+        // ** LAS DOS JUNTAS, y la de abajo es la que muestra. Una siesta que
         // algo corta antes del plazo no ahorra: se paga la salida del
         // C-state y se vuelve a entrar. Alta con la maquina en reposo
         // significa que alguien escribe en la linea de `RONDA`, o que llega
@@ -305,11 +305,11 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
 
     // == *** EL DMA, y hasta hoy no llegaba aqui =========================
     //
-    // Peticion del dueno, 2026-09-10: *"el save actualizar por completo"*.
+    // Peticion del propietario, 2026-09-10: *"el save actualizar por completo"*.
     //
     // El bit en vuelo, el perro guardian del plazo, el portero duro y el
     // centinela se cablearon entre el 09-09 y el 10-09, y los cuatro contaban
-    // **solo para una pantalla de RING 0**. El dueno vive en el escritorio y
+    // **solo para una pantalla de RING 0**. El propietario vive en el escritorio y
     // al shell de Ring 0 no se vuelve: los numeros existian y no llegaban a
     // quien los pidio.
     //
@@ -327,7 +327,7 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
               b"un vuelo que paso de plazo (R-DMA-8)");
 
     // ** EL PLAZO NO SE ELIGE, SE MIDE (LEY 24). Este es el numero del que
-    // saldra, y se ensena en MICROsegundos porque lo que hay que comparar
+    // saldra, y se muestra en MICROsegundos porque lo que hay que comparar
     // --una vuelta al disco-- se sabe en microsegundos.
     //
     // [!] Y se lee AL REVES que las demas medidas de esta casa: aqui interesa
@@ -430,14 +430,14 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
     // es OTRA pregunta -- y porque metido aqui este fichero cruzo L6a.
     super::topologia::detalle(s, label);
 
-    // ** QUE SABE MEDIR ESTE PERFIL, antes de ensenar ninguna medida.
+    // ** QUE SABE MEDIR ESTE PERFIL, antes de mostrar ninguna medida.
     //
     // Va PRIMERO a proposito. Las filas de abajo pueden salir vacias por dos
     // motivos que se ven igual --el silicio no lo expone, o aun no hay dos
     // lecturas-- y sin esta linea el que mira no puede distinguirlos.
     //
-    // Es la cadena que pidio el dueno, leida de arriba abajo: el PERFIL declara
-    // que se puede medir, el lector lo lee, y **la terminal ensena lo que el
+    // Es la cadena que pidio el propietario, leida de arriba abajo: el PERFIL declara
+    // que se puede medir, el lector lo lee, y **la terminal muestra lo que el
     // perfil esta reflejando** en vez de suponerlo.
     let sensors = bmo::info(bmo::INFO_CPU_SENSORES);
     label(s, b"mide");
@@ -556,7 +556,7 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
     // -- SMP, y lo que cuesta --------------------------------------------
     //
     // Los nucleos en pie y los choques de cerrojo van en el MISMO informe a
-    // proposito. Un panel que solo ensena "12 de 12" cuenta la mitad bonita:
+    // proposito. Un panel que solo muestra "12 de 12" cuenta la mitad bonita:
     // la otra mitad es si esos once obreros estan peleandose con el kernel
     // por dentro, y ese numero tiene que ser cero.
     let alive_count = bmo::info(bmo::INFO_SMP_VIVOS);
@@ -740,7 +740,7 @@ pub(crate) fn report_memory(s: &mut Output) {
     s.dec_right(bmo::info(bmo::INFO_RAM_MARCOS_LIBRES), 8);
     s.text(b" marcos\n");
 
-    // El tamano REAL del kernel en RAM, medido hasta el final de su .bss.
+    // El medida REAL del kernel en RAM, medido hasta el final de su .bss.
     label(s, b"kernel");
     s.size(bmo::info(bmo::INFO_KERNEL_BYTES));
     s.text(b"   en 0x400000\n");
@@ -836,7 +836,7 @@ pub(crate) fn report_system(s: &mut Output, consumo: Option<bmo_juicio::consumo:
 }
 
 /// **EL CUADRO DE MANDOS DEL TECLADO**, el de `docs/componente/EL_TECLADO_EXIGE.md`,
-/// leido desde donde vive el dueno.
+/// leido desde donde vive el propietario.
 ///
 /// # Por que esto no sobra teniendo ya la luz de la barra
 ///
@@ -895,7 +895,7 @@ fn report_usb(s: &mut Output) {
     }
 
     // Los cuatro que tienen que ser CERO. Se imprimen SIEMPRE, tambien en cero,
-    // y eso es el punto: un cuadro de mandos que solo ensena las filas malas no
+    // y eso es el punto: un cuadro de mandos que solo muestra las filas malas no
     // deja distinguir "esta bien" de "no se miro".
     let av = bmo::info(bmo::INFO_USB_AVERIAS);
     cero(s, b"evt perdidos", av & 0xFFFF, b"E2: el aparcadero se lleno -> endpoint mudo");
@@ -941,7 +941,7 @@ fn aparato(s: &mut Output, nombre: &[u8], bits: u64, hay: u64, bomba: u64, corre
 ///
 /// ** Y la primera linea es la que hasta el 2026-08-17 no existia: BMO-X le
 /// preguntaba al disco modelo, serie y capacidad, y **no sabia si giraba** --
-/// mientras el diseno de ESTRATOS razonaba sobre TRIM y la ley sobre colas.
+/// mientras el esquema de ESTRATOS razonaba sobre TRIM y la ley sobre colas.
 /// Ver `docs/componente/EL_DISCO_EXIGE.md`.
 ///
 /// ** Es `pub(crate)` porque lo pinta tambien la orden `disco` de
@@ -1188,7 +1188,7 @@ pub(crate) fn report_autopsy(s: &mut Output) {
 // ** Por que este informe existe aqui y no solo en el shell de Ring 0:
 // porque a ese shell no se vuelve. `ext` se escribio como orden del kernel, y
 // una vez arranca el escritorio el rescate se niega --con razon-- a echar al
-// que sostiene la casa. O sea que era una tabla correcta que su dueno no podia
+// que sostiene la casa. O sea que era una tabla correcta que su propietario no podia
 // mirar. Lo dijo el con estas palabras: *"escribi el ext y no conoce"*.
 //
 // ** Y por que se agrupa por ESTADO y no por familia, al reves que el panel del
@@ -1196,7 +1196,7 @@ pub(crate) fn report_autopsy(s: &mut Output) {
 // una linea por familia, "lo usa", "no lo usa" y "CONFLICTO" caerian en el
 // mismo renglon y tendrian que compartir color -- o sea que el color no diria
 // nada. Agrupando por estado, cada renglon tiene UN significado y puede tener
-// SU color. La restriccion de la rejilla eligio el diseno, y eligio bien.
+// SU color. La restriccion de la rejilla eligio el esquema, y eligio bien.
 
 /// Los nombres de una mascara, envueltos a la anchura de la rejilla.
 ///
@@ -1240,7 +1240,7 @@ fn ext_grupo(s: &mut Output, titulo: &[u8], tinta: u8, n: u64, mascara: u64, not
             // ** El motivo se ENVUELVE, no se corta.
             //
             // La primera version lo truncaba a lo que quedara de renglon, y la
-            // foto del Ryzen del 16-08 lo enseno entero: "sem-asm no sabe V",
+            // foto del Ryzen del 16-08 lo mostro entero: "sem-asm no sabe V",
             // "en vez de un buc", "TODA pagina que BMO mapea es ej". Media
             // frase no es una version corta de la frase: es otra frase, y
             // encima una que parece que el sistema se quedo a medias.

@@ -8,7 +8,7 @@
  *
  * Una SUPERFICIE le da la vuelta: el programa pide memoria, **dibuja ahi**, y
  * se la OFRECE al DIRECTOR. El DIRECTOR la pega dentro de un marco con sus tres
- * botones. La pantalla no cambia de dueno ni una vez.
+ * botones. La pantalla no cambia de propietario ni una vez.
  *
  * == ** PANTALLA COMPLETA DEJA DE SER "TE DOY EL HARDWARE" ==
  *
@@ -76,7 +76,7 @@
  *
  * == Es OPCIONAL, y eso es lo que decide quien se queda las teclas ==
  *
- * `bmo_superficie_crear` no pide buzon: una app que solo ensena --un reloj, un
+ * `bmo_superficie_crear` no pide buzon: una app que solo muestra --un reloj, un
  * medidor-- no lo necesita, y el DIRECTOR **no le manda teclas**, o sea que el
  * escritorio las conserva. Pedirlo es decir *"yo se leer"*, y el foco solo se
  * le puede dar a quien lo dijo.
@@ -133,12 +133,12 @@
  * La regla es de una linea: **la app sube `secuencia` cuando el dibujo esta
  * entero, y el DIRECTOR solo repinta cuando ve un numero distinto del que
  * pego la ultima vez.** Un fotograma a medias no cambia el numero, asi que no
- * se pinta; y el peor caso es ensenar el anterior un fotograma mas, que es
+ * se pinta; y el peor caso es mostrar el anterior un fotograma mas, que es
  * exactamente lo que uno quiere que pase.
  *
  * No es un cerrojo y no debe serlo: un cerrojo entre dos procesos deja al
  * compositor esperando a una app que se colgo -- y entonces una app rota se
- * lleva el escritorio, que es justo lo que este diseno existe para impedir.
+ * lleva el escritorio, que es justo lo que este esquema existe para impedir.
  *
  * == ** LO QUE NO SE VE, NO SE PINTA (2026-09-11, R-APP8) ==
  *
@@ -157,7 +157,7 @@
  * El buzon traia SCANCODES: que tecla se movio. Con eso se juega --un juego
  * pregunta si la flecha abajo esta pulsada AHORA-- y no se escribe, porque
  * quien escribe pregunta que LETRA salio. Sacar la letra del scancode obligaba
- * a copiar la distribucion espanola dentro de cada app, y **dos mapas de
+ * a copiar la distribucion castellana dentro de cada app, y **dos mapas de
  * teclado son dos teclados**.
  *
  * Asi que la letra la manda quien ya la sabe: el kernel la cocina, el DIRECTOR

@@ -104,7 +104,7 @@ deteccion de `\x7FELF` y `MZ`). Censo: 49 imagenes, 0 afectadas.
 
 ---
 
-## 4. La propuesta: BEX2, disenado desde lo que BMO-X hace
+## 4. La propuesta: BEX2, trazado desde lo que BMO-X hace
 
 ```text
    cabecera fija (64 B, alineada a 64 = una linea de cache)

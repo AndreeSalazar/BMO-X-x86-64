@@ -225,7 +225,7 @@ fn sin_prestar_un_marco_ajeno_se_rechaza() {
 #[test]
 fn ni_prestando_se_puede_pisar_a_otro_aparato() {
     // *** EL VETO QUE NO TIENE EXPLICACION INOCENTE, y por eso se mira
-    // PRIMERO: ni el kernel prestando ni el dueno del corral pueden escribir
+    // PRIMERO: ni el kernel prestando ni el propietario del corral pueden escribir
     // en un bufer que OTRO aparato esta usando ahora mismo.
     let m = Marco { es_neutro: true, en_vuelo_para: Some(7), ..marco_bueno() };
     let p = Peticion { prestando: true, ..peticion_buena() };

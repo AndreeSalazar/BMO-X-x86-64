@@ -51,7 +51,7 @@ use crate::ring0::core::gato;
 /// kernel esta operativo a los 52 ms-- y no se puede saltar con una tecla porque
 /// el USB no esta enumerado todavia.
 ///
-/// El dueno pidio tres segundos. Van 1.600 porque el mismo dia se quitaron 4,5 s
+/// El propietario pidio tres segundos. Van 1.600 porque el mismo dia se quitaron 4,5 s
 /// de espera artificial (los cuatro carteles de aqui y la siesta del compositor),
 /// y 3.000 devolveria dos tercios de lo ganado. Es una linea: si se quieren los
 /// tres segundos, se cambia el numero.
@@ -65,7 +65,7 @@ use crate::ring0::core::gato;
 // cuenta POR QUE el logo tiene fila propia. Ahi es historia; aqui era una
 // afirmacion.
 
-/// **El gato ENCENDIENDOSE**, que es lo que pidio el dueno: *"el gato en neon
+/// **El gato ENCENDIENDOSE**, que es lo que pidio el propietario: *"el gato en neon
 /// que se prende al arrancar"*.
 ///
 /// `trazo` y `ojos` van de 0 a 255; `apagado` mezcla el resultado hacia negro
@@ -89,7 +89,7 @@ use crate::ring0::core::gato;
 ///
 /// # ** Y AHORA DERRAMA LUZ, que es lo que faltaba para que fuera un neon
 ///
-/// El video del 2026-08-15 lo enseno: un trazo blanco de un pixel sobre un cielo
+/// El video del 2026-08-15 lo mostro: un trazo blanco de un pixel sobre un cielo
 /// violeta claro **no se despega de la escena**. Lo que hace que algo se lea como
 /// tubo de gas no es que brille, es que **enciende lo que tiene alrededor**.
 ///
@@ -226,7 +226,7 @@ fn draw_kanji(
 /// cuando el userspace no habia arrancado todavia -- un cartel que anuncia un
 /// estado que aun no existe.
 ///
-/// El dueno lo dijo claro: *"eso ya se ve un poco feo"*. Tenia razon dos veces,
+/// El propietario lo dijo claro: *"eso ya se ve un poco feo"*. Tenia razon dos veces,
 /// porque ademas de feo era lento.
 ///
 /// === Lo que hay ahora ===
@@ -245,7 +245,7 @@ fn draw_kanji(
 /// promete antes es una mentira con animacion.
 /// **Las cuatro esquinas del marco.** Cuatro angulos, nada mas.
 ///
-/// Es el vocabulario visual que el dueno pidio --el de una interfaz de sala de
+/// Es el vocabulario visual que el propietario pidio --el de una interfaz de sala de
 /// operaciones-- y es el mas barato que existe: **ocho rectangulos**. Un marco
 /// entero seria una linea de 1920 px por lado que compite con el contenido; una
 /// esquina insinua el marco y deja el centro limpio.
@@ -365,7 +365,7 @@ static mut INTRO_PCT: u32 = 0;
 /// ver [`intro_latido`].
 static mut INTRO_COSTE_MS: u32 = 0;
 
-/// **Pinta un fotograma donde toque y lo ensena.**
+/// **Pinta un fotograma donde toque y lo muestra.**
 ///
 /// Es el unico sitio que decide si la escena va a una superficie en RAM o
 /// directamente al framebuffer, y por eso el resto del modulo no se entera de
@@ -377,7 +377,7 @@ fn fotograma_a_pantalla(w: u32, h: u32, f: &bmo_ciudad::Fotograma) {
         if let Some(s) = sup.as_mut() {
             pintar_escena(s, w, h, f);
             // ** UNA copia y UNA barrera por fotograma. Antes eran ~8.800
-            // barreras -- una por rectangulo-- para ensenar una sola imagen.
+            // barreras -- una por rectangulo-- para mostrar una sola imagen.
             s.volcar();
             return;
         }
@@ -420,7 +420,7 @@ pub fn intro_empieza() {
 ///
 /// # El truco de Santa Monica, y por que el modelo de antes estaba mal
 ///
-/// Lo dijo el dueno viendo el log de arranque pasar: *"BMO-X esta preparando
+/// Lo dijo el propietario viendo el log de arranque pasar: *"BMO-X esta preparando
 /// todo eso, los datos se ejecutan en tiempo real... tiene que esconder con
 /// truco inspirado como hicieron Santa Monica en God of War"*.
 ///
@@ -442,7 +442,7 @@ pub fn intro_empieza() {
 ///
 /// # Y `pct` no es una barra: es la ciudad
 ///
-/// El progreso enciende las torres. Con lo cual se cierra la idea que el dueno
+/// El progreso enciende las torres. Con lo cual se cierra la idea que el propietario
 /// tuvo dos dias antes --*"en el fondo se ve el sistema de ciudad con TODO"*--:
 /// **la ciudad encendiendose ES el arranque ocurriendo**, no una animacion que
 /// finge acompanarlo. Un subsistema que tarda deja su tramo de ciudad a oscuras
@@ -635,7 +635,7 @@ fn pintar_escena(l: &mut dyn Lienzo, w: u32, h: u32, f: &bmo_ciudad::Fotograma) 
     let tw = text_width_scaled("BMO-X", escala_t);
 
     // El techo y el canto del marco se le preguntan a la ciudad en vez de copiar
-    // aqui unos porcentajes. Si manana alguien sube las torres o ensancha el
+    // aqui unos porcentajes. Si luego alguien sube las torres o ensancha el
     // marco, el logo se aparta solo.
     let (techo, marco_interior) = unsafe {
         let ciudad = &*core::ptr::addr_of!(INTRO_CIUDAD);
@@ -817,7 +817,7 @@ fn pintar_escena(l: &mut dyn Lienzo, w: u32, h: u32, f: &bmo_ciudad::Fotograma) 
 
     // El marco, lo ultimo: encuadra todo lo demas.
     marco_esquinas(l, w, h, mezcla(ACCENT, NEGRO, f.negro, 255));
-    // Aqui NO se drena el buffer de escritura: ensenar el fotograma es cosa de
+    // Aqui NO se drena el buffer de escritura: mostrar el fotograma es cosa de
     // quien decidio donde se pinta (`fotograma_a_pantalla`), que lo hace una vez
     // con `volcar` o con `presentar`. Una barrera aqui seria la penultima.
 }

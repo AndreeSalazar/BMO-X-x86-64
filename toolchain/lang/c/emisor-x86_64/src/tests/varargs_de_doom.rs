@@ -35,7 +35,7 @@
 //! debe. En `M_StringJoin` eso significa recorrer 19 punteros basura en vez de
 //! 3 y hacerles `strlen`: memoria no mapeada, `#PF`, tarea eliminada.
 //!
-//! ** Es de la MISMA familia que el `pointer_scale` de esta manana --aritmetica
+//! ** Es de la MISMA familia que el `pointer_scale` de esta luego --aritmetica
 //! de punteros que no escala-- pero por otro camino: aquel era `Expr::Add`,
 //! este es `Expr::PostInc`. Arreglar uno no arreglo el otro porque **son dos
 //! brazos distintos que hacen la misma cuenta**, que es justo el patron 34.
@@ -167,7 +167,7 @@ fn un_entero_sigue_avanzando_de_uno() {
 }
 
 /// Un puntero a struct: el paso son los 16 bytes del elemento, no 8 ni 1.
-/// Es el mismo tamano que ya usa el subindice, y el que fallaba esta manana por
+/// Es el mismo medida que ya usa el subindice, y el que fallaba esta luego por
 /// el otro camino (`Expr::Add`).
 #[test]
 fn un_puntero_a_struct_avanza_su_tamano() {

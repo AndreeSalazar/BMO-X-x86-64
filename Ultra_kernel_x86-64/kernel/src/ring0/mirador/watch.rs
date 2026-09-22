@@ -29,7 +29,7 @@ pub(crate) fn watch(s: &TelemetrySnapshot, mib_free: u64) {
         //
         // La condicion es `kev == 0`: **cero teclas pulsadas**. Y eso tambien es
         // cierto cuando nadie ha tocado el teclado todavia. La maquina arranca,
-        // pasan dos segundos sin que el dueno escriba, y CABINA declaraba un
+        // pasan dos segundos sin que el propietario escriba, y CABINA declaraba un
         // fallo de hardware que no existia.
         //
         // Las fotos del 2026-08-11 lo prueban solas: el FAULT sale en `t02002` y

@@ -102,7 +102,7 @@ pub fn main(ctx: &mut BootContext) {
     // (well below the boot bars that end near row 120), so any new bar is
     // unmistakably kernel progress -- not a repeat of an s1/s2 color.
     // * ANTES que nada que pueda atrapar. Los stubs de trap guardan el estado
-    // extendido con XSAVE en un area de tamano FIJO, y el tamano que este CPU
+    // extendido con XSAVE en un area de medida FIJO, y el medida que este CPU
     // necesita solo lo sabe el. Si no cabe, hay que enterarse AHORA y no
     // cuando el primer tick del timer desborde una pila de tarea.
     crate::ring0::cpu_vendor::xsave::init();
@@ -230,7 +230,7 @@ pub fn main(ctx: &mut BootContext) {
     // moderno. Al terminar aterrizamos en el dashboard, donde el trabajo
     // REAL de cada etapa fluye como log (igual que Windows: la animacion
     // juega, luego apareces en el escritorio).
-    // ** EL TRUCO DE SANTA MONICA, y lo pidio el dueno con ese nombre.
+    // ** EL TRUCO DE SANTA MONICA, y lo pidio el propietario con ese nombre.
     //
     // God of War 2018 no tiene pantallas de carga: el trabajo se hace DEBAJO de
     // una camara que no corta. La carga no se elimina -- se tapa con algo que el
@@ -326,7 +326,7 @@ pub fn main(ctx: &mut BootContext) {
     // este localizada, para poder preguntarle a la MADT. Y va SIEMPRE, sin que
     // nadie lo pida, que es la unica diferencia que importa -- el careo ya
     // existia dentro de `smp::despertar()` y por eso no dijo nada el 25-08,
-    // cuando un 6/12 se ensenaba como 27/54 en todos los paneles.
+    // cuando un 6/12 se mostraba como 27/54 en todos los paneles.
     crate::ring0::cpu_vendor::profile::carear_topologia();
     splash::intro_paso(25);
     // * Y se le pregunta al CPU si sabe medirse a si mismo. UNA vez: despues
@@ -360,7 +360,7 @@ pub fn main(ctx: &mut BootContext) {
     // reset, recovery, control transfers), and there are two controllers.
     crate::ring0::core::boot_timeline::mark("usb enumeration");
     let _ = crate::ring0::dev::usb::start_bus_thread();
-    // Y el disco: el HBA SATA (no el NVMe -- ahi vive el sistema del dueno) y
+    // Y el disco: el HBA SATA (no el NVMe -- ahi vive el sistema del propietario) y
     // su tabla de particiones. Ver dev/disk.rs.
     crate::ring0::dev::disk::init();
     splash::intro_paso(55);
@@ -493,7 +493,7 @@ pub fn main(ctx: &mut BootContext) {
     // repintaba su panel... encima del escritorio que acababa de nacer.
     //
     // De ahi las dos cosas que se veian y nadie explicaba: el aviso de "el
-    // dueno de la pantalla MURIO" en cada arranque (era el demo, no el
+    // propietario de la pantalla MURIO" en cada arranque (era el demo, no el
     // compositor) y el panel del kernel dibujado sobre la ventana.
     //
     // Los demos ya demostraron lo suyo. Ahora se les deja terminar antes de

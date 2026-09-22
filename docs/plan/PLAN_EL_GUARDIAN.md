@@ -2,7 +2,7 @@
 
 > Estado: **SUPERADO** -- por la decision del 2026-09-18 (el guardian `isa`, `toolchain/tools/isa/isa.py`: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.
 
-> Escrito el **2026-09-08**. La idea es del dueno, y la trajo asi:
+> Escrito el **2026-09-08**. La idea es del propietario, y la trajo asi:
 >
 > > *"si crean un PCI con RISC-V donde BMO-X vive gracias a DMA, se convierte en
 > > guardian LITERAL: se conecta a internet en vez de la placa base, inspirado en
@@ -21,7 +21,7 @@ seguridad **en vez del host**. NVIDIA BlueField, AMD Pensando, Intel IPU.
 
 ★ Y el ejemplo que importa: **AWS Nitro**. Amazon saco el hipervisor, la red, el
 disco y la seguridad del CPU del host y los metio en tarjetas propias. El host
-quedo como *"solo computo"*. La analogia del HDMI del dueno es literalmente lo
+quedo como *"solo computo"*. La analogia del HDMI del propietario es literalmente lo
 que ellos hicieron con la placa base entera.
 
 ---
@@ -45,7 +45,7 @@ muerto y el asignador colgado a la vez.
 
 > **En una tarjeta, el que hace DMA eres tu.**
 
-El modelo de amenaza se da la vuelta entero: de victima a dueno. Eso no es una
+El modelo de amenaza se da la vuelta entero: de victima a propietario. Eso no es una
 mejora de rendimiento: es un cambio de bando.
 
 ---
@@ -122,7 +122,7 @@ producto, y la gente de infraestructura compra *appliances*, no tarjetas.
 
 # 5. DONDE ENCAJA CON LO QUE YA SE DECIDIO
 
-El companero del dueno llego por su cuenta a *"BMO-X como componente adicional,
+El colega del propietario llego por su cuenta a *"BMO-X como componente adicional,
 si o si, seguridad dura, y el OS para uso comun diario"*. Y la hoja de ruta ya
 decia **BANCA + Ada**.
 

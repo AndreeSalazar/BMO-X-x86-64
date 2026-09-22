@@ -1,6 +1,6 @@
 //! **Commands that talk to the DISK**: `ls`, `lee`, `escribe`, `guarda`.
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -32,13 +32,13 @@ pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> Aft
                 };
                 let mut nom = [0u8; 12];
                 let length = e.legible(&mut nom);
-                // `.` y `..` no se ensenan: aqui
+                // `.` y `..` no se muestran: aqui
                 // no hay carpeta actual a la que
                 // volver, asi que son ruido.
                 if is_dot_entry(&nom[..length]) { return After::NextKey; }
                 dsk.out.grid.text(b"  ");
                 dsk.out.grid.text(&nom[..length]);
-                // Alinear la columna del tamano.
+                // Alinear la columna del medida.
                 let mut k = length;
                 while k < 14 { dsk.out.grid.byte(b' '); k += 1; }
                 if e.es_dir {
@@ -96,7 +96,7 @@ pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> Aft
 /// -- Leer un archivo --
 ///
 /// El hermano de `ls`: aquel dice QUE hay, este
-/// ensena lo de DENTRO. Es la primera vez que un
+/// muestra lo de DENTRO. Es la primera vez que un
 /// programa de Ring 3 abre un archivo del disco.
 pub(crate) fn read(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8]) -> After {
     match bmo::Archivo::leer_de(file_path) {
@@ -200,7 +200,7 @@ pub(crate) fn write(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8], text
 ///
 /// # Por que en ficheros separados y no todo en uno
 ///
-/// Lo pidio el dueno: *"que pueda dividir en carpetas, como mem.txt, cpu.txt"*.
+/// Lo pidio el propietario: *"que pueda dividir en carpetas, como mem.txt, cpu.txt"*.
 /// Y tiene el motivo a favor: `salida.txt` crece con todo lo que se ha tecleado
 /// en la sesion, asi que para comparar la memoria de antes y despues de matar un
 /// programa hay que buscar dos trozos dentro de un fichero largo. Cuatro

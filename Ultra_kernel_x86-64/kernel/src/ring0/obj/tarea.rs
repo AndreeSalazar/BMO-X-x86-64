@@ -17,7 +17,7 @@
 //! sistema cuya primera clausula dice que la autoridad no se hereda, eso es
 //! justo lo que no puede existir.
 //!
-//! Lo escribio el dueno en `docs/plan/PLAN_DIRECTOR.md`, paso 3, el 2026-08-10:
+//! Lo escribio el propietario en `docs/plan/PLAN_DIRECTOR.md`, paso 3, el 2026-08-10:
 //!
 //! > *"`EJECUTAR` devuelve un handle sobre el hijo, y matar es una operacion
 //! > de ese handle. El DIRECTOR cierra lo que EL lanzo porque tiene su handle,
@@ -45,7 +45,7 @@
 //!
 //! ## Lo que NO es
 //!
-//! No es una senal. No hay a quien pedirle que se vaya: una app en ventana
+//! No es una signal. No hay a quien pedirle que se vaya: una app en ventana
 //! puede no tener entrada --hoy ninguna la tiene, ver la casilla 4 de
 //! `META-APP_HARD.md`-- asi que esperar a que se entere seria esperar para
 //! siempre. Cerrar aqui es lo mismo que hace `EXIT`, pedido desde fuera.

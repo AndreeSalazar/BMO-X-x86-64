@@ -6,7 +6,7 @@
 //!
 //! [cuesta]  APARATO -- si `marcar` se queda corta, lo pintado no llega nunca
 //!           al panel y la pantalla se queda con la imagen de antes. El usuario
-//!           no ve un error: ve un escritorio congelado, que es lo que el dueno
+//!           no ve un error: ve un escritorio congelado, que es lo que el propietario
 //!           reporto tres veces en agosto antes de que existiera el troceado.
 //!
 //! [riesgo]  ESPEJO SILENCIO
@@ -45,7 +45,7 @@ impl Pantalla {
         // `saturating_add` y no `+`: desde el 09-09 `glifo` marca su celda de
         // 8x16 de una vez, o sea que aqui llega aritmetica de la fuente y no
         // solo de la maqueta. En release un `+` que desborda ENVUELVE, y una
-        // caja envuelta es una caja pequena en la esquina de arriba: se dejaria
+        // caja envuelta es una caja chica en la esquina de arriba: se dejaria
         // de volcar lo que si se pinto. Saturar la deja fuera de pantalla, que
         // es lo que el `if` de abajo ya sabe descartar.
         let nx1 = x.saturating_add(ancho).min(self.ancho);
@@ -185,7 +185,7 @@ pub struct Volcado {
     ///
     /// Con la caja unica de antes esto valdria SIEMPRE 1, y `peor` seria la
     /// pantalla entera en cuanto dos cosas cambiaran lejos. Si en metal sale
-    /// `cajas 2` o `3` con un `peor` pequeno, el troceado esta trabajando. Si
+    /// `cajas 2` o `3` con un `peor` chico, el troceado esta trabajando. Si
     /// sale `cajas 1` con un `peor` de 8 MB, degenero -- y entonces el
     /// sospechoso es `COSTE_DE_UNA_CAJA`, no el volcado.
     pub cajas: u32,

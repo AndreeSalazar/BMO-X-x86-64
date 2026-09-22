@@ -18,7 +18,7 @@
 //! `aterrizo` nacio pidiendo solo la direccion, asi que le quitaba el vuelo a
 //! **quien fuera**. `vivos` habria llegado a cero con un vuelo todavia en el
 //! aire: la mentira exacta que este bit existe para no contar. Lo encontro
-//! una pregunta del dueno --*"si algo puede jugar en contra, aislar"*-- y no
+//! una pregunta del propietario --*"si algo puede jugar en contra, aislar"*-- y no
 //! una prueba. El arreglo esta escrito entero en el `///` de `aterrizo`.
 //!
 //! *** Que el fallo de este carril lo cazara una PREGUNTA en vez de un juez
@@ -86,7 +86,7 @@ pub const APARATO_GPU: u8 = 4;
 // La segunda forma que no vale es cronometrar desde el despegue. Un aparato
 // que va a tope --el disco leyendo un fichero grande-- nunca se queda sin nada
 // en el aire, asi que ese cronometro no para nunca y **un plazo lo mataria por
-// estar sano**. Es exactamente lo que el dueno pidio buscar: algo que juega en
+// estar sano**. Es exactamente lo que el propietario pidio buscar: algo que juega en
 // contra.
 //
 // ** Asi que se mide **cuanto lleva callado teniendo trabajo pendiente**:
@@ -118,7 +118,7 @@ pub const APARATO_GPU: u8 = 4;
 // `u16` y jamas el enum del kernel. Un juez que se trae media casa para poder
 // juzgar acaba siendo la casa.
 //
-// ** Y cambiar la FIRMA en vez de anadir una funcion aparte es a proposito: el
+// ** Y cambiar la FIRMA en vez de agregar una funcion aparte es a proposito: el
 // que programa un descriptor tiene que decir cuando. Si se pudiera no decirlo,
 // alguien no lo diria, y su aparato seria el unico sin perro guardian.
 //
@@ -135,7 +135,7 @@ pub const APARATO_GPU: u8 = 4;
 // la estimacion generica que LEY 24 prohibe por escrito -- una estimacion de
 // OTRO proyecto.
 //
-// *** Y `ciclos.bex` acaba de ensenar por que ESTA medida no se hace como las
+// *** Y `ciclos.bex` acaba de mostrar por que ESTA medida no se hace como las
 // demas. En el Ryzen, midiendo un bucle VACIO:
 //
 // ```text
@@ -151,7 +151,7 @@ pub const APARATO_GPU: u8 = 4;
 // PEOR silencio visto y no la media de nada.
 //
 // > Para saber lo que cuesta algo se mira el minimo. Para saber cuanto esperar
-// > se mira lo peor que ha pasado nunca, y despues se le anade margen.
+// > se mira lo peor que ha pasado nunca, y despues se le agrega margen.
 
 /// **PONER UN MARCO EN VUELO PARA UN APARATO.** Se llama al programar el
 /// descriptor, ANTES de tocar la campana.
@@ -254,7 +254,7 @@ fn anoto(aparato: u8, cuando: u64, habia_trabajo: bool) {
 /// # *** POR QUE PIDE EL APARATO, Y NO SOLO LA DIRECCION
 ///
 /// La primera version era `aterrizo(phys)` y **le quitaba el vuelo a quien
-/// fuera**. El dueno pidio buscar *"algo que pueda jugar en contra"* y era
+/// fuera**. El propietario pidio buscar *"algo que pueda jugar en contra"* y era
 /// esto, tres horas despues de escribirlo:
 ///
 /// ```text
@@ -294,7 +294,7 @@ pub fn aterrizo(phys: u64, aparato: u8, cuando: u64) -> bool {
     }
     if quien != aparato {
         // *** ATERRIZAR LO AJENO. Se cuenta con los choques porque es el
-        // mismo fallo por el otro lado: dos aparatos creyendose duenos del
+        // mismo fallo por el otro lado: dos aparatos creyendose propietarios del
         // mismo marco. Y NO se toca la tabla: el vuelo del otro sigue vivo,
         // que es lo unico correcto que se puede hacer aqui.
         unsafe { EN_VUELO_CHOQUES = EN_VUELO_CHOQUES.wrapping_add(1) };
@@ -303,7 +303,7 @@ pub fn aterrizo(phys: u64, aparato: u8, cuando: u64) -> bool {
     if prestado(phys) {
         // ** UN PRESTAMO NO ATERRIZA POR TRAMA. Se devuelve ENTERO con
         // `devolver_tramo`. Aterrizar una pagina suelta de un prestamo dejaria
-        // `vivos` bajando con el aparato todavia dueno del tramo -- la mentira
+        // `vivos` bajando con el aparato todavia propietario del tramo -- la mentira
         // exacta de la cabecera, por otra puerta. Se cuenta con los choques.
         unsafe { EN_VUELO_CHOQUES = EN_VUELO_CHOQUES.wrapping_add(1) };
         return false;

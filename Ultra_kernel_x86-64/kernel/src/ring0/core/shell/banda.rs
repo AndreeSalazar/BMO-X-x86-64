@@ -1,15 +1,15 @@
 //! **`banda` -- cuanto ancho de banda tiene de verdad esta memoria.**
 //!
 //! [carril]  AMARILLO  la medida de ancho de banda, y una medida se afina
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! ## Por que fichero propio (L6b)
 //!
-//! Por la razon buena, no por la del tamano: contesta **otra pregunta**.
-//! `hardware.rs` ensena aparatos y `smp test` mide **cuanto acelera repartir**.
+//! Por la razon buena, no por la del medida: contesta **otra pregunta**.
+//! `hardware.rs` muestra aparatos y `smp test` mide **cuanto acelera repartir**.
 //! Esto no mide una aceleracion -- mide **un caudal**, en bytes por segundo, y
 //! el numero que produce no se compara con ningun otro de este shell: se compara
-//! con el tamano de un modelo.
+//! con el medida de un modelo.
 //!
 //! ## Lo que sale por pantalla, y por que en ese orden
 //!
@@ -18,12 +18,12 @@
 //!                    convence, lo de abajo no vale nada
 //!   2. el BARRIDO    una fila por cuantas partes. La columna que importa
 //!                    es MB/s, y lo que se busca es DONDE DEJA DE SUBIR
-//!   3. el TECHO      lo de arriba dividido por el tamano de un modelo:
+//!   3. el TECHO      lo de arriba dividido por el medida de un modelo:
 //!                    tokens/s. Es un techo, y lo dice
 //! ```
 //!
 //! *** El orden no es decorativo: **primero se justifica el instrumento y
-//! despues se ensena la medida.** Al reves, un numero grande se lee antes de
+//! despues se muestra la medida.** Al reves, un numero grande se lee antes de
 //! que a nadie le de tiempo a preguntar si el banco cabia en cache.
 
 use super::super::phase::s_log;
@@ -32,7 +32,7 @@ use crate::ring0::plat::smp::banda;
 
 /// Modelos con los que se traduce el caudal a tokens/s, en MB.
 ///
-/// [!] Son **tamanos tipicos de cuantizacion a 4 bits**, no ficheros que
+/// [!] Son **medidas tipicos de cuantizacion a 4 bits**, no ficheros que
 /// existan en este disco. Estan aqui para convertir una unidad en otra, y por
 /// eso la fila que sale se llama "techo" y no "rendimiento".
 const MODELOS: [(&str, u64); 3] = [
@@ -101,7 +101,7 @@ fn linea(b: &[u8; 80], o: usize) {
 /// seis puntos por tres pasadas y el BSP se pasa decimas de segundo sin bombear
 /// el USB; el evento de un endpoint de interrupcion **es el permiso** para
 /// volver a encolar, asi que perder uno no pierde una tecla: **para la bomba**.
-/// Le paso al dueno el 24-08 con `smp test` y no hace falta que pase dos veces.
+/// Le paso al propietario el 24-08 con `smp test` y no hace falta que pase dos veces.
 pub(crate) fn shell_banda() {
     s_log("== banda: el ancho de banda de la memoria ==");
 
@@ -134,7 +134,7 @@ pub(crate) fn shell_banda() {
     let mut o = 0;
     txt(&mut b, &mut o, "  reloj    TSC ");
     if hz == 0 {
-        txt(&mut b, &mut o, "DESCONOCIDO -- solo se pueden ensenar ticks");
+        txt(&mut b, &mut o, "DESCONOCIDO -- solo se pueden mostrar ticks");
     } else {
         dec(&mut b, &mut o, hz / 1_000_000);
         txt(&mut b, &mut o, " MHz");
@@ -160,7 +160,7 @@ pub(crate) fn shell_banda() {
 
     for &extra in banda::PUNTOS.iter() {
         // Un punto que pide mas obreros de los que hay medirian una carrera
-        // incompleta: se salta y se dice, en vez de ensenar el numero bonito
+        // incompleta: se salta y se dice, en vez de mostrar el numero bonito
         // que sale cuando falta gente.
         if extra > vivos {
             continue;
@@ -232,7 +232,7 @@ pub(crate) fn shell_banda() {
     linea(&b, o);
 
     // ** LA ECUACION, escrita al lado del numero que la alimenta: un modelo lee
-    // sus pesos ENTEROS por cada token, asi que tokens/s = caudal / tamano. No
+    // sus pesos ENTEROS por cada token, asi que tokens/s = caudal / medida. No
     // es una regla del pulgar, es la definicion -- y por eso el CPU no es el
     // que manda aqui.
     for &(nombre, mb) in MODELOS.iter() {

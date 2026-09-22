@@ -56,12 +56,12 @@ const INFO_USB_RITMO: u64 = 0x50;
 
 // == *** LOS DOCE DEL DMA -- que el `save` diga lo que CABINA ya decia =======
 //
-// Peticion del dueno, 2026-09-10: *"el save actualizar por completo, y cabina
+// Peticion del propietario, 2026-09-10: *"el save actualizar por completo, y cabina
 // tambien"*.
 //
 // El bit en vuelo, el perro guardian del plazo, el portero duro y el centinela
 // se cablearon entre el 09-09 y el 10-09, y los cuatro contaban **solo para una
-// pantalla de RING 0**. El dueno vive en el escritorio y al shell de Ring 0 no
+// pantalla de RING 0**. El propietario vive en el escritorio y al shell de Ring 0 no
 // se vuelve: o sea que los numeros existian y **no llegaban a quien los pidio**.
 //
 // ** Es exactamente lo que le paso a `INFO_USB_RITMO` el 09-09, y esta escrito
@@ -169,7 +169,7 @@ const INFO_CPU_APERF: u64 = 0x6C;
 // Es feo y es a proposito: por la puerta de `INFO` cabe UN numero, y la
 // alternativa --un buffer con un array de structs-- seria inventar un formato
 // nuevo con su version y su alineacion para contestar tres enteros. Cuando haga
-// falta un cuarto campo se anade otra constante, no un formato.
+// falta un cuarto campo se agrega otra constante, no un formato.
 //
 // [!] Y el indice cuenta SOLO LAS RANURAS OCUPADAS. Quien enumera pide 0, 1,
 // 2... hasta que el pid conteste 0. No tiene que saber que la tabla del kernel
@@ -234,7 +234,7 @@ const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
 // El audio, entero y sin handle (2026-09-21): el audifono reclamado, el
 // volumen, el tubo y el bufer prestado. Ver `dev/uaudio.rs` y
 // `dev/usb/audio.rs`. Antes de esto el `save` no tenia una sola fila de
-// audio: lo unico que se veia era "el dueno del sonido MURIO" en los avisos.
+// audio: lo unico que se veia era "el propietario del sonido MURIO" en los avisos.
 const INFO_AUDIO_APARATO: u64 = 0x82;
 const INFO_AUDIO_RANGO: u64 = 0x83;
 const INFO_AUDIO_TUBO: u64 = 0x84;
@@ -324,7 +324,7 @@ const INFO_FUGAS: u64 = 0x1E;
 // E6 de `docs/componente/EL_TECLADO_EXIGE.md`. Las cinco exigencias anteriores estan
 // cumplidas y cada una tiene su contador -- pero todos se leian desde el shell
 // de Ring 0, y al escritorio no se vuelve. O sea: cinco instrumentos correctos
-// que su dueno no podia mirar cuando el teclado se moria, que es el unico
+// que su propietario no podia mirar cuando el teclado se moria, que es el unico
 // momento en que hacen falta.
 //
 // Dos filas, y la tabla entera del capitulo cabe en dos `OP_INFO`. Los bits y
@@ -335,7 +335,7 @@ const INFO_USB_AVERIAS: u64 = 0x3C;
 // -- ** LO QUE EL DISCO CONTESTA, y el veredicto sobre el (2026-08-17) -------
 //
 // Tres filas de HECHOS y una de VEREDICTO, y separadas a proposito: quien pinte
-// puede ensenar lo que dijo el aparato aunque no este de acuerdo con lo que se
+// puede mostrar lo que dijo el aparato aunque no este de acuerdo con lo que se
 // concluyo. Un veredicto sin su evidencia al lado no se puede discutir.
 //
 // El reparto vive fuera de este fichero y en cuatro generaciones (L7): la
@@ -357,7 +357,7 @@ const INFO_DISCO_TRIM_ORDENES: u64 = 0x44;
 /// Ring 3 podia sacar estos dos numeros de `INFO_ES_BLOQUES`, `INFO_ES_USADOS` y
 /// `INFO_ES_BLOQUE_TAM`, y **esa era la curita**: la propuesta que se pinta y el
 /// rango que se manda salian de dos cuentas distintas que hoy dan lo mismo. Dos
-/// fuentes de una sola verdad se separan, y aqui separarse significa **ensenar
+/// fuentes de una sola verdad se separan, y aqui separarse significa **mostrar
 /// un rango y recortar otro**. Ahora los dos leen `estratos::cola_libre()`.
 const INFO_DISCO_COLA_LBA: u64 = 0x45;
 const INFO_DISCO_COLA_SECTORES: u64 = 0x46;
@@ -374,7 +374,7 @@ const INFO_FECHA: u64 = 0x1F;
 // ** Por que estas filas existen: `ext` se escribio SOLO como orden del shell
 // de Ring 0, y al escritorio no se vuelve una vez arranca --`fb::rescue` se
 // niega a echar al que sostiene la casa, y con razon--. O sea que el censo era
-// codigo correcto que su dueno no podia mirar. Ver `shell/extensions.rs`.
+// codigo correcto que su propietario no podia mirar. Ver `shell/extensions.rs`.
 //
 // ** Y por que MASCARAS y no texto ya formateado: el kernel contesta HECHOS y
 // Ring 3 decide la presentacion. Una linea pre-pintada aqui obligaria a todo
@@ -389,7 +389,7 @@ const INFO_CPU_EXT_USA: u64 = 0x33;
 /// conflictos, mudas, repetidas y sin_sitio, de 16 en 16 bits.
 ///
 /// No se derivan de las mascaras --`conflictos` si, los otros tres no-- y por
-/// eso viajan. Un panel que solo pudiera ensenar los conflictos diria que todo
+/// eso viajan. Un panel que solo pudiera mostrar los conflictos diria que todo
 /// esta bien cuando lo que falla es que una fila no tiene motivo escrito.
 const INFO_CPU_EXT_AVERIAS: u64 = 0x34;
 
@@ -463,7 +463,7 @@ pub fn campo(n: u64) -> Option<u64> {
                     INFO_MEM_QUIEN_BYTES => bytes,
                     _ => peticiones as u64,
                 },
-                // Cero en las tres: el pid a cero es la senal de parada y las
+                // Cero en las tres: el pid a cero es la signal de parada y las
                 // otras dos acompanan sin inventar nada.
                 None => 0,
             }
@@ -503,7 +503,7 @@ pub fn campo(n: u64) -> Option<u64> {
         //
         // ** Hasta el 2026-08-28 el crudo tambien salia de la cache, y el unico
         // sitio donde la NIC se releia de verdad era la orden `net` del shell
-        // de Ring 0 -- o sea **un sitio al que el dueno no vuelve**. Es la
+        // de Ring 0 -- o sea **un sitio al que el propietario no vuelve**. Es la
         // misma forma del arreglo de `net rx` del 24-08, y ya van varias.
         //
         // [!] El precedente de que un INFO puede tocar MMIO ya estaba al lado:
@@ -653,7 +653,7 @@ pub fn campo(n: u64) -> Option<u64> {
         // ** El censo entero cabe en tres numeros porque son treinta y seis
         // filas: una mascara de 64 bits sobra. Si algun dia [`ALL`] pasa de 64,
         // `INFO_CPU_EXT_N` es lo que lo dice en voz alta -- por eso viaja el
-        // tamano y no se da por sabido en el otro lado.
+        // medida y no se da por sabido en el otro lado.
         INFO_CPU_EXT_N => {
             crate::ring0::cpu_vendor::features::ALL.len() as u64
         }

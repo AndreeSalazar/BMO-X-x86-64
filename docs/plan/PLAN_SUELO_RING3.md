@@ -4,15 +4,15 @@
 
 > Escrito el **2026-08-26**, despues del censo de
 > [`RING3_MAESTRO.md`](../maestro/RING3_MAESTRO.md) y con el visto bueno del
-> dueno: *"si, tira por ahi, empieza con el suelo de Ring 3"*.
+> propietario: *"si, tira por ahi, empieza con el suelo de Ring 3"*.
 >
 > El censo dijo QUE baja y en que orden. Esto dice **como se construye el suelo
 > sobre el que puede bajar**, y las tres piezas no bajan ni una linea: son el
 > mecanismo.
 >
-> ⚠ **Y la parte 2 es una decision de seguridad, no de diseno.** Va escrita
+> ⚠ **Y la parte 2 es una decision de seguridad, no de esquema.** Va escrita
 > antes de tocar codigo a proposito: es exactamente la clase de cosa que el
-> dueno pidio que no le sorprendiera.
+> propietario pidio que no le sorprendiera.
 
 ---
 
@@ -165,7 +165,7 @@ latencia.
 
 ## 3.1b -- ★ Y hay mas suelo del que este plan supuso
 
-Escribiendo S1 y S2 salio esto, y cambia el tamano de S3: **el stub de
+Escribiendo S1 y S2 salio esto, y cambia el medida de S3: **el stub de
 interrupcion del disco ya esta preparado para cambiar de tarea.** Lo dice
 `plat/irq.rs` con todas las letras, de cuando se escribio:
 
@@ -185,7 +185,7 @@ ya manda el EOI, y ya devuelve una pila que el planificador puede cambiar.
 | **el EOI lo manda RING 0** | el APIC no se cede (ver el veto `EsElApic`) |
 | **desenmascarar es una operacion del driver** | *"ya termine, vuelve a avisarme"*. Es el equivalente de *"el evento ES el permiso para volver a encolar"* que ya costo el teclado |
 
-⚠ **Y el fallo que hay que impedir por diseno: un driver de Ring 3 que muere con
+⚠ **Y el fallo que hay que impedir por esquema: un driver de Ring 3 que muere con
 su linea enmascarada deja el aparato mudo para siempre.** Al morir el proceso,
 el kernel tiene que desenmascarar o dejar la linea marcada como huerfana. Es
 `R-APP6` --*muere sin llevarse a nadie*-- aplicado a una IRQ.
@@ -197,7 +197,7 @@ tres, y las tres son de seguridad. Van escritas antes de tocar nada:
 
 | # | la pregunta | por que no se puede improvisar |
 |---|---|---|
-| 1 | **quien puede pedir una IRQ?** | pedir una linea por su numero es lo mismo que pedir una fisica por su numero: se pide **el aparato que ya se tiene**, y la linea sale del censo del kernel. Una IRQ es de un aparato, y el aparato ya tiene dueno por `KIND_MMIO` |
+| 1 | **quien puede pedir una IRQ?** | pedir una linea por su numero es lo mismo que pedir una fisica por su numero: se pide **el aparato que ya se tiene**, y la linea sale del censo del kernel. Una IRQ es de un aparato, y el aparato ya tiene propietario por `KIND_MMIO` |
 | 2 | **que pasa con la linea si el driver muere ENMASCARADA?** | el aparato se queda mudo hasta reiniciar. Al morir el proceso, el kernel **desenmascara**, o la linea queda marcada como huerfana con su nombre. Es `R-APP6` aplicado a una interrupcion |
 | 3 | **con que vector se PRUEBA?** | el del disco esta tomado, y el del xHC lo usa el teclado. La primera prueba **no debe pedir un aparato**: se hace con el TIMER, que ya late, y cuenta despertares. Sin driver, sin aparato, sin riesgo |
 

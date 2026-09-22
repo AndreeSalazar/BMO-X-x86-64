@@ -3,7 +3,7 @@
 //! [carril]  ROJO      de sectores a ARCHIVOS
 //! [consumo] NADA      corre cuando alguien lee o escribe un fichero
 //!
-//! Un sector es 512 bytes en una posicion. Un archivo es un nombre, un tamano
+//! Un sector es 512 bytes en una posicion. Un archivo es un nombre, un medida
 //! y una lista de bloques desperdigados. Entre las dos cosas esta esta capa.
 //!
 //! ## Que monta, y por que esa particion
@@ -12,7 +12,7 @@
 //! **de arranque** (la ESP, tipo GUID C12A7328-...), que es donde vive el propio
 //! `BOOTX64.EFI` con el que este kernel arranco: el primer archivo que BMO-X
 //! abre es el mismo. No se adivina "la primera FAT32 que aparezca": se pide
-//! por TIPO, la misma leccion que dejo el NVMe con el Windows del dueno.
+//! por TIPO, la misma leccion que dejo el NVMe con el Windows del propietario.
 //!
 //! ## Dos volumenes, y solo uno se puede escribir
 //!
@@ -136,7 +136,7 @@ pub fn read(first_cluster: u32, size: u32, dst: &mut [u8]) -> usize {
 // -- El volumen de DATOS: el unico que se puede escribir ---------------------
 
 /// La entrada `n` de un directorio del volumen de DATOS: `(nombre 8.3,
-/// es_dir, tamano)`. `None` cuando se acaban.
+/// es_dir, medida)`. `None` cuando se acaban.
 ///
 /// Es lo que faltaba para que Ring 3 pueda PREGUNTAR QUE HAY en vez de tener
 /// que saberse los nombres de memoria. Ver `ring0/directorio.rs`.
@@ -419,7 +419,7 @@ pub fn load(path: &str, dst: &mut [u8]) -> Result<usize, LoadError> {
     Ok(v.read_file(cluster, size, dst))
 }
 
-/// **Abre un archivo para leerlo por RANGOS.** Devuelve `(cursor, tamano)`.
+/// **Abre un archivo para leerlo por RANGOS.** Devuelve `(cursor, medida)`.
 ///
 /// Es lo que sostiene la pieza B: el cargador ya no trae el fichero a una mesa,
 /// pide **el rango de cada seccion** y lo deja caer en los marcos del proceso.
@@ -508,7 +508,7 @@ pub fn leer_rango(
     v.leer_en(cur, offset, size, dst)
 }
 
-/// **Prepara una lectura A TROZOS.** Devuelve `(primer cluster, tamano)`.
+/// **Prepara una lectura A TROZOS.** Devuelve `(primer cluster, medida)`.
 ///
 /// Es `load` partido en dos momentos: aqui se resuelve la ruta --lo unico que
 /// hay que hacer una sola vez-- y los bytes se traen despues con
@@ -554,7 +554,7 @@ pub fn leer_trozo(
 /// paquete con un WAD dentro eso es casi todo el fichero.
 ///
 /// Asi que se lee el principio, se le pregunta al formato que necesita, y se lee
-/// eso. El tamano real se devuelve aparte porque **sigue haciendo falta**: es
+/// eso. El medida real se devuelve aparte porque **sigue haciendo falta**: es
 /// contra el que la cabecera comprueba que la imagen llego entera, y confundirlo
 /// con "lo que cabia en el buffer" convertiria un fichero cortado en uno valido.
 ///
@@ -573,17 +573,17 @@ pub fn load_prefijo(path: &str, dst: &mut [u8]) -> Result<(usize, usize), LoadEr
 
 /// Cuantos bytes mide el archivo, SIN leerlo.
 ///
-/// Existe para poder reservar el buffer del tamano justo antes de traerlo:
+/// Existe para poder reservar el buffer del medida justo antes de traerlo:
 /// hasta ahora un archivo abierto se copiaba a una fila estatica de 4 KiB, y
 /// ese numero era el techo de lo que un programa podia leer. Preguntar primero
 /// convierte el techo en "lo que quepa en la RAM".
-pub fn tamano(path: &str) -> Result<u32, LoadError> {
+pub fn size(path: &str) -> Result<u32, LoadError> {
     resolver(path).map(|(_, size)| size)
 }
 
-/// Recorre la ruta y devuelve `(cluster, tamano)` del archivo.
+/// Recorre la ruta y devuelve `(cluster, medida)` del archivo.
 ///
-/// Lo comparten `load` y `tamano` a proposito: dos copias del recorrido de
+/// Lo comparten `load` y `medida` a proposito: dos copias del recorrido de
 /// directorios es la forma clasica de que una acepte una ruta que la otra
 /// rechaza.
 fn resolver(path: &str) -> Result<(u32, u32), LoadError> {

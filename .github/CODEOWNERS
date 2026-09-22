@@ -88,12 +88,12 @@
 /toolchain/tools/perfil-campos/              @AndreeSalazar
 /toolchain/tools/perfil-placa/               @AndreeSalazar
 /toolchain/tools/planes/                     @AndreeSalazar
-/toolchain/tools/privacidad/                 @AndreeSalazar
+/toolchain/tools/privacidad/                 @AndreeSalazar
 /toolchain/tools/codeowners/                 @AndreeSalazar
 /toolchain/tools/isa/                        @AndreeSalazar
 /toolchain/tools/metro/                      @AndreeSalazar
 /toolchain/tools/relevo/                     @AndreeSalazar
-/toolchain/tools/tamano/                     @AndreeSalazar
+/toolchain/tools/medida/                     @AndreeSalazar
 
 # == 4. Lo que lo FIRMA y lo que Ring 0 OBEDECE ===============================
 #

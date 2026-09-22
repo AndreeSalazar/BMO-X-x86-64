@@ -25,7 +25,7 @@
 //! >
 //! > Un aviso informa a quien ya estaba mirando. Una averia que **sigue
 //! > ocurriendo** necesita una luz encendida mientras dure, y en el sitio donde
-//! > vive el dueno.
+//! > vive el propietario.
 //!
 //! === Por que se pinta SIEMPRE, tambien cuando todo va bien ===
 //!
@@ -59,7 +59,7 @@ const TESTIGO_W: u32 = 168;
 
 /// Cuantas fichas hay antes de el. Se coloca **en la ranura siguiente a la de
 /// CABINA** y con la geometria de una ficha, no con numeros propios: asi se
-/// mueve solo si algun dia cambia el tamano de las fichas.
+/// mueve solo si algun dia cambia el medida de las fichas.
 ///
 /// [!] Y no contra el borde derecho, que era el sitio obvio: alli pinta el
 /// arranque `SIN ENTRADA: teclado y raton son de otro`, que son cuarenta letras
@@ -88,7 +88,7 @@ const LUZ_CAIDO: u32 = 0x00EF_4444;
 /// El hilo late cada 4 ms. Cien es veinticinco vueltas perdidas: lo bastante
 /// alto para que un pico de carga --un frame gordo, una lectura de disco-- no
 /// encienda la luz, y lo bastante bajo para que un teclado muerto se vea antes
-/// de que el dueno termine de preguntarse por que no escribe.
+/// de que el propietario termine de preguntarse por que no escribe.
 const LATIDO_LIMITE_MS: u64 = 100;
 
 /// Que esta pasando, en un solo dato. **Es un HECHO nombrado, no un consejo**:

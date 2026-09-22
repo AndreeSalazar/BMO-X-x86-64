@@ -48,7 +48,7 @@
 //!
 //! Fue el primer sitio en el que se penso, y esta mal. La cabecera de esa
 //! carpeta lo dice ella misma: *"todo lo de esta carpeta se borra cuando
-//! llegue la GPU"*, porque lo de alli son apanos de CPU para una tarjeta que
+//! llegue la GPU"*, porque lo de alli son arreglos de CPU para una tarjeta que
 //! no responde -- el troceado en cajas sucias existe para no copiar 8,3 MB por
 //! fotograma, y el dia que haya `page flip` sobra.
 //!
@@ -57,7 +57,7 @@
 //!
 //! ## ** PARA QUE SIRVE ESTO EL DIA QUE HAYA VULKAN
 //!
-//! La pregunta del dueno, y es la correcta: *"si un dia llega a Vulkan, si no
+//! La pregunta del propietario, y es la correcta: *"si un dia llega a Vulkan, si no
 //! sabe dibujar menos para Vulkan"*.
 //!
 //! Vulkan no da "dibujar". Vulkan **pide** que sepas describir un pipeline de

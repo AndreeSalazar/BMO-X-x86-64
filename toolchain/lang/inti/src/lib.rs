@@ -300,7 +300,7 @@ pub fn comprobar(fuente: &str) -> Cosecha<perfil::Informe> {
 /// indefinido.
 ///
 /// Es la peticion de Eddi -- *"CABINA va a estar vigilando a INTI por completo,
-/// porque es el PRINCIPAL para decir y senalar que fallo, para asi mejorar en
+/// porque es el PRINCIPAL para decir y marcar que fallo, para asi mejorar en
 /// avances"* -- y lo importante es que **no se manda solo lo que fallo**. Los
 /// numeros van tambien, porque un numero se puede seguir en el tiempo y una
 /// queja no.

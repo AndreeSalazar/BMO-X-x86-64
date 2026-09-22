@@ -2,7 +2,7 @@
 //!
 //! # De donde salen estas filas
 //!
-//! El dueno pidio mirar el UB de C --*"mi sistema NO TIENE que adivinar"*-- y al
+//! El propietario pidio mirar el UB de C --*"mi sistema NO TIENE que adivinar"*-- y al
 //! barrer las doce formas clasicas de comportamiento indefinido aparecio, en la
 //! fila de control, **algo que no es UB**: C perfectamente ordinario dando un
 //! numero equivocado.

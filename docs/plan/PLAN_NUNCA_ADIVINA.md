@@ -1,6 +1,6 @@
 # PLAN -- NUNCA ADIVINA: lo que el compilador no puede saber, no lo supone
 
-> La regla, con las palabras del dueno, **2026-09-10**:
+> La regla, con las palabras del propietario, **2026-09-10**:
 >
 > *"si encuentra lo que es adivinar, no compila hasta que lo aclares. No me
 > gustaria que la CPU tenga que perder tiempo en adivinar. NUNCA ADIVINA."*
@@ -111,11 +111,11 @@ no tiene donde apuntar un error de emision:
    parser/inicializador.rs  dos mas de la misma forma
 ```
 
-** Un tamano de struct supuesto no falla: **coloca mal una tabla entera**. Cada
+** Un medida de struct supuesto no falla: **coloca mal una tabla entera**. Cada
 elemento cae donde no es, y lo que se lee despues es el campo del vecino.
 
 Se verifica: las cuatro pasan por un embudo con nombre, y una fila que le pide
-el tamano de un struct que no existe **no compila**.
+el medida de un struct que no existe **no compila**.
 
 ## [ ] A5 -- LA TABLA DEL UB, que era el encargo original
 
@@ -186,5 +186,5 @@ compilador **ya sabe que no sabe** -- el sitio donde hoy escribe un `unwrap_or`.
 
 `exige_tipo` corre donde ya corria un `unwrap_or`: es un `match` mas. El coste
 de la regla es **cero instrucciones en la maquina** -- que era el punto: lo que
-el dueno no quiere es que **la CPU** pierda tiempo adivinando, y una CPU que
+el propietario no quiere es que **la CPU** pierda tiempo adivinando, y una CPU que
 ejecuta la suposicion equivocada no pierde tiempo: pierde el dato.

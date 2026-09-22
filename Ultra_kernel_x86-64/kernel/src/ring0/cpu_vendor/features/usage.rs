@@ -214,7 +214,7 @@ pub fn of(f: Feat) -> Use {
         // no hacia nada con tres que SI estan puestos.
         //
         // ** Y el coste no fue teorico: con esta tabla delante se le dijo al
-        // dueno que "BMO-X no tiene ni una mitigacion". Falso. Tiene dos
+        // propietario que "BMO-X no tiene ni una mitigacion". Falso. Tiene dos
         // funcionando y una tercera armada sin usar.
         //
         // > Una tabla equivocada no deja un hueco: **cierra la pregunta.**
@@ -246,7 +246,7 @@ pub fn of(f: Feat) -> Use {
         //
         //   ARCH_OP_LEER_EN     tenia un respaldo `None => base + desde` que
         //                       ya era INALCANZABLE desde el arreglo de los
-        //                       limites de la misma manana
+        //                       limites de la misma luego
         //   ARCH_OP_ESCRIBIR_DE no tenia camino de espejo EN ABSOLUTO:
         //                       siempre dereferenciaba la VA del proceso
         //

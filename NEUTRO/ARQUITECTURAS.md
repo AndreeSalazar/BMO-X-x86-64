@@ -1,7 +1,7 @@
 # EL NEUTRO ES AGNOSTICO -- la misma categoria en cualquier CPU
 
 > Es la regla **N6** y la razon de que esta carpeta este en la raiz y no dentro
-> de `Ultra_kernel_x86-64/`. Lo dijo el dueno con la palabra puesta:
+> de `Ultra_kernel_x86-64/`. Lo dijo el propietario con la palabra puesta:
 >
 > > *"luego ese mismo NEUTRO va a vivir otras arquitecturas de CPU si es que
 > > llega, por algo se llama **agnostico**"*
@@ -90,7 +90,7 @@ con la placa.
 ```text
    [ ] no dice que BMO-X vaya a arrancar en ARM ni en RISC-V
    [ ] no dice que portar sea facil: dice que ESTA CARPETA no habria que
-       reescribirla, que es una afirmacion mucho mas pequena
+       reescribirla, que es una afirmacion mucho mas chica
    [ ] y no propone escribir soporte para ninguna de las tres MMU
 ```
 

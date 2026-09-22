@@ -40,7 +40,7 @@
 //! > la peor cosa que puede decir un instrumento que se borro.
 //!
 //! ** Por eso el olvido tiene UN SOLO SITIO --[`super::olvidar_la_barra`]-- y no
-//! una llamada suelta por chip. Tres llamadas repartidas es como se anade un
+//! una llamada suelta por chip. Tres llamadas repartidas es como se agrega un
 //! cuarto chip y se olvida la suya, y ese fallo no se ve: se ve un hueco.
 //!
 //! # *** LA EXCEPCION, Y ES LO QUE HACE QUE ESTO SEA UNA REGLA
@@ -50,7 +50,7 @@
 //!
 //! > *"la aguja avanza SIEMPRE, y por eso el modulo entero repinta siempre. Es
 //! > lo contrario de lo que hace el testigo, y es a proposito: aqui lo que se
-//! > ensena no es el valor, es que HAYA LATIDO."*
+//! > muestra no es el valor, es que HAYA LATIDO."*
 //!
 //! ** Un instrumento de vida que se calla cuando no cambia nada es un
 //! instrumento que se calla cuando el bucle se muere. Justo el fallo que costo

@@ -179,7 +179,7 @@ fn cast_is_real_node() {
 
 #[test]
 fn array_decl_records_size() {
-    // int arr[4] debe ser Array(Int, 4) -- antes el tamano se TIRABA.
+    // int arr[4] debe ser Array(Int, 4) -- antes el medida se TIRABA.
     let src = "int main() { int arr[4]; return 0; }";
     let p = parse(src).unwrap();
     let main_fn = &p.functions[0];
@@ -219,7 +219,7 @@ fn subscript_assign_not_discarded() {
 ///
 /// Hasta el 2026-09-02 esto era `assert_eq!(*scale, 4)` sobre el nodo del AST,
 /// porque el paso viajaba dentro. Ya no viaja: lo contesta el codegen, que es
-/// quien tiene la tabla de tamanos.
+/// quien tiene la tabla de medidas.
 ///
 /// [!] La garantia **no se relaja, cambia de sitio**. Un test que solo miraba
 /// el numero en el arbol no comprobaba que se USARA; este escribe en dos

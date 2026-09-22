@@ -15,7 +15,7 @@
 //! ```
 //!
 //! ** Las dos siguen la misma forma y no por gusto: **es la misma forma.** Un
-//! aparato que solo puede tener un dueno, y un trabajo de reparto que el kernel
+//! aparato que solo puede tener un propietario, y un trabajo de reparto que el kernel
 //! no debe hacer. Tener `tomar` y `soltar` de los tres en una pagina es lo que
 //! deja comprobar que los tres se comportan igual.
 //!
@@ -53,9 +53,9 @@ pub(super) fn framebuffer_claim(arg0: u64, _arg1: u64) -> BmoStatus {
 }
 
 //// * SOLTAR la pantalla sin morirse. La pareja que le faltaba a
-//// `FRAMEBUFFER_CLAIM`: hasta hoy la unica forma de dejar de ser dueno
+//// `FRAMEBUFFER_CLAIM`: hasta hoy la unica forma de dejar de ser propietario
 //// era terminar, asi que el escritorio no podia prestarla ni queriendo y
-//// `ray.bex` se llevaba un "la pantalla ya tiene dueno".
+//// `ray.bex` se llevaba un "la pantalla ya tiene propietario".
 ///
 //// El `CR3` es el del llamante, igual que al reclamar -- y aqui importa
 //// mas, porque es de donde hay que DESMAPEAR: el proceso sigue vivo y

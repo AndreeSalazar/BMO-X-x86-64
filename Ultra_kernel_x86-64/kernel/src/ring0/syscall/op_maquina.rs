@@ -10,7 +10,7 @@
 //! *** Y antes que nada, la MEDIDA que corrigio el diagnostico (2026-08-24).
 //!
 //! `invoke_current_task` son 795 lineas y el censo lo marcaba `CON MONSTRUO`,
-//! o sea *"partirla es diseno, no tijeras"*. Se midio su estado compartido y
+//! o sea *"partirla es esquema, no tijeras"*. Se midio su estado compartido y
 //! salio esto:
 //!
 //! ```text
@@ -85,7 +85,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
             // *** 4 y 5: EL ANCHO DE BANDA DE LA MEMORIA, DESDE RING 3.
             //
             // ** Entraron el 2026-08-24 porque `banda` se escribio solo para el
-            // shell de Ring 0 -- y al shell de Ring 0 el dueno NO VUELVE: vive
+            // shell de Ring 0 -- y al shell de Ring 0 el propietario NO VUELVE: vive
             // en el escritorio. Una medida a la que no se puede llegar desde
             // donde se trabaja es una medida que no existe.
             //
@@ -147,7 +147,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
             // se puede mandar entera. El detalle en crudo va a CABINA.
             // *** EL CENSO HILO A HILO, CON SU NOMBRE. (2026-08-24)
             //
-            // Peticion del dueno, con estas palabras: *"en `smp all` me gustaria
+            // Peticion del propietario, con estas palabras: *"en `smp all` me gustaria
             // que detalles TODO con nombres CORE y THREAD asi para no decir x12,
             // eso es mentir si pongo asi"*.
             //
@@ -213,7 +213,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 // volver a encolar: perder uno no pierde una pulsacion, PARA LA
                 // BOMBA.
                 //
-                // *** Le paso al dueno en el Ryzen el 24-08: despues de `smp
+                // *** Le paso al propietario en el Ryzen el 24-08: despues de `smp
                 // prueba` el teclado se quedo mudo y `reboot` no llego nunca al
                 // kernel. **Los tres sintomas que reporto eran UNO.**
                 //
@@ -232,7 +232,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 // llegaron. Estos tres numeros parten el camino en los tres
                 // sitios donde se puede romper -- entrar al bucle, ver la
                 // ronda, terminar la faena-- y la diferencia entre dos
-                // consecutivos senala el tramo culpable.
+                // consecutivos marca el tramo culpable.
                 let (entraron, vieron, hechos) = crew::testigos();
                 crate::ring0::cabina::info("smp", "obreros que ENTRARON al bucle", entraron as u64);
                 crate::ring0::cabina::info("smp", "obreros que VIERON la ronda", vieron as u64);
@@ -282,7 +282,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 //  *** LA SEGUNDA MEDIDA, Y ES LA QUE HACE HONESTO EL NUMERO
                 // ===========================================================
                 //
-                // Peticion del dueno el 2026-08-24, con estas palabras: *"el SMP
+                // Peticion del propietario el 2026-08-24, con estas palabras: *"el SMP
                 // si no es honesto a base de Perfil no me sirve"*. Y tenia razon.
                 //
                 // ** La faena de arriba es una CADENA DE DEPENDENCIAS --lo dice
@@ -329,7 +329,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                     // *** LA FILA QUE CONTESTA DE VERDAD: cuanto rinde cada
                     // nucleo FISICO en un trabajo que satura las unidades. Si
                     // sale cerca de 100, esta maquina esta dando todo lo que
-                    // tiene y el SMT no anade nada -- que es exactamente lo que
+                    // tiene y el SMT no agrega nada -- que es exactamente lo que
                     // le va a pasar a un motor de inferencia.
                     if t.nucleos > 0 {
                         crate::ring0::cabina::count(
@@ -342,7 +342,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                     if anc > 0 && lat > anc {
                         crate::ring0::cabina::count(
                             "smp",
-                            "  ...lo que el SMT anade, x100 (latencia/ancho)",
+                            "  ...lo que el SMT agrega, x100 (latencia/ancho)",
                             lat.saturating_mul(100) / anc,
                         );
                     }
@@ -375,7 +375,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 let (alive, esperados) = smp::despertar(cuantos, |_| {});
                 // ** EN QUE ESTA CADA NUCLEO, A CABINA.
                 //
-                // Lo pidio el dueno con estas palabras: *"que el smp asi
+                // Lo pidio el propietario con estas palabras: *"que el smp asi
                 // natural ayude a verify los cores y hilos: que se estan
                 // usando, y que la cabina con filtros pueda decir que esta
                 // ejecutando"*.
@@ -395,7 +395,7 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                 };
                 // ** CORE o THREAD en el propio mensaje, y en ingles.
                 //
-                // Lo pidio el dueno para la vista y para los FILTROS, y esa
+                // Lo pidio el propietario para la vista y para los FILTROS, y esa
                 // segunda mitad es la que manda: CABINA filtra por texto de
                 // modulo y por gravedad, asi que meter la palabra **dentro
                 // del mensaje** es lo que permite leer de un vistazo cuantos
@@ -482,7 +482,7 @@ pub(super) fn estratos_sellar(_arg0: u64, _arg1: u64) -> BmoStatus {
 ///
 //// Porque al shell de Ring 0 **no se vuelve**: en cuanto el compositor
 //// reclama la entrada, ese shell deja de leer el teclado. Una orden que
-//// solo existe alli es codigo que el dueno de la maquina no puede usar --
+//// solo existe alli es codigo que el propietario de la maquina no puede usar --
 //// ya paso con `smp`, con `audio` y con `ext`, y las tres tuvieron que
 //// subir. Recortar el disco nace directamente arriba.
 ///
@@ -492,7 +492,7 @@ pub(super) fn estratos_sellar(_arg0: u64, _arg1: u64) -> BmoStatus {
 //// kernel --la cola libre de ESTRATOS, que sale de `log_head`-- y lo
 //// vuelve a comprobar contra la ventana de escritura. Dejar que Ring 3
 //// dijera donde recortar seria un borrado apuntable a cualquier sector,
-//// incluida la ESP donde vive el arranque del dueno.
+//// incluida la ESP donde vive el arranque del propietario.
 pub(super) fn disco(arg0: u64, _arg1: u64) -> BmoStatus {
         use crate::ring0::dev::disk::{self, Recorte};
         match arg0 {
@@ -574,7 +574,7 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
             //
             // ** Y aqui no vale el argumento del panel: esto no se repinta a
             // 60 Hz, se TECLEA una vez. Una lectura de MMIO por orden del
-            // dueno es exactamente lo que hay que gastar.
+            // propietario es exactamente lo que hay que gastar.
             let Some(id) = net::releer() else {
                 crate::ring0::cabina::warn("red", "no hay tarjeta que este kernel sepa leer", 0);
                 return BmoStatus::ok_value(RED_SIN_TARJETA);

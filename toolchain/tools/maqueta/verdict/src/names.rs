@@ -64,7 +64,7 @@ fn islas(laid: &Laid, out: &mut Vec<Error>) {
             out.push(Error::new(
                 f.span,
                 &format!("la isla `{nombre}` mide {}x{}", rect.w, rect.h),
-                "una isla no se maqueta segun lo que le metan dentro: su tamano lo pone \
+                "una isla no se maqueta segun lo que le metan dentro: su medida la pone \
                  LA MAQUETA. Al reves, una app colgada dejaria el escritorio sin \
                  calcular -- que es la decision 2 de `PLAN_DIRECTOR.md`.",
                 "darle `width` y `height`, o dejar que su contenedor flex la estire.",

@@ -34,7 +34,7 @@ hacen UNA cosa; `dev/disk/mod.rs` son 893 que hacen siete.
 |---|---|---|
 | `bmo_block::BlockDevice` | el kernel registra `AhciDisk` | SI -- es el contrato |
 | puntero a funcion | FAT32 (`lib.rs:168`) | **NO** |
-| `dev::disk::block_read` y companeros, publicas | quien quiera | **NO** |
+| `dev::disk::block_read` y colegas, publicas | quien quiera | **NO** |
 
 **Un contrato con dos bypasses no es un contrato.** Misma clase de hallazgo que
 `cpu_features` y `_reserved` en la cabecera BEF (patron 40): la regla queda
@@ -86,7 +86,7 @@ Eso es el corte, y sale del criterio C con D de desempate.
 
 ---
 
-## 2. DONDE BMO PUEDE SER MEJOR QUE LINUX (no solo mas pequeno)
+## 2. DONDE BMO PUEDE SER MEJOR QUE LINUX (no solo mas chico)
 
 Tres cosas que Linux, por estructura, no puede hacer:
 

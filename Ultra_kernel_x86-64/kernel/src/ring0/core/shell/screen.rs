@@ -1,7 +1,7 @@
 //! **Las ordenes que PINTAN.** `cabina`, `fb` y `splash`.
 //!
 //! [carril]  VERDE     las ordenes que solo pintan
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! # Por que no estan con las de hardware, si el framebuffer es hardware
 //!
@@ -61,7 +61,7 @@ pub(crate) fn shell_cabina() {
 /// volumen montado), y esto **PINTA**, que es lo unico que funciona cuando lo
 /// que se ha caido es justamente el que sabia escribir ficheros.
 ///
-/// ** Sin argumento ensena la mas reciente; `fallo 1` la anterior. Se guardan
+/// ** Sin argumento muestra la mas reciente; `fallo 1` la anterior. Se guardan
 /// cuatro, porque un fallo que se repite lo hace en rafaga y lo que interesa es
 /// tener la primera Y la ultima: iguales = determinista.
 pub(crate) fn shell_fallo(arg: &[u8]) {

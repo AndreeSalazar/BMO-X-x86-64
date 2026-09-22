@@ -39,7 +39,7 @@ pub enum FsType {
 ///   sobre que disco vivia ni cuantos bloques tenia.
 /// * **Errores con nombre** en vez de `bool`: `OutOfRange` es un bug del que
 ///   llama y `Device` es hardware roto, y con un booleano son la misma cosa.
-/// * **`flush` de verdad**: la barrera que un diseno transaccional necesita.
+/// * **`flush` de verdad**: la barrera que un esquema transaccional necesita.
 /// * **`writable()`**: se puede preguntar ANTES de empezar, no a mitad.
 ///
 /// [!] Y no se pierde nada de lo que el motivo viejo protegia: el sistema de
@@ -186,7 +186,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     let spc = bpb.sectors_per_cluster;
     if spc == 0 { return None; }
     // Clusters que EXISTEN de verdad: los sectores de datos divididos entre el
-    // tamano de cluster. La numeracion empieza en 2, asi que el ultimo valido
+    // medida de cluster. La numeracion empieza en 2, asi que el ultimo valido
     // es cuenta+1.
     let total = bpb.total_sectors;
     if total <= data_start { return None; }
@@ -322,7 +322,7 @@ impl FatVolume {
     ///
     /// El resultado fue el fallo mas caro de esta semana. Los directorios y la
     /// FAT se leen sector a sector --por los helpers, o sea traducidos-- y los
-    /// DATOS iban directos: el sistema encontraba el archivo, sabia su tamano
+    /// DATOS iban directos: el sistema encontraba el archivo, sabia su medida
     /// exacto, y traia los bytes de `lba` **sin sumar nada**, o sea de otra
     /// particion. Con `part_lba = 1230848`, un `.bex` del volumen de datos se
     /// leia de dentro de la ESP.
@@ -648,16 +648,16 @@ impl FatVolume {
     /// `offset += count` de despues corria igual. O sea que un sector que
     /// fallaba dejaba su trozo de `dst` con lo que hubiera antes --basura, o
     /// peor: los bytes del programa anterior-- y esta funcion contestaba el
-    /// tamano completo, como si todo hubiera ido bien.
+    /// medida completo, como si todo hubiera ido bien.
     ///
     /// Para un `.txt` de dos lineas eso es un caracter raro. Para un `.bex` de
     /// 814 KiB son **1.591 lecturas de sector** y basta con que una falle: el
-    /// cargador recibe una imagen del tamano correcto **con un agujero dentro**,
+    /// cargador recibe una imagen del medida correcto **con un agujero dentro**,
     /// y lo que rechaza despues no se parece en nada a la causa.
     ///
     /// Cortar y devolver lo que se tiene convierte ese fallo mudo en uno que se
-    /// cuenta: el que llama compara con el tamano que pidio. Y para el `.bex`,
-    /// ademas, la imagen declara su propio tamano en la cabecera, asi que el
+    /// cuenta: el que llama compara con el medida que pidio. Y para el `.bex`,
+    /// ademas, la imagen declara su propio medida en la cabecera, asi que el
     /// cargador lo caza con nombre (`BexError::ImagenIncompleta`).
     ///
     /// [!] Lo que esto NO caza es un sector que se lee "bien" y trae datos
@@ -767,7 +767,7 @@ impl FatVolume {
     /// lectura --traduccion incluida-- expuesta para poder decirla.
     ///
     /// [!] Decia "absoluto" y devolvia el relativo al volumen. La foto del
-    /// 2026-08-11 lo enseno y nadie lo leyo asi: `LBA =0x11040` con `la particion
+    /// 2026-08-11 lo mostro y nadie lo leyo asi: `LBA =0x11040` con `la particion
     /// empieza en =0x12C800` es un sector **anterior al principio de su propia
     /// particion**, o sea imposible -- y aun asi paso por "razonable" porque la
     /// linea prometia un numero que no daba.
@@ -1010,7 +1010,7 @@ pub use forma::*;
 /// formatos. Aparte porque es otra pregunta (L6b).
 mod buscar;
 /// **Lo unico que MODIFICA el disco.** Junto, para poder leerlo entero antes de
-/// tocarlo -- en esta maquina el volumen de al lado es el Windows del dueno.
+/// tocarlo -- en esta maquina el volumen de al lado es el Windows del propietario.
 mod escribir;
 
 #[cfg(test)]

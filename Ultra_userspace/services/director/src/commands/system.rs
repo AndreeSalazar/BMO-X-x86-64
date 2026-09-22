@@ -34,7 +34,7 @@ use crate::paint_output;
 /// contestar "no lo conozco" habria sido correcto y
 /// cruel: estaba escrita en la linea de ayuda de
 /// ayer, en dos documentos y en la costumbre del
-/// dueno. **Una funcion que se muda sin dejar nota se
+/// propietario. **Una funcion que se muda sin dejar nota se
 /// convierte en una funcion que desaparecio.**
 pub(crate) fn seal_moved(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"  sellar se mudo a la ventana de ESTRATOS.\n");
@@ -51,7 +51,7 @@ pub(crate) fn seal_moved(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 /// ** `audio` -- paso 0 de docs/maestro/AUDIO_MAESTRO.md.
 ///
 /// La orden existia SOLO en el shell de Ring 0 y el
-/// dueno la escribio aqui, que es donde se trabaja.
+/// propietario la escribio aqui, que es donde se trabaja.
 /// Contesto "no es un comando ni una ruta" y la
 /// prueba se quedo sin hacer. Dos shells con dos
 /// vocabularios distintos son dos productos.
@@ -120,7 +120,7 @@ pub(crate) fn estratos_escribe(
         s.dec(g);
         s.with_ink(INK_PLAIN);
         s.text(b"
-  F12 lo ensena, y tras reiniciar tiene que seguir ahi.\n");
+  F12 lo muestra, y tras reiniciar tiene que seguir ahi.\n");
     }
     paint_status(p, &dsk.run_box, "estratos", INK_DIM);
     dsk.field.n = 0;
@@ -133,7 +133,7 @@ pub(crate) fn net(dsk: &mut Desktop, _p: &bmo::Pantalla, what: &[u8]) -> After {
     //
     // ** Hasta hoy esto solo informaba y el panel mandaba al shell de Ring 0.
     // Y al shell de Ring 0 no se vuelve: un camino que solo existe alli es un
-    // camino que el dueno de su propia maquina no puede tomar.
+    // camino que el propietario de su propia maquina no puede tomar.
     //
     // [!] Y no es "el escritorio toca la NIC": es `bmo::red::armar()`, o sea
     // Ring 3 PIDE y el kernel DECIDE -- la misma forma que el disco. Ninguna
@@ -141,7 +141,7 @@ pub(crate) fn net(dsk: &mut Desktop, _p: &bmo::Pantalla, what: &[u8]) -> After {
     if what == b"rx" {
         // ** EL CERO QUE SALIO EN EL RYZEN (2026-09-13), con 16 tramas cogidas.
         //
-        // Esto ensenaba lo que devolvia `sondear()`, y `RED_OP_ARMAR` YA SONDEA
+        // Esto mostraba lo que devolvia `sondear()`, y `RED_OP_ARMAR` YA SONDEA
         // dentro: se lleva las tramas nuevas antes de que llegue esta pregunta.
         // Asi que salia "tramas en esta vuelta: 0" y "el anillo se acaba de
         // armar" con el receptor armado desde hacia minutos. Ahora se cuenta el
@@ -344,7 +344,7 @@ pub(crate) fn autopsy(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 pub(crate) fn cabina(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     // ** `radar` es OTRO panel, no un filtro mas: el anillo contesta *que paso*
     // y el barrido *cuanto hubo*. Meterlo como filtro habria dado a entender que
-    // ensena un subconjunto de lo mismo, y ensena lo que el anillo YA NO TIENE.
+    // muestra un subconjunto de lo mismo, y muestra lo que el anillo YA NO TIENE.
     if arg == b"radar" || arg == b"barrido" {
         super::cabina::report_radar(&mut dsk.out.grid);
     } else {
@@ -462,7 +462,7 @@ pub(crate) fn memory(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 /// el kernel manda INIT+SIPI a cada nucleo. Un
 /// mensaje escrito despues de volver no explica
 /// nada: para entonces la espera ya paso, y lo que
-/// el dueno habria visto es un escritorio congelado
+/// el propietario habria visto es un escritorio congelado
 /// sin motivo.
 /// **`banda` -- el ancho de banda de la memoria, y lo que decide el modelo.**
 ///
@@ -663,14 +663,14 @@ fn ensayo() -> Option<&'static bmo::Memoria> {
 
 pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     // * El CONTROL, y el reparto de quien decide:
-    // aqui solo se traduce lo que el dueno escribio
+    // aqui solo se traduce lo que el propietario escribio
     // a un numero. `smp` a secas censa y no toca
     // nada -- que sea el caso por defecto es la
     // diferencia entre un mando y un boton.
     // Los dos mandos que no son un numero: parar y
     // medir. Se resuelven aqui y salen, porque no
     // comparten NADA con el camino de despertar.
-    // `stop` y `test` son los nombres que el dueno
+    // `stop` y `test` son los nombres que el propietario
     // pidio; `parar` y `prueba` siguen valiendo. Un
     // alias cuesta cuatro bytes y evita el unico
     // fallo de una orden bien escrita: no acordarse
@@ -804,7 +804,7 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         dsk.out.grid.text(b"  obreros parados (vuelven a hlt)\n");
         // ** Y LO QUE VA A PASAR DESPUES, DICHO AQUI.
         //
-        // El dueno escribio `smp stop`, luego `smp`,
+        // El propietario escribio `smp stop`, luego `smp`,
         // y leyo `12 de 12`. Las dos lineas eran
         // ciertas y juntas decian una mentira. Lo
         // que faltaba no era un numero distinto:
@@ -921,7 +921,7 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     //
     // Aqui se decian `smp all` y `smp N` y se
     // callaban `prueba` y `parar`, que son las dos
-    // unicas que HACEN algo interesante. El dueno
+    // unicas que HACEN algo interesante. El propietario
     // lo dijo con todas las letras: *"el smp no me
     // salen mensajes de recomendacion"*.
     //
@@ -958,9 +958,9 @@ pub(crate) fn reboot(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 ///
 /// ## Por que esto vive aqui y no solo en Ring 0 (2026-08-24)
 ///
-/// Se cablo en el shell de Ring 0 y el dueno, que vive en el escritorio, recibio
+/// Se cablo en el shell de Ring 0 y el propietario, que vive en el escritorio, recibio
 /// *"no es un comando ni una ruta"*. **Un camino que solo existe alli es un
-/// camino que el dueno de su propia maquina no puede tomar.**
+/// camino que el propietario de su propia maquina no puede tomar.**
 ///
 /// ** Contesta y no concede: no cambia nada del firmware ni de la placa.
 ///

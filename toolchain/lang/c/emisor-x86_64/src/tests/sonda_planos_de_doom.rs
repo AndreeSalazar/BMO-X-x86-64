@@ -1,4 +1,4 @@
-//! **LOS PLANOS DE DOOM: la cuarta zona, la que el METAL senalo.**
+//! **LOS PLANOS DE DOOM: la cuarta zona, la que el METAL marco.**
 //!
 //! # De donde sale: el instrumento contesto
 //!
@@ -9,7 +9,7 @@
 //! ```
 //!
 //! Todas las columnas visitadas, en un tramo, ninguna con paso cero. **Eso
-//! exonera el dibujado de columnas entero** -- geometria y muestreo. Y el dueno
+//! exonera el dibujado de columnas entero** -- geometria y muestreo. Y el propietario
 //! dijo con sus palabras donde sigue el fallo: *"el FONDO del juego es
 //! corrompido"*. El fondo son los planos: suelos y techos, que no pasan por
 //! `R_DrawColumn` sino por `R_DrawSpan`.
@@ -32,7 +32,7 @@
 //! ** O sea que **el banco era ciego a todo campo mas alla de 127 bytes**:
 //! `player_t`, `mobj_t`, `visplane_t.bottom`... los structs grandes de DOOM,
 //! donde un fallo del emisor mas cuesta. Cualquier fila que los tocara moria en
-//! el emulador y no decia nada del compilador. Se le enseno la instruccion, y
+//! el emulador y no decia nada del compilador. Se le mostro la instruccion, y
 //! **el compilador estaba bien ahi**: siete de siete.
 //!
 //!   > Un emulador que dice "esto no se emite" tiene que tener razon, o su

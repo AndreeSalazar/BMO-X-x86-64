@@ -63,7 +63,7 @@ pub fn atender(puerto: u8) {
 
 /// La clave sobre la que dormira quien espere al disco.
 ///
-/// Un numero que no choca con las de los canales, que son indices pequenos.
+/// Un numero que no choca con las de los canales, que son indices chicos.
 /// Vive aqui --y no en el planificador-- porque **el planificador no tiene por
 /// que saber que existe un disco**: solo reparte turnos sobre claves que le dan.
 #[allow(dead_code)]

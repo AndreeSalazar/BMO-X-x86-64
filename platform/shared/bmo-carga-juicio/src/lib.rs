@@ -19,7 +19,7 @@
 //! mas. No lee el fichero, no conoce el formato BEF, no sabe que es un marco de
 //! 4 KiB. Se le pasan dos numeros y contesta.
 //!
-//! *** Esa pobreza es el diseno. Un juez que supiera abrir la seccion tendria
+//! *** Esa pobreza es el esquema. Un juez que supiera abrir la seccion tendria
 //! que saber de formatos, y entonces el formato podria equivocarlo. Aqui lo que
 //! entra ya son cantidades, asi que **lo unico que puede fallar es la
 //! aritmetica** -- y la aritmetica se prueba.
@@ -36,12 +36,12 @@
 //! > donde ya no hay nadie para contarlo.
 //!
 //! El margen lo pone el llamante, como el espejo de `bmo-fisica-juicio`: **este
-//! crate no tiene ni una constante de tamano**, y por eso no puede equivocarse
+//! crate no tiene ni una constante de medida**, y por eso no puede equivocarse
 //! en el techo. La regla 3 de L6g cumplida quitando la posibilidad.
 
 #![no_std]
 
-/// Lo que el juez contesta. Cada variante es una frase distinta para el dueno.
+/// Lo que el juez contesta. Cada variante es una frase distinta para el propietario.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Veredicto {
     /// Cabe, con el margen pedido.
@@ -71,7 +71,7 @@ impl Veredicto {
 ///
 /// Un `.bex` viejo --compilado antes de que la seccion se escribiera-- no
 /// declara nada, y rechazarlo seria romper todo lo que ya existe en el disco
-/// del dueno el dia que se enciende esta regla.
+/// del propietario el dia que se enciende esta regla.
 ///
 /// *** Y la eleccion tiene su precio dicho: un programa sin declaracion entra
 /// **como entraba antes**, o sea que para el sigue valiendo el "no" tardio del
@@ -180,7 +180,7 @@ pub const CLASE_PROCESOS: u16 = 0x0007;
 /// lo que la tarea va a pedirle al sistema **despues de arrancar**, y solo la
 /// sabe el programa.
 ///
-/// ** Se anade una clase en vez de sumar las dos cantidades porque un sistema
+/// ** Se agrega una clase en vez de sumar las dos cantidades porque un sistema
 /// que no pueda dar el monton puede querer cargar el programa igual --y dejar
 /// que muera con su codigo-- mientras que no poder dar la pila es no poder
 /// cargarlo. Son dos decisiones distintas y necesitan dos numeros distintos.

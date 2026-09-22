@@ -93,7 +93,7 @@ const CMD_BUS_MASTER: u32 = 1 << 2;
 ///
 /// Devuelve `false` --sin tocar nada-- si el dispositivo no anuncia MSI. Quien
 /// llame tiene que quedarse entonces como estaba: encender las interrupciones de
-/// un aparato cuya senal no va a llegar a ninguna parte es peor que no
+/// un aparato cuya signal no va a llegar a ninguna parte es peor que no
 /// encenderlas, porque el aparato se queda esperando a que alguien le conteste.
 // ===================================================================
 //  ECAM -- la configuracion de PCIe en memoria, y los 4096 bytes
@@ -110,7 +110,7 @@ const CMD_BUS_MASTER: u32 = 1 << 2;
 //  ** El camino de puertos NO se toca. Es el que enumera el disco, la NIC y el
 //  xHCI en cada arranque desde hace meses, y sustituirlo por uno nuevo el mismo
 //  dia que el nuevo se escribe es cambiar lo que funciona por lo que todavia no
-//  se ha visto funcionar. El nuevo se anade AL LADO y se gana el sitio.
+//  se ha visto funcionar. El nuevo se agrega AL LADO y se gana el sitio.
 //
 //  ## *** Y COMO SE GANA EL SITIO: DOS TESTIGOS
 //
@@ -452,7 +452,7 @@ pub struct StorageLoc {
 /// * POR QUE POR TIPO Y NO "EL PRIMERO": en esta maquina el primer controlador
 /// del barrido es el NVMe, y en el NVMe vive WINDOWS. El disco de BMO (A: con
 /// el arranque, y BMO-DATA) cuelga de SATA. Pedir "el primer disco que
-/// encuentres" y escribir en el habria sido escribir en el sistema del dueno.
+/// encuentres" y escribir en el habria sido escribir en el sistema del propietario.
 /// Un driver de almacenamiento no adivina a quien le habla: se le dice.
 ///
 /// `skip` salta los primeros N hallazgos de ese tipo (placas con dos HBA).

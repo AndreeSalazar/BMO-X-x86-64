@@ -23,7 +23,7 @@
 //! sugerencia amable al aparato -- y no lo es: despues de un TRIM, esos sectores
 //! ya no tienen lo que tenian. Un TRIM sobre la ESP se lleva el `BOOTX64.EFI`
 //! igual de bien que una escritura, y en esta maquina la ESP tambien lleva el
-//! cargador de Windows del dueno.
+//! cargador de Windows del propietario.
 //!
 //! Asi que el orden de las puertas es el de `write` y una mas, que es propia:
 //!
@@ -140,7 +140,7 @@ pub fn cuentas_trim() -> (u64, u64) { unsafe { (RECORTADOS, ORDENES) } }
 /// **Recorta `[lba, lba+sectores)`.** El rango es de LBA absolutos del disco.
 ///
 /// El bucle de tandas esta aqui y no en el driver porque es donde se tiene el
-/// dueno del disco: se toma UNA vez para todas las ordenes. Soltarlo entre
+/// propietario del disco: se toma UNA vez para todas las ordenes. Soltarlo entre
 /// tandas dejaria que otra tarea pisara la ranura 0 en mitad de un recorte.
 pub fn recortar(lba: u64, sectores: u64) -> Recorte {
     if !is_ready() {
@@ -225,7 +225,7 @@ pub fn recortar(lba: u64, sectores: u64) -> Recorte {
     // sistema diria "devuelto" de algo que el disco todavia no ha asumido.
     //
     // [!] Va FUERA del bloque de arriba a proposito: `flush` toma el disco por su
-    // cuenta, y pedirlo teniendolo ya seria una peticion anidada -- que el dueno
+    // cuenta, y pedirlo teniendolo ya seria una peticion anidada -- que el propietario
     // atiende, pero avisando en CABINA de algo que aqui no es un fallo.
     //
     // Un fallo aqui NO invalida el recorte: los sectores estan igual de libres.

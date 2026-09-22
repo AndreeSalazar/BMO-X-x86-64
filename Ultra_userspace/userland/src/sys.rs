@@ -310,7 +310,7 @@ pub fn smp_despertar(cuantos: u32) -> (u32, u32) {
 ///
 /// [!] Reclama el aparato para preguntar y lo suelta despues. Es exclusivo, asi
 /// que **preguntar mientras algo suena devolveria un error** -- y eso es lo
-/// correcto: dos duenos de un endpoint isocrono no es una respuesta lenta, es
+/// correcto: dos propietarios de un endpoint isocrono no es una respuesta lenta, es
 /// audio partido.
 pub fn audio_tubo(que: u64) -> u64 {
     let h = match invoke(CURRENT_TASK, OP_AUDIO_CLAIM, 0, 0, 0).valor() {
@@ -447,7 +447,7 @@ pub fn offer(bloque: u64, desde: u64, bytes: u64, tid: u32) -> bool {
 /// == *** NO SUSTITUYE A [`offer`], Y ESO ES EL PUNTO (L6i, 2026-09-12) =====
 ///
 /// `offer` sigue leyendo el VALOR y contestando lo mismo que ayer, byte por
-/// byte. Lo que se anade es la otra mitad de la respuesta, que el kernel ya
+/// byte. Lo que se agrega es la otra mitad de la respuesta, que el kernel ya
 /// mandaba y nadie recogia: las banderas traen cual de las cinco.
 ///
 /// Quien solo quiera saber si pudo, sigue usando `offer` y no cambia nada.
@@ -485,7 +485,7 @@ pub fn tomar_prestado() -> Option<(u64, u64)> {
 ///
 /// * El handle hace falta en cuanto uno toma MAS DE UNA cosa, que es lo que hace
 /// el DIRECTOR --un prestamo por ventana--: es lo unico que distingue un
-/// prestamo de otro para preguntarle si su dueno sigue vivo o para devolverlo.
+/// prestamo de otro para preguntarle si su propietario sigue vivo o para devolverlo.
 /// `tomar_prestado` se queda como estaba para quien solo toma una y nunca la
 /// suelta.
 pub fn tomar_prestado_de() -> Option<(u64, u64, u64)> {
@@ -662,7 +662,7 @@ pub fn banda_punto(i: u32) -> u64 {
 /// o **0** si no se pudo.
 ///
 /// * Es la primera llamada de todo el userland que **ESCRIBE EN EL DISCO**, y
-/// lo hace de la forma mas pequena que existe: sin datos, apuntando al mismo
+/// lo hace de la forma mas chica que existe: sin datos, apuntando al mismo
 /// estrato, y sobre la copia del superbloque que no manda. Si sale mal, el
 /// volumen es exactamente el de antes.
 ///

@@ -17,11 +17,11 @@
 //! **Cinco mil veces mas.** Y el volcado no es una copia cualquiera: va a
 //! memoria write-combining, que es rapida para escribir seguido y no tiene
 //! vuelta atras -- 8,3 MB por fotograma. Eso son los dos sintomas que reporto el
-//! dueno **de una vez**:
+//! propietario **de una vez**:
 //!
 //! * *lento*, porque copia la pantalla entera cuando cambiaron 384 pixeles;
 //! * *parpadea*, porque mientras esos 8,3 MB viajan, el escaner de video esta
-//!   leyendo la misma memoria y ensena el fotograma a medio llegar.
+//!   leyendo la misma memoria y muestra el fotograma a medio llegar.
 //!
 //! Y aparecia justo al MOVER EL RATON, que es cuando hay dos cosas cambiando en
 //! sitios distintos: el cursor donde estaba y el cursor donde esta.
@@ -57,7 +57,7 @@ fn area(c: Caja) -> u64 {
     ((c.2 - c.0) as u64) * ((c.3 - c.1) as u64)
 }
 
-/// La caja mas pequena que contiene a las dos.
+/// La caja mas chica que contiene a las dos.
 #[inline]
 fn unir(a: Caja, b: Caja) -> Caja {
     (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3))

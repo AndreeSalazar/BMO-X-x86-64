@@ -60,7 +60,7 @@ impl Memoria {
     /// 2a). Hasta hoy todo bloque era residente POR ACCIDENTE: esto no tenia
     /// `Drop`, asi que dejar caer un `Memoria` era fugarlo, y el fichero de
     /// `fondo.rs` decia "se suelta al acabar" sobre un valor que solo se caia.
-    /// El dueno lo pidio con estas palabras: *"liberar la memoria cuando ya
+    /// El propietario lo pidio con estas palabras: *"liberar la memoria cuando ya
     /// entra pero tiene que salir, en tiempo real"*. Eso no es un recolector:
     /// es propiedad. Quien pide ya sabe cuando sale, y el compilador tambien.
     ///

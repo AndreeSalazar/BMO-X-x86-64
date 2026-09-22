@@ -21,7 +21,7 @@
 //! debajo del escritorio, donde nadie mira. Se compila a ciegas.
 //!
 //! Es exactamente el problema que resuelve un PTY en Unix, y aqui tiene la
-//! forma que tiene todo lo demas: un objeto con dueno.
+//! forma que tiene todo lo demas: un objeto con propietario.
 //!
 //! ## El trato
 //!
@@ -37,7 +37,7 @@
 //!
 //! Un estuario (`KIND_CHANNEL`) seria mas rapido y algun dia sera lo correcto.
 //! Pero el escritor es un proceso que puede morir a mitad de linea, y el lector
-//! otro que puede no existir todavia. Un anillo pequeno en el kernel hace que
+//! otro que puede no existir todavia. Un anillo chico en el kernel hace que
 //! ninguno de los dos pueda corromper al otro, y que la salida de un programa
 //! sobreviva a que su terminal se cierre. Cuando el RPC de endpoints este
 //! rodado, esto se muda; el contrato de fuera no cambia.
@@ -84,7 +84,7 @@ pub const CONSOLA_OP_ESCRIBIR: u64 = 0x03;
 /// inventar un prefijo o un modo, y las dos cosas se olvidan.
 pub const CONSOLA_OP_HAY_HIJO: u64 = 0x04;
 
-/// Anillo de ENTRADA, mucho mas pequeno que el de salida: aqui cabe lo que una
+/// Anillo de ENTRADA, mucho mas chico que el de salida: aqui cabe lo que una
 /// persona teclea, no lo que un programa escupe.
 const ENTRADA: usize = 256;
 static mut IN_BUF: [[u8; ENTRADA]; MAX_CONSOLAS] = [[0; ENTRADA]; MAX_CONSOLAS];

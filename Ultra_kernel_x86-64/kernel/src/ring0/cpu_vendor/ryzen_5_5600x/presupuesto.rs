@@ -197,7 +197,7 @@ pub static PRESUPUESTO: Presupuestos = Presupuestos {
     // 4** -- no un numero, porque el CPU es fuera de orden y un bucle largo lo
     // solapa.
     //
-    // O sea que el termometro es del tamano del enfermo: **el trabajo real de Rust
+    // O sea que el termometro es del medida del enfermo: **el trabajo real de Rust
     // son ~20 ticks debajo de ~70-107 de instrumento**, y esta fila, tal como
     // estaba, NO SE PODIA LEER -- 104 contra techo 105 es un tick de gritar
     // REGRESION por algo que no es el codigo.

@@ -31,7 +31,7 @@
 //! alguien no llama. Ya habia una.
 //!
 //! Aqui el reparto es al reves de lo natural, y esa inversion es todo el
-//! diseno:
+//! esquema:
 //!
 //! ```text
 //!    quien llama  ->  rect(x, y, ancho, alto, color)      coordenadas CRUDAS

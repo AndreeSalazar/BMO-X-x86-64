@@ -104,7 +104,7 @@ int main() {
     /* -- 4. Es exclusivo -------------------------------------------- */
     /* Sin soltar, otra reclamacion tiene que fallar. Si diera un segundo
      * handle, dos partes del mismo programa --o dos programas-- creerian ser
-     * duenas del aparato, y la segunda que soltara dejaria a la primera
+     * propietarias del aparato, y la segunda que soltara dejaria a la primera
      * pitando sobre algo que ya no es suyo. */
     otra = bmo_sonido_reclamar();
     if (otra != 0) {

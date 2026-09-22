@@ -1,6 +1,6 @@
 # PLACA -- lo que BMO-X supone de la placa base, en un sitio
 
-> Pedido por el dueno el **2026-09-07**:
+> Pedido por el propietario el **2026-09-07**:
 >
 > > *"se que uso la A320M, pero puedes buscar esa carpeta y aislar para cuando
 > > cambie de placa base?"*

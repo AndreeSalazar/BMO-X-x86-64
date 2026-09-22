@@ -411,7 +411,7 @@ impl<'t> Descenso<'t> {
         // *** CON DEDUCCION, y esto era un agujero de medio dia (2026-08-23).
         //
         // Aqui ponia `tipos_de(f)` -- solo los tipos ESCRITOS. Asi que la
-        // deduccion que se construyo esta manana la usaba `disposicion` para
+        // deduccion que se construyo esta luego la usaba `disposicion` para
         // COMPROBAR y no la usaba la IR para EMITIR: **dos respuestas distintas a
         // "de que tipo es esto" dentro del mismo compilador.**
         //

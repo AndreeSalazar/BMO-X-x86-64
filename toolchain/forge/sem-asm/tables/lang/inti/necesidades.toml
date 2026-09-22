@@ -68,7 +68,7 @@ maximo = 68719476736
 # ===================================================================
 #
 #  ** No son palabras clave. El parser lee un nombre y lo busca AQUI, asi que
-#  anadir `gigas` es una linea y cero Rust -- y un programa que escriba una
+#  agregar `gigas` es una linea y cero Rust -- y un programa que escriba una
 #  unidad que no existe se entera al compilar, con la lista de las que si.
 [unidades]
 bytes = 1
@@ -102,4 +102,4 @@ procesos  = { numero = 7, unidad = "unidades" }
 #  Es lo que tiene que existir antes de la primera instruccion --codigo, datos,
 #  pila-- y eso lo sabe el CARGADOR mirando el fichero, mejor de lo que lo sabe
 #  el programa. Dejar que se declare seria dejar que un programa mienta sobre su
-#  propio tamano.
+#  propio medida.

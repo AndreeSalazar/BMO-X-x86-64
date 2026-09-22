@@ -24,7 +24,7 @@ boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
 **1.792 commits - 1.204 files - 17 April to 5 September 2026 - one developer.**
 
 <details>
-<summary><b>En espanol</b> -- que es esto, en un parrafo</summary>
+<summary><b>En castellano</b> -- que es esto, en un parrafo</summary>
 
 BMO-X no es un sistema operativo de proposito general y no aspira a serlo. Un
 sistema operativo **multiplexa**: le miente a cada programa diciendole que esta
@@ -37,7 +37,7 @@ otra caja prestada -- porque una categoria es una promesa que se hace sola, y
 una expectativa que no se cumple es un informe de fallo que no se puede cerrar.
 Multiplexar es ser generoso: un SO lo da todo por defecto y comprueba despues.
 Orquestar es ser **celoso**: aqui no se da nada, se **presta**, y el prestamo
-se acaba cuando el dueno quiere. Los ocho sitios del arbol donde eso esta
+se acaba cuando el propietario quiere. Los ocho sitios del arbol donde eso esta
 escrito --y las tres cosas que cuesta-- estan en
 [`docs/identidad/EL_ORQUESTAL.md`](docs/identidad/EL_ORQUESTAL.md).
 
@@ -47,10 +47,10 @@ nativos (C, C++, COBOL, Ada e INTI) que no usan LLVM ni GCC, y el formato
 ejecutable que emiten (BEF2, propio: no hay ELF). Arranca en un AMD Ryzen
 5 5600X **de verdad**, no en QEMU.
 
-La documentacion tecnica esta en espanol --`BITACORA.md`, `ARQUITECTURA.md`,
+La documentacion tecnica esta en castellano --`BITACORA.md`, `ARQUITECTURA.md`,
 `AVANCES.md` y todo `docs/`-- y este README en ingles a proposito: es la puerta
 de entrada, y la conversacion de fuera ocurre en ingles. Lo que el sistema
-IMPRIME en pantalla es espanol sin acentos, y eso tiene su propio motivo tecnico
+IMPRIME en pantalla es castellano sin acentos, y eso tiene su propio motivo tecnico
 (ver `CONTRIBUTING.md`).
 
 </details>

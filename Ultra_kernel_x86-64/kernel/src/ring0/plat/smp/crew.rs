@@ -153,7 +153,7 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
     VIERON.store(0, Ordering::SeqCst);
     PARTES.store(partes, Ordering::SeqCst);
     TAREA.store(faena as usize as u64, Ordering::SeqCst);
-    // La ronda va LA ULTIMA: es la senal, y publicarla antes que los datos
+    // La ronda va LA ULTIMA: es la signal, y publicarla antes que los datos
     // dejaria a un obrero leyendo la faena de la ronda anterior con las partes
     // de la nueva.
     RONDA.0.fetch_add(1, Ordering::SeqCst);
@@ -196,7 +196,7 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
             break;
         }
         // ** UNO QUE CAE DENTRO DE ESTA FAENA SUELTA LA BARRERA (2026-09-18).
-        // El Ryzen lo enseno con `smp tropezar`: el obrero 1 se paro solo y
+        // El Ryzen lo mostro con `smp tropezar`: el obrero 1 se paro solo y
         // la barrera espero su TOPE entero -- dos segundos con el BSP girando
         // dentro de un syscall, y el bus USB dos segundos sin latir (`save`:
         // "el latido llego TARDE 1996 ms"). Su ficha ya dice FALLADO en el
@@ -218,7 +218,7 @@ pub fn repartir(faena: Faena, obreros: u32) -> bool {
 
 /// **Desactivar los obreros**: vuelven a `hlt` y ahi se quedan.
 ///
-/// Es la otra mitad del mando que pidio el dueno. No hay vuelta atras sin un
+/// Es la otra mitad del mando que pidio el propietario. No hay vuelta atras sin un
 /// INIT+SIPI nuevo, y eso es correcto: "desactivado" tiene que significar
 /// desactivado y no "durmiendo por si acaso".
 pub fn parar() {
@@ -314,7 +314,7 @@ const VUELTAS_ANCHO: u64 = 50_000_000;
 /// numero que solo vale para la faena que lo produjo, presentado como *"lo que
 /// acelera esta maquina"*, **es un numero deshonesto** -- por bueno que sea.
 ///
-/// El dueno lo dijo con la palabra exacta: *"el SMP si no es honesto a base de
+/// El propietario lo dijo con la palabra exacta: *"el SMP si no es honesto a base de
 /// Perfil no me sirve"*.
 ///
 /// ## Ocho acumuladores, y por que ocho
@@ -398,7 +398,7 @@ fn prueba_de(faena: Faena, obreros: u32) -> (u64, u64, u32) {
 /// ticks para `VUELTAS` vueltas no es "muy rapido": es **imposible**, y lo que
 /// esta roto es el cronometro.
 ///
-/// ** Existe porque el 2026-08-11 el sistema enseno `37` ticks para 400 millones
+/// ** Existe porque el 2026-08-11 el sistema mostro `37` ticks para 400 millones
 /// de vueltas y **nadie sospecho del reloj**: se busco el fallo en el reparto,
 /// que estaba bien. Un instrumento que no puede denunciarse a si mismo manda a
 /// depurar el sitio equivocado, y eso cuesta arranques.

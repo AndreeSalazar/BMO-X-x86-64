@@ -2,7 +2,7 @@
 //!
 //! [carril]  AMARILLO  la medida de ancho de banda de la memoria
 //! [consumo] NADA      corre cuando se levantan o se reparten nucleos
-//! decide el tamano del modelo que esta maquina puede correr.
+//! decide el medida del modelo que esta maquina puede correr.
 //!
 //! # Por que este numero y no otro
 //!
@@ -211,7 +211,7 @@ fn l3_bytes() -> u64 {
 /// Bytes que lee **cada** obrero cuando son `de` en total.
 ///
 /// Alineado a linea de cache y hacia abajo, asi que `por(de) * de` puede ser un
-/// poco menos que el banco. Ese --y no el tamano del banco-- es el numero que
+/// poco menos que el banco. Ese --y no el medida del banco-- es el numero que
 /// se divide por el tiempo.
 #[inline]
 fn por(de: u32) -> u64 {
@@ -295,7 +295,7 @@ pub fn medir(obreros: u32) -> (u64, u64, bool) {
 /// Pasa de ticks a **MB/s**, o `None` si no se puede saber.
 ///
 /// [!] Depende de `tsc_freq_hz()`, que es lo unico aqui que no se mide en el
-/// sitio. Si el perfil no la sabe, esto devuelve `None` y quien pinte ensena
+/// sitio. Si el perfil no la sabe, esto devuelve `None` y quien pinte muestra
 /// los ticks pelados -- **nunca una cifra en MB/s calculada con una frecuencia
 /// inventada**, que es exactamente el tipo de numero que parece una medida y no
 /// lo es.
@@ -331,7 +331,7 @@ pub const PUNTOS: [u32; 6] = [0, 1, 3, 5, 7, 11];
 /// ** Es un TECHO, no una prediccion. Supone que el motor lee los pesos una vez
 /// por token y a la velocidad maxima de la maquina; un motor de verdad se queda
 /// entre el 60% y el 80% de esto. Lo que si es cierto es que **no puede
-/// pasarlo**, y por eso sirve para elegir el tamano del modelo antes de
+/// pasarlo**, y por eso sirve para elegir el medida del modelo antes de
 /// escribir el motor.
 pub fn techo_tokens_x100(mb_s: u64, mb_modelo: u64) -> u64 {
     if mb_modelo == 0 {

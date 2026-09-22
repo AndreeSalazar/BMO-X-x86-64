@@ -18,7 +18,7 @@ para si: lo **reparte**. Es un lider.
 ```
 
 Los dos siguen la misma forma y no por gusto: **es la misma forma.** Un aparato
-que solo puede tener un dueno, y un trabajo de reparto que el kernel no debe
+que solo puede tener un propietario, y un trabajo de reparto que el kernel no debe
 hacer.
 
 ## Por que el kernel NO hace este trabajo
@@ -48,13 +48,13 @@ mudos --o ciegos-- a todos los programas que lanza.
 
 Ya se aprendio por las malas con la pantalla. `gui.bex` la reclamaba al arrancar
 y **no la soltaba nunca**, asi que `ray.bex` --el ensayo general de DOOM-- se
-llevaba un *"la pantalla ya tiene dueno"*. El compositor tenia razon en no
+llevaba un *"la pantalla ya tiene propietario"*. El compositor tenia razon en no
 cederla a cualquiera que la pida; lo que pasaba es que **no podia cederla ni
 queriendo**, porque `PANTALLA_SOLTAR` no existia. Se escribio despues, con el
 fallo delante.
 
 Por eso la ventana F10 se escribio ya de la otra forma: toma `KIND_AUDIO` al
-abrirse y lo devuelve al cerrarse. **Es huesped del aparato, no su dueno.**
+abrirse y lo devuelve al cerrarse. **Es huesped del aparato, no su propietario.**
 
 ## Nomenclatura: las logicas en INGLES
 
@@ -68,11 +68,11 @@ La frontera es esta, y es la que ya seguia el repo sin tenerla escrita:
 | Capa | Idioma | Por que |
 |---|---|---|
 | `obj/`, contratos, protocolo | **ingles** | es vocabulario de sistema, y se compara con `bmo-abi` linea a linea |
-| presentacion, ventanas, texto en pantalla | **espanol** | lo lee el dueno de la maquina |
-| comentarios y documentacion | **espanol**, ASCII | ver `bmo-idioma-y-ascii` |
+| presentacion, ventanas, texto en pantalla | **castellano** | lo lee el propietario de la maquina |
+| comentarios y documentacion | **castellano**, ASCII | ver `bmo-idioma-y-ascii` |
 
 ★ `obj/audio.rs` entro el 08-08 con `pitido_kernel`, `aparatos` y `calibrar` --
-los tres unicos nombres en espanol de todo `obj/`. Son `kernel_beep`, `devices`
+los tres unicos nombres en castellano de todo `obj/`. Son `kernel_beep`, `devices`
 y `calibrate`.
 
 ---
@@ -196,7 +196,7 @@ que tendran las superficies con la pantalla.
 ### ★ 2.4 -- y aqui la eleccion cambio
 
 El plan de DOOM decia *"HD Audio, que en este Ryzen es HDA"*. El diagnostico del
-08-08 lo corrige: **el aparato del dueno es USB**.
+08-08 lo corrige: **el aparato del propietario es USB**.
 
 ```
 VID_1B3F&PID_2008    USB\Class_01&SubClass_01    = USB Audio Class 1.0
@@ -209,7 +209,7 @@ nada**.
 | Camino | A favor | En contra |
 |---|---|---|
 | **HDA** | autocontenido; no toca el driver USB que tanto costo estabilizar | va a unos jacks donde no hay nada conectado |
-| **USB Audio** | es el aparato que el dueno usa de verdad; xHCI **ya funciona** | pide transferencias **isocronas**, que hoy no existen (hay control e interrupt) |
+| **USB Audio** | es el aparato que el propietario usa de verdad; xHCI **ya funciona** | pide transferencias **isocronas**, que hoy no existen (hay control e interrupt) |
 
 ⚠ **La decision esta tomada a favor de USB**, con una condicion que hay que
 comprobar antes de escribir codigo: que no haya altavoces en el jack verde.
@@ -220,7 +220,7 @@ comprobar antes de escribir codigo: que no haya altavoces en el jack verde.
 > su interfaz de control: un CONTROL TRANSFER.** Y `bmo-xhci` ya sabe hacerlos.
 
 O sea que **BMO-X puede mandar sobre el volumen del audifono antes de poder
-reproducir una sola muestra**. Es pequena, es visible en el aparato fisico, y no
+reproducir una sola muestra**. Es chica, es visible en el aparato fisico, y no
 depende de 2.4.
 
 ## La cuenta

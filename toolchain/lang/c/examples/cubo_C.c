@@ -1,6 +1,6 @@
 /* cubo_C.c -- un cubo girando, y SIN UN SOLO TRIANGULO.
  *
- * == La pregunta del dueno, que es mejor que el cubo ==
+ * == La pregunta del propietario, que es mejor que el cubo ==
  *
  * *"el triangulo esta muy quemado y me gustaria usar otro estilo, en vez de
  * tipico poligono otro elemento para renderizar"*.
@@ -140,7 +140,7 @@ static int fdiv(int a, int b) {
  * entera son 256 pasos.
  *
  * ** Tabla y no serie de Taylor, y no por velocidad: **una tabla no deriva**.
- * Girar acumulando una rotacion pequena --que es lo obvio-- encoge o agranda el
+ * Girar acumulando una rotacion chica --que es lo obvio-- encoge o agranda el
  * vector poco a poco, y el cubo se deforma despues de unas cuantas vueltas sin
  * que nada avise. Con un indice no hay estado que se estropee. */
 static int TSEN[65] = {
@@ -440,7 +440,7 @@ static void pinta(int ang)
 /* **Llevar el lienzo de 360 a la superficie**: escala entera y centrado.
  *
  * Lo que sobra alrededor va a negro -- es de la app, no del DIRECTOR, porque
- * esta superficie mide lo que el DIRECTOR pidio. Si la ventana es mas pequena
+ * esta superficie mide lo que el DIRECTOR pidio. Si la ventana es mas chica
  * que 360 se recorta, sin escalar hacia abajo. */
 /* ** PASO 2 DE LA ORQUESTA (2026-09-12): `presenta` pide la parte ESCALAR
  * primero, y solo si la puerta dice que no lo hace aqui.

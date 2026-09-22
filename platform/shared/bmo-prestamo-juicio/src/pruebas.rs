@@ -62,13 +62,13 @@ fn no_cero_bytes() {
     assert_eq!(tramo(0x1000, 0), None);
 }
 
-/// NO 2: un final que no existe en 64 bits no se redondea a algo pequeno.
+/// NO 2: un final que no existe en 64 bits no se redondea a algo chico.
 #[test]
 fn no_desborda() {
     assert_eq!(tramo(u64::MAX - 10, 100), None);
     // *** Esta fila cazo un hueco de la primera version: lo PEDIDO cabe en 64
     // bits, pero la pagina redondeada termina en 2^64 exacto. El desborde no
-    // esta en el tamano, esta en el FINAL DE LA PAGINA.
+    // esta en el medida, esta en el FINAL DE LA PAGINA.
     assert_eq!(tramo(u64::MAX - PAGINA / 2, PAGINA / 4), None,
                "lo pedido cabe, pero el final de su pagina no existe en 64 bits");
 }

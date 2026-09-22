@@ -68,7 +68,7 @@
 //!
 //! [carril]  VERDE     pinta lo que el kernel contesta y lo escribe; no decide
 //! [cuesta]  DATO      pregunta a la maquina (INFO) y escribe un fichero; una
-//!                     fila mal leida engana al que mira, no a la maquina
+//!                     fila mal leida burla al que mira, no a la maquina
 //! [riesgo]  ESPEJO    desempaqueta bits que empaqueta el kernel; la forma esta
 //!                     en `bmo-abi/syscalls/surface/informe.rs`
 //! [consumo] NADA      solo corre cuando alguien escribe `save`
@@ -372,7 +372,7 @@ pub(crate) fn report_programas(s: &mut Output) {
         s.dec_right((quien >> 16) & 0xFFFF, 6);
         // El nombre con el que se lanzo. (La etiqueta del kernel,
         // `INFO_TXT_PROG_TAG`, es el mismo nombre para lo que viene del disco
-        // y solo distingue a los demos embebidos: no se ensena.)
+        // y solo distingue a los demos embebidos: no se muestra.)
         s.text(b"  ");
         texto_a(s, bmo::INFO_TXT_PROG_NOMBRE | (n << 8), 30);
         s.dec_right(imagen & 0xFFFF_FFFF, 10);
@@ -427,7 +427,7 @@ pub(crate) fn report_programas(s: &mut Output) {
         }
         s.dec_right(cierre & 0xFFFF, 7);
         s.dec_right((cierre >> 16) & 0xFF, 8);
-        // ** Los cierres sin hash se ensenan en rojo cuando NO son cero: una
+        // ** Los cierres sin hash se muestran en rojo cuando NO son cero: una
         // imagen del disco que paso por el escritor promete hashes de todo, y
         // un "sin hash" ahi es que el escritor dejo de firmar algo.
         let sin = (cierre >> 24) & 0xFF;

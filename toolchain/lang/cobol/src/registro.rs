@@ -26,7 +26,7 @@
 //! Los 5 bytes del saldo salen de sus **nueve** digitos (7 enteros + 2
 //! decimales): `9/2 + 1`. La `V` no ocupa y el signo va en el ultimo nibble.
 //!
-//! Cada `01` que es un GRUPO tiene un **area de registro** de ese tamano, y
+//! Cada `01` que es un GRUPO tiene un **area de registro** de ese medida, y
 //! cada campo de dentro **conserva ademas su ranura de trabajo** de 64 bits. El
 //! area es la representacion EXTERNA --lo que va y viene del disco-- y la ranura
 //! es donde se calcula.
@@ -35,7 +35,7 @@
 //! area de registro solo vale entre un `READ` y el siguiente, y por eso la
 //! traduccion entre las dos vive exactamente en esos dos puntos.
 //!
-//! # El tamano de un campo lo decide su USAGE
+//! # El medida de un campo lo decide su USAGE
 //!
 //! Y ahi ya no hay nada que inventar: `PicField::size()` lo sabe desde que
 //! entro `COMP-3`. Un `PIC S9(7)V99 COMP-3` mide 5 bytes en el disco de un
@@ -295,26 +295,26 @@ impl Disposicion {
     /// # Por que esto hace falta desde hoy
     ///
     /// En cuanto un `COMP-3` sale al disco, el fichero **deja de poderse
-    /// mirar**: los nibbles no son texto y un `cat` ensena basura. El copybook
-    /// dice que hay dentro, pero no lo *ensena*.
+    /// mirar**: los nibbles no son texto y un `cat` muestra basura. El copybook
+    /// dice que hay dentro, pero no lo *muestra*.
     ///
     /// Y hay una cosa que este visor si puede prometer y una herramienta de
     /// fuera no: **lee con la misma regla que escribio el programa**. Los
     /// decodificadores son `packed::desempaquetar_en_rust` y
     /// `zoned::leer_en_rust` de `bmo-lower`, y hay tests que los comparan contra los EMITIDOS
     /// sobre todos los patrones de dos bytes. Si divergieran, el visor
-    /// ensenaria un importe y el programa leeria otro -- que es peor que no
+    /// mostraria un importe y el programa leeria otro -- que es peor que no
     /// tener visor.
     ///
-    /// # El tamano que no cuadra
+    /// # El medida que no cuadra
     ///
-    /// Si el fichero no es multiplo del registro, se dice y se ensena lo que
+    /// Si el fichero no es multiplo del registro, se dice y se muestra lo que
     /// sobra. Ese es **el sintoma clasico de un copybook equivocado**, y callarlo
     /// dejaria al que mira creyendo que el ultimo registro es raro.
     ///
     /// ** `decodificar` los PONE quien llama (2026-09-18): viven en `bmo-lower`,
     /// al lado de sus gemelos emitidos, y el frontend no depende de un emisor.
-    /// Devuelve `None` para lo que no sabe leer, y eso se ensena en crudo.
+    /// Devuelve `None` para lo que no sabe leer, y eso se muestra en crudo.
     pub fn ver(
         &self,
         raiz: &str,
@@ -355,7 +355,7 @@ impl Disposicion {
                 let trozo = &reg[c.offset as usize..(c.offset + c.bytes) as usize];
                 let valor = match decodificar(c.codificacion, trozo) {
                     Some(v) => con_coma(v, c.escala),
-                    // Lo que no se sabe decodificar se ensena TAL CUAL en vez de
+                    // Lo que no se sabe decodificar se muestra TAL CUAL en vez de
                     // inventarle un numero. Un visor que adivina es peor que uno
                     // que dice "no se".
                     None => trozo.iter().map(|b| format!("{b:02X}")).collect::<Vec<_>>().join(" "),
@@ -470,7 +470,7 @@ pub fn calcular(items: &[DataItem]) -> Result<Disposicion, CobolError> {
         );
 
         if es_grupo {
-            // Su tamano se sabra al cerrarlo.
+            // Su medida se sabra al cerrarlo.
             pila.push((item.level, name, offset));
         } else {
             // * Sin alineado: los bytes van pegados, porque esto es el formato

@@ -1,4 +1,4 @@
-//! Numeros a texto. Lo mas pequeno que hace falta y nada mas: una ventana que
+//! Numeros a texto. Lo mas chico que hace falta y nada mas: una ventana que
 //! no sabe escribir un numero no sirve para mirar un disco.
 //!
 //! [consumo] NADA      no corre en reposo: solo cuando alguien lo pide, o en
@@ -38,7 +38,7 @@ pub(crate) fn decimal(mut v: u64, dst: &mut [u8; 10]) -> usize {
 ///   avanzar sin riesgo y que opciones te quedan. Es lo que hace bash, y es
 ///   lo unico honesto: adivinar por ti cual de cinco querias es mentir.
 ///
-/// Si el unico candidato es una carpeta, se anade la barra -- porque lo
+/// Si el unico candidato es una carpeta, se agrega la barra -- porque lo
 /// siguiente que vas a escribir es lo de dentro.
 /// Es la entrada `.` o `..`?
 ///

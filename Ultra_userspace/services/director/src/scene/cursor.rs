@@ -96,7 +96,7 @@ pub(crate) const HAND: [[u8; CUR_W]; CUR_H] = [
 /// de "espera" seria una forma que nunca es verdad.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Shape {
-    /// Lo normal: senalar y elegir.
+    /// Lo normal: marcar y elegir.
     Arrow,
     /// Sobre un campo donde se escribe.
     Beam,

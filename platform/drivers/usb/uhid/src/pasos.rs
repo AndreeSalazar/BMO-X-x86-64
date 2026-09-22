@@ -14,7 +14,7 @@
 //! tiene algo que acepta direccion y no da descriptores: encender, 100 ms de
 //! debounce, reset, `Address Device`, y tres `GET_DESCRIPTOR` que agotan sus
 //! 100 ms cada uno. Todo eso se hacia **sin soltar el hilo del bus**, y en ese
-//! hilo es donde se lee el raton. El dueno lo sintio como *"tirones como que
+//! hilo es donde se lee el raton. El propietario lo sintio como *"tirones como que
 //! esta verificando mi mouse y teclado"*: doce intentos en el primer minuto,
 //! doce tirones de casi un segundo.
 //!
@@ -975,7 +975,7 @@ mod pruebas {
                     let mut d = [18u8, 1, 0, 2, 0, 0, 0, 8, 0x6D, 0x04, 0x77, 0xC0, 0, 0, 0, 0, 0, 1];
                     let real = self.mps0_real();
                     d[7] = real as u8;
-                    // El aparato contesta en paquetes de SU tamano. Si el
+                    // El aparato contesta en paquetes de SU medida. Si el
                     // suyo es mayor que el que el xHC cree, el primer paquete
                     // ya se pasa: Babble (cc = 3), sin datos. Si es menor, su
                     // primer paquete es CORTO y cierra la transferencia: solo

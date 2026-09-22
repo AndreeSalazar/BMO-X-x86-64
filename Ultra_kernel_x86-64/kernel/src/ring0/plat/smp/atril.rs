@@ -29,7 +29,7 @@
 //! Una `Faena` es `fn(u32, u32)` -- mi parte y cuantas hay. No caben
 //! parametros. Asi que el encargo se publica aqui, en atomicas que los obreros
 //! leen, con la MISMA disciplina que `crew` usa para la faena: **todo antes de
-//! la ronda**, porque la ronda es la senal.
+//! la ronda**, porque la ronda es la signal.
 //!
 //! ## Lo que NO cruza esta puerta
 //!
@@ -149,7 +149,7 @@ fn vaciar() {
 //
 // Copias en fisica, publicadas por `tocar` ANTES de llamar a `repartir` -- que
 // a su vez publica la ronda al final. El orden es el mismo de siempre: los
-// datos primero, la senal la ultima.
+// datos primero, la signal la ultima.
 static F_DESTINO: AtomicU64 = AtomicU64::new(0);
 static F_ORIGEN: AtomicU64 = AtomicU64::new(0);
 static F_TOTAL: AtomicU64 = AtomicU64::new(0);
@@ -263,7 +263,7 @@ pub const NO_HAY_ORQUESTA: u64 = u64::MAX;
 /// tocaron, o `NO_HAY_ORQUESTA` si el encargo no pasa.
 ///
 /// El orden NO es negociable y es el mismo de `crew::repartir` un piso mas
-/// abajo: **primero se comprueba todo, despues se publica, y la senal va la
+/// abajo: **primero se comprueba todo, despues se publica, y la signal va la
 /// ultima**. Publicar antes de juzgar dejaria un encargo malo visible para un
 /// obrero que ya estuviera mirando.
 pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
@@ -289,10 +289,10 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
     // recortada, devuelve `None`. Por eso una app no puede nombrar memoria
     // ajena -- no es que se le prohiba, es que **la funcion que traduce no sabe
     // hacerlo**.
-    // ** Los tamanos los dice `bmo_orquesta::bytes_de`, probado en el
+    // ** Los medidas los dice `bmo_orquesta::bytes_de`, probado en el
     // anfitrion, y no una rama por parte aqui: una parte nueva que se olvidara
     // de la suya traduciria de menos, y eso no falla -- deja escribir mas alla
-    // de lo comprobado. Y ya no SATURA: un tamano que no cabe en 64 bits se
+    // de lo comprobado. Y ya no SATURA: un medida que no cabe en 64 bits se
     // rechaza en vez de convertirse en `u64::MAX`.
     let Some((bytes_dst, bytes_src)) = bytes_de(parte, &e) else {
         vaciar();
@@ -329,7 +329,7 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
     let (mut vivos, _) = super::alive();
     // ** SI LA APP PIDE Y NO HAY NADIE EN PIE, SE DESPIERTA -- una vez.
     //
-    // Politica del dueno (2026-09-12): los nucleos se activan solos cuando una
+    // Politica del propietario (2026-09-12): los nucleos se activan solos cuando una
     // app pide una parte que merece repartirse. El juicio vive en
     // `bmo_orquesta::conviene_despertar`, probado en el anfitrion; aqui solo se
     // obedece y se DICE en CABINA, porque despertar cambia el estado del
@@ -381,7 +381,7 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
     let ok = super::crew::repartir(faena, (atriles - 1) as u32);
     vaciar();
     // ** LA SONDA SALE BIEN CUANDO EL DATO NO VALE (2026-09-18, el Ryzen lo
-    // enseno): el atril 1 tropieza DENTRO de la faena, asi que su parte no
+    // mostro): el atril 1 tropieza DENTRO de la faena, asi que su parte no
     // la hace nadie y `repartir` dice que no -- que es exactamente lo que se
     // queria ver. Devolver NO_HAY_ORQUESTA hacia que el escritorio dijera
     // "la puerta dijo que NO" mientras CABINA decia "un OBRERO tomo una
@@ -402,7 +402,7 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
 /// **EL GUARDIAN DEL ESPEJO**, y corre en compilacion.
 ///
 /// El catalogo de `bmo-orquesta` y el despacho de aqui arriba son dos listas
-/// sobre los mismos numeros. Si alguien anade una parte alla y no la escribe
+/// sobre los mismos numeros. Si alguien agrega una parte alla y no la escribe
 /// aqui, el `match` de `tocar` no compila --Rust obliga-- pero al reves si
 /// colaria. Esto lo cierra: el numero de partes escritas es contrato.
 const _: () = {

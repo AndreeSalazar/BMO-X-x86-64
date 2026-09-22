@@ -29,7 +29,7 @@ EXT.   extensiones de IBM            -> COMP-3 ✅ - CALL, EVALUATE, STRING, SOR
 > sistema.** Lo que queda de compilador es mucho y ahi esta el salto grande que
 > falta --leer registros binarios de verdad, que se comprobo que **no necesita
 > nada del kernel**--. Lo de abajo sigue haciendo falta y no se descarta: son
-> **tres operaciones pequenas** (`EXTEND`, `I-O`, posicionar) y sin ellas **el
+> **tres operaciones chicas** (`EXTEND`, `I-O`, posicionar) y sin ellas **el
 > techo es el batch**. Pero no se ponen mas dificiles por esperar, y cada sesion
 > de compilador entrega algo que corre.
 
@@ -72,7 +72,7 @@ peticion, entregarle sus capabilities, ejecutar, y commitear o abandonar.
 Y las pantallas 3270 no se quieren. Son de 1972 y su sustituto ya existe:
 `KIND_CONSOLE` en los dos sentidos, que ya funciona en metal.
 
-**Trabajo estimado**: el despachador es pequeno. La transaccionalidad, hecha.
+**Trabajo estimado**: el despachador es chico. La transaccionalidad, hecha.
 
 ---
 
@@ -120,7 +120,7 @@ para no ganar nada.
 | Tipo | Que es | Hace falta? |
 |---|---|---|
 | **KSDS** (Key-Sequenced) | **indexado por clave, un B-tree**. El caballo de batalla | 🔴 **si -- es EL que falta** |
-| **ESDS** (Entry-Sequenced) | secuencial, solo anadir | 🟡 casi hecho (File I/O secuencial) |
+| **ESDS** (Entry-Sequenced) | secuencial, solo agregar | 🟡 casi hecho (File I/O secuencial) |
 | **RRDS** (Relative Record) | registros fijos, por numero | 🟡 facil sobre lo que hay |
 | **LDS** (Linear) | bytes crudos sin estructura | ⚪ no |
 
@@ -264,5 +264,5 @@ Nada de esta lista convierte a BMO COBOL en un **destino de migracion desde
 z/OS**. Ese codigo lleva cuarenta anios escrito contra CICS, JCL, VSAM y las
 extensiones de IBM *tal cual son*, no contra equivalentes mejores.
 
-Esto es para **sistemas que se escriben ahora**, y pequenos. Ver el README raiz,
+Esto es para **sistemas que se escriben ahora**, y chicos. Ver el README raiz,
 seccion *"And one boundary worth stating before anyone assumes otherwise"*.

@@ -21,7 +21,7 @@
 #
 #     el kernel (Rust)   LEE los contadores, resta dos lecturas, divide
 #     la puerta          lo entrega por valor, un numero por pregunta
-#     INTI               lo PREGUNTA, lo cuenta, y lo ensena
+#     INTI               lo PREGUNTA, lo cuenta, y lo muestra
 #
 # ** Y no es un rodeo: un contador de energia crudo no significa nada sin sus
 # unidades, y las unidades cambian con cada silicio. El kernel ya tiene el
@@ -224,7 +224,7 @@ funcion el_jefe_dice
 # ** Y se vuelve a mirar el reloj despues, en vez de fiarse: WAIT es ADVISORY,
 # puede volver antes. Por eso es un bucle -- y con TOPE de veinte vueltas, para
 # que un reloj parado (un emulador, un tick muerto) no cuelgue la sonda: se
-# sigue, y el `tick` repetido lo ensena.
+# sigue, y el `tick` repetido lo muestra.
 #
 # [!] Nunca un plazo de CERO: para el kernel eso es "sin plazo", o sea dormir
 # hasta que alguien despierte a la tarea -- y aqui no la despierta nadie. Como
@@ -256,7 +256,7 @@ funcion mw_entre(uj es natural64, ms es natural64) devuelve natural64
         devuelve 0
     devuelve uj entre ms
 
-funcion ensena(tick es natural64, hz es natural64, mw_pkg es natural64, mw_nucl es natural64)
+funcion muestra(tick es natural64, hz es natural64, mw_pkg es natural64, mw_nucl es natural64)
     linea(et_tick(), tick)
     linea(et_hz(), hz)
     linea(et_pkg(), mw_pkg)
@@ -287,7 +287,7 @@ funcion principal devuelve entero32
         c1 es natural64 = pregunta(info_cpu_uj_nucleo)
         m1 es natural64 = pregunta(info_cpu_mperf)
         a1 es natural64 = pregunta(info_cpu_aperf)
-        ensena(t1, hz_entre(tsc_hz, a1 - a0, m1 - m0), mw_entre(p1 - p0, t1 - t0), mw_entre(c1 - c0, t1 - t0))
+        muestra(t1, hz_entre(tsc_hz, a1 - a0, m1 - m0), mw_entre(p1 - p0, t1 - t0), mw_entre(c1 - c0, t1 - t0))
         t0 = t1
         p0 = p1
         c0 = c1

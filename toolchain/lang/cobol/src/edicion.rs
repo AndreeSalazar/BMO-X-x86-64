@@ -84,7 +84,7 @@ impl Plantilla {
             .sum()
     }
 
-    /// Posiciones que consumen digito. Es el tamano del numero que cabe, y no
+    /// Posiciones que consumen digito. Es el medida del numero que cabe, y no
     /// coincide con el ancho: `$$$,$$9.99` mide 10 caracteres y guarda 7
     /// digitos.
     pub fn digitos(&self) -> usize {
@@ -467,7 +467,7 @@ mod tests {
         assert_eq!(p.ancho(), 10);
         // 1234567 centavos = 12.345,67 -- entran justos.
         assert_eq!(p.formatear(1_234_567, 2), "$12,345.67");
-        // Uno pequeno: el `$` se pega al digito y los millares desaparecen.
+        // Uno chico: el `$` se pega al digito y los millares desaparecen.
         assert_eq!(p.formatear(45, 2), "     $0.45");
     }
 
@@ -506,7 +506,7 @@ mod tests {
         assert_eq!(p.formatear(150, 2), "0001.50  ");
     }
 
-    /// El punto corta la supresion: 0.05 tiene que ensenar su cero.
+    /// El punto corta la supresion: 0.05 tiene que mostrar su cero.
     #[test]
     fn el_punto_corta_la_supresion() {
         let p = Plantilla::parse("ZZZ.99").unwrap();

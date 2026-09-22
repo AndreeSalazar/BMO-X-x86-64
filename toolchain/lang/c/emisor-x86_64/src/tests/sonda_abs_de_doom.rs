@@ -14,7 +14,7 @@
 //! `rw_scale`. Y `R_ScaleFromGlobalAngle` tiene un tope --si `rw_distance` sale
 //! cero, `scale = 64*FRACUNIT`-- que explica las DOS mitades de la foto a la
 //! vez: la pared se proyecta a toda la altura (no queda sitio para suelo ni
-//! techo: 36 spans) y `dc_iscale` es tan pequeno que la columna muestrea un
+//! techo: 36 spans) y `dc_iscale` es tan chico que la columna muestrea un
 //! texel (la banda plana).
 //!
 //! # Y `rw_distance` salia cero por UNA instruccion que faltaba

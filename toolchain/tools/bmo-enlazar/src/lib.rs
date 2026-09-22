@@ -1,6 +1,6 @@
 //! **EL ENLAZADOR ESTATICO** -- N objetos (`.bo`) y un `.bex` que corre.
 //!
-//! E3 de `docs/plan/PLAN_EL_ENLAZADOR.md`. La decision del dueno (E0) fue
+//! E3 de `docs/plan/PLAN_EL_ENLAZADOR.md`. La decision del propietario (E0) fue
 //! ESTATICO: todo lo que un programa ejecuta viaja dentro de su `.bex`, asi que
 //! su firma lo cubre entero y corre igual en cualquier BMO-X.
 //!
@@ -26,7 +26,7 @@
 //! ## Lo que NO hace, dicho para que no crezca solo
 //!
 //! * **Ya TIRA lo que no se usa** (E5b, `tirar.rs`): se marca desde `main` y
-//!   lo que no alcanza nadie no se copia. Se nota en el tamano y no en el
+//!   lo que no alcanza nadie no se copia. Se nota en el medida y no en el
 //!   comportamiento, que es como se sabe que esta bien hecho.
 //! * **No admite `Weak`.** El contrato lo rechaza: una promesa menos.
 //! * **No ordena por optimizacion.** Las unidades salen en el orden en que se
@@ -40,7 +40,7 @@ use bmo_abi::bef::symbols::{name_hash, Symbol, SymbolBinding, SymbolKind, Symbol
 
 mod tirar;
 
-/// El tamano de pagina con el que el cargador coloca cada seccion
+/// El medida de pagina con el que el cargador coloca cada seccion
 /// (`ring0/task/proc.rs`: `va_cursor = va_start + pages * PAGE`).
 const PAGINA: u64 = 4096;
 

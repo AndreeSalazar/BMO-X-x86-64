@@ -40,7 +40,7 @@
 //!    mod.rs     COMO se llega a una          -> recorre el arbol y decide
 //! ```
 //!
-//! ** El corte se eligio por la PREGUNTA y no por el tamano. La senal de que
+//! ** El corte se eligio por la PREGUNTA y no por el medida. La signal de que
 //! esta bien puesto: `forma.rs` no importa nada de aqui, y quien solo quiera
 //! saber que forma tiene una instruccion --el emisor, el marco-- no tiene que
 //! leer ni una linea del descenso.
@@ -305,7 +305,7 @@ fn comprobacion_despues(op: Op, clase: Clase) -> Option<Comprobacion> {
     // son valores con los que se puede seguir operando-- y esta escrita en una
     // norma de 1985.
     //
-    // Atrapar aqui no anadiria ni una pizca de seguridad. Quitaria la
+    // Atrapar aqui no agregaria ni una pizca de seguridad. Quitaria la
     // aritmetica: un calculo que desborda a infinito y luego vuelve al rango es
     // corriente, y con una trampa en medio no se puede escribir.
     if matches!(clase, Clase::Flotante) {

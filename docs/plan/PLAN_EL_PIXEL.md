@@ -3,7 +3,7 @@
 > Escrito el **2026-09-09**, el dia que se rompio el cuello de botella del
 > volcado y quedo claro que **el compositor ya no era el problema**.
 >
-> El dueno lo pidio asi: *"que sea mas como real time, que sea en streaming,
+> El propietario lo pidio asi: *"que sea mas como real time, que sea en streaming,
 > 0 ms posible, y nuevas reglas de que eso es por pixeles"*.
 >
 > Este documento es las dos cosas: **donde estan de verdad los milisegundos**, y
@@ -44,7 +44,7 @@ grafico se juzga por la segunda.
    [4] pinta y vuelca                             < 1 ms       (desde el 09-09)
         |
         v
-   [5] el ESCANER de video lo ensena              <= 16,7 ms   y sin V-Sync
+   [5] el ESCANER de video lo muestra              <= 16,7 ms   y sin V-Sync
 ```
 
 ## Lo que dice este presupuesto, y es incomodo

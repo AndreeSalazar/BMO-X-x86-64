@@ -65,11 +65,11 @@ fn dieciseis_cifras_no_dejan_hueco() {
 /// ** ENSENA LO QUE LE DAN, y pregunta solo lo que no se resta.
 ///
 /// Desde el 2026-09-12 la frecuencia y los vatios los calcula la sonda restando
-/// sus propias lecturas; `ensena` recibe los numeros hechos y solo pregunta los
+/// sus propias lecturas; `muestra` recibe los numeros hechos y solo pregunta los
 /// dos que no son contadores: obreros vivos y puertas.
 #[test]
 fn ensena_escribe_lo_que_le_dan_y_pregunta_vivos_y_puertas() {
-    let m = arranca(&con_principal("    ensena(1, 2, 3, 4)\n"));
+    let m = arranca(&con_principal("    muestra(1, 2, 3, 4)\n"));
     let preguntas: Vec<u64> = m
         .syscalls
         .iter()

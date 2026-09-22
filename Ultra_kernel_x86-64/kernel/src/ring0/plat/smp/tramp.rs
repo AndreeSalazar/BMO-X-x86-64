@@ -60,7 +60,7 @@ smp_tramp_ini:
     mov es, ax
     mov ss, ax
 
-    // lgdt con base de 32 bits: hace falta el prefijo de tamano de operando.
+    // lgdt con base de 32 bits: hace falta el prefijo de medida de operando.
     .byte 0x66
     lgdt [0x9000]
 
@@ -89,7 +89,7 @@ smp_pm32:
     // con SSE apagado -- y el destino de este salto es codigo RUST compilado para
     // x86-64, cuya linea base INCLUYE SSE2: en cuanto el compilador emita un
     // `movaps` para mover 16 bytes o poner a cero un hueco, el nucleo se muere
-    // con una excepcion que no dice nada. Hoy `smp_ap_entrada` es tan pequena
+    // con una excepcion que no dice nada. Hoy `smp_ap_entrada` es tan chica
     // que probablemente no emita ninguna; el dia que ese obrero haga trabajo de
     // verdad, seguro. Cuesta un OR y quita una clase entera de fallo futuro.
     mov eax, cr4

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""tamano -- que le hizo este cambio a los 25 programas, de un vistazo.
+"""medida -- que le hizo este cambio a los 25 programas, de un vistazo.
 
 Por que existe
 ==============
@@ -8,7 +8,7 @@ El 2026-09-09 tres mirillas del codegen de C encogieron TODOS los `.bex` un 6 %
 --DOOM perdio 54 KB-- y eso se supo **sumando a mano dos listados del build**.
 El dato estaba en pantalla las dos veces y nadie los comparaba.
 
-    el build imprime el tamano de los 25 programas en cada pasada
+    el build imprime el medida de los 25 programas en cada pasada
     y nadie los compara con los de ayer
 
 *** Es la misma forma que ya tienen `avisos` y `fases`: el numero existia, se
@@ -18,7 +18,7 @@ apuntar a mano no se apunta.
 Lo que hace
 ===========
 
-    lee el tamano de cada `.bex` de `staging/` y lo compara con LINEA_BASE.txt
+    lee el medida de cada `.bex` de `staging/` y lo compara con LINEA_BASE.txt
 
       cambia   lo dice, programa por programa, con el signo y el porcentaje
       igual    una linea y a otra cosa
@@ -96,8 +96,8 @@ def leer_base():
 def escribir_base(m):
     with open(BASE, "w", encoding="utf-8", newline="\n") as f:
         f.write("# Tamano de cada ejecutable de staging/, en bytes.\n")
-        f.write("# REPORTERO, no trinquete: ver toolchain/tools/tamano/tamano.py\n")
-        f.write("# Se regenera con:  py toolchain/tools/tamano/tamano.py --fijar\n")
+        f.write("# REPORTERO, no trinquete: ver toolchain/tools/medida/medida.py\n")
+        f.write("# Se regenera con:  py toolchain/tools/medida/medida.py --fijar\n")
         for n in sorted(m):
             f.write("%s %d\n" % (n, m[n]))
 
@@ -106,7 +106,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--fijar", action="store_true",
-                    help="guarda los tamanos de ahora como la nueva linea base")
+                    help="guarda los medidas de ahora como la nueva linea base")
     args = ap.parse_args()
 
     m = medidos()
@@ -145,7 +145,7 @@ def main():
         return 0
 
     ta, tb = sum(base.values()), sum(m.values())
-    print("los ejecutables CAMBIARON de tamano -- %d de %d, y el total %+d B"
+    print("los ejecutables CAMBIARON de medida -- %d de %d, y el total %+d B"
           " (%+.1f %%)" % (len(cambios), len(m), tb - ta,
                            (tb - ta) * 100.0 / ta if ta else 0.0))
     for n, a, b, nota in cambios:
@@ -155,10 +155,10 @@ def main():
             print("  %-34s %8d -> %8d  %+7d  %+6.1f %%"
                   % (n, a, b, b - a, (b - a) * 100.0 / a if a else 0.0))
     print("")
-    print("  [!] El tamano NO es la velocidad. El juez sigue siendo el metal:")
+    print("  [!] El medida NO es la velocidad. El juez sigue siendo el metal:")
     print("      `expansion N us` en el [perf] de DOOM.")
     print("  Para aceptar estos numeros como los nuevos de referencia:")
-    print("      py toolchain/tools/tamano/tamano.py --fijar")
+    print("      py toolchain/tools/medida/medida.py --fijar")
     # REPORTERO: nunca mata el build. Ver la cabecera.
     return 0
 

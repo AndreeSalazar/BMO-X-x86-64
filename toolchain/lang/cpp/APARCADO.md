@@ -1,9 +1,9 @@
 # BMO C++ -- APARCADO, no borrado
 
-> Decision del dueno, **2026-08-12**. Igual que Vulkan: no se toca, y existe
+> Decision del propietario, **2026-08-12**. Igual que Vulkan: no se toca, y existe
 > para no tener que reconstruirlo.
 >
-> **2026-09-17: el dueno le da la oportunidad** (*"podemos darle oportunidad
+> **2026-09-17: el propietario le da la oportunidad** (*"podemos darle oportunidad
 > no?"*). Lo que eso cambio, y lo que NO, esta en la seccion 7. Lo de abajo se
 > conserva como estaba: es la razon de que se aparcara.
 
@@ -53,7 +53,7 @@ Construir un lenguaje encima de un camino que nadie ha ejecutado es apilar.
 
 ## 2.3 -- Y no es lo que desbloquea aplicaciones
 
-De `docs/identidad/QUE_DESBLOQUEA.md`, y es del dueno:
+De `docs/identidad/QUE_DESBLOQUEA.md`, y es del propietario:
 
 > *"C++ no desbloquea aplicaciones. Lo que desbloquea aplicaciones es la
 > **superficie del sistema**."*
@@ -76,7 +76,7 @@ tocar-- **este si tiene destinatario declarado y escrito**:
   lineas), una GUI de herramientas sobre el framebuffer crudo.
 
 Y 3.874 lineas de parser de C++ son meses. El historial de git no olvida, pero
-**recuperar de un commit y retomar un diseno no son la misma operacion**.
+**recuperar de un commit y retomar un esquema no son la misma operacion**.
 
 ---
 
@@ -92,7 +92,7 @@ No "algun dia". Dos, concretas, y **las dos comprobables**:
 Con las dos puestas, C++ pasa de "un parser sin destino" a "el lenguaje con el
 que se escribe ImGui". Sin ellas, cada linea que se le anada es deuda.
 
-★ Y hay una tercera que no es condicion sino aviso: **el dueno lo dudaba desde
+★ Y hay una tercera que no es condicion sino aviso: **el propietario lo dudaba desde
 julio.** *"C++ Eddi lo duda el mismo"*, escrito el 2026-07-28. Aparcarlo no
 contradice nada: lo pone por escrito.
 
@@ -128,7 +128,7 @@ exactamente que falta.
 
 - **Que se retome.** Puede que las dos condiciones se cumplan y C++ siga sin
   hacer falta, porque para entonces SDL haya traido lo que se queria.
-- **Que el diseno siga siendo el correcto.** Esta escrito para el BMO de agosto
+- **Que el esquema siga siendo el correcto.** Esta escrito para el BMO de agosto
   de 2026; si el ABI cambia, este parser habla con un sistema que ya no existe.
 - **Que 22 tests verdes signifiquen que funciona.** Significan que *ese* camino
   funciona en el ANFITRION. Ningun `.bex` de C++ ha tocado un CPU jamas.

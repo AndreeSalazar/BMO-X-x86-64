@@ -201,7 +201,7 @@ struct Codegen {
     /// Vacio = esta funcion no usa ninguno, y entonces el prologo no guarda
     /// nada. Ver `decidir/registros.rs` y `docs/plan/PLAN_EL_TROQUEL.md`.
     var_regs: HashMap<String, u8>,
-    // bytes de stack locales de la funcion actual (arrays/structs con tamano REAL)
+    // bytes de stack locales de la funcion actual (arrays/structs con medida REAL)
     frame_size: i32,
     /// La funcion que se esta emitiendo declara `...`?
     es_variadica: bool,
@@ -225,7 +225,7 @@ struct Codegen {
     struct_layouts: HashMap<String, Vec<(String, u32, u32)>>,
     struct_sizes: HashMap<String, u32>,
     /// El alineado de cada agregado, que **no** se puede recalcular desde su
-    /// tamano: `char[8]` y `long` miden lo mismo y no se alinean igual. Se
+    /// medida: `char[8]` y `long` miden lo mismo y no se alinean igual. Se
     /// guarda al colocarlo y se consulta cuando ese agregado es a su vez el
     /// miembro de otro.
     struct_aligns: HashMap<String, u32>,
@@ -480,7 +480,7 @@ impl Codegen {
                     //
                     // Es la tercera cara de la misma relocation, ahora con
                     // destino `.data`. El sumando lleva el indice ya
-                    // multiplicado por el tamano del elemento.
+                    // multiplicado por el medida del elemento.
                     if let Some((gname, sumando)) = self.direccion_de_global(&e.valor) {
                         self.relocs_a_global.push((off + e.offset, gname, sumando));
                         continue;
@@ -754,7 +754,7 @@ impl Codegen {
 
     /// **EL EMBUDO DE LO QUE NO SE SABE. AQUI NO SE ADIVINA.**
     ///
-    /// # La regla, con las palabras del dueno
+    /// # La regla, con las palabras del propietario
     ///
     /// > *"si encuentra lo que es adivinar, no compila hasta que lo aclares.
     /// > No me gustaria que la CPU tenga que perder tiempo en adivinar. NUNCA
@@ -1067,7 +1067,7 @@ impl Codegen {
         // 19-09 aqui habia una copia "a su ranura local, si es otra" que nunca
         // hacia nada; con la convencion hibrida SI hacia algo, y era pisar el
         // primer argumento de la pila con basura del marco del llamante.
-        // allocate local var space -- tamano REAL calculado por build_var_map
+        // allocate local var space -- medida REAL calculado por build_var_map
         // (antes: var_count*8, y los arrays/structs pisaban a sus vecinos)
         let stack_size = self.frame_size;
         if stack_size > 0 {
@@ -1311,7 +1311,7 @@ impl Codegen {
             }
             // `T x = { ... }` -- la lista ya viene APLANADA a escrituras por
             // `parser/inicializador.rs`. Aqui no se sabe que es un designador:
-            // solo "en el byte N va este valor, de este tamano".
+            // solo "en el byte N va este valor, de este medida".
             Stmt::DeclInit(typ, name, escrituras) => {
                 let Some(&(base, _)) = self.var_offsets.get(name) else {
                     self.errors.push(format!("'{name}' no tiene hueco en la pila"));
@@ -1614,7 +1614,7 @@ impl Codegen {
 
     /// **Carga una constante en `rax`.** `mov rax, imm32` cuando cabe.
     ///
-    /// ** Siete bytes en vez de diez, y no es por el tamano: `48 C7 C0` EXTIENDE
+    /// ** Siete bytes en vez de diez, y no es por el medida: `48 C7 C0` EXTIENDE
     /// EL SIGNO del inmediato de 32 bits a 64, que es exactamente lo que un
     /// `i64` que cabe en `i32` necesita. Para el resto queda el `movabs` de
     /// diez, que es el unico que puede con los 64 bits.

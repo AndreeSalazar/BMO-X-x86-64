@@ -361,7 +361,7 @@ impl Archivo {
     /// --de siete en siete bytes-- todo lo que hay delante. Para el icono de
     /// una app eso es leerse el programa entero para llegar a su cara.
     ///
-    /// El kernel recorta al tamano en vez de fallar: saltar mas alla del final
+    /// El kernel recorta al medida en vez de fallar: saltar mas alla del final
     /// deja el cursor al final, y lo dice devolviendo donde quedo.
     pub fn saltar(&self, pos: u64) -> u64 {
         if self.escribe {
@@ -371,7 +371,7 @@ impl Archivo {
     }
 
     /// Bytes que quedan por leer, o bytes acumulados si es de escritura.
-    pub fn tamano(&self) -> u64 {
+    pub fn size(&self) -> u64 {
         invoke(self.cap, ARCH_OP_TAMANO, 0, 0, 0).value
     }
 
@@ -399,12 +399,12 @@ impl Archivo {
 /// `close()` sigue existiendo y sigue siendo la forma correcta de cerrar un
 /// archivo de ESCRITURA: es donde el contenido llega al disco, y **devuelve si
 /// salio bien**. Un `Drop` no puede devolver nada, asi que soltar la escritura
-/// en el `Drop` seria tirar la unica senal de que se guardo.
+/// en el `Drop` seria tirar la unica signal de que se guardo.
 ///
 /// Lo que hace esto es tapar el otro caso: el archivo que se abrio, se leyo, y
 /// alguien se fue por un `return` en medio. Hoy el compositor cierra bien en
 /// los dos caminos -- pero eso es **disciplina, no construccion**, y la
-/// disciplina se rompe el dia que se anade un comando nuevo con una rama de
+/// disciplina se rompe el dia que se agrega un comando nuevo con una rama de
 /// error mas. La tabla son 16 ranuras y los handles 64 por proceso.
 impl Drop for Archivo {
     fn drop(&mut self) {

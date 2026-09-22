@@ -83,7 +83,7 @@ fn devolver_un_struct_por_valor_se_rechaza_con_motivo() {
 // nombra asi cada lump de su WAD.
 
 /// El array convive con los otros campos y **no los pisa**: es lo que prueba
-/// que el reparto de offsets conto su tamano entero y no el de un elemento.
+/// que el reparto de offsets conto su medida entero y no el de un elemento.
 #[test]
 fn un_struct_puede_llevar_un_array_dentro() {
     let fuente = "struct S { int i; char c[4]; int z; }; \

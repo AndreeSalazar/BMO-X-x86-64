@@ -3,17 +3,17 @@
 //! generacion: nieto -- es POLITICA, no driver. No habla con ningun aparato:
 //!
 //! [carril]  ROJO      la patada. Si esto falla, no queda ningun rescate detras
-//! [consumo] NADA      la patada: solo cuando el dueno la pide
+//! [consumo] NADA      la patada: solo cuando el propietario la pide
 //!
 //! [cuesta]  APARATO -- decide QUITARLE la pantalla a quien la tenga. Un
-//!           disparo de mas deja al dueno sin escritorio hasta que teclee
+//!           disparo de mas deja al propietario sin escritorio hasta que teclee
 //!           `escritorio`; uno de menos lo deja mirando una foto de algo que
 //!           ya no existe. Por eso la lista de disparadores es de UNA fila
 //! decide **cuando el kernel deja de fiarse de Ring 3**.
 //!
 //! # De donde sale, con la fecha y las palabras
 //!
-//! Del Ryzen, el 2026-08-26. El dueno abrio la calculadora, tecleo `10 * 60 =`,
+//! Del Ryzen, el 2026-08-26. El propietario abrio la calculadora, tecleo `10 * 60 =`,
 //! y el motor de COBOL se murio. La maquina siguio viva --el aislamiento
 //! funciono-- y lo que el vio fue esto:
 //!
@@ -24,7 +24,7 @@
 //! # *** POR QUE `Ctrl+Alt+Esc` NO LE SIRVIO, Y NO ERA UN BUG
 //!
 //! El rescate por teclado existe desde el 12-08 y funciona. Lo que pasa es que
-//! `fb::rescue` **se niega a echar al primer dueno** --el escritorio-- y lo dice
+//! `fb::rescue` **se niega a echar al primer propietario** --el escritorio-- y lo dice
 //! con todas las letras:
 //!
 //! > *"Si echara al escritorio, la tecla de emergencia seria la tecla de romper
@@ -51,7 +51,7 @@
 //! ```
 //!
 //! *** La patada es el escalon que faltaba entre los dos: **el kernel sigue
-//! vivo, pero ha visto algo que dice que su propia contabilidad esta danada.**
+//! vivo, pero ha visto algo que dice que su propia contabilidad esta perjudicada.**
 //! Seguir dejando la pantalla en manos de Ring 3 en ese estado es apostar.
 //!
 //! # Que cuenta como corrupcion, hoy
@@ -142,7 +142,7 @@ pub fn atender() -> bool {
     if !PENDIENTE.swap(false, Ordering::SeqCst) {
         return false;
     }
-    // 1. La pantalla PRIMERO, y sin respetar al primer dueno. Es la diferencia
+    // 1. La pantalla PRIMERO, y sin respetar al primer propietario. Es la diferencia
     //    entera con el rescate por teclado: aquel protege al escritorio porque
     //    el usuario puede haberse equivocado de tecla; esto se dispara porque el
     //    kernel ya vio que algo esta roto.
@@ -153,7 +153,7 @@ pub fn atender() -> bool {
         let _ = crate::ring0::obj::input::release(pid);
     }
     // 2. Y se DICE, en la pantalla que se acaba de recuperar. Un kernel que
-    //    toma el control sin explicarse deja al dueno mirando un escritorio que
+    //    toma el control sin explicarse deja al propietario mirando un escritorio que
     //    desaparecio solo.
     anunciar(quien);
     crate::ring0::cabina::warn(
@@ -164,7 +164,7 @@ pub fn atender() -> bool {
     true
 }
 
-/// Las cuatro lineas que el dueno tiene que ver al volver.
+/// Las cuatro lineas que el propietario tiene que ver al volver.
 ///
 /// ** No es la pantalla azul y no se le parece a proposito: **el kernel esta
 /// vivo**. Aquella dice *"esto se acabo, en 20 segundos reinicio"*; esta dice
@@ -174,7 +174,7 @@ fn anunciar(quien: Option<u32>) {
     use crate::ring0::core::dashboard::dashboard_log;
     // *** SE LIMPIA LA PANTALLA, Y NO ES COSMETICA (2026-08-26).
     //
-    // La primera version recuperaba la pantalla y escribia encima. El dueno lo
+    // La primera version recuperaba la pantalla y escribia encima. El propietario lo
     // vio y lo dijo en una linea: **"eso no se limpio"**. Y tenia razon en algo
     // que no es de estetica:
     //

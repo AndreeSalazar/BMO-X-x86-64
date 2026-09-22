@@ -44,7 +44,7 @@
 //! # [!!] Y HAY UN BIT QUE SE ESCAPA DEL CORRAL: `EOR`
 //!
 //! El corral acota los **buferes**, porque cada uno lleva su direccion y su
-//! tamano. Pero el **anillo** se acota de otra forma: la tarjeta lo recorre
+//! medida. Pero el **anillo** se acota de otra forma: la tarjeta lo recorre
 //! sola, y lo unico que le dice que vuelva al principio es el bit `EOR` del
 //! ultimo descriptor.
 //!
@@ -69,7 +69,7 @@
 /// Descriptores del anillo. **Es el que ya usaba el driver**, no uno nuevo.
 ///
 /// [!] Y eso es a proposito: este fichero entra a poner un corral alrededor de
-/// una aritmetica que ya funcionaba, no a redisenarla. Cambiar el tamano en el
+/// una aritmetica que ya funcionaba, no a redisenarla. Cambiar el medida en el
 /// mismo movimiento haria que un fallo despues no dijera cual de las dos cosas
 /// lo causo. Una cosa cada vez.
 pub const ANILLO: usize = crate::RX_RING_LEN;
@@ -95,7 +95,7 @@ pub enum Falta {
     NoAlineada,
     /// La arena no da para el anillo y sus buferes.
     Pequena,
-    /// La arena se sale del espacio direccionable al sumarle su tamano.
+    /// La arena se sale del espacio direccionable al sumarle su medida.
     Desborda,
 }
 

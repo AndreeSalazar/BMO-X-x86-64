@@ -71,14 +71,14 @@ pub struct CpuProfile {
 
     // -- Lo que este perfil ESPERA del estado extendido (XSAVE) ------------
     //
-    // * Esto es una EXPECTATIVA, jamas la fuente de la verdad. El tamano del
+    // * Esto es una EXPECTATIVA, jamas la fuente de la verdad. El medida del
     // area de XSAVE y que componentes existen se le preguntan SIEMPRE al
     // silicio (CPUID hoja 0xD); lo de aqui solo sirve para poder AVISAR
     // cuando el CPU que hay delante no es el que el perfil creia.
     //
     // Es la regla de la casa aplicada al procesador: se hardcodean los
     // CONTRATOS, se le preguntan los HECHOS al hardware. Un perfil que
-    // dictara el tamano del area seria un kernel que se rompe --en silencio y
+    // dictara el medida del area seria un kernel que se rompe --en silencio y
     // corrompiendo registros-- el dia que alguien enchufe otro CPU.
     /// Componentes que se espera que el CPU **soporte** (bit 0 x87, 1 SSE,
     /// 2 AVX...). Se contrasta con `CPUID.D.0:EDX:EAX`.
@@ -92,7 +92,7 @@ pub struct CpuProfile {
     /// Este campo existe porque **`XCR0` no lo decide el kernel**. En esta
     /// maquina el firmware ya lo dejo puesto antes de que BMO arrancara (ver
     /// la cabecera de `trap.rs`: AVX venia habilitado de fabrica). O sea que es
-    /// un numero que llega de fuera, que cambia el tamano del area de contexto,
+    /// un numero que llega de fuera, que cambia el medida del area de contexto,
     /// y que hasta ahora no vigilaba nadie -- una actualizacion de BIOS podia
     /// moverlo sin que saliera una sola linea.
     ///
@@ -138,7 +138,7 @@ pub struct CpuProfile {
     // otro perfil habria seguido leyendo MSR de AMD, y leer un MSR que no
     // existe es un `#GP` -- un fault de kernel desde un panel que se repinta.
     //
-    // El dueno lo pidio por su nombre: *"organiza bien Perfil, luego los que
+    // El propietario lo pidio por su nombre: *"organiza bien Perfil, luego los que
     // quiere leer, luego el terminal lee lo que el perfil esta reflejando"*.
     //
     // Asi que la cadena es esta y **no se puede saltar ningun eslabon**:
@@ -201,11 +201,11 @@ pub struct CpuProfile {
 ///
 /// ```text
 ///    el careo existia   ->  pero solo corria si el DUENO lo pedia
-///    el numero malo     ->  se ensenaba en CADA panel, desde el arranque
+///    el numero malo     ->  se mostraba en CADA panel, desde el arranque
 /// ```
 ///
 /// *** **Una comprobacion que hay que invocar no protege del caso en el que
-/// nadie la invoca.** Y ese es justo el caso en el que hace falta: el dueno mira
+/// nadie la invoca.** Y ese es justo el caso en el que hace falta: el propietario mira
 /// el panel porque quiere el dato, no porque sospeche del dato.
 ///
 /// # Los tres testigos, y que significa que discrepen
@@ -249,7 +249,7 @@ pub fn carear_topologia() {
     // -- 2. *** EL PERFIL DESMINTIENDO AL SILICIO (la ley 24 cobrando) -----
     //
     // Aqui es donde un 54 se cae. Y no se corrige a 12: se GRITA. Corregirlo
-    // dejaria un sistema que ensena el numero bueno y esconde que su fuente
+    // dejaria un sistema que muestra el numero bueno y esconde que su fuente
     // esta rota -- que es exactamente como se llego hasta aqui.
     if let Some((nucleos_ok, hilos_ok)) = p.topologia_esperada {
         if n.hilos != hilos_ok || n.nucleos != nucleos_ok {

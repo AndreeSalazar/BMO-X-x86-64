@@ -74,7 +74,7 @@ pub(crate) fn cargar(p: &bmo::Pantalla) {
     let Ok(a) = bmo::Archivo::leer_de(ruta.bytes()) else {
         return fallar("fondo_imagen: no encuentro ese fichero");
     };
-    let mide = a.tamano();
+    let mide = a.size();
     if mide > TOPE {
         return fallar("fondo_imagen: pasa de 4 MiB");
     }

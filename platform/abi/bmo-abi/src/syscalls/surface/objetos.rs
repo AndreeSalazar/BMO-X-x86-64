@@ -56,7 +56,7 @@ pub const ES_NODO_SUBIR: u64 = 0x07;
 
 /// -- El DETALLE del hijo `arg1` ----------------------------------------
 ///
-/// Un grafo que solo ensena nombres contesta *que hay*; no contesta *que es
+/// Un grafo que solo muestra nombres contesta *que hay*; no contesta *que es
 /// esto*. Esto es lo que el nodo ya lleva dentro y la ventana no podia pedir.
 ///
 /// Bytes de su contenido. Un directorio contesta lo que ocupa su lista de
@@ -86,7 +86,7 @@ pub const ES_NODO_VERIFICAR: u64 = 0x0B;
 // El cursor guarda la ruta desde la raiz, y desde 2026-08-18 cada nivel de esa
 // ruta **se queda con su listado**. Estas tres son la puerta a esos listados.
 //
-// Sirven para lo que un panel de arbol necesita y una lista no: ensenar a la
+// Sirven para lo que un panel de arbol necesita y una lista no: mostrar a la
 // vez los hijos de la raiz, los del nivel siguiente y los del siguiente, con la
 // rama abierta marcada. **No son un segundo cursor** -- son el mismo recorrido
 // preguntado a otra profundidad, y por eso no piden handle, tabla ni
@@ -117,7 +117,7 @@ pub const ES_NODO_NIVEL_ELEGIDO: u64 = 0x0E;
 /// El sintoma no seria un error: seria borrar un fichero y seguir viendolo.
 ///
 /// Se rehace el camino por NOMBRE, no por indice: al quitar una entrada de en
-/// medio, los indices de ayer senalan a otra cosa. Si un tramo ya no existe, se
+/// medio, los indices de ayer marcan a otra cosa. Si un tramo ya no existe, se
 /// para en el mas hondo que siga estando.
 pub const ES_NODO_RECARGAR: u64 = 0x0F;
 
@@ -158,7 +158,7 @@ pub const ES_HIST_CON_NOMBRE: u64 = 0x15;
 
 /// Que texto pide [`TASK_OP_ES_TEXTO`], en los bits altos de `arg0`.
 ///
-/// Los bajos siguen siendo el indice. Se reparte el argumento en vez de anadir
+/// Los bajos siguen siendo el indice. Se reparte el argumento en vez de agregar
 /// una operacion porque **son el mismo mecanismo** --sacar un nombre de ocho en
 /// ocho-- pidiendo dos cosas distintas, y una puerta por cada texto que devuelva
 /// el sistema es como una superficie de dos syscalls acaba teniendo cuarenta.
@@ -199,7 +199,7 @@ pub const ES_TXT_HIST_NOMBRE: u64 = 3;
 // > operaciones sobre handles que alguien concedio, y por eso viven aqui.
 
 /// Avanza a la siguiente entrada del directorio:
-/// `(hay << 63) | (es_dir << 62) | tamano`. `hay == 0` = se acabo.
+/// `(hay << 63) | (es_dir << 62) | medida`. `hay == 0` = se acabo.
 ///
 /// El nombre NO viaja aqui --son 11 bytes y no caben con los demas campos-- y
 /// se pide aparte con [`DIR_OP_NOMBRE`]. Es la misma decision que la consola:
@@ -272,7 +272,7 @@ pub const FB_OP_BYTES: u64 = 0x04;
 // -- Las dos de la VENTANA DE UN APARATO (`KIND_MMIO`) ----------------------
 //
 // Son dos y no cuatro porque un aparato no tiene geometria: tiene una direccion
-// y un tamano. Lo que hay dentro lo sabe el driver, y el kernel no.
+// y un medida. Lo que hay dentro lo sabe el driver, y el kernel no.
 
 /// Direccion virtual, **en el espacio del proceso**, donde quedo la ventana.
 ///
@@ -405,7 +405,7 @@ pub const TAREA_OP_TID: u64 = 0x02;
 /// **CERRARLO.** El hijo termina como si hubiera llamado a `EXIT`: sus
 /// capabilities se revocan, su ventana se retira y su ranura se recicla.
 ///
-/// ** No es una senal ni una peticion: no hay a quien pedirsela. Un programa
+/// ** No es una signal ni una peticion: no hay a quien pedirsela. Un programa
 /// en ventana puede no tener entrada --hoy ninguno la tiene-- asi que esperar
 /// a que se entere seria esperar para siempre.
 pub const TAREA_OP_CERRAR: u64 = 0x03;
@@ -474,9 +474,9 @@ pub const DEVICE_HDA: u64 = 1 << 1;
 // -- ** AQUI VIVIA `KIND_LIENZO`, y se borro el 2026-09-02 -------------------
 //
 // Siete constantes --`LIENZO_FMT_*`, `LIENZO_OP_*`, `LIENZO_UNICO`,
-// `LIENZO_FILAS_RESERVADAS_ARRIBA`-- de un diseno que **el kernel ya no tiene**:
+// `LIENZO_FILAS_RESERVADAS_ARRIBA`-- de un esquema que **el kernel ya no tiene**:
 // el prestamo se hizo generico y `obj/loan.rs` lo cuenta con la pregunta del
-// dueno que lo destapo, *"Ring 3 no puede administrar eso el?"*. Quien decide
+// propietario que lo destapo, *"Ring 3 no puede administrar eso el?"*. Quien decide
 // cuanto se presta es el compositor; el kernel solo mueve paginas.
 //
 // [!] Se deja la lapida y no solo el borrado **porque una idea retirada sin
@@ -484,9 +484,9 @@ pub const DEVICE_HDA: u64 = 1 << 1;
 //
 // Lo que las sustituye, y hace lo mismo sin que Ring 0 sepa que es un lienzo:
 //
-//     MEM_OP_OFRECER    el dueno ofrece un trozo de SU bloque
+//     MEM_OP_OFRECER    el propietario ofrece un trozo de SU bloque
 //     TASK_OP_TOMAR     el otro lo toma, y el mapeo ocurre en su espacio
-//     PRESTADO_OP_*     medirlo, preguntar si el dueno vive, y soltarlo
+//     PRESTADO_OP_*     medirlo, preguntar si el propietario vive, y soltarlo
 
 
 /// Donde empieza el bloque, en el espacio del proceso que lo pidio.

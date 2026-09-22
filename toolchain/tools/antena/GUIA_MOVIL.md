@@ -101,7 +101,7 @@ Deja `prueba.mpg` en la carpeta. Abrirlo con VLC: si se ve, **A1 esta CUMPLIDO**
    la conexion se cierra sin contestar     --permitir no es la IP de        repetir el paso 3
                                            quien pide (la antena es asi
                                            a proposito: no le dice nada
-                                           a un extrano)
+                                           a un raro)
    se queda colgado y da timeout           no estan en la misma red, o el   misma WiFi, no la
                                            router aisla los aparatos WiFi   de invitados
                                            ("aislamiento de AP")
@@ -181,7 +181,7 @@ Se instala UNA vez, ~1 GB:
 La antena (fuera del proot, en Termux) no cambia una linea: el puerto 9222
 es de la misma maquina porque proot comparte la red de Termux. Dentro de
 proot el Chromium va con `--no-sandbox --no-zygote` (no puede crear espacios
-de nombres); eso lo pone `arrancar.sh`. Es un ARCH pequeno dentro del movil:
+de nombres); eso lo pone `arrancar.sh`. Es un ARCH chico dentro del movil:
 la V2 del plan con otro chasis.
 
 ```text
@@ -198,7 +198,7 @@ carpeta de la antena, con los tramos; ley 24, medir antes de tocar):
 
 ```text
    Wikipedia en el HONOR, tres veces (6,3 / 6,8 / 7,1 s)      HONOR        PC
-     pestana    arrancar el renderer (peaje de proot)          0,7-0,9    0,05
+     solapa    arrancar el renderer (peaje de proot)          0,7-0,9    0,05
      html       bajar el HTML por la WiFi                      0,2-0,9    0,26
      html->dom  parsear + CSS + scripts                        0,4-0,7    0,16
      dom->todo  ESPERAR IMAGENES y demas que nadie vera        1,7-3,2    0,01
@@ -211,7 +211,7 @@ carpeta de la antena, con los tramos; ley 24, medir antes de tocar):
 La LAN no cuenta. Lo que cuenta es lo que un navegador hace POR COSTUMBRE
 y la antena no necesita: cargar imagenes (2 s), abrir un proceso por
 pagina (0,8 s). Las dos cosas se quitaron esa misma noche (imagenes
-apagadas por bandera, UNA pestana fija, esperar el evento de carga en vez
+apagadas por bandera, UNA solapa fija, esperar el evento de carga en vez
 de sondear) y la lamina siguio siendo byte a byte la misma:
 
 ```text
@@ -326,9 +326,9 @@ ordenador?": si, y solo a ESTE PC. La depuracion USB es la llave del movil
 ### Paso a paso
 
 1. En el movil, en Chrome, abrir la pagina de la prueba (un articulo de
-   Wikipedia en espanol vale: tiene acentos, enlaces, imagenes y un campo).
+   Wikipedia en castellano vale: tiene acentos, enlaces, imagenes y un campo).
 2. Conectar el cable. En el Chrome del PC ir a `chrome://inspect/#devices`.
-   El HONOR aparece con sus pestanas; pulsar **inspect** en la de la pagina.
+   El HONOR aparece con sus solapas; pulsar **inspect** en la de la pagina.
 3. Se abre la consola REMOTA: lo que se escribe ahi corre en el movil.
    Pegar el contenido entero de `lamina.js`, Enter. Luego:
 

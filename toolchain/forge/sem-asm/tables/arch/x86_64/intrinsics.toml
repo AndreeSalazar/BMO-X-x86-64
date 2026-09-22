@@ -150,7 +150,7 @@ returns = "rdx"
 #
 # Cada una de estas es una FILA, y ese es el punto entero: en GCC y Clang los
 # intrinsecos estan cableados en C++ dentro del compilador (`BuiltinsX86.def`,
-# miles de lineas). Aqui anadir una instruccion no toca Rust.
+# miles de lineas). Aqui agregar una instruccion no toca Rust.
 #
 # -- Como se leen los operandos --
 #
@@ -447,7 +447,7 @@ returns = "xmm0"
 #
 #  ** Asi que estas no reciben numeros: reciben TRES DIRECCIONES. Es la misma
 #  forma que `escribe_natural64` y que el decimal, y por el mismo motivo -- lo
-#  que no cabe en un registro se senala.
+#  que no cabe en un registro se marca.
 #
 #  ## Y cada fila son CUATRO instrucciones, no una
 #
@@ -473,7 +473,7 @@ returns = "xmm0"
 #  ## Y NO LAS EMITE NADIE SOLO: el compilador no vectoriza
 #
 #  Es la decision de 13.7 del maestro, y no cambia: quien quiera cuatro a la vez
-#  lo escribe. Lo que esta tabla anade es que **se pueda escribir**, no que
+#  lo escribe. Lo que esta tabla agrega es que **se pueda escribir**, no que
 #  ocurra por arte de magia -- y el bloque `crudo` que hace falta SE CUENTA.
 
 [avx_suma4]
@@ -563,7 +563,7 @@ description = "Los BITS de un flotante64, sin tocar su valor: bits_de(x)"
 #
 #  [!] NO es `entero64(x)`. Aquella convierte el VALOR --3,5 da 3, con la Regla
 #  12 vigilando-- y esta no convierte nada: entrega los mismos ocho bytes con
-#  otro nombre. Confundirlas da un numero enorme donde se esperaba uno pequeno.
+#  otro nombre. Confundirlas da un numero enorme donde se esperaba uno chico.
 bytes = []
 args = ["rax"]
 returns = "rax"

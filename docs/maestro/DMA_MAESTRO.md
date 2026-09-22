@@ -1,6 +1,6 @@
 # DMA MAESTRO -- la disciplina del CUANDO, y que mitad del mundo copiar
 
-> Escrito el **2026-09-09**. Peticion del dueno: *"prepara la estrategia con
+> Escrito el **2026-09-09**. Peticion del propietario: *"prepara la estrategia con
 > DMA [...] con IOMMU y DMA pero ambos maestros"*.
 >
 > Este contesta **CUANDO** puede escribir un aparato. El **DONDE** lo contesta
@@ -60,7 +60,7 @@ alcanza, y con maquinas donde la direccion del bus no es la direccion fisica.
       el `dma_mask` de 32 bits   SI hace falta: el PRDT de AHCI es 32+32
 ```
 
-*** De cuarenta funciones sobreviven **dos ideas**: quien es el dueno ahora, y
+*** De cuarenta funciones sobreviven **dos ideas**: quien es el propietario ahora, y
 cabe la direccion en el ancho que el aparato acepta. Copiar la forma en vez de
 la idea seria traerse el precio de veintiocho arquitecturas que esta maquina no
 es -- que es lo que LEY 24 prohibe por escrito.
@@ -93,7 +93,7 @@ un usuario que somos nosotros es no tener disciplina.
 ```
 
 La tarjeta de red no valida sus direcciones fisicas **porque no pueden estar
-mal**: se calculan como `base + i * tamano` dentro de un corral que es suyo.
+mal**: se calculan como `base + i * medida` dentro de un corral que es suyo.
 
 *** Eso es la tercera escuela, la que ningun sistema grande usa como norma
 porque no puede --Linux tiene que servir a aparatos que no controla--. **BMO-X
@@ -104,7 +104,7 @@ censados.
 > pueda.
 
 Y esa es la diferencia entre copiar y aprender: el mundo comprueba porque no
-tiene mas remedio. Aqui se puede elegir el diseno en el que no hace falta.
+tiene mas remedio. Aqui se puede elegir el esquema en el que no hace falta.
 
 ---
 

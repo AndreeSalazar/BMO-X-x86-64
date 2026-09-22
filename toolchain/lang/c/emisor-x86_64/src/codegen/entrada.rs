@@ -183,7 +183,7 @@ impl Codegen {
         self.code.extend_from_slice(&(free_slot as u32).to_le_bytes());
     }
 
-    /// Guarda `rax` donde apunta `destino`, del tamano de `tipo`.
+    /// Guarda `rax` donde apunta `destino`, del medida de `tipo`.
     ///
     /// `destino` es una expresion que da una DIRECCION -- el `&x` del llamante.
     /// Se aparca el valor porque evaluar la direccion usa `rax` tambien.

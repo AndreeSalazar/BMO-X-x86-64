@@ -1,6 +1,6 @@
 //! Disco: el puente entre Ring 0 y el driver AHCI/SATA.
 //!
-//! [carril]  ROJO      el puente con el AHCI: DMA sobre el disco del dueno
+//! [carril]  ROJO      el puente con el AHCI: DMA sobre el disco del propietario
 //! [consumo] APARATO   enciende el HBA y sus puertos y los deja activos; hoy
 //!                     ningun enlace SATA duerme
 //!
@@ -12,7 +12,7 @@
 //! ## Por que AHCI y no NVMe
 //!
 //! Esta maquina tiene los dos. El primer controlador del barrido PCI es el
-//! NVMe, y en el NVMe vive el Windows del dueno; el disco de BMO -- el que
+//! NVMe, y en el NVMe vive el Windows del propietario; el disco de BMO -- el que
 //! lleva la particion de arranque y BMO-DATA -- cuelga de SATA. Pedir "el
 //! primer disco" y escribir habria sido escribir en el sistema ajeno. Por eso
 //! se pide el controlador POR TIPO, nunca por orden de aparicion.
@@ -29,7 +29,7 @@
 //! disco de arranque EFI coherente consigo mismo, y que no se esta escribiendo
 //! a ciegas en "el primero que aparecio" -- que era el peligro real, porque el
 //! primero que aparece en esta maquina es el NVMe donde vive el Windows del
-//! dueno. NO demuestra todavia que sea *este* disco y no otro igual: para eso
+//! propietario. NO demuestra todavia que sea *este* disco y no otro igual: para eso
 //! hace falta grabar la identidad DENTRO del volumen (el `disco_id` de
 //! ESTRATOS) y compararla al montar. Mientras tanto la segunda linea de
 //! defensa es la WINDOW: ningun sector fuera de una particion de datos
@@ -189,7 +189,7 @@ static mut TOTAL_SECTORS: u64 = 0;
 
 // ** EL AVISO DEL DISCO VIVE EN `irq.rs` (paso 3 del plan).
 //
-// No salio por tamano: salio porque es **lo unico de este fichero que corre en
+// No salio por medida: salio porque es **lo unico de este fichero que corre en
 // contexto de interrupcion**, y mezclar eso con codigo que puede tomar candados
 // es como se cuelga una maquina sin dejar rastro.
 //
@@ -249,7 +249,7 @@ pub fn init() {
 
     // Una placa puede traer mas de un HBA SATA. Se prueban en orden hasta dar
     // con uno que tenga un disco enlazado -- el mismo patron que el USB, que ya
-    // nos enseno que el teclado estaba en el segundo controlador.
+    // nos mostro que el teclado estaba en el segundo controlador.
     let mut chosen = 0xFFu8;
     let mut loc_ok = None;
     // AHCI primero; si ninguno tiene disco, se prueba el que la BIOS declare
@@ -435,7 +435,7 @@ unsafe fn ata_string(src: *const u8, first: usize, last: usize, dst: &mut [u8]) 
 
 /// Le pregunta al disco QUIEN ES.
 ///
-/// Esta maquina tiene tres discos y en uno vive el sistema del dueno. Un
+/// Esta maquina tiene tres discos y en uno vive el sistema del propietario. Un
 /// kernel que va a escribir algun dia tiene que poder decir "estoy hablando
 /// con el Kingston de 480 GB", no "estoy hablando con el primero que salio".
 fn identify() {
@@ -503,12 +503,12 @@ fn identify() {
 //
 // Un `SpinLock` giraria con el planificador expropiando por debajo, y quien lo
 // tomara y muriera lo dejaria tomado para siempre. Aqui se apunta **quien** lo
-// tiene: si el que espera ve que el dueno ya no existe, lo toma y **lo dice**.
+// tiene: si el que espera ve que el propietario ya no existe, lo toma y **lo dice**.
 // Un candado que se puede quedar cerrado sin que nadie sepa por que es peor que
 // la corrupcion que evita.
 //
-// Es la misma idea que la pantalla: exclusiva, con dueno, y recuperable cuando
-// el dueno se muere.
+// Es la misma idea que la pantalla: exclusiva, con propietario, y recuperable cuando
+// el propietario se muere.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -831,7 +831,7 @@ pub fn scan_partitions() -> bool {
         Ok(g) => g,
         Err(e) => {
             // El motivo con nombre: "no hay GPT" es normal en un disco ajeno,
-            // y "el tamano de entrada es absurdo" es un disco roto. Antes los
+            // y "el medida de entrada es absurdo" es un disco roto. Antes los
             // dos salian como el mismo `false`.
             crate::ring0::cabina::warn("disk", e.name(), 0);
             return false;

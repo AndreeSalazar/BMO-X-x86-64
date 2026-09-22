@@ -1,5 +1,5 @@
 //! **EL GATE RED DESDE EL ESCRITORIO** -- el pase, la prueba en tiempo real y el
-//! perfil de la red, sin ensenar lo que dice quien eres.
+//! perfil de la red, sin mostrar lo que dice quien eres.
 //!
 //! [consumo] NADA      trabaja solo con un pase abierto o una prueba en marcha;
 //!                     sin ninguno, cada cuarto de segundo es una comparacion
@@ -16,15 +16,15 @@
 //! Eddi: *"no quiero exponer donde vivo, no quiero ser expuesto"*.
 //!
 //! ```text
-//!    la MAC entera      identifica ESTE equipo. Se ensena el fabricante (tres
+//!    la MAC entera      identifica ESTE equipo. Se muestra el fabricante (tres
 //!                       bytes); `red mac completa` si de verdad hace falta
 //!    la IP de la LAN    192.168.x.x no dice donde vive nadie: es la misma en
-//!                       millones de casas. Se ensena, y no se escribe en disco
+//!                       millones de casas. Se muestra, y no se escribe en disco
 //!    la IP PUBLICA      ESA si dice donde. BMO-X no la conoce: no le pregunta a
 //!                       nadie de fuera, y este fichero no la pide
 //! ```
 //!
-//! [!] Una foto de la pantalla viaja lejos. Por eso lo que se ensena ya sale
+//! [!] Una foto de la pantalla viaja lejos. Por eso lo que se muestra ya sale
 //! recortado, y no hay que acordarse de taparlo.
 
 use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
@@ -587,7 +587,7 @@ fn perfil(s: &mut Output) {
     s.byte(b'\n');
     label(s, b"MAC");
     mac_privada(s, bmo::info(bmo::INFO_NET_MAC));
-    s.text(b"   el fabricante; el resto no se ensena\n");
+    s.text(b"   el fabricante; el resto no se muestra\n");
     label(s, b"enlace");
     link(s, presente, bmo::info(bmo::INFO_NET_MEGABITS));
     s.byte(b'\n');

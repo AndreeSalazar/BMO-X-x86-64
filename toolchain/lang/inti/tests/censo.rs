@@ -74,7 +74,7 @@ fn todas_las_sondas_declaran_su_veredicto() {
 ///
 /// Se excluyen las dos que existen justamente para llevarlo: `s03` trae un
 /// tabulador y `s05` una comilla simple. Que la lista de excepciones sea
-/// EXACTA importa -- si manana otra sonda empieza a fallar en el barrido,
+/// EXACTA importa -- si luego otra sonda empieza a fallar en el barrido,
 /// tiene que romper este test y no colarse en la excepcion de al lado.
 #[test]
 fn ninguna_sonda_lleva_un_fallo_de_escritura() {
@@ -334,7 +334,7 @@ fn exenta(nombre: &str) -> Option<&'static str> {
 ///                     banco del emisor, que es quien puede ejecutar
 /// ```
 ///
-/// ** La tercera fila es la que mas se presta a enganar. Exigir aqui que atrape
+/// ** La tercera fila es la que mas se presta a burlar. Exigir aqui que atrape
 /// seria imposible --este test no ejecuta nada-- pero **no exigir nada la
 /// dejaria pasar aunque no compilara**, que es exactamente lo que le pasaba a
 /// `r12_conversion`: escribia `escribe(...)` en `perfil llano`, donde no existe,

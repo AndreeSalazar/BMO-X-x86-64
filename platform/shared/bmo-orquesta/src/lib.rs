@@ -56,7 +56,7 @@
 //! 3 ejecutandose con el privilegio del kernel, en un nucleo que ni siquiera
 //! tiene TSS propia. No hay forma de hacerla segura y no se intenta.
 //!
-//! Y la segunda no es un apano: **es lo que hace una orquesta**. A una orquesta
+//! Y la segunda no es un arreglo: **es lo que hace una orquesta**. A una orquesta
 //! se le dan partituras escritas, no se le pasa cualquier cosa a ver que suena.
 //! BMO-X ya hace esto mismo dos veces --dos syscalls con un opcode, y los 62
 //! intrinsecos de `bmo-sem-asm` en una tabla-- asi que el catalogo no es un
@@ -228,7 +228,7 @@ pub enum Rechazo {
     NoHayNadaQueHacer,
     /// El total es cero. No es un error de nadie, pero repartirlo tampoco tiene
     /// sentido, y decirlo aparte de `NoHayNadaQueHacer` distingue *"no pediste
-    /// faena"* de *"pediste una faena de tamano cero"*.
+    /// faena"* de *"pediste una faena de medida cero"*.
     TotalCero,
     /// La parte necesita un origen y no se dio uno.
     FaltaElOrigen,
@@ -240,7 +240,7 @@ pub enum Rechazo {
     /// hacia abajo es otra parte --que pixel se descarta es una decision-- y
     /// recortar sin decirlo seria entregar media imagen como si fuera entera.
     DestinoMenor,
-    /// Algun tamano de `Escalar` es cero, pasa de 16 bits, o el `dato` trae
+    /// Algun medida de `Escalar` es cero, pasa de 16 bits, o el `dato` trae
     /// bits por encima de los tres campos que empaqueta. Ver [`Escala::de`].
     TamanoImposible,
 }
@@ -314,7 +314,7 @@ pub struct Escala {
 }
 
 impl Escala {
-    /// Los tres tamanos que no caben en `total`, en un solo numero.
+    /// Los tres medidas que no caben en `total`, en un solo numero.
     pub fn empaquetar(src_ancho: u64, src_alto: u64, dst_ancho: u64) -> u64 {
         (src_ancho & 0xFFFF) | (src_alto & 0xFFFF) << 16 | (dst_ancho & 0xFFFF) << 32
     }
@@ -380,11 +380,11 @@ impl Escala {
 ///
 /// El kernel los necesita para traducir --`fisica_de` comprueba que el rango
 /// entero es del que pide--, y hasta hoy los calculaba EL, con una rama por
-/// parte. Una parte nueva que se olvidara de su rama traduciria un tamano
-/// equivocado, y un tamano de menos no falla: deja que un obrero escriba mas alla
+/// parte. Una parte nueva que se olvidara de su rama traduciria un medida
+/// equivocado, y un medida de menos no falla: deja que un obrero escriba mas alla
 /// de lo que se comprobo. Aqui se prueba.
 ///
-/// `None` si el tamano no cabe en 64 bits o la parte no toca nada.
+/// `None` si el medida no cabe en 64 bits o la parte no toca nada.
 pub fn bytes_de(parte: Parte, e: &Encargo) -> Option<(u64, u64)> {
     match parte {
         Parte::Nada => None,
@@ -407,7 +407,7 @@ pub fn bytes_de(parte: Parte, e: &Encargo) -> Option<(u64, u64)> {
 /// # Por que esto no es `min(disponibles, lo que sea)`
 ///
 /// Repartir tiene un precio fijo: publicar las atomicas, despertar la ronda y
-/// **esperar en la barrera al mas lento**. Con un total pequeno ese precio se
+/// **esperar en la barrera al mas lento**. Con un total chico ese precio se
 /// come la ganancia, y entonces doce nucleos tardan mas que uno.
 ///
 /// El corte no es una opinion: es que **cada atril tenga al menos un trozo que
@@ -440,7 +440,7 @@ pub const MINIMO_POR_ATRIL: u64 = 8;
 /// ** **DESPERTAR PORQUE UNA APP LO PIDIO.** `true` si conviene levantar los
 /// nucleos antes de repartir.
 ///
-/// La politica es del dueno (2026-09-12): *"que se activen automaticamente si el
+/// La politica es del propietario (2026-09-12): *"que se activen automaticamente si el
 /// app pide -- ojo, SI ES QUE pide -- pero si mi orquestador dice que no, que se
 /// verifique por que"*. Y choca a proposito con la cabecera de
 /// `smp::despertar`, que decia que INIT+SIPI *"se dispara a proposito, no por
@@ -451,12 +451,12 @@ pub const MINIMO_POR_ATRIL: u64 = 8;
 ///    ya hay nucleos en pie       no   no hay nada que levantar
 ///    la app pidio 1 atril        no   pidio no repartir
 ///    la faena no merece 2        no   la barrera costaria mas que el trabajo
-///    YA SE INTENTO una vez       no   si no contesto nadie, o el dueno los paro
+///    YA SE INTENTO una vez       no   si no contesto nadie, o el propietario los paro
 ///                                     con `smp stop`, no se insiste solo
 ///    todo lo demas               SI
 /// ```
 ///
-/// [!] La ultima fila es la que respeta al dueno: despertar es irreversible sin
+/// [!] La ultima fila es la que respeta al propietario: despertar es irreversible sin
 /// reiniciar y cuesta hasta 10 ms por nucleo, asi que ocurre **una vez por
 /// arranque**. Parar a mano gana siempre.
 pub fn conviene_despertar(total: u64, vivos: u64, pedidos: u64, ya_se_intento: bool) -> bool {
@@ -469,7 +469,7 @@ pub fn conviene_despertar(total: u64, vivos: u64, pedidos: u64, ya_se_intento: b
 /// **EL GUARDIAN DEL ESPEJO**, y corre en compilacion.
 ///
 /// El catalogo tiene que tener tantas entradas como dice `PARTES_ESCRITAS`. Si
-/// alguien anade una parte y no sube el numero, el kernel --que compara contra
+/// alguien agrega una parte y no sube el numero, el kernel --que compara contra
 /// el-- creeria que la ultima no existe. Aqui rompe el build.
 const _: () = {
     assert!(PARTES_ESCRITAS == 5);
@@ -578,7 +578,7 @@ mod pruebas {
         assert_eq!(se_puede_tocar(Parte::Llenar, &bueno), Ok(()));
     }
 
-    /// **Un trabajo pequeno NO se reparte**, porque la barrera cuesta mas que
+    /// **Un trabajo chico NO se reparte**, porque la barrera cuesta mas que
     /// el trabajo.
     #[test]
     fn lo_pequeno_no_se_reparte() {
@@ -672,13 +672,13 @@ mod pruebas {
         let sin_origen = Encargo { destino: 0x2000, origen: 0, total: 1011, dato: bueno };
         assert_eq!(se_puede_tocar(Parte::Escalar, &sin_origen), Err(Rechazo::FaltaElOrigen));
 
-        let pequeno = Encargo {
+        let chico = Encargo {
             destino: 0x2000,
             origen: 0x1000,
             total: 300,
             dato: bueno,
         };
-        assert_eq!(se_puede_tocar(Parte::Escalar, &pequeno), Err(Rechazo::DestinoMenor));
+        assert_eq!(se_puede_tocar(Parte::Escalar, &chico), Err(Rechazo::DestinoMenor));
 
         let cero = Encargo { destino: 0x2000, origen: 0x1000, total: 1011, dato: 0 };
         assert_eq!(se_puede_tocar(Parte::Escalar, &cero), Err(Rechazo::TamanoImposible));
@@ -695,8 +695,8 @@ mod pruebas {
         assert_eq!(se_puede_tocar(Parte::Escalar, &ok), Ok(()));
     }
 
-    /// Lo que el kernel traduce, por parte. Y un tamano que no cabe en 64 bits
-    /// es `None`, no un numero pequeno.
+    /// Lo que el kernel traduce, por parte. Y un medida que no cabe en 64 bits
+    /// es `None`, no un numero chico.
     #[test]
     fn bytes_de_cada_parte() {
         let e = Encargo { destino: 1, origen: 1, total: 10, dato: 7 };
@@ -711,7 +711,7 @@ mod pruebas {
         assert_eq!(bytes_de(Parte::Expandir, &enorme), None);
     }
 
-    /// La politica del dueno, fila a fila: se despierta si la app PIDE y
+    /// La politica del propietario, fila a fila: se despierta si la app PIDE y
     /// merece la pena, una vez, y nunca si ya hay nucleos o si ya se intento.
     #[test]
     fn despertar_solo_si_la_app_pide_y_una_vez() {
@@ -726,7 +726,7 @@ mod pruebas {
         // Una faena que no merece dos atriles no despierta a nadie.
         assert!(!conviene_despertar(MINIMO_POR_ATRIL, 0, 0, false));
         assert!(conviene_despertar(MINIMO_POR_ATRIL * 2, 0, 0, false));
-        // *** Y la que respeta al dueno: si ya se intento, no se insiste.
+        // *** Y la que respeta al propietario: si ya se intento, no se insiste.
         assert!(!conviene_despertar(1011, 0, 0, true));
     }
 

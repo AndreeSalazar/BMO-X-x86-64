@@ -228,7 +228,7 @@ void bmo_barrido(unsigned long long cap, int hz0, int hz1, int pasos, int ms) {
 /* -- La voz del sistema ------------------------------------------------ */
 /*
  * Cuatro sonidos, y son POCOS a proposito. Un sistema que pita distinto en
- * cada sitio no ensena nada: lo que hace util un aviso sonoro es que el mismo
+ * cada sitio no muestra nada: lo que hace util un aviso sonoro es que el mismo
  * suceso suene siempre igual, y que se distingan entre si sin mirar.
  *
  * La regla que los separa es la direccion: **lo que sube va bien, lo que baja

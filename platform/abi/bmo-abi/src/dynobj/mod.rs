@@ -24,7 +24,7 @@
 //! `PICTURE`, que es de COBOL y se queda en COBOL.
 //!
 //! ** Y esa linea es lo que hace que este fichero **no haya tenido que cambiar**
-//! al cambiar de dueno. Un contrato escrito sobre bytes sobrevive al lenguaje
+//! al cambiar de propietario. Un contrato escrito sobre bytes sobrevive al lenguaje
 //! que lo pidio primero; uno escrito sobre semantica, no.
 //!
 //! # Por que no vive dentro de `runtime/`
@@ -61,7 +61,7 @@
 //! un `fork()` ensuciaba todas las paginas compartidas **solo por LEER**.
 //!
 //! *** Eso se cita como EVIDENCIA y no como herencia. Lo que se copia no es el
-//! diseno de nadie: es el escarmiento. Y es la razon entera de que este modulo
+//! esquema de nadie: es el escarmiento. Y es la razon entera de que este modulo
 //! se escribiera **antes que una sola linea de lo que lo usa**.
 //!
 //! # What is here and what is not
@@ -89,7 +89,7 @@
 
 pub mod header;
 /// La forma de una `lista de T` en memoria: la primera instancia del contrato
-/// de `header`, y lo que INTI le anade.
+/// de `header`, y lo que INTI le agrega.
 pub mod lista;
 pub mod slots;
 pub mod tabla;

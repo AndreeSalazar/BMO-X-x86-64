@@ -1,6 +1,6 @@
-//! **CUANTO FIARSE de los nucleos que ensena esta terminal.**
+//! **CUANTO FIARSE de los nucleos que muestra esta terminal.**
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -47,7 +47,7 @@ const DUDA_SIN_MEDIR: u64 = 1 << 1;
 
 /// **Que duda hay, en una frase.** `b""` cuando los tres testigos coinciden.
 ///
-/// [!] Se ensena el motivo **MAS GRAVE y solo uno**: una fila con cuatro quejas
+/// [!] Se muestra el motivo **MAS GRAVE y solo uno**: una fila con cuatro quejas
 /// no se lee. El orden es el de quien manda -- si el perfil desmiente al
 /// silicio, da igual lo que opine la MADT.
 ///

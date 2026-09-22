@@ -1,7 +1,7 @@
 # PLAN RED TX -- transmitir, con el DMA contado y el cable detras de un grifo
 
 > Escrito el **2026-09-13**, el mismo dia que la RTL8168 recibio en el Ryzen
-> (16 tramas, 0 perdidas, ARP 4 e IPv4 12). Lo pidio el dueno asi:
+> (16 tramas, 0 perdidas, ARP 4 e IPv4 12). Lo pidio el propietario asi:
 >
 > > *"en internet, puede tener el mapping y el unmapping? pero hot, como se hizo
 > > con mi DMA -- y fuerte con firmas"* ... *"dale, eso es buen plan pero mas
@@ -19,7 +19,7 @@
    mapear/desmapear en caliente   que la tarjeta solo tenga lo que esta EN VUELO.
                                    Sin IOMMU es CONTABILIDAD (detecta y acusa);
                                    con IOMMU es un MURO (la tarjeta no ve el resto)
-   el grifo                        que solo salga lo que el dueno abrio, con NUESTRA
+   el grifo                        que solo salga lo que el propietario abrio, con NUESTRA
                                    MAC de origen, acotado en tiempo, cupo y ritmo
    las firmas                      que un paquete falso o cambiado se RECHACE. No
                                    paran una escritura DMA: el hardware no las mira
@@ -132,13 +132,13 @@ son cinco clases de linea.
       `Ultra_kernel_x86-64/kernel/src/ring0/red/salida.rs`.
 - [x] **G2 -- tener IP.** HECHO en el Ryzen el 2026-09-14: `red ip` dijo
       `CONCEDIDA` (dos horas de concesion, con router, mascara y DNS) y
-      `red perfil` ensena la IP propia. DHCP en Ring 3 sobre el buzon (UDP 67/68):
+      `red perfil` muestra la IP propia. DHCP en Ring 3 sobre el buzon (UDP 67/68):
       `platform/shared/bmo-pila/src/dhcp.rs` (el protocolo y el cliente, con
       banco contra servidores de mentira) y la orden `red ip` en
       `Ultra_userspace/services/director/src/commands/red_ip.rs`, en codigo el
       2026-09-14. La IP vive en memoria: nunca en disco ni en el repositorio
       (seccion 5). **Como se sabe:** `red ip` dice `CONCEDIDA` y `red perfil`
-      ensena un numero en `IP propia`.
+      muestra un numero en `IP propia`.
 - [x] **G3 -- la pila sobre el buzon.** HECHO en el Ryzen el 2026-09-14: el
       router y un servidor de Internet contestaron a los cuatro ecos. [!] Los
       tiempos salen de 16 en 16 ms: el latido real se mide en `red ping`. `platform/shared/bmo-pila` (`nodo.rs`,
@@ -182,7 +182,7 @@ es publico, asi que:
 
 ```text
    la MAC entera    NO entra en el repositorio. Las pruebas usan una de ejemplo
-                    (02:1A:2B:3C:4D:5E) y la pantalla y CABINA ensenan solo el
+                    (02:1A:2B:3C:4D:5E) y la pantalla y CABINA muestran solo el
                     fabricante. `red mac completa` la da entera a quien la pide
    la IP de la LAN  NO entra en el repositorio. En pantalla si: 192.168.x.x no
                     dice donde vive nadie
@@ -191,4 +191,4 @@ es publico, asi que:
 ```
 
 [!] Lo publicado ANTES de esta regla sigue en la historia de git: se limpio el
-arbol, no la historia. Reescribirla es una decision del dueno, no de un commit.
+arbol, no la historia. Reescribirla es una decision del propietario, no de un commit.

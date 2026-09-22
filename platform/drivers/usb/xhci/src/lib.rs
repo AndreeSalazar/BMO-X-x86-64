@@ -109,7 +109,7 @@ pub trait XhciHal {
     /// implemente el HAL puede GUARDARLO, y entonces se puede contestar despues
     /// *"que llego y que le dije"* sin haber estado mirando en ese instante.
     ///
-    /// `vid`/`pid` son el NOMBRE --lo que Windows ensena como
+    /// `vid`/`pid` son el NOMBRE --lo que Windows muestra como
     /// `USB\VID_046D&PID_C077`--, y en cero cuando no se pudo leer. Clase y
     /// subclase dicen QUE es; solo el nombre dice CUAL es.
     ///
@@ -258,7 +258,7 @@ impl TransferRing {
     }
 
     /// Anillo SIN Link TRB -- para el **Event Ring**, que no lleva uno: el xHC
-    /// conoce su tamano por el ERST y da la vuelta solo. Escribirle un Link TRB
+    /// conoce su medida por el ERST y da la vuelta solo. Escribirle un Link TRB
     /// (lo que hacia `new`) dejaba basura en la ultima entrada que el consumidor
     /// leia como si fuera un evento real en la primera vuelta.
     pub unsafe fn new_unlinked(dma_virt: *mut u32, dma_phys: u64) -> Self {
@@ -443,7 +443,7 @@ pub fn comandos_tardios() -> u32 {
 // `evt_poll_block` espera GIRANDO (o durmiendo de milisegundo en milisegundo)
 // hasta que llega lo suyo, y mientras tanto nadie lee el raton: un aparato
 // mudo en el puerto 1 le costaba al hilo del bus 933 ms POR INTENTO, que el
-// dueno sintio como tirones. La espera vigilada es la misma pregunta hecha de
+// propietario sintio como tirones. La espera vigilada es la misma pregunta hecha de
 // otra forma: **"cuando pase X, guardamelo"**. Quien enumera lanza el comando
 // o la transferencia, dice que espera, y se VA; el bombeo de cada vuelta
 // (`poll_transfer_event`) sigue drenando el anillo como siempre y, si lo que
@@ -808,14 +808,14 @@ unsafe fn xecp_buscar(mmio: u64, hcc1: u32, id: u32) -> Option<u64> {
 /// === Por que esto importa justo al REINICIAR desde Windows ===
 ///
 /// En frio el xHC llega virgen. En un arranque en caliente no: el firmware --y
-/// antes Windows-- lo han tocado, y el BIOS puede seguir declarandose dueno con
+/// antes Windows-- lo han tocado, y el BIOS puede seguir declarandose propietario con
 /// `USBLEGSUP.BIOS`. Mientras eso siga puesto, el SMM del firmware atiende
 /// eventos del bus por debajo del sistema operativo, o sea que hay **dos
 /// drivers** hablandole al mismo aparato.
 ///
 /// Se pide la propiedad (bit 24), se espera a que el firmware suelte (bit 16), y
 /// **se apagan sus SMI** -- si no, el firmware sigue entrando por interrupcion
-/// de gestion aunque ya no sea el dueno. Los tres bits de estado se limpian
+/// de gestion aunque ya no sea el propietario. Los tres bits de estado se limpian
 /// escribiendo un 1, que es como se limpian.
 unsafe fn traspaso_del_firmware(mmio: u64, hcc1: u32) {
     let h = hal();
@@ -929,7 +929,7 @@ pub unsafe fn init(mmio: u64) -> bool {
 
     // Build ring wrappers
     let cmd_ring = TransferRing::new(cv, ca & !0x3F);
-    // El event ring NO lleva Link TRB (el xHC lo recorre por tamano del ERST).
+    // El event ring NO lleva Link TRB (el xHC lo recorre por medida del ERST).
     let event_ring = TransferRing::new_unlinked(ev, eo);
 
     CTRL = Some(XhciController {

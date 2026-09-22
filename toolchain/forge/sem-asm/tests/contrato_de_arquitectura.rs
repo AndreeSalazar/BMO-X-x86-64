@@ -7,11 +7,11 @@
 //! `build.ps1` lleva **cinco entradas suyas** en la lista de subidas y que cada
 //! guardian nuevo lo engorda:
 //!
-//! > *"El siguiente guardian NO se anade: primero se parte este fichero."*
+//! > *"El siguiente guardian NO se agrega: primero se parte este fichero."*
 //!
 //! ** Respetar una regla propia el mismo dia que se escribe es lo unico que
 //! hace que sirva. Y ademas aqui queda mejor: `bmo-sem-asm` es el crate que
-//! LEE esas tablas, asi que la comprobacion vive con su dueno y entra en el
+//! LEE esas tablas, asi que la comprobacion vive con su propietario y entra en el
 //! banco sin tocar el arranque.
 //!
 //! # Lo que comprueba, y lo que no puede comprobar

@@ -6,13 +6,13 @@
 //! si es JPG o PNG que entren en la app de BMO-X"*.
 //!
 //! ** Es una TABLA y no un `match` repartido por el escritorio. El explorador y
-//! la biblioteca preguntan aqui, y manana lo hara el escritorio: anadir un tipo
+//! la biblioteca preguntan aqui, y luego lo hara el escritorio: agregar un tipo
 //! es una fila, y no hay dos sitios que puedan decir dos cosas distintas de un
 //! `.mus`.
 //!
 //! ** Y dice la verdad sobre lo que HOY no se abre. Una imagen no tiene visor
 //! todavia: la fila lo dice con su motivo (`Abre::Falta`) en vez de abrir el
-//! fichero como texto y ensenar bytes crudos, que se leeria como "el formato
+//! fichero como texto y mostrar bytes crudos, que se leeria como "el formato
 //! esta roto" cuando lo que falta es la app.
 //!
 //! [!] Ninguna extension pasa de TRES letras: el FAT32 del kernel es 8.3, y un
@@ -28,7 +28,7 @@ pub(crate) enum Clase {
 }
 
 impl Clase {
-    /// Las que se ensenan en la biblioteca, en su orden. `Otro` no esta a
+    /// Las que se muestran en la biblioteca, en su orden. `Otro` no esta a
     /// proposito: una biblioteca que lista lo que no sabe abrir es un `ls`.
     pub(crate) const VISIBLES: [Clase; 4] = [Clase::App, Clase::Imagen, Clase::Audio, Clase::Texto];
 

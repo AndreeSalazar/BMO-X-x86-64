@@ -151,7 +151,7 @@ fn census() -> Vec<Cell> {
         Cell {
             // Escala 2 en un panel que le sobra: 6x6 centrados en 8x8, o sea
             // x0 = y0 = 1. Cada pixel es un cuadro de 2x2 y las columnas 7,8,9
-            // --las que el PASO anade y el panel no tiene-- se quedan en cero.
+            // --las que el PASO agrega y el panel no tiene-- se quedan en cero.
             // Si aparece un digito ahi, el stride esta mal.
             name: "escala 2, centrada y con paso",
             source: blit(2, 8),

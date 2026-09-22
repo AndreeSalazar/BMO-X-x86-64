@@ -15,7 +15,7 @@ No hay que elegir bando. El mismo mecanismo da tres, y son tres de verdad:
 |---|---|---|
 | **el estandar de BMO** tal cual | nada | me llega |
 | **mi propio estandar** | una tabla SIN `parent` | no me llega, y es lo que pedi |
-| **anadir cosas** a uno que ya hay | una tabla CON `parent` y solo el delta | me llega, encima de lo mio |
+| **agregar cosas** a uno que ya hay | una tabla CON `parent` y solo el delta | me llega, encima de lo mio |
 
 La tercera es la que impide que esto sea anarquia. Un mod de cinco lineas
 sobre `c11` **no puede bifurcar el resto**: hereda lo que no toca. Copiar la
@@ -35,12 +35,12 @@ trigraphs        = false  # y puedo APAGAR algo del padre
 parent = "c11"
 ```
 
-`lineage()` ensena la cadena (`miempresa -> c11 -> c99 -> c89`) y `origin()` dice
+`lineage()` muestra la cadena (`miempresa -> c11 -> c99 -> c89`) y `origin()` dice
 **que fichero** puso cada valor. En un sistema donde cualquiera puede tapar
 una tabla, "de donde ha salido esto?" es la primera pregunta de todo el
 mundo.
 
-Una cadena que se muerde la cola se caza y se ensena entera, en vez de colgar
+Una cadena que se muerde la cola se caza y se muestra entera, en vez de colgar
 el compilador.
 
 ## Escribir un mod en un minuto
@@ -101,7 +101,7 @@ se genera, la semantica de cada verbo se escribe. Prometer mas seria vender
 compatibilidad que no existe -- que es justo el fallo del que este proyecto
 huye.
 
-Lo que si desaparece: antes, anadir una caracteristica exigia tocar **tres
+Lo que si desaparece: antes, agregar una caracteristica exigia tocar **tres
 sitios de Rust** (el campo del struct, su `Default` y el `match` del lector).
 Ese era el tramite de comite en miniatura, y ya no esta.
 

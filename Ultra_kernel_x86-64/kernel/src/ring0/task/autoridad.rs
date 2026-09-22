@@ -38,7 +38,7 @@
 //!
 //! ```text
 //!    el escritorio         lo arranca el KERNEL (core/desktop.rs)   SI
-//!    `run` del shell 0     lo teclea el dueno en Ring 0             SI
+//!    `run` del shell 0     lo teclea el propietario en Ring 0             SI
 //!    un hijo de Ring 3     lo lanza otro proceso                    NO
 //! ```
 //!

@@ -3,7 +3,7 @@
 > **NEUTRO es lo que ejecuta codigo que BMO-X no escribio, no puede leer y no
 > puede detener -- y que alcanza la RAM sin pasar por el orquestador.**
 
-Lo nombro el dueno el **2026-09-07**, hablando de la GPU:
+Lo nombro el propietario el **2026-09-07**, hablando de la GPU:
 
 > *"considero que si hablamos de GPU, ese ya no vive en RING 0 ni RING 3. Vive
 > en **Neutro**. Ese mismo es por algo, para facilitar"*
@@ -48,7 +48,7 @@ Los dos estan fuera, por razones opuestas. Y por eso son dos carpetas y no una.
 
 ## 2. ★★ AGNOSTICO -- y esto es lo que de verdad justifica la carpeta
 
-Es el argumento del dueno y es correcto. **La categoria no cambia al cambiar de
+Es el argumento del propietario y es correcto. **La categoria no cambia al cambiar de
 CPU. Solo cambia el nombre del guardia que no tenemos.**
 
 | | x86-64 | ARM64 | RISC-V |

@@ -56,7 +56,7 @@ pub(crate) const USER_STACK_PAGES: u64 = vmm::USER_STACK_SIZE / mm::PAGE;
 /// enlazado, marcado `TABLA`, y **a cero** -- `faltan 2160/2160 pag`,
 /// `pantalla MUERTA`, "nadie lo solto". Y antes, el 20-09 al mediodia, la azul
 /// con un `&Location` podrido en la pila de otro hilo: la misma escritura por
-/// debajo del fondo, cayendo en otra pila. DOOM arrancaba por la manana (sin
+/// debajo del fondo, cayendo en otra pila. DOOM arrancaba por la luego (sin
 /// el hash: 10 KiB de fondo) y no por la tarde. **El culpable era B7, y era
 /// mio.**
 ///
@@ -144,7 +144,7 @@ static RPC_CLI_BEX: &[u8] = include_bytes!("payloads/rpc_cli.bex");
 // Los cinco demos de abajo SI se quedan embebidos, y eso tambien es una
 // decision: son la red que demuestra la cadena CPL3 -> INVOKE -> CPL0 **sin
 // depender de un disco**. El dia que el SATA no enumere, BMO tiene que poder
-// seguir ensenando que Ring 3 funciona.
+// seguir mostrando que Ring 3 funciona.
 
 /// Los programas Ring 3 que BMO admite al arrancar cuando la cadena de
 /// arranque no reservo ninguno.
@@ -237,13 +237,13 @@ pub fn spawn_init(ctx: &BootContext) -> Option<u32> {
     // fotografiados**, asi que a partir de aqui no demuestran: estorban.
     //
     // Y estorbaban de verdad, no en abstracto. `init_hello` **reclama la
-    // pantalla** para ensenar que Ring 3 puede pintarla; arrancaba a la vez
+    // pantalla** para mostrar que Ring 3 puede pintarla; arrancaba a la vez
     // que el escritorio, ganaba, pintaba tres lineas, terminaba -- y al morir
     // el kernel recuperaba la pantalla y repintaba su panel encima del
     // escritorio recien nacido. Eso es lo que salia en cada foto y lo que
     // llevo a acusar tres veces al compositor de morirse.
     //
-    // Un arranque no es una demostracion: es arrancar. Lo que se ensena es la
+    // Un arranque no es una demostracion: es arrancar. Lo que se muestra es la
     // presentacion de Ring 3 y el escritorio, y punto.
     //
     // Y no se pierde nada, porque **los ejemplos viven en el disco**: se
@@ -301,7 +301,7 @@ fn admitir_ejemplos() -> Option<u32> {
 /// `ProgramRecord` guarda `&'static str` porque los tres demos son literales
 /// del binario. Un programa que llega del disco trae su nombre en un buffer
 /// prestado que desaparece al volver del comando, asi que se copia aqui: un
-/// almacen estatico pequeno cuya vida SI es la del kernel. Sin `alloc`, esta
+/// almacen estatico chico cuya vida SI es la del kernel. Sin `alloc`, esta
 /// es la forma honesta de tener un `&'static str` que no existia al compilar.
 const MAX_DISK_NAMES: usize = 6;
 const DISK_NAME_LEN: usize = 24;
@@ -340,7 +340,7 @@ pub(crate) fn intern_name(s: &str) -> &'static str {
 /// El siguiente pid libre.
 ///
 /// Antes el pid era el INDICE del demo en su tabla, asi que solo podian
-/// existir los tres de siempre y no habia forma de anadir un cuarto. Ahora sale
+/// existir los tres de siempre y no habia forma de agregar un cuarto. Ahora sale
 /// del registro, que es quien sabe cuantos programas se han intentado admitir.
 pub(crate) fn next_pid() -> u32 {
     unsafe {
@@ -384,9 +384,9 @@ pub fn admit_from_disk(name: &str, bytes: &[u8], tam_fichero: usize) -> Option<(
     let pid = next_pid();
     let stored = intern_name(name);
     // La etiqueta del log ANTES de que el proceso escriba su primera linea,
-    // igual que con los demos: si no, la primera linea sale sin dueno.
+    // igual que con los demos: si no, la primera linea sale sin propietario.
     crate::ring0::uconsole::set_tag(pid, stored);
-    // Se apunta lo que MIDE, no lo que se trajo: el panel dice de que tamano es
+    // Se apunta lo que MIDE, no lo que se trajo: el panel dice de que medida es
     // el programa, y eso no cambia porque el cargador sea mas listo.
     record_open(stored, stored, pid, tam_fichero as u32);
     match admit_payload(bytes, pid, tam_fichero) {
@@ -445,7 +445,7 @@ pub fn admitir_por_rangos(
 
 // -- Registro de programas ---------------------------------------------------
 //
-// Que se admitio, de que tamano, donde entra y con que pid. El log cuenta la
+// Que se admitio, de que medida, donde entra y con que pid. El log cuenta la
 // historia segun pasa; esto es la FOTO: una tabla que se puede mirar despues,
 // cuando las lineas del log ya rodaron y desaparecieron.
 
@@ -467,7 +467,7 @@ pub struct ProgramRecord {
     /// **Donde empieza y cuanto mide la seccion EJECUTABLE**, en el espacio del
     /// proceso.
     ///
-    /// # *** POR QUE SE GUARDA, y lo enseno DOOM el 2026-08-31
+    /// # *** POR QUE SE GUARDA, y lo mostro DOOM el 2026-08-31
     ///
     /// La autopsia de Ring 3 imprime un rastro de llamadas leyendo la pila y
     /// quedandose con las palabras que caen "en la imagen". Y "en la imagen"

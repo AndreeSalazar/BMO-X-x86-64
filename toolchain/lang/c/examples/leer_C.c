@@ -16,7 +16,7 @@
  *   1. Abre?                    `fopen` de un fichero que existe
  *   2. Cuanto dice que mide?    y que no sea cero
  *   3. Trae los bytes?          `fread` de un bloque entero
- *   4. Son los de verdad?       se ensenan, en crudo
+ *   4. Son los de verdad?       se muestran, en crudo
  *   5. El cursor obedece?       `fseek` al principio y releer
  *   6. Coinciden las dos?       * ESTA es la prueba
  *
@@ -95,7 +95,7 @@ int main() {
     }
     printf("3. bloque en %x\n", (int)__bmo_bloque_base);
 
-    /* 4 - Leer de golpe, y ensenar lo que llego. */
+    /* 4 - Leer de golpe, y mostrar lo que llego. */
     n1 = fread(mem, 1, CUANTOS, f);
     printf("4. fread trajo %d bytes\n", (int)n1);
     if (n1 == 0) {
@@ -106,7 +106,7 @@ int main() {
     printf("   [");
     i = 0;
     while (i < (int)n1) {
-        /* Los saltos de linea se ensenan como un punto: si no, el volcado se
+        /* Los saltos de linea se muestran como un punto: si no, el volcado se
          * parte y no se ve lo que se esta comparando. */
         if (mem[i] == 10 || mem[i] == 13) {
             printf(".");

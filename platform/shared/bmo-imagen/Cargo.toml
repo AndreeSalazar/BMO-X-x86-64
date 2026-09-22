@@ -7,7 +7,7 @@ license = "Apache-2.0"
 
 # Sin dependencias y `no_std`: existe para poder PROBARSE en el anfitrion contra
 # ficheros rotos. Un decodificador que solo se prueba en el metal se prueba con
-# las imagenes buenas, que son justo las que no hacen dano.
+# las imagenes buenas, que son justo las que no hacen perjuicio.
 [dependencies]
 
 # Only for the hostile tests: nothing that runs on the machine links it.

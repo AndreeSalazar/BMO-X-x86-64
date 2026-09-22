@@ -15,7 +15,7 @@
  * == Reclamarlo es EXCLUSIVO ==
  *
  * Un solo proceso lo tiene a la vez, igual que la pantalla y por el mismo
- * motivo: dos duenos escribiendo en el mismo aparato no es mezclar, es ruido.
+ * motivo: dos propietarios escribiendo en el mismo aparato no es mezclar, es ruido.
  * Mezclar es un trabajo con nombre y le toca a Ring 3.
  *
  * Si otro lo tiene, `bmo_sonido_reclamar()` devuelve 0. Hay que comprobarlo:
@@ -44,10 +44,10 @@
  * `toolchain/tools/contrato/contrato.py`.
  *
  * [carril]  AMARILLO     reclamar es EXCLUSIVO, igual que la pantalla y por el
- *                        mismo motivo: dos duenos en el mismo aparato no es
+ *                        mismo motivo: dos propietarios en el mismo aparato no es
  *                        mezclar, es ruido
  * [cuesta]  APARATO      un proceso que reclama y muere sin soltar deja el
- *                        altavoz sin dueno hasta que alguien reinicie
+ *                        altavoz sin propietario hasta que alguien reinicie
  * [riesgo]  SILENCIO     `aparatos()` dice que hay CAMINO, no que se oiga: hay
  *                        placas con el cabezal SPKR sin nada conectado y desde
  *                        aqui no se sabe
@@ -86,7 +86,7 @@ unsigned long long bmo_sonido_reclamar() {
 /* Soltarlo y seguir vivo. Devuelve 0 si se solto.
  *
  * Existe desde el primer dia por lo que costo que faltara en la pantalla: alli
- * la unica forma de dejar de ser dueno era morir, y el escritorio no podia
+ * la unica forma de dejar de ser propietario era morir, y el escritorio no podia
  * prestarla ni queriendo. */
 unsigned long long bmo_sonido_soltar() {
     return bmo_codigo(BMO_TAREA_ACTUAL, BMO_OP_SONIDO_SOLTAR, 0, 0, 0);

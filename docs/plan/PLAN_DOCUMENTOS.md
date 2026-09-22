@@ -1,11 +1,11 @@
 # PLAN DE LOS DOCUMENTOS -- el escritorio deja de listar PROGRAMAS y lista lo que abres
 
-> Estado: **ESPERA** -- una decision del dueno (`.datex`, `.window`/`.data`): idea suya, sin decidir a proposito; lo que si existe ya es `CLASE_PANTALLA` en los requisitos del BEF. Lo que hay aqui es el
+> Estado: **ESPERA** -- una decision del propietario (`.datex`, `.window`/`.data`): idea suya, sin decidir a proposito; lo que si existe ya es `CLASE_PANTALLA` en los requisitos del BEF. Lo que hay aqui es el
 > terreno medido -- que existe ya, que falta de verdad, y que cuesta cada
-> camino. La eleccion no esta tomada porque el dueno pidio pensarla mas, y un
+> camino. La eleccion no esta tomada porque el propietario pidio pensarla mas, y un
 > plan que decide por el es un plan que le quita la decision.
 >
-> ★★ **Y la seccion 3b cambio el plan el mismo dia.** El dueno corrigio su idea
+> ★★ **Y la seccion 3b cambio el plan el mismo dia.** El propietario corrigio su idea
 > --`.window` para lo que muestra pantalla, `.data` para los datos-- y al ir a
 > medirla salio que **eso ya existe dentro del `.bex`**: cuatro secciones del
 > BEF, con `CLASE_PANTALLA` escrita en cada binario desde el 10-08. Asi que la
@@ -15,7 +15,7 @@
 
 El 2026-09-11, al entregarle `texto.bex` --el bloc de notas-- y explicarle que
 para darle icono habria que meterlo en `apps\`, que significa *"lo que viene de
-fuera del repo"*, el dueno contesto dos cosas. Las dos son mejores que la
+fuera del repo"*, el propietario contesto dos cosas. Las dos son mejores que la
 pregunta:
 
 > *"si `.bex` es confuso es mejor eso que el `.datex` = que es data en BMO-X que
@@ -29,8 +29,8 @@ Y al aclararlo: **`.datex` es para que el `.bex` solo EJECUTE**, nada mas. O sea
 el reparto de DOOM: el motor por un lado, los datos por otro.
 
 Lo que las dos frases piden junto es un cambio de sujeto. Hoy el escritorio
-ensena **programas** y tu tienes que saber cual abre lo tuyo. Lo que el dueno
-quiere ensenar son **cosas suyas**, y que el sistema sepa quien las abre.
+muestra **programas** y tu tienes que saber cual abre lo tuyo. Lo que el propietario
+quiere mostrar son **cosas suyas**, y que el sistema sepa quien las abre.
 
 ---
 
@@ -126,7 +126,7 @@ kernel tiene que aprender a reabrir para escribir.
 
 ---
 
-## 3. LA CARPETA QUE DICE EL FORMATO -- la idea del dueno, y su correccion
+## 3. LA CARPETA QUE DICE EL FORMATO -- la idea del propietario, y su correccion
 
 > *"para no confundir es mejor que sea una carpeta con que es **Formato texto**,
 > lo mismo como PNG, JPG etc..."*
@@ -169,7 +169,7 @@ la casa.
 
 ### 3.2 ⚠⚠ La correccion, y es la unica parte donde digo otra cosa
 
-**La carpeta ORDENA; no DEFINE.** Y la referencia que el dueno puso --PNG, JPG--
+**La carpeta ORDENA; no DEFINE.** Y la referencia que el propietario puso --PNG, JPG--
 es justo la que lo demuestra: un PNG es un PNG **en cualquier carpeta**, porque
 lo que dice que es PNG son sus primeros bytes. El tipo VIAJA CON EL FICHERO.
 
@@ -182,7 +182,7 @@ Asi que las dos cosas, y en este orden:
 ```text
    la carpeta    ORDEN: donde lo encuentras, como se llama en pantalla, y el
                  sitio por defecto donde se guarda lo nuevo
-   el fichero    VERDAD: su extension hoy, sus bytes manana. Si los dos no
+   el fichero    VERDAD: su extension hoy, sus bytes luego. Si los dos no
                  coinciden, **manda el fichero**
 ```
 
@@ -193,7 +193,7 @@ equivocada es un fichero en la carpeta equivocada, no un fichero de otro tipo.
 
 ## 3b. ** LA CORRECCION DEL DUENO: `.window`, `.data` -- Y YA EXISTE
 
-El 2026-09-11, mas tarde, el dueno corrigio su propia idea. Y el motivo es el
+El 2026-09-11, mas tarde, el propietario corrigio su propia idea. Y el motivo es el
 mejor de esta pagina:
 
 > *"en Windows tienes carpetas pero son desordenadas y eso es molesto... una app
@@ -217,7 +217,7 @@ Ocho clases, cada una con su MOTIVO, que viaja con el rechazo:
    0x0001 MEMORIA    bytes que tienen que existir antes de la 1a instruccion
    0x0002 RECURSOS   lo que quiere RESIDENTE en RAM (lo que se lee a demanda,
                      NO se declara: no le cuesta RAM a nadie)
-   0x0003 PANTALLA   <- el `.window` del dueno, y ya esta
+   0x0003 PANTALLA   <- el `.window` del propietario, y ya esta
    0x0004 AUDIO      el aparato de audio
    0x0005 ENTRADA    teclado y raton
    0x0006 CPU        extensiones cuyo estado hay que preservar
@@ -270,7 +270,7 @@ katanas. Poner el papel en el nombre seria cambiar un contrato por una etiqueta.
 ### 3b.4 El dolor del OpenGL ya esta resuelto, y se mide
 
 REX no es un runtime, asi que una app **no lleva un byte de lo que no incluye**.
-Los tamanos del build del 11-09 lo dicen enteros:
+Los medidas del build del 11-09 lo dicen enteros:
 
 ```text
    holac.bex     2.791 B     un hola mundo
@@ -281,7 +281,7 @@ Los tamanos del build del 11-09 lo dicen enteros:
 ```
 
 Un hola mundo son **2,7 KB**. Eso es lo que Windows no puede decir, y es la
-mitad del problema del dueno ya pagada. **La otra mitad es la que falta**: nadie
+mitad del problema del propietario ya pagada. **La otra mitad es la que falta**: nadie
 le ENSENA lo que un `.bex` declara. Las secciones estan, el kernel usa una parte
 --hoy solo juzga las clases que se miden en BYTES; PANTALLA, AUDIO y ENTRADA se
 declaran y todavia no se juzgan-- y ni el escritorio ni una herramienta se lo
@@ -294,7 +294,7 @@ L6g dice: **un fichero declara su carril, su coste y su riesgo.** Vale para el
 codigo fuente, dentro del repo.
 
 > Redefinido hacia fuera: **un `.bex` tambien declara lo que necesita, y el
-> dueno lo VE.**
+> propietario lo VE.**
 
 No es una ley nueva; es la misma cruzando la frontera del artefacto. Y el
 precedente de como se hace ya existe: **`.ibx`**. Ese nombre no dice lo que el
@@ -316,8 +316,8 @@ papel no es uno y la declaracion se puede comprobar.
    [ ] ENSENAR lo que un `.bex` declara: una herramienta que vuelque
        `Manifest` + `Requisitos` + `Katanas` + `Resources`. Hoy NINGUNA de
        `toolchain/tools/` lee las dos primeras -- y es la queja literal del
-       dueno: *"ni para leer"*
-   [ ] y que el escritorio lo ensene al senalar un icono: que pide esta app
+       propietario: *"ni para leer"*
+   [ ] y que el escritorio lo muestre al marcar un icono: que pide esta app
        -- `scene/launcher.rs`
    [ ] juzgar las clases que no se miden en bytes: PANTALLA, AUDIO y ENTRADA se
        declaran y no se juzgan -- `task/admitir.rs`
@@ -351,13 +351,13 @@ papel no es uno y la declaracion se puede comprobar.
 
 ### 4.1 Lo que de verdad decide entre B y A
 
-El dueno lo dijo sin darle importancia: **`.datex` es para que el `.bex` solo
+El propietario lo dijo sin darle importancia: **`.datex` es para que el `.bex` solo
 EJECUTE**. Ese es el reparto de DOOM, y ese reparto **paga cuando los datos son
 grandes o son muchas piezas y el programa es generico**: un motor mas su `.wad`,
 un manual con sus imagenes, una partida guardada, un paquete de fuentes.
 
 Para una nota de dos kilobytes no paga: la nota **es** el dato, y meterla en un
-contenedor anade un envoltorio y le quita el poder guardarse.
+contenedor agrega un envoltorio y le quita el poder guardarse.
 
 O sea que A y B no compiten: contestan a preguntas distintas.
 
@@ -387,7 +387,7 @@ O sea que A y B no compiten: contestan a preguntas distintas.
        `paquete.h`
    [ ] y el icono de `texto.bex`: sin decidir a proposito. Si el escritorio va a
        listar DOCUMENTOS, un icono mas de `.bex` es justo la confusion que el
-       dueno quiere quitar -- `scene/launcher.rs`
+       propietario quiere quitar -- `scene/launcher.rs`
 ```
 
 ---

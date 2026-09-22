@@ -25,7 +25,7 @@
 use bmo_dibujo::Recorte;
 use bmo_userland as bmo;
 
-/// El tamano que MAQUETA dedujo del arbol. Nadie lo escribio.
+/// La medida que MAQUETA dedujo del arbol. Nadie lo escribio.
 pub const ANCHO: u32 = 322;
 pub const ALTO: u32 = 446;
 

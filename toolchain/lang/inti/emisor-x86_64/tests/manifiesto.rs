@@ -308,7 +308,7 @@ fn la_sonda_del_ryzen_emite_los_mismos_bytes_que_antes_de_p1() {
     // `mov reg, r10` de 3 en cada uso de una local con peso. Por eso `cpu.ibx`
     // vuelve a no ser el fichero del 17-09 ni del 19-09: la medida del reloj
     // que salga de ESTE es la que compara.
-    assert_eq!(sin.len(), 11752, "la emision de la sonda cambio de tamano");
+    assert_eq!(sin.len(), 11752, "la emision de la sonda cambio de medida");
 }
 
 /// **EL CODIGO NO CAMBIA POR LLEVAR MANIFIESTO.**

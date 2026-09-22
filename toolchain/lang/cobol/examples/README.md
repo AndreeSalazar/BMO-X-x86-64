@@ -64,7 +64,7 @@ Con `890.10CR` impreso con su marca de signo. Eso es COMP-3 empaquetando a
 nibbles, cruzando FAT32 hasta el Kingston y desempaquetando **sin perder un
 centimo** -- el ciclo entero de E/S de COBOL en hardware real.
 
-> ⚠ **La trampa que estas fotos NO podian ensenar, y que ya esta arreglada en
+> ⚠ **La trampa que estas fotos NO podian mostrar, y que ya esta arreglada en
 > el codigo.** Hasta el 2026-08-03, `OPEN OUTPUT` bajaba a
 > `TASK_OP_ARCHIVO_CREAR` y el FAT32 del kernel **no sabia reemplazar un
 > fichero que ya existia**: a partir de la segunda corrida el `CLOSE` fallaba y
@@ -114,7 +114,7 @@ lo decide el programador; si se sale, el programa para diciendo que tabla.
 
 **6 -- `cartera.cob`.** El mismo batch escrito con NOMBRES: `PERFORM UNTIL
 SE-ACABO` en vez de `UNTIL FIN = 1`. Un 88 **no reserva ni un byte** -- hay un
-test que lo comprueba comparando el tamano del codigo con y sin ellos.
+test que lo comprueba comparando el medida del codigo con y sin ellos.
 
 **7 -- `cuentas.cob`.** El primer escalon que cambia **como se guarda** el dato y
 no que se hace con el. Un `COMP-3` vive en nibbles y ocupa **lo que dice su
@@ -160,7 +160,7 @@ bmo-cobol --ver datos/ctas.bin maestro.cob   # el fichero DECODIFICADO
 
 ★ La mascara del informe lleva `CR` **a proposito**: con `$$$,$$9.99` a secas,
 un saldo de `-890,10` se imprime como `$890.10` y el extracto dice que la cuenta
-esta en verde. Un campo editado sin simbolo de signo **no ensena el signo**.
+esta en verde. Un campo editado sin simbolo de signo **no muestra el signo**.
 
 ## El escalon que todavia no existe
 

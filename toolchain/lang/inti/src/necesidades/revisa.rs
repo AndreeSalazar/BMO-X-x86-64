@@ -102,7 +102,7 @@ pub fn revisa(m: &Modulo, t: &Necesidades) -> Cosecha<Vec<Pedido>> {
                             "Las que hay son: {}.",
                             t.unidades_conocidas().join(", ")
                         ))
-                        .con_hacer("se anaden en `lang/inti/necesidades.toml`"),
+                        .con_hacer("se agregan en `lang/inti/necesidades.toml`"),
                     );
                     continue;
                 }

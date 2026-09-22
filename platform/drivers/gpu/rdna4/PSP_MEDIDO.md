@@ -4,7 +4,7 @@
 > pieza que puede convertir la meta B en imposible, y con su precio al lado:
 > *"un dia de leer `amdgpu` y contar pasos"*.
 >
-> El dueno dijo **"mide el PSP entonces, lee amdgpu"**. Esto es esa medida.
+> El propietario dijo **"mide el PSP entonces, lee amdgpu"**. Esto es esa medida.
 
 ---
 
@@ -106,7 +106,7 @@ tipo de cosa que cuesta un dia si se descubre depurando.
 | 11 | leer la version del SOS | `C2PMSG_58` | -- |
 | 12 | entrenamiento de memoria (DRAM) | `36` + `35` | bit 31, hasta 3 s |
 | 13 | reservar **4 KiB** en VRAM para el anillo | -- | -- |
-| 14 | **crear el anillo** | `69` baja, `70` alta, `71` tamano, `64` orden | bit 31 en `64` |
+| 14 | **crear el anillo** | `69` baja, `70` alta, `71` medida, `64` orden | bit 31 en `64` |
 | 15 | crear la **TMR** (memoria de confianza) | por el anillo | respuesta |
 | 16 | cargar el resto del firmware **por el anillo** | `67` = puntero de escritura | respuesta por cada uno |
 
@@ -141,7 +141,7 @@ y la lectura lo confirma. No se parece: **es lo mismo**.
    xHCI (ya hecho, y en metal)          PSP (por hacer)
    ------------------------------------------------------------------
    CRCR   <- direccion del anillo       C2PMSG_69/70 <- direccion
-   ERSTSZ <- tamano                     C2PMSG_71    <- tamano
+   ERSTSZ <- medida                     C2PMSG_71    <- medida
    tocar el TIMBRE                      C2PMSG_64    <- la orden
    esperar un bit de USBSTS             esperar el bit 31
    anillo de eventos con su puntero     C2PMSG_67 = puntero de escritura

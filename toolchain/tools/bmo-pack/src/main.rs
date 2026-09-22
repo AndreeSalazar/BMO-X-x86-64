@@ -40,8 +40,8 @@ fn uso() -> ExitCode {
   bmo-pack <paquete.bex> --sacar <nombre> -o <fichero>
   bmo-pack <paquete.bex> --vaciar -o <salida.bex>
 
-  -r nombre=ruta   anade un recurso. El NOMBRE es como lo pedira el programa.
-  --listar         ensena que lleva dentro.
+  -r nombre=ruta   agrega un recurso. El NOMBRE es como lo pedira el programa.
+  --listar         muestra que lleva dentro.
   --sacar          escribe un recurso a un fichero.
   --vaciar         quita los recursos y deja la imagen como salio del compilador."
     );

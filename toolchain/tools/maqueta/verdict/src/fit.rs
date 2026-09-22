@@ -100,7 +100,7 @@ fn cabe_el_texto(f: &Frame, out: &mut Vec<Error>) {
     }
 }
 
-/// C. Una caja de tamano cero.
+/// C. Una caja de medida cero.
 fn no_esta_vacia(f: &Frame, out: &mut Vec<Error>) {
     if f.rect.w != 0 && f.rect.h != 0 {
         return;
@@ -110,7 +110,7 @@ fn no_esta_vacia(f: &Frame, out: &mut Vec<Error>) {
         &format!("esta caja mide {}x{} y no se va a ver", f.rect.w, f.rect.h),
         "casi siempre es una propiedad que se olvido, no una intencion. Y como no \
          pinta nada ni ocupa sitio, no hay forma de darse cuenta mirando la pantalla.",
-        "declarar `width` y `height`, o meterle contenido que le de tamano. Si de \
+        "declarar `width` y `height`, o meterle contenido que le de medida. Si de \
          verdad no tenia que verse, borrarla.",
     ))
 }

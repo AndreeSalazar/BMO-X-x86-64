@@ -1,6 +1,6 @@
 /* prestado_C.c -- memoria que viaja SIN COPIARSE, las dos direcciones.
  *
- * == Lo que ensena ==
+ * == Lo que muestra ==
  *
  * `<bmo/prestado.h>`, que llego el 2026-09-02 y tapo la mitad que faltaba del
  * zero copy: REX publicaba `MEM_OP_OFRECER` --dentro de `<bmo/superficie.h>`--
@@ -49,7 +49,7 @@ int main() {
     unsigned long long r;
     char *caja;
     int i;
-    int dueno;
+    int owner;
 
     printf("prestado_C: el zero copy, las dos direcciones\n");
 
@@ -94,16 +94,16 @@ int main() {
         return 0;
     }
 
-    dueno = bmo_prestado_dueno(&p);
-    printf("prestado_C: recibidos %llu bytes del TID %d\n", p.bytes, dueno);
+    owner = bmo_prestado_dueno(&p);
+    printf("prestado_C: recibidos %llu bytes del TID %d\n", p.bytes, owner);
 
-    /* Se lee con la comprobacion puesta: el tamano lo eligio OTRO proceso, asi
+    /* Se lee con la comprobacion puesta: el medida lo eligio OTRO proceso, asi
      * que suponerlo es peor que suponer el propio. */
     if (bmo_prestado_cabe(&p, 0)) {
         printf("prestado_C: primer byte 0x%02x\n", (int)p.bytes_ptr[0]);
     }
 
-    /* ** Se PREGUNTA otra vez, no se reutiliza el `dueno` de arriba: entre las
+    /* ** Se PREGUNTA otra vez, no se reutiliza el `propietario` de arriba: entre las
      * dos lineas el otro proceso puede haberse muerto, y eso es exactamente lo
      * que esta pregunta existe para ver. */
     if (bmo_prestado_vive(&p) == 0) {

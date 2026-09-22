@@ -4,7 +4,7 @@
 > Es lo mismo que se hizo con `RED_MAESTRO.md` y salio bien: el plan primero, y
 > despues el driver contra el plan en vez de contra la intuicion.
 
-**La prueba de aceptacion de este documento es una sola frase, y es del dueno:**
+**La prueba de aceptacion de este documento es una sola frase, y es del propietario:**
 
 > *"cuando llegue al sonido real quiero escuchar mis gatitos"*
 
@@ -49,7 +49,7 @@ De ahi salen dos consecuencias que ordenan todo lo demas:
 
 Medido en el Windows de esta misma maquina, no supuesto:
 
-- **El audifono del dueno es USB Audio Class 1.0** -- `VID_1B3F&PID_2008`,
+- **El audifono del propietario es USB Audio Class 1.0** -- `VID_1B3F&PID_2008`,
   `USB\Class_01&SubClass_01`, driver generico `wdma_usb.inf`. Es el **unico**
   endpoint de salida activo de la maquina.
 - El codec de la placa es un **Realtek ALC897**, y sus endpoints
@@ -185,7 +185,7 @@ Ceros, en bucle, alimentados por el hilo del bus.
 **El silencio no puede sonar mal**, y esa es toda la idea: es la misma jugada que
 `net rx` (recibir sin transmitir). Si el endpoint no se atasca y los contadores
 avanzan, **el tubo esta vivo** sin haber arriesgado un solo ruido raro en los
-oidos del dueno.
+oidos del propietario.
 
 ```text
    audio: tramas entregadas       =...   <- tiene que SUBIR sola
@@ -210,7 +210,7 @@ lo que no puede es hacerse mucho despues.
 
 ### Paso 5 -- MP3, ENCIMA DEL MISMO TUBO.
 
-`minimp3` es **un solo fichero**, o sea unity build por diseno -- igual que la
+`minimp3` es **un solo fichero**, o sea unity build por esquema -- igual que la
 amalgamation de SQLite. Va en Ring 3, y **no toca nada de lo anterior**: entrega
 PCM al mismo anillo del paso 4.
 
@@ -247,7 +247,7 @@ y "suena bien", que no es un diagnostico.
   Dos programas sonando a la vez es una politica de Ring 3, y llega cuando haya
   dos programas que suenen.
 - **Grabar.** El microfono es otro endpoint, en el otro sentido, y no esta en
-  ninguna de las frases del dueno.
+  ninguna de las frases del propietario.
 - **HD Audio.** Ver la parte 2: seria un driver entero para un aparato que no
   esta conectado.
 - **Latencia baja.** Primero que suene sin huecos. Un audio puntual con 40 ms de
@@ -255,7 +255,7 @@ y "suena bien", que no es un diagnostico.
 
 ---
 
-# LA PRUEBA FINAL, y es la que pidio el dueno
+# LA PRUEBA FINAL, y es la que pidio el propietario
 
 ```text
    run apps/gatitos.bex        (o el reproductor que sea)
@@ -266,7 +266,7 @@ y "suena bien", que no es un diagnostico.
 `bmo-x-gato.jpg` --el logo, que es de donde sale el gato del splash-- y **ni un
 solo fichero de audio en todo el repositorio**. Comprobado el 2026-08-12.
 
-Asi que el paso 3 necesita que el dueno deje su grabacion, y este documento dice
+Asi que el paso 3 necesita que el propietario deje su grabacion, y este documento dice
 **exactamente en que formato** para que no haya que adivinar ni resamplear:
 
 ```text

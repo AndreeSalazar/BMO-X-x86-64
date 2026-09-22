@@ -27,7 +27,7 @@
 //!
 //! Lo que NO es a mano es la cobertura: **la prueba lee el `.h`, y falla si
 //! encuentra un `#define BMO_*` que el diccionario no menciona.** O sea que
-//! anadir una constante al `.h` sin declarar su pareja rompe el banco.
+//! agregar una constante al `.h` sin declarar su pareja rompe el banco.
 //!
 //! Esa inversion es la leccion del guardian de operaciones, que llevaba una
 //! lista de 34 nombres y se le habian escapado cuatro:
@@ -370,7 +370,7 @@ fn las_parejas_dicen_lo_que_el_abi_dice() {
 /// ** LA PRUEBA QUE IMPIDE QUE ESTA LISTA SE CONGELE.
 ///
 /// Si aparece un `#define BMO_*` en el `.h` que nadie ha emparejado, esto falla.
-/// O sea que **no se puede anadir una constante al lado de C sin declarar cual
+/// O sea que **no se puede agregar una constante al lado de C sin declarar cual
 /// es su pareja en Rust**, que es exactamente lo que llevaba semanas pasando con
 /// las cuatro operaciones que el ABI no tenia.
 ///

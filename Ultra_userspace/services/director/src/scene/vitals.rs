@@ -4,7 +4,7 @@
 //!                     compositor se lo pide, y el compositor solo pinta si
 //!                     algo cambio (L6h)
 //!
-//! Pedido por el dueno el 2026-08-12: *"el F7 y F8, pero al presionar no veo mi
+//! Pedido por el propietario el 2026-08-12: *"el F7 y F8, pero al presionar no veo mi
 //! terminal la caja para ver -- no es por terminal sino SU PROPIO terminal para
 //! facilitar las vistas... y falta el mem, que estan comiendo, inspirado en
 //! administrador de tareas"*.
@@ -26,10 +26,10 @@
 //! Es la misma frontera que separa CABINA (F11) de `cabina` como orden: la
 //! primera es una ventana viva, la segunda un volcado.
 //!
-//! # Y por que dos ventanas y no una con pestanas
+//! # Y por que dos ventanas y no una con solapas
 //!
 //! Porque se miran en momentos distintos. F7 se abre cuando algo va lento; F8
-//! cuando algo se come la RAM. Juntarlas obligaria a cambiar de pestana justo
+//! cuando algo se come la RAM. Juntarlas obligaria a cambiar de solapa justo
 //! cuando se tiene prisa.
 
 use bmo_userland as bmo;
@@ -288,7 +288,7 @@ fn paint_cpu(
     // Tres sitios calibraron un ritmo contra "unos 60 por segundo" sin que
     // ninguno lo midiera, y el doble clic de los iconos era uno de ellos: con el
     // bucle corriendo mucho mas rapido, la ventana del gesto se encogia sola y
-    // un icono se podia senalar sin abrirse nunca. Ver `scene::double_click`.
+    // un icono se podia marcar sin abrirse nunca. Ver `scene::double_click`.
     //
     // Va en F7 porque F7 es la ventana de "algo va lento", y esta es la cifra
     // que dice si el lento es el escritorio.
@@ -322,7 +322,7 @@ fn paint_memory(p: &bmo::Pantalla, c: &VitalsWindow, tx: u32, y: &mut u32, step:
 
     // ** LA TABLA: QUIEN SE LA ESTA COMIENDO.
     //
-    // Es la vista que el dueno pidio, y la que hasta hoy no se podia hacer: el
+    // Es la vista que el propietario pidio, y la que hasta hoy no se podia hacer: el
     // kernel sabia cuanto come el proceso N desde julio, y no habia forma de
     // preguntar QUIENES son sin saber sus pids de antemano. Ver
     // `obj::memoria::ranura`.

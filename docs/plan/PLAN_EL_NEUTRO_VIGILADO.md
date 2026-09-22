@@ -1,6 +1,6 @@
 # PLAN EL NEUTRO VIGILADO -- que algo procese el DMA aunque la CPU no mire
 
-> Propuesta del dueno, **2026-09-09**:
+> Propuesta del propietario, **2026-09-09**:
 >
 > > *"prepara la estrategia con DMA, eso BMO-X aunque la CPU no vigile pero si
 > > algo DMA pueda ser procesada por algo. Prepara las propuestas y dime que
@@ -89,7 +89,7 @@ Lo mismo en `xhci/src/lib.rs:217-221` con los TRB, y en `net`.
    lo que NO                 de quien es el marco
                              que addr+len no se salga del marco
                              que no envuelva a 32 bits
-                             que el aparato sea el dueno, y no OTRO aparato
+                             que el aparato sea el propietario, y no OTRO aparato
 ```
 
 ** Y no hace falta hardware para ninguna de las cuatro: son aritmetica y una
@@ -161,7 +161,7 @@ un marco que no sea suyo --si alguna vez lo hay-- dejara de funcionar hasta que
 alguien le de una fila. Ese es el precio de un vocabulario cerrado, y es el
 mismo que la casa ya paga con `COSTES` y `RIESGOS`.
 
-★ **Y esto es lo que contesta la pregunta del dueno**: *"aunque la CPU no
+★ **Y esto es lo que contesta la pregunta del propietario**: *"aunque la CPU no
 vigile, que algo lo procese"*. Ese algo es el juez, y procesa **antes** de que
 el aparato exista para el problema.
 
@@ -272,7 +272,7 @@ Un plan que no diga donde acaba es propaganda.
                             software: si el bit se pone mal, la IOMMU no salva
 ```
 
-> El objetivo no es un sistema donde el DMA no pueda hacer dano. Es uno donde,
+> El objetivo no es un sistema donde el DMA no pueda hacer perjuicio. Es uno donde,
 > cuando lo haga, **se sepa cual y cuando** -- que es lo que hoy no pasa.
 
 ---
@@ -348,7 +348,7 @@ Un plan que no diga donde acaba es propaganda.
 
   ** Cableado en el AHCI, en `mandar_lectura`, que es el embudo de las DOS
   lecturas. Se verifica: `run c/ciclos.bex` no basta -- hace falta que CABINA
-  ensene `vuelos()`. Esa fila es N4b.
+  muestre `vuelos()`. Esa fila es N4b.
 
 - [x] **N4b -- HECHO. Las tres cuentas se ven en CABINA**, pegadas a `neutro=` porque son la misma pregunta en dos tiempos: `vuelo=V:P:C`. Y `pisados`/`choques` mandan sobre el color por delante de la RAM baja, por la misma razon que `soltados`. Lo que falta ahora es UN ARRANQUE que diga si `vivos` llega a cero al apagar.
 
@@ -425,7 +425,7 @@ Un plan que no diga donde acaba es propaganda.
 - [x] **N3b -- EL PORTERO DURO. HECHO el 2026-09-09.** N3 sabia CONTAR la
   diferencia; esto sabe hacer algo con ella.
 
-  Peticion del dueno: *"crear un portero duro con hot unmapping"*. Sin IOMMU
+  Peticion del propietario: *"crear un portero duro con hot unmapping"*. Sin IOMMU
   no se puede desmapear una pagina, asi que la pregunta honesta es que queda
   cuando no se puede -- y queda **el mismo bit**: retirarle el BME a un maestro
   del bus le quita la capacidad de emitir. Mas basto que un desmapeo y mas
@@ -447,7 +447,7 @@ Un plan que no diga donde acaba es propaganda.
   `NEUTRO/DMA/REGLAS.txt`, R5c.
 
   Se verifica: en el arranque, `ajenos=vistos:cerrados:puentes` en CABINA. Con
-  el cerrojo en `Mirar`, `cerrados` es 0 y `vistos` es la lista que el dueno
+  el cerrojo en `Mirar`, `cerrados` es 0 y `vistos` es la lista que el propietario
   tiene que reconocer uno a uno antes de cambiar la palabra.
 
 - [x] **N4 -- MOVIDO ARRIBA el 2026-09-09.** Estaba aqui, detras de N2 y N3,
@@ -503,11 +503,11 @@ Un plan que no diga donde acaba es propaganda.
   Cada uno es una trama que se salia y que el xHC habria leido.
 
 - [ ] **N5b -- EL NUMERO, y no se elige (LEY 24).** `peor_silencio()` guarda lo
-  peor visto por aparato y CABINA lo ensena como `mudo=aparato:microsegundos`.
+  peor visto por aparato y CABINA lo muestra como `mudo=aparato:microsegundos`.
   El plazo sale de ahi con margen despues de varios arranques.
 
   ** Y esta medida se lee AL REVES que todas las demas de esta casa. `ciclos.bex`
-  lo ensena midiendo un bucle vacio en el Ryzen: **min 11 ticks, media 122**,
+  lo muestra midiendo un bucle vacio en el Ryzen: **min 11 ticks, media 122**,
   mientras la llamada normal va clavada en 30/31. Para saber lo que CUESTA algo
   se mira el minimo --la media es la maquina mas lo que pasaba alrededor--; para
   saber cuanto ESPERAR se mira lo peor que ha pasado nunca.

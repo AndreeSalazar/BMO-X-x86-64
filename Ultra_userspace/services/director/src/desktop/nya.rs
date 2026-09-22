@@ -6,15 +6,15 @@
 //!
 //! # De donde sale
 //!
-//! Un amigo del dueno, que venia de Linux, se sento delante y tecleo `sudo`.
+//! Un amigo del propietario, que venia de Linux, se sento delante y tecleo `sudo`.
 //! La respuesta ya existia en `commands/shell.rs`, pero salia como texto suelto
-//! dentro de la salida. El dueno lo pidio asi: *"que genere ventana, con ASCII,
+//! dentro de la salida. El propietario lo pidio asi: *"que genere ventana, con ASCII,
 //! como burla indirecta :3"* -- y despues, con un boceto delante: *"mas elegante
 //! y simple, el gato variando en cada comando, y si es Windows XD, y si es Mac
 //! pues ni modo"*.
 //!
 //! ** Se rie del MALENTENDIDO, nunca de quien lo tuvo, y cada burla dice la
-//! diferencia de verdad y a donde ir. Una broma que no ensena nada es ruido.
+//! diferencia de verdad y a donde ir. Una broma que no muestra nada es ruido.
 //!
 //! # La forma, que es la del boceto
 //!
@@ -247,7 +247,7 @@ pub(crate) fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla, verb: &[u8]) {
     let ex = p.texto(tx, cuerpo + FILA * 2, "Explicacion: ", INK_DIM);
     p.texto(ex, cuerpo + FILA * 2, bu.explica, acento());
 
-    // El pie, pequeno y apagado.
+    // El pie, chico y apagado.
     p.texto(
         x + MARGEN,
         cuerpo + FILA * 3 + MARGEN * 2,

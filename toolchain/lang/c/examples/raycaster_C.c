@@ -93,7 +93,7 @@
 
 /* El mundo. Un solo literal, y por eso una sola entrada en la tabla de cadenas
  * del IR -- que tiene 256 y conviene no gastarlas en decoracion. */
-/* Puntero al literal y no `char mapa[]`: BMO C todavia no deduce el tamano de
+/* Puntero al literal y no `char mapa[]`: BMO C todavia no deduce el medida de
  * un array desde su inicializador, y aqui no hace falta -- se indexa igual.
  *
  * * Y AQUI HAY UNA HISTORIA, porque esta linea estuvo mintiendo meses.
@@ -297,7 +297,7 @@ void menu_pinta(unsigned int *fb, int stride, int ancho, int alto, int sel,
             barra(fb, stride, px + 8, menu_fila_y(alto, f) - 2, MENU_ANCHO - 16,
                   MENU_FILA_ALTO + 4, 0x00182430);
         }
-        /* La marca de la fila senalada. */
+        /* La marca de la fila marcada. */
         if (f == sel) {
             barra(fb, stride, px + 10, menu_fila_y(alto, f), 6, MENU_FILA_ALTO, 0x0000E5FF);
         }
@@ -402,8 +402,8 @@ int main() {
      * camino de la pantalla exclusiva de siempre. */
     BMO_SUPERFICIE *sup;
     /* -- EL MENU Y LO QUE AJUSTA ---------------------------------------
-     * `menu` abierto o no; `sel` la fila senalada; y los tres ajustes, cada
-     * uno de 0 a 2. Van en enteros pequenos y no en banderas porque lo que se
+     * `menu` abierto o no; `sel` la fila marcada; y los tres ajustes, cada
+     * uno de 0 a 2. Van en enteros chicos y no en banderas porque lo que se
      * dibuja son SEGMENTOS: el valor ES la cuenta de los encendidos. */
     int menu; int sel;
     int fov; int vel; int tema;
@@ -448,7 +448,7 @@ int main() {
      *
      * Sesenta y cuatro ranuras: un dedo no produce tantas entre dos fotogramas
      * ni de lejos, y si alguna vez se llenara el DIRECTOR descarta en vez de
-     * esperar -- ver `<bmo/superficie.h>`. Una app que solo ensenara llamaria a
+     * esperar -- ver `<bmo/superficie.h>`. Una app que solo mostrara llamaria a
      * `bmo_superficie_crear` a secas y el escritorio conservaria las teclas. */
     sup = bmo_superficie_crear_con_buzon(VEN_ANCHO, VEN_ALTO, 64);
     if (sup != 0) {
@@ -481,7 +481,7 @@ int main() {
         alto = pan.alto;
         stride = pan.paso;
         /* ** DICE LO QUE CONSIGUIO, y no es adorno: este programa dejo de
-         * ensenar el 3D cuando la reclamacion paso a `<bmo/pantalla.h>` en el
+         * mostrar el 3D cuando la reclamacion paso a `<bmo/pantalla.h>` en el
          * paso 1 del plan de REX, y el diff era equivalente linea a linea.
          *
          * O sea que leyendo no se encuentra. Un numero raro aqui --un `stride`
@@ -559,7 +559,7 @@ int main() {
 
                 /* Marchar el rayo. Un paso de 1/32 de casilla: suficiente para que
                  * no se cuele por una esquina, y barato. Se para a 20 casillas --
-                 * mas lejos no hay nada que ensenar y si mucho que calcular. */
+                 * mas lejos no hay nada que mostrar y si mucho que calcular. */
                 t = 0;
                 paso = 2048;
                 golpe = 0;
@@ -645,7 +645,7 @@ int main() {
              * Seis barras juntas para W A S D Q E y una aparte, en cian, para ESC.
              * No es adorno: es el fallo de usabilidad que costo una sesion. Este
              * programa toma la pantalla ENTERA, asi que el escritorio desaparece y
-             * con el el sitio donde uno leeria que hacer. El dueno busco la salida
+             * con el el sitio donde uno leeria que hacer. El propietario busco la salida
              * con Alt+Tab y con Ctrl+Alt, que son atajos del escritorio y aqui no
              * existen.
              *
@@ -663,7 +663,7 @@ int main() {
             i = 0;
             /* Solo en pantalla exclusiva: en una ventana la salida es el boton de
              * cerrar del marco, que ya esta ahi y lo pone el DIRECTOR. Dibujar
-             * ademas estas barras seria ensenar una salida que aqui no existe. */
+             * ademas estas barras seria mostrar una salida que aqui no existe. */
             if (sup != 0) i = 6;
             while (i < 6) {
                 y = by;
@@ -869,7 +869,7 @@ int main() {
          * "ya lo pinte" seria guardar algo que el fotograma siguiente borra. */
         /* La fila bajo el raton, si es que el raton esta dentro. `dentro` se
          * pregunta PRIMERO: cuando no lo esta, x e y conservan la ultima
-         * posicion buena y realzarian una fila que ya nadie senala. */
+         * posicion buena y realzarian una fila que ya nadie marca. */
         hov = -1;
         if (menu == 1 && sup != 0) {
             if (bmo_superficie_dentro(sup) == 1) {
@@ -928,7 +928,7 @@ int main() {
          * pintar la tecla.
          *
          * 16 ms son ~60 fotogramas por segundo, que es todo lo que puede
-         * ensenar la pantalla. */
+         * mostrar la pantalla. */
         if (sup != 0) {
             bmo_dormir(16000000);
         } else {

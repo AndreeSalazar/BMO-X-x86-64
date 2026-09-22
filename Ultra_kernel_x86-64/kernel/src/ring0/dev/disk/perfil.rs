@@ -25,7 +25,7 @@
 //!
 //!   1. Un `OP_INFO` llega con el **CR3 del programa que pregunta**. Hablarle
 //!      al disco desde ahi es el mismo `#PF` que el USB ya pago.
-//!   2. ** El driver tiene **una sola ranura de comando** y con dueno. Mandar un
+//!   2. ** El driver tiene **una sola ranura de comando** y con propietario. Mandar un
 //!      IDENTIFY para contestar a `info` seria **robarle la ranura a quien
 //!      estuviera leyendo un fichero**. Una pregunta no puede desalojar a un
 //!      trabajo.

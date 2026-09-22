@@ -40,7 +40,7 @@ use crate::ring0::obj::cap;
 
 const NO_OWNER: u32 = u32::MAX;
 static OWNER: AtomicU32 = AtomicU32::new(NO_OWNER);
-/// El handle concedido al dueno, para poder revocarlo si la SUELTA. Mismo
+/// El handle concedido al propietario, para poder revocarlo si la SUELTA. Mismo
 /// motivo que en `obj::fb`: `cap` no ofrece "revoca todo lo de este tipo", y
 /// `revoke_all` se llevaria por delante su pantalla y su consola.
 static HANDLE: AtomicU64 = AtomicU64::new(0);
@@ -126,7 +126,7 @@ pub const INPUT_OP_RUEDA: u64 = 0x05;
 ///
 /// ** Lo que se entrega aqui el kernel ya lo tenia. `bmo_uhid::teclado`
 /// compara cada informe boot con el anterior y produce las dos caras desde el
-/// primer dia; se perdian al cruzar a Ring 3. Esto no anade un dato: deja de
+/// primer dia; se perdian al cruzar a Ring 3. Esto no agrega un dato: deja de
 /// tirarlo.
 ///
 /// **Consume**, como `INPUT_OP_TECLA`: cada evento se entrega una vez.
@@ -194,11 +194,11 @@ pub fn release(pid: u32) -> Result<(), u32> {
         cap::revoke(pid, h);
     }
     OWNER.store(NO_OWNER, Ordering::SeqCst);
-    crate::ring0::cabina::info("input", "entrada SOLTADA por su dueno", pid as u64);
+    crate::ring0::cabina::info("input", "entrada SOLTADA por su propietario", pid as u64);
     Ok(())
 }
 
-/// Lo llama `cap::revoke_all`: si el dueno muere, la entrada vuelve al kernel.
+/// Lo llama `cap::revoke_all`: si el propietario muere, la entrada vuelve al kernel.
 pub fn process_died(pid: u32) {
     if OWNER
         .compare_exchange(pid, NO_OWNER, Ordering::SeqCst, Ordering::SeqCst)
@@ -215,7 +215,7 @@ pub fn operation(operation: u64) -> Option<u64> {
     let (x, y, botones, eventos) = crate::ring0::dev::usb::puntero();
     match operation {
         INPUT_OP_PUNTERO => {
-            // Se recorta al panel AQUI, que es donde se sabe de que tamano es.
+            // Se recorta al panel AQUI, que es donde se sabe de que medida es.
             // Un acumulador de deltas sin tope se va a valores absurdos con
             // dos pasadas de raton y el compositor tendria que recortarlo
             // igual, solo que sin saber contra que.

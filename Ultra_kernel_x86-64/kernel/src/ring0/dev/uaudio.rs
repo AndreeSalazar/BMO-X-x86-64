@@ -16,7 +16,7 @@
 //!
 //! Y en esta maquina eso importa mas de lo que parece: el altavoz del PC no
 //! suena porque la placa no trae zumbador (`aparatos = 1` y silencio, visto en
-//! el Ryzen el 2026-08-09). El aparato que el dueno usa de verdad es
+//! el Ryzen el 2026-08-09). El aparato que el propietario usa de verdad es
 //! `VID_1B3F&PID_2008`, un USB Audio Class 1.0. Este es el primer camino de
 //! sonido que puede tener efecto audible en esta maquina.
 //!

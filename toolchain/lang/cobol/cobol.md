@@ -1,6 +1,6 @@
 # Arquitectura de lenguajes en BMO-X (COBOL como primer ciudadano)
 
-> **Estado**: diseno/vision. Parte del esqueleto ya existe (frontend COBOL,
+> **Estado**: esquema/vision. Parte del esqueleto ya existe (frontend COBOL,
 > BEF, validator/signing en bmo-abi). Las tres librerias compartidas y el
 > gate de verificacion estan **por construir**. Documento vivo.
 
@@ -50,7 +50,7 @@ Regla: **son librerias, no etapas.** Un lenguaje puede usar las 3, una, o
 ninguna. C/C++ pueden bajar directo a `sem-asm` para control absoluto de
 bytes (= inline asm). COBOL puede optimizar con `bmo-opt` y tener su propio
 encoder. **La esencia de cada lenguaje nunca se duplica** (es unica por
-diseno); lo que se compensa con librerias es el trabajo mecanico repetido.
+esquema); lo que se compensa con librerias es el trabajo mecanico repetido.
 
 ## El gate de VERIFICACION (el unico checkpoint comun)
 
@@ -90,7 +90,7 @@ IR-- la que habilita el aislamiento barato.
 
 ## La ESENCIA de COBOL (Grace Hopper, 1959) -- protegerla
 
-COBOL no es "otro lenguaje que baja a bytes". Su alma, tal como la diseno
+COBOL no es "otro lenguaje que baja a bytes". Su alma, tal como la esquema
 Grace Hopper y su equipo para la banca:
 
 1. **Legible por humanos de negocio** -- English-like, DIVISIONs
@@ -128,7 +128,7 @@ Grace Hopper y su equipo para la banca:
 2. Cerrar **BEF** como formato de salida comun.
 3. **Verificacion** como gate (crecer desde validator/signing existentes).
 4. **BMO ABI**: ya congelado (INVOKE / CHANNEL_KICK / WAIT).
-5. Las 3 librerias **a dial**: empezar sin ellas (BEF directo), anadir
+5. Las 3 librerias **a dial**: empezar sin ellas (BEF directo), agregar
    `bmo-lower`, luego `bmo-opt` (regalloc), luego pulir `sem-asm`.
 6. Cuando la verificacion pruebe memory-safety -> activar **SIPs** (Singularity).
 

@@ -1,4 +1,4 @@
-//! **CARRIL AMARILLO** -- cambia cada vez que una pantalla azul ensena algo.
+//! **CARRIL AMARILLO** -- cambia cada vez que una pantalla azul muestra algo.
 //!
 //! [carril]  AMARILLO  el nombre del fichero ya lo decia; la etiqueta lo hace comprobable
 //! [consumo] NADA      solo corre cuando algo falla
@@ -58,7 +58,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // -- En INGLES, y solo ASCII --
     //
     // No es una preferencia de estilo. Esta pantalla se lee EN UNA FOTO, y su
-    // trabajo entero es que un caracter no se confunda con otro. El espanol
+    // trabajo entero es que un caracter no se confunda con otro. El castellano
     // mete tildes y enye, y esos glifos viven en la tabla de extras Latin-1 del
     // font: son los que peor se distinguen a 8 px y los primeros que se rompen
     // si algo va mal con la fuente. El ingles cabe en ASCII puro.
@@ -67,7 +67,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // por ser los nombres del hardware, asi que la pantalla deja de estar a
     // medias en dos idiomas.
     //
-    // El resto del sistema sigue en espanol: comentarios, CABINA, el shell. Lo
+    // El resto del sistema sigue en castellano: comentarios, CABINA, el shell. Lo
     // que cambia es SOLO lo que se fotografia.
     let name = match vector {
         6 => "#UD invalid opcode",
@@ -91,7 +91,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // El volcado del Ryzen decia `err=0x00000002` y ese numero contesta TRES
     // preguntas de golpe -- pero solo si quien lo mira se sabe la tabla de
     // memoria. Un dato que hay que descodificar a mano en una foto es un dato
-    // que se lee mal a las dos de la manana.
+    // que se lee mal a las dos de la luego.
     //
     // Y para un `#PF` las tres deciden a donde se va a mirar:
     //
@@ -115,7 +115,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     l.s("rip=0x"); l.hex(rip, 16);
     // ** UN `rip` DE CERO NO ES UNA DIRECCION: ES UN "NO LO SE".
     //
-    // El 26-08 el Ryzen enseno `rip=0x0` junto a un `err` que decia
+    // El 26-08 el Ryzen mostro `rip=0x0` junto a un `err` que decia
     // **escribiendo, y no buscando codigo**. Las dos cosas no pueden ser
     // ciertas a la vez: para escribir hace falta una instruccion, y una
     // instruccion en la direccion cero se habria traido primero -- lo que
@@ -131,7 +131,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
 
     // -- *** Y DONDE CAE ESE RIP. (2026-09-12)
     //
-    // Lo pidio el dueno despues de que esta pantalla costara media sesion:
+    // Lo pidio el propietario despues de que esta pantalla costara media sesion:
     // *"que diga cuando no se fia del rip"*. Y la peticion nacio de una
     // conclusion MIA equivocada -- yo dije que el `rip` mentia, y no mentia:
     // `0x411000` era exacto, y lo que pasaba es que **el CPU habia saltado a
@@ -252,7 +252,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
         // ** Y SI SE SABE DE QUIEN FUE, SE DICE. (2026-08-31)
         //
         // `de NADIE VIVO` era cierto y era un callejon: decia que la pila no
-        // tiene duena y no decia quien la solto. La morgue del planificador
+        // tiene propietaria y no decia quien la solto. La morgue del planificador
         // guarda las ocho ultimas liberadas con su tid y su tick, asi que la
         // pregunta *"quien pisa aqui?"* se contesta en la propia pantalla, sin
         // tener que ir a CABINA con la maquina parada.
@@ -310,7 +310,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
                         l.s(" -- Y SE DEVOLVIO DOS VECES en tick ");
                         l.hex(t, 8);
                     }
-                    // *** Y DE QUIEN ES AHORA. (2026-09-02, a peticion del dueno)
+                    // *** Y DE QUIEN ES AHORA. (2026-09-02, a peticion del propietario)
                     //
                     // ** `OCUPADO` significa **se entrego dos veces**, y eso
                     // solo es accionable con la OTRA punta. Sin el nombre, el
@@ -318,7 +318,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
                     // exactamente el callejon del que ya salio `de NADIE VIVO`
                     // cuando gano la morgue:
                     //
-                    // > decia que la pila no tiene duena y no decia quien la
+                    // > decia que la pila no tiene propietaria y no decia quien la
                     // > solto.
                     //
                     // Se pregunta a las tablas que llevan DUENO y direccion
@@ -330,7 +330,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
                     // [!] Y si ninguna lo reclama **tambien se dice**, porque
                     // es una respuesta y de las caras: un marco que el
                     // asignador da por entregado y que ninguna tabla reconoce
-                    // es contabilidad rota, no un dueno que falta.
+                    // es contabilidad rota, no un propietario que falta.
                     // ** Y EL DUENO VA EN SU PROPIA LINEA. (2026-09-02)
                     //
                     // La primera version lo pegaba detras de `marco OCUPADO`, y
@@ -428,7 +428,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
         } else {
             // [!] Y esto es una respuesta, no un hueco: un marco que el
             // asignador da por entregado y que ninguna tabla reclama es
-            // CONTABILIDAD ROTA, no un dueno que falta.
+            // CONTABILIDAD ROTA, no un propietario que falta.
             // *** Y AHORA HAY UNA TABLA QUE SI SABE RECLAMARLO.
             //
             // `KIND_MEMORIA` y los ficheros contestan de quien es un marco
@@ -530,7 +530,7 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     // otro sitio --dentro de un hilo, en mitad de una funcion-- lo que hay en
     // `rsp` son variables locales, y leerlas como un marco es leer ruido.
     //
-    // El Ryzen enseno esto:
+    // El Ryzen mostro esto:
     //
     //    iq rip=000000000000 cs=0000 ss=0000
     //
@@ -676,11 +676,11 @@ pub(super) fn pantalla_de_fallo(titulo: &str, informe: &Informe) -> ! {
         // que el framebuffer sea debil: es que el panel captura la barra a
         // medio reescribir, y muestra una banda de la pasada anterior mezclada
         // con la nueva. Un LCD refresca 60 veces por segundo; escribirle 40.000
-        // no lo hace ir mas rapido, lo hace ensenar basura.
+        // no lo hace ir mas rapido, lo hace mostrar basura.
         //
         // Ahora solo se borra la tira que acaba de desaparecer, y solo cuando
         // el ancho cambia de pixel entero. Es el mismo principio que el cursor
-        // del compositor --repintar el dano, no la escena-- y aqui se nota mas
+        // del compositor --repintar el perjuicio, no la escena-- y aqui se nota mas
         // porque no hay nada mas en pantalla que lo disimule.
         if restante < anterior {
             sp::fallo_rect(x + restante, barra_y, anterior - restante, alto, FALLO_FONDO);

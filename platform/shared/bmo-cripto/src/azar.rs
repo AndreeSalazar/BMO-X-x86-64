@@ -231,7 +231,7 @@ pub fn u64() -> Result<u64, Motivo> {
 /// ```text
 ///   1. cualquier SESGO --que un bit salga a 1 mas veces-- desaparece
 ///   2. cualquier ESTRUCTURA en la salida no llega a la clave
-///   3. y si un dia se anade otra fuente, entra por el mismo sitio
+///   3. y si un dia se agrega otra fuente, entra por el mismo sitio
 /// ```
 ///
 /// [!] Lo que **no** arregla, dicho para que nadie se confie: si `RDRAND`

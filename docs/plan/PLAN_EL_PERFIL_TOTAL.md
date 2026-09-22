@@ -2,11 +2,11 @@
 
 > Estado: **CERRADO** -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en `PERFIL/`.
 
-> Escrito el 2026-08-24, a peticion del dueno: *"me gustaria plan total, TODO lo
+> Escrito el 2026-08-24, a peticion del propietario: *"me gustaria plan total, TODO lo
 > que es perfil a base de mi PC para construir. El plan alcanzable, lo que hay,
 > menos la GPU."*
 >
-> Es el companero de `PLAN_EL_ASISTENTE.md`. Aquel dice **que falta para una
+> Es el colega de `PLAN_EL_ASISTENTE.md`. Aquel dice **que falta para una
 > meta**; este dice **que da el hardware que ya esta encima de la mesa**.
 
 ---
@@ -61,7 +61,7 @@ No hay que estimar: hay cuatro comparables ya escritos y corriendo en metal.
 | driver de red (solo reconocer) | **630** | encontrar la NIC, MAC, PHY |
 | tablas de `arch/x86_64/` | **1.363** de TOML | la maquina entera como DATOS |
 
-*** **Ese es el tamano de un perfil en BMO-X: entre 600 y 1.900 lineas.** No es
+*** **Ese es el medida de un perfil en BMO-X: entre 600 y 1.900 lineas.** No es
 una opinion, son cuatro medidas. Y sirve para calibrar cualquier cosa que venga
 despues -- incluida la que este documento deja fuera.
 
@@ -86,7 +86,7 @@ driver para un ordenador que no tienes.*
 
 ## 3.1 -- Los pasos, con su lado
 
-| paso | que | lado | quien lo escribe | tamano |
+| paso | que | lado | quien lo escribe | medida |
 |---|---|---|---|---|
 | **0** | encontrar la NIC, MAC, PHY | **hardware** | perfil propio | [si] **HECHO Y EN METAL** |
 | **1** | anillo **RX**: recibir tramas | **hardware** | perfil propio | [..] escrito, falta la foto |
@@ -164,8 +164,8 @@ Con los pasos 0 a 6 hay **red de area local que funciona y se mide**:
 - terminales de banca hablando con un servidor local -- que es el caso de uso
   declarado del proyecto
 
-** El paso 4 de `RED_MAESTRO.md` lo llama *"lo que el dueno queria"*, y trae la
-unica prueba honesta de que el diseno vale: **microsegundos de ida y vuelta,
+** El paso 4 de `RED_MAESTRO.md` lo llama *"lo que el propietario queria"*, y trae la
+unica prueba honesta de que el esquema vale: **microsegundos de ida y vuelta,
 contra los que da Windows en la misma maquina y el mismo cable.**
 
 ---
@@ -208,8 +208,8 @@ entre nucleos esta **construido sobre un numero que no se sabe si es cierto**.
 `crew.rs` reparte trabajo y corre 12 de 12. Ring 3 puede arrancarlos, pararlos y
 medirlos -- **pero no darles trabajo suyo.**
 
-Falta una operacion en el ABI. Es diseno de contrato, no de silicio, y **va
-despues de 4.2**: disenar la puerta sobre un reparto sin foto seria disenar
+Falta una operacion en el ABI. Es esquema de contrato, no de silicio, y **va
+despues de 4.2**: trazar la puerta sobre un reparto sin foto seria trazar
 sobre nada.
 
 ## 4.4 -- MWAIT
@@ -227,7 +227,7 @@ De `QUE_DESBLOQUEA.md`, y sigue vigente:
 
 | hueco | piezas que faltan | sirve al banco? |
 |---|---|---|
-| las 3 ops de `KIND_ARCHIVO` | 3 pequenas | ★★★ |
+| las 3 ops de `KIND_ARCHIVO` | 3 chicas | ★★★ |
 | el enlazador | cerrado el 07-08 | ★★★ |
 | ESTRATOS escribir | ya guarda desde Ring 3 (18-08) | ★★★ |
 
@@ -307,7 +307,7 @@ reparte trabajo y corre 12 de 12 en metal; lo que no hay es camino para una
 funcion de Ring 3.
 
 [!] Y el escalon 2 va **detras de la foto de `smp prueba`**. Disenar la puerta
-sobre un reparto que contesto `0.00x` y nadie ha vuelto a mirar seria disenar
+sobre un reparto que contesto `0.00x` y nadie ha vuelto a mirar seria trazar
 sobre nada.
 
 ## 5.2 -- *** EL ESCALON QUE APARECIO HOY: la IOMMU
@@ -401,7 +401,7 @@ O sea que **el bring-up NO despierta 54 fantasmas**: despierta los que declara
 la MADT, y el `hilos-1` solo se usa cuando no hay MADT. **Lo que esta roto es lo
 que se ENSENA, no lo que se hace.**
 
-*** Y de ahi sale la casilla, que es de una linea de diseno y no de codigo:
+*** Y de ahi sale la casilla, que es de una linea de esquema y no de codigo:
 
 > **El careo existe y vive dentro de `smp`. Los paneles no lo consultan: leen el
 > perfil crudo.** El segundo testigo ya esta en la casa y no se le pregunta.
@@ -437,7 +437,7 @@ mismo tiron: el x2APIC ID se cogia de `EAX` (que es el desplazamiento) en vez de
 los lee nadie**.
 
 **c** -- El perfil declara `topologia_esperada: Some((6, 12))` y **no corrige:
-grita**. Corregirlo dejaria un sistema que ensena el numero bueno y esconde que
+grita**. Corregirlo dejaria un sistema que muestra el numero bueno y esconde que
 su fuente esta rota, que es exactamente como se llego hasta aqui. Es la doctrina
 que `xsave_componentes` ya tenia escrita: se hardcodean los CONTRATOS, se le
 preguntan los HECHOS al silicio.
@@ -464,7 +464,7 @@ tiene que existir de antes.
    casilla que CAMBIA un fichero          -> no puede: la citada siempre existe
 ```
 
-Se resolvieron con la otra senal que el guardian acepta --**la fecha de la
+Se resolvieron con la otra signal que el guardian acepta --**la fecha de la
 medida**-- y eso es correcto: dice contra que arranque se comprueban. Pero la
 mitad de las casillas de este arbol son del segundo tipo, asi que **el guardian
 mide bien las que crean y no sabe mirar las que arreglan.** Queda escrito aqui y
@@ -526,7 +526,7 @@ comprar nada.**
 
 # 6. Y CUANDO SE LLEGUE AL TECHO: la RTX 3060 12G
 
-> Idea del dueno: *"si llegamos hasta el limite de la superficie del sistema
+> Idea del propietario: *"si llegamos hasta el limite de la superficie del sistema
 > podriamos aprovechar el tiempo que queda en ingenieria inversa con la RTX 3060
 > 12G hasta que la RDNA4 aparezca."*
 
@@ -541,7 +541,7 @@ comparten:
 | | |
 |---|---|
 | la ISA | SASS de Nvidia contra GFX12 de AMD -- **nada en comun** |
-| el procesador de comandos | dos disenos distintos, dos protocolos |
+| el procesador de comandos | dos esquemas distintos, dos protocolos |
 | el arranque del firmware | GSP contra PSP |
 | el modelo de memoria | aperturas, GTT y tablas de pagina distintas |
 

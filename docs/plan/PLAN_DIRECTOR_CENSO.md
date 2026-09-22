@@ -1,6 +1,6 @@
 # PLAN DEL DIRECTOR -- el censo, lo que gasta, y por que
 
-> Pedido por el dueno el 2026-09-12: *"modular el DIRECTOR por completo, que
+> Pedido por el propietario el 2026-09-12: *"modular el DIRECTOR por completo, que
 > cumplen sus funciones y consumo de wats y por que razones"*.
 >
 > Se empieza por el CENSO y no por el codigo, que es la regla de la casa:
@@ -31,7 +31,7 @@ cumplia, porque *"un comentario no comparte estado con nadie"*.
 * **48% documentacion medida**, contra el 36% del arbol entero. El DIRECTOR es la
 parte mejor explicada del repo, y `wc -l` lo castigaba por eso.
 
-*** O sea que **el DIRECTOR no tiene un problema de tamano**. Lo que tiene es lo
+*** O sea que **el DIRECTOR no tiene un problema de medida**. Lo que tiene es lo
 que no declaraba.
 
 ---
@@ -83,7 +83,7 @@ Y el **por que** de cada uno, que es lo que se pidio:
 * **Y los otros 66 son NADA con una razon comprobable, no con una frase hecha.**
 Cada sello dice QUIEN lo llama, que es lo que convierte "NADA" en una afirmacion
 que se puede desmentir: una escena pinta cuando el compositor se lo pide; un
-comando, cuando el dueno lo escribe; un fichero de `keys/` o `mouse/`, solo si
+comando, cuando el propietario lo escribe; un fichero de `keys/` o `mouse/`, solo si
 hubo una tecla o el raton se movio.
 
 ### Las TRES que son MEZCLA, dicho por delante
@@ -155,7 +155,7 @@ mal un instrumento bueno.
 
 ---
 
-## 3. EL PRIMER CORTE, y por que NO es de tamano
+## 3. EL PRIMER CORTE, y por que NO es de medida
 
 `commands/reports.rs` tenia **968 lineas de codigo contra el limite de 1.000**, o
 sea 32 de margen. Y dentro llevaba DOS clases de coste:
@@ -187,7 +187,7 @@ el motivo -- igual que en `codegen/bex.rs` el mismo dia.
 
 ## 4. LOS CORTES QUE QUEDAN, por el mismo criterio
 
-No por tamano: por lo que cada trozo cuesta si se equivoca (L6e) y por la clase
+No por medida: por lo que cada trozo cuesta si se equivoca (L6e) y por la clase
 de consumo que lleva dentro (L6h).
 
 ```text
@@ -196,7 +196,7 @@ de consumo que lleva dentro (L6h).
        la maquina. Es el MAYOR de los tres mezclados y el unico que PARA nucleos
        -- commands/system.rs
 
-   [ ] `commands/disco.rs` y `commands/red.rs`, la misma forma y mas pequena:
+   [ ] `commands/disco.rs` y `commands/red.rs`, la misma forma y mas chica:
        el informe se queda, la orden sale. Salen los dos o ninguno -- partir uno
        y no el otro deja dos formas de decir lo mismo
        -- commands/disco.rs, commands/red.rs

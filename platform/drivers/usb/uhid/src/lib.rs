@@ -31,7 +31,7 @@
 //!
 //! ## Las dos reglas que ahora son estructura, no cuidado
 //!
-//! 1. **Un informe tiene UN dueno.** El reparto es excluyente y lo que no es de
+//! 1. **Un informe tiene UN propietario.** El reparto es excluyente y lo que no es de
 //!    nadie se CUENTA ([`UsbHidHal::huerfanos`]) en vez de desaparecer.
 //! 2. **Dos perifericos no pueden compartir direccion.** Instalar un raton en
 //!    la direccion del teclado se rechaza y se dice. Ver [`dir::Direccion::choca_con`].
@@ -502,7 +502,7 @@ impl UsbHidHal {
         // `SET_CONFIGURATION` solo se mandaba dentro de `preparar_endpoint`,
         // o sea, a teclados y ratones. Todo lo demas se direccionaba, se le
         // leian los papeles y se dejaba SIN CONFIGURAR -- y un aparato sin
-        // configurar no arranca su firmware: el movil del dueno enchufado al
+        // configurar no arranca su firmware: el movil del propietario enchufado al
         // Ryzen no ofrecia ninguna de sus opciones de USB porque, para
         // Android, no habia anfitrion. Se cuenta aqui cuantas interfaces se
         // toman (la `cosecha`); si al final no fue ninguna y el aparato tiene
@@ -557,7 +557,7 @@ impl UsbHidHal {
                     Some(b) => b,
                     None => {
                         // ** ERA MIO Y EL CONTROLADOR NO LO PREPARO (2026-09-18):
-                        // esto NO es "no es mio". El raton del dueno contesto,
+                        // esto NO es "no es mio". El raton del propietario contesto,
                         // valia, y el Configure Endpoint fallo -- y como
                         // `contesto` era verdad, el puerto se APARCABA: en paz
                         // hasta desenchufar. Un raton muerto hasta el reinicio
@@ -585,7 +585,7 @@ impl UsbHidHal {
                 if sale_del_teclado {
                     h.log("[uhid] iface de raton en MI TECLADO: provisional\n");
                 }
-                // * Se le pasa el `mps` del ENDPOINT, no el tamano del informe:
+                // * Se le pasa el `mps` del ENDPOINT, no el medida del informe:
                 // pedirle menos de lo que puede mandar es un babble, y asi fue
                 // como este raton se paro nada mas adoptarlo. Ver `Raton::largo`.
                 //
@@ -700,7 +700,7 @@ impl UsbHidHal {
     /// **Algo se enchufo en `port`: adoptalo.**
     ///
     /// * Esta es la mitad que faltaba. El aviso de cambio de puerto ya llegaba
-    /// --la foto lo enseno, `usb: puerto: algo se ENCHUFO (sin re-enumerar aun)`--
+    /// --la foto lo mostro, `usb: puerto: algo se ENCHUFO (sin re-enumerar aun)`--
     /// y **nadie hacia nada con el**. El comentario decia "primero ver, luego
     /// hacer"; ya se vio.
     ///
@@ -987,7 +987,7 @@ impl InputHal for UsbHidHal {
 
     fn name(&self) -> &'static str { "USB-HID" }
 
-    /// El REPARTO. Un evento, un dueno.
+    /// El REPARTO. Un evento, un propietario.
     ///
     /// `else if` y no dos `if` sueltos: ver la nota de la cabecera del modulo.
     fn poll(&mut self, buf: &mut [InputEvent]) -> usize {
@@ -1010,7 +1010,7 @@ impl InputHal for UsbHidHal {
         // *** Y LO QUE LO HACE GRAVE ES DE QUIEN ES ESTE HILO. El del bus es el
         // MISMO que sondea el teclado. Un bucle aqui que no termine no se ve
         // como "el audio falla": se ve como **la maquina congelada**, porque lo
-        // que deja de responder es el teclado. Es lo que el dueno vio al abrir
+        // que deja de responder es el teclado. Es lo que el propietario vio al abrir
         // el tubo: *"al escribir fallo y se congelo todo"*.
         //
         // ** La leccion ya estaba escrita EN ESTA CASA, en el driver de red:
@@ -1203,7 +1203,7 @@ mod tests_replug {
 // mientras alguien estuviera mirando el serial en ese instante, y no despues --
 // que es justo cuando se pregunta: *"enchufe algo y no paso nada, que era?"*.
 //
-// El dueno lo pidio con la imagen exacta el 2026-09-07:
+// El propietario lo pidio con la imagen exacta el 2026-09-07:
 //
 // > *"es como un guardian con que busca nombres y papeles, y si no sale le avisa
 // > al kernel y ya"*

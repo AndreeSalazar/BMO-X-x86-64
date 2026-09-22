@@ -47,7 +47,7 @@
 // alcanza ninguno.
 //
 // [!] Y **un objeto por bloque**, sin compartir. El formateador del anfitrion
-// empaqueta varios objetos pequenos en un bloque y hace bien --tiene el volumen
+// empaqueta varios objetos chicos en un bloque y hace bien --tiene el volumen
 // entero delante-- pero eso pide un asignador con estado, y el primer fichero
 // que se escriba desde la maquina no lo necesita: gasta 4 KiB donde caben 560 y
 // **es correcto**. Compartir bloque es una optimizacion con su propia prueba, no
@@ -67,7 +67,7 @@ use crate::FormatError;
 /// descubrirse el dia 37.
 pub const ENTRADAS_POR_BLOQUE: usize = BLOQUE / ENTRADA_LEN;
 
-/// **El nodo de un fichero pequeno**, con su contenido DENTRO.
+/// **El nodo de un fichero chico**, con su contenido DENTRO.
 ///
 /// ** Hasta [`RESIDENTE_MAX`] bytes no gastan un bloque de datos: viven en el
 /// atributo, o sea dentro del propio nodo. Un fichero de 30 bytes en un sistema
@@ -92,12 +92,12 @@ pub fn nodo_de_fichero(datos: &[u8]) -> Result<[u8; NODO_LEN], FormatError> {
 /// Devuelve cuantos BYTES utiles tiene, que es lo que hay que declarar en el
 /// atributo.
 ///
-/// === Por que se copia todo y no se anade al final ===
+/// === Por que se copia todo y no se agrega al final ===
 ///
 /// Porque ESTRATOS **no sobreescribe**: el bloque viejo sigue donde estaba y lo
 /// alcanza el estrato anterior. Escribir la entrada nueva encima del bloque de
 /// ayer seria romper el historial, que es exactamente lo que este sistema de
-/// ficheros existe para no hacer. Copiar y crecer hacia adelante ES el diseno.
+/// ficheros existe para no hacer. Copiar y crecer hacia adelante ES el esquema.
 ///
 /// ** Y un nombre repetido se RECHAZA en vez de sustituir. Sustituir seria una
 /// decision de politica --que hacer con el fichero viejo-- y esto es formato: la
@@ -137,7 +137,7 @@ pub fn entradas_con(
 /// diferencia entera es de que atributo se cuelga:
 ///
 /// ```text
-///   pequeno   :datos RESIDENTE -- los bytes van dentro del nodo
+///   chico   :datos RESIDENTE -- los bytes van dentro del nodo
 ///   grande    :datos EN BLOQUES -- el nodo guarda donde esta la raiz del arbol
 /// ```
 ///
@@ -146,7 +146,7 @@ pub fn entradas_con(
 /// esta puesto y lo unico que falta es la ficha que lo nombra.
 ///
 /// ** Y sigue habiendo DOS funciones y no una con un `if`. Cual se usa lo decide
-/// el tamano, y el que llama tiene que saber cual le toca **antes de reservar**:
+/// el medida, y el que llama tiene que saber cual le toca **antes de reservar**:
 /// una gasta un bloque y la otra gasta los del arbol entero.
 pub fn nodo_de_fichero_grande(
     size: u64,
@@ -227,7 +227,7 @@ pub fn entradas_repuntando(
 /// y ya no. Que no estuviera nunca y que se haya ido son dos cosas distintas.
 ///
 /// [!] **El orden de las que quedan se conserva.** La rejilla y el grafo del
-/// escritorio senalan sus hijos POR INDICE; reordenarlas al borrar movria la
+/// escritorio marcan sus hijos POR INDICE; reordenarlas al borrar movria la
 /// seleccion a otro fichero sin que nadie lo pidiera.
 pub fn entradas_sin(
     previas: &[u8],
@@ -273,7 +273,7 @@ pub fn entradas_sin(
 ///
 /// Un nombre es una entrada del padre; el fichero ni se entera.
 ///
-/// ** Y conserva SU SITIO en la lista. Borrar-y-anadir lo mandaria al final, y
+/// ** Y conserva SU SITIO en la lista. Borrar-y-agregar lo mandaria al final, y
 /// una carpeta que se reordena sola cada vez que renombras algo es una carpeta
 /// en la que no se puede trabajar.
 ///
@@ -519,7 +519,7 @@ mod tests {
 
     /// El nodo de un fichero grande dice DONDE esta, no lo lleva dentro.
     ///
-    /// ** Es la casilla que separa las dos formas: el pequeno responde
+    /// ** Es la casilla que separa las dos formas: el chico responde
     /// `datos_residentes()` y el grande responde `raiz()`. Confundirlas seria
     /// leer 96 bytes de puntero como si fueran texto.
     #[test]
@@ -596,7 +596,7 @@ mod tests {
     /// las entradas de la 37 en adelante: el arbol viejo seguiria entero, pero
     /// el vivo perderia nombres **sin decir una palabra**.
     ///
-    /// No pasa, y no es por diseno: 4096 no es multiplo de 112, asi que un
+    /// No pasa, y no es por esquema: 4096 no es multiplo de 112, asi que un
     /// bloque lleno hasta el borde arrastra 64 bytes de sobra y los tres verbos
     /// lo rechazan con *"esto no es una lista de entradas"*. Con `ENTRADA_LEN`
     /// de 64 o de 128 el resto daria cero y la perdida seria muda.

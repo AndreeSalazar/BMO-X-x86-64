@@ -71,7 +71,7 @@ impl Topology {
     ///
     /// Se rellena con `[bsp; 64]` y nunca se toca despues, asi que `cpus()`
     /// devuelve doce veces el mismo nucleo con el mismo `apic_id`. Tiene forma
-    /// de censo de CPUs y no lo es -- la clase de campo que engana a quien lo
+    /// de censo de CPUs y no lo es -- la clase de campo que burla a quien lo
     /// lee, porque *parece* un dato y es un relleno.
     ///
     /// **Donde esta el censo de verdad**: en la tabla **MADT** de ACPI, en sus
@@ -151,7 +151,7 @@ pub fn detect_bsp() -> Topology {
 
     // * La hoja 0x0B manda SI contesta algo con sentido. Si no --CPU viejo, o
     // un firmware que la deja en blanco-- se cae al testigo heredado, pero
-    // diciendolo: `hilos_por_nucleo = 0` es la senal de "no se ha medido", y
+    // diciendolo: `hilos_por_nucleo = 0` es la signal de "no se ha medido", y
     // nunca se convierte en un 2 supuesto por el camino.
     let hoja_b_vale = tipo_smt == 1 && tipo_core == 2 && hilos_por_nucleo_medido > 0 && hilos_paquete > 0;
 

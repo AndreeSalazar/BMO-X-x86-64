@@ -90,7 +90,7 @@
 //!
 //! `phys/roja.rs` se llama, literalmente:
 //!
-//! > **EL BITMAP: quien es dueno de cada marco**
+//! > **EL BITMAP: quien es propietario de cada marco**
 //!
 //! Y no lo sabe. Tiene UN BIT por marco --entregado o libre-- y con eso
 //! `free_frame` solo puede decir una cosa:
@@ -111,7 +111,7 @@
 //! El asignador lo acepto todo sin una palabra, porque **no tenia con que
 //! objetar**. Y la pantalla azul si sabe reconstruir de quien era un marco
 //! --preguntandole a `obj::memory` y a `obj::file`-- pero eso es ARQUEOLOGIA:
-//! se averigua el dueno con la maquina ya muerta, no en el instante en que
+//! se averigua el propietario con la maquina ya muerta, no en el instante en que
 //! alguien se equivoco.
 //!
 //! # La regla, y es la que hace que esto sea seguro de encender
@@ -137,7 +137,7 @@
 //!
 //! Y al mirarlo con la regla puesta, la regla tenia el mejor argumento: esto no
 //! es un carril del asignador. **`phys` reparte RAM y esta tabla no reparte
-//! nada** -- vive del mismo tamano que sus marcos y opina sobre ellos, igual
+//! nada** -- vive del mismo medida que sus marcos y opina sobre ellos, igual
 //! que `vmm` opina sobre ellos por otro lado. Su sitio es el piso donde los dos
 //! se ven.
 //!
@@ -160,7 +160,7 @@ const MARCOS: usize = (PHYSMAP_SIZE / PAGE) as usize;
 ///
 /// Un `pid` contestaria "de la tarea 7", y la pregunta que hunde la maquina no
 /// es esa -- es *"esto es una tabla de paginas o es el codigo de alguien?"*.
-/// Los duenos de un marco en este kernel son SUBSISTEMAS antes que procesos.
+/// Los propietarios de un marco en este kernel son SUBSISTEMAS antes que procesos.
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
 pub enum Titular {
@@ -240,7 +240,7 @@ impl Titular {
             8 => Titular::Neutro,
             1 => Titular::Anonimo,
             // [!] Un byte que esta tabla no sabe producir se lee como `Nadie` y
-            // NO como un dueno inventado. Un juez que se inventa una respuesta
+            // NO como un propietario inventado. Un juez que se inventa una respuesta
             // ante un dato corrupto es peor que uno que se calla.
             _ => Titular::Nadie,
         }
@@ -271,7 +271,7 @@ fn indice(phys: u64) -> Option<usize> {
 // no se podia poner en un panel que se repinta.
 //
 // ** Asi que se lleva AQUI, que es el unico sitio por el que un marco cambia de
-// dueno. Dos comparaciones por marcado, y el numero esta siempre listo.
+// propietario. Dos comparaciones por marcado, y el numero esta siempre listo.
 //
 // *** Y AL LLEVARLA APARECIO ALGO QUE NO SE BUSCABA.
 //
@@ -367,7 +367,7 @@ static mut EN_VUELO_CHOQUES: u64 = 0;
 // la nota del plazo de `roja.rs`, que es quien las escribe.
 //
 // [!] Y viven aqui por lo mismo que las otras cinco: las escribe el rojo y las
-// lee el verde. Una cuenta que se lleva en un carril y se ensena en otro es de
+// lee el verde. Una cuenta que se lleva en un carril y se muestra en otro es de
 // los dos, y ponerla en cualquiera de ellos obligaria al otro a subir a por
 // ella -- que es como el letrero de la carpeta se vuelve decoracion.
 

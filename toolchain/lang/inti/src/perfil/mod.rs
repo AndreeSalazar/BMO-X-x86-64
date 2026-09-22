@@ -305,10 +305,10 @@ impl<'c> Vigia<'c> {
     ///
     /// ** Solo las que el gate atomico vigila. No es una lista de nombres
     /// escrita aqui: es la tabla `[bytes.bajan]` de `biblioteca.toml`, y por eso
-    /// una pieza nueva entra anadiendo una fila y no tocando este fichero.
+    /// una pieza nueva entra agregando una fila y no tocando este fichero.
     fn usa_pieza(&mut self, nombre: &str, sitio: Sitio) {
         // [!] SOLO DONDE EL PERFIL LA PERMITE. En `llano` estas piezas ya estan
-        // rechazadas --crecen, o cuestan-- y anadir "ademas no baja" seria un
+        // rechazadas --crecen, o cuestan-- y agregar "ademas no baja" seria un
         // segundo aviso para una sola cosa.
         //
         // ** Dos avisos por un fallo no es el doble de informacion: es ruido que
@@ -341,7 +341,7 @@ impl<'c> Vigia<'c> {
     /// ** Es un metodo y no seis `push` con la misma linea copiada al lado
     /// porque el dia que se anada una comprobacion, un `push` a pelo saldria
     /// sin marcar y nadie lo notaria: el aviso seria correcto, solo que
-    /// senalando al fichero del que compila. Un fallo que no rompe nada es el
+    /// marcando al fichero del que compila. Un fallo que no rompe nada es el
     /// que sobrevive.
     fn acusa(&mut self, a: Aviso) {
         let marcado = match self
@@ -422,7 +422,7 @@ impl<'c> Vigia<'c> {
                 // no cuestan nada. Lo que no cabe es la VARIABLE, porque una
                 // variable de tipo `texto` es del tipo que crece -- y que HOY
                 // solo se le pueda meter un literal no es una propiedad del
-                // tipo, es una carencia del perfil que manana no lo sera.
+                // tipo, es una carencia del perfil que luego no lo sera.
                 //
                 // *** Deducirlo del literal y no del tipo escrito es a proposito:
                 // en `llano` los tipos son obligatorios, asi que la unica forma
@@ -532,7 +532,7 @@ impl<'c> Vigia<'c> {
             //
             // *** Y la de aqui es MAS FUERTE que la de la lista. Una lista
             // literal solo esta congelada dentro de una `constante` --fuera se
-            // le puede anadir-- y por eso su brazo mira `en_constante`. Un texto
+            // le puede agregar-- y por eso su brazo mira `en_constante`. Un texto
             // es INMUTABLE por definicion del tipo: `"hola"` no puede crecer en
             // ningun sitio, asi que no hace falta preguntar donde esta.
             //

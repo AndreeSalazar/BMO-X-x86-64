@@ -15,7 +15,7 @@
  *
  * Por eso hay cuatro pruebas y cada una puede fallar sola:
  *
- *   1. hay bloque         -- `malloc(1024)` != 0, y se ensena su direccion.
+ *   1. hay bloque         -- `malloc(1024)` != 0, y se muestra su direccion.
  *   2. se escribe y se lee -- los 1024 bytes, con un valor distinto en cada uno.
  *   3. son paginas de verdad -- 64 KiB = 16 paginas, una marca en cada una y
  *                              releidas despues. Si dos paginas fueran el

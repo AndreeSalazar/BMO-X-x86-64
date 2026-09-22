@@ -22,7 +22,7 @@
 # ** El objeto empieza donde empieza su cabecera de `dynobj`, que es exactamente
 # la direccion que devolvio `pide`. Por eso `libera` puede pasarsela a `suelta`
 # tal cual: la medida del bloque vive en `objeto - 16`, delante, y la puso el
-# monton. Las dos cabeceras son de duenos distintos y no se pisan.
+# monton. Las dos cabeceras son de propietarios distintos y no se pisan.
 #
 # ## *** LAS TRES REGLAS, Y LAS TRES SON DEL ABI
 #

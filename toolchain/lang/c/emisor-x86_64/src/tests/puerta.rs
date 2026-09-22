@@ -241,7 +241,7 @@ fn el_puntero_se_desempaqueta_bien() {
 
 // =============== <bmo/scroll.h>: la ventana sobre el historial ===========
 
-/// Los dos topes. Pasarse por arriba ensena filas en blanco --parece que se
+/// Los dos topes. Pasarse por arriba muestra filas en blanco --parece que se
 /// ha perdido todo--; pasarse por abajo deja la vista en negativo.
 #[test]
 fn el_scroll_se_topa_solo_en_los_dos_extremos() {

@@ -264,7 +264,7 @@ fn attribute(
                         "`{}` es solo de `<maqueta>`",
                         String::from_utf8_lossy(&name)
                     ),
-                    "el tamano de una caja se declara en el estilo, no en el marcado: \
+                    "la medida de una caja se declara en el estilo, no en el marcado: \
                      mezclarlos daria dos sitios donde buscar el mismo numero.",
                     "`width` y `height` en el bloque `<style>`.",
                 ));
@@ -436,7 +436,7 @@ fn non_ascii(span: Span) -> Error {
         "byte fuera de ASCII",
         "las fuentes de BMO-X son ASCII, y no por estetica: una sola letra acentuada \
          en un literal llego a hacer crecer un `.bex` de 512 bytes a 492.032. Las \
-         cadenas de pantalla son espanol SIN tilde.",
+         cadenas de pantalla son castellano SIN tilde.",
         "escribir el texto sin tildes ni enes con virgulilla.",
     )
 }

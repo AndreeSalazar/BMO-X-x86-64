@@ -25,7 +25,7 @@
 //!
 //! # *** POR QUE ESTE FICHERO EXISTE
 //!
-//! Lo pidio el dueno el 2026-09-03, y con la observacion correcta delante:
+//! Lo pidio el propietario el 2026-09-03, y con la observacion correcta delante:
 //!
 //! > *"los 12 no son correcto [...] empezar a construir asi como core | thread"*
 //!

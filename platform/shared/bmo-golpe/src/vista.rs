@@ -63,7 +63,7 @@ pub enum Vista {
 ///
 /// ** `minimizada` gana a `tapada` a proposito: las dos son ciertas a la vez
 /// cuando hay un juego a pantalla completa y una ventana en la barra, y la que
-/// explica lo que pasa es la que hizo el dueno.
+/// explica lo que pasa es la que hizo el propietario.
 impl Vista {
     /// **El nombre del veredicto**, para que una consola pueda decirlo.
     ///
@@ -169,7 +169,7 @@ mod pruebas {
         assert_eq!(vista(caja(), false, false, true), Vista::Tapada);
     }
 
-    /// Y el orden de los motivos: lo que hizo el dueno gana a lo que hizo
+    /// Y el orden de los motivos: lo que hizo el propietario gana a lo que hizo
     /// otra ventana, y la pantalla prestada gana a todo.
     #[test]
     fn minimizada_gana_a_tapada_y_prestada_gana_a_las_dos() {

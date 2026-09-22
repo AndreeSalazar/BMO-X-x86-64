@@ -1,7 +1,7 @@
 //! **Commands about the desktop itself**: what it says, what it shows, and
 //! what it does when it does not understand you.
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -25,11 +25,11 @@ pub(crate) fn nothing(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 
 /// ** ESTO NO ES UNA DISTRO, y se dice con un gato.
 ///
-/// Un amigo del dueno, que viene de Linux, se sento
+/// Un amigo del propietario, que viene de Linux, se sento
 /// delante y dio por hecho que lo era. Es un
 /// malentendido razonable --hay escritorio, ventanas
 /// y una caja donde teclear-- y "no lo conozco"
-/// habria sido correcto sin ensenar nada.
+/// habria sido correcto sin mostrar nada.
 ///
 /// Asi que la respuesta cuenta lo que de verdad
 /// separa a los dos sistemas: aqui no hay usuarios
@@ -40,7 +40,7 @@ pub(crate) fn nothing(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 ///
 /// ** Y DESDE EL 2026-09-12 LO DICE UNA VENTANA (`desktop::nya`), no la salida.
 /// Antes el gato y la explicacion se escribian renglon a renglon entre lo
-/// demas, y el dueno lo dijo: *"los que imprime en texto estan desordenados"*.
+/// demas, y el propietario lo dijo: *"los que imprime en texto estan desordenados"*.
 /// En la salida queda UNA linea, para que la orden siga en el historial y en
 /// `save`; el gato, las burlas por verbo y a donde ir viven en la ventanita.
 pub(crate) fn not_linux(dsk: &mut Desktop, p: &bmo::Pantalla, verb: &[u8]) -> After {
@@ -93,7 +93,7 @@ pub(crate) fn paint_cost(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         // fotograma. Con la caja unica de antes
         // esto seria SIEMPRE 1 y el `worst` la
         // pantalla entera; si aqui sale 2 o 3 con
-        // un peor pequeno, el troceado trabaja.
+        // un peor chico, el troceado trabaja.
         dsk.out.grid.text(b"    cajas      ");
         let k = decimal(v.cajas as u64, &mut d);
         dsk.out.grid.text(&d[..k]);
@@ -188,7 +188,7 @@ pub(crate) fn clear(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 ///
 /// === Por que dejo de ser una lista ===
 ///
-/// Eran treinta renglones seguidos, sin un solo rotulo, y el dueno lo dijo con
+/// Eran treinta renglones seguidos, sin un solo rotulo, y el propietario lo dijo con
 /// la comparacion exacta: *"imaginate con help en CMD de Windows, es molesto"*.
 /// Y es el mismo defecto: una lista plana obliga a **leerla entera** para saber
 /// si lo que buscas esta, porque no hay forma de descartar un trozo de un
@@ -261,7 +261,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"  LAS TECLAS --------------------------------------------------\n");
     dsk.out.grid.with_ink(INK_PLAIN);
     dsk.out.grid.text(b"    F1..F10 ESCRIBEN la orden y la ejecutan, asi que queda en\n");
-    dsk.out.grid.text(b"    el historial: la flecha arriba te ensena como se llama.\n");
+    dsk.out.grid.text(b"    el historial: la flecha arriba te muestra como se llama.\n");
     dsk.out.grid.text(b"    F11 y F12 no escriben nada -- ABREN UNA VENTANA.\n");
     dsk.out.grid.text(b"      ver           F1 help   F2 info    F3 consumo  F4 apps\n");
     dsk.out.grid.text(b"      la maquina    F5 red    F6 smp     F7 banda    F8 ext\n");

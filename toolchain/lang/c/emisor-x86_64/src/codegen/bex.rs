@@ -28,7 +28,7 @@
 //! hace IMAGEN le miente a ese juez: un fallo de `build_bef` no aparece
 //! *dentro* como dice `mod.rs`, aparece **en el metal**, al cargar.
 //!
-//! ** O sea que el corte no es de tamano ni de gusto: es que la etiqueta era
+//! ** O sea que el corte no es de medida ni de gusto: es que la etiqueta era
 //! FALSA. Y la unica forma de que deje de serlo es que las dos fases vivan en
 //! dos ficheros, porque la etiqueta es por FICHERO.
 //!
@@ -109,9 +109,9 @@ impl Codegen {
         // ** FUERA LAS REGIONES DE LONGITUD CERO, y esto no es limpieza: es el
         // bug que el gate del BEF caza si no se hace.
         //
-        // `type_stack_size` devuelve 0 para un tipo cuyo tamano no conoce, asi
+        // `type_stack_size` devuelve 0 para un tipo cuyo medida no conoce, asi
         // que dos globales pueden acabar EN EL MISMO OFFSET. Con eso, el mapa
-        // de traduccion --que se indexa por offset-- tiene dos duenos para la
+        // de traduccion --que se indexa por offset-- tiene dos propietarios para la
         // misma clave: si uno esta anclado y el otro no, el ultimo en escribir
         // gana y **una reloc acaba apuntando dentro de `.bss`**, que es una
         // seccion que su codigo de `donde` no sabe nombrar.
@@ -251,7 +251,7 @@ impl Codegen {
     /// entre dos funciones se atribuye a la de arriba **aunque caiga fuera de
     /// ella** -- en un hueco de relleno, o en una funcion que el mapa no vio.
     ///
-    /// Aqui el tamano sale de la distancia a la siguiente funcion, y la ultima
+    /// Aqui el medida sale de la distancia a la siguiente funcion, y la ultima
     /// llega hasta el final del codigo. Con eso, quien lee puede decir *"esta
     /// direccion NO esta en ninguna funcion"*, que es una respuesta distinta y
     /// mucho mas util que un nombre equivocado.
@@ -297,7 +297,7 @@ impl Codegen {
                 // `static` en el fuente y no una constante aqui.
                 binding: SymbolBinding::Local as u8,
                 visibility: SymbolVisibility::Default as u8,
-                section_idx: 0, // la seccion de codigo se anade siempre la primera
+                section_idx: 0, // la seccion de codigo se agrega siempre la primera
                 _reserved: 0,
             });
         }
@@ -373,7 +373,7 @@ impl Codegen {
         // hoy lo lea un depurador y no un enlazador.
         //
         // [!] `SectionKind::Symbols` y `BefSection::symbols()` llevaban escritos
-        // desde que se diseno BEF y **no los usaba nadie** -- igual que
+        // desde que se esquema BEF y **no los usaba nadie** -- igual que
         // `Resources` antes del paquete. El sitio ya estaba; faltaba llenarlo.
         //
         // No es cargable (`is_loadable` solo mapea Code/RoData/Data/Bss), asi

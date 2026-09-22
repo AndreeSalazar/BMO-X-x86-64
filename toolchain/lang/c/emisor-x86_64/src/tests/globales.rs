@@ -136,7 +136,7 @@ fn dos_punteros_globales_a_la_misma_cadena_coinciden() {
 }
 
 /// [!] Un struct GLOBAL y el global de al lado. Sonda: si el struct no reserva
-/// su tamano, lo que venga despues cae encima.
+/// su medida, lo que venga despues cae encima.
 #[test]
 fn un_struct_global_no_pisa_al_global_siguiente() {
     let fuente = "struct P { int x; int y; }; \
@@ -269,7 +269,7 @@ fn una_tabla_con_un_solo_valor_conserva_sus_ceros() {
     assert_eq!(run_c(fuente), "0,5,0");
 }
 
-/// El tamano de la tabla tiene que ser el de N structs, no el de uno: el global
+/// El medida de la tabla tiene que ser el de N structs, no el de uno: el global
 /// que venga despues no puede caer dentro.
 #[test]
 fn una_tabla_de_structs_reserva_el_tamano_de_todos() {
@@ -309,7 +309,7 @@ fn una_tabla_de_structs_reserva_el_tamano_de_todos() {
 //   > Una limitacion que solo aparece con un estilo no se descubre leyendo: se
 //   > descubre escribiendo distinto.
 //
-// El arreglo no anade un caso: QUITA el desvio. Esta rama existe por el
+// El arreglo no agrega un caso: QUITA el desvio. Esta rama existe por el
 // agregado POR VALOR, que es lo unico que el camino general no sabe hacer; un
 // puntero a agregado es una palabra de maquina y ese camino lleva sabiendo
 // declararlos desde siempre.

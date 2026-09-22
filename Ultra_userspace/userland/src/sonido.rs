@@ -1,7 +1,7 @@
 //! El SONIDO: `KIND_AUDIO` visto desde Ring 3.
 //!
 //! Lo que hay al otro lado es un CONTRATO, no un motor de audio: el derecho a
-//! hacer ruido, exclusivo, que se recupera solo cuando su dueno muere. El
+//! hacer ruido, exclusivo, que se recupera solo cuando su propietario muere. El
 //! driver de HD Audio es otra cosa y todavia no existe -- ver
 //! `docs/plan/PLAN_DOOM.md`, fase 5.
 //!
@@ -14,7 +14,7 @@ use crate::*;
 
 /// El sonido, cedido a este proceso.
 ///
-/// Exclusivo como la pantalla: un solo proceso lo tiene a la vez. Dos duenos
+/// Exclusivo como la pantalla: un solo proceso lo tiene a la vez. Dos propietarios
 /// escribiendo en el mismo aparato no es mezclar, es ruido -- y mezclar es
 /// trabajo de Ring 3, igual que componer ventanas.
 pub struct Sonido {
@@ -33,7 +33,7 @@ impl Sonido {
     /// Va desde el primer dia por lo que costo que faltara en la pantalla: sin
     /// esto, el primer programa que pite se queda el altavoz hasta que muera.
     ///
-    /// Devuelve `false` si no era el dueno, en vez de fingir que lo solto.
+    /// Devuelve `false` si no era el propietario, en vez de fingir que lo solto.
     pub fn release(self) -> bool {
         invoke(CURRENT_TASK, OP_AUDIO_RELEASE, 0, 0, 0).valor().is_some()
     }

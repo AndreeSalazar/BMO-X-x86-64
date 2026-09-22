@@ -17,7 +17,7 @@
 //! sin poder es **cruzar la puerta**: el contenido viaja de ocho en ocho bytes
 //! por un renglon que acumula 96, y meter 4 KiB por ahi serian 512 llamadas por
 //! bloque. Esa puerta no esta hecha para eso, y ensancharla seria empeorar el
-//! diseno para forzar un caso raro.
+//! esquema para forzar un caso raro.
 //!
 //! * **Asi que el contenido NO cruza el anillo.** Ring 3 dice dos nombres --de
 //! donde y a donde-- y el kernel lee la fuente el mismo. Es la misma forma que
@@ -32,7 +32,7 @@
 //!
 //! [`coste`] mide y [`traer`] escribe. Estan separadas porque una transaccion
 //! **reserva antes de escribir**, y para reservar hay que saber cuanto: el
-//! tamano del origen decide cuantos bloques de datos, cuantos de indice y
+//! medida del origen decide cuantos bloques de datos, cuantos de indice y
 //! cuantos niveles. Mezclarlas obligaria a pedir sitio a mitad de la escritura,
 //! que es justo lo que la maquina de estados prohibe.
 
@@ -92,7 +92,7 @@ static mut INDICE: [[u8; BLOQUE]; es::objects::NIVELES_MAX] =
 /// Donde aterriza cada trozo leido del origen antes de escribirse.
 static mut TROZO: [u8; BLOQUE] = [0u8; BLOQUE];
 
-/// **Lo que va a costar traer `origen`**: `(bloques, plan, tamano)`.
+/// **Lo que va a costar traer `origen`**: `(bloques, plan, medida)`.
 ///
 /// El `+ 1` del nodo del fichero NO va aqui: lo suma quien reserva, junto con
 /// los dos bloques por nivel de la ruta y el del estrato. Aqui se contesta solo
@@ -102,7 +102,7 @@ pub(super) fn coste(origen: &Origen) -> Result<(u64, Plan, u32), WriteError> {
     // volumen, y el otro lo trajo dicho el que llama.
     let size = match origen {
         Origen::Fat32(ruta) => {
-            crate::ring0::fsys::fs::tamano(ruta).map_err(|_| WriteError::RutaNoEsta)?
+            crate::ring0::fsys::fs::size(ruta).map_err(|_| WriteError::RutaNoEsta)?
         }
         Origen::Ram { size, .. } => *size,
     };

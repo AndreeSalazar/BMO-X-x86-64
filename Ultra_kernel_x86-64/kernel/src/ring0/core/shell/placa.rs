@@ -1,22 +1,22 @@
 //! **`placa` -- lo que el firmware le cuenta a BMO-X.**
 //!
 //! [carril]  VERDE     cuenta lo que el firmware declara
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! ## Por que es un fichero y no un trozo de `hardware.rs` (L6a, L6b)
 //!
 //! Por las dos razones, y las dos cuentan:
 //!
 //! ** La de L6b, que es la buena: contesta una pregunta distinta. `hardware.rs`
-//! ensena APARATOS --el disco, la red, el sonido, los nucleos-- y esto ensena lo
+//! muestra APARATOS --el disco, la red, el sonido, los nucleos-- y esto muestra lo
 //! que la PLACA dice de si misma. Son dos censos, y el segundo no mira ningun
 //! aparato: mira una tabla que dejo el firmware en memoria.
 //!
 //! ** Y la de L6a, que es la que forzo el momento: al entrar `placa`,
 //! `hardware.rs` cruzo las **1.000 lineas**, y desde el 2026-08-24 un fichero
 //! de **Ring 0** que las cruza no puede sellarse en la linea base -- no hay
-//! `--motivo` que valga. La regla se escribio esa manana y **lo primero que
-//! caso fue el trabajo de esa misma manana**.
+//! `--motivo` que valga. La regla se escribio esa luego y **lo primero que
+//! caso fue el trabajo de esa misma luego**.
 //!
 //! Que una regla se aplique a quien la escribe el dia que la escribe es la
 //! mejor prueba de que no es decorativa.
@@ -62,7 +62,7 @@ pub(crate) fn shell_placa() {
     }
     /// ** Una direccion se escribe en HEX y no en decimal, y no es estilo: el
     /// mapa de memoria de una placa esta alineado a potencias de dos, asi que
-    /// en hex los ceros del final DICEN el tamano de la ventana. En decimal
+    /// en hex los ceros del final DICEN el medida de la ventana. En decimal
     /// `4026531840` no dice nada; `0xF0000000` se lee de un vistazo.
     fn hex(b: &mut [u8; 80], o: &mut usize, v: u64) {
         const D: &[u8; 16] = b"0123456789ABCDEF";

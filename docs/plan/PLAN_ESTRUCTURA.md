@@ -7,7 +7,7 @@
 > **Como se cae**: la ventana no abre, o abre y no recibe teclas, o compila y el
 > `.bex` que escribe no lo admite el cargador.
 >
-> Escrito el **2026-09-06**, cuando el dueno pidio *"un terminal que se convierta
+> Escrito el **2026-09-06**, cuando el propietario pidio *"un terminal que se convierta
 > compilador, que llames como F1 en Escritorio, pero que sea APP"*.
 
 ---
@@ -102,7 +102,7 @@ ese formato cambia cada vez que se depura algo.
 ```
 
 Y eso **no es una limitacion que rodear**: es el primer caso en el que la
-frontera se cobra, y contesta sola una pregunta de diseno que si no habria que
+frontera se cobra, y contesta sola una pregunta de esquema que si no habria que
 discutir. La consola de instrumentos se queda donde esta porque **es un
 instrumento**; el taller sale porque es una app.
 
@@ -114,18 +114,18 @@ instrumento**; el taller sale porque es una app.
 (`Ultra_kernel_x86-64/kernel/src/ring0/task/autoridad.rs`). Un `.bex` **no puede
 lanzar otro**.
 
-Eso descarta el diseno obvio --un terminal que invoca al compilador-- y deja el
+Eso descarta el esquema obvio --un terminal que invoca al compilador-- y deja el
 correcto:
 
 ```text
    estructura.bex   el terminal Y el compilador, en el MISMO fichero,
                     con sus tablas en la seccion 0x0B
-   el ESCRITORIO    lanza lo que ESTRUCTURA compilo, cuando el dueno hace clic
+   el ESCRITORIO    lanza lo que ESTRUCTURA compilo, cuando el propietario hace clic
 ```
 
 ** Y eso convierte "sin instalar" en algo literal en vez de en un eslogan: **un
 fichero que trae dentro lo que necesita**, y que se lee con `paquete.h` sin
-copiar nada. La cabecera ya cita al dueno diciendo la idea:
+copiar nada. La cabecera ya cita al propietario diciendo la idea:
 
 > *"es un bef pero ese bex es el mismo que abre la caja: no lo duplica, lo lee y
 > punto."*
@@ -177,9 +177,9 @@ historial.rs` (172 lineas) ya lo hace dentro del DIRECTOR y de ahi sale la forma
 
 ## 4b. ** CUANTAS PUERTAS CUESTA UNA COMPILACION -- contadas, no estimadas
 
-El dueno pidio el numero. Sale de **leer el codigo y contar**, no de estimar:
+El propietario pidio el numero. Sale de **leer el codigo y contar**, no de estimar:
 cada llamada esta escrita en `Ultra_userspace/userland/src/archivo.rs` y se
-puede senalar con el dedo.
+puede marcar con el dedo.
 
 ```text
    fuente        ->  salida          HOY   CON BLOQUE   factor
@@ -216,7 +216,7 @@ cambia todo y afinar el compilador no cambiaria nada.
    + crear 3 + escribir_de 1 + cerrar 1  =  11
 ```
 
-**No depende del tamano.** `ARCH_OP_LEER_EN` no pasa por la ventana de 64 KiB
+**No depende del medida.** `ARCH_OP_LEER_EN` no pasa por la ventana de 64 KiB
 --el rango va del disco al bloque, sin escala-- asi que un fuente de 30 KiB
 cuesta las mismas once puertas que uno de 1 KiB.
 
@@ -275,7 +275,7 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
                                       visto desde aqui
 
    [ ] 7  exportar donde le digan     a ESTRATOS o a FAT32, y que la ventana
-                                      de datos lo ensene
+                                      de datos lo muestre
 ```
 
 ### Como se cae cada uno
@@ -291,7 +291,7 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
 | 7 | el fichero aparece en la ventana de datos | -- |
 
 ★ El escalon 5 no es de relleno. *"Ese comando es un instrumento y vive en la
-consola del DIRECTOR"* es una respuesta que ensena el sistema; *"comando
+consola del DIRECTOR"* es una respuesta que muestra el sistema; *"comando
 desconocido"* deja al que lo teclea creyendo que falta trabajo.
 
 ---
@@ -318,7 +318,7 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
   bit, y `autoridad.rs` ya dejo escrita la pregunta que va antes.
 * **Llamarlo VALKYRIE.** Seccion 0.
 * **Empezar por el escalon 6** porque es el que se ve. Sin el 2, no hay ventana
-  que lo ensene.
+  que lo muestre.
 
 ---
 

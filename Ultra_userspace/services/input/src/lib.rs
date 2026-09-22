@@ -36,7 +36,7 @@
 //! que haga falta un servicio de entrada de verdad sera *despues* de
 //! `KIND_SUPERFICIE`, cuando haya ventanas de otros procesos a las que
 //! repartir -- y ese servicio no se parecera a estas tres firmas. Se conserva
-//! solo hasta que el dueno decida, con el aviso escrito para que nadie
+//! solo hasta que el propietario decida, con el aviso escrito para que nadie
 //! construya encima mientras tanto.
 
 #![no_std]

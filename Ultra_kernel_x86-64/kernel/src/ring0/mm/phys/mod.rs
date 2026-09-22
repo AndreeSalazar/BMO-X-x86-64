@@ -5,7 +5,7 @@
 //!
 //!
 //! [cuesta]  MAQUINA -- entregar dos veces el mismo marco no da un fallo: da
-//!           dos duenos del mismo byte, y el sintoma tres arranques despues.
+//!           dos propietarios del mismo byte, y el sintoma tres arranques despues.
 //!
 //! [riesgo]  ESPEJO -- `MAX_PHYS` es el techo de lo que el physmap alcanza, y
 //!           NO es el unico sitio que lo decide: `vmm::caminable` juzga la

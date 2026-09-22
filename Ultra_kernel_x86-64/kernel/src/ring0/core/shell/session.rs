@@ -153,11 +153,11 @@ pub(crate) fn run_shell(ctx: &BootContext) -> ! {
 ///
 /// Hasta el 2026-08-26 el escritorio se lanzaba en UN sitio: al arrancar, dentro
 /// de `run_shell`, y como mucho un reintento si se habia muerto. O sea que si el
-/// dueno acababa en este shell --por la patada, por el rescate, o porque el
+/// propietario acababa en este shell --por la patada, por el rescate, o porque el
 /// escritorio se cayo mas tarde-- **la unica forma de recuperarlo era reiniciar
 /// la maquina**.
 ///
-/// El dueno lo pidio con las dos salidas juntas: *"eso no se limpio o debe
+/// El propietario lo pidio con las dos salidas juntas: *"eso no se limpio o debe
 /// reiniciar el servidor del RING 3"*. La primera la resuelve
 /// `core/emergencia.rs`; esta es la segunda.
 ///
@@ -208,7 +208,7 @@ fn shell_escritorio() {
         // a esperar a algo que no va a pasar. La unica salida era acordarse de
         // Ctrl+Alt+Esc, o sea **matarlo a mano**.
         //
-        // > El dueno lo dijo asi: *"se siente que tengo que hacer manual y matar
+        // > El propietario lo dijo asi: *"se siente que tengo que hacer manual y matar
         // > el servidor de Ring 3 para volver a entrar"*. Tenia razon, y la
         // > maquina sabia por que sin decirlo.
         //

@@ -11,7 +11,7 @@ Both stages are independent Cargo workspaces and are built by
 `Ultra_kernel_x86-64/build.ps1`. The sections below document the former twelve-stage
 design for historical context only; those crate names and addresses are not active.
 
-> Federico Faggin (1941-) diseno el Zilog Z80 en 1974. Su principio:
+> Federico Faggin (1941-) esquema el Zilog Z80 en 1974. Su principio:
 > cada chip hace **una sola cosa**, mide pocos transistores, y se
 > conecta al siguiente por una interfaz minima.
 

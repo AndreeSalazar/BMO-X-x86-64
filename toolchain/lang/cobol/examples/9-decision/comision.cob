@@ -1,7 +1,7 @@
       * COMISION -- la TABLA DE DECISION y el REDONDEO LEGAL.
       *
-      * Los ocho niveles de antes ensenan lo que un compilador tiene que saber.
-      * Este ensena lo que un BANCO tiene que decidir, que no es lo mismo.
+      * Los ocho niveles de antes muestran lo que un compilador tiene que saber.
+      * Este muestra lo que un BANCO tiene que decidir, que no es lo mismo.
       *
       * -- 1. EVALUATE TRUE: el escalado --
       *

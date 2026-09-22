@@ -222,7 +222,7 @@ pub fn splash_dashboard_init() {
     // === El bug, y por que el arreglo anterior solo tapo la mitad ===
     //
     // Se taparon las FILAS del log y se dio el problema por resuelto. El video
-    // del Ryzen enseno la otra mitad: un rectangulo verdeazulado enorme comiendose
+    // del Ryzen mostro la otra mitad: un rectangulo verdeazulado enorme comiendose
     // la esquina superior, con el rotulo `KERNEL LOG` dentro y el gato cortado por
     // la mitad. No eran las filas. Era **el panel entero** -- esta funcion, que
     // empieza rellenando la pantalla de `VOID` y sigue con cabecera, pie, marco y
@@ -336,9 +336,9 @@ pub fn splash_dashboard_log_color(row: usize, msg: &str, color: u32) {
     // de ella**. En el video del Ryzen se ve el resultado: un panel oscuro
     // comiendose los dos tercios de arriba de la pantalla con la ciudad
     // asomando por debajo. Dos capas peleandose por el mismo sitio, que es
-    // literalmente lo que el dueno describio: *"la capa estan mezcladas"*.
+    // literalmente lo que el propietario describio: *"la capa estan mezcladas"*.
     //
-    // El dueno tambien dijo que hacer con eso, y sin ambiguedad: *"en codigos de
+    // El propietario tambien dijo que hacer con eso, y sin ambiguedad: *"en codigos de
     // kernel en tiempo real esta en 0% a la vista, claro, porque eso no importa
     // sino la presentacion"*.
     //

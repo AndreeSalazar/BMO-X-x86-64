@@ -45,7 +45,7 @@
 //!   `Initializer` que espeja el tipo, y despues se aplana a asignaciones.
 //!
 //! - **TCC** (Bellard, `tccgen.c:decl_initializer`) -- una sola pasada que
-//!   calcula el offset y emite ahi mismo. Lo mas pequeno que funciona.
+//!   calcula el offset y emite ahi mismo. Lo mas chico que funciona.
 //!
 //! - **MSVC** -- el contraejemplo, y por eso vale la pena nombrarlo: su
 //!   compilador de C **no tuvo designated initializers hasta 2020**
@@ -66,7 +66,7 @@
 //!    codegen guarda bytes en offsets, que es una tabla, no un interprete.
 //! 3. Se audita leyendo una funcion. La pila incremental de GCC es mejor
 //!    ingenieria para el problema de GCC --listas gigantes-- y BMO no lo tiene:
-//!    aqui no hay allocator y los programas son pequenos.
+//!    aqui no hay allocator y los programas son chicos.
 //!
 //! === Las reglas de C99 que se respetan ===
 //!
@@ -91,7 +91,7 @@ impl Parser {
     ///
     /// * Existe porque esto estaba **copiado en tres sitios** --el cuerpo de una
     /// funcion, un bloque anidado y `parse_stmt`-- con el mismo `if Assign {
-    /// parse_expr }` en cada uno. Al anadir las listas `{ ... }` solo aprendio
+    /// parse_expr }` en cada uno. Al agregar las listas `{ ... }` solo aprendio
     /// uno de los tres, y `int a[4] = {...}` seguia sin compilar dentro de un
     /// `if`. Tres copias de una regla se quedan viejas en dos.
     ///
@@ -386,10 +386,10 @@ impl Parser {
         Ok(())
     }
 
-    /// El tamano REAL de un tipo, structs incluidos.
+    /// El medida REAL de un tipo, structs incluidos.
     ///
     /// * `TypeSpec::stack_size()` devuelve **0** para `StructRef` y `UnionRef`
-    /// --el tamano no esta en el tipo, esta en la tabla de disposiciones-- y
+    /// --el medida no esta en el tipo, esta en la tabla de disposiciones-- y
     /// usarla aqui ponia todos los elementos de un `struct P v[2]` en el mismo
     /// offset: `v[1]` escribia encima de `v[0]`. Compilaba, corria, y daba
     /// numeros que parecian plausibles.

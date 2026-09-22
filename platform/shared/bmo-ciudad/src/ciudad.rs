@@ -109,7 +109,7 @@ impl Ciudad {
         //
         // Al 92% la ciudad se queda en la franja de abajo y le deja al logo el
         // tercio central despejado, que es como esta compuesta la referencia que
-        // enseno el dueno.
+        // mostro el propietario.
         let horizonte = alto * 92 / 100;
         let mut torres = [Torre::APAGADA; MAX_TORRES];
         let mut n = 0;
@@ -173,7 +173,7 @@ impl Ciudad {
     /// del 08-15 se ve el `BMO-X` escrito justo encima de los tejados y el kanji
     /// pisando una torre.
     ///
-    /// Se mide, no se calcula de la formula: si manana alguien sube las torres,
+    /// Se mide, no se calcula de la formula: si luego alguien sube las torres,
     /// el logo se aparta solo. Un numero copiado a mano en el otro lado es
     /// exactamente la clase de acuerdo que se rompe sin que nadie se entere.
     pub fn techo(&self) -> i32 {
@@ -600,7 +600,7 @@ mod pruebas {
 
     /// Debajo del horizonte contesta el suelo, y no se sale del array de
     /// franjas. Lo pregunta el aura cuando el logo queda bajo en una pantalla
-    /// pequena.
+    /// chica.
     #[test]
     fn preguntar_fuera_del_cielo_no_desborda() {
         let c = Ciudad::nueva(640, 480, 3);

@@ -4,7 +4,7 @@
 //! [consumo] NADA      corre cuando alguien lee o escribe un fichero
 //!
 //! [eje]     CORRECCION -- lo pide una persona y escribe en el almacen
-//! [exige]   la seccion 5 del diseno (el paso que falta para 1.0), L7 (el
+//! [exige]   la seccion 5 del esquema (el paso que falta para 1.0), L7 (el
 //!           formato no se decide aqui)
 //!
 //! # Que hace, y por que es corto
@@ -31,7 +31,7 @@
 //! ```
 //!
 //! Los tres ultimos no son del fichero: son **la version nueva del arbol**. En
-//! un sistema que sobreescribe, anadir una entrada toca un bloque; aqui no se
+//! un sistema que sobreescribe, agregar una entrada toca un bloque; aqui no se
 //! toca ninguno, se copian los que cambian. Eso es el copy-on-write, y es lo que
 //! hace que el arbol de ayer siga entero y alcanzable -- que es la razon de que
 //! este sistema de ficheros exista.
@@ -76,7 +76,7 @@ static mut PREVIAS: [u8; BLOQUE] = [0u8; BLOQUE];
 /// El bloque de entradas NUEVO. Tiene que ser otro buffer: se lee del de arriba
 /// mientras se escribe en este.
 static mut ENTRADAS: [u8; BLOQUE] = [0u8; BLOQUE];
-/// Un bloque de paso para escribir cada objeto pequeno con su relleno.
+/// Un bloque de paso para escribir cada objeto chico con su relleno.
 static mut BLOQUE_TMP: [u8; BLOQUE] = [0u8; BLOQUE];
 
 /// **Lo que se le hace a la lista de entradas del directorio del final.**
@@ -98,7 +98,7 @@ pub enum Gesto<'a> {
     /// **Traer un fichero DE FUERA.** El contenido lo lee el kernel.
     ///
     /// ** Es el unico gesto cuyo coste NO se sabe leyendo el gesto: depende del
-    /// tamano del origen, que hay que ir a medir. Por eso `aplicar` lo pregunta
+    /// medida del origen, que hay que ir a medir. Por eso `aplicar` lo pregunta
     /// antes de reservar, y por eso este es el unico que puede fallar con "esa
     /// ruta no existe" hablando de OTRO sistema de ficheros.
     ///
@@ -687,7 +687,7 @@ pub fn marcar(nombre: &str) -> Result<u64, WriteError> {
 ///
 /// Un nombre hace permanente a una version, y eso lo decide una persona. Volver
 /// es un gesto mas; si esta vuelta importa, se marca despues. Ponerle nombre
-/// aqui seria decidir por el dueno que su disco no puede adelgazar.
+/// aqui seria decidir por el propietario que su disco no puede adelgazar.
 pub fn volver(n: usize) -> Result<u64, WriteError> {
     let sb = superbloque().ok_or(WriteError::SinVolumen)?;
     if n == 0 {
@@ -696,7 +696,7 @@ pub fn volver(n: usize) -> Result<u64, WriteError> {
         return Err(WriteError::NoCabe);
     }
     // Se recorre la cadena hasta la que se pide. Cuesta un bloque por paso y se
-    // paga UNA vez, aqui -- no en el panel que la ensena.
+    // paga UNA vez, aqui -- no en el panel que la muestra.
     let mut donde = sb.estrato;
     let mut destino = None;
     let mut k = 0usize;

@@ -17,7 +17,7 @@
 //! * **Una tecla de funcion no produce caracter en NINGUNA distribucion.** No
 //! puede chocar con escribir, y eso es lo unico que importa en un atajo del
 //! sistema. `Ctrl+Alt` ya lo tiene la ventana de Ejecutar **y es AltGr en
-//! espanol** --lo que da `@ # [ ] \ | EUR`--, asi que ese atajo lleva una danza
+//! castellano** --lo que da `@ # [ ] \ | EUR`--, asi que ese atajo lleva una danza
 //! entera para no romper el teclado: dispara al SOLTAR, y solo si no llego
 //! ningun caracter mientras estaban pulsados. Encadenar otro combo encima
 //! empeoraria justo lo que costo arreglar.
@@ -35,19 +35,19 @@
 //! pantalla en vez de ofrecer un boton que no hace nada -- en un almacen, una
 //! promesa de escritura que no ocurre es como se pierde el trabajo de alguien.
 
-//! === * LAS DOS CARAS (spec del dueno, CUMPLIDA el 2026-08-03) ===
+//! === * LAS DOS CARAS (spec del propietario, CUMPLIDA el 2026-08-03) ===
 //!
 //! `[numeros]` contesta *"como esta el almacen?"* -- generacion, espacio,
 //! identidad, nivel. `[explorador]` contesta *"que hay dentro?"*. Son preguntas
-//! distintas y por eso son dos pestanas y no una pantalla: meter un arbol entre
+//! distintas y por eso son dos solapas y no una pantalla: meter un arbol entre
 //! la generacion y la ocupacion deja las dos ilegibles. `TAB` cambia.
 //!
-//! ** El explorador fue a su vez DOS pestanas --`nodos` y `carpetas`-- hasta el
+//! ** El explorador fue a su vez DOS solapas --`nodos` y `carpetas`-- hasta el
 //! 2026-08-18, y ahora son tres paneles de una sola vista: arbol, rejilla y
 //! grafo. El porque, en [`View::Obra`]; el reparto del ancho, en
 //! `scene::zonas`.
 //!
-//! La referencia que puso el dueno era buena y concreta: **un grafo tipo n8n** --
+//! La referencia que puso el propietario era buena y concreta: **un grafo tipo n8n** --
 //! cajas con titulo y nombre, unidas por lineas, con color por clase. No una
 //! lista con sangrias.
 //!
@@ -63,7 +63,7 @@
 //!    `ring0/fsys/estratos.rs`, dos operaciones de la superficie.
 //! 2. [OK] Un color por clase, y el mismo en toda la ventana -- `class_color`.
 //! 3. [OK] Caja con **titulo** (que es) y **nombre** (cual es), que es lo que el
-//!    dueno pidio: *"con titulos y nombres para facilitar"*.
+//!    propietario pidio: *"con titulos y nombres para facilitar"*.
 //! 4. o Teclado si: flechas, `ENTRAR` baja, `RETROCESO` sube, `RePag`/`AvPag`
 //!    de cinco en cinco. **Con el raton, solo arrastrar la ventana**: pulsar una
 //!    caja para seleccionarla todavia no esta.
@@ -106,19 +106,19 @@ pub(crate) const DATA_TITLE: u32 = 0x0034_D399;
 ///
 /// Todo lo de mover, estirar, maximizar y los tres botones vive en
 /// [`super::chrome::Chrome`] y no aqui. Lo que queda en esta estructura es lo
-/// unico que de verdad es de ESTRATOS: que se esta ensenando y por donde va la
+/// unico que de verdad es de ESTRATOS: que se esta mostrando y por donde va la
 /// vista del arbol.
 pub(crate) struct DataWindow {
     pub(crate) chrome: Chrome,
-    /// Que se esta ensenando: los numeros o el arbol. Ver [`View`].
+    /// Que se esta mostrando: los numeros o el arbol. Ver [`View`].
     pub(crate) view: View,
-    /// Que hijo esta senalado en la vista de nodos.
+    /// Que hijo esta marcado en la vista de nodos.
     pub(crate) sel: usize,
     /// Primer hijo visible: la lista es mas larga que la ventana.
     pub(crate) from: usize,
     /// Primera fila visible DEL ARBOL, que es un desplazamiento distinto.
     ///
-    /// * Y tiene que serlo: el arbol ensena los hermanos de todos los niveles y
+    /// * Y tiene que serlo: el arbol muestra los hermanos de todos los niveles y
     /// la rejilla los hijos de uno solo, asi que sus listas no miden lo mismo
     /// ni de lejos. Con un `from` compartido, bajar por la rejilla arrastraria
     /// el arbol a una fila que no tiene nada que ver.
@@ -126,7 +126,7 @@ pub(crate) struct DataWindow {
     /// Lo que dijo la ultima verificacion de firma, si se pidio alguna.
     ///
     /// `None` es "no se ha preguntado", y **no es lo mismo que "sin firma"**:
-    /// ensenar `sin firma` sin haber mirado seria contestar por el disco.
+    /// mostrar `sin firma` sin haber mirado seria contestar por el disco.
     /// Se borra al cambiar de nodo -- el resultado es de UN archivo.
     pub(crate) verified: Option<u64>,
     /// Lo que se esta mirando dentro de un fichero, si hay algo.
@@ -150,7 +150,7 @@ pub(crate) struct DataWindow {
     pub(crate) consola: Consola,
     /// El menu del clic derecho. Ver [`super::menu`].
     pub(crate) menu: Menu,
-    /// Primera version visible en el historial, y cual esta senalada.
+    /// Primera version visible en el historial, y cual esta marcada.
     ///
     /// Aparte de las del explorador por lo mismo que el scroll del arbol: son
     /// listas de cosas distintas y compartir el indice haria que moverse por
@@ -158,7 +158,7 @@ pub(crate) struct DataWindow {
     pub(crate) hist_from: usize,
     pub(crate) hist_sel: usize,
     /// Lo que no se pudo abrir, y por que (`asociaciones::Abre::Falta`). Se
-    /// ensena en el pie hasta la siguiente accion.
+    /// muestra en el pie hasta la siguiente accion.
     pub(crate) aviso: Option<&'static str>,
     /// La tarjeta elegida de la biblioteca, y su primera fila visible.
     pub(crate) bib_sel: usize,
@@ -170,7 +170,7 @@ pub(crate) struct DataWindow {
 /// ## Por que hay un estado y no una tecla a secas
 ///
 /// La orden vivia en el terminal principal como `estratos sellar` -- dos
-/// palabras, para que hiciera falta escribirlo queriendo. El dueno la pidio el
+/// palabras, para que hiciera falta escribirlo queriendo. El propietario la pidio el
 /// 2026-08-13 y no la encontro, teniendola delante.
 ///
 /// Se mudo aqui, que es su sitio: **el verbo vive donde vive el objeto**. Pero
@@ -179,7 +179,7 @@ pub(crate) struct DataWindow {
 ///
 ///   `S` -> la barra del pie pregunta -> `S` otra vez -> se sella
 ///
-/// Cualquier otra tecla lo cancela, y cambiar de pestana tambien. Es la misma
+/// Cualquier otra tecla lo cancela, y cambiar de solapa tambien. Es la misma
 /// idea que las dos palabras --que haga falta quererlo-- pero **dicha en
 /// pantalla en vez de escondida en un parser**.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -199,7 +199,7 @@ pub(crate) enum Seal {
 /// con el raton es una trampa, no una libertad.
 pub(crate) const DATA_MIN_W: u32 = 460;
 pub(crate) const DATA_MIN_H: u32 = 260;
-/// Y el tamano con el que nace, **en tantos por ciento de la pantalla**. Un
+/// Y el medida con el que nace, **en tantos por ciento de la pantalla**. Un
 /// `640 x 330` en pixeles es correcto en una pantalla y en ninguna otra.
 const DATA_PCT_W: u32 = 46;
 const DATA_PCT_H: u32 = 44;
@@ -214,7 +214,7 @@ pub(crate) enum View {
     Numbers,
     /// ** LAS DOS LECTURAS A LA VEZ: el arbol, la rejilla y el grafo.
     ///
-    /// Eran dos pestanas --`nodos` y `carpetas`-- y el dueno pidio juntarlas el
+    /// Eran dos solapas --`nodos` y `carpetas`-- y el propietario pidio juntarlas el
     /// 2026-08-18, con el argumento que las justifica:
     ///
     /// > *"en explorer es 2D y en nodos es 3D, asi mas facil de gestionar"*
@@ -222,7 +222,7 @@ pub(crate) enum View {
     /// Y no es una preferencia de aspecto. En ESTRATOS **una carpeta no es una
     /// carpeta: es un nodo con atributos**. La rejilla contesta *que hay
     /// dentro* y el grafo contesta *que es esto y como se conecta* -- dos
-    /// preguntas distintas sobre el mismo dato. Con una pestana detras de otra
+    /// preguntas distintas sobre el mismo dato. Con una solapa detras de otra
     /// habia que elegir cual de las dos mirar, y elegir entre ellas es
     /// exactamente lo que no hace falta: caben las dos.
     ///
@@ -332,15 +332,15 @@ impl DataWindow {
     /// **Sobre que hijo cayo el puntero EN LA REJILLA.**
     ///
     /// Faltaba: se navegaba con las flechas o por el arbol, y pulsar una fila no
-    /// hacia nada. Una lista que parece pulsable y no lo es ensena a no pulsar.
+    /// hacia nada. Una lista que parece pulsable y no lo es muestra a no pulsar.
     ///
     /// La geometria sale de `Zonas` y de `REJILLA_CABECERA`, las mismas que usa
     /// el pintado.
     /// **Un clic en la fila `i`.** Devuelve `true` si es el SEGUNDO de un
     /// doble clic.
     ///
-    /// Siempre selecciona: pulsar una fila la senala, que es lo que la mano
-    /// espera y lo que hace que senalar salga gratis. Lo que el doble anade es
+    /// Siempre selecciona: pulsar una fila la marca, que es lo que la mano
+    /// espera y lo que hace que marcar salga gratis. Lo que el doble agrega es
     /// ABRIR, y por eso el primero nunca abre nada.
     ///
     /// ** El segundo clic CIERRA el gesto, y eso lo hace `DoubleClick::hit`:
@@ -403,10 +403,10 @@ impl DataWindow {
         ((util / bmo::GLIFO_ALTO) as usize).max(1)
     }
 
-    /// **Abre el fichero senalado SEGUN LO QUE ES.** `false` si no era un fichero.
+    /// **Abre el fichero marcado SEGUN LO QUE ES.** `false` si no era un fichero.
     ///
     /// ** Se pregunta por el TIPO del nodo y no se prueba a abrir: un directorio
-    /// se abre igual como ruta, y el visor ensenaria sus entradas crudas como si
+    /// se abre igual como ruta, y el visor mostraria sus entradas crudas como si
     /// fueran texto. Y desde el 2026-09-13 tambien por el tipo del FICHERO: un
     /// `.bex` se lanza, un `.mus` lo toca el reproductor. Ver [`Self::abrir_ruta`].
     pub(crate) fn abrir_senalado(&mut self) -> bool {
@@ -534,7 +534,7 @@ impl DataWindow {
         self.abrir_ruta(&r[..n], &r[desde..n])
     }
 
-    /// **Sobre que pestana de VOLUMEN cayo el puntero**, si sobre alguna. La
+    /// **Sobre que solapa de VOLUMEN cayo el puntero**, si sobre alguna. La
     /// geometria es la misma que pinta (`obra::pestanas_x`).
     pub(crate) fn pestana_en(&self, px: u32, py: u32) -> Option<fuente::Volumen> {
         if self.view != View::Obra || self.chrome.minimized {
@@ -601,9 +601,9 @@ impl DataWindow {
         self.chrome.contains(px, py)
     }
 
-    /// Tras cambiar de tamano, la seleccion puede haber quedado fuera de lo que
+    /// Tras cambiar de medida, la seleccion puede haber quedado fuera de lo que
     /// se pinta. Se recoloca la ventana de scroll -- si no, encoger dejaria el
-    /// cursor senalando una caja que ya no esta en pantalla.
+    /// cursor marcando una caja que ya no esta en pantalla.
     pub(crate) fn relayout(&mut self) {
         let fit_count = self.fit_count();
         if self.sel >= self.from + fit_count {
@@ -611,12 +611,12 @@ impl DataWindow {
         }
     }
 
-    /// **Cuantos hijos se ensenan de una vez, en LOS DOS paneles.**
+    /// **Cuantos hijos se muestran de una vez, en LOS DOS paneles.**
     ///
     /// Mide con las cajas del grafo, que son las mas altas, y la rejilla usa
     /// este mismo numero aunque le cabrian mas filas. Es a proposito: las dos
-    /// columnas tienen que ensenar el MISMO tramo de hijos. Con dos cuentas
-    /// distintas, la lista ensenaria un archivo que el grafo de al lado no
+    /// columnas tienen que mostrar el MISMO tramo de hijos. Con dos cuentas
+    /// distintas, la lista mostraria un archivo que el grafo de al lado no
     /// tiene -- y entonces dejan de ser la misma cosa vista de dos maneras,
     /// que es lo unico que justifica ponerlas juntas.
     fn fit_count(&self) -> usize {
@@ -648,7 +648,7 @@ impl DataWindow {
 
     /// Vuelve al principio de la lista. Se llama al cambiar de nodo: dejar la
     /// seleccion donde estaba haria que entrar en un directorio de dos hijos
-    /// senalara al septimo, que no existe.
+    /// marcara al septimo, que no existe.
     pub(crate) fn to_top(&mut self) {
         self.sel = 0;
         self.from = 0;
@@ -657,7 +657,7 @@ impl DataWindow {
 
 // -- El GRAFO ----------------------------------------------------------------
 //
-// * La spec del dueno, cumplida: **un grafo tipo n8n** -- cajas con titulo y
+// * La spec del propietario, cumplida: **un grafo tipo n8n** -- cajas con titulo y
 // nombre, unidas por lineas, con color por clase. No una lista con sangrias.
 //
 // El porque es el de siempre en este proyecto: **ESTRATOS no es un arbol de
@@ -666,7 +666,7 @@ impl DataWindow {
 // aristas; dibujarlo como lo que es se entiende sin explicacion.
 
 /// Ancho MINIMO de una caja. El de verdad sale del ancho de la ventana: al
-/// estirarla, las cajas crecen y caben nombres mas largos. Una caja de tamano
+/// estirarla, las cajas crecen y caben nombres mas largos. Una caja de medida
 /// fijo dentro de una ventana que se estira deja un desierto a la derecha.
 pub(crate) const NODE_MIN: u32 = 170;
 
@@ -693,7 +693,7 @@ const DATA_EDGE_LINE: u32 = 0x0045_6B5C;
 /// El cuerpo de una caja del grafo: un peldano por encima de la ventana, que es
 /// la misma regla que separa la ventana del escritorio.
 const NODE_BG: u32 = 0x001B_2622;
-/// Y la senalada, otro peldano mas. La profundidad se lee sola.
+/// Y la marcada, otro peldano mas. La profundidad se lee sola.
 const NODE_SEL: u32 = 0x0024_332C;
 
 /// **LO SELECCIONADO VA EN AZUL, y el azul no me lo he inventado.**
@@ -717,7 +717,7 @@ const SEL_FONDO: u32 = 0x0015_2A45;
 ///
 /// El relleno solo no basta: sobre un fondo oscuro un azul apagado se lee como
 /// una sombra. Lo que hace que se vea SELECCIONADO es el borde vivo, igual que
-/// el subrayado de la pestana activa -- una linea de color se ve en una foto y
+/// el subrayado de la solapa activa -- una linea de color se ve en una foto y
 /// un relleno de color no.
 fn sel_neon() -> u32 {
     acento()
@@ -758,13 +758,13 @@ fn node_box(
     pointed_at: bool,
 ) {
     let (title, color) = class_color(kind);
-    // La senalada lleva el borde del acento y un cuerpo un punto mas claro. Un
+    // La marcada lleva el borde del acento y un cuerpo un punto mas claro. Un
     // borde blanco a secas se lee como "esto esta roto"; el realce de una
     // seleccion tiene que ser el color del sistema, no una alarma.
     // ** El filo de la seleccionada es el ACENTO, no el color de su clase.
     //
     // Antes era el color de clase, y eso mezclaba dos preguntas en un pixel:
-    // "que es esto" y "es esto lo senalado". Un directorio seleccionado y uno
+    // "que es esto" y "es esto lo marcado". Un directorio seleccionado y uno
     // sin seleccionar se diferenciaban en el TONO del mismo azul celeste.
     //
     // Ahora la clase la sigue diciendo el punto de dentro, y el filo dice
@@ -781,7 +781,7 @@ fn node_box(
     rounded_rect(p, x, y, width, NODE_H, edge);
     rounded_rect(p, x + 1, y + 1, width - 2, NODE_H - 2, cuerpo);
 
-    // * El PUNTO de clase, no una pestana lateral.
+    // * El PUNTO de clase, no una solapa lateral.
     //
     // La barra pegada al borde peleaba con la curva de la esquina y se veia
     // como un defecto. Un punto delante del titulo es el mismo idioma que usan
@@ -823,7 +823,7 @@ pub(crate) use obra::{obra, REJILLA_CABECERA, ROW_H};
 /// **El VISOR**: lo que hay DENTRO de un fichero, donde iria la rejilla.
 ///
 /// Fichero propio y no una funcion mas aqui: `data.rs` ya se partio una vez por
-/// L6a, y lo que se anade a una ventana crece por su cuenta.
+/// L6a, y lo que se agrega a una ventana crece por su cuenta.
 pub(crate) mod visor;
 pub(crate) use visor::Visor;
 
@@ -851,7 +851,7 @@ pub(crate) fn paint_consola(p: &bmo::Pantalla, c: &DataWindow) {
 ///
 /// Se redibuja completa en cada invocacion y no por fotograma: los numeros de
 /// un volumen no cambian solos mientras nadie escriba, y repintar 200k pixeles
-/// sobre memoria de video sin cache sesenta veces por segundo para ensenar los
+/// sobre memoria de video sin cache sesenta veces por segundo para mostrar los
 /// mismos digitos es tirar el fotograma.
 pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     if c.chrome.minimized {
@@ -867,7 +867,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     p.rect(tx, c.chrome.y + 9, 8, 8, DATA_TITLE);
     let px = p.texto(tx + 16, c.chrome.y + 8, "ESTRATOS", INK);
     let px = px + 2 * bmo::GLIFO_ANCHO;
-    // Las pestanas: la activa lleva su subrayado. Un corchete pintado de otro
+    // Las solapas: la activa lleva su subrayado. Un corchete pintado de otro
     // color se pierde en una foto; una linea debajo no.
     let (c1, c2, c3, c4) = match c.view {
         View::Numbers => (INK, INK_DIM, INK_DIM, INK_DIM),

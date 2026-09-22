@@ -37,7 +37,7 @@
 /// Porque eso es lo que un sufijo ES: el estandar dice que `1UL` tiene tipo
 /// `unsigned long`, ni mas ni menos. `Expr::Cast` ya existe y **los tres
 /// jueces del compilador ya saben leerlo** --`tipo_de`, `expr_is_float`,
-/// `expr_is_unsigned`--, asi que el arreglo no anade un caso a ninguno.
+/// `expr_is_unsigned`--, asi que el arreglo no agrega un caso a ninguno.
 ///
 ///   > Cuando la forma que sobra ya existe en el arbol, el arreglo no es
 ///   > escribir codigo: es dejar de tirar un dato.
@@ -363,7 +363,7 @@ pub(crate) fn tokenize(source: &str) -> (Vec<Token>, Vec<usize>, Vec<crate::CErr
                     // convierte en CERO es la peor respuesta posible: cero es
                     // un numero valido, asi que el programa sigue y la
                     // comprobacion que dependia de esa constante deja de
-                    // comprobar. El dueno lo pidio con estas palabras: *si
+                    // comprobar. El propietario lo pidio con estas palabras: *si
                     // adivina, no lo convierte en BEX*.
                     let v = n.parse::<i64>().ok().or_else(|| n.parse::<u64>().ok().map(|x| x as i64));
                     match v {

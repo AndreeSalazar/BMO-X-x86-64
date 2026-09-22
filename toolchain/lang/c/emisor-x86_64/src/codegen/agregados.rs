@@ -39,12 +39,12 @@
 //!
 //! === Lo que hace BMO, y por que ===
 //!
-//! BMO **es dueno de su propia ABI** --todos los argumentos van por la pila, no
+//! BMO **es propietario de su propia ABI** --todos los argumentos van por la pila, no
 //! en registros-- asi que la clasificacion de SysV no compra nada aqui: no hay
 //! registros de argumento que repartir. Se elige la regla mas simple que sea
 //! correcta, al estilo Win64 pero sin la copia extra:
 //!
-//! - **Argumento**: el agregado ocupa `techo(tamano/8)` ranuras CONSECUTIVAS de
+//! - **Argumento**: el agregado ocupa `techo(medida/8)` ranuras CONSECUTIVAS de
 //!   la pila, copiado por el llamante. Es *por valor* de forma literal: lo que
 //!   la funcion recibe son sus bytes, en su marco.
 //!
@@ -59,7 +59,7 @@
 //!   expresion por evaluar: un argumento que contenga `__syscall(...)` usa `rdi`
 //!   para el suyo, y ponerlo antes lo perderia.
 //!
-//! - **Asignacion**: copia byte a byte del tamano exacto.
+//! - **Asignacion**: copia byte a byte del medida exacto.
 //!
 //! === Lo que habia antes, y era mudo ===
 //!
@@ -88,7 +88,7 @@ impl Codegen {
     ///
     /// Un `struct` de 8 bytes o menos **tambien** cuenta: podria caber en `rax`,
     /// pero tratarlo distinto obligaria a que el llamante y la funcion se
-    /// pusieran de acuerdo sobre el tamano, y ese es justo el desacuerdo que
+    /// pusieran de acuerdo sobre el medida, y ese es justo el desacuerdo que
     /// produce basura silenciosa. Una regla, sin casos de esquina.
     pub(super) fn es_agregado(&self, t: &TypeSpec) -> bool {
         matches!(t, TypeSpec::StructRef(_) | TypeSpec::UnionRef(_))
@@ -98,7 +98,7 @@ impl Codegen {
     ///
     /// De 8 en 8 mientras quepa, y el resto byte a byte. Sin `rep movsb` a
     /// proposito: el emulador no lo tiene, y el bucle desenrollado es mas corto
-    /// que la instruccion de cadena para los tamanos de un struct de verdad.
+    /// que la instruccion de cadena para los medidas de un struct de verdad.
     fn emit_copia_rsi_rdi(&mut self, bytes: u32) {
         let mut hecho = 0u32;
         while bytes - hecho >= 8 {
@@ -140,7 +140,7 @@ impl Codegen {
         }
     }
 
-    /// **Asignar** un agregado: `destino = origen`, copiando su tamano exacto.
+    /// **Asignar** un agregado: `destino = origen`, copiando su medida exacto.
     ///
     /// `destino` y `origen` se evaluan COMO DIRECCION, no como valor -- un
     /// agregado no tiene "valor" que quepa en `rax`; lo que hay es donde vive.

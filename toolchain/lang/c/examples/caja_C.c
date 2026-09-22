@@ -63,7 +63,7 @@ int main() {
     if (n > 0) { pasan = pasan + 1; }
 
     /* 3 - Uno binario, y se mira el CONTENIDO. Un recurso que llega con el
-     * tamano correcto y los bytes de otro sitio se ve igual desde fuera. */
+     * medida correcto y los bytes de otro sitio se ve igual desde fuera. */
     n = paquete_leer(p, "cuenta.bin", b, 256);
     printf("numeros:");
     i = 0;

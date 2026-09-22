@@ -24,7 +24,7 @@
  * == Lo que NO hay aqui ==
  *
  * Un cerrojo. `atomico_xchg` es la instruccion con la que se construye uno;
- * donde se guarda, quien lo tiene y que pasa si el dueno muere son decisiones
+ * donde se guarda, quien lo tiene y que pasa si el propietario muere son decisiones
  * de politica, y este fichero es de instrucciones.
  */
 #ifndef SEMANTIC_ATOMICO_H

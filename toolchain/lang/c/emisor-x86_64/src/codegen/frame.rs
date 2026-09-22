@@ -90,7 +90,7 @@ impl Codegen {
                 }
             }
         }
-        // locales: tamano REAL del tipo (arrays y structs incluidos), alineado a 8
+        // locales: medida REAL del tipo (arrays y structs incluidos), alineado a 8
         let mut decls = Vec::new();
         for stmt in &func.body { Self::collect_decls_stmt(stmt, &mut decls); }
         for (name, typ) in &decls {
@@ -269,7 +269,7 @@ impl Codegen {
         }
     }
 
-    /// Guarda `rax` en `[rbp+disp]` con el tamano EXACTO de `tipo`.
+    /// Guarda `rax` en `[rbp+disp]` con el medida EXACTO de `tipo`.
     ///
     /// La pareja de `emit_store_var`, pero por offset en vez de por nombre: una
     /// lista de inicializacion escribe **dentro** de una variable, no sobre
@@ -296,7 +296,7 @@ impl Codegen {
     /// Pone a cero `bytes` bytes a partir de `[rbp+base]`.
     ///
     /// De ocho en ocho mientras quepa, y el resto byte a byte. Sin memset:
-    /// aqui no hay libc, y para los tamanos de un struct local un bucle
+    /// aqui no hay libc, y para los medidas de un struct local un bucle
     /// desenrollado es mas corto que la llamada que no existe.
     pub(super) fn emit_cero_local(&mut self, base: i32, bytes: u32) {
         if bytes == 0 {
@@ -578,7 +578,7 @@ impl Codegen {
 
     /// **Cuanto avanza un `++` sobre esta variable.**
     ///
-    /// Uno para todo lo que no sea un puntero; el tamano del APUNTADO para los
+    /// Uno para todo lo que no sea un puntero; el medida del APUNTADO para los
     /// que si lo son. Es la regla de C de siempre --`p + 1` avanza un
     /// ELEMENTO-- y hasta el 2026-08-13 este camino no la cumplia: `emit_inc_var`
     /// hacia `add rax, 1` pasara lo que pasara.

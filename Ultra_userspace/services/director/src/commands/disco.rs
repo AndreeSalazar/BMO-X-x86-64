@@ -13,9 +13,9 @@
 //! Porque BMO-X no es Linux, no es Windows y no es un Mac: no hay `fstrim`, no
 //! hay `hdparm`, no hay un `/dev` donde apuntar una herramienta ajena. Lo que
 //! el sistema sepa hacer con su disco **tiene que poder pedirse desde donde vive
-//! el dueno**, que es este escritorio -- al shell de Ring 0 no se vuelve una vez
+//! el propietario**, que es este escritorio -- al shell de Ring 0 no se vuelve una vez
 //! el compositor reclama la entrada, y una orden que solo existe alli es codigo
-//! que su dueno no puede usar. Ya paso con `smp`, con `ext` y con `audio`.
+//! que su propietario no puede usar. Ya paso con `smp`, con `ext` y con `audio`.
 //!
 //! === La regla de esta caja: PROPONER y luego obedecer ===
 //!
@@ -223,7 +223,7 @@ pub(crate) fn solo_espacio(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 /// esos dos campos los sirve **la misma funcion del kernel que ejecuta el
 /// recorte**. La primera version los deducia aqui de `INFO_ES_BLOQUES`,
 /// `INFO_ES_USADOS` y `INFO_ES_BLOQUE_TAM` -- una cuenta paralela que hoy da lo
-/// mismo y que el dia que una de las dos cambie **ensena un rango y recorta
+/// mismo y que el dia que una de las dos cambie **muestra un rango y recorta
 /// otro**. Una propuesta que no es exactamente la orden no es una propuesta.
 ///
 /// [!] Sigue sin llamar al disco: son campos de informe. Una propuesta que
@@ -237,7 +237,7 @@ fn propuesta(s: &mut Output, explica: bool) -> bool {
         return false;
     }
     // ** Y ANTES DE NADA: lo que el disco dijo. Proponer un recorte a un aparato
-    // que no declara TRIM seria ensenar un plan que se va a rechazar solo.
+    // que no declara TRIM seria mostrar un plan que se va a rechazar solo.
     let juicio = bmo::info(bmo::INFO_DISCO_JUICIO);
     if juicio & bmo::DISCO_JUICIO_TRIM == 0 {
         s.with_ink(INK_ERR);
@@ -306,7 +306,7 @@ pub(crate) fn trim_propuesta(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 
 /// `disco trim <algo que no es "ya">`.
 ///
-/// Se ensena la propuesta igual --no toca nada-- y se dice **cual era la palabra
+/// Se muestra la propuesta igual --no toca nada-- y se dice **cual era la palabra
 /// buena**. Contestar "no lo conozco" a alguien que ya escribio `trim` seria
 /// mandarle a `help` teniendo la orden medio escrita.
 pub(crate) fn trim_argumento(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8]) -> After {
@@ -331,7 +331,7 @@ pub(crate) fn trim_argumento(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8]) -
 /// El aviso se pinta y se VUELCA antes de llamar, igual que en `smp`: la
 /// llamada no vuelve hasta que el disco ha tragado cientos de ordenes, y un
 /// mensaje escrito despues no explica nada -- para entonces la espera ya paso y
-/// lo que el dueno habria visto es un escritorio congelado sin motivo.
+/// lo que el propietario habria visto es un escritorio congelado sin motivo.
 pub(crate) fn trim_ya(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     if !propuesta(&mut dsk.out.grid, false) {
         paint_status(p, &dsk.run_box, "trim", INK_DIM);

@@ -1,7 +1,7 @@
 # PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion
 
 > Escrito el **2026-09-08**, al final de la caza del fotograma que dependia del
-> teclado. Lo pidio el dueno con estas palabras:
+> teclado. Lo pidio el propietario con estas palabras:
 >
 > > *"el V-Sync y VBlank y la deuda es para eso, para planificacion, por eso el
 > > orquestador por algo orquesta. Pon ese plan para aplicar luego."*
@@ -27,7 +27,7 @@ en vez de en un plazo medido. Eso funciona y no es lo mismo.
 ## ⚠ Y LA PRIMERA LINEA DEL PLAN ES UN NO
 
 **BMO-X no puede tener un VBlank de verdad hoy, y ninguna cantidad de trabajo en
-Ring 0 lo cambia.** Hay que decirlo antes de disenar encima:
+Ring 0 lo cambia.** Hay que decirlo antes de trazar encima:
 
 ```text
    el framebuffer viene del GOP de UEFI, y tras ExitBootServices el GOP NO EXISTE
@@ -150,7 +150,7 @@ que se separe del codigo. Es lo que hace [`PERFIL/`](../../PERFIL/README.md).
       puesto**: es `KIND_LATIDO` con otra fuente. Lo dice su propia cabecera en
       `obj/latido.rs`: *"el dia que la fuente sea la IRQ de una tarjeta, este
       brazo no cambia: cambia quien llama a `tic()`"*. Escrito antes de que
-      hiciera falta, y por eso este escalon es pequeno.
+      hiciera falta, y por eso este escalon es chico.
 - [ ] **P3.3 -- page flip en vez de copiar.** Escalon 8 de `LA_RAM.md`. Mata los
       27,6 ms de `Pantalla::volcar`, que hoy es *"trabajo de la GPU hecho por
       quien no toca"* -- lo dice el propio fichero.

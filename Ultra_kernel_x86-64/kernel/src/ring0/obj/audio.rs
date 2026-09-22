@@ -23,13 +23,13 @@
 //!
 //! ## Exclusivo, igual que la pantalla, y por el mismo motivo
 //!
-//! Un solo proceso lo tiene a la vez. Dos duenos escribiendo en el mismo
+//! Un solo proceso lo tiene a la vez. Dos propietarios escribiendo en el mismo
 //! aparato de sonido no es mezclar: es ruido. Mezclar es un trabajo con nombre
 //! --se llama mezclador-- y **le toca a Ring 3**, no al kernel, exactamente
 //! igual que componer ventanas.
 //!
 //! Y cuando alguien lo reclama, **el kernel se calla**: [`kernel_beep`] no
-//! suena mientras el aparato tenga dueno. Es el espejo de `info::has_fb()`.
+//! suena mientras el aparato tenga propietario. Es el espejo de `info::has_fb()`.
 //!
 //! ## Lo que suena HOY, dicho sin adornos
 //!
@@ -67,8 +67,8 @@ use crate::ring0::obj::cap;
 const NO_OWNER: u32 = u32::MAX;
 
 static OWNER: AtomicU32 = AtomicU32::new(NO_OWNER);
-/// El handle concedido al dueno, para poder revocarlo si lo SUELTA. Vale `0`
-/// cuando no hay dueno. Mismo motivo que en `fb.rs`: `cap` no ofrece "revoca
+/// El handle concedido al propietario, para poder revocarlo si lo SUELTA. Vale `0`
+/// cuando no hay propietario. Mismo motivo que en `fb.rs`: `cap` no ofrece "revoca
 /// todo lo de este tipo".
 static HANDLE: AtomicU64 = AtomicU64::new(0);
 /// El crate del altavoz necesita la frecuencia del TSC para medir el tiempo, y
@@ -132,7 +132,7 @@ fn calibrate() {
 /// entregar-- asi que lo unico que se concede es el DERECHO. Hoy eso ya vale
 /// para algo: sin este handle, `AUDIO_OP_BEEP` no resuelve.
 pub fn claim(pid: u32) -> Result<u64, u32> {
-    // Un solo dueno. `compare_exchange` y no "leer y luego escribir": dos
+    // Un solo propietario. `compare_exchange` y no "leer y luego escribir": dos
     // procesos pidiendolo en el mismo tick no pueden ganar los dos.
     if OWNER
         .compare_exchange(NO_OWNER, pid, Ordering::SeqCst, Ordering::SeqCst)
@@ -150,7 +150,7 @@ pub fn claim(pid: u32) -> Result<u64, u32> {
         Some(h) => h,
         None => {
             // La tabla estaba llena. Se devuelve el aparato antes de contestar:
-            // quedarse marcado como dueno sin handle seria un audio que nadie
+            // quedarse marcado como propietario sin handle seria un audio que nadie
             // puede usar y nadie puede reclamar hasta el proximo reinicio.
             OWNER.store(NO_OWNER, Ordering::SeqCst);
             return Err(cap::ERROR_PERMISSION_DENIED);
@@ -162,7 +162,7 @@ pub fn claim(pid: u32) -> Result<u64, u32> {
     Ok(handle)
 }
 
-/// Soltar el audio siendo su dueno y seguir vivo.
+/// Soltar el audio siendo su propietario y seguir vivo.
 ///
 /// Va desde el primer dia, y no por simetria: la pantalla vivio meses sin su
 /// `release` y el resultado fue que el escritorio no podia prestarla ni
@@ -171,11 +171,11 @@ pub fn claim(pid: u32) -> Result<u64, u32> {
 /// siempre.
 ///
 /// Se calla el aparato antes de soltarlo: un tono que sigue sonando despues de
-/// que su dueno lo devolvio es del sistema, y el sistema no pidio ese tono.
+/// que su propietario lo devolvio es del sistema, y el sistema no pidio ese tono.
 pub fn release(pid: u32) -> Result<(), u32> {
     if OWNER.load(Ordering::SeqCst) != pid {
         // No es suyo. Se dice en vez de contestar OK: un "si" a quien no era
-        // dueno le haria creer que lo cedio.
+        // propietario le haria creer que lo cedio.
         return Err(ERROR_BUSY);
     }
     bmo_audio::beep_ex(0, 0, 0);
@@ -184,11 +184,11 @@ pub fn release(pid: u32) -> Result<(), u32> {
         cap::revoke(pid, h);
     }
     OWNER.store(NO_OWNER, Ordering::SeqCst);
-    crate::ring0::cabina::info("audio", "sonido SOLTADO por su dueno", pid as u64);
+    crate::ring0::cabina::info("audio", "sonido SOLTADO por su propietario", pid as u64);
     Ok(())
 }
 
-/// El proceso `pid` murio (o salio). Si era el dueno, el kernel recupera el
+/// El proceso `pid` murio (o salio). Si era el propietario, el kernel recupera el
 /// audio. Lo llama `cap::revoke_all`, que corre en TODAS las salidas --EXIT
 /// voluntario y muerte por fault.
 ///
@@ -206,13 +206,13 @@ pub fn process_died(pid: u32) {
         HANDLE.store(0, Ordering::SeqCst);
         crate::ring0::cabina::warn(
             "audio",
-            "el dueno del sonido MURIO: el kernel calla el aparato",
+            "el propietario del sonido MURIO: el kernel calla el aparato",
             pid as u64,
         );
     }
 }
 
-/// Pid del dueno actual, o `None`. Lo lee la autopsia para contar fugas.
+/// Pid del propietario actual, o `None`. Lo lee la autopsia para contar fugas.
 pub fn owner() -> Option<u32> {
     match OWNER.load(Ordering::SeqCst) {
         NO_OWNER => None,
@@ -251,7 +251,7 @@ pub fn devices() -> u64 {
 /// Es el espejo exacto de `info::has_fb()`: cuando la pantalla es de Ring 3, el
 /// kernel deja de dibujar; cuando el sonido es de Ring 3, el kernel deja de
 /// sonar. Un kernel que pita encima del programa que tiene el audio es la
-/// version sonora de dos duenos pintando el mismo framebuffer.
+/// version sonora de dos propietarios pintando el mismo framebuffer.
 pub fn kernel_beep(freq_hz: u32, ms: u32) {
     if OWNER.load(Ordering::SeqCst) != NO_OWNER {
         return;
@@ -278,7 +278,7 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
             // esperaba la nota DANDO VUELTAS dentro del syscall, y un
             // syscall corre con las interrupciones cerradas (`SFMASK`): cada
             // nota de `musica.ibx` eran hasta 250 ms sin tick, sin bus y
-            // sin escritorio. Dos saves seguidos lo ensenaron igual:
+            // sin escritorio. Dos saves seguidos lo mostraron igual:
             // `latido tarde 244/245 ms`, `el reloj dio 3-4 ticks`, `el CPU lo
             // tuvo` el tid de musica -- y el bombeo que dormia 1 ms dentro
             // de una vuelta se quedo 194 ms sin poder despertar. El
@@ -335,7 +335,7 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
                 8 => {
                     // Ofrecer: `a1` es la VA del bloque. Los bytes los dice el
                     // propio bloque -- preguntarselos a la app seria dejar que
-                    // ella declare un tamano que no tiene.
+                    // ella declare un medida que no tiene.
                     let pid = crate::ring0::task::scheduler::current_pid();
                     match crate::ring0::obj::memory::bytes_de_bloque(pid, a1) {
                         Some(n) => tubo::ofrecer(pid, a1, n) as u64,

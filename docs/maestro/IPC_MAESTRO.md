@@ -1,7 +1,7 @@
 # IPC MAESTRO -- como se hablan dos programas, y donde acaba un mensaje
 
 > Escrito el **2026-08-18**, el dia que la calculadora dejo de leer mal sus
-> operandos. Pregunta del dueno: *"entonces que estrategias mejores? o que
+> operandos. Pregunta del propietario: *"entonces que estrategias mejores? o que
 > crates podemos inspirar aunque JSON es ayuda pero recuerdo como que se tienen
 > que comunicarse, no?"*.
 >
@@ -24,7 +24,7 @@ sigue necesitando que alguien diga donde termina. Por eso HTTP lleva
 `Content-Length` y por eso existe un formato con nombre propio que se llama
 *JSON delimitado por saltos de linea*.
 
-> **JSON no te ahorra el enmarcado. Te lo anade encima.**
+> **JSON no te ahorra el enmarcado. Te lo agrega encima.**
 
 ---
 
@@ -120,7 +120,7 @@ entero. BMO-X no toma dependencias; lo que se toma es **como estan pensados**.
   `read_line` le faltaba: hoy no podia decir "no", solo podia tirar.
 - **SLIP** (RFC 1055, 1988). El abuelo de todo esto, dos bytes de escape. Vale
   la pena por lo corto que es de leer.
-- **9P / Plan 9**. Cada mensaje empieza por su tamano. Ya estaba citado en las
+- **9P / Plan 9**. Cada mensaje empieza por su medida. Ya estaba citado en las
   notas de MAQUETA -- *"eso es 9P y QNX dicho de otra forma"*.
 
 ---
@@ -160,8 +160,8 @@ el mensaje mide lo que dice su PICTURE y no hay nada que buscar. El rio de bytes
 con `\n` es la costumbre de Unix, y es la que se rompio.
 
 Y las ranuras de 32 bytes de `bmo-channel` son **la misma idea** dicha en 2026.
-Un anillo de entradas de tamano fijo y una `FILE SECTION` con registros de
-tamano fijo resuelven el mismo problema por el mismo camino.
+Un anillo de entradas de medida fijo y una `FILE SECTION` con registros de
+medida fijo resuelven el mismo problema por el mismo camino.
 
 ---
 

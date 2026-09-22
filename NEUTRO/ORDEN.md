@@ -1,6 +1,6 @@
 # EL ORDEN DE ESTA CARPETA -- donde va lo que llegue, decidido ANTES
 
-> Peticion del dueno, **2026-09-09**: *"no olvides de mover carpetas y
+> Peticion del propietario, **2026-09-09**: *"no olvides de mover carpetas y
 > organizar, pero en NEUTRO alli viviran los archivos segun sus categorias, y
 > las GPU que lleguen y otros mas, por esa razon."*
 >

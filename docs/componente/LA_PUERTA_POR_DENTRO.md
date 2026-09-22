@@ -20,7 +20,7 @@ cambio, y hacia abajo.**
    70ea8db5  M0b: FUERA el cerrojo que pagaba TODA puerta    -147 ticks
    01c09d94  WAIT no habia bloqueado NUNCA
    289d8340  ~6.300 lineas de bmo-abi fuera
-             syscall/ + cap.rs: 2.314 lineas anadidas, 576 quitadas
+             syscall/ + cap.rs: 2.314 lineas agregadas, 576 quitadas
 ```
 
 M0b sola son **147 ticks = ~179 ciclos, el 18 %** de los 969, y su mensaje lo
@@ -39,7 +39,7 @@ Repetir la tanda no es trabajo nuevo, la herramienta existe:
    sys\precio.bex       el testigo de Ring 3
 ```
 
-[!] El metro anade **~112 ciclos por puerta** (los dos `rdtsc` de `dispatch`),
+[!] El metro agrega **~112 ciclos por puerta** (los dos `rdtsc` de `dispatch`),
 y eso ya esta escrito en el build. La cifra se corrige, no se olvida.
 
 Ver `docs/plan/PLAN_LA_VIDA_UTIL.md` seccion 6, paso 3.
@@ -203,7 +203,7 @@ que cuesta esa tanda esta medido: 112 ciclos por puerta, un 11%.
                   al build normal
    que contesta   cuanto de los 969 es Rust y cuanto es el camino de ida y
                   vuelta al CPU
-   que descarta   si `dispatch` sale pequeno (<150), la mitad Rust queda
+   que descarta   si `dispatch` sale chico (<150), la mitad Rust queda
                   TACHADA y todo el trabajo se va a las transiciones
 ```
 
@@ -289,7 +289,7 @@ los porcentajes de arriba describen al instrumento.
 
 ## 4b. ★★ Y AHORA LA TRADUCCION: cuanto gasta esto DE VERDAD
 
-Todo lo anterior son ciclos por vez. La pregunta del dueno es otra y es mejor:
+Todo lo anterior son ciclos por vez. La pregunta del propietario es otra y es mejor:
 **cuanto de mi CPU se esta comiendo BMO-X.** Sale de la misma tanda del 17-08:
 
 ```
@@ -344,12 +344,12 @@ su cifra al lado.
 
 ### ★★ Y el reparto de trabajo con el silicio, dicho en una linea
 
-Lo formulo el dueno el 17-08 --*"BMO-X solo prepara la base; las CPU que lleguen
+Lo formulo el propietario el 17-08 --*"BMO-X solo prepara la base; las CPU que lleguen
 son los multiplicadores"*-- y es exacto, con una precision que conviene escribir:
 
 ```
-   BMO-X es dueno de     los CICLOS por operacion       945
-   el CPU es dueno de    los CICLOS POR SEGUNDO      4.513.000.000
+   BMO-X es propietario de     los CICLOS por operacion       945
+   el CPU es propietario de    los CICLOS POR SEGUNDO      4.513.000.000
 ```
 
 **Un CPU mas rapido no hace la puerta mas barata: hace el mismo trabajo antes.**
@@ -376,7 +376,7 @@ traduce.
 
 ---
 
-## 5b. ★★ Y todo esto es de UNA maquina: el presupuesto tiene dueno
+## 5b. ★★ Y todo esto es de UNA maquina: el presupuesto tiene propietario
 
 Las cifras de arriba son ticks del TSC de **esta** placa. El mismo kernel arranca
 en cualquier x86-64, asi que la tabla de techos, tal como estaba --`const` del
@@ -422,7 +422,7 @@ condenar.
 
 ## 5c. ★★ El traje que se cine solo: SUELO y SOBRECOSTE
 
-Lo pidio el dueno el 17-08 con una imagen que es exactamente la buena: *"como el
+Lo pidio el propietario el 17-08 con una imagen que es exactamente la buena: *"como el
 traje de Spider-Man, que es grande y al pulsar el boton se ajusta"*. Y la
 pregunta de debajo: **cuan optimizado esta el kernel**, que no deberia depender
 de que CPU haya delante.
@@ -431,7 +431,7 @@ de que CPU haya delante.
 
 ```
    SUELO       cruzar el anillo en ESE silicio. Ni merito ni culpa de BMO.
-   SOBRECOSTE  lo que BMO anade encima. Eso SI es este kernel.
+   SOBRECOSTE  lo que BMO agrega encima. Eso SI es este kernel.
 ```
 
 Separados sale la cifra que viaja:
@@ -497,14 +497,14 @@ ticks**:
 
 Si sale asi, **la meta de 300 ticks para una puerta entera es fisicamente
 imposible** --el suelo solo ya se la come-- y esa fila hay que reescribirla. Un
-presupuesto con una meta inalcanzable no es exigente: es ruido, y ensena a
+presupuesto con una meta inalcanzable no es exigente: es ruido, y muestra a
 ignorar la fila.
 
 [!] Y se dice *"lo que no es Rust"* y no *"el suelo"* a proposito: ahi dentro van
 las dos transiciones --irreducibles-- **y el marco que BMO eligio construir** (la
 reserva de 1096 B, el sello, los 20 `push`). Lo segundo se puede cambiar; lo
 primero no. Llamarlo suelo a secas seria declarar irreducible una decision de
-diseno.
+esquema.
 
 ---
 

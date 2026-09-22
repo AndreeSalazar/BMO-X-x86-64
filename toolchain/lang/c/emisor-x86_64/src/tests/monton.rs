@@ -219,7 +219,7 @@ int main() {
 }
 
 /// El desbordamiento del producto de `calloc`, que es el clasico. Sin la guarda
-/// se reparte un bloque pequeno para una peticion enorme y quien lo recorra se
+/// se reparte un bloque chico para una peticion enorme y quien lo recorra se
 /// lleva por delante el monton.
 #[test]
 fn calloc_rechaza_un_producto_que_se_desborda() {
@@ -256,7 +256,7 @@ int main() {
     assert_eq!(out, "enorme=1,normal=1\n");
 }
 
-/// El tamano del monton **lo declara el programa**, y por eso lo de arriba no
+/// El medida del monton **lo declara el programa**, y por eso lo de arriba no
 /// es un techo del sistema: con el `#define` delante, los 4 MiB entran.
 #[test]
 fn el_programa_declara_cuanto_monton_quiere() {

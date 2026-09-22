@@ -28,7 +28,7 @@
 //! FILA en dos bufers del taller (la fila anterior y la actual, 4 KiB cada
 //! uno): cuando una fila esta completa se desfiltra contra la anterior y se
 //! escribe ya como pixeles en `dst`. Asi el taller mide 41 KiB fijos, sea la
-//! imagen del tamano que sea.
+//! imagen del medida que sea.
 //!
 //! ## Lo que un fichero hostil no consigue
 //!
@@ -230,7 +230,7 @@ pub fn decodificar(b: &[u8], m: &Medidas, dst: &mut [u32], taller: &mut [u8]) ->
     let tipo = b[25];
     let bpp = bytes_por_pixel(tipo);
 
-    // -- Los chunks: donde esta cada cosa, sin creerse ningun tamano ------
+    // -- Los chunks: donde esta cada cosa, sin creerse ningun medida ------
     let mut idat: [&[u8]; IDAT_MAX] = [&[]; IDAT_MAX];
     let mut cuantos = 0usize;
     let mut plte: &[u8] = &[];

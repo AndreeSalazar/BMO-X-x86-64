@@ -40,7 +40,7 @@ use super::chrome::Chrome;
 use super::*;
 use crate::text::decimal;
 
-// Proporcion de la pantalla, no un tamano fijo: ver `docs/identidad/LIDERES.md`.
+// Proporcion de la pantalla, no un medida fijo: ver `docs/identidad/LIDERES.md`.
 const CAB_PCT_W: u32 = 70;
 const CAB_PCT_H: u32 = 55;
 const CAB_MIN_W: u32 = 520;
@@ -164,7 +164,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
     c.chrome.paint_buttons(p, CAB_TITLE_BG);
 
     let tx = c.chrome.x + 16;
-    // El bloque de acento del titulo: el ojo del gato, en pequeno.
+    // El bloque de acento del titulo: el ojo del gato, en chico.
     p.rect(tx, c.chrome.y + 9, 8, 8, CYAN);
     let px = p.texto(tx + 16, c.chrome.y + 8, "CABINA", INK);
     let px = p.texto(

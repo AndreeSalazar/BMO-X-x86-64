@@ -1,6 +1,6 @@
 # LA RAM SALE DEL KERNEL -- que parte es agnostica, medido
 
-> Idea del dueno, **2026-09-10**: *"que crees una carpeta especial para RAM, que
+> Idea del propietario, **2026-09-10**: *"que crees una carpeta especial para RAM, que
 > viva FUERA de Ring 0 y de la carpeta del kernel x86-64, porque la RAM es
 > agnostica: puede vivir en cualquier arquitectura de CPU, no?"*
 >

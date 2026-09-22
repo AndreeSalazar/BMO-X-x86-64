@@ -111,7 +111,7 @@ pub(crate) fn start_desktop() {
         Ok(tid) => {
             // * Arrancar y no decir su pid es un caso RARO, y por eso mismo
             // valia la pena distinguirlo: `unwrap_or(0)` lo dejaba en 0, que es
-            // un pid con dueno. A partir de ahi, todo lo que se decida "para el
+            // un pid con propietario. A partir de ahi, todo lo que se decida "para el
             // escritorio" mirando `DESKTOP_PID` apunta a otro.
             let pid = match inf.pid {
                 Some(p) => p,

@@ -8,7 +8,7 @@ use super::*;
 // =============== Listas de inicializacion ===============
 //
 // No existian: ni siquiera `int a[3] = {1,2,3}`. Ver la cabecera de
-// `parser/inicializador.rs` para el diseno y para que hicieron GCC, Clang,
+// `parser/inicializador.rs` para el esquema y para que hicieron GCC, Clang,
 // chibicc, TCC y MSVC con esto mismo.
 
 #[test]
@@ -128,7 +128,7 @@ fn un_campo_inventado_es_un_error() {
 }
 
 /// * La declaracion se parsea en TRES sitios (cuerpo de funcion, bloque
-/// anidado, `parse_stmt`) y estaba copiada en los tres. Al anadir las
+/// anidado, `parse_stmt`) y estaba copiada en los tres. Al agregar las
 /// listas solo aprendio uno: dentro de un `if`, `int a[2] = {...}` no
 /// compilaba. Ahora los tres llaman a `terminar_declaracion`.
 #[test]
@@ -138,7 +138,7 @@ fn una_lista_tambien_compila_dentro_de_un_bloque() {
     assert_eq!(out.trim(), "7 8");
 }
 
-/// * Y el emulador tiene que escribir el tamano EXACTO.
+/// * Y el emulador tiene que escribir el medida EXACTO.
 ///
 /// `mov [mem], eax` toca CUATRO bytes; el emulador escribia ocho rellenando
 /// de ceros. En un registro eso es correcto --escribir uno de 32 bits borra

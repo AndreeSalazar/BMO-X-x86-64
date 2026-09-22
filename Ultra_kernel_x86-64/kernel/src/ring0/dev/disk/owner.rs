@@ -1,6 +1,6 @@
 //! **WHO HOLDS THE DISK** -- one owner at a time, and a count of the thefts.
 //!
-//! [carril]  ROJO      un dueno cada vez, y la cuenta de los robos
+//! [carril]  ROJO      un propietario cada vez, y la cuenta de los robos
 //! [consumo] NADA      corre cuando alguien lee o escribe el disco
 //!
 //! === Why this is a file of its own ===
@@ -28,7 +28,7 @@ static DUENO: AtomicU32 = AtomicU32::new(0);
 /// hacia falta: si nunca sube, es que nadie se solapaba; si sube, cada punto
 /// era una lectura corrupta antes de existir esto.
 static ESPERAS: AtomicU32 = AtomicU32::new(0);
-/// Cuantas veces hubo que QUITARSELO a un dueno que ya no vive.
+/// Cuantas veces hubo que QUITARSELO a un propietario que ya no vive.
 static ROBOS: AtomicU32 = AtomicU32::new(0);
 
 /// `(esperas, robos)` desde el arranque.
@@ -44,7 +44,7 @@ pub fn cuentas_dueno() -> (u32, u32) {
 /// `read`, y el sintoma es un disco que deja de contestar para siempre.
 /// `true` = este testigo es el que libera. Un anidado lleva `false`: soltar
 /// desde dentro dejaria el disco libre **con la operacion de fuera a medias**,
-/// que es justo lo que el dueno existe para impedir.
+/// que es justo lo que el propietario existe para impedir.
 pub struct Testigo(bool);
 
 impl Drop for Testigo {
@@ -55,11 +55,11 @@ impl Drop for Testigo {
     }
 }
 
-/// Cada cuantas vueltas se pregunta si el dueno sigue vivo.
+/// Cada cuantas vueltas se pregunta si el propietario sigue vivo.
 ///
 /// No en cada una: `pid_de` toma el candado del planificador, y hacerlo en un
 /// bucle apretado es meterse en el camino de lo que estamos esperando. Cuatro
-/// mil vueltas son microsegundos, y lo que se detecta --un dueno muerto-- no se
+/// mil vueltas son microsegundos, y lo que se detecta --un propietario muerto-- no se
 /// va a arreglar solo en ese rato.
 const CADA_CUANTO_MIRAR: u64 = 4096;
 
@@ -83,13 +83,13 @@ pub(super) fn tomar_disco() -> Testigo {
             ESPERAS.fetch_add(1, Ordering::Relaxed);
         }
         vueltas += 1;
-        // El dueno ya no existe? Entonces murio con el disco en la mano.
+        // El propietario ya no existe? Entonces murio con el disco en la mano.
         if vueltas % CADA_CUANTO_MIRAR == 0
             && crate::ring0::task::scheduler::pid_de(otro).is_none()
             && DUENO.compare_exchange(otro, yo, Ordering::Acquire, Ordering::Relaxed).is_ok()
         {
             ROBOS.fetch_add(1, Ordering::Relaxed);
-            crate::ring0::cabina::warn("disk", "el dueno del disco murio: se le quita", otro as u64);
+            crate::ring0::cabina::warn("disk", "el propietario del disco murio: se le quita", otro as u64);
             return Testigo(true);
         }
         core::hint::spin_loop();

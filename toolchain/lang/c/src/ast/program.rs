@@ -60,9 +60,9 @@ pub struct Function {
 /// tenga contra que compararla. Ver `codegen::cotejar_disposicion`.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct DisposicionAgregado {
-    /// `(nombre, offset, tamano)` de cada campo, en orden de declaracion.
+    /// `(nombre, offset, medida)` de cada campo, en orden de declaracion.
     pub campos: Vec<(String, u32, u32)>,
-    pub tamano: u32,
+    pub size: u32,
     pub alineado: u32,
 }
 

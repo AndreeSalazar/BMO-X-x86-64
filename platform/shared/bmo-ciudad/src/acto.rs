@@ -52,7 +52,7 @@ pub const FIN_OJOS: u32 = 2000;
 //
 // ** EL GUION NO SE ACABA: ESPERA. Y esto sale de un video, como todo lo demas.
 //
-// El del 2026-08-15 enseno el arranque real y la animacion no estaba
+// El del 2026-08-15 mostro el arranque real y la animacion no estaba
 // "funcionando regular": estaba **congelada**. Tres segundos y medio de ciudad
 // quieta, el gato sin salir ni una vez, y de golpe el destello y el log.
 //
@@ -277,11 +277,11 @@ pub fn fotograma(ms: u32) -> Fotograma {
 ///   les faltaba era que alguien pintase.
 ///
 /// Y `ciudad_pct` NO se toca: lo manda el progreso real del arranque, que es
-/// justo la informacion que la espera existe para ensenar. Una torre que tarda
+/// justo la informacion que la espera existe para mostrar. Una torre que tarda
 /// en encenderse es un subsistema que tarda en arrancar.
 fn espera(ms: u32) -> Fotograma {
     let d = ms - FIN_GATO;
-    // El avance con el que llega la camara. Se calcula y no se copia: si manana
+    // El avance con el que llega la camara. Se calcula y no se copia: si luego
     // cambia la velocidad de entrada, el empalme sigue sin salto.
     let base = (FIN_GATO as i32) * 120 / 1000;
     // `onda` vale -amp en d=0, asi que sumarle la amplitud deja el vaiven
@@ -311,7 +311,7 @@ fn espera(ms: u32) -> Fotograma {
 // en un bucle es **cualquier sitio**: la camara podia estar a medio viaje, con
 // el encuadre corrido y la ciudad a un lado.
 //
-// El dueno lo pidio con las palabras exactas: *"el splash avance el loop
+// El propietario lo pidio con las palabras exactas: *"el splash avance el loop
 // infinito como siempre, y luego cuando llega la luz SE REGRESA DE NUEVO para
 // presentarse como BMO-X con su gato, y luego la pantalla desaparece con el
 // escritorio listo"*.
@@ -329,7 +329,7 @@ fn espera(ms: u32) -> Fotograma {
 //
 // El cierre es el unico tramo de la intro que ESPERA de verdad -- puede,
 // porque a esas alturas ya no esconde trabajo. Estaba en 900 ms y sube a
-// `CIERRE_MS`. Lo que se anade es el regreso mas la pausa de la firma, y va en
+// `CIERRE_MS`. Lo que se agrega es el regreso mas la pausa de la firma, y va en
 // constantes con el precio escrito para que bajarlo sea una decision de una
 // linea y no una arqueologia.
 
@@ -370,7 +370,7 @@ pub const CIERRE_MS: u32 = REGRESO_MS + FIRMA_MS + (FIN_OJOS - FIN_GATO) + (DURA
 /// encima del acto del gato** y el logo solo se veia durante los ultimos 900 ms.
 ///
 /// Son dos funciones porque son dos preguntas: `fotograma` contesta *que se
-/// ensena mientras trabajo* y esta contesta *como me despido*.
+/// muestra mientras trabajo* y esta contesta *como me despido*.
 pub fn cierre(d: u32, avance_desde: i32) -> Fotograma {
     // El encuadre de la entrada: donde estaba la camara cuando el gato acabo de
     // encenderse. Es el sitio para el que esta compuesta la escena, y por eso es

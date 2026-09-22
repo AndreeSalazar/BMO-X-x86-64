@@ -146,7 +146,7 @@ pub fn init() {
     //  *** LO QUE LA PLACA OFRECE PARA ESTA TARJETA (2026-08-24)
     // ================================================================
     //
-    //  El dueno lo pidio asi: *"a base de lo que la placa ofrece, recuerda que
+    //  El propietario lo pidio asi: *"a base de lo que la placa ofrece, recuerda que
     //  llame y que datos DAN y exprimir"*. Y la placa da dos cosas que hoy no
     //  se estaban ni mirando -- las dos deciden lo que se puede hacer despues.
     //
@@ -659,7 +659,7 @@ fn rx_poll_con(entregar: &mut dyn FnMut(&[u8])) -> u32 {
 
 /// **Que declara la placa sobre esta NIC**, leido y contado. No cambia nada.
 ///
-/// # Las dos preguntas que deciden la red de manana
+/// # Las dos preguntas que deciden la red de luego
 ///
 /// ```text
 ///    MSI?          hoy el driver SONDEA. Con MSI la tarjeta AVISA, y eso es

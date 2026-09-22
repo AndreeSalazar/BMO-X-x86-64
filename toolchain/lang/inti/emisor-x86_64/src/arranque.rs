@@ -130,7 +130,7 @@ pub fn emitir(
     if con_monton {
         // ** EL INMEDIATO SE ELIGE POR EL NUMERO, no por comodidad. Hasta 4 GiB
         // cabe en uno de 32 bits --cinco bytes, y ademas se extiende con ceros,
-        // que es justo lo que quiere un tamano-- y por encima hacen falta diez.
+        // que es justo lo que quiere un medida-- y por encima hacen falta diez.
         // Emitir siempre el largo costaria cinco bytes en TODA tarea para que
         // una minoria pueda pedir mas de 4 GiB.
         let cuanto = if monton == 0 { MONTON_POR_DEFECTO } else { monton };

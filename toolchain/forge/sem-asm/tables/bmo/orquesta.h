@@ -26,7 +26,7 @@
  * - **Solo tu memoria.** Destino y origen tienen que caer DENTRO de un bloque
  *   de tu proceso: el de `malloc` lo es. Una direccion ajena no se rechaza por
  *   prohibida: es que la funcion que traduce no sabe nombrarla.
- * - **El tamano entero.** Si el rango se sale del bloque, no se recorta: se
+ * - **El medida entero.** Si el rango se sale del bloque, no se recorta: se
  *   rechaza.
  * - **Cuantos nucleos lo decide la maquina.** Pides `0` y el perfil elige; con
  *   un solo nucleo en pie, lo hace ese y contesta `1`.
@@ -46,7 +46,7 @@
  * `toolchain/tools/contrato/contrato.py`.
  *
  * [carril]  ROJO         pone a varios nucleos a escribir en TU memoria a la
- *                        vez. Un destino o un tamano mal dichos no fallan:
+ *                        vez. Un destino o un medida mal dichos no fallan:
  *                        escriben donde dijiste
  * [cuesta]  DATO         lo que se escribe es tu imagen o tu buffer; un encargo
  *                        mal armado es un fotograma con basura
@@ -88,11 +88,11 @@ int bmo_tocar(unsigned long long parte, unsigned long long atriles) {
  * alrededor. Es la geometria de `bmo_orquesta::Escala`.
  *
  * Contesta cuantos atriles tocaron, o 0 si no se hizo -- y entonces NADA se
- * escribio y te toca hacerlo a ti. Un destino mas pequeno que el origen se
+ * escribio y te toca hacerlo a ti. Un destino mas chico que el origen se
  * rechaza aqui mismo, sin cruzar la puerta: escalar hacia abajo es otra parte.
  *
  * El alto del destino va en TOTAL --son las filas que se reparten-- y los otros
- * tres tamanos se empaquetan en DATO, 16 bits cada uno. */
+ * tres medidas se empaquetan en DATO, 16 bits cada uno. */
 int bmo_orquesta_escalar(unsigned int *destino, int dst_ancho, int dst_alto,
                          unsigned int *origen, int src_ancho, int src_alto) {
     unsigned long long dato;

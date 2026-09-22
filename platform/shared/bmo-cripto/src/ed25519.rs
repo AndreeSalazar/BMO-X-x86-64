@@ -39,7 +39,7 @@
 //! > but not required, to instead check `[S]B = R + [k]A'`."*
 //!
 //! Se usa la segunda. Es **mas estricta**: rechaza algunas firmas que la de los
-//! ochos aceptaria --las que meten un punto de torsion pequena-- y no acepta
+//! ochos aceptaria --las que meten un punto de torsion chica-- y no acepta
 //! ninguna que aquella rechace. Para lo que hace falta aqui --*"este `.bex` lo
 //! firmo quien digo"*-- ser mas estricto es lo correcto.
 //!
@@ -363,7 +363,7 @@ fn s_valida(s: &[u8; 32]) -> bool {
 ///
 /// # Como se cierra
 ///
-/// Los puntos de orden pequeno son ocho, y todos cumplen `[8]P = O`. Un punto
+/// Los puntos de orden chico son ocho, y todos cumplen `[8]P = O`. Un punto
 /// legitimo tiene orden `L`, que es primo y enorme: `[8]P` no puede ser el
 /// neutro. **Tres doblados y una comparacion**, y no hay mas.
 ///
@@ -562,7 +562,7 @@ mod escalar {
 ///    a[31] |= 64    y se FUERZA el 254
 /// ```
 ///
-/// Lo primero mata el cofactor: cualquier componente de torsion pequena queda
+/// Lo primero mata el cofactor: cualquier componente de torsion chica queda
 /// multiplicada por 8 y desaparece -- **es la misma amenaza que `orden_pequeno`
 /// cierra en el otro lado**. Lo ultimo fija la longitud del escalar, para que
 /// una escalera de tiempo constante haga siempre las mismas vueltas.

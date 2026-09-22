@@ -14,7 +14,7 @@
 //! *** Los dos numeros que dicen eso existen desde hace semanas --`ritmo()` y
 //! `peor_trabajo()` en `dev/usb/bus.rs`-- y hasta el 09-09 **los leia un solo
 //! sitio: `cabina/cockpit.rs`, que es una pantalla de RING 0**. Y de Ring 0 no
-//! se vuelve: el dueno vive en el escritorio.
+//! se vuelve: el propietario vive en el escritorio.
 //!
 //! ```text
 //!    CABINA            se veia solo con una tecla
@@ -37,7 +37,7 @@
 //!            |     +-- lo peor que tardo uno de ellos EN EL ULTIMO SEGUNDO
 //!            +-- cada cuanto late el bus: EL SUELO de la latencia
 //!
-//! *** `/s` y no a secas, porque el primer arranque enseno por que hace falta:
+//! *** `/s` y no a secas, porque el primer arranque mostro por que hace falta:
 //! salio `7666us` --el 192% del periodo-- y era el ARRANQUE enumerando el USB.
 //! Un maximo desde el arranque contesta *"paso alguna vez"* a una pregunta que
 //! es *"esta pasando"*. Ahora la ventana es de un segundo. Ver `dev/usb/bus.rs`.
@@ -50,7 +50,7 @@
 //! que hoy decide la latencia de todo el sistema.
 //!
 //! [!] Y `purga` va a salir alta casi siempre: cede el CPU hasta ocho veces
-//! esperando a `reap`. No es un fallo suyo, es lo que hace. Se ensena igual --
+//! esperando a `reap`. No es un fallo suyo, es lo que hace. Se muestra igual --
 //! tapar un numero porque se sabe explicar es como se pierden los datos.
 //!
 //! # Lo que NO dice, y hace falta saberlo
@@ -80,9 +80,9 @@ const ANCHO: u32 = 250;
 ///
 /// ** Es una SEGUNDA COPIA de `NOMBRES`, y hay que decirlo: el kernel manda el
 /// indice, no el nombre, porque por la puerta caben numeros y no cadenas. Si
-/// alguien anade un sexto trabajo alli y no aqui, esta tabla dira el nombre
+/// alguien agrega un sexto trabajo alli y no aqui, esta tabla dira el nombre
 /// equivocado -- por eso hay un `?` para el indice que no conoce, en vez de
-/// recortar el indice y ensenar siempre el ultimo.
+/// recortar el indice y mostrar siempre el ultimo.
 const TRABAJOS: [&str; 8] = [
     "bombeo", "rescate", "emerg", "purga", "radar",
     // ** Los tres de DENTRO de `bombeo`, desde el 09-09. El metal dijo
@@ -149,7 +149,7 @@ pub(crate) fn refrescar(p: &bmo::Pantalla) {
     let tx = p.texto(tx, ty, "us/s ", INK_DIM);
 
     // El indice que esta tabla no conoce se dice, no se recorta: un `?` manda a
-    // mirar `dev/usb/bus.rs`; recortarlo ensenaria `radar` para siempre.
+    // mirar `dev/usb/bus.rs`; recortarlo mostraria `radar` para siempre.
     let nombre = if cual < TRABAJOS.len() { TRABAJOS[cual] } else { "?" };
     p.texto(tx, ty, nombre, INK_DIM);
 }

@@ -33,7 +33,7 @@
 //!
 //! # [!] SOBRE EL `u128`, Y LA LEY DE LOS 64 BITS
 //!
-//! El dueno tiene escrita una regla para INTI: *"no imites todo Rust... necesito
+//! El propietario tiene escrita una regla para INTI: *"no imites todo Rust... necesito
 //! que sea honesto a base de CPU desde 64 bit"*. Y aqui hay `u128`.
 //!
 //! *** No es una contradiccion, y conviene decir por que: **el silicio de esta
@@ -177,7 +177,7 @@ fn cuadrado_n(a: &Fe, n: u32) -> Fe {
 /// dependen del valor**. En una pieza que toca claves privadas eso es un fallo,
 /// no una optimizacion: el tiempo que tarda contaria algo del secreto.
 ///
-/// *** Por el pequeno teorema de Fermat, `a^(p-2) = a^-1 (mod p)`. Elevar tarda
+/// *** Por el chico teorema de Fermat, `a^(p-2) = a^-1 (mod p)`. Elevar tarda
 /// **siempre lo mismo**, porque el exponente es una constante del algoritmo y no
 /// el dato. Es la regla 2 del crate aplicada donde de verdad muerde.
 ///

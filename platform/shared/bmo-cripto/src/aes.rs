@@ -81,7 +81,7 @@ fn por2(b: u8) -> u8 {
 /// Las claves de ronda, ya expandidas.
 ///
 /// ** El array es de 15 rondas --lo que pide AES-256-- y `rondas` dice cuantas
-/// valen de verdad. Un tipo por tamano de clave habria duplicado el cifrado
+/// valen de verdad. Un tipo por medida de clave habria duplicado el cifrado
 /// entero para cambiar un numero.
 pub struct Aes {
     rk: [[u8; BLOQUE]; 15],
@@ -91,7 +91,7 @@ pub struct Aes {
 impl Aes {
     /// **Expande una clave de 16 o 32 bytes.** `None` si mide otra cosa.
     ///
-    /// [!] AES-192 no esta, y es deliberado: no lo usa TLS 1.3, y un tamano de
+    /// [!] AES-192 no esta, y es deliberado: no lo usa TLS 1.3, y un medida de
     /// clave que nadie ejercita es un camino que nadie prueba.
     pub fn nueva(clave: &[u8]) -> Option<Aes> {
         let nk = match clave.len() {
@@ -224,7 +224,7 @@ mod pruebas {
         assert_eq!(hex(&b), "8ea2b7ca516745bfeafc49904b496089", "AES-256");
     }
 
-    /// Un tamano de clave que no se soporta se dice, no se recorta.
+    /// Un medida de clave que no se soporta se dice, no se recorta.
     #[test]
     fn una_clave_de_otro_tamano_se_contesta_que_no() {
         assert!(Aes::nueva(&[0u8; 24]).is_none(), "AES-192 no esta, y se dice");

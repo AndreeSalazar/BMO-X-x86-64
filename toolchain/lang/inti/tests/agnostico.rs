@@ -21,9 +21,9 @@
 //! > opcodes, ni anchos de palabra, ni convenciones de llamada.
 //!
 //! Lo que SI puede saber de la maquina vive en `tables/arch/<arquitectura>/`,
-//! que es una carpeta de **datos**. Cambiar de arquitectura es anadir una
+//! que es una carpeta de **datos**. Cambiar de arquitectura es agregar una
 //! carpeta, no tocar el compilador -- que es exactamente lo que ya prometio
-//! `intrinsics.toml` con *"anadir una instruccion = 1 entrada TOML, CERO
+//! `intrinsics.toml` con *"agregar una instruccion = 1 entrada TOML, CERO
 //! Rust"*.
 //!
 //! ## Lo que este test NO puede probar
@@ -87,7 +87,7 @@ fn fuentes() -> Vec<PathBuf> {
 ///
 /// Los comentarios cuentan **a proposito**: un comentario que explica algo en
 /// terminos de `rax` es un comentario que habra que reescribir el dia del
-/// puerto, y ademas es la senal de que alguien estaba pensando en x86 mientras
+/// puerto, y ademas es la signal de que alguien estaba pensando en x86 mientras
 /// escribia una parte que no deberia saber de eso.
 #[test]
 fn el_frontend_no_nombra_ninguna_maquina() {

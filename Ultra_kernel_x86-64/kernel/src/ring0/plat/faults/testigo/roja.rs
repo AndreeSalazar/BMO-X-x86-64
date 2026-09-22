@@ -170,7 +170,7 @@ pub(in crate::ring0::plat::faults) fn texto_del_kernel() -> (u64, u64) {
 /// ```
 ///
 /// ** Aquello fue un `hex(v, 0)` que no escribia un solo digito, y ya esta
-/// arreglado. Pero el arreglo de aquel dia no impedia el de manana: un
+/// arreglado. Pero el arreglo de aquel dia no impedia el de luego: un
 /// desplazamiento sigue siendo un `u64` en el que **cero significa dos cosas**
 /// --*"el rip es el primer byte de `.text`"* y *"no hay desplazamiento que
 /// dar"*--. Con [`Dato`] el segundo caso tiene que escribir su motivo, y la

@@ -20,8 +20,8 @@ Esto no es una optimizacion. Es una decision sobre **cual es el techo del
 sistema**:
 
 ```
-   modelo BODEGA      tamano de la app  <=  tamano del bufer  <=  RAM
-   modelo QUIROFANO   tamano de la app  <=  tamano del DISCO
+   modelo BODEGA      medida de la app  <=  medida del bufer  <=  RAM
+   modelo QUIROFANO   medida de la app  <=  medida del DISCO
 ```
 
 Con el primero, un juego de 40 GB no es que vaya lento: **es aritmeticamente
@@ -120,7 +120,7 @@ del kernel; es otra tanda.
 
 [!] Y una mina que dejo el gate del BEF a la vista: `type_stack_size` devuelve 0
 para un tipo que no conoce, asi que **dos globales pueden compartir offset**. El
-mapa de traduccion se indexa por offset, y con dos duenos por clave una reloc
+mapa de traduccion se indexa por offset, y con dos propietarios por clave una reloc
 acababa apuntando dentro de `.bss` (`reloc[293]: offset 0x614d0 exceeds target
 section size`). Se descartan las regiones vacias, y ademas el compilador lleva
 ahora su propio guardia: si una reloc quedara en `.bss`, lo dice **con el nombre
@@ -153,7 +153,7 @@ y que lo que cambio no fue la idea sino **quien lleva la contabilidad**.
 
 ### 2. Memoria virtual -- Atlas, 1962
 
-El Atlas de Manchester automatizo el trasiego entre un nucleo rapido pequeno y
+El Atlas de Manchester automatizo el trasiego entre un nucleo rapido chico y
 un tambor magnetico grande y lento, dandole a cada usuario **la ilusion** de una
 memoria enorme y rapida. Es el origen del termino.
 
@@ -219,7 +219,7 @@ algo al respecto.
 
 ### 8. DirectStorage / el I/O complex de la PS5
 
-Muchas lecturas pequenas en paralelo sin que la CPU las micro-gestione, y la
+Muchas lecturas chicas en paralelo sin que la CPU las micro-gestione, y la
 descompresion delegada a la GPU: el dato va del SSD a la VRAM por el camino
 corto. Sony le puso silicio dedicado.
 
@@ -254,7 +254,7 @@ y esa es la conclusion util**, pero uno de ellos es el que hay que copiar.
 | `linked_list_allocator` | Lista enlazada sobre los huecos libres, sin estructuras aparte. El clasico de `rust-osdev` | ★ **El candidato**: simple, auditable, y encaja exacto sobre UN bloque grande |
 | `buddy_system_allocator` | Buddy, casi drop-in del anterior | Menos fragmentacion externa, mas desperdicio interno. Segunda opcion |
 | `talc` | Estilo dlmalloc con boundary tagging y buckets. `O(n)` peor caso al reservar, `O(1)` al liberar y al recrecer en el sitio | El mas rapido de los tres. Y el mas codigo que auditar |
-| `slab_allocator_rs` | Slabs por tamano + buddy para lo grande de 4096 | Cuando haya objetos de tamano fijo repetidos |
+| `slab_allocator_rs` | Slabs por medida + buddy para lo grande de 4096 | Cuando haya objetos de medida fijo repetidos |
 | `buddy-alloc`, `simple-chunk-allocator` | Variantes para embebido | -- |
 
 **Lo que BMO necesita no es un asignador de kernel: es uno de RING 3 sobre
@@ -326,7 +326,7 @@ el programa, porque el motivo es un campo del formato y viaja dentro del `.bex`:
 hay entra y deja la maquina sin un marco para la pila del siguiente hilo. La
 admision dice que si y la maquina muere despues, **cuando ya no hay nadie para
 decir que no**. El numero vive en `admitir.rs`, no en el juez: un juez sin
-constantes de tamano no puede equivocarse en el techo.
+constantes de medida no puede equivocarse en el techo.
 
 [!] Un `.bex` que NO declara entra como entraba antes. Trinquete, no muro: lo
 nuevo obliga y lo viejo se tolera con su motivo escrito.
@@ -385,7 +385,7 @@ Asi que la respuesta a *"o mas si es que puede"* es de dos pisos:
    que AHCI permite. Pasar de una a 32 es la mejora que si esta disponible, y no
    cuesta hardware.
 2. **Mas de 32 exige NVMe**, y la maquina lo tiene... pero **ese NVMe es el
-   Windows del dueno** y la escritura esta cerrada a proposito. Asi que NVMe en
+   Windows del propietario** y la escritura esta cerrada a proposito. Asi que NVMe en
    BMO es "otro disco", no "otro driver".
 
 ★ Y lo aprendido de la Parte I.8, para no perseguir el numero equivocado: **la
@@ -510,7 +510,7 @@ controlador de PANTALLA de la GPU -- lo que esta aparcado en
 `platform/drivers/gpu/rdna4/PLAN_VULKAN.md`.
 
 O sea que el escalon 8 **no es trabajo de compositor**: es la primera cosa util y
-pequena que desbloquearia ese driver, y por eso se apunta aqui. Un dia se pagara,
+chica que desbloquearia ese driver, y por eso se apunta aqui. Un dia se pagara,
 y ese dia el troceado por regiones deja de hacer falta.
 
 ### El kernel, en esto, ya cumple
@@ -655,7 +655,7 @@ El escalon 2 quito la bodega del CARGADOR. Y el mismo error seguia vivo, intacto
 en el sitio por donde un programa abre un fichero:
 
 ```rust
-let mide = fs::tamano(ruta)?;   // doom1.wad = 4.196.020
+let mide = fs::medida(ruta)?;   // doom1.wad = 4.196.020
 reserve(i, mide)                // <- 1025 marcos CONTIGUOS
 fs::load(ruta, dst)             // <- y leer los 4 MB de golpe
 ```
@@ -673,7 +673,7 @@ bodega entera para servirle una copa.
 |---|---|---|
 | Abrir el WAD | 4 MiB contiguos + leer 4 MB | un cursor y una ventana de 64 KiB |
 | Un lump de 40 KB | ya estaba en RAM | 40 KB del disco, **al bloque del programa** |
-| Tope de tamano | la RAM contigua que haya | **ninguno** |
+| Tope de medida | la RAM contigua que haya | **ninguno** |
 
 Las dos piezas ya existian y estaban probadas en metal --`fs::abrir_rangos` y
 `fs::leer_rango`, las del escalon 2-- y lo unico que faltaba era usarlas al otro
@@ -728,7 +728,7 @@ premisa estaba mal:
 
 Y eso convierte la expropiacion en el problema, no en la solucion:
 
-### ★★ El fallo de verdad: el disco no tenia dueno
+### ★★ El fallo de verdad: el disco no tenia propietario
 
 El HBA tiene 32 ranuras y este driver usa **la 0**, siempre. Un comando en vuelo
 es estado global del puerto: una tabla de comando, un PRDT, un `PRDBC`. Y la
@@ -748,7 +748,7 @@ Dos de esos solapados **escriben la misma ranura**, y el primero acaba leyendo e
 
 **Ahora el disco tiene DUENO**, con dos decisiones dichas:
 
-- **Un dueno, no un cerrojo.** Un `SpinLock` que tome alguien que despues muere
+- **Un propietario, no un cerrojo.** Un `SpinLock` que tome alguien que despues muere
   se queda cerrado para siempre. Aqui se apunta *quien* lo tiene: el que espera
   comprueba si ese tid sigue vivo y, si no, **se lo quita y lo dice**. Es el
   mismo trato que la pantalla.
@@ -885,13 +885,13 @@ decia mal**: no esta "vacio". Esta **escrito y probado** -- BLAKE3 de 256 bits,
 `verify`, y `chain_hash` para encadenar todas las secciones
 (`bef/signing.rs:153-220`). Lo que falta es **quien lo escriba y quien lo lea**:
 `signing::` no se referencia fuera de `bmo-abi`, o sea que ningun `.bex` producido
-hoy lleva seccion `Signature` y el cargador no la busca. Es cableado, no diseno.
+hoy lleva seccion `Signature` y el cargador no la busca. Es cableado, no esquema.
 
 ---
 
 # PARTE VIII -- PASAR DATOS MOVIENDO TABLAS, NO BYTES
 
-> Pregunta del dueno, 2026-08-12: *"el truco es mejor que la RAM escriba tablas
+> Pregunta del propietario, 2026-08-12: *"el truco es mejor que la RAM escriba tablas
 > para eso, no? las TABLAS temporales para poder pasar los datos, y si hay algo
 > que se necesita copiar crea uno para otro y ya, pero si es lo mismo... eso
 > puede hacer con MAS ESTEROIDES?"*
@@ -923,7 +923,7 @@ cambia es quien puede nombrarlo.
 | **Aplazar** (copy-on-write) | los dos comparten hasta que alguien escribe | ESTRATOS lo hace en disco |
 
 ★ **El grado 2 es el que de verdad "pasa" un dato**, y es mas limpio que
-prestar: si el que da pierde el mapeo, no hay dos duenos, no hay que decidir
+prestar: si el que da pierde el mapeo, no hay dos propietarios, no hay que decidir
 quien manda y no hay ilusion que estropear. Es `move` en vez de `&`, pero de
 paginas.
 
@@ -960,7 +960,7 @@ Ryzen, no creerselos**:
 ```
 
 O sea que **remapear UNA pagina suelta pierde contra copiarla**. Mapear gana
-cuando el bulto es grande, no cuando es pequeno.
+cuando el bulto es grande, no cuando es chico.
 
 ### Lo que eso decide, ya, en dos casos concretos de BMO-X
 
@@ -1015,7 +1015,7 @@ puntero que el otro no puede seguir. Y ahi el umbral vuelve a mandar: un RPC de
 
 # PARTE IX -- QUE HERRAMIENTA PARA QUE SITIO
 
-> Dicho por el dueno el 2026-08-12, y es la frase que evita que este documento se
+> Dicho por el propietario el 2026-08-12, y es la frase que evita que este documento se
 > vuelva una lista de deseos: *"el punto no es abandonar todas, sino que cumpla
 > de acuerdo a lo que necesita... no porque yo quiera poner eso porque es
 > revolucionario, sino porque QUIERO poner las herramientas correctas de acuerdo
@@ -1071,7 +1071,7 @@ lo que se hace cuando el productor no se deja decir donde escribir.
 ### 4. PRESTAR -- los dos apuntan al mismo sitio
 
 **Pro**: cero copias por muchas veces que se use. Se paga UNA vez al mapear.
-**Contra**: dos duenos. Hay que decidir quien escribe, y **hay que revocarlo**
+**Contra**: dos propietarios. Hay que decidir quien escribe, y **hay que revocarlo**
 cuando uno muere -- si no, es un puntero colgado con permisos.
 
 **Donde**:
@@ -1087,7 +1087,7 @@ cuando uno muere -- si no, es un puntero colgado con permisos.
 
 ### 5. REGALAR -- el que da pierde su entrada
 
-**Pro**: cero copias **y** un solo dueno. No hay que decidir quien manda, no hay
+**Pro**: cero copias **y** un solo propietario. No hay que decidir quien manda, no hay
 que revocar, no hay ilusion que estropear. Es `move` en vez de `&`.
 **Contra**: el que da **ya no lo tiene**, asi que solo sirve cuando ha terminado.
 Y hay que ZERAR o entregar la pagina entera: lo que sobre en ella es memoria de

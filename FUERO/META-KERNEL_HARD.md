@@ -1,6 +1,6 @@
 # META-KERNEL HARD
 
-> **La ley de la maquina.** No la firma el dueno del proyecto: la firman los
+> **La ley de la maquina.** No la firma el propietario del proyecto: la firman los
 > componentes que hay dentro de la caja.
 >
 > Escrito el **2026-08-16**, despues de que el eje de CICLOS consiguiera por fin
@@ -101,19 +101,19 @@ proposito, se comprueba que grita **con el nombre del campo**, y se restaura.
 ### L5. Hardcodea CONTRATOS, pregunta HECHOS
 
 El ABI, `USER_IMAGE_BASE`, los layouts congelados: constantes.
-La RAM, los nucleos, las MMIO, el tamano del framebuffer, el area de XSAVE: se
+La RAM, los nucleos, las MMIO, el medida del framebuffer, el area de XSAVE: se
 le preguntan al silicio. **Nunca al reves.**
 
 ### L6. ** MODULAR -- y no es higiene: es INSTRUMENTACION
 
 La regla favorita de la casa, y la que mas veces se ha pagado sola. Enunciada
-por el dueno el 2026-08-13:
+por el propietario el 2026-08-13:
 
 > *"es curioso que en el monolito hay partes que se convierten en agujas
-> pequenas, pero al dividir se hacen agujas GRANDES, faciles de detectar"*
+> chicas, pero al dividir se hacen agujas GRANDES, faciles de detectar"*
 
-**Por que funciona, y no es estetica:** el tamano del fichero es el
-**denominador de la busqueda**. Una omision no cambia de tamano al partir el
+**Por que funciona, y no es estetica:** el medida del fichero es el
+**denominador de la busqueda**. Una omision no cambia de medida al partir el
 fichero; lo que cambia es **contra que se compara**. En 4.000 lineas, una
 funcion que falta es ruido; en 134 con un patron declarado, es un hueco en una
 simetria.
@@ -142,7 +142,7 @@ imposible de no ver.
   Su codigo era **la mitad del limite**. Lo que lo empujo fue la explicacion.
 
   ** Y eso hacia que el metro empujara contra lo que esta casa mas valora: la
-  regla del dueno es *"todo tiene su por que; lo que no lo tiene, se quita"*, y
+  regla del propietario es *"todo tiene su por que; lo que no lo tiene, se quita"*, y
   este arbol es **36% documentacion medida**. Un guardian que cuenta el por que
   como si fuera riesgo **le pone precio a escribirlo** -- y el dia que alguien
   tenga prisa, lo barato sera borrar el comentario.
@@ -157,7 +157,7 @@ imposible de no ver.
   `c/codegen` 2.321->1.398, `cpp/parser` 1.621->1.177, `validator` 1.435->1.179.
   **Si contar codigo hubiera vaciado la lista, el cambio seria sospechoso.**
 
-  El censo ensena **las dos columnas** --codigo y total-- para que nadie tenga
+  El censo muestra **las dos columnas** --codigo y total-- para que nadie tenga
   que creerse la cuenta.
 - **L6a-bis (2026-08-24).** Y **el limite es el mismo, lo que cambia es la
   salida de emergencia**: en `util` y en Ring 3 vale el trinquete --se puede
@@ -181,7 +181,7 @@ imposible de no ver.
   dependencias del kernel**, que es un hecho: el dia que un driver se mude a
   Ring 3 de verdad, su `Cargo.toml` sale de ese grafo y el censo se entera solo.
 - **L6b.** El corte se elige por **la pregunta que responde el fichero**, no por
-  tamano ni por capas. Un fichero tiene que poder contestar *"por que soy un
+  medida ni por capas. Un fichero tiene que poder contestar *"por que soy un
   fichero y no un trozo del de al lado"*.
 - **L6c.** Un fichero que declara una **simetria** (dos hermanas, tres ejes, N
   casos) hace visible el hueco. La cabecera lo dice en voz alta: *"el tercer eje
@@ -196,7 +196,7 @@ imposible de no ver.
      //! [cuesta]  MAQUINA -- calcula direcciones para el physmap
   ```
 
-  Peticion del dueno, con sus palabras: *"Modular MAS precisas, la siguiente
+  Peticion del propietario, con sus palabras: *"Modular MAS precisas, la siguiente
   evolucion de Modulo (...) saber como se declara entre ellas, cual es el
   potencial que falle. Eso, porque si ese es el potencial del fallo, es la razon
   de MODULAR precisas."*
@@ -254,7 +254,7 @@ imposible de no ver.
      //! [riesgo]  AJENO ESPEJO
   ```
 
-  Peticion del dueno, con sus palabras: *"no se trata de cortar codigo sino ES
+  Peticion del propietario, con sus palabras: *"no se trata de cortar codigo sino ES
   capturar cual de ellas SON potenciales que pueden sufrir bug y eso elimina la
   posibilidad de la aguja en el pajar."*
 
@@ -304,19 +304,19 @@ imposible de no ver.
   **lista**; este **ordena**. Cada fichero de Ring 0 lleva su color, y los que
   tienen dos masas se parten **por dentro de su propia carpeta**.
 
-  Peticion del dueno, y sus dos imagenes. La primera: *"algo de letrero de
+  Peticion del propietario, y sus dos imagenes. La primera: *"algo de letrero de
   autopista (...) si un dia quiero cambiar, **como podre identificar?**"*. La
   segunda, un dia despues, y es la que fijo el trabajo: ***"es como poner
   titulos"***.
 
   ★★ **El eje NO es de que TIPO es la pieza: es QUE CUESTA CAMBIARLA.** Es la
   correccion que hizo falta -- la primera version repartia por naturaleza
-  (jueces, duenos, fronteras) y eso contesta *"que hace"*, que ya lo dice el
+  (jueces, propietarios, fronteras) y eso contesta *"que hace"*, que ya lo dice el
   nombre del fichero. La pregunta sin respuesta era otra:
 
   > **Voy a tocar esto. Que arrastro?**
 
-  ### Los tres colores, con las palabras del dueno
+  ### Los tres colores, con las palabras del propietario
 
   | color | que dice | que exige antes de tocar |
   |---|---|---|
@@ -333,7 +333,7 @@ imposible de no ver.
 
   ```text
      //! [carril]  ROJO      el bitmap de marcos: dar dos veces el mismo es
-     //!                     dos duenos de un byte
+     //!                     dos propietarios de un byte
   ```
 
   **Todo `.rs` de Ring 0 lo lleva. Sin excepciones y SIN TRINQUETE**, al reves
@@ -360,18 +360,18 @@ imposible de no ver.
   ### [!] Lo que se retiro, y por que
 
   Esta ley nacio con una carpeta global, `ring0/critic/`, donde se mudaban las
-  piezas criticas. **Se retiro el 2026-08-31 a peticion del dueno** --*"no me
+  piezas criticas. **Se retiro el 2026-08-31 a peticion del propietario** --*"no me
   gusta esa palabra ahi"*-- y el nombre solo era el sintoma:
 
   > **Un color solo significa algo DENTRO de un modulo.** `critic/amarilla.rs`
-  > era *"amarilla respecto a que?"*: una senal ilegible justo en el sitio donde
-  > la senal ERA el objetivo.
+  > era *"amarilla respecto a que?"*: una signal ilegible justo en el sitio donde
+  > la signal ERA el objetivo.
 
   Sus dos inquilinas volvieron a casa (`mm/vmm/amarilla.rs`, `mm/phys/amarilla.rs`)
   y lo que las ataba viaja donde tiene que viajar: en su `[riesgo] ESPEJO`, no en
   una carpeta. Lo que las obligaba a compartir fichero --cada una con SU techo,
   16 GiB contra 64 TiB, dos pantallas azules el 30-08-- **ya no existe**: las dos
-  preguntan a `bmo-fisica-juicio`, que no tiene ni una constante de tamano.
+  preguntan a `bmo-fisica-juicio`, que no tiene ni una constante de medida.
 
   ★ De sus cuatro reglas sobrevive la que valia sola, y ahora cubre **todo Ring
   0** en vez de dos ficheros: **si dices quien te prueba, ese crate existe**. Las
@@ -455,7 +455,7 @@ imposible de no ver.
      //! [consumo] LATE      el tick: mil veces por segundo, haya o no haya nadie
   ```
 
-  Peticion del dueno, con sus palabras: *"poner con carril y dividir en
+  Peticion del propietario, con sus palabras: *"poner con carril y dividir en
   archivos que consumen y no, por motivos: eso es necesario para alcanzar el
   objetivo, que CONSUMEN nada mas"*. Es la regla de
   [`EFICIENCIA_MAESTRO.md`](../docs/maestro/EFICIENCIA_MAESTRO.md) --*lo que no
@@ -502,7 +502,7 @@ imposible de no ver.
   (2026-09-12).** L6i consiguio que la puerta dijera que NO. Esta consigue que
   el NO **se entienda**, que no es lo mismo.
 
-  Peticion del dueno, el mismo dia y dos mensajes despues: *"dale con la tabla
+  Peticion del propietario, el mismo dia y dos mensajes despues: *"dale con la tabla
   de errores, que no se repitan; no romper todas las reglas, busca y redefinir,
   y otras si romper si no entran"*.
 
@@ -528,7 +528,7 @@ imposible de no ver.
   que se lee cuando algo falla. El kernel puede llamarse como quiera; el que mira
   la pantalla, no.
 
-  ★★ **Y la regla de cuando se rompe, que es la que el dueno formulo:**
+  ★★ **Y la regla de cuando se rompe, que es la que el propietario formulo:**
 
   ```text
      REDEFINIR   el numero se queda, cambia el nombre. No lo nota nadie
@@ -557,10 +557,10 @@ imposible de no ver.
   sigue, y da un dato malo*-- y hasta hoy **nadie lo buscaba**: el FUERO sabia
   nombrar la enfermedad y no tenia quien la encontrara.
 
-  Peticion del dueno, con sus palabras: *"que el orquestador sea ESTRICTO, que
+  Peticion del propietario, con sus palabras: *"que el orquestador sea ESTRICTO, que
   diga si si y no no, porque si es ambiguo se rompe TODO"*.
 
-  El fallo que la trajo son tres capas: el DIRECTOR no ensenaba la ventana de
+  El fallo que la trajo son tres capas: el DIRECTOR no mostraba la ventana de
   DOOM, y abajo del todo estaba esto:
 
   ```rust
@@ -579,7 +579,7 @@ imposible de no ver.
   *** **Y el canal del valor SI puede decir que no**: lo que no puede es
   callarse. `DISCO_OP_TRIM_LIBRE` devuelve `DISCO_TRIM_SIN_VOLUMEN` y
   `RED_OP_ARMAR` devuelve `RED_SIN_TARJETA` -- un motivo empaquetado dentro del
-  valor. Esas dos ensenan la forma correcta y por eso estan en la lista como
+  valor. Esas dos muestran la forma correcta y por eso estan en la lista como
   `CORRECTA` y no como excepciones toleradas.
 
   * **Contestar cero tampoco es siempre mentir.** `TASK_OP_TOMAR` contesta `0`
@@ -659,7 +659,7 @@ preguntar por sus hermanos, y el nieto es el unico que tiene opinion.
 **Y ahora la parte que la hace obligatoria y no bonita -- las tres cosas que
 compra:**
 
-1. **Permite disenar el experimento.** Es lo que dejo elegir las filas de la
+1. **Permite trazar el experimento.** Es lo que dejo elegir las filas de la
    sonda para que **entre dos consecutivas cambie UNA SOLA COSA**. Sin esa
    separacion, la resta mezcla dos variables y cuatro tandas seguidas dan el
    mismo numero y la misma duda -- que es exactamente lo que paso.
@@ -757,7 +757,7 @@ prohibe es una pareja NUEVA.
 *El precio*: los nudos se cuentan por `crate::a::b`, y un `super::super::` que
 cruce carpeta no se ve. Es una cota inferior -- y para un trinquete basta, porque
 lo que se ve no puede empeorar. Guardian: `toolchain/tools/capas/capas.py`
-(`--mapa` ensena el mapa entero).
+(`--mapa` muestra el mapa entero).
 
 ### L8b. ** LAS FAMILIAS DEL PRINCIPAL: cada subsistema dice quien es, y el guardian lo exige PRIMERO
 
@@ -811,11 +811,11 @@ un eje se declara donde se conoce quien llama y cuantas veces.
 
 | eje | el recurso escaso | unidad | quien lo paga | sacrificio tipico | juez hoy |
 |---|---|---|---|---|---|
-| **LATENCIA** | tiempo hasta la respuesta de UNA operacion | ciclos/op (minimo) | el que espera bloqueado | tamano y cache | **SI** |
+| **LATENCIA** | tiempo hasta la respuesta de UNA operacion | ciclos/op (minimo) | el que espera bloqueado | medida y cache | **SI** |
 | **TAMANO** | el sitio donde tiene que caber | bytes contra un techo fisico | el cargador y la pila | ciclos (mas saltos) | parcial |
 | **THROUGHPUT** | la tasa agregada | bytes/s, frames/s | nadie en concreto | latencia individual, memoria | no |
 | **CACHE** | espacio con jerarquia de velocidad | fallos por operacion | el eje de ciclos, sin verlo | ciclos (recalcular) | **NO** |
-| **ENERGIA** | julios y grados | milivatios | la bateria y el ventilador | latencia de despertar | metro si, dueno uno |
+| **ENERGIA** | julios y grados | milivatios | la bateria y el ventilador | latencia de despertar | metro si, propietario uno |
 
 ### Las dos confusiones que hay que matar antes de usar la tabla
 
@@ -826,7 +826,7 @@ camino esta pidiendo que alguien elija a escondidas.
 
 **2. Cache y memoria son dos ejes con un nombre.** *Huella* es cuanta RAM ocupo
 --y hoy sobra: 14,8 GiB libres contra 5,4 MiB usados--. *Localidad* es cuantas
-lineas de 64 B toco y en que orden, y no tiene nada que ver con el tamano total.
+lineas de 64 B toco y en que orden, y no tiene nada que ver con el medida total.
 Y hay un dato que lo cambia todo: **un fallo a DRAM cuesta del orden de una
 puerta entera** (ver R-CACHE1). O sea que el eje CACHE no es paralelo al de
 ciclos: **es el sumando que no estas viendo**.
@@ -845,16 +845,16 @@ del censo, y multiplica a unos ejes y a otros no:
 | THROUGHPUT | ya es por segundo | **ya viene multiplicado** |
 | **TAMANO** | bytes, una vez | ** **NO. Y es el unico** |
 
-**Un binario ocupa lo mismo si se ejecuta una vez o un millon.** El tamano no se
+**Un binario ocupa lo mismo si se ejecuta una vez o un millon.** El medida no se
 paga por uso: se paga por **tener que caber**. Por eso `MAX_BEX` y el marco de
 pila no se ordenan por frecuencia, se ordenan por **distancia a su techo** -- y
 por eso un camino que se recorre una sola vez (la carga de un `.bex`, el
-arranque) puede estar tachado en ciclos y **vivo en tamano al mismo tiempo**.
+arranque) puede estar tachado en ciclos y **vivo en medida al mismo tiempo**.
 
-[!] **Y el puente, que es donde se cruzan:** el tamano **dentro de un camino
-caliente deja de ser tamano y se convierte en CACHE**. Un bucle que no cabe en
+[!] **Y el puente, que es donde se cruzan:** el medida **dentro de un camino
+caliente deja de ser medida y se convierte en CACHE**. Un bucle que no cabe en
 los 32 KB de L1i paga fallos de instruccion en cada vuelta. O sea que la unica
-excepcion a *"el tamano no se multiplica por el uso"* la cobra otro eje, no el
+excepcion a *"el medida no se multiplica por el uso"* la cobra otro eje, no el
 suyo.
 
 **Como se ordena entonces, en la practica:**
@@ -873,7 +873,7 @@ suyo.
    > TAMANO        en lo que se carga y en lo que vive en la pila
    > THROUGHPUT    en lo que mueve datos (blit, disco, red)
    > CACHE         sin juez: hoy no se puede invocar para ganar una discusion
-   > ENERGIA       un solo dueno declarado (el ocio y AXION)
+   > ENERGIA       un solo propietario declarado (el ocio y AXION)
 ```
 
 ** **CUMPLIR EL TECHO Y NO LA META NO ES ESTAR BIEN: ES ESTAR EN PLAZO.** Es la
@@ -884,10 +884,10 @@ frase de `presupuesto.rs` y vale para los cinco ejes.
 | eje | lo que hay hoy | lo que falta para que muerda |
 |---|---|---|
 | LATENCIA | doble testigo (`sys/precio.bex` y `c/coste.bex`, coinciden en 1 ciclo), juez `bmo-juicio` con 16 pruebas fuera del metal, 3 filas con techo/meta/porque, margen de ruido 5% | nada. Es el modelo |
-| TAMANO | el build IMPRIME los tamanos; `MAX_BEX` = 4 MiB; pila de Ring 3 = 65.536 B | trinquete y marco maximo por funcion con `llvm-objdump`. **Ojo: con LTO el tamano SALTA, no crece suave -- el margen del 5% del ruido no sirve aqui** |
+| TAMANO | el build IMPRIME los medidas; `MAX_BEX` = 4 MiB; pila de Ring 3 = 65.536 B | trinquete y marco maximo por funcion con `llvm-objdump`. **Ojo: con LTO el medida SALTA, no crece suave -- el margen del 5% del ruido no sirve aqui** |
 | THROUGHPUT | numeros sueltos medidos a mano (blit ~300 MB/s, fps de DOOM) | ventana declarada limpia, fila y juez |
 | CACHE | **nada**: no hay PMC en el arbol (`rdpmc`/`PERFEVTSEL` no aparecen) | leer los contadores de rendimiento. Proyecto aparte |
-| ENERGIA | RAPL leido de verdad: milivatios de paquete y de nucleo, con la unidad preguntada al chip | un dueno y un antes/despues (`smp stop`) |
+| ENERGIA | RAPL leido de verdad: milivatios de paquete y de nucleo, con la unidad preguntada al chip | un propietario y un antes/despues (`smp stop`) |
 
 ---
 
@@ -976,7 +976,7 @@ Y exige tres cosas mas que no son de rendimiento sino de verdad:
 
 - **R-CPU10.** **** **EL SUELO SE MIDE, EL MULTIPLICADOR SE ESCRIBE.** Una medida
   de rendimiento son dos cosas pegadas: el **suelo** del silicio (cruzar el
-  anillo, que BMO no puede cambiar) y el **sobrecoste** que BMO anade encima.
+  anillo, que BMO no puede cambiar) y el **sobrecoste** que BMO agrega encima.
   Solo el segundo es merito o culpa de este kernel, y **es el unico que sobrevive
   a un cambio de CPU**. Asi que el suelo puede autocalibrarse --es un dato del
   CPU-- y el multiplicador que lo convierte en techo lo escribe una persona.
@@ -1005,7 +1005,7 @@ falsas. `r11` se pago **tres veces**. `!(-6)` valia `-256`, y por eso
 **PARA QUE EXISTE.** Porque la DRAM es lentisima comparada con el nucleo. La
 cache es **la unica razon de que un CPU moderno no este parado la mayor parte
 del tiempo**. No es una optimizacion del hardware: es la premisa sobre la que se
-diseno el hardware.
+esquema el hardware.
 
 **QUE EXIGE.**
 
@@ -1083,7 +1083,7 @@ hay Ring 3, no hay capabilities y no hay sistema operativo, hay un cargador.
   cerrarlas, y se verifica midiendo **el marco maximo del binario funcion por
   funcion**, no el de `_start`.
 - **R-RAM4.** Reflejar, no copiar. Una copia que existe solo para cambiar de
-  dueno es trabajo que la maquina no tiene por que hacer.
+  propietario es trabajo que la maquina no tiene por que hacer.
 - **R-RAM5.** Todo tope estatico lleva **margen medido, no margen sentido**. Al
   90% ya esta roto; solo falta la linea que lo empuje.
 
@@ -1191,10 +1191,10 @@ serie**.
 ### C6 -- ALMACENAMIENTO (AHCI / SATA): lo unico que sobrevive al apagon
 
 **PARA QUE EXISTE.** Es el unico componente cuyo contenido sigue ahi cuando se
-va la luz. Todo lo demas es volatil por diseno.
+va la luz. Todo lo demas es volatil por esquema.
 
 ** **Y en esta maquina el almacenamiento tiene una regla que no es tecnica:** el
-NVMe es el Windows del dueno. BMO-X vive en el Kingston SATA. La escritura al
+NVMe es el Windows del propietario. BMO-X vive en el Kingston SATA. La escritura al
 NVMe esta **cerrada a proposito**.
 
 **QUE EXIGE.**
@@ -1288,7 +1288,7 @@ el endpoint en `Running` y sin un solo error.
 - **R-USB6.** **** **UNA AVERIA VIVA ES UN ESTADO, NO UN EVENTO.** Un `fault()` se
   dice una vez e informa a quien ya estaba mirando; una averia que **sigue
   ocurriendo** necesita un indicador encendido mientras dure, y **en el sitio
-  donde vive el dueno** -- el escritorio, no un log que hay que abrir.
+  donde vive el propietario** -- el escritorio, no un log que hay que abrir.
   *"El bus no late"* no es una noticia: es una condicion, y una condicion se
   pinta como una luz. Es el patron 33 con una vuelta mas: alli el motivo salia
   por un canal cerrado; aqui sale por uno abierto **pero una sola vez**. Aplica
@@ -1319,7 +1319,7 @@ veces seguidas.
 protocolo de cada interfaz --y ya se obligaba a decirlos-- pero los mandaba al
 LOG, que se va con el scroll. Y `leer_descriptores` ya traia el Device
 Descriptor entero y tiraba los bytes 8..12, que son el NOMBRE del aparato: el
-equivalente del `USB\VID_046D&PID_C077` que ensena Windows.
+equivalente del `USB\VID_046D&PID_C077` que muestra Windows.
 
 > Los papeles se leian y se tiraban. El veredicto se tomaba y se olvidaba.
 
@@ -1487,12 +1487,12 @@ controla el voltaje" seria falso, y este documento no puede permitirselo.
 - **R-PWR3.** **Cero no es "no consume": es "no se puede medir"**, y se dice con
   esas palabras. Un TDP de catalogo puesto donde falta una medida es un numero
   plausible inventado, y un numero plausible se cree y se usa para decidir.
-- **R-PWR4.** El eje ENERGIA tiene **un unico dueno declarado**: el ocio y AXION.
+- **R-PWR4.** El eje ENERGIA tiene **un unico propietario declarado**: el ocio y AXION.
   En una maquina enchufada no se sacrifica latencia por vatios en ningun otro
   sitio. El dia que haya bateria, esta regla se reescribe **con su motivo**, no
   se amplia por costumbre.
 
-  ★★ **ACLARADA el 2026-09-11, y NO ampliada** -- lo aprobo el dueno: *el ocio
+  ★★ **ACLARADA el 2026-09-11, y NO ampliada** -- lo aprobo el propietario: *el ocio
   no es solo el CPU sin tareas; es todo trabajo cuyo resultado **nadie puede ver
   ni oir**.* Un fotograma que nadie mira es ocio, aunque cueste un nucleo
   dibujarlo. Por eso R-APP8 de [`META-APP_HARD.md`](META-APP_HARD.md) --lo que
@@ -1500,8 +1500,8 @@ controla el voltaje" seria falso, y este documento no puede permitirselo.
   que sacrifica --el primer fotograma al volver-- ocurre **fuera de la vista**,
   que es justo lo que esta regla protege.
 
-  [!] La regla no crece: sigue teniendo UN dueno, y sigue prohibiendo cobrarle
-  latencia al dueno **donde esta mirando**. Lo que se aclara es la palabra
+  [!] La regla no crece: sigue teniendo UN propietario, y sigue prohibiendo cobrarle
+  latencia al propietario **donde esta mirando**. Lo que se aclara es la palabra
   *ocio*, no el permiso. Un "modo ahorro" que baje el reloj mientras el juega
   sigue prohibido por esta misma linea (error 1 de `EFICIENCIA_MAESTRO.md`).
 - **R-PWR5.** ** Pedir P-states esta permitido; **tocar voltajes o subir limites
@@ -1611,7 +1611,7 @@ formato es el mismo que ya usan las cabeceras de este arbol:
 Tres campos y ninguno es opcional:
 
 - **`[eje]`** dice **que se sacrifica**, no que se persigue. *"Este fichero es
-  rapido"* no es una declaracion; *"este fichero puede gastar tamano para comprar
+  rapido"* no es una declaracion; *"este fichero puede gastar medida para comprar
   latencia"* si.
 - **`[fila]`** ata el fichero a una fila del presupuesto. **Un `[eje]` sin
   `[fila]` es L0**: un eje sin juez.
@@ -1649,7 +1649,7 @@ vigila*. Y se prueba diciendo que no (L4).
 |---|---|---|---|---|---|
 | C1 CPU | R-CPU1..5 | doble testigo | `bmo-juicio` | 4 en `build.ps1` | **COMPLETO** |
 | C2 CACHE | R-CACHE1..4 | **ninguno** | no | no | **DECLARADO SIN JUEZ** |
-| C3 RAM/MMU | R-RAM1..5 | tamanos en el build | no | no | falta trinquete + marco maximo |
+| C3 RAM/MMU | R-RAM1..5 | medidas en el build | no | no | falta trinquete + marco maximo |
 | C4 BUS/MMIO | R-BUS1..4 | no | no | no | reglas de forma, verificables leyendo |
 | C5 FRAMEBUFFER | R-FB1..4 | blit a mano | no | no | falta ventana declarada |
 | C6 DISCO | R-DISCO1..5 | no | no | no | identidad SI cableada |
@@ -1700,7 +1700,7 @@ casa.)
 > 1995. Un sistema operativo no es el que decide esas cifras: es el que se
 > organiza para no pelearse con ellas.
 >
-> Por eso estas reglas no son estrictas porque las firme el dueno. **Son
+> Por eso estas reglas no son estrictas porque las firme el propietario. **Son
 > estrictas porque el que las firma no lee este fichero.**
 
 ---

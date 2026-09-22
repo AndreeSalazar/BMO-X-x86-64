@@ -48,7 +48,7 @@ mod generated_tests {
         // Era `EVALUATE`, que dejo de servir de ejemplo el 2026-08-03 porque ya
         // compila. Ahora es `CANCEL`, tambien COBOL-85 y tambien sin codegen --
         // y cuando le toque a el, aqui hara falta otro. Que este test haya que
-        // cambiarlo es la senal de que el compilador crece.
+        // cambiarlo es la signal de que el compilador crece.
         let src = "IDENTIFICATION DIVISION.\nPROGRAM-ID. T.\nPROCEDURE DIVISION.\nCANCEL X.\n";
         let err = Parser::new(src).parse_program().unwrap_err();
         assert!(err.message.contains("COBOL85"), "esperaba estándar: {}", err.message);

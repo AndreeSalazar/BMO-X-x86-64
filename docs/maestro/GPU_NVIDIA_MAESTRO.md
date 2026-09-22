@@ -3,7 +3,7 @@
 > Escrito el **2026-09-07**. Sigue el metodo de `SMP_MAESTRO.md`: **que copiar
 > del mundo y que seria un error copiar**, antes de una sola linea de codigo.
 >
-> La pregunta la trajo el dueno con su motivo economico dicho de frente:
+> La pregunta la trajo el propietario con su motivo economico dicho de frente:
 >
 > > *"en vez de reconstruir todo PERFIL a Nvidia, sino TRADUCIR a mi BMO-X, eso
 > > es posible? Para no tener que gastar mucho esfuerzo... con RTX 3060 12G por
@@ -30,7 +30,7 @@
 
 # 1. Lo legal: tienes razon, y NO es lo que te bloquea
 
-El dueno trajo el dato bien: **tres a cero**. Los casos son reales y esa es la
+El propietario trajo el dato bien: **tres a cero**. Los casos son reales y esa es la
 cuenta.
 
 | caso | anio | quien gano |
@@ -101,7 +101,7 @@ independiente del fabricante.
 | Que un juego pide una LISTA de caracteristicas, no una version | entera |
 | Que Vulkan es el 30% de lo que toca un juego | entera |
 | ⚠ **El muro del firmware firmado** | entera -- y es el mismo muro, ver abajo |
-| Los nombres de registros de RDNA | **no**, y son la parte pequena |
+| Los nombres de registros de RDNA | **no**, y son la parte chica |
 
 ★ Y lo mismo el resto de la casa: la enumeracion de PCI, el juez de la cesion de
 MMIO (`bmo-mmio-juicio`), el veto `PisaRam`, la forma de un anillo de comandos
@@ -154,7 +154,7 @@ esta casa, no estimado:
 ```
 
 ** Ninguna de esas tres cosas necesita sombreadores, ni CUDA, ni Vulkan. Lo que
-te falta de una GPU, HOY, son tres piezas mucho mas pequenas:
+te falta de una GPU, HOY, son tres piezas mucho mas chicas:
 
 ```text
    1. un MOTOR DE COPIA (DMA) que mueva los pixeles en vez del CPU
@@ -163,7 +163,7 @@ te falta de una GPU, HOY, son tres piezas mucho mas pequenas:
 ```
 
 ★ Eso es **exactamente la Meta A** de `PLAN_VULKAN.md`, que aquel documento ya
-califica de *"alcanzable y bien planificada"* y del tamano *"del driver de
+califica de *"alcanzable y bien planificada"* y del medida *"del driver de
 AHCI"*. **La Meta A no exige AMD.** Exige un motor de copia, y eso lo tiene
 cualquier GPU de los ultimos veinte anios.
 
@@ -184,7 +184,7 @@ manda a alguien a perder tres meses.**
 ```
 
 ★ **La primera es la unica que importa.** Si la respuesta es *"si"*, la Meta A
-sobre la 3060 es un proyecto del tamano del AHCI y merece la pena. Si es *"no,
+sobre la 3060 es un proyecto del medida del AHCI y merece la pena. Si es *"no,
 todo pasa por el GSP"*, entonces la Meta A sobre Nvidia cuesta arrancar y hablar
 con un firmware firmado, que es otro proyecto entero -- y en ese caso la
 respuesta correcta **no es comprar otra tarjeta**: es la ruta B1 y seguir con el

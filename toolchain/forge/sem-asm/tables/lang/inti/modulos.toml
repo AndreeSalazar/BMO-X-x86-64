@@ -241,7 +241,7 @@ op_arch_escribir_de  = "0x08"
 #      CONTARLO                       INTI
 #
 #  O sea que INTI no aprende a leer esos registros: aprende a PREGUNTAR a quien
-#  los lee. Y eso es mejor, no un apano -- el kernel resta dos lecturas y
+#  los lee. Y eso es mejor, no un arreglo -- el kernel resta dos lecturas y
 #  divide por el tiempo, y un programa que leyera el registro crudo tendria que
 #  saber hacerlo para CADA silicio.
 #
@@ -323,7 +323,7 @@ op_argumentos        = "0x33"
 #      sonido_callar        sobre el handle: ya
 #      op_sonido_soltar     sobre `mi_tarea`: devolverlo sin morir
 #
-#  Es EXCLUSIVO, como la pantalla: dos duenos en el mismo aparato no es
+#  Es EXCLUSIVO, como la pantalla: dos propietarios en el mismo aparato no es
 #  mezclar, es ruido.
 op_sonido_reclamar   = "0x21"
 op_sonido_soltar     = "0x22"
@@ -471,7 +471,7 @@ raton         = "donde esta el puntero sobre esa ventana: x + y * 65536"
 [superficie]
 superficie_crear           = "pide el bloque, escribe la cabecera BSUP y se la ofrece a quien nos lanzo; 0 si nadie compone"
 superficie_crear_con_buzon = "lo mismo, con un buzon de n ranuras (potencia de dos) para teclas y raton"
-superficie_reconfigurar    = "contestar a un CONFIGURE: una nueva del tamano pedido con el mismo buzon"
+superficie_reconfigurar    = "contestar a un CONFIGURE: una nueva de la medida pedida con el mismo buzon"
 superficie_ancho           = "el ancho que declara su cabecera"
 superficie_alto            = "el alto que declara su cabecera"
 superficie_pixeles         = "donde empiezan los pixeles: detras de la cabecera"

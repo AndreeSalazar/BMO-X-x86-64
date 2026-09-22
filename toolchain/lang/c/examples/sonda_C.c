@@ -177,9 +177,9 @@ int main() {
     }
 
     /* == 5. PEDIR MEMORIA ABSURDA ==
-     * Un tamano gigantesco --mas RAM de la que existe-- tiene que contestar 0,
+     * Un medida gigantesco --mas RAM de la que existe-- tiene que contestar 0,
      * no intentar mapear medio universo ni desbordar el calculo de paginas. */
-    printf("\n5. peticiones de tamano imposible\n");
+    printf("\n5. peticiones de medida imposible\n");
     debe_negar("malloc(0xFFFFFFFFFFFFFFFF)",
                (unsigned long long)malloc(0xFFFFFFFFFFFFFFFF) == 0 ? 1 : 0);
     debe_negar("malloc(0xFFFFFFFF00000000)",
@@ -195,7 +195,7 @@ int main() {
 
     /* == 7. RECLAMAR DOS VECES ==
      * La pantalla es exclusiva. Reclamarla una vez puede salir bien; la SEGUNDA
-     * vez, sin haberla soltado, tiene que fallar -- o dos duenos pintarian el
+     * vez, sin haberla soltado, tiene que fallar -- o dos propietarios pintarian el
      * mismo framebuffer. (Si la primera falla porque el compositor la tiene, con
      * mas razon: nunca se concede dos veces.) */
     printf("\n7. reclamar la pantalla dos veces\n");
@@ -205,7 +205,7 @@ int main() {
         a = bmo_codigo(BMO_TAREA_ACTUAL, BMO_OP_PANTALLA_RECLAMAR, 0, 0, 0);
         b = bmo_codigo(BMO_TAREA_ACTUAL, BMO_OP_PANTALLA_RECLAMAR, 0, 0, 0);
         /* Al menos una de las dos tiene que ser un no. Que las dos digan que si
-         * es el agujero: la pantalla tendria dos duenos. */
+         * es el agujero: la pantalla tendria dos propietarios. */
         if (a != 0 || b != 0) {
             printf("  [ok]    la pantalla no se concede dos veces\n");
             pasadas = pasadas + 1;

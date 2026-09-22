@@ -43,7 +43,7 @@ fn log(msg: &str) {
 /// un puerto se estabiliza. Y son muchos -- dos controladoras, varios puertos,
 /// y cada uno con su debounce y su reset.
 ///
-/// El video del arranque del 2026-08-15 lo enseno por el otro lado: entre
+/// El video del arranque del 2026-08-15 lo mostro por el otro lado: entre
 /// `intro_paso(40)` y `intro_paso(70)` --que es este bloque-- la pantalla se
 /// quedaba **mas de tres segundos con un solo fotograma**. La ciudad congelada
 /// y el gato sin salir. No porque la animacion estuviera mal, sino porque nadie
@@ -69,7 +69,7 @@ pub(crate) fn delay_ms(ms: u64) {
     // es de prioridad estricta: mientras este hilo gira, el escritorio no
     // corre. Cada intento de enumerar el puerto mudo --debounce, reset,
     // corte de corriente-- eran 250 ms en los que el escritorio no pintaba
-    // ni un fotograma. El dueno lo vio como *"tirones de FPS que baja a 0"*,
+    // ni un fotograma. El propietario lo vio como *"tirones de FPS que baja a 0"*,
     // y no era el raton: era el compositor sin turno.
     //
     // `park_until` bloquea este hilo hasta la hora y el reloj lo despierta;
@@ -133,7 +133,7 @@ pub(crate) fn delay_ms(ms: u64) {
 ///
 /// Lo que `init` decide se decia SOLO en CABINA: cuantos xHC hay, cual gano y
 /// cuantos aparatos quedaron en el otro sin que este kernel los mire jamas.
-/// El dueno enchufo su movil en el xHC que no se maneja, F11 no dijo nada, y
+/// El propietario enchufo su movil en el xHC que no se maneja, F11 no dijo nada, y
 /// la unica explicacion estaba en `cabina fallos`. Ahora `save` la lleva.
 ///
 /// Empaquetado en un `u64`: `[0..8)` xHC censados, `[8..16)` aparatos que ve
@@ -297,7 +297,7 @@ pub fn init(_ctx: &BootContext) {
         }
         // ** SE CENSAN TODOS ANTES DE ELEGIR, Y AQUI ESTA EL PORQUE.
         //
-        // === El sintoma del dueno, 2026-08-17 ===
+        // === El sintoma del propietario, 2026-08-17 ===
         //
         // *"reinicie desde Windows para bootear BMO-X: el raton se movio pero el
         // teclado NO aparece dentro, y al desconectarlo y conectarlo **no
@@ -356,7 +356,7 @@ pub fn init(_ctx: &BootContext) {
     // `vistos_total - mejor_vistos` son aparatos que existen, que estan
     // enchufados y encendidos, y que este kernel **no va a mirar jamas**. Si el
     // teclado es uno de ellos, esta linea es la unica explicacion que va a haber
-    // -- y sin ella el dueno solo ve "el teclado no aparece".
+    // -- y sin ella el propietario solo ve "el teclado no aparece".
     let huerfanos = vistos_total.saturating_sub(mejor_vistos);
     if huerfanos > 0 {
         crate::ring0::cabina::fault(
@@ -408,7 +408,7 @@ pub fn init(_ctx: &BootContext) {
     //
     // Y el segundo renglon es el caso entero: un controlador en HSE no enumera
     // nada, asi que `KBD_RDY` es falso **precisamente cuando** hay algo que
-    // decir. El dueno se quedaba con *"ninguna interface de teclado enumero"*,
+    // decir. El propietario se quedaba con *"ninguna interface de teclado enumero"*,
     // que suena a cable flojo y era el controlador caido.
     //
     // > Un diagnostico que se salta justo el caso que diagnostica no esta

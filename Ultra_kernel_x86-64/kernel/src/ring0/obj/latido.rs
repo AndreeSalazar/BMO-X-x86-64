@@ -143,10 +143,10 @@ pub fn operation(op: u64) -> Option<u64> {
     }
 }
 
-/// El dueno murio.
+/// El propietario murio.
 ///
 /// ** No hay nada que soltar, y se escribe la funcion IGUAL. El peaje 4 de
-/// `docs/identidad/LA_COMPATIBILIDAD.md` --*se suelta al morir el dueno*-- se
+/// `docs/identidad/LA_COMPATIBILIDAD.md` --*se suelta al morir el propietario*-- se
 /// paga aqui de la unica forma honesta cuando no hay nada que devolver: dejando
 /// dicho POR QUE no lo hay, para que el que venga no tenga que deducirlo de una
 /// ausencia.

@@ -7,7 +7,7 @@
 //! === Por que es un fichero y no un trozo de `data.rs` ===
 //!
 //! Por L6a: `data.rs` paso de las mil lineas y el censo dijo que no. Pero el
-//! corte no se eligio por tamano -- se eligio porque **este trozo no comparte
+//! corte no se eligio por medida -- se eligio porque **este trozo no comparte
 //! NADA con el explorador**.
 //!
 //! ```text
@@ -21,7 +21,7 @@
 //! y `magnitude` solo se usaban aqui y se vienen con el: **el corte se elige por
 //! nombres libres**, y estos dos lo estaban.
 //!
-//! === Lo que ensena, y por que en este orden ===
+//! === Lo que muestra, y por que en este orden ===
 //!
 //! Generacion primero, porque es lo que cambia al escribir y por tanto lo
 //! primero que uno viene a mirar despues de sellar. Despues el sitio, la
@@ -47,10 +47,10 @@ fn level_text(n: u64) -> (&'static str, u32) {
     }
 }
 
-/// Pinta la pestana de numeros dentro de la ventana.
+/// Pinta la solapa de numeros dentro de la ventana.
 ///
 /// `tx` es el margen izquierdo que ya calculo el marco: se recibe en vez de
-/// recalcularlo para que las dos pestanas empiecen en la misma columna. Dos
+/// recalcularlo para que las dos solapas empiecen en la misma columna. Dos
 /// margenes distintos en la misma ventana se ven como dos programas.
 pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow, tx: u32) {
     let mut ty = c.chrome.y + TITLE_H + 6;
@@ -85,7 +85,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow, tx: u32) {
     //
     // El campo `tiempo` del estrato llevaba un CERO desde el primer dia: el
     // volumen tenia historia y no tenia fechas. Ahora la lleva, y por eso se
-    // ensena aqui -- justo debajo de la generacion, que es su pareja: una dice
+    // muestra aqui -- justo debajo de la generacion, que es su pareja: una dice
     // CUANTAS versiones van y la otra CUANDO se hizo esta.
     //
     // Sin fecha no se pinta nada. **No se inventa una**: un volumen escrito por

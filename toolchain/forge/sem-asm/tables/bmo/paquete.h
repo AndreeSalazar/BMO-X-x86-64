@@ -1,6 +1,6 @@
 /* paquete.h -- leer los DATOS que viajan dentro del propio `.bex`.
  *
- * == La idea, dicha por el dueno ==
+ * == La idea, dicha por el propietario ==
  *
  *   "es un bef pero ese bex es el mismo que abre la caja: no lo duplica, lo lee
  *    y punto. Es una app como Windows pero no lo copia, lo deja en el lugar
@@ -250,7 +250,7 @@ int paquete_buscar(PAQUETE *p, char *nombre, unsigned long long *pos,
 
 /* Lee un recurso entero a `dst`. Devuelve cuantos bytes trajo.
  *
- * `tope` es el tamano de `dst`: si el recurso no cabe **no se lee un trozo**,
+ * `tope` es el medida de `dst`: si el recurso no cabe **no se lee un trozo**,
  * se devuelve 0. Media textura o medio WAD se parecen demasiado a uno entero. */
 unsigned long long paquete_leer(PAQUETE *p, char *nombre, void *dst,
                                 unsigned long long tope) {

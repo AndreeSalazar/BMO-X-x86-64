@@ -59,7 +59,7 @@ pub enum Libc {
 
 /// **Una unidad lista para emitir**: preprocesada, analizada y con la politica
 /// de libc aplicada. La politica es de ENLACE, no de maquina, y por eso se
-/// queda en el frontend (2026-09-18); el emisor solo le anade el `codegen`.
+/// queda en el frontend (2026-09-18); el emisor solo le agrega el `codegen`.
 pub fn parse_unidad_con_preprocesador(
     source: &str,
     file_path: &Path,

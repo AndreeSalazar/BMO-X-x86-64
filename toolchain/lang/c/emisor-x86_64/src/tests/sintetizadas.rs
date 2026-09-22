@@ -4,7 +4,7 @@
 //! `almacenamiento::memcpy_mueve_los_bytes_y_devuelve_el_destino` cuando se
 //! emitia en linea, y **seguiria pasando si el cuerpo se duplicara doscientas
 //! veces**. Un test de comportamiento no ve la diferencia entre una copia y
-//! doscientas, que es justo la propiedad que este mecanismo anade.
+//! doscientas, que es justo la propiedad que este mecanismo agrega.
 //!
 //! Asi que aqui se mira **cuantas veces sale el cuerpo en el binario**. Es la
 //! unica forma de que "se emite una sola vez" sea una prueba y no una

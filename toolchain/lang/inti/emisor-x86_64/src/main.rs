@@ -153,7 +153,7 @@ fn main() {
     //
     // Y se llama `.ibx` y no `.i` a proposito: **el linaje se ve en el
     // nombre**. Es un BEX, se carga con el mismo cargador, lo lee el mismo gate.
-    // Lo unico que anade es a que se ha comprometido.
+    // Lo unico que agrega es a que se ha comprometido.
     // Un objeto es `.bo` como los de C y C++: el enlazador no pregunta de que
     // lenguaje viene una unidad, y el nombre tampoco.
     let destino = salida.unwrap_or_else(|| Path::new(&ruta).with_extension(if objeto { "bo" } else { "ibx" }));

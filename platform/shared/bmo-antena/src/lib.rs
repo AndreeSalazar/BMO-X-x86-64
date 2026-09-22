@@ -11,7 +11,7 @@
 //!
 //! Eddi: *"mi celular se convierte en antena y puedo ver todo; BMO ya no navega
 //! pero la antena si"*. La antena (un movil con Termux) hace la web y convierte;
-//! BMO-X pide y ensena. Entre los dos, esto:
+//! BMO-X pide y muestra. Entre los dos, esto:
 //!
 //! ```text
 //!    BMO-X -> antena                 antena -> BMO-X
@@ -36,7 +36,7 @@
 //! cual, y por eso es lo unico del protocolo que BMO-X manda "largo": hasta
 //! `URL_MAX` bytes, ASCII imprimible sin espacios, y solo `http://` o
 //! `https://`. Lo que la antena haga con ella es de la antena (seccion 12 del
-//! plan: una orden sin dueno es lo que EMPAREJAR existe para impedir).
+//! plan: una orden sin propietario es lo que EMPAREJAR existe para impedir).
 //!
 //! # Lista blanca, como `bmo-pila`
 //!
@@ -45,7 +45,7 @@
 //!    un verbo que no esta arriba                                   Verbo
 //!    un id fuera de [a-z0-9_-]{1,32}                               Id
 //!    un formato que no es mpeg1                                    Formato
-//!    un tamano impar, menor de 16 o mayor que 1280x720             Tamano
+//!    un medida impar, menor de 16 o mayor que 1280x720             Tamano
 //!    otra version del protocolo                                    Version
 //! ```
 //!
@@ -62,7 +62,7 @@ pub mod cuarentena;
 pub mod lamina;
 
 pub const VERSION: &[u8] = b"ANTENA/1";
-/// El puerto de la antena. Alto, sin dueno conocido, y facil de recordar.
+/// El puerto de la antena. Alto, sin propietario conocido, y facil de recordar.
 pub const PUERTO: u16 = 7117;
 pub const LINEA_MAX: usize = 256;
 pub const ID_MAX: usize = 32;
@@ -111,7 +111,7 @@ impl Rechazo {
             Rechazo::Numero => "un numero imposible",
             Rechazo::Id => "un id fuera de [a-z0-9_-]{1,32}",
             Rechazo::Formato => "un formato de video que no es mpeg1",
-            Rechazo::Tamano => "un tamano impar, pequeno o mayor que 1280x720",
+            Rechazo::Tamano => "un medida impar, chico o mayor que 1280x720",
             Rechazo::Version => "otra version del protocolo",
             Rechazo::Corto => "no cabe en el bufer",
             Rechazo::Orden => "una linea que no toca ahora: la antena se sale del protocolo",
@@ -207,17 +207,17 @@ pub fn leer(linea: &[u8]) -> Result<Respuesta<'_>, Rechazo> {
         b"VIDEO" => {
             let (bytes, resto) = partir(resto);
             let (formato, resto) = partir(resto);
-            let (tamano, sobra) = partir(resto);
-            if tamano.is_empty() || !sobra.is_empty() {
+            let (size, sobra) = partir(resto);
+            if size.is_empty() || !sobra.is_empty() {
                 return Err(Rechazo::Campos);
             }
             let bytes = numero(bytes, u64::MAX)?;
             if formato != b"mpeg1" {
                 return Err(Rechazo::Formato);
             }
-            let x = tamano.iter().position(|&c| c == b'x').ok_or(Rechazo::Tamano)?;
-            let ancho = numero(&tamano[..x], ANCHO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
-            let alto = numero(&tamano[x + 1..], ALTO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
+            let x = size.iter().position(|&c| c == b'x').ok_or(Rechazo::Tamano)?;
+            let ancho = numero(&size[..x], ANCHO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
+            let alto = numero(&size[x + 1..], ALTO_MAX as u64).map_err(|_| Rechazo::Tamano)? as u32;
             if ancho < LADO_MIN || alto < LADO_MIN || ancho % 2 != 0 || alto % 2 != 0 {
                 return Err(Rechazo::Tamano);
             }
@@ -516,7 +516,7 @@ mod pruebas {
         assert_eq!(leer(b"VIDEO 0 h264 640x360"), Err(Rechazo::Formato));
         assert_eq!(leer(b"VIDEO 0 mpeg1 641x360"), Err(Rechazo::Tamano), "impar");
         assert_eq!(leer(b"VIDEO 0 mpeg1 1920x1080"), Err(Rechazo::Tamano), "demasiado");
-        assert_eq!(leer(b"VIDEO 0 mpeg1 8x8"), Err(Rechazo::Tamano), "demasiado pequeno");
+        assert_eq!(leer(b"VIDEO 0 mpeg1 8x8"), Err(Rechazo::Tamano), "demasiado chico");
         assert_eq!(leer(b"VIDEO 0 mpeg1 640360"), Err(Rechazo::Tamano));
         assert_eq!(leer(b"VIDEO 0 mpeg1 640x360 extra"), Err(Rechazo::Campos));
         assert_eq!(leer(b"VIDEO 99999999999999999999 mpeg1 640x360"), Err(Rechazo::Numero), "no cabe en u64");

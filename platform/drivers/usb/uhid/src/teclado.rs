@@ -40,7 +40,7 @@ static HID_TO_PS2: [u8; 104] = [
     0x1F,0x14,0x16,0x2F,0x11,0x2D,0x15,0x2C,
     0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0A,0x0B,
     // El indice 50 (usage 0x32, "Non-US # and ~") es la tecla junto al Enter
-    // de los teclados ISO: en espanol es la de } ] `. Mapea al mismo Set 1
+    // de los teclados ISO: en castellano es la de } ] `. Mapea al mismo Set 1
     // 0x2B que la barra invertida; estaba en 0 = tecla muerta de verdad.
     0x1C,0x01,0x0E,0x0F,0x39,0x0C,0x0D,0x1A,0x1B,0x2B,0x2B,
     0x27,0x28,0x29,0x33,0x34,0x35,
@@ -53,13 +53,13 @@ static HID_TO_PS2: [u8; 104] = [
     SC_RIGHT,SC_LEFT,SC_DOWN,SC_UP,0x45,
     // El '/' del teclado NUMERICO (usage 0x54) llevaba 0x35, el mismo Set 1
     // que la tecla '/' de la fila principal. En US da igual porque ambas son
-    // '/', pero en espanol esa tecla es '-': el numpad escribia guiones.
+    // '/', pero en castellano esa tecla es '-': el numpad escribia guiones.
     // Set 1 real es 0xE0 0x35 (dos bytes); 0x62 esta libre y el consumidor lo
     // resuelve como '/' en cualquier distribucion.
     0x62,0x37,0x4A,0x4E,0x1C,0x4F,0x50,0x51,0x4B,0x4C,0x4D,0x47,0x48,0x49,0x52,0x53,
     // 0x64 = la tecla EXTRA de los teclados ISO (la de < > junto al Shift
     // izquierdo, que los US no tienen): Set 1 la llama 0x56. Estaba en 0 =
-    // ignorada, asi que en un teclado espanol faltaba una tecla entera.
+    // ignorada, asi que en un teclado castellano faltaba una tecla entera.
     0x56,0,0,0,
 ];
 
@@ -77,7 +77,7 @@ fn hid_to_ps2(usage: u8) -> Option<u8> {
 /// secuencia `0xE0 0x38`, imposible de meter en un solo byte de InputEvent;
 /// 0x63 esta libre en Set 1 y el consumidor lo trata como AltGr. Sin esto
 /// AltGr llegaba como 0x38 (Alt izquierdo) y el tercer nivel del teclado
-/// espanol -- @ # \ | { } [ ] -- era inalcanzable.
+/// castellano -- @ # \ | { } [ ] -- era inalcanzable.
 pub const SC_ALTGR: u8 = 0x63;
 
 // Teclas de navegacion con codigo propio (ver la nota en HID_TO_PS2).

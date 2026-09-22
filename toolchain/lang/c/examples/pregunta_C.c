@@ -36,7 +36,7 @@ int main() {
     printf("cuantos anios tienes? ");
     scanf("%d", &edad);
     /* Aritmetica sobre lo leido: si el parseo devolviera basura, esto lo
-     * ensena. Un eco solo no distingue "lo lei" de "lo copie". */
+     * muestra. Un eco solo no distingue "lo lei" de "lo copie". */
     printf("en 10 anios tendras %d\n", edad + 10);
 
     /* Y byte a byte, que es el otro camino. Se cuentan las letras en vez de

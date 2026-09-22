@@ -8,11 +8,11 @@
 //! falla UNO, no hay nada que lo repare. La maquina se queda creyendo algo que el
 //! hardware desmiente desde hace rato, y **se queda asi hasta el reinicio**.
 //!
-//! Esa es la forma exacta del fallo que reporto el dueno: *"es como que al
+//! Esa es la forma exacta del fallo que reporto el propietario: *"es como que al
 //! teclado se le olvido, o otras veces mouse y teclado se olvido"*, con la foto de
 //! CABINA repitiendo `puerto: ENCHUFADO, nada que adoptar` y, al lado, la linea
 //! que delata la mentira: `creo tener teclado:raton =257` -- o sea `0x101`, o sea
-//! *"tengo los dos"*, mientras el dueno esta mirando un teclado que no escribe.
+//! *"tengo los dos"*, mientras el propietario esta mirando un teclado que no escribe.
 //!
 //! Con la cola de `bmo_xhci::avisos` se pierden muchos menos avisos. Pero
 //! "muchos menos" no es "las puertas siempre abiertas", que es lo que se pidio:
@@ -120,7 +120,7 @@ pub fn decidir(v: &Vista) -> Accion {
     }
     // ** AQUI DECIA `if !v.falta_algo { return Nada }` (hasta el 2026-09-17):
     // con teclado y raton dentro, NINGUN otro puerto se miraba nunca mas. El
-    // movil del dueno enchufado despues de arrancar no llegaba ni a
+    // movil del propietario enchufado despues de arrancar no llegaba ni a
     // direccionarse. Ahora se mira todo lo que tenga algo: lo que contesta y
     // no es mio se APARCA (queda `tomado` y no se vuelve a tocar), asi que el
     // coste es UNA enumeracion por aparato, no una por barrido. Y `falta_algo`
@@ -205,7 +205,7 @@ mod tests {
     ///
     /// Los intentos solo se devolvian al recibir el aviso de desconexion, que es
     /// justo el que se pierde. Tres enchufes fallidos y el puerto quedaba
-    /// inservible hasta el reinicio -- aunque el dueno lo desenchufara y lo
+    /// inservible hasta el reinicio -- aunque el propietario lo desenchufara y lo
     /// volviera a enchufar, que es lo primero que hace cualquiera.
     #[test]
     fn un_puerto_vacio_con_los_intentos_gastados_los_recupera() {
@@ -299,7 +299,7 @@ mod tests {
         assert_eq!(decidir(&v), Accion::Adoptar);
     }
 
-    /// ** EL CICLO COMPLETO, que es lo que el dueno vive con las manos.
+    /// ** EL CICLO COMPLETO, que es lo que el propietario vive con las manos.
     ///
     /// Desenchufar sin que llegue el aviso, y volver a enchufar. Antes esto
     /// terminaba en `nada que adoptar` para siempre; ahora cada paso tiene su

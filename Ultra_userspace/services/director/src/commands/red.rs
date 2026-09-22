@@ -54,7 +54,7 @@ use crate::scene::output::Output;
 ///
 /// El driver ya tomo esa decision y aqui se respeta: *"se guarda sin interpretar
 /// ademas de interpretado -- el dia que un bit no cuadre, el byte entero es la
-/// prueba y las funciones son la opinion"*. Un diagnostico que solo ensena la
+/// prueba y las funciones son la opinion"*. Un diagnostico que solo muestra la
 /// opinion no ayuda el dia que la opinion falle.
 ///
 /// [!] **Nada de esto transmite.** Son campos de informe: mirar la red no es un
@@ -75,7 +75,7 @@ use crate::scene::output::Output;
 ///
 /// ** Hasta el 28-08 el crudo tambien venia cacheado, y este informe remitia a
 /// *"la orden `net` del shell de Ring 0"* para releer -- **un sitio al que el
-/// dueno no vuelve**. La prueba del paso 1 --*desenchufa el cable y mira si el
+/// propietario no vuelve**. La prueba del paso 1 --*desenchufa el cable y mira si el
 /// enlace se cae*-- no se podia hacer desde donde el trabaja.
 #[inline(never)]
 pub(crate) fn report_net(s: &mut Output, what: &[u8]) {
@@ -118,7 +118,7 @@ pub(crate) fn report_net(s: &mut Output, what: &[u8]) {
     //
     // ** El syscall existia (`RED_OP_ARMAR`), el envoltorio de Ring 3 existia
     // (`bmo::red::armar`), y el panel decia **"net rx en Ring 0"** -- o sea que
-    // mandaba al dueno a un sitio del que no se vuelve. Cuarta vez en la misma
+    // mandaba al propietario a un sitio del que no se vuelve. Cuarta vez en la misma
     // sesion que algo se escribe donde el no puede alcanzarlo.
     //
     // *** Y era el ULTIMO ESLABON: sin esto no se puede armar el receptor, sin
@@ -127,7 +127,7 @@ pub(crate) fn report_net(s: &mut Output, what: &[u8]) {
     if what == b"rx" {
         // ** Se cuenta el TOTAL antes y despues, y no lo que devuelve
         // `sondear()`: `RED_OP_ARMAR` ya sondea dentro y se lleva las tramas
-        // nuevas, asi que el Ryzen ensenaba 0 con 16 cogidas (2026-09-13). La
+        // nuevas, asi que el Ryzen mostraba 0 con 16 cogidas (2026-09-13). La
         // misma correccion que `commands::system::net`.
         let antes = frames_rx;
         match bmo::red::armar() {
@@ -272,7 +272,7 @@ pub(crate) fn report_net(s: &mut Output, what: &[u8]) {
     // y se tiro por no haber descriptor libre no lo sabe el software: lo
     // lleva el silicio, en `MPC`. Sin esta fila, "40 tramas" suena igual si
     // por detras se perdieron cuatro que cuatro mil -- y son dos sistemas
-    // distintos: uno anda y el otro tiene el anillo pequeno.
+    // distintos: uno anda y el otro tiene el anillo chico.
     //
     // [!] El cero se dice CON SU NOMBRE. Una fila que desaparece cuando vale
     // cero deja al que mira sin saber si es que no se perdio nada o es que

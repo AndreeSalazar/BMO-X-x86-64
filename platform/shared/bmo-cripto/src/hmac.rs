@@ -62,7 +62,7 @@ pub fn hmac(clave: &[u8], mensaje: &[u8]) -> [u8; LARGO] {
 
     // Los dos rellenos del RFC. Son constantes y son distintos entre si: si
     // fueran iguales las dos pasadas usarian la misma clave derivada y la
-    // segunda no anadiria nada.
+    // segunda no agregaria nada.
     let mut ipad = [0x36u8; BLOQUE];
     let mut opad = [0x5Cu8; BLOQUE];
     for i in 0..BLOQUE {

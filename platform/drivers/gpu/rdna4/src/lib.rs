@@ -38,7 +38,7 @@
 //!
 //! ## * Regla 1: NO SE TOCA EL DISPLAY
 //!
-//! Y es lo que convierte esto de "un anio" en "un driver del tamano del de
+//! Y es lo que convierte esto de "un anio" en "un driver del medida del de
 //! AHCI". El firmware UEFI **ya programo el motor de pantalla** y dejo un
 //! framebuffer lineal a 1920x1080 (GOP). Si se deja como esta, **se salta
 //! DCN entero** -- el controlador de display, que es la parte mas grande y
@@ -93,7 +93,7 @@
 //! ## [!] Y la OTRA meta, que no es esta -- ver `PLAN_VULKAN.md`
 //!
 //! Todo lo de arriba es **acelerar el compositor con SDMA**: un motor, sin
-//! sombreadores, sin 3D. Es del tamano del driver de AHCI y es alcanzable.
+//! sombreadores, sin 3D. Es del medida del driver de AHCI y es alcanzable.
 //!
 //! **Correr juegos de Vulkan es otra meta y es un proyecto de anios.** Vive en
 //! `PLAN_VULKAN.md`, en esta misma carpeta, con sus piezas contadas y con la

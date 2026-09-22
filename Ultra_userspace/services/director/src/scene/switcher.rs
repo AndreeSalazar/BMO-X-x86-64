@@ -12,10 +12,10 @@
 //!
 //! Sin esta ventanita, Alt+Tab es adivinar. Con dos ventanas se aguanta; con
 //! tres ya no se sabe cuantos Tabs faltan, y el resultado es pulsar de mas y
-//! acabar donde no querias. Ensenar **la lista y cual esta senalada** convierte
+//! acabar donde no querias. Ensenar **la lista y cual esta marcada** convierte
 //! un atajo de memoria en uno que se mira.
 //!
-//! Es lo que Eddi pidio con estas palabras: *"requiere la pequena ventana que
+//! Es lo que Eddi pidio con estas palabras: *"requiere la chica ventana que
 //! hace ver todo para facilitar que prioridad le da, porque si no chocan"*.
 
 use bmo_userland as bmo;
@@ -68,7 +68,7 @@ fn run_box(p: &bmo::Pantalla, count: usize) -> (u32, u32, u32, u32) {
     )
 }
 
-/// Pinta el conmutador centrado, con la senalada resaltada.
+/// Pinta el conmutador centrado, con la marcada resaltada.
 pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &str) {
     if lista.is_empty() {
         return;

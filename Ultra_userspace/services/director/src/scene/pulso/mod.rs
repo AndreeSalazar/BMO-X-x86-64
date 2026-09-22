@@ -18,7 +18,7 @@
 //!
 //! # *** POR QUE ESTE FICHERO ES UNA CARPETA (L6g nivel 3, 2026-09-08)
 //!
-//! Lo pidio el dueno, y la razon la habia escrito ya el propio fichero sin
+//! Lo pidio el propietario, y la razon la habia escrito ya el propio fichero sin
 //! darse cuenta. El pulso ha mentido **dos veces en un dia**:
 //!
 //! ```text
@@ -29,7 +29,7 @@
 //! ** Las dos averias fueron de SIGNIFICADO. Ninguna fue de dibujo. Y las dos
 //! vivian en la misma funcion que las coordenadas, o sea que un cambio de donde
 //! cae un numero y un cambio de que dice ese numero **se leian igual en el
-//! diff**. Ese es el corte, y no el tamano: 244 lineas no obligan a nada.
+//! diff**. Ese es el corte, y no el medida: 244 lineas no obligan a nada.
 //!
 //! ```text
 //!    amarilla.rs   QUE ES VERDAD    se equivoca CALLANDO    -> dos manos

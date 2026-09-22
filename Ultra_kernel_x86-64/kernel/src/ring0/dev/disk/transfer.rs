@@ -118,7 +118,7 @@ static mut CON_REBOTE: u64 = 0;
 static mut MOTIVOS: [u64; bmo_dma_forma::PorQue::CUANTOS] =
     [0; bmo_dma_forma::PorQue::CUANTOS];
 
-/// La tabla de motivos, para quien la quiera ensenar.
+/// La tabla de motivos, para quien la quiera mostrar.
 pub fn motivos_dma() -> [u64; bmo_dma_forma::PorQue::CUANTOS] {
     unsafe { MOTIVOS }
 }
@@ -219,7 +219,7 @@ fn juzgar_el_dma(phys: u64, bytes: u64, prestando: bool) -> bool {
     true
 }
 
-/// Vetos del juez del DMA desde el arranque. **Se ensena y no corta**, salvo
+/// Vetos del juez del DMA desde el arranque. **Se muestra y no corta**, salvo
 /// `DeOtroAparato`. Ver [`juzgar_el_dma`].
 pub static mut DMA_VETOS: u64 = 0;
 
@@ -241,7 +241,7 @@ pub static mut DMA_VETOS: u64 = 0;
 ///    una lectura de 4 KiB al AHCI    decenas de MICROsegundos
 /// ```
 ///
-/// ** Por pagina serian 112 ticks x N y crecerian con el tamano de la lectura;
+/// ** Por pagina serian 112 ticks x N y crecerian con el medida de la lectura;
 /// por transferencia son 112 y punto. Contra una vuelta al disco no se nota --
 /// pero que no se note es una consecuencia de donde esta la linea, no una
 /// propiedad del reloj.
@@ -329,7 +329,7 @@ fn leer_rebotando(lba: u64, batch: u16, dma: u64, buf: &mut [u8], done: u16) -> 
     let got = mandar_lectura(lba, batch, dma, false)?;
     // == *** LAS DOS COMPROBACIONES QUE VIAJAN CON EL TRABAJO =============
     //
-    // ** No son una sonda. Corren en CADA rebote, con los tamanos de verdad,
+    // ** No son una sonda. Corren en CADA rebote, con los medidas de verdad,
     // y nadie tiene que acordarse de lanzarlas. Ver `centinela.rs` para por
     // que eso es distinto de probar el DMA una vez.
     //
@@ -407,7 +407,7 @@ fn tramo_dma(va: u64, max: u64) -> Option<(u64, u64)> {
     // el mapeo, no una comprobacion que un dia mira mal.
     //
     // Todo lo demas --la pila, `.bss`, la imagen del kernel-- **rebota**. Es mas
-    // lento y es correcto, y son lecturas pequenas: el prologo son 2 KB.
+    // lento y es correcto, y son lecturas chicas: el prologo son 2 KB.
     //
     // ** Y el camino rapido NO se pierde donde importa. La pieza B aterriza las
     // secciones en marcos recien pedidos al asignador, y a esos se llega por
@@ -429,7 +429,7 @@ fn tramo_dma(va: u64, max: u64) -> Option<(u64, u64)> {
     //
     // ** `cuentas_dma` decia *"rebotaron 40 MiB"* y con eso no se puede hacer
     // nada: no se sabe si sobra alineacion, si hay bufers fuera del espejo o si
-    // es un tamano, y los tres se arreglan de formas que no se parecen.
+    // es un medida, y los tres se arreglan de formas que no se parecen.
     //
     // [!] `bits_de_cuenta: 64` NO es una relajacion: el PRDT de AHCI lleva la
     // direccion en 32+32 --`DBA` mas `DBAU`-- asi que direcciona los 64, y este
@@ -467,7 +467,7 @@ fn tramo_dma(va: u64, max: u64) -> Option<(u64, u64)> {
 // definicion de E/S asincrona, y lo que hace falta para que un programa de Ring
 // 3 lea un archivo grande sin quedarse mudo mientras tanto.
 //
-// === El dueno se queda TOMADO entre las dos llamadas ===
+// === El propietario se queda TOMADO entre las dos llamadas ===
 //
 // Y es lo que las hace seguras. Un comando en vuelo es estado global del puerto
 // (una ranura, un PRDT, un `PRDBC`); si el disco quedara libre entre pedir y

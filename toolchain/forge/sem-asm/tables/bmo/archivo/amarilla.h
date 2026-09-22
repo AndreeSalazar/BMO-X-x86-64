@@ -38,7 +38,7 @@
  *
  * El kernel solo sabe SALTAR a una posicion absoluta, y esta bien que sea asi:
  * `SEEK_CUR` y `SEEK_END` son aritmetica sobre dos numeros que este lado ya
- * tiene -- el cursor propio y el tamano que da `BMO_ARCH_TAMANO`. Se resuelven
+ * tiene -- el cursor propio y el medida que da `BMO_ARCH_TAMANO`. Se resuelven
  * aqui y por la puerta sigue pasando una sola cosa.
  *
  * El desplazamiento va con SIGNO porque el estandar lo define asi y porque
@@ -53,9 +53,9 @@ int fseek(FILE *f, long long desplazamiento, int desde) {
     if (desde == 1) {
         destino = (long long)f->pos + desplazamiento;
     } else if (desde == 2) {
-        /* [!] `bmo_quedan` son los bytes QUE QUEDAN, no el tamano: lo dice el
+        /* [!] `bmo_quedan` son los bytes QUE QUEDAN, no el medida: lo dice el
          * kernel en `ARCH_OP_TAMANO` y lo repite el ABI. El final del fichero
-         * es cursor + lo que queda; usarlo como si fuera el tamano da un
+         * es cursor + lo que queda; usarlo como si fuera el medida da un
          * `SEEK_END` que se mueve segun donde estuviera el cursor. */
         destino = (long long)(f->pos + bmo_quedan(f)) + desplazamiento;
     } else {
@@ -89,7 +89,7 @@ unsigned long long ftell(FILE *f) {
  * [!] Ojo con la semantica, que es la trampa clasica de C: `feof` **no
  * adivina**. En C de verdad solo dice que si DESPUES de que una lectura se
  * quedara corta, no cuando el cursor llega al final. Aqui se contesta con la
- * comparacion directa --cursor contra tamano-- que es lo que un bucle
+ * comparacion directa --cursor contra medida-- que es lo que un bucle
  * `while (!feof(f))` espera de verdad, y ademas no puede quedarse colgado.
  *
  * Se dice porque es una DIFERENCIA con el estandar, y una diferencia callada es
@@ -100,7 +100,7 @@ int feof(FILE *f) {
     }
     /* ** ESTO DECIA `f->pos >= bmo_quedan(f)`, Y ESTABA MAL DESPLEGADO.
      *
-     * `bmo_quedan` son los bytes QUE QUEDAN por leer, no el tamano del fichero
+     * `bmo_quedan` son los bytes QUE QUEDAN por leer, no el medida del fichero
      * -- `ARCH_OP_TAMANO` lo dice con esas palabras y el ABI lo repite. Contra
      * un fichero de diez bytes con el cursor en el seis quedan cuatro, y
      * `6 >= 4` es cierto: **`feof` daba EOF pasada la mitad de cualquier

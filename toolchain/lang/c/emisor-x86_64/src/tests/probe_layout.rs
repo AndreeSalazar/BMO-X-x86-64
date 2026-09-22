@@ -166,7 +166,7 @@ fn census() -> [Cell; 17] {
         // o sea que las cinco filas que faltaban eran las del sitio donde
         // estaba muriendo.
         //
-        // [!] Y el tamano importa el doble aqui: no solo desplaza los
+        // [!] Y el medida importa el doble aqui: no solo desplaza los
         // registros a partir del segundo, es que **`numX` sale mal**, y ese
         // numero es el que se le pasa a `Z_Malloc` y el que gobierna el bucle
         // que lo llena.
@@ -303,7 +303,7 @@ fn the_layout_census_has_not_changed() {
 /// **EL CENSUS DE LA DISPOSICION, al 2026-08-13.**
 ///
 /// Verde entero desde que `Disposicion::coloca` recibe el alineado en vez de
-/// deducirlo del tamano.
+/// deducirlo del medida.
 ///
 /// ** Y el "antes" esta MEDIDO, no supuesto: se volvio a poner la regla vieja
 /// a proposito y el barrido dio **NUEVE ROTAS de doce**. Escribir el censo

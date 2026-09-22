@@ -5,7 +5,7 @@
  * Una app podia llevar una imagen dentro de su `.bex` desde que `bmo-pack`
  * escribe la seccion de recursos, y **no sabia pintarla**. El unico que
  * descifraba un `BICO` era el DIRECTOR, y solo a 16x16 porque es lo que mide un
- * icono del escritorio: *"escalar un icono de otro tamano es una decision de
+ * icono del escritorio: *"escalar un icono de otro medida es una decision de
  * aspecto que no toca aqui"*. Tenia razon -- ahi no tocaba. Toca aqui.
  *
  * Con esto, un tercero que quiera imagenes en su programa ya puede, HOY, sin
@@ -28,7 +28,7 @@
  * y pixeles tal cual. Cuesta sitio en disco y no cuesta ni una linea de
  * descompresion, ni un buffer temporal, ni un fallo de formato malformado que
  * alguien pueda usar contra ti. Para un icono, una vineta o una textura
- * pequena es el intercambio correcto; para una foto de dos megapixeles no, y
+ * chica es el intercambio correcto; para una foto de dos megapixeles no, y
  * entonces lo que falta es un decodificador de verdad y no otra cabecera.
  *
  * == El alfa es un BIT, no un canal ==
@@ -196,7 +196,7 @@ int bmo_imagen_pinta_escala(unsigned int *px, int stride, int ancho, int alto,
     return 1;
 }
 
-/* Lo mismo, tamano natural. */
+/* Lo mismo, medida natural. */
 int bmo_imagen_pinta(unsigned int *px, int stride, int ancho, int alto,
                      int x, int y, const unsigned char *b, int n) {
     return bmo_imagen_pinta_escala(px, stride, ancho, alto, x, y, b, n, 1);

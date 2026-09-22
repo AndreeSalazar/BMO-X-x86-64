@@ -229,7 +229,7 @@ fn el_paso_de_muestreo_de_una_columna_esta_exonerado() {
         },
         Casilla {
             // `r_segs.c:171`, la version de los sprites y las medias texturas.
-            nombre: "la misma, con spryscale pequeno",
+            nombre: "la misma, con spryscale chico",
             fuente: "int main() { int s; unsigned int r; s = 256; \
                      r = 0xffffffffu / (unsigned)s; printf(\"%u\\n\", r); return 0; }",
             espera: "16777215",

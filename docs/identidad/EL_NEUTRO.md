@@ -7,7 +7,7 @@
 > con su ley, su censo y sus requisitos. Este capitulo contesta *por que*; la
 > carpeta guarda *el estandar*. Mismo reparto que `VALKYRIE-ABI/`.
 >
-> Lo nombro el dueno el **2026-09-07**, hablando de la GPU:
+> Lo nombro el propietario el **2026-09-07**, hablando de la GPU:
 >
 > > *"considero que si hablamos de GPU, ese ya no vive en RING 0 ni RING 3.
 > > Vive en **Neutro**. Ese mismo es por algo, para facilitar"*
@@ -128,7 +128,7 @@ una sola frontera detras**.
 
 ---
 
-## 5. Por que el dueno dijo "para facilitar", y tenia razon
+## 5. Por que el propietario dijo "para facilitar", y tenia razon
 
 Su frase fue *"ese mismo es por algo, para facilitar"*. Lo que facilita, dicho
 con precision:
@@ -170,7 +170,7 @@ descubrirla otra vez con una pantalla azul delante.
 
 ```text
    [ ] no dice que el neutro sea inseguro. Dice que NO ESTA VIGILADO,
-       que es una afirmacion mas pequena y comprobable
+       que es una afirmacion mas chica y comprobable
    [ ] no propone una IOMMU. La nombra como lo unico que cerraria esto
    [ ] y no aparece en el ABI: Ring 3 no tiene que saber que existe
 ```
@@ -184,12 +184,12 @@ otras ocho clases ya estaban.
 
 ```text
    se anadio   `Titular::Neutro`, y los cuatro sitios que piden DMA la usan
-   salio gratis la pantalla azul YA preguntaba el dueno del marco: solo le
+   salio gratis la pantalla azul YA preguntaba el propietario del marco: solo le
                faltaba que existiera un nombre que decir
 ```
 
 *** Se deja escrito en vez de borrarlo: **una categoria que a las pocas horas
-produce un mecanismo es la senal de que la categoria era buena**, y taparlo
+produce un mecanismo es la signal de que la categoria era buena**, y taparlo
 haria parecer que estaba planeado.
 
 > Lo que sigue siendo cierto es lo de arriba: nombrar el agujero no lo tapa.

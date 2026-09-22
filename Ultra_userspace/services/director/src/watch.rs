@@ -85,7 +85,7 @@ pub(crate) fn watch_run(
         return;
     }
 
-    // ** SE DRENA ANTES DE GUARDAR, y esto lo enseno el disco.
+    // ** SE DRENA ANTES DE GUARDAR, y esto lo mostro el disco.
     //
     // El primer `output.txt` que llego a Windows tenia las cuatro
     // lineas del ECO y **ni una del programa**. El motivo: este

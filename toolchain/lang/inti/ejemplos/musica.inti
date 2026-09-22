@@ -440,7 +440,7 @@ funcion acota(tempo es natural64) devuelve natural64
         devuelve 400
     devuelve tempo
 
-funcion ensena(hz es natural64, fig es natural64)
+funcion muestra(hz es natural64, fig es natural64)
     si hz = 0
         palabra(ocho_bytes("  pausa "))
     sino
@@ -475,7 +475,7 @@ funcion toca(cap es natural64, texto es natural64, n es natural64, pcm es natura
                     fig es natural64 = (t desplaza derecha 32) bits_y 255
                     hz es natural64 = (t desplaza derecha 16) bits_y 65535
                     ms es natural64 = (15000 * fig) entre tempo
-                    ensena(hz, fig)
+                    muestra(hz, fig)
                     si fmt = 0
                         altavoz(cap, hz, ms)
                     sino

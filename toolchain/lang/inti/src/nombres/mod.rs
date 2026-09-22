@@ -711,7 +711,7 @@ impl<'c> Vigia<'c> {
                     .con_habia(
                         "No esta declarado en este bloque ni lo trae ningun `usa`.".to_string(),
                     )
-                    .con_hacer("declaralo antes, o anade el `usa` del modulo que lo trae");
+                    .con_hacer("declaralo antes, o agrega el `usa` del modulo que lo trae");
             }
         }
         self.avisos.push(aviso);

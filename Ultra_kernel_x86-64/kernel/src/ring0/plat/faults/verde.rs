@@ -11,7 +11,7 @@
 //! [prueba]  bmo-fisica-juicio
 //!
 //! ** `Line` esta aqui y no en amarillo aunque lo use el informe: **no decide
-//! nada**. Escribe bytes en un array de tamano fijo y se para al llegar al
+//! nada**. Escribe bytes en un array de medida fijo y se para al llegar al
 //! final. Es la pieza mas tocada del fichero y la menos peligrosa, que es
 //! justo lo que un carril tiene que poder decir de un vistazo.
 
@@ -21,7 +21,7 @@ use crate::ring0::dev::console::serial_write;
 ///
 /// # *** CORTABA EN 80 BYTES Y NO LO DECIA (2026-09-02)
 ///
-/// El dueno fotografio una pantalla azul cuyo veredicto acababa asi:
+/// El propietario fotografio una pantalla azul cuyo veredicto acababa asi:
 ///
 /// ```text
 ///    rsp=0xFFFF800000B8DC50   pila de HILO DEL KERNEL -- de NADIE VIVO marco OCUPADO,
@@ -175,7 +175,7 @@ impl Line {
 // -- La pantalla de fallo ------------------------------------------------
 
 /// Azul de BMO. No es el de Microsoft ni pretende serlo: una pantalla de
-/// panico es una pieza de diseno estandar de cualquier sistema operativo, y
+/// panico es una pieza de esquema estandar de cualquier sistema operativo, y
 /// esta lleva la cara de este. Lo que si se le copia al mundo entero es la
 /// idea buena -- **azul, letra grande, y los numeros que hacen falta**.
 pub(super) const FALLO_FONDO: u32 = 0x0011_3A6E;

@@ -52,7 +52,7 @@
 //!     12..16  cero (reservado)
 //! ```
 //!
-//! **Registros de tamano fijo**, igual que los requisitos y el directorio de
+//! **Registros de medida fijo**, igual que los requisitos y el directorio de
 //! recursos: la katana `i` esta en `16 + i*16` y el lector es una
 //! multiplicacion. Se lee desde Rust, desde Ring 0 sin `alloc`, y desde C con
 //! quince lineas.

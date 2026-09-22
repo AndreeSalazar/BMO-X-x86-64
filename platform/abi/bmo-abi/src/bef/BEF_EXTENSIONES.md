@@ -7,7 +7,7 @@
 (la puerta del kernel, sin `alloc`).
 
 Este documento existe para que BEF pueda crecer **sin que el kernel crezca
-con el**, y para que nadie --ni yo a las tres de la manana-- le anada un campo
+con el**, y para que nadie --ni yo a las tres de la luego-- le anada un campo
 "porque hacia falta".
 
 ** BEF1 --la cabecera de 48 B con TABLA DE SECCIONES tipadas, la idea central
@@ -27,7 +27,7 @@ siguiente.
 La respuesta **equivocada** seria darle a BEF un encabezado por lenguaje: un
 bloque "Java", uno "C#", uno para el GIL de un interprete. Eso obligaria al
 kernel a saber que es Java, que es C# y que es un GIL -- y la superficie
-congelada dejaria de estar congelada, porque cada lenguaje nuevo anadiria un
+congelada dejaria de estar congelada, porque cada lenguaje nuevo agregaria un
 campo que Ring 0 tendria que entender. Seria el embudo central disfrazado de
 cabecera.
 
@@ -209,7 +209,7 @@ separarse del binario, y por eso un lenguaje nuevo no obliga a tocar Ring 0.
 
 # ★★ PUEDE MEJORAR EL BEF? -- auditado el 2026-08-04
 
-Pregunta del dueno, y la respuesta es la contraria de la que esperaba:
+Pregunta del propietario, y la respuesta es la contraria de la que esperaba:
 
 > **El BEF esta POR DELANTE del sistema, no por detras.**
 

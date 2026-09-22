@@ -229,7 +229,7 @@ fn u32_en(b: &[u8], i: usize) -> Option<u32> {
 
 /// **Abrir un WAV.** Devuelve las muestras SIN COPIARLAS.
 ///
-/// # El sobre no es de tamano fijo, y ahi esta el fallo facil
+/// # El sobre no es de medida fijo, y ahi esta el fallo facil
 ///
 /// Se lee mucho que *"un WAV son 44 bytes de cabecera"*. Es cierto en el caso
 /// mas comun y **falso en general**: RIFF es una lista de trozos con nombre, y

@@ -43,7 +43,7 @@
        01 RES    PIC S9(9)V99.
        01 VALE   PIC 9.
       *    El campo de PRESENTACION de la tecla `$`. Guarda lo mismo que RES;
-      *    se ensena distinto. La mascara se gasta AL COMPILAR: en el .bex no
+      *    se muestra distinto. La mascara se gasta AL COMPILAR: en el .bex no
       *    queda ni la plantilla ni un interprete que la lea.
       *
       *    * Es ANCHA a proposito -- nueve digitos enteros, los mismos que

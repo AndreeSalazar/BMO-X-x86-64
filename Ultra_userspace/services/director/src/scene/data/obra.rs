@@ -26,15 +26,15 @@ use crate::text::decimal;
 
 // == ** EL EXPLORADOR: los tres paneles a la vez ============================
 //
-// Eran dos pestanas y ahora es una vista. El argumento del dueno, que es el
+// Eran dos solapas y ahora es una vista. El argumento del propietario, que es el
 // que manda aqui:
 //
 //   > "en explorer es 2D y en nodos es 3D, asi mas facil de gestionar"
 //
 // Traducido a lo que ESTRATOS es de verdad: la rejilla contesta *que hay* y el
 // grafo contesta *que es esto*. Un directorio de este volumen no es una
-// carpeta, es un nodo con atributos -- y eso la rejilla no lo puede ensenar
-// por mucho que se le anadan columnas.
+// carpeta, es un nodo con atributos -- y eso la rejilla no lo puede mostrar
+// por mucho que se le agreguen columnas.
 //
 // ** Y ninguno de los tres paneles sabe donde esta: cada uno recibe su
 // rectangulo de `scene::zonas`. Es lo que permite que el grafo se retire
@@ -45,7 +45,7 @@ pub(crate) fn obra(p: &bmo::Pantalla, c: &DataWindow) {
     // ** LAS PESTANAS DE VOLUMEN van PRIMERO y siempre (2026-09-13): si
     // ESTRATOS no monta, tiene que seguir pudiendose ir a DATOS o a EFI. Ver
     // `fuente`.
-    let mx = pestanas(p, &z.miga);
+    let mx = solapas(p, &z.miga);
     let my = z.miga.y + (MIGA_H - bmo::GLIFO_ALTO) / 2;
 
     if fuente::es_estratos() {
@@ -101,7 +101,7 @@ pub(crate) fn obra(p: &bmo::Pantalla, c: &DataWindow) {
 /// Los nombres los guarda el cursor AL BAJAR, porque despues ya no se saben: un
 /// nodo no sabe como se llama -- el nombre vive en la entrada de su padre.
 ///
-/// * Estaba ESCRITA DOS VECES, una en cada pestana, y por eso vive aqui ahora:
+/// * Estaba ESCRITA DOS VECES, una en cada solapa, y por eso vive aqui ahora:
 /// con las dos vistas a la vez habria pintado dos migas distintas del mismo
 /// sitio.
 fn miga(p: &bmo::Pantalla, z: &Zona, x0: u32) {
@@ -132,7 +132,7 @@ fn miga(p: &bmo::Pantalla, z: &Zona, x0: u32) {
     p.rect(z.x, z.abajo() - 2, z.w, 1, DATA_EDGE);
 }
 
-/// **Donde cae cada pestana de volumen**: `(x inicial, x final)`, en el orden de
+/// **Donde cae cada solapa de volumen**: `(x inicial, x final)`, en el orden de
 /// `Volumen::TODOS`. ** La comparten quien pinta y quien acierta con el raton
 /// (`DataWindow::pestana_en`): dos copias de una geometria se separan solas.
 pub(crate) fn pestanas_x(z: &Zona) -> [(u32, u32); 3] {
@@ -146,13 +146,13 @@ pub(crate) fn pestanas_x(z: &Zona) -> [(u32, u32); 3] {
     out
 }
 
-/// **Las pestanas de VOLUMEN**, al principio de la miga: `1 ESTRATOS 2 DATOS
+/// **Las solapas de VOLUMEN**, al principio de la miga: `1 ESTRATOS 2 DATOS
 /// 3 EFI`. La activa lleva fondo y subrayado. Devuelve donde puede empezar lo
 /// que va detras.
 ///
-/// La cifra va DENTRO de la pestana porque es la tecla: un atajo que no se ve
+/// La cifra va DENTRO de la solapa porque es la tecla: un atajo que no se ve
 /// escrito lo conoce solo quien lo programo.
-fn pestanas(p: &bmo::Pantalla, z: &Zona) -> u32 {
+fn solapas(p: &bmo::Pantalla, z: &Zona) -> u32 {
     let ty = z.y + (MIGA_H - bmo::GLIFO_ALTO) / 2;
     let activo = fuente::activo();
     let xs = pestanas_x(z);
@@ -170,7 +170,7 @@ fn pestanas(p: &bmo::Pantalla, z: &Zona) -> u32 {
     xs[2].1 + 2 * bmo::GLIFO_ANCHO
 }
 
-/// **EL PIE**: el detalle del nodo senalado, y la linea que anuncia las teclas.
+/// **EL PIE**: el detalle del nodo marcado, y la linea que anuncia las teclas.
 ///
 /// Las dos lineas ya existian sueltas al fondo de la ventana, cada una midiendo
 /// por su cuenta contra `chrome.height`. Aqui reciben su zona.
@@ -178,9 +178,9 @@ fn pie(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
     let how_many = fuente::hijos() as usize;
     p.rect(z.x, z.y, z.w, 1, DATA_EDGE);
 
-    // -- * EL DETALLE del nodo senalado --
+    // -- * EL DETALLE del nodo marcado --
     //
-    // Un grafo que solo ensena nombres contesta *que hay*; no contesta *que es
+    // Un grafo que solo muestra nombres contesta *que hay*; no contesta *que es
     // esto*.
     let dy = z.y + 5;
     if c.sel < how_many {
@@ -189,7 +189,7 @@ fn pie(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
         let n = decimal(fuente::hijo_bytes(c.sel as u64), &mut b);
         let x = p.texto_bytes(x, dy, &b[..n], INK);
         // Atributos y firma son de ESTRATOS: un fichero FAT32 no tiene ni lo uno
-        // ni lo otro, y ensenar "firma no" diria que falta algo que alli no existe.
+        // ni lo otro, y mostrar "firma no" diria que falta algo que alli no existe.
         if !fuente::es_estratos() {
             let que = if fuente::activo() == fuente::Volumen::Efi {
                 " B   FAT32, particion de arranque: SOLO MIRAR"
@@ -230,7 +230,7 @@ fn pie(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
     // -- ** `S sella` DICHO EN LA BARRA, y esa es la mitad del arreglo --
     //
     // La orden de sellar existia desde hacia dias y **no estaba escrita en
-    // ningun sitio que se vea**: el dueno la busco teniendola delante. Una
+    // ningun sitio que se vea**: el propietario la busco teniendola delante. Una
     // funcion que no se anuncia no es discreta, es una funcion que no esta.
     let y = z.y + 5 + bmo::GLIFO_ALTO + 5;
     match c.seal {
@@ -279,16 +279,16 @@ pub(crate) const REJILLA_CABECERA: u32 = bmo::GLIFO_ALTO + 7;
 /// lo justo para que el realce de la seleccion no toque las letras.
 pub(crate) const ROW_H: u32 = 22;
 
-/// **LA REJILLA: los hijos del nodo actual, como los ensena un explorador.**
+/// **LA REJILLA: los hijos del nodo actual, como los muestra un explorador.**
 ///
 /// Comparte cursor con el grafo --literalmente el mismo, no una copia-- y desde
 /// que los dos se pintan a la vez comparte tambien la VENTANA de scroll: las
-/// dos columnas ensenan exactamente los mismos hijos, uno como lista y otro
+/// dos columnas muestran exactamente los mismos hijos, uno como lista y otro
 /// como cajas. Es lo que las hace dos lecturas de una cosa y no dos listas que
 /// hay que cuadrar con la vista.
 ///
 /// Tres columnas y ni una mas: **nombre, que es, cuanto ocupa**. Un explorador
-/// que ensena diez columnas por defecto obliga a leerlas todas para encontrar
+/// que muestra diez columnas por defecto obliga a leerlas todas para encontrar
 /// la unica que importaba.
 fn paint_folders(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
     if !z.hay() {
@@ -315,8 +315,8 @@ fn paint_folders(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
 
     // ** El cuantas-caben sale de `fit_count`, que mide con las cajas del
     // GRAFO y no con estas filas. Es a proposito: las dos columnas tienen que
-    // ensenar el mismo tramo de hijos, y el tramo lo manda el panel que menos
-    // cosas mete. Con dos cuentas distintas, la lista ensenaria un archivo que
+    // mostrar el mismo tramo de hijos, y el tramo lo manda el panel que menos
+    // cosas mete. Con dos cuentas distintas, la lista mostraria un archivo que
     // el grafo de al lado no tiene -- y entonces ya no son la misma cosa vista
     // de dos maneras.
     let last = (c.from + c.fit_count()).min(how_many);
@@ -326,7 +326,7 @@ fn paint_folders(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
         let kind = fuente::hijo_tipo(i as u64);
         let (type_name, color) = class_color(kind);
 
-        // El realce de la fila senalada. Va DEBAJO del texto y ocupa el ancho
+        // El realce de la fila marcada. Va DEBAJO del texto y ocupa el ancho
         // entero: es como se lee "esta es la seleccionada" sin un cursor.
         if i == c.sel {
             realce(p, z.x, ty, z.w, ROW_H);
@@ -370,10 +370,10 @@ fn paint_folders(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
 
 /// **EL GRAFO: el nodo actual y sus hijos, unidos por una curva cada uno.**
 ///
-/// * La spec del dueno, cumplida: un grafo tipo n8n -- cajas con titulo y
+/// * La spec del propietario, cumplida: un grafo tipo n8n -- cajas con titulo y
 /// nombre, unidas por lineas, con color por clase. No una lista con sangrias.
 ///
-/// Y desde el 2026-08-18 **no es una pestana: es la columna de la derecha**,
+/// Y desde el 2026-08-18 **no es una solapa: es la columna de la derecha**,
 /// junto a la rejilla. La razon esta en la cabecera de [`View::Obra`] y es la
 /// que da sentido a tener las dos a la vez: la rejilla contesta *que hay
 /// dentro* y esto contesta *que es eso y como se conecta*.

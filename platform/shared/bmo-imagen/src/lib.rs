@@ -13,7 +13,7 @@
 //!
 //! ** Por eso esto es una crate y no un fichero del DIRECTOR: aqui se prueba en
 //! el anfitrion contra ficheros ROTOS. Toda medida que viene del fichero se
-//! compara con lo que llego antes de usarla, y un bufer pequeno es `NoCabe`, no
+//! compara con lo que llego antes de usarla, y un bufer chico es `NoCabe`, no
 //! una escritura de mas.
 //!
 //! ## El pixel que sale
@@ -70,7 +70,7 @@ pub enum Error {
     Variante,
     /// Ancho o alto a cero, o mas de `LADO_MAX`.
     Medidas,
-    /// El bufer de quien llama es mas pequeno que la imagen.
+    /// El bufer de quien llama es mas chico que la imagen.
     NoCabe,
     /// Un formato comprimido sin `taller` (ver [`TALLER`]).
     SinTaller,

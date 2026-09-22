@@ -21,7 +21,7 @@
  * ==========================================================================
  *
  * En GCC y en Clang esos intrinsecos estan **cableados en C++ dentro del
- * compilador** -- `BuiltinsX86.def` son miles de lineas, y anadir una
+ * compilador** -- `BuiltinsX86.def` son miles de lineas, y agregar una
  * instruccion es parchear el compilador, recompilarlo y esperar a la siguiente
  * version.
  *
@@ -46,7 +46,7 @@
  * Es el sitio correcto para algo que no es del lenguaje sino de quien lo
  * implementa.
  *
- * El de arriba es este fichero, y anade tres cosas que la tabla no puede dar:
+ * El de arriba es este fichero, y agrega tres cosas que la tabla no puede dar:
  *
  *   1. **Tipos.** `__outb` acepta cualquier cosa; `puerto_byte(u16, u8)` dice
  *      que cabe. Un puerto de 32 bits no existe.

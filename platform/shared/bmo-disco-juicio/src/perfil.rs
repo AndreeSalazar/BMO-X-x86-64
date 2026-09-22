@@ -1,8 +1,8 @@
 //! **EL PERFIL** -- lo que el disco NO puede contestar, declarado a mano.
 //!
-//! [exige]   R-DISCO8 (lo que decide el diseno es lo que el disco calla),
+//! [exige]   R-DISCO8 (lo que decide el esquema es lo que el disco calla),
 //!           R-DISCO9 (una cifra de catalogo no es una medida),
-//!           R-CPU8 (un presupuesto tiene dueno), R-CPU9 (los dos lados)
+//!           R-CPU8 (un presupuesto tiene propietario), R-CPU9 (los dos lados)
 //!
 //! # ** DONDE CAE LA RAYA, Y POR QUE NO ES UNA PREFERENCIA
 //!
@@ -72,7 +72,7 @@ impl Cifra {
 /// La identidad con la que se midio un perfil.
 ///
 /// Es lo que hace que el perfil pertenezca a UN disco (R-CPU8). El modelo basta
-/// para la familia; la capacidad desempata entre tamanos del mismo modelo, que
+/// para la familia; la capacidad desempata entre medidas del mismo modelo, que
 /// tienen bloque de borrado y TBW distintos.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Identidad {
@@ -138,7 +138,7 @@ pub struct Perfil {
 /// # El Kingston de esta maquina
 ///
 /// El unico perfil que hay, igual que `cpu_vendor/` empezo con un solo CPU. Para
-/// anadir otro: copiar este bloque, cambiar la identidad y pegar las cifras de
+/// agregar otro: copiar este bloque, cambiar la identidad y pegar las cifras de
 /// su sonda. **Nada mas del arbol se toca.**
 ///
 /// [!] **Cuatro de las cinco cifras son `Catalogo`**, o sea que hoy este perfil
@@ -179,7 +179,7 @@ mod pruebas {
     }
 
     /// ** La que importa: el mismo modelo en otra capacidad NO comparte perfil.
-    /// El bloque de borrado y el TBW cambian con el tamano.
+    /// El bloque de borrado y el TBW cambian con el medida.
     #[test]
     fn el_mismo_modelo_con_otra_capacidad_no_coincide() {
         let i = KINGSTON_A400_480.identidad;
@@ -192,7 +192,7 @@ mod pruebas {
         assert!(!i.coincide("KINGSTON SA400S37480G", 0));
     }
 
-    /// El 1% absorbe la variacion entre unidades y no llega a otro tamano.
+    /// El 1% absorbe la variacion entre unidades y no llega a otro medida.
     #[test]
     fn la_tolerancia_es_del_uno_por_ciento() {
         let i = Identidad { modelo: "X", sectores: 1_000_000 };

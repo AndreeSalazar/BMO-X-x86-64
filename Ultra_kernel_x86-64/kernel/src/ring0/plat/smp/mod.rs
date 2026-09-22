@@ -81,9 +81,9 @@ use map::*;
 ///
 /// Va como parametro y no como una llamada a CABINA desde aqui por dos razones:
 /// once lineas seguidas inundarian un anillo de 48 eventos, y **`plat/` no tiene
-/// por que saber pintar**. Quien llama decide como se ensena.
+/// por que saber pintar**. Quien llama decide como se muestra.
 ///
-/// * `cuantos` es el CONTROL, y es lo que el dueno pidio: **0 no despierta a
+/// * `cuantos` es el CONTROL, y es lo que el propietario pidio: **0 no despierta a
 /// nadie** y solo contesta el censo, `u32::MAX` despierta a todos, y cualquier
 /// otro numero despierta exactamente esos, en el orden en que los lista el
 /// firmware.
@@ -298,7 +298,7 @@ pub fn despertar(cuantos: u32, aviso: impl Fn(u32)) -> (u32, u32) {
 
     // * TAMBIEN AL KLOG, y esto era un fallo mio de bulto: todo el relato del
     // bring-up iba **solo a CABINA**, que Ring 3 no puede leer. El mensaje del
-    // compositor decia "(F11 lo cuenta entero)" y F11 ensena el KLOG, que es
+    // compositor decia "(F11 lo cuenta entero)" y F11 muestra el KLOG, que es
     // otro sitio. O sea: se prometia un dato en una ventana donde no estaba.
     //
     // Son dos sumideros distintos a proposito --CABINA es el narrador con
@@ -433,7 +433,7 @@ pub fn estado_de(id: u32) -> Estado {
 
 /// **CORE o THREAD: es un nucleo fisico o el hermano SMT de otro?**
 ///
-/// En ingles a peticion del dueno, y aqui las dos palabras hacen falta juntas:
+/// En ingles a peticion del propietario, y aqui las dos palabras hacen falta juntas:
 /// `12 hilos` no dice si son doce nucleos o seis con SMT, y **la diferencia
 /// decide el reparto** -- una faena de calculo denso quiere seis obreros, no
 /// doce (ver `docs/maestro/AXION_MAESTRO.md`, apartado 3).

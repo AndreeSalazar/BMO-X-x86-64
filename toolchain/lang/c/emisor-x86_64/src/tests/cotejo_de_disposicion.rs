@@ -63,19 +63,19 @@ fn un_offset_que_no_cuadra_se_rechaza() {
 
 /// ** Y EL TAMANO TOTAL, que es la otra mitad.
 ///
-/// Un tamano equivocado no mueve ningun campo de este struct: mueve al
+/// Un medida equivocado no mueve ningun campo de este struct: mueve al
 /// SIGUIENTE elemento de cualquier array que lo contenga. Por eso se juzga
 /// aparte de los offsets.
 #[test]
 fn un_tamano_que_no_cuadra_se_rechaza() {
     let mut p = programa_con_struct();
-    p.disposiciones.get_mut("P").expect("struct P colocado").tamano += 8;
+    p.disposiciones.get_mut("P").expect("struct P colocado").size += 8;
 
     let e = crate::codegen::compile_to_bef_bytes(&p)
-        .expect_err("un tamano que no cuadra no puede compilar");
+        .expect_err("una medida que no cuadra no puede compilar");
     assert!(
-        e.message.contains("tamano"),
-        "el mensaje tiene que decir que lo que no cuadra es el tamano: {}",
+        e.message.contains("medida"),
+        "el mensaje tiene que decir que lo que no cuadra es la medida: {}",
         e.message
     );
 }

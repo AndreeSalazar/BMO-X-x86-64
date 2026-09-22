@@ -41,7 +41,7 @@
  *    placa no trae zumbador, la pantalla es la unica prueba de que la cadena
  *    entera funciono.
  *
- * Las tres son del ALTAVOZ, no del diseno: `KIND_AUDIO` entrega un aparato y
+ * Las tres son del ALTAVOZ, no del esquema: `KIND_AUDIO` entrega un aparato y
  * el dia que haya un driver de HD Audio con su DMA, esta misma pieza sale por
  * ahi sin tocar una linea. Ver la fase 5 de `docs/plan/PLAN_DOOM.md`.
  *

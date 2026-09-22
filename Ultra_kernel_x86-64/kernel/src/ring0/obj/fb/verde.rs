@@ -63,7 +63,7 @@ pub(super) fn mapped_bytes() -> u64 {
 }
 
 
-/// Pid del dueno actual, o `None`.
+/// Pid del propietario actual, o `None`.
 pub fn owner() -> Option<u32> {
     match OWNER.load(Ordering::SeqCst) {
         NO_OWNER => None,

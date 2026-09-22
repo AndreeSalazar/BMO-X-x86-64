@@ -26,7 +26,7 @@ resuelve imports y ofrece syscalls BMO; no compila lenguajes en Ring 0.
 
 ---
 
-## 1. Principios de diseno
+## 1. Principios de esquema
 
 | # | Principio | Significado |
 |---|-----------|-------------|
@@ -87,7 +87,7 @@ bmo_abi/
 +-- dynobj/             texto, lista, tabla (runtime de INTI)
 ```
 
-### Tipos repr(C) y tamanos verificados
+### Tipos repr(C) y medidas verificados
 
 | Tipo | Tamano | Area |
 |------|--------|------|
@@ -276,7 +276,7 @@ El loader de BEF salta a `_bmo_start` despues de:
 4. **Strings son UTF-8 valido obligatorio**. Una funcion que recibe un
    `BmoStr` puede asumir UTF-8 valido.
 5. **Time es monotonico**: `BmoInstant::now()` usa RDTSC, no retrocede.
-6. **Todos los tipos repr(C) tienen static_assert!** que verifica su tamano
+6. **Todos los tipos repr(C) tienen static_assert!** que verifica su medida
    en compilacion. Si el layout cambia, el build falla.
 
 ---

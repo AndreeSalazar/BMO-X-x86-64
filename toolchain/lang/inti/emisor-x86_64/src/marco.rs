@@ -190,7 +190,7 @@ impl Marco {
         // preservados, que cuestan guardarse pero sobreviven. Lo decidio el
         // metro: con preservados en las hojas, `pulso` subia 7.960
         // instrucciones (un guardado y una vuelta por cada llamada a una
-        // funcion pequena) aunque bajara 88.000 accesos.
+        // funcion chica) aunque bajara 88.000 accesos.
         let hechos = f.hechos();
         let mut candidatas: Vec<(u32, usize)> = (0..f.locales as usize)
             .filter(|&i| {
@@ -652,7 +652,7 @@ mod pruebas {
     ///
     /// ** Este test se escribio esperando 3 y salieron 4, y el equivocado era
     /// el test: dos de los tramos habian MUERTO para cuando nacio el ultimo, y
-    /// el asignador reutilizo su registro. Queda asi porque ensena lo que de
+    /// el asignador reutilizo su registro. Queda asi porque muestra lo que de
     /// verdad importa -- tres registros no son un tope de tres temporales, son
     /// un tope de tres A LA VEZ.
     #[test]

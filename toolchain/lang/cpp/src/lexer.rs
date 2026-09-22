@@ -69,8 +69,8 @@ pub enum Token {
 impl Token {
     /// La palabra clave que corresponde a un identificador, si lo es.
     ///
-    /// Va en una tabla y no en una cadena de `if`s **a proposito**: anadir una
-    /// palabra al lenguaje es anadir una fila. Es la misma regla que hace que
+    /// Va en una tabla y no en una cadena de `if`s **a proposito**: agregar una
+    /// palabra al lenguaje es agregar una fila. Es la misma regla que hace que
     /// un intrinseco de C sea una fila de `intrinsics.toml`.
     fn palabra_clave(s: &str) -> Option<Token> {
         Some(match s {

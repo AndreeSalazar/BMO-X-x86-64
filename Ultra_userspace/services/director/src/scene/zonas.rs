@@ -6,7 +6,7 @@
 //!
 //! === Por que existe ===
 //!
-//! Hasta hoy cada vista de la ventana de ESTRATOS se creia duena del interior
+//! Hasta hoy cada vista de la ventana de ESTRATOS se creia propietaria del interior
 //! entero: `paint_nodes` y `paint_folders` empezaban las dos en
 //! `chrome.x + 16` y median contra `chrome.width`. Con una vista a la vez eso
 //! funciona; con tres a la vez, no -- dos paneles que calculan su sitio contra
@@ -87,12 +87,12 @@ impl Zona {
 const MARGEN: u32 = 16;
 const CANAL: u32 = 12;
 
-/// Alto de la miga de pan, que va debajo de las pestanas y encima de todo.
+/// Alto de la miga de pan, que va debajo de las solapas y encima de todo.
 pub(crate) const MIGA_H: u32 = 26;
 /// Alto de la barra de estado del pie.
 ///
 /// Dos lineas, y las dos ya existian sueltas al fondo de la ventana: el DETALLE
-/// del nodo senalado (cuanto mide, cuantos atributos, si va firmado) y la de
+/// del nodo marcado (cuanto mide, cuantos atributos, si va firmado) y la de
 /// AYUDA, que es donde se anuncia `S sella`. Se juntan en una zona con nombre
 /// para que dejen de calcularse cada una contra `chrome.height`.
 pub(crate) const PIE_H: u32 = 40;
@@ -119,7 +119,7 @@ const REJILLA_MIN: u32 = 240;
 /// Se vio en el Ryzen el 2026-08-18, en una foto, y es la clase de fallo que
 /// esta casa ya conoce: dos constantes en dos ficheros que tienen que cuadrar y
 /// nadie las obliga. Ahora **la cuenta se hace aqui con los numeros del grafo**,
-/// asi que cambiar el tamano de una caja mueve este minimo solo.
+/// asi que cambiar el medida de una caja mueve este minimo solo.
 const GRAFO_MIN: u32 = 2 * super::data::NODE_MIN + super::data::CHANNEL;
 /// Que parte del sitio sobrante se lleva el grafo cuando cabe.
 const GRAFO_PCT: u32 = 42;
@@ -147,7 +147,7 @@ pub(crate) struct Zonas {
 impl Zonas {
     /// Reparte el interior de `c`.
     ///
-    /// [!] Todas las restas son `saturating_sub`. Una ventana en su tamano
+    /// [!] Todas las restas son `saturating_sub`. Una ventana en su medida
     /// minimo con la miga y el pie descontados puede dejar menos de cero de
     /// alto util, y un `u32` que baja de cero no da error: **da cuatro mil
     /// millones**, y el panel se pinta por toda la pantalla. Ya paso una vez en

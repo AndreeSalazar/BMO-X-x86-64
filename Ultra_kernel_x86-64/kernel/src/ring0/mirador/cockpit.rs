@@ -1,6 +1,6 @@
 //! **THE COCKPIT** -- what CABINA looks like on the screen.
 //!
-//! [carril]  AMARILLO  lo que CABINA ensena; se toca cada vez que falta un dato
+//! [carril]  AMARILLO  lo que CABINA muestra; se toca cada vez que falta un dato
 //! [consumo] NADA      pinta cuando lo llaman; en reposo lo llama la espera del
 //!                     shell en cada vuelta, y late ESA
 //!
@@ -49,7 +49,7 @@ pub fn render_hud() {
     // * `mx`, `my` y `btn` llegaban aqui y se tiraban con un guion bajo, igual
     // que el `_info` del panico del compositor. CABINA sabia donde estaba el
     // raton y no lo decia, asi que "el raton no va" no se podia repartir entre
-    // tres culpables muy distintos. Ahora se ensenan.
+    // tres culpables muy distintos. Ahora se muestran.
     let (kbd, mouse, ks, ms, mev, mx, my, btn, kev) = crate::ring0::dev::usb::hid_stats();
     let (tev, rev, hev) = crate::ring0::dev::usb::xfer_stats();
     let (kdci, es, ee, ec) = crate::ring0::dev::usb::kbd_debug();
@@ -109,7 +109,7 @@ pub fn render_hud() {
     if event_lost() > 0 {
         r.txt("   PERDIDOS="); r.dec(event_lost());
     }
-    // ** Y AQUI MUERE EL CIAN, que era lo que el dueno miraba y no le cuadraba.
+    // ** Y AQUI MUERE EL CIAN, que era lo que el propietario miraba y no le cuadraba.
     //
     // El cian era "titulo" y no significaba nada mas: un color gastado en
     // decir que un renglon es un renglon. En una banda donde el resto de los
@@ -229,7 +229,7 @@ pub fn render_hud() {
     // ** `neutro=vivos:soltados` -- LA RAM QUE ESTA FUERA DEL CELO.
     //
     // `vivos` son los marcos que un APARATO escribe por DMA: disco, red y USB
-    // hoy, y la GPU cuando llegue. Tiene que ser pequeno y QUIETO -- los
+    // hoy, y la GPU cuando llegue. Tiene que ser chico y QUIETO -- los
     // aparatos piden al arrancar y no vuelven a pedir. Si sube con la maquina
     // en marcha, alguien reparte DMA en caliente.
     //
@@ -243,7 +243,7 @@ pub fn render_hud() {
     r.txt(":"); r.dec(n_soltados);
     // == *** EL VUELO, AL LADO DEL NEUTRO -- N4b, 2026-09-09 =============
     //
-    // ** `vuelos()` existia desde esta misma manana y NO LO MIRABA NADIE, que
+    // ** `vuelos()` existia desde esta misma luego y NO LO MIRABA NADIE, que
     // es exactamente el fallo que esta casa lleva toda la semana cazando: el
     // metro de la puerta, los cuatro sellos del stub, `bv0=`. Un instrumento
     // al que hay que ir no se mira; el que esta delante, si.
@@ -272,7 +272,7 @@ pub fn render_hud() {
     // pendiente**. De aqui sale el plazo de R-DMA-8 (N5b), con margen, y no de
     // una eleccion: LEY 24 dice que el hardware se PERFILA.
     //
-    // ** Se ensena en microsegundos y no en ticks porque el numero con el que
+    // ** Se muestra en microsegundos y no en ticks porque el numero con el que
     // hay que compararlo --lo que tarda una vuelta al disco-- se sabe en
     // microsegundos. Un numero que hay que convertir a mano delante de la
     // maquina es un numero que no se mira.
@@ -406,7 +406,7 @@ pub fn render_hud() {
     // ** Y LA OTRA PUERTA: `bus=funciones:interesan:sincodigo`. Aquel mira lo
     // que LLEGA a un puerto USB; este, lo que HAY en la placa. `sincodigo` son
     // aparatos de una clase que BMO-X podria querer y que hoy no toca nadie --
-    // la grafica del dueno entre ellos. Ver `dev/portero.rs`.
+    // la grafica del propietario entre ellos. Ver `dev/portero.rs`.
     let (b_fn, b_int, b_sin) = crate::ring0::dev::portero::stats();
     r.txt(" placa="); r.dec(b_fn as u64);
     r.txt(":"); r.dec(b_int as u64);
@@ -445,7 +445,7 @@ pub fn render_hud() {
     // ** `puertas=esperando:PERDIDOS:barridos:reparados` -- QUE LAS PUERTAS SIGAN
     // ABIERTAS.
     //
-    // El dueno lo pidio con esas palabras --*"mi Kernel tiene que tener siempre
+    // El propietario lo pidio con esas palabras --*"mi Kernel tiene que tener siempre
     // abierto las puertas"*-- y hasta ahora no habia forma de saber si lo
     // estaban. `PERDIDOS` es la cola de avisos desbordada; `reparados` son los
     // barridos que encontraron una diferencia entre lo que el driver creia y lo

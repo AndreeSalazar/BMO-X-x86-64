@@ -86,7 +86,7 @@
  *     devolver   las comprobaciones del sello + el `xrstor64`
  *     resto      el `syscall`, los pushes, los pops y el `iretq`
  *
- * ** `resto` ES LA CASILLA QUE DECIDE. Si es pequena, el coste esta en codigo
+ * ** `resto` ES LA CASILLA QUE DECIDE. Si es chica, el coste esta en codigo
  * que se puede reescribir. Si se lleva los 1.600 que no cuadran, esta en las
  * DOS TRANSICIONES DE PRIVILEGIO -- y entonces afinar el stub no lo va a mover.
  * Lo que se mueve es `sysretq` en vez de `iretq` para el camino normal, o
@@ -278,7 +278,7 @@ void veredicto(char *label, unsigned long long medido, unsigned long long campo)
  *
  * [!] En MHz y no en Hz A PROPOSITO: en Hz, `ticks * 4529000000` desborda un
  * `unsigned long long` en cuanto los ticks pasan de 4 mil millones, y una
- * multiplicacion que envuelve da un numero pequeno y creible. En MHz el peor
+ * multiplicacion que envuelve da un numero chico y creible. En MHz el peor
  * caso de este programa --2,2 M ticks de una puerta de consola-- da 10^10, que
  * cabe de sobra. */
 unsigned long long g_mhz_tsc;
@@ -344,11 +344,11 @@ void sobre_el_suelo(unsigned long long puerta_ticks) {
      * este `printf` acepta la anchura y no rellena. */
     veces = (puerta_ticks * 100) / suelo;
     if (veces % 100 < 10) {
-        printf("   sobre el suelo: %llu,0%llu x  (suelo %llu ticks %s, BMO anade %llu)\n",
+        printf("   sobre el suelo: %llu,0%llu x  (suelo %llu ticks %s, BMO agrega %llu)\n",
                veces / 100, veces % 100, suelo,
                ((s >> 32) & 1) ? "MEDIDO" : "estimado", puerta_ticks - suelo);
     } else {
-        printf("   sobre el suelo: %llu,%llu x  (suelo %llu ticks %s, BMO anade %llu)\n",
+        printf("   sobre el suelo: %llu,%llu x  (suelo %llu ticks %s, BMO agrega %llu)\n",
                veces / 100, veces % 100, suelo,
                ((s >> 32) & 1) ? "MEDIDO" : "estimado", puerta_ticks - suelo);
     }

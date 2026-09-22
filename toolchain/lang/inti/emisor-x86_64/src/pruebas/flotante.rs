@@ -58,7 +58,7 @@ fn las_cuatro_operaciones() {
 ///
 /// La Regla 3 existe porque en los ENTEROS `1 / 0` no tiene respuesta: cualquier
 /// bit que salga se lo invento el compilador. En IEEE-754 la tiene --infinito--
-/// y esta escrita desde 1985. Atrapar aqui no anadiria seguridad: quitaria la
+/// y esta escrita desde 1985. Atrapar aqui no agregaria seguridad: quitaria la
 /// aritmetica.
 #[test]
 fn entre_cero_da_infinito_y_no_atrapa() {
@@ -273,7 +273,7 @@ fn los_bits_van_y_vuelven() {
 /// ```
 ///
 /// ** El consejo de `E0123` decia *"convierte a entero primero si lo que quieres
-/// son los bits"*, y eso da un numero pequeno donde se esperaba un patron. Se
+/// son los bits"*, y eso da un numero chico donde se esperaba un patron. Se
 /// arreglo el consejo el mismo dia que aparecio el camino de verdad.
 #[test]
 fn convertir_el_valor_y_leer_los_bits_no_son_lo_mismo() {
@@ -366,7 +366,7 @@ fn exp_da_los_numeros_que_tiene_que_dar() {
 /// *** LA REDUCCION FUNCIONA EN TODO EL RANGO, y esta es la prueba que la mira.
 ///
 /// ** El polinomio solo es bueno para `|r| <= ln2/2`. Todo lo demas lo hace la
-/// reduccion `x = k*ln2 + r`, y un fallo ahi **no se ve con numeros pequenos**:
+/// reduccion `x = k*ln2 + r`, y un fallo ahi **no se ve con numeros chicos**:
 /// con `x = 1` el `k` vale 1 y casi cualquier cosa acierta. Con `x = 700` el
 /// `k` vale 1010, y ahi es donde el `ln2` partido en dos gana su sitio.
 #[test]

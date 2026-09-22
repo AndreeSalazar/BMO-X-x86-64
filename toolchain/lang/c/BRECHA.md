@@ -102,7 +102,7 @@ descarta con nombre propio.
 | pthread_* | `pthread.h` | no hay hilos de usuario y no los pide el objetivo |
 | setlocale | `locale.h` | una libc de verdad empieza aqui y no acaba nunca |
 | wchar_t / wcs* | `wchar.h` | la consola de BMO es de un byte por caracter a proposito |
-| signal | `signal.h` | no hay senales que mandar: aqui un fallo mata la tarea y lo dice |
+| signal | `signal.h` | no hay signales que mandar: aqui un fallo mata la tarea y lo dice |
 | setjmp/longjmp | `setjmp.h` | DOOM no lo necesita y emitirlo pide guardar el marco entero |
 
 ## Lo que traen GCC, LLVM y MSVC encima del estandar
@@ -290,7 +290,7 @@ uno con un motivo que se puede discutir. `DESCARTAR` no es *nunca*: es
 | <time.h> | C89 | UTIL | hay TSC; falta calendario |
 | <math.h> | C89 | ~~FUERA~~ | DOOM no usa coma flotante en el render; el decimal exacto ya esta en COBOL y Ada |
 | <errno.h> | C89 | ~~FUERA~~ | un global de error es justo lo contrario de devolver el fallo |
-| <signal.h> | C89 | ~~FUERA~~ | no hay senales: aqui un fallo mata la tarea y lo DICE |
+| <signal.h> | C89 | ~~FUERA~~ | no hay signales: aqui un fallo mata la tarea y lo DICE |
 | <setjmp.h> | C89 | ~~FUERA~~ | pide guardar el marco entero; nadie lo pide |
 | <locale.h> | C89 | ~~FUERA~~ | una libc de verdad empieza aqui y no acaba |
 | <wchar.h> / <wctype.h> / <uchar.h> | C89 | ~~FUERA~~ | la consola de BMO es de un byte por caracter a proposito |

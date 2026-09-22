@@ -23,7 +23,7 @@
 //! rastro que limpiar.
 //!
 //! Lo mas cerca que hay de esto fuera es el *bundle* de macOS --un `.app` es una
-//! carpeta que el Finder ensena como un solo objeto-- y aqui esta un paso mas
+//! carpeta que el Finder muestra como un solo objeto-- y aqui esta un paso mas
 //! alla: no es una carpeta, es **un fichero**.
 //!
 //! ## Y si la app no trae icono
@@ -36,7 +36,7 @@
 //! escritorio donde una app sin icono aparece como un cuadro vacio obliga a
 //! todo el mundo a dibujar antes de poder lanzar nada.
 //!
-//! ## El formato `BICO`, y por que es tan pequeno
+//! ## El formato `BICO`, y por que es tan chico
 //!
 //! ```text
 //!   0..4   "BICO"
@@ -64,7 +64,7 @@ use super::{acento, BG_TOP, INK};
 pub const MAX_APPS: usize = 12;
 /// Lado del icono TAL COMO SE GUARDA.
 pub const ICON_SIDE: u32 = 16;
-/// A cuanto se pinta. Ver la cabecera: se guarda pequeno y se agranda.
+/// A cuanto se pinta. Ver la cabecera: se guarda chico y se agranda.
 pub const SCALE: u32 = 2;
 const ICON_PX: u32 = ICON_SIDE * SCALE;
 
@@ -122,11 +122,11 @@ pub struct Launcher {
     /// La mitad abierta de un doble clic. Vive en `scene::double_click` porque
     /// la rejilla de ESTRATOS hace exactamente lo mismo, y porque hasta hoy las
     /// dos lo contaban en VUELTAS DEL BUCLE -- que es por lo que un icono se
-    /// podia senalar y no se abria nunca.
+    /// podia marcar y no se abria nunca.
     doble: DoubleClick,
 }
 
-/// El realce de la celda senalada. Un relleno tenue, no un marco: un borde de
+/// El realce de la celda marcada. Un relleno tenue, no un marco: un borde de
 /// un pixel alrededor de un icono transparente se lee como suciedad.
 const SEL_BG: u32 = 0x001E_3A5F;
 
@@ -136,8 +136,8 @@ impl Launcher {
     /// Se hace UNA VEZ, al arrancar el escritorio: son varias lecturas de disco
     /// por app y ninguna cambia mientras la maquina esta encendida. Un
     /// escritorio que releyera el directorio en cada fotograma seria un
-    /// escritorio que hace E/S sesenta veces por segundo para ensenar lo mismo.
-    // [!] `#[inline(never)]` NO es por tamano de codigo: es por PILA. Inlineado,
+    /// escritorio que hace E/S sesenta veces por segundo para mostrar lo mismo.
+    // [!] `#[inline(never)]` NO es por medida de codigo: es por PILA. Inlineado,
     // el struct se construye en una ranura del marco del llamante y se copia
     // despues; como llamada aparte, LLVM le pasa la direccion de destino como
     // puntero de retorno (`sret`) y escribe directamente en `.bss`. Medido en
@@ -262,9 +262,9 @@ pub fn paint(p: &bmo::Pantalla, l: &Launcher) {
     }
 }
 
-/// **Pinta UNA celda**: su realce si esta senalada, el icono y el nombre.
+/// **Pinta UNA celda**: su realce si esta marcada, el icono y el nombre.
 ///
-/// Existe aparte para que cambiar de icono senalado no cueste repintar los
+/// Existe aparte para que cambiar de icono marcado no cueste repintar los
 /// doce. Con tres apps la diferencia no se nota; con doce y un fondo en
 /// degradado, si -- y la regla no deberia depender de cuantas haya.
 ///
@@ -302,13 +302,13 @@ pub fn paint_una(p: &bmo::Pantalla, l: &Launcher, i: usize) {
 
 /// **Repinta la rejilla entera devolviendo antes el fondo de cada celda.**
 ///
-/// Es lo que hay que hacer cuando cambia QUIEN esta senalado: el realce viejo
+/// Es lo que hay que hacer cuando cambia QUIEN esta marcado: el realce viejo
 /// solo se va devolviendo el degradado que habia debajo, y eso [`paint_una`] no
 /// lo sabe hacer -- ni debe, porque el fondo es del escritorio y no de la
 /// rejilla.
 ///
 /// ** Vive aqui y no en el manejador del raton porque hacia falta en DOS
-/// sitios --al senalar y al soltar-- y dos copias del mismo bucle es como se
+/// sitios --al marcar y al soltar-- y dos copias del mismo bucle es como se
 /// acaba teniendo dos que no borran lo mismo.
 pub(crate) fn repintar(p: &bmo::Pantalla, c: &super::RunBox, l: &Launcher, visible: bool) {
     for k in 0..l.count() {
@@ -524,8 +524,8 @@ fn read_bico(f: &bmo::Archivo, off: u64, tam: usize, px: &mut [u32; PIXELS]) -> 
     if f.read(&mut cab) < CAB || &cab[0..4] != b"BICO" {
         return false;
     }
-    // Solo se acepta el tamano que este escritorio sabe pintar. Escalar un
-    // icono de otro tamano es una decision de aspecto que no toca aqui, y
+    // Solo se acepta el medida que este escritorio sabe pintar. Escalar un
+    // icono de otro medida es una decision de aspecto que no toca aqui, y
     // aceptarlo a medias daria iconos deformes sin decir por que.
     if read_u16(&cab, 4) as u32 != ICON_SIDE || read_u16(&cab, 6) as u32 != ICON_SIDE {
         return false;

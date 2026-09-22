@@ -124,7 +124,7 @@ referencia = 8
 #
 #  `numero` y `decimal` se fueron arriba: ya tienen su disposicion decidida.
 #  Los tres que quedan **no van a tener fila aqui nunca**, y por un motivo que
-#  no es el mismo: CRECEN. Lo que crece no cabe en un campo de tamano fijo, asi
+#  no es el mismo: CRECEN. Lo que crece no cabe en un campo de medida fijo, asi
 #  que lo que se guarda es su direccion y la fila que los mide es `referencia`.
 #
 #  *** Y su lista NO se copia aqui. Vive en `biblioteca.toml` como
@@ -165,7 +165,7 @@ flotantes = ["flotante32", "flotante64"]
 #  una llamada y no lo son -- son la instruccion `Convierte`, y el compilador
 #  sabe cuales lo son porque estan aqui.
 #
-#  Si esto no fuera una tabla, anadir `entero128` el dia que exista obligaria a
+#  Si esto no fuera una tabla, agregar `entero128` el dia que exista obligaria a
 #  tocar el descenso. Asi es una fila.
 enteros = [
     "natural8", "natural16", "natural32", "natural64",

@@ -23,7 +23,7 @@ Uno modular no las necesita:
     ** EL ESTADO DEL MONTON VIVE DENTRO DEL MONTON
 ```
 
-Y no es un apano para esquivar una funcionalidad que falta -- **es mejor**. Un
+Y no es un arreglo para esquivar una funcionalidad que falta -- **es mejor**. Un
 `malloc` con estado global es *autoridad ambiente*: cualquiera reparte de lo
 mismo sin haberlo pedido, y dos partes de un programa se pisan sin haberse visto
 nunca. `pide(monton, n)` tiene la forma de una capability: **para repartir de un
@@ -79,7 +79,7 @@ mentir.
 `monton_nuevo(cuantos)` cruza la puerta dos veces --pedir el bloque, preguntar
 por su base--, escribe la cabecera, y devuelve la direccion del monton.
 
-**Devuelve 0 si el kernel dice que no.** No inventa un monton mas pequeno ni
+**Devuelve 0 si el kernel dice que no.** No inventa un monton mas chico ni
 reintenta: quien pide 4 KiB y recibe 0 tiene que enterarse ahi, y no dos
 funciones mas adelante.
 
@@ -180,7 +180,7 @@ programa que arranque no paga el monton otra vez.
 Se hace asi hoy porque la alternativa era tener el monton escrito, probado y
 **sin forma de usarlo**, que en este proyecto cuenta como no tenerlo.
 
-Y el otro precio, mas pequeno: una pieza traida se compila con SUS `usa`, asi
+Y el otro precio, mas chico: una pieza traida se compila con SUS `usa`, asi
 que `usa monton` deja a mano los nombres de `memoria`, que el fichero no pidio.
 Es una fuga, esta marcada, y se va con lo mismo.
 

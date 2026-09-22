@@ -65,7 +65,7 @@ impl L {
     pub(crate) fn col(&mut self, col: usize) {
         while self.o < col && self.o < self.b.len() { self.b[self.o] = b' '; self.o += 1; }
     }
-    /// Un tamano en la unidad que se entiende, con dos decimales.
+    /// Un medida en la unidad que se entiende, con dos decimales.
     ///
     /// Sin coma flotante: la parte fraccionaria se saca multiplicando el resto
     /// por 100 antes de dividir. En Ring 0 no hay `f64` que valga -- y aunque
@@ -313,7 +313,7 @@ pub(crate) fn shell_read_line(buf: &mut [u8]) -> usize {
             // el despachador de `run_shell` no cambia ni una linea, y por eso
             // la orden queda en el HISTORIAL -- si pulsas F2 y luego flecha
             // arriba, ahi esta `consumo`, y aprendes el nombre sin que nadie
-            // te lo ensene.
+            // te lo muestre.
             //
             // [!] Y esto tapa un agujero que llevaba ahi desde siempre: el
             // brazo de "imprimible" de abajo excluye `is_nav` (0x80..0x88) pero
@@ -361,7 +361,7 @@ pub(crate) fn shell_read_line(buf: &mut [u8]) -> usize {
                 while cur > 0 && buf[cur - 1] != b' ' { erase(buf, &mut n, &mut cur); }
             }
             // Imprimible = ASCII visible O byte Latin-1 alto (n, a, , ...).
-            // El teclado espanol entrega un byte por caracter y el font sabe
+            // El teclado castellano entrega un byte por caracter y el font sabe
             // dibujarlos: dejarlos pasar es todo lo que hace falta.
             c if c >= 0x20 && c != 0x7f && !kb::is_nav(c) => {
                 insert(buf, &mut n, &mut cur, c);

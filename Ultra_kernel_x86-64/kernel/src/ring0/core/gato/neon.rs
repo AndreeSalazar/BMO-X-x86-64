@@ -7,7 +7,7 @@
 //!
 //! El video del 2026-08-15 en el Ryzen: el gato es una linea blanca de un pixel
 //! sobre un cielo violeta claro, y **no se despega de la escena**. Cuando el
-//! degradado del cielo llega a su parte clara, el gato casi desaparece. El dueno
+//! degradado del cielo llega a su parte clara, el gato casi desaparece. El propietario
 //! lo dijo asi: *"la capa estan mezcladas"*.
 //!
 //! El pedido original era *"el gato se ve neon"*, y lo que habia era el gato
@@ -120,7 +120,7 @@ fn poner(m: &mut [u8], i: usize) {
 /// **La dilatacion.** Rellena `halo` con la distancia de cada pixel apagado al
 /// pixel encendido mas cercano de `hay_luz`.
 ///
-/// Generica sobre el tamano porque el gato y el kanji son dos mascaras
+/// Generica sobre el medida porque el gato y el kanji son dos mascaras
 /// distintas y **la operacion es la misma**. Escrita dos veces serian dos sitios
 /// donde ajustar el radio, que es como se acaba con un kanji que brilla distinto
 /// del gato.

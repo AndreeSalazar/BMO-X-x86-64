@@ -18,7 +18,7 @@
 //! # Por que existe (2026-09-21)
 //!
 //! El informe de `save` esta escrito para leerse: columnas, colores, notas al
-//! lado de cada numero. Eso es lo correcto para el dueno y esta mal para
+//! lado de cada numero. Eso es lo correcto para el propietario y esta mal para
 //! cualquier cosa que quiera DECIDIR sobre el: un programa en la antena, una
 //! hoja de calculo, o el escalon 0 del asistente (`PLAN_EL_ASISTENTE.md`,
 //! seccion 9: una capa que toma decisiones acotadas sobre el estado de la

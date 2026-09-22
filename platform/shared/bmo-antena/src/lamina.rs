@@ -18,7 +18,7 @@
 //! hacia en 2005 con sus servidores; aqui el servidor es el movil de uno.
 //!
 //! ```text
-//!    LAMINA <ancho> <alto> <n>                   cabecera: el tamano de la pagina
+//!    LAMINA <ancho> <alto> <n>                   cabecera: el medida de la pagina
 //!                                                ENTERA y cuantas lineas siguen
 //!    CAJA   <x> <y> <ancho> <alto> <rrggbb>      un rectangulo relleno
 //!    TEXTO  <x> <y> <escala> <rrggbb> <bytes>    una tira YA partida en lineas
@@ -30,11 +30,11 @@
 //! # Lo que la lamina NO puede decir, y por que
 //!
 //! ```text
-//!    tamano de letra en puntos   BMO-X tiene UNA fuente: 8x16, un bit por pixel
+//!    medida de letra en puntos   BMO-X tiene UNA fuente: 8x16, un bit por pixel
 //!                                (`toolchain/tools/fontgen`). `escala` es 1..4
 //!                                de ese 8x16; la antena redondea
 //!    Unicode                     la fuente tiene 95 glifos ASCII y 25 Latin-1
-//!                                (los del espanol). El texto va en Latin-1 y lo
+//!                                (los del castellano). El texto va en Latin-1 y lo
 //!                                que no cabe la antena lo vuelve `?`
 //!    una caja fuera de la pagina se rechaza ENTERA (`Fuera`): recortar en
 //!                                silencio seria taparle a la antena su fallo

@@ -38,7 +38,7 @@ nuevo tiene que sostener sea minuscula comparada con un sistema normal:
    BMO-X      2 syscalls, y lo demas son CAPABILITIES sobre handles
 ```
 
-Pero **lo pequeno es el contrato, no el trabajo** -- y esa distincion es la que
+Pero **lo chico es el contrato, no el trabajo** -- y esa distincion es la que
 este documento existe para mantener honesta. Ver seccion 4.
 
 ---

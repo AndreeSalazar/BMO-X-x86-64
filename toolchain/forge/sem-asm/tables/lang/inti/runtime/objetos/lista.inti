@@ -72,7 +72,7 @@ funcion caben(l es natural64) devuelve natural64
 # Una lista nueva y vacia, con sitio para `capacidad` elementos de `ancho`
 # bytes. Devuelve 0 si no cabe.
 #
-# ** Nace con UN dueno y con `cuantos` a cero: tiene sitio y no tiene nada. La
+# ** Nace con UN propietario y con `cuantos` a cero: tiene sitio y no tiene nada. La
 # diferencia con un literal congelado es la misma que en `texto` -- un literal
 # es INMORTAL y vive en `RoData`; esto lo construyo alguien y puede morir.
 funcion lista_nueva(monton es natural64, capacidad es natural64, ancho es natural64) devuelve natural64
@@ -132,7 +132,7 @@ funcion sitio_de(l es natural64, i es natural64, ancho es natural64) devuelve na
 # ** Crecer pide DOS cosas que no estan: reservar el doble y copiar (barato), y
 # **soltar la vieja** (que ya se puede desde hoy) -- pero sobre todo, decidir
 # quien manda cuando alguien guardo la direccion antigua. Esa es una decision de
-# diseno, no trabajo mecanico, y se escribe con el caso delante.
+# esquema, no trabajo mecanico, y se escribe con el caso delante.
 funcion agrega(l es natural64, dato es natural64, ancho es natural64) devuelve natural64
     crudo
         si l = 0

@@ -68,7 +68,7 @@
 //! |---|---|---|
 //! | Abrir el WAD | 4 MiB contiguos + leer 4 MB | un cursor y una ventana |
 //! | Un lump de 40 KB | ya estaba en RAM | 40 KB del disco, a donde se pida |
-//! | Tope de tamano | la RAM contigua que haya | **ninguno** |
+//! | Tope de medida | la RAM contigua que haya | **ninguno** |
 //!
 //! Es la misma pieza que `lanzar.rs` estreno para los `.bex` --el cargador dejo
 //! de traerse un paquete de 5,5 MB para ejecutar 812 KB-- y que se habia quedado
@@ -80,7 +80,7 @@
 //! `ARCH_OP_LEER` entrega **siete bytes por llamada**: ir al disco por cada
 //! siete seria un sector por byte y medio. Asi que la ranura mantiene una
 //! **ventana** de [`WINDOW`] --el ultimo trozo leido, con su offset-- y esas
-//! llamadas se sirven de ahi. Un archivo mas pequeno que la ventana entra
+//! llamadas se sirven de ahi. Un archivo mas chico que la ventana entra
 //! entero en la primera lectura y se comporta exactamente como antes.
 //!
 //! `ARCH_OP_LEER_EN` --el camino de `fread`-- **no pasa por la ventana**: el
@@ -109,7 +109,7 @@ use crate::ring0::obj::cap;
 
 /// Cuantos archivos pueden estar abiertos a la vez, en todo el sistema.
 ///
-/// Eran **cuatro**, y no por diseno: cada ranura arrastraba una fila estatica
+/// Eran **cuatro**, y no por esquema: cada ranura arrastraba una fila estatica
 /// de 4 KiB, asi que subir el numero costaba `.bss` aunque nadie abriera nada.
 /// Ahora una ranura son unos pocos punteros y el buffer se reserva al abrir, o
 /// sea que dieciseis cuestan lo mismo que cuatro cuando estan vacias. Un batch
@@ -226,13 +226,13 @@ pub const ARCH_OP_ESCRIBIR_DE: u64 = 0x08;
 // -- El buffer de cada archivo abierto -----------------------------------
 //
 // * Esto era `BUF: [[u8; 4096]; 4]` -- cuatro filas estaticas de 4 KiB. El
-// numero no era un limite del disco ni del formato: era **el tamano de una
+// numero no era un limite del disco ni del formato: era **el medida de una
 // fila**, y de ahi salia "un archivo no puede pasar de 4 KiB". En una maquina
 // con 14.8 GiB libres y un sistema que ocupa 5.4 MiB, ese techo no lo ponia la
 // fisica: lo ponia una constante.
 //
 // Ahora cada ranura guarda un puntero fisico y cuantas paginas mide, y el
-// buffer se pide al asignador de marcos AL ABRIR, del tamano que diga el
+// buffer se pide al asignador de marcos AL ABRIR, del medida que diga el
 // archivo. El techo pasa a ser la RAM -- que es donde debe estar.
 //
 // Se piden marcos CONTIGUOS porque el buffer se recorre como un `&[u8]` lineal.
@@ -244,7 +244,7 @@ static mut BUF_FIS: [u64; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 ///
 /// La tercera tabla a la que pregunta la pantalla de fallo cuando dice `marco
 /// OCUPADO`. Un fichero reflejado tiene marcos contiguos pedidos al asignador,
-/// asi que puede ser perfectamente el otro dueno de un marco entregado dos
+/// asi que puede ser perfectamente el otro propietario de un marco entregado dos
 /// veces -- y sin esta pregunta, ese caso se veria igual que cualquier otro.
 ///
 /// [!] Sin cerrojo, por lo mismo que `titular_de_fisica`: la maquina ya esta
@@ -482,7 +482,7 @@ unsafe fn byte_en(i: usize, pos: usize) -> Option<u8> {
 /// Abre un archivo del volumen de datos para LEER y entrega su handle a `pid`.
 ///
 /// ** No se trae nada. Se guarda un cursor y se reserva la ventana --lo mas
-/// pequeno entre el archivo y [`WINDOW`]--, y los bytes van del disco a quien
+/// chico entre el archivo y [`WINDOW`]--, y los bytes van del disco a quien
 /// los pida, cuando los pida. Un WAD de 4 MiB cuesta lo mismo que un `.txt`.
 ///
 /// Lo que se pierde con esto, dicho: antes, si el disco fallaba, fallaba `open`
@@ -548,7 +548,7 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
     };
     let mide = mide as usize;
     unsafe {
-        // La ventana, no el archivo. Un fichero mas pequeno que ella entra
+        // La ventana, no el archivo. Un fichero mas chico que ella entra
         // entero en la primera lectura y todo esto se comporta como antes.
         if !reserve(i, mide.min(WINDOW)) {
             // Ya no puede pasar por el TAMANO del archivo -- son dieciseis
@@ -802,7 +802,7 @@ fn close(i: usize) -> u64 {
         let ok = if WRITES[i] {
             if DESBORDO[i] {
                 // No se guarda NADA. Un archivo recortado en silencio se
-                // parece demasiado a uno entero, y el que lo lea manana no
+                // parece demasiado a uno entero, y el que lo lea luego no
                 // tiene forma de saberlo.
                 crate::ring0::cabina::warn("arch", "no cabia: no se guarda nada", LARGO[i] as u64);
                 false
@@ -917,7 +917,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
         // bytes de verdad -- y si el salto fue hacia atras, quien lo paga es esa
         // lectura y no este salto (ver `reflejar`).
         //
-        // Se acota al tamano en vez de rechazar: un cursor mas alla del final
+        // Se acota al medida en vez de rechazar: un cursor mas alla del final
         // significa "no queda nada", que es lo que contesta `ARCH_OP_TAMANO` sin
         // inventarse un error.
         ARCH_OP_SALTAR if !escribe => Some(unsafe {

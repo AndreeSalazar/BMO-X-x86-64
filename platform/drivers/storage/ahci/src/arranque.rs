@@ -71,7 +71,7 @@ pub unsafe fn probe(mmio_base: u64) -> bool {
     // estaba levantado, despues del censo. Tirar el enlace del disco justo
     // despues de encontrarlo es una forma perfecta de que "a veces arranca".
     //
-    // Windows nunca ensena esto porque lee `NP` de donde toca y ademas solo
+    // Windows nunca muestra esto porque lee `NP` de donde toca y ademas solo
     // toca los puertos que `PI` declara.
     let port_count = (cap & 0x1F) as u8 + 1;
     let pi = hba_read(mmio_base, HBA_PI);

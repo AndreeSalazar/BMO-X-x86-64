@@ -25,7 +25,7 @@
 //!
 //! # *** LAS DOS VECES QUE MINTIO, y por eso este carril existe aparte
 //!
-//! Este fichero no se separo por tamano. Se separo porque **las dos unicas
+//! Este fichero no se separo por medida. Se separo porque **las dos unicas
 //! averias que ha tenido el pulso estaban las dos aqui dentro**, ninguna en el
 //! dibujo, y las dos eran la misma frase:
 //!
@@ -66,7 +66,7 @@
 //! carril declara arriba. Un modo de reserva que no se anuncia es un modo de
 //! reserva que se queda puesto para siempre.
 //!
-//! ** La quinta se anadio al preguntar el dueno si quedaba algo que exprimir,
+//! ** La quinta se anadio al preguntar el propietario si quedaba algo que exprimir,
 //! y la contesta ella sola. El techo UTIL de ese bucle son **250 vueltas por
 //! segundo** --lo pone el bus USB, que late cada 4 ms-- asi que la distancia
 //! entre `pulso` y `pinta` no es una curiosidad: es el desperdicio, medido.
@@ -93,7 +93,7 @@ pub(crate) struct Lectura {
     pub en_reposo: bool,
 }
 
-/// **Lo que hay que ensenar, ya decidido.** El carril verde no vuelve a
+/// **Lo que hay que mostrar, ya decidido.** El carril verde no vuelve a
 /// preguntarse nada: recibe esto y lo pone en pantalla.
 ///
 /// ** Que exista este tipo ES el corte. Mientras la decision y el pixel vivian
@@ -113,7 +113,7 @@ pub(crate) struct Dictamen {
     /// Va montado en el latido. Ver la decision 6.
     pub en_latido: bool,
     /// Esta en reposo: duerme 8 ms por vuelta porque no hay nada que pintar.
-    /// Se ensena como `reposo` y NO dispara la alarma de ritmo bajo.
+    /// Se muestra como `reposo` y NO dispara la alarma de ritmo bajo.
     pub en_reposo: bool,
     /// El cuerpo se queda el segundo. Ver la decision 4.
     pub manda_cuerpo: bool,
@@ -123,7 +123,7 @@ pub(crate) struct Dictamen {
 ///
 /// == *** POR QUE NO BASTABA EL NUMERO (2026-09-08) =========================
 ///
-/// La primera version pintaba solo `loops_per_second`, y el dueno lo probo en
+/// La primera version pintaba solo `loops_per_second`, y el propietario lo probo en
 /// el Ryzen y trajo esto:
 ///
 /// > *"veo pulso una sola vez y se congela"*
@@ -157,11 +157,11 @@ const PASOS: [u8; 4] = [b'|', b'/', b'-', 92];
 const RITMO_BAJO: u32 = 100;
 
 /// **Leer, que aqui es decidir.** Avanza la aguja y contesta que hay que
-/// ensenar. No toca la pantalla: ese es el otro carril.
+/// mostrar. No toca la pantalla: ese es el otro carril.
 pub(crate) fn leer(l: &Lectura) -> Dictamen {
     // ** LA AGUJA AVANZA SIEMPRE, y por eso el modulo entero repinta SIEMPRE
     // que le llega un cuarto. Es lo contrario de lo que hace el testigo --que
-    // se calla si no cambio nada-- y es a proposito: aqui lo que se ensena no
+    // se calla si no cambio nada-- y es a proposito: aqui lo que se muestra no
     // es el valor, es que **haya latido**.
     let aguja = unsafe {
         AGUJA = AGUJA.wrapping_add(1);

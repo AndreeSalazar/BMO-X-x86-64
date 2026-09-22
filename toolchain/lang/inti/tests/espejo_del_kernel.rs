@@ -18,7 +18,7 @@
 //! aparta--: esta en `bmo_abi::syscalls::surface::superficie`, y se lee de
 //! ahi. Y toda constante de `[constantes]` TIENE que tener fila: la version
 //! anterior comparaba 40 y la 41 (`mi_tarea`) no la miraba nadie, y la que
-//! entrara manana tampoco. Una constante sin fila hace fallar la prueba con su
+//! entrara luego tampoco. Una constante sin fila hace fallar la prueba con su
 //! nombre.
 
 use bmo_inti_front::tablas::Modulos;

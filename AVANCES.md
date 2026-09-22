@@ -11,7 +11,7 @@ sin QEMU. **No es un microkernel: lleva su linaje** --2 syscalls, servicios en
 Ring 3, capabilities-- pero la palabra que lo define es la de su ley
 (`META-KERNEL_HARD.md`): **una regla solo existe aqui si al lado tiene el
 componente que la exige y el numero con el que la exige.** La firma no la pone
-una escuela de diseno; la ponen las piezas que hay dentro de la caja.
+una escuela de esquema; la ponen las piezas que hay dentro de la caja.
 Toolchain propio (C / COBOL / **Ada** / C++ -> BEF -> BEX nativo), y los
 tres primeros **ya han ejecutado en el Ryzen**.
 
@@ -53,7 +53,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > ⚠ **Y una correccion que vale mas que un avance**: `IMAGE`, el buffer de
 > 4 MiB, **ya no es el techo que este documento decia**. `con_buffer` retorna
 > antes de tocarlo cuando la fuente entrega rangos, y FAT32 los entrega: todo lo
-> que se lanza desde A: carga sin buffer, sin copias y **sin tope de tamano**.
+> que se lanza desde A: carga sin buffer, sin copias y **sin tope de medida**.
 > Los 4 MiB quedan para ESTRATOS, que hoy no guarda programas.
 >
 > Detalle por episodios en `BITACORA.md` (Ep. 39 a 42).
@@ -73,7 +73,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >    signedness   16            4 ROJAS  -> shr/div/setb
 >    control flow 16            limpio
 >    assignment   16            1 ROJA, abierta a proposito
->    strings      16            limpio (tras anadir `<strings.h>`)
+>    strings      16            limpio (tras agregar `<strings.h>`)
 >    heap         12            limpio
 > ```
 >
@@ -104,7 +104,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > ★ **La prueba de que un reparto no cambia nada no es que los tests pasen**
 > --pasaban antes-- **sino que el compilador emita los mismos bytes**: los 33
 > `.bex` se hashean antes y despues. Para el kernel esa prueba NO existe (las
-> rutas de modulo son parte del nombre mangled), y ahi el numero es el tamano.
+> rutas de modulo son parte del nombre mangled), y ahi el numero es el medida.
 >
 > ★ **Y son DOS syscalls, no tres.** 36 documentos decian tres; el codigo decia
 > dos desde el 2026-08-10. El `1` es una lapida reservada.
@@ -151,7 +151,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > **Lo que queda descartado con numeros**, para no volver a mirarlo:
 > `bytes DIRECTOS del disco al marco =813568` contra `el fichero mide =815496`
 > **no es una lectura corta** --los 1.928 son la seccion `Resources`, que el
-> cargador no se trae a proposito--; el WAD esta en su sitio con su tamano
+> cargador no se trae a proposito--; el WAD esta en su sitio con su medida
 > (`A:\apps\doom1.wad`, 4.196.020 B) y **DOOM muere antes de abrirlo**.
 >
 > ## ✅ ARREGLADO EL MISMO DIA, y eran TRES defectos, no uno
@@ -164,7 +164,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > **2.** El `_ =>` **ya no rellena de ceros: grita** con la expresion dentro.
 >
 > **3.** Y el mas general: `pointer_scale` media con `TypeSpec::stack_size()`,
-> que contesta `0` para un `StructRef` --desde el AST no hay tabla de tamanos--
+> que contesta `0` para un `StructRef` --desde el AST no hay tabla de medidas--
 > y con `0` decidia que no habia que escalar. O sea que **`p + 1` sobre un
 > `struct T *` avanzaba UN BYTE**. Ahora mide con `type_stack_size`. El
 > subindice acertaba y la suma no, siendo la misma direccion escrita de dos
@@ -181,8 +181,8 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > ★ **Y la "pantalla bugeada" tampoco es de DOOM**: cuando muere ahi no ha
 > pintado un pixel. Lo que queda en el monitor son restos de tres pintores sobre
 > el mismo framebuffer -- su ventana de consola, el panel del kernel al morir el
-> dueno, y el repintado del compositor al recuperarla. Detalle y el defecto
-> pequeno de al lado (las ventanas abiertas no se repintan) en `docs/plan/PLAN_DOOM.md`.
+> propietario, y el repintado del compositor al recuperarla. Detalle y el defecto
+> chico de al lado (las ventanas abiertas no se repintan) en `docs/plan/PLAN_DOOM.md`.
 >
 > ## ⏳ Al 2026-08-12 -- treinta commits, y el metal contesto la mitad
 >
@@ -204,7 +204,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > del audio preguntandole al aparato como quiere las muestras; y el contrato de
 > syscalls **partido en cinco** (`fb4ba40b`) despues de que `INFO_CPU_HZ_REAL` y
 > `INFO_FUGAS` acabaran los dos en `0x1E` -- dos campos con el mismo numero no
-> dan error de compilacion: dan un panel que ensena el dato de otro.
+> dan error de compilacion: dan un panel que muestra el dato de otro.
 >
 > **Lo que sigue sin ver un CPU**: las seis preguntas de la segunda vuelta de
 > `docs/metal/METAL_2026-08-12.md` --entre ellas la secuencia de vatios que decide si
@@ -215,7 +215,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >
 > **1. ✅ `run apps/doom.bex` CARGA Y ARRANCA EN EL RYZEN.** ⚠ Y hay que decirlo
 > con precision, porque la primera version de esta linea decia "corre" y **eso
-> era pasarse**: el dueno lo corrigio -- *"no esta corriendo aun, no estoy
+> era pasarse**: el propietario lo corrigio -- *"no esta corriendo aun, no estoy
 > jugando, funciona al abrir pero falta solucionar"*.
 >
 > Lo que SI esta probado, y no es poco: el `.bex` se encuentra, pasa la
@@ -273,11 +273,11 @@ tres primeros **ya han ejecutado en el Ryzen**.
 >
 > **1. ✅ El panico del escritorio NO volvio.** El invariante `cur <= n`
 > restaurado una vez por vuelta aguanto justo el caso que lo tumbo: lanzar DOOM,
-> que falle, y teclear. Dicho por el dueno: *"mi compositor no se rompio al
+> que falle, y teclear. Dicho por el propietario: *"mi compositor no se rompio al
 > iniciar DOOM"*.
 >
 > **2. ✅ FAT32 lee ficheros grandes EN METAL.** `archivo abierto para leer
-> =814664` --el tamano exacto de `doom.bex`-- y `=4196020`, el WAD entero. La
+> =814664` --el medida exacto de `doom.bex`-- y `=4196020`, el WAD entero. La
 > sospecha de la lectura corta queda descartada tambien en el Ryzen, no solo en
 > el anfitrion. **`doom.bex` sigue sin pasar la admision** y el motivo con
 > nombre todavia no se ha visto: hace falta un arranque con el KERNEL nuevo
@@ -380,7 +380,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 ## ★★★★ 2026-09-08 -- EL FANTASMA DEL PLANIFICADOR, Y `WAIT` ESTRENADO
 
 La sesion mas larga de caza del proyecto, y acabo en un teorema. Todo salio de
-una frase del dueno: *"los FPS dependen de un teclado que no tiene sentido"*.
+una frase del propietario: *"los FPS dependen de un teclado que no tiene sentido"*.
 
 ### Lo que se arreglo, en orden, y cada uno destapaba al siguiente
 
@@ -433,7 +433,7 @@ con eso lo de abajo no es lento: es **inplanificable**.
   si algo no se cedio**; el dia bueno deja de pagar el precio del dia malo. Se
   retiro `GATO_MS` (1.600 ms muertos desde el truco de Santa Monica).
 - **Bloq Num ya no convierte el numpad en flechas.** Era un MODO INVISIBLE, y lo
-  cambiaba la tecla que el dueno mas pulsaba -- porque era su unica forma de
+  cambiaba la tecla que el propietario mas pulsaba -- porque era su unica forma de
   forzar un fotograma.
 - **El contador de reglas del contrato se CUENTA**, no se escribe. Decia
   "DIECISIETE" y eran 19, con el aviso escrito dos lineas mas abajo.
@@ -452,7 +452,7 @@ tiene que ser. El escalon se llama **P2.2** y esta en `PLAN_EL_PLAZO.md`.
 ## ★★★ 2026-08-08 -- LOS PLANES ESCRITOS: DOOM, AUTO-CURACION, Y EL AUDIO QUE NO EXISTE
 
 Dos documentos nuevos, con el mismo formato que `PLAN_BANCA.md`: casillas,
-tamano, que bloquea a que, y **como se sabe que una esta hecha**.
+medida, que bloquea a que, y **como se sabe que una esta hecha**.
 
 - [`docs/plan/PLAN_DOOM.md`](docs/plan/PLAN_DOOM.md) -- cinco fases. ⛔ **Lo unico que
   bloquea a todo lo demas es `1.0`**: `printf` con el formato calculado en
@@ -653,7 +653,7 @@ biseccion esta hecha y anotada en el commit.
 
 ## ★★★ 2026-08-06 -- EL TECLADO QUE SE "DESCONECTABA", LAS AGUJAS, Y DOS ALMACENES DE PRUEBAS
 
-Sesion de endurecimiento, no de features. Cuatro commits y ninguno anade una
+Sesion de endurecimiento, no de features. Cuatro commits y ninguno agrega una
 capacidad nueva: los cuatro hacen que lo que ya existe **falle donde se vea**.
 
 ### 1 - Resucitar un endpoint USB parado (`f30e40b0`)
@@ -664,7 +664,7 @@ tiempo-- y no tenia con que levantarlo: **Reset Endpoint (14) y Set TR Dequeue
 parado y a partir de ahi `rearmar()` encolaba y tocaba el timbre para nada,
 porque **el xHC ignora el doorbell de un endpoint Halted**. Desde la silla se
 veia identico a un teclado desenchufado -- que es exactamente como lo conto el
-dueno.
+propietario.
 
 El paso que se olvida es el 2: resetear sin recolocar el puntero deja el
 endpoint listo para leer TRBs viejos con el ciclo cambiado. Y va en **un solo
@@ -748,7 +748,7 @@ DISPLAY), `COMP-1`/`COMP-2` (flotante, y no representa 19.99), COMP-3 sin PIC,
 sobre PIC X y sobre PIC editada. Ejemplo nuevo: `examples/7-empaquetado/`.
 
 **★★ Y el plan largo, escrito: [`toolchain/lang/cobol/PLAN_BANCA.md`](toolchain/lang/cobol/PLAN_BANCA.md).**
-Nueve fases con casillas, de "el suelo del compilador" a "un banco pequeno de
+Nueve fases con casillas, de "el suelo del compilador" a "un banco chico de
 punta a punta en el Ryzen". Cada tarea dice **que la bloquea** y **como se sabe
 que esta hecha**. `BANCA_REAL.md` dice que falta y por que; el plan dice en que
 orden y quien depende de quien.
@@ -799,7 +799,7 @@ banco escribe un escalado de comisiones.
 comparten el nivel 88 y el `WHEN`. Y como las dos sintaxis llegan al codegen como
 el **mismo arbol**, el emisor son cinco lineas y heredan cortocircuito y
 precedencia gratis. *Cuando el codegen de una caracteristica sale asi de corto,
-es senal de que el parser hizo bien su trabajo.*
+es signal de que el parser hizo bien su trabajo.*
 
 ### ★★ `ROUNDED` con los seis modos, y la decision `1.0` TOMADA
 
@@ -808,7 +808,7 @@ centimo repetido cuatro millones de veces es dinero, y hay jurisdicciones que
 obligan al **redondeo del banquero** (`NEAREST-EVEN`) precisamente porque el
 clasico tiene **sesgo**: en una muestra grande los empates siempre suben. Por eso
 van **los seis modos del estandar** con su nombre, en las cinco aritmeticas, y
-no "el redondeo" a secas. Hay un test que ensena el sesgo con cuatro empates
+no "el redondeo" a secas. Hay un test que muestra el sesgo con cuatro empates
 seguidos: el clasico inventa dos centimos y el del banquero cuadra con la suma
 exacta.
 
@@ -862,7 +862,7 @@ por tres razones:
 escribir-- que es el 80 % del COBOL que existe, pero **no** a buscar una cuenta
 sin recorrer el fichero, ni a `REWRITE`, ni a varios usuarios. Eso son **tres
 operaciones de `KIND_ARCHIVO`** (`EXTEND`, `I-O`, posicionar) y `3.4`. No son una
-montana, pero no se pueden saltar -- y por eso estan en la lista, al final, no
+sierra, pero no se pueden saltar -- y por eso estan en la lista, al final, no
 descartadas.
 
 **Tres cosas comprobadas que los documentos decian al reves:**
@@ -880,7 +880,7 @@ descartadas.
 No queda **nada** escrito-sin-estrenar de las seis cosas que abrieron el dia.
 Todo con foto:
 
-- **`ls` ensena**, con `-- historial --` al subir con RePag. El arreglo del
+- **`ls` muestra**, con `-- historial --` al subir con RePag. El arreglo del
   escritor/lector (Ep. 26) confirmado.
 - **★ EL FOCO ENTERO**: el conmutador de **Alt+Tab** sale con su ventanita
   (`> Ejecutar` / `Datos (ESTRATOS)`) y el modo escrito debajo
@@ -898,7 +898,7 @@ Todo con foto:
 - **Las tres ventanas conviven**: Ejecutar + Datos + kernel, con Z-order y foco.
 
 **Estado real del sistema**: el escritorio arranca, lanza los tres lenguajes,
-lee el disco, ensena el almacen, deja leer el log de Ring 0, y responde al
+lee el disco, muestra el almacen, deja leer el log de Ring 0, y responde al
 teclado y al raton. **Eso es un sistema operativo usable, no una demo.**
 
 ---
@@ -923,12 +923,12 @@ con foto**, y la sexta la destapo el instrumento nuevo.
 - **El raton**, confirmado otra vez, y la barra de pulso se llena al moverlo --
   que es lo que esa barra existe para decir.
 
-### ⚠ Y lo que el instrumento nuevo destapo: `ls` corria y no ensenaba nada
+### ⚠ Y lo que el instrumento nuevo destapo: `ls` corria y no mostraba nada
 
 `ls` ejecutaba (la linea de estado decia `listo`) y la rejilla se quedaba en
 blanco. **El escritor y el lector del buffer de salida miraban extremos
 opuestos**: `Salida::nueva` empezaba a escribir en `fila = 0` y `pintar_salida`
-ensena **las ultimas 16 filas de 200** (`celdas[184..200]`).
+muestra **las ultimas 16 filas de 200** (`celdas[184..200]`).
 
 O sea que **las 184 primeras lineas que escribiera cualquier programa eran
 invisibles**. `ls` escupe una docena: no llegaba ni de lejos. Llego con el
@@ -1026,7 +1026,7 @@ un CPU todavia: es lo que hay que llevar al Ryzen en el arranque siguiente.
 - **★★ DOBLE BUFER**, y es el primer cliente de verdad de `KIND_MEMORIA`. El
   compositor pide `stride x alto x 4` (~8 MiB) y **dibuja en RAM normal**,
   volcando al panel una vez por fotograma y **solo la caja de lo sucio** -- que
-  la regla de esta casa sigue siendo *repintar el dano, no la pantalla*. Mata
+  la regla de esta casa sigue siendo *repintar el perjuicio, no la pantalla*. Mata
   el ghosting **por construccion** (nunca se lee memoria WC), mata el tearing,
   pintar pasa a ser en RAM cacheada, y es la pieza que hacia falta para las
   superficies. Si no hay bloque, se dibuja en el panel como siempre **y se
@@ -1080,7 +1080,7 @@ Hay **tres estados**, y confundirlos es lo que hace que uno se sienta perdido:
   direcciones... y ningun CPU ha ejecutado una sola de sus instrucciones. **No es
   lo mismo que hecho.** Es exactamente la clase de cosa que en otros proyectos
   acaba existiendo solo en la documentacion.
-- ⬜ **diseno** -- pensado o escrito en un documento, sin codigo vivo.
+- ⬜ **esquema** -- pensado o escrito en un documento, sin codigo vivo.
 
 ---
 
@@ -1249,7 +1249,7 @@ rojo=problema. Anti-ghosting por change-detection + SCREEN_GEN.
 y 64 KiB de pila y no puede pedir mas. Bloquea DOS cosas a la vez: cualquier
 lenguaje con GC, y las **superficies compartidas** que hacen falta para
 ventanas de verdad (hoy `KIND_FRAMEBUFFER` es exclusivo, un solo proceso es
-dueno de la pantalla). Despues: CABINA caja negra en disco, demand paging,
+propietario de la pantalla). Despues: CABINA caja negra en disco, demand paging,
 endpoint RPC (servidores Ring 3), EXIT-reclaim, SMP.
 
 **Hecho desde entonces**: `KIND_DIRECTORIO` (hay `ls`), modificadores en
@@ -1320,9 +1320,9 @@ tipo LLVM), `module.rs`.
 **Fases HECHAS (2026-07-23/24):**
 - **F0 -- cimientos honestos**: exterminados ~10 "silencios traicioneros" (bytes
   MAL sin avisar): offsets `a->b->c` anidados, `int **pp`, sufijos `10UL`,
-  `arr[i]=x` que se descartaba, `TypeSpec::Array(elem,n)` con tamano real,
+  `arr[i]=x` que se descartaba, `TypeSpec::Array(elem,n)` con medida real,
   decls anidadas sin slot (for infinito), subscript array-vs-puntero, stores de
-  campo con tamano exacto (`pt.x` ya no pisa `pt.y`), casts reales (movsx/movzx),
+  campo con medida exacto (`pt.x` ya no pisa `pt.y`), casts reales (movsx/movzx),
   errores con LINEA real. Criterio: "un diccionario no adivina".
 - **F1 -- LA FUSION sem-asm<->C**: `tables/arch/x86_64/intrinsics.toml` +
   `__hlt/__pause/__rdtsc/__outb/__inb/__wrmsr/__cpuid`. El compilador emite los
@@ -1367,7 +1367,7 @@ Ver `ARCHITECTURE.md` y `cobol.md` en esa carpeta.
 > **Aqui no se pone un porcentaje, y es a proposito.** "COBOL al 15%" da a
 > entender que existe un 100% -- un denominador. No existe: el estandar sigue
 > creciendo y ningun compilador del mundo lo implementa entero. Medirse contra
-> un infinito no informa de nada y solo sirve para sentirse pequeno. Lo que si
+> un infinito no informa de nada y solo sirve para sentirse chico. Lo que si
 > se puede afirmar y comprobar es **que corre**, y cada linea de abajo tiene su
 > fila en la matriz de conformidad, que EJECUTA lo que dice soportar.
 
@@ -1503,7 +1503,7 @@ parentesis rompen el heredoc de PowerShell -- usar `git commit -F archivo`.)
 - `toolchain/lang/cobol/cobol.md` -- esencia/teoria de COBOL en BMO.
 - `toolchain/forge/README.md` + `toolchain/README.md` -- pipeline y estructura.
 - `toolchain/tools/cobol-gen/README.md` -- la fabrica Python.
-- `platform/abi/bmo-abi/src/ENDPOINT_RPC.md` -- diseno RPC a Ring 3.
+- `platform/abi/bmo-abi/src/ENDPOINT_RPC.md` -- esquema RPC a Ring 3.
 
 ---
 
@@ -1552,7 +1552,7 @@ formato del raton en el log de arranque.
 4. **Ada hacia ACATS** -- el estandar trae su propio banco de conformidad, que
    es la forma honesta de medir cuanto Ada hay de verdad.
 5. **Superficies y ventanas** -- hoy `KIND_FRAMEBUFFER` es exclusivo. Wayland
-   en pequeno, y ahora **ya tiene debajo lo que le faltaba**: la memoria
+   en chico, y ahora **ya tiene debajo lo que le faltaba**: la memoria
    compartida entre procesos se pide con `KIND_MEMORIA`. Es lo que saca la
    calculadora del
    compositor a su propia ventana **sin tocar el COBOL**. La politica de foco
@@ -1570,7 +1570,7 @@ de sondeo.
 
 **Sistemas de ficheros ajenos:** leer NTFS es viable HOY -- el crate `ntfs` de
 ColinFinck es no_std, MIT/Apache y esta pensado para firmware y drivers de
-kernel. Escribirlo no: no hay nada seguro que enlazar. La decision es del dueno,
+kernel. Escribirlo no: no hay nada seguro que enlazar. La decision es del propietario,
 no una imposibilidad tecnica.
 
 **Filosofia politica grabada (2026-07-24)**: BMO-X = "dictadura absoluta pero

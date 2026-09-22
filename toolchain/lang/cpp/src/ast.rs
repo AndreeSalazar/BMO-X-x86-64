@@ -145,10 +145,10 @@ impl TypeSpec {
         }
     }
 
-    /// **El alineado**, que sale del tamano en todo menos en un array.
+    /// **El alineado**, que sale del medida en todo menos en un array.
     ///
     /// Un `char v[8]` mide 8 y se alinea a **1**: un array se alinea como su
-    /// elemento. Deducirlo del tamano --que es lo que hacia la disposicion
+    /// elemento. Deducirlo del medida --que es lo que hacia la disposicion
     /// antes de que esto existiera-- lo colocaba en el byte 8 y corria todos
     /// los campos de detras.
     pub fn alineado(&self) -> u32 {
@@ -217,7 +217,7 @@ pub enum Expr {
     Assign(String, Box<Expr>),
     /// `base.campo` -- *(base, nombre, offset, TIPO del campo)*.
     ///
-    /// El tipo viaja para que el codegen cargue y guarde el tamano EXACTO. Es
+    /// El tipo viaja para que el codegen cargue y guarde el medida EXACTO. Es
     /// literalmente el bug que BMO C ya pago: `pt.x = 10` con `x:int` escribia
     /// ocho bytes y pisaba el campo siguiente.
     MemberAccess(Box<Expr>, String, u32, TypeSpec),
@@ -242,7 +242,7 @@ pub enum Expr {
     BitXor(Box<Expr>, Box<Expr>),
     Shl(Box<Expr>, Box<Expr>),
     Shr(Box<Expr>, Box<Expr>),
-    /// `v[i]` sobre una variable, con el **tamano del elemento** ya resuelto.
+    /// `v[i]` sobre una variable, con el **medida del elemento** ya resuelto.
     ///
     /// La escala viaja en el AST porque quien tenia delante el tipo era el
     /// parser, no el emisor -- mismo reparto que `Field` en C. Un codegen que

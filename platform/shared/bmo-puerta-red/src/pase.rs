@@ -13,7 +13,7 @@
 //!    2 tarjeta      hay algo que este kernel sepa programar
 //!    3 enlace       hay cable AHORA (se lee del aparato, no del arranque)
 //!    4 receptor     el anillo de entrada esta armado
-//!    5 ocupado      hay otro pase vivo. UNO a la vez: dos duenos del cable
+//!    5 ocupado      hay otro pase vivo. UNO a la vez: dos propietarios del cable
 //!                   no se pueden vigilar por separado
 //!    6 cerrandose   el anterior aun no termino de soltar
 //!    7 lo pedido    cero ms o cero tramas no es un pase, es un error

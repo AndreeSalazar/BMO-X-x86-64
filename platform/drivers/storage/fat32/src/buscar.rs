@@ -124,7 +124,7 @@ impl FatVolume {
     /// Get the root directory's first cluster.
     pub fn root_cluster(&self) -> u32 { self.root_cluster }
 
-    /// La entrada numero `n` de un directorio: `(name 8.3, es_dir, tamano)`.
+    /// La entrada numero `n` de un directorio: `(name 8.3, es_dir, medida)`.
     ///
     /// Devuelve `None` cuando se acaban. Existia `find_file_in` --buscar un
     /// nombre que ya conoces-- pero no habia forma de PREGUNTAR QUE HAY, y sin

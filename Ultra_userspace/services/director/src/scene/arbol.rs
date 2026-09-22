@@ -18,7 +18,7 @@
 //!
 //! Los archivos no salen aqui. El arbol es por donde se NAVEGA, y a un archivo
 //! no se entra -- una lista de la que la mitad de las filas no hace nada al
-//! pulsarlas ensena a no pulsar. Los archivos viven en la rejilla, que es donde
+//! pulsarlas muestra a no pulsar. Los archivos viven en la rejilla, que es donde
 //! se trabaja con ellos.
 //!
 //! === Y por que aqui NO hay iconos de carpeta ===
@@ -238,7 +238,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, z: &Zona, desde: usize, accent: u32, sel_
 /// y `entrar`-- y no con una nueva del kernel, porque no hace falta ninguna: un
 /// salto en un arbol es un camino, y el camino se anda.
 ///
-/// El bucle termina solo: `subir` deja `hondo` estrictamente mas pequeno en
+/// El bucle termina solo: `subir` deja `hondo` estrictamente mas chico en
 /// cada vuelta y contesta `false` en la raiz. No hay forma de que gire.
 ///
 /// ** Y ninguna de las subidas toca el disco: cada nivel sigue leido desde que

@@ -1,6 +1,6 @@
 //! **La matriz de conformidad de BMO C++.**
 //!
-//! Misma regla que las de C y COBOL: *al anadir una caracteristica, se le anade
+//! Misma regla que las de C y COBOL: *al agregar una caracteristica, se le agrega
 //! su fila* -- y la fila **ejecuta**, no inspecciona. Un codegen que produce
 //! numeros erroneos se ve sanisimo en un volcado hexadecimal.
 //!
@@ -132,7 +132,7 @@ fn matriz_cpp_ejecuta_correctamente() {
         ("clase-metodo-const", "@FULL@class P { public: int x; int leer() const { return x; } }; int main() { P p; p.x = 42; printf(\"%d\", p.leer()); return 0; }", "42"),
         ("struct-es-publico", "@FULL@struct P { int x; }; int main() { P p; p.x = 42; printf(\"%d\", p.x); return 0; }", "42"),
         ("clase-campo-usado-antes", "@FULL@class P { public: int doble() { return x * 2; } int x; }; int main() { P p; p.x = 21; printf(\"%d\", p.doble()); return 0; }", "42"),
-        // * La disposicion: dos campos de tamanos distintos. Si la regla de
+        // * La disposicion: dos campos de medidas distintos. Si la regla de
         // alineado del parser de C++ y la del codegen de C divergieran, este
         // valor saldria mal -- es la red de la que habla `descenso.rs`.
         ("clase-disposicion", "@FULL@class P { public: char c; int n; }; int main() { P p; p.c = 'A'; p.n = 41; printf(\"%d %c\", p.n + 1, p.c); return 0; }", "42 A"),
@@ -491,7 +491,7 @@ fn matriz_cpp_explica_lo_que_esta_mal() {
         ("most-vexing-parse",
          "@FULL@class P { public: P() {} }; int main() { P p(); return 0; }",
          "most vexing parse"),
-        // Una ambiguedad resuelta sola --"gana el primero"-- haria que anadir
+        // Una ambiguedad resuelta sola --"gana el primero"-- haria que agregar
         // una sobrecarga cambiara a donde va una llamada existente, en silencio.
         ("ambiguedad",
          "@FULL@int f(int a, long b) { return 1; } int f(long a, int b) { return 2; } \

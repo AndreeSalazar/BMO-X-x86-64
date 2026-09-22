@@ -1,6 +1,6 @@
 # DMA -- el camino por el que el NEUTRO llega a la RAM
 
-> Peticion del dueno, **2026-09-09**: *"aplica pero en carpeta DMA por completo,
+> Peticion del propietario, **2026-09-09**: *"aplica pero en carpeta DMA por completo,
 > eso en categorias maestro para facilitar [...] con IOMMU y DMA pero ambos
 > maestros, el NEUTRO es que si va a llegar lo que necesite con DMA pues es
 > logico, pero con DMA con subcarpetas para tener todo lo necesario."*
@@ -50,7 +50,7 @@ maestros -- y esta carpeta los CITA en vez de guardarlos.
 
 ## Confirmacion: **si**, son DOS maestros, y por mejor razon de la que parecia
 
-No porque sean del mismo tamano --la IOMMU es UNO de los cinco escalones-- sino
+No porque sean del mismo medida --la IOMMU es UNO de los cinco escalones-- sino
 porque **contestan dos preguntas distintas**, y esta casa ordena por pregunta:
 
 ```text

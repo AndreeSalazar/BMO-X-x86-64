@@ -9,7 +9,7 @@
 # nadie. Una app con ventana recibe las teclas y el raton por el buzon que el
 # DIRECTOR le llena (cero syscalls, 2c del 23-08), y eso es lo que esta pieza
 # lee. La entrada exclusiva no se porta: lo que solo es orden del kernel es
-# codigo que el dueno no puede usar desde el escritorio.
+# codigo que el propietario no puede usar desde el escritorio.
 #
 # == Lo que hace cada uno ==
 #

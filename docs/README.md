@@ -161,7 +161,7 @@ Los ocho declaran seguir el metodo de `SMP_MAESTRO.md`.
 | [`OPTIMIZACION_MAESTRO.md`](maestro/OPTIMIZACION_MAESTRO.md) | **la regla es que es LO ULTIMO**: quien pone el presupuesto de cada camino, por que el teclado no se optimiza nunca, y el 97% de burocracia de una puerta |
 | [`AUTOCURACION_MAESTRO.md`](maestro/AUTOCURACION_MAESTRO.md) | 08-08 | de INFORMAR un fallo a ACTUAR sobre el |
 | [`AXION_MAESTRO.md`](maestro/AXION_MAESTRO.md) | 08-11 | el mando de los nucleos, por PERFIL |
-| [`RED_MAESTRO.md`](maestro/RED_MAESTRO.md) | 08-11 | el limite que el dueno cree que quiere vs. el que le importa |
+| [`RED_MAESTRO.md`](maestro/RED_MAESTRO.md) | 08-11 | el limite que el propietario cree que quiere vs. el que le importa |
 | [`AUDIO_MAESTRO.md`](maestro/AUDIO_MAESTRO.md) | 08-12 | del silencio a los gatitos, sin inventar un driver |
 | [`PYTHON_MAESTRO.md`](maestro/PYTHON_MAESTRO.md) | 08-16 | que hace falta de verdad, y no son los 2 syscalls |
 | [`SEGURIDAD_MAESTRO.md`](maestro/SEGURIDAD_MAESTRO.md) | 08-18 | integridad no es autoria, y que backdoor puede esconderse aqui |
@@ -171,7 +171,7 @@ Los ocho declaran seguir el metodo de `SMP_MAESTRO.md`.
 | [`GPU_NVIDIA_MAESTRO.md`](maestro/GPU_NVIDIA_MAESTRO.md) | 09-07 | **traducir el driver: imposible. Traducir el PERFIL: ya esta hecho.** Y la GPU no bloquea nada de lo que se esta construyendo |
 | [`DMA_MAESTRO.md`](maestro/DMA_MAESTRO.md) | 09-09 | el **CUANDO**: un bufer es del CPU o del aparato, nunca de los dos -- y de las 40 funciones de Linux sobreviven DOS ideas |
 | [`INTI_Y_LA_GPU.md`](maestro/INTI_Y_LA_GPU.md) | 09-10 | **la unidad no es el REGISTRO, es la PARTE**: con una GPU no se habla, se le deja un paquete y se toca un timbre -- o sea que es el cuarto aparato del NEUTRO |
-| [`IOMMU_MAESTRO.md`](maestro/IOMMU_MAESTRO.md) | 09-09 | el **DONDE**, y su letra pequena: identidad antes que aislamiento, y por que va el ULTIMO |
+| [`IOMMU_MAESTRO.md`](maestro/IOMMU_MAESTRO.md) | 09-09 | el **DONDE**, y su letra chica: identidad antes que aislamiento, y por que va el ULTIMO |
 | [`EFICIENCIA_MAESTRO.md`](maestro/EFICIENCIA_MAESTRO.md) | 09-11 | **lo que no hace nada, no gasta -- y lo que gasta dice quien y por que**. Todo el hardware, no solo el CPU; el silicio no se toca. Pareja de `PLAN_VATIOS.md` |
 
 ---
@@ -187,7 +187,7 @@ Pedido por Eddi el 20-09. Vive en `docs/` y no en `plan/` porque no es un plan:
 es la vista de TODOS los planes agrupados por lo que persiguen (formato,
 lenguajes, metal, escritorio, red, seguridad, comunidad), y cada meta dice en
 que estado esta y por que: HECHA con fecha, SUPERADA por que decision, APARCADA
-hasta que, o ESPERA de que decision del dueno.
+hasta que, o ESPERA de que decision del propietario.
 
 ** Y trae una regla que la herramienta hace cumplir: un plan cerrado, superado,
 aparcado o en espera lo DICE en su cabecera (`> Estado: **PALABRA** -- motivo`),
@@ -235,7 +235,7 @@ mano, y mientras tanto la deuda tiene nombre.
 | [`PLAN_AUTOCURACION.md`](plan/PLAN_AUTOCURACION.md) | las casillas de su MAESTRO |
 | [`PLAN_DIRECTOR.md`](plan/PLAN_DIRECTOR.md) | de compositor a administrador |
 | [`PLAN_CODEGEN.md`](plan/PLAN_CODEGEN.md) | el censo del compilador de C, los cortes por FASE y el numero que los ordena: 156 ciclos por pixel para seis instrucciones utiles |
-| [`PLAN_DOCUMENTOS.md`](plan/PLAN_DOCUMENTOS.md) | ★ **el escritorio deja de listar programas y lista lo que abres**. Idea del dueno, SIN decidir: el terreno medido, el unico hueco de verdad, y lo que cuesta cada camino |
+| [`PLAN_DOCUMENTOS.md`](plan/PLAN_DOCUMENTOS.md) | ★ **el escritorio deja de listar programas y lista lo que abres**. Idea del propietario, SIN decidir: el terreno medido, el unico hueco de verdad, y lo que cuesta cada camino |
 | [`PLAN_ALMACENAMIENTO.md`](plan/PLAN_ALMACENAMIENTO.md) | repartir la pila de disco |
 | [`PLAN_MAQUETA.md`](plan/PLAN_MAQUETA.md) | como se construye el compilador de composicion |
 | [`PLAN_LA_CARA_VIAJA.md`](plan/PLAN_LA_CARA_VIAJA.md) | la maquetacion como DATO, y que pasa si viaja |
@@ -332,7 +332,7 @@ excepcion: se partieron los ficheros. `fat32` 2.537 -> 918, `xhci` 1.583 -> 688,
 `ahci` 1.035 -> 378, y Ring 0 cumplio L6a entero por primera vez. Hoy el censo
 contesta `clean` -- *ningun fichero nuevo por encima de 1000 y ninguno crecio*.
 
-**4. Y las hojas se separaron en dos clases, que es lo que la tabla ensena
+**4. Y las hojas se separaron en dos clases, que es lo que la tabla muestra
 ahora.** Hasta el 24-08 una hoja era *"lo que hay que teclear"*; desde
 `METAL_RED_PASO_1.md` hay tambien hojas que **predicen la respuesta por escrito
 antes de arrancar**, y `METAL_2026-08-24.md` es la primera que anota lo que
@@ -356,7 +356,7 @@ levantar no debe cerrar la puerta.
 |---|---|---|---|
 | 1 | `ascii-sweep` | la codificacion: no-ASCII donde la regla no lo permite | -- |
 | 2 | `enlaces` | las citas a documentos resuelven | 08-17 |
-| 3 | `censo-modular` | **L6a** (el tamano) y **L7** (la herencia) | 08-18 |
+| 3 | `censo-modular` | **L6a** (el medida) y **L7** (la herencia) | 08-18 |
 | 4 | `casillas` | que una casilla `[ ]` diga DONDE MIRAR | 08-24 |
 | 5 | `ambitos` | el ambito del mensaje de commit | -- |
 
@@ -366,7 +366,7 @@ el fallo que el guardian 4 existe para cazar en los planes -- cometido aqui, en
 el fichero que los presenta.
 
 [!] Y hay una linea escrita en `build.ps1` que este indice tiene que repetir
-porque es una decision, no una nota: **el siguiente guardian NO se anade.**
+porque es una decision, no una nota: **el siguiente guardian NO se agrega.**
 `build.ps1` lleva cinco entradas suyas en la lista de techos levantados, son
 1.542 lineas con 8 funciones (media 201), y el censo lo llama `desconocida`
 porque es PowerShell -- o sea que ni siquiera lo juzga bien. **Primero se parte
@@ -394,7 +394,7 @@ buena, se anuncia y se vuelve a sellar. El arbol solo puede mejorar.
 Y clasifica **la especie**, que es lo que dice cuanto cuesta el corte:
 `CAJON` (media ~30 lineas por funcion: mover texto, demostrable con un hash),
 `GIGANTE` (media 150+: el estado local tiene que volverse un struct primero, y
-eso es diseno), `TABLA` y `mixto`.
+eso es esquema), `TABLA` y `mixto`.
 
 **La otra mitad, `herencia.py`, contesta L7** y entra por la misma llamada: una
 puerta, dos preguntas. Lee la generacion que cada crate declara en su cabecera
@@ -433,7 +433,7 @@ que lo explica dentro de `build.ps1`.
 
 ### [X] Lo que le salia en rojo -- **RESUELTO**, y por el buen camino
 
-Este bloque decia que tres ficheros de codigo citaban el diseno completo de
+Este bloque decia que tres ficheros de codigo citaban el esquema completo de
 ESTRATOS con numero de seccion (*"seccion 10, paso 4"*) y que **ese documento no
 estaba en el repositorio**, ni con ese nombre ni con otro. Se planteo asi:
 
@@ -443,7 +443,7 @@ estaba en el repositorio**, ni con ese nombre ni con otro. Se planteo asi:
 **Se eligio traerlo**, que era la opcion buena de las dos:
 
 ```
-   platform/drivers/storage/estratos/ESTRATOS.md    <- el diseno, en la raiz
+   platform/drivers/storage/estratos/ESTRATOS.md    <- el esquema, en la raiz
                                                        de su propia crate
 ```
 
@@ -457,7 +457,7 @@ contesta:
 
 ★ **Por que se conserva el bloque en vez de borrarlo**: porque la eleccion era
 lo interesante. Corregir las citas habria puesto el arbol en verde **sin que el
-diseno existiera** -- el guardian se habria callado y el conocimiento seguiria
+esquema existiera** -- el guardian se habria callado y el conocimiento seguiria
 perdido. Un indicador se puede apagar de dos maneras y solo una arregla algo.
 
 [!] La otra mitad de aquel aviso sigue en pie y no la resolvio esto: la carpeta

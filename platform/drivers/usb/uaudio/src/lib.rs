@@ -12,7 +12,7 @@
 //! enumeran el teclado y el raton todos los arranques.
 //!
 //! Asi que BMO-X puede mandar sobre el volumen del audifono **antes de poder
-//! reproducir una sola muestra**. Es pequena, se nota en el aparato fisico, y no
+//! reproducir una sola muestra**. Es chica, se nota en el aparato fisico, y no
 //! depende de nada que falte.
 //!
 //! ## Lo que hace este crate, y lo que NO
@@ -136,7 +136,7 @@ pub struct Request {
 ///
 /// Un descriptor de configuracion es una cadena de descriptores pegados, cada
 /// uno con su longitud en el primer byte. Se avanza **por esa longitud** y
-/// nunca por el tamano de la struct que uno espera: un aparato puede meter
+/// nunca por el medida de la struct que uno espera: un aparato puede meter
 /// descriptores que este codigo no conoce, y saltarlos por su longitud es lo
 /// unico que no se rompe con ellos.
 ///
@@ -224,7 +224,7 @@ pub fn find_audio_control(config: &[u8]) -> Option<AudioControl> {
     None
 }
 
-/// Los `bmaControls` del canal maestro, leidos como un entero pequeno.
+/// Los `bmaControls` del canal maestro, leidos como un entero chico.
 /// `control_size` puede ser 1, 2 o 4 bytes segun el aparato.
 fn primer_bloque(bma: &[u8], control_size: usize) -> u32 {
     let n = control_size.min(4).min(bma.len());
@@ -285,7 +285,7 @@ pub fn set_mute(ac: &AudioControl, channel: u8, _on: bool) -> Request {
 
 /// Valida el rango que contesto el aparato antes de usarlo para nada.
 ///
-/// Devuelve `None` cuando no se le puede creer, que es la senal de "usa el
+/// Devuelve `None` cuando no se le puede creer, que es la signal de "usa el
 /// rango supuesto y **avisa**". Dos casos, y los dos se han visto de verdad:
 ///
 /// - `max <= min`: el aparato no contesto, o contesto basura.
@@ -293,7 +293,7 @@ pub fn set_mute(ac: &AudioControl, channel: u8, _on: bool) -> Request {
 ///   es un volumen. Tomarlo como minimo haria que los porcentajes bajos se
 ///   convirtieran **en el marcador de silencio**, o sea que el 10% callara del
 ///   todo en vez de sonar flojo. Se sube un paso: el volumen mas bajo que se
-///   puede MANDAR sin que sea la senal de callar.
+///   puede MANDAR sin que sea la signal de callar.
 pub fn rango(min: i16, max: i16) -> Option<(i16, i16)> {
     if max <= min {
         return None;
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(p, Plan::Poner { valor: -2653, quitar_mute: true });
     }
 
-    /// ** `0x8000` no es un volumen: es la senal de callar. Si un aparato lo
+    /// ** `0x8000` no es un volumen: es la signal de callar. Si un aparato lo
     /// declara como minimo, tomarlo al pie de la letra haria que los
     /// porcentajes bajos CALLARAN en vez de sonar flojo.
     #[test]

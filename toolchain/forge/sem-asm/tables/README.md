@@ -34,5 +34,5 @@ la tapan sin tocar nada de aqui.
 raiz no dice de quien es; en `standards/C/` dice *"esto lo promete C"*, en
 `bmo/` dice *"esto lo da BMO-X"*, en `semantic/` dice *"esto es el silicio"*.
 
-  > Una carpeta con dos duenos se ordena diciendo cual es cual, no juntando
+  > Una carpeta con dos propietarios se ordena diciendo cual es cual, no juntando
   > mas cosas.

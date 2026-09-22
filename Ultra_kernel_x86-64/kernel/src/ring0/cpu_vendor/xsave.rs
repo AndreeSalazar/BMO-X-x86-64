@@ -27,7 +27,7 @@
 //!
 //! Todos los numeros salen de `CPUID` hoja 0xD. Lo que declara el perfil sirve
 //! **solo para avisar** si el silicio no coincide. Un kernel cuyo perfil
-//! dictara el tamano del area seria un kernel que se rompe el dia que alguien
+//! dictara el medida del area seria un kernel que se rompe el dia que alguien
 //! enchufe otro CPU -- y se romperia corrompiendo registros, que es la peor
 //! forma de romperse.
 
@@ -177,7 +177,7 @@ pub fn medir() -> Informe {
     inf.xsavec = eax1 & (1 << 1) != 0;
     inf.xsaves = eax1 & (1 << 3) != 0;
 
-    // Subhojas 2 en adelante: una por componente. El tamano y el sitio de cada
+    // Subhojas 2 en adelante: una por componente. El medida y el sitio de cada
     // uno los dice el CPU; no se calculan ni se suponen.
     for bit in 2..64u32 {
         if inf.soportado & (1u64 << bit) == 0 { continue; }
@@ -206,7 +206,7 @@ pub enum Veredicto {
 /// Existe separada porque hay DOS sitios que hacen esta pregunta: `verify()`
 /// al arrancar (que ademas la cuenta en CABINA) y el comando `cpu` del shell
 /// (que la pinta cada vez que se escribe). Cuando cada uno tenia su propia
-/// comparacion, anadir `XCR0` a una habria dejado a la otra contestando distinto
+/// comparacion, agregar `XCR0` a una habria dejado a la otra contestando distinto
 /// a la misma pregunta -- y el shell es justo donde alguien va a mirar para
 /// confirmar lo que dijo el arranque.
 pub fn coincide(inf: &Informe) -> bool {
@@ -245,7 +245,7 @@ pub fn verify(inf: &Informe) -> Veredicto {
     if !mismo_xcr0 {
         // El aviso que faltaba. `XCR0` lo deja puesto el firmware, no el
         // kernel, asi que puede moverse por debajo --una actualizacion de BIOS,
-        // otra placa-- cambiando el tamano del area de contexto y la mascara con
+        // otra placa-- cambiando el medida del area de contexto y la mascara con
         // la que los epilogos vigilan la cabecera. Que salga en ambar es la
         // diferencia entre enterarse aqui y enterarse por un #GP tres semanas
         // despues.
@@ -265,7 +265,7 @@ static mut MEDIDO: bool = false;
 ///
 /// Se llama lo PRIMERO de `phase::main`, antes de percpu, del scheduler y del
 /// timer. La razon es dura: los stubs de trap guardan el estado extendido con
-/// `xsave64` en el area de tamano fijo `trap::XSAVE_AREA`, y si este CPU
+/// `xsave64` en el area de medida fijo `trap::XSAVE_AREA`, y si este CPU
 /// necesitara mas, el primer tick del timer escribiria mas alla del area y se
 /// llevaria por delante la pila de la tarea. Enterarse de eso *despues* seria
 /// enterarse por una corrupcion, no por un mensaje.
@@ -287,7 +287,7 @@ pub fn init() {
     // CPU soporta pero nadie ha encendido.
     let necesario = inf.area_actual as usize;
     // Los ultimos 16 bytes del area NO son del CPU: ahi va el sello del
-    // contexto (firma + dueno), y el epilogo se niega a restaurar un contexto
+    // contexto (firma + propietario), y el epilogo se niega a restaurar un contexto
     // sin el. Si un CPU necesitara llegar hasta ahi, el sello seria basura
     // aleatoria y la maquina se pararia en cada cambio de contexto -- mejor
     // pararla aqui, con el motivo escrito.

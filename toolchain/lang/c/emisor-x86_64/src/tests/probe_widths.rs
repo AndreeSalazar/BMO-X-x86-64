@@ -225,7 +225,7 @@ fn un_unsigned_int_envuelve_a_32_bits() {
 /// desplazamiento devuelve 9212 en vez de 1020.
 ///
 /// El Ryzen imprimio **9215** el 04-09 con el angulo de verdad. Mismo sitio,
-/// mismo tamano, un pixel de diferencia.
+/// mismo medida, un pixel de diferencia.
 ///
 /// # Por que esto mataba la partida
 ///
@@ -295,7 +295,7 @@ fn el_menos_unario_envuelve_igual_que_la_resta() {
 /// se guardaron. Se queda en el banco porque la pregunta es cara de volver a
 /// hacer y la respuesta vale para siempre.
 ///
-/// [!] El paso del elemento de un array de PUNTEROS son 8 bytes, no el tamano
+/// [!] El paso del elemento de un array de PUNTEROS son 8 bytes, no el medida
 /// de lo apuntado. Es el mismo error que `p + 1` sobre un `struct T *`, que en
 /// esta casa ya se pago tres veces -- por eso se prueba con una estructura
 /// GRANDE (72 bytes): si el paso fuera el del apuntado, el fallo saltaria a la

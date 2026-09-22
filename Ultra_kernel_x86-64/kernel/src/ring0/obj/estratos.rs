@@ -51,7 +51,7 @@
 //!
 //! ** LO QUE SE DECIDE AL VOLVER A MIRARLA (2026-08-20): se sigue trayendo
 //! ENTERO, y el tope deja de ser un numero para ser una pregunta al asignador.
-//! `reserve` pide marcos FISICOS CONTIGUOS del tamano del fichero: un `.bex` de
+//! `reserve` pide marcos FISICOS CONTIGUOS del medida del fichero: un `.bex` de
 //! 4 MiB son 1.024 paginas seguidas, y si la RAM esta fragmentada contesta
 //! `ERROR_ARCH_GRANDE`. No se rompe -- se niega, que es lo correcto.
 //!

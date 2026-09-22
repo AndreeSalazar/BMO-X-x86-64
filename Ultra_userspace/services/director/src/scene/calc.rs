@@ -32,7 +32,7 @@
 //! ```
 //!
 //! Es la separacion que Windows no hace --su calculadora lleva el motor dentro--
-//! y es la que permite cambiar una sin tocar las otras: manana el motor puede ser
+//! y es la que permite cambiar una sin tocar las otras: luego el motor puede ser
 //! Ada y ni esto ni el `.maqueta` se enteran.
 //!
 //! [!] Para regenerar la cara:
@@ -48,7 +48,7 @@ use super::*;
 
 /// Estado de la calculadora. Los operandos se guardan como TEXTO, no como
 /// numero: quien sabe de numeros aqui es el COBOL, y convertir dos veces solo
-/// anade sitios donde perder un decimal.
+/// agrega sitios donde perder un decimal.
 pub(crate) struct Calc {
     pub(crate) visible: bool,
     /// Lo que se esta tecleando ahora.
@@ -66,7 +66,7 @@ pub(crate) struct Calc {
     /// que hay que DECIRLO y no adivinarlo. `Ctrl+n` lo cambia; el porque
     /// entero esta en `desktop::calc`.
     pub(crate) keys: bool,
-    /// **Lo que ensena el visor NO es un numero.** Lo pone la tecla `$`, cuya
+    /// **Lo que muestra el visor NO es un numero.** Lo pone la tecla `$`, cuya
     /// respuesta (`$12,345.67`) es una PRESENTACION y no un operando: tiene
     /// moneda y millares, y seguir tecleando encima daria un texto que ningun
     /// `PIC` puede leer. La siguiente cifra empieza de cero.
@@ -165,7 +165,7 @@ impl Calc {
         self.op = op;
     }
 
-    /// Lo que se ensena en la pantallita: lo que se teclea, o `0` si no hay
+    /// Lo que se muestra en la pantallita: lo que se teclea, o `0` si no hay
     /// nada -- una calculadora en blanco confunde.
     pub(crate) fn shown(&self) -> &[u8] {
         if self.n == 0 {

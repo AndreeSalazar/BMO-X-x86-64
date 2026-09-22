@@ -46,7 +46,7 @@
 //! arquitectura si puede -- solo significa que ese `usa` no encuentra nada, **y
 //! eso es una respuesta correcta**, no un fallo.
 //!
-//! Es un ejemplo pequeno de lo que la regla evita: el respaldo era comodo, no
+//! Es un ejemplo chico de lo que la regla evita: el respaldo era comodo, no
 //! era urgente, y era la puerta por la que una maquina concreta se colaba en el
 //! compilador.
 
@@ -69,7 +69,7 @@ pub struct Maquina {
     ///
     /// ** Sale de la tabla y no del emisor. El asignador de F3 llevaba esta
     /// lista escrita a mano en Rust durante unas horas, y no habia motivo:
-    /// **anadir una instruccion es una fila de TOML, y un registro tambien
+    /// **agregar una instruccion es una fila de TOML, y un registro tambien
     /// deberia serlo**.
     temporales: Vec<String>,
     trabajo: Vec<String>,

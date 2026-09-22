@@ -120,7 +120,7 @@ impl Fila {
 /// # El defecto que esto cierra, dicho entero
 ///
 /// Estas tres filas eran `const` del kernel: `techo 960` medido en el Ryzen del
-/// dueno. **Y el kernel arranca en cualquier x86-64.** En otro CPU los mismos
+/// propietario. **Y el kernel arranca en cualquier x86-64.** En otro CPU los mismos
 /// numeros seguirian juzgando, y darian una de estas dos:
 ///
 /// ```text
@@ -249,7 +249,7 @@ pub fn es_esta_maquina() -> bool {
 /// -- ** EL VEREDICTO DE IDENTIDAD, EMPAQUETADO Y CON LOS DOS LADOS ---------
 ///
 /// Un `bool` habria bastado para frenar el trinquete, y **no basta para
-/// arreglarlo**: el dia que conteste `false` en la maquina del dueno, hay que
+/// arreglarlo**: el dia que conteste `false` en la maquina del propietario, hay que
 /// saber si fallo el modelo o el reloj, y con que numeros. Un no sin motivo
 /// manda a leer codigo; este campo manda a cambiar una cifra.
 ///
@@ -266,7 +266,7 @@ pub fn es_esta_maquina() -> bool {
 /// 7000; el perfil de este directorio declara `family_model: "19h/21h"`. Los dos
 /// no pueden tener razon, **y nadie ha leido nunca el byte de este chip** --
 /// el unico sintoma era el nombre en `info`, que nadie mira. Este campo lo lee y
-/// lo ensena, y con eso la discusion se cierra con un dato en vez de con una
+/// lo muestra, y con eso la discusion se cierra con un dato en vez de con una
 /// opinion.
 pub const MAQ_COINCIDE: u64 = 1 << 0;
 pub const MAQ_CPU_OK: u64 = 1 << 1;

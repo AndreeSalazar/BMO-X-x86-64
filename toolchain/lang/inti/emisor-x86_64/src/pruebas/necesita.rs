@@ -74,7 +74,7 @@ fn lo_que_se_pide_es_lo_que_se_pide() {
     let cuanto: u32 = 64 * 1024 * 1024;
     assert!(
         e.codigo.windows(4).any(|w| w == cuanto.to_le_bytes()),
-        "no aparece el tamano declarado en el arranque"
+        "no aparece la medida declarada en el arranque"
     );
     assert!(
         !e.codigo
@@ -124,7 +124,7 @@ fn lo_declarado_se_escribe_en_el_paquete() {
 /// ** Se comprueba para que quede escrito de que lado esta cada numero. La
 /// memoria de la imagen --codigo, datos, ceros-- la sabe el fichero mirandose,
 /// y por eso lleva declarandose desde antes de que existiera `necesita`. Lo que
-/// la palabra nueva anade es lo que el fichero NO puede saber de si mismo.
+/// la palabra nueva agrega es lo que el fichero NO puede saber de si mismo.
 #[test]
 fn quien_no_declara_nada_trae_solo_lo_que_el_escritor_deduce() {
     let bytes = bytes_de(&con(""));
@@ -261,7 +261,7 @@ fn el_orden_de_la_cabecera_da_igual() {
 ///
 /// ** Es el caso que obligo al arranque a elegir el inmediato: hasta 4 GiB va
 /// uno de 32 bits --cinco bytes, y se extiende con ceros, que es justo lo que
-/// quiere un tamano-- y por encima hace falta uno de 64. Emitir siempre el
+/// quiere un medida-- y por encima hace falta uno de 64. Emitir siempre el
 /// largo costaria cinco bytes en TODA tarea del sistema.
 #[test]
 fn por_encima_de_cuatro_gigas_el_inmediato_crece() {

@@ -3,7 +3,7 @@
 //! [fase]     SINTAXIS
 //!
 //! [aparece]  AQUI -- una gramatica que no casa no produce arbol: para y
-//!            senala
+//!            marca
 //!
 //! [carril]   VERDE    -- si se rompe, ALGUIEN TE LO DICE antes de que salga de aqui
 //!            * y sale de su `[aparece]`, no de una opinion: ver toolchain/tools/fases/
@@ -74,7 +74,7 @@ pub(crate) struct Parser {
     /// como si fuera una variable `int` y nunca guardaba a que equivalia,
     /// asi que `enum { ROJO, VERDE }` dejaba `VERDE` como una variable sin
     /// definir. El aviso `value assigned to val is never read` del propio
-    /// compilador estaba senalando justo este bug.
+    /// compilador estaba marcando justo este bug.
     enum_constants: HashMap<String, i64>,
     /// ** Las constantes de `enum` que una local o un parametro TAPA en la
     /// funcion que se esta leyendo, con su valor, para devolverlas al salir.
@@ -589,7 +589,7 @@ impl Parser {
                     nombre.clone(),
                     DisposicionAgregado {
                         campos: campos.clone(),
-                        tamano: self.struct_sizes.get(nombre).copied().unwrap_or(0),
+                        size: self.struct_sizes.get(nombre).copied().unwrap_or(0),
                         alineado: self.struct_aligns.get(nombre).copied().unwrap_or(0),
                     },
                 )

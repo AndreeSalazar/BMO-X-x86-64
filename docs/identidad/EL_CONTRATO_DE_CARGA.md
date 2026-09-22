@@ -43,8 +43,8 @@ ficheros de `staging` estan perfectos -- `BEF1`, version 1, 4 secciones,
 bufer no son los del fichero.** Es transporte, no formato.
 
 **Probado.** Uno de los fallos trae `=18300` = 99.072 bytes. No es multiplo de
-512 y no es el tamano de ningun `.bex`. `read_file` solo puede devolver
-multiplos de 512 o el tamano exacto del fichero, asi que ese numero **solo puede
+512 y no es el medida de ningun `.bex`. `read_file` solo puede devolver
+multiplos de 512 o el medida exacto del fichero, asi que ese numero **solo puede
 ser `bex::necesita()`** -- o sea que la FASE 1 leyo un `BEF1` valido y una tabla
 legible. **El prologo llega bien; la lectura grande rompe la cabecera.**
 
@@ -70,7 +70,7 @@ tenia escrito:
 > *"Lo que este numero no arregla, dicho para que nadie lo suponga: el bufer
 > sigue siendo uno y estatico... y sigue siendo una pagina de rebote."*
 
-Estaba documentado como deuda y se estaba tratando como diseno.
+Estaba documentado como deuda y se estaba tratando como esquema.
 
 ## El cerebro que hay en Ring 0
 
@@ -117,12 +117,12 @@ ser:
    FAULT proc: la seccion Code no cuadra con su hash  =<bytes que llegaron>
 ```
 
-Esto es lo que convierte la medida en una **propiedad del diseno**. Hoy, para
-saber que llego de verdad, hace falta anadir una linea de depuracion, mirarla en
+Esto es lo que convierte la medida en una **propiedad del esquema**. Hoy, para
+saber que llego de verdad, hace falta agregar una linea de depuracion, mirarla en
 una foto y quitarla. Despues, el sistema lo dice siempre, en el sitio exacto,
 sin que nadie lo pida.
 
-> **Una medida que hay que anadir para diagnosticar es una medida que no existe
+> **Una medida que hay que agregar para diagnosticar es una medida que no existe
 > el dia que hace falta.**
 
 ## B -- Muere el bufer
@@ -158,13 +158,13 @@ El destino de DMA perfecto ya lo teniamos y lo estabamos rodeando.
 
 Ninguna de las tres es una constante que haya que subir dentro de una semana.
 
-**Y el techo del sistema cambia de sitio:** el tamano maximo de un programa deja
+**Y el techo del sistema cambia de sitio:** el medida maximo de un programa deja
 de ser un numero escrito en el kernel y pasa a ser la RAM que hay. Que es
 justo lo que dice `LA_RAM.md`.
 
 ## C -- El fichero DECLARA lo que requiere, y el PORQUE
 
-Seccion nueva: **`Requisitos = 0x15`**, tabla binaria de registros de tamano
+Seccion nueva: **`Requisitos = 0x15`**, tabla binaria de registros de medida
 fijo. Ring 0 la lee sin parser -- sin cerebro.
 
 ```
@@ -200,7 +200,7 @@ ELF treinta anios.
 ```rust
    //  hoy
    fn admit_from_disk(..) -> Option<(u32, u32)>       // trece motivos -> None
-   //  manana
+   //  luego
    fn admit_from_disk(..) -> Result<(u32, u32), Requisito>
 ```
 
@@ -218,7 +218,7 @@ La misma clase de numero, todos:
 | `bex.rs:54` | `MAX_BEX_SECTIONS = 16` | lo que declare la cabecera, acotado por el fichero |
 | `proc.rs:578` | `MAX_PROGRAMS = 8` | el registro crece o se recicla |
 | `proc.rs:230` | `MAX_DISK_NAMES = 6` | idem |
-| `sonda.bex` | el renglon de ruta de 128 | el tamano que el llamante declare |
+| `sonda.bex` | el renglon de ruta de 128 | el medida que el llamante declare |
 | `MI_PAQUETE` | los recursos, hoy sin lector a trozos | `fs::leer_tramo`, que ya existe |
 
 Lo ultimo es lo que le falta a DOOM para sacar su WAD **sin que nadie reserve
@@ -307,7 +307,7 @@ llega a eso"*.
 ** Los nombres importan mas de lo que parece. `publica / privada / especial`
 dicen como te sientes con cada una; delante de un banco hace falta la otra
 pregunta contestada -- **quien responde si esto rompe algo**: nadie, un socio con
-pacto, o el dueno del sistema. Eso si se puede poner en un contrato.
+pacto, o el propietario del sistema. Eso si se puede poner en un contrato.
 
 ## 4. [!] Y DOOM va SIN FIRMA, a proposito
 
@@ -321,7 +321,7 @@ donde peor cae:
 - Una llave que se le da a todo no distingue nada.
 - Y el que de verdad importa: **el valor de DOOM como demostracion es que corre
   SIN firma**. Eso es lo que prueba que BMO-X no es un jardin cerrado. Firmarlo
-  demuestra justo lo contrario de lo que se quiere ensenar.
+  demuestra justo lo contrario de lo que se quiere mostrar.
 
 DOOM es el caso "sin firma, corre igual, y el sistema dice de quien es y de quien
 no" -- que es la misma regla que el resto del sistema ya aplica en todas partes:
@@ -348,10 +348,10 @@ esto rompe algo**, que es la unica que se puede poner en un contrato.
 | **sin firma** -- extranjero | nadie | RAM, CPU, su superficie en el marco del DIRECTOR, entrada, audio, y LEER el disco |
 | **publica** -- llave conocida | alguien, y se puede averiguar quien | + dejar rastro: escribir en SU sitio del disco, estado que sobrevive al apagon |
 | **privada** -- socio con pacto | una empresa, por contrato | + actuar sobre otros: `EJECUTAR` hijos, servicio de fondo, ventana de escritura |
-| **especial** -- la Base | el dueno del sistema | + cambiar la maquina: cadena de arranque, la puerta de escritura, `REINICIAR` |
+| **especial** -- la Base | el propietario del sistema | + cambiar la maquina: cadena de arranque, la puerta de escritura, `REINICIAR` |
 
 El extranjero **no lleva tope de RAM ni de CPU**. No es generosidad: es que
-quemando lo suyo solo se hace dano a si mismo. El techo no lo pone la firma, lo
+quemando lo suyo solo se hace perjuicio a si mismo. El techo no lo pone la firma, lo
 pone la maquina.
 
 ** Y un quinto estado que sale gratis: **firmado por una llave desconocida**. No
@@ -384,16 +384,16 @@ falta que nadie sea root. No hay a quien ascender ni a quien sobornar.
 Y no es idea nueva: **ya esta hecho dos veces**.
 
 ```text
-   disk.rs   "el dueno del disco murio: se le quita"
-             "Es la misma idea que la pantalla: exclusiva, con dueno,
-              y recuperable cuando el dueno se muere."
+   disk.rs   "el propietario del disco murio: se le quita"
+             "Es la misma idea que la pantalla: exclusiva, con propietario,
+              y recuperable cuando el propietario se muere."
 ```
 
 Lo que falta es convertir ese patron en LA REGLA en vez de dos casos sueltos.
 
 ### El expediente: por que arranco esto
 
-`record_open` apunta nombre, pid y tamano. Le falta lo que hace util a todo lo
+`record_open` apunta nombre, pid y medida. Le falta lo que hace util a todo lo
 demas:
 
 ```text
@@ -427,7 +427,7 @@ La version sin cerebro: solo saltan **hechos mecanicos**, comprobables sin opina
 | muere teniendo un recurso exclusivo | lleva mucho rato |
 
 ** Y lo que esto NO caza, dicho: un programa que se cuelga **sin romper nada** no
-viola ningun contrato. Eso lo cierra el usuario por DIRECTOR, que es el dueno de
+viola ningun contrato. Eso lo cierra el usuario por DIRECTOR, que es el propietario de
 la ventana. Dos puertas, y ninguna de las dos es un superusuario.
 
 ## El gato, que no es decoracion
@@ -436,7 +436,7 @@ la ventana. Dos puertas, y ninguna de las dos es un superusuario.
 > funciones, pero si danas te lo quita y lo devuelve para funcionar."*
 > -- Eddi, 2026-08-10
 
-Un gato **no delibera sobre quien es el dueno del raton**. No juzga porque no
+Un gato **no delibera sobre quien es el propietario del raton**. No juzga porque no
 tiene con que, y esa es la virtud: un kernel que piensa es un kernel que un dia
 piensa mal y no hay a quien preguntarle por que.
 
@@ -447,12 +447,12 @@ caza es mecanica.
 ### Y sirve de PRUEBA, que es lo mejor que tiene
 
 Si el trato es *"te presto, y si danas te lo quito y lo devuelvo"*, entonces
-**todo lo que el gato no pueda quitar es donde el diseno no esta terminado**:
+**todo lo que el gato no pueda quitar es donde el esquema no esta terminado**:
 
 | prestamo | lo recupera? |
 |---|---|
-| el disco | **si** -- dueno, y se le quita a un muerto |
-| la pantalla | **si** -- exclusiva, con dueno |
+| el disco | **si** -- propietario, y se le quita a un muerto |
+| la pantalla | **si** -- exclusiva, con propietario |
 | el audio | hay `CLAIM`/`RELEASE`; falta comprobar si se recupera de un muerto |
 | **la RAM** | **NO.** Hoy no existe devolver |
 
@@ -460,7 +460,7 @@ La RAM es la unica que no vuelve: un programa pide, muere, y esa memoria no
 regresa -- *"sin forma de devolver memoria, cada peticion de mas es una fuga"*,
 dice `sonda.bex`. **Ahi el gato no puede**, y mientras siga asi la primera fila de
 la tabla de niveles (el extranjero sin tope de RAM) no es del todo verdad: un
-extranjero que pide y muere si hace dano a los demas.
+extranjero que pide y muere si hace perjuicio a los demas.
 
 O el extranjero lleva tope, o `MEMORIA_PEDIR` aprende a devolver. **Lo segundo**:
 un tope seria una regla puesta para tapar la falta de la otra.

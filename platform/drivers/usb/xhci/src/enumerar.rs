@@ -76,7 +76,7 @@ pub unsafe fn port_power_solo(port: u8) {
 /// Existe desde el 2026-09-17 para el segundo intento sobre un puerto que no
 /// contesta: un teclado que se quedo a medias en un reinicio en caliente no
 /// vuelve por resetearlo mas, vuelve por quitarle la corriente. Es lo que
-/// hace el dueno con la mano cuando "no prende".
+/// hace el propietario con la mano cuando "no prende".
 ///
 /// # Safety
 /// Toca MMIO del xHC.
@@ -284,7 +284,7 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 /// gastando de uno en uno hasta agotar los 64 del controlador. La pareja
 /// pedir/devolver tiene que estar en la misma funcion o no esta.
 ///
-/// *** EL ESQUEMA DE WINDOWS, ENTERO (2026-09-21, noche; decision del dueno:
+/// *** EL ESQUEMA DE WINDOWS, ENTERO (2026-09-21, noche; decision del propietario:
 /// *"mata el viejo y usa el nuevo, vamos a empezar por completo como
 /// Windows"*). Un aparato USB se prueba en la fabrica contra Windows, y
 /// esta es la secuencia que vio alli; Linux la copio (`hub.c`, "new scheme")
@@ -417,7 +417,7 @@ unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool) -> Optio
     if address_rematar(slot, &ev) { Some(slot) } else { None }
 }
 
-/// **El tamano de paquete del EP0 que se SUPONE al direccionar**, por
+/// **El medida de paquete del EP0 que se SUPONE al direccionar**, por
 /// velocidad del puerto: 8 para Low Speed (no puede ser otro), **64 para
 /// Full Speed**, 64 para High, 512 para Super. El aparato declara el suyo en
 /// el byte 7 de su descriptor, y si no coincide se le dice al xHC
@@ -439,7 +439,7 @@ pub fn mps0_declarado(byte7: u8, speed: u8) -> u16 {
     if speed >= 4 { 1u16 << byte7.min(12) } else { byte7 as u16 }
 }
 
-/// **`Evaluate Context`: el EP0 pasa a tener el tamano de paquete que el
+/// **`Evaluate Context`: el EP0 pasa a tener el medida de paquete que el
 /// aparato declaro** (2026-09-21). Lanzado y sin esperar; devuelve la fisica
 /// del TRB para `vigilar_comando`.
 ///

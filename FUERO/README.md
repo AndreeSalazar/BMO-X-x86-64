@@ -35,7 +35,7 @@ choca con el hardware ni con el DMA. Choca con lo que se le deja hacer.
 | [`META-APP_HARD.md`](META-APP_HARD.md) | **la ley de una app.** Que exige BMO-X de cualquier cosa que quiera serlo, y que le devuelve |
 | [`META-SDK_HARD.md`](META-SDK_HARD.md) | **la ley de REX**: las cabeceras `<bmo/...>` con las que se escribe una app, y las dos pruebas que impiden que una libreria se vuelva un marco de trabajo |
 
-** El orden no es de tamano: es de DEPENDENCIA. La carta dice que hay un trato;
+** El orden no es de medida: es de DEPENDENCIA. La carta dice que hay un trato;
 las tres leyes dicen en que consiste, cada una para un lado de la puerta.
 
 ---
@@ -93,6 +93,6 @@ ley: son estado e historia. Bajarlos seria esconder el diario.
 
    3. Y SI ALGUN DIA HAY UNA QUINTA LEY, ESTA CARPETA CRECE SIN AVISAR
       Hoy son tres leyes porque hay tres lados: la maquina, la app y REX. Una
-      cuarta ley que no encaje en esos tres lados es una senal de que la
+      cuarta ley que no encaje en esos tres lados es una signal de que la
       division esta mal, no de que falte un fichero
 ```

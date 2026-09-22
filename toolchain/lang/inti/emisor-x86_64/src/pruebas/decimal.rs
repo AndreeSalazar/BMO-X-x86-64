@@ -73,7 +73,7 @@ fn multiplicar_suma_las_escalas() {
 /// mano: la suma de dos con signo desborda cuando los dos sumandos tienen el
 /// mismo signo y el resultado tiene otro.
 ///
-/// [!] Y esa comprobacion mira CON SIGNO. Funciona desde esta misma manana:
+/// [!] Y esa comprobacion mira CON SIGNO. Funciona desde esta misma luego:
 /// hasta hoy el emisor bajaba toda comparacion con `setl` mirase lo que mirase,
 /// y esta guardia habria acertado por casualidad -- que es peor que fallar.
 #[test]
@@ -113,7 +113,7 @@ fn una_suma_que_no_cabe_atrapa_con_la_regla_1() {
 /// *** Y ESTO YA ESTABA EN EL PLAN, con nombre y con la frase justa:
 /// `PLAN_EL_SILICIO.md`, **P4 -- EL CAMINO DE VUELTA: atrapar deja de ser
 /// devolver un numero**, descrito como *"el peldano que sostiene todo lo
-/// demas"*. Lo que anade esta prueba es que deja de ser una prevision: es un
+/// demas"*. Lo que agrega esta prueba es que deja de ser una prevision: es un
 /// caso, con su numero.
 ///
 /// [!] Y es el fallo silencioso mas grande que hay hoy en INTI. Las cuatro

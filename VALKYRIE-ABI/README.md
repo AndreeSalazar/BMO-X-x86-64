@@ -4,7 +4,7 @@
 > escriba una app, con un nombre, un numero de version y cuatro jueces que lo
 > cobran en cada build.
 >
-> Creada el **2026-09-06**, cuando el dueno pregunto si habia que inventar un
+> Creada el **2026-09-06**, cuando el propietario pregunto si habia que inventar un
 > POSIX propio. La respuesta fue que no: ya estaba construido y le faltaban dos
 > cosas que no son codigo -- **un nombre y un numero**.
 
@@ -74,7 +74,7 @@ que es.
 |---|---|---|
 | **`VERSION.txt`** | la version | que numero de estandar es este, y por que se llama VALKYRIE |
 | **`LEY.md`** | la ley | que dice cada una de R13-R16, que sacrifica y como dice que NO |
-| **`FRONTERA.txt`** | el alcance | que NO es superficie de una app, por prefijo y con su dueno |
+| **`FRONTERA.txt`** | el alcance | que NO es superficie de una app, por prefijo y con su propietario |
 | **`ESPEJO.txt`** | la prueba | las 98 constantes que REX y el ABI escriben las dos veces |
 | **`COBERTURA.txt`** | el trinquete | cuanto del ABI que es de app tiene cabecera. Solo sube |
 

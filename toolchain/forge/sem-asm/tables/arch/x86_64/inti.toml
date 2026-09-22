@@ -63,7 +63,7 @@ la_pila_crece = "hacia_abajo"
 #
 #  Y arregla algo que estaba mal desde hace unas horas: el asignador de
 #  registros de F3 llevaba la lista **escrita a mano en Rust**. Eso es
-#  exactamente lo que `intrinsics.toml` decidio no hacer nunca -- *"anadir una
+#  exactamente lo que `intrinsics.toml` decidio no hacer nunca -- *"agregar una
 #  instruccion = 1 entrada TOML, CERO Rust"* -- y no habia motivo para que los
 #  registros fueran la excepcion.
 #
@@ -496,7 +496,7 @@ piden = [
 #
 #  ** `mov rax, [rbp-24]` NO ES UNA INSTRUCCION: es una FAMILIA.
 #
-#  Cambia con el registro de destino, con el registro base, con el tamano del
+#  Cambia con el registro de destino, con el registro base, con el medida del
 #  desplazamiento, con si hace falta un indice, y con si alguno de los dos
 #  registros pasa del septimo --que entonces pide otro prefijo--. Son cientos
 #  de combinaciones, y ponerlas en una tabla seria escribir a mano lo que un
@@ -511,7 +511,7 @@ piden = [
 #  ** Separar esas dos cosas es lo que hace que otra maquina sea *otra tabla y
 #  otro codificador*, sin tocar nada mas. Si los bytes vivieran mezclados con la
 #  decision de que instruccion usar, portar seria reescribir el emisor entero en
-#  vez de anadir una carpeta.
+#  vez de agregar una carpeta.
 #
 #  Hoy el codificador vive en `bmo_lower::x86` y lo comparten C, COBOL, Ada,
 #  C++ e INTI. Es la pieza que **si** merece estar escrita en Rust, y la unica.
@@ -538,7 +538,7 @@ piden = [
 #  4. Instrucciones de cadena (`rep movsb`) que en el silicio moderno son el
 #     camino rapido para copiar. OJO: **no siempre lo fueron** -- ver la seccion
 #     13.10 del maestro, que es justo el ejemplo de que el ensamblador de ayer
-#     es el codigo lento de manana.
+#     es el codigo lento de luego.
 #
 #  5. Un contador de ciclos barato (`rdtsc`) que hace posible el metodo de este
 #     proyecto: medir en vez de opinar.

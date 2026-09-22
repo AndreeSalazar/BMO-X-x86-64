@@ -79,11 +79,11 @@ pub const OP_CONSOLE_WRITE: u32 = 0x06;
 pub const OP_ENDPOINT_CREATE: u32 = 0x07;
 pub const OP_ENDPOINT_CONNECT: u32 = 0x08;
 pub const OP_FRAMEBUFFER_CLAIM: u32 = 0x09;
-/// Soltar la pantalla siendo su dueno y **seguir vivo**. Pareja de
+/// Soltar la pantalla siendo su propietario y **seguir vivo**. Pareja de
 /// [`OP_FRAMEBUFFER_CLAIM`]: hasta el 2026-08-07 la unica forma de dejar de ser
-/// dueno era terminar, asi que el escritorio no podia prestarla ni queriendo.
+/// propietario era terminar, asi que el escritorio no podia prestarla ni queriendo.
 pub const OP_PANTALLA_SOLTAR: u32 = 0x1D;
-/// Soltar la ENTRADA siendo su dueno y seguir vivo.
+/// Soltar la ENTRADA siendo su propietario y seguir vivo.
 ///
 /// Va junto a [`OP_PANTALLA_SOLTAR`] porque **separarlas fue el bug**: prestar la
 /// pantalla sin la entrada deja al programa pintando sin poder leer su propia
@@ -186,7 +186,7 @@ pub const OFRECER_A_MI_MISMO: u32 = 3;
 pub const OFRECER_SIN_RANURAS: u32 = 4;
 pub const OFRECER_PADRE_NO_VIVE: u32 = 5;
 /// **Donde vive de verdad el bloque**, para escribirlo en un descriptor de DMA.
-/// Solo el dueno. Ver [`crate::sys::memoria_fisica`].
+/// Solo el propietario. Ver [`crate::sys::memoria_fisica`].
 pub const MEM_OP_FISICA: u32 = 0x04;
 /// Devolver el bloque entero. 1 = devuelto, 0 = no se pudo (sigue prestado).
 pub const MEM_OP_SOLTAR: u32 = 0x05;
@@ -226,7 +226,7 @@ pub const PRESTADO_OP_SOLTAR: u32 = 0x04;
 pub const MEM_OP_BASE: u32 = 0x01;
 pub const MEM_OP_BYTES: u32 = 0x02;
 
-// Campos de `OP_INFO`. Son una TABLA: anadir un dato es una fila, no una
+// Campos de `OP_INFO`. Son una TABLA: agregar un dato es una fila, no una
 // operacion nueva.
 pub const INFO_RAM_TOTAL: u64 = 0x01;
 pub const INFO_RAM_LIBRE: u64 = 0x02;
@@ -304,7 +304,7 @@ pub const INFO_CPU_HZ_REAL: u64 = 0x20;
 /// Milivatios del paquete desde la ultima consulta. `0` = no se puede medir.
 pub const INFO_CPU_MW_PAQUETE: u64 = 0x21;
 /// **Milivatios del NUCLEO EN EL QUE SE LEE.** No de todos, y el metal del
-/// 12-08 enseno por que importa: con once nucleos girando al 100%, este numero
+/// 12-08 mostro por que importa: con once nucleos girando al 100%, este numero
 /// BAJO. `CORE_ENERGY_STAT` es por nucleo y solo se lee el del BSP.
 pub const INFO_CPU_MW_NUCLEO_ACTUAL: u64 = 0x22;
 /// **Que sabe medir el perfil de este silicio**, como banderas.
@@ -493,7 +493,7 @@ pub const INFO_CPU_NUCLEOS: u64 = 0x07;
 /// numero malo se pinta igual de nitido que uno bueno.
 ///
 /// *** El aviso existia --en el log del arranque, y solo si alguien tecleaba
-/// `smp`-- y ahi no lo ve nadie: **el dueno vive en el escritorio y al shell de
+/// `smp`-- y ahi no lo ve nadie: **el propietario vive en el escritorio y al shell de
 /// Ring 0 no se vuelve.** Un diagnostico al que no se llega desde donde se ve el
 /// sintoma no es un diagnostico.
 pub const INFO_CPU_TOPOLOGIA_DUDA: u64 = 0x4D;
@@ -668,7 +668,7 @@ pub const INFO_DISCO_TRIM_ORDENES: u64 = 0x44;
 /// Estos dos numeros se podian deducir de `INFO_ES_*`, y deducirlos era tener
 /// **dos cuentas de la misma verdad**: la que se pinta en la propuesta y la que
 /// el kernel manda de verdad. Se separan el dia que una cambie, y separarse aqui
-/// es ensenar un rango y recortar otro. `0` = no hay volumen o la cola esta
+/// es mostrar un rango y recortar otro. `0` = no hay volumen o la cola esta
 /// vacia.
 pub const INFO_DISCO_COLA_LBA: u64 = 0x45;
 pub const INFO_DISCO_COLA_SECTORES: u64 = 0x46;
@@ -714,7 +714,7 @@ pub const AUTOPSIA_RENGLONES: u64 = 0x02;
 // ** EL SONIDO como capability. Ver `ring0/obj/audio.rs`.
 //
 // Es el CONTRATO, no un driver: quien puede sonar, quien no, y que pasa con el
-// aparato cuando su dueno se muere. Lo unico que suena hoy es el altavoz del
+// aparato cuando su propietario se muere. Lo unico que suena hoy es el altavoz del
 // PC, y `AUDIO_OP_DEVICES` lo dice en vez de que haya que suponerlo.
 // ** CABINA: lo que el kernel ve, CON severidad.
 //
@@ -928,7 +928,7 @@ mod dibujo;
 mod disco;
 mod entrada;
 mod memoria;
-/// ** LA RED desde donde vive el dueno: armar el receptor y sondearlo.
+/// ** LA RED desde donde vive el propietario: armar el receptor y sondearlo.
 ///
 /// Existe porque `net rx` vivia SOLO en el shell de Ring 0, y a ese shell no se
 /// vuelve. Ver su cabecera.

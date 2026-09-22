@@ -1,6 +1,6 @@
 //! **Lo que se INTERPRETA.**
 //!
-//! [consumo] NADA      no corre en reposo: lo pide el dueno escribiendo una
+//! [consumo] NADA      no corre en reposo: lo pide el propietario escribiendo una
 //!                     orden en la caja de Ejecutar o pulsando su tecla de
 //!                     funcion (L6h)
 //!
@@ -9,7 +9,7 @@
 
 pub(crate) mod complete;
 /// ** LA TERMINAL DEL DISCO: la unica caja de ordenes que ACTUA sobre el
-/// almacen. Fichero propio por eso y no por tamano. Ver su cabecera.
+/// almacen. Fichero propio por eso y no por medida. Ver su cabecera.
 pub(crate) mod disco;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
@@ -47,7 +47,7 @@ pub(crate) mod datos;
 /// el 12-09 porque alli convivian dos clases de coste -- lo que pregunta a la
 /// maquina (DATO) y lo que solo coloca un numero (NADA). Ver su cabecera.
 pub(crate) mod tabla;
-/// Cuanto fiarse de los nucleos que ensena `reports`. Ver su cabecera.
+/// Cuanto fiarse de los nucleos que muestra `reports`. Ver su cabecera.
 pub(crate) mod topologia;
 
 // -- La linea de comandos ------------------------------------------------
@@ -58,11 +58,11 @@ pub(crate) enum Command<'a> {
     Nothing,
     /// Alguien escribio `sudo`, `pacman`, `apt`... **Esto NO es una distro.**
     ///
-    /// Se escribio el dia que un amigo del dueno, que viene de Linux, se sento
+    /// Se escribio el dia que un amigo del propietario, que viene de Linux, se sento
     /// delante y dio por hecho que lo era. Y es un malentendido razonable: hay
     /// un escritorio, hay ventanas y hay una caja donde se teclea.
     ///
-    /// Contestar "no lo conozco" habria sido correcto y no habria ensenado
+    /// Contestar "no lo conozco" habria sido correcto y no habria mostrado
     /// nada. Esto contesta con lo que de verdad separa a los dos sistemas --
     /// aqui no hay usuarios, ni permisos que elevar, ni paquetes que instalar:
     /// hay capabilities, y lo que no te dieron no existe para ti. Con un gato.
@@ -87,7 +87,7 @@ pub(crate) enum Command<'a> {
     /// habia capability de directorio, asi que habia que saberse los nombres
     /// de memoria y teclearlos enteros.
     List(&'a [u8]),
-    /// `lee <path>` -- ensena lo que hay DENTRO de un archivo. Es el hermano
+    /// `lee <path>` -- muestra lo que hay DENTRO de un archivo. Es el hermano
     /// de `ls`: aquel dice que archivos hay, este los abre.
     Read(&'a [u8]),
     /// `escribe <path> <text>` -- crea un archivo con ese texto.
@@ -130,7 +130,7 @@ pub(crate) enum Command<'a> {
     /// El informe del ULTIMO fallo de Ring 3, tal como lo redacto el kernel.
     Autopsy,
     /// **El anillo de eventos del kernel, con severidad.** Hermano de
-    /// [`Command::Autopsy`] y OTRA pregunta: aquel ensena el ultimo fallo de
+    /// [`Command::Autopsy`] y OTRA pregunta: aquel muestra el ultimo fallo de
     /// Ring 3, este todo lo que el kernel apunto -- incluido lo que no fallo.
     Cabina(&'a [u8]),
     Placa,
@@ -166,7 +166,7 @@ pub(crate) enum Command<'a> {
     Banda,
     /// **`audio`** -- le pregunta al aparato de audio como quiere las muestras.
     ///
-    /// [!] Existia solo en el shell de Ring 0 y el dueno la escribio AQUI, que
+    /// [!] Existia solo en el shell de Ring 0 y el propietario la escribio AQUI, que
     /// es donde se trabaja todos los dias. Contesto *"no es un comando ni una
     /// ruta"* y la prueba del paso 0 se quedo sin hacer. **Dos shells con dos
     /// vocabularios distintos son dos productos.**
@@ -191,7 +191,7 @@ pub(crate) enum Command<'a> {
     /// Con el sustantivo delante hay que nombrar al aparato antes de darle una
     /// orden, y eso ya es la mitad de una confirmacion.
     ///
-    /// La otra mitad es que el verbo solo **propone**: `disco trim` ensena lo que
+    /// La otra mitad es que el verbo solo **propone**: `disco trim` muestra lo que
     /// haria y `disco trim ya` lo hace. Es lo que pide la seccion 9 de ESTRATOS
     /// --*"con lo que va a soltar listado antes de hacerlo"*-- y aqui no es
     /// cortesia: es la unica orden del escritorio que no se puede deshacer.
@@ -301,7 +301,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
     //
     // Va ANTES del despacho normal a proposito: ninguna de estas palabras es
     // una orden de BMO-X, asi que caerian en "no lo conozco" -- que es correcto
-    // y no ensena nada. Que la respuesta llegue aqui cuesta un `contains` y
+    // y no muestra nada. Que la respuesta llegue aqui cuesta un `contains` y
     // convierte un desconcierto en una explicacion.
     //
     // ** Y ES UNA LISTA CON SUS BURLAS AL LADO (2026-09-12): cada verbo de aqui
@@ -336,7 +336,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
     }
 
     match verb {
-        // INGLES de primero, y es una decision del dueno: el castellano limita
+        // INGLES de primero, y es una decision del propietario: el castellano limita
         // -- no hay palabra corta para "flush", los verbos se alargan, y medio
         // mundo del sistema (los campos del hardware, los mensajes de fallo)
         // ya esta en ingles. El castellano entra cuando el sistema este
@@ -361,9 +361,9 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // que ya habia. Lo peor que puede hacer un sellado accidental es
         // **subir la generacion en uno**.
         //
-        // O sea que la defensa costaba descubribilidad --el dueno la busco el
+        // O sea que la defensa costaba descubribilidad --el propietario la busco el
         // 2026-08-13 teniendola delante y no la encontro-- a cambio de evitar un
-        // dano que no existe. El dia que `sella` escriba datos DE VERDAD, la
+        // perjuicio que no existe. El dia que `sella` escriba datos DE VERDAD, la
         // proteccion que hara falta es una confirmacion que diga QUE se va a
         // escribir, no una palabra mas larga.
         //
@@ -372,10 +372,10 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // hace: en ESTRATOS un commit **sella un estrato**.
         //
         // `estratos sellar` se queda como sinonimo: ya estaba escrito en la
-        // ayuda, en dos documentos y en la cabeza del dueno.
+        // ayuda, en dos documentos y en la cabeza del propietario.
         // ** EL SELLO SE MUDO A LA VENTANA DE ESTRATOS (F12, tecla `S`).
         //
-        // Decision del dueno el 2026-08-13: *"el terminal Ctrl+Alt que se lleve
+        // Decision del propietario el 2026-08-13: *"el terminal Ctrl+Alt que se lleve
         // el sello"*. Y es la correcta -- **el verbo vive donde vive el
         // objeto**. Este terminal lanza programas y mira el sistema; sellar es
         // de ESTRATOS, y ESTRATOS tiene su propia ventana con su propio cursor
@@ -383,7 +383,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         //
         // Lo que NO se hace es borrarlo y ya: quien escriba `sella` aqui --que
         // es lo que estaba escrito ayer en la linea de ayuda, en dos documentos
-        // y en la cabeza del dueno-- se lleva **la direccion nueva**, no un
+        // y en la cabeza del propietario-- se lleva **la direccion nueva**, no un
         // "no lo conozco". Una funcion que se muda sin dejar nota se convierte
         // en una funcion que desaparecio.
         b"sella" | b"sellar" => Command::SealMoved,
@@ -438,21 +438,21 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // `guarda` sin nada vuelca al fichero de siempre; con una ruta, ahi.
         // No pide texto como `escribe`: lo que guarda ya esta en la pantalla.
         //
-        // ** `save` entra por peticion del dueno, y el motivo es el uso real:
+        // ** `save` entra por peticion del propietario, y el motivo es el uso real:
         // esta es la orden que MAS se teclea --cada sesion acaba con ella-- y
         // `guarda` son seis letras en un teclado que ademas ha estado fallando.
         // Cuatro letras y sin acentos. Los nombres viejos se quedan: quitarlos
         // no ahorraria nada y rompe lo que ya esta en las notas.
         b"guarda" | b"save" | b"volcar" | b"dump" => Command::Save(rest),
         b"info" | b"sistema" => Command::Report,
-        // `fallo` ensena la ultima autopsia. Se guarda sola en `data/fallos.txt`
+        // `fallo` muestra la ultima autopsia. Se guarda sola en `data/fallos.txt`
         // en cuanto ocurre -- esto es para mirarla sin salir del escritorio.
         b"fallo" | b"fallos" | b"autopsia" => Command::Autopsy,
         // ** `cabina` entro el 2026-08-25 y ya existia... en el shell de Ring 0,
         // al que desde aqui NO SE VUELVE. Tercera vez que pasa lo mismo, y la
         // segunda en dos dias: ver `banda` mas abajo.
         //
-        // [!] Y NO es `fallo` con otro nombre: `fallo` ensena la ultima autopsia
+        // [!] Y NO es `fallo` con otro nombre: `fallo` muestra la ultima autopsia
         // de Ring 3, y esto el anillo entero del kernel. Juntarlos habria hecho
         // que pedir uno tapara al otro.
         b"cabina" | b"bitacora" | b"eventos" => Command::Cabina(rest),
@@ -467,7 +467,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         //
         // *** Y hasta el 2026-08-24 este brazo TIRABA el argumento
         // (`Command::Net(b"")`), asi que `net rx` desde el escritorio no armaba
-        // nada y el panel mandaba al shell de Ring 0 -- al que el dueno no
+        // nada y el panel mandaba al shell de Ring 0 -- al que el propietario no
         // vuelve. Ver `bmo::red`.
         b"red" | b"net" => Command::Net(rest),
         b"mac" => Command::Net(b"mac"),
@@ -477,7 +477,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // ** EL DISCO. El sustantivo va delante a proposito: es la unica caja de
         // ordenes del escritorio que puede cambiar el almacen, y `trim` suelto
         // seria un verbo de cuatro letras con consecuencias que no se deshacen.
-        // `almacen` entra como sinonimo porque es la palabra del diseno.
+        // `almacen` entra como sinonimo porque es la palabra del esquema.
         b"disco" | b"almacen" => {
             // La suborden y su argumento, con la MISMA regla que el verbo de
             // arriba: hasta el primer espacio, y lo que sigue sin los espacios
@@ -510,7 +510,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"smp" | b"nucleos" => Command::Smp(rest),
         // ** `banda` entro el 2026-08-24 y ya existia... en el shell de Ring 0,
         // al que desde aqui NO SE VUELVE. Estaba escrita, compilada y probada, y
-        // era inalcanzable desde el unico sitio donde el dueno trabaja.
+        // era inalcanzable desde el unico sitio donde el propietario trabaja.
         // [!] `memoria` NO se pone aqui: ya la reclama `mem` doce lineas mas
         // arriba, y en un `match` gana la primera. El alias que habia era CODIGO
         // MUERTO -- y la ironia es que estaba en la linea que se escribio para

@@ -19,7 +19,7 @@
 //! ```
 //!
 //! Las constantes coincidian en los dos lados --magia, formato, 32/16/8-- y el
-//! tamano cabia. O sea que **el DIRECTOR no estaba leyendo la memoria que la app
+//! medida cabia. O sea que **el DIRECTOR no estaba leyendo la memoria que la app
 //! escribio**. Y el motivo:
 //!
 //! ```text
@@ -46,7 +46,7 @@
 //! `origen`. Con desplazamiento, **el final del prestamo se quedaba sin
 //! mapear**: hasta 4.095 bytes de la ultima fila. El dia que la cabecera se
 //! leyera bien, componer la ultima fila habria sido un fallo de pagina **en el
-//! compositor** -- justo lo que este diseno existe para impedir. Y soltar y
+//! compositor** -- justo lo que este esquema existe para impedir. Y soltar y
 //! morir desmapeaban con la misma cuenta, o sea de menos.
 //!
 //! # POR QUE UN JUEZ APARTE Y NO TRES `div_ceil` ARREGLADOS
@@ -128,7 +128,7 @@ pub fn tramo(origen: u64, bytes: u64) -> Option<Tramo> {
     let mapeado = crudo.checked_add(PAGINA - 1)? & !(PAGINA - 1);
     // ** Y EL FINAL DE LA PAGINA TAMBIEN TIENE QUE EXISTIR, no solo el de lo
     // pedido. Lo cazo el banco el primer dia: `origen + bytes` cabia en 64 bits
-    // y `pagina + mapeado` era 2^64 exacto, porque redondear arriba anade hasta
+    // y `pagina + mapeado` era 2^64 exacto, porque redondear arriba agrega hasta
     // 4.095 bytes. Comprobar solo lo pedido era dejar pasar un tramo cuyo final
     // no se puede escribir.
     pagina.checked_add(mapeado)?;

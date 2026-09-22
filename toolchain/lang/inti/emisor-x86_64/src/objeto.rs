@@ -144,7 +144,7 @@ pub fn empaquetar_objeto(e: &Emitido) -> Result<Vec<u8>, String> {
         });
     }
     for (hueco, nombre) in &e.externas {
-        let sym = indefinido.iter().find(|(n, _)| n == nombre).map(|(_, s)| *s).expect("se acaba de anadir");
+        let sym = indefinido.iter().find(|(n, _)| n == nombre).map(|(_, s)| *s).expect("se acaba de agregar");
         enlaces.push(Enlace {
             clase: Clase::Rel32,
             donde: Region::Codigo,

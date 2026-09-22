@@ -32,7 +32,7 @@
 //! exigirlo firmado"*, que **no era verdad**: `bmo-verify` no tenia ni la
 //! palabra.
 //!
-//! El sitio existia desde que se diseno el formato y estaba vacio:
+//! El sitio existia desde que se esquema el formato y estaba vacio:
 //! `SectionKind::Manifest = 0x09`, con su escritor y su validador. Es la misma
 //! historia que la seccion `Resources = 0x0B` del paquete BEF.
 
@@ -72,7 +72,7 @@ pub struct PiezaDeclarada {
     pub fichero: String,
     pub usa: String,
     /// El perfil que la pieza declaro. **Puede no ser el del binario**, y ese
-    /// es justo el dato que hoy no se juzga y manana decidira la regla del
+    /// es justo el dato que hoy no se juzga y luego decidira la regla del
     /// mezclado.
     pub perfil: String,
 }

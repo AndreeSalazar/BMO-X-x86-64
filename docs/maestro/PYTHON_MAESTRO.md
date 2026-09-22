@@ -28,7 +28,7 @@ La intuicion de Eddi tiene **tres partes, y dos son correctas**:
    *"la dificultad esta dentro del lenguaje"*.
 
    Lo que Python rompe no es la superficie: es **el supuesto de que el
-   compilador sabe el tamano y la forma de cada valor**. C, COBOL, Ada y C++ son
+   compilador sabe el medida y la forma de cada valor**. C, COBOL, Ada y C++ son
    estaticos. `a + b` en Python no se puede convertir en un `add` sin saber en
    ejecucion que son `a` y `b`. Por eso **Python no es un quinto frontend sobre
    el mismo backend**: es un frontend **mas un runtime**, y el runtime es el
@@ -38,16 +38,16 @@ La intuicion de Eddi tiene **tres partes, y dos son correctas**:
 
 La pregunta salio el 16-08 y va aqui arriba porque va a volver.
 
-Se confunden dos cosas que el diseno separa a proposito:
+Se confunden dos cosas que el esquema separa a proposito:
 
 | | crece? |
 |---|---|
 | **Las 2 puertas** (`INVOKE`, `WAIT`) | **congeladas.** Python no las toca |
 | **Las operaciones** dentro de `INVOKE` (~49 hoy) | crecen por **filas de tabla** -- para eso existen |
 
-`OP_INFO` esta disenado literalmente para esto, y lo dice su propio comentario:
+`OP_INFO` esta trazado literalmente para esto, y lo dice su propio comentario:
 *"Dos operaciones y una TABLA de campos, en vez de una operacion por dato: asi
-anadir 'cuantos programas se han lanzado' es **una fila**, no un numero de
+agregar 'cuantos programas se han lanzado' es **una fila**, no un numero de
 syscall nuevo."*
 
 **El presupuesto entero de Python contra la superficie:**
@@ -112,7 +112,7 @@ igual que `c-gen` mide la brecha de C con sondas en vez de opinar sobre ella.
 
 - **`PyObject` son 16 bytes**: un contador de referencias y un puntero al tipo.
   *Todo* valor de Python es un puntero a uno de esos en el monton. Un `int`
-  pequeno tambien. Esto decide el consumo de memoria del interprete entero.
+  chico tambien. Esto decide el consumo de memoria del interprete entero.
 - **`PyTypeObject` es una tabla de punteros a funcion** (`tp_dealloc`,
   `tp_getattro`, `tp_call`, `tp_iternext`, mas las subtablas de numero /
   secuencia / mapa). El despacho dinamico es *leer una ranura y llamar*.
@@ -122,7 +122,7 @@ igual que `c-gen` mide la brecha de C con sondas en vez de opinar sobre ella.
   recolector de ciclos generacional (`gcmodule.c`, 3 generaciones) para los
   contenedores. Sin el segundo, `a.b = a` fuga para siempre.
 - **`obmalloc.c`**: arenas de 1 MiB pedidas por `mmap`, divididas en pools de
-  4 KiB, divididos en bloques de 8..512 bytes por clase de tamano. Por encima de
+  4 KiB, divididos en bloques de 8..512 bytes por clase de medida. Por encima de
   512 bytes cae a `malloc`.
   ★★ **Y aqui esta la primera buena noticia del documento**: la **PEP 445**
   (`PyMem_SetAllocator`) permite **sustituir el asignador entero desde fuera,
@@ -176,7 +176,7 @@ hueco de esta tabla desbloquea mas cosas que Python**.
 |---|---|---|---|
 | abrir / leer / escribir / seek / cerrar | `posixmodule` | `TASK_OP_ARCHIVO_ABRIR/CREAR` + `ARCH_OP_LEER_EN` / `ESCRIBIR_DE` / `SALTAR` / `TAMANO` / `CERRAR` | 🟢 **ya esta** |
 | stdin / stdout / stderr | `_io` | `TASK_OP_CONSOLE_WRITE` / `CONSOLE_READ` | 🟢 ya esta |
-| `stat` (tamano, tipo, fecha) | `os.stat`, el importador | `ES_NODO_HIJO_BYTES` / `_TIPO` -- **solo sobre ESTRATOS** | 🟡 no hay `stat` de FAT32 desde Ring 3 |
+| `stat` (medida, tipo, fecha) | `os.stat`, el importador | `ES_NODO_HIJO_BYTES` / `_TIPO` -- **solo sobre ESTRATOS** | 🟡 no hay `stat` de FAT32 desde Ring 3 |
 | listar un directorio | el importador, `os.listdir` | `TASK_OP_DIR_ABRIR`, `ES_NODO_*` | 🟡 parcial y por dos caminos distintos |
 | borrar / renombrar | `os.remove`, `__pycache__`, `tempfile` | `remove()` y `rename()` devuelven `-1` **con motivo escrito** | 🟡 hueco honesto, no mentira |
 | variables de entorno | `PYTHONPATH`, `os.environ` | `getenv()` devuelve `0` con motivo escrito | 🟡 idem |
@@ -186,9 +186,9 @@ hueco de esta tabla desbloquea mas cosas que Python**.
 | reloj monotono | `time.monotonic` | TSC via `OP_INFO` | 🟢 ya esta |
 | **fecha y hora reales** | `time.time`, `datetime`, `os.stat` | ✅ **`INFO_FECHA`** -- `dev/clock.rs` lee el CMOS al arrancar y extrapola con el TSC, con calendario de verdad (meses de distinto largo y bisiestos) | 🟢 **ya esta.** Este documento decia que faltaba: era falso, comprobado el 16-08 |
 | hilos | `PyThread_*` (obligatorio desde 3.7) | no hay hilos de Ring 3 | 🟡 stub de un hilo; hay que escribirlo |
-| senales | `signalmodule`, `KeyboardInterrupt` | un fallo mata la tarea | 🟡 stub; el Ctrl+C real vendria de `INPUT_OP_*` |
+| signales | `signalmodule`, `KeyboardInterrupt` | un fallo mata la tarea | 🟡 stub; el Ctrl+C real vendria de `INPUT_OP_*` |
 | **libm completa** | `math`, `float`, `dtoa` | `math.h` tiene **`fabs` y `fabsf`** | ⛔ **segundo bloqueante real** |
-| `dlopen` | extensiones `.so` | no hay, y **no hace falta**: build estatico (`Modules/Setup`) | 🟢 por diseno |
+| `dlopen` | extensiones `.so` | no hay, y **no hace falta**: build estatico (`Modules/Setup`) | 🟢 por esquema |
 | `setjmp`/`longjmp` | poco, y evitable | descartado con motivo en `BRECHA.md` | 🟢 evitable |
 | **compilacion separada** | 600 ficheros `.c` | **UNA unidad de traduccion** | ⛔ **tercer bloqueante, y el estructural** |
 
@@ -197,7 +197,7 @@ hueco de esta tabla desbloquea mas cosas que Python**.
 1. **El monton con tope de cuatro bloques.** Es la regla escrita en
    `LA_RAM.md` -- *"BMO-X rechaza overcommit y OOM killer a proposito"* -- y es
    una buena regla. Pero CPython pide memoria **constantemente y en trozos
-   pequenos**, y un interprete no sabe de antemano cuanta va a querer. Salidas:
+   chicos**, y un interprete no sabe de antemano cuanta va a querer. Salidas:
    (a) una arena grande al arrancar y `PyMem_SetAllocator` apuntando al monton de
    BMO -- **funciona hoy, sin tocar el kernel**; (b) subir el tope. La (a) es la
    correcta y ademas es la que respeta el modelo.
@@ -234,7 +234,7 @@ lineas escritas contra GCC, libm, `bmomodule.c`, el stub de hilos.
 El nucleo de CPython es del orden de **diez a doce veces DOOM**, y mas denso en
 caracteristicas de C.
 **Lo que se gana:** Python de verdad, con su semantica y su libreria.
-**Veredicto:** no es una fase, es un proyecto del tamano del kernel. Se deja
+**Veredicto:** no es una fase, es un proyecto del medida del kernel. Se deja
 escrito y no se empieza.
 
 ### Ruta B -- MicroPython  ★ la que recomiendo
@@ -314,10 +314,10 @@ de `c-gen`: programas minimos que compilan o no, y que se ejecutan.
       `INFO_FECHA` + `ring0/dev/clock.rs`, que lee el CMOS al arrancar y suma
       los segundos por TSC con un calendario de verdad. Se dio por ausente sin
       mirar, que es el error que este documento existe para no cometer.
-- [~] **`stat` y listar directorio desde Ring 3 sobre FAT32**, por UN camino y no  ** LISTAR ya esta (24-08): `DIR_OP_SIGUIENTE`/`DIR_OP_NOMBRE` y `userland/archivo.rs` los usa. Falta el `stat` --tamano y tipo-- por ese mismo camino.
+- [~] **`stat` y listar directorio desde Ring 3 sobre FAT32**, por UN camino y no  ** LISTAR ya esta (24-08): `DIR_OP_SIGUIENTE`/`DIR_OP_NOMBRE` y `userland/archivo.rs` los usa. Falta el `stat` --medida y tipo-- por ese mismo camino.
       por dos.
 - [ ] Medir si el monton de `<bmo/monton.h>` aguanta un patron de asignacion de
-      interprete (muchos bloques pequenos, vida corta, sin orden). **Con una
+      interprete (muchos bloques chicos, vida corta, sin orden). **Con una
       sonda, no razonando.**
 
 ★ **Ninguna de estas cinco es "trabajo de Python".** Las cinco las piden tambien
@@ -401,7 +401,7 @@ conclusion.
 hilos, o sea **un solo nucleo despierto**, que es justo la condicion bajo la
 cual los contadores de `meter.rs` no subcuentan (lo dice su propia cabecera).
 
-La aritmetica de Python, ya con el numero del dueno -- `for i in
+La aritmetica de Python, ya con el numero del propietario -- `for i in
 range(1000000): x += i`, unos 5 millones de operaciones de runtime:
 
 | | por operacion | el bucle entero |
@@ -491,7 +491,7 @@ La conclusion sale reforzada, no debilitada.
 #### ⛔ Y EL SOSPECHOSO PRINCIPAL RESULTO INOCENTE (medido el 16-08)
 
 Se cambio `xsave64` por **`xsaveopt64`** en el stub --misma linea, mismo
-formato, otra instruccion-- porque el censo enseno que XSAVEOPT esta en este
+formato, otra instruccion-- porque el censo mostro que XSAVEOPT esta en este
 silicio y sin usar, y porque el kernel compila con `+soft-float` y por tanto
 **no toca un solo registro xmm**: la condicion exacta que la *modified
 optimization* necesita.
@@ -545,7 +545,7 @@ que parten los 2.299 en cuatro casillas:
 
 ★ **`resto` ES LA CASILLA QUE DECIDE, y decide cosas distintas:**
 
-- **Si sale pequeno**, los 1.600 estan en codigo que se puede leer y reescribir,
+- **Si sale chico**, los 1.600 estan en codigo que se puede leer y reescribir,
   y la cirugia en `entry.rs` tiene por fin una direccion.
 - **Si se lleva los 1.600**, estan en las **dos transiciones de privilegio**, y
   entonces afinar el stub no va a mover nada. Lo que mueve es `sysretq` en vez
@@ -651,9 +651,9 @@ cobrando es un peaje. `meter::start`/`stop` --el reparto en dos mitades-- se
 queda: cuesta dos `rdtsc` dentro del Rust y es el control de toda tanda futura.
 `c/coste.bex` dice **"NO MEDIDO"** en vez de imprimir un reparto de ceros.
 
-**b) La via rapida sale por `sysretq`.** `iretq` es el companero de una
+**b) La via rapida sale por `sysretq`.** `iretq` es el colega de una
 INTERRUPCION: reconstruye el privilegio leyendo cinco palabras y validando el
-descriptor de cada selector. `sysretq` es el companero de `syscall`.
+descriptor de cada selector. `sysretq` es el colega de `syscall`.
 
 ★ **Y el marco ya estaba en forma de sysret sin que nadie lo buscara.**
 `sysretq` quiere RIP en `rcx` y RFLAGS en `r11` -- que es exactamente donde los
@@ -740,7 +740,7 @@ construccion del target.
 1. **No se puede saber al ENTRAR si `dispatch` va a conmutar.** El arreglo
    correcto no es "saltarse el xsave": es **moverlo al camino del cambio de
    contexto**, o sea reestructurar donde vive el area y el **sello** de contexto
-   (`{firma}`, `gs:[0x10]`, el back-pointer). Es diseno, no una linea.
+   (`{firma}`, `gs:[0x10]`, el back-pointer). Es esquema, no una linea.
 2. **El camino de la INTERRUPCION se queda como esta.** Un timer puede caer a
    mitad de un calculo de usuario y ese si conmuta. Solo el syscall que vuelve a
    la misma tarea puede ahorrarselo.
@@ -775,8 +775,8 @@ Un `.bex` de Python declara en **BEF**:
 
 | Seccion | Que lleva | Por que ahi |
 |---|---|---|
-| **Tipos** | clases, ranuras, disposicion | tamano fijo, offsets y no punteros: legible sin `alloc`, como `BRES` |
-| **Bytecode** | instrucciones de tamano fijo | **se ejecuta donde esta**, no entra en RAM |
+| **Tipos** | clases, ranuras, disposicion | medida fijo, offsets y no punteros: legible sin `alloc`, como `BRES` |
+| **Bytecode** | instrucciones de medida fijo | **se ejecuta donde esta**, no entra en RAM |
 | **Constantes** | el pozo inmutable: cadenas internadas, enteros, tuplas | ★★ **esto es lo que se presta** |
 
 ★ **La tabla de tipo con ranuras numeradas ES la idea de Eddi, bien colocada**:
@@ -807,7 +807,7 @@ contrato antes que el codigo.
 
 ### UN SOLO MODO: el interprete. El AOT de Python SE QUITA (2026-09-17)
 
-El 16-08 se decidieron dos modos, interprete y AOT. **El 17-09 el dueno quito
+El 16-08 se decidieron dos modos, interprete y AOT. **El 17-09 el propietario quito
 el segundo**: *"Python AOT quitar eso, es lo mismo como INTI"*.
 
 ```text
@@ -848,7 +848,7 @@ Hay una tension real entre *"Python tendra su BASE, para darle semillas"* y
 > **El CONTRATO puede estar completo. La IMPLEMENTACION es la semilla.**
 
 Y hay precedente exacto: `SectionKind::Resources = 0x0B` estuvo **declarada y
-vacia desde que se diseno BEF**, con su comentario, y nadie la escribia --
+vacia desde que se esquema BEF**, con su comentario, y nadie la escribia --
 `Manifest = 0x09` y `Signature = 0x0F` siguen asi. Eso no fue desperdicio: fue
 **que el formato estuvo listo antes que el codigo**, y por eso el paquete salio
 sin tocar el cargador.
@@ -968,7 +968,7 @@ que hoy tambien le faltan a DOOM, al audio, a la red y a Ada.
 
 > **Etiqueta honesta**: la **fase 0 es el siguiente paso**. La **fase 1 (libm)
 > es un desvio barato** y se justifica sola. **Las fases 2 en adelante son un
-> proyecto aparte**, del tamano del kernel, y no se empiezan sin decidir
+> proyecto aparte**, del medida del kernel, y no se empiezan sin decidir
 > primero que se aparca a cambio.
 
 ---
@@ -1026,7 +1026,7 @@ decididos.
 - Es literalmente lo que se acordo: *el CONTRATO antes que el codigo*.
 - Cabe en ~150 lineas y sus tests.
 
-**Como se sabe que esta hecho:** tests de anfitrion que fijan tamano, alineado,
+**Como se sabe que esta hecho:** tests de anfitrion que fijan medida, alineado,
 que un objeto inmortal **nunca cambia su contador**, y que la disposicion es la
 que veria C. Ni una linea del kernel tocada.
 

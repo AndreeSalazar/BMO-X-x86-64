@@ -15,7 +15,7 @@ pub use bmo_disposicion::{alineado_de, alinear, Disposicion, DisposicionUnion};
 /// Esta es *la convencion de llamada de BMO*, y por eso vive aqui y no dentro
 /// de un frontend: BMO **no pasa argumentos en registros**, los pasa por la
 /// pila en ranuras de 8 bytes, derecha a izquierda. Un agregado ocupa
-/// `techo(tamano/8)` ranuras.
+/// `techo(medida/8)` ranuras.
 ///
 /// Estaba escondida en `lang/c/codegen/agregados.rs` como `pub(super)`, y a la
 /// vez **documentada como ABI** en `toolchain/lang/cpp/CPP_ABI.md`. Una regla que un
@@ -24,7 +24,7 @@ pub use bmo_disposicion::{alineado_de, alinear, Disposicion, DisposicionUnion};
 ///
 /// * Un agregado de 8 bytes o menos **tambien** ocupa una ranura entera. Podria
 /// caber en un registro, pero tratarlo distinto obligaria al llamante y a la
-/// funcion a ponerse de acuerdo sobre el tamano, y ese es justo el desacuerdo
+/// funcion a ponerse de acuerdo sobre el medida, y ese es justo el desacuerdo
 /// que produce basura silenciosa. Una regla, sin casos de esquina -- al
 /// contrario que la clasificacion por *eightbytes* de SysV, que existe porque
 /// SysV si usa registros.
@@ -36,9 +36,9 @@ pub const fn ranuras(bytes: u32) -> u32 {
 mod tests {
     use super::*;
 
-    /// * Un agregado pequeno ocupa una ranura ENTERA. Si los de 8 bytes o
+    /// * Un agregado chico ocupa una ranura ENTERA. Si los de 8 bytes o
     /// menos fueran por registro, el llamante y la funcion tendrian que
-    /// ponerse de acuerdo sobre el tamano -- y ese desacuerdo produce basura
+    /// ponerse de acuerdo sobre el medida -- y ese desacuerdo produce basura
     /// silenciosa. Una regla, sin casos de esquina.
     #[test]
     fn un_agregado_pequeno_ocupa_una_ranura_entera() {
@@ -48,7 +48,7 @@ mod tests {
         assert_eq!(ranuras(12), 2);
         assert_eq!(ranuras(16), 2);
         assert_eq!(ranuras(17), 3);
-        // Un tipo de tamano cero sigue ocupando su sitio: cero ranuras
+        // Un tipo de medida cero sigue ocupando su sitio: cero ranuras
         // desalinearia todo lo que venga detras.
         assert_eq!(ranuras(0), 1);
     }

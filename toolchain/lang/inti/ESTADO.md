@@ -47,7 +47,7 @@ sobre sintaxis no se mide con un cronometro:
 *compatible con*. La seccion 14 del maestro llama a eso *"la tentacion mas cara
 del documento"*, y sigue siendo verdad.
 
-★ La prueba de que la sintaxis no se disena por gusto: `para` era el nombre de
+★ La prueba de que la sintaxis no se traza por gusto: `para` era el nombre de
 `hlt` en la tabla de la maquina y **no se podia escribir**, porque `para` es
 palabra clave (`para cada x en xs`). Llevaba asi desde que se escribio la tabla.
 Lo caza la matriz de conformidad de F5d, no una lectura.
@@ -66,7 +66,7 @@ rendimiento, es control** -- mientras la portada seguia prometiendo lo otro.
 
 Un `rep movsb` fue el camino lento durante una decada y hoy es el rapido: el
 codigo que lo evitaba a mano se quedo atras **sin cambiar una linea**. El
-ensamblador de ayer no sabe nada del silicio de manana.
+ensamblador de ayer no sabe nada del silicio de luego.
 
 ★ Asi que la frase correcta no es *"rendimiento de ensamblador"* sino **"control
 de ensamblador, con la sintaxis de Python"**. Y eso si se puede sostener, porque
@@ -111,7 +111,7 @@ Lo que si esta hoy, y es lo que hara que la medida signifique algo:
 | cuantas instrucciones de maquina toca | `ModuloIr::instrucciones()`, y tambien |
 | cuantos temporales viven en registro y cuantos en pila | `Emitido`, desde F3 |
 
-⚠ **Sin esos numeros, medir el dia de manana daria un porcentaje sin contra que
+⚠ **Sin esos numeros, medir el dia de luego daria un porcentaje sin contra que
 compararlo.** Con ellos, *"cuesta un 1%"* se convierte en *"cuesta un 1% con
 tantas comprobaciones y tantos accesos a pila"*, que es una frase que se puede
 atacar.
@@ -126,9 +126,9 @@ atacar.
   Cuesta dos movimientos por operacion. A cambio, el asignador de registros, el
   marco y la convencion de llamada no cambian ni una linea. **No es la version
   rapida y no pretende serlo**: es la que se puede escribir entera hoy y medir
-  manana.
+  luego.
 - ~~**Los registros preservados no se reparten.**~~ **CERRADO el 2026-09-18**,
-  y con el numero que lo decidio: el dueno pidio verificar que INTI fuera
+  y con el numero que lo decidio: el propietario pidio verificar que INTI fuera
   *"enfoque de REGISTRO"*, y la cuenta del emisor dijo que no --`navegar.inti`
   55 temporales en registro y 602 en pila; `bico.inti` 4 y 320--. El 90 %
   vivia en el marco (en la cache L1, no en un registro) porque **cualquier
@@ -238,7 +238,7 @@ La matriz encontro dos fallos reales el primer dia:
 Y ademas: **lo que no se puede emitir ya no se calla**. Va a `Emitido::sin_emitir`
 con su motivo, y de ahi a CABINA como fallo. Un intrinseco mudo no rompe la
 compilacion -- el resto del programa esta bien -- asi que sin esa lista la unica
-senal seria el binario haciendo otra cosa en metal.
+signal seria el binario haciendo otra cosa en metal.
 
 ### 4.3 ⚠ HASTA DONDE LLEGA EL EMULADOR, y es la cifra incomoda
 
@@ -261,7 +261,7 @@ interrupciones, asi que apagarlas es un no-op de verdad-- y `rdmsr` no.
 
 Los 36 estan **escritos con nombre** en la constante `SOLO_EN_METAL`, y el test
 compara la lista entera. Esa es toda la diferencia entre *pendiente* y
-*olvidado*: si manana una que hoy corre deja de correr, el test no dice "algo
+*olvidado*: si luego una que hoy corre deja de correr, el test no dice "algo
 cambio", dice cual.
 
 ---

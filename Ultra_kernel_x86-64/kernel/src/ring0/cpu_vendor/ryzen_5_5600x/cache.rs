@@ -79,7 +79,7 @@ pub const fn esperado_5600x() -> CacheTopology {
 ///    EBX[21:12]  particiones fisicas, menos uno
 ///    EBX[31:22]  vias, menos uno
 ///    ECX         conjuntos, menos uno
-///    tamano = vias * particiones * linea * conjuntos
+///    medida = vias * particiones * linea * conjuntos
 /// ```
 ///
 /// `None` si la hoja no existe: hace falta `TopologyExtensions`
@@ -142,7 +142,7 @@ pub const fn decodificar(eax: u32, ebx: u32, ecx: u32) -> Option<CacheInfo> {
 /// **Lo que viaja a Ring 3** (`INFO_CPU_CACHE_*`): una cache en 64 bits.
 ///
 /// ```text
-///    bits  0..23   tamano en KiB
+///    bits  0..23   medida en KiB
 ///    bits 24..31   linea en bytes
 ///    bits 32..39   vias (0 = totalmente asociativa)
 ///    bits 40..47   hilos que la comparten

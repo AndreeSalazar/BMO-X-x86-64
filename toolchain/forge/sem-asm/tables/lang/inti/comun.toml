@@ -10,7 +10,7 @@
 #
 #  == Por que la facilidad vive AQUI y no en la gramatica ==
 #
-#  Es la leccion de Python, mirada de cerca: su gramatica es pequena --caben
+#  Es la leccion de Python, mirada de cerca: su gramatica es chica --caben
 #  treinta y pico construcciones-- y lo que la gente llama "Python es facil" son
 #  en realidad `len`, `sorted`, `sum`, `enumerate`, `join`, `range`. Nombres, no
 #  sintaxis.
@@ -164,7 +164,7 @@ modifican_la_coleccion = ["agrega", "quita", "inserta"]
 #  - `pinta`, `superficie`, `sonido`: llegan con su modulo de REX. Meterlos aqui
 #    obligaria a todo programa a arrastrar el dibujo.
 #
-#  ** La regla para anadir una fila: **se escribe en casi todos los programas**.
+#  ** La regla para agregar una fila: **se escribe en casi todos los programas**.
 #  Si se escribe en algunos, es un modulo con su `usa`. Una biblioteca comun que
 #  crece sin freno acaba siendo una lista de nombres reservados que nadie puede
 #  usar para sus variables.

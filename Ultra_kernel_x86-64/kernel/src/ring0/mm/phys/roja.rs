@@ -1,10 +1,10 @@
-//! **CARRIL ROJO** -- EL BITMAP: quien es dueno de cada marco.
+//! **CARRIL ROJO** -- EL BITMAP: quien es propietario de cada marco.
 //!
-//! [carril]  ROJO      dar dos veces el mismo marco es dos duenos de un byte
+//! [carril]  ROJO      dar dos veces el mismo marco es dos propietarios de un byte
 //! [consumo] NADA      corre cuando alguien pide o suelta memoria
 //!
 //! [cuesta]  MAQUINA -- entregar dos veces el mismo marco no da un fallo: da
-//!           dos duenos del mismo byte, y el sintoma tres arranques despues.
+//!           dos propietarios del mismo byte, y el sintoma tres arranques despues.
 //!
 //! [riesgo]  ESPEJO -- `MAX_PHYS` es el techo de lo que el physmap alcanza, y
 //!           NO es el unico sitio que lo decide: `vmm::caminable` juzga la
@@ -224,7 +224,7 @@ pub fn init(ctx: &BootContext) {
 /// **UN MARCO ENTREGADO NUNCA SE QUEDA EN `Nadie`.**
 ///
 /// *** El hueco que encontro la verificacion del 05-09, un dia despues de dar
-/// el byte de dueno por bueno.
+/// el byte de propietario por bueno.
 ///
 /// `free_frame` borra la etiqueta a `Nadie`, que significa LIBRE. Si al
 /// entregarlo nadie la vuelve a poner, el marco queda **entregado y etiquetado
@@ -391,7 +391,7 @@ pub fn alloc_frames_contig(count: u64) -> Option<u64> {
 /// > si, porque la azul la consulta."*
 ///
 /// ** Aqui faltaba exactamente lo mismo, un nivel al lado. La azul del 07-09
-/// --la que el dueno reprodujo purgando y volviendo a lanzar DOOM-- dijo
+/// --la que el propietario reprodujo purgando y volviendo a lanzar DOOM-- dijo
 /// `marco OCUPADO`, que segun [`esta_libre`] significa **se entrego dos
 /// veces**. Y la otra punta del caso --*"a este marco ya le paso un doble
 /// `free`, en el tick NNNN"*-- **existio en CABINA y se perdio con el
@@ -442,7 +442,7 @@ pub fn se_devolvio_dos_veces(phys: u64) -> Option<u64> {
 
 // -- *** EL LIBRO DE QUIEN SUELTA (2026-09-21) ------------------------------
 //
-// ** El Ryzen enseno el PD del escritorio ENLAZADO, marcado como tabla en uso,
+// ** El Ryzen mostro el PD del escritorio ENLAZADO, marcado como tabla en uso,
 // y VACIO ENTERO. Eso es un marco que alguien solto con el escritorio encima y
 // que se volvio a entregar como tabla nueva. El juez de `destroy_address_space`
 // (el tercero, "de quien es") no bajo la cuenta de muertes: o no era el, o no
@@ -520,7 +520,7 @@ pub fn tablas_negadas() -> (u64, Option<&'static core::panic::Location<'static>>
 /// pasara el numero de una tabla viva --un `stack_phys` rancio, un `fisica` de
 /// otro bloque, una cuenta mal hecha-- la liberaba en silencio, y el siguiente
 /// `get_or_create` la entregaba A CERO a otro. Que es exactamente la forma del
-/// PD que el Ryzen enseno vacio.
+/// PD que el Ryzen mostro vacio.
 ///
 /// Una tabla solo se suelta con `free_frame_de(_, Titular::Tabla)`, que es lo
 /// que hacen los que tienen derecho. Por aqui se NIEGA, se grita, y se apunta
@@ -568,7 +568,7 @@ fn soltar(phys: u64, sitio: &'static core::panic::Location<'static>) {
             //
             // *** Y la cabecera de este fichero nombra justo esa forma de
             // fallo: *"entregar dos veces el mismo marco no da un fallo: da dos
-            // duenos del mismo byte, y el sintoma tres arranques despues"*. Un
+            // propietarios del mismo byte, y el sintoma tres arranques despues"*. Un
             // doble `free` no ES ese fallo, pero es su MISMA firma contable: un
             // sitio que cree tener algo que ya devolvio.
             //

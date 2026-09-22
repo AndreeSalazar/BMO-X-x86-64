@@ -26,7 +26,7 @@
 //!
 //! ```text
 //!    `ceder` sin la invariante   el escritorio se quedo el nucleo y el
-//!                                teclado del dueno parecio ignorado
+//!                                teclado del propietario parecio ignorado
 //!    `WAIT` bloqueando de verdad ROTTEN CONTEXT: the seal is gone.
 //!                                La maquina PARADA
 //! ```
@@ -116,7 +116,7 @@ pub(crate) struct Tick {
     ///
     /// == *** PARA QUE ESTAN ESTAS DOS CIFRAS (2026-09-08) ================
     ///
-    /// El dueno midio el pulso en el Ryzen y salio **50 vueltas por segundo**.
+    /// El propietario midio el pulso en el Ryzen y salio **50 vueltas por segundo**.
     /// El bucle vive --la aguja gira, hay reloj-- pero 50 vueltas son **20 ms
     /// por vuelta**, y esto no es un bucle con freno: no tiene ninguno.
     ///
@@ -150,7 +150,7 @@ pub(crate) struct Tick {
     /// `WAIT` estaba roto, el bucle no cedia nunca, y el reloj lo echaba a la
     /// fuerza cada cuatro milisegundos.
     ///
-    /// ** Y de ahi sale tambien el otro sintoma que trajo el dueno: el ritmo le
+    /// ** Y de ahi sale tambien el otro sintoma que trajo el propietario: el ritmo le
     /// bailo entre 600 y 12.937 en el mismo arranque, y lo llamo *"el kernel
     /// borracho"*. No lo estaba:
     ///
@@ -241,7 +241,7 @@ pub(crate) struct Tick {
     ///
     /// == *** EL SEGUNDO SYSCALL, ESTRENADO (2026-09-08) ==================
     ///
-    /// Lo vio el dueno:
+    /// Lo vio el propietario:
     ///
     /// > *"tengo 2 syscalls, INVOKE y WAIT, pero WAIT casi no se usaba.
     /// > Creo que es momento de darle su oportunidad."*
@@ -286,9 +286,9 @@ pub(crate) struct Tick {
     /// == *** EL REPOSO (2026-09-11): si no pasa nada, no se pregunta ======
     ///
     /// Vueltas SEGUIDAS que no pintaron nada. El bucle pedia mil vueltas por
-    /// segundo aunque el dueno se hubiera ido a dormir -- el `INT 16h` de
+    /// segundo aunque el propietario se hubiera ido a dormir -- el `INT 16h` de
     /// COMMAND.COM, preguntar sin parar. Cuando lleva `REPOSO_TRAS` vueltas sin
-    /// nada que ensenar, deja el latido y duerme un plazo fijo: la vuelta pasa
+    /// nada que mostrar, deja el latido y duerme un plazo fijo: la vuelta pasa
     /// de mil a ~125 por segundo. **Y la primera vuelta que pinta lo devuelve
     /// a mil.** Una tecla despues de un rato quieto se ve como mucho 8 ms
     /// tarde, que es lo que cuesta no despertar al CPU mil veces por segundo

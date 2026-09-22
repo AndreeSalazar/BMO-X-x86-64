@@ -20,18 +20,18 @@
 //! [`TOPE`] son 64 KiB. Un fichero mas grande **no se abre a medias**: se dice
 //! cuanto mide y cuanto cabe. Es la misma regla que `cursor::verify` con su
 //! buffer de firma -- *un limite propio se confiesa, no se disfraza de fallo del
-//! disco*, y ensenar los primeros 64 KiB de un fichero de cuatro MiB sin avisar
+//! disco*, y mostrar los primeros 64 KiB de un fichero de cuatro MiB sin avisar
 //! es contar una verdad recortada.
 //!
 //! ** Y el tope no es capricho: el kernel trae el fichero ENTERO a RAM
 //! (`obj/estratos.rs` lo explica y acaba de re-decidirse el 20-08). Una pantalla
-//! de texto son dos KiB; pedir cuatro MiB para ensenar dos es justo lo que ese
+//! de texto son dos KiB; pedir cuatro MiB para mostrar dos es justo lo que ese
 //! fichero deja anotado como la nota que vencera el dia que esto crezca.
 //!
 //! === Donde se ve ===
 //!
 //! **En el sitio de la rejilla**, y ESC vuelve. Entrar en un fichero es como
-//! entrar en una carpeta: no pide ventana nueva, ni pestana, ni aprender un
+//! entrar en una carpeta: no pide ventana nueva, ni solapa, ni aprender un
 //! gesto que no se usa en ningun otro sitio.
 
 use bmo_userland as bmo;
@@ -127,7 +127,7 @@ impl Visor {
     /// **Abre `ruta` y se trae su contenido.** `false` si no se pudo.
     ///
     /// El motivo del `false` no viaja: se pinta al abrir --el tope, o que no se
-    /// pudo leer-- y quien llama solo necesita saber si hay algo que ensenar.
+    /// pudo leer-- y quien llama solo necesita saber si hay algo que mostrar.
     pub(crate) fn abrir(&mut self, ruta: &[u8], nombre: &[u8]) -> bool {
         self.abierto = false;
         self.desde = 0;
@@ -142,7 +142,7 @@ impl Visor {
         let Ok(a) = bmo::Archivo::leer_de(ruta) else {
             return false;
         };
-        self.mide = a.tamano();
+        self.mide = a.size();
         // ** SE ABRE IGUAL cuando no cabe: el visor tiene que poder DECIR que no
         // cabe, y para eso hace falta que la vista exista. Lo que no hace es
         // leer ni pintar medio fichero.
@@ -220,7 +220,7 @@ impl Visor {
     /// paga es un syscall por bloque al cerrar y otro al abrir, no 8 MiB
     /// residentes por haber mirado una foto una vez.
     ///
-    /// El bloque de texto (`CONTENIDO`, 64 KiB) se queda: es pequeno y se usa
+    /// El bloque de texto (`CONTENIDO`, 64 KiB) se queda: es chico y se usa
     /// en cada fichero de texto que se abre.
     pub(crate) fn cerrar(&mut self) {
         self.abierto = false;

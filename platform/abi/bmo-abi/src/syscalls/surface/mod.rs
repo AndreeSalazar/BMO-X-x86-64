@@ -10,10 +10,10 @@
 // los campos de informe, todo seguido. Anadir un campo era buscar sitio en mil
 // lineas, y el resultado se notaba -- `INFO_CPU_HZ_REAL` se escribio en `0x1E`,
 // que ya era `INFO_FUGAS`, y dos campos con el mismo numero **no dan error de
-// compilacion: dan un panel que ensena el dato de otro**.
+// compilacion: dan un panel que muestra el dato de otro**.
 //
 // El reparto sigue la misma regla que el shell de Ring 0: por lo que es cada
-// familia, no por tamano.
+// familia, no por medida.
 //
 //    puertas    las DOS, y la lapida de la tercera
 //    tarea      TASK_OP_*      lo que se le pide a CURRENT_TASK
@@ -82,7 +82,7 @@ use super::{syscall3, syscall6, SyscallResult};
 // donde se pinta.
 //
 // Dos operaciones y una TABLA de campos, en vez de una operacion por dato: asi
-// anadir "cuantos programas se han lanzado" es una fila, no un numero de
+// agregar "cuantos programas se han lanzado" es una fila, no un numero de
 // syscall nuevo. Es la misma forma que tienen las tablas de `sem-asm`.
 
 /// Un dato numerico del sistema. `arg0` = campo (`INFO_*`). Devuelve el valor.
@@ -180,7 +180,7 @@ use super::{syscall3, syscall6, SyscallResult};
 /// peor caso-- y le ahorra a la app tener que saberlo.
 ///
 /// * Es una division, no un maximo comun divisor. Esa es toda la diferencia con
-/// el diseno anterior: aqui no hay nada que dos lados tengan que calcular igual.
+/// el esquema anterior: aqui no hay nada que dos lados tengan que calcular igual.
 pub const fn lienzo_alinear_a_fila(offset_bytes: u64, stride_px: u32) -> u64 {
     let fila = stride_px as u64 * 4;
     if fila == 0 {
@@ -323,7 +323,7 @@ mod tests {
 
     // ======= LIENZO: lo poco que queda de aritmetica =======
     //
-    // El diseno anterior necesitaba un maximo comun divisor para traducir filas
+    // El esquema anterior necesitaba un maximo comun divisor para traducir filas
     // a paginas, y que el kernel y la app lo calcularan IGUAL para siempre. Este
     // no traduce nada: el kernel presta paginas, la app cuenta filas, y lo unico
     // compartido son bytes. Lo que queda son dos divisiones.

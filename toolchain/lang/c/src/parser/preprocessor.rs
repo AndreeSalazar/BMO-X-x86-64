@@ -557,7 +557,7 @@ impl Preprocessor {
     ///    `m.params.is_empty()`, asi que `MAX(a,b)` se quedaba en el texto tal
     ///    cual y el parser lo tomaba por una llamada a una funcion `MAX` que no
     ///    existe. Era el agujero grande de "lo tipico de C".
-    /// 2. El orden por longitud era un apano para que `AB` no se comiera a `A`;
+    /// 2. El orden por longitud era un arreglo para que `AB` no se comiera a `A`;
     ///    recorrer el texto una vez y mirar identificadores COMPLETOS lo hace
     ///    innecesario.
     /// 3. Sustituia **dentro de las cadenas**: `printf("BMO_TECLA_REPAG")`
@@ -661,7 +661,7 @@ impl Preprocessor {
                 // ya no carga-- y donde iba la `n` habia 65.536 bytes de basura.
                 //
                 // El acento no "no funcionaba": se convertia en un problema de
-                // tamano de binario, que es el ultimo sitio donde uno lo busca.
+                // medida de binario, que es el ultimo sitio donde uno lo busca.
                 if b[i] < 0x80 {
                     out.push(b[i] as char);
                     i += 1;

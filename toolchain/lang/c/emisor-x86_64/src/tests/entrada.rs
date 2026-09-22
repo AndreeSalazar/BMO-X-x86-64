@@ -98,7 +98,7 @@ fn scanf_con_una_conversion_desconocida_se_rechaza() {
     assert!(err.message.contains("%f"), "mensaje: {}", err.message);
 }
 
-/// Y las escrituras llevan el tamano EXACTO del campo: escribir 8 bytes
+/// Y las escrituras llevan el medida EXACTO del campo: escribir 8 bytes
 /// donde hay un `int` pisaria el campo siguiente.
 #[test]
 fn cada_escritura_usa_el_tamano_de_su_campo() {

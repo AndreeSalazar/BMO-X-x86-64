@@ -2,7 +2,7 @@
 
 **Cuanto tiempo es tuya la memoria que pediste, y quien lo dice.**
 
-Abierto el 2026-09-20. Lo pidio el dueno con estas palabras: *"en inspiracion
+Abierto el 2026-09-20. Lo pidio el propietario con estas palabras: *"en inspiracion
 de GC pero que es liberar la memoria cuando ya entra pero tiene que salir, en
 tiempo real que libere fuerte para que no sufra por eso"*. Y a la vuelta
 siguiente: *"pero que hay del WAIT?"*.
@@ -27,7 +27,7 @@ BMO-X y no de un libro:
    casualidad parezca una direccion retiene un bloque que nadie usa. El
    escaner se ahoga justo en la memoria que mas se usa.
 2. **Tiene que parar a los mutadores.** El presupuesto de un fotograma son
-   16,7 ms. Una pausa ahi es literalmente lo que el dueno llamo *sufrir*.
+   16,7 ms. Una pausa ahi es literalmente lo que el propietario llamo *sufrir*.
 3. **El kernel ya decidio no ser asignador**, y `obj/memory.rs` lo argumenta:
    DOOM trae su `Z_Zone`. Un recolector en Ring 0 seria escribir un asignador
    que ningun programa usa, para llamarlo por un syscall.
@@ -44,7 +44,7 @@ BMO-X y no de un libro:
 Meter `WAIT` en el caso local seria pagar una puerta por una decision que el
 compilador ya sabia. Meter `Drop` en el caso compartido seria liberar lo que
 otro esta leyendo. **Cada mitad en su sitio, y no sobra trabajo para un
-recolector.** Esa es la respuesta entera a la pregunta del dueno.
+recolector.** Esa es la respuesta entera a la pregunta del propietario.
 
 ### 2a. La mitad local: la vida util se DECLARA al pedir
 
@@ -76,7 +76,7 @@ contestar -- *cuanta memoria de este sistema es permanente a proposito*.
 
 `MEM_OP_SOLTAR` (20-09) contesta **0** cuando el bloque sigue PRESTADO a otro.
 Es honesto y es la politica correcta -- devolver memoria que otro esta leyendo
-es peor que negarse. Pero deja al dueno **sin paso siguiente**: reintentar
+es peor que negarse. Pero deja al propietario **sin paso siguiente**: reintentar
 cuando? Girar preguntando? Girar es exactamente lo que un compositor no puede
 hacer.
 
@@ -102,7 +102,7 @@ existe y es `loan::hay_prestado_en`. `WAIT` no lo sustituye -- lo despierta.
 
 ## 3. WAIT: por que existe, y lo que le falta
 
-El dueno: *"WAIT aunque no uso tanto TIENEN que tener por que"*. Lo tiene, y la
+El propietario: *"WAIT aunque no uso tanto TIENEN que tener por que"*. Lo tiene, y la
 historia esta en el arbol.
 
 ```text
@@ -221,7 +221,7 @@ Desde entonces la puerta cambio:
    70ea8db5  M0b: FUERA el cerrojo que pagaba TODA puerta   -147 ticks
    01c09d94  WAIT no habia bloqueado nunca
    289d8340  ~6.300 lineas de bmo-abi fuera
-             syscall/ + cap.rs: 2.314 lineas anadidas, 576 quitadas
+             syscall/ + cap.rs: 2.314 lineas agregadas, 576 quitadas
 ```
 
 M0b sola son **147 ticks = ~179 ciclos**, el **18 %** de los 969, y su propio
@@ -238,7 +238,7 @@ Repetir la tanda no es trabajo nuevo: la herramienta existe.
    sys\precio.bex          el testigo de Ring 3
 ```
 
-[!] El metro **anade ~112 ciclos por puerta** (los dos `rdtsc` de `dispatch`),
+[!] El metro **agrega ~112 ciclos por puerta** (los dos `rdtsc` de `dispatch`),
 y eso esta escrito en el build. La cifra se corrige, no se olvida.
 
 ---
@@ -257,7 +257,7 @@ y eso esta escrito en el build. La cifra se corrige, no se olvida.
       `toolchain/tools/esperable/esperable.py`, en `build.ps1`. Lee cada
       `grant(...)` con `RIGHT_WAIT` del kernel y cada `.kind == KIND_` del
       cuerpo de `wait()`; un `KIND_` concedido sin brazo para el build. Sin
-      lista de kinds: si manana entra `KIND_MEMORIA` con las dos mitades, pasa
+      lista de kinds: si luego entra `KIND_MEMORIA` con las dos mitades, pasa
       solo. Contra el arbol del 20-09 contesta `KIND_ARCHIVO se concede con
       RIGHT_WAIT y wait() NO sabe esperarlo`.
 
@@ -325,20 +325,20 @@ y eso esta escrito en el build. La cifra se corrige, no se olvida.
 
 ## 9. Lo que el 21-09 deja claro sobre WAIT y sobre "liberar en caliente"
 
-El dueno volvio a preguntar por las dos cosas juntas: *"analiza el WAIT ... y
+El propietario volvio a preguntar por las dos cosas juntas: *"analiza el WAIT ... y
 algo para liberar la RAM en tiempo real como hot free"*. Con los pasos 0, 1, 2
 y 4 hechos, la respuesta se puede dar con numeros del arbol y del Ryzen:
 
 **Lo que "liberar en caliente" es en esta casa.** Es el `Drop` del paso 4: la
-memoria vuelve **en el instante en que su dueno la suelta**, sin que nadie la
-busque. El `save` de las 02:12 lo enseno por el otro lado: `fugas 0 (los
+memoria vuelve **en el instante en que su propietario la suelta**, sin que nadie la
+busque. El `save` de las 02:12 lo mostro por el otro lado: `fugas 0 (los
 muertos devolvieron todo)` y `a Ring 3 20,9 MiB` HISTORICO contra `8 MiB` vivos
 -- DOOM pidio y devolvio al morir. Lo que faltaba era que un proceso VIVO
 devolviera, y eso es lo que hace el visor ahora al cerrar.
 
 **Lo que WAIT tiene que ver con eso, y lo que no.** WAIT no libera nada y no
 debe: el unico juez de si un bloque se puede soltar es `loan::hay_prestado_en`
-(seccion 2b). Lo que WAIT aporta es que el dueno de un bloque PRESTADO pueda
+(seccion 2b). Lo que WAIT aporta es que el propietario de un bloque PRESTADO pueda
 **dormir** hasta que el prestatario lo suelte, en vez de girar preguntando. Hoy
 `Drop` sobre un bloque prestado se queda sin paso siguiente: el kernel dice que
 no, `Drop` no puede esperar, y el bloque se queda hasta que el proceso muere.

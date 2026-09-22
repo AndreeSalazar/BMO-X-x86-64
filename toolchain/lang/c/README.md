@@ -1,6 +1,6 @@
 # BMO C -- LA FABRICA y LA EXPANSION
 
-> Escrito el **2026-09-11** a partir de una pregunta del dueno: *"que el interior
+> Escrito el **2026-09-11** a partir de una pregunta del propietario: *"que el interior
 > de C sea una FABRICA de funcionalidades, y otra carpeta de EXPANSION donde
 > vivan DOOM, SQLite y lo que venga"*. Al mirar el arbol resulto que **el reparto
 > ya existia y ya era ley** -- solo que sin nombre, y con seis ficheros en el
@@ -83,7 +83,7 @@ desde agosto-- se fue.
 
 ---
 
-# 4. [!] LO QUE QUEDA POR DECIDIR, y es del dueno
+# 4. [!] LO QUE QUEDA POR DECIDIR, y es del propietario
 
 ## 4.1 La cola del port NO esta versionada
 
@@ -101,7 +101,7 @@ Dos salidas, y las dos son legitimas:
       --unity.py, include/, probe.py--         con un puntero a las fuentes GPL
 ```
 
-La b) es la que el dueno describio. Lo que la frena es una pregunta de
+La b) es la que el propietario describio. Lo que la frena es una pregunta de
 licencia, no de codigo: `doomgeneric_bmo.c` es original de esta casa pero solo
 existe para enlazar con GPL. Los stubs y los guiones no tienen esa duda.
 

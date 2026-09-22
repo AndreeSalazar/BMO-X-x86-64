@@ -504,9 +504,9 @@ pub fn huecos() -> u64 {
 //
 // *** Y AQUI HAY UNA COSA QUE SOLO SE VE DESPUES DE SMAP:
 //
-// Desde el 25-08 Ring 0 **no puede tocar memoria de Ring 3**. Un diseno que
+// Desde el 25-08 Ring 0 **no puede tocar memoria de Ring 3**. Un esquema que
 // hiciera al kernel LEER las muestras del bufer de la app estaria muerto desde
-// esa manana -- daria `#PF` en la primera trama.
+// esa luego -- daria `#PF` en la primera trama.
 //
 // ** Este no lee nada. El TRB isocrono lleva una direccion **FISICA** y quien
 // va a buscar los bytes es **el xHC por DMA**, no el CPU. El kernel solo
@@ -539,7 +539,7 @@ static mut PRESTADO: Option<Prestado> = None; // [escribe] ambos
 /// tramo que se salia del bufer que la app presto, y que el xHC habria leido.
 static mut VETOS: u64 = 0; // [escribe] escritorio
 
-/// La cuenta de los vetos, para quien la quiera ensenar.
+/// La cuenta de los vetos, para quien la quiera mostrar.
 pub fn vetos_dma() -> u64 {
     unsafe { VETOS }
 }
@@ -666,7 +666,7 @@ fn siguiente_trama(largo: u64) -> Option<(u64, u16)> {
         let desde = p.fisica + p.leido;
         // *** EL JUEZ. El marco es del aparato porque el KERNEL LO PRESTA --
         // `prestando: true`, igual que el camino directo del disco-- y el
-        // `Marco` declara la base y el tamano REALES del bufer de la app, que
+        // `Marco` declara la base y el medida REALES del bufer de la app, que
         // es lo que hace que un tramo que se sale no pase.
         let veredicto = bmo_dma_juicio::juzgar(
             bmo_dma_juicio::Peticion {

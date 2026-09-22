@@ -1,6 +1,6 @@
 # SMP MAESTRO -- perfilar el PARALELISMO como se perfila el CPU
 
-> Escrito el **2026-08-06**. Pregunta del dueno: *"SMP perfilar MAESTRO basado
+> Escrito el **2026-08-06**. Pregunta del propietario: *"SMP perfilar MAESTRO basado
 > en Ryzen 5 5600X? Es algo inspirado TOTALMENTE en CELL de PS3 pero MAS alla,
 > para poder exprimir -- porque el poder de BMO-X es perfilar en hardware: en la
 > entrada es perfilar TOTAL, y en software es generico."*
@@ -26,7 +26,7 @@ programar*.
 
 ## ★★ Y aqui esta el detalle que lo decide todo
 
-**El local store no era una idea de diseno: era una respuesta a una carencia.**
+**El local store no era una idea de esquema: era una respuesta a una carencia.**
 Los SPE no tenian cache coherente porque el silicio de 2005 no podia darles una
 sin arruinar el presupuesto de transistores. El DMA explicito era **el precio de
 esa falta**, no una virtud.
@@ -65,7 +65,7 @@ tipo NUMA que un planificador deberia respetar.
 
 **El mismo codigo, en dos CPUs de la misma marca, quiere dos repartos
 distintos.** Por eso esto va en el PERFIL y no en el kernel -- que es exactamente
-lo que el dueno pidio.
+lo que el propietario pidio.
 
 ---
 
@@ -96,7 +96,7 @@ soltarlo nunca; BMO-X aisla por capability y puede afinar cuanto**.
 # ★★ 4. EL MODELO MAESTRO, CONCRETO
 
 ```
-  Nucleo 0   MAESTRO   dueno del kernel: drivers, CABINA, scheduler,
+  Nucleo 0   MAESTRO   propietario del kernel: drivers, CABINA, scheduler,
                        los 209 `static mut`. NO CAMBIA NADA.
   Nucleos 1-5 OBREROS  solo tareas cerradas. Nunca tocan un driver.
 ```
@@ -165,7 +165,7 @@ Un CPU nuevo es **una fila mas**. El kernel lee la fila; no sabe que CPU es.
 
 > Y la prueba de que la fila esta bien elegida: **un Zen 2 y un Zen 3 tienen que
 > poder describirse con las mismas columnas** y salir dos repartos distintos. Si
-> hace falta un `if` por modelo en el kernel, la tabla esta mal disenada.
+> hace falta un `if` por modelo en el kernel, la tabla esta mal trazada.
 
 ---
 
@@ -184,7 +184,7 @@ Un CPU nuevo es **una fila mas**. El kernel lee la fila; no sabe que CPU es.
 **`smp_startup()` no esta solo sin llamar: esta MAL COLOCADO.** Se apoya en
 `s1_cpu`, *antes* de `ExitBootServices`, y ahi:
 
-1. **El firmware todavia es dueno de los APs.** UEFI los tiene aparcados en su
+1. **El firmware todavia es propietario de los APs.** UEFI los tiene aparcados en su
    propio bucle (MP Services). Mandarles INIT+SIPI por debajo mientras el
    firmware sigue vivo es pelearse con el por unos nucleos que aun no son
    nuestros -- y lo siguiente que hace `s1_cpu` es **llamar al firmware otra

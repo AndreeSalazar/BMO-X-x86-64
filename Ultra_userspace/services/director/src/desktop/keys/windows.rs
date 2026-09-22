@@ -25,7 +25,7 @@ use crate::{erase_window, uncover};
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: bool) -> Key {
 // == ALT+F4: CERRAR LO DE DELANTE ====================================
 //
-// Lo pidio el dueno con estas palabras: *"agregar esa ventanita para cerrar
+// Lo pidio el propietario con estas palabras: *"agregar esa ventanita para cerrar
 // y todo eso como tipico Alt+F4, que es para cerrar cualquier app"*.
 //
 // Va ANTES que nada por lo mismo que F12: un atajo que solo funciona si ya
@@ -46,8 +46,8 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: boo
 //
 // *** CIERRA LO QUE HAYA DELANTE, SEA LO QUE SEA (corregido el 05-09).
 //
-// La primera version solo cerraba `Ventana::App`, y el dueno lo probo y dijo
-// *"el Alt+F4 no me funciona"*. Tenia razon, y el fallo era de diseno: el
+// La primera version solo cerraba `Ventana::App`, y el propietario lo probo y dijo
+// *"el Alt+F4 no me funciona"*. Tenia razon, y el fallo era de esquema: el
 // atajo se llamaba *cerrar cualquier app* y solo cerraba una CLASE de ventana.
 // Con Ejecutar delante --que es lo que hay en cuanto no tienes una app
 // abierta-- no hacia nada Y NO DECIA NADA, que es la peor de las dos mitades.
@@ -57,14 +57,14 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: boo
 // que lleva toda la semana: algo correcto que se entiende como otra cosa.
 // == *** Y CTRL+C HACE LO MISMO (2026-09-12) ==========================
 //
-// Lo pidio el dueno con el problema delante: *"control + C es que eso me
+// Lo pidio el propietario con el problema delante: *"control + C es que eso me
 // permite restaurar mi terminal y cerrar a la fuerza el app arrancado, no me
 // dejo poner save por eso"*.
 //
 // Y el problema es real y no es de comodidad: **mientras una app tiene el
 // foco, las teclas son suyas** --es el orden de `keys::app`-- asi que la caja
 // de Ejecutar se queda muda y no hay donde escribir `guarda`. Alt+F4 ya
-// resolvia eso desde el 05-09, pero `Ctrl+C` es el gesto que el dueno ya tiene
+// resolvia eso desde el 05-09, pero `Ctrl+C` es el gesto que el propietario ya tiene
 // en los dedos de treinta anios de terminal, y un atajo que hay que recordar
 // es un atajo que no se usa.
 //
@@ -73,7 +73,7 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: boo
 // llega a que uno mate el proceso y el otro no.
 //
 // ** Y con EJECUTAR delante no dice una frase: LIMPIA LA LINEA. Es lo que
-// hace `Ctrl+C` en cualquier terminal del mundo, y es ademas lo que el dueno
+// hace `Ctrl+C` en cualquier terminal del mundo, y es ademas lo que el propietario
 // estaba intentando conseguir -- recuperar la caja para escribir otra cosa.
 //
 // [!] Lo que NO alcanza es lo mismo que no alcanza Alt+F4, y por el mismo
@@ -90,7 +90,7 @@ let ctrl_c = c == 0x03;
 
 // *** Y LO PRIMERO QUE MIRA CTRL+C ES LA CORRIDA EN VUELO. (2026-09-12)
 //
-// El dueno lo corrigio y tenia razon: *"el control + C es para frenar en
+// El propietario lo corrigio y tenia razon: *"el control + C es para frenar en
 // comando como terminal de Windows"*. Un terminal no interrumpe *la ventana de
 // delante*: interrumpe **el comando que tu lanzaste**, tenga ventana o no.
 //
@@ -98,7 +98,7 @@ let ctrl_c = c == 0x03;
 // CONSOLA que se cuelga --`leer.bex`, uno de COBOL-- no tiene ventana, asi que
 // el foco sigue en Ejecutar. Mirando el foco, Ctrl+C le habria limpiado la
 // linea y **habria dejado el programa colgado**, que es exactamente lo que el
-// dueno estaba sufriendo.
+// propietario estaba sufriendo.
 //
 // ** `Out::run` ya existia y ya sabia que hay una corrida esperando final: lo
 // unico que le faltaba era a QUIEN. `ejecutar_en` devolvia el tid desde
@@ -143,7 +143,7 @@ if (c == 0x8C && alt_alone) || ctrl_c {
         }
         // [!] Y aqui NO se cierra nada, pero SE DICE. Ejecutar es la casa: si
         // Alt+F4 la cerrara no quedaria donde escribir. Callar seria dejar al
-        // dueno pensando que el atajo esta roto -- que es exactamente lo que
+        // propietario pensando que el atajo esta roto -- que es exactamente lo que
         // paso el 05-09.
         _ => {
             if ctrl_c {
@@ -362,7 +362,7 @@ if let Some(open) = toggle_klog {
 // Calcada de F11, y con una diferencia que no es cosmetica:
 // aqui abrir y cerrar **toman y devuelven un aparato**, no solo
 // pintan. Por eso el orden importa en los dos sentidos --
-// reclamar antes de pintar (para que la ventana ensene lo que
+// reclamar antes de pintar (para que la ventana muestre lo que
 // de verdad hay) y CALLAR antes de soltar (un tono que sigue
 // sonando despues de devolver el aparato es del sistema, y el
 // sistema no pidio ese tono).

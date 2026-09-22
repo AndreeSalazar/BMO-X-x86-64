@@ -596,7 +596,7 @@ fn nombre_nuevo(cls: &str, ctor: &Option<String>) -> String {
 ///
 /// ```text
 ///   struct P *P.P#i.nuevo(int a1) {
-///       struct P *t = (struct P *) malloc(<tamano de P>);
+///       struct P *t = (struct P *) malloc(<medida de P>);
 ///       if (t != 0) { t->vptr = vtabla.P;  P.P#i(t, a1); }
 ///       return t;
 ///   }
@@ -898,7 +898,7 @@ fn expr(e: &cpp::Expr) -> Result<c::Expr, CppError> {
 /// Un rechazo que **dice en que paso llega** lo que falta.
 ///
 /// La linea va a 0 porque el AST de hoy no lleva posiciones: el parser del
-/// paso 1 las anade, y entonces esto pasa a decir donde. Mientras tanto es
+/// paso 1 las agrega, y entonces esto pasa a decir donde. Mientras tanto es
 /// preferible un error sin linea a un silencio con linea.
 fn pendiente(que: &str, paso: u8, necesita: &str) -> CppError {
     CppError::new(0, format!(

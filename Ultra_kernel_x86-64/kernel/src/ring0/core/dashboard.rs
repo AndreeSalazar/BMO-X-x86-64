@@ -108,7 +108,7 @@ pub(crate) fn dashboard_log_impl(msg: &str, color: Option<u32>) {
     // BMO, en cuyo caso no hay nada que arreglar aqui.
     //
     // No cuesta un cronometro nuevo: `timer::ticks()` ya corre y cada evento de
-    // la CABINA **ya guardaba su marca** -- solo que no se ensenaba. Con esto,
+    // la CABINA **ya guardaba su marca** -- solo que no se mostraba. Con esto,
     // una sola foto de F11 dice donde se van los segundos, linea por linea.
     crate::ring0::core::klog::guardar_con_hora(crate::ring0::plat::timer::ticks(), msg);
 
@@ -124,7 +124,7 @@ pub(crate) fn dashboard_log_impl(msg: &str, color: Option<u32>) {
     // ventana que hay -- aqui no se puede hacer scroll hacia atras.
     //
     // Una repeticion NO es informacion nueva; el numero de veces SI. Asi que
-    // la fila se queda donde esta y se le anade el contador. Catorce lineas
+    // la fila se queda donde esta y se le agrega el contador. Catorce lineas
     // pasan a ser una que dice `x14`, y las trece filas que ganamos son trece
     // hechos distintos que antes no cabian.
     const KEEP: usize = 96;
@@ -176,4 +176,4 @@ pub(crate) fn dashboard_log_impl(msg: &str, color: Option<u32>) {
 //
 // Cada comando del shell traia sus propias closures `txt`/`dec` copiadas.
 // Esto es una sola, con lo que hace falta para alinear columnas y para decir
-// un tamano en la unidad que se entiende.
+// un medida en la unidad que se entiende.

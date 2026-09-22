@@ -18,7 +18,7 @@
 //!
 //! # *** POR QUE ESTE FICHERO EXISTE
 //!
-//! El 2026-08-31 el dueno lo pidio con la maquina en la mano y con la razon
+//! El 2026-08-31 el propietario lo pidio con la maquina en la mano y con la razon
 //! entera dentro de la frase:
 //!
 //! > *"que haga limpieza total en la RAM en Ring 3 como si estuviera
@@ -32,12 +32,12 @@
 //! ## El defecto era el MISMO un nivel mas arriba
 //!
 //! ```text
-//!    la patada vieja   echaba al dueno de la pantalla y a nadie mas
+//!    la patada vieja   echaba al propietario de la pantalla y a nadie mas
 //!    la purga v1       marcaba a todos... y no comprobaba nada
 //! ```
 //!
 //! Las dos dejan la maquina en un estado que nadie puede nombrar. Y ese es el
-//! problema de verdad del bucle en el que estaba el dueno: **no es que no se
+//! problema de verdad del bucle en el que estaba el propietario: **no es que no se
 //! limpie, es que no se sabe.**
 //!
 //! > Una vuelta a cero que no se puede comprobar no es un punto de partida:
@@ -52,7 +52,7 @@
 //!
 //! No promete que vuelvan todos. Promete **decir cuantos**, que es lo que
 //! convierte una fuga en un numero en vez de en una sospecha. Si un dia
-//! `vueltos` es menor de lo que se fue, ahi esta la fuga y ahi esta su tamano.
+//! `vueltos` es menor de lo que se fue, ahi esta la fuga y ahi esta su medida.
 //!
 //! # Lo que NO devuelve, dicho en voz alta
 //!
@@ -101,7 +101,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 /// *** La casa ya tenia la respuesta y esta escrita en `core/emergencia.rs`:
 /// *"Solo se APUNTA... Quien lo recoge es el hilo del bus."* Esto es lo mismo,
 /// con su propia bandera para no mezclar dos motivos --la patada del kernel y
-/// la peticion del dueno-- en un solo camino.
+/// la peticion del propietario-- en un solo camino.
 static PEDIDA: AtomicBool = AtomicBool::new(false);
 
 /// La tecla PIDE. No purga.
@@ -138,7 +138,7 @@ pub struct Parte {
     pub tareas: u32,
     pub marcos_antes: u64,
     pub marcos_despues: u64,
-    /// Marcos de 4 KiB que volvieron. Es la fila que el dueno mira en `save`.
+    /// Marcos de 4 KiB que volvieron. Es la fila que el propietario mira en `save`.
     pub vueltos: u64,
     pub ranuras_antes: u64,
     pub ranuras_despues: u64,
@@ -228,7 +228,7 @@ pub fn contar(p: &Parte) {
 
     // == *** UNA PURGA VACIA REPETIDA TAPA LO QUE HAY QUE LEER (2026-09-08) ===
     //
-    // ** El dueno trajo la foto: el parte de la purga sale DOCENAS de veces
+    // ** El propietario trajo la foto: el parte de la purga sale DOCENAS de veces
     // seguidas, y todas dicen lo mismo -- `tareas cerradas: 0`, `VOLVIERON 0`,
     // `Ring 3 VACIO en 0 cesiones`. Cuatro renglones por vuelta.
     //

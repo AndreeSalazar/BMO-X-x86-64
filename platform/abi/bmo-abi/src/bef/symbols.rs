@@ -170,7 +170,7 @@ impl<'a> SymbolTable<'a> {
     pub fn parse(section_bytes: &'a [u8], entry_count: u32) -> Result<Self, &'static str> {
         let needed = entry_count as usize * Symbol::SIZE;
         if section_bytes.len() < needed {
-            return Err("symbol table demasiado pequena");
+            return Err("symbol table demasiado chica");
         }
         let raw_ptr = section_bytes.as_ptr();
         if (raw_ptr as usize) % core::mem::align_of::<Symbol>() != 0 {
@@ -198,7 +198,7 @@ impl<'a> SymbolTable<'a> {
 }
 
 /// **La cabecera de una tabla con cadenas detras**: cuantas entradas de
-/// tamano fijo vienen, y despues los nombres.
+/// medida fijo vienen, y despues los nombres.
 ///
 /// ```text
 ///   [TablaCadenas][entrada; count][cadenas]
@@ -210,7 +210,7 @@ impl<'a> SymbolTable<'a> {
 #[repr(C, align(8))]
 #[derive(Debug, Clone, Copy)]
 pub struct TablaCadenas {
-    /// Cuantas entradas de tamano fijo vienen detras.
+    /// Cuantas entradas de medida fijo vienen detras.
     pub count: bx_u32,
     /// Reservado. **Debe ser cero** -- misma regla que el resto del formato:
     /// un campo futuro no puede heredar basura de un productor de hoy.

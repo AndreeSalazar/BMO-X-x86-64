@@ -31,7 +31,7 @@ use super::super::{CallReloc, Codegen, TargetProfile};
 
 impl Codegen {
     /// Los brazos de este carril. El despacho vive en `emitir/mod.rs`
-    /// y es EXHAUSTIVO: si manana nace una forma nueva de expresion,
+    /// y es EXHAUSTIVO: si luego nace una forma nueva de expresion,
     /// el compilador para alli y no aqui.
     pub(super) fn emitir_orden(&mut self, expr: &Expr) {
         match expr {

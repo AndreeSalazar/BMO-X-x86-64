@@ -25,7 +25,7 @@ Desborda con un fichero **vacio**, con `class P{};` y con
 | **`IrModule` (64 funciones)** | **12 711 184 = 12,12 MB** |
 
 `Emitter::new()` construye **12 MB en la pila**, por valor, antes de mirar el
-AST. Son arrays de tamano fijo disenados para `no_std` en Ring 0, instanciados
+AST. Son arrays de medida fijo trazados para `no_std` en Ring 0, instanciados
 en una herramienta que corre en el anfitrion.
 
 ★ **Y arreglarlo no serviria de nada, que es lo grave**: `IrModule` **no tiene
@@ -128,7 +128,7 @@ caracteristicas encima de un lenguaje que ya estaba completo.
 |---|---|---|
 | excepciones (try / catch / throw) | ~~FUERA~~ | ★ la mas cara y la que mas se discute. Piden TABLAS DE DESENROLLADO y una rutina de personalidad: al lanzar hay que recorrer la pila hacia atras destruyendo lo vivo. Es un subsistema entero, esta siempre presente aunque nunca lances, y compite con el mecanismo que BMO ya tiene -- aqui un fallo mata la tarea y lo DICE. `-fno-exceptions` es lo que usa todo el mundo en sistemas empotrados, por esto mismo |
 | noexcept | ~~FUERA~~ | promesa al optimizador; sin excepciones no dice nada |
-| RTTI / dynamic_cast / typeid | ~~FUERA~~ | una tabla de tipos viva en ejecucion para preguntar que es algo. Si hace falta preguntarlo, el diseno ya se torcio |
+| RTTI / dynamic_cast / typeid | ~~FUERA~~ | una tabla de tipos viva en ejecucion para preguntar que es algo. Si hace falta preguntarlo, el esquema ya se torcio |
 
 ### moderno
 
@@ -149,10 +149,10 @@ caracteristicas encima de un lenguaje que ya estaba completo.
 | iostreams (`std::cout`) | ~~FUERA~~ | ★ es C++ y falla la prueba. Arrastra locales, facets, virtuales por caracter y un runtime que pesa mas que muchos programas. `printf` hace lo mismo por dos ordenes de magnitud menos |
 | std::string | UTIL | cuando haya plantillas y memoria; es una clase, no lenguaje |
 | std::vector | UTIL | idem, y es el 90% del uso real de la STL |
-| std::array | UTIL | un array con tamano; casi gratis |
+| std::array | UTIL | un array con medida; casi gratis |
 | <algorithm> completo | ~~FUERA~~ | cien algoritmos genericos. Entrarian los tres que se usen, cuando se usen |
 | std::thread / mutex / atomic | ~~FUERA~~ | no hay hilos de usuario |
-| STL de contenedores (map, set, deque...) | ~~FUERA~~ | es un proyecto del tamano del compilador, y arrastra asignadores y excepciones |
+| STL de contenedores (map, set, deque...) | ~~FUERA~~ | es un proyecto del medida del compilador, y arrastra asignadores y excepciones |
 
 ### estructura
 
@@ -216,7 +216,7 @@ fichero vacio.
    en C++ y obliga a parsear la clase en **dos vueltas**.
    ★ Aqui aparecio la primera ambiguedad de verdad: **`P *q` es una
    declaracion o una multiplicacion, y solo la tabla de simbolos lo sabe**. Es
-   el hermano pequeno de `a<b>(c)`, y llego sin necesidad de plantillas.
+   el hermano chico de `a<b>(c)`, y llego sin necesidad de plantillas.
 3. ✅ **HECHO -- constructor y destructor (RAII)**, que es la razon de existir
    del lenguaje. Son **funciones normales con `this`**; lo unico especial es
    quien las llama y cuando. La pila de limpieza es la de Clang (`EHScopeStack`)
@@ -242,7 +242,7 @@ fichero vacio.
    preprocesador, asi que no podia incluir esa cabecera -- pero desde E5e
    **`new` puede emitir `call malloc` como simbolo INDEFINIDO y que lo resuelva
    el enlazador**. O sea que `new P()` es literalmente `malloc` mas el
-   constructor, y `delete p` el destructor mas `free`, y se puede senalar con el
+   constructor, y `delete p` el destructor mas `free`, y se puede marcar con el
    dedo en el enlace. Lo que falta es escribirlo.
    ✅ **`new`/`delete` de una clase, HECHOS el 2026-09-18** (`parser/nuevo.rs`,
    `descenso.rs`). Y la frase de arriba era verdad a medias: sin el monton,
@@ -270,7 +270,7 @@ fichero vacio.
    va en el **offset 0** y la vtabla es una global de `n` ranuras que se rellena
    al principio de `main` -- las globales de BMO C solo admiten un entero como
    inicializador, y la direccion de una funcion no se sabe hasta emitir.
-   ★ Un `override` **sustituye** su ranura y un virtual nuevo se **anade**: por
+   ★ Un `override` **sustituye** su ranura y un virtual nuevo se **agrega**: por
    eso las primeras ranuras significan lo mismo en la base y en el derivado.
    Y una llamada a metodo propio **sin `this->`** despacha igual de virtual --
    es el caso que mas se olvida.
@@ -279,8 +279,8 @@ fichero vacio.
    con azucar.
 
 Y desde el paso 0, **una matriz de conformidad de C++** sobre `bmo_lower::emu`,
-con la misma regla que la de C: *al anadir una caracteristica al codegen, se le
-anade su fila*. Si no ejecuta lo que dice soportar, no lo soporta.
+con la misma regla que la de C: *al agregar una caracteristica al codegen, se le
+agrega su fila*. Si no ejecuta lo que dice soportar, no lo soporta.
 
 `new`/`delete` esperan a la **capability de memoria**, igual que `malloc`. Y
 devolver objetos por valor espera al `sret`, que es deuda de **C**, no de C++.

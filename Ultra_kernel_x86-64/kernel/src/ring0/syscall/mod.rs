@@ -316,7 +316,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_APARATO_SOLTAR => op_aparato::aparato_soltar(arg0, arg1),
         TASK_OP_LATIDO_TOMAR => op_aparato::latido_tomar(arg0, arg1),
         // ** Las tres que MANDAN sobre la maquina viven en `op_maquina.rs`.
-        // No se fueron por tamano: se fueron porque contestan la misma
+        // No se fueron por medida: se fueron porque contestan la misma
         // pregunta, y porque medir el estado compartido de este despachador
         // dio CERO -- ver la cabecera de ese fichero.
         TASK_OP_SMP_DESPERTAR => op_maquina::smp_despertar(arg0, arg1),
@@ -331,7 +331,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         //
         // `net rx` y `placa` existian SOLO en el shell de Ring 0, y al shell de
         // Ring 0 no se vuelve. Un camino que solo existe alli es un camino que
-        // el dueno de su propia maquina no puede tomar.
+        // el propietario de su propia maquina no puede tomar.
         TASK_OP_RED => op_maquina::red(arg0, arg1),
         TASK_OP_PLACA => op_contar::placa(arg0, arg1),
         // ** CREAR UN FICHERO. La primera operacion del sistema que escribe
@@ -407,7 +407,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
             })
         }
         // `arg0` lleva DOS cosas: el indice en los 32 bits bajos y que texto se
-        // pide en los altos. Se reparte el argumento en vez de anadir otra
+        // pide en los altos. Se reparte el argumento en vez de agregar otra
         // operacion porque son el mismo mecanismo --sacar un nombre de ocho en
         // ocho-- pidiendo dos cosas distintas.
         TASK_OP_ES_TEXTO => {
@@ -803,7 +803,7 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                 // escribia por ahi. Funcionaba, y era el ultimo sitio del
                 // sistema donde Ring 0 tocaba una direccion de usuario.
                 //
-                // *** Y desde el arreglo de los limites de la misma manana ese
+                // *** Y desde el arreglo de los limites de la misma luego ese
                 // camino ES INALCANZABLE: `bytes_de_bloque` ya garantizo que el
                 // rango cae dentro de ESTE bloque, que es justo lo que
                 // `fisica_de` comprueba. O sea que el respaldo no protegia de
@@ -935,7 +935,7 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                 // EXITO con un cero de valor. `prestado.h` --la API publica de
                 // REX para prestar-- lee el CODIGO y documenta *"`0` =
                 // ofrecido"*, asi que **decia que si siempre**. Y el que lo
-                // descubrio fue el dueno mirando una ventana que no salia.
+                // descubrio fue el propietario mirando una ventana que no salia.
                 //
                 // ** No se abole nada: el `value` sigue valiendo 1 y 0 como
                 // ayer, asi que `sys.rs::offer` (`!= 0`) y `superficie/roja.h`
@@ -1054,7 +1054,7 @@ fn wait(frame: &TrapFrame) -> BmoStatus {
         // llama a `tic()`.
         // *** UN BLOQUE PRESTADO ES ESPERABLE (2026-09-21, PLAN_LA_VIDA_UTIL 7).
         //
-        // El dueno pidio soltar, el kernel dijo que no (sigue prestado) y le
+        // El propietario pidio soltar, el kernel dijo que no (sigue prestado) y le
         // dio la secuencia que vio. Aqui duerme hasta que esa secuencia se
         // mueva --el prestatario solto o murio-- o venza el plazo. Lo que
         // vuelve es la secuencia, NO un veredicto: el paso siguiente es otro
@@ -1139,7 +1139,7 @@ extern "C" fn dispatch(frame: &mut TrapFrame) -> u64 {
     let __metro = meter::start();
     // Igual que el timer: donde tallo su area este trap y para quien. Un
     // SYSCALL de Ring 3 aterriza en la pila que le haya puesto el planificador,
-    // asi que si esa rampa apuntara donde no debe, esto lo ensena.
+    // asi que si esa rampa apuntara donde no debe, esto lo muestra.
     // ** EL CERROJO QUE PAGABA TODA PUERTA, y se fue el 2026-09-09.
     //
     // Esto llamaba a `scheduler::current_tid()`, que toma `SCHED_LOCK` --o sea

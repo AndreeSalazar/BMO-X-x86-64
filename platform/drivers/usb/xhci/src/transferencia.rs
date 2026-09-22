@@ -88,7 +88,7 @@ pub unsafe fn control_lanzar(slot: u8, bm_req_type: u8, b_request: u8,
     // El bucle de abajo copia `buf_len` bytes en ESA pagina: con un bufer de
     // mas de 4096 escribiria en la memoria fisica de al lado, y un TRB con una
     // fisica que no es no da fault. Hoy nadie llama con tanto (el mayor es la
-    // configuracion, 512); esto hace que manana tampoco pueda.
+    // configuracion, 512); esto hace que luego tampoco pueda.
     if buf_len > 4096 {
         h.log_u64("[xhci] control_transfer: bufer de mas de una pagina, NEGADO: ", buf_len as u64);
         return None;
@@ -338,7 +338,7 @@ static mut LAST_CFG_EP_CC: u8 = 0xFF;
 ///
 /// # Esto existe por la regla del escritorio, no por comodidad
 ///
-/// El codigo se escribia con `h.log`, o sea **por el cable de serie**. El dueno
+/// El codigo se escribia con `h.log`, o sea **por el cable de serie**. El propietario
 /// de esta maquina trabaja en el escritorio y al shell de Ring 0 no vuelve: un
 /// dato que solo sale por serie, para el, no existe. El 2026-08-25 el audifono
 /// se quedo sin tubo y lo unico que llego a la pantalla fue *"el xHC no
@@ -475,7 +475,7 @@ pub unsafe fn configure_endpoint(slot: u8, dci: u8, ep_type: u8, max_pkt: u16, i
     // ** Y el Average TRB Length tampoco es una constante.
     //
     // Es lo que el xHC usa para presupuestar el bus, y estaba clavado en `8` --
-    // el tamano de un informe de teclado boot. Para un endpoint isocrono que
+    // el medida de un informe de teclado boot. Para un endpoint isocrono que
     // entrega 192 bytes cada milisegundo, declarar 8 es pedir **veinticuatro
     // veces menos ancho de banda del que se va a gastar**. El sintoma no es un
     // error: son tramas que llegan tarde, o sea justo el contador que
@@ -528,7 +528,7 @@ pub unsafe fn configure_endpoint(slot: u8, dci: u8, ep_type: u8, max_pkt: u16, i
 // levantarlo. Los dos comandos que hacen falta --Reset Endpoint (14) y Set TR
 // Dequeue Pointer (16)-- sencillamente no estaban escritos.
 //
-// El sintoma es el que conto el dueno: **el teclado deja de responder al
+// El sintoma es el que conto el propietario: **el teclado deja de responder al
 // pulsar, sin que nadie lo desenchufe**. Un error de transaccion del bus
 // --cable, ruido, un paquete que llega mal-- deja el endpoint parado, y a partir
 // de ahi `rearmar()` encola y toca el timbre para nada: **el xHC ignora el
@@ -580,7 +580,7 @@ unsafe fn cmd_cc(trb: Trb) -> Option<u32> {
 /// Levanta un endpoint parado y lo deja listo para que el llamante encole.
 ///
 /// Devuelve `true` si el endpoint quedo en condiciones de volver a bombear. **No
-/// encola ni toca el timbre**: eso es trabajo del dueno del endpoint, que es
+/// encola ni toca el timbre**: eso es trabajo del propietario del endpoint, que es
 /// quien sabe que buffer y que largo le tocan.
 ///
 /// [!] Bloquea, porque espera la complecion de dos comandos. Es aceptable por lo
@@ -778,7 +778,7 @@ pub const ISOCH_ADELANTO: u16 = 4;
 /// # *** `avisar` -- EL IOC, Y POR QUE NO VA EN TODAS (2026-08-30)
 ///
 /// Esto ponia **IOC en cada trama**, y con el tubo abierto eso son del orden de
-/// **2.000 eventos por segundo** en el anillo de eventos del xHC. El dueno lo
+/// **2.000 eventos por segundo** en el anillo de eventos del xHC. El propietario lo
 /// vio como *"al escribir fallo y se congelo todo"*, y el congelado no era del
 /// audio: el hilo que drena ese anillo es **el mismo que sondea el teclado**.
 ///
@@ -996,7 +996,7 @@ pub fn port_stats() -> (u32, u8, bool) {
 /// `(avisos esperando, avisos que no cupieron)`. Para el panel.
 ///
 /// Un desborde no es fatal --el barrido de `bmo_uhid` compara con los puertos de
-/// verdad-- pero es la senal de que los avisos por si solos ya no bastan.
+/// verdad-- pero es la signal de que los avisos por si solos ya no bastan.
 pub fn avisos_stats() -> (usize, u32) {
     unsafe { (PORT_COLA.largo(), PORT_COLA.desbordes()) }
 }

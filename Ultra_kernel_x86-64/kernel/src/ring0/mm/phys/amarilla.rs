@@ -23,7 +23,7 @@
 //!
 //! ** Vivio dos dias en `ring0/critic/`, junto a su gemela. Ya no hace falta:
 //! las dos preguntan a `bmo-fisica-juicio`, que **no tiene ni una constante de
-//! tamano** --el espejo se le pasa en cada llamada--, asi que no hay dos numeros
+//! medida** --el espejo se le pasa en cada llamada--, asi que no hay dos numeros
 //! que mantener de acuerdo. Lo que las ata sigue escrito, arriba, en `[riesgo]`.
 
 use super::super::{phys_to_virt, PAGE, PHYSMAP_SIZE};

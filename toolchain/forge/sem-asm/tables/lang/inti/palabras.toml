@@ -10,10 +10,10 @@
 #  Pero tiene un precio real y hay que decirlo: **nadie fuera de tu idioma va a
 #  contribuir**. Este fichero es lo que hace que ese precio sea reversible.
 #
-#  Con la tabla, INTI habla otro idioma anadiendo UNA COLUMNA y sin tocar una
+#  Con la tabla, INTI habla otro idioma agregando UNA COLUMNA y sin tocar una
 #  linea del compilador. Sin la tabla, cambiarlo despues cuesta el parser
 #  entero. Hacerlo asi hoy no cuesta nada; es el mismo patron que
-#  `arch/x86_64/intrinsics.toml`, donde anadir una instruccion es una entrada y
+#  `arch/x86_64/intrinsics.toml`, donde agregar una instruccion es una entrada y
 #  cero Rust.
 #
 #  == Por que vive aqui y no dentro de `lang/inti/` ==
@@ -318,7 +318,7 @@ BUFER      = "buffer"
 #  Lo que NO esta aqui, y es a proposito
 # ===================================================================
 #
-#  `escribe`, `guarda`, `pinta`, `cuenta`, `anade`, `invoca`, `entrada_puerto`
+#  `escribe`, `guarda`, `pinta`, `cuenta`, `agrega`, `invoca`, `entrada_puerto`
 #  NO son palabras clave: son la biblioteca base (REX y los intrinsecos). Por
 #  eso se pueden tapar, redefinir y ampliar sin tocar el lenguaje -- y por eso
 #  la puerta del sistema no vive en la gramatica. Ver `GRAMATICA.md` sec. 17.

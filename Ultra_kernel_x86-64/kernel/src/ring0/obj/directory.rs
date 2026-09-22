@@ -59,7 +59,7 @@ pub const ERROR_DIR_SIN_HUECO: u32 = 25;
 pub const ERROR_DIR_NO_ESTA: u32 = 26;
 
 /// Avanza a la siguiente entrada y devuelve lo que se sabe de ella:
-/// `(hay << 63) | (es_dir << 62) | tamano`. `hay == 0` = se acabo el
+/// `(hay << 63) | (es_dir << 62) | medida`. `hay == 0` = se acabo el
 /// directorio.
 ///
 /// El NAME no viaja aqui: son 11 bytes y no caben con los demas campos.

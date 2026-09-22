@@ -29,7 +29,7 @@ toolchain/
     +-- metro/          el metro de los emisores: instrucciones, accesos, bytes
     +-- hello-bex/, rpc-demo/   los payloads que el kernel embebe
     +-- fontgen/        genera font16_data.rs (tabla de glifos)
-    +-- ... y los guardianes (capas, isa, contrato, privacidad, tamano, planes,
+    +-- ... y los guardianes (capas, isa, contrato, privacidad, medida, planes,
         codeowners, ambitos): cada uno una regla, y `bmo.ps1` los corre todos
 ```
 

@@ -31,7 +31,7 @@ usa memoria
 
 # Pide un monton al sistema y lo deja listo para repartir.
 #
-# Devuelve 0 si el kernel dice que no. NO se inventa un monton pequeno ni se
+# Devuelve 0 si el kernel dice que no. NO se inventa un monton chico ni se
 # reintenta: quien pide 4 KiB y recibe 0 tiene que enterarse aqui y no dos
 # funciones mas adelante.
 funcion monton_nuevo(cuantos es natural64) devuelve natural64

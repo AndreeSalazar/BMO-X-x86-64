@@ -171,7 +171,7 @@ mod tests {
         assert_eq!(l, 2);
         // Vuelve EXACTO, sin relleno: el puntero del ultimo trozo guarda su
         // longitud real (1984 B), no el bloque entero. Quien lee no tiene que
-        // saber el tamano del archivo para no arrastrar basura al final.
+        // saber el medida del archivo para no arrastrar basura al final.
         assert_eq!(read(&mut m, r, l), d);
     }
 

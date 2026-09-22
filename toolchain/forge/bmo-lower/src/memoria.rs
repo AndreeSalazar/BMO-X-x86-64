@@ -24,7 +24,7 @@
 //! # Lo que hay, y lo que NO
 //!
 //! `copiar` y `rellenar` son **`rep movsb` y `rep stosb`**: una instruccion.
-//! No hay version vectorizada ni seleccion de ruta por tamano como la de
+//! No hay version vectorizada ni seleccion de ruta por medida como la de
 //! glibc, y no hace falta -- desde Ivy Bridge y en todos los Zen, `rep movsb`
 //! tiene ruta rapida en microcodigo (ERMSB) y mueve una linea de cache por
 //! ciclo. Un bucle de 8 en 8 escrito a mano seria mas largo Y mas lento.
@@ -34,7 +34,7 @@
 //! Porque **el emulador no las tenia**, y eso estaba escrito como la razon en
 //! `lang/c/codegen/agregados.rs`. Una carencia del banco de pruebas decidiendo
 //! la forma del codigo que corre en el Ryzen es la cola moviendo al perro; se
-//! le ensenaron los cuatro opcodes al emulador (`emu.rs`, `0xA4`/`0xAA`/`0xFC`
+//! le mostraron los cuatro opcodes al emulador (`emu.rs`, `0xA4`/`0xAA`/`0xFC`
 //! /`0xFD`) y el argumento desaparecio.
 //!
 //! ## La medida que lo justifica
@@ -43,7 +43,7 @@
 //! 32 bits-- a memoria write-combining. Con el bucle de antes eran seis
 //! instrucciones por byte: ~6,1 millones por fotograma, y 214 MB/s a base de
 //! `mov al`. [!] El comentario que habia aqui decia *"64 000 bytes por
-//! fotograma"*, que es el tamano del framebuffer de DOOM **sin escalar y en 8
+//! fotograma"*, que es el medida del framebuffer de DOOM **sin escalar y en 8
 //! bits** -- se quedo corto por dieciseis.
 //!
 //! ## Y el detalle que no se puede suponer: la bandera de direccion

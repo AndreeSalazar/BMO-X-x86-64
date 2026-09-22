@@ -111,7 +111,7 @@ fn los_botones_llegan_con_su_nombre() {
     }
 }
 
-/// **El tamano, medido y no estimado.**
+/// **El medida, medido y no estimado.**
 ///
 /// `PLAN_LA_CARA_VIAJA.md` seccion 3 predijo **~950 bytes** para esta cara,
 /// contando a mano sobre la calculadora ya compilada. Esta prueba lo mide de
@@ -129,14 +129,14 @@ fn una_cara_entera_cabe_en_pocos_kilobytes() {
         n < 8 * 1024,
         "una cara son datos, no un documento: {n} B es demasiado"
     );
-    // Y que no sea absurdamente pequena, que seria la senal de que se emitio
+    // Y que no sea absurdamente chica, que seria la signal de que se emitio
     // vacia y las cuentas cuadran solas.
     assert!(n > cara::CABECERA, "no puede ser solo la cabecera");
 }
 
 /// **Un lienzo que no cabe en la pantalla se rechaza al LEER, no al escribir.**
 ///
-/// Es la comprobacion 5, y prueba la separacion que sostiene el diseno: el
+/// Es la comprobacion 5, y prueba la separacion que sostiene el esquema: el
 /// emisor corre en el anfitrion y **no sabe** en que pantalla se pintara. El que
 /// lo sabe es el lector, y por eso la pantalla es un parametro suyo.
 #[test]

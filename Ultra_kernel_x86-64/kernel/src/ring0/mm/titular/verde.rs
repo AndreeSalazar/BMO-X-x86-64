@@ -19,11 +19,11 @@
 //! *** Las dos primeras llevan la cuenta desde el lado del MARCADO --carril
 //! amarillo-- precisamente para poder ser O(1). La primera version de
 //! `neutros` recorria, y una cifra que no se puede repintar es una cifra que
-//! el dueno no va a mirar: acaba en una orden que hay que acordarse de
+//! el propietario no va a mirar: acaba en una orden que hay que acordarse de
 //! escribir, o sea en ninguna parte.
 //!
 //! ** Por eso `vuelo=V:P:C` esta delante de la cara en CABINA y `cubiertos`
-//! no: el precio de una cuenta decide DONDE se puede ensenar.
+//! no: el precio de una cuenta decide DONDE se puede mostrar.
 
 use super::{tabla, CADUCADOS, MARCOS, EN_VUELO_CHOQUES, EN_VUELO_PISADOS,
             EN_VUELO_VIVOS, PEOR_SILENCIO,
@@ -76,7 +76,7 @@ pub fn vuelos() -> (u64, u64, u64) {
 /// ```
 ///
 /// Las dos son de leer un `static`: la cuenta la lleva [`marcar`], que es el
-/// unico sitio por el que un marco cambia de dueno. Preguntar esto **no
+/// unico sitio por el que un marco cambia de propietario. Preguntar esto **no
 /// recorre nada**, asi que se puede poner en un panel que se repinta.
 
 /// **EL PEOR SILENCIO QUE SE LE HA VISTO A UN APARATO**, y a cual:
@@ -94,11 +94,11 @@ pub fn vuelos() -> (u64, u64, u64) {
 ///    cuanto ESPERAR        se mira LO PEOR que ha pasado nunca
 /// ```
 ///
-/// `ciclos.bex` lo ensena en el Ryzen midiendo un bucle vacio: minimo 11 ticks,
+/// `ciclos.bex` lo muestra en el Ryzen midiendo un bucle vacio: minimo 11 ticks,
 /// media 122. Un plazo puesto en 11 caducaria vuelos sanos todo el rato.
 ///
 /// [!] `cuanto` viene en las unidades del reloj que use quien llama a
-/// `en_vuelo`, y aqui no se sabe cuales son. Quien lo ensena las sabe.
+/// `en_vuelo`, y aqui no se sabe cuales son. Quien lo muestra las sabe.
 pub fn peor_silencio() -> (u8, u64, u64) {
     let mut quien = 0u8;
     let mut peor = 0u64;

@@ -29,7 +29,7 @@
 //!
 //! # *** EL TECHO NO ES SUYO, Y ESA ES LA IDEA ENTERA
 //!
-//! Esta caja **no tiene ni una constante de tamano**. El espejo se le pasa en
+//! Esta caja **no tiene ni una constante de medida**. El espejo se le pasa en
 //! cada llamada, asi que:
 //!
 //! > **no puede tener un numero suelto, porque no tiene ningun numero.**
@@ -81,7 +81,7 @@ impl Veredicto {
 /// `espejo_bytes` es lo que el physmap refleja de verdad -- en BMO-X,
 /// `mm::PHYSMAP_SIZE`. **Se pasa, no se sabe**: ver la cabecera.
 ///
-/// [!] La frontera es EXCLUSIVA: una fisica igual al tamano del espejo es el
+/// [!] La frontera es EXCLUSIVA: una fisica igual al medida del espejo es el
 /// primer byte que ya no esta reflejado. Se prueba abajo, porque un `<=` aqui
 /// es un fallo de un solo byte que no da la cara hasta que la RAM llega justo
 /// al limite.
@@ -151,7 +151,7 @@ mod tests {
     }
 
     /// ** Un espejo de cero no deja pasar NADA, y eso es lo correcto: si
-    /// alguien pregunta con el tamano sin inicializar, la respuesta segura es
+    /// alguien pregunta con el medida sin inicializar, la respuesta segura es
     /// que no. Un juez que en la duda dice que si no es un juez.
     #[test]
     fn sin_espejo_no_se_camina_por_ningun_sitio() {

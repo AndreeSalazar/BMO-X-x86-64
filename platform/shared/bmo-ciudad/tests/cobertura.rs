@@ -2,7 +2,7 @@
 //!
 //! ## Que fallo, y por que las pruebas que habia lo dejaron pasar
 //!
-//! El video del arranque del 2026-08-15 enseno una franja muerta de 191 px
+//! El video del arranque del 2026-08-15 mostro una franja muerta de 191 px
 //! pegada al borde izquierdo: **el 9,9% del ancho de la pantalla** congelado con
 //! el ultimo color que le cayo encima, sin repintarse mas aunque el resto de la
 //! escena se apagara a negro. Lo que faltaba ahi era el bloque exterior del

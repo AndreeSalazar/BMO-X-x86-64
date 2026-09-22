@@ -2,7 +2,7 @@
 
 > Capitulo de componente, como `EL_TECLADO_EXIGE.md` y `LA_PUERTA_POR_DENTRO.md`.
 >
-> Nace de una pregunta del dueno el **2026-08-17**:
+> Nace de una pregunta del propietario el **2026-08-17**:
 >
 > > *"la CPU arranca normal porque BMO-X procesa normal, pero la GPU se
 > > desincroniza... si metes MUCHOS elementos en un frame mientras la CPU va en
@@ -118,7 +118,7 @@ tearing corta la imagen en horizontal, el tiron la congela.
              que no cambia.
 ```
 
-★★ **Y el diseno que absorbe esto ya esta elegido**, sin que se eligiera para
+★★ **Y el esquema que absorbe esto ya esta elegido**, sin que se eligiera para
 esto: `docs/plan/PLAN_DIRECTOR.md` -- *una app dibuja en SU memoria y se compone en un
 marco*. Ese es exactamente el reparto productor/consumidor que hace que la
 desincronizacion no rompa: cada app va a su ritmo en su superficie, y **el
@@ -147,7 +147,7 @@ seccion es su primera pagina.
 
 ---
 
-## 5. ★ La ventana en vivo que pide el dueno
+## 5. ★ La ventana en vivo que pide el propietario
 
 > *"eso seria en la F5 o no se? Es para leer TODO lo que pasa en consumo en
 > tiempo real... puedes crear una interfaz y vivir en la pantalla, aunque eso
@@ -156,9 +156,9 @@ seccion es su primera pagina.
 **Se puede, y la mitad ya esta.** F7 (CPU) y F8 (memoria) son exactamente esa
 clase de ventana: se repintan solas cada 15 fotogramas y viven en la pantalla.
 Falta la tercera, la del PINTADO, y **F5, F6 y F9 estan libres** (F7 F8 F10 F11
-F12 ya tienen dueno).
+F12 ya tienen propietario).
 
-Lo que tendria que ensenar, y de donde sale cada dato:
+Lo que tendria que mostrar, y de donde sale cada dato:
 
 ```
    cajas por frame        `sucio.rs::cajas()`        ya existe
@@ -173,7 +173,7 @@ Lo que tendria que ensenar, y de donde sale cada dato:
 
 **Una ventana que se repinta para medir el repintado se mide a si misma.** Cada
 refresco del panel ensucia su propia caja, la suma a los MB volcados, y el numero
-que ensena incluye el coste de ensenarlo. Es el hermano exacto de la ventana
+que muestra incluye el coste de ensenarlo. Es el hermano exacto de la ventana
 sucia que acaba de morder al metro de la puerta.
 
 Las dos salidas honestas, y hay que elegir una **antes** de escribir el panel:
@@ -196,7 +196,7 @@ de sitio.
 - **Que haya tearing hoy.** No se ha visto ni se ha buscado: el troceado en cajas
   lo hace improbable en el uso normal del escritorio. Lo que dice este documento
   es **cuando dejaria de serlo**, y por que.
-- **Que el compositor vaya lento.** A 60 fps con cajas pequenas sobra tiempo. El
+- **Que el compositor vaya lento.** A 60 fps con cajas chicas sobra tiempo. El
   problema aparece con el area, no con la frecuencia.
 
 ---

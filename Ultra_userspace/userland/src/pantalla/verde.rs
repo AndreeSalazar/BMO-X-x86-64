@@ -76,7 +76,7 @@ const ASCII_GLYPHS: usize = 95;
 pub const GLIFO_ANCHO: u32 = 8;
 pub const GLIFO_ALTO: u32 = 16;
 
-/// Byte -> indice de glifo. ASCII directo; para el espanol (n, a, ...) se
+/// Byte -> indice de glifo. ASCII directo; para el castellano (n, a, ...) se
 /// busca el byte Latin-1 en la tabla de extras.
 ///
 /// **Latin-1 y no UTF-8, igual que en Ring 0.** Un caracter es UN byte, asi el

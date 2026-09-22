@@ -4,7 +4,7 @@
 //!
 //! La biblioteca nacio con una LETRA sobre un cuadro de color (`A`, `I`, `S`,
 //! `T`). Eddi pidio la imagen 4 --un lanzador con iconos-- y una letra obliga a
-//! saber que letra es cada clase; un marco con una montana no.
+//! saber que letra es cada clase; un marco con una sierra no.
 //!
 //! Solo `rect`, como los tres botones de `chrome`: la fuente no trae estos
 //! glifos y meterlos en el generador por cinco dibujos seria tocar la tabla que
@@ -12,7 +12,7 @@
 //!
 //! ```text
 //!    App      una ventana con su barra
-//!    Imagen   un marco, un sol y una montana
+//!    Imagen   un marco, un sol y una sierra
 //!    Audio    una nota
 //!    Texto    una hoja con renglones
 //!    Otro     una hoja en blanco
@@ -53,7 +53,7 @@ pub(crate) fn dibujar(p: &bmo::Pantalla, x: u32, y: u32, lado: u32, clase: Clase
             marco(p, ix, iy, ia, ia, g, TINTA);
             // El sol, arriba a la derecha.
             p.rect(ix + ia - 2 * u - g, iy + u, u, u, TINTA);
-            // La montana: escalones que se estrechan hacia arriba.
+            // La sierra: escalones que se estrechan hacia arriba.
             let base = iy + ia - g;
             let pasos = (ia / (2 * g)).min(ia / 2);
             let alto_paso = ((ia / 2) / pasos.max(1)).max(1);

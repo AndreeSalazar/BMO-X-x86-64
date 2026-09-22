@@ -6,7 +6,7 @@
 //! === Por que es un fichero, y por que se llama asi ===
 //!
 //! Por L6a: `syscall/mod.rs` esta en la linea base del censo y **no puede
-//! crecer**. Pero el corte no es por tamano -- es que este brazo del despacho
+//! crecer**. Pero el corte no es por medida -- es que este brazo del despacho
 //! dejo de ser "crear un fichero" el dia que la maquina de abajo aprendio
 //! cuatro verbos.
 //!
@@ -41,7 +41,7 @@
 //! carpeta por un canal y un nombre por otro es un formulario.
 //!
 //! [!] `RENOMBRAR` es el unico que necesita dos nombres, y el segundo va por el
-//! renglon del CONTENIDO. No es un apano: ese renglon lleva una cuenta explicita
+//! renglon del CONTENIDO. No es un arreglo: ese renglon lleva una cuenta explicita
 //! de bytes, asi que un nombre entra tal cual y sin ambiguedad.
 //!
 //! === Y CABINA no esta aqui ===
@@ -253,7 +253,7 @@ fn origen_poner(pid: u32, handle: u64, desde: u64) -> u64 {
     1
 }
 
-/// La direccion y el tamano, **y vacia el renglon**. `None` si no cuadra.
+/// La direccion y el medida, **y vacia el renglon**. `None` si no cuadra.
 ///
 /// La comprobacion del rango es UNA RESTA contra lo que el kernel entrego, y esa
 /// es la idea entera: no hay que validar un puntero de Ring 3 porque no hay

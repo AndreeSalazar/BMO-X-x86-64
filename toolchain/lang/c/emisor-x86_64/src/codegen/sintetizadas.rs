@@ -54,7 +54,7 @@ type Sintetizador = fn(&mut Vec<u8>);
 ///
 /// ```text
 ///   EN LINEA      el bucle entero, otra vez, en CADA sitio de llamada
-///                 -> perfecto para las seis funciones de un programa pequeno
+///                 -> perfecto para las seis funciones de un programa chico
 ///                 -> y cada llamada paga su copia
 ///
 ///   NADA          `patch_call_relocs` falla: "no existe la funcion 'X'"
@@ -65,7 +65,7 @@ type Sintetizador = fn(&mut Vec<u8>);
 /// bucle. La regla que decide, y que ya estaba escrita en `bmo-rt/src/lib.rs`:
 ///
 /// > **En linea lo que no tiene semantica de lenguaje y se usa poco. Enlazado
-/// > lo que tiene estado, tamano, o se llama desde muchos sitios.**
+/// > lo que tiene estado, medida, o se llama desde muchos sitios.**
 ///
 /// # Como funciona
 ///
@@ -347,7 +347,7 @@ fn sintetiza_strcpy(code: &mut Vec<u8>) {
 ///
 /// El cuerpo es el mismo `bmo_lower::memoria::copiar` que se emitia en linea
 /// --no hay una segunda implementacion de "mueve bytes", que seria la clase de
-/// duplicado que `bmo-lower` existe para evitar--: lo unico que se anade es el
+/// duplicado que `bmo-lower` existe para evitar--: lo unico que se agrega es el
 /// prologo que traduce la ABI de pila de BMO C a los registros que ese emisor
 /// espera (`rdi`=dst, `rsi`=src, `rcx`=n), y el `mov rax, [rbp+16]` del final,
 /// porque **`memcpy` devuelve el destino** y `copiar` se lleva `rdi` por

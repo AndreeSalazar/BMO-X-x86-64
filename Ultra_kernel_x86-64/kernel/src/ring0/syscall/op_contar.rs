@@ -59,7 +59,7 @@ pub(super) fn cabina_texto(arg0: u64, arg1: u64) -> BmoStatus {
 //// los administra -- el escritorio, y el `run` del shell de Ring 0. Una app
 //// lanzada desde Ring 3 no ve cuanto comen las demas. `task/autoridad.rs`
 //// pide, antes de inventar un bit nuevo, preguntar si la operacion no tiene ya
-//// dueno: aqui lo tiene.
+//// propietario: aqui lo tiene.
 pub(super) fn info(arg0: u64, _arg1: u64) -> BmoStatus {
         use crate::ring0::core::report;
         use crate::ring0::task::autoridad;

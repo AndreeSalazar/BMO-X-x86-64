@@ -212,7 +212,7 @@ fn the_calculator_lands_exactly_where_calc_rs_puts_it() {
     // The size nobody declared, worked out from the tree:
     //    ancho  4*72 + 3*6 (gap) + 2*6 (padding) + 2*2 (borde) = 322
     //    alto   40 + 6 + 5*72 + 4*6 + 2*6 + 2*2                   = 446
-    assert_eq!(l.canvas, (322, 446), "el tamano que hoy calcula una persona");
+    assert_eq!(l.canvas, (322, 446), "la medida que hoy calcula una persona");
 
     let pad = &l.root.children[0];
     assert_eq!(pad.rect, r(0, 0, 322, 446));

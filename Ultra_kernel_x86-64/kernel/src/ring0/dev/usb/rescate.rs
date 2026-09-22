@@ -1,4 +1,4 @@
-//! **El atajo que le devuelve la maquina al dueno: `Ctrl+Alt+Esc`.**
+//! **El atajo que le devuelve la maquina al propietario: `Ctrl+Alt+Esc`.**
 //!
 //! [carril]  ROJO      Ctrl+Alt+Esc. Es el ultimo recurso: si falla, no hay otro
 //! [consumo] NADA      se mira desde el hilo del bus: late bus.rs
@@ -12,7 +12,7 @@
 //! serviria para quitarselas. Si el rescate viviera en el escritorio, el primer
 //! programa que tomara la entrada lo desactivaria -- y eso paso: el raycaster se
 //! quedo pantalla y entrada y no habia forma de volver que no fuera el boton de
-//! reinicio. El dueno lo dijo con la palabra exacta: *"eso me recuerda a
+//! reinicio. El propietario lo dijo con la palabra exacta: *"eso me recuerda a
 //! ransomware"*.
 //!
 //! > Un sistema donde un programa puede quedarse el teclado para siempre no es
@@ -43,9 +43,9 @@ use super::{modificadores, HELD_CODE, MOD_ALT, MOD_CTRL};
 ///
 /// # Que hace
 ///
-/// Le quita la pantalla al dueno actual (ver `fb::rescue`, que no echa al
+/// Le quita la pantalla al propietario actual (ver `fb::rescue`, que no echa al
 /// compositor) y la entrada. El escritorio esta esperando en su bucle a que el
-/// dueno vuelva a `0`, asi que **se recupera solo** -- no hace falta avisarle.
+/// propietario vuelva a `0`, asi que **se recupera solo** -- no hace falta avisarle.
 ///
 /// # Y la tecla NO se entrega
 ///
@@ -87,17 +87,17 @@ pub(super) fn tecla_del_dueno(t: Option<u8>) -> Option<u8> {
 fn rescue_owner() -> bool {
     // == ** LA SEGUNDA PULSACION MANDA SIEMPRE (corregido el 2026-09-01) =====
     //
-    // ** El dueno lo probo y no paso nada: *"no se cumplio"*. Y la razon estaba
+    // ** El propietario lo probo y no paso nada: *"no se cumplio"*. Y la razon estaba
     // en el orden de este `match`:
     //
     // ```text
-    //    fb::rescue() -> Some   le quita la pantalla al dueno y SE VA
+    //    fb::rescue() -> Some   le quita la pantalla al propietario y SE VA
     //    fb::rescue() -> None   ...y solo por AQUI se llegaba a la purga
     // ```
     //
-    // O sea que la limpieza total solo ocurria cuando el dueno de la pantalla
+    // O sea que la limpieza total solo ocurria cuando el propietario de la pantalla
     // era **el escritorio**, que es el unico a quien `fb::rescue` se niega a
-    // echar. Con DOOM delante --que NO es el primer dueno-- la primera
+    // echar. Con DOOM delante --que NO es el primer propietario-- la primera
     // pulsacion lo echaba, devolvia `Some`, y la purga no se pedia jamas.
     //
     // *** Asi que la ventana se mira ANTES que la pantalla, y con eso el atajo
@@ -108,11 +108,11 @@ fn rescue_owner() -> bool {
     //    dos seguidas     REINICIA RING 3 -- mire quien mire la pantalla
     // ```
     //
-    // La segunda ya no depende de QUIEN sea el dueno, que es exactamente lo que
+    // La segunda ya no depende de QUIEN sea el propietario, que es exactamente lo que
     // hacia que la tecla se comportara distinto segun lo que hubiera delante.
     if segunda_pulsacion() {
         unsafe { PRIMER_INTENTO = 0 };
-        // La pantalla, sin respetar al primer dueno: aqui ya se pidio dos veces.
+        // La pantalla, sin respetar al primer propietario: aqui ya se pidio dos veces.
         if let Some(pid) = crate::ring0::obj::fb::rescate_de_emergencia() {
             let _ = crate::ring0::obj::input::release(pid);
             crate::ring0::cabina::warn(
@@ -146,7 +146,7 @@ fn rescue_owner() -> bool {
 /// Si no lo es, abre la ventana y contesta `false`. Salio de `segunda_llamada`
 /// el 2026-09-01 para poder preguntarlo **antes** de mirar quien tiene la
 /// pantalla: mientras la pregunta vivio dentro de aquella funcion, la purga
-/// dependia de que el dueno fuera el escritorio.
+/// dependia de que el propietario fuera el escritorio.
 ///
 /// [!] Sin TSC medido no hay ventana que medir, y entonces se trata como
 /// primera llamada SIEMPRE: **mejor no dar la patada que darla sin querer.** Es
@@ -156,7 +156,7 @@ fn segunda_pulsacion() -> bool {
     use crate::ring0::task::scheduler;
     // == *** SIN UN SOLTAR DE POR MEDIO NO ES OTRA PULSACION (2026-09-04) ====
     //
-    // ** El dueno pulso `Ctrl+Alt+Esc` para volver del juego y se le murio
+    // ** El propietario pulso `Ctrl+Alt+Esc` para volver del juego y se le murio
     // Ring 3 entero. No fue la purga: fue que la purga se PIDIO sola.
     //
     // `watch_rescue` corre en el hilo del bus **cada 4 ms** y dispara mientras
@@ -169,11 +169,11 @@ fn segunda_pulsacion() -> bool {
     //
     // > lo que impide que el rescate dispare sesenta veces por segundo mientras
     // > el combo sigue pulsado es que `fb::rescue()` devuelve `None` en cuanto
-    // > no queda dueno
+    // > no queda propietario
     //
     // Eso era verdad hasta el 01-09, cuando la ventana se movio DELANTE de la
     // pantalla para que la segunda llamada dejara de depender de quien fuera el
-    // dueno. Aquel arreglo fue bueno **y dejo la rama de la purga por delante
+    // propietario. Aquel arreglo fue bueno **y dejo la rama de la purga por delante
     // del unico freno que tenia.** El comentario se quedo describiendo un muro
     // que ya no estaba en el camino.
     //
@@ -231,7 +231,7 @@ const VENTANA_S: u64 = 3;
 // ahora repartido entre `segunda_pulsacion` y `rescue_owner`, y el motivo del
 // reparto es que la pregunta *"es la segunda?"* tenia que poder hacerse ANTES
 // de mirar quien tiene la pantalla. Mientras vivio aqui dentro, la purga
-// dependia de que el dueno fuera el escritorio.
+// dependia de que el propietario fuera el escritorio.
 //
 // Lo que sigue valiendo igual, y por eso se copia y no se borra:
 //
@@ -327,7 +327,7 @@ pub(super) fn watch_rescue() {
     // `HELD_CODE` is not cleared here: the KeyUp clears it.
     //
     // [!] AQUI DECIA que lo que impedia disparar sesenta veces por segundo era
-    // que `fb::rescue()` devuelve `None` en cuanto no queda dueno. **Eso dejo
+    // que `fb::rescue()` devuelve `None` en cuanto no queda propietario. **Eso dejo
     // de ser cierto el 01-09**, cuando la ventana de la segunda llamada se
     // movio DELANTE de esa comprobacion: desde entonces la rama de la purga se
     // alcanzaba sin pasar por ella. Un comentario que describe un muro que ya

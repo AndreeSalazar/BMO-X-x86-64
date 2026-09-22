@@ -67,7 +67,7 @@ pub const MAX_INTENTOS: u8 = 3;
 ///
 /// Hasta hoy un puerto con algo dentro que fallaba tres veces se CERRABA hasta
 /// desenchufarlo. Con el barrido cada 500 ms eso son 1,5 s: un raton con
-/// firmware RGB, o un movil que aun esta arrancando, tarda mas -- y el dueno
+/// firmware RGB, o un movil que aun esta arrancando, tarda mas -- y el propietario
 /// lo veia como "se queda esperando entrar" y lo resolvia sacando y metiendo el
 /// cable. Enfriar en vez de cerrar mantiene la regla 2 (nada gira para
 /// siempre: tres resets cada cinco segundos, no doscientos por segundo) y
@@ -77,7 +77,7 @@ pub const ENFRIAMIENTO_BARRIDOS: u8 = 10;
 /// **Cuantos descansos seguidos doblan el siguiente** (2026-09-17, tarde).
 ///
 /// La primera version del enfriamiento descansaba SIEMPRE cinco segundos, y
-/// el Ryzen lo enseno al momento: un aparato que no contesta recibia tres
+/// el Ryzen lo mostro al momento: un aparato que no contesta recibia tres
 /// resets en 1,5 s, cinco segundos de paz, y otros tres -- para siempre, con
 /// un aviso en CABINA cada cinco segundos. Eddi: *"es cada 5 segundos sin
 /// sentido"*. Ahora cada descanso cumplido dobla el siguiente (5, 10, 20, 40
@@ -87,7 +87,7 @@ pub const MAX_DOBLADOS: u8 = 3;
 /// **Tras cuantos descansos cumplidos se ABANDONA el puerto** hasta que se
 /// desenchufe (2026-09-17, noche). Un aparato de verdad contesta en segundos;
 /// uno que lleva mudo mas de eso no va a entrar a base de resets, y cada
-/// reset congela el bus --y el teclado--. El Ryzen lo enseno con algo en el
+/// reset congela el bus --y el teclado--. El Ryzen lo mostro con algo en el
 /// puerto 1 que acepta direccion y no da descriptores. Desenchufar lo
 /// devuelve todo.
 ///
@@ -98,7 +98,7 @@ pub const MAX_DOBLADOS: u8 = 3;
 /// reset, address, y cada descriptor que no llega son 100 ms de plazo), y
 /// mientras dura no se lee ni el raton ni el teclado. Con cuatro descansos
 /// eran 12 intentos en 75 s: doce tirones de casi un segundo en el primer
-/// minuto de cada sesion, que es exactamente lo que el dueno sintio como
+/// minuto de cada sesion, que es exactamente lo que el propietario sintio como
 /// *"tirones como que esta verificando mi mouse y teclado"*. Con dos son
 /// 6 intentos en ~30 s. Lo que un descanso mas iba a ganar --un movil que
 /// arranca despacio-- lo cubre el CSC: cambiar de modo es volver a
@@ -251,7 +251,7 @@ impl Puertos {
         if self.doblados[i] >= ABANDONO_DESCANSOS {
             // Abandonado: ni vuelve ni se cuenta. Solo desenchufar lo levanta.
             // `enfriando` pasa a 1 para que `recien_abandonado` sea verdad UNA
-            // sola vez: el Ryzen enseno el mismo aviso cuarenta veces
+            // sola vez: el Ryzen mostro el mismo aviso cuarenta veces
             // (2026-09-17) porque aqui no se movia nada.
             self.enfriando[i] = 1;
             return false;

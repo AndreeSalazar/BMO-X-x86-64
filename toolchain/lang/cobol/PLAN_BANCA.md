@@ -30,7 +30,7 @@
 ⚠    tiene una decision dentro que hay que tomar antes de escribir codigo
 ```
 
-Y el tamano, para poder repartir: **S** una sesion - **M** dos o tres - **L** una
+Y el medida, para poder repartir: **S** una sesion - **M** dos o tres - **L** una
 semana de trabajo de verdad - **XL** la pieza grande de su fase.
 
 ## La regla que no se negocia
@@ -78,7 +78,7 @@ empezarla:
    tienes"*, y se comprobo que **no necesita seek**: `ARCH_OP_LEER` ya saca
    bytes crudos y esta en el kernel y en el emulador. Es puro compilador.
 2. **El trabajo de sistema no se pone mas dificil por esperar.** Las tres
-   operaciones que faltan son pequenas y estan descritas; el orden entre ellas y
+   operaciones que faltan son chicas y estan descritas; el orden entre ellas y
    COBOL no cambia lo que cuestan.
 3. **Cada sesion de COBOL entrega algo que corre.** Una de kernel no: hay que
    cambiar la superficie, el kernel y el emulador antes de que un `.cob` note
@@ -99,7 +99,7 @@ Lo que **no** se alcanza sin la columna derecha:
 - **Transacciones y varios usuarios a la vez.** Fase 7.
 
 **Tres operaciones de kernel bloquean la pieza mas grande del proyecto.** No son
-una montana -- pero no se pueden saltar, y por eso estan escritas aqui y no
+una sierra -- pero no se pueden saltar, y por eso estan escritas aqui y no
 escondidas en la fase 3.
 
 ---
@@ -173,7 +173,7 @@ escondidas en la fase 3.
       que dice el estandar y no hizo falta escribir nada para ello.
       ⚠ Se rechaza desde el **cuerpo principal**: aqui un parrafo es una
       subrutina a la que se entra por `call`, y saltar dentro sin haber entrado
-      por su `PERFORM` deja el `ret` del final sin dueno.
+      por su `PERFORM` deja el `ret` del final sin propietario.
       ⛔ `GO TO ... DEPENDING ON` todavia no.
 
 - [x] **0.7 - Texto de verdad: `PIC X(n)` con contenido** -- ✅ 2026-08-03
@@ -223,7 +223,7 @@ que ya existe.**
          un puntero desde el 2026-08-03, que es exactamente lo que hace falta
          para un campo `COMP-3` dentro del buffer.
       3. **No toca nada de lo que corre en el Ryzen.** El camino A cambia como
-         se guarda CADA dato del programa; este solo anade una capa en los dos
+         se guarda CADA dato del programa; este solo agrega una capa en los dos
          sitios donde el registro cruza al disco.
       4. **El truncamiento no se cuela de tapadillo.** Con A, los `DISPLAY` de
          WORKING-STORAGE empezarian a truncar de un dia para otro y la salida de
@@ -311,16 +311,16 @@ que ya existe.**
 
 - [x] **1.3c ★ El VISOR de registros (`--ver`)** -- ✅ 2026-08-03
       Desde que un `COMP-3` sale al disco, el fichero **deja de poderse mirar**:
-      los nibbles no son texto y un `cat` ensena basura. El compilador lo decodifica
-      con el copybook de su propio programa, y ensena **el valor y los bytes
+      los nibbles no son texto y un `cat` muestra basura. El compilador lo decodifica
+      con el copybook de su propio programa, y muestra **el valor y los bytes
       crudos al lado**.
       ★ Lo que ninguna herramienta de fuera puede prometer: **lee con la misma
       regla con la que el programa escribio**. Los decodificadores del anfitrion
       (`packed::desempaquetar_en_rust`, `zoned::leer_en_rust`) estan comparados
       contra los EMITIDOS sobre **todos** los patrones de dos bytes -- 65 536
-      comparaciones cada uno. Si divergieran, el visor ensenaria un importe y el
+      comparaciones cada uno. Si divergieran, el visor mostraria un importe y el
       programa leeria otro, que es peor que no tener visor.
-      ★ Si el fichero no es multiplo del registro, **lo dice y ensena lo que
+      ★ Si el fichero no es multiplo del registro, **lo dice y muestra lo que
       sobra**: es el sintoma clasico del copybook equivocado.
       Comprobado con un fichero generado desde **Python**, no desde BMO.
 
@@ -430,7 +430,7 @@ desbloquea por hora de trabajo.
       ★ Van **todos** y no solo el clasico porque el redondeo es una **decision
       legal**: hay jurisdicciones que obligan al del banquero (`NEAREST-EVEN`)
       precisamente porque el clasico tiene sesgo -- en una muestra grande los
-      empates siempre suben. Hay un test que lo ensena con cuatro empates
+      empates siempre suben. Hay un test que lo muestra con cuatro empates
       seguidos: el clasico inventa dos centimos y el del banquero cuadra.
       ★ **Se redondea el RESULTADO, no los operandos**: la operacion se hace en
       la escala mas alta que aparezca y se baja una sola vez. Con los modos
@@ -525,7 +525,7 @@ dos cosas, y solo una es de verdad:
 | Lo que decia el plan | Lo que hay en el codigo |
 |---|---|
 | *"No existe ninguna operacion de cursor"* | **Existe**: `CURSOR[i]` en `obj/archivo.rs`, uno por ranura, y `leer`/`leer_linea` ya lo mueven. `3.3` es exponerlo con una guarda de rango -- decenas de lineas, no una M |
-| *"Un handle que lea y escriba"* | El fichero **entero vive ya en RAM** por ranura (marcos contiguos que se doblan al llenarse) y `cerrar` lo vuelca de una vez. Leer-y-escribir no pide modelo nuevo: pide que `abrir` deje `ESCRIBE = true` y que `escribir` respete el cursor en vez de anadir al final |
+| *"Un handle que lea y escriba"* | El fichero **entero vive ya en RAM** por ranura (marcos contiguos que se doblan al llenarse) y `cerrar` lo vuelca de una vez. Leer-y-escribir no pide modelo nuevo: pide que `abrir` deje `ESCRIBE = true` y que `escribir` respete el cursor en vez de agregar al final |
 | *"Anadir al final"* | Cae solo con lo anterior: `CURSOR = LARGO` al abrir |
 
 ★ **Lo que falta de verdad es que FAT32 sepa REEMPLAZAR.**
@@ -541,7 +541,7 @@ identica**. Es la peor forma de un fallo: la que se parece a funcionar.
 
 Las piezas para arreglarlo estan puestas -- `free_chain` y `mark_cluster_eoc` ya
 viven en el driver. Es liberar la cadena vieja, escribir la nueva y reescribir
-el primer cluster y el tamano en la entrada de directorio.
+el primer cluster y el medida en la entrada de directorio.
 
 **Por eso `3.0` va delante de las otras tres y ninguna se puede entregar sin
 ella.**
@@ -597,7 +597,7 @@ ella.**
 cuatro millones de registros. **Sin indice no hay banca, hay listados.**
 
 - [ ] **4.1 - RRDS -- registros por numero** -- M ⛔ (3.3)
-- [ ] **4.2 - ESDS -- secuencial de solo anadir** -- S ⛔ (3.1)
+- [ ] **4.2 - ESDS -- secuencial de solo agregar** -- S ⛔ (3.1)
 - [ ] **4.3 ★ KSDS, la LECTURA** -- XL ⛔ (3.2, 3.3)
       El B-tree. `RECORD KEY`, `READ ... KEY IS`, `START`, `READ NEXT`.
 - [ ] **4.4 - KSDS, la ESCRITURA** -- L ⛔ (3.2, 4.3)
@@ -670,7 +670,7 @@ la transaccionalidad -- es el despachador.**
 - [ ] **8.1 - Auditoria de verdad** -- M ⛔ (4.6)
       La version anterior sigue ahi; falta **poder preguntarla**.
 - [ ] **8.2 - Cierre contable y cuadre** -- L ⛔ (5.1, 6.6)
-- [ ] **8.3 ★ Un banco pequeno, de punta a punta** -- XL
+- [ ] **8.3 ★ Un banco chico, de punta a punta** -- XL
       Alta de cuenta, movimiento, consulta por numero **y por DNI**, extracto,
       cierre diario. **En el Ryzen, no en el emulador.**
 
@@ -738,7 +738,7 @@ LUEGO   0.7 TEXTO ---> 1.7 FILE STATUS - 2.3 STRING - 2.4 INSPECT - 1.6 EBCDIC
 
 KERNEL  3.1 EXTEND - 3.2 I-O - 3.3 POSICIONAR - 3.4 ESTRATOS ESCRIBE
                           +---> FASE 4 (VSAM) ---> FASE 7 (despachador)
-        tres operaciones pequenas, y sin ellas no hay INDICE ni consulta viva
+        tres operaciones chicas, y sin ellas no hay INDICE ni consulta viva
 
 APARTE  6.1 EL ENLAZADOR ---> CALL, y de paso la libc y C++
 ```
@@ -768,8 +768,8 @@ Nada de esta lista convierte a BMO COBOL en un **destino de migracion desde
 z/OS**. Ese codigo lleva cuarenta anios escrito contra CICS, JCL, VSAM y las
 extensiones de IBM *tal cual son*, no contra equivalentes mejores.
 
-Esto es para **sistemas que se escriben ahora**, y pequenos. Lo que esta lista si
-consigue, si se termina, es que un banco pequeno pueda funcionar encima -- con
+Esto es para **sistemas que se escriben ahora**, y chicos. Lo que esta lista si
+consigue, si se termina, es que un banco chico pueda funcionar encima -- con
 auditoria que z/OS no da, y sin pagar licencia a nadie.
 
 ---

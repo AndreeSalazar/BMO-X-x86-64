@@ -17,7 +17,7 @@ use crate::scene::{self};
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, _alt_alone: bool, ctrl: bool) -> Key {
 // Las teclas de la ventana del sonido. **Solo con el foco
 // AQUI**: con el foco en Ejecutar, una `z` es una letra que el
-// dueno esta escribiendo, y robarsela para un atajo seria el
+// propietario esta escribiendo, y robarsela para un atajo seria el
 // peor intercambio posible. Es la misma regla que la `f` del
 // klog.
 if dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
@@ -81,9 +81,9 @@ if dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
 //
 // ** SE LE PIDEN AL FOCO, y eso es lo que las separa de RePag/AvPag.
 //
-// Son LETRAS. Con el foco en Ejecutar una `a` es una letra que el dueno
+// Son LETRAS. Con el foco en Ejecutar una `a` es una letra que el propietario
 // esta escribiendo, y quedarsela para un atajo es el peor intercambio
-// posible: en espanol casi ninguna ruta se teclea sin una `a`, asi que
+// posible: en castellano casi ninguna ruta se teclea sin una `a`, asi que
 // con CABINA abierta `ada/hola.bex` no se podia escribir. Y no daba
 // error de ninguna clase -- las letras se perdian y ya.
 //
@@ -96,7 +96,7 @@ if dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
 //
 // G: subir el listero de GRAVEDAD. Cinco escalones y vuelta. Se reinicia
 // el desplazamiento al cambiar: lo que se estaba mirando en la lista
-// vieja no senala nada en la nueva, y dejar el numero puesto haria que
+// vieja no marca nada en la nueva, y dejar el numero puesto haria que
 // la ventana pareciera vacia.
 //
 // Es `G` y no `F` porque ya no filtra por FAMILIA de modulo --eso lo
@@ -113,7 +113,7 @@ if dsk.win.cabina_open
 }
 // ** A: SOLO LO QUE HIZO LA ULTIMA ACCION.
 //
-// Lo pidio el dueno asi: *"que lea en tiempo real que hace el
+// Lo pidio el propietario asi: *"que lea en tiempo real que hace el
 // puntero, y al escribir doom.bex y ejecutar, que lo filtre --
 // para no quedarse en que falla sino poder verificar todo"*.
 //
@@ -136,7 +136,7 @@ if dsk.win.cabina_open
 // ** ESTAS DOS NO SE LE PIDEN AL FOCO, y son las unicas que no.
 //
 // Antes se exigia `focus.es_para(Ventana::Cabina)`, y el 2026-08-09 eso
-// dio una ventana que **prometia en su pie algo que no hacia**: el dueno
+// dio una ventana que **prometia en su pie algo que no hacia**: el propietario
 // abrio CABINA con F11, la vio ocupando la pantalla, y RePag no movio
 // nada. No era un fallo del scroll: era la politica funcionando. **Abrir
 // no es enfocar** --y no debe serlo, porque robar el teclado a quien esta
@@ -179,12 +179,12 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
 
     // == ** LA CONSOLA VA PRIMERO, Y ESE ORDEN ES LA REGLA =================
     //
-    // Lo pidio el dueno asi: *"al seleccionar el terminal eso es prioridad
+    // Lo pidio el propietario asi: *"al seleccionar el terminal eso es prioridad
     // para que se active el atajo"*. Y no es una preferencia -- es que las
     // flechas SIGNIFICAN DOS COSAS en esta ventana: mover la seleccion del
     // explorador, y moverse por lo que estas escribiendo.
     //
-    // Dos duenos para la misma tecla se resuelve con un orden, no con una
+    // Dos propietarios para la misma tecla se resuelve con un orden, no con una
     // heuristica. Si la consola tiene las teclas, son suyas y no se mira mas
     // abajo. `ESC` se las devuelve al explorador sin cerrarla.
     //
@@ -241,7 +241,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
     let mut served = true;
     match c {
         // TAB: numeros <-> explorador. Es la misma tecla que cambia
-        // de pestana en todas partes.
+        // de solapa en todas partes.
         b'\t' => {
             dsk.win.data.view = match dsk.win.data.view {
                 View::Numbers => {
@@ -249,7 +249,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                     //
                     // Al ENTRAR en el explorador se empieza por
                     // arriba: conservar el sitio de la ultima vez
-                    // ensenaria un directorio que ya no se sabe
+                    // mostraria un directorio que ya no se sabe
                     // cual es.
                     //
                     // [!] Y este es el UNICO sitio del compositor
@@ -267,7 +267,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                 //
                 // Estas en `/cobol/10`, miras los numeros, vuelves
                 // con TAB y sigues en `/cobol/10`. Devolverlo a la
-                // raiz al salir convertiria las dos pestanas en
+                // raiz al salir convertiria las dos solapas en
                 // dos programas.
                 // ** Y LA BIBLIOTECA, que se RECORRE al entrar (2026-09-13):
                 // pintar solo mira lo leido. Ver `scene::data::biblioteca`.
@@ -302,12 +302,12 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                         dsk.win.data.hist_sel += 1;
                     }
                 }
-                // ** ENTRAR VUELVE a la version senalada, y no pregunta.
+                // ** ENTRAR VUELVE a la version marcada, y no pregunta.
                 //
                 // Es la misma razon que `borra`: **volver no destruye**. El
                 // estrato nuevo tiene por padre la punta de ahora, asi que lo
                 // que se deshace sigue en la cadena y se puede volver a el.
-                // Un "seguro?" para algo que no pierde nada ensena a contestar
+                // Un "seguro?" para algo que no pierde nada muestra a contestar
                 // que si sin leer.
                 b'\r' | b'\n' => {
                     let n = dsk.win.data.hist_sel as u64;
@@ -325,7 +325,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
             }
             if served {
                 // Arrastrar la ventana de scroll con la seleccion: si no,
-                // bajar mas alla de lo que se ve senala una caja invisible.
+                // bajar mas alla de lo que se ve marca una caja invisible.
                 if dsk.win.data.hist_sel < dsk.win.data.hist_from {
                     dsk.win.data.hist_from = dsk.win.data.hist_sel;
                 }
@@ -362,14 +362,14 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
         _ if dsk.win.data.view == View::Numbers => served = false,
         // ** 1, 2, 3: EL VOLUMEN (2026-09-13). ESTRATOS, DATOS (la FAT32 de las
         // apps) y EFI (la particion de arranque, solo para mirar). Son las
-        // cifras que llevan escritas las pestanas. Ver `scene::data::fuente`.
+        // cifras que llevan escritas las solapas. Ver `scene::data::fuente`.
         b'1' | b'2' | b'3' => {
             let v = scene::data::fuente::Volumen::TODOS[(c - b'1') as usize];
             dsk.win.data.cambiar_volumen(v);
         }
         // ** F2 RENOMBRA LO SENALADO, como en cualquier explorador.
         //
-        // No estrena camino: escribe `renombra <lo senalado> ` en la consola y
+        // No estrena camino: escribe `renombra <lo marcado> ` en la consola y
         // **deja el cursor puesto**, que es exactamente lo que hace la entrada
         // `renombrar` del menu del clic derecho. Tres formas de pedir lo mismo
         // --tecla, menu y teclear la orden entera-- y **un solo sitio donde
@@ -401,7 +401,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
         0x81 => { dsk.win.data.move_sel(1, scene::data::fuente::hijos() as usize); dsk.win.data.verified = None; }
         0x87 => dsk.win.data.move_sel(-5, scene::data::fuente::hijos() as usize),
         0x88 => dsk.win.data.move_sel(5, scene::data::fuente::hijos() as usize),
-        // ENTRAR / DERECHA: bajar al hijo senalado. `entrar`
+        // ENTRAR / DERECHA: bajar al hijo marcado. `entrar`
         // dice que no si es un archivo, y entonces no pasa nada
         // -- que es lo correcto: un archivo no tiene dentro.
         b'\r' | b'\n' | 0x83 => {
@@ -423,7 +423,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                 dsk.win.data.verified = None;
             }
         }
-        // * V: COMPROBAR LA FIRMA del nodo senalado. Solo en ESTRATOS: un
+        // * V: COMPROBAR LA FIRMA del nodo marcado. Solo en ESTRATOS: un
         // fichero FAT32 no lleva firma que comprobar.
         //
         // Se pide a mano y no se calcula al pintar: lee el

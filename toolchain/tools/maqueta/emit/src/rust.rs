@@ -71,7 +71,7 @@ fn cabecera(s: &mut String, origen: &str, l: &Laid) {
          use bmo_dibujo::Recorte;\n\
          use bmo_userland as bmo;\n\
          \n\
-         /// El tamano que MAQUETA dedujo del arbol. Nadie lo escribio.\n\
+         /// La medida que MAQUETA dedujo del arbol. Nadie lo escribio.\n\
          pub const ANCHO: u32 = {};\n\
          pub const ALTO: u32 = {};\n\
          \n",

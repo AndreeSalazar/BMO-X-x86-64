@@ -1,15 +1,15 @@
 # PLAN MEDIOS -- VLC como objetivo, medido contra lo que hay
 
-> **REABIERTO por el dueno el 2026-09-20** (estaba APARCADO desde el 26-08):
+> **REABIERTO por el propietario el 2026-09-20** (estaba APARCADO desde el 26-08):
 > *"tener mi reproductor de mp3, mp4 y visualizar imagenes por completo"*. La
 > parte 7, al final, es la respuesta de hoy con sus numeros: las imagenes
 > estan; el MP3 es codigo sin tubo; el MP4 no es MP4.
 
-> Escrito el **2026-08-26**, a peticion del dueno: *"analizar el VLC como
+> Escrito el **2026-08-26**, a peticion del propietario: *"analizar el VLC como
 > objetivo para meter esa app en mi BMO-X"*.
 >
 > La respuesta corta esta en la parte 1 y es un **no** con motivo. La parte 4 es
-> la que importa: **lo que el dueno quiere detras de "VLC" si es alcanzable**, y
+> la que importa: **lo que el propietario quiere detras de "VLC" si es alcanzable**, y
 > dos de sus tres piezas ya estan en marcha.
 >
 > Regla de esta carpeta, y se cumple aqui: *un "no" con motivo escrito se puede
@@ -23,7 +23,7 @@
 --con LibreOffice y Blender-- y conviene ver **por que**, porque no es por lo que
 uno esperaria.
 
-## 1.1 -- Los tamanos, en orden de magnitud
+## 1.1 -- Los medidas, en orden de magnitud
 
 [!] Estos numeros **no estan medidos en este arbol** (VLC no esta aqui). Son
 ordenes de magnitud publicos, y van marcados como tales para no mezclarlos con
@@ -56,7 +56,7 @@ dificil: es que **no existe la operacion** de compilar dos ficheros y juntarlos.
 ### El 2 no se puede rodear, y esto es lo especifico de VLC
 
 Muchos programas grandes se pueden hacer de un hilo apretando. VLC no, y el
-motivo es su arquitectura, no su tamano:
+motivo es su arquitectura, no su medida:
 
 ```text
    hilo de entrada  ->  hilo de demux  ->  hilo(s) de decodificacion
@@ -67,7 +67,7 @@ motivo es su arquitectura, no su tamano:
                     (sincroniza al reloj)                (alimenta el tubo)
 ```
 
-**El desacople decodificador/salida ES el diseno.** Es lo que permite que un
+**El desacople decodificador/salida ES el esquema.** Es lo que permite que un
 fotograma que tarda no se lleve por delante al sonido. Un VLC de un hilo no es
 un VLC apretado: es otro programa.
 
@@ -132,8 +132,8 @@ fotograma si cabe -- pero el presupuesto se reparte asi:
 pixeles, o sea la misma clase de coste que el blit. Para 1080p son dos
 recorridos de ~8 MB donde solo cabia uno.
 
-★ **La consecuencia practica, y es una decision de diseno, no un detalle**: el
-primer video de BMO-X va en una **ventana pequena**, no a pantalla completa. A
+★ **La consecuencia practica, y es una decision de esquema, no un detalle**: el
+primer video de BMO-X va en una **ventana chica**, no a pantalla completa. A
 480x270 el blit baja a ~1/25 y el presupuesto entero se abre. Pantalla completa
 llega despues, y **midiendo**, no suponiendo.
 
@@ -159,7 +159,7 @@ decodificador que escribir: un WAV ya es PCM.
 
 ## M2 -- SONIDO COMPRIMIDO: MP3  ->  ya es A5 de `PLAN_AUDIO`
 
-`minimp3` es **un solo fichero**, o sea unity build por diseno. Y el aviso que ya
+`minimp3` es **un solo fichero**, o sea unity build por esquema. Y el aviso que ya
 esta escrito ahi sigue vigente y se repite porque es el que se olvida:
 
 > ⚠ `minimp3` usa coma flotante, y la ruta de coma flotante del frontend de C de
@@ -173,7 +173,7 @@ dependencia**, decodifica a YUV y trae la conversion a RGB.
 
 | | |
 |---|---|
-| tamano | del orden de 5k lineas, **un fichero** |
+| medida | del orden de 5k lineas, **un fichero** |
 | dependencias | ninguna |
 | lengua | C99 -- el frontend que ya existe |
 | salida | un buffer de pixeles, que es exactamente lo que BMO sabe pintar |
@@ -183,7 +183,7 @@ dependencia**, decodifica a YUV y trae la conversion a RGB.
 distancia entre M3 y VLC no es de calidad: es de catalogo.** MPEG-1 no es H.264.
 Lo que M3 demuestra --demux, decodificar, sincronizar video con audio, pintar a
 tiempo-- es el 100% de la arquitectura de un reproductor. Lo que le falta a M3
-para ser VLC son **codecs y formatos**, que es trabajo que se suma, no diseno que
+para ser VLC son **codecs y formatos**, que es trabajo que se suma, no esquema que
 se rehace.
 
 [!] Y lo mismo por escrito para que no se lea como una promesa disfrazada: un
@@ -291,7 +291,7 @@ tambien es como llega Minecraft a esta pantalla: PIXELES).
 
 # 6. LO QUE ESTE PLAN NO PROMETE
 
-- **VLC no.** Ni acotado, ni recortado, ni "una version pequena de VLC". Un VLC
+- **VLC no.** Ni acotado, ni recortado, ni "una version chica de VLC". Un VLC
   sin hilos y sin FFmpeg no es VLC: es M3 con el nombre de otro.
 - **H.264, HEVC, VP9: no.** Sin FFmpeg y sin GPU, cada uno es un proyecto.
 - **Pantalla completa a 60 fps: no todavia**, y el numero que lo impide es el

@@ -1,6 +1,6 @@
 # RING 3 MAESTRO -- el censo de lo que corre con privilegio, y que baja
 
-> Escrito el **2026-08-26**, a peticion del dueno y con sus palabras:
+> Escrito el **2026-08-26**, a peticion del propietario y con sus palabras:
 >
 > *"analizar TODOS los componentes x86-64, si la logica compromete algo TODOS
 > tienen que estar en Ring 3, porque en Ring 0 no quiero sorpresa."*
@@ -16,7 +16,7 @@
 ```text
    lo que corre en Ring 0 hoy            ~69.300 lineas
    de eso, INSTRUCCIONES PRIVILEGIADAS   ~14.700   se queda, y no es opinable
-   de eso, INTERPRETA BYTES AJENOS       ~18.100   ESTA es la lista del dueno
+   de eso, INTERPRETA BYTES AJENOS       ~18.100   ESTA es la lista del propietario
    de eso, PRESENTACION                  ~11.400   no compromete nada, y sobra
    el resto (pegamento, objetos, IPC)    ~25.100
 ```
@@ -24,7 +24,7 @@
 * * **Y el dato que cambia el veredicto de casi toda la lista B**: de esas
 18.100 lineas que interpretan bytes de un desconocido, **13.400 no tienen ni una
 linea `unsafe`**. Un fallo ahi da un valor equivocado o un `panic`. No corrompe
-memoria. **No es la clase de sorpresa que el dueno teme.**
+memoria. **No es la clase de sorpresa que el propietario teme.**
 
 Lo que si la es cabe en una lista corta, y esta en la seccion 4.
 
@@ -96,7 +96,7 @@ viajan al binario.
 
 # 3. LAS TRES CLASES, Y SOLO UNA ES "SORPRESA"
 
-## Clase A -- **NO PUEDE BAJAR**, y no es una decision de diseno
+## Clase A -- **NO PUEDE BAJAR**, y no es una decision de esquema
 
 ```text
    mm/                  CR3, tablas de pagina, invlpg
@@ -110,7 +110,7 @@ viajan al binario.
 nombre**. Aqui no hay debate, y el documento lo dice para que la lista de abajo
 no parezca arbitraria.
 
-## Clase B -- **INTERPRETA BYTES DE UN DESCONOCIDO**  <- la lista del dueno
+## Clase B -- **INTERPRETA BYTES DE UN DESCONOCIDO**  <- la lista del propietario
 
 Es el criterio correcto, y no es "driver si / driver no". Un driver que escribe
 tres registros MMIO no tiene superficie; un parser de 3.000 lineas que come lo
@@ -118,7 +118,7 @@ que le da un aparato USB cualquiera, si.
 
 ```text
    la pregunta:  quien ELIGE los bytes que entran aqui?
-   si la respuesta no es "el dueno de la maquina", es clase B
+   si la respuesta no es "el propietario de la maquina", es clase B
 ```
 
 ## Clase C -- **PRESENTACION**
@@ -130,7 +130,7 @@ que le da un aparato USB cualquiera, si.
 hardware mas alla de escribir pixeles. No son un riesgo.
 
 Pero son un problema distinto y ya documentado: `core/shell/` son 2.942 lineas
-de un shell **al que el dueno no vuelve**. Es peso muerto en la imagen que se lee
+de un shell **al que el propietario no vuelve**. Es peso muerto en la imagen que se lee
 entera en cada arranque, no una amenaza.
 
 ---
@@ -175,7 +175,7 @@ bucle. **Es `unsafe` de estilo, no de riesgo.** Quitarlo es mecanico
 
 ## Y el que si asusta, y es el que menos se sospecha: `usb/xhci`
 
-66 lineas `unsafe`, aritmetica de punteros sobre estructuras cuyo **tamano lo
+66 lineas `unsafe`, aritmetica de punteros sobre estructuras cuyo **medida lo
 decide el controlador** (`ctx_sz`, contextos de 32 o 64 bytes), anillos de TRBs
 en memoria DMA, y `evt_poll_block` leyendo eventos que el silicio escribe.
 
@@ -210,7 +210,7 @@ con la direccion como dato. **Dias, no meses.**
 `MEM_OP_OFRECER` / `TASK_OP_TOMAR` ya prestan un bloque entre procesos, y
 `vmm::translate` ya da la fisica. Lo que falta es **prometer que no se mueve**
 (hoy nada la mueve, asi que la promesa es escribirla) y **exponer la fisica** al
-dueno del bloque.
+propietario del bloque.
 
 [!] Y esto ya esta escrito como plan en `RED_MAESTRO.md` seccion 4: *"los
 anillos de recepcion de la NIC se mapean en el espacio de la pila de Ring 3"*.
@@ -254,7 +254,7 @@ camino del dato: el anillo se comparte.
 
 # 6. EL ORDEN QUE PROPONE ESTE DOCUMENTO
 
-No por tamano ni por miedo: **por lo que cada paso deja probado para el
+No por medida ni por miedo: **por lo que cada paso deja probado para el
 siguiente.**
 
 ### Paso 1 -- `KIND_MMIO` y la fisica del bloque prestado (5.1 + 5.2)
@@ -276,7 +276,7 @@ es justo la parte que un plan optimista se salta.
 *** **Y se baja precisamente porque NO es el peligroso.** El parser de
 descriptores de audio no toca hardware: come un buffer de bytes y devuelve
 numeros. Es la prueba de que el mecanismo funciona **con la pieza mas barata de
-equivocarse** -- y es la que el dueno esta mirando ahora mismo.
+equivocarse** -- y es la que el propietario esta mirando ahora mismo.
 
 ### Paso 4 -- `usb/uhid`  (3.036 lineas)
 

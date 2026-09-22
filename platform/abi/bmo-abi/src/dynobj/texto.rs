@@ -150,7 +150,7 @@ pub fn bytes_para(bytes: bx_u64) -> Option<u64> {
     bytes.checked_add(CABECERA_LEN as u64)
 }
 
-/// **Escribe la cabecera de un texto recien nacido**, con un dueno.
+/// **Escribe la cabecera de un texto recien nacido**, con un propietario.
 ///
 /// Para el que se construye en ejecucion. El literal no pasa por aqui: nace
 /// [`congelado`].

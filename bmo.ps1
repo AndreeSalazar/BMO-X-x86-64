@@ -19,7 +19,7 @@
 
 param(
     [switch]$Desplegar,
-    # **No preguntes, escribe.** Se lo pidio el dueno --*"da flojera"*-- y se
+    # **No preguntes, escribe.** Se lo pidio el propietario --*"da flojera"*-- y se
     # puede dar porque la pregunta NO es lo que protege: lo que protege son las
     # tres comprobaciones de `build/discos.ps1`, que siguen intactas. Y el `-Si`
     # tiene techo: por encima de 64 GiB se pregunta igual, porque ahi si hay
@@ -42,7 +42,7 @@ param(
     # proteccion ya retirada --en `usb/rescate.rs`-- costo tres dias.
     #
     # ** Y el 2026-09-16 la letra por defecto del ARRANQUE se QUITA: decia `D`
-    # desde que D: era el Ventoy, y ese dia D: era ya un disco NTFS del dueno
+    # desde que D: era el Ventoy, y ese dia D: era ya un disco NTFS del propietario
     # llamado "Personal" (desde el 27-08). Un `desplegar.ps1 -Si` a secas
     # habria escrito EFI\BOOT en un disco que no es de BMO. Las letras que
     # siempre son las mismas se tecleaban igual (`-Arranque A -Datos A`); lo
@@ -101,9 +101,9 @@ if ($Desplegar -and (-not $Arranque -or -not $Datos)) {
 # otra cosa**, y el banco de pruebas no lo ve.
 #
 # ** Y VIVE AQUI Y NO EN `build.ps1` A PROPOSITO. Aquel fichero lleva cuatro
-# avisos escritos de su propia mano --*"el siguiente guardian NO se anade:
+# avisos escritos de su propia mano --*"el siguiente guardian NO se agrega:
 # primero se parte este fichero"*-- y el censo modular lo respalda con el
-# numero. Meterlo alli habria sido anadir un guardian mientras se ignora el que
+# numero. Meterlo alli habria sido agregar un guardian mientras se ignora el que
 # ya existe.
 #
 # [!] Ademas es su sitio por lo que ESTE guion es: `build.ps1` CONSTRUYE; esto
@@ -317,7 +317,7 @@ if ($Desplegar) {
     # [!] LAS UNIDADES SE DICEN, NO SE ADIVINAN. Y desde el 16-09,
     # literalmente: sin letra el script se nego arriba, antes del banco.
     #
-    # En esta maquina el NVMe es el Windows del dueno y BMO vive en un Kingston
+    # En esta maquina el NVMe es el Windows del propietario y BMO vive en un Kingston
     # SATA. Un build que eligiera unidad por su cuenta seria la unica orden de
     # este repositorio capaz de estropear algo que no es suyo. El gate de
     # identidad de ESTRATOS protege el volumen de datos, pero la letra la pone

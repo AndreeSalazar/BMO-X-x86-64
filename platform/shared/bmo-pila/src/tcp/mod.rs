@@ -1,4 +1,4 @@
-//! **TCP**: la maquina de estados, con tamanos fijos y sin reloj propio.
+//! **TCP**: la maquina de estados, con medidas fijos y sin reloj propio.
 //!
 //! ## Determinista: la misma entrada, la misma salida
 //!
@@ -6,7 +6,7 @@
 //!    el tiempo          lo pasa quien llama (`ahora`, en ms). No hay reloj
 //!    los reintentos     1, 2, 4, 8, 16, 32 s y a la septima se rinde. SIN
 //!                       estimar el RTT: un temporizador que aprende es un
-//!                       temporizador que hoy dice una cosa y manana otra
+//!                       temporizador que hoy dice una cosa y luego otra
 //!    el orden           los segmentos FUERA DE ORDEN se descartan y se pide
 //!                       el que falta. Sin cola de reensamblado: sin memoria
 //!                       que un atacante pueda llenar, y el otro lado reenvia
@@ -17,7 +17,7 @@
 //!                       numero; sin el secreto, imposible de adivinar
 //! ```
 //!
-//! ## Blindado: RFC 5961 y lo que la experiencia ensena
+//! ## Blindado: RFC 5961 y lo que la experiencia muestra
 //!
 //! ```text
 //!    RST                 corta SOLO si su secuencia es EXACTA; dentro de la

@@ -160,7 +160,7 @@ FILE *bmo_archivo_de(unsigned long long cap) {
  * ignora y esta bien: aqui no hay traduccion de saltos de linea que evitar, un
  * fichero son bytes y ya.
  *
- * [!] **`a` (anadir) se comporta como `w`**, o sea que TRUNCA. El kernel abre
+ * [!] **`a` (agregar) se comporta como `w`**, o sea que TRUNCA. El kernel abre
  * un archivo de escritura con un buffer vacio y lo vuelca entero al cerrar; no
  * hay forma de decirle "empieza con lo que ya habia". Se acepta la letra para
  * que un programa portado compile, y se dice aqui que hace otra cosa -- que es

@@ -27,7 +27,7 @@ pub struct ModuleResolver {
 }
 
 /// Descubre donde viven los modulos: las raices de `bmo_mods` mas
-/// `standards/C`, que se anade aparte porque `use "c11"` se escribe sin
+/// `standards/C`, que se agrega aparte porque `use "c11"` se escribe sin
 /// prefijo de directorio.
 ///
 /// NOTA HISTORICA: esto tenia copiada a mano la misma lista de cinco rutas

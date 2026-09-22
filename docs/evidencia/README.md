@@ -165,7 +165,7 @@ CABINA  eventos=50  perdidos=0
 49 INFO  fb: pantalla cedida a Ring 3
 50 INFO  input: raton cedido a Ring 3
 51 INFO  consola: consola creada para Ring 3
-52 WARN  fb: el dueno de la pantalla MURIO: se vuelve al panel del kernel
+52 WARN  fb: el propietario de la pantalla MURIO: se vuelve al panel del kernel
 53 INFO  ring3: proceso termino por su cuenta (EXIT) =2
 54 INFO  ring3: proceso termino por su cuenta (EXIT) =6
 55 INFO  ring3: proceso termino por su cuenta (EXIT) =3

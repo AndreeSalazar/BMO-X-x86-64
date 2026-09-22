@@ -1,6 +1,6 @@
 # SEGURIDAD MAESTRO -- de que copiar la confianza, y de que seria un error
 
-> Escrito el **2026-08-18**. Pregunta del dueno: *"puedo estudiar que es
+> Escrito el **2026-08-18**. Pregunta del propietario: *"puedo estudiar que es
 > backdoors para que me des ejemplo para que existen? a parte mi BMO-X
 > ironicamente no tiene, no? ... podria INSPIRARME en BLAKE3 y mas cosas"*.
 >
@@ -127,7 +127,7 @@ No lo dice este documento: lo dice **la propia tabla del kernel**, en
 > incomoda de esta tabla y por eso va entera."*
 
 ★ Y esa tabla es el mejor ejemplo de lo que significa **Meta-Kernel**: la regla
-no la firma quien diseno el sistema, la firma el CPU. Cuatro bits que el
+no la firma quien esquema el sistema, la firma el CPU. Cuatro bits que el
 silicio regala y que este sistema no enciende -- con su componente al lado y su
 numero, que es lo unico que `META-KERNEL_HARD.md` acepta como regla.
 
@@ -186,14 +186,14 @@ y no un atajo que se parezca.
 
 Contradice la tesis del proyecto. Encadenar el arranque de BMO-X a una llave de
 Microsoft o de un fabricante de placas es el error de Tiny Core con X11 dicho en
-la capa de arranque: **el nucleo pequeno no te sirve si dependes de la
+la capa de arranque: **el nucleo chico no te sirve si dependes de la
 infraestructura de confianza de otro.** El dia que haga falta arranque medido, la
 cadena tiene que ser tuya o no vale para lo que se compro.
 
 ## 4.4 ASLR, con matiz -- y la trampa de analisis que lleva al lado
 
 En un sistema con red, varios usuarios y atacantes remotos, ASLR compra mucho.
-Aqui hoy no hay red, no hay usuarios y quien lanza el `.bex` es el dueno de la
+Aqui hoy no hay red, no hay usuarios y quien lanza el `.bex` es el propietario de la
 maquina: compra **poco**, y cuesta reubicacion en cada carga.
 
 ★ **Pero W^X no comparte ese matiz y meterlos en el mismo saco seria el error.**
@@ -204,14 +204,14 @@ significa que hoy **cualquier pagina de datos de BMO-X es ejecutable**.
 
 Enumerar lo malo es la estrategia perdedora y ademas es incompatible con el
 alcance acotado. BMO-X enumera lo BUENO --capabilities, lista cerrada de
-etiquetas, dos syscalls-- y eso no es una version pequena de un antivirus: es lo
+etiquetas, dos syscalls-- y eso no es una version chica de un antivirus: es lo
 contrario.
 
 ---
 
 # ★★ 5. LA IRONIA, DICHA CON SU NUMERO
 
-El dueno lo dijo asi: *"es ironico que mi BMO-X ya esta duro pero le falta
+El propietario lo dijo asi: *"es ironico que mi BMO-X ya esta duro pero le falta
 algunas piezas"*. La ironia es real y se mide:
 
 ```
@@ -222,11 +222,11 @@ algunas piezas"*. La ironia es real y se mide:
 
 **Lo duro es la FORMA; lo que falta es BARATO.** Dos syscalls, sin `root`, sin
 `..` que escape del arbol concedido, capabilities en vez de permisos
-ambientales: eso no se anade despues, y BMO-X ya lo tiene. Lo que falta son
+ambientales: eso no se agrega despues, y BMO-X ya lo tiene. Lo que falta son
 cuatro bits y una curva.
 
 ★★ **Y por eso no hay que subestimarlo, que es exactamente lo que dijo el
-dueno**: un sistema con una forma dura y una pieza barata suelta **invita a creer
+propietario**: un sistema con una forma dura y una pieza barata suelta **invita a creer
 que esta entero**. La forma dura hace de aval de lo que todavia no se ha hecho.
 Esa confusion es mas peligrosa aqui que en un sistema flojo, porque del flojo
 nadie se fia.

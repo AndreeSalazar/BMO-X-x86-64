@@ -35,7 +35,7 @@ void exit(int codigo) {
     bmo_salir();
 }
 
-/* `abort` es `exit` sin la cortesia. Aqui son lo mismo porque no hay senales
+/* `abort` es `exit` sin la cortesia. Aqui son lo mismo porque no hay signales
  * que levantar ni volcado que dejar. */
 void abort() {
     bmo_salir();
@@ -55,8 +55,8 @@ void *calloc(unsigned long long n, unsigned long long tam) {
 
     total = n * tam;
     /* [!] El desbordamiento del producto NO es teorico y es el clasico de
-     * `calloc`: `calloc(0x100000001, 16)` da un `total` pequeno, se reparte un
-     * bloque pequeno, y quien lo recorra con el tamano que pidio se lleva por
+     * `calloc`: `calloc(0x100000001, 16)` da un `total` chico, se reparte un
+     * bloque chico, y quien lo recorra con el medida que pidio se lleva por
      * delante el monton. Si dividir no devuelve lo que entro, no cabe. */
     if (n != 0 && total / n != tam) {
         return 0;
@@ -75,11 +75,11 @@ void *calloc(unsigned long long n, unsigned long long tam) {
  *
  * Lo que faltaba no era esta funcion: era saber **cuanto media el bloque
  * viejo**. Cuando cada `malloc` era una peticion al kernel no habia donde
- * preguntarlo, asi que copiar era adivinar --copiar el tamano nuevo lee fuera
+ * preguntarlo, asi que copiar era adivinar --copiar el medida nuevo lee fuera
  * del origen justo cuando se esta creciendo, que es el caso normal-- y esta
  * funcion devolvia 0 diciendo por que.
  *
- * Con el monton, el tamano vive en la cabecera del bloque, a dieciseis bytes
+ * Con el monton, el medida vive en la cabecera del bloque, a dieciseis bytes
  * del puntero. `bmo_monton_tam` lo lee y el resto es lo de siempre. */
 void *realloc(void *p, unsigned long long tam) {
     unsigned long long viejo;

@@ -110,7 +110,7 @@ pub fn barrer(fuente: &str, vocab: &Vocabulario) -> Cosecha<Vec<Pieza>> {
                 signo.pareja().map(|p| p.texto()).unwrap_or("?")
             ))
             .con_hacer(format!(
-                "anade `{}`",
+                "agrega `{}`",
                 signo.pareja().map(|p| p.texto()).unwrap_or("?")
             )),
         );

@@ -105,7 +105,7 @@ funcion principal devuelve entero32
 {}",
         todo
     );
-    // ** La parte que de verdad se rompia: el DONDE no puede senalar al fichero
+    // ** La parte que de verdad se rompia: el DONDE no puede marcar al fichero
     // del usuario cuando el fallo no esta ahi.
     //
     // Se compara contra la RUTA COMPLETA porque es lo que el compilador pinta,

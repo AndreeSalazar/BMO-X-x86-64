@@ -1,10 +1,10 @@
 # RED MAESTRO -- perfilar la LATENCIA como se perfila el CPU
 
-> Escrito el **2026-08-11**, antes del driver. Pregunta del dueno: *"mi mente
+> Escrito el **2026-08-11**, antes del driver. Pregunta del propietario: *"mi mente
 > gamer es que lo tome el internet con fuerza hasta sus limites total"*.
 >
 > El instinto es correcto y este documento lo toma en serio. Lo primero que hace
-> es separar **el limite que el dueno cree que quiere** del **limite que de
+> es separar **el limite que el propietario cree que quiere** del **limite que de
 > verdad le importa a un jugador**, porque no son el mismo y se optimizan en
 > direcciones distintas.
 >
@@ -27,12 +27,12 @@ decenas de bytes. Eso son **kilobytes** por segundo. Lo que decide si el disparo
 cuenta no es cuantos megabytes caben: es **cuantos microsegundos pasan entre que
 la trama llega al cable y el juego la ve**.
 
-> **Un sistema que satura el gigabit y anade 2 ms de latencia es peor para
-> jugar que uno que hace la mitad de megabytes y anade 50 microsegundos.**
+> **Un sistema que satura el gigabit y agrega 2 ms de latencia es peor para
+> jugar que uno que hace la mitad de megabytes y agrega 50 microsegundos.**
 
 Y esto no es una curiosidad: **decide la arquitectura entera**, porque las
 decisiones que dan ancho de banda (lotes grandes, buffers profundos, agrupar
-interrupciones) son exactamente las que anaden latencia.
+interrupciones) son exactamente las que agregan latencia.
 
 ---
 
@@ -53,7 +53,7 @@ de esta maquina hoy son **12,5 MB/s**, no 125.
 
 Eso casi siempre es el cable (un Cat5 viejo, o uno con un par roto: Fast
 Ethernet usa dos pares y Gigabit necesita los cuatro) o el puerto del router. Es
-un dato para el dueno mas que para el kernel -- pero conviene decirlo antes de
+un dato para el propietario mas que para el kernel -- pero conviene decirlo antes de
 que alguien pase una semana optimizando para un gigabit que este cable no puede
 dar.
 
@@ -102,7 +102,7 @@ con el numero delante, no ahora.
 # 4. Y AQUI ESTA LA PIEZA QUE HACE QUE ESO NO CUESTE LATENCIA
 
 El reparto de arriba tiene un peligro obvio, y hay que decirlo: **si cada trama
-cruza un syscall, el diseno bonito pierde contra el feo.** Esa es la critica
+cruza un syscall, el esquema bonito pierde contra el feo.** Esa es la critica
 clasica a los microkernels y en redes es donde mas duele.
 
 No aplica aqui, y el motivo ya esta construido:
@@ -198,13 +198,13 @@ prestado por `MEM_OP_OFRECER`, y la MAC como dato de solo lectura.
 La primera trama que sale. Y aqui se cruza la frontera: **el que construye el
 paquete ARP es un programa de usuario**.
 
-### Paso 4 -- Lo que el dueno queria
+### Paso 4 -- Lo que el propietario queria
 
 IP + UDP en Ring 3, y un `ping` que conteste. Ahi es donde la "mente gamer"
 empieza a tener sentido de medir: latencia de ida y vuelta, en microsegundos,
 contra la que da Windows en la misma maquina y el mismo cable.
 
-**Esa comparacion es la unica prueba honesta de que el diseno vale.**
+**Esa comparacion es la unica prueba honesta de que el esquema vale.**
 
 ---
 
@@ -243,7 +243,7 @@ opinion.
 
 # 9. ★★ LA VPN -- y sale mas barata que HTTPS, que es lo que no se esperaba
 
-> Lo pregunto el dueno el 07-09 sin darle importancia: *"podria tener VPN nativo
+> Lo pregunto el propietario el 07-09 sin darle importancia: *"podria tener VPN nativo
 > en mi BMO-X? no se..., meh"*. La respuesta merece seccion porque **reordena lo
 > que este documento daba por hecho**.
 

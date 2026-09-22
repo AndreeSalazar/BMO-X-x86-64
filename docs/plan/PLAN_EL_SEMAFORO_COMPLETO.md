@@ -107,7 +107,7 @@ es codigo de al lado, es Ring 0 con otra direccion.
 
 # 3. LO QUE FALTA, POR ORDEN DE PELIGRO
 
-El criterio no es el tamano ni el porcentaje: es **como se anuncia el fallo**.
+El criterio no es el medida ni el porcentaje: es **como se anuncia el fallo**.
 Una zona donde equivocarse REVIENTA no necesita semaforo con urgencia -- el
 fallo ya avisa. La urgencia esta donde equivocarse **no avisa**.
 
@@ -166,7 +166,7 @@ casos: por eso va detras de los drivers y no delante.
 ## 4.1 No partir un fichero porque sea grande
 
 L6g parte cuando hay **DOS MASAS**, no cuando hay muchas lineas. Partir por
-tamano produce tres ficheros donde solo hay dos lineas de verdad, y eso es la
+medida produce tres ficheros donde solo hay dos lineas de verdad, y eso es la
 aguja mejor escondida.
 
 - [ ] **S8 -- los TRES candidatos con evidencia**, y solo esos. Cada uno trae la

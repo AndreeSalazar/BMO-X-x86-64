@@ -60,9 +60,9 @@ pub fn verify_identity() -> bool {
         return deny("gate: el disco no declaro modelo o serie", 0);
     }
     if unsafe { TOTAL_SECTORS } == 0 {
-        return deny("gate: el disco no declaro su tamano", 0);
+        return deny("gate: el disco no declaro su medida", 0);
     }
-    // 2. La tabla de particiones tiene que existir y CUADRAR con el tamano que
+    // 2. La tabla de particiones tiene que existir y CUADRAR con el medida que
     //    el propio disco declara. Si la GPT dice que el disco es mas grande de
     //    lo que el disco dice ser, uno de los dos miente y no se sabe cual:
     //    puede ser una imagen clonada a un disco menor, y escribir ahi es
@@ -78,7 +78,7 @@ pub fn verify_identity() -> bool {
     // La cola reservada de una GPT sana son ~34 sectores (copia de la tabla al
     // final). Un hueco grande significa que la tabla se hizo para otro disco.
     if total - last > 128 {
-        return deny("gate: la GPT no cuadra con el tamano del disco", total - last);
+        return deny("gate: la GPT no cuadra con el medida del disco", total - last);
     }
     // 3. Tiene que ser un disco de arranque EFI. No prueba que sea EL nuestro
     //    --eso llega con el `disco_id` grabado dentro del volumen-- pero descarta
@@ -112,7 +112,7 @@ pub fn verify_identity() -> bool {
     crate::ring0::cabina::info("disk", model(), total_sectors());
     // ** Se dice CUANTAS hay, no en cual se va a escribir. Esto es el gate, y a
     // estas alturas todavia no se sabe cual es la de datos -- lo dira `fs` en
-    // cuanto consiga montar una. Antes esta linea decia el tamano de "la
+    // cuanto consiga montar una. Antes esta linea decia el medida de "la
     // primera que no era la EFI", que era justo la suposicion que hoy se retira.
     crate::ring0::cabina::info(
         "disk",

@@ -2,7 +2,7 @@
 //!
 //! Reemplaza a `gnucobol-rs` (GPL): la PIC es el corazon del DATA DIVISION y
 //! la esencia de COBOL debe ser TUYA. Extrae lo que importa para la
-//! aritmetica decimal exacta que Grace Hopper diseno para la banca:
+//! aritmetica decimal exacta que Grace Hopper esquema para la banca:
 //!
 //! ```text
 //!   PIC 9(5)V99   -> 5 digitos enteros - 2 decimales (scale=2) - sin signo
@@ -25,7 +25,7 @@
 ///   el ultimo nibble. Ocupa **exactamente** lo que dice su PICTURE, y por eso
 ///   si trunca. Los emisores viven en `bmo_lower::packed`, porque empaquetar es
 ///   una representacion y no la semantica de un lenguaje.
-/// - [`Usage::Comp`] -- binario. Se reconoce y se calcula su tamano, pero **no
+/// - [`Usage::Comp`] -- binario. Se reconoce y se calcula su medida, pero **no
 ///   se compila**: guardar lo mismo que un `DISPLAY` seria aceptar una palabra
 ///   que promete un formato y no lo da.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

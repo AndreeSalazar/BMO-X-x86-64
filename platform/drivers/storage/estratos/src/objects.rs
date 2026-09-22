@@ -1,6 +1,6 @@
 //! El modelo de objetos: bloques, atributos, nodos y entradas de directorio.
 //!
-//! Es la section 4 del diseno (`ESTRATOS.md`, en la raiz de esta crate). Aqui se
+//! Es la section 4 del esquema (`ESTRATOS.md`, en la raiz de esta crate). Aqui se
 //! deciden las tres cosas que el documento dejaba abiertas: **como se
 //! direcciona un bloque, como crece un archivo, y como se guarda un
 //! directorio**.
@@ -36,15 +36,15 @@
 //! nivel multiplica por [`PTRS_POR_BLOQUE`].
 //!
 //! Se eligio asi porque la alternativa --una lista de punteros dentro del
-//! atributo-- obliga a poner un tope arbitrario al tamano de un archivo, y en
+//! atributo-- obliga a poner un tope arbitrario al medida de un archivo, y en
 //! Ring 0 no hay `alloc` para hacerla crecer. Con niveles, la regla es
 //! recursiva y **no hay tope**: solo se sube un nivel.
 //!
-//! ## Decision 3 -- lo pequeno no gasta bloque
+//! ## Decision 3 -- lo chico no gasta bloque
 //!
 //! Lo que le robamos a NTFS: si el contenido cabe en [`RESIDENTE_MAX`], vive
 //! DENTRO del atributo y no se asigna bloque ninguno. Una `:firma` son 32
-//! bytes; darle 4096 seria gastar 128 veces su tamano y una lectura extra
+//! bytes; darle 4096 seria gastar 128 veces su medida y una lectura extra
 //! cada vez que se comprueba.
 
 use crate::{blake3, FormatError, Hash, NO_HASH};
@@ -63,7 +63,7 @@ pub const PTRS_POR_BLOQUE: usize = BLOQUE / PTR_LEN; // 85
 
 /// Donde esta un trozo de contenido y que debe contener.
 ///
-/// `off` existe para que varios objetos pequenos compartan bloque: un nodo
+/// `off` existe para que varios objetos chicos compartan bloque: un nodo
 /// ocupa ~560 bytes y sin desplazamiento gastaria los 4096 enteros. Un
 /// directorio con diez entradas desperdiciaria el 87 % del disco.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,7 +90,7 @@ impl BlockPtr {
 
     /// Es esto lo que el puntero prometia?
     ///
-    /// El principio 2 del diseno hecho una funcion: *el sistema de ficheros
+    /// El principio 2 del esquema hecho una funcion: *el sistema de ficheros
     /// detecta su propia corrupcion en vez de confiar en que el disco devuelve
     /// lo que guardo*.
     pub fn verifica(&self, datos: &[u8]) -> bool {
@@ -265,7 +265,7 @@ fn nombre_a_bytes(name: &str) -> Result<([u8; ATTR_NOMBRE_LEN], usize), FormatEr
 
 // -- Nodo --------------------------------------------------------------------
 
-/// Atributos que caben en un nodo. Cuatro son los del ejemplo del diseno:
+/// Atributos que caben en un nodo. Cuatro son los del ejemplo del esquema:
 /// `:datos`, `:firma`, `:manifiesto` y `:origen`.
 pub const ATTRS_MAX: usize = 4;
 /// Bytes de un nodo en disco: cabecera + atributos + suma.
@@ -316,7 +316,7 @@ impl Nodo {
 
     /// Puede este nodo dar una capability EJECUTABLE?
     ///
-    /// El gate del section 7 del diseno, en su forma minima: sin `:firma` no hay
+    /// El gate del section 7 del esquema, en su forma minima: sin `:firma` no hay
     /// ejecucion posible, punto. Comprobar la firma contra el contenido es
     /// trabajo de `bmo-verify`; lo que se decide aqui es que un binario sin
     /// firma **ni se le pregunta**.
@@ -453,7 +453,7 @@ mod tests {
 
     #[test]
     fn una_firma_no_gasta_un_bloque() {
-        // 32 bytes en un bloque de 4096 serian 128 veces su tamano y una
+        // 32 bytes en un bloque de 4096 serian 128 veces su medida y una
         // lectura extra cada vez que se comprueba.
         let firma = [0xABu8; 32];
         let a = Attr::residente(ATTR_FIRMA, &firma).unwrap();
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn un_bex_es_un_nodo_con_varios_flujos() {
-        // El ejemplo del diseno: el manifiesto de capabilities NO puede
+        // El ejemplo del esquema: el manifiesto de capabilities NO puede
         // separarse del binario porque es parte del mismo objeto.
         let n = Nodo::nuevo(Tipo::Archivo)
             .con(Attr::en_bloques(ATTR_DATOS, 12376, 1, BlockPtr::nuevo(500, 0, &[1u8; 64])).unwrap()).unwrap()

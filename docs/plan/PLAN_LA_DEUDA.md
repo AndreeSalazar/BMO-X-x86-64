@@ -1,13 +1,13 @@
 # PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17
 
-> Peticion del dueno, **2026-09-17**: *"busca todos los elementos de
+> Peticion del propietario, **2026-09-17**: *"busca todos los elementos de
 > vulnerabilidad, deudas [...] y organizar"*.
 >
 > Las vulnerabilidades tienen su plan ([`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md),
 > seccion 5). Los lenguajes tienen el suyo ([`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md)
 > y los de cada frontend). Este contesta la tercera pregunta: **que DEBE el
 > arbol que no es un agujero ni una caracteristica que falta** -- lo que hace
-> que tocarlo manana cueste mas que hoy.
+> que tocarlo luego cueste mas que hoy.
 >
 > **Como se cae**: una casilla de aqui que diga un numero que el arbol ya no da.
 > Cada una dice con que se midio, para que recontarla sea un rato.
@@ -71,7 +71,7 @@ antes que lo que FALTA**, porque lo que falta se nota y lo que miente no.
       que el diagnostico hacia falta. Es el hallazgo 6 de `PLAN_SEGURIDAD`,
       seccion 5; aqui solo se cuenta como mentira cerrada.
 
-- [x] **D1e -- CERRADA el 2026-09-17: el dueno decidio ESTATICO y se borro.**
+- [x] **D1e -- CERRADA el 2026-09-17: el propietario decidio ESTATICO y se borro.**
       Epitafio en `platform/abi/bmo-abi/src/bef/mod.rs`. Lo que decia: el
       enlazador dinamico de `bmo-abi`, 308 lineas que decian *"Debe llamarse una
       vez al boot"* y no las llamaba NADIE: un registro global de exports que
@@ -106,7 +106,7 @@ antes que lo que FALTA**, porque lo que falta se nota y lo que miente no.
   lo vea, igual que los 37 avisos del compilador (`toolchain/tools/avisos`).
   Un guardian con `LINEA_BASE.txt` que solo deja bajar. El sitio natural es la
   misma puerta de `avisos`, para no engordar `build.ps1` (su propia linea base
-  dice que *"el siguiente guardian NO se anade: primero se parte este
+  dice que *"el siguiente guardian NO se agrega: primero se parte este
   fichero"*).
 
   **Como se mide**: `grep -rn '^\s*\(pub\(([a-z]*)\)\? \)\?static mut' --include=*.rs Ultra_kernel_x86-64/kernel/src | wc -l`.
@@ -177,11 +177,11 @@ duplicar casillas.
 
 ## D6 -- Pequenas, y se dicen para que no se pierdan
 
-- [ ] **D6a -- la linea base de tamanos esta vieja.** `bmo.ps1` avisa en cada
+- [ ] **D6a -- la linea base de medidas esta vieja.** `bmo.ps1` avisa en cada
       corrida: 14 de 40 ejecutables cambiaron y `sys/d.bex` crecio un 39,8 %.
       No es un fallo -- son 7 ejecutables nuevos y el DIRECTOR con ventanas --
       pero un aviso que sale siempre entrena a no leerlo. Fijarla es
-      `py toolchain/tools/tamano/tamano.py --fijar`, **despues** de mirar que el
+      `py toolchain/tools/medida/medida.py --fijar`, **despues** de mirar que el
       +39,8 % del DIRECTOR es lo que se espera.
 - [ ] **D6b -- `toolchain/tools/c-gen` no corre en el build.** Por eso
       `BRECHA.md` pudo mentir seis semanas. Candidato a la misma puerta que
@@ -193,7 +193,7 @@ duplicar casillas.
 
 ---
 
-## D7 -- Decisiones del dueno que se ejecutaron hoy
+## D7 -- Decisiones del propietario que se ejecutaron hoy
 
 - [x] **D7a -- Python AOT, QUITADO** (2026-09-17). *"Es lo mismo como INTI"*.
       `docs/maestro/PYTHON_MAESTRO.md` seccion 4b, *UN SOLO MODO*: sin tipos, el

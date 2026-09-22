@@ -69,7 +69,7 @@ fn en_llano_no_hay_texto() {
 ///
 /// Lo que no cabe en `llano` no son los bytes: es la VARIABLE. Y que hoy solo se
 /// le pueda meter un literal no es una propiedad del tipo `texto`, es una
-/// carencia del perfil que manana puede no serlo.
+/// carencia del perfil que luego puede no serlo.
 #[test]
 fn en_llano_los_bytes_de_un_literal_si_se_pueden_leer() {
     let fuente = concat!(
@@ -367,7 +367,7 @@ usa memoria
 /// ```
 ///
 /// *** El mensaje de cuatro partes tiene un hueco para el DONDE. Un donde que
-/// senala a otro fichero no es un detalle de formato: es la parte del mensaje
+/// marca a otro fichero no es un detalle de formato: es la parte del mensaje
 /// que decide a que fichero va a mirar quien lo lee.
 #[test]
 fn un_fallo_de_una_pieza_dice_de_que_pieza_es() {
@@ -446,7 +446,7 @@ funcion saluda(a es texto)
 /// `llano` que trae una pieza `pleno` sale como un `.bex` firmado de 880 bytes
 /// sin una palabra"*, y su autor seguia creyendo que tenia Ring 0.
 ///
-/// [!] Y este aviso SI senala al fichero del usuario, al reves que el de arriba.
+/// [!] Y este aviso SI marca al fichero del usuario, al reves que el de arriba.
 /// No es incoherencia: **el fallo esta ahi**, en la linea donde escribio `perfil
 /// llano`. El de arriba acusa a la pieza porque el fallo es de la pieza.
 #[test]

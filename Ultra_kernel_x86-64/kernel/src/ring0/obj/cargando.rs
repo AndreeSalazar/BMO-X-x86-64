@@ -14,7 +14,7 @@
 //! **no podia crecer ni una**. Antes de anadirle la puerta de ESTRATOS habia
 //! que hacerle sitio.
 //!
-//! Pero el corte no se eligio por tamano. Se eligio porque esto es un
+//! Pero el corte no se eligio por medida. Se eligio porque esto es un
 //! **ciclo de vida** --un archivo que todavia no ha llegado entero-- y no un
 //! camino de datos: sus dos `static` no los mira nadie mas, tenia ya su propio
 //! comentario de seccion, y ninguna de sus funciones se llama desde fuera del

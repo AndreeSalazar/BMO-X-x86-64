@@ -125,7 +125,7 @@ pub fn intr_in(cfg: &[u8], iface_num: u8) -> Option<(u8, u16, u8, u8)> {
 /// HID.
 ///
 /// Detras de cada interfaz HID viene un descriptor de clase (`bDescriptorType`
-/// = 0x21) que dice que descriptores subordinados tiene y de que tamano. Sin
+/// = 0x21) que dice que descriptores subordinados tiene y de que medida. Sin
 /// leer esa longitud no se puede pedir el Report Descriptor: a un
 /// `GET_DESCRIPTOR` hay que decirle cuantos bytes se esperan, y pedir de mas a
 /// un endpoint de control no es gratis en todos los aparatos.
@@ -231,7 +231,7 @@ pub unsafe fn preparar_endpoint(
     // Eso es exactamente lo que se vio en el Ryzen: `bot=0b01` fijo (el Report
     // ID, que nunca cambia), `x=0` (los botones, cero mientras no pulses) y la
     // `y` derivando sola al mover en horizontal. Y el sintoma que lo delato, en
-    // palabras del dueno: *"muevo y no funciona, pero al hacer clic se mueve"* --
+    // palabras del propietario: *"muevo y no funciona, pero al hacer clic se mueve"* --
     // porque el byte de botones caia en el campo del movimiento.
     //
     // `GET_PROTOCOL` (0xA1, 0x03) devuelve 0 = Boot, 1 = Informe. Preguntarlo
@@ -365,7 +365,7 @@ pub unsafe fn leer_descriptores(
     // `idVendor` e `idProduct` viven en los bytes 8..12 de este mismo
     // descriptor que acabamos de leer. Se leian y **se tiraban**: BMO-X no
     // tenia en ninguna parte el equivalente del `USB\VID_046D&PID_C077` que
-    // ensena Windows, que es lo unico con lo que un aparato rechazado se puede
+    // muestra Windows, que es lo unico con lo que un aparato rechazado se puede
     // IDENTIFICAR -- clase y subclase dicen que ES, no cual es.
     //
     // [!] Cero coste: no hay una peticion nueva. Lo unico que cambia es que
@@ -432,7 +432,7 @@ pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Option<(u8, u8)> 
     if reintento {
         // ** SEGUNDO INTENTO: SE LE QUITA LA CORRIENTE (2026-09-17). Un
         // reinicio en caliente del Ryzen dejo el teclado sin responder y el
-        // dueno lo vio como "no prendio": un aparato que se quedo a medias
+        // propietario lo vio como "no prendio": un aparato que se quedo a medias
         // no vuelve por resetearlo otra vez, vuelve por apagarlo. Es lo que
         // hace la mano al sacar y meter el cable, hecho aqui. 200 ms sin
         // VBUS es lo que tarda un firmware en darse por apagado.
@@ -450,7 +450,7 @@ pub unsafe fn direccionar_puerto(port: u8, reintento: bool) -> Option<(u8, u8)> 
     // enchufado (o acaba de recibir su corte de corriente, que ya es su
     // propia espera). El hilo del bus enumera Y bombea el raton, y cada
     // milisegundo de aqui es un milisegundo sin leer el raton: el Ryzen
-    // enseno `el latido del bus llego TARDE 646 ms` y el dueno lo vio como
+    // mostro `el latido del bus llego TARDE 646 ms` y el propietario lo vio como
     // tirones en la pantalla (2026-09-17, noche).
     if !reintento {
         h.delay_ms(100);

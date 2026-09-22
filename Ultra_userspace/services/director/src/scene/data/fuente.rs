@@ -52,7 +52,7 @@ pub(crate) enum Volumen {
 }
 
 impl Volumen {
-    /// En el orden de las pestanas, que es el de las teclas 1, 2 y 3.
+    /// En el orden de las solapas, que es el de las teclas 1, 2 y 3.
     pub(crate) const TODOS: [Volumen; 3] = [Volumen::Estratos, Volumen::Datos, Volumen::Efi];
 
     pub(crate) fn nombre(self) -> &'static str {
@@ -85,7 +85,7 @@ pub(crate) fn cambiar(v: Volumen) -> bool {
 }
 
 /// Lo que va delante de una ruta de este volumen. Sin esto, abrir `efi/boot`
-/// desde la pestana EFI abriria la carpeta del mismo nombre en DATOS.
+/// desde la solapa EFI abriria la carpeta del mismo nombre en DATOS.
 pub(crate) fn prefijo() -> &'static [u8] {
     if activo() == Volumen::Efi { b"efi:" } else { b"" }
 }

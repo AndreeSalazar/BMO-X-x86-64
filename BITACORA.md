@@ -26,7 +26,7 @@ mundo sin ruido; el hardware real tiene trafico.
 **Sintoma**: meses creyendo que la placa "no tenia GOP".
 **Culpable**: los GUID de GOP y SimpleFS estaban mal escritos (data4
 corrupto). El proyecto siempre corrio por serial y nadie lo noto.
-**Moraleja**: un GUID es una contrasena de 16 bytes: o es EXACTA o el
+**Moraleja**: un GUID es una clave de 16 bytes: o es EXACTA o el
 universo responde "no existe".
 
 ## Ep. 4 -- El CS fantasma de UEFI (la saga del #GP, capa 1)
@@ -155,7 +155,7 @@ error es un mensaje que no sirve para nada.
 
 **Camino** (cada paso destapo el siguiente):
 1. `find_storage()` devolvia "el primero del barrido" -- y en esta maquina el
-   primero es el NVMe **con el Windows del dueno**. Se paso a pedir por TIPO.
+   primero es el NVMe **con el Windows del propietario**. Se paso a pedir por TIPO.
 2. El driver AHCI nunca habia tocado silicio: escribia la direccion de la
    command table DENTRO de la propia tabla (dejando la cabecera en ceros, asi
    que el FIS se construia en la **pagina fisica 0**), metia el puntero
@@ -203,7 +203,7 @@ una hipotesis mia):
    el area estaba vigilada por los dos **extremos**, y la cabecera XSAVE
    (`+512`) quedaba en medio **sin que la mirara nadie**.
 3. **Guardia de cabecera** en los cinco epilogos. Convirtio un `#GP` mudo en
-   `ROTTEN CONTEXT: XSAVE header`, con campo y dueno. Salto a la primera.
+   `ROTTEN CONTEXT: XSAVE header`, con campo y propietario. Salto a la primera.
 4. **Anillo de publicaciones** (`pub0..pub3`): mato la hipotesis del solape
    de areas -- las dos distaban 2624 bytes, no se tocaban.
 5. **`bv0`** (la cabecera al entrar al despachador): mato la hipotesis del
@@ -404,7 +404,7 @@ en nada a la causa: hablaba del raton, y el raton no tenia culpa de nada.
 
 ## Ep. 21 -- Tres arranques culpando al compositor de algo que hacia un demo
 
-**Sintoma**: en cada arranque, CABINA decia `fb: el dueno de la pantalla MURIO`
+**Sintoma**: en cada arranque, CABINA decia `fb: el propietario de la pantalla MURIO`
 y el panel del kernel aparecia pintado **encima** del escritorio. Conclusion
 evidente y equivocada: *el compositor se muere al arrancar*.
 
@@ -424,8 +424,8 @@ recuperaba la pantalla y repintaba su panel sobre el escritorio recien nacido.
 El compositor estaba vivo todo el rato.
 
 **Moraleja**: el instrumento acerto; la teoria era del que lo construyo. Cuando
-un aviso dice "murio el dueno de X", la primera pregunta no es *por que murio*,
-es **quien era el dueno**. Y la de fondo: los programas de ejemplo que se
+un aviso dice "murio el propietario de X", la primera pregunta no es *por que murio*,
+es **quien era el propietario**. Y la de fondo: los programas de ejemplo que se
 arrancan solos dejan de ser ejemplos y pasan a ser **participantes** -- compiten
 por los mismos recursos que lo de verdad. Se quitaron del arranque, y el kernel
 adelgazo 37 KB.
@@ -504,7 +504,7 @@ lo habia pedido a nadie porque el protocolo BOOT le ahorraba el parser. En
 cuanto un aparato ignoro el BOOT, ese ahorro paso a ser el problema.
 
 Se le pide (`GET_DESCRIPTOR`, tipo 0x22) y se lee. El parser saca cuatro
-campos --botones, X, Y, rueda-- con su posicion en bits y su tamano, respetando
+campos --botones, X, Y, rueda-- con su posicion en bits y su medida, respetando
 lo que de verdad cuesta hacer bien: `Report Size`/`Report Count` en bits, el
 desplazamiento acumulado **por Report ID**, el relleno (`Input (Cnst)`) que
 ocupa sitio y no significa nada, y el reparto de usages por lista o por rango.
@@ -519,7 +519,7 @@ descriptor promete es lo que el aparato manda.
 
 ## Ep. 25 -- El write-combining, otra vez, y por el lado que nadie miro (sin foto todavia)
 
-**Sintoma**, dicho por el dueno: *"que no me salgan ghosting"* -- un rastro que
+**Sintoma**, dicho por el propietario: *"que no me salgan ghosting"* -- un rastro que
 sigue al puntero.
 
 El Ep. 20 dejo cerrado que **la pantalla** no ve nuestras escrituras sin
@@ -575,7 +575,7 @@ hace donde nadie mira"**.
 
 ```rust
 Salida::nueva()  ->  fila: 0                          // el ESCRITOR empieza arriba
-pintar_salida()  ->  base = SAL_HIST - SAL_ROWS       // el LECTOR ensena abajo
+pintar_salida()  ->  base = SAL_HIST - SAL_ROWS       // el LECTOR muestra abajo
 ```
 
 `SAL_HIST` son 200 filas y `SAL_ROWS` son 16, asi que la ventana visible es
@@ -606,7 +606,7 @@ comando corrio y la salida se perdio). Sin esa distincion, la teoria facil era
 ---
 
 ## Ep. 27 -- El teclado que "se desconectaba solo" (arreglo escrito, sin foto todavia)
-**Sintoma**: contado de memoria por el dueno -- *"mi teclado al presionar se puso
+**Sintoma**: contado de memoria por el propietario -- *"mi teclado al presionar se puso
 como que se desconecta sin sentido"*. Deja de responder **sin que nadie lo
 toque**, y sigue enchufado.
 
@@ -631,7 +631,7 @@ el segundo.** Resetear sin recolocar el puntero de la cola deja el endpoint
 listo para leer TRBs viejos con el ciclo cambiado; el reset "no sirve de nada" y
 parece que el problema era otro.
 
-*Sin foto todavia*: hay que **provocar** el fallo para verlo. La senal buena es
+*Sin foto todavia*: hay que **provocar** el fallo para verlo. La signal buena es
 `[uhid] teclado: transferencia con error cc=` seguido de `[xhci] endpoint
 RESUCITADO`, y que el teclado siga escribiendo despues.
 
@@ -643,7 +643,7 @@ trampolin, INIT+SIPI y GDT. **Nadie lo llamaba.** La lectura facil era "esta
 hecho y falta enchufarlo".
 
 **Culpable**: no estaba hecho. Leido de cerca, tenia cuatro fallos que lo hacian
-imposible, y el primero es el que ensena algo:
+imposible, y el primero es el que muestra algo:
 
 1. **El trampolin estaba ensamblado como codigo de 64 bits** --`mov rax, ...`,
    `retfq`-- para un nucleo que arranca en **modo real de 16 bits**. Ahi un
@@ -808,7 +808,7 @@ no porque fuera mas elegante, sino porque el modo de fallo de la version vieja
 **Sintoma**: `Ctrl+Alt+ESC` --el rescate escrito el mismo dia, el que le quita la
 pantalla a un programa que no la suelta-- **no hizo nada** en el Ryzen.
 
-**Primera hipotesis, y era razonable**: en la distribucion espanola `Ctrl+Alt`
+**Primera hipotesis, y era razonable**: en la distribucion castellana `Ctrl+Alt`
 ES `AltGr`. El propio codigo lo avisa: *"un atajo que dispare al PULSAR Ctrl+Alt
 rompe escribir `@`, `#`, `[`, `]`"*. Asi que parecia que el atajo se comia el
 tercer nivel del teclado.
@@ -827,7 +827,7 @@ Y encima de una tecla que no llegaba habia **tres cosas** escritas:
    llega ni a mirar los modificadores**.
 
 Las tres se leian como fallos distintos y eran uno. Y explica la forma exacta
-del sintoma que conto el dueno: *"al raycaster pude entrar a jugar y no pude
+del sintoma que conto el propietario: *"al raycaster pude entrar a jugar y no pude
 salir"*.
 
 **De propina, el patron de siempre**: hay DOS tablas de teclado en el arbol, y
@@ -870,7 +870,7 @@ identicos en un volcado.
 ## Ep. 35 -- La operacion que casi suelta la pantalla al leer un informe
 **Sintoma**: ninguno todavia, y ese es el episodio.
 
-Al anadir la AUTOPSIA --el informe que el kernel redacta cuando mata una tarea--
+Al agregar la AUTOPSIA --el informe que el kernel redacta cuando mata una tarea--
 se le dieron los opcodes `0x1D` y `0x1E`. **Ya eran `PANTALLA_SOLTAR` y
 `ENTRADA_SOLTAR`.**
 
@@ -913,7 +913,7 @@ la misma persona que despues la incumplio.
    mitad; una sonda que solo hubiera dicho "si" no habria recortado nada.
 5. **El informe de fallo ya sabe mas de lo que se lee.** `err=0x00000008` no
    era un numero: era el selector culpable, dicho por el CPU (Ep. 15). Antes
-   de anadir un campo nuevo, leer entero el que ya esta.
+   de agregar un campo nuevo, leer entero el que ya esta.
 6. **Una regla escrita para un caso concreto no protege del siguiente**
    (Ep. 15). "El framebuffer necesita CR3 de kernel" era cierto y era
    inutil: la regla de verdad era *cualquier direccion del rango identidad
@@ -929,7 +929,7 @@ la misma persona que despues la incumplio.
    dura dos segundos: buscar quien LLAMA a la funcion que contesta.
 
 9. **Un aviso correcto no implica una teoria correcta** (Ep. 21). "Murio el
-   dueno de la pantalla" era cierto tres arranques seguidos, y la conclusion
+   propietario de la pantalla" era cierto tres arranques seguidos, y la conclusion
    que se saco era falsa. Antes de preguntar *por que paso*, preguntar **a
    quien le paso**.
 10. **Una optimizacion que cambia CUANDO se ve algo no esta terminada**
@@ -947,7 +947,7 @@ la misma persona que despues la incumplio.
 13. **Un buffer compartido tiene DOS contratos, no uno** (Ep. 26). Cuando un
    cambio mueve un extremo --donde empieza a leer, donde empieza a escribir--, el
    sitio que hay que revisar es **el que no estas tocando**. El escritor
-   empezaba arriba y el lector ensenaba abajo, y las dos lineas eran correctas
+   empezaba arriba y el lector mostraba abajo, y las dos lineas eran correctas
    por separado.
 14. **Una rama de error que nadie ejecuta no esta escrita, esta redactada**
    (Ep. 23). El camino bueno de `malloc` funcionaba y el de fallo saltaba a
@@ -960,7 +960,7 @@ la misma persona que despues la incumplio.
    fallo o se maneja o se GRITA con su numero, nunca se descarta callando** -- y
    lo que hay que cazar no es el `panic`, es el fallo que se convierte en un
    valor con pinta de buen dato: un `unwrap_or(0)` donde 0 es una direccion
-   fisica, un cluster libre, un pid con dueno o un indice de cadena. No
+   fisica, un cluster libre, un pid con propietario o un indice de cadena. No
    revientan: **mienten**, y el sintoma sale despues y lejos.
 16. **"Esta hecho, solo falta llamarlo" es una hipotesis** (Ep. 28). El SMP
    llevaba meses escrito y tenia cuatro fallos que lo hacian imposible, el
@@ -1005,7 +1005,7 @@ la misma persona que despues la incumplio.
    vez, y que se repita es el argumento.
 
 24. **El HARDWARE se PERFILA; el SOFTWARE es AGNOSTICO. Y no es simetria: es
-   que no son el mismo problema.** (Enunciada por el dueno el 2026-08-23, al
+   que no son el mismo problema.** (Enunciada por el propietario el 2026-08-23, al
    cazar una estimacion que la incumplia.)
 
    ```text
@@ -1092,7 +1092,7 @@ entrega otro programa.**
 mas el formateador de ejecucion, el `va_list` como puntero y `double` como
 parametro, **las 56.465 lineas del nucleo de DOOM compilan a un `.bex` de
 1.299.512 bytes**. Con `MAX_BEX` en 1 MiB no cabia por 248.936 -- y ahi la
-decision fue del dueno y queda escrita: *"DOOM es el MAS optimizado, asi que
+decision fue del propietario y queda escrita: *"DOOM es el MAS optimizado, asi que
 vamos a respetar y ejecutar SEGUN lo que exige"*. El tope subio a 4 MiB.
 
 **Moraleja**: *lo que un programa ajeno mide es una medida del sistema, no un
@@ -1275,7 +1275,7 @@ que esta linea es la unica de las dos que se puede OIR"*. La foto no descubrio
 el fallo: **confirmo una prediccion que estaba en el codigo**, que es la mejor
 clase de sorpresa que puede dar una tanda de fotos.
 
-### Lo que falta, dicho con su tamano
+### Lo que falta, dicho con su medida
 
 Eddi lo vio antes de que se lo contaran: *"seria como teclado y mouse pero con
 audio"*. Exacto, y esa comparacion mide bien el trabajo -- porque **lo caro del
@@ -1312,7 +1312,7 @@ distinguir "se oyo bajito" de "no habia donde oirlo".
   desbordado por abajo tras un lanzamiento fallido-- no volvio. El invariante
   `cur <= n` restaurado una vez por vuelta aguanto justo el caso que lo tumbo.
 - **FAT32 lee ficheros grandes en metal**: `archivo abierto para leer =814664`
-  --el tamano exacto de `doom.bex`-- y `=4196020`, el WAD entero. La sospecha
+  --el medida exacto de `doom.bex`-- y `=4196020`, el WAD entero. La sospecha
   de la lectura corta queda descartada tambien en el Ryzen, no solo en el
   anfitrion.
 
@@ -1342,7 +1342,7 @@ distinguir "se oyo bajito" de "no habia donde oirlo".
 
 `=800` son **2048**. Ese numero es `bytes.len()`, o sea **el prologo** -- no los
 308.184 de `gui.bex`. Falla la lectura de los **primeros 2 KB** del fichero, que
-es la operacion mas pequena que hace el sistema.
+es la operacion mas chica que hace el sistema.
 
 Y la linea 46 solo existe en el camino sin mesa: **la pieza B se tomo**, y sus
 11.264 bytes directos (el paseo por directorios, la FAT y los cuatro sectores del
@@ -1378,7 +1378,7 @@ continuidad tampoco hay que comprobarla.
 
 Ahora el DMA directo **solo** acepta destinos del physmap. Todo lo demas --la
 pila, `.bss`, la imagen del kernel-- rebota: mas lento, correcto, y son lecturas
-pequenas.
+chicas.
 
 ** Y el camino rapido no se pierde donde importa: la pieza B aterriza las
 secciones en marcos recien pedidos al asignador, y a esos se llega por
@@ -1387,7 +1387,7 @@ exactamente en el sitio para el que se invento.
 
 ## La leccion, que es de metodo
 
-1. **Un error que no puede ensenar su evidencia es un error a medias.** Decir
+1. **Un error que no puede mostrar su evidencia es un error a medias.** Decir
    *"cabecera invalida"* es una afirmacion; su prueba son ocho bytes. Sin ellos
    hubo dos tandas de fotos y una tarde entre cuatro hipotesis **que se
    distinguen a simple vista**. Ahora la falta los imprime.
@@ -1425,7 +1425,7 @@ Eso lo convierte en un episodio de metodo y no de metal, y por eso se escribe:
 ## El metodo, en una frase
 
 Perseguir bugs de uno en uno con arranques no escala: cuatro vueltas de
-flasheo-ver-morir-cazar por tres defectos, el 13 por la manana. Los tres eran la
+flasheo-ver-morir-cazar por tres defectos, el 13 por la luego. Los tres eran la
 misma FORMA --un contenedor, una operacion, y un brazo del codegen que no cubria
 esa casilla-- y una forma **se puede enumerar**.
 
@@ -1439,7 +1439,7 @@ Nueve sondas, **143 casillas, medio segundo**:
    signedness   16            4 ROJAS  -> shr/div/setb
    control flow 16            limpio
    assignment   16            1 ROJA, abierta a proposito
-   strings      16            limpio (tras anadir `<strings.h>`)
+   strings      16            limpio (tras agregar `<strings.h>`)
    heap         12            limpio
 ```
 
@@ -1470,7 +1470,7 @@ nivel roto.
 el codegen calcula en `rax`, o sea en 64 bits, y un `unsigned int` llega
 **extendido con ceros** -- el bit 63 vale 0 y `sar` da lo mismo que `shr`. Solo
 un `unsigned long` lo destapa. El defecto no lo escondia un test que faltara: lo
-escondia que **el caso que lo rompe no se puede escribir en el tipo pequeno**.
+escondia que **el caso que lo rompe no se puede escribir en el tipo chico**.
 
 ## La moraleja, y son tres
 
@@ -1499,7 +1499,7 @@ contestar, y ahora hay bastante mas razon que ayer para que llegue lejos.
 
 ---
 
-## Ep. 39 -- La orden que existia donde su dueno no puede entrar
+## Ep. 39 -- La orden que existia donde su propietario no puede entrar
 **Sintoma**: *"escribi el ext y no conoce LOL"*. La orden `ext` --el censo de
 extensiones del CPU-- estaba compilada, flasheada y contestando. Y no aparecia.
 
@@ -1507,7 +1507,7 @@ extensiones del CPU-- estaba compilada, flasheada y contestando. Y no aparecia.
 Ring 0, y **a ese shell no se vuelve**. `obj/fb.rs::rescue()` se niega a
 proposito a quitarle la pantalla al escritorio --*"no se echa al que sostiene
 la casa"*--, asi que `Ctrl+Alt+Esc` rescata de DOOM o del raycaster pero nunca
-del compositor. El dueno vive en el escritorio; la orden vivia en el otro lado
+del compositor. El propietario vive en el escritorio; la orden vivia en el otro lado
 de una puerta que no se abre.
 
 La segunda, debajo: `ext` estaba en el despachador **y en ninguna de las dos
@@ -1584,8 +1584,8 @@ de verdad se reescribe la estructura entera.
 
 **Moraleja**: **un inicializador no-cero en un array grande es un fichero mas
 grande, y no se ve en el codigo.** La pregunta no es "cuanta memoria pide esto"
-sino "cuanto de esto viaja". Y la herramienta que lo enseno --`llvm-nm
---size-sort`-- deberia usarse antes de discutir tamanos, no despues.
+sino "cuanto de esto viaja". Y la herramienta que lo mostro --`llvm-nm
+--size-sort`-- deberia usarse antes de discutir medidas, no despues.
 
 [!] Y hay que decir QUE mejora, porque es facil venderlo de mas: la RAM
 reservada es la misma (`.bss` tambien ocupa). Lo que baja un cuarto es la imagen
@@ -1740,7 +1740,7 @@ recorre la secuencia completa, `cerrar_datos` incluido, y pasa desde el primer
 dia. Lo que no estaba probado era **quien la usa**, y ese hueco no lo cierra
 otro test de anfitrion: solo lo cierra ejecutarlo una vez.
 
-★ Y el diseno aguanto entero. Dijo que no, con su motivo, y la ventana lo
+★ Y el esquema aguanto entero. Dijo que no, con su motivo, y la ventana lo
 repitio en pantalla. No hubo silencio, ni medio arbol escrito, ni un superbloque
 apuntando a bloques que no llegaron al plato. **El fallo fue de quien la usaba y
 la maquina lo paro** -- que es exactamente para lo que estaba.
@@ -1805,7 +1805,7 @@ desconocido"*, que es lo unico que hizo bien todo el episodio.
 
 **Moraleja**: **una tabla compartida tiene mas de un lector, y crecer por uno la
 rompe para el otro.** Es el precio de la decision que este proyecto ya tomo a
-proposito --tablas y no cerebros-- y el precio se paga aqui: quien anade una
+proposito --tablas y no cerebros-- y el precio se paga aqui: quien agrega una
 fila tiene que preguntarse quien mas la lee. Hoy son cinco frontends.
 
 ★ Y lo mejor del episodio es que **la matriz de conformidad existia y funciono**.
@@ -1852,7 +1852,7 @@ mirar**, que es lo que hace falta dentro de seis meses:
                                   JSON no era la pregunta.
 ```
 
-★★ **La frase que resume los tres**: hoy una app de BMO-X **puede ensenar, y no
+★★ **La frase que resume los tres**: hoy una app de BMO-X **puede mostrar, y no
 la puedes tocar**. Cuando eso cambie, no cambia para la calculadora: cambia para
 todas las que vengan detras.
 
@@ -1873,7 +1873,7 @@ puso un numero en la barra --`loops_per_second`, que existia desde hacia meses y
 tecla**. El unico numero que dice si el escritorio esta vivo estaba detras de la
 cosa cuya muerte habia que diagnosticar.
 
-Se puso en la barra. El dueno lo probo y trajo: *"veo pulso una sola vez y se
+Se puso en la barra. El propietario lo probo y trajo: *"veo pulso una sola vez y se
 congela"*. **Y no era la maquina: era el instrumento.** `loops_per_second` se
 calcula UNA vez por segundo, asi que entre dos calculos el numero es constante y
 la caja no se repintaba. Correcto, y absolutamente inutil:
@@ -1908,7 +1908,7 @@ misma funcion, un cambio de donde cae un numero y un cambio de que DICE ese
 numero se leian igual en el diff.
 
 ## Ep. 50 -- El syscall que llevaba desde siempre sin estrenar
-**Sintoma**: el dueno, mirando la arquitectura: *"tengo 2 syscalls, INVOKE y
+**Sintoma**: el propietario, mirando la arquitectura: *"tengo 2 syscalls, INVOKE y
 WAIT, pero WAIT casi no se usaba. Creo que es momento de darle su oportunidad."*
 
 **Culpable**: tenia razon, y era literal. `WAIT` se usaba en **UN** sitio de todo
@@ -1940,7 +1940,7 @@ el metal.
 
 ★★ **Y lo caro no fue no dormir: fue dejar de CEDER.** `Tick::ceder` habia
 sustituido a un `yield_screen()` incondicional, asi que el escritorio se quedo el
-nucleo entero y el teclado y el raton del dueno **parecieron ignorados**.
+nucleo entero y el teclado y el raton del propietario **parecieron ignorados**.
 
 **Moraleja**: **una optimizacion que se apaga sola tiene que apagarse hacia el
 LADO SEGURO.** Esta se apagaba hacia el peor que habia. La invariante que faltaba
@@ -1956,7 +1956,7 @@ sospechoso.**
 ## Ep. 51 -- EL FANTASMA: un quantum regalado a quien ya dormia
 **Sintoma**: con `WAIT` durmiendo por fin, el escritorio **empeoro**:
 `latido 9/s  pinta 3  cuerpo 1  puerta 33750`. Un milisegundo de trabajo y
-**treinta y tres segundos esperando turno**. El dueno lo vio como *"1 frame cada
+**treinta y tres segundos esperando turno**. El propietario lo vio como *"1 frame cada
 10 o 20 segundos"* y pregunto lo que habia que preguntar: *"mi kernel esta como
 borracho? Encuentras un fantasma?"*.
 
@@ -2023,7 +2023,7 @@ nombre --**reschedule forzado por interrupcion software**-- y vive en
 
 ## Ep. 52 -- El cuello de botella era una PALABRA, y estaba escrita 155 veces
 
-**2026-09-09.** El dueno pidio romper el cuello de botella del camino `Directo`.
+**2026-09-09.** El propietario pidio romper el cuello de botella del camino `Directo`.
 La primera respuesta fue descartar cinco sospechosos leyendo --el fusionador de
 cajas, `read()`, `sincronizar_lectura`, `paint_background`, `Table::compose`-- y
 calcular que un fotograma moviendo el raton mueve ~135 KB, o sea 0,4 ms. No
@@ -2159,7 +2159,7 @@ latencia: un motor grafico se juzga por la segunda.
    [2] el hilo del bus drena el anillo      <= 4 ms     BUS_PERIOD_MS
    [3] el compositor se entera              <= 1 ms     el LATIDO, 1 kHz
    [4] pinta y vuelca                        < 1 ms     (desde hoy)
-   [5] el ESCANER lo ensena                 <= 16,7 ms  y sin V-Sync
+   [5] el ESCANER lo muestra                 <= 16,7 ms  y sin V-Sync
 ```
 
 ★★ **Lo que pone BMO-X de su parte es menos de 1 ms de ~22.** Los milisegundos
@@ -2167,7 +2167,7 @@ estan en los dos EXTREMOS --el aparato que habla cuando quiere y el escaner que
 mira cuando quiere-- y ninguno de los dos es codigo del compositor. Seguir
 apretando el compositor es apretar la pieza que ya no aprieta.
 
-### ★★★ Y el 4 ms tiene un dueno que ya sabia la respuesta
+### ★★★ Y el 4 ms tiene un propietario que ya sabia la respuesta
 
 `BUS_PERIOD_MS = 4` es una constante, y su comentario razona sobre un **teclado**
 boot (*"pide que se le sondee cada 8-10 ms"*). El aparato que decide la latencia
@@ -2208,7 +2208,7 @@ bucle: un instrumento de vida que se calla cuando no cambia nada se calla justo
 cuando el bucle se muere. Por **L4** --una regla se prueba diciendo que NO-- esa
 excepcion es lo que convierte la costumbre en regla.
 
-[!] Y su tamano, dicho sin vender: **~1 MB/s hoy**, porque la barra repinta 3-20
+[!] Y su medida, dicho sin vender: **~1 MB/s hoy**, porque la barra repinta 3-20
 veces por segundo. Lo que evita es el precio del EXITO -- a 60 fps los mismos
 chips serian 3,7 MB/s de pintar lo que ya estaba.
 
@@ -2301,13 +2301,13 @@ cuarto ya es un asignador de registros, que es otro proyecto.
 
 ⚠ **No se toca nada todavia**: este backend lo usan todos los `.bex`, y este mes
 ya se pagaron cinco fallos de codegen. Primero el numero, y la decision es del
-dueno.
+propietario.
 
 ---
 
 ## Ep. 55 -- El emisor no decide: la regla primero, y luego el codigo
 
-**2026-09-09.** El dueno lo puso en ese orden: *"vamos a cambiar reglas de
+**2026-09-09.** El propietario lo puso en ese orden: *"vamos a cambiar reglas de
 modular codegen POR COMPLETO, con reglas que son para facilitar y asi no tener
 muchos problemas"*. Primero la ley, despues tocar. Y acerto tres veces.
 
@@ -2391,7 +2391,7 @@ El bucle interior de la expansion de DOOM, desensamblado antes y despues:
 que esta probado es el desensamblado y el banco. El `expansion N us` del `[perf]`
 de DOOM es el juez, y todavia no ha hablado.
 
-### Y la idea del dueno que se convirtio en escalon: LAS ANTEOJERAS
+### Y la idea del propietario que se convirtio en escalon: LAS ANTEOJERAS
 
 > *"no es mas velocidad: es que WAIT ponga trabas a otros puntos que no le
 > interrumpan. Es concentrar al caballo con todo para ganar la carrera."*
@@ -2400,7 +2400,7 @@ Tiene nombre --**interrupt shielding**, **core isolation**-- y es lo que hace un
 sistema de audio o de trading antes que cualquier optimizacion. Hoy el LAPIC va
 PERIODICO a 1 kHz: **mil interrupciones por segundo por nucleo**, cada una con su
 `xsave`/`xrstor`, aunque DOOM este solo y no las use ninguna. El coste en ciclos
-es pequeno; el dano son la cache que ensucian y el punto de expropiacion que
+es chico; el perjuicio son la cache que ensucian y el punto de expropiacion que
 meten **cada milisegundo**.
 
 Y va por `WAIT` sin tocar los dos syscalls congelados, porque `WAIT` ya dice
@@ -2408,7 +2408,7 @@ Y va por `WAIT` sin tocar los dos syscalls congelados, porque `WAIT` ya dice
 toquen, cada T"*. Escalon **E6** de [`PLAN_EL_COMPAS`](docs/plan/PLAN_EL_COMPAS.md).
 
 ★ Y de paso contesta lo del 0,1 ms: **hoy no se puede, y no por lentitud**. Con
-el LAPIC periodico a 1 kHz, un milisegundo es la unidad mas pequena que el
+el LAPIC periodico a 1 kHz, un milisegundo es la unidad mas chica que el
 sistema sabe **NOMBRAR**. Con TSC-deadline la unidad pasa a ser el ciclo -- pero
 eso es precision de despertar, no latencia de punta a punta: el bus USB sigue
 poniendo 4 ms y el escaner 16,7.
@@ -2417,7 +2417,7 @@ poniendo 4 ms y el escaner 16,7.
 
 ## Ep. 56 -- Un compilador no falla como un kernel, y por eso necesita su propio eje
 
-**2026-09-09.** El dueno miro los carriles del codegen y dijo que no bastaban:
+**2026-09-09.** El propietario miro los carriles del codegen y dijo que no bastaban:
 
 > *"el modulo nivel 3 es bueno PERO no es suficiente. Hablo de modular propio
 > que tenga enfoque en C, porque si es archivo y codegen hasta AST TODO SON
@@ -2474,7 +2474,7 @@ que es de dias a segundos.
 
 ### Y de paso, dos respuestas
 
-**El divisor del LAPIC.** El dueno pregunto si se podia partir el tick,
+**El divisor del LAPIC.** El propietario pregunto si se podia partir el tick,
 *"0,5 + 0,5 para llegar a 1 kHz, y que cada uno diga que aporta"*. Se puede, y
 son dos registros ya escritos (`0x3E0 = 3`, el divisor; `0x380 = hz/1000`, la
 cuenta): poner `hz/2000` da 2 kHz con **una escritura**.
@@ -2483,12 +2483,12 @@ cuenta): poner `hz/2000` da 2 kHz con **una escritura**.
 doble de disparos es el doble de gasto. ★★★ **El truco que buscaba es esa idea
 dada la vuelta**: quitar el bit 17 --un solo disparo-- y programar el instante
 del proximo evento que importa. Entonces no hay mil disparos ciegos: hay N, y
-**cada uno tiene dueno y motivo**. Eso es literalmente *"que cada uno diga que
+**cada uno tiene propietario y motivo**. Eso es literalmente *"que cada uno diga que
 aporta"*, conseguido no disparando en vez de dividiendo.
 
 **Los quince minutos.** *"Que si pasa 15 minutos se automatice para concentrar
 TODO en un objetivo"*. Es `E6` pero **ganada en vez de declarada**, y encaja con
-la ley sin anadir nada: `EL ORQUESTAL` ya dice que el foco decide CUANTO y no
+la ley sin agregar nada: `EL ORQUESTAL` ya dice que el foco decide CUANTO y no
 QUIEN. Un foco sostenido no sube de prioridad -- **le quitan las distracciones**.
 Escalon `E7` de `PLAN_EL_COMPAS`, con su aviso: un sistema que cambia de
 comportamiento a los quince minutos se comporta distinto de como lo probaste, y
@@ -2498,7 +2498,7 @@ eso tiene que decirlo la barra o es el Bloq Num otra vez.
 
 ## Ep. 57 -- El semaforo del compilador se DEDUCE, y el guardian me cazo a mi
 
-**2026-09-09.** Tres peticiones del dueno, y la tercera es la que manda:
+**2026-09-09.** Tres peticiones del propietario, y la tercera es la que manda:
 
 > *"el estandar es semaforo de rojo y verde, EL PORQUE. Lo otro es DIVIDIR
 > todos los archivos que emiten. Y ya no aplicaremos como lineal sino DINAMICO
@@ -2558,13 +2558,13 @@ es el guardian MUERTO que R18 existe para evitar.
 ```
 
 ★★ **El despacho se queda EXHAUSTIVO y sin comodin**, y es la unica decision de
-diseno del corte: el dia que nazca una forma nueva de expresion, **el compilador
+esquema del corte: el dia que nazca una forma nueva de expresion, **el compilador
 de Rust para ahi** y obliga a decidir de que color es. Partirlo en tres `if` que
 devolvieran `bool` habria sido mas corto y habria perdido justo eso.
 
 `codegen/mod.rs`: **2.238 -> 1.617 lineas**. 500 de 500 filas verdes.
 
-### Y lo que queda, que es lo que el dueno pidio de verdad: C5
+### Y lo que queda, que es lo que el propietario pidio de verdad: C5
 
 *"Que el compilador no tenga que ADIVINAR"*. Hoy el emisor **vuelve a deducir el
 tipo cada vez que lo necesita** -- `expr_is_unsigned`, `expr_is_float`,
@@ -2585,7 +2585,7 @@ uno sin anotar**. Se hace de una vez o no se hace.
 
 ## Ep. 58 -- El 68 a 1 estaba clonado en CINCO sitios, y uno era el arrastre
 
-**2026-09-09.** El dueno pidio arreglar el retraso del escritorio que habia
+**2026-09-09.** El propietario pidio arreglar el retraso del escritorio que habia
 reportado: *"cuando movi todo la pantalla en terminal TODO rapido se ve como que
 se retrasa"*.
 
@@ -2609,7 +2609,7 @@ for y in tira.y0..tira.y1 {
 
 `punto` **marca**, y marcar copia `Sucias` --136 bytes-- dos veces: **272 bytes
 de papeleo por pixel**. Es el mismo 68 a 1 que se cazo en `glifo` esa misma
-manana, **clonado en cinco sitios de este arbol y sin arreglar en ninguno**.
+luego, **clonado en cinco sitios de este arbol y sin arreglar en ninguno**.
 
 ```text
    scene::erase_box        325.500 px ->  88,5 MB de papeleo   por UNA pulsacion
@@ -2622,7 +2622,7 @@ manana, **clonado en cinco sitios de este arbol y sin arreglar en ninguno**.
 
 ★★ **`erase_moved` es el del arrastre**, y es el unico que corre por evento del
 raton: **326 MB/s solo en APUNTAR** mientras arrastras una ventana. Eso es lo que
-el dueno estaba sintiendo.
+el propietario estaba sintiendo.
 
 Arreglo: una `marcar` por region y `punto_ya_marcado` dentro. Los pixeles son
 identicos; lo que se va es la contabilidad.
@@ -2632,13 +2632,13 @@ memoria de video sin cache, que no es gratis"*. **Culpaba a la memoria de
 video**: con doble bufer eso escribe en el LIENZO, que es RAM cacheada. Lo caro
 nunca fue el pixel -- eran los 88 MB de apuntarlo.
 
-### Y el instrumento que faltaba: `tamano`
+### Y el instrumento que faltaba: `medida`
 
 El 09-09 tres mirillas del codegen encogieron todos los `.bex` un 6 %, y eso se
 supo **sumando a mano dos listados del build**. El dato salia en pantalla las dos
 veces y nadie los comparaba.
 
-`toolchain/tools/tamano/` guarda los 30 y ensena el delta en cada pasada. **Y
+`toolchain/tools/medida/` guarda los 30 y muestra el delta en cada pasada. **Y
 cazo su primer cambio en su primera pasada**: `sys/d.bex 609624 -> 609112`, que
 es este mismo arreglo.
 
@@ -2646,7 +2646,7 @@ es este mismo arreglo.
 porque un aviso nuevo siempre es malo, pero un programa puede crecer con razon.
 Un guardian que grita cada vez que el proyecto avanza se apaga en una semana.
 
-⚠ Y con su aviso puesto: **el tamano no es la velocidad**. Van juntos en el caso
+⚠ Y con su aviso puesto: **el medida no es la velocidad**. Van juntos en el caso
 concreto de pasar de pila a registros y no en general. El juez sigue siendo
 `expansion N us` del `[perf]` de DOOM, y sigue sin hablar.
 
@@ -2654,7 +2654,7 @@ concreto de pasar de pila a registros y no en general. El juez sigue siendo
 
 ## Ep. 59 -- EL TROQUEL entra, y el banco me caza un `0x100` en un `u8`
 
-**2026-09-09.** El dueno dijo *"aplicalo, primero en C"*, y se aplico.
+**2026-09-09.** El propietario dijo *"aplicalo, primero en C"*, y se aplico.
 
 ### Lo que habilito el camino, y fue una comprobacion de dos minutos
 
@@ -2716,7 +2716,7 @@ queda son movimientos entre registros -- el baile de la maquina de pila por
 ```
 
 Son los cuatro `push` y los cuatro `pop` de cada funcion que usa la matriz. **Y
-por esto `tamano` REPORTA y no manda**: un trinquete habria parado el build por
+por esto `medida` REPORTA y no manda**: un trinquete habria parado el build por
 un cambio que hace el codigo mas rapido. La cabecera del guardian ya lo decia el
 dia que se escribio -- *"un programa que crece puede estar creciendo por una
 razon excelente"*-- y le ha tocado el primero.
@@ -2729,7 +2729,7 @@ que es CORRECTO; los bytes dicen que CAMBIO. Que sea mas rapido lo dice
 
 ## Ep. 60 -- La pantalla partida de DOOM: el instrumento miraba al otro lado de la valla
 
-**2026-09-09.** El dueno trajo la foto de siempre: DOOM con la **mitad izquierda
+**2026-09-09.** El propietario trajo la foto de siempre: DOOM con la **mitad izquierda
 jugando y la mitad derecha con la pantalla de TITULO**, y las columnas gordas.
 *"Analiza por que se ve asi siempre."*
 
@@ -2840,7 +2840,7 @@ DOOM corre -- y con `bombeo` como culpable, que es el drenaje del anillo.
 Es el numero abierto mas gordo que queda, y esta en el suelo de la latencia:
 `PLAN_EL_PIXEL`, seccion 1.
 
-### Y la barra, que el dueno pidio "elegante, inspirado en Wayland con blur"
+### Y la barra, que el propietario pidio "elegante, inspirado en Wayland con blur"
 
 [!] **Un desenfoque aqui no se veria, y eso es una respuesta y no una excusa.**
 Desenfocar necesita TEXTURA, y detras de la barra hay un degradado vertical que
@@ -2861,7 +2861,7 @@ cambia, asi que su version borrosa tampoco.
 
 ## Ep. 62 -- Los 7.781 us del bombeo: partir el numero que no cuadra
 
-**2026-09-09.** El dueno: *"investiga el bombeo ese de 7781us, que es el mas
+**2026-09-09.** El propietario: *"investiga el bombeo ese de 7781us, que es el mas
 gordo"*. Y lo es: `C/T = 1,95` sostenido en el hilo que decide la latencia de
 toda la entrada.
 
@@ -2920,7 +2920,7 @@ dos es la unica razon por la que esta semana ha rendido.
 
 ```text
                           us      ciclos    por escritura util
-   antes (esta manana)   6.738    30,3 M         157,6
+   antes (esta luego)   6.738    30,3 M         157,6
    AHORA                 2.918    13,1 M          68,3
 ```
 
@@ -2989,7 +2989,7 @@ adivinar cuesta un dia y partir el numero cuesta un arranque.
 
 ## Ep. 64 -- El borrado que el fichero daba por hecho, y un log que era de ayer
 
-**2026-09-09.** El dueno trae foto y log otra vez, y dice tres cosas. Dos son
+**2026-09-09.** El propietario trae foto y log otra vez, y dice tres cosas. Dos son
 observaciones suyas y una es un aviso que hay que devolverle antes de nada.
 
 ### [!] EL LOG ES DE LA IMAGEN ANTERIOR, y por eso "es el mismo patron"
@@ -3008,8 +3008,8 @@ forma de que deje de costar una vuelta es tener escrito como se reconoce.
 
 ### *** EL FALLO DE VERDAD: DOOM NUNCA LIMPIO LA PANTALLA AL ENTRAR
 
-El dueno lo dijo en cinco palabras --*"no limpia el fondo"*-- y la foto lo
-ensena: alrededor del juego se ve **la caja de Ejecutar con su `doom.bex` y la
+El propietario lo dijo en cinco palabras --*"no limpia el fondo"*-- y la foto lo
+muestra: alrededor del juego se ve **la caja de Ejecutar con su `doom.bex` y la
 rejilla de iconos**, tal cual estaban.
 
 ```text
@@ -3028,7 +3028,7 @@ se compila.
 
 Por que se veia siempre y nunca se miro: a escala x5 DOOM ocupa el 77 % del
 panel. El 23 % de alrededor **no lo toca nadie** -- ni DOOM, que solo pinta su
-rectangulo centrado, ni el compositor, que ya no es dueno de la pantalla.
+rectangulo centrado, ni el compositor, que ya no es propietario de la pantalla.
 
 > El que reclama la pantalla es el que tiene que dejarla como quiere
 > encontrarla. No hay nadie mas: ese es el contrato de `PANTALLA_RECLAMAR`.
@@ -3039,13 +3039,13 @@ en la ida, que es la mitad que nadie escribio dos veces.
 
 ### ★ Y EL REPORTERO DE TAMANOS TIENE UN PUNTO CIEGO, dicho antes de que confunda
 
-`tamano.py` dijo `clean: los 30 ejecutables miden lo mismo`. Con el arreglo
+`medida.py` dijo `clean: los 30 ejecutables miden lo mismo`. Con el arreglo
 puesto y quitado, `doom.bex` mide **865.408 B las dos veces** -- y las dos
 imagenes **difieren en 20.252 bytes**.
 
 ```text
    la seccion va rellenada a pagina  ->  5 bytes de `call` caben en el relleno
-   el tamano no se movio             ->  el codigo si
+   el medida no se movio             ->  el codigo si
 ```
 
 No es un fallo suyo: mide lo que dice que mide. Pero *"miden lo mismo"* se lee
@@ -3066,7 +3066,7 @@ total. Se deja tal cual, sin hipotesis -- que es lo que costo un dia el 09-09.
 
 ## Ep. 65 -- `GREEN: IS TURBO!`, o como una foto encontro el sexto fallo del codegen
 
-**2026-09-09.** El dueno manda una foto de DOOM jugando y dice *"se repite mismo
+**2026-09-09.** El propietario manda una foto de DOOM jugando y dice *"se repite mismo
 patron pero cambio mucho"*. El fondo ya sale limpio (Ep. 64). Pero arriba a la
 izquierda, en rojo, hay una linea que no deberia estar:
 
@@ -3139,7 +3139,7 @@ por la unica palabra clave de C que este parseador no leia.
 
 Cuatro casillas nuevas en `probe_signedness`, y las cuatro estaban ROJAS.
 
-### El tamano, otra vez, y ahora en grande
+### El medida, otra vez, y ahora en grande
 
 ```text
    `doom.bex`   865.408 B antes   865.408 B despues
@@ -3162,7 +3162,7 @@ cosas: si `IS TURBO!` desaparecio, si `[vivo]` sigue contando, y que dice
 
 ## Ep. 66 -- Ibamos a por los 300 ciclos y el suelo no era el suelo
 
-**2026-09-09.** El dueno pidio dos cosas: aplicar lo que quedaba dicho, y bajar
+**2026-09-09.** El propietario pidio dos cosas: aplicar lo que quedaba dicho, y bajar
 la puerta a la meta de 300 ciclos. Ninguna de las dos acabo donde empezo.
 
 ### 1. LAS BANDAS DE DOOM: dos zonas EXONERADAS, y ese es el resultado
@@ -3194,7 +3194,7 @@ sin escribir se vuelve a sospechar.
 ```
 
 *** **La fila que la casa llama EL SUELO DEL SISTEMA estaba midiendo una lectura
-de consola.** De ese numero salen el techo de 960 y la meta de 300 que el dueno
+de consola.** De ese numero salen el techo de 960 y la meta de 300 que el propietario
 pedia alcanzar.
 
 ★ Y el gemelo en C lo tenia bien: `coste_C.c` mide `BMO_OP_PID`, que `roja.h`
@@ -3211,7 +3211,7 @@ restara.
 ```
 
 ** Y el fichero **ya hacia `use bmo_userland as bmo`**. Las siete constantes
-buenas estaban a una linea. Es la misma forma que el `signed` de esta manana y
+buenas estaban a una linea. Es la misma forma que el `signed` de esta luego y
 que el patron 47: *un numero que nadie compara con su original*.
 
 ### R19, y lo que costo afinarla
@@ -3255,7 +3255,7 @@ que mide otra cosa es como se pierde una semana -- **el primer paso hacia los
 
 ## Ep. 67 -- `ciclos.bex`, y la puerta no se abarata: SE REPARTE
 
-**2026-09-09.** El dueno pidio dos cosas: un medidor mas profundo en C, y algo
+**2026-09-09.** El propietario pidio dos cosas: un medidor mas profundo en C, y algo
 mas raro -- *"que se divida en 10 lo que MAS PUEDA para que llegue el destino"*.
 
 ### [!] LA MITAD DE LA IDEA ES IMPOSIBLE, y hay que decirlo primero
@@ -3278,7 +3278,7 @@ Una puerta cuesta `FIJO + TRABAJO`, y los dos se cobran a ritmos distintos: el
 fijo **una vez por CRUCE**, el trabajo **una vez por OPERACION**. Con N
 operaciones en una puerta, el coste por operacion es `FIJO/N + TRABAJO`.
 
-**El fijo se divide. El trabajo no.** Eso es la idea del dueno, palabra por
+**El fijo se divide. El trabajo no.** Eso es la idea del propietario, palabra por
 palabra, aplicada a la pieza que si se puede partir.
 
 ### ** COMO SE MIDE EL FIJO SIN INSTRUMENTAR EL STUB: un RECHAZO
@@ -3365,7 +3365,7 @@ que me desmiente.
 ```
 
 ** Con **OCHO operaciones por puerta se cumple la meta de 300**, no cuatro: la
-proyeccion de esta manana uso el 784/86 viejo y salio optimista.
+proyeccion de esta luego uso el 784/86 viejo y salio optimista.
 
 ### EL HALLAZGO QUE NADIE BUSCABA
 
@@ -3423,10 +3423,10 @@ restaba. Las dos cosas arregladas, y ahora esa linea dice lo que el escalon 2
 mide de verdad: **lo que costaria instrumentar la puerta**, que es justo lo que
 hacian los sellos retirados.
 
-Y se anade LA ASINTOTA, que era la pregunta: `FIJO/N + TRABAJO` tiende a
+Y se agrega LA ASINTOTA, que era la pregunta: `FIJO/N + TRABAJO` tiende a
 `TRABAJO`, o sea que **el lote tiene un suelo y no es cero**.
 
-### El hot-unmapping, que el dueno pregunto y YA EXISTE
+### El hot-unmapping, que el propietario pregunto y YA EXISTE
 
 Va en `PLAN_LA_PUERTA_SE_PARTE` seccion 6b. `vmm::unmap_page` con su `invlpg`
 lo usan SIETE sitios y `fb::release` es hot-unmapping de libro. **Por ciclos va
@@ -3449,7 +3449,7 @@ que SMP funcione, cada uno de los siete sitios es un TLB shootdown con IPI.
 
 ## Ep. 69 -- M0b: el cerrojo que pagaba TODA puerta, y un instrumento que leia basura
 
-**2026-09-09.** El dueno dijo *"dale con M0b, quita el cerrojo si se puede
+**2026-09-09.** El propietario dijo *"dale con M0b, quita el cerrojo si se puede
 demostrar"*. La condicion era la mitad del encargo, y la demostracion salio en
 tres hechos que ya estaban escritos en el arbol.
 
@@ -3523,7 +3523,7 @@ Van TRES en un dia con la misma frase de la casa --los cuatro sellos `rdtsc`, el
 cerrojo del papeleo, y esto--: **un instrumento que ya dio su numero y sigue
 cobrando es un peaje, no una medida.**
 
-### El DMA, que el dueno pregunto: SI tiene oportunidad
+### El DMA, que el propietario pregunto: SI tiene oportunidad
 
 Y la puerta esta medio abierta. `plat/placa.rs:261` **ya lee el IVRS** --la
 tabla ACPI donde el firmware declara los IOMMU-- y su propio comentario lleva
@@ -3534,7 +3534,7 @@ escrito el argumento entero:
 > unico que la desactiva."*
 
 Con AMD-Vi un aparato tiene sus propias tablas de pagina, y entonces desmapear
-**si le llega al aparato**. Lo que cuesta, dicho: es un proyecto del tamano del
+**si le llega al aparato**. Lo que cuesta, dicho: es un proyecto del medida del
 VMM, no un `if`. Y se lee bajo la ley sin discutir -- el IVRS es tabla
 ESTATICA, no AML.
 
@@ -3560,7 +3560,7 @@ numeros que esta placa puede medir. Lo mide M1b.
 
 ## Ep. 70 -- M0b MEDIDO: el cerrojo era la mitad del trabajo de una puerta
 
-**2026-09-09.** Segundo arranque de `c/ciclos.bex`, con M0b puesto. El dueno
+**2026-09-09.** Segundo arranque de `c/ciclos.bex`, con M0b puesto. El propietario
 pidio ademas *"dejarlo verde para no tener mas problemas"* antes de ir al DMA, y
 eso es lo que cierra este episodio.
 
@@ -3616,7 +3616,7 @@ MINIMO y no la media.
 ```
 
 [!] Y el techo **es de UN solo arranque**, no de tres como el 915 de antes. Si
-el proximo lo pasa, el trinquete gritara y habra ensenado la dispersion -- que
+el proximo lo pasa, el trinquete gritara y habra mostrado la dispersion -- que
 es lo que un trinquete demasiado apretado hace bien. Lo que no se hace es
 ponerlo flojo por si acaso: eso es no tener trinquete.
 
@@ -3638,7 +3638,7 @@ abaratar el trabajo, o no cruzar.
 
 ## Ep. 71 -- N0 y N1 eran la misma pieza, y el embudo es un TIPO
 
-**2026-09-09.** El dueno dijo *"intenta un poco mas con eso y con el N0, ese DMA
+**2026-09-09.** El propietario dijo *"intenta un poco mas con eso y con el N0, ese DMA
 inteligente que ya sabes, mapeo y unmapping"*.
 
 ### *** N0, TAL COMO ESTABA ESCRITO, NO SE PODIA CUMPLIR
@@ -3723,7 +3723,7 @@ quien los llama desde Ring 0 --que es el unico que sabe `titular_de`--.
 
 ## Ep. 72 -- El juez habria roto el disco, y lo encontro CABLEARLO
 
-**2026-09-09.** El dueno pregunto *"entonces DMA no se puede, no? Pero... que
+**2026-09-09.** El propietario pregunto *"entonces DMA no se puede, no? Pero... que
 tan complicado es?"*. La respuesta corta: **si se puede, y la fontaneria es
 diminuta.** La larga es mejor.
 
@@ -3790,7 +3790,7 @@ vuelo no es "incompleto": es romper el disco.
 ```
 
 ★ La tercera es la que importa: un juez que mirara `es_neutro` primero dejaria
-pasar al dueno del corral sobre un bufer que **ya no es suyo**. El prestamo es
+pasar al propietario del corral sobre un bufer que **ya no es suyo**. El prestamo es
 el caso ESTRECHO --un aparato, ahora-- y por eso se mira antes.
 
 20 filas en el banco, y ninguna de las cuatro existiria si no hubiera intentado
@@ -3802,13 +3802,13 @@ cablearlo.
 
 ## Ep. 73 -- `Duenno` era la unica que doblaba la ene
 
-**2026-09-09.** El dueno: *"en Duenno reemplazar por Boss u otro nombre porque
+**2026-09-09.** El propietario: *"en Duenno reemplazar por Boss u otro nombre porque
 eso pide la ene con tilde"*. Tiene razon, y hay un argumento mejor que "es feo".
 
 ### La casa QUITA la ene con tilde. `Duenno` la DOBLABA
 
 ```text
-   tamano   pequeno   anio   senal   ninguno      <- se quita
+   medida   chico   anio   signal   ninguno      <- se quita
    Duenno                                        <- se doblaba
 ```
 
@@ -3820,7 +3820,7 @@ todo el arbol confirma que era la unica: los demas `nn` son `channel`, `inner`,
 ### El nombre: `Titular`, y no `Boss`
 
 ```text
-   Titular   espanol, sin ene con tilde, y MAS PRECISO: un titular es quien
+   Titular   castellano, sin ene con tilde, y MAS PRECISO: un titular es quien
              tiene el TITULO de algo, que es justo lo que la etiqueta dice
    Boss      seria el unico sustantivo ingles en una capa que es `Marco`,
              `Peticion`, `Veto`, `Prenda`, `carril`, `cuesta`. Y "jefe" implica
@@ -3831,12 +3831,12 @@ todo el arbol confirma que era la unica: los demas `nn` son `channel`, `inner`,
 
 ```text
    duenno  (nn)  el TIPO                      73 veces
-   dueno   (n)   la prosa sobre el DUENO       852 veces
+   propietario   (n)   la prosa sobre el DUENO       852 veces
 ```
 
 *** Las dos palabras eran **distinguibles por un `sed`**, y eso no se dio por
-hecho: se conto primero. Renombrar `dueno` habria convertido ochocientas
-cincuenta menciones al dueno del proyecto en "el titular del proyecto".
+hecho: se conto primero. Renombrar `propietario` habria convertido ochocientas
+cincuenta menciones al propietario del proyecto en "el titular del proyecto".
 
 ### 32 ficheros, y el guardian se renombro solo
 
@@ -3853,13 +3853,13 @@ vez de dejar que un `grep` de dentro de tres meses no encuentre nada.
 
 ## Ep. 74 -- La ene caida tiro de un hilo, y al final del hilo estaba INTI
 
-**2026-09-09.** El dueno lo pidio de pasada y riendose: *"si encuentras `anio` y
+**2026-09-09.** El propietario lo pidio de pasada y riendose: *"si encuentras `anio` y
 otros sustantivos, eso suena feo, e ironicamente sabes por que"*. Si lo sabia.
 Lo que no sabia era donde acababa el hilo.
 
 ### La regla de la casa, y las DOS que la rompen
 
-Aqui se **quita** la virgulilla: `tamano`, `pequeno`, `senal`, `ninguno`.
+Aqui se **quita** la virgulilla: `medida`, `chico`, `signal`, `ninguno`.
 Funciona porque lo que queda no es ninguna palabra. Con dos no funciona -- una
 de ellas ES otra palabra, y no es la que se queria decir.
 
@@ -4014,7 +4014,7 @@ El kernel crecio **4.392 B**. Ese es el precio, y esta dicho.
 
 ## Ep. 76 -- N4b, y el fichero que faltaba en `NEUTRO/DMA`
 
-**2026-09-09.** El dueno: *"continua, que mas faltan con DMA. Pero me hice
+**2026-09-09.** El propietario: *"continua, que mas faltan con DMA. Pero me hice
 pregunta: DMA inteligente? ... es gracioso que no haya archivo XD"*.
 
 ### La carpeta SI tenia dos ficheros -- pero le faltaba el que preguntaba
@@ -4035,7 +4035,7 @@ las tres YA ESTAN en este arbol**.
 ** Ninguna es mejor. Cada una cambia una cosa por otra:
 
 ```text
-   corral     no se devuelve la memoria    -> flujo constante y tamano conocido
+   corral     no se devuelve la memoria    -> flujo constante y medida conocido
    prestado   hay que llevar la cuenta     -> el destino ya sirve tal cual
    rebote     dos `memcpy` por operacion   -> el destino NO sirve
 ```
@@ -4161,7 +4161,7 @@ sobraba desde antes.
 
 ## Ep. 78 -- N3: el censo contra la maquina, y son OCHO reglas
 
-**2026-09-09.** El dueno pidio dos cosas: N3, y *"crea reglas ESTRICTAS de DMA,
+**2026-09-09.** El propietario pidio dos cosas: N3, y *"crea reglas ESTRICTAS de DMA,
 cuales son EN GENERAL, que SIEMPRE es DMA cualquiera de ellas, para ser
 convertido en DMA inteligente"*. La segunda ordena la primera.
 
@@ -4196,7 +4196,7 @@ sabe decir que no**.
 
 ### ★★ Y LAS OCHO REGLAS: `NEUTRO/DMA/REGLAS.txt`
 
-La frase del dueno lleva dentro la idea que ordena todo el DMA:
+La frase del propietario lleva dentro la idea que ordena todo el DMA:
 
 > Las reglas no estrechan la eleccion. Son lo que la hace LIBRE.
 
@@ -4209,7 +4209,7 @@ entonces nadie lo cambiaria nunca.
 ```text
    R-DMA-1  toda direccion pasa por el juez     el TIPO `Prenda`
    R-DMA-2  todo vuelo se marca y se quita      vivos = 0 al apagar
-   R-DMA-3  un marco en vuelo no cambia dueno   pisados = 0
+   R-DMA-3  un marco en vuelo no cambia propietario   pisados = 0
    R-DMA-4  un marco, un aparato                choques = 0
    R-DMA-5  todo aparato censado                R5a build + R5b arranque
    R-DMA-6  la FORMA esta declarada             `Peticion.prestando`
@@ -4298,7 +4298,7 @@ Sin probar en metal.
 El panel `consumo` multiplicaba por **969 ciclos**: la puerta del 17-08. M0b la
 bajo a **675 ticks** el 09-09 y nadie cambio la constante. Y encima estaba mal
 de unidad: dividia ciclos entre la frecuencia del TSC, que cuenta ticks. Lo vio
-el dueno leyendo la pantalla.
+el propietario leyendo la pantalla.
 
 > Un numero copiado a mano tiene fecha aunque no la lleve escrita.
 
@@ -4316,7 +4316,7 @@ Sonido y ESTRUCTURA se quedaban borradas -- y el propio `uncover` lo tenia escri
 como *"hueco conocido"*. Con el degradado oscuro casi no se veia; con una foto
 de colores, si.
 
-El arreglo no toca los ~30 sitios que borran: **borrar apunta** (`scene/dano.rs`,
+El arreglo no toca los ~30 sitios que borran: **borrar apunta** (`scene/perjuicio.rs`,
 ocho rectangulos sueltos) y el cierre del fotograma devuelve las ventanas que
 tocan lo apuntado, las de debajo primero y la de arriba al final (`39430e3d`).
 
@@ -4336,11 +4336,11 @@ ICMP, UDP y TCP, 49 pruebas.
 
 | ley | que significa aqui |
 |---|---|
-| determinista | la hora entra como argumento; reintentos 1-2-4-8-16-32 s sin estimar RTT; sin cola de reensamblado; tamanos fijos |
+| determinista | la hora entra como argumento; reintentos 1-2-4-8-16-32 s sin estimar RTT; sin cola de reensamblado; medidas fijos |
 | lista blanca | fuera VLAN, IPv6, opciones IP, fragmentos, ICMP que no es eco, banderas de escaner, UDP sin suma |
 | el NO se dice | cada rechazo lleva su `Rechazo`, con nombre |
 
-Y lo que la experiencia de otras pilas ensena: ARP que **no aprende lo que no
+Y lo que la experiencia de otras pilas muestra: ARP que **no aprende lo que no
 pregunto** (envenenamiento), RST que solo corta con la secuencia EXACTA y SYN en
 una conexion viva que da ACK de reto (RFC 5961), ISN por HMAC-SHA256 de
 `bmo-cripto` (RFC 6528), puerto cerrado que no contesta ni RST, y veinte mil
@@ -4390,7 +4390,7 @@ a la raiz, la traduccion del pulso al `Tick`).
 
 [!] El guardian no vio `bmo-foco` en su primera vuelta: contaba con `git ls-files`
 y el crate nuevo no estaba en git. **Lo que se escapa de un censo es justo lo que
-se esta anadiendo.**
+se esta agregando.**
 
 > El espagueti no estaba donde lo declara el `Cargo.toml`, sino donde nadie lo
 > declara: en los `use` de dentro.
@@ -4444,7 +4444,7 @@ medida: el orden que menos sube deja 22 aristas, y esas van a la base.
 `obj` le hace 21 usos, `plat` 11-- y `mirador <-> core` sustituye a `cabina <->
 core`. Es el siguiente corte.
 
-> Un nudo no siempre es un mal diseno de las relaciones: a veces es un solo
+> Un nudo no siempre es un mal esquema de las relaciones: a veces es un solo
 > nombre para dos oficios.
 
 ## Ep. 83 -- La red recibe, tiene su carril, y aprende a pagar una sola vez
@@ -4511,7 +4511,7 @@ seccion 4 de `docs/plan/PLAN_RED_TX.md`, y el muro es TLS 1.3.
 Ryzen en veinte sitios. Se quito del arbol --pruebas con una MAC de ejemplo,
 documentos recortados al fabricante--, y la pantalla y CABINA ya solo imprimen
 los tres primeros bytes. La historia de git la conserva: reescribirla es
-decision del dueno. BMO-X no conoce la IP publica, que es la unica que dice
+decision del propietario. BMO-X no conoce la IP publica, que es la unica que dice
 donde vive alguien, y no la pregunta.
 
 ## Ep. 84 -- El router contesto, y BMO-X pide su propia IP
@@ -4543,7 +4543,7 @@ lo lleva en tiempo real desde el escritorio, y la IP concedida vive en memoria.
 hay routers que mandan el DHCP asi. Si pasa, `red ip` lo dira por su nombre.
 
 **Y el metal contesto el mismo dia:** `red ip` dijo `CONCEDIDA`, con dos horas de
-concesion, router, mascara y DNS, y `red perfil` ensena la IP propia. La duda de
+concesion, router, mascara y DNS, y `red perfil` muestra la IP propia. La duda de
 la suma no llego a existir: el router la pone. G2 hecho.
 
 ### G3 y G4, escritos detras

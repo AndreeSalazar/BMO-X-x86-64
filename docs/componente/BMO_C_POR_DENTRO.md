@@ -132,7 +132,7 @@ aqui el flojo escribe y el fuerte ni se entera.
 ⚠ **Y el motivo escrito para dejar la aritmetica fuera no cubre el caso que
 rompio.** El comentario dice:
 
-> *"Se anaden solo estos y no la aritmetica: el tipo de `a + b` pide las
+> *"Se agregan solo estos y no la aritmetica: el tipo de `a + b` pide las
 > conversiones usuales de C, y equivocarse aqui no da un error, da un `memset`
 > de la medida equivocada."*
 
@@ -219,7 +219,7 @@ se cierre. **Sirve de juez, no de tarea.**
 
 ## 7. EL 2.0, PASO 1 -- HECHO el 2026-09-02
 
-El arreglo **no fue anadir dos brazos**: fue que las dos funciones dejaran de
+El arreglo **no fue agregar dos brazos**: fue que las dos funciones dejaran de
 existir por separado.
 
 ```
@@ -275,8 +275,8 @@ iba del array, y `ds->scale` acababa leyendose con `ds` a NULO -- que es el
    ahora   E2B9AAC1203BBB008D32DF67E65D82304D00BAE67507D5057388DF296B690DEA
 ```
 
-*** El tamano identico es la trampa: lo que cambia es un byte inmediato, no una
-instruccion. **Comparar tamanos habria dicho "no se reconstruyo".** El unico
+*** El medida identico es la trampa: lo que cambia es un byte inmediato, no una
+instruccion. **Comparar medidas habria dicho "no se reconstruyo".** El unico
 juez de si un binario cambio es su hash.
 
 [!] Y esto NO dice que DOOM se juegue. Dice que la causa medida en el anfitrion
@@ -337,7 +337,7 @@ significar dos cosas muy distintas --que todo cuadra, o que no mira--, asi que
    coinciden -> compila            (sin esta, un cotejo que rechaza SIEMPRE
                                     tambien pasaria por guardian)
    un offset movido un byte -> NO, y el mensaje nombra agregado Y campo
-   un tamano que no cuadra  -> NO, y dice que lo que falla es el tamano
+   un medida que no cuadra  -> NO, y dice que lo que falla es el medida
    `disposiciones` vacio    -> compila: ese frontend no declara la suya
 ```
 
@@ -467,7 +467,7 @@ cuya cabecera ya decia que las formas de llegar a un elemento son una sola suma.
 ```
 
 Y DOOM cambia de binario **en cada uno de los tres arreglos**, con el mismo
-tamano de siempre:
+medida de siempre:
 
 ```
    antes de todo   B72EAC9AA44337C9...

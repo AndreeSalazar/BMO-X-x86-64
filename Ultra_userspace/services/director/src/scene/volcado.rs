@@ -32,7 +32,7 @@
 //! La cabecera de `Volcado::cajas` ya dejo escrito el diagnostico entero:
 //!
 //! ```text
-//!    peor pequeno  + cajas 2 o 3   el troceado TRABAJA
+//!    peor chico  + cajas 2 o 3   el troceado TRABAJA
 //!    peor de 8 MB  + cajas 1       degenero: se vuelca la pantalla entera,
 //!                                  y el sospechoso es `COSTE_DE_UNA_CAJA`
 //! ```
@@ -76,11 +76,11 @@ pub(crate) fn olvidar() {
     super::huella::olvidar(unsafe { &mut *core::ptr::addr_of_mut!(HUELLA) });
 }
 
-/// Todo lo que esta caja ensena, en un numero.
+/// Todo lo que esta caja muestra, en un numero.
 ///
 /// ** Los cuatro campos, y ni uno menos: una firma que se deja fuera algo que SI
 /// se pinta congela el chip sin decirlo. `peor` va en KiB porque es lo que se
-/// ensena --los bytes de mas no cambian el dibujo-- y `fotogramas` entra solo
+/// muestra --los bytes de mas no cambian el dibujo-- y `fotogramas` entra solo
 /// como *"hubo alguno"*, que es la unica pregunta que este chip le hace.
 fn firma(v: &bmo::Volcado) -> u64 {
     let ninguno = matches!(v.modo, bmo::Volcador::Ninguno) as u64;
@@ -93,7 +93,7 @@ pub(crate) fn refrescar(p: &bmo::Pantalla, v: &bmo::Volcado) {
     // ** NO SE REPINTA LO QUE YA ESTA. `peor` es un maximo --sube y se queda-- y
     // `cajas` cambia con el. O sea que este chip cambia unas pocas veces en toda
     // una sesion y se estaba redibujando en cada fotograma que pinta: 6.000
-    // pixeles por vuelta para ensenar el mismo numero. Ver `super::huella`.
+    // pixeles por vuelta para mostrar el mismo numero. Ver `super::huella`.
     if !cambio(unsafe { &mut *core::ptr::addr_of_mut!(HUELLA) }, firma(v)) {
         return;
     }

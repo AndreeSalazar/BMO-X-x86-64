@@ -1,4 +1,4 @@
-//! **BEF2** -- el formato de un programa de BMO-X, disenado desde lo que el
+//! **BEF2** -- el formato de un programa de BMO-X, trazado desde lo que el
 //! cargador HACE y no desde ELF.
 //!
 //! [carril]  ROJO     es la frontera: lo que el kernel lee antes de mapear nada
@@ -153,7 +153,7 @@ pub const ANEXO_KATANAS: u8 = 0x06;
 /// autopsia: `SHA1_Update+0x18` en vez de `rip 0x400815f2`
 /// (`Ultra_userspace/services/director/src/simbolos.rs`).
 ///
-/// ** El primer diseno los prohibia en un ejecutable -- *"se enlazo estatico,
+/// ** El primer esquema los prohibia en un ejecutable -- *"se enlazo estatico,
 /// no hay nada que resolver"* -- y eso habria roto esa anotacion sin que nadie
 /// se enterara hasta el siguiente fallo en el Ryzen. Son data para OTRO: el
 /// kernel los SALTA, que es lo que hace que puedan viajar.
@@ -202,7 +202,7 @@ pub const FIRMA_ANEXO: u8 = 0x80;
 /// parte 2b, apuntado el 2026-08-10 y HECHO el 2026-09-20). Hasta hoy los
 /// hashes cubrian las regiones y los anexos y NADIE cubria lo que dice donde
 /// esta cada cosa: un `.bex` firmado admitia que le cambiaran la ENTRADA, el
-/// `xcr0`, los `ceros` o el tamano de un anexo sin que ninguna comprobacion
+/// `xcr0`, los `ceros` o el medida de un anexo sin que ninguna comprobacion
 /// se quejara -- el hash de la region cuadraba igual, porque la region no
 /// habia cambiado; habia cambiado a DONDE saltaba el kernel.
 ///

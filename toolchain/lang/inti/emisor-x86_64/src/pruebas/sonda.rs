@@ -76,7 +76,7 @@ fn los_dos_bordes_salen_enteros() {
 ///
 /// Que se compruebe AQUI y no solo en el metal es lo que hace util la linea del
 /// informe: si el emulador ya dice cero, un cero en el Ryzen confirma; y un
-/// numero distinto en el Ryzen senala al silicio y no a la sonda.
+/// numero distinto en el Ryzen marca al silicio y no a la sonda.
 #[test]
 fn las_cuentas_de_bits_de_la_sonda_dan_cero_en_el_emulador() {
     let fuente = format!(

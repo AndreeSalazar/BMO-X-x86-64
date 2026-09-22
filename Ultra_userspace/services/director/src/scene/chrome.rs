@@ -105,7 +105,7 @@ pub(crate) struct Chrome {
     /// de pantalla completa se vuelve a lo que hubiera, maximizado incluido.
     fs: Option<(u32, u32, u32, u32)>,
     /// Abierta pero escondida. **No es lo mismo que cerrada**: una minimizada
-    /// conserva su sitio, su tamano y lo que estuviera mirando.
+    /// conserva su sitio, su medida y lo que estuviera mirando.
     pub(crate) minimized: bool,
     /// Que boton tiene el puntero encima, para realzarlo. Se lleva como estado
     /// porque el realce solo se repinta cuando CAMBIA -- repintarlo cada
@@ -131,11 +131,11 @@ impl Chrome {
     ///
     /// === Por que no en pixeles ===
     ///
-    /// Porque `640 x 330` es un tamano correcto en la pantalla del que lo
+    /// Porque `640 x 330` es un medida correcto en la pantalla del que lo
     /// escribio y ninguna otra. En una 4K es un sello de correos; en una
-    /// 1024x768 no cabe. Un tamano en tantos por ciento se adapta solo, y los
+    /// 1024x768 no cabe. Un medida en tantos por ciento se adapta solo, y los
     /// minimos --que si son absolutos, porque el texto mide lo que mide--
-    /// impiden que en una pantalla pequena quede ilegible.
+    /// impiden que en una pantalla chica quede ilegible.
     pub(crate) fn new(
         p: &bmo::Pantalla,
         pct_w: u32,
@@ -169,11 +169,11 @@ impl Chrome {
         }
     }
 
-    /// Una ventana **del tamano de su contenido**, mas el cromo.
+    /// Una ventana **del medida de su contenido**, mas el cromo.
     ///
     /// === Por que esta si va en pixeles, cuando `new` no ===
     ///
-    /// Porque aqui el tamano no lo elige el escritorio: **lo eligio la app**. Una
+    /// Porque aqui el medida no lo elige el escritorio: **lo eligio la app**. Una
     /// superficie de 640x400 mide eso, y darle un 40 % de la pantalla la
     /// estiraria o la dejaria con un borde muerto alrededor. El argumento contra
     /// los pixeles --que `640x330` solo es correcto en la pantalla del que lo
@@ -231,9 +231,9 @@ impl Chrome {
     /// quien llama sepa que trozo hay que repintar.
     ///
     /// ** Se come la barra, y eso aqui SI es correcto: una app a pantalla
-    /// completa es la que el dueno esta mirando entera, y la salida no es una
+    /// completa es la que el propietario esta mirando entera, y la salida no es una
     /// ficha de la barra sino la misma tecla con la que entro. Lo que no se
-    /// puede es dejar al dueno sin salida, y Alt+Enter es simetrico.
+    /// puede es dejar al propietario sin salida, y Alt+Enter es simetrico.
     pub(crate) fn toggle_fullscreen(&mut self, p: &bmo::Pantalla) -> (u32, u32, u32, u32) {
         let old = (self.x, self.y, self.width, self.height);
         match self.fs.take() {
@@ -296,7 +296,7 @@ impl Chrome {
 
     /// Cae en la esquina de estirar, la de abajo a la derecha?
     pub(crate) fn on_the_corner(&self, px: u32, py: u32) -> bool {
-        // Ni esquina que estirar: el tamano lo pone el panel.
+        // Ni esquina que estirar: el medida lo pone el panel.
         if self.is_fullscreen() {
             return false;
         }
@@ -313,7 +313,7 @@ impl Chrome {
     /// Empieza a arrastrar o a estirar. `true` si agarro algo.
     ///
     /// La esquina se mira ANTES que el asa: si se solaparan --una ventana en su
-    /// tamano minimo--, gana estirar, porque es la zona mas pequena y la que no
+    /// medida minimo--, gana estirar, porque es la zona mas chica y la que no
     /// se puede acertar de otra forma.
     pub(crate) fn grab(&mut self, px: u32, py: u32) -> bool {
         if self.on_the_corner(px, py) {
@@ -379,7 +379,7 @@ impl Chrome {
     // ** El raton no es la unica mano.** Todo lo de arriba --agarrar, seguir al
     // puntero, la esquina-- exige un puntero, y hay dos momentos en los que no
     // lo hay: cuando la ventana se ha quedado con el asa fuera de la pantalla y
-    // cuando el dueno esta escribiendo y no quiere soltar el teclado.
+    // cuando el propietario esta escribiendo y no quiere soltar el teclado.
     //
     // Va en el marco y no en el compositor por la misma ley que el resto del
     // modulo: esto son rectangulos y topes. Que tecla lo dispara es politica, y
@@ -474,7 +474,7 @@ impl Chrome {
         true
     }
 
-    /// Maximizar, o volver al tamano de antes. Devuelve la geometria VIEJA para
+    /// Maximizar, o volver al medida de antes. Devuelve la geometria VIEJA para
     /// que quien llama sepa que trozo de pantalla tiene que repintar.
     ///
     /// Maximizada NO es "pantalla completa": deja la barra del sistema a la

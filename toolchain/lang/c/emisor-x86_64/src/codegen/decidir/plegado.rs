@@ -157,7 +157,7 @@ pub(in crate::codegen) fn constante_flotante(e: &Expr) -> Option<f64> {
 /// `None`, y entonces el emisor hace lo de siempre: emitir el calculo.
 ///
 /// ** Esto es lo que mata el `imul` de `d8 = d8 + 1`: la suma de punteros
-/// construye un producto de dos constantes en el AST --el uno y el tamano del
+/// construye un producto de dos constantes en el AST --el uno y el medida del
 /// elemento-- y hasta hoy lo multiplicaba el CPU en cada vuelta.
 pub(in crate::codegen) fn constante_para_emitir(e: &Expr) -> Option<i64> {
     // *** LA RAIZ TIENE QUE SER `+`, `-` O `*`, Y ESO LO DIJO EL BANCO.
@@ -260,7 +260,7 @@ pub(in crate::codegen) fn cast_redundante(t: &TypeSpec, inner: &Expr) -> bool {
 /// ```
 ///
 /// Dos accesos a memoria menos **en cada operacion binaria con una constante a
-/// la derecha**, que en C es casi todas: los indices, los tamanos, las mascaras
+/// la derecha**, que en C es casi todas: los indices, los medidas, las mascaras
 /// y los pasos de puntero.
 ///
 /// [!] Y lo que se contesta aqui es exactamente *"que emite `emit_expr`"*, asi

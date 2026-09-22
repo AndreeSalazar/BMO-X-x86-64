@@ -43,7 +43,7 @@ use bmo_fisica_juicio::se_puede_caminar;
 /// puestas para siempre. La pregunta que lo bloqueaba no era "donde estan" sino
 /// **"cuales son mios"** -- porque en el mismo espacio conviven el framebuffer
 /// (que es MMIO: devolverlo al asignador de RAM es corrupcion) y los marcos
-/// prestados, que por diseno sobreviven al que los presto.
+/// prestados, que por esquema sobreviven al que los presto.
 ///
 /// La salida obvia era llevar una lista por proceso. Pero **la tabla de paginas
 /// YA ES esa lista**: tiene todos los marcos, uno por entrada, mantenida por el
@@ -159,8 +159,8 @@ pub fn map_page(pml4: u64, va: u64, pa: u64, user: bool, writable: bool) -> Resu
 /// y no lo sabe nadie mas: **la imagen y la pila de usuario**. No se pide para:
 ///
 /// - el **framebuffer**, que es MMIO y no salio del asignador de RAM;
-/// - lo **prestado**, que sobrevive al que lo presto por diseno;
-/// - los bloques de `KIND_MEMORIA`, que tienen dueno explicito -- `obj::memory`
+/// - lo **prestado**, que sobrevive al que lo presto por esquema;
+/// - los bloques de `KIND_MEMORIA`, que tienen propietario explicito -- `obj::memory`
 ///   los ficha con su fisica y los libera el mismo, **y ademas pregunta antes
 ///   si estan prestados**. Marcarlos aqui seria liberarlos dos veces y saltarse
 ///   esa pregunta.
@@ -319,18 +319,18 @@ pub fn unmap_page(pml4: u64, va: u64) -> Option<u64> {
 /* -- ** VUELVE A CASA (2026-08-31) ------------------------------------------
  *
  * Esto vivio dos dias en `ring0/critic/amarilla.rs`, una carpeta GLOBAL que fue
- * mi primera lectura --equivocada-- de L6g. El dueno la corrigio dos veces y la
+ * mi primera lectura --equivocada-- de L6g. El propietario la corrigio dos veces y la
  * segunda fue con el nombre: *"no me gusta esa palabra ahi"*.
  *
  * *** Y tenia razon por debajo del nombre. `amarilla` es el color de un carril,
  * y **un color solo significa algo DENTRO de un modulo**: amarilla respecto a
- * que? Una carpeta global con nombre de carril es la senal ilegible justo en el
- * sitio donde la senal era el objetivo.
+ * que? Una carpeta global con nombre de carril es la signal ilegible justo en el
+ * sitio donde la signal era el objetivo.
  *
  * ** Lo que sujetaba a las dos juntas ya no hace falta que las junte. Estaban
  * en el mismo fichero porque cada una tenia SU techo y divergieron --16 GiB
  * contra 64 TiB, dos pantallas azules el 30-08--. Hoy las dos preguntan a
- * `bmo-fisica-juicio`, que **no tiene ni una constante de tamano**: el espejo se
+ * `bmo-fisica-juicio`, que **no tiene ni una constante de medida**: el espejo se
  * le pasa en cada llamada. No hay dos numeros que mantener de acuerdo, hay uno,
  * y por eso pueden vivir cada una en su casa.
  *
@@ -343,7 +343,7 @@ pub fn unmap_page(pml4: u64, va: u64) -> Option<u64> {
 ///
 /// # *** POR QUE ESTO EXISTE: el #GP del 2026-08-25
 ///
-/// El dueno multiplico en la calculadora, la app murio, y **el kernel murio
+/// El propietario multiplico en la calculadora, la app murio, y **el kernel murio
 /// detras** con un `#GP` en esta funcion:
 ///
 /// ```text
@@ -379,7 +379,7 @@ pub fn unmap_page(pml4: u64, va: u64) -> Option<u64> {
 ///
 /// # *** Y VOLVIO A MATAR LA MAQUINA EL 2026-08-30. El techo estaba mal.
 ///
-/// Misma funcion, segunda pantalla azul. El dueno abrio DOOM y salio esto:
+/// Misma funcion, segunda pantalla azul. El propietario abrio DOOM y salio esto:
 ///
 /// ```text
 ///    vec=0x0E  err=0x00000000   no-presente  leyendo  desde el KERNEL
@@ -425,10 +425,10 @@ pub fn unmap_page(pml4: u64, va: u64) -> Option<u64> {
 // Habia una constante local --`FISICA_MAX`-- y ESA constante fue el bug: decia
 // `1 << 46` donde `PHYSMAP_SIZE` ya existia. Ahora no hay ninguna: la
 // comparacion se la hace `bmo-fisica-juicio`, que **no tiene ni un numero de
-// tamano propio** --se le pasa el espejo en cada llamada-- y que si se puede
+// medida propio** --se le pasa el espejo en cada llamada-- y que si se puede
 // probar en el anfitrion.
 //
-// ** Un fichero sin constante de tamano no puede tener una constante de tamano
+// ** Un fichero sin constante de medida no puede tener una constante de medida
 // mal. Es la regla 3 de L6g cumplida quitando la posibilidad, no vigilandola.
 
 /// ** Y LAS CUATRO FRASES SE ACORTARON EL 2026-08-25, POR UN MOTIVO MEDIDO.
@@ -487,7 +487,7 @@ pub(crate) fn caminable(
     //
     // [!] Y esto refuerza la sospecha que ya hay sobre la mesa: `get_or_create`
     // escribe `fisica | 0x7` (PRESENT|WRITABLE|USER) o `| 0x3` sin usuario. **No
-    // hay ningun camino que escriba un `1` pelado**, y el Ryzen enseno dos. Un
+    // hay ningun camino que escriba un `1` pelado**, y el Ryzen mostro dos. Un
     // valor que este fichero no sabe producir no salio de este fichero.
     crate::ring0::cabina::fault("vmm", "y estaba en tabla|casilla", tabla | casilla as u64);
     // *** Y AQUI SE LEVANTA LA PATADA (2026-08-26).

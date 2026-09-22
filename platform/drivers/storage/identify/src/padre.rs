@@ -38,10 +38,10 @@
 //! # ** Y la guarda que la spec repite: bit 15 a cero Y bit 14 a uno
 //!
 //! Las palabras 106 y 209 solo son validas si `bit15 == 0 && bit14 == 1`. Es el
-//! idioma que ATA uso para anadir campos a una estructura que ya estaba
+//! idioma que ATA uso para agregar campos a una estructura que ya estaba
 //! desplegada: un disco viejo deja la palabra a `0000h` o a `FFFFh`, y las dos
 //! fallan la guarda. **Sin comprobarla, un disco de 2003 declara una geometria
-//! inventada** -- y como es un numero pequeno y plausible, se cree.
+//! inventada** -- y como es un numero chico y plausible, se cree.
 
 use crate::abuelo::Identify;
 
@@ -169,7 +169,7 @@ impl Enlace {
 // LA GEOMETRIA -- palabras 106 y 209
 // ---------------------------------------------------------------------------
 
-/// El tamano del sector fisico y donde cae el LBA 0 dentro de el.
+/// El medida del sector fisico y donde cae el LBA 0 dentro de el.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Geometria {
     /// **Exponente**: hay `2^exponente` sectores logicos en uno fisico.

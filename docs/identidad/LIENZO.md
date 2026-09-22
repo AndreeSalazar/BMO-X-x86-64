@@ -27,8 +27,8 @@
 
 # ✅ ESTADO AL 2026-08-07 -- LEASE ESTO PRIMERO
 
-El diseno de abajo se **construyo, y por el camino cambio dos veces por
-preguntas del dueno**. Las dos veces salio mas pequeno. Lo que hay hoy en el
+El esquema de abajo se **construyo, y por el camino cambio dos veces por
+preguntas del propietario**. Las dos veces salio mas chico. Lo que hay hoy en el
 codigo es esto:
 
 ## Lo que esta HECHO y compila
@@ -59,7 +59,7 @@ memoria y **no sabe para que**: quien, cuanto y cuando lo decide el compositor.
 Es el patron de **seL4**, y de regalo sirve para audio, captura de video y
 bloques grandes entre procesos.
 
-> **El kernel salio mas pequeno que antes de empezar: -309 lineas, +265.**
+> **El kernel salio mas chico que antes de empezar: -309 lineas, +265.**
 
 ## Lo que FALTA, y es todo de Ring 3
 
@@ -84,7 +84,7 @@ Ninguna de las tres toca memoria virtual. Es la parte tranquila.
 ---
 
 
-> Escrito el **2026-08-07**, antes de tocar una linea de codigo. Idea del dueno:
+> Escrito el **2026-08-07**, antes de tocar una linea de codigo. Idea del propietario:
 > *"el `gui.bex` es el principal de escritorio, ahi se queda; otro que sea el
 > reflejo de las apps para que convivan en pantalla, como en Windows abro Dota 2
 > y me sale su ventana"*.
@@ -97,7 +97,7 @@ Ninguna de las tres toca memoria virtual. Es la parte tranquila.
 
 # ★ 1. EL PROBLEMA, EN UNA LINEA
 
-**La pantalla tiene un solo dueno.** `TASK_OP_FRAMEBUFFER_CLAIM` la entrega
+**La pantalla tiene un solo propietario.** `TASK_OP_FRAMEBUFFER_CLAIM` la entrega
 entera, y `gui.bex` la reclama al arrancar. Cualquier otro programa que la pida
 recibe un no -- es lo que le paso al raycaster el 07-08.
 
@@ -121,7 +121,7 @@ memoria es mi ventana"*.
 
 > **Eso es un CONTRATO, no un proceso.** Contratos y formatos, nunca cerebros.
 
-El nombre del contrato es **lienzo**: quien pinta es dueno del lienzo, y el
+El nombre del contrato es **lienzo**: quien pinta es propietario del lienzo, y el
 marco lo pone otro. Ese es exactamente el reparto.
 
 ---
@@ -130,7 +130,7 @@ marco lo pone otro. Ese es exactamente el reparto.
 
 | | Que es | Estado |
 |---|---|---|
-| **La superficie** | un bloque de memoria del que el kernel sabe base y tamano | ✅ **existe** |
+| **La superficie** | un bloque de memoria del que el kernel sabe base y medida | ✅ **existe** |
 | **El registro** | como la app le dice al compositor que ese bloque es su ventana | ❌ hay que hacerlo |
 | **El volcado** | como los pixeles llegan a la pantalla | ❌ hay que hacerlo |
 
@@ -141,7 +141,7 @@ apuntados**. Esa es la propiedad que lo hace todo posible, y no es teoria: es
 exactamente el mecanismo que hizo posible `fread` esta misma semana --
 `ARCH_OP_LEER_EN` no valida punteros, valida **lo que el kernel concedio**.
 
-**Los numeros medidos**, que deciden el diseno:
+**Los numeros medidos**, que deciden el esquema:
 
 ```
   MAX_BYTES        64 MiB por bloque
@@ -208,7 +208,7 @@ sincronizacion entre procesos. Es mas rapido y es **otro proyecto**.
 
 ### Camino C -- **REFLEJO**: la app pinta donde se va a ver
 
-Pregunta del dueno, y es la buena: *"por que copiar? Que sea un reflejo. Copiar
+Pregunta del propietario, y es la buena: *"por que copiar? Que sea un reflejo. Copiar
 era el sistema de antes, no el de BMO-X"*.
 
 La idea: el bloque de la app **no es una copia de su ventana, ES su ventana** --
@@ -289,7 +289,7 @@ Tres respuestas, en orden de coste:
    medido-primero. Ocho veces menos vueltas.
 3. **★ SDMA.** Y aqui se cierra un circulo: **esto es exactamente la "meta A" de
    `PLAN_VULKAN.md`** -- usar el motor de copia de la GPU para mover rectangulos.
-   No para juegos: para esto. Del tamano del driver de AHCI, no del proyecto.
+   No para juegos: para esto. Del medida del driver de AHCI, no del proyecto.
 
 O sea que el lienzo no solo no compite con el plan de la GPU: **le da su primer
 motivo real**.
@@ -304,7 +304,7 @@ de ventanas:
 - **El lienzo es de la app.** Si la app muere, `cap::revoke_all` ya le quita el
   bloque -- la maquinaria existe y se probo el 07-08, cuando el compositor
   panico y el kernel recupero la pantalla solo.
-- **El marco es del compositor.** Posicion, tamano, z-order, el boton de cerrar.
+- **El marco es del compositor.** Posicion, medida, z-order, el boton de cerrar.
   La app no decide donde esta su ventana, igual que en cualquier escritorio
   serio.
 - **Una app que muere deja su entrada en la tabla como muerta**, y el
@@ -343,11 +343,11 @@ eso van aqui y no en el codigo.
 2. **El formato lo fija el kernel o lo declara la app?** Fijarlo (XRGB de 32
    bits, como el framebuffer) evita un conversor. Declararlo abre la puerta a
    una app que pinte en 8 bits con paleta -- **que es justo lo que hace DOOM**.
-3. **El tamano es fijo al registrar, o puede cambiar?** Fijo es una tabla;
+3. **El medida es fijo al registrar, o puede cambiar?** Fijo es una tabla;
    variable es renegociar el bloque en caliente, con la app pintando.
 4. **Cuantas operaciones nuevas se aceptan?** Este documento propone **tres**:
    registrar, preguntar, volcar. Es la primera vez en toda la semana que se le
-   anaden operaciones permanentes a la superficie, y conviene que sean pocas y
+   agregan operaciones permanentes a la superficie, y conviene que sean pocas y
    que cada una se gane el sitio.
 
 ---

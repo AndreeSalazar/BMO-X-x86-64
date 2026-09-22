@@ -166,7 +166,7 @@ fn u32_en(b: &[u8], i: usize) -> Option<u32> {
 /// Va aparte porque lo necesitan los dos lados --el que escribe y el que lee--
 /// y porque la cuenta se hace **en `u64`**: `hash_count` viene del fichero, o
 /// sea de fuera, y `8 + n*40` con `n` hostil da la vuelta en 32 bits y contesta
-/// un desplazamiento pequeno que cae DENTRO de la seccion. Es el mismo fallo
+/// un desplazamiento chico que cae DENTRO de la seccion. Es el mismo fallo
 /// que `LasCuentasNoCaben` en la cara que viaja.
 pub fn donde_esta_la_firma(seccion: &[u8]) -> Option<usize> {
     let cuantos = u32_en(seccion, 0)? as u64;

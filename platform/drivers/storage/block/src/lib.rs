@@ -22,7 +22,7 @@
 //!
 //! Podria parecer que un dispositivo de bloques es solo `read` y `write`.
 //! No en esta maquina. Aqui hay tres discos y en uno vive el sistema
-//! operativo del dueno; un dispositivo que no puede decir QUIEN ES no se puede
+//! operativo del propietario; un dispositivo que no puede decir QUIEN ES no se puede
 //! escribir con seguridad, asi que la identidad no es un extra informativo:
 //! es la mitad del contrato. El superbloque de ESTRATOS graba el `disco_id`
 //! DENTRO del volumen justamente para poder comparar contra esto al montar, y
@@ -40,11 +40,11 @@
 //! cableo"*-- y esta cabecera siguio prometiendola quince dias.
 //!
 //! [!] Es el MISMO commit que borro `ESTRATOS.md`. Dejo dos punteros rotos y
-//! solo se encontro uno: el del diseno lo destapo el guardian de citas porque
+//! solo se encontro uno: el del esquema lo destapo el guardian de citas porque
 //! apuntaba a una RUTA, y este no, porque afirma que existe una CRATE. El
 //! guardian comprueba caminos de fichero, no inventario.
 //!
-//! Lo que no cambia: en esta maquina el NVMe es el disco de Windows del dueno.
+//! Lo que no cambia: en esta maquina el NVMe es el disco de Windows del propietario.
 //! Se dice, no se insinua.
 
 #![no_std]
@@ -93,7 +93,7 @@ impl BlockError {
 
 /// Quien es este dispositivo, segun el mismo.
 ///
-/// Los tamanos salen de lo que declara `IDENTIFY DEVICE` de ATA: 40 bytes de
+/// Los medidas salen de lo que declara `IDENTIFY DEVICE` de ATA: 40 bytes de
 /// modelo y 20 de serie. Se guardan como bytes con su longitud util y no como
 /// cadenas porque en Ring 0 no hay reservas de memoria: el buffer viaja
 /// entero y el que lo lee decide que hacer con el.
@@ -132,7 +132,7 @@ impl DeviceId {
     /// Es la comparacion que ESTRATOS hace al montar contra el `disco_id`
     /// grabado en su superbloque. Modelo Y serie Y capacidad: el modelo solo
     /// dice que disco ES, la serie dice CUAL, y la capacidad caza el caso de
-    /// una imagen clonada a un disco de otro tamano.
+    /// una imagen clonada a un disco de otro medida.
     pub fn same_device(&self, other: &DeviceId) -> bool {
         self.is_known() && other.is_known()
             && self.model_len == other.model_len
@@ -172,7 +172,7 @@ pub trait BlockDevice {
     ///
     /// **No es opcional.** Es el paso 4 de la escritura de ESTRATOS: la
     /// barrera antes del superbloque. Un disco que dice "ya esta" con el dato
-    /// todavia en su cache convierte cualquier diseno transaccional en
+    /// todavia en su cache convierte cualquier esquema transaccional en
     /// decoracion.
     fn flush(&self) -> Result<(), BlockError>;
 

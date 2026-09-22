@@ -274,7 +274,7 @@ pub fn known_rejection(name: &[u8]) -> Option<(&'static str, &'static str)> {
             "hay UNA fuente, de mapa de bits y ancho fijo. Que ese sea el caso es lo \
              que hace posible medir texto al compilar (`len * GLIFO_ANCHO`), asi que \
              no es una carencia: es el cimiento.",
-            "nada. El tamano del texto no se elige.",
+            "nada. La medida del texto no se elige.",
         ),
         b"text-align" => (
             "no esta implementada, y no es gratis: alinear texto es colocar una caja \

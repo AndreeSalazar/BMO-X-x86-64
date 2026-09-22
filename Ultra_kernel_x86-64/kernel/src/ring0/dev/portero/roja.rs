@@ -22,7 +22,7 @@
 //!
 //! # *** QUE ES "HOT UNMAPPING" EN UNA MAQUINA SIN IOMMU
 //!
-//! Peticion del dueno, 2026-09-09: *"crear un portero duro con hot unmapping"*.
+//! Peticion del propietario, 2026-09-09: *"crear un portero duro con hot unmapping"*.
 //!
 //! Desmapear a un aparato es decirle a la IOMMU que esa pagina ya no es suya.
 //! **Aqui no hay IOMMU encendida** (AMD-Vi es el paso N7), asi que la pregunta
@@ -95,7 +95,7 @@
 //! mal afinada en el arranque no da un aviso -- deja la maquina sin poder leer
 //! su propio sistema, y el arreglo es un flasheo a ciegas.
 //!
-//! ** El dia que un arranque diga que aparatos ajenos hay y el dueno los
+//! ** El dia que un arranque diga que aparatos ajenos hay y el propietario los
 //! reconozca uno a uno, pasar a `Cerrar` es **cambiar una palabra**. Al reves
 //! --cerrar hoy y relajar despues-- no tiene vuelta atras por software.
 //!
@@ -199,8 +199,8 @@ fn es_adoptado(quien: u16) -> bool {
 
 /// Que hace el portero duro con un maestro que nadie adopto.
 ///
-/// [!] `Cerrar` no se construye en ningun sitio, y **eso es el diseno**: es la
-/// palabra que el dueno cambia arriba el dia que reconozca la lista. Un
+/// [!] `Cerrar` no se construye en ningun sitio, y **eso es el esquema**: es la
+/// palabra que el propietario cambia arriba el dia que reconozca la lista. Un
 /// `allow` porque el compilador no tiene forma de saber eso.
 #[allow(dead_code)]
 #[derive(Clone, Copy, PartialEq, Eq)]

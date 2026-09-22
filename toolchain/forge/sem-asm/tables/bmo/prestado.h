@@ -40,7 +40,7 @@
  *         bmo_prestado_soltar(&p);
  *     }
  *
- * == ** LO QUE HAY QUE PREGUNTAR CADA VEZ: si el dueno sigue vivo ==
+ * == ** LO QUE HAY QUE PREGUNTAR CADA VEZ: si el propietario sigue vivo ==
  *
  * `bmo_prestado_dueno` **cruza la puerta cada llamada, a proposito**. Es un
  * estado que vive en el kernel y que cambia sin avisar: el proceso que presto
@@ -53,7 +53,7 @@
  *
  * == Lo que esta cabecera NO hace ==
  *
- * - **No avisa.** No hay senal cuando el dueno muere: se pregunta.
+ * - **No avisa.** No hay signal cuando el propietario muere: se pregunta.
  * - **No busca.** `TOMAR` coge lo que haya para ti; no se elige entre varios.
  * - **No presta a cualquiera.** El destinatario es un TID concreto y solo el
  *   puede tomarlo. Ofrecer al aire no existe, y esta bien que no exista.
@@ -90,7 +90,7 @@
  *                        tiene forma de saberlo
  * [cuesta]  DATO         lo prestado es el trabajo de alguien: los pixeles de
  *                        una ventana, un buffer de audio, un fichero a medio
- *                        leer. Prestar de mas lo ensena; soltar mal lo pierde
+ *                        leer. Prestar de mas lo muestra; soltar mal lo pierde
  * [riesgo]  AJENO SILENCIO
  *                        AJENO: los bytes los escribe el otro proceso, que
  *                        puede morirse mientras los lees. SILENCIO: `TOMAR`
@@ -142,7 +142,7 @@
 
 /* Un prestamo recibido.
  *
- * ** `dueno` NO esta en el struct, y es la decision de diseno de este fichero.
+ * ** `propietario` NO esta en el struct, y es la decision de esquema de este fichero.
  * Los otros tres campos son fijos mientras el prestamo viva; ese cambia solo. */
 struct BMO_PRESTADO {
     unsigned long long cap;        /* el handle; 0 = no tienes nada */
@@ -269,8 +269,8 @@ int bmo_prestado_soltar(BMO_PRESTADO *p) {
 /* Cabe este byte en lo que se presto?
  *
  * Existe por la misma razon que `bmo_pantalla_cabe`: la comprobacion de indice
- * escrita UNA vez y en el sitio donde se sabe el tamano de verdad. Aqui ademas
- * el tamano lo eligio OTRO proceso, asi que suponerlo es peor todavia. */
+ * escrita UNA vez y en el sitio donde se sabe el medida de verdad. Aqui ademas
+ * el medida lo eligio OTRO proceso, asi que suponerlo es peor todavia. */
 int bmo_prestado_cabe(BMO_PRESTADO *p, unsigned long long i) {
     if (p == 0 || p->bytes_ptr == 0) {
         return 0;

@@ -13,13 +13,13 @@
 //!
 //! ```text
 //!    NO decide que se dibuja     eso es `orden::lista` y `orden::golpes`
-//!    NO es dueno del formato     eso es la crate `bmo-maqueta-cara`
+//!    NO es propietario del formato     eso es la crate `bmo-maqueta-cara`
 //!    NO escribe el .bex          eso es `bmo_abi::bef::recursos` + bmo-pack
 //! ```
 //!
 //! *** LA TERCERA ES LA QUE MAS FACIL SE ROMPE, y `bmo-pack` ya lo dejo escrito
 //! cuando le paso: el formato de la seccion `Resources 0x0B` tiene **un solo
-//! dueno**, y *"si alguien tuviera que mirar dos sitios para saber donde empieza
+//! propietario**, y *"si alguien tuviera que mirar dos sitios para saber donde empieza
 //! un recurso, seria porque alguien escribio el formato dos veces"*.
 //!
 //! Asi que esto produce **el contenido del recurso** y se para ahi. Meterlo en
@@ -57,7 +57,7 @@ use crate::orden::{Estado, Golpe, Orden, Trazo};
 pub enum NoCabe {
     /// El lienzo no cabe en `u16`.
     Lienzo { ancho: i64, alto: i64 },
-    /// Un rectangulo tiene una coordenada o un tamano que no cabe en el campo.
+    /// Un rectangulo tiene una coordenada o un medida que no cabe en el campo.
     Rect { de: String, x: i64, y: i64, w: i64, h: i64 },
     /// Hay mas trazos, mas golpes o mas bytes de cadenas de los que la cabecera
     /// puede contar.
@@ -109,7 +109,7 @@ fn i16_de(v: i64) -> Option<i16> {
 /// recurso.
 ///
 /// `ancho` y `alto` son el lienzo, y se pasan en vez de deducirse de los trazos:
-/// una cara cuyo lienzo fuera *"lo que ocupan sus cajas"* cambiaria de tamano al
+/// una cara cuyo lienzo fuera *"lo que ocupan sus cajas"* cambiaria de medida al
 /// quitar la ultima, y el lector no tendria contra que comprobar nada.
 ///
 /// # El orden de escritura es el del plano, y no es casualidad

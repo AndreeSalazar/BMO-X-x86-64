@@ -9,7 +9,7 @@
 //! El explorador ya sabia mirar y navegar. Lo que no habia era **como se pide
 //! una accion sobre algo concreto**: borrar, renombrar, verificar. Las ordenes
 //! existen desde el 19-08 y habia que escribirlas enteras a mano, incluido el
-//! nombre que tienes delante y senalado.
+//! nombre que tienes delante y marcado.
 //!
 //! Una barra de herramientas arriba habria sido lo otro, y es peor: sus botones
 //! valen para lo que este seleccionado --que a veces es nada-- y ocupan sitio
@@ -34,9 +34,9 @@
 //!
 //! === Y por que NO hay F5 ===
 //!
-//! Lo pregunto el dueno y tiene razon en que suena raro que falte. En Windows
+//! Lo pregunto el propietario y tiene razon en que suena raro que falte. En Windows
 //! el F5 existe porque **el shell no se entera** de que el disco cambio: lo
-//! cambio otro proceso, y la ventana ensena lo de antes hasta que alguien la
+//! cambio otro proceso, y la ventana muestra lo de antes hasta que alguien la
 //! empuja.
 //!
 //! Aqui el que escribe ES el compositor, asi que sabe exactamente cuando pasa:

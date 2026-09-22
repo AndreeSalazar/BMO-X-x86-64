@@ -16,7 +16,7 @@
 //!    casilla   [largo u16][trama hasta 1514][relleno] = 1536 bytes
 //! ```
 //!
-//! Cada lado es dueno de UN indice por anillo y solo lee el del otro:
+//! Cada lado es propietario de UN indice por anillo y solo lee el del otro:
 //!
 //! ```text
 //!                  lo ESCRIBE       lo LEE
@@ -377,7 +377,7 @@ mod pruebas {
     #[test]
     fn preparar_borra_lo_que_hubiera() {
         let (m, _) = buzon();
-        assert!(m[CABECERA..BYTES].iter().all(|&b| b == 0), "ni un byte del dueno anterior");
+        assert!(m[CABECERA..BYTES].iter().all(|&b| b == 0), "ni un byte del propietario anterior");
         assert!(Cliente::vivo(&m[..]));
         let mut corto = vec![0u8; BYTES - 1];
         assert_eq!(Lado::nuevo().preparar(&mut corto[..]), Err(Mal::BuzonCorto));

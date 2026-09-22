@@ -1,6 +1,6 @@
 # Tamano de cada ejecutable de staging/, en bytes.
-# REPORTERO, no trinquete: ver toolchain/tools/tamano/tamano.py
-# Se regenera con:  py toolchain/tools/tamano/tamano.py --fijar
+# REPORTERO, no trinquete: ver toolchain/tools/medida/medida.py
+# Se regenera con:  py toolchain/tools/medida/medida.py --fijar
 ada/cierre.bex 2296
 apps/doom.bex 731792
 apps/navegar.ibx 46568

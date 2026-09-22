@@ -271,7 +271,7 @@ fn declaration(
             span_of(&name_tok),
             &format!("falta el `:` despues de `{}`", prop.name()),
             "una declaracion es `nombre: valor`.",
-            "anadir los dos puntos.",
+            "agregar los dos puntos.",
         ));
         skip_value(toks, i);
         return None;

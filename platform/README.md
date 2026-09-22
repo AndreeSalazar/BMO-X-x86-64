@@ -22,14 +22,14 @@ no tiene arquitectura.
 
 **Si cambia, y en dos sitios que ya existen**:
 
-1. **`Ultra_kernel_<arch>/`** -- el arbol del kernel es por CPU **por diseno**
-   (hoy `Ultra_kernel_x86-64/`). Un puerto anade un arbol hermano, no toca el
+1. **`Ultra_kernel_<arch>/`** -- el arbol del kernel es por CPU **por esquema**
+   (hoy `Ultra_kernel_x86-64/`). Un puerto agrega un arbol hermano, no toca el
    de al lado. Ahi viven las tablas de descriptores, los stubs de entrada, el
    `SYSCALL`/`SVC`, el paginado y el arranque.
 2. **El emisor de cada frontend** -- la ultima fase de cada lenguaje: `sem-asm`
    con sus tablas TOML por arquitectura
    (`toolchain/forge/sem-asm/tables/arch/<arch>/`), y `bmo_lower::x86` con su
-   equivalente. Anadir una instruccion sigue siendo **una entrada TOML**; anadir
+   equivalente. Anadir una instruccion sigue siendo **una entrada TOML**; agregar
    una arquitectura es un directorio de tablas y un encoder.
 
 Lo que **si** hay de CPU en `abi/` es **dato enumerado, no codigo**:
@@ -38,10 +38,10 @@ Lo que **si** hay de CPU en `abi/` es **dato enumerado, no codigo**:
   `Aarch64 = 0x02` ya reservado). Es exactamente lo que hace `e_machine` de ELF:
   el formato no cambia de forma, lleva un campo que dice para que maquina es.
 - `cpu_profiles/` -- `x86_64_zen3.rs` y una constante `ACTIVE`. Son **hechos del
-  silicio** (tamanos de linea de cache, features), y la regla del proyecto es
+  silicio** (medidas de linea de cache, features), y la regla del proyecto es
   preguntarselos al hardware, nunca hardcodear un contrato encima de ellos.
 
-O sea: **el ABI no se redisena para exportar a otra arquitectura**. Se le anade
+O sea: **el ABI no se redisena para exportar a otra arquitectura**. Se le agrega
 un valor a un enum y un perfil de CPU. Eso es la prueba de que la frontera
 estaba bien puesta.
 
@@ -61,12 +61,12 @@ este orden de peso:
    superficie por la puerta de atras.
 3. **Duplicaba la frontera que ya existe** -- la de este README: el arbol del
    kernel por arquitectura, mas contratos sin arquitectura. Una capa mas no
-   separaba nada nuevo; solo anadia un sitio donde la verdad podia divergir.
+   separaba nada nuevo; solo agregaba un sitio donde la verdad podia divergir.
 
 Traia ademas un `[profile.release]` propio que cargo **ignora** por no estar en
 la raiz del workspace, y soltaba un warning en cada `cargo build` del
 repositorio.
 
-Su diseno no se perdio: es la seccion de arriba, y es mas corta porque el plan
+Su esquema no se perdio: es la seccion de arriba, y es mas corta porque el plan
 de portado real no necesitaba un crate -- necesitaba que alguien dijera que es
 contrato y que es CPU.

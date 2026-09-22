@@ -32,7 +32,7 @@
 //! usos distintos; la primera se lee de un vistazo y la segunda se lee cuando
 //! algo ya ha fallado.
 //!
-//! === El tamano, y por que ese ===
+//! === El medida, y por que ese ===
 //!
 //! 64 lineas de 96 bytes son 6 KiB de `.bss`. El arranque completo escupe
 //! bastante mas que 64 lineas, asi que **el anillo tira las viejas** -- y eso es
@@ -74,7 +74,7 @@ pub fn save(msg: &str) {
 /// nada que arreglar.
 ///
 /// Con esto, **una sola foto de F11 dice donde se van**, linea por linea, sin
-/// anadir un solo cronometro: `timer::ticks()` ya corria.
+/// agregar un solo cronometro: `timer::ticks()` ya corria.
 ///
 /// El campo son seis cifras a la derecha --hasta 999999 ms, dieciseis minutos--
 /// y por delante para que las columnas cuadren y el ojo compare dos lineas sin

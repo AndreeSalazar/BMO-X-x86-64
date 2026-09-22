@@ -97,7 +97,7 @@ pub enum Veto {
     LargoNoAlineado { bytes: u64 },
     /// `base + bytes` da la vuelta. Viene de fuera, asi que se comprueba.
     SeSaleDelEspacio { base: u64, bytes: u64 },
-    /// *** Mas pequeno que una pagina.
+    /// *** Mas chico que una pagina.
     ///
     /// Un BAR de 256 bytes existe y es legitimo. Lo que no es legitimo es
     /// cederlo: la unidad de la MMU es la pagina, asi que ceder ese BAR cede
@@ -167,7 +167,7 @@ pub fn cedible(base: u64, bytes: u64, mapa: &[Tramo], reservas: &[Reserva]) -> R
     // el caso esta cubierto.
     //
     // Y los dos mandan a sitios distintos. "No es multiplo" se arregla
-    // redondeando. "Mas pequeno que una pagina" **no se arregla**: ceder ese BAR
+    // redondeando. "Mas chico que una pagina" **no se arregla**: ceder ese BAR
     // cede los 4.096 bytes que lo rodean, y ahi puede vivir otro aparato.
     if bytes < PAGINA {
         return Err(Veto::MasPequenoQueUnaPagina { bytes });
@@ -212,7 +212,7 @@ impl Veto {
             Veto::NoAlineado { .. } => "la base no empieza en una pagina",
             Veto::LargoNoAlineado { .. } => "el largo no es multiplo de pagina",
             Veto::SeSaleDelEspacio { .. } => "base+largo se sale del espacio",
-            Veto::MasPequenoQueUnaPagina { .. } => "mas pequeno que una pagina",
+            Veto::MasPequenoQueUnaPagina { .. } => "mas chico que una pagina",
             Veto::DebajoDeUnMega { .. } => "el megabyte legacy no se cede",
             Veto::PisaRam { .. } => "PISA RAM: una ventana al kernel",
             Veto::EsElApic { .. } => "es el APIC: seria ceder las IRQ",

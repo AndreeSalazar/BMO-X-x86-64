@@ -210,7 +210,7 @@ unsafe fn rdtsc_suelto(n: u64) {
 //
 // ** ESTO NO ES ESTILO, ES EL ARREGLO DE UN EXPERIMENTO MAL HECHO.
 //
-// La pregunta abierta desde el 16-08 es: **por que resolver un handle anade
+// La pregunta abierta desde el 16-08 es: **por que resolver un handle agrega
 // ~246 ciclos FUERA de `dispatch`**, si el stub no sabe que operacion se pidio.
 // Cuatro tandas sin contestarla, y no por falta de precision: por como estaba
 // planteada la comparacion.
@@ -250,7 +250,7 @@ unsafe fn rdtsc_suelto(n: u64) {
 /// **El PADRE**: una fila medible. Un nombre y la pareja que la define.
 ///
 /// No sabe que hay otras filas ni que alguien va a restarla: si lo supiera,
-/// anadir una cuarta obligaria a tocar esto.
+/// agregar una cuarta obligaria a tocar esto.
 struct Fila {
     nombre: &'static str,
     cap: u64,
@@ -374,7 +374,7 @@ fn sobre_el_suelo(l: &mut Linea, puerta_ticks: u64) {
     let sobrecoste = puerta_ticks.saturating_sub(suelo);
     di!(
         l,
-        "   sobre el suelo: {},{:02}x  (suelo {} ticks {}, BMO anade {})\n",
+        "   sobre el suelo: {},{:02}x  (suelo {} ticks {}, BMO agrega {})\n",
         veces / 100,
         veces % 100,
         suelo,
@@ -414,7 +414,7 @@ fn acotar_el_suelo(l: &mut Linea, stub: u64) {
     // ahi dentro van las dos transiciones (irreducibles) **y** el marco que BMO
     // eligio construir (la reserva de 1096 B, el sello, los 20 push). Lo segundo
     // se puede cambiar; lo primero no. Llamarlo suelo a secas seria declarar
-    // irreducible una decision de diseno.
+    // irreducible una decision de esquema.
     di!(
         l,
         "   lo que NO es Rust: {stub} ticks (de esos, <= {INSTRUCCIONES_DEL_STUB} son las instrucciones del stub -> el suelo esta entre {bajo} y {stub})\n"
@@ -469,7 +469,7 @@ fn decir(l: &mut Linea, etiqueta: &str, v: juez::Veredicto) {
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     // ** EL TRAFICO SE LEE LO PRIMERO DE TODO, ANTES DE MEDIR Y ANTES DE
-    // IMPRIMIR. Dos motivos, y los dos los enseno el metal del 17-08:
+    // IMPRIMIR. Dos motivos, y los dos los mostro el metal del 17-08:
     //
     // 1. **Contaminacion.** Leido al final, el 90% de las puertas contadas eran
     //    las de este propio programa: 4096 x 16 x 4 filas son ~262.000, mas las
@@ -488,7 +488,7 @@ pub extern "C" fn _start() -> ! {
     //
     // [!] Y el ORDEN de las cinco lecturas importa: primero las cuatro clases y
     // el total AL FINAL. Asi el total incluye las cuatro lecturas y las clases
-    // no, o sea que el sobrante cae en `sin casilla` -- pequeno y POSITIVO. Al
+    // no, o sea que el sobrante cae en `sin casilla` -- chico y POSITIVO. Al
     // reves, la suma se pasaria del total y no habria forma de distinguir ese
     // ruido de un fallo de verdad.
     let trafico = [
@@ -633,7 +633,7 @@ pub extern "C" fn _start() -> ! {
             op: OP_INFO as u64,
             a0: CAMPO_TICKS,
         },
-        Fila { nombre: "3 tamano (cap REAL, op gorda)   ", cap: paquete, op: ARCH_TAMANO as u64, a0: 0 },
+        Fila { nombre: "3 medida (cap REAL, op gorda)   ", cap: paquete, op: ARCH_TAMANO as u64, a0: 0 },
     ];
 
     let mut minimos = [0u64; 3];

@@ -94,7 +94,7 @@ fn la_salida_se_puede_elegir() {
 ///
 /// Es la regla del gate mirada desde fuera: un compilador que escribe y luego se
 /// queja deja un `.bex` malo con un mensaje al lado, y el que lo encuentre
-/// manana vera el fichero y no el mensaje.
+/// luego vera el fichero y no el mensaje.
 #[test]
 fn un_fuente_con_errores_no_escribe_nada() {
     let d = caja("malo");
@@ -295,7 +295,7 @@ fn la_consola_no_se_calla_ningun_aviso_que_el_compilador_conozca() {
 /// Y no escribe un `.bex` cuando cualquiera de ellos falla.
 ///
 /// ** Es la otra mitad y no es la misma prueba: un compilador podria pintar el
-/// aviso y escribir el fichero igual. Entonces el que lo encuentre manana veria
+/// aviso y escribir el fichero igual. Entonces el que lo encuentre luego veria
 /// el `.bex` y no el mensaje -- que es la regla del gate mirada desde fuera.
 #[test]
 fn ningun_analisis_deja_escribir_un_bex_cuando_denuncia() {

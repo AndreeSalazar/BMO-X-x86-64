@@ -21,7 +21,7 @@
 //! listas de libres, ni troceado, ni fusion de huecos. Y no es una version
 //! recortada de un asignador: es que **el asignador no es trabajo del kernel**.
 //!
-//! El caso que lo ensena es DOOM, y por eso es el que se uso para decidir:
+//! El caso que lo muestra es DOOM, y por eso es el que se uso para decidir:
 //! pide ~8 MiB **una vez** al arrancar y se los administra el con su propio
 //! `Z_Zone`. Un `malloc` general en el kernel habria sido escribir un asignador
 //! que ese programa no usa, para que encima lo llame a traves de un syscall.
@@ -78,7 +78,7 @@ pub const MAX_BYTES: u64 = 64 * 1024 * 1024;
 ///
 /// ** Lo que costaba, medido en el escritorio: el doble bufer, el fichero del
 /// fondo, los pixeles del fondo y la consola son CUATRO, y se gastan antes de
-/// que el dueno abra nada. El visor de imagenes pide tres mas --fichero,
+/// que el propietario abra nada. El visor de imagenes pide tres mas --fichero,
 /// pixeles y el taller del inflate-- y los tres se estrellaban.
 ///
 /// Con [`MEM_OP_SOLTAR`] el contador baja, asi que esto vuelve a ser lo que su
@@ -200,7 +200,7 @@ struct Bloque {
     /// **La secuencia del bloque: cuantas veces VOLVIO un prestamo suyo.**
     ///
     /// Es lo que `WAIT` compara (`PLAN_LA_VIDA_UTIL` 7): `soltar` la devuelve
-    /// cuando dice que no, y el dueno duerme hasta que se mueva. Sube en
+    /// cuando dice que no, y el propietario duerme hasta que se mueva. Sube en
     /// `loan.rs` cuando el prestatario suelta o muere. Nunca baja.
     devueltas: u64,
 }
@@ -238,7 +238,7 @@ static mut CUENTAS: [Count; MAX_PROCS] = [FREE_SLOT; MAX_PROCS];
 /// Total entregado desde el arranque, para `info`. **No baja al morir un
 /// proceso**, y es a proposito: es "cuanta memoria ha pedido Ring 3 en esta
 /// sesion", no "cuanta hay pedida ahora". Un contador historico dicho como tal
-/// no engana a nadie; el problema es usarlo como indice.
+/// no burla a nadie; el problema es usarlo como indice.
 static mut TOTAL: u64 = 0;
 
 /// **De que proceso es este marco fisico.** `(pid, desplazamiento)`.
@@ -251,7 +251,7 @@ static mut TOTAL: u64 = 0;
 /// el veredicto manda a mirar el arbol entero.
 ///
 /// ** Es el mismo callejon del que ya salio `de NADIE VIVO` cuando gano la
-/// morgue: *"decia que la pila no tiene duena y no decia quien la solto"*.
+/// morgue: *"decia que la pila no tiene propietaria y no decia quien la solto"*.
 /// Aquello se arreglo mirando una tabla que ya existia. Esto tambien.
 ///
 /// [!] SIN CERROJO, y decidido igual que `titular_de_pila`: lo llama la pantalla
@@ -421,7 +421,7 @@ pub fn total_handed_over() -> u64 {
 /// quien enumera pide 0, 1, 2... y para cuando le contestan `None`, sin tener
 /// que saber que la tabla tiene agujeros dentro.
 ///
-/// # Por que hacia falta, y es lo que pidio el dueno
+/// # Por que hacia falta, y es lo que pidio el propietario
 ///
 /// Los datos ya estaban: `handed_over_by(pid)` contesta desde julio. Lo que no
 /// habia era forma de preguntarlos **sin saber el pid de antemano** -- o sea que
@@ -455,7 +455,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
     if bytes == 0 || bytes > MAX_BYTES {
         return Err(ERROR_TOO_BIG);
     }
-    // La ranura se toma AQUI, despues de validar el tamano: una peticion
+    // La ranura se toma AQUI, despues de validar el medida: una peticion
     // absurda no debe gastar una ranura de la tabla. Sin ranura libre el motivo
     // es otro y se dice con su nombre -- antes esto contestaba
     // `ERROR_TOO_MANY` a un proceso que no habia pedido nunca nada.
@@ -658,7 +658,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
 /// y `scheduler::reap` libera unicamente la pila de kernel. O sea que los
 /// marcos entregados a Ring 3 **no volvian jamas**.
 ///
-/// Para DOOM eso son 12 MiB por cada vez que se lanza. Lo vio el dueno mirando
+/// Para DOOM eso son 12 MiB por cada vez que se lanza. Lo vio el propietario mirando
 /// `mem` en el Ryzen el 2026-08-14 --*"vi que DOOM.bex esta comiendo RAM"*-- y
 /// no lo vio ningun contador nuestro, porque **el que dice `fugas 0` cuenta
 /// CAPABILITIES, no marcos**. La autopsia decia `recursos todo devuelto` y era
@@ -669,9 +669,9 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
 /// La tentacion es recorrer las tablas de paginas y soltar todas las hojas.
 /// Seria peor que la fuga: ahi dentro estan **el framebuffer** (que es MMIO, y
 /// devolverlo al asignador de RAM es corrupcion) y **los marcos prestados**, que
-/// por diseno sobreviven al que los presto. Lo que si es inequivocamente
+/// por esquema sobreviven al que los presto. Lo que si es inequivocamente
 /// nuestro es esto: bloques que salieron de `alloc_frames_contig` tres lineas
-/// mas arriba, con su fisica apuntada, y de un solo dueno. El resto --imagen,
+/// mas arriba, con su fisica apuntada, y de un solo propietario. El resto --imagen,
 /// pila de usuario, tablas de paginas-- sigue sin devolverse y **eso es deuda
 /// declarada**, no un descuido.
 ///
@@ -857,7 +857,7 @@ fn soltar(pid: u32, base: u64) -> Option<u64> {
             "mem", "NO se suelta: ese bloque sigue PRESTADO a otro", b.base);
         // *** EL NO TRAE LA SECUENCIA QUE VIO (2026-09-21, PLAN_LA_VIDA_UTIL 7).
         //
-        // Un 0 a secas dejaba al dueno sin paso siguiente: reintentar cuando?
+        // Un 0 a secas dejaba al propietario sin paso siguiente: reintentar cuando?
         // Girar? Ahora contesta `devueltas << 1` (par, nunca 1): la secuencia
         // del bloque EN ESTE INSTANTE. El bucle correcto en Ring 3 es
         //
@@ -892,7 +892,7 @@ fn soltar(pid: u32, base: u64) -> Option<u64> {
     if let Some(h) = cap::find(pid, cap::KIND_MEMORIA, base) {
         cap::revoke(pid, h);
     }
-    crate::ring0::cabina::bytes("mem", "bloque DEVUELTO por su dueno", b.bytes);
+    crate::ring0::cabina::bytes("mem", "bloque DEVUELTO por su propietario", b.bytes);
     Some(1)
 }
 
@@ -922,8 +922,8 @@ pub fn secuencia_de(pid: u32, base: u64) -> u64 {
 }
 
 /// **Un prestamo salido de `origen` VOLVIO.** Lo llama `loan.rs` cuando el
-/// prestatario suelta o muere: sube la secuencia del bloque del dueno y
-/// despierta a quien la este esperando. Si el dueno ya no tiene cuenta (murio
+/// prestatario suelta o muere: sube la secuencia del bloque del propietario y
+/// despierta a quien la este esperando. Si el propietario ya no tiene cuenta (murio
 /// antes: prestamo huerfano), no hay a quien avisar y no pasa nada.
 pub fn devuelto(owner: u32, origen: u64) {
     let Some(slot) = slot(owner) else { return };

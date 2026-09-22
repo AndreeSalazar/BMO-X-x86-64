@@ -6,7 +6,7 @@
 //! ** Contesta una pregunta distinta que `lib.rs`, y ademas es la pregunta
 //! PELIGROSA. Leer un FAT32 mal devuelve bytes raros; escribirlo mal **rompe el
 //! volumen de otro sistema**, y en esta maquina el volumen de al lado es el
-//! Windows del dueno. Que todo lo que escribe este junto es lo que permite
+//! Windows del propietario. Que todo lo que escribe este junto es lo que permite
 //! leerlo entero de una sentada antes de tocarlo.
 //!
 //! ```text
@@ -198,8 +198,8 @@ impl FatVolume {
     ///
     /// Devuelve el MOTIVO cuando falla. La version anterior devolvia `bool` y
     /// ademas mentia: escribia como mucho UN cluster y apuntaba en el
-    /// directorio el tamano completo, asi que cualquier archivo mas grande que
-    /// un cluster quedaba registrado con un tamano que sus datos no
+    /// directorio el medida completo, asi que cualquier archivo mas grande que
+    /// un cluster quedaba registrado con un medida que sus datos no
     /// respaldaban. Eso no es "incompleto", es un archivo corrupto que parece
     /// bueno hasta que alguien lo lee.
     pub fn create_file_in_dir(&mut self, dir_cluster: u32, name_8_3: &[u8; 11], data: &[u8])
@@ -287,7 +287,7 @@ impl FatVolume {
                 return Err(WriteError::Io);
             }
         }
-        // Solo cambian el puntero y el tamano: el nombre y los atributos son
+        // Solo cambian el puntero y el medida: el nombre y los atributos son
         // los que ya habia, y reescribirlos seria inventarse una entrada nueva
         // encima de una que ya estaba bien.
         let de = unsafe { &mut *(self.buf.as_mut_ptr().add(vieja.offset) as *mut DirEntry) };

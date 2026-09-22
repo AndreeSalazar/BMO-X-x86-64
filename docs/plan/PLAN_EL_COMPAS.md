@@ -3,7 +3,7 @@
 > Escrito el **2026-09-08**, la misma noche en que un quantum regalado a una
 > tarea dormida dejo el escritorio en un fotograma cada diez segundos.
 >
-> El dueno lo dijo asi: *"vamos a reemplazar el quantum con otro mejor,
+> El propietario lo dijo asi: *"vamos a reemplazar el quantum con otro mejor,
 > inspirado en OS, RTOS y otros mas, para el Orquestador que es BMO-X"*.
 >
 > Y el nombre lo puso el: `CUPO` no, *"me recuerda cosas turbias en Peru"*. Al
@@ -92,9 +92,9 @@ corazon de este plan y no una de sus mejoras.
 
 # 4. LA ESCALERA, Y EL ORDEN IMPORTA MAS QUE LAS PIEZAS
 
-## ★ Lo que entro el 21-09 antes de la escalera, y con las palabras del dueno
+## ★ Lo que entro el 21-09 antes de la escalera, y con las palabras del propietario
 
-El latido del bus USB llego 1.266 ms tarde en dos saves seguidos, y el dueno
+El latido del bus USB llego 1.266 ms tarde en dos saves seguidos, y el propietario
 puso la doctrina en una frase: *"el orquestador existe por algo: PUEDES salirte
 del rango PERO si es que cumples lo que eres; si no es parte de la musica, se
 saca a patada"*. Un hilo con hora fija (el bus, cada 4 ms) que espera el turno
@@ -143,7 +143,7 @@ cual sea el veredicto del metal:
       puede: parar a quien NO declaro nada y gira sin soltar el CPU (un
       programa de C en un bucle). Por eso se queda debajo, como suelo. El dia
       que TODA tarea declare su compas (E2, y eso es un campo en el `.bex`:
-      decision del dueno), el quantum pasa a ser el compas por defecto de quien
+      decision del propietario), el quantum pasa a ser el compas por defecto de quien
       no dijo nada -- y ahi si deja de existir como cosa aparte.
 
       Lo que NO hace, dicho: no mide dentro de una vuelta (un turno de 1,26 s
@@ -161,7 +161,7 @@ cual sea el veredicto del metal:
       enumerar el puerto 1 mudo (encender, debounce, reset, address, y cada
       descriptor que no llega son 100 ms de plazo), con el raton y el
       teclado sin leer mientras tanto. Eso son los *"tirones como que esta
-      verificando mi mouse y teclado"* del dueno. Hoy se recorta la POLITICA
+      verificando mi mouse y teclado"* del propietario. Hoy se recorta la POLITICA
       (`ABANDONO_DESCANSOS` 4 -> 2: 6 intentos en ~30 s en vez de 12 en 75);
       el arreglo de verdad es que un intento NO ocupe una vuelta: la
       enumeracion como maquina de estados que avanza UN paso por bombeo
@@ -273,13 +273,13 @@ cual sea el veredicto del metal:
 
 - [ ] **E4 -- TICKLESS / TSC-DEADLINE.** ★ Y es quien contesta *"se puede bajar
       de 1 ms, a 0,1?"*: **hoy no, y no por lentitud.** Con el LAPIC en modo
-      periodico a 1 kHz, **un milisegundo es la unidad mas pequena que el
+      periodico a 1 kHz, **un milisegundo es la unidad mas chica que el
       sistema sabe NOMBRAR** -- no hay forma de pedir un plazo de 100 us porque
       no hay reloj que lo exprese. Con un disparo programado al instante exacto
       (TSC-deadline) la unidad pasa a ser el ciclo, y 0,1 ms deja de ser un
       numero raro.
 
-      ### ★★ Y la pregunta del dueno: *"no se puede dividir? 0,5 + 0,5"*
+      ### ★★ Y la pregunta del propietario: *"no se puede dividir? 0,5 + 0,5"*
 
       **Se puede, y son DOS registros que ya estan escritos** (`s2_mem/main.rs`):
 
@@ -326,7 +326,7 @@ cual sea el veredicto del metal:
       de verdad: `PLAN_EL_PLAZO`, bloque P3.
 
 - [ ] **E6 -- ★★★ LAS ANTEOJERAS.** Que una tarea pueda declarar *"mientras
-      corro, que no me toque nadie"*. Lo pidio el dueno el 09-09 y lo explico
+      corro, que no me toque nadie"*. Lo pidio el propietario el 09-09 y lo explico
       mejor de lo que lo dice la literatura:
 
       > *"no es mas velocidad: es que WAIT ponga trabas a otros puntos que no le
@@ -347,8 +347,8 @@ cual sea el veredicto del metal:
          -> y DOOM solo en un nucleo las paga TODAS sin que nadie las use
       ```
 
-      ★ El coste en ciclos es pequeno --del orden del 0,05 %-- y **ese no es el
-      dano**. El dano son las otras dos cosas: cada interrupcion **ensucia la
+      ★ El coste en ciclos es chico --del orden del 0,05 %-- y **ese no es el
+      perjuicio**. El perjuicio son las otras dos cosas: cada interrupcion **ensucia la
       cache y el TLB** del que estaba trabajando, y **mete un punto de
       expropiacion** cada milisegundo. Para el tiempo real eso significa que el
       peor caso de cualquier cosa incluye siempre una interrupcion.
@@ -368,7 +368,7 @@ cual sea el veredicto del metal:
       *** Con eso `WAIT` deja de ser solo una puerta de salida y pasa a ser
       **donde se declara el trato**: el que espera bien es el que puede pedir
       que le dejen en paz cuando le toque. Es la pieza que une E2 (el aforo) con
-      lo que el dueno describio.
+      lo que el propietario describio.
 
       ⚠ **Sacrificio, y es grande**: una ventana en la que no se interrumpe a
       alguien es una ventana en la que **nadie mas entra**. Si esa tarea se
@@ -378,7 +378,7 @@ cual sea el veredicto del metal:
       reloj, no por confianza.
 
 - [ ] **E7 -- ★ LAS ANTEOJERAS SOLAS, sin que nadie las pida.** La otra mitad
-      de la idea del dueno, y la trajo asi:
+      de la idea del propietario, y la trajo asi:
 
       > *"eso lo veia MAS para cuando BMO-X, si pasa 15 minutos, se automatiza
       > para concentrar TODO en un objetivo. Es como un plus."*
@@ -394,7 +394,7 @@ cual sea el veredicto del metal:
          -> los avisos que no son suyos esperan al final de su tramo
       ```
 
-      ★★ Y encaja con la ley de la casa sin anadir nada: `EL ORQUESTAL` ya dice
+      ★★ Y encaja con la ley de la casa sin agregar nada: `EL ORQUESTAL` ya dice
       que **el foco decide CUANTO y no QUIEN**. Esto es esa frase llevada hasta
       el final -- un foco sostenido no sube de prioridad, **le quitan las
       distracciones**.

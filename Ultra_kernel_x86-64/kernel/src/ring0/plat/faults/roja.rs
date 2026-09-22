@@ -378,7 +378,7 @@ extern "C" fn fault_dispatch(
             let mut a = Line::new();
             a.s("    faltan ");
             a.dec(faltan);
-            // ** `/M`: sin el tamano del bloque, "faltan 1024" no dice si es
+            // ** `/M`: sin el medida del bloque, "faltan 1024" no dice si es
             // un trozo o todo. El 20-09 no lo decia, y 1024 era el TOPE.
             a.s("/");
             a.dec(cap.bloque_pags());
@@ -528,7 +528,7 @@ extern "C" fn fault_dispatch(
             // `FRAMEBUFFER_VA_BASE` es `0xD000_0000`, asi que eso es el
             // framebuffer + 1.426.552 bytes -- **la fila 185 de la pantalla**.
             // DOOM murio a mitad de un volcado, escribiendo donde ya no habia
-            // nada, porque el dueno le habia quitado la pantalla con
+            // nada, porque el propietario le habia quitado la pantalla con
             // `Ctrl+Alt+Esc`.
             //
             // ** Y eso NO es un fallo de nadie: es el rescate haciendo su
@@ -666,7 +666,7 @@ pub extern "C" fn contexto_podrido(motivo: u64, rsp: u64) -> ! {
     let (firma, owner) = crate::ring0::plat::trap::leer_sello(base);
     let mut l = Line::new();
     l.s("sello=0x"); l.hex(firma, 8);
-    l.s("  dueno=tid "); l.hex(owner, 4);
+    l.s("  propietario=tid "); l.hex(owner, 4);
     l.s("  area="); l.hex(base, 12);
     inf.push(l);
 

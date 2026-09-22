@@ -131,7 +131,7 @@ pub fn ranura(i: bx_u64) -> Option<u64> {
         .checked_add(CABECERA_LEN as u64)
 }
 
-/// **Escribe la cabecera de una tabla recien nacida**, vacia y con un dueno.
+/// **Escribe la cabecera de una tabla recien nacida**, vacia y con un propietario.
 ///
 /// [!] Las ranuras tienen que quedar A CERO, y eso NO lo hace esta funcion: lo
 /// hace el monton, que entrega paginas limpias. Se dice porque una marca que no

@@ -9,7 +9,7 @@
 #      2. este nombre, toca el metal? (entonces hay que escribirlo en `crudo`)
 #
 #  Las dos respuestas son DATOS sobre la biblioteca, no sobre el lenguaje. Si
-#  vivieran en el compilador, anadir una operacion de sistema obligaria a
+#  vivieran en el compilador, agregar una operacion de sistema obligaria a
 #  recompilar el compilador -- que es exactamente lo que `intrinsics.toml`
 #  decidio no hacer nunca.
 #
@@ -41,7 +41,7 @@ version = 1
 #      disposicion   crece? -> se guarda por REFERENCIA -> mide 8
 #
 #  *** Son la misma fila a proposito, y no dos. Lo que crece no cabe en una
-#  variable de tamano fijo; luego lo que cabe es su direccion. Es la MISMA
+#  variable de medida fijo; luego lo que cabe es su direccion. Es la MISMA
 #  propiedad mirada desde dos sitios, asi que copiarla a `medidas.toml` --que
 #  seria lo comodo-- solo compraria el dia en que las dos listas discrepen.
 #

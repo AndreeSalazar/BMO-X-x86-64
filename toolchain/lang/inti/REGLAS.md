@@ -49,7 +49,7 @@ Eso descarta los tres modelos que no se eligieron:
 | **6** | orden de evaluacion de argumentos: **no especificado** | **izquierda a derecha, siempre**, incluidos `y` y `o` | -- | `r06_orden` |
 | **7** | desplazar mas bits que el ancho: **indefinido** | **da cero**, definido. Si el desplazamiento es constante, **avisa al compilar** | `A2007` | `r07_desplaza` |
 | **8** | alias estricto (`int*` y `float*` a los mismos bytes): **indefinido** | **no existe**: dos nombres pueden ver los mismos bytes y esta definido | -- | `r08_alias` |
-| **9** | `int` mide *"al menos 16 bits"* | **tamanos exactos**: `entero8/16/32/64`, `natural8..64` | `E0020` | `r09_tamanos` |
+| **9** | `int` mide *"al menos 16 bits"* | **medidas exactos**: `entero8/16/32/64`, `natural8..64` | `E0020` | `r09_tamanos` |
 | **10** | orden de bytes: el de la maquina | **little-endian fijado** en todo lo que se serializa | -- | `r10_bytes` |
 | **11** | el compilador puede reasociar flotantes y meter FMA | ✅ **IEEE-754 estricto**: el mismo programa da **el mismo bit** en cualquier maquina. Vigilado mirando los bytes emitidos | -- | `r11_flotante` |
 | **12** | convertir flotante a entero fuera de rango: **indefinido** | ✅ **atrapa**, y corre. NaN e infinito incluidos, y con el ANCHO del destino dentro: 1e10 cabe en `entero64` y no en `entero32` | `E1012` | `r12_conversion` |
@@ -78,10 +78,10 @@ menos de un dia y esto es lo que era:
    Cociente    el cociente no cabe           -> E1001
 ```
 
-★ **La pide la IR, no la anade el emisor por su cuenta.** La diferencia no es de
+★ **La pide la IR, no la agrega el emisor por su cuenta.** La diferencia no es de
 estilo: hay una prueba que exige que *lo que la IR pide* y *lo que el binario
 lleva* cuadren, y esa resta es la que medira al optimizador el dia que haya uno.
-Un emisor que anade reglas por su cuenta rompe esa cuenta antes de que sirva.
+Un emisor que agrega reglas por su cuenta rompe esa cuenta antes de que sirva.
 
 ★ Y `Comprobacion::Cociente` es **la unica de las cinco que mira DOS valores** --
 el cociente solo se sale cuando el dividendo es el minimo Y el divisor es -1. Por

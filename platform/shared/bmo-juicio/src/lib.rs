@@ -76,7 +76,7 @@ impl Presupuesto {
     }
 
     /// `true` si este kernel no declara nada para esta fila -- un binario
-    /// viejo, o una fila recien anadida.
+    /// viejo, o una fila recien agregada.
     pub const fn sin_declarar(&self) -> bool {
         self.techo == 0
     }
@@ -204,7 +204,7 @@ pub fn juzgar(medida: &Medida, valor: u64, presupuesto: Presupuesto) -> Veredict
     // -- y sin esta guarda el juez contestaba **`[META] 0`**, o sea *"llego al
     // objetivo"* para una fila que nadie ha medido.
     //
-    // Es el cero silencioso de siempre, en el sitio donde mas dano hace: no
+    // Es el cero silencioso de siempre, en el sitio donde mas perjuicio hace: no
     // falla, FELICITA.
     if valor == 0 {
         return Veredicto::Roto(Roto::MedidaEnCero);
@@ -314,7 +314,7 @@ impl Reloj {
         // `u128` y no `u64`: 2,2 M ticks (una puerta de consola) por 4,5 GHz ya
         // son 10^16 -- cabe, pero por poco, y el dia que alguien mida un
         // segundo entero no cabria. Una multiplicacion que envuelve aqui daria
-        // un numero pequeno y creible.
+        // un numero chico y creible.
         let n = (ticks as u128) * (self.nucleo_hz as u128) / (self.tsc_hz as u128);
         Some(n as u64)
     }
@@ -494,7 +494,7 @@ mod pruebas {
             "un cero es una medida que no ocurrio, no una que salio barata"
         );
         // Y uno solo por encima si se juzga: la guarda es del cero, no de los
-        // numeros pequenos -- que son justamente los que se persiguen.
+        // numeros chicos -- que son justamente los que se persiguen.
         assert_eq!(juzgar(&m, 1, p), Veredicto::Meta { medido: 1, meta: 60 });
     }
 
@@ -608,7 +608,7 @@ mod pruebas {
         // ** Y el caso extremo se comprueba por su PROPIEDAD, no contra una
         // constante escrita a mano: con 1,22 ciclos por tick el resultado tiene
         // que SUBIR. Una multiplicacion que envolviera daria un numero mas
-        // pequeno que la entrada, y eso lo caza esta linea sin que nadie tenga
+        // chico que la entrada, y eso lo caza esta linea sin que nadie tenga
         // que fiarse de mi aritmetica -- que en la primera version de esta
         // prueba estaba mal por un 0,004%, y el `cargo test` lo dijo.
         let gordo = u64::MAX / 2;

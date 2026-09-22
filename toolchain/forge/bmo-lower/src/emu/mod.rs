@@ -36,7 +36,7 @@
 //! # * FIDELIDAD: que prueba esto y que NO puede probar
 //!
 //! Esta seccion existe porque la pregunta *"cuanto se parece esto al Ryzen?"*
-//! tiene una respuesta util y una enganosa. La enganosa es un porcentaje. La
+//! tiene una respuesta util y una falaz. La falaz es un porcentaje. La
 //! util es que **la cobertura no esta repartida: esta concentrada en un eje y
 //! es cero en los otros dos.**
 //!
@@ -376,7 +376,7 @@ pub struct Machine {
     /// ** Y LO QUE EL DIRECTOR DE MENTIRA NOS OFRECIO A NOSOTROS (N3,
     /// 2026-09-18). El banco deja aqui los bytes; el primer `TASK_OP_TOMAR`
     /// los carga en memoria y devuelve un handle `KIND_PRESTADO` cuyo
-    /// `PRESTADO_OP_BASE`/`BYTES` los senalan. Sin nada pendiente, `TOMAR`
+    /// `PRESTADO_OP_BASE`/`BYTES` los marcan. Sin nada pendiente, `TOMAR`
     /// contesta 0, que es lo que una app tiene que ver para irse al disco.
     pub prestamo_pendiente: Option<Vec<u8>>,
     /// El prestamo ya tomado: `(base, bytes)`.
@@ -780,7 +780,7 @@ impl Machine {
 
     fn step(&mut self) {
         let mut byte = self.fetch_u8();
-        // * `0x66` -- anular el tamano de operando: la instruccion trabaja a 16
+        // * `0x66` -- anular el medida de operando: la instruccion trabaja a 16
         // bits. Va ANTES del REX, que es el orden que manda el manual.
         //
         // No estaba, asi que el emulador reventaba con "opcode 0x66 no emitido
@@ -1581,7 +1581,7 @@ impl Machine {
                         // devuelve el entero mas NEGATIVO como centinela, para
                         // los dos casos y sin levantar nada.
                         //
-                        // La diferencia no es academica. Es la unica senal que
+                        // La diferencia no es academica. Es la unica signal que
                         // el procesador da de que la conversion no cabia, asi
                         // que **es la que la Regla 12 de INTI tiene que mirar**.
                         // Con la version que satura, un programa que comprueba

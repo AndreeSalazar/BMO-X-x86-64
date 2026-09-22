@@ -39,7 +39,7 @@ pub const MAX_ENTRADAS: usize = 64;
 /// **El largo maximo de una tabla que se LEE para sumarla.** 1 MiB.
 ///
 /// [!] SUPOSICION DECLARADA, no un numero de esta placa: el perfil de la placa
-/// todavia no registra el tamano de sus tablas (LEY 24: una estimacion generica
+/// todavia no registra el medida de sus tablas (LEY 24: una estimacion generica
 /// es una estimacion de OTRO proyecto). Se sostiene por dos motivos:
 ///
 /// * las tablas que BMO-X USA --MCFG, IVRS, MADT-- miden bytes, no megas;

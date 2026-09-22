@@ -86,7 +86,7 @@ fn main() {
     // emite su BEF por su cuenta y el verificador lo revisa por separado.
     //
     // Va ANTES del `write` a proposito: verificar despues dejaria un fichero
-    // malo en el disco con un mensaje al lado, y quien lo encuentre manana vera
+    // malo en el disco con un mensaje al lado, y quien lo encuentre luego vera
     // el `.bex`, no el mensaje.
     //
     // ** Y a un OBJETO se le pide lo del objeto, no lo del programa: un `.bo`

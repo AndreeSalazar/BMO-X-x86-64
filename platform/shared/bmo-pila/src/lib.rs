@@ -16,7 +16,7 @@
 //!
 //! ```text
 //!    1. DETERMINISTA  sin reloj propio (la hora entra como argumento), sin
-//!                     monton, tamanos fijos, desempates por indice. La misma
+//!                     monton, medidas fijos, desempates por indice. La misma
 //!                     secuencia de llamadas da los mismos bytes
 //!    2. LISTA BLANCA  lo que no esta escrito que se acepta, se rechaza: VLAN,
 //!                     IPv6, opciones IP, fragmentos, ICMP que no es eco,

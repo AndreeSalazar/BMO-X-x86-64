@@ -2,14 +2,14 @@
  *
  * == Por que existe ==
  *
- * Lo pidio el dueno despues de una pantalla azul: *"puedes crear un icono como
+ * Lo pidio el propietario despues de una pantalla azul: *"puedes crear un icono como
  * Guia.bex, ese mismo es texto que genera, es para guiar"*. Un sistema que no
  * se explica a si mismo obliga a tener a alguien al lado, y eso es justo lo que
  * no escala.
  *
  * == ** Y ES LA IDEA DEL `.datex`, HECHA COMO EL SISTEMA YA LA SOPORTA ==
  *
- * El dueno llevaba tres conversaciones dandole vueltas a un formato de DATOS
+ * El propietario llevaba tres conversaciones dandole vueltas a un formato de DATOS
  * separado del programa. Esto es eso, sin formato nuevo: **el texto viaja como
  * un recurso DENTRO del `.bex`**, en la seccion `Resources` que `bmo-pack` ya
  * escribe y que `paquete.h` ya lee en ejecucion.

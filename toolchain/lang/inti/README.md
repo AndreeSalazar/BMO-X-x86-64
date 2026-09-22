@@ -187,7 +187,7 @@ que dicen COMPILA se leen enteras**.
 ★ Ese ultimo grupo se gano el sitio cuatro veces el primer dia. El corpus y la
 gramatica no estaban de acuerdo en: la sangria (tres espacios contra cuatro),
 las llamadas sin parentesis (`escribe x`), formas que no existian
-(`anade X a Y`), y una funcion anonima en una sonda de un lenguaje que no
+(`agrega X a Y`), y una funcion anonima en una sonda de un lenguaje que no
 tiene funciones anonimas. **Nada de eso se habria visto leyendo.**
 
 ## Que falta para poder afirmar lo que se afirma

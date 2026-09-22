@@ -1,6 +1,6 @@
 # QUE FALTA PARA COMPLETAR EL NEUTRO
 
-> El dueno lo pidio asi: *"investiga MAS, que faltarian requisitos poner en
+> El propietario lo pidio asi: *"investiga MAS, que faltarian requisitos poner en
 > NEUTRO carpeta que pide para poder completar y facilitar"*.
 >
 > Formato de `plan/`: cada casilla con **que la bloquea** y **como se sabe que
@@ -59,7 +59,7 @@ Lo que se pidio era una fila. Lo que aparecio al escribirla es otra cosa:
 ```
 
 Asi que la cuenta se llevo a `marcar`, el unico sitio por el que un marco cambia
-de dueno. Y ahi aparecio lo que no se buscaba: **si la cuenta puede subir, puede
+de propietario. Y ahi aparecio lo que no se buscaba: **si la cuenta puede subir, puede
 bajar** -- y un marco de aparato que deja de serlo es **N3 rota**.
 
 ★★ `soltados` la vigila **desde el lado del marcado, sin tocar el camino de
@@ -104,7 +104,7 @@ mezclar:
 
 ⚠ **Y no se arregla poniendo `free_frame_de` en la purga sin pensarlo**: tocar
 el camino de devolucion de marcos es ROJO, es el mismo sitio de la azul del
-07-09, y el dueno tiene una reproduccion pendiente. **Primero se ejecuta la
+07-09, y el propietario tiene una reproduccion pendiente. **Primero se ejecuta la
 1.4b, despues se toca.**
 
 **Como se sabra que quedo hecha:** un marco neutro devuelto produce un `fault`
@@ -176,7 +176,7 @@ el censo, y que el panel lo diga sin haber tocado el codigo.
 
 ### ⚠ PRIMERO, EL MALENTENDIDO: esto NO espera a la GPU
 
-El dueno lo pregunto asi: *"R6 la MMU, aunque eso es cuando llegue la GPU, no?"*.
+El propietario lo pregunto asi: *"R6 la MMU, aunque eso es cuando llegue la GPU, no?"*.
 
 **No.** La MMU de los aparatos protege de los aparatos que **ya estan dentro de
 la maquina**: el AHCI, la tarjeta de red y el xHC. Los tres estan en el censo
@@ -286,6 +286,6 @@ GRAFICA y BMO-X no tiene codigo para ella"*, y el censo tiene una fila mas.
 ```
 
 ⚠ **R4 va cuarto y no primero a proposito**, aunque sea el que mas suena: toca
-el camino de devolucion de marcos, que es donde vive la azul que el dueno
+el camino de devolucion de marcos, que es donde vive la azul que el propietario
 todavia no ha reproducido con los numeros delante. **Arreglar un sitio antes de
 haberlo medido es como se pierde la unica reproduccion que se tenia.**

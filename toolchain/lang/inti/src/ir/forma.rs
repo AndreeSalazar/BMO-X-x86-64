@@ -300,7 +300,7 @@ pub enum Instr {
     ///
     /// Todo lo que este emisor mueve cabe en un registro. Un `numero` no: mide
     /// 16 bytes --coeficiente mas escala-- asi que **no se puede cargar**, solo
-    /// se puede senalar. Las operaciones sobre el trabajan por direccion:
+    /// se puede marcar. Las operaciones sobre el trabajan por direccion:
     /// `suma(destino, a, b)` recibe tres, y ninguna es un valor.
     ///
     /// ** Es la misma forma que ya usan `p.x` y `a[i]` --`direccion_de` devuelve

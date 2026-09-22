@@ -17,7 +17,7 @@
 //! [`siguiente_byte`], que hace exactamente lo que hacia la cabeza de su
 //! vuelta -- movida, no reescrita.
 //!
-//! [!] Lo que late aqui, con su motivo: mientras el shell es el dueno del
+//! [!] Lo que late aqui, con su motivo: mientras el shell es el propietario del
 //! teclado **gira**, porque no hay interrupcion del USB que lo despierte (W3
 //! de `docs/plan/PLAN_VATIOS.md`) y dormir seria perder letras. Por eso
 //! `consumo` tecleado en este shell mide una maquina que no descansa.
@@ -38,7 +38,7 @@ const DESCANSO_MS: u64 = 4;
 
 /// **El turno se devuelve cuando no hay nada que leer.**
 ///
-/// == *** POR QUE EXISTE, y lo pidio el dueno (2026-09-08) =================
+/// == *** POR QUE EXISTE, y lo pidio el propietario (2026-09-08) =================
 ///
 /// > *"me gustaria que el kernel no pierda tiempo chequeando si el guardian
 /// > esta alli"*
@@ -70,7 +70,7 @@ const DESCANSO_MS: u64 = 4;
 ///
 /// # Solo cuando la entrada es de Ring 3, y eso no es prudencia
 ///
-/// Es la condicion que hace la afirmacion CIERTA. Mientras el shell es el dueno
+/// Es la condicion que hace la afirmacion CIERTA. Mientras el shell es el propietario
 /// del teclado, girar no es girar en vacio: cada vuelta puede traer una letra.
 /// En cuanto la cede, no puede traer ninguna -- y solo entonces dormir es
 /// gratis. Sin ese `if`, esto seria una espera puesta a ojo.
@@ -116,7 +116,7 @@ pub(crate) fn siguiente_byte(linea: &[u8], cursor: usize) -> u8 {
         // Entrada: serial (COM1), teclado USB o PS/2, lo que tenga un byte.
         //
         // * El SERIAL nunca se cede. Es el cable del que depura, y sigue
-        // hablando aunque Ring 3 sea dueno de la pantalla y del teclado -- que
+        // hablando aunque Ring 3 sea propietario de la pantalla y del teclado -- que
         // es justo cuando mas falta hace.
         let mut byte = crate::ring0::dev::console::serial_read_byte();
         // * El teclado FISICO si. Si un proceso reclamo `KIND_INPUT`, las

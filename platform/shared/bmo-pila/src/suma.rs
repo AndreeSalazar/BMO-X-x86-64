@@ -19,7 +19,7 @@ impl Suma {
         Self { acum: 0, impar: None }
     }
 
-    fn anadir(&mut self, v: u16) {
+    fn add(&mut self, v: u16) {
         self.acum += v as u32;
         // Se pliega en cada paso: `acum` nunca pasa de 0xFFFF y no hay forma de
         // desbordarlo con ningun largo de entrada.
@@ -30,7 +30,7 @@ impl Suma {
         if let Some(alto) = self.impar.take() {
             match b.split_first() {
                 Some((&bajo, resto)) => {
-                    self.anadir(u16::from_be_bytes([alto, bajo]));
+                    self.add(u16::from_be_bytes([alto, bajo]));
                     b = resto;
                 }
                 None => {
@@ -41,7 +41,7 @@ impl Suma {
         }
         let mut pares = b.chunks_exact(2);
         for p in &mut pares {
-            self.anadir(u16::from_be_bytes([p[0], p[1]]));
+            self.add(u16::from_be_bytes([p[0], p[1]]));
         }
         if let [suelto] = pares.remainder() {
             self.impar = Some(*suelto);
@@ -55,7 +55,7 @@ impl Suma {
     /// El complemento: lo que va en el campo de la suma, o cero al comprobar.
     pub fn cerrar(mut self) -> u16 {
         if let Some(alto) = self.impar.take() {
-            self.anadir(u16::from_be_bytes([alto, 0]));
+            self.add(u16::from_be_bytes([alto, 0]));
         }
         !(self.acum as u16)
     }

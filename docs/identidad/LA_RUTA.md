@@ -1,6 +1,6 @@
 # LA RUTA -- se paga en la puerta una vez, y despues no hay puerta
 
-> Pregunta del dueno, 2026-08-26:
+> Pregunta del propietario, 2026-08-26:
 >
 > *"cuando la app pide permiso al gate, mi Ring 0 es burocracia -- segun los
 > informes cuanto va a consumir, y dinamico. Pero luego de procesar en syscall
@@ -10,7 +10,7 @@
 >
 > **Si.** Y este documento existe porque la respuesta larga es mejor que la
 > corta: **BMO-X ya lo hace en tres sitios, no lo ha nombrado nunca, y le falta
-> exactamente la mitad que el dueno describio al final.**
+> exactamente la mitad que el propietario describio al final.**
 
 ---
 
@@ -62,7 +62,7 @@ Su propio fichero lleva la frase desde que existe:
 > *"Ese es el momento library-OS: **no se optimiza el cruce de frontera, se
 > borra la frontera**."*
 
-**Eso es la ruta.** Lo que el dueno describio no es una propuesta nueva: es la
+**Eso es la ruta.** Lo que el propietario describio no es una propuesta nueva: es la
 generalizacion de lo que este sistema ya hace tres veces.
 
 ---
@@ -80,7 +80,7 @@ Los tiempos 1, 2 y 3 estan. **El 4 no.**
 
 Con tres consumidores conocidos --el compositor, el audio, un prestamo entre dos
 procesos que se eligieron-- que el kernel no mire despues **es aceptable**: lo
-que se cede es pequeno y el que lo recibe es de la casa.
+que se cede es chico y el que lo recibe es de la casa.
 
 *** El dia que la ruta la pida un tercero, deja de serlo. Y no por malicia: **una
 app que declara que va a leer un anillo y en su lugar lo llena sin parar no esta
@@ -109,7 +109,7 @@ afuera**.
 
 # 3. QUE HABRIA QUE DECLARAR, Y AQUI ESTA LA PARTE DIFICIL
 
-El dueno lo dijo: *"segun los informes cuanto va a consumir, y dinamico"*. Y ahi
+El propietario lo dijo: *"segun los informes cuanto va a consumir, y dinamico"*. Y ahi
 esta el problema que hay que resolver antes de escribir una linea.
 
 ## 3.1 -- Lo que una app declara HOY
@@ -128,7 +128,7 @@ admitir, y no cambia.
 
 *** Una intencion no se puede comprobar en la puerta. Solo se puede **comparar
 despues** con lo que de verdad paso -- y por eso el tiempo 4 no es un adorno del
-diseno: **es lo unico que hace que declarar algo dinamico signifique algo.**
+esquema: **es lo unico que hace que declarar algo dinamico signifique algo.**
 
 ## 3.3 -- La regla que sale de ahi
 
@@ -142,7 +142,7 @@ arreglarlo.
 
 ## 3.4 -- ★★ LA MAQUINA YA ESTA CONSTRUIDA, Y NO SE LLAMA RAYOS X
 
-> Segunda idea del dueno, el mismo dia: *"la maquina del aeropuerto no necesita
+> Segunda idea del propietario, el mismo dia: *"la maquina del aeropuerto no necesita
 > verificar ni estorbar, sino que esta viendo como rayos X todo el tiempo, en
 > categorias diferentes"*.
 
@@ -163,7 +163,7 @@ radar.
 ### Y la palabra ya estaba elegida en el arbol
 
 `cabina/radar.rs` existe desde el 25-08, y no es una metafora suelta: es
-**exactamente la maquina** que el dueno describe.
+**exactamente la maquina** que el propietario describe.
 
 | lo que hace | por que sirve aqui |
 |---|---|
@@ -182,8 +182,8 @@ falta es una segunda matriz con la misma forma, mirando a los procesos.
 
 ## 3.5 -- LAS CINCO CATEGORIAS, Y LO QUE CUESTA CADA UNA
 
-El dueno dijo cinco. Salen cinco, y **cuatro ya se cuentan hoy**: no hay que
-anadir trabajo al camino, hay que **leer lo que ya se cuenta**.
+El propietario dijo cinco. Salen cinco, y **cuatro ya se cuentan hoy**: no hay que
+agregar trabajo al camino, hay que **leer lo que ya se cuenta**.
 
 | # | categoria | quien lo cuenta YA | que significa que no cuadre |
 |---|---|---|---|

@@ -111,7 +111,7 @@ impl Parser {
     /// El criterio es la **suma** de los escalones de cada argumento, y el
     /// empate es un error con los dos candidatos escritos. Una ambiguedad que
     /// se resolviera sola --eligiendo "el primero", por ejemplo-- haria que
-    /// anadir una sobrecarga cambiara a que funcion va una llamada existente,
+    /// agregar una sobrecarga cambiara a que funcion va una llamada existente,
     /// en silencio.
     pub(super) fn resolver<'f>(&self, que: &str, firmas: &'f [Firma], args: &[TypeSpec])
         -> Result<&'f Firma, CppError>

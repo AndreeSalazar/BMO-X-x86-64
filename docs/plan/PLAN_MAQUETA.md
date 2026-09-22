@@ -1,10 +1,10 @@
 # PLAN MAQUETA
 
 > El compilador de composicion del escritorio. **No es un navegador, y la
-> diferencia no es de tamano: es de direccion.**
+> diferencia no es de medida: es de direccion.**
 >
-> Escrito el **2026-08-17**. Nace de una idea del dueno y de tres frases suyas
-> que ya decidieron el diseno entero:
+> Escrito el **2026-08-17**. Nace de una idea del propietario y de tres frases suyas
+> que ya decidieron el esquema entero:
 >
 > > *"crear un compilador compositor profesional que es usar con HTML + CSS
 > > exclusivo como para compositor, para construir pero no es navegador"*
@@ -31,7 +31,7 @@ en `Ultra_userspace/services/director/src/scene/` pasa a ser texto que se lee.
    MANANA    calc.maqueta:  display:flex; gap:6px
 ```
 
-### ⚠ El tamano del problema, MEDIDO el 17-08 (y era menor de lo que dije)
+### ⚠ El medida del problema, MEDIDO el 17-08 (y era menor de lo que dije)
 
 La primera version de este documento decia *"7.780 lineas de `scene/`"*. **Es
 falso y sobrevende.** Contado:
@@ -57,7 +57,7 @@ fracaso cuando es un exito.
 
 Las USE flags existen porque **aguas arriba** alguien compilo un binario para
 todo el mundo y tu estas recuperando una decision que te quitaron. **BMO-X no
-tiene aguas arriba.** Eres el dueno del compilador, del kernel y del disco. No
+tiene aguas arriba.** Eres el propietario del compilador, del kernel y del disco. No
 hay nada que reclamar; el `-march=native` es un hombre peleando con un
 empaquetador que aqui no existe.
 
@@ -209,7 +209,7 @@ cadena sabe que existe**.
 Consecuencia concreta, y es la que paga el reparto: la pregunta de si la salida
 debe ser **codigo Rust generado** o **un recurso BEF (seccion 0x0B)** **ya no hay
 que contestarla ahora**. Se empieza por Rust, que se prueba contra `calc.rs` en
-una tarde, y el dia del recurso se anade un segundo emisor **sin tocar ni una de
+una tarde, y el dia del recurso se agrega un segundo emisor **sin tocar ni una de
 las cinco generaciones**. La ley convirtio una decision irreversible en una
 reversible.
 
@@ -252,11 +252,11 @@ intuicion en algo que se puede refutar.
 
 - **herencia** (`color` que baja de padre a hijo) -> exige conocer al ancestro. **Fuera.**
 - **selectores de descendencia** (`.panel .boton`) -> exige conocer a los ancestros. **Fuera.**
-- **`%` y `auto`** -> exigen conocer el tamano del contenedor. **Fuera.**
+- **`%` y `auto`** -> exigen conocer el medida del contenedor. **Fuera.**
 
 Y el ambito por componente de Astro es justo lo que hace que no se echen de
 menos: si las reglas de un fichero solo tocan a sus cajas, la herencia era un
-apano para no repetirse dentro de un documento gigante que aqui no existe.
+arreglo para no repetirse dentro de un documento gigante que aqui no existe.
 
 ### ✅ El texto, que es lo que hunde a los motores de maquetacion, aqui es gratis
 
@@ -286,7 +286,7 @@ produce codigo**: produce coordenadas. Su parentesco es con `c-gen`, `cobol-gen`
 (regla del 2026-08-08, incumplida tres veces). `maqueta` sobrevive como **nombre
 de producto** -- como CABINA o DOOM -- no como identificador. **El disparador del
 fallo es exactamente este**: crear ficheros nuevos en un arbol cuyos vecinos
-estan en espanol.
+estan en castellano.
 
 ---
 
@@ -306,7 +306,7 @@ estan en espanol.
    [X] 8   emisor B -> recurso BEF 0x0B -> `toolchain/tools/maqueta/emit/src/bef.rs`
            HECHO 25-08, y con el 1 de PLAN_LA_CARA_VIAJA delante: el FORMATO
            salio a `platform/shared/bmo-maqueta-cara` antes que el emisor,
-           porque un emisor dueno del formato deja al lector deduciendolo
+           porque un emisor propietario del formato deja al lector deduciendolo
            [!] MISMO escalon que el 2 de PLAN_LA_CARA_VIAJA: se marcaron
                juntos, que era la condicion escrita
    [~] 9   `<island>` a una superficie BSUP  (parsea y viaja; falta el otro lado)
@@ -405,7 +405,7 @@ El criterio se escribio antes de mirar, que es lo unico que separa una medida de
 elegir al ganador:
 
 ```
-   cara FIJA        su tamano no depende de cuantos datos haya en ejecucion
+   cara FIJA        su medida no depende de cuantos datos haya en ejecucion
    IRREGULAR        no es un for anidado sobre una rejilla
    POCO dato vivo   cada valor que cambia es una isla, y las islas no se ahorran
 ```
@@ -423,8 +423,8 @@ elegir al ganador:
 
 ### Por que, en una frase
 
-**MAQUETA compila coordenadas absolutas para UN tamano, y las ventanas de este
-escritorio se estiran.** La calculadora entro porque es la unica cara de tamano
+**MAQUETA compila coordenadas absolutas para UN medida, y las ventanas de este
+escritorio se estiran.** La calculadora entro porque es la unica cara de medida
 fijo que hay: no se redimensiona y no depende de la pantalla. No fue casualidad
 que saliera la primera, y explica por que el numero fue -50% y no el tercio
 prometido -- se eligio el caso mas facil porque era el unico.
@@ -478,6 +478,6 @@ Las anclas siguen siendo correctas y siguen sin tener consumidor. Y esta casa ya
 sabe lo que pasa con el codigo escrito sin quien lo llame --el `pedir_lectura`
 que se borro antes de entrar--: **no se escriben.**
 
-[!] Y ESTRATOS **sigue sin calificar aunque se anadan anclas**: dos de sus tres
+[!] Y ESTRATOS **sigue sin calificar aunque se agreguen anclas**: dos de sus tres
 vistas dibujan una caja por hijo del volumen, y cuantos hay se sabe en ejecucion.
 Eso no es un limite del compilador -- es lo que separa una CARA de una LISTA.

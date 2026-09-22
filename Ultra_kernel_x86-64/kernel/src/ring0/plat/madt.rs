@@ -117,7 +117,7 @@ unsafe fn largo(tabla: u64) -> u32 {
 ///
 /// Se exige revision >= 2: el RSDT de 32 bits es de ACPI 1.0 y esta maquina
 /// arranca por UEFI, que obliga a XSDT. Si algun dia hace falta el otro camino,
-/// se anade **con su motivo**, no por si acaso.
+/// se agrega **con su motivo**, no por si acaso.
 unsafe fn xsdt(rsdp: u64) -> Option<u64> {
     unsafe {
         if fis::<[u8; 8]>(rsdp) != *b"RSD PTR " {

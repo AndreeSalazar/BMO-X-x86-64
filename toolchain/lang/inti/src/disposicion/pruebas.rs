@@ -420,8 +420,8 @@ fn plano_vacio() -> Plano {
 /// **Una `lista de T` mide lo que una referencia, no lo que la lista.**
 ///
 /// *** Es la propiedad que hace posible que exista un campo de lista: si midiera
-/// lo que la lista, el registro que la contiene cambiaria de tamano cada vez que
-/// alguien anadiera un elemento -- y un registro que cambia de tamano no se
+/// lo que la lista, el registro que la contiene cambiaria de medida cada vez que
+/// alguien anadiera un elemento -- y un registro que cambia de medida no se
 /// puede colocar en un marco.
 ///
 /// La lista de verdad vive en el monton, con su contador y su capacidad, y lo

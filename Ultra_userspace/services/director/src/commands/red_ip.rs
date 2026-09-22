@@ -7,7 +7,7 @@
 //! que va pasando, igual que `red prueba`.
 //!
 //! [!] PRIVACIDAD (`docs/plan/PLAN_RED_TX.md`, seccion 5): la IP concedida se
-//! ensena en pantalla y vive en la memoria de este proceso. No se escribe en
+//! muestra en pantalla y vive en la memoria de este proceso. No se escribe en
 //! disco ni en el repositorio, y se olvida al apagar.
 
 use core::ptr::addr_of_mut;

@@ -118,7 +118,7 @@ impl Barrido {
 /// *"los bytes EXACTOS de la tabla. Ni uno escrito aqui."*
 ///
 /// *** La primera version de esto se atasco en el `cpuid` de la sonda, y la
-/// tentacion era anadir `0F A2` al decodificador. **Eso habrian sido dos
+/// tentacion era agregar `0F A2` al decodificador. **Eso habrian sido dos
 /// listas** -- la del emisor y la del lector -- y se habrian separado el dia que
 /// alguien anadiera un intrinseco: el emisor emitiendolo y el lector atascandose
 /// en un binario perfectamente honesto.

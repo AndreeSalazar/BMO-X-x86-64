@@ -14,7 +14,7 @@
 //! 2026-08-15: el `BMO-X` escrito sobre los tejados y el kanji pisando una torre.
 //! Un fallo de encuadre, o sea de numeros -- y los numeros se prueban.
 //!
-//! Ahora [`componer`] es una funcion del tamano de pantalla y de las piezas, sin
+//! Ahora [`componer`] es una funcion del medida de pantalla y de las piezas, sin
 //! una sola escritura a memoria de video. El kernel la llama y pinta; el
 //! previsualizador del anfitrion la llama y guarda un PNG. **Los dos ven el mismo
 //! encuadre porque ejecutan el mismo codigo**, que es el mismo argumento por el
@@ -259,7 +259,7 @@ mod pruebas {
 
     /// Una pantalla absurdamente baja no rompe ni desborda: el bloque se pega
     /// arriba. Sale de un panel raro o de un modo de video que el firmware
-    /// entrego mas pequeno de lo pedido.
+    /// entrego mas chico de lo pedido.
     #[test]
     fn una_pantalla_diminuta_no_desborda() {
         let m = medidas(320, 200);

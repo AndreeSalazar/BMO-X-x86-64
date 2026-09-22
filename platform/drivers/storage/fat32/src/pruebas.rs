@@ -261,7 +261,7 @@ fn leer_varios_clusters_con_rabo() {
 /// `read_sector`, que si traduce.
 ///
 /// De ahi el sintoma que costo dos tandas de fotos: el sistema **encontraba**
-/// el archivo y sabia su tamano exacto --eso lo dice el directorio-- y los
+/// el archivo y sabia su medida exacto --eso lo dice el directorio-- y los
 /// bytes que llegaban eran codigo x86-64 ajeno. En el Ryzen, con la particion
 /// de datos en el sector 1230848, un `.bex` se leia de dentro de la ESP.
 ///
@@ -681,7 +681,7 @@ fn guardar_dos_veces_deja_lo_segundo() {
 
 /// Y sin dejar UNA sola entrada de mas en el directorio.
 ///
-/// Reemplazar anadiendo otra entrada dejaria dos nombres iguales: el
+/// Reemplazar agregando otra entrada dejaria dos nombres iguales: el
 /// segundo inalcanzable y sus clusters perdidos para siempre. Es justo el
 /// motivo por el que `create` rechaza los repetidos.
 #[test]
@@ -715,7 +715,7 @@ fn reemplazar_suelta_la_cadena_vieja() {
     v.save_file_in_dir(2, &name("GRANDE  BIN"), &grande).expect("1a");
     assert_eq!(ocupados(&mut v), 1 + 3, "raiz + tres clusters de datos");
 
-    // Y ahora uno pequeno en su sitio: tiene que BAJAR a un solo cluster.
+    // Y ahora uno chico en su sitio: tiene que BAJAR a un solo cluster.
     v.save_file_in_dir(2, &name("GRANDE  BIN"), b"corto").expect("2a");
     let quedan = ocupados(&mut v);
     assert_eq!(quedan, 1 + 1, "los tres clusters viejos tenian que soltarse: quedan {quedan}");
@@ -723,7 +723,7 @@ fn reemplazar_suelta_la_cadena_vieja() {
 
 /// Al reves tambien: crecer reserva la cadena entera y el archivo se lee
 /// completo. Un reemplazo que solo escribiera el primer cluster daria un
-/// archivo del tamano nuevo con la cola del viejo dentro.
+/// archivo del medida nuevo con la cola del viejo dentro.
 #[test]
 fn reemplazar_por_uno_mas_grande_lo_lee_entero() {
     let (_turno, mut v) = volumen();
@@ -734,7 +734,7 @@ fn reemplazar_por_uno_mas_grande_lo_lee_entero() {
 
     let mut dst = [0u8; 2048];
     let n = leer_archivo(&mut v, "CRECE   BIN", &mut dst).expect("debe estar");
-    assert_eq!(n, grande.len(), "el tamano de la entrada tiene que ser el nuevo");
+    assert_eq!(n, grande.len(), "el medida de la entrada tiene que ser el nuevo");
     assert_eq!(&dst[..n], &grande[..], "y los bytes, los nuevos de punta a punta");
 }
 
@@ -764,7 +764,7 @@ fn un_archivo_de_cientos_de_clusters_se_lee_entero() {
     let mut dst = std::vec![0u8; grande.len()];
     let n = leer_archivo(&mut v, "GRANDE  BEX", &mut dst).expect("debe estar");
     assert_eq!(n, grande.len(), "se leyeron {n} de {} bytes", grande.len());
-    // Y byte a byte: un tamano correcto con un agujero dentro es
+    // Y byte a byte: un medida correcto con un agujero dentro es
     // exactamente el fallo que esta fila viene a descartar.
     let malo = dst.iter().zip(grande.iter()).position(|(a, b)| a != b);
     assert!(malo.is_none(), "primer byte distinto en {malo:?}");
@@ -773,10 +773,10 @@ fn un_archivo_de_cientos_de_clusters_se_lee_entero() {
 /// ** Y UN SECTOR QUE NO SE PUEDE LEER **CORTA** la lectura.
 ///
 /// Antes no: el `read_sector` fallido no copiaba nada y el `offset += count`
-/// corria igual, asi que `read_file` contestaba el tamano COMPLETO con el
+/// corria igual, asi que `read_file` contestaba el medida COMPLETO con el
 /// trozo sin tocar -- basura, o los bytes de quien tuvo antes ese buffer.
 /// Un `.bex` de 1.591 sectores necesita **una** lectura mala para llegar al
-/// cargador con un agujero y del tamano correcto.
+/// cargador con un agujero y del medida correcto.
 ///
 /// Se provoca acortando el disco: los clusters del final quedan fuera del
 /// medio y `read` contesta `false`.

@@ -8,7 +8,7 @@
 >
 > ⚠ **Este documento no propone tocar nada todavia.** El backend de C lo usan
 > todos los `.bex` del sistema, y este mes ya se pagaron cinco fallos de codegen.
-> Aqui esta la MEDIDA y el orden en que se arreglaria. La decision es del dueno.
+> Aqui esta la MEDIDA y el orden en que se arreglaria. La decision es del propietario.
 
 ---
 
@@ -105,7 +105,7 @@ escrito en el fichero:
 > `imul` para el indice, una lectura de la global y tres accesos a la pila."*
 
 *** Quito el `imul`, y **el compilador lo puso otra vez** -- ahora para calcular
-`1 * 8`, el tamano del tipo, en tiempo de ejecucion y en cada vuelta.
+`1 * 8`, el medida del tipo, en tiempo de ejecucion y en cada vuelta.
 
 > Una optimizacion escrita en C que el generador de codigo deshace no es una
 > optimizacion: es un comentario.
@@ -154,7 +154,7 @@ miran dos o tres instrucciones seguidas y las sustituyen.
       ⚠ Y su sacrificio es el que importa: **es donde un compilador deja de
       poder leerse de una sentada**, que es la propiedad por la que existe este.
 
-- [ ] **C5 -- ★★★ QUE EL COMPILADOR NO TENGA QUE ADIVINAR.** Lo pidio el dueno
+- [ ] **C5 -- ★★★ QUE EL COMPILADOR NO TENGA QUE ADIVINAR.** Lo pidio el propietario
       el 09-09 con esas palabras, y es el escalon mas profundo de la lista.
 
       Hoy el emisor **vuelve a deducir el tipo cada vez que lo necesita**:
@@ -207,7 +207,7 @@ sonda -- el mismo metodo que exonero al asignador en la semana del 01 al 04-09.
    [ ] no toca el asignador de registros. C1..C3 son mirillas; C4 es otro
        proyecto y esta escrito aparte por eso
    [ ] no arregla nada de INTI ni de COBOL ni de Ada: no comparten emisor
-   [ ] y no empieza sin que el dueno lo diga. Este backend lo usan todos los
+   [ ] y no empieza sin que el propietario lo diga. Este backend lo usan todos los
        `.bex`, y el precio de equivocarse aqui ya esta escrito en la memoria
        de la casa con nombre y fecha
 ```

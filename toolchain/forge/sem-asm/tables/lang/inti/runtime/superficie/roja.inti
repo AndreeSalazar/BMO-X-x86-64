@@ -164,7 +164,7 @@ funcion superficie_crear_con_buzon(ancho es natural64, alto es natural64, ranura
 funcion superficie_crear(ancho es natural64, alto es natural64) devuelve natural64
     devuelve superficie_crear_con_buzon(ancho, alto, 0)
 
-# Contestar a un CONFIGURE: una nueva del tamano pedido con el mismo buzon, ya
+# Contestar a un CONFIGURE: una nueva del medida pedido con el mismo buzon, ya
 # ofrecida. La vieja NO se toca: sigue pintandose hasta que
 # `superficie_tomada(nueva)` diga 1.
 funcion superficie_reconfigurar(vieja es natural64, ancho es natural64, alto es natural64) devuelve natural64

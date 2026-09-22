@@ -19,7 +19,7 @@
 >                  HECHA      esta en el arbol y (si toca) en el Ryzen, con fecha
 >                  SUPERADA   otra decision la dejo sin sentido: se cita cual
 >                  APARCADA   no se hace AHORA y se dice que la retoma
->                  ESPERA     una decision del dueno, y se dice cual
+>                  ESPERA     una decision del propietario, y se dice cual
 > ```
 >
 > Un plan cerrado NO se mueve de `plan/`: sigue siendo la razon por la que algo
@@ -83,7 +83,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | BMO-X como aparato guardian (placa RISC-V) | **SUPERADA** | por la decision de arriba. `plan/PLAN_EL_GUARDIAN.md` se conserva para ese otro arbol |
 | Ring 0 cerrado a externos | **CERRADA** 17-09 | para siempre, `.github/CODEOWNERS`, guardian `codeowners`. Motivo: xz |
 | El USB en su propio nucleo (A0-A2) | ABIERTA | `plan/PLAN_EL_BUS_APARTE.md`: A0 y A1 hechos (el triple fallo era el selector de 16 bits + sin TSS, confirmado en el Ryzen); A2 residente en `bmo-orquesta` |
-| El COMPAS: el quantum se retira, el turno se concede | ABIERTA | `plan/PLAN_EL_COMPAS.md`: EX1, EX2, EX3 y EX4 HECHAS el 21-09 (la expropiacion al despertar, el cerrojo que se mide con nombre, el CONTRATO por hilo de kernel: periodo + presupuesto, cobrado por turno, apartado si lo rompe -- el quantum no se quita, se convierte, queda como suelo para quien no declara; y la ENUMERACION POR PASOS: un intento contra un aparato mudo eran 933 ms de bus congelado y ahora son ~125 vueltas de 4 ms con el raton leido, `bmo_uhid::pasos` + la espera vigilada de `bmo_xhci`, seis pruebas sin xHC; falta el veredicto del Ryzen); E0-E11 abiertas. Doctrina del dueno, 21-09: *"puedes salirte del rango PERO si cumples lo que eres; si no es parte de la musica, se saca a patada"*. Es el fantasma del planificador (`bmo-planificador-suelo`) |
+| El COMPAS: el quantum se retira, el turno se concede | ABIERTA | `plan/PLAN_EL_COMPAS.md`: EX1, EX2, EX3 y EX4 HECHAS el 21-09 (la expropiacion al despertar, el cerrojo que se mide con nombre, el CONTRATO por hilo de kernel: periodo + presupuesto, cobrado por turno, apartado si lo rompe -- el quantum no se quita, se convierte, queda como suelo para quien no declara; y la ENUMERACION POR PASOS: un intento contra un aparato mudo eran 933 ms de bus congelado y ahora son ~125 vueltas de 4 ms con el raton leido, `bmo_uhid::pasos` + la espera vigilada de `bmo_xhci`, seis pruebas sin xHC; falta el veredicto del Ryzen); E0-E11 abiertas. Doctrina del propietario, 21-09: *"puedes salirte del rango PERO si cumples lo que eres; si no es parte de la musica, se saca a patada"*. Es el fantasma del planificador (`bmo-planificador-suelo`) |
 | El PLAZO: V-Sync, VBlank, un numero contra el que decidir | ABIERTA | `plan/PLAN_EL_PLAZO.md` P2.2 (reschedule forzado) es la que el `WAIT` del compositor espera |
 | La puerta se parte: dividir lo que no se puede abaratar | ABIERTA | `plan/PLAN_LA_PUERTA_SE_PARTE.md` M0b-2, M0c, M1b; 8 hechas |
 | El NEUTRO vigilado: el DMA con plazo medido (LEY 24) | ABIERTA | `plan/PLAN_EL_NEUTRO_VIGILADO.md` N5b: el numero sale de varios arranques con `mudo=`, no se elige |
@@ -100,7 +100,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | El semaforo completo (cada fichero dice su color) | ABIERTA | `plan/PLAN_EL_SEMAFORO_COMPLETO.md` S4-S6: 38 drivers, `platform/shared`, `platform/abi` |
 | La GPU (Vulkan, RDNA4) | **APARCADA** | `platform/drivers/gpu/rdna4/PLAN_VULKAN.md`: con plan escrito, no descartada. Es lo que Minecraft y "lo tipico" piden de verdad |
 
-## 4. EL ESCRITORIO Y LAS APPS -- lo que el dueno ve
+## 4. EL ESCRITORIO Y LAS APPS -- lo que el propietario ve
 
 | meta | estado | motivo / lo que falta |
 |---|---|---|
@@ -119,7 +119,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | Ver imagenes: BMP, QOI, BICO, **PNG, JPEG** | **HECHA** 20-09 | `bmo-imagen`: inflate propio, IDCT entera, 40 filas contra Pillow/libjpeg; el visor abre `.png` y `.jpg`. Falta VERLO en el Ryzen (`datos/inti.png`, `datos/arranque.jpg`) |
 | MP3 | ABIERTA | `plan/PLAN_MEDIOS.md` 7.2: el decodificador es codigo (~2.500 lineas Rust propias); OIRLO pide A1 (`TUBO ABIERTO`), que el Ryzen nego el 25-08 y no se ha vuelto a arrancar |
 | MP4 | **SUPERADA** por MPEG-1 | `PLAN_MEDIOS.md` 7.3: H.264+AAC sin FFmpeg ni GPU es un proyecto por codec; lo que cabe es `pl_mpeg` en ventana y convertir fuera (o la antena). VLC sigue siendo "no" con motivo |
-| Audio en metal (A1 SET_INTERFACE) | ABIERTA (2) | `plan/PLAN_AUDIO.md`: el Ryzen lo nego el 25-08, corregido el 26-08, sin ejecutar desde entonces. 21-09: el audifono no se ENCONTRABA desde el 17-09 (su ranura se devolvia tras configurarlo) y buscarlo costaba 244 ms con IRQ cerradas desde un syscall; ahora el que enumera lo RECLAMA (`uaudio::reclamar`, ficha 12), `MAX_CFG` sube a 1024, el volumen va por el hilo del bus y el `save` tiene seccion de audio (A6, `INFO_AUDIO_*` 0x82-0x87). Idea del dueno para despues: una API de accesorios en Rust = el trait `Metal` publicado, en Ring 3 (PLAN_AUDIO 5) |
+| Audio en metal (A1 SET_INTERFACE) | ABIERTA (2) | `plan/PLAN_AUDIO.md`: el Ryzen lo nego el 25-08, corregido el 26-08, sin ejecutar desde entonces. 21-09: el audifono no se ENCONTRABA desde el 17-09 (su ranura se devolvia tras configurarlo) y buscarlo costaba 244 ms con IRQ cerradas desde un syscall; ahora el que enumera lo RECLAMA (`uaudio::reclamar`, ficha 12), `MAX_CFG` sube a 1024, el volumen va por el hilo del bus y el `save` tiene seccion de audio (A6, `INFO_AUDIO_*` 0x82-0x87). Idea del propietario para despues: una API de accesorios en Rust = el trait `Metal` publicado, en Ring 3 (PLAN_AUDIO 5) |
 
 ## 5. LA RED Y LA ANTENA -- lo que entra de fuera
 
@@ -132,7 +132,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | CLOUD LOCAL: el movil es la antena, BMO-X la pantalla | ABIERTA | `plan/PLAN_CLOUD_LOCAL.md`, 45 sueltas, el plan mas largo. La antena Android esta TERMINADA (HONOR navega solo); lo que falta es BMO-X: S1 (pl_mpeg), N3, P0 |
 | Windows como CONSOLA (pixeles MPEG-1 + entrada de vuelta) | ABIERTA | `PLAN_CLOUD_LOCAL.md` seccion 13, S6 ESPEJO: es como Minecraft llega a esta pantalla |
 | Privacidad: ni MAC ni IP en el repo publico | **HECHA** 13/18-09 | guardian en el build + `--msg` en el hook de commit |
-| **VISION** (21-09): la DPU con silicio propio, y Linlol como segundo vertice de compatibilidad | **VISION**, sin fecha de codigo | Del dueno, con estas palabras: *"no me refiero a comprar un procesador de escritorio comercial, sino a disenar o adoptar un nucleo RISC-V custom con registros y bus de 512 bits para procesamiento nativo en hardware"*, para cuando haya capital y poder para construir un chip propio. **Linlol** = un OS propio de compatibilidad MAESTRA (POSIX reconstruido, AOT: Python, Java, lo tipico), nombre con burla a Linux y con este motivo: *"matar a Linux con argumentos, no con promesas"*. Reparto: hoy BMO-X orquesta el metal actual (x86-64, 2 syscalls) y la ANTENA delega la compatibilidad (Android hoy); cuando exista la DPU, Linlol ocupa ese sitio sobre su silicio y BMO-X sigue siendo el que pinta y orquesta. Lo que esto NO es: ni una rama de este repo (una arquitectura, un repositorio: la fila de la categoria 3, decision del 18-09, guardian `isa`; y la mitad que SI es de este repo -- que el binario declare y el silicio ejecute -- ya esta en `plan/PLAN_EL_SILICIO.md`), ni trabajo de esta temporada. Lo que si pide desde hoy: que la frontera entre BMO-X y la antena (`VALKYRIE-ABI`, el buzon, la lamina byte a byte) siga cabiendo en una pagina, porque ESA es la frontera por la que un dia entra Linlol |
+| **VISION** (21-09): la DPU con silicio propio, y Linlol como segundo vertice de compatibilidad | **VISION**, sin fecha de codigo | Del propietario, con estas palabras: *"no me refiero a comprar un procesador de escritorio comercial, sino a trazar o adoptar un nucleo RISC-V custom con registros y bus de 512 bits para procesamiento nativo en hardware"*, para cuando haya capital y poder para construir un chip propio. **Linlol** = un OS propio de compatibilidad MAESTRA (POSIX reconstruido, AOT: Python, Java, lo tipico), nombre con burla a Linux y con este motivo: *"matar a Linux con argumentos, no con promesas"*. Reparto: hoy BMO-X orquesta el metal actual (x86-64, 2 syscalls) y la ANTENA delega la compatibilidad (Android hoy); cuando exista la DPU, Linlol ocupa ese sitio sobre su silicio y BMO-X sigue siendo el que pinta y orquesta. Lo que esto NO es: ni una rama de este repo (una arquitectura, un repositorio: la fila de la categoria 3, decision del 18-09, guardian `isa`; y la mitad que SI es de este repo -- que el binario declare y el silicio ejecute -- ya esta en `plan/PLAN_EL_SILICIO.md`), ni trabajo de esta temporada. Lo que si pide desde hoy: que la frontera entre BMO-X y la antena (`VALKYRIE-ABI`, el buzon, la lamina byte a byte) siga cabiendo en una pagina, porque ESA es la frontera por la que un dia entra Linlol |
 
 ## 6. LA SEGURIDAD -- decir que no con nombre
 
@@ -142,7 +142,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | El metal de la seguridad (C8e, S-FIRMA-4) | ABIERTA | `plan/PLAN_SEGURIDAD.md`: 6 sueltas, 26 hechas |
 | Quien firma: `bmo-firmar`, el ancla, la privada fuera del repo | **HECHA** 10-09 | `task/confianza.rs` |
 | La cadena que se firma es la que el kernel comprueba | **HECHA** 20-09 | cazado antes del metal: era mi fallo de B4 |
-| Los NIVELES por llave (extranjero / socio / dueno) | **ESPERA** | ver categoria 1: decision de Eddi |
+| Los NIVELES por llave (extranjero / socio / propietario) | **ESPERA** | ver categoria 1: decision de Eddi |
 | SHA-256 (NIST), Ed25519, BLAKE3 | **HECHA** | `bmo-cripto`; abre HTTPS y la firma con la misma llave |
 
 ## 7. LA COMUNIDAD Y EL TRABAJO -- lo que no es codigo
@@ -152,7 +152,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | Apache-2.0, repo publico | **HECHA** 05-09 | Techne/Simbiosis ya no existe; se conserva el razonamiento |
 | El lanzamiento: r/osdev antes que Show HN | ABIERTA | `bmo-lanzamiento-comunidad`; el material privado vive en PREPARACION |
 | El video del Ryzen (bloquea la busqueda de trabajo) | ABIERTA | `eddi-busqueda-de-trabajo`; DOOM jugado el 20-09 es la escena |
-| README al dia | **HECHA** 20-09 | cinco compiladores, BEF2, los tres que enlazan, tamanos de hoy |
+| README al dia | **HECHA** 20-09 | cinco compiladores, BEF2, los tres que enlazan, medidas de hoy |
 
 ---
 

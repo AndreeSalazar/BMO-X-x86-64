@@ -8,7 +8,7 @@
  * entonces el `false` de ESTE fichero reescribe el miembro del enum en un
  * literal: 52 ficheros que culpaban al compilador, y era esta cabecera.
  *
- *   > Un stub que esta mal no cuenta una verdad mas pequena: cuenta otra.
+ *   > Un stub que esta mal no cuenta una verdad mas chica: cuenta otra.
  */
 #ifndef BMO_STDBOOL_H
 #define BMO_STDBOOL_H

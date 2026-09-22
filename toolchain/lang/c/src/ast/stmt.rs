@@ -21,7 +21,7 @@ pub struct Case {
 ///
 /// **Este es el contrato entero entre el parser y el codegen para los
 /// agregados**, y es a proposito lo mas tonto que se puede escribir: *en el
-/// byte `offset` del objeto va `valor`, del tamano de `tipo`*.
+/// byte `offset` del objeto va `valor`, del medida de `tipo`*.
 ///
 /// Lo que NO viaja aqui: designadores, nombres de campo, corchetes, anidamiento.
 /// El codegen no sabe que existe `.x = 1`, igual que no sabe que existe `%d` --

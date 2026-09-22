@@ -91,7 +91,7 @@ esperando a su fase.
 |---|---|---|
 | `p01_llano` | un driver de verdad: puertos, `bits_y`, `crudo` | **COMPILA** |
 | `p02_llano_sin_lista` | en `llano` no hay lista: crece, pide monton | `E0070` |
-| `p03_llano_sin_numero` | en `llano` hay que decir el tamano | `E0020` |
+| `p03_llano_sin_numero` | en `llano` hay que decir el medida | `E0020` |
 | `p04_crudo_en_pleno` | `crudo` no existe en `pleno` | `E0071` |
 | `p05_paralelo_mutable` | ★★ lo que cruza esta congelado, o no cruza | `E0080` |
 | `p06_puerta` | ★★ la puerta se llama sin `crudo`: al otro lado hay un kernel que comprueba | **COMPILA** |
@@ -108,7 +108,7 @@ esperando a su fase.
 | `r03_division` | 3 -- dividir entre cero atrapa | `E1003` |
 | `r04_sin_valor` | 4 -- ★ leer sin inicializar **no se puede escribir** | `E0031` |
 | `r07_desplaza` | 7 -- desplazar de mas da cero, con aviso | **COMPILA** + `A2007` + `0` |
-| `r09_tamanos` | 9 -- tamanos exactos | **COMPILA** |
+| `r09_tamanos` | 9 -- medidas exactos | **COMPILA** |
 | `r11_flotante` | 11 -- las cuatro operaciones y la conversion existen | **COMPILA** |
 | `r11_bits_flotante` | 11 -- los bits sobre un flotante **no compilan** | `E0123` |
 | `r12_conversion` | 12 -- flotante fuera de rango atrapa | `E1012` |

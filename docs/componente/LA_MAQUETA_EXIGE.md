@@ -34,7 +34,7 @@ Y un error de MAQUETA **detiene la compilacion**. No hay avisos.
 ## 1. EL FICHERO
 
 Extension `.maqueta`. **Marcado y estilo en el mismo fichero** -- es lo que pidio
-el dueno (*"HTML + CSS ambos combinado"*) y es la forma de Astro: un componente es
+el propietario (*"HTML + CSS ambos combinado"*) y es la forma de Astro: un componente es
 un fichero, no tres.
 
 ```html
@@ -62,7 +62,7 @@ un fichero, no tres.
 </maqueta>
 ```
 
-### `<maqueta>` sin tamano: el compilador lo calcula
+### `<maqueta>` sin medida: el compilador lo calcula
 
 Si la raiz no declara `ancho`/`alto`, **MAQUETA los deduce del arbol y los emite
 como constantes**. Para el ejemplo de arriba salen `322 x 446`:
@@ -73,7 +73,7 @@ como constantes**. Para el ejemplo de arriba salen `322 x 446`:
 ```
 
 ★ **Ese es el trabajo que hoy hace una persona y a veces mal.** Un panel se
-declara con tamano; una ventana que debe ajustarse a su contenido, no.
+declara con medida; una ventana que debe ajustarse a su contenido, no.
 
 ---
 
@@ -214,7 +214,7 @@ No hay `%`, `auto`, `em`, `rem`, `vh`, `vw`, `fr`, `calc()`, decimales ni
 negativos.
 
 ★ **Y esto no es pobreza, es L7**: `%` y `auto` exigen que una pieza conozca el
-tamano de su contenedor, y en MAQUETA *un padre no sabe que tiene padre*. La
+medida de su contenedor, y en MAQUETA *un padre no sabe que tiene padre*. La
 jerarquia elige el subconjunto; ver la seccion 4 de `PLAN_MAQUETA.md`.
 
 **Los colores son `#RRGGBB`.** No hay nombres (`red`), ni `rgb()`, ni `rgba()`,
@@ -259,7 +259,7 @@ de clase es un error.
 
 ## 6. LA FORMA EXACTA DE UN ERROR
 
-Un rechazo que no ensena la salida es un muro. **Cada error lleva dos notas: por
+Un rechazo que no muestra la salida es un muro. **Cada error lleva dos notas: por
 que, y que escribir en su lugar.**
 
 ```
@@ -402,7 +402,7 @@ otro proceso rellena -- que es **exactamente la superficie de `PLAN_DIRECTOR.md`
 (`BSUP`, `MEM_OP_OFRECER` / `TASK_OP_TOMAR`, la direccion por ranura). La mitad
 viva del escritorio ya tiene su cableado; MAQUETA solo le dice donde va.
 
-⚠ Una isla **no se maqueta segun su contenido**: su tamano lo pone la maqueta,
+⚠ Una isla **no se maqueta segun su contenido**: su medida lo pone la maqueta,
 nunca el proceso que la rellena. Al reves seria dejar que una app cuelgue el
 calculo del escritorio, que es lo que ya se decidio no hacer en `PLAN_DIRECTOR.md`
 (decision 2: *la secuencia, no un cerrojo*).

@@ -57,10 +57,10 @@
  *
  * == Lo que esta cabecera NO hace ==
  *
- * - **No dibuja.** Da la direccion, el tamano y el paso; la linea y el
+ * - **No dibuja.** Da la direccion, el medida y el paso; la linea y el
  *   rectangulo son de quien pinta.
  * - **No compone.** Si el DIRECTOR esta vivo, `reclamar` contesta 0 y hay que
- *   mirarlo: la pantalla tiene UN dueno. Un programa que quiera funcionar en
+ *   mirarlo: la pantalla tiene UN propietario. Un programa que quiera funcionar en
  *   los dos sitios prueba primero `<bmo/superficie.h>` y se cae aqui.
  * - **No convierte el formato.** Lo dice y ya; ver `formato`.
  */
@@ -222,7 +222,7 @@ int bmo_pantalla_cerrar(BMO_PANTALLA *p) {
  *
  * Y esto no se arregla con el kernel reservandose una franja. Eso seria meter
  * politica de pantalla en Ring 0, que es exactamente lo que `KIND_LIENZO`
- * hacia y por lo que se quito -- ver `obj/loan.rs` y la pregunta del dueno:
+ * hacia y por lo que se quito -- ver `obj/loan.rs` y la pregunta del propietario:
  * *"Ring 3 no puede administrar eso el?"*.
  *
  * == Como lo resuelve Linux, que es de donde sale esto ==
@@ -279,7 +279,7 @@ int bmo_pantalla_recuperar(BMO_PANTALLA *p) {
 
 /* Cabe este pixel en lo que el kernel mapeo?
  *
- * ** Existe porque `RANGECHECK` de DOOM enseno lo que cuesta no tenerla: un
+ * ** Existe porque `RANGECHECK` de DOOM mostro lo que cuesta no tenerla: un
  * guardia que se equivoca en el borde no protege el 99% de los casos, protege
  * todos menos el unico que pasa. Aqui la cuenta se hace UNA vez y bien, contra
  * `bytes` --que es lo mapeado de verdad-- y no contra `alto * paso`, que es lo

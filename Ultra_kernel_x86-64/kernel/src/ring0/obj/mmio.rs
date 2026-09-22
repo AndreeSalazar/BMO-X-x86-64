@@ -36,7 +36,7 @@
 //! ```text
 //!    UNA pagina           la primera del BAR. Donde viven CAPLENGTH y HCIVERSION
 //!    SOLO LECTURA         la pagina se mapea sin escritura, y sin RIGHT_WRITE
-//!    exclusiva            un dueno a la vez, como la pantalla y el audio
+//!    exclusiva            un propietario a la vez, como la pantalla y el audio
 //! ```
 //!
 //! ** Escribir en un aparato desde Ring 3 es **otra decision**, y va despues de
@@ -114,7 +114,7 @@ fn fisica_de(cual: u64) -> Option<u64> {
 /// Las reservas de la casa: rangos que se reparten por OTRA puerta.
 ///
 /// La pantalla tiene `KIND_FRAMEBUFFER`. Cederla tambien por aqui seria dos
-/// puertas al mismo aparato, y entonces "un dueno a la vez" deja de ser cierto
+/// puertas al mismo aparato, y entonces "un propietario a la vez" deja de ser cierto
 /// sin que nadie lo haya escrito.
 fn reservas() -> [bmo_mmio_juicio::Reserva; 1] {
     let fb = unsafe { crate::info::FB_ADDR };
@@ -127,7 +127,7 @@ fn reservas() -> [bmo_mmio_juicio::Reserva; 1] {
 /// **Concede la ventana del aparato `cual` al proceso `pid`.**
 ///
 /// El orden es el mismo que en `fb::claim` y por el mismo motivo: primero
-/// asegurar que hay un solo dueno, luego mapear, y solo al final entregar el
+/// asegurar que hay un solo propietario, luego mapear, y solo al final entregar el
 /// handle. Un fallo a medias no puede dejar paginas de un aparato sueltas en un
 /// espacio de usuario sin nadie que las suelte.
 pub fn claim(pid: u32, aspace: u64, cual: u64) -> Result<u64, u32> {
@@ -199,7 +199,7 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
     Ok(())
 }
 
-/// El dueno murio. **Se suelta sola**, igual que la pantalla.
+/// El propietario murio. **Se suelta sola**, igual que la pantalla.
 ///
 /// Sin esto, un proceso que reventara dejaria el aparato ocupado para siempre y
 /// haria falta reiniciar para volver a pedirlo. Es `R-APP6` --*muere sin

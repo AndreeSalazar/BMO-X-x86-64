@@ -71,7 +71,7 @@
 //!   el blob de motivos: ASCII, sin terminadores, uno detras de otro
 //! ```
 //!
-//! **Registros de tamano fijo**, igual que el directorio de recursos y por el
+//! **Registros de medida fijo**, igual que el directorio de recursos y por el
 //! mismo motivo: el requisito `i` esta en `16 + i*32` y el lector es una
 //! multiplicacion. Se lee desde Rust, desde el kernel sin `alloc`, y desde C
 //! con veinte lineas.

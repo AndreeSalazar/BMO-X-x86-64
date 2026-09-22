@@ -64,7 +64,7 @@ funcion principal devuelve entero32
 /// **este lector conoce lo que este emisor emite**.
 ///
 /// Y si un dia el emisor aprende una instruccion nueva, esta prueba se cae antes
-/// que nadie -- que es exactamente lo que tiene que pasar: el que anade la
+/// que nadie -- que es exactamente lo que tiene que pasar: el que agrega la
 /// instruccion es el que sabe como se lee.
 #[test]
 fn el_barrido_recorre_la_sonda_entera() {

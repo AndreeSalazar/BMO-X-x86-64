@@ -40,7 +40,7 @@ pub const KIND_FRAMEBUFFER: u8 = 0x0F;
 /// **El sonido.** El derecho a hacer ruido. Espejo de
 /// `bmo_abi::HandleKind::AudioEngine`.
 ///
-/// Es exclusivo como la pantalla y por el mismo motivo: dos duenos escribiendo
+/// Es exclusivo como la pantalla y por el mismo motivo: dos propietarios escribiendo
 /// en el mismo aparato no es mezclar, es ruido -- y mezclar es trabajo de Ring
 /// 3, igual que componer ventanas. Ver `ring0/obj/audio.rs`.
 ///
@@ -166,7 +166,7 @@ pub const KIND_TAREA: u8 = 0x55;
 // correr una prueba en Ring 0, y este fallo no se ve ejecutando -- se ve cuando
 // alguien usa el handle, semanas despues, con un mensaje que manda a otro sitio.
 //
-// ** El coste de anadir una fila aqui al declarar un `KIND_` nuevo es cinco
+// ** El coste de agregar una fila aqui al declarar un `KIND_` nuevo es cinco
 // segundos. El de olvidarla ya esta medido: una familia entera de capabilities
 // que nunca resolvio.
 const _: () = {
@@ -416,14 +416,14 @@ pub fn revoke_all(pid: u32) {
     crate::ring0::obj::audio::process_died(pid);
     // ** Y el bufer que le hubiera prestado al tubo de audio. Sin esto, el
     // aparato seguiria leyendo por DMA marcos de un proceso que ya no existe --
-    // que es peor que un fallo: es un ruido que no para y que no tiene dueno a
+    // que es peor que un fallo: es un ruido que no para y que no tiene propietario a
     // quien pedirle que pare.
     crate::ring0::core::desmontaje::entra(7, pid);
     crate::ring0::dev::usb::audio::soltar(pid);
     // ** Y EL PASE DE RED, por lo mismo que el audio: un grifo abierto a nombre
     // de un muerto seguiria dejando salir lo que quedara en su buzon. Va ANTES
     // de destruir el espacio: la puerta no lo toca, pero tiene que saber que
-    // ese dueno ya no esta antes de que el pid se pueda reutilizar.
+    // ese propietario ya no esta antes de que el pid se pueda reutilizar.
     crate::ring0::red::puerta::process_died(pid);
     // Sus bloques de memoria no hay que desmapearlos --el espacio entero se
     // destruye--, pero SI hay que soltar el contador de peticiones: sin esto un

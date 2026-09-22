@@ -63,7 +63,7 @@
 //! > la factura de la luz de premio.
 //!
 //! Este Ryzen 5 5600X es Zen 3 y trae `MONITORX` (CPUID 0x8000_0001, ECX bit
-//! 29), asi que en la maquina del dueno se duerme de verdad. En una que no lo
+//! 29), asi que en la maquina del propietario se duerme de verdad. En una que no lo
 //! traiga, esto no hace nada -- y lo dice.
 //!
 //! # El patron, y el orden NO es de gusto
@@ -177,7 +177,7 @@ fn cpuid(hoja: u32) -> (u32, u32, u32, u32) {
 ///
 /// ** `EAX = 0` es **C1**, y C1 apenas apaga nada: el nucleo sigue con sus
 /// relojes vivos. O sea que la version anterior dormia **de mentira**, y el
-/// dueno lo olio: *"que duerma de verdad, que no este comiendo electricidad
+/// propietario lo olio: *"que duerma de verdad, que no este comiendo electricidad
 /// sin sentido"*.
 ///
 /// # Como se pregunta

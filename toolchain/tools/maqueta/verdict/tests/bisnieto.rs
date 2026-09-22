@@ -112,7 +112,7 @@ fn dos_ids_iguales_porque_un_clic_contestaria_lo_que_no_es() {
 fn una_isla_sin_sitio_cita_la_decision_del_director() {
     let v = veredicto("<maqueta><island nombre=\"v\"></island></maqueta>");
     assert!(v.contains("la isla `v` mide 0x0"));
-    assert!(v.contains("lo pone LA MAQUETA"), "{v}");
+    assert!(v.contains("la pone LA MAQUETA"), "{v}");
 }
 
 #[test]
@@ -202,11 +202,11 @@ fn la_calculadora_pasa_el_veredicto_entera() {
 #[test]
 fn un_solo_cambio_en_la_calculadora_la_rompe_y_se_ve_donde() {
     // [!] Ensanchar las teclas a secas NO rompe nada, y esa fue mi primera
-    // version de esta prueba: el panel no declara tamano, asi que crece con
+    // version de esta prueba: el panel no declara medida, asi que crece con
     // ellas y todo sigue encajando. Es correcto, y util de saber -- una
     // maquetacion que se deduce del arbol se defiende sola.
     //
-    // Lo que si rompe es lo de siempre: un tamano CLAVADO y un contenido que
+    // Lo que si rompe es lo de siempre: un medida CLAVADO y un contenido que
     // crece por debajo. Con el lienzo fijo en los 322x446 que hoy calcula el
     // compilador, unas teclas de 96 px ya no caben en su fila.
     let roto = include_str!("../../pruebas/calc.maqueta")

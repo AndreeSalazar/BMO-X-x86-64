@@ -366,7 +366,7 @@ impl Llegada {
         matches!(self, Llegada::DeLaTarjeta)
     }
 
-    /// El codigo que se ensena: 2 error, 3 partida, 4 enana (0 y 1 no son malas).
+    /// El codigo que se muestra: 2 error, 3 partida, 4 enana (0 y 1 no son malas).
     pub const fn codigo(self) -> u8 {
         match self {
             Llegada::DeLaTarjeta => 0,
@@ -518,7 +518,7 @@ pub mod reg_rx {
     /// lo lleva el silicio. Un contador propio solo puede contar lo que se cogio
     /// --nunca sabe lo que se perdio-- asi que "he recibido 40 tramas" es una
     /// frase que no dice nada sin esto al lado. Si esto sube, el anillo es
-    /// pequeno o nadie llama a `rx_poll` bastante a menudo.
+    /// chico o nadie llama a `rx_poll` bastante a menudo.
     ///
     /// ** Se pone a cero escribiendo, asi que **leerlo es destructivo si se
     /// limpia**: aqui solo se lee.

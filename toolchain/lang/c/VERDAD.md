@@ -123,7 +123,7 @@ falsa.** Por eso un identificador desconocido ahora es un error y no un cero.
 ## 6. Structs por valor
 
 **La ABI de agregados de BMO** (ver `codegen/agregados.rs`): argumento en
-`techo(tamano/8)` ranuras consecutivas de la pila; retorno por puntero oculto en
+`techo(medida/8)` ranuras consecutivas de la pila; retorno por puntero oculto en
 `rdi` -- *todavia no implementado*. No se copia la clasificacion por *eightbytes*
 de SysV porque aqui no hay registros de argumento que repartir.
 
@@ -202,7 +202,7 @@ sabria que esperar.
 |---|---|---|---|
 | **F12** | Ventana verde `ESTRATOS // centro de datos` | Las teclas de funcion no producian nada: `hid_to_ps2` las traducia y se caian por el `_ => None` de `nav_key` | ⏳ metal |
 | F12 otra vez | Se cierra y **lo de debajo vuelve entero** | La consola se pinta encima de la caja; borrarla ignorandolo dejaria un agujero con el fondo del escritorio | ⏳ metal |
-| **Alt+Tab** (Alt izquierdo) | La ventanita con la lista y una senalada | `Ctrl+Alt` no vale: **es AltGr** y ya tiene dueno | ⏳ metal |
+| **Alt+Tab** (Alt izquierdo) | La ventanita con la lista y una marcada | `Ctrl+Alt` no vale: **es AltGr** y ya tiene propietario | ⏳ metal |
 | Alt+Tab dos veces | Vuelve a donde estabas | La pila MRU se reordena **al soltar Alt**, no en cada Tab. Es lo que mas se implementa mal | ⏳ metal, 17 tests en `bmo_input::foco` |
 | Escribir con Datos abierta | Las teclas van a **Datos**: la linea de Ejecutar **no cambia** | Se calculaba el foco y **nadie lo leia**: `es_para` no se llamaba ni una vez, asi que todo seguia cayendo en Ejecutar | ⏳ metal |
 | ESC con Datos abierta | La cierra. Con Ejecutar delante, ESC sigue **borrando la linea** | Dos ventanas, dos respuestas a la misma tecla -- eso es tener foco | ⏳ metal |

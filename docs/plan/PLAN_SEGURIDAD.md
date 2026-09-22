@@ -6,7 +6,7 @@
 Al ordenar los veintiun planes aparecio que **la firma de los `.bex` no tenia
 casilla en ningun plan vivo**. Su unica mencion estaba dentro de
 `PLAN_EL_ASISTENTE`, escalon 3d -- y ese plan acaba de pasar a ser el ultimo
-por decision del dueno.
+por decision del propietario.
 
 *** O sea que la deuda mas seria de seguridad del arbol estaba enterrada dentro
 del plan aparcado. Se saca aqui, que es su sitio.
@@ -45,7 +45,7 @@ que firmara, no habia nada que anclar.
   estamparlo **no mueve ni un digest ni un offset**.
 
   [L3] Cuesta 96 bytes en cada `.bex` que no se firme nunca, y hoy son todos.
-  El guardian de tamanos lo conto exacto: +96 en los 31 ejecutables, +0,2%.
+  El guardian de medidas lo conto exacto: +96 en los 31 ejecutables, +0,2%.
 
   Se verifica: dos filas en `bef/writer.rs` -- que el hueco existe y sale en
   ceros, y que **estampar 96 bytes de basura no rompe ningun hash**.
@@ -131,7 +131,7 @@ que firmara, no habia nada que anclar.
 # ★ 1. LO QUE YA ESTA PUESTO -- y no hay que rehacerlo ni deshacerlo
 
 Se dice primero porque una auditoria que solo enumera agujeros miente por
-omision, y porque tres de estas cuatro **no se anaden despues**:
+omision, y porque tres de estas cuatro **no se agregan despues**:
 
 - **Dos syscalls congelados.** La superficie entera del sistema se lee en una
   tarde. Es la propiedad que hace posible este documento.
@@ -293,7 +293,7 @@ segun lo que salga del hash. Con el mensaje del vector 1 salio.
 >
 > ★★ **Un agujero tapado por arriba y abierto por abajo.**
 
-Se cierra rechazando los puntos de orden pequeno --`[8]P == O`, tres doblados--
+Se cierra rechazando los puntos de orden chico --`[8]P == O`, tres doblados--
 en la clave publica **y** en la `R`. Y la leccion es de metodo: **esa prueba se
 escribio por historia, no por sospecha.** Sin la memoria de C1 no se habria
 escrito, y el agujero habria entrado con los cuatro vectores del RFC en verde.
@@ -374,7 +374,7 @@ reescribe y firmar es un paso posterior con nombre propio. Ver S-FIRMA arriba.
 que arranque, y **al final** `exige_firma()`. Al reves, la maquina deja de
 arrancar y el motivo parece del cargador.
 
-[!] Y una deuda que nace con esto y hay que decirla: **anadir una clave al ancla
+[!] Y una deuda que nace con esto y hay que decirla: **agregar una clave al ancla
 concede ejecucion a todo lo que esa clave firme, para siempre. No hay
 revocacion.** Escribirla antes de la primera clave seria construir la puerta
 antes de la casa; despues de la segunda seria tarde.
@@ -423,7 +423,7 @@ Se fija al crear el proceso y solo la puede fijar Ring 0.
 
 ```text
    el escritorio       lo arranca el KERNEL (core/desktop.rs)     SI
-   `run` del shell 0   lo teclea el dueno en Ring 0               SI
+   `run` del shell 0   lo teclea el propietario en Ring 0               SI
    un hijo de Ring 3   lo lanza otro proceso                      NO
 ```
 
@@ -534,7 +534,7 @@ gates comparten juez.
 
 ### *** Y en la capa que falta habia UNA comprobacion que importa
 
-De las catorce familias que `validator` anade, trece producen **un programa
+De las catorce familias que `validator` agrega, trece producen **un programa
 roto**, no un kernel comprometido. La que no:
 
 > **`validate_reloc_section`: que `offset + 8` quepa dentro de la seccion que la
@@ -670,7 +670,7 @@ El paseo por las entradas salio a `bmo-firmware` --donde ya vivian sus dos
 hermanas-- y `madt.rs` se queda con lo unico que solo el kernel puede hacer:
 llegar a la tabla (RSDP -> XSDT -> APIC) leyendo memoria fisica.
 
-**Las cuatro formas en que una MADT hostil puede hacer dano, cada una con su
+**Las cuatro formas en que una MADT hostil puede hacer perjuicio, cada una con su
 prueba**:
 
 | lo que la tabla hace | lo que pasaria | prueba |
@@ -720,7 +720,7 @@ inventen despues de escribir esto.
     carpeta existiera**. Era ciega a ONCE crates de `platform/drivers/` con 315
     filas de banco, y habria dado por bueno un `[prueba] bmo-ahci` --el disco,
     CERO filas--, que es lo que su propio texto llama *una garantia que se ve y
-    no esta*. Redefinida el mismo dia con el principio del dueno (*"si no
+    no esta*. Redefinida el mismo dia con el principio del propietario (*"si no
     cumple es mejor abolir"*): busca por NOMBRE DE CRATE en los dos sitios y
     EXIGE al menos una fila. Autoprueba 113 -> 115 casos. Y los tres ficheros
     de `ring0/red` nombran ya a `bmo-net`.
@@ -838,7 +838,7 @@ filtra quien lo construyo.
 
 `LINEA_BASE.txt` y `docs/README.md` lo tienen sellado por escrito:
 
-> *"Ya hay CINCO entradas de build.ps1 (...) **El siguiente guardian NO se anade:
+> *"Ya hay CINCO entradas de build.ps1 (...) **El siguiente guardian NO se agrega:
 > primero se parte este fichero.**"*
 
 Son 1.613 lineas de PowerShell con 5 llamadas a `Guardian`, y el censo lo llama
@@ -906,7 +906,7 @@ un informe HID malo hay que INYECTARLO.
 que no se escribe uno mismo llega con la RED"*. **Llego el 25-08** -- 16 tramas
 de otra maquina, parseadas por codigo propio.
 
-★★ **Y el orden cambio de dueno: hoy la que manda es C3.** No por gravedad, sino
+★★ **Y el orden cambio de propietario: hoy la que manda es C3.** No por gravedad, sino
 porque **es la unica que ya no esta sola**: `platform/shared/bmo-cripto` existe
 desde el 24-08 con SHA-256, HMAC, HKDF, X25519 y AES-GCM, todos contra sus
 vectores oficiales. Ed25519 pide SHA-512 y aritmetica de Edwards -- y `campo25519.rs`,
@@ -945,14 +945,14 @@ probarla.
   **entrada**, que es la que importa: bytes de un tercero parseados por codigo
   propio, que es la definicion de C6 y ya no es hipotetica.
 
-  [!] **La relectura entera NO se hizo en esta pasada, a peticion del dueno**
+  [!] **La relectura entera NO se hizo en esta pasada, a peticion del propietario**
   (*"no toques en RED"*). Queda como la primera casilla de la siguiente.
 
 ---
 
 # 5. C8 -- LA CUARTA PASADA: BYTES HOSTILES (2026-09-17)
 
-> Peticion del dueno: *"eliminar vulnerabilidad por completo"*.
+> Peticion del propietario: *"eliminar vulnerabilidad por completo"*.
 >
 > **Lo que esta seccion NO promete**: que ya no quede ninguna. "Por completo" no
 > es un estado que se alcanza: es una pasada que se repite. Lo que si se puede
@@ -999,7 +999,7 @@ tambien caza lo que en release no revienta sino que **miente** (hallazgo 3).
 | 1 | `ring0/red/mod.rs` + `bmo-net/anillo.rs` | la tarjeta (su DMA) | el largo que ESCRIBE LA TARJETA se comparaba contra el CORRAL entero y no contra su bufer: un largo de 3.000 en el bufer 0 leia la cola del bufer 1 -- otra trama -- y la entregaba como propia | `Plan::recibida(i, largo)`, con prueba sobre los 16.384 largos posibles |
 | 2 | `uhid/enumera.rs` | **cualquier aparato USB** | `wTotalLength = 3`: el kernel cortaba el descriptor a 3 bytes y leia `[3]` -- **panico en Ring 0**, la maquina caida por enchufar un aparato | `declared_total`, y `leer_descriptores` rechaza un total < 9 |
 | 3 | `uhid/formato.rs` | un raton USB | un campo de mas de 32 bits: `1 << i` daba la vuelta en release y el puntero se movia con basura (SILENCIO, L6f) | se leen 32 bits como mucho, y `bit + i` sin vuelta |
-| 4 | `fat32/lib.rs` (10 sitios) | un pendrive, el disco | una entrada con cluster `0` (legal: fichero vacio) y tamano 3.000: `0 - 2` daba la vuelta y **`read_file` devolvia la FAT como contenido del fichero**. Es el #4 del 24-08 visto desde el consumidor | `lba_valido` en todo bucle que traduce un cluster que no asigno el mismo |
+| 4 | `fat32/lib.rs` (10 sitios) | un pendrive, el disco | una entrada con cluster `0` (legal: fichero vacio) y medida 3.000: `0 - 2` daba la vuelta y **`read_file` devolvia la FAT como contenido del fichero**. Es el #4 del 24-08 visto desde el consumidor | `lba_valido` en todo bucle que traduce un cluster que no asigno el mismo |
 | 5 | `fat32/lib.rs::mount_exfat` | un pendrive exFAT | la ruta FAT32 comprueba cinco campos del sector de arranque; la exFAT, **ninguno**: desplazamientos que dan la vuelta, un exFAT de 4K montado como de 512, `cluster_count + 1` sin tope, `root_cluster` sin mirar | los cinco, con una prueba por campo |
 | 6 | `fat32::lba_de_cluster` + `task/launch.rs` | un directorio corrupto | el diagnostico que existe para cuando algo va mal imprimia un LBA inventado justo cuando algo iba mal | `Option`, y CABINA dice *"ese cluster NO es de este volumen"* |
 
@@ -1007,7 +1007,7 @@ tambien caza lo que en release no revienta sino que **miente** (hallazgo 3).
 
 Tres funciones publicas con la aritmetica en la unica forma que se rompe, pero
 cuyos llamantes de hoy no pueden llegar al numero malo. Se arreglaron igual
-porque son una linea cada una, y el llamante de manana no leera este parrafo:
+porque son una linea cada una, y el llamante de luego no leera este parrafo:
 
 - `particiones::entrada` -- `off + 128` sin `checked_add`
 - `uaudio::Playback::bytes_per_interval` -- producto sin saturar (la frecuencia

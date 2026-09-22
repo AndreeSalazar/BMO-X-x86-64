@@ -5,7 +5,7 @@
 //! Siete instrumentos en el Ryzen para llegar aqui. El ultimo (C7) dijo que lo
 //! que entra en `R_RenderSegLoop` esta bien (`yl 50 yh 129 fc 168`) y que el
 //! plano se queda con `top 0 bottom 2`. Y `llvm-objdump` sobre los bytes de
-//! verdad de esa funcion en `doom.bex` lo enseno sin discusion:
+//! verdad de esa funcion en `doom.bex` lo mostro sin discusion:
 //!
 //! ```text
 //!    6d023  movsxd rax, eax         ; top = ceilingclip[rw_x]+1 ... y no se guarda

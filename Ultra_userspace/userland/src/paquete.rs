@@ -1,6 +1,6 @@
 //! **Leer los datos que viajan DENTRO del propio `.bex`** -- la cara de Rust.
 //!
-//! El gemelo en C es `<bmo/paquete.h>`, y la idea la dijo el dueno alli:
+//! El gemelo en C es `<bmo/paquete.h>`, y la idea la dijo el propietario alli:
 //!
 //! > *"es un bef pero ese bex es el mismo que abre la caja: no lo duplica, lo
 //! > lee y punto. Es una app como Windows pero no lo copia, lo deja en el lugar
@@ -36,7 +36,7 @@
 //!
 //! ** La diferencia con las operaciones, y hay que decirla: los `OP_*` de
 //! `lib.rs` **si** los compara un juez (R4, `operaciones userland<->ABI: 94
-//! comprobadas`). Estos **no**: R4 mira operaciones, y un tamano de cabecera no
+//! comprobadas`). Estos **no**: R4 mira operaciones, y un medida de cabecera no
 //! lo es. Si `bmo_abi::bef` mueve un offset, esto se entera cuando algo no abre.
 //!
 //! Lo que lo tapa hoy es la fila de pruebas que empaqueta con `bmo-pack` y lee
@@ -66,7 +66,7 @@ const ANEXO_RECURSOS: u8 = 0x04;
 const BRES_MAGIC: u32 = 0x5345_5242;
 /// La cabecera del indice: magic + cuantos.
 const BRES_CABECERA: u64 = 16;
-/// Cada entrada del indice: nombre (48) + offset (8) + tamano (8).
+/// Cada entrada del indice: nombre (48) + offset (8) + medida (8).
 const BRES_ENTRADA: u64 = 64;
 /// El nombre de un recurso, sin contar el NUL.
 const BRES_NOMBRE_MAX: usize = 47;
@@ -189,7 +189,7 @@ impl Paquete {
         n
     }
 
-    /// Busca por nombre y devuelve `(posicion en fichero, tamano)`.
+    /// Busca por nombre y devuelve `(posicion en fichero, medida)`.
     ///
     /// Recorrido lineal a proposito: un paquete tiene unidades de recursos, no
     /// miles, y una tabla ordenada aqui seria mas formato que validar a cambio
@@ -220,7 +220,7 @@ impl Paquete {
     ///
     /// Trae **lo que quepa**: si `dst` es mas corto que el recurso, se lleva el
     /// principio y devuelve eso. No es un truncado silencioso -- quien llama
-    /// puede comparar contra el tamano que dio [`Paquete::buscar`].
+    /// puede comparar contra el medida que dio [`Paquete::buscar`].
     pub fn leer(&self, nombre: &[u8], dst: &mut [u8]) -> usize {
         let (pos, tam) = match self.buscar(nombre) {
             Some(v) => v,

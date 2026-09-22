@@ -17,7 +17,7 @@ Fichero: `.inti`. Codificacion: **UTF-8**; las palabras clave son **ASCII**.
 |---|---|---|
 | 1 | **Bloques por indentacion**, sin `:` al final | 9.1: la sintaxis tipo C no bate a palabras clave elegidas al azar |
 | 2 | **Sin `;`, sin `{}`, sin parentesis en las condiciones** | menos puntuacion muda |
-| 3 | **`=` significa igual en los dos sitios**: `x = 5` asigna, `si x = 5` compara. Sin ambiguedad **porque asignar no es una expresion** | es la solucion de Quorum, el lenguaje disenado con evidencia |
+| 3 | **`=` significa igual en los dos sitios**: `x = 5` asigna, `si x = 5` compara. Sin ambiguedad **porque asignar no es una expresion** | es la solucion de Quorum, el lenguaje trazado con evidencia |
 | 4 | **Palabras, no simbolos**, para lo que no se aprende en el colegio: `y`, `o`, `no`, `entre`, `resto` | `&&`, `\|\|`, `!`, `%` no comunican nada a quien empieza |
 | 5 | **Simbolos donde SI se aprenden en el colegio**: `+ - * / < > <= >=` | son notacion matematica, no convencion de programador |
 | 6 | **`cambiante` para poder cambiar** | 10.7: mata cuatro sorpresas de golpe |
@@ -85,7 +85,7 @@ acierta es una que, el dia que falla, falla sin que nadie sepa por que.
 
 [!] `memoria` --el codigo, los datos y la pila-- **no se puede pedir**. Eso lo
 sabe el cargador mirando el fichero, y dejarlo declarar seria dejar que un
-programa mienta sobre su propio tamano.
+programa mienta sobre su propio medida.
 
 ---
 
@@ -132,7 +132,7 @@ multi = """
 | tipo | que es | ejemplo |
 |---|---|---|
 | `numero` | el numero de todos los dias: **decimal exacto** | `1`, `2.5`, `0.1` |
-| `entero8` `entero16` `entero32` `entero64` | tamano **exacto**, con signo | `entero32` |
+| `entero8` `entero16` `entero32` `entero64` | medida **exacto**, con signo | `entero32` |
 | `natural8` .. `natural64` | sin signo | `natural8` |
 | `decimal` | la forma exacta de `numero`, si se quiere nombrar | |
 | `flotante32` `flotante64` | IEEE-754 **estricto**, cuando se pide. En `llano` es lo que significa un punto (14d) | `2.5` |
@@ -154,8 +154,8 @@ sorpresa evitable, y evitarla es gratis en un lenguaje nuevo.
 escribe 0.1 + 0.2          # 0.3     y no 0.30000000000000004
 ```
 
-En **perfil llano** `numero` **no existe**: hay que decir el tamano (`E0020`).
-Sin tamanos no hay perfil sin monton, y esa obligacion sale del perfil, no del
+En **perfil llano** `numero` **no existe**: hay que decir el medida (`E0020`).
+Sin medidas no hay perfil sin monton, y esa obligacion sale del perfil, no del
 gusto.
 
 ---
@@ -382,7 +382,7 @@ a.nombre                            # leer
 - **No hay herencia, ni clases, ni `self`, ni metodos magicos**
   (`INTI_MAESTRO.md` 10.5). Un registro son datos; el comportamiento son
   funciones.
-- Un registro **pequeno y sin partes que crecen es un VALOR**: se copia, no
+- Un registro **chico y sin partes que crecen es un VALOR**: se copia, no
   tiene identidad. Uno que contiene `texto` o `lista` es una **COSA** y se
   cuenta por referencias -- pero **se comporta igual**, porque lo que se pasa
   no se puede cambiar.
@@ -537,7 +537,7 @@ Prohibido, y **el compilador lo dice con nombre y sitio** (`E0070`):
 
 | en `llano` NO hay | motivo |
 |---|---|
-| `numero` sin tamano, `texto`, `lista`, `tabla` | crecen: piden monton |
+| `numero` sin medida, `texto`, `lista`, `tabla` | crecen: piden monton |
 | contador de referencias, congelado, tareas | piden runtime |
 | interpolacion de texto que reserva | reserva |
 
@@ -781,7 +781,7 @@ Y no es una excepcion a *"INTI no tiene comportamiento indefinido"*:
 Las Reglas 1 y 3 existen porque en los enteros desbordar y dividir entre cero no
 tienen resultado, y cualquier bit que salga se lo invento el compilador. En
 IEEE-754 lo tienen --infinito y NaN, que son **valores** con los que se puede
-seguir operando--. Atrapar aqui no anadiria seguridad: quitaria la aritmetica.
+seguir operando--. Atrapar aqui no agregaria seguridad: quitaria la aritmetica.
 
 ### ⚠ El NaN, y las seis comparaciones
 
@@ -860,7 +860,7 @@ una trampa, y la mas barata de quitar es la que no hacia falta.**
 
 ⚠★ **Estas palabras NO se escriben en el parser: viven en
 [`tables/lang/inti/palabras.toml`](../../forge/sem-asm/tables/lang/inti/palabras.toml)**,
-que ya existe -- el mismo patron que `intrinsics.toml` (*"anadir una
+que ya existe -- el mismo patron que `intrinsics.toml` (*"agregar una
 instruccion = 1 entrada TOML, CERO Rust"*). El fichero **trae ya la columna en
 ingles**, no para activarla, sino para que la frase de abajo se pueda comprobar
 en vez de creer.
@@ -870,7 +870,7 @@ la raiz que consulta `bmo-mods`**. Quien deje su version en `$BMO_MODS` gana,
 **sin bifurcar el repo**. Un dialecto de INTI es un fichero, no un fork.
 
 **Motivo, y es una decision de hoy que se paga o se cobra hoy:** palabras clave
-en espanol significa que nadie fuera de tu idioma contribuye. Con la tabla,
+en castellano significa que nadie fuera de tu idioma contribuye. Con la tabla,
 **un fichero mas y INTI habla ingles sin tocar el compilador**. Hacerlo asi
 ahora no cuesta nada; convertirlo despues cuesta el parser entero.
 
@@ -901,10 +901,10 @@ tildes no tropieza.
 ## 17. Como llega INTI al sistema -- ★ LA PUERTA NO ES SINTAXIS
 
 > Pregunta de Eddi, 2026-08-19: *"como es lenguaje de sistema, no viven los
-> syscall, no? aunque suene extrano, pero si es para poder tener control en
+> syscall, no? aunque suene raro, pero si es para poder tener control en
 > ellas, para uso."*
 
-**No suena extrano: es la pregunta correcta, y la respuesta es que NO.** Ni una
+**No suena raro: es la pregunta correcta, y la respuesta es que NO.** Ni una
 palabra clave de INTI habla de `INVOKE`, de `WAIT` ni de capabilities. Y aun
 asi se tiene control absoluto sobre ellas. Las dos cosas a la vez, y este es
 el motivo.
@@ -956,7 +956,7 @@ en la pareja (tipo de objeto, operacion), y el ABI no se toca*.
 escrito ahi. Hay dos filas y no una porque **la puerta contesta dos cosas**:
 codigo en `rax` (`[syscall]`) y valor en `rdx` (`[syscall_valor]`). *Se lee
 como C, se comporta como ASM, y ninguna de las dos mitades esconde nada de la
-otra.* INTI hereda ese mecanismo entero: **anadir una operacion del sistema =
+otra.* INTI hereda ese mecanismo entero: **agregar una operacion del sistema =
 una entrada de tabla, CERO lineas del compilador.**
 
 ### ★★ Y la distincion que decide donde hace falta `crudo`

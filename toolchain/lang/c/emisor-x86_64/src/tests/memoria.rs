@@ -86,7 +86,7 @@ fn la_quinta_peticion_devuelve_cero() {
 
 /// Pedir mas del tope por peticion se rechaza, y **sin gastar peticion**.
 ///
-/// El kernel comprueba el tamano ANTES de tocar el contador. Si lo hiciera al
+/// El kernel comprueba el medida ANTES de tocar el contador. Si lo hiciera al
 /// reves, cuatro peticiones absurdas dejarian al programa sin poder pedir la
 /// que si cabia.
 #[test]
@@ -266,7 +266,7 @@ fn un_double_sin_inicializar_vale_cero() {
 ///
 /// # De donde sale: los 4 bytes que DOOM pisaba tras su pantalla
 ///
-/// El 2026-09-03 el Ryzen enseno esto, con DOOM ya jugandose:
+/// El 2026-09-03 el Ryzen mostro esto, con DOOM ya jugandose:
 ///
 /// ```text
 ///    I_VideoBuffer  en +1825056,  64000 bytes,  ACABA en +1889056
@@ -427,7 +427,7 @@ int main(){ struct par v[3]; struct par *tope;
 /// camino general todo menos el asterisco, y ahora manda tambien ese. Asi que
 /// la fila **cambia de lado**: de exigir un no a ejercer la capacidad.
 ///
-///   > Una casilla que fija un limite tiene fecha de caducidad por diseno. El
+///   > Una casilla que fija un limite tiene fecha de caducidad por esquema. El
 ///   > dia que el limite cae, no se borra: se da la vuelta.
 #[test] fn s7_un_prototipo_devuelve_un_puntero_a_struct_crudo() {
     assert_eq!(run_c("struct par { int a; int b; };

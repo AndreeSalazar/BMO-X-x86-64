@@ -22,7 +22,7 @@
 //!
 //! Porque **no tiene casos especiales**. Otras curvas piden comprobar si el
 //! punto que te mandaron esta de verdad en la curva, si es el infinito, si es de
-//! orden pequeno -- y cada comprobacion que falta es un agujero. En X25519:
+//! orden chico -- y cada comprobacion que falta es un agujero. En X25519:
 //!
 //! ```text
 //!    cualquier cadena de 32 bytes es una `u` valida
@@ -54,7 +54,7 @@ pub const LARGO: usize = 32;
 /// **El punto base**, y es un `9`. Nada mas.
 ///
 /// ** Que la constante mas importante de la curva sea el numero nueve es parte
-/// de su diseno: no hay nada escondido en un punto base que se puede escribir
+/// de su esquema: no hay nada escondido en un punto base que se puede escribir
 /// entero en una linea. Es el mismo criterio que las raices de SHA-256.
 pub const BASE: [u8; LARGO] = {
     let mut b = [0u8; LARGO];
@@ -76,14 +76,14 @@ const A24: Fe = [121665, 0, 0, 0, 0];
 /// *** Y las tres tienen motivo, que es lo que las hace no parecer supersticion:
 ///
 /// 1. **Los tres bits bajos a cero** hacen el escalar multiplo de 8, que es el
-///    cofactor de la curva. Con eso, un punto de orden pequeno --de los que un
+///    cofactor de la curva. Con eso, un punto de orden chico --de los que un
 ///    atacante puede mandar a proposito-- se convierte en el neutro y **no filtra
 ///    nada del secreto**. Sin esto, quien te mande un punto malicioso aprende
 ///    tres bits de tu clave.
 ///
 /// 2. **El bit alto a cero** porque el escalar es de 255 bits, no de 256.
 ///
-/// 3. **El bit 254 a uno** fija el tamano: la escalera hace SIEMPRE las mismas
+/// 3. **El bit 254 a uno** fija el medida: la escalera hace SIEMPRE las mismas
 ///    255 vueltas pase lo que pase. Sin el, una clave que empezara por ceros
 ///    daria menos vueltas -- **y el tiempo contaria cuantos ceros tiene la
 ///    clave.**
@@ -200,7 +200,7 @@ pub fn secreto_a_publico(secreto: &[u8; LARGO]) -> [u8; LARGO] {
 /// ## [!] Y LA COMPROBACION QUE HAY QUE HACER ENCIMA, dicha aqui
 ///
 /// Si el resultado sale **todo ceros**, la publica que te mandaron era de orden
-/// pequeno y el secreto no vale nada. El RFC 7748 dice que quien lo use en un
+/// chico y el secreto no vale nada. El RFC 7748 dice que quien lo use en un
 /// protocolo **tiene que mirarlo**, y esta funcion no puede hacerlo por ti
 /// porque no sabe si tu protocolo lo permite.
 ///
@@ -214,7 +214,7 @@ pub fn secreto_compartido(mi_secreto: &[u8; LARGO], su_publica: &[u8; LARGO]) ->
 /// **Salio todo ceros?** En tiempo constante.
 ///
 /// Un secreto compartido de ceros significa que la publica del otro era de
-/// orden pequeno: o se equivoco, o lo hizo a proposito. En los dos casos, seguir
+/// orden chico: o se equivoco, o lo hizo a proposito. En los dos casos, seguir
 /// es hablar con una clave que el atacante conoce.
 pub fn es_cero(s: &[u8; LARGO]) -> bool {
     let mut sobra = 0u8;

@@ -257,7 +257,7 @@ fn el_epilogo_es_generico_y_p4b_depende_de_eso() {
     // Dos funciones con marcos MUY distintos: una sin locales y otra con ocho.
     let e = emitido(concat!(
         "perfil llano\n\n",
-        "funcion pequena(a es entero64) devuelve entero64\n    devuelve a\n\n",
+        "funcion chica(a es entero64) devuelve entero64\n    devuelve a\n\n",
         "funcion grande(a es entero64) devuelve entero64\n",
         "    b es entero64 = 1\n    c es entero64 = 2\n    d es entero64 = 3\n",
         "    e es entero64 = 4\n    f es entero64 = 5\n    g es entero64 = 6\n",
@@ -270,7 +270,7 @@ fn el_epilogo_es_generico_y_p4b_depende_de_eso() {
         cuantos >= 2,
         "las dos funciones tienen que salir por el MISMO epilogo, byte a byte"
     );
-    // Y ninguna desmonta su marco con un inmediato: eso lo ataria a su tamano.
+    // Y ninguna desmonta su marco con un inmediato: eso lo ataria a su medida.
     // `add rsp, imm32` = 48 81 C4 ; `add rsp, imm8` = 48 83 C4.
     assert!(
         !e.codigo.windows(3).any(|w| w == [0x48, 0x81, 0xC4]),

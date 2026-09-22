@@ -95,10 +95,10 @@ pub enum BexError {
     Formato(gate::Falta),
     /// ** UNA SECCION NO CUADRA CON SU HASH.
     ///
-    /// La imagen llego ENTERA --el tamano cuadra-- y **por dentro no es la que
+    /// La imagen llego ENTERA --el medida cuadra-- y **por dentro no es la que
     /// se escribio**. Es el fallo que ningun contador de bytes puede ver: un
     /// sector que se lee sin error y trae datos de otro sitio da un fichero del
-    /// tamano correcto y corrupto.
+    /// medida correcto y corrupto.
     ///
     /// No lo puede decir la puerta, y por eso vive aqui: la puerta mira **el
     /// fichero**, y esto solo se sabe mirando **lo que aterrizo**. Ver
@@ -163,9 +163,9 @@ impl BexError {
 /// puede leer mas y volver a preguntar, que es distinto de rechazar la imagen.
 pub fn necesita(prologo: &[u8]) -> Result<usize, BexError> {
     // Se le pregunta a la puerta, no se recorre la tabla otra vez. `usize::MAX`
-    // como tamano de fichero porque aqui **no se esta validando la imagen**: se
+    // como medida de fichero porque aqui **no se esta validando la imagen**: se
     // esta preguntando cuanto hay que traer, y los limites de verdad se
-    // comprueban en `inspect` con el tamano real. Meter aqui un tamano inventado
+    // comprueban en `inspect` con el medida real. Meter aqui un medida inventado
     // rechazaria imagenes buenas por una cuenta que ni siquiera es esta.
     match gate::revisar(prologo, usize::MAX) {
         Ok(rev) => Ok(rev.hasta_donde_hace_falta() as usize),

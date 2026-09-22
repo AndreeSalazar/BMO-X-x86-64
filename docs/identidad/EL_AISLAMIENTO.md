@@ -1,6 +1,6 @@
 # EL AISLAMIENTO -- por que una app que revienta no es lo mismo que una pantalla azul
 
-> Escrito el **2026-08-26**. Tres preguntas del dueno, y la primera es la que
+> Escrito el **2026-08-26**. Tres preguntas del propietario, y la primera es la que
 > manda:
 >
 > 1. *"necesito saber por que me sorprendio la pantalla azul"*
@@ -125,7 +125,7 @@ con la calculadora ni con COBOL ni con una app maliciosa.
 ★ Resultado medido en el Ryzen: **la misma situacion que antes daba pantalla
 azul ahora da tres lineas rojas y la maquina sigue en pie.** Eso es una
 degradacion elegante, no una reparacion: **la causa de la corrupcion sigue sin
-encontrarse**, y el proximo arranque trae los numeros que la senalan.
+encontrarse**, y el proximo arranque trae los numeros que la marcan.
 
 ## 3.2 -- [!] Y la coincidencia incomoda que hay que decir
 
@@ -142,7 +142,7 @@ un plan que no diga eso es un plan que se vende a si mismo.
 
 # 4. LOS SIETE MUROS: QUE SEPARA RING 0 DE RING 3 EN x86-64
 
-Esto es lo que el dueno pidio analizar. **Ninguno es una convencion de
+Esto es lo que el propietario pidio analizar. **Ninguno es una convencion de
 software**: los siete los hace cumplir el silicio, y cada uno esta encendido en
 un sitio concreto de este arbol.
 
@@ -203,7 +203,7 @@ por eso son las que importan. Todo lo demas ya esta cubierto por el silicio.
 
 # 5. LAS LISTAS DE RAIZ: QUE NO SE PUEDE MOVER, Y QUE SI
 
-La pregunta del dueno era *"cuales son los elementos que son LISTAS de raiz que
+La pregunta del propietario era *"cuales son los elementos que son LISTAS de raiz que
 no se pueden modificar y cuales si, para poder mejorar sin romper"*.
 
 ## 5.1 -- CONGELADO. Tocar esto rompe todo lo que ya existe
@@ -311,7 +311,7 @@ Y el cargador que de verdad decide --`bmo-bex-gate`, que **no puede depender de
 segura-- un `.bex` compilado contra `2.1` sera **rechazado por el cargador**
 mientras el propio ABI dice que deberia entrar.
 
-★ La grieta no ha hecho dano todavia porque **nadie ha subido el menor nunca**.
+★ La grieta no ha hecho perjuicio todavia porque **nadie ha subido el menor nunca**.
 Es exactamente el perfil de fallo que este arbol ya conoce: dos sitios que dicen
 lo mismo, uno se queda atras, y **el dia que se separan no lo nota nadie**.
 

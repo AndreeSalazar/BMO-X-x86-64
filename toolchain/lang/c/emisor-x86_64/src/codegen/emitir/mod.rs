@@ -69,7 +69,7 @@ impl Codegen {
         // del arbol completo con sus `push`, sus `pop` y su operador.
         //
         // ** Y esto es lo que mata el `imul` de la suma de punteros: `p + 1`
-        // construye `Mul(Int(1), Int(tamano))` en el arbol, y ese producto llega
+        // construye `Mul(Int(1), Int(medida))` en el arbol, y ese producto llega
         // aqui como una expresion suya. Plegar solo la raiz no lo habria visto
         // -- `p + (1*8)` no es constante, porque `p` no lo es.
         //

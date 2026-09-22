@@ -44,7 +44,7 @@
 //! ## Recortar, no descartar
 //!
 //! Un `Rect` se **corta** a la parte visible; un `Texto` se deja entero o se
-//! deja fuera. El fondo del escritorio es un rectangulo del tamano de la
+//! deja fuera. El fondo del escritorio es un rectangulo del medida de la
 //! pantalla: descartarlo-o-pintarlo-entero haria que reparar un danio de 40x40
 //! volviera a pintar 1920x1080. Un glifo, en cambio, es atomico.
 
@@ -159,7 +159,7 @@ mod tests {
 
     #[test]
     fn coordenadas_negativas_no_desbordan() {
-        // Una caja centrada en algo mas pequeno cae en negativo -- el nieto lo
+        // Una caja centrada en algo mas chico cae en negativo -- el nieto lo
         // permite a proposito. Aqui no puede convertirse en un numero enorme.
         assert_eq!(corte(r(-50, -50, 100, 100), r(0, 0, 10, 10)), Some(r(0, 0, 10, 10)));
     }

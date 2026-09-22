@@ -3,7 +3,7 @@
 //! ## Por que soy un fichero y no un trozo del de al lado (L6b)
 //!
 //! Porque contesto *"como se comprueba que esto no se salio"*, y esa pregunta
-//! tiene dueno: las doce reglas de `REGLAS.md`. Un fichero aparte deja que se
+//! tiene propietario: las doce reglas de `REGLAS.md`. Un fichero aparte deja que se
 //! lean juntas y que se cuente lo que ocupan.
 //!
 //! ** De las cuatro comprobaciones de la IR, tres llegan a bytes y solo UNA

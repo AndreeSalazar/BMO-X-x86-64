@@ -169,7 +169,7 @@ static mut LATIDOS_TARDE: u64 = 0; // [escribe] bus
 /// duele: `LATIDOS_TARDE` dice que hubo retraso, esta dice cuanto bus se perdio.
 static mut LATIDOS_PERDIDOS: u64 = 0; // [escribe] bus
 /// El peor retraso visto, en milisegundos. Un maximo y no una media: una media
-/// de latencias esconde justo el pico que el dueno nota con la mano.
+/// de latencias esconde justo el pico que el propietario nota con la mano.
 static mut PEOR_RETRASO_MS: u64 = 0; // [escribe] bus
 
 /// **La foto de antes de dormir**, para que un retraso diga QUIEN (2026-09-21).
@@ -376,7 +376,7 @@ pub fn peor_trabajo() -> (&'static str, u64) {
 ///
 /// `ritmo()` y `peor_trabajo()` existen desde hace semanas y **las lee UN solo
 /// sitio: `cabina/cockpit.rs`, que es una pantalla de RING 0.** Y de Ring 0 no
-/// se vuelve: el dueno vive en el escritorio.
+/// se vuelve: el propietario vive en el escritorio.
 ///
 /// ** O sea que los dos numeros que deciden si BMO-X puede bajar la latencia de
 /// la entrada estaban donde no los ve nadie. Van seis instrumentos con esa misma
@@ -408,7 +408,7 @@ pub fn ritmo_y_peor() -> u64 {
             }
         }
         // Se satura en vez de envolver: un `peor` que da la vuelta se leeria
-        // como un numero pequeno, que es la mentira mas cara que puede decir un
+        // como un numero chico, que es la mentira mas cara que puede decir un
         // instrumento de peor caso.
         let us = if p[cual] > 0xFFFF_FFFF { 0xFFFF_FFFF } else { p[cual] };
         (BUS_PERIOD_MS & 0xFFFF) | (us << 16) | ((cual as u64) << 48)

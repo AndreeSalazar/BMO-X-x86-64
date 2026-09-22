@@ -9,7 +9,7 @@
 //! el del nodo donde estabas. Con eso se pinta una lista, que es lo que habia.
 //!
 //! No se pinta un ARBOL. Un panel de arbol --el de la izquierda de cualquier
-//! explorador-- ensena a la vez los hijos de la raiz, los del nivel siguiente y
+//! explorador-- muestra a la vez los hijos de la raiz, los del nivel siguiente y
 //! los del siguiente, con la rama por la que has bajado abierta. Eso son varios
 //! listados vivos al mismo tiempo, y la pila solo tenia el ultimo.
 //!
@@ -178,9 +178,9 @@ impl Nivel {
     ///
     /// Aqui es donde se paga el disco, y se paga entero: una lectura por el
     /// listado y una por cada hijo. A cambio, todo lo que pregunte despues
-    /// --tipos, tamanos, atributos, firmas-- se contesta de memoria.
+    /// --tipos, medidas, atributos, firmas-- se contesta de memoria.
     ///
-    /// ** El coste esta ACOTADO por `MAX_ENTRIES` y no por el tamano del
+    /// ** El coste esta ACOTADO por `MAX_ENTRIES` y no por el medida del
     /// directorio: un directorio mas grande se lista truncado y lo dice, asi
     /// que esto son como mucho 65 lecturas y nunca "las que haya".
     pub fn listar(&mut self) -> bool {

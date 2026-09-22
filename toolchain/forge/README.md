@@ -40,7 +40,7 @@ unica que sabemos con certeza que corrio en el Ryzen real.
 ## ⚖ DECISION ABIERTA: el enlazado -- y por que esta sin decidir
 
 > **Estado: SIN DECIDIR (2026-08-02).** Escrito aqui para que quien la tome
-> --el dueno u otro-- lo haga con los motivos delante y no reconstruyendolos.
+> --el propietario u otro-- lo haga con los motivos delante y no reconstruyendolos.
 > Cuesta semanas de diferencia segun el camino, y por eso no se decide de paso.
 >
 > **Releido el 2026-09-17**: el argumento de B era DOOM, y DOOM ya se juega en
@@ -92,7 +92,7 @@ relocalizan a ella.
   `__bmo_syscall_stub` se sintetiza asi y funciona desde hace semanas. Y
   arregla la limitacion que mas duele hoy: **cada `malloc()` es un syscall y
   solo hay cuatro por proceso**. DOOM pide un bloque grande y luego miles de
-  trozos pequenos; con lo de hoy muere al quinto. `bmo-rt::heap::freelist`
+  trozos chicos; con lo de hoy muere al quinto. `bmo-rt::heap::freelist`
   (247 lineas, probadas en el anfitrion) seria la **especificacion** de lo que
   se emite.
 - **En contra**: no es enlazado. Cada imagen lleva su copia de cada funcion que

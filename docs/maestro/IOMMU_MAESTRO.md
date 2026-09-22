@@ -1,4 +1,4 @@
-# IOMMU MAESTRO -- la disciplina del DONDE, y su letra pequena
+# IOMMU MAESTRO -- la disciplina del DONDE, y su letra chica
 
 > Escrito el **2026-09-09**, junto a [`DMA_MAESTRO.md`](DMA_MAESTRO.md). Este
 > contesta **DONDE** puede escribir un aparato; aquel, **CUANDO**.
@@ -84,7 +84,7 @@ AMD-Vi tiene un registro de eventos: quien pidio que direccion y por que se le
 dijo que no. **Eso vale mas que el rechazo.** Un aparato que escribe donde no
 debe hoy no deja rastro; con esto deja su BDF, su direccion y su motivo.
 
-> El objetivo no es que el DMA no pueda hacer dano. Es que cuando lo haga, se
+> El objetivo no es que el DMA no pueda hacer perjuicio. Es que cuando lo haga, se
 > sepa cual y cuando.
 
 ---

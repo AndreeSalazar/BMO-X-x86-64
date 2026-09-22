@@ -1,7 +1,7 @@
 //! **Las ordenes que tocan el DISCO.** `ls`, `estratos`, `run` y `bex`.
 //!
 //! [carril]  AMARILLO  las ordenes que tocan disco; el trabajo lo hace `launch`
-//! [consumo] NADA      solo corre cuando el dueno teclea la orden
+//! [consumo] NADA      solo corre cuando el propietario teclea la orden
 //!
 //! # Por que estas cuatro van juntas, y por que van las SEGUNDAS
 //!
@@ -32,7 +32,7 @@ use super::ui::{similar_command, row, L, SH_TITLE, SH_VALUE};
 /// Lo que NO demuestra: que ese archivo sea el nuestro. La version anterior
 /// remataba con "es un ejecutable UEFI: SOY YO" a partir de la firma `MZ`, que
 /// la lleva CUALQUIER ejecutable de Windows. En este disco la particion de
-/// arranque es la ESP de 0,6 GB que comparte con el sistema del dueno, asi que
+/// arranque es la ESP de 0,6 GB que comparte con el sistema del propietario, asi que
 /// bien puede ser su cargador. Se dice lo que se sabe.
 pub(crate) fn shell_ls() {
     use crate::ring0::fsys::fs;
@@ -62,7 +62,7 @@ pub(crate) fn shell_ls() {
         None => { s_log("[fs] BOOTX64.EFI no esta en EFI\\BOOT"); return; }
     };
     row("archivo", |l| { l.txt("EFI\\BOOT\\BOOTX64.EFI"); });
-    row("tamano", |l| { l.size(size as u64); l.txt("   "); l.dec(size as u64); l.txt(" B   cluster "); l.dec(cluster as u64); });
+    row("medida", |l| { l.size(size as u64); l.txt("   "); l.dec(size as u64); l.txt(" B   cluster "); l.dec(cluster as u64); });
 
     // Leer los primeros bytes. Un archivo que se encuentra pero no se lee no
     // demuestra nada.
@@ -100,7 +100,7 @@ pub(crate) fn shell_estratos() {
     //
     // Un FS que no sobreescribe se llena AUNQUE nadie cree un archivo: cada
     // version se queda. Por eso esto no es un adorno del panel -- es la
-    // condicion previa al paso 5 del diseno, y el aviso que impide que el
+    // condicion previa al paso 5 del esquema, y el aviso que impide que el
     // volumen se llene por sorpresa (section 9).
     if let Some(oc) = est::ocupacion() {
         row("espacio", |l| {
@@ -131,7 +131,7 @@ pub(crate) fn shell_estratos() {
             );
         }
     }
-    // El gate del diseno: si el volumen no nacio aqui, se dice EN ALTO. Hoy
+    // El gate del esquema: si el volumen no nacio aqui, se dice EN ALTO. Hoy
     // solo se lee, pero el dia que se escriba esta linea es la que decide.
     row("identidad", |l| {
         l.txt(if est::identidad_ok() { "es de ESTE disco" } else { "NO nacio en este disco (clonado?)" });
@@ -181,7 +181,7 @@ pub(crate) fn shell_run(arg: &[u8]) {
     // Tener dos versiones del gate de firma era tener dos versiones que se
     // separan en cuanto alguien toque una. Al shell le queda lo suyo, que es
     // contarlo en filas.
-    // ** DE SISTEMA: esto lo teclea el dueno en el shell de RING 0. Quien pide
+    // ** DE SISTEMA: esto lo teclea el propietario en el shell de RING 0. Quien pide
     // el lanzamiento ya esta al otro lado de la frontera, asi que no hay nada
     // que conceder que no tuviera.
     let inf = launch::ruta(path, crate::ring0::task::autoridad::DE_SISTEMA);
@@ -231,7 +231,7 @@ pub(crate) fn shell_run(arg: &[u8]) {
     dashboard_log_color("== run ==", SH_TITLE);
     row("archivo", |l| { l.txt(path); });
 
-    // Origen, tamano y firma solo si se llego a LEER el archivo. Con
+    // Origen, medida y firma solo si se llego a LEER el archivo. Con
     // `SinHueco` u `Ocupado` no se abrio nada, y pintar entonces "FAT32 no
     // puede llevar firma" seria contestar una pregunta que no se hizo -- el
     // informe hablaria de un archivo que nadie miro.
@@ -284,7 +284,7 @@ pub(crate) fn shell_run(arg: &[u8]) {
 ///
 /// El log cuenta la historia segun pasa y se la lleva el desplazamiento; esto
 /// es la FOTO, consultable en cualquier momento: que se admitio, de que
-/// tamano, donde entra, con que pid, como acabo y cuanto llego a escribir.
+/// medida, donde entra, con que pid, como acabo y cuanto llego a escribir.
 pub(crate) fn shell_bex() {
     let progs = crate::ring0::task::proc::programs();
     if progs.is_empty() {

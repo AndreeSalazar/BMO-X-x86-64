@@ -51,7 +51,7 @@ misma prueba que se le hace al kernel: `bmo-xhci` no nombra al teclado.
 ### Y lo que eso compra, en concreto
 
 La eleccion entre **emitir Rust** o **emitir un recurso BEF 0x0B** no hay que
-tomarla hoy. Se anade un segundo modulo en `emit/` y **no se toca ninguna de las
+tomarla hoy. Se agrega un segundo modulo en `emit/` y **no se toca ninguna de las
 cinco**. La ley convirtio una decision irreversible en reversible.
 
 ---
@@ -81,7 +81,7 @@ pendiente) mas un vigia de fichero. Escalon 8 de la escalera, no ahora.
 
 **Identificadores y comentarios en INGLES**, desde la primera linea -- regla del
 2026-08-08, incumplida tres veces, y su disparador es exactamente este: crear
-ficheros nuevos en un arbol cuyos vecinos estan en espanol.
+ficheros nuevos en un arbol cuyos vecinos estan en castellano.
 
 `maqueta` sobrevive como **nombre de producto** (como CABINA, DOOM o ESTRATOS),
 no como identificador. Los crates son `bmo-maqueta-lex`, `-node`, `-cascade`,

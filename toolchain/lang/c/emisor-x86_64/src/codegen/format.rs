@@ -134,7 +134,7 @@ impl Codegen {
             //
             // Con `rw_distance = 0`, `R_ScaleFromGlobalAngle` se clava en el TOPE:
             // la pared se proyecta a TODA la altura --no queda sitio para suelo
-            // ni techo: 36 spans en 3 filas-- y `dc_iscale` es tan pequeno que
+            // ni techo: 36 spans en 3 filas-- y `dc_iscale` es tan chico que
             // la columna muestrea UN texel: la banda plana. Las dos mitades de
             // la foto, una causa, y le pasaba a toda pared con
             // `rw_normalangle < rw_angle1`: la mitad, segun su orientacion.
@@ -190,7 +190,7 @@ impl Codegen {
             // -- que es la firma de haber aterrizado a media instruccion.
             //
             // Contar bytes a mano es escribir un enlazador en la cabeza cada
-            // vez que alguien anade una instruccion en medio. Las etiquetas ya
+            // vez que alguien agrega una instruccion en medio. Las etiquetas ya
             // estaban aqui; solo habia que usarlas.
             // ** `bmo_bloque_pedir(bytes)` es LA MISMA EMISION con otro nombre,
             // y ese nombre es lo que permite escribir un asignador.
@@ -509,7 +509,7 @@ impl Codegen {
         if !self.known_functions.contains("bmo_formatear") {
             self.errors.push(
                 "printf con el formato calculado en ejecucion necesita el formateador: \
-                 anade #include <stdio.h> (ahi vive `bmo_formatear`, y de paso trae \
+                 agrega #include <stdio.h> (ahi vive `bmo_formatear`, y de paso trae \
                  snprintf, sprintf y la familia v*)"
                     .to_string(),
             );
@@ -592,7 +592,7 @@ impl Codegen {
     ///
     /// Antes esto emitia `lea rdi,[str]; mov esi,len; syscall 0x1F0`: un
     /// numero plano que el kernel no despacha, pasando ademas un PUNTERO,
-    /// que la superficie congelada rechaza por diseno. No imprimia nada en
+    /// que la superficie congelada rechaza por esquema. No imprimia nada en
     /// hardware. La cadena ya no necesita vivir en `.rodata`: viaja como
     /// inmediatos dentro de las propias instrucciones.
     pub(super) fn emit_printf(&mut self, s: &str, newline: bool) {

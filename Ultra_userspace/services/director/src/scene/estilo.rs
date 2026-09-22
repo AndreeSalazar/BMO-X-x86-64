@@ -55,7 +55,7 @@ pub(crate) fn poner(e: Estilo) {
 /// no es un fallo, es no haber cambiado nada.
 pub(crate) fn cargar() {
     let Ok(a) = bmo::Archivo::leer_de(RUTA) else { return };
-    let mide = (a.tamano() as usize).min(TOPE);
+    let mide = (a.size() as usize).min(TOPE);
     let mut buf = [0u8; TOPE];
     let n = a.read(&mut buf[..mide]);
     let mut e = POR_DEFECTO;
@@ -88,7 +88,7 @@ pub(crate) fn contar_en(grid: &mut Output) {
         grid.text(b"\n");
     }
     if inf.recortado {
-        grid.text(b"  (y mas lineas mal: solo se ensenan ocho)\n");
+        grid.text(b"  (y mas lineas mal: solo se muestran ocho)\n");
     }
     // La foto de fondo se pidio y no salio: se dice por que, y queda el degradado.
     if let Some(m) = super::fondo::motivo() {

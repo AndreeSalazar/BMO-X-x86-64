@@ -341,7 +341,7 @@ int main() {
     printf(\"grande;\");
 #endif
 #ifdef SYS_LITTLE_ENDIAN
-    printf(\"pequena;\");
+    printf(\"chica;\");
 #endif
     return 0;
 }";
@@ -349,7 +349,7 @@ int main() {
         .expect("debe compilar");
     assert_eq!(
         ejecutar_bef(&bef),
-        "pequena;",
+        "chica;",
         "x86-64 es little-endian, y solo puede salir UNA de las dos"
     );
 }

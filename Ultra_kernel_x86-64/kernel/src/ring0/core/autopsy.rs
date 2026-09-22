@@ -31,14 +31,14 @@
 //! para saber DONDE: falta el vector, el codigo de error, la direccion que se
 //! toco, la pila, y sobre todo **de que programa se trataba**.
 //!
-//! Sin esas cinco cosas, un fallo en la maquina del dueno no se puede mandar a
+//! Sin esas cinco cosas, un fallo en la maquina del propietario no se puede mandar a
 //! nadie: se cuenta de memoria, y contar un fallo de memoria es como se pierden
 //! los fallos. Con ellas, la maquina redacta su propio informe.
 //!
 //! Esto es lo que el README llama el "meta" del metakernel, y esta es su forma
 //! mas literal: **el sistema deja escrito lo que le paso a el mismo.**
 //!
-//! # La regla que decide el diseno: aqui NO se toca el disco
+//! # La regla que decide el esquema: aqui NO se toca el disco
 //!
 //! La tentacion es escribir el informe a un fichero desde el propio manejador
 //! de faults. No se hace, y el motivo no es prudencia general:
@@ -123,7 +123,7 @@ pub struct Captura {
     /// ```
     ///
     /// ** Las tres mandan a ficheros distintos, y sin la cuenta las tres se
-    /// ven igual: *"falta una pagina"*. El 04-09 ya enseno lo que vale contar
+    /// ven igual: *"falta una pagina"*. El 04-09 ya mostro lo que vale contar
     /// -- trece casillas malas EN LA MISMA tabla dejaron de ser trece sustos y
     /// pasaron a ser un marco que no era una tabla.
     agujero_ini: u64,
@@ -310,7 +310,7 @@ impl Captura {
         // ** La linea roja de la pantalla la escribe `veredicto_corto`, que es
         // `&'static str` y por eso no puede llevar numeros. Los numeros viven
         // en el informe, "a un `fallo` de distancia" -- y esa distancia es
-        // exactamente la que el dueno no puede recorrer: **el escritorio acaba
+        // exactamente la que el propietario no puede recorrer: **el escritorio acaba
         // de morir**, y es el escritorio el que tiene el teclado.
         //
         // *** Y este numero no es un adorno: es EL que parte el caso.
@@ -582,11 +582,11 @@ fn en_la_imagen(dir: u64, r: &mut Renglon) -> bool {
 
 /// **Y esta ademas exige que sea CODIGO.** Para el rastro de llamadas.
 ///
-/// # *** POR QUE HACEN FALTA LAS DOS, y lo enseno DOOM el 2026-08-31
+/// # *** POR QUE HACEN FALTA LAS DOS, y lo mostro DOOM el 2026-08-31
 ///
 /// La de arriba contesta *"cae dentro del programa?"*, y para el `rip` eso es
 /// la pregunta correcta: un `rip` fuera del codigo es justo lo que hay que
-/// poder ensenar. Pero el renglon de la PILA hace otra pregunta --*"esto es un
+/// poder mostrar. Pero el renglon de la PILA hace otra pregunta --*"esto es un
 /// retorno?"*-- y ahi el criterio ancho miente:
 ///
 /// ```text
@@ -641,7 +641,7 @@ fn es_codigo(dir: u64, pid: u32, r: &mut Renglon) -> bool {
 /// unico que separa "hay que bisecar seis commits" de "la pila se salio por
 /// abajo". La regla que deja escrita: **cuando el informe tenga los datos para
 /// deducir la causa, que la deduzca el kernel** -- quien lee un informe a las
-/// tres de la manana no esta en condiciones de cruzar rangos de memoria.
+/// tres de la luego no esta en condiciones de cruzar rangos de memoria.
 ///
 /// # Lo que NO hace
 ///
@@ -656,7 +656,7 @@ fn es_codigo(dir: u64, pid: u32, r: &mut Renglon) -> bool {
 /// `if` que dijeran lo mismo se separarian el dia que se anada un caso, y
 /// entonces la pantalla y el fichero acusarian a cosas distintas del mismo
 /// fallo. Aqui `clasificar` decide, `nombre` pone las palabras, y solo el
-/// informe largo anade los numeros.
+/// informe largo agrega los numeros.
 #[derive(Clone, Copy, PartialEq)]
 enum Causa {
     PilaDesbordada,
@@ -752,14 +752,14 @@ fn clasificar(vector: u64, error: u64, cr2: u64, cap: &Captura) -> Causa {
 /// Solo distingue las tres familias que un programa de Ring 3 puede tocar. Todo
 /// lo que no reconozca cae en *"no canonica"*, que es lo que queda cuando la
 /// instruccion es corriente: la causa entonces esta en un OPERANDO, no en la
-/// instruccion. Anadir mas opcodes es anadir filas; anadir modos de
+/// instruccion. Anadir mas opcodes es agregar filas; agregar modos de
 /// direccionamiento seria escribir un desensamblador en un manejador de fallos.
 fn clasificar_gp(cap: &Captura) -> Causa {
     let c = &cap.codigo[..cap.codigo_n];
     if c.is_empty() {
         return Causa::Proteccion;
     }
-    // Saltar prefijos: segmento, tamano de operando/direccion, repeticion y
+    // Saltar prefijos: segmento, medida de operando/direccion, repeticion y
     // REX. Sin esto, un `66 0F 6F` (movdqa) se leeria como el prefijo `66`.
     let mut i = 0usize;
     let mut prefijo_66 = false;
@@ -860,7 +860,7 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
     match c {
         Causa::PilaDesbordada => {
             // [!] Se dice DONDE cayo el toque, no cuanto pedia el marco. El
-            // kernel no puede saber el tamano del marco: solo ve la primera
+            // kernel no puede saber el medida del marco: solo ve la primera
             // direccion que no estaba mapeada, que con la sonda de pila de LLVM
             // es la primera pagina que falta y no el fondo del marco. Decir
             // "pidio N" seria inventar un numero que nadie midio.
@@ -875,7 +875,7 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
         }
         // ** LOS NUMEROS SON EL VEREDICTO AQUI. "Dentro de un bloque" sin decir
         // CUAL ni CUANTO no se puede ir a mirar; con el desplazamiento y el
-        // tamano, el que lee sabe si fallo en la primera fila o en la ultima.
+        // medida, el que lee sabe si fallo en la primera fila o en la ultima.
         Causa::BloqueConAgujero | Causa::BloquePasado => {
             use crate::ring0::obj::memory::Caida;
             match cap.caida {
@@ -1075,7 +1075,7 @@ pub fn registrar(
     // locales por delante del marco deja de tapar el rastro.
     //
     // ** "En el codigo" y no "en la imagen", desde el 2026-08-31. La diferencia
-    // la enseno DOOM: con el criterio ancho, dos de las tres plazas se las
+    // la mostro DOOM: con el criterio ancho, dos de las tres plazas se las
     // llevaban punteros al monton. Ver `es_codigo`.
     //
     // [!] Y las NO CANONICAS se cuentan aparte, porque son un diagnostico en si
@@ -1310,7 +1310,7 @@ pub fn renglones(n: u64) -> u64 {
 /// es exactamente el sitio donde mas falta hace.
 ///
 /// La regla: **todo lo que el kernel guarda para diagnosticar tiene que ser
-/// legible sin Ring 3.** Ring 3 puede estar muerto; el kernel, por diseno, no.
+/// legible sin Ring 3.** Ring 3 puede estar muerto; el kernel, por esquema, no.
 pub fn linea(n: u64, fila: u64, dst: &mut [u8]) -> usize {
     if n >= disponibles() || fila as usize >= RENGLONES {
         return 0;

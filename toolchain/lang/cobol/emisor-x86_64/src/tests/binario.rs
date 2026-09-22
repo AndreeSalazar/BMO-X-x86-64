@@ -101,7 +101,7 @@ fn un_batch_lee_registros_binarios_seguidos() {
 }
 
 /// ** EL VIAJE ENTERO: un programa COBOL escribe un fichero binario, y el
-/// VISOR lo lee y lo ensena.
+/// VISOR lo lee y lo muestra.
 ///
 /// Es la prueba de que el visor **no puede mentir sobre lo que el programa
 /// escribio**: los dos usan la misma disposicion, y los decodificadores del
@@ -160,7 +160,7 @@ fn el_visor_avisa_cuando_el_fichero_no_cuadra() {
     assert!(visto.contains("SOBRAN 4 BYTES"), "{visto}");
     assert!(visto.contains("no es"), "{visto}");
     assert!(visto.contains("LO QUE SOBRA"), "{visto}");
-    // Y aun asi ensena los dos que si cuadran.
+    // Y aun asi muestra los dos que si cuadran.
     assert!(visto.contains("1111"), "{visto}");
 }
 

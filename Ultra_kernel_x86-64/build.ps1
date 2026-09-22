@@ -155,7 +155,7 @@ function Espejo {
                     Write-Host ('    FALTA    ' + $rel) -ForegroundColor Red
                     $faltan++
                 } elseif ((Hash256 $enDisco) -ne (Hash256 $f.FullName)) {
-                    # El tamano se ensena porque es lo que se compara a ojo cuando
+                    # El medida se muestra porque es lo que se compara a ojo cuando
                     # uno mira el disco desde fuera.
                     $dl = (Get-Item -LiteralPath $enDisco).Length
                     $sl = $f.Length
@@ -332,7 +332,7 @@ Guardian 'Validating compiler warnings do not grow' `
 #
 # Un compilador falla distinto a un kernel: en Ring 0 el fallo se paga donde
 # esta, y aqui se paga LEJOS -- todo en verde, y el sintoma dentro de DOOM tres
-# semanas despues. Este guardian ensena la lista de los `DENTRO`, que es el mapa
+# semanas despues. Este guardian muestra la lista de los `DENTRO`, que es el mapa
 # de los sitios donde el banco NO protege. Ver toolchain/tools/fases/fases.py
 Guardian 'Validating BMO C declares where its failures appear' `
     'toolchain/tools/fases/fases.py' 'las fases de BMO C' `
@@ -365,7 +365,7 @@ Guardian 'Validating board profile matches its workarounds' `
 
 # ** Y QUE TODO PERFIL DIGA A QUIEN EXPONE. Un perfil que expone a un fichero
 # borrado no avisa de nada: describe una maquina que ya no esta y suena igual
-# de seguro. Idea del dueno -- 'si falla, el guardian lo frena por motivos'.
+# de seguro. Idea del propietario -- 'si falla, el guardian lo frena por motivos'.
 Guardian 'Validating every profile declares what it exposes' `
     'toolchain\tools\perfil\perfil.py' 'las exposiciones de los perfiles' `
     'perfil: un perfil no dice a quien expone, o expone a algo que no existe'
@@ -373,7 +373,7 @@ Guardian 'Validating every profile declares what it exposes' `
 # ** Y EL CONTENIDO, no solo la flecha: que lo que cada perfil AFIRMA sea lo que
 # el codigo dice. Incluye LOS TRES CIERRES de build/discos.ps1 -- la
 # comprobacion mas importante del repo, porque ese fichero es el unico que
-# puede escribir en el disco del dueno. Ver PERFIL/DISCO.txt.
+# puede escribir en el disco del propietario. Ver PERFIL/DISCO.txt.
 Guardian 'Validating profile fields match the code' `
     'toolchain\tools\perfil-campos\perfil_campos.py' 'los campos de los perfiles' `
     'perfil-campos: un perfil afirma algo que el codigo no dice (ver arriba)'
@@ -599,7 +599,7 @@ try {
     #  1. Borrar el .efi NO re-enlaza: cargo guarda el enlazado en
     #     `build/uefi-chain/<hash>/out/` y solo lo vuelve a copiar. Se comparaba
     #     el mismo fichero consigo mismo. `cargo clean -p` borra ESE crate (es
-    #     pequeno; los payloads ya estan hechos) y obliga a enlazar de nuevo.
+    #     chico; los payloads ya estan hechos) y obliga a enlazar de nuevo.
     #  2. El sello del enlazador va en SEGUNDOS: sin la espera, dos enlaces en el
     #     mismo segundo coinciden aunque no sean reproducibles.
     Start-Sleep -Seconds 2
@@ -655,22 +655,22 @@ if ($fantasmas.Count -gt 0) {
 #
 # Va AQUI y no arriba con los guardianes porque necesita los `.bex` ya escritos.
 # Y no es un trinquete: un programa puede crecer con razon. REPORTA -- ver
-# toolchain/tools/tamano/tamano.py, y el aviso de que el tamano no es la
+# toolchain/tools/medida/medida.py, y el aviso de que el medida no es la
 # velocidad esta en su cabecera.
-# [!] NO va por `Guardian`: esa funcion solo ensena las lineas `clean:` y mata
+# [!] NO va por `Guardian`: esa funcion solo muestra las lineas `clean:` y mata
 # si el script devuelve distinto de cero. Este REPORTA, asi que se le deja
 # hablar entero y nunca decide nada.
 Step 'Comparing executable sizes with the baseline'
-$tamanoPy = Join-Path (Split-Path -Parent $root) 'toolchain/tools/tamano/tamano.py'
-$tamanoBin = (Get-Command python -ErrorAction SilentlyContinue)
-if (-not (Test-Path $tamanoPy)) { Fail ('guardian MUERTO: falta ' + $tamanoPy) }
-if ($tamanoBin) {
+$medidaPy = Join-Path (Split-Path -Parent $root) 'toolchain/tools/medida/medida.py'
+$medidaBin = (Get-Command python -ErrorAction SilentlyContinue)
+if (-not (Test-Path $medidaPy)) { Fail ('guardian MUERTO: falta ' + $medidaPy) }
+if ($medidaBin) {
     $env:PYTHONIOENCODING = 'utf-8'
-    & $tamanoBin.Source $tamanoPy | ForEach-Object {
+    & $medidaBin.Source $medidaPy | ForEach-Object {
         Write-Host ('    ' + $_) -ForegroundColor DarkGray
     }
 } else {
-    Write-Host '    [!] python no encontrado: no se comparan los tamanos' -ForegroundColor Yellow
+    Write-Host '    [!] python no encontrado: no se comparan las medidas' -ForegroundColor Yellow
 }
 
 # -- Validate outputs ----------------------------------------------
@@ -685,7 +685,7 @@ foreach ($s in $stages) {
     if (-not (Test-Path $bin)) { $bin = Join-Path $td (Join-Path 'x86_64-unknown-none' (Join-Path 'release' $binName)) }
     $all_binaries += $bin
 }
-# El mismo `$kd` que se empaqueto: la tabla de tamanos tiene que describir el
+# El mismo `$kd` que se empaqueto: la tabla de medidas tiene que describir el
 # binario que se acaba de meter en el `.efi`, no el que hubiera al lado.
 $kernel = Join-Path $kd (Join-Path 'x86_64-unknown-none' (Join-Path 'release' 'bmo-kernel.exe'))
 if (-not (Test-Path $kernel)) { $kernel = Join-Path $kd (Join-Path 'x86_64-unknown-none' (Join-Path 'release' 'bmo-kernel')) }

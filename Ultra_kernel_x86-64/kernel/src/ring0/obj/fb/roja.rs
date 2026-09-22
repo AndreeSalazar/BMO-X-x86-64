@@ -4,7 +4,7 @@
 //! [consumo] NADA      corre cuando una tarea usa el objeto
 //!
 //! [cuesta]  MAQUINA -- aqui se concede, se suelta, se rescata y se desmapea
-//!           el framebuffer. Equivocarse deja la maquina CIEGA: dos duenos
+//!           el framebuffer. Equivocarse deja la maquina CIEGA: dos propietarios
 //!           pintando el mismo sitio, o ninguno y sin panel al que volver.
 //!
 //! [riesgo]  AJENO ESPEJO
@@ -33,11 +33,11 @@ pub(super) const NO_OWNER: u32 = u32::MAX;
 
 pub(super) static OWNER: AtomicU32 = AtomicU32::new(NO_OWNER);
 
-/// El handle que se le concedio al dueno, para poder revocarlo si lo SUELTA.
+/// El handle que se le concedio al propietario, para poder revocarlo si lo SUELTA.
 ///
 /// Se guarda porque `release` tiene que revocarlo y `cap` no ofrece "revoca todo
 /// lo de este tipo" -- solo por handle o todo lo del proceso, y lo segundo se
-/// llevaria por delante su entrada y su consola. Vale `0` cuando no hay dueno.
+/// llevaria por delante su entrada y su consola. Vale `0` cuando no hay propietario.
 static HANDLE: AtomicU64 = AtomicU64::new(0);
 
 /// * El PRIMER proceso que reclamo la pantalla. Nunca se borra.
@@ -63,7 +63,7 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
     if !crate::info::hay_fb_crudo() {
         return Err(ERROR_NO_SCREEN);
     }
-    // Un solo dueno. `compare_exchange` y no "leer y luego escribir": dos
+    // Un solo propietario. `compare_exchange` y no "leer y luego escribir": dos
     // procesos pidiendola en el mismo tick no pueden ganar los dos.
     if OWNER
         .compare_exchange(NO_OWNER, pid, Ordering::SeqCst, Ordering::SeqCst)
@@ -111,7 +111,7 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
 
     // A partir de aqui el kernel no dibuja. El orden importa: ceder DESPUES de
     // que el mapeo y el handle esten hechos, para que un fallo a medias no
-    // deje la maquina ciega y sin dueno.
+    // deje la maquina ciega y sin propietario.
     HANDLE.store(handle, Ordering::SeqCst);
     // El primero, y solo el primero. `compare_exchange` para que no lo mueva
     // una segunda reclamacion.
@@ -122,7 +122,7 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
 }
 
 
-/// * SOLTAR LA PANTALLA SIN MORIRSE. El dueno la devuelve y sigue vivo.
+/// * SOLTAR LA PANTALLA SIN MORIRSE. El propietario la devuelve y sigue vivo.
 ///
 /// # Por que faltaba, y que desbloquea
 ///
@@ -132,7 +132,7 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
 /// desde el escritorio se lleva un
 ///
 /// ```text
-/// la pantalla ya tiene dueno: el escritorio la reclamo al arrancar
+/// la pantalla ya tiene propietario: el escritorio la reclamo al arrancar
 /// ```
 ///
 /// y eso incluye `ray.bex`, el ensayo general de DOOM. El compositor tenia
@@ -144,8 +144,8 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
 /// Alli no se desmapea nada porque el espacio de direcciones entero se destruye
 /// con el proceso. **Aqui el proceso sigue vivo**, asi que sus paginas de
 /// framebuffer hay que quitarlas de verdad: dejarlas mapeadas seria un proceso
-/// que ya no es dueno de la pantalla y puede seguir escribiendo en ella --
-/// exactamente el agujero que el modelo de un solo dueno existe para cerrar.
+/// que ya no es propietario de la pantalla y puede seguir escribiendo en ella --
+/// exactamente el agujero que el modelo de un solo propietario existe para cerrar.
 ///
 /// El handle tambien se revoca. Un handle vivo a una capability que ya no te
 /// pertenece es la clase de cabo suelto que funciona hasta que dos procesos lo
@@ -159,7 +159,7 @@ pub fn claim(pid: u32, aspace: u64) -> Result<u64, u32> {
 pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
     if OWNER.load(Ordering::SeqCst) != pid {
         // No es suya. Se dice en vez de contestar OK: un "si" a quien no era
-        // dueno le haria creer que la cedio.
+        // propietario le haria creer que la cedio.
         return Err(ERROR_BUSY);
     }
     let bytes = mapped_bytes();
@@ -174,18 +174,18 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
     }
     crate::info::ceder_fb(false);
     OWNER.store(NO_OWNER, Ordering::SeqCst);
-    crate::ring0::cabina::info("fb", "pantalla SOLTADA por su dueno", pid as u64);
+    crate::ring0::cabina::info("fb", "pantalla SOLTADA por su propietario", pid as u64);
     Ok(())
 }
 
 
-/// ** EL RESCATE. Le quita la pantalla al dueno actual **sin pedirle permiso**.
+/// ** EL RESCATE. Le quita la pantalla al propietario actual **sin pedirle permiso**.
 ///
 /// Devuelve el `pid` al que se la quito, o `None` si no habia nada que rescatar.
 ///
 /// # Por que esto tiene que existir
 ///
-/// Todo lo demas de este modulo asume que el dueno colabora: la suelta al morir,
+/// Todo lo demas de este modulo asume que el propietario colabora: la suelta al morir,
 /// o la suelta porque quiere. Un programa que se queda la pantalla **y la
 /// entrada** y no coopera tiene la maquina de rehen, y eso paso de verdad: el
 /// raycaster tomo las dos y no podia leer su propio ESC. Sin teclado, sin
@@ -202,14 +202,14 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
 ///
 /// # A quien NO echa
 ///
-/// Al primer dueno, que es el compositor (reclama al arrancar). Si echara al
+/// Al primer propietario, que es el compositor (reclama al arrancar). Si echara al
 /// escritorio, la tecla de emergencia seria la tecla de romper la maquina. Ver
 /// [`FIRST_OWNER`] -- es una heuristica y esta dicha alli.
 ///
 /// # Y por que DESMAPEA
 ///
 /// Marcar la pantalla como libre no basta: el programa seguiria teniendo sus
-/// paginas mapeadas y seguiria escribiendo encima del escritorio. Dos duenos
+/// paginas mapeadas y seguiria escribiendo encima del escritorio. Dos propietarios
 /// pintando el mismo sitio es peor que uno pintando mal. Se desmapea con el
 /// `cr3` que da el planificador, y entonces su siguiente pixel es un fallo de
 /// pagina -- que es la respuesta correcta a "ya no es tuya".
@@ -239,7 +239,7 @@ pub fn rescue() -> Option<u32> {
 /// # En que se diferencia de [`rescue`], y es lo unico que cambia
 ///
 /// ```text
-///    rescue()                  protege al PRIMER dueno (el escritorio)
+///    rescue()                  protege al PRIMER propietario (el escritorio)
 ///    rescate_de_emergencia()   no protege a nadie
 /// ```
 ///
@@ -247,7 +247,7 @@ pub fn rescue() -> Option<u32> {
 ///
 /// `rescue` la dispara una tecla, o sea una persona, que puede haberse
 /// equivocado -- y por eso no se le deja tirar la casa. Esto lo dispara el
-/// kernel **despues de haber visto que su propia contabilidad esta danada**
+/// kernel **despues de haber visto que su propia contabilidad esta perjudicada**
 /// (`core/emergencia.rs`). Un kernel que ya no se fia de Ring 3 y aun asi le
 /// deja la pantalla no esta siendo prudente: esta apostando.
 ///
@@ -278,7 +278,7 @@ pub fn rescate_de_emergencia() -> Option<u32> {
 }
 
 
-/// El proceso `pid` murio (o salio). Si era el dueno, el kernel recupera la
+/// El proceso `pid` murio (o salio). Si era el propietario, el kernel recupera la
 /// pantalla. Lo llama `cap::revoke_all`, que corre en TODAS las salidas --
 /// EXIT voluntario y muerte por fault.
 ///
@@ -302,7 +302,7 @@ pub fn process_died(pid: u32) {
         // ambar, en una foto de CABINA, si.
         crate::ring0::cabina::warn(
             "fb",
-            "el dueno de la pantalla MURIO: se vuelve al panel del kernel",
+            "el propietario de la pantalla MURIO: se vuelve al panel del kernel",
             pid as u64,
         );
         // * Y SUS ULTIMAS PALABRAS, aqui y ahora.
@@ -337,7 +337,7 @@ pub fn process_died(pid: u32) {
         //
         // Dos lineas mas arriba, en CABINA, pone:
         //
-        // > *el dueno de la pantalla MURIO: **se vuelve al panel del kernel***
+        // > *el propietario de la pantalla MURIO: **se vuelve al panel del kernel***
         //
         // Y nadie repintaba el panel. El framebuffer se quedaba con **el ultimo
         // fotograma del muerto** --DOOM pinta 1600x1000 de un panel de
@@ -355,7 +355,7 @@ pub fn process_died(pid: u32) {
         // `emergencia.rs`, y por el mismo motivo: quien recibe la pantalla la
         // recibe LIMPIA o no la ha recibido.
         crate::ring0::core::splash::splash_dashboard_init();
-        crate::ring0::core::dashboard::dashboard_log("  -- lo ULTIMO que dijo el dueno de la pantalla --");
+        crate::ring0::core::dashboard::dashboard_log("  -- lo ULTIMO que dijo el propietario de la pantalla --");
         if crate::ring0::uconsole::hubo_palabras(pid) {
             crate::ring0::uconsole::ultimas_palabras(pid, |linea| {
                 let mut buf = [0u8; 128];

@@ -4,7 +4,7 @@
 //! no por lo que mide: **es la unica que ACTUA sobre el almacen**. `informe`
 //! contesta preguntas, `entrada` cuenta hechos fisicos, `objetos` opera sobre
 //! handles que alguien concedio... y esto **le da ordenes al aparato donde vive
-//! el trabajo del dueno**.
+//! el trabajo del propietario**.
 //!
 //! # Por que hay motivos y no un booleano
 //!
@@ -223,7 +223,7 @@ pub const ES_GESTO_ORIGEN: u64 = 0x09;
 ///
 /// El renglon acumula de ocho en ocho y para en [`ES_GESTO_MAX`]. Un MiB por
 /// ahi serian 131.072 cruces de anillo. Aqui son DOS llamadas --anotar y
-/// ejecutar-- para cualquier tamano, porque **el contenido no viaja: viaja
+/// ejecutar-- para cualquier medida, porque **el contenido no viaja: viaja
 /// donde esta**.
 ///
 /// ** Y quita el rodeo que hoy es obligatorio. Sin esto, la unica forma de
@@ -253,7 +253,7 @@ pub const ES_GESTO_FICHERO_DE: u64 = 0x0A;
 ///
 /// ** Aqui no puede perder nada: el nodo viejo, su contenido y el estrato que
 /// lo nombraba siguen enteros y alcanzables. Guardar encima **publica una
-/// version, no destruye una** -- y el historial las ensena las dos.
+/// version, no destruye una** -- y el historial las muestra las dos.
 ///
 /// [`ES_GESTO_FICHERO_DE`] sigue existiendo para lo contrario: cuando la
 /// intencion es CREAR y hay que enterarse de que el nombre ya estaba.

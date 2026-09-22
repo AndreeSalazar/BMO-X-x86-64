@@ -5,7 +5,7 @@
 //! pantalla-- y el dia que lo tenga, esto no se refactoriza ni se adapta: se
 //! borra la carpeta y se quita su `mod`.
 //!
-//! Dicho por el dueno el 2026-08-12, y con razon:
+//! Dicho por el propietario el 2026-08-12, y con razon:
 //!
 //! > *"eso es solo para ser reemplazado cuando llegue la GPU, porque la verdad
 //! > eso no hara el trabajo para la CPU sino la GPU"*
@@ -28,7 +28,7 @@
 //!
 //! Porque mientras tanto la CPU tiene que mover los pixeles igual, y moverlos
 //! mal se veia: el volcado copiaba **8,3 MB por fotograma** a memoria
-//! write-combining, y eso era a la vez la lentitud y el parpadeo que el dueno
+//! write-combining, y eso era a la vez la lentitud y el parpadeo que el propietario
 //! reporto. Ver [`sucio`].
 //!
 //! Pero que funcione no lo convierte en arquitectura. **Es una muleta con
@@ -36,7 +36,7 @@
 //!
 //! ## La regla, para quien venga despues
 //!
-//! No se anade nada aqui que no cumpla las dos:
+//! No se agrega nada aqui que no cumpla las dos:
 //!
 //! 1. **Existe solo porque no hay driver de pantalla.**
 //! 2. **Se borra entero el dia que lo haya**, sin que nadie tenga que decidir

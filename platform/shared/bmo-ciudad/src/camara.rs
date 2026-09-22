@@ -2,13 +2,13 @@
 //!
 //! ## Que es el paralaje, y por que es lo unico que hace falta
 //!
-//! Pedido por el dueno: *"que se sienta que tiene animacion y como la camara
+//! Pedido por el propietario: *"que se sienta que tiene animacion y como la camara
 //! avanza"*.
 //!
 //! Mover la ciudad entera a un lado no da sensacion de avanzar: da sensacion de
 //! que la imagen se desliza. Lo que el ojo lee como profundidad es que **lo
 //! cercano pase mas deprisa que lo lejano** -- es la misma pista que usa mirando
-//! por la ventanilla de un coche, donde la valla vuela y la montana casi no se
+//! por la ventanilla de un coche, donde la valla vuela y la sierra casi no se
 //! mueve.
 //!
 //! Asi que la camara no mueve nada: solo contesta **cuanto se ha desplazado cada

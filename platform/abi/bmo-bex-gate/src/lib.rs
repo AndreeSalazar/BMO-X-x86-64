@@ -14,7 +14,7 @@
 //!                     bmo-bex-gate        <- la DECISION
 //!                      /          \
 //!       bef2::lector (alloc)       bex.rs (Ring 0)
-//!       anade los HASHES           anade el PLAN
+//!       agrega los HASHES           agrega el PLAN
 //! ```
 //!
 //! ## BEF2, y solo BEF2 (2026-09-19)
@@ -466,7 +466,7 @@ pub fn revisar(prologo: &[u8], tam_fichero: usize) -> Result<Revisada<'_>, Falta
     //
     // Un tramo VACIO no ocupa sitio y no se pelea con nadie, pero su offset
     // tiene que caer DENTRO del fichero igual: uno que apunte fuera es basura,
-    // y la basura no pasa aunque no haga dano (lo encontro la pasada hostil).
+    // y la basura no pasa aunque no haga perjuicio (lo encontro la pasada hostil).
     let mut trozos = [(0u64, 0u64); MAX_TROZOS];
     let mut n = 0usize;
     let mut apunta = |off: u64, len: u64| -> Result<(), Falta> {

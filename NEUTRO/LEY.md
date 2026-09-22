@@ -22,7 +22,7 @@ existe**, que es peor que una que se sabe rota.
    quien no la alcanza                -> no es neutro, no tiene fila
 ```
 
-> **Sacrificio:** anadir un aparato cuesta escribir su fila **antes** de que
+> **Sacrificio:** agregar un aparato cuesta escribir su fila **antes** de que
 > funcione, con la maquina apagada y sin la satisfaccion de verlo andar. Es el
 > momento en que menos apetece.
 
@@ -93,7 +93,7 @@ es lo primero que hay que ir a mirar.
 
 La primera version de esta regla contaba recorriendo la tabla entera, y su
 sacrificio era ese recorrido. **Al llevar la cuenta a `marcar` --el unico sitio
-por el que un marco cambia de dueno-- aparecio algo mejor:**
+por el que un marco cambia de propietario-- aparecio algo mejor:**
 
 Si la cuenta puede SUBIR cuando un marco pasa a `Neutro`, tambien puede BAJAR
 cuando deja de serlo. Y eso es **exactamente lo que N3 prohibe**. Asi que
@@ -107,7 +107,7 @@ devolucion de marcos**. Ese camino es ROJO, es donde vive la azul del 07-09, y
 
 > **Sacrificio:** dos comparaciones y una rama **en cada marcado de marco**, que
 > es uno de los caminos mas transitados del kernel. Es barato, pero se paga
-> siempre y no solo cuando alguien mira. Y hay un precio de diseno mayor: la
+> siempre y no solo cuando alguien mira. Y hay un precio de esquema mayor: la
 > cuenta ya **no es una medida independiente de la tabla** -- si `marcar` se
 > equivoca, el numero se equivoca con el, y no queda quien lo desmienta.
 

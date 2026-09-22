@@ -274,7 +274,7 @@ fn las_relocations_apuntan_a_secciones_que_existen() {
     assert!(a.secciones_huerfanas.len() <= 1, "huerfanas: {:?}", a.secciones_huerfanas);
 }
 
-/// El numero que el backbuffer enseno a pedir: cuanto se emitio y cuanto se
+/// El numero que el backbuffer mostro a pedir: cuanto se emitio y cuanto se
 /// alcanza. No es un error tener bytes muertos -- es una cifra que mirar cuando
 /// un `.bex` crece y nadie sabe por que.
 #[test]
@@ -412,7 +412,7 @@ int main() {
 /// ** `feof` DABA EOF PASADA LA MITAD DE CUALQUIER FICHERO, y estaba desplegado.
 ///
 /// Decia `f->pos >= bmo_quedan(f)`, y `bmo_quedan` son los bytes QUE QUEDAN, no
-/// el tamano. En un fichero de diez con el cursor en el seis quedan cuatro, y
+/// el medida. En un fichero de diez con el cursor en el seis quedan cuatro, y
 /// `6 >= 4` es cierto. Un `while (!feof(f))` leia poco mas de la mitad y salia
 /// tranquilo: sin error, con datos incompletos.
 ///
@@ -520,7 +520,7 @@ int main() {
 /// ** Y aqui hay una DIFERENCIA con el C estandar, dicha a proposito: alli
 /// `feof` solo se pone a 1 **despues** de que una lectura se quede corta, no
 /// cuando el cursor llega al final. Un `while (!feof(f))` de manual lee una vez
-/// de mas por eso. Aqui se compara cursor contra tamano, que es lo que ese
+/// de mas por eso. Aqui se compara cursor contra medida, que es lo que ese
 /// bucle espera de verdad -- y ademas no puede colgarse.
 #[test]
 fn feof_dice_que_si_al_llegar_al_final() {

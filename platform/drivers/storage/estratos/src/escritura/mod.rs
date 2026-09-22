@@ -9,7 +9,7 @@
 //! La E/S la hace el kernel, que es quien tiene el dispositivo. Esa separacion
 //! no es ceremonia: es lo que permite **probar en el anfitrion la parte que
 //! cuesta datos**, sin un disco delante y sin arriesgar el Kingston de nadie.
-//! Lo que el diseno llama "aqui empieza lo serio" es exactamente el ORDEN, y el
+//! Lo que el esquema llama "aqui empieza lo serio" es exactamente el ORDEN, y el
 //! orden es lo que se prueba aqui.
 //!
 //! === Por que es una maquina de estados y no un plan ===
@@ -18,7 +18,7 @@
 //! es `no_std` **sin `alloc`**, y un plan son varios KiB por bloque. No hay
 //! `Vec` que devolver.
 //!
-//! Y resulta que la restriccion mejora el diseno. Una lista se puede reordenar
+//! Y resulta que la restriccion mejora el esquema. Una lista se puede reordenar
 //! por accidente; una maquina de estados **no deja**: el superbloque no se
 //! puede pedir antes de la barrera porque el metodo devuelve un error, no
 //! porque alguien se acuerde de llamar en orden.
@@ -334,7 +334,7 @@ mod tests {
     }
 
     /// Una reserva que desbordaria el `u64` se rechaza en vez de dar la vuelta.
-    /// Con la vuelta, `fin` sale pequeno, la comprobacion pasa, y se escribe en
+    /// Con la vuelta, `fin` sale chico, la comprobacion pasa, y se escribe en
     /// el bloque 3 creyendo que es el 18 trillones.
     #[test]
     fn una_reserva_absurda_no_da_la_vuelta_al_contador() {

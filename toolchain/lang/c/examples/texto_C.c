@@ -8,7 +8,7 @@
  * no se escribe, porque quien escribe pregunta "que letra salio".
  *
  * Sacar la letra del scancode habria significado copiar la distribucion
- * espanola entera --tildes, la ene, AltGr, teclas muertas-- aqui dentro. Dos
+ * castellana entera --tildes, la ene, AltGr, teclas muertas-- aqui dentro. Dos
  * mapas de teclado son dos teclados, y se separan el dia que alguien arregle
  * una tecla en uno de los dos. Asi que la letra la manda quien ya la sabe: el
  * kernel la cocina, el DIRECTOR la reenvia con el bit 62 puesto, y esto la lee.
@@ -472,7 +472,7 @@ static int clic(int mx, int my) {
     if (my >= VEN_ALTO - PIE) return 0;
 
     /* Dentro del texto: el cursor va donde cayo el dedo, recortado al final de
-     * esa linea. Poner el cursor mas alla del final seria un cursor que senala
+     * esa linea. Poner el cursor mas alla del final seria un cursor que marca
      * un sitio que no existe. */
     f = (my - TY) / BMO_FUENTE_ALTO;
     li = g_prim + f;

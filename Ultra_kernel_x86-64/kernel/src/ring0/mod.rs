@@ -95,7 +95,7 @@ pub mod task {
     /// **Admitir un `.bex`**: de unos bytes a un proceso que puede correr.
     ///
     /// [!] Su funcion principal son **607 lineas**: este reparto la MOVIO, no la
-    /// desarmo. Partirla por dentro es un cambio de diseno --su estado local
+    /// desarmo. Partirla por dentro es un cambio de esquema --su estado local
     /// compartido tiene que volverse una estructura-- y un hash no lo puede
     /// demostrar. Ver la cabecera del fichero.
     pub mod admitir;
@@ -236,7 +236,7 @@ pub mod cabina;
 /// EL RELOJ: el contador del tick, en nivel 0. Salio de `plat::timer` (L8b): la hora
 /// es un dato que la plataforma produce, y el registro la necesita sin importarla.
 pub mod reloj;
-/// EL MIRADOR: lo que CABINA ensena y vuelca. Salio de `cabina` (L8b): el registro lo
+/// EL MIRADOR: lo que CABINA muestra y vuelca. Salio de `cabina` (L8b): el registro lo
 /// llaman todos y no lee a nadie; el mirador lee a todos y solo lo llama `core`.
 pub mod mirador;
 pub mod uconsole;

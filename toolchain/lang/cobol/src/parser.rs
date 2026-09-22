@@ -710,7 +710,7 @@ impl Parser {
         //
         // Empaquetar son DIGITOS: dos por byte y un nibble de signo. Sin PIC no
         // se sabe cuantos, y sobre una PIC X no hay digitos que empaquetar. Las
-        // dos cosas se dicen en vez de reservar un tamano inventado.
+        // dos cosas se dicen en vez de reservar un medida inventado.
         if item.usage == crate::pic::Usage::Comp3 {
             match &item.pic_field {
                 None => {

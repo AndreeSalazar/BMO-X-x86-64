@@ -9,7 +9,7 @@
 //! Botones, dx, dy y rueda. `dx`/`dy` son **relativos y con signo** -- un raton
 //! no dice donde esta, dice cuanto se ha movido; quien lleva la posicion
 //! absoluta y la recorta a la pantalla es el kernel, que es el que sabe de que
-//! tamano es el panel.
+//! medida es el panel.
 //!
 //! * **Donde cae cada uno lo dice el aparato**, no este archivo. El formato
 //! sale de su Report Descriptor ([`crate::formato`]) y llega ya resuelto: que
@@ -60,7 +60,7 @@ pub struct Raton {
     /// Report ID y para nada mas -- no sabia de anchos, asi que un raton con
     /// ejes de 16 bits seguia leyendose mal aunque el salto fuera correcto.
     formato: Formato,
-    /// Informes vistos. Los primeros se ensenan crudos: un formato que no se
+    /// Informes vistos. Los primeros se muestran crudos: un formato que no se
     /// entiende no se arregla razonando, se arregla mirandolo.
     vistos: u32,
 }
@@ -184,7 +184,7 @@ impl Raton {
             }
             // El informe se copia a la pila ENTERO y desde ahi se descifra. No
             // se puede seguir leyendolo como un `struct` de cuatro bytes: los
-            // campos ya no estan en posiciones fijas ni tienen tamano fijo, que
+            // campos ya no estan en posiciones fijas ni tienen medida fijo, que
             // es justo lo que este cambio arregla.
             let mut informe = [0u8; MAX_INFORME];
             let salto = self.formato.desplazamiento();

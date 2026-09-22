@@ -261,7 +261,7 @@ fn ver(ruta: &Path, ancla_hex: &[String]) -> Result<(), String> {
     // ```text
     //    un byte del codigo cambiado    lo caza EL DIGEST de esa seccion
     //    un digest cambiado             lo caza LA CADENA, o sea la firma
-    //    una seccion quitada o anadida  lo caza LA CADENA: sobra o falta un digest
+    //    una seccion quitada o agregada  lo caza LA CADENA: sobra o falta un digest
     //    -> la firma sin los digests no prueba nada de los bytes
     //    -> los digests sin la firma los puede recalcular cualquiera
     // ```

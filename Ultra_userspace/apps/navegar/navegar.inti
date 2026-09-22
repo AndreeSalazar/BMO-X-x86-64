@@ -39,7 +39,7 @@
 # mensaje. Esta ademas PINTA UNA LAMINA: si en el disco hay
 # `datos/ejemplo.lam` (la de example.com, la misma que la antena manda),
 # la recorre con `usa lamina` --las reglas de `lamina.rs`, en INTI-- y la
-# ensena en una ventana de 640x400 con desplazamiento (flechas, AvPag/RePag).
+# muestra en una ventana de 640x400 con desplazamiento (flechas, AvPag/RePag).
 #
 #     hay lamina en el disco     se pinta; una lamina MAL HECHA se niega con
 #                                su nombre y su linea, encima, en naranja
@@ -314,7 +314,7 @@ funcion desliza(desliz es natural64, tecla es natural64, tope es natural64) devu
     devuelve desliz
 
 funcion principal devuelve entero32
-    # Primero la lamina, si la hay: decide el tamano de la ventana.
+    # Primero la lamina, si la hay: decide el medida de la ventana.
     # N3: lo que el ANTENISTA ofrecio va delante; el disco es lo que queda.
     cambiante base es natural64 = 0
     cambiante largo es natural64 = SIN_LAMINA

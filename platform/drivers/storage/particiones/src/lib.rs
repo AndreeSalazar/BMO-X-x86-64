@@ -82,7 +82,7 @@ pub enum GptError {
     /// El sector recibido no mide un sector.
     SectorCorto,
     /// `entry_size` fuera de lo que la especificacion permite (>= 128 y que
-    /// quepa en un sector). Con un tamano inventado, el recorrido de entradas
+    /// quepa en un sector). Con un medida inventado, el recorrido de entradas
     /// leeria en diagonal y devolveria particiones que no existen.
     TamanoDeEntradaAbsurdo(u32),
 }
@@ -92,7 +92,7 @@ impl GptError {
         match self {
             GptError::SinFirma => "el disco no tiene tabla GPT",
             GptError::SectorCorto => "el sector no mide 512 bytes",
-            GptError::TamanoDeEntradaAbsurdo(_) => "tamano de entrada GPT inesperado",
+            GptError::TamanoDeEntradaAbsurdo(_) => "medida de entrada GPT inesperado",
         }
     }
 }
@@ -239,7 +239,7 @@ mod censo {
 
     #[test]
     fn una_cabecera_valida_da_sus_cuatro_numeros() {
-        let g = cabecera(&cabecera_buena()).expect("tiene firma y tamano legal");
+        let g = cabecera(&cabecera_buena()).expect("tiene firma y medida legal");
         assert_eq!(g.last_lba, 1_000_000);
         assert_eq!(g.entries_lba, 2);
         assert_eq!(g.entry_count, 128);
@@ -256,7 +256,7 @@ mod censo {
 
     /// ** La casilla que justifica que `entry_size` se valide.
     ///
-    /// Con un tamano de 7, `por_sector()` daria 73 y el recorrido leeria las
+    /// Con un medida de 7, `por_sector()` daria 73 y el recorrido leeria las
     /// entradas EN DIAGONAL: cada una empezaria a mitad de la anterior y
     /// saldrian particiones que no existen, con rangos inventados. Un disco
     /// con basura en ese campo se convertiria en un mapa de un disco que no es.

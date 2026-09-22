@@ -14,7 +14,7 @@
 //! ## Esto NO es formato nuevo
 //!
 //! `SectionKind::Resources = 0x0B` esta declarada en `sections.rs` desde que se
-//! diseno BEF --*"recursos arbitrarios (texturas BC7, audio Opus, fonts)"*-- y
+//! esquema BEF --*"recursos arbitrarios (texturas BC7, audio Opus, fonts)"*-- y
 //! hasta hoy **nadie la escribia y nadie la leia**. Y el cargador del kernel ya
 //! esta preparado para su mitad: `bex::is_loadable` mapea Code/RoData/Data/Bss
 //! y **el resto lo salta y lo cuenta**. O sea que un `.bex` con recursos dentro
@@ -33,14 +33,14 @@
 //!
 //!   entrada (64 B cada una, `count` seguidas)
 //!     0..8    offset  -- DESDE EL INICIO DE ESTA SECCION, no del fichero
-//!     8..16   tamano
+//!     8..16   medida
 //!     16      largo del nombre
 //!     17..64  el nombre, 47 bytes, sin terminador
 //!
 //!   los datos, uno detras de otro
 //! ```
 //!
-//! **Entradas de tamano fijo**, a proposito. Un indice con nombres de longitud
+//! **Entradas de medida fijo**, a proposito. Un indice con nombres de longitud
 //! variable se recorre saltando por punteros, y eso pide o reservar memoria o
 //! escribir un parser con estado. Con 64 bytes clavados, la entrada `i` esta en
 //! `16 + i*64` y el lector es una multiplicacion -- que es lo que hace que el
@@ -248,7 +248,7 @@ mod tests {
     /// ** Los offsets son RELATIVOS A LA SECCION, y esta fila es la que lo
     /// fija. Si alguien los hiciera absolutos al fichero, el indice dejaria de
     /// valer en cuanto el escritor de BEF colocara la seccion en otro sitio --
-    /// y eso pasa con solo anadir una seccion delante.
+    /// y eso pasa con solo agregar una seccion delante.
     #[test]
     fn los_offsets_no_dependen_de_donde_caiga_la_seccion() {
         let a = construir(&[("x", b"12345")]).unwrap();
@@ -278,7 +278,7 @@ mod tests {
         assert!(Directorio::nuevo(&bytes).is_none());
     }
 
-    /// Y un tamano que desborda al sumarlo. `offset + size` con los dos cerca
+    /// Y un medida que desborda al sumarlo. `offset + size` con los dos cerca
     /// del tope da la vuelta, y una comprobacion escrita como
     /// `offset + size > len` diria que si cabe.
     #[test]

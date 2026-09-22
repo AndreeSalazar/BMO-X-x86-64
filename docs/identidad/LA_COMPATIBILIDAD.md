@@ -1,6 +1,6 @@
 # LA COMPATIBILIDAD -- las tablas de lo que no se puede romper
 
-> Escrito el **2026-08-26**, a peticion del dueno:
+> Escrito el **2026-08-26**, a peticion del propietario:
 >
 > *"organizar en tablas cuales son los elementos MAS importantes para no romper
 > la compatibilidad = ese punto es el inicio, porque con una sola cosa que
@@ -22,9 +22,9 @@ Y de ahi sale la aritmetica que decide el producto entero:
 | | mantener | adoptar |
 |---|---|---|
 | superficie **grande y estable** | caro | facil |
-| superficie **pequena y estable** | barato | hay que aprender |
+| superficie **chica y estable** | barato | hay que aprender |
 | superficie **grande e inestable** | -- | nadie construye |
-| superficie **pequena e inestable** | -- | ni eso |
+| superficie **chica e inestable** | -- | ni eso |
 
 BMO-X eligio la segunda, **y esa eleccion es el producto**: dos puertas
 congeladas y 93 operaciones aditivas es una promesa que cabe en una pagina, y
@@ -40,7 +40,7 @@ una promesa que cabe en una pagina se puede cumplir diez anios.
 | 2 | **Los numeros de operacion ya asignados** | `surface/*.rs` | los `.bex` que usen ese numero | hace otra cosa, **y no falla** |
 | 3 | **Un numero RETIRADO** | -- | -- | el binario viejo falla **diciendolo** |
 | 4 | **El formato `BEF1`** (`MAGIC`, cabecera 48, entrada 48) | `bmo-bex-gate` | el cargador entero | ningun programa carga |
-| 5 | **El MAYOR del ABI** | `bmo-abi/lib.rs` | por diseno: declara incompatibilidad | el cargador dice `OtraVersionDelAbi` |
+| 5 | **El MAYOR del ABI** | `bmo-abi/lib.rs` | por esquema: declara incompatibilidad | el cargador dice `OtraVersionDelAbi` |
 | 6 | **El formato del handle** (tag 63, kind 62:56, gen, indice) | `cap.rs` + `handle/opaque.rs` | toda capability viva | `handle invalido` -- ver la parte 5 |
 | 7 | **Las siete `R-APP`** | `META-APP_HARD.md` | el contrato de una app | el escritorio deja de aislar |
 
@@ -103,7 +103,7 @@ Cada cosa nueva que se concede paga estas seis, y si no las paga, no entra.
 | 1 | **un numero que quepa en su campo** | ver la parte 5: uno que no cabe **compila** |
 | 2 | **libre en las DOS tablas** | kernel y `bmo-abi` son dos ficheros que no se hablan |
 | 3 | **un NO con nombre** para cada forma de negarlo | un codigo de error no dice *"pisa la RAM que empieza en 0x100000"* |
-| 4 | **se suelta al morir el dueno** | `R-APP6`. Sin esto, un proceso que revienta deja el recurso ocupado hasta reiniciar |
+| 4 | **se suelta al morir el propietario** | `R-APP6`. Sin esto, un proceso que revienta deja el recurso ocupado hasta reiniciar |
 | 5 | **una prueba que pueda VER el fallo** | no una que pase; una que falle si la regla se rompe |
 | 6 | **una linea en las tres tablas** (kernel, ABI, userland) | el guardian de `build.ps1` la exige, y por eso no se olvida |
 
@@ -139,7 +139,7 @@ de verdad decide-- comprobaba `abi_menor == 0`. **Exacto, no aditivo.**
                                         contrato dice que tiene que entrar
 ```
 
-No habia hecho dano porque nadie ha subido el menor nunca. **Eso no es que
+No habia hecho perjuicio porque nadie ha subido el menor nunca. **Eso no es que
 estuviera bien: es que todavia no se habia cobrado.** Peaje incumplido: el 5, y
 se noto al escribirlo -- las dos primeras pruebas comparaban las dos copias entre
 si y **pasaban con la regla mala**.
@@ -209,7 +209,7 @@ numeros aparecen en las dos, y en cinco eso es falso**:
 Y otros tres son del kernel y el ABI no los nombra: `KIND_TAREA` (0x55),
 `KIND_ENDPOINT` (0x70) y `KIND_REPLY` (0x71).
 
-★ Hoy no hace dano porque **el `kind` del handle solo lo interpreta el kernel**:
+★ Hoy no hace perjuicio porque **el `kind` del handle solo lo interpreta el kernel**:
 el ABI declara la taxonomia y no la usa para resolver nada. Es deuda, no fallo --
 y esta escrita aqui para que el dia que alguien de Ring 3 mire el byte del
 `kind`, sepa que esa tabla no es la que manda.
@@ -249,7 +249,7 @@ clase de guardian"*: se apaga en una semana, y entonces deja de avisar tambien
 de lo verdadero.
 
 ★ **Y no vive en `build.ps1`.** Ese fichero lleva cuatro avisos escritos de su
-propia mano --*"el siguiente guardian NO se anade: primero se parte este
+propia mano --*"el siguiente guardian NO se agrega: primero se parte este
 fichero"*-- y el censo modular lo respalda. Vive en `bmo.ps1`, que ademas es su
 sitio: aquel CONSTRUYE, este COMPRUEBA ANTES. **Un contrato se comprueba, no se
 construye.**

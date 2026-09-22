@@ -6,7 +6,7 @@
 //! acepta una escritura. Y uno que **no sobreescribe nunca** --que es la idea
 //! entera de ESTRATOS-- se llena aunque nadie cree un archivo: cada version se
 //! queda. Saber la ocupacion no es un adorno del panel: es la condicion previa
-//! al paso 5 del diseno.
+//! al paso 5 del esquema.
 //!
 //! === La cuenta es trivial, y eso es una decision ===
 //!
@@ -21,7 +21,7 @@
 //!
 //! === Sobre el recolector, dicho aqui porque es donde se nota ===
 //!
-//! La observacion de Eddi es correcta y ya estaba en el diseno: **para un disco
+//! La observacion de Eddi es correcta y ya estaba en el esquema: **para un disco
 //! personal grande, el GC importa poco**. 414 GiB son ~108 millones de bloques;
 //! un `.bex` ocupa cinco. Se pueden hacer *millones* de estratos antes de que
 //! haga falta soltar uno.
@@ -36,7 +36,7 @@
 
 /// Los cuatro estados del volumen, y que significa cada uno.
 ///
-/// Los umbrales estan en el diseno (section 9) y no se eligen aqui: se copian. Cambiar
+/// Los umbrales estan en el esquema (section 9) y no se eligen aqui: se copian. Cambiar
 /// uno es cambiar el documento primero.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Nivel {
@@ -147,7 +147,7 @@ impl Ocupacion {
     /// Cuantos bloques caben todavia de un objeto de `bytes`.
     ///
     /// Para contestar "cuantos estratos mas caben?" sin que quien pregunta
-    /// tenga que saber el tamano de bloque. Redondea hacia arriba: medio bloque
+    /// tenga que saber el medida de bloque. Redondea hacia arriba: medio bloque
     /// ocupa un bloque.
     pub fn caben_de(&self, bytes: u64) -> u64 {
         if bytes == 0 {

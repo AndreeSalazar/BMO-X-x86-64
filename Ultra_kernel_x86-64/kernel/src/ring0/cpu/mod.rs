@@ -68,7 +68,7 @@ impl CpuFamilyModel {
     /// principio.
     ///
     /// Decia `model == 0x01`, y ademas la rama de abajo llamaba **"Ryzen 7000
-    /// (Raphael, Zen 4)"** al `0x21`. O sea que en la maquina del dueno --un
+    /// (Raphael, Zen 4)"** al `0x21`. O sea que en la maquina del propietario --un
     /// 5600X-- `info` llevaba meses imprimiendo el nombre de otro procesador.
     ///
     /// Nadie lo vio porque el unico sintoma era ese nombre, y un nombre no

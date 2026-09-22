@@ -10,11 +10,11 @@
 //! crecio hasta 995. El 2026-08-23 llego a **cinco lineas** de que L6a lo
 //! rechazara, y se partio antes de tocarlo otra vez.
 //!
-//! # El corte, y por que es por QUIEN RECIBE y no por tamano
+//! # El corte, y por que es por QUIEN RECIBE y no por medida
 //!
 //! El censo lo clasificaba como `GIGANTE` --dos funciones, media de 497
 //! lineas-- que es la especie cara: *"el estado local tiene que volverse un
-//! struct primero, y eso es diseno"*. Ese struct es [`Golpe`], y una vez
+//! struct primero, y eso es esquema"*. Ese struct es [`Golpe`], y una vez
 //! escrito el reparto sale solo, porque un puntero **siempre esta sobre algo**:
 //!
 //! ```text
@@ -29,7 +29,7 @@
 //! son la misma pregunta** --de quien es esta pulsacion-- hecha con el dedo en
 //! un sitio distinto.
 //!
-//! ## Lo que se queda aqui, y es lo unico que no tiene dueno
+//! ## Lo que se queda aqui, y es lo unico que no tiene propietario
 //!
 //! El reparto: los dos botones, `under_pointer` --que decide sobre QUE ventana
 //! esta el raton-- la rueda, el realce de la calculadora, y el Z-order del
@@ -275,7 +275,7 @@ fn repartir(
                 dsk.out.grid.scroll_view(wheel * 3);
             }
             // La rueda sobre el arbol de nodos mueve la seleccion. En la
-            // pestana de numeros no hay nada que desplazar: cabe entera.
+            // solapa de numeros no hay nada que desplazar: cabe entera.
             Some(Ventana::Data) if dsk.win.data.view == scene::data::View::Obra => {
                 // Girar hacia arriba sube por la lista: `wheel` positivo
                 // es hacia arriba y la seleccion de arriba es la menor.
@@ -289,7 +289,7 @@ fn repartir(
 
     // -- El realce de la calculadora --
     //
-    // Solo cuando CAMBIA la tecla senalada, y solo si la calculadora se
+    // Solo cuando CAMBIA la tecla marcada, y solo si la calculadora se
     // ve y no esta tapada. Al salir de ella el realce se apaga, que es
     // la mitad que se olvida siempre: un boton que se queda encendido
     // cuando ya no lo senalas miente sobre donde esta el raton.
@@ -385,7 +385,7 @@ pub(super) fn usar_entrada(
     sobre: scene::menu::Sobre,
 ) {
     use scene::menu::{Hace, Sobre};
-    // El nombre de lo senalado, que es lo que la orden necesita.
+    // El nombre de lo marcado, que es lo que la orden necesita.
     let mut nom = [0u8; 64];
     let n = match sobre {
         Sobre::Hijo(i) => scene::data::fuente::hijo_nombre(i as u64, &mut nom),

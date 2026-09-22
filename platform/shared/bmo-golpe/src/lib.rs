@@ -34,7 +34,7 @@
 //!    LA VISIBLE     lo que de verdad se esta viendo del interior de la ventana.
 //!                   Ya viene recortada contra el marco Y contra la pantalla:
 //!                   una ventana medio fuera del panel tiene visible mas
-//!                   pequeno que su contenido.
+//!                   chico que su contenido.
 //!
 //!    LA DECLARADA   lo que la app dijo que mide su superficie (`BSUP`).
 //!                   Es dato de OTRO proceso, asi que aqui no se cree: se usa

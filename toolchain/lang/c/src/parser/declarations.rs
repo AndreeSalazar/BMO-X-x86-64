@@ -567,7 +567,7 @@ impl Parser {
             // sonda lo encontro en la union, pero fallaba **igual en un
             // struct**: es el declarador, no el agregado.
             //
-            // El tamano y el alineado salen solos: `stack_size()` de un
+            // El medida y el alineado salen solos: `stack_size()` de un
             // `Array(t,n)` ya es `t*n`, y el reparto de offsets se calcula
             // con eso.
             // Same reader as everywhere else, which is what buys `short
@@ -825,7 +825,7 @@ impl Parser {
             Token::Ident(n) => n,
             t => return Err(CError::new(self.line(),format!("expected identifier, got {:?}", t))),
         };
-        // array declarator [size] -- el tamano SE GUARDA (antes se tiraba)
+        // array declarator [size] -- el medida SE GUARDA (antes se tiraba)
         if *self.peek() == Token::OpenBracket {
             typ = self.parse_array_suffix(typ)?;
         }

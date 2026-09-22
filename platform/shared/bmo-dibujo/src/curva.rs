@@ -23,7 +23,7 @@
 //! quince pixeles paga treinta y dos llamadas para pintar quince puntos; con 8,
 //! una curva que cruza la pantalla se ve **poligonal**.
 //!
-//! Se estima desde el tamano de la caja que contiene los cuatro puntos de
+//! Se estima desde el medida de la caja que contiene los cuatro puntos de
 //! control: `(ancho + alto) / 8`, acotado a `[4, 64]`. No es exacto --la caja
 //! es mayor que la curva-- y no hace falta que lo sea: pasarse cuesta un tramo
 //! de mas, quedarse corto se ve.
@@ -166,7 +166,7 @@ mod pruebas {
     ///
     /// Es la prueba que justifica partir en tramos y unirlos con `linea` en vez
     /// de muestrear puntos sueltos. Muestrear y pintar puntos deja una curva de
-    /// PUNTITOS en cuanto se estira, y eso no se ve en una captura pequena.
+    /// PUNTITOS en cuanto se estira, y eso no se ve en una captura chica.
     ///
     /// Se comprueba contando: cada pixel de la curva tiene que tener al menos
     /// un vecino en las ocho direcciones.
@@ -218,7 +218,7 @@ mod pruebas {
         assert!(l.cuantos() > 0, "la curva cruza la caja por su punto medio");
     }
 
-    /// Una curva grande merece mas tramos que una pequena. Sin esto, o se
+    /// Una curva grande merece mas tramos que una chica. Sin esto, o se
     /// pagan llamadas de mas o se ve poligonal.
     #[test]
     fn el_numero_de_tramos_sigue_al_tamano() {

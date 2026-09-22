@@ -22,8 +22,8 @@
  * == Las tres cosas que arregla de golpe ==
  *
  * 1. **Los mas de cuatro `malloc`.** Una peticion al kernel, N reparticiones.
- * 2. **`realloc`**, que devolvia 0 y decia por que: *"sin el tamano viejo,
- *    copiar es adivinar"*. Ahora el tamano viejo esta en la cabecera del
+ * 2. **`realloc`**, que devolvia 0 y decia por que: *"sin el medida viejo,
+ *    copiar es adivinar"*. Ahora el medida viejo esta en la cabecera del
  *    bloque, a ocho bytes del puntero. Se escribe en tres lineas, como estaba
  *    prometido en `<stdlib.h>`.
  * 3. ** **El contrato de `fread`.** El kernel solo acepta escribir dentro de un
@@ -62,8 +62,8 @@
  * == La forma, y por que esta ==
  *
  * Boundary tags con lista implicita: los bloques van pegados dentro de la
- * arena y se recorren sumando su tamano. Cada uno lleva 16 bytes de cabecera
- * --el tamano total y si esta libre-- y el reparto es **primer hueco que
+ * arena y se recorren sumando su medida. Cada uno lleva 16 bytes de cabecera
+ * --el medida total y si esta libre-- y el reparto es **primer hueco que
  * sirve**.
  *
  * ** La fusion de huecos se hace AL BUSCAR, no al liberar**, y eso es lo que
@@ -74,7 +74,7 @@
  *
  * El coste es lineal en el numero de bloques. Se dice porque es real: para los
  * quince `malloc` de DOOM no significa nada, y para un programa que reserve
- * cien mil trozos si. Ese dia lo que toca es una lista de libres por tamano, no
+ * cien mil trozos si. Ese dia lo que toca es una lista de libres por medida, no
  * un parche aqui -- y la forma de saber que ha llegado ese dia es medirlo, no
  * suponerlo.
  *
@@ -94,7 +94,7 @@
  *
  * [carril]  ROJO         el reparto, y hereda el color del carril que manda
  * [cuesta]  DATO         hereda de `roja.h`: repartir dos veces el mismo trozo
- *                        es dos duenos de un byte
+ *                        es dos propietarios de un byte
  * [riesgo]  AJENO SILENCIO
  *                        hereda de `roja.h`: las cabeceras van EN BANDA y
  *                        pisarlas no da fault

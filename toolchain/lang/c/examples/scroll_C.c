@@ -43,7 +43,7 @@
 #define ESC 27
 
 /* El historial. Vive aqui y no en un heap porque no hay heap: 60 filas de 24
- * columnas son 1440 bytes de datos estaticos, y el tamano se sabe al compilar.
+ * columnas son 1440 bytes de datos estaticos, y el medida se sabe al compilar.
  * Un `malloc` aqui seria pedirle al sistema algo que el programa ya tiene. */
 char hist[1440];
 
@@ -71,7 +71,7 @@ void poner(int f, int n) {
 
 /* Pinta la ventana: `VISIBLES` filas a partir de la que toque segun `vista`.
  *
- * El aviso de "historial" no es un adorno. Una ventana que ensena el pasado sin
+ * El aviso de "historial" no es un adorno. Una ventana que muestra el pasado sin
  * decirlo se confunde con una que se ha colgado, y la reaccion normal a eso es
  * reiniciar la maquina -- que en un sistema que arranca desde un USB cuesta un
  * minuto y la sesion entera. */

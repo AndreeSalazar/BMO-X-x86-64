@@ -167,7 +167,7 @@ fn un_binario_sin_reglas_declara_cero_y_no_calla() {
 /// Se coge un `.bex` bueno y se le **falsifica una katana**: se cambia el
 /// numero que devuelve un bloque de trampa, dejando la tabla diciendo lo de
 /// antes. El binario sigue siendo un BEF perfectamente bien formado -- magic,
-/// secciones, tamanos, todo en orden -- y `verify()` lo acepta.
+/// secciones, medidas, todo en orden -- y `verify()` lo acepta.
 ///
 /// *** Y la exigencia lo rechaza, nombrando la katana y el byte.
 ///

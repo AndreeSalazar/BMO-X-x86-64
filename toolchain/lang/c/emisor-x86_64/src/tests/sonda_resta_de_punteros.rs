@@ -31,9 +31,9 @@
 //! ```
 //!
 //! `p - p` tiene brazo propio en el codegen (`codegen/mod.rs`, `Expr::Sub` con
-//! los dos lados escalados: resta y luego `idiv` por el tamano del elemento) y
+//! los dos lados escalados: resta y luego `idiv` por el medida del elemento) y
 //! lo destapo **la sonda del lenguaje, no un arranque**. Pero ese brazo depende
-//! de que `pointer_scale` sepa el tamano: si contesta `None`, la resta cae en
+//! de que `pointer_scale` sepa el medida: si contesta `None`, la resta cae en
 //! el `_ =>` y devuelve **bytes pelados**. Con un elemento de 80 bytes eso es
 //! un `count` ochenta veces mas grande, el bucle de fuera sigue sacando
 //! sprites de una lista ya vacia, y acaba en NULL. Encaja con el sintoma
@@ -42,8 +42,8 @@
 //! [!] El struct de aqui **mide 80 bytes igual que `vissprite_t`** y tiene su
 //! misma forma (dos punteros a si mismo delante, enteros detras, un puntero
 //! suelto que obliga a rellenar). Un struct de juguete de 8 bytes no probaria
-//! nada: la division por el tamano acierta por casualidad cuando el tamano es
-//! una potencia de dos pequena.
+//! nada: la division por el medida acierta por casualidad cuando el medida es
+//! una potencia de dos chica.
 
 //! # 2026-09-02 -- LAS CINCO ESTAN EN VERDE, Y ESTE FICHERO CAMBIA DE OFICIO
 //!
@@ -56,7 +56,7 @@
 //!    CAUSA B   el codegen no veia `&x` como direccion  -> multiplico por 80
 //! ```
 //!
-//! El arreglo no fue anadir dos brazos: fue que `parser/types.rs` y
+//! El arreglo no fue agregar dos brazos: fue que `parser/types.rs` y
 //! `codegen/indexing.rs` **dejaran de tener cada uno su respuesta**. Hoy los
 //! dos preguntan a `crate::tipos`, que es el juez unico. Ver su cabecera.
 //!
@@ -144,7 +144,7 @@ int main() {{
 /// ** VERDE desde el 2026-09-02. Daba **-679168**. Y ojo al contraste
 /// con la casilla de arriba, que sale verde: restar dos punteros GUARDADOS EN
 /// VARIABLES acierta; restar el ARRAY (que decae) menos `&arr[5]` no. O sea
-/// que no falla la division por el tamano -- falla lo que se le da a restar.
+/// que no falla la division por el medida -- falla lo que se le da a restar.
 /// Ni siquiera son bytes: -400 seria "se olvido de dividir", y -679168 no es
 /// eso. Es un operando que no es el que se pide.
 #[test]
@@ -164,7 +164,7 @@ int main() {{
 ///
 /// `ds->next = ds+1` es como DOOM construye la lista. El tipo se declara
 /// **dentro de si mismo** (`struct vs *next;` cuando `struct vs` aun no esta
-/// cerrado), que es justo la forma en la que una tabla de tamanos puede no
+/// cerrado), que es justo la forma en la que una tabla de medidas puede no
 /// tener todavia la respuesta. Si el paso sale 1 en vez de 80, la lista queda
 /// hecha de direcciones desalineadas y el primer `->next` ya lee basura.
 #[test]

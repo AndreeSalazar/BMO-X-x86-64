@@ -2,14 +2,14 @@
 
 > Escrito el **2026-09-14** como PLAN_SATELITE, el dia que `red ping` llego a
 > Internet desde el Ryzen, y renombrado ese mismo dia a **Cloud local**, que es
-> como lo llamo el dueno. Lo pidio despues de chocar con el muro de la web:
+> como lo llamo el propietario. Lo pidio despues de chocar con el muro de la web:
 >
 > > *"mi celular Android se convierte en antena y eso puedo ver YouTube, por
 > > completo; BMO ya no navega pero si la ANTENA. Es como Steam, si quiero jugar
 > > en mi PC"*.
 >
 > Y la respuesta es que si: es el mismo reparto que Steam Link / Remote Play. Un
-> aparato hace el trabajo pesado y otro solo ensena lo que le llega. Aqui el
+> aparato hace el trabajo pesado y otro solo muestra lo que le llega. Aqui el
 > pesado es el movil y la pantalla es BMO-X. Un cloud, pero en casa.
 
 ---
@@ -51,7 +51,7 @@ pantalla tal cual.
    [!] las plataformas de video tienen condiciones de uso: descargar o convertir
        su contenido puede incumplirlas. La antena de este arbol sirve ficheros
        que YA estan en su carpeta y no descarga nada; lo que se meta ahi es
-       decision de su dueno, y las pruebas se hacen con videos propios o libres
+       decision de su propietario, y las pruebas se hacen con videos propios o libres
    [!] el modo ESPEJO (S6) cuesta mucho mas que el modo PEDIDO: no se empieza por el
    [!] el kernel sigue sin saber lo que es una IP: la lista de "solo la antena"
        vive en Ring 3, en la app, no en el grifo
@@ -81,15 +81,15 @@ pantalla tal cual.
 
 - [ ] **S1a -- LEER de ESTRATOS.** Medido el 2026-09-14 en
       `Ultra_userspace/userland/src/estratos.rs`: Ring 3 puede ESCRIBIR un
-      fichero grande (`crear_desde`, `copiar` desde FAT32 de cualquier tamano)
+      fichero grande (`crear_desde`, `copiar` desde FAT32 de cualquier medida)
       pero **no hay operacion para LEER su contenido**. Falta la espejo de
       `crear_desde`: el kernel deja N bytes del fichero, desde un desplazamiento,
       en un bloque `KIND_MEMORIA` del proceso -- dos llamadas para cualquier
-      tamano, sin punteros de Ring 3. **Como se sabe:** un `.mpg` de 20 MiB
+      medida, sin punteros de Ring 3. **Como se sabe:** un `.mpg` de 20 MiB
       copiado a ESTRATOS con `copiar` se lee entero y su suma coincide con la
       del original en FAT32.
 
-- [ ] **S1b -- la Biblioteca ensena lo de ESTRATOS.** Hoy
+- [ ] **S1b -- la Biblioteca muestra lo de ESTRATOS.** Hoy
       `Ultra_userspace/services/director/src/scene/data/biblioteca.rs` solo
       recorre DATOS (FAT32). Los videos viven en ESTRATOS (seccion 6), asi que la
       Biblioteca los lista de ahi y dice de que volumen es cada uno. **Como se
@@ -119,7 +119,7 @@ pantalla tal cual.
       USB" se presenta como una tarjeta de red USB: RNDIS (casi todos los
       Android) o NCM. Es el unico escalon que toca el kernel, y va por partes.
       Pedido por Eddi el 2026-09-14 con su HONOR X7a enchufado. **Como se sabe:**
-      `red perfil` ensena una segunda tarjeta, la del movil.
+      `red perfil` muestra una segunda tarjeta, la del movil.
 
 - [ ] **S3b.0 -- BMO-X dice QUE llego.** En codigo el 2026-09-14: el portero
       (`Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/portero.rs`) nombra cada
@@ -245,8 +245,8 @@ pantalla tal cual.
 
 ```text
    Steam Link / Remote Play    el PC potente juega; el Deck, la tele o el movil
-                               solo ensenan y mandan los botones
-   este plan                   el MOVIL es el potente para la web; BMO-X ensena
+                               solo muestran y mandan los botones
+   este plan                   el MOVIL es el potente para la web; BMO-X muestra
 ```
 
 ** El Steam Deck en si es otra cosa: es un PC entero con SteamOS (Linux con
@@ -319,7 +319,7 @@ que"*. Los dos volumenes estan en el mismo disco y NO hacen lo mismo:
 ```
 
 ** Por eso un video de la antena o de Windows **entra por FAT32 y se queda en
-ESTRATOS**: se copia una vez (`copiar`, que ya no tiene techo de tamano) y a
+ESTRATOS**: se copia una vez (`copiar`, que ya no tiene techo de medida) y a
 partir de ahi tiene historial, no se pisa por accidente y se puede firmar.
 FAT32 es donde lo dejas; ESTRATOS es donde vive.
 
@@ -354,7 +354,7 @@ recorre las 256 clases) y el portero la dice en F11 al enchufar:
 ```
 
 ** El movil de la antena, enchufado por USB, **no le da nada a BMO-X salvo su
-red**, y ni eso sin orden. Su MTP y su ADB estan negados aunque el dueno los
+red**, y ni eso sin orden. Su MTP y su ADB estan negados aunque el propietario los
 pida: no son una red, son la llave del movil.
 
 ## ANTENA -- estricta por los dos lados
@@ -484,7 +484,7 @@ falta para que se hablen es TCP en BMO-X** (G5 de `docs/plan/PLAN_RED_TX.md`), n
 el cable. El cable USB (S3b) es COMODIDAD -- "conecto y ya" -- y es lo que mas
 kernel pide: va en paralelo y no bloquea nada.
 
-Por eso ESTRATOS no ensena el movil al enchufarlo, y es correcto: el movil ofrece
+Por eso ESTRATOS no muestra el movil al enchufarlo, y es correcto: el movil ofrece
 MTP y ADB, que son la LLAVE del movil y estan negados (seccion 7). BMO-X nunca va
 a "abrir" el movil como un pendrive; el movil le HABLA por red.
 
@@ -520,7 +520,7 @@ contratos y formatos, no cerebros ajenos dentro de BMO-X.
               movil no tiene. Lo mas util que un Ryzen le da a un telefono
    CALCULO    trabajos de una lista de BMO-X (un hash, una firma; mas adelante
               INTI), con los datos que manda la antena, nunca su codigo
-   PANTALLA   lo que ya es: ensenar lo que la antena mastico
+   PANTALLA   lo que ya es: mostrar lo que la antena mastico
 ```
 
 Cada prestamo lleva **CUPO** fijado por BMO-X antes de empezar (tiempo de CPU y
@@ -536,7 +536,7 @@ traer un trabajo sin firma.
 ```text
    falta 1..4   se corta la conexion y la puerta queda cerrada 1, 2, 4, 8 s
                 (x2 cada vez, techo 5 min)
-   falta 5      DESTERRADA: solo vuelve si el dueno lo dice en BMO-X
+   falta 5      DESTERRADA: solo vuelve si el propietario lo dice en BMO-X
    aclarar      una conversacion entera sin faltas borra UNA falta
 ```
 
@@ -567,11 +567,11 @@ antena tendria un boton para apagarte el PC: le bastaria con portarse mal.
 
 - [x] **PR0 -- la ley del castigo, pura y con banco.** HECHO el 2026-09-14 en
       `platform/shared/bmo-antena/src/cuarentena.rs`: `Cuarentena` (faltas,
-      espera doblada, destierro, perdon del dueno) y `Cupo`. **Como se sabe:**
+      espera doblada, destierro, perdon del propietario) y `Cupo`. **Como se sabe:**
       `cargo test -p bmo-antena`, seis pruebas de la ley.
 
 - [ ] **PR1 -- la ley, cableada.** La app de S4 lleva una `Cuarentena` por
-      antena y la ensena en CABINA con el texto de la falta; `antena perdona` en
+      antena y la muestra en CABINA con el texto de la falta; `antena perdona` en
       el DIRECTOR es la unica salida del destierro. **Como se sabe:** una antena
       que manda una linea basura aparece en CABINA con "hablo fuera del
       protocolo" y no puede volver a saludar en 1 s.
@@ -579,7 +579,7 @@ antena tendria un boton para apagarte el PC: le bastaria con portarse mal.
 - [ ] **PR2 -- PRESTA ALMACEN.** Un verbo `GUARDA <nombre> <bytes>` en
       `platform/shared/bmo-antena`, con cupo de bytes, que escribe en ESTRATOS.
       **Como se sabe:** una foto del movil aparece en ESTRATOS y `historial` la
-      ensena.
+      muestra.
 
 - [ ] **PR3 -- PRESTA CALCULO.** `CALCULA <trabajo>` solo con nombres de la lista
       de BMO-X y cupo de CPU. **Como se sabe:** un trabajo que se pasa del cupo
@@ -760,7 +760,7 @@ esta en QUE SE ACEPTA por cada una.
    VIA DIRECTA   habla PROTOCOLOS: cosas que caben en una pagina de RFC y que
                  bmo-pila puede aceptar por lista blanca. NUNCA JavaScript, NUNCA
                  un navegador. Lo que entra es un formato que BMO-X POSEE (un
-                 `.bex` firmado, un `.mpg`, gemtext) o un dato de tamano fijo
+                 `.bex` firmado, un `.mpg`, gemtext) o un dato de medida fijo
    VIA ANTENA    habla la WEB: todo lo que pide un motor de navegador, sesiones,
                  codecs, Python. Lo que entra son DATOS en formatos simples, con
                  cupo, y la antena en cuarentena si se pasa de lista
@@ -796,10 +796,10 @@ en una pagina**. La web no cabe en una pagina, y por eso es de la antena.
 ** Y aqui esta el matiz que vale: **un `.bex` firmado puede viajar en claro**.
 La firma protege el contenido; TLS solo protegeria el canal. Por eso para el
 repositorio de `.bex` la pieza que manda es `toolchain/tools/bmo-firmar`, que ya
-existe, y no G6. Lo que NO puede viajar en claro es lo privado (una contrasena,
+existe, y no G6. Lo que NO puede viajar en claro es lo privado (una clave,
 un documento) -- y eso, hasta G6, o se queda en casa o va por la antena.
 
-## Arch como antena PROFESIONAL: que anade "profesional"
+## Arch como antena PROFESIONAL: que agrega "profesional"
 
 V2.0 y V2.0b (secciones 8 y 10) ya ponen el Arch desmontado como antena
 dedicada. "Profesional" son tres cosas medibles, y ninguna es del movil:
@@ -853,10 +853,10 @@ Lo que cuesta, con lo medido en esta casa:
    [!] NO lo hace Termux: un motor de navegador entero no corre ahi. Hace falta
        la app Android con un WebView y un recorrido del DOM en JavaScript
        (getBoundingClientRect, estilos calculados, nodos de texto, imagenes
-       reescaladas a su tamano en pantalla). Son cientos de lineas, y es LA MISMA
+       reescaladas a su medida en pantalla). Son cientos de lineas, y es LA MISMA
        app que S6 ya pide
    [!] la antena lo ve TODO: cookies, sesiones y lo que se teclee en BMO-X
-       viajan en claro hasta el movil (seccion 1). Con una contrasena en un
+       viajan en claro hasta el movil (seccion 1). Con una clave en un
        formulario deja de ser abstracto: la LAMINA no es para iniciar sesion en
        el banco
    [!] el "core de potencia real" se queda parado: la antena no presta
@@ -865,7 +865,7 @@ Lo que cuesta, con lo medido en esta casa:
        que saber
 ```
 
-El formato, en una linea por tipo, todo de tamano fijo y sin punteros
+El formato, en una linea por tipo, todo de medida fijo y sin punteros
 (`platform/shared/bmo-antena/src/lamina.rs`):
 
 ```text
@@ -884,7 +884,7 @@ codigos procesados y BMO-X procesa todo en interior, historial. Es gracioso que
 viva aislado"*.
 
 Una palabra de esa frase hay que corregirla antes de que se convierta en
-diseno: **"guiar"**. La antena va DELANTE -- es la que sale al mundo sucio, la
+esquema: **"guiar"**. La antena va DELANTE -- es la que sale al mundo sucio, la
 que explora, la que se ensucia -- pero no lleva el volante:
 
 ```text
@@ -941,7 +941,7 @@ un lector estricto, y eso es lo que se escribio hoy.
 ## MEDIDO el 2026-09-16: la lamina de una pagina real
 
 `toolchain/tools/antena/lamina.js` corrio en el Chromium del escritorio (no en
-el movil todavia) sobre un articulo de Wikipedia en espanol a 640 px:
+el movil todavia) sobre un articulo de Wikipedia en castellano a 640 px:
 
 ```text
    sin metrica         22.117 px de alto, 2.149 lineas, 91,7 KB, 72 ms, y el
@@ -1016,22 +1016,22 @@ texto al borde; ahora se saltan.
 
 - [x] **L3c -- DONDE van los 7 s del movil (ley 24: medir antes de tocar).**
       HECHO el 2026-09-16: `navegador.py` apunta cuanto tarda cada tramo
-      (pestana, carga con html/dom/todo del propio navegador, lamina,
-      cerrar) y `antena.py` anade juicio y envio, lo imprime y lo escribe
+      (solapa, carga con html/dom/todo del propio navegador, lamina,
+      cerrar) y `antena.py` agrega juicio y envio, lo imprime y lo escribe
       en `medidas.txt` de su carpeta. **Como se sabe:** Wikipedia tres veces
-      en el HONOR (6,3 / 6,8 / 7,1 s): pestana 0,7-0,9; red (html) 0,2-0,9;
+      en el HONOR (6,3 / 6,8 / 7,1 s): solapa 0,7-0,9; red (html) 0,2-0,9;
       parsear 0,4-0,7; **esperar imagenes y demas (dom->todo) 1,7-3,2**;
       sondeo 0,1-0,5; **lamina.js 1,7-2,3** (20x el PC, no cuadra con el
       CPU); juicio 0,11; envio 0,03. La LAN no es nada. Las puertas, por
       lo que pagan y NINGUNA es optimizar: (1) no cargar imagenes, con la
-      lamina byte a byte igual o no vale; (2) pestana fija + esperar el
+      lamina byte a byte igual o no vale; (2) solapa fija + esperar el
       evento de carga en vez de sondear; (3) mirar por que lamina.js va a
       20x, midiendo dentro del script. Cual se abre lo decide Eddi.
 
 - [x] **L3d -- las puertas 1 y 2, abiertas: de 6,8 a 2,5 s SIN optimizar.**
       HECHO el 2026-09-16: `arrancar.sh` enciende el Chromium con
       `--blink-settings=imagesEnabled=false` (la antena mastica, no
-      muestra) y `navegador.py` usa UNA pestana fija y espera el evento
+      muestra) y `navegador.py` usa UNA solapa fija y espera el evento
       de carga de esa navegacion (`Page.lifecycleEvent` + loaderId) en vez
       de sondear. **Como se sabe:** en Windows, la misma antena contra un
       Edge con y sin imagenes da laminas byte a byte iguales (`cmp`); en
@@ -1062,7 +1062,7 @@ texto al borde; ahora se saltan.
       `docs/plan/PLAN_NAVEGAR.md` (N0..N5), que es la propuesta maestra de la
       cara. **Como se sabe:** una pagina real llega maquetada, se pinta en el
       Ryzen, el scroll va en local sin tocar la red, un clic en un enlace trae
-      la lamina siguiente, y `historial` la ensena.
+      la lamina siguiente, y `historial` la muestra.
 
 - [ ] **D1 -- la via directa trae un `.bex` FIRMADO.** Despues de G5: un GET de
       HTTP/1.0 (una pagina de RFC, en `bmo-pila`) contra un servidor de la LAN
@@ -1086,7 +1086,7 @@ ventana unica que conecta a la ANTENA, donde vive otro kernel, que es Linux"*.
 ```text
    INTI     el C de BMO-X: cero comportamiento indefinido, los sitios sin
             comprobacion CONTADOS en el .ibx. Para lo que es de la casa
-   C        el codigo del mundo: DOOM, pl_mpeg, SDL manana. Se trae, no se
+   C        el codigo del mundo: DOOM, pl_mpeg, SDL luego. Se trae, no se
             reescribe
    C++      lo que ya esta escrito en C++ y merece traerse (22 filas hoy)
    COBOL    la banca: decimal exacto, File I/O, lo que el mundo real sigue
@@ -1148,7 +1148,7 @@ Lo que si cabe, con lo que `bmo-cripto` YA tiene:
 
 ```text
    EMPAREJAR   una vez, a mano: un SECRETO de 32 bytes que nace en la antena
-               (se ensena como 8 palabras, o un QR) y se teclea en BMO-X.
+               (se muestra como 8 palabras, o un QR) y se teclea en BMO-X.
                Se guarda en ESTRATOS, y en la carpeta de la antena
    AUTENTICAR  cada linea que BMO-X manda lleva HMAC-SHA256(secreto,
                contador || linea). La antena comprueba y exige contador
@@ -1164,7 +1164,7 @@ Lo que da y lo que NO, dicho entero:
    [x] INTEGRIDAD     nadie cambio una linea por el camino
    [ ] CONFIDENCIALIDAD  NO: el codigo que se teclea viaja en claro por la
                       LAN. Eso sigue siendo G6 (TLS). Hasta entonces: en
-                      casa, y nada de contrasenas dentro de un trabajo
+                      casa, y nada de claves dentro de un trabajo
    [!] el secreto vive en BMO-X, en disco. Es un secreto de EMPAREJAMIENTO
        con UNA antena, no el ancla que firma los .bex: si se pierde, alguien
        puede mandar trabajos a tu movil; NO puede firmar un binario. Es la
@@ -1172,7 +1172,7 @@ Lo que da y lo que NO, dicho entero:
 ```
 
 ** Con esto la regla de la seccion 8 cambia de "solo lista blanca" a **"solo
-del dueno emparejado"**: lo que Eddi escribe en BMO-X corre en su movil; lo
+del propietario emparejado"**: lo que Eddi escribe en BMO-X corre en su movil; lo
 que escribe otra maquina de la LAN, no. La lista blanca sigue valiendo para
 trabajos que la antena ofrece sola (V2.1); el codigo en vivo pide emparejar.
 
@@ -1211,11 +1211,11 @@ lado, y sus tres bloqueantes siguen siendo los mismos.
       el secreto de 32 bytes, `HMAC-SHA256(secreto, contador || linea)` con
       `bmo-cripto`, contador creciente, y la falta `Firma` de `cuarentena.rs`
       para lo que no cuadra. En `toolchain/tools/antena/antena.py`, lo mismo
-      del otro lado, y `emparejar` que ensena el secreto como 8 palabras.
+      del otro lado, y `emparejar` que muestra el secreto como 8 palabras.
       **Como se sabe:** `cargo test -p bmo-antena` con una linea repetida
       (contador viejo) y una alterada, las dos rechazadas por nombre; y
       `cliente.py` emparejado habla con `antena.py`, y sin emparejar recibe
-      `NO sin dueno`.
+      `NO sin propietario`.
 
 - [ ] **P1 -- TRABAJOS en el taller.** Sustituye al P1 de la seccion 8:
       `TRABAJO <bytes>` en ANTENA/2 (solo emparejado), la antena lo corre en
@@ -1240,7 +1240,7 @@ lado, y sus tres bloqueantes siguen siendo los mismos.
 
 # 13. WINDOWS COMO CONSOLA: el juego corre alla, se ve y se juega aqui (2026-09-18)
 
-> Lo dijo el dueno mientras iba andando, y la primera version sono a chiste:
+> Lo dijo el propietario mientras iba andando, y la primera version sono a chiste:
 >
 > > *"no se si es un chiste fuerte: Windows 11 como ANTENA para que BMO-X
 > > procese todo. Windows se degrada por completo, y BMO-X simplemente lo toma
@@ -1248,13 +1248,13 @@ lado, y sus tres bloqueantes siguen siendo los mismos.
 > > GPU, por completo; DirectX en Windows, como juegos, le pasa a BMO-X limpio
 > > para ejecutar. Windows en burocracia y BMO-X en bare metal."*
 >
-> No es un chiste: es un diseno que ya existe en produccion y nadie lo llama
+> No es un chiste: es un esquema que ya existe en produccion y nadie lo llama
 > asi. La Xbox One es un hipervisor con un OS minimo para el juego y un OS
 > derivado de Windows para la burocracia (tienda, red, fondo). Los DPU de
 > verdad (BlueField) son un Linux entero en la tarjeta que le quita al host
 > la burocracia de red. El nombre de la industria: **plano de control /
 > plano de datos**. Aqui, con la direccion al reves: el kernel minimo lo
-> escribe el dueno, y Windows queda de sirviente.
+> escribe el propietario, y Windows queda de sirviente.
 
 ## 13.1 Lo que puede cruzar el cable LIMPIO, y lo que no
 
@@ -1275,7 +1275,7 @@ Asi que el reparto es el de **Moonlight / Steam Link**, con Windows de consola
 y BMO-X de cara: el juego corre y se pinta alla; aqui se ve, y de aqui salen
 las teclas y el raton. Y la regla de la seccion 11 se cumple sola: **de
 Windows no cruza ni un byte de codigo, solo cuadros**. Que Windows se degrade
-no toca a BMO-X, que es exactamente lo que pidio el dueno.
+no toca a BMO-X, que es exactamente lo que pidio el propietario.
 
 ## 13.2 La palabra que cambia: BMO-X aqui NO es fuerza bruta, es el ADMINISTRADOR
 
@@ -1317,7 +1317,7 @@ decision de estilo, es el blit.
    el stream se verifico en VLC (A1, 16-09)        S1: pl_mpeg en BMO-X. **BMO-X todavia no
                                                    sabe ENSENAR video**; y G5 (TCP) para
                                                    traerlo por el cable, y N3 (el ANTENISTA)
-   la antena en Windows es 7x mas rapida           P0: EMPAREJAR. Una consola sin dueno es
+   la antena en Windows es 7x mas rapida           P0: EMPAREJAR. Una consola sin propietario es
    que el HONOR (L3b)                              una pantalla que cualquiera de la LAN mueve
 ```
 
@@ -1329,7 +1329,7 @@ Y Windows vive en el NVMe de ESTE PC: la consola es el otro PC (o el portatil).
 ## Los escalones nuevos
 
 El orden lo manda lo que falta, no la idea: S1, G5 y N3 son de otras
-secciones y van ANTES. Esto empieza cuando BMO-X ensene un `.mpg` del disco.
+secciones y van ANTES. Esto empieza cuando BMO-X muestre un `.mpg` del disco.
 
 - [ ] **K0 -- MEDIR pl_mpeg en el Ryzen.** Antes de prometer nada: S1 hecho,
       y `save` (o el `[perf]` de la app) dice cuantos ms cuesta un fotograma
@@ -1340,9 +1340,9 @@ secciones y van ANTES. Esto empieza cuando BMO-X ensene un `.mpg` del disco.
 
 - [ ] **K1 -- PANTALLA en la antena.** `toolchain/tools/antena/antena.py`:
       `PANTALLA` sirve la captura viva de Windows (`ffmpeg -f ddagrab` o
-      `gdigrab`, mismo codec y tamano que `PIDE`) hasta que el cliente cierra;
+      `gdigrab`, mismo codec y medida que `PIDE`) hasta que el cliente cierra;
       en Termux contesta `NO sin pantalla`. **Como se sabe:** `cliente.py
-      pantalla` en el portatil ensena el escritorio del PC en VLC con menos de
+      pantalla` en el portatil muestra el escritorio del PC en VLC con menos de
       un segundo de retraso a ojo, y `medidas.txt` apunta captura+codificacion.
 
 - [ ] **K2 -- la ENTRADA de vuelta.** `bmo-antena`: `TECLA <codigo> <1|0>` y

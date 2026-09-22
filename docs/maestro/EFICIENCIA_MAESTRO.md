@@ -2,7 +2,7 @@
 
 > Escrito el **2026-09-11**, en pareja con [`PLAN_VATIOS.md`](../plan/PLAN_VATIOS.md):
 > aquel tiene las casillas; este dice **que copiar del mundo y que seria un
-> error copiar**. Palabras del dueno, el mismo dia:
+> error copiar**. Palabras del propietario, el mismo dia:
 >
 > > *"EFICIENCIA MAESTRA, que BMO-X no consuma muchos watts... no es mi enfoque
 > > controlar, pero si SIEMPRE ALERTAR en que o por que"*
@@ -42,7 +42,7 @@ es la que dice donde merece la pena.
 
 # 1. LA LINEA QUE NO SE CRUZA: el silicio no se toca
 
-El dueno lo puso primero, y la ley ya lo decia. C10, textual: **"BMO-X no pone
+El propietario lo puso primero, y la ley ya lo decia. C10, textual: **"BMO-X no pone
 voltajes, y no deberia"**. Y R-PWR5: *"un error de ciclos se diagnostica con una
 foto y se revierte con un commit; un error de voltaje se diagnostica con un chip
 muerto"*.
@@ -123,8 +123,8 @@ Y dos inferencias del plan que no aguantan:
 |---|---|---|---|---|
 | **CPU** Ryzen 5 5600X | si | C1 en los 12 hilos, tick 1 kHz | C2/CC6 por el puerto de E/S | RAPL [MEDIDO 57,7 / 58,5 W] |
 | **GPU** RTX 3060 | **no**, sin driver | lo que la dejo el firmware al arrancar | **nada**: es la pantalla | nadie desde BMO-X |
-| **audio de la GPU** (HDA NVIDIA) | no | encendido, sin dueno | D3hot | nadie |
-| **audio de la placa** (HDA) | no, sin codigo | encendido, sin dueno | D3hot | nadie |
+| **audio de la GPU** (HDA NVIDIA) | no | encendido, sin propietario | D3hot | nadie |
+| **audio de la placa** (HDA) | no, sin codigo | encendido, sin propietario | D3hot | nadie |
 | **audio USB** (auriculares) | si, el volumen | lo que haga el xHC | suspender el puerto sin sonido | nadie |
 | **xHCI** x2 (AMD) | uno | se SONDEA desde el syscall | MSI (W3); el que no lleva teclado, D3hot | nadie |
 | **red** Realtek RTL8168 | lee registros | enlace arriba, sin trafico | D3hot sin ninguna tarea de red | nadie |
@@ -138,7 +138,7 @@ Y dos inferencias del plan que no aguantan:
 *** **La columna que ordena este documento es la ultima.** De trece filas, UNA
 tiene medida. Lo que no se ve, no se puede acusar.
 
-** Y la fila de la RAM ensena algo que no esta en ninguna otra: **dormir hondo
+** Y la fila de la RAM muestra algo que no esta en ninguna otra: **dormir hondo
 el CPU arrastra al resto**. El paquete no baja a su estado mas bajo (PC6) si un
 solo nucleo sigue despierto, y la memoria no entra en autorrefresco hasta que el
 paquete baja [LITERATURA]. C2/CC6 no es "ahorrar en el CPU": es la llave del
@@ -150,7 +150,7 @@ suelo de toda la plataforma.
    NVMe       PERFIL/DISCO.txt: "EL NVMe NO SE TOCA". Ni para dormirlo. Un
               ahorro de un vatio no justifica la unica regla absoluta del repo
    GPU        es la pantalla. Sin driver no hay estados que pedirle, y D3 en la
-              funcion 0 seria apagar la pantalla que el dueno esta mirando
+              funcion 0 seria apagar la pantalla que el propietario esta mirando
    S3         la placa lo admite, y su numero (SLP_TYP) viene del objeto _S3 de
               la AML: se podria sacar en el BUILD, como se hace con la placa.
               PERO al volver de S3 nadie re-inicializa la 3060 -- sin driver, la
@@ -214,7 +214,7 @@ Dos cosas, y las dos se copian:
                                o no. "Bad" / "Good", uno por uno
 ```
 
-*** **La segunda ES la alerta que pidio el dueno para los aparatos**: un
+*** **La segunda ES la alerta que pidio el propietario para los aparatos**: un
 inventario que dice, fila a fila, que esta despierto sin motivo.
 
 ## 4.3 Windows: UN numero para toda la plataforma
@@ -242,7 +242,7 @@ demonios. Es la mitad del trabajo, y la barata.
 
 R-PWR4: en una maquina enchufada **no se sacrifica latencia por vatios** fuera
 del ocio. El SMU ya sube y baja la frecuencia solo. Un "modo ahorro" que baja
-el reloj mientras el dueno juega le cobra al que trabaja para ahorrar lo que
+el reloj mientras el propietario juega le cobra al que trabaja para ahorrar lo que
 **deberia ahorrar el que no hace nada**.
 
 ## Error 2: el undervolt y el overclock
@@ -259,7 +259,7 @@ registro de enlace.
 
 ## Error 4: vatios por proceso
 
-powertop los estima con un modelo y los ensena con la misma cara que una
+powertop los estima con un modelo y los muestra con la misma cara que una
 medida. RAPL es de paquete y de nucleo, **no de programa**. BMO-X dice quien
 tuvo el CPU y cuantas veces lo desperto; nunca "DOOM gasta 12 W".
 
@@ -289,7 +289,7 @@ consumen en tiempo real"*. F7 contesto el **cuanto**. Falta el **quien** y el
 
 | pregunta | de donde sale | estado |
 |---|---|---|
-| **cuanto** | RAPL, milivatios de paquete y nucleo | HECHO, F7 lo ensena |
+| **cuanto** | RAPL, milivatios de paquete y nucleo | HECHO, F7 lo muestra |
 | **quien** | ciclos de CPU de cada tarea + despertares de cada tarea | **medio**: el planificador ya cuenta `cpu_ciclos` por tarea y solo se lo dice a la propia |
 | **por que** | una clase de un vocabulario cerrado (6.2) | falta |
 
@@ -312,10 +312,10 @@ Para las tareas:
 Para los aparatos:
 
 ```text
-   USADO        tiene dueno y trabaja
-   OCIOSO       despierto y SIN dueno     <- la alerta
+   USADO        tiene propietario y trabaja
+   OCIOSO       despierto y SIN propietario     <- la alerta
    DORMIDO      en su estado bajo
-   INTOCABLE    declarado en 2.3          se ensena, no alerta
+   INTOCABLE    declarado en 2.3          se muestra, no alerta
 ```
 
 *** INTOCABLE es lo que hace honesta la lista: el NVMe y la GPU salen **con su
@@ -353,7 +353,7 @@ necesitan vatios: cuentan estados.
    CABINA y `save`           para las hojas del metal
 ```
 
-** La barra y no una orden, porque **el dueno vive en el escritorio** y al
+** La barra y no una orden, porque **el propietario vive en el escritorio** y al
 shell de Ring 0 no se vuelve. Una alerta que solo sale donde nadie mira no
 alerta.
 
@@ -364,8 +364,8 @@ que cace **quien puede girar**:
 
 ```text
    cuenta   `spin_loop()` y `pause` en esperas, `bmo_ceder()` dentro de un
-            bucle de espera, `hlt` fuera de su dueno, y `wrmsr` a un MSR de
-            energia fuera de su dueno
+            bucle de espera, `hlt` fuera de su propietario, y `wrmsr` a un MSR de
+            energia fuera de su propietario
    regla    TRINQUETE: el numero no sube. Bajar se anuncia y se sella
 ```
 
@@ -399,7 +399,7 @@ lista de donde mirar, y `contrato.py` la dice en cada build. Tres ficheros
 mezclaban una cosa que late con otra que se pide, y se partieron por esa costura
 (`META-KERNEL_HARD.md`, L6h).
 
-## ★★ 6.8 LO QUE NO SE VE, NO SE PINTA (idea del dueno, 11-09)
+## ★★ 6.8 LO QUE NO SE VE, NO SE PINTA (idea del propietario, 11-09)
 
 > *"cuando la pantalla que renderiza consume... el juego o programas NO
 > RENDERIZA porque eso el usuario no lo nota POR COMPLETO... cuando vuelve,
@@ -421,7 +421,7 @@ exista; al volver, el mundo ya esta en su sitio.
 ```
 
 ** No es una idea exotica: es la que el mundo ya usa, y DOOM la traia puesta.
-Los navegadores dejan de dibujar las pestanas de fondo; Windows le dice a un
+Los navegadores dejan de dibujar las solapas de fondo; Windows le dice a un
 juego tapado que esta oculto cuando presenta el fotograma; y Chocolate Doom
 --del que sale el DOOM de BMO-X-- tiene `screenvisible`: a falso, `D_RunFrame`
 se salta `D_Display` entero mientras `TryRunTics` y el sonido siguen. Lo que le

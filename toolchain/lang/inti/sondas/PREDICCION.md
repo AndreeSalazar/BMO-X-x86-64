@@ -29,7 +29,7 @@ guardar por la puerta funciona.
 identicas**. Solo se movio `tsc`. Eso es lo que tiene que pasar: una medida
 varia, un hecho no.
 
-### La que fallo, y lo que enseno
+### La que fallo, y lo que mostro
 
 `tsc` salio 6 veces por encima del techo predicho. La causa se midio: el
 asignador de registros se apagaba entero en cuanto una funcion tenia una
@@ -113,7 +113,7 @@ tienen respuesta conocida, **y ya dan cero en el emulador**:
 ★★ **La Regla 2 no esta en esa lista, y no es un olvido**: un `bufer` no lleva su
 longitud, asi que no hay contra que comprobar el indice. Nace con `lista de T`.
 
-★ Un cero en el Ryzen **confirma**; un numero distinto **senala al silicio y no a
+★ Un cero en el Ryzen **confirma**; un numero distinto **marca al silicio y no a
 la sonda**, porque la sonda ya dio cero en el emulador.
 
 ★★★ **Y las tres dieron cero en el Ryzen el 22-08.** Que las reglas atrapen en

@@ -148,7 +148,7 @@ impl Revision<'_> {
     /// Esta operacion, existe para lo que se le esta dando?
     ///
     /// ** Solo hay una familia que no: **los bits sobre un flotante**. Y no es
-    /// una carencia del emisor que ya se anadira -- es que la pregunta no tiene
+    /// una carencia del emisor que ya se agregara -- es que la pregunta no tiene
     /// sentido. Los ocho bytes de un `flotante64` son signo, exponente y
     /// mantisa; `f | 1` no enciende el bit de las unidades de nada, toca el
     /// exponente y devuelve un numero que no se parece a ninguno de los dos.
@@ -188,7 +188,7 @@ impl Revision<'_> {
             // a hacer algo que no hace lo que dice.
             //
             // ** Un consejo equivocado es peor que ninguno: manda a buscar por
-            // donde no es, y quien lo siga obtiene un numero pequeno donde
+            // donde no es, y quien lo siga obtiene un numero chico donde
             // esperaba un patron -- sin que nada se queje.
             .con_hacer(
                 "usa `/` para dividir. Y si lo que quieres son los OCHO BYTES,                  eso es `bits_de(x)` -- no `entero64(x)`, que convierte el valor",

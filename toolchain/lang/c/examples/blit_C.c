@@ -78,10 +78,10 @@
 
 /* Los bytes de cada pasada. 6400 = una fila de 1600 pixeles a 4 bytes, que es
  * exactamente lo que el blit de DOOM manda de una vez a escala 5. Medir con el
- * tamano REAL importa: `rep movsb` cambia de camino segun la longitud. */
+ * medida REAL importa: `rep movsb` cambia de camino segun la longitud. */
 #define TROZO 6400
 /* Cuantas veces, para que el `rdtsc` no sea el que se mide. `coste_C.c` ya
- * enseno que un `rdtsc` suelto son ~113 ciclos: con 1000 pasadas de 6400 bytes
+ * mostro que un `rdtsc` suelto son ~113 ciclos: con 1000 pasadas de 6400 bytes
  * eso es ruido por debajo del 0,01%. */
 #define PASADAS 1000
 

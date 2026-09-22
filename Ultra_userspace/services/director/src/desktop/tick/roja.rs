@@ -7,7 +7,7 @@
 //!
 //! [cuesta]  MAQUINA -- y esta probado el mismo dia que se escribio. Las dos
 //!           averias de este fichero salieron de aqui: una se quedo el nucleo
-//!           entero --el dueno vio su teclado ignorado-- y la otra tumbo el
+//!           entero --el propietario vio su teclado ignorado-- y la otra tumbo el
 //!           kernel con `ROTTEN CONTEXT: the seal is gone`. Ninguna vino de
 //!           contar mal.
 //!
@@ -61,7 +61,7 @@ impl Tick {
 
     /// **El bucle esta en REPOSO**: la mayoria de sus vueltas del ultimo
     /// segundo durmieron el plazo fijo y no el latido. Es lo que la barra
-    /// ensena como `reposo`, para que ~125 vueltas por segundo no se lean como
+    /// muestra como `reposo`, para que ~125 vueltas por segundo no se lean como
     /// *"el escritorio va lento"*: va DORMIDO, que es lo que se le pidio.
     pub fn en_reposo(&self) -> bool {
         self.reposos_por_segundo > 0
@@ -137,7 +137,7 @@ impl Tick {
     ///
     /// ** Y lo caro no fue no dormir: fue **dejar de ceder**. Este metodo habia
     /// sustituido al `yield_screen()` incondicional, asi que el escritorio se
-    /// quedo el nucleo entero y el teclado y el raton del dueno parecieron
+    /// quedo el nucleo entero y el teclado y el raton del propietario parecieron
     /// ignorados. Una optimizacion que se apaga sola tiene que apagarse HACIA
     /// EL LADO SEGURO, y esta se apagaba hacia el peor.
     ///
@@ -180,7 +180,7 @@ impl Tick {
         }
         // ** EL REPOSO va antes que el latido y antes que el giro: si en esta
         // vuelta no paso nada y llevamos medio segundo asi, no hay latido que
-        // esperar -- se duerme un plazo y punto. La senal es `actividad`: una
+        // esperar -- se duerme un plazo y punto. La signal es `actividad`: una
         // tecla, el raton, una superficie nueva o repintada.
         //
         // [!] W4b (2026-09-11): aqui ponia `will_paint`, que ademas lleva el

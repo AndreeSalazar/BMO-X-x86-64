@@ -23,7 +23,7 @@
 //!    new_address_space       y destroy_address_space
 //! ```
 //!
-//! ** `table` es la pieza mas pequena y la mas roja de todas: cuatro lineas que
+//! ** `table` es la pieza mas chica y la mas roja de todas: cuatro lineas que
 //! convierten un numero en un puntero. Todo lo demas de este modulo confia en
 //! que lo que le pasa a esa funcion ya paso por un juez.
 
@@ -216,7 +216,7 @@ use super::amarilla::caminable;
 /// objetar, este recorrido ya bajo por la tabla falsa, ya leyo 512 casillas de
 /// codigo como si fueran direcciones y ya llamo a `zero_frame` sobre las que
 /// cayeron dentro de los 16 GiB. **El unico sitio donde la pregunta evita el
-/// dano es antes de bajar.**
+/// perjuicio es antes de bajar.**
 ///
 /// [!] `Anonimo` pasa. Las tablas de un espacio creado antes de que existiera
 /// la etiqueta no llevan ninguna, y rechazarlas dejaria de desmontar espacios
@@ -256,11 +256,11 @@ fn es_tabla(fisica: u64, nivel: &'static str) -> bool {
 /// pregunta, que es la unica que importa aqui: DE QUIEN ES.**
 ///
 /// Mira los dos pisos de arriba de cada espacio vivo --su PDPT y cada PD que
-/// cuelga de el-- porque ahi es donde el Ryzen enseno el cadaver. Son 64
+/// cuelga de el-- porque ahi es donde el Ryzen mostro el cadaver. Son 64
 /// tareas por 512 entradas como mucho, una vez por proceso que muere.
 ///
 /// [!] Lo que NO mira: que dos procesos compartan un PT (un piso mas abajo,
-/// 512 veces mas caro). Si alguna vez hace falta, se anade con su numero.
+/// 512 veces mas caro). Si alguna vez hace falta, se agrega con su numero.
 fn de_otro_vivo(marco: u64, vivos: &[(u32, u64)]) -> Option<u32> {
     for &(tid, cr3) in vivos {
         if cr3 == marco {
@@ -423,7 +423,7 @@ pub fn destroy_address_space(pml4: u64, vivos: &[(u32, u64)]) -> (u64, u64) {
                 if !caminable(pt_phys, "PD: entrada fuera del physmap", e2, pd_phys, i2) {
                     continue;
                 }
-                // *** ESTE es el nivel donde el Ryzen enseno el codigo: la
+                // *** ESTE es el nivel donde el Ryzen mostro el codigo: la
                 // tabla `4D2000` del 04-09 era un PT.
                 if let Some(true) = phys::esta_libre(pt_phys) {
                     crate::ring0::cabina::fault("vmm", "PT enlazado pero YA LIBRE", pt_phys);
@@ -461,7 +461,7 @@ pub fn destroy_address_space(pml4: u64, vivos: &[(u32, u64)]) -> (u64, u64) {
                     }
                     // *** UNA HOJA QUE ES LA TABLA DE UN VIVO NO SE BORRA.
                     // `zero_frame` sobre ella le vacia a otro proceso un GiB de
-                    // golpe: lo que el Ryzen enseno el 20-09.
+                    // golpe: lo que el Ryzen mostro el 20-09.
                     if let Some(t) = de_otro_vivo(marco, vivos) {
                         salvar(t, marco, "HOJA que es la TABLA de un vivo: NO se borra");
                         continue;
@@ -516,7 +516,7 @@ pub fn destroy_address_space(pml4: u64, vivos: &[(u32, u64)]) -> (u64, u64) {
 ///
 /// Esto contestaba `true`/`false` y con eso no se distingue *"funciono"* de
 /// *"funciono y se dejo tres marcos por el camino"*. Justo esa diferencia es la
-/// fuga que estuvo abierta hasta el 14-08 y que **encontro el dueno mirando
+/// fuga que estuvo abierta hasta el 14-08 y que **encontro el propietario mirando
 /// `mem`**, no ningun contador nuestro. Un instrumento que no puede ver el fallo
 /// que ya paso una vez no es un instrumento.
 ///
@@ -529,7 +529,7 @@ pub fn destroy_address_space(pml4: u64, vivos: &[(u32, u64)]) -> (u64, u64) {
 /// [!] La pagina de datos se mapea con [`map_page_propia`] **a proposito**: asi
 /// esta prueba recorre el camino nuevo --el que devuelve las hojas-- y no el de
 /// antes. Si se mapeara con `map_page` a secas, `sobrantes` saldria 1 y estaria
-/// bien: seria un marco que su dueno tiene que liberar aparte.
+/// bien: seria un marco que su propietario tiene que liberar aparte.
 pub fn self_test() -> (bool, u64) {
     let (_, libres_antes) = phys::stats();
     let frame = match phys::alloc_frame() {

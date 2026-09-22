@@ -418,7 +418,7 @@ fn primaria(c: &mut Cursor) -> Option<Expr> {
         }
         // `valor de r`, `motivo de r`, `fallo r`: se leen como llamadas de la
         // biblioteca, porque eso es lo que son. Tenerlas como nodos propios
-        // habria metido en el arbol tres formas que no anaden nada.
+        // habria metido en el arbol tres formas que no agregan nada.
         Clase::Palabra(s @ (Simbolo::Valor | Simbolo::Motivo | Simbolo::Fallo)) => {
             c.avanza();
             let nombre = s.clave().to_lowercase();

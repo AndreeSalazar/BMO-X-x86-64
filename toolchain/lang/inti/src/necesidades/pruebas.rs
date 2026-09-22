@@ -24,7 +24,7 @@ fn la_tabla_incrustada_se_lee_entera() {
 ///
 /// Es lo que tiene que existir antes de la primera instruccion, y eso lo sabe
 /// el cargador mirando el fichero mejor que el programa. Dejarlo declarar seria
-/// dejar que un programa mienta sobre su propio tamano.
+/// dejar que un programa mienta sobre su propio medida.
 #[test]
 fn la_memoria_del_proceso_no_se_declara() {
     let n = Necesidades::por_defecto();

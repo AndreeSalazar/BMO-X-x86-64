@@ -143,7 +143,7 @@ pub(crate) fn program(data: &str, body: &str) -> String {
     )
 }
 
-/// Igual, pero **sin** anadir el `STOP RUN` del final.
+/// Igual, pero **sin** agregar el `STOP RUN` del final.
 ///
 /// Con parrafos, el `STOP RUN` que `program` pega al final ya no cae donde
 /// debe: cae DENTRO del ultimo parrafo, asi que el programa termina la

@@ -22,7 +22,7 @@ use super::*;
 ///
 /// Devuelve los bytes dentro del scratch del nivel indicado. Un bloque que no
 /// cuadra con su suma es un FAULT en CABINA, no un archivo raro: es el
-/// principio 2 del diseno y la unica razon de que el puntero lleve la suma.
+/// principio 2 del esquema y la unica razon de que el puntero lleve la suma.
 pub(crate) fn seguir(p: &BlockPtr, nivel: usize) -> Option<&'static [u8]> {
     if nivel >= NIVELES { return None; }
     let buf = unsafe {
@@ -172,7 +172,7 @@ pub fn read_and_sign(n: &Nodo, dst: &mut [u8]) -> Option<(usize, usize, Firma)> 
             // entrega bloques enteros y el ultimo lleva relleno detras: hashear
             // ese relleno daria un digest que no cuadra con el que escribio
             // quien firmo, y el sintoma seria "la firma NO cuadra" en TODOS los
-            // archivos cuyo tamano no sea multiplo del bloque.
+            // archivos cuyo medida no sea multiplo del bloque.
             let util = trozo.len().min(tam.saturating_sub(vistos));
             if util == 0 {
                 return false;

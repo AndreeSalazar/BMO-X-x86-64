@@ -6,7 +6,7 @@ description = "Lo que el disco CONTESTA: el IDENTIFY DEVICE repartido por herenc
 
 [lib]
 
-# Sin dependencias, y es una propiedad del diseno, no una casualidad: este crate
+# Sin dependencias, y es una propiedad del esquema, no una casualidad: este crate
 # recibe 512 bytes y devuelve campos. No manda comandos, no toca registros y no
 # decide nada -- por eso se prueba entero en el anfitrion con sectores
 # inventados a mano. El VEREDICTO vive en `bmo-disco-juicio` (L7b).

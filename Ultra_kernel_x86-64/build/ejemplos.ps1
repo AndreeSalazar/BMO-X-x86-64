@@ -6,7 +6,7 @@
 # tabla, su llamada a `Compilar-Ejemplos` y su Step. La lista de subidas de
 # techo de L6a tiene una entrada de `build.ps1` por cada uno --INTI, el
 # `.ibx`, la sonda-- y todas predijeron la siguiente. Sacarlo aqui es lo que
-# hace que anadir un lenguaje deje de engordar el fichero que lo orquesta todo.
+# hace que agregar un lenguaje deje de engordar el fichero que lo orquesta todo.
 #
 # Dentro: el reparto del volumen por categorias (`sys cobol c ada inti datos`),
 # `Compilar-Ejemplos` --un bucle, cuatro lenguajes--, `Nuevo-Bico` --los iconos
@@ -180,7 +180,7 @@ $cEjemplos = @(
     @{ src = 'toolchain\lang\c\examples\memoria_C.c'; out = 'memc.bex'   ; dir = 'c' },
     # ** LA SONDA: el unico programa que usa la superficie MAL a proposito.
     # Handles inventados, operaciones que no existen, el renglon de ruta
-    # inundado, el tope de memoria forzado, tamanos imposibles. Cada empujon
+    # inundado, el tope de memoria forzado, medidas imposibles. Cada empujon
     # tiene UNA respuesta correcta --el kernel dice que no y sigue vivo-- y que
     # el programa llegue a imprimir su recuento ya es media prueba.
     @{ src = 'toolchain\lang\c\examples\sonda_C.c';  out = 'sonda.bex'  ; dir = 'c' },
@@ -189,7 +189,7 @@ $cEjemplos = @(
     # ** EL BLOC DE NOTAS, y lo que estrena: ESCRIBIR dentro de una ventana.
     # Hasta el 11-09 una app recibia SCANCODES y nunca la LETRA que producian,
     # asi que no se podia teclear en una superficie sin copiarle la
-    # distribucion espanola entera. Ahora el DIRECTOR reenvia el caracter ya
+    # distribucion castellana entera. Ahora el DIRECTOR reenvia el caracter ya
     # cocido --bit 62 del evento-- y esto solo lo lee. Abre `datos\notas.txt`,
     # se escribe encima y se guarda con el boton de su barra.
     # ** Y SE QUEDA EN `c\`, AUNQUE NO SEA UN EJEMPLO QUE SE CIERRA.
@@ -216,11 +216,11 @@ $cEjemplos = @(
     # y un fondo liso esconde que no se respete.
     @{ src = 'toolchain\lang\c\examples\imagen_C.c';    out = 'imagen.bex' ; dir = 'c' },
     # ** LA GUIA, y el texto NO esta en el programa: viaja como recurso.
-    # Es la idea del `.datex` del dueno hecha con lo que el sistema ya
+    # Es la idea del `.datex` del propietario hecha con lo que el sistema ya
     # soporta -- para cambiar la guia se edita `guia.txt` y se reempaca, y el
     # programa no se toca ni se recompila.
     @{ src = 'toolchain\lang\c\examples\guia_C.c';      out = 'guia.bex'   ; dir = 'c' },
-    # ** EL CUBO, Y SIN UN SOLO TRIANGULO. Lo pidio el dueno: *\"el triangulo
+    # ** EL CUBO, Y SIN UN SOLO TRIANGULO. Lo pidio el propietario: *\"el triangulo
     # esta muy quemado\"*. Aqui el elemento que se dibuja es LA CAJA entera,
     # trazada por el metodo de las laminas: exacta a cualquier zoom, sin
     # vertices, sin recorte y con la normal saliendo de la interseccion.
@@ -287,7 +287,7 @@ $cRecursos = @(
     # recurso del paquete-- asi que el escritorio no necesita ni un acceso
     # directo ni una cache de iconos: el `.bex` va con su cara dentro.
     #
-    # Una hoja con su barra azul arriba, que es lo que el programa ensena.
+    # Una hoja con su barra azul arriba, que es lo que el programa muestra.
     # ** EL ICONO DE `imagen.bex` TIENE AGUJEROS A PROPOSITO. Un rombo deja
     # las cuatro esquinas transparentes, y eso es lo que hace que la prueba
     # del alfa sea una prueba: sobre el tablero de cuadros, las esquinas
@@ -378,7 +378,7 @@ $cRecursos = @(
         ) }
     ) }
     # ** LA CARA DE NAVEGAR: una antena (el mastil y sus ondas) sobre la
-    # pantalla que la ensena. Es un `.ibx` y se empaqueta por el mismo camino:
+    # pantalla que la muestra. Es un `.ibx` y se empaqueta por el mismo camino:
     # el mismo formato, el mismo cargador, la misma rejilla del escritorio.
     @{ bex = 'apps\navegar.ibx'; recursos = @(
         @{ nombre = 'icono'; icono = @(
@@ -407,7 +407,7 @@ $cRecursos = @(
 #     0..4   "BICO"      4..6  ancho (u16)     6..8  alto (u16)
 #     8..    ancho*alto pixeles BGRA, u32 little-endian
 #
-# 16x16 y el escritorio lo pinta al doble. Se guarda pequeno a proposito: la
+# 16x16 y el escritorio lo pinta al doble. Se guarda chico a proposito: la
 # gracia de meter el icono en el paquete es que **no cueste nada llevarlo**, y
 # un icono que engorda la app es un icono que alguien acabara quitando. 16x16
 # son 1032 bytes; a 32x32 serian 4104.
@@ -426,7 +426,7 @@ $cRecursos = @(
 #      recordar que un `u32` little-endian se guarda al reves de como se lee.
 #   2. **PowerShell 5.1 lee `0xFFB4342A` como un `Int32` NEGATIVO** (-4967382) y
 #      el cast a `uint32` revienta con "valor demasiado grande o demasiado
-#      pequeno". Sin suffijo `u` en esta version, cualquier color con el alfa a
+#      chico". Sin suffijo `u` en esta version, cualquier color con el alfa a
 #      `FF` cae en la trampa -- o sea todos los opacos.
 $BICO_PALETA = @{
     '.' = @(0x00, 0x00, 0x00, 0x00)
@@ -672,7 +672,7 @@ try {
     # ** Y un PNG y un JPEG de verdad (2026-09-20), para el visor: son los
     # ficheros con los que `bmo-imagen` se prueba en el anfitrion contra
     # Pillow, asi que lo que se ve en el Ryzen es lo que el banco ya juzgo.
-    # Binarios pequenos que viven en `pruebas/` de la crate, no aqui.
+    # Binarios chicos que viven en `pruebas/` de la crate, no aqui.
     $imgPruebas = Join-Path $repo 'platform\shared\bmo-imagen\pruebas'
     Copy-Item (Join-Path $imgPruebas 'inti256.png') (Join-Path $imgDst 'inti.png') -Force
     Copy-Item (Join-Path $imgPruebas 'foto.jpg') (Join-Path $imgDst 'arranque.jpg') -Force
@@ -720,7 +720,7 @@ try {
                     # `texto` sirve para una linea; una guia de cien no cabe en
                     # un literal de PowerShell sin volverse ilegible, y ademas
                     # **se edita mejor como fichero**: cambiar `guia.txt` y
-                    # reempacar no toca ni una linea del programa que la ensena.
+                    # reempacar no toca ni una linea del programa que la muestra.
                     $orig = Join-Path $repo $r.desde
                     if (-not (Test-Path $orig)) { Fail ('no esta el recurso ' + $r.desde) }
                     Copy-Item -LiteralPath $orig -Destination $f -Force
@@ -757,7 +757,7 @@ try {
     # Lo que SI puede vivir aqui es una RUTA. Este paso mira si el port esta; si
     # no esta, dice una linea y sigue. Un `build.ps1` que fallara porque a otro
     # no le apetece bajarse DOOM seria un build roto para todo el mundo menos
-    # para el dueno.
+    # para el propietario.
     #
     # Se puede apagar con `-SinDoom` aunque el port este puesto: compilar 56.465
     # lineas cuesta lo suyo y no hace falta en cada vuelta.

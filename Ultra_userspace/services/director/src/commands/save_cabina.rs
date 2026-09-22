@@ -5,7 +5,7 @@
 //!
 //!   - **usb**: que controlador maneja este kernel, cuantos aparatos quedaron
 //!     en el OTRO xHC sin que nadie los mire, y el libro del portero: que llego
-//!     por cada puerto y que se hizo con ello. El movil del dueno enchufado al
+//!     por cada puerto y que se hizo con ello. El movil del propietario enchufado al
 //!     Ryzen fue lo que lo hizo visible: F11 callaba y `save` no sabia nada.
 //!   - **prestamos**: las ventanas. Ofertas vivas, tomadas, huerfanas y las
 //!     NEGADAS desde el arranque -- la negativa mas cara de esta casa.
@@ -20,7 +20,7 @@
 //!
 //! [carril]  VERDE     pinta lo que el kernel contesta; no decide nada
 //! [cuesta]  DATO      pregunta a la maquina (INFO y el anillo); una fila mal
-//!                     leida engana al que mira, no a la maquina
+//!                     leida burla al que mira, no a la maquina
 //! [riesgo]  ESPEJO    desempaqueta bits que empaqueta el kernel; la forma esta
 //!                     en `bmo-abi/syscalls/surface/informe.rs` y en un solo
 //!                     sitio por campo
@@ -31,9 +31,9 @@ use bmo_userland as bmo;
 use super::tabla::{fila, fila_cero, subregla};
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 
-/// Cuantas fichas del portero se ensenan como mucho. El libro tiene 12.
+/// Cuantas fichas del portero se muestran como mucho. El libro tiene 12.
 const FICHAS: u64 = 12;
-/// Cuantos avisos recientes se ensenan como mucho.
+/// Cuantos avisos recientes se muestran como mucho.
 const AVISOS: u64 = 8;
 
 /// **USB: el controlador y el libro del portero.**
@@ -76,7 +76,7 @@ pub(crate) fn report_usb(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     let mut txt = [0u8; 96];
     // ** Se recorren las `escritas`, sin cortar en un cero: una ficha de un
-    // puerto 0 sin vid empaqueta exactamente 0, y el 17-09 el Ryzen enseno
+    // puerto 0 sin vid empaqueta exactamente 0, y el 17-09 el Ryzen mostro
     // `fichas 10` con la tabla VACIA por cortar en la primera.
     for i in 0..escritas.min(FICHAS) {
         let papeles = bmo::info(bmo::INFO_USB_FICHA | (i << 8));
@@ -190,7 +190,7 @@ pub(crate) fn report_prestamos(s: &mut Output) {
     let p = bmo::info(bmo::INFO_PRESTAMOS);
     fila(s, b"vivas", p & 0xFF, b"ofertas", b"bloques ofrecidos ahora mismo");
     fila(s, b"tomadas", (p >> 8) & 0xFF, b"", b"de esas, las que el escritorio ya compone");
-    fila_cero(s, b"huerfanas", (p >> 16) & 0xFF, b"el dueno murio con la oferta viva");
+    fila_cero(s, b"huerfanas", (p >> 16) & 0xFF, b"el propietario murio con la oferta viva");
     fila_cero(s, b"negadas", p >> 32,
               b"ofertas rechazadas desde el arranque: el motivo, en `cabina fallos`");
 }
@@ -198,7 +198,7 @@ pub(crate) fn report_prestamos(s: &mut Output) {
 /// **El audio: el audifono reclamado, el volumen y el tubo** (2026-09-21).
 ///
 /// Hasta hoy el `save` no tenia UNA fila de audio: lo unico que se veia
-/// era "el dueno del sonido MURIO" tres veces en los avisos, sin poder decir
+/// era "el propietario del sonido MURIO" tres veces en los avisos, sin poder decir
 /// si habia audifono, si tenia tubo, o que volumen se le mando. Todo por
 /// `fila`, para que DATOS.TXT lo lleve tambien.
 pub(crate) fn report_audio(s: &mut Output) {
@@ -231,7 +231,7 @@ pub(crate) fn report_audio(s: &mut Output) {
         }
     }
     let d = bmo::info(bmo::INFO_AUDIO_DUENO);
-    fila(s, b"dueno", d & 0xFFFF_FFFF, b"pid", b"el proceso que tiene el audio; 0 = nadie");
+    fila(s, b"propietario", d & 0xFFFF_FFFF, b"pid", b"el proceso que tiene el audio; 0 = nadie");
     let t = bmo::info(bmo::INFO_AUDIO_TUBO);
     fila(s, b"tubo", (t >> 56) & 1, b"", b"1 = el endpoint isocrono esta configurado y con su alt puesto");
     if (t >> 56) & 1 == 1 {

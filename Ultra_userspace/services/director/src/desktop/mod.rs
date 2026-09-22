@@ -85,7 +85,7 @@ use crate::PATH_MAX;
 ///
 /// ** O sea que sin entrada, el escritorio no repintaba hasta completar DOCE
 /// MIL vueltas. A la velocidad a la que va el bucle en el Ryzen eso son
-/// segundos, y el sintoma que trajo el dueno fue exacto:
+/// segundos, y el sintoma que trajo el propietario fue exacto:
 ///
 /// > *"los FPS dependen de un teclado que no tiene sentido... tengo que pulsar
 /// > el bloq numerico SOLO para ver 1 frame que cambia"*
@@ -219,7 +219,7 @@ impl Windows {
     /// ** UN SITIO Y NO SEIS. La respuesta vivia repartida en seis banderas
     /// `*_open` sueltas, y quien necesitaba la pregunta en general --el
     /// repintado, el z-order, el raton-- la re-escribia entera cada vez. Tres
-    /// copias de la misma lista, y ninguna de las tres se rompia al anadir una
+    /// copias de la misma lista, y ninguna de las tres se rompia al agregar una
     /// ventana: se quedaba corta en silencio, que es como las vitales se
     /// pasaron un mes fuera del bucle de repintado.
     ///
@@ -301,7 +301,7 @@ pub(crate) struct Desktop {
 }
 
 impl Desktop {
-    /// **La terminal cambio de sitio o de tamano.** Todo lo que se coloca a
+    /// **La terminal cambio de sitio o de medida.** Todo lo que se coloca a
     /// partir de ella tiene que enterarse, y por eso hay UNA funcion.
     ///
     /// Hoy son dos cosas: su propia geometria interior --el campo, el estado,
@@ -399,7 +399,7 @@ static mut DESKTOP: MaybeUninit<Desktop> = MaybeUninit::uninit();
 /// exactamente la propiedad que un `static mut` suelto no da.
 ///
 /// [!] `#[inline(never)]` en las DOS --aqui y en `Desktop::new`-- y no es un
-/// ajuste de tamano: es lo que obliga a LLVM a pasar la direccion de `.bss`
+/// ajuste de medida: es lo que obliga a LLVM a pasar la direccion de `.bss`
 /// como puntero de retorno (`sret`) en vez de construir el struct en una ranura
 /// de la pila y copiarlo despues. Inlineadas, los temporales de `Out` (17.936)
 /// y `Launcher` (12.968) se acumulan en el marco de `_start`. Medido.

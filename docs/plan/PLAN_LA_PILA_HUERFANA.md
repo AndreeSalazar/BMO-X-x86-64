@@ -2,7 +2,7 @@
 
 **El kernel corriendo sobre una pila que alguien ya devolvio.**
 
-Abierto el 2026-08-31. El dueno sabe provocarlo con los dedos: matar el
+Abierto el 2026-08-31. El propietario sabe provocarlo con los dedos: matar el
 servidor de Ring 3 y volver a entrar.
 
 ---
@@ -37,7 +37,7 @@ Cada linea se verifico leyendo el arbol, no razonando sobre el.
 | `de NADIE VIVO` es HONESTO, no un falso negativo | `spawn_user` guarda la pila de kernel de una tarea de Ring 3 en `stack_phys`, asi que `titular_de_pila` la habria visto. `task/scheduler/roja.rs` |
 | `cr2 = 0x8FFFFFFF` es BASURA, no un calculo | cae entre `USER_STACK_TOP` (0x8000_0000) y `CHANNEL_VA_BASE` (0xC000_0000): un hueco donde no se mapea nada jamas. `mm/vmm/verde.rs` |
 | ...y es un valor de 32 bits | los 32 bits altos en cero. Una direccion calculada del kernel no tiene esa forma |
-| `gs k=0` NO es un sintoma | Ring 0 corre con `KERNEL_GS_BASE = 0` por diseno. `task/percpu.rs`, cabecera |
+| `gs k=0` NO es un sintoma | Ring 0 corre con `KERNEL_GS_BASE = 0` por esquema. `task/percpu.rs`, cabecera |
 | la pila de SYSCALL estatica no cuelga nunca | `SYSCALL_STACKS` es un `static` de 32 KiB x 16 en `.bss`. `task/percpu.rs` |
 | la pila del `#PF` no es la de IST1 | IST1 lo monta el TSS del arranque, no el asignador; `rsp` es del physmap |
 
@@ -84,7 +84,7 @@ nadie escribio y nadie vigila:
 > refresca RSP0."*
 
 Un invariante que no esta escrito no es un invariante: **es una suerte que dura
-hasta que deja de durar.** Y esta es la clase de cosa que el dueno pidio no
+hasta que deja de durar.** Y esta es la clase de cosa que el propietario pidio no
 volver a parchear despues.
 
 ---
@@ -108,7 +108,7 @@ evitar.
       `plat/faults/amarilla.rs`.
 - [x] **0c. QUE LA AZUL PUEDA CONTESTAR.** Hecho el 2026-09-02, y no estaba
       en este plan porque nadie lo habia mirado. El paso 1 se intento y **volvio
-      con media frase**: la foto del dueno acaba en `marco OCUPADO,` y ahi se
+      con media frase**: la foto del propietario acaba en `marco OCUPADO,` y ahi se
       corta. Dos cosas, las dos silenciosas:
 
       * **El renglon media 80 bytes** y descartaba el resto sin decirlo. La
@@ -148,7 +148,7 @@ evitar.
       es de dos lineas porque el paso 2 se llevo la decision fuera.
 - [ ] **4. CERRAR LA MINA DEL `if`.** `schedule_locked` publica SIEMPRE una
       rampa: para una tarea sin pila propia, la estatica de `percpu`, nunca la
-      del anterior. Hoy es inofensivo y manana no lo sera. Ver
+      del anterior. Hoy es inofensivo y luego no lo sera. Ver
       `task/scheduler/roja.rs`, el bloque de las rampas de aterrizaje.
 - [ ] **5. L6g SOBRE EL FICHERO CRITICO.** Este analisis destapo un tercer
       concepto sin casa: **las rampas de aterrizaje** viven repartidas entre

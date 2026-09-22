@@ -280,7 +280,7 @@ fn una_firma_sin_el_indice_no_vale() {
     assert_eq!(
         falta_de(|i| {
             // Se quita la PRIMERA entrada corriendo las demas hacia arriba;
-            // el anexo mide 40 menos y lo que sobra al final queda sin dueno.
+            // el anexo mide 40 menos y lo que sobra al final queda sin propietario.
             let ini = f + FIRMA_CABECERA;
             i.copy_within(ini + FIRMA_HASH..ini + cuantos * FIRMA_HASH, ini);
             i[f..f + 4].copy_from_slice(&((cuantos - 1) as u32).to_le_bytes());
@@ -326,7 +326,7 @@ fn la_firma_cubre_los_anexos_que_el_kernel_no_lee() {
 }
 
 /// ** Los SIMBOLOS viajan tambien en un ejecutable, y esta fila existe porque
-/// el primer diseno los prohibia: el DIRECTOR los lee para anotar una autopsia
+/// el primer esquema los prohibia: el DIRECTOR los lee para anotar una autopsia
 /// (`services/director/src/simbolos.rs`), asi que prohibirlos habria roto esa
 /// anotacion sin que nadie se enterara hasta el siguiente fallo en el Ryzen.
 #[test]
@@ -397,7 +397,7 @@ fn un_anexo_desconocido_se_lleva_y_no_estorba() {
 }
 
 /// **Reabrir una imagen, cambiarla y reescribirla**: lo que hacen `bmo-pack`
-/// (anadir recursos) y `bmo-firmar` (poner la firma de autor).
+/// (agregar recursos) y `bmo-firmar` (poner la firma de autor).
 #[test]
 fn una_imagen_se_reabre_se_le_anade_y_sigue_valiendo() {
     let antes = buena();

@@ -112,7 +112,7 @@ pub fn write_buffer(code: &mut Vec<u8>) {
     x86::test_r64_r64(code, R9, R9);
     let done = x86::emit_jump(code, Jump::IfZero);
 
-    // rcx = min(r9, 8) -- el tamano de este chunk.
+    // rcx = min(r9, 8) -- el medida de este chunk.
     x86::mov_r64_r64(code, RCX, R9);
     x86::cmp_r64_imm8(code, RCX, 8);
     let have_n = x86::emit_jump(code, Jump::IfBelowOrEqual);
@@ -151,7 +151,7 @@ pub fn write_buffer(code: &mut Vec<u8>) {
 /// Emite codigo que lee UNA LINEA de la consola del proceso a `r8`, y deja su
 /// longitud (sin el salto) en `r9`.
 ///
-/// `r8` tiene que apuntar a un buffer del llamante y `tope` es su tamano.
+/// `r8` tiene que apuntar a un buffer del llamante y `tope` es su medida.
 ///
 /// ## El tope es un INMEDIATO, y esa es la correccion
 ///

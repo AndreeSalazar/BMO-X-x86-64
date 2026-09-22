@@ -51,7 +51,7 @@ impl Entrada {
     /// **Ceder la pantalla sin ceder la entrada no es prestar: es dejar a alguien
     /// pintando en una habitacion cerrada.** Las dos van juntas.
     ///
-    /// Devuelve `false` si no era el dueno, en vez de fingir que la solto.
+    /// Devuelve `false` si no era el propietario, en vez de fingir que la solto.
     pub fn release(self) -> bool {
         invoke(CURRENT_TASK, OP_ENTRADA_SOLTAR, 0, 0, 0).valor().is_some()
     }
@@ -86,7 +86,7 @@ impl Entrada {
     /// Existe porque `tecla()` da un byte ya resuelto y hay combinaciones que
     /// no producen caracter -- `Ctrl+Alt` a secas no es ninguna letra.
     ///
-    /// * En la distribucion espanola `Ctrl+Alt` **es** `AltGr`: lo que produce
+    /// * En la distribucion castellana `Ctrl+Alt` **es** `AltGr`: lo que produce
     /// `@`, `#`, `[`, `]`, `\`, `|` y `EUR`. Un atajo que dispare al PULSARLOS
     /// rompe escribir todo eso. Si lo usas como atajo, dispara al SOLTAR y solo
     /// si no llego ningun caracter mientras estaban pulsados.

@@ -48,7 +48,7 @@ pub static PROFILE: super::profile::CpuProfile = super::profile::CpuProfile {
     // * Antes decia 0b111 y el area 832, que son los numeros de lo HABILITADO,
     // no de lo soportado. El verificador cantaba DIFIERE en cada arranque -- y
     // un aviso ambar que sale siempre deja de ser un aviso: es ruido que
-    // ensena a ignorar la linea justo el dia que importe. Los dos campos se
+    // muestra a ignorar la linea justo el dia que importe. Los dos campos se
     // contrastan contra cosas distintas y hay que darles los numeros de cada
     // una: `xsave_componentes` contra CPUID.D.0:EDX:EAX, `xsave_area` contra
     // CPUID.D.0:ECX (el area con TODO habilitado), y `xsave_xcr0` contra lo

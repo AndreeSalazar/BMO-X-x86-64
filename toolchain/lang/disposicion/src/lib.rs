@@ -32,7 +32,7 @@
 //! - `lang/cpp/parser.rs` -- el parser de C++, por lo mismo que el de C.
 //!
 //! Y ninguna de las tres es evitable por su lado: quien resuelve `p.x` tiene
-//! que saber el offset, y quien reserva la pila tiene que saber el tamano.
+//! que saber el offset, y quien reserva la pila tiene que saber el medida.
 //! Lo evitable era que la **regla** estuviera tres veces.
 //!
 //! Es exactamente el riesgo que avisa la cabecera de `parser/inicializador.rs`
@@ -57,7 +57,7 @@
 //! parser de C tiene `StructMember`, el de C++ tiene `MemberVar`, el codegen
 //! tiene tuplas-- y devolver un `Vec` obligaria a los tres a traducir a un
 //! cuarto formato para leerlo. Con un cursor, cada uno recorre lo suyo y
-//! pregunta *"donde cae un miembro de este tamano?"*.
+//! pregunta *"donde cae un miembro de este medida?"*.
 //!
 //! Ademas este crate es `no_std`, como `bmo-abi` que lo re-exporta: un cursor no asigna nada.
 //!
@@ -71,13 +71,13 @@
 //! ```
 //!
 //! [!] **Son DOS numeros y no uno.** El alineado de un miembro no se puede
-//! deducir de su tamano en cuanto el miembro es un array o un agregado, y
+//! deducir de su medida en cuanto el miembro es un array o un agregado, y
 //! deducirlo era la version anterior de esto. Ver [`Disposicion::coloca`].
 
-/// El alineado de un miembro **ESCALAR**, dado su tamano.
+/// El alineado de un miembro **ESCALAR**, dado su medida.
 ///
-/// Es el tamano, tapado a 8 y con minimo 1. Para un `char`, un `short`, un
-/// `int`, un `long` o un puntero el tamano Y el alineado son el mismo numero,
+/// Es el medida, tapado a 8 y con minimo 1. Para un `char`, un `short`, un
+/// `int`, un `long` o un puntero el medida Y el alineado son el mismo numero,
 /// asi que aqui basta con uno.
 ///
 /// # [!] Esto NO vale para un array ni para un agregado
@@ -85,7 +85,7 @@
 /// Y esa confusion costo la disposicion entera de DOOM. Ver
 /// [`Disposicion::coloca`]: el alineado de un array es el de su ELEMENTO y el
 /// de un struct es el suyo propio, y ninguno de los dos se puede deducir del
-/// tamano total. Quien coloque un miembro que no sea escalar tiene que
+/// medida total. Quien coloque un miembro que no sea escalar tiene que
 /// calcular su alineado y pasarlo.
 pub const fn alineado_de(tam: u32) -> u32 {
     let a = if tam > 8 { 8 } else { tam };
@@ -118,34 +118,34 @@ impl Disposicion {
     /// Coloca un miembro de `tam` bytes con alineado `alineado`, y devuelve
     /// **su offset**.
     ///
-    /// # ** Por que el alineado es un ARGUMENTO y no se deduce del tamano
+    /// # ** Por que el alineado es un ARGUMENTO y no se deduce del medida
     ///
-    /// Porque deducirlo del tamano es lo que estaba escrito antes --`coloca`
-    /// llamaba a [`alineado_de`] con el tamano del miembro-- y **es falso para
+    /// Porque deducirlo del medida es lo que estaba escrito antes --`coloca`
+    /// llamaba a [`alineado_de`] con el medida del miembro-- y **es falso para
     /// todo lo que no sea un escalar**:
     ///
-    /// | miembro | tamano | alineado deducido | el de verdad |
+    /// | miembro | medida | alineado deducido | el de verdad |
     /// |---|---|---|---|
     /// | `char name[8]` | 8 | 8 | **1** |
     /// | `short sidenum[2]` | 4 | 4 | **2** |
     /// | `mappatch_t patches[1]` | 10 | 8 | **2** |
     ///
     /// Un array se alinea como su ELEMENTO y un agregado como el mas exigente
-    /// de sus miembros. El tamano total no lo dice: `char[8]` y `long` miden
+    /// de sus miembros. El medida total no lo dice: `char[8]` y `long` miden
     /// los dos ocho bytes y no se alinean igual.
     ///
     /// ## Lo que costo, con nombre y fichero
     ///
     /// DOOM lee sus structs **directamente de los bytes del WAD**: en
     /// `r_data.c` hace `(maptexture_t *)(maptex + offset)` y lee los campos.
-    /// Con el alineado deducido del tamano, esa estructura ponia `patches` en
+    /// Con el alineado deducido del medida, esa estructura ponia `patches` en
     /// el byte **24** y el disco lo tiene en el **22**. Y no era un caso
     /// aislado: `maplinedef_t` media 16 en vez de 14 --o sea que a partir del
     /// SEGUNDO linedef del nivel todo se leia corrido--, `mapsidedef_t` ponia
     /// las texturas en el 8 en vez del 4, y `mapsector_t` igual.
     ///
     /// * Que las estructuras de DOOM salgan exactas con el alineado natural no
-    /// es suerte: estan disenadas asi, y por eso su `PACKEDATTR` puede quedarse
+    /// es suerte: estan trazadas asi, y por eso su `PACKEDATTR` puede quedarse
     /// vacio sin que nada cambie. Un compilador que las coloca bien no necesita
     /// entender `__attribute__((packed))`.
     pub fn coloca(&mut self, tam: u32, alineado: u32) -> u32 {
@@ -156,7 +156,7 @@ impl Disposicion {
         off
     }
 
-    /// El tamano total, **redondeado al alineado del miembro mas grande**.
+    /// El medida total, **redondeado al alineado del miembro mas grande**.
     ///
     /// El relleno del final no es un capricho: sin el, un array de la
     /// estructura tendria el segundo elemento mal alineado.
@@ -173,7 +173,7 @@ impl Disposicion {
 }
 
 /// La disposicion de una **union**: todos los miembros en el offset 0, y el
-/// tamano es el del mas grande.
+/// medida es el del mas grande.
 #[derive(Debug, Clone, Copy)]
 pub struct DisposicionUnion {
     max: u32,
@@ -201,7 +201,7 @@ impl DisposicionUnion {
 mod tests {
     use super::*;
 
-    /// Un escalar se coloca con su tamano como alineado, que es el caso comun.
+    /// Un escalar se coloca con su medida como alineado, que es el caso comun.
     fn escalar(d: &mut Disposicion, tam: u32) -> u32 {
         d.coloca(tam, alineado_de(tam))
     }
@@ -239,9 +239,9 @@ mod tests {
     }
 
     /// ** Un array se alinea como su ELEMENTO, y eso no se deduce del
-    /// tamano.** `char[16]` mide 16 y se alinea a 1; un `long` mide 8 y se
+    /// medida.** `char[16]` mide 16 y se alinea a 1; un `long` mide 8 y se
     /// alinea a 8. La version anterior de `coloca` deducia el alineado del
-    /// tamano y por eso ponia el `char[16]` en el byte 8.
+    /// medida y por eso ponia el `char[16]` en el byte 8.
     #[test]
     fn un_array_se_alinea_como_su_elemento() {
         let mut d = Disposicion::nueva();
@@ -290,7 +290,7 @@ mod tests {
         assert_eq!(escalar(&mut d, 4), 16, "int obsolete");
         assert_eq!(escalar(&mut d, 2), 20, "short patchcount");
         // ** LA CASILLA QUE MATABA A `R_InitTextures`: con el alineado deducido
-        // del tamano (10 -> 8) esto caia en el 24.
+        // del medida (10 -> 8) esto caia en el 24.
         assert_eq!(
             d.coloca(mp.total(), mp.alineado()),
             22,
@@ -298,7 +298,7 @@ mod tests {
         );
     }
 
-    /// `maplinedef_t` -- **14 bytes**, y el tamano importa tanto como los
+    /// `maplinedef_t` -- **14 bytes**, y el medida importa tanto como los
     /// offsets: `p_setup.c` recorre el lump como un array, asi que un byte de
     /// mas en el total corre TODOS los linedefs a partir del segundo.
     #[test]

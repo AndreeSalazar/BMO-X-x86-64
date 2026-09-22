@@ -1509,7 +1509,7 @@ impl Codegen {
     /// dejado de ser un entero; lo unico que cambia es donde va la coma al
     /// escribirlo.
     fn emit_display_var(&mut self, name: &str) {
-        // Un campo de texto se ensena TAL CUAL: sus bytes. Pasarlo por el
+        // Un campo de texto se muestra TAL CUAL: sus bytes. Pasarlo por el
         // formateador decimal imprimiria el numero que forman, que no es lo que
         // hay escrito.
         if let Some(chars) = self.texto_de(name) {
@@ -1695,7 +1695,7 @@ impl Codegen {
                     0,
                     format!(
                         "OPEN EXTEND {fichero}: la puerta de archivos abre creando de cero, \
-                         asi que esto BORRARIA lo que ya hay. Falta el modo anadir en \
+                         asi que esto BORRARIA lo que ya hay. Falta el modo agregar en \
                          `KIND_ARCHIVO`; usa OPEN OUTPUT si de verdad quieres reescribirlo"
                     ),
                 ));
@@ -2346,7 +2346,7 @@ impl Codegen {
                         format!(
                             "GO TO {destino} desde el cuerpo principal: aqui un parrafo es \
                              una SUBRUTINA, y saltar dentro de una sin haber entrado por \
-                             su PERFORM deja el retorno sin dueno. Mete el salto en un \
+                             su PERFORM deja el retorno sin propietario. Mete el salto en un \
                              parrafo, o llama al de destino con PERFORM"
                         ),
                     ));

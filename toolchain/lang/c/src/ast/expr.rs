@@ -62,7 +62,7 @@ pub enum Expr {
     /// (no una simple variable). callee da la direccion; args por la pila.
     CallPtr(Box<Expr>, Vec<Expr>),
     /// base.campo -- (base, nombre, offset, TIPO del campo).
-    /// El tipo viaja en el AST para que codegen cargue/guarde el tamano EXACTO:
+    /// El tipo viaja en el AST para que codegen cargue/guarde el medida EXACTO:
     /// antes pt.x=10 con x:int escribia 8 bytes y pisaba al campo siguiente.
     Field(Box<Expr>, String),
     Arrow(Box<Expr>, String),

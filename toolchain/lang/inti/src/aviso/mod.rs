@@ -58,7 +58,7 @@ impl Default for Sitio {
 /// Un aviso completo. Los cuatro campos que no pueden faltar son `codigo`,
 /// `que_paso`, `sitio` y `que_hacer`; `que_habia` puede estar vacio **solo**
 /// cuando no hay ningun valor concreto del que hablar (por ejemplo, falta el
-/// `perfil`: no hay nada que ensenar).
+/// `perfil`: no hay nada que mostrar).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Aviso {
     pub codigo: Codigo,

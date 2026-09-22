@@ -162,11 +162,11 @@ pub fn donde_se_corta(pml4: u64, va: u64) -> (u8, u64) {
     (0, 0)
 }
 
-/// **La direccion FISICA EXACTA de `va`**, sea cual sea el tamano de pagina.
+/// **La direccion FISICA EXACTA de `va`**, sea cual sea el medida de pagina.
 ///
 /// == [!] Por que existe, y por que no vale [`translate`] ==
 ///
-/// `translate` **no contesta lo mismo segun el tamano de pagina**, y eso no se
+/// `translate` **no contesta lo mismo segun el medida de pagina**, y eso no se
 /// ve leyendo su firma:
 ///
 /// | mapeo | lo que devuelve |

@@ -47,7 +47,7 @@
 // mas -- y la regla de esta casa es que dos preguntas distintas no viven en el
 // mismo cajon.
 //
-// Idea del dueno el 2026-08-12: que las tablas de `docs/identidad/LA_RAM.md` dejen de ser
+// Idea del propietario el 2026-08-12: que las tablas de `docs/identidad/LA_RAM.md` dejen de ser
 // criterio que alguien recuerda y pasen a ser algo que se comprueba sobre el
 // archivo que se va a aplicar.
 

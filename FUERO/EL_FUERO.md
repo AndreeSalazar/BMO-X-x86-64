@@ -3,7 +3,7 @@
 > **Lo que BMO-X le concede a quien quiera construir sobre el, y lo que le
 > exige a cambio.** Un solo documento, para que nadie tenga que reunirlo.
 >
-> Escrito el **2026-08-19**, cuando el dueno pregunto como se llama todo esto
+> Escrito el **2026-08-19**, cuando el propietario pregunto como se llama todo esto
 > junto: *"algo parecido a lo que aplican las empresas, pero basado en mi BMO-X,
 > que su naturaleza es unica"*.
 >
@@ -161,7 +161,7 @@ en [`META-KERNEL_HARD.md`](META-KERNEL_HARD.md).
 
 ### 2.6b *** QUE LEYES VIAJAN CONTIGO, Y CUALES SON DE LA CASA
 
-> Pregunta del dueno, 2026-08-24: *"no quiero imaginar que cuando los nuevos
+> Pregunta del propietario, 2026-08-24: *"no quiero imaginar que cuando los nuevos
 > programadores entren a usar mi BMO-X les choque con el guardian que les
 > limita"*.
 

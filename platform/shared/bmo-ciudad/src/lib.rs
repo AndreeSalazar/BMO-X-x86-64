@@ -1,6 +1,6 @@
 //! # LA CIUDAD -- el arranque de BMO-X, dibujado por la CPU
 //!
-//! Pedido por el dueno con dos capturas de Geoxor delante: *"cuando se prenda mi
+//! Pedido por el propietario con dos capturas de Geoxor delante: *"cuando se prenda mi
 //! maquina el gato se ve neon y la CPU dibuja todo en pixeles"*, *"que se sienta
 //! que tiene animacion y como la camara avanza"*, y *"un crate independiente
 //! fuera del Ring 0 y Ring 3"*.
@@ -19,7 +19,7 @@
 //!    acto.rs     el GUION: que hay en pantalla en el milisegundo N.
 //! ```
 //!
-//! El corte no es por tamano: es por **quien cambia cada cosa**. La paleta la
+//! El corte no es por medida: es por **quien cambia cada cosa**. La paleta la
 //! toca quien quiera otro azul; `ciudad.rs`, quien quiera otra skyline;
 //! `torre.rs`, quien cambie el estilo de las ventanas; `acto.rs`, quien ajuste
 //! los tiempos. Juntos, tocar uno obliga a leer los otros cinco.
@@ -36,7 +36,7 @@
 //!
 //! ## ** LA CIUDAD ES EL ESTADO DEL SISTEMA
 //!
-//! Idea del dueno: *"en el fondo se ve el sistema de ciudad con TODO"*.
+//! Idea del propietario: *"en el fondo se ve el sistema de ciudad con TODO"*.
 //!
 //! [`Ciudad::encender`] enciende las torres de izquierda a derecha, asi que se
 //! lee como una barra de progreso sin poner un numero. Cada torre puede ser un
@@ -48,7 +48,7 @@
 //!
 //! El escalon 2.5 del rasterizador (`triangulo_suave`) existe para quitar los
 //! bordes escalonados. Aqui **no se usa a proposito**: en pixel art el borde duro
-//! ES el dibujo. Dicho por el dueno: *"asi con dientes no me importa"*, y que la
+//! ES el dibujo. Dicho por el propietario: *"asi con dientes no me importa"*, y que la
 //! cobertura llegue el dia de la RDNA4.
 //!
 //! ## Nada de esto toca una pantalla

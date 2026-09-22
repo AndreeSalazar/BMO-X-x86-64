@@ -304,7 +304,7 @@ funcion f(a es entero64, b es entero64) devuelve entero64
 
 /// Las que el emulador NO sabe ejecutar, y por eso su prueba es el metal.
 ///
-/// ** Ordenada y comparada ENTERA. Si el dia de manana una que hoy corre deja de
+/// ** Ordenada y comparada ENTERA. Si el dia de luego una que hoy corre deja de
 /// correr, o una nueva se cuela, el test no dice "algo cambio": dice cual.
 const SOLO_EN_METAL: &[&str] = &[
     "azar", "azar_de_verdad", "cambia_gs", "carga_gdt", "carga_idt",

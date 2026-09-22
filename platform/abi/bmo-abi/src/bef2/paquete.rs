@@ -6,7 +6,7 @@
 //!
 //! En BEF1 esto recorria la tabla de secciones copiandolas una a una. En BEF2
 //! no hace falta: [`Escritor::de_imagen`] reabre la imagen entera, y lo unico
-//! que hay que decir es **que se anade**. La firma se rehace sola, que es
+//! que hay que decir es **que se agrega**. La firma se rehace sola, que es
 //! obligatorio: sus hashes describian la disposicion de antes.
 
 use alloc::vec::Vec;

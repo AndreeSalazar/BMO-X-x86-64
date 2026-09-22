@@ -7,7 +7,7 @@
 //!
 //! Un comite decide que entra en un lenguaje y cuando. Eso da estabilidad y
 //! cuesta anios por cada cambio. La alternativa que ya practica este repo --
-//! *"anadir una instruccion = 1 entrada TOML, CERO Rust"*-- no necesita comite:
+//! *"agregar una instruccion = 1 entrada TOML, CERO Rust"*-- no necesita comite:
 //! el que quiere una extension la declara y la usa.
 //!
 //! Lo que faltaba no era la idea, era **un solo formato**. Habia tres:
@@ -61,9 +61,9 @@ pub enum ModError {
     /// El fichero esta pero no se puede leer.
     NoSeLee(PathBuf),
     /// El fichero esta y no es TOML valido. Se dice CUAL y POR QUE: un mod
-    /// ajeno mal escrito tiene que senalar a su autor, no al sistema.
+    /// ajeno mal escrito tiene que marcar a su autor, no al sistema.
     NoEsToml { fichero: PathBuf, motivo: String },
-    /// Una cadena de herencia que se muerde la cola. Se para y se ensena
+    /// Una cadena de herencia que se muerde la cola. Se para y se muestra
     /// entera: `a -> b -> a` colgaria el compilador, y un compilador colgado no
     /// dice de quien es la culpa.
     Ciclo { cadena: Vec<String> },
@@ -220,7 +220,7 @@ struct Layer {
 /// |---|---|
 /// | el estandar de BMO tal cual | nada |
 /// | **mi propio estandar** | una tabla SIN `parent` |
-/// | **anadir cosas a uno** | una tabla CON `parent` y solo el delta |
+/// | **agregar cosas a uno** | una tabla CON `parent` y solo el delta |
 ///
 /// La tercera es la que evita que esto sea anarquia. Un mod que declara
 /// `parent = "c11"` y tres claves **no puede bifurcar el resto**: el dia que
@@ -237,7 +237,7 @@ struct Layer {
 ///
 /// ## Las caracteristicas no son un `struct` de Rust
 ///
-/// Antes lo eran, con un `match` de once claves: anadir una exigia tocar tres
+/// Antes lo eran, con un `match` de once claves: agregar una exigia tocar tres
 /// sitios de Rust --el campo, el `Default` y el `match`--, que es exactamente el
 /// tramite de comite del que se queria salir. Aqui se preguntan por nombre y
 /// una clave nueva no necesita recompilar nada.
@@ -356,8 +356,8 @@ impl Standard {
     /// Un texto de cualquier seccion (`[standard].iso_number`, ...).
     ///
     /// OJO: `[standard]` tambien se hereda, asi que un mod que no se ponga
-    /// `short_name` ensena el de su padre. Es deliberado -- un mod que solo
-    /// anade tres claves no tiene por que reescribir la ficha entera.
+    /// `short_name` muestra el de su padre. Es deliberado -- un mod que solo
+    /// agrega tres claves no tiene por que reescribir la ficha entera.
     pub fn text(&self, section: &str, key: &str) -> Option<&str> {
         self.lookup(section, key)?.as_str()
     }
@@ -612,7 +612,7 @@ mod tests {
     ///
     /// `c17.toml` tiene `[features]` VACIO --es una correccion de C11, no
     /// declara nada suyo-- asi que sin herencia C17 era un lenguaje con cero
-    /// caracteristicas. Y C23, que solo lista lo que anade, habia perdido
+    /// caracteristicas. Y C23, que solo lista lo que agrega, habia perdido
     /// `_Generic` y `_Atomic`.
     #[test]
     fn los_estandares_heredan_de_su_padre() {
@@ -684,7 +684,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// Una cadena que se muerde la cola se para y se ensena entera. Sin esto
+    /// Una cadena que se muerde la cola se para y se muestra entera. Sin esto
     /// el compilador se cuelga, y un compilador colgado no dice de quien es
     /// la culpa.
     #[test]
@@ -703,7 +703,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// Un padre que no existe senala al padre, no al hijo. El autor del mod
+    /// Un padre que no existe marca al padre, no al hijo. El autor del mod
     /// se equivoco escribiendo `parent`, y el mensaje tiene que llevarle ahi.
     #[test]
     fn un_padre_que_no_existe_lo_dice() {
@@ -815,7 +815,7 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
-    /// Un mod ajeno mal escrito senala a su autor, con fichero y motivo. Un
+    /// Un mod ajeno mal escrito marca a su autor, con fichero y motivo. Un
     /// "no cargo" a secas manda a sospechar del sistema.
     #[test]
     fn un_toml_roto_dice_cual_y_por_que() {

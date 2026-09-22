@@ -76,7 +76,7 @@ pub(crate) fn irq_restore(flags: u64) {
 ///
 /// Es el mismo movimiento de esta semana, por cuarta vez: `bex::necesita`
 /// deducia lo que el fichero podia declarar; `tramo_dma` preguntaba una
-/// traduccion que el mapeo ya garantizaba; una falta de cabecera no ensenaba los
+/// traduccion que el mapeo ya garantizaba; una falta de cabecera no mostraba los
 /// bytes que la provocaron. **Quitar la pregunta, no mejorarla.**
 // -- ** EL SITIO: EL UNICO DATO DE ESTA FUNCION QUE NO LO PONE QUIEN LLAMA ---
 //
@@ -149,7 +149,7 @@ fn constantes_del_kernel() -> (u64, u64) {
 /// **De donde salio esta linea, SI es que se puede preguntar.**
 ///
 /// Devuelve `("?", 0)` cuando el `Location` no es de fiar, y entonces el evento
-/// sale sin fichero -- que es una perdida pequena y honesta al lado de la
+/// sale sin fichero -- que es una perdida chica y honesta al lado de la
 /// alternativa, que es la maquina parada. El renglon sigue diciendo el modulo,
 /// el mensaje y el valor, que es lo que el que llama quiso decir.
 fn sitio_de_fiar(sitio: &'static core::panic::Location<'static>) -> (&'static str, u32) {

@@ -50,7 +50,7 @@ pub fn idt_ptr() -> u64 {
 ///
 /// Mientras lo este, el kernel no dibuja: ni el panel, ni CABINA, ni los logs
 /// de los drivers. No es una optimizacion, es la definicion de haber cedido --
-/// dos duenos pintando el mismo framebuffer no es "compartir", es parpadeo.
+/// dos propietarios pintando el mismo framebuffer no es "compartir", es parpadeo.
 ///
 /// La excepcion es el reporter de faults, que usa `hay_fb_crudo`: un fault de
 /// kernel es terminal y recuperar la pantalla para contarlo es exactamente lo
@@ -75,7 +75,7 @@ pub fn has_fb() -> bool {
     hay_fb_crudo() && !fb_cedido()
 }
 
-/// Existe fisicamente un framebuffer? Sin mirar quien es su dueno.
+/// Existe fisicamente un framebuffer? Sin mirar quien es su propietario.
 /// Solo para el reporter de faults y para el propio objeto de capability.
 pub fn hay_fb_crudo() -> bool {
     unsafe { FB_ADDR != 0 && FB_WIDTH != 0 && FB_HEIGHT != 0 }

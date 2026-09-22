@@ -181,7 +181,7 @@ funcion una_medida devuelve natural64
 # O sea que la regla no tenia resolucion para medir lo que se le pedia. Y una
 # regla que no la tiene no da un numero malo: da un numero que parece bueno.
 #
-# Ocho y no tres porque el minimo de una muestra pequena sigue siendo ruidoso, y
+# Ocho y no tres porque el minimo de una muestra chica sigue siendo ruidoso, y
 # ocho vueltas de mil cuestan menos de medio milisegundo.
 funcion cuanto_avanza_el_reloj devuelve natural64
     cambiante mejor es natural64 = una_medida()

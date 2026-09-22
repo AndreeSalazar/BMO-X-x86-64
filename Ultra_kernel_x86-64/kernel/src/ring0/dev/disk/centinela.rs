@@ -14,7 +14,7 @@
 //!
 //! # *** QUE PIDE UN APARATO CON DMA, DE VERDAD
 //!
-//! Pregunta del dueno, 2026-09-10: *"en DMA que se solicita para aplicar? no lo
+//! Pregunta del propietario, 2026-09-10: *"en DMA que se solicita para aplicar? no lo
 //! tipico, sino en que se basa y que quiere"*.
 //!
 //! Un aparato no pide MEMORIA. Pide **una promesa de cuatro partes**, y ninguna
@@ -48,7 +48,7 @@
 //! # Y LO QUE EL APARATO QUIERE DE VERDAD ES **NO TENER QUE PREGUNTAR**
 //!
 //! Todo el DMA existe para sacar al CPU del camino del dato. Asi que **cada
-//! comprobacion que anadimos es una que el aparato no pidio**: son para
+//! comprobacion que agregamos es una que el aparato no pidio**: son para
 //! nosotros. El aparato pide cuatro cosas; el sistema necesita saber siete. La
 //! distancia entre el cuatro y el siete es la materia entera.
 //!
@@ -56,11 +56,11 @@
 //!
 //! Una sonda contesta *"funciono cuando la corri"*. Y el fallo que este fichero
 //! busca --que el aparato escriba MAS ALLA de lo que declaro-- no aparece
-//! cuando uno mira: aparece con un tamano raro, un lote raro, o un dia raro.
+//! cuando uno mira: aparece con un medida raro, un lote raro, o un dia raro.
 //!
 //! *** Asi que esto no es una sonda: **es una comprobacion que viaja pegada al
 //! trabajo real**, como `pisados` y `choques`. Corre en cada rebote, con los
-//! tamanos de verdad, todo el rato, y no hay que acordarse de lanzarla.
+//! medidas de verdad, todo el rato, y no hay que acordarse de lanzarla.
 //!
 //! # LO INTELIGENTE: SOLO SE MIRA EL BORDE
 //!

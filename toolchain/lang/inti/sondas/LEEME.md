@@ -49,7 +49,7 @@ contra que compararlas. Estas dicen si el CPU y el compilador estan de acuerdo.
 
 Y las dos **ya dan cero en el emulador**, comprobado por
 `las_cuentas_de_bits_de_la_sonda_dan_cero_en_el_emulador`. Asi que un cero en el
-Ryzen confirma, y un numero distinto senala al silicio y no a la sonda.
+Ryzen confirma, y un numero distinto marca al silicio y no a la sonda.
 
 ### ⚠ Lo que esta sonda NO hace, y por que
 

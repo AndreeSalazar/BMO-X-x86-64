@@ -70,7 +70,7 @@ if alt_alone && (c == b'm' || c == b'M') {
 // completa* de un juego, puesta y quitada sin relanzar nada.
 //
 // ** Y SOLO PARA LAS APPS. Una ventana del sistema a pantalla completa
-// taparia la barra y dejaria al dueno sin sitio donde volver, que es el
+// taparia la barra y dejaria al propietario sin sitio donde volver, que es el
 // mismo motivo por el que el maximizado la respeta. Aqui la salida es la
 // MISMA tecla con la que se entro, y eso hace el gesto simetrico.
 //
@@ -83,7 +83,7 @@ if alt_alone && (c == 0x0D || c == 0x0A) {
                 // ** EL NEGRO ES DEL DIRECTOR, no de la app. Lo que sobra
                 // alrededor de una superficie de 960x600 en un panel de 1920
                 // no es de nadie, y dejarlo con lo que hubiera debajo seria
-                // ensenar trozos del escritorio alrededor del juego.
+                // mostrar trozos del escritorio alrededor del juego.
                 p.rect(0, 0, p.ancho, p.alto, 0);
                 p.vaciar();
             } else {
@@ -96,7 +96,7 @@ if alt_alone && (c == 0x0D || c == 0x0A) {
             return Key::Taken;
         }
     }
-    // Sin app senalada la tecla NO se come: un Enter a secas es lo que
+    // Sin app marcada la tecla NO se come: un Enter a secas es lo que
     // entrega la linea de ordenes, y comerselo seria romper la terminal.
     return Key::Pass;
 }
@@ -165,7 +165,7 @@ if alt_alone && (0x80..=0x83).contains(&c) {
                 if cambio {
                     erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
                     uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-                    // Encajar CAMBIA el tamano, asi que las cajas del
+                    // Encajar CAMBIA el medida, asi que las cajas del
                     // grafo hay que recolocarlas: sin esto la ventana
                     // mide una cosa y su contenido sigue midiendo otra.
                     dsk.win.data.relayout();
@@ -248,13 +248,13 @@ if alt_alone && (0x80..=0x83).contains(&c) {
         // escrita como si fuera un principio -- y ni siquiera era
         // cierta: tenia barra de titulo, sombra y esquinas
         // redondeadas como las demas, solo que no se podia agarrar.
-        // El dueno lo dijo mirandola: *"me gustaria que sea
+        // El propietario lo dijo mirandola: *"me gustaria que sea
         // movible"*.
         // ** ESTA RAMA DECIA `Some(W_RUN)` Y NO ERA ESTA RAMA.
         //
         // `W_RUN` era una constante que este fichero **no importaba**, y un
         // nombre desconocido en un patron de Rust no es una constante: es una
-        // VARIABLE nueva que casa con todo. Asi que con las vitales senaladas
+        // VARIABLE nueva que casa con todo. Asi que con las vitales marcadas
         // --o con cualquier ventana cuya guarda fallara-- la flecha movia la
         // TERMINAL, y la linea de abajo guardaba en `top_before` el id que
         // hubiera casado en vez del de Ejecutar.

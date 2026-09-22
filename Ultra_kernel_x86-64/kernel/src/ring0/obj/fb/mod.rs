@@ -11,7 +11,7 @@
 //! ## Que es esto, y por que no es "un syscall para dibujar"
 //!
 //! La tentacion evidente seria `INVOKE(fb, DRAW_RECT, x, y, w, h)`. Seria mas
-//! facil de escribir y seria un error de diseno: cada pixel cruzaria el
+//! facil de escribir y seria un error de esquema: cada pixel cruzaria el
 //! anillo, el kernel acabaria con un motor de dibujo dentro, y BMO-X seria un
 //! monolito con la etiqueta de microkernel puesta encima.
 //!
@@ -27,7 +27,7 @@
 //! Un solo proceso la tiene a la vez. Al concederla, el kernel **cede la
 //! pantalla**: `info::has_fb()` pasa a ser falso y con eso se apagan de golpe
 //! todos los caminos de dibujo de Ring 0 --panel, CABINA, logs de drivers--
-//! porque todos preguntan por ahi. Dos duenos pintando el mismo framebuffer no
+//! porque todos preguntan por ahi. Dos propietarios pintando el mismo framebuffer no
 //! es compartir, es parpadeo.
 //!
 //! Se recupera sola: `cap::revoke_all` la suelta cuando el proceso muere, por
@@ -51,7 +51,7 @@
 //!
 //! ```text
 //!    roja.rs    conceder, soltar, rescatar y el muerto. Si falla, la maquina
-//!               se queda ciega -- o con dos duenos pintando encima
+//!               se queda ciega -- o con dos propietarios pintando encima
 //!    verde.rs   la geometria, los `FB_OP_*` y quien la tiene. Solo contesta
 //! ```
 //!

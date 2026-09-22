@@ -364,7 +364,7 @@ mod vectores_oficiales {
     // sistema entero que se cree integro y no lo es.
     //
     // La entrada de longitud N son los bytes 0,1,2,...,250,0,1,... (ciclo de
-    // 251, que es primo para que ningun tamano de bloque se alinee con el).
+    // 251, que es primo para que ningun medida de bloque se alinee con el).
     fn entrada(n: usize) -> Vec<u8> {
         (0..n).map(|i| (i % 251) as u8).collect()
     }

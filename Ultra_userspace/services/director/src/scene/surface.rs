@@ -16,7 +16,7 @@
 //! **lee pixeles de otro proceso con un `mov`**: cero copias por el camino del
 //! kernel y cero syscalls por fotograma para traerlos.
 //!
-//! ** La pantalla no cambia de dueno ni una vez.
+//! ** La pantalla no cambia de propietario ni una vez.
 //!
 //! === Los tres numeros que este modulo NO se cree ===
 //!
@@ -37,11 +37,11 @@
 //! los para. La regla entera cabe en una linea -- **la app sube `sequence`
 //! cuando el dibujo esta entero, y aqui solo se repinta cuando el numero es
 //! distinto del ultimo que se pego**. Un fotograma a medias no cambia el numero,
-//! asi que no se pinta, y el peor caso es ensenar el anterior un fotograma mas.
+//! asi que no se pinta, y el peor caso es mostrar el anterior un fotograma mas.
 //!
 //! No es un cerrojo **y no debe serlo**: un cerrojo entre dos procesos deja al
 //! compositor esperando a una app colgada, y entonces una app rota se lleva el
-//! escritorio -- que es justo lo que este diseno existe para impedir.
+//! escritorio -- que es justo lo que este esquema existe para impedir.
 
 use bmo_userland as bmo;
 
@@ -129,7 +129,7 @@ impl Header {
         // una segunda puerta que alguien tendria que acordarse de cerrar.
         //
         // Un buzon que no cuadre no es un error que se le devuelva a la app:
-        // es un buzon que NO EXISTE. La app se queda como estaba --ensena y no
+        // es un buzon que NO EXISTE. La app se queda como estaba --muestra y no
         // se la toca-- y el escritorio conserva las teclas, que es el estado
         // seguro. Decirle que no a una app rota es mas barato que confiar.
         let (mut buzon, mut ranuras) = (campo(base, 6) as u64, campo(base, 7));
@@ -149,7 +149,7 @@ impl Header {
 pub(crate) struct Surface {
     pub(crate) chrome: Chrome,
     /// El handle del prestamo: lo unico que distingue este de otro para
-    /// preguntar por su dueno o para devolverlo.
+    /// preguntar por su propietario o para devolverlo.
     handle: u64,
     /// Donde quedo mapeado, en MI espacio.
     base: u64,
@@ -178,7 +178,7 @@ pub(crate) struct Surface {
     acusada: bool,
     /// **El ultimo CONFIGURE que se le mando**: `(ancho, alto, estado)`.
     /// Empieza en lo que la app declaro, estado ventana. Sirve para no repetir
-    /// uno que ya se dijo -- y, cuando la app contesta con OTRO tamano (DOOM
+    /// uno que ya se dijo -- y, cuando la app contesta con OTRO medida (DOOM
     /// escala a enteros), para no volver a pedirselo en bucle.
     configurado: (u32, u32, u8),
     /// ** E0 DEL PLAN DE RITMO (2026-09-12): los dos relojes de esta ventana.
@@ -204,7 +204,7 @@ impl Surface {
             //
             // ** SALVO LA SECUENCIA 0 (2026-09-12). `roja.h` la escribe al crear
             // con este comentario: *"nada que pintar todavia"*. Y la memoria del
-            // monton no viene a cero, asi que pegarla es ensenar basura de
+            // monton no viene a cero, asi que pegarla es mostrar basura de
             // `malloc`. Con una sola ventana no se veia -- la app entregaba antes
             // de que el DIRECTOR mirara --, pero un CONFIGURE ofrece la nueva
             // ANTES de pintarla, y ahi se habria visto un fotograma de basura.
@@ -241,7 +241,7 @@ impl Surface {
         // ** A PANTALLA COMPLETA: sin marco y CENTRADA (2026-09-11).
         //
         // La superficie mide lo que la app declaro --960x600 en DOOM-- y eso
-        // no cambia porque el marco desaparezca: el tamano es suyo y
+        // no cambia porque el marco desaparezca: el medida es suyo y
         // reescalarlo aqui seria una conversion por pixel y por fotograma en
         // el proceso que menos puede permitirsela. Asi que se centra, y lo
         // que sobra alrededor lo pinta de negro quien entra.
@@ -289,7 +289,7 @@ impl Surface {
     ///
     /// Se recorta contra el marco Y contra la pantalla: una ventana arrastrada
     /// medio fuera del panel no puede escribir mas alla del lienzo, y el marco
-    /// puede ser mas pequeno que la superficie si el usuario lo encogio.
+    /// puede ser mas chico que la superficie si el usuario lo encogio.
     pub(crate) fn compose(&mut self, p: &bmo::Pantalla) -> bool {
         let Some(cab) = Header::read(self.base, self.bytes) else {
             return false;
@@ -370,7 +370,7 @@ impl Surface {
         let ranura = idx + BUZON_TAG + (cabeza & mascara) as u64 * BUZON_RANURA;
         unsafe { core::ptr::write_volatile(ranura as *mut u64, evento) };
         // La ranura ANTES que la cabeza, y no al reves: la cabeza es lo que le
-        // dice a la app "hay algo ahi". Publicarla primero seria ensenar una
+        // dice a la app "hay algo ahi". Publicarla primero seria mostrar una
         // ranura que todavia no se ha escrito. En x86 dos escrituras no se
         // reordenan entre si; la barrera es para el COMPILADOR, que si puede.
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::Release);
@@ -433,7 +433,7 @@ impl Surface {
         p.texto_bytes(self.chrome.x + 26, self.chrome.y + 7, &n[..length], INK);
     }
 
-    /// Ha cambiado de tamano o de sitio? Entonces hay que repintar el cromo y
+    /// Ha cambiado de medida o de sitio? Entonces hay que repintar el cromo y
     /// devolverle al escritorio lo que la ventana deje de tapar.
     fn moved(&mut self) -> bool {
         let cambio = self.width != self.chrome.width || self.height != self.chrome.height;
@@ -481,7 +481,7 @@ impl Surface {
         // ** EL VEREDICTO SE DEVUELVE, NO SE IMPRIME AQUI. (2026-09-12)
         //
         // La primera version lo gritaba por `bmo::consola`, que en el DIRECTOR
-        // es **el panel del kernel (F11)**. Y el dueno estaba mirando la caja de
+        // es **el panel del kernel (F11)**. Y el propietario estaba mirando la caja de
         // Ejecutar, que es donde sale lo del HIJO. Tuvo DOOM a 68 fps sin
         // ventana delante y mi instrumento escribiendo en la otra pantalla.
         //
@@ -575,8 +575,8 @@ impl Surface {
     ///
     /// ** Se conserva el MARCO --posicion, maximizada, pantalla completa--
     /// porque es el mismo marco con otro contenido: una ventana que saltara al
-    /// centro cada vez que cambia de tamano seria otra ventana. Y se conserva
-    /// `configurado`: si la app contesto con otro tamano del pedido, no se le
+    /// centro cada vez que cambia de medida seria otra ventana. Y se conserva
+    /// `configurado`: si la app contesto con otro medida del pedido, no se le
     /// vuelve a pedir.
     ///
     /// [!] La VISTA no se hereda: la nueva empieza en `SeVe` y `vistas()` la
@@ -663,7 +663,7 @@ const PINTA_OCULTA_TOPE: u32 = 35;
 /// ```
 ///
 /// ** Los dos ultimos son "tu ventana no va a salir NUNCA", y salian por el
-/// mismo camino que "no pasa nada". El dueno se paso una tarde con DOOM
+/// mismo camino que "no pasa nada". El propietario se paso una tarde con DOOM
 /// corriendo a 68 fps y sin ventana, y el escritorio no tenia una sola linea
 /// que decir. Un `Option` que significa tres cosas no es un valor: es un hueco
 /// donde caben tres fallos.
@@ -672,7 +672,7 @@ pub(crate) enum Adopcion {
     Nacio { hueco: usize, tid: u32, ancho: u32, alto: u32 },
     /// La app contesto a un CONFIGURE: su superficie nueva ocupa la ranura
     /// de la vieja, con el mismo marco. No nace una ventana: cambia de
-    /// tamano. Sin `hueco`, a proposito: el foco no se vuelve a dar.
+    /// medida. Sin `hueco`, a proposito: el foco no se vuelve a dar.
     Reconfigurada { tid: u32, ancho: u32, alto: u32 },
     /// Alguien ofrecio y NO hay ranura libre. Se queda ofrecida.
     SinSitio,
@@ -819,7 +819,7 @@ impl Table {
     ///
     /// [!] El orden es el de la mesa, que hoy es el de llegada. Cuando dos cajas
     /// se solapen habra que preguntarle al foco quien esta delante -- y eso ya
-    /// tiene dueno (`bmo_foco::foco`, paso 2c.3), asi que no se inventa aqui
+    /// tiene propietario (`bmo_foco::foco`, paso 2c.3), asi que no se inventa aqui
     /// una segunda politica que luego habria que reconciliar.
     // ** YA TIENE LLAMANTE (2026-08-23): `desktop::keys::app::raton`. Lo que
     // decia aqui --"todavia no lo llama nadie, y eso es el plan"-- se cumplio

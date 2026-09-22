@@ -4,7 +4,7 @@
 //!                     compositor se lo pide, y el compositor solo pinta si
 //!                     algo cambio (L6h)
 //!
-//! === Que ensena, y por que no se podia antes ===
+//! === Que muestra, y por que no se podia antes ===
 //!
 //! Cada estrato guarda un puntero a su padre, asi que la historia estaba en el
 //! disco desde el primer dia. Lo que faltaba para poder pintarla no era el
@@ -15,7 +15,7 @@
 //!   el NOMBRE   se escribia en todas, asi que no distinguia nada. 19-08
 //! ```
 //!
-//! Sin esas dos, esta pestana habria sido una columna de filas identicas: un
+//! Sin esas dos, esta solapa habria sido una columna de filas identicas: un
 //! grafo bien dibujado que no dice nada. Por eso se hizo despues y no antes.
 //!
 //! === Por que un grafo y no una lista ===
@@ -42,7 +42,7 @@
 //!
 //! Mirar. No hay volver, ni revertir, ni suprimir. Volver a una version es
 //! cambiar un puntero --en copy-on-write cuesta lo mismo con 4 KB que con 4 GB--
-//! pero es una operacion que ESCRIBE, y esta pestana no escribe nada.
+//! pero es una operacion que ESCRIBE, y esta solapa no escribe nada.
 //!
 //! Se dice aqui en vez de poner un boton que no hace nada: en un almacen, una
 //! promesa que no ocurre es como se pierde el trabajo de alguien.
@@ -76,7 +76,7 @@ pub(crate) fn paint(
     }
     let cuantas = bmo::estratos::hist_cuantas() as usize;
     if cuantas == 0 {
-        p.texto(z.x, z.y, "no hay historia que ensenar.", INK_BAD_O_DIM);
+        p.texto(z.x, z.y, "no hay historia que mostrar.", INK_BAD_O_DIM);
         p.texto(z.x, z.y + bmo::GLIFO_ALTO + 4, "el volumen no monta, o no tiene ni un estrato.", INK_DIM);
         return;
     }
@@ -90,18 +90,18 @@ pub(crate) fn paint(
     for i in desde..hasta {
         let es_ahora = i == 0;
         let tiene_nombre = bmo::estratos::hist_con_nombre(i as u64);
-        let senalada = i == sel;
+        let marcada = i == sel;
 
         // La caja. El filo dice DOS cosas distintas y por eso son dos colores:
-        // el acento es "esta senalada" y el verde es "esta no se suelta".
-        let filo = if senalada {
+        // el acento es "esta marcada" y el verde es "esta no se suelta".
+        let filo = if marcada {
             acento
         } else if tiene_nombre {
             INK_OK
         } else {
             borde
         };
-        let cuerpo = if senalada { sel_fondo } else { fondo };
+        let cuerpo = if marcada { sel_fondo } else { fondo };
         p.rect(z.x, y, ancho, CAJA_H, filo);
         p.rect(z.x + 1, y + 1, ancho - 2, CAJA_H - 2, cuerpo);
 
@@ -156,6 +156,6 @@ pub(crate) fn paint(
     }
 }
 
-/// El rojo apagado de "aqui no hay nada que ensenar". No es un error del disco,
+/// El rojo apagado de "aqui no hay nada que mostrar". No es un error del disco,
 /// asi que no lleva el rojo de alarma.
 const INK_BAD_O_DIM: u32 = 0x008A_9BB4;

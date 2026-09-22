@@ -167,7 +167,7 @@ promesa de la libreria, es la frontera del proceso.
    FALTA   el dedo        ->  la app
 ```
 
-Las superficies de hoy son **de salida**. Una app puede ensenar; no la puedes
+Las superficies de hoy son **de salida**. Una app puede mostrar; no la puedes
 tocar. El camino, las dos opciones y su precio estan en
 `docs/plan/PLAN_DIRECTOR.md`, paso 2c -- y la conclusion medida es que **no hay
 transporte que construir**: `bmo-channel` ya entrega llamadas de un Ring 3 a
@@ -177,18 +177,18 @@ otro, y es lo que usa Endpoint RPC desde que `rpc-demo` paso por hardware.
 
 ## 5. ★★ QUE POTENCIAL TIENE ESTO -- la escalera, sin humo
 
-La pregunta del dueno fue *"hasta quizas juegos y apps famosas"*. La respuesta
+La pregunta del propietario fue *"hasta quizas juegos y apps famosas"*. La respuesta
 honesta es una escalera, y lo util es saber en que escalon esta cada cosa.
 
 ### 5.1 Lo que cabe HOY, con lo que ya existe
 
-Cualquier cosa cuya cara sea **fija y su dato pequeno**: la calculadora, un
+Cualquier cosa cuya cara sea **fija y su dato chico**: la calculadora, un
 reloj, un monitor, un panel de estado. Lo unico que las separa de ser apps
 sueltas es la casilla 4.
 
 ### 5.2 Lo que cabe EN CUANTO entre la entrada
 
-Todo lo que sea **mirar y senalar**: un explorador de ficheros, un editor de
+Todo lo que sea **mirar y marcar**: un explorador de ficheros, un editor de
 texto, un visor de imagenes, un juego por turnos. Y lo que ya esta portado y hoy
 se lleva la pantalla entera --`ray.bex`, DOOM-- pasa a vivir en una ventana.
 
@@ -219,7 +219,7 @@ contra el arbol, la frase se cae por tres sitios y conviene que quede escrito:
 2. **SDL tambien pide HILOS**, y no hay hilos de Ring 3.
    `toolchain/lang/c/BRECHA.md` lo dice cuatro veces. SDL 1.2 se puede construir
    sin ellos, pero entonces el callback de audio hay que bombearlo desde el
-   bucle de la app, y eso es una decision de diseno, no un detalle.
+   bucle de la app, y eso es una decision de esquema, no un detalle.
 3. ★★ **SDL no va ANTES que la compilacion separada: es el mejor argumento a
    favor de ella.** Son del orden de cien ficheros `.c`, y hoy solo hay unity
    build -- donde dos `static` con el mismo nombre en ficheros distintos dejan

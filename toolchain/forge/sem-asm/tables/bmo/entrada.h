@@ -85,7 +85,7 @@
  *
  * * Son el sitio correcto para un atajo del sistema porque **no producen
  *   caracter en ninguna distribucion**: no pueden chocar con escribir. Una
- *   combinacion con Ctrl+Alt si puede -- en espanol Ctrl+Alt ES AltGr.
+ *   combinacion con Ctrl+Alt si puede -- en castellano Ctrl+Alt ES AltGr.
  *
  * F12 abre la consola de datos del compositor. */
 #define BMO_TECLA_F1 0x89
@@ -188,7 +188,7 @@ int bmo_entrada_tecla(unsigned long long ent) {
  *
  * El kernel tenia las dos caras desde el primer dia: el driver compara cada
  * informe boot con el anterior y produce pulsar Y soltar. Se perdian al cruzar
- * a Ring 3. Esto no anade un dato nuevo, deja de tirarlo.
+ * a Ring 3. Esto no agrega un dato nuevo, deja de tirarlo.
  *
  * Las dos colas conviven y se llenan del MISMO sondeo: leer una no le roba
  * nada a la otra.
@@ -317,7 +317,7 @@ unsigned long long bmo_entrada_evento(unsigned long long ent) {
 #define BMO_SC_KP_0 0x52
 #define BMO_SC_KP_PUNTO 0x53
 /* Codigo propio: en Set 1 real es `0xE0 0x35`, y sin el la division del
- * numerico escribia un guion en teclado espanol. Ver `teclado.rs`. */
+ * numerico escribia un guion en teclado castellano. Ver `teclado.rs`. */
 #define BMO_SC_KP_ENTRE 0x62
 
 /* [!] DOS PARES QUE COMPARTEN CODIGO, y hay que saberlo antes de asignarles
@@ -348,7 +348,7 @@ unsigned long long bmo_entrada_evento(unsigned long long ent) {
 
 /* Que modificadores estan pulsados AHORA. No consume nada: es estado.
  *
- * * En la distribucion espanola `Ctrl+Alt` **es** `AltGr`: lo que produce `@`,
+ * * En la distribucion castellana `Ctrl+Alt` **es** `AltGr`: lo que produce `@`,
  *   `#`, `[`, `]`, `\`, `|` y `EUR`. Un atajo que dispare al PULSARLOS rompe
  *   escribir todo eso. Si se usa como atajo, hay que disparar al SOLTAR y solo
  *   si no llego ningun caracter mientras estaban pulsados. */

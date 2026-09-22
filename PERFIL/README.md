@@ -1,6 +1,6 @@
 # PERFIL -- lo que BMO-X SUPONE de lo que tiene debajo
 
-> Idea del dueno, **2026-09-07**:
+> Idea del propietario, **2026-09-07**:
 >
 > > *"el NEUTRO es para archivar GPU y perfilar, y la placa base, y lo mismo con
 > > CPU y RAM... es decir, TODO el RING 0 espera que tipo de perfil es, para
@@ -13,7 +13,7 @@
 
 ## 0b. ★★ EL CRITERIO: que merece perfil y que NO
 
-Lo pregunto el dueno el 07-09 -- *"falta el teclado y el mouse, aunque no se si
+Lo pregunto el propietario el 07-09 -- *"falta el teclado y el mouse, aunque no se si
 esos 2 importan"*-- y al contestarlo salio la regla que faltaba. **Sin ella,
 acaba habiendo un perfil de cada cosa.**
 
@@ -35,12 +35,12 @@ acaba habiendo un perfil de cada cosa.**
 ```
 
 *** Por eso [`ENTRADA.txt`](ENTRADA.txt) no tiene ni un campo de identidad y su
-campo mas importante es `distribucion: espanol (ISO)`.
+campo mas importante es `distribucion: castellano (ISO)`.
 
 ** Y la regla explica la carpeta entera hacia atras: la placa esta aqui porque su
 firmware **no cuenta sus manas**; el CPU porque sus erratas **no se preguntan**;
 la RAM porque su ancho de banda **solo se mide**; y el disco porque cual de las
-letras es el Windows del dueno **no se puede averiguar desde dentro**.
+letras es el Windows del propietario **no se puede averiguar desde dentro**.
 
 > Un aparato que contesta no se perfila: se enumera.
 
@@ -59,7 +59,7 @@ Esto es lo que ordena todo lo demas, y no estaba escrito en ningun sitio:
 ★ **Ninguna de las tres es parte del kernel. Las tres son FRONTERAS**, y por eso
 las tres viven en la raiz y no dentro de `Ultra_kernel_x86-64/`.
 
-El dueno pregunto si V-ABI aporta algo aqui. **Aporta esto**: es la cara opuesta.
+El propietario pregunto si V-ABI aporta algo aqui. **Aporta esto**: es la cara opuesta.
 Lo que hace que las dos sean utiles es que **no se mezclen** -- una promesa hacia
 arriba y una suposicion hacia abajo se escriben distinto y caducan distinto.
 
@@ -67,7 +67,7 @@ arriba y una suposicion hacia abajo se escriben distinto y caducan distinto.
 
 ## 2. ⚠ CORRECCION 1: NEUTRO no puede ser el archivo
 
-El dueno propuso usar `NEUTRO/` como el sitio donde archivar los perfiles. **No,
+El propietario propuso usar `NEUTRO/` como el sitio donde archivar los perfiles. **No,
 y por una razon de esta casa:** NEUTRO ya tiene un trabajo -- decir *que hay
 fuera de la ley*. Darle ademas el de guardar perfiles serian dos preguntas en un
 sitio, que es lo que la ley llama **mal cortado** (A2, L6b).
@@ -109,8 +109,8 @@ interprete de bytecode de terceros en Ring 0 NUNCA*.
 
 ## 4. ⚠ LA RESTRICCION FISICA: Ring 0 no puede leer esto al arrancar
 
-El dueno lo dijo como *"el RING 0 se cree archivo para llamar los exteriores"*.
-**En ejecucion eso no se puede hacer**, y hay que decirlo antes de disenar nada
+El propietario lo dijo como *"el RING 0 se cree archivo para llamar los exteriores"*.
+**En ejecucion eso no se puede hacer**, y hay que decirlo antes de trazar nada
 encima:
 
 ```text
@@ -172,13 +172,13 @@ La respuesta no fue "todo", y lo que NO se puede vale tanto como lo que si:
 
 *** Y el orden de lectura no es el de la tabla: **[`DISCO.txt`](DISCO.txt) va
 primero.** Los demas, si mienten, hacen que algo vaya lento o no arranque. Ese,
-si miente, escribe en el disco equivocado -- y ahi vive el Windows del dueno.
+si miente, escribe en el disco equivocado -- y ahi vive el Windows del propietario.
 
 ---
 
 ## 6. ★ LA REGLA DEL FORMATO: cada perfil dice COMO SE NOTA que esta mal
 
-Pedido por el dueno: *"quizas que pongan por que razones, para saber por que
+Pedido por el propietario: *"quizas que pongan por que razones, para saber por que
 falla"*. Es la ley **L6f** --el `[riesgo]` de un modulo-- aplicada a un dato:
 
 > Un `[riesgo]` no dice **que cuesta** un fallo. Dice **por que esa pieza va a

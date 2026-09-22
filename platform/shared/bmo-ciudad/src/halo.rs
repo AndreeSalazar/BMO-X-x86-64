@@ -2,10 +2,10 @@
 //!
 //! === Por que existe, y por que vive con la ciudad y no con el gato ===
 //!
-//! El video del 2026-08-15 lo enseno sin lugar a dudas: el gato es un trazo
+//! El video del 2026-08-15 lo mostro sin lugar a dudas: el gato es un trazo
 //! blanco de un pixel sobre un cielo violeta claro, y **se pierde dentro de la
 //! escena**. Cuando el degradado del cielo llega a su parte clara, el gato casi
-//! desaparece. El dueno lo dijo asi: *"la capa estan mezcladas"*.
+//! desaparece. El propietario lo dijo asi: *"la capa estan mezcladas"*.
 //!
 //! La escalera de valores de [`crate::paleta`] separa el cielo de las torres, y
 //! eso funciono. Lo que no cubria es el tercer plano: **el logo no tiene ninguna
@@ -65,7 +65,7 @@ const ANILLOS: u32 = 16;
 /// ovalo diminuto con la intensidad al maximo: un **punto brillante** clavado en
 /// el pecho del gato. Se veia como una pelota, no como luz.
 ///
-/// Parando en el 40% queda un nucleo plano de ese tamano --que es lo que hace
+/// Parando en el 40% queda un nucleo plano de ese medida --que es lo que hace
 /// una luz de verdad: una zona saturada y una caida alrededor-- y los otros
 /// quince anillos son la caida.
 const NUCLEO: u32 = 40;
@@ -261,7 +261,7 @@ mod pruebas {
     }
 
     /// Radios degenerados no rompen ni dibujan basura. Pasa en pantallas
-    /// pequenas, donde el hueco despejado puede quedarse en nada.
+    /// chicas, donde el hueco despejado puede quedarse en nada.
     #[test]
     fn unos_radios_de_cero_no_dibujan_nada() {
         let mut n = 0;

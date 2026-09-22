@@ -13,8 +13,8 @@
 //!    GCM            si toca un bit, la etiqueta no cuadra y se rechaza
 //! ```
 //!
-//! *** Por eso las dos cosas van juntas y en una sola operacion: **un diseno que
-//! deje autenticar como un paso aparte es un diseno donde alguien se lo va a
+//! *** Por eso las dos cosas van juntas y en una sola operacion: **un esquema que
+//! deje autenticar como un paso aparte es un esquema donde alguien se lo va a
 //! saltar.**
 //!
 //! # [!!] LA REGLA QUE PUEDE DESTRUIRLO TODO: EL NONCE NO SE REPITE
@@ -40,7 +40,7 @@
 //!
 //! # Y el nonce es de 96 bits, y solo de 96
 //!
-//! GCM admite otros tamanos con un paso extra. **Aqui no**, y es a proposito:
+//! GCM admite otros medidas con un paso extra. **Aqui no**, y es a proposito:
 //! TLS 1.3 exige 96 bits, el camino de 96 es el unico que se va a ejercitar, y
 //! un camino que nadie prueba es un camino que nadie sabe si funciona.
 

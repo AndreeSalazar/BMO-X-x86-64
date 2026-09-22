@@ -2,7 +2,7 @@
 
 > Escrito el **2026-09-18**, la noche en que los "tirones" del escritorio
 > resultaron ser el hilo del bus GIRANDO con prioridad 2 mientras el
-> compositor (prioridad 0) no recibia turno. El dueno lo pidio asi:
+> compositor (prioridad 0) no recibia turno. El propietario lo pidio asi:
 >
 > > *"verifica el hilo por completo, para educar a BMO-X: el hilo que no se
 > > vaya a otro lado, pero si quiere otro, el CPU tiene otros hilos -- son 12
@@ -78,7 +78,7 @@ GS/TSS propios. Y el bus, desde el hilo, toca esto:
 Ese ultimo renglon es el que manda el orden: **un bus en un nucleo que no
 puede tomar un fallo es un bus que apaga la maquina cuando falla.** Y lo que
 hace falta para que un AP tome un fallo --GS, TSS, pila de excepcion, IDT
-cargada-- es exactamente lo que el dueno llamo el SUB-DIRECTOR el 12-09
+cargada-- es exactamente lo que el propietario llamo el SUB-DIRECTOR el 12-09
 (`docs/maestro/AXION_MAESTRO.md`). Son el mismo trabajo con dos nombres.
 
 ---
@@ -135,8 +135,8 @@ porque hay un nucleo, y el dia que haya dos no habra que buscarlas.
       `Parte::Tropezar` (`bmo-orquesta`, 5 partes) hizo `ud2` en el atril 1
       y `save` dijo: `un OBRERO tomo una excepcion y se paro SOLO; la maquina
       sigue. vector =6` (#UD), `obreros que tomaron una excepcion y estan
-      parados =1`, y el dueno siguio tecleando `smp` y `save` despues. Antes
-      de `tss.rs` eso era el PC reiniciando. Dos cosas que ensenaron la foto
+      parados =1`, y el propietario siguio tecleando `smp` y `save` despues. Antes
+      de `tss.rs` eso era el PC reiniciando. Dos cosas que mostraron la foto
       y se arreglaron en el acto: el escritorio decia "la puerta dijo que NO"
       (la sonda devuelve `atriles` aunque el dato no valga: `atril.rs`), y la
       barrera espero su tope entero --`el latido del bus llego TARDE 1996 ms`--

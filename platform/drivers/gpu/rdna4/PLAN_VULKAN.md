@@ -1,6 +1,6 @@
 # PLAN VULKAN -- el camino largo, escrito para no reconstruirlo
 
-> Escrito el **2026-08-04**. Objetivo declarado del dueno:
+> Escrito el **2026-08-04**. Objetivo declarado del propietario:
 > **RX 9060 XT 16 GB (RDNA 4) + Vulkan, para correr juegos en BMO-X.**
 >
 > Este documento **no reemplaza** el plan de la cabecera de `src/lib.rs`. Lo
@@ -28,7 +28,7 @@ imposible.**
 
 # Lo que Vulkan abarata, y lo que no
 
-El dueno trajo el argumento y es correcto: **Vulkan esta mas abajo que
+El propietario trajo el argumento y es correcto: **Vulkan esta mas abajo que
 OpenGL**, asi que el *driver* hace menos trabajo. No rastrea estado, no adivina,
 no compila sombreadores al dibujar. Eso es real y juega a favor.
 
@@ -38,7 +38,7 @@ Pero el ahorro cae en **una sola** de las tres partes:
 |---|---|
 | Inicializar el hardware, memoria de video, anillos de comandos | **no** -- identico |
 | **SPIR-V -> instrucciones de RDNA** | **no** -- es otro compilador entero |
-| La API encima (1.0 -> 1.1 -> 1.2 -> 1.3) | ★ **si, y mucho.** Y aqui la estrategia incremental del dueno es la correcta |
+| La API encima (1.0 -> 1.1 -> 1.2 -> 1.3) | ★ **si, y mucho.** Y aqui la estrategia incremental del propietario es la correcta |
 
 ## Y dos cosas que un juego hace y que no son Vulkan
 
@@ -49,7 +49,7 @@ Pero el ahorro cae en **una sola** de las tres partes:
    hace unos anios, no los de ahora.
 
 2. **Vulkan es ~30 % de lo que toca un juego.** Lo demas: **hilos** (Vulkan
-   esta disenado para construir command buffers en varios hilos), sistema de
+   esta trazado para construir command buffers en varios hilos), sistema de
    ficheros para los assets, audio, entrada y a veces red. Con un Vulkan
    perfecto y sin hilos, el juego no arranca igual.
 
@@ -75,10 +75,10 @@ Y borra de un golpe **las dos partes caras**:
 - El framebuffer con **doble bufer y write-combining** ya funciona
 - El compositor ya tiene la costura (`Volcador`) para meter otro backend
 
-## ★ Y la conexion que puso el dueno solo
+## ★ Y la conexion que puso el propietario solo
 
 SPIR-V -> x86-64 **es un JIT**. Y el JIT necesita paginas ejecutables, que es
-exactamente la pieza que el mismo diseno:
+exactamente la pieza que el mismo esquema:
 
 ```
 KIND_CODIGO   nace escribible y NO ejecutable
@@ -94,7 +94,7 @@ garantia      nunca los dos derechos sobre la misma pagina a la vez
 |---|---|---|
 | 1 | Cargador de SPIR-V (parsear el bytecode) | semanas -- es un formato documentado y sencillo |
 | 2 | SPIR-V -> x86-64 (interprete primero, JIT despues) | ★ meses |
-| 3 | `KIND_CODIGO` + `SELLAR` en el kernel | **3 piezas pequenas**, ya disenadas |
+| 3 | `KIND_CODIGO` + `SELLAR` en el kernel | **3 piezas chicas**, ya trazadas |
 | 4 | Rasterizador: triangulos, z-buffer, texturas, recorte | ★ meses |
 | 5 | La API de Vulkan 1.0: instance, device, queue, command buffer, pipeline, swapchain | meses de fontaneria |
 | 6 | Hilos (`clone` no; los de BMO) | 3 piezas, ver `QUE_DESBLOQUEA` |
@@ -190,9 +190,9 @@ para la meta A, porque aqui si se toca el 3D.
 
 Esto **no es lo siguiente** y no debe serlo. El orden con motivo:
 
-1. **La meta A primero** (SDMA para el compositor) -- pequena, y ensena el
+1. **La meta A primero** (SDMA para el compositor) -- chica, y muestra el
    camino de anillos y firmware sin jugarse el 3D
-2. **`KIND_CODIGO` + `SELLAR`** -- 3 piezas, sirven al JIT y son de diseno puro
+2. **`KIND_CODIGO` + `SELLAR`** -- 3 piezas, sirven al JIT y son de esquema puro
 3. **Hilos** -- B1 y B2 los necesitan los dos
 4. **B1: Vulkan por software** -- algo que se ve moverse
 5. **B2** -- solo si B1 demostro que la API y el rasterizador funcionan
@@ -249,7 +249,7 @@ igual.
 
 # ★★ POR QUE AMD NO TE LIMITA -- y que si lo hace
 
-> Ampliacion del 2026-08-04. El dueno lo senalo y tiene razon: *"AMD no
+> Ampliacion del 2026-08-04. El propietario lo marco y tiene razon: *"AMD no
 > limita"*. Conviene escribir POR QUE, porque el motivo cambia el plan.
 
 ## Lo que AMD publica, y no es poco
@@ -326,7 +326,7 @@ Y **1.2 es el escalon que mas abre**.
 
 # ★ LOS MOTORES GRANDES (UE5 y compania) -- y por que el numero de lineas NO es la medida
 
-> Del dueno, 2026-09-17: *"40 millones de codigos no significa que todos se
+> Del propietario, 2026-09-17: *"40 millones de codigos no significa que todos se
 > compile asi, porque en Windows y BMO-X cambian por completo"*. Tiene razon, y
 > la correccion es de LEY 24: **una estimacion generica es una estimacion de
 > OTRO proyecto**. Contar las lineas de un motor y concluir algo es justo eso.
@@ -338,7 +338,7 @@ Y **1.2 es el escalon que mas abre**.
   herramientas. Lo que se compila es un subconjunto que decide la
   configuracion, no el repositorio.
 - **El mismo codigo cuesta cosas distintas aqui y en Windows**, que es lo que
-  dice el dueno: lo que en Windows es una llamada a una DLL del sistema, aqui o
+  dice el propietario: lo que en Windows es una llamada a una DLL del sistema, aqui o
   no existe o es una linea de REX. El coste esta en la FRONTERA, no en el
   cuerpo.
 
@@ -370,7 +370,7 @@ de otro proyecto.
 
 ⚠ Y el orden no cambia por esto: sigue siendo meta A, W^X, hilos, B1, B2. Un
 motor grande no es el disparador de nada; es lo que se mide DESPUES de que B1
-ensene algo moviendose.
+muestre algo moviendose.
 
 ---
 
@@ -446,7 +446,7 @@ enlazador, que es el mismo que pide el banco.
 
 # ★★ BSF -- BMO Shader Format
 
-> Idea del dueno, 2026-08-04: *"el BSF es el encabezado para la GPU, seria como
+> Idea del propietario, 2026-08-04: *"el BSF es el encabezado para la GPU, seria como
 > tener dos encabezados: CPU y GPU"*.
 >
 > **La idea es buena y aqui queda escrita con su limite** -- porque tiene una
@@ -475,7 +475,7 @@ operativo -- es matematicas y registros. Y sobre todo:
 > y habria que escribir el compilador desde cada lenguaje.
 
 Seria inventarse un idioma para no aprender uno que ya habla todo el mundo, que
-es libre, y que ademas esta bien disenado.
+es libre, y que ademas esta bien trazado.
 
 ## ★ La mitad que SI: **el sobre**
 
@@ -523,7 +523,7 @@ kernel **ni se entera de que existe**. Cero coste en Ring 0.
 
 # ★ EL POTENCIAL, y la pregunta de las consolas
 
-El dueno lo pregunto y la respuesta tiene dos mitades muy distintas.
+El propietario lo pregunto y la respuesta tiene dos mitades muy distintas.
 
 ## Lo que NO va a pasar
 
@@ -563,7 +563,7 @@ disciplina de una consola en un sistema que ademas puede demostrarla.**
 |---|---|
 | Se escribe ya? | **no.** No hay nada que lea sombreadores todavia |
 | Cuando? | con la ruta B1 (Vulkan por software), cuando exista un consumidor |
-| Tamano? | pequeno: una cabecera y una tabla. Como el BEF pero diminuto |
+| Tamano? | chico: una cabecera y una tabla. Como el BEF pero diminuto |
 | Bloquea a algo? | no. Se apunta para que el dia que toque no se redisene de cero |
 
 **La frase que lo resume**: *no inventes el idioma, inventa el sobre*. El
@@ -575,7 +575,7 @@ verificable**.
 
 # ★★ EL RECORTE DEL DUENO -- 1.0, UNA GPU PERFILADA, y lo que eso QUITA
 
-> Anadido el **2026-09-07**. Lo dijo el dueno y cambia la forma del documento:
+> Anadido el **2026-09-07**. Lo dijo el propietario y cambia la forma del documento:
 >
 > > *"yo queria Vulkan integrado en 1.0, no quiero JUEGOS TODO, quiero jugar
 > > algunos juegos aparte del DOOM... solo con shader y eso y video, que ya hay
@@ -593,7 +593,7 @@ nadie preguntara:
 > entera. **No es un ejercicio: es DOOM.**"*
 
 ★ Asi que "Vulkan 1.0 y algunos juegos" no es conformarse. **Es elegir la fila
-que este plan ya senalaba como la unica alcanzable**, y renunciar a la que el
+que este plan ya marcaba como la unica alcanzable**, y renunciar a la que el
 propio plan llama *"un proyecto de anios"*.
 
 ```text
@@ -669,7 +669,7 @@ no lo abarata nada de lo anterior.
 > que ya tiene uno funcionando** -- y encima con un frontend mas facil que los
 > cinco que ya se leen.
 
-## 5. Y el video, que el dueno nombro aparte
+## 5. Y el video, que el propietario nombro aparte
 
 Dijo *"shader y eso y video"*. **Son dos cosas y conviene no mezclarlas**, porque
 una es esta ruta y la otra no:
@@ -704,7 +704,7 @@ que puede convertir este plan en imposible, y cuesta un dia averiguarlo.
 
 # ★★ EL BSF Y "UNA GPU PERFILADA" SON LA MISMA DECISION
 
-> Anadido el **2026-09-07**. El dueno volvio al BSF y le puso el motivo que le
+> Anadido el **2026-09-07**. El propietario volvio al BSF y le puso el motivo que le
 > faltaba: *"que la GPU no pierda el tiempo"*. Y al ponerlo, las dos ideas de
 > este documento --el sobre de sombreadores y la GPU perfilada-- resultan ser
 > **una sola**, que ninguna de las dos secciones decia.
@@ -749,7 +749,7 @@ y es barata: SPIR-V ocupa poco. Sin ella el BSF es un atajo; con ella es un
 > Un precompilado que no dice de que maquina es no es una optimizacion: es una
 > trampa que salta en la maquina de otro.
 
-## 3. La pregunta del dueno: *"eso parece DMA o algo?"*
+## 3. La pregunta del propietario: *"eso parece DMA o algo?"*
 
 Buena pregunta, y la respuesta es **si en una capa y no en las otras**. Se
 separan porque confundirlas es lo que hace que un plan crezca sin control:
@@ -767,7 +767,7 @@ separan porque confundirlas es lo que hace que un plan crezca sin control:
    y leerlo del disco usa DMA (el AHCI), que no sabe nada de BEF
 ```
 
-** Donde el dueno acierta de lleno: **subir un sombreador ya compilado a la
+** Donde el propietario acierta de lleno: **subir un sombreador ya compilado a la
 memoria de video ES una copia por DMA** -- el mismo motor SDMA de la meta A. Asi
 que las dos metas se tocan aqui, y en el sitio bueno:
 
@@ -781,7 +781,7 @@ alcanzable, es ademas la primera pieza de la meta B.**
 
 ## 4. "1.0 y hasta la ultima": el orden, y por que no es una promesa
 
-El dueno lo dijo asi -- *"Vulkan 1.0 hasta la ultima por eso"*. Como ORDEN es
+El propietario lo dijo asi -- *"Vulkan 1.0 hasta la ultima por eso"*. Como ORDEN es
 correcto y este documento ya lo llamaba la estrategia buena. Como PLAN hay que
 decir lo que cuesta cada peldano:
 
@@ -789,7 +789,7 @@ decir lo que cuesta cada peldano:
    1.0 -> 1.1   barato: son extensiones encima de lo mismo
    1.1 -> 1.2   ⚠ CARO. timeline semaphores y descriptor indexing cambian
                 como se sincroniza y como se accede a los recursos
-   1.2 -> 1.3   medio: dynamic rendering simplifica, no anade capacidad
+   1.2 -> 1.3   medio: dynamic rendering simplifica, no agrega capacidad
 ```
 
 ★ **El peldano caro es el 1.2, y da la casualidad de que es el que mas abre.**

@@ -1,6 +1,6 @@
 //! # Escalon 2 -- EL TRIANGULO, que es la unidad de una GPU
 //!
-//! Este es el escalon que de verdad ensena a dibujar, y el que hace que los
+//! Este es el escalon que de verdad muestra a dibujar, y el que hace que los
 //! siguientes tengan sentido. Un rectangulo es un caso particular; un triangulo
 //! es **la primitiva** -- todo lo demas (poligonos, sprites deformados, el
 //! mundo entero de un juego 3D) se descompone en triangulos, y eso no es una

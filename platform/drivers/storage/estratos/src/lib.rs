@@ -6,7 +6,7 @@
 //!
 //! Vivia en `platform/services/timeback/` y se lo llevo por delante
 //! `b33f3966` (2026-08-03), la limpieza de librerias huerfanas: al quitar la
-//! carpeta de codigo que nadie cableaba **se fue el diseno del sistema de
+//! carpeta de codigo que nadie cableaba **se fue el esquema del sistema de
 //! ficheros con ella**. Este fichero, `objects.rs` y `estratos-fmt` lo siguieron
 //! citando --con numeros de section y con frases suyas entre comillas-- contra
 //! una ruta que ya no existia, y nadie lo noto: **un puntero roto no falla,
@@ -40,9 +40,9 @@
 //!   dos copias manda.
 //! - [OK] **Estrato**: la raiz. El commit que tambien es el superbloque.
 //! - [OK] **Nodos y atributos**: el modelo de objetos (section 4). Ver [`objects`], que
-//!   documenta las tres decisiones que el diseno dejaba abiertas: el puntero
+//!   documenta las tres decisiones que el esquema dejaba abiertas: el puntero
 //!   lleva direccion Y suma, los archivos crecen por niveles de indireccion, y
-//!   lo pequeno vive dentro del atributo sin gastar bloque.
+//!   lo chico vive dentro del atributo sin gastar bloque.
 //! - [ ] **Formateador** y **montaje**: los dos necesitan E/S, asi que viven
 //!   fuera de aqui -- en el toolchain y en el kernel.
 
@@ -50,7 +50,7 @@
 
 /// La contabilidad del espacio y los avisos de la section 9. Va aparte porque es lo
 /// unico de esta crate que es POLITICA y no formato: los umbrales salen del
-/// diseno, no del disco.
+/// esquema, no del disco.
 /// El LOG de escritura: la maquina de estados de una transaccion. Aqui no se
 /// escribe un sector -- se decide el ORDEN, que es lo que cuesta datos si se
 /// equivoca, y por eso se prueba en el anfitrion.
@@ -105,7 +105,7 @@ pub const SUPER_B_BLOCK: u64 = 1;
 /// Que puede ir mal al leer una estructura del disco.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormatError {
-    /// El buffer no tiene el tamano de la estructura.
+    /// El buffer no tiene el medida de la estructura.
     ShortBuffer,
     /// No lleva la firma `ESTRATOS`. Casi siempre significa "aqui no hay un
     /// volumen de ESTRATOS", no "esta corrupto" -- y son cosas distintas.
@@ -148,7 +148,7 @@ impl FormatError {
 /// Asi que se graba el BLAKE3 de modelo, serie **y capacidad**, que es
 /// exactamente lo que compara `bmo_block::DeviceId::same_device`: el modelo
 /// dice que disco es, la serie cual, y la capacidad caza la imagen clonada a
-/// un disco de otro tamano. Tamano fijo, comparacion exacta, y el mismo hash
+/// un disco de otro medida. Tamano fijo, comparacion exacta, y el mismo hash
 /// que todo lo demas.
 pub fn disk_id(model: &[u8], serial: &[u8], blocks: u64) -> Hash {
     let mut h = bmo_hash::Hasher::new();
@@ -183,7 +183,7 @@ pub struct Superblock {
     pub disk_id: Hash,
     /// El estrato mas reciente. Nulo = volumen recien formateado.
     ///
-    /// **Es un puntero, no un hash a secas** -- correccion al diseno, que lo
+    /// **Es un puntero, no un hash a secas** -- correccion al esquema, que lo
     /// describia como `Hash`. Con un hash solo no se puede *encontrar* nada:
     /// haria falta un indice hash->direccion, y la decision 1 del modelo de
     /// objetos es justamente que **el que lee no necesita indice**. Un puntero
@@ -274,7 +274,7 @@ impl Superblock {
 
     /// Nacio este volumen en el disco que tenemos delante?
     ///
-    /// El gate de identidad del section 5 del diseno. Si no cuadra, el volumen se
+    /// El gate de identidad del section 5 del esquema. Si no cuadra, el volumen se
     /// monta **solo lectura** y CABINA grita: un volumen clonado a otro disco
     /// no se escribe por accidente.
     pub fn belongs_to(&self, disk: &Hash) -> bool {
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn un_bit_cambiado_es_corrupcion_detectada() {
-        // Esto es el principio 2 del diseno: el sistema de ficheros detecta su
+        // Esto es el principio 2 del esquema: el sistema de ficheros detecta su
         // propia corrupcion en vez de confiar en que el disco devuelve lo que
         // guardo.
         let sb = Superblock::new(id_de_prueba(), 108_003_328);
@@ -503,7 +503,7 @@ mod tests {
         let sb = Superblock::new(nuestro, 1000);
         assert!(sb.belongs_to(&nuestro));
         // Mismo modelo y misma serie, distinta capacidad: una imagen clonada a
-        // un disco de otro tamano. No es el nuestro.
+        // un disco de otro medida. No es el nuestro.
         let clonado = disk_id(b"KINGSTON SA400S37480G", b"50026B76846C2058", 937703087);
         assert!(!sb.belongs_to(&clonado));
     }

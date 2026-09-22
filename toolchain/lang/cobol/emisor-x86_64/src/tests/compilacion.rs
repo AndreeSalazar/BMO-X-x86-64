@@ -91,7 +91,7 @@ fn cobol_feature_matrix_runs_correctly() {
         // centavos; lo que cambia es que al ensenarlo se recorre la
         // mascara, y ese recorrido son instrucciones dentro del .bex.
         ("PIC moneda", "01 L PIC $$$,$$9.99.", "MOVE 12345.67 TO L.\nDISPLAY L.", "$12,345.67\n"),
-        ("PIC moneda pequena", "01 L PIC $$$,$$9.99.", "MOVE 0.45 TO L.\nDISPLAY L.", "     $0.45\n"),
+        ("PIC moneda chica", "01 L PIC $$$,$$9.99.", "MOVE 0.45 TO L.\nDISPLAY L.", "     $0.45\n"),
         // * El simbolo flotante cuando la supresion muere JUSTO tras la
         // coma: el `$` va en la casilla de la coma, porque los separadores
         // de dentro del grupo flotante son parte del grupo. Daba
@@ -105,7 +105,7 @@ fn cobol_feature_matrix_runs_correctly() {
         ("PIC supresion", "01 L PIC Z,ZZ9.", "MOVE 7 TO L.\nDISPLAY L.", "    7\n"),
         ("PIC signo flotante", "01 L PIC ---9.", "MOVE -7 TO L.\nDISPLAY L.", "  -7\n"),
         // La edicion no toca la aritmetica: el campo se totaliza como
-        // cualquier otro y solo al final se ensena con su mascara.
+        // cualquier otro y solo al final se muestra con su mascara.
         ("PIC se puede sumar", "01 L PIC $$$,$$9.99.", "MOVE 10.05 TO L.\nADD 0.20 TO L.\nDISPLAY L.", "    $10.25\n"),
         // Y el signo del literal sobrevive al camino entero.
         ("literal negativo", "01 A PIC S9(3)V99.", "MOVE -1.50 TO A.\nIF A < 0\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
@@ -138,7 +138,7 @@ fn cobol_feature_matrix_runs_correctly() {
         ("OCCURS no se pisan", "01 T.\n05 E PIC 9(3) OCCURS 3 TIMES.", "MOVE 1 TO E(1).\nMOVE 2 TO E(2).\nMOVE 3 TO E(3).\nIF E(1) = 1 AND E(2) = 2 AND E(3) = 3\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
         // * Para lo que existe OCCURS: recorrer la tabla y totalizar.
         ("OCCURS totaliza", "01 T.\n05 E PIC S9(7)V99 OCCURS 3 TIMES.\n01 I PIC 9(3).\n01 TOT PIC S9(7)V99.", "MOVE 10.05 TO E(1).\nMOVE 0.20 TO E(2).\nMOVE 1.75 TO E(3).\nMOVE 0 TO TOT.\nMOVE 1 TO I.\nPERFORM UNTIL I > 3\nADD E(I) TO TOT\nADD 1 TO I\nEND-PERFORM.\nIF TOT = 12.00\nDISPLAY \"ok\"\nEND-IF.", "ok\n"),
-        // Un elemento con PIC editada ensena su mascara, como cualquier
+        // Un elemento con PIC editada muestra su mascara, como cualquier
         // otro dato: la edicion es de la tabla, no de la casilla.
         ("OCCURS PIC editada", "01 T.\n05 L PIC $$$,$$9.99 OCCURS 2 TIMES.", "MOVE 10.05 TO L(2).\nDISPLAY L(2).", "    $10.05\n"),
         // El subindice puede ser OTRO elemento de tabla. Es lo que prueba

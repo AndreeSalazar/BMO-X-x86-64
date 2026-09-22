@@ -9,7 +9,7 @@
 //!
 //! [cuesta]  NADA -- son coordenadas, anchos y tintas de una caja de la barra
 //!           de tareas. Un fallo aqui deja la caja torcida, corrida o sin
-//!           pintar, y se nota en el acto porque **la esta mirando el dueno**.
+//!           pintar, y se nota en el acto porque **la esta mirando el propietario**.
 //!           No puede mentir: para mentir hay que afirmar algo, y aqui no se
 //!           afirma nada.
 //!

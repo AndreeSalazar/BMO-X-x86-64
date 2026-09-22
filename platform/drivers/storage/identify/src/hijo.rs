@@ -23,7 +23,7 @@
 //!
 //! ## Por que la separacion vale la pena aqui (L7, punto 1)
 //!
-//! Porque permite disenar el experimento. `ranuras_ociosas` es exactamente la
+//! Porque permite trazar el experimento. `ranuras_ociosas` es exactamente la
 //! cifra que hay que mover para saber cuanto cuesta la ranura 0, y esta aislada
 //! de todo lo demas: **entre medir con 1 y medir con 32 cambia UNA SOLA COSA**.
 //! Si el contraste estuviera mezclado con el veredicto, la resta arrastraria

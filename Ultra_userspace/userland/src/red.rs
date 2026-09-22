@@ -3,7 +3,7 @@
 //! ## Por que este fichero existe (2026-08-24)
 //!
 //! El `net` del escritorio esta escrito para **solo informar**, y cuando el
-//! dueno pidio `net rx` en el Ryzen le contesto:
+//! propietario pidio `net rx` en el Ryzen le contesto:
 //!
 //! ```text
 //!    receptor    apagado   (net rx en Ring 0)
@@ -11,7 +11,7 @@
 //!
 //! Mandandole a un shell **al que no se vuelve**.
 //!
-//! > Un camino que solo existe en Ring 0 es un camino que el dueno de su propia
+//! > Un camino que solo existe en Ring 0 es un camino que el propietario de su propia
 //! > maquina no puede tomar.
 //!
 //! ** Y esto no es "el escritorio toca la NIC": es **Ring 3 pide y el kernel

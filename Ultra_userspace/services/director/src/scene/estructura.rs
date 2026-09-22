@@ -44,7 +44,7 @@ use bmo_userland as bmo;
 use super::chrome::Chrome;
 use super::*;
 
-// Proporcion de la pantalla y no un tamano fijo, como las demas ventanas: ver
+// Proporcion de la pantalla y no un medida fijo, como las demas ventanas: ver
 // `docs/identidad/LIDERES.md`. Los minimos existen para que el raton no la
 // pueda dejar inservible -- por debajo de este ancho el cuerpo no cabe en una
 // linea y se corta a media palabra, que es peor que no verlo.
@@ -109,7 +109,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &EstructuraWindow) {
     //
     // La cabecera de este fichero predijo justo eso --*"el dia que esto se
     // quede atras, la pantalla lo delata sola"*-- y funciono. Por eso ahora los
-    // hechos van MARCADOS y no borrados: una lista que solo ensena lo que falta
+    // hechos van MARCADOS y no borrados: una lista que solo muestra lo que falta
     // no deja ver si alguien la esta manteniendo.
     p.texto(tx, ty, "escalon 2 de 7. la ventana abre y ya lee su propia caja.", INK);
     ty += salto + 6;

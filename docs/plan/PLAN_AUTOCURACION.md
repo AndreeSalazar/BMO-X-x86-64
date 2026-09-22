@@ -3,7 +3,7 @@
 > Escrito el **2026-08-08**, el dia que el kernel empezo a redactar la autopsia
 > de cada tarea que mata.
 >
-> Pregunta del dueno: *"curarse ES en sentido que mi BMO-X atrapa el bug o
+> Pregunta del propietario: *"curarse ES en sentido que mi BMO-X atrapa el bug o
 > fallos que se escapan de memoria y entonces BMO-X expone para ser reparado
 > pero ser reparado AUTOMATICAMENTE (...) es mas alla de metakernel, no?"*
 >
@@ -24,11 +24,11 @@ Se lista primero porque cambia lo que hay que construir: la mitad esta hecha.
 | Una transaccion se corta a medias | copy-on-write: lo viejo sigue entero | ESTRATOS |
 | Un binario esta corrupto | la firma se verifica **antes** de ejecutar | `task/lanzar.rs` |
 | Un raton dice un formato que no se entiende | **se degrada al BOOT** y lo dice | `bmo-uhid` |
-| El dueno de la pantalla muere | el kernel la recupera y pinta sus ultimas cuatro lineas | `fb::proceso_muerto` |
+| El propietario de la pantalla muere | el kernel la recupera y pinta sus ultimas cuatro lineas | `fb::proceso_muerto` |
 
 ★ La fila del raton es la unica que ya es auto-curacion COMPLETA: detecta que no
 entiende el aparato y **se cae a un modo que si funciona**, en vez de morir. Las
-demas contienen el dano; esa lo repara.
+demas contienen el perjuicio; esa lo repara.
 
 ---
 
@@ -41,7 +41,7 @@ Lo que si se puede hacer --y es mucho-- es que **el fallo deje de importar**:
 contenerlo, restaurar el servicio, y entregar el informe exacto a quien si puede
 arreglarlo.
 
-Lo que describe el dueno tiene nombre y es de lo poco que funciono de verdad:
+Lo que describe el propietario tiene nombre y es de lo poco que funciono de verdad:
 los **arboles de supervision** de Erlang/OTP. *Let it crash* -- deja que muera, y
 un supervisor lo relanza con una politica.
 
@@ -159,7 +159,7 @@ acaba de inventar la herencia ambiental que todo el sistema evita.
 # [!] POR QUE ESTE PLAN NO TENIA CASILLAS HASTA EL 2026-09-10
 
 Las diecisiete estaban aqui desde el 08-08 **en tablas**, con su numero y su
-tamano. Lo que les faltaba era la SINTAXIS: `docs/plan/ABIERTO.md` cuenta
+medida. Lo que les faltaba era la SINTAXIS: `docs/plan/ABIERTO.md` cuenta
 `- [ ]`, y una fila de tabla no lo es. O sea que este plan salia con **cero
 casillas abiertas** en el indice, y su trabajo no se veia por ninguna parte.
 

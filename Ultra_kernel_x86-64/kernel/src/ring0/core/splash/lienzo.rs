@@ -51,7 +51,7 @@
 //! log, la pantalla de fallo.
 //!
 //! Para un fotograma de la intro es lo contrario de lo correcto: son unos 8.800
-//! rectangulos, o sea 8.800 `mfence` para ensenar una sola imagen. Por eso
+//! rectangulos, o sea 8.800 `mfence` para mostrar una sola imagen. Por eso
 //! [`Pantalla`] escribe sin barrera y la barrera se pide una vez, en
 //! [`Pantalla::presentar`]. Es tambien el sitio donde entraria el volcado desde
 //! una superficie en RAM el dia que la intro deje de pintar sobre la pantalla
@@ -182,7 +182,7 @@ impl Pantalla {
 ///
 /// La intro pintaba **directamente sobre el framebuffer que el monitor esta
 /// escaneando**. Con unos 8.800 rectangulos por fotograma y sin sincronizar con
-/// nada, lo que el panel ensena a mitad de camino es una mezcla de dos
+/// nada, lo que el panel muestra a mitad de camino es una mezcla de dos
 /// fotogramas: el desgarro que se ve en el video del 2026-08-15 entre el
 /// segundo 5,0 y el 5,4.
 ///
@@ -252,7 +252,7 @@ impl Superficie {
         Some(Superficie { px, w, h, base, marcos })
     }
 
-    /// **Vuelca la superficie a la pantalla y la ensena.** Una copia, una
+    /// **Vuelca la superficie a la pantalla y la muestra.** Una copia, una
     /// barrera.
     ///
     /// Va fila a fila y no de un tiron porque el `stride` del framebuffer puede
@@ -319,7 +319,7 @@ impl Lienzo for Superficie {
 /// apagaba y el tinte no.
 ///
 /// Envolviendo el lienzo, quien dibuja no se entera de que hay un fundido y el
-/// fundido no se entera de que hay una ciudad. Y se pueden apilar: manana un
+/// fundido no se entera de que hay una ciudad. Y se pueden apilar: luego un
 /// tinte, un flash o un recorte de ventana son otra capa igual.
 pub(crate) struct Apagado<'a, L: Lienzo + ?Sized> {
     dentro: &'a mut L,

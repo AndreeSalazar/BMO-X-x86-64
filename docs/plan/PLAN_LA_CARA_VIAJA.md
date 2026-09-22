@@ -7,10 +7,10 @@
 > se escribe ahora porque el POR QUE es largo y porque decidirlo tarde seria
 > decidirlo mal.
 >
-> Nace de una pregunta del dueno el mismo dia:
+> Nace de una pregunta del propietario el mismo dia:
 >
 > > *"podria construir un CRATE especial para recibir datos de navegador? Se que
-> > suena extrano pero ha habido casos como Gemini, Plan 9, Tiny Core, QNX..."*
+> > suena raro pero ha habido casos como Gemini, Plan 9, Tiny Core, QNX..."*
 >
 > La respuesta corta es **si, y el camino corto no pasa por la red**. La larga es
 > este fichero.
@@ -153,7 +153,7 @@ Este documento contaba **28 cajas**. El formato guarda **83 trazos**: por tres.
    una caja con `:hover`         ->  otra vez, para el estado Encima
 ```
 
-★★ **El error no fue el tamano de cada registro --ese se acerto-- sino la
+★★ **El error no fue el medida de cada registro --ese se acerto-- sino la
 UNIDAD.** Se conto lo que se ve en el `.maqueta` (cajas) y lo que viaja es lo que
 se pinta (trazos), y entre las dos cosas hay un emisor que la cuenta a mano no
 modelo.
@@ -163,10 +163,10 @@ modelo.
 
 Y lo que **si** se cumplio es la tesis, que era lo que el numero servia para
 defender: **sigue siendo dos kilobytes.** Para comparar, en el mismo arbol el
-`.bex` de una app pequena son decenas de KiB y un solo fotograma de 1920x1080
+`.bex` de una app chica son decenas de KiB y un solo fotograma de 1920x1080
 son 8,3 MB. La cara de una app cabe **cuatro mil veces** en un fotograma.
 
-★ Y sale pequeno por donde se dijo: **lo caro se quedo en el anfitrion.** Un
+★ Y sale chico por donde se dijo: **lo caro se quedo en el anfitrion.** Un
 navegador tendria que mandar el documento *y* traer el motor que lo maqueta.
 
 [!] Las cadenas son solo el 6% porque se guardan **sin repetir**: diecisiete
@@ -196,7 +196,7 @@ botones que dicen `#boton0`..`#boton9` no pagan diecisiete veces.
 
 ★★ **El 1 y el 2 demuestran todo lo que hay que demostrar.** Que la cara sea un
 dato, que se cambie sin recompilar, que una app la traiga consigo, que el aparato
-no maquete. El 3 no anade ni una idea: anade **distancia**.
+no maquete. El 3 no agrega ni una idea: agrega **distancia**.
 
 Por eso la red no esta en la escalera de este documento. Cuando llegue --por
 `smoltcp`, o por lo que sea-- este trabajo estara hecho y sera un cambio de
@@ -227,13 +227,13 @@ aqui viaja **la geometria ya resuelta**, que es menos aun.
 
 *Mensajes compactos, no capas de abstraccion.* Los ~950 bytes de arriba son
 literalmente eso. Y su leccion util es la que duele: **lo que hunde a un sistema
-grafico pequeno no es el dibujo, son las capas** -- que es la misma razon por la
+grafico chico no es el dibujo, son las capas** -- que es la misma razon por la
 que aqui el motor de maquetacion no viaja.
 
 ### Tiny Core / SliTaz -- **transfiere el AVISO, y es el mas util de los cuatro**
 
 Tenian el nucleo en 10 MB y en cuanto habia que maquetar una ventana entraban
-X11/Wayland y GTK/Qt y el consumo se iba a mas de 1 GB. **El nucleo pequeno no
+X11/Wayland y GTK/Qt y el consumo se iba a mas de 1 GB. **El nucleo chico no
 les sirvio de nada porque estaban encadenados a la capa de dibujo de otro.**
 
 ★ Ese es el aviso para BMO-X y no es teorico: **el dia que se quiera "recibir
@@ -254,7 +254,7 @@ de la red-- **no ha pasado por ningun juez**, y el que lo lee es el compositor.
 Y esto ya tiene precedente escrito, en `PLAN_DIRECTOR.md`:
 
 > `Cabecera::leer` valida ancho/alto/stride **contra los bytes que dijo el
-> kernel**, en `u64` (en 32 bits el producto se desborda y da un total pequeno).
+> kernel**, en `u64` (en 32 bits el producto se desborda y da un total chico).
 > Sin eso, una app que declare 4000x4000 en 1 MiB hace que el compositor lea
 > fuera del prestamo.
 
@@ -281,7 +281,7 @@ lleva el escritorio** -- que es la misma ley que ya rige las superficies.
 ## 7. LO QUE ESTO **NO** DA
 
 - **No da maquetacion en el aparato.** El recurso trae rects; nadie los
-  recalcula. Si la ventana cambia de tamano, el recurso no se adapta -- eso
+  recalcula. Si la ventana cambia de medida, el recurso no se adapta -- eso
   seguiria pidiendo un motor dentro, que es la linea que no se cruza.
 - **No da repeticion sobre datos vivos.** Sigue en pie la regla de
   `LA_MAQUETA_EXIGE.md` 9b: *la fila es un `.maqueta`, la lista es Rust*.

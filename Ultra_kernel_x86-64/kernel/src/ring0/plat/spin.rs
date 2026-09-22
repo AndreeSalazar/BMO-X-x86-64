@@ -233,7 +233,7 @@ pub fn retenido_peor() -> u64 {
 
 /// **Olvidar las retenciones vistas hasta ahora.** Lo llama `start_bus_thread`:
 /// la medida es "cuanto puede un cerrojo robarle al latido", y antes de que
-/// exista un latido no hay a quien robar. El `save` de las 12:48 enseno
+/// exista un latido no hay a quien robar. El `save` de las 12:48 mostro
 /// `phys` 4.651 us en `roja.rs:108`, que es `init()` del asignador en el
 /// arranque: verdad, y sin consecuencia. Con esto, lo que quede en el peor es
 /// lo que paso con el bus vivo.

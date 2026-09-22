@@ -2,12 +2,12 @@
 //!
 //! generacion: hijo -- relaciona tres hechos que le dan de fuera (el estado del
 //! marco, el panel, lo que mide el marco) y devuelve un evento. **No sabe que
-//! hara la app con el**: redibujar a otro tamano, escalar o no hacer nada es
+//! hara la app con el**: redibujar a otro medida, escalar o no hacer nada es
 //! cosa suya, al otro lado del proceso.
 //!
 //! ## De donde sale (2026-09-12)
 //!
-//! El dueno pidio que el DIRECTOR *"genere una ventana o pantalla completa"*. Y
+//! El propietario pidio que el DIRECTOR *"genere una ventana o pantalla completa"*. Y
 //! el propio `surface.rs` tenia escrito lo que faltaba:
 //!
 //! > *Lo que falta para que un juego LLENE el panel es que la app sepa el hueco
@@ -23,7 +23,7 @@
 //! ```text
 //!    1  DIRECTOR   cambia el marco (Alt+Enter, maximizar) y publica un
 //!                  CONFIGURE con el hueco nuevo en el buzon de la app
-//!    2  app        crea una superficie de ese tamano y la OFRECE, sin soltar
+//!    2  app        crea una superficie de ese medida y la OFRECE, sin soltar
 //!                  la vieja
 //!    3  DIRECTOR   ve que la oferta es del MISMO tid: la pone en la misma
 //!                  ranura, conserva el marco, suelta la vieja y enciende
@@ -65,7 +65,7 @@ pub const TOMADA: u32 = 1 << 24;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Estado {
-    /// Con marco, del tamano que tenga el marco.
+    /// Con marco, del medida que tenga el marco.
     Ventana = 0,
     /// Con marco, ocupando el hueco bajo la barra.
     Maximizada = 1,
@@ -93,7 +93,7 @@ pub struct Configure {
 /// ```
 ///
 /// `None` si no cabe en 16 bits o es cero: un hueco de 0 no es un hueco, y
-/// recortarlo a 65535 seria mandar un tamano que nadie pidio.
+/// recortarlo a 65535 seria mandar un medida que nadie pidio.
 pub fn codifica(c: Configure) -> Option<u64> {
     if c.ancho == 0 || c.alto == 0 || c.ancho > 0xFFFF || c.alto > 0xFFFF {
         return None;

@@ -36,7 +36,7 @@
 //!
 //! *** Un rebote sin motivo es un numero que no se puede usar. `cuentas_dma`
 //! decia *"rebotaron 40 MiB"* y con eso no se puede hacer NADA: no se sabe si
-//! sobra alineacion, si hay bufers fuera del espejo, o si es un tamano. Los
+//! sobra alineacion, si hay bufers fuera del espejo, o si es un medida. Los
 //! tres se arreglan de formas distintas y ninguno se parece a los otros.
 //!
 //! > Una decision que no dice por que no se puede mejorar: solo se puede
@@ -188,7 +188,7 @@ pub struct Eleccion {
 /// ```
 ///
 /// *** La 1 va primero porque **es la unica que hace innecesarias a las otras
-/// cinco**. Un corral se calcula como `base + i * tamano` dentro de una arena
+/// cinco**. Un corral se calcula como `base + i * medida` dentro de una arena
 /// que se pidio entera: no puede estar desalineado ni fuera de sitio, y
 /// comprobarlo seria comprobar una construccion. Es lo que hace la NIC, y es la
 /// forma que `DMA_MAESTRO.md` llama *la tercera escuela*.

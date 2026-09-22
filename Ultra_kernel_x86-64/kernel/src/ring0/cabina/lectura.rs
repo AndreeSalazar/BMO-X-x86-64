@@ -22,7 +22,7 @@ pub fn event_lost() -> u64 { EV_LOST.load(core::sync::atomic::Ordering::Relaxed)
 //
 // Hasta hoy CABINA se pintaba **solo desde el shell de Ring 0**, y desde que el
 // escritorio es el arranque eso significa que casi nunca se ve. Lo que F11
-// ensena es el KLOG, que es otra cosa: transcripcion en texto plano, 96 bytes
+// muestra es el KLOG, que es otra cosa: transcripcion en texto plano, 96 bytes
 // por linea y **sin severidad**. La linea que dice si el SMP levanto los doce
 // nucleos existe con su color y su capa, y a Ring 3 le llegaba en gris.
 //
@@ -39,7 +39,7 @@ pub fn event_lost() -> u64 { EV_LOST.load(core::sync::atomic::Ordering::Relaxed)
 // que se puede tener sin romper nada: mirar.
 
 /// Campos de `TASK_OP_CABINA_INFO`. Son una TABLA, igual que `OP_INFO`:
-/// anadir un dato es una fila, no una operacion nueva.
+/// agregar un dato es una fila, no una operacion nueva.
 pub const CABINA_TOTAL: u64 = 0x00;
 pub const CABINA_LOST: u64 = 0x01;
 pub const CABINA_AVAILABLE: u64 = 0x02;

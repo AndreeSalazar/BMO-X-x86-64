@@ -78,7 +78,7 @@ members = [
     "platform/shared/bmo-hostile",
     # LAS IMAGENES del visor: BICO, BMP y QOI a pixeles, probados aqui contra
     # ficheros ROTOS. Un decodificador probado solo en el metal se prueba con
-    # las imagenes buenas, que son las que no hacen dano.
+    # las imagenes buenas, que son las que no hacen perjuicio.
     "platform/shared/bmo-imagen",
     # EL ASPECTO del DIRECTOR en `sys/director.cfg`, leido sin creerse el fichero.
     "platform/shared/bmo-config",
@@ -160,11 +160,11 @@ members = [
     # -- SERVICES (System) ------------------------------------------
     "platform/services/cabina-core",
 
-    # -- BORRADOS el 2026-08-02, por decision del dueno --------------
+    # -- BORRADOS el 2026-08-02, por decision del propietario --------------
     #
     # Seis librerias sin un solo dependiente, todas compilando y ninguna
     # cableada. La regla de esta casa es "cablear o borrar", y llevaban desde
-    # julio sin moverse. El diseno de cada una vive en el commit que las quita;
+    # julio sin moverse. El esquema de cada una vive en el commit que las quita;
     # git no olvida y el arbol deja de mentir sobre lo que hay montado.
     #
     #   timeback (1649)       ESTRATOS hace su trabajo: copy-on-write donde
@@ -173,7 +173,7 @@ members = [
     #                         (cero-confianza en el CODIGO) y la firma BLAKE3
     #                         cubre la admision. Sus tests ni compilaban
     #   nvme (402)            el UNICO NVMe de este banco es el disco de
-    #                         Windows del dueno, que no se toca jamas
+    #                         Windows del propietario, que no se toca jamas
     #   bmo-hal (290)         una tabla de punteros a funcion Ring 0 -> Ring 3
     #                         para un sistema donde Ring 3 habla por
     #                         CAPABILITIES. `bmo-abi` ya es ese contrato
@@ -227,7 +227,7 @@ members = [
     # -- TOOLS (generadores build-time) -----------------------------
     "toolchain/tools/hello-bex",
     "toolchain/tools/fontgen",
-    # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del diseno).
+    # Formatea un volumen ESTRATOS desde el anfitrion (paso 4c del esquema).
     "toolchain/tools/estratos-fmt",
     # El eslabon Rust -> .bex: sin el, Ultra_userspace/ no puede producir
     # nada que el kernel admita, y por eso llevaba meses lleno de stubs.
@@ -287,7 +287,7 @@ members = [
     # Aqui vivia `bmo-arch`: 1147 lineas de capa de abstraccion de CPU
     # con CERO usuarios, que ademas abstraia un `syscall(nr, [u64;6])`
     # que la superficie congelada de 2 syscalls no tiene. Se borro
-    # (regla: o funciona, o se elimina y el diseno queda en un README).
+    # (regla: o funciona, o se elimina y el esquema queda en un README).
     # El plan de portado vive en `platform/README.md`, y quien de
     # verdad separa CPU de contrato es la pareja
     # `Ultra_kernel_<arch>/` + `platform/`.

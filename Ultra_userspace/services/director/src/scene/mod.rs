@@ -38,7 +38,7 @@ pub(crate) mod estilo;
 /// La foto de fondo de `fondo_imagen`, para pintar y para restaurar.
 pub(crate) mod fondo;
 /// Lo que un borrado destapo, para que el cierre del fotograma lo devuelva.
-pub(crate) mod dano;
+pub(crate) mod dirty;
 /// Los pictogramas de cada clase de fichero (app, imagen, audio, texto).
 pub(crate) mod pictos;
 /// LA BARRA: la pastilla flotante, su modelo de color y los widgets.
@@ -81,7 +81,7 @@ pub(crate) mod chrome;
 /// **El GESTO de abrir**, y el unico sitio donde vive. Las dos rejillas de la
 /// casa --iconos y ESTRATOS-- preguntan aqui si un clic fue el segundo, y se
 /// mide en CICLOS: contarlo en vueltas del bucle es lo que tenia el escritorio
-/// senalando iconos sin abrir ninguno.
+/// marcando iconos sin abrir ninguno.
 pub(crate) mod double_click;
 pub(crate) mod output;
 /// **La luz del bus USB en la barra**: si el teclado se muere, se ve sin abrir
@@ -109,7 +109,7 @@ pub(crate) mod entrada;
 /// > Un hueco vacio donde estaba la luz se lee como *"no hay problema"*, que es
 /// > la peor cosa que puede decir un instrumento que se borro.
 ///
-/// ** Tres llamadas repartidas por `paint.rs` es exactamente como se anade un
+/// ** Tres llamadas repartidas por `paint.rs` es exactamente como se agrega un
 /// cuarto chip y se olvida la suya -- y ese fallo no da error: da un hueco. Aqui
 /// la lista esta en un sitio, y el que anada el quinto la ve.
 pub(crate) fn olvidar_la_barra() {
@@ -119,7 +119,7 @@ pub(crate) fn olvidar_la_barra() {
     barra::olvidar();
     // [!] EL PULSO NO ESTA, y no es un olvido: no lleva huella. Su aguja es la
     // prueba de vida del bucle, asi que **tiene que repintarse siempre** --su
-    // propio `amarilla.rs` lo dice desde el 08-09: *"lo que se ensena no es el
+    // propio `amarilla.rs` lo dice desde el 08-09: *"lo que se muestra no es el
     // valor, es que haya latido"*. Un chip que se calla cuando no cambia nada
     // seria, justo aqui, un chip que se calla cuando el bucle se muere.
 }
@@ -170,7 +170,7 @@ pub(crate) const TASKBAR_LINE: u32 = 0x0026_2F42;
 ///
 /// === Por que esto y no un desenfoque ===
 ///
-/// El dueno lo pidio *"inspirado en Wayland con blur"*, y la respuesta honesta
+/// El propietario lo pidio *"inspirado en Wayland con blur"*, y la respuesta honesta
 /// es que **aqui un desenfoque no se veria**: desenfocar necesita TEXTURA, y
 /// detras de la barra hay un degradado vertical que en sus 40 filas varia un
 /// 4 %. El desenfoque de un degradado es el mismo degradado.
@@ -267,7 +267,7 @@ pub(crate) fn rounded_rect(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, co
 /// La sombra de una ventana: **dos capas**, no una.
 ///
 /// Sin canal alfa no hay difuminado, pero dos anillos de oscuridad distinta
-/// enganan bastante bien al ojo -- que es lo unico que se le pide a una sombra.
+/// burlan bastante bien al ojo -- que es lo unico que se le pide a una sombra.
 /// Una sola capa se ve como lo que es: un rectangulo negro detras.
 /// ** Cuanto SOBRESALE la sombra de su ventana, por la derecha y por abajo.
 ///
@@ -329,7 +329,7 @@ pub(crate) fn background_at(x: u32, y: u32, height: u32) -> u32 {
 //
 // ** Sin esto, minimizar es un boton de "desaparece para siempre".
 //
-// Una ventana minimizada sigue abierta --conserva su sitio, su tamano y lo que
+// Una ventana minimizada sigue abierta --conserva su sitio, su medida y lo que
 // estuvieras mirando-- pero no se ve. Si no hay donde encontrarla, ese estado no
 // se distingue de haberla cerrado, y el boton miente sobre lo que hace.
 //
@@ -362,7 +362,7 @@ pub(crate) fn chip_at(px: u32, py: u32, count: u32) -> Option<u32> {
 ///
 /// Hasta hoy la barra tenia tres fichas FIJAS -- Ejecutar, ESTRATOS y CABINA --
 /// y una app no tenia ninguna. Minimizar DOOM lo hacia desaparecer: ni ficha,
-/// y Alt+Tab lo nombraba "App 1" pero soltarlo encima no lo traia. El dueno:
+/// y Alt+Tab lo nombraba "App 1" pero soltarlo encima no lo traia. El propietario:
 /// *"al minimizar no encontre la app, ni en Alt+Tab, es como que se desaparecio"*.
 ///
 /// Van ANTES que los instrumentos (el testigo del USB y los que se pintan a su
@@ -403,11 +403,11 @@ pub(crate) fn paint_chip(
     let fondo = if active { 0x001F_2838 } else { barra::fondo() };
     p.rect(x, y, w, h, fondo);
     if active {
-        // La activa lleva su subrayado, como las pestanas de Datos. Mismo
+        // La activa lleva su subrayado, como las solapas de Datos. Mismo
         // idioma en toda la pantalla.
         p.rect(x, y + h - 2, w, 2, color);
     }
-    // El punto de color se apaga si esta minimizada: es la senal de "esta ahi
+    // El punto de color se apaga si esta minimizada: es la signal de "esta ahi
     // pero no se ve", y se lee sin texto.
     let punto = if minimized { INK_DIM } else { color };
     p.rect(x + 8, y + (h - 8) / 2, 8, 8, punto);
@@ -455,9 +455,9 @@ pub(crate) fn paint_background(p: &bmo::Pantalla) {
 
 // -- La caja -------------------------------------------------------------
 
-/// El tamano de la terminal: **por defecto Y minimo a la vez**.
+/// El medida de la terminal: **por defecto Y minimo a la vez**.
 ///
-/// === Por que el minimo es el tamano de siempre ===
+/// === Por que el minimo es el medida de siempre ===
 ///
 /// Debajo de esto la rejilla de 88x16 no cabe, y una ventana que se puede
 /// encoger hasta dejar su propio contenido fuera es una trampa, no una
@@ -468,8 +468,8 @@ pub(crate) const BOX_W: u32 = 760;
 pub(crate) const BOX_H: u32 = 428;
 
 /// La fraccion de pantalla que pide al abrirse. En 1920x1080 da 768x432, o sea
-/// practicamente el tamano de siempre; en una pantalla mayor se aprovecha, que
-/// es justo lo que un tamano en pixeles no sabe hacer.
+/// practicamente el medida de siempre; en una pantalla mayor se aprovecha, que
+/// es justo lo que un medida en pixeles no sabe hacer.
 const RUN_PCT_W: u32 = 40;
 const RUN_PCT_H: u32 = 40;
 
@@ -483,15 +483,15 @@ pub(crate) const TITLE_H: u32 = 28;
 /// aqui. Antes no existia y no era un olvido -- **no habia donde leerlo**:
 /// `OP_CONSOLE_WRITE` iba siempre al panel del kernel, asi que un terminal de
 /// Ring 3 no podia ver lo que escribia su propio hijo. Con `KIND_CONSOLE` la
-/// salida tiene dueno, y el dueno es este proceso.
+/// salida tiene propietario, y el propietario es este proceso.
 pub(crate) const OUT_COLS: usize = 88;
 /// **El TOPE de filas visibles**, no las que se ven siempre.
 ///
 /// Desde que la terminal se estira, las que se ven de verdad las cuenta
 /// [`RunBox::out_rows`] a partir del alto. Este numero es el techo, y subio de
 /// 16 a 32 el 2026-08-16 para que MAXIMIZAR sirva de algo: con el tope en 16,
-/// una ventana del alto de la pantalla ensenaba exactamente el mismo texto que
-/// una pequena y dejaba el resto en negro -- o sea que el boton estaba pero no
+/// una ventana del alto de la pantalla mostraba exactamente el mismo texto que
+/// una chica y dejaba el resto en negro -- o sea que el boton estaba pero no
 /// pagaba. El historial guardado sigue siendo [`OUT_HIST`].
 pub(crate) const OUT_ROWS: usize = 32;
 /// Cuantas filas se GUARDAN, aunque solo se vean [`OUT_ROWS`].
@@ -531,7 +531,7 @@ pub(crate) const INK_OK: u32 = tema_gen::INK_OK;
 /// aceptar seria dejar que la ruta se corte en silencio a mitad de camino.
 pub(crate) const PATH_MAX: usize = 128;
 
-/// Geometria de la caja, ya resuelta contra el tamano real del panel.
+/// Geometria de la caja, ya resuelta contra el medida real del panel.
 ///
 /// === ** LA TERMINAL ES UNA VENTANA DE VERDAD (2026-08-16) ===
 ///
@@ -627,7 +627,7 @@ impl RunBox {
     /// una cuenta fija en una ventana que se estira deja filas pintadas FUERA
     /// del marco --encima del escritorio, sin nada que las borre-- o un hueco
     /// muerto dentro. El tope sigue siendo [`OUT_ROWS`] porque por encima de eso
-    /// no hay mas historial que ensenar de golpe.
+    /// no hay mas historial que mostrar de golpe.
     ///
     /// El `24` del final es el pie donde viven los atajos: sin reservarlo, la
     /// ultima fila de texto se comeria esa linea al agrandar.
@@ -791,7 +791,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     //
     // Un marco entero del color del sistema alrededor de la caja de texto es lo
     // que hacia que pareciera un cuadro de dialogo de hace treinta anios: el
-    // acento pasa a ser un marco y deja de senalar. Una raya bajo el campo dice
+    // acento pasa a ser un marco y deja de marcar. Una raya bajo el campo dice
     // "aqui se escribe" con un cuarto de la tinta -- es lo que hacen Windows 11
     // y todos los escritorios de Linux modernos, y por este motivo.
     p.rect(c.field_x - 1, c.field_y - 1, c.field_w + 2, c.field_h + 2, BOX_EDGE);
@@ -810,7 +810,7 @@ pub(crate) fn paint_field(p: &bmo::Pantalla, c: &RunBox, path: &[u8], cur: usize
 
     // La ventana visible se calcula alrededor del CURSOR, no del final.
     //
-    // Antes se ensenaba siempre la cola, que valia mientras solo se podia
+    // Antes se mostraba siempre la cola, que valia mientras solo se podia
     // escribir al final. Con el cursor moviendose, eso deja de valer: si te
     // vas al principio de una ruta larga, el cursor se sale por la izquierda y
     // editas a ciegas. La regla es sencilla y es la de cualquier editor --
@@ -882,7 +882,7 @@ pub(crate) fn erase_box(p: &bmo::Pantalla, c: &RunBox) {
 /// * Toma un RECTANGULO y no una ventana concreta.
 ///
 /// Era `borrar_datos(&data::DataWindow)`, atado al tipo de una ventana -- y con
-/// eso, anadir la segunda ventana obligaba a copiar la funcion. Lo que esto
+/// eso, agregar la segunda ventana obligaba a copiar la funcion. Lo que esto
 /// hace no depende de que ventana se cierra: devuelve el fondo de un area.
 pub(crate) fn erase_window(
     p: &bmo::Pantalla,
@@ -903,8 +903,8 @@ pub(crate) fn erase_window(
     let height = height + SHADOW_BOTTOM;
     let width = width + SHADOW_RIGHT;
     // Lo que se borra se APUNTA: las ventanas de debajo las devuelve el cierre
-    // del fotograma (`dano`), porque `scene_color` no las conoce.
-    dano::apuntar(x0, y0, width, height);
+    // del fotograma (`perjuicio`), porque `scene_color` no las conoce.
+    dirty::apuntar(x0, y0, width, height);
     for row in 0..height {
         for col in 0..width {
             let (x, y) = (x0 + col, y0 + row);
@@ -978,7 +978,7 @@ pub(crate) fn erase_moved(
         if tira.vacio() {
             continue;
         }
-        dano::apuntar(tira.x0.max(0) as u32, tira.y0.max(0) as u32,
+        dirty::apuntar(tira.x0.max(0) as u32, tira.y0.max(0) as u32,
             (tira.x1 - tira.x0).max(0) as u32, (tira.y1 - tira.y0).max(0) as u32);
         // *** ESTE ES EL QUE CORRE POR CADA MOVIMIENTO DEL RATON, y por eso era
         // el que se notaba: arrastrar una ventana dispara este bucle hasta 250

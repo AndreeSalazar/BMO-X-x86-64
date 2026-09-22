@@ -204,7 +204,7 @@ BMO_SUPERFICIE *bmo_superficie_crear(int ancho, int alto) {
     return bmo_superficie_crear_con_buzon(ancho, alto, 0);
 }
 
-/* **Contestar a un CONFIGURE**: una superficie nueva del tamano pedido, con el
+/* **Contestar a un CONFIGURE**: una superficie nueva del medida pedido, con el
  * mismo buzon que la vieja, YA OFRECIDA. Devuelve 0 si no hay monton.
  *
  * ** La vieja NO se toca: sigues pintando en ella hasta que

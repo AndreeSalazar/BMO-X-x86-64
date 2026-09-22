@@ -27,7 +27,7 @@
 //! `(opcode, arg0, arg1, arg2)` que ese anillo transporta. `WAIT` devuelve
 //! solo el handle de respuesta.
 //!
-//! Es el reparto que el diseno ya pedia: *el endpoint lleva el control, el
+//! Es el reparto que el esquema ya pedia: *el endpoint lleva el control, el
 //! estuario lleva los datos*. Y el kernel escribe esa pagina **por el
 //! physmap**, nunca por la vista de usuario: escribir en memoria de un proceso
 //! usando la CR3 equivocada es exactamente el fallo que costo la saga del
@@ -347,7 +347,7 @@ fn complete(caller_tid: u32, gen: u32, code: u32, value: u64) {
 
 /// Deja el resultado en el frame GUARDADO del llamante.
 ///
-/// * Es lo que el diseno llamaba *"copia status al frame del caller"*, y no es
+/// * Es lo que el esquema llamaba *"copia status al frame del caller"*, y no es
 /// un atajo: es la unica forma que funciona. Un syscall que bloquea **no puede
 /// calcular su valor de retorno despues de bloquearse** --
 /// `wait_current_checked` vuelve en el acto y el cambio de contexto se consuma

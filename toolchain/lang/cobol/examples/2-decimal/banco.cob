@@ -30,7 +30,7 @@
 
       * Hasta aqui el programa CALCULABA 59.97 y luego imprimia la cadena
       * "total exacto: 59.97" escrita a mano. La aritmetica era de verdad;
-      * lo que se veia, no. Ahora se ensena el VALOR: si el decimal se
+      * lo que se veia, no. Ahora se muestra el VALOR: si el decimal se
       * hubiera perdido, la pantalla lo diria sola.
            DISPLAY "saldo tras 3 cuotas:".
            DISPLAY SALDO.

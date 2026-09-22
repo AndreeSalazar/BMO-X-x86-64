@@ -19,7 +19,7 @@ use super::*;
 ///
 /// Deliberado. Un emulador de terminal completo --ANSI, cursor direccionable,
 /// regiones-- es una pila entera, y hoy lo unico que hay al otro lado son
-/// programas que escriben lineas. Cuando algo pida mas, se anade; adivinarlo
+/// programas que escriben lineas. Cuando algo pida mas, se agrega; adivinarlo
 /// ahora seria escribir codigo que nadie ejercita.
 // -- La tinta ------------------------------------------------------------
 //
@@ -72,7 +72,7 @@ pub(crate) struct Output {
     /// * El indice de fila no sirve para acordarse de un sitio: en cuanto el
     /// historial se llena, `row` se queda clavada en la ultima y las de
     /// debajo se van desplazando. Guardar "empece en la fila 187" y volver a
-    /// mirar ahi un minuto despues senala a otra linea.
+    /// mirar ahi un minuto despues marca a otra linea.
     ///
     /// Un contador que solo sube si sirve: la diferencia entre dos marcas es
     /// **cuantas lineas se escribieron entre medias**, y eso no se mueve
@@ -90,7 +90,7 @@ pub(crate) struct Output {
 }
 
 impl Output {
-    // [!] `#[inline(never)]` NO es por tamano de codigo: es por PILA. Inlineado,
+    // [!] `#[inline(never)]` NO es por medida de codigo: es por PILA. Inlineado,
     // el struct se construye en una ranura del marco del llamante y se copia
     // despues; como llamada aparte, LLVM le pasa la direccion de destino como
     // puntero de retorno (`sret`) y escribe directamente en `.bss`. Medido en
@@ -106,7 +106,7 @@ impl Output {
             //
             // Aqui vivia el bug que hacia que `ls` "no mostrara nada": el
             // ESCRITOR empezaba arriba (`row = 0`) y el LECTOR
-            // (`paint_output`) ensena **las ultimas** `OUT_ROWS` filas del
+            // (`paint_output`) muestra **las ultimas** `OUT_ROWS` filas del
             // historial, o sea `cells[184..200]`. Los dos miraban extremos
             // opuestos del mismo buffer.
             //
@@ -194,7 +194,7 @@ impl Output {
     /// Sube o baja la ventana. Positivo = hacia atras en el tiempo.
     ///
     /// Se topa sola en los dos extremos: no se puede subir mas alla de lo
-    /// guardado ni bajar mas alla de lo ultimo. Un scroll que se sale ensena
+    /// guardado ni bajar mas alla de lo ultimo. Un scroll que se sale muestra
     /// filas en blanco y parece que se ha perdido todo.
     pub(crate) fn scroll_view(&mut self, rows: i32) {
         let limit = OUT_HIST - OUT_ROWS;
@@ -426,7 +426,7 @@ pub(crate) fn paint_output(p: &bmo::Pantalla, c: &RunBox, s: &Output) {
             color,
         );
     }
-    // Y si se ha subido, DECIRLO. Una ventana que ensena el pasado sin avisar
+    // Y si se ha subido, DECIRLO. Una ventana que muestra el pasado sin avisar
     // se confunde con una que se quedo colgada.
     if s.view > 0 {
         let x = c.out_x + (OUT_COLS as u32 - 18) * bmo::GLIFO_ANCHO;

@@ -11,7 +11,7 @@
 //! contra `"funcion"`: pregunta al vocabulario. Cambiar de idioma es cambiar el
 //! fichero que se carga, y no hay una sola linea del compilador que lo sepa.
 //!
-//! Es el patron de `intrinsics.toml` -- *"anadir una instruccion = 1 entrada
+//! Es el patron de `intrinsics.toml` -- *"agregar una instruccion = 1 entrada
 //! TOML, CERO Rust"* -- aplicado a las palabras.
 //!
 //! ## Y por que se CARGA en vez de venir incrustado
@@ -289,7 +289,7 @@ pub enum Origen {
 }
 
 /// Quita las tildes del castellano. No es normalizacion Unicode completa y no
-/// pretende serlo: cubre exactamente las letras que un teclado espanol pone en
+/// pretende serlo: cubre exactamente las letras que un teclado castellano pone en
 /// una palabra clave.
 /// **LAS QUE, SIN LA ENE, DICEN OTRA COSA.**
 ///

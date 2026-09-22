@@ -1,6 +1,6 @@
 # PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que
 
-> Escrito el **2026-09-11** a partir de la pregunta del dueno: *"analiza todo
+> Escrito el **2026-09-11** a partir de la pregunta del propietario: *"analiza todo
 > pero enfocado en CPU en consumo de watts, inspirado en MS-DOS que consume
 > DRASTICAMENTE bajo; se puede? analiza pero la base claro."*
 >
@@ -38,14 +38,14 @@ hay nada que hacer**. Es el `INT 28h` de reposo: el CPU se para y lo despierta
 la siguiente interrupcion.
 
 ** BMO-X ya tiene la primera **por construccion**: dos syscalls, sin demonios,
-sin nada corriendo que el dueno no haya lanzado. Y NO tiene la segunda ni la
+sin nada corriendo que el propietario no haya lanzado. Y NO tiene la segunda ni la
 tercera bien hechas. Eso es lo que este plan mide y arregla.
 
 ## 0.2 El numero que ya existe, y es el que hay que bajar
 
 `cpu/power.rs` lee los contadores RAPL del Zen 3 (`CORE_ENERGY_STAT`,
 `PKG_ENERGY_STAT`, via `cpu_vendor/ryzen_5_5600x/energia.rs`) y `consumo` /
-`save` los ensenan. **Se midio dos veces**:
+`save` los muestran. **Se midio dos veces**:
 
 ```text
    24-08   12 en pie, once girando (`pause`)   57,7 W paquete   9,9 W nucleo (BSP)
@@ -65,7 +65,7 @@ La primera linea del proximo `consumo` vale mas que todo lo que sigue.
 
 ## 0.3 Windows es la INSPIRACION, no la vara
 
-[!] **CORREGIDO el 11-09 por la tarde, a peticion del dueno.** Aqui ponia que
+[!] **CORREGIDO el 11-09 por la tarde, a peticion del propietario.** Aqui ponia que
 Windows en reposo era *"el suelo"* y que BMO-X *"no puede bajar de ahi"*. Las
 dos cosas eran falsas:
 
@@ -142,7 +142,7 @@ se arma.
 vueltas por segundo"*. Cada vuelta son unas nueve puertas (entrada, superficies,
 foco, tick...) a 969 ciclos la puerta: ~9 millones de ciclos por segundo, que
 en CPU es el 0,2 % de un nucleo -- **pero en vatios es que el BSP despierta mil
-veces por segundo aunque el dueno se haya ido a dormir**.
+veces por segundo aunque el propietario se haya ido a dormir**.
 
 Es exactamente el `INT 16h` de `COMMAND.COM`: preguntar sin parar. Lo que
 MS-DOS tenia y esto no: **la tecla LLEGA**. El escritorio deberia dormir en
@@ -275,7 +275,7 @@ cola ya llena en vez de ir al hardware.
             el sondeo drenan a la vez, se pierden eventos: el sondeo se QUITA
    gana     la tecla LLEGA. Es lo que hace posible W4, y de paso baja la
             latencia mano-pixel por el extremo que `bmo-latencia-mano-pixel`
-            senalo
+            marco
    mide     el testigo E6 del bus (`EL_TECLADO_EXIGE.md`), y que `bInterval`
             del raton por fin se respete
 ```
@@ -298,7 +298,7 @@ sin nada que pintar (`will_paint` reune tecla, raton, superficie y el cuarto
 de segundo), el bucle deja el latido y duerme 8 ms por vuelta: de 1.000 a
 ~125 vueltas por segundo. La primera vuelta que pinta lo devuelve a 1.000. La
 barra dice `reposo` y no dispara la alarma de ritmo bajo. Es el principio que
-pidio el dueno: *"si no hace nada, no consume; si esta activo, consume"*.
+pidio el propietario: *"si no hace nada, no consume; si esta activo, consume"*.
 
 **Lo que falta** es la otra mitad: dormir SOBRE la entrada (cero vueltas
 hasta que algo llegue), y esa pide W3. Con el reposo, la tecla tras un rato
@@ -307,13 +307,13 @@ vueltas.
 
 `director/src/main.rs:982`: `dsk.tick.ceder()` deja de esperar el LATIDO y
 pasa a `WAIT` sobre la entrada (o sobre un esperable que la entrada, las
-superficies y el reloj de la barra senalen), con plazo de 250 ms para el
+superficies y el reloj de la barra marquen), con plazo de 250 ms para el
 reloj y los testigos. **Mil vueltas por segundo pasan a ser cuatro, mas una
 por cada cosa que de verdad pase.**
 
 ```text
    cuesta   TAREA en el DIRECTOR + DATO: el esperable de entrada tiene que
-            SENALAR, y hoy la entrada no senala porque no interrumpe (W3)
+            SENALAR, y hoy la entrada no marca porque no interrumpe (W3)
    riesgo   RELOJ -- todo lo que hoy se repinta "en la vuelta" (cursor,
             testigos de la barra, animaciones) pasa a repintarse por evento
             o por el plazo de 250 ms. Lo que dependa de la vuelta se nota
@@ -358,7 +358,7 @@ paquete puede bajar a PC6, que es donde la RAM entra en autorrefresco.
 
 ## [x] W7 -- Lo que no se ve, no se pinta: la VISTA en el buzon -- CODIGO 2026-09-11, metal pendiente
 
-Idea del dueno. El DIRECTOR decide en cada vuelta si se ve cada ventana
+Idea del propietario. El DIRECTOR decide en cada vuelta si se ve cada ventana
 (`bmo_golpe::vista`, con pruebas) y lo deja en el byte 2 del estado del buzon;
 DOOM (`screenvisible`) y `ray.bex` se saltan el dibujo entero cuando no. La que
 sigue pintando oculta se acusa. Regla: R-APP8 de `META-APP_HARD.md`.

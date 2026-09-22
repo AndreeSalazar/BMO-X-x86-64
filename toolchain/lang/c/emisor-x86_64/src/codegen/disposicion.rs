@@ -10,7 +10,7 @@
 //!
 //! [cuesta]  DATO -- de aqui salen los offsets con los que se emiten cargas y
 //!           guardados. Equivocarse escribe en el sitio equivocado con el
-//!           tamano equivocado, y el programa sigue corriendo.
+//!           medida equivocado, y el programa sigue corriendo.
 //!
 //! [riesgo]  ESPEJO
 //!           ESPEJO -- esta es la SEGUNDA cuenta de la disposicion; la primera
@@ -67,7 +67,7 @@ impl Codegen {
         self.struct_aligns.insert(name.to_string(), d.alineado());
     }
 
-    /// **El alineado de un tipo**, que no es su tamano en cuanto deja de ser
+    /// **El alineado de un tipo**, que no es su medida en cuanto deja de ser
     /// un escalar.
     ///
     /// Las tres filas que no son la trivial son las que importan, y las tres
@@ -81,7 +81,7 @@ impl Codegen {
     ///
     /// [!] El `unwrap_or(8)` de la rama del agregado es el mismo suelo que usa
     /// [`Self::type_stack_size`]: un struct que todavia no se ha colocado.
-    /// Conservar los dos suelos iguales es lo que evita que tamano y alineado
+    /// Conservar los dos suelos iguales es lo que evita que medida y alineado
     /// se contradigan a mitad de una disposicion.
     pub(super) fn type_align(&self, typ: &TypeSpec) -> u32 {
         match typ {
@@ -132,7 +132,7 @@ impl Codegen {
     ///
     /// ** Vivia DENTRO del nodo `Expr::Subscript`, puesto por el parser. Un
     /// paso no es informacion del programa --es una consecuencia del tipo--,
-    /// asi que hacerlo viajar obligaba al parser a saber tamanos de agregados,
+    /// asi que hacerlo viajar obligaba al parser a saber medidas de agregados,
     /// que es justo lo que menos sabe. Ahora lo contesta quien tiene la tabla.
     ///
     /// [!] El `.max(1)` no es cosmetico: un paso de 0 convierte `a[i]` en
@@ -229,11 +229,11 @@ impl Codegen {
             };
             let tam = self.struct_sizes.get(nombre).copied().unwrap_or(0);
             let ali = self.struct_aligns.get(nombre).copied().unwrap_or(0);
-            if suya.tamano != tam || suya.alineado != ali {
+            if suya.size != tam || suya.alineado != ali {
                 return Err(CError::new(0, format!(
-                    "disposicion de `{}`: el frontend dice tamano {} alineado {}, \
+                    "disposicion de `{}`: el frontend dice medida {} alineado {}, \
                      y el codegen calcula {} y {}",
-                    nombre, suya.tamano, suya.alineado, tam, ali
+                    nombre, suya.size, suya.alineado, tam, ali
                 )));
             }
             if suya.campos.len() != mia.len() {

@@ -43,7 +43,7 @@ impl Codegen {
         // cadena en el 4096: un `%s` leia basura EN HARDWARE.
         //
         // Rellenar hacia coincidir las dos cuentas. Pero **es la cuenta lo que
-        // habia que arreglar, no el tamano del fichero**: ahora el compilador
+        // habia que arreglar, no el medida del fichero**: ahora el compilador
         // modela la regla del cargador --tres sumas-- y no necesita empujar 2 642
         // bytes de `0xCC` por seccion para que el mundo cuadre.
         //

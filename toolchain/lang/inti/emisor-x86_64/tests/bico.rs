@@ -235,7 +235,7 @@ fn un_bmp_cortado_da_6() {
 
 /// ***EL FICHERO MALICIOSO: una cabecera que dice 3x60000.***
 ///
-/// Es la forma de los fallos de libpng: medidas grandes, datos pequenos. Aqui
+/// Es la forma de los fallos de libpng: medidas grandes, datos chicos. Aqui
 /// la medida se para en el tope y no se multiplica nunca.
 #[test]
 fn un_bmp_que_miente_en_el_alto_da_5() {
