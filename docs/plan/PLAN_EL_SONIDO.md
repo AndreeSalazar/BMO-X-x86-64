@@ -516,6 +516,23 @@ silencio no pasaba onda y no se movia). **Arreglado en la pieza**: el silencio
 pasa ahora por el limite, que suelta con su relajo, y el maestro vuelve al
 reposo (prueba `en_el_silencio_el_limite_suelta_y_el_maestro_vuelve_al_reposo`).
 
+### 16:09 del 22-09: el techo pasa de +24 a +52 dB, y el fader se TECLEA
+
+Con las voces sonando el propietario pidio mas: *"no se escucho mucho, sube a 52"*,
+y *"ponlo como control de numeros"*. Lo que eso es, dicho antes de hacerlo: el
+aparato ya esta a 0 dB (su tope) y una onda no sale por encima de 0 dBFS, asi
+que por encima de ~+24 lo que sube es lo FLOJO y el limite sujeta la punta.
+Es compresion --lo que hace un audifono-- y se oye mas denso, no mas alto en
+el pico. La fila `aplasta` lo dice en rojo.
+
+* `bmo-amplificador`: `MAX_DB_MAESTRO` = +52 dB y `Ganancia::db_hasta`. Las
+  pistas de LA MESA siguen en `MAX_DB` (+24). Por encima de 24 el factor sale
+  por tramos de 20 dB (x10 exacto), como ya salia por abajo. 2 pruebas.
+* el panel F10: escala hasta +52, y **se escriben los dB** (`40`, `-12`, `0`)
+  y Enter; Retroceso borra, ESC deja lo escrito sin cerrar el panel.
+* y el `save` dejo de decir `banco 16777216 B` con `banco de 0 pid`: soltar
+  el banco pone su medida a cero.
+
 ### Lo que NO es
 
 No es LA MESA: una sola perilla para todo lo que suena, no una por programa ni

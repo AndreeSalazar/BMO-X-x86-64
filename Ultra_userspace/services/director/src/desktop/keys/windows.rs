@@ -366,7 +366,13 @@ if let Some(open) = toggle_klog {
 // (`desktop::sonido::abrir_o_cerrar`).
 let toggle_sound = if c == 0x92 {
     Some(!dsk.win.sound_open)
-} else if c == 0x1B && dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound) {
+} else if c == 0x1B
+    && dsk.win.sound_open
+    && dsk.win.focus.es_para(Ventana::Sound)
+    && !crate::desktop::sonido::escribiendo(dsk)
+{
+    // Con dB a medio escribir, ESC deja de escribir (lo atiende el panel) y
+    // no cierra: perder la ventana por arrepentirse de un numero es mucho.
     Some(false)
 } else {
     None

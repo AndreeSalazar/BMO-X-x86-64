@@ -88,9 +88,10 @@ static MUDO: AtomicBool = AtomicBool::new(false);
 /// tiene el volumen que trajo (el de fabrica) y NO se le toca.
 static TOCADO: AtomicBool = AtomicBool::new(false);
 
-/// El techo del fader. Es el del crate: por encima, lo que hay en una
-/// grabacion ya no es onda sino su ruido de fondo amplificado.
-pub const TECHO_DB: i32 = bmo_amplificador::MAX_DB;
+/// El techo del fader: +52 dB, el del MAESTRO en el crate (2026-09-22; era
+/// +24). Por encima de ~+24 lo que sube es lo flojo y el limite sujeta la
+/// punta: es compresion, y el panel lo dice. Ver `MAX_DB_MAESTRO`.
+pub const TECHO_DB: i32 = bmo_amplificador::MAX_DB_MAESTRO;
 /// El suelo: -96 dB, donde una muestra de 16 bits ya es cero.
 pub const SUELO_DB: i32 = bmo_amplificador::MIN_DB;
 

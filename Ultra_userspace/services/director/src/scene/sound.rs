@@ -88,20 +88,34 @@ const DB: i32 = 256;
 /// amplificador, que el escritorio no enlaza).
 const NADA: i32 = -96 * DB;
 
-/// El recorrido del fader. El kernel acepta de -96 a +24; por debajo de -60 no
-/// queda nada que oir, y el MUDO es el boton para el silencio de verdad.
+/// El recorrido del fader. El kernel acepta de -96 a +52 (el techo del MAESTRO
+/// subio de +24 a +52 el 2026-09-22); por debajo de -60 no queda nada que oir,
+/// y el MUDO es el boton para el silencio de verdad.
+///
+/// [!] Por encima de ~+24 el aparato ya esta en su tope y lo que sube es lo
+/// FLOJO: el limite sujeta la punta. Se oye mas denso, no mas alto en el pico,
+/// y la fila `aplasta` lo dice en rojo.
 pub(crate) const FADER_MIN: i32 = -60 * DB;
-pub(crate) const FADER_MAX: i32 = 24 * DB;
+pub(crate) const FADER_MAX: i32 = 52 * DB;
 /// El fader se mueve de medio en medio dB: cada paso que cae en el rango del
 /// aparato son dos transferencias en el bus, y la oreja no distingue menos.
 pub(crate) const FADER_GRANO: i32 = DB / 2;
 
 /// **La escala del fader**: `(dB, milesimas del alto desde ARRIBA)`. Mas
 /// recorrido cerca de 0 que abajo, como en una mesa: ahi es donde se ajusta.
-const ESCALA_FADER: [(i32, u32); 7] =
-    [(24, 0), (12, 180), (0, 420), (-12, 620), (-24, 760), (-45, 920), (-60, 1000)];
+const ESCALA_FADER: [(i32, u32); 9] = [
+    (52, 0),
+    (36, 130),
+    (24, 250),
+    (12, 390),
+    (0, 560),
+    (-12, 700),
+    (-24, 810),
+    (-45, 930),
+    (-60, 1000),
+];
 /// Las marcas que se escriben junto al fader.
-const MARCAS_FADER: [i32; 9] = [24, 12, 6, 0, -6, -12, -24, -45, -60];
+const MARCAS_FADER: [i32; 9] = [52, 36, 24, 12, 0, -12, -24, -45, -60];
 /// **La escala del medidor**, en dBFS.
 const ESCALA_MEDIDOR: [(i32, u32); 8] =
     [(0, 0), (-6, 120), (-12, 250), (-18, 380), (-24, 500), (-36, 700), (-48, 850), (-60, 1000)];
@@ -244,6 +258,10 @@ pub(crate) struct Panel {
     visto_fader: Option<(i32, bool)>,
     visto_medidor: Option<[u32; 7]>,
     visto_numeros: Option<Lectura>,
+    /// **Lo que se esta ESCRIBIENDO**: los dB tecleados, `-` incluido, antes
+    /// del Enter. Tres letras bastan: `-60` y `52` son los extremos.
+    pub(crate) escrito: [u8; 3],
+    pub(crate) escrito_n: usize,
 }
 
 /// Lo que dura la marca de pico: un segundo y medio, lo de una mesa.
@@ -266,7 +284,15 @@ impl Panel {
             visto_fader: None,
             visto_medidor: None,
             visto_numeros: None,
+            escrito: [0; 3],
+            escrito_n: 0,
         }
+    }
+
+    /// Se dejo de escribir: la linea del aviso vuelve a decir lo suyo en el
+    /// refresco siguiente.
+    pub(crate) fn olvidar_cabecera(&mut self) {
+        self.visto_numeros = None;
     }
 
     /// **Se apunta lo que dijo el kernel**: la marca de pico y la luz.
@@ -545,10 +571,27 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &SoundWindow, panel: &Panel) {
     p.texto(
         s.tx,
         s.pie_y,
-        "flechas 1 dB   RePag/AvPag 6 dB   0 vuelve a 0 dB   M mudo",
+        "escribe los dB (40, -12) y Enter   flechas 1 dB   M mudo",
         INK_DIM,
     );
-    p.texto(s.tx, s.pie_y + LINEA, "arrastra el fader con el raton   ESC o F10 cierra", INK_DIM);
+    p.texto(s.tx, s.pie_y + LINEA, "RePag/AvPag 6 dB   arrastra el fader   ESC o F10 cierra", INK_DIM);
+    if panel.escrito_n > 0 {
+        escrito(p, c, panel);
+    }
+}
+
+/// **Lo que se esta escribiendo**, en la linea del aviso: se ve cada tecla, y
+/// dice que hacer con ella. Mientras se escribe, esa linea es de la mano.
+pub(crate) fn escrito(p: &bmo::Pantalla, c: &SoundWindow, panel: &Panel) {
+    if c.chrome.minimized {
+        return;
+    }
+    let s = sitio(c);
+    p.rect(s.tx, s.y_aviso, s.num_x + s.num_w - s.tx, LINEA, SND_BG);
+    let x = p.texto(s.tx, s.y_aviso, "maestro a ", INK);
+    let x = p.texto_bytes(x, s.y_aviso, &panel.escrito[..panel.escrito_n], AMBAR);
+    let x = p.texto(x, s.y_aviso, "_ dB", AMBAR);
+    p.texto(x + 2 * bmo::GLIFO_ANCHO, s.y_aviso, "Enter pone   Retroceso borra   ESC deja", INK_DIM);
 }
 
 /// La linea del aparato y la del aviso.
@@ -763,6 +806,10 @@ pub(crate) fn vivo(p: &bmo::Pantalla, c: &SoundWindow, l: &Lectura, panel: &mut 
         cabecera_si_cambia(p, &s, l, panel);
         numeros(p, &s, l, panel);
         panel.visto_numeros = Some(sin);
+        // Si la cabecera se repinto a media escritura, lo escrito vuelve.
+        if panel.escrito_n > 0 {
+            escrito(p, c, panel);
+        }
     }
 }
 

@@ -35,6 +35,8 @@ const DB: i32 = 256;
 pub(crate) fn abrir_o_cerrar(dsk: &mut Desktop, p: &bmo::Pantalla, abrir: bool, desde_la_barra: bool) {
     dsk.win.sound_open = abrir;
     dsk.snd.panel.arrastrando = false;
+    // Lo que estuviera a medio escribir no sobrevive a cerrar y abrir.
+    dsk.snd.panel.escrito_n = 0;
     if abrir {
         if desde_la_barra {
             dsk.win.sound.junto_a_la_barra(p);
@@ -96,19 +98,34 @@ fn refrescar_ya(dsk: &mut Desktop, p: &bmo::Pantalla) {
     latido(dsk, p);
 }
 
+/// **Hay dB a medio escribir?** Lo pregunta el ESC de `keys::windows`: con algo
+/// escrito, ESC deja de escribir; sin nada, cierra el panel.
+pub(crate) fn escribiendo(dsk: &Desktop) -> bool {
+    dsk.win.sound_open && dsk.snd.panel.escrito_n > 0
+}
+
 /// **Las teclas del panel**, solo con el foco en el. Devuelve si la tomo.
 ///
 /// ```text
 ///    flecha arriba / derecha    +1 dB        RePag   +6 dB
 ///    flecha abajo / izquierda   -1 dB        AvPag   -6 dB
-///    0                          a 0 dB       M       mudo
+///    un NUMERO y Enter          esos dB      M       mudo
 /// ```
+///
+/// ** EL NUMERO (2026-09-22). El propietario: *"ponlo como control de
+/// numeros"*. Se teclea `40`, `-12`, `0` y Enter, y el fader va ALLI -- con la
+/// misma rampa que el raton, por el mismo `mover`. Retroceso borra una letra y
+/// ESC deja lo escrito sin cerrar el panel. Lo que pase del recorrido se queda
+/// en el borde, y el numero de la columna dice donde quedo.
 ///
 /// Con el foco en Ejecutar, una `m` es una letra que el propietario esta
 /// escribiendo: por eso la guarda del foco va primero, como en el klog.
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> bool {
     if !(dsk.win.sound_open && dsk.win.focus.es_para(Ventana::Sound)) {
         return false;
+    }
+    if escribir(dsk, p, c) {
+        return true;
     }
     let l = scene::sound::leer();
     let f = l.fader_efectivo();
@@ -117,11 +134,62 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> bool {
         0x81 | 0x82 => mover(dsk, p, f - DB),
         0x87 => mover(dsk, p, f + 6 * DB),
         0x88 => mover(dsk, p, f - 6 * DB),
-        b'0' => mover(dsk, p, 0),
         b'm' | b'M' => callar(dsk, p, !l.mudo),
         _ => return false,
     }
     true
+}
+
+/// **La entrada de numeros.** Devuelve si la tecla era suya.
+fn escribir(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> bool {
+    let n = dsk.snd.panel.escrito_n;
+    match c {
+        b'0'..=b'9' | b'-' => {
+            // El signo solo delante; y tres letras son el tope (`-60`).
+            if (c == b'-' && n > 0) || n >= dsk.snd.panel.escrito.len() {
+                return true;
+            }
+            dsk.snd.panel.escrito[n] = c;
+            dsk.snd.panel.escrito_n = n + 1;
+        }
+        0x08 if n > 0 => {
+            dsk.snd.panel.escrito_n = n - 1;
+            if n == 1 {
+                dejar(dsk, p);
+                return true;
+            }
+        }
+        0x1B if n > 0 => {
+            dejar(dsk, p);
+            return true;
+        }
+        0x0D | 0x0A if n > 0 => {
+            let (neg, cifras) = match dsk.snd.panel.escrito[0] {
+                b'-' => (true, &dsk.snd.panel.escrito[1..n]),
+                _ => (false, &dsk.snd.panel.escrito[..n]),
+            };
+            let mut v = 0i32;
+            for &d in cifras {
+                v = v * 10 + (d - b'0') as i32;
+            }
+            let hay_cifras = !cifras.is_empty();
+            dejar(dsk, p);
+            if hay_cifras {
+                mover(dsk, p, if neg { -v * DB } else { v * DB });
+            }
+            return true;
+        }
+        _ => return false,
+    }
+    scene::sound::escrito(p, &dsk.win.sound, &dsk.snd.panel);
+    true
+}
+
+/// Se deja de escribir: la linea del aviso vuelve a lo suyo.
+fn dejar(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    dsk.snd.panel.escrito_n = 0;
+    dsk.snd.panel.olvidar_cabecera();
+    refrescar_ya(dsk, p);
 }
 
 /// **El raton sobre el panel**: los tres botones del marco, el MUDO y el

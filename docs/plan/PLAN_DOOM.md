@@ -721,7 +721,7 @@ ficheros compilados con cl):
 | picos | el mas alto 30.534 de 32.767 con la ganancia x1,75; **0 sujetadas** |
 | en Windows (cl /O2) | 250-500 veces el tiempo real |
 | ★ BMO C contra cl | **el mismo hash** en 2 s de D_E1M1 (48.000 muestras) en el emulador |
-| en BMO C | ~47 M instrucciones por segundo de musica: del orden de 5 ms en el Ryzen, sin medir |
+| en BMO C | ~47 M instrucciones por segundo de musica: "del orden de 5 ms en el Ryzen" -- **FALSO**, el metal dijo ~14 ms por 150 ms de musica (ver 16:09 abajo) |
 
 ★ Y lo que se cazo al medir: **DMX numera las notas una octava por ENCIMA del
 MIDI**. La primera fila de su tabla de frecuencias es un F-Number de 0x133
@@ -742,6 +742,33 @@ sigue corriendo callada.
 | en la consola, al rato | `[bmo] musica: 96 s renderizados en N ms (sujetadas 0, notas sin voz 0)` | nunca sale: `Poll` no se llama |
 | el derretido y cargar un mapa | la musica sigue, sin corte | `la voz ALCANZO al render`: el adelanto de 6 s no basto |
 | Options -> Music Volume | sube y baja | no cambia: `ajustar` no llega |
+
+### 16:09 del 22-09: el metal contesta -- SUENA, y la cuenta del coste era FALSA
+
+El `save` de las 16:09: `tocadas 594`, `rechazadas 0`, `perdidas 0`, `tarde 0`,
+`tirones 0`. Los efectos por voces y la musica suenan. Pero el `[perf]` de
+DOOM (`datos/APPSDOOM.TXT`) dice otra cosa que nadie pregunto:
+
+```text
+   antes de cambiar de mapa   57 fps   fotograma 17,4 ms   blit ~1,7 ms
+   despues (casi un minuto)   31 fps   fotograma ~31 ms    blit ~1,3 ms
+```
+
+Empieza justo detras de `[heap] cepo ARMADO`, que lo arma `P_SetupLevel`: el
+mapa nuevo trae cancion nueva, y `Poll` renderizaba 150 ms de musica por
+fotograma. **Eso costaba ~14 ms en el Ryzen** -- no el ~1 ms de la tabla de
+arriba, que salia de contar instrucciones en el emulador con una cancion
+todavia floja (el principio de D_E1M1) y suponer un ritmo de CPU que BMO C no
+da. Dos arreglos, los dos medidos:
+
+| que | antes | ahora |
+|---|---|---|
+| el sintetizador: ondas en tabla, sin llamadas por muestra, envolvente y LFO cada 4 muestras | 95 M instrucciones por 2 s de D_E1M1 | **37,6 M** (x2,5), y el MISMO hash en BMO C y en cl |
+| `Poll` | 150 ms de musica, cueste lo que cueste | **~2 ms de reloj** por vuelta; 8 si la voz esta a menos de 2 s de lo hecho |
+
+Y el numero que ya no se adivina: al acabar cada cancion DOOM escribe
+`[bmo] musica: N s renderizados en M ms = X us por segundo de musica`. Esa
+linea es el juez; la estimacion de arriba queda como lo que fue.
 
 ---
 

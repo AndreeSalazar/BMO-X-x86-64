@@ -77,6 +77,32 @@ fn la_ganancia_sube_siempre_que_se_le_pide_mas() {
 }
 
 #[test]
+fn el_techo_del_maestro_llega_a_52_db_y_sube_siempre() {
+    // +52 dB son x398,1: en Q16.16, 26.090.000 y pico.
+    let g = Ganancia::db_hasta(52 * DB, MAX_DB_MAESTRO);
+    assert!(!g.se_recorto());
+    let f = g.factor_q16() as u64;
+    assert!((26_050_000..=26_130_000).contains(&f), "+52 dB dio {}", f);
+    // Monotona tambien por encima de 24, cruzando el cambio de tabla a tramos.
+    let mut antes = 0;
+    let mut db = 20 * DB;
+    while db <= MAX_DB_MAESTRO {
+        let f = Ganancia::db_hasta(db, MAX_DB_MAESTRO).factor_q16();
+        assert!(f >= antes, "en {} (1/256 dB) bajo: {} tras {}", db, f, antes);
+        antes = f;
+        db += 1;
+    }
+    // Pedir mas se recorta a 52 y se dice; y `db` a secas sigue en 24.
+    let g = Ganancia::db_hasta(80 * DB, MAX_DB_MAESTRO);
+    assert!(g.se_recorto());
+    assert_eq!(g.en_db(), MAX_DB_MAESTRO);
+    assert_eq!(Ganancia::db(40 * DB).en_db(), MAX_DB);
+    // Y una muestra de 16 bits a pleno por x398 cabe en 32 bits.
+    let y = Ganancia::db_hasta(MAX_DB_MAESTRO, MAX_DB_MAESTRO).aplicar(i16::MIN as i32);
+    assert!(y < -13_000_000 && y > -13_100_000, "dio {}", y);
+}
+
+#[test]
 fn lo_que_no_cabe_se_recorta_y_se_dice() {
     let g = Ganancia::db_entero(40);
     assert!(g.se_recorto());

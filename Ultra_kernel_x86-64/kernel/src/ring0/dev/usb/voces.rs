@@ -214,6 +214,11 @@ pub fn suena(canal: u64) -> u64 {
 pub fn soltar(pid: u32) {
     if pid != 0 && BANCO_PID.load(Ordering::SeqCst) == pid {
         BANCO_PID.store(0, Ordering::SeqCst);
+        // ** Y la medida a cero: el `save` decia `banco 16777216 B` con `banco
+        // de 0 pid`, un numero sin propietario que parece un banco vivo. Nadie
+        // la lee sin mirar antes el pid (el bus y `block_returned`), asi que
+        // ponerla a cero no cambia lo que suena, cambia lo que se CUENTA.
+        BANCO_BYTES.store(0, Ordering::SeqCst);
         BANCO_GEN.fetch_add(1, Ordering::SeqCst);
         PENDIENTES.store(0, Ordering::SeqCst);
         cabina::count("audio", "voz: banco SOLTADO, pid", pid as u64);

@@ -37,7 +37,7 @@
 //! limitador de mezcla, y aqui sale gratis porque las muestras llegan
 //! intercaladas.
 
-use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB, MIN_DB};
+use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB_MAESTRO, MIN_DB};
 
 /// **Lo que la rampa se mueve por bloque** en la zona donde se oye: 1 dB. Un
 /// bloque del tubo es 1 ms, asi que subir 12 dB tarda 12 ms -- mas rapido de
@@ -84,7 +84,7 @@ pub struct Lectura {
 /// **La ultima etapa**: mando con rampa, limite compartido y medidor por lado.
 #[derive(Clone, Copy, Debug)]
 pub struct Maestro {
-    /// Lo que pidio el mando, ya recortado a [`MIN_DB`]..[`MAX_DB`].
+    /// Lo que pidio el mando, ya recortado a [`MIN_DB`]..[`MAX_DB_MAESTRO`].
     objetivo: MilesimasDb,
     mudo: bool,
     /// Por donde va la rampa. [`MIN_DB`] es callado del todo.
@@ -119,7 +119,7 @@ impl Maestro {
     /// **El mando**: a donde tiene que ir la ganancia y si calla. No se aplica
     /// de golpe: lo lleva la rampa en los bloques siguientes.
     pub fn pedir(&mut self, db: MilesimasDb, mudo: bool) {
-        self.objetivo = db.clamp(MIN_DB, MAX_DB);
+        self.objetivo = db.clamp(MIN_DB, MAX_DB_MAESTRO);
         self.mudo = mudo;
     }
 
@@ -169,8 +169,8 @@ impl Maestro {
             return;
         }
         let (antes, despues) = self.avanzar();
-        let f0 = Ganancia::db(antes).factor_q16() as i64;
-        let f1 = Ganancia::db(despues).factor_q16() as i64;
+        let f0 = Ganancia::db_hasta(antes, MAX_DB_MAESTRO).factor_q16() as i64;
+        let f1 = Ganancia::db_hasta(despues, MAX_DB_MAESTRO).factor_q16() as i64;
         let tramas = (muestras.len() / canales).max(1) as i64;
         for (i, m) in muestras.iter_mut().enumerate() {
             let k = (i / canales) as i64;
@@ -198,8 +198,8 @@ impl Maestro {
         let canales = canales.max(1);
         let n = acc.len().min(salida.len());
         let (antes, despues) = self.avanzar();
-        let f0 = Ganancia::db(antes).factor_q16() as i64;
-        let f1 = Ganancia::db(despues).factor_q16() as i64;
+        let f0 = Ganancia::db_hasta(antes, MAX_DB_MAESTRO).factor_q16() as i64;
+        let f1 = Ganancia::db_hasta(despues, MAX_DB_MAESTRO).factor_q16() as i64;
         let tramas = (n / canales).max(1) as i64;
         for i in 0..n {
             let k = (i / canales) as i64;
@@ -527,10 +527,38 @@ mod pruebas {
     }
 
     #[test]
-    fn lo_que_se_pide_de_mas_se_recorta_al_techo_del_crate() {
+    fn a_52_db_una_onda_muy_floja_sube_casi_400_veces_sin_doblegar() {
+        let mut m = Maestro::nuevo(48_000, 2);
+        m.pedir(52 * DB, false);
+        // La rampa sube de 0 a 52 a 1 dB por bloque: 52 bloques.
+        for _ in 0..52 {
+            let mut b = cuadrada(30, 48);
+            m.pasar(&mut b, 2);
+        }
+        assert_eq!(m.actual(), 52 * DB);
+        let _ = m.lectura();
+        let mut b = cuadrada(30, 48);
+        m.pasar(&mut b, 2);
+        // 30 x 398 = ~11.940: lejos del techo, sin limite.
+        assert!(b[0] > 11_800 && b[0] < 12_050, "{}", b[0]);
+        let l = m.lectura();
+        assert_eq!(l.dobladas, 0);
+        // Y una fuerte a +52 la sujeta el limite: ni una fuera, ni una a pelo.
+        for _ in 0..50 {
+            let mut b = cuadrada(20_000, 48);
+            m.pasar(&mut b, 2);
+            assert!(b.iter().all(|&x| x.unsigned_abs() <= 32_767));
+        }
+        let l = m.lectura();
+        assert_eq!(l.dobladas, 0);
+        assert!(l.reduccion < -40 * DB, "a +52 sobre 20.000 tiene que aplastar ~46 dB: {}", l.reduccion);
+    }
+
+    #[test]
+    fn lo_que_se_pide_de_mas_se_recorta_al_techo_del_maestro() {
         let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(100 * DB, false);
-        assert_eq!(m.objetivo(), MAX_DB);
+        assert_eq!(m.objetivo(), MAX_DB_MAESTRO);
         m.pedir(-500 * DB, false);
         assert_eq!(m.objetivo(), MIN_DB);
     }

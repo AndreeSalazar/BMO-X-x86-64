@@ -85,6 +85,18 @@ pub const DB: MilesimasDb = 256;
 /// en vez de fingir que se puso.
 pub const MAX_DB: MilesimasDb = 24 * DB;
 
+/// **El techo del MAESTRO: +52 dB** (x398), y SOLO del maestro (2026-09-22).
+///
+/// El propietario, con DOOM sonando y el fader a +24: *"no se escucho mucho"*.
+/// La cuenta de lo que eso significa, dicha por delante: el aparato ya esta
+/// en su tope (0 dB) y una onda no puede salir por encima de 0 dBFS, asi que
+/// por encima de ~+24 dB lo que sube NO es la punta: es lo flojo, que se
+/// acerca a la punta. El limite del maestro sujeta el resto. Es COMPRESION --
+/// lo que hace un audifono para quien oye poco-- y el panel lo dice
+/// (`aplasta`). Las pistas de LA MESA siguen en [`MAX_DB`]: esto es la perilla
+/// de la habitacion, no la de cada fuente.
+pub const MAX_DB_MAESTRO: MilesimasDb = 52 * DB;
+
 /// El suelo: por debajo de -96 dB una muestra de 16 bits ya es cero.
 pub const MIN_DB: MilesimasDb = -96 * DB;
 
@@ -128,12 +140,19 @@ impl Ganancia {
 
     /// Desde dB (en 1/256). Lo que no cabe se recorta y se DICE.
     pub fn db(db: MilesimasDb) -> Ganancia {
+        Ganancia::db_hasta(db, MAX_DB)
+    }
+
+    /// Desde dB, con OTRO techo: el del maestro ([`MAX_DB_MAESTRO`]). Un techo
+    /// por encima de ese se toma como ese: el factor en Q16.16 tiene que caber.
+    pub fn db_hasta(db: MilesimasDb, techo: MilesimasDb) -> Ganancia {
+        let techo = techo.min(MAX_DB_MAESTRO);
         if db <= MIN_DB {
             let mut g = Ganancia::SILENCIO;
             g.recortada = db < MIN_DB;
             return g;
         }
-        let (db_usado, recortada) = if db > MAX_DB { (MAX_DB, true) } else { (db, false) };
+        let (db_usado, recortada) = if db > techo { (techo, true) } else { (db, false) };
         Ganancia { db: db_usado, factor: factor_q16(db_usado), recortada, muda: false }
     }
 
@@ -218,6 +237,18 @@ fn factor_q16(db: MilesimasDb) -> u32 {
             inv /= 10;
         }
         return inv as u32;
+    }
+    if db > MAX_DB {
+        // ** POR ENCIMA DE +24 (solo el maestro llega): los tramos de 20 dB
+        // se sacan fuera, como en los negativos, porque la tabla llega a 24.
+        // 20 dB son x10 exactos. A +52 el factor es 398 x 65.536 = 26 M: cabe.
+        let decenas = db / (20 * DB);
+        let resto = db % (20 * DB);
+        let mut f = factor_positivo(resto) as u64;
+        for _ in 0..decenas {
+            f *= 10;
+        }
+        return f.min(u32::MAX as u64) as u32;
     }
     factor_positivo(db)
 }
