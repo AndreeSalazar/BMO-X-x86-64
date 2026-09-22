@@ -452,13 +452,32 @@ enseno que el `latido tarde 244 ms` de las 13:52 era el PITIDO girando en
 el syscall, no `buscar()`: `AUDIO_OP_BEEP` ahora duerme con `wait_current`.
 Sin metal.
 
+## [X] A8 -- EL ESQUEMA DE WINDOWS, ENTERO (2026-09-21, noche; *"mata el viejo y usa el nuevo"*)
+
+Los dos caminos (`bmo_xhci::address_device` de una pieza, y `pasos.rs` uno
+por bombeo) hacen ahora la secuencia de 6.1: Enable Slot; `Address Device`
+con **BSR = 1** (la ranura en `Default`, el aparato en la direccion 0, EP0
+con paquete supuesto **64** para Full Speed); `GET_DESCRIPTOR(64)` en la
+direccion 0 (un aparato de 8 contesta 8 y para: paquete corto, legal; uno de
+64, los 18); byte 7 y `Evaluate Context` si no coincide; **segundo reset**
+del puerto; `Reset Device` (xHCI 4.6.11, `TRB_RESET_DEV`, para que el xHC
+sepa del reset); `Address Device` con BSR = 0; 10 ms para asentar; y
+entonces los 18, la cabecera y la configuracion. En `pasos.rs` son nueve
+pasos mas (`Reset2`, `Reseteando2`, `Recuperando2`, `ResetDevice`,
+`EsperandoResetDevice`, `Direccionar2`, `EsperandoDireccion2`, `Asentando`).
+Las pruebas: un teclado de paquete 8 pasa por `address0, get_dev, evaluate,
+reset, reset_device, address, get_dev, ...` (12 hechos, en 260-340 ms de
+plazos); el de paquete 64 entra SIN evaluate y sin Babble. El esquema viejo
+(`mps0_supuesto` 8 para Full Speed y los descriptores tras el SET_ADDRESS)
+esta retirado, no aparcado. Sin metal.
+
 # 6. EL ADN: lo que hacen Windows y Linux, contra lo nuestro (2026-09-21, noche)
 
 El dueno, tras el save de las 19:45: *"que tal si estudiar como se hizo
 Windows el driver generico, y lo mismo con Linux, para tener ese ADN"*. La
 sospecha es correcta, y el `Evaluate Context` que faltaba (A7) es la prueba:
 no era un invento, era un paso que los dos anfitriones dan desde hace veinte
-anos y aqui no estaba. Lo que sigue es ese ADN escrito como LISTA contra el
+anios y aqui no estaba. Lo que sigue es ese ADN escrito como LISTA contra el
 codigo de BMO-X. Se lee, no se copia: Linux es GPL y este repo es Apache-2.0,
 y Ring 0 esta cerrado a codigo de terceros. La secuencia y los numeros son
 del protocolo, no de nadie.
@@ -500,15 +519,11 @@ ranura en `Default` sin mandar `SET_ADDRESS`, y despues un segundo `Address
 Device` con BSR = 0. El reajuste del EP0 es `usb_ep0_reinit` ->
 `xhci_check_maxpacket` -> `Evaluate Context`.
 
-**BMO-X hoy** (tras A7): el esquema VIEJO, entero: reset, `Address Device`
-(BSR = 0), 8 bytes, byte 7, `Evaluate Context`, 18. Es correcto por el
-protocolo. Lo que NO tiene y el nuevo si: la lectura en la direccion 0 y el
-segundo reset -- que es lo que algunos aparatos ESPERAN porque es lo que
-vieron en la fabrica. **Es el siguiente candidato si el proximo save sigue
-diciendo `cc=254 no contesto` en el puerto 1 con el evaluate ya puesto.**
-Tampoco tiene: alternar esquemas entre reintentos, ni una tabla de quirks
-(`USB_QUIRK_DELAY_INIT`, aparatos que necesitan 2 ms extra tras
-`SET_ADDRESS`).
+**BMO-X hoy** (tras A8, la misma noche): el esquema NUEVO, entero, en los
+dos caminos. El viejo se retiro. Lo que sigue sin tener: alternar esquemas
+entre reintentos (Linux lo hace; aqui el segundo intento corta la corriente,
+que es otra medicina) y una tabla de quirks (`USB_QUIRK_DELAY_INIT`,
+aparatos que necesitan mas tras `SET_ADDRESS`).
 
 ## 6.2 -- Reproducir: lo que hace `snd-usb-audio` (Linux) / `usbaudio.sys` (Windows)
 

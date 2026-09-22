@@ -341,43 +341,22 @@ pub unsafe fn leer_descriptores(
 
     let mut dev_desc = [0u8; 18];
     let mut n = 0usize;
-    // *** PRIMERO OCHO BYTES, y no dieciocho (2026-09-21). Caben en
-    // cualquier `bMaxPacketSize0`; los 18 de golpe solo cuadran si el
-    // aparato tiene paquete de 8 --teclados y ratones-- y un audifono con
-    // paquete de 64 los manda en uno solo, que el xHC rechaza como Babble.
-    // Ver `bmo_xhci::evaluar_mps0`.
+    // El paquete del EP0 ya es el de verdad: `address_device` leyo los 8
+    // primeros bytes en la direccion 0 y ajusto el EP0 antes de dar la
+    // direccion (el esquema de Windows). Aqui van los 18 enteros.
     //
     // Tres lecturas con 10 ms entre ellas (eran 50): un aparato sano contesta
     // en menos de un milisegundo, y un mudo se llevaba 150 ms del raton en
     // cada intento. Lo que tarda de verdad en estar listo ya lo cubre el
     // debounce y la espera entre intentos, no esto.
-    for _ in 0..3 {
-        n = bmo_xhci::get_device_descriptor(slot, &mut dev_desc[..8]);
-        if n >= 8 { break; }
-        h.delay_ms(10);
-    }
-    if n < 8 {
-        h.log("[uhid] no dev desc\n");
-        return Err(detalle_sin_descriptores(PASO_SIN_APARATO, 0));
-    }
-    // El byte 7 dice el paquete de verdad; si no es el supuesto, el xHC
-    // tiene que saberlo antes de pedir mas.
-    let declarado = bmo_xhci::mps0_declarado(dev_desc[7], speed);
-    if declarado != bmo_xhci::mps0_supuesto(speed) && declarado != 0 {
-        h.log_u64("[uhid] mps0 declarado=", declarado as u64);
-        if !bmo_xhci::evaluar_mps0(slot, declarado) {
-            h.log("[uhid] evaluate context FALLO\n");
-        }
-    }
-    // Y ahora los 18 enteros.
-    n = 0;
+    let _ = speed;
     for _ in 0..3 {
         n = bmo_xhci::get_device_descriptor(slot, &mut dev_desc);
         if n >= 8 { break; }
         h.delay_ms(10);
     }
     if n < 8 {
-        h.log("[uhid] no dev desc (18)\n");
+        h.log("[uhid] no dev desc\n");
         return Err(detalle_sin_descriptores(PASO_SIN_APARATO, 0));
     }
     h.log_u64(" class=", dev_desc[4] as u64);

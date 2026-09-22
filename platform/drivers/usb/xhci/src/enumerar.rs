@@ -283,9 +283,37 @@ pub(crate) fn ep0_mut(slot: u8) -> Option<&'static mut Ep0Info> {
 /// quedaba pedido para siempre; el bucle de adopcion del arranque los fue
 /// gastando de uno en uno hasta agotar los 64 del controlador. La pareja
 /// pedir/devolver tiene que estar en la misma funcion o no esta.
+///
+/// *** EL ESQUEMA DE WINDOWS, ENTERO (2026-09-21, noche; decision del dueno:
+/// *"mata el viejo y usa el nuevo, vamos a empezar por completo como
+/// Windows"*). Un aparato USB se prueba en la fabrica contra Windows, y
+/// esta es la secuencia que vio alli; Linux la copio (`hub.c`, "new scheme")
+/// porque hay aparatos que solo entran asi:
+///
+/// ```text
+///   1. Enable Slot
+///   2. Address Device con BSR = 1: el xHC monta la ranura y el EP0 (paquete
+///      supuesto 64 para Full Speed) y la deja en `Default`, SIN mandar
+///      SET_ADDRESS: el aparato sigue en la direccion 0
+///   3. GET_DESCRIPTOR(aparato, 64) en la direccion 0: un aparato de 8
+///      contesta 8 y para; uno de 64, los 18. En los 8 primeros va el byte 7
+///   4. si el byte 7 no es lo supuesto: Evaluate Context
+///   5. RESET del puerto otra vez (lo que el aparato espera)
+///   6. Reset Device: el xHC se entera del reset (xHCI 4.6.11)
+///   7. Address Device con BSR = 0: ahora si, SET_ADDRESS
+///   8. 10 ms para que asiente (USB 2.0: 2 ms; Linux da 10)
+/// ```
+///
+/// Lo de antes (reset, SET_ADDRESS, y despues los descriptores con paquete
+/// supuesto 8) es el "esquema viejo" de Linux, correcto por el protocolo y
+/// suficiente para teclados y ratones. Se retira porque el que importa es
+/// el que los aparatos VIERON.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
 pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
     let slot = enable_slot()?;
-    match direccionar_en_slot(port, speed, slot) {
+    match direccionar_como_windows(port, speed, slot) {
         Some(s) => Some(s),
         None => {
             disable_slot(slot);
@@ -294,9 +322,92 @@ pub unsafe fn address_device(port: u8, speed: u8) -> Option<u8> {
     }
 }
 
-unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8) -> Option<u8> {
+unsafe fn direccionar_como_windows(port: u8, speed: u8, slot: u8) -> Option<u8> {
+    let h = hal();
+    // 2. En la direccion 0.
+    if direccionar_en_slot(port, speed, slot, true).is_none() {
+        h.log("[xhci] address (BSR=1) FALLO\n");
+        return None;
+    }
+    // 3. Los 64 bytes en la direccion 0: solo hacen falta los 8 primeros.
+    let mut cabeza = [0u8; 64];
+    let mut n = 0usize;
+    for _ in 0..3 {
+        n = get_device_descriptor(slot, &mut cabeza);
+        if n >= 8 { break; }
+        h.delay_ms(10);
+    }
+    if n < 8 {
+        h.log("[xhci] ni los 8 primeros bytes en la direccion 0\n");
+        return None;
+    }
+    // 4. El paquete de verdad.
+    let declarado = mps0_declarado(cabeza[7], speed);
+    if declarado != mps0_supuesto(speed) && declarado != 0 {
+        h.log_u64("[xhci] mps0 declarado=", declarado as u64);
+        if !evaluar_mps0(slot, declarado) {
+            h.log("[xhci] evaluate context FALLO\n");
+            return None;
+        }
+    }
+    // 5. El segundo reset, y 6. que el xHC lo sepa.
+    if !port_reset(port) {
+        h.log("[xhci] el segundo reset FALLO\n");
+        return None;
+    }
+    if !reset_device(slot) {
+        h.log("[xhci] reset device FALLO\n");
+        return None;
+    }
+    // 7. SET_ADDRESS de verdad, y 8. que asiente.
+    direccionar_en_slot(port, speed, slot, false)?;
+    h.delay_ms(PLAZO_ASENTAR_MS);
+    Some(slot)
+}
+
+/// Lo que se le da a un aparato para asentar su direccion nueva antes de
+/// pedirle nada: USB 2.0 dice 2 ms; Linux da 10, y hay aparatos que los
+/// necesitan.
+pub const PLAZO_ASENTAR_MS: u64 = 10;
+
+/// **`Reset Device`: el xHC se entera de que el puerto se reseteo** (xHCI
+/// 4.6.11). La ranura vuelve a `Default` con su EP0; los demas endpoints se
+/// deshabilitan. Sin esto, un `Address Device` tras un reset trabaja sobre
+/// un estado que el xHC cree distinto del real. Lanzado; devuelve la fisica
+/// del TRB para `vigilar_comando`.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn reset_device_lanzar(slot: u8) -> Option<u64> {
+    let ctrl = CTRL.as_mut()?;
+    let mio = ctrl.cmd_ring.enqueue(&Trb {
+        dw0: 0, dw1: 0, dw2: 0,
+        dw3: ((slot as u32) << 24) | (TRB_RESET_DEV << 10),
+    });
+    ring_doorbell(0, 0);
+    Some(mio)
+}
+
+/// `reset_device_lanzar` + la espera bloqueante.
+///
+/// # Safety
+/// MMIO del xHC: con el CR3 del kernel puesto.
+pub unsafe fn reset_device(slot: u8) -> bool {
+    let mio = match reset_device_lanzar(slot) { Some(m) => m, None => return false };
+    let ctrl = match CTRL.as_mut() { Some(c) => c, None => return false };
+    match evt_poll_block(ctrl, Espera::Comando { trb: mio }) {
+        Some(ev) => {
+            let cc = (ev.2 >> 24) & 0xFF;
+            hal().log_u64(" reset_dev cc=", cc as u64);
+            cc == CC_SUCCESS
+        }
+        None => false,
+    }
+}
+
+unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8, bsr: bool) -> Option<u8> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
-    let mio = address_lanzar(port, speed, slot)?;
+    let mio = address_lanzar(port, speed, slot, bsr)?;
     // * Esto tomaba el primer evento SIN MIRAR EL TIPO y le leia el `cc`. Un
     // Transfer Event correcto tambien trae `cc=1`, asi que un informe del
     // raton se leia como "el Address Device salio bien" -- y de paso ese
@@ -307,12 +418,19 @@ unsafe fn direccionar_en_slot(port: u8, speed: u8, slot: u8) -> Option<u8> {
 }
 
 /// **El tamano de paquete del EP0 que se SUPONE al direccionar**, por
-/// velocidad del puerto (xHCI 4.3.3 / USB 2.0 9.6.1): 8 para Low y Full
-/// Speed, 64 para High, 512 para Super. El aparato declara el suyo en el
-/// byte 7 de su descriptor, y si no coincide hay que decirselo al xHC
-/// (`evaluar_mps0`) ANTES de pedirle nada mas largo que 8 bytes.
+/// velocidad del puerto: 8 para Low Speed (no puede ser otro), **64 para
+/// Full Speed**, 64 para High, 512 para Super. El aparato declara el suyo en
+/// el byte 7 de su descriptor, y si no coincide se le dice al xHC
+/// (`evaluar_mps0`) antes de pedirle nada mas.
+///
+/// *** 64 Y NO 8 PARA FULL SPEED, y es el esquema de Windows (2026-09-21,
+/// noche; ver `address_device`). Suponer 8 y pedir 18 bytes rompe con un
+/// aparato de 64 (Babble). Suponer 64 y pedir 64 NO rompe con ninguno: un
+/// aparato de 8 contesta un paquete de 8 --corto, y un paquete corto cierra
+/// la transferencia sin error-- y en esos 8 ya viene el byte 7. Es la
+/// asimetria que hace que el orden de Windows funcione con todo.
 pub fn mps0_supuesto(speed: u8) -> u16 {
-    match speed { 1 | 2 => 8, 3 => 64, 4 | 5 => 512, _ => 8 }
+    match speed { 2 => 8, 1 | 3 => 64, 4 | 5 => 512, _ => 64 }
 }
 
 /// Lo que el aparato DECLARA en `bMaxPacketSize0` (byte 7 del descriptor
@@ -398,7 +516,12 @@ pub unsafe fn evaluar_mps0(slot: u8, mps: u16) -> bool {
 ///
 /// # Safety
 /// MMIO del xHC y paginas DMA de la ranura: con el CR3 del kernel puesto.
-pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8) -> Option<u64> {
+///
+/// `bsr` = Block Set Address Request (xHCI 4.6.5): con `true` el xHC monta
+/// los contextos y deja la ranura en `Default` SIN mandar `SET_ADDRESS`; el
+/// aparato sigue en la direccion 0 y se le puede hablar por su EP0. Es el
+/// paso 2 del esquema de Windows.
+pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8, bsr: bool) -> Option<u64> {
     let ctrl = match CTRL.as_mut() { Some(c) => c, None => return None };
     let h = hal();
     let cs = ctx_sz(ctrl);
@@ -432,7 +555,7 @@ pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8) -> Option<u64> {
     sc.add(0).write_volatile(((speed as u32) & 0xF) << 20 | (1 << 27));
     sc.add(1).write_volatile((port as u32 + 1) << 16);
 
-    let mps: u32 = match speed { 1|2 => 8, 3 => 64, 4|5 => 512, _ => 8 };
+    let mps: u32 = mps0_supuesto(speed) as u32;
     let dq = (ep0_phys & !0xF) | 1;
 
     // EP0 Context
@@ -452,7 +575,7 @@ pub unsafe fn address_lanzar(port: u8, speed: u8, slot: u8) -> Option<u64> {
         dw0: (in_phys & 0xFFFF_FFFF) as u32,
         dw1: ((in_phys >> 32) & 0xFFFF_FFFF) as u32,
         dw2: 0,
-        dw3: ((slot as u32) << 24) | (TRB_ADDRESS_DEV << 10),
+        dw3: ((slot as u32) << 24) | (TRB_ADDRESS_DEV << 10) | ((bsr as u32) << 9),
     };
     let mio = ctrl.cmd_ring.enqueue(&trb);
     ring_doorbell(0, 0);

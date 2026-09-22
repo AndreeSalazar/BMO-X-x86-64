@@ -64,6 +64,9 @@ pub const PLAZO_RESPUESTA_MS: u64 = 100;
 pub const ENTRE_LECTURAS_MS: u64 = 10;
 /// Lecturas de cada descriptor antes de rendirse: las de `leer_descriptores`.
 pub const LECTURAS: u8 = 3;
+/// Tras el `SET_ADDRESS` de verdad, lo que se le da al aparato para asentar
+/// (`bmo_xhci::PLAZO_ASENTAR_MS`).
+pub const PLAZO_ASENTAR_MS: u64 = bmo_xhci::PLAZO_ASENTAR_MS;
 
 /// Que descriptor se pide.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -87,9 +90,13 @@ pub trait Metal {
     fn pedir_ranura(&mut self) -> bool;
     /// `Some(Some(slot))`, `Some(None)` = contesto que no, `None` = aun no.
     fn ranura_llego(&mut self) -> Option<Option<u8>>;
-    /// `Address Device` lanzado y vigilado.
-    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8) -> bool;
+    /// `Address Device` lanzado y vigilado. `bsr` = sin `SET_ADDRESS`: la
+    /// ranura queda en `Default` y el aparato en la direccion 0.
+    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool) -> bool;
     fn direccion_llego(&mut self, slot: u8) -> Option<bool>;
+    /// `Reset Device` lanzado y vigilado: el xHC se entera del segundo reset.
+    fn reset_device(&mut self, slot: u8) -> bool;
+    fn reset_device_llego(&mut self) -> Option<bool>;
     fn devolver_ranura(&mut self, slot: u8);
     /// `GET_DESCRIPTOR` lanzado y vigilado.
     fn pedir_descriptor(&mut self, slot: u8, cual: Descriptor, largo: usize) -> bool;
@@ -121,16 +128,29 @@ enum Paso {
     Recuperando,
     PedirRanura,
     EsperandoRanura,
+    /// `Address Device` con BSR = 1: la ranura en `Default`, el aparato en la
+    /// direccion 0. El paso 2 del esquema de Windows.
     Direccionar,
     EsperandoDireccion,
-    /// Los OCHO primeros bytes del descriptor del aparato: caben en
-    /// cualquier paquete. Ver `bmo_xhci::evaluar_mps0`.
+    /// 64 bytes del descriptor del aparato EN LA DIRECCION 0: un aparato de
+    /// paquete 8 contesta 8 y para; uno de 64, los 18. Ver
+    /// `bmo_xhci::mps0_supuesto`.
     PedirOcho,
     EsperandoOcho,
     PausaOcho,
     /// El paquete declarado no es el supuesto: `Evaluate Context`.
     Evaluar,
     EsperandoEvaluar,
+    /// El SEGUNDO reset (lo que el aparato espera), y que el xHC lo sepa.
+    Reset2,
+    Reseteando2,
+    Recuperando2,
+    ResetDevice,
+    EsperandoResetDevice,
+    /// `Address Device` con BSR = 0: ahora si, `SET_ADDRESS`, y 10 ms.
+    Direccionar2,
+    EsperandoDireccion2,
+    Asentando,
     PedirDispositivo,
     EsperandoDispositivo,
     PausaDispositivo,
@@ -308,14 +328,14 @@ impl Enumeracion {
                 None => self.o_plazo(m, ahora),
             },
             Paso::Direccionar => {
-                if !m.direccionar(port, self.velocidad, self.slot) {
+                if !m.direccionar(port, self.velocidad, self.slot, true) {
                     return self.no_acepta(m);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion)
             }
             Paso::EsperandoDireccion => match m.direccion_llego(self.slot) {
                 Some(true) => {
-                    m.log_u64("[uhid] slot=", self.slot as u64);
+                    m.log_u64("[uhid] slot (direccion 0)=", self.slot as u64);
                     self.lecturas = 0;
                     self.paso = Paso::PedirOcho;
                     Marcha::Sigue
@@ -325,13 +345,13 @@ impl Enumeracion {
             },
             Paso::PedirOcho => {
                 self.lecturas += 1;
-                if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 8) {
+                if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 64) {
                     return self.sin_descriptores(m, "[uhid] no dev desc\n", PASO_SIN_APARATO);
                 }
                 self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoOcho)
             }
             Paso::EsperandoOcho => {
-                let mut buf = [0u8; 8];
+                let mut buf = [0u8; 64];
                 match m.descriptor_llego(&mut buf) {
                     Some(n) if n >= 8 => {
                         self.lecturas = 0;
@@ -342,7 +362,7 @@ impl Enumeracion {
                             self.mps0 = declarado;
                             self.paso = Paso::Evaluar;
                         } else {
-                            self.paso = Paso::PedirDispositivo;
+                            self.paso = Paso::Reset2;
                         }
                         Marcha::Sigue
                     }
@@ -365,7 +385,7 @@ impl Enumeracion {
             }
             Paso::EsperandoEvaluar => match m.evaluacion_llego() {
                 Some(true) => {
-                    self.paso = Paso::PedirDispositivo;
+                    self.paso = Paso::Reset2;
                     Marcha::Sigue
                 }
                 Some(false) => {
@@ -374,6 +394,67 @@ impl Enumeracion {
                 }
                 None => self.o_plazo(m, ahora),
             },
+            Paso::Reset2 => {
+                if !m.reset_lanzar(port) {
+                    m.log_u64("[uhid] segundo reset: puerto vacio ", port as u64);
+                    return self.no_acepta(m);
+                }
+                self.esperar(ahora, PLAZO_RESET_MS, Paso::Reseteando2)
+            }
+            Paso::Reseteando2 => {
+                if m.reset_acabo(port) {
+                    return self.esperar(ahora, PLAZO_RECUPERACION_MS, Paso::Recuperando2);
+                }
+                if ahora >= self.hasta {
+                    m.log_u64("[uhid] segundo reset sin acabar: ", port as u64);
+                    return self.no_acepta(m);
+                }
+                Marcha::Sigue
+            }
+            Paso::Recuperando2 => {
+                if ahora < self.hasta {
+                    return Marcha::Sigue;
+                }
+                if !m.habilitado(port) {
+                    m.log_u64("[uhid] tras el segundo reset, sin habilitar: ", port as u64);
+                    return self.no_acepta(m);
+                }
+                self.paso = Paso::ResetDevice;
+                Marcha::Sigue
+            }
+            Paso::ResetDevice => {
+                if !m.reset_device(self.slot) {
+                    return self.no_acepta(m);
+                }
+                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoResetDevice)
+            }
+            Paso::EsperandoResetDevice => match m.reset_device_llego() {
+                Some(true) => {
+                    self.paso = Paso::Direccionar2;
+                    Marcha::Sigue
+                }
+                Some(false) => {
+                    m.log("[uhid] reset device FALLO\n");
+                    self.no_acepta(m)
+                }
+                None => self.o_plazo(m, ahora),
+            },
+            Paso::Direccionar2 => {
+                if !m.direccionar(port, self.velocidad, self.slot, false) {
+                    return self.no_acepta(m);
+                }
+                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDireccion2)
+            }
+            Paso::EsperandoDireccion2 => match m.direccion_llego(self.slot) {
+                Some(true) => {
+                    m.log_u64("[uhid] slot=", self.slot as u64);
+                    self.lecturas = 0;
+                    self.esperar(ahora, PLAZO_ASENTAR_MS, Paso::Asentando)
+                }
+                Some(false) => self.no_acepta(m),
+                None => self.o_plazo(m, ahora),
+            },
+            Paso::Asentando => self.si_cumplio(ahora, Paso::PedirDispositivo),
             Paso::PedirDispositivo => {
                 self.lecturas += 1;
                 if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 18) {
@@ -612,8 +693,8 @@ impl Metal for Xhc {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
         Some(bmo_xhci::slot_de_complecion(&ev))
     }
-    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8) -> bool {
-        match unsafe { bmo_xhci::address_lanzar(port, velocidad, slot) } {
+    fn direccionar(&mut self, port: u8, velocidad: u8, slot: u8, bsr: bool) -> bool {
+        match unsafe { bmo_xhci::address_lanzar(port, velocidad, slot, bsr) } {
             Some(trb) => {
                 bmo_xhci::vigilar_comando(trb);
                 true
@@ -624,6 +705,19 @@ impl Metal for Xhc {
     fn direccion_llego(&mut self, slot: u8) -> Option<bool> {
         let ev = unsafe { bmo_xhci::vigilado_llego()? };
         Some(unsafe { bmo_xhci::address_rematar(slot, &ev) })
+    }
+    fn reset_device(&mut self, slot: u8) -> bool {
+        match unsafe { bmo_xhci::reset_device_lanzar(slot) } {
+            Some(trb) => {
+                bmo_xhci::vigilar_comando(trb);
+                true
+            }
+            None => false,
+        }
+    }
+    fn reset_device_llego(&mut self) -> Option<bool> {
+        let ev = unsafe { bmo_xhci::vigilado_llego()? };
+        Some(bmo_xhci::cc_de(&ev) == 1)
     }
     fn devolver_ranura(&mut self, slot: u8) {
         unsafe {
@@ -722,9 +816,13 @@ mod pruebas {
         dejo_de_esperar: u32,
         /// Cuanto tardo cada llamada a `avanzar` (la prueba lo mide fuera).
         eventos: Vec<&'static str>,
-        /// El paquete que el xHC cree que tiene el EP0 (8 al direccionar).
+        /// El paquete que el xHC cree que tiene el EP0 (64 al direccionar un
+        /// Full Speed: el esquema de Windows).
         mps0_xhc: u16,
         ultimo_cc: u8,
+        /// Los `Address Device` que se mandaron, con su BSR.
+        direcciones: Vec<bool>,
+        resets_device: u32,
     }
 
     #[derive(Clone, Copy)]
@@ -733,6 +831,7 @@ mod pruebas {
         Direccion,
         Descriptor(Descriptor, usize),
         Evaluacion(u16),
+        ResetDevice,
     }
 
     impl Fingido {
@@ -749,9 +848,16 @@ mod pruebas {
                 encendidos: 0,
                 dejo_de_esperar: 0,
                 eventos: Vec::new(),
-                mps0_xhc: 8,
+                mps0_xhc: 64,
                 ultimo_cc: 0,
+                direcciones: Vec::new(),
+                resets_device: 0,
             }
+        }
+        /// El paquete de EP0 del aparato fingido: 8 (teclado, raton) o 64
+        /// (el audifono).
+        fn mps0_real(&self) -> usize {
+            if self.aparato == Aparato::Paquete64 { 64 } else { 8 }
         }
         /// El bombeo: cada 4 ms un paso, hasta que acabe o pasen `tope` ms.
         fn bombear(&mut self, e: &mut Enumeracion, tope: u64) -> Marcha {
@@ -805,7 +911,9 @@ mod pruebas {
             true
         }
         fn velocidad(&mut self, _port: u8) -> u8 {
-            2
+            // Full Speed: el paquete supuesto es 64, y un teclado de 8 tiene
+            // que pasar por el evaluate. Es el caso que importa.
+            1
         }
         fn pedir_ranura(&mut self) -> bool {
             self.ranuras_pedidas += 1;
@@ -819,11 +927,24 @@ mod pruebas {
                 _ => panic!("se esperaba la ranura"),
             }
         }
-        fn direccionar(&mut self, _port: u8, _v: u8, slot: u8) -> bool {
+        fn direccionar(&mut self, _port: u8, _v: u8, slot: u8, bsr: bool) -> bool {
             assert_eq!(slot, 7);
-            self.eventos.push("address");
+            self.eventos.push(if bsr { "address0" } else { "address" });
+            self.direcciones.push(bsr);
             self.vuelo = Some((self.ahora + 1, Vuelo::Direccion));
             true
+        }
+        fn reset_device(&mut self, _slot: u8) -> bool {
+            self.eventos.push("reset_device");
+            self.resets_device += 1;
+            self.vuelo = Some((self.ahora + 1, Vuelo::ResetDevice));
+            true
+        }
+        fn reset_device_llego(&mut self) -> Option<bool> {
+            match self.llego()? {
+                Vuelo::ResetDevice => Some(true),
+                _ => panic!("se esperaba el reset device"),
+            }
         }
         fn direccion_llego(&mut self, _slot: u8) -> Option<bool> {
             match self.llego()? {
@@ -852,19 +973,21 @@ mod pruebas {
             match self.llego()? {
                 Vuelo::Descriptor(Descriptor::Dispositivo, n) => {
                     let mut d = [18u8, 1, 0, 2, 0, 0, 0, 8, 0x6D, 0x04, 0x77, 0xC0, 0, 0, 0, 0, 0, 1];
-                    if self.aparato == Aparato::Paquete64 {
-                        d[7] = 64;
-                        // Pide mas de lo que el xHC cree que cabe en un
-                        // paquete: el aparato lo manda entero y el xHC lo
-                        // rechaza como Babble (cc = 3), sin datos.
-                        if n > self.mps0_xhc as usize {
-                            self.ultimo_cc = 3;
-                            return Some(0);
-                        }
+                    let real = self.mps0_real();
+                    d[7] = real as u8;
+                    // El aparato contesta en paquetes de SU tamano. Si el
+                    // suyo es mayor que el que el xHC cree, el primer paquete
+                    // ya se pasa: Babble (cc = 3), sin datos. Si es menor, su
+                    // primer paquete es CORTO y cierra la transferencia: solo
+                    // llegan esos bytes, y es legal (cc = 13).
+                    if real > self.mps0_xhc as usize && n > self.mps0_xhc as usize {
+                        self.ultimo_cc = 3;
+                        return Some(0);
                     }
-                    self.ultimo_cc = 1;
-                    buf[..n].copy_from_slice(&d[..n]);
-                    Some(n)
+                    let llegan = if real < self.mps0_xhc as usize { n.min(real) } else { n.min(18) };
+                    self.ultimo_cc = if llegan < n { 13 } else { 1 };
+                    buf[..llegan].copy_from_slice(&d[..llegan]);
+                    Some(llegan)
                 }
                 Vuelo::Descriptor(Descriptor::Configuracion, n) => {
                     // Cabecera de 9 con total 34, y el resto relleno. El
@@ -918,16 +1041,25 @@ mod pruebas {
         assert_eq!(e.cfg_val(), 1);
         assert_eq!(e.cfg().len(), 34);
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
+        // El esquema de Windows, entero: direccion 0, 64 bytes (un teclado
+        // de paquete 8 contesta 8: hay que decirselo al xHC), segundo reset,
+        // Reset Device, la direccion de verdad, y entonces los descriptores.
         assert_eq!(
             m.eventos,
-            ["encender", "reset", "enable_slot", "address", "get_dev", "get_dev", "get_cfg", "get_cfg"]
+            [
+                "encender", "reset", "enable_slot", "address0", "get_dev", "evaluate", "reset",
+                "reset_device", "address", "get_dev", "get_cfg", "get_cfg"
+            ]
         );
+        assert_eq!(m.direcciones, [true, false]);
+        assert_eq!(m.mps0_xhc, 8);
         // La ranura NO se devuelve: es del aparato que se va a instalar.
         assert_eq!(m.ranuras_devueltas, 0);
         // Y tardo lo que tardan sus plazos, no mas: 20 VBUS + 100 debounce +
-        // 30 reset + 10 recuperacion + respuestas de 1 ms, en pasos de 4.
+        // dos resets de 30 + 10 + 10 de asentar + respuestas de 1 ms, en
+        // pasos de 4.
         let ms = e.lleva_ms(m.ahora);
-        assert!((160..220).contains(&ms), "tardo {} ms", ms);
+        assert!((260..340).contains(&ms), "tardo {} ms", ms);
     }
 
     #[test]
@@ -959,10 +1091,10 @@ mod pruebas {
         assert_eq!(m.cortes, 1);
         assert_eq!(m.encendidos, 1);
         assert_eq!(&m.eventos[..3], ["cortar", "encender", "reset"]);
-        // 200 sin corriente + 20 VBUS (sin los 100 de debounce) + reset...
-        // y desde el 21-09 una lectura mas (los 8 bytes), en pasos de 4.
+        // 200 sin corriente + 20 VBUS (sin los 100 de debounce) + los dos
+        // resets + asentar, en pasos de 4.
         let ms = e.lleva_ms(m.ahora);
-        assert!((260..330).contains(&ms), "tardo {} ms", ms);
+        assert!((360..440).contains(&ms), "tardo {} ms", ms);
     }
 
     #[test]
@@ -972,24 +1104,26 @@ mod pruebas {
         let r = m.bombear(&mut e, 2_000);
         assert_eq!(r, Marcha::SinDescriptores(detalle_sin_descriptores(PASO_CFG_NO_CABE, 1500)));
         // Se supo en la cabecera: no se pidio la entera, y la ranura volvio.
-        // Tres lecturas: los 8 bytes, los 18, y la cabecera.
+        // Tres lecturas: los 64 en la direccion 0, los 18, y la cabecera.
         assert_eq!(m.descriptores_pedidos, 3);
         assert_eq!(m.ranuras_devueltas, 1);
     }
 
     #[test]
-    fn un_paquete_de_64_pasa_por_evaluate_context_y_entra() {
-        // El caso del audifono: sin el Evaluate Context, la version de una
-        // pieza pedia 18 bytes contra un EP0 de 8 y el xHC contestaba Babble.
+    fn un_paquete_de_64_entra_sin_evaluate_y_sin_babble() {
+        // El caso del audifono: con el paquete supuesto de 8 y 18 bytes de
+        // golpe contestaba Babble. Con el esquema de Windows (64 supuesto,
+        // 64 pedidos en la direccion 0) entra a la primera y sin evaluate.
         let mut m = Fingido::nuevo(Aparato::Paquete64);
         let mut e = Enumeracion::nueva(1, false, m.ahora);
         assert_eq!(m.bombear(&mut e, 2_000), Marcha::Lista);
         assert_eq!(e.vid_pid(), (0x046D, 0xC077));
         assert_eq!(
-            &m.eventos[4..],
-            ["get_dev", "evaluate", "get_dev", "get_cfg", "get_cfg"]
+            &m.eventos[3..],
+            ["address0", "get_dev", "reset", "reset_device", "address", "get_dev", "get_cfg", "get_cfg"]
         );
         assert_eq!(m.mps0_xhc, 64);
+        assert_eq!(m.resets_device, 1);
     }
 
     #[test]

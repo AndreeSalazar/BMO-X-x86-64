@@ -205,6 +205,7 @@ const TRB_DISABLE: u32 = 10;
 const TRB_ADDRESS_DEV: u32 = 11; const TRB_CONFIGURE: u32 = 12;
 const TRB_EVAL_CTX: u32 = 13;
 const TRB_RESET_EP: u32 = 14; const TRB_SET_TR_DEQ: u32 = 16;
+const TRB_RESET_DEV: u32 = 17;
 const TRB_TRANSFER: u32 = 32; const TRB_COMPLETION: u32 = 33;
 const TRB_PORT_STATUS: u32 = 34;
 
