@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 41 planes
+# LO QUE FALTA -- las casillas abiertas de los 42 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   259 casillas ABIERTAS en 32 planes
-   255 hechas
+   265 casillas ABIERTAS en 33 planes
+   257 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 65 casillas sueltas NO cuentan como abiertas)
@@ -172,6 +172,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 6 abiertas, 2 hechas
+
+*PLAN LA MESA -- el control de sonido de BMO-X, como app de ventana*
+
+- [ ] M1 -- EL PRODUCTOR: la mesa alimenta el tubo
+- [ ] M2 -- LA VENTANA
+- [ ] M3 -- QUE CADA UNO PIDA SU PISTA
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

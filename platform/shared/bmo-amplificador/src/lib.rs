@@ -481,6 +481,19 @@ impl Medidor {
         Medidor { pico: 0, suma_cuadrados: 0, muestras: 0 }
     }
 
+    /// **Una sola muestra, de 32 bits.** La usa la mesa: una pista mide lo que
+    /// APORTA --ya con su ganancia y antes de sumarse-- y eso no existe como
+    /// bloque en ningun sitio. Guardar un bufer intermedio solo para poder
+    /// medirlo seria pagar una copia por pista y por vuelta.
+    pub fn mirar_uno(&mut self, muestra: i32) {
+        let v = muestra.abs();
+        if v > self.pico {
+            self.pico = v;
+        }
+        self.suma_cuadrados += (v as u64) * (v as u64);
+        self.muestras += 1;
+    }
+
     /// Mira un bloque (no lo cambia).
     pub fn mirar(&mut self, muestras: &[i16]) {
         for &m in muestras {
@@ -585,6 +598,9 @@ impl Amplificador {
         self.medidor.mirar(muestras);
     }
 }
+
+/// **LA MESA**: N pistas con nombre y un maestro. Ver [`mesa`].
+pub mod mesa;
 
 #[cfg(test)]
 mod pruebas;
