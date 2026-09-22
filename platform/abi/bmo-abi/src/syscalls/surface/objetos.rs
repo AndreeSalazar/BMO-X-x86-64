@@ -473,7 +473,8 @@ pub const AUDIO_OP_TUBO: u64 = 0x05;
 ///    1  prestar el BANCO    arg1 = la VA de un bloque propio   -> sus bytes (0 = no)
 ///    2  TOCAR               arg1 = inicio en bytes | muestras << 32
 ///                           arg2 = canal | formato << 8 | pista << 10 |
-///                                  izq << 18 | der << 27 | hz << 36   -> 1 / 0
+///                                  izq << 18 | der << 27 | hz << 36 |
+///                                  bucle << 56                        -> 1 / 0
 ///    3  AJUSTAR             arg1 = canal, arg2 = izq | der << 16
 ///    4  CALLAR              arg1 = canal (0xFF = todos)
 ///    5  SUENA?              arg1 = canal                         -> 1 / 0
@@ -482,8 +483,9 @@ pub const AUDIO_OP_TUBO: u64 = 0x05;
 ///
 /// El formato es `0` 8 bits sin signo (los WAD de DOOM) o `1` 16 bits con
 /// signo; siempre MONO: el lado lo ponen `izq` y `der` (0..256). La `pista`
-/// es de LA MESA: hoy no cambia la mezcla. Un `tocar` que se sale del banco se
-/// niega en el acto, con el motivo en CABINA.
+/// es de LA MESA: hoy no cambia la mezcla. Con `bucle` la voz vuelve al
+/// principio al acabar y no se calla sola (la musica de DOOM). Un `tocar` que
+/// se sale del banco se niega en el acto, con el motivo en CABINA.
 pub const AUDIO_OP_VOZ: u64 = 0x06;
 
 /// Hay altavoz de PC (el puerto que lo controla; ver la nota de

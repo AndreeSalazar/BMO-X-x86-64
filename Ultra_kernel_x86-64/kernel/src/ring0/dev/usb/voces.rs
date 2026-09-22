@@ -133,8 +133,8 @@ pub fn banco(pid: u32, va: u64) -> u64 {
 
 /// **Tocar**: `a1` = inicio en bytes `[0..32)` | muestras `[32..64)`;
 /// `a2` = canal `[0..8)` | formato `[8..10)` | pista `[10..18)` | izq
-/// `[18..27)` | der `[27..36)` | hz `[36..56)`. Devuelve `1` si queda pedida
-/// y `0` si el juez dijo que no (el motivo, en CABINA).
+/// `[18..27)` | der `[27..36)` | hz `[36..56)` | BUCLE `[56]`. Devuelve `1`
+/// si queda pedida y `0` si el juez dijo que no (el motivo, en CABINA).
 pub fn tocar(pid: u32, a1: u64, a2: u64) -> u64 {
     if BANCO_PID.load(Ordering::SeqCst) != pid || pid == 0 {
         RECHAZADAS.fetch_add(1, Ordering::SeqCst);
@@ -154,6 +154,7 @@ pub fn tocar(pid: u32, a1: u64, a2: u64) -> u64 {
         izq: (((a2 >> 18) & 0x1FF) as u16).min(PLENO_VOZ),
         der: (((a2 >> 27) & 0x1FF) as u16).min(PLENO_VOZ),
         hz: ((a2 >> 36) & 0xF_FFFF) as u32,
+        bucle: (a2 >> 56) & 1 != 0,
     };
     // ** EL MISMO JUEZ que usara el bus, y aqui: el NO se dice en el acto y
     // con su motivo. La frecuencia de salida no importa para juzgar, basta

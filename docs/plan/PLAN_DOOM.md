@@ -337,7 +337,7 @@ y `AUDIO_OP_BEEP` va **solo** al altavoz -- que en esta placa no tiene zumbador.
 | 5.1 | Enumerar el aparato y abrir un stream de salida | XL | ✅ **CONFIRMADO en el Ryzen 2026-09-22, 00:21**: `1B3F:2008` reclamado, ranura 3, `tubo 1`, 48.000 Hz, 192 B por trama |
 | 5.2 | `KIND_AUDIO` como capability | M | ✅ **HECHO**: un propietario a la vez, y se recupera solo si muere |
 | 5.3 | ★ El modulo de sonido de DOOM, y su mezclador | L | ✅ **ESCRITO el 2026-09-22**: `bmo_sonido.c`, y DOOM compila con el. Falta el metal |
-| 5.4 | Musica MUS -> MIDI (`mus2mid.c` ya compila) | XL | y sin sintetizador MIDI no suena: es OTRO proyecto |
+| 5.4 | Musica MUS -> MIDI (`mus2mid.c` ya compila) | XL | ✅ **ESCRITA el 2026-09-22** sin MIDI: FM propia sobre el GENMIDI del WAD (5.4 abajo). Falta el metal |
 
 ★ **La linea honesta**: 5.0 a 5.3 son "DOOM con efectos". 5.4 es "DOOM con
 musica", y eso pide un sintetizador. **Se paran en 5.3 y se dice.**
@@ -685,6 +685,64 @@ disparo al ruido pasa de hasta 100 ms a lo que tarde una trama; y
 **Lo que NO hace:** musica (5.4), sonido posicional de verdad (`sep` es un
 paneo de dos canales) ni pistas para LA MESA (van a 0 hasta M3).
 
+## [ ] 5.4 -- LA MUSICA: FM propia, la cancion entera en el banco (2026-09-22)
+
+> Codigo hecho; el sintetizador comprobado en Windows y en el emulador; se
+> cierra cuando se OIGA en el Ryzen.
+
+El propietario eligio, con el coste delante, la musica **autentica**: la de la
+Sound Blaster de 1993. DOOM guarda sus canciones como MUS (partitura a 140
+tics por segundo) y sus instrumentos en el lump GENMIDI (175 instrumentos FM
+de dos operadores). No hace falta MIDI ni un sintetizador de terceros: hace
+falta **el chip**.
+
+| pieza | donde | que es |
+|---|---|---|
+| el chip FM (YM3812, 18 canales) | `BMO-externo/doom/doomgeneric/doomgeneric/bmo_opl.c` | escrito desde la hoja del chip; solo enteros |
+| sus tablas | `bmo_opl_tablas.c`, de `BMO-externo/doom-port/tablas_fm.py` | seno, ganancia, 2^x, KSL: BMO-X no tiene libm |
+| la partitura sobre el chip | `bmo_mus.c` | MUS + GENMIDI -> registros, 18 voces |
+| DOOM | `bmo_musica.c` | `music_module_t`: renderiza y la entrega a una VOZ |
+| el bucle | `bmo_voz_tocar_bucle`, bit 56 de `AUDIO_OP_VOZ` | la voz vuelve al principio y no se calla sola |
+
+**El reparto es el de los efectos llevado al extremo:** al pedir la cancion se
+renderizan 6 s en el banco (24 kHz, S16 mono, de 2 a 16 MiB), se toca como UNA
+voz en bucle en el canal 15, y el resto se renderiza un trozo de 150 ms en cada
+`Poll`. El orquestador marca el tiempo; DOOM solo tiene que ir por delante, y
+si alguna vez no llega lo DICE (`la voz ALCANZO al render`).
+
+**Lo medido antes del metal** (`BMO-externo/doom-port/musica_host.c`, los MISMOS
+ficheros compilados con cl):
+
+| que | numero |
+|---|---|
+| las 13 canciones de doom1.wad | de 7 a 272 s (D_E1M3); 29,8 min en total |
+| notas a la vez | hasta 15 (D_INTRO); con 18 voces, **0 robadas** en las que suenan |
+| afinacion | la tecla 69 da 436-444 Hz en 8 instrumentos (el paso de la medida a 24 kHz) |
+| picos | el mas alto 30.534 de 32.767 con la ganancia x1,75; **0 sujetadas** |
+| en Windows (cl /O2) | 250-500 veces el tiempo real |
+| ★ BMO C contra cl | **el mismo hash** en 2 s de D_E1M1 (48.000 muestras) en el emulador |
+| en BMO C | ~47 M instrucciones por segundo de musica: del orden de 5 ms en el Ryzen, sin medir |
+
+★ Y lo que se cazo al medir: **DMX numera las notas una octava por ENCIMA del
+MIDI**. La primera fila de su tabla de frecuencias es un F-Number de 0x133
+(14,56 Hz), que solo cuadra asi, y 72 de las 128 portadoras del GENMIDI lo
+compensan con multiplo x0,5. Con el LA en la 69 toda la musica habria sonado
+una octava grave; va en la 57.
+
+**Lo que es propio y NO de DMX, dicho:** 18 voces (DMX tenia 9 y robaba), la
+curva de volumen de General MIDI (40 log10) y no la de DMX, el envolvente
+aproximado (el ataque es exponencial con el tiempo de la hoja del chip).
+Paneo, modulacion y pedal se ignoran; pausar baja la voz a 0 y la cancion
+sigue corriendo callada.
+
+| que | afirma | como se cae |
+|---|---|---|
+| al arrancar | `[bmo] musica: FM de 18 voces con el GENMIDI del WAD, 24000 Hz` | `este WAD no trae GENMIDI` |
+| en el titulo y en E1M1 | se oye la musica, en bucle | silencio: `cabina fallos` y `voces sonando` en el `save` |
+| en la consola, al rato | `[bmo] musica: 96 s renderizados en N ms (sujetadas 0, notas sin voz 0)` | nunca sale: `Poll` no se llama |
+| el derretido y cargar un mapa | la musica sigue, sin corte | `la voz ALCANZO al render`: el adelanto de 6 s no basto |
+| Options -> Music Volume | sube y baja | no cambia: `ajustar` no llega |
+
 ---
 
 # La cuenta, para poder repartir
@@ -698,7 +756,7 @@ Actualizada el **2026-08-13**.
 | 2 -- la plataforma | 6 | 0 | **[x]** escrita, `doomgeneric_bmo.c` |
 | 3 -- el WAD | 3 | 0 | **[x]** escrito -- `-iwad apps/doom1.wad` |
 | 4 -- jugable | 3 | 2 | guardar partida pide `fwrite`, que devuelve 0 |
-| 5 -- sonido | 6 | **0 para los efectos** | 5.0b/5.0/5.1/5.2 en metal el 22-09, 5.3 escrito el mismo dia y pasado a VOCES (5.3g); 5.4 (musica) es otro proyecto |
+| 5 -- sonido | 6 | **0** | 5.0b/5.0/5.1/5.2 en metal el 22-09; 5.3 (efectos, por VOCES: 5.3g) y 5.4 (musica FM) escritos el mismo dia, sin metal |
 
 ★★ **NO QUEDA NINGUNA CASILLA POR ESCRIBIR.** Lo que queda es **un defecto del
 compilador**, localizado el 2026-08-13 y con reproduccion en el emulador.

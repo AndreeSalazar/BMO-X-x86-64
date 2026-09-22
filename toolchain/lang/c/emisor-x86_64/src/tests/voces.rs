@@ -43,6 +43,26 @@ int main() {
 }
 
 #[test]
+fn en_bucle_es_el_mismo_tocar_con_el_bit_56() {
+    let m = ejecutar_voces(
+        r#"
+int main() {
+    unsigned long long cap;
+    cap = bmo_sonido_reclamar();
+    bmo_voz_tocar_bucle(cap, 15, 2097152, 2304000, BMO_VOZ_S16, 24000, 256, 256, 0);
+    return 0;
+}
+"#,
+    );
+    let v = voces(&m);
+    assert_eq!(v.len(), 1);
+    let (que, donde, como) = v[0];
+    assert_eq!(que, 2, "tambien es BMO_VOZ_TOCAR: el bucle es un bit, no un verbo");
+    assert_eq!(donde, 2_097_152 | (2_304_000 << 32));
+    assert_eq!(como, 15 | (1 << 8) | (256 << 18) | (256 << 27) | (24_000 << 36) | (1 << 56));
+}
+
+#[test]
 fn ajustar_callar_y_suena_llevan_su_canal() {
     let m = ejecutar_voces(
         r#"

@@ -146,6 +146,8 @@
 /* Como estan las muestras en el banco. Siempre MONO. */
 #define BMO_VOZ_U8 0
 #define BMO_VOZ_S16 1
+/* La voz vuelve al principio al acabar: una cancion entera en el banco. */
+#define BMO_VOZ_BUCLE 1
 /* Cuantos canales hay, y el volumen pleno de un lado. */
 #define BMO_VOZ_CANALES 16
 #define BMO_VOZ_PLENO 256
@@ -253,6 +255,21 @@ unsigned long long bmo_voz_tocar(unsigned long long cap, unsigned long long cana
     unsigned long long donde = (inicio & 0xFFFFFFFFULL) | (muestras << 32);
     unsigned long long como = (canal & 0xFF) | ((formato & 3) << 8) | ((pista & 0xFF) << 10)
         | ((izq & 0x1FF) << 18) | ((der & 0x1FF) << 27) | ((hz & 0xFFFFF) << 36);
+    return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_TOCAR, donde, como);
+}
+
+/* Lo mismo que `bmo_voz_tocar`, pero la voz NO se acaba: al llegar al final
+ * vuelve al principio, hasta que se calle. Es para una cancion entera metida
+ * en el banco (la musica de DOOM). */
+unsigned long long bmo_voz_tocar_bucle(unsigned long long cap, unsigned long long canal,
+                                       unsigned long long inicio, unsigned long long muestras,
+                                       unsigned long long formato, unsigned long long hz,
+                                       unsigned long long izq, unsigned long long der,
+                                       unsigned long long pista) {
+    unsigned long long donde = (inicio & 0xFFFFFFFFULL) | (muestras << 32);
+    unsigned long long como = (canal & 0xFF) | ((formato & 3) << 8) | ((pista & 0xFF) << 10)
+        | ((izq & 0x1FF) << 18) | ((der & 0x1FF) << 27) | ((hz & 0xFFFFF) << 36)
+        | ((unsigned long long)BMO_VOZ_BUCLE << 56);
     return bmo_valor(cap, BMO_SONIDO_VOZ, BMO_VOZ_TOCAR, donde, como);
 }
 

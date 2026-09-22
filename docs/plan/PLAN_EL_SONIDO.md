@@ -542,8 +542,10 @@ antes, bit a bit.
 
 **La forma no es nueva, y eso es lo que la valida**: el Sound Manager del Mac
 (canales con ordenes), DirectSound (bufer estatico + voz) y OpenAL (buffers +
-sources) llegaron a lo mismo. Lo que esos traian y esto NO: bucle y tono. No
-entran hasta que un programa los pida.
+sources) llegaron a lo mismo. Lo que esos traian y esto no traia: bucle y
+tono. **El BUCLE entro el mismo dia**, porque lo pidio un programa (la musica
+de DOOM: la cancion entera en el banco, `bmo_voz_tocar_bucle`, bit 56). El
+TONO sigue fuera hasta que alguien lo pida.
 
 **La frontera, que sale del precedente**: XP mezclaba en el kernel (KMixer) y
 Vista lo saco a un proceso; el Mac clasico tambien mezclaba en el kernel y Apple

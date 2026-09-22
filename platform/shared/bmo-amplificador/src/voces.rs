@@ -100,12 +100,17 @@ pub struct Sonido {
     pub der: u16,
     /// A que pista de LA MESA pertenece. Hoy no cambia la mezcla.
     pub pista: u8,
+    /// **Vuelve al principio al acabar** (2026-09-22). Lo pidio la musica de
+    /// DOOM: una cancion entera en el banco que se toca en bucle. Un efecto no
+    /// lo lleva. Es lo unico de los contratos de siempre (DirectSound, OpenAL)
+    /// que entro: el TONO sigue fuera hasta que alguien lo pida.
+    pub bucle: bool,
 }
 
 impl Sonido {
     /// El sonido de nada: lo que hay en una voz que no suena.
     pub const NADA: Sonido =
-        Sonido { inicio: 0, muestras: 0, formato: Formato::U8, hz: 0, izq: 0, der: 0, pista: 0 };
+        Sonido { inicio: 0, muestras: 0, formato: Formato::U8, hz: 0, izq: 0, der: 0, pista: 0, bucle: false };
 }
 
 /// **Por que el orquestador dijo que no.** Se dice con nombre: un sonido que
@@ -233,17 +238,31 @@ impl Voces {
             }
             let s = v.sonido;
             for t in 0..tramas {
-                let idx = (v.pos >> 16) as u32;
+                let mut idx = (v.pos >> 16) as u32;
                 if idx >= s.muestras {
-                    v.activa = false;
-                    break;
+                    if !s.bucle {
+                        v.activa = false;
+                        break;
+                    }
+                    // ** EL BUCLE: se vuelve al principio conservando la
+                    // FRACCION, o cada vuelta dejaria caer un trozo de muestra
+                    // y la cancion se iria adelantando.
+                    v.pos %= (s.muestras as u64) << 16;
+                    idx = (v.pos >> 16) as u32;
                 }
                 let Some(a) = muestra(banco, &s, idx) else {
                     v.activa = false;
                     break;
                 };
-                // La ultima va hacia el silencio: el sonido se acaba ahi.
-                let b = if idx + 1 < s.muestras { muestra(banco, &s, idx + 1).unwrap_or(0) } else { 0 };
+                // La ultima va hacia el silencio: el sonido se acaba ahi. En
+                // bucle va hacia la PRIMERA, que es la que suena despues.
+                let b = if idx + 1 < s.muestras {
+                    muestra(banco, &s, idx + 1).unwrap_or(0)
+                } else if s.bucle {
+                    muestra(banco, &s, 0).unwrap_or(0)
+                } else {
+                    0
+                };
                 let frac = (v.pos & 0xFFFF) as i64;
                 let m = a + (((b - a) as i64 * frac) >> 16) as i32;
                 let base = t * canales;
@@ -318,7 +337,7 @@ mod pruebas {
     }
 
     fn sierra() -> Sonido {
-        Sonido { inicio: 0, muestras: 100, formato: Formato::U8, hz: 12_000, izq: 256, der: 256, pista: 3 }
+        Sonido { inicio: 0, muestras: 100, formato: Formato::U8, hz: 12_000, izq: 256, der: 256, pista: 3, bucle: false }
     }
 
     #[test]
@@ -429,12 +448,78 @@ mod pruebas {
     fn el_formato_de_16_bits_se_lee_con_signo() {
         let mut v = Voces::nuevas();
         let b = banco();
-        let s = Sonido { inicio: 200, muestras: 10, formato: Formato::S16, hz: 48_000, izq: 256, der: 256, pista: 0 };
+        let s = Sonido {
+            inicio: 200,
+            muestras: 10,
+            formato: Formato::S16,
+            hz: 48_000,
+            izq: 256,
+            der: 256,
+            pista: 0,
+            bucle: false,
+        };
         v.tocar(0, s, 220, 48_000).unwrap();
         let mut acc = [0i32; 20];
         v.mezclar(&b, &mut acc, 2);
         assert_eq!(acc[2 * 3], 3000);
         assert_eq!(acc[2 * 9 + 1], 9000);
+    }
+
+    #[test]
+    fn en_bucle_no_se_calla_y_vuelve_al_principio() {
+        let mut v = Voces::nuevas();
+        let b = banco();
+        // 10 muestras S16 a 48 kHz: 0, 1000, ..., 9000, y otra vez.
+        let s = Sonido {
+            inicio: 200,
+            muestras: 10,
+            formato: Formato::S16,
+            hz: 48_000,
+            izq: 256,
+            der: 256,
+            pista: 0,
+            bucle: true,
+        };
+        v.tocar(0, s, 220, 48_000).unwrap();
+        let mut acc = [0i32; 50];
+        v.mezclar(&b, &mut acc, 2);
+        let izq: [i32; 25] = core::array::from_fn(|t| acc[2 * t]);
+        // La trama 10 es otra vez la muestra 0, y la 13 la 3.
+        assert_eq!(izq[9], 9000);
+        assert_eq!(izq[10], 0);
+        assert_eq!(izq[13], 3000);
+        assert_eq!(izq[24], 4000);
+        // Mil vueltas despues sigue sonando.
+        for _ in 0..1000 {
+            let mut acc = [0i32; 96];
+            v.mezclar(&b, &mut acc, 2);
+        }
+        assert!(v.hay());
+    }
+
+    #[test]
+    fn en_bucle_la_ultima_muestra_va_hacia_la_primera_y_no_al_silencio() {
+        let mut v = Voces::nuevas();
+        let b = banco();
+        // Dos muestras (1000 y 2000... de la S16) a la MITAD de la salida:
+        // cada muestra de entrada da dos de salida, y la de en medio es la
+        // recta hacia la siguiente.
+        let s = Sonido {
+            inicio: 202,
+            muestras: 2,
+            formato: Formato::S16,
+            hz: 24_000,
+            izq: 256,
+            der: 256,
+            pista: 0,
+            bucle: true,
+        };
+        v.tocar(0, s, 220, 48_000).unwrap();
+        let mut acc = [0i32; 12];
+        v.mezclar(&b, &mut acc, 2);
+        let izq: [i32; 6] = core::array::from_fn(|t| acc[2 * t]);
+        // 1000, 1500, 2000, 1500 (hacia la PRIMERA, no hacia 0), 1000...
+        assert_eq!(izq, [1000, 1500, 2000, 1500, 1000, 1500]);
     }
 
     #[test]
