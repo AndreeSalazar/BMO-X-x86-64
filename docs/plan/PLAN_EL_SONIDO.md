@@ -187,7 +187,7 @@ una frase:
 
 # 3. LAS CASILLAS
 
-## [ ] S0 -- EL CENSO DICE LA VERDAD, y la tabla la llena el aparato
+## [X] S0 -- EL CENSO DICE LA VERDAD, y la tabla la llena el aparato -- **HECHO el 2026-09-22**
 
 Hoy `find_playback` toma el primero y para. Aqui: recorrer la configuracion
 entera, guardar **todos** los alt settings de reproduccion (hasta un tope
@@ -208,8 +208,42 @@ En el `save`, una tabla nueva bajo `audio`:
 Y se arregla de paso la confusion de 0: `canales` pasa a ser `canales de
 volumen` (Feature Unit) y `trama` pasa a ser `bytes por ms`.
 
-**Tam: M.** Es parseo y presentacion, sin metal nuevo. **Y es lo primero**,
-porque sin esta tabla las demas casillas se hacen a ciegas.
+**Tam: M.** Es parseo y presentacion, sin metal nuevo.
+
+### [X] HECHO (2026-09-22): el aparato escribe su propia tabla
+
+`bmo_uaudio::stream::todas_las_reproducciones` recorre la configuracion entera
+y guarda **todos** los alternate settings de reproduccion (hasta ocho);
+`elegir` toma el de mas canales entre los que CABEN en su `wMaxPacketSize` a
+una frecuencia exacta, y `find_playback` pasa a ser esas dos. Donde habia un
+`return` --el que hacia que nadie supiera si este audifono ofrece mas-- ahora
+hay un `entregar(p)` y se sigue. Tres pruebas nuevas con un aparato de tres
+formatos (estereo 48k, estereo 44,1k y 5.1 que NO cabe): se ven los tres, y se
+elige el primero por la regla, no por el orden.
+
+El kernel los guarda en `reclamar` y los publica por `INFO_AUDIO_FORMATOS`
+(0x88), `INFO_AUDIO_FORMATO` (0x89) y `INFO_AUDIO_FRECUENCIA` (0x8A), con sus
+gemelos en el ABI y en `userland`. Y el `save` los muestra con la cuenta hecha:
+
+```text
+    formatos que el aparato DECLARA, y la cuenta de cada uno .......
+    formatos                2          alternate settings con endpoint isocrono de salida
+      alt  canales   bits  B/ms  max pkt  sinc    frecuencias
+        1        2     16   192      192  adapt   48000  <- ELEGIDO
+        2        2     16   176      192  adapt   44100
+      la cuenta: B/ms = (Hz / 1000) x canales x bytes por muestra. Si pasa de
+      `max pkt`, ese formato NO cabe en el milisegundo del bus y no se puede usar.
+      192 B/ms a 48 kHz son 48 x 2 x 2: ESTEREO. Un 5.1 pediria 576.
+```
+
+De paso se arreglan las dos palabras que mentian: `canales` pasa a ser
+**`canales de volumen`** (son los del Feature Unit, el mando, no los que
+suenan) y `trama` pasa a ser **`bytes por ms`**. Y cada formato va tambien a
+`DATOS.TXT` crudo (`audio.formatoNN_formato`, `audio.formatoNN_hz`).
+
+★ **Con esto, el proximo arranque contesta la pregunta de fondo**: si la tabla
+trae una fila de 6 u 8 canales, el 7.1 esta en el cable; si solo hay filas de
+2, su 7.1 es virtual y lo tenemos que hacer nosotros (S7).
 
 ## [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 

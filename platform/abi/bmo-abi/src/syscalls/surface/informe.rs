@@ -509,6 +509,20 @@ pub const INFO_AUDIO_HUECOS: u64 = 0x86;
 /// `[0..32)` pid del propietario del audio (0 = nadie) | `[32..64)` bytes
 /// pendientes en el bufer prestado.
 pub const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
+/// **Cuantos formatos de reproduccion declara el audifono, y cual se cogio**
+/// (2026-09-22): `[0..8)` cuantos | `[8..16)` el indice del elegido.
+///
+/// [!] Hasta hoy solo se guardaba UNO --el primero que el aparato declaraba--
+/// y no habia forma de saber si ofrecia mas. El `save` los muestra todos porque
+/// **la tabla la escribe el aparato, no el programador**.
+pub const INFO_AUDIO_FORMATOS: u64 = 0x88;
+/// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
+/// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
+/// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.
+pub const INFO_AUDIO_FORMATO: u64 = 0x89;
+/// La frecuencia `k` del formato `i`, en Hz:
+/// `INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12)`.
+pub const INFO_AUDIO_FRECUENCIA: u64 = 0x8A;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

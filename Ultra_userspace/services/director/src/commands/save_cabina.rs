@@ -311,7 +311,8 @@ pub(crate) fn report_audio(s: &mut Output) {
     fila(s, b"audifono", ranura, b"ranura",
          b"la ranura xHCI del reclamado; 0 = no hay ninguno (o no contesto sus papeles)");
     if ranura != 0 {
-        fila(s, b"canales", (a >> 8) & 0xFF, b"", b"los que declara su Feature Unit");
+        fila(s, b"canales de volumen", (a >> 8) & 0xFF, b"",
+             b"los del Feature Unit (el mando), NO los que se reproducen: esos van abajo");
         fila(s, b"mute", (a >> 16) & 1, b"", b"1 = el aparato tiene interruptor de mute");
         fila(s, b"reproduce", (a >> 17) & 1, b"", b"1 = declara una interfaz AudioStreaming de salida");
         let r = bmo::info(bmo::INFO_AUDIO_RANGO);
@@ -338,7 +339,8 @@ pub(crate) fn report_audio(s: &mut Output) {
     if (t >> 56) & 1 == 1 {
         fila(s, b"armado", (t >> 57) & 1, b"", b"1 = mandando silencio (tramas de ceros)");
         fila(s, b"frecuencia", t & 0xFF_FFFF, b"Hz", b"la elegida de las que el aparato acepta");
-        fila(s, b"trama", (t >> 24) & 0xFFFF, b"B", b"bytes por milisegundo a esa frecuencia");
+        let bytes_ms = (t >> 24) & 0xFFFF;
+        fila(s, b"bytes por ms", bytes_ms, b"B", b"lo que el aparato come de una vez (el latido del bus es 1 ms)");
         fila(s, b"max packet", (t >> 40) & 0xFFFF, b"B", b"lo mas que el aparato acepta por intervalo");
         let c = bmo::info(bmo::INFO_AUDIO_TRAMAS);
         fila(s, b"encoladas", c & 0xFFFF_FFFF, b"", b"tramas isocronas desde el arranque");
@@ -348,6 +350,94 @@ pub(crate) fn report_audio(s: &mut Output) {
         fila_cero(s, b"vetos DMA", h >> 32, b"tramos del bufer prestado que el juez nego (R-DMA)");
         fila(s, b"pendientes", d >> 32, b"B", b"lo escrito en el bufer prestado y aun no leido");
     }
+    if ranura != 0 {
+        tabla_de_formatos(s);
+    }
+}
+
+/// **QUE FORMATOS DECLARA EL APARATO, Y CUAL SE COGIO** (2026-09-22).
+///
+/// El propietario: *"el save en audio total con tablas por completo, y que
+/// versiones agarran para eso, que EXPONGA que es"*. Hasta hoy el informe
+/// decia `frecuencia 48000` y `192 B` y ahi se acababa: **no habia forma de
+/// saber si el aparato ofrecia otra cosa**, porque el driver se quedaba con el
+/// primer formato y no miraba mas. Ahora se guardan todos y se muestran con la
+/// cuenta hecha, que es lo que contesta la pregunta de verdad: *este audifono
+/// "7.1", puede llevar 5.1 por el cable, o su 7.1 es de mentira?*
+fn tabla_de_formatos(s: &mut Output) {
+    let f = bmo::info(bmo::INFO_AUDIO_FORMATOS);
+    let cuantos = f & 0xFF;
+    subregla(s, b"formatos que el aparato DECLARA, y la cuenta de cada uno");
+    if cuantos == 0 {
+        fila_cero(s, b"formatos", 0, b"no declara ninguna interfaz de reproduccion");
+        return;
+    }
+    fila(s, b"formatos", cuantos, b"", b"alternate settings con endpoint isocrono de salida");
+    s.with_ink(INK_ECHO);
+    s.text(b"      alt  canales   bits  B/ms  max pkt  sinc    frecuencias
+");
+    s.with_ink(INK_PLAIN);
+    for i in 0..cuantos.min(8) {
+        let p = bmo::info(bmo::INFO_AUDIO_FORMATO | (i << 8));
+        if p == 0 {
+            continue;
+        }
+        let canales = (p >> 8) & 0xFF;
+        let bits = (p >> 16) & 0xFF;
+        let sub = (p >> 24) & 0xFF;
+        let maxpkt = (p >> 32) & 0xFFFF;
+        let n_hz = (p >> 48) & 0xFF;
+        let cabe = (p >> 56) & 1 == 1;
+        let elegido = (p >> 57) & 1 == 1;
+        let primera = bmo::info(bmo::INFO_AUDIO_FRECUENCIA | (i << 8));
+        s.with_ink(if elegido { INK_GOOD } else { INK_PLAIN });
+        s.text(b"      ");
+        s.dec_right((p & 0xFF) + 0, 3);
+        s.dec_right(canales, 9);
+        s.dec_right(bits, 7);
+        // Los bytes por milisegundo a SU primera frecuencia: la cuenta que
+        // decide si cabe, hecha aqui para que nadie tenga que hacerla.
+        s.dec_right((primera / 1000) * canales * sub, 6);
+        s.dec_right(maxpkt, 9);
+        s.text(match (p >> 58) & 3 {
+            1 => b"  async" as &[u8],
+            2 => b"  adapt",
+            3 => b"  sincr",
+            _ => b"  --   ",
+        });
+        s.text(b"  ");
+        for k in 0..n_hz.min(6) {
+            if k > 0 {
+                s.byte(b'/');
+            }
+            s.dec(bmo::info(bmo::INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12)));
+        }
+        if elegido {
+            s.text(b"  <- ELEGIDO");
+        } else if !cabe {
+            s.text(b"  (no cabe en 1 ms)");
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(10);
+        // Y a DATOS.TXT, crudo, para el que lee con una maquina.
+        anotar_formato(i, p, primera);
+    }
+    s.with_ink(INK_ECHO);
+    s.text(b"      la cuenta: B/ms = (Hz / 1000) x canales x bytes por muestra. Si pasa de
+");
+    s.text(b"      `max pkt`, ese formato NO cabe en el milisegundo del bus y no se puede usar.
+");
+    s.text(b"      192 B/ms a 48 kHz son 48 x 2 x 2: ESTEREO. Un 5.1 pediria 576.
+");
+    s.with_ink(INK_PLAIN);
+}
+
+fn anotar_formato(i: u64, p: u64, hz: u64) {
+    let mut clave = [0u8; 20];
+    let n = clave_ficha(&mut clave, i, b"formato");
+    super::datos::anotar(&clave[..n], p, b"");
+    let n = clave_ficha(&mut clave, i, b"hz");
+    super::datos::anotar(&clave[..n], hz, b"Hz");
 }
 
 /// Una fila en dB a partir de un `i16` en 1/256 dB (dos bytes de un INFO):

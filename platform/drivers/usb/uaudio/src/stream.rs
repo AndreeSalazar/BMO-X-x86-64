@@ -280,6 +280,70 @@ fn le_u16(b: &[u8], off: usize) -> u16 {
 /// up -- and it is reset on every new interface header, because a format
 /// belonging to alt 1 must never be attributed to alt 2.
 pub fn find_playback(config: &[u8]) -> Option<Playback> {
+    let (lista, n) = todas_las_reproducciones(config);
+    if n == 0 {
+        return None;
+    }
+    Some(lista[elegir(&lista[..n])])
+}
+
+/// Cuantos formatos de reproduccion se guardan de un aparato. Ocho sobran: un
+/// audifono corriente declara dos o tres (estereo a 48 y a 44,1, y a veces uno
+/// de 24 bits).
+pub const MAX_FORMATOS: usize = 8;
+
+/// **TODOS los formatos de reproduccion que el aparato ofrece**, no el primero
+/// (2026-09-22).
+///
+/// *** POR QUE ESTO NO EXISTIA, Y QUE COSTO. `find_playback` devolvia el PRIMER
+/// alternate setting con endpoint isocrono de salida y dejaba de mirar. En el
+/// Ryzen eso eligio estereo 48 kHz del audifono "7.1", y la pregunta *"tiene un
+/// alt de 6 u 8 canales?"* no tenia respuesta: **nadie lo habia mirado**. Un
+/// aparato que declara y un anfitrion que no lee es un anfitrion que elige por
+/// accidente.
+///
+/// Devuelve la lista y cuantos entraron (se para en `MAX_FORMATOS`).
+pub fn todas_las_reproducciones(config: &[u8]) -> ([Playback; MAX_FORMATOS], usize) {
+    let mut lista = [Playback::VACIA; MAX_FORMATOS];
+    let mut n = 0usize;
+    recorrer(config, &mut |p| {
+        if n < MAX_FORMATOS {
+            lista[n] = p;
+            n += 1;
+        }
+    });
+    (lista, n)
+}
+
+/// **Cual de los formatos se toma, y con un motivo que se puede decir.**
+///
+/// Por orden: el que mas CANALES trae entre los que caben en su propio
+/// `wMaxPacketSize` a una frecuencia EXACTA (las que caben enteras en el
+/// milisegundo del bus: 48.000 si, 44.100 no -- ver
+/// `docs/plan/PLAN_EL_SONIDO.md` 1.3); si ninguno tiene frecuencia exacta, el
+/// que mas canales traiga de los que quepan; y si ninguno cabe, el primero,
+/// para que el que mire el informe vea algo en vez de nada.
+pub fn elegir(lista: &[Playback]) -> usize {
+    let mut mejor_exacto: Option<(usize, u8)> = None;
+    let mut mejor_cabe: Option<(usize, u8)> = None;
+    for (i, p) in lista.iter().enumerate() {
+        for &hz in p.rates() {
+            if hz == 0 || !p.fits(hz) {
+                continue;
+            }
+            if mejor_cabe.map_or(true, |(_, c)| p.channels > c) {
+                mejor_cabe = Some((i, p.channels));
+            }
+            if hz % 1000 == 0 && mejor_exacto.map_or(true, |(_, c)| p.channels > c) {
+                mejor_exacto = Some((i, p.channels));
+            }
+        }
+    }
+    mejor_exacto.or(mejor_cabe).map(|(i, _)| i).unwrap_or(0)
+}
+
+/// La mitad de abajo de las dos de arriba: recorre y entrega cada formato.
+fn recorrer(config: &[u8], entregar: &mut dyn FnMut(Playback)) {
     let total = if config.len() >= 4 { le_u16(config, 2) as usize } else { 0 };
     let limit = if total > 0 && total <= config.len() { total } else { config.len() };
     let mut off = if !config.is_empty() { config[0] as usize } else { 9 };
@@ -362,14 +426,17 @@ pub fn find_playback(config: &[u8]) -> Option<Playback> {
                     p.max_packet = le_u16(config, off + 4);
                     p.interval = config[off + 6];
                     p.sync = Sync::from_attrs(attrs);
-                    return Some(p);
+                    // ** Se ENTREGA y se SIGUE. Antes aqui habia un `return`, y
+                    // ese `return` es todo el motivo de que nadie supiera si
+                    // este aparato tiene mas formatos.
+                    entregar(p);
+                    current = None;
                 }
             }
         }
 
         off += len;
     }
-    None
 }
 
 // -- The tests --------------------------------------------------------------
@@ -392,6 +459,85 @@ pub fn find_playback(config: &[u8]) -> Option<Playback> {
 // the same code put in the kernel is checkable only by reading it.
 //
 // A `#[cfg(test)]` nobody has run is not a test, it is an intention.
+#[cfg(test)]
+mod formatos {
+    use super::*;
+
+    /// Un aparato con TRES formatos de reproduccion: estereo 48k (cabe),
+    /// estereo 44,1k (cabe, pero fraccionaria) y 5.1 a 48k (NO cabe en su
+    /// propio max packet). Es la forma del audifono que este plan persigue.
+    fn tres_formatos() -> [u8; 9 + 3 * 29] {
+        let mut v = [0u8; 9 + 3 * 29];
+        let total = v.len() as u16;
+        v[..9].copy_from_slice(&[9, 0x02, total as u8, (total >> 8) as u8, 4, 1, 0, 0x80, 50]);
+        let mut off = 9;
+        // (alt, canales, subframe, bits, hz, max_packet)
+        let alts: [(u8, u8, u8, u8, u32, u16); 3] = [
+            (1, 2, 2, 16, 48_000, 192),
+            (2, 2, 2, 16, 44_100, 192),
+            (3, 6, 2, 16, 48_000, 192),
+        ];
+        for (alt, ch, sub, bits, hz, mp) in alts {
+            // Interface (9)
+            v[off..off + 9].copy_from_slice(&[
+                9, DESC_INTERFACE, 1, alt, 1, CLASS_AUDIO, SUBCLASS_AUDIOSTREAMING, 0, 0,
+            ]);
+            off += 9;
+            // CS_INTERFACE / FORMAT_TYPE (11): tipo I, 1 frecuencia discreta
+            v[off..off + 11].copy_from_slice(&[
+                11, DESC_CS_INTERFACE, AS_FORMAT_TYPE, FORMAT_TYPE_I, ch, sub, bits, 1,
+                (hz & 0xFF) as u8, ((hz >> 8) & 0xFF) as u8, ((hz >> 16) & 0xFF) as u8,
+            ]);
+            off += 11;
+            // Endpoint isocrono de salida (9, los de audio llevan dos mas)
+            v[off..off + 9].copy_from_slice(&[
+                9, DESC_ENDPOINT, 0x01, 0x05, (mp & 0xFF) as u8, (mp >> 8) as u8, 1, 0, 0,
+            ]);
+            off += 9;
+        }
+        v
+    }
+
+    #[test]
+    fn se_ven_los_tres_y_no_solo_el_primero() {
+        let cfg = tres_formatos();
+        let (lista, n) = todas_las_reproducciones(&cfg);
+        assert_eq!(n, 3, "solo vio {}", n);
+        assert_eq!(lista[0].alt_setting, 1);
+        assert_eq!(lista[1].rates()[0], 44_100);
+        assert_eq!(lista[2].channels, 6);
+    }
+
+    #[test]
+    fn se_elige_el_que_cabe_y_con_frecuencia_exacta() {
+        let cfg = tres_formatos();
+        let (lista, n) = todas_las_reproducciones(&cfg);
+        // El 5.1 a 48k pide 576 B/ms y su max packet son 192: NO cabe, asi
+        // que no puede ser el elegido por muchos canales que traiga.
+        assert!(!lista[2].fits(48_000));
+        // Entre los dos que caben, gana el de frecuencia exacta.
+        assert_eq!(elegir(&lista[..n]), 0);
+        let p = find_playback(&cfg).expect("hay reproduccion");
+        assert_eq!(p.alt_setting, 1);
+        assert_eq!(p.bytes_per_interval(48_000), 192);
+    }
+
+    #[test]
+    fn si_ninguno_cabe_se_devuelve_algo_y_no_nada() {
+        // Un aparato que miente: declara 5.1 con un max packet de estereo.
+        let mut cfg = tres_formatos();
+        // Deja solo el tercero legible recortando los dos primeros a basura.
+        for i in 9..9 + 2 * 29 {
+            cfg[i] = 0;
+        }
+        let (lista, n) = todas_las_reproducciones(&cfg);
+        // Lo que importa: no se cuelga y lo que devuelva es coherente.
+        if n > 0 {
+            assert!(elegir(&lista[..n]) < n);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

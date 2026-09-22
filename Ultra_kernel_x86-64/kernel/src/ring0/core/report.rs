@@ -241,6 +241,12 @@ const INFO_AUDIO_TUBO: u64 = 0x84;
 const INFO_AUDIO_TRAMAS: u64 = 0x85;
 const INFO_AUDIO_HUECOS: u64 = 0x86;
 const INFO_AUDIO_PROPIETARIO: u64 = 0x87;
+/// Cuantos formatos de reproduccion declara el aparato, y cual se eligio.
+const INFO_AUDIO_FORMATOS: u64 = 0x88;
+/// El formato `i` (en `campo >> 8`), empaquetado. Ver `uaudio::info_formato`.
+const INFO_AUDIO_FORMATO: u64 = 0x89;
+/// La frecuencia `k` del formato `i`: `INFO_AUDIO_FRECUENCIA | (i << 8) | (k << 12)`.
+const INFO_AUDIO_FRECUENCIA: u64 = 0x8A;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -772,6 +778,14 @@ pub fn campo(n: u64) -> Option<u64> {
             crate::ring0::dev::uaudio::info_aparato() | (crate::ring0::obj::audio::devices() << 40)
         }
         INFO_AUDIO_RANGO => crate::ring0::dev::uaudio::info_rango(),
+        INFO_AUDIO_FORMATOS => crate::ring0::dev::uaudio::info_formatos(),
+        c if c & 0xFF == INFO_AUDIO_FORMATO => {
+            crate::ring0::dev::uaudio::info_formato(((c >> 8) & 0xF) as usize)
+        }
+        c if c & 0xFF == INFO_AUDIO_FRECUENCIA => crate::ring0::dev::uaudio::info_frecuencia(
+            ((c >> 8) & 0xF) as usize,
+            ((c >> 12) & 0xF) as usize,
+        ),
         INFO_AUDIO_TUBO => {
             use crate::ring0::dev::usb::audio as tubo;
             match tubo::tubo() {

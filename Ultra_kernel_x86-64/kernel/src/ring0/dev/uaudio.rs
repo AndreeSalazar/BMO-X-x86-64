@@ -165,6 +165,18 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     }
     // Y su tubo de reproduccion, si lo declara: se guarda para `censar`, que
     // asi deja de leer descriptores desde un syscall.
+    // *** TODOS LOS FORMATOS, NO EL PRIMERO (2026-09-22). Hasta hoy se
+    // guardaba el que `find_playback` devolvia y nadie sabia si el aparato
+    // ofrecia otros -- ni siquiera si el audifono "7.1" tiene un alt de seis
+    // u ocho canales. Ahora se guardan todos y el `save` los MUESTRA; el
+    // elegido sale de `elegir`, con su motivo escrito alli.
+    let (lista, cuantos) = bmo_uaudio::stream::todas_las_reproducciones(cfg);
+    unsafe {
+        FORMATOS = lista;
+        N_FORMATOS = cuantos as u8;
+        ELEGIDO = if cuantos > 0 { bmo_uaudio::stream::elegir(&lista[..cuantos]) as u8 } else { 0 };
+    }
+    crate::ring0::cabina::count("uaudio", "formatos de reproduccion que declara", cuantos as u64);
     match bmo_uaudio::stream::find_playback(cfg) {
         Some(p) => {
             unsafe {
@@ -214,6 +226,72 @@ pub fn reproduccion() -> Option<(u8, bmo_uaudio::stream::Playback)> {
 /// nadie lee.
 static mut REPRODUCCION: bmo_uaudio::stream::Playback = bmo_uaudio::stream::Playback::VACIA;
 static HAY_REPRODUCCION: AtomicBool = AtomicBool::new(false);
+
+/// **Todos los formatos de reproduccion que el aparato declara**, para que el
+/// `save` pueda decir lo que hay y no solo lo que se cogio. Se escriben en
+/// `reclamar` (hilo del bus) y se leen desde el informe.
+static mut FORMATOS: [bmo_uaudio::stream::Playback; bmo_uaudio::stream::MAX_FORMATOS] =
+    [bmo_uaudio::stream::Playback::VACIA; bmo_uaudio::stream::MAX_FORMATOS]; // [escribe] bus
+static mut N_FORMATOS: u8 = 0; // [escribe] bus
+static mut ELEGIDO: u8 = 0; // [escribe] bus
+
+/// Cuantos formatos declara, y cual se eligio: `[0..8)` cuantos | `[8..16)` el
+/// indice del elegido.
+pub fn info_formatos() -> u64 {
+    unsafe { (N_FORMATOS as u64) | ((ELEGIDO as u64) << 8) }
+}
+
+/// **El formato `i`, empaquetado** para el informe:
+///
+/// ```text
+///    [0..8)    alt setting
+///    [8..16)   canales
+///    [16..24)  bits por muestra
+///    [24..32)  bytes por muestra y canal (subframe)
+///    [32..48)  wMaxPacketSize
+///    [48..56)  cuantas frecuencias declara
+///    [56..57)  cabe en 1 ms a su primera frecuencia?
+///    [57..58)  es el ELEGIDO?
+///    [58..60)  sincronia (0 ninguna, 1 asincrona, 2 adaptativa, 3 sincrona)
+/// ```
+///
+/// Las frecuencias van aparte ([`info_frecuencia`]): no caben aqui, y
+/// apretarlas seria inventar un formato para ahorrar una llamada.
+pub fn info_formato(i: usize) -> u64 {
+    let (p, elegido) = unsafe {
+        if i >= N_FORMATOS as usize {
+            return 0;
+        }
+        (FORMATOS[i], ELEGIDO as usize == i)
+    };
+    let primera = p.rates().first().copied().unwrap_or(0);
+    let cabe = primera != 0 && p.fits(primera);
+    let sinc = match p.sync {
+        bmo_uaudio::stream::Sync::None => 0u64,
+        bmo_uaudio::stream::Sync::Async => 1,
+        bmo_uaudio::stream::Sync::Adaptive => 2,
+        bmo_uaudio::stream::Sync::Synchronous => 3,
+    };
+    (p.alt_setting as u64)
+        | ((p.channels as u64) << 8)
+        | ((p.bits as u64) << 16)
+        | ((p.subframe as u64) << 24)
+        | ((p.max_packet as u64) << 32)
+        | ((p.rates().len() as u64) << 48)
+        | ((cabe as u64) << 56)
+        | ((elegido as u64) << 57)
+        | (sinc << 58)
+}
+
+/// La frecuencia `k` del formato `i`, en Hz. `0` = no hay tal.
+pub fn info_frecuencia(i: usize, k: usize) -> u64 {
+    unsafe {
+        if i >= N_FORMATOS as usize {
+            return 0;
+        }
+        FORMATOS[i].rates().get(k).copied().unwrap_or(0) as u64
+    }
+}
 
 fn leer_rango(ac: &bmo_uaudio::AudioControl) {
     let min = leer(ac, bmo_uaudio::GET_MIN);
