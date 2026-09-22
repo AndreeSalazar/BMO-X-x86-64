@@ -248,6 +248,16 @@ fn factor_positivo(db: MilesimasDb) -> u32 {
     ((base * fino) >> 16) as u32
 }
 
+/// Un factor Q16.16 que solo BAJA (0..65536) a dB en 1/256: 0 o negativo.
+fn q16_a_db(r: u32) -> MilesimasDb {
+    if r >= (1 << 16) {
+        return 0;
+    }
+    // 20*log10(r/65536), con r en Q16.16.
+    let l2 = log2_q16(r.max(1)) - log2_q16(1 << 16);
+    ((l2 as i64 * 1541) >> 16) as i32
+}
+
 /// `log2(x)` en Q16.16 para `x >= 1`. Sin coma flotante: la parte entera son
 /// los bits, y la fraccion sale de elevar al cuadrado ocho veces.
 fn log2_q16(x: u32) -> i32 {
@@ -406,6 +416,22 @@ impl Limite {
         l
     }
 
+    /// **El relajo, puesto a mano**: cuanto tarda en devolver la ganancia,
+    /// en ms, para `muestras_por_segundo` muestras que PASAN por aqui (en
+    /// estereo, el doble de la frecuencia: el limite ve las dos intercaladas).
+    ///
+    /// *** LO QUE ESTO ARREGLA (2026-09-22). El maestro sonaba *"como si
+    /// peleara, a tirones"* con +24 dB. Con 12 dB o mas de reduccion, un
+    /// relajo corto sube la ganancia entre golpe y golpe y la vuelve a bajar
+    /// en el siguiente: el volumen del FONDO sube y baja con cada disparo --el
+    /// bombeo--. Y el de antes era mas corto de lo que decia: los "100 ms" se
+    /// contaban por muestra intercalada, o sea 50 ms reales en estereo.
+    pub fn con_relajo_ms(mut self, muestras_por_segundo: u32, ms: u32) -> Limite {
+        let n = (muestras_por_segundo as u64 * ms as u64 / 1000).max(1);
+        self.relajo = ((1u64 << 16) / n).max(1) as u32;
+        self
+    }
+
     /// El techo puesto.
     pub fn techo(&self) -> i32 {
         self.techo
@@ -413,12 +439,7 @@ impl Limite {
 
     /// La reduccion que hay puesta ahora, en 1/256 de dB (negativa o cero).
     pub fn reduccion_db(&self) -> MilesimasDb {
-        if self.reduccion >= (1 << 16) {
-            return 0;
-        }
-        // 20*log10(r/65536), con r en Q16.16.
-        let l2 = log2_q16(self.reduccion.max(1)) - log2_q16(1 << 16);
-        ((l2 as i64 * 1541) >> 16) as i32
+        q16_a_db(self.reduccion)
     }
 
     /// Muestras que la envolvente sujeto.

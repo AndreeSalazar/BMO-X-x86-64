@@ -544,6 +544,12 @@ pub const INFO_AUDIO_LIMITE: u64 = 0x8D;
 /// reclamarlo y antes de mandarle nada: `[0..16)` el `i16` en 1/256 dB |
 /// bit 16 = se leyo.
 pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
+/// **LOS TIRONES** (2026-09-22): el silencio que sale con el productor YA en
+/// marcha, que es el que se oye -- `huecos` suma ademas el del arranque, en el
+/// que la app aun no ha escrito nada. `[0..32)` tramas (ms) en silencio en
+/// marcha | `[32..48)` cuantos CORTES (rachas seguidas) | `[48..64)` el corte
+/// mas largo, en ms.
+pub const INFO_AUDIO_TIRONES: u64 = 0x8F;
 
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///

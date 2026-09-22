@@ -139,7 +139,7 @@ pub fn callar(si: bool) {
 // ===================================================================
 
 /// La etapa, con la frecuencia para la que se creo.
-static mut ETAPA: Option<(u32, Maestro)> = None; // [escribe] bombeo
+static mut ETAPA: Option<(u32, u8, Maestro)> = None; // [escribe] bombeo
 /// El marco fisico donde se copian las tramas. `0` = aun no se pidio.
 static mut REBOTE: u64 = 0; // [escribe] bombeo
 /// La siguiente ranura del rebote.
@@ -182,12 +182,16 @@ pub const ESTADO_NO_CABE: u8 = 3;
 pub const ESTADO_SIN_MARCO: u8 = 4;
 
 /// La etapa para `hz`, creada o recreada si el tubo cambio de frecuencia.
-unsafe fn etapa(hz: u32) -> &'static mut Maestro {
-    let hace_falta = !matches!(ETAPA, Some((f, _)) if f == hz);
+/// La etapa para `hz` y `canales`, creada o recreada si el tubo cambio.
+///
+/// ** Con los CANALES, desde el 22-09: el limite ve las muestras intercaladas,
+/// y creado con `hz` a secas sus tiempos eran la mitad de lo que decian.
+unsafe fn etapa(hz: u32, canales: u8) -> &'static mut Maestro {
+    let hace_falta = !matches!(ETAPA, Some((f, c, _)) if f == hz && c == canales);
     if hace_falta {
-        ETAPA = Some((hz, Maestro::nuevo(hz)));
+        ETAPA = Some((hz, canales, Maestro::nuevo(hz, canales.max(1) as u32)));
     }
-    let (_, m) = ETAPA.as_mut().unwrap();
+    let (_, _, m) = ETAPA.as_mut().unwrap();
     m.pedir(DIGITAL_DB.load(Ordering::SeqCst), MUDO.load(Ordering::SeqCst));
     m
 }
@@ -204,7 +208,7 @@ pub unsafe fn pasar(desde: u64, n: u16, t: &super::audio::Tubo) -> u64 {
         return desde;
     }
     let canales = t.canales.max(1) as usize;
-    let m = etapa(t.frecuencia);
+    let m = etapa(t.frecuencia, t.canales);
     let muestras = n as usize / 2;
     let origen = crate::ring0::mm::phys_to_virt(desde) as *const i16;
 
@@ -256,7 +260,7 @@ pub unsafe fn silencio(n: u16, t: &super::audio::Tubo) {
     if t.bits != 16 {
         return;
     }
-    let m = etapa(t.frecuencia);
+    let m = etapa(t.frecuencia, t.canales);
     m.silencio(n as usize / 2, t.canales.max(1) as usize);
     ventana(m);
 }
@@ -305,8 +309,9 @@ pub fn info_medidor() -> u64 {
 }
 
 /// `INFO_AUDIO_LIMITE`: `[0..32)` muestras doblegadas desde el principio |
-/// `[32..48)` lo que el limite baja ahora (`i16`) | `[48..64)` ventanas
-/// cerradas (da la vuelta): si no sube, el medidor no se esta moviendo.
+/// `[32..48)` **lo MAS que el limite bajo en la ultima ventana** (`i16`; por
+/// encima de 6 dB el fader ya no sube el volumen, lo aplasta) | `[48..64)`
+/// ventanas cerradas (da la vuelta): si no sube, el medidor no se mueve.
 pub fn info_limite() -> u64 {
     LIMITE.load(Ordering::SeqCst)
 }

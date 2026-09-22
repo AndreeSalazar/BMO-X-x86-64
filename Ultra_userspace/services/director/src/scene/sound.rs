@@ -578,6 +578,10 @@ fn cabecera(p: &bmo::Pantalla, s: &Sitio, l: &Lectura) {
         3 => ("[!] la trama no cabe en la etapa: el maestro NO actua", ROJO),
         4 => ("[!] sin memoria para la etapa: el maestro NO actua", ROJO),
         0 => ("aun no ha pasado sonido por el tubo", INK_DIM),
+        // ** EL TECHO FISICO, dicho. Por encima de 0 dBFS el aparato no da mas:
+        // lo que el fader sube de ahi el limite lo tiene que bajar, y lo que se
+        // oye no es mas fuerte, es APLASTADO (y el fondo sube con el).
+        _ if l.reduccion < -6 * DB => ("[!] aplasta mas de 6 dB: subir ya no da mas fuerza", ROJO),
         _ if !l.tocado => ("sin tocar: el aparato tiene su volumen de fabrica", INK_DIM),
         _ => ("el maestro manda sobre todo lo que suena", INK_DIM),
     };
@@ -715,7 +719,14 @@ fn numeros(p: &bmo::Pantalla, s: &Sitio, l: &Lectura, panel: &Panel) {
     } else {
         pon(b"nada", &mut t, &mut n);
     }
-    fila(b"limite   ", &t[..n], if l.reduccion < 0 { AMBAR } else { INK });
+    let color_limite = if l.reduccion < -6 * DB {
+        ROJO
+    } else if l.reduccion < 0 {
+        AMBAR
+    } else {
+        INK
+    };
+    fila(b"aplasta  ", &t[..n], color_limite);
 
     let mut t = [0u8; 32];
     let mut n = 0;

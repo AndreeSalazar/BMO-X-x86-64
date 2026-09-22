@@ -579,6 +579,22 @@ y `musica.inti` lo tenia igual desde el primer dia.
 El latido ahora se acompasa a **`MFINDEX`**, el reloj con el que el propio xHC
 sirve los isocronos, y repone solo lo servido. Detalle y tabla en
 [`METAL_2026-09-18.md`](../metal/METAL_2026-09-18.md) 3e-sexies.
+
+## [X] 5.3e -- LOS EFECTOS SUBIAN A 48 kHz EN ESCALONES (2026-09-22)
+
+Con el maestro a +24 dB el propietario oyo *"pelea y tirones"*. Parte era el
+limite (ver S4c de [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md)), y parte era
+esto: `bmo_snd_mezclar` tomaba la muestra de `pos >> 16` a secas, asi que cada
+muestra de 11.025 Hz se repetia ~4,35 veces. Un escalon son agudos que el
+sonido no tenia -- un rechinar que +24 dB sube igual que todo.
+
+Ahora va la RECTA entre la muestra y la siguiente (la ultima, hacia el
+silencio). El mezclador crece 141 bytes (0x3A5 -> 0x432 en el `--map`); el
+`.bex` no cambia de medida porque sus regiones van redondeadas.
+
+**Y la palanca de volumen limpia la tiene DOOM**: su volumen de efectos viene
+a 8 de 15. En su menu (Options -> Sound Volume) a 15 son **+5,5 dB sin tocar
+el limite**, que es lo que el maestro no puede dar sin aplastar.
 ---
 
 # La cuenta, para poder repartir

@@ -562,10 +562,27 @@ pub fn latido() {
         // por la ultima etapa --ganancia, limite, medidor-- y el silencio le
         // dice al medidor que caiga. Ver `maestro.rs`.
         let (donde, n) = match siguiente_trama(largo as u64) {
-            Some((desde, n)) => (unsafe { super::maestro::pasar(desde, n, &t) }, n),
+            Some((desde, n)) => {
+                unsafe { RACHA = 0 };
+                (unsafe { super::maestro::pasar(desde, n, &t) }, n)
+            }
             None => {
-                if unsafe { PRESTADO.is_some() } {
-                    unsafe { HUECOS = HUECOS.wrapping_add(1) };
+                if let Some(p) = unsafe { PRESTADO } {
+                    unsafe {
+                        HUECOS = HUECOS.wrapping_add(1);
+                        // ** Y SI YA SONABA, ES UN TIRON: se cuenta aparte, y
+                        // cuanto duro. Ver `TIRONES`.
+                        if p.empezo {
+                            EN_MARCHA = EN_MARCHA.wrapping_add(1);
+                            if RACHA == 0 {
+                                TIRONES = TIRONES.wrapping_add(1);
+                            }
+                            RACHA = RACHA.saturating_add(1);
+                            if RACHA > PEOR_RACHA {
+                                PEOR_RACHA = RACHA;
+                            }
+                        }
+                    }
                 }
                 unsafe { super::maestro::silencio(largo, &t) };
                 (ceros, largo)
@@ -602,6 +619,35 @@ static mut HUECOS: u64 = 0; // [escribe] bombeo
 /// Cuantas tramas salieron en silencio por falta de muestras.
 pub fn huecos() -> u64 {
     unsafe { HUECOS }
+}
+
+// == *** LOS TIRONES, APARTE DEL ARRANQUE (2026-09-22) =====================
+//
+// `huecos` no separaba dos cosas que se oyen muy distinto. Dos `save` con
+// DOOM, de 74 y de 35 segundos de juego, dijeron 4.966 y 4.416: **casi lo
+// mismo, con el doble de juego**. Un fallo que se reparte por la partida
+// crece con ella; esto no crecia. Era el ARRANQUE: DOOM ofrece su bloque en
+// `I_InitSound` y luego tarda unos cinco segundos en cargar (`R_Init`, las
+// texturas) antes de su primera vuelta de mezcla, y cada milisegundo de esos
+// contaba como hueco. Un instrumento que suma lo que no se oye con lo que se
+// oye no dice nada de ninguno de los dos.
+//
+// Ahora se cuenta aparte lo que falta **despues de la primera muestra**: eso
+// si es un tiron. Y se cuenta en RACHAS, porque el oido no oye milisegundos
+// sueltos: oye cortes, y un corte de 60 ms y sesenta de 1 ms no son lo mismo.
+
+/// Tramas en silencio con el productor YA en marcha.
+static mut EN_MARCHA: u64 = 0; // [escribe] bombeo
+/// Cortes: rachas de tramas en silencio seguidas, con el productor en marcha.
+static mut TIRONES: u64 = 0; // [escribe] bombeo
+/// La racha que va ahora, en tramas (ms).
+static mut RACHA: u64 = 0; // [escribe] bombeo
+/// El corte mas largo visto, en tramas (ms).
+static mut PEOR_RACHA: u64 = 0; // [escribe] bombeo
+
+/// `(tramas en silencio en marcha, cortes, el corte mas largo en ms)`.
+pub fn tirones() -> (u64, u64, u64) {
+    unsafe { (EN_MARCHA, TIRONES, PEOR_RACHA) }
 }
 
 // ===================================================================
@@ -661,6 +707,10 @@ struct Prestado {
     /// **Por donde va el tubo.** Lo mueve el latido, y da la vuelta en
     /// `anillo`.
     leido: u64,
+    /// **La app ya escribio algo.** Antes de eso el silencio no es un tiron:
+    /// es que el productor aun no ha empezado (DOOM ofrece el bloque en su
+    /// `I_InitSound` y tarda SEGUNDOS en cargar antes de su primera vuelta).
+    empezo: bool,
 }
 
 /// **Cuantos bytes hay escritos y sin mandar**, contando la vuelta.
@@ -714,7 +764,7 @@ pub fn ofrecer(pid: u32, va: u64, bytes: u64) -> bool {
     // para que el corte cayera en mitad de una muestra.
     let largo = unsafe { TUBO.map(|t| t.bytes_por_trama as u64).unwrap_or(0) };
     let anillo = if largo > 0 && bytes >= largo { bytes - (bytes % largo) } else { bytes };
-    unsafe { PRESTADO = Some(Prestado { pid, fisica, bytes, anillo, escrito: 0, leido: 0 }) };
+    unsafe { PRESTADO = Some(Prestado { pid, fisica, bytes, anillo, escrito: 0, leido: 0, empezo: false }) };
     cabina::bytes("audio", "bufer PRESTADO al tubo, bytes", bytes);
     cabina::bytes("audio", "  ...y su ANILLO (tramas enteras), bytes", anillo);
     true
@@ -737,6 +787,7 @@ pub fn escrito(pid: u32, hasta: u64) -> bool {
         match PRESTADO.as_mut() {
             Some(p) if p.pid == pid && hasta <= p.anillo => {
                 p.escrito = hasta;
+                p.empezo = true;
                 true
             }
             _ => false,

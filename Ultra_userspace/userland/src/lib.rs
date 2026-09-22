@@ -416,6 +416,8 @@ pub const INFO_AUDIO_MEDIDOR: u64 = 0x8C;
 pub const INFO_AUDIO_LIMITE: u64 = 0x8D;
 /// El volumen con el que vino el aparato (`GET_CUR` al reclamarlo).
 pub const INFO_AUDIO_FABRICA: u64 = 0x8E;
+/// Silencio con el productor en marcha: tramas, cortes y el corte mas largo.
+pub const INFO_AUDIO_TIRONES: u64 = 0x8F;
 /// El formato `i` (`INFO_AUDIO_FORMATO | (i << 8)`): alt, canales, bits,
 /// subframe, `wMaxPacketSize`, cuantas frecuencias, si CABE en 1 ms, si es el
 /// elegido y su sincronia. Ver `uaudio::info_formato` en el kernel.

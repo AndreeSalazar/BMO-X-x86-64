@@ -255,6 +255,8 @@ const INFO_AUDIO_MEDIDOR: u64 = 0x8C;
 const INFO_AUDIO_LIMITE: u64 = 0x8D;
 /// El volumen de fabrica del aparato.
 const INFO_AUDIO_FABRICA: u64 = 0x8E;
+/// Los tirones: silencio con el productor ya en marcha, en cortes.
+const INFO_AUDIO_TIRONES: u64 = 0x8F;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -790,6 +792,10 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_AUDIO_MEDIDOR => crate::ring0::dev::usb::maestro::info_medidor(),
         INFO_AUDIO_LIMITE => crate::ring0::dev::usb::maestro::info_limite(),
         INFO_AUDIO_FABRICA => crate::ring0::dev::uaudio::info_fabrica(),
+        INFO_AUDIO_TIRONES => {
+            let (en_marcha, cortes, peor) = crate::ring0::dev::usb::audio::tirones();
+            en_marcha.min(0xFFFF_FFFF) | (cortes.min(0xFFFF) << 32) | (peor.min(0xFFFF) << 48)
+        }
         INFO_AUDIO_FORMATOS => crate::ring0::dev::uaudio::info_formatos(),
         c if c & 0xFF == INFO_AUDIO_FORMATO => {
             crate::ring0::dev::uaudio::info_formato(((c >> 8) & 0xF) as usize)

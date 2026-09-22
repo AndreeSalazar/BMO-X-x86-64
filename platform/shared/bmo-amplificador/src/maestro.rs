@@ -37,7 +37,7 @@
 //! limitador de mezcla, y aqui sale gratis porque las muestras llegan
 //! intercaladas.
 
-use crate::{Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB, MIN_DB};
+use crate::{q16_a_db, Ganancia, Limite, Medidor, MilesimasDb, DB, MAX_DB, MIN_DB};
 
 /// **Lo que la rampa se mueve por bloque** en la zona donde se oye: 1 dB. Un
 /// bloque del tubo es 1 ms, asi que subir 12 dB tarda 12 ms -- mas rapido de
@@ -52,6 +52,16 @@ pub const PASO_HONDO: MilesimasDb = 8 * DB;
 /// Por debajo de aqui la rampa usa [`PASO_HONDO`].
 pub const HONDO: MilesimasDb = -40 * DB;
 
+/// **Lo que tarda el limite del maestro en devolver la ganancia**: 250 ms.
+///
+/// El de mezcla devuelve en 100 ms (y en estereo eran 50, ver
+/// `Limite::con_relajo_ms`), y con el fader muy arriba eso es bombeo: entre
+/// disparo y disparo el fondo sube, y el siguiente disparo lo vuelve a hundir.
+/// Un cuarto de segundo es lo de un limitador de seguridad: la cola de un
+/// golpe baja y sube de una vez, no a tirones. La prueba
+/// `con_el_fader_arriba_el_fondo_no_bombea` fija la diferencia.
+pub const RELAJO_MS: u32 = 250;
+
 /// **Lo que el medidor dijo en una ventana**, ya cerrado.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Lectura {
@@ -62,7 +72,10 @@ pub struct Lectura {
     /// Muestras que el limite tuvo que doblegar a pelo **desde el principio**.
     /// Es la luz de RECORTE: si sube, lo que sale ya no es la onda.
     pub dobladas: u64,
-    /// Lo que el limite esta bajando AHORA (0 = nada, negativo = sujetando).
+    /// **Lo MAS que el limite bajo en la ventana** (0 = nada, negativo =
+    /// sujetando). No lo de este instante: al cerrar la ventana suele pillar
+    /// la cola, y lo que dice si se esta aplastando es el fondo del pozo. Por
+    /// encima de 6 dB, subir el fader ya no suena mas fuerte: suena APLASTADO.
     pub reduccion: MilesimasDb,
     /// La ganancia que de verdad esta puesta, por donde va la rampa.
     pub actual: MilesimasDb,
@@ -78,18 +91,28 @@ pub struct Maestro {
     actual: MilesimasDb,
     limite: Limite,
     medidores: [Medidor; 2],
+    /// La reduccion mas honda de la ventana, en Q16.16 (65536 = ninguna).
+    pozo: u32,
 }
 
 impl Maestro {
-    /// Un maestro en reposo --0 dB, sin mudo-- para un aparato de `hz`.
-    pub fn nuevo(hz: u32) -> Maestro {
+    /// Un maestro en reposo --0 dB, sin mudo-- para un aparato de `hz` y
+    /// `canales`.
+    ///
+    /// ** LOS CANALES HACEN FALTA, y no por el medidor: el limite ve las
+    /// muestras intercaladas, asi que en estereo pasan `2 x hz` por segundo.
+    /// Construirlo con `hz` a secas hacia sus tiempos la MITAD de lo que
+    /// decian.
+    pub fn nuevo(hz: u32, canales: u32) -> Maestro {
+        let por_segundo = hz.saturating_mul(canales.max(1));
         Maestro {
             objetivo: 0,
             mudo: false,
             actual: 0,
-            // Sin ataque: ver `Limite::inmediato`, y la prueba que lo pidio.
-            limite: Limite::inmediato(hz),
+            // Sin ataque (ver `Limite::inmediato`) y con el relajo del maestro.
+            limite: Limite::inmediato(por_segundo).con_relajo_ms(por_segundo, RELAJO_MS),
             medidores: [Medidor::nuevo(); 2],
+            pozo: 1 << 16,
         }
     }
 
@@ -158,6 +181,9 @@ impl Maestro {
             let y = self.limite.muestra(x);
             *m = y;
             self.medidores[(i % canales) & 1].mirar_uno(y as i32);
+            if self.limite.reduccion < self.pozo {
+                self.pozo = self.limite.reduccion;
+            }
         }
     }
 
@@ -193,10 +219,13 @@ impl Maestro {
             pico: [self.medidores[0].pico_dbfs(), self.medidores[1].pico_dbfs()],
             rms: [self.medidores[0].rms_dbfs(), self.medidores[1].rms_dbfs()],
             dobladas: self.limite.dobladas(),
-            reduccion: self.limite.reduccion_db(),
+            reduccion: q16_a_db(self.pozo),
             actual: self.actual,
         };
         self.medidores = [Medidor::nuevo(); 2];
+        // El pozo vuelve a donde esta el limite AHORA, no a "nada": si sigue
+        // sujetando, la ventana siguiente tiene que decirlo.
+        self.pozo = self.limite.reduccion;
         l
     }
 }
@@ -218,7 +247,7 @@ mod pruebas {
 
     #[test]
     fn en_reposo_es_un_cable_bit_a_bit() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         let mut b = [0i16; 96];
         for (i, v) in b.iter_mut().enumerate() {
             *v = (i as i16).wrapping_mul(700).wrapping_sub(i16::MAX);
@@ -233,7 +262,7 @@ mod pruebas {
 
     #[test]
     fn la_rampa_no_salta_de_golpe() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(12 * DB, false);
         let mut b = cuadrada(1000, 48);
         m.pasar(&mut b, 2);
@@ -252,7 +281,7 @@ mod pruebas {
 
     #[test]
     fn el_mudo_calla_del_todo_y_rapido() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(0, true);
         let mut bloques = 0;
         loop {
@@ -277,7 +306,7 @@ mod pruebas {
 
     #[test]
     fn subir_doce_db_a_una_onda_floja_la_cuadruplica_sin_doblegar() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(12 * DB, false);
         for _ in 0..12 {
             let mut b = cuadrada(3000, 48);
@@ -297,7 +326,7 @@ mod pruebas {
 
     #[test]
     fn una_onda_fuerte_con_ganancia_la_sujeta_el_limite_y_no_se_sale() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(12 * DB, false);
         for _ in 0..200 {
             let mut b = cuadrada(20_000, 48);
@@ -313,7 +342,7 @@ mod pruebas {
 
     #[test]
     fn el_medidor_separa_izquierda_y_derecha() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         let mut b = [0i16; 96];
         for t in 0..48 {
             b[2 * t] = 16_000; // izquierda fuerte
@@ -327,7 +356,7 @@ mod pruebas {
 
     #[test]
     fn el_silencio_hace_caer_el_medidor_y_la_lectura_cierra_la_ventana() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         let mut b = cuadrada(10_000, 48);
         m.pasar(&mut b, 2);
         assert!(m.lectura().pico[0] > -11 * DB);
@@ -340,7 +369,7 @@ mod pruebas {
 
     #[test]
     fn el_mudo_en_silencio_sigue_andando() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(0, true);
         for _ in 0..60 {
             m.silencio(96, 2);
@@ -348,9 +377,76 @@ mod pruebas {
         assert_eq!(m.actual(), MIN_DB);
     }
 
+    /// **El caso del propietario**: disparos fuertes y colas flojas, con el fader
+    /// a +24 dB. Se mide cuanto CAMBIA el volumen de la cola entre su principio
+    /// y su final: eso es el bombeo que se oia como "pelea, a tirones".
+    fn bombeo(relajo_ms: u32) -> i64 {
+        // 96.000 muestras por segundo: estereo a 48 kHz, intercaladas.
+        let mut l = Limite::inmediato(96_000).con_relajo_ms(96_000, relajo_ms);
+        let g = Ganancia::db(24 * DB);
+        let mut peor = 0i64;
+        for _ in 0..10 {
+            // 10 ms de disparo...
+            for t in 0..960 {
+                let v = if (t / 40) % 2 == 0 { 20_000 } else { -20_000 };
+                let _ = l.muestra(g.aplicar(v));
+            }
+            // ...y 90 ms de cola floja: lo que sube y baja es ESTO.
+            let mut primera = 0i64;
+            let mut ultima = 0i64;
+            for t in 0..8_640 {
+                let v = if (t / 40) % 2 == 0 { 1_000 } else { -1_000 };
+                let y = l.muestra(g.aplicar(v)).unsigned_abs() as i64;
+                if t < 80 {
+                    primera = primera.max(y);
+                }
+                if t >= 8_560 {
+                    ultima = ultima.max(y);
+                }
+            }
+            peor = peor.max(ultima - primera);
+        }
+        peor
+    }
+
+    #[test]
+    fn con_el_fader_arriba_el_fondo_no_bombea() {
+        // El de antes: los "100 ms" que en estereo eran 50.
+        let antes = bombeo(50);
+        let ahora = bombeo(RELAJO_MS);
+        // La cola sube MENOS de la mitad que antes entre disparo y disparo.
+        assert!(ahora * 2 < antes, "antes {} ahora {}", antes, ahora);
+    }
+
+    #[test]
+    fn la_lectura_dice_el_fondo_del_pozo_y_no_la_cola() {
+        let mut m = Maestro::nuevo(48_000, 2);
+        m.pedir(24 * DB, false);
+        for _ in 0..24 {
+            let mut b = cuadrada(3000, 48);
+            m.pasar(&mut b, 2);
+        }
+        let _ = m.lectura();
+        // Un golpe fuerte y luego onda floja: al cerrar la ventana el limite
+        // ya ha soltado algo, pero el pozo fue hondo.
+        let mut b = cuadrada(20_000, 48);
+        m.pasar(&mut b, 2);
+        for _ in 0..20 {
+            let mut b = cuadrada(100, 48);
+            m.pasar(&mut b, 2);
+        }
+        let ahora = m.limite.reduccion_db();
+        let l = m.lectura();
+        // 20.000 x 15,85 contra 32.767: el pozo tiene que ser de -19,7 dB...
+        assert!(l.reduccion < -19 * DB, "pozo {}", l.reduccion);
+        // ...y MAS hondo que lo que el limite baja al cerrar la ventana, que
+        // es lo que antes se contaba.
+        assert!(l.reduccion < ahora - 2 * DB, "pozo {} ahora {}", l.reduccion, ahora);
+    }
+
     #[test]
     fn lo_que_se_pide_de_mas_se_recorta_al_techo_del_crate() {
-        let mut m = Maestro::nuevo(48_000);
+        let mut m = Maestro::nuevo(48_000, 2);
         m.pedir(100 * DB, false);
         assert_eq!(m.objetivo(), MAX_DB);
         m.pedir(-500 * DB, false);

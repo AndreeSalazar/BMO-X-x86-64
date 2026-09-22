@@ -352,7 +352,13 @@ pub(crate) fn report_audio(s: &mut Output) {
         fila(s, b"encoladas", c & 0xFFFF_FFFF, b"", b"tramas isocronas desde el arranque");
         fila_cero(s, b"tarde", c >> 32, b"tramas que el xHC no llego a servir en su microtrama: se OYE");
         let h = bmo::info(bmo::INFO_AUDIO_HUECOS);
-        fila_cero(s, b"huecos", h & 0xFFFF_FFFF, b"vueltas sin trama que mandar: el productor no llega");
+        fila(s, b"huecos", h & 0xFFFF_FFFF, b"",
+             b"tramas en silencio con bufer prestado, CONTANDO el arranque de la app");
+        // ** Los que se OYEN: con el productor ya en marcha (22-09).
+        let tr = bmo::info(bmo::INFO_AUDIO_TIRONES);
+        fila_cero(s, b"en marcha", tr & 0xFFFF_FFFF, b"de esos, los que faltaron YA SONANDO: se oyen");
+        fila_cero(s, b"tirones", (tr >> 32) & 0xFFFF, b"cortes: rachas de silencio seguidas mientras sonaba");
+        fila_cero(s, b"el mas largo", tr >> 48, b"ms que duro el peor corte");
         fila_cero(s, b"vetos DMA", h >> 32, b"tramos del bufer prestado que el juez nego (R-DMA)");
         fila(s, b"pendientes", d >> 32, b"B", b"lo escrito en el bufer prestado y aun no leido");
     }
@@ -393,7 +399,8 @@ fn report_maestro(s: &mut Output) {
     fila_db(s, b"rms der", (med >> 48) & 0xFFFF, b"");
     let lim = bmo::info(bmo::INFO_AUDIO_LIMITE);
     fila_cero(s, b"dobladas", lim & 0xFFFF_FFFF, b"muestras que el limite corto a pelo: es la luz de RECORTE");
-    fila_db(s, b"limite", (lim >> 32) & 0xFFFF, b"lo que el limite esta bajando ahora; 0 = nada");
+    fila_db(s, b"limite", (lim >> 32) & 0xFFFF,
+            b"lo MAS que bajo en la ultima ventana; pasado de -6 dB, subir el fader APLASTA");
     fila(s, b"ventanas", lim >> 48, b"", b"del medidor, cerradas (da la vuelta en 65536): si no sube, no mide");
 }
 

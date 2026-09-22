@@ -457,6 +457,56 @@ interfaz"*): el fader llega hasta donde llega el crate, +24 dB.
 | `M` | se calla en ~50 ms, sin chasquido, y vuelve igual | chasquido: la rampa no corre |
 | el `save` despues | `estado 1`, `tocado 1`, las filas del maestro | `estado 2/3/4`: el maestro no actua y el panel lo dice |
 
+### 14:07 del 22-09: el metal contesta -- FUNCIONA, y *"pelea y da tirones"*
+
+```text
+   estado 1 | tocado 1 | fader +24.0 | parte aparato 0.0 | digital +24.0
+   dobladas 0 | de fabrica 0.0 dB | ventanas 816 | encoladas 40.837 | tarde 0
+   huecos 4.416
+```
+
+El panel entro con DOOM sonando, el fader mando y la etapa actuo (`estado 1`,
+`digital +24.0`, ni una muestra doblegada). Y el propietario: *"el audio parece
+que pelea y da tirones... no sentia MAS fuerte"*. Tres causas, y ninguna es la
+que parecia:
+
+1. **El techo es fisico.** El aparato ya estaba a tope (`de fabrica 0.0 dB`),
+   asi que el "mas fuerte gratis" no existia. Por encima de 0 dBFS no hay mas
+   onda: lo que el fader sube de ahi, el limite lo tiene que bajar. DOOM saca
+   sus efectos a unos **-12 dBFS** (volumen de efectos 8 de 15 --64 de 127-- y
+   paneo lineal, que en el centro deja 1/4 por lado), asi que **a partir de
+   +12 dB el fader ya no sube el volumen: lo APLASTA**. A +24 son 12 dB de
+   limite en cada disparo.
+2. **Y aplastar con un relajo corto es BOMBEAR**: entre disparo y disparo el
+   limite devuelve la ganancia, el fondo sube, y el siguiente lo hunde. Eso es
+   la "pelea". El relajo ademas era la MITAD de lo escrito: los "100 ms" se
+   contaban por muestra intercalada, 50 ms reales en estereo. **Arreglado**: el
+   maestro sabe sus canales y devuelve en 250 ms (`RELAJO_MS`); la prueba
+   `con_el_fader_arriba_el_fondo_no_bombea` fija que la cola sube menos de la
+   mitad que antes.
+3. **Los `huecos` no eran los tirones.** 4.966 con 74 s de DOOM y 4.416 con
+   35 s: casi lo mismo con el doble de juego. Un fallo repartido por la partida
+   crece con ella; este no. Era el ARRANQUE de DOOM (ofrece su bloque en
+   `I_InitSound` y tarda ~5 s en cargar antes de mezclar). Ahora el kernel lo
+   separa: `INFO_AUDIO_TIRONES` (0x8F) cuenta solo lo que falta **ya sonando**,
+   en cortes y con el mas largo, y el `save` lo dice en tres filas.
+
+Y lo que se oia como tirones tenia un cuarto socio en DOOM: sus efectos suben
+de 11.025 a 48.000 Hz en ESCALONES, y +24 dB subia tambien ese rechinar. Ver
+[`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3e.
+
+Lo que el panel dice ahora: la fila `aplasta` es lo MAS que el limite bajo en
+la ventana (antes, lo del instante de cerrarla, que solia ser la cola), en
+rojo pasados 6 dB, con el aviso *"aplasta mas de 6 dB: subir ya no da mas
+fuerza"*.
+
+| que | afirma | como se cae |
+|---|---|---|
+| DOOM con el fader a +12 | mas fuerte que a 0 y `aplasta` en ambar, pocos dB | rojo: DOOM sale mas fuerte de lo calculado |
+| a +24 | `aplasta` en ROJO y el aviso; suena mas denso, no a tirones | tirones igual: no era el bombeo, mirar `tirones` |
+| `tirones` en el `save` tras jugar | 0, o pocos y cortos (`el mas largo` < 20 ms) | cientos: el productor SI llega tarde en partida |
+| `huecos` | sigue en miles (el arranque), y ya no importa | -- |
+
 ### Lo que NO es
 
 No es LA MESA: una sola perilla para todo lo que suena, no una por programa ni
