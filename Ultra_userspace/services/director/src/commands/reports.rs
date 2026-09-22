@@ -391,6 +391,7 @@ pub(crate) fn report_consumo(s: &mut Output, t: &crate::desktop::Tick) {
     // *** LO QUE CABINA SABIA Y ESTO NO (2026-09-17): el USB, los prestamos y
     // los avisos, en su fichero. Eddi: "save tiene que decir todo".
     super::save_cabina::report_usb(s);
+    super::save_cabina::report_audio(s);
     super::save_cabina::report_prestamos(s);
     super::save_cabina::report_avisos(s);
 }
@@ -611,6 +612,7 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.dec(us);
         s.text(b" us");
         s.with_ink(INK_ECHO);
+        super::datos::anotar(b"retenido", us, b"us");
         s.text(b"   lo MAS que un cerrojo cerro las interrupciones: `");
         s.text(&nombre[..n]);
         s.text(b"` en ");
@@ -673,6 +675,24 @@ fn report_compas(s: &mut Output) {
         let w = bmo::info(bmo::INFO_COMPAS_VUELTAS | (n << 8));
         let k = bmo::info_texto(bmo::INFO_TXT_COMPAS_NOMBRE | (n << 8), &mut txt);
         let incumplio = v >> 40;
+        // A DATOS.TXT, una clave por hilo y por columna: la tabla es a mano
+        // y la grabadora solo ve lo que pasa por `fila`.
+        {
+            let mut clave = [b' '; 32];
+            let base = k.min(20);
+            clave[..base].copy_from_slice(&txt[..base]);
+            let mut con = |sufijo: &[u8], valor: u64, unidad: &[u8]| {
+                let n = base + 1 + sufijo.len();
+                clave[base] = b' ';
+                clave[base + 1..n].copy_from_slice(sufijo);
+                super::datos::anotar(&clave[..n], valor, unidad);
+            };
+            con(b"periodo", (v >> 8) & 0xFFFF, b"ms");
+            con(b"presupuesto", (v >> 24) & 0xFFFF, b"us");
+            con(b"vueltas", w >> 32, b"");
+            con(b"incumplio", incumplio, b"");
+            con(b"peor vuelta", w & 0xFFFF_FFFF, b"us");
+        }
         s.text(b"      ");
         s.text(&txt[..k]);
         for _ in k..14 {

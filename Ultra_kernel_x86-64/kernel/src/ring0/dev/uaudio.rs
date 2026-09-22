@@ -50,6 +50,67 @@ static VOL_MAX: AtomicI16 = AtomicI16::new(0);
 static TIENE_MUTE: AtomicBool = AtomicBool::new(false);
 static CANALES: AtomicU8 = AtomicU8::new(0);
 
+// -- EL VOLUMEN VA POR EL HILO DEL BUS (2026-09-21) -------------------------
+//
+// `AUDIO_OP_VOLUME` llegaba aqui desde un syscall y mandaba sus control
+// transfers ahi mismo: pocos milisegundos, pero un segundo conductor del xHC
+// fuera del hilo del bus, la misma clase que `buscar()` (244 ms) y que A0
+// cerro para el escritorio. Ahora el syscall DEJA DICHO el porcentaje y el
+// bombeo lo manda en su vuelta (`atender`, desde `pump_bus`). De paso, un
+// volumen pedido ANTES de enchufar el audifono se aplica al reclamarlo, y
+// al volver a enchufarlo se restaura el ultimo: es lo que hace cualquier
+// sistema con un audifono, y aqui sale gratis.
+//
+/// Lo pedido desde Ring 3 y aun no mandado. `0xFF` = nada pendiente.
+static VOL_PEDIDO: AtomicU8 = AtomicU8::new(0xFF);
+/// El ultimo porcentaje MANDADO al aparato (`0xFF` = ninguno) y su valor en
+/// 1/256 dB; lo que el aparato dijo tener al confirmar, y si coincidio.
+static VOL_PCT: AtomicU8 = AtomicU8::new(0xFF);
+static VOL_MANDADO: AtomicI16 = AtomicI16::new(0);
+static VOL_TIENE: AtomicI16 = AtomicI16::new(0);
+static VOL_CONFIRMADO: AtomicBool = AtomicBool::new(false);
+
+/// **Ring 3 pide un volumen.** No toca el bus: lo deja dicho para el bombeo.
+pub fn pedir_volumen(pct: u8) {
+    VOL_PEDIDO.store(pct.min(100), Ordering::SeqCst);
+}
+
+/// **El bombeo manda lo pedido**, si hay audifono. Lo llama `pump_bus` en
+/// cada vuelta, con el CR3 del kernel: fuera de un pedido es una lectura de
+/// un atomico. Sin audifono lo pedido se queda esperando a que lo haya.
+pub fn atender() {
+    let pct = VOL_PEDIDO.load(Ordering::SeqCst);
+    if pct == 0xFF || SLOT.load(Ordering::SeqCst) == 0 {
+        return;
+    }
+    VOL_PEDIDO.store(0xFF, Ordering::SeqCst);
+    set_volume(pct);
+}
+
+/// **El estado del audifono, empaquetado** para `INFO_AUDIO_APARATO`:
+/// `[0..8)` ranura (0 = no hay) | `[8..16)` canales | bit 16 tiene mute |
+/// bit 17 declara reproduccion | bit 18 el aparato CONFIRMO el volumen |
+/// `[24..32)` pct mandado (0xFF = ninguno) | `[32..40)` pct pedido pendiente.
+pub fn info_aparato() -> u64 {
+    (SLOT.load(Ordering::SeqCst) as u64)
+        | ((CANALES.load(Ordering::SeqCst) as u64) << 8)
+        | ((TIENE_MUTE.load(Ordering::SeqCst) as u64) << 16)
+        | ((HAY_REPRODUCCION.load(Ordering::SeqCst) as u64) << 17)
+        | ((VOL_CONFIRMADO.load(Ordering::SeqCst) as u64) << 18)
+        | ((VOL_PCT.load(Ordering::SeqCst) as u64) << 24)
+        | ((VOL_PEDIDO.load(Ordering::SeqCst) as u64) << 32)
+}
+
+/// El rango y lo mandado, en 1/256 dB, para `INFO_AUDIO_RANGO`:
+/// `[0..16)` min | `[16..32)` max | `[32..48)` mandado | `[48..64)` lo que
+/// el aparato dijo tener. Cada uno es un `i16` en dos bytes.
+pub fn info_rango() -> u64 {
+    (VOL_MIN.load(Ordering::SeqCst) as u16 as u64)
+        | ((VOL_MAX.load(Ordering::SeqCst) as u16 as u64) << 16)
+        | ((VOL_MANDADO.load(Ordering::SeqCst) as u16 as u64) << 32)
+        | ((VOL_TIENE.load(Ordering::SeqCst) as u16 as u64) << 48)
+}
+
 /// Hay un aparato de audio USB localizado y con volumen?
 pub fn hay() -> bool {
     SLOT.load(Ordering::SeqCst) != 0
@@ -96,6 +157,12 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     // contestar sus descriptores: microsegundos, en el hilo que enumera.
     leer_rango(&ac);
     crate::ring0::cabina::info("uaudio", "audifono USB con volumen, en la ranura", slot as u64);
+    // El ultimo volumen que se mando (a este o al de antes) se restaura: un
+    // audifono que se desenchufa y vuelve no tiene por que volver a cero.
+    let ultimo = VOL_PCT.load(Ordering::SeqCst);
+    if ultimo != 0xFF && VOL_PEDIDO.load(Ordering::SeqCst) == 0xFF {
+        VOL_PEDIDO.store(ultimo, Ordering::SeqCst);
+    }
     // Y su tubo de reproduccion, si lo declara: se guarda para `censar`, que
     // asi deja de leer descriptores desde un syscall.
     match bmo_uaudio::stream::find_playback(cfg) {
@@ -116,6 +183,7 @@ pub fn soltado(slot: u8) {
     }
     SLOT.store(0, Ordering::SeqCst);
     HAY_REPRODUCCION.store(false, Ordering::SeqCst);
+    VOL_CONFIRMADO.store(false, Ordering::SeqCst);
     crate::ring0::cabina::warn("uaudio", "el audifono se DESENCHUFO: se olvida su ranura", slot as u64);
 }
 
@@ -186,7 +254,9 @@ fn leer(ac: &bmo_uaudio::AudioControl, cual: u8) -> Option<i16> {
 /// aparato. El campo va en 1/256 dB con signo, y **el 0% no es el valor 0** --
 /// ese es 0 dB, o sea el maximo. Confundirlos pone el audifono a tope creyendo
 /// que se apaga, con los cascos puestos.
-pub fn set_volume(pct: u8) -> bool {
+/// Manda `pct` al aparato AHORA. Solo desde `atender` (el hilo del bus):
+/// desde Ring 3 se pide con `pedir_volumen`.
+fn set_volume(pct: u8) -> bool {
     let slot = SLOT.load(Ordering::SeqCst);
     if slot == 0 {
         return false;
@@ -257,6 +327,9 @@ fn mandar_mute(slot: u8, ac: &bmo_uaudio::AudioControl, callar: bool) -> bool {
 /// aparato rechazo el volumen": un aparato con volumen perfectamente
 /// controlable al que le estabamos hablando por el canal que no era.
 fn mandar_volumen(slot: u8, ac: &bmo_uaudio::AudioControl, pct: u8, valor: i16) -> bool {
+    VOL_PCT.store(pct, Ordering::SeqCst);
+    VOL_MANDADO.store(valor, Ordering::SeqCst);
+    VOL_CONFIRMADO.store(false, Ordering::SeqCst);
     if escribir_volumen(slot, ac, bmo_uaudio::CHANNEL_MASTER, valor) {
         confirmar(slot, ac, bmo_uaudio::CHANNEL_MASTER, pct, valor);
         return true;
@@ -328,6 +401,8 @@ fn confirmar(slot: u8, ac: &bmo_uaudio::AudioControl, canal: u8, pct: u8, mandad
         return;
     }
     let tiene = i16::from_le_bytes(buf);
+    VOL_TIENE.store(tiene, Ordering::SeqCst);
+    VOL_CONFIRMADO.store(tiene == mandado, Ordering::SeqCst);
     if tiene != mandado {
         crate::ring0::cabina::info("uaudio", "el aparato guardo OTRO volumen", pct as u64);
     }

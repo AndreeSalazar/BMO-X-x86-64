@@ -231,6 +231,16 @@ const INFO_EXPROPIADAS: u64 = 0x7E;
 const INFO_COMPAS: u64 = 0x7F;
 const INFO_COMPAS_VUELTAS: u64 = 0x80;
 const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
+// El audio, entero y sin handle (2026-09-21): el audifono reclamado, el
+// volumen, el tubo y el bufer prestado. Ver `dev/uaudio.rs` y
+// `dev/usb/audio.rs`. Antes de esto el `save` no tenia una sola fila de
+// audio: lo unico que se veia era "el dueno del sonido MURIO" en los avisos.
+const INFO_AUDIO_APARATO: u64 = 0x82;
+const INFO_AUDIO_RANGO: u64 = 0x83;
+const INFO_AUDIO_TUBO: u64 = 0x84;
+const INFO_AUDIO_TRAMAS: u64 = 0x85;
+const INFO_AUDIO_HUECOS: u64 = 0x86;
+const INFO_AUDIO_DUENO: u64 = 0x87;
 
 // El metro de la puerta: cuantas y cuantos ciclos dentro de `dispatch`. Se
 // leen como delta. Ver `ring0/syscall/meter.rs`.
@@ -756,6 +766,37 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_USB_LATIDO => crate::ring0::dev::usb::latido_peor(),
         INFO_SPIN_RETENIDO => crate::ring0::plat::spin::retenido_peor(),
         INFO_SPIN_RETENIDO_LINEA => crate::ring0::plat::spin::retenido_peor_sitio().map_or(0, |(_, l)| l as u64),
+        INFO_AUDIO_APARATO => {
+            // Y el mapa de aparatos de `devices()` en los bits 40..48: el
+            // altavoz del PC, HDA, el audifono USB.
+            crate::ring0::dev::uaudio::info_aparato() | (crate::ring0::obj::audio::devices() << 40)
+        }
+        INFO_AUDIO_RANGO => crate::ring0::dev::uaudio::info_rango(),
+        INFO_AUDIO_TUBO => {
+            use crate::ring0::dev::usb::audio as tubo;
+            match tubo::tubo() {
+                Some(t) => {
+                    (t.frecuencia as u64 & 0xFF_FFFF)
+                        | ((t.bytes_por_trama as u64 & 0xFFFF) << 24)
+                        | ((t.max_packet as u64) << 40)
+                        | (1 << 56)
+                        | ((tubo::armado() as u64) << 57)
+                }
+                None => 0,
+            }
+        }
+        INFO_AUDIO_TRAMAS => {
+            let (encoladas, tarde) = crate::ring0::dev::usb::audio::cuentas();
+            (encoladas & 0xFFFF_FFFF) | (tarde << 32)
+        }
+        INFO_AUDIO_HUECOS => {
+            use crate::ring0::dev::usb::audio as tubo;
+            (tubo::huecos() & 0xFFFF_FFFF) | (tubo::vetos_dma() << 32)
+        }
+        INFO_AUDIO_DUENO => {
+            (crate::ring0::obj::audio::owner().unwrap_or(0) as u64)
+                | ((crate::ring0::dev::usb::audio::pendientes() & 0xFFFF_FFFF) << 32)
+        }
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
             Some((tid, k)) => {
                 let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);

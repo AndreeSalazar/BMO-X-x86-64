@@ -22,6 +22,7 @@
 | **3** -- WAV | PCM en un sobre. Cero decodificador | ✅ **HECHO 25-08**, 12 pruebas |
 | **4** -- el bufer prestado | dos indices, y CERO copias | ✅ **HECHO 25-08**, sin ejecutar |
 | **5** -- MP3 | encima del mismo tubo | ⛔ falta, **y va el ultimo** |
+| **6** -- el audio se INTEGRA (21-09) | el audifono lo RECLAMA el que enumera; el volumen va por el hilo del bus; el `save` lo cuenta entero | ✅ **HECHO 21-09**, sin ejecutar. Ver A6 |
 
 ★★ **Y la fila que importa cambio el 25-08: el camino entero esta escrito.**
 Descriptor, endpoint, alt, frecuencia, TRB isocrono y el bucle que alimenta.
@@ -389,6 +390,65 @@ se ponga en el alt que trae el endpoint.**
 haber arriesgado un solo ruido raro en los oidos del dueno.
 
 ---
+
+## [X] A6 -- EL AUDIO SE INTEGRA: reclamado, el volumen por el hilo del bus, y el `save` lo cuenta (2026-09-21)
+
+Lo que el `save` de las 13:52 enseno y lo que se hizo con ello, en tres piezas:
+
+1. **El audifono no se ENCONTRABA desde el 17-09.** Ese dia lo no adoptado
+   empezo a configurarse y a DEVOLVER su ranura; `uaudio::buscar()` seguia
+   recorriendo ranuras 1..8 y `get_config_descriptor` contestaba `no ep0
+   ring` en todas. Y buscarlo costaba **244 ms con las interrupciones
+   cerradas** (`latido tarde 244 ms`, `3 ticks`, `tid 6 = musica.ibx`): era
+   un syscall (`AUDIO_OP_DEVICES`, `IF=0` por `SFMASK`) mandando
+   transferencias bloqueantes, un segundo conductor del xHC fuera del hilo
+   del bus. Ahora **el que enumera lo ofrece** con el descriptor en la mano
+   (`XhciHal::reclamar` -> `uaudio::reclamar`): si es USB Audio con
+   volumen, se queda con su ranura viva (`VEREDICTO_RECLAMADO`, ficha 12),
+   se le lee el rango y se guarda su interfaz de reproduccion. `devices()`
+   es una lectura de un atomico; `censar` abre el tubo con lo guardado.
+   `MAX_CFG` 512 -> 1024, porque un 7.1 se sale de 512, y la ficha "sin
+   papeles" dice en que PASO se quedo y cuanto declaro medir.
+2. **El volumen va por el hilo del bus.** `AUDIO_OP_VOLUME` DEJA DICHO el
+   porcentaje (`pedir_volumen`) y `pump_bus` lo manda en su vuelta
+   (`atender`): el syscall no toca el xHC. De paso: un volumen pedido antes
+   de enchufar el audifono se aplica al reclamarlo, y al volver a
+   enchufarlo se restaura el ultimo. `confirmar` guarda lo que el aparato
+   dijo tener y si coincide.
+3. **El `save` tiene seccion de audio** (`consumo`, entre usb y prestamos):
+   aparatos, la ranura del reclamado, canales, mute, reproduce, rango en dB,
+   volumen mandado / lo que vale / lo que tiene / confirmado / pedido, el
+   dueno, y el tubo (abierto, armado, frecuencia, trama, max packet,
+   encoladas, tarde, huecos, vetos DMA, pendientes). `INFO_AUDIO_*`
+   0x82-0x87, sin handle. Todo por `fila`: DATOS.TXT lo lleva.
+
+Deuda dicha: `abrir` (el tubo, desde `op_aparato`) sigue mandando el
+`Configure Endpoint` y el `SET_INTERFACE` desde el syscall. Es la misma clase,
+en microsegundos; se mueve al hilo del bus cuando A1 conteste en el metal,
+para no cambiar dos cosas antes de la foto.
+
+---
+
+# 5. Y DESPUES: LA API DE ACCESORIOS EN RUST (idea del dueno, 21-09)
+
+*"Construir una API ULTRA simplificada para los accesorios nuevos que quieran
+programar con Rust."* Se apunta con su condicion, que es la regla del 17-09:
+**Ring 0 esta cerrado a terceros**. Un accesorio de tercero no es un driver en
+el kernel: es un programa de Ring 3 (o la antena) que habla con el kernel por
+un contrato pequeno. Y ese contrato ya tiene TRES piezas hechas hoy, sin
+nombre de API:
+
+```text
+   ver que hay          INFO_AUDIO_*, las fichas del portero      (OP_INFO, sin handle)
+   tener derecho        AUDIO claim -> un dueno                    (capability)
+   mover datos          el bufer PRESTADO (A4): dos indices, cero copias
+```
+
+Y una cuarta que es la forma que tendria el driver mismo: los **once verbos**
+de `bmo_uhid::pasos::Metal` --lanzar, llego, devolver, plazo-- que es lo que
+un driver necesita del bus y nada mas. La API "ultra simplificada" seria ESE
+trait, publicado, con el kernel como unico `Metal` de verdad. Cuando toque:
+despues de que el audio suene en el metal, no antes.
 
 # 4. LO QUE ESTE PLAN NO PROMETE
 

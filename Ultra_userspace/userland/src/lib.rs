@@ -386,6 +386,12 @@ pub const INFO_EXPROPIADAS: u64 = 0x7E;
 pub const INFO_COMPAS: u64 = 0x7F;
 pub const INFO_COMPAS_VUELTAS: u64 = 0x80;
 pub const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
+pub const INFO_AUDIO_APARATO: u64 = 0x82;
+pub const INFO_AUDIO_RANGO: u64 = 0x83;
+pub const INFO_AUDIO_TUBO: u64 = 0x84;
+pub const INFO_AUDIO_TRAMAS: u64 = 0x85;
+pub const INFO_AUDIO_HUECOS: u64 = 0x86;
+pub const INFO_AUDIO_DUENO: u64 = 0x87;
 
 /// El metro de la puerta: puertas servidas y ciclos dentro de `dispatch`.
 /// **Se leen como DELTA** -- antes y despues del bucle que se quiera medir.

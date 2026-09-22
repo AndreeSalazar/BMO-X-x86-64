@@ -512,6 +512,9 @@ pub(super) fn pump_bus() {
     // [!] Y no hace nada si nadie lo armo: abrir el tubo es seguro, empujar
     // tramas es trafico. Ver `audio::armar_silencio`.
     super::audio::latido();
+    // Y el volumen que Ring 3 haya pedido: una o dos transferencias contra
+    // el audifono, aqui y no en el syscall (2026-09-21). Ver `uaudio.rs`.
+    crate::ring0::dev::uaudio::atender();
     t = anota(6, t, por_us);
     // ** LA FOTO DE SALUD SE SACA AQUI DENTRO, y ese es su sitio exacto: leer
     // el estado de un endpoint recorre el Device Context y `USBSTS` es MMIO, y

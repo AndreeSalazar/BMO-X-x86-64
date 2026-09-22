@@ -216,6 +216,7 @@ pub(crate) fn fila_mili(s: &mut Output, que: &[u8], milis: u64, unidad: &[u8], n
 /// [!] Solo para lo que TIENE denominador. Una barra sobre un contador sin
 /// techo --ticks, siestas-- seria dibujar una proporcion inventada.
 pub(crate) fn fila_barra(s: &mut Output, que: &[u8], parte: u64, total: u64, unidad: &[u8]) {
+    super::datos::anotar_de(que, parte, total);
     s.text(b"    ");
     s.text(que);
     for _ in que.len()..16 {
@@ -257,6 +258,7 @@ pub(crate) fn fila_barra(s: &mut Output, que: &[u8], parte: u64, total: u64, uni
 ///   > Un panel donde todo se ve igual obliga a leerlo entero. El color no es
 ///   > adorno: es lo que permite NO leer las filas que estan bien.
 pub(crate) fn fila_cero(s: &mut Output, que: &[u8], valor: u64, nota: &[u8]) {
+    super::datos::anotar(que, valor, b"");
     s.text(b"    ");
     s.text(que);
     for _ in que.len()..16 {

@@ -481,6 +481,35 @@ pub const INFO_COMPAS_VUELTAS: u64 = 0x80;
 /// sitio dice que funcion lo retuvo. `0` = ninguno se ha soltado aun.
 pub const INFO_SPIN_RETENIDO_LINEA: u64 = 0x81;
 
+/// -- ** EL AUDIO, ENTERO Y SIN HANDLE (2026-09-21) ------------------------
+///
+/// Preguntar QUE HAY no es lo mismo que tener derecho a usarlo: estas se
+/// leen por `OP_INFO`, sin el handle de audio, que es de un solo dueno.
+///
+/// El audifono USB reclamado: `[0..8)` su ranura (0 = no hay) | `[8..16)`
+/// canales | bit 16 tiene mute | bit 17 declara reproduccion | bit 18 el
+/// aparato CONFIRMO el ultimo volumen | `[24..32)` pct mandado (0xFF =
+/// ninguno) | `[32..40)` pct pedido y aun no mandado (0xFF = ninguno) |
+/// `[40..48)` el mapa de [`AUDIO_OP_DEVICES`] (altavoz PC, HDA, USB).
+pub const INFO_AUDIO_APARATO: u64 = 0x82;
+/// El volumen en 1/256 dB, cuatro `i16` en dos bytes cada uno: `[0..16)`
+/// minimo del aparato | `[16..32)` maximo | `[32..48)` lo ultimo mandado |
+/// `[48..64)` lo que el aparato dijo tener al confirmar.
+pub const INFO_AUDIO_RANGO: u64 = 0x83;
+/// El tubo de reproduccion: `[0..24)` frecuencia en Hz | `[24..40)` bytes
+/// por trama | `[40..56)` `wMaxPacketSize` | bit 56 abierto | bit 57
+/// armado (mandando silencio). `0` = no hay tubo.
+pub const INFO_AUDIO_TUBO: u64 = 0x84;
+/// `[0..32)` tramas isocronas encoladas desde el arranque | `[32..64)` las
+/// que llegaron TARDE a su microtrama.
+pub const INFO_AUDIO_TRAMAS: u64 = 0x85;
+/// `[0..32)` huecos (vueltas sin trama que mandar) | `[32..64)` tramos del
+/// bufer prestado que el juez del DMA VETO.
+pub const INFO_AUDIO_HUECOS: u64 = 0x86;
+/// `[0..32)` pid del dueno del audio (0 = nadie) | `[32..64)` bytes
+/// pendientes en el bufer prestado.
+pub const INFO_AUDIO_DUENO: u64 = 0x87;
+
 /// -- ** EL METRO DE LA PUERTA -------------------------------------------
 ///
 /// Cuantas puertas ha servido el kernel, y cuantos ciclos ha pasado DENTRO de

@@ -290,7 +290,9 @@ pub fn operation(operation: u64, a0: u64, a1: u64) -> Option<u64> {
             // Y el volumen del USB no es el mismo numero: alli va en 1/256 dB
             // con signo y dentro del rango que declaro el aparato. La
             // conversion vive en `bmo-uaudio`, que se prueba sin hardware.
-            crate::ring0::dev::uaudio::set_volume(v);
+            // Y se le PIDE, no se le manda: lo manda el hilo del bus en su
+            // vuelta (`uaudio::atender`), no este syscall (2026-09-21).
+            crate::ring0::dev::uaudio::pedir_volumen(v);
             Some(v as u64)
         }
         // ** EL TUBO. Todo por `arg0` y no por cinco operaciones nuevas: la

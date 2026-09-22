@@ -159,6 +159,7 @@ fn report_latido(s: &mut Output) {
     let ritmo = bmo::info(bmo::INFO_USB_RITMO);
     let mut txt = [0u8; 16];
     let k = bmo::info_texto(bmo::INFO_TXT_USB_TRABAJO, &mut txt);
+    super::datos::anotar(b"peor trabajo", (ritmo >> 16) & 0xFFFF_FFFF, b"us");
     s.text(b"    peor trabajo   ");
     s.text(&txt[..k]);
     for _ in k..11 {
@@ -179,6 +180,96 @@ pub(crate) fn report_prestamos(s: &mut Output) {
     fila_cero(s, b"huerfanas", (p >> 16) & 0xFF, b"el dueno murio con la oferta viva");
     fila_cero(s, b"negadas", p >> 32,
               b"ofertas rechazadas desde el arranque: el motivo, en `cabina fallos`");
+}
+
+/// **El audio: el audifono reclamado, el volumen y el tubo** (2026-09-21).
+///
+/// Hasta hoy el `save` no tenia UNA fila de audio: lo unico que se veia
+/// era "el dueno del sonido MURIO" tres veces en los avisos, sin poder decir
+/// si habia audifono, si tenia tubo, o que volumen se le mando. Todo por
+/// `fila`, para que DATOS.TXT lo lleve tambien.
+pub(crate) fn report_audio(s: &mut Output) {
+    subregla(s, b"audio -- el audifono USB reclamado, el volumen y el tubo");
+    let a = bmo::info(bmo::INFO_AUDIO_APARATO);
+    let ranura = a & 0xFF;
+    fila(s, b"aparatos", (a >> 40) & 0xFF, b"mapa",
+         b"bit 0 el altavoz del PC (hay puerto, no zumbador), bit 2 el audifono USB");
+    fila(s, b"audifono", ranura, b"ranura",
+         b"la ranura xHCI del reclamado; 0 = no hay ninguno (o no contesto sus papeles)");
+    if ranura != 0 {
+        fila(s, b"canales", (a >> 8) & 0xFF, b"", b"los que declara su Feature Unit");
+        fila(s, b"mute", (a >> 16) & 1, b"", b"1 = el aparato tiene interruptor de mute");
+        fila(s, b"reproduce", (a >> 17) & 1, b"", b"1 = declara una interfaz AudioStreaming de salida");
+        let r = bmo::info(bmo::INFO_AUDIO_RANGO);
+        fila_db(s, b"rango min", r & 0xFFFF, b"lo mas bajo que acepta, en dB (1/256 dB en DATOS.TXT)");
+        fila_db(s, b"rango max", (r >> 16) & 0xFFFF, b"lo mas alto");
+        let pct = (a >> 24) & 0xFF;
+        if pct == 0xFF {
+            fila_cero(s, b"volumen", 0, b"nadie ha puesto un volumen todavia");
+        } else {
+            fila(s, b"volumen", pct, b"%", b"el ultimo que se MANDO al aparato");
+            fila_db(s, b"mandado", (r >> 32) & 0xFFFF, b"lo que ese % vale en su escala");
+            fila_db(s, b"tiene", (r >> 48) & 0xFFFF, b"lo que el aparato dijo tener al confirmar");
+            fila(s, b"confirmado", (a >> 18) & 1, b"", b"1 = tiene lo mandado; 0 = guardo OTRO, o no contesto");
+        }
+        let pedido = (a >> 32) & 0xFF;
+        if pedido != 0xFF {
+            fila(s, b"pedido", pedido, b"%", b"pedido por Ring 3 y aun no mandado: lo manda el hilo del bus");
+        }
+    }
+    let d = bmo::info(bmo::INFO_AUDIO_DUENO);
+    fila(s, b"dueno", d & 0xFFFF_FFFF, b"pid", b"el proceso que tiene el audio; 0 = nadie");
+    let t = bmo::info(bmo::INFO_AUDIO_TUBO);
+    fila(s, b"tubo", (t >> 56) & 1, b"", b"1 = el endpoint isocrono esta configurado y con su alt puesto");
+    if (t >> 56) & 1 == 1 {
+        fila(s, b"armado", (t >> 57) & 1, b"", b"1 = mandando silencio (tramas de ceros)");
+        fila(s, b"frecuencia", t & 0xFF_FFFF, b"Hz", b"la elegida de las que el aparato acepta");
+        fila(s, b"trama", (t >> 24) & 0xFFFF, b"B", b"bytes por milisegundo a esa frecuencia");
+        fila(s, b"max packet", (t >> 40) & 0xFFFF, b"B", b"lo mas que el aparato acepta por intervalo");
+        let c = bmo::info(bmo::INFO_AUDIO_TRAMAS);
+        fila(s, b"encoladas", c & 0xFFFF_FFFF, b"", b"tramas isocronas desde el arranque");
+        fila_cero(s, b"tarde", c >> 32, b"tramas que el xHC no llego a servir en su microtrama: se OYE");
+        let h = bmo::info(bmo::INFO_AUDIO_HUECOS);
+        fila_cero(s, b"huecos", h & 0xFFFF_FFFF, b"vueltas sin trama que mandar: el productor no llega");
+        fila_cero(s, b"vetos DMA", h >> 32, b"tramos del bufer prestado que el juez nego (R-DMA)");
+        fila(s, b"pendientes", d >> 32, b"B", b"lo escrito en el bufer prestado y aun no leido");
+    }
+}
+
+/// Una fila en dB a partir de un `i16` en 1/256 dB (dos bytes de un INFO):
+/// `-60.0 dB`. A DATOS.TXT va el crudo, con su unidad, porque el signo no
+/// cabe en un `u64` y un decimal es tipografia.
+fn fila_db(s: &mut Output, que: &[u8], crudo: u64, nota: &[u8]) {
+    super::datos::anotar(que, crudo, b"1/256dB");
+    let v = crudo as u16 as i16 as i32;
+    let centesimas = v * 100 / 256;
+    s.text(b"    ");
+    s.text(que);
+    for _ in que.len()..16 {
+        s.byte(b' ');
+    }
+    // Ancho 9 como `fila`: signo, entero y un decimal, a la derecha.
+    let ent = (centesimas / 100).unsigned_abs() as u64;
+    let dec = ((centesimas % 100).unsigned_abs() / 10) as u64;
+    let digitos = if ent >= 100 { 3 } else if ent >= 10 { 2 } else { 1 };
+    let ancho = digitos + 2 + if centesimas < 0 { 1 } else { 0 };
+    for _ in ancho..9 {
+        s.byte(b' ');
+    }
+    if centesimas < 0 {
+        s.byte(b'-');
+    }
+    s.dec(ent);
+    s.byte(b'.');
+    s.dec(dec);
+    s.text(b" dB");
+    if !nota.is_empty() {
+        for _ in 2..8 {
+            s.byte(b' ');
+        }
+        s.text(nota);
+    }
+    s.byte(b'\n');
 }
 
 /// **Los ultimos avisos del anillo**, WARNING o peor.
