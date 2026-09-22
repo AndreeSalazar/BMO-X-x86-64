@@ -72,9 +72,17 @@ pub const PLAZO_DEBOUNCE_MS: u64 = 100;
 pub const PLAZO_RESET_MS: u64 = 120;
 /// Recuperacion tras el reset (USB 2.0, 7.1.7.5).
 pub const PLAZO_RECUPERACION_MS: u64 = 10;
-/// Un comando del controlador o una transferencia de control: lo que
-/// `evt_poll_block` daba (~100 respiros de 1 ms).
+/// Un comando del controlador: lo que `evt_poll_block` daba (~100 respiros
+/// de 1 ms). Un xHC sano contesta en microsegundos.
 pub const PLAZO_RESPUESTA_MS: u64 = 100;
+/// **Una transferencia de control con datos: 500 ms**, que es lo que USB 2.0
+/// (9.2.6.4) concede al aparato para poner el primer paquete de datos en el
+/// bus. Hasta el 2026-09-22 eran los mismos 100 ms de un comando, y el
+/// save de las 23:56 dijo del puerto 1 `cc=254 no contesto` (ni error de
+/// transaccion ni babble: NAK tras NAK, un aparato VIVO que aun no tenia
+/// sus datos). Un plazo por debajo del protocolo convierte un aparato lento
+/// en un aparato mudo. Aqui cuesta cero: es un plazo, no una espera.
+pub const PLAZO_DATOS_MS: u64 = 500;
 /// Entre dos lecturas de un descriptor que no llego.
 pub const ENTRE_LECTURAS_MS: u64 = 10;
 /// Lecturas de cada descriptor antes de rendirse: las de `leer_descriptores`.
@@ -382,7 +390,7 @@ impl Enumeracion {
                 if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 64) {
                     return self.sin_descriptores(m, "[uhid] no dev desc\n", PASO_SIN_APARATO);
                 }
-                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoOcho)
+                self.esperar(ahora, PLAZO_DATOS_MS, Paso::EsperandoOcho)
             }
             Paso::EsperandoOcho => {
                 let mut buf = [0u8; 64];
@@ -484,7 +492,7 @@ impl Enumeracion {
                 if !m.pedir_descriptor(self.slot, Descriptor::Dispositivo, 18) {
                     return self.sin_descriptores(m, "[uhid] no dev desc\n", PASO_SIN_APARATO);
                 }
-                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoDispositivo)
+                self.esperar(ahora, PLAZO_DATOS_MS, Paso::EsperandoDispositivo)
             }
             Paso::EsperandoDispositivo => {
                 let mut buf = [0u8; 18];
@@ -513,7 +521,7 @@ impl Enumeracion {
                 if !m.pedir_descriptor(self.slot, Descriptor::Configuracion, 9) {
                     return self.sin_descriptores(m, "[uhid] no cfg hdr\n", PASO_SIN_CABECERA);
                 }
-                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoCabecera)
+                self.esperar(ahora, PLAZO_DATOS_MS, Paso::EsperandoCabecera)
             }
             Paso::EsperandoCabecera => {
                 let mut buf = [0u8; 9];
@@ -551,7 +559,7 @@ impl Enumeracion {
                 if !m.pedir_descriptor(self.slot, Descriptor::Configuracion, self.total_len) {
                     return self.sin_descriptores(m, "[uhid] cfg short\n", PASO_CFG_CORTA);
                 }
-                self.esperar(ahora, PLAZO_RESPUESTA_MS, Paso::EsperandoEntera)
+                self.esperar(ahora, PLAZO_DATOS_MS, Paso::EsperandoEntera)
             }
             Paso::EsperandoEntera => {
                 let total = self.total_len;
@@ -1103,10 +1111,10 @@ mod pruebas {
     }
 
     #[test]
-    fn el_mudo_cuesta_tres_lecturas_de_100_ms_y_devuelve_la_ranura() {
+    fn el_mudo_cuesta_tres_lecturas_de_500_ms_y_devuelve_la_ranura() {
         let mut m = Fingido::nuevo(Aparato::Mudo);
         let mut e = Enumeracion::nueva(1, false, m.ahora);
-        let r = m.bombear(&mut e, 2_000);
+        let r = m.bombear(&mut e, 3_000);
         // Y el detalle dice DONDE y COMO: ni el descriptor del aparato (paso
         // 1), y el `cc` 254 = el plazo se agoto sin respuesta.
         assert_eq!(r, Marcha::SinDescriptores(detalle_sin_descriptores(PASO_SIN_APARATO, 254)));
@@ -1114,13 +1122,13 @@ mod pruebas {
         assert_eq!(m.dejo_de_esperar, LECTURAS as u32);
         assert_eq!(m.ranuras_pedidas, 1);
         assert_eq!(m.ranuras_devueltas, 1);
-        // Tres plazos de 100 ms con 10 ms entre ellos, mas lo de antes: es
-        // el mismo tiempo de pared que `leer_descriptores`...
+        // Tres plazos de 500 ms (los del protocolo, 9.2.6.4) con 10 ms
+        // entre ellos, mas lo de antes...
         let ms = e.lleva_ms(m.ahora);
-        assert!((460..560).contains(&ms), "tardo {} ms", ms);
-        // ...repartido en pasos de 4 ms: mas de cien vueltas en las que el
+        assert!((1_620..1_780).contains(&ms), "tardo {} ms", ms);
+        // ...repartido en pasos de 4 ms: cientos de vueltas en las que el
         // bombeo leyo el raton. Antes era UNA vuelta de 933 ms.
-        assert!(e.pasos() > 100, "solo {} pasos", e.pasos());
+        assert!(e.pasos() > 400, "solo {} pasos", e.pasos());
     }
 
     #[test]

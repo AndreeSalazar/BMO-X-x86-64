@@ -170,7 +170,7 @@ pub(crate) fn report_usb(s: &mut Output) {
                 s.text(match detalle >> 4 {
                     3 => b" babble)" as &[u8],
                     4 => b" error)",
-                    254 => b" no contesto)",
+                    254 => b" no contesto en 500 ms: NAK tras NAK, vivo pero sin datos)",
                     _ => b")",
                 });
             }
