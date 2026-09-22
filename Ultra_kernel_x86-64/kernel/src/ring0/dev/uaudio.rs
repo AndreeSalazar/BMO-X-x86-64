@@ -166,10 +166,15 @@ pub fn reclamar(slot: u8, cfg: &[u8]) -> bool {
     // Y su tubo de reproduccion, si lo declara: se guarda para `censar`, que
     // asi deja de leer descriptores desde un syscall.
     match bmo_uaudio::stream::find_playback(cfg) {
-        Some(p) => unsafe {
-            REPRODUCCION = p;
+        Some(p) => {
+            unsafe {
+                REPRODUCCION = p;
+            }
             HAY_REPRODUCCION.store(true, Ordering::SeqCst);
-        },
+            // Y el tubo se pide ya: lo abre el hilo del bus en su vuelta,
+            // asi que esta abierto antes de que un programa pregunte por el.
+            crate::ring0::dev::usb::audio::pedir_tubo();
+        }
         None => crate::ring0::cabina::info("uaudio", "  ...y sin interfaz de reproduccion", 0),
     }
     true
@@ -181,6 +186,8 @@ pub fn soltado(slot: u8) {
     if SLOT.load(Ordering::SeqCst) != slot {
         return;
     }
+    // El tubo primero, con la ranura todavia viva.
+    crate::ring0::dev::usb::audio::cerrar(slot);
     SLOT.store(0, Ordering::SeqCst);
     HAY_REPRODUCCION.store(false, Ordering::SeqCst);
     VOL_CONFIRMADO.store(false, Ordering::SeqCst);

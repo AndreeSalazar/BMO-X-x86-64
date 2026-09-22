@@ -32,6 +32,7 @@
 //! machine at power-on.
 
 use crate::ring0::cabina;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 /// **Reports the playback pipe of the CLAIMED headset and opens it.**
 ///
@@ -45,8 +46,10 @@ use crate::ring0::cabina;
 /// same method that answered the July `#GP` and the NIC's MAC.
 ///
 /// # Safety
-/// Touches xHC MMIO: has to run with the kernel CR3 loaded. The `audio` command
-/// goes through [`super::pump_bus`]'s wrapper for that reason.
+/// Desde el 2026-09-21 NO toca el xHC: lee lo que `uaudio::reclamar` guardo y
+/// PIDE el tubo. Sigue siendo `unsafe` por sus llamantes, que ya lo eran;
+/// el `Configure Endpoint` y el `SET_INTERFACE` los manda `atender_tubo`
+/// desde `pump_bus`, con el CR3 del kernel.
 pub unsafe fn censar() -> bool {
     // ** POR SLOTS, NO POR PUERTOS LIBRES (2026-08-25, medido en el Ryzen).
     //
@@ -102,11 +105,67 @@ pub unsafe fn censar() -> bool {
         }
         cabina::count("audio", "el endpoint isocrono es el DCI", p.dci as u64);
         cabina::count("audio", "y vive en el slot", slot as u64);
-        // *** Y AQUI SE ABRE EL TUBO (A1).
-        abrir(slot, &p);
+        // *** Y EL TUBO LO ABRE EL HILO DEL BUS (2026-09-21), no este
+        // syscall: aqui solo se PIDE. Ver `pedir_tubo` / `atender_tubo`.
+        pedir_tubo();
         true
     }
 }
+
+// -- EL TUBO SE ABRE EN EL HILO DEL BUS (2026-09-21) --------------------
+//
+// `abrir` manda un `Configure Endpoint` y dos o tres control transfers.
+// Hacerlo desde `op_aparato` --un syscall, `IF=0`-- era la misma clase que
+// `buscar()` y que el volumen: un segundo conductor del xHC. Ahora:
+//
+//    el que enumera RECLAMA el audifono        -> pide el tubo
+//    el comando `audio` (censo)                -> pide el tubo
+//    `pump_bus`, en su vuelta (`atender_tubo`) -> lo ABRE, una vez
+//    el audifono se desenchufa (`cerrar`)      -> el tubo se cierra
+//
+// Con esto el tubo esta abierto ANTES de que `musica.ibx` pregunte
+// `tubo(0)`: hasta hoy solo lo abria el comando `audio`, y musica sin ese
+// comando caia al altavoz --que en esta placa no suena.
+static PEDIDO: AtomicBool = AtomicBool::new(false);
+
+/// Que el hilo del bus abra el tubo del audifono reclamado, si lo hay.
+pub fn pedir_tubo() {
+    PEDIDO.store(true, Ordering::SeqCst);
+}
+
+/// **El bombeo abre el tubo pedido.** Con el CR3 del kernel, en el hilo del
+/// bus; fuera de un pedido es una lectura de un atomico. Si no hay audifono
+/// con reproduccion, el pedido se queda esperando a que lo haya.
+pub fn atender_tubo() {
+    if !PEDIDO.load(Ordering::SeqCst) {
+        return;
+    }
+    if tubo().is_some() {
+        PEDIDO.store(false, Ordering::SeqCst);
+        return;
+    }
+    let Some((slot, p)) = crate::ring0::dev::uaudio::reproduccion() else {
+        return;
+    };
+    PEDIDO.store(false, Ordering::SeqCst);
+    if abrir(slot, &p) {
+        cabina::info("audio", "el tubo se abrio en el hilo del bus, ranura", slot as u64);
+    }
+}
+
+/// **El audifono se fue: el tubo se cierra.** Lo llama `uaudio::soltado`
+/// ANTES de que la ranura se devuelva. Sin esto `latido` seguia encolando
+/// tramas isocronas a un endpoint de una ranura muerta.
+pub fn cerrar(slot: u8) {
+    unsafe {
+        if TUBO.map_or(false, |t| t.slot == slot) {
+            TUBO = None;
+            ARMADO = false;
+            cabina::warn("audio", "TUBO CERRADO: el audifono se desenchufo, ranura", slot as u64);
+        }
+    }
+}
+
 
 // ===================================================================
 //  A1 -- SET_INTERFACE: lo unico que separaba de que suene
@@ -140,7 +199,7 @@ const AL_ENDPOINT_DE_CLASE: u8 = 0x22;
 const CTRL_FRECUENCIA: u16 = 0x0100;
 
 /// Lo que quedo abierto, para que el bucle que alimente el tubo lo encuentre.
-static mut TUBO: Option<Tubo> = None; // [escribe] ambos
+static mut TUBO: Option<Tubo> = None; // [escribe] bombeo
 
 /// **Un tubo de audio abierto.** Todo lo que hace falta para empujar muestras.
 #[derive(Clone, Copy)]

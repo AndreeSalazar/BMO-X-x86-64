@@ -422,10 +422,18 @@ Lo que el `save` de las 13:52 enseno y lo que se hizo con ello, en tres piezas:
    encoladas, tarde, huecos, vetos DMA, pendientes). `INFO_AUDIO_*`
    0x82-0x87, sin handle. Todo por `fila`: DATOS.TXT lo lleva.
 
-Deuda dicha: `abrir` (el tubo, desde `op_aparato`) sigue mandando el
-`Configure Endpoint` y el `SET_INTERFACE` desde el syscall. Es la misma clase,
-en microsegundos; se mueve al hilo del bus cuando A1 conteste en el metal,
-para no cambiar dos cosas antes de la foto.
+4. **Y el tubo tambien lo abre el hilo del bus** (misma tarde, a peticion
+   del dueno: *"dale con `abrir` por el hilo del bus tambien"*). `censar`
+   (el comando `audio` / `op_aparato`) ya no toca el xHC: lee lo reclamado y
+   PIDE el tubo (`pedir_tubo`); `pump_bus` lo abre en su vuelta
+   (`atender_tubo`), una vez. Y **al reclamar el audifono se pide solo**, asi
+   que el tubo esta abierto ANTES de que `musica.ibx` pregunte `tubo(0)`:
+   hasta hoy solo lo abria el comando `audio`, y musica sin ese comando
+   caia al altavoz, que en esta placa no suena. Al desenchufar, `cerrar`:
+   el tubo se cierra con la ranura todavia viva, y `latido` deja de encolar
+   tramas a un endpoint muerto (antes nadie lo cerraba). `TUBO` pasa de
+   `[escribe] ambos` a `bombeo`: ya no hay dos conductores del xHC en el
+   audio. Ninguno.
 
 ---
 
@@ -447,8 +455,17 @@ nombre de API:
 Y una cuarta que es la forma que tendria el driver mismo: los **once verbos**
 de `bmo_uhid::pasos::Metal` --lanzar, llego, devolver, plazo-- que es lo que
 un driver necesita del bus y nada mas. La API "ultra simplificada" seria ESE
-trait, publicado, con el kernel como unico `Metal` de verdad. Cuando toque:
-despues de que el audio suene en el metal, no antes.
+trait, publicado, con el kernel como unico `Metal` de verdad.
+
+El dueno lo acoto asi (21-09): *"accesorios nuevos, para facilitar a los que
+quieren meter algo raro y ya"*. O sea: no un SDK, una PUERTA. Lo que hoy ya
+hace el kernel con el audifono es la forma exacta de esa puerta: el que
+enumera OFRECE el aparato con sus papeles (`reclamar(slot, vid, pid, cfg)`),
+alguien dice "es mio", y a partir de ahi habla con el por control transfers y
+un endpoint. Para un tercero eso seria: un `.bex` de Ring 3 que declare
+`vid:pid` (o clase) y reciba la oferta por el buzon, con los once verbos
+como syscalls sobre SU ranura y nada mas. Cuando toque: despues de que el
+audio suene en el metal, no antes.
 
 # 4. LO QUE ESTE PLAN NO PROMETE
 

@@ -107,8 +107,9 @@ pub(super) fn audio_release(arg0: u64, _arg1: u64) -> BmoStatus {
 //// que si queda es CABINA, que ya recibe el relato entero desde dentro.
 //// `arg0` = cuantos despertar (0 = solo censar, `u32::MAX` = todos).
 //// `arg1` = el modo: 0 despertar - 1 PARAR - 2 la prueba de reparto.
-//// Devuelve 1 si encontro un aparato de reproduccion. Los NUMEROS van a
-//// CABINA: son ocho y por la puerta cabe uno.
+//// Devuelve 1 si hay un aparato de reproduccion RECLAMADO; el tubo lo abre
+//// el hilo del bus en su vuelta siguiente (2026-09-21), no este syscall.
+//// Los NUMEROS van a CABINA: son ocho y por la puerta cabe uno.
 pub(super) fn audio_censo(_arg0: u64, _arg1: u64) -> BmoStatus {
         let hubo = unsafe { crate::ring0::dev::usb::audio::censar() };
         BmoStatus::ok_value(hubo as u64)

@@ -314,6 +314,13 @@ pub(crate) fn audio(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         if bmo::audio_tubo(7) == 0 {
             dsk.out.grid.text(b"  escribe `audio silencio` para empujar y ver si sube\n");
         }
+    } else if had_any {
+        // El tubo lo abre el hilo del bus en su vuelta siguiente (4 ms), no
+        // el censo: si se acaba de pedir, todavia no esta. Se dice asi y no
+        // como fallo.
+        dsk.out.grid.with_ink(INK_ECHO);
+        dsk.out.grid.text(b"  el tubo lo abre el hilo del bus en su vuelta: escribe `audio` otra vez\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
     } else {
         dsk.out.grid.with_ink(INK_ERR);
         dsk.out.grid.text(b"  el tubo NO esta abierto: no puede sonar nada todavia\n");
