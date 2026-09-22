@@ -40,7 +40,73 @@ lo da ningun sistema de escritorio de serie.
 
 ---
 
-# 1. EL MODELO: PISTAS, y por que es lo mismo que ya hay
+# 1. EL MODELO: UN ARBOL DE DOS NIVELES
+
+El propietario, al leer la primera version de este plan: *"no solo voz, sistema, eso;
+sino que DENTRO del contenido: el juego EXPONE TODO el audio que ofrece, en
+subcategorias, y lo mismo todos. Uno simple MAESTRO aplica todo, pero si
+quieres control total se pueda"*. Tiene razon y cambia el modelo: una pista
+por programa no basta.
+
+```text
+   GRUPO  juego      [ganancia][M][S][medidor]
+     |-- PISTA  armas      [ganancia][M][S][medidor]
+     |-- PISTA  pasos      [ganancia][M][S][medidor]
+     |-- PISTA  musica     [ganancia][M][S][medidor]
+     '-- PISTA  voces      [ganancia][M][S][medidor]
+   GRUPO  sistema    [ganancia][M][S][medidor]
+     '-- PISTA  (sin nombre: el grupo entero)
+   GRUPO  musica     [ganancia][M][S][medidor]
+     '-- PISTA  (sin nombre)
+                                                    todo -> [MAESTRO]
+```
+
+**Por que DOS niveles y no uno ni tres.** Uno no basta: un juego que solo sabe
+decir "juego" obliga a bajarlo entero cuando lo unico que molestaba eran las
+armas. Tres ya es un DAW --grupos dentro de grupos es jerarquia sin fin-- y
+este repo tiene una regla contra la esencia sin acotar. Dos es lo que tiene
+una mesa de verdad (buses y canales) y es lo que se puede terminar.
+
+## 1.1 -- EXPONER: la misma ley que la tabla del aparato
+
+★★ **El arbol lo declara quien lo tiene, no lo adivina quien lo pinta.** Es
+literalmente la misma ley que hizo falta para los formatos del audifono (S0 de
+[`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md)): el aparato escribe su tabla, y el
+programa escribe su arbol. La mesa **no supone** que un juego tiene "efectos y
+musica": muestra lo que el juego EXPUSO, sean dos cosas o sean diecisiete.
+
+```text
+   el aparato declara sus formatos   ->  la tabla F1
+   el PROGRAMA declara sus pistas    ->  la tabla F2
+   nadie adivina ninguna de las dos
+```
+
+Un programa que no tenga nada que exponer abre su grupo con **una pista sin
+nombre**, que significa *"el grupo entero"*. Asi `musica.ibx` sigue sonando sin
+saber que hay mesa (regla 5 de abajo).
+
+## 1.2 -- Las reglas, y el motivo de cada una
+
+1. **Nombre, no `pid`.** Un pid cambia en cada arranque; `juego` no.
+2. **Mudo y SOLO son distintos**, en los dos niveles: mudo calla lo suyo; solo
+   calla todo lo demas. Y **el solo de una PISTA gana al de un GRUPO**, porque
+   es lo mas fino que se puede pedir y quien lo pulsa quiere oir ESA.
+3. **Tres medidores, tres preguntas distintas**: el maestro dice *si te
+   pasas*, el grupo dice *que grupo*, la pista dice *cual*. Un solo medidor al
+   final no puede contestar las dos ultimas, y ese es todo el motivo del arbol.
+4. **Las ganancias se MULTIPLICAN**: pista x grupo x maestro. Bajar las armas
+   6 dB y el juego entero 6 dB deja las armas 12 dB abajo, que es lo que
+   cualquiera espera de una mesa.
+5. **El que no pide pista va a `otros`.** Un programa viejo sigue sonando.
+6. **Cuando no caben mas, se DICE y no se roba una.**
+
+## 1.3 -- Y por que esto es lo mismo que ya hay
+
+Una pista es una [`Ganancia`] con su medidor; un grupo, lo mismo; el maestro es
+el [`Amplificador`] entero. No hay pieza nueva: **hay un arreglo de las que ya
+estan** (`bmo-amplificador`, del 22-09).
+
+
 
 Una pista es una fuente con nombre y sus perillas. Y aqui viene lo que hace
 esto barato: **una pista ES el amplificador que ya existe**
@@ -58,20 +124,9 @@ tambien es el amplificador. No hay pieza nueva: hay un ARREGLO de piezas.
                              (esa es la parte que Windows no da)    el tubo
 ```
 
-Reglas del modelo, y cada una tiene su motivo:
-
-1. **Una pista tiene NOMBRE**, no un numero de proceso. Un `pid` cambia en cada
-   arranque; "juego" no. El nombre lo pone quien abre la pista.
-2. **Mudo y SOLO son distintos**: mudo calla esa; solo calla TODAS LAS DEMAS.
-   Es el par de botones de cualquier mesa, y sin el segundo no se puede
-   escuchar una pista sola para saber cual chasquea.
-3. **El medidor es de la pista, no del maestro.** El maestro dice si te pasas;
-   la pista dice QUIEN se pasa.
-4. **Derivar no es bajar el volumen.** Una pista derivada a fichero se graba
+7. **Derivar no es bajar el volumen.** Una pista derivada a fichero se graba
    con su ganancia puesta y *antes* del maestro, porque el maestro es para los
    oidos y la grabacion es para despues.
-5. **Un proceso no es una pista: PIDE una.** Y si no pide ninguna, entra en la
-   pista `otros`. Asi un programa viejo sigue sonando sin saber que hay mesa.
 
 ---
 
@@ -85,16 +140,17 @@ vistazo porque todo lo de una pista esta en la misma columna.
 ```text
   +-- SONIDO ---------------------------------------------------------- [_][X] --+
   |                                                                              |
-  |   juego      musica     sistema    voz        otros      || MAESTRO          |
-  |   [M][S]     [M][S]     [M][S]     [M][S]     [M][S]     ||                  |
-  |   ||||||     ||||||     ||     |   |          |          || ||||||||         |
-  |   ||||||     ||||       ||         |          |          || ||||||           |
-  |   ||||       ||         |          |          |          || ||||             |
-  |   ||         |          |          |          |          || ||               |
-  |   -4.2 dB    -12.0      -21.8      -48.0      --         || -1.4 dBFS        |
-  |    +0.0      +6.0       -3.0        0.0       0.0        ||  +12.0 dB        |
-  |   [  -  ]    [  -  ]    [  -  ]    [  -  ]    [  -  ]    || doblegadas 0     |
-  |   [derivar]  [derivar]  [derivar]  [derivar]  [derivar]  || sujetadas 1284   |
+  |  GRUPO juego  [M][S]  -3.0 dB  |  GRUPO sistema [M][S]  |   || MAESTRO        |
+  |   armas   pasos   musica  voces |   (el grupo entero)    |   ||                |
+  |   [M][S]  [M][S]  [M][S]  [M][S]|   [M][S]               |   || ||||||||       |
+  |   ||||||  ||      ||||||  |     |   ||                   |   || ||||||         |
+  |   ||||||  ||      ||||    |     |   |                    |   || ||||           |
+  |   ||||    |       ||      |     |   |                    |   || ||             |
+  |   -4.2    -21.8   -8.1    -48.0 |   -19.4 dB             |   || -1.4 dBFS      |
+  |   +0.0    -6.0    +0.0    +0.0  |   +0.0                 |   ||  +12.0 dB      |
+  |   [ - ]   [ - ]   [ - ]   [ - ] |   [ - ]                |   || doblegadas 0   |
+  |                                 |                        |   || sujetadas 1284 |
+  |  [grabar TODAS las pistas]  o  [grabar] en una columna       || del aparato 60%|
   |                                                                              |
   +------------------------------------------------------------------------------+
   |  aparato  1B3F:2008   48.000 Hz   2 canales   16 bits   192 B/ms             |
@@ -104,15 +160,19 @@ vistazo porque todo lo de una pista esta en la misma columna.
 
 Lo que hay en cada columna, de arriba abajo:
 
+El grupo manda una FILA arriba y sus pistas son las columnas de debajo, con
+una raya que separa un grupo del siguiente. Asi se ve de un vistazo lo que hay
+que ver: **que grupo esta alto, y dentro de el, cual de sus pistas**.
+
 | fila | que es | por que esta |
 |---|---|---|
-| nombre | `juego`, `musica`... | lo puso quien abrio la pista |
+| nombre | `juego`, `armas`... | **lo EXPUSO el programa**; la mesa no lo invento |
 | `[M][S]` | mudo y solo | ver 1.2 |
 | barras | el medidor: **pico y RMS a la vez** | el pico dice si te pasas, el RMS si se oye |
 | primera cifra | el pico en dBFS | lo que SALIO |
 | segunda cifra | la ganancia en dB | lo que se PIDIO |
 | `[ - ]` | el deslizador (teclado: flechas) | -- |
-| `[derivar]` | grabar esta pista a fichero | lo que Windows no da de serie |
+| `[grabar]` | esta pista a su propio `.wav` | lo que Windows no da de serie (sec. 0 y M4) |
 
 Y abajo, **la franja del aparato**: lo que el `save` ya sabe decir, pero
 mientras pasa. Las dos perillas separadas y dichas por su nombre --*del
@@ -201,23 +261,60 @@ pregunta antes, no despues.
 
 ## [ ] M3 -- QUE CADA UNO PIDA SU PISTA
 
-El contrato para que un programa diga *"lo mio va en la pista `juego`"*: una
-operacion nueva sobre el sonido, con el nombre. El que no pida, a `otros`.
-Aqui esta el verdadero *"el audio se divide por completo"*.
+El contrato para que un programa **EXPONGA su arbol**: una operacion sobre el
+sonido que toma `(grupo, pista)` y devuelve por donde mandar esas muestras.
+`abrir(b"juego", b"armas")`, `abrir(b"juego", b"pasos")`... El que no pida
+nada, a `otros`. Aqui esta el verdadero *"el audio se divide por completo"*, y
+es la puerta por la que un juego --o DOOM, cuando tenga su mezclador-- dice lo
+que ofrece.
 
 **Tam: M.** Y hay que decidir si la pista se pide o **se concede**: que
 cualquier programa elija su nombre es lo comodo; que lo conceda el propietario
 es lo que impide que dos programas peleen por la pista `juego`.
 
-## [ ] M4 -- DERIVAR UNA PISTA A FICHERO
+## [ ] M4 -- GRABAR: una pista, un fichero (*"Fraps u OBS?"*)
+
+El propietario pregunto por los dos, y la respuesta la decide **la licencia antes
+que el gusto**:
+
+| | que es | se puede leer? | sirve de modelo? |
+|---|---|---|---|
+| **OBS Studio** | en GitHub, **GPLv2** | leer SI, **copiar NO**: este repo es Apache-2.0 y Ring 0 esta cerrado a codigo de terceros (la misma regla que con Linux) | **su arquitectura NO**: escenas, fuentes, codificadores y complementos es lo contrario de "ULTRA SIMPLIFICADO" |
+| **Fraps** | cerrado, sin fuente | no hay nada que leer | **su COMPORTAMIENTO SI**, y es exactamente lo que se pidio |
+
+Asi que se toma **Fraps, y solo su comportamiento**, que cabe en una linea:
+
+```text
+   UNA tecla empieza. UNA tecla para. UN fichero. Cero configuracion.
+   Y un numero en pantalla mientras graba, para saber que esta grabando.
+```
+
+Eso es todo el programa. Nada de escenas ni de perfiles: si hay que abrir un
+dialogo para grabar, ya se perdio el momento que se queria grabar.
+
+★ **Y lo que Fraps no podia hacer, aqui sale gratis**: Fraps grababa UNA pista
+mezclada. Esta mesa tiene el arbol entero en la mano, asi que puede escribir
+**un `.wav` por pista** --`juego-armas.wav`, `juego-musica.wav`,
+`sistema.wav`-- con su ganancia puesta y **antes del maestro**. Para el video
+del propietario, eso es una pista por elemento en vez de una mezcla de la que ya no
+se puede sacar nada. Es la fila que Windows no tiene de serie (seccion 0).
+
+**Lo que hay que medir antes de prometerlo**: a 48 kHz estereo, cada pista son
+**192 KB/s**. Ocho a la vez son 1,5 MB/s sostenidos contra ESTRATOS mientras el
+tubo pide una trama cada milisegundo. El SSD da de sobra; lo que no se sabe es
+el RITMO del camino de escritura. Se mide antes, no despues.
+
+**Tam: L**, y depende de M0 (hecho) y de esa medida.
+
+## [ ] M4b -- DERIVAR UNA PISTA A FICHERO
 
 Lo que Windows no da de serie: `[derivar]` escribe esa pista en un `.wav` a su
 frecuencia, con su ganancia y **antes del maestro**. Para el video del
 propietario, eso es una pista por elemento en vez de una mezcla de la que no se
 puede sacar nada.
 
-**Tam: M.** Depende de M0 y de poder escribir ficheros seguidos (ESTRATOS ya
-guarda; el ritmo de escritura contra el de audio hay que medirlo).
+**Tam: M.** Es M4 con el interruptor puesto en una sola pista en vez de en
+todas: la misma pieza, y por eso no se escribe dos veces.
 
 ## [ ] M5 -- EL 3D EN LA MESA
 
