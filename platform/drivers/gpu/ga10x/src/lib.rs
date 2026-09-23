@@ -115,10 +115,17 @@ impl Chip {
 
 /// **El modo que barre una cabeza**, en lineas y pixeles del reloj de pixel.
 ///
-/// Los contadores van de 0 a `total - 1`. El borrado va de `inicio` a `fin`
-/// DANDO LA VUELTA: `fin` es la ultima linea borrada al principio del cuadro e
-/// `inicio` la primera borrada al final. Es la cuenta de `calc()` en
-/// `nouveau_display.c`.
+/// Los contadores van de 0 a `total - 1`. Lo visible va de `fin + 1` a
+/// `inicio`, los dos INCLUIDOS: `fin` es la ultima linea borrada del principio
+/// del cuadro e `inicio` la ULTIMA VISIBLE -- el borrado empieza despues.
+///
+/// ** Lo dijo el Ryzen (23-09, 15:22) y no nouveau: con `(inicio - fin - 1)`,
+/// que era la lectura de su `calc()`, la sonda contesto `1919 x 1079` y 46
+/// lineas de borrado en una pantalla de 1920 x 1080. Con los registros de
+/// verdad (`vtotal 1125, fin 40, inicio 1120`; `htotal 2200, fin 191, inicio
+/// 2111`) solo cuadra asi, y cuadra EXACTO con el 1080p de CEA-861: 5 de
+/// sincronia + 36 de porche trasero = 41 lineas (0..40), 1080 visibles
+/// (41..1120) y 4 de porche delantero (1121..1124).
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Modo {
     pub htotal: u16,
@@ -179,10 +186,10 @@ impl Modo {
     /// cambiar lo que se ve no parte el cuadro por la mitad.
     pub fn en_vblank(&self, l: u16) -> bool {
         if self.vfin < self.vinicio {
-            // Lo normal: borrado al principio (0..=fin) y al final (inicio..).
-            l <= self.vfin || l >= self.vinicio
+            // Lo normal: borrado al principio (0..=fin) y al final (inicio+1..).
+            l <= self.vfin || l > self.vinicio
         } else {
-            l >= self.vinicio && l <= self.vfin
+            l > self.vinicio && l <= self.vfin
         }
     }
 
@@ -198,10 +205,10 @@ impl Modo {
 
 fn visibles(inicio: u16, fin: u16, total: u16) -> u16 {
     if fin < inicio {
-        inicio - fin - 1
+        inicio - fin
     } else {
         // Borrado en medio: lo visible es lo de antes mas lo de despues.
-        total - (fin - inicio + 1)
+        total - (fin - inicio)
     }
 }
 
@@ -281,13 +288,14 @@ mod pruebas {
         assert!(!Chip(0xBADF_5040).es_ampere());
     }
 
-    /// 1080p a 60 Hz (CEA-861): 2200 x 1125, reloj 148,5 MHz, 45 lineas de
-    /// borrado. El borrado acaba en la 40 y empieza en la 1121.
+    /// ** LOS REGISTROS QUE LEYO EL RYZEN (23-09, 15:22) de la cabeza 0:
+    /// 1080p a 60 Hz (CEA-861), 2200 x 1125, reloj 148,5 MHz. El borrado
+    /// acaba en la 40 y la ultima visible es la 1120.
     fn mil80() -> Modo {
         Modo::de_registros(
             (1125 << 16) | 2200,
             (40 << 16) | 191,
-            (1121 << 16) | 2112,
+            (1120 << 16) | 2111,
             148_500_000,
         )
         .expect("un modo de verdad")
@@ -309,7 +317,7 @@ mod pruebas {
         assert!(m.en_vblank(40));
         assert!(!m.en_vblank(41), "la primera visible");
         assert!(!m.en_vblank(1120), "la ultima visible");
-        assert!(m.en_vblank(1121));
+        assert!(m.en_vblank(1121), "el primer porche delantero");
         assert!(m.en_vblank(1124));
     }
 

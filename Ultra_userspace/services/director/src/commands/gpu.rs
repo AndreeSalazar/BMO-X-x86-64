@@ -134,9 +134,11 @@ pub(crate) fn report_gpu(s: &mut Output) {
     let lineas_vb = vt.saturating_sub(lin);
     campo(s, b"vblank");
     s.dec(lineas_vb);
-    s.text(b" lineas (");
-    s.dec(vini);
-    s.text(b" .. ");
+    // `vini` es la ULTIMA visible: el borrado empieza en la siguiente y da
+    // la vuelta hasta `vfin` (ver `bmo_gpu_ga10x::Modo`).
+    s.text(b" lineas (de la ");
+    s.dec(if vini + 1 >= vt { 0 } else { vini + 1 });
+    s.text(b" a la ");
     s.dec(vfin);
     s.text(b")");
     if medido && vt > 0 {
