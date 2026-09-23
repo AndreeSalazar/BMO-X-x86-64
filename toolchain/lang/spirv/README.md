@@ -17,25 +17,28 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 | De Khronos | Como |
 |---|---|
 | **los NUMEROS** (que `OpIAdd` es 128, que lleva tipo y resultado, cuantas palabras minimas) | se toman de `spirv.core.grammar.json` (licencia MIT, la fuente normativa de la seccion binaria de la especificacion) con [`herramientas/tabla.py`](herramientas/tabla.py). Son el contrato, igual que los del ABI: inventarlos seria no hablar SPIR-V |
-| **QUE instrucciones tienen fila y de que familia son** | lo decide `FILAS` en ese script: es el estudio, y es nuestro |
-| **el codigo** de SPIRV-Tools, SPIRV-Cross, Mesa | **no se enlaza ni se copia.** Se LEE para aprender reglas, como OBS para LA MESA |
+| **de que FAMILIA es cada instruccion** (cual es el nucleo, cual imagen, atomico...) | lo decide `FILAS` en ese script: es el estudio, y es nuestro. Las que no nombra entran como `Otro`: el lector las recorre y el juez las niega por su nombre |
+| **el codigo** de SPIRV-Tools, SPIRV-Cross, Mesa, Naga | **no se enlaza ni se copia.** Se LEE para aprender reglas, como OBS para LA MESA |
+| **el banco de pruebas de Naga** (wgpu, MIT/Apache) | es la MATRIZ, como ACATS para Ada: se clona ralo FUERA del repo (`BMO-externo/naga-corpus`) y `herramientas/censo_naga.py` mide contra el. No entra ni un fichero |
 | **el SDK de Vulkan** del anfitrion | solo fabrica los `.spv` de prueba ([`herramientas/fabricar.py`](herramientas/fabricar.py)); el banco no lo necesita |
 
 ## Lo que hay
 
 | Pieza | Casilla | Estado |
 |---|---|---|
-| `src/tabla.rs` | S1 | 194 filas, generadas y cotejables (`tabla.py --cotejar`) |
+| `src/tabla/` -- `filas.rs`, `op.rs`, `glsl.rs` | S1 | las 871 instrucciones de la gramatica + 24 de `GLSL.std.450`, generadas y cotejables (`tabla.py --cotejar`); partidas por oficio porque juntas pasaban de las 1.000 lineas de L6a |
 | `src/lector.rs` -- bytes a un `Modulo` | S1 | hecho: cabecera, medidas, ids, cadenas, orden de secciones, funciones |
 | `src/motivo.rs` -- por que NO | S1 | 23 motivos, cada uno con su fila en `tests/lector.rs` |
-| el juez del subconjunto | S2 | pendiente |
+| `src/juez.rs` -- el juez del subconjunto | S2 | hecho: tipos que cuadran, valores antes de usarse, bloques y saltos con estructura; `censo` por familias |
+| `examples/censo.rs` + `herramientas/censo_naga.py` -- la matriz | S2 | contra el banco de Naga: 228 se leen, 111 de computo, **28 caben** |
 | el oraculo (interprete) | S3 | pendiente |
 | `emisor-x86_64/` | S4 | pendiente: sera OTRO crate, porque este no nombra maquinas |
 
 ## Las dos reglas
 
-1. **`no_std` y sin `alloc`.** La memoria --la tabla de ids-- la da quien
-   llama. Es lo que permite que el MISMO lector corra en el anfitrion (AOT) y
+1. **`no_std` y sin `alloc`** (la biblioteca; `examples/censo.rs` es una
+   herramienta del anfitrion que la usa desde fuera). La memoria --la tabla de
+   ids-- la da quien llama. Es lo que permite que el MISMO lector corra en el anfitrion (AOT) y
    dentro de una app de BMO-X (JIT). Por eso no hay `Vec` aqui dentro.
 2. **Los bytes son de un tercero.** Ningun `.spv` puede hacer que el lector
    entre en panico: el banco corta cada fichero en cada palabra y voltea cada

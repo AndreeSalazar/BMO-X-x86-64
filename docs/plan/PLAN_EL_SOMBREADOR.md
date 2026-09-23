@@ -144,7 +144,32 @@ decoraciones, tipos, constantes, globales y funciones.
 - **Hecha cuando:** los `.spv` de prueba se leen enteros, y una fila por cada
   forma de romper la cabecera y el flujo dice su motivo.
 
-## [ ] S2 -- EL JUEZ: el subconjunto, o por que no
+## [x] S2 -- EL JUEZ: el subconjunto, o por que no
+
+> **Hecho el 23-09**, `no_std` sin `alloc`: `juzgar(&Modulo) -> Veredicto |
+> Fallo` en una pasada, preguntando los tipos a la tabla de ids del lector.
+> 37 motivos nuevos, una fila cada uno; `fuera.spv` cae en lo primero que
+> aparece (la memoria `Workgroup`) y `censo` nombra las tres familias.
+>
+> ** Y LA MATRIZ: el banco de pruebas de NAGA (wgpu, MIT/Apache), clonado
+> FUERA del repo (`BMO-externo/naga-corpus`) y fabricado con tres
+> herramientas del anfitrion (`spirv-as`, `naga`, `glslc`):
+>
+> | | |
+> |---|---|
+> | fabricados | 228 (`naga` nego 14 WGSL y `glslc` 6 GLSL: son de otros backends) |
+> | se leen | **228** (eran 194 con la tabla corta: ahora tiene las 871 de la gramatica, familia `Otro`) |
+> | traen entrada de computo | 111 |
+> | **caben** | **28** |
+> | lo que mas falta en los de computo | **matrices 16**, modelo de memoria de Vulkan (cap 5345) 8, memoria `Workgroup` 8, `Float64` 5, `Int64` 4 |
+>
+> ** Ni un NO del juez en esos 228 es "los tipos no cuadran", "uso antes de
+> definir" o "salto sin estructura": todo lo que cae, cae por estar FUERA del
+> subconjunto. Con tres fabricantes distintos, el juez no rechaza SPIR-V
+> valido por un error suyo. Lo que NO mide: si acepta SPIR-V invalido --
+> el corpus solo trae validos, y eso lo cuidan las filas de `tests/juez.rs`.
+>
+> `py toolchain/lang/spirv/herramientas/censo_naga.py` lo repite.
 
 - **Bloquea:** S1.
 - Capacidad, modelo, etapa, tipo o instruccion fuera de la tabla -> NO con su
@@ -155,6 +180,9 @@ decoraciones, tipos, constantes, globales y funciones.
   palabra correcta.
 
 ## [ ] S3 -- EL ORACULO: un interprete en el anfitrion
+
+> La matriz de S2 ya dice por donde crecer DESPUES de S3: las matrices son lo
+> primero que falta en el computo real (16 de los 83 que no caben).
 
 Ejecuta un sombreador de computo sobre buffers, invocacion a invocacion. Es
 lento a proposito: es la **definicion** de lo que el sombreador hace, y todo lo

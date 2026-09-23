@@ -25,6 +25,7 @@ pub const MAX_EXTENSIONES: usize = 8;
 
 const OP_EXTENSION: u16 = 10;
 const OP_EXT_INST_IMPORT: u16 = 11;
+const OP_EXT_INST: u16 = 12;
 const OP_MEMORY_MODEL: u16 = 14;
 const OP_ENTRY_POINT: u16 = 15;
 const OP_EXECUTION_MODE: u16 = 16;
@@ -168,6 +169,11 @@ impl<'a, 'b> Modulo<'a, 'b> {
     /// Todas las instrucciones, en orden.
     pub fn recorrer(&self) -> Instrucciones<'a> {
         Instrucciones { bytes: self.bytes, i: 5 }
+    }
+
+    /// Las instrucciones desde la que empieza en la palabra `desde`.
+    pub fn recorrer_desde(&self, desde: usize) -> Instrucciones<'a> {
+        Instrucciones { bytes: self.bytes, i: desde }
     }
 
     /// La instruccion que define `id`.
@@ -314,6 +320,16 @@ pub fn leer<'a, 'b>(bytes: &'a [u8], ids: &'b mut [u32]) -> Result<Modulo<'a, 'b
                     return no(Motivo::FinSinFuncion, i);
                 }
                 dentro = false;
+            }
+            // ** `OpExtInst` fuera de una funcion es LEGAL con los conjuntos
+            // no semanticos (`NonSemantic.*`, SPV_KHR_non_semantic_info): es
+            // informacion de depuracion entre los tipos. El juez niega la
+            // importacion; el lector no tiene por que negar la forma.
+            Seccion::Cuerpo if codigo == OP_EXT_INST && !dentro => {
+                if hubo_funcion || ultima > Seccion::Tipo {
+                    return no(Motivo::FueraDeOrden { codigo }, i);
+                }
+                ultima = Seccion::Tipo;
             }
             Seccion::Cuerpo => {
                 if !dentro {

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   285 casillas ABIERTAS en 36 planes
-   266 hechas
+   284 casillas ABIERTAS en 36 planes
+   267 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -139,15 +139,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
 - ... y 4 mas
 
-## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 7 abiertas, 2 hechas
-
-*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
-
-- [ ] S2 -- EL JUEZ: el subconjunto, o por que no
-- [ ] S3 -- EL ORACULO: un interprete en el anfitrion
-- [ ] S3b -- las funciones que no son una instruccion
-- ... y 4 mas
-
 ## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 7 abiertas, 1 hechas
 
 *PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
@@ -200,6 +191,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 6 abiertas, 3 hechas
+
+*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
+
+- [ ] S3 -- EL ORACULO: un interprete en el anfitrion
+- [ ] S3b -- las funciones que no son una instruccion
+- [ ] S4 -- EL EMISOR x86-64, escalar
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

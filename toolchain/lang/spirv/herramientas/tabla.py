@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tabla.py -- escribe `src/tabla.rs` desde la gramatica NORMATIVA de Khronos, o la coteja.
+"""tabla.py -- escribe `src/tabla/` desde la gramatica NORMATIVA de Khronos, o la coteja.
 
 == Por que existe, y que se copia y que no ==
 
@@ -13,16 +13,19 @@ del anfitrion.
 Lo que NO se toma: el codigo de nadie. Ni SPIRV-Tools ni SPIRV-Cross se enlazan
 ni se copian -- se leen para aprender las reglas, como OBS para LA MESA.
 
-Y lo que decide ESTE fichero, que es el estudio: QUE instrucciones tienen fila
-(`FILAS`, abajo) y a que FAMILIA pertenece cada una. Una instruccion sin fila
-no la lee el lector: la niega nombrando su codigo.
+Y lo que decide ESTE fichero, que es el estudio: a que FAMILIA pertenece cada
+instruccion (`FILAS`, abajo). Las que no se nombran alli entran igual, en la
+familia `Otro`: el lector las RECORRE (sabe su forma por la gramatica) y el
+juez las niega por su NOMBRE. Asi un `.spv` con algo raro dice "OpBitFieldInsert
+fuera", y no "codigo 201". Lo que ni la gramatica conoce, el lector lo niega
+con su numero.
 
 == Como se usa ==
 
-    py tabla.py --escribir    regenera src/tabla.rs desde el SDK
-    py tabla.py --cotejar     src/tabla.rs dice lo mismo que el SDK? (sin SDK: lo dice y sale 0)
+    py tabla.py --escribir    regenera src/tabla/ desde el SDK
+    py tabla.py --cotejar     src/tabla/ dice lo mismo que el SDK? (sin SDK: lo dice y sale 0)
 
-El banco NO necesita el SDK: `tabla.rs` va en el repo.
+El banco NO necesita el SDK: `src/tabla/` va en el repo.
 """
 import io
 import json
@@ -30,9 +33,21 @@ import os
 import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-TABLA_RS = os.path.join(AQUI, "..", "src", "tabla.rs")
+TABLA_DIR = os.path.join(AQUI, "..", "src", "tabla")
 SDK = os.environ.get("VULKAN_SDK", r"C:\VulkanSDK\1.4.350.0")
 GRAMATICA = os.path.join(SDK, "Include", "spirv", "unified1", "spirv.core.grammar.json")
+GRAMATICA_GLSL = os.path.join(SDK, "Include", "spirv", "unified1", "extinst.glsl.std.450.grammar.json")
+
+# -- GLSL.std.450: las instrucciones extendidas, por GRUPO --------------------
+# `Flotante`/`Entero`: el resultado y los operandos son del mismo tipo (escalar
+# o vector) -- UNA o dos instrucciones de SSE. `Trascendente`: llegan con S3b,
+# porque no existen en SSE y hay que escribirlas UNA vez para oraculo y emisor.
+# Lo que no esta aqui, S2 lo niega con su numero.
+GLSL = {
+    "Flotante": "FAbs Floor Ceil Fract Sqrt InverseSqrt FMin FMax FClamp FMix Step Fma",
+    "Entero": "SAbs UMin SMin UMax SMax UClamp SClamp",
+    "Trascendente": "Sin Cos Pow Exp Log",
+}
 
 # -- LAS FILAS: el estudio. Familia -> nombres. --------------------------------
 # `Nucleo`   el subconjunto que S2 acepta (PLAN_EL_SOMBREADOR, seccion 2).
@@ -46,7 +61,6 @@ FILAS = {
         TypeVoid TypeBool TypeInt TypeFloat TypeVector TypeArray TypeRuntimeArray
         TypeStruct TypePointer TypeFunction
         ConstantTrue ConstantFalse Constant ConstantComposite ConstantNull
-        SpecConstantTrue SpecConstantFalse SpecConstant SpecConstantComposite
         Function FunctionParameter FunctionEnd FunctionCall
         Variable Load Store CopyMemory AccessChain InBoundsAccessChain ArrayLength
         Decorate MemberDecorate DecorationGroup GroupDecorate GroupMemberDecorate
@@ -69,6 +83,9 @@ FILAS = {
         Phi LoopMerge SelectionMerge Label Branch BranchConditional Return
         ReturnValue Unreachable
     """,
+    # Las constantes que se fijan al crear el pipeline: sin VERRANO no hay quien
+    # las fije, y S2 las niega.
+    "Especializacion": "SpecConstantTrue SpecConstantFalse SpecConstant SpecConstantComposite SpecConstantOp",
     # `switch` se lee y S2 lo niega: control de flujo con tabla, despues.
     "Salto": "Switch Kill",
     "Imagen": """
@@ -126,6 +143,33 @@ def cargar():
     return g, enums_valor
 
 
+def forma(i, enums_valor, familia):
+    """La fila de una instruccion de la gramatica."""
+    nombre = i["opname"]
+    corto = nombre[2:]
+    ops = i.get("operands", [])
+    tipo = any(o["kind"] == "IdResultType" for o in ops)
+    resultado = any(o["kind"] == "IdResult" for o in ops)
+    # Palabras minimas: la cabecera + cada operando obligatorio (una cadena
+    # ocupa al menos una palabra).
+    minimo = 1 + sum(1 for o in ops if "quantifier" not in o)
+    # Donde empieza la cadena, si su sitio es FIJO.
+    cadena = 0
+    pos = 1
+    for o in ops:
+        if "quantifier" in o:
+            break
+        if o["kind"] == "LiteralString":
+            cadena = pos
+            break
+        if o["kind"] in UNA_PALABRA or o["kind"] in enums_valor:
+            pos += 1
+            continue
+        break
+    seccion = SECCION_FIJA.get(corto) or CLASE_A_SECCION.get(i["class"], "Cuerpo")
+    return (i["opcode"], nombre, tipo, resultado, minimo, cadena, seccion, familia)
+
+
 def filas_de(g, enums_valor):
     por_nombre = {i["opname"]: i for i in g["instructions"]}
     fuera = []
@@ -135,27 +179,17 @@ def filas_de(g, enums_valor):
             i = por_nombre.get(nombre)
             if i is None:
                 sys.exit("tabla.py: %s no existe en la gramatica" % nombre)
-            ops = i.get("operands", [])
-            tipo = any(o["kind"] == "IdResultType" for o in ops)
-            resultado = any(o["kind"] == "IdResult" for o in ops)
-            # Palabras minimas: la cabecera + cada operando obligatorio (una
-            # cadena ocupa al menos una palabra).
-            minimo = 1 + sum(1 for o in ops if "quantifier" not in o)
-            # Donde empieza la cadena, si su sitio es FIJO.
-            cadena = 0
-            pos = 1
-            for o in ops:
-                if "quantifier" in o:
-                    break
-                if o["kind"] == "LiteralString":
-                    cadena = pos
-                    break
-                if o["kind"] in UNA_PALABRA or o["kind"] in enums_valor:
-                    pos += 1
-                    continue
-                break
-            seccion = SECCION_FIJA.get(corto) or CLASE_A_SECCION.get(i["class"], "Cuerpo")
-            fuera.append((i["opcode"], nombre, tipo, resultado, minimo, cadena, seccion, familia))
+            fuera.append(forma(i, enums_valor, familia))
+    # ** Y TODAS LAS DEMAS, en la familia `Otro` (2026-09-23, tras la primera
+    # medida contra el banco de Naga: 34 de 228 ficheros ni se leian, y el NO
+    # decia un numero). La gramatica repite codigos con alias de extension
+    # (`OpDecorateStringGOOGLE` = `OpDecorateString`): gana el primero visto.
+    vistos = {f[0] for f in fuera}
+    for i in g["instructions"]:
+        if i["opcode"] in vistos:
+            continue
+        vistos.add(i["opcode"])
+        fuera.append(forma(i, enums_valor, "Otro"))
     fuera.sort()
     for a, b in zip(fuera, fuera[1:]):
         if a[0] == b[0]:
@@ -163,18 +197,62 @@ def filas_de(g, enums_valor):
     return fuera
 
 
+def filas_glsl():
+    with io.open(GRAMATICA_GLSL, encoding="utf-8") as f:
+        g = json.load(f)
+    por_nombre = {i["opname"]: i for i in g["instructions"]}
+    fuera = []
+    for grupo, texto in GLSL.items():
+        for nombre in texto.split():
+            i = por_nombre.get(nombre)
+            if i is None:
+                sys.exit("tabla.py: GLSL.std.450 no tiene %s" % nombre)
+            fuera.append((i["opcode"], nombre, len(i["operands"]), grupo))
+    fuera.sort()
+    return fuera
+
+
+def cabecera(g, que):
+    return [
+        "//! %s" % que,
+        "//!",
+        "//! ** GENERADO por `herramientas/tabla.py --escribir` desde la gramatica de",
+        "//! Khronos (licencia MIT), SPIR-V %d.%d rev %d. No se edita a mano: las"
+        % (g["major_version"], g["minor_version"], g["revision"]),
+        "//! familias las decide `FILAS` en el script; los numeros son de la",
+        "//! especificacion. `--cotejar` comprueba que coinciden.",
+        "//!",
+        "//! [consumo]  NADA   datos constantes: no gastan ni en reposo ni corriendo",
+        "",
+    ]
+
+
 def rust(filas, g):
-    o = []
-    o.append("//! La tabla de instrucciones de SPIR-V que este lector conoce.")
-    o.append("//!")
-    o.append("//! ** GENERADA por `herramientas/tabla.py --escribir` desde")
-    o.append("//! `spirv.core.grammar.json` (Khronos, licencia MIT) version %d.%d rev %d. No se"
-             % (g["major_version"], g["minor_version"], g["revision"]))
-    o.append("//! edita a mano: QUE filas hay y su familia lo decide `FILAS` en el script;")
-    o.append("//! los numeros son de la especificacion. `--cotejar` comprueba que coinciden.")
-    o.append("//!")
-    o.append("//! [consumo]  NADA   es una tabla constante: no gasta ni en reposo ni corriendo")
-    o.append("")
+    """Los ficheros de `src/tabla/`, como `{ruta relativa: texto}`.
+
+    ** Partidos por OFICIO (2026-09-23): en uno solo eran 1.820 lineas y L6a
+    no deja entrar un modulo nuevo de mas de 1.000. Una fabrica en tiempo de
+    compilacion obligaria a meter la gramatica de Khronos en el repo, y la
+    regla de esta carpeta es no mezclar. Asi que cada fichero hace UNA cosa:
+    las filas, los nombres que el juez mira, y GLSL.std.450.
+    """
+    fuera = {}
+
+    o = ["//! Las tablas de SPIR-V: la forma de cada instruccion, sus nombres y las de",
+         "//! `GLSL.std.450`. GENERADO por `herramientas/tabla.py`; ver cada fichero.",
+         "//!",
+         "//! [consumo]  NADA   datos constantes",
+         "",
+         "mod filas;",
+         "pub mod glsl;",
+         "pub mod op;",
+         "",
+         "pub use filas::TABLA;",
+         "pub use glsl::GLSL450;",
+         ""]
+    fuera["mod.rs"] = "\n".join(o)
+
+    o = cabecera(g, "La FORMA de cada instruccion de la gramatica: lo que el lector necesita para recorrerla.")
     o.append("use crate::{Familia, Fila, Seccion};")
     o.append("")
     o.append("/// Ordenada por codigo: se busca por biseccion.")
@@ -186,7 +264,38 @@ def rust(filas, g):
                     minimo, cadena, seccion, familia))
     o.append("];")
     o.append("")
-    return "\n".join(o)
+    fuera["filas.rs"] = "\n".join(o)
+
+    # ** Los codigos con el NOMBRE DE LA ESPECIFICACION, para que el juez no
+    # teclee ni un numero: `op::OpIAdd` y no `128`. Solo los que tienen familia
+    # propia (las de `Otro` no las nombra nadie: el juez las niega por fila).
+    o = cabecera(g, "Los codigos de las instrucciones que el juez MIRA, con el nombre de la especificacion.")
+    o.append("#![allow(non_upper_case_globals)]")
+    o.append("")
+    for (cod, nombre, _t, _r, _m, _c, _s, familia) in filas:
+        if familia != "Otro":
+            o.append("pub const %s: u16 = %d;" % (nombre, cod))
+    o.append("")
+    fuera["op.rs"] = "\n".join(o)
+
+    glsl = filas_glsl()
+    o = cabecera(g, "`GLSL.std.450`: las instrucciones extendidas que el juez conoce, y sus numeros.")
+    o.append("#![allow(non_upper_case_globals)]")
+    o.append("")
+    o.append("use crate::{FilaGlsl, GrupoGlsl};")
+    o.append("")
+    o.append("/// De `extinst.glsl.std.450.grammar.json`. Ordenadas por numero.")
+    o.append("pub const GLSL450: &[FilaGlsl] = &[")
+    for (num, nombre, ops, grupo) in glsl:
+        o.append("    FilaGlsl { numero: %d, nombre: \"%s\", operandos: %d, grupo: GrupoGlsl::%s },"
+                 % (num, nombre, ops, grupo))
+    o.append("];")
+    o.append("")
+    for (num, nombre, _o, _g) in glsl:
+        o.append("pub const %s: u32 = %d;" % (nombre, num))
+    o.append("")
+    fuera["glsl.rs"] = "\n".join(o)
+    return fuera
 
 
 def main():
@@ -196,18 +305,25 @@ def main():
         print("tabla.py: sin el SDK de Vulkan (%s) no hay contra que cotejar; la tabla del repo manda" % GRAMATICA)
         return 0
     g, ev = cargar()
-    texto = rust(filas_de(g, ev), g)
+    ficheros = rust(filas_de(g, ev), g)
     if sys.argv[1] == "--escribir":
-        with io.open(TABLA_RS, "w", encoding="utf-8", newline="\n") as f:
-            f.write(texto)
-        print("tabla.py: escrita %s" % os.path.normpath(TABLA_RS))
+        os.makedirs(TABLA_DIR, exist_ok=True)
+        for nombre, texto in ficheros.items():
+            with io.open(os.path.join(TABLA_DIR, nombre), "w", encoding="utf-8", newline="\n") as f:
+                f.write(texto)
+        print("tabla.py: escritos %d ficheros en %s" % (len(ficheros), os.path.normpath(TABLA_DIR)))
         return 0
-    with io.open(TABLA_RS, encoding="utf-8") as f:
-        actual = f.read().replace("\r\n", "\n")
-    if actual != texto:
-        print("tabla.py: src/tabla.rs NO coincide con la gramatica del SDK -- regenerala con --escribir")
+    malos = []
+    for nombre, texto in ficheros.items():
+        ruta = os.path.join(TABLA_DIR, nombre)
+        actual = io.open(ruta, encoding="utf-8").read().replace("\r\n", "\n") if os.path.exists(ruta) else None
+        if actual != texto:
+            malos.append(nombre)
+    if malos:
+        print("tabla.py: src/tabla/%s NO coincide con la gramatica del SDK -- regenera con --escribir"
+              % ", ".join(malos))
         return 1
-    print("tabla.py: clean -- src/tabla.rs coincide con la gramatica de Khronos")
+    print("tabla.py: clean -- src/tabla/ coincide con la gramatica de Khronos")
     return 0
 
 
