@@ -321,51 +321,169 @@ impl FatVolume {
     /// **No toca el directorio.** Quien llama decide si el nombre que va a
     /// apuntar aqui es uno nuevo (`create`) o uno que ya existia (`replace`), y
     /// esa diferencia es toda la que hay entre las dos.
+    ///
+    /// # *** UNA PASADA POR LA FAT, Y LOS DATOS POR TRAMOS (2026-09-22)
+    ///
+    /// La primera captura de pantalla del Ryzen (6 MiB) tardo **1557 ms**, y
+    /// CABINA dijo que el bus se quedo sin latir 1526 ms: la escritura corre
+    /// dentro de un syscall, y ese rato la maquina no oye ni teclado ni raton.
+    /// Esta funcion era casi todo ese tiempo, por tres cosas que se multiplican:
+    ///
+    /// ```text
+    ///    los datos     UN comando al disco por SECTOR: 6 MiB = 12.150 comandos
+    ///    la FAT        por cada cluster, marcar fin y enlazar el anterior: 2
+    ///                  entradas x cada copia de la FAT = 4 sectores escritos
+    ///    el hueco      `find_free_cluster` buscaba DESDE EL PRINCIPIO de la FAT
+    ///                  cada vez: cuanto mas lleno el disco, mas lento cada uno
+    /// ```
+    ///
+    /// Ahora es UNA pasada: se recorre la FAT sector a sector, se cogen los
+    /// libres de ese sector, se enlazan EN MEMORIA y el sector se escribe una
+    /// vez por copia. Los datos van en TRAMOS de clusters seguidos, de una orden
+    /// y sacados del propio `data` -- que en el kernel es memoria contigua, asi
+    /// que el disco lo lee de ahi sin rebote (`disk::write`, camino directo).
+    ///
+    /// ** El orden seguro no cambia: la cadena (FAT y datos) entera ANTES de que
+    /// ninguna entrada de directorio apunte a ella. Eso lo hace quien llama.
     fn escribir_cadena(&mut self, data: &[u8]) -> Result<u32, WriteError> {
         let spc = self.sectors_per_cluster as usize;
         if spc == 0 { return Err(WriteError::Io); }
         let cluster_bytes = spc * 512;
-        let clusters_needed = if data.is_empty() { 1 } else { data.len().div_ceil(cluster_bytes) };
+        let needed = if data.is_empty() { 1 } else { data.len().div_ceil(cluster_bytes) };
+        const POR_SECTOR: u32 = 512 / 4;
 
-        let first = match self.find_free_cluster() {
-            Some(c) => c, None => return Err(WriteError::NoSpace),
-        };
-        if !self.mark_cluster_eoc(first) { return Err(WriteError::Io); }
+        let mut first = 0u32;
+        let mut prev = 0u32;
+        let mut got = 0usize;
+        // El tramo de datos pendiente: clusters seguidos en el disco.
+        let mut tramo_c = 0u32;
+        let mut tramo_n = 0usize;
+        let mut tramo_i = 0usize;
 
-        let mut prev = first;
-        for i in 0..clusters_needed {
-            let cluster = if i == 0 { first } else {
-                let c = match self.find_free_cluster() {
-                    Some(c) => c,
-                    None => { self.free_chain(first); return Err(WriteError::NoSpace); }
-                };
-                if !self.mark_cluster_eoc(c) || !self.set_fat_entry(prev, c) {
-                    self.free_chain(first);
-                    return Err(WriteError::Io);
+        for fs in 0..self.fat_size_sectors {
+            if got == needed { break; }
+            let lba = (self.fat_start + fs) as u64;
+            // La copia 0 manda: es la que se lee al buscar hueco.
+            if !self.read_sector(lba, Buf::fat_cache) { continue; }
+            let mut tocado = false;
+            let mut sin_hueco = false;
+            // Un enlace que no cabe en ESTE sector: el anterior vive en uno
+            // que ya se escribio. Se apunta y se escribe despues.
+            let mut enlace_fuera: Option<(u32, u32)> = None;
+            for i in 0..POR_SECTOR {
+                if got == needed { break; }
+                let c = fs * POR_SECTOR + i;
+                if c < 2 { continue; }
+                if c > self.max_cluster { sin_hueco = true; break; }
+                let k = (i * 4) as usize;
+                let e = u32::from_le_bytes([
+                    self.fat_cache[k], self.fat_cache[k + 1],
+                    self.fat_cache[k + 2], self.fat_cache[k + 3],
+                ]) & 0x0FFF_FFFF;
+                if e != 0 { continue; }
+                // Se coge: fin de cadena, en memoria.
+                self.fat_cache[k..k + 4].copy_from_slice(&0x0FFF_FFFFu32.to_le_bytes());
+                tocado = true;
+                if prev == 0 {
+                    first = c;
+                } else if prev / POR_SECTOR == fs {
+                    let kp = ((prev % POR_SECTOR) * 4) as usize;
+                    self.fat_cache[kp..kp + 4].copy_from_slice(&c.to_le_bytes());
+                } else {
+                    enlace_fuera = Some((prev, c));
+                }
+                // El tramo de datos: sigue si es el siguiente del disco.
+                if tramo_n > 0 && c == tramo_c + tramo_n as u32 {
+                    tramo_n += 1;
+                } else {
+                    if tramo_n > 0 && !self.escribir_tramo(data, tramo_i, tramo_c, tramo_n) {
+                        self.soltar_a_medias(first);
+                        return Err(WriteError::Io);
+                    }
+                    tramo_c = c;
+                    tramo_n = 1;
+                    tramo_i = got;
                 }
                 prev = c;
-                c
-            };
-
-            let lba = self.cluster_to_lba(cluster);
-            for s in 0..spc {
-                // El buffer se reinicia a CEROS en cada sector. Reutilizar uno
-                // sucio dejaba la cola del ultimo sector --y el resto del
-                // cluster-- llena de los datos anteriores, justo donde el
-                // comentario prometia ceros.
-                let mut temp = [0u8; 512];
-                let off = i * cluster_bytes + s * 512;
-                if off < data.len() {
-                    let n = core::cmp::min(512, data.len() - off);
-                    temp[..n].copy_from_slice(&data[off..off + n]);
+                got += 1;
+            }
+            if tocado {
+                // El sector entero, UNA vez por copia de la FAT. `write_sector`
+                // deja la cache apuntando a la ultima copia escrita, y esa lleva
+                // lo mismo: la cache sigue diciendo la verdad.
+                for copy in 0..self.num_fats as u32 {
+                    let destino = (self.fat_start + copy * self.fat_size_sectors + fs) as u64;
+                    if !self.write_sector(destino, Buf::fat_cache) {
+                        self.soltar_a_medias(first);
+                        return Err(WriteError::Io);
+                    }
                 }
-                if !self.write_from(lba + s as u64, &temp) {
-                    self.free_chain(first);
+                self.fat_cache_lba = SIN_CACHE;
+            }
+            if let Some((p, c)) = enlace_fuera {
+                if !self.set_fat_entry(p, c) {
+                    self.soltar_a_medias(first);
                     return Err(WriteError::Io);
                 }
             }
+            if sin_hueco { break; }
+        }
+        if got < needed {
+            self.soltar_a_medias(first);
+            return Err(WriteError::NoSpace);
+        }
+        if !self.escribir_tramo(data, tramo_i, tramo_c, tramo_n) {
+            self.soltar_a_medias(first);
+            return Err(WriteError::Io);
         }
         Ok(first)
+    }
+
+    /// Suelta lo cogido si algo fallo a medias (y si se llego a coger algo).
+    fn soltar_a_medias(&mut self, first: u32) {
+        if first >= 2 {
+            self.free_chain(first);
+        }
+    }
+
+    /// **Escribe los datos de `n` clusters seguidos** que empiezan en el
+    /// cluster `c` y son los numero `idx..idx+n` del fichero.
+    ///
+    /// Los sectores ENTEROS van de una orden por tramo (en trozos de 32.768
+    /// sectores, lo que cabe en el `u16` del contrato de bloques) y salen del
+    /// propio `data`. El resto --el pico del ultimo sector y lo que queda del
+    /// ultimo cluster-- va a CEROS por un buffer propio: solo pasa en el ultimo
+    /// cluster del fichero, y ahi el comentario de siempre promete ceros.
+    fn escribir_tramo(&mut self, data: &[u8], idx: usize, c: u32, n: usize) -> bool {
+        if n == 0 { return true; }
+        let spc = self.sectors_per_cluster as usize;
+        let lba = self.cluster_to_lba(c);
+        let desde = idx * spc * 512;
+        let total = n * spc;
+        let hay = data.len().saturating_sub(desde).min(total * 512);
+        let enteros = hay / 512;
+        let mut s = 0usize;
+        while s < enteros {
+            let k = (enteros - s).min(32_768);
+            let trozo = &data[desde + s * 512..desde + (s + k) * 512];
+            if !self.escribible || self.dev.write(self.abs(lba + s as u64), k as u16, trozo).is_err() {
+                return false;
+            }
+            s += k;
+        }
+        while s < total {
+            let mut temp = [0u8; 512];
+            let off = desde + s * 512;
+            if off < data.len() {
+                let m = core::cmp::min(512, data.len() - off);
+                temp[..m].copy_from_slice(&data[off..off + m]);
+            }
+            if !self.write_from(lba + s as u64, &temp) {
+                return false;
+            }
+            s += 1;
+        }
+        true
     }
 
     fn create_file_fat32(&mut self, dir_cluster: u32, name_8_3: &[u8; 11], data: &[u8])

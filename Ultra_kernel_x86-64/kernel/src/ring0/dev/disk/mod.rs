@@ -601,6 +601,20 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
     const PER_BATCH: u16 = (4096 / SECTOR) as u16; // 8 sectores por pagina
     let mut done = 0u16;
     while done < count {
+        // ** EL CAMINO DIRECTO PRIMERO (2026-09-22): si lo que queda esta
+        // seguido en memoria fisica, el HBA lo lee de ahi, hasta 4 MiB de una
+        // orden. Ver `transfer::tramo_escritura`: es lo que bajo el guardado de
+        // una captura de 1557 ms. Si no sirve, el rebote de siempre.
+        if let Some((fisica, trozo)) = transfer::tramo_escritura(data, done, count) {
+            let put = match transfer::mandar_escritura(lba + done as u64, trozo, fisica) {
+                Some(n) => n,
+                None => return done,
+            };
+            if put == 0 { return done; }
+            done += put;
+            if put < trozo { break; }
+            continue;
+        }
         let batch = (count - done).min(PER_BATCH);
         // A la pagina de rebote primero: el HBA solo lee de memoria fisica
         // contigua y conocida, no del buffer que traiga el llamante.

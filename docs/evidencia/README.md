@@ -241,7 +241,7 @@ wallpaper, and the line in `Ejecutar` that reported the first capture:
 
 | seen in the capture | what it was | state |
 |---|---|---|
-| `en 1557 ms`, and CABINA: *the bus beat arrived LATE* `=1526` with **2** clock ticks in 1533 ms | the 6 MB file is written to disk inside one syscall with interrupts closed: keyboard and mouse frozen for a second and a half | open |
+| `en 1557 ms`, and CABINA: *the bus beat arrived LATE* `=1526` with **2** clock ticks in 1533 ms | the 6 MB file is written to disk inside one syscall with interrupts closed: keyboard and mouse frozen for a second and a half | fixed in code the same night -- one pass over the FAT and data in runs of one command, straight from the kernel buffer; **not yet re-measured on metal** |
 | `sonido -0` in red, and the sound window's meters full, next to *"no sound has passed through the pipe yet"* | the kernel's meter started at `0` -- which in dBFS is the loudest there is -- instead of silence | fixed the same night |
 | the last two rows of CABINA's list over its footer | the row count subtracted 44 px for a header, a footer and an instrument line that take 96 | fixed the same night |
 | the files are dated 1969 in Windows | BMO-X's FAT32 does not stamp a date on what it creates | open |

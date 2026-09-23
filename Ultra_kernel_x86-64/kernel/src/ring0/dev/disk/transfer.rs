@@ -324,6 +324,50 @@ fn mandar_lectura(lba: u64, count: u16, phys: u64, prestando: bool) -> Option<u1
     }
 }
 
+/// *** **EL CAMINO DIRECTO DE LA ESCRITURA** (2026-09-22): el espejo de la
+/// lectura directa, que la llevaba de ventaja desde el escalon 3 de LA_RAM.
+///
+/// La escritura rebotaba SIEMPRE por la pagina de DMA, de 4 KiB en 4 KiB: 6 MiB
+/// eran 1.519 comandos y 6 MiB de copia. Pero lo que se escribe grande sale del
+/// buffer de un fichero del kernel, que se pide CONTIGUO (`obj::file::grow`), y
+/// eso el HBA lo puede leer tal cual. Mismo juez y mismas marcas que la lectura:
+/// el tramo entero en vuelo mientras el disco lo lee.
+///
+/// Devuelve `(fisica, sectores)` si el trozo `done..count` de `data` sirve.
+pub(super) fn tramo_escritura(data: &[u8], done: u16, count: u16) -> Option<(u64, u16)> {
+    let va = data.as_ptr() as u64 + done as u64 * SECTOR as u64;
+    let restante = (count - done) as u64 * SECTOR as u64;
+    tramo_dma(va, restante).and_then(|(phys, bytes)| {
+        let sectores = ((bytes / SECTOR as u64) as u16).min(count - done).min(MAX_POR_COMANDO);
+        if sectores == 0 { None } else { Some((phys, sectores)) }
+    })
+}
+
+/// Manda una escritura directa: el HBA LEE de `phys`. El juez primero, el
+/// tramo en vuelo mientras dura, y aterriza tambien si falla.
+pub(super) fn mandar_escritura(lba: u64, count: u16, phys: u64) -> Option<u16> {
+    let bytes = count as u64 * SECTOR as u64;
+    if !juzgar_el_dma(phys, bytes, true) {
+        return None;
+    }
+    marcar_el_tramo(phys, bytes, true, crate::ring0::task::scheduler::rdtsc());
+    let r = unsafe { bmo_ahci::write_sectors_phys(PORT, lba, count, phys) };
+    marcar_el_tramo(phys, bytes, false, crate::ring0::task::scheduler::rdtsc());
+    match r {
+        Ok(n) => {
+            unsafe { ESCRITO_SIN_REBOTE += n as u64 * SECTOR as u64 };
+            Some(n)
+        }
+        Err(e) => {
+            crate::ring0::cabina::fault("disk", e.name(), lba);
+            None
+        }
+    }
+}
+
+/// Bytes escritos por el camino directo, sin pasar por la pagina de rebote.
+static mut ESCRITO_SIN_REBOTE: u64 = 0;
+
 /// El trozo de rebote de siempre, para cuando el destino no sirve para DMA.
 fn leer_rebotando(lba: u64, batch: u16, dma: u64, buf: &mut [u8], done: u16) -> Option<u16> {
     let got = mandar_lectura(lba, batch, dma, false)?;

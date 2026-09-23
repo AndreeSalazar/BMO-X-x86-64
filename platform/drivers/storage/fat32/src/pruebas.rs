@@ -105,8 +105,18 @@ fn write(lba: u64, count: u16, data: &[u8]) -> bool {
     let off = lba as usize * 512;
     let n = count as usize * 512;
     if off + n > SECTORES * 512 || data.len() < n { return false; }
+    ESCRITURAS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     disco()[off..off + n].copy_from_slice(&data[..n]);
     true
+}
+
+/// Cuantas ORDENES de escritura llegaron al disco. Es el numero que el
+/// escritor tiene que mantener bajo: cada una, en el Ryzen, es un comando AHCI
+/// dentro de un syscall con la maquina sorda.
+static ESCRITURAS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+fn escrituras() -> usize {
+    ESCRITURAS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 impl bmo_block::BlockDevice for DiscoDeMentira {
@@ -766,6 +776,35 @@ fn un_archivo_de_cientos_de_clusters_se_lee_entero() {
     assert_eq!(n, grande.len(), "se leyeron {n} de {} bytes", grande.len());
     // Y byte a byte: un medida correcto con un agujero dentro es
     // exactamente el fallo que esta fila viene a descartar.
+    let malo = dst.iter().zip(grande.iter()).position(|(a, b)| a != b);
+    assert!(malo.is_none(), "primer byte distinto en {malo:?}");
+}
+
+/// *** GUARDAR 200 CLUSTERS SON POCAS ORDENES, NO CIENTOS (2026-09-22).
+///
+/// La primera captura de pantalla del Ryzen tardo 1557 ms en guardarse: un
+/// comando por SECTOR de datos y cuatro escrituras de FAT por cluster. Con
+/// clusters de un sector, 100 KiB eran 200 + 800 = ~1.000 ordenes. Ahora los
+/// datos van de un tramo y la FAT una vez por sector y por copia.
+///
+/// El techo es holgado a proposito --no es el numero exacto de hoy-- y aun asi
+/// la version vieja no lo pasa ni de lejos. Y se lee de vuelta byte a byte:
+/// ir rapido escribiendo otra cosa no vale.
+#[test]
+fn guardar_doscientos_clusters_son_pocas_ordenes() {
+    let (_turno, mut v) = volumen();
+    let mut grande = std::vec![0u8; 100 * 1024];
+    for (i, b) in grande.iter_mut().enumerate() {
+        *b = (i % 253) as u8;
+    }
+    let antes = escrituras();
+    v.save_file_in_dir(2, &name("RAPIDO  BIN"), &grande).expect("debe guardar");
+    let ordenes = escrituras() - antes;
+    assert!(ordenes <= 16, "guardar 200 clusters costo {ordenes} ordenes de escritura");
+
+    let mut dst = std::vec![0u8; grande.len()];
+    let n = leer_archivo(&mut v, "RAPIDO  BIN", &mut dst).expect("debe estar");
+    assert_eq!(n, grande.len());
     let malo = dst.iter().zip(grande.iter()).position(|(a, b)| a != b);
     assert!(malo.is_none(), "primer byte distinto en {malo:?}");
 }
