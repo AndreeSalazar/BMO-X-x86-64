@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 44 planes
+# LO QUE FALTA -- las casillas abiertas de los 45 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   278 casillas ABIERTAS en 35 planes
+   287 casillas ABIERTAS en 36 planes
    264 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -110,6 +110,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] el DIRECTOR le dice el hueco: una ranura de buzon con bit propio
 - [ ] la app puede REEMPLAZAR su superficie: hoy una segunda oferta del
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
+- ... y 6 mas
+
+## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 9 abiertas, 0 hechas
+
+*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
+
+- [ ] S0 -- EL SITIO
+- [ ] S1 -- EL LECTOR: bytes de SPIR-V a un modulo
+- [ ] S2 -- EL JUEZ: el subconjunto, o por que no
 - ... y 6 mas
 
 ## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
