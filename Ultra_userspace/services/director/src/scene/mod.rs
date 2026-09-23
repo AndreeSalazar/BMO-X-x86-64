@@ -152,7 +152,7 @@ pub(crate) const TASKBAR_LINE: u32 = 0x002B_2250;
 ///
 /// Un grupo pegado a otro se lee como un solo bloque de texto. Con esto, el
 /// pulso, el volcado y la entrada se ven como TRES cosas, que es lo que son.
-pub(crate) const SEPARADOR: u32 = 0x001E_2636;
+pub(crate) const SEPARADOR: u32 = 0x002A_2448;
 /// El acento de `tema.maqueta`: el valor de PARTIDA. Lo que se pinta usa
 /// [`acento`], que lee `sys/director.cfg` (2026-09-13).
 pub(crate) const ACCENT_BASE: u32 = tema_gen::ACCENT;
@@ -245,8 +245,8 @@ pub(crate) const SHADOW_RIGHT: u32 = 8;
 pub(crate) const SHADOW_BOTTOM: u32 = 10;
 
 pub(crate) fn shadow(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
-    const FAR: u32 = 0x000A_0D14;
-    const NEAR: u32 = 0x0006_0810;
+    const FAR: u32 = 0x0007_060F;
+    const NEAR: u32 = 0x0003_0208;
     // Las medidas salen de las constantes de arriba: el borde derecho cae en
     // `x + w + SHADOW_RIGHT` y el de abajo en `y + h + SHADOW_BOTTOM`.
     rounded_rect(p, x + 2, y + 4, w + SHADOW_RIGHT - 2, h + SHADOW_BOTTOM - 4, FAR);
@@ -371,7 +371,7 @@ pub(crate) const OUT_ROWS: usize = 32;
 ///
 /// 200 filas de 88 columnas son 17 KiB. La pantalla es de 8 MiB.
 pub(crate) const OUT_HIST: usize = 200;
-pub(crate) const OUT_TEXT: u32 = 0x00C5_CEDC;
+pub(crate) const OUT_TEXT: u32 = 0x00CF_CBE3;
 /// El eco de lo que se escribe. **Es el mismo azul del acento**, y eso no se
 /// supo hasta generar la paleta: eran dos constantes con dos nombres y un solo
 /// color. Ahora se ve, porque las dos apuntan al mismo sitio.
@@ -385,7 +385,7 @@ pub(crate) const BOX_BG: u32 = tema_gen::BOX_FONDO;
 /// raya de color.
 pub(crate) const BOX_EDGE: u32 = tema_gen::BOX_BORDE;
 /// La barra de titulo: un peldano MAS claro que el cuerpo.
-pub(crate) const BOX_TITLE: u32 = 0x0027_3040;
+pub(crate) const BOX_TITLE: u32 = 0x0025_1F44;
 /// Los campos donde se escribe van hacia abajo, no hacia arriba: un hueco se
 /// lee como hundido y ahi es donde se mete texto.
 pub(crate) const FIELD_BG: u32 = tema_gen::FIELD_FONDO;

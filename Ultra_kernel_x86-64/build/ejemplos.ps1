@@ -536,6 +536,8 @@ function Nuevo-Qoi {
 # luna, estrellas, dos cordilleras y su reflejo en un lago-- que el DIRECTOR
 # escala a la pantalla (`scene/fondo.rs`). Se GENERA por lo mismo que las fotos:
 # un binario en el repo no se lee en un diff. Solo usa RGB y RUN.
+# ** Desde el 2026-09-22 es el RESPALDO: el fondo es la ciudad del gato, y esto
+# sale solo si falta python o Pillow para convertirla (ver mas abajo).
 function Nuevo-Fondo {
     $w = 480; $h = 270; $lago = 212
     $ms = New-Object System.IO.MemoryStream
@@ -693,8 +695,32 @@ try {
     New-Item -ItemType Directory -Force $sysDst | Out-Null
     Copy-Item (Join-Path $repo 'Ultra_userspace\services\director\director.cfg') (Join-Path $sysDst 'director.cfg') -Force
     Write-Host '    [sys] director.cfg (el aspecto del escritorio)' -ForegroundColor DarkGray
-    [System.IO.File]::WriteAllBytes((Join-Path $sysDst 'fondo.qoi'), (Nuevo-Fondo))
-    Write-Host '    [sys] fondo.qoi (480x270, la foto del escritorio)' -ForegroundColor DarkGray
+    # ** EL FONDO ES LA CIUDAD DEL GATO (2026-09-22): el arte del propietario,
+    # `docs/arte/bmo-x-ciudad.webp`, cubriendo 1920x1080. En el repo va el arte
+    # y el conversor que se lee (`toolchain/tools/fondo/a_qoi.py`); el `.qoi`
+    # se hace aqui, y solo si el arte o el conversor son mas nuevos que el que
+    # hay (codificar 2 millones de pixeles en python son unos segundos).
+    # Sin python o sin Pillow se queda la noche generada, y se DICE.
+    $fondoDst = Join-Path $sysDst 'fondo.qoi'
+    $ciudad = Join-Path $repo 'docs\arte\bmo-x-ciudad.webp'
+    $aQoi = Join-Path $repo 'toolchain\tools\fondo\a_qoi.py'
+    $pyFondo = Get-Command python -ErrorAction SilentlyContinue
+    $fondoOk = $false
+    if ((Test-Path $fondoDst) -and (Test-Path $ciudad) -and
+        ((Get-Item $fondoDst).LastWriteTime -gt (Get-Item $ciudad).LastWriteTime) -and
+        ((Get-Item $fondoDst).LastWriteTime -gt (Get-Item $aQoi).LastWriteTime) -and
+        ((Get-Item $fondoDst).Length -gt 1000000)) {
+        $fondoOk = $true
+    } elseif ($pyFondo -and (Test-Path $ciudad)) {
+        & $pyFondo.Source $aQoi $ciudad $fondoDst 1920 1080 | Out-Null
+        $fondoOk = ($LASTEXITCODE -eq 0) -and (Test-Path $fondoDst)
+    }
+    if ($fondoOk) {
+        Write-Host '    [sys] fondo.qoi (1920x1080, la ciudad del gato)' -ForegroundColor DarkGray
+    } else {
+        [System.IO.File]::WriteAllBytes($fondoDst, (Nuevo-Fondo))
+        Write-Host '    [sys] fondo.qoi (480x270 GENERADO: sin python y Pillow no hay ciudad)' -ForegroundColor Yellow
+    }
 
     # -- Meter los datos DENTRO del .bex ---------------------------
     #

@@ -35,13 +35,13 @@
 <maqueta>
   <style>
     .pad    { display:flex; flex-direction:column; gap:6px; padding:6px;
-              background-color:#182434; border-width:2px; border-color:#333D52 }
-    .visor  { height:40px; background-color:#161C28 }
+              background-color:#1A1631; border-width:2px; border-color:#3A3163 }
+    .visor  { height:40px; background-color:#110E22 }
     .fila   { display:flex; flex-direction:row; gap:6px }
-    .tecla  { width:72px; height:72px; background-color:#2B3B52; color:#E6EDF6;
+    .tecla  { width:72px; height:72px; background-color:#2A2448; color:#E6EDF6;
               display:flex; justify-content:center; align-items:center }
-    .op     { background-color:#3A5878 }
-    .igual  { background-color:#4C9BE8 }
+    .op     { background-color:#4A3A78 }
+    .igual  { background-color:#1E9C94 }
 
     /* El estado ENCIMA. `calc.rs` lo hace con `lighten()`, sumando 0x202830 a
        cada canal con tope; aqui son los mismos numeros, ya sumados.
@@ -49,9 +49,9 @@
        ** Y solo puede cambiar COLORES: si una regla `:hover` pudiera mover algo,
        habria que recalcular la maquetacion por cada estado y dentro del aparato.
        Por esa condicion es admisible, no por util. */
-    .tecla:hover { background-color:#4B637E }
-    .op:hover    { background-color:#5A80A8 }
-    .igual:hover { background-color:#6CC3FF }
+    .tecla:hover { background-color:#3E3566 }
+    .op:hover    { background-color:#5F4C96 }
+    .igual:hover { background-color:#2BC4BA }
   </style>
 
   <div class="pad">

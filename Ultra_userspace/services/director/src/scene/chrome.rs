@@ -70,7 +70,7 @@ const GRIP_CORNER: u32 = 16;
 /// fondo.
 const CLOSE_HOVER: u32 = 0x00C4_2B1F;
 /// El realce de los otros dos: un peldano mas claro, sin color propio.
-const BTN_HOVER: u32 = 0x0039_4457;
+const BTN_HOVER: u32 = 0x003A_3358;
 
 /// Geometria y estado de una ventana. **Lo unico que hay que llevar.**
 pub(crate) struct Chrome {

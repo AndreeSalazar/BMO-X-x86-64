@@ -33,69 +33,69 @@ pub const ALTO: u32 = 446;
 /// `(ox, oy)`. El orden es el del fichero, que ES el orden de pintado.
 pub fn pintar(p: &bmo::Pantalla, ox: u32, oy: u32) {
     // div
-    p.rect(ox + 0, oy + 0, 322, 446, 0x00333D52);
-    p.rect(ox + 2, oy + 2, 318, 442, 0x00182434);
+    p.rect(ox + 0, oy + 0, 322, 446, 0x003A3163);
+    p.rect(ox + 2, oy + 2, 318, 442, 0x001A1631);
     // isla visor
-    p.rect(ox + 8, oy + 8, 306, 40, 0x00161C28);
+    p.rect(ox + 8, oy + 8, 306, 40, 0x00110E22);
     // #k_c
-    p.rect(ox + 8, oy + 54, 72, 72, 0x002B3B52);
+    p.rect(ox + 8, oy + 54, 72, 72, 0x002A2448);
     p.texto(ox + 40, oy + 82, "C", 0x00E6EDF6);
     // #k_div
-    p.rect(ox + 86, oy + 54, 72, 72, 0x003A5878);
+    p.rect(ox + 86, oy + 54, 72, 72, 0x004A3A78);
     p.texto(ox + 118, oy + 82, "/", 0x00E6EDF6);
     // #k_mul
-    p.rect(ox + 164, oy + 54, 72, 72, 0x003A5878);
+    p.rect(ox + 164, oy + 54, 72, 72, 0x004A3A78);
     p.texto(ox + 196, oy + 82, "*", 0x00E6EDF6);
     // #k_sub
-    p.rect(ox + 242, oy + 54, 72, 72, 0x003A5878);
+    p.rect(ox + 242, oy + 54, 72, 72, 0x004A3A78);
     p.texto(ox + 274, oy + 82, "-", 0x00E6EDF6);
     // #k_7
-    p.rect(ox + 8, oy + 132, 72, 72, 0x002B3B52);
+    p.rect(ox + 8, oy + 132, 72, 72, 0x002A2448);
     p.texto(ox + 40, oy + 160, "7", 0x00E6EDF6);
     // #k_8
-    p.rect(ox + 86, oy + 132, 72, 72, 0x002B3B52);
+    p.rect(ox + 86, oy + 132, 72, 72, 0x002A2448);
     p.texto(ox + 118, oy + 160, "8", 0x00E6EDF6);
     // #k_9
-    p.rect(ox + 164, oy + 132, 72, 72, 0x002B3B52);
+    p.rect(ox + 164, oy + 132, 72, 72, 0x002A2448);
     p.texto(ox + 196, oy + 160, "9", 0x00E6EDF6);
     // #k_add
-    p.rect(ox + 242, oy + 132, 72, 72, 0x003A5878);
+    p.rect(ox + 242, oy + 132, 72, 72, 0x004A3A78);
     p.texto(ox + 274, oy + 160, "+", 0x00E6EDF6);
     // #k_4
-    p.rect(ox + 8, oy + 210, 72, 72, 0x002B3B52);
+    p.rect(ox + 8, oy + 210, 72, 72, 0x002A2448);
     p.texto(ox + 40, oy + 238, "4", 0x00E6EDF6);
     // #k_5
-    p.rect(ox + 86, oy + 210, 72, 72, 0x002B3B52);
+    p.rect(ox + 86, oy + 210, 72, 72, 0x002A2448);
     p.texto(ox + 118, oy + 238, "5", 0x00E6EDF6);
     // #k_6
-    p.rect(ox + 164, oy + 210, 72, 72, 0x002B3B52);
+    p.rect(ox + 164, oy + 210, 72, 72, 0x002A2448);
     p.texto(ox + 196, oy + 238, "6", 0x00E6EDF6);
     // #k_pct
-    p.rect(ox + 242, oy + 210, 72, 72, 0x003A5878);
+    p.rect(ox + 242, oy + 210, 72, 72, 0x004A3A78);
     p.texto(ox + 274, oy + 238, "%", 0x00E6EDF6);
     // #k_1
-    p.rect(ox + 8, oy + 288, 72, 72, 0x002B3B52);
+    p.rect(ox + 8, oy + 288, 72, 72, 0x002A2448);
     p.texto(ox + 40, oy + 316, "1", 0x00E6EDF6);
     // #k_2
-    p.rect(ox + 86, oy + 288, 72, 72, 0x002B3B52);
+    p.rect(ox + 86, oy + 288, 72, 72, 0x002A2448);
     p.texto(ox + 118, oy + 316, "2", 0x00E6EDF6);
     // #k_3
-    p.rect(ox + 164, oy + 288, 72, 72, 0x002B3B52);
+    p.rect(ox + 164, oy + 288, 72, 72, 0x002A2448);
     p.texto(ox + 196, oy + 316, "3", 0x00E6EDF6);
     // #k_eq
-    p.rect(ox + 242, oy + 288, 72, 72, 0x004C9BE8);
+    p.rect(ox + 242, oy + 288, 72, 72, 0x001E9C94);
     p.texto(ox + 274, oy + 316, "=", 0x00E6EDF6);
     // #k_0
-    p.rect(ox + 8, oy + 366, 72, 72, 0x002B3B52);
+    p.rect(ox + 8, oy + 366, 72, 72, 0x002A2448);
     p.texto(ox + 40, oy + 394, "0", 0x00E6EDF6);
     // #k_dot
-    p.rect(ox + 86, oy + 366, 72, 72, 0x002B3B52);
+    p.rect(ox + 86, oy + 366, 72, 72, 0x002A2448);
     p.texto(ox + 118, oy + 394, ".", 0x00E6EDF6);
     // #k_neg
-    p.rect(ox + 164, oy + 366, 72, 72, 0x002B3B52);
+    p.rect(ox + 164, oy + 366, 72, 72, 0x002A2448);
     p.texto(ox + 188, oy + 394, "+/-", 0x00E6EDF6);
     // #k_money
-    p.rect(ox + 242, oy + 366, 72, 72, 0x003A5878);
+    p.rect(ox + 242, oy + 366, 72, 72, 0x004A3A78);
     p.texto(ox + 274, oy + 394, "$", 0x00E6EDF6);
 }
 
@@ -118,21 +118,21 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // div
     let c = Recorte::nuevo(ox as i32 + 0, oy as i32 + 0, 322, 446).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x00333D52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A3163);
     }
     let c = Recorte::nuevo(ox as i32 + 2, oy as i32 + 2, 318, 442).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x00182434);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x001A1631);
     }
     // isla visor
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 8, 306, 40).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x00161C28);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x00110E22);
     }
     // #k_c
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 54, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 40, oy as i32 + 82, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 40, oy + 82, "C", 0x00E6EDF6);
@@ -140,7 +140,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_div
     let c = Recorte::nuevo(ox as i32 + 86, oy as i32 + 54, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 118, oy as i32 + 82, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 118, oy + 82, "/", 0x00E6EDF6);
@@ -148,7 +148,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_mul
     let c = Recorte::nuevo(ox as i32 + 164, oy as i32 + 54, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 196, oy as i32 + 82, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 196, oy + 82, "*", 0x00E6EDF6);
@@ -156,7 +156,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_sub
     let c = Recorte::nuevo(ox as i32 + 242, oy as i32 + 54, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 274, oy as i32 + 82, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 274, oy + 82, "-", 0x00E6EDF6);
@@ -164,7 +164,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_7
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 132, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 40, oy as i32 + 160, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 40, oy + 160, "7", 0x00E6EDF6);
@@ -172,7 +172,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_8
     let c = Recorte::nuevo(ox as i32 + 86, oy as i32 + 132, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 118, oy as i32 + 160, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 118, oy + 160, "8", 0x00E6EDF6);
@@ -180,7 +180,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_9
     let c = Recorte::nuevo(ox as i32 + 164, oy as i32 + 132, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 196, oy as i32 + 160, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 196, oy + 160, "9", 0x00E6EDF6);
@@ -188,7 +188,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_add
     let c = Recorte::nuevo(ox as i32 + 242, oy as i32 + 132, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 274, oy as i32 + 160, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 274, oy + 160, "+", 0x00E6EDF6);
@@ -196,7 +196,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_4
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 210, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 40, oy as i32 + 238, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 40, oy + 238, "4", 0x00E6EDF6);
@@ -204,7 +204,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_5
     let c = Recorte::nuevo(ox as i32 + 86, oy as i32 + 210, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 118, oy as i32 + 238, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 118, oy + 238, "5", 0x00E6EDF6);
@@ -212,7 +212,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_6
     let c = Recorte::nuevo(ox as i32 + 164, oy as i32 + 210, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 196, oy as i32 + 238, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 196, oy + 238, "6", 0x00E6EDF6);
@@ -220,7 +220,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_pct
     let c = Recorte::nuevo(ox as i32 + 242, oy as i32 + 210, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 274, oy as i32 + 238, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 274, oy + 238, "%", 0x00E6EDF6);
@@ -228,7 +228,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_1
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 288, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 40, oy as i32 + 316, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 40, oy + 316, "1", 0x00E6EDF6);
@@ -236,7 +236,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_2
     let c = Recorte::nuevo(ox as i32 + 86, oy as i32 + 288, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 118, oy as i32 + 316, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 118, oy + 316, "2", 0x00E6EDF6);
@@ -244,7 +244,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_3
     let c = Recorte::nuevo(ox as i32 + 164, oy as i32 + 288, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 196, oy as i32 + 316, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 196, oy + 316, "3", 0x00E6EDF6);
@@ -252,7 +252,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_eq
     let c = Recorte::nuevo(ox as i32 + 242, oy as i32 + 288, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004C9BE8);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x001E9C94);
     }
     if !Recorte::nuevo(ox as i32 + 274, oy as i32 + 316, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 274, oy + 316, "=", 0x00E6EDF6);
@@ -260,7 +260,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_0
     let c = Recorte::nuevo(ox as i32 + 8, oy as i32 + 366, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 40, oy as i32 + 394, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 40, oy + 394, "0", 0x00E6EDF6);
@@ -268,7 +268,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_dot
     let c = Recorte::nuevo(ox as i32 + 86, oy as i32 + 366, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 118, oy as i32 + 394, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 118, oy + 394, ".", 0x00E6EDF6);
@@ -276,7 +276,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_neg
     let c = Recorte::nuevo(ox as i32 + 164, oy as i32 + 366, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002B3B52);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x002A2448);
     }
     if !Recorte::nuevo(ox as i32 + 188, oy as i32 + 394, 24, 16).interseccion(&limite).vacio() {
         p.texto(ox + 188, oy + 394, "+/-", 0x00E6EDF6);
@@ -284,7 +284,7 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
     // #k_money
     let c = Recorte::nuevo(ox as i32 + 242, oy as i32 + 366, 72, 72).interseccion(&limite);
     if !c.vacio() {
-        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A5878);
+        p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x004A3A78);
     }
     if !Recorte::nuevo(ox as i32 + 274, oy as i32 + 394, 8, 16).interseccion(&limite).vacio() {
         p.texto(ox + 274, oy + 394, "$", 0x00E6EDF6);
@@ -295,102 +295,102 @@ pub fn pintar_en(p: &bmo::Pantalla, ox: u32, oy: u32, cx: u32, cy: u32, cw: u32,
 /// puntero entre, y `pintar` cuando salga.
 pub fn realce(p: &bmo::Pantalla, ox: u32, oy: u32, id: &str) {
     if id == "k_c" {
-        p.rect(ox + 8, oy + 54, 72, 72, 0x004B637E);
+        p.rect(ox + 8, oy + 54, 72, 72, 0x003E3566);
         p.texto(ox + 40, oy + 82, "C", 0x00E6EDF6);
         return;
     }
     if id == "k_div" {
-        p.rect(ox + 86, oy + 54, 72, 72, 0x005A80A8);
+        p.rect(ox + 86, oy + 54, 72, 72, 0x005F4C96);
         p.texto(ox + 118, oy + 82, "/", 0x00E6EDF6);
         return;
     }
     if id == "k_mul" {
-        p.rect(ox + 164, oy + 54, 72, 72, 0x005A80A8);
+        p.rect(ox + 164, oy + 54, 72, 72, 0x005F4C96);
         p.texto(ox + 196, oy + 82, "*", 0x00E6EDF6);
         return;
     }
     if id == "k_sub" {
-        p.rect(ox + 242, oy + 54, 72, 72, 0x005A80A8);
+        p.rect(ox + 242, oy + 54, 72, 72, 0x005F4C96);
         p.texto(ox + 274, oy + 82, "-", 0x00E6EDF6);
         return;
     }
     if id == "k_7" {
-        p.rect(ox + 8, oy + 132, 72, 72, 0x004B637E);
+        p.rect(ox + 8, oy + 132, 72, 72, 0x003E3566);
         p.texto(ox + 40, oy + 160, "7", 0x00E6EDF6);
         return;
     }
     if id == "k_8" {
-        p.rect(ox + 86, oy + 132, 72, 72, 0x004B637E);
+        p.rect(ox + 86, oy + 132, 72, 72, 0x003E3566);
         p.texto(ox + 118, oy + 160, "8", 0x00E6EDF6);
         return;
     }
     if id == "k_9" {
-        p.rect(ox + 164, oy + 132, 72, 72, 0x004B637E);
+        p.rect(ox + 164, oy + 132, 72, 72, 0x003E3566);
         p.texto(ox + 196, oy + 160, "9", 0x00E6EDF6);
         return;
     }
     if id == "k_add" {
-        p.rect(ox + 242, oy + 132, 72, 72, 0x005A80A8);
+        p.rect(ox + 242, oy + 132, 72, 72, 0x005F4C96);
         p.texto(ox + 274, oy + 160, "+", 0x00E6EDF6);
         return;
     }
     if id == "k_4" {
-        p.rect(ox + 8, oy + 210, 72, 72, 0x004B637E);
+        p.rect(ox + 8, oy + 210, 72, 72, 0x003E3566);
         p.texto(ox + 40, oy + 238, "4", 0x00E6EDF6);
         return;
     }
     if id == "k_5" {
-        p.rect(ox + 86, oy + 210, 72, 72, 0x004B637E);
+        p.rect(ox + 86, oy + 210, 72, 72, 0x003E3566);
         p.texto(ox + 118, oy + 238, "5", 0x00E6EDF6);
         return;
     }
     if id == "k_6" {
-        p.rect(ox + 164, oy + 210, 72, 72, 0x004B637E);
+        p.rect(ox + 164, oy + 210, 72, 72, 0x003E3566);
         p.texto(ox + 196, oy + 238, "6", 0x00E6EDF6);
         return;
     }
     if id == "k_pct" {
-        p.rect(ox + 242, oy + 210, 72, 72, 0x005A80A8);
+        p.rect(ox + 242, oy + 210, 72, 72, 0x005F4C96);
         p.texto(ox + 274, oy + 238, "%", 0x00E6EDF6);
         return;
     }
     if id == "k_1" {
-        p.rect(ox + 8, oy + 288, 72, 72, 0x004B637E);
+        p.rect(ox + 8, oy + 288, 72, 72, 0x003E3566);
         p.texto(ox + 40, oy + 316, "1", 0x00E6EDF6);
         return;
     }
     if id == "k_2" {
-        p.rect(ox + 86, oy + 288, 72, 72, 0x004B637E);
+        p.rect(ox + 86, oy + 288, 72, 72, 0x003E3566);
         p.texto(ox + 118, oy + 316, "2", 0x00E6EDF6);
         return;
     }
     if id == "k_3" {
-        p.rect(ox + 164, oy + 288, 72, 72, 0x004B637E);
+        p.rect(ox + 164, oy + 288, 72, 72, 0x003E3566);
         p.texto(ox + 196, oy + 316, "3", 0x00E6EDF6);
         return;
     }
     if id == "k_eq" {
-        p.rect(ox + 242, oy + 288, 72, 72, 0x006CC3FF);
+        p.rect(ox + 242, oy + 288, 72, 72, 0x002BC4BA);
         p.texto(ox + 274, oy + 316, "=", 0x00E6EDF6);
         return;
     }
     if id == "k_0" {
-        p.rect(ox + 8, oy + 366, 72, 72, 0x004B637E);
+        p.rect(ox + 8, oy + 366, 72, 72, 0x003E3566);
         p.texto(ox + 40, oy + 394, "0", 0x00E6EDF6);
         return;
     }
     if id == "k_dot" {
-        p.rect(ox + 86, oy + 366, 72, 72, 0x004B637E);
+        p.rect(ox + 86, oy + 366, 72, 72, 0x003E3566);
         p.texto(ox + 118, oy + 394, ".", 0x00E6EDF6);
         return;
     }
     if id == "k_neg" {
-        p.rect(ox + 164, oy + 366, 72, 72, 0x004B637E);
+        p.rect(ox + 164, oy + 366, 72, 72, 0x003E3566);
         p.texto(ox + 188, oy + 394, "+/-", 0x00E6EDF6);
         return;
     }
     if id == "k_money" {
-        p.rect(ox + 242, oy + 366, 72, 72, 0x005A80A8);
+        p.rect(ox + 242, oy + 366, 72, 72, 0x005F4C96);
         p.texto(ox + 274, oy + 394, "$", 0x00E6EDF6);
         return;
     }
@@ -498,7 +498,7 @@ pub fn isla(nombre: &str) -> Option<(u32, u32, u32, u32)> {
 /// `.maqueta` una de las dos se quedaria vieja sin avisar.
 pub fn limpiar_isla(p: &bmo::Pantalla, ox: u32, oy: u32, nombre: &str) {
     if nombre == "visor" {
-        p.rect(ox + 8, oy + 8, 306, 40, 0x00161C28);
+        p.rect(ox + 8, oy + 8, 306, 40, 0x00110E22);
         return;
     }
 }

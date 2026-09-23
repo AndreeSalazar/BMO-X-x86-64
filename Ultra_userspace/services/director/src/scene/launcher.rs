@@ -135,7 +135,7 @@ pub struct Launcher {
 
 /// El realce de la celda marcada. Un relleno tenue, no un marco: un borde de
 /// un pixel alrededor de un icono transparente se lee como suciedad.
-const SEL_BG: u32 = 0x001E_3A5F;
+const SEL_BG: u32 = 0x001B_4A48;
 
 impl Launcher {
     /// Recorre `apps\`, se queda con los `.bex` y le saca el icono a cada uno.

@@ -253,17 +253,17 @@ fn the_system_theme_compiles() {
 
     // The names that carry the desktop, against the real constants of `scene/`.
     assert_eq!(wearing("ink").color, Some(0xE6EDF6), "INK, 63 usos");
-    assert_eq!(wearing("ink-dim").color, Some(0x8A9BB4), "INK_DIM, 127 usos");
+    assert_eq!(wearing("ink-dim").color, Some(0x9A96B8), "INK_DIM, 127 usos");
     assert_eq!(wearing("ink-ok").color, Some(0x7EE787));
     assert_eq!(wearing("ink-bad").color, Some(0xFF8A7A));
     assert_eq!(wearing("accent").color, Some(0x5EF2E6), "el ojo del gato");
-    assert_eq!(wearing("field").background, Some(0x161C28));
+    assert_eq!(wearing("field").background, Some(0x110E22));
     assert_eq!(wearing("taskbar").background, Some(0x09080F));
     assert_eq!(wearing("bg-top").background, Some(0x161236));
 
     let boxed = wearing("box");
-    assert_eq!(boxed.background, Some(0x1E2534));
-    assert_eq!(boxed.border_color, Some(0x333D52));
+    assert_eq!(boxed.background, Some(0x1A1631));
+    assert_eq!(boxed.border_color, Some(0x3A3163));
     assert_eq!(boxed.border_width, 1);
 
     // On its own the theme has no markup, so every rule looks unused from here

@@ -23,9 +23,9 @@ use bmo_userland as bmo;
 use super::*;
 use crate::ventana::Ventana;
 
-const SW_BG: u32 = 0x0016_2032;
-const SW_EDGE: u32 = 0x0060_80A8;
-const SW_SEL: u32 = 0x002E_4C74;
+const SW_BG: u32 = 0x001A_1631;
+const SW_EDGE: u32 = 0x004A_3F80;
+const SW_SEL: u32 = 0x001B_4A48;
 
 const ROW_H: u32 = bmo::GLIFO_ALTO + 8;
 const SW_W: u32 = 420;

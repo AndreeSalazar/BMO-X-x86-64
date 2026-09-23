@@ -24,9 +24,9 @@
 //! # ** EL NOMBRE SE DEDUCE, NO SE ELIGE
 //!
 //! ```text
-//!    .ink-dim   { color:#8A9BB4 }              ->  INK_DIM
-//!    .box       { background-color:#1E2534 }   ->  BOX_FONDO
-//!               { border-color:#333D52 }       ->  BOX_BORDE
+//!    .ink-dim   { color:#9A96B8 }              ->  INK_DIM
+//!    .box       { background-color:#1A1631 }   ->  BOX_FONDO
+//!               { border-color:#3A3163 }       ->  BOX_BORDE
 //! ```
 //!
 //! La clase en mayusculas con guiones a barras bajas, y **el sufijo solo
@@ -117,7 +117,7 @@ fn hex6(c: u32) -> String {
         let n = ((c >> (i * 4)) & 0xF) as usize;
         out.push(D[n] as char);
         // ** UN SOLO guion bajo, y detras del segundo digito. El literal que
-        // quiere Rust es `0x008A_9BB4`: el `00` del alfa va pegado a los dos
+        // quiere Rust es `0x009A_96B8`: el `00` del alfa va pegado a los dos
         // digitos del rojo, y el resto entero detras. Con dos guiones
         // --`0x008A_9B_B4`-- tambien compila y vale lo mismo, y por eso el
         // primer intento salio mal sin que nada fallara: la unica prueba es
@@ -162,8 +162,8 @@ mod pruebas {
 
     #[test]
     fn el_nombre_sale_de_la_clase() {
-        let r = de("<maqueta><style>.ink-dim { color:#8A9BB4 }</style></maqueta>");
-        assert!(r.contains("pub const INK_DIM: u32 = 0x008A_9BB4;"), "{r}");
+        let r = de("<maqueta><style>.ink-dim { color:#9A96B8 }</style></maqueta>");
+        assert!(r.contains("pub const INK_DIM: u32 = 0x009A_96B8;"), "{r}");
     }
 
     /// *** Los tres colores de una misma clase salen con nombres DISTINTOS.
@@ -174,10 +174,10 @@ mod pruebas {
     #[test]
     fn una_clase_con_fondo_y_borde_no_se_pisa() {
         let r = de(
-            "<maqueta><style>.box { background-color:#1E2534; border-color:#333D52 }</style></maqueta>",
+            "<maqueta><style>.box { background-color:#1A1631; border-color:#3A3163 }</style></maqueta>",
         );
-        assert!(r.contains("pub const BOX_FONDO: u32 = 0x001E_2534;"), "{r}");
-        assert!(r.contains("pub const BOX_BORDE: u32 = 0x0033_3D52;"), "{r}");
+        assert!(r.contains("pub const BOX_FONDO: u32 = 0x001A_1631;"), "{r}");
+        assert!(r.contains("pub const BOX_BORDE: u32 = 0x003A_3163;"), "{r}");
     }
 
     /// Lo que no es color no entra, aunque este en la misma regla.
@@ -210,13 +210,13 @@ mod pruebas {
         // Las cinco tintas y las cuatro superficies que declara.
         for esperado in [
             "pub const INK: u32 = 0x00E6_EDF6;",
-            "pub const INK_DIM: u32 = 0x008A_9BB4;",
+            "pub const INK_DIM: u32 = 0x009A_96B8;",
             "pub const INK_OK: u32 = 0x007E_E787;",
             "pub const INK_BAD: u32 = 0x00FF_8A7A;",
             "pub const ACCENT: u32 = 0x005E_F2E6;",
-            "pub const BOX_FONDO: u32 = 0x001E_2534;",
-            "pub const BOX_BORDE: u32 = 0x0033_3D52;",
-            "pub const FIELD_FONDO: u32 = 0x0016_1C28;",
+            "pub const BOX_FONDO: u32 = 0x001A_1631;",
+            "pub const BOX_BORDE: u32 = 0x003A_3163;",
+            "pub const FIELD_FONDO: u32 = 0x0011_0E22;",
             "pub const TASKBAR_FONDO: u32 = 0x0009_080F;",
             "pub const BG_TOP_FONDO: u32 = 0x0016_1236;",
         ] {

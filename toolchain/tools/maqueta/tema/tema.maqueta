@@ -39,14 +39,14 @@
     /* INK_DIM es el color mas usado de todo BMO-X (127 usos): el sistema
        habla en voz baja por defecto y sube el tono para lo que importa. */
     .ink        { color:#E6EDF6 }   /* 63 usos  -- lo que se esta leyendo */
-    .ink-dim    { color:#8A9BB4 }   /* 127 usos -- todo lo demas */
+    .ink-dim    { color:#9A96B8 }   /* 127 usos -- todo lo demas */
     .ink-ok     { color:#7EE787 }   /* 21 usos  -- salio bien */
     .ink-bad    { color:#FF8A7A }   /* 38 usos  -- salio mal */
     .accent     { color:#5EF2E6 }   /* 22 usos  -- esto se puede tocar: el ojo del gato */
 
     /* -- las superficies: sobre que se lee ---------------------------- */
-    .box        { background-color:#1E2534; border-width:1px; border-color:#333D52 }
-    .field      { background-color:#161C28 }   /* donde se escribe */
+    .box        { background-color:#1A1631; border-width:1px; border-color:#3A3163 }
+    .field      { background-color:#110E22 }   /* donde se escribe */
     .taskbar    { background-color:#09080F; border-width:1px; border-color:#2B2250 }   /* el panel: negro, pelo violeta */
     .bg-top     { background-color:#161236 }   /* el cielo del escritorio: la noche de la ciudad */
   </style>

@@ -51,20 +51,20 @@ fn el_panel_sale_como_los_dos_rects_concentricos_que_escribe_calc_rs() {
     //     p.rect(cc.x, cc.y, cc.width, cc.height, BOX_EDGE);
     //     p.rect(cc.x + 2, cc.y + 2, cc.width - 4, cc.height - 4, CALC_BG);
     let g = generado();
-    assert!(g.contains("p.rect(ox + 0, oy + 0, 322, 446, 0x00333D52);"), "{g}");
-    assert!(g.contains("p.rect(ox + 2, oy + 2, 318, 442, 0x00182434);"), "{g}");
+    assert!(g.contains("p.rect(ox + 0, oy + 0, 322, 446, 0x003A3163);"), "{g}");
+    assert!(g.contains("p.rect(ox + 2, oy + 2, 318, 442, 0x001A1631);"), "{g}");
 }
 
 #[test]
 fn cada_tecla_sale_con_su_rect_y_su_etiqueta_centrada() {
     let g = generado();
     // La tecla `C`: rect en (8,54) 72x72, y su letra centrada en (40,82).
-    assert!(g.contains("p.rect(ox + 8, oy + 54, 72, 72, 0x002B3B52);"), "{g}");
+    assert!(g.contains("p.rect(ox + 8, oy + 54, 72, 72, 0x002A2448);"), "{g}");
     assert!(g.contains("p.texto(ox + 40, oy + 82, \"C\", 0x00E6EDF6);"), "{g}");
     // La de operador, con su otro fondo.
-    assert!(g.contains("p.rect(ox + 86, oy + 54, 72, 72, 0x003A5878);"), "{g}");
+    assert!(g.contains("p.rect(ox + 86, oy + 54, 72, 72, 0x004A3A78);"), "{g}");
     // Y la de igual.
-    assert!(g.contains("0x004C9BE8"), "{g}");
+    assert!(g.contains("0x001E9C94"), "{g}");
 }
 
 #[test]
@@ -253,7 +253,7 @@ fn hay_un_pintar_en_que_recorta_los_rects_y_deja_el_texto_entero() {
         "{g}"
     );
     assert!(
-        g.contains("p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x00333D52);"),
+        g.contains("p.rect(c.x0 as u32, c.y0 as u32, c.ancho() as u32, c.alto() as u32, 0x003A3163);"),
         "{g}"
     );
 
@@ -308,5 +308,5 @@ fn el_realce_sale_de_la_misma_lista_y_con_el_id_del_golpeo() {
     // hasta mirar la pantalla.
     let g = generado();
     assert!(g.contains("if id == \"k_c\" {"), "{g}");
-    assert!(g.contains("p.rect(ox + 8, oy + 54, 72, 72, 0x004B637E);"), "el color de :hover");
+    assert!(g.contains("p.rect(ox + 8, oy + 54, 72, 72, 0x003E3566);"), "el color de :hover");
 }

@@ -158,4 +158,4 @@ pub(crate) fn paint(
 
 /// El rojo apagado de "aqui no hay nada que mostrar". No es un error del disco,
 /// asi que no lleva el rojo de alarma.
-const INK_BAD_O_DIM: u32 = 0x008A_9BB4;
+const INK_BAD_O_DIM: u32 = 0x009A_96B8;
