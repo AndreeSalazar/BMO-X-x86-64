@@ -52,12 +52,41 @@ pub(crate) fn section(s: &mut Output, title: &[u8]) {
 }
 
 /// Un renglon `label ....... value`, con la etiqueta a ancho fijo.
+///
+/// ** Y si la etiqueta no cabe, UN espacio: `avisos perdidos0` salio asi en el
+/// `save` del 23-09 (06:57). Una etiqueta pegada a su numero se lee como otra
+/// palabra.
 pub(crate) fn label(s: &mut Output, name: &[u8]) {
     s.text(b"    ");
     s.text(name);
     for _ in name.len()..14 {
         s.byte(b' ');
     }
+    if name.len() >= 14 {
+        s.byte(b' ');
+    }
+}
+
+/// **La etiqueta de una fila de numeros, y cuanto sitio le queda al numero.**
+///
+/// Las filas ponen la etiqueta a 16 y el numero a la derecha de su columna,
+/// para que las unidades caigan una debajo de otra. Una etiqueta de mas de 16
+/// --`canales de volumen`, `  la vuelta del bus`-- empujaba el numero entero a
+/// la derecha, y en el `save` del 23-09 (06:57) esas dos filas salieron
+/// torcidas en una tabla recta. Ahora la etiqueta larga se come el hueco de
+/// delante del numero y no su columna: el borde derecho sigue en su sitio, y
+/// siempre queda un espacio entre las dos.
+fn etiqueta_de_fila(s: &mut Output, que: &[u8], ancho: usize) -> usize {
+    s.text(b"    ");
+    s.text(que);
+    if que.len() < 16 {
+        for _ in que.len()..16 {
+            s.byte(b' ');
+        }
+        return ancho;
+    }
+    s.byte(b' ');
+    ancho.saturating_sub(que.len() + 1 - 16)
 }
 
 /// Igual, pero a **10** y para los informes de una palabra.
@@ -125,12 +154,8 @@ pub(crate) fn fila(s: &mut Output, que: &[u8], valor: u64, unidad: &[u8], nota: 
     // Y el mismo numero a la grabadora, para `informe/DATOS.TXT` (un `if`
     // sobre un bool fuera de un `save`). Ver `datos.rs`.
     super::datos::anotar(que, valor, unidad);
-    s.text(b"    ");
-    s.text(que);
-    for _ in que.len()..16 {
-        s.byte(b' ');
-    }
-    s.dec_right(valor, 9);
+    let ancho = etiqueta_de_fila(s, que, 9);
+    s.dec_right(valor, ancho);
     s.byte(b' ');
     s.text(unidad);
     if !nota.is_empty() {
@@ -158,12 +183,8 @@ pub(crate) fn fila(s: &mut Output, que: &[u8], valor: u64, unidad: &[u8], nota: 
 /// escribir la primera mitad sin la segunda.
 pub(crate) fn fila_de(s: &mut Output, que: &[u8], valor: u64, total: u64, nota: &[u8]) {
     super::datos::anotar_de(que, valor, total);
-    s.text(b"    ");
-    s.text(que);
-    for _ in que.len()..16 {
-        s.byte(b' ');
-    }
-    s.dec_right(valor, 9);
+    let ancho = etiqueta_de_fila(s, que, 9);
+    s.dec_right(valor, ancho);
     s.text(b" de ");
     s.dec(total);
     if !nota.is_empty() {
@@ -182,12 +203,8 @@ pub(crate) fn fila_mili(s: &mut Output, que: &[u8], milis: u64, unidad: &[u8], n
     let k = unidad.len().min(7);
     mu[1..1 + k].copy_from_slice(&unidad[..k]);
     super::datos::anotar(que, milis, &mu[..1 + k]);
-    s.text(b"    ");
-    s.text(que);
-    for _ in que.len()..16 {
-        s.byte(b' ');
-    }
-    s.dec_right(milis / 1000, 7);
+    let ancho = etiqueta_de_fila(s, que, 7);
+    s.dec_right(milis / 1000, ancho);
     s.byte(b'.');
     s.dec((milis % 1000) / 100);
     s.byte(b' ');
@@ -217,12 +234,8 @@ pub(crate) fn fila_mili(s: &mut Output, que: &[u8], milis: u64, unidad: &[u8], n
 /// techo --ticks, siestas-- seria dibujar una proporcion inventada.
 pub(crate) fn fila_barra(s: &mut Output, que: &[u8], parte: u64, total: u64, unidad: &[u8]) {
     super::datos::anotar_de(que, parte, total);
-    s.text(b"    ");
-    s.text(que);
-    for _ in que.len()..16 {
-        s.byte(b' ');
-    }
-    s.dec_right(parte, 9);
+    let ancho = etiqueta_de_fila(s, que, 9);
+    s.dec_right(parte, ancho);
     s.byte(b' ');
     s.text(unidad);
     for _ in unidad.len()..8 {
@@ -259,13 +272,9 @@ pub(crate) fn fila_barra(s: &mut Output, que: &[u8], parte: u64, total: u64, uni
 ///   > adorno: es lo que permite NO leer las filas que estan bien.
 pub(crate) fn fila_cero(s: &mut Output, que: &[u8], valor: u64, nota: &[u8]) {
     super::datos::anotar(que, valor, b"");
-    s.text(b"    ");
-    s.text(que);
-    for _ in que.len()..16 {
-        s.byte(b' ');
-    }
+    let ancho = etiqueta_de_fila(s, que, 9);
     s.with_ink(if valor == 0 { INK_GOOD } else { INK_ERR });
-    s.dec_right(valor, 9);
+    s.dec_right(valor, ancho);
     s.with_ink(INK_PLAIN);
     s.text(b"          ");
     s.with_ink(if valor == 0 { INK_GOOD } else { INK_ERR });
