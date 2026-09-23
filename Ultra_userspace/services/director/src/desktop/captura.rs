@@ -115,6 +115,11 @@ struct EnCurso {
     t0: u64,
     foto: u64,
     obra: u64,
+    /// ** Los ciclos que corrio ESTE proceso durante los trozos
+    /// (`INFO_CPU_PROPIO`). `obra` es reloj de pared dentro de cada trozo, y con
+    /// DOOM corriendo cuenta tambien sus turnos: el 23-09 a las 01:08 dijo
+    /// 623 ms con DOOM en marcha, y no se podia saber cuanto era del PNG.
+    cpu: u64,
     trozos: u32,
     por_mil: u32,
 }
@@ -194,10 +199,12 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
     unsafe {
         EN_CURSO = Some(EnCurso {
             cod, trabajo, salida, taller_bytes, crudo, cota, w, h, t0, foto,
-            obra: 0, trozos: 0, por_mil: 0,
+            obra: 0, cpu: 0, trozos: 0, por_mil: 0,
         });
     }
-    paint_status(p, &dsk.run_box, "captura: comprimiendo...", crate::scene::INK_DIM);
+    if se_ve_ejecutar(dsk) {
+        paint_status(p, &dsk.run_box, "captura: comprimiendo...", crate::scene::INK_DIM);
+    }
 }
 
 /// Los tres bufers de una captura, a partir de sus dos bloques.
@@ -234,6 +241,7 @@ pub(crate) fn avanzar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let Some(e) = (unsafe { (*core::ptr::addr_of_mut!(EN_CURSO)).as_mut() }) else { return };
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
+    let cpu_desde = bmo::info(bmo::INFO_CPU_PROPIO);
     let limite = desde + hz / 1000 * PRESUPUESTO_MS;
     // SAFETY: los bloques de `e` se pidieron con estas medidas en `guardar`.
     let (taller, crudo_buf, dst) = unsafe { tajos(&e.trabajo, &e.salida, e.taller_bytes, e.crudo, e.cota) };
@@ -249,12 +257,13 @@ pub(crate) fn avanzar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         }
     };
     e.obra += bmo::ciclos() - desde;
+    e.cpu += bmo::info(bmo::INFO_CPU_PROPIO).saturating_sub(cpu_desde);
     e.trozos += 1;
     match resultado {
         None => {
             // El avance en la barra de Ejecutar, de 5 en 5 %: pintarlo en cada
             // vuelta seria gastar en el cartel lo que se le quita al PNG.
-            if e.trozos % 8 == 1 {
+            if e.trozos % 8 == 1 && se_ve_ejecutar(dsk) {
                 let mut t = Linea::new();
                 t.pon(b"captura: ");
                 t.num(e.por_mil as u64 / 10);
@@ -278,7 +287,7 @@ pub(crate) fn avanzar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 
 /// **El PNG esta entero**: al disco, y los tiempos dichos por separado.
 fn terminar(dsk: &mut Desktop, p: &bmo::Pantalla, e: EnCurso, n_png: usize, hz: u64) {
-    let EnCurso { trabajo, salida, w, h, t0, foto, obra, trozos, .. } = e;
+    let EnCurso { trabajo, salida, w, h, t0, foto, obra, cpu, trozos, .. } = e;
     drop(trabajo);
     let t1 = bmo::ciclos();
     let n = siguiente();
@@ -318,8 +327,10 @@ fn terminar(dsk: &mut Desktop, p: &bmo::Pantalla, e: EnCurso, n_png: usize, hz: 
     t.pon(b" KiB  foto ");
     t.num(ms(foto));
     t.pon(b" ms  png ");
+    t.num(ms(cpu));
+    t.pon(b" ms de CPU (");
     t.num(ms(obra));
-    t.pon(b" ms en ");
+    t.pon(b" en sus turnos) en ");
     t.num(trozos as u64);
     t.pon(b" trozos (");
     t.num(ms(t1 - t0));
@@ -331,13 +342,13 @@ fn terminar(dsk: &mut Desktop, p: &bmo::Pantalla, e: EnCurso, n_png: usize, hz: 
 
 /// Un renglon para la salida de Ejecutar, sin asignar memoria.
 struct Linea {
-    b: [u8; 160],
+    b: [u8; 224],
     n: usize,
 }
 
 impl Linea {
     fn new() -> Self {
-        Self { b: [0; 160], n: 0 }
+        Self { b: [0; 224], n: 0 }
     }
     fn pon(&mut self, s: &[u8]) {
         for &c in s {
@@ -416,12 +427,21 @@ fn recortar((x, y, w, h): (u32, u32, u32, u32), p: &bmo::Pantalla) -> (u32, u32,
 }
 
 /// Lo dice en la salida de Ejecutar y, si se ve, en su linea de estado.
+/// **Se ve la barra de Ejecutar?** Abierta Y sin nadie delante que la pise.
+///
+/// ** El 23-09 a las 01:06 el Ryzen mostro "captura: 95 %" pintado sobre el
+/// FONDO, arriba a la derecha: Ejecutar estaba escondida y el avance se pintaba
+/// igual en su sitio. Se pregunta aqui, y lo preguntan los tres que pintan.
+fn se_ve_ejecutar(dsk: &Desktop) -> bool {
+    dsk.win.visible && !crate::desktop::foco::tapada(dsk, Ventana::Run)
+}
+
 fn decir(dsk: &mut Desktop, p: &bmo::Pantalla, texto: &[u8], bien: bool) {
     dsk.out.grid.with_ink(if bien { INK_GOOD } else { INK_ERR });
     dsk.out.grid.text(texto);
     dsk.out.grid.with_ink(INK_PLAIN);
     dsk.tick.repaint_field = true;
-    if dsk.win.visible {
+    if se_ve_ejecutar(dsk) {
         if bien {
             paint_status(p, &dsk.run_box, "captura guardada en capturas/", acento());
         } else {

@@ -340,7 +340,13 @@ pub(crate) fn report_disco(s: &mut Output) {
         // vive de su red de 2 ms. Funciona, pero no es lo que se prometio.
         if vuelos > 0 && irq == 0 {
             s.with_ink(INK_ERR);
-            s.text(b"   SIN IRQ: vive de la red de 2 ms");
+            // Las dos lecturas mandan a mirar sitios distintos: el arranque
+            // (MSI, el vector) o el camino del aviso.
+            s.text(if h & bmo::DISCO_HILO_IRQ_ARMADA == 0 {
+                b"   SIN IRQ: NO se armo (MSI/vector): vive de la red de 2 ms" as &[u8]
+            } else {
+                b"   SIN IRQ: armada y NO LLEGA: vive de la red de 2 ms"
+            });
         }
     }
     s.with_ink(INK_PLAIN);

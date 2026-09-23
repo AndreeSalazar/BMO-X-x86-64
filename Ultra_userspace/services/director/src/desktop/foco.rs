@@ -83,8 +83,14 @@ pub(crate) fn seguir(dsk: &mut Desktop, p: &bmo::Pantalla) {
 // ella de atras hacia delante cada vez que el foco cambia -- asi que despues de
 // cada cambio LO QUE SE VE es esa lista. Faltaba preguntarle.
 
-/// Donde se ve una ventana DEL SISTEMA, si se ve. Las apps contestan `None`:
-/// su superficie se compone despues de todo lo demas y queda encima siempre.
+/// Donde se ve una ventana, si se ve. Una app a pantalla completa es la
+/// pantalla entera.
+///
+/// ** Las apps contestaban `None` ("su superficie se compone despues y queda
+/// encima siempre"), y el Ryzen lo desmintio el 23-09 a las 01:07: el panel de
+/// Sonido, DETRAS de DOOM, pintaba su medidor y sus numeros ENCIMA de DOOM. Una
+/// app se repega cuando entrega fotograma, no cuando el panel acaba de pintar:
+/// entre medias, lo de debajo se ve encima.
 pub(crate) fn caja(dsk: &Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
     let de = |c: &crate::scene::chrome::Chrome| (!c.minimized).then_some((c.x, c.y, c.width, c.height));
     if !dsk.win.abierta(v) {
@@ -98,7 +104,16 @@ pub(crate) fn caja(dsk: &Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
         Ventana::Cpu => de(&dsk.win.cpu.chrome),
         Ventana::Mem => de(&dsk.win.mem.chrome),
         Ventana::Sound => de(&dsk.win.sound.chrome),
-        Ventana::App(_) => None,
+        Ventana::App(i) => dsk.table.get(i as usize).and_then(|s| {
+            let c = &s.chrome;
+            if c.minimized {
+                None
+            } else if c.is_fullscreen() {
+                Some((0, 0, u32::MAX >> 1, u32::MAX >> 1))
+            } else {
+                Some((c.x, c.y, c.width, c.height))
+            }
+        }),
     }
 }
 
@@ -141,6 +156,7 @@ pub(crate) fn de_atras_adelante(dsk: &Desktop) -> ([Ventana; Ventana::TODAS.len(
         }
     }
     for &id in lista.iter().rev() {
+        // Las apps no entran: su marco lo repinta la mesa de superficies.
         if let Some(v) = Ventana::de_id(id).filter(|v| !matches!(v, Ventana::App(_))) {
             if n < orden.len() {
                 orden[n] = v;

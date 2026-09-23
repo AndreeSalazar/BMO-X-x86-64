@@ -1360,8 +1360,14 @@ pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 ///    0..23   ordenes que mando EN VUELO (soltando el disco para dormir)
 ///   24..39   de esas, las que termino OTRO que tomo el disco antes
 ///   40..61   veces que lo desperto la IRQ del disco
+///   62       la IRQ del disco quedo ARMADA (MSI programado y el HBA avisa)
 ///   63       el hilo existe
 /// ```
+///
+/// ** El bit 62 llego el 23-09 a las 01:08: el Ryzen dijo `8 ordenes en vuelo,
+/// 0 despertares por la IRQ`, y eso tiene dos lecturas que mandan a mirar sitios
+/// distintos -- no se armo (la placa no anuncia MSI, o el vector no se instalo)
+/// o se armo y no llega. Sin el bit, cualquiera de las dos era una suposicion.
 ///
 /// ** Es la prueba de que D1 hace lo que dice: si `vuelos` sube y `irq` sube
 /// con el, el CPU estuvo libre mientras el aparato trabajaba. Si `irq` se queda
@@ -1375,6 +1381,7 @@ pub const DISCO_HILO_AJENAS_MASK: u64 = 0xFFFF;
 pub const DISCO_HILO_IRQ_SHIFT: u64 = 40;
 pub const DISCO_HILO_IRQ_MASK: u64 = 0x3F_FFFF;
 pub const DISCO_HILO_VIVO: u64 = 1 << 63;
+pub const DISCO_HILO_IRQ_ARMADA: u64 = 1 << 62;
 
 /// Fabricante ("AMD"), nombre comercial, microarquitectura y familia/modelo.
 pub const INFO_TXT_CPU_VENDOR: u64 = 0x01;

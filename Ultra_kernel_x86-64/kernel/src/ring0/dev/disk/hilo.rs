@@ -122,6 +122,7 @@ pub const DISCO_HILO_AJENAS_MASK: u64 = 0xFFFF;
 pub const DISCO_HILO_IRQ_SHIFT: u64 = 40;
 pub const DISCO_HILO_IRQ_MASK: u64 = 0x3F_FFFF;
 pub const DISCO_HILO_VIVO: u64 = 1 << 63;
+pub const DISCO_HILO_IRQ_ARMADA: u64 = 1 << 62;
 
 /// `INFO_DISCO_HILO`, empaquetado. Ver el ABI.
 pub fn cuentas() -> u64 {
@@ -129,6 +130,7 @@ pub fn cuentas() -> u64 {
         | ((vuelo::AJENAS.load(Ordering::Relaxed) as u64 & DISCO_HILO_AJENAS_MASK) << DISCO_HILO_AJENAS_SHIFT)
         | ((POR_IRQ.load(Ordering::Relaxed) as u64 & DISCO_HILO_IRQ_MASK) << DISCO_HILO_IRQ_SHIFT)
         | if vivo() { DISCO_HILO_VIVO } else { 0 }
+        | if irq::estado().0 { DISCO_HILO_IRQ_ARMADA } else { 0 }
 }
 
 extern "C" fn hilo(_arg: u64) -> ! {

@@ -1046,6 +1046,11 @@ impl Table {
         self.sup.get_mut(i)?.as_mut()
     }
 
+    /// La misma, para MIRAR: donde esta una app no pide poder cambiarla.
+    pub(crate) fn get(&self, i: usize) -> Option<&Surface> {
+        self.sup.get(i)?.as_ref()
+    }
+
     /// ** LAS FICHAS DE LA BARRA: los huecos ocupados, EN ORDEN y SIN AGUJEROS
     /// (2026-09-12). La ficha `k` es la app `fichas[k]`. Sin agujeros porque
     /// cerrar la primera no puede dejar un hueco vacio en la barra con las otras

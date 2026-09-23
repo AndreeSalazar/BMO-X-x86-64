@@ -761,6 +761,7 @@ pub const DISCO_HILO_AJENAS_MASK: u64 = 0xFFFF;
 pub const DISCO_HILO_IRQ_SHIFT: u64 = 40;
 pub const DISCO_HILO_IRQ_MASK: u64 = 0x3F_FFFF;
 pub const DISCO_HILO_VIVO: u64 = 1 << 63;
+pub const DISCO_HILO_IRQ_ARMADA: u64 = 1 << 62;
 
 pub const USB_SALUD_XHCI: u64 = 1 << 0;
 pub const USB_SALUD_KBD: u64 = 1 << 1;
