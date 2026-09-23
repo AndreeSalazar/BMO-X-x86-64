@@ -2294,7 +2294,7 @@ hace que quepa y se pueda leer-- pero **nunca se midio lo que cuesta**, y por es
 la cifra aparece hoy, por sorpresa, dentro de DOOM. Afecta a **todo `.bex` de C y
 C++**; INTI tiene su propio emisor y no pasa por ahi.
 
-[`docs/plan/PLAN_EL_CODEGEN.md`](docs/plan/PLAN_EL_CODEGEN.md) trae el
+[`docs/plan/en_pausa/PLAN_EL_CODEGEN.md`](docs/plan/en_pausa/PLAN_EL_CODEGEN.md) trae el
 desensamblado entero y cuatro escalones: tres son MIRILLAS (plegar constantes,
 literales sin `movabsq`, no pasar por la pila con un operando constante) y el
 cuarto ya es un asignador de registros, que es otro proyecto.
@@ -2577,7 +2577,7 @@ son la misma frase: *el emisor pregunto y le contestaron mal*. Con el tipo
 resuelto UNA vez y cargado en el arbol, no hay nada que preguntar. Y `tipos.rs`
 pasaria de `[aparece] DENTRO` a `AQUI`, que es de dias a gratis.
 
-Escrito como `C5` en `docs/plan/PLAN_EL_CODEGEN.md`, con su aviso: el arbol gana
+Escrito como `C5` en `docs/plan/en_pausa/PLAN_EL_CODEGEN.md`, con su aviso: el arbol gana
 un campo, el parser tiene que rellenarlo, y **un arbol medio anotado es peor que
 uno sin anotar**. Se hace de una vez o no se hace.
 

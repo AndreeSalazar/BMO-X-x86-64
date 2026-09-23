@@ -19,6 +19,16 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 ---
 
+# CASI TERMINADOS -- lo que se cierra con poco
+
+- [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
+- [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 8 de 9 hechas, faltan 1
+- [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
+
+---
+
 # Los planes VIVOS, el que mas debe primero
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 45 abiertas, 16 hechas
@@ -332,13 +342,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 esta herramienta lo copia. Sus casillas sueltas no son deuda: o
 ya no aplican, o esperan a alguien que no es el codigo.
 
-- **APARCADO** [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
-- **APARCADO** [`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md) -- decision del propietario (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(3 hechas, 16 sueltas)*
-- **CERRADO** [`PLAN_ALMACENAMIENTO.md`](PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
-- **CERRADO** [`PLAN_DOOM.md`](PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(8 hechas, 9 sueltas)*
-- **CERRADO** [`PLAN_EL_PERFIL_TOTAL.md`](PLAN_EL_PERFIL_TOTAL.md) -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en PERFIL/.  *(8 hechas, 0 sueltas)*
-- **CERRADO** [`PLAN_SUELO_RING3.md`](PLAN_SUELO_RING3.md) -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.  *(4 hechas, 0 sueltas)*
-- **ESPERA** [`PLAN_DOCUMENTOS.md`](PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
-- **SUPERADO** [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
-- **SUPERADO** [`PLAN_EL_GUARDIAN.md`](PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
+- **APARCADO** [`en_pausa/PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
+- **APARCADO** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- decision del propietario (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(3 hechas, 16 sueltas)*
+- **CERRADO** [`terminado/PLAN_ALMACENAMIENTO.md`](terminado/PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
+- **CERRADO** [`terminado/PLAN_DOOM.md`](terminado/PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(8 hechas, 9 sueltas)*
+- **CERRADO** [`terminado/PLAN_EL_PERFIL_TOTAL.md`](terminado/PLAN_EL_PERFIL_TOTAL.md) -- cumplido: los ocho escalones estan hechos; lo que la maquina da sin comprar nada esta en PERFIL/.  *(8 hechas, 0 sueltas)*
+- **CERRADO** [`terminado/PLAN_SUELO_RING3.md`](terminado/PLAN_SUELO_RING3.md) -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.  *(4 hechas, 0 sueltas)*
+- **ESPERA** [`en_pausa/PLAN_DOCUMENTOS.md`](en_pausa/PLAN_DOCUMENTOS.md) -- una decision del propietario (.datex, .window/.data): idea suya, sin decidir a proposito; lo que si existe ya es CLASE_PANTALLA en los requisitos del BEF. Lo que hay aqui es el  *(0 hechas, 12 sueltas)*
+- **SUPERADO** [`en_pausa/PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) -- por PLAN_EL_TROQUEL.md (18/19-09): plegado (decidir/plegado.rs), operador con inmediato, comparacion fundida, troquel por variable, convencion de llamada hibrida. El metro dice 451.306 -> 183.875 instrucciones (-59 %); la MEDIDA de aqui fue el punto de partida y se conserva.  *(0 hechas, 9 sueltas)*
+- **SUPERADO** [`en_pausa/PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) -- por la decision del 2026-09-18 (el guardian isa, toolchain/tools/isa/isa.py: "este repositorio es de UNA arquitectura"): este repositorio es SOLO x86-64 y ARM/RISC-V son OTRO repositorio. Una placa RISC-V como guardian no cabe aqui; la idea se conserva para ese otro arbol.  *(0 hechas, 15 sueltas)*
 

@@ -118,7 +118,7 @@ pub const MEM_OP_BYTES: u64 = 0x02;
 /// ** Y no vale para nada mas. Una fisica es UN NUMERO: solo es peligrosa si
 /// algo la acepta como orden, y en este sistema lo unico que lo haria es un
 /// aparato haciendo DMA -- que es un problema que ya existe y no uno nuevo. Ver
-/// la parte 4 de `docs/plan/PLAN_SUELO_RING3.md`.
+/// la parte 4 de `docs/plan/terminado/PLAN_SUELO_RING3.md`.
 ///
 /// # *** LAS DOS COSAS QUE HACEN QUE ESTE NUMERO NO SEA UNA MENTIRA
 ///

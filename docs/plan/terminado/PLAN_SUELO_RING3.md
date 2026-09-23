@@ -3,7 +3,7 @@
 > Estado: **CERRADO** -- cumplido: las tres piezas del suelo de Ring 3 estan; lo que baje ahora se apoya en ellas.
 
 > Escrito el **2026-08-26**, despues del censo de
-> [`RING3_MAESTRO.md`](../maestro/RING3_MAESTRO.md) y con el visto bueno del
+> [`RING3_MAESTRO.md`](../../maestro/RING3_MAESTRO.md) y con el visto bueno del
 > propietario: *"si, tira por ahi, empieza con el suelo de Ring 3"*.
 >
 > El censo dijo QUE baja y en que orden. Esto dice **como se construye el suelo
@@ -70,7 +70,7 @@ Y no es una exageracion. Con esa operacion, en tres pasos:
    3. ya no hay muro 2 ni muro 3
 ```
 
-*** **Los siete muros de [`EL_AISLAMIENTO.md`](../identidad/EL_AISLAMIENTO.md)
+*** **Los siete muros de [`EL_AISLAMIENTO.md`](../../identidad/EL_AISLAMIENTO.md)
 se caen todos a la vez**, y no por un bug: por la propia operacion, funcionando
 como se pidio.
 

@@ -152,7 +152,7 @@ pub const TASK_OP_AUDIO_CENSO: u64 = 0x28;
 //
 // Asi que el proceso nombra un aparato de una lista CERRADA, la fisica sale del
 // censo del kernel, y aun asi pasa por `bmo-mmio-juicio` antes de mapearse. Ver
-// `docs/plan/PLAN_SUELO_RING3.md` y `docs/identidad/EL_AISLAMIENTO.md`.
+// `docs/plan/terminado/PLAN_SUELO_RING3.md` y `docs/identidad/EL_AISLAMIENTO.md`.
 
 /// **Tomar la ventana de registros de un aparato.**
 ///

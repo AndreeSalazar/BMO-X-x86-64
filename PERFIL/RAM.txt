@@ -70,7 +70,7 @@ ANCHO DE BANDA MEDIDO
 POR QUE ESE NUMERO DECIDE UN PROYECTO
 --------------------------------------
 
-  De docs/plan/PLAN_EL_ASISTENTE.md, seccion 8.5:
+  De docs/plan/en_pausa/PLAN_EL_ASISTENTE.md, seccion 8.5:
 
       tokens/s = ancho de memoria / medida del modelo.  NO es potencia de calculo
       este CPU SOBRA TRES VECES para un 7B: el limite es la memoria
@@ -96,7 +96,7 @@ A QUIEN EXPONE
 expone: Ultra_kernel_x86-64/kernel/src/ring0/core/shell/banda.rs
    la orden que MIDE. Es la unica que puede desmentir a este fichero
 
-expone: docs/plan/PLAN_EL_ASISTENTE.md
+expone: docs/plan/en_pausa/PLAN_EL_ASISTENTE.md
    toda la aritmetica de tokens/s de su seccion 8 se apoya en el ancho de
    banda. Hoy se apoya en un [SPEC], no en un [MEDIDO]
 

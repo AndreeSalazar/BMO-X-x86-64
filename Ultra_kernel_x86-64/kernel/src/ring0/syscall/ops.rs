@@ -449,7 +449,7 @@ pub(crate) const TASK_OP_AUDIO_CENSO: u64 = 0x28;
 // *** El argumento es QUE APARATO, y no una direccion. Un proceso que pudiera
 // nombrar una fisica estaria pidiendo ser el kernel: mapea donde viven las
 // tablas de pagina, se pone el bit U/S, quita el NX, y los siete muros caen a
-// la vez. Ver `obj/mmio.rs` y `docs/plan/PLAN_SUELO_RING3.md`.
+// la vez. Ver `obj/mmio.rs` y `docs/plan/terminado/PLAN_SUELO_RING3.md`.
 
 /// **Tomar la ventana de registros de un aparato.** `arg0` = cual, de la lista
 /// cerrada de `obj::mmio` (hoy: 0 = el controlador xHCI). Devuelve un handle

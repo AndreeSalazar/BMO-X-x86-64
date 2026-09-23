@@ -67,7 +67,7 @@
 //!    [ ] no es un optimizador. Es donde VIVEN las decisiones; que el emisor
 //!        las use es cosa suya, y hoy solo usa dos
 //!    [ ] no es un asignador de registros. Eso es `C4` de
-//!        `docs/plan/PLAN_EL_CODEGEN.md` y es otro proyecto
+//!        `docs/plan/en_pausa/PLAN_EL_CODEGEN.md` y es otro proyecto
 //!    [ ] y no se puede llamar desde aqui al emisor. Si algo de esta carpeta
 //!        necesitara `&mut self` para contestar, es que no era una decision:
 //!        era emision disfrazada

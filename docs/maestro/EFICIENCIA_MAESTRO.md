@@ -180,7 +180,7 @@ quedan fuera.
 
 ** El medidor de enchufe es **el unico instrumento que ve todo**, y es el
 unico de la lista que se compra. Se declara y no se exige: la regla de
-[`PLAN_EL_PERFIL_TOTAL.md`](../plan/PLAN_EL_PERFIL_TOTAL.md) es *lo que la
+[`PLAN_EL_PERFIL_TOTAL.md`](../plan/terminado/PLAN_EL_PERFIL_TOTAL.md) es *lo que la
 maquina da sin comprar nada*.
 
 *** **Y de ahi sale la regla para los aparatos: ESTADOS, NO VATIOS.** Sin

@@ -109,7 +109,7 @@ esencia que falta.
 ## 3. Lo que este plan comparte con otros, y no duplica
 
 - **Autohospedaje** (que Ada compile DENTRO de BMO-X): escalones 1, 2 y 4 de
-  `docs/plan/PLAN_AUTOHOSPEDAJE.md` -- quitar `std`, `BTreeMap` en vez de
+  `docs/plan/en_pausa/PLAN_AUTOHOSPEDAJE.md` -- quitar `std`, `BTreeMap` en vez de
   `HashMap`, Ada como biblioteca `no_std`. Van por su lado: no bloquean A1.
 - **El enlazador**: A6 en dos ficheros es E7 de `PLAN_EL_ENLAZADOR`.
 

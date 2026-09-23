@@ -143,7 +143,7 @@ nacer sin propietario.**
 
 # 6. ★★ Y ESTO RESUELVE LA OBJECION QUE YO MISMO ESCRIBI CONTRA `C4`
 
-En [`PLAN_EL_CODEGEN`](PLAN_EL_CODEGEN.md), el escalon `C4` --mantener en
+En [`PLAN_EL_CODEGEN`](en_pausa/PLAN_EL_CODEGEN.md), el escalon `C4` --mantener en
 registro la variable de un bucle-- lleva escrito este sacrificio:
 
 > ⚠ *"es donde un compilador deja de poder leerse de una sentada, que es la
@@ -169,7 +169,7 @@ heredan los cinco restantes el dia que la enlacen.
 
 - [ ] **S2 -- LA TABLA DE REGISTROS COMO DATO, no como codigo.** x86-64 nombra
       16; RISC-V nombra 32. Cual esta reservado, cual lo pisa una llamada.
-      ★★ Y aqui esta el regalo para [`PLAN_EL_GUARDIAN`](PLAN_EL_GUARDIAN.md):
+      ★★ Y aqui esta el regalo para [`PLAN_EL_GUARDIAN`](en_pausa/PLAN_EL_GUARDIAN.md):
       el backend de RISC-V (G1.2) deja de ser "otro emisor" y pasa a ser **otra
       tabla**. Es la apuesta de esta casa --*tablas y no cerebros*-- aplicada al
       sitio donde mas se nota.

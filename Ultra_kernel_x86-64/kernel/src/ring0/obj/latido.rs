@@ -10,7 +10,7 @@
 //!           se despierta de menos. No concede nada que no se tuviera: un
 //!           proceso ya podia dormir con `WAIT(0, _, timeout)`
 //!
-//! Pieza **S3** del suelo de `docs/plan/PLAN_SUELO_RING3.md`, y la unica de las
+//! Pieza **S3** del suelo de `docs/plan/terminado/PLAN_SUELO_RING3.md`, y la unica de las
 //! tres que el plan daba por *"no existe"*.
 //!
 //! # *** LO QUE DE VERDAD FALTABA ERA MENOS DE LO QUE EL PLAN SUPUSO

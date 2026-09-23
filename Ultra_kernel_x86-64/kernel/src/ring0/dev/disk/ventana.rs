@@ -4,7 +4,7 @@
 //! [consumo] NADA      corre cuando alguien lee o escribe el disco
 //! decision vive en `bmo_block::ventana`.
 //!
-//! Paso 2 de `docs/plan/PLAN_ALMACENAMIENTO.md`. De las siete preguntas que
+//! Paso 2 de `docs/plan/terminado/PLAN_ALMACENAMIENTO.md`. De las siete preguntas que
 //! respondia `dev/disk/mod.rs`, esta es la segunda que **no toca hardware**:
 //!
 //! ```text

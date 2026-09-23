@@ -171,5 +171,5 @@ porque hay un nucleo, y el dia que haya dos no habra que buscarlas.
 - No promete audio en su propio nucleo. `audio::latido` come en `pump_bus`
   y se mudaria con el; si un dia hace falta un nucleo para el, es otro plan.
 - No toca el planificador. El fantasma de la prioridad estricta
-  (`docs/plan/PLAN_SUELO_RING3.md`) sigue ahi para cualquier otro hilo de
+  (`docs/plan/terminado/PLAN_SUELO_RING3.md`) sigue ahi para cualquier otro hilo de
   kernel que gire; este plan solo saca al bus de su alcance.

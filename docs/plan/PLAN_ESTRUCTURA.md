@@ -322,7 +322,7 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
 
 ---
 
-Ver [`PLAN_AUTOHOSPEDAJE.md`](PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el
+Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el
 otro lado, y la medida que elige Ada),
 [`VALKYRIE-ABI/FRONTERA.txt`](../../VALKYRIE-ABI/FRONTERA.txt) (los ocho
 prefijos que deciden la seccion 2),

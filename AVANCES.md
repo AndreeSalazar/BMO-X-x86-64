@@ -182,7 +182,7 @@ tres primeros **ya han ejecutado en el Ryzen**.
 > pintado un pixel. Lo que queda en el monitor son restos de tres pintores sobre
 > el mismo framebuffer -- su ventana de consola, el panel del kernel al morir el
 > propietario, y el repintado del compositor al recuperarla. Detalle y el defecto
-> chico de al lado (las ventanas abiertas no se repintan) en `docs/plan/PLAN_DOOM.md`.
+> chico de al lado (las ventanas abiertas no se repintan) en `docs/plan/terminado/PLAN_DOOM.md`.
 >
 > ## ⏳ Al 2026-08-12 -- treinta commits, y el metal contesto la mitad
 >
@@ -454,7 +454,7 @@ tiene que ser. El escalon se llama **P2.2** y esta en `PLAN_EL_PLAZO.md`.
 Dos documentos nuevos, con el mismo formato que `PLAN_BANCA.md`: casillas,
 medida, que bloquea a que, y **como se sabe que una esta hecha**.
 
-- [`docs/plan/PLAN_DOOM.md`](docs/plan/PLAN_DOOM.md) -- cinco fases. ⛔ **Lo unico que
+- [`docs/plan/terminado/PLAN_DOOM.md`](docs/plan/terminado/PLAN_DOOM.md) -- cinco fases. ⛔ **Lo unico que
   bloquea a todo lo demas es `1.0`**: `printf` con el formato calculado en
   tiempo de ejecucion. En cuanto exista, la capa de plataforma son **seis
   funciones cortas** y el WAD es codigo de DOOM llamando a lo que BMO ya tiene.

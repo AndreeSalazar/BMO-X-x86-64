@@ -60,6 +60,14 @@ import sys
 
 RAIZ = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 PLANES = os.path.join(RAIZ, "docs", "plan")
+# ** LAS DOS CARPETAS DE LO CERRADO (2026-09-23). El propietario pidio ver en el
+# explorador que esta terminado y que no; se mudo SOLO lo cerrado, porque un
+# plan cerrado ya no cambia de estado y su ruta no se vuelve a mover. Lo vivo
+# sigue en `plan/`, y "casi terminado" es una SECCION de este indice, no una
+# carpeta: cambia cada semana y una carpeta que cambia rompe citas.
+SUBCARPETAS = ("terminado", "en_pausa")
+# "Casi terminado": un plan vivo con esta parte hecha o mas.
+CASI = 0.75
 INDICE = os.path.join(PLANES, "ABIERTO.md")
 
 # == *** LOS DOS INDICES DE LA CARPETA, y ninguno es un plan ==============
@@ -133,8 +141,13 @@ def limpia(t, tope=96):
 def censo():
     """[(fichero, titulo, hechas, [pendientes]), ...] ordenado por pendientes."""
     filas = []
-    for n in sorted(os.listdir(PLANES)):
-        if not n.endswith(".md") or n in NO_SON_PLANES:
+    nombres = [n for n in sorted(os.listdir(PLANES)) if n.endswith(".md")]
+    for sub in SUBCARPETAS:
+        d = os.path.join(PLANES, sub)
+        if os.path.isdir(d):
+            nombres += [sub + "/" + n for n in sorted(os.listdir(d)) if n.endswith(".md")]
+    for n in nombres:
+        if n in NO_SON_PLANES:
             continue
         p = os.path.join(PLANES, n)
         with io.open(p, encoding="utf-8", errors="replace") as fh:
@@ -199,6 +212,19 @@ def pinta(filas):
     # desde este fichero, donde no resuelve: resuelve desde `docs/plan/`.)
     o.append("Por categoria y con el motivo de cada cierre: [`%s`](%s)." % ("../METAS" + ".md", "../METAS" + ".md"))
     o.append("")
+    # ** CASI TERMINADOS: los vivos con 3/4 o mas de sus casillas hechas. Es lo
+    # que se cierra con poco, y se ve primero.
+    casi = [f for f in vivos if f[2] / max(1, f[2] + len(f[3])) >= CASI]
+    if casi:
+        o.append("---")
+        o.append("")
+        o.append("# CASI TERMINADOS -- lo que se cierra con poco")
+        o.append("")
+        casi.sort(key=lambda f: (len(f[3]), f[0]))
+        for n, titulo, h, faltan, lin, _e in casi:
+            o.append("- [`%s`](%s) -- %d de %d hechas, faltan %d"
+                     % (n, n, h, h + len(faltan), len(faltan)))
+        o.append("")
     o.append("---")
     o.append("")
     o.append("# Los planes VIVOS, el que mas debe primero")

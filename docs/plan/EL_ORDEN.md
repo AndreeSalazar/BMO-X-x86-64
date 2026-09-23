@@ -247,10 +247,10 @@ hace falsa ninguna promesa.
 | plan | abiertas | de que |
 |---|---|---|
 | [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) | 17 | de informar a ACTUAR: cuarentena y supervision |
-| [`PLAN_EL_GUARDIAN.md`](PLAN_EL_GUARDIAN.md) | 15 | BMO-X en RISC-V. **Compra una placa**, o sea que empieza fuera |
+| [`PLAN_EL_GUARDIAN.md`](en_pausa/PLAN_EL_GUARDIAN.md) | 15 | BMO-X en RISC-V. **Compra una placa**, o sea que empieza fuera |
 | [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) | 14 | V-Sync y la deuda del planificador |
 | [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) | 12 | el turno se CONCEDE en vez de gastarse |
-| [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) | 9 | 35 instrucciones para escribir 8 bytes |
+| [`PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) | 9 | 35 instrucciones para escribir 8 bytes |
 | [`PLAN_EL_TROQUEL.md`](PLAN_EL_TROQUEL.md) | 9 | la geometria de los registros, de un golpe |
 | [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) | 9 | la compilacion separada. **Desbloquea CINCO lenguajes** -- C, C++, COBOL, Ada y los ports --, y aun asi va aqui: es grande y empieza por una DECISION del propietario (E0), no por codigo |
 
@@ -263,7 +263,7 @@ miran juntos.
 
 # 6. ⚫ EL ULTIMO, por decision del propietario
 
-**[`PLAN_EL_ASISTENTE.md`](PLAN_EL_ASISTENTE.md)** -- 13 abiertas. *"El
+**[`PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md)** -- 13 abiertas. *"El
 asistente IA no lo necesitamos, eso es el ultimo."*
 
 Se queda escrito entero y no se archiva, porque **dos de sus casillas sirven a

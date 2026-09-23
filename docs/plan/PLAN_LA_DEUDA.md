@@ -168,7 +168,7 @@ duplicar casillas.
 | deuda | donde vive | lo que dice hoy |
 |---|---|---|
 | el SEMAFORO: 70 ficheros ROJOS de 186 en Ring 0, drivers al 28 % | [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) | S4-S6 abiertas |
-| el codegen de BMO C: 35 instrucciones para 8 bytes | [`PLAN_EL_CODEGEN.md`](PLAN_EL_CODEGEN.md) | C1-C9, cero hechas |
+| el codegen de BMO C: 35 instrucciones para 8 bytes | [`PLAN_EL_CODEGEN.md`](en_pausa/PLAN_EL_CODEGEN.md) | C1-C9, cero hechas |
 | lo que el compilador adivina | [`PLAN_NUNCA_ADIVINA.md`](PLAN_NUNCA_ADIVINA.md) | A4-A6 abiertas |
 | el planificador sin envejecimiento | [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md), [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) | P2, E0-E2 |
 | el DIRECTOR y sus mezclas | [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) | 4 abiertas |

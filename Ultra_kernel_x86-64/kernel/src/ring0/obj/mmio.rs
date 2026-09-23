@@ -9,7 +9,7 @@
 //!           mas es una ventana a la RAM del kernel, y eso no da un fault:
 //!           da acceso. Por eso el juez que decide vive fuera y con pruebas
 //!
-//! Pieza **S1** del suelo de `docs/plan/PLAN_SUELO_RING3.md`. El censo que la
+//! Pieza **S1** del suelo de `docs/plan/terminado/PLAN_SUELO_RING3.md`. El censo que la
 //! pidio: `docs/maestro/RING3_MAESTRO.md`.
 //!
 //! # *** LO PRIMERO, PORQUE ES LO QUE DECIDE LA FORMA DE TODO ESTO

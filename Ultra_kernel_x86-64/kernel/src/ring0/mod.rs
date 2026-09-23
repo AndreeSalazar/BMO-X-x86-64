@@ -52,7 +52,7 @@ pub mod obj {
     pub mod fb;
     pub mod input;
     /// `KIND_LATIDO`: el derecho a que `WAIT` despierte cuando LATE el
-    /// hardware. Pieza S3 del suelo -- ver `docs/plan/PLAN_SUELO_RING3.md`.
+    /// hardware. Pieza S3 del suelo -- ver `docs/plan/terminado/PLAN_SUELO_RING3.md`.
     pub mod latido;
     /// `KIND_PRESTADO`: un proceso cede un trozo de SU memoria a otro. El
     /// kernel mueve paginas y **no sabe para que** -- el lienzo, el audio y los
@@ -62,7 +62,7 @@ pub mod obj {
     /// la cabecera del modulo.
     pub mod memory;
     /// `KIND_MMIO`: una ventana de registros de un aparato, cedida a Ring 3.
-    /// Pieza S1 del suelo -- ver `docs/plan/PLAN_SUELO_RING3.md`.
+    /// Pieza S1 del suelo -- ver `docs/plan/terminado/PLAN_SUELO_RING3.md`.
     pub mod mmio;
     /// `KIND_TAREA`: un hijo que YO lance. Cerrar es una operacion de su
     /// handle, no un poder del que cierra -- paso 3 de `PLAN_DIRECTOR.md`.

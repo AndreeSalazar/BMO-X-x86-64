@@ -47,7 +47,7 @@ POR QUE AMD Y NO LA QUE YA TIENE
   construyendo. El cuello de hoy no necesita sombreadores.
 
   [!] 2026-09-17, afinado con el numero del Ryzen que ya estaba medido en
-  docs/plan/PLAN_EL_CODEGEN.md: decir "el cuello es el blit" se queda corto y
+  docs/plan/en_pausa/PLAN_EL_CODEGEN.md: decir "el cuello es el blit" se queda corto y
   apunta al sitio equivocado. Partido:
 
       fotograma      14.948 us   (66 fps)

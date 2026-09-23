@@ -83,7 +83,7 @@ pub enum HandleKind {
     // --- Aparatos crudos (0x70..0x7F) --------------------------------
     /// **Una ventana de registros de un aparato, cedida a Ring 3.**
     ///
-    /// Pieza S1 del suelo de `docs/plan/PLAN_SUELO_RING3.md`. La concede
+    /// Pieza S1 del suelo de `docs/plan/terminado/PLAN_SUELO_RING3.md`. La concede
     /// `TASK_OP_APARATO_TOMAR`, y lo importante es lo que **no** hay:
     /// ninguna operacion acepta una direccion fisica. El proceso nombra un
     /// aparato de una lista cerrada y el kernel saca la fisica de su censo.

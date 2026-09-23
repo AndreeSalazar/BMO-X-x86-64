@@ -279,7 +279,7 @@ pub const FB_OP_BYTES: u64 = 0x04;
 /// [!] Virtual, **nunca la fisica**. Un driver no necesita la fisica para leer
 /// sus registros, y darsela seria regalar el unico dato que sirve para armar un
 /// DMA a mano. La fisica se concede aparte, con su propia capability, cuando
-/// haga falta -- pieza S2 de `docs/plan/PLAN_SUELO_RING3.md`.
+/// haga falta -- pieza S2 de `docs/plan/terminado/PLAN_SUELO_RING3.md`.
 pub const APARATO_OP_BASE: u64 = 0x01;
 
 /// Bytes mapeados. Hoy una pagina, y se PREGUNTA en vez de suponerse: el dia que

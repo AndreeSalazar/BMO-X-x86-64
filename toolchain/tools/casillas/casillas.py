@@ -63,7 +63,7 @@ RAIZ = Path(__file__).resolve().parents[3]
 
 #: Donde viven las escaleras. No se barre el arbol entero a proposito: una
 #: casilla en un README de ejemplo no es una promesa del proyecto.
-CARPETAS = ["docs/plan", "docs/maestro"]
+CARPETAS = ["docs/plan", "docs/plan/terminado", "docs/plan/en_pausa", "docs/maestro"]
 
 #: `[ ]` sin hacer, `[~]` a medias, `[x]`/`[X]` hecho.
 CASILLA = re.compile(r"\[([ xX~])\]")

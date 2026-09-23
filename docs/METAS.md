@@ -71,16 +71,16 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | Ada A2-A7 (ZFP, ACATS como matriz) | ABIERTA | `toolchain/lang/ada/PLAN_ADA.md`; A1 hecha el 17-09 |
 | La banca en COBOL | ABIERTA | `toolchain/lang/cobol/PLAN_BANCA.md`; el objetivo de la hoja de ruta desde el principio |
 | C++: plantillas (paso 6) | ABIERTA | `toolchain/lang/cpp/BRECHA.md`; pasos 0-5 hechos (clases, RAII, sobrecarga, herencia, vtables). Sin excepciones ni RTTI a proposito |
-| Autohospedaje: compilar SOBRE BMO-X | **APARCADA** | `plan/PLAN_AUTOHOSPEDAJE.md`: no bloquea nada; pide Ada `no_std` y `PLAN_ESTRUCTURA` (F1) antes |
+| Autohospedaje: compilar SOBRE BMO-X | **APARCADA** | `plan/en_pausa/PLAN_AUTOHOSPEDAJE.md`: no bloquea nada; pide Ada `no_std` y `PLAN_ESTRUCTURA` (F1) antes |
 | El taller en F1 (`estructura.bex`) | ABIERTA | `plan/PLAN_ESTRUCTURA.md`: la ventana vacia es la primera casilla |
-| El asistente de IA dentro de BMO-X | **APARCADA** | decision de Eddi (10-09): es el ultimo. `plan/PLAN_EL_ASISTENTE.md`. Datos del 21-09 (seccion 9, "System One"): la decision con TIPO antes que la prosa; hay un escalon 0 que no necesita modelo ni GPU, y el `save` ya escribe su entrada (`informe/DATOS.TXT`, 0a HECHO) |
+| El asistente de IA dentro de BMO-X | **APARCADA** | decision de Eddi (10-09): es el ultimo. `plan/en_pausa/PLAN_EL_ASISTENTE.md`. Datos del 21-09 (seccion 9, "System One"): la decision con TIPO antes que la prosa; hay un escalon 0 que no necesita modelo ni GPU, y el `save` ya escribe su entrada (`informe/DATOS.TXT`, 0a HECHO) |
 
 ## 3. EL METAL Y EL KERNEL -- lo que corre en Ring 0
 
 | meta | estado | motivo / lo que falta |
 |---|---|---|
 | Una arquitectura, un repositorio: x86-64 | **CERRADA** 18-09 | decision de Eddi; guardian `isa`. ARM/RISC-V = OTRO repo |
-| BMO-X como aparato guardian (placa RISC-V) | **SUPERADA** | por la decision de arriba. `plan/PLAN_EL_GUARDIAN.md` se conserva para ese otro arbol |
+| BMO-X como aparato guardian (placa RISC-V) | **SUPERADA** | por la decision de arriba. `plan/en_pausa/PLAN_EL_GUARDIAN.md` se conserva para ese otro arbol |
 | Ring 0 cerrado a externos | **CERRADA** 17-09 | para siempre, `.github/CODEOWNERS`, guardian `codeowners`. Motivo: xz |
 | El USB en su propio nucleo (A0-A2) | ABIERTA | `plan/PLAN_EL_BUS_APARTE.md`: A0 y A1 hechos (el triple fallo era el selector de 16 bits + sin TSS, confirmado en el Ryzen); A2 residente en `bmo-orquesta` |
 | El COMPAS: el quantum se retira, el turno se concede | ABIERTA | `plan/PLAN_EL_COMPAS.md`: EX1, EX2, EX3 y EX4 HECHAS el 21-09 (la expropiacion al despertar, el cerrojo que se mide con nombre, el CONTRATO por hilo de kernel: periodo + presupuesto, cobrado por turno, apartado si lo rompe -- el quantum no se quita, se convierte, queda como suelo para quien no declara; y la ENUMERACION POR PASOS: un intento contra un aparato mudo eran 933 ms de bus congelado y ahora son ~125 vueltas de 4 ms con el raton leido, `bmo_uhid::pasos` + la espera vigilada de `bmo_xhci`, seis pruebas sin xHC; falta el veredicto del Ryzen); E0-E11 abiertas. Doctrina del propietario, 21-09: *"puedes salirte del rango PERO si cumples lo que eres; si no es parte de la musica, se saca a patada"*. Es el fantasma del planificador (`bmo-planificador-suelo`) |
@@ -94,10 +94,10 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | Autocuracion: de informar a ACTUAR | ABIERTA | `plan/PLAN_AUTOCURACION.md`, 17 casillas, 0 hechas: contar lo que queda del muerto tras revocar |
 | La deuda medida: `static mut`, el codegen de COBOL | ABIERTA | `plan/PLAN_LA_DEUDA.md` D2a (trinquete de `static mut`), D3a |
 | Los vatios: gastar poco y ACUSAR quien | ABIERTA | `plan/PLAN_VATIOS.md`: W0-W4 piden el vatimetro en el Ryzen; MWAIT solo llega a C1 |
-| El repartir la pila de disco | **HECHA** | `plan/PLAN_ALMACENAMIENTO.md`, cumplido |
+| El repartir la pila de disco | **HECHA** | `plan/terminado/PLAN_ALMACENAMIENTO.md`, cumplido |
 | Exprimir el disco por el PERFIL (LEY 24: el atomo decide, no la caja) | ABIERTA | `plan/PLAN_EXPRIMIR_EL_DISCO.md`: P0 (`CAP`, `PxSSTS`, cache 82-85) y D0 (`disco banda`, el metro de lectura) con codigo el 23-09, se cierran en metal; D1-D5 despues |
-| El perfil total de la maquina (8 escalones) | **HECHA** | `plan/PLAN_EL_PERFIL_TOTAL.md`, cumplido; `PERFIL/` con guardianes |
-| El suelo de Ring 3 (las tres piezas) | **HECHA** | `plan/PLAN_SUELO_RING3.md`, cumplido |
+| El perfil total de la maquina (8 escalones) | **HECHA** | `plan/terminado/PLAN_EL_PERFIL_TOTAL.md`, cumplido; `PERFIL/` con guardianes |
+| El suelo de Ring 3 (las tres piezas) | **HECHA** | `plan/terminado/PLAN_SUELO_RING3.md`, cumplido |
 | El semaforo completo (cada fichero dice su color) | ABIERTA | `plan/PLAN_EL_SEMAFORO_COMPLETO.md` S4-S6: 38 drivers, `platform/shared`, `platform/abi` |
 | La GPU (Vulkan, RDNA4) | **APARCADA** | `platform/drivers/gpu/rdna4/PLAN_VULKAN.md`: con plan escrito, no descartada. Es lo que Minecraft y "lo tipico" piden de verdad |
 
@@ -106,7 +106,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | meta | estado | motivo / lo que falta |
 |---|---|---|
 | La ventana sale en metal (DIRECTOR, superficies, buzon) | **HECHA** 12-09 | DOOM 58 fps en ventana, cubo, la LETRA por el buzon |
-| DOOM se juega | **HECHA** 20-09 | `plan/PLAN_DOOM.md` CERRADO. Quedan NUMEROS (hoja 18-09 3b: `[perf]`, `blit`, `ciclos`) |
+| DOOM se juega | **HECHA** 20-09 | `plan/terminado/PLAN_DOOM.md` CERRADO. Quedan NUMEROS (hoja 18-09 3b: `[perf]`, `blit`, `ciclos`) |
 | `save` maestro: la maquina se redacta entera | **HECHA** 20-09 | `feb1ef9d`: 7 capitulos + la ficha BEF2 de cada programa. Visto en el Ryzen el mismo dia |
 | El DIRECTOR: de compositor a administrador | ABIERTA | `plan/PLAN_DIRECTOR.md`: el hueco por buzon, reemplazar superficie, DOOM elige escala |
 | El DIRECTOR por dentro: `system.rs`, `disco.rs`, `consola.rs` cortados | ABIERTA | `plan/PLAN_DIRECTOR_CENSO.md`, 4 sueltas |

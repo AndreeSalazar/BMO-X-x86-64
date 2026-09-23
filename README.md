@@ -682,7 +682,7 @@ assumed**. Measuring it costs a day of reading `amdgpu` and counting the steps
 measured*, which is not the same as *long*.
 
 The full reasoning: **[PLAN_VULKAN.md](platform/drivers/gpu/rdna4/PLAN_VULKAN.md)**
-and **[PLAN_EL_ASISTENTE.md](docs/plan/PLAN_EL_ASISTENTE.md)**.
+and **[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
 
 ---
 
@@ -734,9 +734,9 @@ And it is the same debt twice: the elliptic curve HTTPS needs is the one a signe
 > verification written next to them, in `docs/plan/PLAN_SEGURIDAD.md`.
 
 The full reasoning, with what each piece costs and why:
-**[PLAN_EL_PERFIL_TOTAL.md](docs/plan/PLAN_EL_PERFIL_TOTAL.md)** (what this
+**[PLAN_EL_PERFIL_TOTAL.md](docs/plan/terminado/PLAN_EL_PERFIL_TOTAL.md)** (what this
 machine gives without buying anything) and
-**[PLAN_EL_ASISTENTE.md](docs/plan/PLAN_EL_ASISTENTE.md)**.
+**[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
 
 > **On estimates.** A profile here measures between **600 and 1.900 lines** --
 > that is four measurements, not an opinion: the Ryzen profile is 952, AHCI is

@@ -191,9 +191,23 @@ hasta que, o ESPERA de que decision del propietario.
 
 ** Y trae una regla que la herramienta hace cumplir: un plan cerrado, superado,
 aparcado o en espera lo DICE en su cabecera (`> Estado: **PALABRA** -- motivo`),
-no se mueve de `plan/` (sigue siendo la razon por la que algo se hizo asi), y
-sus casillas sueltas dejan de contar como deuda en `ABIERTO.md`. Un estado sin
+y sus casillas sueltas dejan de contar como deuda en `ABIERTO.md`. Un estado sin
 motivo pone el build en rojo.
+
+** Y DESDE EL 23-09 SE VE EN LA CARPETA. El 20-09 la regla era "no se mueve de
+`plan/`" por sus cientos de citas; el propietario pidio ver en el explorador que
+esta terminado y que no, y se partio la diferencia:
+
+```text
+   plan/             lo VIVO. Aqui no se muda nada: su estado cambia cada semana
+   plan/terminado/   CERRADO -- cumplido. Ya no cambia, asi que su ruta tampoco
+   plan/en_pausa/    APARCADO, EN ESPERA o SUPERADO, con su motivo en la cabecera
+```
+
+Se muda UNA vez, al cerrarse, con sus citas reescritas: el guardian de enlaces
+(`toolchain/tools/enlaces`) las resuelve todas o pone el build en rojo. "Casi
+terminado" NO es una carpeta sino la primera seccion de `ABIERTO.md` (los vivos
+con 3/4 o mas hechas): cambia demasiado para tener ruta.
 
 ### ★★ [`EL_ORDEN.md`](plan/EL_ORDEN.md) -- **que va PRIMERO** (el criterio; la lista es del 10-09)
 
@@ -230,21 +244,21 @@ mano, y mientras tanto la deuda tiene nombre.
 
 | documento | de que |
 |---|---|
-| [`PLAN_DOOM.md`](plan/PLAN_DOOM.md) | de "BMO C compila 69 de 81" a "DOOM se juega" |
+| [`PLAN_DOOM.md`](plan/terminado/PLAN_DOOM.md) | de "BMO C compila 69 de 81" a "DOOM se juega" |
 | [`PLAN_VATIOS.md`](plan/PLAN_VATIOS.md) | 58 W en reposo: quien mantiene despierto al CPU, con la linea, y las cinco palancas en orden |
 | [`PLAN_AUTOCURACION.md`](plan/PLAN_AUTOCURACION.md) | las casillas de su MAESTRO |
 | [`PLAN_DIRECTOR.md`](plan/PLAN_DIRECTOR.md) | de compositor a administrador |
 | [`PLAN_CODEGEN.md`](plan/PLAN_CODEGEN.md) | el censo del compilador de C, los cortes por FASE y el numero que los ordena: 156 ciclos por pixel para seis instrucciones utiles |
-| [`PLAN_DOCUMENTOS.md`](plan/PLAN_DOCUMENTOS.md) | ★ **el escritorio deja de listar programas y lista lo que abres**. Idea del propietario, SIN decidir: el terreno medido, el unico hueco de verdad, y lo que cuesta cada camino |
-| [`PLAN_ALMACENAMIENTO.md`](plan/PLAN_ALMACENAMIENTO.md) | repartir la pila de disco |
+| [`PLAN_DOCUMENTOS.md`](plan/en_pausa/PLAN_DOCUMENTOS.md) | ★ **el escritorio deja de listar programas y lista lo que abres**. Idea del propietario, SIN decidir: el terreno medido, el unico hueco de verdad, y lo que cuesta cada camino |
+| [`PLAN_ALMACENAMIENTO.md`](plan/terminado/PLAN_ALMACENAMIENTO.md) | repartir la pila de disco |
 | [`PLAN_MAQUETA.md`](plan/PLAN_MAQUETA.md) | como se construye el compilador de composicion |
 | [`PLAN_LA_CARA_VIAJA.md`](plan/PLAN_LA_CARA_VIAJA.md) | la maquetacion como DATO, y que pasa si viaja |
 | [`PLAN_SEGURIDAD.md`](plan/PLAN_SEGURIDAD.md) | las casillas de su MAESTRO, medidas contra el codigo |
 | [`PLAN_EL_SILICIO.md`](plan/PLAN_EL_SILICIO.md) | que el PERFIL de INTI decida quien ejecuta las reglas: el programa o la CPU |
-| [`PLAN_EL_PERFIL_TOTAL.md`](plan/PLAN_EL_PERFIL_TOTAL.md) | **todo lo que esta maquina da sin comprar nada**: el inventario perfilado, el plan total de la red, y donde esta el techo |
+| [`PLAN_EL_PERFIL_TOTAL.md`](plan/terminado/PLAN_EL_PERFIL_TOTAL.md) | **todo lo que esta maquina da sin comprar nada**: el inventario perfilado, el plan total de la red, y donde esta el techo |
 | [`PLAN_AUDIO.md`](plan/PLAN_AUDIO.md) | las casillas de su MAESTRO. **Hoy BMO-X controla el volumen y no puede emitir una muestra** |
-| [`PLAN_EL_ASISTENTE.md`](plan/PLAN_EL_ASISTENTE.md) | **fusiona cuatro documentos**: que falta para que una IA local corra dentro de BMO-X, y donde estan de verdad los meses |
-| [`PLAN_SUELO_RING3.md`](plan/PLAN_SUELO_RING3.md) | las tres cosas que hay que construir ANTES de bajar nada de Ring 0 |
+| [`PLAN_EL_ASISTENTE.md`](plan/en_pausa/PLAN_EL_ASISTENTE.md) | **fusiona cuatro documentos**: que falta para que una IA local corra dentro de BMO-X, y donde estan de verdad los meses |
+| [`PLAN_SUELO_RING3.md`](plan/terminado/PLAN_SUELO_RING3.md) | las tres cosas que hay que construir ANTES de bajar nada de Ring 0 |
 | [`PLAN_MEDIOS.md`](plan/PLAN_MEDIOS.md) | VLC medido: es Nivel 3, y lo que se pide detras del nombre son cuatro escalones |
 | [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](plan/PLAN_LA_RAM_SALE_DEL_KERNEL.md) | **medido**: 1.716 de las 2.928 lineas de `mm/` no tienen ni un `asm!`, y el unico rastro de x86-64 en `titular/` es una palabra en un comentario |
 

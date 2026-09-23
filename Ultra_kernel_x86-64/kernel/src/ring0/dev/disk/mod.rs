@@ -718,7 +718,7 @@ pub fn flush() -> bool {
 
 /// **La particion vive en `bmo-particiones`**, no aqui.
 ///
-/// Se fue en el paso 1 de `docs/plan/PLAN_ALMACENAMIENTO.md`. El criterio: de las
+/// Se fue en el paso 1 de `docs/plan/terminado/PLAN_ALMACENAMIENTO.md`. El criterio: de las
 /// siete preguntas que respondia este fichero, dos **no tocan hardware**, y
 /// "donde estan las cosas" es una de ellas -- leer una GPT es leer un formato
 /// ajeno, igual que una cabecera BEF.

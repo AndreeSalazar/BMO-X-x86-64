@@ -31,7 +31,7 @@ pub enum FsType {
 /// declara el contrato de bloques de BMO --leer, escribir, capacidad,
 /// identidad, `flush`-- y FAT32 lo esquivaba con una puerta propia. Un
 /// contrato con puertas traseras no es un contrato; medido en
-/// `docs/plan/PLAN_ALMACENAMIENTO.md`, seccion 0.1.
+/// `docs/plan/terminado/PLAN_ALMACENAMIENTO.md`, seccion 0.1.
 ///
 /// Lo que se gana al entrar por la puerta:
 ///

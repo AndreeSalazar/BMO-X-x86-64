@@ -578,12 +578,12 @@ y `musica.inti` lo tenia igual desde el primer dia.
 
 El latido ahora se acompasa a **`MFINDEX`**, el reloj con el que el propio xHC
 sirve los isocronos, y repone solo lo servido. Detalle y tabla en
-[`METAL_2026-09-18.md`](../metal/METAL_2026-09-18.md) 3e-sexies.
+[`METAL_2026-09-18.md`](../../metal/METAL_2026-09-18.md) 3e-sexies.
 
 ## [X] 5.3e -- LOS EFECTOS SUBIAN A 48 kHz EN ESCALONES (2026-09-22)
 
 Con el maestro a +24 dB el propietario oyo *"pelea y tirones"*. Parte era el
-limite (ver S4c de [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md)), y parte era
+limite (ver S4c de [`PLAN_EL_SONIDO.md`](../PLAN_EL_SONIDO.md)), y parte era
 esto: `bmo_snd_mezclar` tomaba la muestra de `pos >> 16` a secas, asi que cada
 muestra de 11.025 Hz se repetia ~4,35 veces. Un escalon son agudos que el
 sonido no tenia -- un rechinar que +24 dB sube igual que todo.
@@ -972,7 +972,7 @@ Con la pantalla libre --shell de Ring 0 o `presta`-- nada cambia.
 que DOOM siempre habria encontrado la pantalla libre. Un programa que ademas
 sabe componerse (`MI_PADRE`) ya no la lleva; `tests/bandera_de_pantalla.rs`
 son las primeras filas que esa bandera tuvo en el banco. Prueba en metal: V1 de
-`../metal/METAL_2026-09-10.md`.
+`../../metal/METAL_2026-09-10.md`.
 
 Lo que se paga, dicho: escala fija x3 (Bloq Despl no aplica), F12 no aplica,
 Alt es del escritorio (el ladeo con Alt+flecha no llega), y el coste de que el
@@ -1008,7 +1008,7 @@ icono por defecto seria un cuadro macizo con una `D`.
 
 ---
 
-Ver [`QUE_DESBLOQUEA.md`](../identidad/QUE_DESBLOQUEA.md) para el censo, `AVANCES.md` para el
+Ver [`QUE_DESBLOQUEA.md`](../../identidad/QUE_DESBLOQUEA.md) para el censo, `AVANCES.md` para el
 estado y `BMO-externo/doom-port/` (fuera del repo) para la sonda y el unity.
 
 
@@ -1160,4 +1160,4 @@ campo del offset 0 es `size`.
 
 [!] El peldano 3 no puede llegar al disco mientras L6a pare el build. **No es
 una dependencia de DOOM: es la puerta de al lado**, y esta escrita en la seccion
-0 de `../metal/METAL_2026-08-23.md`.
+0 de `../../metal/METAL_2026-08-23.md`.

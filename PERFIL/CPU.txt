@@ -146,7 +146,7 @@ LO QUE ESTE PERFIL SABE Y NO SE USA
 
   ** El 5600X SOBRA TRES VECES para un modelo de 7B en Q4. El limite de una IA
   local en esta maquina es el ancho de MEMORIA, no el calculo -- ver RAM.txt y
-  docs/plan/PLAN_EL_ASISTENTE.md, seccion 8.
+  docs/plan/en_pausa/PLAN_EL_ASISTENTE.md, seccion 8.
 
   Y AXION sabe APAGAR nucleos y no encenderlos: falta MWAIT. Hoy no hay trabajo
   pesado que repartir, asi que no bloquea nada.

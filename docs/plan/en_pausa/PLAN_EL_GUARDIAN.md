@@ -34,7 +34,7 @@ que ellos hicieron con la placa base entera.
 | superficie minima | dos syscalls y capabilities es exactamente lo que quieres en algo que tiene que ser de fiar |
 | **LEY 24: el hardware se PERFILA** | en una tarjeta TU eliges el hardware. Una placa, un perfil. Se acaba la matriz infinita |
 | `NEUTRO/` | *"lo que BMO-X no controla"* -- en una DPU el NEUTRO **es el host**, y estas aislado de el por construccion |
-| otra arquitectura de CPU | ya esta previsto: [`NEUTRO/ARQUITECTURAS.md`](../../NEUTRO/ARQUITECTURAS.md) se escribio para esto |
+| otra arquitectura de CPU | ya esta previsto: [`NEUTRO/ARQUITECTURAS.md`](../../../NEUTRO/ARQUITECTURAS.md) se escribio para esto |
 
 ## ★★ Y la inversion que hace grande la idea
 

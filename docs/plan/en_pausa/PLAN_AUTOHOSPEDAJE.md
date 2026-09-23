@@ -310,9 +310,9 @@ cara de C.
 
 ---
 
-Ver [`EL_ORQUESTAL.md`](../identidad/EL_ORQUESTAL.md) (por que la autoridad no
+Ver [`EL_ORQUESTAL.md`](../../identidad/EL_ORQUESTAL.md) (por que la autoridad no
 viaja, y los otros siete sitios del celo),
-[`VALKYRIE-ABI/README.md`](../../VALKYRIE-ABI/README.md) (que se promete, y la
-frase que el escalon 8 enmienda), [`BRECHA.md`](../../toolchain/lang/c/BRECHA.md)
+[`VALKYRIE-ABI/README.md`](../../../VALKYRIE-ABI/README.md) (que se promete, y la
+frase que el escalon 8 enmienda), [`BRECHA.md`](../../../toolchain/lang/c/BRECHA.md)
 (lo que le falta a C, que es otro frente) y
-[`PLAN_REX.md`](PLAN_REX.md) (las cabeceras con las que se escribe una app).
+[`PLAN_REX.md`](../PLAN_REX.md) (las cabeceras con las que se escribe una app).

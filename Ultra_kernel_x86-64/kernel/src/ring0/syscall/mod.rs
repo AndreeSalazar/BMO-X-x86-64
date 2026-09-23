@@ -1050,7 +1050,7 @@ fn wait(frame: &TrapFrame) -> BmoStatus {
         //
         // ** Y esto es la pieza que faltaba para bajar un driver a Ring 3. La
         // fuente es el reloj porque es la unica que no pide un aparato -- ver
-        // la decision 3 de `docs/plan/PLAN_SUELO_RING3.md`. El dia que la
+        // la decision 3 de `docs/plan/terminado/PLAN_SUELO_RING3.md`. El dia que la
         // fuente sea la IRQ de una tarjeta, este brazo no cambia: cambia quien
         // llama a `tic()`.
         // *** UN BLOQUE PRESTADO ES ESPERABLE (2026-09-21, PLAN_LA_VIDA_UTIL 7).

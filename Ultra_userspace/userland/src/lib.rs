@@ -146,7 +146,7 @@ pub const OP_AUDIO_CENSO: u32 = 0x28;
 // -- S1 del suelo de Ring 3: la ventana de un aparato ----------------------
 //
 // *** El argumento es QUE APARATO, y no una direccion. Ver
-// `docs/plan/PLAN_SUELO_RING3.md`: un proceso que pudiera nombrar una fisica
+// `docs/plan/terminado/PLAN_SUELO_RING3.md`: un proceso que pudiera nombrar una fisica
 // estaria pidiendo ser el kernel.
 
 /// **Toma la ventana de registros de un aparato.** `arg0` = cual (0 = xHCI).

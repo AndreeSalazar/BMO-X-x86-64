@@ -493,7 +493,7 @@ que parecia:
 
 Y lo que se oia como tirones tenia un cuarto socio en DOOM: sus efectos suben
 de 11.025 a 48.000 Hz en ESCALONES, y +24 dB subia tambien ese rechinar. Ver
-[`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3e.
+[`PLAN_DOOM.md`](terminado/PLAN_DOOM.md) 5.3e.
 
 Lo que el panel dice ahora: la fila `aplasta` es lo MAS que el limite bajo en
 la ventana (antes, lo del instante de cerrarla, que solia ser la cola), en
@@ -510,7 +510,7 @@ fuerza"*.
 **14:26, contestado**: `en marcha 3.626`, `tirones 29`, `el mas largo 1.420 ms`
 y `tarde 0`. Los tirones SON de verdad y NO son del kernel ni del aparato: son
 del mezclador de DOOM, que solo se rellenaba desde el fotograma. La pieza, en
-[`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3f. El `limite -5,2 dB` de ese `save` NO es lo
+[`PLAN_DOOM.md`](terminado/PLAN_DOOM.md) 5.3f. El `limite -5,2 dB` de ese `save` NO es lo
 que aplasto en partida: es donde se quedo el limite cuando DOOM callo (en
 silencio no pasaba onda y no se movia). **Arreglado en la pieza**: el silencio
 pasa ahora por el limite, que suelta con su relajo, y el maestro vuelve al
@@ -571,7 +571,7 @@ el anillo cero. Aqui no aplican --Ring 0 cerrado, crate `forbid(unsafe_code)`,
 16 voces acotadas-- **mientras ningun efecto enchufable entre en Ring 0**. Esa
 es la condicion de esta casilla.
 
-Detalle, piezas y la tabla del metal: [`PLAN_DOOM.md`](PLAN_DOOM.md) 5.3g.
+Detalle, piezas y la tabla del metal: [`PLAN_DOOM.md`](terminado/PLAN_DOOM.md) 5.3g.
 
 ## [ ] S5 -- PANORAMA Y DISTANCIA: el sonido tiene un SITIO (2D)
 
