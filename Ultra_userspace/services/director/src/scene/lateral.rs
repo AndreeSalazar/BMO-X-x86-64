@@ -565,25 +565,66 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
         let gy = y + RENGLON;
         p.rect(x0, gy, gw, GRAF_ALTO, e.barra_fondo);
         p.rect(x0, gy + GRAF_ALTO - 1, gw, 1, e.barra_borde);
-        // La escala: fija donde el numero tiene techo (%), y si no, la mayor
-        // de la ventana con aire -- una grafica que siempre toca el techo no
-        // dice nada, y una que nunca sube tampoco.
-        let techo = match i {
-            CPU | SONIDO => 100,
-            _ => {
-                let mut m = 1u32;
-                for &v in hist.iter() {
-                    m = m.max(v);
-                }
-                m + m / 4 + 1
-            }
-        };
+        // ** LA ESCALA, POR LO QUE EL NUMERO ES (23-09).
+        //
+        // Antes, todo lo que no era un % se dibujaba en barras desde cero con
+        // techo "la mayor de la ventana, con aire". Con un numero que no se
+        // mueve eso es una barra al 80 %: el Ryzen pintaba `memoria 31M` casi
+        // llena con 14,8 GiB libres, y `vatios 57.0` igual. Una barra DICE
+        // cuanto es de su techo, y aquel techo no era de nada.
+        //
+        //   con techo de verdad   barras desde cero hasta ESE techo: la cpu y
+        //                         el sonido (100), la memoria (la RAM que hay)
+        //   sin techo             una LINEA en su propia ventana: dice como
+        //                         se MUEVE, que es lo que se puede decir. Los
+        //                         vatios (el techo del paquete no se pregunta,
+        //                         y uno de catalogo lo prohibe `cpu/power.rs`)
+        //                         y el pulso.
         let llenas = unsafe { LLENAS };
-        for (k, &v) in hist.iter().enumerate() {
-            if k + llenas < HISTORIA {
+        let vistas = || hist.iter().enumerate().filter(move |&(k, _)| k + llenas >= HISTORIA);
+        let techo = match i {
+            CPU | SONIDO => Some(100),
+            MEM => Some((total / (1024 * 1024)).max(1) as u32),
+            _ => None,
+        };
+        let Some(techo) = techo else {
+            // La ventana: de la menor a la mayor, con un margen que no baja de
+            // la RESOLUCION del instrumento. Sin ese suelo, un numero quieto
+            // haria del ruido de la ultima cifra una sierra.
+            let resolucion = if i == VATIOS { 50 } else { 25 }; // 5,0 W; 25 vueltas/s
+            let (mut lo, mut hi) = (u32::MAX, 0u32);
+            for (_, &v) in vistas() {
+                lo = lo.min(v);
+                hi = hi.max(v);
+            }
+            if lo > hi {
                 continue;
             }
-            let h = (v.min(techo) * (GRAF_ALTO - 2) / techo).max(if v > 0 { 1 } else { 0 });
+            let margen = ((hi - lo) / 4).max(resolucion);
+            let base = lo.saturating_sub(margen);
+            let rango = (hi + margen - base).max(1);
+            let alto = GRAF_ALTO - 3;
+            let y_de = |v: u32| gy + GRAF_ALTO - 3 - (v - base) * alto / rango;
+            let mut antes: Option<u32> = None;
+            for (k, &v) in vistas() {
+                let y = y_de(v);
+                // Del punto anterior a este, en vertical: un salto se ve entero
+                // y no como dos puntos sueltos.
+                let (a, z) = match antes {
+                    Some(p0) if p0 < y => (p0, y),
+                    Some(p0) => (y, p0),
+                    None => (y, y),
+                };
+                p.rect(x0 + k as u32 * 2, a, 2, z - a + 2, acento());
+                antes = Some(y);
+            }
+            continue;
+        };
+        for (k, &v) in vistas() {
+            let h = (v.min(techo) as u64 * (GRAF_ALTO - 2) as u64 / techo as u64) as u32;
+            // Lo que existe y no llega a un pixel se ve como UNO: una memoria
+            // de 31 MiB no es una memoria vacia.
+            let h = h.max(if v > 0 { 1 } else { 0 });
             if h == 0 {
                 continue;
             }
