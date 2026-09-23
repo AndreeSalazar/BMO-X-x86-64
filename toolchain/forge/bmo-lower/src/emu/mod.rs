@@ -117,6 +117,8 @@ mod sistema;
 /// **VEX**: la codificacion de AVX2. Aparte porque es otra codificacion, no
 /// mas instrucciones -- ver la cabecera de `vex.rs`.
 mod vex;
+/// **SSE escalar**, doble (`sd`) y simple (`ss`): ver la cabecera de `sse.rs`.
+mod sse;
 /// Un `.bex` entero montado como lo monta el cargador (el metro lo usa).
 mod cargar;
 mod paginas;
@@ -460,6 +462,14 @@ pub struct Machine {
     /// escriba hacia atras en el Ryzen. Si algun dia un emisor pone `std` y se
     /// olvida el `cld`, aqui se ve.
     df: bool,
+    /// ** El ANCHO de la instruccion en curso (1, 2, 4 u 8 bytes), para las
+    /// banderas (2026-09-23). Hasta hoy se calculaban SIEMPRE sobre 64 bits:
+    /// `cmp eax, 0x80000000` extendia el inmediato con signo a
+    /// `0xFFFFFFFF80000000`, lo comparaba con `eax` extendido con ceros, y
+    /// decia "distinto" donde el silicio dice "igual" -- y `jl`/`jg` sobre 32
+    /// bits con el bit alto puesto salian al reves. Lo destapo el emisor de
+    /// SPIR-V, el primero que compara en 32 bits con signo.
+    ancho_op: usize,
 }
 
 impl Machine {
@@ -516,6 +526,7 @@ impl Machine {
             cf: false,
             pf: false,
             df: false,
+            ancho_op: 8,
         };
         m.regs[RSP] = STACK_TOP;
         m
@@ -608,14 +619,26 @@ impl Machine {
     }
 
     /// Flags de una resta `a - b`, que es lo que produce `cmp`.
+    /// `(mascara, bit de signo)` del ancho de la instruccion en curso.
+    fn mascara(&self) -> (u64, u64) {
+        match self.ancho_op {
+            1 => (0xFF, 0x80),
+            2 => (0xFFFF, 0x8000),
+            4 => (0xFFFF_FFFF, 0x8000_0000),
+            _ => (u64::MAX, 1 << 63),
+        }
+    }
+
     fn flags_sub(&mut self, a: u64, b: u64) {
-        let r = a.wrapping_sub(b);
+        let (m, signo) = self.mascara();
+        let (a, b) = (a & m, b & m);
+        let r = a.wrapping_sub(b) & m;
         self.zf = r == 0;
-        self.sf = (r as i64) < 0;
+        self.sf = r & signo != 0;
         self.cf = a < b;
         // Overflow con signo: los operandos difieren en signo y el
         // resultado toma el del sustraendo.
-        self.of = ((a ^ b) & (a ^ r)) >> 63 != 0;
+        self.of = ((a ^ b) & (a ^ r)) & signo != 0;
         self.paridad(r);
     }
 
@@ -631,13 +654,15 @@ impl Machine {
     /// nunca desborda -- que es la peor respuesta posible, porque hace pasar el
     /// test que deberia fallar.
     fn flags_add(&mut self, a: u64, b: u64) {
-        let r = a.wrapping_add(b);
+        let (m, signo) = self.mascara();
+        let (a, b) = (a & m, b & m);
+        let r = a.wrapping_add(b) & m;
         self.zf = r == 0;
-        self.sf = (r as i64) < 0;
+        self.sf = r & signo != 0;
         self.cf = r < a;
         // Con signo: si los dos operandos tienen el mismo signo y el resultado
         // sale con el contrario, se paso de la cuenta.
-        self.of = ((!(a ^ b)) & (a ^ r)) >> 63 != 0;
+        self.of = ((!(a ^ b)) & (a ^ r)) & signo != 0;
         self.paridad(r);
     }
 
@@ -661,8 +686,10 @@ impl Machine {
     }
 
     fn flags_logic(&mut self, r: u64) {
+        let (m, signo) = self.mascara();
+        let r = r & m;
         self.zf = r == 0;
-        self.sf = (r as i64) < 0;
+        self.sf = r & signo != 0;
         self.cf = false;
         self.of = false;
         self.paridad(r);
@@ -868,6 +895,7 @@ impl Machine {
         let rex_r = ((rex >> 2) & 1) as usize;
         let rex_x = ((rex >> 1) & 1) as usize;
         let rex_b = (rex & 1) as usize;
+        self.ancho_op = ancho;
 
         match byte {
             // push <reg> / pop <reg>
@@ -917,6 +945,7 @@ impl Machine {
                 let a = self.load(dst, false) & 0xFF;
                 let b = self.read_reg(reg, false) & 0xFF;
                 let r = if byte == 0x20 { a & b } else { a | b };
+                self.ancho_op = 1;
                 self.flags_logic(r);
                 self.store_u8(dst, r);
             }
@@ -1236,6 +1265,7 @@ impl Machine {
                 let (reg, dst) = self.modrm(rex_r, rex_x, rex_b);
                 let a = self.load_u8(dst) & 0xFF;
                 let b = self.regs[reg] & 0xFF;
+                self.ancho_op = 1;
                 self.flags_logic(a & b);
             }
             // mov r/m8, imm8
@@ -1249,6 +1279,7 @@ impl Machine {
                 let (ext, dst) = self.modrm(0, rex_x, rex_b);
                 let imm = self.fetch_u8() as u64;
                 let a = self.load_u8(dst);
+                self.ancho_op = 1;
                 match ext & 7 {
                     7 => self.flags_sub(a, imm),
                     other => panic!("grupo 80 /{other} no emitido por BMO"),
@@ -1384,234 +1415,9 @@ impl Machine {
                 match second {
                     0x05 => self.do_syscall(),
 
-                    // == SSE ESCALAR ======================================
-                    //
-                    // Las catorce que BMO C emite para `float` y `double`, y
-                    // ni una mas. Hasta hoy **ninguna se ejecutaba**: los 9
-                    // tests de coma flotante comparaban ventanas de bytes, que
-                    // es el metodo que la cabecera de este archivo declara
-                    // insuficiente. La ruta compilaba, daba verde, y ningun
-                    // CPU la habia corrido.
-                    //
-                    // El prefijo decide el ancho, que es como funciona SSE:
-                    // `F2` escalar doble, `F3` escalar simple, `66` entero
-                    // empaquetado o comparacion ordenada.
-
-                    // movsd/movss xmm, r/m -- CARGA
-                    0x10 if f2 || f3 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = match src {
-                            Operand::Reg(r) => self.xmm[r],
-                            Operand::Mem(a) => {
-                                if f3 {
-                                    // `movss` carga 32 bits y **pone a cero el
-                                    // resto** cuando viene de memoria. Desde
-                                    // otro registro no lo haria; aqui solo se
-                                    // emite desde memoria.
-                                    (self.read_u64(a) & 0xFFFF_FFFF) as u32 as u64
-                                } else {
-                                    self.read_u64(a)
-                                }
-                            }
-                        };
-                        self.xmm[reg] = v;
-                    }
-                    // movsd/movss r/m, xmm -- ALMACENA
-                    0x11 if f2 || f3 => {
-                        let (reg, dst) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = self.xmm[reg];
-                        match dst {
-                            Operand::Reg(r) => self.xmm[r] = v,
-                            // * El ancho importa: `movss` escribe CUATRO
-                            // bytes. Escribir ocho pisaria el vecino, que es
-                            // exactamente el bug que este emulador ya se comio
-                            // una vez con `mov [mem], eax`.
-                            Operand::Mem(a) => self.store(Operand::Mem(a), v, if f3 { 4 } else { 8 }),
-                        }
-                    }
-                    // ** sqrtsd / minsd / maxsd -- las que un motor grafico
-                    // pide y `+ - * /` no dan (2026-08-22).
-                    //
-                    // La raiz es UNARIA y las otras dos binarias, pero las tres
-                    // comparten la forma: destino izquierdo, fuente derecha. Se
-                    // modelan aqui y no en un bloque aparte porque separarlas
-                    // seria repetir el `modrm` y el orden de los operandos --
-                    // que es justo donde este emulador ya se equivoco una vez.
-                    //
-                    // *** `minsd`/`maxsd` NO son conmutativas ante un NaN: el
-                    // silicio devuelve el operando FUENTE si cualquiera de los
-                    // dos es NaN. Se modela asi a proposito, aunque sorprenda:
-                    // un emulador que "arregla" al procesador es un emulador que
-                    // aprueba programas que el metal suspende.
-                    0x51 | 0x5D | 0x5F if f2 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let b = f64::from_bits(self.leer_xmm(src));
-                        let a = f64::from_bits(self.xmm[reg]);
-                        let r = match second {
-                            0x51 => b.sqrt(),
-                            0x5D => {
-                                if a.is_nan() || b.is_nan() || b < a {
-                                    b
-                                } else {
-                                    a
-                                }
-                            }
-                            _ => {
-                                if a.is_nan() || b.is_nan() || b > a {
-                                    b
-                                } else {
-                                    a
-                                }
-                            }
-                        };
-                        self.xmm[reg] = r.to_bits();
-                    }
-                    // addsd / mulsd / subsd / divsd
-                    0x58 | 0x59 | 0x5C | 0x5E if f2 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let b = f64::from_bits(self.leer_xmm(src));
-                        let a = f64::from_bits(self.xmm[reg]);
-                        // El orden NO es conmutativo en dos de las cuatro, y
-                        // ese fue el bug que el banco de pruebas ya cazo una
-                        // vez en los enteros: el destino es el operando
-                        // IZQUIERDO.
-                        let r = match second {
-                            0x58 => a + b,
-                            0x59 => a * b,
-                            0x5C => a - b,
-                            _ => a / b,
-                        };
-                        self.xmm[reg] = r.to_bits();
-                    }
-                    // cvtsd2ss (F2) / cvtss2sd (F3) -- cambiar de precision
-                    0x5A if f2 || f3 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = self.leer_xmm(src);
-                        self.xmm[reg] = if f2 {
-                            // double -> float: **se pierde precision aqui**, y
-                            // tiene que perderse. Guardar el double en un
-                            // `float` y leerlo daria mas digitos de los que
-                            // caben, y el test no veria lo que ve el silicio.
-                            (f64::from_bits(v) as f32).to_bits() as u64
-                        } else {
-                            (f32::from_bits(v as u32) as f64).to_bits()
-                        };
-                    }
-                    // comisd -- comparar y dejar el resultado en las BANDERAS
-                    0x2F if op16 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let b = f64::from_bits(self.leer_xmm(src));
-                        let a = f64::from_bits(self.xmm[reg]);
-                        // * `comisd` pone ZF/CF/PF, **no** SF ni OF, y por eso
-                        // los saltos que le siguen son los SIN SIGNO (`ja`,
-                        // `jb`), no `jg`/`jl`. Modelarlo con SF seria hacer
-                        // pasar codigo que en el silicio salta al reves.
-                        //
-                        // No-ordenado (algun NaN) pone las TRES a 1, `pf`
-                        // incluida.
-                        //
-                        // ** Esto decia "no pasa hoy" hasta que INTI empezo a
-                        // comparar flotantes. Ahora pasa, y `pf` es la unica
-                        // bandera que distingue un NaN de una igualdad: sin
-                        // ella, `a = b` con un NaN dentro contesta que si --
-                        // porque el no-ordenado enciende `zf` igual que la
-                        // igualdad de verdad.
-                        if a.is_nan() || b.is_nan() {
-                            self.zf = true;
-                            self.cf = true;
-                            self.pf = true;
-                        } else {
-                            self.zf = a == b;
-                            self.cf = a < b;
-                            self.pf = false;
-                        }
-                        self.sf = false;
-                        self.of = false;
-                    }
-                    // xorpd xmm, xmm -- el cero de la coma flotante
-                    0x57 if op16 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = self.leer_xmm(src);
-                        self.xmm[reg] ^= v;
-                    }
-                    // movq xmm, r64 -- los BITS de un entero, tal cual
-                    //
-                    // * NO es una conversion: es como BMO C mete un literal
-                    // `double` en un registro SSE. El compilador pone los bits
-                    // del numero en `rax` con un `mov imm64` y los mueve aqui
-                    // sin tocarlos. Confundir esto con `cvtsi2sd` daria
-                    // `4614256656552045848.0` donde tiene que haber `3.14`.
-                    //
-                    // Tambien lo usa la NEGACION, que en coma flotante es un
-                    // `xor` con el bit de signo -- no una resta contra cero,
-                    // que daria `-0.0` mal para el cero.
-                    0x6E if op16 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = self.load(src, wide);
-                        self.xmm[reg] = if wide { v } else { v & 0xFFFF_FFFF };
-                    }
-                    // movq r64, xmm / movd r32, xmm -- el camino de VUELTA
-                    //
-                    // * La hermana de `0x6E`, y la que faltaba: aquella mete
-                    // bits en un registro SSE, esta los saca. Es como BMO C
-                    // pasa un `double` a una funcion -- los argumentos van por
-                    // la PILA, asi que el valor tiene que bajar de `xmm0` a un
-                    // registro entero para poder empujarlo.
-                    //
-                    // Ojo al reparto de campos: aqui el operando de ModRM que
-                    // manda es el `reg`, y **es el XMM**; el destino entero es
-                    // el `r/m`. Al reves que en casi todo lo demas, y por eso
-                    // se escribe explicito.
-                    0x7E if op16 => {
-                        let (reg, dst) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = self.xmm[reg];
-                        // Sin REX.W son cuatro bytes: un `float`, no un
-                        // `double`. Llevarse los ocho seria arrastrar la mitad
-                        // alta de la mantisa a un registro que declara 32 bits.
-                        let bytes = if wide { 8 } else { 4 };
-                        self.store(dst, if wide { v } else { v & 0xFFFF_FFFF }, bytes);
-                    }
-                    // cvtsi2sd xmm, r64 -- entero con signo a double
-                    0x2A if f2 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        // CON SIGNO: `-1` tiene que dar `-1.0` y no
-                        // 18446744073709551615.0.
-                        let v = self.load(src, true) as i64;
-                        self.xmm[reg] = (v as f64).to_bits();
-                    }
-                    // cvttsd2si r64, xmm -- double a entero, TRUNCANDO
-                    0x2C if f2 => {
-                        let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
-                        let v = f64::from_bits(self.leer_xmm(src));
-                        // `cvtt` trunca hacia cero; `cvt` (0x2D) redondearia.
-                        // BMO solo emite el que trunca, que es lo que manda C
-                        // para un cast a entero: `(int)2.7` son 2.
-                        //
-                        // ** Y LO QUE PASA CUANDO NO CABE, que estaba mal.
-                        //
-                        // Esto escribia `v as i64` a secas, que en Rust
-                        // **satura**: 1e30 daba el entero mas grande y un NaN
-                        // daba cero. El silicio no hace ninguna de las dos:
-                        // devuelve el entero mas NEGATIVO como centinela, para
-                        // los dos casos y sin levantar nada.
-                        //
-                        // La diferencia no es academica. Es la unica signal que
-                        // el procesador da de que la conversion no cabia, asi
-                        // que **es la que la Regla 12 de INTI tiene que mirar**.
-                        // Con la version que satura, un programa que comprueba
-                        // el centinela pasaba aqui y atrapaba en metal -- o al
-                        // reves, que es peor.
-                        //
-                        // Es exactamente la clase de fallo que este emulador
-                        // existe para no tener: uno donde el banco dice que si
-                        // y el Ryzen dice que no.
-                        let r = if v.is_nan() || v >= 9223372036854775808.0 || v < -9223372036854775808.0
-                        {
-                            i64::MIN
-                        } else {
-                            v as i64
-                        };
-                        self.write_reg(reg, r as u64, true);
+                    // == SSE ESCALAR: doble Y simple, en `sse.rs` (2026-09-23) ==
+                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x57..=0x5F | 0x6E | 0x7E => {
+                        self.sse(second, sse::Prefijos { f2, f3, op16, wide, rex_r, rex_x, rex_b })
                     }
                     // movsx reg, r/m8 -- carga un char CON signo
                     0xBE => {

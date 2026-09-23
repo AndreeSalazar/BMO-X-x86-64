@@ -28,3 +28,13 @@ impl Machine {
         self.mem.insert(addr, b);
     }
 }
+
+impl Machine {
+    /// Escribe bytes en memoria: lo que una prueba siembra ENTRE dos llamadas
+    /// (2026-09-23, el emisor de SPIR-V).
+    pub fn escribir(&mut self, addr: u64, bytes: &[u8]) {
+        for (i, b) in bytes.iter().enumerate() {
+            self.escribe(addr + i as u64, *b);
+        }
+    }
+}

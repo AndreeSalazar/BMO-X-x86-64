@@ -62,3 +62,17 @@ pub fn cargar_bex(bex: &[u8]) -> Result<Machine, String> {
     m.solo_lectura = solo_lectura;
     Ok(m)
 }
+
+impl Machine {
+    /// ** LLAMAR a una funcion del codigo cargado (2026-09-23, el emisor de
+    /// SPIR-V): empuja como direccion de vuelta el FINAL del codigo y salta a
+    /// `rip`. Cuando la funcion hace `ret`, `run` se para solo -- es la forma
+    /// de ejecutar un trozo sin fingir un programa entero con su `exit`.
+    pub fn llamar(&mut self, rip: usize) {
+        let fin = self.code.len() as u64;
+        self.regs[super::RSP] = self.regs[super::RSP].wrapping_sub(8);
+        let sp = self.regs[super::RSP];
+        self.escribir(sp, &fin.to_le_bytes());
+        self.rip = rip;
+    }
+}
