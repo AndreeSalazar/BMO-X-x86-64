@@ -386,6 +386,12 @@ const INFO_DISCO_COLA_SECTORES: u64 = 0x46;
 const INFO_DISCO_TRIM_BLOQUES: u64 = 0x47;
 /// Por que fallo el ultimo recorte: `(clase << 32) | PxTFD`. 0 = ninguno.
 const INFO_DISCO_TRIM_FALLO: u64 = 0x48;
+/// ** P0 y D0 del disco (23-09): el HBA, la cache y el metro. Espejo de
+/// `bmo_abi::...::INFO_DISCO_HBA` y siguientes; el empaquetado se documenta alli.
+const INFO_DISCO_HBA: u64 = 0x92;
+const INFO_DISCO_CACHE: u64 = 0x93;
+const INFO_DISCO_BANDA: u64 = 0x94;
+const INFO_DISCO_BANDA_ORDEN: u64 = 0x95;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -879,6 +885,10 @@ pub fn campo(n: u64) -> Option<u64> {
         // este componente el numero es lo unico que separa un ABRT de un
         // timeout, o sea dos conversaciones distintas.
         INFO_DISCO_TRIM_FALLO => crate::ring0::dev::disk::ultimo_fallo(),
+        INFO_DISCO_HBA => crate::ring0::dev::disk::hba(),
+        INFO_DISCO_CACHE => crate::ring0::dev::disk::cache(),
+        INFO_DISCO_BANDA => crate::ring0::dev::disk::banda(),
+        INFO_DISCO_BANDA_ORDEN => crate::ring0::dev::disk::banda_orden(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //
         // Cada uno lee un `static` y no recorre nada, asi que `info` sigue

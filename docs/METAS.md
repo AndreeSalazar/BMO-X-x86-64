@@ -95,6 +95,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | La deuda medida: `static mut`, el codegen de COBOL | ABIERTA | `plan/PLAN_LA_DEUDA.md` D2a (trinquete de `static mut`), D3a |
 | Los vatios: gastar poco y ACUSAR quien | ABIERTA | `plan/PLAN_VATIOS.md`: W0-W4 piden el vatimetro en el Ryzen; MWAIT solo llega a C1 |
 | El repartir la pila de disco | **HECHA** | `plan/PLAN_ALMACENAMIENTO.md`, cumplido |
+| Exprimir el disco por el PERFIL (LEY 24: el atomo decide, no la caja) | ABIERTA | `plan/PLAN_EXPRIMIR_EL_DISCO.md`: P0 (`CAP`, `PxSSTS`, cache 82-85) y D0 (`disco banda`, el metro de lectura) con codigo el 23-09, se cierran en metal; D1-D5 despues |
 | El perfil total de la maquina (8 escalones) | **HECHA** | `plan/PLAN_EL_PERFIL_TOTAL.md`, cumplido; `PERFIL/` con guardianes |
 | El suelo de Ring 3 (las tres piezas) | **HECHA** | `plan/PLAN_SUELO_RING3.md`, cumplido |
 | El semaforo completo (cada fichero dice su color) | ABIERTA | `plan/PLAN_EL_SEMAFORO_COMPLETO.md` S4-S6: 38 drivers, `platform/shared`, `platform/abi` |

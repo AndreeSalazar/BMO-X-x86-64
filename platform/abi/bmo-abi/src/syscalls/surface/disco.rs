@@ -39,6 +39,19 @@ pub const DISCO_OP_TRIM_LIBRE: u64 = 0x01;
 /// que hace comprobable esa frase.
 pub const DISCO_OP_BARRERA: u64 = 0x02;
 
+/// **EL METRO: leer y cronometrar.** `arg1` = MiB a leer (0 = 64, techo 1024).
+///
+/// Devuelve `(motivo << 56) | MB/s` con los motivos `DISCO_BANDA_*`, y deja el
+/// detalle en `INFO_DISCO_BANDA` y `INFO_DISCO_BANDA_ORDEN`.
+///
+/// ** SOLO LEE, y dentro de la particion de datos desde su principio. Es la
+/// primera cifra MEDIDA del perfil del disco (R-DISCO9, LEY 24): hasta el
+/// 23-09 todo lo que se sabia de su velocidad era la caja.
+///
+/// [!] Tiene el disco para si mientras mide: 64 MiB son ~130 ms en los que
+/// nadie mas lee. Lo pide una persona, avisada antes.
+pub const DISCO_OP_BANDA: u64 = 0x03;
+
 // -- Los motivos, en el byte alto de la respuesta ---------------------------
 
 /// Se hizo. `sectores` dice cuantos.
@@ -57,6 +70,21 @@ pub const DISCO_TRIM_RANGO: u64 = 5;
 /// de romperse: un recorte a medias no se deshace, y callarlo haria que el
 /// sistema volviera a mandar lo que ya estaba hecho.
 pub const DISCO_TRIM_FALLO: u64 = 6;
+
+// -- Los motivos del METRO (`DISCO_OP_BANDA`), en el mismo byte alto ---------
+
+/// Medido. Los bits bajos son los MB/s.
+pub const DISCO_BANDA_HECHA: u64 = 0;
+/// No hay disco listo.
+pub const DISCO_BANDA_SIN_DISCO: u64 = 1;
+/// No hay particion de datos reconocida: no se mide fuera de lo que es de BMO-X.
+pub const DISCO_BANDA_SIN_VOLUMEN: u64 = 2;
+/// No hubo ni 256 KiB contiguos para el bufer.
+pub const DISCO_BANDA_SIN_MEMORIA: u64 = 3;
+/// Una lectura fallo a medias. Si algo se leyo, la medida parcial SI se guarda.
+pub const DISCO_BANDA_FALLO: u64 = 4;
+/// El reloj (TSC) no esta calibrado: sin reloj no hay metro.
+pub const DISCO_BANDA_SIN_RELOJ: u64 = 5;
 
 /// Desplazamiento del motivo dentro de la respuesta.
 pub const DISCO_TRIM_MOTIVO_SHIFT: u64 = 56;

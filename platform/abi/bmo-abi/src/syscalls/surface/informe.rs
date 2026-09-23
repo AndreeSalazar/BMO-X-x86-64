@@ -1244,6 +1244,116 @@ pub const INFO_DISCO_TRIM_BLOQUES: u64 = 0x47;
 /// es la prueba y las palabras son la opinion.
 pub const INFO_DISCO_TRIM_FALLO: u64 = 0x48;
 
+// -- ** EL PERFIL DEL DISCO, COMPLETO: el otro extremo del cable y el metro --
+//
+// Paso P0 y D0 de exprimir el disco (2026-09-23). La LEY 24: una decision del
+// disco cita su ATOMO, y una cifra de la caja es de OTRO proyecto. Los cuatro
+// campos de arriba dicen lo que el DISCO contesta; estos dicen lo que la
+// CONTROLADORA ofrece, que hace el disco con lo que se le escribe, y cuanto
+// lee DE VERDAD en esta maquina.
+
+/// # `INFO_DISCO_HBA`: la controladora y su puerto, CRUDOS
+///
+/// ```text
+///    0..31   `CAP` del HBA, crudo
+///   32..43   `PxSSTS` del puerto del disco, crudo (DET 3:0, SPD 7:4, IPM 11:8)
+///   48..52   el puerto
+///   63       hay foto
+/// ```
+///
+/// ** Crudos a proposito: el registro es la prueba y las palabras la opinion.
+/// Lo que se lee del `CAP` (estandar AHCI 1.3.1):
+///
+/// ```text
+///    NP    4:0    puertos, -1          SNCQ  30   sabe encolar (NCQ)
+///    NCS  12:8    ranuras, -1          S64A  31   DMA a toda la RAM
+///    ISS  23:20   generacion maxima
+/// ```
+///
+/// El `SPD` del puerto es la generacion que negocio **el HBA**; la palabra 77
+/// (`INFO_DISCO_ENLACE`) es la que dice **el disco**. Son los dos extremos del
+/// mismo cable, y que discrepen es un hallazgo, no un redondeo.
+pub const INFO_DISCO_HBA: u64 = 0x92;
+
+pub const DISCO_HBA_CAP_MASK: u64 = 0xFFFF_FFFF;
+pub const DISCO_HBA_SSTS_SHIFT: u64 = 32;
+pub const DISCO_HBA_SSTS_MASK: u64 = 0xFFF;
+pub const DISCO_HBA_PUERTO_SHIFT: u64 = 48;
+pub const DISCO_HBA_PUERTO_MASK: u64 = 0x1F;
+pub const DISCO_HBA_HAY: u64 = 1 << 63;
+
+/// # `INFO_DISCO_CACHE`: la cache de escritura (palabras 82-85)
+///
+/// ```text
+///    0       la palabra 83 paso su guarda (sin ella, nada de abajo vale)
+///    1       cache de escritura volatil SOPORTADA   (82 bit 5)
+///    2       y ENCENDIDA ahora                      (85 bit 5)
+///    3       FLUSH CACHE EXT                        (83 bit 13)
+///    4       WRITE DMA FUA EXT                      (84 bit 6, con su guarda)
+///   16..31   la palabra 82 cruda
+///   32..47   la palabra 85 cruda
+///   48..63   la palabra 83 cruda
+/// ```
+///
+/// ** El bit 2 es el que decide la barrera (paso D5): con la cache APAGADA, un
+/// WRITE que vuelve OK ya esta en la NAND. Encendida y sin condensadores, el
+/// `FLUSH` es lo unico que separa aceptado de guardado.
+pub const INFO_DISCO_CACHE: u64 = 0x93;
+
+pub const DISCO_CACHE_VALIDA: u64 = 1 << 0;
+pub const DISCO_CACHE_SOPORTADA: u64 = 1 << 1;
+pub const DISCO_CACHE_ENCENDIDA: u64 = 1 << 2;
+pub const DISCO_CACHE_FLUSH_EXT: u64 = 1 << 3;
+pub const DISCO_CACHE_FUA: u64 = 1 << 4;
+pub const DISCO_CACHE_W82_SHIFT: u64 = 16;
+pub const DISCO_CACHE_W85_SHIFT: u64 = 32;
+pub const DISCO_CACHE_W83_SHIFT: u64 = 48;
+
+/// # `INFO_DISCO_BANDA`: la ultima LECTURA MEDIDA (`DISCO_OP_BANDA`)
+///
+/// ```text
+///    0..31   microsegundos que tardo el disco (solo las ordenes)
+///   32..47   MiB leidos
+///   48..55   % de sectores que traian datos
+///   56..63   cuantas veces se ha medido desde el arranque (satura en 255)
+/// ```
+///
+/// `0` = nunca se midio. MB/s = `MiB * 1.048.576 / us`.
+///
+/// ** El % de datos no es decoracion: un SSD contesta un sector que nunca se
+/// escribio **desde su mapa, sin leer la NAND**. Una banda medida sobre ceros
+/// no es la del disco, y quien la pinte tiene que poder decirlo.
+///
+/// [!] Es LECTURA. La escritura sostenida del perfil (`sostenido_mb_s`) es otra
+/// cifra: la de despues de agotar la cache SLC, y no se mide sin escribir
+/// decenas de GB.
+pub const INFO_DISCO_BANDA: u64 = 0x94;
+
+pub const DISCO_BANDA_US_MASK: u64 = 0xFFFF_FFFF;
+pub const DISCO_BANDA_MIB_SHIFT: u64 = 32;
+pub const DISCO_BANDA_MIB_MASK: u64 = 0xFFFF;
+pub const DISCO_BANDA_DATOS_SHIFT: u64 = 48;
+pub const DISCO_BANDA_DATOS_MASK: u64 = 0xFF;
+pub const DISCO_BANDA_VECES_SHIFT: u64 = 56;
+
+/// # `INFO_DISCO_BANDA_ORDEN`: como se repartio esa medida
+///
+/// ```text
+///    0..15   sectores por orden (8192 = una entrada de PRDT llena, 4 MiB)
+///   16..39   microsegundos de la orden MAS RAPIDA
+///   40..63   microsegundos de la MAS LENTA
+/// ```
+///
+/// ** La distancia entre las dos es el dato: si la lenta es muchas veces la
+/// rapida, el disco se paro a medio camino (recolector interno, mapa sin
+/// DRAM), y eso no lo dice la media.
+pub const INFO_DISCO_BANDA_ORDEN: u64 = 0x95;
+
+pub const DISCO_BANDA_ORDEN_SECTORES_MASK: u64 = 0xFFFF;
+pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
+pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
+pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
+
 /// Fabricante ("AMD"), nombre comercial, microarquitectura y familia/modelo.
 pub const INFO_TXT_CPU_VENDOR: u64 = 0x01;
 

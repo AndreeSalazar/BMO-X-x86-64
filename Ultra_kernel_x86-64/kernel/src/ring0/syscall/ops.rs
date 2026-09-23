@@ -414,6 +414,7 @@ pub(crate) const ES_GESTO_MAX: u64 = 96;
 /// convierte en un nombre de variable que se traga todos los casos.
 pub(crate) const DISCO_OP_TRIM_LIBRE: u64 = 0x01;
 pub(crate) const DISCO_OP_BARRERA: u64 = 0x02;
+pub(crate) const DISCO_OP_BANDA: u64 = 0x03;
 /// Los motivos que viajan en el byte alto de la respuesta. Espejo de
 /// `bmo_abi::...::DISCO_TRIM_*` -- un cero aqui y otro alli no son el mismo cero
 /// si alguien los desincroniza, y el sintoma seria un terminal que dice

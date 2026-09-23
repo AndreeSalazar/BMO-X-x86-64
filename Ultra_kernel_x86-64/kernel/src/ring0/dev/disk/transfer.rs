@@ -258,7 +258,7 @@ fn marcar_el_tramo(phys: u64, bytes: u64, poner: bool, cuando: u64) {
     }
 }
 
-fn mandar_lectura(lba: u64, count: u16, phys: u64, prestando: bool) -> Option<u16> {
+pub(super) fn mandar_lectura(lba: u64, count: u16, phys: u64, prestando: bool) -> Option<u16> {
     // == *** EL BIT EN VUELO (N4), Y ESTE ES SU PRIMER CLIENTE ============
     //
     // ** Se pone ANTES de mandar y se quita DESPUES de que el disco conteste.

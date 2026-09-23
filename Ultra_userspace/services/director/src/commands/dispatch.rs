@@ -98,6 +98,8 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
             (b"", _) => disco::cuadro(dsk, p),
             (b"espacio" | b"libre", _) => disco::solo_espacio(dsk, p),
             (b"barrera" | b"flush" | b"vacia", _) => disco::barrera(dsk, p),
+            // El metro SOLO LEE: una palabra basta, y el numero es cuanto.
+            (b"banda" | b"metro" | b"mide", arg) => disco::banda(dsk, p, arg),
             (b"trim" | b"recorta" | b"recortar", b"ya") => disco::trim_ya(dsk, p),
             (b"trim" | b"recorta" | b"recortar", b"") => disco::trim_propuesta(dsk, p),
             // `disco trim luego` no es "no lo conozco": es un `trim` con una

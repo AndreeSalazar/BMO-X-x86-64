@@ -61,7 +61,7 @@ pub mod padre;
 
 pub use abuelo::Identify;
 pub use hijo::Contraste;
-pub use padre::{Cola, Enlace, Geometria, Medio, Trim};
+pub use padre::{Cache, Cola, Enlace, Geometria, Medio, Trim};
 
 /// Todo lo que el aparato contesta, ya nombrado. **Ningun juicio.**
 ///
@@ -75,6 +75,9 @@ pub struct LoQueDiceElDisco {
     pub enlace: Enlace,
     pub geometria: Geometria,
     pub trim: Trim,
+    /// La cache de escritura y sus ordenes (82-85). No entra en el contraste:
+    /// lo que decide es el nieto, junto al perfil (condensadores).
+    pub cache: Cache,
 }
 
 impl LoQueDiceElDisco {
@@ -85,6 +88,7 @@ impl LoQueDiceElDisco {
             enlace: Enlace::de(id),
             geometria: Geometria::de(id),
             trim: Trim::de(id),
+            cache: Cache::de(id),
         }
     }
 

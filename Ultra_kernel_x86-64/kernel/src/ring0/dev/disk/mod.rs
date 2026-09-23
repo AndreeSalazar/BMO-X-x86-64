@@ -51,7 +51,7 @@ mod gate;
 // de verdad vive FUERA del kernel, en cuatro generaciones (L7): `bmo-identify`
 // para los hechos y `bmo-disco-juicio` para el veredicto. Aqui solo se pega.
 mod perfil;
-pub use perfil::{enlace, geometria, juicio, medio, trim_bloques_max};
+pub use perfil::{cache, enlace, geometria, hba, juicio, medio, trim_bloques_max};
 /// ** DEVOLVER SECTORES AL DISCO. Destructivo, asi que pasa por los MISMOS
 /// guardianes que escribir y por uno propio: lo que el aparato declaro.
 mod trim;
@@ -67,6 +67,9 @@ use owner::tomar_disco;
 /// MOVING THE BYTES: read, DMA, and the bounce buffer -- both paths counted.
 mod transfer;
 pub use transfer::{cuentas_dma, motivos_dma, read};
+/// THE DISK METER (D0): how fast THIS disk reads, measured here. Read only.
+mod banda;
+pub use banda::{banda, banda_orden, medir as medir_banda};
 
 pub const SECTOR: usize = 512;
 
@@ -477,6 +480,13 @@ fn identify() {
     // interpretar sin romper el reparto.
     let sector = unsafe { core::slice::from_raw_parts(src, 512) };
     perfil::tomar_foto(sector);
+    // ** Y EL OTRO EXTREMO DEL CABLE (P0, 23-09). El `CAP` del HBA vivia en un
+    // comentario de `arranque.rs` y el `PxSSTS` solo salia en el censo. Son los
+    // atomos con los que se decide la cola (32 ranuras, NCQ) y el techo del
+    // cable (la generacion que negocio el PUERTO, no la que dice el disco).
+    if let (Some(c), Some(ssts)) = (bmo_ahci::controller(), unsafe { bmo_ahci::port_ssts(PORT) }) {
+        perfil::tomar_foto_hba(c.cap, ssts, unsafe { PORT });
+    }
     // Y se dice en el arranque, con su cifra: el medio es lo primero que decide
     // como se le escribe a este aparato.
     let (que_es, cifra) = perfil::medio_en_palabras();

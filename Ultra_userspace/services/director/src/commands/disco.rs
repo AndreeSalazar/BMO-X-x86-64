@@ -39,7 +39,6 @@
 
 use bmo_userland as bmo;
 
-use super::reports::report_disco;
 use super::tabla::{campo, section};
 use super::After;
 use crate::desktop::Desktop;
@@ -54,6 +53,281 @@ use crate::paint_output;
 /// (`INFO_DISCO_TRIM_BLOQUES`, la palabra 105) y se pregunta. Multiplicar los
 /// dos da el numero REAL de ordenes, no un techo inventado en este lado.
 const SECTORES_POR_BLOQUE_DE_PAYLOAD: u64 = 64 * 65_535;
+
+/// ** EL DISCO: lo que CONTESTA, y luego lo que se concluye de ello.
+///
+/// El orden no es decorativo. Primero los hechos --gira, el cable, la
+/// geometria-- y **despues** el veredicto, porque asi se puede estar en
+/// desacuerdo con la conclusion sin perder la evidencia. Un veredicto que
+/// aparece sin lo que lo sostiene no se puede discutir, solo creer.
+///
+/// ** Y la primera linea es la que hasta el 2026-08-17 no existia: BMO-X le
+/// preguntaba al disco modelo, serie y capacidad, y **no sabia si giraba** --
+/// mientras el esquema de ESTRATOS razonaba sobre TRIM y la ley sobre colas.
+/// Ver `docs/componente/EL_DISCO_EXIGE.md`.
+///
+/// ** Es `pub(crate)` porque lo pintan tambien `save` (informe/DISCO.TXT) y la
+/// vista de ficheros. Copiarlo alli habria dado dos tablas del mismo aparato
+/// que se separan a la tercera vez que alguien toca una. Vivia en `reports.rs`
+/// y se mudo aqui el 23-09 (L6a): es la tabla de ESTE aparato.
+#[inline(never)]
+pub(crate) fn report_disco(s: &mut Output) {
+    let medio = bmo::info(bmo::INFO_DISCO_MEDIO);
+    let enlace = bmo::info(bmo::INFO_DISCO_ENLACE);
+    let geo = bmo::info(bmo::INFO_DISCO_GEOMETRIA);
+    let juicio = bmo::info(bmo::INFO_DISCO_JUICIO);
+
+    // Sin foto no se inventa nada: se dice que no la hay y se sale.
+    if medio == 0 && enlace == 0 && geo == 0 {
+        campo(s, b"identify");
+        s.with_ink(INK_ERR);
+        s.text(b"este kernel no lee las palabras del disco (o el IDENTIFY fallo)\n");
+        s.with_ink(INK_PLAIN);
+        return;
+    }
+
+    // -- EL MEDIO. Una palabra, y la frase SOLO cuando dice algo raro.
+    let clase = (medio >> bmo::DISCO_MEDIO_CLASE_SHIFT) & bmo::DISCO_MEDIO_CLASE_MASK;
+    let rpm = (medio >> bmo::DISCO_MEDIO_RPM_SHIFT) & bmo::DISCO_MEDIO_RPM_MASK;
+    campo(s, b"medium");
+    match clase {
+        bmo::DISCO_MEDIO_NO_ROTA => {
+            s.with_ink(INK_GOOD);
+            s.text(b"SSD");
+        }
+        bmo::DISCO_MEDIO_ROTA => {
+            s.text(b"HDD, ");
+            s.dec(rpm);
+            s.text(b" rpm   el ORDEN de los sectores manda");
+        }
+        bmo::DISCO_MEDIO_NO_CONTESTA => {
+            s.with_ink(INK_ERR);
+            s.text(b"el disco NO DICE si gira (217 = 0) -- no se asume nada");
+        }
+        _ => {
+            s.with_ink(INK_ERR);
+            s.text(b"la palabra 217 trae un valor RESERVADO: ");
+            s.hex(medio & bmo::DISCO_MEDIO_CRUDO_MASK, 4);
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
+    // -- EL CABLE. `soportado / negociado`, y nada mas cuando cuadran.
+    campo(s, b"link");
+    let mejor = if enlace & bmo::DISCO_ENLACE_GEN3 != 0 { 3 }
+        else if enlace & bmo::DISCO_ENLACE_GEN2 != 0 { 2 }
+        else if enlace & bmo::DISCO_ENLACE_GEN1 != 0 { 1 } else { 0 };
+    let nego = (enlace >> bmo::DISCO_ENLACE_NEGOCIADA_SHIFT)
+        & bmo::DISCO_ENLACE_NEGOCIADA_MASK;
+    s.text(b"SATA Gen");
+    s.dec(mejor);
+    if nego == 0 {
+        s.text(b" / el disco no dice a que va");
+    } else {
+        s.text(b" / Gen");
+        s.dec(nego);
+    }
+    if juicio & bmo::DISCO_JUICIO_ENLACE_BAJO != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"   POR DEBAJO");
+        s.with_ink(INK_PLAIN);
+    }
+    s.byte(b'\n');
+
+    // -- ** EL OTRO EXTREMO DEL CABLE: la controladora y su puerto (P0, 23-09).
+    //
+    // El `CAP` vivia en un comentario de `arranque.rs`. Se descifra aqui con los
+    // nombres del estandar AHCI y el crudo va al lado: el registro es la prueba.
+    let hba = bmo::info(bmo::INFO_DISCO_HBA);
+    if hba & bmo::DISCO_HBA_HAY != 0 {
+        let cap = hba & bmo::DISCO_HBA_CAP_MASK;
+        campo(s, b"hba");
+        s.dec(((cap >> 8) & 0x1F) + 1); // NCS, con su -1
+        s.text(b" ranuras");
+        s.text(if cap & (1 << 30) != 0 { b", NCQ" as &[u8] } else { b", SIN NCQ" });
+        s.text(b", hasta Gen");
+        s.dec((cap >> 20) & 0xF); // ISS
+        if cap & (1 << 31) != 0 {
+            s.text(b", DMA 64 bits"); // S64A
+        }
+        s.text(b"   CAP 0x");
+        s.hex(cap, 8);
+        s.byte(b'\n');
+
+        let ssts = (hba >> bmo::DISCO_HBA_SSTS_SHIFT) & bmo::DISCO_HBA_SSTS_MASK;
+        let spd = (ssts >> 4) & 0xF;
+        campo(s, b"port");
+        s.dec((hba >> bmo::DISCO_HBA_PUERTO_SHIFT) & bmo::DISCO_HBA_PUERTO_MASK);
+        match ssts & 0xF {
+            3 => {
+                s.text(b": enlace Gen");
+                s.dec(spd);
+            }
+            1 => s.text(b": algo conectado SIN comunicacion"),
+            _ => s.text(b": sin enlace"),
+        }
+        // ** Los dos extremos del mismo cable: el HBA dice SPD, el disco dice la
+        // palabra 77. Si discrepan, eso es un hallazgo, no un redondeo.
+        if nego != 0 && spd != 0 && spd != nego {
+            s.with_ink(INK_ERR);
+            s.text(b"   y el disco dice Gen");
+            s.dec(nego);
+            s.with_ink(INK_PLAIN);
+        }
+        s.text(match (ssts >> 8) & 0xF {
+            1 => b"   activo" as &[u8],
+            2 => b"   dormido (Partial)",
+            6 => b"   dormido (Slumber)",
+            8 => b"   dormido (DevSleep)",
+            _ => b"",
+        });
+        s.text(b"   SSTS 0x");
+        s.hex(ssts, 3);
+        s.byte(b'\n');
+    }
+
+    // -- ** LA COLA. La resta que dice cuanto del aparato esta parado.
+    let cola = (enlace >> bmo::DISCO_ENLACE_COLA_SHIFT) & bmo::DISCO_ENLACE_COLA_MASK;
+    let usadas = (enlace >> bmo::DISCO_ENLACE_USADAS_SHIFT) & bmo::DISCO_ENLACE_USADAS_MASK;
+    let ociosas = (enlace >> bmo::DISCO_ENLACE_OCIOSAS_SHIFT) & bmo::DISCO_ENLACE_OCIOSAS_MASK;
+    campo(s, b"queue");
+    s.dec(usadas);
+    s.text(b" de ");
+    s.dec(cola);
+    if enlace & bmo::DISCO_ENLACE_NCQ == 0 {
+        s.text(b"   (sin NCQ)");
+    } else if ociosas > 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"   ");
+        s.dec(ociosas);
+        s.text(b" PARADAS");
+        s.with_ink(INK_PLAIN);
+    }
+    s.byte(b'\n');
+
+    // -- LA GEOMETRIA. El exponente, no una cuenta.
+    campo(s, b"sector");
+    if geo & bmo::DISCO_GEO_106_VALIDA == 0 {
+        s.text(b"sin declarar (palabra 106 sin guarda)");
+    } else {
+        let exp = geo & bmo::DISCO_GEO_EXP_MASK;
+        s.dec(512u64 << exp);
+        s.text(b" B fisico");
+        if exp > 0 {
+            s.text(b" = ");
+            s.dec(1u64 << exp);
+            s.text(b" logicos");
+        }
+        if geo & bmo::DISCO_GEO_209_VALIDA != 0 {
+            let d = (geo >> bmo::DISCO_GEO_DESPL_SHIFT) & bmo::DISCO_GEO_DESPL_MASK;
+            s.text(b", LBA 0 desplazado ");
+            s.dec(d);
+        }
+    }
+    s.byte(b'\n');
+
+    // -- EL VEREDICTO, y va detras de sus hechos a proposito.
+    campo(s, b"profile");
+    if juicio & bmo::DISCO_JUICIO_HAY_PERFIL == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"NINGUNO para este disco -- se toma el camino conservador");
+    } else {
+        s.with_ink(INK_GOOD);
+        s.text(b"reconocido");
+        s.with_ink(INK_PLAIN);
+        if juicio & bmo::DISCO_JUICIO_MEDIDO == 0 {
+            s.text(b"   cifras de CATALOGO, no medidas");
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
+    // -- TRIM, y al lado lo que cabe en una orden: son la misma pregunta.
+    campo(s, b"trim");
+    if juicio & bmo::DISCO_JUICIO_SOLIDO_SIN_TRIM != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"NO -- y el medio es solido: el recolector no puede avisar");
+    } else if juicio & bmo::DISCO_JUICIO_TRIM != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"si");
+        s.with_ink(INK_PLAIN);
+        s.text(b"   ");
+        s.dec(bmo::info(bmo::INFO_DISCO_TRIM_BLOQUES));
+        s.text(b" bloque(s) por orden");
+    } else {
+        s.text(b"no (y el medio no lo necesita)");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
+    // -- ** LA CACHE DE ESCRITURA (palabras 82-85). Va ANTES de la barrera
+    // porque es lo que la decide: con la cache apagada, un OK ya es la NAND.
+    let cache = bmo::info(bmo::INFO_DISCO_CACHE);
+    campo(s, b"cache");
+    if cache & bmo::DISCO_CACHE_VALIDA == 0 {
+        s.text(b"el disco no rellena las palabras 82-87: no se sabe");
+    } else if cache & bmo::DISCO_CACHE_SOPORTADA == 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"sin cache de escritura: lo que vuelve OK ya esta en la NAND");
+    } else if cache & bmo::DISCO_CACHE_ENCENDIDA != 0 {
+        s.text(b"ENCENDIDA (85): un OK es 'aceptado', no 'guardado'");
+    } else {
+        s.with_ink(INK_GOOD);
+        s.text(b"soportada y APAGADA (85): un OK ya es la NAND");
+    }
+    s.with_ink(INK_PLAIN);
+    if cache & bmo::DISCO_CACHE_FLUSH_EXT != 0 {
+        s.text(b", FLUSH EXT");
+    }
+    if cache & bmo::DISCO_CACHE_FUA != 0 {
+        s.text(b", FUA");
+    }
+    s.byte(b'\n');
+
+    // ** La linea que no puede faltar el dia que se escriba de verdad.
+    campo(s, b"barrier");
+    if juicio & bmo::DISCO_JUICIO_SOLO_BARRERA != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"el FLUSH CACHE es LO UNICO: no termina lo que empezo");
+    } else {
+        s.with_ink(INK_GOOD);
+        s.text(b"tiene con que terminar un corte de corriente");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
+    campo(s, b"align");
+    let frontera = (juicio >> bmo::DISCO_JUICIO_FRONTERA_SHIFT)
+        & bmo::DISCO_JUICIO_FRONTERA_MASK;
+    if frontera == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"NO SE PUEDE: el bloque de borrado no se le pregunta a un disco");
+    } else {
+        s.dec(frontera);
+        s.text(b" KiB   del perfil, no leido");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
+    if juicio & bmo::DISCO_JUICIO_DESALINEADO != 0 {
+        campo(s, b"AVISO");
+        s.with_ink(INK_ERR);
+        s.text(b"LBA 0 no cae en frontera fisica: cada escritura paga dos sectores\n");
+        s.with_ink(INK_PLAIN);
+    }
+
+    // -- ** EL METRO (D0, 23-09): la unica cifra de velocidad que es de ESTE
+    // disco. Sin medir se dice, y se dice como medirlo.
+    if bmo::info(bmo::INFO_DISCO_BANDA) == 0 {
+        campo(s, b"read");
+        s.with_ink(INK_ECHO);
+        s.text(b"sin medir en esta sesion   (disco banda)\n");
+        s.with_ink(INK_PLAIN);
+    } else {
+        detalle_banda(s);
+    }
+}
 
 /// El cuadro entero: que aparato es, cuanto queda y que se le ha devuelto.
 pub(crate) fn cuadro(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
@@ -204,6 +478,7 @@ fn ordenes(s: &mut Output) {
     s.with_ink(INK_ECHO);
     s.text(b"    disco trim   propone el recorte    trim ya   lo manda\n");
     s.text(b"    disco espacio / barrera\n");
+    s.text(b"    disco banda [MiB]   MIDE la lectura (solo lee)\n");
     s.with_ink(INK_PLAIN);
 }
 
@@ -412,6 +687,147 @@ pub(crate) fn barrera(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "barrera", INK_DIM);
     dsk.field.n = 0;
     After::Settle
+}
+
+/// **`disco banda [MiB]` -- EL METRO: cuanto lee ESTE disco, medido aqui.**
+///
+/// === Por que existe (paso D0 del plan del disco, 23-09) ===
+///
+/// La LEY 24: una cifra de la caja es de OTRO proyecto. Hasta hoy lo unico que
+/// BMO-X sabia de la velocidad de su disco era el catalogo (`450` en el perfil),
+/// y cualquier mejora del driver --asincrono, NCQ, PRD multiples-- se iba a
+/// juzgar contra nada. Esto da el ANTES.
+///
+/// SOLO LEE, y el sitio no se elige desde aqui: la particion de datos desde su
+/// principio. El numero es cuanto (64 si no se dice, techo 1024).
+///
+/// El aviso se pinta y se VUELCA antes de llamar, igual que `trim ya`: la
+/// llamada tiene el disco para si y no vuelve hasta acabar.
+pub(crate) fn banda(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    let mib = if arg.is_empty() { Some(0) } else { numero(arg) };
+    let Some(mib) = mib else {
+        let s = &mut dsk.out.grid;
+        s.with_ink(INK_ERR);
+        s.text(b"  `");
+        s.text(arg);
+        s.text(b"` no es un numero de MiB   (disco banda 256)\n");
+        s.with_ink(INK_PLAIN);
+        paint_status(p, &dsk.run_box, "banda", INK_DIM);
+        dsk.field.n = 0;
+        return After::Settle;
+    };
+    section(&mut dsk.out.grid, b"disco: el metro de LECTURA");
+    dsk.out.grid.text(b"    leyendo (solo lee; el disco es del metro mientras dura)...\n");
+    paint_output(p, &dsk.run_box, &dsk.out.grid);
+    p.volcar();
+
+    // Los MB/s de la respuesta son los mismos que salen de `INFO_DISCO_BANDA`:
+    // se pinta desde el informe para que la orden y `save` digan UN numero.
+    let (motivo, _) = bmo::banda(mib);
+    let s = &mut dsk.out.grid;
+    if bmo::info(bmo::INFO_DISCO_BANDA) == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"    no se midio: ");
+        s.text(bmo::banda_en_palabras(motivo));
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    } else {
+        if motivo != bmo::DISCO_BANDA_HECHA {
+            s.with_ink(INK_ERR);
+            s.text(b"    A MEDIAS: ");
+            s.text(bmo::banda_en_palabras(motivo));
+            s.with_ink(INK_PLAIN);
+            s.byte(b'\n');
+        }
+        detalle_banda(s);
+    }
+    paint_status(p, &dsk.run_box, "banda", INK_DIM);
+    dsk.field.n = 0;
+    dsk.field.cur = 0;
+    After::NextKey
+}
+
+/// El detalle de la ultima medida: la cifra, sus ordenes y **contra que techo**.
+pub(crate) fn detalle_banda(s: &mut Output) {
+    let b = bmo::info(bmo::INFO_DISCO_BANDA);
+    let o = bmo::info(bmo::INFO_DISCO_BANDA_ORDEN);
+    let us = (b & bmo::DISCO_BANDA_US_MASK).max(1);
+    let mib = (b >> bmo::DISCO_BANDA_MIB_SHIFT) & bmo::DISCO_BANDA_MIB_MASK;
+    let pct = (b >> bmo::DISCO_BANDA_DATOS_SHIFT) & bmo::DISCO_BANDA_DATOS_MASK;
+    let mb_s = mib * 1_048_576 / us;
+
+    campo(s, b"read");
+    s.with_ink(INK_GOOD);
+    s.dec(mb_s);
+    s.text(b" MB/s MEDIDOS");
+    s.with_ink(INK_PLAIN);
+    s.text(b"   ");
+    s.dec(mib);
+    s.text(b" MiB en ");
+    s.dec(us / 1000);
+    s.text(b" ms\n");
+
+    // ** El techo del CABLE, del atomo y no de la caja: el SPD del puerto.
+    // SATA codifica 8b/10b, asi que 6 Gb/s son 600 MB/s de datos.
+    let hba = bmo::info(bmo::INFO_DISCO_HBA);
+    let spd = ((hba >> bmo::DISCO_HBA_SSTS_SHIFT) >> 4) & 0xF;
+    if hba & bmo::DISCO_HBA_HAY != 0 && (1..=3).contains(&spd) {
+        let techo = 150u64 << (spd - 1);
+        campo(s, b"cable");
+        s.text(b"Gen");
+        s.dec(spd);
+        s.text(b" = ");
+        s.dec(techo);
+        s.text(b" MB/s de techo   se usa el ");
+        s.pct(mb_s, techo);
+        s.byte(b'\n');
+    }
+
+    let sect = o & bmo::DISCO_BANDA_ORDEN_SECTORES_MASK;
+    let mejor = (o >> bmo::DISCO_BANDA_ORDEN_MEJOR_SHIFT) & bmo::DISCO_BANDA_ORDEN_US_MASK;
+    let peor = (o >> bmo::DISCO_BANDA_ORDEN_PEOR_SHIFT) & bmo::DISCO_BANDA_ORDEN_US_MASK;
+    campo(s, b"orders");
+    s.dec(sect / 2);
+    s.text(b" KiB cada una   la mas rapida ");
+    s.dec(mejor);
+    s.text(b" us, la mas lenta ");
+    s.dec(peor);
+    s.text(b" us");
+    // Una orden lenta muchas veces la rapida es el disco parandose a medio
+    // camino: la media no lo dice, la distancia si.
+    if mejor > 0 && peor > mejor * 4 {
+        s.with_ink(INK_ERR);
+        s.text(b"   SE PARO a medio camino");
+        s.with_ink(INK_PLAIN);
+    }
+    s.byte(b'\n');
+
+    campo(s, b"data");
+    if pct < 90 {
+        s.with_ink(INK_ERR);
+        s.dec(pct);
+        s.text(b"% de sectores con datos: el SSD pudo contestar SIN LEER (ceros del mapa)");
+        s.with_ink(INK_PLAIN);
+    } else {
+        s.dec(pct);
+        s.text(b"% de sectores con datos: la NAND se leyo de verdad");
+    }
+    s.byte(b'\n');
+    s.with_ink(INK_ECHO);
+    s.text(b"    es LECTURA por la ranura 0; la escritura sostenida es otra cifra\n");
+    s.with_ink(INK_PLAIN);
+}
+
+/// Un decimal, o `None` si no lo es.
+fn numero(arg: &[u8]) -> Option<u64> {
+    let mut v = 0u64;
+    for &c in arg {
+        if !c.is_ascii_digit() {
+            return None;
+        }
+        v = v.checked_mul(10)?.checked_add((c - b'0') as u64)?;
+    }
+    Some(v)
 }
 
 /// Una subordem que no existe. Se dice **cual se escribio**, y las que hay.

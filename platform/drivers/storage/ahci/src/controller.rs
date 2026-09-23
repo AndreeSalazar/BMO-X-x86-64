@@ -182,6 +182,11 @@ pub struct AhciPort {
 #[derive(Debug)]
 pub struct AhciController {
     pub mmio_base: u64,
+    /// `CAP` crudo, leido una vez al arrancar. **Es el perfil del HBA**: cuantas
+    /// ranuras (NCS, bits 12:8, -1), si sabe encolar (SNCQ, bit 30), a que
+    /// generacion llega (ISS, bits 23:20) y si su DMA alcanza toda la RAM (S64A,
+    /// bit 31). Hasta el 23-09 solo vivia en un comentario de `arranque.rs`.
+    pub cap: u32,
     pub port_count: u8,
     pub ports_implemented: u32,
     pub ports: [AhciPort; 32],
@@ -378,6 +383,21 @@ pub unsafe fn flush_cache(port_idx: u8) -> Result<(), DiskError> {
 pub unsafe fn identify_phys(port_idx: u8, buf_phys: u64) -> Result<u16, DiskError> {
     // IDENTIFY entrega exactamente un sector y no usa LBA ni contador.
     run_command(port_idx, ATA_CMD_IDENTIFY, 0, 0, 1, Some((buf_phys, SECTOR as u32)), false)
+}
+
+/// **`PxSSTS` del puerto, leido AHORA.** `None` sin controlador.
+///
+/// DET (3:0) dice si hay enlace, SPD (7:4) **a que generacion negocio el
+/// HBA** --que no tiene por que ser lo que dice la palabra 77 del disco: son
+/// los dos extremos del mismo cable-- e IPM (11:8) si el enlace duerme.
+///
+/// [!] Lee MMIO: se llama desde el arranque del kernel, no desde un `OP_INFO`
+/// que llega con el CR3 de otro.
+pub unsafe fn port_ssts(port_idx: u8) -> Option<u32> {
+    #[allow(static_mut_refs)]
+    let ctrl = CONTROLLER.as_ref()?;
+    if port_idx >= 32 { return None; }
+    Some(port_read(ctrl.mmio_base, port_idx, PORT_SSTS))
 }
 
 pub fn controller() -> Option<&'static AhciController> {

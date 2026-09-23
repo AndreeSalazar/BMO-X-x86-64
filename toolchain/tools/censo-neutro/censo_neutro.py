@@ -180,9 +180,14 @@ def la_cita_del_portero(filas):
         return ["dev/portero/verde.rs ya no declara APARATOS_CENSADOS: la cita"
                 " desaparecio y con ella el aviso del arranque"]
     dice = int(m.group(1))
-    if dice != len(filas):
+    # ** APARATOS, no filas (23-09). La fila es por FICHERO que etiqueta, y un
+    # aparato puede tener dos: el AHCI tiene su pagina de rebote en `mod.rs` y
+    # el bufer del metro en `banda.rs`. El portero cuenta maestros del bus, y
+    # un segundo fichero del mismo aparato no es un segundo maestro.
+    aparatos = len({a for a, _, _ in filas})
+    if dice != aparatos:
         return ["dev/portero/verde.rs dice %d aparatos censados y el censo tiene %d"
-                " fila(s) con fichero" % (dice, len(filas))]
+                " aparato(s) con fichero" % (dice, aparatos)]
     return []
 
 
@@ -247,10 +252,11 @@ def main():
         print("  parte del sistema que nadie sabe que existe.")
         return 1 if args.check else 0
 
-    print("clean: el censo del neutro cuadra con el codigo -- %d aparato(s) con"
-          " fichero, %d sitio(s) que etiquetan, %d fila(s) sin codigo que mirar,"
-          " y el portero cita el mismo numero"
-          % (len(del_censo), sum(codigo.values()), saltadas))
+    print("clean: el censo del neutro cuadra con el codigo -- %d aparato(s) en"
+          " %d fichero(s), %d sitio(s) que etiquetan, %d fila(s) sin codigo que"
+          " mirar, y el portero cita el mismo numero"
+          % (len({a for a, _, _ in filas}), len(del_censo), sum(codigo.values()),
+             saltadas))
     return 0
 
 

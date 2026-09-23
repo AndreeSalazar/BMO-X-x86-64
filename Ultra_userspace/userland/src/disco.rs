@@ -28,6 +28,18 @@ use crate::*;
 pub const DISCO_OP_TRIM_LIBRE: u64 = 0x01;
 /// `FLUSH CACHE` a mano.
 pub const DISCO_OP_BARRERA: u64 = 0x02;
+/// **El metro**: leer y cronometrar. Solo lee.
+pub const DISCO_OP_BANDA: u64 = 0x03;
+
+/// Medido: los bits bajos son los MB/s.
+pub const DISCO_BANDA_HECHA: u64 = 0;
+pub const DISCO_BANDA_SIN_DISCO: u64 = 1;
+/// No hay particion de datos reconocida.
+pub const DISCO_BANDA_SIN_VOLUMEN: u64 = 2;
+pub const DISCO_BANDA_SIN_MEMORIA: u64 = 3;
+/// Una lectura fallo a medias; lo leido SI queda medido.
+pub const DISCO_BANDA_FALLO: u64 = 4;
+pub const DISCO_BANDA_SIN_RELOJ: u64 = 5;
 
 /// Se hizo. Los sectores dicen cuantos.
 pub const DISCO_TRIM_HECHO: u64 = 0;
@@ -66,6 +78,29 @@ pub fn trim_libre() -> (u64, u64) {
 /// hace comprobable esa frase.
 pub fn barrera() -> bool {
     invoke(CURRENT_TASK, OP_DISCO, DISCO_OP_BARRERA, 0, 0).value != 0
+}
+
+/// **El metro de lectura.** `mib` = cuanto (0 = 64; el kernel pone techo).
+/// Devuelve `(motivo, MB/s)`; el detalle queda en `INFO_DISCO_BANDA*`.
+///
+/// [!] Tiene el disco para si mientras mide y la llamada no vuelve hasta
+/// acabar: quien la llame avisa en pantalla ANTES, como `trim ya`.
+pub fn banda(mib: u64) -> (u64, u64) {
+    let v = invoke(CURRENT_TASK, OP_DISCO, DISCO_OP_BANDA, mib, 0).value;
+    (v >> DISCO_TRIM_MOTIVO_SHIFT, v & DISCO_TRIM_SECTORES_MASK)
+}
+
+/// El motivo del metro en palabras.
+pub fn banda_en_palabras(motivo: u64) -> &'static [u8] {
+    match motivo {
+        DISCO_BANDA_HECHA => b"medido",
+        DISCO_BANDA_SIN_DISCO => b"no hay disco listo",
+        DISCO_BANDA_SIN_VOLUMEN => b"no hay particion de datos: no se mide fuera de lo de BMO-X",
+        DISCO_BANDA_SIN_MEMORIA => b"no hubo memoria contigua para el bufer",
+        DISCO_BANDA_FALLO => b"una lectura FALLO a medias (CABINA dice el LBA)",
+        DISCO_BANDA_SIN_RELOJ => b"el reloj no esta calibrado: sin reloj no hay metro",
+        _ => b"motivo desconocido",
+    }
 }
 
 // -- ** POR QUE FALLO, cuando el motivo es `DISCO_TRIM_FALLO` ---------------

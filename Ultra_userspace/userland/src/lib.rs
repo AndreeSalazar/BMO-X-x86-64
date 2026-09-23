@@ -716,6 +716,42 @@ pub const INFO_DISCO_TRIM_BLOQUES: u64 = 0x47;
 /// en `DISCO_FALLO_*`. `0` = ninguno, y un recorte que sale bien lo borra.
 pub const INFO_DISCO_TRIM_FALLO: u64 = 0x48;
 
+/// ** EL OTRO EXTREMO DEL CABLE (P0, 23-09): `CAP` del HBA y `PxSSTS` del
+/// puerto, CRUDOS. El registro es la prueba; descifrarlo es de quien pinta.
+pub const INFO_DISCO_HBA: u64 = 0x92;
+pub const DISCO_HBA_CAP_MASK: u64 = 0xFFFF_FFFF;
+pub const DISCO_HBA_SSTS_SHIFT: u64 = 32;
+pub const DISCO_HBA_SSTS_MASK: u64 = 0xFFF;
+pub const DISCO_HBA_PUERTO_SHIFT: u64 = 48;
+pub const DISCO_HBA_PUERTO_MASK: u64 = 0x1F;
+pub const DISCO_HBA_HAY: u64 = 1 << 63;
+
+/// La cache de escritura (palabras 82-85): el bit que decide la barrera.
+pub const INFO_DISCO_CACHE: u64 = 0x93;
+pub const DISCO_CACHE_VALIDA: u64 = 1 << 0;
+pub const DISCO_CACHE_SOPORTADA: u64 = 1 << 1;
+pub const DISCO_CACHE_ENCENDIDA: u64 = 1 << 2;
+pub const DISCO_CACHE_FLUSH_EXT: u64 = 1 << 3;
+pub const DISCO_CACHE_FUA: u64 = 1 << 4;
+pub const DISCO_CACHE_W82_SHIFT: u64 = 16;
+pub const DISCO_CACHE_W85_SHIFT: u64 = 32;
+pub const DISCO_CACHE_W83_SHIFT: u64 = 48;
+
+/// ** EL METRO (D0): la ultima LECTURA medida. `0` = nunca se midio.
+pub const INFO_DISCO_BANDA: u64 = 0x94;
+pub const DISCO_BANDA_US_MASK: u64 = 0xFFFF_FFFF;
+pub const DISCO_BANDA_MIB_SHIFT: u64 = 32;
+pub const DISCO_BANDA_MIB_MASK: u64 = 0xFFFF;
+pub const DISCO_BANDA_DATOS_SHIFT: u64 = 48;
+pub const DISCO_BANDA_DATOS_MASK: u64 = 0xFF;
+pub const DISCO_BANDA_VECES_SHIFT: u64 = 56;
+/// Y como se repartio: sectores por orden, la orden mas rapida y la mas lenta.
+pub const INFO_DISCO_BANDA_ORDEN: u64 = 0x95;
+pub const DISCO_BANDA_ORDEN_SECTORES_MASK: u64 = 0xFFFF;
+pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
+pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
+pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
+
 pub const USB_SALUD_XHCI: u64 = 1 << 0;
 pub const USB_SALUD_KBD: u64 = 1 << 1;
 /// El teclado tiene transferencia ENCOLADA. Sin esto esta enumerado, en

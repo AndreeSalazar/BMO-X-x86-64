@@ -91,7 +91,7 @@ pub unsafe fn probe(mmio_base: u64) -> bool {
     let sss = cap & (1 << 27) != 0;
 
     let mut ctrl = AhciController {
-        mmio_base, port_count, ports_implemented: pi,
+        mmio_base, cap, port_count, ports_implemented: pi,
         ports: [AhciPort {
             port_number: 0, state: PortState::Empty, signature: 0, ssts: 0, sctl: 0, cmd: 0,
             command_list_phys: 0, fis_phys: 0, cmd_table_phys: 0,

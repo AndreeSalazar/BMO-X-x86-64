@@ -88,6 +88,22 @@ pub const DISCO_JUICIO_OCIOSAS_MASK: u64 = 0xFF;
 pub const DISCO_JUICIO_FRONTERA_SHIFT: u64 = 16;
 pub const DISCO_JUICIO_FRONTERA_MASK: u64 = 0xFFFF_FFFF;
 
+pub const DISCO_HBA_CAP_MASK: u64 = 0xFFFF_FFFF;
+pub const DISCO_HBA_SSTS_SHIFT: u64 = 32;
+pub const DISCO_HBA_SSTS_MASK: u64 = 0xFFF;
+pub const DISCO_HBA_PUERTO_SHIFT: u64 = 48;
+pub const DISCO_HBA_PUERTO_MASK: u64 = 0x1F;
+pub const DISCO_HBA_HAY: u64 = 1 << 63;
+
+pub const DISCO_CACHE_VALIDA: u64 = 1 << 0;
+pub const DISCO_CACHE_SOPORTADA: u64 = 1 << 1;
+pub const DISCO_CACHE_ENCENDIDA: u64 = 1 << 2;
+pub const DISCO_CACHE_FLUSH_EXT: u64 = 1 << 3;
+pub const DISCO_CACHE_FUA: u64 = 1 << 4;
+pub const DISCO_CACHE_W82_SHIFT: u64 = 16;
+pub const DISCO_CACHE_W85_SHIFT: u64 = 32;
+pub const DISCO_CACHE_W83_SHIFT: u64 = 48;
+
 /// Ranuras de comando que el driver usa de verdad.
 ///
 /// ** El HBA declara 32 y `mod.rs` usa **la 0, siempre** -- con su motivo
@@ -96,6 +112,50 @@ pub const DISCO_JUICIO_FRONTERA_MASK: u64 = 0xFFFF_FFFF;
 /// `32 - 1` salga por la puerta y **se vea sin leer codigo**. El dia que el
 /// driver encole, este numero cambia y el informe lo dice solo.
 pub const RANURAS_EN_USO: u8 = 1;
+
+/// ** LA FOTO DEL OTRO EXTREMO DEL CABLE: el HBA y su puerto (paso P0, 23-09).
+///
+/// El IDENTIFY dice lo que el DISCO sabe hacer; esto dice lo que la
+/// CONTROLADORA ofrece (`CAP`: ranuras, NCQ, generacion, 64 bits) y a que
+/// negocio el puerto de verdad (`PxSSTS`). Empaquetado ya como sale por
+/// `INFO_DISCO_HBA`, y un cero significa "sin foto". Un atomico y no un
+/// `static mut`: se escribe una vez en el arranque y lo lee cualquiera.
+static HBA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// Guarda el `CAP` del HBA y el `PxSSTS` del puerto del disco, crudos.
+///
+/// Crudos a proposito: **el registro es la prueba y las palabras son la
+/// opinion** (la misma regla que el `PxTFD`). Quien lo pinte los descifra con
+/// los nombres del estandar AHCI, y el numero sigue ahi para discutirlo.
+pub fn tomar_foto_hba(cap: u32, ssts: u32, puerto: u8) {
+    let v = (cap as u64 & DISCO_HBA_CAP_MASK)
+        | ((ssts as u64 & DISCO_HBA_SSTS_MASK) << DISCO_HBA_SSTS_SHIFT)
+        | ((puerto as u64 & DISCO_HBA_PUERTO_MASK) << DISCO_HBA_PUERTO_SHIFT)
+        | DISCO_HBA_HAY;
+    HBA.store(v, core::sync::atomic::Ordering::Relaxed);
+}
+
+/// `INFO_DISCO_HBA`: `CAP` crudo, `PxSSTS` crudo y el puerto. 0 = sin foto.
+pub fn hba() -> u64 {
+    HBA.load(core::sync::atomic::Ordering::Relaxed)
+}
+
+/// `INFO_DISCO_CACHE`: la cache de escritura y sus ordenes, mas las tres
+/// palabras crudas (82, 85 y 83) para poder discutir el bit.
+pub fn cache() -> u64 {
+    let Some(dice) = (unsafe { FOTO }) else { return 0 };
+    let c = dice.cache;
+    (if c.valida { DISCO_CACHE_VALIDA } else { 0 })
+        | if c.soportada { DISCO_CACHE_SOPORTADA } else { 0 }
+        | if c.encendida { DISCO_CACHE_ENCENDIDA } else { 0 }
+        | if c.flush_ext { DISCO_CACHE_FLUSH_EXT } else { 0 }
+        | if c.fua { DISCO_CACHE_FUA } else { 0 }
+        | (PALABRAS.load(core::sync::atomic::Ordering::Relaxed) << DISCO_CACHE_W82_SHIFT)
+}
+
+/// Las palabras 82, 85 y 83 crudas, en ese orden desde el bit 0. Se guardan
+/// al tomar la foto porque `LoQueDiceElDisco` solo lleva lo ya nombrado.
+static PALABRAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
 /// Lo que contesto el disco. `None` hasta que un IDENTIFY sale bien.
 static mut FOTO: Option<LoQueDiceElDisco> = None;
@@ -113,6 +173,11 @@ pub fn tomar_foto(sector: &[u8]) {
         return;
     };
     unsafe { FOTO = Some(LoQueDiceElDisco::leer(&id)) };
+    // Relativas a `DISCO_CACHE_W82_SHIFT`: 82, 85 y 83 seguidas.
+    let crudas = id.palabra(82) as u64
+        | (id.palabra(85) as u64) << (DISCO_CACHE_W85_SHIFT - DISCO_CACHE_W82_SHIFT)
+        | (id.palabra(83) as u64) << (DISCO_CACHE_W83_SHIFT - DISCO_CACHE_W82_SHIFT);
+    PALABRAS.store(crudas, core::sync::atomic::Ordering::Relaxed);
 }
 
 /// Hay una foto valida?

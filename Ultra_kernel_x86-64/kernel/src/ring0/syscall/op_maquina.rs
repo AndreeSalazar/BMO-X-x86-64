@@ -493,7 +493,7 @@ pub(super) fn estratos_sellar(_arg0: u64, _arg1: u64) -> BmoStatus {
 //// vuelve a comprobar contra la ventana de escritura. Dejar que Ring 3
 //// dijera donde recortar seria un borrado apuntable a cualquier sector,
 //// incluida la ESP donde vive el arranque del propietario.
-pub(super) fn disco(arg0: u64, _arg1: u64) -> BmoStatus {
+pub(super) fn disco(arg0: u64, arg1: u64) -> BmoStatus {
         use crate::ring0::dev::disk::{self, Recorte};
         match arg0 {
             DISCO_OP_TRIM_LIBRE => {
@@ -539,6 +539,18 @@ pub(super) fn disco(arg0: u64, _arg1: u64) -> BmoStatus {
             // condensadores-- asi que esto es literalmente lo unico que tiene
             // para terminar lo que empezo.
             DISCO_OP_BARRERA => BmoStatus::ok_value(disk::flush() as u64),
+            // ** EL METRO (D0, 23-09). Solo lee, y el SITIO no lo elige quien
+            // llama: la particion de datos desde su principio. `arg1` es
+            // cuanto, y el kernel le pone techo.
+            DISCO_OP_BANDA => {
+                crate::ring0::cabina::info(
+                    "disk",
+                    "metro de lectura pedido por un proceso de Ring 3",
+                    scheduler::current_pid() as u64,
+                );
+                let (motivo, mb_s) = disk::medir_banda(arg1);
+                BmoStatus::ok_value((motivo << 56) | (mb_s & ((1 << 56) - 1)))
+            }
             // Una orden que no existe se contesta con cero, igual que en el
             // cursor: quien pregunte de mas se entera, y sin obligar al
             // llamante a distinguir dos formas de "nada".

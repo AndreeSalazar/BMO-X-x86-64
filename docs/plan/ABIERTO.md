@@ -1,13 +1,13 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 43 planes
+# LO QUE FALTA -- las casillas abiertas de los 44 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   273 casillas ABIERTAS en 34 planes
+   280 casillas ABIERTAS en 35 planes
    262 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -136,6 +136,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1 F1 abre una ventana VACIA en `Ultra_userspace/services/director/
 - [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
 - [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
+- ... y 4 mas
+
+## [`PLAN_EXPRIMIR_EL_DISCO.md`](PLAN_EXPRIMIR_EL_DISCO.md) -- 7 abiertas, 0 hechas
+
+*PLAN: EXPRIMIR EL DISCO -- por el PERFIL, no por la caja*
+
+- [ ] P0 -- COMPLETAR LA PREGUNTA (codigo HECHO 2026-09-23; se cierra con el metal)
+- [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
+- [ ] D1 -- ASINCRONO + WAIT: cero congelones
 - ... y 4 mas
 
 ## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 7 abiertas, 2 hechas

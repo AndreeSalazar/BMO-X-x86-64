@@ -49,6 +49,28 @@ EL DISCO DONDE VIVE BMO-X
   sectores por AHCI, y su identidad la da el propio disco (IDENTIFY).
 
 
+LO QUE EL APARATO CONTESTA, Y DONDE SE LEE (LEY 24, 2026-09-23)
+----------------------------------------------------------------
+
+  ** Nada de esta seccion se escribe a mano: se PREGUNTA en cada arranque y
+  sale en `disco` (la terminal) y en informe/DISCO.TXT (el `save`).
+
+  hba       el CAP de la controladora: ranuras, NCQ, generacion, DMA 64 bits.
+            En el Ryzen: 0xEF36FF27 = 32 ranuras, NCQ, Gen3, 64 bits
+  port      el PxSSTS del puerto: a que generacion negocio EL HBA (la palabra
+            77 dice la del DISCO; si no coinciden, sale en rojo)
+  cache     palabras 82-85: si hay cache de escritura y si esta ENCENDIDA.
+            Es la que decide cuando hace falta la barrera
+  read      el METRO: `disco banda [MiB]` lee de BMO-DATA y dice MB/s
+            MEDIDOS, la orden mas lenta y cuantos sectores traian datos
+
+  [!] El metro es de LECTURA. `sostenido_mb_s` del perfil es la ESCRITURA
+  despues de la cache SLC, y sigue siendo de catalogo: medirla es escribir
+  decenas de GB, y eso lo decide el propietario.
+
+  El plan que usa estos atomos: docs/plan/PLAN_EXPRIMIR_EL_DISCO.md
+
+
 LO QUE NO SE USA, Y POR QUE
 ----------------------------
 

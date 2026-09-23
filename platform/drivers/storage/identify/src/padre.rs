@@ -264,6 +264,64 @@ impl Trim {
     }
 }
 
+// ---------------------------------------------------------------------------
+// LA CACHE DE ESCRITURA -- palabras 82, 83, 84 y 85 (2026-09-23, paso P0)
+// ---------------------------------------------------------------------------
+
+/// Que hace el disco con lo que se le escribe **antes** de que llegue a la
+/// NAND, y que ordenes tiene para cerrar esa ventana.
+///
+/// ```text
+///    DE QUE PALABRA SALE   82 bit 5  cache de escritura volatil SOPORTADA
+///                          85 bit 5  y ENCENDIDA ahora mismo
+///                          83 bit 13 FLUSH CACHE EXT
+///                          84 bit 6  WRITE DMA FUA EXT (escribir sin cache)
+///    QUE SESGO LLEVA       ninguno: son bits
+///    COMO SE SABE QUE VALE  la 83 con bit15 = 0 y bit14 = 1 -- la misma guarda
+///                          que la 106. La 84 lleva la suya propia
+/// ```
+///
+/// ** Es la pregunta que decide el paso D5 del plan del disco: **con la cache
+/// apagada, un WRITE que vuelve OK ya esta en la NAND** y el `FLUSH` no
+/// compra nada; encendida, el `FLUSH` es lo unico que separa "el disco se
+/// quedo los bytes" de "sobreviven a un corte". Hoy BMO-X no lo preguntaba y
+/// daba la barrera por necesaria siempre -- que es el lado seguro, pero sin
+/// atomo que lo diga.
+///
+/// [!] Sin guarda, todo `false` y `valida = false`: un disco que no rellena
+/// las palabras de ordenes no ha dicho que NO tenga cache, se ha callado.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Cache {
+    /// La palabra 83 paso su guarda. Sin ella, nada de abajo se afirma.
+    pub valida: bool,
+    /// Palabra 82 bit 5: el disco TIENE cache de escritura volatil.
+    pub soportada: bool,
+    /// Palabra 85 bit 5: y esta ENCENDIDA. Es el bit que decide la barrera.
+    pub encendida: bool,
+    /// Palabra 83 bit 13: sabe `FLUSH CACHE EXT` (la de 48 bits).
+    pub flush_ext: bool,
+    /// Palabra 84 bit 6: sabe `WRITE DMA FUA EXT`, una escritura que no
+    /// vuelve hasta estar en el medio. Solo si la 84 pasa su guarda.
+    pub fua: bool,
+}
+
+impl Cache {
+    pub fn de(id: &Identify) -> Cache {
+        let w83 = id.palabra(83);
+        if w83 & 0xC000 != 0x4000 {
+            return Cache { valida: false, soportada: false, encendida: false, flush_ext: false, fua: false };
+        }
+        let w84 = id.palabra(84);
+        Cache {
+            valida: true,
+            soportada: id.palabra(82) & (1 << 5) != 0,
+            encendida: id.palabra(85) & (1 << 5) != 0,
+            flush_ext: w83 & (1 << 13) != 0,
+            fua: w84 & 0xC000 == 0x4000 && w84 & (1 << 6) != 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -444,5 +502,46 @@ mod pruebas {
         let s = id(&[(169, 1), (105, 8)]);
         let i = crate::abuelo::Identify::nuevo(&s).unwrap();
         assert_eq!(Trim::de(&i).bloques_max, 8);
+    }
+
+    // -- LA CACHE DE ESCRITURA ----------------------------------------------
+
+    #[test]
+    fn cache_un_ssd_con_la_cache_encendida() {
+        let s = id(&[(82, 1 << 5), (83, 0x4000 | (1 << 13)), (84, 0x4000 | (1 << 6)), (85, 1 << 5)]);
+        let i = crate::abuelo::Identify::nuevo(&s).unwrap();
+        let c = Cache::de(&i);
+        assert!(c.valida && c.soportada && c.encendida && c.flush_ext && c.fua);
+    }
+
+    /// ** Soportada no es encendida: son dos palabras porque son dos preguntas,
+    /// igual que el enlace soportado y el negociado.
+    #[test]
+    fn cache_soportada_pero_apagada() {
+        let s = id(&[(82, 1 << 5), (83, 0x4000), (85, 0)]);
+        let i = crate::abuelo::Identify::nuevo(&s).unwrap();
+        let c = Cache::de(&i);
+        assert!(c.soportada);
+        assert!(!c.encendida, "la 85 manda sobre lo que se usa ahora");
+    }
+
+    /// ** La guarda de la 83: un disco viejo la deja a 0000h o FFFFh, y con
+    /// FFFFh sin guarda todo saldria "si" -- cache, flush y FUA inventados.
+    #[test]
+    fn cache_sin_guarda_no_afirma_nada() {
+        for w in [0x0000u16, 0xFFFF] {
+            let s = id(&[(82, 0xFFFF), (83, w), (84, 0xFFFF), (85, 0xFFFF)]);
+            let i = crate::abuelo::Identify::nuevo(&s).unwrap();
+            let c = Cache::de(&i);
+            assert!(!c.valida && !c.soportada && !c.encendida && !c.flush_ext && !c.fua, "83 = {w:#06x}");
+        }
+    }
+
+    /// La 84 tiene su propia guarda: la 83 valida no la avala.
+    #[test]
+    fn cache_el_fua_necesita_la_guarda_de_la_84() {
+        let s = id(&[(83, 0x4000), (84, 0xFFFF)]);
+        let i = crate::abuelo::Identify::nuevo(&s).unwrap();
+        assert!(!Cache::de(&i).fua);
     }
 }
