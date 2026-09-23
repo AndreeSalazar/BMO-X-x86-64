@@ -26,7 +26,7 @@
 //! offered to each handler in order until one takes it:
 //!
 //! ```text
-//!   shortcuts   Alt+Tab, Alt+M, Alt+arrows   window management by keyboard
+//!   shortcuts   Alt+Tab, Ctrl+keys, arrows   window management by keyboard
 //!   combo       AltGr in progress            cancels the Ctrl+Alt tap
 //!   windows     F7 F8 F10 F11 F12 / ESC      the five toggles
 //!   panels      the open panel's own keys    guarded by focus
@@ -324,16 +324,18 @@ pub(crate) fn dispatch(
         if g.combo {
             dsk.tick.key_during_combo = true;
         }
-        if windows::on_key(dsk, p, c, g.alt_alone, g.m & bmo::MOD_GUI != 0) == Key::Taken {
+        if windows::on_key(dsk, p, c, g.alt_alone, g.m) == Key::Taken {
             continue;
         }
         if panels::on_key(dsk, p, c, g.alt_alone, g.ctrl) == Key::Taken {
             continue;
         }
-        // ** CON SUPER PULSADO NADA SE ESCRIBE: la tecla es del gestor, y si no
-        // tiene atajo se tira. Si cayera en la app o en Ejecutar, un Super+X que
-        // algun dia sea un atajo hoy escribiria una x.
-        if g.m & bmo::MOD_GUI != 0 {
+        // ** CON CTRL NO SE ESCRIBE UN CARACTER: Ctrl es la tecla del gestor, y
+        // un Ctrl+1 sin atajo se tira. Si cayera en la app o en Ejecutar, el dia
+        // que Ctrl+1 sea un atajo ya habria escrito un 1. Las letras no llegan
+        // aqui como letras --son codigos de control y el editor sabe los suyos--
+        // y con Alt es AltGr, que SI escribe.
+        if g.ctrl && g.m & bmo::MOD_ALT == 0 && (0x20..0x7F).contains(&c) {
             continue;
         }
         // -- * DE QUIEN es esta tecla? --
@@ -361,7 +363,7 @@ pub(crate) fn dispatch(
             app::caracter(dsk, c);
             continue;
         }
-        if let Edit::Launch(target, n) = editor::on_key(dsk, p, c, g.ctrl) {
+        if let Edit::Launch(target, n) = editor::on_key(dsk, p, c) {
             return Some((target, n));
         }
     }

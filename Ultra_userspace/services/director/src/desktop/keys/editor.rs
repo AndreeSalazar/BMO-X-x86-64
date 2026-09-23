@@ -23,7 +23,7 @@ use crate::scene::output::{INK_ECHO, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 use crate::PATH_MAX;
 
-pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, ctrl: bool) -> Edit {
+pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> Edit {
     debug_assert!(dsk.win.visible, "el foco de una ventana escondida es un bug");
     // Cualquier tecla enciende el cursor y reinicia el parpadeo.
     dsk.field.caret = true;
@@ -188,14 +188,15 @@ match c {
     }
     // -- El portapapeles --
     //
-    // Ctrl+C copia la linea entera; Ctrl+V la pega donde este
+    // Ctrl+Shift+C copia la linea entera; Ctrl+V la pega donde este
     // el cursor. No es un lujo: la mitad de lo que se teclea en
     // un terminal es una variacion de lo anterior, y sin copiar
     // hay que reescribirlo todo.
     //
-    // Ctrl+C para copiar y no para interrumpir, que es lo que
-    // significa en Unix. Aqui no hay signales que mandar, y el
-    // dedo que ya sabe Ctrl+C sabe copiar -- no interrumpir.
+    // ** Ctrl+C a secas NO llega aqui desde el 2026-09-12: frena la
+    // corrida o limpia la linea (`keys::windows`), como el terminal
+    // de Windows. Llega el 0x03 que trae Shift: Ctrl+Shift+C, el
+    // copiar de Windows Terminal.
     0x03 => {
         dsk.field.clipboard_n = dsk.field.n;
         let upto = dsk.field.n;
@@ -234,30 +235,9 @@ match c {
     // cola que las letras, con bytes del rango C1 (0x80..0x9F)
     // que no tienen glifo: el driver los eligio justo para que
     // no puedan confundirse con texto.
-    // Ctrl+ARRIBA copia, Ctrl+ABAJO pega. Lo mismo que
-    // Ctrl+C / Ctrl+V, con las flechas -- porque los dedos que
-    // ya andan por el historial no tienen que irse a buscar
-    // otra tecla para copiar lo que acaban de recuperar.
-    0x80 if ctrl => {
-        dsk.field.clipboard_n = dsk.field.n;
-        let upto = dsk.field.n;
-        let (src, dst) = (&dsk.field.path[..upto], &mut dsk.field.clipboard[..upto]);
-        dst.copy_from_slice(src);
-        paint_status(&p, &dsk.run_box, "copiado", INK_DIM);
-    }
-    0x81 if ctrl => {
-        if dsk.field.clipboard_n > 0 && dsk.field.n + dsk.field.clipboard_n <= PATH_MAX {
-            let mut k = dsk.field.n;
-            while k > dsk.field.cur {
-                dsk.field.path[k + dsk.field.clipboard_n - 1] = dsk.field.path[k - 1];
-                k -= 1;
-            }
-            dsk.field.path[dsk.field.cur..dsk.field.cur + dsk.field.clipboard_n].copy_from_slice(&dsk.field.clipboard[..dsk.field.clipboard_n]);
-            dsk.field.cur += dsk.field.clipboard_n;
-            dsk.field.n += dsk.field.clipboard_n;
-            dsk.tick.repaint_field = true;
-        }
-    }
+    // ** Ctrl+ARRIBA copiaba y Ctrl+ABAJO pegaba hasta el 2026-09-22:
+    // Ctrl+flechas es ahora ENCAJAR la ventana (`keys::shortcuts`), y
+    // llega antes. Copiar es Ctrl+Shift+C y pegar Ctrl+V, arriba.
     0x80 => {
         if let Some(k) = dsk.field.history.back(&mut dsk.field.path) {
             dsk.field.n = k;
@@ -414,7 +394,7 @@ match c {
             dsk.field.n = k;
             dsk.field.cur = k;
             dsk.tick.repaint_field = true;
-            return on_key(dsk, p, b'\r', false);
+            return on_key(dsk, p, b'\r');
         }
     }
     // F11 y F12 no llegan aqui --se atienden arriba-- y el resto de la

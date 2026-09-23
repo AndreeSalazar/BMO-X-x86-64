@@ -52,11 +52,11 @@ pub(crate) mod sonido;
 /// **EL BORDE DE FOCO**: cuando el foco cambia, el marco de la nueva lleva el
 /// acento y el de la vieja lo pierde. HUD 2.
 pub(crate) mod foco;
-/// **EL MOSAICO** (Super+T, HUD 4): las ventanas se reparten el area util,
+/// **EL MOSAICO** (Ctrl+T, HUD 4): las ventanas se reparten el area util,
 /// maestro y pila, sin taparse.
 pub(crate) mod mosaico;
 
-/// **La barra lateral aparecio o se fue** (Super+B, HUD 3): el area util y la
+/// **La barra lateral aparecio o se fue** (Ctrl+B, HUD 3): el area util y la
 /// rejilla cambian, asi que las ventanas se recolocan dentro de lo que queda
 /// (`fit`) y se repinta el escritorio entero. Las ventanas las repinta
 /// `foco::seguir` en la vuelta, al darle por perdido el borde.

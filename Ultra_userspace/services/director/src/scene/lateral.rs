@@ -42,7 +42,7 @@ pub(crate) fn visible() -> bool {
     VISIBLE.load(Ordering::Relaxed)
 }
 
-/// Super+B: esconderla o traerla. Quien llama repinta el escritorio: la
+/// Ctrl+B: esconderla o traerla. Quien llama repinta el escritorio: la
 /// rejilla y el area util cambian de sitio.
 pub(crate) fn alternar() {
     VISIBLE.store(!visible(), Ordering::Relaxed);
@@ -281,6 +281,6 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, vueltas: u32) {
     let pie = by + bh - RENGLON - 6;
     if pie > y {
         p.rect(x0, pie, bw - 24, RENGLON, e.barra_fondo);
-        p.texto(x0, pie + 2, "Super+B", INK_DIM);
+        p.texto(x0, pie + 2, "Ctrl+B", INK_DIM);
     }
 }

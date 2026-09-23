@@ -22,7 +22,9 @@ use crate::desktop::{Desktop, Ventana};
 use crate::scene::{self};
 use crate::{erase_window, uncover};
 
-pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: bool, super_: bool) -> Key {
+pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: bool, m: u8) -> Key {
+// Ctrl sin Alt (con Alt es AltGr). Ver `shortcuts`: Ctrl es la tecla del gestor.
+let ctrl = m & bmo::MOD_CTRL != 0 && m & bmo::MOD_ALT == 0;
 // == ALT+F4: CERRAR LO DE DELANTE ====================================
 //
 // Lo pidio el propietario con estas palabras: *"agregar esa ventanita para cerrar
@@ -86,7 +88,11 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, alt_alone: boo
 // tampoco reenvia los codigos de control (`keys::app::caracter`). O sea que
 // **ninguna app lo ve**, y eso es a proposito: un rescate que la app pudiera
 // interceptar no seria un rescate.
-let ctrl_c = c == 0x03;
+//
+// ** Y CON SHIFT NO: Ctrl+Shift+C COPIA la linea (el de Windows Terminal). El
+// kernel cuece los dos al mismo 0x03 --el codigo de control no lleva Shift--,
+// asi que se distinguen por el modificador y el copiar sigue hasta el editor.
+let ctrl_c = c == 0x03 && m & bmo::MOD_SHIFT == 0;
 
 // *** Y LO PRIMERO QUE MIRA CTRL+C ES LA CORRIDA EN VUELO. (2026-09-12)
 //
@@ -122,9 +128,10 @@ if ctrl_c {
     }
 }
 
-// ** SUPER+Q es el mismo cierre (el `killactive` de Hyprland), por la misma
-// puerta: tres gestos --la X, Alt+F4, Super+Q-- y UN cierre.
-if (c == 0x8C && alt_alone) || (super_ && (c == b'q' || c == b'Q')) || ctrl_c {
+// ** CTRL+Q es el mismo cierre (el `killactive` de Hyprland), por la misma
+// puerta: tres gestos --la X, Alt+F4, Ctrl+Q-- y UN cierre. No Ctrl+W: en
+// Ejecutar ya borra la palabra de antes, como en cualquier terminal.
+if (c == 0x8C && alt_alone) || (ctrl && c == 0x11) || ctrl_c {
     match dsk.win.focus.actual() {
         // Una app: se cierra de verdad, por el MISMO camino que la X.
         Some(Ventana::App(i)) => {

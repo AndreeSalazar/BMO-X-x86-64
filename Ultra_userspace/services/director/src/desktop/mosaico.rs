@@ -5,7 +5,7 @@
 //!                     recoloca cuando eso CAMBIA, y lo cambia una mano (L6h)
 //!
 //! El motivo, uno: **ninguna ventana tapa a otra, y no hay que ordenarlas.**
-//! Super+T lo enciende y lo apaga.
+//! Ctrl+T lo enciende y lo apaga.
 //!
 //! # El reparto: MAESTRO y PILA
 //!
@@ -46,7 +46,7 @@ pub(crate) fn encendido() -> bool {
     ENCENDIDO.load(Ordering::Relaxed)
 }
 
-/// **Super+T.** Encenderlo coloca ya; apagarlo deja cada ventana donde esta.
+/// **Ctrl+T.** Encenderlo coloca ya; apagarlo deja cada ventana donde esta.
 pub(crate) fn alternar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let on = !encendido();
     ENCENDIDO.store(on, Ordering::Relaxed);

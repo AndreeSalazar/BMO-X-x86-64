@@ -8,7 +8,7 @@
 >
 > Estudio previo: el de ese mismo dia sobre Windows, Mac y Linux desde el
 > origen (en el chat; resumen en la memoria del proyecto). De ahi salen la
-> tecla Super, Fitts y el borde de foco.
+> tecla del gestor (Super, y luego Ctrl), Fitts y el borde de foco.
 
 ---
 
@@ -19,7 +19,7 @@ cabe en una linea, no es una pieza: son dos, o es decoracion.
 
 ```text
    pieza                    el motivo
-   H1  la tecla Super       el gestor tiene tecla PROPIA y no le quita ninguna a nadie
+   H1  la tecla Ctrl        el gestor tiene tecla PROPIA y no le quita ninguna a nadie
    H2  borde + huecos       ver de un vistazo a DONDE van las teclas
    H3  la barra lateral     lo que hace la maquina, SIN abrir nada
    H4  el mosaico           ninguna ventana TAPA a otra, y no se ordena a mano
@@ -37,35 +37,53 @@ cabe en una linea, no es una pieza: son dos, o es decoracion.
 
 # 1. LAS PIEZAS
 
-## [ ] H1 -- LA TECLA SUPER (2026-09-22)
+## [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
 
 > Codigo hecho; se cierra cuando el metal diga la tabla.
 
 **Motivo:** el gestor tiene tecla propia y no le quita ninguna a nadie.
 
-La tecla Windows llegaba al escritorio desde el 01-09 (`MOD_GUI`, `badfb3b9`)
-y nadie la usaba. Todo Alt era del escritorio, y eso tenia un precio escrito:
-a DOOM no le llegaba el ladeo (Alt+flechas).
+Fue **Super** una tarde (`e866a4a3`). Tras el metal de las 16:56 el
+propietario la cambio: *"reemplaza con control + (cualquier atajo) porque
+BMO-X va a vivir como el estilo de Windows"*. Ctrl ya era del escritorio
+(`keys/app.rs::del_escritorio` no se lo da a ninguna app), asi que el motivo
+sigue en pie: no se le quita una tecla a nadie. Todo Alt era del escritorio, y
+eso tenia un precio escrito: a DOOM no le llegaba el ladeo (Alt+flechas).
 
 ```text
-   Super + flechas          encajar: mitad izquierda / derecha, arriba maximiza,
-                            abajo deshace (Windows 7, Win+flechas)
-   Super + Shift + flechas  mover 24 px
-   Super + Q                cerrar lo de delante (la X y Alt+F4: UN cierre)
-   Super + Enter            Ejecutar, delante y con el teclado
-   Super + F                pantalla completa (lo mismo que Alt+Enter)
-   Super + M                el modo del foco (antes Alt+M)
+   Ctrl + flechas           encajar: mitad izquierda / derecha, arriba maximiza,
+                            abajo deshace (el Win+flechas de Windows 7)
+   Ctrl + Shift + flechas   mover 24 px
+   Ctrl + Q                 cerrar lo de delante (la X y Alt+F4: UN cierre)
+   Ctrl + Enter             Ejecutar, delante y con el teclado
+   Ctrl + F                 pantalla completa (lo mismo que Alt+Enter)
+   Ctrl + Tab               el modo del foco (Alt+Tab elige ventana)
+   Ctrl + B / Ctrl + T      barra lateral / mosaico
    Alt                      es de la APP, menos Alt+Tab, Alt+F4 y Alt+Enter
 ```
 
-Con Super pulsado nada se escribe: un Super+X sin atajo se tira, para que el
-dia que lo tenga no haya escrito una `x` antes.
+**Los choques, y como se resolvieron** (el kernel cuece Ctrl+letra en su
+codigo de control, `keyboard::feed_full`, asi que se compara con el codigo):
+
+| choque | que se hizo |
+|---|---|
+| Ctrl+Alt ES AltGr (`@ # [ ]`) | los atajos exigen Ctrl SIN Alt; el toque de Ctrl+Alt sigue escondiendo Ejecutar |
+| Ctrl+M es el byte de Enter, Ctrl+I el de Tab | el modo del foco va con Ctrl+Tab, no con M |
+| Ctrl+W ya borra una palabra en Ejecutar | cerrar es Ctrl+Q |
+| Ctrl+C frena la corrida / limpia la linea | se queda; COPIAR pasa a Ctrl+Shift+C (el de Windows Terminal) |
+| Ctrl+arriba/abajo copiaban y pegaban | ahora encajan; pegar sigue en Ctrl+V |
+
+Con Ctrl (sin Alt) un caracter imprimible no se escribe: un Ctrl+1 sin atajo
+se tira, para que el dia que lo tenga no haya escrito un `1` antes. Super
+vuelve a ser de la app.
 
 | que | afirma | como se cae |
 |---|---|---|
-| Super+flechas con Datos delante | encaja a una mitad, con huecos | no se mueve: el kernel no marca `MOD_GUI` en esa tecla |
+| Ctrl+flechas con Datos delante | encaja a una mitad, con huecos | no se mueve: la flecha no llega con `MOD_CTRL` |
 | DOOM en ventana, Alt+flechas | DOOM ladea | se mueve la ventana: la regla de `keys/app.rs` no cambio |
-| Super+Q con una app delante | se cierra | no hace nada: la `q` no llego cocida con Super |
+| Ctrl+Q con una app delante | se cierra | no hace nada: no llego el 0x11 |
+| escribir `@` con AltGr y con Ctrl+Alt | sale la arroba | salta un atajo: la guarda de Alt no esta |
+| Ctrl+Shift+C y luego Ctrl+V en Ejecutar | la linea se duplica | limpia la linea: el Shift no se mira |
 
 ## [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
 
@@ -86,7 +104,7 @@ dia que lo tenga no haya escrito una `x` antes.
 | que | afirma | como se cae |
 |---|---|---|
 | clic en CABINA con Datos abierta | CABINA con borde azul, Datos con el suyo | los dos azules: `seguir` no corre |
-| Super+izquierda y Super+derecha en dos ventanas | 8 px entre ellas y con los bordes | pegadas: `snap` no mide en `area_util` |
+| Ctrl+izquierda y Ctrl+derecha en dos ventanas | 8 px entre ellas y con los bordes | pegadas: `snap` no mide en `area_util` |
 
 ## [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 
@@ -99,7 +117,7 @@ arriba, y ponerlo otra vez aqui era dos sitios para lo mismo. La barra es el
 HUD EN TIEMPO REAL: una columna de 112 px con cinco instrumentos --cpu,
 memoria, vatios, pulso (vueltas del escritorio) y sonido (el medidor del
 maestro)--, cada uno con su cifra y su grafica de los ultimos 11 s (44
-muestras a 4 por segundo). Super+B la esconde.
+muestras a 4 por segundo). Ctrl+B la esconde.
 
 * `scene/lateral.rs`: su caja, su color para `scene_color`, la historia y el
   pintado. Las mismas cuentas que la barra de arriba.
@@ -113,7 +131,7 @@ muestras a 4 por segundo). Super+B la esconde.
 | arrancar el escritorio | la columna a la izquierda, con las cinco graficas moviendose | vacia: `latido` no corre o `will_paint` no llega |
 | DOOM sonando | la grafica de sonido sube en verde/ambar | quieta: el medidor del maestro no se lee |
 | arrastrar una ventana a la izquierda | se para en el borde de la columna | la tapa: un tope no lee `margen()` |
-| Super+B | se va, y la rejilla y las ventanas ocupan su sitio | queda un trozo pintado: `repintar_escritorio` no la borra |
+| Ctrl+B | se va, y la rejilla y las ventanas ocupan su sitio | queda un trozo pintado: `repintar_escritorio` no la borra |
 
 ## [ ] H4 -- EL MOSAICO (2026-09-22)
 
@@ -121,7 +139,7 @@ muestras a 4 por segundo). Super+B la esconde.
 
 **Motivo:** ninguna ventana tapa a otra, y no se ordena a mano.
 
-Super+T lo enciende y lo apaga (y lo dice en la linea de estado). Al
+Ctrl+T lo enciende y lo apaga (y lo dice en la linea de estado). Al
 escribirlo se eligio MAESTRO Y PILA (dwm, el `master` de Hyprland) y no
 `dwindle`: es el que se predice sin mirar. Una ventana: el area util entera;
 dos o mas: la primera a la izquierda, las demas apiladas a la derecha, con
@@ -131,7 +149,7 @@ no se pelea con la mano.
 
 | que | afirma | como se cae |
 |---|---|---|
-| Super+T con Ejecutar y Datos abiertas | Ejecutar a la izquierda, Datos a la derecha, sin taparse | nada se mueve: `seguir` no corre o la firma no cambia |
+| Ctrl+T con Ejecutar y Datos abiertas | Ejecutar a la izquierda, Datos a la derecha, sin taparse | nada se mueve: `seguir` no corre o la firma no cambia |
 | abrir CABINA (F11) con el mosaico puesto | la pila de la derecha se parte en dos | se abre encima: la firma no ve la ventana nueva |
 | con DOOM en ventana | DOOM a la izquierda, lo demas apilado | DOOM no se mueve: su marco no se coloca |
 | lo que se dice | una ventana con minimo mayor que su hueco (Ejecutar) asoma: es a proposito | -- |

@@ -17,7 +17,7 @@ use crate::scene::{self};
 pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8, _alt_alone: bool, ctrl: bool) -> Key {
 // Las teclas del panel del sonido: el fader y el mudo. **Solo con el
 // foco AQUI** -- la guarda vive dentro de `sonido::on_key`, con el resto
-// de lo que hace el panel. Con Ctrl no: Ctrl+flecha mueve la ventana.
+// de lo que hace el panel. Con Ctrl no: Ctrl+flecha encaja la ventana.
 if !ctrl && crate::desktop::sonido::on_key(dsk, p, c) {
     return Key::Taken;
 }

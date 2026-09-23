@@ -97,7 +97,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &s
     // un modo que se lee pero no se toca invita a pensar que esta averiado.
     let mx = p.texto(x + 14, fy + 4, "modo: ", INK_DIM);
     let mx = p.texto(mx, fy + 4, modo, acento());
-    p.texto(mx, fy + 4, "   (Super+M)", INK_DIM);
+    p.texto(mx, fy + 4, "   (Ctrl+Tab)", INK_DIM);
     fy += ROW_H;
 
     // ** Las flechas se anuncian AQUI y no en el pie de cada ventana.
@@ -107,10 +107,10 @@ pub(crate) fn paint(p: &bmo::Pantalla, lista: &[u8], pointed_at: usize, modo: &s
     // de CABINA seria una linea mas que se lee una vez y se olvida, y ademas
     // habria que repetirla en las tres ventanas -- tres sitios que actualizar
     // cuando el atajo cambie.
-    let hx = p.texto(x + 14, fy + 4, "flechas: ", INK_DIM);
-    let hx = p.texto(hx, fy + 4, "mover", INK);
-    let hx = p.texto(hx, fy + 4, "   Shift+flechas: ", INK_DIM);
-    p.texto(hx, fy + 4, "encajar", INK);
+    let hx = p.texto(x + 14, fy + 4, "Ctrl+flechas: ", INK_DIM);
+    let hx = p.texto(hx, fy + 4, "encajar", INK);
+    let hx = p.texto(hx, fy + 4, "   +Shift: ", INK_DIM);
+    p.texto(hx, fy + 4, "mover", INK);
 }
 
 /// Que rectangulo ocupo, para poder borrarlo despues.

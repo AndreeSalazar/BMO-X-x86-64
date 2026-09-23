@@ -1,8 +1,9 @@
-//! **Window management without letting go of the keyboard**: Alt+Tab, and the
-//! SUPER key (2026-09-22): Super+arrows snaps, Super+Shift+arrows moves,
-//! Super+M changes the focus mode, Super+F goes full screen, Super+Enter
-//! brings Ejecutar. Alt belongs to the app now -- except Alt+Tab, Alt+F4 and
-//! Alt+Enter, which are already in everyone's fingers.
+//! **Window management without letting go of the keyboard**: Alt+Tab, and
+//! CTRL (2026-09-22, it was Super for one afternoon): Ctrl+arrows snaps,
+//! Ctrl+Shift+arrows moves, Ctrl+Tab changes the focus mode, Ctrl+F goes full
+//! screen, Ctrl+Enter brings Ejecutar, Ctrl+B the side bar, Ctrl+T the tiling.
+//! Alt belongs to the app -- except Alt+Tab, Alt+F4 and Alt+Enter, which are
+//! already in everyone's fingers.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
 //!                     tecla o el raton se movio. Sin entrada, no se entra
@@ -26,10 +27,21 @@ pub(crate) fn on_key(
     alt_alone: bool,
     m: u8,
 ) -> Key {
-// ** LA TECLA DEL GESTOR. Llegaba al escritorio desde el 01-09 (`MOD_GUI`) y
-// nadie la usaba. Super solo no produce caracter en ninguna distribucion, igual
-// que Alt, y a diferencia de Alt ninguna app la quiere.
-let super_ = m & bmo::MOD_GUI != 0;
+// ** LA TECLA DEL GESTOR ES CTRL (2026-09-22). Fue Super una tarde; el
+// propietario la cambio: *"BMO-X va a vivir como el estilo de Windows"*. Ctrl
+// ya era del escritorio --`keys::app::del_escritorio` no se lo da a ninguna
+// app--, asi que no se le quita nada a nadie.
+//
+// [!] Ctrl SIN Alt: en castellano `Ctrl+Alt` ES AltGr (la arroba, la
+// almohadilla, los corchetes), y un atajo que saltara ahi se comeria esos
+// caracteres.
+//
+// [!] Y las letras llegan COCIDAS: el kernel convierte Ctrl+letra en su codigo
+// de control (Ctrl+B = 0x02, Ctrl+T = 0x14; ver `keyboard::feed_full`). Por eso
+// se compara con el codigo y no con la letra. Lo que eso impide, dicho: Ctrl+M
+// es el mismo byte que Enter y Ctrl+I el mismo que Tab, asi que el modo del foco
+// va con Ctrl+Tab. Y Ctrl+W ya borra una palabra en Ejecutar: cerrar es Ctrl+Q.
+let ctrl = m & bmo::MOD_CTRL != 0 && m & bmo::MOD_ALT == 0;
 if alt_alone && c == 0x09 {
     if m & bmo::MOD_SHIFT != 0 {
         dsk.win.focus.conmutar_atras();
@@ -52,7 +64,9 @@ if alt_alone && c == 0x09 {
 // por lo mismo que el Tab --`Alt` solo no produce caracter en
 // ninguna distribucion, `Ctrl+Alt` SI (es AltGr)-- y se anuncia
 // en la propia ventanita, que es donde se lee el modo.
-if super_ && (c == b'm' || c == b'M') {
+// ** CTRL+TAB desde el 22-09: Alt+Tab elige ventana y Ctrl+Tab elige COMO la
+// sigue el foco -- la misma tecla para las dos preguntas del foco.
+if ctrl && c == 0x09 {
     dsk.win.focus.poner_modo(dsk.win.focus.modo().next());
     if dsk.win.switcher_painted {
         scene::switcher::paint(
@@ -83,29 +97,30 @@ if super_ && (c == b'm' || c == b'M') {
 //
 // Va con `Alt` por lo mismo que el Tab y la M, y por una razon mas: es el
 // atajo que ya esta en los dedos de cualquiera que haya jugado a algo.
-// ** SUPER+B: LA BARRA LATERAL, fuera o dentro (HUD 3). Cambia el area util y
+// ** CTRL+B: LA BARRA LATERAL, fuera o dentro (HUD 3). Cambia el area util y
 // la rejilla, asi que se repinta el escritorio entero, y las ventanas que la
 // columna pisaria se corren (`fit` ya lee el tope nuevo).
-if super_ && (c == b'b' || c == b'B') {
+if ctrl && c == 0x02 {
     scene::lateral::alternar();
     crate::desktop::lateral_cambio(dsk, &p);
     return Key::Taken;
 }
-// ** SUPER+T: EL MOSAICO, puesto o quitado (HUD 4). Se dice en la linea de
+// ** CTRL+T: EL MOSAICO, puesto o quitado (HUD 4). Se dice en la linea de
 // estado, porque un modo que cambia en silencio se descubre tarde.
-if super_ && (c == b't' || c == b'T') {
+if ctrl && c == 0x14 {
     crate::desktop::mosaico::alternar(dsk, &p);
     let dice = if crate::desktop::mosaico::encendido() {
-        "mosaico: las ventanas se reparten la pantalla (Super+T lo quita)"
+        "mosaico: las ventanas se reparten la pantalla (Ctrl+T lo quita)"
     } else {
         "mosaico quitado: las ventanas se quedan donde estan"
     };
     paint_status(&p, &dsk.run_box, dice, acento());
     return Key::Taken;
 }
-// ** SUPER+ENTER: EJECUTAR, delante y con el teclado. Es el "abre la terminal"
-// de Hyprland, y aqui la terminal es la casa.
-if super_ && (c == 0x0D || c == 0x0A) {
+// ** CTRL+ENTER: EJECUTAR, delante y con el teclado. Es el "abre la terminal"
+// de Hyprland, y aqui la terminal es la casa. (Ctrl+M y Ctrl+J llegan con el
+// mismo byte y hacen lo mismo: no hay forma de distinguirlos, y no hace falta.)
+if ctrl && (c == 0x0D || c == 0x0A) {
     if !dsk.win.visible {
         dsk.win.visible = true;
     }
@@ -117,10 +132,10 @@ if super_ && (c == 0x0D || c == 0x0A) {
     dsk.win.taskbar_dirty = true;
     return Key::Taken;
 }
-// ** Y SUPER+F es el mismo gesto que Alt+Enter: pantalla completa (la F de
-// Hyprland). Se quedan los dos: uno para los dedos de Windows, otro para los
-// del gestor.
-if (alt_alone && (c == 0x0D || c == 0x0A)) || (super_ && (c == b'f' || c == b'F')) {
+// ** Y CTRL+F es el mismo gesto que Alt+Enter: pantalla completa (la F de
+// Hyprland). Se quedan los dos: uno para los dedos de los juegos, otro para
+// los del gestor.
+if (alt_alone && (c == 0x0D || c == 0x0A)) || (ctrl && c == 0x06) {
     if let Some(Ventana::App(i)) = dsk.win.focus.pointed_at() {
         if let Some((_viejo, completa)) = dsk.table.pantalla_completa(i as usize, p) {
             if completa {
@@ -163,10 +178,11 @@ if (alt_alone && (c == 0x0D || c == 0x0A)) || (super_ && (c == b'f' || c == b'F'
 // [!] Se atiende ANTES que las flechas de las ventanas, y por eso
 // no les quita nada: sin `Alt` esto no entra, y las flechas de
 // Datos y el volumen de Sonido siguen llegando enteras.
-// ** Y DESDE EL 2026-09-22 VA CON SUPER, y se invierte el reparto: a secas
-// ENCAJA (Win+flechas de Windows 7) y con Shift mueve. Con Alt estas flechas
-// eran el ladeo de DOOM, que nunca le llegaba.
-if super_ && (0x80..=0x83).contains(&c) {
+// ** Y DESDE EL 2026-09-22 VA CON CTRL, y se invierte el reparto: a secas
+// ENCAJA (el Win+flechas de Windows 7) y con Shift mueve. Con Alt estas flechas
+// eran el ladeo de DOOM, que nunca le llegaba. En Ejecutar, Ctrl+arriba y
+// Ctrl+abajo copiaban y pegaban: copiar es Ctrl+Shift+C y pegar Ctrl+V.
+if ctrl && (0x80..=0x83).contains(&c) {
     use scene::chrome::Heading;
     let heading = match c {
         0x80 => Heading::Up,
