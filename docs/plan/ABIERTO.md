@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   292 casillas ABIERTAS en 37 planes
+   293 casillas ABIERTAS en 37 planes
    271 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -85,14 +85,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 1 hechas
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 12 abiertas, 1 hechas
 
 *PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
 
 - [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
 - [ ] E2 -- el VBLANK por INTERRUPCION: la primera escritura
 - [ ] E3 -- el compositor al compas de la pantalla
-- ... y 8 mas
+- ... y 9 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

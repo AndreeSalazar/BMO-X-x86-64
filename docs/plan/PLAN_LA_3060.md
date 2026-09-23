@@ -118,6 +118,44 @@ de ser trabajo del CPU.
 **Bloquea:** M0. **Como se sabe:** el `[perf]` de DOOM da `expansion` cerca de
 0 us del CPU, y el `save` cuenta las copias hechas por el CE.
 
+### [ ] M5 -- el motor 3D y el de COMPUTO, SIN el GSP (por ACR, a relojes de arranque)
+
+** Corregido el 23-09: la primera version de este plan ponia el 3D en Late,
+detras del GSP. **No es asi.** nouveau acelera Ampere SIN el GSP desde Linux
+6.2: el motor grafico (GR) arranca con firmware CHICO firmado por Nvidia
+(`acr/ucode_ahesasc`, FECS y GPCCS, de `linux-firmware`), cargado por SEC2 --
+el mismo SEC2 donde murio FastOS. Lo que el GSP da y esto NO son los relojes:
+sin el, la 3060 va a los de arranque, que son bajos.
+
+Lo que ya hay publicado para no adivinar:
+
+```text
+   la clase 3D de Ampere      clc797.h (AMPERE_B, lista el GA106), de Nvidia
+   el despacho de computo     las cabeceras QMD, de Nvidia (open-gpu-doc)
+   el codigo maquina (SASS)   NAK, el compilador en Rust de NVK (MIT): se LEE
+   el frente                  PLAN_EL_SOMBREADOR.md: SPIR-V ya se lee, se
+                              juzga y se ejecuta; falta el emisor de SASS
+```
+
+Los escalones, cada uno con su prueba:
+
+```text
+   M5a  SEC2 arranca el ACR con la firma por FUSIBLE     (el muro de FastOS)
+   M5b  GR vivo: FECS y GPCCS cargados, contexto de oro
+   M5c  un despacho de COMPUTO: un QMD y un sombreador SASS que suma
+   M5d  SPIR-V -> SASS (SM86): el emisor, probado en el anfitrion contra
+        codificaciones conocidas, como el de x86-64 contra su oraculo
+   M5e  UN TRIANGULO 3D con AMPERE_B en la pantalla
+```
+
+**Bloquea:** M0 (el GR hace DMA), M3 (canales). **Como se sabe:** un
+sombreador del BSF (`platform/drivers/gpu/` cuando exista) corre EN LA 3060 y
+da los mismos bits que el oraculo del SOMBREADOR; y el triangulo se ve.
+
+> [!] Sigue siendo firmware de Nvidia corriendo en SUS microcontroladores:
+> chico, firmado, fila NEUTRO. Distinto del GSP en medida (KB contra 69 MB)
+> y en lo que ve (el GR, no la tarjeta entera), no en su naturaleza.
+
 ### [ ] M4 -- cambiar de modo (resolucion y refresco)
 
 Solo si hace falta: hoy el 1080p a 60 del GOP sirve. Es lo que permitiria el
@@ -151,16 +189,16 @@ con cada una.
 **Bloquea:** L0. **Como se sabe:** el GSP contesta una RPC con la version que
 dice ser.
 
-### [ ] L2 -- lo que el GSP da, y lo que cuesta
+### [ ] L2 -- lo que SOLO el GSP da: los RELOJES
 
-Los relojes (la 3060 va hoy a los de arranque), y el 3D y el computo: el
-SOMBREADOR (`docs/plan/PLAN_EL_SOMBREADOR.md`, SPIR-V a x86-64 hoy) tendria
-donde correr de verdad. **Dicho sin adornos: esto son anios**, no semanas --
-nova-core lleva desde 2024 con ingenieros de Nvidia y Red Hat y en 2026 aun no
-pinta.
+El 3D y el computo NO estan aqui: son M5, sin GSP. Lo que solo trae el GSP es
+subir la 3060 de los relojes de arranque a los suyos (y la gestion de
+energia). **Lo que si son anios**, dicho con su nombre: un Vulkan COMPLETO y
+conforme (el CTS de Khronos) que corra juegos de otros -- NVK tardo ~2 anios
+con varios expertos. Un Vulkan que corra LO DE ESTA CASA no es eso.
 
-**Bloquea:** L1. **Como se sabe:** un sombreador del BSF corre en la GPU y da
-los mismos bits que el oraculo.
+**Bloquea:** L1. **Como se sabe:** `gpu` dice los relojes de la 3060 por
+encima de los de arranque, y el mismo sombreador de M5 va mas rapido.
 
 ---
 
