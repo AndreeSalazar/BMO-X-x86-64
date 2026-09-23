@@ -64,15 +64,16 @@ pub enum Estado {
 /// **Manda una lectura y NO espera.** El disco tiene que estar tomado (el
 /// testigo lo demuestra), y se suelta al volver: la orden sigue en el aparato.
 ///
-/// `fisica` es el bufer de destino: contiguo, y **de quien lo pide** -- se juzga
-/// como prestado, igual que el camino directo de `read`.
-pub fn emitir_lectura(lba: u64, sectores: u16, fisica: u64) -> bool {
+/// `fisica` es el bufer de destino, contiguo. `prestando` dice de quien es: el
+/// bufer de un fichero es de quien lo abrio y se juzga como prestado, igual
+/// que el camino directo de `read`; la ventana de la FAT es del kernel.
+pub fn emitir_lectura(lba: u64, sectores: u16, fisica: u64, prestando: bool) -> bool {
     if !is_ready() || sectores == 0 {
         return false;
     }
     let _testigo = tomar_disco();
     let bytes = sectores as u64 * SECTOR as u64;
-    if !transfer::juzgar_el_dma(fisica, bytes, true) {
+    if !transfer::juzgar_el_dma(fisica, bytes, prestando) {
         return false;
     }
     let ahora = crate::ring0::task::scheduler::rdtsc();

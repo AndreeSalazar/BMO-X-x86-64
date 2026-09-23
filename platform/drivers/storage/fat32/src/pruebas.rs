@@ -1151,3 +1151,101 @@ fn sin_nada_que_leer_no_hay_tramo() {
     assert_eq!(v.planear_tramo(primero, 600, tam, 4096), None);
     assert_eq!(v.planear_tramo(0, 0, tam, 4096), None, "el cluster 0 no es un sitio");
 }
+
+// == EL PLAN QUE NO LEE (D1, 2026-09-23, segunda vuelta) =====================
+
+/// Los sectores de la FAT, crudos, como los traeria el hilo del disco por DMA.
+fn fat_cruda(v: &FatVolume, desde: u64, n: u16) -> Vec<u8> {
+    let mut b = vec![0u8; n as usize * 512];
+    assert!(read(v.part_lba + desde, n, &mut b));
+    b
+}
+
+/// ** SIN VENTANA, EL PLAN PIDE -- Y NO LEE. Es lo que deja al hilo del disco
+/// no girar sobre el disco: `retenido 134 us` en el Ryzen era esa lectura.
+#[test]
+fn sin_la_fat_el_plan_pide_el_sector_y_no_lee_nada() {
+    let (_turno, mut v) = volumen();
+    let datos: Vec<u8> = (0..3000u32).map(|i| (i % 251) as u8).collect();
+    v.create_file_in_dir(2, &name("PIDE    BIN"), &datos).expect("debe crear");
+    let (primero, tam) = v.find_file(&name("PIDE    BIN")).expect("debe estar");
+
+    let antes = lecturas();
+    let plan = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat::VACIA);
+    assert_eq!(lecturas(), antes, "el plan puro fue al disco");
+    let (sector, _) = v.donde_en_la_fat(primero);
+    assert_eq!(plan, Plan::Falta(sector));
+
+    // Con la ventana que pidio, el MISMO tramo que el camino sincrono.
+    let (desde, abs, n) = v.ventana_fat(sector, 8).expect("es de la FAT");
+    assert_eq!(abs, v.part_lba + desde);
+    let fat = fat_cruda(&v, desde, n);
+    let antes = lecturas();
+    let puro = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat { sector: desde, bytes: &fat });
+    assert_eq!(lecturas(), antes, "con ventana tampoco se lee");
+    let sincrono = v.planear_tramo(primero, 0, tam, 1 << 20).expect("hay tramo");
+    assert_eq!(puro, Plan::Tramo(sincrono));
+}
+
+/// ** UNA CADENA QUE CRUZA DE UN SECTOR DE LA FAT AL SIGUIENTE: el plan puro
+/// pide el segundo con el primero en la mano, y el sincrono --con UNA sola de
+/// cache-- no se queda pidiendo el uno y el otro para siempre.
+#[test]
+fn una_cadena_que_cruza_dos_sectores_de_la_fat() {
+    let (_turno, mut v) = volumen();
+    // 200 clusters de 512 B: las entradas de la raiz (2) a la 202 cruzan la
+    // frontera de las 128 por sector.
+    let datos: Vec<u8> = (0..200 * 512u32).map(|i| (i % 249) as u8).collect();
+    v.save_file_in_dir(2, &name("CRUZA   BIN"), &datos).expect("debe guardar");
+    let (primero, tam) = v.find_file(&name("CRUZA   BIN")).expect("debe estar");
+    let (s0, _) = v.donde_en_la_fat(primero);
+    let (s1, _) = v.donde_en_la_fat(primero + 199);
+    assert_eq!(s1, s0 + 1, "la prueba no cruza: el volumen de mentira cambio");
+
+    let uno = fat_cruda(&v, s0, 1);
+    let plan = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat { sector: s0, bytes: &uno });
+    assert_eq!(plan, Plan::Falta(s1), "con el primer sector, pide el segundo");
+
+    let dos = fat_cruda(&v, s0, 2);
+    let Plan::Tramo(puro) = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat { sector: s0, bytes: &dos })
+    else { panic!("con los dos sectores tenia que planear") };
+    assert_eq!(puro.bytes, datos.len(), "seguido entero: una sola orden");
+
+    let antes = lecturas();
+    let sincrono = v.planear_tramo(primero, 0, tam, 1 << 20).expect("hay tramo");
+    assert!(lecturas() - antes <= 2, "el sincrono fue {} veces al disco", lecturas() - antes);
+    assert_eq!(sincrono, puro);
+    let (leido, ordenes) = leer_por_tramos(&mut v, primero, tam, 1 << 20);
+    assert_eq!(ordenes, 1);
+    assert_eq!(leido, datos);
+}
+
+/// ** LA VENTANA SABE SI LA ESCRIBIERON. Lo que llego por DMA no pasa por la
+/// cache del volumen: sin este numero, un fichero guardado despues se leeria
+/// con la cadena de antes.
+#[test]
+fn toda_escritura_mueve_el_contador_de_la_ventana() {
+    let (_turno, mut v) = volumen();
+    let antes = v.escrituras();
+    v.create_file_in_dir(2, &name("MUEVE   BIN"), &[1u8; 1300]).expect("debe crear");
+    assert!(v.escrituras() > antes, "crear un fichero no conto");
+    let antes = v.escrituras();
+    let mut dst = [0u8; 1300];
+    leer_archivo(&mut v, "MUEVE   BIN", &mut dst).expect("debe estar");
+    assert_eq!(v.escrituras(), antes, "leer no escribe");
+}
+
+/// La ventana va alineada dentro de la FAT, se corta donde la FAT acaba, y un
+/// sector que no es de la FAT no se pide: seria leer cualquier cosa como si
+/// fueran entradas.
+#[test]
+fn la_ventana_de_la_fat_no_se_sale_de_la_fat() {
+    let (_turno, v) = volumen();
+    let inicio = v.fat_start as u64;
+    let fin = inicio + v.fat_size_sectors as u64;
+    assert_eq!(v.ventana_fat(inicio + 1, 2).map(|w| (w.0, w.2)), Some((inicio, 2)));
+    assert_eq!(v.ventana_fat(fin - 1, 8).map(|w| (w.0, w.2)), Some((inicio, (fin - inicio) as u16)));
+    assert_eq!(v.ventana_fat(fin, 8), None);
+    assert_eq!(v.ventana_fat(inicio - 1, 8), None);
+    assert_eq!(v.ventana_fat(inicio, 0), None);
+}

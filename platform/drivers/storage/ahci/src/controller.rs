@@ -291,24 +291,56 @@ pub unsafe fn atender(port_idx: u8) -> bool {
     #[allow(static_mut_refs)]
     let ctrl = match CONTROLLER.as_ref() { Some(c) => c, None => return false };
     if port_idx >= 32 { return false; }
-    let mmio = ctrl.mmio_base;
-    let is_hba = hba_read(mmio, HBA_IS);
-    let mio = is_hba & (1 << port_idx) != 0;
-    if mio {
-        // ** EL ORDEN IMPORTA: primero el puerto, despues el HBA.
-        //
-        // El bit del HBA es el OR de los del puerto. Borrarlo primero y que el
-        // puerto siguiera con el suyo puesto lo volveria a encender en el acto,
-        // y el aparato quedaria pidiendo atencion para siempre -- una tormenta
-        // de interrupciones que no deja correr a nadie.
-        let is_puerto = port_read(mmio, port_idx, PORT_IS);
-        port_write(mmio, port_idx, PORT_IS, is_puerto);
-    }
-    hba_write(mmio, HBA_IS, is_hba);
+    let mio = consumir_aviso(ctrl.mmio_base, port_idx);
     if mio {
         AVISOS.fetch_add(1, core::sync::atomic::Ordering::Release);
     }
     mio
+}
+
+/// **Borra el aviso del puerto**: el suyo y el del HBA. `true` si habia uno.
+///
+/// ** UN SOLO PROPIETARIO: QUIEN VE EL FINAL (2026-09-23). Hasta hoy lo borraba solo
+/// el manejador de la interrupcion; quien terminaba una orden PREGUNTANDO
+/// (`sondear`, en un syscall con las interrupciones cerradas) lo dejaba puesto.
+/// Y con MSI de un solo mensaje el HBA avisa en el FLANCO: si `IS.IPS` del
+/// puerto se queda a 1, no hay flanco, y no vuelve a mandar ni un mensaje.
+/// Bastaba perder UNO para que el disco callara para siempre -- que es lo que
+/// el Ryzen dijo a las 06:57: `armada y NO LLEGA`. Ahora el aviso lo consume
+/// el primero que ve la orden acabada, sea la interrupcion o la pregunta.
+pub(crate) unsafe fn consumir_aviso(mmio: u64, port_idx: u8) -> bool {
+    let is_hba = hba_read(mmio, HBA_IS);
+    let mio = is_hba & (1 << port_idx) != 0;
+    // ** EL ORDEN IMPORTA: primero el puerto, despues el HBA.
+    //
+    // El bit del HBA es el OR de los del puerto. Borrarlo primero y que el
+    // puerto siguiera con el suyo puesto lo volveria a encender en el acto, y
+    // el aparato quedaria pidiendo atencion para siempre -- una tormenta de
+    // interrupciones que no deja correr a nadie.
+    let is_puerto = port_read(mmio, port_idx, PORT_IS);
+    if is_puerto != 0 {
+        port_write(mmio, port_idx, PORT_IS, is_puerto);
+    }
+    if mio {
+        hba_write(mmio, HBA_IS, 1 << port_idx);
+    }
+    mio
+}
+
+/// **El aviso, crudo, para quien lo diagnostica.** `(GHC, IS del HBA, PxIS,
+/// PxIE, PxCI)` del puerto, leidos ahora. No toca nada: leer `IS` no lo borra.
+pub unsafe fn aviso_crudo(port_idx: u8) -> Option<(u32, u32, u32, u32, u32)> {
+    #[allow(static_mut_refs)]
+    let ctrl = CONTROLLER.as_ref()?;
+    if port_idx >= 32 { return None; }
+    let m = ctrl.mmio_base;
+    Some((
+        hba_read(m, HBA_GHC),
+        hba_read(m, HBA_IS),
+        port_read(m, port_idx, PORT_IS),
+        port_read(m, port_idx, PORT_IE),
+        port_read(m, port_idx, PORT_CI),
+    ))
 }
 
 /// Lee `sector_count` sectores desde `lba` al buffer FISICO `buf_phys`.

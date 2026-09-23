@@ -107,8 +107,9 @@ pub(super) fn avanzar(i: usize) -> bool {
 //
 // Arriba, `avanzar` trae un trozo EN EL TURNO DE QUIEN PREGUNTA, girando
 // dentro de su syscall. Aqui el trozo lo trae el hilo del disco: planea el
-// tramo (la FAT, que casi siempre sale de su cache), manda UNA orden directa
-// al bufer del fichero y duerme hasta la IRQ. Al terminar sube la secuencia
+// tramo sobre la FAT que ya tiene en memoria (y si le falta, la pide como
+// otra orden), manda UNA orden directa al bufer del fichero y duerme hasta la
+// IRQ. Al terminar sube la secuencia
 // de la ranura y despierta a quien la espere con `WAIT` sobre su handle.
 //
 // ** El `avanzar` de arriba SE QUEDA: es el camino de una ranura que no lleva
@@ -119,8 +120,28 @@ pub(super) fn avanzar(i: usize) -> bool {
 /// La ranura la lleva el hilo: solo entonces se concede esperar sobre ella.
 pub(super) static mut POR_HILO: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
 
-/// El trozo que esta en el aparato: `(ranura, bytes utiles, cluster siguiente)`.
-static mut EN_VUELO: Option<(usize, usize, u32)> = None;
+/// Lo que esta en el aparato.
+///
+/// ** DOS clases desde el 23-09 (06:57): los DATOS de un fichero, y la FAT que
+/// hace falta para saber donde siguen. Las dos son la misma orden para el
+/// disco; lo que cambia es que se hace al aterrizar.
+#[derive(Clone, Copy)]
+enum Vuelo {
+    /// Un trozo de la ranura: sus bytes utiles y el cluster siguiente.
+    Datos { i: usize, bytes: usize, sig: u32 },
+    /// La ventana de la FAT, pedida para seguir la cadena de la ranura `i`.
+    Fat { i: usize, sectores: u16 },
+}
+
+impl Vuelo {
+    fn ranura(self) -> usize {
+        match self {
+            Vuelo::Datos { i, .. } | Vuelo::Fat { i, .. } => i,
+        }
+    }
+}
+
+static mut EN_VUELO: Option<Vuelo> = None;
 /// Por donde va el reparto entre ranuras: una vuelta cada una, sin favoritos.
 static mut ULTIMA: usize = 0;
 
@@ -174,22 +195,37 @@ unsafe fn aplicar(i: usize, movidos: Option<u16>, bytes: usize, siguiente: u32) 
     crate::ring0::task::scheduler::wake_by_key(llave(i));
 }
 
+/// **Lo que se hace al aterrizar una orden**, sea de la clase que sea. `r` son
+/// los sectores que movio el aparato, o `None` si fallo o se perdio.
+unsafe fn aterrizar(v: Vuelo, r: Option<u16>) {
+    match v {
+        Vuelo::Datos { i, bytes, sig } => aplicar(i, r, bytes, sig),
+        Vuelo::Fat { i, sectores } => {
+            let ok = matches!(r, Some(n) if n >= sectores);
+            crate::ring0::fsys::fs::ventana_llego(ok);
+            // Sin la FAT no se sabe donde sigue el fichero: se para AQUI, igual
+            // que un trozo que no llega. Volver a pedirla seria un bucle con el
+            // disco dentro.
+            if !ok {
+                LOAD_CLUSTER[i] = 0;
+                crate::ring0::cabina::warn("arch", "no llego la FAT: archivo corto", LARGO[i] as u64);
+                crate::ring0::task::scheduler::wake_by_key(llave(i));
+            }
+        }
+    }
+}
+
 /// **Cierra el vuelo, esperando si hace falta.** Para quien no puede seguir sin
 /// el: traer por el camino de arriba, o soltar el bufer que es su destino.
 pub(super) fn cerrar_vuelo() {
     unsafe {
-        let Some((i, bytes, sig)) = EN_VUELO else { return };
+        let Some(v) = EN_VUELO else { return };
+        EN_VUELO = None;
         match crate::ring0::dev::disk::esperar_vuelo() {
-            crate::ring0::dev::disk::EstadoVuelo::Termino(r) => {
-                EN_VUELO = None;
-                aplicar(i, r, bytes, sig);
-            }
+            crate::ring0::dev::disk::EstadoVuelo::Termino(r) => aterrizar(v, r),
             // Sin orden en el aparato y con una apuntada aqui: se perdio. Se
             // trata como fallo, que es lo que no deja nada a medias.
-            _ => {
-                EN_VUELO = None;
-                aplicar(i, None, bytes, sig);
-            }
+            _ => aterrizar(v, None),
         }
     }
 }
@@ -201,7 +237,7 @@ pub(super) fn cerrar_vuelo() {
 /// aqui desde el hilo del bus, con las interrupciones abiertas.
 pub(super) fn soltar(i: usize) {
     crate::ring0::dev::disk::sin_el_hilo(|| unsafe {
-        if matches!(EN_VUELO, Some((j, _, _)) if j == i) {
+        if matches!(EN_VUELO, Some(v) if v.ranura() == i) {
             cerrar_vuelo();
         }
         POR_HILO[i] = false;
@@ -210,20 +246,28 @@ pub(super) fn soltar(i: usize) {
 }
 
 /// **UNA VUELTA DEL HILO DEL DISCO.** Corre con las interrupciones cerradas.
+///
+/// ** Y NO VA AL DISCO NUNCA (2026-09-23, 06:57). Todo lo que necesita del
+/// aparato --los datos, y la FAT para saber donde estan-- lo pide como una
+/// orden en vuelo y vuelve con `Esperando`. Lo unico que hace dentro es mirar
+/// tres registros y planear sobre memoria: por eso puede ir entero bajo el
+/// cerrojo `disco` sin que ese cerrojo sea el que mas tiempo deja la maquina
+/// sorda.
 pub fn paso() -> crate::ring0::dev::disk::Paso {
     use crate::ring0::dev::disk::{self, EstadoVuelo, Paso};
+    use crate::ring0::fsys::fs::PlanTrozo;
     unsafe {
         // 1. Lo que estaba en el aparato.
-        if let Some((i, bytes, sig)) = EN_VUELO {
+        if let Some(v) = EN_VUELO {
             match disk::mirar_vuelo() {
                 EstadoVuelo::EnCurso => return Paso::Esperando,
                 EstadoVuelo::Termino(r) => {
                     EN_VUELO = None;
-                    aplicar(i, r, bytes, sig);
+                    aterrizar(v, r);
                 }
                 EstadoVuelo::Libre => {
                     EN_VUELO = None;
-                    aplicar(i, None, bytes, sig);
+                    aterrizar(v, None);
                 }
             }
         }
@@ -235,24 +279,41 @@ pub fn paso() -> crate::ring0::dev::disk::Paso {
             }
             ULTIMA = i;
             let ya = LARGO[i];
-            let Some(t) = crate::ring0::fsys::fs::planear_trozo(LOAD_CLUSTER[i], ya, LOAD_TOTAL[i] as u32, TROZO_HILO) else {
-                LOAD_CLUSTER[i] = 0;
-                crate::ring0::task::scheduler::wake_by_key(llave(i));
-                return Paso::Otra;
+            let t = match crate::ring0::fsys::fs::planear_trozo(LOAD_CLUSTER[i], ya, LOAD_TOTAL[i] as u32, TROZO_HILO) {
+                PlanTrozo::Tramo(t) => t,
+                PlanTrozo::Nada => {
+                    LOAD_CLUSTER[i] = 0;
+                    crate::ring0::task::scheduler::wake_by_key(llave(i));
+                    return Paso::Otra;
+                }
+                // La FAT primero, por el mismo camino que los datos. Al
+                // aterrizar, la vuelta siguiente vuelve a planear desde aqui.
+                PlanTrozo::Fat { lba, sectores, fisica } => {
+                    if disk::emitir_vuelo(lba, sectores, fisica, false) {
+                        EN_VUELO = Some(Vuelo::Fat { i, sectores });
+                        return Paso::Esperando;
+                    }
+                    aterrizar(Vuelo::Fat { i, sectores }, None);
+                    return Paso::Otra;
+                }
             };
             // ** El bufer es CONTIGUO (`reserve`) y va por paginas, asi que el
-            // rabo del ultimo sector cabe. Se comprueba igual: un tramo que no
-            // cabe es el disco escribiendo en memoria de otro.
+            // rabo del ultimo sector cabe siempre. Se comprueba igual: un tramo
+            // que no cabe es el disco escribiendo en memoria de otro.
+            //
+            // [!] Y si no cabe, se PARA -- no "este trozo por el camino de
+            // siempre", que era leerlo en sincrono aqui dentro, con la maquina
+            // sorda. Que no quepa es un fallo de la cuenta de `reserve`, y un
+            // fichero corto lo dice; una lectura escondida en el paso no.
             let fin = ya + t.sectores as usize * 512;
             if fin > super::file::capacidad(i) {
-                // No cabe directo: este trozo por el camino de siempre.
-                avanzar(i);
-                crate::ring0::task::scheduler::wake_by_key(llave(i));
+                crate::ring0::cabina::fault("arch", "el tramo no cabe en el bufer del fichero", fin as u64);
+                aplicar(i, None, t.bytes, t.siguiente);
                 return Paso::Otra;
             }
             let destino = super::file::fisica(i) + ya as u64;
-            if disk::emitir_vuelo(t.lba, t.sectores, destino) {
-                EN_VUELO = Some((i, t.bytes, t.siguiente));
+            if disk::emitir_vuelo(t.lba, t.sectores, destino, true) {
+                EN_VUELO = Some(Vuelo::Datos { i, bytes: t.bytes, sig: t.siguiente });
                 return Paso::Esperando;
             }
             aplicar(i, None, t.bytes, t.siguiente);

@@ -81,6 +81,10 @@ pub fn cfg_write32(bus: u8, dev: u8, func: u8, off: u8, val: u32) {
 const MSI_LAPIC_BASE: u32 = 0xFEE0_0000;
 /// Id de la capability MSI en la lista encadenada de PCI.
 const CAP_ID_MSI: u8 = 0x05;
+/// Id de la capability MSI-X. Si esta ENCENDIDA, el aparato ignora MSI entero.
+const CAP_ID_MSIX: u8 = 0x11;
+/// Bit 8 del Message Control de MSI: el aparato tiene mascara por vector.
+const MSI_CTRL_MASCARA: u16 = 1 << 8;
 /// Bit 10 del registro de comando: **deshabilitar INTx**. Con MSI activo, la
 /// linea de siempre tiene que callarse, o el aparato podria avisar por las dos.
 const CMD_INTX_DISABLE: u32 = 1 << 10;
@@ -388,6 +392,19 @@ pub fn msi_activar(bus: u8, dev: u8, func: u8, vector: u8, apic_id: u8) -> bool 
             } else {
                 cfg_write32(bus, dev, func, off + 8, vector as u32);
             }
+            // ** LA MASCARA POR VECTOR (2026-09-23). Si el aparato la tiene,
+            // su bit 0 calla el unico mensaje que se le pide -- y su valor
+            // tras el firmware NO es asunto de la spec de reinicio: es lo que
+            // el firmware dejo. Se pone a cero en vez de suponerlo.
+            if control & MSI_CTRL_MASCARA != 0 {
+                let m = off + if de_64 { 0x10 } else { 0x0C };
+                cfg_write32(bus, dev, func, m, cfg_read32(bus, dev, func, m) & !1);
+            }
+            // ** Y MSI-X APAGADO: con MSI-X encendido el aparato usa SU tabla
+            // y lo que se escribe aqui no lo lee nadie. Se apaga y se DICE.
+            if msix_apagar(bus, dev, func) {
+                crate::ring0::cabina::warn("pci", "MSI-X estaba ENCENDIDO: apagado para usar MSI", off as u64);
+            }
             // Multiple Message Enable a 0 (un solo mensaje) y ENABLE a 1.
             let nuevo = (control & !(0x7 << 4)) | 1;
             cfg_write32(bus, dev, func, off, (cab & 0xFFFF) | ((nuevo as u32) << 16));
@@ -405,6 +422,76 @@ pub fn msi_activar(bus: u8, dev: u8, func: u8, vector: u8, apic_id: u8) -> bool 
                 // va a tener nada que anunciar.
                 crate::ring0::cabina::warn("pci", "MSI armado en un aparato SIN maestro de bus", off as u64);
             }
+            return true;
+        }
+        off = ((cab >> 8) & 0xFC) as u8;
+    }
+    false
+}
+
+/// **Lo que el aparato DICE que tiene de MSI, leido ahora.** Para la escalera
+/// del aviso del disco: si la interrupcion no llega, lo primero es preguntarle
+/// al aparato con que se quedo -- no lo que se le escribio.
+#[derive(Clone, Copy, Default)]
+pub struct MsiLeido {
+    /// Offset de la capability MSI (0 = no hay).
+    pub cap: u8,
+    /// ENABLE del Message Control.
+    pub enable: bool,
+    /// El vector 0 esta enmascarado por su mascara por vector.
+    pub enmascarado: bool,
+    /// MSI-X encendido: con el, lo de MSI no cuenta.
+    pub msix: bool,
+    /// Message Address (la mitad baja) y Message Data, tal cual.
+    pub direccion: u32,
+    pub dato: u16,
+}
+
+/// Lee la capability MSI (y el ENABLE de MSI-X) de un aparato. No escribe nada.
+pub fn msi_leer(bus: u8, dev: u8, func: u8) -> MsiLeido {
+    let mut r = MsiLeido::default();
+    let status = cfg_read32(bus, dev, func, 0x04) >> 16;
+    if status & (1 << 4) == 0 {
+        return r;
+    }
+    let mut off = (cfg_read32(bus, dev, func, 0x34) & 0xFC) as u8;
+    let mut saltos = 0;
+    while off >= 0x40 && saltos < 48 {
+        saltos += 1;
+        let cab = cfg_read32(bus, dev, func, off);
+        let control = (cab >> 16) as u16;
+        match (cab & 0xFF) as u8 {
+            CAP_ID_MSI => {
+                let de_64 = control & (1 << 7) != 0;
+                r.cap = off;
+                r.enable = control & 1 != 0;
+                r.direccion = cfg_read32(bus, dev, func, off + 4);
+                r.dato = cfg_read32(bus, dev, func, off + if de_64 { 12 } else { 8 }) as u16;
+                if control & MSI_CTRL_MASCARA != 0 {
+                    let m = off + if de_64 { 0x10 } else { 0x0C };
+                    r.enmascarado = cfg_read32(bus, dev, func, m) & 1 != 0;
+                }
+            }
+            CAP_ID_MSIX => r.msix = control & (1 << 15) != 0,
+            _ => {}
+        }
+        off = ((cab >> 8) & 0xFC) as u8;
+    }
+    r
+}
+
+/// Apaga MSI-X si estaba encendido. `true` si lo estaba.
+fn msix_apagar(bus: u8, dev: u8, func: u8) -> bool {
+    let mut off = (cfg_read32(bus, dev, func, 0x34) & 0xFC) as u8;
+    let mut saltos = 0;
+    while off >= 0x40 && saltos < 48 {
+        saltos += 1;
+        let cab = cfg_read32(bus, dev, func, off);
+        if (cab & 0xFF) as u8 == CAP_ID_MSIX {
+            if cab & (1 << 31) == 0 {
+                return false;
+            }
+            cfg_write32(bus, dev, func, off, cab & !(1 << 31));
             return true;
         }
         off = ((cab >> 8) & 0xFC) as u8;

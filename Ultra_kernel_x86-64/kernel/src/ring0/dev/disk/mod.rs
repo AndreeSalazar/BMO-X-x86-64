@@ -215,6 +215,9 @@ pub fn irq_estado() -> (bool, u64) { irq::estado() }
 /// **Lo llama el manejador del vector del disco.** Ver `plat/irq.rs`.
 pub fn atender_irq() { irq::atender(unsafe { PORT }) }
 
+/// `INFO_DISCO_AVISO`: la escalera del aviso del disco. Ver `irq.rs`.
+pub fn escalera_aviso() -> u64 { irq::escalera(unsafe { PORT }) }
+
 
 /// Ha pasado el disco el gate de identidad? Mientras sea `false`, `write()`
 /// no mueve un solo sector.
@@ -402,10 +405,14 @@ pub fn init() {
     if let Some(loc) = loc_ok.as_ref() {
         let idt = crate::info::idt_ptr();
         let vector = crate::ring0::plat::irq::VECTOR_DISCO as u8;
+        // ** A QUIEN se manda el aviso, PREGUNTADO (LEY 24): el APIC de la CPU
+        // que arranca, por CPUID. Estaba escrito `0` -- que en este Ryzen
+        // coincide, y en la placa siguiente es un mensaje a nadie.
+        let destino = crate::ring0::plat::smp::tramp::apic_id() as u8;
         if idt != 0 && crate::ring0::plat::irq::instalar(idt) {
-            if crate::ring0::dev::pci::msi_activar(loc.bus, loc.dev, loc.func, vector, 0) {
+            if crate::ring0::dev::pci::msi_activar(loc.bus, loc.dev, loc.func, vector, destino) {
                 if unsafe { bmo_ahci::habilitar_irq(chosen) } {
-                    irq::marcar_armada();
+                    irq::marcar_armada(loc.bus, loc.dev, loc.func, destino);
                     crate::ring0::cabina::info("disk", "el disco avisa por MSI, vector", vector as u64);
                 }
             } else {

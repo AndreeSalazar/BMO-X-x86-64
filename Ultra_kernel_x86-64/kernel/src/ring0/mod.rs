@@ -110,7 +110,7 @@ pub mod task {
 /// en `dev/disk.rs`; la diferencia es la misma que entre un sector y un nombre.
 pub mod fsys {
     //! [familia] fsys  nivel 6 -- de sectores a ficheros: FAT32 y ESTRATOS
-    //! [conecta] cabina, dev, task
+    //! [conecta] cabina, dev, mm, task
     pub mod estratos;
     pub mod fs;
 }

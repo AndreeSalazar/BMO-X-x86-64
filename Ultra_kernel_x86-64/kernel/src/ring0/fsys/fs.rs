@@ -538,12 +538,116 @@ pub fn leer_trozo(
     v.leer_tramo(cluster, ya, size, dst, tope)
 }
 
-/// **Donde esta el siguiente tramo, SIN leerlo** (D1, 2026-09-23). Lo usa el
-/// hilo del disco: planea aqui (la FAT, que casi siempre sale de su cache),
-/// manda UNA orden y duerme. Ver `bmo_fat32::FatVolume::planear_tramo`.
-pub fn planear_trozo(cluster: u32, ya: usize, size: u32, tope: usize) -> Option<bmo_fat32::Tramo> {
-    let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut()? };
-    v.planear_tramo(cluster, ya, size, tope)
+// == ** LA VENTANA DE LA FAT DEL HILO DEL DISCO (2026-09-23) ===============
+//
+// El hilo del disco planea sus tramos siguiendo la cadena, y la cadena esta en
+// la FAT. La primera version la seguia por la cache de UN sector del volumen,
+// y cuando fallaba leia ese sector EN SINCRONO -- dentro del paso del hilo, con
+// las interrupciones cerradas y el cerrojo `disco` en la mano. El Ryzen lo
+// midio el 23-09 a las 06:57: `retenido 134 us` en `dev/disk/hilo.rs`.
+//
+// Ahora el plan no lee (`bmo_fat32::Plan`): dice que sector le falta, y el
+// hilo lo trae **como trae los datos**, con una orden en vuelo a esta pagina.
+// Una pagina son 8 sectores = 1.024 entradas: con clusters de 4 KiB, 4 MiB de
+// fichero por cada orden de FAT.
+//
+// [!] La pagina llega por DMA, no por el volumen, asi que el volumen no sabe
+// que existe. Se guarda con ella cuantas escrituras llevaba el volumen al
+// pedirla (`FatVolume::escrituras`): si cambio, lo que dice puede ser viejo y
+// se vuelve a traer. Servir una FAT vieja es leer los clusters de otro fichero.
+
+/// Sectores de la ventana: una pagina.
+const VENTANA_SECTORES: u64 = 8;
+
+/// La pagina de la ventana (fisica). `0` = aun no se pidio.
+static mut VENTANA_FIS: u64 = 0;
+/// Lo que hay en ella: `(primer sector RELATIVO, sectores, escrituras al pedirla)`.
+/// `None` = nada que valga (vacia, o una orden la esta pisando).
+static mut VENTANA: Option<(u64, u16, u64)> = None;
+/// Lo que se pidio y aun no llego. Lo mismo, a la espera de `ventana_llego`.
+static mut VENTANA_PEDIDA: Option<(u64, u16, u64)> = None;
+
+/// Lo que el hilo del disco tiene que hacer para seguir un fichero.
+pub enum PlanTrozo {
+    /// No queda nada que leer (o el cluster no es del volumen).
+    Nada,
+    /// Una orden de datos: el tramo entero, planeado sin leer.
+    Tramo(bmo_fat32::Tramo),
+    /// Primero la FAT: `sectores` desde `lba` (ABSOLUTO) a la pagina `fisica`.
+    /// Al acabar, [`ventana_llego`]. Es una lectura como las de datos, y el
+    /// plan se vuelve a pedir desde el mismo cursor.
+    Fat { lba: u64, sectores: u16, fisica: u64 },
+}
+
+/// **Donde esta el siguiente tramo, SIN leer nada** (D1, 2026-09-23). Lo usa
+/// el hilo del disco, con las interrupciones cerradas: aqui no se va al disco
+/// NUNCA -- lo que falte de la FAT se devuelve como `PlanTrozo::Fat`.
+pub fn planear_trozo(cluster: u32, ya: usize, size: u32, tope: usize) -> PlanTrozo {
+    use bmo_fat32::{Plan, VentanaFat};
+    let Some(v) = (unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut() }) else {
+        return PlanTrozo::Nada;
+    };
+    let fis = unsafe { VENTANA_FIS };
+    let valida = match unsafe { VENTANA } {
+        Some((sector, n, esc)) if fis != 0 && esc == v.escrituras() => Some((sector, n)),
+        _ => None,
+    };
+    let plan = match valida {
+        Some((sector, n)) => {
+            // SAFETY: la pagina es nuestra desde que se pidio y nadie la suelta;
+            // `VENTANA` solo es `Some` cuando no hay una orden pisandola.
+            let bytes = unsafe {
+                core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(fis) as *const u8, n as usize * 512)
+            };
+            v.planear_tramo_en(cluster, ya, size, tope, &VentanaFat { sector, bytes })
+        }
+        None => v.planear_tramo_en(cluster, ya, size, tope, &VentanaFat::VACIA),
+    };
+    match plan {
+        Plan::Nada => PlanTrozo::Nada,
+        Plan::Tramo(t) => PlanTrozo::Tramo(t),
+        Plan::Falta(sector) => {
+            let Some(fis) = pagina_de_la_ventana() else { return PlanTrozo::Nada };
+            let Some((desde, lba, n)) = v.ventana_fat(sector, VENTANA_SECTORES) else {
+                return PlanTrozo::Nada;
+            };
+            unsafe {
+                // Desde aqui la pagina es del aparato: lo que dijera ya no vale.
+                VENTANA = None;
+                VENTANA_PEDIDA = Some((desde, n, v.escrituras()));
+            }
+            PlanTrozo::Fat { lba, sectores: n, fisica: fis }
+        }
+    }
+}
+
+/// **Llego (o no) la FAT que pidio [`planear_trozo`].** Lo llama el hilo al
+/// aterrizar la orden. Con `ok = false` la ventana se queda vacia: quien la
+/// pidio decide que hacer con su fichero.
+pub fn ventana_llego(ok: bool) {
+    unsafe {
+        if let Some(p) = VENTANA_PEDIDA.take() {
+            VENTANA = if ok { Some(p) } else { None };
+        }
+    }
+}
+
+/// La pagina, pedida la primera vez. Neutra: es memoria de un aparato, no de
+/// un proceso. Si no hay RAM para 4 KiB, el hilo no puede seguir cadenas y lo
+/// dice -- el fichero se para, y el camino sincrono de siempre sigue sirviendo.
+fn pagina_de_la_ventana() -> Option<u64> {
+    unsafe {
+        if VENTANA_FIS == 0 {
+            match crate::ring0::mm::phys::alloc_frames_contig_de(1, crate::ring0::mm::phys::Titular::Neutro) {
+                Some(f) => VENTANA_FIS = f,
+                None => {
+                    crate::ring0::cabina::fault("fs", "sin 4 KiB para la ventana de la FAT del hilo", 0);
+                    return None;
+                }
+            }
+        }
+        Some(VENTANA_FIS)
+    }
 }
 
 /// **Trae solo el PRINCIPIO del archivo.** Devuelve `(leidos, medida_real)`.

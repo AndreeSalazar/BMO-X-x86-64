@@ -1354,6 +1354,49 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
+///
+/// ```text
+///    0..15   entradas al vector 49, del disco o no
+///   16       el aparato tiene MSI ENABLE (leido de vuelta, no lo escrito)
+///   17       su mascara por vector CALLA el mensaje
+///   18       MSI-X encendido: el aparato ignora MSI
+///   20       GHC.IE: el HBA avisa
+///   21       PxIE.DHRE: el puerto avisa al acabar una orden
+///   22       IS del HBA con el bit del puerto: un aviso SIN CONSUMIR
+///   23       PxIS con algo
+///   24       el LAPIC tiene el vector PENDIENTE (IRR) y la CPU no lo cogio
+///   25       la ranura 0 ocupada (una orden en el aparato)
+///   26       la direccion del MSI es la que se escribio
+///   27       el dato del MSI es el vector
+///   28..35   el APIC al que se mando
+///   36..43   el APIC de la CPU que pregunta
+///   62       se armo
+///   63       leido
+/// ```
+///
+/// ** Nacio el 23-09 a las 06:57: `armada y NO LLEGA` son seis sitios donde se
+/// puede perder un aviso, y desde fuera se ven igual. Cada bit es uno de esos
+/// sitios preguntado a quien lo tiene.
+pub const INFO_DISCO_AVISO: u64 = 0x98;
+
+pub const DISCO_AVISO_ENTRADAS_MASK: u64 = 0xFFFF;
+pub const DISCO_AVISO_MSI_ENABLE: u64 = 1 << 16;
+pub const DISCO_AVISO_MSI_MASCARA: u64 = 1 << 17;
+pub const DISCO_AVISO_MSIX: u64 = 1 << 18;
+pub const DISCO_AVISO_GHC_IE: u64 = 1 << 20;
+pub const DISCO_AVISO_PXIE: u64 = 1 << 21;
+pub const DISCO_AVISO_IS_HBA: u64 = 1 << 22;
+pub const DISCO_AVISO_PXIS: u64 = 1 << 23;
+pub const DISCO_AVISO_IRR: u64 = 1 << 24;
+pub const DISCO_AVISO_CI: u64 = 1 << 25;
+pub const DISCO_AVISO_DIRECCION_OK: u64 = 1 << 26;
+pub const DISCO_AVISO_DATO_OK: u64 = 1 << 27;
+pub const DISCO_AVISO_DESTINO_SHIFT: u64 = 28;
+pub const DISCO_AVISO_CPU_SHIFT: u64 = 36;
+pub const DISCO_AVISO_ARMADA: u64 = 1 << 62;
+pub const DISCO_AVISO_VALIDO: u64 = 1 << 63;
+
 /// # `INFO_ENTERRADOR`: los muertos, desmontados FUERA del cerrojo (2026-09-23)
 ///
 /// ```text

@@ -279,6 +279,23 @@ pub fn eoi() {
     }
 }
 
+/// **El LAPIC tiene `vector` PENDIENTE** (su bit en el IRR)? `None` si aun no
+/// se sabe donde esta el LAPIC. Solo lee.
+///
+/// Es el peldano de la escalera del aviso del disco que separa "el mensaje no
+/// llego al LAPIC" de "llego y la CPU no lo coge" -- dos fallos que se ven
+/// igual desde fuera y se arreglan en sitios que no tienen nada que ver.
+pub fn pendiente_en_lapic(vector: u8) -> Option<bool> {
+    unsafe {
+        if LAPIC_EOI.is_null() {
+            return None;
+        }
+        let base = LAPIC_EOI as u64 - LAPIC_EOI_OFFSET;
+        let irr = ((base + 0x200 + (vector as u64 / 32) * 0x10) as *const u32).read_volatile();
+        Some(irr & (1 << (vector % 32)) != 0)
+    }
+}
+
 /// La tabla de interrupciones viva, para que otro vector pueda instalarse.
 pub fn instalar_vector(idt_ptr: u64, vector: usize, handler: u64) -> bool {
     if idt_ptr == 0 || vector > 255 {

@@ -109,12 +109,15 @@ pub unsafe fn sondear(port_idx: u8, con_datos: bool, write: bool) -> Estado {
     let is = port_read(mmio, port_idx, PORT_IS);
     if is & IS_TFES != 0 {
         let tfd = port_read(mmio, port_idx, PORT_TFD);
-        port_write(mmio, port_idx, PORT_IS, is);
+        consumir_aviso(mmio, port_idx);
         return Estado::Fallo(DiskError::Device(tfd));
     }
     if ci & 1 != 0 {
         return Estado::EnCurso;
     }
+    // ** La orden acabo y la ha visto ESTA pregunta: el aviso es suyo. Ver
+    // `consumir_aviso` -- dejarlo puesto era dejar al HBA sin flanco.
+    consumir_aviso(mmio, port_idx);
     let tfd = port_read(mmio, port_idx, PORT_TFD);
     if tfd & TFD_ERR != 0 { return Estado::Fallo(DiskError::Device(tfd)); }
     if !con_datos { return Estado::Hecho(0); }

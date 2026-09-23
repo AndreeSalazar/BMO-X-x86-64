@@ -125,10 +125,40 @@ pub struct FatVolume {
     /// este buffer, y lo refresca `write_sector`: despues de escribirlo, lo que
     /// hay en memoria es lo que hay en el disco.
     fat_cache_lba: u64,
+    /// **Escrituras del volumen desde que se monto** (2026-09-23).
+    ///
+    /// Lo que se trae de la FAT por FUERA de este volumen --la ventana del hilo
+    /// del disco, que llega por DMA y no por [`FatVolume::read_sector`]-- no se
+    /// entera de que alguien la escribio. Con esto lo pregunta: si el numero
+    /// cambio desde que se trajo, lo que tiene puede ser viejo. Cuenta TODA
+    /// escritura y no solo las de la FAT, a proposito: una ventana tirada de
+    /// mas se vuelve a traer; una servida vieja es un fichero con los clusters
+    /// de otro.
+    escrituras: u64,
 }
 
 /// No hay ningun sector cargado en `fat_cache`. No es un LBA posible.
 const SIN_CACHE: u64 = u64::MAX;
+
+/// **Trae el sector `lba` (relativo) a `buf`, salvo que ya este.** Lo que
+/// hay en `buf` lo dice `en`. La cache de UN sector de la FAT, escrita una vez:
+/// la usan [`FatVolume::read_sector`] y el plan sincrono (`plan.rs`), que la
+/// lleva prestada por fuera del volumen.
+fn leer_en_cache(dev: &'static dyn BlockDevice, base: u64, lba: u64, en: &mut u64, buf: &mut [u8; 512]) -> bool {
+    // ** Y AQUI SI SE RECUERDA. Ver el campo `fat_cache_lba`: en un sector de
+    // FAT caben 128 entradas seguidas, que son justo las que recorre quien
+    // sigue una cadena. Sin esto, seguir una cadena de mil clusters son mil
+    // comandos al disco.
+    if *en == lba {
+        return true;
+    }
+    let ok = dev.read(base + lba, 1, buf).is_ok();
+    // Si la lectura fallo, lo que hay en el buffer es del sector ANTERIOR.
+    // Decir que es de este seria servir las entradas de otro sitio de la FAT
+    // como si fueran de aqui.
+    *en = if ok { lba } else { SIN_CACHE };
+    ok
+}
 
 /// Por que fallo una escritura. Un `false` pelado no dice si el disco esta
 /// lleno, si el volumen es de solo lectura o si el nombre ya existia.
@@ -197,7 +227,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     // PRIMERA operacion que se haga con el volumen.
     if bpb.root_cluster < 2 || bpb.root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::Fat32, bytes_per_sector: bpb.bytes_per_sector, sectors_per_cluster: spc,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0 })
 }
 
 fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, buf: &[u8; 512]) -> Option<FatVolume> {
@@ -233,7 +263,7 @@ fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, b
     let max_cluster = epb.cluster_count.checked_add(1)?;
     if root_cluster < 2 || root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::ExFat, bytes_per_sector, sectors_per_cluster,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0 })
 }
 
 /// **UN CURSOR DENTRO DE UN ARCHIVO.** Sabe por que cluster va y en que byte del
@@ -357,19 +387,7 @@ impl FatVolume {
         match which {
             Buf::buf => rd.read(abs, 1, &mut self.buf).is_ok(),
             Buf::fat_cache => {
-                // ** Y AQUI SI SE RECUERDA. Ver el campo `fat_cache_lba`: en un
-                // sector de FAT caben 128 entradas seguidas, que son justo las
-                // que recorre quien sigue una cadena. Sin esta linea, seguir
-                // una cadena de mil clusters son mil comandos al disco.
-                if self.fat_cache_lba == lba {
-                    return true;
-                }
-                let ok = rd.read(abs, 1, &mut self.fat_cache).is_ok();
-                // Si la lectura fallo, lo que hay en el buffer es del sector
-                // ANTERIOR. Decir que es de este seria servir las entradas de
-                // otro sitio de la FAT como si fueran de aqui.
-                self.fat_cache_lba = if ok { lba } else { SIN_CACHE };
-                ok
+                leer_en_cache(rd, self.part_lba, lba, &mut self.fat_cache_lba, &mut self.fat_cache)
             }
         }
     }
@@ -382,6 +400,7 @@ impl FatVolume {
         }
         let wr = self.dev;
         let abs = self.abs(lba);
+        self.escrituras += 1;
         match which {
             Buf::buf => wr.write(abs, 1, &self.buf).is_ok(),
             Buf::fat_cache => {
@@ -401,7 +420,14 @@ impl FatVolume {
         if !self.escribible {
             return false;
         }
+        self.escrituras += 1;
         self.dev.write(self.abs(lba), 1, data).is_ok()
+    }
+
+    /// Escrituras desde el montaje. Ver el campo: quien guarda FAT por fuera
+    /// lo compara para saber si lo suyo sigue valiendo.
+    pub fn escrituras(&self) -> u64 {
+        self.escrituras
     }
 
     /// Primer LBA de la particion montada, por si alguien de arriba lo
@@ -467,16 +493,26 @@ impl FatVolume {
         self.data_start as u64 + (cluster as u64 - 2) * self.sectors_per_cluster as u64
     }
 
+    /// **Donde vive la entrada de `cluster`**: `(sector RELATIVO, byte dentro)`.
+    fn donde_en_la_fat(&self, cluster: u32) -> (u64, usize) {
+        let fat_offset = cluster as u64 * 4;
+        (self.fat_start as u64 + fat_offset / 512, (fat_offset % 512) as usize)
+    }
+
     fn read_fat_entry(&mut self, cluster: u32) -> Option<u32> {
-        let fat_offset = cluster * 4;
-        let fat_sector = self.fat_start + (fat_offset / 512);
-        let fat_index = (fat_offset % 512) as usize;
+        let (fat_sector, fat_index) = self.donde_en_la_fat(cluster);
         unsafe {
-            if !self.read_sector(fat_sector as u64, Buf::fat_cache) { return None; }
+            if !self.read_sector(fat_sector, Buf::fat_cache) { return None; }
         }
-        let entry = u32::from_le_bytes([self.fat_cache[fat_index], self.fat_cache[fat_index+1],
-            self.fat_cache[fat_index+2], self.fat_cache[fat_index+3]]) & 0x0FFF_FFFF;
-        match entry {
+        self.siguiente_de(u32::from_le_bytes([self.fat_cache[fat_index], self.fat_cache[fat_index+1],
+            self.fat_cache[fat_index+2], self.fat_cache[fat_index+3]]))
+    }
+
+    /// **Lo que dice una entrada cruda de la FAT: el cluster que sigue, o
+    /// `None`.** En un solo sitio: lo usan quien lee la entrada del disco y el
+    /// plan que la lee de una ventana (`plan.rs`).
+    fn siguiente_de(&self, crudo: u32) -> Option<u32> {
+        match crudo & 0x0FFF_FFFF {
             0 => None,
             n if n >= 0x0FFF_FFF7 => None,
             // ** EL TOPE, que faltaba. Un `1` o un numero mayor que los clusters
@@ -1015,7 +1051,7 @@ mod escribir;
 /// **PLANEAR sin leer**: donde esta el siguiente tramo contiguo, para que el
 /// HILO DEL DISCO mande una orden y duerma mientras el aparato la cumple.
 mod plan;
-pub use plan::{Tramo, SECTORES_MAX};
+pub use plan::{Plan, Tramo, VentanaFat, SECTORES_MAX};
 
 #[cfg(test)]
 mod pruebas;

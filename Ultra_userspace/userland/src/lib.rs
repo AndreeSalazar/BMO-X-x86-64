@@ -752,6 +752,25 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
+pub const INFO_DISCO_AVISO: u64 = 0x98;
+pub const DISCO_AVISO_ENTRADAS_MASK: u64 = 0xFFFF;
+pub const DISCO_AVISO_MSI_ENABLE: u64 = 1 << 16;
+pub const DISCO_AVISO_MSI_MASCARA: u64 = 1 << 17;
+pub const DISCO_AVISO_MSIX: u64 = 1 << 18;
+pub const DISCO_AVISO_GHC_IE: u64 = 1 << 20;
+pub const DISCO_AVISO_PXIE: u64 = 1 << 21;
+pub const DISCO_AVISO_IS_HBA: u64 = 1 << 22;
+pub const DISCO_AVISO_PXIS: u64 = 1 << 23;
+pub const DISCO_AVISO_IRR: u64 = 1 << 24;
+pub const DISCO_AVISO_CI: u64 = 1 << 25;
+pub const DISCO_AVISO_DIRECCION_OK: u64 = 1 << 26;
+pub const DISCO_AVISO_DATO_OK: u64 = 1 << 27;
+pub const DISCO_AVISO_DESTINO_SHIFT: u64 = 28;
+pub const DISCO_AVISO_CPU_SHIFT: u64 = 36;
+pub const DISCO_AVISO_ARMADA: u64 = 1 << 62;
+pub const DISCO_AVISO_VALIDO: u64 = 1 << 63;
+
 /// ** EL ENTERRADOR: entierros y el mas largo (us), fuera del cerrojo.
 pub const INFO_ENTERRADOR: u64 = 0x97;
 pub const ENTERRADOR_ENTIERROS_MASK: u64 = 0xFFFF_FFFF;

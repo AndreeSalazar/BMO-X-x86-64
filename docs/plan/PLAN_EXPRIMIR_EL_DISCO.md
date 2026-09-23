@@ -165,13 +165,67 @@ y fotograma -- eso es de la app, no del kernel.
 | terminadas por otro | cerca de 0 | cerca de las ordenes: el hilo llega tarde |
 | abrir DOOM y el visor | igual que antes o mas rapido | cuelgue o fichero corto (CABINA: `archivo corto`) |
 
+#### *** Lo que dijo el metal (23-09, 06:57), y la segunda vuelta
+
+```text
+    retenido  134 us   `disco` en dev\disk\hilo.rs:145
+    thread    8 ordenes en vuelo   0 despertares por la IRQ   0 terminadas por otro
+              SIN IRQ: armada y NO LLEGA: vive de la red de 2 ms
+```
+
+El hilo FUNCIONA (DOOM y los ficheros llegan) y tenia dos defectos, los dos
+de pieza y no de numero:
+
+1. **El paso del hilo giraba sobre el disco.** Planear un tramo es seguir la
+   cadena de la FAT, y cuando el sector no estaba en la cache de UNO del
+   volumen, `planear_tramo` lo leia EN SINCRONO -- dentro del paso, con el
+   cerrojo `disco` y las interrupciones cerradas. 134 us es una lectura de
+   512 B de este SATA. **La pieza nueva**: el plan es PURO
+   (`bmo_fat32::Plan`: `Tramo` / `Falta(sector)` / `Nada`, sobre una
+   `VentanaFat` que otro trajo), y el hilo trae la FAT **como trae los
+   datos**: una orden en vuelo a una pagina propia (`fsys/fs.rs`, 8 sectores =
+   1.024 entradas), con el contador de escrituras del volumen para no servirla
+   vieja. El camino sincrono recorre la cadena con el MISMO codigo. Y el
+   "este trozo por el camino de siempre" que habia dentro del paso (otra
+   lectura sincrona escondida) se quito: si un tramo no cabe, se para y se
+   dice.
+2. **El aviso no tenia un solo propietario.** Lo borraba solo el manejador de la
+   IRQ; quien acababa una orden PREGUNTANDO (`sondear`, en un syscall) lo
+   dejaba puesto, y con MSI de un mensaje el HBA avisa en el FLANCO: con
+   `IS.IPS` a 1 no hay flanco y no vuelve a mandar. Ahora lo consume el
+   primero que ve la orden acabada (`bmo_ahci::consumir_aviso`). Con el MSI
+   programado preguntando (el APIC por CPUID, no un `0` escrito; la mascara
+   por vector a cero; MSI-X apagado si el firmware lo dejo encendido).
+
+Y como "no llega" son seis sitios que se ven igual, la fila nueva `irq`
+(`INFO_DISCO_AVISO`, 0x98) dice **el primero que falla**: el aparato (su
+MSI leido de vuelta), el HBA (`GHC.IE`, `PxIE`, `IS`), el LAPIC (su IRR) y el
+vector (sus entradas).
+
+| Mirar | Lo bueno | Lo que diria que no |
+|---|---|---|
+| `retenido` | ya no es `disco` en `hilo.rs` | `disco` en `hilo.rs` otra vez: queda algo sincrono en el paso |
+| `irq` | `LLEGA: el vector 49 despierta al hilo` | la frase dice el peldano que falla |
+| `thread` | los despertares suben con las ordenes | `SIN IRQ` |
+
 ### [ ] D3 -- DMA directo al bloque prestado + PRD multiples
+
+> **Cuestionar antes (23-09):** hoy ninguna orden pasa de 1 MiB (`TROZO_HILO`),
+> asi que el techo de 4 MiB no lo toca nadie. Se decide con D0: si la orden de
+> 1 MiB ya llena el cable, esta casilla se cierra con el numero y sin codigo.
 
 Una orden de hoy pide como mucho 4 MiB (una entrada de PRDT, `DBC` de 22 bits);
 el protocolo admite 32 MiB (`READ DMA EXT`, 65.536 sectores). **Como se sabe:**
 `disco banda` con la orden de 8 MiB contra la de 4 MiB.
 
 ### [ ] D2 -- NCQ: la cola que decide el orquestador
+
+> **Cuestionar antes (23-09):** NCQ gana cuando hay VARIAS ordenes a la vez
+> (lecturas sueltas, varios lectores). Hoy el disco tiene UN cliente (el hilo)
+> que lee trozos seguidos de 1 MiB: una cola de 32 no tiene con que llenarse.
+> Cuesta el camino FPDMA entero (`SActive`, 32 ranuras, el FIS SDB) para una
+> ganancia que ninguna maquina de hoy ejecuta. Se mide primero (D0) y se
+> decide con el numero; el propietario decide si se abre.
 
 `cola = min(NCS del HBA, profundidad del disco, la parte que el orquestador le
 da a quien tiene el foco)`. Tres respuestas, y el kernel decide con las tres:

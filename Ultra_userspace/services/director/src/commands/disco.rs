@@ -351,6 +351,7 @@ pub(crate) fn report_disco(s: &mut Output) {
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
+    aviso(s, (h >> bmo::DISCO_HILO_IRQ_SHIFT) & bmo::DISCO_HILO_IRQ_MASK);
 
     // -- ** EL METRO (D0, 23-09): la unica cifra de velocidad que es de ESTE
     // disco. Sin medir se dice, y se dice como medirlo.
@@ -362,6 +363,58 @@ pub(crate) fn report_disco(s: &mut Output) {
     } else {
         detalle_banda(s);
     }
+}
+
+/// ** LA ESCALERA DEL AVISO (23-09, 06:57). El Ryzen dijo `armada y NO LLEGA`,
+/// y eso son seis sitios donde un aviso se puede perder que desde fuera se ven
+/// igual. El kernel pregunta a cada uno (`INFO_DISCO_AVISO`) y aqui se dice
+/// el PRIMERO que falla, de la fuente al destino: el aparato, el HBA, el LAPIC
+/// y el vector. Sin armar no hay fila: eso ya lo dice `thread`.
+fn aviso(s: &mut Output, por_irq: u64) {
+    let e = bmo::info(bmo::INFO_DISCO_AVISO);
+    if e & bmo::DISCO_AVISO_VALIDO == 0 || e & bmo::DISCO_AVISO_ARMADA == 0 {
+        return;
+    }
+    let si = |bit: u64| e & bit != 0;
+    let entradas = e & bmo::DISCO_AVISO_ENTRADAS_MASK;
+    let destino = (e >> bmo::DISCO_AVISO_DESTINO_SHIFT) & 0xFF;
+    let cpu = (e >> bmo::DISCO_AVISO_CPU_SHIFT) & 0xFF;
+    let frase: &[u8] = if por_irq > 0 {
+        b"LLEGA: el vector 49 despierta al hilo"
+    } else if si(bmo::DISCO_AVISO_MSIX) {
+        b"MSI-X ENCENDIDO: el aparato ignora el MSI"
+    } else if !si(bmo::DISCO_AVISO_MSI_ENABLE) {
+        b"el aparato NO se quedo con MSI (enable a 0)"
+    } else if si(bmo::DISCO_AVISO_MSI_MASCARA) {
+        b"MSI ENMASCARADO en el aparato"
+    } else if !si(bmo::DISCO_AVISO_DIRECCION_OK) || !si(bmo::DISCO_AVISO_DATO_OK) {
+        b"el MSI no guardo la direccion o el vector que se le escribio"
+    } else if !si(bmo::DISCO_AVISO_GHC_IE) || !si(bmo::DISCO_AVISO_PXIE) {
+        b"el HBA no tiene el aviso encendido (GHC.IE / PxIE)"
+    } else if si(bmo::DISCO_AVISO_IRR) {
+        b"el LAPIC lo tiene PENDIENTE y la CPU no lo coge"
+    } else if entradas > 0 {
+        b"el vector 49 ENTRA, pero el aviso no es del puerto"
+    } else if si(bmo::DISCO_AVISO_IS_HBA) && !si(bmo::DISCO_AVISO_CI) {
+        b"aviso SIN CONSUMIR en el HBA: sin flanco no manda otro"
+    } else if destino != cpu {
+        b"el mensaje va al APIC de OTRA cpu"
+    } else {
+        b"todo en su sitio, y el mensaje no llega al LAPIC"
+    };
+    campo(s, b"irq");
+    s.with_ink(if por_irq > 0 { INK_GOOD } else { INK_ERR });
+    s.text(frase);
+    s.with_ink(INK_ECHO);
+    s.text(b"   entradas ");
+    s.dec(entradas);
+    s.text(b"   apic ");
+    s.dec(destino);
+    s.text(b" -> cpu ");
+    s.dec(cpu);
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"disco_aviso", e, b"bits");
 }
 
 /// El cuadro entero: que aparato es, cuanto queda y que se le ha devuelto.

@@ -466,7 +466,11 @@ impl FatVolume {
         while s < enteros {
             let k = (enteros - s).min(32_768);
             let trozo = &data[desde + s * 512..desde + (s + k) * 512];
-            if !self.escribible || self.dev.write(self.abs(lba + s as u64), k as u16, trozo).is_err() {
+            if !self.escribible {
+                return false;
+            }
+            self.escrituras += 1;
+            if self.dev.write(self.abs(lba + s as u64), k as u16, trozo).is_err() {
                 return false;
             }
             s += k;
