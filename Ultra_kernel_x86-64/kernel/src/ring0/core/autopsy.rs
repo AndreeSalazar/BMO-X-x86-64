@@ -663,6 +663,10 @@ enum Causa {
     PunteroNulo,
     EscrituraEnImagen,
     SaltoSinCodigo,
+    /// **Escribir en un bloque SELLADO** (`MEM_OP_SELLAR`): el bloque es
+    /// codigo, y W^X hizo exactamente lo que promete. Lo que se busca es quien
+    /// escribio despues de sellar.
+    EscrituraEnSellado,
     SinMapear,
     /// **La direccion cae DENTRO de un bloque que el kernel le entrego a este
     /// proceso, y la pagina no esta.** Ver `obj::memory::donde_cae`: esto NO
@@ -722,6 +726,13 @@ fn clasificar(vector: u64, error: u64, cr2: u64, cap: &Captura) -> Causa {
             // Dentro y sin traduccion: el bloque es suyo, la pagina no esta.
             // No hay nada que el programa pudiera haber hecho distinto.
             Caida::Dentro { .. } if !cap.traducida => return Causa::BloqueConAgujero,
+            // ** Dentro, la pagina ESTA, y escribia (bits 0 y 1): violacion de
+            // permisos sobre su propio bloque. Hoy solo la da un bloque sellado.
+            // Visto en el Ryzen el 23-09 con `c/sello.bex`: el fallo era el
+            // correcto y el veredicto decia "SIN MAPEAR", que era mentira.
+            Caida::Dentro { sellado: true, .. } if error & 3 == 3 => {
+                return Causa::EscrituraEnSellado
+            }
             Caida::Pasado { .. } => return Causa::BloquePasado,
             _ => {}
         }
@@ -825,6 +836,8 @@ fn nombre(c: Causa) -> &'static str {
         Causa::PunteroNulo => "*** PUNTERO NULO",
         Causa::EscrituraEnImagen => "*** ESCRITURA SOBRE CODIGO O CONSTANTES (solo lectura)",
         Causa::SaltoSinCodigo => "*** SALTO A MEMORIA QUE NO ES CODIGO: puntero de funcion",
+        Causa::EscrituraEnSellado =>
+            "*** ESCRITURA EN CODIGO SELLADO (W^X): el bloque se sello y luego se escribio",
         // ** Ya NO dice "o indice fuera de rango": esa rama tiene su propio
         // caso y su propio numero. Lo que queda aqui es lo que de verdad
         // significa -- una direccion que no cae en nada que este proceso tenga.
@@ -876,10 +889,10 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
         // ** LOS NUMEROS SON EL VEREDICTO AQUI. "Dentro de un bloque" sin decir
         // CUAL ni CUANTO no se puede ir a mirar; con el desplazamiento y el
         // medida, el que lee sabe si fallo en la primera fila o en la ultima.
-        Causa::BloqueConAgujero | Causa::BloquePasado => {
+        Causa::BloqueConAgujero | Causa::BloquePasado | Causa::EscrituraEnSellado => {
             use crate::ring0::obj::memory::Caida;
             match cap.caida {
-                Caida::Dentro { bloque, off, bytes } => {
+                Caida::Dentro { bloque, off, bytes, .. } => {
                     r.s(": bloque ");
                     r.dec(bloque as u64);
                     r.s(", +0x");

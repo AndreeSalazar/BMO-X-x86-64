@@ -369,7 +369,9 @@ pub enum Caida {
     /// Este pid no tiene contabilidad: o no pidio nada, o ya se la cerraron.
     SinCuenta,
     /// Cae DENTRO del bloque `bloque`: `off` bytes de los `bytes` que mide.
-    Dentro { bloque: usize, off: u64, bytes: u64 },
+    /// `sellado`: el bloque es CODIGO (`MEM_OP_SELLAR`), y escribir en el es
+    /// lo que W^X prohibe -- la autopsia lo nombra en vez de decir "sin mapear".
+    Dentro { bloque: usize, off: u64, bytes: u64, sellado: bool },
     /// Cae PASADO el final del bloque `bloque`, por `cuanto` bytes. Se da por
     /// suyo lo que cae a menos de un bloque de distancia por arriba: mas lejos
     /// no se puede decir de quien se paso.
@@ -387,7 +389,7 @@ pub fn donde_cae(pid: u32, va: u64) -> Caida {
     // solo bucle haria que el orden de la tabla decidiera el veredicto.
     for (i, b) in bloques.iter().enumerate() {
         if b.base != 0 && b.bytes != 0 && va >= b.base && va < b.base + b.bytes {
-            return Caida::Dentro { bloque: i, off: va - b.base, bytes: b.bytes };
+            return Caida::Dentro { bloque: i, off: va - b.base, bytes: b.bytes, sellado: b.sellado };
         }
     }
     let mut hay = false;
