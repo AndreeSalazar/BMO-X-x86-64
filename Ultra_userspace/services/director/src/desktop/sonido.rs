@@ -277,27 +277,12 @@ pub(crate) fn latido(dsk: &mut Desktop, p: &bmo::Pantalla) {
     }
 }
 
-/// **La ventana de arriba tapa el panel?** Entonces el refresco no pinta: se
+/// **Alguna ventana delante tapa el panel?** Entonces el refresco no pinta: se
 /// pintaria ENCIMA de ella. Vuelve a verse al traerlo delante.
 ///
-/// Las apps no cuentan: su superficie se compone despues de todo lo demas, en
-/// cada fotograma suyo, asi que por encima quedan ellas de todas formas.
+/// ** Miraba SOLO la de arriba, y el 23-09 00:06 en el Ryzen eso pinto el fondo
+/// del panel encima de CABINA: Ejecutar arriba (sin tocarlo), CABINA en medio
+/// (tocandolo). La pregunta es de todas las de delante, y vive en `foco`.
 fn tapada(dsk: &Desktop) -> bool {
-    let top = dsk.win.top_before;
-    if top == Ventana::Sound {
-        return false;
-    }
-    let caja = |c: &scene::chrome::Chrome| (!c.minimized).then_some((c.x, c.y, c.width, c.height));
-    let otra = match top {
-        Ventana::Data if dsk.win.data_open => caja(&dsk.win.data.chrome),
-        Ventana::Cabina if dsk.win.cabina_open => caja(&dsk.win.cabina.chrome),
-        Ventana::Estructura if dsk.win.estructura_open => caja(&dsk.win.estructura.chrome),
-        Ventana::Run if dsk.win.visible => Some((dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())),
-        _ => None,
-    };
-    let c = &dsk.win.sound.chrome;
-    match otra {
-        Some((x, y, w, h)) => x < c.x + c.width && c.x < x + w && y < c.y + c.height && c.y < y + h,
-        None => false,
-    }
+    crate::desktop::foco::tapada(dsk, Ventana::Sound)
 }

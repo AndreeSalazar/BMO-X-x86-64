@@ -361,11 +361,9 @@ pub(crate) fn uncover(
     // --la de Ejecutar, que se repinta cuatro lineas mas abajo-- y para eso
     // sirve `launcher::area`.
     //
-    // [!] Queda un hueco conocido: si es la ventana de Datos o la de Sonido la
-    // que tapa la rejilla, esto le pinta los iconos encima hasta que esa
-    // ventana se repinte. Es el mismo agujero que ya tenia `paint_run_box`
-    // aqui, y no se tapa con otro `if`: se tapa cuando el mueble del escritorio
-    // sea una lista de pintado que se pueda reproducir RECORTADA.
+    // [!] Habia un hueco conocido: si era la ventana de Datos o la de Sonido la
+    // que tapaba la rejilla, esto le pintaba los iconos encima. Lo cierra el
+    // `apuntar` de abajo (23-09), sin otro `if` aqui.
     let (gx, gy, gw, gh) = scene::launcher::area(p, launcher);
     let tapada = visible
         && gw > 0
@@ -375,6 +373,13 @@ pub(crate) fn uncover(
         && run_box.y + run_box.h() >= gy + gh;
     if !tapada {
         scene::launcher::paint(p, launcher);
+        // ** Y SE APUNTA (23-09): los iconos son la capa de ABAJO, y acaban de
+        // pintarse encima de lo que hubiera -- el panel de Sonido, CABINA, Datos.
+        // El cierre del fotograma (`paint::devolver`) repinta las ventanas que
+        // tocan esta zona, de atras hacia delante, y quedan otra vez encima.
+        // Era el "hueco conocido" de aqui abajo, y se tapa con la pieza que ya
+        // devolvia lo que un borrado destapaba.
+        scene::dirty::apuntar(gx, gy, gw, gh);
     }
 
     if !visible {

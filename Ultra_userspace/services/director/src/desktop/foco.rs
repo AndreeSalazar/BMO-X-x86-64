@@ -68,3 +68,85 @@ pub(crate) fn seguir(dsk: &mut Desktop, p: &bmo::Pantalla) {
     }
     dsk.win.taskbar_dirty = true;
 }
+
+// == *** EL ORDEN DE APILADO: una pregunta y un recorrido (2026-09-23) ======
+//
+// Visto en el Ryzen a las 00:06: el refresco del panel de Sonido pinto su fondo
+// ENCIMA de CABINA (un rectangulo oscuro que se comio el principio de sus
+// lineas) y los iconos D y N salieron encima del panel. Las dos cosas tenian la
+// misma raiz: **el escritorio solo sabia cual estaba ARRIBA** (`top_before`), y
+// "arriba" no contesta "me tapa alguien?" cuando hay tres ventanas. Ejecutar
+// estaba delante, CABINA en medio, Sonido detras: Ejecutar no toca al panel, y
+// el panel se creyo libre.
+//
+// El orden ya existia: es la lista del foco, y `seguir` (arriba) repinta con
+// ella de atras hacia delante cada vez que el foco cambia -- asi que despues de
+// cada cambio LO QUE SE VE es esa lista. Faltaba preguntarle.
+
+/// Donde se ve una ventana DEL SISTEMA, si se ve. Las apps contestan `None`:
+/// su superficie se compone despues de todo lo demas y queda encima siempre.
+pub(crate) fn caja(dsk: &Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
+    let de = |c: &crate::scene::chrome::Chrome| (!c.minimized).then_some((c.x, c.y, c.width, c.height));
+    if !dsk.win.abierta(v) {
+        return None;
+    }
+    match v {
+        Ventana::Run => Some((dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())),
+        Ventana::Data => de(&dsk.win.data.chrome),
+        Ventana::Cabina => de(&dsk.win.cabina.chrome),
+        Ventana::Estructura => de(&dsk.win.estructura.chrome),
+        Ventana::Cpu => de(&dsk.win.cpu.chrome),
+        Ventana::Mem => de(&dsk.win.mem.chrome),
+        Ventana::Sound => de(&dsk.win.sound.chrome),
+        Ventana::App(_) => None,
+    }
+}
+
+fn se_pisan((x, y, w, h): (u32, u32, u32, u32), (a, b, c, d): (u32, u32, u32, u32)) -> bool {
+    x < a + c && a < x + w && y < b + d && b < y + h
+}
+
+/// **Alguna ventana del sistema DELANTE de `v` la pisa?** Entonces lo que `v`
+/// pinte por su cuenta (un refresco, un medidor) caeria ENCIMA de ella.
+///
+/// Delante = antes en la lista del foco. Si `v` no esta en la lista no se sabe
+/// su sitio, y se contesta lo que no rompe nada: tapada si cualquier otra la
+/// pisa. Pintar de menos se arregla al traerla delante; pintar de mas se come
+/// una ventana ajena.
+pub(crate) fn tapada(dsk: &Desktop, v: Ventana) -> bool {
+    let Some(mia) = caja(dsk, v) else { return false };
+    let lista = dsk.win.focus.lista();
+    let hasta = lista.iter().position(|&id| Ventana::de_id(id) == Some(v));
+    let delante = &lista[..hasta.unwrap_or(lista.len())];
+    delante
+        .iter()
+        .filter_map(|&id| Ventana::de_id(id))
+        .filter(|&o| o != v)
+        .filter_map(|o| caja(dsk, o))
+        .any(|otra| se_pisan(mia, otra))
+}
+
+/// Las ventanas del sistema **de atras hacia delante**: el orden en que hay que
+/// pintarlas para que la de delante quede encima. Las que no estan en la lista
+/// del foco van primero (detras de todo): no hay dato para ponerlas delante.
+pub(crate) fn de_atras_adelante(dsk: &Desktop) -> ([Ventana; Ventana::TODAS.len()], usize) {
+    let mut orden = [Ventana::Run; Ventana::TODAS.len()];
+    let mut n = 0;
+    let lista = dsk.win.focus.lista();
+    let en_lista = |v: Ventana| lista.iter().any(|&id| Ventana::de_id(id) == Some(v));
+    for v in Ventana::TODAS {
+        if !en_lista(v) {
+            orden[n] = v;
+            n += 1;
+        }
+    }
+    for &id in lista.iter().rev() {
+        if let Some(v) = Ventana::de_id(id).filter(|v| !matches!(v, Ventana::App(_))) {
+            if n < orden.len() {
+                orden[n] = v;
+                n += 1;
+            }
+        }
+    }
+    (orden, n)
+}

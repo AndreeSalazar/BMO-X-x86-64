@@ -62,8 +62,11 @@ fn repintar_apps_encima(dsk: &mut Desktop) {
 /// Visto en el Ryzen: mover el cubo por encima de la biblioteca dejaba la FOTO
 /// de fondo donde estaba la lista. Ver `scene::perjuicio`, que es quien apunta.
 ///
-/// El orden es el Z-order: primero las ventanas que NO estan arriba, despues
-/// la de arriba, y las apps se recomponen al final porque van encima de todas.
+/// El orden es el Z-order: **de atras hacia delante segun la lista del foco**
+/// (`foco::de_atras_adelante`), y las apps se recomponen al final porque van
+/// encima de todas. Hasta el 23-09 era "todas las que no son la de arriba, en
+/// el orden del enum, y la de arriba al final": con tres ventanas pisandose, la
+/// de en medio podia salir encima de la de delante.
 fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
     if !scene::dirty::hay() {
         return;
@@ -88,20 +91,23 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
         Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
         Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),
         Ventana::Estructura => scene::estructura::paint(p, &dsk.win.estructura),
-        Ventana::Run => uncover(p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field),
+        // ** La CAJA y no `uncover`: `uncover` pinta tambien los iconos, que
+        // son la capa de abajo, y aqui se esta pintando de atras hacia delante
+        // -- los iconos saldrian encima de las ventanas ya devueltas.
+        Ventana::Run => {
+            scene::paint_run_box(p, &dsk.run_box);
+            dsk.tick.repaint_field = true;
+            dsk.out.grid.dirty = true;
+        }
         _ => {}
     };
-    let top = dsk.win.top_before;
+    let (orden, n) = super::foco::de_atras_adelante(dsk);
     let mut algo = false;
-    for v in Ventana::TODAS {
-        if v != top && toca(dsk, v) {
+    for &v in &orden[..n] {
+        if toca(dsk, v) {
             pintar(dsk, v);
             algo = true;
         }
-    }
-    if toca(dsk, top) {
-        pintar(dsk, top);
-        algo = true;
     }
     if algo {
         for s in dsk.table.iter_mut() {
