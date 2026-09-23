@@ -507,7 +507,34 @@ impl<'m, 'a, 'b, 't, 'c> Emitter<'m, 'a, 'b, 't, 'c> {
         let y = if fila.operands > 1 { self.at(ins.op(6)) } else { 0 };
         let z = if fila.operands > 2 { self.at(ins.op(7)) } else { 0 };
         if fila.group == GlslGroup::Transcendental {
-            return Err(Reason::NotYet { what: "seno, coseno, exp, log y pow en el emisor (S4b)" });
+            // S4b: en doble, con las rutinas de `trascendentes.rs`, como `math`.
+            let (sincos, exp, ln) = self.routines.ok_or(Reason::NotYet { what: "rutinas trascendentes sin emitir" })?;
+            for k in 0..n {
+                self.w.movss_load(0, RDI, x + 4 * k);
+                self.w.cvtss2sd(0, 0);
+                match numero {
+                    g::Sin => self.w.call_to(sincos),
+                    g::Cos => {
+                        self.w.call_to(sincos);
+                        self.w.sd(0x10, 0, 1);
+                    }
+                    g::Exp => self.w.call_to(exp),
+                    g::Log => self.w.call_to(ln),
+                    g::Pow => {
+                        // exp(y * ln(x))
+                        self.w.call_to(ln);
+                        self.w.movss_load(1, RDI, y + 4 * k);
+                        self.w.cvtss2sd(1, 1);
+                        self.w.sd(0x59, 1, 0);
+                        self.w.sd(0x10, 0, 1);
+                        self.w.call_to(exp);
+                    }
+                    _ => return Err(Reason::UnsupportedGlsl { number: numero }),
+                }
+                self.w.cvtsd2ss(0, 0);
+                self.w.movss_store(RDI, ra + 4 * k, 0);
+            }
+            return Ok(());
         }
         for k in 0..n {
             let (xk, yk, zk, rk) = (x + 4 * k, y + 4 * k, z + 4 * k, ra + 4 * k);

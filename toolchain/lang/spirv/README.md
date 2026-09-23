@@ -33,7 +33,7 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 | `examples/census.rs` + `herramientas/censo_naga.py` -- la matriz | S2 | contra el banco de Naga: 228 se leen, 111 de computo, **28 caben** |
 | `src/interpreter/` -- `Interpreter`: el oraculo (`mod.rs` despacha y ejecuta, `values.rs` las instrucciones de valor, `buffers.rs` la disposicion std140/std430) | S3 | hecho: ejecuta el computo invocacion a invocacion; lo indefinido PARA con su motivo (`Trap`) |
 | `src/math.rs` -- la aritmetica | S3, S3b | la DEFINICION: `sqrt`, `floor`, `fma`... bit a bit contra la biblioteca estandar; `sin`, `cos`, `exp`, `log`, `pow` en doble, a un ULP; el emisor tendra que igualarla |
-| `emisor-x86_64/` (crate `bmo-spirv-x86-64`) -- el emisor | S4 | hecho, escalar: los mismos bits que el oraculo en su banco y en los 28 de Naga que caben; las trascendentes, S4b |
+| `emisor-x86_64/` (crate `bmo-spirv-x86-64`) -- el emisor | S4, S4b | hecho, escalar: los mismos bits que el oraculo en su banco y en los 28 de Naga que caben; las trascendentes en doble, leyendo la MISMA tabla que `math` (`math::table`) |
 
 ## La API habla ingles; la casa, castellano
 

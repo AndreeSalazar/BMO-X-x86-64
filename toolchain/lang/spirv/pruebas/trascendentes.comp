@@ -1,0 +1,17 @@
+#version 450
+// trascendentes: las cinco de S4b sobre la entrada TAL CUAL, para que entren
+// NaN, infinitos, negativos, ceros y angulos enormes (donde el cuadrante de
+// sin/cos satura). Es la fila que compara el emisor con el oraculo bit a bit.
+layout(local_size_x = 64) in;
+layout(std430, binding = 0) readonly buffer V { float v[]; };
+layout(std430, binding = 1) readonly buffer W { float w[]; };
+layout(std430, binding = 2) writeonly buffer R { float r[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    float x = v[i];
+    r[5u * i + 0u] = sin(x);
+    r[5u * i + 1u] = cos(x);
+    r[5u * i + 2u] = exp(x);
+    r[5u * i + 3u] = log(x);
+    r[5u * i + 4u] = pow(x, w[i]);
+}

@@ -242,7 +242,7 @@ pub fn to_i32(x: f32) -> i32 {
 
 /// El entero mas cercano (empates a par), en `f64`, para |y| < 2^51.
 fn nearest(y: f64) -> f64 {
-    const MAGIC: f64 = 6_755_399_441_055_744.0; // 1.5 * 2^52
+    const MAGIC: f64 = table::NEAREST;
     if y >= 0.0 {
         (y + MAGIC) - MAGIC
     } else {
@@ -255,21 +255,100 @@ fn pow2(k: i64) -> f64 {
     f64::from_bits(((k + 1023) as u64) << 52)
 }
 
-const FRAC_PI_2_HI: f64 = 1.570_796_326_734_125_6; // los 33 bits altos de pi/2
-const FRAC_PI_2_LO: f64 = 6.077_100_506_506_192e-11; // el resto
-const FRAC_2_PI: f64 = 0.636_619_772_367_581_4;
-const LN2_HI: f64 = 0.693_147_180_369_123_8;
-const LN2_LO: f64 = 1.908_214_929_270_587_7e-10;
-const INV_LN2: f64 = 1.442_695_040_888_963_4;
+/// **LA TABLA de las trascendentes**: constantes y coeficientes, UNA vez.
+///
+/// La leen `math` (el oraculo) y el emisor de x86-64 (`bmo-spirv-x86-64`):
+/// los dos evaluan los mismos polinomios con los mismos numeros y en el mismo
+/// orden, asi que dan los mismos bits. Si cada uno llevara su copia, un
+/// coeficiente corregido en un sitio y no en el otro separaria las dos
+/// definiciones sin que ninguna prueba lo notara hasta el Ryzen.
+///
+/// Los polinomios van de DENTRO a FUERA (Horner): `acc = T[0]`, y por cada
+/// siguiente `acc = acc * x + T[i]`.
+pub mod table {
+    /// Los 33 bits altos de pi/2 (fdlibm `pio2_1`).
+    pub const FRAC_PI_2_HI: f64 = 1.570_796_326_734_125_6;
+    /// El resto de pi/2 (fdlibm `pio2_1t`).
+    pub const FRAC_PI_2_LO: f64 = 6.077_100_506_506_192e-11;
+    pub const FRAC_2_PI: f64 = 0.636_619_772_367_581_4;
+    /// ln 2 en dos trozos (fdlibm `ln2_hi`, `ln2_lo`).
+    pub const LN2_HI: f64 = 0.693_147_180_369_123_8;
+    pub const LN2_LO: f64 = 1.908_214_929_270_587_7e-10;
+    pub const INV_LN2: f64 = 1.442_695_040_888_963_4;
+    /// 1.5 * 2^52: sumarlo y restarlo redondea al entero mas cercano.
+    pub const NEAREST: f64 = 6_755_399_441_055_744.0;
+    /// Por encima, `exp` es infinito; por debajo, 0.
+    pub const EXP_MAX: f64 = 709.0;
+    pub const EXP_MIN: f64 = -745.0;
+
+    /// seno de r en [-pi/4, pi/4]: `r * P(r^2)`, Taylor hasta r^13.
+    pub const SIN: [f64; 7] = [
+        1.0 / 6_227_020_800.0,
+        -1.0 / 39_916_800.0,
+        1.0 / 362_880.0,
+        -1.0 / 5040.0,
+        1.0 / 120.0,
+        -1.0 / 6.0,
+        1.0,
+    ];
+    /// coseno de r en [-pi/4, pi/4]: `P(r^2)`, Taylor hasta r^14.
+    pub const COS: [f64; 8] = [
+        -1.0 / 87_178_291_200.0,
+        1.0 / 479_001_600.0,
+        -1.0 / 3_628_800.0,
+        1.0 / 40_320.0,
+        -1.0 / 720.0,
+        1.0 / 24.0,
+        -0.5,
+        1.0,
+    ];
+    /// e^r para |r| <= ln2/2: `P(r)`, Taylor hasta r^12.
+    pub const EXP: [f64; 13] = [
+        1.0 / 479_001_600.0,
+        1.0 / 39_916_800.0,
+        1.0 / 3_628_800.0,
+        1.0 / 362_880.0,
+        1.0 / 40_320.0,
+        1.0 / 5040.0,
+        1.0 / 720.0,
+        1.0 / 120.0,
+        1.0 / 24.0,
+        1.0 / 6.0,
+        1.0 / 2.0,
+        1.0 / 1.0,
+        1.0 / 1.0,
+    ];
+    /// ln(m) = 2 s P(s^2), s = (m - 1)/(m + 1): la serie de atanh hasta s^21.
+    pub const LN: [f64; 11] = [
+        1.0 / 21.0,
+        1.0 / 19.0,
+        1.0 / 17.0,
+        1.0 / 15.0,
+        1.0 / 13.0,
+        1.0 / 11.0,
+        1.0 / 9.0,
+        1.0 / 7.0,
+        1.0 / 5.0,
+        1.0 / 3.0,
+        1.0 / 1.0,
+    ];
+}
+
+use table::{FRAC_2_PI, FRAC_PI_2_HI, FRAC_PI_2_LO, INV_LN2, LN2_HI, LN2_LO};
+
+/// `acc = t[0]`; `acc = acc * x + t[i]`: el orden que el emisor repite.
+fn horner(t: &[f64], x: f64) -> f64 {
+    let mut acc = t[0];
+    for &c in &t[1..] {
+        acc = acc * x + c;
+    }
+    acc
+}
 
 /// seno y coseno de `r` en [-pi/4, pi/4], por Taylor (error < 1e-15).
 fn sin_cos_reducido(r: f64) -> (f64, f64) {
     let r2 = r * r;
-    let s = r * (1.0 + r2 * (-1.0 / 6.0 + r2 * (1.0 / 120.0 + r2 * (-1.0 / 5040.0 + r2 * (1.0 / 362_880.0
-        + r2 * (-1.0 / 39_916_800.0 + r2 * (1.0 / 6_227_020_800.0)))))));
-    let c = 1.0 + r2 * (-0.5 + r2 * (1.0 / 24.0 + r2 * (-1.0 / 720.0 + r2 * (1.0 / 40_320.0
-        + r2 * (-1.0 / 3_628_800.0 + r2 * (1.0 / 479_001_600.0 + r2 * (-1.0 / 87_178_291_200.0)))))));
-    (s, c)
+    (r * horner(&table::SIN, r2), horner(&table::COS, r2))
 }
 
 /// `(seno, coseno)` en doble. La reduccion usa pi/2 en dos trozos: exacta
@@ -294,18 +373,15 @@ fn exp_f64(x: f64) -> f64 {
     if x.is_nan() {
         return x;
     }
-    if x > 709.0 {
+    if x > table::EXP_MAX {
         return f64::INFINITY;
     }
-    if x < -745.0 {
+    if x < table::EXP_MIN {
         return 0.0;
     }
     let k = nearest(x * INV_LN2);
     let r = (x - k * LN2_HI) - k * LN2_LO; // |r| <= ln2/2
-    let mut p = 1.0 / 479_001_600.0; // 1/12!
-    for d in [39_916_800.0, 3_628_800.0, 362_880.0, 40_320.0, 5040.0, 720.0, 120.0, 24.0, 6.0, 2.0, 1.0, 1.0] {
-        p = p * r + 1.0 / d;
-    }
+    let p = horner(&table::EXP, r);
     // p = sum r^i/i!; escalar por 2^k en dos pasos para no salirse de los normales.
     let k = k as i64;
     let medio = k / 2;
@@ -340,10 +416,7 @@ fn ln_f64(x: f64) -> f64 {
     // ln(m) = 2 * atanh(s), s = (m - 1) / (m + 1), |s| <= 0.1716.
     let s = (m - 1.0) / (m + 1.0);
     let s2 = s * s;
-    let mut p = 1.0 / 21.0;
-    for d in [19.0, 17.0, 15.0, 13.0, 11.0, 9.0, 7.0, 5.0, 3.0, 1.0] {
-        p = p * s2 + 1.0 / d;
-    }
+    let p = horner(&table::LN, s2);
     let e = e as f64;
     (2.0 * s * p + e * LN2_LO) + e * LN2_HI
 }

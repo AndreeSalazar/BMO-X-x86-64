@@ -266,11 +266,18 @@ poder compararse bit a bit con S3.
 >   SSE escalar), y calculaba las BANDERAS siempre sobre 64 bits --
 >   `cmp eax, 0x80000000` decia "distinto" donde el silicio dice "igual".
 >
-> ### [ ] S4b -- las trascendentes en el emisor
+> ### [x] S4b -- las trascendentes en el emisor
 >
-> `sin`/`cos`/`exp`/`log`/`pow`: el emisor las niega hoy con su motivo. Es
-> repetir en SSE2 las operaciones de `f64` de `math` (una rutina por
-> funcion, al final del codigo, a la que se llama).
+> **Hecho el 23-09.** Tres rutinas en doble (`sincos`, `exp`, `ln`) al
+> principio del codigo, solo si el modulo las usa; `pow` = `exp(y ln x)`.
+> Son `math` operacion por operacion, y para que no puedan separarse las
+> constantes y coeficientes salieron de `math.rs` a una TABLA publica,
+> `math::table`, que leen los DOS (huella de 10 millones de resultados
+> identica antes y despues de la mudanza). Repetido a mano lo que cambia
+> bits: el cuadrante con la saturacion de `k as i64` de Rust, `k / 2`
+> truncando, los NaN constantes. La diferencial: `trig` y los casos raros
+> (NaN, infinitos, +-0, subnormales, angulos de 1e20 y 3e38, 100 patrones
+> al azar) -- los mismos bits a la primera.
 
 Cada invocacion es una llamada: `fn(id_global, buffers)`. Flotantes en SSE
 escalar, enteros en los registros generales, con el ensamblador propio

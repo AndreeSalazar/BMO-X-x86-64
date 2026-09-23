@@ -171,6 +171,13 @@ impl<'c> Writer<'c> {
         self.u32(imm);
     }
 
+    /// `mov r64, imm64`.
+    pub fn mov_imm64(&mut self, dst: u8, imm: u64) {
+        self.rex(true, 0, dst);
+        self.byte(0xB8 + (dst & 7));
+        self.bytes(&imm.to_le_bytes());
+    }
+
     /// `mov dst, src` (r32, o r64 con `w`).
     pub fn mov(&mut self, w: bool, dst: u8, src: u8) {
         self.rex(w, src, dst);
@@ -393,6 +400,16 @@ impl<'c> Writer<'c> {
     /// `cvttss2si r32, xmm` (o r64 con `w`).
     pub fn cvttss2si(&mut self, w: bool, r: u8, x: u8) {
         self.sse(0xF3, w, 0x2C, r, x);
+    }
+
+    /// `cvttsd2si r64, xmm`: trunca; si no cabe, el entero mas negativo.
+    pub fn cvttsd2si(&mut self, r: u8, x: u8) {
+        self.sse(0xF2, true, 0x2C, r, x);
+    }
+
+    /// `cvtsi2sd xmm, r64`.
+    pub fn cvtsi2sd(&mut self, x: u8, r: u8) {
+        self.sse(0xF2, true, 0x2A, x, r);
     }
 
     /// `movd xmm, r32` (o `movq xmm, r64` con `w`).

@@ -37,6 +37,7 @@
 //! [consumo]  NADA   emite y se va
 
 mod memory;
+mod trascendentes;
 mod values;
 
 use crate::asm::{cc, Alu, Writer, R14, R15, R8, R9, R10, RAX, RCX, RDI, RDX, RSP};
@@ -71,11 +72,13 @@ pub(crate) struct Emitter<'m, 'a, 'b, 't, 'c> {
     function: u32,
     pub buffers: [(u32, u32); MAX_BUFFERS],
     pub n_buffers: usize,
+    /// `(sincos, exp, ln)`: las rutinas de S4b, si el modulo las usa.
+    pub routines: Option<(usize, usize, usize)>,
 }
 
 impl<'m, 'a, 'b, 't, 'c> Emitter<'m, 'a, 'b, 't, 'c> {
     pub fn new(m: &'m Module<'a, 'b>, slots: &'t [u32], labels: &'t mut [u32], w: Writer<'c>) -> Self {
-        Emitter { m, slots, labels, w, trap_exit: 0, word: 0, current: 0, function: 0, buffers: [(0, 0); MAX_BUFFERS], n_buffers: 0 }
+        Emitter { m, slots, labels, w, trap_exit: 0, word: 0, current: 0, function: 0, buffers: [(0, 0); MAX_BUFFERS], n_buffers: 0, routines: None }
     }
 
     /// El desplazamiento en bytes del sitio de `id` en el marco.
@@ -142,6 +145,12 @@ impl<'m, 'a, 'b, 't, 'c> Emitter<'m, 'a, 'b, 't, 'c> {
         self.w.pop(R15);
         self.w.ret();
 
+        // Las trascendentes (S4b), delante de todo y solo si hacen falta: asi
+        // su sitio ya se sabe cuando se emite quien las llama, en las dos pasadas.
+        if self.uses_transcendentals() {
+            self.routines = Some(self.transcendental_routines());
+        }
+
         let init = self.w.pos;
         self.init().map_err(|r| (r, self.word))?;
         self.w.ret();
@@ -167,6 +176,13 @@ impl<'m, 'a, 'b, 't, 'c> Emitter<'m, 'a, 'b, 't, 'c> {
             }
         }
         Ok((init, main))
+    }
+
+    fn uses_transcendentals(&self) -> bool {
+        self.m.instructions().any(|i| {
+            i.opcode == op::OpExtInst
+                && bmo_spirv_front::glsl_info(i.op(4)).map(|g| g.group) == Some(bmo_spirv_front::GlslGroup::Transcendental)
+        })
     }
 
     /// Una vez por despacho: constantes y punteros.

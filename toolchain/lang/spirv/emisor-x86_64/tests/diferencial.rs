@@ -26,6 +26,7 @@ const DIVISION: &[u8] = include_bytes!("../../pruebas/division.spv");
 const BUCLE: &[u8] = include_bytes!("../../pruebas/bucle.spv");
 const COLLATZ: &[u8] = include_bytes!("../../pruebas/collatz.spv");
 const TRIG: &[u8] = include_bytes!("../../pruebas/trig.spv");
+const TRASCENDENTES: &[u8] = include_bytes!("../../pruebas/trascendentes.spv");
 
 type Salida = Result<(), (Reason, [u32; 3])>;
 
@@ -202,13 +203,34 @@ fn un_bucle_sin_fin_para_en_los_dos() {
 }
 
 #[test]
-fn las_trascendentes_se_niegan_con_su_motivo() {
-    let mut ids = vec![0u32; 1 << 16];
-    let m = read(TRIG, &mut ids).unwrap();
-    let mut tablas = vec![0u32; tables_words(&m)];
-    let mut code = vec![0u8; 1 << 20];
-    let e = emit(&m, &mut tablas, &mut code).unwrap_err();
-    assert!(matches!(e.reason, Reason::NotYet { .. }), "{}", e);
+fn trig_igual_que_el_oraculo() {
+    // S4b: sin, cos, exp, log y pow emitidas en doble, como `math`.
+    let v: Vec<f32> = (0..64).map(|i| (i as f32 - 32.0) * 0.173).collect();
+    let datos = vec![bits(&v), vec![0; 64], vec![0; 64], vec![0; 64], vec![0; 64], vec![0; 64]];
+    diferencial(TRIG, [1, 1, 1], datos, 1_000_000).unwrap();
+}
+
+#[test]
+fn trascendentes_en_los_casos_raros() {
+    // La entrada TAL CUAL: NaN, infinitos, negativos, ceros, subnormales,
+    // angulos enormes (el cuadrante satura por encima de 2^63), y bits al azar.
+    let mut v = vec![
+        0.0f32, -0.0, 1.0, -1.0, f32::NAN, f32::INFINITY, f32::NEG_INFINITY, f32::MAX, f32::MIN,
+        f32::MIN_POSITIVE, f32::from_bits(1), 1e20, -1e20, 3e38, 88.7, 88.8, -103.9, -104.0, 709.0,
+        1.5707964, 3.1415927, -3.1415927, 1e6, 12345.678, 0.5, 2.0, 1e-30, -1e-30,
+    ];
+    let mut w = vec![2.0f32, 0.5, -1.0, 3.0, f32::NAN, 0.0, -0.0, 1e10, -1e10, 7.25];
+    let mut x: u32 = 0x1234_5678;
+    while v.len() < 128 {
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        v.push(f32::from_bits(x));
+        w.push(f32::from_bits(x.rotate_left(7) & 0x41FF_FFFF));
+    }
+    w.resize(128, 1.0);
+    let datos = vec![bits(&v), bits(&w), vec![0; 5 * 128]];
+    diferencial(TRASCENDENTES, [2, 1, 1], datos, 1_000_000).unwrap();
 }
 
 #[test]
