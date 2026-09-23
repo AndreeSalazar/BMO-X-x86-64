@@ -924,6 +924,7 @@ try {
         '',
         '  Impr Pant          la pantalla entera',
         '  Alt + Impr Pant    solo la ventana de delante',
+        '  Ctrl+Shift+S       RECORTE: arrastra un rectangulo con el raton (ESC cancela)',
         '  captura            lo mismo, escrito en Ejecutar (captura ventana: la de delante)',
         '',
         '  capNNNNN.bmp       BMP de 24 bits: lo abren Windows y el visor de BMO-X',

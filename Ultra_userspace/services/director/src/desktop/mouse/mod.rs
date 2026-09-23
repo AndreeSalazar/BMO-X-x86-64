@@ -115,7 +115,13 @@ pub(crate) fn on_pointer(
     wheel: i32,
     ctrl: bool,
 ) {
-    repartir(dsk, p, pos, wheel, ctrl);
+    // ** MIENTRAS SE RECORTA, el raton es del recorte: ni ventanas ni apps.
+    if crate::desktop::captura::recortando() {
+        let antes = dsk.tick.button_before;
+        crate::desktop::captura::raton(dsk, p, pos.x, pos.y, pos.botones & IZQUIERDO != 0, antes);
+    } else {
+        repartir(dsk, p, pos, wheel, ctrl);
+    }
     dsk.tick.button_before = pos.botones & IZQUIERDO != 0;
     // El flanco del derecho, aparte: sin el, mantenerlo pulsado reabriria el
     // menu en cada fotograma -- el mismo fallo que ya se evito con el arbol.

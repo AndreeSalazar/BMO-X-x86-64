@@ -11,7 +11,10 @@
 //! ```text
 //!    Impr Pant          la pantalla entera
 //!    Alt + Impr Pant    solo la ventana de delante (la de Windows)
-//!    `captura`          lo mismo desde Ejecutar, para un teclado sin la tecla
+//!    Ctrl+Shift+S       RECORTE: se arrastra un rectangulo con el raton
+//!    Shift + Impr Pant  lo mismo (el Win+Shift+S de Windows; aqui el gestor es Ctrl)
+//!    `captura`          desde Ejecutar, para un teclado sin la tecla
+//!                       (`captura ventana`, `captura zona`)
 //! ```
 //!
 //! # El camino entero, y de quien es cada tramo
@@ -39,7 +42,17 @@
 //!
 //! * Con una app que se llevo la PANTALLA (`lend_screen`: `ray.bex`) el
 //!   escritorio esta dormido y Impr Pant no llega: esa pantalla no es suya.
-//! * No recorta con el raton (el Win+Shift+S de Windows). Pantalla o ventana.
+//! * El recorte no CONGELA la pantalla como el de Windows: se recorta lo que se
+//!   ve al SOLTAR. Congelar pediria una copia de la pantalla entera (8 MiB) para
+//!   cada recorte; lo que se ve al soltar es lo que se estaba mirando.
+//!
+//! # El recorte: una capa que se quita y se pone, como el cursor
+//!
+//! Mientras se arrastra, el cartel de arriba y el borde del rectangulo se pintan
+//! ENCIMA de todo, y lo que tapan se guarda (`Capa`). La disciplina es la del
+//! cursor por software, y en su orden: al empezar el fotograma se quita el
+//! cursor y DESPUES la capa; al acabar se pone la capa y DESPUES el cursor. Al
+//! soltar, la capa ya esta quitada: lo que se lee es la pantalla limpia.
 
 use bmo_userland as bmo;
 
@@ -60,7 +73,6 @@ static mut SIGUIENTE: u32 = 0;
 
 /// **Hacer la captura.** `ventana`: solo la de delante (Alt + Impr Pant).
 pub(crate) fn tomar(dsk: &mut Desktop, p: &bmo::Pantalla, ventana: bool) {
-    let t0 = bmo::ciclos();
     let (x0, y0, w, h) = if ventana {
         match dsk.win.focus.actual().and_then(|v| caja(dsk, v)) {
             Some(c) => recortar(c, p),
@@ -69,8 +81,15 @@ pub(crate) fn tomar(dsk: &mut Desktop, p: &bmo::Pantalla, ventana: bool) {
     } else {
         (0, 0, p.ancho, p.alto)
     };
+    guardar(dsk, p, x0, y0, w, h);
+}
+
+/// **Guardar un rectangulo de la pantalla** en `capturas/`. Lo usan los tres:
+/// la pantalla, la ventana y el recorte.
+fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u32) {
+    let t0 = bmo::ciclos();
     if w == 0 || h == 0 {
-        return decir(dsk, p, b"  [captura] nada que capturar: la ventana no se ve\n", false);
+        return decir(dsk, p, b"  [captura] nada que capturar: la zona no se ve\n", false);
     }
 
     // -- El BMP entero en un bloque: cabecera de 54 y las filas a 4 bytes --
@@ -253,4 +272,169 @@ fn decir(dsk: &mut Desktop, p: &bmo::Pantalla, texto: &[u8], bien: bool) {
             paint_status(p, &dsk.run_box, "la captura no se guardo", INK_BAD);
         }
     }
+}
+
+// ===================================================================
+//  EL RECORTE (Ctrl+Shift+S)
+// ===================================================================
+
+/// Lo que dura un recorte: si esta en marcha, donde se pulso y donde va.
+struct Recorte {
+    activo: bool,
+    ancla: Option<(u32, u32)>,
+    punta: (u32, u32),
+}
+
+static mut RECORTE: Recorte = Recorte { activo: false, ancla: None, punta: (0, 0) };
+
+/// Se esta recortando? Mientras si, el raton y las teclas son del recorte.
+pub(crate) fn recortando() -> bool {
+    unsafe { (*core::ptr::addr_of!(RECORTE)).activo }
+}
+
+/// **Ctrl+Shift+S**: empieza. El cartel sale en el fotograma siguiente.
+pub(crate) fn empezar(dsk: &mut Desktop) {
+    unsafe {
+        *core::ptr::addr_of_mut!(RECORTE) = Recorte { activo: true, ancla: None, punta: (0, 0) };
+    }
+    dsk.tick.actividad = true;
+}
+
+/// ESC: se deja como estaba. La capa se quita al empezar el fotograma, asi que
+/// basta con no volver a ponerla.
+pub(crate) fn cancelar(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    unsafe { (*core::ptr::addr_of_mut!(RECORTE)).activo = false };
+    capa_quitar(p);
+    decir(dsk, p, b"  [captura] recorte cancelado\n", false);
+}
+
+/// **El raton, mientras se recorta.** Pulsar ancla una esquina, arrastrar
+/// mueve la otra, soltar guarda. `antes`: el boton en el fotograma anterior.
+pub(crate) fn raton(dsk: &mut Desktop, p: &bmo::Pantalla, x: u32, y: u32, boton: bool, antes: bool) {
+    let r = unsafe { &mut *core::ptr::addr_of_mut!(RECORTE) };
+    let (x, y) = (x.min(p.ancho.saturating_sub(1)), y.min(p.alto.saturating_sub(1)));
+    if boton && !antes {
+        r.ancla = Some((x, y));
+        r.punta = (x, y);
+    } else if boton {
+        r.punta = (x, y);
+    } else if antes {
+        let Some((ax, ay)) = r.ancla else { return };
+        r.activo = false;
+        // La capa se quito al empezar este fotograma (se solto el boton, asi que
+        // hubo entrada); por si acaso, otra vez: es idempotente.
+        capa_quitar(p);
+        let (x0, y0) = (ax.min(x), ay.min(y));
+        let (w, h) = (ax.max(x) - x0 + 1, ay.max(y) - y0 + 1);
+        if w < 4 || h < 4 {
+            return decir(dsk, p, b"  [captura] recorte demasiado chico: arrastra un rectangulo\n", false);
+        }
+        guardar(dsk, p, x0, y0, w, h);
+    }
+}
+
+// -- La capa: el cartel y el borde, con lo que tapan guardado ---------------
+
+const BORDE: u32 = 2;
+const CARTEL_W: u32 = 560;
+const CARTEL_H: u32 = 28;
+/// Lo que tapan el cartel y un borde de 2 px alrededor de una pantalla 4K.
+const GUARDADO: usize = (CARTEL_W * CARTEL_H) as usize + (2 * (3840 + 2160) * BORDE) as usize;
+
+struct Capa {
+    puesta: bool,
+    cajas: [(u32, u32, u32, u32); 5],
+    n: usize,
+    px: [u32; GUARDADO],
+}
+
+static mut CAPA: Capa = Capa { puesta: false, cajas: [(0, 0, 0, 0); 5], n: 0, px: [0; GUARDADO] };
+
+/// **Quita la capa**: devuelve lo que tapaba. Al PRINCIPIO del fotograma,
+/// DESPUES de quitar el cursor. Si no estaba puesta no hace nada.
+pub(crate) fn capa_quitar(p: &bmo::Pantalla) {
+    let c = unsafe { &mut *core::ptr::addr_of_mut!(CAPA) };
+    if !c.puesta {
+        return;
+    }
+    let mut k = 0usize;
+    for &(x, y, w, h) in &c.cajas[..c.n] {
+        p.marcar(x, y, w, h);
+        for dy in 0..h {
+            for dx in 0..w {
+                p.punto_ya_marcado(x + dx, y + dy, c.px[k]);
+                k += 1;
+            }
+        }
+    }
+    c.puesta = false;
+}
+
+/// **Pone la capa** si se esta recortando: guarda lo que va a tapar y pinta el
+/// cartel y el borde. Al FINAL del fotograma, ANTES de poner el cursor.
+pub(crate) fn capa_poner(p: &bmo::Pantalla) {
+    let c = unsafe { &mut *core::ptr::addr_of_mut!(CAPA) };
+    let r = unsafe { &*core::ptr::addr_of!(RECORTE) };
+    if !r.activo || c.puesta {
+        return;
+    }
+    // Las cajas: el cartel arriba en el centro y, si hay ancla, los 4 bordes.
+    let cw = CARTEL_W.min(p.ancho);
+    let cx = (p.ancho - cw) / 2;
+    c.cajas[0] = (cx, 12, cw, CARTEL_H);
+    c.n = 1;
+    let mut medida = None;
+    if let Some((ax, ay)) = r.ancla {
+        let (px_, py_) = r.punta;
+        let (x0, y0) = (ax.min(px_), ay.min(py_));
+        let (w, h) = (ax.max(px_) - x0 + 1, ay.max(py_) - y0 + 1);
+        medida = Some((w, h));
+        if w > 2 * BORDE && h > 2 * BORDE {
+            c.cajas[1] = (x0, y0, w, BORDE);
+            c.cajas[2] = (x0, y0 + h - BORDE, w, BORDE);
+            c.cajas[3] = (x0, y0 + BORDE, BORDE, h - 2 * BORDE);
+            c.cajas[4] = (x0 + w - BORDE, y0 + BORDE, BORDE, h - 2 * BORDE);
+            c.n = 5;
+        }
+    }
+    // Guardar lo de debajo, todo antes de pintar nada: el cartel y un borde
+    // pueden cruzarse, y guardar despues de pintar el primero guardaria el borde.
+    p.sincronizar_lectura();
+    let mut k = 0usize;
+    for &(x, y, w, h) in &c.cajas[..c.n] {
+        for dy in 0..h {
+            for dx in 0..w {
+                if k < GUARDADO {
+                    c.px[k] = p.read(x + dx, y + dy);
+                }
+                k += 1;
+            }
+        }
+    }
+    if k > GUARDADO {
+        // No cabe (una pantalla mas grande que 4K): no se pinta nada antes que
+        // pintar algo que luego no se sabria devolver.
+        c.n = 0;
+        return;
+    }
+    c.puesta = true;
+    for &(x, y, w, h) in &c.cajas[1..c.n] {
+        p.rect(x, y, w, h, acento());
+    }
+    let (x, y, w, h) = c.cajas[0];
+    p.rect(x, y, w, h, acento());
+    p.rect(x + 1, y + 1, w - 2, h - 2, crate::scene::estilo::estilo().barra_fondo);
+    let mut t = Linea::new();
+    match medida {
+        None => t.pon(b"RECORTE   arrastra con el raton   -   ESC cancela"),
+        Some((mw, mh)) => {
+            t.pon(b"RECORTE   ");
+            t.num(mw as u64);
+            t.pon(b" x ");
+            t.num(mh as u64);
+            t.pon(b"   suelta para guardar   -   ESC cancela");
+        }
+    }
+    let tw = t.bytes().len() as u32 * bmo::GLIFO_ANCHO;
+    p.texto_bytes(x + w.saturating_sub(tw) / 2, y + (h - bmo::GLIFO_ALTO) / 2, t.bytes(), crate::scene::INK);
 }

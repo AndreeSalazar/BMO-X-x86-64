@@ -530,6 +530,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         }
     }
 
+    // -- La capa del RECORTE (Ctrl+Shift+S), justo ANTES del cursor: el cursor
+    // guarda lo que tapa, y lo que tapa tiene que incluir la capa. --
+    if dsk.tick.will_paint {
+        crate::desktop::captura::capa_poner(&p);
+    }
+
     // -- El cursor del raton, ENCIMA de todo y lo ultimo --
     //
     // Aqui ya no queda nada por pintar en este fotograma, asi que lo que se

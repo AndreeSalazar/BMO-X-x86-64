@@ -45,6 +45,22 @@ let ctrl = m & bmo::MOD_CTRL != 0 && m & bmo::MOD_ALT == 0;
 // ** IMPR PANT: la captura (2026-09-22). La primera, porque es la unica tecla
 // que tiene que funcionar este donde este el foco -- se pulsa para guardar lo
 // que se ve, no para hablarle a una ventana. Con Alt, solo la de delante.
+// ** Y MIENTRAS SE RECORTA todas las teclas son del recorte: ESC cancela y
+// las demas se tiran, para que no escriban detras del rectangulo.
+if crate::desktop::captura::recortando() {
+    if c == 0x1B {
+        crate::desktop::captura::cancelar(dsk, p);
+    }
+    return Key::Taken;
+}
+// ** EL RECORTE: Ctrl+Shift+S (el Win+Shift+S de Windows, con la tecla del
+// gestor de aqui) o Shift+Impr Pant. Ctrl+S llega cocida como 0x13.
+if (ctrl && c == 0x13 && m & bmo::MOD_SHIFT != 0)
+    || (c == crate::desktop::captura::TECLA_IMPR && m & bmo::MOD_SHIFT != 0)
+{
+    crate::desktop::captura::empezar(dsk);
+    return Key::Taken;
+}
 if c == crate::desktop::captura::TECLA_IMPR {
     crate::desktop::captura::tomar(dsk, p, m & bmo::MOD_ALT != 0);
     return Key::Taken;

@@ -48,9 +48,13 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::NotLinux(verb) => shell::not_linux(dsk, p, verb),
         Command::PaintCost => shell::paint_cost(dsk, p),
         Command::Calculator => shell::calculator(dsk, p),
-        Command::Captura(ventana) => {
+        Command::Captura(que) => {
             dsk.field.n = 0;
-            crate::desktop::captura::tomar(dsk, p, ventana);
+            if que == 2 {
+                crate::desktop::captura::empezar(dsk);
+            } else {
+                crate::desktop::captura::tomar(dsk, p, que == 1);
+            }
             After::Settle
         }
         Command::Aspecto => {

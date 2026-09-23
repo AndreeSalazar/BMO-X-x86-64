@@ -213,8 +213,10 @@ pub(crate) fn raton(
 /// viejas -- pulsaciones que el usuario dio a otra cosa, entregadas fuera de
 /// tiempo. Una cola que solo se vacia a veces es peor que no tenerla.
 pub(crate) fn reenviar(dsk: &mut Desktop, e: &bmo::Entrada, m: u8) {
+    // Mientras se recorta, las teclas son del recorte: un ESC que cancela no
+    // puede llegar tambien a DOOM.
     let destino = match dsk.win.focus.actual() {
-        Some(Ventana::App(i)) => Some(i as usize),
+        Some(Ventana::App(i)) if !crate::desktop::captura::recortando() => Some(i as usize),
         _ => None,
     };
     for _ in 0..POR_VUELTA {

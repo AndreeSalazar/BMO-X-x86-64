@@ -1000,6 +1000,9 @@ pub extern "C" fn _start() -> ! {
             dsk.tick.actividad |= tocaron;
             if dsk.tick.will_paint {
                 dsk.save_under.lift(&p);
+                // Y la capa del recorte, DESPUES del cursor: el orden inverso al
+                // de ponerlos (ver `desktop::captura`).
+                desktop::captura::capa_quitar(&p);
             }
 
             desktop::keys::edges(&mut dsk, &p, &g);
