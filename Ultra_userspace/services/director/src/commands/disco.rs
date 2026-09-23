@@ -393,6 +393,10 @@ fn aviso(s: &mut Output, por_irq: u64) {
         b"el HBA no tiene el aviso encendido (GHC.IE / PxIE)"
     } else if si(bmo::DISCO_AVISO_IRR) {
         b"el LAPIC lo tiene PENDIENTE y la CPU no lo coge"
+    } else if si(bmo::DISCO_AVISO_IS_AJENO) {
+        // ** Antes que "entradas": la entrada que se ve suele ser JUSTO la del
+        // vecino, y esa frase tapaba la causa (save del 23-09, 07:54).
+        b"el IS del HBA tiene el bit de OTRO puerto: sin flanco, el disco calla"
     } else if entradas > 0 {
         b"el vector 49 ENTRA, pero el aviso no es del puerto"
     } else if si(bmo::DISCO_AVISO_IS_HBA) && !si(bmo::DISCO_AVISO_CI) {
@@ -412,6 +416,11 @@ fn aviso(s: &mut Output, por_irq: u64) {
     s.dec(destino);
     s.text(b" -> cpu ");
     s.dec(cpu);
+    // Los avisos de otros puertos que se limpiaron: si sube, el vecino existia
+    // y ya no calla al disco; si la IRQ sigue sin llegar con esto en 0, la
+    // causa es otra y hay que seguir bajando la escalera.
+    s.text(b"   ajenos ");
+    s.dec((e >> bmo::DISCO_AVISO_AJENOS_SHIFT) & 0xFFFF);
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"disco_aviso", e, b"bits");

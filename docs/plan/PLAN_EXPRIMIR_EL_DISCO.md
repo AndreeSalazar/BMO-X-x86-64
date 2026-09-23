@@ -208,6 +208,29 @@ vector (sus entradas).
 | `irq` | `LLEGA: el vector 49 despierta al hilo` | la frase dice el peldano que falla |
 | `thread` | los despertares suben con las ordenes | `SIN IRQ` |
 
+**07:54, el metal otra vez, y el VECINO.** El save dijo `thread 9 ordenes en
+vuelo, 0 despertares por la IRQ` y la escalera `el vector 49 ENTRA, pero el
+aviso no es del puerto`. Los bits crudos (`DATOS.TXT`, `disco_aviso =
+0xC00000000C310001`): MSI encendido y sin mascara, direccion y vector bien,
+GHC.IE y PxIE puestos, nada en IRR, **una sola entrada** en nueve ordenes.
+
+Lo que encaja con todo: este HBA tiene **ocho puertos** (`CAP` NP=7) y el driver
+solo apagaba y limpiaba el suyo. Con MSI de un mensaje el HBA avisa en el FLANCO
+de su `IS` entero: un bit de OTRO puerto puesto lo deja a 1 y el disco no vuelve
+a avisar. La escalera no lo podia ver: miraba solo el bit del puerto 2, y el
+peldano `entradas > 0` tapaba al de "sin consumir".
+
+En codigo, sin metal: `habilitar_irq` apaga PxIE y limpia PxIS de los otros
+puertos implementados (`PI`); `consumir_aviso` limpia tambien los bits ajenos
+del `IS` y los cuenta (`bmo_ahci::AJENOS`); la escalera gana el bit 19
+`IS_AJENO` (antes que `entradas`) y la cuenta en 44..59 (`ajenos N` en la fila).
+
+| que | afirma | como se cae |
+|---|---|---|
+| `thread` tras cargar DOOM | `despertares por la IRQ` SUBE | sigue en 0 con `ajenos 0`: el vecino no era, y hay que seguir bajando |
+| la fila `irq` | `LLEGA` y `ajenos` > 0 | `ajenos` > 0 y sigue sin llegar: habia vecino, pero no era el unico |
+| `DMA mas mudo` | deja de ser el disco con ~4 ms | sigue: la red de 2 ms sigue siendo la que termina |
+
 ### [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 
 > **Cuestionar antes (23-09):** hoy ninguna orden pasa de 1 MiB (`TROZO_HILO`),

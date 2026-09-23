@@ -1383,6 +1383,7 @@ pub const SERIE_COLA: u64 = 1 << 63;
 ///   16       el aparato tiene MSI ENABLE (leido de vuelta, no lo escrito)
 ///   17       su mascara por vector CALLA el mensaje
 ///   18       MSI-X encendido: el aparato ignora MSI
+///   19       el IS del HBA tiene el bit de OTRO puerto: sin flanco, callado
 ///   20       GHC.IE: el HBA avisa
 ///   21       PxIE.DHRE: el puerto avisa al acabar una orden
 ///   22       IS del HBA con el bit del puerto: un aviso SIN CONSUMIR
@@ -1393,6 +1394,7 @@ pub const SERIE_COLA: u64 = 1 << 63;
 ///   27       el dato del MSI es el vector
 ///   28..35   el APIC al que se mando
 ///   36..43   el APIC de la CPU que pregunta
+///   44..59   avisos de OTROS puertos limpiados desde el arranque
 ///   62       se armo
 ///   63       leido
 /// ```
@@ -1406,6 +1408,10 @@ pub const DISCO_AVISO_ENTRADAS_MASK: u64 = 0xFFFF;
 pub const DISCO_AVISO_MSI_ENABLE: u64 = 1 << 16;
 pub const DISCO_AVISO_MSI_MASCARA: u64 = 1 << 17;
 pub const DISCO_AVISO_MSIX: u64 = 1 << 18;
+/// El `IS` del HBA tiene puesto el bit de OTRO puerto (23-09, 07:54).
+pub const DISCO_AVISO_IS_AJENO: u64 = 1 << 19;
+/// Avisos de otros puertos limpiados desde el arranque (16 bits).
+pub const DISCO_AVISO_AJENOS_SHIFT: u64 = 44;
 pub const DISCO_AVISO_GHC_IE: u64 = 1 << 20;
 pub const DISCO_AVISO_PXIE: u64 = 1 << 21;
 pub const DISCO_AVISO_IS_HBA: u64 = 1 << 22;

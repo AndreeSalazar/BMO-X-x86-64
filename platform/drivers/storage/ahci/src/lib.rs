@@ -32,7 +32,7 @@ pub use controller::trim_phys;
 pub use controller::{emitir, sondear, Estado, ATA_CMD_READ_DMA_EX};
 /// **Que el aparato avise.** `habilitar_irq` abre la puerta (despues de armar
 /// MSI, nunca antes) y `atender` limpia el aviso desde el manejador.
-pub use controller::{atender, aviso_crudo, habilitar_irq, AVISOS};
+pub use controller::{atender, aviso_crudo, habilitar_irq, AJENOS, AVISOS};
 /// **El perfil del puerto**, leido del cable y no supuesto: `PxSSTS` dice a
 /// que generacion negocio el HBA. El `CAP` viaja en [`AhciController::cap`].
 pub use controller::port_ssts;

@@ -260,6 +260,18 @@ pub(crate) const IE_DHRS: u32 = 1 << 0;
 /// comparar contra una marca tomada al emitir dice si hubo aviso DESPUES.
 pub static AVISOS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
+/// **Avisos de OTROS puertos** encontrados en el `IS` del HBA y limpiados.
+///
+/// ** EL VECINO QUE CALLABA AL DISCO (2026-09-23, save de las 07:54). La
+/// escalera decia `el vector 49 ENTRA, pero el aviso no es del puerto`, con
+/// UNA entrada en nueve ordenes y todo lo demas en su sitio. Este HBA tiene
+/// OCHO puertos y el driver solo apagaba y limpiaba el suyo: con MSI de un
+/// solo mensaje el HBA avisa en el FLANCO de su `IS` ENTERO, asi que un bit de
+/// otro puerto puesto --un PxIE que dejo encendido el firmware, un cambio de
+/// enlace-- lo deja a 1 para siempre y el disco no vuelve a avisar nunca. Esa
+/// una entrada era el vecino; las nueve ordenes, silencio.
+pub static AJENOS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
 /// **Enciende las interrupciones del puerto y del HBA.** `false` si no hay
 /// controlador.
 ///
@@ -272,6 +284,17 @@ pub unsafe fn habilitar_irq(port_idx: u8) -> bool {
     let ctrl = match CONTROLLER.as_ref() { Some(c) => c, None => return false };
     if port_idx >= 32 { return false; }
     let mmio = ctrl.mmio_base;
+    // ** LOS OTROS PUERTOS, CALLADOS Y LIMPIOS (2026-09-23). Ver `AJENOS`: un
+    // puerto que no es nuestro con su aviso encendido es un bit del `IS` del
+    // HBA que nadie baja, y sin flanco el nuestro no vuelve a sonar. El driver
+    // no maneja esos puertos; que avisen no le sirve a nadie.
+    let pi = hba_read(mmio, HBA_PI);
+    for p in 0..32u8 {
+        if p != port_idx && pi & (1 << p) != 0 {
+            port_write(mmio, p, PORT_IE, 0);
+            port_write(mmio, p, PORT_IS, port_read(mmio, p, PORT_IS));
+        }
+    }
     // Lo que hubiera pendiente se limpia ANTES de abrir la puerta: un aviso
     // viejo entrando como si fuera nuevo es un comando que se da por terminado
     // sin haber empezado.
@@ -323,6 +346,19 @@ pub(crate) unsafe fn consumir_aviso(mmio: u64, port_idx: u8) -> bool {
     }
     if mio {
         hba_write(mmio, HBA_IS, 1 << port_idx);
+    }
+    // ** Y LOS DE OTROS PUERTOS, TAMBIEN: primero su PxIS y despues su bit del
+    // HBA, por la misma razon que el nuestro. No son de nadie, y dejarlos es
+    // dejar al HBA sin flanco (ver `AJENOS`).
+    let ajenos = hba_read(mmio, HBA_IS) & !(1u32 << port_idx);
+    if ajenos != 0 {
+        for p in 0..32u8 {
+            if ajenos & (1 << p) != 0 {
+                port_write(mmio, p, PORT_IS, port_read(mmio, p, PORT_IS));
+            }
+        }
+        hba_write(mmio, HBA_IS, ajenos);
+        AJENOS.fetch_add(ajenos.count_ones(), core::sync::atomic::Ordering::Relaxed);
     }
     mio
 }

@@ -55,6 +55,8 @@ pub const DISCO_AVISO_ENTRADAS_MASK: u64 = 0xFFFF;
 pub const DISCO_AVISO_MSI_ENABLE: u64 = 1 << 16;
 pub const DISCO_AVISO_MSI_MASCARA: u64 = 1 << 17;
 pub const DISCO_AVISO_MSIX: u64 = 1 << 18;
+pub const DISCO_AVISO_IS_AJENO: u64 = 1 << 19;
+pub const DISCO_AVISO_AJENOS_SHIFT: u64 = 44;
 pub const DISCO_AVISO_GHC_IE: u64 = 1 << 20;
 pub const DISCO_AVISO_PXIE: u64 = 1 << 21;
 pub const DISCO_AVISO_IS_HBA: u64 = 1 << 22;
@@ -100,6 +102,7 @@ pub fn escalera(puerto: u8) -> u64 {
             (ghc & (1 << 1) != 0, DISCO_AVISO_GHC_IE),
             (pxie & 1 != 0, DISCO_AVISO_PXIE),
             (is_hba & (1 << puerto) != 0, DISCO_AVISO_IS_HBA),
+            (is_hba & !(1u32 << puerto) != 0, DISCO_AVISO_IS_AJENO),
             (pxis != 0, DISCO_AVISO_PXIS),
             (pxci & 1 != 0, DISCO_AVISO_CI),
         ] {
@@ -111,6 +114,8 @@ pub fn escalera(puerto: u8) -> u64 {
     if crate::ring0::plat::timer::pendiente_en_lapic(crate::ring0::plat::irq::VECTOR_DISCO as u8) == Some(true) {
         e |= DISCO_AVISO_IRR;
     }
+    let ajenos = bmo_ahci::AJENOS.load(core::sync::atomic::Ordering::Relaxed) as u64;
+    e |= ajenos.min(0xFFFF) << DISCO_AVISO_AJENOS_SHIFT;
     e
 }
 
