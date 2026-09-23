@@ -265,7 +265,13 @@ fn report_latido(s: &mut Output) {
     fila(s, b"latido tarde", ms, b"ms", b"el PEOR retraso del hilo del bus USB (peor caso)");
     fila(s, b"  en el tick", cuando, b"", b"cuando: ~1000 por segundo desde el arranque");
     fila(s, b"  el reloj dio", ticks, b"ticks", b"mientras tanto; 0 con retraso grande = interrupciones CERRADAS");
-    fila(s, b"  el CPU lo tuvo", tid, b"tid", b"la tarea que corrio mientras el bus esperaba (4 = escritorio)");
+    // ** El nombre, PREGUNTADO. Aqui ponia "(4 = escritorio)" escrito a mano,
+    // y el 23-09 (06:57) el tid 4 era EL PROPIO hilo del bus: los hilos de
+    // kernel nuevos (el del disco, el enterrador) corrieron los numeros. Una nota fija sobre un numero que
+    // cambia es un instrumento que miente con toda la seguridad del mundo.
+    let mut quien = [0u8; 64];
+    let k = nombre_del_tid(tid, &mut quien);
+    fila(s, b"  el CPU lo tuvo", tid, b"tid", &quien[..k]);
     fila(s, b"  durante", suyo, b"ms", b"de esos ms, los que fueron de ese tid");
     fila(s, b"  la vuelta del bus", vuelta, b"ms", b"lo que costo la vuelta anterior; si es ~ el retraso, fue el BUS");
     // Y de los trabajos de la vuelta, el que MAS tardo desde el arranque: si
@@ -283,6 +289,69 @@ fn report_latido(s: &mut Output) {
     s.with_ink(INK_ECHO);
     s.text(b" us   el trabajo de la vuelta del bus que mas tardo, desde el arranque\n");
     s.with_ink(INK_PLAIN);
+    serie(s);
+}
+
+/// **El puerto serie: si escribir en el le cuesta algo a quien habla.** Va
+/// debajo del latido porque fue el latido quien lo destapo (23-09, 06:57).
+fn serie(s: &mut Output) {
+    let v = bmo::info(bmo::INFO_SERIE);
+    if v & bmo::SERIE_COLA == 0 {
+        fila(s, b"serie", v & bmo::SERIE_APUNTADOS_MASK, b"B",
+             b"DIRECTO: cada byte lo paga quien escribe, ~87 us a 115200 baudios");
+        return;
+    }
+    fila(s, b"serie", v & bmo::SERIE_APUNTADOS_MASK, b"B",
+         b"apuntados en la cola del puerto serie; los saca la IDLE y nadie espera");
+    fila(s, b"  en cola, pico", (v >> bmo::SERIE_PICO_SHIFT) & bmo::SERIE_PICO_MASK, b"B",
+         b"lo mas que llego a esperar; la cola son 16384");
+    fila_cero(s, b"  perdidos", (v >> bmo::SERIE_PERDIDOS_SHIFT) & bmo::SERIE_PERDIDOS_MASK,
+              b"no cupieron en la cola; la caja negra en RAM los tiene igual");
+}
+
+/// **Quien es un tid**, preguntado: un hilo de kernel con compas (su nombre
+/// en `INFO_TXT_COMPAS_NOMBRE`) o un programa lanzado (`INFO_PROG_QUIEN`).
+fn nombre_del_tid(tid: u64, out: &mut [u8; 64]) -> usize {
+    let mut n = 0usize;
+    let mut pon = |b: &[u8], n: &mut usize| {
+        for &c in b {
+            if *n < out.len() {
+                out[*n] = c;
+                *n += 1;
+            }
+        }
+    };
+    pon(b"la tarea que corrio mientras el bus esperaba: ", &mut n);
+    let mut txt = [0u8; 32];
+    let mut i = 0u64;
+    loop {
+        let v = bmo::info(bmo::INFO_COMPAS | (i << 8));
+        if v == 0 {
+            break;
+        }
+        if v & 0xFF == tid {
+            let k = bmo::info_texto(bmo::INFO_TXT_COMPAS_NOMBRE | (i << 8), &mut txt);
+            pon(b"el hilo ", &mut n);
+            pon(&txt[..k], &mut n);
+            return n;
+        }
+        i += 1;
+    }
+    let mut j = 0u64;
+    while j < 64 {
+        let q = bmo::info(bmo::INFO_PROG_QUIEN | (j << 8));
+        if q == 0 {
+            break;
+        }
+        if (q >> 16) & 0xFFFF == tid {
+            let k = bmo::info_texto(bmo::INFO_TXT_PROG_NOMBRE | (j << 8), &mut txt);
+            pon(&txt[..k], &mut n);
+            return n;
+        }
+        j += 1;
+    }
+    pon(b"un hilo de kernel sin compas", &mut n);
+    n
 }
 
 /// **Los prestamos: las ventanas.**

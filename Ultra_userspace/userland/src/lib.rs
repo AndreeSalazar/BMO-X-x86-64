@@ -752,6 +752,15 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// ** EL PUERTO SERIE, POR COLA: apuntados, perdidos, pico. Ver el ABI.
+pub const INFO_SERIE: u64 = 0x99;
+pub const SERIE_APUNTADOS_MASK: u64 = 0xFFFF_FFFF;
+pub const SERIE_PERDIDOS_SHIFT: u64 = 32;
+pub const SERIE_PERDIDOS_MASK: u64 = 0xFFFF;
+pub const SERIE_PICO_SHIFT: u64 = 48;
+pub const SERIE_PICO_MASK: u64 = 0x7FFF;
+pub const SERIE_COLA: u64 = 1 << 63;
+
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
 pub const INFO_DISCO_AVISO: u64 = 0x98;
 pub const DISCO_AVISO_ENTRADAS_MASK: u64 = 0xFFFF;

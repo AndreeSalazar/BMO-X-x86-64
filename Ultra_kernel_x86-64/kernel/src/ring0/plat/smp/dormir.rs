@@ -418,6 +418,10 @@ pub fn reposo() {
 /// EXISTIR para que `choose_next` tenga siempre a quien darle el turno.
 pub extern "C" fn idle_thread(_arg: u64) -> ! {
     loop {
+        // ** Y LO QUE LA MAQUINA DIJO, AL PUERTO SERIE (2026-09-23): lo apunto
+        // quien hablaba, y sale aqui, cuando nadie mas quiere el CPU. Ver
+        // `dev/console.rs`. Sin nada esperando es una lectura de memoria.
+        crate::ring0::dev::console::vaciar();
         reposo();
     }
 }

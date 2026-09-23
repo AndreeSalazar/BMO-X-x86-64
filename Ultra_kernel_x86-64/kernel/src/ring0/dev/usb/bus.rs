@@ -342,6 +342,25 @@ fn cerrar_ventana(ahora: u64, hz: u64) {
     }
 }
 
+/// ** EL PEOR ES UNA HOJA, NO EL TOTAL (2026-09-23).
+///
+/// `bombeo` (0) es la SUMA de `anillo`, `audio` y `salud` (5..7): elegir el
+/// mayor entre los ocho elegia siempre `bombeo`, porque un total nunca es
+/// menor que sus partes. El `save` del 23-09 (06:57) dijo `peor trabajo bombeo
+/// 72020 us` -- verdad, y justo lo que no hacia falta saber: el metodo de
+/// partir el numero (ver `NOMBRES`) quedaba anulado por quien lo leia. Se
+/// elige entre las HOJAS: los cuatro trabajos sueltos de la vuelta y las tres
+/// partes del bombeo.
+fn peor_hoja(p: &[u64; 8]) -> usize {
+    let mut cual = 1usize;
+    for i in 2..p.len() {
+        if p[i] > p[cual] {
+            cual = i;
+        }
+    }
+    cual
+}
+
 /// `(nombre del que mas tardo alguna vez, sus microsegundos)`.
 /// El nombre del trabajo `i` de la vuelta (ver `NOMBRES`), para el `save`.
 pub fn nombre_de_trabajo(i: usize) -> &'static str {
@@ -354,12 +373,7 @@ pub fn peor_trabajo() -> (&'static str, u64) {
         // que no caduca contesta "paso alguna vez" a una pregunta que es
         // "esta pasando". El de siempre se queda para `cockpit.rs`.
         let p = &*core::ptr::addr_of!(PEOR_PUBLICO);
-        let mut cual = 0usize;
-        for i in 1..p.len() {
-            if p[i] > p[cual] {
-                cual = i;
-            }
-        }
+        let cual = peor_hoja(p);
         (NOMBRES[cual], p[cual])
     }
 }
@@ -401,12 +415,7 @@ pub fn peor_trabajo() -> (&'static str, u64) {
 pub fn ritmo_y_peor() -> u64 {
     unsafe {
         let p = &*core::ptr::addr_of!(PEOR_US);
-        let mut cual = 0usize;
-        for i in 1..p.len() {
-            if p[i] > p[cual] {
-                cual = i;
-            }
-        }
+        let cual = peor_hoja(p);
         // Se satura en vez de envolver: un `peor` que da la vuelta se leeria
         // como un numero chico, que es la mentira mas cara que puede decir un
         // instrumento de peor caso.

@@ -1354,6 +1354,28 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// # `INFO_SERIE`: el puerto serie, por COLA (2026-09-23)
+///
+/// ```text
+///    0..31   bytes apuntados desde el arranque
+///   32..47   bytes perdidos: la cola estaba llena
+///   48..62   lo mas que llego a haber esperando
+///   63       va por cola (0 = cada byte lo paga quien escribe)
+/// ```
+///
+/// ** El `save` del 23-09 (06:57): `latido tarde 68 ms` del bus USB, y el CPU
+/// lo tuvo EL PROPIO hilo del bus 59 ms -- girando sobre el UART, ~87 us por
+/// byte, mientras escribia su log. Desde entonces escribir apunta y se va, y
+/// esta fila dice que nadie espera al puerto.
+pub const INFO_SERIE: u64 = 0x99;
+
+pub const SERIE_APUNTADOS_MASK: u64 = 0xFFFF_FFFF;
+pub const SERIE_PERDIDOS_SHIFT: u64 = 32;
+pub const SERIE_PERDIDOS_MASK: u64 = 0xFFFF;
+pub const SERIE_PICO_SHIFT: u64 = 48;
+pub const SERIE_PICO_MASK: u64 = 0x7FFF;
+pub const SERIE_COLA: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

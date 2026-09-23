@@ -586,6 +586,9 @@ extern "C" fn fault_dispatch(
         let _ = (error, cr2, fault_rsp);
         return 0;
     }
+    // ** La maquina se va a parar: lo que queda en la cola del serie sale YA,
+    // y el informe de abajo sale byte a byte. Ver `dev/console.rs`.
+    crate::ring0::dev::console::directo();
     fault_report(vector, error, rip, cr2, fault_rsp)
 }
 
@@ -622,6 +625,7 @@ pub const PODRIDO_CABECERA: u64 = 3;
 /// proposito -- restaurar un contexto podrido es exactamente lo que no queremos
 /// que pase.
 pub extern "C" fn contexto_podrido(motivo: u64, rsp: u64) -> ! {
+    crate::ring0::dev::console::directo();
     let kpml4 = crate::ring0::mm::vmm::kernel_pml4();
     if kpml4 != 0 {
         crate::ring0::mm::vmm::switch_to(kpml4);

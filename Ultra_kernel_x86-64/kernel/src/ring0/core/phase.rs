@@ -132,7 +132,12 @@ pub fn main(ctx: &mut BootContext) {
     // [!] Y se DICE si no hubo ranura, en vez de seguir en silencio: sin ella
     // el sistema vuelve al comportamiento que tumbo la maquina.
     match crate::ring0::task::scheduler::init_idle() {
-        Some(t) => crate::ring0::cabina::id("sched", "tarea IDLE en pie, tid", t as u64),
+        Some(t) => {
+            crate::ring0::cabina::id("sched", "tarea IDLE en pie, tid", t as u64);
+            // ** Desde aqui el puerto serie va por COLA: hay quien la vacie.
+            // Ver `dev/console.rs` -- escribir ya no le cuesta a quien habla.
+            crate::ring0::dev::console::abrir_cola();
+        }
         None => crate::ring0::cabina::warn(
             "sched", "SIN tarea IDLE: bloquearse no bloqueara", 0),
     }
