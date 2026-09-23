@@ -1,0 +1,20 @@
+[package]
+name = "bmo-spirv-x86-64"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "SPIR-V a x86-64: el emisor escalar del SOMBREADOR (S4). no_std, sin alloc: el codigo va a un buffer que da quien llama."
+
+# `no_std` y sin `alloc`, como el frontend (PLAN_EL_SOMBREADOR, 1b): el mismo
+# emisor corre en el anfitrion (AOT) y dentro de una app de BMO-X (JIT, S5).
+[dependencies]
+bmo-spirv-front = { path = ".." }
+
+# El juez de S4: el codigo emitido se EJECUTA en el emulador de `bmo-lower` y
+# tiene que dar los mismos bits que el oraculo.
+[dev-dependencies]
+bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
+
+[lib]
+name = "bmo_spirv_x86_64"
+path = "src/lib.rs"

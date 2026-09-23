@@ -236,7 +236,41 @@ de despues se juzga contra el.
 las usan el oraculo Y el emisor -- si cada uno tuviera la suya, S4 dejaria de
 poder compararse bit a bit con S3.
 
-## [ ] S4 -- EL EMISOR x86-64, escalar
+## [x] S4 -- EL EMISOR x86-64, escalar
+
+> **Hecho el 23-09** en `toolchain/lang/spirv/emisor-x86_64/` (crate
+> `bmo-spirv-x86-64`), `no_std` sin `alloc`: `emit(&Module, tablas, codigo)
+> -> Program`. Dos pasadas (la primera cuenta y fija las etiquetas, la
+> segunda escribe) para no necesitar una lista de parches. Codificador
+> propio: solo las formas que el emulador sabe ejecutar.
+>
+> - La forma: cada valor en su sitio fijo del MARCO (`[rdi + 4*slot]`),
+>   carga-calcula-guarda. Lento y correcto; la velocidad se mide DESPUES.
+>   `init` (constantes y punteros, una vez) y `main(marco, buffers, ids,
+>   combustible) -> eax` (una vez por invocacion).
+> - Para igual que el oraculo: division por cero, `INT_MIN / -1`, desplazar
+>   32 o mas, salirse de un buffer o de un arreglo, `OpUnreachable`,
+>   combustible (por salto hacia atras). NO vigila la dominancia: eso lo
+>   dice el oraculo.
+> - `math` igualada: `minss`/`maxss` son exactamente `math::min/max`,
+>   saturar al convertir, `trunc`/`floor`/`ceil` sobre los bits, `fma` con
+>   el mismo redondeo a impar en doble.
+> - **La diferencial**: suma, saxpy, mandelbrot, colores, collatz, las
+>   trampas -- los mismos bits que el oraculo y la misma parada en la misma
+>   invocacion. Y los **28 de Naga que caben: 28 iguales** (uno para por
+>   combustible en los dos).
+> - Lo cazo la diferencial: los punteros de las variables DE FUNCION no se
+>   escribian (apuntaban a la palabra 0 del marco).
+> - Y destapo DOS fallos del EMULADOR de `bmo-lower`, arreglados alli: no
+>   sabia aritmetica `float` (`addss`...: ahora en `emu/sse.rs`, con todo el
+>   SSE escalar), y calculaba las BANDERAS siempre sobre 64 bits --
+>   `cmp eax, 0x80000000` decia "distinto" donde el silicio dice "igual".
+>
+> ### [ ] S4b -- las trascendentes en el emisor
+>
+> `sin`/`cos`/`exp`/`log`/`pow`: el emisor las niega hoy con su motivo. Es
+> repetir en SSE2 las operaciones de `f64` de `math` (una rutina por
+> funcion, al final del codigo, a la que se llama).
 
 Cada invocacion es una llamada: `fn(id_global, buffers)`. Flotantes en SSE
 escalar, enteros en los registros generales, con el ensamblador propio

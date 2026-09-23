@@ -555,6 +555,14 @@ name = "bmo-spirv-front"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-spirv-x86-64"
+version = "0.1.0"
+dependencies = [
+ "bmo-lower",
+ "bmo-spirv-front",
+]
+
+[[package]]
 name = "bmo-trim"
 version = "0.1.0"
 

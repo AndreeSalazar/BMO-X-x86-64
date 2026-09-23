@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   282 casillas ABIERTAS en 36 planes
-   269 hechas
+   281 casillas ABIERTAS en 36 planes
+   270 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -274,15 +274,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] scene/consola.rs, 600 lineas de codigo y 39% de documentacion. Es el
 - ... y 1 mas
 
-## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 4 abiertas, 5 hechas
-
-*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
-
-- [ ] S4 -- EL EMISOR x86-64, escalar
-- [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
-- [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
-- ... y 1 mas
-
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas
 
 *LA RAM SALE DEL KERNEL -- que parte es agnostica, medido*
@@ -308,6 +299,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S6 -- el techo de crudo (roca 3): hoy no lo acota nadie
 - [ ] S7 -- las katanas del silicio, P4 y P5 de la seccion 5 de este mismo
 - [ ] S8 -- que el barrido NIEGUE en vez de callar cuando no puede leer una
+
+## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 3 abiertas, 6 hechas
+
+*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
+
+- [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
+- [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
+- [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
 
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 
