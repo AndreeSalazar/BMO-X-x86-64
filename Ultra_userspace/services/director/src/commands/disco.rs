@@ -317,6 +317,35 @@ pub(crate) fn report_disco(s: &mut Output) {
         s.with_ink(INK_PLAIN);
     }
 
+    // -- ** EL HILO DEL DISCO (D1, 23-09): si trae los ficheros durmiendo.
+    let h = bmo::info(bmo::INFO_DISCO_HILO);
+    campo(s, b"thread");
+    if h & bmo::DISCO_HILO_VIVO == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"sin hilo: los ficheros se traen GIRANDO dentro del syscall");
+    } else {
+        let vuelos = h & bmo::DISCO_HILO_VUELOS_MASK;
+        let ajenas = (h >> bmo::DISCO_HILO_AJENAS_SHIFT) & bmo::DISCO_HILO_AJENAS_MASK;
+        let irq = (h >> bmo::DISCO_HILO_IRQ_SHIFT) & bmo::DISCO_HILO_IRQ_MASK;
+        s.with_ink(INK_GOOD);
+        s.dec(vuelos);
+        s.text(b" ordenes en vuelo");
+        s.with_ink(INK_PLAIN);
+        s.text(b"   ");
+        s.dec(irq);
+        s.text(b" despertares por la IRQ   ");
+        s.dec(ajenas);
+        s.text(b" terminadas por otro");
+        // Con ordenes y sin un solo aviso: la placa no enruta la IRQ y el hilo
+        // vive de su red de 2 ms. Funciona, pero no es lo que se prometio.
+        if vuelos > 0 && irq == 0 {
+            s.with_ink(INK_ERR);
+            s.text(b"   SIN IRQ: vive de la red de 2 ms");
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+
     // -- ** EL METRO (D0, 23-09): la unica cifra de velocidad que es de ESTE
     // disco. Sin medir se dice, y se dice como medirlo.
     if bmo::info(bmo::INFO_DISCO_BANDA) == 0 {

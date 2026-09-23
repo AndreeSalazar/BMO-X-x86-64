@@ -219,36 +219,40 @@ impl Archivo {
         }
     }
 
-    /// `(entero, bytes que ya llegaron)`. **Y avanza la carga**: preguntar por
-    /// el archivo es lo que lo trae.
+    /// `(entero, bytes que ya llegaron)`. Sin hilo del disco, **avanza la
+    /// carga**: preguntar por el archivo es lo que lo trae. Con hilo, solo mira.
     pub fn listo(&self) -> (bool, u64) {
-        let v = invoke(self.cap, ARCH_OP_LISTO, 0, 0, 0).value;
+        let v = self.listo_crudo();
         (v & (1 << 63) != 0, v & !(1 << 63))
     }
 
-    /// **Pide trozos hasta tenerlo entero.**
+    /// Lo mismo, SIN partir: es la secuencia que `WAIT` compara.
+    fn listo_crudo(&self) -> u64 {
+        invoke(self.cap, ARCH_OP_LISTO, 0, 0, 0).value
+    }
+
+    /// **Espera a tenerlo entero, DURMIENDO** (paso D1 del disco, 2026-09-23).
     ///
-    /// [!] Y aqui NO se duerme, aunque lo pareciera: cada `listo()` trae su trozo
-    /// **sincronamente**. Lo que se gana no es dejar de esperar -- es que la
-    /// espera este partida:
+    /// Con hilo del disco, el trozo lo trae el kernel fuera de este proceso y
+    /// `WAIT` sobre el propio handle duerme hasta que la secuencia se mueva:
+    /// mientras el aparato trabaja, el CPU es de otro.
     ///
-    /// ```text
-    ///   antes   UN syscall dentro del kernel durante 813 KB
-    ///   ahora   SIETE syscalls de 128 KB, y entre ellos se vuelve a Ring 3
-    /// ```
+    /// Sin hilo (un kernel viejo, o no hubo sitio para el), `WAIT` contesta que
+    /// no con este handle y el bucle hace lo de siempre: cada `listo()` trae su
+    /// trozo girando dentro del kernel.
     ///
-    /// Volver a Ring 3 entre trozos es lo que importa: ahi hay frontera de trap,
-    /// o sea que el planificador puede dar el turno a otro **por decision suya y
-    /// no por expropiacion**. Y quien no quiera esperar tiene
-    /// [`Archivo::leer_de_asinc`]: pide un trozo, pinta un fotograma, pide otro.
-    ///
-    /// Dormir de verdad --bloquearse y que el disco despierte-- pide que traer
-    /// el trozo tampoco espere, y eso es la pieza que falta. Ver `LA_RAM.md`.
+    /// [!] El plazo de cada espera es una RED, no el ritmo: si un aviso se
+    /// perdiera, se vuelve a mirar a los 100 ms en vez de quedarse para siempre.
     pub fn esperar_entero(&self) {
         loop {
-            let (entero, _) = self.listo();
-            if entero {
+            let v = self.listo_crudo();
+            if v & (1 << 63) != 0 {
                 return;
+            }
+            let st = crate::sys::wait(self.cap, v, 100_000_000);
+            if !st.ok() {
+                // Este handle no se puede esperar: el camino de antes.
+                continue;
             }
         }
     }

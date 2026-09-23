@@ -339,9 +339,14 @@ pub const TASK_OP_MI_PADRE: u64 = 0x26;
 /// lectura -- si el que pide es el escritorio, el escritorio no pinta.
 ///
 /// Este vuelve en cuanto sabe que el archivo esta ahi. Los bytes llegan a
-/// trozos, y **preguntar por el archivo es lo que lo trae**: cada
-/// [`ARCH_OP_LISTO`] avanza un trozo y vuelve a Ring 3, asi que entre trozo y
-/// trozo el planificador puede dar el turno a otro.
+/// trozos.
+///
+/// ** Desde el paso D1 del disco (2026-09-23), si el kernel tiene HILO DEL
+/// DISCO, los trozos los trae el: manda la orden, suelta el disco y duerme
+/// hasta la IRQ. El handle sale entonces con `RIGHT_WAIT`, y quien lo abrio
+/// duerme con `WAIT(handle, ARCH_OP_LISTO, plazo)` mientras llegan -- el CPU es
+/// de otro mientras el aparato trabaja. Sin hilo, lo de siempre: cada
+/// [`ARCH_OP_LISTO`] trae un trozo girando dentro del kernel.
 pub const TASK_OP_ARCHIVO_ASINC: u64 = 0x27;
 
 /// **Tomar lo que otro me haya ofrecido.** Devuelve un handle `KIND_PRESTADO`, o

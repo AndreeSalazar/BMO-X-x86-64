@@ -359,6 +359,17 @@ unsafe fn capacity(i: usize) -> usize {
     (BUF_PAGS[i] as usize) * PAGE
 }
 
+/// La direccion FISICA del bufer de la ranura. El bufer es contiguo
+/// (`reserve`), y por eso el hilo del disco puede mandar el HBA directo a el.
+pub(super) fn fisica(i: usize) -> u64 {
+    unsafe { BUF_FIS[i] }
+}
+
+/// Lo que cabe en la ranura, para quien no puede tocar los estaticos.
+pub(super) fn capacidad(i: usize) -> usize {
+    unsafe { capacity(i) }
+}
+
 /// Reserva un buffer de al menos `bytes` para la ranura. `false` = no hay RAM.
 unsafe fn reserve(i: usize, bytes: usize) -> bool {
     let pags = ((bytes.max(1) + PAGE - 1) / PAGE) as u64;
@@ -643,13 +654,26 @@ pub fn abrir_asinc(pid: u32, ruta: &str) -> Result<u64, u32> {
         // Un archivo vacio ya esta entero: nunca hay carga en curso para el, y
         // marcarla dejaria a quien pregunte esperando un trozo que no existe.
         super::cargando::LOAD_CLUSTER[i] = if mide == 0 { 0 } else { cluster };
-        match cap::grant(pid, cap::KIND_ARCHIVO, cap::RIGHT_READ, i as u64) {
+        // *** Y EL DERECHO DE ESPERAR VUELVE (paso D1, 2026-09-23), con su
+        // brazo en `wait()` como pidio la derogacion de arriba: si hay HILO DEL
+        // DISCO, el es quien mueve la carga -- fuera del lector, con la IRQ-- y
+        // la secuencia de la ranura sube sola. Sin hilo, se concede lo de
+        // antes y el trozo lo sigue trayendo el que pregunta.
+        let hilo = crate::ring0::dev::disk::hilo_vivo();
+        super::cargando::POR_HILO[i] = hilo && mide != 0;
+        // El derecho va ESCRITO en la llamada y no en una variable: el guardian
+        // `esperable` lo busca ahi, junto a su `KIND_`.
+        match cap::grant(pid, cap::KIND_ARCHIVO, if hilo { cap::RIGHT_READ | cap::RIGHT_WAIT } else { cap::RIGHT_READ }, i as u64) {
             Some(h) => {
                 crate::ring0::cabina::info("arch", "archivo abierto SIN terminar de leer", mide as u64);
+                if super::cargando::POR_HILO[i] {
+                    crate::ring0::dev::disk::avisar_hilo();
+                }
                 Ok(h)
             }
             None => {
                 super::cargando::LOAD_CLUSTER[i] = 0;
+                super::cargando::POR_HILO[i] = false;
                 release_buffer(i);
                 OWNER[i] = NO_OWNER;
                 Err(cap::ERROR_PERMISSION_DENIED)
@@ -859,6 +883,10 @@ fn release(i: usize) {
                 );
             }
         }
+        // ** Y ANTES que la memoria, la carga: si el hilo del disco tiene una
+        // orden en el aparato con destino en este bufer, se espera a que acabe.
+        // Soltar marcos con un DMA dentro es R-DMA-3.
+        super::cargando::soltar(i);
         // La memoria se devuelve AQUI y en un solo sitio, pase lo que pase con
         // el guardado. Un archivo que no se pudo escribir no es motivo para
         // quedarse con sus marcos: eso es una fuga que solo se nota tras
@@ -895,7 +923,12 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
     // todos los de hoy-- funciona igual: pide bytes, y los bytes acaban
     // llegando. La diferencia es que ahora **entre trozo y trozo puede dormir**,
     // en vez de estar dentro del kernel hasta el final.
-    if !escribe && super::cargando::hay(i) && op != ARCH_OP_CERRAR {
+    //
+    // ** Salvo `ARCH_OP_LISTO` en una ranura que lleva el HILO DEL DISCO: ahi
+    // preguntar ya no trae nada, contesta (D1). Traerlo aqui seria volver a
+    // girar dentro del syscall, que es justo lo que el hilo quita.
+    let solo_mira = op == ARCH_OP_LISTO && super::cargando::por_hilo(i);
+    if !escribe && super::cargando::hay(i) && op != ARCH_OP_CERRAR && !solo_mira {
         super::cargando::avanzar(i);
     }
     match op {

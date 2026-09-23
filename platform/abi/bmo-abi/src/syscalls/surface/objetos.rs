@@ -359,7 +359,10 @@ pub const ARCH_OP_MEDIDA: u64 = 0x03;
 /// Cierra. En uno de escritura **es donde el contenido llega al disco**.
 pub const ARCH_OP_CERRAR: u64 = 0x04;
 
-/// `(entero << 63) | bytes que ya llegaron`. Avanza la carga y contesta.
+/// `(entero << 63) | bytes que ya llegaron`. Sin hilo del disco, avanza la
+/// carga y contesta; con hilo (paso D1, 2026-09-23), SOLO contesta: el trozo lo
+/// trae el kernel con la IRQ, y ese mismo numero es la secuencia sobre la que
+/// `WAIT(handle, visto, plazo)` duerme hasta que cambie.
 ///
 /// Los dos datos van juntos a proposito: *"cuanto hay"* y *"queda mas"* son la
 /// misma pregunta, y contestarlas por separado abre la puerta a leerlas de

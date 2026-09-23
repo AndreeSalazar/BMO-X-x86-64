@@ -183,7 +183,7 @@ pub fn cuentas_dma() -> (u64, u64) { unsafe { (SIN_REBOTE, CON_REBOTE) } }
 /// ** El dia que el contador lleve arranques diciendo cero, cortar con los
 /// seis es cambiar una linea. Al reves --cortar hoy y relajar despues-- se
 /// paga con un flasheo a ciegas.
-fn juzgar_el_dma(phys: u64, bytes: u64, prestando: bool) -> bool {
+pub(super) fn juzgar_el_dma(phys: u64, bytes: u64, prestando: bool) -> bool {
     let mut p = phys & !(mm::PAGE - 1);
     let fin = phys + bytes;
     while p < fin {
@@ -245,7 +245,7 @@ pub static mut DMA_VETOS: u64 = 0;
 /// por transferencia son 112 y punto. Contra una vuelta al disco no se nota --
 /// pero que no se note es una consecuencia de donde esta la linea, no una
 /// propiedad del reloj.
-fn marcar_el_tramo(phys: u64, bytes: u64, poner: bool, cuando: u64) {
+pub(super) fn marcar_el_tramo(phys: u64, bytes: u64, poner: bool, cuando: u64) {
     let mut p = phys & !(mm::PAGE - 1);
     let fin = phys + bytes;
     while p < fin {

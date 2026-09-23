@@ -67,6 +67,16 @@ use owner::tomar_disco;
 /// MOVING THE BYTES: read, DMA, and the bounce buffer -- both paths counted.
 mod transfer;
 pub use transfer::{cuentas_dma, motivos_dma, read};
+/// ONE COMMAND IN FLIGHT that nobody holds the disk for (D1): whoever takes
+/// the disk next reaps it first.
+mod vuelo;
+pub use vuelo::{Estado as EstadoVuelo, emitir_lectura as emitir_vuelo, esperar as esperar_vuelo,
+    mirar as mirar_vuelo};
+/// THE DISK THREAD (D1): it sends an order, lets go of the disk and SLEEPS
+/// until the IRQ wakes it. The work it does is handed in at boot.
+mod hilo;
+pub use hilo::{arrancar as arrancar_hilo, avisar as avisar_hilo, cuentas as cuentas_hilo,
+    sin_el_hilo, vivo as hilo_vivo, Paso};
 /// THE DISK METER (D0): how fast THIS disk reads, measured here. Read only.
 mod banda;
 pub use banda::{banda, banda_orden, medir as medir_banda};

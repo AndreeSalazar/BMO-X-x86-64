@@ -69,6 +69,14 @@ pub(super) fn tomar_disco() -> Testigo {
     let mut vueltas = 0u64;
     loop {
         if PROPIETARIO.compare_exchange(0, yo, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+            // ** LA RANURA 0 PUEDE ESTAR OCUPADA SIN QUE NADIE TENGA EL DISCO
+            // (2026-09-23): el hilo del disco suelta el disco con su orden en
+            // vuelo para poder dormir. Quien entra ahora la termina primero --
+            // girando, que es lo que haria de todas formas-- y deja el
+            // resultado apuntado para el hilo. Nadie espera NUNCA a que el
+            // hilo corra: por eso no hay abrazo mortal con un syscall, que
+            // corre con las interrupciones cerradas y no le dejaria correr.
+            super::vuelo::cosechar();
             return Testigo(true);
         }
         let otro = PROPIETARIO.load(Ordering::Relaxed);

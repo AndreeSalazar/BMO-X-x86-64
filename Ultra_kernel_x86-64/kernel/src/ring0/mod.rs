@@ -40,7 +40,7 @@ pub mod obj {
     /// EL ARCHIVO QUE SE ESTA TRAYENDO: la carga por trozos de una ranura.
     /// Salio de `file.rs` por L6a, y el corte se eligio por nombres libres --
     /// es un ciclo de vida, no un camino de datos.
-    mod cargando;
+    pub mod cargando;
     /// `KIND_AUDIO`: el derecho a hacer ruido. Es el CONTRATO, no el driver --
     /// ver la cabecera del modulo.
     pub mod audio;

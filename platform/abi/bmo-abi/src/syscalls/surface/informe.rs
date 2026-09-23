@@ -1354,6 +1354,28 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// # `INFO_DISCO_HILO`: el HILO DEL DISCO (paso D1, 2026-09-23)
+///
+/// ```text
+///    0..23   ordenes que mando EN VUELO (soltando el disco para dormir)
+///   24..39   de esas, las que termino OTRO que tomo el disco antes
+///   40..61   veces que lo desperto la IRQ del disco
+///   63       el hilo existe
+/// ```
+///
+/// ** Es la prueba de que D1 hace lo que dice: si `vuelos` sube y `irq` sube
+/// con el, el CPU estuvo libre mientras el aparato trabajaba. Si `irq` se queda
+/// en cero, la placa no enruta el aviso y el hilo vive de su red de 2 ms. Y si
+/// `ajenas` se acerca a `vuelos`, el hilo llega tarde a sus propias ordenes.
+pub const INFO_DISCO_HILO: u64 = 0x96;
+
+pub const DISCO_HILO_VUELOS_MASK: u64 = 0xFF_FFFF;
+pub const DISCO_HILO_AJENAS_SHIFT: u64 = 24;
+pub const DISCO_HILO_AJENAS_MASK: u64 = 0xFFFF;
+pub const DISCO_HILO_IRQ_SHIFT: u64 = 40;
+pub const DISCO_HILO_IRQ_MASK: u64 = 0x3F_FFFF;
+pub const DISCO_HILO_VIVO: u64 = 1 << 63;
+
 /// Fabricante ("AMD"), nombre comercial, microarquitectura y familia/modelo.
 pub const INFO_TXT_CPU_VENDOR: u64 = 0x01;
 

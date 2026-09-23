@@ -34,6 +34,7 @@ mod roja;
 mod verde;
 
 pub use roja::{
+    aparcar_en, despertar_desde_irq,
     pilas_liberadas,
     limpieza_de_ring3,
     compas_de, cpu_propio, declarar_compas, delante, exit_and_park, exit_current, expropiadas, init, init_idle,

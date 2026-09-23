@@ -1039,3 +1039,115 @@ fn hostile_exfat_sectors_never_panic() {
     });
     disco().fill(0);
 }
+
+// == PLANEAR UN TRAMO (D1, 2026-09-23) =====================================
+
+/// Lee con los tramos planeados, como hara el hilo del disco: una orden por
+/// tramo, directa al bufer, sin pasar por el volumen.
+fn leer_por_tramos(v: &mut FatVolume, primero: u32, tam: u32, tope: usize) -> (Vec<u8>, usize) {
+    let mut dst = vec![0u8; (tam as usize).div_ceil(512) * 512 + 512];
+    let (mut cluster, mut ya, mut ordenes) = (primero, 0usize, 0usize);
+    while let Some(t) = v.planear_tramo(cluster, ya, tam, tope) {
+        assert!(t.bytes > 0, "un tramo vacio es un bucle infinito");
+        let hasta = ya + t.sectores as usize * 512;
+        assert!(read(t.lba, t.sectores, &mut dst[ya..hasta]));
+        ya += t.bytes;
+        ordenes += 1;
+        assert!(ordenes < 64, "el cursor no avanza");
+        if t.siguiente == 0 {
+            break;
+        }
+        cluster = t.siguiente;
+    }
+    dst.truncate(ya);
+    (dst, ordenes)
+}
+
+/// ** UN FICHERO SEGUIDO ES UNA SOLA ORDEN, y trae exactamente sus bytes.
+#[test]
+fn un_fichero_seguido_se_planea_en_una_orden() {
+    let (_turno, mut v) = volumen();
+    let datos: Vec<u8> = (0..3000u32).map(|i| (i % 251) as u8).collect();
+    v.create_file_in_dir(2, &name("SEGUIDO BIN"), &datos).expect("debe crear");
+    let (primero, tam) = v.find_file(&name("SEGUIDO BIN")).expect("debe estar");
+
+    let t = v.planear_tramo(primero, 0, tam, 1 << 20).expect("hay tramo");
+    assert_eq!(t.bytes, 3000);
+    assert_eq!(t.sectores, 6, "3000 bytes son 6 sectores, el ultimo a medias");
+    assert_eq!(t.siguiente, 0, "el fichero acaba en este tramo");
+
+    let (leido, ordenes) = leer_por_tramos(&mut v, primero, tam, 1 << 20);
+    assert_eq!(ordenes, 1);
+    assert_eq!(leido, datos);
+}
+
+/// El tope parte el tramo, y a trozos sale lo mismo que de una.
+#[test]
+fn el_tope_parte_el_tramo_y_da_los_mismos_bytes() {
+    let (_turno, mut v) = volumen();
+    let datos: Vec<u8> = (0..3000u32).map(|i| (i * 7 % 253) as u8).collect();
+    v.create_file_in_dir(2, &name("TOPE    BIN"), &datos).expect("debe crear");
+    let (primero, tam) = v.find_file(&name("TOPE    BIN")).expect("debe estar");
+
+    let (leido, ordenes) = leer_por_tramos(&mut v, primero, tam, 1024);
+    assert_eq!(ordenes, 3, "1024 de tope con clusters de 512: 1024 + 1024 + 952");
+    assert_eq!(leido, datos);
+}
+
+/// ** UN FICHERO PARTIDO se corta donde se parte la cadena, y sigue por ella:
+/// leer el sector fisico siguiente seria leer el de OTRO.
+#[test]
+fn un_fichero_fragmentado_se_corta_en_el_salto() {
+    let (_turno, mut v) = volumen();
+    let datos: Vec<u8> = (0..1300u32).map(|i| (i % 251) as u8).collect();
+    v.create_file_in_dir(2, &name("PARTIDO BIN"), &datos).expect("debe crear");
+    let (c1, tam) = v.find_file(&name("PARTIDO BIN")).expect("debe estar");
+    let c2 = v.raw_fat_entry(c1).expect("segundo");
+    let c3 = v.raw_fat_entry(c2).expect("tercero");
+    let lejos = v.max_cluster;
+    let mut sec = [0u8; 512];
+    assert!(read(v.cluster_to_lba(c2), 1, &mut sec));
+    assert!(write(v.cluster_to_lba(lejos), 1, &sec));
+    assert!(write(v.cluster_to_lba(c2), 1, &[0xEEu8; 512]));
+    assert!(v.set_fat_entry(c1, lejos));
+    assert!(v.set_fat_entry(lejos, c3));
+    assert!(v.set_fat_entry(c2, 0));
+
+    let t = v.planear_tramo(c1, 0, tam, 1 << 20).expect("hay tramo");
+    assert_eq!(t.bytes, 512, "el primer tramo acaba en el salto");
+    assert_eq!(t.siguiente, lejos, "y sigue por la cadena, no por el disco");
+
+    let (leido, ordenes) = leer_por_tramos(&mut v, c1, tam, 1 << 20);
+    assert_eq!(ordenes, 3, "c1 | lejos | c3: tres sitios, tres ordenes");
+    assert_eq!(leido, datos, "salio el sector envenenado o se perdio el rabo");
+}
+
+/// ** EL LBA DEL TRAMO ES ABSOLUTO: con el volumen desplazado, olvidar la suma
+/// lee el veneno de delante.
+#[test]
+fn el_tramo_lleva_la_suma_de_la_particion() {
+    const BASE: u64 = 64;
+    let (_turno, mut v) = volumen_con_base(BASE);
+    for s in 0..BASE {
+        assert!(write(s, 1, &[0xEEu8; 512]));
+    }
+    let datos: Vec<u8> = (0..1300u32).map(|i| (i % 251) as u8).collect();
+    v.create_file_in_dir(2, &name("LEJOS   BIN"), &datos).expect("debe crear");
+    let (primero, tam) = v.find_file(&name("LEJOS   BIN")).expect("debe estar");
+
+    let t = v.planear_tramo(primero, 0, tam, 1 << 20).expect("hay tramo");
+    assert_eq!(t.lba, BASE + v.cluster_to_lba(primero), "falta part_lba");
+    let (leido, _) = leer_por_tramos(&mut v, primero, tam, 1 << 20);
+    assert_eq!(leido, datos);
+}
+
+/// Pasado el final no hay tramo, y un cluster que no es del volumen tampoco.
+#[test]
+fn sin_nada_que_leer_no_hay_tramo() {
+    let (_turno, mut v) = volumen();
+    let datos = [7u8; 600];
+    v.create_file_in_dir(2, &name("CORTO   BIN"), &datos).expect("debe crear");
+    let (primero, tam) = v.find_file(&name("CORTO   BIN")).expect("debe estar");
+    assert_eq!(v.planear_tramo(primero, 600, tam, 4096), None);
+    assert_eq!(v.planear_tramo(0, 0, tam, 4096), None, "el cluster 0 no es un sitio");
+}

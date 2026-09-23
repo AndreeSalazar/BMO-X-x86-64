@@ -538,6 +538,14 @@ pub fn leer_trozo(
     v.leer_tramo(cluster, ya, size, dst, tope)
 }
 
+/// **Donde esta el siguiente tramo, SIN leerlo** (D1, 2026-09-23). Lo usa el
+/// hilo del disco: planea aqui (la FAT, que casi siempre sale de su cache),
+/// manda UNA orden y duerme. Ver `bmo_fat32::FatVolume::planear_tramo`.
+pub fn planear_trozo(cluster: u32, ya: usize, size: u32, tope: usize) -> Option<bmo_fat32::Tramo> {
+    let v = unsafe { (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut()? };
+    v.planear_tramo(cluster, ya, size, tope)
+}
+
 /// **Trae solo el PRINCIPIO del archivo.** Devuelve `(leidos, medida_real)`.
 ///
 /// === Por que existe, y por que no es `load` con otro nombre ===

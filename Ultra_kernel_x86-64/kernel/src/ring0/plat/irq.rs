@@ -129,12 +129,19 @@ extern "C" fn disco_dispatch(_frame: &mut TrapFrame) -> u64 {
     //
     // En concreto NO se lee `PRDBC` aqui: eso es contestarle a quien pregunte, y
     // preguntar es cosa del que pidio.
+    //
+    // ** Y DESDE EL 2026-09-23 PUEDE CAMBIAR DE TAREA (paso D1 del disco). Si
+    // el aviso era del disco, `atender_irq` despierta al HILO DEL DISCO y el
+    // planificador elige -- y `percpu::trap_rsp()` pasa a ser el contexto que
+    // eligio. Se apunta la publicacion igual que el reloj: dos areas solapadas
+    // en la misma pila solo se pueden ver si los dos stubs que cambian dicen
+    // donde tallaron la suya.
+    crate::ring0::plat::trap::registrar_publicacion(
+        percpu::trap_rsp(),
+        crate::ring0::task::scheduler::current_tid(),
+    );
     crate::ring0::dev::disk::atender_irq();
     crate::ring0::plat::timer::eoi();
-    // Se devuelve el MISMO contexto: este manejador todavia no cambia de tarea.
-    // El dia que alguien duerma esperando al disco, aqui se llamara al
-    // planificador y esta linea pasara a devolver el que el elija -- el stub ya
-    // esta preparado para eso, que es la mitad del trabajo.
     percpu::trap_rsp()
 }
 

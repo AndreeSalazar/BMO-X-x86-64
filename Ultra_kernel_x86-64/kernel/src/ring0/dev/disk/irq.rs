@@ -47,17 +47,16 @@ pub fn atender(puerto: u8) {
     }
     if unsafe { bmo_ahci::atender(puerto) } {
         unsafe { CUENTA += 1 };
-        // ** Y AQUI IRA `wake_by_key(CLAVE_ESPERA)` el dia que haya quien duerma.
+        // ** Y DESDE EL 2026-09-23 HAY QUIEN DUERMA: el HILO DEL DISCO, con una
+        // orden en vuelo (`hilo.rs`). Aqui se le despierta y, si tiene mas
+        // rango que quien estaba corriendo, entra ya: el stub del vector 49
+        // devuelve el contexto que elija el planificador.
         //
-        // Hoy no lo hay, y no por falta de cable: la cadena queda entera salvo
-        // la pieza de abajo. `file::avanzar` trae su trozo **sincronamente**, o
-        // sea que cuando la llamada vuelve el dato ya llego -- nadie se queda
-        // esperando nada que esta interrupcion pueda terminar.
-        //
-        // Se deja dicho y sin llamar en vez de llamarlo "por si acaso":
-        // despertar a nadie cuesta el candado del planificador en contexto de
-        // interrupcion, y da la impresion de que el sistema duerme cuando no
-        // duerme. Ver la E/S asincrona en la hoja de ruta.
+        // Durante un syscall esto no llega: corren con `IF=0`. El aviso espera
+        // al `sysretq` y entra entonces -- que es exactamente cuando el hilo
+        // puede correr.
+        super::hilo::despertado_por_irq();
+        crate::ring0::task::scheduler::despertar_desde_irq(CLAVE_ESPERA);
     }
 }
 
@@ -66,5 +65,5 @@ pub fn atender(puerto: u8) {
 /// Un numero que no choca con las de los canales, que son indices chicos.
 /// Vive aqui --y no en el planificador-- porque **el planificador no tiene por
 /// que saber que existe un disco**: solo reparte turnos sobre claves que le dan.
-#[allow(dead_code)]
+/// Duerme sobre ella el HILO DEL DISCO (`hilo.rs`), y solo el.
 pub const CLAVE_ESPERA: u64 = 0xD15C_0000_0000_0001;

@@ -363,6 +363,11 @@ pub fn main(ctx: &mut BootContext) {
     // Y el disco: el HBA SATA (no el NVMe -- ahi vive el sistema del propietario) y
     // su tabla de particiones. Ver dev/disk.rs.
     crate::ring0::dev::disk::init();
+    // ** Y SU HILO (paso D1, 2026-09-23): el que trae los ficheros a trozos con
+    // la IRQ, fuera del turno de quien los pide. Se le da el trabajo desde aqui
+    // porque `dev` no puede nombrar a `obj` (L8): el hilo sabe CUANDO correr,
+    // la carga sabe QUE hacer.
+    let _ = crate::ring0::dev::disk::arrancar_hilo(crate::ring0::obj::cargando::paso);
     splash::intro_paso(55);
     // * Y la tarjeta de red: **solo mirarla**. Encuentra la NIC, elige su BAR de
     // memoria y le pregunta su MAC y su enlace, sin escribirle un byte. Va aqui

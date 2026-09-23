@@ -1483,6 +1483,60 @@ pub fn park_until(deadline_tsc: u64) {
 }
 
 
+/// **Aparcar un hilo de KERNEL sobre una llave**, sin perder el aviso.
+///
+/// Es `park_until` con llave y con la guarda de `wait_current_checked`: `ya`
+/// se pregunta **con el cerrojo del planificador en la mano**, que es el mismo
+/// que toma quien despierta. Si el aviso llego entre que el hilo miro y que se
+/// iba a dormir, `ya` contesta que si y no se duerme: no es una carrera que se
+/// gane casi siempre, es una que no existe.
+///
+/// [!] SOLO para hilos de kernel. Un syscall corre con `IF=0` de principio a fin
+/// (`MSR_SFMASK`) y no tiene donde dormir a mitad: el `hlt` de abajo no se
+/// despertaria nunca. Lo cazo el paso D1 del disco, el 2026-09-23.
+pub fn aparcar_en(key: u64, deadline_tsc: u64, ya: impl Fn() -> bool) {
+    {
+        let _g = SCHED_LOCK.lock();
+        if ya() {
+            return;
+        }
+        let s = sched();
+        mark_wait(s, key, deadline_tsc);
+    }
+    while current_state() != TaskState::Running {
+        unsafe { core::arch::asm!("hlt"); }
+    }
+}
+
+
+/// **Desde un manejador de interrupcion que publico su contexto**: despierta a
+/// quien duerme sobre `key` y, si ahora manda otro, cambia EN EL ACTO.
+///
+/// Es la mitad que le faltaba al vector del disco: su stub devuelve el contexto
+/// que diga `percpu::trap_rsp()`, igual que el del reloj. Sin esto, el hilo que
+/// esperaba al aparato seguiria dormido hasta el siguiente tick -- hasta un
+/// milisegundo por orden, con el disco ya parado.
+///
+/// [!] Solo desde la frontera de un trap (`schedule_locked` lo exige). Un
+/// syscall no puede llegar aqui: corre con las interrupciones cerradas.
+pub fn despertar_desde_irq(key: u64) {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let mut alguno = false;
+    for task in &mut s.tasks {
+        if task.state == TaskState::Blocked && task.wait_key == key {
+            task.wait_key = 0;
+            task.wait_deadline = 0;
+            task.state = TaskState::Ready;
+            alguno = true;
+        }
+    }
+    if alguno {
+        schedule_locked(s, Saliente::Publicado);
+    }
+}
+
+
 /// Kernel-task exit: mark exited, then park forever (never resumed).
 pub fn exit_and_park() -> ! {
     {

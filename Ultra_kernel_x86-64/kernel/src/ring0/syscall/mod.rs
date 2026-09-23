@@ -1070,6 +1070,27 @@ fn wait(frame: &TrapFrame) -> BmoStatus {
             );
             return BmoStatus::ok_value(seq);
         }
+        // *** UN FICHERO QUE SE ESTA TRAYENDO (paso D1 del disco, 2026-09-23).
+        //
+        // El brazo que abajo estaba DEROGADO con motivo: ahora la carga la
+        // mueve el HILO DEL DISCO --fuera del lector, con la IRQ-- y la
+        // secuencia de la ranura (bytes llegados + bit 63 al acabar, lo mismo
+        // que `ARCH_OP_LISTO`) sube sola. `RIGHT_WAIT` solo se concede cuando
+        // hay hilo, asi que llegar aqui sin el es una ranura que no lo lleva:
+        // se dice que no, en vez de dormir sobre una secuencia que no se mueve.
+        if r.kind == cap::KIND_ARCHIVO {
+            let i = r.object as usize;
+            if !crate::ring0::obj::cargando::por_hilo(i) {
+                return BmoStatus::ok_value(crate::ring0::obj::cargando::secuencia(i));
+            }
+            let seq = scheduler::wait_current_checked(
+                crate::ring0::obj::cargando::llave(i),
+                deadline,
+                frame.rsi,
+                || crate::ring0::obj::cargando::secuencia(i),
+            );
+            return BmoStatus::ok_value(seq);
+        }
         if r.kind == cap::KIND_LATIDO {
             let visto = frame.rsi;
             let seq = scheduler::wait_current_checked(
@@ -1099,19 +1120,10 @@ fn wait(frame: &TrapFrame) -> BmoStatus {
             return BmoStatus::ok_value(seq);
         }
     }
-    // ** AQUI NO HAY UN BRAZO PARA `KIND_ARCHIVO`, Y ESO ES UNA DECISION.
-    //
-    // Se escribio: `wait(handle_de_archivo)` bloqueaba la tarea sobre la clave
-    // del disco y la interrupcion la despertaba. Compilaba, y **no esperaba a
-    // nada**: traer un trozo (`file::avanzar`) sigue siendo sincrono, asi que
-    // cuando la llamada vuelve el dato YA esta. Dormirse despues seria dormirse
-    // hasta que otro use el disco.
-    //
-    // El sitio esta libre y el resto de la cadena existe --el manejador puede
-    // llamar a `wake_by_key`, y `wait_current_checked` ya sabe no dormirse si el
-    // testigo cambio-- pero le falta la pieza de abajo: que traer el trozo
-    // tampoco espere. Mientras eso no exista, este brazo seria una forma cara de
-    // volver en el acto.
+    // ** AQUI NO HABIA UN BRAZO PARA `KIND_ARCHIVO`, Y ERA UNA DECISION: traer
+    // un trozo era sincrono, y dormirse despues era dormirse hasta que otro
+    // usara el disco. La pieza de abajo llego el 2026-09-23 (el hilo del disco)
+    // y el brazo vive arriba, con los demas.
     match cap::resolve(pid, frame.rdi, cap::RIGHT_WAIT) {
         Ok(resolved) if resolved.kind == cap::KIND_CHANNEL => {
             let index = resolved.object as usize;

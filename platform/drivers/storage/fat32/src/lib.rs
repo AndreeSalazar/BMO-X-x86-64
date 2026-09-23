@@ -1012,6 +1012,10 @@ mod buscar;
 /// **Lo unico que MODIFICA el disco.** Junto, para poder leerlo entero antes de
 /// tocarlo -- en esta maquina el volumen de al lado es el Windows del propietario.
 mod escribir;
+/// **PLANEAR sin leer**: donde esta el siguiente tramo contiguo, para que el
+/// HILO DEL DISCO mande una orden y duerma mientras el aparato la cumple.
+mod plan;
+pub use plan::{Tramo, SECTORES_MAX};
 
 #[cfg(test)]
 mod pruebas;

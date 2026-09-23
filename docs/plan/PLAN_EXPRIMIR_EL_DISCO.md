@@ -126,6 +126,45 @@ syscall (abrir un `.bex`, FAT32, ESTRATOS, el `save`). Tres consecuencias:
    PEDIR + `WAIT`. O sea: el D1 "sin tocar el ABI" no existe en esta casa;
    el D1 que duerme es el D1 con ABI.
 
+#### Lo que se escribio (2026-09-23, decision del propietario: hilo + PEDIR/WAIT)
+
+```text
+   dev/disk/hilo.rs     el HILO DEL DISCO: prioridad 1 (sobre las apps, bajo el
+                        bus USB). Da vueltas a un PASO que le da el arranque
+                        (`dev` no nombra a `obj`: L8) y duerme sobre su llave
+   dev/disk/vuelo.rs    UNA orden en el aparato sin que nadie tenga el disco.
+                        Quien toma el disco la TERMINA el (cosechar): nadie
+                        espera nunca a que el hilo corra, y por eso un syscall
+                        con IF=0 no se abraza con el
+   dev/disk/irq.rs      el aviso despierta al hilo, y el vector 49 cambia de
+   plat/irq.rs          tarea EN EL ACTO (`despertar_desde_irq`)
+   fat32/src/plan.rs    PLANEAR sin leer: los clusters seguidos, una orden
+                        (hasta 4 MiB); cinco pruebas con el disco de mentira
+   obj/cargando.rs      el PASO: planea, manda directo al bufer del fichero,
+                        y al acabar sube la secuencia y despierta al lector
+   syscall/mod.rs       WAIT sobre un KIND_ARCHIVO: el brazo DEROGADO vuelve
+   userland/archivo.rs  `esperar_entero` duerme con WAIT (red de 100 ms)
+```
+
+**Lo que cambia sin tocar una app**: `Archivo::leer_de` --el que usan todas
+para leer un fichero-- ya iba por la carga a trozos. Ahora el lector DUERME y
+el CPU es de otro mientras el aparato trabaja.
+
+**Lo que NO cambia, dicho**: quien llama a `leer_de` sigue esperando SU
+fichero. El escritorio que abre una imagen de 8 MiB sigue sin pintar esos ms;
+lo que se gana es que el resto del sistema si corre. Para que el escritorio
+pinte mientras carga, tiene que usar `leer_de_asinc` y mirar entre fotograma
+y fotograma -- eso es de la app, no del kernel.
+
+**Como se sabe en el metal** (fila `thread` de `disco` y del `save`):
+
+| Mirar | Lo bueno | Lo que diria que no |
+|---|---|---|
+| `thread` | `N ordenes en vuelo` sube al abrir una imagen | `sin hilo` |
+| despertares por la IRQ | sube con las ordenes | `SIN IRQ`: vive de la red de 2 ms |
+| terminadas por otro | cerca de 0 | cerca de las ordenes: el hilo llega tarde |
+| abrir DOOM y el visor | igual que antes o mas rapido | cuelgue o fichero corto (CABINA: `archivo corto`) |
+
 ### [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 
 Una orden de hoy pide como mucho 4 MiB (una entrada de PRDT, `DBC` de 22 bits);

@@ -752,6 +752,16 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// ** EL HILO DEL DISCO (D1): ordenes en vuelo, las que termino otro, y las
+/// veces que lo desperto la IRQ. `vivo` a cero = los ficheros se traen girando.
+pub const INFO_DISCO_HILO: u64 = 0x96;
+pub const DISCO_HILO_VUELOS_MASK: u64 = 0xFF_FFFF;
+pub const DISCO_HILO_AJENAS_SHIFT: u64 = 24;
+pub const DISCO_HILO_AJENAS_MASK: u64 = 0xFFFF;
+pub const DISCO_HILO_IRQ_SHIFT: u64 = 40;
+pub const DISCO_HILO_IRQ_MASK: u64 = 0x3F_FFFF;
+pub const DISCO_HILO_VIVO: u64 = 1 << 63;
+
 pub const USB_SALUD_XHCI: u64 = 1 << 0;
 pub const USB_SALUD_KBD: u64 = 1 << 1;
 /// El teclado tiene transferencia ENCOLADA. Sin esto esta enumerado, en
