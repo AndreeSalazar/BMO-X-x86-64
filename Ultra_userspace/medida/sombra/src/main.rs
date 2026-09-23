@@ -19,11 +19,22 @@
 //! numeros que pide el plan: lo que tarda traducir, lo que tarda una pasada
 //! del JIT, y la misma pasada escrita a mano. Sin esos numeros no se toca S7.
 //!
+//! == Y S6: el BSF ==
+//!
+//! El build mete en este `.bex` un anexo `SOMBREADORES` (0x09): el BSF de
+//! `mandelbrot.spv` con su codigo YA TRADUCIDO en el anfitrion. La app lo
+//! abre (capas 1 a 3), toma el codigo (su hash), lo copia a otro bloque, lo
+//! sella y lo llama -- sin leer, juzgar ni emitir nada. Tiene que dar los
+//! mismos pixeles que el JIT, y dice lo que costo abrir contra traducir. Y
+//! antes de despachar, la tabla del BSF mira los buffers: se le da la salida
+//! de solo lectura a proposito, y tiene que decir que NO.
+//!
 //! Se lanza con `sys/sombra.bex`.
 
 #![no_std]
 #![no_main]
 
+use bmo_bsf::{abi, cpu, kind, Bsf, Given};
 use bmo_spirv_front::{read, workspace_words, Buffer, Interpreter};
 use bmo_spirv_x86_64::{emit, tables_words, trap_reason, IDS_WORDS};
 use bmo_userland as bmo;
@@ -129,6 +140,30 @@ fn mandelbrot_rust(salida: &mut [u32], ventana: &[u32; 6]) {
 type Init = extern "sysv64" fn(*mut u32, *const u64);
 type Main = extern "sysv64" fn(*mut u32, *const u64, *const u32, u64) -> u64;
 
+/// Un despacho entero: `init` una vez y `main` por invocacion. Devuelve el
+/// codigo de trampa (0 = termino).
+fn despachar(base: usize, init: usize, main: usize, marco: &mut [u32], tabla: &[u64], grupos: [u32; 3], ls: [u32; 3]) -> u32 {
+    let init: Init = unsafe { core::mem::transmute(base + init) };
+    let main: Main = unsafe { core::mem::transmute(base + main) };
+    init(marco.as_mut_ptr(), tabla.as_ptr());
+    for wy in 0..grupos[1] {
+        for wx in 0..grupos[0] {
+            for ly in 0..ls[1] {
+                for lx in 0..ls[0] {
+                    let mut idv = [0u32; IDS_WORDS];
+                    idv[..12].copy_from_slice(&[wx * ls[0] + lx, wy * ls[1] + ly, 0, lx, ly, 0, wx, wy, 0, grupos[0], grupos[1], 1]);
+                    idv[12] = ly * ls[0] + lx;
+                    let c = main(marco.as_mut_ptr(), tabla.as_ptr(), idv.as_ptr(), FUEL) as u32;
+                    if c != 0 {
+                        return c;
+                    }
+                }
+            }
+        }
+    }
+    0
+}
+
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     let mut l = Linea::nueva();
@@ -200,34 +235,9 @@ pub extern "C" fn _start() -> ! {
     }
 
     // JIT
-    let base = codigo.base() as usize;
-    let init: Init = unsafe { core::mem::transmute(base + p.init) };
-    let main: Main = unsafe { core::mem::transmute(base + p.main) };
     let grupos = [ANCHO / p.local_size[0], ANCHO / p.local_size[1], 1];
     let t0 = bmo::ciclos();
-    init(marco.as_mut_ptr(), tabla.as_ptr());
-    let ls = p.local_size;
-    let mut trampa = 0u32;
-    'todo: for wy in 0..grupos[1] {
-        for wx in 0..grupos[0] {
-            for ly in 0..ls[1] {
-                for lx in 0..ls[0] {
-                    let global = [wx * ls[0] + lx, wy * ls[1] + ly, 0];
-                    let index = ly * ls[0] + lx;
-                    let mut idv = [0u32; IDS_WORDS];
-                    idv[..12].copy_from_slice(&[
-                        global[0], global[1], 0, lx, ly, 0, wx, wy, 0, grupos[0], grupos[1], 1,
-                    ]);
-                    idv[12] = index;
-                    let c = main(marco.as_mut_ptr(), tabla.as_ptr(), idv.as_ptr(), FUEL) as u32;
-                    if c != 0 {
-                        trampa = c;
-                        break 'todo;
-                    }
-                }
-            }
-        }
-    }
+    let trampa = despachar(codigo.base() as usize, p.init, p.main, marco, &tabla, grupos, p.local_size);
     let t_jit = bmo::ciclos() - t0;
     if trampa != 0 {
         di!(l, "SOMBRA: el JIT PARO: {:?}\n", trap_reason(trampa));
@@ -278,8 +288,92 @@ pub extern "C" fn _start() -> ! {
     if t_rust > 0 {
         di!(l, "SOMBRA: el JIT tarda {}.{:02}x lo de Rust; el oraculo {}x\n", t_jit / t_rust, (t_jit * 100 / t_rust) % 100, t_oraculo / t_rust);
     }
+
+    // -- 5. S6: EL BSF. El mismo sombreador, traducido en el anfitrion.
+    s6(&mut l, &mut r, s_jit, &ventana, grupos, us(t_traducir), &us);
     di!(l, "SOMBRA: hecho\n");
     bmo::salir();
+}
+
+/// **S6**: abrir el BSF de este `.bex`, tomar el codigo, sellarlo, llamarlo.
+fn s6(l: &mut Linea, r: &mut Reparto, s_jit: &[u32], ventana: &[u32; 6], grupos: [u32; 3], us_traducir: u64, us: &dyn Fn(u64) -> u64) {
+    let Some(anexo) = bmo::paquete::Anexo::mio(bmo::paquete::ANEXO_SOMBREADORES) else {
+        di!(l, "SOMBRA: S6 -- este .bex no lleva BSF (anexo 0x09): nada que abrir\n");
+        return;
+    };
+    let Some(bloque) = bmo::Memoria::request(anexo.bytes) else { fin(l, "no hay bloque para el BSF") };
+    if anexo.leer_en(&bloque, 0) != anexo.bytes {
+        fin(l, "el BSF no se leyo entero");
+    }
+    let bytes = unsafe { core::slice::from_raw_parts(bloque.base() as *const u8, anexo.bytes as usize) };
+
+    // Abrir: capas 1 a 3, elegir el objetivo, y TOMAR su codigo (el hash).
+    // SSE2 es el suelo de x86-64: todo procesador donde arranca BMO-X lo tiene.
+    let t0 = bmo::ciclos();
+    let bsf = match Bsf::parse(bytes) {
+        Ok(b) => b,
+        Err(f) => {
+            di!(l, "SOMBRA: S6 -- el BSF dice NO: {}\n", f);
+            return;
+        }
+    };
+    let Some(m) = bsf.find(b"mandelbrot") else { fin(l, "el BSF no trae mandelbrot") };
+    let Some(t) = m.target(kind::X86_64_SCALAR, abi::X86_64_V1, cpu::SSE2) else {
+        di!(l, "SOMBRA: S6 -- el BSF no trae codigo para esta maquina: seria el JIT\n");
+        return;
+    };
+    let code = match t.code() {
+        Ok(c) => c,
+        Err(f) => {
+            di!(l, "SOMBRA: S6 -- {}\n", f);
+            return;
+        }
+    };
+    let Some(codigo) = bmo::Memoria::request(code.len() as u64) else { fin(l, "no hay bloque para el codigo del BSF") };
+    unsafe { core::ptr::copy_nonoverlapping(code.as_ptr(), codigo.base(), code.len()) };
+    let t_abrir = bmo::ciclos() - t0;
+    if let Err(motivo) = codigo.sellar() {
+        di!(l, "SOMBRA: S6 -- SELLAR dice NO (motivo {})\n", motivo);
+        return;
+    }
+    di!(l, "SOMBRA: S6 -- BSF de {} B, {} modulo(s); mandelbrot: {} B de codigo de {}\n", bytes.len(), bsf.module_count(), code.len(), core::str::from_utf8(t.emitter()).unwrap_or("?"));
+
+    // Los buffers, contra la tabla. La ventana se da de SOLO LECTURA: el
+    // sombreador solo la lee, y la tabla lo sabe.
+    let (Some(s_bsf), Some(v_bsf)) = (r.toma(PIXELES), r.toma(6)) else { fin(l, "sin sitio") };
+    v_bsf.copy_from_slice(ventana);
+    let salida = Given { set: 0, binding: 0, addr: s_bsf.as_mut_ptr() as u64, bytes: (PIXELES * 4) as u64, writable: true };
+    let entrada = Given { set: 0, binding: 1, addr: v_bsf.as_mut_ptr() as u64, bytes: 24, writable: false };
+    match m.check(&[Given { writable: false, ..salida }, entrada]) {
+        Err(f) => di!(l, "SOMBRA: S6 -- la salida de solo lectura, a proposito: {}\n", f),
+        Ok(()) => di!(l, "SOMBRA: S6 -- MAL: la tabla dejo pasar una salida de solo lectura\n"),
+    }
+    let mut tabla = [0u64; 2 * (bmo_bsf::MAX_BINDINGS + 1)];
+    if let Err(f) = t.table(&m, &[entrada, salida], &mut tabla) {
+        di!(l, "SOMBRA: S6 -- los buffers buenos: {}\n", f);
+        return;
+    }
+    let Some(marco) = r.toma(t.frame_words() + 1) else { fin(l, "sin sitio para el marco") };
+    let t0 = bmo::ciclos();
+    let trampa = despachar(codigo.base() as usize, t.init(), t.main(), marco, &tabla, grupos, m.local_size());
+    let t_bsf = bmo::ciclos() - t0;
+    if trampa != 0 {
+        di!(l, "SOMBRA: S6 -- el codigo del BSF PARO: {:?}\n", trap_reason(trampa));
+    }
+    let distintos = (0..PIXELES).filter(|&i| s_bsf[i] != s_jit[i]).count();
+    di!(l, "SOMBRA: S6 -- BSF contra JIT: {} pixeles distintos (tiene que ser 0)\n", distintos);
+
+    // La capa 5, solo para medirla: releer el SPIR-V y comparar la tabla.
+    let bound = m.spirv().map(|b| u32::from_le_bytes([b[12], b[13], b[14], b[15]]) as usize).unwrap_or(0);
+    let Some(ids) = r.toma(bound) else { fin(l, "sin sitio para la capa 5") };
+    let t0 = bmo::ciclos();
+    let hondo = bsf.deep(0, ids);
+    let t_hondo = bmo::ciclos() - t0;
+    match hondo {
+        Ok(()) => di!(l, "SOMBRA: S6 -- capa 5 (releer y comparar la tabla): la tabla no miente, {} us\n", us(t_hondo)),
+        Err(f) => di!(l, "SOMBRA: S6 -- capa 5: {}\n", f),
+    }
+    di!(l, "SOMBRA: S6 -- abrir el BSF {} us contra traducir {} us | despacho {} us\n", us(t_abrir), us_traducir, us(t_bsf));
 }
 
 #[panic_handler]

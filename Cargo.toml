@@ -222,6 +222,9 @@ members = [
     "toolchain/lang/spirv",
     # Su emisor, partido como los demas: el frontend no nombra maquinas.
     "toolchain/lang/spirv/emisor-x86_64",
+    # El sobre de los sombreadores (S6): SPIR-V + su interfaz + el codigo ya
+    # traducido. El lector corre tambien dentro de una app de Ring 3.
+    "toolchain/lang/spirv/bsf",
     # -- LA LIBC, junto a los lenguajes que la consumen --------------
     #
     # `lang/base/` ya era la biblioteca base: ahi viven los modulos en C

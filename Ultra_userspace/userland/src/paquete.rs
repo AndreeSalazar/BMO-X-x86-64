@@ -62,6 +62,8 @@ const BEF_ENTRADA: u64 = 16;
 /// El anexo `RECURSOS` de `bmo_abi::bef2` (2026-09-19; antes era la seccion
 /// `0x0B` de BEF1, que murio).
 const ANEXO_RECURSOS: u8 = 0x04;
+/// El anexo `SOMBREADORES` de `bmo_abi::bef2` (S6): el BSF de la app.
+pub const ANEXO_SOMBREADORES: u8 = 0x09;
 /// `"BRES"`, la firma del indice de recursos.
 const BRES_MAGIC: u32 = 0x5345_5242;
 /// La cabecera del indice: magic + cuantos.
@@ -120,40 +122,8 @@ impl Paquete {
 
     /// Con el fichero ya abierto: localiza el anexo `RECURSOS` y su indice.
     fn montar(f: Archivo) -> Option<Self> {
-        let mut cab = [0u8; BEF_CABECERA as usize];
-        f.saltar(0);
-        if f.read(&mut cab) < cab.len() {
-            return None;
-        }
-        if u32le(&cab, 0) != BEF_MAGIC {
-            return None;
-        }
-        // BEF2: cuantos anexos hay lo dice el byte 20, y su tabla empieza en
-        // el 64. No hay offset de tabla que leer ni que creerse.
-        let count = (u32le(&cab, 20) as u64).min(16);
-
-        // La tabla, entrada a entrada, buscando la de recursos. Recorrido
-        // lineal: los anexos de un `.bex` son unos pocos.
-        let mut off = 0u64;
-        let mut largo = 0u64;
-        let mut ent = [0u8; BEF_ENTRADA as usize];
-        for i in 0..count {
-            f.saltar(BEF_CABECERA + i * BEF_ENTRADA);
-            if f.read(&mut ent) < ent.len() {
-                return None;
-            }
-            if ent[0] == ANEXO_RECURSOS {
-                off = u32le(&ent, 4) as u64;
-                largo = u32le(&ent, 8) as u64;
-                break;
-            }
-        }
-        // ** Que un `.bex` NO lleve recursos no es un fallo: es lo que tienen
-        // todos los de hoy menos `caja.bex` y `doom.bex`. Se contesta `None` y
-        // quien llama sigue su camino.
-        if largo == 0 {
-            return None;
-        }
+        let cab = cabecera(&f)?;
+        let (off, _largo) = buscar_anexo(&f, &cab, ANEXO_RECURSOS)?;
 
         let mut idx = [0u8; BRES_CABECERA as usize];
         f.saltar(off);
@@ -229,5 +199,70 @@ impl Paquete {
         let cuanto = if tam < dst.len() as u64 { tam as usize } else { dst.len() };
         self.f.saltar(pos);
         self.f.read(&mut dst[..cuanto])
+    }
+}
+
+/// La cabecera BEF2 de un `.bex` abierto, si es uno.
+fn cabecera(f: &Archivo) -> Option<[u8; BEF_CABECERA as usize]> {
+    let mut cab = [0u8; BEF_CABECERA as usize];
+    f.saltar(0);
+    if f.read(&mut cab) < cab.len() || u32le(&cab, 0) != BEF_MAGIC {
+        return None;
+    }
+    Some(cab)
+}
+
+/// `(posicion en fichero, bytes)` del anexo `tipo`.
+///
+/// BEF2: cuantos anexos hay lo dice el byte 20, y su tabla empieza en el 64.
+/// No hay offset de tabla que leer ni que creerse. Recorrido lineal: los
+/// anexos de un `.bex` son unos pocos.
+///
+/// ** Que un `.bex` NO lleve ese anexo no es un fallo: es lo que tienen casi
+/// todos. Se contesta `None` y quien llama sigue su camino.
+fn buscar_anexo(f: &Archivo, cab: &[u8], tipo: u8) -> Option<(u64, u64)> {
+    let count = (u32le(cab, 20) as u64).min(16);
+    let mut ent = [0u8; BEF_ENTRADA as usize];
+    for i in 0..count {
+        f.saltar(BEF_CABECERA + i * BEF_ENTRADA);
+        if f.read(&mut ent) < ent.len() {
+            return None;
+        }
+        if ent[0] == tipo {
+            let largo = u32le(&ent, 8) as u64;
+            return (largo > 0).then(|| (u32le(&ent, 4) as u64, largo));
+        }
+    }
+    None
+}
+
+/// **Un anexo de MI propia imagen**, para traerlo entero de una llamada.
+///
+/// Lo que no es un recurso con nombre --el BSF de los sombreadores (S6)-- es
+/// un anexo entero que la app consume de golpe. Lo que diga no se mira aqui:
+/// lo valida quien lo lee con su formato (`bmo-bsf`), y la firma del `.bex`
+/// ya lo cubre.
+pub struct Anexo {
+    f: Archivo,
+    offset: u64,
+    /// Cuantos bytes mide.
+    pub bytes: u64,
+}
+
+impl Anexo {
+    /// El anexo `tipo` de mi `.bex`. `None` si no lo lleva o si el kernel no
+    /// recuerda de donde salio este proceso.
+    pub fn mio(tipo: u8) -> Option<Self> {
+        let f = Archivo::mi_imagen()?;
+        let cab = cabecera(&f)?;
+        let (offset, bytes) = buscar_anexo(&f, &cab, tipo)?;
+        Some(Self { f, offset, bytes })
+    }
+
+    /// Lo trae ENTERO a `bloque`, desde su byte `desde`, de una llamada.
+    /// Devuelve los bytes traidos: menos que [`Anexo::bytes`] es que no cupo.
+    pub fn leer_en(&self, bloque: &crate::Memoria, desde: u64) -> u64 {
+        self.f.saltar(self.offset);
+        self.f.leer_en(bloque, desde, self.bytes)
     }
 }

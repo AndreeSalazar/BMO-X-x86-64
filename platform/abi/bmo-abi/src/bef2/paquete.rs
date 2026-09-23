@@ -23,6 +23,15 @@ pub fn empaquetar(bex: &[u8], lista: &[(&str, &[u8])]) -> Result<Vec<u8>, &'stat
     e.construir()
 }
 
+/// **Mete (o reemplaza) un anexo de data para otro** y reescribe la imagen
+/// con su firma. Lo que ese anexo diga no lo mira: lo valida quien lo trae
+/// (`bmo-pack` con los sombreadores, antes de llamar aqui).
+pub fn anexar(bex: &[u8], tipo: u8, bytes: &[u8]) -> Result<Vec<u8>, &'static str> {
+    let mut e = Escritor::de_imagen(bex).map_err(|f: Falta| f.nombre())?;
+    e.anexo(tipo, bytes.to_vec());
+    e.construir()
+}
+
 /// Los bytes del directorio de recursos, si la imagen los trae.
 pub fn seccion_recursos(bex: &[u8]) -> Option<&[u8]> {
     leer(bex).ok()?.anexo(ANEXO_RECURSOS)

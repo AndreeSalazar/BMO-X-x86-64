@@ -4,6 +4,7 @@
 //!   bmo-pack app.bex -r doom1.wad=C:\...\doom1.wad -o doom.bex
 //!   bmo-pack doom.bex --listar
 //!   bmo-pack doom.bex --sacar doom1.wad -o copia.wad
+//!   bmo-pack sombra.bex -s sombras.bsf -o sombra.bex
 //! ```
 //!
 //! ## Que es un paquete aqui
@@ -30,7 +31,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use bmo_abi::bef2::paquete;
+use bmo_abi::bef2::{self, paquete};
 
 fn uso() -> ExitCode {
     eprintln!(
@@ -39,11 +40,14 @@ fn uso() -> ExitCode {
   bmo-pack <paquete.bex> --listar
   bmo-pack <paquete.bex> --sacar <nombre> -o <fichero>
   bmo-pack <paquete.bex> --vaciar -o <salida.bex>
+  bmo-pack <entrada.bex> -s <sombreadores.bsf> -o <salida.bex>
 
   -r nombre=ruta   agrega un recurso. El NOMBRE es como lo pedira el programa.
   --listar         muestra que lleva dentro.
   --sacar          escribe un recurso a un fichero.
-  --vaciar         quita los recursos y deja la imagen como salio del compilador."
+  --vaciar         quita los recursos y deja la imagen como salio del compilador.
+  -s fichero.bsf   mete los sombreadores (BSF, S6). Se comprueba ENTERO antes:
+                   un BSF que no pasa no entra en el .bex."
     );
     ExitCode::from(2)
 }
@@ -60,6 +64,7 @@ fn main() -> ExitCode {
     let mut listar = false;
     let mut vaciar = false;
     let mut sacar: Option<String> = None;
+    let mut sombreadores: Option<PathBuf> = None;
 
     let mut i = 1usize;
     while i < args.len() {
@@ -76,6 +81,11 @@ fn main() -> ExitCode {
             "-o" | "--salida" => {
                 let Some(v) = args.get(i + 1) else { return uso() };
                 salida = Some(PathBuf::from(v));
+                i += 2;
+            }
+            "-s" | "--sombreadores" => {
+                let Some(v) = args.get(i + 1) else { return uso() };
+                sombreadores = Some(PathBuf::from(v));
                 i += 2;
             }
             "--listar" => {
@@ -137,6 +147,26 @@ fn main() -> ExitCode {
         .map(|(n, d)| (n.as_str(), d.as_slice()))
         .collect();
 
+    // Los sombreadores: se leen y se comprueban ENTEROS (las capas 1 a 4)
+    // antes de tocar la imagen. La profunda la pago quien los fabrico.
+    let bsf = match &sombreadores {
+        None => None,
+        Some(ruta) => {
+            let b = match fs::read(ruta) {
+                Ok(b) => b,
+                Err(e) => {
+                    eprintln!("[X] no se pudo leer {}: {e}", ruta.display());
+                    return ExitCode::FAILURE;
+                }
+            };
+            if let Err(f) = bmo_bsf::Bsf::parse(&b).and_then(|x| x.verify_all()) {
+                eprintln!("[X] {}: {f}", ruta.display());
+                return ExitCode::FAILURE;
+            }
+            Some(b)
+        }
+    };
+
     let salida_bytes = match paquete::empaquetar(&bex, &lista) {
         Ok(v) => v,
         Err(e) => {
@@ -144,6 +174,24 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+
+    let salida_bytes = match &bsf {
+        None => salida_bytes,
+        Some(b) => match paquete::anexar(&salida_bytes, bef2::ANEXO_SOMBREADORES, b) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[X] no se pudo meter el BSF: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+    };
+    if let Some(b) = &bsf {
+        let dentro = bef2::leer(&salida_bytes).ok().and_then(|v| v.anexo(bef2::ANEXO_SOMBREADORES));
+        if dentro != Some(&b[..]) {
+            eprintln!("[X] el .bex salio sin los sombreadores que se le dieron");
+            return ExitCode::FAILURE;
+        }
+    }
 
     // * SE COMPRUEBA ANTES DE ESCRIBIR, y no despues.
     //
@@ -183,10 +231,37 @@ fn main() -> ExitCode {
     for (n, d) in &lista {
         println!("    {:<24} {} B", n, d.len());
     }
+    if let Some(b) = &bsf {
+        println!("    sombreadores (BSF)       {} B", b.len());
+    }
     ExitCode::SUCCESS
 }
 
+/// Lo que lleva el anexo de sombreadores, si lo hay.
+fn listar_sombreadores(bex: &[u8]) {
+    let Some(b) = bef2::leer(bex).ok().and_then(|v| v.anexo(bef2::ANEXO_SOMBREADORES)) else { return };
+    match bmo_bsf::Bsf::parse(b) {
+        Err(f) => println!("  sombreadores: {} B que NO pasan: {f}", b.len()),
+        Ok(s) => {
+            println!("  sombreadores: {} B, {} modulo(s)", b.len(), s.module_count());
+            for m in s.modules() {
+                let ls = m.local_size();
+                println!(
+                    "    {:<24} LocalSize {}x{}x{}  {} buffer(s)  {} objetivo(s)",
+                    String::from_utf8_lossy(m.name()),
+                    ls[0],
+                    ls[1],
+                    ls[2],
+                    m.binding_count(),
+                    m.targets().count()
+                );
+            }
+        }
+    }
+}
+
 fn listado(bex: &[u8], ruta: &std::path::Path) -> ExitCode {
+    listar_sombreadores(bex);
     match paquete::directorio(bex) {
         None => {
             println!("  {} no lleva recursos (es un .bex normal)", ruta.display());

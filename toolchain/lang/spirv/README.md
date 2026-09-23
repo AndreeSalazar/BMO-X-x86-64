@@ -34,6 +34,8 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 | `src/interpreter/` -- `Interpreter`: el oraculo (`mod.rs` despacha y ejecuta, `values.rs` las instrucciones de valor, `buffers.rs` la disposicion std140/std430) | S3 | hecho: ejecuta el computo invocacion a invocacion; lo indefinido PARA con su motivo (`Trap`) |
 | `src/math.rs` -- la aritmetica | S3, S3b | la DEFINICION: `sqrt`, `floor`, `fma`... bit a bit contra la biblioteca estandar; `sin`, `cos`, `exp`, `log`, `pow` en doble, a un ULP; el emisor tendra que igualarla |
 | `emisor-x86_64/` (crate `bmo-spirv-x86-64`) -- el emisor | S4, S4b | hecho, escalar: los mismos bits que el oraculo en su banco y en los 28 de Naga que caben; las trascendentes en doble, leyendo la MISMA tabla que `math` (`math::table`) |
+| `src/interface.rs` -- `interface(&Module) -> Interface` | S6 | los buffers que el modulo TOCA: `set`, `binding`, clase, lo que el codigo hace con cada uno (lee/escribe, seguido hasta su variable) y su forma (bytes fijos + paso) |
+| `bsf/` (crate `bmo-bsf`) -- el BSF, BMO Format Shader | S6 | hecho: SPIR-V + interfaz + el x86-64 ya traducido, en el anexo `0x09` del `.bex`; cinco capas, ningun bit cambia sin que se note; `bmo-bsf fabricar` / `ver` |
 
 ## La API habla ingles; la casa, castellano
 

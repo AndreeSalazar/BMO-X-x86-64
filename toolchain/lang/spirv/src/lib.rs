@@ -36,6 +36,7 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+mod interface;
 mod interpreter;
 pub mod math;
 mod reader;
@@ -47,6 +48,7 @@ pub use validator::{census, validate, Census, Verdict};
 pub use reader::{read, Header, EntryPoint, Import, Instruction, Instructions, Module};
 pub use interpreter::{workspace_words, Buffer, Interpreter, Stats, Trap};
 pub use reason::{Error, Reason};
+pub use interface::{interface, Binding, Interface, MAX_BINDINGS, READS, WRITES};
 
 /// La palabra magica de SPIR-V, leida en little-endian.
 pub const MAGIC: u32 = 0x0723_0203;

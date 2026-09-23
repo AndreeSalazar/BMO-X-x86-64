@@ -1,0 +1,24 @@
+[package]
+name = "bmo-bsf"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "BSF, BMO Format Shader: SPIR-V + su interfaz + el codigo ya traducido, en un sobre que la GPU valida antes de ejecutar (S6)."
+
+# `no_std` sin `alloc`, como el frontend y el emisor: el MISMO lector corre en
+# el anfitrion (quien fabrica el BSF) y dentro de una app de BMO-X (quien lo
+# consume). El frontend y el emisor estan porque la comprobacion PROFUNDA
+# relee el SPIR-V y re-emite el codigo para ver que la tabla no miente.
+[dependencies]
+bmo-hash = { path = "../../../../platform/shared/bmo-hash" }
+bmo-spirv-front = { path = ".." }
+bmo-spirv-x86-64 = { path = "../emisor-x86_64" }
+
+[lib]
+name = "bmo_bsf"
+path = "src/lib.rs"
+
+# La herramienta del anfitrion: fabrica un `.bsf` de unos `.spv` y lo muestra.
+[[bin]]
+name = "bmo-bsf"
+path = "src/main.rs"

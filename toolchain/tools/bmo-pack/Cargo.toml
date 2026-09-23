@@ -10,3 +10,5 @@ path = "src/main.rs"
 
 [dependencies]
 bmo-abi = { path = "../../../platform/abi/bmo-abi" }
+# Para comprobar un BSF ENTERO antes de meterlo (`-s`): lo que no pasa no entra.
+bmo-bsf = { path = "../../lang/spirv/bsf" }

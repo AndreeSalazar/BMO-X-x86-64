@@ -7,6 +7,15 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-bsf"
+version = "0.1.0"
+dependencies = [
+ "bmo-hash",
+ "bmo-spirv-front",
+ "bmo-spirv-x86-64",
+]
+
+[[package]]
 name = "bmo-config"
 version = "0.1.0"
 
@@ -24,6 +33,10 @@ version = "0.1.0"
 
 [[package]]
 name = "bmo-golpe"
+version = "0.1.0"
+
+[[package]]
+name = "bmo-hash"
 version = "0.1.0"
 
 [[package]]
@@ -46,6 +59,7 @@ dependencies = [
 name = "bmo-medida-sombra"
 version = "0.1.0"
 dependencies = [
+ "bmo-bsf",
  "bmo-spirv-front",
  "bmo-spirv-x86-64",
  "bmo-userland",

@@ -354,9 +354,78 @@ en un bloque de `bmo_codigo_pedir`, lo SELLA y lo ejecuta sobre sus buffers.
 > el mismo sobre lleva la ISA de RDNA en vez de x86-64: la GPU tampoco
 > compila nada al arrancar.
 
-El BSF de `PLAN_VULKAN`: la seccion `Shaders = 0x0A` (reservada desde hace
-tiempo) con el SPIR-V, su BLAKE3 y el x86-64 **ya traducido en el anfitrion**.
-El kernel la salta, como toda seccion que no conoce.
+> **Codigo hecho el 23-09; falta VERLO en BMO-X.** El formato es
+> `toolchain/lang/spirv/bsf` (crate `bmo-bsf`, `capa: puro`, `no_std` sin
+> `alloc`, sin un `unsafe`); viaja en el **anexo `0x09` de BEF2**
+> (`ANEXO_SOMBREADORES`). El `Shaders = 0x0A` de `PLAN_VULKAN` era un tipo de
+> SECCION de BEF1 y murio en el corte 0 (19-09): los anexos son otro espacio.
+>
+> **Lo que la GPU VE antes de ejecutar.** Cada modulo lleva su INTERFAZ en
+> filas fijas: por buffer, `set`, `binding`, si es de almacenamiento, lo que
+> el codigo HACE (lee / escribe, seguido instruccion a instruccion hasta su
+> variable, no lo que declara `NonWritable`) y su forma (bytes fijos + paso
+> del arreglo sin medida). Sale de `bmo_spirv_front::interface`, nuevo. Con
+> eso `ModuleView::check` mira los buffers que se le dan sin abrir el
+> SPIR-V --que esten todos, que midan lo que se lee, que no sea de solo
+> lectura uno que se escribe-- y `TargetView::table` los pone en el orden
+> del CODIGO: el emisor no los pide por `(set, binding)` (`suma` quiere
+> `[2, 0, 1]`), y ese orden lo pone el formato, no quien llama.
+>
+> **Por que "atomico".** Filas fijas (cabecera 64, modulo 128, buffer 24,
+> objetivo 128), little-endian, sin punteros. La disposicion NO se lee: se
+> RECALCULA y el fichero tiene que decir la misma, asi que no hay solapes
+> posibles ni un byte sin propietario (relleno y reservados, CERO). Un
+> BLAKE3 del indice (cabecera + filas), uno por SPIR-V y uno por codigo; y
+> el codigo lleva el hash del SPIR-V del que salio (`StaleCode`). Cinco
+> capas: forma, indice, disposicion (las tres al abrir: **0,5 us**), el hash
+> de cada blob AL TOMARLO (nada se usa sin comprobar y no se paga lo que no
+> se usa), y la profunda: releer el SPIR-V con el juez y exigir que la tabla
+> sea su interfaz (`deep`), y re-emitir para ver que el codigo es el que
+> sale (`reproduce`). La herramienta `bmo-bsf fabricar` paga las cinco;
+> `bmo-pack -s` vuelve a pagar 1 a 4 antes de meterlo. Determinista: los
+> mismos `.spv`, los mismos bytes.
+>
+> El banco (`bsf/tests`): **cambiar CUALQUIER bit** de un BSF lo rechaza
+> (los 8 bits de cada byte), cortado a cualquier medida tambien, cada
+> mentira de un fabricante que SI sabe rehacer los hashes la caza su capa, y
+> en el silicio del anfitrion el codigo sacado del BSF da los bits del
+> oraculo (mandelbrot, y saxpy con las ranuras cruzadas). Tres mutaciones
+> al lector: el banco cazo dos y la tercera (un objetivo sin ranura para un
+> buffer que el codigo toca) pidio una fila que no habia.
+>
+> **El numero incomodo** (`bsf/examples/medir.rs`, release, el mismo
+> Ryzen):
+>
+> | abrir mandelbrot | |
+> |---|---|
+> | por el JIT (leer + juzgar + emitir) | 17,2 us |
+> | por el BSF (capas 1-3 + tomar el codigo) | 4,5 us |
+> | capa 5a (releer y comparar) | 11,9 us |
+> | capa 5b (re-emitir y comparar) | 24,3 us |
+>
+> **Solo 4 veces**, porque el emisor de S4 es barato: no reparte registros ni
+> ordena nada. Lo que el BSF ahorra crece con lo que cueste traducir --el
+> reparto de registros antes de S7, y la ISA de RDNA el dia de la RX 9060
+> XT-- y el ahorro de hoy es la tabla que se VE, no los microsegundos. De
+> los 4,5 us, 4 son el BLAKE3 del codigo: la primera version hasheaba TODOS
+> los blobs al abrir (7,7 us) y se cambio a hashear al tomar.
+>
+> ** Y un fallo de BEF2 que salio por el camino: `Escritor::anexo`
+> AGREGABA aunque ya hubiera uno de ese tipo, y la puerta rechaza dos
+> (`AnexoRepetido`). `empaquetar` prometia "mete (o reemplaza)" y un `.bex`
+> empaquetado dos veces no arrancaba. Ahora reemplaza
+> (`un_anexo_repetido_reemplaza_al_viejo`), y reempaquetar `sombra.bex` da
+> los mismos bytes.
+>
+> **Lo que falta, en el Ryzen:** `sys/sombra.bex` abre su propio anexo
+> (`bmo_userland::paquete::Anexo`, nuevo, una sola lectura), toma el codigo,
+> lo sella y lo llama. Tiene que decir `BSF contra JIT: 0 pixeles distintos`,
+> que la salida de solo lectura se rechaza ANTES de despachar, y lo que tardo
+> abrir contra traducir.
+
+El SPIR-V, su interfaz, su BLAKE3 y el x86-64 **ya traducido en el
+anfitrion**, en el anexo `0x09`. El kernel lo salta, como todo anexo que no
+conoce, y la firma lo cubre como a todos.
 
 - **Bloquea:** S4. No depende de S5.
 - **Hecha cuando:** `bmo-pack` la escribe, la app la lee, la firma del indice la

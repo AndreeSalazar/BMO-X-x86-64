@@ -516,6 +516,12 @@ con el ethos entero: **si esta firmado y cuadra, no hay que rehacerlo.**
 En `SectionKind` hay **`Shaders = 0x0A`** y en `BefFlags` hay `HAS_SHADERS`,
 reservados desde hace tiempo. **El BSF es exactamente lo que va ahi dentro.**
 
+> ** 23-09: ese hueco murio con BEF1 (corte 0 de `PLAN_BEF_NATIVO`). El BSF
+> existe y vive en el **anexo `0x09` de BEF2** (`ANEXO_SOMBREADORES`); el
+> formato es `toolchain/lang/spirv/bsf` y su historia, la casilla S6 de
+> `docs/plan/PLAN_EL_SOMBREADOR.md`. Hoy lleva x86-64; el objetivo de RDNA
+> sera otra fila de la misma tabla (`kind`), sin cambiar el formato.
+
 ```
 un .bex
  +-- Code        <- x86-64

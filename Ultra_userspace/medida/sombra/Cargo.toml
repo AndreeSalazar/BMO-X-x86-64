@@ -15,3 +15,5 @@ bmo-userland = { path = "../../userland" }
 # corre aqui dentro, en Ring 3.
 bmo-spirv-front = { path = "../../../toolchain/lang/spirv" }
 bmo-spirv-x86-64 = { path = "../../../toolchain/lang/spirv/emisor-x86_64" }
+# S6: el BSF que viaja en el anexo 0x09 de este mismo `.bex`.
+bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }

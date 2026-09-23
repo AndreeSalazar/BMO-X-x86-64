@@ -72,6 +72,15 @@ name = "bmo-block"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-bsf"
+version = "0.1.0"
+dependencies = [
+ "bmo-hash",
+ "bmo-spirv-front",
+ "bmo-spirv-x86-64",
+]
+
+[[package]]
 name = "bmo-c-front"
 version = "0.1.0"
 dependencies = [
@@ -485,6 +494,7 @@ name = "bmo-pack"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-bsf",
 ]
 
 [[package]]

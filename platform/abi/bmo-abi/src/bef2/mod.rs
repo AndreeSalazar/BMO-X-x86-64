@@ -162,6 +162,11 @@ pub const ANEXO_SIMBOLOS: u8 = 0x07;
 /// resuelve al juntar unidades. Solo va en un `.bo`: un ejecutable con esto
 /// dentro es una unidad sin enlazar disfrazada, y se rechaza.
 pub const ANEXO_ENLACE: u8 = 0x08;
+/// **Los sombreadores de la app** (S6, el BSF): SPIR-V, su interfaz y el
+/// codigo ya traducido, en el formato de `toolchain/lang/spirv/bsf`. Data para
+/// la app que los ejecuta: el kernel lo salta, y la firma lo cubre como a todo
+/// anexo.
+pub const ANEXO_SOMBREADORES: u8 = 0x09;
 
 /// **Los tres que el kernel abre.** Todo otro anexo es data para OTRO -- el
 /// enlazador, el verificador, el runtime de un lenguaje -- y se SALTA: es la

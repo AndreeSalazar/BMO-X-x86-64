@@ -91,6 +91,8 @@ pub const ANEXO_KATANAS: u8 = 0x06;
 pub const ANEXO_SIMBOLOS: u8 = 0x07;
 /// Los enlaces de un OBJETO: en un ejecutable no pueden ir.
 pub const ANEXO_ENLACE: u8 = 0x08;
+/// Los sombreadores (BSF). Data para la app: se salta.
+pub const ANEXO_SOMBREADORES: u8 = 0x09;
 
 /// **Los tres anexos que el kernel ABRE.** Todo otro anexo es data para OTRO
 /// --el enlazador, el verificador, el DIRECTOR, el runtime de un lenguaje-- y
