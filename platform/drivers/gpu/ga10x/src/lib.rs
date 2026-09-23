@@ -213,18 +213,30 @@ impl Modo {
     /// **Cuantas lineas esperar antes de copiar las filas `[y0, y1)` de lo
     /// visible, para que el rayo no las barra a medio copiar.**
     ///
-    /// `copia` es lo que dura la copia, en lineas del rayo. La cuenta es cuanto
-    /// le FALTA al rayo para llegar a la fila `y0`, dando la vuelta si hace
-    /// falta, contra lo que dura la copia:
+    /// `copia` es lo que dura la copia ENTERA, en lineas del rayo, y quien
+    /// copia lo hace DE ARRIBA ABAJO. Eso es lo que decide la cuenta: la copia
+    /// no tiene que acabar antes de que el rayo LLEGUE a `y0` -- tiene que ir
+    /// siempre POR DELANTE de el. La fila `d` de la caja esta copiada en
+    /// `(d + 1) * copia / h` lineas y el rayo llega a ella en `falta + d`; con
+    /// la copia mas rapida que el rayo (`copia < h`) basta con que el rayo no
+    /// este ya encima, y con la copia mas lenta la ventaja tiene que cubrir la
+    /// diferencia (`copia - h`). Mas [`GUARDA`] lineas:
     ///
     /// ```text
-    ///    le falta >= copia                 ya: acaba antes de que llegue
-    ///    no, pero pasada la caja SI        esperar a que el rayo pase y1
-    ///    ni pasada la caja                 no se espera: esperar no compra
+    ///    el rayo por ENCIMA con ventaja    ya: la copia le gana la carrera
+    ///    dentro, o sin ventaja             esperar a que pase y1: desde ahi
+    ///                                      tiene `total - h` de ventaja
+    ///    ni asi                            no se espera: esperar no compra
     ///                                      nada, y se DICE (`Espera::cabe`)
     /// ```
     ///
-    /// Sin page flip no hay nada mejor: es copiar DETRAS del rayo.
+    /// ** Corregido el 23-09 con el metal. La primera cuenta pedia que la
+    /// copia ACABARA antes de que el rayo llegara a `y0`, y con eso la
+    /// pantalla entera (7-12 ms de copia medidos, contra 666 us de VBLANK)
+    /// no cabia nunca. Pero una fila de 1920 se copia en 6,5-10,9 us y el rayo
+    /// barre una linea en 14,8: la copia es MAS RAPIDA que el rayo, asi que
+    /// empezando detras del VBLANK llega abajo antes que el. Cabe, y no
+    /// espera casi nunca.
     pub fn espera(&self, l: u16, y0: u16, y1: u16, copia: u32) -> Option<Espera> {
         let b = self.fila_del_rayo(l)?;
         if y1 <= y0 {
@@ -232,14 +244,17 @@ impl Modo {
         }
         let (y0, y1, total) = (y0 as i64, y1 as i64, self.vtotal as i64);
         let (b, copia) = (b as i64, copia as i64);
+        let h = y1 - y0;
+        // La ventaja que el rayo tiene que dejar para que la copia no lo pise.
+        let ventaja = (copia - h).max(0) + 1 + GUARDA;
         let dentro = b >= y0 && b < y1;
         let falta = if b < y0 { y0 - b } else if b >= y1 { total - b + y0 } else { -1 };
-        if !dentro && falta >= copia {
+        if !dentro && falta >= ventaja {
             return Some(Espera { lineas: 0, cabe: true });
         }
         // Esperar a que el rayo pase la caja: desde ahi le falta casi un cuadro.
-        let tras = total - y1 + y0;
-        if tras < copia {
+        let tras = total - h;
+        if tras < ventaja {
             return Some(Espera { lineas: 0, cabe: false });
         }
         Some(Espera { lineas: (y1 - b) as u32, cabe: true })
@@ -263,6 +278,13 @@ fn visibles(inicio: u16, fin: u16, total: u16) -> u16 {
         total - (fin - inicio)
     }
 }
+
+/// Lineas de mas que se le exigen al rayo de ventaja en [`Modo::espera`]:
+/// ~118 us a 1080p. Cubren lo que pasa entre leer la linea y copiar la primera
+/// fila (la vuelta de la syscall) y un cerrojo con las interrupciones
+/// cerradas (el peor del `save`, 75 us). Lo que NO cubren: que el
+/// planificador le quite el CPU a quien copia a media caja.
+pub const GUARDA: i64 = 8;
 
 /// Lo que contesta [`Modo::espera`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -402,11 +424,19 @@ mod pruebas {
         // El rayo en la fila 500 (linea 541).
         assert_eq!(e(541, 100, 200, 50), ya, "ya paso la caja: no vuelve en 725 lineas");
         assert_eq!(e(541, 700, 800, 50), ya, "va por encima con 200 de sitio");
-        assert_eq!(e(541, 520, 600, 50), Espera { lineas: 100, cabe: true }, "llegaria a mitad: esperar a que pase");
+        assert_eq!(e(541, 520, 600, 50), ya, "20 de ventaja y la copia MAS RAPIDA que el rayo: le gana");
+        assert_eq!(e(541, 505, 600, 50), Espera { lineas: 100, cabe: true }, "5 de ventaja: menos que la guarda, esperar a que pase");
         assert_eq!(e(541, 400, 600, 50), Espera { lineas: 100, cabe: true }, "esta dentro: esperar a que salga");
+        // Copia MAS LENTA que el rayo: 80 filas en 200 lineas; la ventaja
+        // tiene que cubrir las 120 que el rayo recupera.
+        assert_eq!(e(541, 700, 780, 200), ya, "200 de ventaja >= 120 + 1 + guarda");
+        assert_eq!(e(541, 600, 680, 200), Espera { lineas: 180, cabe: true }, "100 de ventaja no bastan");
         // La pantalla entera, con el rayo empezando el VBLANK (45 para la fila 0).
-        assert_eq!(e(1121, 0, 1080, 40), ya, "cabe en el VBLANK");
-        assert_eq!(e(1121, 0, 1080, 400), Espera { lineas: 0, cabe: false }, "no cabe ni esperando: no se espera");
+        // El metal del 23-09: 6,5-10,9 us la fila contra 14,8 la linea =
+        // copia de 475-800 lineas para 1080 filas.
+        assert_eq!(e(1121, 0, 1080, 800), ya, "desde el VBLANK la copia le gana al rayo");
+        assert_eq!(e(541, 0, 1080, 800), Espera { lineas: 580, cabe: true }, "a media pantalla: esperar al VBLANK");
+        assert_eq!(e(1121, 0, 1080, 1200), Espera { lineas: 0, cabe: false }, "120 de ventaja contra 45 de VBLANK: ni esperando");
         assert_eq!(e(541, 300, 300, 5), ya, "caja vacia");
     }
 

@@ -52,6 +52,18 @@ mide quien copia. Mas de 1 ms se duerme por el latido; menos, se gira.
 esperaron y cuanto, y `NO CABEN` -- las que ni esperando se libran (esas solo
 las arregla M2). Y a ojo: arrastrar una ventana sin ver el cuadro partido.
 
+** Lo que dijo el metal (23-09, 15:52 y 16:05), y lo que cambio:
+
+- La fila `compose` sale y el rayo se lee en vivo. Pero con la primera cuenta
+  el 16 % de las cajas esperaba (4,2 ms de media, 8,9 s parados de 74).
+- Medido POR PIXEL (`00b3aea34`): 3.371-5.685 ps. Una fila de 1920 son
+  6,5-10,9 us y el rayo barre una linea en 14,8: **la copia es mas rapida
+  que el rayo**. La pantalla entera son 7-12 ms: NO cabe en el VBLANK (666
+  us), pero no hace falta -- empezando detras del VBLANK le gana la carrera.
+- E1b: `Modo::espera` pide al rayo VENTAJA, no que la copia acabe antes de
+  que llegue; y quien copia vuelve a preguntar tras cada espera. Falta verlo:
+  `NO CABEN` a 0 y muchas menos esperas.
+
 ### [ ] E2 -- el VBLANK por INTERRUPCION: la primera escritura
 
 Encender el aviso de VBLANK de la cabeza (`0x611d80 + 4*cabeza`, bit 2, de
@@ -59,8 +71,28 @@ Encender el aviso de VBLANK de la cabeza (`0x611d80 + 4*cabeza`, bit 2, de
 eso el compositor DUERME con `WAIT` hasta el VBLANK en vez de preguntar la
 linea. Es la **primera escritura** en la tarjeta: se decide aparte.
 
-**Bloquea:** E1 visto en el metal. **Como se sabe:** `gpu` cuenta VBLANKs por
-interrupcion y suben ~60 por segundo.
+> [!] **Encontrado el 23-09: E2 por MSI NO es Early.** Un MSI es una
+> ESCRITURA que hace la tarjeta (a `0xFEE.....`), y para eso el aparato
+> necesita el Bus Master (BME, bit 2 del Command). La 3060 lo tiene
+> APAGADO: el portero (`dev/portero/roja.rs`) solo perdona a los puentes y
+> ella no sale entre los `ajenos`. Encenderlo es darle DMA a TODA la RAM --
+> lo que la seccion 0 pone en MID y detras de la IOMMU. Los caminos:
+>
+> ```text
+>    MSI con BME, sin IOMMU     rompe la regla de las etapas; los motores
+>                               estan parados, pero la puerta queda abierta
+>    INTx (la patilla)          sin BME, pero su ruta al IOAPIC la da el
+>                               _PRT, que es AML: y AML en Ring 0, NUNCA
+>    sin interrupcion           lo de hoy: dormir por el latido y girar el
+>                               ultimo milisegundo. Cero escrituras
+>    M0 primero                 la IOMMU confina el DMA Y remapea el MSI;
+>                               entonces E2 es seguro
+> ```
+>
+> Lo decide el propietario. Mientras, E1b ya no necesita E2 para no partir.
+
+**Bloquea:** E1 visto en el metal, y la decision de arriba. **Como se sabe:**
+`gpu` cuenta VBLANKs por interrupcion y suben ~60 por segundo.
 
 ### [ ] E3 -- el compositor al compas de la pantalla
 

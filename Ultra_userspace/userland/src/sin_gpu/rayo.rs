@@ -120,7 +120,7 @@ impl Rayo {
             | (y0 as u64 & GPU_ESPERA_FILAS_MASK) << GPU_ESPERA_Y0_SHIFT
             | (y1 as u64 & GPU_ESPERA_FILAS_MASK) << GPU_ESPERA_Y1_SHIFT
             | ns_fila.min(GPU_ESPERA_NS_FILA_MASK) << GPU_ESPERA_NS_FILA_SHIFT;
-        let r = info(sel);
+        let mut r = info(sel);
         if r & GPU_ESPERA_VALIDA == 0 {
             // No hay rayo que mirar: se apaga, y el volcado es el de siempre.
             self.estado.set(APAGADO);
@@ -130,12 +130,27 @@ impl Rayo {
         if r & GPU_ESPERA_NO_CABE != 0 {
             c.no_caben += 1;
         }
-        let ns = r & GPU_ESPERA_NS_MASK;
-        if ns > 0 {
+        // ** Y tras esperar, se VUELVE A PREGUNTAR (2026-09-23): lo que se
+        // espera de mas de 1 ms se duerme por el latido, y un latido que llega
+        // tarde deja al rayo en otro sitio. Copiar con la respuesta vieja seria
+        // copiar a ciegas. Tres vueltas como mucho: si el rayo sigue sin dejar
+        // sitio, se copia y se acepta.
+        let mut esperado = 0u64;
+        let mut vueltas = 0;
+        loop {
+            let ns = r & GPU_ESPERA_NS_MASK;
+            if ns == 0 || r & GPU_ESPERA_VALIDA == 0 || vueltas == 3 {
+                break;
+            }
             self.esperar(ns);
+            esperado += ns;
+            vueltas += 1;
+            r = info(sel);
+        }
+        if esperado > 0 {
             c.esperas += 1;
-            c.esperado_ns += ns;
-            c.peor_ns = c.peor_ns.max(ns);
+            c.esperado_ns += esperado;
+            c.peor_ns = c.peor_ns.max(esperado);
         }
         self.cuentas.set(c);
         ciclos()
