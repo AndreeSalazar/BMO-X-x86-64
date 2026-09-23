@@ -202,3 +202,24 @@ fn collatz_con_los_numeros_conocidos() {
     let t = run(COLLATZ, [1, 1, 1], &mut [buf(0, &mut n)], 50_000).unwrap_err();
     assert_eq!((t.reason, t.invocation), (Reason::OutOfFuel, [0, 0, 0]));
 }
+
+const TRIG: &[u8] = include_bytes!("../pruebas/trig.spv");
+
+#[test]
+fn las_trascendentes_pasan_por_math() {
+    use bmo_spirv_front::math;
+    let n = 128;
+    let v: Vec<f32> = (0..n).map(|i| (i as f32 - 64.0) * 0.173).collect();
+    let mut bv = bits(&v);
+    let mut sal: Vec<Vec<u32>> = (0..5).map(|_| vec![0u32; n]).collect();
+    let [s, c, e, l, p] = &mut sal[..] else { unreachable!() };
+    run(TRIG, [2, 1, 1], &mut [buf(0, &mut bv), buf(1, s), buf(2, c), buf(3, e), buf(4, l), buf(5, p)], FUEL).unwrap();
+    for i in 0..n {
+        let x = v[i];
+        assert_eq!(sal[0][i], math::sin(x).to_bits(), "sin {}", x);
+        assert_eq!(sal[1][i], math::cos(x).to_bits(), "cos {}", x);
+        assert_eq!(sal[2][i], math::exp(x * 0.1).to_bits(), "exp {}", x);
+        assert_eq!(sal[3][i], math::log(math::abs(x) + 1.0).to_bits(), "log {}", x);
+        assert_eq!(sal[4][i], math::pow(math::abs(x) + 1.0, 1.5).to_bits(), "pow {}", x);
+    }
+}

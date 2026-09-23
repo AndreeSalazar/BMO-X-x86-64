@@ -107,3 +107,65 @@ fn las_que_se_definen_aqui() {
     assert_eq!(math::rem(-7.0, 3.0), -1.0);
     assert_eq!(math::modulo(-7.0, 3.0), 2.0);
 }
+
+// ---- S3b: las trascendentes --------------------------------------------------
+//
+// No se prometen exactas (ver `math`): se prometen deterministas y DENTRO de
+// un ULP del valor verdadero redondeado a f32 -- que es mucho mas estricto que
+// lo que Vulkan pide (seno/coseno 2^-11 absoluto; exp/log 3 ULP). La
+// referencia es la de la biblioteca estandar en DOBLE, redondeada a f32.
+
+/// Distancia en ULP entre dos f32 finitos del mismo signo (o ambos cero).
+fn ulps(a: f32, b: f32) -> u32 {
+    if a == b || (a.is_nan() && b.is_nan()) {
+        return 0;
+    }
+    if a.is_sign_negative() != b.is_sign_negative() {
+        return u32::MAX;
+    }
+    (a.to_bits() as i64 - b.to_bits() as i64).unsigned_abs() as u32
+}
+
+fn en_rango(r: &mut Azar, lo: f32, hi: f32) -> f32 {
+    lo + (hi - lo) * ((r.bits() >> 8) as f32 / (1u32 << 24) as f32)
+}
+
+#[test]
+fn seno_y_coseno_a_un_ulp() {
+    let mut r = Azar(0x5EED_0001);
+    for _ in 0..1_000_000 {
+        let x = en_rango(&mut r, -1000.0, 1000.0);
+        let (s, c) = ((x as f64).sin() as f32, (x as f64).cos() as f32);
+        let (ds, dc) = (ulps(math::sin(x), s), ulps(math::cos(x), c));
+        assert!(ds <= 1, "sin({:e}) = {:e}, verdad {:e}", x, math::sin(x), s);
+        assert!(dc <= 1, "cos({:e}) = {:e}, verdad {:e}", x, math::cos(x), c);
+    }
+    assert!(math::sin(f32::INFINITY).is_nan() && math::cos(f32::NAN).is_nan());
+    assert_eq!(math::sin(0.0), 0.0);
+    assert_eq!(math::cos(0.0), 1.0);
+}
+
+#[test]
+fn exp_log_pow_a_un_ulp() {
+    let mut r = Azar(0x5EED_0002);
+    for _ in 0..1_000_000 {
+        let x = en_rango(&mut r, -87.0, 88.0);
+        let v = (x as f64).exp() as f32;
+        assert!(ulps(math::exp(x), v) <= 1, "exp({:e}) = {:e}, verdad {:e}", x, math::exp(x), v);
+        let y = f32::from_bits(r.bits() & 0x7F7F_FFFF).max(f32::MIN_POSITIVE);
+        let v = (y as f64).ln() as f32;
+        assert!(ulps(math::log(y), v) <= 1, "log({:e}) = {:e}, verdad {:e}", y, math::log(y), v);
+        let (b, e) = (en_rango(&mut r, 0.001, 100.0), en_rango(&mut r, -10.0, 10.0));
+        let v = (b as f64).powf(e as f64) as f32;
+        if v.is_finite() && v != 0.0 {
+            assert!(ulps(math::pow(b, e), v) <= 1, "pow({:e}, {:e}) = {:e}, verdad {:e}", b, e, math::pow(b, e), v);
+        }
+    }
+    assert_eq!(math::exp(0.0), 1.0);
+    assert_eq!(math::log(1.0), 0.0);
+    assert_eq!(math::log(0.0), f32::NEG_INFINITY);
+    assert!(math::log(-1.0).is_nan());
+    assert!(math::pow(-2.0, 2.0).is_nan());
+    assert_eq!(math::exp(200.0), f32::INFINITY);
+    assert_eq!(math::exp(-200.0), 0.0);
+}

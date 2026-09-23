@@ -138,7 +138,8 @@ pub enum GlslGroup {
     Float,
     /// Resultado y operandos enteros de la misma medida.
     Int,
-    /// No existen en SSE: llegan con la casilla S3b.
+    /// No existen en SSE: una rutina de `math` (seno, coseno, exp, log, pow),
+    /// la misma para el oraculo y el emisor (casilla S3b).
     Transcendental,
 }
 

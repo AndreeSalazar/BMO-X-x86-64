@@ -84,8 +84,6 @@ pub enum Reason {
     UnsupportedInstruction { opcode: u16, why: &'static str },
     /// Una instruccion de `GLSL.std.450` que no esta en la tabla.
     UnsupportedGlsl { number: u32 },
-    /// Una de `GLSL.std.450` que llega con S3b (seno, coseno, exp, log, pow).
-    GlslLater { number: u32 },
     /// Un tipo que no cabe: entero o flotante que no es de 32 bits, vector de
     /// mas de 4...
     UnsupportedType { why: &'static str },
@@ -200,7 +198,6 @@ impl Reason {
             Reason::UnsupportedFamily { family, .. } => family.name(),
             Reason::UnsupportedInstruction { why, .. } => why,
             Reason::UnsupportedGlsl { .. } => "instruccion de GLSL.std.450 fuera del subconjunto",
-            Reason::GlslLater { .. } => "instruccion de GLSL.std.450 que llega con S3b",
             Reason::UnsupportedType { why } => why,
             Reason::UnsupportedStorageClass { .. } => "clase de almacenamiento fuera del subconjunto",
             Reason::InputWithoutBuiltIn { .. } => "variable de entrada que no es un BuiltIn",
@@ -305,7 +302,7 @@ impl fmt::Display for Error {
             }
             Reason::UnsupportedStage { model } => write!(f, " (modelo {})", model),
             Reason::UnsupportedMode { mode } => write!(f, " (modo {})", mode),
-            Reason::UnsupportedGlsl { number } | Reason::GlslLater { number } => {
+            Reason::UnsupportedGlsl { number } => {
                 write!(f, " (numero {})", number)
             }
             Reason::UnsupportedStorageClass { class } => match class {

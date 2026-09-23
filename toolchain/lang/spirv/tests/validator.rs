@@ -262,10 +262,14 @@ fn grupos_de_decoraciones_fuera() {
 }
 
 #[test]
-fn ext_inst_fuera_y_luego() {
-    // Round (1) no esta; Sin (13) llega con S3b.
+fn ext_inst_fuera_y_las_trascendentes() {
+    // Round (1) no esta; Sin (13) cabe desde S3b, y con un entero no cuadra.
     assert_eq!(reason(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 1, 12])])), Reason::UnsupportedGlsl { number: 1 });
-    assert_eq!(reason(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 13, 12])])), Reason::GlslLater { number: 13 });
+    assert!(juicio(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 13, 12])])).is_ok());
+    assert_eq!(
+        reason(cuerpo(&[ins(op::OpExtInst, &[6, 20, 1, 13, 11])])),
+        Reason::TypeMismatch { opcode: op::OpExtInst }
+    );
 }
 
 #[test]

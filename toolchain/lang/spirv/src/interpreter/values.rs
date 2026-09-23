@@ -397,9 +397,10 @@ impl<'m, 'a, 'b, 'w> Interpreter<'m, 'a, 'b, 'w> {
                 let mut v = [0u32; 4];
                 for k in 0..rn {
                     v[k] = match fila.group {
-                        GlslGroup::Float => b(glsl_float(numero, f(a[0][k]), f(a[1][k]), f(a[2][k]))?),
+                        GlslGroup::Float | GlslGroup::Transcendental => {
+                            b(glsl_float(numero, f(a[0][k]), f(a[1][k]), f(a[2][k]))?)
+                        }
                         GlslGroup::Int => glsl_int(numero, a[0][k], a[1][k], a[2][k])?,
-                        GlslGroup::Transcendental => return Err(Reason::GlslLater { number: numero }),
                     };
                 }
                 self.put(r, &v[..rn]);
@@ -498,6 +499,11 @@ fn glsl_float(numero: u32, x: f32, y: f32, z: f32) -> Result<f32, Reason> {
         g::FMix => math::mix(x, y, z),
         g::Step => math::step(x, y),
         g::Fma => math::fma(x, y, z),
+        g::Sin => math::sin(x),
+        g::Cos => math::cos(x),
+        g::Exp => math::exp(x),
+        g::Log => math::log(x),
+        g::Pow => math::pow(x, y),
         _ => return Err(Reason::UnsupportedGlsl { number: numero }),
     })
 }

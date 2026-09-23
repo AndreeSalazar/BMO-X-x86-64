@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   283 casillas ABIERTAS en 36 planes
-   268 hechas
+   282 casillas ABIERTAS en 36 planes
+   269 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -238,15 +238,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S6 -- platform/abi, 23 de 100
 - ... y 2 mas
 
-## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 5 abiertas, 4 hechas
-
-*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
-
-- [ ] S3b -- las funciones que no son una instruccion
-- [ ] S4 -- EL EMISOR x86-64, escalar
-- [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
-- ... y 2 mas
-
 ## [`PLAN_EXPRIMIR_EL_DISCO.md`](PLAN_EXPRIMIR_EL_DISCO.md) -- 5 abiertas, 2 hechas
 
 *PLAN: EXPRIMIR EL DISCO -- por el PERFIL, no por la caja*
@@ -281,6 +272,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] commands/system.rs, 604 lineas de codigo y [!] MEZCLA. Los informes
 - [ ] commands/disco.rs y commands/red.rs, la misma forma y mas chica:
 - [ ] scene/consola.rs, 600 lineas de codigo y 39% de documentacion. Es el
+- ... y 1 mas
+
+## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 4 abiertas, 5 hechas
+
+*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
+
+- [ ] S4 -- EL EMISOR x86-64, escalar
+- [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
+- [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

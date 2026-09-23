@@ -222,9 +222,15 @@ de despues se juzga contra el.
   con `OpSelect`/`OpPhi` -- dan lo mismo que el mismo calculo escrito a mano en
   Rust.
 
-### [ ] S3b -- las funciones que no son una instruccion
+### [x] S3b -- las funciones que no son una instruccion
 
-> El sitio ya existe: `src/math.rs`, que usan el oraculo y (S4) el emisor.
+> **Hecho el 23-09** en `src/math.rs`: `sin`, `cos`, `exp`, `log`, `pow`,
+> calculadas en DOBLE (reduccion de rango de fdlibm con pi/2 y ln2 en dos
+> trozos + polinomio, sin fusionar) y redondeadas a f32 al final.
+> Deterministas por construccion: el emisor repite las mismas operaciones de
+> `f64` en SSE2. **A un ULP como mucho** del valor verdadero en un millon de
+> casos cada una (Vulkan pide 2^-11 absoluto en seno/coseno y 3 ULP en
+> exp/log). El juez ya las acepta; el oraculo las ejecuta (`trig.comp`).
 
 `Sin Cos Exp Log Pow` no existen en SSE. Se escriben **una vez**, en un sitio, y
 las usan el oraculo Y el emisor -- si cada uno tuviera la suya, S4 dejaria de

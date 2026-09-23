@@ -64,7 +64,6 @@ fn clave(m: &Reason) -> String {
         Reason::UnsupportedStorageClass { class } => format!("clase de almacenamiento {}", class),
         Reason::UnsupportedStage { model } => format!("etapa {} (no es computo)", model),
         Reason::UnsupportedGlsl { number } => format!("GLSL.std.450 numero {} fuera", number),
-        Reason::GlslLater { number } => format!("GLSL.std.450 numero {} (S3b)", number),
         Reason::UnsupportedMode { mode } => format!("modo de ejecucion {}", mode),
         Reason::UnsupportedType { why } => format!("tipo: {}", why),
         Reason::UnsupportedBuiltIn { builtin } => format!("BuiltIn {}", builtin),

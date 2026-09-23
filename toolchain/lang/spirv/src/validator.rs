@@ -877,13 +877,12 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 si(Some(ins.op(3)) == self.glsl_id, Reason::UnsupportedImport)?;
                 let number = ins.op(4);
                 let g = glsl_info(number).ok_or(Reason::UnsupportedGlsl { number })?;
-                si(g.group != GlslGroup::Transcendental, Reason::GlslLater { number })?;
                 si(n_ops - 5 == g.operands as usize, no)?;
                 let (e, n) = self.num(r).ok_or(no)?;
                 for k in 5..n_ops {
                     let t = self.valor(ins.op(k))?;
                     match g.group {
-                        GlslGroup::Float => si(e == Float && t == r, no)?,
+                        GlslGroup::Float | GlslGroup::Transcendental => si(e == Float && t == r, no)?,
                         _ => si(e == Int && self.num(t) == Some((Int, n)), no)?,
                     }
                 }
