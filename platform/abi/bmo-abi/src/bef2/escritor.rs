@@ -116,7 +116,13 @@ impl Escritor {
 
     /// Un anexo para OTRO (recursos, manifiesto, katanas, simbolos).
     /// Los relocs, la firma y los requisitos los pone el escritor.
+    ///
+    /// ** REEMPLAZA al que ya hubiera de ese tipo: un `.bex` lleva uno de cada
+    /// o no pasa la puerta (`AnexoRepetido`). Hasta el 23-09 lo agregaba, y
+    /// reempaquetar una imagen que venia de `de_imagen` la dejaba sin arrancar
+    /// (`un_anexo_repetido_reemplaza_al_viejo`).
     pub fn anexo(&mut self, tipo: u8, bytes: Vec<u8>) -> &mut Self {
+        self.anexos.retain(|(t, _)| *t != tipo);
         self.anexos.push((tipo, bytes));
         self
     }

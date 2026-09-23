@@ -446,6 +446,31 @@ fn lo_declarado_sobrevive_a_reabrir() {
     assert_eq!(t.iter().find(|r| r.clase == CLASE_PANTALLA).map(|r| t.motivo(&r)), Some("dibuja"));
 }
 
+/// **Empaquetar dos veces REEMPLAZA.** Un `.bex` no puede llevar dos anexos
+/// del mismo tipo (la puerta del kernel lo rechaza), asi que `anexo` sobre un
+/// tipo que ya viene de `de_imagen` tiene que quitar el viejo. Antes lo
+/// agregaba: `empaquetar` prometia "mete (o reemplaza)" y un `.bex`
+/// reempaquetado --el build de cada dia con `sombra.bex` y su BSF-- salia
+/// con dos y no arrancaba.
+#[test]
+fn un_anexo_repetido_reemplaza_al_viejo() {
+    let mut e = Escritor::de_imagen(&buena()).unwrap();
+    e.anexo(ANEXO_RECURSOS, b"viejo".to_vec());
+    let una = e.construir().unwrap();
+    let mut e = Escritor::de_imagen(&una).unwrap();
+    e.anexo(ANEXO_RECURSOS, b"nuevo".to_vec());
+    let dos = e.construir().unwrap();
+    let v = leer(&dos).expect("reempaquetada tiene que pasar");
+    assert_eq!(v.anexos().filter(|a| a.tipo == ANEXO_RECURSOS).count(), 1);
+    assert_eq!(v.anexo(ANEXO_RECURSOS), Some(&b"nuevo"[..]));
+    // Y por `empaquetar`, dos veces seguidas, lo mismo.
+    let p1 = paquete::empaquetar(&buena(), &[("a", b"1")]).unwrap();
+    let p2 = paquete::empaquetar(&p1, &[("a", b"2")]).unwrap();
+    let v = leer(&p2).unwrap();
+    assert_eq!(v.anexos().filter(|a| a.tipo == ANEXO_RECURSOS).count(), 1);
+    assert_eq!(paquete::directorio(&p2).unwrap().len(), 1);
+}
+
 /// La firma de AUTOR: 64 de firma y 32 de clave detras de los hashes.
 #[test]
 fn una_firma_ed25519_viaja_en_el_anexo() {
