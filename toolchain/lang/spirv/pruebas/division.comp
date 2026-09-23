@@ -1,0 +1,11 @@
+#version 450
+// division: q[i] = a[i] / b[i] en enteros. Con un b[i] = 0 el oraculo tiene que
+// PARAR con su motivo en esa invocacion, no dar lo que salga.
+layout(local_size_x = 64) in;
+layout(std430, binding = 0) readonly buffer A { int a[]; };
+layout(std430, binding = 1) readonly buffer B { int b[]; };
+layout(std430, binding = 2) writeonly buffer Q { int q[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    q[i] = a[i] / b[i];
+}

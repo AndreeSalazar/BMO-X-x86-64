@@ -31,7 +31,8 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 | `src/reason.rs` -- `Reason`: por que NO | S1 | cada motivo con su fila en `tests/reader.rs` y `tests/validator.rs` |
 | `src/validator.rs` -- `validate(&Module) -> Verdict` y `census` | S2 | hecho: tipos que cuadran, valores antes de usarse, bloques y saltos con estructura; `censo` por familias |
 | `examples/census.rs` + `herramientas/censo_naga.py` -- la matriz | S2 | contra el banco de Naga: 228 se leen, 111 de computo, **28 caben** |
-| el oraculo (interprete) | S3 | pendiente |
+| `src/interpreter/` -- `Interpreter`: el oraculo (`mod.rs` despacha y ejecuta, `values.rs` las instrucciones de valor, `buffers.rs` la disposicion std140/std430) | S3 | hecho: ejecuta el computo invocacion a invocacion; lo indefinido PARA con su motivo (`Trap`) |
+| `src/math.rs` -- la aritmetica | S3 | la DEFINICION: `sqrt`, `floor`, `fma`... bit a bit contra la biblioteca estandar; el emisor tendra que igualarla |
 | `emisor-x86_64/` | S4 | pendiente: sera OTRO crate, porque este no nombra maquinas |
 
 ## La API habla ingles; la casa, castellano

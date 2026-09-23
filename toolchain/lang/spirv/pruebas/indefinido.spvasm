@@ -1,0 +1,47 @@
+; indefinido: %v se define SOLO en la rama `then` y se usa despues de la fusion.
+; Por ORDEN en el fichero va antes -- el juez lo acepta, porque no calcula
+; dominadores --, pero la invocacion que no entra en `then` lee un valor que
+; nadie definio. El oraculo tiene que parar ahi con `UndefinedValue`.
+; No hay GLSL valido que produzca esto: se escribe a mano.
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint GLCompute %main "main" %gid
+               OpExecutionMode %main LocalSize 2 1 1
+               OpDecorate %gid BuiltIn GlobalInvocationId
+               OpDecorate %arr ArrayStride 4
+               OpMemberDecorate %Buf 0 Offset 0
+               OpDecorate %Buf BufferBlock
+               OpDecorate %buf DescriptorSet 0
+               OpDecorate %buf Binding 0
+       %void = OpTypeVoid
+         %fn = OpTypeFunction %void
+       %uint = OpTypeInt 32 0
+        %v3u = OpTypeVector %uint 3
+   %p_in_v3u = OpTypePointer Input %v3u
+        %gid = OpVariable %p_in_v3u Input
+       %bool = OpTypeBool
+        %arr = OpTypeRuntimeArray %uint
+        %Buf = OpTypeStruct %arr
+      %p_buf = OpTypePointer Uniform %Buf
+        %buf = OpVariable %p_buf Uniform
+     %p_uint = OpTypePointer Uniform %uint
+     %p_in_u = OpTypePointer Input %uint
+     %uint_0 = OpConstant %uint 0
+     %uint_7 = OpConstant %uint 7
+       %main = OpFunction %void None %fn
+      %entry = OpLabel
+         %px = OpAccessChain %p_in_u %gid %uint_0
+          %x = OpLoad %uint %px
+          %c = OpIEqual %bool %x %uint_0
+               OpSelectionMerge %merge None
+               OpBranchConditional %c %then %merge
+       %then = OpLabel
+          %v = OpIAdd %uint %x %uint_7
+               OpBranch %merge
+      %merge = OpLabel
+          %w = OpIAdd %uint %v %uint_7
+         %pw = OpAccessChain %p_uint %buf %uint_0 %x
+               OpStore %pw %w
+               OpReturn
+               OpFunctionEnd

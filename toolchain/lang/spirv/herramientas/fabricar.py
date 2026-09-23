@@ -18,6 +18,7 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 PRUEBAS = os.path.join(AQUI, "..", "pruebas")
 SDK = os.environ.get("VULKAN_SDK", r"C:\VulkanSDK\1.4.350.0")
 GLSLC = os.path.join(SDK, "Bin", "glslc.exe" if os.name == "nt" else "glslc")
+SPIRV_AS = os.path.join(SDK, "Bin", "spirv-as.exe" if os.name == "nt" else "spirv-as")
 
 
 def main():
@@ -32,6 +33,15 @@ def main():
         # vulkan1.0 = SPIR-V 1.0; -O0 = lo que el GLSL dice, sin que el
         # optimizador de glslc decida por nosotros que instrucciones aparecen.
         subprocess.run([GLSLC, "--target-env=vulkan1.0", "-O0", "-o", salida, fuente], check=True)
+        hechos += 1
+    # Y los escritos a mano en SPIR-V de texto: lo que ningun GLSL valido
+    # produce (un valor usado donde no domina, para el oraculo).
+    for nombre in sorted(os.listdir(PRUEBAS)):
+        if not nombre.endswith(".spvasm"):
+            continue
+        fuente = os.path.join(PRUEBAS, nombre)
+        salida = os.path.join(PRUEBAS, nombre[:-7] + ".spv")
+        subprocess.run([SPIRV_AS, "--target-env", "spv1.0", "-o", salida, fuente], check=True)
         hechos += 1
     print("fabricar.py: %d sombreadores" % hechos)
 

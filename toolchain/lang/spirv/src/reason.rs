@@ -131,6 +131,35 @@ pub enum Reason {
     Unstructured,
     /// Un punto de entrada que no es `void main()`.
     EntryPointNotVoidMain,
+
+    // ---- EL ORACULO (S3): lo que SPIR-V deja indefinido, aqui PARA ---------
+    /// La memoria de trabajo que se dio no alcanza (`workspace_words`).
+    WorkspaceTooSmall { need: usize, have: usize },
+    /// El sombreador pide un buffer que no se le dio.
+    NoBuffer { set: u32, binding: u32 },
+    /// Un buffer sin `Offset` o sin `ArrayStride`: no se sabe donde cae nada.
+    NoLayout { id: u32 },
+    /// Division o resto entero por cero.
+    DivisionByZero,
+    /// `INT_MIN / -1`: el cociente no cabe.
+    DivisionOverflow,
+    /// Desplazar 32 bits o mas.
+    ShiftTooLarge,
+    /// Leer o escribir fuera de un buffer, o un indice fuera de un arreglo.
+    OutOfBounds,
+    /// Leer un valor que en ESTA invocacion no se definio (lo que el juez no
+    /// ve: la dominancia).
+    UndefinedValue { id: u32 },
+    /// Mas instrucciones que el combustible dado: un bucle que no termina.
+    OutOfFuel,
+    /// Mas llamadas anidadas que las que el oraculo guarda.
+    CallTooDeep,
+    /// Se ejecuto `OpUnreachable`.
+    ReachedUnreachable,
+    /// Un `OpPhi` sin la pareja del bloque del que se viene.
+    PhiWithoutPredecessor,
+    /// Algo que el oraculo aun no sabe hacer, dicho.
+    NotYet { what: &'static str },
 }
 
 impl Reason {
@@ -194,6 +223,19 @@ impl Reason {
             Reason::MisplacedMerge => "instruccion de fusion que no va justo antes de su salto",
             Reason::Unstructured => "salto condicional sin construccion que lo encierre",
             Reason::EntryPointNotVoidMain => "el punto de entrada no es void main()",
+            Reason::WorkspaceTooSmall { .. } => "la memoria de trabajo no alcanza",
+            Reason::NoBuffer { .. } => "el sombreador pide un buffer que no se le dio",
+            Reason::NoLayout { .. } => "buffer sin Offset o sin ArrayStride",
+            Reason::DivisionByZero => "division entera por cero",
+            Reason::DivisionOverflow => "division entera que desborda (INT_MIN / -1)",
+            Reason::ShiftTooLarge => "desplazamiento de 32 bits o mas",
+            Reason::OutOfBounds => "acceso fuera de un buffer o de un arreglo",
+            Reason::UndefinedValue { .. } => "valor que esta invocacion no definio",
+            Reason::OutOfFuel => "se acabo el combustible: un bucle que no termina",
+            Reason::CallTooDeep => "demasiadas llamadas anidadas",
+            Reason::ReachedUnreachable => "se ejecuto OpUnreachable",
+            Reason::PhiWithoutPredecessor => "OpPhi sin la pareja del bloque de origen",
+            Reason::NotYet { what } => what,
         }
     }
 }
@@ -274,6 +316,9 @@ impl fmt::Display for Error {
                 c => write!(f, " (clase {})", c),
             },
             Reason::UnsupportedBuiltIn { builtin } => write!(f, " (BuiltIn {})", builtin),
+            Reason::WorkspaceTooSmall { need, have } => write!(f, " (hacen falta {} palabras, hay {})", need, have),
+            Reason::NoBuffer { set, binding } => write!(f, " (set {}, binding {})", set, binding),
+            Reason::NoLayout { id } | Reason::UndefinedValue { id } => write!(f, " (id {})", id),
             Reason::MemoryModelCount { count } => write!(f, " (esta {} veces)", count),
             Reason::TooMany { what, limit } => write!(f, " ({}: tope {})", what, limit),
             _ => Ok(()),

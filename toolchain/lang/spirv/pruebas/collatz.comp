@@ -1,0 +1,17 @@
+#version 450
+// collatz: cuantos pasos tarda cada n en llegar a 1. Bucle con salida por
+// condicion, rama par/impar, y una funcion auxiliar con parametro.
+layout(local_size_x = 4) in;
+layout(std430, binding = 0) buffer Numeros { uint n[]; };
+uint pasos(uint x) {
+    uint k = 0u;
+    while (x != 1u) {
+        if ((x & 1u) == 0u) { x = x / 2u; } else { x = 3u * x + 1u; }
+        k++;
+    }
+    return k;
+}
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    n[i] = pasos(n[i]);
+}

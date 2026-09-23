@@ -180,7 +180,30 @@ decoraciones, tipos, constantes, globales y funciones.
   `glslc` que use algo de fuera (una imagen, un atomico) sale negado con la
   palabra correcta.
 
-## [ ] S3 -- EL ORACULO: un interprete en el anfitrion
+## [x] S3 -- EL ORACULO: un interprete en el anfitrion
+
+> **Hecho el 23-09**, `no_std` sin `alloc`: `Interpreter::new(&Module,
+> workspace)` + `dispatch(groups, buffers, fuel) -> Stats | Trap`. La memoria
+> la da quien llama (`workspace_words` dice cuanta): un sitio FIJO por id,
+> porque SPIR-V prohibe la recursion. Punteros de dos palabras (arena o
+> buffer); en un buffer manda la disposicion de sus decoraciones (std140,
+> std430).
+>
+> - `math` es LA DEFINICION de la aritmetica (`sqrt`, `floor`, `ceil`,
+>   `fract`, `fma` con un solo redondeo por "redondeo a impar"...): comparada
+>   bit a bit con la biblioteca estandar en millones de valores. Y cierra lo
+>   que SPIR-V deja abierto: `min`/`max` con NaN dan el segundo, `mix` sin
+>   fusionar, flotante a entero satura. El emisor (S4) tiene que igualarlo.
+> - Lo indefinido PARA con su motivo, la palabra y la invocacion: division
+>   por cero, `INT_MIN / -1`, desplazar 32 o mas, salirse de un buffer, un
+>   buffer que falta, poco combustible, y **un valor que la invocacion no
+>   definio** -- que es la dominancia que el juez no mira, cazada en marcha
+>   (`indefinido.spvasm`, escrito a mano: la invocacion 1 para, la 0 no).
+> - Los cuatro de S3 dan lo MISMO que Rust bit a bit (suma, saxpy con su
+>   limite, mandelbrot 32x32 pixel a pixel, colores con su funcion), y
+>   `collatz` da 111/118/178 para 27/97/871.
+> - La matriz de Naga: el oraculo EJECUTA los 28 que caben; uno para por
+>   combustible con razon (Collatz desde 0, con los buffers a cero).
 
 > ** Desde el 23-09 la API publica de `lang/spirv` es INGLES (decision del
 > propietario, pensando en motores y juegos de fuera); comentarios y textos de
@@ -200,6 +223,8 @@ de despues se juzga contra el.
   Rust.
 
 ### [ ] S3b -- las funciones que no son una instruccion
+
+> El sitio ya existe: `src/math.rs`, que usan el oraculo y (S4) el emisor.
 
 `Sin Cos Exp Log Pow` no existen en SSE. Se escriben **una vez**, en un sitio, y
 las usan el oraculo Y el emisor -- si cada uno tuviera la suya, S4 dejaria de
