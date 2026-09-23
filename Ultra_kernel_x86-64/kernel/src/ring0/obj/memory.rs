@@ -147,6 +147,39 @@ pub const MEM_OP_FISICA: u64 = 0x04;
 /// del que llama**: es que hay alguien leyendo esa memoria ahora mismo.
 pub const MEM_OP_SOLTAR: u64 = 0x05;
 
+/// **Sellar el bloque: de datos a CODIGO.** Espejo de
+/// `bmo_abi::...::MEM_OP_SELLAR` (2026-09-23).
+///
+/// El bloque nace escribible y NO ejecutable, como todos. Sellarlo lo vuelve
+/// ejecutable y **quita la escritura en el mismo acto**: cada PTE cambia de un
+/// solo golpe, asi que no hay ni un instante con las dos. Es irreversible --
+/// para regenerar se pide otro bloque-- y un proceso nunca tiene W y X sobre la
+/// misma pagina. Es W^X con transicion explicita, la pieza que un JIT necesita
+/// (un sombreador SPIR-V pasado a x86-64, VERRANO) sin romper las capabilities.
+///
+/// Y no basta con la PTE: el kernel ESCRIBE en bloques ajenos por tres caminos
+/// (`LEER_EN`, la copia de `atril`, el DMA de quien pidio `MEM_OP_FISICA`) y los
+/// PRESTA con escritura (`MEM_OP_OFRECER`). Los cuatro se niegan con un bloque
+/// sellado (`fisica_para_escribir`, `esta_sellado`): si no, W^X seria mentira.
+///
+/// Contesta 1, o el motivo en las banderas (`SELLAR_*`).
+pub const MEM_OP_SELLAR: u64 = 0x06;
+
+/// Sellado.
+pub const SELLAR_HECHO: u32 = 0;
+/// Ese bloque no es de este proceso (o ya lo solto).
+pub const SELLAR_NO_ES_SUYO: u32 = 1;
+/// Ya estaba sellado: sellar no se deshace ni se repite.
+pub const SELLAR_YA_SELLADO: u32 = 2;
+/// Sigue PRESTADO a otro con escritura: sellarlo dejaria a ese otro con W sobre
+/// codigo. Se suelta el prestamo primero.
+pub const SELLAR_PRESTADO: u32 = 3;
+/// `EFER.NXE` apagado: sin NX toda pagina es ejecutable y sellar no garantiza
+/// nada. Se dice en vez de fingir.
+pub const SELLAR_SIN_NX: u32 = 4;
+/// El remapeo fallo a mitad: el bloque se DESMAPEO entero y queda inutilizable.
+pub const SELLAR_NO_REMAPEA: u32 = 5;
+
 pub const ERROR_TOO_BIG: u32 = 0xE001;
 pub const ERROR_NO_RAM: u32 = 0xE002;
 pub const ERROR_TOO_MANY: u32 = 0xE003;
@@ -203,9 +236,12 @@ struct Bloque {
     /// cuando dice que no, y el propietario duerme hasta que se mueva. Sube en
     /// `loan.rs` cuando el prestatario suelta o muere. Nunca baja.
     devueltas: u64,
+    /// **Es CODIGO**: sellado con `MEM_OP_SELLAR`, mapeado R+X y sin escritura.
+    /// Nadie escribe ya en el -- ni el kernel en nombre del proceso.
+    sellado: bool,
 }
 
-const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0, devueltas: 0 };
+const SIN_BLOQUE: Bloque = Bloque { base: 0, fisica: 0, bytes: 0, devueltas: 0, sellado: false };
 
 /// La contabilidad de un proceso que tiene memoria pedida.
 #[derive(Clone, Copy)]
@@ -637,7 +673,7 @@ pub fn request(pid: u32, aspace: u64, bytes: u64) -> Result<u64, u32> {
         // lo liberaria nadie al morir, y `donde_cae` diria "fuera" de algo que
         // es suyo. Se busca hueco, que es lo unico que sobrevive a soltar.
         if let Some(i) = c.bloques.iter().position(|b| b.base == 0) {
-            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE, devueltas: 0 };
+            c.bloques[i] = Bloque { base, fisica, bytes: paginas * mm::PAGE, devueltas: 0, sellado: false };
         }
         c.peticiones += 1;
         c.entregados += paginas * mm::PAGE;
@@ -808,6 +844,87 @@ pub fn fisica_de(pid: u32, va: u64, len: u64) -> Option<u64> {
     None
 }
 
+/// **La fisica de `[va, va+len)` para ESCRIBIR en ella**: la de `fisica_de`,
+/// pero `None` si el bloque esta SELLADO. La usan los que escriben en un
+/// bloque en nombre del proceso (`LEER_EN`, `atril`) y `MEM_OP_FISICA`, cuya
+/// respuesta programa un DMA. Ver `MEM_OP_SELLAR`.
+pub fn fisica_para_escribir(pid: u32, va: u64, len: u64) -> Option<u64> {
+    let slot = slot(pid)?;
+    let fin = va.checked_add(len)?;
+    unsafe {
+        let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
+        for b in c.bloques.iter() {
+            if b.base != 0 && va >= b.base && fin <= b.base + b.bytes {
+                return if b.sellado { None } else { Some(b.fisica + (va - b.base)) };
+            }
+        }
+    }
+    None
+}
+
+/// El bloque que empieza en `base` esta sellado? Lo pregunta `OFRECER`: prestar
+/// con escritura un bloque de codigo es devolverle la W por la puerta de atras.
+pub fn esta_sellado(pid: u32, base: u64) -> bool {
+    let Some(slot) = slot(pid) else { return false };
+    unsafe {
+        (*core::ptr::addr_of!(CUENTAS))[slot]
+            .bloques
+            .iter()
+            .any(|b| b.base == base && b.bytes != 0 && b.sellado)
+    }
+}
+
+/// **SELLAR EL BLOQUE `base` de `pid`**: sus paginas pasan a R+X sin W. Ver
+/// [`MEM_OP_SELLAR`]. Devuelve `SELLAR_HECHO` o el motivo.
+///
+/// Corre en un syscall (IF=0) y en el BSP, que hoy es el unico que corre
+/// tareas: no hay otro nucleo con estas PTE en su TLB. El dia que las tareas
+/// corran en varios, esto pide un derribo de TLB en los demas ANTES de
+/// contestar -- dicho aqui para que ese dia se encuentre.
+pub fn sellar(pid: u32, aspace: u64, base: u64) -> u32 {
+    let Some(slot) = slot(pid) else { return SELLAR_NO_ES_SUYO };
+    let (i, b) = unsafe {
+        let c = &(*core::ptr::addr_of!(CUENTAS))[slot];
+        match c.bloques.iter().position(|x| x.base == base && x.bytes != 0) {
+            Some(i) => (i, c.bloques[i]),
+            None => return SELLAR_NO_ES_SUYO,
+        }
+    };
+    if b.sellado {
+        return SELLAR_YA_SELLADO;
+    }
+    if !vmm::nx_disponible() {
+        crate::ring0::cabina::warn("mem", "NO se sella: EFER.NXE apagado, W^X no se sostiene", base);
+        return SELLAR_SIN_NX;
+    }
+    if crate::ring0::obj::loan::hay_prestado_en(pid, b.base, b.bytes) {
+        crate::ring0::cabina::warn("mem", "NO se sella: ese bloque sigue PRESTADO a otro", base);
+        return SELLAR_PRESTADO;
+    }
+    // ** Primero se apunta, despues se remapea: si el remapeo fallara a mitad,
+    // el bloque queda marcado y ninguno de los que escriben por el kernel lo
+    // toca, que es lo seguro.
+    unsafe { (*core::ptr::addr_of_mut!(CUENTAS))[slot].bloques[i].sellado = true };
+    let paginas = b.bytes / mm::PAGE;
+    for p in 0..paginas {
+        let va = b.base + p * mm::PAGE;
+        // `unmap_page` invalida la TLB de esa pagina; el mapeo nuevo nace ya R+X.
+        vmm::unmap_page(aspace, va);
+        if vmm::map_page_sellada(aspace, va, b.fisica + p * mm::PAGE).is_err() {
+            // A medias: se DESMAPEA el resto (lo remapeado incluido). Mejor un
+            // bloque inutil que uno con paginas en dos estados; soltarlo sigue
+            // funcionando, porque soltar desmapea lo que haya.
+            for q in 0..paginas {
+                vmm::unmap_page(aspace, b.base + q * mm::PAGE);
+            }
+            crate::ring0::cabina::fault("mem", "sellar: el remapeo fallo; bloque desmapeado", base);
+            return SELLAR_NO_REMAPEA;
+        }
+    }
+    crate::ring0::cabina::info("mem", "bloque SELLADO: ahora es codigo (R+X, sin escritura)", b.bytes);
+    SELLAR_HECHO
+}
+
 /// **DEVOLVER UN BLOQUE: los marcos, la ranura y el handle.**
 ///
 /// `Some(1)` devuelto, `Some(0)` no se pudo y el motivo esta en CABINA,
@@ -966,7 +1083,10 @@ pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {
         // `len = 1` porque lo que se pregunta es "donde empieza": el largo del
         // bloque ya lo contesta `MEM_OP_BYTES`, y pedir dos numeros por dos
         // caminos distintos es como se acaban desacoplando.
-        MEM_OP_FISICA => fisica_de(pid, base, 1),
+        // ** Con un bloque SELLADO no se contesta: esta fisica es la que
+        // programa un DMA, y un aparato escribiendo en codigo es la W por otra
+        // puerta (2026-09-23, `MEM_OP_SELLAR`).
+        MEM_OP_FISICA => fisica_para_escribir(pid, base, 1),
         MEM_OP_SOLTAR => soltar(pid, base),
         _ => None,
     }

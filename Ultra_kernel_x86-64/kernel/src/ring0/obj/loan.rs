@@ -179,6 +179,10 @@ pub const SIN_RANURAS: u32 = 4;
 /// esta lista porque el que lo recibe no distingue de donde salio: para el son
 /// las cinco formas de que su oferta no quede apuntada.
 pub const PADRE_NO_VIVE: u32 = 5;
+/// **El bloque esta SELLADO** (`MEM_OP_SELLAR`): es codigo. Prestarlo con
+/// escritura seria devolverle la W por la puerta de atras. Lo decide el
+/// despachador, igual que `PADRE_NO_VIVE` (2026-09-23).
+pub const BLOQUE_SELLADO: u32 = 6;
 
 /// **Ofrecer un trozo del bloque propio.** Devuelve `OFRECIDO`, o POR QUE no.
 ///

@@ -299,11 +299,12 @@ pub fn tocar(pid: u32, parte_num: u64, pedidos: u64) -> u64 {
         crate::ring0::cabina::fault("orquesta", "el encargo no cabe en 64 bits", parte_num);
         return NO_HAY_ORQUESTA;
     };
-    let f_dst = match crate::ring0::obj::memory::fisica_de(pid, e.destino, bytes_dst) {
+    // `para_escribir`: un destino SELLADO (codigo) tampoco vale (`MEM_OP_SELLAR`).
+    let f_dst = match crate::ring0::obj::memory::fisica_para_escribir(pid, e.destino, bytes_dst) {
         Some(f) => f,
         None => {
             vaciar();
-            crate::ring0::cabina::fault("orquesta", "el destino no es tuyo", e.destino);
+            crate::ring0::cabina::fault("orquesta", "el destino no es tuyo o esta sellado", e.destino);
             return NO_HAY_ORQUESTA;
         }
     };

@@ -582,6 +582,32 @@ pub const MEM_OP_FISICA: u64 = 0x04;
 /// VA que vuelve es una VA que un handle viejo podria volver a resolver.
 pub const MEM_OP_SOLTAR: u64 = 0x05;
 
+/// **Sellar el bloque: de datos a CODIGO** (W^X con transicion, 2026-09-23).
+///
+/// Todo bloque nace escribible y NO ejecutable. Sellarlo lo pasa a ejecutable
+/// y NO escribible, cada pagina de un solo golpe: nunca hay un instante con las
+/// dos. Es irreversible; para regenerar se pide otro bloque.
+///
+/// Y el kernel deja de escribir en el por su cuenta: `LEER_EN`, la copia de la
+/// orquesta, la fisica para un DMA (`MEM_OP_FISICA`) y el prestamo
+/// (`MEM_OP_OFRECER`, motivo 6) se niegan con un bloque sellado.
+///
+/// Contesta 1, o `ERROR_NEGADO` con el motivo en las banderas (`SELLAR_*`).
+pub const MEM_OP_SELLAR: u64 = 0x06;
+
+/// Los motivos de `MEM_OP_SELLAR`. Espejo de `ring0::obj::memory`.
+pub const SELLAR_HECHO: u32 = 0;
+/// Ese bloque no es de este proceso, o ya lo solto.
+pub const SELLAR_NO_ES_SUYO: u32 = 1;
+/// Ya estaba sellado: no se repite ni se deshace.
+pub const SELLAR_YA_SELLADO: u32 = 2;
+/// Sigue prestado a otro con escritura.
+pub const SELLAR_PRESTADO: u32 = 3;
+/// `EFER.NXE` apagado: sin NX sellar no garantiza nada.
+pub const SELLAR_SIN_NX: u32 = 4;
+/// El remapeo fallo a mitad; el bloque quedo desmapeado.
+pub const SELLAR_NO_REMAPEA: u32 = 5;
+
 /// `INVOKE` operations accepted by a channel (estuary) capability.
 pub const CHANNEL_OP_GET_SEQ: u64 = 0x01;
 

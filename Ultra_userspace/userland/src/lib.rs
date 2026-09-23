@@ -185,11 +185,22 @@ pub const OFRECER_NO_CABE_EN_LA_VENTANA: u32 = 2;
 pub const OFRECER_A_MI_MISMO: u32 = 3;
 pub const OFRECER_SIN_RANURAS: u32 = 4;
 pub const OFRECER_PADRE_NO_VIVE: u32 = 5;
+/// El bloque esta SELLADO (es codigo): prestarlo con escritura le devolveria la W.
+pub const OFRECER_BLOQUE_SELLADO: u32 = 6;
 /// **Donde vive de verdad el bloque**, para escribirlo en un descriptor de DMA.
 /// Solo el propietario. Ver [`crate::sys::memoria_fisica`].
 pub const MEM_OP_FISICA: u32 = 0x04;
 /// Devolver el bloque entero. 1 = devuelto, 0 = no se pudo (sigue prestado).
 pub const MEM_OP_SOLTAR: u32 = 0x05;
+/// **Sellar el bloque: de datos a CODIGO.** Ver [`crate::Memoria::sellar`].
+pub const MEM_OP_SELLAR: u32 = 0x06;
+/// Los motivos de `MEM_OP_SELLAR`. Espejo de `ring0::obj::memory`.
+pub const SELLAR_HECHO: u32 = 0;
+pub const SELLAR_NO_ES_SUYO: u32 = 1;
+pub const SELLAR_YA_SELLADO: u32 = 2;
+pub const SELLAR_PRESTADO: u32 = 3;
+pub const SELLAR_SIN_NX: u32 = 4;
+pub const SELLAR_NO_REMAPEA: u32 = 5;
 /// **Quien me lanzo**, como TID. `0` si nadie -- ver [`crate::sys::mi_padre`].
 pub const OP_MI_PADRE: u32 = 0x26;
 

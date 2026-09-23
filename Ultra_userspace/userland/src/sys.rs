@@ -508,6 +508,7 @@ pub fn offer_nombre(motivo: u32) -> &'static str {
         OFRECER_A_MI_MISMO => "ofrecida a uno mismo",
         OFRECER_SIN_RANURAS => "no quedan ofertas libres: se puede reintentar",
         OFRECER_PADRE_NO_VIVE => "el que la iba a componer ya no vive",
+        OFRECER_BLOQUE_SELLADO => "el bloque esta sellado: es codigo",
         _ => "motivo que este userland no conoce",
     }
 }

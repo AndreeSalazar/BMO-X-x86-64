@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-121
+124
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -22,7 +22,9 @@
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/mod.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/roja.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/verde.rs
+# MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/maestro.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/portero.rs
+# MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/voces.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/amarilla.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/mod.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/roja.rs
@@ -49,6 +51,7 @@
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/ficha.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/tss.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/task/admitir.rs
+# MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/task/enterrador.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/roja.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/verde.rs
 # NADA      Ultra_userspace/services/director/src/commands/datos.rs

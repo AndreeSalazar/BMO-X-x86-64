@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-113
+116
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -21,7 +21,9 @@
 #                    Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/mod.rs
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/roja.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/verde.rs
+# SILENCIO RELOJ     Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/maestro.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/portero.rs
+# AJENO RELOJ        Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/voces.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/amarilla.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/mod.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/roja.rs
@@ -46,6 +48,7 @@
 # SILENCIO ESPEJO    Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/ficha.rs
 # UNICO              Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/tss.rs
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/task/admitir.rs
+# AJENO              Ultra_kernel_x86-64/kernel/src/ring0/task/enterrador.rs
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/roja.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/task/scheduler/verde.rs
 # ESPEJO             Ultra_userspace/services/director/src/commands/datos.rs

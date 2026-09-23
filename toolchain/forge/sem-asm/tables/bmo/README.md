@@ -52,6 +52,7 @@ un `mod.rs` que re-exporta. Incluir un carril suelto tambien vale.
 | [`archivo.h`](archivo.h) | 522 | ROJO | leer ficheros de verdad, contra `KIND_ARCHIVO` | `examples/leer_C.c` |
 | &nbsp;&nbsp;[`archivo/roja.h`](archivo/roja.h) | 340 | ROJO | abrir, `fread`, `fwrite`, `fclose` | -- |
 | &nbsp;&nbsp;[`archivo/amarilla.h`](archivo/amarilla.h) | 117 | AMARILLO | el cursor, que es un ESPEJO del del kernel | -- |
+| [`codigo.h`](codigo.h) | 153 | ROJO | **escribir codigo y despues ejecutarlo** (W^X: sellar un bloque) | `examples/sello_C.c` |
 | [`entrada.h`](entrada.h) | 372 | AMARILLO | teclado y raton, y **devolverlos** | `examples/pantalla_C.c` |
 | [`fuente.h`](fuente.h) | 324 | VERDE | **escribir texto DENTRO de tu superficie** | `examples/texto_C.c` |
 | &nbsp;&nbsp;[`fuente/datos.h`](fuente/datos.h) | 152 | VERDE | los glifos 8x16. AUTO-GENERADO por `tools/fontgen`, del MISMO arte que la tabla del kernel | -- |

@@ -88,6 +88,17 @@ garantia      nunca los dos derechos sobre la misma pagina a la vez
 
 **Su idea de W^X no era un tema aparte: es un requisito de esta ruta.**
 
+** HECHO EL 2026-09-23, y sin `KIND_CODIGO`. Un kind nuevo pedia su tabla, su
+handle y su forma de pedirlo, y nada de eso aportaba: la memoria ya era un
+objeto con propietario por capability. Lo que hacia falta era una OPERACION que
+cambie su estado: `MEM_OP_SELLAR` (0x06) sobre un bloque de `KIND_MEMORIA`.
+Remapea cada pagina a R+X sin W, es irreversible, y cierra tambien las cuatro
+puertas por las que el kernel escribia en un bloque en nombre del proceso
+(`LEER_EN`, `atril`, la fisica para DMA, el prestamo). Si dice que no, dice
+por que (L6i). Ver `obj/memory.rs::sellar`, `<bmo/codigo.h>` y
+`examples/sello_C.c` -- que devuelve 42 y luego muere a proposito escribiendo
+en su propio codigo sellado. Falta verlo en el Ryzen.
+
 ## Las piezas de B1
 
 | # | Pieza | Medida |
@@ -228,10 +239,10 @@ Dos cosas mas que caen del mismo sitio y que esta ruta va a usar:
 
 ### Lo que NO se movio, para que nadie lo cuente dos veces
 
-- **`KIND_CODIGO` + `SELLAR` (W^X) siguen solo TRAZADOS.** Cuidado con el
-  nombre: el `SELLAR` que existe en el kernel es `ESTRATOS_SELLAR`, que cierra
-  una transaccion del sistema de ficheros y no tiene nada que ver. El de las
-  paginas ejecutables no esta escrito.
+- ~~**`KIND_CODIGO` + `SELLAR` (W^X) siguen solo TRAZADOS.**~~ **Escrito el
+  23-09** como `MEM_OP_SELLAR` (ver arriba), sin metal todavia. Cuidado con el
+  nombre: `ESTRATOS_SELLAR` cierra una transaccion del sistema de ficheros y no
+  tiene nada que ver con este.
 - **Los hilos tampoco**: 51 operaciones de tarea en el kernel y ninguna crea un
   hilo. Las piezas 3 y 6 de B1 siguen enteras.
 

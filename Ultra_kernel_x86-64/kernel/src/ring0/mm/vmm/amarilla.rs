@@ -168,6 +168,18 @@ pub fn map_page_propia(pml4: u64, va: u64, pa: u64, user: bool, writable: bool) 
     map_page_tipo(pml4, va, pa, user, writable, !writable, false, true)
 }
 
+/// **Una pagina de CODIGO SELLADO** (2026-09-23): lectura y ejecucion, sin
+/// escritura, de usuario, y NO propia del espacio de direcciones.
+///
+/// Es el estado al que pasa un bloque de `KIND_MEMORIA` con `MEM_OP_SELLAR`
+/// (ver `obj::memory::sellar`). Mismo permiso que `PermisoImagen::Codigo`, pero
+/// NO por `map_page_imagen`: esa marca el marco como del espacio de
+/// direcciones (`PTE_NUESTRA`) y el de un bloque lo libera `obj::memory`, que
+/// ademas pregunta antes si esta prestado. Con la marca se liberaria dos veces.
+pub fn map_page_sellada(pml4: u64, va: u64, pa: u64) -> Result<(), ()> {
+    map_page_tipo(pml4, va, pa, true, false, true, false, false)
+}
+
 /// Igual, pero eligiendo **Write-Combining** para esta pagina.
 ///
 /// Se usa para el framebuffer y nada mas: es donde se escriben millones de
@@ -185,7 +197,7 @@ pub fn map_page_wc(pml4: u64, va: u64, pa: u64, user: bool, writable: bool) -> R
 /// ni se entera nadie -- y este arbol ya tiene escrito lo que pasa con eso en
 
 /// `bmo_cripto::azar`, que por lo mismo se niega a tener respaldo.
-pub(super) fn nx_disponible() -> bool {
+pub fn nx_disponible() -> bool {
     use core::sync::atomic::{AtomicU8, Ordering};
     static ESTADO: AtomicU8 = AtomicU8::new(0); // 0 sin mirar, 1 si, 2 no
     match ESTADO.load(Ordering::Relaxed) {

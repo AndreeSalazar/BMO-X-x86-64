@@ -813,7 +813,10 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                 // [!] Quitarlo no es cosmetico: es lo que permite encender
                 // CR4.SMAP. Un respaldo que nunca se toma sigue siendo una
                 // linea que el CPU podria ejecutar.
-                let Some(fisica) = crate::ring0::obj::memory::fisica_de(pid, base + desde, cuantos)
+                // ** `para_escribir`: un bloque SELLADO es codigo y el kernel
+                // no escribe en el en nombre de nadie (`MEM_OP_SELLAR`).
+                let Some(fisica) =
+                    crate::ring0::obj::memory::fisica_para_escribir(pid, base + desde, cuantos)
                 else {
                     return BmoStatus::err(1);
                 };
@@ -943,6 +946,10 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                 // (`== 0`) contestan exactamente lo mismo. Lo que cambia es que
                 // el CODIGO deja de mentir y las BANDERAS traen el motivo. Ver
                 // `BmoStatus::negado` y L6i.
+                if crate::ring0::obj::memory::esta_sellado(pid, resolved.object) {
+                    return BmoStatus::negado(
+                        crate::ring0::obj::loan::BLOQUE_SELLADO, 0);
+                }
                 let Some(destino) = scheduler::pid_de(frame.r8 as u32) else {
                     // El tid del padre ya no resuelve: se murio entre que lo
                     // preguntaron y lo usaron. No es culpa de quien ofrece.
@@ -959,6 +966,20 @@ fn invoke(frame: &TrapFrame) -> BmoStatus {
                     destino,
                 );
                 if motivo == crate::ring0::obj::loan::OFRECIDO {
+                    BmoStatus::ok_value(1)
+                } else {
+                    BmoStatus::negado(motivo, 0)
+                }
+            }
+            // ** SELLAR (W^X, 2026-09-23): va aparte porque necesita el espacio
+            // de direcciones --remapea-- y porque un NO trae su motivo (L6i).
+            cap::KIND_MEMORIA if frame.rsi == crate::ring0::obj::memory::MEM_OP_SELLAR => {
+                let motivo = crate::ring0::obj::memory::sellar(
+                    scheduler::current_pid(),
+                    crate::ring0::mm::vmm::read_cr3(),
+                    resolved.object,
+                );
+                if motivo == crate::ring0::obj::memory::SELLAR_HECHO {
                     BmoStatus::ok_value(1)
                 } else {
                     BmoStatus::negado(motivo, 0)

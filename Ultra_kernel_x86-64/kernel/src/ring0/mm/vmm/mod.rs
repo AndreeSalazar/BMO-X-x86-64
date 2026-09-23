@@ -55,7 +55,7 @@ pub mod roja;
 pub mod verde;
 
 pub use amarilla::{
-    map_page, map_page_imagen, map_page_propia, map_page_wc, unmap_page, PermisoImagen, PTE_NUESTRA, PTE_NX, PTE_PAT_4K,
+    map_page, map_page_imagen, map_page_propia, map_page_sellada, map_page_wc, nx_disponible, unmap_page, PermisoImagen, PTE_NUESTRA, PTE_NX, PTE_PAT_4K,
 };
 pub use roja::{
     salvadas,

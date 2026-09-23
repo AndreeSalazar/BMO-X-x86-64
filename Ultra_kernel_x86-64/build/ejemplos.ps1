@@ -179,6 +179,10 @@ $cEjemplos = @(
     @{ src = 'toolchain\lang\c\examples\scroll_C.c'; out = 'scrollc.bex' ; dir = 'c' },
     @{ src = 'toolchain\lang\c\examples\pregunta_C.c'; out = 'pregc.bex'  ; dir = 'c' },
     @{ src = 'toolchain\lang\c\examples\memoria_C.c'; out = 'memc.bex'   ; dir = 'c' },
+    # ** EL SELLO (W^X, 2026-09-23): escribe `mov eax,42; ret`, lo sella, lo
+    # llama (42) y al final escribe en el codigo sellado A PROPOSITO: lo
+    # correcto es que muera ahi con un fallo de pagina de Ring 3.
+    @{ src = 'toolchain\lang\c\examples\sello_C.c';  out = 'sello.bex'  ; dir = 'c' },
     # ** LA SONDA: el unico programa que usa la superficie MAL a proposito.
     # Handles inventados, operaciones que no existen, el renglon de ruta
     # inundado, el tope de memoria forzado, medidas imposibles. Cada empujon

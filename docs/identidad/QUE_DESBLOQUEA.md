@@ -540,6 +540,14 @@ derecho es un objeto y no un bit de una `mmap`.
 esquema que estaba mal descartada, y descartarla mal habria cerrado una puerta
 por un motivo falso.
 
+★ **Las tres piezas, ESCRITAS el 2026-09-23** (sin metal todavia). Con una
+correccion al trazado: no hizo falta `KIND_CODIGO`. La memoria ya era un objeto
+con propietario; bastaba una operacion que cambie su estado, `MEM_OP_SELLAR` sobre
+`KIND_MEMORIA`. Y la garantia de la pieza 3 pedia mas que la PTE: el kernel
+escribia en bloques ajenos por cuatro caminos (`LEER_EN`, `atril`, el DMA, el
+prestamo) y los cuatro se niegan con un bloque sellado. En C:
+`<bmo/codigo.h>`; la prueba: `examples/sello_C.c`.
+
 ---
 
 ## ★ EL ORDEN, por lo que cuesta terminarlo

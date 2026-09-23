@@ -177,6 +177,23 @@ impl Memoria {
     pub fn entregado(&self) -> u64 {
         invoke(self.cap, MEM_OP_BYTES, 0, 0, 0).value
     }
+
+    /// **Sellar: de datos a CODIGO** (W^X, 2026-09-23). Desde aqui el bloque
+    /// se ejecuta y ya no se escribe -- ni desde este proceso ni por el kernel
+    /// en su nombre. Irreversible: para regenerar, otro bloque.
+    ///
+    /// `Err` lleva el motivo (`SELLAR_*`). Un NO sin motivo --un handle que ni
+    /// es de memoria-- se lee como `SELLAR_NO_ES_SUYO`, nunca como un si.
+    pub fn sellar(&self) -> Result<(), u32> {
+        let st = invoke(self.cap, MEM_OP_SELLAR, 0, 0, 0);
+        if st.code == 0 {
+            Ok(())
+        } else if st.flags == 0 {
+            Err(SELLAR_NO_ES_SUYO)
+        } else {
+            Err(st.flags)
+        }
+    }
 }
 
 /// **Lo prestado vuelve al salir del alcance.** Lo residente, no.
