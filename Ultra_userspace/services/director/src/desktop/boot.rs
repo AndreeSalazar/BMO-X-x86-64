@@ -130,7 +130,6 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // de `install`, que lleva el desbordamiento del Ryzen con sus numeros.
     let d = super::install(&p, child_console);
     scene::launcher::paint(&p, &d.launcher);
-    scene::barra::logo(&p);
 
     // ** AQUI NACE EL ESTADO, y de una vez.
     //
@@ -140,8 +139,9 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // deja de ser algo que haya que respetar de memoria.
 
     // Lo que SI era informacion y no instrumento: si la entrada no se pudo
-    // reclamar hay que decirlo, y ahora se dice con palabras en la barra en vez
-    // de con el color de un marco. Un rojo sin texto obliga a saberse el
+    // reclamar hay que decirlo, y ahora se dice con palabras arriba a la
+    // derecha (donde acababa la barra de arriba, que ya no esta) en vez de con
+    // el color de un marco. Un rojo sin texto obliga a saberse el
     // codigo de colores.
     if input.is_none() {
         // El aviso se coloca por su LARGO REAL y no por un numero a ojo: son

@@ -56,11 +56,12 @@ pub(crate) mod foco;
 /// maestro y pila, sin taparse.
 pub(crate) mod mosaico;
 
-/// **La barra lateral aparecio o se fue** (Ctrl+B, HUD 3): el area util y la
+/// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
+/// editor de aspecto; HUD 3 y 5): el area util y la
 /// rejilla cambian, asi que las ventanas se recolocan dentro de lo que queda
 /// (`fit`) y se repinta el escritorio entero. Las ventanas las repinta
 /// `foco::seguir` en la vuelta, al darle por perdido el borde.
-pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla) {
+pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla, estado: &str) {
     dsk.run_box.chrome.fit(p);
     dsk.run_box.relayout();
     // Con el mosaico puesto, el area cambio: que vuelva a repartir.
@@ -78,7 +79,7 @@ pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla) {
             s.repaint_all();
         }
     }
-    crate::repintar_escritorio(p, dsk, "barra lateral");
+    crate::repintar_escritorio(p, dsk, estado);
     dsk.win.foco_pintado = None;
 }
 pub(crate) use boot::boot;

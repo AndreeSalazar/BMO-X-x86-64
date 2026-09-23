@@ -89,12 +89,26 @@ use bmo_userland as bmo;
 
 pub(crate) use amarilla::Lectura;
 
-/// **Refrescar: leer y pintar, en ese orden y sin mezclarlos.**
+pub(crate) use amarilla::Dictamen;
+
+/// Lo que ocupa el reparto, para quien le hace sitio.
+pub(crate) fn verde_ancho() -> u32 {
+    verde::ANCHO
+}
+
+/// **Lo que dice el pulso, con la aguja girada**: para el panel, que lo pinta
+/// con su grafica (`lateral::latido`). Es quien mueve la aguja.
+pub(crate) fn dictamen(l: &Lectura) -> Dictamen {
+    amarilla::leer(l, true)
+}
+
+/// **El reparto, en la linea de instrumentos de CABINA**: leer y pintar, en
+/// ese orden y sin mezclarlos. Devuelve donde acaba. No mueve la aguja.
 ///
 /// Toda la costura del modulo cabe en una linea, y eso no es casualidad: es lo
 /// que demuestra que el corte estaba donde tenia que estar. Si aqui hiciera
 /// falta logica, el corte seria otro.
-pub(crate) fn refrescar(p: &bmo::Pantalla, l: &Lectura) {
-    verde::pintar(p, &amarilla::leer(l));
+pub(crate) fn detalle(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32, l: &Lectura) -> u32 {
+    verde::pintar(p, x, y, fondo, &amarilla::leer(l, false))
 }
 

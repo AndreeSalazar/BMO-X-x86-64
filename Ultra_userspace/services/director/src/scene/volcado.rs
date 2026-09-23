@@ -53,13 +53,16 @@
 use bmo_userland as bmo;
 
 use super::huella::{cambio, Huella};
-use super::{chip_box, INK, INK_DIM};
+use super::{INK, INK_DIM};
 use crate::text::decimal;
 
-/// Va detras del pulso, que ocupa 400 px desde `TRAS_TESTIGO`.
-const TRAS_PULSO: u32 = 176 + 400 + 8;
 /// Lo que ocupa: `volcado 12K pico 8100K cajas 3` mas margen.
-const ANCHO: u32 = 300;
+///
+/// ** Desde el 2026-09-22 vive en la linea de instrumentos de CABINA, detras
+/// del reparto del pulso: la barra de arriba, donde iba, se fundio en el panel
+/// de la izquierda, y esto es de los dias de cazar averias. El sitio lo pone
+/// `cabina::instrumentos`.
+pub(crate) const ANCHO: u32 = 300;
 
 /// Por encima de esto, el volcado dejo de ser troceado y es la pantalla entera.
 ///
@@ -71,7 +74,7 @@ const PEOR_QUE_GRITA_KIB: u64 = 1024;
 /// Lo ultimo que se pinto. Ver [`super::huella`].
 static mut HUELLA: Huella = Huella::nueva();
 
-/// **Olvida lo pintado.** Lo llama [`super::olvidar_la_barra`].
+/// **Olvida lo pintado.** Lo llama `cabina::paint`, que pinta la linea debajo.
 pub(crate) fn olvidar() {
     super::huella::olvidar(unsafe { &mut *core::ptr::addr_of_mut!(HUELLA) });
 }
@@ -89,7 +92,7 @@ fn firma(v: &bmo::Volcado) -> u64 {
 }
 
 /// **Pinta lo que cuesta el peor fotograma.** Se llama en las vueltas que pintan.
-pub(crate) fn refrescar(p: &bmo::Pantalla, v: &bmo::Volcado) {
+pub(crate) fn refrescar(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32, v: &bmo::Volcado) {
     // ** NO SE REPINTA LO QUE YA ESTA. `peor` es un maximo --sube y se queda-- y
     // `cajas` cambia con el. O sea que este chip cambia unas pocas veces en toda
     // una sesion y se estaba redibujando en cada fotograma que pinta: 6.000
@@ -97,18 +100,11 @@ pub(crate) fn refrescar(p: &bmo::Pantalla, v: &bmo::Volcado) {
     if !cambio(unsafe { &mut *core::ptr::addr_of_mut!(HUELLA) }, firma(v)) {
         return;
     }
-    let (x0, y, _, h) = chip_box(super::testigo::ranura());
-    let x = x0 + TRAS_PULSO;
-    // Misma regla que el pulso y el testigo: si no cabe, no se pinta. Pintar
-    // encima de otra cosa es peor que no pintar.
-    if x + ANCHO >= p.ancho {
-        return;
-    }
     // ** La raya que lo separa del instrumento de la izquierda. Sin ella los
     // tres se leen como un solo parrafo de numeros. Ver `scene::SEPARADOR`.
-    p.rect(x - 5, y + 4, 1, h.saturating_sub(8), crate::scene::SEPARADOR);
-    p.rect(x, y, ANCHO, h, super::barra::fondo());
-    let ty = y + (h.saturating_sub(bmo::GLIFO_ALTO)) / 2;
+    p.rect(x - 5, y, 1, bmo::GLIFO_ALTO, crate::scene::SEPARADOR);
+    p.rect(x, y, ANCHO, bmo::GLIFO_ALTO, fondo);
+    let ty = y;
     let tx = p.texto(x + 4, ty, "volcado ", INK_DIM);
 
     // == *** EL MODO VA PRIMERO, Y ES EL HECHO MAS DECISIVO (2026-09-09) ===

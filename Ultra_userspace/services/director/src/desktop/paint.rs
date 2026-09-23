@@ -284,10 +284,12 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         }
     }
 
-    // -- Las FICHAS de la barra --
+    // -- Las FICHAS del panel --
     //
-    // Se repintan solo cuando algo cambia de estado. Son la lista de lo que
-    // hay abierto, y la unica forma de volver a una ventana minimizada.
+    // Son la lista de lo que hay abierto, y la unica forma de volver a una
+    // ventana minimizada con el raton. Iban en la barra de arriba; desde el
+    // 2026-09-22 van en vertical en el panel de la izquierda, que las repinta
+    // SOLO si la lista cambio (`lateral::fichas`).
     //
     // * Lo que las ensucia se calcula AQUI, comparando el estado con el del
     // fotograma anterior, en vez de poner `taskbar_dirty = true` en los seis
@@ -307,88 +309,73 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         dsk.win.taskbar_dirty = true;
     }
     if dsk.win.taskbar_dirty && dsk.tick.will_paint && !fs {
-        scene::paint_chip(&p, 0, "Ejecutar", acento(), dsk.win.visible && dsk.win.top_before == Ventana::Run, !dsk.win.visible);
+        use scene::lateral::{Ficha, MAX_FICHAS};
+        let mut lista = [Ficha::VACIA; MAX_FICHAS];
+        let mut n = 0usize;
+        let mut pon = |f: Ficha| {
+            if n < MAX_FICHAS {
+                lista[n] = f;
+                n += 1;
+            }
+        };
+        pon(Ficha {
+            v: Ventana::Run,
+            nombre: "Ejecutar",
+            color: acento(),
+            activa: dsk.win.visible && dsk.win.top_before == Ventana::Run,
+            minimizada: !dsk.win.visible,
+        });
+        // ESTRATOS solo mientras esta abierta: una ficha que se queda tras
+        // cerrar la ventana promete algo que ya no esta.
         if dsk.win.data_open {
-            scene::paint_chip(
-                &p, 1, "ESTRATOS", 0x0034_D399,
-                dsk.win.top_before == Ventana::Data, dsk.win.data.chrome.minimized,
-            );
-        } else {
-            // Cerrada: su hueco vuelve al color de la barra. Una ficha que
-            // se queda tras cerrar la ventana promete algo que ya no esta.
-            let (fx, fy, fw, fh) = scene::chip_box(1);
-            p.rect(fx, fy, fw, fh, scene::barra::fondo());
+            pon(Ficha {
+                v: Ventana::Data,
+                nombre: "ESTRATOS",
+                color: 0x0034_D399,
+                activa: dsk.win.top_before == Ventana::Data,
+                minimizada: dsk.win.data.chrome.minimized,
+            });
         }
         // -- ** CABINA: LA UNICA FICHA QUE ESTA SIEMPRE --
         //
-        // Las otras dos aparecen cuando su ventana existe. Esta no, y el
-        // motivo es el dia que la puso: **el teclado dejo de escribir y con
-        // el se fue la unica forma de diagnosticarlo**. CABINA vivia detras
-        // de F11, `guarda` detras de escribir, y el raton --que seguia
-        // funcionando perfectamente-- no podia abrir nada.
-        //
-        // Un panel de diagnostico al que solo se llega con el aparato que
-        // puede estar roto no es un panel de diagnostico. Asi que esta ficha
-        // se pinta aunque la ventana este cerrada: es la puerta, no el
-        // recordatorio.
-        scene::paint_chip(
-            &p, 2, "CABINA", 0x00F5_9E0B,
-            dsk.win.cabina_open && dsk.win.top_before == Ventana::Cabina,
-            !dsk.win.cabina_open,
-        );
+        // Las otras aparecen cuando su ventana existe. Esta no, y el motivo es
+        // el dia que la puso: **el teclado dejo de escribir y con el se fue la
+        // unica forma de diagnosticarlo**. Un panel de diagnostico al que solo
+        // se llega con el aparato que puede estar roto no es un panel de
+        // diagnostico. Asi que la ficha esta aunque la ventana este cerrada:
+        // es la puerta, no el recordatorio.
+        pon(Ficha {
+            v: Ventana::Cabina,
+            nombre: "CABINA",
+            color: 0x00F5_9E0B,
+            activa: dsk.win.cabina_open && dsk.win.top_before == Ventana::Cabina,
+            minimizada: !dsk.win.cabina_open,
+        });
         // -- ** LAS FICHAS DE LAS APPS (2026-09-12) --
         //
         // Una por app abierta, detras de CABINA. Sin ellas, minimizar una app
         // era perderla: DOOM minimizado no tenia ficha ni volvia con Alt+Tab.
-        //
-        // Si cambia CUANTAS hay, los instrumentos se corren: se borra la tira
-        // entera desde la primera ficha de app hasta el borde, y los
-        // instrumentos se vuelven a pintar en su sitio nuevo con
-        // `olvidar_la_barra` de abajo. Sin el borrado quedaria el testigo viejo
-        // asomando detras del nuevo.
-        let (fichas, n) = dsk.table.fichas();
-        if n as u32 != scene::apps_en_barra() {
-            let (fx, fy, _, fh) = scene::chip_box(scene::FICHA_APPS);
-            // Hasta donde acaba la BARRA y no hasta el borde de la pantalla:
-            // detras de la pastilla hay hueco de fondo, y pintarlo del color de
-            // la barra le comeria la esquina.
-            p.rect(fx, fy, scene::barra::derecha().saturating_sub(fx + 10), fh, scene::barra::fondo());
-            scene::poner_apps_en_barra(n as u32);
-        }
-        for (k, &hueco) in fichas[..n].iter().enumerate() {
+        let (fichas, k) = dsk.table.fichas();
+        for &hueco in &fichas[..k] {
             let v = Ventana::App(hueco as u8);
-            scene::paint_chip(
-                &p,
-                scene::FICHA_APPS + k as u32,
-                v.nombre(),
-                0x0060_A5FA,
-                dsk.win.focus.actual() == Some(v),
-                dsk.table.minimizada(hueco),
-            );
+            pon(Ficha {
+                v,
+                nombre: v.nombre(),
+                color: 0x0060_A5FA,
+                activa: dsk.win.focus.actual() == Some(v),
+                minimizada: dsk.table.minimizada(hueco),
+            });
         }
-        // El testigo del USB vive en la misma barra, en la ranura siguiente a
-        // CABINA. Repintar las fichas no lo toca --esta despues-- pero SI lo
-        // tapa lo que repinta la barra entera, y de ahi se vuelve por aqui:
-        // `taskbar_dirty` es la signal comun de "la barra se ha vuelto a
-        // pintar". Olvidando lo pintado, la luz se dibuja en la vuelta
-        // siguiente.
-        //
-        // Un hueco vacio donde estaba la luz se lee como "no hay problema", que
-        // es la peor cosa que puede decir un instrumento que se borro.
-        // ** UNA llamada para los tres, y la lista vive en `scene`. Ver
-        // `scene::olvidar_la_barra`: tres olvidos repartidos por aqui es
-        // como se agrega un chip y se olvida el suyo.
-        scene::olvidar_la_barra();
+        scene::lateral::fichas(&lista[..n]);
         dsk.win.taskbar_dirty = false;
     }
-    // ** LOS WIDGETS de la derecha: se recalculan una vez por segundo y solo se
-    // repintan si su texto cambio. Ver `scene::barra`.
+    // ** EL PANEL (HUD 3 y 5): lo que haya que repintar de el --entero si se
+    // dio por perdido, las fichas si cambiaron, el reloj si cambio el minuto--
+    // y cuatro veces por segundo la muestra de sus instrumentos.
     if dsk.tick.will_paint && !fs {
-        scene::barra::widgets(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete));
-        // HUD 3: la barra lateral toma su muestra (4 por segundo) y se repinta.
-        scene::lateral::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete), dsk.tick.loops_per_second);
-        // Y el MAESTRO: su indicador en la barra y, si el panel esta abierto,
-        // su medidor. Se mira a su propio ritmo, no al de estos widgets.
+        scene::lateral::latido(&p, dsk.tick.consumo.ultimo.map(|c| c.mw_paquete), &dsk.tick.lectura_pulso());
+        // Y el MAESTRO: su indicador al pie del panel y, si su ventana esta
+        // abierta, su medidor. Se mira a su propio ritmo, no al del panel.
         crate::desktop::sonido::latido(dsk, &p);
     }
 
@@ -532,28 +519,15 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // flanco que se levanta en una vuelta que no pinta no lo veria nadie.
     if dsk.tick.will_paint {
         scene::testigo::refrescar(&p, dsk.tick.quarter_cycles());
-        // ** EL PULSO, al lado del testigo y por el mismo motivo que el.
-        //
-        // `loops_per_second` existia y solo se pintaba DENTRO de las ventanas
-        // de CPU y memoria, que se abren con una tecla. O sea que el unico
-        // numero que dice si el escritorio esta vivo estaba detras de la cosa
-        // cuya muerte hay que diagnosticar. Ver la cabecera de `scene::pulso`.
-        // ** Y VA LA LECTURA ENTERA, no solo el numero: sin reloj el numero no
-        // significa nada, y sin el reparto no se sabe si el segundo se GASTA o
-        // se ESPERA. Armarla es trabajo del modulo --`pulso::de`-- y no de
-        // aqui: este fichero es el que menos tiene que saber de las dos cosas.
-        scene::pulso::refrescar(&p, &dsk.tick.lectura_pulso());
-        // ** Y AL LADO, LO QUE CUESTA EL FOTOGRAMA. El pulso dice el TIEMPO
-        // --`cuerpo`-- y esto los BYTES; uno sin el otro no distingue "mucho"
-        // de "lento", que es justo la pregunta abierta del 08-09. Ver la
-        // cabecera de `scene::volcado`.
-        scene::volcado::refrescar(&p, &p.volcado());
-        // ** Y DONDE EMPIEZA LA LATENCIA: el ritmo del bus de entrada. El
-        // pulso y el volcado dicen lo que cuesta el fotograma; esto dice lo
-        // que se tarda en ENTERARSE de que hay que hacer uno, que es el
-        // primer sumando de la mano al pixel y no lo pone el compositor.
-        // Ver `scene::entrada` y `docs/plan/PLAN_EL_PIXEL.md`.
-        scene::entrada::refrescar(&p);
+        // ** LOS INSTRUMENTOS DE DIAGNOSTICO, en CABINA (2026-09-22): el
+        // reparto del pulso, el volcado y la entrada iban al lado de esta luz, en
+        // la barra de arriba, y la barra se fundio en el panel. Van donde se
+        // mira cuando algo va mal, y SOLO con CABINA delante: pintar encima de
+        // la ventana que la tapa seria peor que no pintar. El pulso con su
+        // aguja --lo que dice si el escritorio vive-- se quedo en el panel.
+        if dsk.win.cabina_open && dsk.win.top_before == Ventana::Cabina && !fs {
+            scene::cabina::instrumentos(&p, &dsk.win.cabina, &dsk.tick.lectura_pulso(), &p.volcado());
+        }
     }
 
     // -- El cursor del raton, ENCIMA de todo y lo ultimo --

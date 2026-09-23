@@ -80,7 +80,7 @@ const SEV_NAME: [&str; 5] = ["info", "trace", " AVISO", " FALLO", " PANICO"];
 /// se puede redimensionar, y una cuenta fija dejaria filas pintadas fuera o
 /// hueco vacio dentro.
 fn visible_rows(chrome: &Chrome) -> usize {
-    let usable = chrome.height.saturating_sub(TITLE_H + 44);
+    let usable = chrome.height.saturating_sub(TITLE_H + 44 + LINEA_INSTRUMENTOS);
     (usable / (bmo::GLIFO_ALTO + 3)) as usize
 }
 
@@ -324,6 +324,14 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
         i += 1;
     }
 
+    // -- La linea de instrumentos: se deja en blanco y se da por perdida, y
+    // `instrumentos` la escribe en la vuelta siguiente (ver abajo).
+    let (ix, iy, iw) = linea_instrumentos(c);
+    p.rect(ix, iy, iw, bmo::GLIFO_ALTO, CAB_BG);
+    super::volcado::olvidar();
+    super::entrada::olvidar();
+    unsafe { INSTR_PROXIMO = 0 };
+
     // -- La barra de atajos, del mismo estilo que las demas -------------
     let by = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
     p.texto(
@@ -332,6 +340,68 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &CabinaWindow) {
         "G gravedad   RePag/AvPag historia   arrastra el titulo   ESC cierra",
         CYAN_DIM,
     );
+}
+
+// ===================================================================
+//  LA LINEA DE INSTRUMENTOS (2026-09-22)
+// ===================================================================
+
+/// Lo que la linea le quita a los eventos: su renglon y su aire.
+const LINEA_INSTRUMENTOS: u32 = bmo::GLIFO_ALTO + 8;
+
+/// Cuando toca el refresco siguiente, en ciclos. 0 = ya.
+static mut INSTR_PROXIMO: u64 = 0;
+
+/// `(x, y, ancho)` de la linea: encima del pie de atajos.
+fn linea_instrumentos(c: &CabinaWindow) -> (u32, u32, u32) {
+    let by = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
+    (c.chrome.x + 16, by.saturating_sub(LINEA_INSTRUMENTOS), c.chrome.width.saturating_sub(32))
+}
+
+/// **Los instrumentos de diagnostico, en CABINA**: el reparto del pulso, el
+/// volcado y la entrada.
+///
+/// Vivian en la barra de arriba, siempre a la vista, desde los dias de cazar
+/// averias --el 08-09 el pulso, el 09-09 el volcado y la entrada-- y eran casi
+/// mil cien pixeles de numeros encima de todo. La barra se fundio en el panel
+/// de la izquierda (HUD 5), y estos vinieron aqui: CABINA es *lo que el kernel
+/// ve*, y es donde se mira cuando algo va lento o mal. Lo que no se puede
+/// perder de vista --el pulso con su aguja y la luz del bus-- se quedo en el
+/// panel.
+///
+/// Se refresca cuatro veces por segundo y SOLO con CABINA delante: lo decide
+/// quien llama (`desktop::paint`), que es quien sabe el orden de las ventanas.
+/// Pintar encima de una ventana que la tapa seria peor que no pintar. Cada
+/// trozo que no cabe en el ancho de la ventana se calla: se estira y aparece.
+pub(crate) fn instrumentos(
+    p: &bmo::Pantalla,
+    c: &CabinaWindow,
+    l: &super::pulso::Lectura,
+    v: &bmo::Volcado,
+) {
+    if c.chrome.minimized {
+        return;
+    }
+    let ahora = bmo::ciclos();
+    if ahora < unsafe { INSTR_PROXIMO } {
+        return;
+    }
+    unsafe { INSTR_PROXIMO = ahora + bmo::info(bmo::INFO_TSC_HZ).max(1) / 4 };
+    let (x, y, ancho) = linea_instrumentos(c);
+    let fin = x + ancho;
+    if x + super::pulso::verde_ancho() > fin {
+        return;
+    }
+    let x = super::pulso::detalle(p, x, y, CAB_BG, l) + 10;
+    if x + super::volcado::ANCHO > fin {
+        return;
+    }
+    super::volcado::refrescar(p, x, y, CAB_BG, v);
+    let x = x + super::volcado::ANCHO + 10;
+    if x + super::entrada::ANCHO > fin {
+        return;
+    }
+    super::entrada::refrescar(p, x, y, CAB_BG);
 }
 
 /// `AAAA-MM-DD HH:MM` de la placa. Devuelve 0 si la maquina no sabe que dia es.

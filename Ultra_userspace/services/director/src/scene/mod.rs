@@ -16,8 +16,8 @@ use bmo_userland as bmo;
 /// **La ventana de CABINA** (F11): lo que el kernel ve, con su gravedad y en
 /// su color. Sustituye a la del klog, que era texto plano sin severidad.
 /// F7 y F8: lo que la maquina esta haciendo AHORA, cada uno en su ventana.
-/// **EL PULSO**: cuantas vueltas da el escritorio por segundo, en la barra y
-/// sin abrir nada. Su cabecera cuenta las seis hipotesis que costo no tenerlo.
+/// **EL PULSO**: cuantas vueltas da el escritorio por segundo, en el panel y
+/// sin abrir nada (el reparto, en CABINA). Su cabecera cuenta las seis hipotesis que costo no tenerlo.
 pub(crate) mod pulso;
 pub(crate) mod vitals;
 pub(crate) mod cabina;
@@ -41,8 +41,6 @@ pub(crate) mod fondo;
 pub(crate) mod dirty;
 /// Los pictogramas de cada clase de fichero (app, imagen, audio, texto).
 pub(crate) mod pictos;
-/// LA BARRA: la pastilla flotante, su modelo de color y los widgets.
-pub(crate) mod barra;
 /// CON QUE SE ABRE CADA COSA: la tabla de tipos que leen el explorador y la
 /// biblioteca. Agregar un tipo es una fila (2026-09-13).
 pub(crate) mod asociaciones;
@@ -84,7 +82,7 @@ pub(crate) mod chrome;
 /// marcando iconos sin abrir ninguno.
 pub(crate) mod double_click;
 pub(crate) mod output;
-/// **La luz del bus USB en la barra**: si el teclado se muere, se ve sin abrir
+/// **La luz del bus USB en el panel**: si el teclado se muere, se ve sin abrir
 /// nada. E6 de `docs/componente/EL_TECLADO_EXIGE.md`.
 pub(crate) mod testigo;
 /// **Lo que cuesta empujar un fotograma.** El par (peor, cajas) que decide
@@ -97,35 +95,8 @@ pub(crate) mod huella;
 /// Donde empieza la latencia: el ritmo del bus de entrada.
 pub(crate) mod entrada;
 
-/// **Olvidar lo pintado en la barra**, porque alguien la repinto por debajo.
-///
-/// == *** POR QUE ESTA EN UN SOLO SITIO ====================================
-///
-/// Los chips de la barra solo se repintan cuando su contenido cambia (ver
-/// [`huella`]). Eso trae una trampa que `testigo` ya se encontro en agosto: si
-/// alguien pinta la barra ENTERA por debajo, el chip sigue creyendo que su
-/// dibujo esta ahi, y lo que queda es un hueco.
-///
-/// > Un hueco vacio donde estaba la luz se lee como *"no hay problema"*, que es
-/// > la peor cosa que puede decir un instrumento que se borro.
-///
-/// ** Tres llamadas repartidas por `paint.rs` es exactamente como se agrega un
-/// cuarto chip y se olvida la suya -- y ese fallo no da error: da un hueco. Aqui
-/// la lista esta en un sitio, y el que anada el quinto la ve.
-pub(crate) fn olvidar_la_barra() {
-    testigo::olvidar();
-    volcado::olvidar();
-    entrada::olvidar();
-    barra::olvidar();
-    sound::olvidar_barra();
-    // [!] EL PULSO NO ESTA, y no es un olvido: no lleva huella. Su aguja es la
-    // prueba de vida del bucle, asi que **tiene que repintarse siempre** --su
-    // propio `amarilla.rs` lo dice desde el 08-09: *"lo que se muestra no es el
-    // valor, es que haya latido"*. Un chip que se calla cuando no cambia nada
-    // seria, justo aqui, un chip que se calla cuando el bucle se muere.
-}
-/// **El SONIDO: el maestro en el escritorio** (F10 y el indicador de la
-/// barra). Ya NO reclama `KIND_AUDIO`: manda por `OP_AUDIO_MANDO`, que convive
+/// **El SONIDO: el maestro en el escritorio** (F10 y el indicador del
+/// panel). Ya NO reclama `KIND_AUDIO`: manda por `OP_AUDIO_MANDO`, que convive
 /// con quien este sonando. Ver la cabecera del modulo.
 pub(crate) mod sound;
 
@@ -164,33 +135,14 @@ pub(crate) const BG_TOP: u32 = 0x001B_2233;
 pub(crate) const BG_BOTTOM: u32 = 0x000C_0F17;
 /// El color de referencia cuando hace falta uno solo (bordes de mezcla).
 pub(crate) const BG: u32 = 0x0014_1A28;
-/// La barra de arriba. Mas oscura que el escritorio a proposito: una barra de
-/// sistema se lee como un borde de la pantalla, no como una ventana.
+/// El panel de la izquierda (era la barra de arriba). Mas oscuro que el
+/// escritorio a proposito: una barra de sistema se lee como un borde de la
+/// pantalla, no como una ventana.
 pub(crate) const TASKBAR: u32 = 0x000F_131D;
-/// El pelo de luz bajo la barra. Un borde entero seria una raya; esto separa.
+/// El pelo de luz del borde del panel. Un borde entero seria una raya; esto separa.
 pub(crate) const TASKBAR_LINE: u32 = 0x0026_2F42;
 
-/// **El filo de arriba de la barra**, un punto mas claro que ella.
-///
-/// === Por que esto y no un desenfoque ===
-///
-/// El propietario lo pidio *"inspirado en Wayland con blur"*, y la respuesta honesta
-/// es que **aqui un desenfoque no se veria**: desenfocar necesita TEXTURA, y
-/// detras de la barra hay un degradado vertical que en sus 40 filas varia un
-/// 4 %. El desenfoque de un degradado es el mismo degradado.
-///
-/// ** Lo que de verdad hace que un panel de Wayland se vea despegado del fondo
-/// no es el desenfoque: es el FILO. Una linea de un pixel mas clara arriba y
-/// una mas oscura abajo, y el ojo lee "esto esta encima". Cuesta dos `rect` y
-/// se nota en la foto; un desenfoque de caja costaria recorrer 76.800 pixeles
-/// tres veces para no verse.
-///
-/// [!] El dia que haya un FONDO DE ESCRITORIO de verdad --una imagen-- el
-/// desenfoque pasa a tener sentido, y entonces se hace UNA vez: el fondo no
-/// cambia, asi que su version borrosa tampoco.
-pub(crate) const TASKBAR_TOP: u32 = 0x001C_2334;
-
-/// La raya que separa dos grupos de instrumentos en la barra.
+/// La raya que separa dos grupos de instrumentos en la linea de CABINA.
 ///
 /// Un grupo pegado a otro se lee como un solo bloque de texto. Con esto, el
 /// pulso, el volcado y la entrada se ven como TRES cosas, que es lo que son.
@@ -207,8 +159,6 @@ pub(crate) const ACCENT_BASE: u32 = tema_gen::ACCENT;
 pub(crate) fn acento() -> u32 {
     estilo::estilo().acento
 }
-
-pub(crate) const TASKBAR_H: u32 = 40;
 
 // -- Esquinas redondeadas ------------------------------------------------
 //
@@ -329,99 +279,7 @@ pub(crate) fn background_at(x: u32, y: u32, height: u32) -> u32 {
     mezcla(arriba, abajo, 16) | mezcla(arriba, abajo, 8) | mezcla(arriba, abajo, 0)
 }
 
-// -- Las FICHAS de la barra ----------------------------------------------
-//
-// ** Sin esto, minimizar es un boton de "desaparece para siempre".
-//
-// Una ventana minimizada sigue abierta --conserva su sitio, su medida y lo que
-// estuvieras mirando-- pero no se ve. Si no hay donde encontrarla, ese estado no
-// se distingue de haberla cerrado, y el boton miente sobre lo que hace.
-//
-// La barra de arriba lleva una ficha por ventana abierta: la activa realzada,
-// la minimizada apagada. Un clic la trae. Es lo que hacen Windows 11 y GNOME, y
-// es lo que convierte tres ventanas sueltas en un escritorio.
-
-pub(crate) const CHIP_H: u32 = 24;
-pub(crate) const CHIP_W: u32 = 128;
-/// Donde empiezan, dejando sitio al logotipo de la izquierda.
-pub(crate) const FICHA_X: u32 = 120;
-
-/// El rectangulo de la ficha numero `i`.
-pub(crate) fn chip_box(i: u32) -> (u32, u32, u32, u32) {
-    (FICHA_X + i * (CHIP_W + 8), (TASKBAR_H - CHIP_H) / 2, CHIP_W, CHIP_H)
-}
-
-/// Sobre que ficha esta el puntero, si sobre alguna. `count` es cuantas hay.
-pub(crate) fn chip_at(px: u32, py: u32, count: u32) -> Option<u32> {
-    for i in 0..count {
-        let (x, y, w, h) = chip_box(i);
-        if px >= x && px < x + w && py >= y && py < y + h {
-            return Some(i);
-        }
-    }
-    None
-}
-
-/// ** DONDE EMPIEZAN LAS FICHAS DE LAS APPS: justo detras de CABINA (2026-09-12).
-///
-/// Hasta hoy la barra tenia tres fichas FIJAS -- Ejecutar, ESTRATOS y CABINA --
-/// y una app no tenia ninguna. Minimizar DOOM lo hacia desaparecer: ni ficha,
-/// y Alt+Tab lo nombraba "App 1" pero soltarlo encima no lo traia. El propietario:
-/// *"al minimizar no encontre la app, ni en Alt+Tab, es como que se desaparecio"*.
-///
-/// Van ANTES que los instrumentos (el testigo del USB y los que se pintan a su
-/// derecha), y esos se corren: una ventana perdida es peor que un instrumento
-/// que no cabe, y los instrumentos ya saben encogerse o callarse.
-pub(crate) const FICHA_APPS: u32 = 3;
-
-/// Cuantas fichas de apps hay pintadas ahora. Lo pone quien las pinta y lo
-/// leen los instrumentos para saber donde empieza su ranura.
-///
-/// ** Un atomico y no un argumento, a proposito: los instrumentos se pintan
-/// desde cuatro sitios y cada uno se llama por su cuenta. Pasarles el numero
-/// seria tocar cuatro firmas para leer una cifra que solo cambia al abrir o
-/// cerrar una app. Un escritor (`paint.rs`), varios lectores.
-static APPS_EN_BARRA: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
-
-pub(crate) fn apps_en_barra() -> u32 {
-    APPS_EN_BARRA.load(core::sync::atomic::Ordering::Relaxed)
-}
-
-pub(crate) fn poner_apps_en_barra(n: u32) {
-    APPS_EN_BARRA.store(n, core::sync::atomic::Ordering::Relaxed);
-}
-
-/// Pinta una ficha. `color` es el de su ventana -- el mismo idioma que el punto
-/// de su barra de titulo, para que se sepa cual es sin leerla.
-pub(crate) fn paint_chip(
-    p: &bmo::Pantalla,
-    i: u32,
-    name: &str,
-    color: u32,
-    active: bool,
-    minimized: bool,
-) {
-    let (x, y, w, h) = chip_box(i);
-    // Tres estados y tres aspectos. Dos que se vieran igual serian dos que no
-    // se pueden distinguir de un vistazo, que es para lo que esta la barra.
-    let fondo = if active { 0x001F_2838 } else { barra::fondo() };
-    p.rect(x, y, w, h, fondo);
-    if active {
-        // La activa lleva su subrayado, como las solapas de Datos. Mismo
-        // idioma en toda la pantalla.
-        p.rect(x, y + h - 2, w, 2, color);
-    }
-    // El punto de color se apaga si esta minimizada: es la signal de "esta ahi
-    // pero no se ve", y se lee sin texto.
-    let punto = if minimized { INK_DIM } else { color };
-    p.rect(x + 8, y + (h - 8) / 2, 8, 8, punto);
-    let ink = if minimized { INK_DIM } else { INK };
-    let fits = ((w - 26) / bmo::GLIFO_ANCHO) as usize;
-    let n = name.len().min(fits);
-    p.texto(x + 22, y + (h - bmo::GLIFO_ALTO) / 2, &name[..n], ink);
-}
-
-/// Pinta el escritorio entero: degradado y barra.
+/// Pinta el escritorio entero: el degradado. El panel lo pinta el suyo.
 pub(crate) fn paint_background(p: &bmo::Pantalla) {
     // ** PRIMERO se limpia el lienzo ENTERO, y esto no es de mas.
     //
@@ -451,12 +309,9 @@ pub(crate) fn paint_background(p: &bmo::Pantalla) {
         p.rect(0, y, p.ancho, height, background_at(0, y, p.alto));
         y += height;
     }
-    // ** LA BARRA la pinta `barra`, que es tambien quien contesta por su color
-    // al borrar el cursor: la pastilla flotante o la tira de siempre, segun
-    // `sys/director.cfg`. El filo de `TASKBAR_TOP` sigue en la de siempre.
-    barra::pintar(p);
-    // Y la barra lateral se ha quedado debajo del fondo: la vuelta siguiente
-    // la pinta entera (HUD 3).
+    // ** EL PANEL se ha quedado debajo del fondo: la vuelta siguiente lo pinta
+    // entero, con la luz del bus y el vol (HUD 5). Era `barra::pintar`, la
+    // barra de arriba, que se fundio en el panel el 2026-09-22.
     lateral::olvidar();
 }
 
@@ -680,12 +535,8 @@ impl RunBox {
 /// Sabe de rectangulos, no de letras. Por eso `borrar_cursor` avisa cuando ha
 /// pasado por encima de la caja: el texto hay que volver a escribirlo.
 pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32) -> u32 {
-    if y < TASKBAR_H {
-        // La barra contesta por si misma: la pastilla, su borde, la marca y los
-        // huecos de fondo. Ver `barra::color_en`.
-        return barra::color_en(x, y, height);
-    }
-    // Y la barra lateral, igual: su pastilla y su borde (HUD 3).
+    // El panel contesta por si mismo: la pastilla, su borde, la marca y la
+    // tira. Ver `lateral::color_en`.
     if let Some(col) = lateral::color_en(x, y, height) {
         return col;
     }

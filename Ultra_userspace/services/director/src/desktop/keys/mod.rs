@@ -210,6 +210,11 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
             }
         }
         dsk.win.switcher_painted = false;
+        // En una pantalla estrecha el conmutador pisa el panel, y `scene_color`
+        // solo sabe su fondo: lo escrito encima se da por perdido.
+        if bx < scene::lateral::margen() {
+            scene::lateral::olvidar();
+        }
         // Lo que tapaba vuelve a pintarse entero, **de abajo arriba**:
         // es el unico orden que deja la pantalla como estaba. Y quien
         // va arriba lo acaba de decidir el Alt que se solto.

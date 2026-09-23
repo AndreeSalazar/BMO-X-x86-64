@@ -133,13 +133,16 @@ impl SoundWindow {
         }
     }
 
-    /// **Al abrirla desde la barra, debajo del indicador**: arriba a la
-    /// derecha, que es de donde se pidio. Con F10 se queda donde estuviera.
+    /// **Al abrirla desde el panel, al lado del indicador**: pegada al panel y
+    /// con el pie a la altura del vol, que es de donde se pidio. Con F10 se
+    /// queda donde estuviera.
     pub(crate) fn junto_a_la_barra(&mut self, p: &bmo::Pantalla) {
-        let (bx, _, bw, _) = barra_caja();
-        let fin = (bx + bw).min(p.ancho.saturating_sub(8));
-        self.chrome.x = fin.saturating_sub(self.chrome.width);
-        self.chrome.y = TASKBAR_H + 10;
+        let pie = match barra_caja(p.alto) {
+            Some((_, by, _, bh)) => by + bh,
+            None => p.alto.saturating_sub(8),
+        };
+        self.chrome.x = super::lateral::margen() + super::chrome::HUECO;
+        self.chrome.y = pie.saturating_sub(self.chrome.height).max(super::chrome::HUECO);
     }
 }
 
@@ -834,21 +837,20 @@ fn cabecera_si_cambia(p: &bmo::Pantalla, s: &Sitio, l: &Lectura, panel: &Panel) 
 /// Letras del texto del indicador: `vol +24.0` son nueve.
 const BARRA_LETRAS: u32 = 9;
 
-/// `(x, y, ancho, alto)` del indicador: a la izquierda de los widgets.
-pub(crate) fn barra_caja() -> (u32, u32, u32, u32) {
-    let (_, by, _, bh) = super::barra::caja();
-    let fin = super::barra::derecha()
-        .saturating_sub(14)
-        .saturating_sub(super::barra::ZONA)
-        .saturating_sub(10);
-    let w = BARRA_LETRAS * bmo::GLIFO_ANCHO + 8 + 5 + 2 + 5;
-    (fin.saturating_sub(w), by + 2, w, bh.saturating_sub(4))
+/// `(x, y, ancho, alto)` del indicador: al pie del panel de la izquierda
+/// (2026-09-22; iba a la derecha de la barra de arriba, que se fundio en el
+/// panel). `None` con el panel escondido: entonces no hay indicador, y el
+/// maestro sigue en F10.
+pub(crate) fn barra_caja(alto: u32) -> Option<(u32, u32, u32, u32)> {
+    super::lateral::caja_vol(alto)
 }
 
 /// El puntero esta sobre el indicador?
-pub(crate) fn en_la_barra(x: u32, y: u32) -> bool {
-    let (bx, by, bw, bh) = barra_caja();
-    x >= bx && x < bx + bw && y >= by && y < by + bh
+pub(crate) fn en_la_barra(x: u32, y: u32, alto: u32) -> bool {
+    match barra_caja(alto) {
+        Some((bx, by, bw, bh)) => x >= bx && x < bx + bw && y >= by && y < by + bh,
+        None => false,
+    }
 }
 
 static mut BARRA_VISTA: Option<([u8; 12], usize, [u32; 2])> = None;
@@ -860,7 +862,9 @@ pub(crate) fn olvidar_barra() {
 
 /// **Pinta el indicador de la barra**, si cambio lo que dice.
 pub(crate) fn barra(p: &bmo::Pantalla, l: &Lectura) {
-    let (bx, by, bw, bh) = barra_caja();
+    let Some((bx, by, bw, bh)) = barra_caja(p.alto) else {
+        return;
+    };
     let mut t = [0u8; 12];
     let mut n = 0;
     pon(b"vol ", &mut t, &mut n);
@@ -882,8 +886,8 @@ pub(crate) fn barra(p: &bmo::Pantalla, l: &Lectura) {
     }
     *vista = Some((t, n, barras));
 
-    p.rect(bx, by, bw, bh, super::barra::fondo());
-    let ty = (TASKBAR_H - bmo::GLIFO_ALTO) / 2;
+    p.rect(bx, by, bw, bh, super::estilo::estilo().barra_fondo);
+    let ty = by + (bh.saturating_sub(bmo::GLIFO_ALTO)) / 2;
     let x = p.texto_bytes(bx + 2, ty, &t[..4], INK_DIM);
     let color = if l.mudo {
         ROJO

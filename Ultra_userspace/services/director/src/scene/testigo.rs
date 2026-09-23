@@ -50,29 +50,14 @@
 
 use bmo_userland as bmo;
 
-use super::{chip_box, INK, INK_DIM};
+use super::{INK, INK_DIM};
 use crate::text::decimal;
 
-/// Ancho de la caja del testigo. Da para el punto y ~19 letras, que es lo que
-/// mide el mensaje mas largo de los de abajo.
-const TESTIGO_W: u32 = 168;
-
-/// Cuantas fichas hay antes de el. Se coloca **en la ranura siguiente a la de
-/// CABINA** y con la geometria de una ficha, no con numeros propios: asi se
-/// mueve solo si algun dia cambia el medida de las fichas.
-///
-/// [!] Y no contra el borde derecho, que era el sitio obvio: alli pinta el
-/// arranque `SIN ENTRADA: teclado y raton son de otro`, que son cuarenta letras
-/// colocadas por su largo real. Dos cosas en el mismo sitio es una que tapa a la
-/// otra, y la tapada seria justo el aviso del dia en que la entrada no se pudo
-/// reclamar.
-///
-/// ** Y DESDE EL 2026-09-12 NO ES FIJA: va detras de las fichas de las apps
-/// (`scene::FICHA_APPS`), que hasta hoy no existian. Con DOOM abierto el testigo
-/// se corre una ficha. La usan tambien quienes se pintan a su derecha.
-pub(crate) fn ranura() -> u32 {
-    super::FICHA_APPS + super::apps_en_barra()
-}
+// ** DONDE VIVE (2026-09-22): en el PANEL de la izquierda, en su fila propia
+// debajo de las fichas -- y con el panel escondido, en la TIRA que queda, sin
+// letras. Iba en la barra de arriba, en la ranura siguiente a CABINA; la barra
+// se fundio en el panel y la regla de por que se pinta siempre sigue igual. El
+// sitio lo dice `lateral::caja_testigo`, que es quien sabe el plano.
 
 /// Verde apagado: sano se ve, pero no llama. Un verde brillante permanente
 /// convierte la barra en un arbol de navidad y entrena al ojo a no mirarla.
@@ -140,6 +125,15 @@ enum Desgaste {
 /// ganar nada. Lo que si respeta es la regla que costo el desbordamiento del
 /// 2026-08-14: **el estado que vive todo el programa no va a la pila**.
 static mut ULTIMA: Option<Luz> = None;
+
+/// **El color de la luz de ahora**, para quien contesta por el color de la tira
+/// (`lateral::color_en`). Sin lectura todavia, el gris de "sin bus".
+pub(crate) fn color() -> u32 {
+    match unsafe { ULTIMA } {
+        Some(l) => luz_y_texto(l).0,
+        None => INK_DIM,
+    }
+}
 
 /// **Olvida lo pintado.** Se llama cuando algo repinto la barra por debajo --el
 /// fondo entero al volver de prestar la pantalla, por ejemplo--: el testigo
@@ -243,8 +237,8 @@ fn leer() -> Luz {
 /// veredicto**: "BUS PARADO" y no "teclado roto" -- el bus parado tambien deja
 /// mudo a un teclado perfecto, y mandar a mirar el cable seria mandar al sitio
 /// equivocado.
-fn pintar(p: &bmo::Pantalla, luz: Luz) {
-    let (color, texto, numero) = match luz {
+fn luz_y_texto(luz: Luz) -> (u32, &'static str, Option<u64>) {
+    match luz {
         Luz::SinBus => (INK_DIM, "SIN BUS USB", None),
         Luz::XhcMuerto => (LUZ_CAIDO, "xHC MUERTO", None),
         Luz::BusParado => (LUZ_CAIDO, "BUS PARADO", None),
@@ -260,31 +254,44 @@ fn pintar(p: &bmo::Pantalla, luz: Luz) {
             (LUZ_DESGASTE, t, Some(n))
         }
         Luz::Bien => (LUZ_BIEN, "TECLADO", None),
-    };
+    }
+}
 
-    let (x, y, _, h) = chip_box(ranura());
-    if x + TESTIGO_W >= p.ancho {
-        // En una pantalla estrecha no cabe, y se prefiere no pintarlo a pintarlo
-        // encima de otra cosa: una luz a medias en el sitio equivocado es peor
-        // que ninguna.
+fn pintar(p: &bmo::Pantalla, luz: Luz) {
+    let (color, texto, numero) = luz_y_texto(luz);
+    let (x, y, w, h) = super::lateral::caja_testigo(p.alto);
+    if !super::lateral::visible() {
+        // La tira: la luz sola, sin palabras. El color basta para saber si hay
+        // que abrir el panel.
+        p.rect(x, y, w, h, color);
         return;
     }
     // El hueco entero primero: los mensajes miden distinto y sin borrar
     // quedarian letras del anterior asomando por la derecha -- que es como se
     // lee "TECLADO PARADOO".
-    p.rect(x, y, TESTIGO_W, h, super::barra::fondo());
-    p.rect(x, y + (h - 8) / 2, 8, 8, color);
+    p.rect(x, y, w, h, crate::scene::estilo::estilo().barra_fondo);
+    p.rect(x + 2, y + (h - 8) / 2, 8, 8, color);
     // El texto en gris salvo cuando esta caido: en rojo, la palabra tiene que
     // llegar antes que el punto.
     let tinta = match luz {
         Luz::XhcMuerto | Luz::BusParado | Luz::SinTeclado | Luz::TecladoParado => INK,
         _ => INK_DIM,
     };
-    let tx = x + 16;
-    let ancho = p.texto(tx, y + (24 - bmo::GLIFO_ALTO) / 2, texto, tinta);
-    if let Some(n) = numero {
-        let mut buf = [0u8; 10];
-        let k = decimal(n, &mut buf);
-        p.texto_bytes(tx + ancho, y + (24 - bmo::GLIFO_ALTO) / 2, &buf[..k], tinta);
+    // ** El texto y su numero, en UN renglon que se recorta al ancho del panel.
+    // En la barra de arriba el numero se ponia en `tx + ancho`, y `texto`
+    // devuelve donde ACABA, no cuanto mide: el numero caia el doble de lejos.
+    let mut t = [0u8; 32];
+    let mut n = 0usize;
+    for &b in texto.as_bytes() {
+        t[n] = b;
+        n += 1;
     }
+    if let Some(v) = numero {
+        let mut buf = [0u8; 10];
+        let k = decimal(v, &mut buf);
+        t[n..n + k].copy_from_slice(&buf[..k]);
+        n += k;
+    }
+    let cabe = (w.saturating_sub(18) / bmo::GLIFO_ANCHO) as usize;
+    p.texto_bytes(x + 18, y + (h - bmo::GLIFO_ALTO) / 2, &t[..n.min(cabe)], tinta);
 }

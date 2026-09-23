@@ -156,15 +156,23 @@ const PASOS: [u8; 4] = [b'|', b'/', b'-', 92];
 /// 08-09 con un 50. Ver `desktop::Tick::cuerpo_ms`.
 const RITMO_BAJO: u32 = 100;
 
-/// **Leer, que aqui es decidir.** Avanza la aguja y contesta que hay que
-/// mostrar. No toca la pantalla: ese es el otro carril.
-pub(crate) fn leer(l: &Lectura) -> Dictamen {
-    // ** LA AGUJA AVANZA SIEMPRE, y por eso el modulo entero repinta SIEMPRE
-    // que le llega un cuarto. Es lo contrario de lo que hace el testigo --que
-    // se calla si no cambio nada-- y es a proposito: aqui lo que se muestra no
-    // es el valor, es que **haya latido**.
+/// **Leer, que aqui es decidir.** Avanza la aguja (si `girar`) y contesta que
+/// hay que mostrar. No toca la pantalla: ese es el otro carril.
+///
+/// ** `girar` es del 2026-09-22: el pulso se lee en DOS sitios desde que la
+/// barra de arriba se fundio en el panel -- el numero con su aguja en el panel,
+/// y el reparto en CABINA. La aguja la mueve UNO solo (el panel): si la
+/// movieran los dos giraria al doble cuando CABINA esta abierta, y una aguja
+/// cuyo ritmo depende de que ventana miras ya no dice si el bucle late.
+pub(crate) fn leer(l: &Lectura, girar: bool) -> Dictamen {
+    // ** LA AGUJA AVANZA SIEMPRE que la lee el panel, y por eso el panel
+    // repinta el pulso en cada muestra. Es lo contrario de lo que hace el
+    // testigo --que se calla si no cambio nada-- y es a proposito: aqui lo que
+    // se muestra no es el valor, es que **haya latido**.
     let aguja = unsafe {
-        AGUJA = AGUJA.wrapping_add(1);
+        if girar {
+            AGUJA = AGUJA.wrapping_add(1);
+        }
         PASOS[(AGUJA as usize) % PASOS.len()]
     };
     Dictamen {

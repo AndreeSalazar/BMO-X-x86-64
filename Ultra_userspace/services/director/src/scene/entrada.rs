@@ -68,13 +68,15 @@
 use bmo_userland as bmo;
 
 use super::huella::{cambio, Huella};
-use super::{chip_box, INK, INK_DIM};
+use super::{INK, INK_DIM};
 use crate::text::decimal;
 
-/// Detras del volcado, que ocupa 300 px desde `TRAS_PULSO`.
-const TRAS_VOLCADO: u32 = 176 + 400 + 8 + 300 + 8;
 /// Lo que ocupa: `entrada 4ms peor 120us purga` mas margen.
-const ANCHO: u32 = 250;
+///
+/// ** Desde el 2026-09-22 vive en la linea de instrumentos de CABINA, detras
+/// del volcado (ver `cabina::instrumentos`): la barra de arriba se fundio en el
+/// panel de la izquierda.
+pub(crate) const ANCHO: u32 = 250;
 
 /// Los cinco trabajos de una vuelta del bus, en el orden de `dev/usb/bus.rs`.
 ///
@@ -94,13 +96,13 @@ const TRABAJOS: [&str; 8] = [
 /// Lo ultimo que se pinto. Ver [`super::huella`].
 static mut HUELLA: Huella = Huella::nueva();
 
-/// **Olvida lo pintado.** Lo llama [`super::olvidar_la_barra`].
+/// **Olvida lo pintado.** Lo llama `cabina::paint`, que pinta la linea debajo.
 pub(crate) fn olvidar() {
     super::huella::olvidar(unsafe { &mut *core::ptr::addr_of_mut!(HUELLA) });
 }
 
 /// **Pinta el suelo de la latencia.** Se llama en las vueltas que pintan.
-pub(crate) fn refrescar(p: &bmo::Pantalla) {
+pub(crate) fn refrescar(p: &bmo::Pantalla, x: u32, y: u32, fondo: u32) {
     let ritmo = bmo::info(bmo::INFO_USB_RITMO);
     // La firma ES el dato entero: no hay nada que se pinte y no venga de aqui.
     // Cuando una firma se calcula a partir de MENOS de lo que se pinta, el chip
@@ -109,18 +111,11 @@ pub(crate) fn refrescar(p: &bmo::Pantalla) {
         return;
     }
 
-    let (x0, y, _, h) = chip_box(super::testigo::ranura());
-    let x = x0 + TRAS_VOLCADO;
-    // Misma regla que sus tres vecinos: si no cabe, no se pinta. Pintar encima
-    // de otra cosa es peor que no pintar.
-    if x + ANCHO >= p.ancho {
-        return;
-    }
     // ** La raya que lo separa del instrumento de la izquierda. Sin ella los
     // tres se leen como un solo parrafo de numeros. Ver `scene::SEPARADOR`.
-    p.rect(x - 5, y + 4, 1, h.saturating_sub(8), crate::scene::SEPARADOR);
-    p.rect(x, y, ANCHO, h, super::barra::fondo());
-    let ty = y + (h.saturating_sub(bmo::GLIFO_ALTO)) / 2;
+    p.rect(x - 5, y, 1, bmo::GLIFO_ALTO, crate::scene::SEPARADOR);
+    p.rect(x, y, ANCHO, bmo::GLIFO_ALTO, fondo);
+    let ty = y;
     let tx = p.texto(x + 4, ty, "entrada ", INK_DIM);
 
     let periodo_ms = ritmo & 0xFFFF;

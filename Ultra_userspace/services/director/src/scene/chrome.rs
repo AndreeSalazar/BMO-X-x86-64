@@ -141,12 +141,14 @@ pub(crate) const HUECO: u32 = 8;
 /// sitio: el dia que la barra lateral ocupe su columna, cambia esta cuenta y
 /// nada mas.
 pub(crate) fn area_util(p: &bmo::Pantalla) -> (u32, u32, u32, u32) {
+    // Sin barra de arriba desde el HUD 5: la pantalla entera menos el panel de
+    // la izquierda y los huecos.
     let izq = super::lateral::margen();
     (
         izq + HUECO,
-        TASKBAR_H + HUECO,
+        HUECO,
         p.ancho.saturating_sub(izq + 2 * HUECO),
-        p.alto.saturating_sub(TASKBAR_H + 2 * HUECO),
+        p.alto.saturating_sub(2 * HUECO),
     )
 }
 
@@ -179,14 +181,14 @@ impl Chrome {
             .min(p.ancho.saturating_sub(16 + tope_izq()));
         let height = (p.alto * pct_h / 100)
             .max(min_h)
-            .min(p.alto.saturating_sub(TASKBAR_H + 16));
+            .min(p.alto.saturating_sub(16));
         Self {
-            // Centrada, y nunca en la columna de la barra lateral.
-            x: (p.ancho.saturating_sub(width) / 2).max(tope_izq()),
-            // Centrada en el hueco que queda BAJO la barra del sistema, no en
-            // la pantalla: centrarla en la pantalla la deja siempre un poco
-            // alta, y con la barra encima parece descolocada.
-            y: TASKBAR_H + (p.alto.saturating_sub(TASKBAR_H + height)) / 2,
+            // Centrada en el hueco que queda A LA DERECHA del panel, no en la
+            // pantalla: centrarla en la pantalla la deja corrida hacia el panel,
+            // y con el al lado parece descolocada. (Era el mismo cuidado con la
+            // barra de arriba, en vertical, cuando la habia.)
+            x: tope_izq() + p.ancho.saturating_sub(tope_izq() + width) / 2,
+            y: p.alto.saturating_sub(height) / 2,
             width,
             height,
             min_w,
@@ -217,10 +219,10 @@ impl Chrome {
     /// que la pantalla, y una ventana que no cabe no se puede ni agarrar.
     pub(crate) fn for_content(p: &bmo::Pantalla, width: u32, height: u32) -> Self {
         let width = (width + 2).min(p.ancho.saturating_sub(16 + tope_izq())).max(3 * BTN_SIDE + 16);
-        let height = (height + TITLE_H + 1).min(p.alto.saturating_sub(TASKBAR_H + 16));
+        let height = (height + TITLE_H + 1).min(p.alto.saturating_sub(16));
         Self {
-            x: (p.ancho.saturating_sub(width) / 2).max(tope_izq()),
-            y: TASKBAR_H + (p.alto.saturating_sub(TASKBAR_H + height)) / 2,
+            x: tope_izq() + p.ancho.saturating_sub(tope_izq() + width) / 2,
+            y: p.alto.saturating_sub(height) / 2,
             width,
             height,
             // El minimo es el cromo: por debajo de eso no quedan ni los botones,
@@ -381,11 +383,10 @@ impl Chrome {
                 .saturating_sub(ax)
                 .min(p.ancho.saturating_sub(self.width))
                 .max(tope_izq());
-            // Nunca por encima de la barra del sistema: una ventana con el asa
-            // debajo de la barra no se puede volver a coger.
+            // Sin barra de arriba, el techo es el borde: el asa nunca sale de
+            // la pantalla, y eso es lo que la deja volver a coger.
             let ny = py
                 .saturating_sub(ay)
-                .max(TASKBAR_H)
                 .min(p.alto.saturating_sub(self.height));
             if nx == self.x && ny == self.y {
                 return false;
@@ -444,13 +445,11 @@ impl Chrome {
             ),
             Heading::Up => (
                 self.x,
-                self.y.saturating_sub(KEY_STEP).max(TASKBAR_H),
+                self.y.saturating_sub(KEY_STEP),
             ),
             Heading::Down => (
                 self.x,
-                (self.y + KEY_STEP)
-                    .min(p.alto.saturating_sub(self.height))
-                    .max(TASKBAR_H),
+                (self.y + KEY_STEP).min(p.alto.saturating_sub(self.height)),
             ),
         };
         if nx == self.x && ny == self.y {
@@ -563,13 +562,10 @@ impl Chrome {
         self.width = self.width.min(libre).max(self.min_w.min(libre));
         self.height = self
             .height
-            .min(p.alto.saturating_sub(TASKBAR_H))
+            .min(p.alto)
             .max(self.min_h.min(p.alto));
         self.x = self.x.min(p.ancho.saturating_sub(self.width)).max(tope_izq());
-        self.y = self
-            .y
-            .max(TASKBAR_H)
-            .min(p.alto.saturating_sub(self.height));
+        self.y = self.y.min(p.alto.saturating_sub(self.height));
     }
 
     // -- Pintar ----------------------------------------------------------

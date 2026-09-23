@@ -79,7 +79,8 @@ const GRID_X: u32 = 24;
 fn grid_x() -> u32 {
     GRID_X + super::lateral::margen()
 }
-const GRID_Y: u32 = 56;
+/// Desde arriba: la barra que habia encima se fundio en el panel (HUD 5).
+const GRID_Y: u32 = 24;
 
 const PIXELS: usize = (ICON_SIDE * ICON_SIDE) as usize;
 

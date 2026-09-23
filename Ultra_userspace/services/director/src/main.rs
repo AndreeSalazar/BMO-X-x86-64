@@ -595,7 +595,6 @@ pub(crate) fn repintar_escritorio(
 ) {
     scene::paint_background(p);
     scene::launcher::paint(p, &dsk.launcher);
-    scene::barra::logo(p);
     dsk.win.taskbar_dirty = true;
     paint_run_box(p, &dsk.run_box);
     paint_field(p, &dsk.run_box, dsk.field.line(), dsk.field.cur, true);

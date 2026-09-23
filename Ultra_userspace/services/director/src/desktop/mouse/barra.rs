@@ -1,5 +1,9 @@
-//! **El raton sobre la BARRA DE TAREAS**: las fichas que traen una ventana al
-//! frente.
+//! **El raton sobre el PANEL**: las fichas que traen una ventana al frente, el
+//! vol que abre el maestro y la tira que trae el panel escondido.
+//!
+//! Era el raton sobre la barra de tareas de arriba; la barra se fundio en el
+//! panel de la izquierda el 2026-09-22 (HUD 5) y las fichas se leen ahora por
+//! la ventana que representan, no por su numero de ranura.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
 //!                     tecla o el raton se movio. Sin entrada, no se entra
@@ -10,7 +14,7 @@ use bmo_userland as bmo;
 use super::Golpe;
 use crate::desktop::{Desktop, Ventana};
 use crate::scene;
-use crate::{erase_window, uncover, TASKBAR_H};
+use crate::{erase_window, uncover};
 
 pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
     let pos = g.pos;
@@ -28,28 +32,34 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
     // ya se veia no hacia nada. En el Ryzen eso se lee como *"la barra
     // se olvida de mis clics"*, y con razon: un control que a veces
     // responde y a veces no es peor que uno que no esta.
-    if button && !dsk.tick.button_before && pos.y < TASKBAR_H {
+    if button && !dsk.tick.button_before && pos.x < scene::lateral::margen() {
+        // ** LA TIRA del panel escondido: un clic lo trae. Es el camino del
+        // raton a CABINA el dia que el teclado no deja pulsar Ctrl+B.
+        if scene::lateral::en_la_tira(pos.x) {
+            scene::lateral::alternar();
+            crate::desktop::lateral_cambio(dsk, p, "panel");
+            return;
+        }
         // ** EL INDICADOR DEL SONIDO: su ficha es el propio indicador. Abre y
         // cierra el panel del maestro por la MISMA puerta que F10.
-        if scene::sound::en_la_barra(pos.x, pos.y) {
+        if scene::sound::en_la_barra(pos.x, pos.y, p.alto) {
             let abrir = !dsk.win.sound_open;
             crate::desktop::sonido::abrir_o_cerrar(dsk, &p, abrir, true);
             return;
         }
-        let (fichas, n) = dsk.table.fichas();
-        if let Some(i) = scene::chip_at(pos.x, pos.y, scene::FICHA_APPS + n as u32) {
-            if i >= scene::FICHA_APPS {
+        if let Some(v) = scene::lateral::ficha_en(pos.x, pos.y, p.alto) {
+            if let Ventana::App(hueco) = v {
+                let hueco = hueco as usize;
                 // ** LA FICHA DE UNA APP (2026-09-12): la trae --este minimizada
                 // o detras--, le da el foco y la pone delante. Es la misma regla
                 // que las otras fichas: una ficha hace SIEMPRE lo mismo.
-                let hueco = fichas[(i - scene::FICHA_APPS) as usize];
                 if dsk.table.traer(hueco, &p) {
                     let v = Ventana::App(hueco as u8);
                     dsk.win.focus.open(v);
                     dsk.win.focus.clic_en(v);
                     dsk.win.taskbar_dirty = true;
                 }
-            } else if i == 1 && dsk.win.data_open {
+            } else if v == Ventana::Data && dsk.win.data_open {
                 // Estaba minimizada o no, da igual: acaba visible,
                 // encajada, con el foco y delante.
                 dsk.win.data.chrome.minimized = false;
@@ -60,7 +70,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
                 scene::data::paint(&p, &dsk.win.data);
                 dsk.win.top_before = Ventana::Data;
                 dsk.win.taskbar_dirty = true;
-            } else if i == 0 {
+            } else if v == Ventana::Run {
                 if !dsk.win.visible {
                     dsk.win.visible = true;
                 }
@@ -69,7 +79,7 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
                 uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
                 dsk.win.top_before = Ventana::Run;
                 dsk.win.taskbar_dirty = true;
-            } else if i == 2 {
+            } else if v == Ventana::Cabina {
                 // ** CABINA CON EL RATON, que es lo que la hace util.
                 //
                 // Misma secuencia que F11 (`keys/windows.rs`) y no una

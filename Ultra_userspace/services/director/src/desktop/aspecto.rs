@@ -177,7 +177,9 @@ fn mostrar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         g.byte(b'\n');
         g.with_ink(INK_PLAIN);
     }
-    crate::repintar_escritorio(p, dsk, "aspecto");
+    // El panel puede haber cambiado de medida (flotante, hueco): las ventanas
+    // se recolocan con el mismo camino que Ctrl+B.
+    crate::desktop::lateral_cambio(dsk, p, "aspecto");
 }
 
 /// Guarda el estilo de ahora en `sys/director.cfg`.

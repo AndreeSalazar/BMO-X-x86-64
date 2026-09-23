@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   272 casillas ABIERTAS en 34 planes
+   273 casillas ABIERTAS en 34 planes
    262 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -210,6 +210,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
 - ... y 2 mas
 
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 5 abiertas, 0 hechas
+
+*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
+
+- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
+- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
+- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
+- ... y 2 mas
+
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas
 
 *PLAN -- EL SEMAFORO COMPLETO: donde el arbol todavia no dice de que color es*
@@ -244,15 +253,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] commands/system.rs, 604 lineas de codigo y [!] MEZCLA. Los informes
 - [ ] commands/disco.rs y commands/red.rs, la misma forma y mas chica:
 - [ ] scene/consola.rs, 600 lineas de codigo y 39% de documentacion. Es el
-- ... y 1 mas
-
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 4 abiertas, 0 hechas
-
-*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
-
-- [ ] H1 -- LA TECLA SUPER (2026-09-22)
-- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
-- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

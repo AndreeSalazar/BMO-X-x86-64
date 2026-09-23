@@ -102,7 +102,7 @@ if ctrl && c == 0x09 {
 // columna pisaria se corren (`fit` ya lee el tope nuevo).
 if ctrl && c == 0x02 {
     scene::lateral::alternar();
-    crate::desktop::lateral_cambio(dsk, &p);
+    crate::desktop::lateral_cambio(dsk, &p, "panel");
     return Key::Taken;
 }
 // ** CTRL+T: EL MOSAICO, puesto o quitado (HUD 4). Se dice en la linea de

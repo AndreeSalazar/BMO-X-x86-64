@@ -23,6 +23,7 @@ cabe en una linea, no es una pieza: son dos, o es decoracion.
    H2  borde + huecos       ver de un vistazo a DONDE van las teclas
    H3  la barra lateral     lo que hace la maquina, SIN abrir nada
    H4  el mosaico           ninguna ventana TAPA a otra, y no se ordena a mano
+   H5  el panel             todo lo que no es una ventana, en UN solo sitio
 ```
 
 **Lo que NO entra, y por que** (el precio de lo que Hyprland hace con GPU):
@@ -112,6 +113,9 @@ vuelve a ser de la app.
 
 **Motivo:** ver lo que hace la maquina, sin abrir nada.
 
+> Esa misma tarde crecio: la barra de arriba se fundio en ella (H5), y las
+> fichas, la luz y el reloj viven ahora aqui. Lo de abajo es como nacio.
+
 Al escribirla el motivo se afino: "lo abierto" ya lo dicen las fichas de
 arriba, y ponerlo otra vez aqui era dos sitios para lo mismo. La barra es el
 HUD EN TIEMPO REAL: una columna de 112 px con cinco instrumentos --cpu,
@@ -153,6 +157,55 @@ no se pelea con la mano.
 | abrir CABINA (F11) con el mosaico puesto | la pila de la derecha se parte en dos | se abre encima: la firma no ve la ventana nueva |
 | con DOOM en ventana | DOOM a la izquierda, lo demas apilado | DOOM no se mueve: su marco no se coloca |
 | lo que se dice | una ventana con minimo mayor que su hueco (Ejecutar) asoma: es a proposito | -- |
+
+## [ ] H5 -- EL PANEL: LA BARRA DE ARRIBA SE FUNDE EN LA LATERAL (2026-09-22)
+
+> Codigo hecho; se cierra cuando el metal diga la tabla.
+
+**Motivo:** todo lo que no es una ventana, en un solo sitio.
+
+El propietario, tras el metal de las 16:56: *"la barra de arriba vamos a
+quitar y mejorar eso, para que sea mucho mas elegante... ya cumplio su
+parte"*. De tres formas propuestas (fundir en la lateral, isla centrada, tira
+de 28 px) eligio **fundir**. El motivo de fondo: eran dos barras para lo
+mismo --cpu, memoria y vatios salian en las dos-- y la de arriba se habia
+llenado de instrumentos de los dias de cazar averias (~1.100 px de numeros).
+
+```text
+   arriba del panel   la marca BMO-X
+                      las fichas, en vertical (Ejecutar, ESTRATOS, CABINA, apps)
+                      (aire: las fichas crecen hacia abajo)
+   abajo del panel    la luz del bus (el testigo)
+                      cpu / memoria / vatios / pulso CON SU AGUJA / sonido
+                      el reloj y el dia; el vol (clic = el maestro)
+   a CABINA           el reparto del pulso, el volcado y la entrada, en una
+                      linea encima del pie, 4 Hz y SOLO con CABINA delante
+```
+
+* `scene/barra.rs` se borro; `TASKBAR_H` tambien. Las ventanas ganan 40 px de
+  alto: `area_util`, los topes y el centrado de una ventana nueva miden desde
+  arriba y a la DERECHA del panel. La rejilla de iconos empieza en `y = 24`.
+* El panel mide 160 px (la grafica pasa a 68 muestras, 17 s) y sigue siendo
+  columna RESERVADA. Las opciones de la barra en `sys/director.cfg` son ahora
+  las suyas: `barra_flotante`, `barra_hueco`, y `cpu`/`memoria`/`vatios`/`reloj`
+  encienden cada instrumento (el pulso y el sonido no se apagan).
+* **Escondido (Ctrl+B) queda una TIRA de 6 px con la luz del bus, y un clic
+  lo trae.** La ficha de CABINA estaba siempre en la barra porque *"un panel de
+  diagnostico al que solo se llega con el aparato que puede estar roto no es un
+  panel de diagnostico"*: esconder el panel no puede dejar al raton sin camino.
+* Cambiar el panel en el editor de aspecto recoloca las ventanas por el mismo
+  camino que Ctrl+B (`desktop::lateral_cambio`).
+* De paso: el numero del testigo (`REPARADO x3`) se ponia en `tx + ancho`, y
+  `texto` devuelve donde ACABA: caia el doble de lejos.
+
+| que | afirma | como se cae |
+|---|---|---|
+| arrancar el escritorio | sin barra arriba; el panel con la marca, Ejecutar y CABINA, la luz verde, las graficas, la hora y el vol | una tira oscura arriba: algo sigue pintando `TASKBAR` |
+| abrir DOOM y minimizarlo | su ficha aparece en el panel, apagada; un clic lo trae | no vuelve: `ficha_en` no casa con la fila pintada |
+| clic en el vol | el maestro se abre al lado del panel, con el pie a la altura del vol | se abre arriba a la derecha: `junto_a_la_barra` no se cambio |
+| Ctrl+B y clic en la tira | se va dejando la luz; el clic lo trae y las ventanas se corren | la tira no contesta: `en_la_tira` no se mira |
+| CABINA delante | una linea `latido .../s pinta .. cuerpo .. puerta ..  volcado ..  entrada ..` encima del pie | vacia: `instrumentos` no corre o no cabe en el ancho |
+| la aguja del pulso | gira cuatro veces por segundo | quieta: `dictamen` no se llama o no gira |
 
 ---
 
