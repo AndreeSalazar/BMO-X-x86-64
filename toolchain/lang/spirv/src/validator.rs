@@ -2,13 +2,13 @@
 //!
 //! El lector (S1) garantiza la FORMA. El juez mira el SIGNIFICADO, en una
 //! pasada y sin pedir memoria: los tipos se preguntan a la tabla de ids que ya
-//! lleno el lector (`Modulo::def`), asi que no hace falta ninguna tabla nueva.
+//! lleno el lector (`Module::def`), asi que no hace falta ninguna tabla nueva.
 //!
 //! Lo que comprueba, en el orden en que aparece en el fichero:
 //!
 //! - el modulo: solo `Shader`, `Logical` + `GLSL450`, solo `GLSL.std.450`,
 //!   etapa `GLCompute` con `LocalSize`, y el punto de entrada es `void main()`;
-//! - cada instruccion es de la familia `Nucleo` (el resto se niega NOMBRANDO la
+//! - cada instruccion es de la familia `Core` (el resto se niega NOMBRANDO la
 //!   familia: imagen, atomico, barrera...);
 //! - los tipos: enteros y flotantes de 32 bits, vectores de 2 a 4, clases de
 //!   almacenamiento del subconjunto, `BuiltIn` de computo, buffers con
@@ -32,8 +32,8 @@
 //!
 //! [consumo]  NADA   una pasada por peticion; sin estado entre llamadas
 
-use crate::tabla::op;
-use crate::{fila, glsl, Fallo, Familia, GrupoGlsl, Instr, Modulo, Motivo, Seccion};
+use crate::table::op;
+use crate::{op_info, glsl_info, Error, Family, GlslGroup, Instruction, Module, Reason, Section};
 
 const CAP_SHADER: u32 = 1;
 const GL_COMPUTE: u32 = 5;
@@ -62,32 +62,32 @@ const EXTENSIONES: [&[u8]; 1] = [b"SPV_KHR_storage_buffer_storage_class"];
 
 /// Lo que el juez dice de un modulo que cabe.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Veredicto {
-    pub entradas: usize,
-    pub funciones: usize,
-    pub bloques: usize,
-    pub instrucciones: usize,
+pub struct Verdict {
+    pub entry_points: usize,
+    pub functions: usize,
+    pub blocks: usize,
+    pub instruction_count: usize,
 }
 
-/// Cuantas instrucciones hay de cada familia, en el orden de `Familia::TODAS`.
+/// Cuantas instrucciones hay de cada familia, en el orden de `Family::ALL`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Censo {
-    pub por_familia: [usize; 9],
+pub struct Census {
+    pub per_family: [usize; 9],
 }
 
-impl Censo {
+impl Census {
     /// Cuantas de fuera del nucleo.
-    pub fn fuera(&self) -> usize {
-        self.por_familia[1..].iter().sum()
+    pub fn outside(&self) -> usize {
+        self.per_family[1..].iter().sum()
     }
 }
 
 /// **Cuenta de que familias es un modulo**, sin parar en el primer NO.
-pub fn censo(m: &Modulo) -> Censo {
-    let mut c = Censo { por_familia: [0; 9] };
-    for ins in m.recorrer() {
-        if let Some(f) = fila(ins.codigo) {
-            c.por_familia[f.familia.indice()] += 1;
+pub fn census(m: &Module) -> Census {
+    let mut c = Census { per_family: [0; 9] };
+    for ins in m.instructions() {
+        if let Some(f) = op_info(ins.opcode) {
+            c.per_family[f.family.index()] += 1;
         }
     }
     c
@@ -110,39 +110,39 @@ enum Fase {
     EntreBloques,
     /// Justo tras `OpLabel`: aun valen `OpPhi` (y `OpVariable` en el primero).
     Cabeza,
-    Cuerpo,
+    Body,
 }
 
 #[derive(Clone, Copy)]
-struct Funcion {
+struct Function {
     ini: usize,
     fin: usize,
     ret: u32,
     tipo_fn: u32,
     params: u32,
     vistos: u32,
-    bloques: usize,
+    blocks: usize,
 }
 
 struct Juez<'m, 'a, 'b> {
-    m: &'m Modulo<'a, 'b>,
+    m: &'m Module<'a, 'b>,
     glsl_id: Option<u32>,
     primera_funcion: usize,
     /// La palabra de la instruccion que se esta juzgando.
     cur: usize,
-    f: Option<Funcion>,
+    f: Option<Function>,
     fase: Fase,
     merge: Option<u16>,
-    bloques: usize,
+    blocks: usize,
 }
 
 /// **Juzga un modulo leido.** El primer motivo por el que no cabe, con la
 /// palabra donde se vio; o lo que se conto de el.
-pub fn juzgar(m: &Modulo) -> Result<Veredicto, Fallo> {
+pub fn validate(m: &Module) -> Result<Verdict, Error> {
     let primera_funcion = m
-        .recorrer()
-        .find(|i| i.codigo == op::OpFunction)
-        .map(|i| i.desde)
+        .instructions()
+        .find(|i| i.opcode == op::OpFunction)
+        .map(|i| i.offset)
         .unwrap_or(usize::MAX);
     let mut j = Juez {
         m,
@@ -152,69 +152,69 @@ pub fn juzgar(m: &Modulo) -> Result<Veredicto, Fallo> {
         f: None,
         fase: Fase::Fuera,
         merge: None,
-        bloques: 0,
+        blocks: 0,
     };
-    for ins in m.recorrer() {
-        j.cur = ins.desde;
-        j.una(&ins).map_err(|motivo| Fallo { motivo, palabra: ins.desde })?;
+    for ins in m.instructions() {
+        j.cur = ins.offset;
+        j.una(&ins).map_err(|reason| Error { reason, word: ins.offset })?;
     }
-    if m.entradas().is_empty() {
-        return Err(Fallo { motivo: Motivo::SinEntrada, palabra: 5 });
+    if m.entry_points().is_empty() {
+        return Err(Error { reason: Reason::NoEntryPoint, word: 5 });
     }
-    for e in m.entradas() {
+    for e in m.entry_points() {
         let donde = m
-            .recorrer()
-            .find(|i| i.codigo == op::OpEntryPoint && i.op(2) == e.id)
-            .map(|i| i.desde)
+            .instructions()
+            .find(|i| i.opcode == op::OpEntryPoint && i.op(2) == e.id)
+            .map(|i| i.offset)
             .unwrap_or(5);
-        if e.local.is_none() {
-            return Err(Fallo { motivo: Motivo::SinLocalSize, palabra: donde });
+        if e.local_size.is_none() {
+            return Err(Error { reason: Reason::NoLocalSize, word: donde });
         }
         if !j.es_void_main(e.id) {
-            return Err(Fallo { motivo: Motivo::EntradaNoCuadra, palabra: donde });
+            return Err(Error { reason: Reason::EntryPointNotVoidMain, word: donde });
         }
     }
-    Ok(Veredicto {
-        entradas: m.entradas().len(),
-        funciones: m.funciones,
-        bloques: j.bloques,
-        instrucciones: m.instrucciones,
+    Ok(Verdict {
+        entry_points: m.entry_points().len(),
+        functions: m.functions,
+        blocks: j.blocks,
+        instruction_count: m.instruction_count,
     })
 }
 
-fn si(cond: bool, motivo: Motivo) -> Result<(), Motivo> {
+fn si(cond: bool, reason: Reason) -> Result<(), Reason> {
     if cond {
         Ok(())
     } else {
-        Err(motivo)
+        Err(reason)
     }
 }
 
 impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     // ---- preguntas sobre ids -----------------------------------------------
 
-    fn def(&self, id: u32) -> Result<Instr<'a>, Motivo> {
-        self.m.def(id).ok_or(Motivo::NoDefinido { id })
+    fn def(&self, id: u32) -> Result<Instruction<'a>, Reason> {
+        self.m.def(id).ok_or(Reason::Undefined { id })
     }
 
     /// `id` es un TIPO definido antes de aqui.
-    fn tipo(&self, id: u32) -> Result<Instr<'a>, Motivo> {
+    fn tipo(&self, id: u32) -> Result<Instruction<'a>, Reason> {
         let d = self.def(id)?;
-        let es = (op::OpTypeVoid..=op::OpTypeFunction).contains(&d.codigo);
-        si(es && d.desde < self.cur, Motivo::NoEsTipo { id })?;
+        let es = (op::OpTypeVoid..=op::OpTypeFunction).contains(&d.opcode);
+        si(es && d.offset < self.cur, Reason::NotAType { id })?;
         Ok(d)
     }
 
     /// Un tipo que puede guardar un dato: ni `void` ni una funcion.
-    fn tipo_dato(&self, id: u32) -> Result<(), Motivo> {
+    fn tipo_dato(&self, id: u32) -> Result<(), Reason> {
         let d = self.tipo(id)?;
-        si(d.codigo != op::OpTypeVoid && d.codigo != op::OpTypeFunction, Motivo::NoEsTipo { id })
+        si(d.opcode != op::OpTypeVoid && d.opcode != op::OpTypeFunction, Reason::NotAType { id })
     }
 
     /// `(escalar, componentes)` de un escalar o un vector.
     fn num(&self, t: u32) -> Option<(Escalar, u32)> {
         let d = self.m.def(t)?;
-        match d.codigo {
+        match d.opcode {
             op::OpTypeBool => Some((Escalar::Bool, 1)),
             op::OpTypeInt => Some((Escalar::Int, 1)),
             op::OpTypeFloat => Some((Escalar::Float, 1)),
@@ -229,15 +229,15 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     /// El tipo de componente de un vector, o el propio escalar.
     fn componente(&self, t: u32) -> u32 {
         match self.m.def(t) {
-            Some(d) if d.codigo == op::OpTypeVector => d.op(2),
+            Some(d) if d.opcode == op::OpTypeVector => d.op(2),
             _ => t,
         }
     }
 
-    /// `(clase, apuntado)` de un tipo puntero.
+    /// `(class, apuntado)` de un tipo puntero.
     fn puntero(&self, t: u32) -> Option<(u32, u32)> {
         let d = self.m.def(t)?;
-        if d.codigo == op::OpTypePointer {
+        if d.opcode == op::OpTypePointer {
             Some((d.op(2), d.op(3)))
         } else {
             None
@@ -245,65 +245,65 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     }
 
     /// El tipo de un VALOR definido antes, en esta funcion o global.
-    fn valor(&self, id: u32) -> Result<u32, Motivo> {
+    fn valor(&self, id: u32) -> Result<u32, Reason> {
         let d = self.def(id)?;
-        let f = fila(d.codigo).ok_or(Motivo::NoEsValor { id })?;
-        si(f.tipo && d.codigo != op::OpFunction, Motivo::NoEsValor { id })?;
-        si(d.desde < self.cur, Motivo::UsoAntesDeDefinir { id })?;
-        if d.desde >= self.primera_funcion {
+        let f = op_info(d.opcode).ok_or(Reason::NotAValue { id })?;
+        si(f.has_result_type && d.opcode != op::OpFunction, Reason::NotAValue { id })?;
+        si(d.offset < self.cur, Reason::UsedBeforeDefined { id })?;
+        if d.offset >= self.primera_funcion {
             let ini = self.f.map(|f| f.ini).unwrap_or(usize::MAX);
-            si(d.desde > ini, Motivo::UsoAntesDeDefinir { id })?;
+            si(d.offset > ini, Reason::UsedBeforeDefined { id })?;
         }
         Ok(d.op(1))
     }
 
     /// Como `valor`, pero puede estar mas adelante en la misma funcion (`OpPhi`).
-    fn valor_adelante(&self, id: u32) -> Result<u32, Motivo> {
+    fn valor_adelante(&self, id: u32) -> Result<u32, Reason> {
         let d = self.def(id)?;
-        let f = fila(d.codigo).ok_or(Motivo::NoEsValor { id })?;
-        si(f.tipo && d.codigo != op::OpFunction, Motivo::NoEsValor { id })?;
-        if d.desde >= self.primera_funcion {
+        let f = op_info(d.opcode).ok_or(Reason::NotAValue { id })?;
+        si(f.has_result_type && d.opcode != op::OpFunction, Reason::NotAValue { id })?;
+        if d.offset >= self.primera_funcion {
             let (ini, fin) = self.f.map(|f| (f.ini, f.fin)).unwrap_or((0, 0));
-            si(d.desde > ini && d.desde < fin, Motivo::UsoAntesDeDefinir { id })?;
+            si(d.offset > ini && d.offset < fin, Reason::UsedBeforeDefined { id })?;
         }
         Ok(d.op(1))
     }
 
     /// Una constante definida antes; devuelve su tipo.
-    fn constante(&self, id: u32) -> Result<u32, Motivo> {
+    fn constante(&self, id: u32) -> Result<u32, Reason> {
         let d = self.def(id)?;
         let es = matches!(
-            d.codigo,
+            d.opcode,
             op::OpConstantTrue | op::OpConstantFalse | op::OpConstant | op::OpConstantComposite | op::OpConstantNull
         );
-        si(es && d.desde < self.cur, Motivo::NoEsConstante { id })?;
+        si(es && d.offset < self.cur, Reason::NotAConstant { id })?;
         Ok(d.op(1))
     }
 
     /// El valor de una constante entera escalar.
-    fn constante_entera(&self, id: u32) -> Result<u32, Motivo> {
+    fn constante_entera(&self, id: u32) -> Result<u32, Reason> {
         let t = self.constante(id)?;
         let d = self.def(id)?;
-        si(d.codigo == op::OpConstant && self.num(t) == Some((Escalar::Int, 1)), Motivo::NoEsConstante { id })?;
+        si(d.opcode == op::OpConstant && self.num(t) == Some((Escalar::Int, 1)), Reason::NotAConstant { id })?;
         Ok(d.op(3))
     }
 
     /// Una etiqueta de la funcion actual (puede estar mas adelante).
-    fn etiqueta(&self, id: u32) -> Result<(), Motivo> {
+    fn etiqueta(&self, id: u32) -> Result<(), Reason> {
         let d = self.def(id)?;
         let (ini, fin) = self.f.map(|f| (f.ini, f.fin)).unwrap_or((0, 0));
-        si(d.codigo == op::OpLabel && d.desde > ini && d.desde < fin, Motivo::NoEsEtiqueta { id })
+        si(d.opcode == op::OpLabel && d.offset > ini && d.offset < fin, Reason::NotALabel { id })
     }
 
     /// El valor de una decoracion `dec` sobre `id`, si la tiene.
     fn decoracion(&self, id: u32, dec: u32) -> Option<u32> {
-        for i in self.m.recorrer() {
-            if let Some(f) = fila(i.codigo) {
-                if f.seccion > Seccion::Anotacion {
+        for i in self.m.instructions() {
+            if let Some(f) = op_info(i.opcode) {
+                if f.section > Section::Annotation {
                     break;
                 }
             }
-            if i.codigo == op::OpDecorate && i.op(1) == id && i.op(2) == dec {
+            if i.opcode == op::OpDecorate && i.op(1) == id && i.op(2) == dec {
                 return Some(i.op(3));
             }
         }
@@ -311,91 +311,91 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     }
 
     /// Paso de un compuesto por un indice literal.
-    fn paso(&self, t: u32, idx: u32, codigo: u16) -> Result<u32, Motivo> {
-        let fuera = Motivo::IndiceFuera { codigo };
-        let d = self.m.def(t).ok_or(fuera)?;
-        match d.codigo {
+    fn paso(&self, t: u32, idx: u32, opcode: u16) -> Result<u32, Reason> {
+        let outside = Reason::IndexOutOfRange { opcode };
+        let d = self.m.def(t).ok_or(outside)?;
+        match d.opcode {
             op::OpTypeVector if idx < d.op(3) => Ok(d.op(2)),
             op::OpTypeArray if idx < self.constante_entera(d.op(3))? => Ok(d.op(2)),
-            op::OpTypeStruct if (idx as usize) + 2 < d.palabras as usize => Ok(d.op(2 + idx as usize)),
-            _ => Err(fuera),
+            op::OpTypeStruct if (idx as usize) + 2 < d.words as usize => Ok(d.op(2 + idx as usize)),
+            _ => Err(outside),
         }
     }
 
     fn es_void_main(&self, id: u32) -> bool {
         let Some(f) = self.m.def(id) else { return false };
         let Some(tf) = self.m.def(f.op(4)) else { return false };
-        let void = self.m.def(f.op(1)).map(|d| d.codigo) == Some(op::OpTypeVoid);
-        f.codigo == op::OpFunction && void && tf.palabras == 3
+        let void = self.m.def(f.op(1)).map(|d| d.opcode) == Some(op::OpTypeVoid);
+        f.opcode == op::OpFunction && void && tf.words == 3
     }
 
     // ---- una instruccion ---------------------------------------------------
 
-    fn una(&mut self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
-        let f = fila(codigo).ok_or(Motivo::SinFila { codigo })?;
-        if f.familia != Familia::Nucleo {
-            return Err(Motivo::FamiliaFuera { familia: f.familia, codigo });
+    fn una(&mut self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
+        let f = op_info(opcode).ok_or(Reason::UnknownOpcode { opcode })?;
+        if f.family != Family::Core {
+            return Err(Reason::UnsupportedFamily { family: f.family, opcode });
         }
-        match f.seccion {
-            Seccion::Capacidad => {
-                si(ins.op(1) == CAP_SHADER, Motivo::CapacidadFuera { capacidad: ins.op(1) })
+        match f.section {
+            Section::Capability => {
+                si(ins.op(1) == CAP_SHADER, Reason::UnsupportedCapability { capability: ins.op(1) })
             }
-            Seccion::Extension => {
-                let e = ins.cadena(1).unwrap_or(&[]);
-                si(EXTENSIONES.contains(&e), Motivo::ExtensionFuera)
+            Section::Extension => {
+                let e = ins.string(1).unwrap_or(&[]);
+                si(EXTENSIONES.contains(&e), Reason::UnsupportedExtension)
             }
-            Seccion::Importacion => {
-                si(ins.cadena(2) == Some(&b"GLSL.std.450"[..]), Motivo::ImportacionFuera)
+            Section::Import => {
+                si(ins.string(2) == Some(&b"GLSL.std.450"[..]), Reason::UnsupportedImport)
             }
-            Seccion::Modelo => si(
+            Section::MemoryModel => si(
                 ins.op(1) == DIR_LOGICAL && ins.op(2) == MEM_GLSL450,
-                Motivo::ModeloFuera { direccionamiento: ins.op(1), memoria: ins.op(2) },
+                Reason::UnsupportedMemoryModel { addressing: ins.op(1), memory: ins.op(2) },
             ),
-            Seccion::Entrada => si(ins.op(1) == GL_COMPUTE, Motivo::EtapaFuera { modelo: ins.op(1) }),
-            Seccion::Modo => si(
-                codigo == op::OpExecutionMode && ins.op(2) == MODO_LOCAL_SIZE,
-                Motivo::ModoFuera { modo: ins.op(2) },
+            Section::EntryPoint => si(ins.op(1) == GL_COMPUTE, Reason::UnsupportedStage { model: ins.op(1) }),
+            Section::ExecutionMode => si(
+                opcode == op::OpExecutionMode && ins.op(2) == MODO_LOCAL_SIZE,
+                Reason::UnsupportedMode { mode: ins.op(2) },
             ),
-            Seccion::Fuente | Seccion::Nombre | Seccion::Procesado => Ok(()),
-            Seccion::Anotacion => match codigo {
+            Section::Source | Section::Name | Section::ModuleProcessed => Ok(()),
+            Section::Annotation => match opcode {
                 op::OpDecorationGroup | op::OpGroupDecorate | op::OpGroupMemberDecorate => {
-                    Err(Motivo::InstruccionFuera {
-                        codigo,
-                        porque: "grupos de decoraciones: obsoletos desde SPIR-V 1.5",
+                    Err(Reason::UnsupportedInstruction {
+                        opcode,
+                        why: "grupos de decoraciones: obsoletos desde SPIR-V 1.5",
                     })
                 }
                 _ => Ok(()),
             },
-            Seccion::Tipo => self.tipo_o_constante(ins),
-            Seccion::Flexible => self.flexible(ins),
-            Seccion::Funcion => self.abrir(ins),
-            Seccion::FinFuncion => self.cerrar(),
-            Seccion::Cuerpo => self.cuerpo(ins),
+            Section::Type => self.tipo_o_constante(ins),
+            Section::Flexible => self.flexible(ins),
+            Section::Function => self.abrir(ins),
+            Section::FunctionEnd => self.cerrar(),
+            Section::Body => self.cuerpo(ins),
         }
     }
 
-    fn clase(&self, clase: u32) -> Result<(), Motivo> {
+    fn class(&self, class: u32) -> Result<(), Reason> {
         si(
-            matches!(clase, CLASE_INPUT | CLASE_UNIFORM | CLASE_PRIVATE | CLASE_FUNCTION | CLASE_STORAGE_BUFFER),
-            Motivo::ClaseFuera { clase },
+            matches!(class, CLASE_INPUT | CLASE_UNIFORM | CLASE_PRIVATE | CLASE_FUNCTION | CLASE_STORAGE_BUFFER),
+            Reason::UnsupportedStorageClass { class },
         )
     }
 
-    fn tipo_o_constante(&self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
-        let no = Motivo::TipoNoCuadra { codigo };
-        match codigo {
+    fn tipo_o_constante(&self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
+        let no = Reason::TypeMismatch { opcode };
+        match opcode {
             op::OpTypeVoid | op::OpTypeBool => Ok(()),
             op::OpTypeInt => {
-                si(ins.op(2) == 32, Motivo::TipoFuera { porque: "entero que no es de 32 bits" })?;
+                si(ins.op(2) == 32, Reason::UnsupportedType { why: "entero que no es de 32 bits" })?;
                 si(ins.op(3) <= 1, no)
             }
-            op::OpTypeFloat => si(ins.op(2) == 32, Motivo::TipoFuera { porque: "flotante que no es de 32 bits" }),
+            op::OpTypeFloat => si(ins.op(2) == 32, Reason::UnsupportedType { why: "flotante que no es de 32 bits" }),
             op::OpTypeVector => {
                 self.tipo(ins.op(2))?;
                 si(self.num(ins.op(2)).map(|x| x.1) == Some(1), no)?;
-                si((2..=4).contains(&ins.op(3)), Motivo::TipoFuera { porque: "vector que no es de 2, 3 o 4" })
+                si((2..=4).contains(&ins.op(3)), Reason::UnsupportedType { why: "vector que no es de 2, 3 o 4" })
             }
             op::OpTypeArray => {
                 self.tipo_dato(ins.op(2))?;
@@ -403,18 +403,18 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
             }
             op::OpTypeRuntimeArray => self.tipo_dato(ins.op(2)),
             op::OpTypeStruct => {
-                for k in 2..ins.palabras as usize {
+                for k in 2..ins.words as usize {
                     self.tipo_dato(ins.op(k))?;
                 }
                 Ok(())
             }
             op::OpTypePointer => {
-                self.clase(ins.op(2))?;
+                self.class(ins.op(2))?;
                 self.tipo(ins.op(3)).map(|_| ())
             }
             op::OpTypeFunction => {
                 self.tipo(ins.op(2))?;
-                for k in 3..ins.palabras as usize {
+                for k in 3..ins.words as usize {
                     self.tipo_dato(ins.op(k))?;
                 }
                 Ok(())
@@ -427,23 +427,23 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 self.tipo(ins.op(1))?;
                 let n = self.num(ins.op(1));
                 let escalar = n == Some((Escalar::Int, 1)) || n == Some((Escalar::Float, 1));
-                si(escalar && ins.palabras == 4, no)
+                si(escalar && ins.words == 4, no)
             }
             op::OpConstantComposite => {
                 self.tipo(ins.op(1))?;
                 self.compuesto(ins, true)
             }
             op::OpConstantNull => self.tipo(ins.op(1)).map(|_| ()),
-            _ => Err(Motivo::InstruccionFuera { codigo, porque: "tipo que el juez no conoce" }),
+            _ => Err(Reason::UnsupportedInstruction { opcode, why: "tipo que el juez no conoce" }),
         }
     }
 
     /// `OpCompositeConstruct` / `OpConstantComposite`: las partes, desde la
     /// palabra 3, llenan el tipo de resultado.
-    fn compuesto(&self, ins: &Instr, constantes: bool) -> Result<(), Motivo> {
-        let no = Motivo::TipoNoCuadra { codigo: ins.codigo };
+    fn compuesto(&self, ins: &Instruction, constantes: bool) -> Result<(), Reason> {
+        let no = Reason::TypeMismatch { opcode: ins.opcode };
         let d = self.def(ins.op(1))?;
-        let partes = ins.palabras as usize - 3;
+        let partes = ins.words as usize - 3;
         let tipo_parte = |k: usize| {
             if constantes {
                 self.constante(ins.op(3 + k))
@@ -451,7 +451,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 self.valor(ins.op(3 + k))
             }
         };
-        match d.codigo {
+        match d.opcode {
             op::OpTypeVector => {
                 let c = d.op(2);
                 let mut total = 0;
@@ -475,7 +475,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 Ok(())
             }
             op::OpTypeStruct => {
-                si(partes + 2 == d.palabras as usize, no)?;
+                si(partes + 2 == d.words as usize, no)?;
                 for k in 0..partes {
                     si(tipo_parte(k)? == d.op(2 + k), no)?;
                 }
@@ -485,146 +485,146 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
         }
     }
 
-    fn flexible(&mut self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
+    fn flexible(&mut self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
         let dentro = self.f.is_some();
-        match codigo {
+        match opcode {
             op::OpLine | op::OpNoLine | op::OpNop => Ok(()),
             op::OpUndef => {
                 if dentro {
-                    self.en_bloque(codigo)?;
-                    self.fase = Fase::Cuerpo;
+                    self.en_bloque(opcode)?;
+                    self.fase = Fase::Body;
                 }
                 self.tipo(ins.op(1)).map(|_| ())
             }
             op::OpVariable if !dentro => self.variable_global(ins),
             op::OpVariable => {
-                let primer = self.f.map(|f| f.bloques == 1).unwrap_or(false);
-                si(self.fase == Fase::Cabeza && primer, Motivo::VariableFueraDeSitio)?;
-                let no = Motivo::TipoNoCuadra { codigo };
-                let (clase, apuntado) = self.puntero(ins.op(1)).ok_or(no)?;
-                si(clase == CLASE_FUNCTION && ins.op(3) == CLASE_FUNCTION, no)?;
-                if ins.palabras > 4 {
+                let primer = self.f.map(|f| f.blocks == 1).unwrap_or(false);
+                si(self.fase == Fase::Cabeza && primer, Reason::MisplacedVariable)?;
+                let no = Reason::TypeMismatch { opcode };
+                let (class, apuntado) = self.puntero(ins.op(1)).ok_or(no)?;
+                si(class == CLASE_FUNCTION && ins.op(3) == CLASE_FUNCTION, no)?;
+                if ins.words > 4 {
                     si(self.constante(ins.op(4))? == apuntado, no)?;
                 }
                 Ok(())
             }
-            _ => Err(Motivo::InstruccionFuera { codigo, porque: "instruccion flexible que el juez no conoce" }),
+            _ => Err(Reason::UnsupportedInstruction { opcode, why: "instruccion flexible que el juez no conoce" }),
         }
     }
 
-    fn variable_global(&self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
-        let no = Motivo::TipoNoCuadra { codigo };
+    fn variable_global(&self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
+        let no = Reason::TypeMismatch { opcode };
         let id = ins.op(2);
         let (clase_p, apuntado) = self.puntero(ins.op(1)).ok_or(no)?;
-        let clase = ins.op(3);
-        si(clase == clase_p, no)?;
-        si(clase != CLASE_FUNCTION, Motivo::VariableFueraDeSitio)?;
-        self.clase(clase)?;
-        if ins.palabras > 4 {
+        let class = ins.op(3);
+        si(class == clase_p, no)?;
+        si(class != CLASE_FUNCTION, Reason::MisplacedVariable)?;
+        self.class(class)?;
+        if ins.words > 4 {
             si(self.constante(ins.op(4))? == apuntado, no)?;
         }
-        match clase {
+        match class {
             CLASE_INPUT => {
-                let b = self.decoracion(id, DEC_BUILTIN).ok_or(Motivo::EntradaSinBuiltIn { id })?;
-                si(BUILTINS_DE_COMPUTO.contains(&b), Motivo::BuiltInFuera { builtin: b })
+                let b = self.decoracion(id, DEC_BUILTIN).ok_or(Reason::InputWithoutBuiltIn { id })?;
+                si(BUILTINS_DE_COMPUTO.contains(&b), Reason::UnsupportedBuiltIn { builtin: b })
             }
             CLASE_UNIFORM | CLASE_STORAGE_BUFFER => si(
                 self.decoracion(id, DEC_BINDING).is_some() && self.decoracion(id, DEC_DESCRIPTOR_SET).is_some(),
-                Motivo::SinBinding { id },
+                Reason::NoBinding { id },
             ),
             _ => Ok(()),
         }
     }
 
-    fn abrir(&mut self, ins: &Instr) -> Result<(), Motivo> {
-        let no = Motivo::TipoNoCuadra { codigo: ins.codigo };
+    fn abrir(&mut self, ins: &Instruction) -> Result<(), Reason> {
+        let no = Reason::TypeMismatch { opcode: ins.opcode };
         let ret = ins.op(1);
         let tf = self.tipo(ins.op(4))?;
-        si(tf.codigo == op::OpTypeFunction && tf.op(2) == ret, no)?;
+        si(tf.opcode == op::OpTypeFunction && tf.op(2) == ret, no)?;
         let fin = self
             .m
-            .recorrer_desde(ins.desde)
-            .find(|i| i.codigo == op::OpFunctionEnd)
-            .map(|i| i.desde)
+            .instructions_from(ins.offset)
+            .find(|i| i.opcode == op::OpFunctionEnd)
+            .map(|i| i.offset)
             .unwrap_or(usize::MAX);
-        self.f = Some(Funcion {
-            ini: ins.desde,
+        self.f = Some(Function {
+            ini: ins.offset,
             fin,
             ret,
             tipo_fn: ins.op(4),
-            params: tf.palabras as u32 - 3,
+            params: tf.words as u32 - 3,
             vistos: 0,
-            bloques: 0,
+            blocks: 0,
         });
         self.fase = Fase::Parametros;
         Ok(())
     }
 
-    fn cerrar(&mut self) -> Result<(), Motivo> {
-        let f = self.f.take().ok_or(Motivo::FinSinFuncion)?;
+    fn cerrar(&mut self) -> Result<(), Reason> {
+        let f = self.f.take().ok_or(Reason::StrayFunctionEnd)?;
         match self.fase {
             Fase::EntreBloques => {}
-            Fase::Parametros => return Err(Motivo::SinCuerpo),
-            _ => return Err(Motivo::BloqueSinTerminar),
+            Fase::Parametros => return Err(Reason::NoBody),
+            _ => return Err(Reason::UnterminatedBlock),
         }
-        si(f.bloques > 0, Motivo::SinCuerpo)?;
+        si(f.blocks > 0, Reason::NoBody)?;
         self.fase = Fase::Fuera;
         Ok(())
     }
 
     /// La instruccion va dentro de un bloque abierto, y si hay una fusion
     /// pendiente, es su salto.
-    fn en_bloque(&self, codigo: u16) -> Result<(), Motivo> {
-        si(matches!(self.fase, Fase::Cabeza | Fase::Cuerpo), Motivo::FueraDeBloque { codigo })?;
+    fn en_bloque(&self, opcode: u16) -> Result<(), Reason> {
+        si(matches!(self.fase, Fase::Cabeza | Fase::Body), Reason::OutsideBlock { opcode })?;
         match self.merge {
             None => Ok(()),
             Some(op::OpLoopMerge) => {
-                si(codigo == op::OpBranch || codigo == op::OpBranchConditional, Motivo::MergeFueraDeSitio)
+                si(opcode == op::OpBranch || opcode == op::OpBranchConditional, Reason::MisplacedMerge)
             }
-            Some(_) => si(codigo == op::OpBranchConditional, Motivo::MergeFueraDeSitio),
+            Some(_) => si(opcode == op::OpBranchConditional, Reason::MisplacedMerge),
         }
     }
 
-    fn cuerpo(&mut self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
-        match codigo {
+    fn cuerpo(&mut self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
+        match opcode {
             op::OpFunctionParameter => {
-                let mut f = self.f.ok_or(Motivo::FueraDeBloque { codigo })?;
-                si(self.fase == Fase::Parametros && f.vistos < f.params, Motivo::FueraDeBloque { codigo })?;
+                let mut f = self.f.ok_or(Reason::OutsideBlock { opcode })?;
+                si(self.fase == Fase::Parametros && f.vistos < f.params, Reason::OutsideBlock { opcode })?;
                 let tf = self.def(f.tipo_fn)?;
-                si(ins.op(1) == tf.op(3 + f.vistos as usize), Motivo::TipoNoCuadra { codigo })?;
+                si(ins.op(1) == tf.op(3 + f.vistos as usize), Reason::TypeMismatch { opcode })?;
                 f.vistos += 1;
                 self.f = Some(f);
                 Ok(())
             }
             op::OpLabel => {
-                let mut f = self.f.ok_or(Motivo::FueraDeBloque { codigo })?;
+                let mut f = self.f.ok_or(Reason::OutsideBlock { opcode })?;
                 match self.fase {
                     Fase::Parametros => si(
                         f.vistos == f.params,
-                        Motivo::TipoNoCuadra { codigo: op::OpFunctionParameter },
+                        Reason::TypeMismatch { opcode: op::OpFunctionParameter },
                     )?,
                     Fase::EntreBloques => {}
-                    _ => return Err(Motivo::BloqueSinTerminar),
+                    _ => return Err(Reason::UnterminatedBlock),
                 }
-                f.bloques += 1;
+                f.blocks += 1;
                 self.f = Some(f);
-                self.bloques += 1;
+                self.blocks += 1;
                 self.fase = Fase::Cabeza;
                 self.merge = None;
                 Ok(())
             }
             _ => {
-                self.en_bloque(codigo)?;
-                if codigo == op::OpPhi {
-                    si(self.fase == Fase::Cabeza, Motivo::PhiFueraDeSitio)?;
+                self.en_bloque(opcode)?;
+                if opcode == op::OpPhi {
+                    si(self.fase == Fase::Cabeza, Reason::MisplacedPhi)?;
                 } else {
-                    self.fase = Fase::Cuerpo;
+                    self.fase = Fase::Body;
                 }
                 self.significado(ins)?;
-                match codigo {
+                match opcode {
                     op::OpBranch
                     | op::OpBranchConditional
                     | op::OpReturn
@@ -633,7 +633,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                         self.fase = Fase::EntreBloques;
                         self.merge = None;
                     }
-                    op::OpLoopMerge | op::OpSelectionMerge => self.merge = Some(codigo),
+                    op::OpLoopMerge | op::OpSelectionMerge => self.merge = Some(opcode),
                     _ => {}
                 }
                 Ok(())
@@ -642,13 +642,13 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     }
 
     /// Los tipos de una instruccion de cuerpo.
-    fn significado(&self, ins: &Instr) -> Result<(), Motivo> {
-        let codigo = ins.codigo;
-        let no = Motivo::TipoNoCuadra { codigo };
+    fn significado(&self, ins: &Instruction) -> Result<(), Reason> {
+        let opcode = ins.opcode;
+        let no = Reason::TypeMismatch { opcode };
         let r = ins.op(1);
-        let n_ops = ins.palabras as usize;
+        let n_ops = ins.words as usize;
         use Escalar::{Bool, Float, Int};
-        match codigo {
+        match opcode {
             // -- enteros --
             op::OpIAdd
             | op::OpISub
@@ -780,7 +780,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 si(n_ops > 4, no)?;
                 let mut t = self.valor(ins.op(3))?;
                 for k in 4..n_ops {
-                    t = self.paso(t, ins.op(k), codigo)?;
+                    t = self.paso(t, ins.op(k), opcode)?;
                 }
                 si(t == r, no)
             }
@@ -790,7 +790,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 let mut t = self.valor(ins.op(4))?;
                 si(t == r, no)?;
                 for k in 5..n_ops {
-                    t = self.paso(t, ins.op(k), codigo)?;
+                    t = self.paso(t, ins.op(k), opcode)?;
                 }
                 si(t == objeto, no)
             }
@@ -805,7 +805,7 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 si(nr as usize == n_ops - 5 && nr > 1, no)?;
                 for k in 5..n_ops {
                     let i = ins.op(k);
-                    si(i < na + nb || i == u32::MAX, Motivo::IndiceFuera { codigo })?;
+                    si(i < na + nb || i == u32::MAX, Reason::IndexOutOfRange { opcode })?;
                 }
                 Ok(())
             }
@@ -825,65 +825,65 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 si(apuntado == r, no)
             }
             op::OpStore => {
-                let (clase, apuntado) = self.puntero(self.valor(ins.op(1))?).ok_or(no)?;
-                si(clase != CLASE_INPUT, Motivo::EscrituraEnEntrada)?;
+                let (class, apuntado) = self.puntero(self.valor(ins.op(1))?).ok_or(no)?;
+                si(class != CLASE_INPUT, Reason::WriteToInput)?;
                 si(self.valor(ins.op(2))? == apuntado, no)
             }
             op::OpCopyMemory => {
-                let (clase, a) = self.puntero(self.valor(ins.op(1))?).ok_or(no)?;
+                let (class, a) = self.puntero(self.valor(ins.op(1))?).ok_or(no)?;
                 let (_, b) = self.puntero(self.valor(ins.op(2))?).ok_or(no)?;
-                si(clase != CLASE_INPUT, Motivo::EscrituraEnEntrada)?;
+                si(class != CLASE_INPUT, Reason::WriteToInput)?;
                 si(a == b, no)
             }
             op::OpAccessChain | op::OpInBoundsAccessChain => {
-                let (clase, mut t) = self.puntero(self.valor(ins.op(3))?).ok_or(no)?;
+                let (class, mut t) = self.puntero(self.valor(ins.op(3))?).ok_or(no)?;
                 for k in 4..n_ops {
                     let idx = ins.op(k);
                     si(self.num(self.valor(idx)?) == Some((Int, 1)), no)?;
                     let d = self.m.def(t).ok_or(no)?;
-                    t = match d.codigo {
+                    t = match d.opcode {
                         op::OpTypeVector | op::OpTypeArray | op::OpTypeRuntimeArray => d.op(2),
                         op::OpTypeStruct => {
                             let v = self.constante_entera(idx)? as usize;
-                            si(v + 2 < d.palabras as usize, Motivo::IndiceFuera { codigo })?;
+                            si(v + 2 < d.words as usize, Reason::IndexOutOfRange { opcode })?;
                             d.op(2 + v)
                         }
-                        _ => return Err(Motivo::IndiceFuera { codigo }),
+                        _ => return Err(Reason::IndexOutOfRange { opcode }),
                     };
                 }
-                si(self.puntero(r) == Some((clase, t)), no)
+                si(self.puntero(r) == Some((class, t)), no)
             }
             op::OpArrayLength => {
                 si(self.num(r) == Some((Int, 1)), no)?;
                 let (_, s) = self.puntero(self.valor(ins.op(3))?).ok_or(no)?;
                 let d = self.m.def(s).ok_or(no)?;
                 let miembro = ins.op(4) as usize;
-                si(d.codigo == op::OpTypeStruct && miembro + 3 == d.palabras as usize, no)?;
-                let ultimo = self.m.def(d.op(2 + miembro)).map(|x| x.codigo);
+                si(d.opcode == op::OpTypeStruct && miembro + 3 == d.words as usize, no)?;
+                let ultimo = self.m.def(d.op(2 + miembro)).map(|x| x.opcode);
                 si(ultimo == Some(op::OpTypeRuntimeArray), no)
             }
             // -- funciones --
             op::OpFunctionCall => {
                 let callee = self.def(ins.op(3))?;
-                si(callee.codigo == op::OpFunction && callee.op(1) == r, no)?;
+                si(callee.opcode == op::OpFunction && callee.op(1) == r, no)?;
                 let tf = self.def(callee.op(4))?;
-                si(tf.palabras as usize - 3 == n_ops - 4, no)?;
+                si(tf.words as usize - 3 == n_ops - 4, no)?;
                 for k in 0..n_ops - 4 {
                     si(self.valor(ins.op(4 + k))? == tf.op(3 + k), no)?;
                 }
                 Ok(())
             }
             op::OpExtInst => {
-                si(Some(ins.op(3)) == self.glsl_id, Motivo::ImportacionFuera)?;
-                let numero = ins.op(4);
-                let g = glsl(numero).ok_or(Motivo::ExtInstFuera { numero })?;
-                si(g.grupo != GrupoGlsl::Trascendente, Motivo::ExtInstLuego { numero })?;
-                si(n_ops - 5 == g.operandos as usize, no)?;
+                si(Some(ins.op(3)) == self.glsl_id, Reason::UnsupportedImport)?;
+                let number = ins.op(4);
+                let g = glsl_info(number).ok_or(Reason::UnsupportedGlsl { number })?;
+                si(g.group != GlslGroup::Transcendental, Reason::GlslLater { number })?;
+                si(n_ops - 5 == g.operands as usize, no)?;
                 let (e, n) = self.num(r).ok_or(no)?;
                 for k in 5..n_ops {
                     let t = self.valor(ins.op(k))?;
-                    match g.grupo {
-                        GrupoGlsl::Flotante => si(e == Float && t == r, no)?,
+                    match g.group {
+                        GlslGroup::Float => si(e == Float && t == r, no)?,
                         _ => si(e == Int && self.num(t) == Some((Int, n)), no)?,
                     }
                 }
@@ -915,20 +915,20 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 self.etiqueta(a)?;
                 self.etiqueta(b)?;
                 if self.merge.is_none() && a != b {
-                    si(self.sale_de_un_bucle(a) || self.sale_de_un_bucle(b), Motivo::SaltoSinEstructura)?;
+                    si(self.sale_de_un_bucle(a) || self.sale_de_un_bucle(b), Reason::Unstructured)?;
                 }
                 Ok(())
             }
             op::OpReturn => {
                 let ret = self.f.map(|f| f.ret).unwrap_or(0);
-                si(self.m.def(ret).map(|d| d.codigo) == Some(op::OpTypeVoid), no)
+                si(self.m.def(ret).map(|d| d.opcode) == Some(op::OpTypeVoid), no)
             }
             op::OpReturnValue => {
                 let ret = self.f.map(|f| f.ret).unwrap_or(0);
                 si(self.valor(ins.op(1))? == ret, no)
             }
             op::OpUnreachable => Ok(()),
-            _ => Err(Motivo::InstruccionFuera { codigo, porque: "instruccion del nucleo que el juez aun no mira" }),
+            _ => Err(Reason::UnsupportedInstruction { opcode, why: "instruccion del nucleo que el juez aun no mira" }),
         }
     }
 
@@ -936,8 +936,8 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     fn sale_de_un_bucle(&self, destino: u32) -> bool {
         let Some(f) = self.f else { return false };
         self.m
-            .recorrer_desde(f.ini)
-            .take_while(|i| i.desde < f.fin)
-            .any(|i| i.codigo == op::OpLoopMerge && (i.op(1) == destino || i.op(2) == destino))
+            .instructions_from(f.ini)
+            .take_while(|i| i.offset < f.fin)
+            .any(|i| i.opcode == op::OpLoopMerge && (i.op(1) == destino || i.op(2) == destino))
     }
 }

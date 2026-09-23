@@ -1,13 +1,13 @@
 //! El banco del JUEZ (S2 de PLAN_EL_SOMBREADOR).
 //!
-//! 1. los cuatro sombreadores del subconjunto CABEN, y `fuera` cae nombrando
+//! 1. los cuatro sombreadores del subconjunto CABEN, y `outside` cae nombrando
 //!    la familia;
 //! 2. una fila por motivo, sobre un modulo minimo armado a mano al que se le
 //!    rompe UNA cosa;
 //! 3. el juez tampoco entra en panico con bytes volteados que el lector acepta.
 
-use bmo_spirv_front::tabla::op;
-use bmo_spirv_front::{censo, juzgar, leer, Fallo, Familia, Motivo, Veredicto, MAGIA};
+use bmo_spirv_front::table::op;
+use bmo_spirv_front::{census, validate, read, Error, Family, Reason, Verdict, MAGIC};
 
 const SUMA: &[u8] = include_bytes!("../pruebas/suma.spv");
 const SAXPY: &[u8] = include_bytes!("../pruebas/saxpy.spv");
@@ -15,68 +15,68 @@ const MANDELBROT: &[u8] = include_bytes!("../pruebas/mandelbrot.spv");
 const COLORES: &[u8] = include_bytes!("../pruebas/colores.spv");
 const FUERA: &[u8] = include_bytes!("../pruebas/fuera.spv");
 
-fn juicio_de(bytes: &[u8]) -> Result<Veredicto, Fallo> {
+fn juicio_de(bytes: &[u8]) -> Result<Verdict, Error> {
     let mut ids = vec![0u32; 4096];
-    let m = leer(bytes, &mut ids).unwrap_or_else(|f| panic!("el lector no deberia negarlo: {}", f));
-    juzgar(&m)
+    let m = read(bytes, &mut ids).unwrap_or_else(|f| panic!("el lector no deberia negarlo: {}", f));
+    validate(&m)
 }
 
 // ---- 1. los de verdad ------------------------------------------------------
 
 #[test]
 fn los_cuatro_del_subconjunto_caben() {
-    for (nombre, bytes, funciones) in
+    for (name, bytes, functions) in
         [("suma", SUMA, 1), ("saxpy", SAXPY, 1), ("mandelbrot", MANDELBROT, 1), ("colores", COLORES, 2)]
     {
-        let v = juicio_de(bytes).unwrap_or_else(|f| panic!("{}: {}", nombre, f));
-        assert_eq!(v.entradas, 1, "{}", nombre);
-        assert_eq!(v.funciones, funciones, "{}", nombre);
-        assert!(v.bloques >= 1, "{}", nombre);
+        let v = juicio_de(bytes).unwrap_or_else(|f| panic!("{}: {}", name, f));
+        assert_eq!(v.entry_points, 1, "{}", name);
+        assert_eq!(v.functions, functions, "{}", name);
+        assert!(v.blocks >= 1, "{}", name);
     }
 }
 
 #[test]
 fn fuera_cae_en_lo_primero_que_aparece_la_memoria_de_grupo() {
-    // ** El juez da el PRIMER no en el orden del fichero. En `fuera.spv` el
-    // puntero a `Workgroup` (la `shared uint grupo`) va antes que la imagen: es
+    // ** El juez da el PRIMER no en el orden del fichero. En `outside.spv` el
+    // puntero a `Workgroup` (la `shared uint group`) va antes que la imagen: es
     // lo que glslc escribe primero. Las demas las nombra el censo.
     let f = juicio_de(FUERA).err().expect("fuera.spv NO cabe");
-    assert_eq!(f.motivo, Motivo::ClaseFuera { clase: 4 });
+    assert_eq!(f.reason, Reason::UnsupportedStorageClass { class: 4 });
     assert_eq!(
         format!("{}", f),
         format!(
             "palabra {}: clase de almacenamiento fuera del subconjunto (Workgroup: memoria de grupo, pide hilos)",
-            f.palabra
+            f.word
         )
     );
 }
 
 #[test]
 fn una_imagen_cae_nombrando_su_familia() {
-    let f = motivo(|p| p.tipos.extend(ins(op::OpTypeImage, &[20, 7, 1, 0, 0, 0, 2, 4])));
-    assert_eq!(f, Motivo::FamiliaFuera { familia: Familia::Imagen, codigo: op::OpTypeImage });
+    let f = reason(|p| p.tipos.extend(ins(op::OpTypeImage, &[20, 7, 1, 0, 0, 0, 2, 4])));
+    assert_eq!(f, Reason::UnsupportedFamily { family: Family::Image, opcode: op::OpTypeImage });
 }
 
 #[test]
 fn el_censo_de_fuera_cuenta_las_tres_familias() {
     let mut ids = vec![0u32; 4096];
-    let m = leer(FUERA, &mut ids).unwrap();
-    let c = censo(&m);
-    for fam in [Familia::Imagen, Familia::Atomico, Familia::Barrera] {
-        assert!(c.por_familia[fam.indice()] > 0, "{:?}", fam);
+    let m = read(FUERA, &mut ids).unwrap();
+    let c = census(&m);
+    for fam in [Family::Image, Family::Atomic, Family::Barrier] {
+        assert!(c.per_family[fam.index()] > 0, "{:?}", fam);
     }
-    assert!(c.fuera() >= 5);
+    assert!(c.outside() >= 5);
     // Y los cuatro buenos no tienen nada fuera.
     for bytes in [SUMA, SAXPY, MANDELBROT, COLORES] {
         let mut ids = vec![0u32; 4096];
-        assert_eq!(censo(&leer(bytes, &mut ids).unwrap()).fuera(), 0);
+        assert_eq!(census(&read(bytes, &mut ids).unwrap()).outside(), 0);
     }
 }
 
 // ---- 2. el modulo minimo, y una fila por motivo ----------------------------
 
-fn ins(codigo: u16, ops: &[u32]) -> Vec<u32> {
-    let mut v = vec![((ops.len() as u32 + 1) << 16) | codigo as u32];
+fn ins(opcode: u16, ops: &[u32]) -> Vec<u32> {
+    let mut v = vec![((ops.len() as u32 + 1) << 16) | opcode as u32];
     v.extend_from_slice(ops);
     v
 }
@@ -109,7 +109,7 @@ struct Partes {
     caps: Vec<u32>,
     exts: Vec<u32>,
     imports: Vec<u32>,
-    modelo: Vec<u32>,
+    model: Vec<u32>,
     entrada: Vec<u32>,
     modos: Vec<u32>,
     anot: Vec<u32>,
@@ -141,7 +141,7 @@ fn partes() -> Partes {
         caps: ins(op::OpCapability, &[1]),
         exts: vec![],
         imports: con(&[], ins(op::OpExtInstImport, &con(&[1], cad("GLSL.std.450")))),
-        modelo: ins(op::OpMemoryModel, &[0, 1]),
+        model: ins(op::OpMemoryModel, &[0, 1]),
         entrada: ins(op::OpEntryPoint, &con(&[5, 4], cad("main"))),
         modos: ins(op::OpExecutionMode, &[4, 17, 1, 1, 1]),
         anot: vec![],
@@ -154,21 +154,21 @@ fn partes() -> Partes {
 }
 
 fn armar(p: &Partes) -> Vec<u8> {
-    let mut w = vec![MAGIA, 0x0001_0000, 0, 100, 0];
-    for t in [&p.caps, &p.exts, &p.imports, &p.modelo, &p.entrada, &p.modos, &p.anot, &p.tipos, &p.func, &p.cuerpo, &p.fin, &p.cola] {
+    let mut w = vec![MAGIC, 0x0001_0000, 0, 100, 0];
+    for t in [&p.caps, &p.exts, &p.imports, &p.model, &p.entrada, &p.modos, &p.anot, &p.tipos, &p.func, &p.cuerpo, &p.fin, &p.cola] {
         w.extend_from_slice(t);
     }
     w.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
-fn juicio(cambia: impl FnOnce(&mut Partes)) -> Result<Veredicto, Fallo> {
+fn juicio(cambia: impl FnOnce(&mut Partes)) -> Result<Verdict, Error> {
     let mut p = partes();
     cambia(&mut p);
     juicio_de(&armar(&p))
 }
 
-fn motivo(cambia: impl FnOnce(&mut Partes)) -> Motivo {
-    juicio(cambia).err().expect("se esperaba un NO").motivo
+fn reason(cambia: impl FnOnce(&mut Partes)) -> Reason {
+    juicio(cambia).err().expect("se esperaba un NO").reason
 }
 
 fn cuerpo(c: &[Vec<u32>]) -> impl FnOnce(&mut Partes) + '_ {
@@ -182,7 +182,7 @@ fn cuerpo(c: &[Vec<u32>]) -> impl FnOnce(&mut Partes) + '_ {
 #[test]
 fn el_minimo_cabe() {
     let v = juicio(|_| {}).unwrap();
-    assert_eq!((v.entradas, v.funciones, v.bloques), (1, 1, 1));
+    assert_eq!((v.entry_points, v.functions, v.blocks), (1, 1, 1));
 }
 
 #[test]
@@ -207,77 +207,77 @@ fn un_cuerpo_con_de_todo_cabe() {
 
 #[test]
 fn capacidad_fuera() {
-    assert_eq!(motivo(|p| p.caps.extend(ins(op::OpCapability, &[10]))), Motivo::CapacidadFuera { capacidad: 10 });
+    assert_eq!(reason(|p| p.caps.extend(ins(op::OpCapability, &[10]))), Reason::UnsupportedCapability { capability: 10 });
 }
 
 #[test]
 fn extension_fuera_y_la_que_si_vale() {
-    assert_eq!(motivo(|p| p.exts = ins(op::OpExtension, &cad("SPV_KHR_de_mentira"))), Motivo::ExtensionFuera);
+    assert_eq!(reason(|p| p.exts = ins(op::OpExtension, &cad("SPV_KHR_de_mentira"))), Reason::UnsupportedExtension);
     assert!(juicio(|p| p.exts = ins(op::OpExtension, &cad("SPV_KHR_storage_buffer_storage_class"))).is_ok());
 }
 
 #[test]
 fn importacion_fuera() {
     assert_eq!(
-        motivo(|p| p.imports.extend(ins(op::OpExtInstImport, &con(&[20], cad("OpenCL.std"))))),
-        Motivo::ImportacionFuera
+        reason(|p| p.imports.extend(ins(op::OpExtInstImport, &con(&[20], cad("OpenCL.std"))))),
+        Reason::UnsupportedImport
     );
 }
 
 #[test]
 fn modelo_fuera() {
-    assert_eq!(motivo(|p| p.modelo = ins(op::OpMemoryModel, &[0, 0])), Motivo::ModeloFuera { direccionamiento: 0, memoria: 0 });
+    assert_eq!(reason(|p| p.model = ins(op::OpMemoryModel, &[0, 0])), Reason::UnsupportedMemoryModel { addressing: 0, memory: 0 });
 }
 
 #[test]
 fn sin_entrada() {
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             p.entrada.clear();
             p.modos.clear();
         }),
-        Motivo::SinEntrada
+        Reason::NoEntryPoint
     );
 }
 
 #[test]
 fn etapa_fuera() {
-    assert_eq!(motivo(|p| p.entrada = ins(op::OpEntryPoint, &con(&[0, 4], cad("main")))), Motivo::EtapaFuera { modelo: 0 });
+    assert_eq!(reason(|p| p.entrada = ins(op::OpEntryPoint, &con(&[0, 4], cad("main")))), Reason::UnsupportedStage { model: 0 });
 }
 
 #[test]
 fn sin_local_size() {
-    assert_eq!(motivo(|p| p.modos.clear()), Motivo::SinLocalSize);
+    assert_eq!(reason(|p| p.modos.clear()), Reason::NoLocalSize);
 }
 
 #[test]
 fn modo_fuera() {
-    assert_eq!(motivo(|p| p.modos.extend(ins(op::OpExecutionMode, &[4, 7]))), Motivo::ModoFuera { modo: 7 });
+    assert_eq!(reason(|p| p.modos.extend(ins(op::OpExecutionMode, &[4, 7]))), Reason::UnsupportedMode { mode: 7 });
 }
 
 #[test]
 fn grupos_de_decoraciones_fuera() {
-    let m = motivo(|p| p.anot = ins(op::OpDecorationGroup, &[20]));
-    assert!(matches!(m, Motivo::InstruccionFuera { codigo: op::OpDecorationGroup, .. }));
+    let m = reason(|p| p.anot = ins(op::OpDecorationGroup, &[20]));
+    assert!(matches!(m, Reason::UnsupportedInstruction { opcode: op::OpDecorationGroup, .. }));
 }
 
 #[test]
 fn ext_inst_fuera_y_luego() {
     // Round (1) no esta; Sin (13) llega con S3b.
-    assert_eq!(motivo(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 1, 12])])), Motivo::ExtInstFuera { numero: 1 });
-    assert_eq!(motivo(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 13, 12])])), Motivo::ExtInstLuego { numero: 13 });
+    assert_eq!(reason(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 1, 12])])), Reason::UnsupportedGlsl { number: 1 });
+    assert_eq!(reason(cuerpo(&[ins(op::OpExtInst, &[7, 20, 1, 13, 12])])), Reason::GlslLater { number: 13 });
 }
 
 #[test]
 fn tipos_fuera() {
-    assert!(matches!(motivo(|p| p.tipos.extend(ins(op::OpTypeInt, &[20, 64, 0]))), Motivo::TipoFuera { .. }));
-    assert!(matches!(motivo(|p| p.tipos.extend(ins(op::OpTypeFloat, &[20, 64]))), Motivo::TipoFuera { .. }));
-    assert!(matches!(motivo(|p| p.tipos.extend(ins(op::OpTypeVector, &[20, 7, 5]))), Motivo::TipoFuera { .. }));
+    assert!(matches!(reason(|p| p.tipos.extend(ins(op::OpTypeInt, &[20, 64, 0]))), Reason::UnsupportedType { .. }));
+    assert!(matches!(reason(|p| p.tipos.extend(ins(op::OpTypeFloat, &[20, 64]))), Reason::UnsupportedType { .. }));
+    assert!(matches!(reason(|p| p.tipos.extend(ins(op::OpTypeVector, &[20, 7, 5]))), Reason::UnsupportedType { .. }));
 }
 
 #[test]
 fn clase_fuera_workgroup() {
-    assert_eq!(motivo(|p| p.tipos.extend(ins(op::OpTypePointer, &[20, 4, 6]))), Motivo::ClaseFuera { clase: 4 });
+    assert_eq!(reason(|p| p.tipos.extend(ins(op::OpTypePointer, &[20, 4, 6]))), Reason::UnsupportedStorageClass { class: 4 });
 }
 
 /// `%20` = puntero Input a uint, `%21` = la variable.
@@ -288,13 +288,13 @@ fn entrada_uint(p: &mut Partes) {
 
 #[test]
 fn entrada_sin_builtin_y_builtin_fuera() {
-    assert_eq!(motivo(entrada_uint), Motivo::EntradaSinBuiltIn { id: 21 });
+    assert_eq!(reason(entrada_uint), Reason::InputWithoutBuiltIn { id: 21 });
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             entrada_uint(p);
             p.anot = ins(op::OpDecorate, &[21, 11, 0]); // BuiltIn Position
         }),
-        Motivo::BuiltInFuera { builtin: 0 }
+        Reason::UnsupportedBuiltIn { builtin: 0 }
     );
     assert!(juicio(|p| {
         entrada_uint(p);
@@ -306,12 +306,12 @@ fn entrada_sin_builtin_y_builtin_fuera() {
 #[test]
 fn escritura_en_entrada() {
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             entrada_uint(p);
             p.anot = ins(op::OpDecorate, &[21, 11, 29]);
             p.cuerpo = ins(op::OpStore, &[21, 11]);
         }),
-        Motivo::EscrituraEnEntrada
+        Reason::WriteToInput
     );
 }
 
@@ -322,7 +322,7 @@ fn buffer_sin_binding() {
         p.tipos.extend(ins(op::OpTypePointer, &[21, 2, 20]));
         p.tipos.extend(ins(op::OpVariable, &[21, 22, 2]));
     };
-    assert_eq!(motivo(buffer), Motivo::SinBinding { id: 22 });
+    assert_eq!(reason(buffer), Reason::NoBinding { id: 22 });
     assert!(juicio(|p| {
         buffer(p);
         p.anot = con(&ins(op::OpDecorate, &[22, 33, 0]), ins(op::OpDecorate, &[22, 34, 0]));
@@ -332,40 +332,40 @@ fn buffer_sin_binding() {
 
 #[test]
 fn no_es_tipo_no_es_valor_no_es_constante() {
-    assert_eq!(motivo(|p| p.tipos.extend(ins(op::OpTypeVector, &[20, 11, 2]))), Motivo::NoEsTipo { id: 11 });
-    assert_eq!(motivo(cuerpo(&[ins(op::OpIAdd, &[6, 20, 6, 11])])), Motivo::NoEsValor { id: 6 });
-    assert_eq!(motivo(|p| p.tipos.extend(ins(op::OpTypeArray, &[20, 6, 7]))), Motivo::NoEsConstante { id: 7 });
+    assert_eq!(reason(|p| p.tipos.extend(ins(op::OpTypeVector, &[20, 11, 2]))), Reason::NotAType { id: 11 });
+    assert_eq!(reason(cuerpo(&[ins(op::OpIAdd, &[6, 20, 6, 11])])), Reason::NotAValue { id: 6 });
+    assert_eq!(reason(|p| p.tipos.extend(ins(op::OpTypeArray, &[20, 6, 7]))), Reason::NotAConstant { id: 7 });
 }
 
 #[test]
 fn no_es_etiqueta() {
     assert_eq!(
-        motivo(|p| p.fin = con(&ins(op::OpBranch, &[11]), ins(op::OpFunctionEnd, &[]))),
-        Motivo::NoEsEtiqueta { id: 11 }
+        reason(|p| p.fin = con(&ins(op::OpBranch, &[11]), ins(op::OpFunctionEnd, &[]))),
+        Reason::NotALabel { id: 11 }
     );
 }
 
 #[test]
 fn no_definido_y_uso_antes_de_definir() {
-    assert_eq!(motivo(cuerpo(&[ins(op::OpIAdd, &[6, 20, 90, 11])])), Motivo::NoDefinido { id: 90 });
+    assert_eq!(reason(cuerpo(&[ins(op::OpIAdd, &[6, 20, 90, 11])])), Reason::Undefined { id: 90 });
     assert_eq!(
-        motivo(cuerpo(&[ins(op::OpIAdd, &[6, 20, 21, 11]), ins(op::OpIAdd, &[6, 21, 11, 11])])),
-        Motivo::UsoAntesDeDefinir { id: 21 }
+        reason(cuerpo(&[ins(op::OpIAdd, &[6, 20, 21, 11]), ins(op::OpIAdd, &[6, 21, 11, 11])])),
+        Reason::UsedBeforeDefined { id: 21 }
     );
 }
 
 #[test]
 fn los_tipos_no_cuadran() {
     // Una suma entera con resultado flotante; una flotante con un entero.
-    assert_eq!(motivo(cuerpo(&[ins(op::OpIAdd, &[7, 20, 11, 11])])), Motivo::TipoNoCuadra { codigo: op::OpIAdd });
-    assert_eq!(motivo(cuerpo(&[ins(op::OpFAdd, &[7, 20, 12, 11])])), Motivo::TipoNoCuadra { codigo: op::OpFAdd });
+    assert_eq!(reason(cuerpo(&[ins(op::OpIAdd, &[7, 20, 11, 11])])), Reason::TypeMismatch { opcode: op::OpIAdd });
+    assert_eq!(reason(cuerpo(&[ins(op::OpFAdd, &[7, 20, 12, 11])])), Reason::TypeMismatch { opcode: op::OpFAdd });
 }
 
 #[test]
 fn indice_fuera() {
     assert_eq!(
-        motivo(cuerpo(&[ins(op::OpCompositeExtract, &[7, 20, 14, 5])])),
-        Motivo::IndiceFuera { codigo: op::OpCompositeExtract }
+        reason(cuerpo(&[ins(op::OpCompositeExtract, &[7, 20, 14, 5])])),
+        Reason::IndexOutOfRange { opcode: op::OpCompositeExtract }
     );
 }
 
@@ -373,33 +373,33 @@ fn indice_fuera() {
 fn sin_cuerpo() {
     // Una segunda funcion sin ningun bloque.
     assert_eq!(
-        motivo(|p| p.cola = con(&ins(op::OpFunction, &[2, 20, 0, 3]), ins(op::OpFunctionEnd, &[]))),
-        Motivo::SinCuerpo
+        reason(|p| p.cola = con(&ins(op::OpFunction, &[2, 20, 0, 3]), ins(op::OpFunctionEnd, &[]))),
+        Reason::NoBody
     );
 }
 
 #[test]
 fn fuera_de_bloque_y_bloque_sin_terminar() {
     assert_eq!(
-        motivo(|p| p.fin = [ins(op::OpReturn, &[]), ins(op::OpIAdd, &[6, 20, 11, 11]), ins(op::OpFunctionEnd, &[])].concat()),
-        Motivo::FueraDeBloque { codigo: op::OpIAdd }
+        reason(|p| p.fin = [ins(op::OpReturn, &[]), ins(op::OpIAdd, &[6, 20, 11, 11]), ins(op::OpFunctionEnd, &[])].concat()),
+        Reason::OutsideBlock { opcode: op::OpIAdd }
     );
-    assert_eq!(motivo(cuerpo(&[ins(op::OpLabel, &[20])])), Motivo::BloqueSinTerminar);
-    assert_eq!(motivo(|p| p.fin = ins(op::OpFunctionEnd, &[])), Motivo::BloqueSinTerminar);
+    assert_eq!(reason(cuerpo(&[ins(op::OpLabel, &[20])])), Reason::UnterminatedBlock);
+    assert_eq!(reason(|p| p.fin = ins(op::OpFunctionEnd, &[])), Reason::UnterminatedBlock);
 }
 
 #[test]
 fn phi_y_variable_fuera_de_sitio() {
     assert_eq!(
-        motivo(cuerpo(&[ins(op::OpIAdd, &[6, 20, 11, 11]), ins(op::OpPhi, &[6, 21, 11, 5])])),
-        Motivo::PhiFueraDeSitio
+        reason(cuerpo(&[ins(op::OpIAdd, &[6, 20, 11, 11]), ins(op::OpPhi, &[6, 21, 11, 5])])),
+        Reason::MisplacedPhi
     );
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             p.tipos.extend(ins(op::OpTypePointer, &[20, 7, 6]));
             p.cuerpo = con(&ins(op::OpIAdd, &[6, 21, 11, 11]), ins(op::OpVariable, &[20, 22, 7]));
         }),
-        Motivo::VariableFueraDeSitio
+        Reason::MisplacedVariable
     );
 }
 
@@ -407,14 +407,14 @@ fn phi_y_variable_fuera_de_sitio() {
 fn merge_fuera_de_sitio_y_salto_sin_estructura() {
     // SelectionMerge seguido de algo que no es su salto.
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             p.cuerpo = con(&ins(op::OpSelectionMerge, &[5, 0]), ins(op::OpIAdd, &[6, 21, 11, 11]));
         }),
-        Motivo::MergeFueraDeSitio
+        Reason::MisplacedMerge
     );
     // Un if sin fusion: dos destinos distintos y ningun bucle.
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             p.fin = [
                 ins(op::OpBranchConditional, &[13, 20, 21]),
                 ins(op::OpLabel, &[20]),
@@ -425,7 +425,7 @@ fn merge_fuera_de_sitio_y_salto_sin_estructura() {
             ]
             .concat();
         }),
-        Motivo::SaltoSinEstructura
+        Reason::Unstructured
     );
     // El mismo if CON su fusion cabe.
     assert!(juicio(|p| {
@@ -447,20 +447,20 @@ fn merge_fuera_de_sitio_y_salto_sin_estructura() {
 fn entrada_no_cuadra() {
     // main recibe un parametro.
     assert_eq!(
-        motivo(|p| {
+        reason(|p| {
             p.tipos.extend(ins(op::OpTypeFunction, &[20, 2, 6]));
             p.func = [ins(op::OpFunction, &[2, 4, 0, 20]), ins(op::OpFunctionParameter, &[6, 21]), ins(op::OpLabel, &[5])]
                 .concat();
         }),
-        Motivo::EntradaNoCuadra
+        Reason::EntryPointNotVoidMain
     );
 }
 
 #[test]
 fn las_constantes_de_especializacion_se_nombran() {
     assert_eq!(
-        motivo(|p| p.tipos.extend(ins(op::OpSpecConstant, &[6, 20, 7]))),
-        Motivo::FamiliaFuera { familia: Familia::Especializacion, codigo: op::OpSpecConstant }
+        reason(|p| p.tipos.extend(ins(op::OpSpecConstant, &[6, 20, 7]))),
+        Reason::UnsupportedFamily { family: Family::Specialization, opcode: op::OpSpecConstant }
     );
 }
 
@@ -474,9 +474,9 @@ fn voltear_cada_byte_tampoco_tumba_al_juez() {
         for i in 0..b.len() {
             b[i] ^= 0xFF;
             let mut ids = vec![0u32; 1 << 16];
-            if let Ok(m) = leer(&b, &mut ids) {
-                let _ = juzgar(&m);
-                let _ = censo(&m);
+            if let Ok(m) = read(&b, &mut ids) {
+                let _ = validate(&m);
+                let _ = census(&m);
                 juzgados += 1;
             }
             b[i] ^= 0xFF;

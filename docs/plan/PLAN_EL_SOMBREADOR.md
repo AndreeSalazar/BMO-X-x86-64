@@ -123,8 +123,9 @@ tiene cero de 51 operaciones hoy.
 
 ## [x] S1 -- EL LECTOR: bytes de SPIR-V a un modulo
 
-> **Hecho el 23-09**, sin `alloc`: `leer(bytes, ids) -> Modulo | Fallo`. La
-> tabla de 194 instrucciones la genera `herramientas/tabla.py` desde la
+> **Hecho el 23-09**, sin `alloc`: `read(bytes, ids) -> Module | Error` (nacio
+> como `leer`; la API paso al ingles el mismo dia). La tabla la genera
+> `herramientas/table.py` desde la
 > gramatica NORMATIVA de Khronos (MIT) -- los numeros son el contrato, las
 > filas y las familias son el estudio -- y `--cotejar` dice si se desvio. 23
 > motivos con su fila; los cinco `.spv` se leen enteros; cortar cada fichero
@@ -146,10 +147,10 @@ decoraciones, tipos, constantes, globales y funciones.
 
 ## [x] S2 -- EL JUEZ: el subconjunto, o por que no
 
-> **Hecho el 23-09**, `no_std` sin `alloc`: `juzgar(&Modulo) -> Veredicto |
-> Fallo` en una pasada, preguntando los tipos a la tabla de ids del lector.
+> **Hecho el 23-09**, `no_std` sin `alloc`: `validate(&Module) -> Verdict |
+> Error` (nacio como `juzgar`) en una pasada, preguntando los tipos a la tabla de ids del lector.
 > 37 motivos nuevos, una fila cada uno; `fuera.spv` cae en lo primero que
-> aparece (la memoria `Workgroup`) y `censo` nombra las tres familias.
+> aparece (la memoria `Workgroup`) y `census` nombra las tres familias.
 >
 > ** Y LA MATRIZ: el banco de pruebas de NAGA (wgpu, MIT/Apache), clonado
 > FUERA del repo (`BMO-externo/naga-corpus`) y fabricado con tres
@@ -167,7 +168,7 @@ decoraciones, tipos, constantes, globales y funciones.
 > definir" o "salto sin estructura": todo lo que cae, cae por estar FUERA del
 > subconjunto. Con tres fabricantes distintos, el juez no rechaza SPIR-V
 > valido por un error suyo. Lo que NO mide: si acepta SPIR-V invalido --
-> el corpus solo trae validos, y eso lo cuidan las filas de `tests/juez.rs`.
+> el corpus solo trae validos, y eso lo cuidan las filas de `tests/validator.rs`.
 >
 > `py toolchain/lang/spirv/herramientas/censo_naga.py` lo repite.
 
@@ -180,6 +181,10 @@ decoraciones, tipos, constantes, globales y funciones.
   palabra correcta.
 
 ## [ ] S3 -- EL ORACULO: un interprete en el anfitrion
+
+> ** Desde el 23-09 la API publica de `lang/spirv` es INGLES (decision del
+> propietario, pensando en motores y juegos de fuera); comentarios y textos de
+> pantalla, castellano. El oraculo nace ya asi.
 
 > La matriz de S2 ya dice por donde crecer DESPUES de S3: las matrices son lo
 > primero que falta en el computo real (16 de los 83 que no caben).

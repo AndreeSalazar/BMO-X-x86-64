@@ -5,7 +5,7 @@
 //! `herramientas/censo_naga.py` con el banco de pruebas de Naga, que vive
 //! FUERA del repo (`BMO-externo/naga-corpus`).
 //!
-//!     cargo run -q -p bmo-spirv-front --example censo -- <carpeta de .spv>
+//!     cargo run -q -p bmo-spirv-front --example census -- <carpeta de .spv>
 //!
 //! Lo que dice: cuantos se leen, cuantos caben, y POR QUE no el resto,
 //! ordenado por cuantas veces sale cada motivo. Es el numero que decide que
@@ -15,28 +15,28 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use bmo_spirv_front::{censo, juzgar, leer, Familia, Motivo};
+use bmo_spirv_front::{census, validate, read, Family, Reason};
 
-fn clave(m: &Motivo) -> String {
+fn clave(m: &Reason) -> String {
     // El motivo sin el numero de palabra, y con lo que lo distingue.
     match m {
-        Motivo::FamiliaFuera { familia: Familia::Otro, codigo } => {
-            format!("{}", bmo_spirv_front::fila(*codigo).map(|f| f.nombre).unwrap_or("?"))
+        Reason::UnsupportedFamily { family: Family::Other, opcode } => {
+            format!("{}", bmo_spirv_front::op_info(*opcode).map(|f| f.name).unwrap_or("?"))
         }
-        Motivo::FamiliaFuera { familia, .. } => format!("familia: {}", familia.nombre()),
-        Motivo::CapacidadFuera { capacidad } => format!("capacidad {}", capacidad),
-        Motivo::ClaseFuera { clase } => format!("clase de almacenamiento {}", clase),
-        Motivo::EtapaFuera { modelo } => format!("etapa {} (no es computo)", modelo),
-        Motivo::ExtInstFuera { numero } => format!("GLSL.std.450 numero {} fuera", numero),
-        Motivo::ExtInstLuego { numero } => format!("GLSL.std.450 numero {} (S3b)", numero),
-        Motivo::ModoFuera { modo } => format!("modo de ejecucion {}", modo),
-        Motivo::TipoFuera { porque } => format!("tipo: {}", porque),
-        Motivo::BuiltInFuera { builtin } => format!("BuiltIn {}", builtin),
-        Motivo::SinFila { codigo } => format!("lector: codigo {} sin fila", codigo),
-        Motivo::TipoNoCuadra { codigo } | Motivo::IndiceFuera { codigo } | Motivo::FueraDeBloque { codigo } => {
-            format!("{} ({})", m.nombre(), codigo)
+        Reason::UnsupportedFamily { family, .. } => format!("familia: {}", family.name()),
+        Reason::UnsupportedCapability { capability } => format!("capacidad {}", capability),
+        Reason::UnsupportedStorageClass { class } => format!("clase de almacenamiento {}", class),
+        Reason::UnsupportedStage { model } => format!("etapa {} (no es computo)", model),
+        Reason::UnsupportedGlsl { number } => format!("GLSL.std.450 numero {} fuera", number),
+        Reason::GlslLater { number } => format!("GLSL.std.450 numero {} (S3b)", number),
+        Reason::UnsupportedMode { mode } => format!("modo de ejecucion {}", mode),
+        Reason::UnsupportedType { why } => format!("tipo: {}", why),
+        Reason::UnsupportedBuiltIn { builtin } => format!("BuiltIn {}", builtin),
+        Reason::UnknownOpcode { opcode } => format!("lector: codigo {} sin fila", opcode),
+        Reason::TypeMismatch { opcode } | Reason::IndexOutOfRange { opcode } | Reason::OutsideBlock { opcode } => {
+            format!("{} ({})", m.name(), opcode)
         }
-        otro => otro.nombre().to_string(),
+        otro => otro.name().to_string(),
     }
 }
 
@@ -59,7 +59,7 @@ fn main() {
     let mut con_familia = [0usize; 9];
 
     for p in &nombres {
-        let nombre = p.file_stem().unwrap().to_string_lossy().to_string();
+        let name = p.file_stem().unwrap().to_string_lossy().to_string();
         let bytes = fs::read(p).unwrap();
         let bound = if bytes.len() >= 16 {
             u32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]) as usize
@@ -67,37 +67,37 @@ fn main() {
             0
         };
         let mut ids = vec![0u32; bound.clamp(1, 1 << 22)];
-        let m = match leer(&bytes, &mut ids) {
+        let m = match read(&bytes, &mut ids) {
             Ok(m) => m,
             Err(f) => {
-                println!("  NO LEE  {:<40} {}", nombre, f);
-                motivos.entry(format!("LECTOR -- {}", clave(&f.motivo))).or_default().push(nombre);
+                println!("  NO LEE  {:<40} {}", name, f);
+                motivos.entry(format!("LECTOR -- {}", clave(&f.reason))).or_default().push(name);
                 continue;
             }
         };
         leidos += 1;
-        let computo = m.entradas().iter().any(|e| e.modelo == 5);
+        let computo = m.entry_points().iter().any(|e| e.model == 5);
         if computo {
             de_computo += 1;
         }
-        let c = censo(&m);
-        for (i, n) in c.por_familia.iter().enumerate() {
+        let c = census(&m);
+        for (i, n) in c.per_family.iter().enumerate() {
             familias[i] += n;
             if *n > 0 {
                 con_familia[i] += 1;
             }
         }
-        match juzgar(&m) {
+        match validate(&m) {
             Ok(v) => {
                 caben += 1;
-                println!("  CABE    {:<40} {} bloques, {} funciones", nombre, v.bloques, v.funciones);
+                println!("  CABE    {:<40} {} bloques, {} funciones", name, v.blocks, v.functions);
             }
             Err(f) => {
-                println!("  NO      {:<40} {}", nombre, f);
+                println!("  NO      {:<40} {}", name, f);
                 if computo {
-                    de_computo_no.entry(clave(&f.motivo)).or_default().push(nombre.clone());
+                    de_computo_no.entry(clave(&f.reason)).or_default().push(name.clone());
                 }
-                motivos.entry(clave(&f.motivo)).or_default().push(nombre);
+                motivos.entry(clave(&f.reason)).or_default().push(name);
             }
         }
     }
@@ -108,22 +108,22 @@ fn main() {
     println!("  por que no (el PRIMER motivo de cada uno), de mas a menos:");
     let mut orden: Vec<_> = motivos.into_iter().collect();
     orden.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then(a.0.cmp(&b.0)));
-    for (motivo, quienes) in &orden {
+    for (reason, quienes) in &orden {
         let muestra: Vec<_> = quienes.iter().take(3).cloned().collect();
-        println!("    {:>4}  {:<60} {}", quienes.len(), motivo, muestra.join(", "));
+        println!("    {:>4}  {:<60} {}", quienes.len(), reason, muestra.join(", "));
     }
     println!();
     println!("  y solo los de COMPUTO que no caben, de mas a menos:");
     let mut orden: Vec<_> = de_computo_no.into_iter().collect();
     orden.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then(a.0.cmp(&b.0)));
-    for (motivo, quienes) in &orden {
+    for (reason, quienes) in &orden {
         let muestra: Vec<_> = quienes.iter().take(3).cloned().collect();
-        println!("    {:>4}  {:<60} {}", quienes.len(), motivo, muestra.join(", "));
+        println!("    {:>4}  {:<60} {}", quienes.len(), reason, muestra.join(", "));
     }
     println!();
     println!("  familias (ficheros que la usan / instrucciones):");
-    for f in Familia::TODAS {
-        println!("    {:<16} {:>4} / {:>6}", format!("{:?}", f), con_familia[f.indice()], familias[f.indice()]);
+    for f in Family::ALL {
+        println!("    {:<16} {:>4} / {:>6}", format!("{:?}", f), con_familia[f.index()], familias[f.index()]);
     }
     let _ = Path::new(&carpeta);
 }

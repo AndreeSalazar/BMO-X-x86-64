@@ -7,15 +7,15 @@
 //!
 //! == Lo que hay hoy (casilla S1) ==
 //!
-//! [`leer`]: bytes de un `.spv` -> un [`Modulo`] recorrible, o un [`Fallo`]
+//! [`read`]: bytes de un `.spv` -> un [`Module`] recorrible, o un [`Error`]
 //! que dice POR QUE no y en que palabra. Los bytes son de un TERCERO: nada de
 //! lo que traigan puede hacer que esto entre en panico.
 //!
 //! == Y el juez (casilla S2) ==
 //!
-//! [`juzgar`]: un modulo leido cabe en el SUBCONJUNTO, o el primer motivo por
+//! [`validate`]: un modulo leido cabe en el SUBCONJUNTO, o el primer motivo por
 //! el que no. Tipos que cuadran, valores definidos antes de usarse, bloques
-//! que empiezan y terminan, saltos con estructura. [`censo`] cuenta de que
+//! que empiezan y terminan, saltos con estructura. [`census`] cuenta de que
 //! familias es un modulo, para saber que falta sin parar en el primer NO.
 //!
 //! == Las dos reglas que no se negocian ==
@@ -30,154 +30,154 @@
 
 #![no_std]
 
-mod juez;
-mod lector;
-mod motivo;
-pub mod tabla;
+mod validator;
+mod reader;
+mod reason;
+pub mod table;
 
-pub use juez::{censo, juzgar, Censo, Veredicto};
-pub use lector::{leer, Cabecera, Entrada, Importacion, Instr, Instrucciones, Modulo};
-pub use motivo::{Fallo, Motivo};
+pub use validator::{census, validate, Census, Verdict};
+pub use reader::{read, Header, EntryPoint, Import, Instruction, Instructions, Module};
+pub use reason::{Error, Reason};
 
 /// La palabra magica de SPIR-V, leida en little-endian.
-pub const MAGIA: u32 = 0x0723_0203;
+pub const MAGIC: u32 = 0x0723_0203;
 
 /// En que parte de la disposicion logica de un modulo vive una instruccion
 /// (especificacion de SPIR-V, 2.4). El ORDEN de las variantes es el del
-/// fichero: las secciones hasta `Tipo` solo pueden ir hacia delante.
+/// fichero: las secciones hasta `Type` solo pueden ir hacia delante.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
-pub enum Seccion {
-    Capacidad,
+pub enum Section {
+    Capability,
     Extension,
-    Importacion,
-    Modelo,
-    Entrada,
-    Modo,
+    Import,
+    MemoryModel,
+    EntryPoint,
+    ExecutionMode,
     /// `OpString`, `OpSource*`: lo que dice de donde salio.
-    Fuente,
+    Source,
     /// `OpName`, `OpMemberName`.
-    Nombre,
-    Procesado,
+    Name,
+    ModuleProcessed,
     /// Decoraciones.
-    Anotacion,
+    Annotation,
     /// Tipos, constantes y variables globales.
-    Tipo,
+    Type,
     /// Puede ir entre los tipos (global) y dentro de una funcion: `OpVariable`,
     /// `OpUndef`, `OpLine`, `OpNoLine`, `OpNop`.
     Flexible,
-    Funcion,
-    FinFuncion,
+    Function,
+    FunctionEnd,
     /// Solo dentro de una funcion.
-    Cuerpo,
+    Body,
 }
 
 /// A que familia pertenece una instruccion. El lector las LEE todas; el juez
-/// (S2) solo acepta `Nucleo` y niega el resto nombrando la familia.
+/// (S2) solo acepta `Core` y niega el resto nombrando la familia.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Familia {
+pub enum Family {
     /// El subconjunto de PLAN_EL_SOMBREADOR, seccion 2.
-    Nucleo,
+    Core,
     /// `OpSwitch`, `OpKill`: control de flujo que viene despues.
-    Salto,
-    Imagen,
-    Atomico,
+    ControlFlow,
+    Image,
+    Atomic,
     /// Barreras de grupo: piden invocaciones A LA VEZ, o sea hilos.
-    Barrera,
-    Matriz,
+    Barrier,
+    Matrix,
     /// Derivadas: solo existen en la etapa de fragmentos.
-    Derivada,
+    Derivative,
     /// Constantes de especializacion: las fija el pipeline, y sin VERRANO no
     /// hay pipeline.
-    Especializacion,
+    Specialization,
     /// Todo lo demas de la gramatica: el lector sabe su forma, el juez lo
     /// niega por su nombre.
-    Otro,
+    Other,
 }
 
-impl Familia {
-    /// Todas, en el orden de [`Censo::por_familia`].
-    pub const TODAS: [Familia; 9] = [
-        Familia::Nucleo,
-        Familia::Salto,
-        Familia::Imagen,
-        Familia::Atomico,
-        Familia::Barrera,
-        Familia::Matriz,
-        Familia::Derivada,
-        Familia::Especializacion,
-        Familia::Otro,
+impl Family {
+    /// Todas, en el orden de [`Census::per_family`].
+    pub const ALL: [Family; 9] = [
+        Family::Core,
+        Family::ControlFlow,
+        Family::Image,
+        Family::Atomic,
+        Family::Barrier,
+        Family::Matrix,
+        Family::Derivative,
+        Family::Specialization,
+        Family::Other,
     ];
 
-    pub fn indice(self) -> usize {
+    pub fn index(self) -> usize {
         self as usize
     }
 
     /// Por que el juez la niega.
-    pub fn nombre(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
-            Familia::Nucleo => "nucleo",
-            Familia::Salto => "switch/kill: control de flujo con tabla, despues",
-            Familia::Imagen => "imagenes y muestreadores: con el rasterizador",
-            Familia::Atomico => "atomicos: piden invocaciones a la vez (hilos)",
-            Familia::Barrera => "barreras de grupo: piden invocaciones a la vez (hilos)",
-            Familia::Matriz => "matrices: fuera del subconjunto de computo",
-            Familia::Derivada => "derivadas: solo existen en la etapa de fragmentos",
-            Familia::Especializacion => "constantes de especializacion: las fija el pipeline (VERRANO)",
-            Familia::Otro => "instruccion fuera del subconjunto",
+            Family::Core => "nucleo",
+            Family::ControlFlow => "switch/kill: control de flujo con tabla, despues",
+            Family::Image => "imagenes y muestreadores: con el rasterizador",
+            Family::Atomic => "atomicos: piden invocaciones a la vez (hilos)",
+            Family::Barrier => "barreras de grupo: piden invocaciones a la vez (hilos)",
+            Family::Matrix => "matrices: fuera del subconjunto de computo",
+            Family::Derivative => "derivadas: solo existen en la etapa de fragmentos",
+            Family::Specialization => "constantes de especializacion: las fija el pipeline (VERRANO)",
+            Family::Other => "instruccion fuera del subconjunto",
         }
     }
 }
 
 /// A que grupo pertenece una instruccion de `GLSL.std.450`.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum GrupoGlsl {
+pub enum GlslGroup {
     /// Resultado y operandos flotantes del mismo tipo.
-    Flotante,
+    Float,
     /// Resultado y operandos enteros de la misma medida.
-    Entero,
+    Int,
     /// No existen en SSE: llegan con la casilla S3b.
-    Trascendente,
+    Transcendental,
 }
 
-/// Una fila de [`tabla::GLSL450`].
+/// Una fila de [`table::GLSL450`].
 #[derive(Clone, Copy, Debug)]
-pub struct FilaGlsl {
-    pub numero: u32,
-    pub nombre: &'static str,
-    pub operandos: u8,
-    pub grupo: GrupoGlsl,
+pub struct GlslInfo {
+    pub number: u32,
+    pub name: &'static str,
+    pub operands: u8,
+    pub group: GlslGroup,
 }
 
 /// La fila de una instruccion de `GLSL.std.450`, o `None` si no se conoce.
-pub fn glsl(numero: u32) -> Option<&'static FilaGlsl> {
-    tabla::GLSL450
-        .binary_search_by_key(&numero, |f| f.numero)
+pub fn glsl_info(number: u32) -> Option<&'static GlslInfo> {
+    table::GLSL450
+        .binary_search_by_key(&number, |f| f.number)
         .ok()
-        .map(|i| &tabla::GLSL450[i])
+        .map(|i| &table::GLSL450[i])
 }
 
-/// Una fila de [`tabla::TABLA`]: lo que el lector necesita saber de una
+/// Una fila de [`table::TABLE`]: lo que el lector necesita saber de una
 /// instruccion para recorrerla sin entenderla.
 #[derive(Clone, Copy, Debug)]
-pub struct Fila {
-    pub codigo: u16,
-    pub nombre: &'static str,
+pub struct OpInfo {
+    pub opcode: u16,
+    pub name: &'static str,
     /// Lleva un id de TIPO de resultado (la palabra 1).
-    pub tipo: bool,
+    pub has_result_type: bool,
     /// Define un id (la palabra 1, o la 2 si lleva tipo).
-    pub resultado: bool,
+    pub has_result: bool,
     /// Palabras minimas, cabecera incluida.
-    pub minimo: u8,
+    pub min_words: u8,
     /// Palabra donde empieza una cadena de sitio fijo; 0 = no hay.
-    pub cadena: u8,
-    pub seccion: Seccion,
-    pub familia: Familia,
+    pub string_word: u8,
+    pub section: Section,
+    pub family: Family,
 }
 
 /// La fila de un codigo, o `None` si este lector no lo conoce.
-pub fn fila(codigo: u16) -> Option<&'static Fila> {
-    tabla::TABLA
-        .binary_search_by_key(&codigo, |f| f.codigo)
+pub fn op_info(opcode: u16) -> Option<&'static OpInfo> {
+    table::TABLE
+        .binary_search_by_key(&opcode, |f| f.opcode)
         .ok()
-        .map(|i| &tabla::TABLA[i])
+        .map(|i| &table::TABLE[i])
 }

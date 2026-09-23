@@ -83,7 +83,7 @@ def main():
     for h, (bien, mal) in sorted(cuenta.items()):
         print("  %-9s %4d / %d" % (h, bien, mal))
     print()
-    subprocess.run(["cargo", "run", "-q", "-p", "bmo-spirv-front", "--example", "censo", "--", salida],
+    subprocess.run(["cargo", "run", "-q", "-p", "bmo-spirv-front", "--example", "census", "--", salida],
                    cwd=RAIZ, check=True)
 
 

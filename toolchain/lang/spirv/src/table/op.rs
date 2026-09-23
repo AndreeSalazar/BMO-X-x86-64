@@ -1,6 +1,6 @@
 //! Los codigos de las instrucciones que el juez MIRA, con el nombre de la especificacion.
 //!
-//! ** GENERADO por `herramientas/tabla.py --escribir` desde la gramatica de
+//! ** GENERADO por `herramientas/table.py --escribir` desde la gramatica de
 //! Khronos (licencia MIT), SPIR-V 1.6 rev 4. No se edita a mano: las
 //! familias las decide `FILAS` en el script; los numeros son de la
 //! especificacion. `--cotejar` comprueba que coinciden.

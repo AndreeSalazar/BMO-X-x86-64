@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tabla.py -- escribe `src/tabla/` desde la gramatica NORMATIVA de Khronos, o la coteja.
+"""table.py -- escribe `src/table/` desde la gramatica NORMATIVA de Khronos, o la coteja.
 
 == Por que existe, y que se copia y que no ==
 
@@ -22,10 +22,10 @@ con su numero.
 
 == Como se usa ==
 
-    py tabla.py --escribir    regenera src/tabla/ desde el SDK
-    py tabla.py --cotejar     src/tabla/ dice lo mismo que el SDK? (sin SDK: lo dice y sale 0)
+    py table.py --escribir    regenera src/table/ desde el SDK
+    py table.py --cotejar     src/table/ dice lo mismo que el SDK? (sin SDK: lo dice y sale 0)
 
-El banco NO necesita el SDK: `src/tabla/` va en el repo.
+El banco NO necesita el SDK: `src/table/` va en el repo.
 """
 import io
 import json
@@ -33,7 +33,7 @@ import os
 import sys
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
-TABLA_DIR = os.path.join(AQUI, "..", "src", "tabla")
+TABLA_DIR = os.path.join(AQUI, "..", "src", "table")
 SDK = os.environ.get("VULKAN_SDK", r"C:\VulkanSDK\1.4.350.0")
 GRAMATICA = os.path.join(SDK, "Include", "spirv", "unified1", "spirv.core.grammar.json")
 GRAMATICA_GLSL = os.path.join(SDK, "Include", "spirv", "unified1", "extinst.glsl.std.450.grammar.json")
@@ -44,9 +44,9 @@ GRAMATICA_GLSL = os.path.join(SDK, "Include", "spirv", "unified1", "extinst.glsl
 # porque no existen en SSE y hay que escribirlas UNA vez para oraculo y emisor.
 # Lo que no esta aqui, S2 lo niega con su numero.
 GLSL = {
-    "Flotante": "FAbs Floor Ceil Fract Sqrt InverseSqrt FMin FMax FClamp FMix Step Fma",
-    "Entero": "SAbs UMin SMin UMax SMax UClamp SClamp",
-    "Trascendente": "Sin Cos Pow Exp Log",
+    "Float": "FAbs Floor Ceil Fract Sqrt InverseSqrt FMin FMax FClamp FMix Step Fma",
+    "Int": "SAbs UMin SMin UMax SMax UClamp SClamp",
+    "Transcendental": "Sin Cos Pow Exp Log",
 }
 
 # -- LAS FILAS: el estudio. Familia -> nombres. --------------------------------
@@ -54,7 +54,7 @@ GLSL = {
 # Las demas familias se LEEN (el lector tiene que poder recorrer un modulo
 # entero) y S2 las niega nombrando la familia.
 FILAS = {
-    "Nucleo": """
+    "Core": """
         Nop Undef SourceContinued Source SourceExtension Name MemberName String
         Line NoLine ModuleProcessed Extension ExtInstImport ExtInst MemoryModel
         EntryPoint ExecutionMode ExecutionModeId Capability
@@ -85,49 +85,49 @@ FILAS = {
     """,
     # Las constantes que se fijan al crear el pipeline: sin VERRANO no hay quien
     # las fije, y S2 las niega.
-    "Especializacion": "SpecConstantTrue SpecConstantFalse SpecConstant SpecConstantComposite SpecConstantOp",
+    "Specialization": "SpecConstantTrue SpecConstantFalse SpecConstant SpecConstantComposite SpecConstantOp",
     # `switch` se lee y S2 lo niega: control de flujo con tabla, despues.
-    "Salto": "Switch Kill",
-    "Imagen": """
+    "ControlFlow": "Switch Kill",
+    "Image": """
         TypeImage TypeSampler TypeSampledImage SampledImage Image
         ImageSampleImplicitLod ImageSampleExplicitLod ImageFetch ImageRead
         ImageWrite ImageQuerySizeLod ImageQuerySize ImageTexelPointer
     """,
-    "Atomico": """
+    "Atomic": """
         AtomicLoad AtomicStore AtomicExchange AtomicCompareExchange
         AtomicIIncrement AtomicIDecrement AtomicIAdd AtomicISub AtomicSMin
         AtomicUMin AtomicSMax AtomicUMax AtomicAnd AtomicOr AtomicXor
     """,
-    "Barrera": "ControlBarrier MemoryBarrier",
-    "Matriz": """
+    "Barrier": "ControlBarrier MemoryBarrier",
+    "Matrix": """
         TypeMatrix MatrixTimesScalar VectorTimesMatrix MatrixTimesVector
         MatrixTimesMatrix OuterProduct Transpose
     """,
-    "Derivada": "DPdx DPdy Fwidth",
+    "Derivative": "DPdx DPdy Fwidth",
 }
 
 # -- LA SECCION de la disposicion logica (especificacion, 2.4) -----------------
 SECCION_FIJA = {
-    "Capability": "Capacidad",
+    "Capability": "Capability",
     "Extension": "Extension",
-    "ExtInstImport": "Importacion",
-    "MemoryModel": "Modelo",
-    "EntryPoint": "Entrada",
-    "ExecutionMode": "Modo", "ExecutionModeId": "Modo",
-    "String": "Fuente", "SourceExtension": "Fuente", "Source": "Fuente",
-    "SourceContinued": "Fuente",
-    "Name": "Nombre", "MemberName": "Nombre",
-    "ModuleProcessed": "Procesado",
+    "ExtInstImport": "Import",
+    "MemoryModel": "MemoryModel",
+    "EntryPoint": "EntryPoint",
+    "ExecutionMode": "ExecutionMode", "ExecutionModeId": "ExecutionMode",
+    "String": "Source", "SourceExtension": "Source", "Source": "Source",
+    "SourceContinued": "Source",
+    "Name": "Name", "MemberName": "Name",
+    "ModuleProcessed": "ModuleProcessed",
     # Pueden ir en la seccion de tipos (globales) Y dentro de una funcion.
     "Variable": "Flexible", "Undef": "Flexible", "Line": "Flexible",
     "NoLine": "Flexible", "Nop": "Flexible",
-    "Function": "Funcion",
-    "FunctionEnd": "FinFuncion",
+    "Function": "Function",
+    "FunctionEnd": "FunctionEnd",
 }
 CLASE_A_SECCION = {
-    "Annotation": "Anotacion",
-    "Type-Declaration": "Tipo",
-    "Constant-Creation": "Tipo",
+    "Annotation": "Annotation",
+    "Type-Declaration": "Type",
+    "Constant-Creation": "Type",
 }
 
 # Operandos que ocupan UNA palabra seguro. Los demas (LiteralString, Pair*,
@@ -166,7 +166,7 @@ def forma(i, enums_valor, familia):
             pos += 1
             continue
         break
-    seccion = SECCION_FIJA.get(corto) or CLASE_A_SECCION.get(i["class"], "Cuerpo")
+    seccion = SECCION_FIJA.get(corto) or CLASE_A_SECCION.get(i["class"], "Body")
     return (i["opcode"], nombre, tipo, resultado, minimo, cadena, seccion, familia)
 
 
@@ -178,7 +178,7 @@ def filas_de(g, enums_valor):
             nombre = "Op" + corto
             i = por_nombre.get(nombre)
             if i is None:
-                sys.exit("tabla.py: %s no existe en la gramatica" % nombre)
+                sys.exit("table.py: %s no existe en la gramatica" % nombre)
             fuera.append(forma(i, enums_valor, familia))
     # ** Y TODAS LAS DEMAS, en la familia `Otro` (2026-09-23, tras la primera
     # medida contra el banco de Naga: 34 de 228 ficheros ni se leian, y el NO
@@ -189,11 +189,11 @@ def filas_de(g, enums_valor):
         if i["opcode"] in vistos:
             continue
         vistos.add(i["opcode"])
-        fuera.append(forma(i, enums_valor, "Otro"))
+        fuera.append(forma(i, enums_valor, "Other"))
     fuera.sort()
     for a, b in zip(fuera, fuera[1:]):
         if a[0] == b[0]:
-            sys.exit("tabla.py: codigo repetido %d (%s, %s)" % (a[0], a[1], b[1]))
+            sys.exit("table.py: codigo repetido %d (%s, %s)" % (a[0], a[1], b[1]))
     return fuera
 
 
@@ -206,7 +206,7 @@ def filas_glsl():
         for nombre in texto.split():
             i = por_nombre.get(nombre)
             if i is None:
-                sys.exit("tabla.py: GLSL.std.450 no tiene %s" % nombre)
+                sys.exit("table.py: GLSL.std.450 no tiene %s" % nombre)
             fuera.append((i["opcode"], nombre, len(i["operands"]), grupo))
     fuera.sort()
     return fuera
@@ -216,7 +216,7 @@ def cabecera(g, que):
     return [
         "//! %s" % que,
         "//!",
-        "//! ** GENERADO por `herramientas/tabla.py --escribir` desde la gramatica de",
+        "//! ** GENERADO por `herramientas/table.py --escribir` desde la gramatica de",
         "//! Khronos (licencia MIT), SPIR-V %d.%d rev %d. No se edita a mano: las"
         % (g["major_version"], g["minor_version"], g["revision"]),
         "//! familias las decide `FILAS` en el script; los numeros son de la",
@@ -228,7 +228,7 @@ def cabecera(g, que):
 
 
 def rust(filas, g):
-    """Los ficheros de `src/tabla/`, como `{ruta relativa: texto}`.
+    """Los ficheros de `src/table/`, como `{ruta relativa: texto}`.
 
     ** Partidos por OFICIO (2026-09-23): en uno solo eran 1.820 lineas y L6a
     no deja entrar un modulo nuevo de mas de 1.000. Una fabrica en tiempo de
@@ -239,32 +239,32 @@ def rust(filas, g):
     fuera = {}
 
     o = ["//! Las tablas de SPIR-V: la forma de cada instruccion, sus nombres y las de",
-         "//! `GLSL.std.450`. GENERADO por `herramientas/tabla.py`; ver cada fichero.",
+         "//! `GLSL.std.450`. GENERADO por `herramientas/table.py`; ver cada fichero.",
          "//!",
          "//! [consumo]  NADA   datos constantes",
          "",
-         "mod filas;",
+         "mod rows;",
          "pub mod glsl;",
          "pub mod op;",
          "",
-         "pub use filas::TABLA;",
+         "pub use rows::TABLE;",
          "pub use glsl::GLSL450;",
          ""]
     fuera["mod.rs"] = "\n".join(o)
 
     o = cabecera(g, "La FORMA de cada instruccion de la gramatica: lo que el lector necesita para recorrerla.")
-    o.append("use crate::{Familia, Fila, Seccion};")
+    o.append("use crate::{Family, OpInfo, Section};")
     o.append("")
     o.append("/// Ordenada por codigo: se busca por biseccion.")
-    o.append("pub const TABLA: &[Fila] = &[")
+    o.append("pub const TABLE: &[OpInfo] = &[")
     for (cod, nombre, tipo, res, minimo, cadena, seccion, familia) in filas:
-        o.append("    Fila { codigo: %d, nombre: \"%s\", tipo: %s, resultado: %s, minimo: %d, "
-                 "cadena: %d, seccion: Seccion::%s, familia: Familia::%s },"
+        o.append("    OpInfo { opcode: %d, name: \"%s\", has_result_type: %s, has_result: %s, min_words: %d, "
+                 "string_word: %d, section: Section::%s, family: Family::%s },"
                  % (cod, nombre, "true" if tipo else "false", "true" if res else "false",
                     minimo, cadena, seccion, familia))
     o.append("];")
     o.append("")
-    fuera["filas.rs"] = "\n".join(o)
+    fuera["rows.rs"] = "\n".join(o)
 
     # ** Los codigos con el NOMBRE DE LA ESPECIFICACION, para que el juez no
     # teclee ni un numero: `op::OpIAdd` y no `128`. Solo los que tienen familia
@@ -273,7 +273,7 @@ def rust(filas, g):
     o.append("#![allow(non_upper_case_globals)]")
     o.append("")
     for (cod, nombre, _t, _r, _m, _c, _s, familia) in filas:
-        if familia != "Otro":
+        if familia != "Other":
             o.append("pub const %s: u16 = %d;" % (nombre, cod))
     o.append("")
     fuera["op.rs"] = "\n".join(o)
@@ -282,12 +282,12 @@ def rust(filas, g):
     o = cabecera(g, "`GLSL.std.450`: las instrucciones extendidas que el juez conoce, y sus numeros.")
     o.append("#![allow(non_upper_case_globals)]")
     o.append("")
-    o.append("use crate::{FilaGlsl, GrupoGlsl};")
+    o.append("use crate::{GlslGroup, GlslInfo};")
     o.append("")
     o.append("/// De `extinst.glsl.std.450.grammar.json`. Ordenadas por numero.")
-    o.append("pub const GLSL450: &[FilaGlsl] = &[")
+    o.append("pub const GLSL450: &[GlslInfo] = &[")
     for (num, nombre, ops, grupo) in glsl:
-        o.append("    FilaGlsl { numero: %d, nombre: \"%s\", operandos: %d, grupo: GrupoGlsl::%s },"
+        o.append("    GlslInfo { number: %d, name: \"%s\", operands: %d, group: GlslGroup::%s },"
                  % (num, nombre, ops, grupo))
     o.append("];")
     o.append("")
@@ -302,7 +302,7 @@ def main():
     if len(sys.argv) != 2 or sys.argv[1] not in ("--escribir", "--cotejar"):
         sys.exit(__doc__)
     if not os.path.exists(GRAMATICA):
-        print("tabla.py: sin el SDK de Vulkan (%s) no hay contra que cotejar; la tabla del repo manda" % GRAMATICA)
+        print("table.py: sin el SDK de Vulkan (%s) no hay contra que cotejar; la tabla del repo manda" % GRAMATICA)
         return 0
     g, ev = cargar()
     ficheros = rust(filas_de(g, ev), g)
@@ -311,7 +311,7 @@ def main():
         for nombre, texto in ficheros.items():
             with io.open(os.path.join(TABLA_DIR, nombre), "w", encoding="utf-8", newline="\n") as f:
                 f.write(texto)
-        print("tabla.py: escritos %d ficheros en %s" % (len(ficheros), os.path.normpath(TABLA_DIR)))
+        print("table.py: escritos %d ficheros en %s" % (len(ficheros), os.path.normpath(TABLA_DIR)))
         return 0
     malos = []
     for nombre, texto in ficheros.items():
@@ -320,10 +320,10 @@ def main():
         if actual != texto:
             malos.append(nombre)
     if malos:
-        print("tabla.py: src/tabla/%s NO coincide con la gramatica del SDK -- regenera con --escribir"
+        print("table.py: src/table/%s NO coincide con la gramatica del SDK -- regenera con --escribir"
               % ", ".join(malos))
         return 1
-    print("tabla.py: clean -- src/tabla/ coincide con la gramatica de Khronos")
+    print("table.py: clean -- src/table/ coincide con la gramatica de Khronos")
     return 0
 
 

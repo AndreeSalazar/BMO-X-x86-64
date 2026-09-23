@@ -16,7 +16,7 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 
 | De Khronos | Como |
 |---|---|
-| **los NUMEROS** (que `OpIAdd` es 128, que lleva tipo y resultado, cuantas palabras minimas) | se toman de `spirv.core.grammar.json` (licencia MIT, la fuente normativa de la seccion binaria de la especificacion) con [`herramientas/tabla.py`](herramientas/tabla.py). Son el contrato, igual que los del ABI: inventarlos seria no hablar SPIR-V |
+| **los NUMEROS** (que `OpIAdd` es 128, que lleva tipo y resultado, cuantas palabras minimas) | se toman de `spirv.core.grammar.json` (licencia MIT, la fuente normativa de la seccion binaria de la especificacion) con [`herramientas/table.py`](herramientas/table.py). Son el contrato, igual que los del ABI: inventarlos seria no hablar SPIR-V |
 | **de que FAMILIA es cada instruccion** (cual es el nucleo, cual imagen, atomico...) | lo decide `FILAS` en ese script: es el estudio, y es nuestro. Las que no nombra entran como `Otro`: el lector las recorre y el juez las niega por su nombre |
 | **el codigo** de SPIRV-Tools, SPIRV-Cross, Mesa, Naga | **no se enlaza ni se copia.** Se LEE para aprender reglas, como OBS para LA MESA |
 | **el banco de pruebas de Naga** (wgpu, MIT/Apache) | es la MATRIZ, como ACATS para Ada: se clona ralo FUERA del repo (`BMO-externo/naga-corpus`) y `herramientas/censo_naga.py` mide contra el. No entra ni un fichero |
@@ -26,17 +26,27 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 
 | Pieza | Casilla | Estado |
 |---|---|---|
-| `src/tabla/` -- `filas.rs`, `op.rs`, `glsl.rs` | S1 | las 871 instrucciones de la gramatica + 24 de `GLSL.std.450`, generadas y cotejables (`tabla.py --cotejar`); partidas por oficio porque juntas pasaban de las 1.000 lineas de L6a |
-| `src/lector.rs` -- bytes a un `Modulo` | S1 | hecho: cabecera, medidas, ids, cadenas, orden de secciones, funciones |
-| `src/motivo.rs` -- por que NO | S1 | 23 motivos, cada uno con su fila en `tests/lector.rs` |
-| `src/juez.rs` -- el juez del subconjunto | S2 | hecho: tipos que cuadran, valores antes de usarse, bloques y saltos con estructura; `censo` por familias |
-| `examples/censo.rs` + `herramientas/censo_naga.py` -- la matriz | S2 | contra el banco de Naga: 228 se leen, 111 de computo, **28 caben** |
+| `src/table/` -- `rows.rs`, `op.rs`, `glsl.rs` | S1 | las 871 instrucciones de la gramatica + 24 de `GLSL.std.450`, generadas y cotejables (`table.py --cotejar`); partidas por oficio porque juntas pasaban de las 1.000 lineas de L6a |
+| `src/reader.rs` -- `read(bytes, ids) -> Module` | S1 | hecho: cabecera, medidas, ids, cadenas, orden de secciones, funciones |
+| `src/reason.rs` -- `Reason`: por que NO | S1 | cada motivo con su fila en `tests/reader.rs` y `tests/validator.rs` |
+| `src/validator.rs` -- `validate(&Module) -> Verdict` y `census` | S2 | hecho: tipos que cuadran, valores antes de usarse, bloques y saltos con estructura; `censo` por familias |
+| `examples/census.rs` + `herramientas/censo_naga.py` -- la matriz | S2 | contra el banco de Naga: 228 se leen, 111 de computo, **28 caben** |
 | el oraculo (interprete) | S3 | pendiente |
 | `emisor-x86_64/` | S4 | pendiente: sera OTRO crate, porque este no nombra maquinas |
 
+## La API habla ingles; la casa, castellano
+
+** Decision del propietario (2026-09-23): *"mantener la esencia en ingles el
+shader... tipico si voy a meter juegos Triple A"*. Lo que llama un motor o un
+juego va en INGLES (`read`, `validate`, `census`, `Module`, `Instruction`,
+`Reason`, `Verdict`...), y los nombres de la especificacion van tal cual
+(`OpIAdd`, `GLCompute`, `Workgroup`). Los COMENTARIOS y los textos que salen en
+pantalla (`Reason::name`, el `Display` de `Error`) siguen en castellano, que es
+la regla de toda la casa.
+
 ## Las dos reglas
 
-1. **`no_std` y sin `alloc`** (la biblioteca; `examples/censo.rs` es una
+1. **`no_std` y sin `alloc`** (la biblioteca; `examples/census.rs` es una
    herramienta del anfitrion que la usa desde fuera). La memoria --la tabla de
    ids-- la da quien llama. Es lo que permite que el MISMO lector corra en el anfitrion (AOT) y
    dentro de una app de BMO-X (JIT). Por eso no hay `Vec` aqui dentro.
