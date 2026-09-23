@@ -20,14 +20,44 @@
 //! libreria (`png.rs`, con su propio inflate): escribir y volver a leer tiene
 //! que dar los mismos pixeles, bit a bit. Y el dia que se estreno se abrio con
 //! Pillow (zlib), que es el que abre medio mundo.
+//!
+//! ## ** EL CODIFICADOR SE PUEDE PAUSAR (2026-09-23)
+//!
+//! La captura congelaba el escritorio 1.068 ms en el Ryzen. [`Codificador`] lo
+//! parte en tres fases, cada una con presupuesto:
+//!
+//! ```text
+//!    0. la FOTO      la pone quien llama: las filas RGB en su sitio de
+//!                    `crudo_buf` ([`fila`]), de una vez -- la pantalla cambia
+//!    1. FILTRAR      de ABAJO a ARRIBA y EN EL SITIO: la fila de arriba sigue
+//!                    cruda cuando se filtra la de abajo, y dentro de la fila se
+//!                    va de derecha a izquierda. Sin bufer de filas
+//!    2. COMPRIMIR    `deflar::Deflar::paso`, el mismo flujo que de una vez
+//!    3. CERRAR       el CRC del IDAT, tambien a trozos, e IEND
+//! ```
+//!
+//! El filtro mide los cuatro candidatos en UNA pasada (antes eran cuatro, byte
+//! a byte y empaquetado en `u32`: 120 ms de los 266 en el anfitrion).
 
 use crate::{deflar, lados, Error};
 
 /// La fila mas ancha, en bytes RGB.
 const FILA_MAX: usize = crate::LADO_MAX as usize * 3;
 
-/// Taller que pide [`codificar`], en `u32`: el de `deflar` y dos filas.
-pub const TALLER: usize = deflar::TALLER + (2 * FILA_MAX).div_ceil(4);
+/// La fila de arriba de la primera: ceros, como dice el estandar.
+static CEROS: [u8; FILA_MAX] = [0; FILA_MAX];
+
+/// Taller que pide [`codificar`], en `u32`: el de `deflar`. Las filas se
+/// filtran en el sitio y ya no piden taller.
+pub const TALLER: usize = deflar::TALLER;
+
+/// **Donde va la fila `y` CRUDA** (RGB, 3 bytes por pixel) dentro de
+/// `crudo_buf`. Quien llama pone aqui la foto antes de [`Codificador::avanzar`].
+pub fn fila(crudo_buf: &mut [u8], ancho: u32, y: u32) -> &mut [u8] {
+    let fw = ancho as usize * 3;
+    let base = y as usize * (1 + fw) + 1;
+    &mut crudo_buf[base..base + fw]
+}
 
 /// Los bytes de la imagen CRUDA (filtro + RGB por fila), que es lo que se
 /// comprime. Quien llama da un bufer de al menos esto.
@@ -58,11 +88,15 @@ const CRC_TABLA: [u32; 256] = {
 };
 
 fn crc(b: &[u8]) -> u32 {
-    let mut c = 0xFFFF_FFFFu32;
+    crc_sigue(0xFFFF_FFFF, b) ^ 0xFFFF_FFFF
+}
+
+/// El CRC sin la ultima vuelta de bits: para llevarlo a trozos.
+fn crc_sigue(mut c: u32, b: &[u8]) -> u32 {
     for &x in b {
         c = CRC_TABLA[((c ^ x as u32) & 0xFF) as usize] ^ (c >> 8);
     }
-    c ^ 0xFFFF_FFFF
+    c
 }
 
 fn paeth(a: u8, b: u8, c: u8) -> u8 {
@@ -77,10 +111,10 @@ fn paeth(a: u8, b: u8, c: u8) -> u8 {
     }
 }
 
-/// **Escribe un PNG** de `ancho` x `alto` en `dst` y devuelve cuantos bytes
-/// ocupa. `pixel(x, y)` da `0x00RRGGBB`. `crudo_buf` mide al menos
-/// [`crudo`]; `taller` al menos [`TALLER`]; `dst` al menos [`cota`] (con menos
-/// puede caber, y si no cabe es `NoCabe`: nunca un PNG a medias).
+/// **Escribe un PNG** de `ancho` x `alto` en `dst`, de una vez, y devuelve
+/// cuantos bytes ocupa. `pixel(x, y)` da `0x00RRGGBB`. `crudo_buf` mide al
+/// menos [`crudo`]; `taller` al menos [`TALLER`]; `dst` al menos [`cota`] (con
+/// menos puede caber, y si no cabe es `NoCabe`: nunca un PNG a medias).
 pub fn codificar(
     ancho: u32,
     alto: u32,
@@ -89,129 +123,219 @@ pub fn codificar(
     taller: &mut [u32],
     dst: &mut [u8],
 ) -> Result<usize, Error> {
-    lados(ancho, alto)?;
-    let n_crudo = crudo(ancho, alto);
-    if crudo_buf.len() < n_crudo || dst.len() < 8 + 25 + 12 + 12 {
-        return Err(Error::NoCabe);
-    }
-    if taller.len() < TALLER {
-        return Err(Error::SinTaller);
-    }
-    let (t_deflar, t_filas) = taller.split_at_mut(deflar::TALLER);
-    let fw = ancho as usize * 3;
-
-    // -- 1. Las filas, filtradas --
-    // Las dos filas sin filtrar viven en el taller, como bytes sacados de u32:
-    // la de arriba en `0..fw` y la de ahora en `fw..2fw`.
-    let mut anterior_valida = false;
-    for y in 0..alto as usize {
-        // La fila de ahora, en RGB, en la segunda mitad del taller de filas.
+    let mut c = Codificador::nuevo(ancho, alto, crudo_buf, taller, dst)?;
+    for y in 0..alto {
+        let f = fila(crudo_buf, ancho, y);
         for x in 0..ancho as usize {
-            let c = pixel(x as u32, y as u32);
-            let i = fw + x * 3;
-            poner(t_filas, i, (c >> 16) as u8);
-            poner(t_filas, i + 1, (c >> 8) as u8);
-            poner(t_filas, i + 2, c as u8);
+            let v = pixel(x as u32, y);
+            f[x * 3] = (v >> 16) as u8;
+            f[x * 3 + 1] = (v >> 8) as u8;
+            f[x * 3 + 2] = v as u8;
         }
-        let cur = |i: usize, t: &[u32]| tomar(t, fw + i);
-        let arriba = |i: usize, t: &[u32]| if anterior_valida { tomar(t, i) } else { 0 };
-        // El filtro que menos suma, midiendo los residuos como con signo.
-        let mut mejor = 0u8;
-        let mut coste_mejor = u64::MAX;
-        for f in 0..5u8 {
-            if f == 3 {
-                continue; // Average: casi nunca gana en una pantalla y cuesta una pasada
+    }
+    loop {
+        if let Estado::Hecho(n) = c.avanzar(crudo_buf, taller, dst, usize::MAX)? {
+            return Ok(n);
+        }
+    }
+}
+
+/// En que va un [`Codificador`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Estado {
+    /// Queda. `por_mil` es cuanto va, para pintarlo.
+    Sigue { por_mil: u32 },
+    /// Entero: el PNG son los primeros `n` bytes de `dst`.
+    Hecho(usize),
+}
+
+/// **Un PNG a medias.** Los bufers no viven aqui: se le pasan en cada
+/// [`Codificador::avanzar`] y tienen que ser LOS MISMOS de principio a fin.
+pub struct Codificador {
+    ancho: u32,
+    alto: u32,
+    /// 1 filtrar, 2 comprimir, 3 cerrar.
+    fase: u8,
+    /// Filas que QUEDAN por filtrar (se va de abajo a arriba).
+    quedan: u32,
+    z: deflar::Deflar,
+    /// Donde empieza el IDAT, y los bytes del flujo zlib cuando acaba.
+    idat: usize,
+    zlib: usize,
+    /// El CRC del IDAT, llevado a trozos, y por donde va.
+    crc: u32,
+    crc_hecho: usize,
+}
+
+impl Codificador {
+    /// **Empieza**: comprueba los bufers y escribe la firma y el IHDR. La foto
+    /// tiene que estar en `crudo_buf` (ver [`fila`]) antes de avanzar.
+    pub fn nuevo(ancho: u32, alto: u32, crudo_buf: &[u8], taller: &[u32], dst: &mut [u8]) -> Result<Self, Error> {
+        lados(ancho, alto)?;
+        if crudo_buf.len() < crudo(ancho, alto) || dst.len() < 8 + 25 + 12 + 12 + 8 {
+            return Err(Error::NoCabe);
+        }
+        if taller.len() < TALLER {
+            return Err(Error::SinTaller);
+        }
+        let mut n = 0usize;
+        let pon = |d: &mut [u8], b: &[u8], n: &mut usize| {
+            d[*n..*n + b.len()].copy_from_slice(b);
+            *n += b.len();
+        };
+        pon(dst, &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A], &mut n);
+        let mut ihdr = [0u8; 17];
+        ihdr[..4].copy_from_slice(b"IHDR");
+        ihdr[4..8].copy_from_slice(&ancho.to_be_bytes());
+        ihdr[8..12].copy_from_slice(&alto.to_be_bytes());
+        ihdr[12] = 8; // bits por canal
+        ihdr[13] = 2; // RGB
+        // 14, 15, 16: compresion 0, filtro 0, sin entrelazar
+        pon(dst, &13u32.to_be_bytes(), &mut n);
+        pon(dst, &ihdr, &mut n);
+        pon(dst, &crc(&ihdr).to_be_bytes(), &mut n);
+        Ok(Self {
+            ancho,
+            alto,
+            fase: 1,
+            quedan: alto,
+            z: deflar::Deflar::nuevo(),
+            idat: n,
+            zlib: 0,
+            crc: 0xFFFF_FFFF,
+            crc_hecho: 0,
+        })
+    }
+
+    /// **Avanza unos `presupuesto` bytes de trabajo** y vuelve.
+    pub fn avanzar(&mut self, crudo_buf: &mut [u8], taller: &mut [u32], dst: &mut [u8], presupuesto: usize) -> Result<Estado, Error> {
+        let n_crudo = crudo(self.ancho, self.alto);
+        let fw = self.ancho as usize * 3;
+        let mut resta = presupuesto;
+        if self.fase == 1 {
+            while self.quedan > 0 && resta > 0 {
+                let y = self.quedan as usize - 1;
+                filtrar_fila(crudo_buf, y, fw);
+                self.quedan -= 1;
+                resta = resta.saturating_sub(fw);
             }
-            let mut coste = 0u64;
-            for i in 0..fw {
-                let x = cur(i, t_filas);
-                let a = if i >= 3 { cur(i - 3, t_filas) } else { 0 };
-                let b = arriba(i, t_filas);
-                let c = if i >= 3 { arriba(i - 3, t_filas) } else { 0 };
-                let r = match f {
-                    0 => x,
-                    1 => x.wrapping_sub(a),
-                    2 => x.wrapping_sub(b),
-                    _ => x.wrapping_sub(paeth(a, b, c)),
-                };
-                coste += (r as i8).unsigned_abs() as u64;
-                if coste >= coste_mejor {
-                    break;
+            if self.quedan > 0 {
+                return Ok(self.sigue(n_crudo));
+            }
+            self.fase = 2;
+        }
+        let desde = self.idat + 8;
+        let fin = dst.len().saturating_sub(12 + 4);
+        if fin <= desde {
+            return Err(Error::NoCabe);
+        }
+        if self.fase == 2 {
+            if resta == 0 {
+                return Ok(self.sigue(n_crudo));
+            }
+            match self.z.paso(&crudo_buf[..n_crudo], taller, &mut dst[desde..fin], resta)? {
+                None => return Ok(self.sigue(n_crudo)),
+                Some(z) => {
+                    self.zlib = z;
+                    dst[self.idat..self.idat + 4].copy_from_slice(&(z as u32).to_be_bytes());
+                    dst[self.idat + 4..self.idat + 8].copy_from_slice(b"IDAT");
+                    self.crc_hecho = self.idat + 4;
+                    self.fase = 3;
+                    resta = resta.saturating_sub(n_crudo);
                 }
             }
-            if coste < coste_mejor {
-                coste_mejor = coste;
-                mejor = f;
+        }
+        // -- 3. El CRC del IDAT (tipo + datos), a trozos, e IEND --
+        let hasta_crc = desde + self.zlib;
+        let k = (hasta_crc - self.crc_hecho).min(resta.max(64 * 1024));
+        self.crc = crc_sigue(self.crc, &dst[self.crc_hecho..self.crc_hecho + k]);
+        self.crc_hecho += k;
+        if self.crc_hecho < hasta_crc {
+            return Ok(self.sigue(n_crudo));
+        }
+        let mut n = hasta_crc;
+        let pon = |d: &mut [u8], b: &[u8], n: &mut usize| {
+            d[*n..*n + b.len()].copy_from_slice(b);
+            *n += b.len();
+        };
+        pon(dst, &(self.crc ^ 0xFFFF_FFFF).to_be_bytes(), &mut n);
+        pon(dst, &0u32.to_be_bytes(), &mut n);
+        pon(dst, b"IEND", &mut n);
+        pon(dst, &crc(b"IEND").to_be_bytes(), &mut n);
+        Ok(Estado::Hecho(n))
+    }
+
+    /// Cuanto va, por mil: filtrar pesa 300, comprimir 650 y cerrar 50.
+    fn sigue(&self, n_crudo: usize) -> Estado {
+        let alto = self.alto.max(1) as u64;
+        let por_mil = match self.fase {
+            1 => (alto - self.quedan as u64) * 300 / alto,
+            2 => 300 + self.z.hecho() as u64 * 650 / n_crudo.max(1) as u64,
+            _ => 950 + (self.crc_hecho as u64 * 50 / (self.idat + 8 + self.zlib).max(1) as u64),
+        };
+        Estado::Sigue { por_mil: por_mil.min(999) as u32 }
+    }
+}
+
+/// **Filtra la fila `y` EN SU SITIO** con el que menos suma de los cuatro.
+///
+/// La fila de arriba (`y - 1`) tiene que seguir CRUDA: por eso se va de abajo
+/// a arriba. Y dentro de la fila se escribe de derecha a izquierda, para que el
+/// vecino de la izquierda (`a`) siga crudo cuando se le necesita.
+fn filtrar_fila(buf: &mut [u8], y: usize, fw: usize) {
+    let base = y * (1 + fw);
+    let (antes, ahora) = buf.split_at_mut(base);
+    let arriba: &[u8] = if y == 0 { &CEROS[..fw] } else { &antes[base - fw..base] };
+    let cur = &mut ahora[1..1 + fw];
+    // -- Los cuatro costes en UNA pasada (Average no: casi nunca gana en una
+    // pantalla y cuesta otra pasada) --
+    let (mut s0, mut s1, mut s2, mut s4) = (0u32, 0u32, 0u32, 0u32);
+    let abs = |r: u8| (r as i8).unsigned_abs() as u32;
+    for i in 0..fw.min(3) {
+        let (x, b) = (cur[i], arriba[i]);
+        s0 += abs(x);
+        s1 += abs(x);
+        s2 += abs(x.wrapping_sub(b));
+        s4 += abs(x.wrapping_sub(paeth(0, b, 0)));
+    }
+    for i in 3..fw {
+        let (x, a, b, c) = (cur[i], cur[i - 3], arriba[i], arriba[i - 3]);
+        s0 += abs(x);
+        s1 += abs(x.wrapping_sub(a));
+        s2 += abs(x.wrapping_sub(b));
+        s4 += abs(x.wrapping_sub(paeth(a, b, c)));
+    }
+    // El primero que menos suma, en el orden de siempre: ninguno, Sub, Up, Paeth.
+    let mut mejor = (0u8, s0);
+    for (f, s) in [(1u8, s1), (2, s2), (4, s4)] {
+        if s < mejor.1 {
+            mejor = (f, s);
+        }
+    }
+    let f = mejor.0;
+    // -- Y se escribe, de derecha a izquierda --
+    match f {
+        0 => {}
+        1 => {
+            for i in (3..fw).rev() {
+                cur[i] = cur[i].wrapping_sub(cur[i - 3]);
             }
         }
-        let base = y * (1 + fw);
-        crudo_buf[base] = mejor;
-        for i in 0..fw {
-            let x = cur(i, t_filas);
-            let a = if i >= 3 { cur(i - 3, t_filas) } else { 0 };
-            let b = arriba(i, t_filas);
-            let c = if i >= 3 { arriba(i - 3, t_filas) } else { 0 };
-            crudo_buf[base + 1 + i] = match mejor {
-                0 => x,
-                1 => x.wrapping_sub(a),
-                2 => x.wrapping_sub(b),
-                _ => x.wrapping_sub(paeth(a, b, c)),
-            };
+        2 => {
+            for i in 0..fw {
+                cur[i] = cur[i].wrapping_sub(arriba[i]);
+            }
         }
-        // La de ahora pasa a ser la de arriba.
-        for i in 0..fw {
-            let v = tomar(t_filas, fw + i);
-            poner(t_filas, i, v);
+        _ => {
+            for i in (3..fw).rev() {
+                cur[i] = cur[i].wrapping_sub(paeth(cur[i - 3], arriba[i], arriba[i - 3]));
+            }
+            for i in 0..fw.min(3) {
+                cur[i] = cur[i].wrapping_sub(paeth(0, arriba[i], 0));
+            }
         }
-        anterior_valida = true;
     }
-
-    // -- 2. Firma, IHDR y la cabecera del IDAT --
-    let mut n = 0usize;
-    let pon = |d: &mut [u8], b: &[u8], n: &mut usize| {
-        d[*n..*n + b.len()].copy_from_slice(b);
-        *n += b.len();
-    };
-    pon(dst, &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A], &mut n);
-    let mut ihdr = [0u8; 17];
-    ihdr[..4].copy_from_slice(b"IHDR");
-    ihdr[4..8].copy_from_slice(&ancho.to_be_bytes());
-    ihdr[8..12].copy_from_slice(&alto.to_be_bytes());
-    ihdr[12] = 8; // bits por canal
-    ihdr[13] = 2; // RGB
-    // 14, 15, 16: compresion 0, filtro 0, sin entrelazar
-    pon(dst, &13u32.to_be_bytes(), &mut n);
-    pon(dst, &ihdr, &mut n);
-    pon(dst, &crc(&ihdr).to_be_bytes(), &mut n);
-    let idat = n;
-    n += 8; // largo y "IDAT", que se escriben al saber el largo
-
-    // -- 3. El flujo zlib, directo en su sitio --
-    let fin = dst.len().saturating_sub(12 + 4);
-    if fin <= n {
-        return Err(Error::NoCabe);
-    }
-    let z = deflar::comprimir(&crudo_buf[..n_crudo], t_deflar, &mut dst[n..fin])?;
-    dst[idat..idat + 4].copy_from_slice(&(z as u32).to_be_bytes());
-    dst[idat + 4..idat + 8].copy_from_slice(b"IDAT");
-    let c = crc(&dst[idat + 4..n + z]);
-    n += z;
-    pon(dst, &c.to_be_bytes(), &mut n);
-
-    // -- 4. IEND --
-    pon(dst, &0u32.to_be_bytes(), &mut n);
-    pon(dst, b"IEND", &mut n);
-    pon(dst, &crc(b"IEND").to_be_bytes(), &mut n);
-    Ok(n)
-}
-
-fn tomar(t: &[u32], i: usize) -> u8 {
-    (t[i / 4] >> ((i % 4) * 8)) as u8
-}
-
-fn poner(t: &mut [u32], i: usize, v: u8) {
-    let s = (i % 4) * 8;
-    t[i / 4] = (t[i / 4] & !(0xFF << s)) | ((v as u32) << s);
+    ahora[0] = f;
 }
 
 #[cfg(test)]
@@ -238,6 +362,48 @@ mod pruebas {
             }
         }
         n
+    }
+
+    /// ** PAUSAR NO CAMBIA EL FICHERO: el PNG a trozos es el mismo, byte a byte,
+    /// que el de una vez, para presupuestos chicos y raros.
+    #[test]
+    fn a_trozos_da_el_mismo_png() {
+        let (w, h) = (333u32, 77u32);
+        let f = |x: u32, y: u32| (x * 7 + y * 13) & 0xFF | ((x ^ y) & 0xFF) << 8 | ((x / 9) << 16);
+        let mut crudo_buf = vec![0u8; crudo(w, h)];
+        let mut taller = vec![0u32; TALLER];
+        let mut dst = vec![0u8; cota(w, h)];
+        let mut px = |x: u32, y: u32| f(x, y) & 0x00FF_FFFF;
+        let n1 = codificar(w, h, &mut px, &mut crudo_buf, &mut taller, &mut dst).unwrap();
+        let de_una = dst[..n1].to_vec();
+        for presupuesto in [1usize, 500, 4096, 100_000] {
+            let mut crudo_buf = vec![0u8; crudo(w, h)];
+            let mut taller = vec![0u32; TALLER];
+            let mut dst = vec![0u8; cota(w, h)];
+            for y in 0..h {
+                let fl = fila(&mut crudo_buf, w, y);
+                for x in 0..w as usize {
+                    let v = f(x as u32, y);
+                    fl[x * 3] = (v >> 16) as u8;
+                    fl[x * 3 + 1] = (v >> 8) as u8;
+                    fl[x * 3 + 2] = v as u8;
+                }
+            }
+            let mut c = Codificador::nuevo(w, h, &crudo_buf, &taller, &mut dst).unwrap();
+            let (mut vueltas, mut ultimo) = (0, 0u32);
+            let n2 = loop {
+                vueltas += 1;
+                match c.avanzar(&mut crudo_buf, &mut taller, &mut dst, presupuesto).unwrap() {
+                    Estado::Hecho(n) => break n,
+                    Estado::Sigue { por_mil } => {
+                        assert!(por_mil >= ultimo, "el progreso no puede ir hacia atras");
+                        ultimo = por_mil;
+                    }
+                }
+            };
+            assert!(vueltas > 1, "con {presupuesto} no se partio");
+            assert_eq!(&dst[..n2], &de_una[..], "a trozos de {presupuesto} sale otro PNG");
+        }
     }
 
     #[test]

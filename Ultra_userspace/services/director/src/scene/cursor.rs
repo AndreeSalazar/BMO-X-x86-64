@@ -244,6 +244,12 @@ impl SaveUnder {
         (col < CUR_W && row < CUR_H).then(|| self.px[row * CUR_W + col])
     }
 
+    /// **Donde esta el cursor puesto**, `(x, y, ancho, alto)`. La captura lo
+    /// pregunta UNA vez y solo mira [`Self::debajo`] dentro de esa caja.
+    pub(crate) fn caja(&self) -> Option<(u32, u32, u32, u32)> {
+        self.placed_one.then_some((self.x, self.y, CUR_W as u32, CUR_H as u32))
+    }
+
     /// Devuelve lo guardado. Al PRINCIPIO del fotograma, antes de pintar nada.
     /// Si no estaba puesto no hace nada, asi que se puede llamar siempre.
     pub(crate) fn lift(&mut self, p: &bmo::Pantalla) {

@@ -975,6 +975,13 @@ pub extern "C" fn _start() -> ! {
             || born
             || dead > 0
             || hay_nuevo;
+        // ** Y LA CAPTURA A MEDIAS (2026-09-23): unos 4 ms de PNG por vuelta y
+        // se sigue pintando. ES actividad: si el bucle se durmiera, el fichero
+        // no llegaria nunca.
+        if desktop::captura::en_curso() {
+            desktop::captura::avanzar(&mut dsk, &p);
+            dsk.tick.actividad = true;
+        }
         // ** Y el medidor del MAESTRO, mientras suena: pinta, pero NO es
         // actividad (W4b). `toca` no cruza puertas: mira el reloj.
         dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk);
