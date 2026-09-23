@@ -164,7 +164,18 @@ const RANURAS_MINIMAS: u32 = 16;
 static ESTADO: AtomicU8 = AtomicU8::new(ESTADO_SIN_TUBO);
 static ACTUAL: AtomicI32 = AtomicI32::new(0);
 /// Cuatro `i16`: pico izq, pico der, rms izq, rms der, en 1/256 dBFS.
-static MEDIDA: AtomicU64 = AtomicU64::new(0);
+///
+/// ** NACE EN SILENCIO, no en cero (2026-09-22). Era `new(0)`, y un cero en
+/// dBFS es **0 dB: el maximo**. Hasta que pasaba la primera muestra por el tubo
+/// cualquiera que leyera el medidor veia la saturacion entera: la captura del
+/// metal de las 22:59 lo mostro en rojo en el panel y en la ventana del sonido,
+/// con el panel diciendo "aun no ha pasado sonido por el tubo" al lado. El
+/// silencio del amplificador es `MIN_DB`, en los cuatro.
+static MEDIDA: AtomicU64 = AtomicU64::new(SILENCIO);
+const SILENCIO: u64 = {
+    let s = (bmo_amplificador::MIN_DB as i16 as u16) as u64;
+    s | (s << 16) | (s << 32) | (s << 48)
+};
 /// `[0..32)` dobladas | `[32..48)` reduccion del limite (i16) | `[48..64)` ventanas.
 static LIMITE: AtomicU64 = AtomicU64::new(0);
 static VENTANAS: AtomicU64 = AtomicU64::new(0);

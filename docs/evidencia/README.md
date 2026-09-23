@@ -1,7 +1,7 @@
 # Evidence -- BMO-X on real hardware
 
 Photographs and a recording of BMO-X running on the test bench. **Not screen
-captures**: a camera pointed at a physical monitor, because the claim is *"this
+captures** (section 12 is the exception, and says why): a camera pointed at a physical monitor, because the claim is *"this
 is not an emulator"* and a screen capture cannot prove that.
 
 **Test bench:** MSI A320M PRO MAX - AMD Ryzen 5 5600X (Zen 3) - Kingston
@@ -202,6 +202,49 @@ table. `9215 = 1023 + 8192`, and `8192 * 2^19` is exactly `2^32`.
 
 It is here because the rule of this folder cuts both ways: a folder that only
 ever shows good news is not showing anything.
+
+---
+
+## 12. And BMO-X photographing itself
+
+> [!] **These two are screen captures, and the rule at the top still stands**:
+> a capture cannot prove the machine is not an emulator -- the photographs above
+> do that. What a capture proves is something a camera cannot: **that BMO-X can
+> write down its own screen and hand it to another operating system**, pixel for
+> pixel.
+
+![The desktop, captured by BMO-X](12-captura-escritorio-ciudad.png)
+
+![Panel, CABINA and the sound window, captured by BMO-X](13-captura-panel-cabina-sonido.png)
+
+2026-09-22, 22:57-22:59, on the Ryzen. The whole path is BMO-X's own:
+
+```text
+   Impr Pant    the USB bridge gives the key its own scancode (it used to
+                arrive as the numpad `*`), the kernel turns it into 0x95
+   the pixels   read back from the compositor's canvas, where the apps are
+                already composed; under the pointer, what the pointer hides
+   the file     a 24-bit BMP, written through its own FAT32 driver to
+                `capturas/cap0000N.bmp` -- 6.220.854 bytes, 1920x1080
+   the proof    Windows opened them from the same disk, untouched
+```
+
+The PNGs here are those BMPs converted without loss: same pixels.
+
+What the second one shows working at once: the panel on the left (the cat's
+eyes, the windows, the keyboard light, five live graphs, the clock and the
+volume), CABINA reading the kernel's log, the sound master window, the city
+wallpaper, and the line in `Ejecutar` that reported the first capture:
+`[captura] capturas/cap00001.bmp  1920x1080  6075 KiB  en 1557 ms`.
+
+**And what it caught, because the rule cuts both ways:**
+
+| seen in the capture | what it was | state |
+|---|---|---|
+| `en 1557 ms`, and CABINA: *the bus beat arrived LATE* `=1526` with **2** clock ticks in 1533 ms | the 6 MB file is written to disk inside one syscall with interrupts closed: keyboard and mouse frozen for a second and a half | open |
+| `sonido -0` in red, and the sound window's meters full, next to *"no sound has passed through the pipe yet"* | the kernel's meter started at `0` -- which in dBFS is the loudest there is -- instead of silence | fixed the same night |
+| the last two rows of CABINA's list over its footer | the row count subtracted 44 px for a header, a footer and an instrument line that take 96 | fixed the same night |
+| the files are dated 1969 in Windows | BMO-X's FAT32 does not stamp a date on what it creates | open |
 
 ---
 

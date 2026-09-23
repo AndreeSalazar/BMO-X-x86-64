@@ -79,8 +79,18 @@ const SEV_NAME: [&str; 5] = ["info", "trace", " AVISO", " FALLO", " PANICO"];
 /// Cuantos eventos caben, sabiendo el alto. Se calcula y no se fija: la ventana
 /// se puede redimensionar, y una cuenta fija dejaria filas pintadas fuera o
 /// hueco vacio dentro.
+///
+/// ** Y SE CUENTA DESDE DONDE EMPIEZA Y HASTA DONDE ACABA DE VERDAD
+/// (2026-09-22). Restaba 44 px por todo lo que no es lista, y lo que no es
+/// lista son la cabecera (`vivos`, 22 px), la linea de la gravedad (24), el
+/// aire de arriba (8), la linea de instrumentos y el pie. Con 44 la ultima fila
+/// ya caia encima del pie; con la linea de instrumentos caian dos. Lo cazo la
+/// primera captura de pantalla del metal (22:59): `...en ms de pared` pisado.
 fn visible_rows(chrome: &Chrome) -> usize {
-    let usable = chrome.height.saturating_sub(TITLE_H + 44 + LINEA_INSTRUMENTOS);
+    let arriba = TITLE_H + 8 + (bmo::GLIFO_ALTO + 6) + (bmo::GLIFO_ALTO + 8);
+    let pie = bmo::GLIFO_ALTO + 8;
+    let abajo = pie + LINEA_INSTRUMENTOS + 4;
+    let usable = chrome.height.saturating_sub(arriba + abajo);
     (usable / (bmo::GLIFO_ALTO + 3)) as usize
 }
 

@@ -114,7 +114,8 @@ under it is a slogan.
 | Explains its own crashes in Spanish | a page fault inside the framebuffer prints `ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231`, not just an address |
 | Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
 | Survives its own userspace dying | DOOM launched **five times**, Ring 3 killed in between, the system never broke |
-| Measures where its own second goes | the taskbar shows `latido N/s  pinta N  cuerpo Nms  puerta Nms` -- loop rate, frames that painted, and the split between working and waiting for a turn |
+| Measures where its own second goes | the side panel shows the loop rate with a spinning needle, and CABINA the split: `latido N/s  pinta N  cuerpo Nms  puerta Nms` -- frames that painted, working versus waiting for a turn |
+| Photographs itself | `Impr Pant` writes the screen to a 24-bit BMP through its own FAT32 driver, and Windows opens it from the same disk. The first ones, taken on the Ryzen on 2026-09-22, are in [`docs/evidencia/`](docs/evidencia/) -- with the 1.5 s freeze they exposed |
 | Shows images | PNG (own inflate) and JPEG (integer IDCT) decoded and painted in a window on the Ryzen (2026-09-21); zoom is next |
 | Writes its own report | `save` from the desktop: seven chapters (machine, memory, consumption, programs, disk, autopsy) as sheets in `informe/`, plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
 | The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
@@ -166,6 +167,17 @@ The unbroken take for the sceptic is a different recording and is
 screen to the kernel from any program, checked at the one point in Ring 0 every
 key passes through. A program that holds both cannot keep the machine hostage --
 whether the cause is malice or a missing `if`.
+
+### Captured by BMO-X itself
+
+![Panel, CABINA and the sound window, captured by BMO-X](docs/evidencia/13-captura-panel-cabina-sonido.png)
+
+Not a photograph: **BMO-X wrote this file**. `Impr Pant` on the Ryzen, the
+screen read back from the compositor's own canvas, saved as a BMP by its own
+FAT32 driver and opened by Windows from the same disk. The side panel, CABINA
+reading the kernel, the sound master and the city wallpaper, all at once. It
+also caught three bugs; they are listed with it in
+**[docs/evidencia/](docs/evidencia/)**.
 
 Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
 
