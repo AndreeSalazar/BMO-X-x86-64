@@ -131,16 +131,22 @@ pub(crate) mod surface;
 /// Cuesta una franja de `rect` cada ocho filas --nada-- y quita de golpe el
 /// aspecto de "pantalla de arranque": un plano liso enorme es lo que hace que
 /// algo parezca un panel de diagnostico y no un escritorio.
-pub(crate) const BG_TOP: u32 = 0x001B_2233;
-pub(crate) const BG_BOTTOM: u32 = 0x000C_0F17;
-/// El color de referencia cuando hace falta uno solo (bordes de mezcla).
-pub(crate) const BG: u32 = 0x0014_1A28;
+///
+/// ** Desde el 2026-09-22 es la noche de la ciudad del gato: indigo arriba,
+/// casi negro abajo. Ver la cabecera de `tema.maqueta`.
+pub(crate) const BG_TOP: u32 = 0x0016_1236;
+pub(crate) const BG_BOTTOM: u32 = 0x0006_050C;
+/// El color de referencia cuando hace falta uno solo (bordes de mezcla): la
+/// sombra de la ciudad, medida.
+pub(crate) const BG: u32 = 0x000E_0B25;
 /// El panel de la izquierda (era la barra de arriba). Mas oscuro que el
 /// escritorio a proposito: una barra de sistema se lee como un borde de la
 /// pantalla, no como una ventana.
-pub(crate) const TASKBAR: u32 = 0x000F_131D;
-/// El pelo de luz del borde del panel. Un borde entero seria una raya; esto separa.
-pub(crate) const TASKBAR_LINE: u32 = 0x0026_2F42;
+/// Negro, como el fondo del logo, con un pelo de violeta.
+pub(crate) const TASKBAR: u32 = 0x0009_080F;
+/// El pelo de luz del borde del panel: el violeta del neon, apagado. Un borde
+/// entero seria una raya; esto separa.
+pub(crate) const TASKBAR_LINE: u32 = 0x002B_2250;
 
 /// La raya que separa dos grupos de instrumentos en la linea de CABINA.
 ///

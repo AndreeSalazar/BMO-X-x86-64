@@ -11,6 +11,20 @@
    nombres llevaban todo el peso. Lo que faltaba era UN SITIO DONDE MIRARLOS.
    Por eso cada panel nuevo se inventaba los suyos: no habia donde consultar.
 
+   ** LOS COLORES DEL GATO (2026-09-22). El propietario, con el logo y la
+   ciudad de neon delante: *"no olvides los colores... como el gato, asi como
+   represente en mi BMO-X estandar"*. Medidos sobre sus imagenes, no a ojo:
+
+      el ojo del gato      #61F9ED  (el cian de los dos `=`)  -> el ACENTO
+      la linea del gato    #F9F9F9  (blanco)                   -> la tinta, ya casi
+      el fondo del logo    #010101  (negro)                    -> el panel
+      la ciudad de noche   #0E0B25  (indigo) y neon violeta #7345A1
+
+   El acento es el ojo (#5EF2E6, un punto menos que el brillo del logo para
+   que no queme una hora mirandolo), el panel es negro con un pelo de violeta,
+   y el cielo del escritorio es la noche de la ciudad. Las tintas no cambian:
+   ya eran blancas.
+
    Esa es exactamente la sensacion de Arch que motivo MAQUETA -- nada generado
    por una herramienta que no puedas leer -- y aqui se cobra sin escribir codigo:
    doce lineas contra quince ficheros.
@@ -28,12 +42,12 @@
     .ink-dim    { color:#8A9BB4 }   /* 127 usos -- todo lo demas */
     .ink-ok     { color:#7EE787 }   /* 21 usos  -- salio bien */
     .ink-bad    { color:#FF8A7A }   /* 38 usos  -- salio mal */
-    .accent     { color:#60A5FA }   /* 22 usos  -- esto se puede tocar */
+    .accent     { color:#5EF2E6 }   /* 22 usos  -- esto se puede tocar: el ojo del gato */
 
     /* -- las superficies: sobre que se lee ---------------------------- */
     .box        { background-color:#1E2534; border-width:1px; border-color:#333D52 }
     .field      { background-color:#161C28 }   /* donde se escribe */
-    .taskbar    { background-color:#0F131D; border-width:1px; border-color:#262F42 }
-    .bg-top     { background-color:#1B2233 }   /* el cielo del escritorio */
+    .taskbar    { background-color:#09080F; border-width:1px; border-color:#2B2250 }   /* el panel: negro, pelo violeta */
+    .bg-top     { background-color:#161236 }   /* el cielo del escritorio: la noche de la ciudad */
   </style>
 </maqueta>

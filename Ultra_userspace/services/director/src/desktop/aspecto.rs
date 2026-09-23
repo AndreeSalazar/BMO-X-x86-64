@@ -56,13 +56,13 @@ const CAMPOS: [&str; 11] = [
 
 /// Acentos: vivos, para una linea o un punto.
 const VIVOS: [u32; 9] = [
-    0x0060_A5FA, 0x008B_5CF6, 0x00C0_84FC, 0x00F4_72B6, 0x0034_D399, 0x00FB_BF24, 0x0022_D3EE,
+    0x005E_F2E6, 0x008B_5CF6, 0x00C0_84FC, 0x00F4_72B6, 0x0034_D399, 0x00FB_BF24, 0x0060_A5FA,
     0x00F8_7171, 0x00E6_EDF6,
 ];
 /// Fondos: oscuros, para planos grandes que se miran una hora.
 const OSCUROS: [u32; 11] = [
-    0x000F_131D, 0x0011_111B, 0x0018_1825, 0x001E_1E2E, 0x000B_0E14, 0x001B_2233, 0x000C_0F17,
-    0x0016_1B22, 0x001A_1B26, 0x0023_2136, 0x0026_2F42,
+    0x0009_080F, 0x0011_111B, 0x0018_1825, 0x001E_1E2E, 0x000B_0E14, 0x0016_1236, 0x0006_050C,
+    0x000E_0B25, 0x001A_1B26, 0x0023_2136, 0x002B_2250,
 ];
 
 pub(crate) fn activo() -> bool {

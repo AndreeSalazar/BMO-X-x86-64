@@ -213,12 +213,12 @@ mod pruebas {
             "pub const INK_DIM: u32 = 0x008A_9BB4;",
             "pub const INK_OK: u32 = 0x007E_E787;",
             "pub const INK_BAD: u32 = 0x00FF_8A7A;",
-            "pub const ACCENT: u32 = 0x0060_A5FA;",
+            "pub const ACCENT: u32 = 0x005E_F2E6;",
             "pub const BOX_FONDO: u32 = 0x001E_2534;",
             "pub const BOX_BORDE: u32 = 0x0033_3D52;",
             "pub const FIELD_FONDO: u32 = 0x0016_1C28;",
-            "pub const TASKBAR_FONDO: u32 = 0x000F_131D;",
-            "pub const BG_TOP_FONDO: u32 = 0x001B_2233;",
+            "pub const TASKBAR_FONDO: u32 = 0x0009_080F;",
+            "pub const BG_TOP_FONDO: u32 = 0x0016_1236;",
         ] {
             assert!(r.contains(esperado), "falta `{esperado}` en:\n{r}");
         }

@@ -15,7 +15,7 @@
 //! fundio aqui, de arriba abajo:
 //!
 //! ```text
-//!    la marca           BMO-X, con el acento
+//!    la marca           los ojos del gato (`= =`, en el acento) y BMO-X
 //!    las ventanas       una ficha por ventana, en vertical (eran las de arriba)
 //!    .                  (el aire: las fichas crecen hacia abajo)
 //!    la luz del bus     el testigo del teclado, siempre encendido
@@ -208,7 +208,7 @@ pub(crate) fn color_en(x: u32, y: u32, alto: u32) -> Option<u32> {
         return None;
     }
     let pl = plano(alto);
-    if x >= pl.x0 && x < pl.x0 + 14 && y >= pl.logo_y && y < pl.logo_y + 14 {
+    if ojos_en(x, y, pl.x0, pl.logo_y) {
         return Some(acento());
     }
     if !e.barra_flotante {
@@ -221,6 +221,38 @@ pub(crate) fn color_en(x: u32, y: u32, alto: u32) -> Option<u32> {
         return Some(e.barra_borde);
     }
     Some(e.barra_fondo)
+}
+
+// ===================================================================
+//  La marca: los ojos del gato
+// ===================================================================
+
+/// **Los ojos del gato del logo de BMO-X**: dos `=`, cada uno de dos rayas de
+/// 8 x 2 px, con 5 px entre ojo y ojo. Era un cuadrado del acento; el
+/// propietario: *"no olvides los colores... como el gato"*. El gato del logo no
+/// tiene mas cara que eso, y por eso se reconoce en 21 pixeles.
+///
+/// Una funcion para pintarlos y para contestar por su color: si fueran dos
+/// geometrias, borrar encima dejaria un ojo tuerto.
+const OJO_W: u32 = 8;
+const OJO_ENTRE: u32 = 5;
+const RAYAS: [u32; 2] = [3, 8];
+
+fn ojos_en(x: u32, y: u32, x0: u32, y0: u32) -> bool {
+    if x < x0 || y < y0 {
+        return false;
+    }
+    let (dx, dy) = (x - x0, y - y0);
+    let en_ojo = dx < OJO_W || (dx >= OJO_W + OJO_ENTRE && dx < 2 * OJO_W + OJO_ENTRE);
+    en_ojo && RAYAS.iter().any(|&r| dy >= r && dy < r + 2)
+}
+
+fn pintar_ojos(p: &bmo::Pantalla, x0: u32, y0: u32) {
+    for ojo in [x0, x0 + OJO_W + OJO_ENTRE] {
+        for r in RAYAS {
+            p.rect(ojo, y0 + r, OJO_W, 2, acento());
+        }
+    }
 }
 
 // ===================================================================
@@ -299,7 +331,7 @@ fn pintar_fichas(p: &bmo::Pantalla, pl: &Plano) {
         // de delante con su fondo y una raya de su color, la minimizada con el
         // punto apagado.
         if f.activa {
-            p.rect(pl.x0 - 6, y, pl.iw + 12, FICHA_H, 0x001F_2838);
+            p.rect(pl.x0 - 6, y, pl.iw + 12, FICHA_H, 0x0018_1433);
             p.rect(pl.x0 - 6, y + 4, 2, FICHA_H - 8, f.color);
         }
         let punto = if f.minimizada { INK_DIM } else { f.color };
@@ -391,9 +423,10 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
             p.rect(bx, by, bw, bh, e.barra_fondo);
             p.rect(bx + bw - 1, by, 1, bh, e.barra_borde);
         }
-        // La marca, arriba, y su raya.
-        p.rect(pl.x0, pl.logo_y, 14, 14, acento());
-        p.texto(pl.x0 + 22, pl.logo_y - 1, "BMO-X", INK);
+        // La marca, arriba, y su raya: los ojos del gato y el nombre en blanco,
+        // como en el logo.
+        pintar_ojos(p, pl.x0, pl.logo_y);
+        p.texto(pl.x0 + 2 * OJO_W + OJO_ENTRE + 10, pl.logo_y - 2, "BMO-X", INK);
         p.rect(pl.x0, pl.fichas_y - 10, pl.iw, 1, e.barra_borde);
         // Las rayas que separan el bus, los instrumentos y el pie.
         p.rect(pl.x0, pl.testigo_y - 10, pl.iw, 1, e.barra_borde);

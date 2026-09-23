@@ -1,8 +1,8 @@
 //! GENERADO POR MAQUETA DESDE `toolchain/tools/maqueta/tema/tema.maqueta` -- NO EDITAR A MANO.
 //!
 //! [consumo] NADA      no corre en reposo por su cuenta: pinta cuando el
-//!                     compositor se lo pide, y el compositor solo pinta si
-//!                     algo cambio (L6h)
+//!                     compositor se lo pide, y el compositor solo pinta
+//!                     si algo cambio (L6h)
 //!
 //! Lo que se edita es el `.maqueta`. Cambiar esto es escribir una verdad
 //! que la siguiente compilacion borra.
@@ -19,10 +19,10 @@ pub const INK: u32 = 0x00E6_EDF6;
 pub const INK_DIM: u32 = 0x008A_9BB4;
 pub const INK_OK: u32 = 0x007E_E787;
 pub const INK_BAD: u32 = 0x00FF_8A7A;
-pub const ACCENT: u32 = 0x0060_A5FA;
+pub const ACCENT: u32 = 0x005E_F2E6;
 pub const BOX_FONDO: u32 = 0x001E_2534;
 pub const BOX_BORDE: u32 = 0x0033_3D52;
 pub const FIELD_FONDO: u32 = 0x0016_1C28;
-pub const TASKBAR_FONDO: u32 = 0x000F_131D;
-pub const TASKBAR_BORDE: u32 = 0x0026_2F42;
-pub const BG_TOP_FONDO: u32 = 0x001B_2233;
+pub const TASKBAR_FONDO: u32 = 0x0009_080F;
+pub const TASKBAR_BORDE: u32 = 0x002B_2250;
+pub const BG_TOP_FONDO: u32 = 0x0016_1236;

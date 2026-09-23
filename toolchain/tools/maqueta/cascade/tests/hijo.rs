@@ -256,10 +256,10 @@ fn the_system_theme_compiles() {
     assert_eq!(wearing("ink-dim").color, Some(0x8A9BB4), "INK_DIM, 127 usos");
     assert_eq!(wearing("ink-ok").color, Some(0x7EE787));
     assert_eq!(wearing("ink-bad").color, Some(0xFF8A7A));
-    assert_eq!(wearing("accent").color, Some(0x60A5FA));
+    assert_eq!(wearing("accent").color, Some(0x5EF2E6), "el ojo del gato");
     assert_eq!(wearing("field").background, Some(0x161C28));
-    assert_eq!(wearing("taskbar").background, Some(0x0F131D));
-    assert_eq!(wearing("bg-top").background, Some(0x1B2233));
+    assert_eq!(wearing("taskbar").background, Some(0x09080F));
+    assert_eq!(wearing("bg-top").background, Some(0x161236));
 
     let boxed = wearing("box");
     assert_eq!(boxed.background, Some(0x1E2534));
