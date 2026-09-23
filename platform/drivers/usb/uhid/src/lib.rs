@@ -72,8 +72,8 @@ use teclado::Teclado;
 // keyboard.rs` los compara), asi que se re-exportan desde la raiz: quien los
 // usa no tiene por que saber en que fichero viven.
 pub use teclado::{
-    SC_ALTGR, SC_DELETE, SC_DOWN, SC_END, SC_HOME, SC_INSERT, SC_LEFT, SC_PGDN, SC_PGUP, SC_RIGHT,
-    SC_UP,
+    SC_ALTGR, SC_DELETE, SC_DOWN, SC_END, SC_HOME, SC_IMPR, SC_INSERT, SC_LEFT, SC_PGDN, SC_PGUP,
+    SC_RIGHT, SC_UP,
 };
 
 pub struct UsbHidHal {

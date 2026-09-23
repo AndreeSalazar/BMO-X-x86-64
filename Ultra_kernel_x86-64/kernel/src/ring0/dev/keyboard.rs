@@ -172,6 +172,11 @@ pub const KEY_F10: u8 = 0x92;
 pub const KEY_F11: u8 = 0x93;
 pub const KEY_F12: u8 = 0x94;
 
+/// **Impr Pant** (2026-09-22): la captura de pantalla del escritorio. Detras de
+/// las F, en el mismo rango C1 y por la misma razon: no produce caracter en
+/// ninguna distribucion.
+pub const KEY_IMPR: u8 = 0x95;
+
 /// Es una tecla de navegacion (no imprimible)?
 pub fn is_nav(b: u8) -> bool { (KEY_UP..=KEY_PGDN).contains(&b) }
 
@@ -394,6 +399,14 @@ pub fn poll_event() -> Option<(u8, Option<u8>)> {
         0xE0 => { unsafe { E0 = true; } }
         0x38 if ext => { unsafe { ALTGR = true; } }
         0xB8 if ext => { unsafe { ALTGR = false; } }
+        // ** Impr Pant en PS/2 llega como `E0 2A E0 37` y se suelta con
+        // `E0 B7 E0 AA`. El `2A` con prefijo es un Shift FALSO que el teclado
+        // mete por compatibilidad: tomarlo como Shift dejaba Mayusculas pegada
+        // hasta pulsar el Shift de verdad. El `37` con prefijo es la tecla, y
+        // sin prefijo es el `*` del numpad: la misma confusion que tenia el
+        // puente USB.
+        0x2A | 0xAA | 0xB7 if ext => {}
+        0x37 if ext => feed(bmo_uhid::SC_IMPR, unsafe { SHIFT }, unsafe { ALTGR }, unsafe { CAPS }),
         0x2A | 0x36 => { unsafe { SHIFT = true; } }
         0xAA | 0xB6 => { unsafe { SHIFT = false; } }
         0x1D => { unsafe { CTRL = true; } }
@@ -425,6 +438,7 @@ fn nav_key(code: u8) -> Option<u8> {
         c if c == bmo_uhid::SC_DELETE => KEY_DELETE,
         c if c == bmo_uhid::SC_PGUP => KEY_PGUP,
         c if c == bmo_uhid::SC_PGDN => KEY_PGDN,
+        c if c == bmo_uhid::SC_IMPR => KEY_IMPR,
         // Las de funcion traen su scancode Set 1 de siempre: `hid_to_ps2` ya
         // las traducia y aqui se caian por el `_ => None`.
         0x3B => KEY_F1,

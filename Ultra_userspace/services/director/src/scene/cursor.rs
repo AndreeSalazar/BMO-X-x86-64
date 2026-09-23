@@ -233,6 +233,17 @@ impl SaveUnder {
         draw_cursor(p, x, y, shape);
     }
 
+    /// **Lo que el cursor tapa en `(x, y)`**, si esta puesto encima: el color
+    /// de debajo. La captura de pantalla lo pregunta por cada pixel, porque una
+    /// captura no lleva el puntero -- y el lienzo SI lo lleva pintado.
+    pub(crate) fn debajo(&self, x: u32, y: u32) -> Option<u32> {
+        if !self.placed_one || x < self.x || y < self.y {
+            return None;
+        }
+        let (col, row) = ((x - self.x) as usize, (y - self.y) as usize);
+        (col < CUR_W && row < CUR_H).then(|| self.px[row * CUR_W + col])
+    }
+
     /// Devuelve lo guardado. Al PRINCIPIO del fotograma, antes de pintar nada.
     /// Si no estaba puesto no hace nada, asi que se puede llamar siempre.
     pub(crate) fn lift(&mut self, p: &bmo::Pantalla) {

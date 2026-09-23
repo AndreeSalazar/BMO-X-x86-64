@@ -42,6 +42,13 @@ pub(crate) fn on_key(
 // es el mismo byte que Enter y Ctrl+I el mismo que Tab, asi que el modo del foco
 // va con Ctrl+Tab. Y Ctrl+W ya borra una palabra en Ejecutar: cerrar es Ctrl+Q.
 let ctrl = m & bmo::MOD_CTRL != 0 && m & bmo::MOD_ALT == 0;
+// ** IMPR PANT: la captura (2026-09-22). La primera, porque es la unica tecla
+// que tiene que funcionar este donde este el foco -- se pulsa para guardar lo
+// que se ve, no para hablarle a una ventana. Con Alt, solo la de delante.
+if c == crate::desktop::captura::TECLA_IMPR {
+    crate::desktop::captura::tomar(dsk, p, m & bmo::MOD_ALT != 0);
+    return Key::Taken;
+}
 if alt_alone && c == 0x09 {
     if m & bmo::MOD_SHIFT != 0 {
         dsk.win.focus.conmutar_atras();

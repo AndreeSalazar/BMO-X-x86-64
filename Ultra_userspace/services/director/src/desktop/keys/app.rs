@@ -62,6 +62,8 @@ const SC_TAB: u8 = 0x0F;
 const SC_ENTER: u8 = 0x1C;
 const SC_F11: u8 = 0x57;
 const SC_F12: u8 = 0x58;
+/// Impr Pant: la captura es del escritorio (`bmo_uhid::SC_IMPR`).
+const SC_IMPR: u8 = 0x54;
 
 /// Bit 8 del evento crudo: hay evento.
 const HAY: u64 = 0x100;
@@ -133,7 +135,7 @@ fn del_escritorio(sc: u8, m: u8) -> bool {
     if m & bmo::MOD_ALT != 0 && (sc == SC_TAB || sc == SC_ENTER) {
         return true;
     }
-    (SC_F1..=SC_F10).contains(&sc) || sc == SC_F11 || sc == SC_F12
+    (SC_F1..=SC_F10).contains(&sc) || sc == SC_F11 || sc == SC_F12 || sc == SC_IMPR
 }
 
 /// **La ventana de delante es una app que NO lee teclas?**

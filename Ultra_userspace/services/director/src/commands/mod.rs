@@ -74,6 +74,9 @@ pub(crate) enum Command<'a> {
     Calculator,
     /// El editor de aspecto: `aspecto` (2026-09-13). Ver `desktop::aspecto`.
     Aspecto,
+    /// `captura`: lo mismo que Impr Pant, para un teclado sin la tecla.
+    /// `captura ventana`: la de delante. Ver `desktop::captura`.
+    Captura(bool),
     /// `sella` escrito AQUI, donde ya no vive: la orden se mudo a la ventana de
     /// ESTRATOS (F12, tecla `S`) y esto lleva la nota con la direccion nueva.
     SealMoved,
@@ -349,6 +352,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         }
         b"calc" | b"calculadora" => Command::Calculator,
         b"aspecto" | b"estilo" => Command::Aspecto,
+        b"captura" | b"screenshot" | b"impr" => Command::Captura(rest == b"ventana"),
         // * El numero que decide si hace falta una GPU. Ver `Volcado`.
         b"perf" | b"pinta" => Command::PaintCost,
         // * `sella` -- Y ANTES ERAN DOS PALABRAS, POR UN MIEDO MAL PUESTO.

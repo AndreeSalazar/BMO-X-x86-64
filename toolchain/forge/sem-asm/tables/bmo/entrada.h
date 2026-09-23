@@ -100,6 +100,8 @@
 #define BMO_TECLA_F10 0x92
 #define BMO_TECLA_F11 0x93
 #define BMO_TECLA_F12 0x94
+/* Impr Pant: la captura de pantalla. La toma el escritorio; no llega a las apps. */
+#define BMO_TECLA_IMPR 0x95
 
 /* Reclama raton + teclado. Devuelve el handle, o **0 si no se pudo**.
  *
@@ -293,6 +295,9 @@ unsigned long long bmo_entrada_evento(unsigned long long ent) {
 #define BMO_SC_F11 0x57
 #define BMO_SC_F12 0x58
 #define BMO_SC_BLOQ_DESPL 0x46
+/* Impr Pant. Codigo propio: en Set 1 es `0xE0 0x37`, y `0x37` a secas es el `*`
+ * del teclado numerico. `0x54` es el de la misma tecla con Alt (PetSis). */
+#define BMO_SC_IMPR 0x54
 /* La tecla EXTRA de los teclados ISO: la de `< >` junto al Shift izquierdo,
  * que los US no tienen. */
 #define BMO_SC_ISO_EXTRA 0x56

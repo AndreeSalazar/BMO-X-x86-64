@@ -42,7 +42,8 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 # `informe\` es donde `save` deja sus hojas (una por capitulo, 2026-09-21).
 # FAT32 sabe crear ficheros y no carpetas, y ensenarle seria codigo de Ring 0
 # para ahorrarse esta linea: la carpeta nace aqui, con un LEEME que dice que es.
-foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe')) {
+# `capturas\` es donde Impr Pant deja las suyas (2026-09-22), por lo mismo.
+foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe', 'capturas')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
 # * Y dentro de cobol\, un nivel por carpeta. Ver el bloque de $cobolEjemplos
@@ -918,6 +919,19 @@ try {
     )
     Set-Content -LiteralPath (Join-Path $dataBase 'informe\LEEME.TXT') -Value $leeme -Encoding ascii
     Write-Host '    [informe] LEEME.TXT (la carpeta de las hojas de save)' -ForegroundColor DarkGray
+    $leemeCap = @(
+        'CAPTURAS -- lo que guarda Impr Pant desde el escritorio',
+        '',
+        '  Impr Pant          la pantalla entera',
+        '  Alt + Impr Pant    solo la ventana de delante',
+        '  captura            lo mismo, escrito en Ejecutar (captura ventana: la de delante)',
+        '',
+        '  capNNNNN.bmp       BMP de 24 bits: lo abren Windows y el visor de BMO-X',
+        '',
+        'El despliegue NO borra esta carpeta: las capturas se quedan en el disco de datos.'
+    )
+    Set-Content -LiteralPath (Join-Path $dataBase 'capturas\LEEME.TXT') -Value $leemeCap -Encoding ascii
+    Write-Host '    [capturas] LEEME.TXT (la carpeta de Impr Pant)' -ForegroundColor DarkGray
     $datosSrc = Join-Path $repo 'toolchain\lang\cobol\examples\datos'
     $datosDst = Join-Path $dataBase 'datos'
     foreach ($d in (Get-ChildItem -LiteralPath $datosSrc -Filter '*.txt')) {

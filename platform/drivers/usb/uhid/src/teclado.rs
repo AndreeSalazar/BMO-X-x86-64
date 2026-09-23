@@ -49,7 +49,13 @@ static HID_TO_PS2: [u8; 104] = [
     // el teclado numerico (flecha arriba = 0x48 = KP8), asi que pulsar una
     // flecha escribia un numero. Set 1 real las distingue con el prefijo
     // 0xE0, que no cabe en un byte: se les da codigo propio 0x66..0x6F.
-    0x37,0x46,0x45,SC_INSERT,SC_HOME,SC_PGUP,SC_DELETE,SC_END,SC_PGDN,
+    //
+    // ** Y EL PRIMERO, Impr Pant (usage 0x46), llevaba 0x37: el MISMO Set 1
+    // que el `*` del teclado numerico (usage 0x55, dos lineas mas abajo). O sea
+    // que Impr Pant escribia un asterisco. Set 1 real es `0xE0 0x37`, dos
+    // bytes; lleva `SC_IMPR` (2026-09-22), el dia que hizo falta para la
+    // captura de pantalla.
+    SC_IMPR,0x46,0x45,SC_INSERT,SC_HOME,SC_PGUP,SC_DELETE,SC_END,SC_PGDN,
     SC_RIGHT,SC_LEFT,SC_DOWN,SC_UP,0x45,
     // El '/' del teclado NUMERICO (usage 0x54) llevaba 0x35, el mismo Set 1
     // que la tecla '/' de la fila principal. En US da igual porque ambas son
@@ -91,6 +97,12 @@ pub const SC_PGUP: u8 = 0x6C;
 pub const SC_DELETE: u8 = 0x6D;
 pub const SC_END: u8 = 0x6E;
 pub const SC_PGDN: u8 = 0x6F;
+
+/// **Impr Pant**, con codigo propio: en Set 1 es `0xE0 0x37` y el `0x37` a
+/// secas es el `*` del teclado numerico. `0x54` es el que Set 1 da a la MISMA
+/// tecla con Alt pulsado (PetSis), asi que no se inventa: se toma el que ya
+/// era suyo y que nada mas usa.
+pub const SC_IMPR: u8 = 0x54;
 
 const MOD_LCTRL: u8 = 1 << 0;
 const MOD_LSHIFT: u8 = 1 << 1;
@@ -315,5 +327,22 @@ impl Teclado {
             )
         };
         n > 0
+    }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+
+    /// Impr Pant y el `*` del teclado numerico eran el MISMO scancode, y la
+    /// tecla de la captura escribia un asterisco.
+    #[test]
+    fn impr_pant_no_es_el_asterisco_del_teclado_numerico() {
+        assert_eq!(hid_to_ps2(0x46), Some(SC_IMPR));
+        assert_eq!(hid_to_ps2(0x55), Some(0x37));
+        assert_ne!(SC_IMPR, 0x37);
+        // Y no pisa a ninguna otra tecla de la tabla.
+        let otras = (0..HID_TO_PS2.len() as u8).filter(|&u| u != 0x46);
+        assert!(otras.filter_map(hid_to_ps2).all(|sc| sc != SC_IMPR));
     }
 }

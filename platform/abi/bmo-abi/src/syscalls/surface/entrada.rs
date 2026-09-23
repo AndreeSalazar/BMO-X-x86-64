@@ -120,3 +120,6 @@ pub const TECLA_F10: u8 = 0x92;
 pub const TECLA_F11: u8 = 0x93;
 
 pub const TECLA_F12: u8 = 0x94;
+
+/// Impr Pant: la captura de pantalla del escritorio (2026-09-22).
+pub const TECLA_IMPR: u8 = 0x95;

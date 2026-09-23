@@ -254,6 +254,8 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.with_ink(INK_PLAIN);
     dsk.out.grid.text(b"    clear         limpia esta salida\n");
     dsk.out.grid.text(b"    calc          la calculadora     perf   lo que cuesta pintar\n");
+    dsk.out.grid.text(b"    captura       la pantalla a capturas/  (captura ventana: la de delante)\n");
+    dsk.out.grid.text(b"    Ctrl+Shift+C copia la linea    Ctrl+V la pega    Ctrl+C frena\n");
     dsk.out.grid.text(b"    TAB completa            Ctrl+A / Ctrl+E   inicio / fin\n");
     dsk.out.grid.text(b"    Ctrl+K corta al final   Ctrl+W borra palabra   Ctrl+U linea\n");
     dsk.out.grid.text(b"    Ctrl+Alt esconde o invoca esta ventana\n");
@@ -267,6 +269,9 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"      la maquina    F5 red    F6 smp     F7 banda    F8 ext\n");
     dsk.out.grid.text(b"      cuando falla  F9 fallo  F10 disco\n");
     dsk.out.grid.text(b"      ventanas      F11 CABINA (el kernel)   F12 ESTRATOS\n");
+    dsk.out.grid.text(b"    Impr Pant CAPTURA la pantalla (con Alt, la ventana de delante).\n");
+    dsk.out.grid.text(b"    Ctrl ORDENA las ventanas: flechas encajan, Q cierra, Enter trae\n");
+    dsk.out.grid.text(b"    esta caja, F pantalla completa, B el panel, T el mosaico.\n");
     dsk.out.grid.with_ink(INK_ECHO);
     dsk.out.grid.text(b"  y si no sabes por donde empezar:  guia\n");
     paint_status(&p, &dsk.run_box, "listo", INK_DIM);

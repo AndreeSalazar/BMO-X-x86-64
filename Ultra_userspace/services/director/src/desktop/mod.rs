@@ -52,6 +52,10 @@ pub(crate) mod sonido;
 /// **EL BORDE DE FOCO**: cuando el foco cambia, el marco de la nueva lleva el
 /// acento y el de la vieja lo pierde. HUD 2.
 pub(crate) mod foco;
+
+/// **LA CAPTURA DE PANTALLA**: Impr Pant, Alt+Impr Pant y `captura`, a
+/// `capturas/capNNNNN.bmp`.
+pub(crate) mod captura;
 /// **EL MOSAICO** (Ctrl+T, HUD 4): las ventanas se reparten el area util,
 /// maestro y pila, sin taparse.
 pub(crate) mod mosaico;
