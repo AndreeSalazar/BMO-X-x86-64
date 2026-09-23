@@ -25,18 +25,22 @@
 //!    los pixeles  el LIENZO del compositor, que es RAM: las apps ya estan
 //!                 compuestas en el. Donde esta el cursor se lee lo que tapa
 //!                 (`SaveUnder::debajo`): una captura no lleva el puntero
-//!    el formato   BMP de 24 bits, de abajo arriba -- el de Paint. Lo abren
-//!                 Windows sin nada y el visor de BMO-X (`bmo-imagen`)
-//!    el fichero   `capturas/capNNNNN.bmp`, un bloque de una llamada
+//!    el formato   PNG hecho aqui (`bmo-imagen::png_escribir`: DEFLATE propio,
+//!                 Huffman dinamico). Lo abren Windows y el visor de BMO-X
+//!    el fichero   `capturas/capNNNNN.png`, un bloque de una llamada
 //!                 (`escribir_de`) y al disco al cerrar
 //! ```
 //!
-//! # Por que BMP y no PNG ni QOI
+//! # Fue BMP una noche, y ahora es PNG
 //!
-//! PNG pide deflate para ESCRIBIR y aqui solo hay inflate; QOI lo abre el
-//! visor pero no Windows. BMP ocupa varias veces lo que un PNG y lo abre
-//! todo el mundo sin programa: una captura que no se puede mirar en el otro
-//! ordenador no le sirve al que la hizo. A 1920x1080 son 6.075 KiB.
+//! La primera version escribia BMP porque PNG pide DEFLATE para escribir y
+//! aqui solo habia inflate. Salio en el Ryzen (22:57) y funciono -- y mostro
+//! su precio: 6 MiB por pantalla, que el disco tragaba en un syscall con la
+//! maquina sorda. Esa misma noche `bmo-imagen` aprendio a comprimir: con las
+//! dos capturas de aquella noche, la de la ciudad baja al 44 % y la de
+//! ventanas al 11 %, y Pillow (zlib) las abre con los mismos pixeles. Un PNG
+//! no es de Windows ni de nadie: es un estandar abierto, y este esta hecho
+//! aqui entero.
 //!
 //! # Lo que NO hace, dicho
 //!
@@ -92,43 +96,69 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
         return decir(dsk, p, b"  [captura] nada que capturar: la zona no se ve\n", false);
     }
 
-    // -- El BMP entero en un bloque: cabecera de 54 y las filas a 4 bytes --
-    let fila = ((w * 3 + 3) & !3) as u64;
-    let total = 54 + fila * h as u64;
-    let Some(bloque) = bmo::Memoria::request(total) else {
+    // -- ** EL PNG, hecho aqui (2026-09-22) --
+    //
+    // Era un BMP: 6 MiB por pantalla, y 6 MiB que el disco tenia que tragar
+    // dentro de un syscall. `bmo-imagen::png_escribir` comprime con su propio
+    // DEFLATE: la captura del escritorio con la ciudad baja al 44 % y una de
+    // ventanas al 11 %, a un 5 % de lo que saca zlib, y Windows lo abre igual.
+    //
+    // Dos bloques, que se devuelven al salir de aqui (`Drop`): el TALLER del
+    // compresor con la imagen CRUDA detras (filtro + RGB por fila), y el PNG.
+    use bmo_imagen::png_escribir as png;
+    let taller_bytes = (png::TALLER * 4) as u64;
+    let crudo = png::crudo(w, h) as u64;
+    let cota = png::cota(w, h) as u64;
+    let (Some(trabajo), Some(salida)) = (
+        bmo::Memoria::request(taller_bytes + crudo),
+        bmo::Memoria::request(cota),
+    ) else {
         return decir(dsk, p, b"  [captura] sin memoria para la imagen\n", false);
     };
-    // SAFETY: un bloque de este proceso de `total` bytes; se escribe dentro.
-    let b = unsafe { core::slice::from_raw_parts_mut(bloque.base(), total as usize) };
-    cabecera(b, w, h, total, fila);
+    // SAFETY: el bloque `trabajo` mide `taller_bytes + crudo` y su base es de
+    // pagina (alineada a 4): el taller son sus primeros `png::TALLER` enteros y
+    // lo crudo va detras, sin solaparse. `salida` mide `cota`.
+    let taller = unsafe { core::slice::from_raw_parts_mut(trabajo.base() as *mut u32, png::TALLER) };
+    let crudo_buf = unsafe {
+        core::slice::from_raw_parts_mut(trabajo.base().add(taller_bytes as usize), crudo as usize)
+    };
+    let dst = unsafe { core::slice::from_raw_parts_mut(salida.base(), cota as usize) };
     p.sincronizar_lectura();
-    for r in 0..h {
-        // De abajo arriba: la primera fila del fichero es la ULTIMA de la imagen.
-        let y = y0 + h - 1 - r;
-        let mut i = 54 + (r as u64 * fila) as usize;
-        for x in x0..x0 + w {
-            let c = dsk.save_under.debajo(x, y).unwrap_or_else(|| p.read(x, y));
-            b[i] = c as u8;
-            b[i + 1] = (c >> 8) as u8;
-            b[i + 2] = (c >> 16) as u8;
-            i += 3;
+    let bajo = &dsk.save_under;
+    let mut pixel = |x: u32, y: u32| {
+        let (x, y) = (x0 + x, y0 + y);
+        bajo.debajo(x, y).unwrap_or_else(|| p.read(x, y)) & 0x00FF_FFFF
+    };
+    let n_png = match png::codificar(w, h, &mut pixel, crudo_buf, taller, dst) {
+        Ok(n) => n as u64,
+        Err(e) => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  [captura] el PNG no salio: ");
+            dsk.out.grid.text(e.motivo().as_bytes());
+            dsk.out.grid.text(b"\n");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            return decir(dsk, p, b"", false);
         }
-    }
+    };
+    drop(trabajo);
+    let t1 = bmo::ciclos();
 
     // -- El nombre y el disco --
     let n = siguiente();
-    let mut ruta = *b"capturas/cap00000.bmp";
+    let mut ruta = *b"capturas/cap00000.png";
     let mut d = n;
     for k in (12..17).rev() {
         ruta[k] = b'0' + (d % 10) as u8;
         d /= 10;
     }
     let guardada = match bmo::Archivo::create(&ruta) {
-        Ok(a) => a.escribir_de(&bloque, 0, total) == total && a.close(),
+        Ok(a) => a.escribir_de(&salida, 0, n_png) == n_png && a.close(),
         Err(_) => false,
     };
-    drop(bloque);
-    let ms = (bmo::ciclos().saturating_sub(t0)) * 1000 / bmo::info(bmo::INFO_TSC_HZ).max(1);
+    drop(salida);
+    let t2 = bmo::ciclos();
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1);
+    let (ms_png, ms_disco) = ((t1 - t0) * 1000 / hz, (t2 - t1) * 1000 / hz);
 
     let mut t = Linea::new();
     if !guardada {
@@ -138,6 +168,9 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
         return decir(dsk, p, t.bytes(), false);
     }
     unsafe { SIGUIENTE = n + 1 };
+    // ** Los DOS tiempos, separados: el del PNG es de Ring 3 (la maquina sigue
+    // oyendo), el del disco es un syscall con las interrupciones cerradas --
+    // el que congelaba 1,5 s. El metal tiene que poder decir cual es cual.
     t.pon(b"  [captura] ");
     t.pon(&ruta);
     t.pon(b"  ");
@@ -145,9 +178,11 @@ fn guardar(dsk: &mut Desktop, p: &bmo::Pantalla, x0: u32, y0: u32, w: u32, h: u3
     t.pon(b"x");
     t.num(h as u64);
     t.pon(b"  ");
-    t.num(total / 1024);
-    t.pon(b" KiB  en ");
-    t.num(ms);
+    t.num(n_png / 1024);
+    t.pon(b" KiB  png ");
+    t.num(ms_png);
+    t.pon(b" ms  disco ");
+    t.num(ms_disco);
     t.pon(b" ms\n");
     decir(dsk, p, t.bytes(), true);
 }
@@ -178,27 +213,6 @@ impl Linea {
     fn bytes(&self) -> &[u8] {
         &self.b[..self.n]
     }
-}
-
-/// La cabecera de un BMP de 24 bits sin comprimir, de abajo arriba.
-fn cabecera(b: &mut [u8], w: u32, h: u32, total: u64, fila: u64) {
-    let mut pon32 = |i: usize, v: u32| b[i..i + 4].copy_from_slice(&v.to_le_bytes());
-    pon32(2, total as u32);
-    pon32(6, 0);
-    pon32(10, 54); // donde empiezan los pixeles
-    pon32(14, 40); // BITMAPINFOHEADER
-    pon32(18, w);
-    pon32(22, h); // positivo = de abajo arriba
-    pon32(30, 0); // BI_RGB: sin comprimir
-    pon32(34, (fila * h as u64) as u32);
-    pon32(38, 2835); // 72 ppp, en pixeles por metro
-    pon32(42, 2835);
-    pon32(46, 0);
-    pon32(50, 0);
-    b[0] = b'B';
-    b[1] = b'M';
-    b[26..28].copy_from_slice(&1u16.to_le_bytes()); // planos
-    b[28..30].copy_from_slice(&24u16.to_le_bytes()); // bits por pixel
 }
 
 /// **El numero de la siguiente**: la primera vez se mira la carpeta y se sigue

@@ -33,6 +33,11 @@ pub mod inflate;
 pub mod png;
 /// JPEG baseline: Huffman, IDCT entera, 4:4:4 / 4:2:2 / 4:2:0 y gris.
 pub mod jpeg;
+/// DEFLATE para ESCRIBIR (zlib): LZ77 con cadenas de hash y Huffman dinamico.
+pub mod deflar;
+/// PNG para ESCRIBIR: RGB de 8 bits, filtro por fila, un IDAT. La captura de
+/// pantalla de BMO-X (2026-09-22).
+pub mod png_escribir;
 
 /// **Bytes de taller que piden los formatos comprimidos** (PNG hoy). Los
 /// formatos planos no lo necesitan; un PNG sin taller es `SinTaller`, y el

@@ -927,7 +927,7 @@ try {
         '  Ctrl+Shift+S       RECORTE: arrastra un rectangulo con el raton (ESC cancela)',
         '  captura            lo mismo, escrito en Ejecutar (captura ventana: la de delante)',
         '',
-        '  capNNNNN.bmp       BMP de 24 bits: lo abren Windows y el visor de BMO-X',
+        '  capNNNNN.png       PNG hecho por BMO-X: lo abren Windows y el visor de BMO-X',
         '',
         'El despliegue NO borra esta carpeta: las capturas se quedan en el disco de datos.'
     )
