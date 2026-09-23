@@ -93,6 +93,25 @@ try {
     }
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con medida/coste' }
     if (-not (Test-Path $costeBex)) { Fail 'bex-link no produjo precio.bex' }
+
+    # -- S5 del SOMBREADOR: `sys/sombra.bex` ------------------------------
+    #
+    # Un sombreador SPIR-V (mandelbrot) viaja dentro, se traduce EN BMO-X con
+    # los mismos crates `no_std` del anfitrion, se SELLA (MEM_OP_SELLAR, W^X)
+    # y se ejecuta; contra el oraculo y contra Rust, con los tiempos.
+    $sombraElf = Join-Path $usDir 'target\x86_64-unknown-none\release\sombra'
+    if (-not (Test-Path $sombraElf)) { Fail 'no salio el ELF de medida/sombra' }
+    $sombraBex = Join-Path $dataBase 'sys\sombra.bex'
+    if (Test-Path $sombraBex) { Remove-Item $sombraBex -Force }
+    $out = & (Obrero bmo-bex-link) $sombraElf $sombraBex 2>&1
+    $out | ForEach-Object {
+        $linea = $_.ToString()
+        if ($linea -match '^\s+(\.text|->)|error|!!') {
+            Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
+        }
+    }
+    if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con medida/sombra' }
+    if (-not (Test-Path $sombraBex)) { Fail 'bex-link no produjo sombra.bex' }
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

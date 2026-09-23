@@ -1,0 +1,17 @@
+[package]
+name = "bmo-medida-sombra"
+version = "0.1.0"
+edition = "2021"
+description = "S5 del SOMBREADOR: un sombreador SPIR-V traducido EN BMO-X, sellado (W^X) y ejecutado; contra el oraculo y contra Rust"
+
+[[bin]]
+name = "sombra"
+path = "src/main.rs"
+
+[dependencies]
+bmo-userland = { path = "../../userland" }
+# El frontend y el emisor son `no_std` sin `alloc` justo para esto
+# (PLAN_EL_SOMBREADOR, 1b): el MISMO codigo que se prueba en el anfitrion
+# corre aqui dentro, en Ring 3.
+bmo-spirv-front = { path = "../../../toolchain/lang/spirv" }
+bmo-spirv-x86-64 = { path = "../../../toolchain/lang/spirv/emisor-x86_64" }

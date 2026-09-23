@@ -14,8 +14,14 @@
 //! los textos de pantalla, castellano.
 //!
 //! [consumo]  NADA   emite cuando se le pide; no hay estado vivo
+//!
+//! capa: puro -- escribe BYTES en un buffer; no ejecuta nada ni toca hardware.
+//! Corre en el anfitrion (AOT) y dentro de una app de Ring 3 (el JIT de S5).
+//! Sin un solo `unsafe` (`forbid` abajo lo garantiza): quien EJECUTA lo emitido
+//! es quien lo llama, despues de sellarlo.
 
 #![no_std]
+#![forbid(unsafe_code)]
 
 mod asm;
 mod emit;

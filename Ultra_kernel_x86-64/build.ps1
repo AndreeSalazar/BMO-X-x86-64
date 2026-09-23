@@ -459,7 +459,9 @@ try {
     # *** La regla es la de la casa: un build que EXIGE algo tiene que
     # CONSTRUIRLO. Exigir sin construir es un guardian que se queja del usuario
     # en vez de hacer su trabajo.
-    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste `
+    # ** Y `sombra` (2026-09-23): S5 del SOMBREADOR, SPIR-V traducido y
+    # SELLADO dentro de BMO-X. Mismo motivo: si el build la exige, la construye.
+    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }

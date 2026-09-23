@@ -8,6 +8,8 @@ members = [
     # `medida/` no es `services/`: un servicio lo reclama alguien y vive
     # mientras dure la sesion. Esto se ejecuta, contesta un numero y se muere.
     "medida/coste",
+    # S5 del SOMBREADOR: SPIR-V traducido aqui dentro, SELLADO y ejecutado.
+    "medida/sombra",
 ]
 resolver = "2"
 

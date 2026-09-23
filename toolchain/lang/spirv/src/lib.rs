@@ -27,8 +27,14 @@
 //!    (`emisor-x86_64/`, casilla S4); el guardian `isa` lo vigila.
 //!
 //! [consumo]  NADA   corre solo cuando alguien le da bytes; no hay estado vivo
+//!
+//! capa: puro -- vive en `toolchain/` pero no es solo una herramienta: el MISMO
+//! codigo corre dentro de una app de Ring 3 (el JIT de S5, `sys/sombra.bex`).
+//! Es logica sin hardware, `no_std` sin `alloc` y sin un solo `unsafe`
+//! (`forbid` abajo lo garantiza), probada en el anfitrion.
 
 #![no_std]
+#![forbid(unsafe_code)]
 
 mod interpreter;
 pub mod math;

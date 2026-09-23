@@ -302,6 +302,39 @@ los mismos bits que el oraculo y entre si. La tabla, en el README de
 
 ## [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 
+> **Codigo hecho el 23-09; falta VERLO en BMO-X.** `sys/sombra.bex`
+> (`Ultra_userspace/medida/sombra`): mandelbrot.spv viaja dentro, se traduce
+> en Ring 3 con los MISMOS crates `no_std` del anfitrion, se escribe en un
+> bloque de `KIND_MEMORIA`, se SELLA (`Memoria::sellar`) y se llama -- contra
+> el oraculo y contra Rust, 128x128 pixeles, con los tiempos.
+>
+> ** Y el silicio ya se probo, en el ANFITRION: el mismo Ryzen 5 5600X con
+> Windows. `emisor-x86_64/tests/nativo.rs` sella lo emitido con
+> `VirtualAlloc` + `VirtualProtect(PAGE_EXECUTE_READ)` (el mismo W^X) y lo
+> ejecuta de verdad: los mismos bits que el oraculo en suma, mandelbrot
+> (Vulkan y DirectX), colores, collatz, las trampas y 1.024 trascendentes al
+> azar. `examples/medir.rs` da los tres numeros (release, tres corridas):
+>
+> | | |
+> |---|---|
+> | traducir (leer + juzgar + emitir 3.355 bytes) | ~130 us |
+> | JIT sellado, mandelbrot 128x128 tope 64 | ~7,0 ms |
+> | Rust a mano, release, con SSE | ~0,7 ms |
+> | oraculo | ~215 ms |
+>
+> **El JIT va ~10x por detras de Rust.** No es falta de carriles: es el
+> MARCO (cargar-calcular-guardar), el `-O0` de glslc que pasa todo por
+> variables de funcion, y una llamada por invocacion. Eso ordena lo que
+> viene antes que S7: valores en registros y el bucle de invocaciones DENTRO
+> del codigo emitido.
+>
+> [!] Hallazgo de paso: el target de Ring 3 (`x86_64-unknown-none`) compila
+> los `float` de Rust POR SOFTWARE (`+soft-float`: `__mulsf3`...; pedir
+> `sse2` con `#[target_feature]` no lo cambia). Todo el Rust de Ring 3 --el
+> DIRECTOR incluido-- hace asi su coma flotante. Por eso el testigo de Rust
+> de `sombra.bex` se llama "float por software", y la comparacion justa se
+> hace en el anfitrion.
+
 Una app de Ring 3 que lleva un `.spv`, lo traduce **en la maquina**, lo escribe
 en un bloque de `bmo_codigo_pedir`, lo SELLA y lo ejecuta sobre sus buffers.
 
@@ -311,6 +344,15 @@ en un bloque de `bmo_codigo_pedir`, lo SELLA y lo ejecuta sobre sus buffers.
   tarda la misma pasada escrita a mano. Sin esos numeros S7 no se toca.
 
 ## [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del `.bex`
+
+> El propietario, el 23-09: *"el Encabezado de GPU que es BSF, BMO FORMAT
+> SHADER: ese mismo prepara todo SPIR-V y listo, la GPU no pierde tiempo"*.
+> Es exactamente esto, y es lo que hacen las consolas: el trabajo de traducir
+> se hace UNA vez al construir, y la maquina recibe el codigo ya hecho y
+> firmado. S5 (el JIT) queda como el camino de reserva para lo que llegue sin
+> precompilar o con un emisor de otra version. El dia de la RX 9060 XT (B2),
+> el mismo sobre lleva la ISA de RDNA en vez de x86-64: la GPU tampoco
+> compila nada al arrancar.
 
 El BSF de `PLAN_VULKAN`: la seccion `Shaders = 0x0A` (reservada desde hace
 tiempo) con el SPIR-V, su BLAKE3 y el x86-64 **ya traducido en el anfitrion**.
