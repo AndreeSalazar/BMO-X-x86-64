@@ -18,9 +18,17 @@
 //!                 DOOM, que corre a la misma prioridad
 //! ```
 //!
-//! Lo que tarda la copia POR FILA lo mide este fichero sobre sus propias
-//! copias: el kernel sabe donde va el rayo; lo que cuesta mover pixeles lo sabe
-//! quien los mueve.
+//! Lo que tarda la copia lo mide este fichero sobre sus propias copias: el
+//! kernel sabe donde va el rayo; lo que cuesta mover pixeles lo sabe quien los
+//! mueve.
+//!
+//! ** Se mide POR PIXEL, no por fila (2026-09-23). La primera version media
+//! nanosegundos por fila y los mezclaba entre cajas: la fila del cursor (16
+//! px) y la de la pantalla entera (1920) entraban en la misma media. El `save`
+//! de las 15:52 dio `131 ns/fila`, que no es la fila de NINGUNA caja: la
+//! pantalla entera le pedia al kernel un plazo con una copia que se quedaba
+//! corta, y el cursor uno que le sobraba. Ahora se guarda el coste de un
+//! pixel y cada caja pide con su ancho.
 //!
 //! # Por que vive en `sin_gpu/`
 //!
@@ -52,8 +60,9 @@ pub struct CuentasRayo {
     /// Cajas cuya copia dura mas que lo que el rayo tarda en volver a ellas
     /// incluso esperando: esas se pueden partir, y solo el flip las arregla.
     pub no_caben: u64,
-    /// Lo que cuesta copiar una fila, medido, en ns.
-    pub ns_fila: u32,
+    /// Lo que cuesta copiar UN pixel, medido, en picosegundos (una fila de
+    /// 1920 son `ps_px * 1920 / 1000` ns).
+    pub ps_px: u32,
     /// El rayo se pudo mirar (hay grafica y el kernel lo midio).
     pub activo: bool,
 }
@@ -81,7 +90,7 @@ impl Rayo {
                 esperado_ns: 0,
                 peor_ns: 0,
                 no_caben: 0,
-                ns_fila: 0,
+                ps_px: 0,
                 activo: false,
             }),
         }
@@ -93,9 +102,10 @@ impl Rayo {
         c
     }
 
-    /// **Antes de copiar las filas `[y0, y1)`**: espera lo que haga falta.
-    /// Devuelve el TSC de cuando se empieza a copiar, para [`Rayo::despues`].
-    pub(crate) fn antes(&self, y0: u32, y1: u32) -> u64 {
+    /// **Antes de copiar las filas `[y0, y1)` de `ancho` pixeles**: espera lo
+    /// que haga falta. Devuelve el TSC de cuando se empieza a copiar, para
+    /// [`Rayo::despues`].
+    pub(crate) fn antes(&self, y0: u32, y1: u32, ancho: u32) -> u64 {
         if self.estado.get() == SIN_PREGUNTAR {
             let hz = info(INFO_TSC_HZ);
             self.tsc_hz.set(hz);
@@ -105,10 +115,11 @@ impl Rayo {
             return ciclos();
         }
         let mut c = self.cuentas.get();
+        let ns_fila = (c.ps_px as u64 * ancho as u64).div_ceil(1000);
         let sel = INFO_GPU_ESPERA
             | (y0 as u64 & GPU_ESPERA_FILAS_MASK) << GPU_ESPERA_Y0_SHIFT
             | (y1 as u64 & GPU_ESPERA_FILAS_MASK) << GPU_ESPERA_Y1_SHIFT
-            | (c.ns_fila as u64).min(GPU_ESPERA_NS_FILA_MASK) << GPU_ESPERA_NS_FILA_SHIFT;
+            | ns_fila.min(GPU_ESPERA_NS_FILA_MASK) << GPU_ESPERA_NS_FILA_SHIFT;
         let r = info(sel);
         if r & GPU_ESPERA_VALIDA == 0 {
             // No hay rayo que mirar: se apaga, y el volcado es el de siempre.
@@ -130,18 +141,19 @@ impl Rayo {
         ciclos()
     }
 
-    /// **Despues de copiar `filas` filas desde `t0`**: lo que cuesta una fila,
-    /// con memoria (tres cuartos lo de antes, un cuarto lo de ahora) para que
-    /// una copia rara no mueva la cuenta de golpe.
-    pub(crate) fn despues(&self, filas: u32, t0: u64) {
+    /// **Despues de copiar `filas` filas de `ancho` pixeles desde `t0`**: lo
+    /// que cuesta un pixel, con memoria (tres cuartos lo de antes, un cuarto
+    /// lo de ahora) para que una copia rara no mueva la cuenta de golpe.
+    pub(crate) fn despues(&self, filas: u32, ancho: u32, t0: u64) {
         let hz = self.tsc_hz.get();
-        if self.estado.get() != ACTIVO || filas == 0 || hz == 0 {
+        let px = filas as u128 * ancho as u128;
+        if self.estado.get() != ACTIVO || px == 0 || hz == 0 {
             return;
         }
-        let ns = (ciclos().saturating_sub(t0) as u128 * 1_000_000_000 / hz as u128 / filas as u128) as u64;
-        let ns = ns.min(u32::MAX as u64) as u32;
+        let ps = (ciclos().saturating_sub(t0) as u128 * 1_000_000_000_000 / hz as u128 / px) as u64;
+        let ps = ps.min(u32::MAX as u64) as u32;
         let mut c = self.cuentas.get();
-        c.ns_fila = if c.ns_fila == 0 { ns } else { (c.ns_fila as u64 * 3 / 4 + ns as u64 / 4) as u32 };
+        c.ps_px = if c.ps_px == 0 { ps } else { (c.ps_px as u64 * 3 / 4 + ps as u64 / 4) as u32 };
         self.cuentas.set(c);
     }
 

@@ -339,10 +339,21 @@ pub fn esperar(celda: &AtomicU32, visto: u32) {
 // de seguridad de siempre. El `MONITORX` se arma sobre una celda propia que
 // nadie escribe: hace falta un `monitor` armado para que `mwaitx` duerma.
 //
-// ** Y se hace `sti` ANTES, como hacia el `hlt`: si una interrupcion llega
-// entre el `sti` y el `mwaitx`, se atiende y luego se duerme hasta la
-// siguiente -- que con el tick a 1 kHz esta a menos de un milisegundo. Es la
-// misma propiedad que ya tenia `sti; hlt`, ni mejor ni peor.
+// ** Y se duerme con las interrupciones CERRADAS, y se abren DESPUES de
+// apuntar (2026-09-23). Hasta hoy se hacia `sti` antes, como el `hlt`, y eso
+// hacia MENTIR a la cuenta: la interrupcion que despierta se atiende en el
+// borde del `mwaitx`, ANTES de leer el TSC de salida, y si esa interrupcion
+// es el tick que despierta a DOOM, el planificador se lleva el CPU ahi mismo.
+// La tarea idle vuelve cuando DOOM se duerme otra vez, lee el TSC y apunta
+// como reposo TODO lo que DOOM trabajo. El `save` de las 15:52 lo dijo sin
+// querer: `bsp dormido 99 %` con DOOM a 70 fps, o sea 449 ms despierto en 74
+// segundos -- y solo el blit de sus 3.072 fotogramas ya son ~800 ms.
+//
+// Con `cli`, el bit 0 del `ECX` hace de la interrupcion un despertador sin
+// atenderla: el `mwaitx` vuelve, se lee el TSC, y el `sti` de despues es
+// donde se atiende. Y cierra de paso la carrera vieja: una interrupcion
+// entre el `monitor` y el `mwaitx` queda PENDIENTE, y una pendiente con el
+// bit 0 despierta al instante en vez de dormir hasta la siguiente.
 //
 // [!] Lo que este reposo NO arregla, y esta escrito en el plan: el tick sigue
 // sonando mil veces por segundo, asi que el BSP entra y sale del C-state
@@ -371,9 +382,10 @@ pub fn reposo() {
     let hondo = profundidad();
     let dir = &CELDA_REPOSO as *const _ as usize;
     unsafe {
-        // Interrupciones abiertas ANTES de armar nada: un `mwaitx` con ellas
-        // cerradas y sin el bit 0 seria una maquina muerta, igual que un `hlt`.
-        core::arch::asm!("sti", options(nostack, preserves_flags));
+        // Interrupciones CERRADAS hasta haber apuntado: ver arriba. Con ellas
+        // cerradas y SIN el bit 0 del `ECX` seria una maquina muerta; el bit
+        // 0 va siempre (`ECX = 3`).
+        core::arch::asm!("cli", options(nostack, preserves_flags));
         core::arch::asm!(
             "monitor",
             in("rax") dir,
@@ -395,6 +407,9 @@ pub fn reposo() {
             options(nostack, preserves_flags),
         );
         TICKS_REPOSO.fetch_add(super::ficha::ciclos().wrapping_sub(t0), Ordering::Relaxed);
+        // Ahora si: la interrupcion que desperto se atiende aqui, y si se
+        // lleva el CPU, lo que dure ya no cuenta como reposo.
+        core::arch::asm!("sti", options(nostack, preserves_flags));
     }
     REPOSOS.fetch_add(1, Ordering::Relaxed);
 }

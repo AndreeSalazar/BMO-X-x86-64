@@ -165,7 +165,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     }
 
     if let Some(r) = rayo {
-        fila_rayo(s, &r);
+        fila_rayo(s, &r, px);
     }
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
@@ -178,7 +178,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
 /// que la tarjeta no las estuviera leyendo, cuanto, y cuantas no cabian ni
 /// esperando -- esas son las que todavia se pueden partir, y las arregla el
 /// page flip (M1 de `PLAN_LA_3060.md`).
-fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo) {
+fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo, px: u64) {
     campo(s, b"compose");
     if !r.activo {
         s.with_ink(INK_ECHO);
@@ -201,14 +201,20 @@ fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo) {
         s.text(b" NO CABEN ni esperando");
     }
     s.with_ink(INK_ECHO);
+    // Por pixel, y traducido a lo que cuesta la fila MAS ancha: la de la
+    // pantalla entera (`px` del modo), que es la que decide si una caja cabe.
     s.text(b"   copia ");
-    s.dec(r.ns_fila as u64);
-    s.text(b" ns/fila");
+    s.dec(r.ps_px as u64);
+    s.text(b" ps/pixel (");
+    s.dec(r.ps_px as u64 * px / 1000);
+    s.text(b" ns la fila de ");
+    s.dec(px);
+    s.text(b")");
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu rayo esperas", r.esperas, b"");
     super::datos::anotar(b"gpu rayo no caben", r.no_caben, b"");
-    super::datos::anotar(b"gpu copia fila", r.ns_fila as u64, b"ns");
+    super::datos::anotar(b"gpu copia pixel", r.ps_px as u64, b"ps");
 }
 
 fn veredicto(s: &mut Output, si: bool, frase: &[u8]) {
