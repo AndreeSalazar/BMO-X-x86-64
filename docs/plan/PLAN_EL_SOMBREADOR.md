@@ -292,6 +292,14 @@ escalar, enteros en los registros generales, con el ensamblador propio
 - **Hecha cuando:** los cuatro de S3, y cada fila de instruccion de la tabla,
   dan igual en el oraculo y en el emulado.
 
+### Las tres puertas (23-09)
+
+Vulkan (GLSL con `glslc`), OpenGL (el mismo GLSL con `--target-env=opengl`)
+y DirectX (HLSL con `dxc -spirv`, en el mismo SDK) llegan al MISMO SPIR-V.
+`tres_apis.rs`: suma, saxpy, mandelbrot y las trascendentes por las tres,
+los mismos bits que el oraculo y entre si. La tabla, en el README de
+`lang/spirv`. Un camino, no tres.
+
 ## [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 
 Una app de Ring 3 que lleva un `.spv`, lo traduce **en la maquina**, lo escribe

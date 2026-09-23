@@ -55,6 +55,30 @@ la regla de toda la casa.
    entre en panico: el banco corta cada fichero en cada palabra y voltea cada
    byte de tres de ellos.
 
+## Las TRES puertas: Vulkan, OpenGL y DirectX, un solo x86-64
+
+El propietario, el 23-09: *"OpenGL, DirectX y Vulkan, TODO esos 3 elementos
+para dejar listo ... nivel atomo en x86-64 puro, para no tener choques ... mas
+sencillo asi por enfoque una sola cosa"*. Y es exactamente asi: **las tres
+APIs llegan al MISMO SPIR-V**, y desde ahi el camino es uno solo --lector,
+juez, oraculo, emisor--, sin una rama por API.
+
+| Puerta | Lenguaje | Compilador (Vulkan SDK) | Lo que cambia en el SPIR-V | Prueba |
+|---|---|---|---|---|
+| **Vulkan** | GLSL | `glslc --target-env=vulkan1.0` | nada: es la referencia | `pruebas/*.comp` |
+| **OpenGL** | GLSL | `glslc --target-env=opengl` | nombres y el orden de las decoraciones; los bindings igual | `pruebas/opengl/*.spv` |
+| **DirectX** | HLSL | `dxc -spirv -T cs_6_0` (Microsoft) | `register(tN/uN/bN)` pasa a `Binding N`, `DescriptorSet 0`; `cbuffer` = `Uniform` + `Block`; no importa `GLSL.std.450` si no lo usa | `pruebas/hlsl/*.hlsl` |
+
+`emisor-x86_64/tests/tres_apis.rs` corre suma, saxpy, mandelbrot y las cinco
+trascendentes por las TRES: cada una da los mismos bits que su oraculo, y
+**las tres dan los mismos buffers entre si**. Un sombreador de un juego de
+DirectX y el mismo de uno de Vulkan calculan lo mismo en BMO-X.
+
+[!] Lo que la tabla NO dice todavia: en HLSL `t0` y `u0` caen los dos en el
+`Binding 0` (DXC no los separa sin `-fvk-t-shift`/`-fvk-u-shift`). Los HLSL de
+`pruebas/hlsl/` usan numeros distintos a proposito; un juego de verdad pedira
+el corrimiento, y eso es trabajo de VERRANO (la API), no del sombreador.
+
 ## Lo que NO es
 
 Ni VERRANO (la API), ni el rasterizador, ni la GPU. Solo la etapa de COMPUTO,
