@@ -193,6 +193,58 @@ impl Modo {
         }
     }
 
+    /// **En que fila de lo VISIBLE va el rayo.** `0` es la primera fila que
+    /// se ve; negativo, que esta en el VBLANK y le faltan esas lineas para
+    /// llegar a la fila 0. Solo para el modo normal (borrado al principio y al
+    /// final): el otro no lo ha dado ninguna tarjeta y no se supone.
+    pub fn fila_del_rayo(&self, l: u16) -> Option<i32> {
+        if self.vfin >= self.vinicio || l >= self.vtotal {
+            return None;
+        }
+        let arriba = self.vfin as i32 + 1;
+        let li = l as i32;
+        if !self.en_vblank(l) {
+            return Some(li - arriba);
+        }
+        let falta = if li <= self.vfin as i32 { arriba - li } else { self.vtotal as i32 - li + arriba };
+        Some(-falta)
+    }
+
+    /// **Cuantas lineas esperar antes de copiar las filas `[y0, y1)` de lo
+    /// visible, para que el rayo no las barra a medio copiar.**
+    ///
+    /// `copia` es lo que dura la copia, en lineas del rayo. La cuenta es cuanto
+    /// le FALTA al rayo para llegar a la fila `y0`, dando la vuelta si hace
+    /// falta, contra lo que dura la copia:
+    ///
+    /// ```text
+    ///    le falta >= copia                 ya: acaba antes de que llegue
+    ///    no, pero pasada la caja SI        esperar a que el rayo pase y1
+    ///    ni pasada la caja                 no se espera: esperar no compra
+    ///                                      nada, y se DICE (`Espera::cabe`)
+    /// ```
+    ///
+    /// Sin page flip no hay nada mejor: es copiar DETRAS del rayo.
+    pub fn espera(&self, l: u16, y0: u16, y1: u16, copia: u32) -> Option<Espera> {
+        let b = self.fila_del_rayo(l)?;
+        if y1 <= y0 {
+            return Some(Espera { lineas: 0, cabe: true });
+        }
+        let (y0, y1, total) = (y0 as i64, y1 as i64, self.vtotal as i64);
+        let (b, copia) = (b as i64, copia as i64);
+        let dentro = b >= y0 && b < y1;
+        let falta = if b < y0 { y0 - b } else if b >= y1 { total - b + y0 } else { -1 };
+        if !dentro && falta >= copia {
+            return Some(Espera { lineas: 0, cabe: true });
+        }
+        // Esperar a que el rayo pase la caja: desde ahi le falta casi un cuadro.
+        let tras = total - y1 + y0;
+        if tras < copia {
+            return Some(Espera { lineas: 0, cabe: false });
+        }
+        Some(Espera { lineas: (y1 - b) as u32, cabe: true })
+    }
+
     /// El refresco que el modo DICE, en milesimas de Hz. `None` sin reloj.
     pub fn refresco_dicho_mhz(&self) -> Option<u64> {
         let pixeles = self.htotal as u64 * self.vtotal as u64;
@@ -210,6 +262,17 @@ fn visibles(inicio: u16, fin: u16, total: u16) -> u16 {
         // Borrado en medio: lo visible es lo de antes mas lo de despues.
         total - (fin - inicio)
     }
+}
+
+/// Lo que contesta [`Modo::espera`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Espera {
+    /// Lineas del rayo que esperar. `0` = ya.
+    pub lineas: u32,
+    /// `false`: la copia dura mas que lo que el rayo tarda en volver a la caja
+    /// incluso esperando. No se espera, y quien copia lo cuenta: esa caja se
+    /// puede partir, y solo el page flip lo arregla.
+    pub cabe: bool,
 }
 
 // -- El medidor ------------------------------------------------------------------
@@ -319,6 +382,32 @@ mod pruebas {
         assert!(!m.en_vblank(1120), "la ultima visible");
         assert!(m.en_vblank(1121), "el primer porche delantero");
         assert!(m.en_vblank(1124));
+    }
+
+    #[test]
+    fn el_rayo_se_cuenta_en_filas_de_lo_visible() {
+        let m = mil80();
+        assert_eq!(m.fila_del_rayo(41), Some(0), "la primera visible");
+        assert_eq!(m.fila_del_rayo(1120), Some(1079), "la ultima visible");
+        assert_eq!(m.fila_del_rayo(1121), Some(-45), "empieza el VBLANK: 45 para la fila 0");
+        assert_eq!(m.fila_del_rayo(40), Some(-1));
+        assert_eq!(m.fila_del_rayo(1125), None, "fuera del modo");
+    }
+
+    #[test]
+    fn copiar_detras_del_rayo() {
+        let m = mil80();
+        let e = |l, y0, y1, c| m.espera(l, y0, y1, c).expect("modo normal");
+        let ya = Espera { lineas: 0, cabe: true };
+        // El rayo en la fila 500 (linea 541).
+        assert_eq!(e(541, 100, 200, 50), ya, "ya paso la caja: no vuelve en 725 lineas");
+        assert_eq!(e(541, 700, 800, 50), ya, "va por encima con 200 de sitio");
+        assert_eq!(e(541, 520, 600, 50), Espera { lineas: 100, cabe: true }, "llegaria a mitad: esperar a que pase");
+        assert_eq!(e(541, 400, 600, 50), Espera { lineas: 100, cabe: true }, "esta dentro: esperar a que salga");
+        // La pantalla entera, con el rayo empezando el VBLANK (45 para la fila 0).
+        assert_eq!(e(1121, 0, 1080, 40), ya, "cabe en el VBLANK");
+        assert_eq!(e(1121, 0, 1080, 400), Espera { lineas: 0, cabe: false }, "no cabe ni esperando: no se espera");
+        assert_eq!(e(541, 300, 300, 5), ya, "caja vacia");
     }
 
     #[test]

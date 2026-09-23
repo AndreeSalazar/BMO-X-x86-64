@@ -300,8 +300,13 @@ impl Pantalla {
             //
             // ** Y no es un caso raro: es cerrar una ventana, mover una ventana,
             // y el primer `vaciar` despues de `activar_doble_bufer`.
+            // ** DETRAS DEL RAYO (E1, 2026-09-23): antes de copiar, lo que
+            // haga falta esperar para que la tarjeta no este leyendo estas
+            // filas. Ver `sin_gpu/rayo.rs`; sin grafica no espera nada.
+            let t0 = self.rayo.antes(y0, y1);
             if x0 == 0 && ancho == stride {
                 unsafe { copiar(self.panel.add(off), self.lienzo.add(off), ancho * alto) };
+                self.rayo.despues(alto as u32, t0);
                 continue;
             }
             let mut fila = 0usize;
@@ -310,6 +315,7 @@ impl Pantalla {
                 unsafe { copiar(self.panel.add(o), self.lienzo.add(o), ancho) };
                 fila += 1;
             }
+            self.rayo.despues(alto as u32, t0);
         }
         self.anotar(&sucias);
     }

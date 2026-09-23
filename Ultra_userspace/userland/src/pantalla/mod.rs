@@ -113,6 +113,9 @@ pub struct Pantalla {
     /// Lo que ha costado mover pixeles. Ver [`Volcado`]: es el numero que
     /// decide si una GPU compra algo o solo cuesta un anio.
     volcado: core::cell::Cell<Volcado>,
+    /// El rayo de la tarjeta: se le pregunta antes de copiar cada caja. Ver
+    /// `sin_gpu/rayo.rs`.
+    rayo: crate::sin_gpu::rayo::Rayo,
 }
 
 impl Pantalla {
@@ -142,6 +145,7 @@ impl Pantalla {
                 cajas: 0,
                 modo: Volcador::Ninguno,
             }),
+            rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
         })
     }
 
@@ -204,6 +208,11 @@ impl Pantalla {
         // pantalla entera para que el primer `vaciar` los iguale.
         self.marcar(0, 0, self.ancho, self.alto);
         true
+    }
+
+    /// Lo que ha pasado esperando al rayo al volcar. Ver `sin_gpu/rayo.rs`.
+    pub fn rayo(&self) -> crate::CuentasRayo {
+        self.rayo.cuentas()
     }
 
     /// Se esta dibujando fuera de la pantalla de video?

@@ -780,6 +780,17 @@ pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
 pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
 
+/// ** VOLCAR DETRAS DEL RAYO: cuanto esperar para copiar unas filas. Ver el ABI.
+pub const INFO_GPU_ESPERA: u64 = 0x9F;
+pub const GPU_ESPERA_Y0_SHIFT: u64 = 8;
+pub const GPU_ESPERA_Y1_SHIFT: u64 = 20;
+pub const GPU_ESPERA_FILAS_MASK: u64 = 0xFFF;
+pub const GPU_ESPERA_NS_FILA_SHIFT: u64 = 32;
+pub const GPU_ESPERA_NS_FILA_MASK: u64 = 0xFFFF;
+pub const GPU_ESPERA_NS_MASK: u64 = 0xFFFF_FFFF;
+pub const GPU_ESPERA_NO_CABE: u64 = 1 << 61;
+pub const GPU_ESPERA_VALIDA: u64 = 1 << 63;
+
 /// ** EL PUERTO SERIE, POR COLA: apuntados, perdidos, pico. Ver el ABI.
 pub const INFO_SERIE: u64 = 0x99;
 pub const SERIE_APUNTADOS_MASK: u64 = 0xFFFF_FFFF;
@@ -1114,6 +1125,7 @@ pub use disco::*;
 pub use entrada::*;
 pub use memoria::*;
 pub use pantalla::*;
+pub use sin_gpu::rayo::CuentasRayo;
 pub use proceso::*;
 pub use sonido::*;
 pub use sys::*;

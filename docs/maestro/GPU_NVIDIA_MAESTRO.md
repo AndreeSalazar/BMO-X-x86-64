@@ -269,6 +269,10 @@ solo una palabra: sin la **IOMMU** encendida, el GSP ve TODA la RAM por DMA.
       DETRAS de la IOMMU y como fila NEUTRO declarada. Nunca antes
 ```
 
+Las casillas de ese orden --Early, Mid y Late, con lo que bloquea cada una y
+como se sabe que quedo hecha-- viven en
+[`../plan/PLAN_LA_3060.md`](../plan/PLAN_LA_3060.md).
+
 ---
 
 # 7. El orden, y el primer paso ya esta dado

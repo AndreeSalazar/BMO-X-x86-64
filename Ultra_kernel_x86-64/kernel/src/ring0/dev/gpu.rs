@@ -236,16 +236,22 @@ pub fn info_tiempo() -> u64 {
 /// `INFO_GPU_LINEA`: la linea que barre AHORA, leida al preguntar. Una lectura
 /// de MMIO por el physmap, que todo espacio comparte: vale bajo cualquier CR3.
 pub fn info_linea() -> u64 {
+    let Some((modo, l)) = rayo_ahora() else { return 0 };
+    GPU_LINEA_VALIDA | l as u64 | if modo.en_vblank(l) { GPU_LINEA_VBLANK } else { 0 }
+}
+
+/// El modo guardado y la linea que barre AHORA. `None` sin grafica que leer.
+fn rayo_ahora() -> Option<(ga10x::Modo, u16)> {
     let bar0 = BAR0.load(Ordering::Acquire);
     let c = CHIP.load(Ordering::Acquire);
     let m = MODO.load(Ordering::Acquire);
     if bar0 == 0 || c & GPU_AMPERE == 0 || m & GPU_MODO_VALIDO == 0 {
-        return 0;
+        return None;
     }
     let cabeza = ((c >> GPU_CABEZA_SHIFT) & 0x7) as u32;
     let v = leer(bar0, ga10x::linea(cabeza));
     if ga10x::es_error_pri(v) {
-        return 0;
+        return None;
     }
     let b = BORRADO.load(Ordering::Acquire);
     let modo = ga10x::Modo {
@@ -257,6 +263,41 @@ pub fn info_linea() -> u64 {
         vfin: (b >> 16) as u16,
         reloj_hz: 0,
     };
-    let l = v as u16;
-    GPU_LINEA_VALIDA | l as u64 | if modo.en_vblank(l) { GPU_LINEA_VBLANK } else { 0 }
+    Some((modo, v as u16))
+}
+
+// -- ** EL VOLCADO DETRAS DEL RAYO (E1, 2026-09-23) ---------------------------
+
+pub const GPU_ESPERA_Y0_SHIFT: u64 = 8;
+pub const GPU_ESPERA_Y1_SHIFT: u64 = 20;
+pub const GPU_ESPERA_FILAS_MASK: u64 = 0xFFF;
+pub const GPU_ESPERA_NS_FILA_SHIFT: u64 = 32;
+pub const GPU_ESPERA_NS_FILA_MASK: u64 = 0xFFFF;
+pub const GPU_ESPERA_NS_MASK: u64 = 0xFFFF_FFFF;
+pub const GPU_ESPERA_NO_CABE: u64 = 1 << 61;
+pub const GPU_ESPERA_VALIDA: u64 = 1 << 63;
+
+/// **`INFO_GPU_ESPERA`: cuanto esperar para copiar las filas `[y0, y1)` sin
+/// que el rayo las barra a medio copiar.** Lo pregunta quien vuelca, una vez
+/// por caja; lo que tarda su copia por fila lo MIDE el (`ns_fila`), y el
+/// kernel pone lo que solo el sabe: donde va el rayo ahora y lo que dura una
+/// linea MEDIDA. La cuenta es de `bmo_gpu_ga10x::Modo::espera`.
+///
+/// `0` = no hay rayo que mirar (otra placa, o no se midio): se copia sin mas.
+pub fn info_espera(sel: u64) -> u64 {
+    let t = TIEMPO.load(Ordering::Acquire);
+    if t & GPU_TIEMPO_MEDIDO == 0 {
+        return 0;
+    }
+    let Some((modo, l)) = rayo_ahora() else { return 0 };
+    let periodo = t & 0xFFFF_FFFF;
+    let linea_ns = (periodo / modo.vtotal.max(1) as u64).max(1);
+    let y0 = ((sel >> GPU_ESPERA_Y0_SHIFT) & GPU_ESPERA_FILAS_MASK) as u16;
+    let y1 = ((sel >> GPU_ESPERA_Y1_SHIFT) & GPU_ESPERA_FILAS_MASK) as u16;
+    let ns_fila = (sel >> GPU_ESPERA_NS_FILA_SHIFT) & GPU_ESPERA_NS_FILA_MASK;
+    let filas = y1.saturating_sub(y0) as u64;
+    let copia = (filas * ns_fila).div_ceil(linea_ns) as u32;
+    let Some(e) = modo.espera(l, y0, y1, copia) else { return 0 };
+    let ns = (e.lineas as u64 * linea_ns).min(GPU_ESPERA_NS_MASK);
+    GPU_ESPERA_VALIDA | ns | if e.cabe { 0 } else { GPU_ESPERA_NO_CABE }
 }

@@ -1388,6 +1388,28 @@ pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
 pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
 
+/// # `INFO_GPU_ESPERA`: volcar DETRAS del rayo (E1 de `PLAN_LA_3060.md`)
+///
+/// ```text
+///   PREGUNTA  8..19 y0 | 20..31 y1 (filas de lo visible, [y0, y1))
+///             32..47 lo que tarda la copia POR FILA, en ns (lo mide quien vuelca)
+///   RESPUESTA 0..31 ns que esperar (0 = ya) | 61 no cabe ni esperando
+///             63 valida (0 = no hay rayo que mirar: se copia sin mas)
+/// ```
+///
+/// ** El Ryzen dijo el 23-09 (15:22) que la linea que barre la 3060 se lee por
+/// MMIO sin firmware. Sin page flip, lo unico que evita partir un cuadro es no
+/// copiar donde el rayo esta leyendo: esto contesta cuanto esperar para eso.
+pub const INFO_GPU_ESPERA: u64 = 0x9F;
+pub const GPU_ESPERA_Y0_SHIFT: u64 = 8;
+pub const GPU_ESPERA_Y1_SHIFT: u64 = 20;
+pub const GPU_ESPERA_FILAS_MASK: u64 = 0xFFF;
+pub const GPU_ESPERA_NS_FILA_SHIFT: u64 = 32;
+pub const GPU_ESPERA_NS_FILA_MASK: u64 = 0xFFFF;
+pub const GPU_ESPERA_NS_MASK: u64 = 0xFFFF_FFFF;
+pub const GPU_ESPERA_NO_CABE: u64 = 1 << 61;
+pub const GPU_ESPERA_VALIDA: u64 = 1 << 63;
+
 /// # `INFO_SERIE`: el puerto serie, por COLA (2026-09-23)
 ///
 /// ```text

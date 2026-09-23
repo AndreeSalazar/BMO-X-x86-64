@@ -405,6 +405,8 @@ const INFO_GPU_MODO: u64 = 0x9B;
 const INFO_GPU_BORRADO: u64 = 0x9C;
 const INFO_GPU_TIEMPO: u64 = 0x9D;
 const INFO_GPU_LINEA: u64 = 0x9E;
+/// Volcar detras del rayo: la pregunta lleva la caja (E1, 2026-09-23).
+const INFO_GPU_ESPERA: u64 = 0x9F;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -854,6 +856,7 @@ pub fn campo(n: u64) -> Option<u64> {
             (crate::ring0::obj::audio::owner().unwrap_or(0) as u64)
                 | ((crate::ring0::dev::usb::audio::pendientes() & 0xFFFF_FFFF) << 32)
         }
+        c if c & 0xFF == INFO_GPU_ESPERA => crate::ring0::dev::gpu::info_espera(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
             Some((tid, k)) => {
                 let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);

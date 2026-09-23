@@ -54,3 +54,6 @@
 /// 
 /// 
 pub mod sucio;
+/// Volcar DETRAS del rayo: esperar a que la tarjeta no este leyendo la caja
+/// que se copia (E1 de `PLAN_LA_3060.md`). Se borra con el page flip (M1).
+pub mod rayo;

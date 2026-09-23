@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 45 planes
+# LO QUE FALTA -- las casillas abiertas de los 46 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   281 casillas ABIERTAS en 36 planes
-   270 hechas
+   292 casillas ABIERTAS en 37 planes
+   271 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -84,6 +84,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E1 -- EL TIEMPO DE CPU POR TAREA. Un contador en el cambio de contexto
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
+
+## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 1 hechas
+
+*PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
+
+- [ ] E1 -- volcar DETRAS del rayo (2026-09-23, en codigo)
+- [ ] E2 -- el VBLANK por INTERRUPCION: la primera escritura
+- [ ] E3 -- el compositor al compas de la pantalla
+- ... y 8 mas
 
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 

@@ -107,7 +107,7 @@ const HOJAS: [(&[u8], &[u8]); 7] = [
 /// existir en un disco de datos viejo, y eso no es motivo para perder el
 /// informe entero.
 #[inline(never)]
-pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, usize), u32> {
+pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) -> Result<(usize, usize, usize), u32> {
     let a = bmo::Archivo::create(dest)?;
     let mut c = Cuenta { bytes: 0, lineas: 0 };
     let mut hojas = 0usize;
@@ -150,7 +150,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8]) -> Result<(usize, usize, u
                 super::reports::report_cpu(g, tick.consumo.ultimo);
                 super::reports::report_cache(g);
                 super::reports::report_ext(g);
-                super::gpu::report_gpu(g);
+                super::gpu::report_gpu(g, Some(rayo));
             }
             2 => super::reports::report_memory(g),
             3 => super::reports::report_consumo(g, tick),

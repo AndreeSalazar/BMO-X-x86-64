@@ -287,7 +287,7 @@ pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     // Sigue pasando TODO por la pantalla (un solo camino de salida: lo que
     // esta en el fichero se vio); el porque va por capitulos esta en la
     // cabecera de `save_maestro.rs`.
-    match super::save_maestro::maestro(dsk, dest) {
+    match super::save_maestro::maestro(dsk, dest, p.rayo()) {
         Ok((bytes, lineas, hojas)) => {
             dsk.out.grid.with_ink(INK_GOOD);
             dsk.out.grid.text(b"  guardado en ");

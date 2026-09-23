@@ -24,14 +24,14 @@ use crate::scene::{paint_status, INK_DIM};
 
 /// `gpu` desde el escritorio.
 pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
-    report_gpu(&mut dsk.out.grid);
+    report_gpu(&mut dsk.out.grid, Some(p.rayo()));
     paint_status(p, &dsk.run_box, "grafica", INK_DIM);
     dsk.field.n = 0;
     After::Settle
 }
 
 /// **El cuadro de la grafica.** Lo usan `gpu` y el `save`.
-pub(crate) fn report_gpu(s: &mut Output) {
+pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     section(s, b"grafica -- lo que la tarjeta contesta, en solo lectura");
     let c = bmo::info(bmo::INFO_GPU_CHIP);
     campo(s, b"card");
@@ -164,11 +164,51 @@ pub(crate) fn report_gpu(s: &mut Output) {
         s.text(if l & bmo::GPU_LINEA_VBLANK != 0 { b": en VBLANK\n" as &[u8] } else { b": pintando\n" });
     }
 
+    if let Some(r) = rayo {
+        fila_rayo(s, &r);
+    }
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
     } else {
         veredicto(s, false, b"la linea no dio la vuelta: por MMIO no hay VBLANK que esperar");
     }
+}
+
+/// ** EL VOLCADO DETRAS DEL RAYO (E1): cuantas cajas tuvieron que esperar a
+/// que la tarjeta no las estuviera leyendo, cuanto, y cuantas no cabian ni
+/// esperando -- esas son las que todavia se pueden partir, y las arregla el
+/// page flip (M1 de `PLAN_LA_3060.md`).
+fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo) {
+    campo(s, b"compose");
+    if !r.activo {
+        s.with_ink(INK_ECHO);
+        s.text(b"el volcado NO mira al rayo (sin medir, o sin volcar todavia)\n");
+        s.with_ink(INK_PLAIN);
+        return;
+    }
+    s.dec(r.preguntas);
+    s.text(b" cajas; ");
+    s.dec(r.esperas);
+    s.text(b" esperaron al rayo (");
+    s.dec(r.esperado_ns / 1000);
+    s.text(b" us en total, la peor ");
+    s.dec(r.peor_ns / 1000);
+    s.text(b" us)");
+    if r.no_caben > 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"   ");
+        s.dec(r.no_caben);
+        s.text(b" NO CABEN ni esperando");
+    }
+    s.with_ink(INK_ECHO);
+    s.text(b"   copia ");
+    s.dec(r.ns_fila as u64);
+    s.text(b" ns/fila");
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu rayo esperas", r.esperas, b"");
+    super::datos::anotar(b"gpu rayo no caben", r.no_caben, b"");
+    super::datos::anotar(b"gpu copia fila", r.ns_fila as u64, b"ns");
 }
 
 fn veredicto(s: &mut Output, si: bool, frase: &[u8]) {
