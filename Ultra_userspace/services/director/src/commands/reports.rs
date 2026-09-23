@@ -624,6 +624,26 @@ pub(crate) fn report_cpu(s: &mut Output, consumo: Option<bmo_juicio::consumo::Co
         s.text(b"; por encima de 4.000 us se pierde un latido del bus\n");
         s.with_ink(INK_PLAIN);
     }
+    // ** Y QUIEN SE LLEVO EL TRABAJO QUE LO SUBIA (2026-09-23): desmontar a un
+    // muerto ya no se hace con el cerrojo del planificador en la mano.
+    {
+        let e = bmo::info(bmo::INFO_ENTERRADOR);
+        label(s, b"entierros");
+        if e & bmo::ENTERRADOR_VIVO == 0 {
+            s.with_ink(INK_ERR);
+            s.text(b"SIN enterrador: los muertos se desmontan DENTRO del cerrojo\n");
+            s.with_ink(INK_PLAIN);
+        } else {
+            let peor = e >> bmo::ENTERRADOR_PEOR_US_SHIFT & 0x7FFF_FFFF;
+            s.dec(e & bmo::ENTERRADOR_ENTIERROS_MASK);
+            s.with_ink(INK_ECHO);
+            s.text(b"   el mas largo ");
+            s.dec(peor);
+            s.text(b" us, FUERA del cerrojo y con las interrupciones abiertas\n");
+            s.with_ink(INK_PLAIN);
+            super::datos::anotar(b"entierro_peor", peor, b"us");
+        }
+    }
 
     // * Y la otra mitad de lo mismo: cuando una tarea muere, el kernel dice
     // haber recuperado todo lo suyo. Esta fila es quien lo COMPRUEBA.

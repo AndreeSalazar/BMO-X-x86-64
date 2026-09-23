@@ -1354,6 +1354,25 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// # `INFO_ENTERRADOR`: los muertos, desmontados FUERA del cerrojo (2026-09-23)
+///
+/// ```text
+///    0..31   entierros hechos por el enterrador
+///   32..62   el mas largo, en microsegundos (con las interrupciones ABIERTAS)
+///   63       el enterrador existe; sin el, se entierra dentro del cerrojo
+/// ```
+///
+/// ** Va al lado de `retenido` a proposito: el 23-09 a las 01:08 el cerrojo del
+/// planificador cerro las interrupciones 231 us al morir DOOM, porque `reap`
+/// desmontaba su espacio de direcciones DENTRO. Si el enterrador hace su
+/// trabajo, `retenido` baja y este numero dice cuanto costaba de verdad
+/// desmontar -- ahora sin quitarle el reloj a nadie.
+pub const INFO_ENTERRADOR: u64 = 0x97;
+
+pub const ENTERRADOR_ENTIERROS_MASK: u64 = 0xFFFF_FFFF;
+pub const ENTERRADOR_PEOR_US_SHIFT: u64 = 32;
+pub const ENTERRADOR_VIVO: u64 = 1 << 63;
+
 /// # `INFO_DISCO_HILO`: el HILO DEL DISCO (paso D1, 2026-09-23)
 ///
 /// ```text

@@ -752,6 +752,12 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// ** EL ENTERRADOR: entierros y el mas largo (us), fuera del cerrojo.
+pub const INFO_ENTERRADOR: u64 = 0x97;
+pub const ENTERRADOR_ENTIERROS_MASK: u64 = 0xFFFF_FFFF;
+pub const ENTERRADOR_PEOR_US_SHIFT: u64 = 32;
+pub const ENTERRADOR_VIVO: u64 = 1 << 63;
+
 /// ** EL HILO DEL DISCO (D1): ordenes en vuelo, las que termino otro, y las
 /// veces que lo desperto la IRQ. `vivo` a cero = los ficheros se traen girando.
 pub const INFO_DISCO_HILO: u64 = 0x96;

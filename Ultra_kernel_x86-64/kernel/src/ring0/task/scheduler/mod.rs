@@ -32,6 +32,9 @@
 
 mod roja;
 mod verde;
+/// Los muertos: la TABLA (foto, ranura, despertar) es del planificador; el
+/// TRABAJO de desmontarlos es de `task/enterrador.rs` (2026-09-23).
+pub(crate) use roja::{aparcar_hasta_un_muerto, liberar_ranura, nombrar_enterrador, tomar_muerto, Cadaver};
 
 pub use roja::{
     aparcar_en, despertar_desde_irq,

@@ -5,13 +5,15 @@
 //!                     `on_timer` lo llama el tick y `park_until` quien se
 //!                     duerme. La tarea idle vive en plat/smp/dormir.rs (L6h)
 //!
-//! [cuesta]  MAQUINA -- aqui vive el cambio de contexto y `reap`. Un fallo no
-//!           mata una tarea: deja la maquina sin nadie a quien darle el CPU, o
-//!           con dos propietarios del mismo marco.
+//! [cuesta]  MAQUINA -- aqui vive el cambio de contexto. Un fallo no mata una
+//!           tarea: deja la maquina sin nadie a quien darle el CPU, o con dos
+//!           propietarios del mismo marco.
 //!
-//! [riesgo]  AJENO -- `reap` desmonta el espacio de un MUERTO, y lo que lee de
-//!           su ranura es lo que mas motivos tiene para estar pisado. El
-//!           `cr3` de aqui es el que paro la maquina el 30-08.
+//! [riesgo]  AJENO -- la tabla guarda las ranuras de los MUERTOS hasta que el
+//!           enterrador las devuelve, y lo que se lee de ellas es lo que mas
+//!           motivos tiene para estar pisado. El `cr3` de una de ellas es el que
+//!           paro la maquina el 30-08. Desmontarlas ya NO vive aqui: ver
+//!           `task/enterrador.rs` (2026-09-23).
 //!
 //! ** Y todo esto corre con `SCHED_LOCK` en la mano y las interrupciones
 //! apagadas. Tomar otro cerrojo desde dentro es un abrazo mortal en la ruta que
@@ -204,201 +206,25 @@ impl Scheduler {
         self.current
     }
 
-    /// Free kernel stacks of exited tasks and recycle their slots.
-    /// Never reaps the running task.
+    /// **EL CAMINO VIEJO, que se queda como RED** (2026-09-23): enterrar DENTRO
+    /// del cerrojo y en la pila del que acaba de salir. Solo corre si todavia no
+    /// hay enterrador -- el arranque, antes de su hilo. Las guardas viven en
+    /// [`preparar`] y el trabajo en `task/enterrador.rs`: esto solo los llama.
     ///
-    /// * NI LA PILA QUE ESTAMOS PISANDO. `current_tid` ya es la tarea
-    /// ENTRANTE cuando esto corre: la que acaba de hacer EXIT pasa el filtro,
-    /// y sus frames volvian al mapa de bits **con RSP todavia dentro de
-    /// ellos**. El epilogo aun tiene que ejecutarse ahi --`mov rsp, rax`, el
-    /// retorno del `call`-- sobre memoria que ya es de cualquiera. No revienta
-    /// en el acto: revienta cuando el siguiente `alloc_frames_contig` (una
-    /// pila nueva, un buffer de DMA del AHCI) escribe encima. Ese retraso es
-    /// justo lo que lo hace dificil de encontrar.
-    ///
-    /// La comprobacion es directa: si el RSP de ahora cae dentro de la pila de
-    /// esa tarea, no se libera **y la tarea se queda `Exited`**, no se vacia
-    /// el hueco. La recoge la siguiente pasada, ya desde otra pila. Un turno
-    /// de retraso a cambio de no tirar el suelo.
-    fn reap(&mut self) {
+    /// [!] La guarda del `rsp` sigue siendo necesaria AQUI: `current_tid` ya es
+    /// la tarea ENTRANTE, y la que acaba de hacer EXIT sigue con RSP dentro de
+    /// su pila hasta el epilogo del trap.
+    pub(super) fn reap(&mut self) {
         let current_tid = self.tasks[self.current].tid;
         let rsp_ahora: u64;
         unsafe {
             core::arch::asm!("mov {}, rsp", out(reg) rsp_ahora, options(nomem, nostack));
         }
-        // Por INDICE y no con `&mut self.tasks`: hay que poder mirar al RESTO de
-        // la tabla --para saber si alguien mas comparte este espacio de
-        // direcciones-- mientras se recoge una, y las dos cosas a la vez no
-        // caben en un solo prestamo.
         for i in 0..self.tasks.len() {
-            if self.tasks[i].state != TaskState::Exited || self.tasks[i].tid == current_tid {
-                continue;
+            if let Some(c) = preparar(self, i, rsp_ahora, current_tid) {
+                crate::ring0::task::enterrador::enterrar(&c);
+                self.tasks[i] = Task::EMPTY;
             }
-            let (stack_phys, stack_pages) = (self.tasks[i].stack_phys, self.tasks[i].stack_pages);
-            if stack_phys != 0 {
-                let base = mm::phys_to_virt(stack_phys);
-                let top = base + stack_pages * mm::PAGE;
-                if rsp_ahora >= base && rsp_ahora < top {
-                    continue; // es el suelo que estamos pisando
-                }
-                // *** EL TESTIGO QUE FALTA PARA CERRAR LO DEL 30-08.
-                //
-                // ** La guarda de arriba protege UNA pila: la de quien corre
-                // `reap`. Y `exit_and_park` deja hilos que se marcan muertos y
-                // **siguen sentados en la suya** dando `hlt`. Esa guarda no los
-                // puede ver: son `Exited`, no son el actual, y su `rsp` no es
-                // el nuestro.
-                //
-                // La pantalla azul del 30-08 encaja campo por campo --escritura,
-                // no-presente, desde el kernel, en pila de hilo del kernel y
-                // **de NADIE VIVO**-- pero encajar no es demostrar. Esta linea
-                // lo demuestra o lo tumba en un arranque:
-                //
-                //     si sale `pila liberada de tid=NN base=0xB87000` y despues
-                //     la azul dice `rsp=0xFFFF800000B87C50`, es el MISMO marco
-                //     y el caso esta cerrado.
-                //
-                // [!] `cabina` desde aqui es seguro y ya esta probado: `reap`
-                // llama a `destroy_address_space`, que llama a `caminable`, que
-                // apunta en CABINA. No se toma ningun cerrojo nuevo.
-                crate::ring0::cabina::addr(
-                    "sched",
-                    "pila de hilo liberada, base fisica",
-                    stack_phys,
-                );
-                // *** PASO 0 DEL PLAN: MEDIR, NO ARREGLAR (2026-08-31).
-                //
-                // ** `reap` decide liberar mirando UNA SOLA COSA: el estado de
-                // la tarea, mas la guarda del `rsp` que protege la pila que
-                // estamos pisando. Y hay CUATRO punteros mas publicados que
-                // pueden estar dentro de este rango:
-                //
-                // ```text
-                //    TSS.RSP0                  donde aterriza un trap de Ring 3
-                //    percpu.syscall_stack_top  donde aterriza un SYSCALL
-                //    percpu.trap_rsp           el contexto vigente en este CPU
-                //    otra tarea .context_rsp   un contexto guardado ajeno
-                // ```
-                //
-                // Ninguno se comprueba. Hoy eso es SEGURO por un invariante que
-                // **nadie escribio y nadie vigila**: *"antes de que Ring 3
-                // vuelva a entrar siempre hay un cambio que refresca RSP0"*.
-                //
-                // > Un invariante que no esta escrito no es un invariante:
-                // > es una suerte que dura hasta que deja de durar.
-                //
-                // Esto no lo arregla -- lo MIDE. Si alguna vez grita, el caso de
-                // la pantalla azul esta cerrado y con nombre; si no grita nunca,
-                // el invariante se cumple y hay que buscar en otro sitio. Las
-                // dos respuestas valen, y ninguna cambia la conducta.
-                let fin = mm::phys_to_virt(stack_phys) + stack_pages * mm::PAGE;
-                let ini = mm::phys_to_virt(stack_phys);
-                let dentro = |p: u64| p >= ini && p < fin;
-                //
-                // ** Y EL GRITO SE GUARDA, ADEMAS DE GRITARSE. (2026-09-02)
-                //
-                // `cabina::fault` va a un anillo en RAM, y el paso 1 del plan
-                // pide leerlo DESPUES de una pantalla azul -- que pinta encima y
-                // reinicia a los veinte segundos. **El grito no sobrevive al
-                // suceso que lo provoca.** La ficha de la morgue si, porque la
-                // azul la consulta. Asi que el motivo viaja tambien ahi.
-                let mut motivo = 0u8;
-                if dentro(crate::ring0::task::proc::tss_rsp0()) {
-                    motivo |= 1;
-                    crate::ring0::cabina::fault(
-                        "sched", "se libera la pila que el TSS publica (RSP0)", stack_phys);
-                }
-                if dentro(percpu::syscall_stack_top()) {
-                    motivo |= 2;
-                    crate::ring0::cabina::fault(
-                        "sched", "se libera la rampa de SYSCALL publicada", stack_phys);
-                }
-                if dentro(percpu::trap_rsp()) {
-                    motivo |= 4;
-                    crate::ring0::cabina::fault(
-                        "sched", "se libera la pila del contexto VIGENTE", stack_phys);
-                }
-                for (j, o) in self.tasks.iter().enumerate() {
-                    if j != i && o.state != TaskState::Empty && dentro(o.context_rsp) {
-                        motivo |= 8;
-                        crate::ring0::cabina::fault(
-                            "sched", "se libera una pila con el contexto de otra tarea",
-                            o.tid as u64);
-                    }
-                }
-                anotar_muerta(self.tasks[i].tid, stack_phys, stack_pages, motivo);
-                for p in 0..stack_pages {
-                    phys::free_frame(stack_phys + p * mm::PAGE);
-                }
-            }
-            // ** Y AQUI SE DEVUELVE EL ESPACIO DE DIRECCIONES ENTERO.
-            //
-            // Este es el sitio, y no `cap::revoke_all`: aquel corre todavia
-            // dentro del syscall del moribundo y **con su CR3 puesto**, o sea
-            // que destruir ahi el espacio seria tirar el suelo que se esta
-            // pisando. `reap` corre despues del cambio de contexto y ya se salta
-            // la tarea en curso, que es la misma garantia que necesita esto.
-            //
-            // Las hojas que vuelven son las marcadas con `PTE_NUESTRA` --imagen
-            // y pila de usuario--; el framebuffer y lo prestado no llevan el bit
-            // y no se tocan. Los bloques de `KIND_MEMORIA` tampoco: los devuelve
-            // `obj::memory::process_died`, que ademas pregunta si estan
-            // prestados antes.
-            let (es_user, cr3, tid_muerto) =
-                (self.tasks[i].is_user, self.tasks[i].cr3, self.tasks[i].tid);
-            if es_user && cr3 != 0 && cr3 != mm::vmm::kernel_pml4() {
-                // [!] Un espacio COMPARTIDO no se destruye. Hoy no hay hilos de
-                // Ring 3 y esta condicion no se cumple nunca, pero el dia que
-                // los haya el fallo seria que el primer hilo en morir se lleva
-                // por delante a sus hermanos -- y ese no es un fallo que se
-                // encuentre mirando: se encuentra con la maquina ya rota.
-                let compartido = self.tasks.iter().enumerate().any(|(j, o)| {
-                    j != i && o.state != TaskState::Empty && o.tid != tid_muerto && o.cr3 == cr3
-                });
-                if !compartido {
-                    // *** LOS ESPACIOS QUE SIGUEN VIVOS, y se le pasan al que
-                    // desmonta (2026-09-20).
-                    //
-                    // ** El Ryzen mostro el PD del escritorio VIVO, marcado como
-                    // tabla en uso, y VACIO ENTERO -- y con el, el doble bufer y
-                    // la pantalla. `destroy_address_space` preguntaba si una
-                    // tabla ya estaba libre y si era una tabla; nunca si era LA
-                    // DE OTRO. Esa pregunta necesita saber quien esta vivo, y eso
-                    // solo lo sabe esta tabla de tareas: por eso se pasa desde
-                    // aqui y `mm` no depende de `task` (L8: la dependencia solo
-                    // baja).
-                    //
-                    // [!] Entran tambien los `Exited` todavia sin recoger: sus
-                    // tablas siguen enlazadas hasta su propio `reap`, y liberar
-                    // una que otro muerto aun cuelga es el mismo fallo con un
-                    // arranque de retraso.
-                    let mut vivos = [(0u32, 0u64); 64];
-                    let mut nv = 0usize;
-                    let kpml4 = mm::vmm::kernel_pml4();
-                    if kpml4 != 0 {
-                        vivos[0] = (0, kpml4);
-                        nv = 1;
-                    }
-                    for (j, o) in self.tasks.iter().enumerate() {
-                        if nv >= vivos.len() {
-                            break;
-                        }
-                        if j != i
-                            && o.state != TaskState::Empty
-                            && o.cr3 != 0
-                            && o.cr3 != cr3
-                            && o.cr3 != kpml4
-                        {
-                            vivos[nv] = (o.tid, o.cr3);
-                            nv += 1;
-                        }
-                    }
-                    let (hojas, tablas) = mm::vmm::destroy_address_space(cr3, &vivos[..nv]);
-                    crate::ring0::cabina::info("mm", "hojas devueltas al reciclar", hojas);
-                    crate::ring0::cabina::info("mm", "tablas devueltas al reciclar", tablas);
-                }
-            }
-            self.tasks[i] = Task::EMPTY;
         }
     }
 }
@@ -643,7 +469,7 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
         if s.tasks[next].state == TaskState::Ready {
             s.tasks[next].state = TaskState::Running;
         }
-        s.reap();
+        despues_del_cambio(s);
         return;
     }
     let next_rsp = s.tasks[next].context_rsp;
@@ -739,7 +565,11 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
             }
         }
     }
-    s.reap();
+    // ** El planificador ya no entierra: DESPIERTA a quien entierra (2026-09-23,
+    // `task/enterrador.rs`). Desmontar un espacio de direcciones con este
+    // cerrojo en la mano fueron 231 us con las interrupciones cerradas al morir
+    // DOOM.
+    despues_del_cambio(s);
 }
 
 
@@ -1549,4 +1379,164 @@ pub fn exit_and_park() -> ! {
     }
 }
 
+// == *** LOS MUERTOS: la TABLA es de aqui, el TRABAJO del enterrador (2026-09-23)
+//
+// El `save` de las 01:08 dijo `retenido 231 us: sched en roja.rs:771`: `reap`
+// desmontaba el espacio de direcciones de DOOM dentro de `schedule_locked`, con
+// este cerrojo en la mano y el reloj parado. Desmontar un muerto no es
+// planificar. Aqui se queda lo que es de la tabla --corto, bajo el cerrojo:
+// sacar la foto de un muerto, liberar su ranura y despertar a quien entierra--
+// y el trabajo de memoria vive en `task/enterrador.rs`, con las interrupciones
+// abiertas. Ver su cabecera.
 
+/// El tid del enterrador. `0` = todavia no hay: se entierra dentro, como antes.
+static ENTERRADOR: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// La llave sobre la que duerme el enterrador. Solo el.
+const LLAVE_ENTERRADOR: u64 = 0x7E4E_A000_0000_0001;
+
+/// Lo apunta `enterrador::arrancar`, en cuanto su hilo existe.
+pub(crate) fn nombrar_enterrador(tid: u32) {
+    ENTERRADOR.store(tid, core::sync::atomic::Ordering::Release);
+}
+
+/// Lo que hace falta saber de un muerto para enterrarlo sin mirar la tabla.
+pub(crate) struct Cadaver {
+    pub(crate) i: usize,
+    pub(crate) tid: u32,
+    pub(crate) stack_phys: u64,
+    pub(crate) stack_pages: u64,
+    /// El espacio a destruir, si era de usuario y no lo comparte nadie.
+    pub(crate) cr3: Option<u64>,
+    /// Los espacios VIVOS en el momento de la foto (ver `destroy_address_space`).
+    pub(crate) vivos: [(u32, u64); 64],
+    pub(crate) nv: usize,
+}
+
+/// **Con el cerrojo**: si la ranura `i` se puede enterrar ya, su foto.
+///
+/// `None` si no es un muerto, o si su pila es el suelo que se pisa ahora mismo
+/// (`rsp_ahora`: el camino viejo corre en la pila del que acaba de salir).
+fn preparar(s: &mut Scheduler, i: usize, rsp_ahora: u64, no_tocar: u32) -> Option<Cadaver> {
+    let t = s.tasks[i];
+    if t.state != TaskState::Exited || t.tid == no_tocar {
+        return None;
+    }
+    if t.stack_phys != 0 {
+        let base = mm::phys_to_virt(t.stack_phys);
+        let top = base + t.stack_pages * mm::PAGE;
+        if rsp_ahora >= base && rsp_ahora < top {
+            return None; // es el suelo que estamos pisando
+        }
+        crate::ring0::cabina::addr("sched", "pila de hilo liberada, base fisica", t.stack_phys);
+        // Los cuatro punteros publicados que pueden caer dentro de la pila que
+        // se va a soltar. Se miran AQUI, con el cerrojo: es la foto del momento
+        // en que se decide soltarla. Ver la morgue en `roja.rs`.
+        let dentro = |p: u64| p >= base && p < top;
+        let mut motivo = 0u8;
+        if dentro(crate::ring0::task::proc::tss_rsp0()) {
+            motivo |= 1;
+            crate::ring0::cabina::fault("sched", "se libera la pila que el TSS publica (RSP0)", t.stack_phys);
+        }
+        if dentro(percpu::syscall_stack_top()) {
+            motivo |= 2;
+            crate::ring0::cabina::fault("sched", "se libera la rampa de SYSCALL publicada", t.stack_phys);
+        }
+        if dentro(percpu::trap_rsp()) {
+            motivo |= 4;
+            crate::ring0::cabina::fault("sched", "se libera la pila del contexto VIGENTE", t.stack_phys);
+        }
+        for (j, o) in s.tasks.iter().enumerate() {
+            if j != i && o.state != TaskState::Empty && dentro(o.context_rsp) {
+                motivo |= 8;
+                crate::ring0::cabina::fault("sched", "se libera una pila con el contexto de otra tarea", o.tid as u64);
+            }
+        }
+        anotar_muerta(t.tid, t.stack_phys, t.stack_pages, motivo);
+    }
+    // El espacio: solo si era de usuario y NO lo comparte nadie. Hoy no hay hilos
+    // de Ring 3 y esto no se cumple nunca, pero el dia que los haya el primero en
+    // morir se llevaria por delante a sus hermanos.
+    let kpml4 = mm::vmm::kernel_pml4();
+    let mut cr3 = None;
+    let mut vivos = [(0u32, 0u64); 64];
+    let mut nv = 0usize;
+    if t.is_user && t.cr3 != 0 && t.cr3 != kpml4 {
+        let compartido = s.tasks.iter().enumerate().any(|(j, o)| {
+            j != i && o.state != TaskState::Empty && o.tid != t.tid && o.cr3 == t.cr3
+        });
+        if !compartido {
+            // Los espacios que siguen vivos, incluidos los `Exited` sin
+            // enterrar: sus tablas siguen enlazadas hasta su propio entierro.
+            if kpml4 != 0 {
+                vivos[0] = (0, kpml4);
+                nv = 1;
+            }
+            for (j, o) in s.tasks.iter().enumerate() {
+                if nv >= vivos.len() {
+                    break;
+                }
+                if j != i && o.state != TaskState::Empty && o.cr3 != 0 && o.cr3 != t.cr3 && o.cr3 != kpml4 {
+                    vivos[nv] = (o.tid, o.cr3);
+                    nv += 1;
+                }
+            }
+            cr3 = Some(t.cr3);
+        }
+    }
+    Some(Cadaver { i, tid: t.tid, stack_phys: t.stack_phys, stack_pages: t.stack_pages, cr3, vivos, nv })
+}
+
+/// **Con el cerrojo, CORTO**: la foto del primer muerto enterrable. Lo pide el
+/// enterrador desde su hilo; `no_tocar` es el mismo.
+pub(crate) fn tomar_muerto(no_tocar: u32) -> Option<Cadaver> {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let rsp_ahora: u64;
+    unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp_ahora, options(nomem, nostack)) };
+    (0..s.tasks.len()).find_map(|i| preparar(s, i, rsp_ahora, no_tocar))
+}
+
+/// **Con el cerrojo**: la ranura del muerto ya enterrado queda libre. `false` si
+/// ya no era ese muerto -- no deberia pasar nunca, y por eso se dice.
+pub(crate) fn liberar_ranura(c: &Cadaver) -> bool {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    if s.tasks[c.i].tid == c.tid && s.tasks[c.i].state == TaskState::Exited {
+        s.tasks[c.i] = Task::EMPTY;
+        true
+    } else {
+        false
+    }
+}
+
+/// **El enterrador se duerme** si no queda ningun muerto, mirado con el
+/// cerrojo en la mano: el que muere lo despierta con ese mismo cerrojo, asi que
+/// un muerto no se cuela entre mirar y dormirse.
+pub(crate) fn aparcar_hasta_un_muerto(yo: u32) {
+    aparcar_en(LLAVE_ENTERRADOR, 0, || {
+        sched().tasks.iter().any(|t| t.state == TaskState::Exited && t.tid != yo)
+    });
+}
+
+/// **Con el cerrojo, justo despues de un cambio de tarea.** Si hay enterrador y
+/// hay un muerto, se le despierta; si no hay enterrador, se entierra aqui
+/// dentro, como antes.
+fn despues_del_cambio(s: &mut Scheduler) {
+    let yo = ENTERRADOR.load(core::sync::atomic::Ordering::Relaxed);
+    if yo == 0 {
+        s.reap();
+        return;
+    }
+    if !s.tasks.iter().any(|t| t.state == TaskState::Exited && t.tid != yo) {
+        return;
+    }
+    // `wake_by_key` tomaria el cerrojo que ya se tiene: se hace aqui a mano.
+    for t in &mut s.tasks {
+        if t.tid == yo && t.state == TaskState::Blocked && t.wait_key == LLAVE_ENTERRADOR {
+            t.wait_key = 0;
+            t.wait_deadline = 0;
+            t.state = TaskState::Ready;
+        }
+    }
+}

@@ -155,20 +155,38 @@ pub fn sale() {
 /// *"`revoke_all` enteros"* y lo sube `sale()`. Una estacion suelta que se
 /// apaga no es un desmontaje terminado, y dos jueces de la misma palabra en la
 /// misma pantalla es el `[riesgo] ESPEJO` de la cabecera cobrandose otra vez.
+///
+/// *** Y DESDE EL 2026-09-23 TIENE SITIO PROPIO, con el tid de quien desmonta.
+///
+/// La estacion 17 (`destroy_address_space`) la corre ahora el ENTERRADOR, un
+/// hilo con las interrupciones ABIERTAS: puede quedarse a medias mientras un
+/// syscall hace su `revoke_all` (estaciones 1..16) o mientras otra tarea se cae.
+/// Con un solo `PASO` para las dos cosas, el testigo mentiria de dos maneras:
+/// `revoke_all` pisaria la 17 y su `sale()` la dejaria a 0 con el entierro a
+/// medias, y una azul de DOOM mientras el enterrador espera turno saldria
+/// acusando a `destroy_address_space`. Por eso la 17 va en [`APARTE`], y solo
+/// se cuenta si el que cae es el mismo tid que la puso.
 pub struct Testigo(());
+
+/// La estacion de fuera de `revoke_all` en curso, y el tid que la puso.
+static APARTE: AtomicU32 = AtomicU32::new(0);
+static APARTE_TID: AtomicU32 = AtomicU32::new(0);
 
 /// Entrar en una estacion **que se apaga sola al salir del alcance**. Para las
 /// estaciones que no viven dentro de la cadena de `revoke_all`.
 #[inline]
-pub fn testigo(paso: u32, pid: u32) -> Testigo {
-    entra(paso, pid);
+pub fn testigo(paso: u32, _pid: u32) -> Testigo {
+    // SAFETY: lectura sin cerrojo del tid en curso; en un nucleo, el que corre
+    // esto ES el actual (ver `current_tid_en_trap`).
+    APARTE_TID.store(unsafe { crate::ring0::task::scheduler::current_tid_en_trap() }, Ordering::Relaxed);
+    APARTE.store(paso, Ordering::Relaxed);
     Testigo(())
 }
 
 impl Drop for Testigo {
     #[inline]
     fn drop(&mut self) {
-        PASO.store(0, Ordering::Relaxed);
+        APARTE.store(0, Ordering::Relaxed);
     }
 }
 
@@ -177,15 +195,25 @@ impl Drop for Testigo {
 /// `None` significa **el fallo no fue desmontando**, y eso tambien es una
 /// respuesta: exonera de golpe a los diecisiete.
 pub fn donde() -> Option<(u32, &'static str, u32, u32)> {
-    let p = PASO.load(Ordering::Relaxed);
+    let mut p = PASO.load(Ordering::Relaxed);
+    // El pid es de `revoke_all`; la 17 no tiene pid (solo un PML4 y un cadaver).
+    let mut pid = PID.load(Ordering::Relaxed);
     if p == 0 {
-        return None;
+        pid = 0;
+        // La de fuera de `revoke_all`, SOLO si quien cae es quien la puso.
+        let a = APARTE.load(Ordering::Relaxed);
+        // SAFETY: la azul corre en el nucleo que cayo; ver `current_tid_en_trap`.
+        let yo = unsafe { crate::ring0::task::scheduler::current_tid_en_trap() };
+        if a == 0 || APARTE_TID.load(Ordering::Relaxed) != yo {
+            return None;
+        }
+        p = a;
     }
     let nombre = *ESTACIONES.get(p as usize).unwrap_or(&"?");
     Some((
         p,
         nombre,
-        PID.load(Ordering::Relaxed),
+        pid,
         DESMONTAJES.load(Ordering::Relaxed),
     ))
 }

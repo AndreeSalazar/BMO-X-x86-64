@@ -136,6 +136,13 @@ pub fn main(ctx: &mut BootContext) {
         None => crate::ring0::cabina::warn(
             "sched", "SIN tarea IDLE: bloquearse no bloqueara", 0),
     }
+    // ** Y EL ENTERRADOR (2026-09-23): desde aqui un muerto se desmonta FUERA
+    // del cerrojo del planificador. Sin el --no hubo ranura-- se entierra
+    // dentro como antes, y se dice.
+    if crate::ring0::task::enterrador::arrancar().is_none() {
+        crate::ring0::cabina::warn(
+            "sched", "SIN enterrador: los muertos se desmontan DENTRO del cerrojo", 0);
+    }
     let (frames_total, frames_free) = crate::ring0::mm::phys::stats();
     crate::ring0::dev::console::serial_write("[ring0] mm ready: frames free=");
     crate::ring0::dev::console::serial_write_u64(frames_free, 10);

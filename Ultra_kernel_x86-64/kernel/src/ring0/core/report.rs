@@ -393,6 +393,8 @@ const INFO_DISCO_CACHE: u64 = 0x93;
 const INFO_DISCO_BANDA: u64 = 0x94;
 const INFO_DISCO_BANDA_ORDEN: u64 = 0x95;
 const INFO_DISCO_HILO: u64 = 0x96;
+/// El enterrador (2026-09-23). Espejo de `bmo_abi::...::INFO_ENTERRADOR`.
+const INFO_ENTERRADOR: u64 = 0x97;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -891,6 +893,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_DISCO_BANDA => crate::ring0::dev::disk::banda(),
         INFO_DISCO_BANDA_ORDEN => crate::ring0::dev::disk::banda_orden(),
         INFO_DISCO_HILO => crate::ring0::dev::disk::cuentas_hilo(),
+        INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //
         // Cada uno lee un `static` y no recorre nada, asi que `info` sigue
