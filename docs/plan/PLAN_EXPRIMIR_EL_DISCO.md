@@ -36,7 +36,7 @@ driver usa una** (`RANURAS_EN_USO = 1`, la ranura 0, esperando girando).
 
 ## 1. LAS CASILLAS
 
-### [ ] P0 -- COMPLETAR LA PREGUNTA (codigo HECHO 2026-09-23; se cierra con el metal)
+### [x] P0 -- COMPLETAR LA PREGUNTA (HECHO: `60769ccf8`, visto en el Ryzen el 2026-09-23 00:05)
 
 Lo que faltaba preguntar, y ya se pregunta:
 
@@ -54,6 +54,22 @@ descifrados, y los pinta la tabla de `disco` y `informe/DISCO.TXT` del `save`.
 
 **Como se sabe:** el `save` del Ryzen trae en DISCO.TXT las filas `hba`
 (`32 ranuras, NCQ, hasta Gen3, DMA 64 bits   CAP 0xEF36FF27`), `port` y `cache`.
+
+**Lo que contesto el metal** (`save` del 23-09, 00:05):
+
+```text
+    hba       32 ranuras, NCQ, hasta Gen3, DMA 64 bits   CAP 0xEF36FF27
+    port      2: enlace Gen3   activo   SSTS 0x133
+    queue     1 de 32   31 PARADAS
+    sector    512 B fisico
+    cache     ENCENDIDA (85): un OK es 'aceptado', no 'guardado', FLUSH EXT, FUA
+```
+
+Los dos extremos del cable dicen Gen3 (el HBA por `SPD`, el disco por la 77).
+La cache esta ENCENDIDA y el perfil dice sin condensadores: D5 queda con su
+dato, y la decision sigue siendo del propietario. Y el disco sabe **FUA**: una
+escritura que no vuelve hasta estar en la NAND, que es la alternativa fina a
+un FLUSH de todo.
 
 ### [ ] D0 -- EL METRO (codigo HECHO 2026-09-23; se cierra con el primer numero)
 
@@ -83,8 +99,32 @@ parte del techo Gen3 usa, y ese numero se pega aqui abajo como el ANTES de D1.
 
 Emitir, volver, y que la IRQ despierte a quien espera. No depende de un atomo:
 es lo que quita la sordera. Las piezas existen (`bmo_ahci::emitir`,
-`bmo_ahci::sondear`, `dev/disk/irq.rs`). **Bloquea:** D0 medido (sin el ANTES no
-se sabe si D1 gano o solo cambio de sitio el tiempo).
+`bmo_ahci::sondear`, `dev/disk/irq.rs`, `CLAVE_ESPERA`, y el stub del vector 49
+ya sabe devolver OTRO contexto). **Bloquea:** D0 medido (sin el ANTES no se sabe
+si D1 gano o solo cambio de sitio el tiempo).
+
+#### *** Lo que se encontro al ir a escribirlo (2026-09-23)
+
+**Un syscall corre ENTERO con las interrupciones cerradas**: `MSR_SFMASK` apaga
+`IF` en la entrada y solo `sysretq` la devuelve (`syscall/entry.rs`; lo repiten
+`dev/uaudio.rs` y `obj/audio.rs`). Y casi toda la E/S del disco la pide un
+syscall (abrir un `.bex`, FAT32, ESTRATOS, el `save`). Tres consecuencias:
+
+1. **"Que quien lee DUERMA hasta la IRQ" no se puede hacer dentro del
+   syscall.** No hay donde dormir: el cambio de tarea se consuma en el epilogo
+   del trap y lo que se restaura es el estado de Ring 3. Abrir `IF` a mitad de
+   un syscall para hacer `hlt` meteria expropiacion en un codigo que da por
+   hecho que no la hay (`current_tid_en_trap` sin cerrojo, `gs:[0x10]` que un
+   trap anidado pisaria).
+2. **La IRQ del disco no puede llegar durante un syscall.** `AVISOS` no se
+   mueve ahi dentro; lo que termina cada orden es la red de seguridad de
+   `run_command_hasta` (preguntar por MMIO cada 4.096 vueltas). El "escuchar
+   es barato" solo vale fuera de un syscall.
+3. **Dormir de verdad pide sacar la E/S del syscall**: un HILO DEL DISCO de
+   kernel (como el del bus USB, con `IF` abierta, que si puede aparcar con
+   `hlt` y al que la IRQ despierta en el acto), y el syscall se convierte en
+   PEDIR + `WAIT`. O sea: el D1 "sin tocar el ABI" no existe en esta casa;
+   el D1 que duerme es el D1 con ABI.
 
 ### [ ] D3 -- DMA directo al bloque prestado + PRD multiples
 
@@ -100,11 +140,15 @@ eso es orquestar. **Bloquea:** D1. Y el TRIM **encolado** es el que tiene
 historial de corrupcion (`NO_NCQ_TRIM` de Linux): el TRIM se queda fuera de la
 cola hasta que el metal diga otra cosa.
 
-### [ ] D4 -- Tramos alineados al sector fisico (palabra 106)
+### [x] D4 -- Tramos alineados al sector fisico (palabra 106) -- CERRADA SIN CODIGO
 
 Si el fisico es de 4 KiB, todo tramo que no empiece y acabe en frontera hace
 que el disco reescriba de mas. **Como se sabe:** `sector` en la tabla de `disco`
 dice el fisico; si es 512, esta casilla se cierra sin codigo.
+
+El metal (23-09, 00:05): `sector  512 B fisico`. Un sector fisico es uno
+logico: no hay frontera que respetar en ESTE disco. Lo que si sigue importando
+es el bloque de BORRADO (2 MiB, `Deducido` en el perfil), que no se pregunta.
 
 ### [ ] D5 -- FLUSH solo donde hace falta (palabra 85)
 
