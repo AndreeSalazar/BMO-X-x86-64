@@ -1354,6 +1354,40 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// # `INFO_GPU_*`: la grafica, PREGUNTADA en solo lectura (2026-09-23)
+///
+/// ```text
+///   CHIP     0..31 BOOT_0 | 32..47 device PCI | 48..55 mascara de cabezas
+///            56..58 la cabeza que pinta | 62 es Ampere | 63 hallada
+///   MODO     0..15 px visibles | 16..31 lineas visibles | 32..47 htotal
+///            48..62 vtotal | 63 valido
+///   BORRADO  0..15 donde empieza el VBLANK | 16..31 donde acaba
+///            32..62 reloj de pixel en kHz
+///   TIEMPO   0..31 el cuadro MEDIDO en ns (dos vueltas de la linea)
+///            32..47 vueltas | 48..62 cambios de linea | 63 medido
+///   LINEA    0..15 la linea que barre AHORA | 16 en VBLANK | 63 valida
+/// ```
+///
+/// ** `docs/maestro/GPU_NVIDIA_MAESTRO.md` (6b): el VBLANK de la RTX 3060 sin
+/// el firmware del GSP. Antes de construirlo se pregunta si se puede, y esto
+/// es la pregunta: si la linea da la vuelta, se puede.
+pub const INFO_GPU_CHIP: u64 = 0x9A;
+pub const INFO_GPU_MODO: u64 = 0x9B;
+pub const INFO_GPU_BORRADO: u64 = 0x9C;
+pub const INFO_GPU_TIEMPO: u64 = 0x9D;
+pub const INFO_GPU_LINEA: u64 = 0x9E;
+
+pub const GPU_BOOT0_MASK: u64 = 0xFFFF_FFFF;
+pub const GPU_DEVICE_SHIFT: u64 = 32;
+pub const GPU_CABEZAS_SHIFT: u64 = 48;
+pub const GPU_CABEZA_SHIFT: u64 = 56;
+pub const GPU_AMPERE: u64 = 1 << 62;
+pub const GPU_HALLADA: u64 = 1 << 63;
+pub const GPU_MODO_VALIDO: u64 = 1 << 63;
+pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
+pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
+pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
+
 /// # `INFO_SERIE`: el puerto serie, por COLA (2026-09-23)
 ///
 /// ```text

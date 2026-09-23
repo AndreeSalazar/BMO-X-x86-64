@@ -375,6 +375,9 @@ pub fn main(ctx: &mut BootContext) {
     // Y el disco: el HBA SATA (no el NVMe -- ahi vive el sistema del propietario) y
     // su tabla de particiones. Ver dev/disk.rs.
     crate::ring0::dev::disk::init();
+    // ** Y LA GRAFICA, PREGUNTADA (2026-09-23): quien es y si su VBLANK se ve
+    // sin firmware. Solo lee; cronometra la linea como mucho 80 ms.
+    crate::ring0::dev::gpu::sondear();
     // ** Y SU HILO (paso D1, 2026-09-23): el que trae los ficheros a trozos con
     // la IRQ, fuera del turno de quien los pide. Se le da el trabajo desde aqui
     // porque `dev` no puede nombrar a `obj` (L8): el hilo sabe CUANDO correr,

@@ -763,6 +763,23 @@ pub const DISCO_BANDA_ORDEN_MEJOR_SHIFT: u64 = 16;
 pub const DISCO_BANDA_ORDEN_PEOR_SHIFT: u64 = 40;
 pub const DISCO_BANDA_ORDEN_US_MASK: u64 = 0xFF_FFFF;
 
+/// ** LA GRAFICA, PREGUNTADA: identidad, modo, VBLANK y la linea. Ver el ABI.
+pub const INFO_GPU_CHIP: u64 = 0x9A;
+pub const INFO_GPU_MODO: u64 = 0x9B;
+pub const INFO_GPU_BORRADO: u64 = 0x9C;
+pub const INFO_GPU_TIEMPO: u64 = 0x9D;
+pub const INFO_GPU_LINEA: u64 = 0x9E;
+pub const GPU_BOOT0_MASK: u64 = 0xFFFF_FFFF;
+pub const GPU_DEVICE_SHIFT: u64 = 32;
+pub const GPU_CABEZAS_SHIFT: u64 = 48;
+pub const GPU_CABEZA_SHIFT: u64 = 56;
+pub const GPU_AMPERE: u64 = 1 << 62;
+pub const GPU_HALLADA: u64 = 1 << 63;
+pub const GPU_MODO_VALIDO: u64 = 1 << 63;
+pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
+pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
+pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
+
 /// ** EL PUERTO SERIE, POR COLA: apuntados, perdidos, pico. Ver el ABI.
 pub const INFO_SERIE: u64 = 0x99;
 pub const SERIE_APUNTADOS_MASK: u64 = 0xFFFF_FFFF;

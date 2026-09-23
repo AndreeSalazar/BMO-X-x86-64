@@ -306,7 +306,7 @@ fn anuncia(
 fn sin_codigo_dice(que: &'static str, vendor: u16) -> &'static str {
     let fab = FABRICANTES.iter().find(|(v, _)| *v == vendor).map(|(_, n)| *n);
     match (que, fab) {
-        ("video", Some("NVIDIA")) => "hay una GRAFICA NVIDIA y BMO-X no tiene codigo para ella",
+        ("video", Some("NVIDIA")) => "hay una GRAFICA NVIDIA: BMO-X solo la LEE (`gpu`), no la maneja",
         ("video", Some("AMD/ATI")) => "hay una GRAFICA AMD y BMO-X no tiene codigo para ella",
         ("video", Some("Intel")) => "hay una GRAFICA Intel y BMO-X no tiene codigo para ella",
         ("video", _) => "hay una GRAFICA y BMO-X no tiene codigo para ella",

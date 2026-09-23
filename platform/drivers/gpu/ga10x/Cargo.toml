@@ -1,0 +1,15 @@
+[package]
+name = "bmo-gpu-ga10x"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "Lo que la grafica Ampere (GA10x) CONTESTA: su identidad, el modo que barre la cabeza y el VBLANK, sin firmware"
+
+[lib]
+name = "bmo_gpu_ga10x"
+path = "src/lib.rs"
+
+# Sin dependencias, y es una propiedad del esquema: este crate recibe los
+# numeros que el kernel LEYO por MMIO y devuelve lo que significan. No toca un
+# registro y no decide nada -- por eso se prueba entero en el anfitrion.
+[dependencies]

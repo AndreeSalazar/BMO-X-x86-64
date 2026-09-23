@@ -270,6 +270,10 @@ name = "bmo-golpe"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-gpu-ga10x"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-gpu-rdna4"
 version = "0.1.0"
 
@@ -354,6 +358,7 @@ dependencies = [
  "bmo-firma",
  "bmo-firmware",
  "bmo-fisica-juicio",
+ "bmo-gpu-ga10x",
  "bmo-hash",
  "bmo-identify",
  "bmo-input",

@@ -192,6 +192,85 @@ framebuffer del UEFI.
 
 ---
 
+# 6b. ★★ LA RESPUESTA A LA SECCION 6 (2026-09-23)
+
+**Si: el motor de copia y la pantalla de Ampere se mueven SIN el firmware del
+GSP.** nouveau tiene ese camino escrito y publicado (MIT), y sin firmware:
+
+```text
+   nvkm/engine/fifo/ga102.c   los canales de comandos (runlist, doorbell)
+   nvkm/engine/ce/ga102.c     el motor de COPIA
+   nvkm/engine/disp/ga102.c   la PANTALLA: modo, VBLANK, flip
+   ---------------------------------------------------------------
+   lo UNICO que pide firmware firmado es el 3D (GR): FECS/GPCCS por ACR,
+   que corre en SEC2 -- y ni eso pasa por el GSP
+```
+
+★ Asi que la Meta A sobre la 3060 **es del medida del AHCI**, como la seccion 6
+decia que seria si la respuesta era si. Y el motivo del documento cambio por el
+camino: el blit ya no es el cuello (DOOM a 70 fps, blit 258 us, 23-09). Lo que
+de verdad falta hoy es el **VBLANK** -- saber cuando la tarjeta acaba de barrer
+la pantalla para que el compositor deje de pintar a ciegas.
+
+## ★ Lo que dejo FastOS (abril-mayo 2026), para no perderlo otra vez
+
+FastOS, el antecesor de esta casa, intento ARRANCAR EL GSP de esta misma
+tarjeta. Su codigo vivio en `kernel/src/drivers/gsp/` (~2.300 lineas) y en
+`Driver_Canon GA106/`, y se borro el 09-05 (`0e43d7f34`); sigue en el git. Su
+`gputest` dio 12/15 y **los tres FAIL no eran muros del hardware**:
+
+| test | que paso de verdad |
+|---|---|
+| T05 `PMC_ENABLE = 0x40000000` | en Ampere ese registro ya no enciende los motores; el test esperaba lo de antes |
+| T10 PRIV ring `TIMEOUT` | FastOS RESETEABA el anillo PRIV que la VBIOS ya habia dejado vivo: eso lo rompe, y de ahi salen despues los `0xBADF....` |
+| T13 BAR1 = 0 | BAR1 es de 64 bits y esta por encima de 4 GiB: se leyo media |
+
+Y la cadena del GSP llego mas lejos de lo que parecia:
+
+```text
+   1. FWSEC-FRTS (de la VBIOS) monta la WPR2        LOGRADO: err=0, WPR2 SET
+   2. SEC2 corre booter_load (firmado)              aqui murio: SEC2 DMA Timeout
+   3. booter carga GSP-RM y arranca su RISC-V       no llego
+   4. RPC por colas en memoria compartida           no llego
+```
+
+Por que murio en el paso 2 (leido en su `loader.rs`, no supuesto):
+
+1. **El reset del SEC2 estaba mal**: al GSP lo reseteaba por el registro de
+   MOTOR (`0x1103C0`) y esperaba el borrado de memoria; al SEC2 solo por
+   `0x840094`, con vueltas de espera y sin mirar nada. `CPUCTL = 0xBADF5620`
+   = el motor no contestaba.
+2. **No programaba el FBIF**, que es lo que le dice a la DMA del falcon que lea
+   de la RAM del PC. Sin eso la DMA mira la memoria de la tarjeta.
+3. **Pasaba punteros virtuales como fisicos** a la DMA (`booter.as_ptr()`).
+4. **Elegia la firma por el FICHERO y no por el FUSIBLE** del chip
+   (`FUSE_OPT_FPF_SEC2_UCODE1_VERSION`): nouveau y nova-core le preguntan al
+   hardware. Es LEY 24 otra vez.
+
+## ⚠ El GSP y la soberania, dicho una vez
+
+El GSP-RM son ~69 MB **cerrados**, sacados de `linux-firmware` o del driver de
+Windows. Y la ironia: el GSP **ya es RISC-V** (`ELF64 RISC-V`); lo que lo
+cierra no es la arquitectura, es la **firma** -- la ROM de la tarjeta solo
+acepta codigo firmado por Nvidia en SEC2 y en el GSP. **En esta tarjeta no se
+podra reemplazar nunca**, sea el CPU x86 o RISC-V. La soberania de verdad en la
+GPU es silicio sin candado (la vision DPU), no esta.
+
+Y aislarlo tiene nombre en esta casa --el NEUTRO, fila `GPU+PSP`-- pero HOY es
+solo una palabra: sin la **IOMMU** encendida, el GSP ve TODA la RAM por DMA.
+
+## ★ El orden, decidido por el propietario el 23-09
+
+```text
+   1. VBLANK y (si hace falta) el motor de copia, SIN firmware   <- ahora
+   2. la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
+      -- y protege tambien del disco, el USB y la red
+   3. solo entonces, si algun dia se quiere 3D o computo: el GSP,
+      DETRAS de la IOMMU y como fila NEUTRO declarada. Nunca antes
+```
+
+---
+
 # 7. El orden, y el primer paso ya esta dado
 
 ```text
@@ -200,9 +279,11 @@ framebuffer del UEFI.
           "hay una GRAFICA NVIDIA y BMO-X no tiene codigo para ella"
    [ ] 1. leer su identidad: BAR0 y el registro de arranque que da el chip
           una lectura de MMIO. Confirma GA106 sin tocar nada
-   [ ] 2. contestar la pregunta de la seccion 6 LEYENDO el modulo abierto
-          es fuente publicada: se lee, no se descompila
-   [ ] 3. y SOLO entonces decidir entre Meta A sobre Nvidia, o B1
+   [x] 2. contestar la pregunta de la seccion 6 LEYENDO el codigo publicado
+          hecho el 23-09: SI, sin firmware (seccion 6b)
+   [x] 3. decidir: Meta A sobre Nvidia, empezando por el VBLANK (6b)
+   [ ] 4. el VBLANK, primero PREGUNTADO: la linea que barre la cabeza y la
+          geometria del modo, en solo lectura -- "se puede" lo dice el metal
 ```
 
 ## ⚠ Y el paso que NO va aqui

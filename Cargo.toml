@@ -161,6 +161,9 @@ members = [
     "platform/drivers/usb/xhci",
     # GPU profiles (Ring 3 servers; reserved until hardware is on the bench)
     "platform/drivers/gpu/rdna4",
+    # La RTX 3060 (GA106) CONTESTA: su identidad, el modo que barre y el VBLANK,
+    # leidos por MMIO y sin firmware. Puro: el kernel lee, esto significa.
+    "platform/drivers/gpu/ga10x",
 
     # -- SERVICES (System) ------------------------------------------
     "platform/services/cabina-core",

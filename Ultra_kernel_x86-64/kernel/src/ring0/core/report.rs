@@ -399,6 +399,12 @@ const INFO_ENTERRADOR: u64 = 0x97;
 const INFO_DISCO_AVISO: u64 = 0x98;
 /// El puerto serie por cola (2026-09-23). Espejo de `bmo_abi::...::INFO_SERIE`.
 const INFO_SERIE: u64 = 0x99;
+/// La grafica preguntada (2026-09-23). Espejo de `bmo_abi::...::INFO_GPU_*`.
+const INFO_GPU_CHIP: u64 = 0x9A;
+const INFO_GPU_MODO: u64 = 0x9B;
+const INFO_GPU_BORRADO: u64 = 0x9C;
+const INFO_GPU_TIEMPO: u64 = 0x9D;
+const INFO_GPU_LINEA: u64 = 0x9E;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -899,6 +905,11 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_DISCO_HILO => crate::ring0::dev::disk::cuentas_hilo(),
         INFO_DISCO_AVISO => crate::ring0::dev::disk::escalera_aviso(),
         INFO_SERIE => crate::ring0::dev::console::cuentas(),
+        INFO_GPU_CHIP => crate::ring0::dev::gpu::info_chip(),
+        INFO_GPU_MODO => crate::ring0::dev::gpu::info_modo(),
+        INFO_GPU_BORRADO => crate::ring0::dev::gpu::info_borrado(),
+        INFO_GPU_TIEMPO => crate::ring0::dev::gpu::info_tiempo(),
+        INFO_GPU_LINEA => crate::ring0::dev::gpu::info_linea(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

@@ -213,6 +213,9 @@ pub mod dev {
     pub mod console;
     pub mod disk;
     pub mod framebuffer;
+    /// **LA GRAFICA, PREGUNTADA** (2026-09-23): quien es, que modo barre y si
+    /// su VBLANK se ve sin firmware. Solo LEE: ni un bit escrito.
+    pub mod gpu;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay
