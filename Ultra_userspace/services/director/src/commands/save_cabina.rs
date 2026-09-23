@@ -255,7 +255,7 @@ fn report_latido(s: &mut Output) {
     let cuando = bmo::info(bmo::INFO_USB_LATIDO_CUANDO);
     let ms = v & 0xFFFF;
     if ms == 0 && cuando == 0 {
-        fila_cero(s, b"latido tarde", 0, b"el bus nunca llego tarde por encima de 20 ms");
+        fila_cero(s, b"latido tarde", 0, b"el bus nunca llego tarde");
         return;
     }
     let tid = (v >> 16) & 0xFF;

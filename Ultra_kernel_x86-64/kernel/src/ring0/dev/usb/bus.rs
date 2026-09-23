@@ -168,9 +168,6 @@ static mut LATIDOS_TARDE: u64 = 0; // [escribe] bus
 /// Turnos ENTEROS que cabian en el retraso y no se dieron. Esta es la fila que
 /// duele: `LATIDOS_TARDE` dice que hubo retraso, esta dice cuanto bus se perdio.
 static mut LATIDOS_PERDIDOS: u64 = 0; // [escribe] bus
-/// El peor retraso visto, en milisegundos. Un maximo y no una media: una media
-/// de latencias esconde justo el pico que el propietario nota con la mano.
-static mut PEOR_RETRASO_MS: u64 = 0; // [escribe] bus
 
 /// **La foto de antes de dormir**, para que un retraso diga QUIEN (2026-09-21).
 ///
@@ -198,14 +195,40 @@ const _: () = assert!(crate::ring0::task::scheduler::MAX_TASKS == 64, "FOTO_CICL
 static mut FOTO_N: usize = 0; // [escribe] bus
 /// Lo que costo la vuelta entera del bus, en us, medida de rdtsc a rdtsc.
 static mut VUELTA_US: u64 = 0; // [escribe] bus
-/// El veredicto del PEOR retraso, para `INFO_USB_LATIDO` (el `save`): en que
-/// tick fue, cuantos ticks dio el reloj mientras tanto, que tid tuvo el CPU,
-/// cuantos ms fueron suyos, y lo que costo la vuelta del bus de antes.
-static mut PEOR_TICK: u64 = 0; // [escribe] bus
-static mut PEOR_TICKS_DURANTE: u64 = 0; // [escribe] bus
-static mut PEOR_TID: u32 = 0; // [escribe] bus
-static mut PEOR_TID_MS: u64 = 0; // [escribe] bus
-static mut PEOR_VUELTA_US: u64 = 0; // [escribe] bus
+/// **EL PEOR RETRASO, CON QUIEN Y CUANDO: una pieza, no seis** (2026-09-23).
+///
+/// Eran seis estaticos sueltos --el maximo y cinco de contexto-- escritos en
+/// DOS sitios con DOS condiciones: el maximo subia con cualquier retraso nuevo
+/// y el contexto solo pasados los 20 ms (dentro de `acusar`). El save de las
+/// 07:54 salio con `latido tarde 14 ms ... en el tick 0, 0 ticks, tid 0`: un
+/// numero sin procedencia, que es un instrumento que miente con toda la
+/// seguridad del mundo.
+///
+/// Ahora el numero y su contexto son UN valor y se escriben JUNTOS, en cada
+/// peor nuevo: no se puede tener uno sin el otro. El aviso a CABINA sigue
+/// solo por encima del umbral; la foto no tiene umbral. Un maximo y no una
+/// media: una media de latencias esconde justo el pico que se nota con la mano.
+#[derive(Clone, Copy)]
+struct PeorLatido {
+    /// El retraso, en ms.
+    ms: u64,
+    /// El tick del reloj en que se vio. 0 = nunca paso.
+    tick: u64,
+    /// Ticks que dio el reloj mientras el bus esperaba: ~ms, el planificador
+    /// no dio turno; ~0, alguien tenia las interrupciones cerradas.
+    ticks_durante: u64,
+    /// La tarea que mas CPU se llevo mientras tanto, y cuantos ms fueron suyos.
+    tid: u32,
+    tid_ms: u64,
+    /// Lo que costo la vuelta del bus de antes: si es ~ el retraso, fue el bus.
+    vuelta_us: u64,
+}
+
+impl PeorLatido {
+    const NADA: Self = Self { ms: 0, tick: 0, ticks_durante: 0, tid: 0, tid_ms: 0, vuelta_us: 0 };
+}
+
+static mut PEOR: PeorLatido = PeorLatido::NADA; // [escribe] bus
 
 /// **El veredicto del peor retraso, empaquetado** (`INFO_USB_LATIDO`):
 ///
@@ -217,18 +240,17 @@ static mut PEOR_VUELTA_US: u64 = 0; // [escribe] bus
 ///
 /// Y `INFO_USB_LATIDO_CUANDO`: el tick en que paso (0 = nunca paso).
 pub fn latido_peor() -> u64 {
-    unsafe {
-        let ms = PEOR_RETRASO_MS.min(0xFFFF);
-        let tid = (PEOR_TID as u64) & 0xFF;
-        let suyo = PEOR_TID_MS.min(0xFFFF);
-        let ticks = PEOR_TICKS_DURANTE.min(0xFFFF);
-        let vuelta = (PEOR_VUELTA_US / 1000).min(0xFF);
-        ms | (tid << 16) | (suyo << 24) | (ticks << 40) | (vuelta << 56)
-    }
+    let p = unsafe { PEOR };
+    let ms = p.ms.min(0xFFFF);
+    let tid = (p.tid as u64) & 0xFF;
+    let suyo = p.tid_ms.min(0xFFFF);
+    let ticks = p.ticks_durante.min(0xFFFF);
+    let vuelta = (p.vuelta_us / 1000).min(0xFF);
+    ms | (tid << 16) | (suyo << 24) | (ticks << 40) | (vuelta << 56)
 }
 
 pub fn latido_peor_cuando() -> u64 {
-    unsafe { PEOR_TICK }
+    unsafe { PEOR.tick }
 }
 
 /// A partir de aqui un retraso deja de ser ruido y se dice en CABINA.
@@ -240,7 +262,7 @@ const RETRASO_QUE_SE_DICE_MS: u64 = 20;
 
 /// `(latidos tarde, turnos perdidos, peor retraso en ms)`.
 pub fn ritmo() -> (u64, u64, u64) {
-    unsafe { (LATIDOS_TARDE, LATIDOS_PERDIDOS, PEOR_RETRASO_MS) }
+    unsafe { (LATIDOS_TARDE, LATIDOS_PERDIDOS, PEOR.ms) }
 }
 
 // == ** Y QUIEN SE COMIO EL TURNO ===========================================
@@ -633,11 +655,13 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
                 LATIDOS_TARDE = LATIDOS_TARDE.wrapping_add(1);
                 LATIDOS_PERDIDOS = LATIDOS_PERDIDOS.wrapping_add(retraso / periodo);
                 let ms = retraso / por_ms;
-                if ms > PEOR_RETRASO_MS {
-                    PEOR_RETRASO_MS = ms;
-                    // Solo en un PEOR NUEVO, y solo pasado el umbral. Un aviso
-                    // por cada retraso llenaria CABINA en el primer atasco y
-                    // taparia la linea que lo explica.
+                if ms > PEOR.ms {
+                    // ** El numero y su contexto, JUNTOS y sin umbral. Ver
+                    // `PeorLatido`.
+                    PEOR = foto_del_retraso(ms, por_ms);
+                    // El AVISO si, solo en un peor nuevo y pasado el umbral:
+                    // uno por cada retraso llenaria CABINA en el primer atasco
+                    // y taparia la linea que lo explica.
                     if ms >= RETRASO_QUE_SE_DICE_MS {
                         aviso = ms;
                     }
@@ -650,7 +674,7 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
         if aviso != 0 {
             crate::ring0::cabina::warn(
                 "usb", "el latido del bus llego TARDE (peor caso, en ms)", aviso);
-            acusar(aviso, por_ms);
+            acusar(unsafe { &PEOR });
         }
         // La foto de antes de dormir. Ver `FOTO_TICK`.
         unsafe {
@@ -661,19 +685,15 @@ pub extern "C" fn bus_thread(_arg: u64) -> ! {
     }
 }
 
-/// **Quien se quedo el CPU mientras el bus esperaba.** Ver `FOTO_TICK`.
+/// **La foto de un retraso**: quien se quedo el CPU mientras el bus esperaba.
+/// Ver `FOTO_TICK`. Se resta la foto de ahora contra la de antes de dormir.
 ///
-/// Se resta la foto de ahora contra la de antes de dormir. Cinco renglones y
-/// solo en un PEOR NUEVO por encima del umbral, por lo mismo que el aviso al
-/// que acompanan: un renglon por retraso taparia el que lo explica.
-fn acusar(ms: u64, por_ms: u64) {
+/// Solo corre en un PEOR NUEVO, asi que recorrer las tareas no cuesta nada que
+/// se note: pasa unas pocas veces por arranque.
+fn foto_del_retraso(ms: u64, por_ms: u64) -> PeorLatido {
     use crate::ring0::task::scheduler;
     let tick = crate::ring0::plat::timer::ticks();
     let (foto_tick, n) = unsafe { (FOTO_TICK, FOTO_N) };
-    crate::ring0::cabina::id("usb", "...en el tick", tick);
-    crate::ring0::cabina::count(
-        "usb", "...y el reloj dio ticks mientras tanto (0 = interrupciones CERRADAS)",
-        tick.wrapping_sub(foto_tick));
     let mut ahora = [(0u32, 0u64); scheduler::MAX_TASKS];
     let m = scheduler::ciclos_de_tareas(&mut ahora);
     let mut peor_tid = 0u32;
@@ -687,20 +707,26 @@ fn acusar(ms: u64, por_ms: u64) {
             peor_tid = tid;
         }
     }
-    crate::ring0::cabina::id("usb", "...el CPU lo tuvo el tid", peor_tid as u64);
-    let suyo_ms = if por_ms != 0 { peor_ciclos / por_ms } else { 0 };
-    crate::ring0::cabina::count("usb", "...durante ms", suyo_ms);
-    crate::ring0::cabina::count(
-        "usb", "...y la vuelta anterior del bus costo us (si es ~ el retraso, fue ESTE hilo)",
-        unsafe { VUELTA_US });
-    unsafe {
-        PEOR_TICK = tick;
-        PEOR_TICKS_DURANTE = tick.wrapping_sub(foto_tick);
-        PEOR_TID = peor_tid;
-        PEOR_TID_MS = suyo_ms;
-        PEOR_VUELTA_US = VUELTA_US;
+    PeorLatido {
+        ms,
+        tick,
+        ticks_durante: tick.wrapping_sub(foto_tick),
+        tid: peor_tid,
+        tid_ms: if por_ms != 0 { peor_ciclos / por_ms } else { 0 },
+        vuelta_us: unsafe { VUELTA_US },
     }
-    let _ = ms;
+}
+
+/// **Lo dice en CABINA**, de la foto ya tomada: los mismos cinco renglones de
+/// siempre, que ahora no calculan nada -- leen la pieza.
+fn acusar(p: &PeorLatido) {
+    crate::ring0::cabina::id("usb", "...en el tick", p.tick);
+    crate::ring0::cabina::count(
+        "usb", "...y el reloj dio ticks mientras tanto (0 = interrupciones CERRADAS)", p.ticks_durante);
+    crate::ring0::cabina::id("usb", "...el CPU lo tuvo el tid", p.tid as u64);
+    crate::ring0::cabina::count("usb", "...durante ms", p.tid_ms);
+    crate::ring0::cabina::count(
+        "usb", "...y la vuelta anterior del bus costo us (si es ~ el retraso, fue ESTE hilo)", p.vuelta_us);
 }
 
 /// Starts [`bus_thread`]. Returns its tid, or `None` if there was no slot.
