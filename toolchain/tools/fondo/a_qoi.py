@@ -2,11 +2,11 @@
 
     python a_qoi.py <imagen> <salida.qoi> <ancho> <alto>
 
-El propietario puso su ciudad de neon con el gato (`docs/arte/bmo-x-ciudad.webp`)
+El propietario puso su ciudad de neon con el gato (`activos/fondo/ciudad.webp`)
 de fondo de BMO-X. Hasta ese dia el fondo lo GENERABA `ejemplos.ps1::Nuevo-Fondo`
 --una noche con luna, en codigo--, y el motivo sigue en pie: un binario de 3,5 MB
-en el repo no se lee en un diff. Por eso en el repo va el ARTE (como el logo,
-`bmo-x-gato.jpg`) y esto, que se lee entero, y el `.qoi` lo hace el build.
+en el repo no se lee en un diff. Por eso en el repo va el ARTE (en `activos/`, como
+`neko.wav`) y esto, que se lee entero, y el `.qoi` lo hace el build.
 
 Lo que hace, en orden:
 
@@ -87,9 +87,10 @@ def main():
     im = cubrir(Image.open(src).convert("RGB"), w, h)
     px = im.tobytes()
     datos = qoi(px, w, h)
-    # `scene/fondo.rs` no lee mas de 4 MiB: mejor fallar aqui que en el Ryzen.
-    if len(datos) > 4 * 1024 * 1024:
-        sys.stderr.write("a_qoi: %d bytes pasan de los 4 MiB del DIRECTOR\n" % len(datos))
+    # `scene/fondo.rs` no lee mas de 32 MiB, y `bmo-imagen` no pasa de 4096 de
+    # lado: mejor fallar aqui que en el Ryzen, con el escritorio en degradado.
+    if len(datos) > 32 * 1024 * 1024 or w > 4096 or h > 4096:
+        sys.stderr.write("a_qoi: %d bytes / %dx%d no caben en el DIRECTOR\n" % (len(datos), w, h))
         sys.exit(1)
     with open(dst, "wb") as f:
         f.write(datos)

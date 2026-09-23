@@ -696,13 +696,13 @@ try {
     Copy-Item (Join-Path $repo 'Ultra_userspace\services\director\director.cfg') (Join-Path $sysDst 'director.cfg') -Force
     Write-Host '    [sys] director.cfg (el aspecto del escritorio)' -ForegroundColor DarkGray
     # ** EL FONDO ES LA CIUDAD DEL GATO (2026-09-22): el arte del propietario,
-    # `docs/arte/bmo-x-ciudad.webp`, cubriendo 1920x1080. En el repo va el arte
+    # `activos/fondo/ciudad.webp`, cubriendo 1920x1080. En el repo va el arte
     # y el conversor que se lee (`toolchain/tools/fondo/a_qoi.py`); el `.qoi`
     # se hace aqui, y solo si el arte o el conversor son mas nuevos que el que
     # hay (codificar 2 millones de pixeles en python son unos segundos).
     # Sin python o sin Pillow se queda la noche generada, y se DICE.
     $fondoDst = Join-Path $sysDst 'fondo.qoi'
-    $ciudad = Join-Path $repo 'docs\arte\bmo-x-ciudad.webp'
+    $ciudad = Join-Path $repo 'activos\fondo\ciudad.webp'
     $aQoi = Join-Path $repo 'toolchain\tools\fondo\a_qoi.py'
     $pyFondo = Get-Command python -ErrorAction SilentlyContinue
     $fondoOk = $false

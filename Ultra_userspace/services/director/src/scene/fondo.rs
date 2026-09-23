@@ -34,8 +34,9 @@ use core::ptr::{addr_of, addr_of_mut};
 
 use super::estilo;
 
-/// Lo mas grande que se lee como fondo: igual que el visor.
-const TOPE: u64 = 4 * 1024 * 1024;
+/// Lo mas grande que se lee como fondo: igual que el visor (32 MiB desde el
+/// 2026-09-22, cuando la ciudad del gato a 1920x1080 hizo falta).
+const TOPE: u64 = 32 * 1024 * 1024;
 /// La pantalla mas ancha o alta que se tabula. 4K entra.
 const LADO_PANTALLA: usize = 4096;
 
@@ -76,7 +77,7 @@ pub(crate) fn cargar(p: &bmo::Pantalla) {
     };
     let mide = a.size();
     if mide > TOPE {
-        return fallar("fondo_imagen: pasa de 4 MiB");
+        return fallar("fondo_imagen: pasa de 32 MiB");
     }
     // ** Se pide lo que MIDE, no el tope: el fichero se suelta al acabar y los
     // pixeles son ancho x alto. Un atardecer de 480x270 son 518 KiB, no 8 MiB.

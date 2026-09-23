@@ -69,10 +69,11 @@ fn bloque() -> Option<&'static bmo::Memoria> {
 // Dos bloques mas, pedidos la PRIMERA vez que se abre una imagen y no antes:
 // quien no mira imagenes no paga 8 MiB.
 
-/// Lo mas grande que se abre como imagen.
-const IMG_TOPE: u64 = 4 * 1024 * 1024;
-/// Los pixeles: `LADO_MAX` al cuadrado, cuatro bytes cada uno.
-const IMG_PIXELES: u64 = (bmo_imagen::LADO_MAX as u64) * (bmo_imagen::LADO_MAX as u64) * 4;
+/// Lo mas grande que se abre como imagen: una captura 4K en BMP son 24 MiB.
+///
+/// ** Era 4 MiB hasta el 2026-09-22: una captura de pantalla a 1920x1080 en
+/// BMP (6 MiB) no se podia abrir en el visor del mismo sistema que la hizo.
+const IMG_TOPE: u64 = 32 * 1024 * 1024;
 
 static mut IMG_FICHERO: Option<bmo::Memoria> = None;
 static mut IMG_BUFER: Option<bmo::Memoria> = None;
@@ -184,12 +185,19 @@ impl Visor {
     /// Trae los bytes y los descifra. Lo que falle queda en `fallo`, con motivo.
     fn abrir_imagen(&mut self, a: &bmo::Archivo) {
         if self.mide > IMG_TOPE {
-            self.fallo = Some("la imagen pasa de 4 MiB: no se abre a medias");
+            self.fallo = Some("la imagen pasa de 32 MiB: no se abre a medias");
             return;
         }
-        let (Some(fichero), Some(bufer), Some(taller)) = (
-            pedido(core::ptr::addr_of_mut!(IMG_FICHERO), IMG_TOPE),
-            pedido(core::ptr::addr_of_mut!(IMG_BUFER), IMG_PIXELES),
+        // ** LOS BLOQUES MIDEN LO QUE MIDE ESTA IMAGEN (2026-09-22). Eran fijos
+        // --el tope del fichero y `LADO_MAX` al cuadrado-- y con el lado a 4096
+        // eso serian 64 MiB de pixeles para mirar un icono. Lo de la imagen de
+        // antes se suelta aqui: sus bloques midieron otra cosa.
+        unsafe {
+            *core::ptr::addr_of_mut!(IMG_FICHERO) = None;
+            *core::ptr::addr_of_mut!(IMG_BUFER) = None;
+        }
+        let (Some(fichero), Some(taller)) = (
+            pedido(core::ptr::addr_of_mut!(IMG_FICHERO), self.mide.max(1)),
             pedido(core::ptr::addr_of_mut!(IMG_TALLER), IMG_TALLER_BYTES),
         ) else {
             self.fallo = Some("sin memoria para la imagen");
@@ -197,12 +205,23 @@ impl Visor {
         };
         let n = a.leer_en(fichero, 0, self.mide) as usize;
         // SAFETY: `n` bytes que el kernel acaba de escribir en un bloque de este
-        // proceso; el bufer de pixeles mide IMG_PIXELES y el base es de pagina,
-        // o sea alineado a 4.
+        // proceso.
         let bytes = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, n) };
-        let pixeles = unsafe {
-            core::slice::from_raw_parts_mut(bufer.base() as *mut u32, (IMG_PIXELES / 4) as usize)
+        let m = match bmo_imagen::medir(bytes) {
+            Ok(m) => m,
+            Err(e) => {
+                self.fallo = Some(e.motivo());
+                return;
+            }
         };
+        let lleva = (m.ancho as u64 * m.alto as u64 * 4).max(4);
+        let Some(bufer) = pedido(core::ptr::addr_of_mut!(IMG_BUFER), lleva) else {
+            self.fallo = Some("sin memoria para los pixeles de la imagen");
+            return;
+        };
+        // SAFETY: el bloque mide `lleva` bytes y su base es de pagina, o sea
+        // alineado a 4.
+        let pixeles = unsafe { core::slice::from_raw_parts_mut(bufer.base() as *mut u32, (lleva / 4) as usize) };
         // SAFETY: un bloque de este proceso de IMG_TALLER_BYTES, que es >= TALLER.
         let taller = unsafe {
             core::slice::from_raw_parts_mut(taller.base() as *mut u8, IMG_TALLER_BYTES as usize)
@@ -214,7 +233,7 @@ impl Visor {
     }
 
     /// Cierra, y **devuelve la memoria de la imagen** (2026-09-21): el
-    /// fichero (4 MiB), los pixeles (4 MiB) y el taller. Son PRESTADOS: poner
+    /// fichero, los pixeles (lo que midan) y el taller. Son PRESTADOS: poner
     /// el `static` a `None` deja caer el `Memoria` y su `Drop` llama a
     /// `MEM_OP_SOLTAR`. Se vuelven a pedir en el proximo `abrir`; lo que se
     /// paga es un syscall por bloque al cerrar y otro al abrir, no 8 MiB
@@ -313,7 +332,8 @@ fn pintar_imagen(p: &bmo::Pantalla, z: &Zona, y: u32, m: &bmo_imagen::Medidas) {
     }
 
     p.marcar(x0, y0, dw, dh);
-    // SAFETY: el bufer mide IMG_PIXELES y `decodificar` escribio `w*h` en el.
+    // SAFETY: el bufer mide `w*h*4` (se pidio con las medidas de ESTA imagen)
+    // y `decodificar` escribio `w*h` en el.
     let px = unsafe { core::slice::from_raw_parts(bufer.base() as *const u32, (w * h) as usize) };
     for dy in 0..dh {
         let fila = ((dy * den / num) * w) as usize;

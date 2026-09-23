@@ -82,7 +82,7 @@ impl Error {
             Error::Corto => "la imagen esta CORTADA: faltan bytes que su cabecera promete",
             Error::NoEsImagen => "no es BICO, BMP, QOI, PNG ni JPEG",
             Error::Variante => "variante no soportada (BMP comprimido, PNG de 16 bits o entrelazado, JPEG progresivo...)",
-            Error::Medidas => "medidas imposibles: cero, o mas de 1024 de lado",
+            Error::Medidas => "medidas imposibles: cero, o mas de 4096 de lado",
             Error::NoCabe => "no cabe en el bufer del visor",
             Error::SinTaller => "un PNG pide taller para descomprimir, y no llego",
         }
@@ -96,7 +96,15 @@ pub struct Medidas {
     pub formato: Formato,
 }
 
-pub const LADO_MAX: u32 = 1024;
+/// El lado mas grande que se acepta.
+///
+/// ** Era 1024 hasta el 2026-09-22, y ese dia se vio que no alcanzaba para lo
+/// mas normal: la PANTALLA. La ciudad del gato de fondo a 1920x1080 se habria
+/// rechazado por `Medidas` --el escritorio volvia al degradado--, y una captura
+/// de pantalla no se habria podido abrir en el propio visor. 4096 es una
+/// pantalla 4K; el tope sigue siendo el que corta a un fichero hostil que dice
+/// medir 60.000 de lado antes de que nadie pida memoria para el.
+pub const LADO_MAX: u32 = 4096;
 const OPACO: u32 = 0xFF00_0000;
 
 fn le16(b: &[u8], i: usize) -> Option<u32> {
@@ -424,10 +432,35 @@ mod pruebas {
         assert_eq!(decodificar(&b, &mut dst).unwrap_err(), Error::Corto);
     }
 
+    /// ** UNA PANTALLA ENTRA (2026-09-22). Con el lado tope en 1024, la ciudad
+    /// del gato a 1920x1080 --el fondo del escritorio-- se rechazaba por
+    /// `Medidas` y nadie lo habria visto hasta el Ryzen. Una 1080p y una 4K,
+    /// de una sola corrida de color: `medir` dice que si y `decodificar` llena
+    /// todos los pixeles.
+    #[test]
+    fn una_pantalla_1080p_y_una_4k_entran() {
+        for (w, h) in [(1920u32, 1080u32), (3840, 2160)] {
+            // Un color con QOI_OP_RGBA y el resto en tiradas de 62.
+            let mut datos = vec![0xFF, 0x12, 0x34, 0x56, 0xFF];
+            let mut quedan = w * h - 1;
+            while quedan > 0 {
+                let r = quedan.min(62);
+                datos.push(0xC0 | (r - 1) as u8);
+                quedan -= r;
+            }
+            let b = qoi(w, h, &datos);
+            let m = medir(&b).unwrap();
+            assert_eq!((m.ancho, m.alto), (w, h));
+            let mut dst = vec![0u32; (w * h) as usize];
+            decodificar(&b, &mut dst).unwrap();
+            assert!(dst.iter().all(|&c| c == 0xFF12_3456));
+        }
+    }
+
     #[test]
     fn medidas_imposibles() {
         assert_eq!(dec(&bico(0, 4, &[])).unwrap_err(), Error::Medidas);
-        assert_eq!(dec(&bmp(2000, 1, 24, 0, &[])).unwrap_err(), Error::Medidas);
+        assert_eq!(dec(&bmp(5000, 1, 24, 0, &[])).unwrap_err(), Error::Medidas);
         // Ancho negativo: leido sin signo es enorme.
         assert_eq!(dec(&bmp(-2, 1, 24, 0, &[0; 8])).unwrap_err(), Error::Medidas);
         assert_eq!(dec(&qoi(5000, 1, &[])).unwrap_err(), Error::Medidas);
