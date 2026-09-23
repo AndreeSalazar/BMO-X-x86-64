@@ -38,7 +38,7 @@ existe para hacer: la misma operacion sobre ocho invocaciones a la vez.
 
 # 1. TRES DECISIONES ANTES DE LA PRIMERA LINEA
 
-## 1a. [ABIERTA -- la decide el propietario] EL SITIO: la lista de lenguajes esta CERRADA
+## 1a. [DECIDIDA el 23-09: `lang/spirv/`, formato RECIBIDO] EL SITIO: la lista de lenguajes esta CERRADA
 
 `toolchain/lang/README.md` cerro la lista el **2026-09-17**. Y la regla de
 una arquitectura dice que lo unico agnostico
@@ -109,14 +109,26 @@ tiene cero de 51 operaciones hoy.
 
 # 3. LAS CASILLAS
 
-## [ ] S0 -- EL SITIO
+## [x] S0 -- EL SITIO
+
+> **Hecho el 23-09.** El propietario: *"si, lang/spirv como formato recibido"*.
+> `toolchain/lang/spirv/` (crate `bmo-spirv-front`), fila en el README de
+> `lang/` que dice por que no reabre la lista, `isa` lo cuenta como frontend y
+> `AMBITOS.txt` tiene `spirv`.
 
 - **Bloquea:** la decision 1a, del propietario.
 - **Hecha cuando:** existe la carpeta con su README (que es, que NO es, y el
   subconjunto de la seccion 2), el guardian `isa` y la regla de disposicion la
   aceptan, y `AMBITOS.txt` tiene su ambito de commit.
 
-## [ ] S1 -- EL LECTOR: bytes de SPIR-V a un modulo
+## [x] S1 -- EL LECTOR: bytes de SPIR-V a un modulo
+
+> **Hecho el 23-09**, sin `alloc`: `leer(bytes, ids) -> Modulo | Fallo`. La
+> tabla de 194 instrucciones la genera `herramientas/tabla.py` desde la
+> gramatica NORMATIVA de Khronos (MIT) -- los numeros son el contrato, las
+> filas y las familias son el estudio -- y `--cotejar` dice si se desvio. 23
+> motivos con su fila; los cinco `.spv` se leen enteros; cortar cada fichero
+> en cada palabra y voltear cada byte nunca da panico. 33 pruebas.
 
 La cabecera (`0x07230203`, version, generador, `bound`, esquema) y el flujo de
 instrucciones (`palabras << 16 | codigo`). De ahi sale el modulo: capacidades,

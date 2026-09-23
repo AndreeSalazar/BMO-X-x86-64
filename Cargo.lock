@@ -551,6 +551,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-spirv-front"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-trim"
 version = "0.1.0"
 

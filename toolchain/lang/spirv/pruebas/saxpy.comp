@@ -1,0 +1,12 @@
+#version 450
+// saxpy: y[i] = alfa * x[i] + y[i], con alfa en un uniform. Lee y escribe el MISMO buffer.
+layout(local_size_x = 64) in;
+layout(std140, binding = 0) uniform Parametros { float alfa; uint n; };
+layout(std430, binding = 1) readonly buffer X { float x[]; };
+layout(std430, binding = 2) buffer Y { float y[]; };
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+    if (i < n) {
+        y[i] = alfa * x[i] + y[i];
+    }
+}

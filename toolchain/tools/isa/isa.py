@@ -81,6 +81,8 @@ FRONTENDS = {
     "toolchain/lang/cobol": "bmo-cobol-front",
     "toolchain/lang/c": "bmo-c-front",
     "toolchain/lang/cpp": "bmo-cpp-front",
+    # 2026-09-23: el formato RECIBIDO. Sin emisor todavia (S4 lo pondra aparte).
+    "toolchain/lang/spirv": "bmo-spirv-front",
 }
 # Lo unico de lo que un frontend puede depender: nada que emita ni que sea la Base.
 # Cada uno con su motivo; y el guardian exige que ELLOS tampoco lleven `asm!` ni

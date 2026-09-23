@@ -1,0 +1,15 @@
+#version 450
+// fuera: lo que el subconjunto NO traduce, a proposito. Una imagen, un atomico y una
+// barrera de grupo. El lector lo tiene que LEER entero; el juez (S2) lo niega nombrando cada cosa.
+layout(local_size_x = 16, local_size_y = 16) in;
+layout(binding = 0, rgba8) uniform readonly image2D foto;
+layout(std430, binding = 1) buffer Cuenta { uint claros; };
+shared uint grupo;
+void main() {
+    if (gl_LocalInvocationIndex == 0u) { grupo = 0u; }
+    barrier();
+    vec4 p = imageLoad(foto, ivec2(gl_GlobalInvocationID.xy));
+    if (p.r + p.g + p.b > 1.5) { atomicAdd(grupo, 1u); }
+    barrier();
+    if (gl_LocalInvocationIndex == 0u) { atomicAdd(claros, grupo); }
+}

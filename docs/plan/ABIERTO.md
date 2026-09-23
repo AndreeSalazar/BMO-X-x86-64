@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   287 casillas ABIERTAS en 36 planes
-   264 hechas
+   285 casillas ABIERTAS en 36 planes
+   266 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -112,15 +112,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] DOOM elige escala con el hueco, como ya hace al tomar la pantalla
 - ... y 6 mas
 
-## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 9 abiertas, 0 hechas
-
-*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
-
-- [ ] S0 -- EL SITIO
-- [ ] S1 -- EL LECTOR: bytes de SPIR-V a un modulo
-- [ ] S2 -- EL JUEZ: el subconjunto, o por que no
-- ... y 6 mas
-
 ## [`PLAN_EL_SONIDO.md`](PLAN_EL_SONIDO.md) -- 9 abiertas, 4 hechas
 
 *PLAN EL SONIDO -- mono, estereo, 5.1, 7.1 y 3D, con sus tablas*
@@ -146,6 +137,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
+- ... y 4 mas
+
+## [`PLAN_EL_SOMBREADOR.md`](PLAN_EL_SOMBREADOR.md) -- 7 abiertas, 2 hechas
+
+*PLAN EL SOMBREADOR -- SPIR-V a x86-64, en el anfitrion y en el Ryzen*
+
+- [ ] S2 -- EL JUEZ: el subconjunto, o por que no
+- [ ] S3 -- EL ORACULO: un interprete en el anfitrion
+- [ ] S3b -- las funciones que no son una instruccion
 - ... y 4 mas
 
 ## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 7 abiertas, 1 hechas

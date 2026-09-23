@@ -1,0 +1,15 @@
+[package]
+name = "bmo-spirv-front"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "SPIR-V como FORMATO RECIBIDO: el lector (y despues el juez). No nombra una maquina, no pide memoria."
+
+# ** SIN DEPENDENCIAS, y `no_std` sin `alloc` (PLAN_EL_SOMBREADOR, 1b): el
+# mismo codigo tiene que correr en el anfitrion (AOT) y dentro de una app de
+# BMO-X (JIT, S5). Lo que necesita de memoria se lo da quien llama.
+[dependencies]
+
+[lib]
+name = "bmo_spirv_front"
+path = "src/lib.rs"
