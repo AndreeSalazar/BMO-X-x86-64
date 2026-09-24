@@ -212,6 +212,14 @@ const PASOS: &[Paso] = &[
         pide: None,
         consejo: b"`gpu`: filas `booter`, `fusible`, `bootldr`, `gsp-rm`, `mapa` y `cuadra` -- lo siguiente es L0c2, prestar el GSP-RM por la radix3",
     },
+    Paso {
+        nombre: b"radix",
+        que: b"PRESTAR el GSP-RM a la 3060 por su radix3 y releerlo entero por la IOMMU, con su BLAKE3; no arranca nada (L0c2)",
+        hecho: super::gsp::radix_hecho,
+        dar: super::gsp::radix,
+        pide: Some(b"gsp"),
+        consejo: b"`gpu`: la fila `radix` dice PRESTADO y la 570.144 entera, blake3 e7856ee2b387917b; `iommu`: `domain` ~15.600 paginas y sin eventos nuevos -- lo siguiente es L0c3, el booter en el SEC2",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -575,7 +583,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c2: prestar el GSP-RM a la 3060 por la radix3 (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c3: el booter en el SEC2 despierta el GSP (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

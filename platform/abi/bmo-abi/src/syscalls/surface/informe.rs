@@ -1673,6 +1673,29 @@ pub const FWSEC_PREPARADO: u64 = 1 << 62;
 pub const FWSEC_VALIDO: u64 = 1 << 63;
 pub const INFO_GPU_FWSEC_BUZON: u64 = 0xBB;
 
+/// # L0c2 (2026-09-24): el GSP-RM prestado a la 3060 por su radix3
+///
+/// ```text
+///   INFO_GPU_GSP        0..7 trozos copiados | 8..15 trozos totales |
+///                       16..23 comprobados | 24..31 el ultimo NO | 32..55
+///                       paginas prestadas | 56 preparado | 57 copiado |
+///                       58 PRESTADO | 59 CUADRA (lo visto por la radix3 =
+///                       lo copiado) | 60 es la 570.144 | 63 valido
+///   INFO_GPU_GSP_HASH   los 8 primeros bytes del BLAKE3 visto por la radix3
+/// ```
+pub const INFO_GPU_GSP: u64 = 0xBC;
+pub const GSP_TOTALES_SHIFT: u64 = 8;
+pub const GSP_COMPROBADOS_SHIFT: u64 = 16;
+pub const GSP_MOTIVO_SHIFT: u64 = 24;
+pub const GSP_PRESTADAS_SHIFT: u64 = 32;
+pub const GSP_PREPARADO: u64 = 1 << 56;
+pub const GSP_COPIADO: u64 = 1 << 57;
+pub const GSP_PRESTADO: u64 = 1 << 58;
+pub const GSP_CUADRA: u64 = 1 << 59;
+pub const GSP_ES_570: u64 = 1 << 60;
+pub const GSP_VALIDO: u64 = 1 << 63;
+pub const INFO_GPU_GSP_HASH: u64 = 0xBD;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

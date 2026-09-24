@@ -155,6 +155,32 @@ impl Radix3 {
     pub const fn paginas(&self) -> u64 {
         self.imagen + self.nivel2 + self.nivel1 + 1
     }
+
+    /// Las de la TABLA, sin la imagen: nivel 0, luego el 1, luego el 2.
+    pub const fn paginas_tabla(&self) -> u64 {
+        1 + self.nivel1 + self.nivel2
+    }
+
+    /// **La palabra `i` de la pagina `t` de la tabla** (L0c2), con la tabla
+    /// contigua desde `tabla` y la imagen contigua desde `imagen`, las dos
+    /// como las VE el GSP (IOVAs). Es `map_into_lvl` de nova-core con las
+    /// paginas en fila: el nivel 0 apunta a la primera del 1, cada entrada del 1
+    /// a una del 2, y cada entrada del 2 a una pagina de la imagen. Lo que
+    /// sobra de la ultima pagina de cada nivel va a 0.
+    pub const fn palabra(&self, imagen: u64, tabla: u64, t: u64, i: u64) -> u64 {
+        if i >= 512 {
+            return 0;
+        }
+        if t == 0 {
+            return if i == 0 { tabla + K4 } else { 0 };
+        }
+        if t <= self.nivel1 {
+            let j = (t - 1) * 512 + i;
+            return if j < self.nivel2 { tabla + (1 + self.nivel1 + j) * K4 } else { 0 };
+        }
+        let p = (t - 1 - self.nivel1) * 512 + i;
+        if t < self.paginas_tabla() && p < self.imagen { imagen + p * K4 } else { 0 }
+    }
 }
 
 // -- GspFwWprMeta ----------------------------------------------------------------
@@ -254,6 +280,33 @@ mod pruebas {
         assert_eq!((r.imagen, r.nivel2, r.nivel1), (15513, 31, 1));
         assert_eq!(r.paginas(), 15546);
         assert_eq!(Radix3::de(1).paginas(), 4);
+    }
+
+    #[test]
+    fn la_radix3_apunta_cada_pagina_a_su_sitio() {
+        let r = Radix3::de(0x3C9_9000);
+        let (img, tab) = (0x4000_0000u64, 0x3F00_0000u64);
+        assert_eq!(r.paginas_tabla(), 33);
+        // Nivel 0: una entrada, a la primera pagina del 1.
+        assert_eq!((r.palabra(img, tab, 0, 0), r.palabra(img, tab, 0, 1)), (tab + 0x1000, 0));
+        // Nivel 1: 31 entradas, a las 31 paginas del 2 (que van detras).
+        assert_eq!(r.palabra(img, tab, 1, 0), tab + 0x2000);
+        assert_eq!(r.palabra(img, tab, 1, 30), tab + 32 * 0x1000);
+        assert_eq!(r.palabra(img, tab, 1, 31), 0);
+        // Nivel 2: la pagina p de la imagen, en la entrada p.
+        assert_eq!(r.palabra(img, tab, 2, 0), img);
+        assert_eq!(r.palabra(img, tab, 2, 511), img + 511 * 0x1000);
+        assert_eq!(r.palabra(img, tab, 3, 0), img + 512 * 0x1000);
+        let ultima = 15512u64;
+        assert_eq!(r.palabra(img, tab, 2 + ultima / 512, ultima % 512), img + ultima * 0x1000);
+        assert_eq!(r.palabra(img, tab, 2 + ultima / 512, ultima % 512 + 1), 0);
+        assert_eq!(r.palabra(img, tab, 33, 0), 0, "fuera de la tabla");
+        // Recorrerla como el GSP da cada pagina de la imagen, una vez, en orden.
+        for p in (0..r.imagen).step_by(97) {
+            let l1 = r.palabra(img, tab, 0, 0);
+            let l2 = r.palabra(img, tab, (l1 - tab) / 0x1000, p / 512);
+            assert_eq!(r.palabra(img, tab, (l2 - tab) / 0x1000, p % 512), img + p * 0x1000);
+        }
     }
 
     #[test]

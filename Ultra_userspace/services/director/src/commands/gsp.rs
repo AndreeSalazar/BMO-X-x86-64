@@ -370,4 +370,123 @@ pub(crate) fn fila(s: &mut Output) {
     if let Some(p) = listo(&r) {
         super::datos::anotar(b"gpu gsp paginas", p, b"");
     }
+    fila_radix(s);
+}
+
+// == L0c2: EL GSP-RM PRESTADO POR SU RADIX3 (2026-09-24) =========================
+//
+// El kernel abre fw/gsp/ por su cuenta y lo copia a marcos NEUTRO en trozos de
+// 512 KiB -- un syscall cada uno, y el escritorio pinta entre medias --; luego
+// arma la radix3 y la WPR meta y lo presta; y al final lo relee TODO por la
+// radix3 y la IOMMU, como lo recorrera el GSP, con su BLAKE3. Nada arranca.
+
+pub(crate) const NO_RADIX_NO_CUADRA: u32 = 0x117;
+
+/// **`gpu radix`, y el paso de `save mode`.** `Ok(paginas prestadas)`.
+pub(crate) fn radix() -> Result<u64, u32> {
+    let g = bmo::info(bmo::INFO_GPU_GSP);
+    if g & bmo::GSP_PRESTADO == 0 {
+        let n = bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_PREPARAR, 0)?;
+        for k in 0..n {
+            bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_TROZO, k)?;
+            bmo::yield_screen();
+        }
+        bmo::iommu_orden(bmo::IOMMU_OP_GSP_PRESTAR)?;
+    }
+    let n = (bmo::info(bmo::INFO_GPU_GSP) >> bmo::GSP_TOTALES_SHIFT) & 0xFF;
+    for k in 0..n {
+        bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_COMPROBAR, k)?;
+        bmo::yield_screen();
+    }
+    let g = bmo::info(bmo::INFO_GPU_GSP);
+    if g & bmo::GSP_CUADRA == 0 || g & bmo::GSP_ES_570 == 0 {
+        return Err(NO_RADIX_NO_CUADRA);
+    }
+    Ok((g >> bmo::GSP_PRESTADAS_SHIFT) & 0xFF_FFFF)
+}
+
+/// Lo pregunta `save mode`: prestado, y lo visto por la radix3 es la 570.144.
+pub(crate) fn radix_hecho() -> bool {
+    let g = bmo::info(bmo::INFO_GPU_GSP);
+    g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_570 != 0
+}
+
+/// `gpu radix`.
+pub(crate) fn orden_radix(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if !super::files::antes_de_arriesgar(dsk, p, b"gpu radix") {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    paint_status(p, &dsk.run_box, "prestando el GSP-RM a la 3060 por su radix3", INK_DIM);
+    let r = radix();
+    let g = &mut dsk.out.grid;
+    match r {
+        Ok(paginas) => {
+            g.with_ink(INK_GOOD);
+            g.text(b"  GSP-RM PRESTADO: ");
+            g.dec(paginas);
+            g.text(b" paginas, y por la radix3 la 3060 vera la 570.144 ENTERA\n");
+        }
+        Err(m) => {
+            g.with_ink(INK_ERR);
+            g.text(b"  NO: ");
+            g.text(super::iommu::motivo(m));
+            g.byte(b'\n');
+        }
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "radix", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila de L0c2**, si se intento.
+pub(crate) fn fila_radix(s: &mut Output) {
+    let g = bmo::info(bmo::INFO_GPU_GSP);
+    if g & bmo::GSP_VALIDO == 0 {
+        return;
+    }
+    campo(s, b"radix");
+    let (copiados, totales, comprobados) = (g & 0xFF, (g >> bmo::GSP_TOTALES_SHIFT) & 0xFF, (g >> bmo::GSP_COMPROBADOS_SHIFT) & 0xFF);
+    let bien = g & bmo::GSP_PRESTADO != 0 && g & bmo::GSP_CUADRA != 0 && g & bmo::GSP_ES_570 != 0;
+    s.with_ink(if bien { INK_GOOD } else if g & bmo::GSP_PRESTADO != 0 { INK_ERR } else { INK_ECHO });
+    if g & bmo::GSP_PRESTADO == 0 {
+        s.text(b"sin prestar: ");
+        s.dec(copiados);
+        s.text(b" de ");
+        s.dec(totales);
+        s.text(b" trozos copiados");
+    } else {
+        s.text(if bien {
+            b"PRESTADO y la radix3 lleva al GSP-RM de la 570.144 entero" as &[u8]
+        } else if comprobados < totales {
+            b"PRESTADO, sin comprobar entero por la radix3"
+        } else if g & bmo::GSP_CUADRA == 0 {
+            b"PRESTADO, pero lo que se ve por la radix3 NO es lo copiado"
+        } else {
+            b"PRESTADO y cuadra, pero NO es la 570.144"
+        });
+        s.with_ink(INK_ECHO);
+        s.text(b"   ");
+        s.dec((g >> bmo::GSP_PRESTADAS_SHIFT) & 0xFF_FFFF);
+        s.text(b" paginas; ");
+        s.dec(comprobados);
+        s.text(b" de ");
+        s.dec(totales);
+        s.text(b" trozos releidos; blake3 ");
+        let h = bmo::info(bmo::INFO_GPU_GSP_HASH).to_le_bytes();
+        for b in h {
+            s.hex(b as u64, 2);
+        }
+    }
+    let m = (g >> bmo::GSP_MOTIVO_SHIFT) & 0xFF;
+    if m != 0 && !bien {
+        s.with_ink(INK_ERR);
+        s.text(b"; el ultimo NO: ");
+        s.text(super::iommu::motivo(m as u32));
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu gsp radix", g, b"");
 }

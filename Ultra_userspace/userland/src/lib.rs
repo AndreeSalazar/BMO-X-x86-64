@@ -231,6 +231,10 @@ pub const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
 pub const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
 pub const IOMMU_OP_FWSEC_TROZO: u64 = 0x0C;
 pub const IOMMU_OP_FWSEC_CORRER: u64 = 0x0D;
+pub const IOMMU_OP_GSP_PREPARAR: u64 = 0x0E;
+pub const IOMMU_OP_GSP_TROZO: u64 = 0x0F;
+pub const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
+pub const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -256,6 +260,14 @@ pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
 pub const IOMMU_NO_WPR2_YA: u32 = 23;
 pub const IOMMU_NO_GFW: u32 = 24;
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
+pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
+pub const IOMMU_NO_GSP_FORMATO: u32 = 27;
+pub const IOMMU_NO_GSP_MARCOS: u32 = 28;
+pub const IOMMU_NO_GSP_ORDEN: u32 = 29;
+pub const IOMMU_NO_GSP_DISCO: u32 = 30;
+pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
+pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
+pub const IOMMU_NO_GSP_RADIX: u32 = 33;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -964,6 +976,19 @@ pub const FWSEC_MOTIVO_SHIFT: u64 = 48;
 pub const FWSEC_PREPARADO: u64 = 1 << 62;
 pub const FWSEC_VALIDO: u64 = 1 << 63;
 pub const INFO_GPU_FWSEC_BUZON: u64 = 0xBB;
+/// L0c2 (2026-09-24). Ver `bmo_abi::...::informe`.
+pub const INFO_GPU_GSP: u64 = 0xBC;
+pub const GSP_TOTALES_SHIFT: u64 = 8;
+pub const GSP_COMPROBADOS_SHIFT: u64 = 16;
+pub const GSP_MOTIVO_SHIFT: u64 = 24;
+pub const GSP_PRESTADAS_SHIFT: u64 = 32;
+pub const GSP_PREPARADO: u64 = 1 << 56;
+pub const GSP_COPIADO: u64 = 1 << 57;
+pub const GSP_PRESTADO: u64 = 1 << 58;
+pub const GSP_CUADRA: u64 = 1 << 59;
+pub const GSP_ES_570: u64 = 1 << 60;
+pub const GSP_VALIDO: u64 = 1 << 63;
+pub const INFO_GPU_GSP_HASH: u64 = 0xBD;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

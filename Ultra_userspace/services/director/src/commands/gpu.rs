@@ -49,6 +49,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"gsp" {
         return super::gsp::orden(dsk, p);
     }
+    if arg == b"radix" {
+        return super::gsp::orden_radix(dsk, p);
+    }
     let op = match arg {
         b"" => None,
         b"cegar" | b"ciega" => Some((bmo::IOMMU_OP_CEGAR_GPU, b"gpu cegar" as &[u8])),
@@ -61,7 +64,7 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"frontera" => Some((bmo::IOMMU_OP_GPU_FRONTERA, b"gpu frontera" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec` o `gpu gsp`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec`, `gpu gsp` o `gpu radix`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;

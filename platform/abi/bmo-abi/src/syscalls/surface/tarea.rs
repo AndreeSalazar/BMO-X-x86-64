@@ -650,6 +650,17 @@ pub const IOMMU_OP_FWSEC_TROZO: u64 = 0x0C;
 /// L0b: FWSEC -- la orden FRTS, la firma del fusible, el prestamo, IMEM y DMEM
 /// por DMA seguro y STARTCPU. Vuelve al arrancar: si acabo, `INFO_GPU_FWSEC`.
 pub const IOMMU_OP_FWSEC_CORRER: u64 = 0x0D;
+/// L0c2: el GSP-RM -- el kernel abre `fw/gsp/gsp.bin` y `bootldr.bin` por su
+/// cuenta, encuentra `.fwimage` y la firma ga10x y pide marcos. `Ok` lleva
+/// cuantos trozos de 512 KiB hay que copiar.
+pub const IOMMU_OP_GSP_PREPARAR: u64 = 0x0E;
+/// L0c2: copiar el trozo `arg1` del `.fwimage` a sus marcos, EN ORDEN.
+pub const IOMMU_OP_GSP_TROZO: u64 = 0x0F;
+/// L0c2: la radix3, la `GspFwWprMeta` y el prestamo. `Ok` = paginas prestadas.
+pub const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
+/// L0c2: leer el trozo `arg1` POR LA RADIX3 y la IOMMU, EN ORDEN; al ultimo,
+/// `INFO_GPU_GSP` dice si el BLAKE3 cuadra con lo copiado y con la 570.144.
+pub const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -696,6 +707,22 @@ pub const IOMMU_NO_WPR2_YA: u32 = 23;
 pub const IOMMU_NO_GFW: u32 = 24;
 /// L0b: el falcon no dejo resetearse o cargar por DMA.
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
+/// L0c2: no esta `fw/gsp/gsp.bin` o `fw/gsp/bootldr.bin`.
+pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
+/// L0c2: estan, pero no son un GSP-RM (ELF, `.fwimage`, firma ga10x) o un bootloader.
+pub const IOMMU_NO_GSP_FORMATO: u32 = 27;
+/// L0c2: no hubo marcos para la imagen, la radix3 o lo auxiliar.
+pub const IOMMU_NO_GSP_MARCOS: u32 = 28;
+/// L0c2: fuera de orden (sin preparar, un trozo saltado, prestar sin copiar).
+pub const IOMMU_NO_GSP_ORDEN: u32 = 29;
+/// L0c2: el disco devolvio menos de lo pedido.
+pub const IOMMU_NO_GSP_DISCO: u32 = 30;
+/// L0c2: ya prestado: no se escribe encima de lo que la 3060 puede leer.
+pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
+/// L0c2: la VRAM no se deja repartir.
+pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
+/// L0c2: la radix3 no lleva, por la IOMMU, a donde tiene que llevar.
+pub const IOMMU_NO_GSP_RADIX: u32 = 33;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

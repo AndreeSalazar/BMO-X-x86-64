@@ -826,6 +826,19 @@ pub fn prestar_gpu(iova: u64, fisica: u64, paginas: u64, escribe: bool) -> Resul
     Ok(us)
 }
 
+/// **Que ve la 3060 en `iova`**, recorriendo sus tablas por el mismo camino
+/// que la IOMMU (el ORACULO de `prestar_gpu`). `Some((fisica, escribe))` si
+/// esta prestada; `None` si ahi le saldria un fallo de pagina. Lo usa L0c2
+/// para recorrer la radix3 como la recorrera el GSP.
+pub fn ve_la_gpu(iova: u64) -> Option<(u64, bool)> {
+    let r = RAIZ_GPU.load(Ordering::Acquire);
+    if r == 0 {
+        return None;
+    }
+    let d = amdvi::paginas::Dominio { raiz: r };
+    d.traducir(&Area, iova).filter(|v| v.lee).map(|v| (v.fisica, v.escribe))
+}
+
 /// `INFO_IOMMU_DOMINIO`: `0..15` tablas usadas | `16..31` el area |
 /// `32..55` paginas prestadas | 63 dominio armado.
 pub fn info_dominio() -> u64 {

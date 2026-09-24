@@ -407,8 +407,9 @@ MEDIDO, no el dicho.
         nova-core (heap, elf, boot, wpr2). `gpu gsp` y el paso `gsp` de
         `save mode`                             [VISTO en metal, 24-09 06:02]
    L0c2 PRESTAR: el GSP-RM (15.513 paginas) y su radix3, el bootloader, la
-        firma y la WPR meta, por la IOMMU -- la zona de la 3060 pasa de 128
-        paginas a ~16.000, y se comprueba traduciendo, sin arrancar nada
+        firma y la WPR meta, por la IOMMU; y RELEERLO entero por la radix3,
+        como lo recorrera el GSP, con su BLAKE3. Sin arrancar nada. `gpu
+        radix` y el paso `radix` de `save mode`  [en codigo, 24-09]
    L0c3 el booter en el SEC2: MAILBOX0/1 = la WPR meta, y el RISC-V del GSP
         despierta (`is_riscv_active`)
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
@@ -464,6 +465,31 @@ radix3; firma ga10x 4096 B (leidos 1315 B de el)`, `mapa wpr2
 el reparto cuadra`. Los diez pasos de `save mode` verificados; el dominio sigue
 en 33 paginas y el unico evento es el de la frontera (M0d3). Lo que dijo el
 metal es lo que dijeron los ficheros en el anfitrion, byte a byte.
+
+**L0c2 (24-09, en codigo).** `dev/gpu_gsp.rs` (fila GPU nueva del censo del
+NEUTRO, x3), cuatro ordenes como FWSEC:
+
+```text
+   PREPARAR     el kernel abre fw/gsp/ POR SU CUENTA: el bootloader por una
+                ventana de 32 KiB, el ELF con `bmo_gpu_ga10x::elf` por la misma
+                ventana (dos vueltas del cursor de FAT32, no una por seccion);
+                pide 31 bloques de 2 MiB, 48 paginas de radix3 y 16 auxiliares
+   TROZO(k)     512 KiB del .fwimage del disco a sus marcos, en orden, y su
+                BLAKE3; 122 trozos, un syscall cada uno
+   PRESTAR      la radix3 (`wpr::Radix3::palabra`), la WPR meta y el prestamo:
+                0x3E000000 bootloader + firma + meta (la unica escribible),
+                0x3F000000 la radix3, 0x40000000 el .fwimage; 0x20000000 sigue
+                sin prestar (la frontera)
+   COMPROBAR(k) cada pagina, nivel 0 -> 1 -> 2 -> imagen, CADA SALTO por la
+                IOMMU (`iommu::ve_la_gpu`, el oraculo), y solo si la 3060 NO
+                puede escribirla; y su BLAKE3
+```
+
+**Como se sabe:** tres BLAKE3 iguales -- lo copiado, lo visto por la radix3 y
+el del `.fwimage` de la 570.144 calculado en el anfitrion con el mismo
+`bmo-hash` (`e7856ee2b387917b...`). La fila `radix` dice `PRESTADO y la radix3
+lleva al GSP-RM de la 570.144 entero`, y `iommu` ~15.600 paginas sin eventos
+nuevos.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

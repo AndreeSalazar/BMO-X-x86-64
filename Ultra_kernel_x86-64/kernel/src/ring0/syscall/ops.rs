@@ -318,6 +318,14 @@ pub(crate) const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
 pub(crate) const IOMMU_OP_FWSEC_TROZO: u64 = 0x0C;
 /// L0b: FWSEC -- parchear, firmar, prestar, cargar y arrancar.
 pub(crate) const IOMMU_OP_FWSEC_CORRER: u64 = 0x0D;
+/// L0c2: el GSP-RM -- el kernel abre fw/gsp/ y pide marcos. Ver `dev/gpu_gsp.rs`.
+pub(crate) const IOMMU_OP_GSP_PREPARAR: u64 = 0x0E;
+/// L0c2: copiar el trozo `arg1` de 512 KiB del .fwimage a sus marcos.
+pub(crate) const IOMMU_OP_GSP_TROZO: u64 = 0x0F;
+/// L0c2: la radix3, la WPR meta y el prestamo a la 3060.
+pub(crate) const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
+/// L0c2: leer el trozo `arg1` POR LA RADIX3 y la IOMMU, y su BLAKE3.
+pub(crate) const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
