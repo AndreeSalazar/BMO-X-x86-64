@@ -194,6 +194,17 @@ impl Archivo {
         }
     }
 
+    /// **Abre SIN traerselo**: el kernel lo refleja por una ventana de 64 KiB y
+    /// [`Archivo::saltar`] + [`Archivo::read`] leen de cualquier sitio. Es la
+    /// apertura de siempre sin el camino asincrono delante, que se trae el
+    /// fichero ENTERO a RAM contigua.
+    ///
+    /// La pidio el GSP-RM (L0c1, 2026-09-24): son 63 MB y de ellos hacen falta
+    /// la cabecera del ELF y su tabla de secciones, unos pocos KiB.
+    pub fn reflejar(ruta: &[u8]) -> Result<Self, u32> {
+        Self::con_ruta(ruta, OP_ARCHIVO_ABRIR, false)
+    }
+
     /// Abre SIN esperar. Para quien quiera hacer algo entre trozo y trozo --
     /// pintar un fotograma, por ejemplo-- en vez de dormirse hasta el final.
     pub fn leer_de_asinc(ruta: &[u8]) -> Result<Self, u32> {

@@ -204,6 +204,14 @@ const PASOS: &[Paso] = &[
         pide: Some(b"vbios"),
         consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
     },
+    Paso {
+        nombre: b"gsp",
+        que: b"leer el firmware del GSP de fw/gsp/, la firma del booter para el fusible del SEC2 y el reparto de la VRAM; solo lectura (L0c1)",
+        hecho: super::gsp::hecho,
+        dar: super::gsp::leer,
+        pide: None,
+        consejo: b"`gpu`: filas `booter`, `fusible`, `bootldr`, `gsp-rm`, `mapa` y `cuadra` -- lo siguiente es L0c2, prestar el GSP-RM por la radix3",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -567,7 +575,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c: el booter en el SEC2 y el GSP-RM (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c2: prestar el GSP-RM a la 3060 por la radix3 (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

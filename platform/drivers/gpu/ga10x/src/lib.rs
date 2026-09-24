@@ -44,6 +44,12 @@ pub mod falcon;
 pub mod vbios;
 /// L0b: FWSEC-FRTS preparado -- la orden y la firma, sobre bytes (2026-09-24).
 pub mod fwsec;
+/// L0c1: el booter y el bootloader RISC-V, leidos sobre bytes (2026-09-24).
+pub mod booter;
+/// L0c1: las secciones del GSP-RM, sin traerse sus 63 MB (2026-09-24).
+pub mod elf;
+/// L0c1: el reparto de la VRAM y la `GspFwWprMeta` (2026-09-24).
+pub mod wpr;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

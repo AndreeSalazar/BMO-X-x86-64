@@ -10,14 +10,18 @@
 #     boot_ld.bin   booter_load    corre en el SEC2, sube el GSP-RM a la WPR2
 #     boot_ul.bin   booter_unload  el camino de vuelta, al apagar
 #     bootldr.bin   bootloader     el primer codigo RISC-V del GSP
-#     gsp.bin       gsp            el GSP-RM: ELF RISC-V de 38 MB, con la
+#     gsp.bin       gsp            el GSP-RM: ELF RISC-V de 63 MB, con la
 #                                  firma `.fwsignature_ga10x` que pide la 3060
 #
-# ** De donde: linux-firmware, version 535.113.01 -- la misma que pide
-# nova-core (`FIRMWARE_VERSION`). La GA106 no tiene carpeta propia: el WHENCE
-# dice `nvidia/ga106/gsp -> ../ga102/gsp`, asi que se bajan los de GA102.
+# ** De donde: linux-firmware, version 570.144 -- la que nova-core ARRANCA
+# (sus mensajes con el GSP son `gsp/fw/r570_144`). Se empezo con la 535.113.01
+# (la `FIRMWARE_VERSION` de Linux 6.17), pero esa solo servia hasta FWSEC: la
+# WPR meta, el heap y las colas cambian con la version, y la unica que tiene
+# un camino publicado entero es la 570.144 (cambiado el 24-09, en L0c1).
+# La GA106 no tiene carpeta propia: el WHENCE dice
+# `nvidia/ga106/gsp -> ../ga102/gsp`, asi que se bajan los de GA102.
 #
-# ** Por que no van en el repo: el GSP-RM son 38 MB (el `.git` entero mide 24)
+# ** Por que no van en el repo: el GSP-RM son 63 MB (el `.git` entero mide 24)
 # y la licencia es de NVIDIA (LICENSES/LICENCE.nvidia de linux-firmware), no
 # la de BMO-X. Viven FUERA, en `BMO-externo\firmware\`, como DOOM: se bajan
 # UNA vez y el build los reutiliza.
@@ -49,16 +53,16 @@ if (-not $root) { $root = Split-Path -Parent $PSScriptRoot }
 if (-not $dataBase) { $dataBase = Join-Path $root 'staging\BMO-DATA' }
 
 Step 'Staging firmware del GSP (L0c, 3060)...'
-$fwVersion = '535.113.01'
+$fwVersion = '570.144'
 $fwOrigen  = 'https://gitlab.com/kernel-firmware/linux-firmware/-/raw/main/nvidia/ga102/gsp/'
 $fwCache   = Join-Path (Split-Path -Parent (Split-Path -Parent $root)) 'BMO-externo\firmware\nvidia\ga102\gsp'
 $fwDestino = Join-Path $dataBase 'fw\gsp'
 # nombre en linux-firmware, nombre 8.3 en BMO-DATA, SHA-256
 $fwLista = @(
-    @('booter_load',   'boot_ld.bin', '3ab46bf4c70d72e8fc89d98e6bdc9b83a61954a586629d26b8b5653a620237e0'),
-    @('booter_unload', 'boot_ul.bin', '09240c83595856a0fe70d2ab3ec7325455cd8adfc48ec7b47f6fced1e5431beb'),
-    @('bootloader',    'bootldr.bin', '076d2a0675131ad8a8de215c611ce4271289adcc03e2cf39995f9b29079e2136'),
-    @('gsp',           'gsp.bin',     'e30231ec0d317021770e16c81ae2c0553f728d0344248827582f78132c9447d4')
+    @('booter_load',   'boot_ld.bin', '4497e3eff7e95c774b8a569d17b27c08c9650158d10b229d2be81cdcad9a085b'),
+    @('booter_unload', 'boot_ul.bin', '8e63db5b78d7d3e349f20a2d11099c3d7109081393cb09ffc0a28133324ae009'),
+    @('bootloader',    'bootldr.bin', '82428f532240727e95bb3083fbaaba9b2cc7b937314323f2d546ce7245f27fad'),
+    @('gsp',           'gsp.bin',     'a8c3ebeed280323aedb51c061f321e73379cce7a9ae643a33dd03915df027f7f')
 )
 New-Item -ItemType Directory -Path $fwCache -Force | Out-Null
 New-Item -ItemType Directory -Path $fwDestino -Force | Out-Null
@@ -73,7 +77,7 @@ foreach ($fw in $fwLista) {
     if (-not (Test-Path $local)) {
         Write-Host ('    [fw] bajando ' + $nombre + ' de linux-firmware...') -ForegroundColor DarkGray
         # PowerShell 5.1 no ofrece TLS 1.2 si no se le pide, y sin barra de
-        # progreso los 38 MB bajan en segundos en vez de minutos.
+        # progreso los 63 MB bajan en segundos en vez de minutos.
         $progresoPrevio = $ProgressPreference
         try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12

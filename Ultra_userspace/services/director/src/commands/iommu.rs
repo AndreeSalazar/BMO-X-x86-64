@@ -111,6 +111,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::vbios::NO_SIN_VBIOS => b"la VBIOS no se leyo o no trae FWSEC: `gpu vbios`",
         super::vbios::NO_FWSEC_NO_PARA => b"FWSEC ARRANCO y no se paro en 3 s: mira la fila `frts`",
         super::vbios::NO_FWSEC_MAL => b"FWSEC se paro pero no dejo la WPR2: MAILBOX0 o el codigo FRTS en la fila `frts`",
+        super::gsp::NO_GSP_INCOMPLETO => b"el firmware del GSP no esta entero o no cuadra: mira las filas `booter` a `cuadra` de `gpu`",
         super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }

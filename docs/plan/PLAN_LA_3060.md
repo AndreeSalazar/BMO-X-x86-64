@@ -398,11 +398,20 @@ MEDIDO, no el dicho.
         del fusible puesta, IMEM y DMEM por DMA, BROM, arrancar, y MAILBOX0
         a 0. Como se sabe: la fila `wpr2` dice YA montada
                                                 [VISTO en metal, 24-09 05:19]
-   L0c0 el FIRMWARE en el disco: los cuatro de linux-firmware 535.113.01
+   L0c0 el FIRMWARE en el disco: los cuatro de linux-firmware 570.144
         (la GA106 usa los de GA102) los baja el build UNA vez, por SHA-256,
         a BMO-externo\firmware\ y los deja en fw\gsp\ del volumen de
         datos                                   [en el build, 24-09]
-   L0c  el booter en el SEC2 y el GSP-RM (38 MB), por el mismo camino
+   L0c1 PREGUNTAR (solo lectura): los cuatro leidos y entendidos, la firma
+        del booter para el fusible del SEC2, y la VRAM repartida como
+        nova-core (heap, elf, boot, wpr2). `gpu gsp` y el paso `gsp` de
+        `save mode`                             [en codigo, 24-09]
+   L0c2 PRESTAR: el GSP-RM (15.513 paginas) y su radix3, el bootloader, la
+        firma y la WPR meta, por la IOMMU -- la zona de la 3060 pasa de 128
+        paginas a ~16.000, y se comprueba traduciendo, sin arrancar nada
+   L0c3 el booter en el SEC2: MAILBOX0/1 = la WPR meta, y el RISC-V del GSP
+        despierta (`is_riscv_active`)
+   L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
 **L0c0 (24-09).** La VBIOS traia FWSEC; el resto no. `build\firmware.ps1` baja de
@@ -410,16 +419,40 @@ linux-firmware (`nvidia/ga102/gsp/`, que es a donde apunta `nvidia/ga106/gsp`
 en su WHENCE) y comprueba contra el SHA-256 escrito en el guion:
 
 ```text
-   fw\gsp\boot_ld.bin   booter_load     59768 B   cabecera 0x10DE, datos 0xE600 B
-   fw\gsp\boot_ul.bin   booter_unload   39544 B   cabecera 0x10DE, datos 0x9700 B
-   fw\gsp\bootldr.bin   bootloader      20588 B   cabecera 0x10DE, datos 0x5000 B
-   fw\gsp\gsp.bin       gsp          38061600 B   ELF RISC-V: .fwimage 0x2448000 B
+   fw\gsp\boot_ld.bin   booter_load     61304 B   SEC2 ucode 3, 2 firmas de 384 B
+   fw\gsp\boot_ul.bin   booter_unload   41080 B   el camino de vuelta
+   fw\gsp\bootldr.bin   bootloader      24684 B   RISC-V v5, ucode 0x6000 B
+   fw\gsp\gsp.bin       gsp          63571696 B   ELF RISC-V: .fwimage 0x3C99000 B
                                                   y .fwsignature_ga10x (4 KiB)
 ```
 
-No van al repo: son 38 MB (mas que el `.git` entero) y su licencia es la de
-NVIDIA. Sin red el build sigue y dice donde dejarlos a mano. [!] `gsp.bin` no
-cabe en el bufer de 4 MiB de `lanzar.rs`: L0c lo lee A TROZOS, como la ROM.
+** **Por que la 570.144 y no la 535.113.01** (cambiado el mismo 24-09): la 535
+era la `FIRMWARE_VERSION` de Linux 6.17, que solo llegaba hasta FWSEC. La WPR
+meta, el heap del GSP y las colas de mensajes CAMBIAN con la version, y el
+unico camino publicado entero --nova-core de Linux 7.3, `gsp/fw/r570_144`-- es
+el de la 570.144. Seguir otro seria inventar la mitad.
+
+No van al repo: son 63 MB (mas que el `.git` entero) y su licencia es la de
+NVIDIA. Sin red el build sigue y dice donde dejarlos a mano.
+
+**L0c1 (24-09, en codigo).** Tres modulos puros nuevos en `bmo_gpu_ga10x`, 16
+pruebas, y las de los ficheros de verdad si `BMO_FW_GSP` apunta a ellos:
+
+- `booter.rs`: `BinHdr` + `HsHeaderV2` + `HsLoadHeaderV2` (el booter) y
+  `RmRiscvUCodeDesc` (el bootloader). [!] La firma del booter se elige
+  RESTANDO (`fuse_ver` - version del fusible; fusible a 0 = la ultima), no
+  contando bits como la de FWSEC.
+- `elf.rs`: las secciones del GSP-RM por una `Fuente`, sin traerse el fichero:
+  contra el de verdad lee menos de 8 KiB de los 63 MB.
+- `wpr.rs`: el reparto de `FbRanges` y los 256 bytes de `GspFwWprMeta` (r570).
+  Para esta 3060: heap 128 MiB en `0x2F4100000`, elf en `0x2FC160000`, boot en
+  `0x2FFDFA000`, wpr2 `0x2F4000000..0x2FFF00000`; y 15.546 paginas de radix3.
+
+El escritorio lee los tres chicos enteros y el GSP-RM con `Archivo::reflejar`
+(la ventana de 64 KiB, sin el camino asincrono que se trae el fichero ENTERO).
+El fusible del SEC2 (`0x824148`) ya se podia leer desde L0a. No cambia el
+kernel. **Como se sabe:** `gpu gsp` dice cuantas paginas habra que prestar y
+la fila `cuadra` dice que el frts del reparto es donde FWSEC monto la WPR2.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
