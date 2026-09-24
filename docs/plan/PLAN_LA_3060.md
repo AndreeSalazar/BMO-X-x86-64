@@ -126,7 +126,7 @@ pasos, cada uno visto en el metal antes del siguiente:
         la dejo el firmware encendida? que sabe (EFR)?      [en codigo]
    M0b  las tablas en RAM, armadas y probadas en el anfitrion: tabla de
         dispositivos, cola de ordenes, registro de eventos. Sin encender
-                                                            [en codigo]
+                                              [VISTO en metal, 24-09 01:45]
    M0c  ENCENDER sin traducir: toda entrada valida y de paso (TV=0). No
         cambia nada para los aparatos; prueba que la cola de ordenes da
         la vuelta (COMPLETION_WAIT) y que el registro de eventos queda a 0
@@ -148,8 +148,14 @@ heredar), IVHD 0x11 en `0xFD500000` con BDF `00:00.2`, 6 niveles de pagina,
 NX, GT, PPR, INVALIDAR-TODO y SIN GA (el remapeo ira con el formato de 32
 bits); todo el bus (tabla de 2 MiB); IOAPIC `0x0D` en `00:14.0` (banderas
 `0xD7`), IOAPIC `0x0E` en `00:00.1`, HPET en `00:14.0`; ningun IVMD.
-[!] Una nota vieja (07-09) decia `0x10 en 0xFEB80000`: `placa` imprime el
-PRIMER bloque, y si los dos no coinciden el firmware se contradice.
+Una nota vieja (07-09) decia `0x10 en 0xFEB80000`; `placa` del 24-09 dice
+`0xFD500000` igual que `iommu`: los dos bloques coinciden y la nota era de
+otro firmware. Y `placa` desde el escritorio tumbaba el kernel (`c16756afe`).
+
+**M0b en el metal (24-09, 01:45):** `ours  tabla de 2048 KiB en 0x02829000,
+todo DE PASO; 1 con banderas del IVHD; colas de 512 en 0x02A29000  releida
+igual, SIN ENTREGAR`. La entrada con banderas es la del IOAPIC `0x0D`
+(`00:14.0`, `0xD7`).
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,

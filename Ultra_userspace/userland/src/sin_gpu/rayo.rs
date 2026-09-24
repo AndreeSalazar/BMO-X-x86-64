@@ -60,6 +60,10 @@ pub struct CuentasRayo {
     /// Cajas cuya copia dura mas que lo que el rayo tarda en volver a ellas
     /// incluso esperando: esas se pueden partir, y solo el flip las arregla.
     pub no_caben: u64,
+    /// Cajas cuya espera se PERDIO (se desperto tarde y el rayo ya volvia a
+    /// estar encima) y que se copiaron igual, en vez de esperar otro cuadro
+    /// entero. Pueden haber salido partidas.
+    pub rendidas: u64,
     /// Lo que cuesta copiar UN pixel, medido, en picosegundos (una fila de
     /// 1920 son `ps_px * 1920 / 1000` ns).
     pub ps_px: u32,
@@ -90,6 +94,7 @@ impl Rayo {
                 esperado_ns: 0,
                 peor_ns: 0,
                 no_caben: 0,
+                rendidas: 0,
                 ps_px: 0,
                 activo: false,
             }),
@@ -133,13 +138,26 @@ impl Rayo {
         // ** Y tras esperar, se VUELVE A PREGUNTAR (2026-09-23): lo que se
         // espera de mas de 1 ms se duerme por el latido, y un latido que llega
         // tarde deja al rayo en otro sitio. Copiar con la respuesta vieja seria
-        // copiar a ciegas. Tres vueltas como mucho: si el rayo sigue sin dejar
-        // sitio, se copia y se acepta.
+        // copiar a ciegas.
+        //
+        // ** Pero una espera PERDIDA no se paga con otro cuadro (2026-09-24).
+        // El Ryzen dio `la peor 42945 us`: dos cuadros y medio para UNA caja.
+        // La pantalla entera solo tiene 666 us de VBLANK para empezar, y si el
+        // que copia despierta tarde -- el hilo del bus USB puede tener el CPU
+        // hasta 3 ms por vuelta -- el rayo ya esta otra vez encima, y esperar
+        // de nuevo era otro cuadro, y otro. Ahora: si lo que falta tras la
+        // primera espera es menos de un milisegundo, se gira; si no, se copia
+        // YA y se cuenta como RENDIDA. Un cuadro partido de vez en cuando se ve
+        // y se cuenta; 43 ms de retraso en cada caja, no se ve y se sufre.
         let mut esperado = 0u64;
         let mut vueltas = 0;
         loop {
             let ns = r & GPU_ESPERA_NS_MASK;
-            if ns == 0 || r & GPU_ESPERA_VALIDA == 0 || vueltas == 3 {
+            if ns == 0 || r & GPU_ESPERA_VALIDA == 0 {
+                break;
+            }
+            if vueltas > 0 && ns > GIRAR_MAX_NS {
+                c.rendidas += 1;
                 break;
             }
             self.esperar(ns);

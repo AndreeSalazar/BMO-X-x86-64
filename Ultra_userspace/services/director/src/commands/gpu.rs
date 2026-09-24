@@ -194,6 +194,12 @@ fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo, px: u64) {
     s.text(b" us en total, la peor ");
     s.dec(r.peor_ns / 1000);
     s.text(b" us)");
+    if r.rendidas > 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"   ");
+        s.dec(r.rendidas);
+        s.text(b" RENDIDAS (desperto tarde: copiada sin esperar otro cuadro)");
+    }
     if r.no_caben > 0 {
         s.with_ink(INK_ERR);
         s.text(b"   ");
@@ -214,6 +220,7 @@ fn fila_rayo(s: &mut Output, r: &bmo::CuentasRayo, px: u64) {
     s.byte(b'\n');
     super::datos::anotar(b"gpu rayo esperas", r.esperas, b"");
     super::datos::anotar(b"gpu rayo no caben", r.no_caben, b"");
+    super::datos::anotar(b"gpu rayo rendidas", r.rendidas, b"");
     super::datos::anotar(b"gpu copia pixel", r.ps_px as u64, b"ps");
 }
 
