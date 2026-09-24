@@ -17,6 +17,7 @@ use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_gpu_ga10x::blur;
 use bmo_gpu_ga10x::fractal;
 use bmo_gpu_ga10x::lienzo;
+use bmo_gpu_ga10x::triangulo;
 use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
 
@@ -54,6 +55,8 @@ struct Computo {
     blur_de_pantalla: bool,
     /// F: el fractal.
     fractal: Option<Result<u64, u32>>,
+    /// T0: el triangulo por computo.
+    triangulo: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -84,6 +87,8 @@ pub(crate) const NO_BLUR_MAL: u32 = 0x13C;
 pub(crate) const NO_BLUR_SUBIR: u32 = 0x13D;
 /// El fractal se lanzo pero no salio igual que la CPU (la fila `fractal`).
 pub(crate) const NO_FRACTAL_MAL: u32 = 0x13E;
+/// El triangulo se lanzo pero no salio igual que la CPU (la fila `triangulo`).
+pub(crate) const NO_TRIANGULO_MAL: u32 = 0x13F;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -366,6 +371,32 @@ pub(crate) fn fractal_hecho() -> bool {
     matches!(estado().fractal, Some(Ok(v)) if fractal::sano(v))
 }
 
+/// **T0: el triangulo** por computo, cronometrado contra la CPU.
+pub(crate) fn dibujar_triangulo() -> Result<u64, u32> {
+    let r = hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_TRIANGULO, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    });
+    con(|c| c.triangulo = Some(r));
+    match r {
+        Ok(v) if triangulo::sano(v) => Ok(v),
+        Ok(_) => Err(NO_TRIANGULO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn triangulo_hecho() -> bool {
+    matches!(estado().triangulo, Some(Ok(v)) if triangulo::sano(v))
+}
+
+/// Que muestra el panel.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Vista {
+    Fractal,
+    Triangulo,
+}
+
 /// Una linea de texto sin reservar memoria.
 struct Linea {
     b: [u8; 96],
@@ -419,7 +450,7 @@ pub(crate) fn cerrar_panel(dsk: &mut Desktop, p: &bmo::Pantalla) {
 
 /// **El panel de la 3060, a pantalla completa**: el fractal al doble a la
 /// derecha, y a la izquierda lo que dijo.
-fn panel(p: &bmo::Pantalla, v: u64) -> bool {
+fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     const FONDO: u32 = 0x000B_0D12;
     const VERDE: u32 = 0x0076_B900;
     const CLARO: u32 = 0x00E6_EDF6;
@@ -448,12 +479,20 @@ fn panel(p: &bmo::Pantalla, v: u64) -> bool {
     let mut y = 60;
     p.texto_escala(40, y, "BMO-X  |  RTX 3060", VERDE, 3);
     y += 60;
-    p.texto_escala(40, y, "EL FRACTAL, CALCULADO POR TU 3060", CLARO, 2);
-    y += 60;
     let fila = |y: u32, l: &mut Linea, c: u32| {
         p.texto_bytes(40, y, &l.b[..l.n], c);
     };
-    fila(y, Linea::nueva().t(b"Mandelbrot 512 x 512, hasta ").d(fractal::VUELTAS as u64).t(b" vueltas por pixel"), CLARO);
+    if que == Vista::Triangulo {
+        p.texto_escala(40, y, "EL PRIMER TRIANGULO DE TU 3060", CLARO, 2);
+        y += 60;
+        fila(y, Linea::nueva().t(b"las tres funciones de arista, en cada pixel de 512 x 512"), CLARO);
+        y += 28;
+        fila(y, Linea::nueva().t(b"el color: los tres vertices mezclados por su peso"), CLARO);
+    } else {
+        p.texto_escala(40, y, "EL FRACTAL, CALCULADO POR TU 3060", CLARO, 2);
+        y += 60;
+        fila(y, Linea::nueva().t(b"Mandelbrot 512 x 512, hasta ").d(fractal::VUELTAS as u64).t(b" vueltas por pixel"), CLARO);
+    }
     y += 28;
     fila(y, Linea::nueva().d(fractal::PIXELES as u64).t(b" hilos a la vez: 512 bloques de 512"), CLARO);
     y += 48;
@@ -474,7 +513,11 @@ fn panel(p: &bmo::Pantalla, v: u64) -> bool {
     }
     fila(y, Linea::nueva().d(buenos as u64).t(b" de 262144 pixeles iguales a la CPU, bit a bit"), if buenos as usize == fractal::PIXELES { VERDE } else { 0x00FF_5555 });
     y += 28;
-    fila(y, Linea::nueva().t(b"aritmetica entera Q4.28: sin redondeos distintos"), TENUE);
+    fila(
+        y,
+        Linea::nueva().t(if que == Vista::Triangulo { b"aritmetica entera: las aristas suman siempre el area" as &[u8] } else { b"aritmetica entera Q4.28: sin redondeos distintos" }),
+        TENUE,
+    );
     y += 28;
     fila(y, Linea::nueva().t(b"1 MiB de tu RAM, prestado a la 3060 por la IOMMU"), TENUE);
     fila(p.alto.saturating_sub(48), Linea::nueva().t(b"pulsa cualquier tecla para volver al escritorio"), TENUE);
@@ -486,7 +529,7 @@ fn panel(p: &bmo::Pantalla, v: u64) -> bool {
 pub(crate) fn orden_fractal(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "la 3060 calcula el fractal (y la CPU, lo mismo)", INK_DIM);
     let r = calcular_fractal();
-    let visto = matches!(r, Ok(v) if panel(p, v));
+    let visto = matches!(r, Ok(v) if panel(p, v, Vista::Fractal));
     // SAFETY: como `panel_abierto`.
     unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
     let g = &mut dsk.out.grid;
@@ -496,6 +539,27 @@ pub(crate) fn orden_fractal(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     } else {
         g.with_ink(INK_ERR);
         g.text(b"  el fractal no salio: mira la fila `fractal`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// `gpu triangulo`: lo que falte, el triangulo, y el panel a pantalla completa.
+pub(crate) fn orden_triangulo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 dibuja su primer triangulo", INK_DIM);
+    let r = dibujar_triangulo();
+    let visto = matches!(r, Ok(v) if panel(p, v, Vista::Triangulo));
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL PRIMER TRIANGULO DE TU 3060, A PANTALLA COMPLETA (M5d T0): mira la fila `triangulo`\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el triangulo no salio: mira la fila `triangulo`\n");
     }
     g.with_ink(INK_PLAIN);
     fila(&mut dsk.out.grid);
@@ -791,6 +855,33 @@ pub(crate) fn fila(s: &mut Output) {
                     s.byte(b')');
                 }
                 s.text(b"; semaforos ");
+                s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.triangulo {
+        campo(s, b"triangulo");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, qmd, fin, lanzado, gpu_us, cpu_us) = triangulo::desempaquetar(v);
+                if triangulo::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"EL PRIMER TRIANGULO DE LA 3060 (512x512): ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el triangulo NO salio igual que la CPU: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 262144 pixeles iguales a la CPU");
+                s.with_ink(INK_ECHO);
+                s.text(b"; la 3060 en ");
+                s.dec(gpu_us as u64);
+                s.text(b" us, la CPU en ");
+                s.dec(cpu_us as u64);
+                s.text(b" us; semaforos ");
                 s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');

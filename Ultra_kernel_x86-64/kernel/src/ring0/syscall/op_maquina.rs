@@ -892,6 +892,13 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_trabajo::fractal(arg1)
         }
+        // ** M5d T0: el mismo MiB que el fractal. El FLUSH, igual.
+        IOMMU_OP_GPU_TRIANGULO => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del triangulo no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::triangulo(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);

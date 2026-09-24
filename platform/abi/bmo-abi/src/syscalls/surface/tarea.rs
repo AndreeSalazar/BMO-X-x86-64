@@ -809,6 +809,11 @@ pub const IOMMU_OP_GPU_BLUR: u64 = 0x32;
 /// `Ok` = `fractal::empaquetar(..)`: pixeles iguales a la CPU, y lo que
 /// tardaron la 3060 y la CPU. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
 pub const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
+/// M5d T0: el triangulo por computo, `arg1` = la ficha de S3: las tres
+/// funciones de arista en 512 x 512 hilos, en el MISMO MiB que el fractal.
+/// `Ok` = `triangulo::empaquetar(..)` (el formato del fractal). Se lee con
+/// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
+pub const IOMMU_OP_GPU_TRIANGULO: u64 = 0x34;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

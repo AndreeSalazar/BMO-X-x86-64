@@ -440,31 +440,40 @@ pub fn fractal(ficha: u64) -> Result<u64, u32> {
     r
 }
 
+/// **El MiB grande** (el del fractal y el triangulo): prestado y mapeado UNA
+/// vez por arranque.
+fn asegurar_mib(r: &mut crate::ring0::dev::gpu_prestamo::Bar0) -> Result<(), u32> {
+    use bmo_gpu_ga10x::fractal as fr;
+    if FRACTAL_PRESTADO.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    let Some(f) = grupo(&FRACTAL_F, fr::PAGINAS) else {
+        crate::ring0::cabina::warn("gpu", "M5d F: no hubo 256 marcos seguidos para el fractal", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    memoria(f, fr::PAGINAS * PAGINA).fill(0);
+    if io::prestar_gpu(fr::IOVA, f, fr::PAGINAS, true).is_err()
+        || !(0..fr::PAGINAS).all(|k| escribible(fr::IOVA + k * PAGINA, f + k * PAGINA))
+    {
+        crate::ring0::cabina::warn("gpu", "M5d F: el fractal no se ve por la IOMMU donde se presto; iova", fr::IOVA);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    match fr::mapear(r) {
+        Some((n, bien)) if n == bien => {}
+        _ => {
+            crate::ring0::cabina::warn("gpu", "M5d F: las PTE del fractal no estaban vacias o no se releyeron", 0);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        }
+    }
+    FRACTAL_PRESTADO.store(true, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "M5d F: 1 MiB PRESTADO a la 3060 para el fractal y mapeado; iova", fr::IOVA);
+    Ok(())
+}
+
 fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     use bmo_gpu_ga10x::fractal as fr;
     let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
-    if !FRACTAL_PRESTADO.load(Ordering::Acquire) {
-        let Some(f) = grupo(&FRACTAL_F, fr::PAGINAS) else {
-            crate::ring0::cabina::warn("gpu", "M5d F: no hubo 256 marcos seguidos para el fractal", 0);
-            return Err(IOMMU_NO_BLUR_PREPARAR);
-        };
-        memoria(f, fr::PAGINAS * PAGINA).fill(0);
-        if io::prestar_gpu(fr::IOVA, f, fr::PAGINAS, true).is_err()
-            || !(0..fr::PAGINAS).all(|k| escribible(fr::IOVA + k * PAGINA, f + k * PAGINA))
-        {
-            crate::ring0::cabina::warn("gpu", "M5d F: el fractal no se ve por la IOMMU donde se presto; iova", fr::IOVA);
-            return Err(IOMMU_NO_BLUR_PREPARAR);
-        }
-        match fr::mapear(&mut r) {
-            Some((n, bien)) if n == bien => {}
-            _ => {
-                crate::ring0::cabina::warn("gpu", "M5d F: las PTE del fractal no estaban vacias o no se releyeron", 0);
-                return Err(IOMMU_NO_BLUR_PREPARAR);
-            }
-        }
-        FRACTAL_PRESTADO.store(true, Ordering::Release);
-        crate::ring0::cabina::count("gpu", "M5d F: 1 MiB PRESTADO a la 3060 para el fractal y mapeado; iova", fr::IOVA);
-    }
+    asegurar_mib(&mut r)?;
     memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
     if !fr::preparar(&mut r, e) {
         crate::ring0::cabina::warn("gpu", "M5d F: el tramo no quedo preparado; no se toca el timbre", 0);
@@ -499,6 +508,68 @@ fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         crate::ring0::cabina::count("gpu", "M5d F: vueltas en total", vueltas);
     } else {
         crate::ring0::cabina::warn("gpu", "M5d F: el fractal no salio igual que la CPU; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}
+
+// == M5d T0: EL TRIANGULO, POR COMPUTO (2026-09-24) ============================
+//
+// Las tres funciones de arista en 262144 hilos, en el MISMO MiB que el fractal
+// (`asegurar_mib`), en la siguiente entrada del GPFIFO de GR; cronometrado y
+// comparado con la CPU como el fractal.
+
+/// **M5d T0: el triangulo.** `ficha` = la de S3. `Ok(triangulo::empaquetar(..))`.
+pub fn triangulo(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = triangulo_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn triangulo_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::fractal as fr;
+    use bmo_gpu_ga10x::triangulo as tr;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    asegurar_mib(&mut r)?;
+    memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
+    if !tr::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5d T0: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = tr::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let (mut qmd, mut fin) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        (_, qmd, fin) = tr::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == tr::PAGA_QMD && fin == tr::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let buenos = pixeles_del_fractal().map_or(0, tr::comprobar);
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    let v = tr::empaquetar(buenos, qmd == tr::PAGA_QMD, fin == tr::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
+    if tr::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d T0: EL PRIMER TRIANGULO DE LA 3060, igual que la CPU; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d T0: el triangulo no salio igual que la CPU; pixeles buenos", buenos as u64);
     }
     Ok(v)
 }

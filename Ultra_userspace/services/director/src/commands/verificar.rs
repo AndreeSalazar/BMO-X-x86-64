@@ -531,7 +531,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::fractal_hecho,
         dar: super::gspcomputo::calcular_fractal,
         pide: Some(b"blur"),
-        consejo: b"`gpu`: `fractal` dice 262144 de 262144 y cuantas veces mas rapida; teclea `gpu fractal` para el panel a pantalla completa -- lo siguiente es el triangulo",
+        consejo: b"`gpu`: `fractal` dice 262144 de 262144 y cuantas veces mas rapida; teclea `gpu fractal` para el panel a pantalla completa -- lo siguiente es `triangulo`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"triangulo",
+        que: b"EL PRIMER TRIANGULO DE LA 3060: las tres funciones de arista en 262144 hilos, sus colores mezclados, comparado bit a bit (M5d T0)",
+        hecho: super::gspcomputo::triangulo_hecho,
+        dar: super::gspcomputo::dibujar_triangulo,
+        pide: Some(b"fractal"),
+        consejo: b"`gpu`: `triangulo` dice 262144 de 262144; teclea `gpu triangulo` y VELO a pantalla completa -- lo siguiente es T1, el mismo triangulo por el pipeline 3D",
         repinta: false,
     },
 ];

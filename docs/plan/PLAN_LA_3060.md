@@ -524,6 +524,28 @@ primera tecla lo cierra y devuelve el escritorio entero; (2) el blur subia
 el trozo (32, 200), que es el panel de la izquierda, casi NEGRO: la 3060
 desenfoco bien un cuadro negro. Ahora sube el centro del fondo.
 
+**EL BLUR y el PANEL, en el metal (24-09, 16:56), con fotos para el README:**
+el gato del fondo y, al lado, desenfocado por la 3060 (16384 de 16384); el
+fractal a pantalla completa, limpio: `la 3060 en 176 us, la CPU en 18203 us
+(x103)`. 44 de 44.
+
+**M5d T0, el triangulo POR COMPUTO, en codigo (24-09):** 262144 hilos, uno por
+pixel de 512 x 512, con las tres FUNCIONES DE ARISTA (lo que hace un
+rasterizador) y el color de los tres vertices mezclado por su peso; entero
+y exacto (las aristas suman siempre el area doble, 172800), comparado bit a
+bit con la CPU. `gpu triangulo`, paso `triangulo`, el mismo panel a pantalla
+completa. En el MISMO MiB que el fractal.
+
+**T1, el triangulo por el PIPELINE 3D (estudio, 24-09):** `ptxas` NO compila
+programas de vertice ni de pixel (solo computo). Pero `nvdisasm -b SM86` SI
+conoce sus instrucciones (probado: `IPA.PASS R0, P0, a[0x0]`), asi que se
+pueden codificar a mano y comprobar contra el, como se comprobo el bit del
+descriptor del STG. Falta: (1) los dos programas en SASS con su cabecera
+(SPH, 20 palabras cada uno); (2) el estado 3D de AMPERE_B (destino de render
+en memoria, ventana, recorte, mezcla, los programas atados); (3) los
+vertices (o sacados del numero de vertice en el propio programa) y el
+dibujo (BEGIN/END). Es el nivel mas grande de M5.
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.
