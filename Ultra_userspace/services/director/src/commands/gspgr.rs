@@ -26,7 +26,7 @@ struct Gr {
     estado: u32,
     resultado: u32,
     espera_us: u64,
-    buferes: Option<[Bufer; 8]>,
+    buferes: Option<[Bufer; gr::N]>,
 }
 
 static mut ULTIMO: Option<Result<Gr, u32>> = None;
@@ -74,7 +74,7 @@ pub(crate) fn hecho() -> bool {
 }
 
 /// Los buferes, para G2.
-pub(crate) fn buferes() -> Option<[Bufer; 8]> {
+pub(crate) fn buferes() -> Option<[Bufer; gr::N]> {
     match ultimo() {
         Some(Ok(g)) if bien(&g) => g.buferes,
         _ => None,
@@ -194,7 +194,8 @@ pub(crate) fn fila(s: &mut Output) {
     match g.buferes {
         Some(t) if bien(&g) => {
             s.with_ink(INK_GOOD);
-            s.text(b"8 buferes para el contexto de oro de GR0, ");
+            s.dec(gr::N as u64);
+            s.text(b" buferes para el contexto de oro de GR0, ");
             kib(s, gr::total(&t));
             s.text(b" en VRAM");
             s.with_ink(INK_PLAIN);

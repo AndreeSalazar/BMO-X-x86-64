@@ -423,7 +423,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gspgr::hecho,
         dar: super::gspgr::preguntar,
         pide: Some(b"estatica"),
-        consejo: b"`gpu`: la fila `gr` dice 8 buferes y cuanto ocupan, y cada `gr bufer` su medida -- lo siguiente es `canalgr`",
+        consejo: b"`gpu`: la fila `gr` dice 9 buferes y cuanto ocupan, y cada `gr bufer` su medida -- lo siguiente es `canalgr`",
         repinta: false,
     },
     Paso {

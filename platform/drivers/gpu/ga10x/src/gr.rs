@@ -99,12 +99,21 @@ pub struct Bufer {
     pub ro: bool,
 }
 
+/// Cuantos buferes: los ocho de la tabla de nouveau y, detras de
+/// PRIV_ACCESS_MAP, su copia UNRESTRICTED.
+pub const N: usize = 9;
+
 /// La tabla de `r535_gr_get_ctxbuf_info`: `(id, promover, nombre, global,
 /// iniciar, ro)`. Los `NV2080_CTRL_GPU_PROMOTE_CTX_BUFFER_ID_*` de la r570
 /// (`nvrm/gpu.h` de nouveau): MAIN 0, PATCH 2, BUNDLE_CB 3, PAGEPOOL 4,
-/// ATTRIBUTE_CB 5, RTV_CB_GLOBAL 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10 (y en G3,
-/// detras de este, UNRESTRICTED_PRIV_ACCESS_MAP 11 con su misma memoria).
-pub const TABLA: [(u8, u8, &[u8], bool, bool, bool); 8] = [
+/// ATTRIBUTE_CB 5, RTV_CB_GLOBAL 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10 y
+/// UNRESTRICTED_PRIV_ACCESS_MAP 11.
+///
+/// ** La novena (24-09, estudiando G3 antes de probar G2): nouveau, tras
+/// PRIV_ACCESS_MAP, anade una copia con el id 11 y la misma medida; en el
+/// contexto de ORO cada una lleva SU memoria, y PRIV_ACCESS_MAP va sin mapear
+/// (`bNonmapped`). La primera version de G2 contaba ocho.
+pub const TABLA: [(u8, u8, &[u8], bool, bool, bool); N] = [
     (0x00, 0, b"MAIN", false, true, false),
     (0x10, 2, b"PATCH", false, true, false),
     (0x11, 3, b"BUNDLE_CB", true, false, false),
@@ -113,7 +122,13 @@ pub const TABLA: [(u8, u8, &[u8], bool, bool, bool); 8] = [
     (0x14, 6, b"RTV_CB_GLOBAL", true, false, false),
     (0x17, 9, b"FECS_EVENT", true, true, false),
     (0x18, 10, b"PRIV_ACCESS_MAP", true, true, true),
+    (0x18, 11, b"UNRESTRICTED_PAM", true, true, true),
 ];
+
+/// El que va SIN mapear en el contexto de oro (`bNonmapped`).
+pub const fn sin_mapear(promover: u8) -> bool {
+    promover == 10
+}
 
 /// `order_base_2`: el menor `k` con `2^k >= v`.
 const fn orden_base_2(v: u64) -> u8 {
@@ -127,10 +142,10 @@ const fn orden_base_2(v: u64) -> u8 {
 /// **Los buferes de la respuesta** (`d` son los datos del mensaje), en el
 /// orden de [`TABLA`], con la medida, la pagina y la alineacion que calcula
 /// nouveau. `None` si la respuesta no llega entera.
-pub fn buferes(d: &[u8]) -> Option<[Bufer; 8]> {
+pub fn buferes(d: &[u8]) -> Option<[Bufer; N]> {
     let p = d.get(CABECERA_CONTROL..CABECERA_CONTROL + MEDIDA)?;
     let u = |o: usize| u32::from_le_bytes([p[o], p[o + 1], p[o + 2], p[o + 3]]);
-    let mut t = [Bufer::default(); 8];
+    let mut t = [Bufer::default(); N];
     for (k, &(id, promover, nombre, global, iniciar, ro)) in TABLA.iter().enumerate() {
         // Motor 0, entrada `id`.
         let (medida_rm, alineado_rm) = (u(8 * id as usize), u(8 * id as usize + 4));
@@ -154,7 +169,7 @@ pub fn buferes(d: &[u8]) -> Option<[Bufer; 8]> {
 }
 
 /// Lo que ocupan todos, alineados: lo que G2 tendra que buscar en VRAM.
-pub fn total(t: &[Bufer; 8]) -> u64 {
+pub fn total(t: &[Bufer; N]) -> u64 {
     t.iter().fold(0u64, |acc, b| {
         let a = 1u64 << b.alinear;
         ((acc + a - 1) & !(a - 1)) + b.medida
@@ -210,8 +225,8 @@ impl Colocado {
 
 /// **El reparto**: primero los que el RM llena, despues los demas, cada uno
 /// alineado. `(colocados, total, cero_hasta)`, o `None` si no cabe.
-pub fn repartir(t: &[Bufer; 8]) -> Option<([Colocado; 8], u64, u64)> {
-    let mut c = [Colocado::default(); 8];
+pub fn repartir(t: &[Bufer; N]) -> Option<([Colocado; N], u64, u64)> {
+    let mut c = [Colocado::default(); N];
     let mut off = 0u64;
     let mut k = 0;
     let mut cero_hasta = 0;
@@ -328,7 +343,7 @@ mod pruebas {
     }
 
     /// Las medidas que dijo el RM en el metal (24-09 15:22).
-    fn del_metal() -> [Bufer; 8] {
+    fn del_metal() -> [Bufer; N] {
         let mut d = [0u8; CABECERA_CONTROL + MEDIDA];
         for (id, m) in [(0x00, 694016u32), (0x10, 16384), (0x11, 12288), (0x0D, 131072), (0x13, 8720896), (0x14, 524288), (0x17, 65536), (0x18, 524288)] {
             let o = CABECERA_CONTROL + 8 * id;
@@ -340,19 +355,21 @@ mod pruebas {
     #[test]
     fn el_reparto_del_metal_cabe() {
         let t = del_metal();
-        assert_eq!(total(&t), 26048 * 1024 + 0, "lo que dijo la fila `gr` es la suma sin huecos de alineacion al final");
+        assert_eq!(total(&t), 26048 * 1024 + 512 * 1024, "la fila `gr` del metal (sin la novena) mas los 512 KiB de UNRESTRICTED");
+        assert_eq!((t[8].promover, t[8].medida), (11, t[7].medida));
+        assert!(sin_mapear(t[7].promover) && !sin_mapear(t[8].promover));
         let (c, bytes, cero) = repartir(&t).unwrap();
         // Los que el RM llena, primero y seguidos.
-        assert!(c[..4].iter().all(|x| x.b.iniciar) && c[4..].iter().all(|x| !x.b.iniciar));
-        assert!(c[..4].iter().all(|x| x.off + x.b.medida <= cero));
+        assert!(c[..5].iter().all(|x| x.b.iniciar) && c[5..].iter().all(|x| !x.b.iniciar));
+        assert!(c[..5].iter().all(|x| x.off + x.b.medida <= cero));
         for x in &c {
             assert_eq!(x.off % (1 << x.b.alinear), 0, "{:?} alineado", core::str::from_utf8(x.b.nombre));
             assert_eq!(x.vram() % (1 << x.b.alinear), 0);
             assert_eq!(x.va() % (1 << x.b.alinear), 0);
         }
         // Sin solapes.
-        for i in 0..8 {
-            for j in i + 1..8 {
+        for i in 0..N {
+            for j in i + 1..N {
                 let (a, b) = (c[i], c[j]);
                 assert!(a.off + a.b.medida <= b.off || b.off + b.b.medida <= a.off);
             }
