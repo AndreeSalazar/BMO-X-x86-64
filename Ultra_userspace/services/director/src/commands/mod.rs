@@ -241,6 +241,9 @@ pub(crate) enum Command<'a> {
     /// quiero hacer"*. Y su ultimo bloque es el que de verdad hacia falta --
     /// **lo que todavia NO se puede**, para no buscarlo media hora.
     Guia,
+    /// `buscar <texto>` (o Ctrl+F): lo buscado en la salida, resaltado, y la
+    /// ventana llevada a la coincidencia; cada Enter, la anterior (24-09).
+    Buscar(&'a [u8]),
     /// **`estratos escribe <nombre> <texto>`** -- el primer fichero que BMO-X
     /// guarda en SU sistema de ficheros.
     ///
@@ -560,6 +563,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // La puerta del que llega. `start` porque es la palabra que se
         // teclea sin pensar cuando uno no sabe que teclear.
         b"guia" | b"empezar" | b"start" => Command::Guia,
+        b"buscar" | b"busca" | b"find" => Command::Buscar(rest),
         // El VERBO y no la linea: `inti/musica.ibx datos/tema.mus` es un
         // programa con argumentos, y la linea entera no acaba en `.ibx`.
         _ if looks_like_program(verb) => Command::Launch(line),

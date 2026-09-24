@@ -54,16 +54,24 @@ match c {
         // lo de debajo es lo que contestaron.
         // Una fila en blanco entre la respuesta de antes y esta orden: sin
         // ella, dos respuestas seguidas se leen como una (24-09).
-        dsk.out.grid.separar();
         // La linea de estado pasa a ser de la orden que va a correr.
         dsk.field.sug_pintadas = false;
         dsk.field.sug_firma = 0;
-        dsk.out.grid.with_ink(INK_ECHO);
-        dsk.out.grid.byte(0xB7);
-        dsk.out.grid.byte(b' ');
-        dsk.out.grid.text(dsk.field.line());
-        dsk.out.grid.byte(b'\n');
-        dsk.out.grid.with_ink(INK_PLAIN);
+        // ** `buscar` NO deja eco (24-09): se repite con cada Enter, y su eco
+        // seria lo primero que encontraria. Cualquier otra orden suelta la
+        // busqueda.
+        if es_busqueda(dsk.field.line()) {
+            // nada en la salida
+        } else {
+            dsk.out.grid.sin_busqueda();
+            dsk.out.grid.separar();
+            dsk.out.grid.with_ink(INK_ECHO);
+            dsk.out.grid.byte(0xB7);
+            dsk.out.grid.byte(b' ');
+            dsk.out.grid.text(dsk.field.line());
+            dsk.out.grid.byte(b'\n');
+            dsk.out.grid.with_ink(INK_PLAIN);
+        }
 
         // Hay un programa vivo escuchando en esta consola?
         // Entonces la linea NO es un comando: es SUYA. Es lo
@@ -141,6 +149,26 @@ match c {
         // corregirla, y ahi `cur` no se mueve: por eso es un
         // `min` y no un cero.
         dsk.field.cur = dsk.field.cur.min(dsk.field.n);
+        dsk.tick.repaint_field = true;
+    }
+    // ** CTRL+F: BUSCAR (24-09). Sobre la caja escribe `buscar ` para teclear
+    // lo buscado; con una busqueda ya escrita, va a la coincidencia anterior.
+    // (Sobre una APP, Ctrl+F sigue siendo su pantalla completa: esa la toma
+    // `shortcuts` antes de llegar aqui.)
+    0x06 => {
+        if es_busqueda(dsk.field.line()) {
+            let mut q = [0u8; PATH_MAX];
+            let linea = dsk.field.line();
+            let desde = linea.iter().position(|&c| c == b' ').map_or(linea.len(), |k| k + 1);
+            let n = linea.len() - desde;
+            q[..n].copy_from_slice(&linea[desde..]);
+            crate::commands::shell::buscar(dsk, p, &q[..n]);
+        } else {
+            dsk.field.path[..7].copy_from_slice(b"buscar ");
+            dsk.field.n = 7;
+            dsk.field.cur = 7;
+            crate::scene::sugerir::pista(p, &dsk.run_box, b"buscar", b"escribe lo que buscas y Enter; cada Enter, la anterior");
+        }
         dsk.tick.repaint_field = true;
     }
     // TAB: completar.
@@ -459,4 +487,9 @@ match c {
     _ => {}
 }
     Edit::Taken
+}
+
+/// La linea es una busqueda (`buscar x`, `busca x`, `find x`).
+fn es_busqueda(l: &[u8]) -> bool {
+    l.starts_with(b"buscar ") || l.starts_with(b"busca ") || l.starts_with(b"find ")
 }

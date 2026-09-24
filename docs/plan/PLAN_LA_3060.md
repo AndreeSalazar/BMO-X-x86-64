@@ -891,8 +891,12 @@ vuelta.
           L1c1  FERMI_VASPACE_A "de fuera" (`espacio`)   [VISTO 24-09 11:56]
           L1c2  la CPU escribe en la VRAM, PRAMIN (`vram`) [VISTO 24-09 11:56]
           L1c3  la raiz PD3 en la VRAM y SET_PAGE_DIRECTORY (`directorio`)
-                                                [en codigo, 24-09]
+                                                [VISTO 24-09 12:25]
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
+          L1d0  leer la raiz tras el RM (fila `raiz`)  [en codigo, 24-09]
+          L1d1  mapear paginas propias (PD2..PT) bajo ella
+          L1d2  el canal AMPERE_CHANNEL_GPFIFO_A, su USERD y su GPFIFO
+          L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
 ```
 
 **L0c4b3a en el metal (24-09, 10:13): LA PANTALLA SOBREVIVE AL GSP-RM.** `bar1
@@ -1057,6 +1061,24 @@ con los esperados (otra direccion, u otro objeto: NO). El kernel
 y manda la RPC, UNA vez por arranque: despues el RM escribe en esa raiz lo que
 se reserve. La op de control (0x1C) solo sirve PREGUNTAS. Paso `directorio`
 de `save mode` (24).
+
+**L1c3 en el metal (24-09, 12:25): EL RM ACEPTO NUESTRA RAIZ.** `pd: raiz PD3
+en 0x004100000 (4 entradas, a cero): NV_OK   SET_PAGE_DIRECTORY en 0 ms (numero
+8)`. Los 24 pasos de una vez; el espacio de direcciones de la GPU tiene
+directorio, y es nuestro.
+
+**L1d0 (en codigo): que dejo el RM en la raiz.** Al aceptar un directorio, el
+RM "copia las PDE que gestiona el" (`ctrl0080dma.h`): puede haber colgado una
+PD2 suya en la entrada 0 (su zona desde 4 GiB). `IOMMU_OP_GPU_RAIZ` (0x1F) lee
+cada entrada por PRAMIN, solo lectura, y la fila `raiz` las dice. L1d1 mapea
+en las vacias, o bajo la suya sin pisarla. `bmo_gpu_ga10x::mmu` (3 pruebas):
+el formato v2 de Pascal/Ampere (PDE: VRAM = 1; PTE: VRAM = 0 y bit de
+validez), los cinco niveles y `mapear` de la hoja a la raiz.
+
+Y la caja: `buscar` / Ctrl+F sobre Ejecutar (sobre una app sigue siendo su
+pantalla completa): la coincidencia en medio de la ventana y resaltada, las
+demas en su sombra, cada Enter la anterior; `buscar` no deja eco. Sin `:`
+suelto en las filas de continuacion; la sangria colgante no pasa de la 40.
 
 **Como se sabe (L1c3):** la fila `pd` dice `raiz PD3 en 0x004100000 (4
 entradas, a cero): NV_OK`.

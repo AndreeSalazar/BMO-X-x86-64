@@ -65,6 +65,7 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::Clear => shell::clear(dsk, p),
         Command::Help => shell::help(dsk, p),
         Command::Guia => guia::guia(dsk, p),
+        Command::Buscar(q) => shell::buscar(dsk, p, q),
         Command::NotAProgram(r) => shell::not_a_program(dsk, p, r),
         Command::Unknown => shell::unknown(dsk, p),
         Command::List(dir_path) => files::list(dsk, p, dir_path),

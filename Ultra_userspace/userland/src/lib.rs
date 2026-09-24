@@ -248,6 +248,7 @@ pub const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
 pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 pub const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
 pub const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
+pub const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

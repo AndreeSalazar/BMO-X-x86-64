@@ -157,7 +157,8 @@ if ctrl && (c == 0x0D || c == 0x0A) {
 }
 // ** Y CTRL+F es el mismo gesto que Alt+Enter: pantalla completa (la F de
 // Hyprland). Se quedan los dos: uno para los dedos de los juegos, otro para
-// los del gestor.
+// los del gestor. SOBRE UNA APP: sin app marcada la tecla pasa, y en la caja
+// de Ejecutar Ctrl+F es BUSCAR (24-09, `keys::editor`).
 if (alt_alone && (c == 0x0D || c == 0x0A)) || (ctrl && c == 0x06) {
     if let Some(Ventana::App(i)) = dsk.win.focus.pointed_at() {
         if let Some((_viejo, completa)) = dsk.table.pantalla_completa(i as usize, p) {

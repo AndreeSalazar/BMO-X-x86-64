@@ -93,6 +93,11 @@ pub(crate) struct Output {
     /// La sangria de la fila en curso si es la CONTINUACION de una que no
     /// cupo (0 = no lo es). Ver [`Output::envolver`].
     sangria: usize,
+    /// **Lo que se busca** (Ctrl+F, `buscar`): se resalta donde se vea, y la
+    /// fila de la coincidencia ACTUAL, mas fuerte. `busca_n == 0` = nada.
+    pub(crate) busca: [u8; 32],
+    pub(crate) busca_n: usize,
+    pub(crate) hallado: Option<usize>,
 }
 
 impl Output {
@@ -140,6 +145,9 @@ impl Output {
             // historial y no un hueco.
             alive_boxes: 1,
             sangria: 0,
+            busca: [0; 32],
+            busca_n: 0,
+            hallado: None,
         }
     }
 
@@ -304,7 +312,9 @@ impl Output {
     /// la 10 o bajo el NUMERO (informe del 24-09 12:07).
     fn sangria_de(fila: &[u8; OUT_COLS]) -> usize {
         let lead = fila.iter().take_while(|&&c| c == b' ').count();
-        let campo = (lead + 2..57.min(OUT_COLS)).rev().find(|&p| fila[p] != b' ' && fila[p - 1] == b' ' && fila[p - 2] == b' ');
+        // ** 40 y no 56 (12:25): un campo a la derecha del todo (`(BAR2` en
+        // la 53) dejaba una columna de treinta letras para seguir.
+        let campo = (lead + 2..41.min(OUT_COLS)).rev().find(|&p| fila[p] != b' ' && fila[p - 1] == b' ' && fila[p - 2] == b' ');
         if let Some(p) = campo {
             return p;
         }
@@ -353,11 +363,72 @@ impl Output {
     /// apagada (24-09, *"eso `datos:`, y separar de los demas que no se
     /// junten tanto"*). En el informe de texto queda el `:`.
     pub(crate) fn etiqueta(&mut self, nombre: &[u8]) {
+        // Sin nombre (la segunda fila de una etiqueta), sin `:` suelto.
+        if nombre.is_empty() {
+            self.byte(b' ');
+            return;
+        }
         let desde = self.col;
         self.text(nombre);
         self.byte(b':');
         if self.col > desde && self.col <= OUT_COLS {
             self.etiq[self.row] = (desde as u8, self.col as u8);
+        }
+    }
+
+    /// La fila `f` es un ECO de orden (`. gpu`): no se busca en ella.
+    fn es_eco(&self, f: usize) -> bool {
+        self.cells[f].iter().find(|&&c| c != b' ') == Some(&0xB7)
+    }
+
+    /// Donde empieza lo buscado en la fila `f`, sin distinguir mayusculas.
+    pub(crate) fn coincide(&self, f: usize, desde: usize) -> Option<usize> {
+        let q = &self.busca[..self.busca_n];
+        if q.is_empty() || self.es_eco(f) {
+            return None;
+        }
+        let fila = &self.cells[f];
+        (desde..=OUT_COLS.saturating_sub(q.len())).find(|&c| fila[c..c + q.len()].iter().zip(q).all(|(a, b)| a.eq_ignore_ascii_case(b)))
+    }
+
+    /// **Buscar** (24-09, *"Ctrl+F para buscar las referencias exactas"*): la
+    /// coincidencia ANTERIOR a la actual (la primera vez, la mas reciente),
+    /// dando la vuelta; la ventana se mueve para dejarla en medio. Devuelve
+    /// `(cual, de cuantas)`, contando desde abajo; `(0, 0)` si no hay.
+    pub(crate) fn buscar(&mut self, q: &[u8], filas: usize) -> (usize, usize) {
+        let n = q.len().min(self.busca.len());
+        if &self.busca[..self.busca_n] != &q[..n] {
+            self.busca[..n].copy_from_slice(&q[..n]);
+            self.busca_n = n;
+            self.hallado = None;
+        }
+        self.dirty = true;
+        let primera = OUT_HIST - self.alive_boxes;
+        let vivas = primera..OUT_HIST;
+        let total = vivas.clone().filter(|&f| self.coincide(f, 0).is_some()).count();
+        if total == 0 {
+            self.hallado = None;
+            return (0, 0);
+        }
+        let techo = self.hallado.unwrap_or(OUT_HIST);
+        let f = (primera..techo)
+            .rev()
+            .find(|&f| self.coincide(f, 0).is_some())
+            .or_else(|| vivas.clone().rev().find(|&f| self.coincide(f, 0).is_some()));
+        self.hallado = f;
+        let Some(f) = f else { return (0, total) };
+        let max = self.alive_boxes.saturating_sub(filas);
+        self.view = OUT_HIST.saturating_sub(f + 1 + filas / 2).min(max);
+        let cual = (f..OUT_HIST).filter(|&g| self.coincide(g, 0).is_some()).count();
+        (cual, total)
+    }
+
+    /// Soltar la busqueda (otra orden cualquiera).
+    pub(crate) fn sin_busqueda(&mut self) {
+        if self.busca_n > 0 {
+            self.busca_n = 0;
+            self.hallado = None;
+            self.dirty = true;
         }
     }
 
@@ -534,6 +605,17 @@ pub(crate) fn paint_output(p: &bmo::Pantalla, c: &RunBox, s: &Output) {
         let fila = &s.cells[base + f];
         // La etiqueta, apagada; lo de antes y lo de despues, en la tinta de la
         // fila. Tres trozos seguidos: cada glifo se pinta una vez.
+        // Lo buscado, resaltado DETRAS de las letras: la fila de la
+        // coincidencia actual, con el acento; las demas, con su sombra.
+        if s.busca_n > 0 {
+            let fuerte = s.hallado == Some(base + f);
+            let tono = if fuerte { acento() } else { mezcla(acento(), BOX_BG, 170) };
+            let mut desde = 0;
+            while let Some(k) = s.coincide(base + f, desde) {
+                p.rect(c.out_x + k as u32 * bmo::GLIFO_ANCHO, y, s.busca_n as u32 * bmo::GLIFO_ANCHO, bmo::GLIFO_ALTO, tono);
+                desde = k + s.busca_n;
+            }
+        }
         let (a, z) = (s.etiq[base + f].0 as usize, s.etiq[base + f].1 as usize);
         if z > a && z <= OUT_COLS {
             let x = p.texto_bytes(c.out_x, y, &fila[..a], color);
@@ -549,4 +631,13 @@ pub(crate) fn paint_output(p: &bmo::Pantalla, c: &RunBox, s: &Output) {
         let x = c.out_x + (OUT_COLS as u32 - 18) * bmo::GLIFO_ANCHO;
         p.texto(x, c.out_y, "-- historial --", acento());
     }
+}
+
+/// `a` hacia `b`, `t` de 256.
+fn mezcla(a: u32, b: u32, t: u32) -> u32 {
+    let c = |d: u32| {
+        let (x, y) = ((a >> d) & 0xFF, (b >> d) & 0xFF);
+        ((x * (256 - t) + y * t) / 256) << d
+    };
+    c(16) | c(8) | c(0)
 }

@@ -600,3 +600,15 @@ pub fn poner_directorio() -> Result<u64, u32> {
         }
     }
 }
+
+/// **L1d0: leer la raiz** -- la entrada `k` (0..4) de la PD3 de nuestro
+/// directorio, por PRAMIN. Solo lectura (la ventana vuelve como estaba): dice
+/// si el RM colgo ahi una tabla suya al aceptar el directorio.
+pub fn leer_raiz(k: u64) -> Result<u64, u32> {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || k >= bmo_gpu_ga10x::control::PD3_ENTRADAS as u64 || !DIRECTORIO_PUESTO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_VRAM);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    Ok(bmo_gpu_ga10x::vram::leer64(&mut r, bmo_gpu_ga10x::vram::DIRECTORIO + 8 * k))
+}

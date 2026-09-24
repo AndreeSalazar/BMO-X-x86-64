@@ -72,6 +72,8 @@ pub mod contrato;
 pub mod salud;
 /// L1c2: la CPU escribe en la VRAM por la ventana PRAMIN, sin pisar nada (2026-09-24).
 pub mod vram;
+/// L1d: el formato de la MMU (PDE, PTE, los cinco niveles) y mapear una pagina (2026-09-24).
+pub mod mmu;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

@@ -66,6 +66,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"perf", b"lo que cuesta pintar"),
     (b"guia", b"por donde empezar"),
     (b"ayuda", b"la lista entera, por categorias"),
+    (b"buscar", b"buscar en la salida (Ctrl+F); cada Enter, la anterior"),
     (b"clear", b"limpia esta salida"),
     (b"reboot", b"reinicia la maquina"),
 ];

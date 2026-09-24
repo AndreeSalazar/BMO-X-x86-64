@@ -120,6 +120,18 @@ pub fn a_cero<R: Registros>(r: &mut R, dir: u64) -> u32 {
     ceros
 }
 
+/// **Leer 64 bits de VRAM** por la ventana, que queda como estaba (L1d0:
+/// leer la raiz y ver que escribio el RM en ella).
+pub fn leer64<R: Registros>(r: &mut R, dir: u64) -> u64 {
+    let (base, off) = ventana(dir);
+    let antes = r.leer(VENTANA_REG);
+    r.escribir(VENTANA_REG, base);
+    let lo = r.leer(VENTANA + off) as u64;
+    let hi = r.leer(VENTANA + off + 4) as u64;
+    r.escribir(VENTANA_REG, antes);
+    lo | hi << 32
+}
+
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
 /// ventana devuelta << 31 | ventana de antes << 32`.
 pub const fn empaquetar(p: &Prueba) -> u64 {

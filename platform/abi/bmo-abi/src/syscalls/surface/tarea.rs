@@ -712,6 +712,9 @@ pub const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
 /// direccion y el espacio fijos. Una vez por arranque. `Ok` = la pagina | el
 /// numero << 32; la respuesta llega por la cola del GSP.
 pub const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
+/// L1d0: leer la entrada `arg1` (0..4) de la raiz PD3 por PRAMIN, solo lectura.
+/// `Ok` = la PDE cruda. Solo con el directorio puesto.
+pub const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

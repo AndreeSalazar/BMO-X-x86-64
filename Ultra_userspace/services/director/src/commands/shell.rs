@@ -262,6 +262,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"  ESTA CAJA ---------------------------------------------------\n");
     dsk.out.grid.with_ink(INK_PLAIN);
     dsk.out.grid.text(b"    clear         limpia esta salida\n");
+    dsk.out.grid.text(b"    buscar <x>    Ctrl+F: lo busca en la salida; cada Enter, la anterior\n");
     dsk.out.grid.text(b"    calc          la calculadora     perf   lo que cuesta pintar\n");
     dsk.out.grid.text(b"    captura       la pantalla a capturas/   (ventana | zona: con el raton)\n");
     dsk.out.grid.text(b"    Ctrl+Shift+C copia la linea    Ctrl+V la pega    Ctrl+C frena\n");
@@ -312,5 +313,41 @@ pub(crate) fn unknown(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"  no es un comando ni una ruta. escribe 'help'.\n");
     paint_status(&p, &dsk.run_box, "no lo conozco: prueba help", INK_BAD);
     dsk.field.n = 0;
+    After::Settle
+}
+
+/// **`buscar <texto>`** (24-09, *"Control + F para buscar las referencias
+/// exactas"*): la coincidencia anterior en la salida, en medio de la ventana y
+/// resaltada, con las demas visibles en su sombra. El campo SE QUEDA con la
+/// orden: otro Enter (o Ctrl+F) va a la de antes, dando la vuelta. Cualquier
+/// otra orden suelta la busqueda.
+pub(crate) fn buscar(dsk: &mut Desktop, p: &bmo::Pantalla, q: &[u8]) -> After {
+    if q.is_empty() {
+        crate::scene::sugerir::pista(p, &dsk.run_box, b"buscar", b"escribe lo que buscas detras de `buscar ` y Enter");
+        return After::Settle;
+    }
+    let filas = dsk.run_box.out_rows();
+    let (cual, total) = dsk.out.grid.buscar(q, filas);
+    let mut t = [0u8; 96];
+    let mut n = 0;
+    let mut pon = |s: &[u8]| {
+        let k = s.len().min(t.len() - n);
+        t[n..n + k].copy_from_slice(&s[..k]);
+        n += k;
+    };
+    let mut d = [0u8; 10];
+    if total == 0 {
+        pon(b"sin coincidencias en lo que queda de la salida");
+    } else {
+        let k = crate::text::decimal(cual as u64, &mut d);
+        pon(&d[..k]);
+        pon(b" de ");
+        let k = crate::text::decimal(total as u64, &mut d);
+        pon(&d[..k]);
+        pon(b"   Enter o Ctrl+F: la anterior   otra orden: suelta");
+    }
+    crate::scene::sugerir::pista(p, &dsk.run_box, b"buscar", &t[..n]);
+    // La orden se queda escrita: el siguiente Enter sigue buscando.
+    dsk.field.cur = dsk.field.n;
     After::Settle
 }

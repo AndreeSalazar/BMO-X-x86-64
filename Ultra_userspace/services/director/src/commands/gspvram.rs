@@ -120,6 +120,9 @@ pub(crate) fn fila(s: &mut Output) {
 
 #[derive(Clone, Copy, Default)]
 struct Directorio {
+    /// L1d0: las 4 entradas de la raiz, leidas DESPUES de que el RM la
+    /// aceptara (`None` si no se pudo leer).
+    raiz: [Option<u64>; 4],
     numero: u32,
     r: Option<control::Respuesta>,
     resultado: u32,
@@ -162,6 +165,12 @@ pub(crate) fn poner_directorio() -> Result<u64, u32> {
                 d.espera_us = us;
             }
             Err(no) => d.no = no,
+        }
+    }
+    // L1d0: que escribio el RM en nuestra raiz al aceptarla.
+    if aceptado(&d) {
+        for k in 0..4 {
+            d.raiz[k] = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_RAIZ, k as u64).ok();
         }
     }
     // SAFETY: como `ultima`.
@@ -229,4 +238,32 @@ pub(crate) fn fila_directorio(s: &mut Output) {
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
+    // L1d0: la raiz, leida de vuelta. Lo que el RM colgo ahi es SUYO: L1d
+    // mapea en las entradas que quedaron vacias, o bajo la suya sin pisarla.
+    if d.raiz.iter().any(|e| e.is_some()) {
+        campo(s, b"raiz");
+        for (k, e) in d.raiz.iter().enumerate() {
+            if k > 0 {
+                s.text(b"; ");
+            }
+            s.byte(b'[');
+            s.dec(k as u64);
+            s.text(b"] ");
+            match e.map(bmo_gpu_ga10x::mmu::pde) {
+                None => s.text(b"sin leer"),
+                Some(bmo_gpu_ga10x::mmu::Pde::Vacia) => s.text(b"vacia"),
+                Some(bmo_gpu_ga10x::mmu::Pde::Vram(a)) => {
+                    s.with_ink(INK_ECHO);
+                    s.text(b"PD2 en VRAM 0x");
+                    s.hex(a, 9);
+                    s.with_ink(INK_PLAIN);
+                }
+                Some(bmo_gpu_ga10x::mmu::Pde::Sistema(a)) => {
+                    s.text(b"PD2 en RAM 0x");
+                    s.hex(a, 9);
+                }
+            }
+        }
+        s.byte(b'\n');
+    }
 }
