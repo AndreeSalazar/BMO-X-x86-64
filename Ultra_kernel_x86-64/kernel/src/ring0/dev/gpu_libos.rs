@@ -829,11 +829,24 @@ pub fn copiar(ficha: u64) -> Result<u64, u32> {
 /// **L1d3, el diagnostico: leer UNA palabra del tramo** por PRAMIN (la
 /// ventana vuelve como estaba). Solo lectura y solo el tramo
 /// (`copia::legible`), con el tramo mapeado. `Ok(la palabra)`.
+///
+/// Con el bit 63 de `dir`, en vez de VRAM lee UN registro de BAR0 de la lista
+/// de `copia::registro_legible` (el reloj de la ventana del timbre).
 pub fn leer_tramo(dir: u64) -> Result<u64, u32> {
     let bar0 = crate::ring0::dev::gpu::bar0();
-    if bar0 == 0 || !TRAMO_PUESTO.load(Ordering::Acquire) || !bmo_gpu_ga10x::copia::legible(dir) {
+    if bar0 == 0 || !TRAMO_PUESTO.load(Ordering::Acquire) {
         return Err(IOMMU_NO_TRAMO);
     }
     let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if dir >> 63 != 0 {
+        let reg = dir as u32;
+        if dir >> 32 != 1 << 31 || !bmo_gpu_ga10x::copia::registro_legible(reg) {
+            return Err(IOMMU_NO_TRAMO);
+        }
+        return Ok(bmo_gpu_ga10x::Registros::leer(&mut r, reg) as u64);
+    }
+    if !bmo_gpu_ga10x::copia::legible(dir) {
+        return Err(IOMMU_NO_TRAMO);
+    }
     Ok(bmo_gpu_ga10x::copia::leer32(&mut r, dir) as u64)
 }

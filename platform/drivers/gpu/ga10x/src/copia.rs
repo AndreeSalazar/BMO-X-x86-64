@@ -253,9 +253,18 @@ pub fn comprobar<R: Registros>(r: &mut R) -> u32 {
 /// de nouveau: USERD +0x008/+0x00C, GPFIFO +0x048/+0x04C, chid +0x0E8; y el
 /// directorio de paginas en +0x200/+0x204), el USERD (GP_GET, GP_PUT), la
 /// entrada 0 del GPFIFO y el semaforo. `(nombre, direccion de VRAM)`.
-pub const DIAGNOSTICO: [(&[u8], u64); 11] = [
+///
+/// ** Metal 24-09 14:30: `userd` y `chid` salen a 0, y es lo NORMAL en GA10x:
+/// ahi el USERD va en la entrada de la lista de ejecucion
+/// (`NV_RAMRL_ENTRY_CHAN_USERD_PTR`, `kernel_channel_ga100.c` de OpenRM) y la
+/// 3060 los copia a la RAMFC al CARGAR el canal. Siguen en la fila porque si
+/// un dia dejan de ser 0, la 3060 lo cargo.
+pub const DIAGNOSTICO: [(&[u8], u64); 13] = [
     (b"userd lo", crate::canal::INSTANCIA + 0x008),
     (b"userd hi", crate::canal::INSTANCIA + 0x00C),
+    // nouveau pone 0xFACE aqui; lo que ponga el RM dice si escribio esa parte.
+    (b"+010", crate::canal::INSTANCIA + 0x010),
+    (b"config", crate::canal::INSTANCIA + 0x0F8),
     (b"gpfifo lo", crate::canal::INSTANCIA + 0x048),
     (b"gpfifo hi", crate::canal::INSTANCIA + 0x04C),
     (b"chid", crate::canal::INSTANCIA + 0x0E8),
@@ -266,6 +275,18 @@ pub const DIAGNOSTICO: [(&[u8], u64); 11] = [
     (b"entrada0", GPFIFO),
     (b"semaforo", SEMAFORO),
 ];
+
+/// El reloj de la ventana de usuario de la 3060 (`NVC361_TIME_0`, en la misma
+/// region que el timbre: `ga100_vfn` 0xB80000 + 0x30000 + 0x80). Si al leerlo
+/// dos veces CAMBIA, la region del timbre es la buena y el timbre llega; si no,
+/// el timbre se escribe en el vacio.
+pub const RELOJ_USUARIO: u32 = 0x00BB_0080;
+
+/// Los registros de BAR0 que el kernel deja LEER para el diagnostico: solo el
+/// reloj de la ventana de usuario (y su parte alta).
+pub const fn registro_legible(reg: u32) -> bool {
+    reg == RELOJ_USUARIO || reg == RELOJ_USUARIO + 4
+}
 
 /// La direccion de VRAM que el kernel deja LEER (una palabra): dentro del
 /// tramo y alineada a 4.
@@ -389,6 +410,9 @@ mod pruebas {
     fn el_diagnostico_solo_lee_el_tramo() {
         assert!(DIAGNOSTICO.iter().all(|&(_, d)| legible(d)));
         assert!(!legible(TRAMO - 4) && !legible(TRAMO + 16 * PAGINA) && !legible(TRAMO + 2));
+        assert!(registro_legible(0xBB_0080) && registro_legible(0xBB_0084));
+        assert!(!registro_legible(TIMBRE) && !registro_legible(INVALIDAR));
+        assert_eq!(RELOJ_USUARIO + 0x10, TIMBRE, "el reloj y el timbre, en la misma ventana");
         // Lo que nouveau escribe en la RAMFC: el USERD de L1d2b y el GPFIFO.
         assert_eq!(DIAGNOSTICO[0].1, crate::canal::INSTANCIA + 8);
     }

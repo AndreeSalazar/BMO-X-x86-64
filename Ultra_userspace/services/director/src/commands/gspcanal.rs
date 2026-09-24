@@ -66,7 +66,7 @@ struct Canal {
     copia: Option<Result<u64, u32>>,
     /// L1d3, si la copia no salio: las palabras de `copia::DIAGNOSTICO`
     /// (`None` la que no se pudo leer), y lo que dijo el GSP-RM despues.
-    diag: Option<([Option<u32>; copia::DIAGNOSTICO.len()], Otros)>,
+    diag: Option<([Option<u32>; copia::DIAGNOSTICO.len()], Otros, Reloj)>,
 }
 
 static mut CANAL: Option<Canal> = None;
@@ -245,8 +245,23 @@ fn diagnosticar() {
         p[k] = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, dir).ok().map(|v| v as u32);
     }
     let mut otros = Otros::default();
+    // El reloj de la ventana del timbre, antes y despues del barrido (1 s).
+    let reloj = || bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, 1 << 63 | copia::RELOJ_USUARIO as u64).ok().map(|v| v as u32);
+    let antes = reloj();
     super::gsprpc::barrer(&mut otros, 1000);
-    con(|c| c.diag = Some((p, otros)));
+    let despues = reloj();
+    // Y GP_GET otra vez: por si la 3060 llego tarde.
+    let k = copia::DIAGNOSTICO.iter().position(|&(n, _)| n == b"gp_get").unwrap_or(0);
+    let gp_get = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, copia::DIAGNOSTICO[k].1).ok().map(|v| v as u32);
+    con(|c| c.diag = Some((p, otros, Reloj { antes, despues, gp_get })));
+}
+
+/// El reloj de la ventana del timbre, antes y despues de 1 s, y GP_GET al final.
+#[derive(Clone, Copy, Default)]
+struct Reloj {
+    antes: Option<u32>,
+    despues: Option<u32>,
+    gp_get: Option<u32>,
 }
 
 /// Lo pregunta `save mode`.
@@ -469,7 +484,7 @@ pub(crate) fn fila(s: &mut Output) {
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }
-    if let Some((p, otros)) = c.diag {
+    if let Some((p, otros, reloj)) = c.diag {
         campo(s, b"diag");
         s.with_ink(INK_ECHO);
         for (k, &(nombre, _)) in copia::DIAGNOSTICO.iter().enumerate() {
@@ -486,6 +501,31 @@ pub(crate) fn fila(s: &mut Output) {
             }
         }
         s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+        campo(s, b"timbre");
+        match (reloj.antes, reloj.despues) {
+            (Some(a), Some(d)) if a != d => {
+                s.with_ink(INK_GOOD);
+                s.text(b"su ventana VIVE (el reloj de 0xBB0080 corrio: 0x");
+                s.hex(a as u64, 8);
+                s.text(b" -> 0x");
+                s.hex(d as u64, 8);
+                s.text(b"): el timbre llega a su sitio");
+                s.with_ink(INK_PLAIN);
+            }
+            (Some(a), Some(_)) => {
+                s.with_ink(INK_ERR);
+                s.text(b"su ventana NO se mueve (0xBB0080 quieto en 0x");
+                s.hex(a as u64, 8);
+                s.text(b"): el timbre se escribe en el vacio");
+                s.with_ink(INK_PLAIN);
+            }
+            _ => s.text(b"no se pudo leer la ventana del timbre"),
+        }
+        if let Some(g) = reloj.gp_get {
+            s.text(b"; GP_GET 1 s despues: ");
+            s.dec(g as u64);
+        }
         if otros.n == 0 {
             s.text(b"; el GSP-RM no dijo nada en 1 s");
         } else {

@@ -739,7 +739,8 @@ pub const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
 pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 /// L1d3, el diagnostico: leer UNA palabra de VRAM del tramo por PRAMIN,
 /// `arg1` = la direccion (`copia::legible`: dentro del tramo, alineada a 4).
-/// Solo lectura. `Ok` = la palabra.
+/// Solo lectura. `Ok` = la palabra. Con el bit 63, `arg1` bajo es UN registro
+/// de BAR0 de `copia::registro_legible` (el reloj de la ventana del timbre).
 pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;

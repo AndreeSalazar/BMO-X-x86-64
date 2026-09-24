@@ -1031,6 +1031,22 @@ la RAMFC (USERD, GPFIFO, chid, la raiz en +0x200), GP_GET/GP_PUT, la entrada
 0 y el semaforo, y barre 1 s la cola del GSP: un canal caido llega como
 `RC_TRIGGERED` o `MMU_FAULT_QUEUED`.
 
+**Y con la MMU invalidada (24-09, 14:30): igual, GP_GET 0 -- pero `diag`
+hablo.** `gpfifo lo 0x00002000, hi 0x00090002` (la VA del GPFIFO y 512
+entradas: el RM escribio la RAMFC), `pdb lo 0x04100C00` (NUESTRA raiz, en
+VRAM, formato v2 y pagina grande de 64 KiB), `gp_put 1`, la entrada 0 bien,
+`userd 0` y `chid 0`, y el GSP-RM sin decir nada. `userd 0` NO es el fallo: en
+GA10x el USERD va en la entrada de la lista de ejecucion
+(`NV_RAMRL_ENTRY_CHAN_USERD_PTR`, `kernel_channel_ga100.c`) y la 3060 lo copia
+a la RAMFC al CARGAR el canal. Asi que la RAMFC sin tocar dice que la 3060
+nunca CARGO el canal: el timbre no lo desperto. La ficha `0x1` cuadra con
+`kfifoGenerateWorkSubmitTokenHal_GA100` (lista << 16 | chid: lista 0, chid 1).
+Para separar las dos causas que quedan, `diag` lee ahora el reloj de la
+ventana del timbre (`NVC361_TIME_0`, BAR0 0xBB0080) antes y despues de 1 s
+(fila `timbre`): si corre, el timbre llega a su sitio y el problema es el
+canal en la lista; si esta quieto, la ventana no es esa. Y `+010`/`config` de
+la RAMFC, y GP_GET otra vez al final.
+
 **Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
 `semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
 eso lo escribe la CPU. Si el semaforo no llega, lo primero a mirar es si
