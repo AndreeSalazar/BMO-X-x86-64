@@ -18,6 +18,7 @@
 //!    la marca           los ojos del gato (`= =`, en el acento) y BMO-X
 //!    las ventanas       una ficha por ventana, en vertical (eran las de arriba)
 //!    .                  (el aire: las fichas crecen hacia abajo)
+//!    la luz del GSP     por donde va el arranque del GSP de la 3060 (L0)
 //!    la luz del bus     el testigo del teclado, siempre encendido
 //!    los instrumentos   cpu, memoria, vatios, pulso con su AGUJA y sonido
 //!    el reloj y el vol  al pie, como en cualquier barra
@@ -128,6 +129,8 @@ struct Plano {
     fichas_y: u32,
     /// Cuantas filas de fichas caben.
     fichas_max: u32,
+    /// La luz del GSP (`lateral_gsp`), encima del bus.
+    gsp_y: u32,
     testigo_y: u32,
     graf_y: u32,
     /// Cuantos instrumentos caben (de los encendidos).
@@ -148,18 +151,20 @@ fn plano(alto: u32) -> Plano {
     let pie = reloj_y.saturating_sub(12);
     // Los instrumentos, encima del pie; los que no quepan sin dejar a las
     // fichas su minimo se quedan fuera por arriba.
-    let suelo = fichas_y + FICHAS_MIN * FILA + 16 + TESTIGO_H + 8;
+    let suelo = fichas_y + FICHAS_MIN * FILA + 16 + super::lateral_gsp::ALTO + 16 + TESTIGO_H + 8;
     let cabe = pie.saturating_sub(8).saturating_sub(suelo) / SECCION;
     let graf_n = activos().1.min(cabe as usize) as u32;
     let graf_y = pie.saturating_sub(8 + graf_n * SECCION);
     let testigo_y = graf_y.saturating_sub(8 + TESTIGO_H);
-    let fichas_fin = testigo_y.saturating_sub(16);
+    let gsp_y = testigo_y.saturating_sub(16 + super::lateral_gsp::ALTO);
+    let fichas_fin = gsp_y.saturating_sub(16);
     Plano {
         x0,
         iw,
         logo_y,
         fichas_y,
         fichas_max: fichas_fin.saturating_sub(fichas_y) / FILA,
+        gsp_y,
         testigo_y,
         graf_y,
         graf_n,
@@ -388,6 +393,7 @@ static mut MINUTO: u16 = u16::MAX;
 /// siguiente pinta el panel entero, y la luz y el vol vuelven a pintarse.
 pub(crate) fn olvidar() {
     unsafe { FORZAR = true };
+    super::lateral_gsp::olvidar();
     super::testigo::olvidar();
     super::sound::olvidar_barra();
 }
@@ -428,7 +434,8 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
         pintar_ojos(p, pl.x0, pl.logo_y);
         p.texto(pl.x0 + 2 * OJO_W + OJO_ENTRE + 10, pl.logo_y - 2, "BMO-X", INK);
         p.rect(pl.x0, pl.fichas_y - 10, pl.iw, 1, e.barra_borde);
-        // Las rayas que separan el bus, los instrumentos y el pie.
+        // Las rayas que separan la luz del GSP, el bus, los instrumentos y el pie.
+        p.rect(pl.x0, pl.gsp_y - 10, pl.iw, 1, e.barra_borde);
         p.rect(pl.x0, pl.testigo_y - 10, pl.iw, 1, e.barra_borde);
         p.rect(pl.x0, pl.reloj_y - 12, pl.iw, 1, e.barra_borde);
         unsafe {
@@ -491,6 +498,8 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
     }
 
     // -- Pintar --
+    // La luz del GSP: siete preguntas, y se repinta solo si cambio.
+    super::lateral_gsp::pintar(p, pl.x0, pl.gsp_y, pl.iw);
     let x0 = pl.x0;
     let gw = (HISTORIA as u32) * 2;
     let (lista, _) = activos();

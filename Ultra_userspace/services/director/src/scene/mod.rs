@@ -106,6 +106,9 @@ pub(crate) mod estructura;
 /// **LA BARRA LATERAL EN VIVO** (HUD 3): lo que la maquina hace ahora, con su
 /// historia, en una columna que ninguna ventana pisa.
 pub(crate) mod lateral;
+/// **La luz del GSP** en el panel: por donde va el arranque del GSP de la 3060
+/// (L0), en siete casillas y una palabra (2026-09-24).
+pub(crate) mod lateral_gsp;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".

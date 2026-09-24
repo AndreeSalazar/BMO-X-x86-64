@@ -125,6 +125,8 @@ pub(crate) fn correr() -> Result<u64, u32> {
         bmo::yield_screen();
     }
     guardar(r);
+    // Al panel: la casilla I, verde o roja.
+    crate::scene::lateral_gsp::init(r.init_done);
     if !r.init_done {
         return Err(NO_INIT_NO_LLEGA);
     }
