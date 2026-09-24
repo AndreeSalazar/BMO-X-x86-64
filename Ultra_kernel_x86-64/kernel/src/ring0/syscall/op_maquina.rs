@@ -814,6 +814,20 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_libos::mapear_tramo()
         }
+        // ** L1d2b: memoria del PC que la 3060 ESCRIBE (el bufer de metodos) y
+        // el primer canal. El FLUSH, como el directorio.
+        IOMMU_OP_GPU_CANAL => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::pedir_canal()
+        }
+        IOMMU_OP_GPU_CANAL_ORDEN => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de encender el canal no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::orden_canal(arg1)
+        }
         IOMMU_OP_GPU_DIRECTORIO => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del directorio de paginas no se pudo: se sigue", 0);

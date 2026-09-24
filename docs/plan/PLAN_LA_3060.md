@@ -898,13 +898,47 @@ vuelta.
                                                 [VISTO 24-09 12:47]
           L1d2  el canal AMPERE_CHANNEL_GPFIFO_A, su USERD y su GPFIFO
                 L1d2a  que motores hay y cuanto mide el bufer de
-                       metodos (`motores`)      [en codigo, 24-09]
+                       metodos (`motores`)      [VISTO 24-09 13:19]
                 L1d2b  el canal: su ALLOC con instancia, USERD y
                        GPFIFO en el tramo, y el bufer de metodos
-                L1d2c  BIND al de copia y GPFIFO_SCHEDULE
-                L1d2d  el token de trabajo y el timbre
+                       (`canal`)                [en codigo, 24-09]
+                L1d2c  BIND a COPY2 y GPFIFO_SCHEDULE (`encender`)
+                                                [en codigo, 24-09]
+                L1d2d  la ficha (`ficha`, en codigo) y el timbre:
+                       la primera entrada del GPFIFO
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
 ```
+
+**L1d2a en el metal (24-09, 13:19): LOS MOTORES.** `11: GR0 COPY0 COPY1 COPY2
+COPY3 COPY4 NVDEC0 NVENC0 SW0 SEC20 OFA0` por `GET_ENGINES_V2` en 1 ms, y el
+bufer de metodos `20480 B (0x05000)`, lo que `canal::METODOS` presta. La fila
+decia `el de copia del canal: COPY0`: tomaba la PRIMERA COPY, y COPY0 y COPY1
+son GRCE en GA10x (atadas al 3D). Arreglado: nombra `canal::MOTOR`, COPY2, el
+unico que el contrato deja atar.
+
+**L1d2b, L1d2c y la ficha (24-09, en codigo).** Tres pasos de `save mode`
+detras de `motores`, y `gpu canal` los da en orden, parando en el primero que
+no sale:
+
+```text
+   canal     IOMMU_OP_GPU_CANAL (0x21): las paginas 0..2 del tramo a cero por
+             PRAMIN, 5 marcos NEUTRO a cero y prestados ESCRIBIBLES en
+             0x3A000000 (el bufer de metodos, releidos por la IOMMU), y el
+             GSP_RM_ALLOC de `canal::pedir` (368 B que el contrato compara
+             uno a uno). Una vez por arranque, con el tramo puesto. Antes, el
+             escritorio exige que L1d2a dijo COPY2 y 20480 B
+   encender  IOMMU_OP_GPU_CANAL_ORDEN (0x22): BIND a COPY2 y despues
+             GPFIFO_SCHEDULE, como `r535_chan_start`; solo con el canal pedido
+   ficha     GET_WORK_SUBMIT_TOKEN, una pregunta por IOMMU_OP_GSP_CONTROL
+```
+
+**Como se sabe:** `gpu` dice `canal` NV_OK, `atado` COPY2 NV_OK, `en lista`
+NV_OK y `ficha` un numero; `iommu` 5 paginas mas en `domain` y sin eventos
+nuevos. Si el RM NIEGA el canal, su NV_STATUS sale en la fila. Cotejado con
+`r535_chan_alloc`/`r535_chan_start` de nouveau (Linux master, 24-09): la misma
+memoria (instancia, USERD y RAMFC en VRAM con `addressSpace` 2, el bufer de
+metodos en `dma_alloc_coherent` con 1 -- la IOVA, como aqui), las mismas
+`internalFlags` y el mismo orden: BIND y despues SCHEDULE con `bEnable 1`.
 
 **L0c4b3a en el metal (24-09, 10:13): LA PANTALLA SOBREVIVE AL GSP-RM.** `bar1
 antes 0x002FFF00, despues 0x802F3E90 (BAR2 0xC02F3E91 -> 0xC02F3E91): el GSP-RM

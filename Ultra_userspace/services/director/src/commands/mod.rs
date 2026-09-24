@@ -34,6 +34,8 @@ pub(crate) mod gspsalud;
 pub(crate) mod gspvram;
 /// `gpu motores`: que motores tiene la 3060 y el de copia del canal (L1d2a, 24-09).
 pub(crate) mod gspmotores;
+/// `gpu canal`: el primer canal, atado a COPY2 y con su ficha (L1d2b/L1d2c, 24-09).
+pub(crate) mod gspcanal;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

@@ -720,6 +720,15 @@ pub const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
 /// por arranque, con la entrada de la raiz vacia. `Ok` = escrituras |
 /// releidas iguales << 16.
 pub const IOMMU_OP_GPU_TRAMO: u64 = 0x20;
+/// L1d2b: pedir el canal `AMPERE_CHANNEL_GPFIFO_A` (`bmo_gpu_ga10x::canal`):
+/// sus tres paginas del tramo a cero, el bufer de metodos prestado escribible
+/// en `canal::IOVA_METODOS`, y el `GSP_RM_ALLOC` con sus 368 B fijos. Una vez
+/// por arranque, con el tramo mapeado. `Ok` = pagina | numero << 32.
+pub const IOMMU_OP_GPU_CANAL: u64 = 0x21;
+/// L1d2c: una orden que ENCIENDE el canal, `arg1` = su indice en
+/// `control::Control::TODOS` (solo BIND y GPFIFO_SCHEDULE), con el canal
+/// pedido. `Ok` = pagina | numero << 32.
+pub const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -839,6 +848,12 @@ pub const IOMMU_NO_VRAM: u32 = 59;
 pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
 /// L1d1: la raiz ya tenia esa entrada ocupada, o el tramo ya se mapeo.
 pub const IOMMU_NO_TRAMO: u32 = 61;
+/// L1d2b: sin el tramo mapeado, o el canal ya se pidio.
+pub const IOMMU_NO_CANAL: u32 = 62;
+/// L1d2b: sus paginas no quedaron a cero, o su bufer de metodos no se presto.
+pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
+/// L1d2c: no es BIND ni SCHEDULE, o el canal no se pidio.
+pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

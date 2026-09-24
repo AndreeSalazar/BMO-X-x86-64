@@ -72,6 +72,14 @@ pub(crate) fn copia() -> Option<u32> {
     u.lista[..u.n].iter().copied().find(|&t| t == canal::MOTOR)
 }
 
+/// Lo que el RM dijo que mide el bufer de metodos, si lo contesto con NV_OK.
+pub(crate) fn metodos() -> Option<u32> {
+    match ultimo()?.metodos {
+        Ok(c) if c.bien() => Some(c.r.valor),
+        _ => None,
+    }
+}
+
 /// Lo pregunta `save mode`: las dos contestadas y un motor de copia.
 pub(crate) fn hecho() -> bool {
     ultimo().map_or(false, |u| bien(&u.motores) && bien(&u.metodos)) && copia().is_some()

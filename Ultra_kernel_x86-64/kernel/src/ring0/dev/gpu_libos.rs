@@ -17,6 +17,7 @@
 //!    0x3C00_2000   la pagina de vaciado (1)          -> en L0c3b, al 0x100C10
 //!    0x3C10_0000   LOGINIT, LOGINTR y LOGRM (3 x 16)
 //!    0x3D00_0000   GspMem: su tabla y las dos colas (129)
+//!    0x3A00_0000   el bufer de metodos del canal (5)  -> L1d2b, `pedir_canal`
 //! ```
 //!
 //! Todo ESCRIBIBLE, como en nova-core (son `Coherent`, no `ToDevice`): el GSP
@@ -447,6 +448,14 @@ pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
 /// L1d1: la entrada de la raiz para el tramo ya estaba ocupada (no se pisa),
 /// o el tramo ya se mapeo en este arranque.
 pub const IOMMU_NO_TRAMO: u32 = 61;
+/// L1d2b: sin el tramo mapeado, o el canal ya se pidio en este arranque.
+pub const IOMMU_NO_CANAL: u32 = 62;
+/// L1d2b: las paginas del canal no quedaron a cero en la VRAM, o no hubo
+/// marcos (o prestamo) para su bufer de metodos.
+pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
+/// L1d2c: una orden del canal fuera de su sitio (no es BIND ni SCHEDULE, o el
+/// canal no se pidio todavia).
+pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -645,4 +654,92 @@ pub fn mapear_tramo() -> Result<u64, u32> {
             Err(IOMMU_NO_TRAMO)
         }
     }
+}
+
+// == L1d2b: EL CANAL (2026-09-24) ==============================================
+//
+// `AMPERE_CHANNEL_GPFIFO_A` sobre NUESTRO espacio, con su memoria FIJA
+// (`bmo_gpu_ga10x::canal`): la instancia y el RAMFC, el USERD y el GPFIFO en
+// tres paginas del tramo (L1d1), a cero por PRAMIN antes de pedirlo; y el
+// bufer de metodos en la RAM del PC, 5 marcos NEUTRO prestados ESCRIBIBLES a
+// la 3060 en `canal::IOVA_METODOS` (ahi escribe el motor de copia los metodos
+// que fallen). El contrato compara los 368 B uno a uno. Una vez por arranque.
+//
+// L1d2c, detras y por su puerta: BIND a COPY2 y GPFIFO_SCHEDULE, solo con el
+// canal pedido.
+
+static CANAL_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// La fisica del bufer de metodos, una vez pedida y prestada.
+static METODOS_F: AtomicU64 = AtomicU64::new(0);
+
+/// El bufer de metodos: sus marcos, a cero y prestados. `Some(fisica)`.
+fn bufer_de_metodos() -> Option<u64> {
+    use bmo_gpu_ga10x::canal::{IOVA_METODOS, METODOS};
+    let f = METODOS_F.load(Ordering::Acquire);
+    if f != 0 {
+        return Some(f);
+    }
+    let paginas = METODOS / PAGINA;
+    // La 3060 lo ESCRIBIRA por DMA: NEUTRO.
+    let f = phys::alloc_frames_contig_de(paginas, phys::Titular::Neutro)?;
+    memoria(f, METODOS).fill(0);
+    if io::prestar_gpu(IOVA_METODOS, f, paginas, true).is_err() {
+        return None;
+    }
+    // Y se ve como se vera: cada pagina, por la IOMMU, escribible y suya.
+    if !(0..paginas).all(|k| escribible(IOVA_METODOS + k * PAGINA, f + k * PAGINA)) {
+        crate::ring0::cabina::warn("gpu", "L1d2b: el bufer de metodos NO se ve por la IOMMU donde se presto; iova", IOVA_METODOS);
+        return None;
+    }
+    METODOS_F.store(f, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "L1d2b: bufer de metodos PRESTADO a la 3060 para escribir; paginas", paginas);
+    Some(f)
+}
+
+/// **L1d2b: pedir el canal.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn pedir_canal() -> Result<u64, u32> {
+    use bmo_gpu_ga10x::canal;
+    if !rpc_lista() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    if !TRAMO_PUESTO.load(Ordering::Acquire) || CANAL_PEDIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_CANAL);
+    }
+    let fallo = |m: u32| {
+        // No salio: nada lo vio el RM, se puede reintentar.
+        CANAL_PEDIDO.store(false, Ordering::Release);
+        Err(m)
+    };
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(crate::ring0::dev::gpu::bar0());
+    for dir in canal::PAGINAS_A_CERO {
+        let ceros = bmo_gpu_ga10x::vram::a_cero(&mut r, dir);
+        if ceros as usize != bmo_gpu_ga10x::vram::PALABRAS {
+            crate::ring0::cabina::warn("gpu", "L1d2b: una pagina del canal no quedo a cero; VRAM", dir);
+            return fallo(IOMMU_NO_CANAL_MEMORIA);
+        }
+    }
+    if bufer_de_metodos().is_none() {
+        return fallo(IOMMU_NO_CANAL_MEMORIA);
+    }
+    match enviar(|h, n| canal::pedir(h, n)) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "L1d2b: GSP_RM_ALLOC del canal pedido; asa", canal::CANAL as u64);
+            Ok(v)
+        }
+        Err(m) => fallo(m),
+    }
+}
+
+/// **L1d2c: una orden que ENCIENDE el canal** (`que` = el indice en
+/// `control::Control::TODOS`; solo BIND y GPFIFO_SCHEDULE), con el canal pedido.
+pub fn orden_canal(que: u64) -> Result<u64, u32> {
+    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.del_canal()) else {
+        return Err(IOMMU_NO_CANAL_ORDEN);
+    };
+    if !CANAL_PEDIDO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_CANAL_ORDEN);
+    }
+    let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
+    crate::ring0::cabina::count("gpu", "L1d2c: orden del canal pedida; cmd", c.forma().0 as u64);
+    Ok(r)
 }
