@@ -371,6 +371,7 @@ pub(crate) fn fila(s: &mut Output) {
         super::datos::anotar(b"gpu gsp paginas", p, b"");
     }
     fila_radix(s);
+    fila_libos(s);
 }
 
 // == L0c2: EL GSP-RM PRESTADO POR SU RADIX3 (2026-09-24) =========================
@@ -489,4 +490,83 @@ pub(crate) fn fila_radix(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu gsp radix", g, b"");
+}
+
+// == L0c3a: LO QUE EL GSP PODRA ESCRIBIR (2026-09-24) ============================
+//
+// Los argumentos de LIBOS, los tres logs, `rmargs`, las dos colas y la pagina
+// de vaciado: la primera memoria del PC que la 3060 puede ESCRIBIR. Un syscall:
+// son 180 paginas, no 61 MB. El kernel sigue cada puntero por la IOMMU.
+
+/// **`gpu libos`, y el paso de `save mode`.** `Ok(punteros seguidos)`.
+pub(crate) fn libos() -> Result<u64, u32> {
+    bmo::iommu_orden(bmo::IOMMU_OP_GSP_LIBOS)
+}
+
+/// Lo pregunta `save mode`: prestado, y cada puntero lleva a lo suyo.
+pub(crate) fn libos_hecho() -> bool {
+    bmo::info(bmo::INFO_GPU_LIBOS) & bmo::LIBOS_COMPROBADO != 0
+}
+
+/// `gpu libos`.
+pub(crate) fn orden_libos(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if !super::files::antes_de_arriesgar(dsk, p, b"gpu libos") {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    paint_status(p, &dsk.run_box, "prestando a la 3060 lo que el GSP escribe", INK_DIM);
+    let r = libos();
+    let g = &mut dsk.out.grid;
+    match r {
+        Ok(n) => {
+            g.with_ink(INK_GOOD);
+            g.text(b"  LIBOS PRESTADO para escribir: ");
+            g.dec(n);
+            g.text(b" punteros seguidos por la IOMMU, y todos llevan a lo suyo\n");
+        }
+        Err(m) => {
+            g.with_ink(INK_ERR);
+            g.text(b"  NO: ");
+            g.text(super::iommu::motivo(m));
+            g.byte(b'\n');
+        }
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "libos", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila de L0c3a**, si se intento.
+pub(crate) fn fila_libos(s: &mut Output) {
+    let l = bmo::info(bmo::INFO_GPU_LIBOS);
+    if l & bmo::LIBOS_VALIDO == 0 {
+        return;
+    }
+    campo(s, b"libos");
+    let bien = l & bmo::LIBOS_COMPROBADO != 0;
+    s.with_ink(if bien { INK_GOOD } else if l & bmo::LIBOS_PRESTADO != 0 { INK_ERR } else { INK_ECHO });
+    s.text(if bien {
+        b"PRESTADO para escribir, y cada puntero del GSP lleva a lo suyo" as &[u8]
+    } else if l & bmo::LIBOS_PRESTADO != 0 {
+        b"PRESTADO, pero un puntero NO lleva a donde debe"
+    } else {
+        b"sin prestar"
+    });
+    s.with_ink(INK_ECHO);
+    s.text(b"   ");
+    s.dec((l >> bmo::LIBOS_PRESTADAS_SHIFT) & 0xFFFF);
+    s.text(b" paginas (argumentos, rmargs, vaciado, 3 logs, 2 colas); ");
+    s.dec(l & 0xFFFF);
+    s.text(b" punteros seguidos");
+    let m = (l >> bmo::LIBOS_MOTIVO_SHIFT) & 0xFF;
+    if m != 0 && !bien {
+        s.with_ink(INK_ERR);
+        s.text(b"; el ultimo NO: ");
+        s.text(super::iommu::motivo(m as u32));
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu gsp libos", l, b"");
 }

@@ -449,6 +449,8 @@ const INFO_GPU_FWSEC_BUZON: u64 = 0xBB;
 /// L0c2: el GSP-RM prestado, y el BLAKE3 de lo que se ve por su radix3 (2026-09-24).
 const INFO_GPU_GSP: u64 = 0xBC;
 const INFO_GPU_GSP_HASH: u64 = 0xBD;
+/// L0c3a: LIBOS, logs, rmargs y colas, prestados y comprobados (2026-09-24).
+const INFO_GPU_LIBOS: u64 = 0xBE;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -985,6 +987,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_FWSEC_BUZON => crate::ring0::dev::gpu_prestamo::info_fwsec_buzon(),
         INFO_GPU_GSP => crate::ring0::dev::gpu_gsp::info_gsp(),
         INFO_GPU_GSP_HASH => crate::ring0::dev::gpu_gsp::info_gsp_hash(),
+        INFO_GPU_LIBOS => crate::ring0::dev::gpu_libos::info_libos(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

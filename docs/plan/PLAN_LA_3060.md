@@ -410,8 +410,13 @@ MEDIDO, no el dicho.
         firma y la WPR meta, por la IOMMU; y RELEERLO entero por la radix3,
         como lo recorrera el GSP, con su BLAKE3. Sin arrancar nada. `gpu
         radix` y el paso `radix` de `save mode`  [VISTO en metal, 24-09 06:34]
-   L0c3 el booter en el SEC2: MAILBOX0/1 = la WPR meta, y el RISC-V del GSP
-        despierta (`is_riscv_active`)
+   L0c3a PRESTAR PARA ESCRIBIR lo que el GSP escribe: los argumentos de
+        LIBOS, sus tres logs, `rmargs`, sus dos colas y la pagina de
+        vaciado (180 paginas), y seguir cada puntero por la IOMMU. Sin
+        arrancar nada. `gpu libos` y el paso `libos`  [en codigo, 24-09]
+   L0c3b el GSP con sus argumentos en el buzon, el booter en el SEC2 con la
+        WPR meta en el suyo, y el RISC-V del GSP despierta
+        (`is_riscv_active`); sus logs dicen como fue
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -500,6 +505,27 @@ E7856EE2B387917B` -- el mismo BLAKE3 que el anfitrion. `domain 15587 pagina(s)
 prestada(s)   tablas 38 de 128` (las 33 de antes + 15.554), y el unico evento
 sigue siendo el de la frontera. La RAM usada paso de 34 a 97 MiB: los 61 MB del
 GSP-RM, en marcos NEUTRO. E2 siguio contando y nada se quejo en el anillo.
+
+**L0c3a (24-09, en codigo).** `bmo_gpu_ga10x::libos` arma los bytes de r570.144
+(6 pruebas): `LibosMemoryRegionInitArgument` (32 B: `id8` = el nombre al reves,
+IOVA, medida, contiguo, en la RAM del PC), la tabla de cada log desde +8,
+`GSP_ARGUMENTS_CACHED` (72 B: GspMem, 129 paginas, colas en 0x1000 y 0x41000
+CONTADOS TRAS la pagina de tabla, `bDmemStack` 1) y la cabecera de la cola del
+CPU. `dev/gpu_libos.rs` (fila GPU del censo, x1) lo presta ESCRIBIBLE -- como
+nova-core, que los hace `Coherent` --:
+
+```text
+   0x3C000000  argumentos de LIBOS    0x3C001000  rmargs    0x3C002000  vaciado
+   0x3C100000  LOGINIT, LOGINTR, LOGRM (3 x 16)
+   0x3D000000  GspMem: su tabla y las dos colas (129)
+```
+
+**Como se sabe:** desde los argumentos -- lo unico que el GSP recibira por su
+buzon -- se sigue CADA puntero por la IOMMU: nombre, IOVA y cada pagina de cada
+region, la tabla dentro de cada log, `rmargs`, las 129 entradas de GspMem y la
+cabecera de la cola. Todos llevan a los marcos pedidos y la 3060 puede
+escribirlos; la fila `libos` dice cuantos punteros se siguieron. La pagina de
+vaciado se presta ya y se registra en L0c3b.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

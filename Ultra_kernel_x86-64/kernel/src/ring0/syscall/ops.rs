@@ -326,6 +326,8 @@ pub(crate) const IOMMU_OP_GSP_TROZO: u64 = 0x0F;
 pub(crate) const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
 /// L0c2: leer el trozo `arg1` POR LA RADIX3 y la IOMMU, y su BLAKE3.
 pub(crate) const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
+/// L0c3a: LIBOS, logs, rmargs y colas, prestados ESCRIBIBLES y comprobados. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_LIBOS: u64 = 0x12;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

@@ -661,6 +661,10 @@ pub const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
 /// L0c2: leer el trozo `arg1` POR LA RADIX3 y la IOMMU, EN ORDEN; al ultimo,
 /// `INFO_GPU_GSP` dice si el BLAKE3 cuadra con lo copiado y con la 570.144.
 pub const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
+/// L0c3a: los argumentos de LIBOS, los tres logs, `rmargs`, las dos colas y la
+/// pagina de vaciado, prestados a la 3060 ESCRIBIBLES; y cada puntero que
+/// seguira el GSP, seguido por la IOMMU. `Ok` = punteros seguidos.
+pub const IOMMU_OP_GSP_LIBOS: u64 = 0x12;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -723,6 +727,12 @@ pub const IOMMU_NO_GSP_YA_PRESTADO: u32 = 31;
 pub const IOMMU_NO_GSP_SIN_VRAM: u32 = 32;
 /// L0c2: la radix3 no lleva, por la IOMMU, a donde tiene que llevar.
 pub const IOMMU_NO_GSP_RADIX: u32 = 33;
+/// L0c3a: sin el GSP-RM prestado (L0c2) no hay a quien darle LIBOS.
+pub const IOMMU_NO_LIBOS_ORDEN: u32 = 34;
+/// L0c3a: no hubo marcos para los argumentos, los logs o las colas.
+pub const IOMMU_NO_LIBOS_MARCOS: u32 = 35;
+/// L0c3a: un puntero no lleva, por la IOMMU, a donde tiene que llevar.
+pub const IOMMU_NO_LIBOS_PUNTERO: u32 = 36;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

@@ -51,6 +51,7 @@ LOS QUE ESTAN DENTRO DE ESTA MAQUINA HOY
   IOMMU     no       no     SI   plat/iommu.rs  x3            SI  24-09
   GPU       si       si     SI   dev/gpu_prestamo.rs  x2      SI  24-09
   GPU       si       si     SI   dev/gpu_gsp.rs  x3           SI  24-09
+  GPU       si       si     SI   dev/gpu_libos.rs  x1         SI  24-09
   ucode     si       si     si   no pide: ya esta dentro       imposible
   SMM       si       si     si   no pide: se la toma           imposible
 

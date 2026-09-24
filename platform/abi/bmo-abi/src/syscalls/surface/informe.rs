@@ -1696,6 +1696,21 @@ pub const GSP_ES_570: u64 = 1 << 60;
 pub const GSP_VALIDO: u64 = 1 << 63;
 pub const INFO_GPU_GSP_HASH: u64 = 0xBD;
 
+/// # L0c3a (2026-09-24): lo que el GSP podra ESCRIBIR
+///
+/// ```text
+///   INFO_GPU_LIBOS   0..15 punteros seguidos por la IOMMU | 16..23 el ultimo
+///                    NO | 24..39 paginas prestadas | 56 preparado |
+///                    57 PRESTADO | 58 COMPROBADO | 63 valido
+/// ```
+pub const INFO_GPU_LIBOS: u64 = 0xBE;
+pub const LIBOS_MOTIVO_SHIFT: u64 = 16;
+pub const LIBOS_PRESTADAS_SHIFT: u64 = 24;
+pub const LIBOS_PREPARADO: u64 = 1 << 56;
+pub const LIBOS_PRESTADO: u64 = 1 << 57;
+pub const LIBOS_COMPROBADO: u64 = 1 << 58;
+pub const LIBOS_VALIDO: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

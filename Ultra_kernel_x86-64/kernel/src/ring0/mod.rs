@@ -225,6 +225,8 @@ pub mod dev {
     pub mod gpu_prestamo;
     /// L0c2: el GSP-RM y su radix3, prestados a la 3060 (2026-09-24).
     pub mod gpu_gsp;
+    /// L0c3a: lo que el GSP escribe -- LIBOS, logs, rmargs y colas (2026-09-24).
+    pub mod gpu_libos;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay
