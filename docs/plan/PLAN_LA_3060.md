@@ -181,6 +181,18 @@ uno, los que ya estan no se repiten, uno que pide otro no se intenta, y al
 final NOTAS Y CONSEJOS. `save mode -gpu` quita ese paso; E2 sera una fila
 mas.
 
+**El modo ARMADO y el CONSEJERO (24-09, `b4da05862`, en codigo).** El
+propietario pidio que la verificacion se automatice "en caso que la PC se
+reinicie o kernel fault". `save mode [-paso]` corre y queda ARMADO en
+`datos/modo.txt`; antes de cada paso se escribe `en curso: X` (y el kernel
+vacia el disco antes de escribir en la IOMMU), y al acabar se borra. El
+arranque del escritorio lo lee: si encuentra un `en curso`, ese paso TUMBO la
+maquina, se quita solo, queda `tumbo: X` y se repite el resto. Repetir a
+ciegas seria un bucle de caidas; con la memoria, cada caida quita un paso.
+`save mode off` lo desarma. El CONSEJERO (Ctrl+Alt, al arrancar y tras cada
+`save mode`) dice UNA cosa: el paso que tumbo, el siguiente sin hacer o
+"todo verificado -> E2", y si el modo esta armado.
+
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,
 de paso, traducida), las banderas del IVHD con la errata 63, los registros
