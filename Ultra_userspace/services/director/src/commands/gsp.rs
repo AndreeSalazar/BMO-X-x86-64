@@ -741,7 +741,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         // las dos se arreglaron APAGANDO.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
-            s.text(b" = el booter NO carga sobre el GSP-RM de un arranque anterior: APAGA la maquina (no reinicies)");
+            s.text(b" = el booter no cargo: si `al llegar` dice CALIENTE, la 3060 traia el GSP-RM de antes");
             s.with_ink(INK_ECHO);
         }
     }

@@ -149,18 +149,43 @@ pub(crate) fn fila(s: &mut Output) {
                 s.with_ink(INK_ECHO);
                 s.text(b"; en Gen1 porque arranca asi: subirlo es del RM");
                 s.with_ink(INK_PLAIN);
-            } else if l.gen > 1 && !super::gspinit::listo() {
-                // ** Metal 24-09 13:52: Gen3 SIN GSP-RM en este arranque. En
-                // frio la 3060 sale en Gen1 y es el RM quien la sube: si ya
-                // viene subida, el RM de un arranque anterior sigue ahi.
-                s.with_ink(INK_ERR);
-                s.text(b"; ya subida SIN el RM de este arranque: la 3060 viene caliente de antes (APAGA, no reinicies)");
-                s.with_ink(INK_PLAIN);
             }
         }
         None => s.text(b"sin capacidad PCI Express leida"),
     }
     s.byte(b'\n');
+
+    // ** LA FOTO EN FRIO (metal 24-09 13:52): como llego la 3060 al sondear,
+    // antes de que BMO-X le tocara nada. En frio NO trae WPR2 (la monta
+    // FWSEC-FRTS, que corre BMO-X despues) y sale en Gen1 (la sube el RM).
+    let w = bmo::info(bmo::INFO_GPU_SALUD | 2 << 8);
+    if w >> 63 != 0 {
+        campo(s, b"al llegar");
+        let f = bmo::info(bmo::INFO_GPU_SALUD | 3 << 8);
+        let gen = salud::enlace(f as u16, (f >> 32) as u32).map(|l| l.gen);
+        let hi = (w >> 32) as u32 >> 4;
+        if hi != 0 {
+            s.with_ink(INK_ERR);
+            s.text(b"CALIENTE: ya traia WPR2 desde 0x");
+            s.hex(((w as u32 >> 4) as u64) << 12, 9);
+            s.text(b" antes de FWSEC -- la 3060 NO perdio la corriente y trae el GSP-RM de antes; el booter no cargara");
+            s.with_ink(INK_PLAIN);
+            s.text(b". Apaga la FUENTE (su interruptor, o el cable) 15 s, no solo el PC");
+        } else {
+            s.with_ink(INK_GOOD);
+            s.text(b"en FRIO: sin WPR2, como sale de fabrica");
+            s.with_ink(INK_PLAIN);
+        }
+        if let Some(g) = gen {
+            s.with_ink(INK_ECHO);
+            s.text(b"   enlace Gen");
+            s.dec(g as u64);
+            s.text(if g > 1 { b" (en frio seria Gen1)" as &[u8] } else { b"" });
+            s.with_ink(INK_PLAIN);
+        }
+        s.byte(b'\n');
+        super::datos::anotar(b"gpu al llegar caliente", (hi != 0) as u64, b"");
+    }
 
     if let Some(u) = ultimo() {
         campo(s, b"pstate");

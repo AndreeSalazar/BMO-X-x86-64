@@ -142,10 +142,11 @@ pub fn despertar() -> Result<u64, u32> {
         Ok(r) => r,
         Err(m) => return no(m),
     };
-    // ** LA 3060 CALIENTE. FWSEC-FRTS monta la WPR2 en `frts.desde`; solo el
-    // booter la baja hasta la WPR meta. Si ya empieza mas abajo ANTES de
-    // nuestro booter, la tarjeta trae el GSP-RM de un arranque anterior (un
-    // reinicio no la resetea) y el booter devolveria 0x15: no se gasta.
+    // ** LA 3060 CALIENTE. Dos pistas, cualquiera basta: al sondear ya traia
+    // WPR2 (`gpu::llego_caliente`: en frio no la hay hasta FWSEC-FRTS), o la
+    // WPR2 empieza mas abajo que `frts.desde` antes de nuestro booter (solo
+    // un booter la baja). La tarjeta trae el GSP-RM de antes y el booter
+    // devolveria 0x15: no se gasta.
     let fb = crate::ring0::dev::gpu::info_fb();
     let frts = bmo_gpu_ga10x::vbios::frts(
         fb as u32,
@@ -153,7 +154,7 @@ pub fn despertar() -> Result<u64, u32> {
         fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0,
     );
     let abajo = ((crate::ring0::dev::gpu::info_wpr2() as u32 >> 4) as u64) << 12;
-    if abajo != 0 && abajo < frts.desde {
+    if crate::ring0::dev::gpu::llego_caliente() || (abajo != 0 && abajo < frts.desde) {
         crate::ring0::cabina::warn("gpu", "L0c3b: la WPR2 ya viene EXTENDIDA de un arranque anterior; empieza en", abajo);
         return no(IOMMU_NO_GPU_CALIENTE);
     }

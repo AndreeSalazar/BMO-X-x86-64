@@ -125,6 +125,13 @@ pub fn sondear() {
     }
     let bar0 = crate::ring0::mm::phys_to_virt(fisica);
     BAR0.store(bar0, Ordering::Release);
+    // ** LA FOTO EN FRIO: como llega la 3060 ANTES de que BMO-X le toque nada.
+    // Una 3060 recien encendida no trae WPR2 (la monta FWSEC-FRTS, que corre
+    // BMO-X) y sale en Gen1 (la sube el RM). Metal 24-09 13:52: el booter dio
+    // 0x15 con el enlace ya en Gen3 -- sin esta foto no se sabia si la
+    // tarjeta venia de antes o no.
+    FRIO_WPR2.store(info_wpr2() | 1 << 63, Ordering::Release);
+    FRIO_ENLACE.store(info_salud(1 << 8), Ordering::Release);
 
     let chip = ga10x::Chip(leer(bar0, ga10x::BOOT_0));
     let mut c = GPU_HALLADA | (chip.0 as u64 & GPU_BOOT0_MASK) | ((device as u64) << GPU_DEVICE_SHIFT);
@@ -467,8 +474,27 @@ pub fn info_wpr2() -> u64 {
 // (`bmo_gpu_ga10x::salud::TERMICO`, como nouveau) y el enlace PCIe por la
 // capacidad PCI Express. Dos lecturas; ni un registro se escribe.
 
-/// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`.
+/// La WPR2 cruda al sondear (bit 63: se tomo), y el enlace (`LNKSTA | LNKCAP
+/// << 32`) al sondear.
+static FRIO_WPR2: AtomicU64 = AtomicU64::new(0);
+static FRIO_ENLACE: AtomicU64 = AtomicU64::new(0);
+
+/// **La 3060 llego CALIENTE**: al sondear ya traia WPR2, que solo monta
+/// FWSEC-FRTS y en este arranque aun no habia corrido. Un reinicio (o un
+/// apagado con la placa aun alimentada) no la reseteo.
+pub fn llego_caliente() -> bool {
+    let w = FRIO_WPR2.load(Ordering::Acquire);
+    w >> 63 != 0 && (w >> 32) as u32 >> 4 != 0
+}
+
+/// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`;
+/// 2 la WPR2 cruda AL SONDEAR (bit 63: se tomo); 3 el enlace AL SONDEAR.
 pub fn info_salud(sel: u64) -> u64 {
+    match sel >> 8 {
+        2 => return FRIO_WPR2.load(Ordering::Acquire),
+        3 => return FRIO_ENLACE.load(Ordering::Acquire),
+        _ => {}
+    }
     let bar0 = bar0();
     let Some((b, d, f)) = bdf() else { return 0 };
     if sel >> 8 == 0 {

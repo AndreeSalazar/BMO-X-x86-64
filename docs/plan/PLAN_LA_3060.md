@@ -674,6 +674,16 @@ ya empieza mas abajo (solo lo hace un booter), NO gasta el booter y dice
 el motivo de antes; y las filas `despierto` (0x15) y `pcie` (subida sin RM)
 lo explican. La regla sigue: entre pruebas, APAGAR, no reiniciar.
 
+**Y una foto en frio (24-09).** El propietario SI apago 15 s antes del 13:52,
+asi que "reiniciaste" era una suposicion. Para no suponer: `gpu::sondear`
+guarda la WPR2 y el enlace en el instante del arranque, antes de que BMO-X
+toque la tarjeta (`INFO_GPU_SALUD` selectores 2 y 3), y la fila `al llegar`
+lo dice. En frio NO hay WPR2 (la monta FWSEC-FRTS, que corre BMO-X). Si la
+hay, la tarjeta no perdio la corriente -- un apagado con la fuente aun
+enchufada puede dejar la placa alimentada --, y `despertar` no gasta el
+booter (67). Si `al llegar` dice FRIO y aun asi sale 0x15, la hipotesis
+estaba mal y el 0x15 es otra cosa: se mira por ahi.
+
 **L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
 `vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
 x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.

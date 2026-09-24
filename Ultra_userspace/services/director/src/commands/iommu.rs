@@ -142,7 +142,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_SEC_FALLO => b"el secuenciador se paro en una orden: mira las filas `corrio` y `orden`",
         bmo::IOMMU_NO_SEC_YA => b"el secuenciador ya se corrio en este arranque: otra vez pide apagar",
         bmo::IOMMU_NO_YA_DESPIERTO => b"el booter ya corrio en este arranque (el motivo de verdad es el de antes): otra vez pide APAGAR la maquina",
-        bmo::IOMMU_NO_GPU_CALIENTE => b"la 3060 trae el GSP-RM del arranque ANTERIOR (su WPR2 ya viene extendida): un reinicio NO la resetea -- APAGA y corta la corriente unos segundos",
+        bmo::IOMMU_NO_GPU_CALIENTE => b"la 3060 llego CALIENTE (ya traia WPR2 del arranque anterior): no perdio la corriente -- apaga la FUENTE (interruptor o cable) 15 s y vuelve; mira la fila `al llegar`",
         super::gsp::NO_GSP_NO_PARA => b"el GSP arranco con sus argumentos y no se paro en 2 s",
         super::gsp::NO_SEC2_NO_ACABA => b"el booter ARRANCO en el SEC2 y no se paro en 5 s",
         super::gsp::NO_RISCV_DORMIDO => b"el booter acabo bien pero el RISC-V del GSP no se encendio en 5 s: mira datos/gsplog.bin",
