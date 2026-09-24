@@ -25,8 +25,11 @@
 //! `FEATURE_*`), leidos el 23-09. El bit 4 de ESTADO (`CmdBufRun`) no lo
 //! nombra Linux; es del manual de AMD y cae en el hueco entre el 3 y el 5.
 
-#![no_std]
+#![cfg_attr(not(test), no_std)]
 #![forbid(unsafe_code)]
+
+/// Las tablas que la IOMMU lee de la RAM, armadas y probadas aqui (M0b).
+pub mod tablas;
 
 // -- Los registros (MMIO) ----------------------------------------------------
 

@@ -1483,6 +1483,25 @@ pub const IOMMU_INDICE_SHIFT: u64 = 8;
 pub const IOMMU_PARTE_SHIFT: u64 = 12;
 pub const IOMMU_VALIDA: u64 = 1 << 63;
 
+/// # `INFO_IOMMU_ARMADO` / `INFO_IOMMU_COLAS`: las tablas de M0b (2026-09-24)
+///
+/// ```text
+///   ARMADO  0..35 base de la tabla de dispositivos en paginas | 36..47 sus
+///           paginas | 48..61 entradas con banderas del IVHD | 62 releida
+///           igual que se escribio | 63 armada
+///   COLAS   0..35 base de las colas en paginas (ordenes; eventos a +8 KiB)
+///           36..51 entradas por cola | 63 armadas
+/// ```
+///
+/// ** Armadas en RAM y SIN ENTREGAR: ningun registro de la IOMMU apunta
+/// todavia aqui. Es lo que M0c le dara al encenderla.
+pub const INFO_IOMMU_ARMADO: u64 = 0xA8;
+pub const INFO_IOMMU_COLAS: u64 = 0xA9;
+pub const IOMMU_ARMADO_PAGINAS_SHIFT: u64 = 36;
+pub const IOMMU_ARMADO_BANDERAS_SHIFT: u64 = 48;
+pub const IOMMU_ARMADO_COMPROBADO: u64 = 1 << 62;
+pub const IOMMU_ARMADO_SI: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

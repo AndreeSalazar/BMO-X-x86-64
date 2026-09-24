@@ -161,6 +161,129 @@ pub fn sondear(rsdp: u64) {
     if amdvi::Control(control).encendida() {
         crate::ring0::cabina::warn("iommu", "el firmware la dejo TRADUCIENDO: se hereda, no se pisa", control);
     }
+    // ** M0b: si se puede encender, sus tablas se ARMAN ya -- y no se le
+    // entregan. Ver `armar`.
+    if amdvi::veredicto(control, funciones) == amdvi::Veredicto::SePuede {
+        armar(bloque, c.max_bdf);
+    }
+}
+
+// == M0b: LAS TABLAS, ARMADAS EN RAM Y SIN ENTREGAR (2026-09-24) ==============
+//
+// La tabla de dispositivos (hasta 2 MiB), la cola de ordenes y el registro de
+// eventos (8 KiB cada uno) se piden y se llenan AQUI, al arrancar, con lo que
+// dice `bmo_iommu_amdvi::tablas` -- y NINGUN registro de la IOMMU se toca. Lo
+// que el metal contesta con esto, antes de encender nada en M0c:
+//
+//    - que hay 2 MiB CONTIGUOS para la tabla (los pide el campo de medida)
+//    - que lo escrito por el physmap se LEE igual, entrada a entrada
+//    - cuantas entradas llevan banderas del IVHD (INIT/NMI/LINT/SysMgt)
+//
+// Cada BDF queda DE PASO (V + TV + IR + IW, modo 0): lo que M0c entregara para
+// encender sin que ningun aparato note nada. El dominio es el 1: Linux no usa
+// el 0 (`pdom_id_alloc` empieza en 1).
+
+/// Entradas de cada cola: 512 x 16 B = 8 KiB (`CMD_BUFFER_ENTRIES`,
+/// `EVTLOG_SIZE_DEF`).
+const ENTRADAS_COLA: u32 = 512;
+const BYTES_COLA: u64 = ENTRADAS_COLA as u64 * amdvi::tablas::ORDEN as u64;
+/// El dominio de las entradas de paso.
+const DOMINIO_PASO: u16 = 1;
+
+pub const IOMMU_ARMADO_PAGINAS_SHIFT: u64 = 36;
+pub const IOMMU_ARMADO_BANDERAS_SHIFT: u64 = 48;
+pub const IOMMU_ARMADO_COMPROBADO: u64 = 1 << 62;
+pub const IOMMU_ARMADO_SI: u64 = 1 << 63;
+
+/// `0..35` base de la tabla en paginas | `36..47` sus paginas | `48..61`
+/// entradas con banderas del IVHD | 62 releida igual | 63 armada.
+static ARMADO: AtomicU64 = AtomicU64::new(0);
+/// `0..35` base de las colas en paginas (ordenes, y a +8 KiB eventos) |
+/// `36..51` entradas por cola | 63 armadas.
+static COLAS: AtomicU64 = AtomicU64::new(0);
+
+fn armar(bloque: &[u8], max_bdf: u16) {
+    use crate::ring0::mm::phys;
+    use amdvi::tablas::{self as t, Dte};
+    let bytes = amdvi::tabla_para(max_bdf);
+    let paginas = bytes / 4096;
+    // La IOMMU lee estas tablas por DMA: son NEUTRO, como los buferes del disco.
+    let Some(base) = phys::alloc_frames_contig_de(paginas, phys::Titular::Neutro) else {
+        crate::ring0::cabina::warn("iommu", "no hay paginas CONTIGUAS para la tabla de dispositivos", paginas);
+        return;
+    };
+    let Some(colas) = phys::alloc_frames_contig_de(2 * BYTES_COLA / 4096, phys::Titular::Neutro) else {
+        crate::ring0::cabina::warn("iommu", "no hay paginas contiguas para las colas", 0);
+        return;
+    };
+    let v = crate::ring0::mm::phys_to_virt(base);
+    let vc = crate::ring0::mm::phys_to_virt(colas);
+    // SAFETY: `paginas` marcos contiguos recien entregados por el asignador
+    // a este fichero, por el physmap; nadie mas los tiene. Y las dos colas,
+    // igual. La IOMMU no sabe todavia que existen: ningun registro apunta aqui.
+    let tabla = unsafe {
+        core::ptr::write_bytes(vc as *mut u8, 0, (2 * BYTES_COLA) as usize);
+        core::slice::from_raw_parts_mut(v as *mut u64, (bytes / 8) as usize)
+    };
+    let n = t::llenar(tabla, Dte::de_paso(DOMINIO_PASO));
+    let mut con_banderas = 0u64;
+    let r = ivrs::por_entrada(bloque, |tr| {
+        if tr.banderas == 0 {
+            return;
+        }
+        let mut marca = |b: u16| {
+            if let Some(e) = t::leer(tabla, b) {
+                t::poner(tabla, b, e.con_banderas_ivhd(tr.banderas));
+                con_banderas += 1;
+            }
+        };
+        let mut b = tr.desde as u32;
+        while b <= tr.hasta as u32 {
+            marca(b as u16);
+            b += 1;
+        }
+        if let Some(a) = tr.alias {
+            marca(a);
+        }
+    });
+    // Releer: cada entrada tiene que ser de paso, con banderas o sin ellas.
+    let mut bien = true;
+    for b in 0..n {
+        match t::leer(tabla, b as u16) {
+            Some(e) if e.valida() && e.traduce() && e.lee() && e.escribe() && e.dominio() == DOMINIO_PASO => {}
+            _ => {
+                bien = false;
+                break;
+            }
+        }
+    }
+    // Y los registros que M0c escribira, comprobados contra su lectura.
+    let reg_tabla = t::registro_tabla(base, bytes);
+    let reg_ordenes = t::registro_cola(colas, ENTRADAS_COLA);
+    bien &= reg_tabla.and_then(amdvi::Tabla::de_registro) == Some(amdvi::Tabla { base, bytes })
+        && reg_ordenes.and_then(amdvi::Cola::de_registro) == Some(amdvi::Cola { base: colas, entradas: ENTRADAS_COLA });
+    ARMADO.store(
+        IOMMU_ARMADO_SI
+            | (base >> 12) & IOMMU_BASE_PAGINAS_MASK
+            | (paginas & 0xFFF) << IOMMU_ARMADO_PAGINAS_SHIFT
+            | con_banderas.min(0x3FFF) << IOMMU_ARMADO_BANDERAS_SHIFT
+            | if bien { IOMMU_ARMADO_COMPROBADO } else { 0 },
+        Ordering::Release,
+    );
+    COLAS.store(IOMMU_ARMADO_SI | (colas >> 12) & IOMMU_BASE_PAGINAS_MASK | (ENTRADAS_COLA as u64) << 36, Ordering::Release);
+    crate::ring0::cabina::addr("iommu", "M0b: tabla de dispositivos ARMADA (sin entregar)", base);
+    crate::ring0::cabina::count("iommu", "  ...entradas de paso", n as u64);
+    crate::ring0::cabina::count("iommu", "  ...con banderas del IVHD", con_banderas);
+    if !bien || r.cortado {
+        crate::ring0::cabina::warn("iommu", "M0b: la tabla releida NO dice lo que se escribio", base);
+    }
+}
+
+pub fn info_armado() -> u64 {
+    ARMADO.load(Ordering::Acquire)
+}
+pub fn info_colas() -> u64 {
+    COLAS.load(Ordering::Acquire)
 }
 
 pub fn info_donde() -> u64 {

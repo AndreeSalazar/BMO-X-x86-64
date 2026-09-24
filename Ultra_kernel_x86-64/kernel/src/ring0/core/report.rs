@@ -418,6 +418,9 @@ const INFO_IOMMU_CENSO: u64 = 0xA5;
 const INFO_IOMMU_ESPECIAL: u64 = 0xA6;
 /// Con selector: el indice en 8..11 y la parte en 12..13.
 const INFO_IOMMU_IVMD: u64 = 0xA7;
+/// Las tablas de M0b, armadas y sin entregar (2026-09-24).
+const INFO_IOMMU_ARMADO: u64 = 0xA8;
+const INFO_IOMMU_COLAS: u64 = 0xA9;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -932,6 +935,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_IOMMU_FUNCIONES => crate::ring0::plat::iommu::info_funciones(),
         INFO_IOMMU_TABLA => crate::ring0::plat::iommu::info_tabla(),
         INFO_IOMMU_CENSO => crate::ring0::plat::iommu::info_censo(),
+        INFO_IOMMU_ARMADO => crate::ring0::plat::iommu::info_armado(),
+        INFO_IOMMU_COLAS => crate::ring0::plat::iommu::info_colas(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

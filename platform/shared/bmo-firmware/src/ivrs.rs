@@ -174,26 +174,62 @@ pub struct Censo {
     pub efr: Option<u64>,
 }
 
-/// **Cuenta las entradas de un IVHD** (el bloque entero, cabecera incluida)
-/// y copia los especiales en `especiales`. Devuelve el censo y cuantos
-/// especiales copio.
-pub fn censar(bloque: &[u8], especiales: &mut [Especial]) -> (Censo, usize) {
-    let mut c = Censo::default();
-    let mut n = 0usize;
-    if bloque.len() < 24 {
-        c.cortado = true;
-        return (c, 0);
-    }
-    c.tipo = bloque[0];
-    let Some(cab) = cabecera_ivhd(c.tipo) else {
-        c.cortado = true;
-        return (c, 0);
+/// Que clase de entrada produjo un [`Tramo`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Que {
+    /// `ALL`: todos los BDF.
+    Todos,
+    /// Un BDF suelto (normal o extendido).
+    Uno,
+    /// Un rango cerrado (desde + hasta).
+    Rango,
+    /// Un alias o un rango con alias: `alias` es el BDF con el que piden.
+    Alias,
+    /// El IOAPIC o el HPET.
+    Especial(Especial),
+    /// Un aparato nombrado por su HID de ACPI.
+    PorHid,
+}
+
+/// **Un tramo de BDF con las banderas que el IVHD pide para el.** Lo que
+/// hace falta para llenar la tabla de dispositivos como Linux
+/// (`set_dev_entry_from_acpi_range`).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Tramo {
+    pub que: Que,
+    pub desde: u16,
+    pub hasta: u16,
+    /// `ACPI_DEVFLAG_*`: INIT, EXTINT, NMI, SYSMGT, LINT0, LINT1.
+    pub banderas: u8,
+    /// El BDF con el que piden, si es un alias. Tambien lleva las banderas.
+    pub alias: Option<u16>,
+}
+
+/// Lo que el recorrido no pudo convertir en tramo.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Resto {
+    /// Tipos que esta lectura no conoce: se saltaron por su medida.
+    pub desconocidas: u16,
+    /// Una entrada se salia del bloque, o no tenia medida: se paro ahi.
+    pub cortado: bool,
+}
+
+/// **Recorre las entradas de un IVHD** (el bloque entero, cabecera
+/// incluida) y da cada tramo con sus banderas. Un rango se da al llegar a su
+/// `hasta`, con las banderas de su `desde`, como Linux.
+pub fn por_entrada(bloque: &[u8], mut f: impl FnMut(Tramo)) -> Resto {
+    let mut r = Resto::default();
+    let Some(cab) = bloque.first().and_then(|&t| cabecera_ivhd(t)) else {
+        r.cortado = true;
+        return r;
     };
-    let largo = (u16_en(bloque, 2) as usize).min(bloque.len());
-    if cab == 40 && largo >= 40 {
-        c.efr = Some(u64_en(bloque, 24));
+    if bloque.len() < cab {
+        r.cortado = true;
+        return r;
     }
-    let mut abierto = false;
+    let largo = (u16_en(bloque, 2) as usize).min(bloque.len());
+    // El rango abierto: desde, banderas, y su alias si lo lleva.
+    let mut abierto: Option<(u16, u8, Option<u16>)> = None;
     let mut o = cab;
     while o + 4 <= largo {
         let tipo = bloque[o];
@@ -205,67 +241,71 @@ pub fn censar(bloque: &[u8], especiales: &mut [Especial]) -> (Censo, usize) {
             0
         };
         if l == 0 || o + l > largo {
-            c.cortado = true;
+            r.cortado = true;
             break;
         }
         let bdf = u16_en(bloque, o + 1);
         let banderas = bloque[o + 3];
         let ext = if l >= 8 { u32_en(bloque, o + 4) } else { 0 };
-        let mut nombra = |x: u16| c.max_bdf = c.max_bdf.max(x);
+        let uno = |que, b: u16, alias| Tramo { que, desde: b, hasta: b, banderas, alias };
         match tipo {
             DEV_RELLENO => {}
-            DEV_TODOS => {
-                c.todos += 1;
-                nombra(0xFFFF);
-            }
-            DEV_UNO | DEV_EXT_UNO => {
-                c.unos += 1;
-                nombra(bdf);
-            }
-            DEV_RANGO_DESDE | DEV_EXT_RANGO => {
-                abierto = true;
-                nombra(bdf);
-            }
-            DEV_ALIAS_RANGO => {
-                abierto = true;
-                c.alias += 1;
-                nombra(bdf);
-                nombra((ext >> 8) as u16);
-            }
+            DEV_TODOS => f(Tramo { que: Que::Todos, desde: 0, hasta: 0xFFFF, banderas, alias: None }),
+            DEV_UNO | DEV_EXT_UNO => f(uno(Que::Uno, bdf, None)),
+            DEV_RANGO_DESDE | DEV_EXT_RANGO => abierto = Some((bdf, banderas, None)),
+            DEV_ALIAS_RANGO => abierto = Some((bdf, banderas, Some((ext >> 8) as u16))),
             DEV_RANGO_HASTA => {
-                if abierto {
-                    c.rangos += 1;
-                    abierto = false;
+                if let Some((desde, b, alias)) = abierto.take() {
+                    let que = if alias.is_some() { Que::Alias } else { Que::Rango };
+                    f(Tramo { que, desde, hasta: bdf.max(desde), banderas: b, alias });
                 }
-                nombra(bdf);
             }
-            DEV_ALIAS => {
-                c.alias += 1;
-                nombra(bdf);
-                nombra((ext >> 8) as u16);
-            }
+            DEV_ALIAS => f(uno(Que::Alias, bdf, Some((ext >> 8) as u16))),
             DEV_ESPECIAL => {
+                let e = Especial { tipo: (ext >> 24) as u8, handle: ext as u8, bdf: (ext >> 8) as u16, banderas };
+                f(uno(Que::Especial(e), e.bdf, None));
+            }
+            DEV_ACPI_HID => f(uno(Que::PorHid, bdf, None)),
+            _ => r.desconocidas += 1,
+        }
+        o += l;
+    }
+    r
+}
+
+/// **Cuenta las entradas de un IVHD** y copia los especiales en
+/// `especiales`. Devuelve el censo y cuantos especiales copio. Es
+/// [`por_entrada`] contado.
+pub fn censar(bloque: &[u8], especiales: &mut [Especial]) -> (Censo, usize) {
+    let mut c = Censo::default();
+    let mut n = 0usize;
+    if bloque.len() < 24 {
+        c.cortado = true;
+        return (c, 0);
+    }
+    c.tipo = bloque[0];
+    if cabecera_ivhd(c.tipo) == Some(40) && bloque.len() >= 40 && u16_en(bloque, 2) >= 40 {
+        c.efr = Some(u64_en(bloque, 24));
+    }
+    let r = por_entrada(bloque, |t| {
+        c.max_bdf = c.max_bdf.max(t.hasta).max(t.alias.unwrap_or(0));
+        match t.que {
+            Que::Todos => c.todos += 1,
+            Que::Uno => c.unos += 1,
+            Que::Rango => c.rangos += 1,
+            Que::Alias => c.alias += 1,
+            Que::PorHid => c.por_hid += 1,
+            Que::Especial(e) => {
                 c.especiales += 1;
-                let e = Especial {
-                    tipo: (ext >> 24) as u8,
-                    handle: ext as u8,
-                    bdf: (ext >> 8) as u16,
-                    banderas,
-                };
-                nombra(e.bdf);
                 if n < especiales.len() {
                     especiales[n] = e;
                     n += 1;
                 }
             }
-            DEV_ACPI_HID => {
-                c.por_hid += 1;
-                nombra(bdf);
-            }
-            _ => c.desconocidas += 1,
         }
-        o += l;
-    }
+    });
+    c.desconocidas = r.desconocidas;
+    c.cortado = r.cortado;
     (c, n)
 }
 
@@ -413,6 +453,20 @@ mod pruebas {
         t[IVRS_CABECERA + 2] = 0;
         t[IVRS_CABECERA + 3] = 0;
         assert_eq!(ivhd_elegido(&t), None);
+    }
+
+    #[test]
+    fn cada_tramo_con_sus_banderas() {
+        let t = ivrs(&[ivhd(IVHD_10, 0x0002, &entradas())]);
+        let b = ivhd_elegido(&t).unwrap();
+        let mut v = Vec::new();
+        let r = por_entrada(b, |x| v.push(x));
+        assert!(!r.cortado);
+        assert_eq!(v.len(), 5, "uno, rango, alias, IOAPIC, HPET");
+        assert_eq!((v[1].que, v[1].desde, v[1].hasta), (Que::Rango, 0x0008, 0x2BFF));
+        assert_eq!((v[2].que, v[2].desde, v[2].alias), (Que::Alias, 0x0300, Some(0x0200)));
+        assert_eq!((v[3].desde, v[3].banderas), (0x00A0, 0xD7), "el IOAPIC, con sus banderas");
+        assert!(matches!(v[3].que, Que::Especial(e) if e.tipo == ESPECIAL_IOAPIC));
     }
 
     #[test]

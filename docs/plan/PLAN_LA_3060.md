@@ -126,6 +126,7 @@ pasos, cada uno visto en el metal antes del siguiente:
         la dejo el firmware encendida? que sabe (EFR)?      [en codigo]
    M0b  las tablas en RAM, armadas y probadas en el anfitrion: tabla de
         dispositivos, cola de ordenes, registro de eventos. Sin encender
+                                                            [en codigo]
    M0c  ENCENDER sin traducir: toda entrada valida y de paso (TV=0). No
         cambia nada para los aparatos; prueba que la cola de ordenes da
         la vuelta (COMPLETION_WAIT) y que el registro de eventos queda a 0
@@ -141,6 +142,25 @@ M0a vive en `platform/shared/bmo-firmware/src/ivrs.rs` (el IVRS entero,
 `Ultra_kernel_x86-64/kernel/src/ring0/plat/iommu.rs` e `INFO_IOMMU_*`
 (0xA0-0xA7), con la orden `iommu` y su cuadro en el capitulo 2 del `save`.
 De paso arreglo un fallo latente: `leer_ivrs` contaba los IVMD como IOMMUs.
+
+**M0a en el metal (24-09, 01:08):** APAGADA por el firmware (nada que
+heredar), IVHD 0x11 en `0xFD500000` con BDF `00:00.2`, 6 niveles de pagina,
+NX, GT, PPR, INVALIDAR-TODO y SIN GA (el remapeo ira con el formato de 32
+bits); todo el bus (tabla de 2 MiB); IOAPIC `0x0D` en `00:14.0` (banderas
+`0xD7`), IOAPIC `0x0E` en `00:00.1`, HPET en `00:14.0`; ningun IVMD.
+[!] Una nota vieja (07-09) decia `0x10 en 0xFEB80000`: `placa` imprime el
+PRIMER bloque, y si los dos no coinciden el firmware se contradice.
+
+**M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
+`bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,
+de paso, traducida), las banderas del IVHD con la errata 63, los registros
+que las entregan, COMPLETION_WAIT / INVALIDATE_DEVTAB_ENTRY /
+INVALIDATE_IOMMU_ALL, el anillo con el hueco de 0x20 de Linux, y los eventos
+con nombre. El kernel las ARMA al arrancar (`plat/iommu.rs::armar`: 2 MiB
+contiguos NEUTRO + 16 KiB de colas, todo de paso, releido) y NO toca un
+registro; la fila `ours` de `iommu` dice si quedaron iguales. La IOMMU entra
+en el censo del NEUTRO como cuarto aparato: lee sus tablas y escribe sus
+eventos por DMA.
 
 > [!] Hay un atajo medido para no bloquear M2 en M0: si los pushbuffers y las
 > superficies viven en la VRAM (por BAR1), la GPU no lee la RAM del PC. Se

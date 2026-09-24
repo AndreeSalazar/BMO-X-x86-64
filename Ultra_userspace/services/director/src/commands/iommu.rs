@@ -130,6 +130,7 @@ pub(crate) fn report_iommu(s: &mut Output) {
     s.text(if e.ordenes_corren() { b"; ordenes CORREN" as &[u8] } else { b"; ordenes paradas" });
     s.text(if e.eventos_corren() { b"; eventos CORREN" as &[u8] } else { b"; eventos parados" });
     s.byte(b'\n');
+    fila_armado(s);
 
     let n = bmo::info(bmo::INFO_IOMMU_CENSO);
     if n & bmo::IOMMU_CENSO_VALIDO != 0 {
@@ -244,4 +245,38 @@ fn veredicto(s: &mut Output, si: bool, frase: &[u8]) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"iommu se puede encender", si as u64, b"");
+}
+
+/// ** M0b: las tablas de BMO-X, armadas en RAM y SIN ENTREGAR. Si la fila
+/// dice `releida igual`, M0c tiene lo que darle a la IOMMU.
+fn fila_armado(s: &mut Output) {
+    let a = bmo::info(bmo::INFO_IOMMU_ARMADO);
+    let c = bmo::info(bmo::INFO_IOMMU_COLAS);
+    campo(s, b"ours");
+    if a & bmo::IOMMU_ARMADO_SI == 0 {
+        s.with_ink(INK_ECHO);
+        s.text(b"sin armar (no se pudo encender, o no hubo paginas contiguas: `cabina fallos`)\n");
+        s.with_ink(INK_PLAIN);
+        return;
+    }
+    let paginas = (a >> bmo::IOMMU_ARMADO_PAGINAS_SHIFT) & 0xFFF;
+    s.text(b"tabla de ");
+    s.dec(paginas * 4);
+    s.text(b" KiB en 0x");
+    s.hex((a & bmo::IOMMU_BASE_PAGINAS_MASK) << 12, 8);
+    s.text(b", todo DE PASO; ");
+    s.dec((a >> bmo::IOMMU_ARMADO_BANDERAS_SHIFT) & 0x3FFF);
+    s.text(b" con banderas del IVHD; colas de ");
+    s.dec((c >> 36) & 0xFFFF);
+    s.text(b" en 0x");
+    s.hex((c & bmo::IOMMU_BASE_PAGINAS_MASK) << 12, 8);
+    if a & bmo::IOMMU_ARMADO_COMPROBADO != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"   releida igual, SIN ENTREGAR\n");
+    } else {
+        s.with_ink(INK_ERR);
+        s.text(b"   releida DISTINTA de lo escrito\n");
+    }
+    s.with_ink(INK_PLAIN);
+    super::datos::anotar(b"iommu tabla armada", a, b"");
 }

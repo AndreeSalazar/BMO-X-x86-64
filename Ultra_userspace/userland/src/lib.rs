@@ -825,6 +825,13 @@ pub const IOMMU_CENSO_VALIDO: u64 = 1 << 63;
 pub const IOMMU_INDICE_SHIFT: u64 = 8;
 pub const IOMMU_PARTE_SHIFT: u64 = 12;
 pub const IOMMU_VALIDA: u64 = 1 << 63;
+/// ** Las tablas de M0b, armadas y sin entregar. Ver el ABI.
+pub const INFO_IOMMU_ARMADO: u64 = 0xA8;
+pub const INFO_IOMMU_COLAS: u64 = 0xA9;
+pub const IOMMU_ARMADO_PAGINAS_SHIFT: u64 = 36;
+pub const IOMMU_ARMADO_BANDERAS_SHIFT: u64 = 48;
+pub const IOMMU_ARMADO_COMPROBADO: u64 = 1 << 62;
+pub const IOMMU_ARMADO_SI: u64 = 1 << 63;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
