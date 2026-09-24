@@ -242,7 +242,15 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcola::leida,
         dar: super::gspcola::leer,
         pide: Some(b"despertar"),
-        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es L0c4b, contestarle",
+        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es L0c4b1, vaciarla",
+    },
+    Paso {
+        nombre: b"vaciar",
+        que: b"CONSUMIR lo que el GSP solo cuenta (NOCAT, LIBOS_PRINT) moviendo el puntero de lectura de la CPU; lo que pide algo se queda (L0c4b1)",
+        hecho: super::gspvaciar::vaciada,
+        dar: super::gspvaciar::vaciar,
+        pide: Some(b"cola"),
+        consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es L0c4b2, contestarle",
     },
 ];
 

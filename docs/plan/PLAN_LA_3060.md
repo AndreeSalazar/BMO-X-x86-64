@@ -422,7 +422,8 @@ MEDIDO, no el dicho.
         ni mover un puntero. `gpu cola` y el paso `cola`  [VISTO en metal, 24-09 07:34]
    L0c4b1 VACIAR la cola del GSP: leer cada mensaje, decir lo que traen
         los NOCAT y mover el puntero de lectura de la CPU, para que el GSP
-        pueda seguir hablando -- y ver que dice cuando ya cabe
+        pueda seguir hablando -- y ver que dice cuando ya cabe. `gpu
+        vaciar` y el paso `vaciar`               [en codigo, 24-09]
    L0c4b2 contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
         su GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
@@ -629,6 +630,23 @@ cabe hasta que alguien lea. nova-core no los descifra: los consume y sigue
 esperando el suyo (`receive_msg`: "Messages with non-matching function codes are
 silently consumed"). Por eso L0c4b se parte: primero VACIAR y ver que dicen los
 NOCAT y que viene detras; despues, contestar.
+
+**L0c4b1 (24-09, en codigo).** El kernel mueve el `readPtr` de la CPU
+(`IOMMU_OP_GSP_LEIDO`, `dev/gpu_libos.rs::mover_lectura`: solo si el GSP
+desperto en este arranque y a un hueco 0..62, con barrera antes y despues,
+como `advance_cpu_read_ptr` de nova-core). `rpc::informativo` dice que se
+puede consumir sin contestar -- NOCAT (0x1020), `LIBOS_PRINT` (0x100C) y el
+registro de errores (0x1006) --, y `rpc::textos` saca lo legible de sus datos
+(6 pruebas nuevas en el anfitrion). `commands/gspvaciar.rs` recorre la cola
+desde el `readPtr`: cada informativo con su firma y su suma se cuenta, se copia
+crudo a `datos/gspnocat.bin` y SOLO DESPUES se devuelve su hueco; el primero que
+pide algo se queda sin tocar. Vaciada, espera hasta 3 s a que el GSP diga mas
+(10 s en total) y sigue.
+
+**Como se sabe:** la fila `vacia` dice cuantos consumidos y de que tipo, y en
+que pagina lee ahora la CPU; `nocat`, los textos en claro de los NOCAT; y
+`pide`, el primer mensaje que espera respuesta -- se espera
+`GSP_RUN_CPU_SEQUENCER` (0x1002), que es donde empieza L0c4b2.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

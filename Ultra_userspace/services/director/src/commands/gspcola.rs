@@ -9,7 +9,8 @@
 //! # Lo que NO hace
 //!
 //! No mueve el puntero de lectura de la CPU: para el GSP, nadie ha leido nada
-//! todavia. Contestar --el secuenciador, SetSystemInfo, SetRegistry-- es L0c4b.
+//! todavia. Eso lo hace `gpu vaciar` (L0c4b1, `gspvaciar.rs`); contestar --el
+//! secuenciador, SetSystemInfo, SetRegistry-- es L0c4b2.
 //!
 //! # Por que desde aqui y sin tocar el kernel (2026-09-24)
 //!
@@ -31,12 +32,12 @@ const GSPMEM: u64 = 3 * 16 * 4096;
 /// La cola del GSP dentro de GspMem, su `writePtr`, y el `readPtr` de la CPU
 /// sobre ella (que vive en la cabecera de la cola de la CPU).
 const COLA_GSP: u64 = GSPMEM + 0x41000;
-const ESCRITO: u64 = COLA_GSP + 16;
-const LEIDO_CPU: u64 = GSPMEM + 0x1000 + 32;
+pub(crate) const ESCRITO: u64 = COLA_GSP + 16;
+pub(crate) const LEIDO_CPU: u64 = GSPMEM + 0x1000 + 32;
 /// Los mensajes: 63 paginas tras la de cabeceras.
 const DATOS: u64 = COLA_GSP + 0x1000;
-const PAGINAS: u64 = 63;
-const PAGINA: u64 = 4096;
+pub(crate) const PAGINAS: u64 = 63;
+pub(crate) const PAGINA: u64 = 4096;
 /// La cola entera, con su pagina de cabeceras, para el disco.
 const COLA_BYTES: u64 = (1 + PAGINAS) * PAGINA;
 const RUTA: &[u8] = b"datos/gspcola.bin";
@@ -69,17 +70,17 @@ fn resumen() -> Option<Resumen> {
     unsafe { *core::ptr::addr_of!(RESUMEN) }
 }
 
-fn mem(desde: u64) -> u64 {
+pub(crate) fn mem(desde: u64) -> u64 {
     bmo::info(bmo::INFO_GPU_GSP_MEM | desde << 8)
 }
 
 /// 8 bytes de la cola, contando desde la pagina `pagina`; da la vuelta.
-fn cola(pagina: u64, desde: u64) -> u64 {
+pub(crate) fn cola(pagina: u64, desde: u64) -> u64 {
     mem(DATOS + (pagina * PAGINA + desde) % (PAGINAS * PAGINA))
 }
 
 /// La cabecera del mensaje que empieza en `pagina`.
-fn cabecera(pagina: u64) -> [u8; CABECERA] {
+pub(crate) fn cabecera(pagina: u64) -> [u8; CABECERA] {
     let mut b = [0u8; CABECERA];
     for k in 0..CABECERA / 8 {
         b[k * 8..k * 8 + 8].copy_from_slice(&cola(pagina, k as u64 * 8).to_le_bytes());
@@ -88,7 +89,7 @@ fn cabecera(pagina: u64) -> [u8; CABECERA] {
 }
 
 /// La suma del mensaje entero: cabecera y datos, como nova-core.
-fn suma(pagina: u64, m: &Mensaje) -> u32 {
+pub(crate) fn suma(pagina: u64, m: &Mensaje) -> u32 {
     let mut s = Suma::default();
     let n = m.bytes_sumados() as u64;
     let mut o = 0;

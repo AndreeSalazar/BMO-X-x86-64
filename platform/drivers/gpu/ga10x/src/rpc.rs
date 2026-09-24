@@ -168,6 +168,41 @@ pub const INIT_DONE: u32 = 0x1001;
 /// El secuenciador: el GSP pide a la CPU que toque registros por el.
 pub const SECUENCIADOR: u32 = 0x1002;
 
+// -- L0c4b1: lo que se consume sin contestar ------------------------------------
+
+/// `GSP_POST_NOCAT_RECORD`: un registro de diagnostico del GSP-RM.
+pub const NOCAT: u32 = 0x1020;
+
+/// **Se puede consumir sin contestar?** Los que el GSP CUENTA y no pide nada:
+/// sus NOCAT, sus `LIBOS_PRINT` y su registro de errores. Todo lo demas --el
+/// secuenciador, `GSP_INIT_DONE`, una respuesta-- se deja en la cola para
+/// quien sepa contestarlo (L0c4b2).
+pub const fn informativo(funcion: u32) -> bool {
+    matches!(funcion, NOCAT | 0x100C | 0x1006)
+}
+
+/// **Los textos legibles de unos datos**: tramos de 4 o mas caracteres ASCII
+/// imprimibles, en orden, hasta `fuera.len()`. Cada uno como `(desde, hasta)`.
+/// Un NOCAT lleva el nombre de su fuente y de lo que paso en claro.
+pub fn textos(datos: &[u8], fuera: &mut [(usize, usize)]) -> usize {
+    let (mut n, mut ini) = (0, None);
+    for (i, &c) in datos.iter().chain(core::iter::once(&0)).enumerate() {
+        let imprimible = (0x20..0x7F).contains(&c);
+        match (imprimible, ini) {
+            (true, None) => ini = Some(i),
+            (false, Some(a)) => {
+                if i - a >= 4 && n < fuera.len() {
+                    fuera[n] = (a, i);
+                    n += 1;
+                }
+                ini = None;
+            }
+            _ => {}
+        }
+    }
+    n
+}
+
 // ===================================================================
 //  PRUEBAS
 // ===================================================================
@@ -228,6 +263,23 @@ mod pruebas {
         m[56..60].copy_from_slice(&5000u32.to_le_bytes());
         assert!(!Mensaje::de(m[..80].try_into().unwrap()).bien_formado(), "no cabe en su pagina");
         assert!(!Mensaje::de(&[0; 80]).bien_formado(), "una pagina a cero");
+    }
+
+    #[test]
+    fn los_que_se_consumen_sin_contestar() {
+        assert!(informativo(NOCAT) && informativo(0x100C) && informativo(0x1006));
+        assert!(!informativo(SECUENCIADOR) && !informativo(INIT_DONE) && !informativo(73));
+    }
+
+    #[test]
+    fn los_textos_de_un_nocat() {
+        let d = b"\x01\x00GSP-RM\x00\x02ab\x00falta registro\xff\x00XYZW";
+        let mut t = [(0, 0); 4];
+        let n = textos(d, &mut t);
+        let dichos: std::vec::Vec<&[u8]> = t[..n].iter().map(|&(a, b)| &d[a..b]).collect();
+        assert_eq!(dichos, [&b"GSP-RM"[..], b"falta registro", b"XYZW"], "ab es corto; el ultimo acaba con los datos");
+        let mut uno = [(0, 0); 1];
+        assert_eq!(textos(d, &mut uno), 1, "no pasa de lo que cabe");
     }
 
     #[test]

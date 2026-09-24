@@ -334,6 +334,8 @@ pub(crate) const IOMMU_OP_GSP_DESPERTAR: u64 = 0x13;
 pub(crate) const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
 /// L0c3b: el SEC2 parado con MAILBOX0 = 0, y el OS del GSP escrito.
 pub(crate) const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
+/// L0c4b1: mover el `readPtr` de la CPU sobre la cola del GSP a `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_LEIDO: u64 = 0x16;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

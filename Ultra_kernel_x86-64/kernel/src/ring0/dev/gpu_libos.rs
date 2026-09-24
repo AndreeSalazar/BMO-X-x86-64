@@ -283,3 +283,39 @@ pub fn info_gsp_mem(sel: u64) -> u64 {
     // escribe la 3060 por DMA, y por eso se lee volatile.
     unsafe { (crate::ring0::mm::phys_to_virt(f + o) as *const u64).read_volatile() }
 }
+
+// == L0c4b1: EL PUNTERO DE LECTURA DE LA CPU (2026-09-24) =====================
+//
+// La cola del GSP la escribe el GSP; hasta donde la LEYO la CPU lo dice el
+// `readPtr` que vive en la cabecera de la cola de la CPU (`cpuq.rx`, nova-core
+// `advance_cpu_read_ptr`). Moverlo es devolverle al GSP los huecos: en el
+// metal (24-09 07:34) la cola estaba LLENA de NOCAT, y lo que el GSP diga
+// despues no cabe hasta que esto se mueva. Es memoria del PC, no un registro
+// de la 3060 -- pero la lee el GSP, y por eso la escribe el kernel.
+
+/// El GSP no esta despierto en este arranque: no hay cola que devolver.
+pub const IOMMU_NO_COLA_ANTES: u32 = 46;
+/// El puntero pedido no es un hueco de la cola (0..63).
+pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
+
+/// **Mover el `readPtr` de la CPU a `nuevo`.** `Ok(el que habia)`.
+pub fn mover_lectura(nuevo: u64) -> Result<u64, u32> {
+    use crate::ring0::dev::gpu_despertar as d;
+    if d::info_despierto() & d::DESPIERTO_VISTO == 0 {
+        return Err(IOMMU_NO_COLA_ANTES);
+    }
+    let f = GSPMEM_F.load(Ordering::Acquire);
+    if f == 0 || nuevo >= lb::MSGQ_PAGINAS {
+        return Err(IOMMU_NO_COLA_PUNTERO);
+    }
+    let p = crate::ring0::mm::phys_to_virt(f + lb::COLA_CPU + lb::RX_HDR_OFF as u64) as *mut u32;
+    // Lo leido de los mensajes tiene que estar acabado ANTES de devolver sus
+    // huecos: nova-core pone aqui una barrera, y aqui tambien.
+    core::sync::atomic::fence(Ordering::SeqCst);
+    // SAFETY: `readPtr` de la cola de la CPU, dentro de GspMem (marcos NEUTRO
+    // de este fichero); volatile porque lo lee el GSP por DMA.
+    let antes = unsafe { p.read_volatile() };
+    unsafe { p.write_volatile(nuevo as u32) };
+    core::sync::atomic::fence(Ordering::SeqCst);
+    Ok(antes as u64)
+}

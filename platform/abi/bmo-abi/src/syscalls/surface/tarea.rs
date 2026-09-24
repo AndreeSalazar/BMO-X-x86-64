@@ -674,6 +674,9 @@ pub const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
 /// L0c3b: el SEC2 parado con MAILBOX0 = 0, y el registro OS del GSP escrito.
 /// Despues, el RISC-V del GSP se mira en `INFO_GPU_DESPIERTO`.
 pub const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
+/// L0c4b1: mover el `readPtr` de la CPU sobre la cola del GSP a `arg1`
+/// (0..63): devolverle al GSP los huecos de lo ya leido. `Ok` = el de antes.
+pub const IOMMU_OP_GSP_LEIDO: u64 = 0x16;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -761,6 +764,10 @@ pub const IOMMU_NO_SEC2_NO_PARA: u32 = 43;
 pub const IOMMU_NO_BOOTER_MAL: u32 = 44;
 /// L0c3b: el booter ya corrio en este arranque; otra vez pide reiniciar la 3060.
 pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
+/// L0c4b1: el GSP no esta despierto en este arranque: no hay cola que devolver.
+pub const IOMMU_NO_COLA_ANTES: u32 = 46;
+/// L0c4b1: el puntero pedido no es un hueco de la cola (0..63).
+pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;
