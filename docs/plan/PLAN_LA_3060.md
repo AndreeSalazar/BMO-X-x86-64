@@ -398,8 +398,28 @@ MEDIDO, no el dicho.
         del fusible puesta, IMEM y DMEM por DMA, BROM, arrancar, y MAILBOX0
         a 0. Como se sabe: la fila `wpr2` dice YA montada
                                                 [VISTO en metal, 24-09 05:19]
-   L0c  el booter en el SEC2 y el GSP-RM (los ~69 MB), por el mismo camino
+   L0c0 el FIRMWARE en el disco: los cuatro de linux-firmware 535.113.01
+        (la GA106 usa los de GA102) los baja el build UNA vez, por SHA-256,
+        a BMO-externo\firmware\ y los deja en fw\gsp\ del volumen de
+        datos                                   [en el build, 24-09]
+   L0c  el booter en el SEC2 y el GSP-RM (38 MB), por el mismo camino
 ```
+
+**L0c0 (24-09).** La VBIOS traia FWSEC; el resto no. `build\firmware.ps1` baja de
+linux-firmware (`nvidia/ga102/gsp/`, que es a donde apunta `nvidia/ga106/gsp`
+en su WHENCE) y comprueba contra el SHA-256 escrito en el guion:
+
+```text
+   fw\gsp\boot_ld.bin   booter_load     59768 B   cabecera 0x10DE, datos 0xE600 B
+   fw\gsp\boot_ul.bin   booter_unload   39544 B   cabecera 0x10DE, datos 0x9700 B
+   fw\gsp\bootldr.bin   bootloader      20588 B   cabecera 0x10DE, datos 0x5000 B
+   fw\gsp\gsp.bin       gsp          38061600 B   ELF RISC-V: .fwimage 0x2448000 B
+                                                  y .fwsignature_ga10x (4 KiB)
+```
+
+No van al repo: son 38 MB (mas que el `.git` entero) y su licencia es la de
+NVIDIA. Sin red el build sigue y dice donde dejarlos a mano. [!] `gsp.bin` no
+cabe en el bufer de 4 MiB de `lanzar.rs`: L0c lo lee A TROZOS, como la ROM.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

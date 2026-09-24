@@ -481,6 +481,8 @@ if (-not (Test-Path $compositorElf)) { Fail 'no salio el ELF del DIRECTOR' }
 # se NIEGA a recortar, porque un nombre recortado abre otro archivo.
 # -- EJEMPLOS (L6a: `build.ps1` se partio el 2026-08-28) --------
 . (Join-Path $PSScriptRoot 'build\ejemplos.ps1')
+# -- FIRMWARE DEL GSP (L0c): bajado una vez, verificado por SHA-256 ----
+. (Join-Path $PSScriptRoot 'build\firmware.ps1')
 
 # -- Build kernel (Ring 0 base) ------------------------------------
 Step 'Building kernel (Ring 0 base)...'
