@@ -14,7 +14,7 @@ use bmo_userland as bmo;
 use super::After;
 use crate::desktop::Desktop;
 use crate::commands::complete::file_error_reason;
-use crate::scene::output::{INK_ERR, INK_GOOD, INK_PLAIN};
+use crate::scene::output::{INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_BAD, INK_DIM, INK_OK};
 use crate::text::{decimal, is_dot_entry};
 use crate::{dump_output, DEFAULT_DUMP};
@@ -229,7 +229,81 @@ fn tema(arg: &[u8]) -> Option<(&'static [u8], u8)> {
     }
 }
 
+// == LOS DOS MODOS DEL `save` (2026-09-24) =====================================
+//
+// Peticion del propietario: *"si me dan sorpresa, eso es el motivo"*. Un fallo
+// de Ring 0 mata la sesion y el `save` que no se hizo antes ya no se hace. Asi
+// que el `save` tiene dos modos:
+//
+//    AUTOMATICO   antes de cada orden ARRIESGADA (las que escriben en el
+//                 hardware: hoy `iommu encender` e `iommu apagar`), el
+//                 escritorio guarda el informe maestro SOLO, y la orden no
+//                 corre si el save no se pudo escribir
+//    MANUAL       solo cuando el propietario teclea `save`
+//
+// Por defecto AUTOMATICO: la maquina trabaja para quien la usa. `save auto` y
+// `save manual` lo cambian; `save modo` lo dice.
+
+static SAVE_AUTOMATICO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(true);
+
+/// **Antes de una orden arriesgada.** En modo automatico guarda el informe
+/// maestro y devuelve si se pudo; en manual, `true` sin hacer nada.
+pub(crate) fn antes_de_arriesgar(dsk: &mut Desktop, p: &bmo::Pantalla, que: &[u8]) -> bool {
+    if !SAVE_AUTOMATICO.load(core::sync::atomic::Ordering::Relaxed) {
+        return true;
+    }
+    dsk.out.grid.with_ink(INK_ECHO);
+    dsk.out.grid.text(b"  save AUTOMATICO antes de `");
+    dsk.out.grid.text(que);
+    dsk.out.grid.text(b"` (si algo cae, esto ya esta en el disco):\n");
+    dsk.out.grid.with_ink(INK_PLAIN);
+    match super::save_maestro::maestro(dsk, DEFAULT_DUMP, p.rayo()) {
+        Ok(_) => {
+            dsk.out.grid.with_ink(INK_GOOD);
+            dsk.out.grid.text(b"  save automatico GUARDADO en ");
+            dsk.out.grid.text(DEFAULT_DUMP);
+            dsk.out.grid.byte(b'\n');
+            dsk.out.grid.with_ink(INK_PLAIN);
+            true
+        }
+        Err(e) => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  save automatico NO se pudo (");
+            dsk.out.grid.text(file_error_reason(e));
+            dsk.out.grid.text(b"): la orden NO se hace\n");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            false
+        }
+    }
+}
+
+fn modo_del_save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Option<After> {
+    use core::sync::atomic::Ordering;
+    match arg {
+        b"auto" | b"automatico" => SAVE_AUTOMATICO.store(true, Ordering::Relaxed),
+        b"manual" => SAVE_AUTOMATICO.store(false, Ordering::Relaxed),
+        b"modo" => {}
+        _ => return None,
+    }
+    let auto = SAVE_AUTOMATICO.load(Ordering::Relaxed);
+    dsk.out.grid.with_ink(if auto { INK_GOOD } else { INK_ERR });
+    dsk.out.grid.text(if auto {
+        b"  save AUTOMATICO: se guarda solo antes de cada orden que escribe en el hardware\n" as &[u8]
+    } else {
+        b"  save MANUAL: solo cuando lo teclees. Una orden arriesgada que tumbe la maquina se lleva la sesion\n"
+    });
+    dsk.out.grid.with_ink(INK_PLAIN);
+    paint_status(p, &dsk.run_box, if auto { "save automatico" } else { "save manual" }, INK_DIM);
+    dsk.field.n = 0;
+    Some(After::Settle)
+}
+
 pub(crate) fn save(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    // `save auto`, `save manual`, `save modo`: el modo, no un fichero con ese
+    // nombre.
+    if let Some(a) = modo_del_save(dsk, p, arg) {
+        return a;
+    }
     // ** `save <tema>`: solo esa tabla, en su propio fichero.
     if let Some((dest, cual)) = tema(arg) {
         // La marca se toma ANTES de pintar: lo que va al fichero es exactamente

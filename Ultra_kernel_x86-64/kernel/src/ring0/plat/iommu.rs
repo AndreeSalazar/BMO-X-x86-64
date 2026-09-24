@@ -1,9 +1,9 @@
-//! **LA IOMMU, PREGUNTADA** -- si el firmware la dejo encendida, que sabe
-//! hacer, y a quien atiende.
+//! **LA IOMMU, PREGUNTADA Y ENCENDIDA** -- si el firmware la dejo encendida,
+//! que sabe hacer, a quien atiende; y desde M0c, encenderla por orden.
 //!
-//! [carril]  AMARILLO  LEE la IOMMU por MMIO y el IVRS: ni un bit escrito
+//! [carril]  ROJO      ESCRIBE en la IOMMU (M0c): la frontera del DMA de todo aparato
 //! [prueba]  bmo-iommu-amdvi, bmo-firmware -- lo que significa cada numero
-//! [consumo] NADA      corre una vez al arrancar, y una lectura cuando alguien pregunta
+//! [consumo] NADA      corre una vez al arrancar, y cuando el propietario lo teclea
 //!
 //! [eje]     CORRECCION -- es la pregunta de LEY 24 antes de encender nada
 //! [riesgo]  AJENO -- los registros son de un aparato que BMO-X no inicializo:
@@ -24,11 +24,14 @@
 //!                     la tabla de dispositivos que haya, y el estado
 //! ```
 //!
-//! # Lo que NO hace, a proposito
+//! # Lo que escribe, y cuando
 //!
-//! No escribe NADA: ni en sus registros ni en su configuracion PCI. Lo que
-//! significa cada numero vive en `bmo-iommu-amdvi` y en `bmo_firmware::ivrs`,
-//! que se prueban en el anfitrion; esto es el pegamento.
+//! Al arrancar, NADA en la IOMMU: solo lee (M0a) y arma sus tablas en RAM
+//! sin entregarlas (M0b). Escribe en sus registros UNICAMENTE por
+//! `encender`/`apagar` (M0c), que llegan por `TASK_OP_IOMMU` desde el
+//! escritorio. Ni una escritura en su configuracion PCI. Lo que significa cada
+//! numero vive en `bmo-iommu-amdvi` y en `bmo_firmware::ivrs`, que se prueban
+//! en el anfitrion; esto es el pegamento.
 
 use bmo_firmware::ivrs;
 use bmo_iommu_amdvi as amdvi;
@@ -212,7 +215,9 @@ fn armar(bloque: &[u8], max_bdf: u16) {
         crate::ring0::cabina::warn("iommu", "no hay paginas CONTIGUAS para la tabla de dispositivos", paginas);
         return;
     };
-    let Some(colas) = phys::alloc_frames_contig_de(2 * BYTES_COLA / 4096, phys::Titular::Neutro) else {
+    // Ordenes (8 KiB) + eventos (8 KiB) + una pagina para el SEMAFORO: donde
+    // la IOMMU escribe el dato de COMPLETION_WAIT (M0c).
+    let Some(colas) = phys::alloc_frames_contig_de(2 * BYTES_COLA / 4096 + 1, phys::Titular::Neutro) else {
         crate::ring0::cabina::warn("iommu", "no hay paginas contiguas para las colas", 0);
         return;
     };
@@ -222,7 +227,7 @@ fn armar(bloque: &[u8], max_bdf: u16) {
     // a este fichero, por el physmap; nadie mas los tiene. Y las dos colas,
     // igual. La IOMMU no sabe todavia que existen: ningun registro apunta aqui.
     let tabla = unsafe {
-        core::ptr::write_bytes(vc as *mut u8, 0, (2 * BYTES_COLA) as usize);
+        core::ptr::write_bytes(vc as *mut u8, 0, (2 * BYTES_COLA + 4096) as usize);
         core::slice::from_raw_parts_mut(v as *mut u64, (bytes / 8) as usize)
     };
     let n = t::llenar(tabla, Dte::de_paso(DOMINIO_PASO));
@@ -289,17 +294,26 @@ pub fn info_colas() -> u64 {
 pub fn info_donde() -> u64 {
     DONDE.load(Ordering::Acquire)
 }
+/// Los registros EN VIVO si se pueden leer; si no, la foto del arranque. Desde
+/// M0c el control cambia despues de arrancar, y una foto vieja mentiria.
+fn vivo(reg: u32, foto: &AtomicU64) -> u64 {
+    match registros() {
+        // SAFETY: registros de la IOMMU por el physmap, como en `sondear`.
+        Some(v) => unsafe { ((v + reg as u64) as *const u64).read_volatile() },
+        None => foto.load(Ordering::Acquire),
+    }
+}
 pub fn info_control() -> u64 {
-    CONTROL.load(Ordering::Acquire)
+    vivo(amdvi::CONTROL, &CONTROL)
 }
 pub fn info_estado() -> u64 {
-    ESTADO.load(Ordering::Acquire)
+    vivo(amdvi::ESTADO, &ESTADO)
 }
 pub fn info_funciones() -> u64 {
     FUNCIONES.load(Ordering::Acquire)
 }
 pub fn info_tabla() -> u64 {
-    TABLA.load(Ordering::Acquire)
+    vivo(amdvi::TABLA_DISPOSITIVOS, &TABLA)
 }
 pub fn info_censo() -> u64 {
     CENSO.load(Ordering::Acquire)
@@ -320,4 +334,183 @@ pub fn info_ivmd(sel: u64) -> u64 {
         (Some(w), 0..=2) => w[p].load(Ordering::Acquire),
         _ => 0,
     }
+}
+
+// == M0c: ENCENDER, CON LA VUELTA ATRAS DENTRO (2026-09-24) ====================
+//
+// La primera ESCRITURA en la IOMMU. Solo por orden del propietario (`iommu
+// encender`, `TASK_OP_IOMMU`), nunca al arrancar: si algo sale mal, un
+// reinicio lo borra todo, porque nada de esto queda escrito en ningun sitio.
+//
+//    1. entregar la tabla de M0b, la cola de ordenes y el registro de eventos
+//    2. encender la cola y los eventos, y luego la IOMMU (todo DE PASO: ningun
+//       aparato deberia notar nada)
+//    3. INVALIDATE_IOMMU_ALL y COMPLETION_WAIT: "cuando acabes, escribe esto"
+//    4. si el dato llega, la IOMMU OBEDECE. Si en 10 ms no llega, se APAGA
+//       otra vez con el control que tenia, y se dice por que
+//
+// El orden es el de Linux (`iommu_enable_command_buffer`,
+// `iommu_enable_event_buffer`, `iommu_enable`, `amd_iommu_flush_all_caches`).
+
+/// Motivos del NO de `TASK_OP_IOMMU`. Espejo de `bmo_abi::...::IOMMU_NO_*`.
+pub const IOMMU_NO_ESCRITORIO: u32 = 1;
+pub const IOMMU_NO_TABLAS: u32 = 2;
+pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
+pub const IOMMU_NO_CONTESTA: u32 = 4;
+pub const IOMMU_NO_APAGADA: u32 = 5;
+
+pub const IOMMU_VIVA_EVENTOS_SHIFT: u64 = 32;
+pub const IOMMU_VIVA_MOTIVO_SHIFT: u64 = 48;
+pub const IOMMU_VIVA_INTENTOS_SHIFT: u64 = 56;
+pub const IOMMU_VIVA_CONTESTO: u64 = 1 << 62;
+pub const IOMMU_VIVA_ENCENDIDA: u64 = 1 << 63;
+
+/// `0..31` us que tardo el COMPLETION_WAIT | `32..47` eventos en el registro |
+/// `48..55` el ultimo motivo del NO | `56..59` intentos | 62 contesto |
+/// 63 ENCENDIDA por BMO-X ahora.
+static VIVA: AtomicU64 = AtomicU64::new(0);
+/// El control que dejo el firmware: lo que se restaura al apagar.
+static CONTROL_ORIGINAL: AtomicU64 = AtomicU64::new(0);
+
+/// El dato que la IOMMU escribe al acabar. Cualquiera distinto de 0 vale; este
+/// se reconoce en un volcado.
+const SEMAFORO_DATO: u64 = 0xB0B0_1000_0000_0001;
+const ESPERA_MAX_MS: u64 = 10;
+const CONTROL_EN: u64 = 1 << 0;
+const CONTROL_EVENTOS: u64 = 1 << 2;
+const CONTROL_ORDENES: u64 = 1 << 12;
+
+/// La base virtual de sus registros, si se pueden tocar.
+fn registros() -> Option<u64> {
+    let d = DONDE.load(Ordering::Acquire);
+    if d & IOMMU_HALLADA == 0 || d & IOMMU_MUDA != 0 {
+        return None;
+    }
+    Some(crate::ring0::mm::phys_to_virt((d & IOMMU_BASE_PAGINAS_MASK) << 12))
+}
+
+fn apuntar_viva(f: impl FnOnce(u64) -> u64) {
+    let v = VIVA.load(Ordering::Acquire);
+    VIVA.store(f(v), Ordering::Release);
+}
+
+fn fallo(motivo: u32) -> Result<u64, u32> {
+    apuntar_viva(|v| (v & !(0xFF << IOMMU_VIVA_MOTIVO_SHIFT)) | (motivo as u64) << IOMMU_VIVA_MOTIVO_SHIFT);
+    Err(motivo)
+}
+
+/// **Encender.** `Ok(us | eventos << 32)`, o el motivo del NO.
+pub fn encender() -> Result<u64, u32> {
+    use amdvi::tablas::{self as t, Orden};
+    apuntar_viva(|v| {
+        let n = ((v >> IOMMU_VIVA_INTENTOS_SHIFT) & 0xF).saturating_add(1).min(0xF);
+        (v & !(0xF << IOMMU_VIVA_INTENTOS_SHIFT)) | n << IOMMU_VIVA_INTENTOS_SHIFT
+    });
+    let a = ARMADO.load(Ordering::Acquire);
+    let c = COLAS.load(Ordering::Acquire);
+    let Some(v) = registros() else { return fallo(IOMMU_NO_TABLAS) };
+    if a & IOMMU_ARMADO_COMPROBADO == 0 || c & IOMMU_ARMADO_SI == 0 {
+        return fallo(IOMMU_NO_TABLAS);
+    }
+    // SAFETY: los registros de la IOMMU por el physmap, no cacheable por el
+    // MTRR (como el ABAR del AHCI). Lo que se escribe es lo de Linux.
+    let rd = |r: u32| unsafe { ((v + r as u64) as *const u64).read_volatile() };
+    let wr = |r: u32, x: u64| unsafe { ((v + r as u64) as *mut u64).write_volatile(x) };
+    let control = rd(amdvi::CONTROL);
+    if amdvi::Control(control).encendida() {
+        return fallo(IOMMU_NO_YA_ENCENDIDA);
+    }
+    let tabla = (a & IOMMU_BASE_PAGINAS_MASK) << 12;
+    let bytes = ((a >> IOMMU_ARMADO_PAGINAS_SHIFT) & 0xFFF) * 4096;
+    let ordenes = (c & IOMMU_BASE_PAGINAS_MASK) << 12;
+    let eventos = ordenes + BYTES_COLA;
+    let semaforo = eventos + BYTES_COLA;
+    let (Some(r_tabla), Some(r_ord), Some(r_ev), Some(esperar)) = (
+        t::registro_tabla(tabla, bytes),
+        t::registro_cola(ordenes, ENTRADAS_COLA),
+        t::registro_cola(eventos, ENTRADAS_COLA),
+        Orden::esperar(semaforo, SEMAFORO_DATO),
+    ) else {
+        return fallo(IOMMU_NO_TABLAS);
+    };
+    let vs = crate::ring0::mm::phys_to_virt(semaforo);
+    CONTROL_ORIGINAL.store(control, Ordering::Release);
+    crate::ring0::cabina::bits("iommu", "M0c: ENCENDER, control antes", control);
+
+    // 1. Entregar.
+    wr(amdvi::TABLA_DISPOSITIVOS, r_tabla);
+    wr(amdvi::COLA_ORDENES, r_ord);
+    wr(amdvi::ORDENES_CABEZA, 0);
+    wr(amdvi::ORDENES_COLA, 0);
+    wr(amdvi::REGISTRO_EVENTOS, r_ev);
+    wr(amdvi::EVENTOS_CABEZA, 0);
+    wr(amdvi::EVENTOS_COLA, 0);
+    // 2. Colas, y luego la IOMMU.
+    wr(amdvi::CONTROL, control | CONTROL_ORDENES | CONTROL_EVENTOS);
+    wr(amdvi::CONTROL, control | CONTROL_ORDENES | CONTROL_EVENTOS | CONTROL_EN);
+    // 3. Las dos ordenes, en el anillo, y la cola que las entrega.
+    // SAFETY: el semaforo y la cola son paginas NEUTRO de este fichero (`armar`).
+    unsafe {
+        (vs as *mut u64).write_volatile(0);
+        let vo = crate::ring0::mm::phys_to_virt(ordenes) as *mut u32;
+        for (i, w) in Orden::invalidar_todo().0.iter().chain(esperar.0.iter()).enumerate() {
+            vo.add(i).write_volatile(*w);
+        }
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    wr(amdvi::ORDENES_COLA, 2 * t::ORDEN as u64);
+    // 4. Esperar el dato.
+    use crate::ring0::task::scheduler::{rdtsc, tsc_freq};
+    let hz = tsc_freq().max(1);
+    let t0 = rdtsc();
+    let fin = t0.saturating_add(hz / 1000 * ESPERA_MAX_MS);
+    let mut llego = false;
+    while rdtsc() < fin {
+        // SAFETY: la pagina del semaforo, arriba.
+        if unsafe { (vs as *const u64).read_volatile() } == SEMAFORO_DATO {
+            llego = true;
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    let us = rdtsc().saturating_sub(t0) * 1_000_000 / hz;
+    if !llego {
+        // La vuelta atras: el control como estaba, y la IOMMU sin traducir.
+        wr(amdvi::CONTROL, control);
+        crate::ring0::cabina::warn("iommu", "M0c: el COMPLETION_WAIT no llego en 10 ms: APAGADA otra vez", us);
+        return fallo(IOMMU_NO_CONTESTA);
+    }
+    let pendientes = (rd(amdvi::EVENTOS_COLA).wrapping_sub(rd(amdvi::EVENTOS_CABEZA)) & 0x7FFF0) / t::ORDEN as u64;
+    VIVA.store(
+        IOMMU_VIVA_ENCENDIDA
+            | IOMMU_VIVA_CONTESTO
+            | (VIVA.load(Ordering::Acquire) & (0xF << IOMMU_VIVA_INTENTOS_SHIFT))
+            | us.min(0xFFFF_FFFF)
+            | pendientes.min(0xFFFF) << IOMMU_VIVA_EVENTOS_SHIFT,
+        Ordering::Release,
+    );
+    crate::ring0::cabina::count("iommu", "M0c: ENCENDIDA y obedece; el COMPLETION_WAIT tardo, us", us);
+    if pendientes > 0 {
+        crate::ring0::cabina::warn("iommu", "M0c: hay EVENTOS en su registro", pendientes);
+    }
+    Ok(us.min(0xFFFF_FFFF) | pendientes.min(0xFFFF) << 32)
+}
+
+/// **Apagar**: el control como lo dejo el firmware. Solo si la encendio
+/// BMO-X: una que encendio otro no se apaga desde aqui.
+pub fn apagar() -> Result<u64, u32> {
+    if VIVA.load(Ordering::Acquire) & IOMMU_VIVA_ENCENDIDA == 0 {
+        return fallo(IOMMU_NO_APAGADA);
+    }
+    let Some(v) = registros() else { return fallo(IOMMU_NO_TABLAS) };
+    let original = CONTROL_ORIGINAL.load(Ordering::Acquire);
+    // SAFETY: como en `encender`.
+    unsafe { ((v + amdvi::CONTROL as u64) as *mut u64).write_volatile(original) };
+    apuntar_viva(|x| x & !IOMMU_VIVA_ENCENDIDA);
+    crate::ring0::cabina::bits("iommu", "M0c: APAGADA por orden, control devuelto", original);
+    Ok(0)
+}
+
+pub fn info_viva() -> u64 {
+    VIVA.load(Ordering::Acquire)
 }

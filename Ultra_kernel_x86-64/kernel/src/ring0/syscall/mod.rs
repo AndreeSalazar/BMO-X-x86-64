@@ -313,6 +313,7 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUTOPSIA_TEXTO => op_contar::autopsia_texto(arg0, arg1),
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
+        TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
         TASK_OP_APARATO_TOMAR => op_aparato::aparato_tomar(arg0, arg1),
         TASK_OP_APARATO_SOLTAR => op_aparato::aparato_soltar(arg0, arg1),
         TASK_OP_LATIDO_TOMAR => op_aparato::latido_tomar(arg0, arg1),

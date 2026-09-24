@@ -1502,6 +1502,23 @@ pub const IOMMU_ARMADO_BANDERAS_SHIFT: u64 = 48;
 pub const IOMMU_ARMADO_COMPROBADO: u64 = 1 << 62;
 pub const IOMMU_ARMADO_SI: u64 = 1 << 63;
 
+/// # `INFO_IOMMU_VIVA`: lo que paso al ENCENDERLA (M0c, 2026-09-24)
+///
+/// ```text
+///   0..31   us que tardo el COMPLETION_WAIT en volver
+///   32..47  eventos en su registro al acabar
+///   48..55  el ultimo motivo de un NO (`IOMMU_NO_*`)
+///   56..59  intentos
+///   62      contesto: el dato del COMPLETION_WAIT llego
+///   63      ENCENDIDA por BMO-X ahora mismo
+/// ```
+pub const INFO_IOMMU_VIVA: u64 = 0xAA;
+pub const IOMMU_VIVA_EVENTOS_SHIFT: u64 = 32;
+pub const IOMMU_VIVA_MOTIVO_SHIFT: u64 = 48;
+pub const IOMMU_VIVA_INTENTOS_SHIFT: u64 = 56;
+pub const IOMMU_VIVA_CONTESTO: u64 = 1 << 62;
+pub const IOMMU_VIVA_ENCENDIDA: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

@@ -22,12 +22,69 @@ use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 use bmo_iommu_amdvi as amdvi;
 
-/// `iommu` desde el escritorio.
-pub(crate) fn iommu(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+/// `iommu`, `iommu encender`, `iommu apagar` desde el escritorio.
+///
+/// ** `encender` y `apagar` son ORDENES ARRIESGADAS (M0c): escriben en la
+/// frontera del DMA de toda la maquina. En modo `save` automatico el informe
+/// maestro se guarda ANTES, y si no se puede guardar la orden no se hace. Y el
+/// kernel hace `FLUSH CACHE` del disco antes de tocar nada.
+pub(crate) fn iommu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    let op = match arg {
+        b"" => None,
+        b"encender" | b"on" => Some((bmo::IOMMU_OP_ENCENDER, b"iommu encender" as &[u8])),
+        b"apagar" | b"off" => Some((bmo::IOMMU_OP_APAGAR, b"iommu apagar" as &[u8])),
+        _ => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  iommu: `iommu`, `iommu encender` o `iommu apagar`\n");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+    };
+    if let Some((op, nombre)) = op {
+        if !super::files::antes_de_arriesgar(dsk, p, nombre) {
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+        let g = &mut dsk.out.grid;
+        match bmo::iommu_orden(op) {
+            Ok(v) if op == bmo::IOMMU_OP_ENCENDER => {
+                g.with_ink(INK_GOOD);
+                g.text(b"  IOMMU ENCENDIDA y OBEDECE: el COMPLETION_WAIT volvio en ");
+                g.dec(v & 0xFFFF_FFFF);
+                g.text(b" us; ");
+                g.dec(v >> 32);
+                g.text(b" eventos en su registro\n");
+            }
+            Ok(_) => {
+                g.with_ink(INK_GOOD);
+                g.text(b"  IOMMU APAGADA: el control vuelve a como lo dejo el firmware\n");
+            }
+            Err(m) => {
+                g.with_ink(INK_ERR);
+                g.text(b"  NO: ");
+                g.text(motivo(m));
+                g.byte(b'\n');
+            }
+        }
+        g.with_ink(INK_PLAIN);
+    }
     report_iommu(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "iommu", INK_DIM);
     dsk.field.n = 0;
     After::Settle
+}
+
+/// El motivo de un NO de `TASK_OP_IOMMU`, en palabras.
+fn motivo(m: u32) -> &'static [u8] {
+    match m {
+        bmo::IOMMU_NO_ESCRITORIO => b"solo el escritorio (quien tiene la pantalla) la mueve",
+        bmo::IOMMU_NO_TABLAS => b"no hay tablas de M0b releidas iguales (mira la fila `ours`)",
+        bmo::IOMMU_NO_YA_ENCENDIDA => b"ya estaba encendida: no se pisa",
+        bmo::IOMMU_NO_CONTESTA => b"el COMPLETION_WAIT no volvio en 10 ms: se APAGO sola otra vez",
+        bmo::IOMMU_NO_APAGADA => b"no la encendio BMO-X: desde aqui no se apaga",
+        _ => b"el kernel dijo que no, sin motivo conocido",
+    }
 }
 
 /// Un BDF como `bb:dd.f`.
@@ -49,7 +106,7 @@ fn si(s: &mut Output, esta: bool, nombre: &[u8]) {
 
 /// **El cuadro de la IOMMU.** Lo usan `iommu` y el `save`.
 pub(crate) fn report_iommu(s: &mut Output) {
-    section(s, b"iommu -- la frontera del DMA, en solo lectura");
+    section(s, b"iommu -- la frontera del DMA de todo aparato");
     let d = bmo::info(bmo::INFO_IOMMU_DONDE);
     campo(s, b"where");
     if d & bmo::IOMMU_HALLADA == 0 {
@@ -78,8 +135,12 @@ pub(crate) fn report_iommu(s: &mut Output) {
     }
 
     let c = amdvi::Control(control);
+    let viva = bmo::info(bmo::INFO_IOMMU_VIVA);
     campo(s, b"state");
-    if c.encendida() {
+    if c.encendida() && viva & bmo::IOMMU_VIVA_ENCENDIDA != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"ENCENDIDA por BMO-X (M0c): todo DE PASO por ahora");
+    } else if c.encendida() {
         s.with_ink(INK_ERR);
         s.text(b"ENCENDIDA por el firmware");
     } else {
@@ -131,6 +192,7 @@ pub(crate) fn report_iommu(s: &mut Output) {
     s.text(if e.eventos_corren() { b"; eventos CORREN" as &[u8] } else { b"; eventos parados" });
     s.byte(b'\n');
     fila_armado(s);
+    fila_viva(s, viva);
 
     let n = bmo::info(bmo::INFO_IOMMU_CENSO);
     if n & bmo::IOMMU_CENSO_VALIDO != 0 {
@@ -279,4 +341,33 @@ fn fila_armado(s: &mut Output) {
     }
     s.with_ink(INK_PLAIN);
     super::datos::anotar(b"iommu tabla armada", a, b"");
+}
+
+/// ** M0c: lo que paso al encenderla. Solo sale si alguien lo intento.
+fn fila_viva(s: &mut Output, v: u64) {
+    let intentos = (v >> bmo::IOMMU_VIVA_INTENTOS_SHIFT) & 0xF;
+    if intentos == 0 {
+        return;
+    }
+    campo(s, b"live");
+    if v & bmo::IOMMU_VIVA_ENCENDIDA != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"ENCENDIDA; el COMPLETION_WAIT volvio en ");
+        s.dec(v & 0xFFFF_FFFF);
+        s.text(b" us; eventos ");
+        s.dec((v >> bmo::IOMMU_VIVA_EVENTOS_SHIFT) & 0xFFFF);
+    } else if v & bmo::IOMMU_VIVA_CONTESTO != 0 {
+        s.with_ink(INK_ECHO);
+        s.text(b"se encendio y contesto; ahora APAGADA");
+    } else {
+        s.with_ink(INK_ERR);
+        s.text(b"no se pudo: ");
+        s.text(motivo(((v >> bmo::IOMMU_VIVA_MOTIVO_SHIFT) & 0xFF) as u32));
+    }
+    s.with_ink(INK_ECHO);
+    s.text(b"   (");
+    s.dec(intentos);
+    s.text(b" intento(s))\n");
+    s.with_ink(INK_PLAIN);
+    super::datos::anotar(b"iommu viva", v, b"");
 }

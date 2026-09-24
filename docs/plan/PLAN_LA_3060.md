@@ -127,9 +127,12 @@ pasos, cada uno visto en el metal antes del siguiente:
    M0b  las tablas en RAM, armadas y probadas en el anfitrion: tabla de
         dispositivos, cola de ordenes, registro de eventos. Sin encender
                                               [VISTO en metal, 24-09 01:45]
-   M0c  ENCENDER sin traducir: toda entrada valida y de paso (TV=0). No
-        cambia nada para los aparatos; prueba que la cola de ordenes da
-        la vuelta (COMPLETION_WAIT) y que el registro de eventos queda a 0
+   M0c  ENCENDER sin traducir: toda entrada valida y de paso (TV + IR +
+        IW, modo 0). No cambia nada para los aparatos; prueba que la cola
+        de ordenes da la vuelta (COMPLETION_WAIT) y que el registro de
+        eventos queda a 0. POR ORDEN (`iommu encender`), no al arrancar:
+        save automatico antes, FLUSH del disco, y si el dato no vuelve en
+        10 ms se apaga sola                                  [en codigo]
    M0d  TRADUCIR por aparato: disco, USB y red ven solo lo que el juez de
         DMA (R-DMA) les presto; los IVMD, en identidad. Un fallo = un
         EVENTO con su BDF, no memoria pisada

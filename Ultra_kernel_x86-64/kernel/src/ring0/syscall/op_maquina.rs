@@ -663,3 +663,41 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
         _ => unsupported(),
     }
 }
+
+/// **ENCENDER O APAGAR LA IOMMU** (M0c, 2026-09-24). Ver `plat/iommu.rs`.
+///
+/// ** Solo quien tiene la pantalla, como el maestro del sonido: la frontera
+/// del DMA de toda la maquina no la mueve un programa cualquiera.
+///
+/// ** Y ANTES DE TOCARLA, `FLUSH CACHE` del disco. El `save` que el escritorio
+/// hace justo antes (modo automatico) escribe en FAT32, y esa escritura
+/// termina con un OK que es "aceptado", no "guardado": el SSD lo tiene en su
+/// cache. Si encender tumba la maquina, lo guardado tiene que estar en el
+/// disco de verdad. La maquina trabaja para quien la usa.
+pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
+    use crate::ring0::plat::iommu;
+    let pid = scheduler::current_pid();
+    if crate::ring0::obj::fb::owner() != Some(pid) {
+        crate::ring0::cabina::warn(
+            "iommu",
+            "la IOMMU es del escritorio (quien tiene la pantalla): negado al pid",
+            pid as u64,
+        );
+        return BmoStatus::negado(iommu::IOMMU_NO_ESCRITORIO, 0);
+    }
+    let r = match arg0 {
+        IOMMU_OP_ENCENDER => {
+            crate::ring0::cabina::info("iommu", "ENCENDER, pedido por el escritorio", pid as u64);
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("iommu", "el FLUSH del disco antes de encender no se pudo: se sigue", 0);
+            }
+            iommu::encender()
+        }
+        IOMMU_OP_APAGAR => iommu::apagar(),
+        _ => return BmoStatus::err(ERROR_INVALID_ARGUMENT),
+    };
+    match r {
+        Ok(v) => BmoStatus::ok_value(v),
+        Err(motivo) => BmoStatus::negado(motivo, 0),
+    }
+}

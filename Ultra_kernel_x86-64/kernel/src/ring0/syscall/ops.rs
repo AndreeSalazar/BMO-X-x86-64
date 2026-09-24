@@ -291,6 +291,11 @@ pub(crate) const TASK_OP_ARGUMENTOS: u64 = 0x33;
 /// = el valor. Solo para quien tiene la pantalla. Espejo de
 /// `bmo_abi::...::TASK_OP_AUDIO_MANDO`. Ver `dev/usb/maestro.rs`.
 pub(crate) const TASK_OP_AUDIO_MANDO: u64 = 0x34;
+/// **ENCENDER O APAGAR LA IOMMU** (M0c, 2026-09-24). Solo quien tiene la
+/// pantalla. Espejo de `bmo_abi::...::TASK_OP_IOMMU`. Ver `plat/iommu.rs`.
+pub(crate) const TASK_OP_IOMMU: u64 = 0x35;
+pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
+pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

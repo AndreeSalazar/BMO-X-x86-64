@@ -362,6 +362,17 @@ pub fn audio_mando(que: u64, valor: i64) -> Option<i64> {
         .map(|v| v as i64)
 }
 
+/// **Encender o apagar la IOMMU** (`IOMMU_OP_*`). `Ok(us | eventos << 32)`,
+/// o `Err(motivo)` con un `IOMMU_NO_*` -- o 0 si el kernel no dio motivo.
+pub fn iommu_orden(op: u64) -> Result<u64, u32> {
+    let st = invoke(CURRENT_TASK, crate::OP_IOMMU, op, 0, 0);
+    if st.code == 0 {
+        Ok(st.value)
+    } else {
+        Err(st.flags)
+    }
+}
+
 pub fn audio_censo() -> bool {
     invoke(CURRENT_TASK, OP_AUDIO_CENSO, 0, 0, 0).value != 0
 }

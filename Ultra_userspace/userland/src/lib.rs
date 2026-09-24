@@ -215,6 +215,16 @@ pub const OP_ARGUMENTOS: u32 = 0x33;
 /// **El mando del maestro del sonido**: no reclama el aparato, y solo lo puede
 /// usar quien tiene la pantalla. Ver [`crate::sys::audio_mando`].
 pub const OP_AUDIO_MANDO: u32 = 0x34;
+/// Encender o apagar la IOMMU (M0c). Solo quien tiene la pantalla. Ver
+/// [`crate::sys::iommu_orden`].
+pub const OP_IOMMU: u32 = 0x35;
+pub const IOMMU_OP_ENCENDER: u64 = 0x01;
+pub const IOMMU_OP_APAGAR: u64 = 0x02;
+pub const IOMMU_NO_ESCRITORIO: u32 = 1;
+pub const IOMMU_NO_TABLAS: u32 = 2;
+pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
+pub const IOMMU_NO_CONTESTA: u32 = 4;
+pub const IOMMU_NO_APAGADA: u32 = 5;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -832,6 +842,13 @@ pub const IOMMU_ARMADO_PAGINAS_SHIFT: u64 = 36;
 pub const IOMMU_ARMADO_BANDERAS_SHIFT: u64 = 48;
 pub const IOMMU_ARMADO_COMPROBADO: u64 = 1 << 62;
 pub const IOMMU_ARMADO_SI: u64 = 1 << 63;
+/// ** Lo que paso al encenderla (M0c). Ver el ABI.
+pub const INFO_IOMMU_VIVA: u64 = 0xAA;
+pub const IOMMU_VIVA_EVENTOS_SHIFT: u64 = 32;
+pub const IOMMU_VIVA_MOTIVO_SHIFT: u64 = 48;
+pub const IOMMU_VIVA_INTENTOS_SHIFT: u64 = 56;
+pub const IOMMU_VIVA_CONTESTO: u64 = 1 << 62;
+pub const IOMMU_VIVA_ENCENDIDA: u64 = 1 << 63;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

@@ -608,6 +608,23 @@ pub const TASK_OP_ARGUMENTOS: u64 = 0x33;
 /// Lo que el mando deja puesto se LEE sin handle, por `OP_INFO`:
 /// `INFO_AUDIO_MAESTRO`, `INFO_AUDIO_MEDIDOR` e `INFO_AUDIO_LIMITE`.
 pub const TASK_OP_AUDIO_MANDO: u64 = 0x34;
+
+/// **Encender o apagar la IOMMU** (M0c, 2026-09-24). `arg0` = `IOMMU_OP_*`.
+///
+/// Solo quien tiene la pantalla. Antes de encender, el kernel hace `FLUSH
+/// CACHE` del disco: lo guardado justo antes llega al disco de verdad. Si el
+/// `COMPLETION_WAIT` no vuelve en 10 ms, la IOMMU se APAGA sola y contesta
+/// `ERROR_NEGADO` con `IOMMU_NO_CONTESTA` en las banderas. `Ok` lleva
+/// `us | eventos << 32`.
+pub const TASK_OP_IOMMU: u64 = 0x35;
+pub const IOMMU_OP_ENCENDER: u64 = 0x01;
+pub const IOMMU_OP_APAGAR: u64 = 0x02;
+/// Motivos del NO, en las banderas de `ERROR_NEGADO`.
+pub const IOMMU_NO_ESCRITORIO: u32 = 1;
+pub const IOMMU_NO_TABLAS: u32 = 2;
+pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
+pub const IOMMU_NO_CONTESTA: u32 = 4;
+pub const IOMMU_NO_APAGADA: u32 = 5;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

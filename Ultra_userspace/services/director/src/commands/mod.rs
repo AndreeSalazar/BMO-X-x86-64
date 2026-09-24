@@ -144,7 +144,8 @@ pub(crate) enum Command<'a> {
     Placa,
     Cpu,
     Gpu,
-    Iommu,
+    /// `iommu`, `iommu encender`, `iommu apagar` (M0c).
+    Iommu(&'a [u8]),
     /// **El censo de extensiones**: que declara este silicio y que coge BMO.
     ///
     /// Vivia SOLO en el shell de Ring 0, y a ese shell no se vuelve una vez
@@ -512,7 +513,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
         b"gpu" | b"grafica" => Command::Gpu,
         // La IOMMU, PREGUNTADA: si el firmware la dejo encendida y a quien atiende.
-        b"iommu" => Command::Iommu,
+        b"iommu" => Command::Iommu(rest),
         // Los mismos dos nombres que el shell de Ring 0, para que lo que se
         // aprende en un sitio valga en el otro.
         b"ext" | b"extensiones" => Command::Ext,
