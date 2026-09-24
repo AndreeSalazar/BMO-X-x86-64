@@ -101,12 +101,40 @@ fn suma(pagina: u64, m: &Mensaje) -> u32 {
     s.valor()
 }
 
+/// **Esperar a que el GSP acabe de escribir**: su `writePtr` quieto medio
+/// segundo, y como mucho 5.
+///
+/// ** Lo trajo el metal (24-09 07:23): `save mode` leyo la cola justo detras
+/// de `despertar` y la encontro VACIA -- `0 mensajes en las paginas 0..0` --
+/// mientras la fila `gsplog` del MISMO save, escrita segundos despues, decia 62.
+/// El RISC-V se enciende antes de que el GSP-RM hable.
+fn esperar_al_gsp() -> u32 {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let fin = bmo::ciclos() + hz * 5;
+    let mut antes = (mem(ESCRITO) & 0xFFFF_FFFF) as u32;
+    let mut quieto_desde = bmo::ciclos();
+    loop {
+        let ahora = (mem(ESCRITO) & 0xFFFF_FFFF) as u32;
+        let t = bmo::ciclos();
+        if ahora != antes {
+            antes = ahora;
+            quieto_desde = t;
+        } else if ahora != 0 && t - quieto_desde >= hz / 2 {
+            return ahora;
+        }
+        if t >= fin {
+            return ahora;
+        }
+        bmo::yield_screen();
+    }
+}
+
 /// **Leer la cola, sin tocarla.** `Ok(mensajes)`.
 pub(crate) fn leer() -> Result<u64, u32> {
     if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
         return Err(NO_COLA_SIN_GSP);
     }
-    let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) as u32;
+    let escrito = esperar_al_gsp();
     let leido = (mem(LEIDO_CPU) & 0xFFFF_FFFF) as u32;
     let mut r = Resumen {
         escrito,
@@ -221,6 +249,11 @@ pub(crate) fn fila(s: &mut Output) {
     campo(s, b"cola");
     let bien = r.mensajes > 0 && r.malformados == 0 && r.sumas_mal == 0;
     s.with_ink(if bien { INK_GOOD } else { INK_ERR });
+    if r.escrito == r.leido {
+        s.text(b"VACIA: en 5 s el GSP no escribio nada donde la CPU iria a leer\n");
+        s.with_ink(INK_PLAIN);
+        return;
+    }
     s.dec(r.mensajes as u64);
     s.text(b" mensajes del GSP");
     s.with_ink(INK_PLAIN);

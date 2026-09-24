@@ -906,6 +906,8 @@ RE_PALABRA_LLANA = re.compile(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+")
 
 _ENES_ENTERAS = [(re.compile(pat + "$"), rem) for pat, rem in ENES_CAIDAS
                  if rem is not None]
+# ** UNA alternancia y no 65 `match`, y cada palabra una vez (24-09): 17 s -> 2.
+_UNA, _VISTAS = re.compile("(?:%s)$" % "|".join("(?:%s)" % p for p, r in ENES_CAIDAS if r is not None)), {}
 
 
 def la_ene_caida(texto):
@@ -921,10 +923,8 @@ def la_ene_caida(texto):
             continue
         for bruto in RE_PALABRA_LLANA.findall(linea):
             w = bruto.lower()
-            for rx, _ in _ENES_ENTERAS:
-                if rx.match(w):
-                    fuera[w] = fuera.get(w, 0) + 1
-                    break
+            if _VISTAS.setdefault(w, w in _VISTAS or _UNA.match(w) is not None):
+                fuera[w] = fuera.get(w, 0) + 1
     return fuera
 
 

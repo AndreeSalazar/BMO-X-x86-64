@@ -55,7 +55,7 @@ if (-not $root) { $root = Split-Path -Parent $MyInvocation.MyCommand.Path }
 # de lo que se quedo de otro. Ver el guardian de fantasmas del final.
 $buildStart = Get-Date
 
-function Step { param($m) Write-Host ('  => ' + $m) -ForegroundColor Cyan }
+function Step { param($m) if (-not $script:reloj) { $script:reloj = [Diagnostics.Stopwatch]::StartNew() }; Write-Host ('  => ' + $m + ('   [{0,5:N1} s]' -f $script:reloj.Elapsed.TotalSeconds)) -ForegroundColor Cyan }
 function Fail { param($m) Write-Host ('  [X] ' + $m) -ForegroundColor Red; exit 1 }
 
 # ** UN OBRERO SE CONSTRUYE UNA VEZ Y SE LLAMA MUCHAS (2026-09-21).

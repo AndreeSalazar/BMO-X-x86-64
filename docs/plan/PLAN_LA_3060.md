@@ -608,6 +608,15 @@ su suma en 0; las filas `dijo`, cuantos de cada tipo -- se espera al menos un
 `GSP_RUN_CPU_SEQUENCER` (0x1002), lo que el GSP pide a la CPU antes de seguir --;
 y `init`, si ya esta el `GSP_INIT_DONE`.
 
+**L0c4a en el metal (24-09, 07:23): la cola salio VACIA, y era el reloj.**
+`cola 0 mensajes del GSP en las paginas 0..0` mientras `gsplog`, en el MISMO
+save, decia `su cola 62 mensajes`: `save mode` la leyo justo detras de
+`despertar`, y el RISC-V se enciende antes de que el GSP-RM hable. Ahora se
+espera a que el `writePtr` del GSP se quede quieto medio segundo (5 s como
+mucho) antes de recorrerla, y una cola vacia lo dice asi, no como "0 mensajes".
+Las tres filas arregladas en L0c3b ya salieron bien: `wpr2 EXTENDIDA por el
+booter`, `frts CORRIO` (la foto), `+gsp`, y `cuadra` con la wpr2 del reparto.
+
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
 B, motor 0x0400 ucode 9, 3 firmas (versiones 0x0007)`, `DMAP en DMEM+0x0560; la
