@@ -10,6 +10,7 @@
 //! Ninguna de las dos cambia nada en la 3060: el canal (L1d2c) se pide con
 //! lo que digan.
 
+use bmo_gpu_ga10x::canal;
 use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL, MAX_MOTORES};
 use bmo_userland as bmo;
 
@@ -61,13 +62,14 @@ pub(crate) fn preguntar() -> Result<u64, u32> {
     copia().map(|t| t as u64).ok_or(NO_MOTORES_SIN_COPIA)
 }
 
-/// Motivo del escritorio: la lista de motores no trae ninguno de copia.
+/// Motivo del escritorio: la lista de motores no trae el de copia del canal (COPY2).
 pub(crate) const NO_MOTORES_SIN_COPIA: u32 = 0x129;
 
-/// **El motor de COPIA del canal**: el primero de la lista (`NV2080_ENGINE_TYPE_COPYn`).
+/// **El motor de COPIA del canal**: `canal::MOTOR` (COPY2), si el GSP-RM lo lista: COPY0 y COPY1 son GRCE,
+/// atadas al 3D, y el contrato no deja salir un canal sobre ellas.
 pub(crate) fn copia() -> Option<u32> {
     let u = ultimo()?;
-    u.lista[..u.n].iter().copied().find(|t| control::motor(*t).0 == b"COPY")
+    u.lista[..u.n].iter().copied().find(|&t| t == canal::MOTOR)
 }
 
 /// Lo pregunta `save mode`: las dos contestadas y un motor de copia.
@@ -157,7 +159,7 @@ pub(crate) fn fila(s: &mut Output) {
             }
             None => {
                 s.with_ink(INK_ERR);
-                s.text(b"; NINGUNO de copia");
+                s.text(b"; sin COPY2 para el canal");
                 s.with_ink(INK_PLAIN);
             }
         }
