@@ -422,6 +422,13 @@ fn aviso(s: &mut Output, p: u64, m: &Mensaje) {
                 s.with_ink(INK_ECHO);
                 s.text(xid(t));
             }
+            // ** Metal 24-09 18:27: tras esto, el `gpu giro` tecleado dio 0 de 32
+            // y parecia que la esfera fallaba. No: el GSP-RM RECUPERA el canal
+            // matandolo, y todo lo que va despues por el fallaba igual.
+            s.with_ink(INK_ERR);
+            s.text(b"; el canal ");
+            s.dec(dato32(p, 4) as u64);
+            s.text(b" queda MUERTO hasta reiniciar: lo que vaya despues por el fallara");
         }
         // rpc_os_error_log_v17_00: tipo, runlist, canal y el texto.
         0x1006 => {

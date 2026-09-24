@@ -217,7 +217,7 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32) -> bool {
 }
 
 pub fn lanzar<R: Registros>(r: &mut R, ficha: u32, e: u32) -> bool {
-    let puesto = crate::blur::entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[e + 1]) == 1;
+    let puesto = crate::blur::entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[crate::blur::siguiente(e)]) == 1;
     if puesto {
         r.escribir(TIMBRE, ficha);
     }

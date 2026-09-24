@@ -372,7 +372,7 @@ fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let lanzado = bl::lanzar(&mut r, ficha, e);
     if lanzado {
         // La entrada ya es de la 3060: la siguiente vez, la de despues.
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let desde = crate::ring0::task::scheduler::rdtsc();
@@ -484,7 +484,7 @@ fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = fr::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let (mut qmd, mut fin) = (0, 0);
     let mut us = 0;
@@ -549,7 +549,7 @@ fn triangulo_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = tr::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let (mut qmd, mut fin) = (0, 0);
     let mut us = 0;
@@ -611,7 +611,7 @@ fn limpiar_3d_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = td::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let mut fin = 0;
     let mut us = 0;
@@ -674,7 +674,7 @@ fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = es::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let (mut qmd, mut fin) = (0, 0);
     let mut us = 0;
@@ -778,7 +778,7 @@ fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = ra::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let mut fin = 0;
     let mut us = 0;
@@ -871,7 +871,7 @@ fn giro_(bar0: u64, ficha: u32, e: u32, f: u32) -> Result<u64, u32> {
     let desde = crate::ring0::task::scheduler::rdtsc();
     let lanzado = gi::lanzar(&mut r, ficha, e);
     if lanzado {
-        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+        BLUR_ENTRADA.store(bmo_gpu_ga10x::blur::siguiente(e), Ordering::Release);
     }
     let (mut qmd, mut fin) = (0, 0);
     let mut us = 0;

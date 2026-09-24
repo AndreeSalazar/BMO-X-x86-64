@@ -60,7 +60,6 @@ use crate::Registros;
 pub const INVALIDATE_SHADER_CACHES: u32 = 0x021c;
 pub const SET_RASTER_ENABLE: u32 = 0x037c;
 pub const SET_STREAM_OUTPUT: u32 = 0x0744;
-pub const SET_SHADER_LOCAL_MEMORY_WINDOW: u32 = 0x077c;
 pub const SET_VIEWPORT_SCALE_X0: u32 = 0x0a00;
 pub const SET_VIEWPORT_CLIP_HORIZONTAL0: u32 = 0x0c00;
 pub const SET_VERTEX_ARRAY_START: u32 = 0x0d74;
@@ -78,12 +77,10 @@ pub const SET_ZT_SELECT: u32 = 0x1538;
 pub const SET_ANTI_ALIAS: u32 = 0x15d0;
 pub const END: u32 = 0x1614;
 pub const BEGIN: u32 = 0x1618;
-pub const SET_SPH_VERSION: u32 = 0x16a4;
 pub const OGL_SET_CULL: u32 = 0x1918;
 pub const SET_VIEWPORT_PIXEL: u32 = 0x1924;
 pub const SET_VIEWPORT_SCALE_OFFSET: u32 = 0x192c;
 pub const SET_VIEWPORT_CLIP_CONTROL: u32 = 0x193c;
-pub const SET_RENDER_ENABLE_OVERRIDE: u32 = 0x1944;
 pub const SET_DEPTH_BOUNDS_TEST: u32 = 0x19bc;
 pub const SET_VERTEX_STREAM_A_FORMAT0: u32 = 0x1c00;
 pub const fn set_pipeline_shader(j: u32) -> u32 {
@@ -98,8 +95,14 @@ pub const TRIANGULOS: u32 = 4;
 /// `INVALIDATE_SHADER_CACHES`: INSTRUCTION, DATA y CONSTANT (el mismo sitio
 /// lo ocupo antes un programa de computo).
 pub const INVALIDAR_TODO: u32 = 1 | 1 << 4 | 1 << 12;
-/// `SET_VERTEX_ATTRIBUTE_A_SOURCE_INACTIVE`: ningun atributo sale de memoria.
-pub const ATRIBUTO_APAGADO: u32 = 1 << 6;
+/// Un atributo APAGADO: `SOURCE_INACTIVE` (bit 6) y, aun apagado, un
+/// formato VALIDO -- `COMPONENT_BIT_WIDTHS_R32_G32_B32_A32` (1, 26:21) y
+/// `NUMERICAL_TYPE_NUM_FLOAT` (7, 29:27).
+///
+/// ** Validador contra `clc797.h` (24-09): era `1 << 6` a secas, con el ancho
+/// 0 (no existe) y el tipo 0 (`UNUSED_ENUM_DO_NOT_USE_BECAUSE_IT_WILL_GO_AWAY`):
+/// los dos valores que un error de clase (Xid 69) rechaza.
+pub const ATRIBUTO_APAGADO: u32 = 7 << 27 | 1 << 21 | 1 << 6;
 /// `SET_VIEWPORT_CLIP_CONTROL`: z sin recorte (-inf..+inf, 17:16 = 3) y
 /// sujeta en los pixeles (bits 3 y 4); el resto, lo de fabrica (0).
 pub const RECORTE_Z: u32 = 3 << 16 | 1 << 4 | 1 << 3;
@@ -117,12 +120,6 @@ pub const VS: u64 = PROGRAMA;
 pub const PS: u64 = PROGRAMA + 0x400;
 pub const REGISTROS: u32 = 16;
 
-/// `SET_SPH_VERSION`: la version de las cabeceras que se dan (3, la de
-/// nouveau y NVK), en `CURRENT` (15:0) y `OLDEST_SUPPORTED` (31:16).
-pub const VERSION_SPH: u32 = 3 << 16 | 3;
-/// La ventana de memoria local de la clase 3D (>> 8): la del computo,
-/// 0xFF_0000_0000, lejos de todo lo mapeado. Como NVK.
-pub const VENTANA_LOCAL: u32 = 0xFF00_0000;
 /// Una pagina a cero para los atributos sin flujo (la del QMD, que el
 /// rasterizador no usa): nunca se lee de la direccion 0.
 pub const SUSTITUTO: u64 = crate::sombreador::QMD;
@@ -243,7 +240,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 424;
+pub const ORDENES: usize = 397;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -305,15 +302,14 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     // pagar ES el metodo (`NOMBRES`).
     e.escalon(0);
     e.paso(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
-    // ** Metal 24-09 17:56: sin esto el dibujo colgo el canal (el semaforo sin
-    // pagar). Lo que NVK pone SIEMPRE al empezar un contexto 3D y aqui
-    // faltaba: la version de SPH, la ventana local, el sustituto de los
-    // atributos, y dibujar pase lo que pase con el render condicional.
-    e.paso(SET_SPH_VERSION, &[VERSION_SPH]);
-    e.paso(SET_SHADER_LOCAL_MEMORY_WINDOW, &[VENTANA_LOCAL]);
+    // ** Metal 24-09 17:56 -> 18:35: aqui iban cuatro metodos copiados de NVK
+    // "por si acaso" (la version de SPH, la ventana local, el sustituto y el
+    // render condicional) y el Xid 69 cayo en este grupo. Ninguno hace falta
+    // para este dibujo y SET_SPH_VERSION pide una version que no se sabe si
+    // este hardware acepta: FUERA. Queda el sustituto (una direccion valida
+    // para los atributos apagados, nada mas).
     let z = sombreador_va(SUSTITUTO);
     e.paso(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
-    e.paso(SET_RENDER_ENABLE_OVERRIDE, &[1]);
     // El viewport 0: escala y desplazamiento de 256 (de -1..1 a 0..512), z
     // de 0 a 1, sin cruzar ejes; y su recorte, el destino entero.
     e.paso(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
@@ -390,12 +386,9 @@ pub const VERTICES_PAGA: u32 = 0x7E00;
 /// que va DETRAS del escalon `k`: si el `k` se pago y el `k + 1` no, el
 /// culpable es `NOMBRES[k]`.
 pub const ESCALONES: u64 = SEMAFOROS + 0x300;
-pub const NOMBRES: [&str; 33] = [
+pub const NOMBRES: [&str; 30] = [
     "INVALIDATE_SHADER_CACHES",
-    "SET_SPH_VERSION",
-    "SET_SHADER_LOCAL_MEMORY_WINDOW",
     "SET_VERTEX_STREAM_SUBSTITUTE_A/B",
-    "SET_RENDER_ENABLE_OVERRIDE",
     "SET_VIEWPORT_SCALE/OFFSET/SWIZZLE(0)",
     "SET_VIEWPORT_SCALE_OFFSET",
     "SET_VIEWPORT_CLIP_HORIZONTAL/VERTICAL/MIN_Z/MAX_Z(0)",
@@ -436,6 +429,10 @@ pub fn escalones<R: Registros>(r: &mut R) -> u64 {
 
 /// **El culpable**: el metodo detras del ultimo escalon pagado seguido, o
 /// `None` si ni la limpieza paso.
+///
+/// [!] Con UN metodo de margen: el semaforo del escalon `k` puede seguir en
+/// camino cuando el metodo `k + 1` rompe el canal, asi que el culpable es
+/// este o el SIGUIENTE (`NOMBRES[k + 1]`). El escritorio dice los dos.
 pub fn culpable(pagados: u64) -> Option<&'static str> {
     if pagados & 1 == 0 {
         return None;
@@ -477,7 +474,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, vs: &[u32], ps: &[u32], sem
 }
 
 pub fn lanzar<R: Registros>(r: &mut R, ficha: u32, e: u32) -> bool {
-    let puesto = crate::blur::entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[e + 1]) == 1;
+    let puesto = crate::blur::entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[crate::blur::siguiente(e)]) == 1;
     if puesto {
         r.escribir(TIMBRE, ficha);
     }
@@ -546,9 +543,10 @@ mod pruebas {
         // Lo ultimo: el semaforo, con la paga y el informe de T1a.
         assert_eq!(o[ORDENES - 5], cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4));
         assert_eq!((o[ORDENES - 2], o[ORDENES - 1]), (PAGA_FIN, td::INFORME));
-        // Lo que NVK pone siempre, antes del dibujo.
-        let v = o.iter().position(|&w| w == cabecera_en(0, SET_SPH_VERSION, 1)).unwrap();
-        assert_eq!(o[v + 1], 0x0003_0003);
+        // Los atributos apagados, con un formato que existe (ver ATRIBUTO_APAGADO).
+        assert_eq!(ATRIBUTO_APAGADO, 0x3820_0040);
+        let a = o.iter().position(|&w| w == cabecera_en(0, SET_VERTEX_ATTRIBUTE_A0, 32)).unwrap();
+        assert!(o[a + 1..a + 33].iter().all(|&w| w == ATRIBUTO_APAGADO));
         let z = o.iter().position(|&w| w == cabecera_en(0, SET_VERTEX_STREAM_SUBSTITUTE_A, 2)).unwrap();
         assert_eq!(((o[z + 1] as u64) << 32) | o[z + 2] as u64, sombreador_va(SUSTITUTO));
         // El dibujo: BEGIN(TRIANGLES), START 0 y 3 vertices, END.
@@ -562,12 +560,12 @@ mod pruebas {
     fn el_culpable() {
         assert_eq!(culpable(0), None);
         assert_eq!(culpable(0b1), Some("INVALIDATE_SHADER_CACHES"));
-        assert_eq!(culpable(0b11), Some("SET_SPH_VERSION"));
+        assert_eq!(culpable(0b11), Some("SET_VERTEX_STREAM_SUBSTITUTE_A/B"));
         // Pagados sueltos despues de un hueco no cuentan: el canal ya murio.
-        assert_eq!(culpable(0b1011), Some("SET_SPH_VERSION"));
+        assert_eq!(culpable(0b1011), Some("SET_VERTEX_STREAM_SUBSTITUTE_A/B"));
         assert_eq!(culpable((1u64 << N_ESCALONES) - 1), Some("(nada: el estado entero paso)"));
         // Un escalon por metodo: 26 del estado y los 6 huecos, y el de la limpieza.
-        assert_eq!(N_ESCALONES, 1 + 26 + 6);
+        assert_eq!(N_ESCALONES, 1 + 23 + 6);
     }
 
     #[test]
@@ -668,3 +666,4 @@ mod pruebas {
         assert_eq!((n(V2.0), n(V2.1)), (0xBF58_0000, 0x3F38_0000));
     }
 }
+

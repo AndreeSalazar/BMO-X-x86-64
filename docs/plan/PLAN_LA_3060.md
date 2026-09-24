@@ -636,8 +636,8 @@ vieja entre fotogramas) y la CPU rehace la cuenta entera de cada fotograma
 y la compara bit a bit. `giro.rs` (182 instrucciones, 18 registros), op
 0x3A (ficha | fotograma << 32), `gpu giro` (la vuelta vista mientras se
 dibuja y luego ~6 s en bucle, sin pedir mas a la 3060), paso `giro`. Gasta
-32 entradas del GPFIFO de GR por vuelta (hay ~508 por arranque, sin vuelta
-del anillo todavia).
+32 entradas del GPFIFO de GR por vuelta (y desde el 24-09 el anillo da la
+vuelta: no se gasta).
 
 **EL METAL (24-09, 18:27): la esfera que gira SI (32 de 32, 29 us por
 fotograma) y T1c rompe el canal EN EL ESTADO.** `escalera`: estado NO,
@@ -660,6 +660,23 @@ vueltas tecleadas despues dicen 0 de 8: el canal ya estaba muerto.) Ahora
 UN escalon por METODO (33: la limpieza y 32 metodos, `raster::NOMBRES`) y
 `raster::culpable` nombra el metodo; los escalones van en `DIAG_3D[4..5]`.
 424 palabras.
+
+**MAS A FONDO (24-09, tras el metal de las 18:35): un VALIDADOR contra
+`clc797.h`.** Decodifica el empuje entero (cabeceras, metodos de arreglo con
+sus limites por familia, campos y enumerados) y dice los valores que la
+clase no conoce. Encontro UNO seguro: los 32 atributos "apagados" iban con
+`COMPONENT_BIT_WIDTHS = 0` (no existe) y `NUMERICAL_TYPE = 0`
+(`UNUSED_ENUM_DO_NOT_USE_BECAUSE_IT_WILL_GO_AWAY`): justo lo que rechaza un
+error de clase. Ahora R32_G32_B32_A32 + FLOAT (`0x38200040`). Y fuera los
+tres metodos de NVK "por si acaso" del grupo del Xid 69 (SET_SPH_VERSION,
+SET_SHADER_LOCAL_MEMORY_WINDOW, SET_RENDER_ENABLE_OVERRIDE): nada los
+necesita y SET_SPH_VERSION pide una version que no se sabe si este hardware
+acepta. El validador: 0 problemas en T1c y T2a. Los escalones tienen UN
+metodo de margen (el semaforo de antes puede ir en camino cuando el
+siguiente rompe el canal): la fila `estado` dice los dos. 397 palabras.
+Ademas, para que no haya sorpresas despues: el anillo del GPFIFO da la
+vuelta (`blur::siguiente`), y un RC_TRIGGERED avisa de que el canal queda
+MUERTO hasta reiniciar.
 
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1

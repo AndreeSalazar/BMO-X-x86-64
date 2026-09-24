@@ -170,7 +170,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gspcanalgr::NO_CANALGR_NEGADO => b"el GSP-RM contesto pero NO dio el canal de GR0: su NV_STATUS, en la fila `canal gr`",
         bmo::IOMMU_NO_GR_MEMORIA => b"los buferes de GR no caben en lo que G2 mapea, el tramo no esta mapeado, o ya se mapearon en este arranque",
         bmo::IOMMU_NO_GR_PROMOVER => b"G3 necesita el canal de GR0, G2 hecho y las ocho medidas de G0 con el MISMO reparto; o ya se promovio en este arranque",
-        bmo::IOMMU_NO_BLUR => b"el blur necesita el lienzo (`lienzo`) antes y una ficha del canal de GR0; o el GPFIFO ya se gasto, o hay uno en marcha",
+        bmo::IOMMU_NO_BLUR => b"los trabajos de GR necesitan el lienzo (`lienzo`) antes y una ficha del canal de GR0; o hay uno en marcha",
         bmo::IOMMU_NO_BLUR_PREPARAR => b"la salida del blur no se presto por la IOMMU, sus PTE no estaban vacias, o el tramo no se releyo: no se toco el timbre",
         super::gspcomputo::NO_GIRO_MAL => b"un fotograma de la esfera que gira no salio igual que la cuenta de la CPU: la fila `giro`",
         super::gspcomputo::NO_COLOR3D_MAL => b"el triangulo con color se lanzo pero no salio como dice el juez: la fila `color` (y los avisos del GSP debajo)",

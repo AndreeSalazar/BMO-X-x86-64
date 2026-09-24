@@ -200,9 +200,17 @@ fn escalera(s: &mut Output) {
             s.text(m.as_bytes());
         }
         Some(m) => {
-            s.text(b"el metodo que lo rompe: ");
+            s.text(b"lo rompe: ");
             s.with_ink(INK_ERR);
             s.text(m.as_bytes());
+            // Un metodo de margen: el semaforo de antes pudo ir aun en camino.
+            let k = raster::NOMBRES.iter().position(|n| *n == m).unwrap_or(0);
+            if let Some(sig) = raster::NOMBRES.get(k + 1) {
+                s.with_ink(INK_ECHO);
+                s.text(b" (o el siguiente: ");
+                s.text(sig.as_bytes());
+                s.text(b")");
+            }
         }
     }
     s.with_ink(INK_PLAIN);

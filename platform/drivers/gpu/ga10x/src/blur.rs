@@ -202,9 +202,22 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
     Some((PAGINAS as u32, bien))
 }
 
-/// Una entrada del GPFIFO valida para el blur.
+/// Una entrada del GPFIFO valida para los trabajos que van rotando.
+///
+/// ** 24-09: el anillo DA LA VUELTA. Antes se paraba en la 511 ("el GPFIFO
+/// ya se gasto"): con `gpu giro` a 32 entradas por vuelta, eran ~14 vueltas
+/// por arranque. Las entradas 0..2 (S3, el sombreador y el lienzo) solo se
+/// usan UNA vez por arranque y ANTES que todas estas (el kernel lo guarda
+/// con sus `*_HECHO`), asi que pisarlas al dar la vuelta no repite nada: el
+/// GP_GET ya paso por ellas.
 pub const fn entrada_valida(e: u32) -> bool {
-    e >= PRIMERA_ENTRADA && e <= ULTIMA_ENTRADA
+    e <= ULTIMA_ENTRADA
+}
+
+/// **La entrada que va detras de `e`**, y el GP_PUT tras escribir `e`: al
+/// final del anillo, la 0.
+pub const fn siguiente(e: u32) -> u32 {
+    (e + 1) % crate::canal::GPFIFO_ENTRADAS
 }
 
 /// **Preparar** con la entrada `e` del GPFIFO: sus semaforos a cero, el
@@ -229,7 +242,7 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32) -> bool {
 
 /// **Lanzar**: la MMU invalidada, GP_PUT = `e` + 1 y la ficha en el timbre.
 pub fn lanzar<R: Registros>(r: &mut R, ficha: u32, e: u32) -> bool {
-    let puesto = entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[e + 1]) == 1;
+    let puesto = entrada_valida(e) && invalidar(r) && escribir(r, GR.userd + GP_PUT, &[siguiente(e)]) == 1;
     if puesto {
         r.escribir(TIMBRE, ficha);
     }
@@ -329,7 +342,9 @@ mod pruebas {
         let q = qmd();
         let f = |hi, lo| crate::sombreador::leer_campo(&q, hi, lo);
         assert_eq!((f(415, 384), f(607, 592), f(656, 648)), (128, 128, 32));
-        assert!(!entrada_valida(2) && entrada_valida(3) && entrada_valida(511) && !entrada_valida(512));
+        assert!(entrada_valida(3) && entrada_valida(511) && !entrada_valida(512));
+        // El anillo da la vuelta: tras la 511, la 0.
+        assert_eq!((siguiente(3), siguiente(510), siguiente(511)), (4, 511, 0));
         assert_eq!(bajar(subir(8191, 0x00AB_CDEF, 0x0012_3456)), (8191, 0x00AB_CDEF, 0x0012_3456));
     }
 }
