@@ -881,10 +881,14 @@ vuelta.
 ```text
    L1a  la PRIMERA RPC: GET_GSP_STATIC_INFO -- el nombre de la 3060 segun
         el GSP-RM, su VRAM, sus regiones y las ASAS del RM. `gpu estatica`,
-        y sola tras `gpu init`                  [en codigo, 24-09]
-   L1b  pedirle objetos con esas asas: memoria, un hueco de BAR1 para la
-        pantalla (y soltar el puente de L0c4b3a)
-   L1c  un canal y el motor de COPIA: que la GPU mueva los pixeles
+        y sola tras `gpu init`                  [VISTO 24-09 10:35]
+   L1b  NUESTROS objetos en el RM (GSP_RM_ALLOC): cliente, dispositivo y
+        subdispositivo propios. `gpu objetos`, y solo tras `gpu init`
+                                                [en codigo, 24-09]
+   L1c  colgando de ellos: un espacio de direcciones (VASPACE), memoria
+        de VRAM y un hueco de BAR1 para la pantalla (y soltar el puente
+        de L0c4b3a)
+   L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
 ```
 
 **L0c4b3a en el metal (24-09, 10:13): LA PANTALLA SOBREVIVE AL GSP-RM.** `bar1
@@ -908,6 +912,33 @@ respuesta 5 s, consume lo que llegue antes y la lee.
 **Como se sabe (L1a):** la fila `rpc` dice CONTESTADA con `rpc_result 0`;
 `nombre` dice lo que el GSP-RM cree que es tu tarjeta; `memoria` sus 12 GiB;
 `asas` las tres asas del RM, que son la llave de L1b.
+
+**L1a en el metal (24-09, 10:35): EL GSP-RM CONTESTA.** `GET_GSP_STATIC_INFO
+(numero 2) CONTESTADA en 0 ms, rpc_result 0x00000000`; `NVIDIA GeForce RTX
+3060 (GA106-A, arranco por UEFI)`; 12288 MiB; 5 regiones de VRAM, 1 usable,
+`0x003110000..0x2F06DFFFF` (11989 MiB); asas internas cliente `0xC2000006`,
+dispositivo `0xABCD0080`, subdispositivo `0xABCD2080`; BAR1 PDE `0x2F3C2D000`,
+BAR2 PDE `0x2F3E92000`. El panel del escritorio, `gsp LISTO` con los 7 nodos
+en verde. Lo unico raro: `fb_bus_width` salio 0, `fb_ram_type` 192 y
+`l2_cache_size` 0, con offsets iguales a `gsp_static_config.h` de OpenRM
+570.144 (comprobado): el GSP-RM no los llena como dicen sus nombres. La fila
+`memoria` los muestra ahora CRUDOS, con `fbio_mask` y `fbp_mask`.
+
+**L1b (24-09, en codigo).** `bmo_gpu_ga10x::objeto` (3 pruebas) arma
+`GSP_RM_ALLOC` (RPC 103, `rpc_gsp_rm_alloc_v03_00` de 32 B y sus parametros)
+para tres objetos de asas FIJAS, las de nouveau (`rm/handles.h`): el cliente
+`0xC1D0000B` (NV01_ROOT, `NV0000_ALLOC_PARAMETERS` de 120 B en r570, con
+`processID = ~0`), el dispositivo `0xDE1D0000` (NV01_DEVICE_0, 56 B,
+`hClientShare` = el cliente) y el subdispositivo `0x5D1D0000`
+(NV20_SUBDEVICE_0, 4 B). El kernel (`IOMMU_OP_GSP_OBJETO`, `arg1` = 0, 1 o 2)
+los arma con el mismo `enviar` que L1a: el escritorio dice CUAL, nunca manda
+bytes. `commands/gspobjeto.rs` los pide en orden y se para en el primero que
+no sale; `gpu init` los pide solo, tras la respuesta de L1a.
+
+**Como se sabe (L1b):** las filas `obj cli`, `obj disp` y `obj sub` dicen
+`NV_OK` (o `ya existia`, si se pidieron antes en el mismo arranque). Un
+`parametros de otra medida` (0x3A) es un struct de otra version; `padre
+invalido` (0x36), el arbol mal colgado.
 
 Las colas en memoria compartida, los argumentos de libos, el registro y la
 informacion del sistema. Atado a UNA version del firmware: el protocolo cambia

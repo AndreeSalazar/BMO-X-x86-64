@@ -417,13 +417,19 @@ pub fn escribir_sistema() -> Result<u64, u32> {
 // siguiente de la cola de la CPU, mueve su `writePtr` y toca el TIMBRE
 // (`NV_PGSP_QUEUE_HEAD(0)` = 0x110C00, como `notify_gsp` de nova-core): el
 // GSP-RM ya corre y no mira la cola si no se le avisa. La respuesta llega por
-// la cola del GSP y la lee el escritorio. Solo esta RPC: el escritorio no
-// manda bytes.
+// la cola del GSP y la lee el escritorio.
+//
+// L1b (misma puerta): `GSP_RM_ALLOC` de NUESTRO cliente, dispositivo y
+// subdispositivo (`bmo_gpu_ga10x::objeto`), con asas fijas. El escritorio
+// dice CUAL (0, 1 o 2), nunca manda bytes: solo salen del kernel preguntas
+// de la lista.
 
 /// El GSP-RM no esta arrancado (sin secuenciador corrido) o no hay colas.
 pub const IOMMU_NO_RPC_ANTES: u32 = 54;
 /// La cola de la CPU esta llena: el GSP-RM no ha leido lo de antes.
 pub const IOMMU_NO_RPC_LLENA: u32 = 55;
+/// L1b: no es uno de los tres objetos.
+pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -432,6 +438,24 @@ static NUMERO_RPC: AtomicU64 = AtomicU64::new(2);
 
 /// **Preguntar `GET_GSP_STATIC_INFO`.** `Ok(pagina | numero << 32)`.
 pub fn preguntar_estatica() -> Result<u64, u32> {
+    let r = enviar(bmo_gpu_ga10x::estatica::pregunta)?;
+    crate::ring0::cabina::count("gpu", "L1a: GET_GSP_STATIC_INFO preguntada; numero", r >> 32);
+    Ok(r)
+}
+
+/// **L1b: pedir uno de nuestros objetos** (`que` = 0, 1 o 2).
+pub fn pedir_objeto(que: u64) -> Result<u64, u32> {
+    let Some(o) = bmo_gpu_ga10x::objeto::Objeto::de(que) else {
+        return Err(IOMMU_NO_RPC_OBJETO);
+    };
+    let r = enviar(|h, n| bmo_gpu_ga10x::objeto::pedir(h, n, o))?;
+    crate::ring0::cabina::count("gpu", "L1b: GSP_RM_ALLOC pedido; asa", o.asa() as u64);
+    Ok(r)
+}
+
+/// **Una pregunta a la cola de la CPU**: la arma `armar` en la pagina
+/// siguiente, mueve el `writePtr` y toca el timbre. `Ok(pagina | numero << 32)`.
+fn enviar(armar: impl FnOnce(&mut [u8], u32) -> Option<usize>) -> Result<u64, u32> {
     use crate::ring0::dev::gpu_despertar as d;
     let f = GSPMEM_F.load(Ordering::Acquire);
     let bar0 = crate::ring0::dev::gpu::bar0();
@@ -454,7 +478,7 @@ pub fn preguntar_estatica() -> Result<u64, u32> {
     // SAFETY: la pagina `wp` de datos de la cola de la CPU, libre (el GSP ya
     // leyo hasta `rp`, y `wp + 1 != rp`); nadie mas la escribe.
     let hueco = unsafe { core::slice::from_raw_parts_mut(p, PAGINA as usize) };
-    if bmo_gpu_ga10x::estatica::pregunta(hueco, numero).is_none() {
+    if armar(hueco, numero).is_none() {
         return Err(IOMMU_NO_RPC_ANTES);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
@@ -462,6 +486,5 @@ pub fn preguntar_estatica() -> Result<u64, u32> {
     unsafe { escrito.write_volatile(siguiente as u32) };
     core::sync::atomic::fence(Ordering::SeqCst);
     bmo_gpu_ga10x::Registros::escribir(&mut crate::ring0::dev::gpu_prestamo::Bar0(bar0), TIMBRE, 0);
-    crate::ring0::cabina::count("gpu", "L1a: GET_GSP_STATIC_INFO preguntada; numero", numero as u64);
     Ok(wp | (numero as u64) << 32)
 }

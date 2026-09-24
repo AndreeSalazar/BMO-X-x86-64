@@ -25,6 +25,40 @@ use crate::scene::{paint_status, INK_DIM};
 const ESPERA_S: u64 = 5;
 const MAX_TIPOS: usize = 6;
 
+/// Lo que llego antes de la respuesta, consumido: `(funcion, veces)`.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct Otros {
+    pub t: [(u32, u32); MAX_TIPOS],
+    pub n: usize,
+}
+
+impl Otros {
+    fn contar(&mut self, funcion: u32) {
+        match self.t[..self.n].iter_mut().find(|t| t.0 == funcion) {
+            Some(t) => t.1 += 1,
+            None if self.n < MAX_TIPOS => {
+                self.t[self.n] = (funcion, 1);
+                self.n += 1;
+            }
+            None => {}
+        }
+    }
+
+    /// `; antes llego: X xN ...`, si llego algo.
+    pub(crate) fn escribir(&self, s: &mut Output) {
+        if self.n == 0 {
+            return;
+        }
+        s.text(b"; antes llego:");
+        for t in &self.t[..self.n] {
+            s.byte(b' ');
+            s.text(rpc::nombre(t.0));
+            s.text(b" x");
+            s.dec(t.1 as u64);
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 struct Resumen {
     numero: u32,
@@ -32,9 +66,7 @@ struct Resumen {
     e: Option<Estatica>,
     resultado: u32,
     espera_us: u64,
-    /// Lo que llego antes, consumido.
-    otros: [(u32, u32); MAX_TIPOS],
-    n_otros: usize,
+    otros: Otros,
     /// El NO del kernel al preguntar, o el del escritorio.
     no: u32,
 }
@@ -54,9 +86,48 @@ fn guardar(r: Resumen) {
 /// Motivo del escritorio (`gspinit.rs` va hasta 0x120).
 pub(crate) const NO_RPC_SIN_RESPUESTA: u32 = 0x121;
 
+/// **Esperar la respuesta `funcion`** en la cola del GSP (hasta 5 s): sus
+/// datos en `d` (hasta donde quepan), y el mensaje y los us que tardo.
+/// Lo demas que llegue se consume y se cuenta en `otros`.
+pub(crate) fn esperar(funcion: u32, d: &mut [u8], otros: &mut Otros) -> Result<(Mensaje, u64), u32> {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let desde = bmo::ciclos();
+    let fin = desde + hz * ESPERA_S;
+    while bmo::ciclos() < fin {
+        let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) % PAGINAS;
+        let mut p = (mem(LEIDO_CPU) & 0xFFFF_FFFF) % PAGINAS;
+        while p != escrito {
+            let m = Mensaje::de(&cabecera(p));
+            if !m.bien_formado() || suma(p, &m) != 0 {
+                return Err(NO_RPC_SIN_RESPUESTA);
+            }
+            let mia = m.funcion == funcion;
+            if mia {
+                let n = m.datos().min(d.len());
+                for o in (0..n).step_by(8) {
+                    let w = cola(p, (rpc::CABECERA + o) as u64).to_le_bytes();
+                    let k = (n - o).min(8);
+                    d[o..o + k].copy_from_slice(&w[..k]);
+                }
+            } else {
+                otros.contar(m.funcion);
+            }
+            p = (p + m.paginas as u64) % PAGINAS;
+            if bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_LEIDO, p).is_err() {
+                return Err(NO_RPC_SIN_RESPUESTA);
+            }
+            if mia {
+                return Ok((m, (bmo::ciclos() - desde) * 1_000_000 / hz));
+            }
+        }
+        bmo::yield_screen();
+    }
+    Err(NO_RPC_SIN_RESPUESTA)
+}
+
 /// **Preguntar y esperar la respuesta.** `Ok(rpc_result)`.
 pub(crate) fn preguntar() -> Result<u64, u32> {
-    let mut r = Resumen { numero: 0, e: None, resultado: 0, espera_us: 0, otros: [(0, 0); MAX_TIPOS], n_otros: 0, no: 0 };
+    let mut r = Resumen { numero: 0, e: None, resultado: 0, espera_us: 0, otros: Otros::default(), no: 0 };
     match bmo::iommu_orden(bmo::IOMMU_OP_GSP_ESTATICA) {
         Ok(v) => r.numero = (v >> 32) as u32,
         Err(m) => {
@@ -65,54 +136,21 @@ pub(crate) fn preguntar() -> Result<u64, u32> {
             return Err(m);
         }
     }
-    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
-    let desde = bmo::ciclos();
-    let fin = desde + hz * ESPERA_S;
-    'fuera: while bmo::ciclos() < fin {
-        let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) % PAGINAS;
-        let mut p = (mem(LEIDO_CPU) & 0xFFFF_FFFF) % PAGINAS;
-        while p != escrito {
-            let m = Mensaje::de(&cabecera(p));
-            if !m.bien_formado() || suma(p, &m) != 0 {
-                break 'fuera;
-            }
-            if m.funcion == estatica::GET_GSP_STATIC_INFO {
-                let mut d = [0u8; BYTES];
-                let n = m.datos().min(BYTES);
-                for o in (0..n).step_by(8) {
-                    let w = cola(p, (rpc::CABECERA + o) as u64).to_le_bytes();
-                    let k = (n - o).min(8);
-                    d[o..o + k].copy_from_slice(&w[..k]);
-                }
-                r.e = estatica::leer(&d);
-                r.resultado = m.resultado;
-                r.espera_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
-            } else {
-                match r.otros[..r.n_otros].iter_mut().find(|t| t.0 == m.funcion) {
-                    Some(t) => t.1 += 1,
-                    None if r.n_otros < MAX_TIPOS => {
-                        r.otros[r.n_otros] = (m.funcion, 1);
-                        r.n_otros += 1;
-                    }
-                    None => {}
-                }
-            }
-            p = (p + m.paginas as u64) % PAGINAS;
-            if bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_LEIDO, p).is_err() {
-                break 'fuera;
-            }
-            if r.e.is_some() {
-                break 'fuera;
-            }
+    let mut d = [0u8; BYTES];
+    match esperar(estatica::GET_GSP_STATIC_INFO, &mut d, &mut r.otros) {
+        Ok((m, us)) => {
+            r.e = estatica::leer(&d);
+            r.resultado = m.resultado;
+            r.espera_us = us;
         }
-        bmo::yield_screen();
+        Err(no) => r.no = no,
     }
-    if r.e.is_none() {
+    if r.e.is_none() && r.no == 0 {
         r.no = NO_RPC_SIN_RESPUESTA;
     }
     guardar(r);
     if r.e.is_none() {
-        return Err(NO_RPC_SIN_RESPUESTA);
+        return Err(r.no);
     }
     Ok(r.resultado as u64)
 }
@@ -172,15 +210,7 @@ pub(crate) fn fila(s: &mut Output) {
     s.text(b" ms, rpc_result 0x");
     s.hex(r.resultado as u64, 8);
     s.with_ink(INK_PLAIN);
-    if r.n_otros > 0 {
-        s.text(b"; antes llego:");
-        for t in &r.otros[..r.n_otros] {
-            s.byte(b' ');
-            s.text(rpc::nombre(t.0));
-            s.text(b" x");
-            s.dec(t.1 as u64);
-        }
-    }
+    r.otros.escribir(s);
     s.byte(b'\n');
 
     campo(s, b"nombre");
@@ -193,15 +223,24 @@ pub(crate) fn fila(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 
+    // El bus, el tipo y la L2 no salen como dicen sus nombres (ver
+    // `estatica.rs`): van crudos, con las mascaras, para leerlos en metal.
     campo(s, b"memoria");
     mib(s, e.vram);
-    s.text(b" de VRAM, bus de ");
+    s.text(b" de VRAM");
+    s.with_ink(INK_ECHO);
+    s.text(b"; crudo: bus ");
     s.dec(e.bus_bits as u64);
-    s.text(b" bits, tipo ");
+    s.text(b", tipo ");
     s.dec(e.ram_tipo as u64);
-    s.text(b"; L2 ");
-    s.dec(e.l2 as u64 >> 10);
-    s.text(b" KiB\n");
+    s.text(b", L2 ");
+    s.dec(e.l2 as u64);
+    s.text(b", fbio 0x");
+    s.hex(e.fbio, 4);
+    s.text(b", fbp 0x");
+    s.hex(e.fbp, 4);
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
 
     campo(s, b"regiones");
     let usables = e.regiones[..e.n_regiones].iter().filter(|g| g.usable).count();

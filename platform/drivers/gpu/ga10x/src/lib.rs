@@ -62,6 +62,8 @@ pub mod secuenciador;
 pub mod correr;
 /// L1a: GET_GSP_STATIC_INFO -- lo que el GSP-RM dice de la 3060 (2026-09-24).
 pub mod estatica;
+/// L1b: GSP_RM_ALLOC -- nuestro cliente, dispositivo y subdispositivo (2026-09-24).
+pub mod objeto;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

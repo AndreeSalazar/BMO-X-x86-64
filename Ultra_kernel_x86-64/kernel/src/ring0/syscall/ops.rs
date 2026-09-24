@@ -344,6 +344,8 @@ pub(crate) const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 pub(crate) const IOMMU_OP_GSP_BAR1: u64 = 0x19;
 /// L1a: preguntarle al GSP-RM GET_GSP_STATIC_INFO. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
+/// L1b: pedirle al GSP-RM uno de NUESTROS objetos (GSP_RM_ALLOC). Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

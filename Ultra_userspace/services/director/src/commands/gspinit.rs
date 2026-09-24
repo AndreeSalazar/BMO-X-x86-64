@@ -184,7 +184,11 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     // Y con el GSP-RM arrancado, su primera RPC (L1a): que diga quien es.
     if r.is_ok() {
         paint_status(p, &dsk.run_box, "preguntandole al GSP-RM", INK_DIM);
-        let _ = super::gsprpc::preguntar();
+        if super::gsprpc::preguntar() == Ok(0) {
+            // Y con el RM contestando, NUESTROS objetos (L1b).
+            paint_status(p, &dsk.run_box, "pidiendole objetos al GSP-RM", INK_DIM);
+            let _ = super::gspobjeto::pedir();
+        }
     }
     let g = &mut dsk.out.grid;
     match r {
@@ -204,6 +208,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     g.with_ink(INK_PLAIN);
     fila(&mut dsk.out.grid);
     super::gsprpc::fila(&mut dsk.out.grid);
+    super::gspobjeto::fila(&mut dsk.out.grid);
     // El save de despues, pase lo que pase con la pantalla.
     let guardado = super::save_maestro::maestro(dsk, crate::DEFAULT_DUMP, p.rayo()).is_ok();
     let g = &mut dsk.out.grid;
