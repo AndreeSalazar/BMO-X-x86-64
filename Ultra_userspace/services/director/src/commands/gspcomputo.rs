@@ -15,6 +15,7 @@ use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL};
 use bmo_gpu_ga10x::copia;
 use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_gpu_ga10x::blur;
+use bmo_gpu_ga10x::fractal;
 use bmo_gpu_ga10x::lienzo;
 use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
@@ -51,6 +52,8 @@ struct Computo {
     /// B: el ultimo blur, y de donde salio (`true`: de la pantalla).
     blur: Option<Result<u64, u32>>,
     blur_de_pantalla: bool,
+    /// F: el fractal.
+    fractal: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -79,6 +82,8 @@ pub(crate) const NO_LIENZO_MAL: u32 = 0x13B;
 pub(crate) const NO_BLUR_MAL: u32 = 0x13C;
 /// Un trozo de la pantalla no se pudo subir al lienzo.
 pub(crate) const NO_BLUR_SUBIR: u32 = 0x13D;
+/// El fractal se lanzo pero no salio igual que la CPU (la fila `fractal`).
+pub(crate) const NO_FRACTAL_MAL: u32 = 0x13E;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -339,6 +344,143 @@ pub(crate) fn orden_blur(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     After::Settle
 }
 
+/// **F: el fractal** -- Mandelbrot de 512 x 512 en la 3060, cronometrado
+/// contra la CPU haciendo lo mismo.
+pub(crate) fn calcular_fractal() -> Result<u64, u32> {
+    let r = hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_FRACTAL, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    });
+    con(|c| c.fractal = Some(r));
+    match r {
+        Ok(v) if fractal::sano(v) => Ok(v),
+        Ok(_) => Err(NO_FRACTAL_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn fractal_hecho() -> bool {
+    matches!(estado().fractal, Some(Ok(v)) if fractal::sano(v))
+}
+
+/// Una linea de texto sin reservar memoria.
+struct Linea {
+    b: [u8; 96],
+    n: usize,
+}
+
+impl Linea {
+    fn nueva() -> Linea {
+        Linea { b: [0; 96], n: 0 }
+    }
+    fn t(&mut self, s: &[u8]) -> &mut Self {
+        for &c in s {
+            if self.n < self.b.len() {
+                self.b[self.n] = c;
+                self.n += 1;
+            }
+        }
+        self
+    }
+    fn d(&mut self, mut v: u64) -> &mut Self {
+        let mut tmp = [0u8; 20];
+        let mut k = tmp.len();
+        loop {
+            k -= 1;
+            tmp[k] = b'0' + (v % 10) as u8;
+            v /= 10;
+            if v == 0 {
+                break;
+            }
+        }
+        self.t(&tmp[k..])
+    }
+}
+
+/// **El panel de la 3060, a pantalla completa**: el fractal al doble a la
+/// derecha, y a la izquierda lo que dijo.
+fn panel(p: &bmo::Pantalla, v: u64) -> bool {
+    const FONDO: u32 = 0x000B_0D12;
+    const VERDE: u32 = 0x0076_B900;
+    const CLARO: u32 = 0x00E6_EDF6;
+    const TENUE: u32 = 0x008A_94A6;
+    p.rect(0, 0, p.ancho, p.alto, FONDO);
+    p.rect(0, 0, p.ancho, 4, VERDE);
+    let escala = if p.alto >= 2 * fractal::LADO + 40 { 2 } else { 1 };
+    let lado = fractal::LADO * escala;
+    let x0 = p.ancho.saturating_sub(lado + 40);
+    let y0 = (p.alto.saturating_sub(lado)) / 2;
+    p.rect(x0.saturating_sub(3), y0.saturating_sub(3), lado + 6, lado + 6, VERDE);
+    // Fila a fila, de dos en dos pixeles: sin un bufer de 1 MiB en el escritorio.
+    for y in 0..fractal::LADO {
+        for par in 0..fractal::LADO / 2 {
+            let k = (y * fractal::LADO / 2 + par) as u64;
+            let Ok(dos) = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO_LEER, k | 1 << 33) else {
+                return false;
+            };
+            for (i, c) in [dos as u32, (dos >> 32) as u32].into_iter().enumerate() {
+                let x = 2 * par + i as u32;
+                p.rect(x0 + x * escala, y0 + y * escala, escala, escala, c & 0x00FF_FFFF);
+            }
+        }
+    }
+    let (buenos, _, _, _, gpu_us, cpu_us) = fractal::desempaquetar(v);
+    let mut y = 60;
+    p.texto_escala(40, y, "BMO-X  |  RTX 3060", VERDE, 3);
+    y += 60;
+    p.texto_escala(40, y, "EL FRACTAL, CALCULADO POR TU 3060", CLARO, 2);
+    y += 60;
+    let fila = |y: u32, l: &mut Linea, c: u32| {
+        p.texto_bytes(40, y, &l.b[..l.n], c);
+    };
+    fila(y, Linea::nueva().t(b"Mandelbrot 512 x 512, hasta ").d(fractal::VUELTAS as u64).t(b" vueltas por pixel"), CLARO);
+    y += 28;
+    fila(y, Linea::nueva().d(fractal::PIXELES as u64).t(b" hilos a la vez: 512 bloques de 512"), CLARO);
+    y += 48;
+    p.texto_escala(40, y, "LA 3060", VERDE, 2);
+    y += 36;
+    fila(y, Linea::nueva().d(gpu_us as u64).t(b" us, del timbre al semaforo"), CLARO);
+    y += 48;
+    p.texto_escala(40, y, "LA CPU (Ryzen 5 5600X, un nucleo)", TENUE, 2);
+    y += 36;
+    fila(y, Linea::nueva().d(cpu_us as u64).t(b" us, haciendo la MISMA cuenta"), CLARO);
+    y += 48;
+    if gpu_us > 0 {
+        let veces = cpu_us as u64 / gpu_us as u64;
+        let mut l = Linea::nueva();
+        l.t(b"LA 3060 FUE ").d(veces).t(b" VECES MAS RAPIDA");
+        p.texto_escala(40, y, core::str::from_utf8(&l.b[..l.n]).unwrap_or(""), VERDE, 2);
+        y += 48;
+    }
+    fila(y, Linea::nueva().d(buenos as u64).t(b" de 262144 pixeles iguales a la CPU, bit a bit"), if buenos as usize == fractal::PIXELES { VERDE } else { 0x00FF_5555 });
+    y += 28;
+    fila(y, Linea::nueva().t(b"aritmetica entera Q4.28: sin redondeos distintos"), TENUE);
+    y += 28;
+    fila(y, Linea::nueva().t(b"1 MiB de tu RAM, prestado a la 3060 por la IOMMU"), TENUE);
+    fila(p.alto.saturating_sub(48), Linea::nueva().t(b"teclea cualquier orden para volver al escritorio"), TENUE);
+    true
+}
+
+/// `gpu fractal`: lo que falte, el fractal, y el panel a pantalla completa.
+pub(crate) fn orden_fractal(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 calcula el fractal (y la CPU, lo mismo)", INK_DIM);
+    let r = calcular_fractal();
+    let visto = matches!(r, Ok(v) if panel(p, v));
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL FRACTAL DE TU 3060, A PANTALLA COMPLETA (M5d F): mira la fila `fractal`\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el fractal no salio: mira la fila `fractal`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// `gpu lienzo`: lo que falte hasta el primer sombreador, el lienzo, y
 /// mostrarlo en la pantalla.
 pub(crate) fn orden_lienzo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
@@ -595,6 +737,39 @@ pub(crate) fn fila(s: &mut Output) {
                 s.text(b"   en ");
                 s.dec(us as u64);
                 s.text(b" us");
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.fractal {
+        campo(s, b"fractal");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, qmd, fin, lanzado, gpu_us, cpu_us) = fractal::desempaquetar(v);
+                if fractal::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"LA 3060 CALCULO EL FRACTAL (512x512): ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el fractal NO salio igual que la CPU: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 262144 pixeles iguales a la CPU");
+                s.with_ink(INK_ECHO);
+                s.text(b"; la 3060 en ");
+                s.dec(gpu_us as u64);
+                s.text(b" us, la CPU en ");
+                s.dec(cpu_us as u64);
+                s.text(b" us");
+                if gpu_us > 0 {
+                    s.text(b" (x");
+                    s.dec(cpu_us as u64 / gpu_us as u64);
+                    s.byte(b')');
+                }
+                s.text(b"; semaforos ");
+                s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');
             }

@@ -253,14 +253,21 @@ pub fn pintar_lienzo(ficha: u64) -> Result<u64, u32> {
 }
 
 /// **Leer el lienzo, dos pixeles por llamada**: `k` = el par (0..8192); con
-/// el bit 32, de la SALIDA del blur. `Ok(pixel 2k | pixel 2k+1 << 32)`. Solo
+/// el bit 32, de la SALIDA del blur; con el 33, del FRACTAL (0..131072). `Ok(pixel 2k | pixel 2k+1 << 32)`. Solo
 /// tras `pintar_lienzo` (o tras un blur). Solo lectura.
 pub fn leer_lienzo(arg: u64) -> Result<u64, u32> {
     if !LIENZO_HECHO.load(Ordering::Acquire) {
         return Err(IOMMU_NO_LIENZO);
     }
-    let (k, de_la_salida) = (arg & 0xFFFF, arg >> 32 & 1 != 0);
-    let p = if de_la_salida { pixeles_del_blur() } else { pixeles_del_lienzo() }.ok_or(IOMMU_NO_LIENZO)?;
+    let (k, de_la_salida, del_fractal) = (arg & 0x3_FFFF, arg >> 32 & 1 != 0, arg >> 33 & 1 != 0);
+    let p = if del_fractal {
+        pixeles_del_fractal()
+    } else if de_la_salida {
+        pixeles_del_blur()
+    } else {
+        pixeles_del_lienzo()
+    }
+    .ok_or(IOMMU_NO_LIENZO)?;
     let i = (k as usize).checked_mul(2).filter(|&i| i + 1 < p.len()).ok_or(IOMMU_NO_LIENZO)?;
     Ok(p[i] as u64 | (p[i + 1] as u64) << 32)
 }
@@ -389,6 +396,109 @@ fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         crate::ring0::cabina::count("gpu", "M5d B: LA 3060 DESENFOCO 128x128 pixeles, igual que la CPU; us", us);
     } else {
         crate::ring0::cabina::warn("gpu", "M5d B: el blur no salio igual que la CPU; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}
+
+// == M5d F: EL FRACTAL -- LA FUERZA DE LA 3060 (2026-09-24) ===================
+//
+// Mandelbrot de 512 x 512 (hasta 256 vueltas por pixel, 262144 hilos) en 1 MiB
+// de RAM del PC (256 marcos NEUTRO por `grupo`, prestados ESCRIBIBLES en
+// `fractal::IOVA`, una vez por arranque). Se cronometra la 3060 (del timbre al
+// semaforo) y la CPU haciendo la MISMA cuenta (`fractal::comprobar`), que de
+// paso compara cada pixel. Comparte con el blur la cuenta de entradas del
+// GPFIFO y el cerrojo de "uno en marcha".
+
+static FRACTAL_F: AtomicU64 = AtomicU64::new(0);
+static FRACTAL_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Lo mas que se espera a la 3060: 262144 hilos de hasta 256 vueltas.
+const FRACTAL_ESPERA_US: u64 = 1_000_000;
+
+fn pixeles_del_fractal() -> Option<&'static [u32]> {
+    let f = FRACTAL_F.load(Ordering::Acquire);
+    if f == 0 || !FRACTAL_PRESTADO.load(Ordering::Acquire) {
+        return None;
+    }
+    let b = memoria(f, bmo_gpu_ga10x::fractal::PAGINAS * PAGINA);
+    // SAFETY: los 256 marcos del fractal, alineados a pagina, de 1 MiB justo.
+    Some(unsafe { core::slice::from_raw_parts(b.as_ptr() as *const u32, bmo_gpu_ga10x::fractal::PIXELES) })
+}
+
+/// **M5d F: el fractal.** `ficha` = la de S3. `Ok(fractal::empaquetar(..))`.
+pub fn fractal(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = fractal_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::fractal as fr;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !FRACTAL_PRESTADO.load(Ordering::Acquire) {
+        let Some(f) = grupo(&FRACTAL_F, fr::PAGINAS) else {
+            crate::ring0::cabina::warn("gpu", "M5d F: no hubo 256 marcos seguidos para el fractal", 0);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        };
+        memoria(f, fr::PAGINAS * PAGINA).fill(0);
+        if io::prestar_gpu(fr::IOVA, f, fr::PAGINAS, true).is_err()
+            || !(0..fr::PAGINAS).all(|k| escribible(fr::IOVA + k * PAGINA, f + k * PAGINA))
+        {
+            crate::ring0::cabina::warn("gpu", "M5d F: el fractal no se ve por la IOMMU donde se presto; iova", fr::IOVA);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        }
+        match fr::mapear(&mut r) {
+            Some((n, bien)) if n == bien => {}
+            _ => {
+                crate::ring0::cabina::warn("gpu", "M5d F: las PTE del fractal no estaban vacias o no se releyeron", 0);
+                return Err(IOMMU_NO_BLUR_PREPARAR);
+            }
+        }
+        FRACTAL_PRESTADO.store(true, Ordering::Release);
+        crate::ring0::cabina::count("gpu", "M5d F: 1 MiB PRESTADO a la 3060 para el fractal y mapeado; iova", fr::IOVA);
+    }
+    memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
+    if !fr::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5d F: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = fr::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let (mut qmd, mut fin) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        (_, qmd, fin) = fr::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == fr::PAGA_QMD && fin == fr::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    // La CPU hace la MISMA cuenta, cronometrada, y compara cada pixel.
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let (buenos, vueltas) = pixeles_del_fractal().map_or((0, 0), fr::comprobar);
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    let v = fr::empaquetar(buenos, qmd == fr::PAGA_QMD, fin == fr::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
+    if fr::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d F: LA 3060 CALCULO EL FRACTAL de 512x512 igual que la CPU; us", us);
+        crate::ring0::cabina::count("gpu", "M5d F: la CPU tardo en lo mismo, us", cpu_us);
+        crate::ring0::cabina::count("gpu", "M5d F: vueltas en total", vueltas);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d F: el fractal no salio igual que la CPU; pixeles buenos", buenos as u64);
     }
     Ok(v)
 }

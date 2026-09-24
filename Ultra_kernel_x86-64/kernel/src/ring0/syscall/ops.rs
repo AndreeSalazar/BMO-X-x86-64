@@ -392,6 +392,8 @@ pub(crate) const IOMMU_OP_GPU_LIENZO_LEER: u64 = 0x30;
 pub(crate) const IOMMU_OP_GPU_LIENZO_ESCRIBIR: u64 = 0x31;
 /// M5d B: el blur, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_BLUR: u64 = 0x32;
+/// M5d F: el fractal, con la ficha en `arg1`. Ver `dev/gpu_trabajo.rs`.
+pub(crate) const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

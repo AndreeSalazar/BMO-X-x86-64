@@ -495,6 +495,24 @@ cuenta en la CPU (`blur::desenfocar`). En `save mode` desenfoca el degradado;
 llamada, `blur::subir`) y muestra el antes y el despues. Se puede repetir:
 cada vez, la siguiente entrada del GPFIFO de GR.
 
+**EL LIENZO, en el metal (24-09, 16:34): 42 de 42.** `lienzo: LA 3060 PINTO EN
+LA RAM DEL PC: 16384 de 16384 pixeles como tocan; semaforo del QMD PAGADO,
+de informe PAGADO, GP_GET 3; IOVA 0x3A020000`. `domain` sube de 15793 a
+15809 paginas prestadas: las 16 del lienzo. Y `pcie` vuelve a Gen3.
+
+**M5d F, el fractal y el panel, en codigo (24-09):** el propietario pidio
+"algo MAS fuerte que el blur" y una pantalla de configuracion como la de
+NVIDIA. Mandelbrot de 512 x 512, hasta 256 vueltas por pixel, 262144 hilos
+(512 bloques de 512), en 1 MiB de RAM del PC (IOVA 0x3A10_0000, VA
+0x2_0003_0000, entradas 48..303 de la PT del tramo). Aritmetica ENTERA Q4.28
+para que la CPU rehaga la cuenta EXACTA (con coma flotante la FMA de la 3060
+y la CPU redondean distinto); el kernel cronometra la 3060 (timbre ->
+semaforo) y la CPU haciendo lo mismo. `gpu fractal` (o `gpu panel`): el
+panel a pantalla completa, el fractal al doble y los tiempos. SASS de
+`ptxas`, 44 instrucciones, 15 registros, el bucle con su `BSSY/BSYNC`.
+Un panel de CONFIGURACION de verdad (resolucion, refresco) es M4: cambiar
+de modo, que hoy no hace falta y no se toca.
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.

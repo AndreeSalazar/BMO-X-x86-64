@@ -803,6 +803,12 @@ pub const IOMMU_OP_GPU_LIENZO_ESCRIBIR: u64 = 0x31;
 /// siguiente entrada del GPFIFO de GR (se puede repetir). `Ok` =
 /// `blur::empaquetar(..)`: los pixeles iguales a la cuenta de la CPU.
 pub const IOMMU_OP_GPU_BLUR: u64 = 0x32;
+/// M5d F: el fractal, `arg1` = la ficha de S3: Mandelbrot de 512 x 512 en 1
+/// MiB del PC (`fractal::IOVA`, prestado y mapeado una vez), en la siguiente
+/// entrada del GPFIFO de GR (se puede repetir; comparte los motivos del blur).
+/// `Ok` = `fractal::empaquetar(..)`: pixeles iguales a la CPU, y lo que
+/// tardaron la 3060 y la CPU. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
+pub const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

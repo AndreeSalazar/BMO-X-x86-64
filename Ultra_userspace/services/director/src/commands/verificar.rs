@@ -522,7 +522,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::desenfocado,
         dar: super::gspcomputo::desenfocar,
         pide: Some(b"lienzo"),
-        consejo: b"`gpu`: `blur` dice 16384 de 16384; teclea `gpu blur` y mira un trozo de tu pantalla DESENFOCADO por la 3060 -- lo siguiente es el triangulo",
+        consejo: b"`gpu`: `blur` dice 16384 de 16384; teclea `gpu blur` y mira un trozo de tu pantalla DESENFOCADO por la 3060 -- lo siguiente es `fractal`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"fractal",
+        que: b"LA FUERZA DE LA 3060: Mandelbrot de 512 x 512 (262144 hilos), cronometrado contra la CPU y comparado bit a bit (M5d F)",
+        hecho: super::gspcomputo::fractal_hecho,
+        dar: super::gspcomputo::calcular_fractal,
+        pide: Some(b"blur"),
+        consejo: b"`gpu`: `fractal` dice 262144 de 262144 y cuantas veces mas rapida; teclea `gpu fractal` para el panel a pantalla completa -- lo siguiente es el triangulo",
         repinta: false,
     },
 ];

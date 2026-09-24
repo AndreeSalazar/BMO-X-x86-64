@@ -884,6 +884,14 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_trabajo::blur(arg1)
         }
+        // ** M5d F: 1 MiB del PC que la 3060 ESCRIBE (el fractal). El FLUSH,
+        // como el blur.
+        IOMMU_OP_GPU_FRACTAL => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del fractal no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::fractal(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);
