@@ -257,7 +257,16 @@ impl Modo {
         if tras < ventaja {
             return Some(Espera { lineas: 0, cabe: false });
         }
-        Some(Espera { lineas: (y1 - b) as u32, cabe: true })
+        // ** Cuanto falta para que el rayo SALGA de la caja (2026-09-24). Si
+        // esta encima o por encima, hasta `y1`. Si ya la paso y le falta poco
+        // para dar la vuelta, hasta `y1` DEL CUADRO SIGUIENTE: `falta + h`.
+        // Hasta hoy los dos casos eran `y1 - b`, y el segundo da NEGATIVO:
+        // como `u32` eran ~4.000 millones de lineas, el kernel lo topaba en
+        // 2^32 ns y el escritorio se dormia 4,29 s. El Ryzen lo dijo
+        // (`la peor 4294967 us`) y el propietario lo sintio como tirones.
+        let lineas = if b >= y1 { falta + h } else { y1 - b };
+        debug_assert!(lineas > 0 && lineas <= total + h);
+        Some(Espera { lineas: lineas.clamp(0, total) as u32, cabe: true })
     }
 
     /// El refresco que el modo DICE, en milesimas de Hz. `None` sin reloj.
@@ -438,6 +447,18 @@ mod pruebas {
         assert_eq!(e(541, 0, 1080, 800), Espera { lineas: 580, cabe: true }, "a media pantalla: esperar al VBLANK");
         assert_eq!(e(1121, 0, 1080, 1200), Espera { lineas: 0, cabe: false }, "120 de ventaja contra 45 de VBLANK: ni esperando");
         assert_eq!(e(541, 300, 300, 5), ya, "caja vacia");
+        // El rayo YA PASO la caja y le falta poco para volver: la fila 1079
+        // (linea 1120) contra una caja arriba con copia lenta. Le faltan 46
+        // lineas y hacen falta 109 de ventaja: se espera a que la cruce en el
+        // cuadro siguiente, 46 + 100. Antes esto daba negativo (4,29 s).
+        assert_eq!(e(1120, 0, 100, 200), Espera { lineas: 146, cabe: true }, "tras la caja: la vuelta y la caja");
+        for l in 0..1125u16 {
+            for &(y0, y1, c) in &[(0u16, 100u16, 200u32), (500, 700, 50), (0, 1080, 800), (1000, 1080, 300)] {
+                if let Some(x) = m.espera(l, y0, y1, c) {
+                    assert!(x.lineas <= 1125, "nunca mas de un cuadro: l={l} caja {y0}..{y1} copia {c} -> {}", x.lineas);
+                }
+            }
+        }
     }
 
     #[test]

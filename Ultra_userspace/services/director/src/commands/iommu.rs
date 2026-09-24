@@ -191,7 +191,7 @@ pub(crate) fn report_iommu(s: &mut Output) {
     s.text(if e.ordenes_corren() { b"; ordenes CORREN" as &[u8] } else { b"; ordenes paradas" });
     s.text(if e.eventos_corren() { b"; eventos CORREN" as &[u8] } else { b"; eventos parados" });
     s.byte(b'\n');
-    fila_armado(s);
+    fila_armado(s, viva & bmo::IOMMU_VIVA_ENCENDIDA != 0);
     fila_viva(s, viva);
 
     let n = bmo::info(bmo::INFO_IOMMU_CENSO);
@@ -290,6 +290,12 @@ pub(crate) fn report_iommu(s: &mut Output) {
         }
     }
 
+    // ** Encendida por BMO-X, el veredicto de la sonda (que mira el control
+    // como si fuera la foto del arranque) diria "la dejo el firmware". No.
+    if viva & bmo::IOMMU_VIVA_ENCENDIDA != 0 && c.encendida() {
+        veredicto(s, true, b"ENCENDIDA POR BMO-X y obedece (M0c), todo de paso; lo siguiente es TRADUCIR (M0d)");
+        return;
+    }
     match amdvi::veredicto(control, funciones) {
         amdvi::Veredicto::SePuede => veredicto(s, true, b"apagada y contesta: se puede encender con tablas de BMO-X"),
         amdvi::Veredicto::EncendidaPorElFirmware => {
@@ -311,7 +317,7 @@ fn veredicto(s: &mut Output, si: bool, frase: &[u8]) {
 
 /// ** M0b: las tablas de BMO-X, armadas en RAM y SIN ENTREGAR. Si la fila
 /// dice `releida igual`, M0c tiene lo que darle a la IOMMU.
-fn fila_armado(s: &mut Output) {
+fn fila_armado(s: &mut Output, entregada: bool) {
     let a = bmo::info(bmo::INFO_IOMMU_ARMADO);
     let c = bmo::info(bmo::INFO_IOMMU_COLAS);
     campo(s, b"ours");
@@ -334,7 +340,11 @@ fn fila_armado(s: &mut Output) {
     s.hex((c & bmo::IOMMU_BASE_PAGINAS_MASK) << 12, 8);
     if a & bmo::IOMMU_ARMADO_COMPROBADO != 0 {
         s.with_ink(INK_GOOD);
-        s.text(b"   releida igual, SIN ENTREGAR\n");
+        s.text(if entregada {
+            b"   releida igual, ENTREGADA: es la que la IOMMU usa\n" as &[u8]
+        } else {
+            b"   releida igual, SIN ENTREGAR\n"
+        });
     } else {
         s.with_ink(INK_ERR);
         s.text(b"   releida DISTINTA de lo escrito\n");

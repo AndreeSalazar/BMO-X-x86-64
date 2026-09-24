@@ -132,7 +132,7 @@ pasos, cada uno visto en el metal antes del siguiente:
         de ordenes da la vuelta (COMPLETION_WAIT) y que el registro de
         eventos queda a 0. POR ORDEN (`iommu encender`), no al arrancar:
         save automatico antes, FLUSH del disco, y si el dato no vuelve en
-        10 ms se apaga sola                                  [en codigo]
+        10 ms se apaga sola                  [VISTO en metal, 24-09 02:12]
    M0d  TRADUCIR por aparato: disco, USB y red ven solo lo que el juez de
         DMA (R-DMA) les presto; los IVMD, en identidad. Un fallo = un
         EVENTO con su BDF, no memoria pisada
@@ -159,6 +159,13 @@ otro firmware. Y `placa` desde el escritorio tumbaba el kernel (`c16756afe`).
 todo DE PASO; 1 con banderas del IVHD; colas de 512 en 0x02A29000  releida
 igual, SIN ENTREGAR`. La entrada con banderas es la del IOAPIC `0x0D`
 (`00:14.0`, `0xD7`).
+
+**M0c en el metal (24-09, 02:12):** `live  ENCENDIDA; el COMPLETION_WAIT
+volvio en 6 us; eventos 0 (1 intento)`, control `0x...1405` (EN + eventos +
+ordenes sobre lo del firmware). DOOM a 70 fps, el audio sin un tiron, el
+teclado, el raton y el disco igual que antes: con todo de paso, ningun
+aparato noto nada. Y el MSI del disco (vector 49) siguio entrando: con IV=0
+las interrupciones pasan sin remapear.
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,

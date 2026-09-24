@@ -46,6 +46,9 @@ use crate::*;
 
 /// Por debajo de esto se gira; por encima se duerme por el latido.
 const GIRAR_MAX_NS: u64 = 1_000_000;
+/// Lo mas que se cree una espera: un cuadro a 50 Hz. A 60 Hz, un cuadro
+/// son 16,7 ms; mas que esto no puede pedirlo una cuenta sana.
+const ESPERA_MAX_NS: u64 = 20_000_000;
 
 /// Lo que ha pasado al esperar al rayo. Lo pinta `gpu`.
 #[derive(Clone, Copy, Default)]
@@ -157,6 +160,14 @@ impl Rayo {
                 break;
             }
             if vueltas > 0 && ns > GIRAR_MAX_NS {
+                c.rendidas += 1;
+                break;
+            }
+            // ** Y NUNCA MAS DE UN CUADRO (2026-09-24): una respuesta que pide
+            // esperar mas de lo que tarda el rayo en dar una vuelta es un
+            // fallo de la cuenta, no una espera. El Ryzen durmio 4,29 s por
+            // una asi. Se copia ya y se cuenta.
+            if ns > ESPERA_MAX_NS {
                 c.rendidas += 1;
                 break;
             }
