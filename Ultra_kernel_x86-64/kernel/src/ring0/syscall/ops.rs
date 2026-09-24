@@ -364,6 +364,8 @@ pub(crate) const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
 pub(crate) const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
 /// L1d2d y L1d3: la primera copia, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_COPIA: u64 = 0x24;
+/// L1d3: leer una palabra del tramo (solo lectura). Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_LEER: u64 = 0x25;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

@@ -254,6 +254,7 @@ pub const IOMMU_OP_GPU_CANAL: u64 = 0x21;
 pub const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
 pub const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
 pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
+pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

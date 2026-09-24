@@ -737,6 +737,10 @@ pub const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
 /// de `GET_WORK_SUBMIT_TOKEN`. Una vez por arranque, con el copiador pedido.
 /// `Ok` = `copia::empaquetar(buenas, GP_GET, pagado, lanzada, us)`.
 pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
+/// L1d3, el diagnostico: leer UNA palabra de VRAM del tramo por PRAMIN,
+/// `arg1` = la direccion (`copia::legible`: dentro del tramo, alineada a 4).
+/// Solo lectura. `Ok` = la palabra.
+pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

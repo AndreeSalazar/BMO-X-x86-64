@@ -64,6 +64,9 @@ struct Canal {
     copiador: Option<Result<Pedido, u32>>,
     /// L1d3: el `Ok` empaquetado de la copia, o el NO.
     copia: Option<Result<u64, u32>>,
+    /// L1d3, si la copia no salio: las palabras de `copia::DIAGNOSTICO`
+    /// (`None` la que no se pudo leer), y lo que dijo el GSP-RM despues.
+    diag: Option<([Option<u32>; copia::DIAGNOSTICO.len()], Otros)>,
 }
 
 static mut CANAL: Option<Canal> = None;
@@ -107,6 +110,7 @@ pub(crate) fn pedir() -> Result<u64, u32> {
         c.ficha = None;
         c.copiador = None;
         c.copia = None;
+        c.diag = None;
     });
     match r {
         Ok(p) if p.bien() => Ok(canal::CANAL as u64),
@@ -222,11 +226,27 @@ pub(crate) fn copiar() -> Result<u64, u32> {
         _ => Err(NO_COPIA_SIN_FICHA),
     };
     con(|c| c.copia = Some(r));
+    if !matches!(r, Ok(v) if copia::sana(v)) && !matches!(r, Err(NO_COPIA_SIN_FICHA)) {
+        diagnosticar();
+    }
     match r {
         Ok(v) if copia::sana(v) => Ok(v),
         Ok(_) => Err(NO_COPIA_MAL),
         Err(m) => Err(m),
     }
+}
+
+/// **Si la copia no sale**: que dejo el RM en la instancia del canal, que
+/// hay en el USERD y el GPFIFO, y que dijo el GSP-RM en el segundo de despues
+/// (un canal caido llega como mensaje). Todo lectura.
+fn diagnosticar() {
+    let mut p = [None; copia::DIAGNOSTICO.len()];
+    for (k, &(_, dir)) in copia::DIAGNOSTICO.iter().enumerate() {
+        p[k] = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, dir).ok().map(|v| v as u32);
+    }
+    let mut otros = Otros::default();
+    super::gsprpc::barrer(&mut otros, 1000);
+    con(|c| c.diag = Some((p, otros)));
 }
 
 /// Lo pregunta `save mode`.
@@ -438,7 +458,7 @@ pub(crate) fn fila(s: &mut Output) {
                 s.text(b", GP_GET ");
                 s.dec(gp_get as u64);
                 if !lanzada {
-                    s.text(b", el GP_PUT no se releyo: timbre SIN tocar");
+                    s.text(b", la MMU no se invalido o el GP_PUT no se releyo: timbre SIN tocar");
                 }
                 s.with_ink(INK_ECHO);
                 s.text(b"   en ");
@@ -447,6 +467,36 @@ pub(crate) fn fila(s: &mut Output) {
             }
         }
         s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+    if let Some((p, otros)) = c.diag {
+        campo(s, b"diag");
+        s.with_ink(INK_ECHO);
+        for (k, &(nombre, _)) in copia::DIAGNOSTICO.iter().enumerate() {
+            if k > 0 {
+                s.text(b", ");
+            }
+            s.text(nombre);
+            match p[k] {
+                Some(v) => {
+                    s.text(b" 0x");
+                    s.hex(v as u64, 8);
+                }
+                None => s.text(b" ?"),
+            }
+        }
+        s.with_ink(INK_PLAIN);
+        if otros.n == 0 {
+            s.text(b"; el GSP-RM no dijo nada en 1 s");
+        } else {
+            s.text(b"; el GSP-RM dijo despues:");
+            for t in &otros.t[..otros.n] {
+                s.byte(b' ');
+                s.text(bmo_gpu_ga10x::rpc::nombre(t.0));
+                s.text(b" x");
+                s.dec(t.1 as u64);
+            }
+        }
         s.byte(b'\n');
     }
     let pasos = [pedido(), bien(&c.atar), bien(&c.programar), bien(&c.ficha), copiador_listo(), copia_hecha()]

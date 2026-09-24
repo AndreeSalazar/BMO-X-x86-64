@@ -19,8 +19,10 @@
 //!              SEMAFORO a cero, el bufer de ordenes (17 palabras) y la
 //!              entrada 0 del GPFIFO; despues GP_PUT = 1 en el USERD y la
 //!              FICHA en el timbre (BAR0 0xBB0090: `ga100_vfn` 0xB80000 +
-//!              `user` 0x30000 + 0x90, `tu102_chan_start`). La 3060 lee la
-//!              entrada, ejecuta las ordenes, copia y escribe el semaforo
+//!              `user` 0x30000 + 0x90, `tu102_chan_start`), tras invalidar
+//!              la MMU de la GPU para nuestra raiz (`tu102_vmm_flush`). La
+//!              3060 lee la entrada, ejecuta las ordenes, copia y escribe el
+//!              semaforo
 //! ```
 //!
 //! # El tramo (L1d1: VA 0x2_0000_0000 = VRAM 0x420_0000, 16 paginas)
@@ -199,9 +201,32 @@ pub fn preparar<R: Registros>(r: &mut R) -> bool {
         && escribir(r, GPFIFO, &[e as u32, (e >> 32) as u32]) == 2
 }
 
-/// **Lanzar**: GP_PUT = 1 en el USERD y la ficha en el timbre.
+/// La invalidacion de la MMU de la GPU (`tu102_vmm_flush` de nouveau, la que
+/// usa GA10x): la raiz (>> 8), su parte alta, y la orden con el bit 31, que la
+/// GPU baja al acabar.
+pub const INVALIDAR_PDB: u32 = 0x00B8_30A0;
+pub const INVALIDAR_PDB_HI: u32 = 0x00B8_30A4;
+pub const INVALIDAR: u32 = 0x00B8_30B0;
+/// `0x80000000 | PAGE_ALL`.
+pub const INVALIDAR_TODO: u32 = 0x8000_0001;
+/// Cuantas lecturas se espera a que baje el bit 31 (nouveau: 2 s).
+const INVALIDAR_VUELTAS: u32 = 2_000_000;
+
+/// **Invalidar la MMU** para NUESTRA raiz: lo que la GPU tuviera de nuestras
+/// tablas se tira y las vuelve a leer. nouveau lo hace tras CADA mapeo;
+/// BMO-X no lo hizo tras L1d1 (metal 24-09 14:19: GP_GET se quedo en 0).
+/// `true` si la GPU acabo.
+pub fn invalidar<R: Registros>(r: &mut R) -> bool {
+    r.escribir(INVALIDAR_PDB, (crate::vram::DIRECTORIO >> 8) as u32);
+    r.escribir(INVALIDAR_PDB_HI, 0);
+    r.escribir(INVALIDAR, INVALIDAR_TODO);
+    (0..INVALIDAR_VUELTAS).any(|_| r.leer(INVALIDAR) & 0x8000_0000 == 0)
+}
+
+/// **Lanzar**: la MMU invalidada, GP_PUT = 1 en el USERD y la ficha en el
+/// timbre. `false` (y el timbre sin tocar) si algo no quedo.
 pub fn lanzar<R: Registros>(r: &mut R, ficha: u32) -> bool {
-    let puesto = escribir(r, USERD + GP_PUT, &[1]) == 1;
+    let puesto = invalidar(r) && escribir(r, USERD + GP_PUT, &[1]) == 1;
     if puesto {
         r.escribir(TIMBRE, ficha);
     }
@@ -221,6 +246,31 @@ pub fn comprobar<R: Registros>(r: &mut R) -> u32 {
     let n = (0..PALABRAS).filter(|&k| r.leer(VENTANA + off + 4 * k as u32) == patron(k)).count() as u32;
     r.escribir(VENTANA_REG, antes);
     n
+}
+
+/// **Lo que se mira si la copia no sale** (solo lectura, por PRAMIN): lo que
+/// el RM escribio en la instancia del canal (RAMFC de `gv100_chan_ramfc_write`
+/// de nouveau: USERD +0x008/+0x00C, GPFIFO +0x048/+0x04C, chid +0x0E8; y el
+/// directorio de paginas en +0x200/+0x204), el USERD (GP_GET, GP_PUT), la
+/// entrada 0 del GPFIFO y el semaforo. `(nombre, direccion de VRAM)`.
+pub const DIAGNOSTICO: [(&[u8], u64); 11] = [
+    (b"userd lo", crate::canal::INSTANCIA + 0x008),
+    (b"userd hi", crate::canal::INSTANCIA + 0x00C),
+    (b"gpfifo lo", crate::canal::INSTANCIA + 0x048),
+    (b"gpfifo hi", crate::canal::INSTANCIA + 0x04C),
+    (b"chid", crate::canal::INSTANCIA + 0x0E8),
+    (b"pdb lo", crate::canal::INSTANCIA + 0x200),
+    (b"pdb hi", crate::canal::INSTANCIA + 0x204),
+    (b"gp_get", USERD + GP_GET),
+    (b"gp_put", USERD + GP_PUT),
+    (b"entrada0", GPFIFO),
+    (b"semaforo", SEMAFORO),
+];
+
+/// La direccion de VRAM que el kernel deja LEER (una palabra): dentro del
+/// tramo y alineada a 4.
+pub const fn legible(dir: u64) -> bool {
+    dir >= TRAMO && dir + 4 <= TRAMO + crate::vram::TRAMO_PAGINAS as u64 * PAGINA && dir % 4 == 0
 }
 
 /// Lo que devuelve el kernel en un `u64`: `buenas | GP_GET << 16 | semaforo
@@ -253,11 +303,14 @@ mod pruebas {
         ventana: u32,
         tramo: std::vec::Vec<u32>,
         timbre: Option<u32>,
+        /// Lo que se pidio invalidar: `(raiz, orden)`.
+        invalidado: Option<(u32, u32)>,
+        pdb: u32,
     }
 
     impl Falsa {
         fn nueva() -> Falsa {
-            Falsa { ventana: 0xFFF0, tramo: std::vec![0xDEAD_BEEF; 16 * 1024], timbre: None }
+            Falsa { ventana: 0xFFF0, tramo: std::vec![0xDEAD_BEEF; 16 * 1024], timbre: None, invalidado: None, pdb: 0 }
         }
         fn celda(&mut self, reg: u32) -> Option<&mut u32> {
             let dir = ((self.ventana as u64) << 16) + (reg - VENTANA) as u64;
@@ -280,6 +333,10 @@ mod pruebas {
             match reg {
                 VENTANA_REG => self.ventana = v,
                 TIMBRE => self.timbre = Some(v),
+                INVALIDAR_PDB => self.pdb = v,
+                INVALIDAR_PDB_HI => {}
+                // La GPU de mentira acaba al momento: el bit 31, bajado.
+                INVALIDAR => self.invalidado = Some((self.pdb, v)),
                 _ => {
                     if let Some(c) = self.celda(reg) {
                         *c = v;
@@ -329,6 +386,14 @@ mod pruebas {
     }
 
     #[test]
+    fn el_diagnostico_solo_lee_el_tramo() {
+        assert!(DIAGNOSTICO.iter().all(|&(_, d)| legible(d)));
+        assert!(!legible(TRAMO - 4) && !legible(TRAMO + 16 * PAGINA) && !legible(TRAMO + 2));
+        // Lo que nouveau escribe en la RAMFC: el USERD de L1d2b y el GPFIFO.
+        assert_eq!(DIAGNOSTICO[0].1, crate::canal::INSTANCIA + 8);
+    }
+
+    #[test]
     fn todo_en_el_tramo_y_sin_pisarse() {
         let fin = TRAMO + crate::vram::TRAMO_PAGINAS as u64 * PAGINA;
         let usadas = [crate::canal::INSTANCIA, crate::canal::USERD_PAGINA, GPFIFO, EMPUJE, SEMAFORO, ORIGEN, DESTINO];
@@ -351,6 +416,7 @@ mod pruebas {
         assert_eq!(mirar(&mut f), (0, 0));
         assert!(lanzar(&mut f, 1));
         assert_eq!((f.timbre, *f.en(USERD + GP_PUT)), (Some(1), 1));
+        assert_eq!(f.invalidado, Some((0x41000, 0x8000_0001)), "la raiz de L1c3 >> 8, PAGE_ALL");
         // Lo que hara la 3060: copiar, pagar el semaforo y avanzar GP_GET.
         for k in 0..PALABRAS as u64 {
             let v = *f.en(ORIGEN + 4 * k);

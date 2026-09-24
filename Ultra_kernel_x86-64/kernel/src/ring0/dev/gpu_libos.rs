@@ -825,3 +825,15 @@ pub fn copiar(ficha: u64) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+/// **L1d3, el diagnostico: leer UNA palabra del tramo** por PRAMIN (la
+/// ventana vuelve como estaba). Solo lectura y solo el tramo
+/// (`copia::legible`), con el tramo mapeado. `Ok(la palabra)`.
+pub fn leer_tramo(dir: u64) -> Result<u64, u32> {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !TRAMO_PUESTO.load(Ordering::Acquire) || !bmo_gpu_ga10x::copia::legible(dir) {
+        return Err(IOMMU_NO_TRAMO);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    Ok(bmo_gpu_ga10x::copia::leer32(&mut r, dir) as u64)
+}

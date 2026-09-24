@@ -125,6 +125,30 @@ pub(crate) fn esperar(funcion: u32, d: &mut [u8], otros: &mut Otros) -> Result<(
     Err(NO_RPC_SIN_RESPUESTA)
 }
 
+/// **Barrer la cola del GSP** durante `ms`: todo lo que llegue (eventos, NOCAT,
+/// avisos de un canal caido) se consume y se cuenta en `otros`. Para mirar
+/// que dijo el GSP-RM cuando no se espera una respuesta concreta (L1d3).
+pub(crate) fn barrer(otros: &mut Otros, ms: u64) {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let fin = bmo::ciclos() + hz * ms / 1000;
+    while bmo::ciclos() < fin {
+        let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) % PAGINAS;
+        let mut p = (mem(LEIDO_CPU) & 0xFFFF_FFFF) % PAGINAS;
+        while p != escrito {
+            let m = Mensaje::de(&cabecera(p));
+            if !m.bien_formado() || suma(p, &m) != 0 {
+                return;
+            }
+            otros.contar(m.funcion);
+            p = (p + m.paginas as u64) % PAGINAS;
+            if bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_LEIDO, p).is_err() {
+                return;
+            }
+        }
+        bmo::yield_screen();
+    }
+}
+
 /// Lo pregunta `save mode`: el GSP-RM contesto, con `rpc_result` 0.
 pub(crate) fn contestada() -> bool {
     resumen().map_or(false, |r| r.e.is_some() && r.resultado == 0)

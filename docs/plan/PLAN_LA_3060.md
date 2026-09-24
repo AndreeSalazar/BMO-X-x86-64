@@ -943,7 +943,9 @@ vuelta.
                        y el timbre: la primera entrada del GPFIFO
                        (`copia`)                [en codigo, 24-09]
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
-                (`copiador` y `copia`)          [en codigo, 24-09]
+                (`copiador` VISTO 24-09 14:19; `copia` en codigo:
+                GP_GET 0 en el metal, con la invalidacion de la MMU
+                y la fila `diag` detras)
 ```
 
 **L1d2a en el metal (24-09, 13:19): LOS MOTORES.** `11: GR0 COPY0 COPY1 COPY2
@@ -1002,6 +1004,20 @@ de `save mode`.
 ```
 
 Los metodos y bits, de `clc7b5.h` y `clc56f.h` de open-gpu-kernel-modules.
+
+**L1d3 en el metal (24-09, 14:19): el GSP desperto y todo hasta el copiador
+en verde -- y la copia NO.** `copiador: 0xCE000002 (clase 0xC7B5, COPY2, en el
+canal): NV_OK`; `copia: 0 de 1024 ... semaforo SIN PAGAR, GP_GET 0 en 100000
+us`; `iommu` sin eventos nuevos. GP_GET 0: la 3060 no llego a leer la entrada
+del GPFIFO. El formato de las tablas coincide con `vmmgp100.c` bit a bit, pero
+faltaba algo que nouveau hace tras CADA mapeo y BMO-X no hizo tras L1d1:
+invalidar la MMU de la GPU para la raiz (`tu102_vmm_flush`: 0xB830A0 la raiz
+>> 8, 0xB830A4 0, 0xB830B0 0x80000001, y esperar el bit 31). Ahora `lanzar`
+lo hace antes del timbre. Y si la copia vuelve a fallar, la fila `diag` lee
+(solo lectura, `IOMMU_OP_GPU_LEER` 0x25, solo el tramo) lo que el RM dejo en
+la RAMFC (USERD, GPFIFO, chid, la raiz en +0x200), GP_GET/GP_PUT, la entrada
+0 y el semaforo, y barre 1 s la cola del GSP: un canal caido llega como
+`RC_TRIGGERED` o `MMU_FAULT_QUEUED`.
 
 **Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
 `semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
