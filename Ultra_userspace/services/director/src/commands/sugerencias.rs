@@ -37,6 +37,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu estatica", b"la primera RPC: lo que el GSP-RM dice de la 3060"),
     (b"gpu objetos", b"nuestro cliente, dispositivo y subdispositivo en el RM"),
     (b"gpu salud", b"temperatura, enlace PCIe y P-state de la 3060"),
+    (b"gpu vram", b"la CPU escribe en la VRAM (PRAMIN) y la deja como estaba"),
     (b"gpu bar1", b"devolverle a BAR1 la del GOP"),
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),

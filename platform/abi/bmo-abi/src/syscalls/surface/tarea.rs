@@ -702,6 +702,11 @@ pub const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
 /// `arg1` = 0 el P-state (la lista, `bmo_gpu_ga10x::control`). `Ok` = la
 /// pagina | el numero << 32.
 pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
+/// L1c2: la CPU escribe en la VRAM por la ventana PRAMIN de BAR0: una pagina en
+/// la direccion fija `bmo_gpu_ga10x::vram::PRUEBA`, guardada y devuelta. `Ok`
+/// = `vram::empaquetar` (buenas | devueltas << 16 | ventana devuelta << 31 |
+/// ventana de antes << 32).
+pub const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -815,6 +820,8 @@ pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
 pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
 /// No es una de las ordenes de control de la lista.
 pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
+/// L1c2: sin 3060, o la prueba de la VRAM ya en curso.
+pub const IOMMU_NO_VRAM: u32 = 59;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

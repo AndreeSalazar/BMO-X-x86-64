@@ -30,6 +30,8 @@ pub(crate) mod gsprpc;
 pub(crate) mod gspobjeto;
 /// `gpu salud`: temperatura, enlace PCIe y P-state de la 3060 (24-09).
 pub(crate) mod gspsalud;
+/// `gpu vram`: la CPU escribe en la VRAM por PRAMIN (L1c2, 24-09).
+pub(crate) mod gspvram;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

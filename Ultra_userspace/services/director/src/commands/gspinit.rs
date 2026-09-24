@@ -187,9 +187,11 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         if super::gsprpc::preguntar() == Ok(0) {
             // Y con el RM contestando, NUESTROS objetos (L1b).
             paint_status(p, &dsk.run_box, "pidiendole objetos al GSP-RM", INK_DIM);
-            if super::gspobjeto::pedir().is_ok() {
-                // Y con los objetos, su primera orden de control: el P-state.
+            if super::gspobjeto::paso().is_ok() {
+                // Y con los objetos, su primera orden de control: el P-state;
+                // y el espacio de direcciones (L1c1), que no la bloquea.
                 let _ = super::gspsalud::preguntar();
+                let _ = super::gspobjeto::paso_espacio();
             }
         }
     }

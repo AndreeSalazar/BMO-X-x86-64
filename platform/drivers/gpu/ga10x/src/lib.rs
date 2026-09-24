@@ -70,6 +70,8 @@ pub mod control;
 pub mod contrato;
 /// La temperatura y el enlace PCIe de la 3060, en solo lectura (2026-09-24).
 pub mod salud;
+/// L1c2: la CPU escribe en la VRAM por la ventana PRAMIN, sin pisar nada (2026-09-24).
+pub mod vram;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

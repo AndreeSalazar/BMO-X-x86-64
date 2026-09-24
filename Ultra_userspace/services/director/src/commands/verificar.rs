@@ -324,7 +324,25 @@ const PASOS: &[Paso] = &[
         hecho: super::gspsalud::hecho,
         dar: super::gspsalud::preguntar,
         pide: Some(b"objetos"),
-        consejo: b"`gpu`: `pstate` dice P0..P15 con NV_OK, `temp` los grados del sensor y `pcie` el enlace; el panel, lo mismo -- lo siguiente es L1c, el espacio de direcciones y la VRAM propia",
+        consejo: b"`gpu`: `pstate` dice P0..P15 con NV_OK, `temp` los grados del sensor y `pcie` el enlace; el panel, lo mismo -- lo siguiente es `espacio`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"espacio",
+        que: b"el ESPACIO DE DIRECCIONES de la GPU, nuestro: FERMI_VASPACE_A 'de fuera' (sus tablas, nuestras) (L1c1)",
+        hecho: super::gspobjeto::espacio_listo,
+        dar: super::gspobjeto::paso_espacio,
+        pide: Some(b"objetos"),
+        consejo: b"`gpu`: la fila `obj esp` en NV_OK -- lo siguiente es `vram`, que la CPU escriba en la VRAM",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"vram",
+        que: b"LA CPU ESCRIBE EN LA VRAM por la ventana PRAMIN: una pagina en 64 MiB, guardada y devuelta (L1c2)",
+        hecho: super::gspvram::hecha,
+        dar: super::gspvram::probar,
+        pide: Some(b"estatica"),
+        consejo: b"`gpu`: la fila `vram` dice 1024 de 1024 y devueltas 1024 con la ventana devuelta -- lo siguiente es L1c3, el directorio de paginas en la VRAM",
         repinta: false,
     },
 ];
@@ -332,7 +350,8 @@ const PASOS: &[Paso] = &[
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
 /// camino, se deja sitio -- y la prueba de abajo dice NO si se pasa. Eran 16
 /// y `sistema` hizo el decimosexto (L0c4b2a, 24-09): L0c4b2b y L0c4b2c vienen.
-const MAX_PASOS: usize = 24;
+/// Y eran 24 y L1c los llevo a 23 (24-09): con L1d y M5 detras, 32.
+const MAX_PASOS: usize = 32;
 const _: () = assert!(PASOS.len() <= MAX_PASOS, "save mode: mas pasos que MAX_PASOS");
 
 /// Que salio de cada paso.

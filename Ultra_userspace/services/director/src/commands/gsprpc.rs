@@ -130,6 +130,13 @@ pub(crate) fn contestada() -> bool {
     resumen().map_or(false, |r| r.e.is_some() && r.resultado == 0)
 }
 
+/// La direccion de VRAM `[dir, dir + medida)` cae ENTERA en una region que el
+/// GSP-RM dio como usable. `None` si aun no se le pregunto.
+pub(crate) fn usable(dir: u64, medida: u64) -> Option<bool> {
+    let e = resumen()?.e?;
+    Some(e.regiones[..e.n_regiones].iter().any(|g| g.usable && g.base <= dir && dir + medida - 1 <= g.limit))
+}
+
 /// **Preguntar y esperar la respuesta.** `Ok(rpc_result)`.
 pub(crate) fn preguntar() -> Result<u64, u32> {
     let mut r = Resumen { numero: 0, e: None, resultado: 0, espera_us: 0, otros: Otros::default(), no: 0 };

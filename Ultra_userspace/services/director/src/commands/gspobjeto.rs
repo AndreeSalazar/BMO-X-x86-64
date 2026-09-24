@@ -1,16 +1,20 @@
 //! **`gpu objetos`: L1b, NUESTROS OBJETOS EN EL RM.** Le pide al GSP-RM, por
-//! `GSP_RM_ALLOC`, un cliente, un dispositivo y un subdispositivo propios, uno
-//! detras de otro: cada uno es hijo del anterior. Las asas son fijas
+//! `GSP_RM_ALLOC`, un cliente, un dispositivo, un subdispositivo y (L1c1) un
+//! espacio de direcciones propios, uno detras de otro: cada uno cuelga de uno
+//! de antes. Las asas son fijas
 //! (`bmo_gpu_ga10x::objeto`); el kernel arma cada pregunta, el escritorio solo
 //! dice cual y espera la respuesta en la cola del GSP.
 //!
 //! [consumo] NADA      corre cuando el propietario lo teclea, o tras `gpu init`:
-//!                     tres ordenes y hasta 5 s esperando cada respuesta
+//!                     una orden por objeto y hasta 5 s esperando cada respuesta
 //!
 //! Pedirlos otra vez en el mismo arranque contesta `ya existia`
 //! (`NV_ERR_INSERT_DUPLICATE_NAME`): el objeto sigue ahi y vale igual.
 
 use bmo_gpu_ga10x::objeto::{self, Objeto, Respuesta, CABECERA_ALLOC, YA_EXISTE};
+
+/// Cuantos objetos: los de la lista del crate (y del contrato).
+const N: usize = Objeto::TODOS.len();
 use bmo_userland as bmo;
 
 use super::gsprpc::{esperar, Otros};
@@ -32,7 +36,7 @@ struct Uno {
 
 #[derive(Clone, Copy, Default)]
 struct Resumen {
-    uno: [Uno; 3],
+    uno: [Uno; N],
     /// Cuantos se pidieron (se para en el primero que no sale).
     n: usize,
     otros: Otros,
@@ -52,9 +56,9 @@ fn guardar(r: Resumen) {
 
 /// La numero de la pregunta que CREO cada objeto (con `NV_OK`), para todo el
 /// arranque: pedirlos otra vez contesta `ya existia` y eso no lo borra.
-static mut CREADO: [u32; 3] = [0; 3];
+static mut CREADO: [u32; N] = [0; N];
 
-fn creado() -> [u32; 3] {
+fn creado() -> [u32; N] {
     // SAFETY: como `resumen`.
     unsafe { *core::ptr::addr_of!(CREADO) }
 }
@@ -70,12 +74,24 @@ fn vale(u: &Uno) -> bool {
 /// Motivo del escritorio: el RM contesto, pero NO dio el objeto.
 pub(crate) const NO_OBJ_NEGADO: u32 = 0x122;
 
-/// **Pedir los tres.** `Ok(())` si los tres existen.
+/// Los de L1b: cliente, dispositivo y subdispositivo. El espacio (L1c1) va
+/// aparte, para que si el falla el P-state (que solo pide el subdispositivo)
+/// siga saliendo.
+const L1B: usize = 3;
+
+/// **Pedirlos todos.** `Ok(())` si todos existen.
 pub(crate) fn pedir() -> Result<(), u32> {
-    let mut r = Resumen::default();
-    for k in 0..Objeto::TODOS.len() {
+    pedir_de(0, N)
+}
+
+/// **Pedir los de `desde..hasta`.** El resumen se ACUMULA: pedir el espacio
+/// despues no borra lo que dijeron los tres de antes.
+fn pedir_de(desde: usize, hasta: usize) -> Result<(), u32> {
+    let mut r = resumen().unwrap_or_default();
+    for k in desde..hasta {
+        r.uno[k] = Uno::default();
         let u = &mut r.uno[k];
-        r.n = k + 1;
+        r.n = r.n.max(k + 1);
         match bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_OBJETO, k as u64) {
             Ok(v) => u.numero = (v >> 32) as u32,
             Err(m) => u.no = m,
@@ -105,14 +121,24 @@ pub(crate) fn pedir() -> Result<(), u32> {
     Ok(())
 }
 
-/// Lo pregunta `save mode`: los tres existen.
+/// Lo pregunta `save mode`: los tres de L1b existen.
 pub(crate) fn listos() -> bool {
-    resumen().map_or(false, |r| r.n == 3 && r.uno.iter().all(vale))
+    resumen().map_or(false, |r| r.n >= L1B && r.uno[..L1B].iter().all(vale))
 }
 
-/// El paso de `save mode`: `Ok(3)` con los tres.
+/// El paso `objetos` de `save mode`: los tres de L1b.
 pub(crate) fn paso() -> Result<u64, u32> {
-    pedir().map(|()| 3)
+    pedir_de(0, L1B).map(|()| L1B as u64)
+}
+
+/// Lo pregunta `save mode`: el espacio de direcciones (L1c1) existe.
+pub(crate) fn espacio_listo() -> bool {
+    resumen().map_or(false, |r| r.n == N && vale(&r.uno[N - 1]))
+}
+
+/// El paso `espacio` de `save mode` (L1c1).
+pub(crate) fn paso_espacio() -> Result<u64, u32> {
+    pedir_de(L1B, N).map(|()| 1)
 }
 
 /// `gpu objetos`.
@@ -123,11 +149,11 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     match r {
         Ok(()) => {
             g.with_ink(INK_GOOD);
-            g.text(b"  EL RM TIENE NUESTROS OBJETOS: cliente, dispositivo y subdispositivo, pedidos por GSP_RM_ALLOC\n");
+            g.text(b"  EL RM TIENE NUESTROS OBJETOS: cliente, dispositivo, subdispositivo y espacio de direcciones (GSP_RM_ALLOC)\n");
         }
         Err(_) => {
             g.with_ink(INK_ERR);
-            g.text(b"  el GSP-RM no dio los tres objetos: mira las filas `obj`\n");
+            g.text(b"  el GSP-RM no dio todos los objetos: mira las filas `obj`\n");
         }
     }
     g.with_ink(INK_PLAIN);
@@ -142,7 +168,7 @@ pub(crate) fn fila(s: &mut Output) {
     let Some(r) = resumen() else { return };
     for (k, u) in r.uno[..r.n].iter().enumerate() {
         let o = Objeto::TODOS[k];
-        campo(s, [b"obj cli" as &[u8], b"obj disp", b"obj sub"][k]);
+        campo(s, [b"obj cli" as &[u8], b"obj disp", b"obj sub", b"obj esp"][k]);
         s.with_ink(INK_ECHO);
         s.text(o.nombre());
         s.text(b" 0x");

@@ -19,7 +19,20 @@
 //!    NV01_DEVICE_0    0x0080   NV0080_ALLOC_PARAMETERS   56 B: deviceId 0,
 //!                              hClientShare = el cliente, lo demas a cero
 //!    NV20_SUBDEVICE_0 0x2080   NV2080_ALLOC_PARAMETERS    4 B: subDeviceId 0
+//!    FERMI_VASPACE_A  0x90F1   NV_VASPACE_ALLOCATION_PARAMETERS 48 B (L1c1):
+//!                              index 0 (GPU_NEW), flags IS_EXTERNALLY_OWNED;
+//!                              vaSize +8, vaStart/LimitInternal +16/+24,
+//!                              bigPageSize +32, vaBase +40, a cero
 //! ```
+//!
+//! # El espacio de direcciones, y por que es "de fuera" (L1c1)
+//!
+//! Con el GSP, el RM del GSP NO lleva las tablas de paginas de un cliente:
+//! las lleva quien hace de RM de la CPU -- aqui, nosotros. nouveau lo hace
+//! igual (`r535/vmm.c`): pide el VASPACE con `IS_EXTERNALLY_OWNED` y luego le
+//! dice al RM donde esta su directorio (`NV0080_CTRL_CMD_DMA_SET_PAGE_DIRECTORY`),
+//! que construye EL en la VRAM. Esto es el primer paso: el objeto. El
+//! directorio va detras, cuando la CPU sepa escribir en la VRAM (L1c2).
 //!
 //! Como nouveau (`r535/client.c`, `r535/device.c`); las asas son las suyas
 //! (`rm/handles.h`), que el RM ya acepta.
@@ -35,24 +48,32 @@ pub const CABECERA_ALLOC: usize = 32;
 pub const CLIENTE: u32 = 0xC1D0_000B;
 pub const DISPOSITIVO: u32 = 0xDE1D_0000;
 pub const SUBDISPOSITIVO: u32 = 0x5D1D_0000;
+/// `NVKM_RM_VASPACE`.
+pub const ESPACIO: u32 = 0x90F1_0000;
 
 pub const NV01_ROOT: u32 = 0x0000;
 pub const NV01_DEVICE_0: u32 = 0x0080;
 pub const NV20_SUBDEVICE_0: u32 = 0x2080;
+pub const FERMI_VASPACE_A: u32 = 0x90F1;
+/// `NV_VASPACE_ALLOCATION_FLAGS_IS_EXTERNALLY_OWNED`.
+pub const VASPACE_DE_FUERA: u32 = 1 << 3;
 
 /// `NV_ERR_INSERT_DUPLICATE_NAME`: el asa ya existe (se pidio antes).
 pub const YA_EXISTE: u32 = 0x19;
 
-/// Los tres objetos, en el orden en que se piden.
+/// Nuestros objetos, en el orden en que se piden: cada uno cuelga de uno de
+/// antes.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Objeto {
     Cliente,
     Dispositivo,
     Subdispositivo,
+    /// L1c1: el espacio de direcciones de la GPU, hijo del dispositivo.
+    Espacio,
 }
 
 impl Objeto {
-    pub const TODOS: [Objeto; 3] = [Objeto::Cliente, Objeto::Dispositivo, Objeto::Subdispositivo];
+    pub const TODOS: [Objeto; 4] = [Objeto::Cliente, Objeto::Dispositivo, Objeto::Subdispositivo, Objeto::Espacio];
 
     pub fn de(n: u64) -> Option<Objeto> {
         Self::TODOS.get(n as usize).copied()
@@ -64,6 +85,7 @@ impl Objeto {
             Objeto::Cliente => (CLIENTE, 0, CLIENTE, NV01_ROOT, 120),
             Objeto::Dispositivo => (CLIENTE, CLIENTE, DISPOSITIVO, NV01_DEVICE_0, 56),
             Objeto::Subdispositivo => (CLIENTE, DISPOSITIVO, SUBDISPOSITIVO, NV20_SUBDEVICE_0, 4),
+            Objeto::Espacio => (CLIENTE, DISPOSITIVO, ESPACIO, FERMI_VASPACE_A, 48),
         }
     }
 
@@ -76,6 +98,7 @@ impl Objeto {
             Objeto::Cliente => b"cliente",
             Objeto::Dispositivo => b"dispositivo",
             Objeto::Subdispositivo => b"subdispositivo",
+            Objeto::Espacio => b"espacio",
         }
     }
 }
@@ -101,6 +124,8 @@ pub fn pedir(hueco: &mut [u8], numero: u32, que: Objeto) -> Option<usize> {
             }
             Objeto::Dispositivo => poner(p, 4, CLIENTE),
             Objeto::Subdispositivo => {}
+            // index 0 (GPU_NEW) y el resto a cero: medida y base, los del RM.
+            Objeto::Espacio => poner(p, 4, VASPACE_DE_FUERA),
         }
     })
 }
@@ -155,7 +180,7 @@ mod pruebas {
 
     #[test]
     fn las_tres_preguntas_suman_cero_y_miden_lo_suyo() {
-        for (que, medida) in Objeto::TODOS.into_iter().zip([120usize, 56, 4]) {
+        for (que, medida) in Objeto::TODOS.into_iter().zip([120usize, 56, 4, 48]) {
             let mut h = [0xAAu8; 4096];
             let n = pedir(&mut h, 3, que).unwrap();
             assert_eq!(n, CABECERA + CABECERA_ALLOC + medida);
@@ -187,6 +212,12 @@ mod pruebas {
         let d = &h[CABECERA..];
         assert_eq!((u(d, 0), u(d, 4), u(d, 8), u(d, 12)), (CLIENTE, DISPOSITIVO, SUBDISPOSITIVO, NV20_SUBDEVICE_0));
         assert_eq!(u(d, 32), 0, "subDeviceId 0");
+
+        pedir(&mut h, 5, Objeto::Espacio).unwrap();
+        let d = &h[CABECERA..];
+        assert_eq!((u(d, 0), u(d, 4), u(d, 8), u(d, 12)), (CLIENTE, DISPOSITIVO, ESPACIO, FERMI_VASPACE_A));
+        assert_eq!((u(d, 32), u(d, 36)), (0, VASPACE_DE_FUERA), "GPU_NEW y de fuera");
+        assert!(d[40..80].iter().all(|&b| b == 0), "medida y base: los del RM");
     }
 
     #[test]
@@ -199,6 +230,7 @@ mod pruebas {
         assert_eq!(estado(YA_EXISTE), b"ya existia");
         assert_eq!(leer(&d[..8]), None);
         assert_eq!(Objeto::de(2), Some(Objeto::Subdispositivo));
-        assert_eq!(Objeto::de(3), None);
+        assert_eq!(Objeto::de(3), Some(Objeto::Espacio));
+        assert_eq!(Objeto::de(4), None);
     }
 }

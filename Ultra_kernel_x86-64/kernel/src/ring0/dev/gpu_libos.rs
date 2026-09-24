@@ -440,6 +440,8 @@ pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
 pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
 /// No es una de las ordenes de control de la lista.
 pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
+/// L1c2: sin 3060 que probar, o la prueba de la VRAM ya esta en curso.
+pub const IOMMU_NO_VRAM: u32 = 59;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -519,4 +521,34 @@ fn enviar(armar: impl FnOnce(&mut [u8], u32) -> Option<usize>) -> Result<u64, u3
     core::sync::atomic::fence(Ordering::SeqCst);
     bmo_gpu_ga10x::Registros::escribir(&mut crate::ring0::dev::gpu_prestamo::Bar0(bar0), TIMBRE, 0);
     Ok(wp | (numero as u64) << 32)
+}
+
+// == L1c2: LA CPU ESCRIBE EN LA VRAM (2026-09-24) ==============================
+//
+// Por la ventana PRAMIN de BAR0 (`bmo_gpu_ga10x::vram`): una pagina en UNA
+// direccion fija (`vram::PRUEBA`, 64 MiB, dentro de lo que el GSP-RM dio como
+// usable), guardada antes y devuelta despues, con la ventana como estaba. El
+// escritorio no elige la direccion: pide la prueba y lee el resultado.
+
+/// Los 4 KiB de antes, mientras dura la prueba. Estatico: 4 KiB no van en la
+/// pila del kernel.
+static mut GUARDADO: [u32; bmo_gpu_ga10x::vram::PALABRAS] = [0; bmo_gpu_ga10x::vram::PALABRAS];
+static PROBANDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **La prueba de la VRAM.** `Ok(vram::empaquetar(..))`.
+pub fn probar_vram() -> Result<u64, u32> {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || PROBANDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_VRAM);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    // SAFETY: `PROBANDO` deja entrar a uno solo; nadie mas toca GUARDADO.
+    let guardado = unsafe { &mut *core::ptr::addr_of_mut!(GUARDADO) };
+    let p = bmo_gpu_ga10x::vram::probar(&mut r, guardado);
+    PROBANDO.store(false, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "L1c2: VRAM por PRAMIN; palabras buenas", p.buenas as u64);
+    if p.devueltas as usize != bmo_gpu_ga10x::vram::PALABRAS || !p.ventana_devuelta {
+        crate::ring0::cabina::warn("gpu", "L1c2: la VRAM o la ventana NO quedaron como estaban; devueltas", p.devueltas as u64);
+    }
+    Ok(bmo_gpu_ga10x::vram::empaquetar(&p))
 }

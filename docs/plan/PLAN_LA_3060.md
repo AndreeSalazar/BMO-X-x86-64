@@ -888,6 +888,9 @@ vuelta.
    L1c  colgando de ellos: un espacio de direcciones (VASPACE), memoria
         de VRAM y un hueco de BAR1 para la pantalla (y soltar el puente
         de L0c4b3a)
+          L1c1  FERMI_VASPACE_A "de fuera" (`espacio`)   [en codigo, 24-09]
+          L1c2  la CPU escribe en la VRAM, PRAMIN (`vram`) [en codigo, 24-09]
+          L1c3  el directorio de paginas en la VRAM, y SET_PAGE_DIRECTORY
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
 ```
 
@@ -993,6 +996,32 @@ El panel se pisaba (`pcie 1/312G6GDDR6` en 17 columnas): ahora el bloque de la
 3060 habla el idioma de los instrumentos, una cosa por renglon (`3060 49o?`,
 la historia de un minuto con la raya de 83, `pstate P0`, `pcie 1/3 x16`, `vram
 12G GDDR6`).
+
+**L1b+ otra vez (24-09, 11:41): EL SENSOR ES DE VERDAD.** Tras un rato de DOOM
+(70 fps por la CPU), `temp 52 grados` (`0xC0003408`) donde a las 11:25 marcaba
+49: sube en P0, que es lo que hace una 3060 caliente. El "probable" gana peso.
+
+**L1c (24-09, en codigo).** La leccion de nouveau (`r535/vmm.c`): con el GSP,
+las tablas de paginas de un cliente NO las lleva el GSP-RM -- las lleva quien
+hace de RM de la CPU, EN LA VRAM, y le dice al RM donde estan. Por eso L1c son
+tres pasos:
+
+- **L1c1**, `espacio`: `FERMI_VASPACE_A` (0x90F1, asa `0x90F10000`, hijo del
+  dispositivo) con `NV_VASPACE_ALLOCATION_PARAMETERS` de 48 B, `index` GPU_NEW y
+  `IS_EXTERNALLY_OWNED`. Cuarto objeto de `bmo_gpu_ga10x::objeto` (y del
+  contrato); paso propio de `save mode`, para que si falla no tape el P-state.
+- **L1c2**, `vram`: `bmo_gpu_ga10x::vram` (3 pruebas) -- la ventana PRAMIN
+  (`0x1700` = base >> 16, un MiB en `BAR0 + 0x700000`, como `instmem/nv50.c`).
+  Una pagina en UNA direccion fija, 64 MiB (dentro de la usable del GSP-RM,
+  sobre el GOP y lejos de la WPR2): guardada, patron escrito y releido,
+  devuelta, y la ventana como estaba. Kernel `IOMMU_OP_GPU_VRAM` (0x1D, motivo
+  59, FLUSH del disco antes); el escritorio la pide solo si las regiones de L1a
+  dicen que esa pagina es usable.
+- **L1c3** (lo siguiente): construir el directorio de paginas de la GPU en la
+  VRAM (formato de MMU de Ampere, `ver 2`) y `NV0080_CTRL_CMD_DMA_SET_PAGE_DIRECTORY`.
+
+**Como se sabe (L1c1 y L1c2):** `obj esp` en NV_OK; `vram` dice 1024 de 1024,
+devueltas 1024 y la ventana devuelta.
 
 **Como se sabe (L1b):** las filas `obj cli`, `obj disp` y `obj sub` dicen
 `NV_OK` (o `ya existia`, si se pidieron antes en el mismo arranque). Un
