@@ -1,0 +1,16 @@
+[package]
+name = "bmo-iommu-amdvi"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "Lo que la IOMMU de AMD (AMD-Vi) CONTESTA: si esta encendida, que sabe hacer y que tablas tiene, leido por MMIO"
+
+[lib]
+name = "bmo_iommu_amdvi"
+path = "src/lib.rs"
+
+# Sin dependencias, como `bmo-gpu-ga10x`: el kernel LEE los registros y esto
+# dice lo que significan. No toca un registro -- por eso se prueba entero en el
+# anfitrion. Cuando la IOMMU se ENCIENDA (M0b), las tablas que escriba el kernel
+# se armaran aqui tambien, con sus pruebas, antes de tocar el metal.
+[dependencies]

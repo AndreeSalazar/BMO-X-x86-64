@@ -408,6 +408,9 @@ pub fn main(ctx: &mut BootContext) {
     // Ver `PERFIL/PLACA/README.md`.
     crate::ring0::plat::perfil_placa::confesar();
     crate::ring0::plat::placa::confesar(ctx.rsdp);
+    // ** Y LA IOMMU, PREGUNTADA (M0a, 2026-09-23): antes de encenderla, si el
+    // firmware ya la dejo encendida y a quien atiende. Solo lee.
+    crate::ring0::plat::iommu::sondear(ctx.rsdp);
 
     // ** Y ECAM, que se monta SOLO SI se cree. El careo lee el vendor/device de
     // cada funcion del bus 0 por los dos caminos y exige que coincidan: si una

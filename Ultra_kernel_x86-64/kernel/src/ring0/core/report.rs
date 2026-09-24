@@ -407,6 +407,17 @@ const INFO_GPU_TIEMPO: u64 = 0x9D;
 const INFO_GPU_LINEA: u64 = 0x9E;
 /// Volcar detras del rayo: la pregunta lleva la caja (E1, 2026-09-23).
 const INFO_GPU_ESPERA: u64 = 0x9F;
+/// La IOMMU preguntada (M0a, 2026-09-23). Espejo de `bmo_abi::...::INFO_IOMMU_*`.
+const INFO_IOMMU_DONDE: u64 = 0xA0;
+const INFO_IOMMU_CONTROL: u64 = 0xA1;
+const INFO_IOMMU_ESTADO: u64 = 0xA2;
+const INFO_IOMMU_FUNCIONES: u64 = 0xA3;
+const INFO_IOMMU_TABLA: u64 = 0xA4;
+const INFO_IOMMU_CENSO: u64 = 0xA5;
+/// Con selector: el indice en los bits 8..11.
+const INFO_IOMMU_ESPECIAL: u64 = 0xA6;
+/// Con selector: el indice en 8..11 y la parte en 12..13.
+const INFO_IOMMU_IVMD: u64 = 0xA7;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -857,6 +868,8 @@ pub fn campo(n: u64) -> Option<u64> {
                 | ((crate::ring0::dev::usb::audio::pendientes() & 0xFFFF_FFFF) << 32)
         }
         c if c & 0xFF == INFO_GPU_ESPERA => crate::ring0::dev::gpu::info_espera(c),
+        c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
+        c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
             Some((tid, k)) => {
                 let por_us = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
@@ -913,6 +926,12 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_BORRADO => crate::ring0::dev::gpu::info_borrado(),
         INFO_GPU_TIEMPO => crate::ring0::dev::gpu::info_tiempo(),
         INFO_GPU_LINEA => crate::ring0::dev::gpu::info_linea(),
+        INFO_IOMMU_DONDE => crate::ring0::plat::iommu::info_donde(),
+        INFO_IOMMU_CONTROL => crate::ring0::plat::iommu::info_control(),
+        INFO_IOMMU_ESTADO => crate::ring0::plat::iommu::info_estado(),
+        INFO_IOMMU_FUNCIONES => crate::ring0::plat::iommu::info_funciones(),
+        INFO_IOMMU_TABLA => crate::ring0::plat::iommu::info_tabla(),
+        INFO_IOMMU_CENSO => crate::ring0::plat::iommu::info_censo(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

@@ -1432,6 +1432,57 @@ pub const SERIE_PICO_SHIFT: u64 = 48;
 pub const SERIE_PICO_MASK: u64 = 0x7FFF;
 pub const SERIE_COLA: u64 = 1 << 63;
 
+/// # `INFO_IOMMU_*`: la IOMMU de AMD, PREGUNTADA en solo lectura (2026-09-23)
+///
+/// ```text
+///   DONDE      0..35 base de sus registros en paginas de 4 KiB | 36..51 su BDF
+///              52..59 tipo del IVHD elegido | 62 muda (todo unos, o fuera
+///              del physmap) | 63 hallada
+///   CONTROL    el registro 0x0018, crudo (bit 0 = TRADUCE)
+///   ESTADO     el registro 0x2020, crudo
+///   FUNCIONES  el registro 0x0030 (EFR), crudo
+///   TABLA      el registro 0x0000, crudo: la tabla de dispositivos que haya
+///   CENSO      0..15 mayor BDF del IVRS | 16..23 sueltos | 24..31 rangos
+///              32..39 alias | 40..47 especiales | 48..55 IVMD
+///              56..59 entradas raras (HID o sin nombre) | 60 cortado
+///              61 hay entrada ALL | 63 valido
+///   ESPECIAL   PREGUNTA 8..11 indice. RESPUESTA 0..15 BDF | 16..23 handle
+///              24..31 tipo (1 IOAPIC, 2 HPET) | 32..39 banderas | 63 valida
+///   IVMD       PREGUNTA 8..11 indice | 12..13 parte. RESPUESTA parte 0 el
+///              inicio, 1 el largo, 2: 0..15 BDF | 16..31 aux | 32..39 tipo
+///              40..47 banderas | 63 valida
+/// ```
+///
+/// ** M0a de `docs/plan/PLAN_LA_3060.md`: el VBLANK de la 3060 por MSI pide su
+/// Bus Master, y eso va detras de la IOMMU. Antes de encenderla se pregunta si
+/// el firmware ya la dejo encendida, que sabe y a quien atiende.
+pub const INFO_IOMMU_DONDE: u64 = 0xA0;
+pub const INFO_IOMMU_CONTROL: u64 = 0xA1;
+pub const INFO_IOMMU_ESTADO: u64 = 0xA2;
+pub const INFO_IOMMU_FUNCIONES: u64 = 0xA3;
+pub const INFO_IOMMU_TABLA: u64 = 0xA4;
+pub const INFO_IOMMU_CENSO: u64 = 0xA5;
+pub const INFO_IOMMU_ESPECIAL: u64 = 0xA6;
+pub const INFO_IOMMU_IVMD: u64 = 0xA7;
+
+pub const IOMMU_BASE_PAGINAS_MASK: u64 = 0xF_FFFF_FFFF;
+pub const IOMMU_BDF_SHIFT: u64 = 36;
+pub const IOMMU_TIPO_SHIFT: u64 = 52;
+pub const IOMMU_MUDA: u64 = 1 << 62;
+pub const IOMMU_HALLADA: u64 = 1 << 63;
+pub const IOMMU_CENSO_UNOS_SHIFT: u64 = 16;
+pub const IOMMU_CENSO_RANGOS_SHIFT: u64 = 24;
+pub const IOMMU_CENSO_ALIAS_SHIFT: u64 = 32;
+pub const IOMMU_CENSO_ESPECIALES_SHIFT: u64 = 40;
+pub const IOMMU_CENSO_IVMD_SHIFT: u64 = 48;
+pub const IOMMU_CENSO_RARAS_SHIFT: u64 = 56;
+pub const IOMMU_CENSO_CORTADO: u64 = 1 << 60;
+pub const IOMMU_CENSO_TODOS: u64 = 1 << 61;
+pub const IOMMU_CENSO_VALIDO: u64 = 1 << 63;
+pub const IOMMU_INDICE_SHIFT: u64 = 8;
+pub const IOMMU_PARTE_SHIFT: u64 = 12;
+pub const IOMMU_VALIDA: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

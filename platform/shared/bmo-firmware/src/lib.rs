@@ -59,6 +59,9 @@
 /// **El recorrido del XSDT**: que tablas hay y cuantos bytes de cada una se
 /// pueden leer. Estaba escrito DOS veces dentro del kernel -- ver su cabecera.
 pub mod xsdt;
+/// Lo que viene detras de cada cabecera del IVRS: entradas, alias,
+/// especiales e IVMD (M0a de `PLAN_LA_3060.md`).
+pub mod ivrs;
 
 /// Bytes de la cabecera que llevan **todas** las tablas ACPI, sin excepcion.
 ///
@@ -409,6 +412,12 @@ pub fn leer_ivrs(bytes: &[u8], salida: &mut [Ivhd]) -> usize {
         let l = u16::from_le_bytes([bytes[o + 2], bytes[o + 3]]);
         if l < 24 {
             break;
+        }
+        // ** Solo los IVHD son IOMMUs (2026-09-23): un IVMD (0x20..0x22) es un
+        // rango de memoria, y hasta hoy salia como una IOMMU mas.
+        if !ivrs::es_ivhd(tipo) {
+            o += l as usize;
+            continue;
         }
         let mut b = [0u8; 8];
         b.copy_from_slice(&bytes[o + 8..o + 16]);

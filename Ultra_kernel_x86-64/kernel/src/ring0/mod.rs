@@ -130,6 +130,9 @@ pub mod plat {
     /// dos modulos porque el primero interpreta una tabla concreta y el segundo
     /// no interpreta ninguna: solo dice que hay.
     pub mod placa;
+    /// La IOMMU PREGUNTADA: si el firmware la dejo encendida, que sabe y a
+    /// quien atiende. Solo lee (M0a de `PLAN_LA_3060.md`).
+    pub mod iommu;
     /// **EL PERFIL DE LA PLACA**: lo que BMO-X SUPONE del firmware que tiene
     /// debajo, declarado en un sitio. `placa` PREGUNTA (lee ACPI); esto
     /// DECLARA, y son dos cosas distintas. Ver `PERFIL/PLACA/`.

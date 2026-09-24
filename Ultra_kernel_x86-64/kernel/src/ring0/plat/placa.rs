@@ -266,6 +266,15 @@ pub fn iommu(rsdp: u64, salida: &mut [Ivhd]) -> usize {
     }
 }
 
+/// **Los bytes del IVRS**, comprobados por su suma. Para quien tiene que leer
+/// lo que viene DETRAS de las cabeceras (`plat/iommu.rs`, 2026-09-23).
+pub fn ivrs(rsdp: u64) -> Option<&'static [u8]> {
+    if rsdp == 0 {
+        return None;
+    }
+    unsafe { tabla_de(rsdp, b"IVRS") }
+}
+
 /// El `IVinfo` crudo, si hay IVRS.
 pub fn ivinfo(rsdp: u64) -> Option<u32> {
     if rsdp == 0 {

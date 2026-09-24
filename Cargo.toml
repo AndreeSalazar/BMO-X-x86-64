@@ -164,6 +164,9 @@ members = [
     # La RTX 3060 (GA106) CONTESTA: su identidad, el modo que barre y el VBLANK,
     # leidos por MMIO y sin firmware. Puro: el kernel lee, esto significa.
     "platform/drivers/gpu/ga10x",
+    # La IOMMU de AMD CONTESTA: si esta encendida, que sabe y que tablas tiene.
+    # Puro, como la de arriba. Es M0 de docs/plan/PLAN_LA_3060.md.
+    "platform/drivers/iommu/amdvi",
 
     # -- SERVICES (System) ------------------------------------------
     "platform/services/cabina-core",

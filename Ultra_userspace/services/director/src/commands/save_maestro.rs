@@ -151,6 +151,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
                 super::reports::report_cache(g);
                 super::reports::report_ext(g);
                 super::gpu::report_gpu(g, Some(rayo));
+                super::iommu::report_iommu(g);
             }
             2 => super::reports::report_memory(g),
             3 => super::reports::report_consumo(g, tick),

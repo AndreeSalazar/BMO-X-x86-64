@@ -333,6 +333,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-iommu-amdvi"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-juicio"
 version = "0.1.0"
 
@@ -362,6 +366,7 @@ dependencies = [
  "bmo-hash",
  "bmo-identify",
  "bmo-input",
+ "bmo-iommu-amdvi",
  "bmo-mmio-juicio",
  "bmo-net",
  "bmo-orquesta",

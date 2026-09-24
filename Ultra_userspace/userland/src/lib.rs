@@ -798,6 +798,33 @@ pub const SERIE_PERDIDOS_SHIFT: u64 = 32;
 pub const SERIE_PERDIDOS_MASK: u64 = 0xFFFF;
 pub const SERIE_PICO_SHIFT: u64 = 48;
 pub const SERIE_PICO_MASK: u64 = 0x7FFF;
+
+/// ** LA IOMMU, PREGUNTADA: donde, control, funciones, censo del IVRS. Ver el ABI.
+pub const INFO_IOMMU_DONDE: u64 = 0xA0;
+pub const INFO_IOMMU_CONTROL: u64 = 0xA1;
+pub const INFO_IOMMU_ESTADO: u64 = 0xA2;
+pub const INFO_IOMMU_FUNCIONES: u64 = 0xA3;
+pub const INFO_IOMMU_TABLA: u64 = 0xA4;
+pub const INFO_IOMMU_CENSO: u64 = 0xA5;
+pub const INFO_IOMMU_ESPECIAL: u64 = 0xA6;
+pub const INFO_IOMMU_IVMD: u64 = 0xA7;
+pub const IOMMU_BASE_PAGINAS_MASK: u64 = 0xF_FFFF_FFFF;
+pub const IOMMU_BDF_SHIFT: u64 = 36;
+pub const IOMMU_TIPO_SHIFT: u64 = 52;
+pub const IOMMU_MUDA: u64 = 1 << 62;
+pub const IOMMU_HALLADA: u64 = 1 << 63;
+pub const IOMMU_CENSO_UNOS_SHIFT: u64 = 16;
+pub const IOMMU_CENSO_RANGOS_SHIFT: u64 = 24;
+pub const IOMMU_CENSO_ALIAS_SHIFT: u64 = 32;
+pub const IOMMU_CENSO_ESPECIALES_SHIFT: u64 = 40;
+pub const IOMMU_CENSO_IVMD_SHIFT: u64 = 48;
+pub const IOMMU_CENSO_RARAS_SHIFT: u64 = 56;
+pub const IOMMU_CENSO_CORTADO: u64 = 1 << 60;
+pub const IOMMU_CENSO_TODOS: u64 = 1 << 61;
+pub const IOMMU_CENSO_VALIDO: u64 = 1 << 63;
+pub const IOMMU_INDICE_SHIFT: u64 = 8;
+pub const IOMMU_PARTE_SHIFT: u64 = 12;
+pub const IOMMU_VALIDA: u64 = 1 << 63;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

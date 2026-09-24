@@ -68,6 +68,7 @@ audio            (4)
 build            (4)
 forge            (4)
 gpu              (4)
+iommu            (0)   la IOMMU de AMD (AMD-Vi): M0 de PLAN_LA_3060, la frontera del DMA de TODO aparato, no solo de la grafica
 lanzar           (4)
 proc             (4)
 red              (4)

@@ -13,6 +13,8 @@ pub(crate) mod complete;
 pub(crate) mod disco;
 /// `gpu`: la grafica preguntada en solo lectura (2026-09-23).
 pub(crate) mod gpu;
+/// `iommu`: la IOMMU preguntada en solo lectura (M0a, 2026-09-23).
+pub(crate) mod iommu;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
 /// ordenes -- ver su cabecera.
@@ -142,6 +144,7 @@ pub(crate) enum Command<'a> {
     Placa,
     Cpu,
     Gpu,
+    Iommu,
     /// **El censo de extensiones**: que declara este silicio y que coge BMO.
     ///
     /// Vivia SOLO en el shell de Ring 0, y a ese shell no se vuelve una vez
@@ -508,6 +511,8 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"cpu" | b"procesador" => Command::Cpu,
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
         b"gpu" | b"grafica" => Command::Gpu,
+        // La IOMMU, PREGUNTADA: si el firmware la dejo encendida y a quien atiende.
+        b"iommu" => Command::Iommu,
         // Los mismos dos nombres que el shell de Ring 0, para que lo que se
         // aprende en un sitio valga en el otro.
         b"ext" | b"extensiones" => Command::Ext,

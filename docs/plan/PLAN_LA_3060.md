@@ -117,6 +117,31 @@ grafica. `placa` ya lee el IVRS (`Ultra_kernel_x86-64/kernel/src/ring0/plat/plac
 **Como se sabe:** `placa` dice la IOMMU ACTIVA y el censo NEUTRO marca cada
 aparato confinado.
 
+** Elegido por el propietario el 23-09 (antes que un BME sin IOMMU). Por
+pasos, cada uno visto en el metal antes del siguiente:
+
+```text
+   M0a  PREGUNTAR (solo lee): el IVHD elegido, a quien atiende (el mayor BDF
+        mide la tabla), alias, IOAPIC/HPET, los IVMD, y los registros --
+        la dejo el firmware encendida? que sabe (EFR)?      [en codigo]
+   M0b  las tablas en RAM, armadas y probadas en el anfitrion: tabla de
+        dispositivos, cola de ordenes, registro de eventos. Sin encender
+   M0c  ENCENDER sin traducir: toda entrada valida y de paso (TV=0). No
+        cambia nada para los aparatos; prueba que la cola de ordenes da
+        la vuelta (COMPLETION_WAIT) y que el registro de eventos queda a 0
+   M0d  TRADUCIR por aparato: disco, USB y red ven solo lo que el juez de
+        DMA (R-DMA) les presto; los IVMD, en identidad. Un fallo = un
+        EVENTO con su BDF, no memoria pisada
+   M0e  la 3060 con su entrada VACIA (ni un byte de RAM) y el MSI por el
+        remapeo de interrupciones: entonces su Bus Master, y E2
+```
+
+M0a vive en `platform/shared/bmo-firmware/src/ivrs.rs` (el IVRS entero,
+5 pruebas), `platform/drivers/iommu/amdvi` (los registros, 6 pruebas),
+`Ultra_kernel_x86-64/kernel/src/ring0/plat/iommu.rs` e `INFO_IOMMU_*`
+(0xA0-0xA7), con la orden `iommu` y su cuadro en el capitulo 2 del `save`.
+De paso arreglo un fallo latente: `leer_ivrs` contaba los IVMD como IOMMUs.
+
 > [!] Hay un atajo medido para no bloquear M2 en M0: si los pushbuffers y las
 > superficies viven en la VRAM (por BAR1), la GPU no lee la RAM del PC. Se
 > decide al llegar, con el coste de cada camino escrito.
