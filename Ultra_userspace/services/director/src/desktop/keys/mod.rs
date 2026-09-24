@@ -327,6 +327,12 @@ pub(crate) fn dispatch(
             crate::desktop::aspecto::on_key(dsk, p, c);
             continue;
         }
+        // ** EL PANEL DE LA 3060 (`gpu fractal`) esta a pantalla completa: la
+        // primera tecla lo cierra y devuelve el escritorio, y no se escribe.
+        if crate::commands::gspcomputo::panel_abierto() {
+            crate::commands::gspcomputo::cerrar_panel(dsk, p);
+            continue;
+        }
         if shortcuts::on_key(dsk, p, c, g.alt_alone, g.m) == Key::Taken {
             continue;
         }

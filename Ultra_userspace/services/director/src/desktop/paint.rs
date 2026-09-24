@@ -159,7 +159,8 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // gasta: ASOMA encima del juego en el primer fotograma en que la app no
     // entregue uno nuevo, porque una superficie solo se repega cuando su
     // secuencia cambia.
-    let fs = dsk.table.alguna_a_pantalla_completa();
+    // Y el panel de la 3060 (`gpu fractal`) cuenta igual: es de pantalla completa.
+    let fs = dsk.table.alguna_a_pantalla_completa() || crate::commands::gspcomputo::panel_abierto();
     // -- Drenar la salida de los hijos --
     //
     // Con tope por fotograma. Un programa que escupe sin parar podria

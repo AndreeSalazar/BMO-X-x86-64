@@ -513,6 +513,17 @@ panel a pantalla completa, el fractal al doble y los tiempos. SASS de
 Un panel de CONFIGURACION de verdad (resolucion, refresco) es M4: cambiar
 de modo, que hoy no hace falta y no se toca.
 
+**EL FRACTAL, en el metal (24-09, 16:49), con fotos:** `fractal: 262144 de
+262144 pixeles iguales a la CPU; la 3060 en 429 us, la CPU en 18454 us
+(x43)`; la primera vez 986 us (x18): relojes subiendo y caches frias, lo
+normal. `blur: 16384 de 16384` -- pero las fotos mostraron dos fallos del
+ESCRITORIO, no de la 3060: (1) el panel quedaba tapado por la ventana de
+Ejecutar y el panel de la izquierda, que se seguian pintando; ahora el
+panel cuenta como pantalla completa (`fs` en `desktop/paint.rs`) y la
+primera tecla lo cierra y devuelve el escritorio entero; (2) el blur subia
+el trozo (32, 200), que es el panel de la izquierda, casi NEGRO: la 3060
+desenfoco bien un cuadro negro. Ahora sube el centro del fondo.
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.

@@ -291,14 +291,16 @@ pub(crate) fn desenfocado() -> bool {
     matches!(estado().blur, Some(Ok(v)) if blur::sano(v))
 }
 
-/// El trozo de la pantalla que se sube: 128 x 128 desde aqui (donde el
-/// escritorio escribe sus filas).
-const TROZO_X: u32 = 32;
-const TROZO_Y: u32 = 200;
-
-/// **Subir un trozo de la pantalla al lienzo**, dos pixeles por llamada.
+/// **Subir un trozo de la pantalla al lienzo**, dos pixeles por llamada: el
+/// de 128 x 128 al 37 % del ancho y a 60 del borde de arriba -- en 1920 x
+/// 1080, el centro del fondo, donde hay color.
+///
+/// ** Metal 24-09 16:49: la primera version subia (32, 200), que es el panel
+/// de la izquierda, casi negro: la 3060 desenfoco bien (16384 de 16384) un
+/// cuadro NEGRO, y los dos cuadros salieron negros.
 fn subir_trozo(p: &bmo::Pantalla) -> bool {
-    let (x0, y0) = (TROZO_X.min(p.ancho.saturating_sub(lienzo::LADO)), TROZO_Y.min(p.alto.saturating_sub(lienzo::LADO)));
+    let x0 = (p.ancho * 37 / 100).min(p.ancho.saturating_sub(lienzo::LADO));
+    let y0 = 60u32.min(p.alto.saturating_sub(lienzo::LADO));
     let px = |k: u32| {
         let (x, y) = (x0 + k % lienzo::LADO, y0 + k / lienzo::LADO);
         // SAFETY: `(x, y)` esta dentro de la pantalla (recortado arriba) y
@@ -398,6 +400,23 @@ impl Linea {
     }
 }
 
+/// El panel esta encima: el escritorio no pinta su mobiliario (como con una
+/// app a pantalla completa) y la primera tecla lo cierra.
+static mut PANEL_ABIERTO: bool = false;
+
+pub(crate) fn panel_abierto() -> bool {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { *core::ptr::addr_of!(PANEL_ABIERTO) }
+}
+
+/// **Cerrar el panel**: devolver el escritorio ENTERO, como al salir de una
+/// app a pantalla completa.
+pub(crate) fn cerrar_panel(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = false };
+    crate::repintar_escritorio(p, dsk, "panel de la 3060: fuera");
+}
+
 /// **El panel de la 3060, a pantalla completa**: el fractal al doble a la
 /// derecha, y a la izquierda lo que dijo.
 fn panel(p: &bmo::Pantalla, v: u64) -> bool {
@@ -458,7 +477,8 @@ fn panel(p: &bmo::Pantalla, v: u64) -> bool {
     fila(y, Linea::nueva().t(b"aritmetica entera Q4.28: sin redondeos distintos"), TENUE);
     y += 28;
     fila(y, Linea::nueva().t(b"1 MiB de tu RAM, prestado a la 3060 por la IOMMU"), TENUE);
-    fila(p.alto.saturating_sub(48), Linea::nueva().t(b"teclea cualquier orden para volver al escritorio"), TENUE);
+    fila(p.alto.saturating_sub(48), Linea::nueva().t(b"pulsa cualquier tecla para volver al escritorio"), TENUE);
+    p.vaciar();
     true
 }
 
@@ -467,6 +487,8 @@ pub(crate) fn orden_fractal(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "la 3060 calcula el fractal (y la CPU, lo mismo)", INK_DIM);
     let r = calcular_fractal();
     let visto = matches!(r, Ok(v) if panel(p, v));
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
     let g = &mut dsk.out.grid;
     if visto {
         g.with_ink(INK_GOOD);
