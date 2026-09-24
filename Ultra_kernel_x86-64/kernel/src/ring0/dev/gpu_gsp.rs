@@ -49,7 +49,6 @@ use core::sync::atomic::{AtomicU64, Ordering};
 
 use bmo_gpu_ga10x::{booter, elf, wpr};
 
-use crate::ring0::fsys::fs;
 use crate::ring0::mm::phys;
 use crate::ring0::plat::iommu as io;
 
@@ -57,8 +56,20 @@ pub const IOVA_GSP_AUX: u64 = 0x3E00_0000;
 pub const IOVA_GSP_RADIX: u64 = 0x3F00_0000;
 pub const IOVA_GSP_IMAGEN: u64 = 0x4000_0000;
 
-const RUTA_GSP: &str = "fw/gsp/gsp.bin";
-const RUTA_BOOTLOADER: &str = "fw/gsp/bootldr.bin";
+/// Donde los deja el build (`build\\firmware.ps1`). Los abre `syscall/`, que
+/// es la familia que conecta ficheros y aparatos: `dev` esta DEBAJO de `fsys`
+/// (el disco es un aparato) y no puede abrir un fichero (L8b).
+pub const RUTA_GSP: &str = "fw/gsp/gsp.bin";
+pub const RUTA_BOOTLOADER: &str = "fw/gsp/bootldr.bin";
+
+/// **Un fichero ya abierto, dado desde arriba.** El dato sube como parametro:
+/// quien sabe de FAT32 lo abre y lo lee; aqui solo se piden bytes.
+pub trait Fichero {
+    /// `desde..desde + dst.len()` del fichero; cuantos bytes llegaron. Puede
+    /// pedirse hacia atras: volver al principio es cosa de quien lo implementa.
+    fn leer(&mut self, desde: u64, dst: &mut [u8]) -> usize;
+    fn medida(&self) -> u64;
+}
 
 const PAGINA: u64 = 4096;
 /// Las paginas AUX: 0..6 el bootloader, 6 la firma, 7 la WPR meta; 8..16 la
@@ -134,13 +145,9 @@ struct Plan {
     imagen: elf::Seccion,
     firma: elf::Seccion,
     bootloader: booter::Riscv,
-    medida: u32,
-    inicio: bmo_fat32::Cursor,
 }
 
 static mut PLAN: Option<Plan> = None;
-/// Por donde va la copia en `gsp.bin` (el cursor de FAT32 solo avanza).
-static mut CURSOR: Option<bmo_fat32::Cursor> = None;
 static mut HASH_COPIA: Option<bmo_hash::Hasher> = None;
 static mut HASH_RADIX: Option<bmo_hash::Hasher> = None;
 static mut DIGESTO_COPIA: [u8; 32] = [0; 32];
@@ -183,25 +190,19 @@ fn fisica_de(p: u64) -> u64 {
 }
 
 /// **El ELF leido por una ventana de 32 KiB** (`bmo_gpu_ga10x::elf::Fuente`).
-/// El cursor de FAT32 solo avanza: si se pide algo de atras, se vuelve al
-/// principio, como `obj/file.rs::reflejar`. Con la ventana son dos vueltas
-/// para todo el ELF, no una por seccion.
+/// Leer hacia atras en FAT32 es volver al principio de la cadena; con la
+/// ventana son dos vueltas para todo el ELF, no una por seccion.
 struct Ventana<'a> {
-    inicio: bmo_fat32::Cursor,
-    cur: bmo_fat32::Cursor,
-    medida: u32,
+    f: &'a mut dyn Fichero,
     buf: &'a mut [u8],
     desde: u64,
     largo: usize,
 }
 
 impl Ventana<'_> {
-    /// `dst` directamente desde el disco, sin pasar por la ventana.
+    /// `dst` directamente del fichero, sin pasar por la ventana.
     fn rango(&mut self, desde: u64, dst: &mut [u8]) -> bool {
-        if (desde as usize) < self.cur.base() {
-            self.cur = self.inicio;
-        }
-        fs::leer_rango(&mut self.cur, desde as usize, self.medida, dst) == dst.len()
+        self.f.leer(desde, dst) == dst.len()
     }
 }
 
@@ -212,10 +213,7 @@ impl elf::Fuente for Ventana<'_> {
         }
         let fin = desde + dst.len() as u64;
         if desde < self.desde || fin > self.desde + self.largo as u64 {
-            if (desde as usize) < self.cur.base() {
-                self.cur = self.inicio;
-            }
-            let n = fs::leer_rango(&mut self.cur, desde as usize, self.medida, self.buf);
+            let n = self.f.leer(desde, self.buf);
             self.desde = desde;
             self.largo = n;
             if fin > desde + n as u64 {
@@ -228,8 +226,9 @@ impl elf::Fuente for Ventana<'_> {
     }
 }
 
-/// **PREPARAR.** `Ok(trozos de 512 KiB a copiar)`.
-pub fn preparar() -> Result<u64, u32> {
+/// **PREPARAR**, con `fw/gsp/bootldr.bin` y `fw/gsp/gsp.bin` ya abiertos
+/// (`None` = no estaban). `Ok(trozos de 512 KiB a copiar)`.
+pub fn preparar(bl: Option<&mut dyn Fichero>, gsp: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     if ESTADO.load(Ordering::Acquire) & GSP_PRESTADO != 0 {
         // Ya prestado: nada que repetir, y lo que la 3060 lee no se toca.
         return Ok(plan().map_or(0, |p| trozos(&p)));
@@ -246,26 +245,27 @@ pub fn preparar() -> Result<u64, u32> {
     let (prestable, ventana) = aux.split_at_mut((AUX_VENTANA * PAGINA) as usize);
 
     // El bootloader, entero por la ventana; su ucode, a las paginas 0..6.
-    let Ok((mut cbl, mbl)) = fs::abrir_rangos(RUTA_BOOTLOADER) else { return no(IOMMU_NO_GSP_FICHERO) };
-    if mbl as usize > ventana.len() {
+    let (Some(bl), Some(gsp)) = (bl, gsp) else { return no(IOMMU_NO_GSP_FICHERO) };
+    let mbl = bl.medida();
+    if mbl > ventana.len() as u64 {
         return no(IOMMU_NO_GSP_FORMATO);
     }
-    if fs::leer_rango(&mut cbl, 0, mbl, &mut ventana[..mbl as usize]) != mbl as usize {
+    if bl.leer(0, &mut ventana[..mbl as usize]) != mbl as usize {
         return no(IOMMU_NO_GSP_DISCO);
     }
-    let Ok(bl) = booter::riscv(&ventana[..mbl as usize]) else { return no(IOMMU_NO_GSP_FORMATO) };
-    if bl.bin.bytes as u64 > AUX_BOOTLOADER_MAX * PAGINA {
+    let Ok(riscv) = booter::riscv(&ventana[..mbl as usize]) else { return no(IOMMU_NO_GSP_FORMATO) };
+    if riscv.bin.bytes as u64 > AUX_BOOTLOADER_MAX * PAGINA {
         return no(IOMMU_NO_GSP_FORMATO);
     }
-    prestable[..bl.bin.bytes as usize].copy_from_slice(bl.bin.ucode(&ventana[..mbl as usize]));
+    prestable[..riscv.bin.bytes as usize].copy_from_slice(riscv.bin.ucode(&ventana[..mbl as usize]));
 
     // El GSP-RM: sus dos secciones, y la firma a la pagina 6.
-    let Ok((cg, mg)) = fs::abrir_rangos(RUTA_GSP) else { return no(IOMMU_NO_GSP_FICHERO) };
-    let mut v = Ventana { inicio: cg, cur: cg, medida: mg, buf: ventana, desde: 0, largo: 0 };
+    let mg = gsp.medida();
+    let mut v = Ventana { f: gsp, buf: ventana, desde: 0, largo: 0 };
     let (Ok(imagen), Ok(firma)) = (elf::seccion(&mut v, elf::IMAGEN), elf::seccion(&mut v, elf::FIRMA_GA10X)) else {
         return no(IOMMU_NO_GSP_FORMATO);
     };
-    let dentro = |s: elf::Seccion| s.bytes > 0 && s.desde.checked_add(s.bytes).map_or(false, |f| f <= mg as u64);
+    let dentro = |s: elf::Seccion| s.bytes > 0 && s.desde.checked_add(s.bytes).map_or(false, |f| f <= mg);
     if !dentro(imagen) || !dentro(firma) || firma.bytes > PAGINA || paginas_de(imagen.bytes) > MAX_BLOQUES as u64 * BLOQUE_PAGINAS {
         return no(IOMMU_NO_GSP_FORMATO);
     }
@@ -300,11 +300,10 @@ pub fn preparar() -> Result<u64, u32> {
         RADIX.store(f, Ordering::Release);
     }
 
-    let p = Plan { imagen, firma, bootloader: bl, medida: mg, inicio: cg };
+    let p = Plan { imagen, firma, bootloader: riscv };
     // SAFETY: ver `PLAN`.
     unsafe {
         *core::ptr::addr_of_mut!(PLAN) = Some(p);
-        *core::ptr::addr_of_mut!(CURSOR) = Some(cg);
         *core::ptr::addr_of_mut!(HASH_COPIA) = Some(bmo_hash::Hasher::new());
     }
     COPIADOS.store(0, Ordering::Release);
@@ -315,9 +314,9 @@ pub fn preparar() -> Result<u64, u32> {
     Ok(n)
 }
 
-/// **TROZO k**: 512 KiB del `.fwimage`, del disco a sus marcos. En orden: el
-/// cursor de FAT32 solo avanza, y el BLAKE3 tambien. `Ok(copiados)`.
-pub fn trozo(k: u64) -> Result<u64, u32> {
+/// **TROZO k**: 512 KiB del `.fwimage`, de `gsp` a sus marcos. En orden: el
+/// BLAKE3 se calcula seguido (y FAT32 lee barato hacia delante). `Ok(copiados)`.
+pub fn trozo(k: u64, gsp: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     if ESTADO.load(Ordering::Acquire) & GSP_PRESTADO != 0 {
         return no(IOMMU_NO_GSP_YA_PRESTADO);
     }
@@ -326,22 +325,22 @@ pub fn trozo(k: u64) -> Result<u64, u32> {
     if k >= n || (k != 0 && k != COPIADOS.load(Ordering::Acquire)) {
         return no(IOMMU_NO_GSP_ORDEN);
     }
+    let Some(gsp) = gsp else { return no(IOMMU_NO_GSP_FICHERO) };
     // SAFETY: ver `PLAN`.
-    let (cur, hash) = unsafe {
+    let hash = unsafe {
         if k == 0 {
-            *core::ptr::addr_of_mut!(CURSOR) = Some(p.inicio);
             *core::ptr::addr_of_mut!(HASH_COPIA) = Some(bmo_hash::Hasher::new());
             apuntar(|v| v & !GSP_COPIADO);
         }
-        (&mut *core::ptr::addr_of_mut!(CURSOR), &mut *core::ptr::addr_of_mut!(HASH_COPIA))
+        &mut *core::ptr::addr_of_mut!(HASH_COPIA)
     };
-    let (Some(cur), Some(hash)) = (cur.as_mut(), hash.as_mut()) else { return no(IOMMU_NO_GSP_ORDEN) };
+    let Some(hash) = hash.as_mut() else { return no(IOMMU_NO_GSP_ORDEN) };
     let desde = k * TROZO;
     let bytes = (p.imagen.bytes - desde).min(TROZO);
     // 128 paginas alineadas a 128 caen dentro de un bloque de 512.
     let dst = memoria(fisica_de(desde / PAGINA), paginas_de(bytes) * PAGINA);
     let (datos, cola) = dst.split_at_mut(bytes as usize);
-    if fs::leer_rango(cur, (p.imagen.desde + desde) as usize, p.medida, datos) != datos.len() {
+    if gsp.leer(p.imagen.desde + desde, datos) != datos.len() {
         return no(IOMMU_NO_GSP_DISCO);
     }
     // Lo que sobra de la ultima pagina, a 0: la radix3 la presta entera.

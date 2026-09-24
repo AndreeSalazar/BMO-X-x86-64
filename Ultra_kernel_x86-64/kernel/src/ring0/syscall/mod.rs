@@ -178,6 +178,9 @@ mod op_consola;
 /// **Contar lo que el kernel sabe**: CABINA, `info`, klog y la autopsia. Las
 /// ocho que preguntan y NO cambian nada.
 mod op_contar;
+/// **Los ficheros del GSP para `dev/gpu_gsp.rs`** (L0c2): `dev` esta debajo de
+/// `fsys` y no puede abrirlos; aqui se abren y se le dan.
+mod op_gsp;
 
 #[inline]
 fn unsupported() -> BmoStatus {

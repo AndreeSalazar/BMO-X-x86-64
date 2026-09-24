@@ -772,8 +772,8 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         // ** L0c2 (2026-09-24): el GSP-RM prestado. Los trozos leen el disco
         // y escriben en marcos que la 3060 todavia no ve; PRESTAR cambia sus
         // tablas, y lleva el FLUSH como todo lo que toca la IOMMU.
-        IOMMU_OP_GSP_PREPARAR => crate::ring0::dev::gpu_gsp::preparar(),
-        IOMMU_OP_GSP_TROZO => crate::ring0::dev::gpu_gsp::trozo(arg1),
+        IOMMU_OP_GSP_PREPARAR => super::op_gsp::preparar(),
+        IOMMU_OP_GSP_TROZO => super::op_gsp::trozo(arg1),
         IOMMU_OP_GSP_PRESTAR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de prestar el GSP-RM no se pudo: se sigue", 0);

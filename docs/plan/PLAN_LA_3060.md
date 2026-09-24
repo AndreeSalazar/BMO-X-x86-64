@@ -467,7 +467,10 @@ en 33 paginas y el unico evento es el de la frontera (M0d3). Lo que dijo el
 metal es lo que dijeron los ficheros en el anfitrion, byte a byte.
 
 **L0c2 (24-09, en codigo).** `dev/gpu_gsp.rs` (fila GPU nueva del censo del
-NEUTRO, x3), cuatro ordenes como FWSEC:
+NEUTRO, x3), cuatro ordenes como FWSEC. [!] Los ficheros los abre
+`syscall/op_gsp.rs` y se los da como un `Fichero`: `dev` esta DEBAJO de `fsys`
+(el disco es un aparato), y la primera version, que abria fw/gsp/ desde `dev`,
+la paro el guardian de capas (L8b) en el build del propietario:
 
 ```text
    PREPARAR     el kernel abre fw/gsp/ POR SU CUENTA: el bootloader por una
