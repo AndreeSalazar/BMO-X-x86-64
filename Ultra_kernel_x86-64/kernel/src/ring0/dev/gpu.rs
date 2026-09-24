@@ -125,11 +125,11 @@ pub fn sondear() {
     }
     let bar0 = crate::ring0::mm::phys_to_virt(fisica);
     BAR0.store(bar0, Ordering::Release);
-    // ** LA FOTO EN FRIO: como llega la 3060 ANTES de que BMO-X le toque nada.
-    // Una 3060 recien encendida no trae WPR2 (la monta FWSEC-FRTS, que corre
-    // BMO-X) y sale en Gen1 (la sube el RM). Metal 24-09 13:52: el booter dio
-    // 0x15 con el enlace ya en Gen3 -- sin esta foto no se sabia si la
-    // tarjeta venia de antes o no.
+    // ** LA FOTO AL LLEGAR: la WPR2 y el enlace crudos al sondear, SOLO para
+    // mirarlos. NO es un veredicto: el metal (24-09 14:09) trajo aqui una
+    // WPR2 "con techo" y aun asi FWSEC-FRTS la encontro vacia y la monto
+    // limpia -- al sondear el firmware de arranque de la tarjeta aun no ha
+    // acabado y estos registros no dicen nada todavia.
     FRIO_WPR2.store(info_wpr2() | 1 << 63, Ordering::Release);
     FRIO_ENLACE.store(info_salud(1 << 8), Ordering::Release);
 
@@ -478,14 +478,6 @@ pub fn info_wpr2() -> u64 {
 /// << 32`) al sondear.
 static FRIO_WPR2: AtomicU64 = AtomicU64::new(0);
 static FRIO_ENLACE: AtomicU64 = AtomicU64::new(0);
-
-/// **La 3060 llego CALIENTE**: al sondear ya traia WPR2, que solo monta
-/// FWSEC-FRTS y en este arranque aun no habia corrido. Un reinicio (o un
-/// apagado con la placa aun alimentada) no la reseteo.
-pub fn llego_caliente() -> bool {
-    let w = FRIO_WPR2.load(Ordering::Acquire);
-    w >> 63 != 0 && (w >> 32) as u32 >> 4 != 0
-}
 
 /// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`;
 /// 2 la WPR2 cruda AL SONDEAR (bit 63: se tomo); 3 el enlace AL SONDEAR.

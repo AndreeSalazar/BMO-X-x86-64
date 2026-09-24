@@ -1764,9 +1764,9 @@ pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 ///                1/256 de grado, bit 29 valido (`bmo_gpu_ga10x::salud`)
 ///   selector 1   el enlace PCIe: Link Status (16 bits) | Link Capabilities
 ///                << 32, de la capacidad PCI Express de la 3060
-///   selector 2   LA FOTO EN FRIO: la WPR2 cruda AL SONDEAR (como
-///                `INFO_GPU_WPR2`), bit 63 = se tomo. Con WPR2 = la 3060
-///                llego caliente (no perdio la corriente)
+///   selector 2   la WPR2 cruda AL SONDEAR (como `INFO_GPU_WPR2`), bit
+///                63 = se tomo. Solo para mirar: al sondear el firmware de
+///                arranque de la tarjeta aun no acabo (metal 24-09 14:09)
 ///   selector 3   el enlace AL SONDEAR, como el selector 1
 /// ```
 ///

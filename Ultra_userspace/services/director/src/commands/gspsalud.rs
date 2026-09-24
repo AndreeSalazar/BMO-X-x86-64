@@ -155,36 +155,24 @@ pub(crate) fn fila(s: &mut Output) {
     }
     s.byte(b'\n');
 
-    // ** LA FOTO EN FRIO (metal 24-09 13:52): como llego la 3060 al sondear,
-    // antes de que BMO-X le tocara nada. En frio NO trae WPR2 (la monta
-    // FWSEC-FRTS, que corre BMO-X despues) y sale en Gen1 (la sube el RM).
+    // ** LA FOTO AL LLEGAR: cruda, sin veredicto. El metal (24-09 14:09) la
+    // leyo "con techo" y aun asi FWSEC-FRTS encontro la WPR2 vacia: al sondear
+    // el firmware de arranque de la tarjeta aun no acabo. Solo para mirar.
     let w = bmo::info(bmo::INFO_GPU_SALUD | 2 << 8);
     if w >> 63 != 0 {
         campo(s, b"al llegar");
         let f = bmo::info(bmo::INFO_GPU_SALUD | 3 << 8);
-        let gen = salud::enlace(f as u16, (f >> 32) as u32).map(|l| l.gen);
-        let hi = (w >> 32) as u32 >> 4;
-        if hi != 0 {
-            s.with_ink(INK_ERR);
-            s.text(b"CALIENTE: ya traia WPR2 desde 0x");
-            s.hex(((w as u32 >> 4) as u64) << 12, 9);
-            s.text(b" antes de FWSEC -- la 3060 NO perdio la corriente y trae el GSP-RM de antes; el booter no cargara");
-            s.with_ink(INK_PLAIN);
-            s.text(b". Apaga la FUENTE (su interruptor, o el cable) 15 s, no solo el PC");
-        } else {
-            s.with_ink(INK_GOOD);
-            s.text(b"en FRIO: sin WPR2, como sale de fabrica");
-            s.with_ink(INK_PLAIN);
+        s.with_ink(INK_ECHO);
+        s.text(b"crudo, antes del firmware de arranque: WPR2 0x");
+        s.hex(w as u32 as u64, 8);
+        s.text(b" / 0x");
+        s.hex((w >> 32) as u32 as u64, 8);
+        if let Some(l) = salud::enlace(f as u16, (f >> 32) as u32) {
+            s.text(b", enlace Gen");
+            s.dec(l.gen as u64);
         }
-        if let Some(g) = gen {
-            s.with_ink(INK_ECHO);
-            s.text(b"   enlace Gen");
-            s.dec(g as u64);
-            s.text(if g > 1 { b" (en frio seria Gen1)" as &[u8] } else { b"" });
-            s.with_ink(INK_PLAIN);
-        }
+        s.with_ink(INK_PLAIN);
         s.byte(b'\n');
-        super::datos::anotar(b"gpu al llegar caliente", (hi != 0) as u64, b"");
     }
 
     if let Some(u) = ultimo() {

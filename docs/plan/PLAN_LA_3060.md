@@ -684,6 +684,19 @@ enchufada puede dejar la placa alimentada --, y `despertar` no gasta el
 booter (67). Si `al llegar` dice FRIO y aun asi sale 0x15, la hipotesis
 estaba mal y el 0x15 es otra cosa: se mira por ahi.
 
+**Y la foto MINTIO (24-09, 14:09): la tarjeta NO venia caliente.** Al sondear,
+la WPR2 cruda ya "tenia techo" y el kernel no gasto el booter (67). Pero en
+ESE MISMO arranque FWSEC-FRTS corrio y monto la WPR2 limpia en `0x2FFE00000`
+-- y FWSEC solo corre con la WPR2 vacia (`IOMMU_NO_WPR2_YA`). Al sondear, el
+firmware de arranque de la tarjeta aun no ha acabado y esos registros no
+dicen nada. Y lo mismo vale para las 13:52: `frts CORRIO` alli tambien, asi
+que la tarjeta llego limpia y "venia caliente" era FALSO; el Gen3 al llegar
+tampoco era prueba (14:09 lo trae igual, y FWSEC corrio). Arreglado: la foto
+queda cruda y sin veredicto, y `despertar` solo se niega si la WPR2 ya esta
+EXTENDIDA antes de nuestro booter. **El 0x15 del booter queda sin causa
+conocida**: dos veces (07:48 y 13:52), y el arranque siguiente fue bien las
+dos.
+
 **L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
 `vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
 x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.

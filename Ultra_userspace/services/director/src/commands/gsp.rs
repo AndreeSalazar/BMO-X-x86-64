@@ -736,12 +736,13 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b", MAILBOX1 0x");
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
-        // ** 0x15: dos veces en el metal (24-09 07:48 y 13:52), las dos tras
-        // REINICIAR sin cortar la corriente con el GSP-RM de antes vivo; y
-        // las dos se arreglaron APAGANDO.
+        // ** 0x15: dos veces en el metal (24-09 07:48 y 13:52), y el
+        // siguiente arranque fue bien las dos. NO es "la tarjeta venia
+        // caliente": a las 13:52 FWSEC-FRTS corrio, y solo corre con la WPR2
+        // vacia. Causa sin conocer.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
-            s.text(b" = el booter no cargo: si `al llegar` dice CALIENTE, la 3060 traia el GSP-RM de antes");
+            s.text(b" = el booter no cargo (causa aun sin saber; dos veces en el metal): arranca otra vez");
             s.with_ink(INK_ECHO);
         }
     }
