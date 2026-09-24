@@ -757,6 +757,21 @@ que diga el GSP-RM hasta su `GSP_INIT_DONE` (10 s).
 fila `gsplog` de 08:59 lo leyo a 0. Si no se pone, la orden 1 acaba en su
 plazo (4 s) SIN haber escrito nada, y la fila `corrio` dice lo ultimo leido.
 
+**Repasado contra OpenRM 570.144 antes del metal (24-09).** El driver de
+NVIDIA de ESTA version (`kernel_gsp.c::kgspExecuteSequencerBuffer`,
+`kernel_gsp_tu102.c::kgspExecuteSequencerCommand_TU102`) confirma que
+`cmdIndex` son palabras y que cada orden es como aqui. Tres cosas cambiaron:
+CORE_RESUME resetea el GSP PARA EL RISC-V (`kflcnResetIntoRiscv_GA102`: el
+reset y `BCR_CTRL` = RISC-V, valido y BRFETCH, sin pasar por FALCON ni `RM`;
+nova-core resetea a FALCON), `falcon::resetear_en_riscv`; REG_STORE solo a
+los huecos 0..7 de `regSaveArea` y `cmdIndex < bufferSizeDWord`, como OpenRM;
+y un `gpu init` sin el mensaje en la cola ya no deja el paso roto para todo
+el arranque (no se habia escrito nada). De paso: `datos/gspsec.bin` se
+escribe de una vez (`escribir_de`), no de 7 en 7 bytes -- sospechoso de los
+43-46 ms de `latido tarde` de 08:48 y 08:59 --, las filas `init` y `pide`
+dicen si el secuenciador ya se corrio, y los consejos de `save mode` nombran
+el paso siguiente de verdad.
+
 **Como se sabe (L0c4b2c):** `corrio 420 de 420 ordenes CORRIDAS`; `listo
 GSP_INIT_DONE LLEGO`; y `despierto` otra vez con el RISC-V ACTIVO.
 

@@ -187,7 +187,6 @@ pub(crate) fn fila(s: &mut Output) {
             3 => b": el registro no contesta",
             4 => b": el falcon no se dejo (motivo del falcon abajo)",
             5 => b": el SEC2 acabo CORE_RESUME con MAILBOX0 distinto de 0",
-            6 => b": lo primero de la cola del GSP no es un secuenciador entero",
             _ => b": el techo de 30 s o el kernel dijo que no",
         });
         if dato != 0 {

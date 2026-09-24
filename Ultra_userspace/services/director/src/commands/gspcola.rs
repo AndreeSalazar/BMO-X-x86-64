@@ -309,7 +309,11 @@ pub(crate) fn fila(s: &mut Output) {
         s.byte(b'\n');
     }
     campo(s, b"init");
-    if r.init_done {
+    if !r.init_done && super::gspinit::listo() {
+        s.with_ink(INK_GOOD);
+        s.text(b"no en esta foto de la cola, pero LLEGO despues: mira la fila `listo`\n");
+        s.with_ink(INK_PLAIN);
+    } else if r.init_done {
         s.with_ink(INK_GOOD);
         s.text(b"GSP_INIT_DONE YA esta en la cola: el GSP-RM acabo de arrancar\n");
     } else {

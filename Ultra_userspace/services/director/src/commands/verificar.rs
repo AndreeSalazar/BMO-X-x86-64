@@ -226,7 +226,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gsp::libos_hecho,
         dar: super::gsp::libos,
         pide: Some(b"radix"),
-        consejo: b"`gpu`: la fila `libos` dice PRESTADO para escribir y cada puntero lleva a lo suyo; `iommu`: `domain` 180 paginas mas y sin eventos nuevos -- lo siguiente es L0c3b, despertar el GSP",
+        consejo: b"`gpu`: la fila `libos` dice PRESTADO para escribir y cada puntero lleva a lo suyo; `iommu`: `domain` 180 paginas mas y sin eventos nuevos -- lo siguiente es `sistema`, escribirle SetSystemInfo y SetRegistry antes de despertarlo",
     },
     Paso {
         nombre: b"sistema",
@@ -234,7 +234,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gspsistema::mandado,
         dar: super::gspsistema::mandar,
         pide: Some(b"libos"),
-        consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) -- lo siguiente es L0c4b2b, leer el secuenciador",
+        consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) tras `despertar`",
     },
     Paso {
         nombre: b"despertar",
@@ -242,7 +242,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gsp::despierto,
         dar: super::gsp::despertar,
         pide: Some(b"sistema"),
-        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es L0c4, hablarle por sus colas",
+        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es `cola`, leer lo que dijo",
     },
     Paso {
         nombre: b"cola",
@@ -250,7 +250,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcola::leida,
         dar: super::gspcola::leer,
         pide: Some(b"despertar"),
-        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es L0c4b1, vaciarla",
+        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es `vaciar`",
     },
     Paso {
         nombre: b"vaciar",
@@ -258,7 +258,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gspvaciar::vaciada,
         dar: super::gspvaciar::vaciar,
         pide: Some(b"cola"),
-        consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es L0c4b2, contestarle",
+        consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es `secuenciador`, leer lo que pide",
     },
     Paso {
         nombre: b"secuenciador",
@@ -266,7 +266,7 @@ const PASOS: &[Paso] = &[
         hecho: super::gspsecuencia::leido,
         dar: super::gspsecuencia::leer,
         pide: Some(b"vaciar"),
-        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es L0c4b2c, correrlo hasta GSP_INIT_DONE",
+        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es `init`, correrlo hasta GSP_INIT_DONE",
     },
     Paso {
         nombre: b"init",

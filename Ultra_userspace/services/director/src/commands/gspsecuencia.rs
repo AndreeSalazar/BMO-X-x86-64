@@ -115,10 +115,7 @@ pub(crate) fn leer() -> Result<u64, u32> {
             Err(e) => r.roto = Some(e),
         }
     }
-    r.guardada = match bmo::Archivo::create(RUTA) {
-        Ok(a) => a.write(datos) == n && a.close(),
-        Err(_) => false,
-    };
+    r.guardada = guardar(datos);
     // SAFETY: como `resumen`.
     unsafe {
         *core::ptr::addr_of_mut!(RESUMEN) = Some(r);
@@ -138,6 +135,24 @@ pub(crate) fn orden_n(i: usize) -> Option<Orden> {
 
 pub(crate) fn total() -> u32 {
     resumen().map_or(0, |r| r.total)
+}
+
+/// El mensaje, crudo, a `datos/gspsec.bin` en UNA llamada (`escribir_de`,
+/// como la cola y los logs).
+///
+/// ** Metal 24-09 08:48 y 08:59: con `Archivo::write` --7 bytes por syscall,
+/// ~900 para este fichero-- la fila `latido tarde` paso de 12-20 ms a 43-46 ms,
+/// con `d.bex` en el CPU y 4 ticks del reloj en medio.
+fn guardar(datos: &[u8]) -> bool {
+    let n = datos.len() as u64;
+    let Some(bloque) = bmo::Memoria::request(n.max(1)) else { return false };
+    // SAFETY: el bloque mide al menos `n`, es de este proceso y se escribe
+    // aqui antes de leerse.
+    unsafe { core::slice::from_raw_parts_mut(bloque.base(), datos.len()) }.copy_from_slice(datos);
+    match bmo::Archivo::create(RUTA) {
+        Ok(a) => a.escribir_de(&bloque, 0, n) == n && a.close(),
+        Err(_) => false,
+    }
 }
 
 /// Lo pregunta `save mode`: leido entero, y entendido.
@@ -354,6 +369,12 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(op as u64);
             }
             NoSe::Corta => s.text(b"SE PARO: una orden no cabe en las cmdIndex palabras, o el mensaje no llega a ellas"),
+            NoSe::Medida => s.text(b"SE PARO: cmdIndex no cabe en bufferSizeDWord (OpenRM lo rechaza igual)"),
+            NoSe::Indice(k) => {
+                s.text(b"SE PARO: un REG_STORE al hueco ");
+                s.dec(k as u64);
+                s.text(b" de regSaveArea, que tiene 8");
+            }
         }
         s.byte(b'\n');
         s.with_ink(INK_PLAIN);

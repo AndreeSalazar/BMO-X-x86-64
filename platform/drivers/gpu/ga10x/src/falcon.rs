@@ -79,6 +79,7 @@ const HWCFG2_LIMPIANDO: u32 = 1 << 12;
 const HWCFG2_LISTO_RESET: u32 = 1 << 31;
 const BCR_RISCV: u32 = 1 << 4;
 const BCR_VALIDO: u32 = 1 << 0;
+const BCR_BRFETCH: u32 = 1 << 8;
 const FBIF_FISICA_SIN_CTX: u32 = 1 << 7;
 /// TRANSCFG del contexto 0: destino (bits 0..1), tipo (bit 2), y el 16 que
 /// nouveau limpia con ellos (`nvkm_falcon_mask(0x600, 0x00010007, ...)`).
@@ -172,10 +173,10 @@ fn esperar(
     }
 }
 
-/// **RESETEAR el falcon** como nova-core (`Falcon::reset`): esperar al listo
-/// (sin fallar: el hardware a veces no lo dice), RESET del motor, esperar el
-/// borrado de su memoria, pedir el nucleo FALCON, y apuntar BOOT_0 en `RM`.
-pub fn resetear(r: &mut impl Registros, t: &mut impl Reloj, base: u32, boot0: u32) -> Result<(), NoFuego> {
+/// Lo comun a los dos resets: esperar al listo (sin fallar), RESET del motor
+/// y esperar el borrado de su memoria (OpenRM `kflcnPreResetWait`,
+/// `kflcnResetHw`, `kflcnWaitForResetToFinish`).
+fn reset_hw(r: &mut impl Registros, t: &mut impl Reloj, base: u32) -> Result<(), NoFuego> {
     esperar(r, t, base + HWCFG2, 150, |v| v & HWCFG2_LISTO_RESET != 0)?;
     let e = leer(r, base + ENGINE)?;
     r.escribir(base + ENGINE, e | 1);
@@ -185,6 +186,25 @@ pub fn resetear(r: &mut impl Registros, t: &mut impl Reloj, base: u32, boot0: u3
     if !esperar(r, t, base + HWCFG2, 20_000, |v| v & HWCFG2_LIMPIANDO == 0)? {
         return Err(NoFuego::NoLimpia);
     }
+    Ok(())
+}
+
+/// **RESETEAR PARA EL RISC-V** (OpenRM 570.144 `kflcnResetIntoRiscv_GA102`,
+/// lo que hace CORE_RESUME del secuenciador): el reset de siempre y despues
+/// `BCR_CTRL` = nucleo RISC-V, valido y BRFETCH -- sin pasar por el nucleo
+/// FALCON ni escribir `RM`. nova-core aqui resetea a FALCON; se sigue a
+/// OpenRM, que es el driver de ESTA version del firmware.
+pub fn resetear_en_riscv(r: &mut impl Registros, t: &mut impl Reloj, base: u32) -> Result<(), NoFuego> {
+    reset_hw(r, t, base)?;
+    r.escribir(base + BCR_CTRL, BCR_RISCV | BCR_VALIDO | BCR_BRFETCH);
+    Ok(())
+}
+
+/// **RESETEAR el falcon** como nova-core (`Falcon::reset`): esperar al listo
+/// (sin fallar: el hardware a veces no lo dice), RESET del motor, esperar el
+/// borrado de su memoria, pedir el nucleo FALCON, y apuntar BOOT_0 en `RM`.
+pub fn resetear(r: &mut impl Registros, t: &mut impl Reloj, base: u32, boot0: u32) -> Result<(), NoFuego> {
+    reset_hw(r, t, base)?;
     let bcr = leer(r, base + BCR_CTRL)?;
     if bcr & BCR_RISCV != 0 {
         r.escribir(base + BCR_CTRL, 0);

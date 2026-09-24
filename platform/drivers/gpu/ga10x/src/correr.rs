@@ -20,8 +20,8 @@
 //! # CORE_RESUME (lo unico que no es un registro)
 //!
 //! ```text
-//!    fase 0  reset del falcon del GSP; sus argumentos de LIBOS a MAILBOX0/1;
-//!            arrancar el SEC2 (el secuenciador ya le cargo el SEC2-RTOS)
+//!    fase 0  reset del GSP PARA EL RISC-V (OpenRM `kflcnResetIntoRiscv`);
+//!            sus argumentos de LIBOS a MAILBOX0/1; arrancar el SEC2
 //!    fase 1  esperar el bit 26 de `NV_PGC6_BSI_SECURE_SCRATCH_14` (0x1180F8):
 //!            el GSP-RM volvio (2 s)
 //!    fase 2  MAILBOX0 del SEC2 a 0; el OS del GSP = la version del
@@ -205,7 +205,8 @@ impl Corredor {
 
     fn reanudar(&mut self, r: &mut impl Registros, t: &mut impl Reloj, c: &Contexto) -> Result<bool, Falla> {
         if self.fase == 0 {
-            self.falcon(fa::resetear(r, t, fa::GSP, c.boot0))?;
+            // ** Al RISC-V, como OpenRM 570.144; nova-core resetea a FALCON.
+            self.falcon(fa::resetear_en_riscv(r, t, fa::GSP))?;
             r.escribir(fa::GSP + fa::MAILBOX0, c.libos as u32);
             r.escribir(fa::GSP + fa::MAILBOX1, (c.libos >> 32) as u32);
             self.falcon(fa::arrancar_con(r, fa::SEC2, None, None, None))?;
@@ -323,6 +324,10 @@ mod pruebas {
         assert!(p.escritos.contains(&(fa::GSP + fa::MAILBOX0, 0x3C00_0000)), "CORE_RESUME: LIBOS al buzon");
         assert!(p.escritos.contains(&(fa::GSP + fa::OS, 0x1234)), "y el OS del GSP");
         assert!(p.escritos.iter().any(|&(k, _)| k == fa::SEC2 + fa::CPUCTL), "arranco el SEC2");
+        let bcr = p.escritos.iter().rposition(|&(k, _)| k == fa::GSP + fa::BCR_CTRL).unwrap();
+        assert_eq!(p.escritos[bcr].1, 0x111, "CORE_RESUME deja el GSP en RISC-V: nucleo, valido y BRFETCH");
+        let sec2 = p.escritos.iter().position(|&(k, _)| k == fa::SEC2 + fa::CPUCTL).unwrap();
+        assert!(bcr < sec2, "antes de arrancar el SEC2");
     }
 
     #[test]

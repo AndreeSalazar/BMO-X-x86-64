@@ -104,6 +104,10 @@ pub enum NoSe {
     Opcode(u32),
     /// La orden no cabe en lo que queda.
     Corta,
+    /// `cmdIndex` no cabe en `bufferSizeDWord` (OpenRM lo rechaza igual).
+    Medida,
+    /// Un REG_STORE a un hueco de `regSaveArea` que no existe (0..8).
+    Indice(u32),
 }
 
 /// **Donde cae un registro**, para decirlo en las filas: las unidades que
@@ -147,16 +151,24 @@ pub struct Ordenes<'a> {
     /// Los datos no llegan a las `cmdIndex` palabras.
     faltan: bool,
     hecho: bool,
+    medida: bool,
 }
 
 /// Leer las ordenes de los datos del mensaje (desde su +0, cabecera incluida).
 pub fn ordenes(datos: &[u8]) -> Ordenes<'_> {
     // Hasta donde acaban sus `cmdIndex` palabras. `bufferSizeDWord` es lo que
     // mide el buffer del GSP entero: se muestra, no corta.
-    let (_, palabras) = cabecera(datos).unwrap_or((0, 0));
+    let (buffer, palabras) = cabecera(datos).unwrap_or((0, 0));
     let fin = CABECERA + palabras as usize * 4;
     let hay = fin.min(datos.len());
-    Ordenes { b: &datos[..hay], o: CABECERA, faltan: fin > datos.len() && datos.len() >= CABECERA, hecho: datos.len() < CABECERA }
+    Ordenes {
+        b: &datos[..hay],
+        o: CABECERA,
+        faltan: fin > datos.len() && datos.len() >= CABECERA,
+        hecho: datos.len() < CABECERA,
+        // OpenRM (`kgspExecuteSequencerBuffer`): `cmdIndex < bufferSizeDWord`.
+        medida: datos.len() >= CABECERA && palabras >= buffer,
+    }
 }
 
 impl Ordenes<'_> {
@@ -172,6 +184,9 @@ impl Iterator for Ordenes<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.hecho {
             return None;
+        }
+        if core::mem::take(&mut self.medida) {
+            return self.parar(NoSe::Medida);
         }
         if self.o >= self.b.len() {
             self.hecho = true;
@@ -199,6 +214,7 @@ impl Iterator for Ordenes<'_> {
             1 => Orden::Modificar { reg: w(0), mascara: w(1), valor: w(2) },
             2 => Orden::Esperar { reg: w(0), mascara: w(1), valor: w(2), plazo_us: w(3) },
             3 => Orden::Retraso { us: w(0) },
+            4 if w(1) >= 8 => return self.parar(NoSe::Indice(w(1))),
             4 => Orden::Guardar { reg: w(0), indice: w(1) },
             5 => Orden::Resetear,
             6 => Orden::Arrancar,
@@ -222,7 +238,7 @@ mod pruebas {
 
     fn mensaje(palabras: &[u32], n: u32) -> Vec<u8> {
         let mut b = Vec::new();
-        b.extend_from_slice(&(palabras.len() as u32).to_le_bytes());
+        b.extend_from_slice(&(palabras.len() as u32 + 1).to_le_bytes());
         b.extend_from_slice(&n.to_le_bytes());
         b.extend_from_slice(&[0u8; 32]);
         for w in palabras {
@@ -299,5 +315,10 @@ mod pruebas {
         let b = mensaje(&[2, 0x110000, 1], 3);
         assert_eq!(ordenes(&b).collect::<Vec<_>>(), [Err(NoSe::Corta)], "una espera sin su carga entera");
         assert_eq!(ordenes(&[0u8; 10]).count(), 0, "sin cabecera, nada");
+        let b = mensaje(&[4, 0x1180F8, 8], 3);
+        assert_eq!(ordenes(&b).collect::<Vec<_>>(), [Err(NoSe::Indice(8))], "regSaveArea tiene 8");
+        let mut b = mensaje(&[5], 1);
+        b[0..4].copy_from_slice(&1u32.to_le_bytes());
+        assert_eq!(ordenes(&b).collect::<Vec<_>>(), [Err(NoSe::Medida)], "cmdIndex tiene que caber en el buffer");
     }
 }

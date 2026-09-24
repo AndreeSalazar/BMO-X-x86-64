@@ -1047,7 +1047,6 @@ pub const SEC_PLAZO: u64 = 2;
 pub const SEC_NO_CONTESTA: u64 = 3;
 pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
-pub const SEC_MENSAJE: u64 = 6;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 pub const SERIE_COLA: u64 = 1 << 63;
 

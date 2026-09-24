@@ -1725,7 +1725,7 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             con selector 2, el secuenciador (L0c4b2c): `i |
 ///                             fase << 16 | como va << 24 | dato << 32` (como
 ///                             va: 0x40 cargado, 0x80 HECHO, 1 fuera, 2 plazo,
-///                             3 no contesta, 4 falcon, 5 SEC2, 6 mensaje)
+///                             3 no contesta, 4 falcon, 5 SEC2)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
@@ -1753,7 +1753,6 @@ pub const SEC_PLAZO: u64 = 2;
 pub const SEC_NO_CONTESTA: u64 = 3;
 pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
-pub const SEC_MENSAJE: u64 = 6;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)

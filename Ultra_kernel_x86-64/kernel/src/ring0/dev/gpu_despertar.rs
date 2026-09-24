@@ -371,7 +371,6 @@ pub const SEC_PLAZO: u64 = 2;
 pub const SEC_NO_CONTESTA: u64 = 3;
 pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
-pub const SEC_MENSAJE: u64 = 6;
 
 /// `i | fase << 16 | como va << 24 | dato << 32`.
 static SEC: AtomicU64 = AtomicU64::new(0);
@@ -461,9 +460,10 @@ pub fn secuenciar() -> Result<u64, u32> {
         return Err(io::IOMMU_NO_SIN_GPU);
     }
     if como & SEC_CARGADO == 0 {
-        if let Err(m) = cargar() {
-            return sec_no(SEC_MENSAJE, 0, m);
-        }
+        // Sin mensaje todavia NO se queda apuntado: no se ha escrito nada, y
+        // se puede volver a pedir cuando llegue. Lo que se queda es una falla
+        // a medias, que no se repite.
+        cargar()?;
     }
     let msg = SEC_MSG.load(Ordering::Acquire);
     let n = (msg & 0xFFFF) as usize;

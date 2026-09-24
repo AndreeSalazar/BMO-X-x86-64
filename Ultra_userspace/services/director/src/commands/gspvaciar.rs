@@ -309,7 +309,11 @@ pub(crate) fn fila(s: &mut Output) {
         s.text(if f == rpc::INIT_DONE {
             b": el GSP-RM ACABO DE ARRANCAR; se queda en la cola\n" as &[u8]
         } else {
-            b": PIDE respuesta; se queda en la cola para L0c4b2\n"
+            if super::gspinit::listo() {
+                b": PIDE respuesta; se le dio en `gpu init` (mira `corrio`)\n" as &[u8]
+            } else {
+                b": PIDE respuesta; se queda en la cola para L0c4b2\n"
+            }
         });
     } else {
         s.with_ink(INK_ECHO);
