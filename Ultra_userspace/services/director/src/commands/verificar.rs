@@ -56,8 +56,26 @@ fn iommu_encendida() -> bool {
     bmo::info(bmo::INFO_IOMMU_VIVA) & bmo::IOMMU_VIVA_ENCENDIDA != 0
 }
 
+/// CIEGA o TRADUCIDA: las dos le quitan la RAM. Sin lo segundo, `save mode`
+/// volveria a cegar una 3060 ya traducida y desharia M0d.
 fn gpu_ciega() -> bool {
-    bmo::info(bmo::INFO_IOMMU_GPU) & bmo::IOMMU_GPU_CIEGA != 0
+    bmo::info(bmo::INFO_IOMMU_GPU) & (bmo::IOMMU_GPU_CIEGA | bmo::IOMMU_GPU_TRADUCIDA) != 0
+}
+
+fn gpu_traducida() -> bool {
+    bmo::info(bmo::INFO_IOMMU_GPU) & bmo::IOMMU_GPU_TRADUCIDA != 0
+}
+
+fn traducir_gpu() -> Result<u64, u32> {
+    bmo::iommu_orden(bmo::IOMMU_OP_TRADUCIR_GPU)
+}
+
+fn prueba_prestada() -> bool {
+    bmo::info(bmo::INFO_GPU_PRUEBA) & bmo::GPU_PRUEBA_PRESTADA != 0
+}
+
+fn prestar_prueba() -> Result<u64, u32> {
+    bmo::iommu_orden(bmo::IOMMU_OP_PRESTAR_PRUEBA)
 }
 
 fn encender_iommu() -> Result<u64, u32> {
@@ -87,7 +105,7 @@ fn encender_e2() -> Result<u64, u32> {
 }
 
 /// **Los pasos, en el orden en que hay que darlos.** Ver
-/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e y E2.
+/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e, E2 y M0d2.
 const PASOS: &[Paso] = &[
     Paso {
         nombre: b"iommu",
@@ -112,6 +130,22 @@ const PASOS: &[Paso] = &[
         dar: encender_e2,
         pide: Some(b"gpu"),
         consejo: b"teclea `gpu`: la fila `e2` tiene que subir ~60 por segundo y la escalera en `+`; `iommu` con los eventos en 0",
+    },
+    Paso {
+        nombre: b"traducir",
+        que: b"la 3060 TRADUCIDA por su dominio: ve SOLO lo prestado, hoy nada (M0d2)",
+        hecho: gpu_traducida,
+        dar: traducir_gpu,
+        pide: Some(b"gpu"),
+        consejo: b"`iommu`: la fila 3060 dice TRADUCIDA, sin fila `event`; y `gpu`: la fila `e2` sigue subiendo (el MSI pasa la entrada traducida)",
+    },
+    Paso {
+        nombre: b"prestar",
+        que: b"prestarle la pagina de prueba, solo lectura, en 0x10000000 (M0d2)",
+        hecho: prueba_prestada,
+        dar: prestar_prueba,
+        pide: Some(b"traducir"),
+        consejo: b"`iommu`: la fila `domain` dice 1 pagina prestada; lo siguiente es M0d3, que un falcon de la 3060 la LEA por DMA",
     },
 ];
 
@@ -471,7 +505,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es E3, el compositor al compas de la pantalla (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es M0d3: que un falcon de la 3060 LEA la pagina prestada (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

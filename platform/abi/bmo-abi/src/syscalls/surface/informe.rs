@@ -1571,6 +1571,31 @@ pub const E2_APAGADO_TORMENTA: u64 = 2;
 pub const E2_APAGADO_CANDADO: u64 = 3;
 pub const E2_APAGADO_NO_CONTESTA: u64 = 4;
 
+/// # M0d (2026-09-24): la 3060 TRADUCIDA, lo que se le presta, y el ultimo evento
+///
+/// ```text
+///   INFO_IOMMU_GPU        61  TRADUCIDA: ve SOLO lo que su dominio presta
+///   INFO_IOMMU_DOMINIO    0..15 tablas usadas | 16..31 el area | 32..55
+///                         paginas prestadas | 63 dominio armado
+///   INFO_GPU_PRUEBA       la fisica de la pagina de prueba | 63 prestada
+///   INFO_IOMMU_EVENTO     0..15 pendientes | 16..31 BDF del ultimo | 32..35
+///                         su tipo | 36..47 sus banderas | 63 hay alguno
+///   INFO_IOMMU_EVENTO_DIR la direccion del ultimo evento
+/// ```
+pub const IOMMU_GPU_TRADUCIDA: u64 = 1 << 61;
+pub const INFO_IOMMU_DOMINIO: u64 = 0xAE;
+pub const IOMMU_DOMINIO_AREA_SHIFT: u64 = 16;
+pub const IOMMU_DOMINIO_PRESTADAS_SHIFT: u64 = 32;
+pub const IOMMU_DOMINIO_ARMADO: u64 = 1 << 63;
+pub const INFO_GPU_PRUEBA: u64 = 0xAF;
+pub const GPU_PRUEBA_PRESTADA: u64 = 1 << 63;
+pub const INFO_IOMMU_EVENTO: u64 = 0xB0;
+pub const IOMMU_EVENTO_BDF_SHIFT: u64 = 16;
+pub const IOMMU_EVENTO_TIPO_SHIFT: u64 = 32;
+pub const IOMMU_EVENTO_BANDERAS_SHIFT: u64 = 36;
+pub const IOMMU_EVENTO_HAY: u64 = 1 << 63;
+pub const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

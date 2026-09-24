@@ -304,6 +304,10 @@ pub(crate) const IOMMU_OP_VER_GPU: u64 = 0x04;
 pub(crate) const IOMMU_OP_E2_ENCENDER: u64 = 0x05;
 /// E2 apagado: el aviso quitado y el Bus Master retirado.
 pub(crate) const IOMMU_OP_E2_APAGAR: u64 = 0x06;
+/// M0d: la 3060 TRADUCIDA por su dominio (vacio: sigue sin ver nada). Ver `plat/iommu.rs`.
+pub(crate) const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
+/// M0d: prestarle la pagina de prueba (solo lectura). Ver `dev/gpu_prestamo.rs`.
+pub(crate) const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

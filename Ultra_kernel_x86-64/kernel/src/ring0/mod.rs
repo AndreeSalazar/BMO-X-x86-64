@@ -221,6 +221,8 @@ pub mod dev {
     pub mod gpu;
     /// E2 (2026-09-24): el VBLANK de la 3060 por MSI, detras del candado.
     pub mod vblank;
+    /// M0d (2026-09-24): lo que BMO-X le PRESTA a la 3060 (fila GPU del censo NEUTRO).
+    pub mod gpu_prestamo;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay

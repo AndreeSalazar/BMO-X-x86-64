@@ -173,9 +173,20 @@ pasos, cada uno visto en el metal antes del siguiente:
         eventos queda a 0. POR ORDEN (`iommu encender`), no al arrancar:
         save automatico antes, FLUSH del disco, y si el dato no vuelve en
         10 ms se apaga sola                  [VISTO en metal, 24-09 02:12]
-   M0d  TRADUCIR por aparato: disco, USB y red ven solo lo que el juez de
-        DMA (R-DMA) les presto; los IVMD, en identidad. Un fallo = un
-        EVENTO con su BDF, no memoria pisada
+   M0d  TRADUCIR por aparato: cada uno ve SOLO lo que se le presta. Un
+        fallo = un EVENTO con su BDF, no memoria pisada. Por la 3060
+        primero, que es el camino del GSP (24-09):
+          M0d1  las tablas de pagina (formato v1 de Linux) y el ORACULO
+                que las recorre como la IOMMU, en el anfitrion   [en codigo]
+          M0d2  `gpu traducir`: la 3060 TRADUCIDA por su dominio, vacio;
+                `gpu prestar`: una pagina de prueba, solo lectura, en
+                0x10000000, releida por el oraculo; y la fila `event`
+                de `iommu`                                      [en codigo]
+          M0d3  LA PRUEBA DE FUEGO: el DMA de un falcon de la 3060 LEE la
+                pagina prestada (y una NO prestada sale como FALLO DE
+                PAGINA con su BDF). Es el primer ladrillo de L0
+          M0d4  disco, USB y red traducidos: ven solo lo que el juez de
+                DMA (R-DMA) les presto; los IVMD, en identidad
    M0e  la 3060 CIEGA: su entrada BLOQUEADA (V + TV, sin IR ni IW), las
         palabras de interrupcion conservadas -- el MSI pasa, el DMA no.
         `gpu cegar` / `gpu ver`, o `save mode`             [en codigo]
@@ -232,6 +243,20 @@ ciegas seria un bucle de caidas; con la memoria, cada caida quita un paso.
 `save mode off` lo desarma. El CONSEJERO (Ctrl+Alt, al arrancar y tras cada
 `save mode`) dice UNA cosa: el paso que tumbo, el siguiente sin hacer o
 "todo verificado -> E2", y si el modo esta armado.
+
+**M0d1 y M0d2 (24-09, en codigo).** `platform/drivers/iommu/amdvi/src/paginas.rs`
+(11 pruebas): directorio `PR|IR|IW|nivel<<9|tabla`, hoja de 4 KiB
+`PR|FC|IR|IW|fisica`, 3 niveles (512 GiB de espacio del aparato), prestar todo o
+nada, quitar, y el ORACULO que recorre la tabla como la IOMMU (los permisos son
+el AND de los peldanos). Y `INVALIDATE_IOMMU_PAGES` del dominio entero. En el
+kernel (`plat/iommu.rs`): un area NEUTRO de 128 paginas para las tablas (fila
+IOMMU del censo, x3), el dominio 3 de la 3060, y la entrada TRADUCIDA con las
+palabras de interrupcion conservadas -- E2 sigue, y su candado acepta ciega o
+traducida. Lo prestado vive en `dev/gpu_prestamo.rs`, la fila GPU del censo
+NEUTRO: hoy la pagina de prueba (`PATRON | i` por palabra), luego el firmware
+del GSP. `save mode` suma dos pasos, `traducir` y `prestar`. **Como se sabe:**
+`iommu` dice `3060 TRADUCIDA`, `domain ... 1 pagina(s) prestada(s)`, sin fila
+`event`; y `gpu` con la fila `e2` subiendo igual.
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,

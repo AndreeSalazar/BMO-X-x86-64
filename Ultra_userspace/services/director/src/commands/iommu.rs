@@ -89,6 +89,10 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_SIN_CABEZA => b"la sonda no dejo cabeza que pinte (mira `gpu`)",
         bmo::IOMMU_NO_SIN_VECTOR => b"el vector 50 no se instalo al arrancar",
         bmo::IOMMU_NO_E2_NO_ARMA => b"la pantalla no acepto el aviso del VBLANK: se deshizo y el Bus Master se retiro",
+        bmo::IOMMU_NO_SIN_AREA => b"no hubo paginas contiguas para las tablas del dominio de la 3060",
+        bmo::IOMMU_NO_NO_TRADUCIDA => b"prestar pide la 3060 TRADUCIDA: primero `gpu traducir`",
+        bmo::IOMMU_NO_PRESTAMO => b"el prestamo no se hizo (ya prestado, o sin tablas): mira `cabina fallos`",
+        bmo::IOMMU_NO_RELEIDA => b"el ORACULO no vio lo prestado al releer las tablas: se quito",
         super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }
@@ -201,6 +205,7 @@ pub(crate) fn report_iommu(s: &mut Output) {
     fila_armado(s, viva & bmo::IOMMU_VIVA_ENCENDIDA != 0);
     fila_viva(s, viva);
     fila_gpu(s);
+    fila_evento(s);
 
     let n = bmo::info(bmo::INFO_IOMMU_CENSO);
     if n & bmo::IOMMU_CENSO_VALIDO != 0 {
@@ -400,6 +405,9 @@ fn fila_gpu(s: &mut Output) {
     if g & bmo::IOMMU_GPU_CIEGA != 0 {
         s.with_ink(INK_GOOD);
         s.text(b"CIEGA: su DMA no alcanza la RAM; sus interrupciones si pasan");
+    } else if g & bmo::IOMMU_GPU_TRADUCIDA != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"TRADUCIDA (M0d): ve SOLO lo que su dominio presta; sus interrupciones pasan");
     } else {
         s.with_ink(INK_ECHO);
         s.text(b"VE: su entrada esta DE PASO otra vez");
@@ -417,4 +425,61 @@ fn fila_gpu(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"iommu gpu", g, b"");
+    fila_dominio(s);
+}
+
+/// ** M0d: el dominio de la 3060 y lo que tiene prestado.
+fn fila_dominio(s: &mut Output) {
+    let d = bmo::info(bmo::INFO_IOMMU_DOMINIO);
+    if d & bmo::IOMMU_DOMINIO_ARMADO == 0 {
+        return;
+    }
+    campo(s, b"domain");
+    s.text(b"el de la 3060: ");
+    s.dec((d >> bmo::IOMMU_DOMINIO_PRESTADAS_SHIFT) & 0xFF_FFFF);
+    s.text(b" pagina(s) prestada(s)");
+    s.with_ink(INK_ECHO);
+    s.text(b"   tablas ");
+    s.dec(d & 0xFFFF);
+    s.text(b" de ");
+    s.dec((d >> bmo::IOMMU_DOMINIO_AREA_SHIFT) & 0xFFFF);
+    let p = bmo::info(bmo::INFO_GPU_PRUEBA);
+    if p & bmo::GPU_PRUEBA_PRESTADA != 0 {
+        s.text(b"; prueba en 0x10000000 -> 0x");
+        s.hex(p & !bmo::GPU_PRUEBA_PRESTADA, 8);
+        s.text(b" (solo lectura)");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"iommu dominio", d, b"");
+}
+
+/// ** M0d: el ULTIMO evento de la IOMMU, con su nombre, su BDF y su direccion.
+/// Un aparato que toca lo que no se le presto sale aqui, no en la RAM.
+pub(crate) fn fila_evento(s: &mut Output) {
+    let e = bmo::info(bmo::INFO_IOMMU_EVENTO);
+    if e & bmo::IOMMU_EVENTO_HAY == 0 {
+        return;
+    }
+    let ev = amdvi::tablas::Evento([
+        ((e >> bmo::IOMMU_EVENTO_BDF_SHIFT) & 0xFFFF) as u32,
+        (((e >> bmo::IOMMU_EVENTO_TIPO_SHIFT) & 0xF) << 28 | ((e >> bmo::IOMMU_EVENTO_BANDERAS_SHIFT) & 0xFFF) << 16) as u32,
+        0,
+        0,
+    ]);
+    campo(s, b"event");
+    s.with_ink(INK_ERR);
+    s.dec(e & 0xFFFF);
+    s.text(b" pendiente(s); el ultimo: ");
+    s.text(ev.nombre().as_bytes());
+    s.with_ink(INK_ECHO);
+    s.text(b"   BDF ");
+    bdf(s, ev.bdf() as u64);
+    s.text(b" direccion 0x");
+    s.hex(bmo::info(bmo::INFO_IOMMU_EVENTO_DIR), 16);
+    s.text(b" banderas 0x");
+    s.hex(ev.banderas() as u64, 3);
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"iommu evento", e, b"");
 }

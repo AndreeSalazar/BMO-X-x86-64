@@ -114,14 +114,15 @@ static mut INTERESA: u32 = 0;
 /// Y de esas, cuantas se quedan SIN CODIGO.
 static mut SIN_CODIGO: u32 = 0;
 /// **Cuantos aparatos con DMA declara `NEUTRO/CENSO.txt`** -- los que tienen
-/// fichero, o sea AHCI, NIC, xHCI y (desde el 24-09, M0b) la propia IOMMU,
-/// que LEE su tabla y sus ordenes de la RAM y ESCRIBE sus eventos.
+/// fichero, o sea AHCI, NIC, xHCI, (desde el 24-09, M0b) la propia IOMMU,
+/// que LEE su tabla y sus ordenes de la RAM y ESCRIBE sus eventos, y (M0d,
+/// 24-09) la 3060, que leera lo que `dev/gpu_prestamo.rs` le preste.
 ///
 /// [!] ES UNA COPIA, y lleva juez a proposito: `toolchain/tools/censo-neutro`
 /// comprueba en cada build que este numero y las filas del censo digan lo
 /// mismo. Sin ese guardian seria exactamente el fallo que R19 del contrato
 /// acaba de nombrar -- un numero que nadie compara con su original.
-pub const APARATOS_CENSADOS: u32 = 4;
+pub const APARATOS_CENSADOS: u32 = 5;
 
 /// **CUANTAS FUNCIONES TIENEN EL BIT DE MAESTRO DEL BUS ENCENDIDO.**
 ///

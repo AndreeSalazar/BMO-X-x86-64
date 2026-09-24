@@ -24,8 +24,9 @@
 //!
 //! ```text
 //!    la IOMMU esta ENCENDIDA                     (M0c)
-//!    la entrada de la 3060 es BLOQUEADA y se
-//!    releyo asi, y es la de ESTE BDF             (M0e: `gpu cegar`)
+//!    la entrada de la 3060 es BLOQUEADA o
+//!    TRADUCIDA, se releyo asi, y es la de
+//!    ESTE BDF                  (M0e `gpu cegar`, M0d `gpu traducir`)
 //!    en ese BDF sigue habiendo una NVIDIA
 //! ```
 //!
@@ -181,8 +182,11 @@ pub fn encender() -> Result<u64, u32> {
         return Err(io::IOMMU_NO_APAGADA);
     }
     let g = io::info_gpu();
-    if g & io::IOMMU_GPU_CIEGA == 0 || g & io::IOMMU_GPU_RELEIDA == 0 || (g & 0xFFFF) as u16 != bdf {
-        crate::ring0::cabina::warn("gpu", "E2: la 3060 NO esta ciega en la IOMMU: el candado no abre", g);
+    // CIEGA (M0e) o TRADUCIDA (M0d): en las dos la 3060 no ve mas RAM que la
+    // que BMO-X le presta -- ninguna, o la de su dominio.
+    let vendada = g & (io::IOMMU_GPU_CIEGA | io::IOMMU_GPU_TRADUCIDA) != 0;
+    if !vendada || g & io::IOMMU_GPU_RELEIDA == 0 || (g & 0xFFFF) as u16 != bdf {
+        crate::ring0::cabina::warn("gpu", "E2: la 3060 NO esta ciega ni traducida en la IOMMU: el candado no abre", g);
         return Err(IOMMU_NO_GPU_VE);
     }
 
@@ -340,7 +344,7 @@ pub fn info_e2() -> u64 {
     if crate::ring0::dev::pci::comando(b, d, f) & 0b100 != 0 {
         x |= E2_BME;
     }
-    if io::info_gpu() & io::IOMMU_GPU_CIEGA != 0 {
+    if io::info_gpu() & (io::IOMMU_GPU_CIEGA | io::IOMMU_GPU_TRADUCIDA) != 0 {
         x |= E2_CIEGA;
     }
     if VECTOR_LISTO.load(Ordering::Acquire) {

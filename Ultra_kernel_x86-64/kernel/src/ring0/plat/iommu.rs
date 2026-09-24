@@ -570,11 +570,12 @@ const DOMINIO_CIEGO: u16 = 2;
 
 pub const IOMMU_NO_SIN_GPU: u32 = 6;
 pub const IOMMU_GPU_US_SHIFT: u64 = 16;
+pub const IOMMU_GPU_TRADUCIDA: u64 = 1 << 61;
 pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
 pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
 
-/// `0..15` BDF de la 3060 | `16..47` us del COMPLETION_WAIT | 62 la entrada
-/// releida dice bloqueada | 63 CIEGA ahora.
+/// `0..15` BDF de la 3060 | `16..47` us del COMPLETION_WAIT | 61 TRADUCIDA
+/// ahora (M0d) | 62 la entrada releida dice lo pedido | 63 CIEGA ahora.
 static GPU: AtomicU64 = AtomicU64::new(0);
 
 /// La tabla de dispositivos como palabras, si esta armada.
@@ -604,22 +605,42 @@ fn poner_viva(tabla: &mut [u64], bdf: u16, e: amdvi::tablas::Dte) -> bool {
 
 /// **Cegar la 3060**: su entrada, BLOQUEADA. `Ok(us | bdf << 32)`.
 pub fn cegar(bdf: u16) -> Result<u64, u32> {
-    cambiar_gpu(bdf, true)
+    cambiar_gpu(bdf, Vista::Ciega)
 }
 
 /// **Devolverle la vista**: su entrada, DE PASO otra vez.
 pub fn ver(bdf: u16) -> Result<u64, u32> {
-    cambiar_gpu(bdf, false)
+    cambiar_gpu(bdf, Vista::DePaso)
 }
 
-fn cambiar_gpu(bdf: u16, ciega: bool) -> Result<u64, u32> {
+/// Lo que la 3060 ve de la RAM, segun su entrada.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Vista {
+    /// BLOQUEADA: nada.
+    Ciega,
+    /// DE PASO: todo.
+    DePaso,
+    /// TRADUCIDA por el dominio de raiz esta: solo lo prestado (M0d).
+    Traducida(u64),
+}
+
+fn cambiar_gpu(bdf: u16, vista: Vista) -> Result<u64, u32> {
     use amdvi::tablas::{self as t, Dte, Orden};
     if VIVA.load(Ordering::Acquire) & IOMMU_VIVA_ENCENDIDA == 0 {
         return fallo(IOMMU_NO_APAGADA);
     }
     let Some(tabla) = tabla_viva() else { return fallo(IOMMU_NO_TABLAS) };
     let Some(actual) = t::leer(tabla, bdf) else { return fallo(IOMMU_NO_TABLAS) };
-    let base = if ciega { Dte::bloqueada(DOMINIO_CIEGO) } else { Dte::de_paso(DOMINIO_PASO) };
+    let base = match vista {
+        Vista::Ciega => Dte::bloqueada(DOMINIO_CIEGO),
+        Vista::DePaso => Dte::de_paso(DOMINIO_PASO),
+        Vista::Traducida(raiz) => match Dte::traducida(DOMINIO_GPU, raiz, amdvi::paginas::NIVELES) {
+            Some(e) => e,
+            None => return fallo(IOMMU_NO_TABLAS),
+        },
+    };
+    // Las palabras de interrupcion (2 y 3) y lo alto de la 1 se CONSERVAN: el
+    // MSI del VBLANK (E2) va por ahi, se vea lo que se vea de la RAM.
     let nueva = Dte([base.0[0], base.0[1] | (actual.0[1] & !0xFFFF), actual.0[2], actual.0[3]]);
     if !poner_viva(tabla, bdf, nueva) {
         return fallo(IOMMU_NO_TABLAS);
@@ -631,18 +652,35 @@ fn cambiar_gpu(bdf: u16, ciega: bool) -> Result<u64, u32> {
         return fallo(IOMMU_NO_CONTESTA);
     };
     let releida = t::leer(tabla, bdf).map_or(false, |e| {
-        e.valida() && e.traduce() && e.lee() != ciega && e.escribe() != ciega
+        e.valida()
+            && e.traduce()
+            && match vista {
+                Vista::Ciega => !e.lee() && !e.escribe(),
+                Vista::DePaso => e.lee() && e.escribe() && e.niveles() == 0,
+                Vista::Traducida(raiz) => {
+                    e.lee() && e.escribe() && e.raiz() == raiz && e.dominio() == DOMINIO_GPU
+                        && e.niveles() == amdvi::paginas::NIVELES
+                }
+            }
     });
     GPU.store(
         bdf as u64
             | us.min(0xFFFF_FFFF) << IOMMU_GPU_US_SHIFT
             | if releida { IOMMU_GPU_RELEIDA } else { 0 }
-            | if ciega { IOMMU_GPU_CIEGA } else { 0 },
+            | match vista {
+                Vista::Ciega => IOMMU_GPU_CIEGA,
+                Vista::DePaso => 0,
+                Vista::Traducida(_) => IOMMU_GPU_TRADUCIDA,
+            },
         Ordering::Release,
     );
     crate::ring0::cabina::count(
         "iommu",
-        if ciega { "M0e: la 3060 CIEGA: su DMA no alcanza la RAM; BDF" } else { "M0e: la 3060 VE otra vez (de paso); BDF" },
+        match vista {
+            Vista::Ciega => "M0e: la 3060 CIEGA: su DMA no alcanza la RAM; BDF",
+            Vista::DePaso => "M0e: la 3060 VE otra vez (de paso); BDF",
+            Vista::Traducida(_) => "M0d: la 3060 TRADUCIDA: ve SOLO lo prestado; BDF",
+        },
         bdf as u64,
     );
     Ok(us.min(0xFFFF_FFFF) | (bdf as u64) << 32)
@@ -650,4 +688,204 @@ fn cambiar_gpu(bdf: u16, ciega: bool) -> Result<u64, u32> {
 
 pub fn info_gpu() -> u64 {
     GPU.load(Ordering::Acquire)
+}
+
+// == M0d: LA 3060 TRADUCIDA -- ve SOLO lo que BMO-X le presta (2026-09-24) =====
+//
+// El paso que abre el camino al GSP: su firmware y sus colas viven en la RAM
+// del PC, y una 3060 CIEGA no los puede leer. TRADUCIDA, la IOMMU recorre las
+// tablas de su dominio y deja pasar SOLO lo que esten prestando -- lo demas es
+// un FALLO DE PAGINA con su BDF en el registro de eventos, no memoria leida.
+//
+//    `gpu traducir`   su entrada pasa a TRADUCIDA con un dominio VACIO: sigue
+//                     sin ver nada, pero por el camino que despues presta.
+//                     Las palabras de interrupcion se conservan: E2 sigue
+//    prestar          `bmo_iommu_amdvi::paginas` escribe las hojas,
+//                     INVALIDATE_IOMMU_PAGES del dominio, y el ORACULO relee
+//                     por el physmap lo mismo que leera la IOMMU
+//
+// Las tablas viven en un AREA contigua NEUTRO (la IOMMU las lee por DMA), que
+// se pide la primera vez: 128 paginas = una raiz, directorios y ~125 tablas de
+// hojas, o sea ~250 MiB prestables. El GSP pide ~69 MB.
+
+/// El dominio de la 3060 traducida. El 1 es el de paso y el 2 el ciego.
+const DOMINIO_GPU: u16 = 3;
+const AREA_PAGINAS: u64 = 128;
+
+pub const IOMMU_NO_SIN_AREA: u32 = 12;
+pub const IOMMU_NO_NO_TRADUCIDA: u32 = 13;
+pub const IOMMU_NO_PRESTAMO: u32 = 14;
+pub const IOMMU_NO_RELEIDA: u32 = 15;
+
+pub const IOMMU_DOMINIO_AREA_SHIFT: u64 = 16;
+pub const IOMMU_DOMINIO_PRESTADAS_SHIFT: u64 = 32;
+pub const IOMMU_DOMINIO_ARMADO: u64 = 1 << 63;
+
+/// La base fisica del area (0 = aun no se pidio).
+static AREA: AtomicU64 = AtomicU64::new(0);
+/// Paginas del area ya dadas a tablas.
+static AREA_USADAS: AtomicU64 = AtomicU64::new(0);
+/// La raiz del dominio de la 3060 (0 = no hay).
+static RAIZ_GPU: AtomicU64 = AtomicU64::new(0);
+/// Paginas de 4 KiB prestadas ahora a la 3060.
+static PRESTADAS: AtomicU64 = AtomicU64::new(0);
+
+/// Las tablas del dominio, vistas por el physmap. La IOMMU las lee por su
+/// direccion FISICA; el kernel, por la misma pagina a traves del physmap.
+struct Area;
+
+impl amdvi::paginas::Memoria for Area {
+    fn nueva(&mut self) -> Option<u64> {
+        let base = AREA.load(Ordering::Acquire);
+        if base == 0 {
+            return None;
+        }
+        let k = AREA_USADAS.load(Ordering::Acquire);
+        if k >= AREA_PAGINAS {
+            return None;
+        }
+        AREA_USADAS.store(k + 1, Ordering::Release);
+        let p = base + k * 4096;
+        // SAFETY: una pagina del area de este fichero, recien apartada; la
+        // IOMMU no la ve hasta que un directorio o una entrada apunte a ella.
+        unsafe { core::ptr::write_bytes(crate::ring0::mm::phys_to_virt(p) as *mut u8, 0, 4096) };
+        Some(p)
+    }
+    fn leer(&self, tabla: u64, i: usize) -> u64 {
+        // SAFETY: `tabla` es una pagina del area (sale de `nueva` o de una
+        // entrada que este fichero escribio) e `i` < 512.
+        unsafe { (crate::ring0::mm::phys_to_virt(tabla) as *const u64).add(i & 0x1FF).read_volatile() }
+    }
+    fn escribir(&mut self, tabla: u64, i: usize, v: u64) {
+        // SAFETY: como `leer`; volatile porque la lee un aparato.
+        unsafe { (crate::ring0::mm::phys_to_virt(tabla) as *mut u64).add(i & 0x1FF).write_volatile(v) }
+    }
+}
+
+/// El dominio de la 3060, pidiendo el area y la raiz la primera vez.
+fn dominio_gpu() -> Option<amdvi::paginas::Dominio> {
+    use crate::ring0::mm::phys;
+    if AREA.load(Ordering::Acquire) == 0 {
+        // La IOMMU lee estas tablas por DMA: NEUTRO, como la de dispositivos.
+        let base = phys::alloc_frames_contig_de(AREA_PAGINAS, phys::Titular::Neutro)?;
+        AREA.store(base, Ordering::Release);
+    }
+    let r = RAIZ_GPU.load(Ordering::Acquire);
+    if r != 0 {
+        return Some(amdvi::paginas::Dominio { raiz: r });
+    }
+    let d = amdvi::paginas::Dominio::nuevo(&mut Area)?;
+    RAIZ_GPU.store(d.raiz, Ordering::Release);
+    Some(d)
+}
+
+/// **`gpu traducir`**: la entrada de la 3060, TRADUCIDA por su dominio.
+pub fn traducir_gpu(bdf: u16) -> Result<u64, u32> {
+    if VIVA.load(Ordering::Acquire) & IOMMU_VIVA_ENCENDIDA == 0 {
+        return fallo(IOMMU_NO_APAGADA);
+    }
+    let Some(d) = dominio_gpu() else {
+        crate::ring0::cabina::warn("iommu", "M0d: sin paginas contiguas para las tablas del dominio de la 3060", AREA_PAGINAS);
+        return fallo(IOMMU_NO_SIN_AREA);
+    };
+    cambiar_gpu(bdf, Vista::Traducida(d.raiz))
+}
+
+/// **PRESTAR a la 3060** `paginas` paginas: vera `iova..` como `fisica..`.
+/// Solo con su entrada TRADUCIDA. Se invalida el dominio y se RELEE con el
+/// oraculo cada pagina, por el mismo camino que la IOMMU.
+pub fn prestar_gpu(iova: u64, fisica: u64, paginas: u64, escribe: bool) -> Result<u64, u32> {
+    use amdvi::tablas::Orden;
+    let g = GPU.load(Ordering::Acquire);
+    if g & IOMMU_GPU_TRADUCIDA == 0 || g & IOMMU_GPU_RELEIDA == 0 {
+        return fallo(IOMMU_NO_NO_TRADUCIDA);
+    }
+    let Some(d) = dominio_gpu() else { return fallo(IOMMU_NO_SIN_AREA) };
+    if let Err(e) = d.prestar(&mut Area, iova, fisica, paginas, true, escribe) {
+        crate::ring0::cabina::warn("iommu", "M0d: el prestamo a la 3060 no se hizo", e as u64);
+        return fallo(IOMMU_NO_PRESTAMO);
+    }
+    let Some(us) = mandar(&[Orden::invalidar_paginas(DOMINIO_GPU)]) else {
+        d.quitar(&mut Area, iova, paginas);
+        return fallo(IOMMU_NO_CONTESTA);
+    };
+    for k in 0..paginas {
+        let a = iova + k * amdvi::paginas::PAGINA;
+        let bien = d.traducir(&Area, a).map_or(false, |v| {
+            v.fisica == fisica + k * amdvi::paginas::PAGINA && v.lee && v.escribe == escribe
+        });
+        if !bien {
+            d.quitar(&mut Area, iova, paginas);
+            let _ = mandar(&[Orden::invalidar_paginas(DOMINIO_GPU)]);
+            crate::ring0::cabina::warn("iommu", "M0d: el ORACULO no ve lo prestado: se quita", a);
+            return fallo(IOMMU_NO_RELEIDA);
+        }
+    }
+    PRESTADAS.fetch_add(paginas, Ordering::AcqRel);
+    crate::ring0::cabina::count("iommu", "M0d: paginas PRESTADAS a la 3060 y releidas", paginas);
+    Ok(us)
+}
+
+/// `INFO_IOMMU_DOMINIO`: `0..15` tablas usadas | `16..31` el area |
+/// `32..55` paginas prestadas | 63 dominio armado.
+pub fn info_dominio() -> u64 {
+    let armado = if RAIZ_GPU.load(Ordering::Acquire) != 0 { IOMMU_DOMINIO_ARMADO } else { 0 };
+    armado
+        | AREA_USADAS.load(Ordering::Acquire).min(0xFFFF)
+        | if AREA.load(Ordering::Acquire) != 0 { AREA_PAGINAS << IOMMU_DOMINIO_AREA_SHIFT } else { 0 }
+        | PRESTADAS.load(Ordering::Acquire).min(0xFF_FFFF) << IOMMU_DOMINIO_PRESTADAS_SHIFT
+}
+
+// == EL ULTIMO EVENTO (M0d): un fallo de pagina con su BDF y su direccion ====
+
+pub const IOMMU_EVENTO_BDF_SHIFT: u64 = 16;
+pub const IOMMU_EVENTO_TIPO_SHIFT: u64 = 32;
+pub const IOMMU_EVENTO_BANDERAS_SHIFT: u64 = 36;
+pub const IOMMU_EVENTO_HAY: u64 = 1 << 63;
+
+/// El ultimo evento del registro, sin consumirlo: `(pendientes, evento)`.
+fn ultimo_evento() -> Option<(u64, amdvi::tablas::Evento)> {
+    let v = registros()?;
+    let c = COLAS.load(Ordering::Acquire);
+    if c & IOMMU_ARMADO_SI == 0 || VIVA.load(Ordering::Acquire) & IOMMU_VIVA_ENCENDIDA == 0 {
+        return None;
+    }
+    // SAFETY: los registros de la IOMMU por el physmap, como en `encender`.
+    let rd = |r: u32| unsafe { ((v + r as u64) as *const u64).read_volatile() };
+    let cabeza = rd(amdvi::EVENTOS_CABEZA) & 0x7FFF0;
+    let cola = rd(amdvi::EVENTOS_COLA) & 0x7FFF0;
+    if cabeza == cola {
+        return Some((0, amdvi::tablas::Evento([0; 4])));
+    }
+    let pendientes = cola.wrapping_sub(cabeza) % BYTES_COLA / amdvi::tablas::ORDEN as u64;
+    let ultimo = (cola + BYTES_COLA - amdvi::tablas::ORDEN as u64) % BYTES_COLA;
+    let base = ((c & IOMMU_BASE_PAGINAS_MASK) << 12) + BYTES_COLA;
+    let p = crate::ring0::mm::phys_to_virt(base + ultimo) as *const u32;
+    // SAFETY: el registro de eventos de `armar` (NEUTRO, de este fichero);
+    // `ultimo` < 8 KiB y alineado a 16.
+    let w = unsafe { [p.read_volatile(), p.add(1).read_volatile(), p.add(2).read_volatile(), p.add(3).read_volatile()] };
+    Some((pendientes, amdvi::tablas::Evento(w)))
+}
+
+/// `INFO_IOMMU_EVENTO`: `0..15` eventos pendientes | `16..31` BDF del ultimo |
+/// `32..35` su tipo | `36..47` sus banderas | 63 hay alguno.
+pub fn info_evento() -> u64 {
+    match ultimo_evento() {
+        Some((n, e)) if n > 0 => {
+            IOMMU_EVENTO_HAY
+                | n.min(0xFFFF)
+                | (e.bdf() as u64) << IOMMU_EVENTO_BDF_SHIFT
+                | (e.tipo() as u64 & 0xF) << IOMMU_EVENTO_TIPO_SHIFT
+                | (e.banderas() as u64 & 0xFFF) << IOMMU_EVENTO_BANDERAS_SHIFT
+        }
+        _ => 0,
+    }
+}
+
+/// `INFO_IOMMU_EVENTO_DIR`: la direccion del ultimo evento.
+pub fn info_evento_dir() -> u64 {
+    match ultimo_evento() {
+        Some((n, e)) if n > 0 => e.direccion(),
+        _ => 0,
+    }
 }

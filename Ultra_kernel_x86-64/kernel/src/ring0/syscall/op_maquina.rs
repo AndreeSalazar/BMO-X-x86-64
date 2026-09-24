@@ -733,6 +733,20 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::vblank::encender()
         }
+        // ** M0d (2026-09-24): la 3060 TRADUCIDA, y lo que se le presta.
+        IOMMU_OP_TRADUCIR_GPU => {
+            let Some((b, d, f)) = crate::ring0::dev::gpu::bdf() else {
+                return BmoStatus::negado(iommu::IOMMU_NO_SIN_GPU, 0);
+            };
+            if crate::ring0::dev::pci::cfg_read32(b, d, f, 0) & 0xFFFF != 0x10DE {
+                return BmoStatus::negado(iommu::IOMMU_NO_SIN_GPU, 0);
+            }
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("iommu", "el FLUSH del disco antes de traducir la 3060 no se pudo: se sigue", 0);
+            }
+            iommu::traducir_gpu((b as u16) << 8 | (d as u16) << 3 | f as u16)
+        }
+        IOMMU_OP_PRESTAR_PRUEBA => crate::ring0::dev::gpu_prestamo::prestar_prueba(),
         IOMMU_OP_E2_APAGAR => {
             let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);
             Ok(estaba as u64)

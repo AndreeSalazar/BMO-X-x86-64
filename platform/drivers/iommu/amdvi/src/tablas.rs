@@ -206,6 +206,10 @@ const TIPO_SHIFT: u32 = 28;
 const ORDEN_ESPERAR: u32 = 0x01;
 const ORDEN_INVALIDAR_ENTRADA: u32 = 0x02;
 const ORDEN_INVALIDAR_TODO: u32 = 0x08;
+const ORDEN_INVALIDAR_PAGINAS: u32 = 0x03;
+/// `CMD_INV_IOMMU_PAGES_SIZE_MASK` y `_PDE_MASK`.
+const INV_S: u32 = 0x01;
+const INV_PDE: u32 = 0x02;
 /// `CMD_COMPL_WAIT_STORE_MASK`: al acabar, ESCRIBE el dato en la direccion.
 const ESPERAR_ESCRIBE: u32 = 0x01;
 
@@ -237,6 +241,19 @@ impl Orden {
     /// `bdf`. Tras cambiar una entrada, siempre.
     pub const fn invalidar_entrada(bdf: u16) -> Orden {
         Orden([bdf as u32, ORDEN_INVALIDAR_ENTRADA << TIPO_SHIFT, 0, 0])
+    }
+
+    /// **INVALIDATE_IOMMU_PAGES de un dominio entero** (`build_inv_iommu_pages`
+    /// con `CMD_INV_IOMMU_ALL_PAGES_ADDRESS`, S = 1 y PDE = 1): olvida lo que
+    /// guardo de las tablas de ese dominio. Tras prestar o quitar, siempre.
+    pub const fn invalidar_paginas(dominio: u16) -> Orden {
+        const TODAS: u64 = 0x7FFF_FFFF_FFFF_F000;
+        Orden([
+            0,
+            dominio as u32 | ORDEN_INVALIDAR_PAGINAS << TIPO_SHIFT,
+            TODAS as u32 | INV_PDE | INV_S,
+            (TODAS >> 32) as u32,
+        ])
     }
 
     /// **INVALIDATE_IOMMU_ALL**: olvida todo. Solo si el EFR trae `IA`
@@ -382,6 +399,13 @@ mod pruebas {
         assert_eq!(Orden::esperar(0x1004, 0), None, "direccion sin alinear a 8");
         assert_eq!(Orden::invalidar_entrada(0x2B03).0, [0x2B03, 0x2000_0000, 0, 0]);
         assert_eq!(Orden::invalidar_todo().tipo(), 8);
+    }
+
+    #[test]
+    fn invalidar_las_paginas_de_un_dominio() {
+        let o = Orden::invalidar_paginas(3);
+        assert_eq!(o.tipo(), 0x03);
+        assert_eq!(o.0, [0, 3 | 0x03 << 28, 0xFFFF_F003, 0x7FFF_FFFF]);
     }
 
     #[test]

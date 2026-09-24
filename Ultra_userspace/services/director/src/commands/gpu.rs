@@ -23,7 +23,12 @@ use crate::desktop::Desktop;
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
-/// `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]` desde el escritorio.
+/// `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu
+/// prestar` desde el escritorio.
+///
+/// ** `traducir` y `prestar` (M0d, 2026-09-24): la 3060 pasa a ver SOLO lo que
+/// su dominio de la IOMMU le presta, y se le presta la pagina de prueba que
+/// leera el primer DMA de la tarjeta (M0d3). Es el camino del GSP.
 ///
 /// ** `vblank` (E2, 2026-09-24): que la 3060 AVISE del VBLANK por MSI. Es la
 /// primera escritura en la grafica que no es la IOMMU, y el kernel solo la
@@ -41,9 +46,11 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"ver" => Some((bmo::IOMMU_OP_VER_GPU, b"gpu ver" as &[u8])),
         b"vblank" | b"e2" => Some((bmo::IOMMU_OP_E2_ENCENDER, b"gpu vblank" as &[u8])),
         b"vblank off" | b"e2 off" => Some((bmo::IOMMU_OP_E2_APAGAR, b"gpu vblank off" as &[u8])),
+        b"traducir" => Some((bmo::IOMMU_OP_TRADUCIR_GPU, b"gpu traducir" as &[u8])),
+        b"prestar" => Some((bmo::IOMMU_OP_PRESTAR_PRUEBA, b"gpu prestar" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank` o `gpu vblank off`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir` o `gpu prestar`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;
@@ -68,6 +75,18 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
                 } else {
                     b" ms -- NO llego ninguno: mira la escalera de abajo\n"
                 });
+            }
+            Ok(v) if op == bmo::IOMMU_OP_TRADUCIR_GPU => {
+                g.with_ink(INK_GOOD);
+                g.text(b"  la 3060 esta TRADUCIDA (M0d): ve SOLO lo que su dominio presta -- hoy nada; la invalidacion volvio en ");
+                g.dec(v & 0xFFFF_FFFF);
+                g.text(b" us\n");
+            }
+            Ok(v) if op == bmo::IOMMU_OP_PRESTAR_PRUEBA => {
+                g.with_ink(INK_GOOD);
+                g.text(b"  PRESTADA a la 3060: la pagina de prueba en 0x10000000 -> fisica 0x");
+                g.hex(v, 8);
+                g.text(b", solo lectura, y el ORACULO la releyo por las tablas\n");
             }
             Ok(v) if op == bmo::IOMMU_OP_E2_APAGAR => {
                 g.with_ink(INK_GOOD);

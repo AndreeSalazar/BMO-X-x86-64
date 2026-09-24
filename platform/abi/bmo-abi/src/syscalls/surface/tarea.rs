@@ -629,6 +629,12 @@ pub const IOMMU_OP_VER_GPU: u64 = 0x04;
 pub const IOMMU_OP_E2_ENCENDER: u64 = 0x05;
 /// E2 apagado: el aviso quitado y el Bus Master retirado. `Ok(1)` si estaba.
 pub const IOMMU_OP_E2_APAGAR: u64 = 0x06;
+/// M0d: la 3060 TRADUCIDA por su dominio (vacio al principio: sigue sin ver
+/// nada, pero por el camino que despues presta). `Ok` lleva `us | bdf << 32`.
+pub const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
+/// M0d: prestarle la pagina de prueba, SOLO LECTURA, en 0x10000000. Pide la
+/// 3060 TRADUCIDA. `Ok` lleva la direccion fisica de la pagina.
+pub const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -647,6 +653,14 @@ pub const IOMMU_NO_SIN_CABEZA: u32 = 9;
 pub const IOMMU_NO_SIN_VECTOR: u32 = 10;
 /// E2: la pantalla no acepto el aviso (se releyo y no estaba).
 pub const IOMMU_NO_E2_NO_ARMA: u32 = 11;
+/// M0d: no hubo paginas contiguas para las tablas del dominio de la 3060.
+pub const IOMMU_NO_SIN_AREA: u32 = 12;
+/// M0d: prestar pide la 3060 TRADUCIDA (`gpu traducir`).
+pub const IOMMU_NO_NO_TRADUCIDA: u32 = 13;
+/// M0d: el prestamo no se hizo (ya prestado, o sin tablas).
+pub const IOMMU_NO_PRESTAMO: u32 = 14;
+/// M0d: el oraculo no vio lo prestado al releer: se quito.
+pub const IOMMU_NO_RELEIDA: u32 = 15;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

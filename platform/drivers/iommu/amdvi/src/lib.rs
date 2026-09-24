@@ -30,6 +30,8 @@
 
 /// Las tablas que la IOMMU lee de la RAM, armadas y probadas aqui (M0b).
 pub mod tablas;
+/// Las tablas de pagina de un dominio: lo que ve un aparato TRADUCIDO (M0d).
+pub mod paginas;
 
 // -- Los registros (MMIO) ----------------------------------------------------
 
