@@ -706,6 +706,11 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     if d & bmo::DESPIERTO_RISCV_ACTIVO != 0 {
         s.with_ink(INK_GOOD);
         s.text(b"el RISC-V del GSP esta ACTIVO: el GSP-RM de la 570.144 corre en tu 3060 ");
+    } else if d & bmo::DESPIERTO_VISTO != 0 && super::gspvaciar::espera_secuenciador() {
+        // ** Metal 24-09 08:14: salia en rojo "YA NO lo esta", y es lo que
+        // toca: el GSP-RM se para solo tras pedir el secuenciador (L0c4b2).
+        s.with_ink(INK_GOOD);
+        s.text(b"el RISC-V se vio activo y se PARO SOLO, como debe: espera al secuenciador ");
     } else if d & bmo::DESPIERTO_VISTO != 0 {
         s.with_ink(INK_ERR);
         s.text(b"el RISC-V se vio activo y YA NO lo esta ");
@@ -732,7 +737,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
     }
-    if d & bmo::DESPIERTO_RISCV_PARADO != 0 {
+    if d & bmo::DESPIERTO_RISCV_PARADO != 0 && !super::gspvaciar::espera_secuenciador() {
         s.with_ink(INK_ERR);
         s.text(b"; el RISC-V dice PARADO");
     }

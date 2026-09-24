@@ -34,7 +34,10 @@ const MAX_MENSAJES: u32 = 1024;
 const MAX_TIPOS: usize = 6;
 /// Textos distintos que se guardan, y lo que mide cada uno como mucho.
 const MAX_TEXTOS: usize = 6;
-const LARGO_TEXTO: usize = 48;
+const LARGO_TEXTO: usize = 96;
+/// Menos que esto es ruido: bytes binarios que caen en ASCII (metal 24-09
+/// 08:14: "@Gw_", "`dH`" junto al ASSERT de verdad).
+const MINIMO_TEXTO: usize = 6;
 /// De los datos de cada mensaje, lo que se mira buscando texto.
 const MIRADO: usize = 2048;
 /// Lo consumido, crudo, a disco: hasta 128 paginas.
@@ -95,7 +98,7 @@ fn apuntar_textos(r: &mut Resumen, pagina: u64, m: &Mensaje) {
     }
     let mut t = [(0usize, 0usize); 8];
     let hay = rpc::textos(&d[..n], &mut t);
-    for &(a, b) in &t[..hay] {
+    for &(a, b) in t[..hay].iter().filter(|&&(a, b)| b - a >= MINIMO_TEXTO) {
         let dicho = &d[a..b.min(a + LARGO_TEXTO)];
         if r.textos[..r.n_textos].iter().any(|x| &x.0[..x.1] == dicho) {
             continue;
@@ -210,6 +213,14 @@ pub(crate) fn vaciar() -> Result<u64, u32> {
     Ok(r.consumidos as u64)
 }
 
+/// **El GSP espera al secuenciador?** El primero que pide es
+/// `GSP_RUN_CPU_SEQUENCER`: entonces el RISC-V PARADO es lo que toca -- el
+/// GSP-RM se para a si mismo hasta que la CPU corra el secuenciador, que acaba
+/// con `CORE_RESUME` (nova-core `gsp/sequencer.rs`).
+pub(crate) fn espera_secuenciador() -> bool {
+    resumen().map_or(false, |r| matches!(r.pide, Some((rpc::SECUENCIADOR, _))))
+}
+
 /// Lo pregunta `save mode`: se vacio sin que nada saliera mal.
 pub(crate) fn vaciada() -> bool {
     resumen().map_or(false, |r| !r.malo && r.negado == 0)
@@ -262,28 +273,19 @@ pub(crate) fn fila(s: &mut Output) {
         s.text(if r.guardada { b"   -> datos/gspnocat.bin" as &[u8] } else { b"   (NO se pudo guardar)" });
     }
     s.byte(b'\n');
-    // Lo que traian en claro, de dos en dos.
+    // Lo que traian en claro, uno por fila: son nombres largos de registro.
     for (i, t) in r.textos[..r.n_textos].iter().enumerate() {
-        if i % 2 == 0 {
-            if i > 0 {
-                s.byte(b'\n');
-            }
-            campo(s, b"nocat");
-        } else {
-            s.text(b",  ");
-        }
+        campo(s, b"nocat");
         s.with_ink(INK_ECHO);
         s.byte(b'"');
         s.text(&t.0[..t.1]);
         s.byte(b'"');
         s.with_ink(INK_PLAIN);
-    }
-    if r.sobran > 0 {
-        s.text(b"  y ");
-        s.dec(r.sobran as u64);
-        s.text(b" textos mas");
-    }
-    if r.n_textos > 0 {
+        if i + 1 == r.n_textos && r.sobran > 0 {
+            s.text(b"  y ");
+            s.dec(r.sobran as u64);
+            s.text(b" textos mas");
+        }
         s.byte(b'\n');
     }
     campo(s, b"pide");

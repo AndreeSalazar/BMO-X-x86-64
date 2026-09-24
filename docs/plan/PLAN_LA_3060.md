@@ -423,9 +423,14 @@ MEDIDO, no el dicho.
    L0c4b1 VACIAR la cola del GSP: leer cada mensaje, decir lo que traen
         los NOCAT y mover el puntero de lectura de la CPU, para que el GSP
         pueda seguir hablando -- y ver que dice cuando ya cabe. `gpu
-        vaciar` y el paso `vaciar`               [en codigo, 24-09]
-   L0c4b2 contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
-        su GSP_INIT_DONE
+        vaciar` y el paso `vaciar`               [VISTO en metal, 24-09 08:14]
+   L0c4b2 contestarle hasta su GSP_INIT_DONE, como nova-core:
+     L0c4b2a ESCRIBIR en la cola de la CPU: SetSystemInfo y SetRegistry,
+        justo tras ver el RISC-V activo (antes del secuenciador)
+     L0c4b2b LEER el secuenciador que pide el GSP: sus ordenes, dichas
+        una a una, sin correr ninguna
+     L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
+        y esperar GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -642,6 +647,29 @@ desde el `readPtr`: cada informativo con su firma y su suma se cuenta, se copia
 crudo a `datos/gspnocat.bin` y SOLO DESPUES se devuelve su hueco; el primero que
 pide algo se queda sin tocar. Vaciada, espera hasta 3 s a que el GSP diga mas
 (10 s en total) y sigue.
+
+**L0c3b en el metal (24-09, 07:48): el booter devolvio 0x15.** MAILBOX0 del
+SEC2 = 0x15 donde tres veces antes dio 0, tras REINICIAR sin cortar la
+corriente con el GSP-RM de antes corriendo (nunca se apago con `booter_unload`).
+FWSEC si corrio y el booter llego a extender la WPR2: fallo despues. Se anadio
+MAILBOX1 a la fila `despierto`. Tras APAGAR del todo (08:14), el booter dio 0 y 0
+y el GSP desperto: la regla, de momento, es apagar entre pruebas.
+
+**L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
+`vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
+x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.
+Devolverle los huecos funciono -- el GSP siguio escribiendo 773 mas. Los NOCAT
+traen en claro `ASSERT` y `NV_PGC6_AON_SECURE_SCRATCH_GROUP_05_0_GFW_BOOT_P...`
+(el registro del progreso del arranque de la VBIOS, `0x118234`); el resto era
+ruido binario, y ahora se filtra (6 caracteres o mas, hasta 96). Sin descifrar
+todavia: los crudos estan en `datos/gspnocat.bin`. La fila `despierto` decia en
+rojo "el RISC-V YA NO esta activo, PARADO": es lo que toca. El GSP-RM se para
+SOLO tras pedir el secuenciador, y la ultima orden de este, `CORE_RESUME`,
+resetea el GSP, le vuelve a dar sus argumentos, arranca el SEC2-RTOS y espera a
+que el GSP-RM vuelva (`gsp/sequencer.rs` de nova-core). Ahora la fila lo dice en
+verde. Y nova-core manda SetSystemInfo y SetRegistry ANTES de eso, al ver el
+RISC-V activo: BMO-X no los mando, y el GSP siguio sin ellos -- quiza los 835
+ASSERT sean eso. Por eso L0c4b2 se parte en tres.
 
 **Como se sabe:** la fila `vacia` dice cuantos consumidos y de que tipo, y en
 que pagina lee ahora la CPU; `nocat`, los textos en claro de los NOCAT; y
