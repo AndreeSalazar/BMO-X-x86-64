@@ -32,6 +32,8 @@ pub(crate) mod gspobjeto;
 pub(crate) mod gspsalud;
 /// `gpu vram`: la CPU escribe en la VRAM por PRAMIN (L1c2, 24-09).
 pub(crate) mod gspvram;
+/// `gpu motores`: que motores tiene la 3060 y el de copia del canal (L1d2a, 24-09).
+pub(crate) mod gspmotores;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

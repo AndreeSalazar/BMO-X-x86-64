@@ -360,7 +360,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspvram::tramo_puesto,
         dar: super::gspvram::mapear_tramo,
         pide: Some(b"directorio"),
-        consejo: b"`gpu`: la fila `tramo` dice 20 de 20 entradas releidas -- lo siguiente es L1d2, el canal GPFIFO",
+        consejo: b"`gpu`: la fila `tramo` dice 20 de 20 entradas releidas -- lo siguiente es `motores`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"motores",
+        que: b"QUE MOTORES tiene la 3060 y cuanto mide el bufer de metodos de un canal: dos preguntas, sin cambiar nada (L1d2a)",
+        hecho: super::gspmotores::hecho,
+        dar: super::gspmotores::preguntar,
+        pide: Some(b"objetos"),
+        consejo: b"`gpu`: la fila `motores` dice GR0, varios COPY y el de copia del canal; `metodos`, los bytes de su bufer -- lo siguiente es L1d2b, el canal",
         repinta: false,
     },
 ];

@@ -47,13 +47,19 @@ pub enum Control {
     Pstate,
     /// L1c3: la raiz de NUESTRO espacio de direcciones, en nuestra VRAM.
     Directorio,
+    /// L1d2: que motores tiene la 3060 (`GET_ENGINES_V2`): de aqui sale el de
+    /// COPIA sobre el que ira el canal.
+    Motores,
+    /// L1d2: cuanto mide el bufer de metodos de un canal de copia
+    /// (`CE_GET_FAULT_METHOD_BUFFER_SIZE`).
+    Metodos,
 }
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 2] = [Control::Pstate, Control::Directorio];
+    pub const TODOS: [Control; 4] = [Control::Pstate, Control::Directorio, Control::Motores, Control::Metodos];
 
     pub fn de(n: u64) -> Option<Control> {
         Self::TODOS.get(n as usize).copied()
@@ -64,6 +70,8 @@ impl Control {
         match self {
             Control::Pstate => (0x2080_2068, 4, SUBDISPOSITIVO),
             Control::Directorio => (0x0080_1813, 32, DISPOSITIVO),
+            Control::Motores => (0x2080_0170, 4 + 4 * MAX_MOTORES, SUBDISPOSITIVO),
+            Control::Metodos => (0x2080_2A08, 4, SUBDISPOSITIVO),
         }
     }
 
@@ -71,7 +79,7 @@ impl Control {
     /// directorio no: va con su pagina a cero delante, y una vez
     /// (`IOMMU_OP_GPU_DIRECTORIO`).
     pub const fn pregunta(self) -> bool {
-        matches!(self, Control::Pstate)
+        matches!(self, Control::Pstate | Control::Motores | Control::Metodos)
     }
 
     /// **Los parametros, exactos**: los que se mandan y los unicos que el
@@ -123,6 +131,46 @@ pub fn leer(d: &[u8]) -> Option<Respuesta> {
     Some(Respuesta { cmd: u(8), estado: u(12), valor: u(CABECERA_CONTROL) })
 }
 
+/// `NV2080_GPU_MAX_ENGINES_LIST_SIZE`.
+pub const MAX_MOTORES: usize = 0x54;
+
+/// Los motores de la respuesta de `Motores`: cuantos, y sus tipos
+/// (`NV2080_ENGINE_TYPE_*`). `d` son los datos del mensaje.
+pub fn motores(d: &[u8]) -> ([u32; MAX_MOTORES], usize) {
+    let mut m = [0u32; MAX_MOTORES];
+    let p = &d[CABECERA_CONTROL.min(d.len())..];
+    if p.len() < 4 {
+        return (m, 0);
+    }
+    let n = (u32::from_le_bytes([p[0], p[1], p[2], p[3]]) as usize).min(MAX_MOTORES).min((p.len() - 4) / 4);
+    for (k, x) in m.iter_mut().enumerate().take(n) {
+        let o = 4 + 4 * k;
+        *x = u32::from_le_bytes([p[o], p[o + 1], p[o + 2], p[o + 3]]);
+    }
+    (m, n)
+}
+
+/// `NV2080_ENGINE_TYPE_COPY0`: los de copia son 0x09..=0x12.
+pub const COPIA0: u32 = 0x09;
+
+/// El nombre de un `NV2080_ENGINE_TYPE_*` (`cl2080_notification.h`), y su
+/// numero dentro de su familia.
+pub fn motor(t: u32) -> (&'static [u8], u32) {
+    match t {
+        0x01..=0x08 => (b"GR", t - 0x01),
+        0x09..=0x12 => (b"COPY", t - 0x09),
+        0x13 => (b"NVDEC", 0),
+        0x14..=0x1A => (b"NVDEC", t - 0x13),
+        0x1B => (b"NVENC", 0),
+        0x1C..=0x1D => (b"NVENC", t - 0x1B),
+        0x22 => (b"SW", 0),
+        0x23 => (b"TSEC", 0),
+        0x26 => (b"SEC2", 0),
+        0x33 => (b"OFA", 0),
+        _ => (b"motor", t),
+    }
+}
+
 /// **El P-state** de la mascara: `Some(0)` es P0 (lo mas rapido), `Some(8)` P8
 /// (reposo). `None` si no dice ninguno o dice mas de uno.
 pub fn pstate(mascara: u32) -> Option<u8> {
@@ -161,7 +209,11 @@ mod pruebas {
         assert_eq!(pstate(0), None);
         assert_eq!(pstate(0x101), None);
         assert_eq!(Control::de(1), Some(Control::Directorio));
-        assert_eq!(Control::de(2), None);
+        assert_eq!(Control::de(2), Some(Control::Motores));
+        assert_eq!(Control::de(4), None);
+        assert!(Control::Motores.pregunta() && Control::Metodos.pregunta() && !Control::Directorio.pregunta());
+        // El contrato compara los parametros en un bufer de 512 B.
+        assert!(Control::TODOS.iter().all(|c| c.forma().1 <= 512));
     }
 
     #[test]
@@ -178,5 +230,22 @@ mod pruebas {
         assert_eq!(u(24 + 12), 0, "VIDMEM");
         assert_eq!(u(24 + 16), ESPACIO);
         assert!(p[20..32].iter().all(|&b| b == 0), "chId, subDeviceId y pasid a cero");
+    }
+
+    #[test]
+    fn los_motores_de_la_respuesta() {
+        let mut d = [0u8; CABECERA_CONTROL + 4 + 4 * MAX_MOTORES];
+        let lista = [0x01u32, 0x09, 0x0A, 0x0B, 0x13, 0x1B, 0x22];
+        d[CABECERA_CONTROL..CABECERA_CONTROL + 4].copy_from_slice(&(lista.len() as u32).to_le_bytes());
+        for (k, t) in lista.iter().enumerate() {
+            let o = CABECERA_CONTROL + 4 + 4 * k;
+            d[o..o + 4].copy_from_slice(&t.to_le_bytes());
+        }
+        let (m, n) = motores(&d);
+        assert_eq!(&m[..n], &lista);
+        assert_eq!(motor(0x0B), (b"COPY" as &[u8], 2));
+        assert_eq!(motor(0x01), (b"GR" as &[u8], 0));
+        assert_eq!(motor(0x1B), (b"NVENC" as &[u8], 0));
+        assert_eq!(motores(&d[..10]).1, 0);
     }
 }

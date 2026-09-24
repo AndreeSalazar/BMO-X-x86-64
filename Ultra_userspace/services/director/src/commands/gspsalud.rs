@@ -11,7 +11,7 @@
 //! Los VATIOS de la 3060 no salen aqui, y no por olvido: la orden del RM que
 //! los da no la publica NVIDIA (ver `bmo_gpu_ga10x::salud`).
 
-use bmo_gpu_ga10x::control::{self, CABECERA_CONTROL, GSP_RM_CONTROL};
+use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use bmo_gpu_ga10x::salud;
 use bmo_userland as bmo;
 
@@ -22,18 +22,37 @@ use crate::desktop::Desktop;
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
-#[derive(Clone, Copy, Default)]
-struct Pstate {
-    numero: u32,
-    r: Option<control::Respuesta>,
-    resultado: u32,
-    espera_us: u64,
-    no: u32,
+/// **Una orden de control contestada**: su respuesta, el `rpc_result`, lo que
+/// tardo y el numero de la RPC.
+#[derive(Clone, Copy)]
+pub(crate) struct Contestada {
+    pub r: control::Respuesta,
+    pub resultado: u32,
+    pub espera_us: u64,
+    pub numero: u32,
 }
 
-static mut PSTATE: Option<Pstate> = None;
+impl Contestada {
+    /// NV_OK en los dos sitios donde el RM lo dice.
+    pub(crate) fn bien(&self) -> bool {
+        self.r.estado == 0 && self.resultado == 0
+    }
+}
 
-fn ultimo() -> Option<Pstate> {
+/// **Preguntar `c`** (una de las PREGUNTAS de `control::Control`) y esperar
+/// su respuesta: los datos quedan en `d`, que mide la cabecera y los
+/// parametros. `Err(motivo)` si no salio o no llego.
+pub(crate) fn controlar(c: Control, d: &mut [u8]) -> Result<Contestada, u32> {
+    let que = Control::TODOS.iter().position(|&k| k == c).unwrap_or(0) as u64;
+    let numero = (bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_CONTROL, que)? >> 32) as u32;
+    let (m, espera_us) = esperar(GSP_RM_CONTROL, d, &mut Otros::default())?;
+    let r = control::leer(d).ok_or(NO_CONTROL_NEGADO)?;
+    Ok(Contestada { r, resultado: m.resultado, espera_us, numero })
+}
+
+static mut PSTATE: Option<Result<Contestada, u32>> = None;
+
+fn ultimo() -> Option<Result<Contestada, u32>> {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde sus ordenes.
     unsafe { *core::ptr::addr_of!(PSTATE) }
 }
@@ -43,40 +62,22 @@ pub(crate) const NO_CONTROL_NEGADO: u32 = 0x123;
 
 /// **Preguntar el P-state.** `Ok(la mascara)`.
 pub(crate) fn preguntar() -> Result<u64, u32> {
-    let mut u = Pstate::default();
-    let mut otros = Otros::default();
-    match bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_CONTROL, 0) {
-        Ok(v) => u.numero = (v >> 32) as u32,
-        Err(m) => u.no = m,
-    }
-    if u.no == 0 {
-        let mut d = [0u8; CABECERA_CONTROL + 4];
-        match esperar(GSP_RM_CONTROL, &mut d, &mut otros) {
-            Ok((m, us)) => {
-                u.r = control::leer(&d);
-                u.resultado = m.resultado;
-                u.espera_us = us;
-            }
-            Err(no) => u.no = no,
-        }
-    }
+    let u = controlar(Control::Pstate, &mut [0u8; CABECERA_CONTROL + 4]);
     // SAFETY: como `ultimo`.
     unsafe { *core::ptr::addr_of_mut!(PSTATE) = Some(u) };
-    match u.r {
-        _ if u.no != 0 => Err(u.no),
-        Some(r) if r.estado == 0 && u.resultado == 0 => {
-            if let Some(k) = control::pstate(r.valor) {
-                crate::scene::lateral_gsp::pstate(k);
-            }
-            Ok(r.valor as u64)
-        }
-        _ => Err(NO_CONTROL_NEGADO),
+    let c = u?;
+    if !c.bien() {
+        return Err(NO_CONTROL_NEGADO);
     }
+    if let Some(k) = control::pstate(c.r.valor) {
+        crate::scene::lateral_gsp::pstate(k);
+    }
+    Ok(c.r.valor as u64)
 }
 
 /// Lo pregunta `save mode`: el P-state ya se contesto.
 pub(crate) fn hecho() -> bool {
-    ultimo().map_or(false, |u| u.no == 0 && u.resultado == 0 && matches!(u.r, Some(r) if r.estado == 0))
+    matches!(ultimo(), Some(Ok(c)) if c.bien())
 }
 
 /// `gpu salud`.
@@ -156,33 +157,36 @@ pub(crate) fn fila(s: &mut Output) {
 
     if let Some(u) = ultimo() {
         campo(s, b"pstate");
-        if u.no != 0 {
-            s.with_ink(INK_ERR);
-            s.text(b"NO: ");
-            s.text(super::iommu::motivo(u.no));
-        } else if let Some(r) = u.r {
-            let bien = r.estado == 0 && u.resultado == 0;
-            s.with_ink(if bien { INK_GOOD } else { INK_ERR });
-            match control::pstate(r.valor) {
-                Some(k) if bien => {
-                    s.byte(b'P');
-                    s.dec(k as u64);
-                    s.text(if k == 0 { b" (a todo lo que da)" as &[u8] } else if k >= 8 { b" (reposo)" } else { b"" });
-                }
-                _ => {
-                    s.text(bmo_gpu_ga10x::objeto::estado(r.estado));
-                    s.text(b" (0x");
-                    s.hex(r.estado as u64, 2);
-                    s.byte(b')');
-                }
+        match u {
+            Err(m) => {
+                s.with_ink(INK_ERR);
+                s.text(b"NO: ");
+                s.text(super::iommu::motivo(m));
             }
-            s.with_ink(INK_PLAIN);
-            s.text(b"   PERF_GET_CURRENT_PSTATE en ");
-            s.dec(u.espera_us / 1000);
-            s.text(b" ms (numero ");
-            s.dec(u.numero as u64);
-            s.text(b"), mascara 0x");
-            s.hex(r.valor as u64, 4);
+            Ok(c) => {
+                let (r, bien) = (c.r, c.bien());
+                s.with_ink(if bien { INK_GOOD } else { INK_ERR });
+                match control::pstate(r.valor) {
+                    Some(k) if bien => {
+                        s.byte(b'P');
+                        s.dec(k as u64);
+                        s.text(if k == 0 { b" (a todo lo que da)" as &[u8] } else if k >= 8 { b" (reposo)" } else { b"" });
+                    }
+                    _ => {
+                        s.text(bmo_gpu_ga10x::objeto::estado(r.estado));
+                        s.text(b" (0x");
+                        s.hex(r.estado as u64, 2);
+                        s.byte(b')');
+                    }
+                }
+                s.with_ink(INK_PLAIN);
+                s.text(b"   PERF_GET_CURRENT_PSTATE en ");
+                s.dec(c.espera_us / 1000);
+                s.text(b" ms (numero ");
+                s.dec(c.numero as u64);
+                s.text(b"), mascara 0x");
+                s.hex(r.valor as u64, 4);
+            }
         }
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');

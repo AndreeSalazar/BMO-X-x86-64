@@ -895,8 +895,14 @@ vuelta.
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
           L1d0  leer la raiz tras el RM (fila `raiz`)  [VISTO 24-09 12:37]
           L1d1  mapear 16 paginas propias bajo ella (`tramo`)
-                                                [en codigo, 24-09]
+                                                [VISTO 24-09 12:47]
           L1d2  el canal AMPERE_CHANNEL_GPFIFO_A, su USERD y su GPFIFO
+                L1d2a  que motores hay y cuanto mide el bufer de
+                       metodos (`motores`)      [en codigo, 24-09]
+                L1d2b  el canal: su ALLOC con instancia, USERD y
+                       GPFIFO en el tramo, y el bufer de metodos
+                L1d2c  BIND al de copia y GPFIFO_SCHEDULE
+                L1d2d  el token de trabajo y el timbre
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
 ```
 
@@ -1090,6 +1096,20 @@ cero, las 16 PTE y las 4 PDE de la hoja a la raiz, RELEIDAS, y solo si la
 entrada de la raiz sigue vacia. Kernel `IOMMU_OP_GPU_TRAMO` (0x20, motivo 61),
 una vez por arranque; paso `tramo` de `save mode` (25), fila `tramo`. Ahi
 viviran el GPFIFO, el USERD, el bloque de instancia y los datos de L1d.
+
+**L1d1 en el metal (24-09, 12:47): LA GPU YA VE TU VRAM.** `tramo: VA
+0x200000000 -> VRAM 0x004200000, 16 paginas: 20 de 20 entradas releidas`.
+
+**L1d2a (en codigo): lo que el canal necesita saber antes de nacer.** Dos
+PREGUNTAS mas en el contrato (`control::Control`), las dos sobre nuestro
+subdispositivo y de solo lectura: `Motores` (`GET_ENGINES_V2`, 0x20800170,
+340 B: cuantos y sus `NV2080_ENGINE_TYPE_*`) y `Metodos`
+(`CE_GET_FAULT_METHOD_BUFFER_SIZE`, 0x20802A08: los bytes del bufer de metodos
+que el RM le pide a un canal de copia). El bufer de comparacion del contrato
+paso de 64 a 512 B (con su prueba). En el escritorio, `gspsalud::controlar`
+sirve a toda pregunta (el P-state, ahora, tambien); `gspmotores`: la orden
+`gpu motores`, el paso `motores` de `save mode` (26) y las filas `motores`
+(la lista y el de copia elegido, el primer COPYn) y `metodos`.
 
 Y la caja: `buscar` / Ctrl+F sobre Ejecutar (sobre una app sigue siendo su
 pantalla completa): la coincidencia en medio de la ventana y resaltada, las
