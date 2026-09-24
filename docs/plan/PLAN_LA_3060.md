@@ -1063,6 +1063,17 @@ en 31:16) y la entrada de NUESTRO canal en la CHRAM (ENABLE, PENDING, BUSY,
 los FAULTED: `dev_runlist.h` de OpenRM), sacando la direccion el kernel. Filas
 `listas` y `en la 3060`.
 
+**14:47: LA LISTA.** `listas: GR0=L0 COPY0=L0 COPY1=L0 COPY2=L1 COPY3=L2
+COPY4=L8`: COPY2 tiene su PROPIA lista (la 1), no es una GRCE. Pero la ficha
+del RM era 0x1 = lista 0 << 16 | chid 1: el timbre llamaba a la lista de GR0,
+no a la de nuestro canal. nouveau sobre el GSP-RM en GA1xx (`rm/ga1xx.c`:
+`tu102_chan_doorbell_handle`) escribe `lista << 16 | chid` con la lista de la
+TABLA de aparatos: para nosotros 0x00010001. Ahora `copiar` pregunta la
+tabla antes y usa ESE valor (`copia::timbre_de`); la ficha del RM solo si la
+tabla no contesta. Y un fallo nuestro: la fila `en la 3060` dijo "sin leer"
+porque `lista_legible` pedia 4 KiB y la base de la lista de COPY2 es
+0x00C00400; ahora 64 B.
+
 **Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
 `semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
 eso lo escribe la CPU. Si el semaforo no llega, lo primero a mirar es si

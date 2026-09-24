@@ -300,10 +300,22 @@ pub const fn registro_legible(reg: u32) -> bool {
 pub const LISTA_CHRAM: u32 = 0x004;
 pub const LISTA_TIMBRE: u32 = 0x008;
 
-/// Una base de lista que se deja mirar: alineada a 4 KiB, dentro de los 16 MiB
-/// de BAR0 y no cero (la da el RM en la tabla de aparatos).
+/// Una base de lista que se deja mirar: alineada a 64 B, dentro de los 16 MiB
+/// de BAR0 y no cero (la da el RM en la tabla de aparatos). ** Pedia 4 KiB y
+/// el metal (24-09 14:47) trajo la de COPY2 en 0x00C00400: la fila decia
+/// "sin leer".
 pub const fn lista_legible(base: u32) -> bool {
-    base != 0 && base % 0x1000 == 0 && base < 0x0100_0000
+    base != 0 && base % 0x40 == 0 && base < 0x0100_0000
+}
+
+/// **Lo que se escribe en el timbre** para `chid` en la lista `lista`:
+/// `lista << 16 | chid`, como `tu102_chan_doorbell_handle` de nouveau, que es
+/// el que usa GA1xx sobre el GSP-RM (`rm/ga1xx.c`), con la lista de la TABLA
+/// de aparatos (`ENGINE_INFO_TYPE_RUNLIST`). ** El metal (24-09 14:47): la
+/// tabla pone COPY2 en la lista 1 y la ficha del RM decia 0x1 (lista 0, la
+/// de GR0): el timbre llamaba a otra lista.
+pub const fn timbre_de(lista: u32, chid: u32) -> u32 {
+    (lista & 0x7F) << 16 | (chid & 0xFFF)
 }
 
 /// La direccion en BAR0 de la entrada de `chid` en la CHRAM, de la config.
@@ -453,6 +465,8 @@ mod pruebas {
     #[test]
     fn la_lista_de_ejecucion_solo_se_mira() {
         assert!(lista_legible(0x0080_4000) && !lista_legible(0) && !lista_legible(0x0080_4004));
+        assert!(lista_legible(0x00C0_0400), "la de COPY2 en el metal (24-09 14:47)");
+        assert_eq!(timbre_de(1, 1), 0x0001_0001);
         assert!(!lista_legible(0x0100_0000));
         assert_eq!(chram_de(0x0080_6007, 1), Some(0x0080_6004), "los 4 bits bajos son el numero de canales");
         assert_eq!(chram_de(0x0000_0007, 1), None);

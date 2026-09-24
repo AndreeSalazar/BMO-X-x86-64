@@ -64,6 +64,8 @@ struct Canal {
     copiador: Option<Result<Pedido, u32>>,
     /// L1d3: el `Ok` empaquetado de la copia, o el NO.
     copia: Option<Result<u64, u32>>,
+    /// Lo que se escribio en el timbre, y si salio de la tabla de aparatos.
+    timbre: Option<(u32, bool)>,
     /// L1d3, si la copia no salio: las palabras de `copia::DIAGNOSTICO`
     /// (`None` la que no se pudo leer), y lo que dijo el GSP-RM despues.
     diag: Option<([Option<u32>; copia::DIAGNOSTICO.len()], Otros, Reloj)>,
@@ -111,6 +113,7 @@ pub(crate) fn pedir() -> Result<u64, u32> {
         c.copiador = None;
         c.copia = None;
         c.diag = None;
+        c.timbre = None;
     });
     match r {
         Ok(p) if p.bien() => Ok(canal::CANAL as u64),
@@ -220,12 +223,26 @@ pub(crate) fn copiador_listo() -> bool {
 
 /// **L1d2d y L1d3: la primera copia** -- el kernel prepara el tramo, pone
 /// GP_PUT, toca el timbre con la ficha y espera el semaforo.
+///
+/// ** Lo que se escribe en el timbre sale de la TABLA de aparatos (la lista
+/// de COPY2 << 16 | chid, como nouveau sobre el GSP-RM), no de la ficha del
+/// RM: el metal (24-09 14:47) dijo COPY2 en la lista 1 y la ficha 0x1, que es
+/// la lista 0. Si la tabla no contesta, se usa la ficha.
 pub(crate) fn copiar() -> Result<u64, u32> {
-    let r = match canal_().ficha {
-        Some(Ok(f)) if f.bien() => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_COPIA, f.r.valor as u64),
-        _ => Err(NO_COPIA_SIN_FICHA),
+    let ficha = match canal_().ficha {
+        Some(Ok(f)) if f.bien() => Some(f.r.valor),
+        _ => None,
     };
-    con(|c| c.copia = Some(r));
+    let de_la_tabla = listas().ok().and_then(|l| l.suya).map(|x| copia::timbre_de(x.lista, canal::CHID));
+    let valor = de_la_tabla.or(ficha);
+    let r = match valor {
+        Some(v) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_COPIA, v as u64),
+        None => Err(NO_COPIA_SIN_FICHA),
+    };
+    con(|c| {
+        c.copia = Some(r);
+        c.timbre = valor.map(|v| (v, de_la_tabla.is_some()));
+    });
     if !matches!(r, Ok(v) if copia::sana(v)) && !matches!(r, Err(NO_COPIA_SIN_FICHA)) {
         diagnosticar();
     }
@@ -605,6 +622,11 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(gp_get as u64);
                 if !lanzada {
                     s.text(b", la MMU no se invalido o el GP_PUT no se releyo: timbre SIN tocar");
+                }
+                if let Some((t, de_tabla)) = c.timbre {
+                    s.text(b"; timbre 0x");
+                    s.hex(t as u64, 8);
+                    s.text(if de_tabla { b" (la lista de COPY2 segun la tabla)" as &[u8] } else { b" (la ficha del RM)" });
                 }
                 s.with_ink(INK_ECHO);
                 s.text(b"   en ");
