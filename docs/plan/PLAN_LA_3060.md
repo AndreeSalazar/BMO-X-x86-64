@@ -362,6 +362,18 @@ Los escalones, cada uno con su prueba:
    M5e  UN TRIANGULO 3D con AMPERE_B en la pantalla
 ```
 
+**Por donde entra el BSF (24-09).** El sobre de `toolchain/lang/spirv/bsf`
+ya esta hecho para esto: "una maquina nueva es un numero nuevo; el formato no
+cambia" (`bsf::kind`). El SASS de SM86 sera un `kind` nuevo (hoy solo existe
+`X86_64_SCALAR = 1`), con su `abi` (lo que el QMD y el despacho esperan en
+vez de `init/main` de System V). M5d emite ESE objetivo EN EL ANFITRION, como
+S4 emite x86-64; en el Ryzen, VERRANO toma el codigo del anexo `0x09` ya
+traducido, comprobado por sus cinco capas, lo copia a la VRAM por el canal
+(L1d3) y lo despacha. La 3060 no traduce nada al arrancar: lo que el
+propietario pidio el 23-09 ("la GPU no pierde tiempo"), igual que BEF2 con
+la CPU. Y la misma interfaz (`ModuleView::check`, las ranuras en el orden
+del codigo) sirve para atar los buffers del QMD sin abrir el SPIR-V.
+
 **Bloquea:** M0 (el GR hace DMA), M3 (canales). **Como se sabe:** un
 sombreador del BSF (`platform/drivers/gpu/` cuando exista) corre EN LA 3060 y
 da los mismos bits que el oraculo del SOMBREADOR; y el triangulo se ve.

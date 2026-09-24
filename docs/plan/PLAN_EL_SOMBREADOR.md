@@ -423,6 +423,12 @@ en un bloque de `bmo_codigo_pedir`, lo SELLA y lo ejecuta sobre sus buffers.
 > que la salida de solo lectura se rechaza ANTES de despachar, y lo que tardo
 > abrir contra traducir.
 
+> **Y la 3060 (24-09).** Antes que la RX 9060 XT, el primer objetivo de GPU
+> del sobre sera el SASS de SM86 de la RTX 3060: un `kind` nuevo con su
+> `abi`, emitido en el anfitrion por M5d de
+> [`PLAN_LA_3060.md`](PLAN_LA_3060.md), y despachado por el canal que L1d
+> ya abrio. Ver alli "Por donde entra el BSF".
+
 El SPIR-V, su interfaz, su BLAKE3 y el x86-64 **ya traducido en el
 anfitrion**, en el anexo `0x09`. El kernel lo salta, como todo anexo que no
 conoce, y la firma lo cubre como a todos.
