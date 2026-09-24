@@ -664,7 +664,7 @@ y el GSP desperto: la regla, de momento, es apagar entre pruebas.
 
 **Otra vez 0x15 (24-09, 13:52), y ahora se ve ANTES.** Mismo cuadro que a las
 07:48: `despierto: +sec2 -os -riscv, MAILBOX0 del SEC2 0x00000015`, y la
-3060 con senales de venir caliente del arranque anterior (el de 13:35, con el
+3060 con pistas de venir caliente del arranque anterior (el de 13:35, con el
 GSP-RM y el canal vivos): el enlace PCIe ya en Gen3 SIN RM en este arranque
 (en frio sale en Gen1 y lo sube el RM) y el sensor termico sin su bit de
 validez. La repeticion de `save mode` puso encima el motivo 45 y tapo el
