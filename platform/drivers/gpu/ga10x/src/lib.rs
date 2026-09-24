@@ -74,6 +74,8 @@ pub mod salud;
 pub mod vram;
 /// L1d: el formato de la MMU (PDE, PTE, los cinco niveles) y mapear una pagina (2026-09-24).
 pub mod mmu;
+/// L1d2b: el canal AMPERE_CHANNEL_GPFIFO_A, sus 368 B exactos (2026-09-24).
+pub mod canal;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

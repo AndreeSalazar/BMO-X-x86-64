@@ -260,10 +260,12 @@ mod pruebas {
     }
 
     /// Una VRAM de mentira mas grande: 2 MiB desde `DIRECTORIO` (las tablas y
-    /// el tramo), por la ventana.
+    /// el tramo), por la ventana. En el MONTON: 2 MiB en la pila desbordan el
+    /// hilo de prueba de Windows (el `Box::new` de un array lo arma primero en
+    /// la pila, en debug).
     struct Grande {
         ventana: u32,
-        vram: [u32; 1 << 19],
+        vram: &'static mut [u32],
     }
 
     impl Registros for Grande {
@@ -287,13 +289,14 @@ mod pruebas {
     #[test]
     fn el_tramo_se_mapea_y_se_relee() {
         extern crate std;
-        let mut g = std::boxed::Box::new(Grande { ventana: 0xFFF0, vram: [0; 1 << 19] });
-        let (n, bien) = mapear_tramo(&mut *g).unwrap();
+        let vram = std::boxed::Box::leak(std::vec![0u32; 1 << 19].into_boxed_slice());
+        let mut g = Grande { ventana: 0xFFF0, vram };
+        let (n, bien) = mapear_tramo(&mut g).unwrap();
         assert_eq!((n, bien), (20, 20));
         assert_eq!(g.ventana, 0xFFF0, "la ventana, como estaba");
         // La raiz apunta a la PD2 del tramo, en VRAM.
-        assert_eq!(leer64(&mut *g, DIRECTORIO), crate::mmu::pde_vram(TABLAS[0]));
+        assert_eq!(leer64(&mut g, DIRECTORIO), crate::mmu::pde_vram(TABLAS[0]));
         // Con la raiz ya ocupada, no se pisa.
-        assert_eq!(mapear_tramo(&mut *g), None);
+        assert_eq!(mapear_tramo(&mut g), None);
     }
 }

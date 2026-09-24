@@ -13,8 +13,10 @@
 //!    SET_SYSTEM_INFO   72   antes de despertar (L0c4b2a)
 //!    SET_REGISTRY      73   antes de despertar (L0c4b2a)
 //!    GET_GSP_STATIC_INFO 65 L1a
-//!    GSP_RM_ALLOC     103   L1b: SOLO nuestro cliente, dispositivo y
-//!                           subdispositivo, con sus asas y clases
+//!    GSP_RM_ALLOC     103   L1b: SOLO nuestro cliente, dispositivo,
+//!                           subdispositivo y espacio, con sus asas y clases;
+//!                           y L1d2b: NUESTRO canal, con sus 368 B exactos
+//!                           (su memoria, su motor, su espacio)
 //!    GSP_RM_CONTROL    76   SOLO las ordenes de `control::Control`, cada
 //!                           una sobre SU objeto nuestro y con SUS parametros
 //!                           exactos (el directorio de L1c3: su direccion y
@@ -23,9 +25,10 @@
 //!
 //! Agrandar la lista es una decision, y se toma aqui: con su prueba.
 
+use crate::canal;
 use crate::control::{Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use crate::estatica::GET_GSP_STATIC_INFO;
-use crate::objeto::{Objeto, CLIENTE, GSP_RM_ALLOC};
+use crate::objeto::{Objeto, CABECERA_ALLOC, CLIENTE, GSP_RM_ALLOC};
 use crate::orden::{SET_REGISTRY, SET_SYSTEM_INFO};
 use crate::rpc::{Mensaje, CABECERA};
 
@@ -67,7 +70,15 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
                 let f = o.forma();
                 (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase)
             });
-            if nuestro {
+            let f = canal::forma();
+            let es_el_canal = (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase) && {
+                let mut esperados = [0u8; canal::MEDIDA];
+                canal::parametros(&mut esperados);
+                u32_de(d, 20) as usize == canal::MEDIDA
+                    && d.len() >= CABECERA_ALLOC + canal::MEDIDA
+                    && d[CABECERA_ALLOC..CABECERA_ALLOC + canal::MEDIDA] == esperados
+            };
+            if nuestro || es_el_canal {
                 Ok(h.funcion)
             } else {
                 Err(No::Objeto)
@@ -119,6 +130,33 @@ mod pruebas {
         }
         let n = orden::registro(&mut h, 1).unwrap();
         assert_eq!(permitido(&h[..n]), Ok(73));
+        let n = crate::canal::pedir(&mut h, 12).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(103));
+    }
+
+    #[test]
+    fn otro_canal_no_sale() {
+        let mut h = [0u8; 4096];
+        // Nuestro canal con OTRO motor (COPY0, una GRCE).
+        let n = crate::canal::pedir(&mut h, 13).unwrap();
+        h[CABECERA + CABECERA_ALLOC + 128] = 0x09;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // Con el bufer de metodos en otra IOVA.
+        let n = crate::canal::pedir(&mut h, 14).unwrap();
+        h[CABECERA + CABECERA_ALLOC + 219] ^= 0x01;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // Con la instancia en otra VRAM.
+        let n = crate::canal::pedir(&mut h, 15).unwrap();
+        h[CABECERA + CABECERA_ALLOC + 146] ^= 0x10;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // Privilegiado (bit 5 de flags).
+        let n = crate::canal::pedir(&mut h, 16).unwrap();
+        h[CABECERA + CABECERA_ALLOC + 20] |= 0x20;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // Un BIND a otro motor.
+        let n = control::pedir(&mut h, 17, Control::Atar).unwrap();
+        h[CABECERA + 24] = 0x01;
+        assert_eq!(permitido(&h[..n]), Err(No::Control));
     }
 
     #[test]

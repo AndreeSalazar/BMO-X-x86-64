@@ -19,6 +19,13 @@
 //!                                physAddress +0, numEntries +8, flags +12
 //!                                (APERTURE 0 = VIDMEM), hVASpace +16, chId
 //!                                +20, subDeviceId +24, pasid +28
+//!    BIND                        0xA06F0104, 4 B (L1d2c, sobre el CANAL):
+//!                                engineType -- COPY2
+//!    GPFIFO_SCHEDULE             0xA06F0103, 2 B (L1d2c, sobre el CANAL):
+//!                                bEnable 1, bSkipSubmit 0 (dos NvBool)
+//!    GET_WORK_SUBMIT_TOKEN       0xC36F0108, 4 B (L1d2d, sobre el CANAL):
+//!                                workSubmitToken, lo que se escribe en el
+//!                                timbre
 //! ```
 //!
 //! # El directorio de paginas (L1c3)
@@ -33,6 +40,7 @@
 //! Los parametros son FIJOS -- la direccion, el espacio -- y el contrato los
 //! compara byte a byte con estos: ni el kernel puede mandar otro directorio.
 
+use crate::canal::{CANAL, MOTOR};
 use crate::objeto::{CLIENTE, DISPOSITIVO, ESPACIO, SUBDISPOSITIVO};
 use crate::orden;
 
@@ -53,13 +61,28 @@ pub enum Control {
     /// L1d2: cuanto mide el bufer de metodos de un canal de copia
     /// (`CE_GET_FAULT_METHOD_BUFFER_SIZE`).
     Metodos,
+    /// L1d2c: atar el canal a su motor de copia (`BIND`). Cambia estado: no
+    /// es pregunta, tiene su puerta (`IOMMU_OP_GPU_CANAL_ORDEN`).
+    Atar,
+    /// L1d2c: meter el canal en su lista de ejecucion (`GPFIFO_SCHEDULE`).
+    Programar,
+    /// L1d2d: la FICHA del timbre (`GET_WORK_SUBMIT_TOKEN`). Pregunta.
+    Ficha,
 }
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 4] = [Control::Pstate, Control::Directorio, Control::Motores, Control::Metodos];
+    pub const TODOS: [Control; 7] = [
+        Control::Pstate,
+        Control::Directorio,
+        Control::Motores,
+        Control::Metodos,
+        Control::Atar,
+        Control::Programar,
+        Control::Ficha,
+    ];
 
     pub fn de(n: u64) -> Option<Control> {
         Self::TODOS.get(n as usize).copied()
@@ -72,6 +95,9 @@ impl Control {
             Control::Directorio => (0x0080_1813, 32, DISPOSITIVO),
             Control::Motores => (0x2080_0170, 4 + 4 * MAX_MOTORES, SUBDISPOSITIVO),
             Control::Metodos => (0x2080_2A08, 4, SUBDISPOSITIVO),
+            Control::Atar => (0xA06F_0104, 4, CANAL),
+            Control::Programar => (0xA06F_0103, 2, CANAL),
+            Control::Ficha => (0xC36F_0108, 4, CANAL),
         }
     }
 
@@ -79,7 +105,12 @@ impl Control {
     /// directorio no: va con su pagina a cero delante, y una vez
     /// (`IOMMU_OP_GPU_DIRECTORIO`).
     pub const fn pregunta(self) -> bool {
-        matches!(self, Control::Pstate | Control::Motores | Control::Metodos)
+        matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha)
+    }
+
+    /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
+    pub const fn del_canal(self) -> bool {
+        matches!(self, Control::Atar | Control::Programar)
     }
 
     /// **Los parametros, exactos**: los que se mandan y los unicos que el
@@ -92,6 +123,12 @@ impl Control {
             poner(p, 8, PD3_ENTRADAS);
             // flags 0: APERTURE VIDMEM.
             poner(p, 16, ESPACIO);
+        }
+        match self {
+            Control::Atar => poner(p, 0, MOTOR),
+            // bEnable = 1; bSkipSubmit = 0.
+            Control::Programar => p[0] = 1,
+            _ => {}
         }
         medida
     }
@@ -210,8 +247,11 @@ mod pruebas {
         assert_eq!(pstate(0x101), None);
         assert_eq!(Control::de(1), Some(Control::Directorio));
         assert_eq!(Control::de(2), Some(Control::Motores));
-        assert_eq!(Control::de(4), None);
+        assert_eq!(Control::de(6), Some(Control::Ficha));
+        assert_eq!(Control::de(7), None);
         assert!(Control::Motores.pregunta() && Control::Metodos.pregunta() && !Control::Directorio.pregunta());
+        assert!(Control::Ficha.pregunta() && !Control::Atar.pregunta() && !Control::Programar.pregunta());
+        assert!(Control::Atar.del_canal() && Control::Programar.del_canal() && !Control::Ficha.del_canal());
         // El contrato compara los parametros en un bufer de 512 B.
         assert!(Control::TODOS.iter().all(|c| c.forma().1 <= 512));
     }
@@ -230,6 +270,25 @@ mod pruebas {
         assert_eq!(u(24 + 12), 0, "VIDMEM");
         assert_eq!(u(24 + 16), ESPACIO);
         assert!(p[20..32].iter().all(|&b| b == 0), "chId, subDeviceId y pasid a cero");
+    }
+
+    #[test]
+    fn las_del_canal_van_al_canal_con_lo_fijo() {
+        for (c, cmd, medida, primero) in [
+            (Control::Atar, 0xA06F_0104u32, 4usize, 0x0Bu32),
+            (Control::Programar, 0xA06F_0103, 2, 1),
+            (Control::Ficha, 0xC36F_0108, 4, 0),
+        ] {
+            let mut h = [0xAAu8; 4096];
+            let n = pedir(&mut h, 12, c).unwrap();
+            assert_eq!(n, CABECERA + 24 + medida);
+            let d = &h[CABECERA..];
+            let u = |o: usize| u32::from_le_bytes(d[o..o + 4].try_into().unwrap());
+            assert_eq!((u(0), u(4), u(8), u(16)), (CLIENTE, CANAL, cmd, medida as u32));
+            let mut p = [0u8; 4];
+            p[..medida].copy_from_slice(&d[24..24 + medida]);
+            assert_eq!(u32::from_le_bytes(p), primero);
+        }
     }
 
     #[test]
