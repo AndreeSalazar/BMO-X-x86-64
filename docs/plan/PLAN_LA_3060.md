@@ -589,11 +589,32 @@ logica: elegir el vertice por su numero) cambiando `S2R` por
 (la posicion), con el control de `ptxas`. El de PIXEL: cuatro MOV, el color
 sale en R0..R3. Las dos SPH, con los bits de la especificacion (VertexId 351,
 OmapPosition 428..431; OmapTarget0 576..579 y ImapPositionW 191, como
-nouveau). El estado 3D entero en 159 palabras: T1a, el viewport, nada entre
+nouveau). El estado 3D entero en 159 palabras (168 tras el metal de las 17:56): T1a, el viewport, nada entre
 rasterizador y ROP, ningun atributo de memoria, los seis huecos del pipeline
 y `BEGIN / START 0, 3 / END`. El juez: con vertices enteros ningun centro de
 pixel cae en una arista (probado en los 262144), asi que la CPU sabe
 EXACTAMENTE cuales salen verdes. `gpu raster`, paso `raster`.
+
+**T1c EN EL METAL (24-09, 17:56): NO, y dice donde.** `raster`: 175744
+pixeles buenos, que son EXACTAMENTE los de fuera del triangulo (262144 -
+86400): la limpieza a magenta SI se hizo, y el dibujo NO volvio -- el
+semaforo sin pagar en 1 s y el canal de GR parado (el segundo `gpu raster`,
+0: el canal ya no avanzaba). El evento de la IOMMU en 0x20000000 es el de
+`frontera`, el de siempre. Arreglo, en dos partes:
+(1) lo que NVK pone SIEMPRE al empezar un contexto 3D y faltaba:
+`SET_SPH_VERSION` (3, la de las cabeceras), `SET_SHADER_LOCAL_MEMORY_WINDOW`,
+`SET_VERTEX_STREAM_SUBSTITUTE` (una pagina a cero) y
+`SET_RENDER_ENABLE_OVERRIDE`; 168 palabras. (2) si vuelve a colgarse, la
+fila `raster` lee la cola del GSP SIN moverla y saca sus avisos:
+`RC_TRIGGERED` (motor, canal, Xid: 13 excepcion de GR, 31 fallo de pagina,
+69 error de clase), `MMU_FAULT_QUEUED`, `OS_ERROR_LOG` con su texto.
+
+**T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
+64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
+CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,
+a[0x80] el color por vertice) y el de pixel `IPA.PASS R0..R2, a[0x80..0x88]`
+con la barrera 0 y el EXIT esperandola; SPH del pixel con el vector generico
+0 en ScreenLinear (3). Se ata cuando T1c salga.
 
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada

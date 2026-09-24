@@ -60,9 +60,11 @@ use crate::Registros;
 pub const INVALIDATE_SHADER_CACHES: u32 = 0x021c;
 pub const SET_RASTER_ENABLE: u32 = 0x037c;
 pub const SET_STREAM_OUTPUT: u32 = 0x0744;
+pub const SET_SHADER_LOCAL_MEMORY_WINDOW: u32 = 0x077c;
 pub const SET_VIEWPORT_SCALE_X0: u32 = 0x0a00;
 pub const SET_VIEWPORT_CLIP_HORIZONTAL0: u32 = 0x0c00;
 pub const SET_VERTEX_ARRAY_START: u32 = 0x0d74;
+pub const SET_VERTEX_STREAM_SUBSTITUTE_A: u32 = 0x0f84;
 pub const SET_SAMPLE_MASK_X0_Y0: u32 = 0x0fbc;
 pub const SET_VERTEX_ID_BASE: u32 = 0x1118;
 pub const SET_VERTEX_ATTRIBUTE_A0: u32 = 0x1160;
@@ -76,10 +78,12 @@ pub const SET_ZT_SELECT: u32 = 0x1538;
 pub const SET_ANTI_ALIAS: u32 = 0x15d0;
 pub const END: u32 = 0x1614;
 pub const BEGIN: u32 = 0x1618;
+pub const SET_SPH_VERSION: u32 = 0x16a4;
 pub const OGL_SET_CULL: u32 = 0x1918;
 pub const SET_VIEWPORT_PIXEL: u32 = 0x1924;
 pub const SET_VIEWPORT_SCALE_OFFSET: u32 = 0x192c;
 pub const SET_VIEWPORT_CLIP_CONTROL: u32 = 0x193c;
+pub const SET_RENDER_ENABLE_OVERRIDE: u32 = 0x1944;
 pub const SET_DEPTH_BOUNDS_TEST: u32 = 0x19bc;
 pub const SET_VERTEX_STREAM_A_FORMAT0: u32 = 0x1c00;
 pub const fn set_pipeline_shader(j: u32) -> u32 {
@@ -112,6 +116,16 @@ pub const PIXEL_VERDE: u32 = 0xFF00_FF00;
 pub const VS: u64 = PROGRAMA;
 pub const PS: u64 = PROGRAMA + 0x400;
 pub const REGISTROS: u32 = 16;
+
+/// `SET_SPH_VERSION`: la version de las cabeceras que se dan (3, la de
+/// nouveau y NVK), en `CURRENT` (15:0) y `OLDEST_SUPPORTED` (31:16).
+pub const VERSION_SPH: u32 = 3 << 16 | 3;
+/// La ventana de memoria local de la clase 3D (>> 8): la del computo,
+/// 0xFF_0000_0000, lejos de todo lo mapeado. Como NVK.
+pub const VENTANA_LOCAL: u32 = 0xFF00_0000;
+/// Una pagina a cero para los atributos sin flujo (la del QMD, que el
+/// rasterizador no usa): nunca se lee de la direccion 0.
+pub const SUSTITUTO: u64 = crate::sombreador::QMD;
 
 pub const PAGA_FIN: u32 = 0x3060_7A1C;
 pub const SEMAFORO_FIN: u64 = SEMAFOROS + 0xD0;
@@ -229,7 +243,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 159;
+pub const ORDENES: usize = 168;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -251,6 +265,15 @@ pub fn ordenes() -> [u32; ORDENES] {
     let mut e = Empuje { o: [0; ORDENES], n: PREFIJO };
     e.o[..PREFIJO].copy_from_slice(&td::ordenes()[..PREFIJO]);
     e.m(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
+    // ** Metal 24-09 17:56: sin esto el dibujo colgo el canal (el semaforo sin
+    // pagar). Lo que NVK pone SIEMPRE al empezar un contexto 3D y aqui
+    // faltaba: la version de SPH, la ventana local, el sustituto de los
+    // atributos, y dibujar pase lo que pase con el render condicional.
+    e.m(SET_SPH_VERSION, &[VERSION_SPH]);
+    e.m(SET_SHADER_LOCAL_MEMORY_WINDOW, &[VENTANA_LOCAL]);
+    let z = sombreador_va(SUSTITUTO);
+    e.m(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
+    e.m(SET_RENDER_ENABLE_OVERRIDE, &[1]);
     // El viewport 0: escala y desplazamiento de 256 (de -1..1 a 0..512), z
     // de 0 a 1, sin cruzar ejes; y su recorte, el destino entero.
     e.m(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
@@ -317,6 +340,7 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32) -> bool {
     let en = entrada(sombreador_va(EMPUJE), ORDENES as u32);
     escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
         && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
+        && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
         && escribir(r, VS, &vertice()) == PALABRAS_VS
         && escribir(r, PS, &pixel()) == PALABRAS_PS
         && escribir(r, EMPUJE, &o) == ORDENES
@@ -386,6 +410,11 @@ mod pruebas {
         // Lo ultimo: el semaforo, con la paga y el informe de T1a.
         assert_eq!(o[ORDENES - 5], cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4));
         assert_eq!((o[ORDENES - 2], o[ORDENES - 1]), (PAGA_FIN, td::INFORME));
+        // Lo que NVK pone siempre, antes del dibujo.
+        let v = o.iter().position(|&w| w == cabecera_en(0, SET_SPH_VERSION, 1)).unwrap();
+        assert_eq!(o[v + 1], 0x0003_0003);
+        let z = o.iter().position(|&w| w == cabecera_en(0, SET_VERTEX_STREAM_SUBSTITUTE_A, 2)).unwrap();
+        assert_eq!(((o[z + 1] as u64) << 32) | o[z + 2] as u64, sombreador_va(SUSTITUTO));
         // El dibujo: BEGIN(TRIANGLES), START 0 y 3 vertices, END.
         let b = o.iter().position(|&w| w == cabecera_en(0, BEGIN, 1)).unwrap();
         assert_eq!(o[b + 1], TRIANGULOS);

@@ -323,3 +323,125 @@ pub(crate) fn fila(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     super::datos::anotar(b"gpu gsp mensajes", r.mensajes as u64, b"");
 }
+
+// == M5 T1c: LO QUE EL GSP AVISO TRAS UN TRABAJO QUE NO VOLVIO (2026-09-24) ====
+//
+// ** Metal 24-09 17:56: el triangulo por el rasterizador limpio a magenta y se
+// quedo ahi: el semaforo sin pagar y el canal de GR parado. Si la 3060 hizo
+// una excepcion, el GSP-RM se lo cuenta a la CPU por su cola: `RC_TRIGGERED`
+// (motor, canal y el tipo -- el numero "Xid" de NVIDIA), `MMU_FAULT_QUEUED`,
+// `OS_ERROR_LOG` (con el texto del error). Nadie los consume aqui, asi que
+// siguen en la cola: se leen SIN moverla, como `gpu cola`.
+
+/// Los que cuentan un fallo.
+const fn es_aviso(f: u32) -> bool {
+    matches!(f, 0x1004..=0x1006 | 0x1020..=0x1022)
+}
+
+/// El nombre de unos numeros "Xid" de NVIDIA.
+fn xid(t: u32) -> &'static [u8] {
+    match t {
+        13 => b"excepcion del motor grafico (un sombreador o el estado 3D)",
+        31 => b"FALLO DE PAGINA de la MMU de la GPU",
+        43 => b"el canal se paro",
+        69 => b"error de clase del motor grafico (un metodo o un valor que no acepta)",
+        109 => b"el cambio de contexto no volvio",
+        _ => b"?",
+    }
+}
+
+/// 4 bytes de los datos del mensaje en `pagina` (tras sus 80 de cabecera).
+fn dato32(pagina: u64, o: u64) -> u32 {
+    let d = CABECERA as u64 + o;
+    let w = cola(pagina, d & !7);
+    (w >> ((d & 7) * 8)) as u32
+}
+
+/// **Las filas `gsp aviso`**: los mensajes de fallo que el GSP dejo sin leer,
+/// como mucho `max`. Devuelve cuantos habia.
+pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {
+    if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
+        return 0;
+    }
+    let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) as u64;
+    let leido = (mem(LEIDO_CPU) & 0xFFFF_FFFF) as u64;
+    let (fin, mut p) = (escrito % PAGINAS, leido % PAGINAS);
+    let (mut vueltas, mut n) = (0, 0);
+    while p != fin && vueltas < PAGINAS {
+        let m = Mensaje::de(&cabecera(p));
+        if !m.bien_formado() {
+            break;
+        }
+        if es_aviso(m.funcion) {
+            n += 1;
+            if n <= max {
+                campo(s, b"gsp aviso");
+                s.with_ink(INK_ERR);
+                s.text(rpc::nombre(m.funcion));
+                s.with_ink(INK_PLAIN);
+                aviso(s, p, &m);
+                s.byte(b'\n');
+            }
+        }
+        p = (p + m.paginas as u64) % PAGINAS;
+        vueltas += m.paginas as u64;
+    }
+    if n == 0 {
+        campo(s, b"gsp aviso");
+        s.text(b"ninguno en la cola del GSP: la 3060 no conto una excepcion (o aun no)\n");
+    }
+    n
+}
+
+/// Lo que dice cada uno.
+fn aviso(s: &mut Output, p: u64, m: &Mensaje) {
+    match m.funcion {
+        // rpc_rc_triggered_v17_02: motor (2080), canal, tipo, alcance.
+        0x1004 => {
+            s.text(b": motor 0x");
+            s.hex(dato32(p, 0) as u64, 2);
+            s.text(b", canal ");
+            s.dec(dato32(p, 4) as u64);
+            let t = dato32(p, 8);
+            s.text(b", Xid ");
+            s.dec(t as u64);
+            s.text(b" = ");
+            s.with_ink(INK_ECHO);
+            s.text(xid(t));
+        }
+        // rpc_os_error_log_v17_00: tipo, runlist, canal y el texto.
+        0x1006 => {
+            let t = dato32(p, 0);
+            s.text(b": Xid ");
+            s.dec(t as u64);
+            s.text(b", canal ");
+            s.dec(dato32(p, 8) as u64);
+            s.text(b": ");
+            s.with_ink(INK_ECHO);
+            texto(s, p, 12, m.datos().saturating_sub(12).min(160));
+        }
+        _ => {
+            s.text(b": ");
+            s.with_ink(INK_ECHO);
+            texto(s, p, 0, m.datos().min(160));
+        }
+    }
+    s.with_ink(INK_PLAIN);
+}
+
+/// Los caracteres legibles de `largo` bytes desde `o`, sin reservar memoria.
+fn texto(s: &mut Output, p: u64, o: u64, largo: usize) {
+    let mut hueco = false;
+    for k in 0..largo as u64 {
+        let c = dato32(p, o + k) as u8;
+        if (0x20..0x7F).contains(&c) {
+            if hueco {
+                s.byte(b' ');
+                hueco = false;
+            }
+            s.byte(c);
+        } else {
+            hueco = true;
+        }
+    }
+}

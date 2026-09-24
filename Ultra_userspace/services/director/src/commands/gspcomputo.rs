@@ -1150,6 +1150,10 @@ pub(crate) fn fila(s: &mut Output) {
                 s.text(b" us");
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');
+                // Si no volvio: lo que el GSP conto de la 3060 (Xid, fallo de pagina).
+                if !raster::sano(v) {
+                    super::gspcola::avisos(s, 4);
+                }
             }
         }
     }
