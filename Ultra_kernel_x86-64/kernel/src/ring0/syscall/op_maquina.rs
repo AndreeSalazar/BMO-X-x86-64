@@ -923,6 +923,8 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         }
         // ** M5 T1c: solo lee lo que dejo el ultimo dibujo 3D.
         IOMMU_OP_GPU_DIAG_3D => crate::ring0::dev::gpu_trabajo::diag_3d(arg1),
+        // ** M5d G: un fotograma; sin FLUSH del disco: son 32 seguidos.
+        IOMMU_OP_GPU_GIRO => crate::ring0::dev::gpu_trabajo::giro(arg1),
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

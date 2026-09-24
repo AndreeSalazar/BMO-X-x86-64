@@ -626,6 +626,19 @@ x255 y redondeado, con 1 de margen por canal (el ROP redondea al pasar a 8
 bits). La orden, el panel y las filas de T1c/T2a, en
 `gspcomputo/pipeline3d.rs` (censo modular).
 
+**M5d G, MOVIMIENTO, en codigo (24-09):** pedido por el propietario ("algo
+3D con movimiento") mientras T1c se busca. Por el camino que YA funciona (el
+de `escena`): una esfera de gajos que gira sobre su eje, bota dos veces por
+vuelta, con luz, brillo y una sombra que crece al bajar, sobre un suelo que
+avanza. 32 fotogramas de 256 x 256, UN trabajo de la 3060 cada uno: el
+programa LEE sus 5 parametros de memoria (`LDG.E.STRONG.SYS`, sin cache
+vieja entre fotogramas) y la CPU rehace la cuenta entera de cada fotograma
+y la compara bit a bit. `giro.rs` (182 instrucciones, 18 registros), op
+0x3A (ficha | fotograma << 32), `gpu giro` (la vuelta vista mientras se
+dibuja y luego ~6 s en bucle, sin pedir mas a la 3060), paso `giro`. Gasta
+32 entradas del GPFIFO de GR por vuelta (hay ~508 por arranque, sin vuelta
+del anillo todavia).
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

@@ -828,3 +828,64 @@ static DIAG_3D: [core::sync::atomic::AtomicU32; 4] = [const { core::sync::atomic
 pub fn diag_3d(k: u64) -> Result<u64, u32> {
     DIAG_3D.get(k as usize).map(|v| v.load(Ordering::Acquire) as u64).ok_or(IOMMU_NO_BLUR)
 }
+
+// == M5d G: LA ESFERA QUE GIRA Y BOTA (2026-09-24) ============================
+//
+// Movimiento: UN fotograma de 256 x 256 por llamada, con sus parametros; el
+// escritorio pide los 32 de la vuelta. Por el camino de `escena` (computo),
+// que ya funciona en el metal, mientras T1c se sigue buscando.
+
+/// **M5d G.** `arg` = la ficha de S3 (bits 0..31) y el fotograma (32..39).
+/// `Ok(giro::empaquetar(..))`.
+pub fn giro(arg: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let (ficha, f) = (arg & 0xFFFF_FFFF, (arg >> 32) as u32 & 0xFF);
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) || f >= bmo_gpu_ga10x::giro::FOTOGRAMAS {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = giro_(bar0, ficha as u32, e, f);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn giro_(bar0: u64, ficha: u32, e: u32, f: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::giro as gi;
+    let mut r = Bar0(bar0);
+    asegurar_mib(&mut r)?;
+    memoria(FRACTAL_F.load(Ordering::Acquire), (gi::PIXELES * 4) as u64).fill(0);
+    if !gi::preparar(&mut r, e, f) {
+        crate::ring0::cabina::warn("gpu", "M5d G: el tramo no quedo preparado; no se toca el timbre", f as u64);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = gi::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let (mut qmd, mut fin) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        (_, qmd, fin) = gi::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == gi::PAGA_QMD && fin == gi::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let buenos = pixeles_del_fractal().map_or(0, |p| gi::comprobar(p, f));
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    let v = gi::empaquetar(buenos, qmd == gi::PAGA_QMD, fin == gi::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
+    if !gi::sano(v) {
+        crate::ring0::cabina::warn("gpu", "M5d G: un fotograma no salio igual que la CPU; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}

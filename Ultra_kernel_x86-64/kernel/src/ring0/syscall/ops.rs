@@ -406,6 +406,8 @@ pub(crate) const IOMMU_OP_GPU_RASTER: u64 = 0x37;
 pub(crate) const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
 /// M5 T1c: lo que quedo del ultimo dibujo 3D (la escalera, los registros de GR), palabra `arg1`.
 pub(crate) const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
+/// M5d G: un fotograma de la esfera que gira, `arg1` = ficha | fotograma << 32.
+pub(crate) const IOMMU_OP_GPU_GIRO: u64 = 0x3A;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

@@ -837,6 +837,11 @@ pub const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
 /// de semaforos (bit 0 el estado, 1 los vertices, 2 el dibujo entero), 1
 /// `NV_PGRAPH_INTR`, 2 `NV_PGRAPH_EXCEPTION`, 3 `NV_PGRAPH_STATUS`. Solo lee.
 pub const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
+/// M5d G: UN fotograma (256 x 256) de la esfera que gira y bota, por computo.
+/// `arg1` = la ficha de S3 (bits 0..31) y el fotograma (32..39, menor que
+/// `giro::FOTOGRAMAS`). `Ok` = `giro::empaquetar(..)`. Se lee con
+/// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33 (los primeros 256 KiB).
+pub const IOMMU_OP_GPU_GIRO: u64 = 0x3A;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

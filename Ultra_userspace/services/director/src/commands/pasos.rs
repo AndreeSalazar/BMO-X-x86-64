@@ -533,7 +533,16 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::escena_hecha,
         dar: super::gspcomputo::dibujar_escena,
         pide: Some(b"triangulo"),
-        consejo: b"`gpu`: `escena` dice 262144 de 262144; teclea `gpu escena` y VELA a pantalla completa -- lo siguiente es `raster`",
+        consejo: b"`gpu`: `escena` dice 262144 de 262144; teclea `gpu escena` y VELA a pantalla completa -- lo siguiente es `giro`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"giro",
+        que: b"MOVIMIENTO: una esfera que gira y bota, 32 fotogramas dibujados por la 3060 (computo) y comprobados uno a uno por la CPU (M5d G)",
+        hecho: super::gspcomputo::giro_hecho,
+        dar: super::gspcomputo::dibujar_giro,
+        pide: Some(b"escena"),
+        consejo: b"`gpu`: `giro` dice 32 de 32; teclea `gpu giro` y VELA moverse a pantalla completa -- lo siguiente es `raster`",
         repinta: false,
     },
     Paso {
