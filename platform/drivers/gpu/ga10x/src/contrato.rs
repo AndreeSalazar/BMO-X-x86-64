@@ -95,7 +95,10 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
                     && d[CABECERA_ALLOC..CABECERA_ALLOC + n] == esperados[..n]
             });
             let es_el_copiador = exacto(copia::forma(), copia::parametros);
-            if nuestro || es_el_canal || es_el_copiador {
+            // M5 G4: AMPERE_B en el canal de GR0, SIN parametros (nouveau).
+            let t = crate::gr::forma_tresde();
+            let es_el_tresde = (t.0, t.1, t.2, t.3) == (cliente, padre, asa, clase) && u32_de(d, 20) == 0;
+            if nuestro || es_el_canal || es_el_copiador || es_el_tresde {
                 Ok(h.funcion)
             } else {
                 Err(No::Objeto)
@@ -108,6 +111,11 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
             // M5 G0: la UNICA orden sobre las asas INTERNAS del RM -- la
             // pregunta de los buferes de GR, con sus 1664 B a cero.
             if crate::gr::permitida(d) {
+                return Ok(h.funcion);
+            }
+            // M5 G3: PROMOTE_CTX, solo con direcciones DENTRO de la region
+            // de G2 (`gr::promover_permitida`).
+            if crate::gr::promover_permitida(d) {
                 return Ok(h.funcion);
             }
             let (cliente, objeto, cmd, medida) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 16) as usize);

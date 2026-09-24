@@ -760,6 +760,19 @@ pub const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
 /// en `gr::VA` (`gr::mapear`) e invalida la MMU. Una vez por arranque, con el
 /// tramo mapeado. `Ok` = escrituras | releidas << 16 | paginas a cero << 32.
 pub const IOMMU_OP_GPU_GR_MEMORIA: u64 = 0x28;
+/// M5 G3, antes: una de las ocho medidas del RM de G0, `arg1` = fila (0..8,
+/// el orden de `gr::TABLA`) | medida << 32. El kernel rehace con ellas el
+/// reparto (`gr::desde_medidas`, `gr::repartir`) y lo exige igual al de G2.
+/// `Ok` = las filas puestas (un bit cada una).
+pub const IOMMU_OP_GPU_GR_MEDIDA: u64 = 0x29;
+/// M5 G3: `NV2080_CTRL_CMD_GPU_PROMOTE_CTX` con los nueve buferes de G2 (560
+/// B de `gr::promover`), sobre nuestro subdispositivo. Con G1, G2 y las ocho
+/// medidas; una vez por arranque. `Ok` = pagina | numero << 32.
+pub const IOMMU_OP_GSP_GR_PROMOVER: u64 = 0x2A;
+/// M5 G4: AMPERE_B (0xC797) colgado del canal de GR0, sin parametros: el RM
+/// corre el contexto de oro. Tras G3; una vez por arranque. `Ok` = pagina |
+/// numero << 32.
+pub const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -891,6 +904,11 @@ pub const IOMMU_NO_COPIA: u32 = 65;
 pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
 /// M5 G2: medidas fuera de lo que cabe, el tramo sin mapear, o ya se hizo.
 pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
+/// M5 G3: sin G1 y G2, sin las ocho medidas, un reparto distinto del de G2, o
+/// ya se promovio.
+pub const IOMMU_NO_GR_PROMOVER: u32 = 69;
+/// M5 G4: sin G3, o el objeto 3D ya se pidio.
+pub const IOMMU_NO_GR_TRESDE: u32 = 70;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

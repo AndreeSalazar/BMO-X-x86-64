@@ -11,9 +11,11 @@
 
 use bmo_gpu_ga10x::control::{self, CABECERA_CONTROL, GSP_RM_CONTROL};
 use bmo_gpu_ga10x::gr::{self, Bufer};
+use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_userland as bmo;
 
 use super::gsprpc::{esperar, Otros};
+use super::gspsalud::Contestada;
 use super::tabla::campo;
 use super::After;
 use crate::desktop::Desktop;
@@ -245,6 +247,7 @@ pub(crate) fn fila(s: &mut Output) {
         super::datos::anotar(b"gpu gr total", gr::total(&t), b"B");
     }
     fila_memoria(s);
+    fila_oro(s);
 }
 
 /// **La fila `gr memoria`** (G2), si se pidio; y donde quedo cada bufer.
@@ -287,6 +290,191 @@ fn fila_memoria(s: &mut Output) {
             s.text(x.b.nombre);
             s.text(b" +0x");
             s.hex(x.off, 7);
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+}
+
+// == G3 Y G4: PROMOTE_CTX Y AMPERE_B -- EL CONTEXTO DE ORO ==================
+
+#[derive(Clone, Copy)]
+struct Tresde {
+    r: objeto::Respuesta,
+    resultado: u32,
+    espera_us: u64,
+    numero: u32,
+    /// Lo demas que dijo el GSP mientras (eventos, avisos): cuantos.
+    otros: u32,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Oro {
+    promover: Option<Result<Contestada, u32>>,
+    tresde: Option<Result<Tresde, u32>>,
+}
+
+static mut ORO: Oro = Oro { promover: None, tresde: None };
+
+fn oro() -> Oro {
+    // SAFETY: como `ultimo`.
+    unsafe { *core::ptr::addr_of!(ORO) }
+}
+
+fn con_oro(f: impl FnOnce(&mut Oro)) {
+    // SAFETY: como `ultimo`.
+    f(unsafe { &mut *core::ptr::addr_of_mut!(ORO) })
+}
+
+/// El RM contesto al PROMOTE_CTX, pero no con NV_OK.
+pub(crate) const NO_GR_NO_PROMOVIDO: u32 = 0x135;
+/// El RM contesto al AMPERE_B, pero no con NV_OK.
+pub(crate) const NO_GR_TRESDE_NEGADO: u32 = 0x136;
+
+fn tresde_bien(t: &Option<Result<Tresde, u32>>) -> bool {
+    matches!(t, Some(Ok(t)) if t.r.estado == 0 && t.resultado == 0)
+}
+
+/// **G3: PROMOTE_CTX.** Las ocho medidas de G0 al kernel (el rehace el
+/// reparto y lo exige igual al de G2), y la orden.
+pub(crate) fn promover() -> Result<u64, u32> {
+    let r = (|| {
+        let t = buferes().ok_or(NO_GR_SIN_BUFERES)?;
+        for (k, b) in t.iter().take(gr::DISTINTOS).enumerate() {
+            bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_GR_MEDIDA, k as u64 | (b.medida_rm as u64) << 32)?;
+        }
+        let numero = (bmo::iommu_orden(bmo::IOMMU_OP_GSP_GR_PROMOVER)? >> 32) as u32;
+        let mut d = [0u8; CABECERA_CONTROL + 4];
+        let (m, espera_us) = esperar(GSP_RM_CONTROL, &mut d, &mut Otros::default())?;
+        let r = control::leer(&d).ok_or(NO_GR_NO_PROMOVIDO)?;
+        Ok(Contestada { r, resultado: m.resultado, espera_us, numero })
+    })();
+    con_oro(|o| {
+        o.promover = Some(r);
+        o.tresde = None;
+    });
+    match r {
+        Ok(c) if c.bien() => Ok(gr::N as u64),
+        Ok(_) => Err(NO_GR_NO_PROMOVIDO),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn promovido() -> bool {
+    matches!(oro().promover, Some(Ok(c)) if c.bien())
+}
+
+/// **G4: AMPERE_B en el canal de GR0.** Al crearlo, el RM corre el contexto
+/// de ORO con los buferes de G3.
+pub(crate) fn tresde() -> Result<u64, u32> {
+    let r = (|| {
+        let numero = (bmo::iommu_orden(bmo::IOMMU_OP_GSP_GR_TRESDE)? >> 32) as u32;
+        let mut d = [0u8; CABECERA_ALLOC];
+        let mut otros = Otros::default();
+        let (m, espera_us) = esperar(objeto::GSP_RM_ALLOC, &mut d, &mut otros)?;
+        let r = objeto::leer(&d).ok_or(NO_GR_TRESDE_NEGADO)?;
+        let otros = otros.t[..otros.n].iter().map(|t| t.1).sum();
+        Ok(Tresde { r, resultado: m.resultado, espera_us, numero, otros })
+    })();
+    con_oro(|o| o.tresde = Some(r));
+    if tresde_bien(&Some(r)) {
+        Ok(gr::TRESDE as u64)
+    } else {
+        Err(r.err().unwrap_or(NO_GR_TRESDE_NEGADO))
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn de_oro() -> bool {
+    tresde_bien(&oro().tresde)
+}
+
+/// `gpu oro`: G3 y G4, parando en lo primero que no sale.
+pub(crate) fn orden_oro(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "dandole al GSP-RM los buferes de GR y pidiendo AMPERE_B", INK_DIM);
+    let mut r = if promovido() { Ok(0) } else { promover() };
+    if r.is_ok() && !de_oro() {
+        r = tresde();
+    }
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL CONTEXTO DE ORO DE GR0 ESTA HECHO: el RM tomo nuestros buferes y creo AMPERE_B (G3 y G4 de M5)\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el contexto de oro no salio: mira las filas `gr oro`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "oro", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+fn estado_rm(s: &mut Output, estado: u32, resultado: u32) {
+    s.with_ink(if estado == 0 && resultado == 0 { INK_GOOD } else { INK_ERR });
+    s.text(objeto::estado(estado));
+    if estado != 0 {
+        s.text(b" (0x");
+        s.hex(estado as u64, 2);
+        s.byte(b')');
+    }
+    if resultado != 0 {
+        s.text(b", resultado 0x");
+        s.hex(resultado as u64, 2);
+    }
+}
+
+/// **Las filas `gr oro`** (G3 y G4), si se pidieron.
+fn fila_oro(s: &mut Output) {
+    let o = oro();
+    if let Some(r) = o.promover {
+        campo(s, b"gr oro");
+        match r {
+            Err(m) => {
+                s.with_ink(INK_ERR);
+                s.text(b"PROMOTE_CTX NO: ");
+                s.text(super::iommu::motivo(m));
+            }
+            Ok(c) => {
+                s.text(b"PROMOTE_CTX de ");
+                s.dec(gr::N as u64);
+                s.text(b" buferes: ");
+                estado_rm(s, c.r.estado, c.resultado);
+                s.with_ink(INK_ECHO);
+                s.text(b"   en ");
+                s.dec(c.espera_us / 1000);
+                s.text(b" ms (numero ");
+                s.dec(c.numero as u64);
+                s.byte(b')');
+            }
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+    if let Some(r) = o.tresde {
+        campo(s, b"gr oro");
+        match r {
+            Err(m) => {
+                s.with_ink(INK_ERR);
+                s.text(b"AMPERE_B NO: ");
+                s.text(super::iommu::motivo(m));
+            }
+            Ok(t) => {
+                s.text(b"AMPERE_B 0x");
+                s.hex(gr::TRESDE as u64, 8);
+                s.text(b" en el canal de GR0: ");
+                estado_rm(s, t.r.estado, t.resultado);
+                s.with_ink(INK_ECHO);
+                s.text(b"   en ");
+                s.dec(t.espera_us / 1000);
+                s.text(b" ms (numero ");
+                s.dec(t.numero as u64);
+                s.text(b"), ");
+                s.dec(t.otros as u64);
+                s.text(b" mensajes mas del GSP mientras");
+            }
         }
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');

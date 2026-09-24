@@ -372,6 +372,12 @@ pub(crate) const IOMMU_OP_GSP_GR: u64 = 0x26;
 pub(crate) const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
 /// M5 G2: los buferes de GR en VRAM y mapeados. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_GR_MEMORIA: u64 = 0x28;
+/// M5 G3: una de las ocho medidas de G0. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_GR_MEDIDA: u64 = 0x29;
+/// M5 G3: PROMOTE_CTX con los buferes de G2. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_GR_PROMOVER: u64 = 0x2A;
+/// M5 G4: AMPERE_B en el canal de GR0. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

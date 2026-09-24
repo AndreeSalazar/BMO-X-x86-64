@@ -58,6 +58,11 @@ pub const fn pte_vram(pagina: u64) -> u64 {
     1 | pagina >> 4
 }
 
+/// El bit PRIV de una PTE: solo la ven los privilegiados (el FECS y el
+/// GPCCS que guardan el contexto), no un sombreador. nouveau mapea asi los
+/// buferes de contexto (`gf100_vmm_map_v0 { .priv = 1 }`).
+pub const PTE_PRIV: u64 = 1 << 5;
+
 /// Lo que dice una PDE leida.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Pde {

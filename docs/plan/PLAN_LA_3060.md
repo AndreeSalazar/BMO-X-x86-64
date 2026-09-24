@@ -382,11 +382,13 @@ contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_
        VRAM 0x0800_0000, en la VA 0x3_0000_0000 (la entrada 24 de la PD1
        del tramo), con una PD0 y hasta 16 PT en 0x0430_0000; los que llena
        el RM PRIMERO y a cero; paginas de 4 KiB (`gpu grmem`, paso `grmem`)
-                                                     [en codigo, 24-09]
+                                                     [VISTO 24-09 15:37]
    G3  PROMOTE_CTX (0x2080012B) con cada uno: MAIN 0, PATCH 2, BUNDLE_CB 3,
        PAGEPOOL 4, ATTRIBUTE_CB 5, RTV 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10
        (no mapeado) y UNRESTRICTED_PRIV_ACCESS_MAP 11 con su memoria
+       (`gpu oro`, paso `promover`)                  [en codigo, 24-09]
    G4  AMPERE_B (0xC797) en ese canal: el RM hace el contexto de ORO
+       (`gpu oro`, paso `oro`)                       [en codigo, 24-09]
 ```
 
 **G0 y G1 en el metal (24-09, 15:22): 34 de 34 pasos.** `gr: 8 buferes para
@@ -406,6 +408,47 @@ physAttr, bufferId (u16), bInitialize (u8), bNonmapped (u8)}`; nouveau pone
 
 Los ids de PROMOTE son los de la r570 (`nvrm/gpu.h`), comprobados: una
 primera version los tenia corridos en uno.
+
+**G2 en el metal (24-09, 15:37): 35 de 35.** `gr memoria: 6382 de 6382
+entradas releidas; 384 paginas a cero`. Fue la version de OCHO buferes; la de
+nueve (4cba718) suma UNRESTRICTED_PRIV_ACCESS_MAP y ~512 KiB. El evento de la
+IOMMU en 0x20000000 es el de `frontera`, el de siempre: no es de G2.
+
+**G3 y G4, estudiados linea a linea en nouveau (`rm/r535/gr.c` y `fifo.c`)
+y escritos (24-09):**
+
+- **Donde va la orden**: PROMOTE_CTX sobre NUESTRO subdispositivo (el de
+  `vmm->rm.device`), no el interno de G0. `engineType 1`, `hChanClient` =
+  nuestro cliente, `hObject` = el canal; lo demas de la cabecera a cero.
+- **Las entradas**, en el orden de la tabla (no el del reparto): `bufferId`;
+  `gpuVirtAddr` en todas menos PRIV_ACCESS_MAP (`bNonmapped`: la copia
+  UNRESTRICTED SI va mapeada); y en las que llena el RM, `gpuPhysAddr`,
+  `size` (la de MAIN con sus 64 cabeceras) y `physAttr 4`.
+- **El mapeo es PRIV** (`gf100_vmm_map_v0 { .priv = 1 }`): las PTE de G2
+  llevan ahora el bit 5. Son buferes del FECS, no de un sombreador.
+- **El kernel no guarda la respuesta de G0**: el escritorio le pasa las
+  ocho medidas (op 0x29, una por llamada, como `TASK_OP_RUTA`), el kernel
+  rehace tabla y reparto con la MISMA cuenta (`gr::desde_medidas`) y exige
+  que dé lo que mapeo G2; si no, no sale nada (motivo 69).
+- **El contrato** (`gr::promover_permitida`) no sabe de G0 y mira la FORMA:
+  nuestras asas, las nueve entradas con sus banderas, y cada direccion
+  DENTRO de la region de G2, fisica y virtual a la misma distancia.
+- **G4**: `nvkm_gsp_rm_alloc(chan, THREED, 0xC797, 0)` -- SIN parametros. Al
+  crearlo el RM corre el contexto de oro. nouveau suelta el objeto y el canal
+  (el RM guarda el oro); nosotros los dejamos: son los del triangulo.
+- **Si G4 dice que no**, lo primero a mirar: nouveau pide el canal de oro
+  PRIVILEGIADO (`PRIVILEGED_CHANNEL TRUE`, `internalFlags` ADMIN) y en un chid
+  reservado; el nuestro es de USUARIO. Y nouveau no le hace BIND ni SCHEDULE
+  antes; el nuestro ya los tiene (G1). Cambiarlo es otra forma de canal, no
+  un arreglo de G3.
+
+**Despues de G4 (M5d, estudio):** AMPERE_COMPUTE_B (0xC7C0) en el MISMO canal
+(otro subcanal), un QMD v3 (el de NVK/`nvk_cmd_dispatch`) con el codigo SASS
+en VRAM propia, `SET_SHADER_LOCAL_MEMORY*` y el lanzamiento por
+`SEND_PCAS_A/B`. El primer sombreador: escribir una constante en un bufer
+(se comprueba por PRAMIN como la copia); luego el blur; luego el triangulo
+(AMPERE_B: vertices, rasterizador y un RT en VRAM, copiado al marco por el
+canal de copia).
 
 **`save mode`, refinado (24-09).** El propietario pidio automatizarlo del
 todo. Ahora, al acabar: una linea de RESUMEN (cuantos bien, en cual se paro y

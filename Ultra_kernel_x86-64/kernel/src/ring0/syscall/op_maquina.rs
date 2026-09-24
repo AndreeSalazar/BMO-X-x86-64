@@ -837,6 +837,19 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_libos::mapear_gr(arg1)
         }
+        IOMMU_OP_GPU_GR_MEDIDA => crate::ring0::dev::gpu_libos::medida_gr(arg1),
+        // ** M5 G3 y G4: el RM toma NUESTRA VRAM como contexto de GR0 y corre
+        // el contexto de oro. El FLUSH, como el canal.
+        IOMMU_OP_GSP_GR_PROMOVER | IOMMU_OP_GSP_GR_TRESDE => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del contexto de GR no se pudo: se sigue", 0);
+            }
+            if arg0 == IOMMU_OP_GSP_GR_PROMOVER {
+                crate::ring0::dev::gpu_libos::promover_gr()
+            } else {
+                crate::ring0::dev::gpu_libos::pedir_tresde()
+            }
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);

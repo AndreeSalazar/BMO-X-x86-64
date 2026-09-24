@@ -960,6 +960,8 @@ pub fn pedir_canal_gr() -> Result<u64, u32> {
 static GR_MAPEADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 /// G2: medidas fuera de lo que cabe, el tramo sin mapear, o ya se hizo.
 pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
+/// Lo que G2 mapeo: `bytes | cero_hasta << 32`. G3 lo exige igual.
+static GR_BYTES: AtomicU64 = AtomicU64::new(0);
 
 /// **M5 G2.** `arg` = bytes | cero_hasta << 32. `Ok(escrituras | releidas
 /// << 16 | paginas a cero << 32)`.
@@ -980,6 +982,7 @@ pub fn mapear_gr(arg: u64) -> Result<u64, u32> {
     if GR_MAPEADO.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_GR_MEMORIA);
     }
+    GR_BYTES.store(bytes | cero << 32, Ordering::Release);
     let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
     // Los que el RM llena, a cero (como `nvkm_memory_new(.., zero = init)`).
     let mut ceros = 0u64;
@@ -1000,4 +1003,95 @@ pub fn mapear_gr(arg: u64) -> Result<u64, u32> {
     }
     crate::ring0::cabina::count("gpu", "M5 G2: buferes de GR mapeados; entradas releidas", bien as u64);
     Ok(n as u64 & 0xFFFF | (bien as u64 & 0xFFFF) << 16 | ceros << 32)
+}
+
+// == M5 G3 y G4: PROMOTE_CTX Y AMPERE_B (2026-09-24) ==========================
+//
+// El kernel no guarda la respuesta de G0: el escritorio le pasa las OCHO
+// medidas del RM, una por llamada (`arg1` = fila | medida << 32, como la ruta
+// de `TASK_OP_RUTA`: sin `copy_from_user`), y el kernel rehace la tabla con
+// `gr::desde_medidas` y el reparto con `gr::repartir` -- la MISMA cuenta que
+// hizo el escritorio. Si no da lo que G2 mapeo, no sale nada. Los 560 B los
+// arma `gr::promover` aqui, y el contrato los vuelve a mirar
+// (`gr::promover_permitida`: todo dentro de la region de G2).
+
+/// Las ocho medidas; el bit `k` de `GR_MEDIDAS_PUESTAS`, la fila `k` puesta.
+static GR_MEDIDAS: [core::sync::atomic::AtomicU32; bmo_gpu_ga10x::gr::DISTINTOS] =
+    [const { core::sync::atomic::AtomicU32::new(0) }; bmo_gpu_ga10x::gr::DISTINTOS];
+static GR_MEDIDAS_PUESTAS: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+static GR_PROMOVIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static GR_TRESDE: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// G3: sin G1 y G2, sin las ocho medidas, un reparto distinto del de G2, o ya
+/// se promovio.
+pub const IOMMU_NO_GR_PROMOVER: u32 = 69;
+/// G4: sin G3, o el objeto 3D ya se pidio.
+pub const IOMMU_NO_GR_TRESDE: u32 = 70;
+
+/// **M5 G3, antes: una medida.** `arg1` = fila (0..8) | medida del RM << 32.
+pub fn medida_gr(arg: u64) -> Result<u64, u32> {
+    let (k, m) = ((arg & 0xFFFF_FFFF) as usize, (arg >> 32) as u32);
+    if k >= bmo_gpu_ga10x::gr::DISTINTOS || GR_PROMOVIDO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_GR_PROMOVER);
+    }
+    GR_MEDIDAS[k].store(m, Ordering::Release);
+    let puestas = GR_MEDIDAS_PUESTAS.fetch_or(1 << k, Ordering::AcqRel) | 1 << k;
+    Ok(puestas as u64)
+}
+
+/// **M5 G3: PROMOTE_CTX.** Con el canal de GR0 pedido, G2 hecho y las ocho
+/// medidas. `Ok(pagina | numero << 32)` de la RPC. Una vez por arranque.
+pub fn promover_gr() -> Result<u64, u32> {
+    use bmo_gpu_ga10x::gr;
+    if !rpc_lista() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    let todas = (1u32 << gr::DISTINTOS) - 1;
+    if !CANAL_GR_PEDIDO.load(Ordering::Acquire)
+        || !GR_MAPEADO.load(Ordering::Acquire)
+        || GR_MEDIDAS_PUESTAS.load(Ordering::Acquire) != todas
+    {
+        return Err(IOMMU_NO_GR_PROMOVER);
+    }
+    let mut m = [(0u32, 0u32); gr::DISTINTOS];
+    for (k, x) in m.iter_mut().enumerate() {
+        x.0 = GR_MEDIDAS[k].load(Ordering::Acquire);
+    }
+    let Some((c, bytes, cero)) = gr::repartir(&gr::desde_medidas(&m)) else {
+        return Err(IOMMU_NO_GR_PROMOVER);
+    };
+    if bytes | cero << 32 != GR_BYTES.load(Ordering::Acquire) {
+        crate::ring0::cabina::warn("gpu", "M5 G3: el reparto de estas medidas no es el que mapeo G2; no se promueve", bytes);
+        return Err(IOMMU_NO_GR_PROMOVER);
+    }
+    if GR_PROMOVIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_GR_PROMOVER);
+    }
+    match enviar(|h, n| gr::promover(h, n, &c)) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "M5 G3: PROMOTE_CTX pedido; buferes", gr::N as u64);
+            Ok(v)
+        }
+        Err(e) => {
+            GR_PROMOVIDO.store(false, Ordering::Release);
+            Err(e)
+        }
+    }
+}
+
+/// **M5 G4: AMPERE_B en el canal de GR0** -- el RM hace el contexto de ORO.
+/// Tras G3. `Ok(pagina | numero << 32)` de la RPC. Una vez por arranque.
+pub fn pedir_tresde() -> Result<u64, u32> {
+    if !GR_PROMOVIDO.load(Ordering::Acquire) || GR_TRESDE.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_GR_TRESDE);
+    }
+    match enviar(bmo_gpu_ga10x::gr::pedir_tresde) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "M5 G4: GSP_RM_ALLOC de AMPERE_B pedido; asa", bmo_gpu_ga10x::gr::TRESDE as u64);
+            Ok(v)
+        }
+        Err(e) => {
+            GR_TRESDE.store(false, Ordering::Release);
+            Err(e)
+        }
+    }
 }
