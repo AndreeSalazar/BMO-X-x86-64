@@ -134,6 +134,8 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gsp::NO_GSP_NO_PARA => b"el GSP arranco con sus argumentos y no se paro en 2 s",
         super::gsp::NO_SEC2_NO_ACABA => b"el booter ARRANCO en el SEC2 y no se paro en 5 s",
         super::gsp::NO_RISCV_DORMIDO => b"el booter acabo bien pero el RISC-V del GSP no se encendio en 5 s: mira datos/gsplog.bin",
+        super::gspcola::NO_COLA_SIN_GSP => b"el GSP no ha despertado en este arranque: `gpu despertar`",
+        super::gspcola::NO_COLA_MAL => b"la cola del GSP trae un mensaje sin forma o con la suma mal: mira la fila `cola` y datos/gspcola.bin",
         super::gsp::NO_RADIX_NO_CUADRA => b"prestado, pero lo visto por la radix3 no es lo copiado o no es la 570.144: mira la fila `radix`",
         super::gsp::NO_GSP_INCOMPLETO => b"el firmware del GSP no esta entero o no cuadra: mira las filas `booter` a `cuadra` de `gpu`",
         super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",

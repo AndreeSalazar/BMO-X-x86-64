@@ -20,6 +20,7 @@ pub(crate) mod verificar;
 /// L0a: la VBIOS de la 3060 leida (2026-09-24).
 pub(crate) mod vbios;
 pub(crate) mod gsp;
+pub(crate) mod gspcola;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
 /// ordenes -- ver su cabecera.

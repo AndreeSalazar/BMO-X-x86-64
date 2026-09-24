@@ -236,6 +236,14 @@ const PASOS: &[Paso] = &[
         pide: Some(b"libos"),
         consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es L0c4, hablarle por sus colas",
     },
+    Paso {
+        nombre: b"cola",
+        que: b"LEER lo que el GSP ya dijo: los mensajes de su cola, sin contestar ni mover un puntero (L0c4a)",
+        hecho: super::gspcola::leida,
+        dar: super::gspcola::leer,
+        pide: Some(b"despertar"),
+        consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es L0c4b, contestarle",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -599,7 +607,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c4: hablarle al GSP por sus colas hasta su GSP_INIT_DONE (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c4b: contestarle al GSP (secuenciador, SetSystemInfo, SetRegistry) hasta su GSP_INIT_DONE (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

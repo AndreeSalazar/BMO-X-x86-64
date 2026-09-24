@@ -419,6 +419,7 @@ MEDIDO, no el dicho.
         (`is_riscv_active`); sus logs dicen como fue. `gpu despertar` y el
         paso `despertar`                         [VISTO en metal, 24-09 07:10]
    L0c4a LEER lo que el GSP ya dijo: los mensajes de su cola, sin contestar
+        ni mover un puntero. `gpu cola` y el paso `cola`  [en codigo, 24-09]
    L0c4b contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
         su GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
@@ -591,6 +592,21 @@ ahora queda dicho).
 arranco, hablo, y espera a que alguien le lea y le conteste -- nova-core le
 manda SetSystemInfo y SetRegistry, corre su secuenciador y espera GSP_INIT_DONE.
 Eso es L0c4.
+
+**L0c4a (24-09, en codigo).** Sin tocar el kernel: `INFO_GPU_GSP_MEM` (L0c3b)
+ya deja leer GspMem. `bmo_gpu_ga10x::rpc` (4 pruebas) entiende un mensaje de
+r570 -- 48 B de elemento (`checkSum`, `seqNum`, `elemCount`) y 32 de RPC
+(`header_version` 3.0, "VRPC", `length`, `function`, `rpc_result`) --, su suma
+(la de nova-core: cada byte rotado 8 x (posicion mod 8), XOR, y las mitades
+con XOR: un mensaje entero da 0) y el nombre de cada tipo. `commands/gspcola.rs`
+recorre la cola del GSP desde el `readPtr` de la CPU hasta el `writePtr` del
+GSP, mensaje a mensaje por su `elemCount`, SIN mover ningun puntero, y la
+guarda cruda en `datos/gspcola.bin`.
+
+**Como se sabe:** la fila `cola` dice cuantos mensajes y que todos traen VRPC y
+su suma en 0; las filas `dijo`, cuantos de cada tipo -- se espera al menos un
+`GSP_RUN_CPU_SEQUENCER` (0x1002), lo que el GSP pide a la CPU antes de seguir --;
+y `init`, si ya esta el `GSP_INIT_DONE`.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
