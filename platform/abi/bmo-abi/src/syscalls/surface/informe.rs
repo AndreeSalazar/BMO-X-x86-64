@@ -1386,6 +1386,8 @@ pub const GPU_HALLADA: u64 = 1 << 63;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
+/// Veces que el rayo se hallo PARADO (la linea no se movia), bits 32..47.
+pub const GPU_LINEA_PARADAS_SHIFT: u64 = 32;
 pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
 
 /// # `INFO_GPU_ESPERA`: volcar DETRAS del rayo (E1 de `PLAN_LA_3060.md`)

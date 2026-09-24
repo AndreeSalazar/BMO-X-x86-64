@@ -289,6 +289,11 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
             // ventana que no esta en la pantalla: escribirias en algo
             // invisible, que es la peor forma de perder una linea.
             dsk.win.focus.open(Ventana::Run);
+            // ** Y EL CONSEJO, SIEMPRE (peticion del propietario, 24-09):
+            // cada vez que la caja se invoca recuerda `save mode` y sus
+            // opciones, para que quien la abra sepa que hay una orden que lo
+            // verifica todo y la guarda antes. Ver `commands/verificar.rs`.
+            crate::commands::verificar::consejo(&mut dsk.out.grid);
             uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
             paint_status(&p, &dsk.run_box, "listo", INK_DIM);
         } else {

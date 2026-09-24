@@ -250,6 +250,14 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    audio         como quiere las muestras el aparato\n");
     dsk.out.grid.text(b"    reboot        reinicia la maquina\n");
     dsk.out.grid.with_ink(INK_ECHO);
+    dsk.out.grid.text(b"  LA VERIFICACION (la GPU, paso a paso) ----------------------\n");
+    dsk.out.grid.with_ink(INK_PLAIN);
+    dsk.out.grid.text(b"    save mode     TODOS los pasos en orden, un save antes de cada\n");
+    dsk.out.grid.text(b"                  uno, y NOTAS Y CONSEJOS   (-paso lo quita)\n");
+    dsk.out.grid.text(b"    save auto     guarda solo antes de lo arriesgado  (o manual)\n");
+    dsk.out.grid.text(b"    iommu         la frontera del DMA   (encender | apagar)\n");
+    dsk.out.grid.text(b"    gpu           la 3060 y su rayo     (cegar | ver)\n");
+    dsk.out.grid.with_ink(INK_ECHO);
     dsk.out.grid.text(b"  ESTA CAJA ---------------------------------------------------\n");
     dsk.out.grid.with_ink(INK_PLAIN);
     dsk.out.grid.text(b"    clear         limpia esta salida\n");

@@ -49,6 +49,8 @@ const GIRAR_MAX_NS: u64 = 1_000_000;
 /// Lo mas que se cree una espera: un cuadro a 50 Hz. A 60 Hz, un cuadro
 /// son 16,7 ms; mas que esto no puede pedirlo una cuenta sana.
 const ESPERA_MAX_NS: u64 = 20_000_000;
+/// Lo mas que se pregunta por una caja. Una espera sana acaba en una o dos.
+const VUELTAS_MAX: u32 = 4;
 
 /// Lo que ha pasado al esperar al rayo. Lo pinta `gpu`.
 #[derive(Clone, Copy, Default)]
@@ -168,6 +170,14 @@ impl Rayo {
             // fallo de la cuenta, no una espera. El Ryzen durmio 4,29 s por
             // una asi. Se copia ya y se cuenta.
             if ns > ESPERA_MAX_NS {
+                c.rendidas += 1;
+                break;
+            }
+            // ** Y NUNCA MAS DE CUATRO VUELTAS (2026-09-24): toda espera tiene
+            // tope, pase lo que pase en el hardware. Si el rayo se parara y
+            // el kernel no lo viera, esto seguiria girando para siempre -- y
+            // el escritorio se quedaria en su intro, que es lo que paso.
+            if vueltas == VUELTAS_MAX {
                 c.rendidas += 1;
                 break;
             }

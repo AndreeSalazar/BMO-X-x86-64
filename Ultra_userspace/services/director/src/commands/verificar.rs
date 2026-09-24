@@ -223,6 +223,27 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
     g.byte(b'\n');
 }
 
+/// **El consejo de la caja**: lo que se escribe cada vez que Ctrl+Alt la
+/// invoca. Los pasos salen de [`PASOS`], no de una lista escrita a mano: el dia
+/// que E2 sea un paso, el consejo lo dice sin que nadie lo toque.
+pub(crate) fn consejo(g: &mut crate::scene::output::Output) {
+    g.with_ink(INK_ECHO);
+    g.text(b"  consejo: `save mode` verifica TODO en orden, con un save antes de cada paso (");
+    for (i, p) in PASOS.iter().enumerate() {
+        if i > 0 {
+            g.text(b", ");
+        }
+        g.text(p.nombre);
+    }
+    g.text(b")\n           quita pasos con");
+    for p in PASOS {
+        g.text(b" -");
+        g.text(p.nombre);
+    }
+    g.text(b"   |   `save auto` / `save manual`: guardar solo antes de lo arriesgado\n");
+    g.with_ink(INK_PLAIN);
+}
+
 /// **Notas y consejos**: que mirar ahora, paso a paso.
 fn notas(dsk: &mut Desktop, salio: &[Salio; 8]) {
     let g = &mut dsk.out.grid;

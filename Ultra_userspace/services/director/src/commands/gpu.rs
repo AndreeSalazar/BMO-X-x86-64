@@ -197,16 +197,30 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     s.byte(b'\n');
 
     let l = bmo::info(bmo::INFO_GPU_LINEA);
+    let paradas = (l >> bmo::GPU_LINEA_PARADAS_SHIFT) & 0xFFFF;
     campo(s, b"now");
     if l & bmo::GPU_LINEA_VALIDA == 0 {
         s.with_ink(INK_ERR);
-        s.text(b"la linea no se pudo leer ahora\n");
+        s.text(if paradas > 0 {
+            b"el RAYO esta PARADO: la linea no se mueve (nadie le espera)" as &[u8]
+        } else {
+            b"la linea no se pudo leer ahora"
+        });
         s.with_ink(INK_PLAIN);
     } else {
         s.text(b"linea ");
         s.dec(l & 0xFFFF);
-        s.text(if l & bmo::GPU_LINEA_VBLANK != 0 { b": en VBLANK\n" as &[u8] } else { b": pintando\n" });
+        s.text(if l & bmo::GPU_LINEA_VBLANK != 0 { b": en VBLANK" as &[u8] } else { b": pintando" });
     }
+    if paradas > 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"   se hallo PARADO ");
+        s.dec(paradas);
+        s.text(b" vez/veces");
+        s.with_ink(INK_PLAIN);
+        super::datos::anotar(b"gpu rayo paradas", paradas, b"");
+    }
+    s.byte(b'\n');
 
     if let Some(r) = rayo {
         fila_rayo(s, &r, px);

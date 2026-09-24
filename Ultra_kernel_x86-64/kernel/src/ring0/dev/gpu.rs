@@ -68,6 +68,7 @@ pub const GPU_HALLADA: u64 = 1 << 63;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
+pub const GPU_LINEA_PARADAS_SHIFT: u64 = 32;
 pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
 
 static CHIP: AtomicU64 = AtomicU64::new(0);
@@ -249,11 +250,66 @@ pub fn info_tiempo() -> u64 {
 /// `INFO_GPU_LINEA`: la linea que barre AHORA, leida al preguntar. Una lectura
 /// de MMIO por el physmap, que todo espacio comparte: vale bajo cualquier CR3.
 pub fn info_linea() -> u64 {
-    let Some((modo, l)) = rayo_ahora() else { return 0 };
-    GPU_LINEA_VALIDA | l as u64 | if modo.en_vblank(l) { GPU_LINEA_VBLANK } else { 0 }
+    // Las veces que el rayo se hallo PARADO van en los bits 32..47, se lea
+    // ahora o no: un rayo que se paro una vez es un dato aunque hoy se mueva.
+    let paradas = paradas().min(0xFFFF) << GPU_LINEA_PARADAS_SHIFT;
+    let Some((modo, l)) = rayo_ahora() else { return paradas };
+    paradas | GPU_LINEA_VALIDA | l as u64 | if modo.en_vblank(l) { GPU_LINEA_VBLANK } else { 0 }
 }
 
-/// El modo guardado y la linea que barre AHORA. `None` sin grafica que leer.
+// == EL RAYO PARADO (2026-09-24) ================================================
+//
+// Todo lo que espera al rayo cree que se MUEVE: si la cabeza deja de barrer
+// -- la tarjeta se para, o pierde lo que lee -- la linea se queda quieta, y
+// quien pregunta "cuanto falta" recibe "un poco" para siempre. El Ryzen se
+// quedo congelado en la intro del escritorio el 24-09, y un rayo quieto es la
+// forma exacta de ese cuelgue. Asi que el kernel lo MIRA: la misma linea que
+// hace mas de 20 ms puede ser casualidad (justo un cuadro despues), asi que se
+// CONFIRMA releyendo 60 us, en los que un rayo vivo baja ~4 lineas. Si no se
+// movio, esta PARADO: se contesta "no hay rayo" y el que copia copia sin
+// esperar. Se cuenta, y se dice una vez en CABINA.
+
+/// La ultima linea vista + 1 (0 = ninguna) y cuando, en TSC.
+static VISTA: AtomicU64 = AtomicU64::new(0);
+static VISTA_TSC: AtomicU64 = AtomicU64::new(0);
+/// Veces que se confirmo el rayo PARADO.
+static PARADAS: AtomicU64 = AtomicU64::new(0);
+
+fn parado(bar0: u64, cabeza: u32, l: u16) -> bool {
+    use crate::ring0::task::scheduler::{rdtsc, tsc_freq};
+    let t = rdtsc();
+    if VISTA.load(Ordering::Acquire) != l as u64 + 1 {
+        VISTA.store(l as u64 + 1, Ordering::Release);
+        VISTA_TSC.store(t, Ordering::Release);
+        return false;
+    }
+    let hz = tsc_freq().max(1);
+    if t.saturating_sub(VISTA_TSC.load(Ordering::Acquire)) < hz / 50 {
+        return false;
+    }
+    let fin = t.saturating_add(hz / 1_000_000 * 60);
+    while rdtsc() < fin {
+        let v = leer(bar0, ga10x::linea(cabeza));
+        if !ga10x::es_error_pri(v) && v as u16 != l {
+            VISTA.store(v as u64 + 1, Ordering::Release);
+            VISTA_TSC.store(rdtsc(), Ordering::Release);
+            return false;
+        }
+        core::hint::spin_loop();
+    }
+    if PARADAS.fetch_add(1, Ordering::AcqRel) == 0 {
+        crate::ring0::cabina::warn("gpu", "el RAYO esta PARADO: la linea no se mueve; nadie le espera", l as u64);
+    }
+    true
+}
+
+/// Veces que el rayo se encontro PARADO (`INFO_GPU_LINEA`, bits 32..47).
+pub fn paradas() -> u64 {
+    PARADAS.load(Ordering::Acquire)
+}
+
+/// El modo guardado y la linea que barre AHORA. `None` sin grafica que leer,
+/// o con el rayo PARADO.
 fn rayo_ahora() -> Option<(ga10x::Modo, u16)> {
     let bar0 = BAR0.load(Ordering::Acquire);
     let c = CHIP.load(Ordering::Acquire);
@@ -264,6 +320,9 @@ fn rayo_ahora() -> Option<(ga10x::Modo, u16)> {
     let cabeza = ((c >> GPU_CABEZA_SHIFT) & 0x7) as u32;
     let v = leer(bar0, ga10x::linea(cabeza));
     if ga10x::es_error_pri(v) {
+        return None;
+    }
+    if parado(bar0, cabeza, v as u16) {
         return None;
     }
     let b = BORRADO.load(Ordering::Acquire);

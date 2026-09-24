@@ -791,6 +791,7 @@ pub const GPU_HALLADA: u64 = 1 << 63;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
+pub const GPU_LINEA_PARADAS_SHIFT: u64 = 32;
 pub const GPU_LINEA_VALIDA: u64 = 1 << 63;
 
 /// ** VOLCAR DETRAS DEL RAYO: cuanto esperar para copiar unas filas. Ver el ABI.
