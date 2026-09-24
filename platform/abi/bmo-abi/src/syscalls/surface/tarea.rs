@@ -781,6 +781,11 @@ pub const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
 /// semaforo de INFORME en el tramo. Una vez por arranque. `Ok` =
 /// `computo::empaquetar(semaforo, GP_GET, lanzado, us)`.
 pub const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
+/// M5d S4..S6: el primer sombreador, `arg1` = la ficha de S3: el programa
+/// (`sombreador::CODIGO`), el QMD V03_00 y las ordenes en el tramo, la entrada
+/// 1 del GPFIFO de GR0. Tras S3; una vez por arranque. `Ok` =
+/// `sombreador::empaquetar(..)`.
+pub const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -923,6 +928,10 @@ pub const IOMMU_NO_COMPUTO: u32 = 71;
 pub const IOMMU_NO_TRABAJO_GR: u32 = 72;
 /// M5d S3: el tramo no se releyo igual: no se toco el timbre.
 pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
+/// M5d S4..S6: sin S3, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_SOMBREO: u32 = 74;
+/// M5d S4..S6: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_SOMBREO_PREPARAR: u32 = 75;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

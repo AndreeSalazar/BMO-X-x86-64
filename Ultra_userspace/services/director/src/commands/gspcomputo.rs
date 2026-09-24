@@ -14,6 +14,7 @@ use bmo_gpu_ga10x::computo;
 use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL};
 use bmo_gpu_ga10x::copia;
 use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
+use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
 
 use super::gsprpc::{esperar, Otros};
@@ -41,6 +42,8 @@ struct Computo {
     trabajo: Option<Result<u64, u32>>,
     /// Lo que se escribio en el timbre, y si salio de la tabla.
     timbre: Option<(u32, bool)>,
+    /// S4..S6: el primer sombreador.
+    sombreo: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -61,6 +64,8 @@ pub(crate) const NO_COMPUTO_NEGADO: u32 = 0x137;
 pub(crate) const NO_TRABAJO_SIN_FICHA: u32 = 0x138;
 /// El timbre sono pero el GR no pago el semaforo (la fila `gr trabajo`).
 pub(crate) const NO_TRABAJO_MAL: u32 = 0x139;
+/// El sombreador se lanzo pero no escribio sus 32 palabras (la fila `sombreo`).
+pub(crate) const NO_SOMBREO_MAL: u32 = 0x13A;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -147,6 +152,54 @@ pub(crate) fn trabajar() -> Result<u64, u32> {
 /// Lo pregunta `save mode`.
 pub(crate) fn trabajado() -> bool {
     matches!(estado().trabajo, Some(Ok(v)) if computo::sano(v))
+}
+
+/// **S4..S6: el primer sombreador**, con el MISMO timbre que S3.
+pub(crate) fn sombrear() -> Result<u64, u32> {
+    let e = estado();
+    let r = match e.timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_SOMBREO, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    };
+    con(|c| c.sombreo = Some(r));
+    match r {
+        Ok(v) if sombreador::sano(v) => Ok(v),
+        Ok(_) => Err(NO_SOMBREO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn sombreado() -> bool {
+    matches!(estado().sombreo, Some(Ok(v)) if sombreador::sano(v))
+}
+
+/// `gpu sombreo`: S1..S3 si faltan, y el primer sombreador.
+pub(crate) fn orden_sombreo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "corriendo el primer sombreador de BMO-X en la 3060", INK_DIM);
+    let mut r = if pedido() { Ok(0) } else { pedir() };
+    if r.is_ok() && !ficha_leida() {
+        r = ficha();
+    }
+    if r.is_ok() && !trabajado() {
+        r = trabajar();
+    }
+    if r.is_ok() && !sombreado() {
+        r = sombrear();
+    }
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL PRIMER SOMBREADOR DE BMO-X CORRIO EN TU 3060: 32 hilos, cada uno escribio lo suyo (S4..S6 de M5d)\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el sombreador no salio entero: mira la fila `sombreo`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "sombreo", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
 }
 
 /// `gpu computo`: S1, S2 y S3, parando en lo primero que no sale.
@@ -257,6 +310,39 @@ pub(crate) fn fila(s: &mut Output) {
                     s.hex(t as u64, 8);
                     s.text(if tabla { b" (la lista de GR0 segun la tabla)" as &[u8] } else { b" (la ficha del RM)" });
                 }
+                s.text(b"   en ");
+                s.dec(us as u64);
+                s.text(b" us");
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.sombreo {
+        campo(s, b"sombreo");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenas, limpio, qmd, fin, lanzado, gp_get, us) = sombreador::desempaquetar(v);
+                if sombreador::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"EL PRIMER SOMBREADOR CORRIO: ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el sombreador NO salio entero: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenas as u64);
+                s.text(b" de 32 hilos escribieron lo suyo");
+                if !limpio {
+                    s.text(b" (y algo MAS paso de ellos)");
+                }
+                s.with_ink(INK_ECHO);
+                s.text(b"; semaforo del QMD ");
+                s.text(if qmd { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", de informe ");
+                s.text(if fin { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", GP_GET ");
+                s.dec(gp_get as u64);
                 s.text(b"   en ");
                 s.dec(us as u64);
                 s.text(b" us");

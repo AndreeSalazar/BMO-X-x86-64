@@ -495,7 +495,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::trabajado,
         dar: super::gspcomputo::trabajar,
         pide: Some(b"computo"),
-        consejo: b"`gpu`: `gr trabajo` dice PAGADO; `iommu` sin eventos nuevos -- el GR corre NUESTRO trabajo: lo siguiente es el primer sombreador (S4, el SASS)",
+        consejo: b"`gpu`: `gr trabajo` dice PAGADO; `iommu` sin eventos nuevos -- lo siguiente es `sombreo`, el primer sombreador",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"sombreo",
+        que: b"EL PRIMER SOMBREADOR: 32 hilos de SASS de SM86 (de ptxas) lanzados con un QMD; cada uno escribe su palabra (M5d S4..S6)",
+        hecho: super::gspcomputo::sombreado,
+        dar: super::gspcomputo::sombrear,
+        pide: Some(b"trabajogr"),
+        consejo: b"`gpu`: `sombreo` dice 32 de 32 y los dos semaforos PAGADOS; `iommu` sin eventos nuevos -- la 3060 corre NUESTROS programas: lo siguiente es el blur",
         repinta: false,
     },
 ];

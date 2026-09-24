@@ -455,6 +455,21 @@ S1..S3 en codigo (24-09): `bmo_gpu_ga10x::computo`, `gpu computo`, pasos
 INFORME (`SET_REPORT_SEMAPHORE_*` de `clc7c0.h`), que ejecuta el FE del GR
 y no el PBDMA: si se paga, el motor grafico corrio NUESTRO GPFIFO.
 
+**S1..S3 en el metal (24-09, 16:06): 40 de 40.** `computo: 0xC7C00002: NV_OK`;
+`ficha gr: 0x00000002; GR0 en la lista 0`; `gr trabajo: EL MOTOR GRAFICO
+CORRIO: semaforo de informe PAGADO (0x306006C0), GP_GET 1; timbre 0x2 ... en
+45 us`. El GR ejecuta NUESTRO GPFIFO con el contexto de oro.
+
+**S4..S6, el primer sombreador, en codigo (24-09):** `bmo_gpu_ga10x::
+sombreador`, `gpu sombreo`, paso `sombreo`. El SASS NO se escribio a mano:
+salio de `ptxas -arch=sm_86` (CUDA 12.9, de PyPI) y se leyo con `nvdisasm -b
+SM86` (13.4). Dos instrucciones de CUDA (la pila en c[0x0][0x28] y el
+descriptor en c[0x0][0x118]) leen un bufer de constantes que aqui no hay:
+quedaron en NOP con sus bits de planificacion, y el STG no usa descriptor (el
+bit 101 a 0, comprobado cambiandolo). El QMD V03_00 campo a campo de
+`clc7c0qmd.h`, con el semaforo RELEASE0 al acabar la rejilla. Cuando el BSF
+emita SASS (kind 2), este programa es su primer oraculo: los mismos 160 B.
+
 **Del oro al primer sombreador (M5d, contado paso a paso, 24-09).** Cada
 fila es un paso de `save mode`, con su prueba en el anfitrion y su fila en
 `gpu`; ninguno se junta con otro, como la copia (L1d):

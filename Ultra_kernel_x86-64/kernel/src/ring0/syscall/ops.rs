@@ -382,6 +382,8 @@ pub(crate) const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
 pub(crate) const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
 /// M5d S3: el primer trabajo del GR, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
+/// M5d S4..S6: el primer sombreador, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

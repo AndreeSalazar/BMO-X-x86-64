@@ -1177,3 +1177,59 @@ pub fn trabajo_gr(ficha: u64) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+// == M5d S4..S6: EL PRIMER SOMBREADOR (2026-09-24) ============================
+//
+// Tras S3 (VISTO en el metal 24-09 16:06). `bmo_gpu_ga10x::sombreador`: el
+// programa (SASS de SM86 de `ptxas`, comprobado con `nvdisasm`), el QMD y las
+// ordenes por PRAMIN en el tramo, la entrada 1 del GPFIFO de GR0, GP_PUT = 2 y
+// la ficha en el timbre. Se espera el semaforo del QMD (la rejilla acabo) y el
+// de informe, y se leen las 32 palabras. Lo UNICO que la GPU toca es el tramo.
+
+static SOMBREO_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// S4..S6: sin S3, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_SOMBREO: u32 = 74;
+/// S4..S6: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_SOMBREO_PREPARAR: u32 = 75;
+
+/// **M5d S4..S6: el primer sombreador.** `ficha` = la de S3. `Ok(sombreador::
+/// empaquetar(..))`.
+pub fn sombrear(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::sombreador as sb;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !TRABAJO_GR_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_SOMBREO);
+    }
+    if SOMBREO_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_SOMBREO);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !sb::preparar(&mut r) {
+        SOMBREO_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "M5d S4: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_SOMBREO_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = sb::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut qmd, mut fin) = (0, 0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, qmd, fin) = sb::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == sb::PAGA_QMD && fin == sb::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    let acabo_en = us;
+    let (buenas, limpio) = sb::comprobar(&mut r);
+    let v = sb::empaquetar(buenas, limpio, qmd == sb::PAGA_QMD, fin == sb::PAGA_FIN, lanzado, gp_get, acabo_en as u32);
+    if sb::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d S6: EL PRIMER SOMBREADOR DE BMO-X CORRIO en la 3060; us", acabo_en);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d S6: el sombreador no salio entero; hilos buenos", buenas as u64);
+    }
+    Ok(v)
+}

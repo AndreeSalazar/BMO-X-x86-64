@@ -859,6 +859,13 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_libos::trabajo_gr(arg1)
         }
+        // ** M5d S4..S6: el primer SOMBREADOR. El FLUSH, como la copia.
+        IOMMU_OP_GPU_SOMBREO => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del primer sombreador no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::sombrear(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);
