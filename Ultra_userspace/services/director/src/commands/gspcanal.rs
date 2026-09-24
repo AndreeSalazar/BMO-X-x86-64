@@ -16,8 +16,16 @@
 //!
 //! Tres pasos de `save mode` (`canal`, `encender`, `ficha`): cada uno pide
 //! el de antes, y el primero que falla dice su motivo en su fila.
+//!
+//! # `gpu copia` (L1d2d y L1d3)
+//!
+//! Dos pasos mas (`copiador`, `copia`): el objeto de copia colgado del canal,
+//! y la primera vez que la 3060 EJECUTA algo nuestro -- 4 KiB del tramo a
+//! otra pagina del tramo, por direcciones virtuales, con un semaforo al
+//! final (`bmo_gpu_ga10x::copia`).
 
 use bmo_gpu_ga10x::canal;
+use bmo_gpu_ga10x::copia;
 use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_userland as bmo;
@@ -52,6 +60,10 @@ struct Canal {
     programar: Option<Result<Contestada, u32>>,
     ficha: Option<Result<Contestada, u32>>,
     otros: Otros,
+    /// L1d3: el GSP_RM_ALLOC del copiador.
+    copiador: Option<Result<Pedido, u32>>,
+    /// L1d3: el `Ok` empaquetado de la copia, o el NO.
+    copia: Option<Result<u64, u32>>,
 }
 
 static mut CANAL: Option<Canal> = None;
@@ -77,6 +89,12 @@ pub(crate) const NO_CANAL_SIN_MOTORES: u32 = 0x12A;
 pub(crate) const NO_CANAL_METODOS: u32 = 0x12B;
 /// El RM contesto, pero NO dio el canal.
 pub(crate) const NO_CANAL_NEGADO: u32 = 0x12C;
+/// El RM contesto, pero NO dio el copiador.
+pub(crate) const NO_COPIADOR_NEGADO: u32 = 0x12D;
+/// Sin la ficha del canal (`ficha`) no se toca el timbre.
+pub(crate) const NO_COPIA_SIN_FICHA: u32 = 0x12E;
+/// La 3060 recibio el timbre pero la copia no salio entera (la fila `copia`).
+pub(crate) const NO_COPIA_MAL: u32 = 0x12F;
 
 /// **L1d2b: pedir el canal y esperar al RM.** `Ok(su asa)`.
 pub(crate) fn pedir() -> Result<u64, u32> {
@@ -87,6 +105,8 @@ pub(crate) fn pedir() -> Result<u64, u32> {
         c.atar = None;
         c.programar = None;
         c.ficha = None;
+        c.copiador = None;
+        c.copia = None;
     });
     match r {
         Ok(p) if p.bien() => Ok(canal::CANAL as u64),
@@ -169,6 +189,51 @@ pub(crate) fn ficha_leida() -> bool {
     bien(&canal_().ficha)
 }
 
+/// **L1d3: pedir el copiador y esperar al RM.** `Ok(su asa)`.
+pub(crate) fn pedir_copiador() -> Result<u64, u32> {
+    let r = (|| {
+        let numero = (bmo::iommu_orden(bmo::IOMMU_OP_GPU_COPIADOR)? >> 32) as u32;
+        let mut d = [0u8; CABECERA_ALLOC];
+        let (m, espera_us) = esperar(objeto::GSP_RM_ALLOC, &mut d, &mut Otros::default())?;
+        let r = objeto::leer(&d).ok_or(NO_COPIADOR_NEGADO)?;
+        Ok(Pedido { r, resultado: m.resultado, espera_us, numero })
+    })();
+    con(|c| {
+        c.copiador = Some(r);
+        c.copia = None;
+    });
+    match r {
+        Ok(p) if p.bien() => Ok(copia::COPIADOR as u64),
+        Ok(_) => Err(NO_COPIADOR_NEGADO),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn copiador_listo() -> bool {
+    matches!(canal_().copiador, Some(Ok(p)) if p.bien())
+}
+
+/// **L1d2d y L1d3: la primera copia** -- el kernel prepara el tramo, pone
+/// GP_PUT, toca el timbre con la ficha y espera el semaforo.
+pub(crate) fn copiar() -> Result<u64, u32> {
+    let r = match canal_().ficha {
+        Some(Ok(f)) if f.bien() => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_COPIA, f.r.valor as u64),
+        _ => Err(NO_COPIA_SIN_FICHA),
+    };
+    con(|c| c.copia = Some(r));
+    match r {
+        Ok(v) if copia::sana(v) => Ok(v),
+        Ok(_) => Err(NO_COPIA_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn copia_hecha() -> bool {
+    matches!(canal_().copia, Some(Ok(v)) if copia::sana(v))
+}
+
 /// `gpu canal`: los tres pasos, parando en el primero que no sale.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "pidiendole un canal al GSP-RM", INK_DIM);
@@ -191,6 +256,29 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     g.with_ink(INK_PLAIN);
     fila(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "canal", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// `gpu copia`: el copiador y la primera copia (L1d3), con el canal ya
+/// encendido y su ficha.
+pub(crate) fn orden_copia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 copia una pagina de VRAM por su canal", INK_DIM);
+    let mut r = if copiador_listo() { Ok(0) } else { pedir_copiador() };
+    if r.is_ok() && !copia_hecha() {
+        r = copiar();
+    }
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LA 3060 EJECUTO NUESTRO PRIMER TRABAJO: copio 4 KiB de VRAM a VRAM por su canal y pago el semaforo\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  la copia no salio: mira las filas `copiador` y `copia` (y `iommu`)\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "copia", INK_DIM);
     dsk.field.n = 0;
     After::Settle
 }
@@ -313,6 +401,57 @@ pub(crate) fn fila(s: &mut Output) {
         }
         s.byte(b'\n');
     }
-    let pasos = [pedido(), bien(&c.atar), bien(&c.programar), bien(&c.ficha)].iter().filter(|&&b| b).count();
-    super::datos::anotar(b"gpu canal pasos", pasos as u64, b"de 4");
+    if let Some(x) = c.copiador {
+        campo(s, b"copiador");
+        match x {
+            Err(m) => no(s, m),
+            Ok(p) => {
+                s.with_ink(INK_ECHO);
+                s.text(b"0x");
+                s.hex(copia::COPIADOR as u64, 8);
+                s.text(b" (clase 0x");
+                s.hex(copia::AMPERE_DMA_COPY_B as u64, 4);
+                s.text(b", COPY2, en el canal): ");
+                estado(s, p.bien(), p.r.estado, p.resultado);
+                tras(s, p.espera_us, p.numero, b"GSP_RM_ALLOC");
+            }
+        }
+        s.byte(b'\n');
+    }
+    if let Some(x) = c.copia {
+        campo(s, b"copia");
+        match x {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenas, gp_get, pagado, lanzada, us) = copia::desempaquetar(v);
+                s.with_ink(if copia::sana(v) { INK_GOOD } else { INK_ERR });
+                if copia::sana(v) {
+                    s.text(b"LA 3060 COPIO: ");
+                }
+                s.dec(buenas as u64);
+                s.text(b" de 1024 palabras de VA 0x");
+                s.hex(copia::va(copia::ORIGEN), 9);
+                s.text(b" a VA 0x");
+                s.hex(copia::va(copia::DESTINO), 9);
+                s.with_ink(INK_PLAIN);
+                s.text(if pagado { b"; semaforo PAGADO" as &[u8] } else { b"; semaforo SIN PAGAR" });
+                s.text(b", GP_GET ");
+                s.dec(gp_get as u64);
+                if !lanzada {
+                    s.text(b", el GP_PUT no se releyo: timbre SIN tocar");
+                }
+                s.with_ink(INK_ECHO);
+                s.text(b"   en ");
+                s.dec(us as u64);
+                s.text(b" us");
+            }
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+    let pasos = [pedido(), bien(&c.atar), bien(&c.programar), bien(&c.ficha), copiador_listo(), copia_hecha()]
+        .iter()
+        .filter(|&&b| b)
+        .count();
+    super::datos::anotar(b"gpu canal pasos", pasos as u64, b"de 6");
 }

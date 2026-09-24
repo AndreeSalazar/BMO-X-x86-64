@@ -828,6 +828,15 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_libos::orden_canal(arg1)
         }
+        IOMMU_OP_GPU_COPIADOR => crate::ring0::dev::gpu_libos::pedir_copiador(),
+        // ** L1d3: la primera vez que la 3060 EJECUTA algo nuestro. El FLUSH,
+        // como el canal.
+        IOMMU_OP_GPU_COPIA => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la primera copia no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::copiar(arg1)
+        }
         IOMMU_OP_GPU_DIRECTORIO => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del directorio de paginas no se pudo: se sigue", 0);

@@ -729,6 +729,14 @@ pub const IOMMU_OP_GPU_CANAL: u64 = 0x21;
 /// `control::Control::TODOS` (solo BIND y GPFIFO_SCHEDULE), con el canal
 /// pedido. `Ok` = pagina | numero << 32.
 pub const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
+/// L1d3: pedir el copiador (`AMPERE_DMA_COPY_B` sobre COPY2, colgado del
+/// canal; `bmo_gpu_ga10x::copia`). Con el canal pedido. `Ok` = pagina |
+/// numero << 32.
+pub const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
+/// L1d2d y L1d3: la primera copia VRAM a VRAM por el canal, `arg1` = la ficha
+/// de `GET_WORK_SUBMIT_TOKEN`. Una vez por arranque, con el copiador pedido.
+/// `Ok` = `copia::empaquetar(buenas, GP_GET, pagado, lanzada, us)`.
+pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -854,6 +862,10 @@ pub const IOMMU_NO_CANAL: u32 = 62;
 pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
 /// L1d2c: no es BIND ni SCHEDULE, o el canal no se pidio.
 pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
+/// L1d3: sin copiador, copia ya hecha, o una ficha que no es de nuestro canal.
+pub const IOMMU_NO_COPIA: u32 = 65;
+/// L1d3: el tramo no se releyo igual por PRAMIN: no se toco el timbre.
+pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

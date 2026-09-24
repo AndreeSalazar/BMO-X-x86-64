@@ -901,12 +901,14 @@ vuelta.
                        metodos (`motores`)      [VISTO 24-09 13:19]
                 L1d2b  el canal: su ALLOC con instancia, USERD y
                        GPFIFO en el tramo, y el bufer de metodos
-                       (`canal`)                [en codigo, 24-09]
+                       (`canal`)                [VISTO 24-09 13:35]
                 L1d2c  BIND a COPY2 y GPFIFO_SCHEDULE (`encender`)
-                                                [en codigo, 24-09]
-                L1d2d  la ficha (`ficha`, en codigo) y el timbre:
-                       la primera entrada del GPFIFO
+                                                [VISTO 24-09 13:35]
+                L1d2d  la ficha (`ficha`)       [VISTO 24-09 13:35]
+                       y el timbre: la primera entrada del GPFIFO
+                       (`copia`)                [en codigo, 24-09]
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
+                (`copiador` y `copia`)          [en codigo, 24-09]
 ```
 
 **L1d2a en el metal (24-09, 13:19): LOS MOTORES.** `11: GR0 COPY0 COPY1 COPY2
@@ -939,6 +941,37 @@ nuevos. Si el RM NIEGA el canal, su NV_STATUS sale en la fila. Cotejado con
 memoria (instancia, USERD y RAMFC en VRAM con `addressSpace` 2, el bufer de
 metodos en `dma_alloc_coherent` con 1 -- la IOVA, como aqui), las mismas
 `internalFlags` y el mismo orden: BIND y despues SCHEDULE con `bEnable 1`.
+
+**L1d2b, L1d2c y la ficha en el metal (24-09, 13:35): EL CANAL VIVE.**
+`canal: 0xF1F00001 (clase 0xC56F, chid 1): NV_OK` en 1 ms; `atado: COPY2
+(tipo 0x0B): NV_OK`; `en lista: NV_OK`; `ficha: 0x00000001`. `iommu`: 15788
+paginas (las 5 del bufer de metodos) y ningun evento nuevo. 29 de 29 pasos
+de `save mode`.
+
+**L1d2d y L1d3 (24-09, en codigo): EL PRIMER TRABAJO.** `bmo_gpu_ga10x::copia`
+(5 pruebas) y dos pasos mas de `save mode`:
+
+```text
+   copiador  IOMMU_OP_GPU_COPIADOR (0x23): GSP_RM_ALLOC de AMPERE_DMA_COPY_B
+             (0xC7B5) colgado del canal, { version 1, engineType COPY2 }
+             (`r535_ce_alloc`). El contrato compara sus 8 B
+   copia     IOMMU_OP_GPU_COPIA (0x24, `arg1` = la ficha, que tiene que
+             decir el chid de NUESTRO canal): por PRAMIN el ORIGEN (pagina 8
+             del tramo) con el patron de L1c2, DESTINO (12) y SEMAFORO (4) a
+             cero, 17 palabras de ordenes en la pagina 3 (SET_OBJECT 0xC7B5
+             en el subcanal 4, origen/destino/pitch, SET_SEMAPHORE y
+             LAUNCH_DMA 0x18E) y la entrada 0 del GPFIFO; todo releido.
+             Despues GP_PUT = 1 en el USERD (+0x8C) y la ficha en el TIMBRE,
+             BAR0 0xBB0090 (`ga100_vfn` 0xB80000 + `user` 0x30000 + 0x90,
+             `tu102_chan_start`). Hasta 100 ms esperando el semaforo
+```
+
+Los metodos y bits, de `clc7b5.h` y `clc56f.h` de open-gpu-kernel-modules.
+
+**Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
+`semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
+eso lo escribe la CPU. Si el semaforo no llega, lo primero a mirar es si
+GP_GET avanzo (la 3060 leyo el GPFIFO: el timbre y el USERD van bien) o no.
 
 **L0c4b3a en el metal (24-09, 10:13): LA PANTALLA SOBREVIVE AL GSP-RM.** `bar1
 antes 0x002FFF00, despues 0x802F3E90 (BAR2 0xC02F3E91 -> 0xC02F3E91): el GSP-RM

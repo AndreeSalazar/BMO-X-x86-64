@@ -360,6 +360,10 @@ pub(crate) const IOMMU_OP_GPU_TRAMO: u64 = 0x20;
 pub(crate) const IOMMU_OP_GPU_CANAL: u64 = 0x21;
 /// L1d2c: BIND o GPFIFO_SCHEDULE sobre el canal (`arg1`). Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
+/// L1d3: pedir el copiador AMPERE_DMA_COPY_B. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
+/// L1d2d y L1d3: la primera copia, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

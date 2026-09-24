@@ -16,7 +16,8 @@
 //!    GSP_RM_ALLOC     103   L1b: SOLO nuestro cliente, dispositivo,
 //!                           subdispositivo y espacio, con sus asas y clases;
 //!                           y L1d2b: NUESTRO canal, con sus 368 B exactos
-//!                           (su memoria, su motor, su espacio)
+//!                           (su memoria, su motor, su espacio); y L1d3: su
+//!                           copiador AMPERE_DMA_COPY_B sobre COPY2 (8 B)
 //!    GSP_RM_CONTROL    76   SOLO las ordenes de `control::Control`, cada
 //!                           una sobre SU objeto nuestro y con SUS parametros
 //!                           exactos (el directorio de L1c3: su direccion y
@@ -26,6 +27,7 @@
 //! Agrandar la lista es una decision, y se toma aqui: con su prueba.
 
 use crate::canal;
+use crate::copia;
 use crate::control::{Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use crate::estatica::GET_GSP_STATIC_INFO;
 use crate::objeto::{Objeto, CABECERA_ALLOC, CLIENTE, GSP_RM_ALLOC};
@@ -70,15 +72,18 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
                 let f = o.forma();
                 (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase)
             });
-            let f = canal::forma();
-            let es_el_canal = (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase) && {
+            // El canal y su copiador: su forma Y sus parametros, byte a byte.
+            let exacto = |f: (u32, u32, u32, u32, usize), parametros: fn(&mut [u8]) -> usize| {
                 let mut esperados = [0u8; canal::MEDIDA];
-                canal::parametros(&mut esperados);
-                u32_de(d, 20) as usize == canal::MEDIDA
-                    && d.len() >= CABECERA_ALLOC + canal::MEDIDA
-                    && d[CABECERA_ALLOC..CABECERA_ALLOC + canal::MEDIDA] == esperados
+                let n = parametros(&mut esperados[..f.4]);
+                (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase)
+                    && u32_de(d, 20) as usize == n
+                    && d.len() >= CABECERA_ALLOC + n
+                    && d[CABECERA_ALLOC..CABECERA_ALLOC + n] == esperados[..n]
             };
-            if nuestro || es_el_canal {
+            let es_el_canal = exacto(canal::forma(), canal::parametros);
+            let es_el_copiador = exacto(copia::forma(), copia::parametros);
+            if nuestro || es_el_canal || es_el_copiador {
                 Ok(h.funcion)
             } else {
                 Err(No::Objeto)
@@ -152,6 +157,14 @@ mod pruebas {
         // Privilegiado (bit 5 de flags).
         let n = crate::canal::pedir(&mut h, 16).unwrap();
         h[CABECERA + CABECERA_ALLOC + 20] |= 0x20;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // El copiador sobre OTRO motor, o colgado de otro padre.
+        let n = crate::copia::pedir(&mut h, 18).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(103));
+        h[CABECERA + CABECERA_ALLOC + 4] = 0x09;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        let n = crate::copia::pedir(&mut h, 19).unwrap();
+        h[CABECERA + 4] ^= 0x01;
         assert_eq!(permitido(&h[..n]), Err(No::Objeto));
         // Un BIND a otro motor.
         let n = control::pedir(&mut h, 17, Control::Atar).unwrap();

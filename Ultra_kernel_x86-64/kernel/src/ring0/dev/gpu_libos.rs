@@ -456,6 +456,12 @@ pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
 /// L1d2c: una orden del canal fuera de su sitio (no es BIND ni SCHEDULE, o el
 /// canal no se pidio todavia).
 pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
+/// L1d3: sin copiador, la copia ya se hizo en este arranque, o la ficha no es
+/// la de NUESTRO canal.
+pub const IOMMU_NO_COPIA: u32 = 65;
+/// L1d3: el origen, el destino, las ordenes o el GPFIFO no se releyeron
+/// iguales por PRAMIN: no se toca el timbre.
+pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -742,4 +748,80 @@ pub fn orden_canal(que: u64) -> Result<u64, u32> {
     let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
     crate::ring0::cabina::count("gpu", "L1d2c: orden del canal pedida; cmd", c.forma().0 as u64);
     Ok(r)
+}
+
+// == L1d2d y L1d3: LA PRIMERA COPIA (2026-09-24) ================================
+//
+// El copiador (`AMPERE_DMA_COPY_B` sobre COPY2, colgado del canal) por RPC; y
+// despues, UNA vez por arranque, la copia: todo por PRAMIN en el tramo
+// (`bmo_gpu_ga10x::copia`), GP_PUT = 1 en el USERD y la FICHA en el timbre.
+// Se espera hasta `COPIA_ESPERA_US` a que la 3060 pague el semaforo, y se
+// comprueba el destino palabra a palabra. Lo UNICO que la GPU toca es el tramo.
+
+static COPIADOR_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static COPIA_HECHA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Lo mas que se espera a la 3060: una pagina son microsegundos.
+const COPIA_ESPERA_US: u64 = 100_000;
+
+/// **L1d3: pedir el copiador.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn pedir_copiador() -> Result<u64, u32> {
+    if !CANAL_PEDIDO.load(Ordering::Acquire) || COPIADOR_PEDIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_COPIA);
+    }
+    match enviar(bmo_gpu_ga10x::copia::pedir) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "L1d3: GSP_RM_ALLOC del copiador pedido; asa", bmo_gpu_ga10x::copia::COPIADOR as u64);
+            Ok(v)
+        }
+        Err(m) => {
+            COPIADOR_PEDIDO.store(false, Ordering::Release);
+            Err(m)
+        }
+    }
+}
+
+/// **L1d2d y L1d3: la copia.** `ficha` = la de `GET_WORK_SUBMIT_TOKEN` (su
+/// chid tiene que ser el de NUESTRO canal). `Ok(copia::empaquetar(..))`.
+pub fn copiar(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::copia as cp;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0
+        || !COPIADOR_PEDIDO.load(Ordering::Acquire)
+        || ficha & 0xFFFF != bmo_gpu_ga10x::canal::CHID as u64
+        || ficha >> 16 >= 64
+    {
+        return Err(IOMMU_NO_COPIA);
+    }
+    if COPIA_HECHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_COPIA);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !cp::preparar(&mut r) {
+        // Nada llego a la 3060: se puede reintentar.
+        COPIA_HECHA.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "L1d3: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_COPIA_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzada = cp::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut semaforo) = (0, 0);
+    let mut us = 0;
+    while lanzada && us < COPIA_ESPERA_US {
+        (gp_get, semaforo) = cp::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if semaforo == cp::PAGA {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    let buenas = cp::comprobar(&mut r);
+    let v = cp::empaquetar(buenas, gp_get, semaforo == cp::PAGA, lanzada, us as u32);
+    if cp::sana(v) {
+        crate::ring0::cabina::count("gpu", "L1d3: LA 3060 COPIO una pagina de VRAM por su canal; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "L1d3: la copia no salio entera; palabras buenas", buenas as u64);
+    }
+    Ok(v)
 }

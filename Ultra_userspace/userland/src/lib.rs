@@ -252,6 +252,8 @@ pub const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
 pub const IOMMU_OP_GPU_TRAMO: u64 = 0x20;
 pub const IOMMU_OP_GPU_CANAL: u64 = 0x21;
 pub const IOMMU_OP_GPU_CANAL_ORDEN: u64 = 0x22;
+pub const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
+pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -316,6 +318,8 @@ pub const IOMMU_NO_TRAMO: u32 = 61;
 pub const IOMMU_NO_CANAL: u32 = 62;
 pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
 pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
+pub const IOMMU_NO_COPIA: u32 = 65;
+pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).

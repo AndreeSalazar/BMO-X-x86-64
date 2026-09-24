@@ -76,6 +76,8 @@ pub mod vram;
 pub mod mmu;
 /// L1d2b: el canal AMPERE_CHANNEL_GPFIFO_A, sus 368 B exactos (2026-09-24).
 pub mod canal;
+/// L1d2d y L1d3: el copiador y la primera copia VRAM a VRAM (2026-09-24).
+pub mod copia;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

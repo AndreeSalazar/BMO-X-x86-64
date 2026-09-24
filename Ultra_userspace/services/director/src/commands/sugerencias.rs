@@ -42,6 +42,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),
     (b"gpu motores", b"que motores tiene la 3060 y el de copia para el canal (COPY2)"),
     (b"gpu canal", b"el primer canal de la 3060: pedido, atado a COPY2 y con su ficha"),
+    (b"gpu copia", b"el primer trabajo de la 3060: copiar 4 KiB de VRAM por su canal"),
     (b"gpu bar1", b"devolverle a BAR1 la del GOP"),
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),
