@@ -105,12 +105,15 @@ pub(crate) fn fila(s: &mut Output) {
     }
     let crudo = bmo::info(bmo::INFO_GPU_SALUD) as u32;
     campo(s, b"temp");
-    match salud::grados(crudo) {
-        Some(g) => {
+    match salud::lectura(crudo) {
+        Some((g, fe)) => {
             s.with_ink(if g >= 83 { INK_ERR } else { INK_GOOD });
             s.dec(g as u64);
             s.text(b" grados");
             s.with_ink(INK_PLAIN);
+            if fe == salud::Fe::Probable {
+                s.text(b" (PROBABLE: bit 29 caido, 31 puesto; la historia del panel lo dira)");
+            }
         }
         None => s.text(b"sin dato (el bit de validez del sensor, caido)"),
     }
@@ -143,7 +146,7 @@ pub(crate) fn fila(s: &mut Output) {
             s.dec(l.ancho_max as u64);
             if l.gen < l.gen_max {
                 s.with_ink(INK_ECHO);
-                s.text(b"; por debajo en reposo: la 3060 baja el enlace para ahorrar");
+                s.text(b"; en Gen1 porque arranca asi: subirlo es del RM");
                 s.with_ink(INK_PLAIN);
             }
         }

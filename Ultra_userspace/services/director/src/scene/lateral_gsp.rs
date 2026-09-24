@@ -27,17 +27,25 @@
 //! # Y debajo, LA 3060 (24-09, *"poner en HUD por completo"*)
 //!
 //! ```text
-//!    3060              45o  P8     la temperatura del sensor (o = grado) y
-//!                                  el P-state
-//!    pcie 4 x16     12G GDDR6     el enlace AHORA (y el maximo si va por
-//!                                 debajo: en reposo baja, y es ahorro)
+//!    3060           49o?     la temperatura; `?` = probable (ver `salud`)
+//!    ~~~~~~~~~~~~~~~~~~~     su HISTORIA, un minuto, de 25 a 95 grados, con
+//!    - - - - - - - - - -     la raya de 83 (donde la 3060 baja relojes)
+//!    pstate           P0     lo que dijo el GSP-RM; P0 a tope, P8 reposo
+//!    pcie          1/3 x16   el enlace AHORA / el techo que declara
+//!    vram       12G GDDR6    lo que dijo GET_GSP_STATIC_INFO
 //! ```
 //!
+//! ** Eran dos renglones con tres cosas cada uno, y en 17 columnas se
+//! pisaban (`pcie 1/312G6GDDR6`, captura del 24-09 11:25). Ahora es el idioma
+//! de los instrumentos de abajo: una cosa por renglon, el nombre apagado a la
+//! izquierda y la cifra en claro a la derecha.
+//!
 //! La temperatura y el enlace se leen cada vuelta (`INFO_GPU_SALUD`, dos
-//! lecturas); el P-state y la VRAM los apunta el escritorio cuando se los
-//! pregunta al GSP-RM (`commands` llama a `scene`, no al reves). Los VATIOS de
-//! la 3060 no estan: NVIDIA no publica la orden del RM que los da (ver
-//! `bmo_gpu_ga10x::salud`), y un numero inventado es peor que ninguno.
+//! lecturas); la historia toma una muestra por segundo. El P-state y la VRAM
+//! los apunta el escritorio cuando se los pregunta al GSP-RM (`commands`
+//! llama a `scene`, no al reves). Los VATIOS de la 3060 no estan: NVIDIA no
+//! publica la orden del RM que los da (ver `bmo_gpu_ga10x::salud`), y un
+//! numero inventado es peor que ninguno.
 
 use bmo_userland as bmo;
 
@@ -56,7 +64,17 @@ const ROJO: u32 = 0x00EF_4444;
 
 /// Lo que mide el bloque: la palabra, el camino de nodos y sus letras, y los
 /// dos renglones de la 3060.
-pub(crate) const ALTO: u32 = GSP_ALTO + 10 + 2 * bmo::GLIFO_ALTO + 2;
+pub(crate) const ALTO: u32 = GSP_ALTO + 12 + GPU_ALTO;
+/// El bloque de la 3060: su renglon, la historia y tres renglones mas.
+const GPU_ALTO: u32 = RENGLON + HIST_ALTO + 4 + 3 * RENGLON;
+const RENGLON: u32 = bmo::GLIFO_ALTO + 2;
+const HIST_ALTO: u32 = 20;
+/// Muestras de temperatura: una por segundo, a 2 px cada una.
+const MUESTRAS: usize = 68;
+/// La escala de la historia, en grados, y la raya de aviso.
+const T_MIN: u32 = 25;
+const T_MAX: u32 = 95;
+const T_AVISO: u32 = 83;
 const GSP_ALTO: u32 = bmo::GLIFO_ALTO + 8 + NODO + 4 + bmo::GLIFO_ALTO;
 /// Un nodo: un punto de 8 px.
 const NODO: u32 = 8;
@@ -80,6 +98,7 @@ struct Estado {
     enlace: u64,
     pstate: u8,
     vram: (u32, u8),
+    tomadas: u32,
 }
 
 /// Lo pintado, para no repintar si no cambio.
@@ -94,6 +113,12 @@ static mut FASE: bool = false;
 /// sin preguntar) y la VRAM `(MiB, tipo de RAM)`.
 static mut PSTATE: u8 = 0xFF;
 static mut VRAM: (u32, u8) = (0, 0);
+/// La historia de la temperatura (0 = sin muestra), la mas nueva al final, y
+/// las vueltas desde la ultima muestra (se pinta a 4 Hz; se muestrea a 1).
+static mut HIST: [u8; MUESTRAS] = [0; MUESTRAS];
+static mut VUELTAS: u8 = 0;
+/// Cuantas muestras se han tomado (para que el Estado cambie con cada una).
+static mut TOMADAS: u32 = 0;
 
 /// **El P-state**, tal como lo contesto el GSP-RM (`commands::gspsalud`).
 pub(crate) fn pstate(p: u8) {
@@ -165,16 +190,30 @@ fn leer() -> Estado {
     };
     // SAFETY: el escritorio es un solo hilo.
     let (pstate, vram) = unsafe { (PSTATE, VRAM) };
+    let termico = bmo::info(bmo::INFO_GPU_SALUD) as u32;
+    // Una muestra por segundo: la cuarta vuelta de cada cuatro.
+    // SAFETY: el escritorio es un solo hilo.
+    let tomadas = unsafe {
+        VUELTAS = (VUELTAS + 1) % 4;
+        if VUELTAS == 0 && hallada {
+            let h = &mut *core::ptr::addr_of_mut!(HIST);
+            h.copy_within(1.., 0);
+            h[MUESTRAS - 1] = bmo_gpu_ga10x::salud::grados(termico).map_or(0, |g| g.min(255) as u8);
+            TOMADAS = TOMADAS.wrapping_add(1);
+        }
+        TOMADAS
+    };
     Estado {
         hechos: bits,
         fallo,
         hallada,
         riscv,
         respira,
-        termico: bmo::info(bmo::INFO_GPU_SALUD) as u32,
+        termico,
         enlace: bmo::info(bmo::INFO_GPU_SALUD | 1 << 8),
         pstate,
         vram,
+        tomadas,
     }
 }
 
@@ -280,7 +319,7 @@ pub(crate) fn pintar(p: &bmo::Pantalla, x0: u32, y: u32, iw: u32) {
         p.texto_bytes(lx, ny + NODO + 4, &LETRAS[k..k + 1], tinta);
     }
     if e.hallada {
-        la_3060(p, &e, x0, y + GSP_ALTO + 10, iw);
+        la_3060(p, &e, x0, y + GSP_ALTO + 12, iw);
     }
 }
 
@@ -299,67 +338,109 @@ fn poner(t: &mut [u8], n: usize, s: &[u8]) -> usize {
     n + k
 }
 
-/// **Los dos renglones de la 3060**: a la izquierda el nombre apagado, a la
-/// derecha la cifra en claro -- el mismo idioma que los instrumentos de abajo.
+/// Un renglon: `nombre` apagado a la izquierda, `cifra` a la derecha.
+fn renglon(p: &bmo::Pantalla, x0: u32, y: u32, iw: u32, nombre: &str, cifra: &[u8], tinta: u32) {
+    p.texto(x0, y, nombre, INK_DIM);
+    let cx = (x0 + iw).saturating_sub(cifra.len() as u32 * bmo::GLIFO_ANCHO);
+    p.texto_bytes(cx, y, cifra, tinta);
+}
+
+/// **El bloque de la 3060**: el idioma de los instrumentos de abajo, una cosa
+/// por renglon.
 fn la_3060(p: &bmo::Pantalla, e: &Estado, x0: u32, y: u32, iw: u32) {
     use bmo_gpu_ga10x::{estatica, salud};
-    let derecha = |t: &[u8]| (x0 + iw).saturating_sub(t.len() as u32 * bmo::GLIFO_ANCHO);
+    let est = estilo();
+    let (fondo, borde) = (est.barra_fondo, est.barra_borde);
+    p.rect(x0, y, iw, GPU_ALTO, fondo);
 
-    // 3060   45 grados  P8
-    p.texto(x0, y, "3060", INK_DIM);
-    let mut t = [0u8; 16];
-    let mut n = 0;
-    let grados = salud::grados(e.termico);
-    match grados {
-        Some(g) => {
-            n = num(&mut t, n, g);
+    // 3060  49o?  -- verde hasta 70, el acento hasta 83, rojo encima.
+    let mut t = [0u8; 8];
+    let lectura = salud::lectura(e.termico);
+    let (n, tinta) = match lectura {
+        Some((g, fe)) => {
+            let mut n = num(&mut t, 0, g);
             n = poner(&mut t, n, &[0xB0]);
+            if fe == salud::Fe::Probable {
+                n = poner(&mut t, n, b"?");
+            }
+            (n, if g >= T_AVISO { ROJO } else if g >= 70 { acento() } else { VERDE })
         }
-        None => n = poner(&mut t, n, b"--"),
-    }
-    if e.pstate != 0xFF {
-        n = poner(&mut t, n, b"  P");
-        n = num(&mut t, n, e.pstate as u32);
-    }
-    // Verde hasta 70, el acento hasta 83 (donde la 3060 empieza a bajar
-    // relojes), rojo encima.
-    let tinta = match grados {
-        Some(g) if g >= 83 => ROJO,
-        Some(g) if g >= 70 => acento(),
-        Some(_) => VERDE,
-        None => INK_DIM,
+        None => (poner(&mut t, 0, b"--"), INK_DIM),
     };
-    p.texto_bytes(derecha(&t[..n]), y, &t[..n], tinta);
+    renglon(p, x0, y, iw, "3060", &t[..n], tinta);
 
-    // pcie 4 x16   12G GDDR6
-    let y = y + bmo::GLIFO_ALTO + 2;
-    let mut t = [0u8; 24];
-    let mut n = 0;
-    if let Some(l) = salud::enlace(e.enlace as u16, (e.enlace >> 32) as u32) {
-        n = poner(&mut t, n, b"pcie ");
-        n = num(&mut t, n, l.gen as u32);
-        // Por debajo de lo que puede: se dice el maximo, apagado no, entre /.
-        if l.gen < l.gen_max {
-            n = poner(&mut t, n, b"/");
-            n = num(&mut t, n, l.gen_max as u32);
-        }
-        n = poner(&mut t, n, b" x");
-        n = num(&mut t, n, l.ancho as u32);
-    } else {
-        n = poner(&mut t, n, b"pcie --");
+    // La historia: una linea en escala FIJA (25..95), para que un grado sea
+    // siempre la misma altura; y la raya de 83, punteada.
+    let gy = y + RENGLON;
+    let ancho = (MUESTRAS as u32 * 2).min(iw);
+    let y_de = |g: u32| gy + HIST_ALTO - 2 - (g.clamp(T_MIN, T_MAX) - T_MIN) * (HIST_ALTO - 3) / (T_MAX - T_MIN);
+    p.rect(x0, gy + HIST_ALTO - 1, ancho, 1, borde);
+    let raya = y_de(T_AVISO);
+    for k in (0..ancho).step_by(6) {
+        p.rect(x0 + k, raya, 3, 1, mezcla(ROJO, fondo, 160));
     }
-    p.texto_bytes(x0, y, &t[..n], INK_DIM);
-    if e.vram.0 != 0 {
-        let mut t = [0u8; 16];
+    // SAFETY: el escritorio es un solo hilo.
+    let h = unsafe { &*core::ptr::addr_of!(HIST) };
+    let mut antes: Option<u32> = None;
+    for (k, &g) in h.iter().enumerate() {
+        if g == 0 {
+            antes = None;
+            continue;
+        }
+        let yy = y_de(g as u32);
+        let (a, z) = match antes {
+            Some(p0) if p0 < yy => (p0, yy),
+            Some(p0) => (yy, p0),
+            None => (yy, yy),
+        };
+        let c = if g as u32 >= T_AVISO { ROJO } else if g >= 70 { acento() } else { mezcla(VERDE, fondo, 64) };
+        p.rect(x0 + k as u32 * 2, a, 2, z - a + 2, c);
+        antes = Some(yy);
+    }
+
+    // pstate  P0 -- a tope en el acento, el reposo (P8 y mas) en verde.
+    let y = gy + HIST_ALTO + 4;
+    let mut t = [0u8; 4];
+    let (n, tinta) = if e.pstate == 0xFF {
+        (poner(&mut t, 0, b"--"), INK_DIM)
+    } else {
+        let n = poner(&mut t, 0, b"P");
+        let n = num(&mut t, n, e.pstate as u32);
+        (n, if e.pstate == 0 { acento() } else if e.pstate >= 8 { VERDE } else { INK })
+    };
+    renglon(p, x0, y, iw, "pstate", &t[..n], tinta);
+
+    // pcie  1/3 x16 -- AHORA / el techo, solo si va por debajo.
+    let y = y + RENGLON;
+    let mut t = [0u8; 12];
+    let n = match salud::enlace(e.enlace as u16, (e.enlace >> 32) as u32) {
+        Some(l) => {
+            let mut n = num(&mut t, 0, l.gen as u32);
+            if l.gen < l.gen_max {
+                n = poner(&mut t, n, b"/");
+                n = num(&mut t, n, l.gen_max as u32);
+            }
+            n = poner(&mut t, n, b" x");
+            num(&mut t, n, l.ancho as u32)
+        }
+        None => poner(&mut t, 0, b"--"),
+    };
+    renglon(p, x0, y, iw, "pcie", &t[..n], INK);
+
+    // vram  12G GDDR6
+    let y = y + RENGLON;
+    let mut t = [0u8; 12];
+    let n = if e.vram.0 == 0 {
+        poner(&mut t, 0, b"--")
+    } else {
         let mut n = num(&mut t, 0, e.vram.0 >> 10);
         n = poner(&mut t, n, b"G");
-        // El tipo solo si es uno de los que tienen nombre corto: "tipo
-        // desconocido" no cabe al lado del enlace.
         let r = estatica::ram(e.vram.1 as u32);
         if r.len() <= 6 {
             n = poner(&mut t, n, b" ");
             n = poner(&mut t, n, r);
         }
-        p.texto_bytes(derecha(&t[..n]), y, &t[..n], INK);
-    }
+        n
+    };
+    renglon(p, x0, y, iw, "vram", &t[..n], INK);
 }

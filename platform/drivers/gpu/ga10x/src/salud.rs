@@ -15,6 +15,13 @@
 //! sombra. Para Ampere nouveau ya no la declara (todo va por el GSP); el
 //! registro sigue ahi, y por eso sale CRUDO al lado: si un dia no cuadra, se ve.
 //!
+//! ** Y en la 3060 el bit 29 sale CAIDO (metal 24-09 11:25: `0xC0003168`),
+//! con el 31 y el 30 puestos. Los bits 3..16 dan 49,4 grados, que es lo que
+//! una 3060 en P0 y sin carga marca. Ni `open-gpu-doc` ni `envytools`
+//! documentan este registro en Ampere, asi que eso no es "valido": es
+//! PROBABLE, y se dice asi. Lo que lo confirma es su HISTORIA (el panel la
+//! pinta): un sensor de verdad sube con la carga y baja al parar.
+//!
 //! # Los vatios, dichos con su nombre
 //!
 //! La potencia de la placa la miden sensores que lee la PMU por I2C, y NVIDIA
@@ -26,9 +33,30 @@
 pub const TERMICO: u32 = 0x0002_0460;
 const VALIDA: u32 = 1 << 29;
 
-/// **La temperatura en grados**, si el sensor dice que es valida.
+/// Que se sabe de una lectura.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Fe {
+    /// El bit 29 de Pascal y Turing, puesto.
+    Valida,
+    /// Sin el 29, pero con el 31 (como la 3060) y en 1..=110 grados.
+    Probable,
+}
+
+/// **La temperatura en grados**, y cuanto fiarse.
+pub fn lectura(crudo: u32) -> Option<(u32, Fe)> {
+    let g = (crudo & 0x0001_FFF8) >> 8;
+    if crudo & VALIDA != 0 {
+        Some((g, Fe::Valida))
+    } else if crudo & 1 << 31 != 0 && (1..=110).contains(&g) {
+        Some((g, Fe::Probable))
+    } else {
+        None
+    }
+}
+
+/// Los grados, sin mas (valida o probable).
 pub fn grados(crudo: u32) -> Option<u32> {
-    (crudo & VALIDA != 0).then_some((crudo & 0x0001_FFF8) >> 8)
+    lectura(crudo).map(|(g, _)| g)
 }
 
 /// El enlace PCIe: lo que va AHORA y lo mas que puede.
@@ -77,6 +105,9 @@ mod pruebas {
         assert_eq!(grados(VALIDA | 0x2D80), Some(45));
         assert_eq!(grados(0x2D80), None, "sin el bit 29 no hay dato");
         assert_eq!(grados(VALIDA | 0x4000_0000 | 0x5000), Some(0x50));
+        // Lo que dio la 3060 el 24-09 11:25: probable, 49 grados.
+        assert_eq!(lectura(0xC000_3168), Some((49, Fe::Probable)));
+        assert_eq!(lectura(0x8000_0000), None, "0 grados no es una lectura");
     }
 
     #[test]
@@ -84,7 +115,7 @@ mod pruebas {
         // Link Status: Gen4 x16 = 0x0104; Link Capabilities: Gen4 x16 = 0x104.
         let e = enlace(0x0104, 0x0000_0104).unwrap();
         assert_eq!((e.gen, e.ancho, e.gen_max, e.ancho_max), (4, 16, 4, 16));
-        // En reposo baja a Gen1: eso es ahorro, no una averia.
+        // La 3060 arranca en Gen1: subirlo es del driver (el RM), no una averia.
         assert_eq!(enlace(0x0101, 0x104).unwrap().gen, 1);
         assert_eq!(enlace(0, 0), None);
         assert_eq!((gts(1), gts(4)), (25, 160));

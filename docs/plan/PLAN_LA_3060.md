@@ -979,6 +979,21 @@ EN EL PANEL.**
   por `parse`), y TAB completa ordenes antes que rutas. Una fila en blanco
   separa cada orden de la respuesta de antes.
 
+**L1b+ en el metal (24-09, 11:25): LOS 21 PASOS DE UNA VEZ.** `save mode` dio
+todo seguido y el consejero dijo `verificado: los 21 pasos`. `obj cli/disp/sub`
+NV_OK (numeros 3, 4 y 5); `pstate P0` por `PERF_GET_CURRENT_PSTATE` en 1 ms
+(numero 6, mascara 0x0001): **la primera orden de control a un objeto
+nuestro**. `pcie Gen1 x16 de Gen3 x16`: la 3060 arranca en Gen1 y subir el
+enlace es del RM (aun no pedido). `temp`: el sensor dio `0xC0003168`, con el
+bit 29 CAIDO y el 31 puesto; sus bits 3..16 son 49,4 grados. Ni `open-gpu-doc`
+ni `envytools` documentan ese registro en Ampere: se muestra como PROBABLE
+(`49o?`), y el panel pinta su HISTORIA para confirmarlo con carga.
+
+El panel se pisaba (`pcie 1/312G6GDDR6` en 17 columnas): ahora el bloque de la
+3060 habla el idioma de los instrumentos, una cosa por renglon (`3060 49o?`,
+la historia de un minuto con la raya de 83, `pstate P0`, `pcie 1/3 x16`, `vram
+12G GDDR6`).
+
 **Como se sabe (L1b):** las filas `obj cli`, `obj disp` y `obj sub` dicen
 `NV_OK` (o `ya existia`, si se pidieron antes en el mismo arranque). Un
 `parametros de otra medida` (0x3A) es un struct de otra version; `padre
