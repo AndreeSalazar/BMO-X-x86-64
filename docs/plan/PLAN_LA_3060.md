@@ -429,7 +429,7 @@ y escritos (24-09):**
 - **El kernel no guarda la respuesta de G0**: el escritorio le pasa las
   ocho medidas (op 0x29, una por llamada, como `TASK_OP_RUTA`), el kernel
   rehace tabla y reparto con la MISMA cuenta (`gr::desde_medidas`) y exige
-  que dé lo que mapeo G2; si no, no sale nada (motivo 69).
+  que salga lo mismo que mapeo G2; si no, no sale nada (motivo 69).
 - **El contrato** (`gr::promover_permitida`) no sabe de G0 y mira la FORMA:
   nuestras asas, las nueve entradas con sus banderas, y cada direccion
   DENTRO de la region de G2, fisica y virtual a la misma distancia.
@@ -441,6 +441,38 @@ y escritos (24-09):**
   reservado; el nuestro es de USUARIO. Y nouveau no le hace BIND ni SCHEDULE
   antes; el nuestro ya los tiene (G1). Cambiarlo es otra forma de canal, no
   un arreglo de G3.
+
+**Del oro al primer sombreador (M5d, contado paso a paso, 24-09).** Cada
+fila es un paso de `save mode`, con su prueba en el anfitrion y su fila en
+`gpu`; ninguno se junta con otro, como la copia (L1d):
+
+```text
+   S1  computo   AMPERE_COMPUTE_B (0xC7C0) en el canal de GR0, otro subcanal;
+                 sin parametros como AMPERE_B
+   S2  fichagr   GET_WORK_SUBMIT_TOKEN del canal de GR0; el timbre con la
+                 lista 0 de la tabla (GR0): 0x0000_0002
+   S3  vacio     el primer trabajo EN EL MOTOR GRAFICO: SET_OBJECT del
+                 computo y un semaforo, nada mas. Si el semaforo se paga, el
+                 GR corre NUESTRO GPFIFO con el contexto de oro (lo mismo que
+                 `copia` probo para COPY2)
+   S4  codigo    el programa en VRAM propia: el mas corto que escribe algo --
+                 S2R del id del hilo, STG de una constante, EXIT -- en SASS de
+                 SM86 (instrucciones de 128 bits). A mano y comprobado contra
+                 el oraculo la primera vez; despues lo emite el BSF (kind 2)
+   S5  qmd       el QMD v3 (256 B, el de NVK): direccion del programa, un
+                 bloque de 32 hilos, la cb0 con la direccion del bufer, la
+                 memoria local (`SET_SHADER_LOCAL_MEMORY_*`); lanzado con
+                 `SEND_PCAS_A` (QMD >> 8) y `SEND_SIGNALING_PCAS2_B`, y un
+                 semaforo detras
+   S6  sombreo   leer el bufer por PRAMIN: 32 palabras con el valor. ES el
+                 primer sombreador de BMO-X en la 3060
+```
+
+Seis pasos despues de `oro`: el primero NUEVO de verdad es S4 (el SASS); los
+demas son la receta de la copia con otra clase. Despues, el blur (S7: el
+mismo QMD con un programa que lee y escribe una imagen del marco copiada
+por el canal de copia) y el triangulo (T1..: AMPERE_B con su estado 3D,
+vertices, rasterizador y un RT en VRAM).
 
 **Despues de G4 (M5d, estudio):** AMPERE_COMPUTE_B (0xC7C0) en el MISMO canal
 (otro subcanal), un QMD v3 (el de NVK/`nvk_cmd_dispatch`) con el codigo SASS

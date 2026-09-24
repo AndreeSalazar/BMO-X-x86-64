@@ -110,7 +110,7 @@ pub const N: usize = 9;
 /// UNRESTRICTED_PRIV_ACCESS_MAP 11.
 ///
 /// ** La novena (24-09, estudiando G3 antes de probar G2): nouveau, tras
-/// PRIV_ACCESS_MAP, anade una copia con el id 11 y la misma medida; en el
+/// PRIV_ACCESS_MAP, agrega una copia con el id 11 y la misma medida; en el
 /// contexto de ORO cada una lleva SU memoria, y PRIV_ACCESS_MAP va sin mapear
 /// (`bNonmapped`). La primera version de G2 contaba ocho.
 pub const TABLA: [(u8, u8, &[u8], bool, bool, bool); N] = [
