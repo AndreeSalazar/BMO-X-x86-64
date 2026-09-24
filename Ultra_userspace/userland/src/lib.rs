@@ -220,11 +220,14 @@ pub const OP_AUDIO_MANDO: u32 = 0x34;
 pub const OP_IOMMU: u32 = 0x35;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
+pub const IOMMU_OP_CEGAR_GPU: u64 = 0x03;
+pub const IOMMU_OP_VER_GPU: u64 = 0x04;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
 pub const IOMMU_NO_CONTESTA: u32 = 4;
 pub const IOMMU_NO_APAGADA: u32 = 5;
+pub const IOMMU_NO_SIN_GPU: u32 = 6;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -849,6 +852,11 @@ pub const IOMMU_VIVA_MOTIVO_SHIFT: u64 = 48;
 pub const IOMMU_VIVA_INTENTOS_SHIFT: u64 = 56;
 pub const IOMMU_VIVA_CONTESTO: u64 = 1 << 62;
 pub const IOMMU_VIVA_ENCENDIDA: u64 = 1 << 63;
+/// ** La 3060, ciega o no (M0e). Ver el ABI.
+pub const INFO_IOMMU_GPU: u64 = 0xAB;
+pub const IOMMU_GPU_US_SHIFT: u64 = 16;
+pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
+pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

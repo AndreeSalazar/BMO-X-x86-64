@@ -1519,6 +1519,19 @@ pub const IOMMU_VIVA_INTENTOS_SHIFT: u64 = 56;
 pub const IOMMU_VIVA_CONTESTO: u64 = 1 << 62;
 pub const IOMMU_VIVA_ENCENDIDA: u64 = 1 << 63;
 
+/// # `INFO_IOMMU_GPU`: la 3060, CIEGA (M0e, 2026-09-24)
+///
+/// ```text
+///   0..15   su BDF
+///   16..47  us que tardo el COMPLETION_WAIT tras cambiar su entrada
+///   62      la entrada releida dice lo que se escribio
+///   63      CIEGA: su DMA no alcanza la RAM (V + TV, sin IR ni IW)
+/// ```
+pub const INFO_IOMMU_GPU: u64 = 0xAB;
+pub const IOMMU_GPU_US_SHIFT: u64 = 16;
+pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
+pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

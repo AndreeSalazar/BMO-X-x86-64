@@ -22,8 +22,52 @@ use crate::desktop::Desktop;
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
-/// `gpu` desde el escritorio.
-pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+/// `gpu`, `gpu cegar`, `gpu ver` desde el escritorio.
+///
+/// ** `cegar` y `ver` (M0e, 2026-09-24) cambian la entrada de la 3060 en la
+/// IOMMU: BLOQUEADA (su DMA no alcanza la RAM) o DE PASO. Son ordenes que
+/// escriben en el hardware, asi que llevan el `save` de antes (modo
+/// automatico), como `iommu encender`. Piden la IOMMU encendida.
+pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
+    let op = match arg {
+        b"" => None,
+        b"cegar" | b"ciega" => Some((bmo::IOMMU_OP_CEGAR_GPU, b"gpu cegar" as &[u8])),
+        b"ver" => Some((bmo::IOMMU_OP_VER_GPU, b"gpu ver" as &[u8])),
+        _ => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar` o `gpu ver`\n");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+    };
+    if let Some((op, nombre)) = op {
+        if !super::files::antes_de_arriesgar(dsk, p, nombre) {
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+        let g = &mut dsk.out.grid;
+        match bmo::iommu_orden(op) {
+            Ok(v) => {
+                g.with_ink(INK_GOOD);
+                g.text(if op == bmo::IOMMU_OP_CEGAR_GPU {
+                    b"  la 3060 esta CIEGA: su DMA no alcanza la RAM; la invalidacion volvio en " as &[u8]
+                } else {
+                    b"  la 3060 VE otra vez (de paso); la invalidacion volvio en "
+                });
+                g.dec(v & 0xFFFF_FFFF);
+                g.text(b" us\n");
+            }
+            Err(m) => {
+                g.with_ink(INK_ERR);
+                g.text(b"  NO: ");
+                g.text(super::iommu::motivo(m));
+                g.byte(b'\n');
+            }
+        }
+        g.with_ink(INK_PLAIN);
+        super::iommu::report_iommu(&mut dsk.out.grid);
+    }
     report_gpu(&mut dsk.out.grid, Some(p.rayo()));
     paint_status(p, &dsk.run_box, "grafica", INK_DIM);
     dsk.field.n = 0;

@@ -136,8 +136,10 @@ pasos, cada uno visto en el metal antes del siguiente:
    M0d  TRADUCIR por aparato: disco, USB y red ven solo lo que el juez de
         DMA (R-DMA) les presto; los IVMD, en identidad. Un fallo = un
         EVENTO con su BDF, no memoria pisada
-   M0e  la 3060 con su entrada VACIA (ni un byte de RAM) y el MSI por el
-        remapeo de interrupciones: entonces su Bus Master, y E2
+   M0e  la 3060 CIEGA: su entrada BLOQUEADA (V + TV, sin IR ni IW), las
+        palabras de interrupcion conservadas -- el MSI pasa, el DMA no.
+        `gpu cegar` / `gpu ver`, o `save mode`             [en codigo]
+        Y entonces su Bus Master, y E2
 ```
 
 M0a vive en `platform/shared/bmo-firmware/src/ivrs.rs` (el IVRS entero,
@@ -166,6 +168,18 @@ ordenes sobre lo del firmware). DOOM a 70 fps, el audio sin un tiron, el
 teclado, el raton y el disco igual que antes: con todo de paso, ningun
 aparato noto nada. Y el MSI del disco (vector 49) siguio entrando: con IV=0
 las interrupciones pasan sin remapear.
+
+**M0e y `save mode` (24-09, en codigo):** la entrada de la 3060 (el BDF lo da
+la sonda de `dev/gpu.rs`, y el kernel vuelve a mirar que ahi haya un `10DE`
+antes de tocarla) pasa a BLOQUEADA con la palabra 0 escrita la ULTIMA,
+`INVALIDATE_DEVTAB_ENTRY` + `INVALIDATE_ALL` + `COMPLETION_WAIT` (cada uno
+con su propio dato: `plat/iommu.rs::mandar`), y se relee. Si la invalidacion
+no vuelve, la entrada vuelve atras. Por peticion del propietario, **`save
+mode`** es la VERIFICACION TOTAL (`director/src/commands/verificar.rs`):
+todos los pasos en orden -- hoy `iommu` y `gpu` --, un `save` antes de cada
+uno, los que ya estan no se repiten, uno que pide otro no se intenta, y al
+final NOTAS Y CONSEJOS. `save mode -gpu` quita ese paso; E2 sera una fila
+mas.
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,

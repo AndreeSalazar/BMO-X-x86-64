@@ -694,6 +694,19 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             iommu::encender()
         }
         IOMMU_OP_APAGAR => iommu::apagar(),
+        IOMMU_OP_CEGAR_GPU | IOMMU_OP_VER_GPU => {
+            // ** El BDF lo da la SONDA, y se vuelve a mirar que ahi haya una
+            // NVIDIA: cegar el BDF equivocado dejaria ciego a otro aparato.
+            let Some((b, d, f)) = crate::ring0::dev::gpu::bdf() else {
+                return BmoStatus::negado(iommu::IOMMU_NO_SIN_GPU, 0);
+            };
+            if crate::ring0::dev::pci::cfg_read32(b, d, f, 0) & 0xFFFF != 0x10DE {
+                crate::ring0::cabina::warn("iommu", "M0e: en el BDF de la sonda ya no hay una NVIDIA: no se toca", 0);
+                return BmoStatus::negado(iommu::IOMMU_NO_SIN_GPU, 0);
+            }
+            let bdf = (b as u16) << 8 | (d as u16) << 3 | f as u16;
+            if arg0 == IOMMU_OP_CEGAR_GPU { iommu::cegar(bdf) } else { iommu::ver(bdf) }
+        }
         _ => return BmoStatus::err(ERROR_INVALID_ARGUMENT),
     };
     match r {

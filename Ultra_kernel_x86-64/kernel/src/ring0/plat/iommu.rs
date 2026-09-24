@@ -425,15 +425,14 @@ pub fn encender() -> Result<u64, u32> {
     let ordenes = (c & IOMMU_BASE_PAGINAS_MASK) << 12;
     let eventos = ordenes + BYTES_COLA;
     let semaforo = eventos + BYTES_COLA;
-    let (Some(r_tabla), Some(r_ord), Some(r_ev), Some(esperar)) = (
+    let (Some(r_tabla), Some(r_ord), Some(r_ev)) = (
         t::registro_tabla(tabla, bytes),
         t::registro_cola(ordenes, ENTRADAS_COLA),
         t::registro_cola(eventos, ENTRADAS_COLA),
-        Orden::esperar(semaforo, SEMAFORO_DATO),
     ) else {
         return fallo(IOMMU_NO_TABLAS);
     };
-    let vs = crate::ring0::mm::phys_to_virt(semaforo);
+    let _ = semaforo;
     CONTROL_ORIGINAL.store(control, Ordering::Release);
     crate::ring0::cabina::bits("iommu", "M0c: ENCENDER, control antes", control);
 
@@ -448,33 +447,10 @@ pub fn encender() -> Result<u64, u32> {
     // 2. Colas, y luego la IOMMU.
     wr(amdvi::CONTROL, control | CONTROL_ORDENES | CONTROL_EVENTOS);
     wr(amdvi::CONTROL, control | CONTROL_ORDENES | CONTROL_EVENTOS | CONTROL_EN);
-    // 3. Las dos ordenes, en el anillo, y la cola que las entrega.
-    // SAFETY: el semaforo y la cola son paginas NEUTRO de este fichero (`armar`).
-    unsafe {
-        (vs as *mut u64).write_volatile(0);
-        let vo = crate::ring0::mm::phys_to_virt(ordenes) as *mut u32;
-        for (i, w) in Orden::invalidar_todo().0.iter().chain(esperar.0.iter()).enumerate() {
-            vo.add(i).write_volatile(*w);
-        }
-    }
-    core::sync::atomic::fence(Ordering::SeqCst);
-    wr(amdvi::ORDENES_COLA, 2 * t::ORDEN as u64);
-    // 4. Esperar el dato.
-    use crate::ring0::task::scheduler::{rdtsc, tsc_freq};
-    let hz = tsc_freq().max(1);
-    let t0 = rdtsc();
-    let fin = t0.saturating_add(hz / 1000 * ESPERA_MAX_MS);
-    let mut llego = false;
-    while rdtsc() < fin {
-        // SAFETY: la pagina del semaforo, arriba.
-        if unsafe { (vs as *const u64).read_volatile() } == SEMAFORO_DATO {
-            llego = true;
-            break;
-        }
-        core::hint::spin_loop();
-    }
-    let us = rdtsc().saturating_sub(t0) * 1_000_000 / hz;
-    if !llego {
+    // 3 y 4. INVALIDATE_ALL y el COMPLETION_WAIT, y esperar el dato.
+    let r = mandar(&[Orden::invalidar_todo()]);
+    let us = r.unwrap_or(ESPERA_MAX_MS * 1000);
+    if r.is_none() {
         // La vuelta atras: el control como estaba, y la IOMMU sin traducir.
         wr(amdvi::CONTROL, control);
         crate::ring0::cabina::warn("iommu", "M0c: el COMPLETION_WAIT no llego en 10 ms: APAGADA otra vez", us);
@@ -513,4 +489,165 @@ pub fn apagar() -> Result<u64, u32> {
 
 pub fn info_viva() -> u64 {
     VIVA.load(Ordering::Acquire)
+}
+
+// == LAS ORDENES, PARA TODOS LOS PASOS (2026-09-24) ============================
+//
+// `encender` las escribia a mano en las posiciones 0 y 16. Desde M0e hay mas de
+// un paso que manda ordenes, asi que el anillo se lleva de verdad: se escribe
+// donde diga su registro de COLA, se deja el hueco de 0x20 de Linux, y cada
+// COMPLETION_WAIT lleva su PROPIO dato -- con el mismo dato siempre, un
+// semaforo que ya valia eso de la vez anterior diria "acabo" sin haber
+// acabado.
+
+/// Cuantos COMPLETION_WAIT se han mandado: hace unico el dato de cada uno.
+static ESPERAS: AtomicU64 = AtomicU64::new(0);
+
+/// **Manda `ordenes` y un COMPLETION_WAIT detras, y espera.** `Some(us)` si
+/// el dato volvio en [`ESPERA_MAX_MS`]; `None` si no hay sitio, no hay colas o
+/// no volvio.
+fn mandar(ordenes: &[amdvi::tablas::Orden]) -> Option<u64> {
+    use amdvi::tablas::{self as t, Anillo, Orden};
+    let v = registros()?;
+    let c = COLAS.load(Ordering::Acquire);
+    if c & IOMMU_ARMADO_SI == 0 {
+        return None;
+    }
+    let base = (c & IOMMU_BASE_PAGINAS_MASK) << 12;
+    let semaforo = base + 2 * BYTES_COLA;
+    let dato = SEMAFORO_DATO.wrapping_add(ESPERAS.fetch_add(1, Ordering::AcqRel) + 1);
+    let esperar = Orden::esperar(semaforo, dato)?;
+    // SAFETY: los registros de la IOMMU por el physmap, como en `encender`.
+    let rd = |r: u32| unsafe { ((v + r as u64) as *const u64).read_volatile() };
+    let wr = |r: u32, x: u64| unsafe { ((v + r as u64) as *mut u64).write_volatile(x) };
+    let anillo = Anillo { bytes: BYTES_COLA as u32 };
+    let cabeza = (rd(amdvi::ORDENES_CABEZA) & 0x7FFF0) as u32;
+    let mut cola = (rd(amdvi::ORDENES_COLA) & 0x7FFF0) as u32;
+    let vs = crate::ring0::mm::phys_to_virt(semaforo);
+    let vo = crate::ring0::mm::phys_to_virt(base) as *mut u32;
+    // SAFETY: el semaforo y la cola son paginas NEUTRO de `armar`.
+    unsafe { (vs as *mut u64).write_volatile(0) };
+    for o in ordenes.iter().chain(core::iter::once(&esperar)) {
+        if !anillo.hay_sitio(cabeza, cola) {
+            return None;
+        }
+        for (i, w) in o.0.iter().enumerate() {
+            // SAFETY: `cola` < 8 KiB y alineada a 16: dentro de la cola.
+            unsafe { vo.add((cola / 4) as usize + i).write_volatile(*w) };
+        }
+        cola = anillo.siguiente(cola);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    wr(amdvi::ORDENES_COLA, cola as u64);
+    use crate::ring0::task::scheduler::{rdtsc, tsc_freq};
+    let hz = tsc_freq().max(1);
+    let t0 = rdtsc();
+    let fin = t0.saturating_add(hz / 1000 * ESPERA_MAX_MS);
+    while rdtsc() < fin {
+        // SAFETY: la pagina del semaforo, arriba.
+        if unsafe { (vs as *const u64).read_volatile() } == dato {
+            return Some(rdtsc().saturating_sub(t0) * 1_000_000 / hz);
+        }
+        core::hint::spin_loop();
+    }
+    let _ = t::ORDEN;
+    None
+}
+
+// == M0e: LA 3060, CIEGA (2026-09-24) =========================================
+//
+// El atajo al VBLANK por interrupcion (E2): con la IOMMU encendida, la entrada
+// de la 3060 pasa de DE PASO a BLOQUEADA -- `V + TV`, sin `IR` ni `IW`. Desde
+// ese momento la tarjeta NO PUEDE leer ni escribir un byte de la RAM del PC,
+// ni con el Bus Master encendido. Las palabras 2 y 3 (lo que deja pasar de
+// interrupciones) se CONSERVAN: el MSI del VBLANK va por ahi, no por el DMA.
+//
+// Es la regla del propietario hecha registro: la GPU no toca la RAM.
+
+/// El dominio de las entradas ciegas: distinto del de paso, para que una
+/// invalidacion por dominio no toque a nadie mas.
+const DOMINIO_CIEGO: u16 = 2;
+
+pub const IOMMU_NO_SIN_GPU: u32 = 6;
+pub const IOMMU_GPU_US_SHIFT: u64 = 16;
+pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
+pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
+
+/// `0..15` BDF de la 3060 | `16..47` us del COMPLETION_WAIT | 62 la entrada
+/// releida dice bloqueada | 63 CIEGA ahora.
+static GPU: AtomicU64 = AtomicU64::new(0);
+
+/// La tabla de dispositivos como palabras, si esta armada.
+fn tabla_viva() -> Option<&'static mut [u64]> {
+    let a = ARMADO.load(Ordering::Acquire);
+    if a & IOMMU_ARMADO_COMPROBADO == 0 {
+        return None;
+    }
+    let base = (a & IOMMU_BASE_PAGINAS_MASK) << 12;
+    let bytes = ((a >> IOMMU_ARMADO_PAGINAS_SHIFT) & 0xFFF) * 4096;
+    // SAFETY: la tabla de `armar`, NEUTRO y de este fichero; la IOMMU la lee,
+    // y solo se reescribe entrada a entrada con la palabra 0 la ultima.
+    Some(unsafe { core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(base) as *mut u64, (bytes / 8) as usize) })
+}
+
+/// Escribe la entrada del BDF con la palabra 0 (V, TV, IR, IW) LA ULTIMA: la
+/// IOMMU puede leer mientras se escribe, y lo que decide es la palabra 0.
+fn poner_viva(tabla: &mut [u64], bdf: u16, e: amdvi::tablas::Dte) -> bool {
+    let i = bdf as usize * 4;
+    let Some(w) = tabla.get_mut(i..i + 4) else { return false };
+    for k in [3usize, 2, 1, 0] {
+        // SAFETY: `w` es memoria de la tabla; volatile porque la lee un aparato.
+        unsafe { (&mut w[k] as *mut u64).write_volatile(e.0[k]) };
+    }
+    true
+}
+
+/// **Cegar la 3060**: su entrada, BLOQUEADA. `Ok(us | bdf << 32)`.
+pub fn cegar(bdf: u16) -> Result<u64, u32> {
+    cambiar_gpu(bdf, true)
+}
+
+/// **Devolverle la vista**: su entrada, DE PASO otra vez.
+pub fn ver(bdf: u16) -> Result<u64, u32> {
+    cambiar_gpu(bdf, false)
+}
+
+fn cambiar_gpu(bdf: u16, ciega: bool) -> Result<u64, u32> {
+    use amdvi::tablas::{self as t, Dte, Orden};
+    if VIVA.load(Ordering::Acquire) & IOMMU_VIVA_ENCENDIDA == 0 {
+        return fallo(IOMMU_NO_APAGADA);
+    }
+    let Some(tabla) = tabla_viva() else { return fallo(IOMMU_NO_TABLAS) };
+    let Some(actual) = t::leer(tabla, bdf) else { return fallo(IOMMU_NO_TABLAS) };
+    let base = if ciega { Dte::bloqueada(DOMINIO_CIEGO) } else { Dte::de_paso(DOMINIO_PASO) };
+    let nueva = Dte([base.0[0], base.0[1] | (actual.0[1] & !0xFFFF), actual.0[2], actual.0[3]]);
+    if !poner_viva(tabla, bdf, nueva) {
+        return fallo(IOMMU_NO_TABLAS);
+    }
+    let Some(us) = mandar(&[Orden::invalidar_entrada(bdf), Orden::invalidar_todo()]) else {
+        // La entrada vuelve a como estaba: una a medias no se deja.
+        poner_viva(tabla, bdf, actual);
+        crate::ring0::cabina::warn("iommu", "M0e: la invalidacion no volvio: la entrada de la 3060 vuelve atras", bdf as u64);
+        return fallo(IOMMU_NO_CONTESTA);
+    };
+    let releida = t::leer(tabla, bdf).map_or(false, |e| {
+        e.valida() && e.traduce() && e.lee() != ciega && e.escribe() != ciega
+    });
+    GPU.store(
+        bdf as u64
+            | us.min(0xFFFF_FFFF) << IOMMU_GPU_US_SHIFT
+            | if releida { IOMMU_GPU_RELEIDA } else { 0 }
+            | if ciega { IOMMU_GPU_CIEGA } else { 0 },
+        Ordering::Release,
+    );
+    crate::ring0::cabina::count(
+        "iommu",
+        if ciega { "M0e: la 3060 CIEGA: su DMA no alcanza la RAM; BDF" } else { "M0e: la 3060 VE otra vez (de paso); BDF" },
+        bdf as u64,
+    );
+    Ok(us.min(0xFFFF_FFFF) | (bdf as u64) << 32)
+}
+
+pub fn info_gpu() -> u64 {
+    GPU.load(Ordering::Acquire)
 }

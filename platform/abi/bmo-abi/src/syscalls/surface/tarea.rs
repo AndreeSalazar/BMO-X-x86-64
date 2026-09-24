@@ -619,12 +619,18 @@ pub const TASK_OP_AUDIO_MANDO: u64 = 0x34;
 pub const TASK_OP_IOMMU: u64 = 0x35;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
+/// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.
+pub const IOMMU_OP_CEGAR_GPU: u64 = 0x03;
+/// Devolverle la vista (de paso).
+pub const IOMMU_OP_VER_GPU: u64 = 0x04;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
 pub const IOMMU_NO_CONTESTA: u32 = 4;
 pub const IOMMU_NO_APAGADA: u32 = 5;
+/// No hay NVIDIA en el BDF de la sonda.
+pub const IOMMU_NO_SIN_GPU: u32 = 6;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

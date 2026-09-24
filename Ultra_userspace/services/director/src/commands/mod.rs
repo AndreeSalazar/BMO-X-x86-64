@@ -15,6 +15,8 @@ pub(crate) mod disco;
 pub(crate) mod gpu;
 /// `iommu`: la IOMMU preguntada en solo lectura (M0a, 2026-09-23).
 pub(crate) mod iommu;
+/// `save mode`: la verificacion total de los pasos de la GPU (2026-09-24).
+pub(crate) mod verificar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
 /// ordenes -- ver su cabecera.
@@ -143,7 +145,8 @@ pub(crate) enum Command<'a> {
     Cabina(&'a [u8]),
     Placa,
     Cpu,
-    Gpu,
+    /// `gpu`, `gpu cegar`, `gpu ver` (M0e).
+    Gpu(&'a [u8]),
     /// `iommu`, `iommu encender`, `iommu apagar` (M0c).
     Iommu(&'a [u8]),
     /// **El censo de extensiones**: que declara este silicio y que coge BMO.
@@ -511,7 +514,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"placa" | b"firmware" => Command::Placa,
         b"cpu" | b"procesador" => Command::Cpu,
         // La grafica, PREGUNTADA: quien es y si su VBLANK se ve sin firmware.
-        b"gpu" | b"grafica" => Command::Gpu,
+        b"gpu" | b"grafica" => Command::Gpu(rest),
         // La IOMMU, PREGUNTADA: si el firmware la dejo encendida y a quien atiende.
         b"iommu" => Command::Iommu(rest),
         // Los mismos dos nombres que el shell de Ring 0, para que lo que se

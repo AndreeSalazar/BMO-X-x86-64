@@ -76,13 +76,14 @@ pub(crate) fn iommu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 }
 
 /// El motivo de un NO de `TASK_OP_IOMMU`, en palabras.
-fn motivo(m: u32) -> &'static [u8] {
+pub(crate) fn motivo(m: u32) -> &'static [u8] {
     match m {
         bmo::IOMMU_NO_ESCRITORIO => b"solo el escritorio (quien tiene la pantalla) la mueve",
         bmo::IOMMU_NO_TABLAS => b"no hay tablas de M0b releidas iguales (mira la fila `ours`)",
         bmo::IOMMU_NO_YA_ENCENDIDA => b"ya estaba encendida: no se pisa",
         bmo::IOMMU_NO_CONTESTA => b"el COMPLETION_WAIT no volvio en 10 ms: se APAGO sola otra vez",
-        bmo::IOMMU_NO_APAGADA => b"no la encendio BMO-X: desde aqui no se apaga",
+        bmo::IOMMU_NO_APAGADA => b"la IOMMU no la encendio BMO-X: primero `iommu encender`",
+        bmo::IOMMU_NO_SIN_GPU => b"no hay una NVIDIA donde la sonda la vio",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }
 }
@@ -193,6 +194,7 @@ pub(crate) fn report_iommu(s: &mut Output) {
     s.byte(b'\n');
     fila_armado(s, viva & bmo::IOMMU_VIVA_ENCENDIDA != 0);
     fila_viva(s, viva);
+    fila_gpu(s);
 
     let n = bmo::info(bmo::INFO_IOMMU_CENSO);
     if n & bmo::IOMMU_CENSO_VALIDO != 0 {
@@ -380,4 +382,33 @@ fn fila_viva(s: &mut Output, v: u64) {
     s.text(b" intento(s))\n");
     s.with_ink(INK_PLAIN);
     super::datos::anotar(b"iommu viva", v, b"");
+}
+
+/// ** M0e: la 3060, ciega o no. Solo sale si alguien la cego alguna vez.
+fn fila_gpu(s: &mut Output) {
+    let g = bmo::info(bmo::INFO_IOMMU_GPU);
+    if g == 0 {
+        return;
+    }
+    campo(s, b"3060");
+    if g & bmo::IOMMU_GPU_CIEGA != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"CIEGA: su DMA no alcanza la RAM; sus interrupciones si pasan");
+    } else {
+        s.with_ink(INK_ECHO);
+        s.text(b"VE: su entrada esta DE PASO otra vez");
+    }
+    s.with_ink(INK_ECHO);
+    s.text(b"   BDF ");
+    bdf(s, g & 0xFFFF);
+    s.text(b"; la invalidacion volvio en ");
+    s.dec((g >> bmo::IOMMU_GPU_US_SHIFT) & 0xFFFF_FFFF);
+    s.text(b" us");
+    if g & bmo::IOMMU_GPU_RELEIDA == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"; la entrada releida NO dice lo escrito");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"iommu gpu", g, b"");
 }

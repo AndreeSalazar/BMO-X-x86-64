@@ -423,6 +423,8 @@ const INFO_IOMMU_ARMADO: u64 = 0xA8;
 const INFO_IOMMU_COLAS: u64 = 0xA9;
 /// Lo que paso al encenderla (M0c).
 const INFO_IOMMU_VIVA: u64 = 0xAA;
+/// La 3060, ciega o no (M0e).
+const INFO_IOMMU_GPU: u64 = 0xAB;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -940,6 +942,7 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_IOMMU_ARMADO => crate::ring0::plat::iommu::info_armado(),
         INFO_IOMMU_COLAS => crate::ring0::plat::iommu::info_colas(),
         INFO_IOMMU_VIVA => crate::ring0::plat::iommu::info_viva(),
+        INFO_IOMMU_GPU => crate::ring0::plat::iommu::info_gpu(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

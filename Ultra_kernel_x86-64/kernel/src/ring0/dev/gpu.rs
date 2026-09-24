@@ -44,6 +44,18 @@ const MEDIR_MAX_MS: u64 = 80;
 
 /// BAR0 por el physmap. `0` = no hay grafica que leer.
 static BAR0: AtomicU64 = AtomicU64::new(0);
+/// Donde esta en el bus: `bus << 8 | dev << 3 | func`, con el bit 63 si se
+/// hallo. Lo pide la IOMMU para cegarla (M0e).
+static BDF: AtomicU64 = AtomicU64::new(0);
+
+/// **El BDF de la NVIDIA**, si la sonda la hallo.
+pub fn bdf() -> Option<(u8, u8, u8)> {
+    let v = BDF.load(Ordering::Acquire);
+    if v >> 63 == 0 {
+        return None;
+    }
+    Some(((v >> 8) as u8, ((v >> 3) & 0x1F) as u8, (v & 7) as u8))
+}
 
 // -- El contrato, espejo de `bmo_abi::...::informe::GPU_*` --------------------
 
@@ -79,6 +91,7 @@ pub fn sondear() {
         crate::ring0::cabina::info("gpu", "no hay grafica NVIDIA en el bus", 0);
         return;
     };
+    BDF.store(1 << 63 | (bus as u64) << 8 | (dev as u64) << 3 | func as u64, Ordering::Release);
     let pci = crate::ring0::dev::pci::cfg_read32;
     let bar = pci(bus, dev, func, 0x10);
     // BAR0 de una NVIDIA es de memoria y de 32 bits; si no lo es, no se

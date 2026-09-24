@@ -296,6 +296,10 @@ pub(crate) const TASK_OP_AUDIO_MANDO: u64 = 0x34;
 pub(crate) const TASK_OP_IOMMU: u64 = 0x35;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
+/// Cegar la 3060 (M0e): su entrada, bloqueada.
+pub(crate) const IOMMU_OP_CEGAR_GPU: u64 = 0x03;
+/// Devolverle la vista: su entrada, de paso.
+pub(crate) const IOMMU_OP_VER_GPU: u64 = 0x04;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
