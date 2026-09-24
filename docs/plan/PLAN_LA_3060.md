@@ -362,6 +362,29 @@ Los escalones, cada uno con su prueba:
    M5e  UN TRIANGULO 3D con AMPERE_B en la pantalla
 ```
 
+**M5 bajo el GSP-RM (24-09): el contexto de oro, como nouveau.** Con el
+GSP-RM vivo, FECS/GPCCS los carga el RM: M5a y M5b pasan a ser pedirle el
+contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_info`:
+
+```text
+   G0  preguntar los buferes: INTERNAL_STATIC_KGR_GET_CONTEXT_BUFFERS_INFO
+       (0x20800A32, 1664 B a cero) sobre las asas INTERNAS del RM (las de
+       L1a); ocho buferes -- MAIN (+64 cabeceras de subcontexto), PATCH,
+       BUNDLE_CB, PAGEPOOL, ATTRIBUTE_CB, RTV_CB_GLOBAL, FECS_EVENT y
+       PRIV_ACCESS_MAP -- con la medida, pagina y alineacion de nouveau
+       (`gpu gr`, paso `gr`)                         [en codigo, 24-09]
+   G1  un canal en GR0 (lista 0, la de la tabla), como el de L1d2b
+   G2  los buferes en VRAM propia, mapeados en nuestro espacio (el mapeador
+       de L1d1 crece de 16 paginas a los MiB que diga G0)
+   G3  PROMOTE_CTX (0x2080012B) con cada uno: MAIN 0, PATCH 2, BUNDLE_CB 3,
+       PAGEPOOL 4, ATTRIBUTE_CB 5, RTV 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10
+       (no mapeado) y UNRESTRICTED_PRIV_ACCESS_MAP 11 con su memoria
+   G4  AMPERE_B (0xC797) en ese canal: el RM hace el contexto de ORO
+```
+
+Los ids de PROMOTE son los de la r570 (`nvrm/gpu.h`), comprobados: una
+primera version los tenia corridos en uno.
+
 **Por donde entra el BSF (24-09).** El sobre de `toolchain/lang/spirv/bsf`
 ya esta hecho para esto: "una maquina nueva es un numero nuevo; el formato no
 cambia" (`bsf::kind`). El SASS de SM86 sera un `kind` nuevo (hoy solo existe

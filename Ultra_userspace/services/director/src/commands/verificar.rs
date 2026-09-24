@@ -414,7 +414,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcanal::copia_hecha,
         dar: super::gspcanal::copiar,
         pide: Some(b"copiador"),
-        consejo: b"`gpu`: la fila `copia` dice LA 3060 COPIO 1024 de 1024, semaforo PAGADO y GP_GET 1; `iommu` sin eventos nuevos -- lo siguiente es M5, el motor 3D",
+        consejo: b"`gpu`: la fila `copia` dice LA 3060 COPIO 1024 de 1024 y semaforo PAGADO; `iommu` sin eventos nuevos -- lo siguiente es `gr`, el motor grafico",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"gr",
+        que: b"QUE PIDE EL MOTOR GRAFICO: los buferes de su contexto de oro, una pregunta al cliente interno del RM (M5 G0)",
+        hecho: super::gspgr::hecho,
+        dar: super::gspgr::preguntar,
+        pide: Some(b"estatica"),
+        consejo: b"`gpu`: la fila `gr` dice 8 buferes y cuanto ocupan, y cada `gr bufer` su medida -- lo siguiente es G1, un canal en GR0",
         repinta: false,
     },
 ];
@@ -422,8 +431,9 @@ const PASOS: &[Paso] = &[
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
 /// camino, se deja sitio -- y la prueba de abajo dice NO si se pasa. Eran 16
 /// y `sistema` hizo el decimosexto (L0c4b2a, 24-09): L0c4b2b y L0c4b2c vienen.
-/// Y eran 24 y L1c los llevo a 23 (24-09): con L1d y M5 detras, 32.
-const MAX_PASOS: usize = 32;
+/// Y eran 24 y L1c los llevo a 23 (24-09): con L1d y M5 detras, 32. Y `gr`
+/// (M5 G0, 24-09) hizo el trigesimo segundo: con G1..G4 y el triangulo, 48.
+const MAX_PASOS: usize = 48;
 const _: () = assert!(PASOS.len() <= MAX_PASOS, "save mode: mas pasos que MAX_PASOS");
 
 /// Que salio de cada paso.

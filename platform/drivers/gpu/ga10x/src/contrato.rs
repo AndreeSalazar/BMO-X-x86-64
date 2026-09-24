@@ -18,7 +18,9 @@
 //!                           y L1d2b: NUESTRO canal, con sus 368 B exactos
 //!                           (su memoria, su motor, su espacio); y L1d3: su
 //!                           copiador AMPERE_DMA_COPY_B sobre COPY2 (8 B)
-//!    GSP_RM_CONTROL    76   SOLO las ordenes de `control::Control`, cada
+//!    GSP_RM_CONTROL    76   (M5 G0: y la pregunta de los buferes de GR sobre
+//!                           las asas INTERNAS del RM, `gr::permitida`)
+//!                           SOLO las ordenes de `control::Control`, cada
 //!                           una sobre SU objeto nuestro y con SUS parametros
 //!                           exactos (el directorio de L1c3: su direccion y
 //!                           su espacio, byte a byte)
@@ -92,6 +94,11 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
         GSP_RM_CONTROL => {
             if d.len() < CABECERA_CONTROL {
                 return Err(No::Control);
+            }
+            // M5 G0: la UNICA orden sobre las asas INTERNAS del RM -- la
+            // pregunta de los buferes de GR, con sus 1664 B a cero.
+            if crate::gr::permitida(d) {
+                return Ok(h.funcion);
             }
             let (cliente, objeto, cmd, medida) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 16) as usize);
             let bien = Control::TODOS.iter().any(|&c| {

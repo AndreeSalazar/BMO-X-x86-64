@@ -167,6 +167,8 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_COPIA_PREPARAR => b"el tramo no se releyo igual por PRAMIN (origen, destino, ordenes o GPFIFO): el timbre NO se toco",
         super::gspcanal::NO_COPIADOR_NEGADO => b"el GSP-RM contesto pero NO dio el copiador: su NV_STATUS, en la fila `copiador`",
         super::gspcanal::NO_COPIA_SIN_FICHA => b"sin la ficha del canal no se toca el timbre: primero `gpu canal`",
+        super::gspgr::NO_GR_SIN_ASAS => b"sin las asas internas del RM: primero `gpu estatica`",
+        super::gspgr::NO_GR_NEGADO => b"el GSP-RM contesto pero no dio los buferes de GR: su NV_STATUS, en la fila `gr`",
         super::gspcanal::NO_COPIA_MAL => b"la 3060 recibio el timbre pero la copia no salio entera: mira la fila `copia` y los eventos de `iommu`",
         super::gspsalud::NO_CONTROL_NEGADO => b"el GSP-RM contesto pero la orden de control no salio: su NV_STATUS, en la fila `pstate` (o `motores`/`metodos`)",
         bmo::IOMMU_NO_RPC_CONTRATO => b"el mensaje no esta en el CONTRATO de la cola (bmo_gpu_ga10x::contrato): no salio",

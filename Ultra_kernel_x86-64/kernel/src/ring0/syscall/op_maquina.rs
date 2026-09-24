@@ -830,6 +830,7 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         }
         IOMMU_OP_GPU_COPIADOR => crate::ring0::dev::gpu_libos::pedir_copiador(),
         IOMMU_OP_GPU_LEER => crate::ring0::dev::gpu_libos::leer_tramo(arg1),
+        IOMMU_OP_GSP_GR => crate::ring0::dev::gpu_libos::preguntar_gr(arg1),
         // ** L1d3: la primera vez que la 3060 EJECUTA algo nuestro. El FLUSH,
         // como el canal.
         IOMMU_OP_GPU_COPIA => {

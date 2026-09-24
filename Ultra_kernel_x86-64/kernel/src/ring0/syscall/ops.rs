@@ -366,6 +366,8 @@ pub(crate) const IOMMU_OP_GPU_COPIADOR: u64 = 0x23;
 pub(crate) const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 /// L1d3: leer una palabra del tramo (solo lectura). Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_LEER: u64 = 0x25;
+/// M5 G0: los buferes de GR, al cliente interno del RM. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_GR: u64 = 0x26;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

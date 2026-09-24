@@ -880,3 +880,21 @@ pub fn leer_tramo(dir: u64) -> Result<u64, u32> {
     }
     Ok(bmo_gpu_ga10x::copia::leer32(&mut r, dir) as u64)
 }
+
+// == M5 G0: LOS BUFERES DEL MOTOR GRAFICO (2026-09-24) ========================
+//
+// `INTERNAL_STATIC_KGR_GET_CONTEXT_BUFFERS_INFO` sobre las asas INTERNAS del
+// RM (las de `GET_GSP_STATIC_INFO`, que el escritorio leyo): una pregunta. El
+// contrato solo deja salir ESTA orden con sus parametros a cero.
+
+/// **G0: preguntar los buferes de GR.** `asas` = cliente | subdispositivo
+/// << 32. `Ok(pagina | numero << 32)` de la RPC.
+pub fn preguntar_gr(asas: u64) -> Result<u64, u32> {
+    let (cliente, sub) = (asas as u32, (asas >> 32) as u32);
+    if cliente == 0 || sub == 0 {
+        return Err(IOMMU_NO_RPC_CONTROL);
+    }
+    let r = enviar(|h, n| bmo_gpu_ga10x::gr::pedir(h, n, cliente, sub))?;
+    crate::ring0::cabina::count("gpu", "M5 G0: buferes de GR preguntados al cliente interno; asa", cliente as u64);
+    Ok(r)
+}

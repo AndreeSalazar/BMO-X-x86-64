@@ -149,6 +149,12 @@ pub(crate) fn barrer(otros: &mut Otros, ms: u64) {
     }
 }
 
+/// Las asas INTERNAS del RM (cliente, subdispositivo), de L1a.
+pub(crate) fn asas() -> Option<(u32, u32)> {
+    let e = resumen()?.e?;
+    (e.cliente != 0 && e.subdispositivo != 0).then_some((e.cliente, e.subdispositivo))
+}
+
 /// Lo pregunta `save mode`: el GSP-RM contesto, con `rpc_result` 0.
 pub(crate) fn contestada() -> bool {
     resumen().map_or(false, |r| r.e.is_some() && r.resultado == 0)

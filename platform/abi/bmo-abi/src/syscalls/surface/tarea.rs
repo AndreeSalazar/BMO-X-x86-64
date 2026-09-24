@@ -745,6 +745,11 @@ pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 /// (`copia::lista_legible`) y 33:32 que se lee: 0 la config de su CHRAM, 1 la
 /// de su timbre, 2 la entrada de NUESTRO canal en su CHRAM.
 pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
+/// M5 G0: preguntar al RM que buferes de contexto pide el motor grafico
+/// (`INTERNAL_STATIC_KGR_GET_CONTEXT_BUFFERS_INFO`), sobre sus asas INTERNAS:
+/// `arg1` = cliente | subdispositivo << 32 (las de `GET_GSP_STATIC_INFO`).
+/// Una pregunta. `Ok` = pagina | numero << 32.
+pub const IOMMU_OP_GSP_GR: u64 = 0x26;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

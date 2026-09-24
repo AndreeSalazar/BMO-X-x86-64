@@ -78,6 +78,8 @@ pub mod mmu;
 pub mod canal;
 /// L1d2d y L1d3: el copiador y la primera copia VRAM a VRAM (2026-09-24).
 pub mod copia;
+/// M5 G0: los buferes de contexto que pide el motor grafico (2026-09-24).
+pub mod gr;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.
