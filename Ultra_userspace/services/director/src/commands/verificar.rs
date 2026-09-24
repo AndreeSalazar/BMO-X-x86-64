@@ -513,7 +513,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::pintado,
         dar: super::gspcomputo::pintar,
         pide: Some(b"sombreo"),
-        consejo: b"`gpu`: `lienzo` dice 16384 de 16384; `iommu` sin eventos nuevos -- teclea `gpu lienzo` y VELO en tu pantalla; lo siguiente es el blur",
+        consejo: b"`gpu`: `lienzo` dice 16384 de 16384; `iommu` sin eventos nuevos -- teclea `gpu lienzo` y VELO; lo siguiente es `blur`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"blur",
+        que: b"EL BLUR: la media de 7 x 7 de cada pixel del lienzo, por la 3060, igual pixel a pixel que la cuenta de la CPU (M5d B)",
+        hecho: super::gspcomputo::desenfocado,
+        dar: super::gspcomputo::desenfocar,
+        pide: Some(b"lienzo"),
+        consejo: b"`gpu`: `blur` dice 16384 de 16384; teclea `gpu blur` y mira un trozo de tu pantalla DESENFOCADO por la 3060 -- lo siguiente es el triangulo",
         repinta: false,
     },
 ];

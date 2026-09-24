@@ -1,0 +1,394 @@
+//! **M5d: EL TRABAJO EN LA 3060** -- lo que corre en el motor grafico una vez
+//! hecho el contexto de oro: la clase de computo y su primer trabajo (S1..S3),
+//! el primer sombreador (S4..S6), el lienzo en la RAM del PC (L) y el blur (B).
+//! Partido de `gpu_libos.rs` el 24-09 (el censo modular lo paro en 1022
+//! lineas de codigo): es TEXTO MOVIDO, las mismas funciones, y usa de alli la
+//! cola de RPC (`enviar`), los marcos (`grupo`, `memoria`) y la IOMMU
+//! (`escribible`).
+//!
+//! [carril]  ROJO      presta 32 marcos NEUTRO ESCRIBIBLES a la 3060 (el lienzo y
+//!                     la salida del blur) y toca su timbre
+//! [consumo] NADA      corre por orden (`gpu computo`, `gpu sombreo`, `gpu lienzo`,
+//!                     `gpu blur`, y sus pasos de `save mode`)
+//!
+//! [eje]     CORRECCION -- cada trabajo se comprueba entero: el semaforo que
+//!           solo escribe el GR, y cada palabra o pixel contra la CPU
+
+use core::sync::atomic::{AtomicU64, Ordering};
+
+use super::gpu_libos::{enviar, escribible, grupo, memoria, COPIA_ESPERA_US, GR_TRESDE, PAGINA};
+use crate::ring0::plat::iommu as io;
+
+// == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
+//
+// Tras el oro (VISTO en el metal 24-09 15:51): AMPERE_COMPUTE_B en el canal de
+// GR0 por RPC, y UNA vez por arranque el primer trabajo del motor grafico --
+// la receta de la copia (`copiar`) con `bmo_gpu_ga10x::computo`: ordenes y
+// GPFIFO por PRAMIN en el tramo, GP_PUT del canal de GR0 y la ficha en el
+// timbre. Lo paga un semaforo de INFORME: solo lo escribe el GR.
+
+static COMPUTO_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static TRABAJO_GR_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// S1: sin el oro (G4), o el computo ya se pidio.
+pub const IOMMU_NO_COMPUTO: u32 = 71;
+/// S3: sin el computo, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_TRABAJO_GR: u32 = 72;
+/// S3: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
+
+/// **M5d S1: AMPERE_COMPUTE_B.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn pedir_computo() -> Result<u64, u32> {
+    if !GR_TRESDE.load(Ordering::Acquire) || COMPUTO_PEDIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_COMPUTO);
+    }
+    match enviar(bmo_gpu_ga10x::computo::pedir) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "M5d S1: GSP_RM_ALLOC de AMPERE_COMPUTE_B pedido; asa", bmo_gpu_ga10x::computo::COMPUTO as u64);
+            Ok(v)
+        }
+        Err(e) => {
+            COMPUTO_PEDIDO.store(false, Ordering::Release);
+            Err(e)
+        }
+    }
+}
+
+/// **M5d S3: el primer trabajo del GR.** `ficha` = la de `FichaGr` con la
+/// lista de GR0 (la de la tabla de aparatos). `Ok(computo::empaquetar(..))`.
+pub fn trabajo_gr(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::computo as cm;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !COMPUTO_PEDIDO.load(Ordering::Acquire) || !cm::ficha_valida(ficha) {
+        return Err(IOMMU_NO_TRABAJO_GR);
+    }
+    if TRABAJO_GR_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_TRABAJO_GR);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !cm::preparar(&mut r) {
+        // Nada llego a la 3060: se puede reintentar.
+        TRABAJO_GR_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "M5d S3: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_TRABAJO_GR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = cm::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut semaforo) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, semaforo) = cm::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if semaforo == cm::PAGA {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    // Como la copia: GP_GET llega despues; hasta 10 ms, sin exigirlo.
+    let pagado_en = us;
+    while semaforo == cm::PAGA && gp_get == 0 && us < pagado_en + 10_000 {
+        gp_get = cm::mirar(&mut r).0;
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        core::hint::spin_loop();
+    }
+    let v = cm::empaquetar(semaforo, gp_get, lanzado, pagado_en as u32);
+    if cm::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d S3: EL MOTOR GRAFICO CORRIO nuestro trabajo; us", pagado_en);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d S3: el GR no pago el semaforo; lo que habia", semaforo as u64);
+    }
+    Ok(v)
+}
+
+// == M5d S4..S6: EL PRIMER SOMBREADOR (2026-09-24) ============================
+//
+// Tras S3 (VISTO en el metal 24-09 16:06). `bmo_gpu_ga10x::sombreador`: el
+// programa (SASS de SM86 de `ptxas`, comprobado con `nvdisasm`), el QMD y las
+// ordenes por PRAMIN en el tramo, la entrada 1 del GPFIFO de GR0, GP_PUT = 2 y
+// la ficha en el timbre. Se espera el semaforo del QMD (la rejilla acabo) y el
+// de informe, y se leen las 32 palabras. Lo UNICO que la GPU toca es el tramo.
+
+static SOMBREO_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// S4..S6: sin S3, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_SOMBREO: u32 = 74;
+/// S4..S6: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_SOMBREO_PREPARAR: u32 = 75;
+
+/// **M5d S4..S6: el primer sombreador.** `ficha` = la de S3. `Ok(sombreador::
+/// empaquetar(..))`.
+pub fn sombrear(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::sombreador as sb;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !TRABAJO_GR_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_SOMBREO);
+    }
+    if SOMBREO_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_SOMBREO);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !sb::preparar(&mut r) {
+        SOMBREO_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "M5d S4: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_SOMBREO_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = sb::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut qmd, mut fin) = (0, 0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, qmd, fin) = sb::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == sb::PAGA_QMD && fin == sb::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    let acabo_en = us;
+    let (buenas, limpio) = sb::comprobar(&mut r);
+    let v = sb::empaquetar(buenas, limpio, qmd == sb::PAGA_QMD, fin == sb::PAGA_FIN, lanzado, gp_get, acabo_en as u32);
+    if sb::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d S6: EL PRIMER SOMBREADOR DE BMO-X CORRIO en la 3060; us", acabo_en);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d S6: el sombreador no salio entero; hilos buenos", buenas as u64);
+    }
+    Ok(v)
+}
+
+// == M5d L: EL LIENZO -- LA 3060 PINTA EN LA RAM DEL PC (2026-09-24) ==========
+//
+// Tras el primer sombreador (VISTO 24-09 16:21). 64 KiB de RAM del PC (16
+// marcos NEUTRO, por `grupo`), a cero y prestados ESCRIBIBLES en
+// `lienzo::IOVA`; sus 16 PTE de SISTEMA en la PT del tramo (solo si estaban
+// vacias); y un programa de 128 x 128 hilos (`lienzo::CODIGO`) que pinta un
+// degradado. La CPU lo comprueba pixel a pixel y el escritorio lo lee de dos
+// en dos (`leer_lienzo`).
+
+static LIENZO_F: AtomicU64 = AtomicU64::new(0);
+static LIENZO_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static LIENZO_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// L: sin el primer sombreador, una ficha ajena, o ya se pinto.
+pub const IOMMU_NO_LIENZO: u32 = 76;
+/// L: el lienzo no se presto, sus PTE no estaban vacias, o el tramo no se
+/// releyo: no se toco el timbre.
+pub const IOMMU_NO_LIENZO_PREPARAR: u32 = 77;
+
+/// Los pixeles del lienzo, si ya se presto.
+fn pixeles_del_lienzo() -> Option<&'static [u32]> {
+    let f = LIENZO_F.load(Ordering::Acquire);
+    if f == 0 || !LIENZO_PRESTADO.load(Ordering::Acquire) {
+        return None;
+    }
+    let b = memoria(f, bmo_gpu_ga10x::lienzo::PAGINAS * PAGINA);
+    // SAFETY: `b` son los marcos del lienzo, alineados a pagina (y por tanto a
+    // 4) y de 64 KiB justos.
+    Some(unsafe { core::slice::from_raw_parts(b.as_ptr() as *const u32, bmo_gpu_ga10x::lienzo::PIXELES) })
+}
+
+/// **M5d L: que la 3060 pinte el lienzo.** `ficha` = la de S3.
+/// `Ok(lienzo::empaquetar(..))`.
+pub fn pintar_lienzo(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::lienzo as lz;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !SOMBREO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    if LIENZO_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    let fallo = |m: u32, que: &str, v: u64| {
+        LIENZO_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", que, v);
+        Err(m)
+    };
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    // Una vez por arranque: prestar y mapear.
+    if !LIENZO_PRESTADO.load(Ordering::Acquire) {
+        let Some(f) = grupo(&LIENZO_F, lz::PAGINAS) else {
+            return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: no hubo 16 marcos seguidos para el lienzo", 0);
+        };
+        memoria(f, lz::PAGINAS * PAGINA).fill(0);
+        if io::prestar_gpu(lz::IOVA, f, lz::PAGINAS, true).is_err()
+            || !(0..lz::PAGINAS).all(|k| escribible(lz::IOVA + k * PAGINA, f + k * PAGINA))
+        {
+            return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: el lienzo no se ve por la IOMMU donde se presto; iova", lz::IOVA);
+        }
+        match lz::mapear(&mut r) {
+            Some((n, bien)) if n == bien => {}
+            _ => return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: las PTE del lienzo no estaban vacias o no se releyeron", 0),
+        }
+        LIENZO_PRESTADO.store(true, Ordering::Release);
+        crate::ring0::cabina::count("gpu", "M5d L: lienzo de 64 KiB PRESTADO a la 3060 y mapeado; iova", lz::IOVA);
+    }
+    // Cada vez, de cero: lo que se lea despues lo pinto la 3060.
+    memoria(LIENZO_F.load(Ordering::Acquire), lz::PAGINAS * PAGINA).fill(0);
+    if !lz::preparar(&mut r) {
+        return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: el tramo no quedo preparado; no se toca el timbre", 0);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = lz::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut qmd, mut fin) = (0, 0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, qmd, fin) = lz::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == lz::PAGA_QMD && fin == lz::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let buenos = pixeles_del_lienzo().map_or(0, lz::comprobar);
+    let v = lz::empaquetar(buenos, qmd == lz::PAGA_QMD, fin == lz::PAGA_FIN, lanzado, gp_get, us as u32);
+    if lz::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d L: LA 3060 PINTO 128x128 pixeles en la RAM del PC; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d L: el lienzo no salio entero; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}
+
+/// **Leer el lienzo, dos pixeles por llamada**: `k` = el par (0..8192); con
+/// el bit 32, de la SALIDA del blur. `Ok(pixel 2k | pixel 2k+1 << 32)`. Solo
+/// tras `pintar_lienzo` (o tras un blur). Solo lectura.
+pub fn leer_lienzo(arg: u64) -> Result<u64, u32> {
+    if !LIENZO_HECHO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    let (k, de_la_salida) = (arg & 0xFFFF, arg >> 32 & 1 != 0);
+    let p = if de_la_salida { pixeles_del_blur() } else { pixeles_del_lienzo() }.ok_or(IOMMU_NO_LIENZO)?;
+    let i = (k as usize).checked_mul(2).filter(|&i| i + 1 < p.len()).ok_or(IOMMU_NO_LIENZO)?;
+    Ok(p[i] as u64 | (p[i + 1] as u64) << 32)
+}
+
+// == M5d B: EL BLUR (2026-09-24) ==============================================
+//
+// Tras el lienzo. El escritorio sube 128 x 128 pixeles AL LIENZO, dos por
+// llamada (`escribir_lienzo`); `blur` presta y mapea la SALIDA (16 marcos mas,
+// una vez por arranque), lanza el programa de `bmo_gpu_ga10x::blur` en la
+// siguiente entrada del GPFIFO de GR (se puede repetir) y compara cada pixel
+// con la misma cuenta en la CPU.
+
+static BLUR_F: AtomicU64 = AtomicU64::new(0);
+static BLUR_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// La siguiente entrada del GPFIFO de GR para el blur.
+static BLUR_ENTRADA: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(bmo_gpu_ga10x::blur::PRIMERA_ENTRADA);
+/// Uno en marcha: ni otro blur ni subir pixeles mientras.
+static BLUR_EN_MARCHA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// B: sin el lienzo, una ficha ajena, el GPFIFO gastado, o uno en marcha.
+pub const IOMMU_NO_BLUR: u32 = 78;
+/// B: la salida no se presto, sus PTE no estaban vacias, o el tramo no se
+/// releyo: no se toco el timbre.
+pub const IOMMU_NO_BLUR_PREPARAR: u32 = 79;
+
+fn pixeles_del_blur() -> Option<&'static [u32]> {
+    let f = BLUR_F.load(Ordering::Acquire);
+    if f == 0 || !BLUR_PRESTADO.load(Ordering::Acquire) {
+        return None;
+    }
+    let b = memoria(f, bmo_gpu_ga10x::lienzo::PAGINAS * PAGINA);
+    // SAFETY: como `pixeles_del_lienzo`.
+    Some(unsafe { core::slice::from_raw_parts(b.as_ptr() as *const u32, bmo_gpu_ga10x::lienzo::PIXELES) })
+}
+
+/// **Subir dos pixeles al lienzo**: `arg` = `blur::subir(k, p0, p1)`. Tras
+/// pintarlo y con ningun blur en marcha. `Ok(k)`.
+pub fn escribir_lienzo(arg: u64) -> Result<u64, u32> {
+    if !LIENZO_HECHO.load(Ordering::Acquire) || BLUR_EN_MARCHA.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let (k, p0, p1) = bmo_gpu_ga10x::blur::bajar(arg);
+    let f = LIENZO_F.load(Ordering::Acquire);
+    if f == 0 || 2 * k as usize + 1 >= bmo_gpu_ga10x::lienzo::PIXELES {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let b = memoria(f, bmo_gpu_ga10x::lienzo::PAGINAS * PAGINA);
+    let o = 8 * k as usize;
+    b[o..o + 4].copy_from_slice(&p0.to_le_bytes());
+    b[o + 4..o + 8].copy_from_slice(&p1.to_le_bytes());
+    Ok(k as u64)
+}
+
+/// **M5d B: el blur.** `ficha` = la de S3. `Ok(blur::empaquetar(..))`.
+pub fn blur(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = blur_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn blur_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    use bmo_gpu_ga10x::lienzo as lz;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !BLUR_PRESTADO.load(Ordering::Acquire) {
+        let Some(f) = grupo(&BLUR_F, lz::PAGINAS) else {
+            crate::ring0::cabina::warn("gpu", "M5d B: no hubo 16 marcos seguidos para la salida del blur", 0);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        };
+        memoria(f, lz::PAGINAS * PAGINA).fill(0);
+        if io::prestar_gpu(bl::IOVA, f, lz::PAGINAS, true).is_err()
+            || !(0..lz::PAGINAS).all(|k| escribible(bl::IOVA + k * PAGINA, f + k * PAGINA))
+        {
+            crate::ring0::cabina::warn("gpu", "M5d B: la salida no se ve por la IOMMU donde se presto; iova", bl::IOVA);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        }
+        match bl::mapear(&mut r) {
+            Some((n, bien)) if n == bien => {}
+            _ => {
+                crate::ring0::cabina::warn("gpu", "M5d B: las PTE de la salida no estaban vacias o no se releyeron", 0);
+                return Err(IOMMU_NO_BLUR_PREPARAR);
+            }
+        }
+        BLUR_PRESTADO.store(true, Ordering::Release);
+        crate::ring0::cabina::count("gpu", "M5d B: salida de 64 KiB PRESTADA a la 3060 y mapeada; iova", bl::IOVA);
+    }
+    // Cada vez, de cero: lo que se lea despues lo escribio la 3060.
+    memoria(BLUR_F.load(Ordering::Acquire), lz::PAGINAS * PAGINA).fill(0);
+    if !bl::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5d B: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = bl::lanzar(&mut r, ficha, e);
+    if lanzado {
+        // La entrada ya es de la 3060: la siguiente vez, la de despues.
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut qmd, mut fin) = (0, 0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, qmd, fin) = bl::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == bl::PAGA_QMD && fin == bl::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let buenos = match (pixeles_del_lienzo(), pixeles_del_blur()) {
+        (Some(src), Some(sal)) => bl::comprobar(src, sal),
+        _ => 0,
+    };
+    let v = bl::empaquetar(buenos, qmd == bl::PAGA_QMD, fin == bl::PAGA_FIN, lanzado, gp_get, us as u32);
+    if bl::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d B: LA 3060 DESENFOCO 128x128 pixeles, igual que la CPU; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d B: el blur no salio igual que la CPU; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}

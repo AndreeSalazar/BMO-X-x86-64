@@ -87,6 +87,8 @@ pub mod sombreador;
 
 pub mod lienzo;
 
+pub mod blur;
+
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.
 pub trait Registros {

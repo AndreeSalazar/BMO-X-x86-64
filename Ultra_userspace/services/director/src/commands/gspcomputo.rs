@@ -14,6 +14,7 @@ use bmo_gpu_ga10x::computo;
 use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL};
 use bmo_gpu_ga10x::copia;
 use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
+use bmo_gpu_ga10x::blur;
 use bmo_gpu_ga10x::lienzo;
 use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
@@ -47,6 +48,9 @@ struct Computo {
     sombreo: Option<Result<u64, u32>>,
     /// L: el lienzo.
     lienzo: Option<Result<u64, u32>>,
+    /// B: el ultimo blur, y de donde salio (`true`: de la pantalla).
+    blur: Option<Result<u64, u32>>,
+    blur_de_pantalla: bool,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -71,6 +75,10 @@ pub(crate) const NO_TRABAJO_MAL: u32 = 0x139;
 pub(crate) const NO_SOMBREO_MAL: u32 = 0x13A;
 /// El lienzo se lanzo pero no salio entero (la fila `lienzo`).
 pub(crate) const NO_LIENZO_MAL: u32 = 0x13B;
+/// El blur se lanzo pero no salio igual que la CPU (la fila `blur`).
+pub(crate) const NO_BLUR_MAL: u32 = 0x13C;
+/// Un trozo de la pantalla no se pudo subir al lienzo.
+pub(crate) const NO_BLUR_SUBIR: u32 = 0x13D;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -202,13 +210,12 @@ pub(crate) fn pintado() -> bool {
 /// Los pixeles, leidos del kernel de dos en dos.
 static mut PIXELES: [u32; lienzo::PIXELES] = [0; lienzo::PIXELES];
 
-/// **Mostrar el lienzo**: cada pixel, un cuadro de `escala` x `escala`, arriba
-/// a la derecha, con un marco. `false` si el kernel no lo dio entero.
-fn mostrar(p: &bmo::Pantalla, escala: u32) -> bool {
+/// **Leer** el lienzo (o, con `salida`, lo que dejo el blur) en `PIXELES`.
+fn leer(salida: bool) -> bool {
     // SAFETY: el escritorio es un solo hilo; solo se toca desde aqui.
     let px = unsafe { &mut *core::ptr::addr_of_mut!(PIXELES) };
     for k in 0..lienzo::PIXELES / 2 {
-        match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO_LEER, k as u64) {
+        match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO_LEER, k as u64 | (salida as u64) << 32) {
             Ok(v) => {
                 px[2 * k] = v as u32;
                 px[2 * k + 1] = (v >> 32) as u32;
@@ -216,21 +223,33 @@ fn mostrar(p: &bmo::Pantalla, escala: u32) -> bool {
             Err(_) => return false,
         }
     }
+    true
+}
+
+/// **Pintar `PIXELES`** con cada pixel en un cuadro de `escala` x `escala`,
+/// desde `(x0, y0)`, con un marco.
+fn pintar_en(p: &bmo::Pantalla, x0: u32, y0: u32, escala: u32) {
+    // SAFETY: como `leer`.
+    let px = unsafe { &*core::ptr::addr_of!(PIXELES) };
     let lado = lienzo::LADO * escala;
-    let x0 = p.ancho.saturating_sub(lado + 32);
-    let y0 = 96;
-    p.rect(x0 - 3, y0 - 3, lado + 6, lado + 6, 0x0076_B900);
+    p.rect(x0.saturating_sub(3), y0.saturating_sub(3), lado + 6, lado + 6, 0x0076_B900);
     for (k, &c) in px.iter().enumerate() {
         let (x, y) = (k as u32 % lienzo::LADO, k as u32 / lienzo::LADO);
         p.rect(x0 + x * escala, y0 + y * escala, escala, escala, c & 0x00FF_FFFF);
     }
+}
+
+/// **Mostrar el lienzo** arriba a la derecha. `false` si el kernel no lo dio.
+fn mostrar(p: &bmo::Pantalla, escala: u32) -> bool {
+    if !leer(false) {
+        return false;
+    }
+    pintar_en(p, p.ancho.saturating_sub(lienzo::LADO * escala + 32), 96, escala);
     true
 }
 
-/// `gpu lienzo`: lo que falte hasta el primer sombreador, el lienzo, y
-/// mostrarlo en la pantalla.
-pub(crate) fn orden_lienzo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
-    paint_status(p, &dsk.run_box, "la 3060 pinta en la RAM del PC", INK_DIM);
+/// Todo lo que falta hasta el lienzo, en orden.
+fn hasta_el_lienzo() -> Result<u64, u32> {
     let mut r = if pedido() { Ok(0) } else { pedir() };
     if r.is_ok() && !ficha_leida() {
         r = ficha();
@@ -244,6 +263,87 @@ pub(crate) fn orden_lienzo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     if r.is_ok() && !pintado() {
         r = pintar();
     }
+    r
+}
+
+/// **B: el blur** de lo que haya en el lienzo (en `save mode`, el degradado).
+pub(crate) fn desenfocar() -> Result<u64, u32> {
+    let e = estado();
+    let r = match e.timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_BLUR, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    };
+    con(|c| c.blur = Some(r));
+    match r {
+        Ok(v) if blur::sano(v) => Ok(v),
+        Ok(_) => Err(NO_BLUR_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn desenfocado() -> bool {
+    matches!(estado().blur, Some(Ok(v)) if blur::sano(v))
+}
+
+/// El trozo de la pantalla que se sube: 128 x 128 desde aqui (donde el
+/// escritorio escribe sus filas).
+const TROZO_X: u32 = 32;
+const TROZO_Y: u32 = 200;
+
+/// **Subir un trozo de la pantalla al lienzo**, dos pixeles por llamada.
+fn subir_trozo(p: &bmo::Pantalla) -> bool {
+    let (x0, y0) = (TROZO_X.min(p.ancho.saturating_sub(lienzo::LADO)), TROZO_Y.min(p.alto.saturating_sub(lienzo::LADO)));
+    let px = |k: u32| {
+        let (x, y) = (x0 + k % lienzo::LADO, y0 + k / lienzo::LADO);
+        // SAFETY: `(x, y)` esta dentro de la pantalla (recortado arriba) y
+        // `lienzo` es su bufer de dibujo, de `alto` filas de `stride` pixeles.
+        unsafe { p.lienzo.add((y * p.stride + x) as usize).read_volatile() & 0x00FF_FFFF }
+    };
+    (0..lienzo::PIXELES as u32 / 2).all(|k| bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO_ESCRIBIR, blur::subir(k, px(2 * k), px(2 * k + 1))).is_ok())
+}
+
+/// `gpu blur`: lo que falte, un trozo de tu pantalla al lienzo, el blur, y el
+/// antes y el despues, arriba a la derecha.
+pub(crate) fn orden_blur(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 desenfoca un trozo de tu pantalla", INK_DIM);
+    let mut r = hasta_el_lienzo();
+    if r.is_ok() {
+        r = if subir_trozo(p) { Ok(0) } else { Err(NO_BLUR_SUBIR) };
+    }
+    if r.is_ok() {
+        r = desenfocar();
+        con(|c| c.blur_de_pantalla = true);
+    }
+    let escala = 3;
+    let lado = lienzo::LADO * escala;
+    let visto = r.is_ok() && leer(false) && {
+        pintar_en(p, p.ancho.saturating_sub(2 * lado + 64), 96, escala);
+        leer(true)
+    } && {
+        pintar_en(p, p.ancho.saturating_sub(lado + 32), 96, escala);
+        true
+    };
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  ARRIBA A LA DERECHA: un trozo de tu pantalla, y al lado, DESENFOCADO POR TU 3060 (M5d B)\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el blur no salio: mira la fila `blur`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "blur", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// `gpu lienzo`: lo que falte hasta el primer sombreador, el lienzo, y
+/// mostrarlo en la pantalla.
+pub(crate) fn orden_lienzo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 pinta en la RAM del PC", INK_DIM);
+    let r = hasta_el_lienzo();
     let visto = r.is_ok() && mostrar(p, 4);
     let g = &mut dsk.out.grid;
     if visto {
@@ -461,6 +561,37 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(gp_get as u64);
                 s.text(b"; IOVA 0x");
                 s.hex(lienzo::IOVA, 8);
+                s.text(b"   en ");
+                s.dec(us as u64);
+                s.text(b" us");
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.blur {
+        campo(s, b"blur");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, qmd, fin, lanzado, gp_get, us) = blur::desempaquetar(v);
+                if blur::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"LA 3060 DESENFOCO ");
+                    s.text(if c.blur_de_pantalla { b"UN TROZO DE TU PANTALLA: " as &[u8] } else { b"EL LIENZO: " });
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el blur NO salio igual que la CPU: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 16384 pixeles iguales a la cuenta de la CPU (7 x 7)");
+                s.with_ink(INK_ECHO);
+                s.text(b"; semaforo del QMD ");
+                s.text(if qmd { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", de informe ");
+                s.text(if fin { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", GP_GET ");
+                s.dec(gp_get as u64);
                 s.text(b"   en ");
                 s.dec(us as u64);
                 s.text(b" us");

@@ -104,14 +104,14 @@ pub const SEMAFORO_QMD: u64 = SEMAFOROS + 0x20;
 pub const SEMAFORO_FIN: u64 = SEMAFOROS + 0x30;
 
 pub fn qmd() -> [u32; QMD_PALABRAS] {
-    qmd_con(sombreador_va(PROGRAMA), LADO, LADO, sombreador_va(SEMAFORO_QMD), PAGA_QMD)
+    qmd_con(sombreador_va(PROGRAMA), LADO, LADO, sombreador_va(SEMAFORO_QMD), PAGA_QMD, sombreador::REGISTROS)
 }
 
 pub fn ordenes() -> [u32; ORDENES] {
     ordenes_con(sombreador_va(QMD), sombreador_va(SEMAFORO_FIN), PAGA_FIN)
 }
 
-const fn sombreador_va(vram: u64) -> u64 {
+pub(crate) const fn sombreador_va(vram: u64) -> u64 {
     crate::computo::va(vram)
 }
 

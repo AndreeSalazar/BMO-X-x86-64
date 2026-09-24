@@ -850,21 +850,21 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
                 crate::ring0::dev::gpu_libos::pedir_tresde()
             }
         }
-        IOMMU_OP_GSP_COMPUTO => crate::ring0::dev::gpu_libos::pedir_computo(),
+        IOMMU_OP_GSP_COMPUTO => crate::ring0::dev::gpu_trabajo::pedir_computo(),
         // ** M5d S3: la primera vez que el MOTOR GRAFICO ejecuta algo nuestro.
         // El FLUSH, como la copia.
         IOMMU_OP_GPU_TRABAJO_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del primer trabajo del GR no se pudo: se sigue", 0);
             }
-            crate::ring0::dev::gpu_libos::trabajo_gr(arg1)
+            crate::ring0::dev::gpu_trabajo::trabajo_gr(arg1)
         }
         // ** M5d S4..S6: el primer SOMBREADOR. El FLUSH, como la copia.
         IOMMU_OP_GPU_SOMBREO => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del primer sombreador no se pudo: se sigue", 0);
             }
-            crate::ring0::dev::gpu_libos::sombrear(arg1)
+            crate::ring0::dev::gpu_trabajo::sombrear(arg1)
         }
         // ** M5d L: memoria del PC que la 3060 ESCRIBE (el lienzo). El FLUSH,
         // como el bufer de metodos.
@@ -872,9 +872,18 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del lienzo no se pudo: se sigue", 0);
             }
-            crate::ring0::dev::gpu_libos::pintar_lienzo(arg1)
+            crate::ring0::dev::gpu_trabajo::pintar_lienzo(arg1)
         }
-        IOMMU_OP_GPU_LIENZO_LEER => crate::ring0::dev::gpu_libos::leer_lienzo(arg1),
+        IOMMU_OP_GPU_LIENZO_LEER => crate::ring0::dev::gpu_trabajo::leer_lienzo(arg1),
+        IOMMU_OP_GPU_LIENZO_ESCRIBIR => crate::ring0::dev::gpu_trabajo::escribir_lienzo(arg1),
+        // ** M5d B: la salida del blur es memoria del PC que la 3060 ESCRIBE.
+        // El FLUSH, como el lienzo.
+        IOMMU_OP_GPU_BLUR => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del blur no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::blur(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);

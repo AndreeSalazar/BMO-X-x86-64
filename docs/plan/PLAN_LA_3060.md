@@ -484,6 +484,17 @@ que el primero) pinta un degradado; la CPU lo comprueba pixel a pixel y
 `bmo_gpu_ga10x::lienzo`, paso `lienzo`. El QMD y las ordenes del primer
 sombreador, generalizados (`qmd_con`, `ordenes_con`).
 
+**M5d B, el blur, en codigo (24-09):** la media de 7 x 7 de cada pixel del
+lienzo (bordes repetidos), por 128 x 128 hilos, en OTRA salida de 64 KiB
+(IOVA 0x3A03_0000, VA 0x2_0002_0000, entradas 32..47 de la PT del tramo). El
+SASS de `ptxas` con `.pragma "nounroll"`: desenrollado eran 8.8 KiB y no cabe
+en una pagina; con bucles, 71 instrucciones y 16 registros, y la division
+entre 49 que emite es EXACTA. El kernel compara cada pixel con la MISMA
+cuenta en la CPU (`blur::desenfocar`). En `save mode` desenfoca el degradado;
+`gpu blur` sube antes un trozo de 128 x 128 de la pantalla (dos pixeles por
+llamada, `blur::subir`) y muestra el antes y el despues. Se puede repetir:
+cada vez, la siguiente entrada del GPFIFO de GR.
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.

@@ -130,13 +130,13 @@ pub fn leer_campo(q: &[u32; QMD_PALABRAS], hi: u32, lo: u32) -> u64 {
 
 /// **El QMD V03_00** del primer sombreador.
 pub fn qmd() -> [u32; QMD_PALABRAS] {
-    qmd_con(va(PROGRAMA), HILOS, 1, va(SEMAFORO_QMD), PAGA_QMD)
+    qmd_con(va(PROGRAMA), HILOS, 1, va(SEMAFORO_QMD), PAGA_QMD, REGISTROS)
 }
 
 /// **Un QMD V03_00**, campo a campo (`NVC7C0_QMDV03_00_*`): `bloques` x 1 x 1
 /// de `hilos` x 1 x 1, el programa en `programa` y RELEASE0 con `paga` en
 /// `sem` al acabar la rejilla.
-pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32) -> [u32; QMD_PALABRAS] {
+pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32, registros: u32) -> [u32; QMD_PALABRAS] {
     let mut q = [0u32; QMD_PALABRAS];
     campo(&mut q, 133, 128, 0x3F); // QMD_GROUP_ID (el de NVK)
     campo(&mut q, 134, 134, 1); // SM_GLOBAL_CACHING_ENABLE
@@ -157,7 +157,7 @@ pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32) -> 
     campo(&mut q, 607, 592, hilos as u64); // CTA_THREAD_DIMENSION0
     campo(&mut q, 623, 608, 1); // CTA_THREAD_DIMENSION1
     campo(&mut q, 639, 624, 1); // CTA_THREAD_DIMENSION2
-    campo(&mut q, 656, 648, REGISTROS as u64); // REGISTER_COUNT_V
+    campo(&mut q, 656, 648, registros as u64); // REGISTER_COUNT_V
     // RELEASE0: una palabra, con SYSMEMBAR, al acabar la rejilla.
     campo(&mut q, 799, 768, sem & 0xFFFF_FFFF);
     campo(&mut q, 807, 800, sem >> 32);

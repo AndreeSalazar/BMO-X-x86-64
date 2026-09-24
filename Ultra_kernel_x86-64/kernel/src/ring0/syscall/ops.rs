@@ -388,6 +388,10 @@ pub(crate) const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
 pub(crate) const IOMMU_OP_GPU_LIENZO: u64 = 0x2F;
 /// M5d L: leer dos pixeles del lienzo (solo lectura). Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_LIENZO_LEER: u64 = 0x30;
+/// M5d B: subir dos pixeles al lienzo. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_LIENZO_ESCRIBIR: u64 = 0x31;
+/// M5d B: el blur, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_BLUR: u64 = 0x32;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

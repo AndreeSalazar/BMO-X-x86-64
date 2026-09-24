@@ -227,6 +227,8 @@ pub mod dev {
     pub mod gpu_gsp;
     /// L0c3a: lo que el GSP escribe -- LIBOS, logs, rmargs y colas (2026-09-24).
     pub mod gpu_libos;
+    /// M5d: el trabajo en la 3060 -- computo, sombreador, lienzo y blur (2026-09-24).
+    pub mod gpu_trabajo;
     /// L0c3b: el booter en el SEC2 despierta el GSP (2026-09-24).
     pub mod gpu_despertar;
     pub mod keyboard;
