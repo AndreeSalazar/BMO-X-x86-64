@@ -11,10 +11,16 @@
 //!
 //! ```text
 //!    +0   bufferSizeDWord   lo que mide el buffer de ordenes, en u32
-//!    +4   cmdIndex          CUANTAS ordenes trae (nova-core: `total_cmds`)
+//!    +4   cmdIndex          cuantas PALABRAS de ordenes trae (no ordenes)
 //!    +8   regSaveArea[8]    donde el GSP guarda lo de REG_STORE
 //!    +40  las ordenes, pegadas: un opcode u32 y detras SOLO su carga
 //! ```
+//!
+//! ** `cmdIndex` son PALABRAS (metal 24-09 08:48): el primer secuenciador de
+//! la 3060 trajo `cmdIndex` 1564 y 420 ordenes -- 312 REG_WRITE x 3 palabras
+//! + 104 REG_POLL x 6 + 4 del nucleo x 1 = 1564 exactas. Leido como ordenes
+//! (asi lo nombra nova-core, `total_cmds`) sobraban 1144 y se daba por roto;
+//! nova-core no lo nota porque se para antes, donde acaban los datos.
 //!
 //! # Las ordenes (`GSP_SEQ_BUF_OPCODE`, y lo que hace nova-core con cada una)
 //!
@@ -133,29 +139,46 @@ pub fn guardados(datos: &[u8]) -> [u32; 8] {
     g
 }
 
-/// **Las ordenes**, en orden. Da `cmdIndex` como mucho, y se para en la
-/// primera que no entiende (y la dice).
+/// **Las ordenes**, en orden, hasta las `cmdIndex` palabras; se para en la
+/// primera que no entiende o que no cabe (y la dice).
 pub struct Ordenes<'a> {
     b: &'a [u8],
     o: usize,
-    quedan: u32,
-    roto: bool,
+    /// Los datos no llegan a las `cmdIndex` palabras.
+    faltan: bool,
+    hecho: bool,
 }
 
 /// Leer las ordenes de los datos del mensaje (desde su +0, cabecera incluida).
 pub fn ordenes(datos: &[u8]) -> Ordenes<'_> {
-    // Como nova-core: `cmdIndex` dice cuantas, y se lee de lo que hay
-    // (`bufferSizeDWord` se muestra, no se usa para cortar).
-    let (_, n) = cabecera(datos).unwrap_or((0, 0));
-    Ordenes { b: datos, o: CABECERA, quedan: n, roto: false }
+    // Hasta donde acaban sus `cmdIndex` palabras. `bufferSizeDWord` es lo que
+    // mide el buffer del GSP entero: se muestra, no corta.
+    let (_, palabras) = cabecera(datos).unwrap_or((0, 0));
+    let fin = CABECERA + palabras as usize * 4;
+    let hay = fin.min(datos.len());
+    Ordenes { b: &datos[..hay], o: CABECERA, faltan: fin > datos.len() && datos.len() >= CABECERA, hecho: datos.len() < CABECERA }
+}
+
+impl Ordenes<'_> {
+    fn parar(&mut self, e: NoSe) -> Option<Result<Orden, NoSe>> {
+        self.hecho = true;
+        Some(Err(e))
+    }
 }
 
 impl Iterator for Ordenes<'_> {
     type Item = Result<Orden, NoSe>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.roto || self.quedan == 0 || self.o + 4 > self.b.len() {
+        if self.hecho {
             return None;
+        }
+        if self.o >= self.b.len() {
+            self.hecho = true;
+            return self.faltan.then_some(Err(NoSe::Corta));
+        }
+        if self.o + 4 > self.b.len() {
+            return self.parar(NoSe::Corta);
         }
         let op = u32_de(self.b, self.o);
         let carga = match op {
@@ -164,15 +187,11 @@ impl Iterator for Ordenes<'_> {
             2 => 20,
             3 => 4,
             5..=8 => 0,
-            _ => {
-                self.roto = true;
-                return Some(Err(NoSe::Opcode(op)));
-            }
+            _ => return self.parar(NoSe::Opcode(op)),
         };
         let p = self.o + 4;
         if p + carga > self.b.len() {
-            self.roto = true;
-            return Some(Err(NoSe::Corta));
+            return self.parar(NoSe::Corta);
         }
         let w = |k: usize| u32_de(self.b, p + 4 * k);
         let orden = match op {
@@ -187,7 +206,6 @@ impl Iterator for Ordenes<'_> {
             _ => Orden::Reanudar,
         };
         self.o = p + carga;
-        self.quedan -= 1;
         Some(Ok(orden))
     }
 }
@@ -223,7 +241,7 @@ mod pruebas {
             4, 0x1180F8, 3, // leer y guardar
             5, 6, 7, 8, // el nucleo
         ];
-        let b = mensaje(&p, 9);
+        let b = mensaje(&p, p.len() as u32);
         let v: Vec<_> = ordenes(&b).map(|r| r.unwrap()).collect();
         assert_eq!(
             v,
@@ -245,9 +263,32 @@ mod pruebas {
     }
 
     #[test]
-    fn cuenta_cmd_index_y_no_mas() {
+    fn cmd_index_son_palabras() {
         let b = mensaje(&[5, 6, 7, 8], 2);
-        assert_eq!(ordenes(&b).count(), 2, "cmdIndex manda");
+        assert_eq!(ordenes(&b).count(), 2, "2 palabras: las dos primeras ordenes del nucleo");
+        // El del metal (24-09 08:48): 312 REG_WRITE, 104 REG_POLL y 4 del
+        // nucleo son 1564 palabras, y 420 ordenes sin un error.
+        let mut p = Vec::new();
+        for k in 0..312u32 {
+            p.extend_from_slice(&[0, 0x110114, k]);
+        }
+        for _ in 0..104 {
+            p.extend_from_slice(&[2, 0x110118, 1, 0, 0, 0]);
+        }
+        p.extend_from_slice(&[5, 6, 7, 8]);
+        assert_eq!(p.len(), 1564);
+        let b = mensaje(&p, 1564);
+        let v: Vec<_> = ordenes(&b).collect();
+        assert_eq!(v.len(), 420);
+        assert!(v.iter().all(|x| x.is_ok()));
+        assert_eq!(v[419], Ok(Orden::Reanudar));
+    }
+
+    #[test]
+    fn si_faltan_palabras_se_dice() {
+        let mut b = mensaje(&[5, 6], 2);
+        b.truncate(CABECERA + 4);
+        assert_eq!(ordenes(&b).collect::<Vec<_>>(), [Ok(Orden::Resetear), Err(NoSe::Corta)]);
     }
 
     #[test]
@@ -255,7 +296,7 @@ mod pruebas {
         let b = mensaje(&[5, 9, 6], 3);
         let v: Vec<_> = ordenes(&b).collect();
         assert_eq!(v, [Ok(Orden::Resetear), Err(NoSe::Opcode(9))], "y no sigue");
-        let b = mensaje(&[2, 0x110000, 1], 1);
+        let b = mensaje(&[2, 0x110000, 1], 3);
         assert_eq!(ordenes(&b).collect::<Vec<_>>(), [Err(NoSe::Corta)], "una espera sin su carga entera");
         assert_eq!(ordenes(&[0u8; 10]).count(), 0, "sin cabecera, nada");
     }

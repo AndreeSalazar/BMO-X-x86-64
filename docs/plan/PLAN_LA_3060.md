@@ -714,6 +714,21 @@ dejo `vaciar`, comprueba su suma, lo guarda crudo en `datos/gspsec.bin` y dice
 cada orden con la unidad del registro (PMC, PFB, falcon GSP, PGC6/BSI, falcon
 SEC2). No corre nada ni mueve un puntero.
 
+**L0c4b2b en el metal (24-09, 08:48): 420 ordenes, y `cmdIndex` son PALABRAS.**
+`secuen 420 ordenes (cmdIndex 1564, buffer 16354 palabras): ESCRIBIR x312
+ESPERAR x104 CORE_RESET x1 CORE_START x1 CORE_WAIT_FOR_HALT x1 CORE_RESUME x1`
+-- y un "SE PARO" que era de BMO-X: 312 x 3 + 104 x 6 + 4 x 1 = 1564, las
+palabras exactas. `cmdIndex` no cuenta ordenes (nova-core lo llama `total_cmds`
+pero se para antes, donde acaban los datos). El lector ahora se para donde
+acaban las `cmdIndex` palabras, con una prueba que rehace el del metal. Las 48
+primeras ordenes: esperar el bit 31 de MAILBOX0 del GSP (`0x110040`), ponerlo
+a 0, CORE_RESET, `0x110600 <- 0x114`, y luego una y otra vez el DMA del
+falcon del GSP -- base `0x110110 <- 0x02F3D430` (VRAM 0x2F3D43000, justo bajo
+la WPR2), y bloques de 256 B con `0x110114`/`0x11011C` y la orden `0x614` en
+`0x110118`, esperando su bit 0. Ahora la fila `toca` cuenta que unidades toca
+todo el secuenciador y `nucleo` donde caen las cuatro del nucleo: con eso se
+decide que deja escribir el kernel en L0c4b2c.
+
 **Como se sabe (L0c4b2b):** la fila `secuen` dice cuantas ordenes y de que tipo
 (se espera que acabe en CORE_RESUME), y cada fila `orden` que registro toca y
 con que. Con esa lista delante se decide que deja correr el kernel en L0c4b2c.
