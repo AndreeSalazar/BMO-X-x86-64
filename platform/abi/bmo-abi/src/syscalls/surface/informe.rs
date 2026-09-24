@@ -1596,6 +1596,36 @@ pub const IOMMU_EVENTO_BANDERAS_SHIFT: u64 = 36;
 pub const IOMMU_EVENTO_HAY: u64 = 1 << 63;
 pub const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
 
+/// # M0d3 (2026-09-24): la PRUEBA DE FUEGO y la FRONTERA
+///
+/// ```text
+///   INFO_GPU_FUEGO        0..10 palabras que cuadran (de 1024) | 11..21 la
+///                         primera que no | 22..25 motivo (1 no contesta, 2 no
+///                         limpia, 3 sin nucleo, 4 DMEM chica, 5 el DMA no
+///                         acaba, 6 sin empezar) | 26..27 seguridad del falcon
+///                         | 28..35 su DMEM en KiB | 36..43 eventos nuevos |
+///                         62 HECHO | 63 intentado
+///   INFO_GPU_FUEGO_LEIDO  la primera palabra que no cuadro | us del DMA << 32
+///   INFO_GPU_FRONTERA     0..3 tipo del evento | 4 evento nuevo | 5 BDF de la
+///                         3060 | 6 la direccion no prestada | 7 el DMA acabo |
+///                         8..11 motivo | 62 HECHO | 63 intentada
+/// ```
+pub const INFO_GPU_FUEGO: u64 = 0xB2;
+pub const FUEGO_PRIMERA_SHIFT: u64 = 11;
+pub const FUEGO_MOTIVO_SHIFT: u64 = 22;
+pub const FUEGO_SEGURIDAD_SHIFT: u64 = 26;
+pub const FUEGO_DMEM_SHIFT: u64 = 28;
+pub const FUEGO_EVENTOS_SHIFT: u64 = 36;
+pub const FUEGO_HECHO: u64 = 1 << 62;
+pub const FUEGO_INTENTADO: u64 = 1 << 63;
+pub const INFO_GPU_FUEGO_LEIDO: u64 = 0xB3;
+pub const INFO_GPU_FRONTERA: u64 = 0xB4;
+pub const FRONTERA_EVENTO: u64 = 1 << 4;
+pub const FRONTERA_BDF: u64 = 1 << 5;
+pub const FRONTERA_DIR: u64 = 1 << 6;
+pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
+pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

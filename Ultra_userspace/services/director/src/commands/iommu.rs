@@ -93,6 +93,11 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_NO_TRADUCIDA => b"prestar pide la 3060 TRADUCIDA: primero `gpu traducir`",
         bmo::IOMMU_NO_PRESTAMO => b"el prestamo no se hizo (ya prestado, o sin tablas): mira `cabina fallos`",
         bmo::IOMMU_NO_RELEIDA => b"el ORACULO no vio lo prestado al releer las tablas: se quito",
+        bmo::IOMMU_NO_SIN_BUS_MASTER => b"sin el Bus Master de E2 la 3060 no hace DMA: primero `gpu vblank`",
+        bmo::IOMMU_NO_FUEGO => b"el falcon del GSP no dejo hacer el DMA: el motivo, en la fila `fuego` de `gpu`",
+        bmo::IOMMU_NO_SIN_PRUEBA => b"la pagina de prueba no esta prestada: primero `gpu prestar`",
+        super::gpu::NO_FUEGO_A_MEDIAS => b"el DMA acabo pero la DMEM NO es la pagina prestada: mira la fila `fuego`",
+        super::gpu::NO_SIN_FRONTERA => b"la IOMMU NO apunto el fallo de pagina de la 3060: mira la fila `frontera`",
         super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }

@@ -48,9 +48,11 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"vblank off" | b"e2 off" => Some((bmo::IOMMU_OP_E2_APAGAR, b"gpu vblank off" as &[u8])),
         b"traducir" => Some((bmo::IOMMU_OP_TRADUCIR_GPU, b"gpu traducir" as &[u8])),
         b"prestar" => Some((bmo::IOMMU_OP_PRESTAR_PRUEBA, b"gpu prestar" as &[u8])),
+        b"fuego" => Some((bmo::IOMMU_OP_GPU_FUEGO, b"gpu fuego" as &[u8])),
+        b"frontera" => Some((bmo::IOMMU_OP_GPU_FRONTERA, b"gpu frontera" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir` o `gpu prestar`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego` o `gpu frontera`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;
@@ -87,6 +89,24 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
                 g.text(b"  PRESTADA a la 3060: la pagina de prueba en 0x10000000 -> fisica 0x");
                 g.hex(v, 8);
                 g.text(b", solo lectura, y el ORACULO la releyo por las tablas\n");
+            }
+            Ok(v) if op == bmo::IOMMU_OP_GPU_FUEGO => {
+                g.with_ink(if v == 1024 { INK_GOOD } else { INK_ERR });
+                g.text(if v == 1024 {
+                    b"  FUEGO: la 3060 LEYO tu RAM por la IOMMU -- " as &[u8]
+                } else {
+                    b"  FUEGO a medias: "
+                });
+                g.dec(v);
+                g.text(b" de 1024 palabras cuadran con la pagina prestada\n");
+            }
+            Ok(v) if op == bmo::IOMMU_OP_GPU_FRONTERA => {
+                g.with_ink(if v != 0 { INK_GOOD } else { INK_ERR });
+                g.text(if v != 0 {
+                    b"  FRONTERA: la IOMMU PARO el DMA de la 3060 a 0x20000000 (no prestada) y lo apunto\n" as &[u8]
+                } else {
+                    b"  FRONTERA NO VISTA: la IOMMU no apunto el fallo de la 3060 -- mira `iommu` y la fila `frontera`\n"
+                });
             }
             Ok(v) if op == bmo::IOMMU_OP_E2_APAGAR => {
                 g.with_ink(INK_GOOD);
@@ -125,6 +145,75 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 /// Motivo propio del escritorio (no del kernel): E2 armado y mudo. Fuera del
 /// rango de `IOMMU_NO_*` para no chocar nunca con uno del kernel.
 pub(crate) const NO_E2_MUDO: u32 = 0x100;
+/// M0d3, motivos del escritorio: el DMA acabo y no trajo la pagina; la
+/// frontera no dejo evento.
+pub(crate) const NO_FUEGO_A_MEDIAS: u32 = 0x101;
+pub(crate) const NO_SIN_FRONTERA: u32 = 0x102;
+
+/// **M0d3: la prueba de fuego y la frontera**, si se intentaron.
+fn fila_fuego(s: &mut Output) {
+    let f = bmo::info(bmo::INFO_GPU_FUEGO);
+    if f & bmo::FUEGO_INTENTADO != 0 {
+        campo(s, b"fuego");
+        let bien = f & 0x7FF;
+        let motivo = (f >> bmo::FUEGO_MOTIVO_SHIFT) & 0xF;
+        if f & bmo::FUEGO_HECHO != 0 {
+            s.with_ink(INK_GOOD);
+            s.text(b"la 3060 LEYO la pagina prestada: 1024 de 1024 palabras, por el DMA del falcon del GSP");
+        } else if motivo != 0 {
+            s.with_ink(INK_ERR);
+            s.text(match motivo {
+                1 => b"el falcon NO CONTESTA (error del anillo PRIV)" as &[u8],
+                2 => b"el falcon no acabo de limpiar su memoria en 20 ms",
+                3 => b"el falcon no dio su nucleo FALCON (seguia el RISC-V)",
+                4 => b"la DMEM del falcon es mas chica que 4 KiB",
+                5 => b"el DMA NO ACABO en 50 ms",
+                _ => b"no llego a empezar",
+            });
+        } else {
+            s.with_ink(INK_ERR);
+            s.dec(bien);
+            s.text(b" de 1024 cuadran; la primera mala, la ");
+            s.dec((f >> bmo::FUEGO_PRIMERA_SHIFT) & 0x7FF);
+            s.text(b": 0x");
+            s.hex(bmo::info(bmo::INFO_GPU_FUEGO_LEIDO) & 0xFFFF_FFFF, 8);
+        }
+        s.with_ink(INK_ECHO);
+        s.text(b"   DMEM ");
+        s.dec((f >> bmo::FUEGO_DMEM_SHIFT) & 0xFF);
+        s.text(b" KiB, seguridad ");
+        s.dec((f >> bmo::FUEGO_SEGURIDAD_SHIFT) & 3);
+        s.text(b", DMA ");
+        s.dec(bmo::info(bmo::INFO_GPU_FUEGO_LEIDO) >> 32);
+        s.text(b" us, eventos nuevos ");
+        s.dec((f >> bmo::FUEGO_EVENTOS_SHIFT) & 0xFF);
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+        super::datos::anotar(b"gpu fuego", f, b"");
+    }
+    let b = bmo::info(bmo::INFO_GPU_FRONTERA);
+    if b & bmo::FUEGO_INTENTADO != 0 {
+        campo(s, b"frontera");
+        if b & bmo::FUEGO_HECHO != 0 {
+            s.with_ink(INK_GOOD);
+            s.text(b"AGUANTA: la IOMMU paro el DMA de la 3060 a 0x20000000 (no prestada) con su evento");
+        } else {
+            s.with_ink(INK_ERR);
+            s.text(b"NO VISTA:");
+            s.text(if b & bmo::FRONTERA_EVENTO != 0 { b" evento+" as &[u8] } else { b" evento-" });
+            s.text(if b & bmo::FRONTERA_BDF != 0 { b" bdf+" as &[u8] } else { b" bdf-" });
+            s.text(if b & bmo::FRONTERA_DIR != 0 { b" dir+" as &[u8] } else { b" dir-" });
+        }
+        s.with_ink(INK_ECHO);
+        s.text(b"   el DMA ");
+        s.text(if b & bmo::FRONTERA_DMA_ACABO != 0 { b"acabo" as &[u8] } else { b"NO acabo" });
+        s.text(b", tipo del evento ");
+        s.dec(b & 0xF);
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+        super::datos::anotar(b"gpu frontera", b, b"");
+    }
+}
 
 /// **Cuenta los VBLANKs de `ms` milisegundos**, cediendo el turno mientras
 /// tanto: los avisos entran entre syscall y syscall. `(avisos, ms de verdad)`.
@@ -371,6 +460,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
         fila_rayo(s, &r, px);
     }
     fila_e2(s);
+    fila_fuego(s);
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
     } else {

@@ -184,7 +184,7 @@ pasos, cada uno visto en el metal antes del siguiente:
                 de `iommu`                                      [en codigo]
           M0d3  LA PRUEBA DE FUEGO: el DMA de un falcon de la 3060 LEE la
                 pagina prestada (y una NO prestada sale como FALLO DE
-                PAGINA con su BDF). Es el primer ladrillo de L0
+                PAGINA con su BDF). Es el primer ladrillo de L0  [en codigo]
           M0d4  disco, USB y red traducidos: ven solo lo que el juez de
                 DMA (R-DMA) les presto; los IVMD, en identidad
    M0e  la 3060 CIEGA: su entrada BLOQUEADA (V + TV, sin IR ni IW), las
@@ -257,6 +257,26 @@ NEUTRO: hoy la pagina de prueba (`PATRON | i` por palabra), luego el firmware
 del GSP. `save mode` suma dos pasos, `traducir` y `prestar`. **Como se sabe:**
 `iommu` dice `3060 TRADUCIDA`, `domain ... 1 pagina(s) prestada(s)`, sin fila
 `event`; y `gpu` con la fila `e2` subiendo igual.
+
+**M0d2 en el metal (24-09, 04:26):** `3060 TRADUCIDA (M0d)`, `domain ... 1
+pagina(s) prestada(s) tablas 3 de 128; prueba en 0x10000000 -> 0x022BE000`, sin
+fila `event`, y la fila `e2` subiendo con la entrada traducida (2894 -> 4168):
+el MSI pasa por la entrada TRADUCIDA igual que por la ciega.
+
+**M0d3 (24-09, en codigo): LA PRUEBA DE FUEGO.** El falcon del GSP (`0x110000`)
+se resetea como nova-core (`ENGINE`, borrado de memoria, nucleo FALCON, BOOT_0
+en `RM`), su FBIF va a la RAM del PC en fisico y sin contexto, y 16 trozos de
+`DMATRF` de 256 B traen `0x10000000` -- la direccion del APARATO, la que
+traduce la IOMMU -- a su DMEM, que se lee por PIO y se compara con el patron.
+Sin arrancar su procesador ni cargar nada firmado, y al acabar se resetea otra
+vez. `gpu fuego` (HECHO = 1024 de 1024 y ningun evento) y `gpu frontera` (lo
+mismo desde `0x20000000`, NO prestada: HECHO = un evento con el BDF de la 3060 y
+esa direccion). El ORDEN vive en `platform/drivers/gpu/ga10x/src/falcon.rs`, con
+6 pruebas contra un falcon de mentira que copia de verdad; los numeros son los
+de nova-core (Linux 6.17) y nouveau (6.10). Pide la 3060 TRADUCIDA, la pagina
+prestada y el Bus Master de E2 -- no lo enciende: tiene un solo propietario. Son los
+fallos 1, 2 y 3 de FastOS, cada uno en su linea. `save mode` suma `fuego` y
+`frontera`.
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,

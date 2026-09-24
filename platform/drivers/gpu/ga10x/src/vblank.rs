@@ -44,12 +44,8 @@
 
 use crate::es_error_pri;
 
-/// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
-/// pruebas, sobre un banco de mentira que apunta cada escritura.
-pub trait Registros {
-    fn leer(&mut self, reg: u32) -> u32;
-    fn escribir(&mut self, reg: u32, v: u32);
-}
+/// El trait vive en la raiz del crate desde M0d3 (lo comparte `falcon`).
+pub use crate::Registros;
 
 // -- El arbol del VFN ---------------------------------------------------------
 

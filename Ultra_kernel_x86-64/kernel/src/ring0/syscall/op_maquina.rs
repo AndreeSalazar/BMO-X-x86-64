@@ -747,6 +747,18 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             iommu::traducir_gpu((b as u16) << 8 | (d as u16) << 3 | f as u16)
         }
         IOMMU_OP_PRESTAR_PRUEBA => crate::ring0::dev::gpu_prestamo::prestar_prueba(),
+        // ** M0d3: el primer DMA que BMO-X le pide a la 3060. Resetea un
+        // falcon: el mismo FLUSH de antes, por si tumba la maquina.
+        IOMMU_OP_GPU_FUEGO | IOMMU_OP_GPU_FRONTERA => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de M0d3 no se pudo: se sigue", 0);
+            }
+            if arg0 == IOMMU_OP_GPU_FUEGO {
+                crate::ring0::dev::gpu_prestamo::fuego()
+            } else {
+                crate::ring0::dev::gpu_prestamo::frontera()
+            }
+        }
         IOMMU_OP_E2_APAGAR => {
             let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);
             Ok(estaba as u64)

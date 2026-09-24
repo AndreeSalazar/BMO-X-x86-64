@@ -635,6 +635,13 @@ pub const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
 /// M0d: prestarle la pagina de prueba, SOLO LECTURA, en 0x10000000. Pide la
 /// 3060 TRADUCIDA. `Ok` lleva la direccion fisica de la pagina.
 pub const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
+/// M0d3: la PRUEBA DE FUEGO -- el DMA del falcon del GSP trae la pagina
+/// prestada a su DMEM y se compara. `Ok` lleva las palabras que cuadran (1024).
+/// Pide la 3060 TRADUCIDA, la pagina prestada y el Bus Master de E2.
+pub const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
+/// M0d3: la FRONTERA -- lo mismo desde una direccion NO prestada: `Ok(1)` si
+/// la IOMMU lo paro con un evento con el BDF de la 3060 y esa direccion.
+pub const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -661,6 +668,12 @@ pub const IOMMU_NO_NO_TRADUCIDA: u32 = 13;
 pub const IOMMU_NO_PRESTAMO: u32 = 14;
 /// M0d: el oraculo no vio lo prestado al releer: se quito.
 pub const IOMMU_NO_RELEIDA: u32 = 15;
+/// M0d3: sin el Bus Master de E2 (`gpu vblank`) la 3060 no puede hacer DMA.
+pub const IOMMU_NO_SIN_BUS_MASTER: u32 = 16;
+/// M0d3: el falcon no dejo hacer el DMA; el motivo, en `INFO_GPU_FUEGO`.
+pub const IOMMU_NO_FUEGO: u32 = 17;
+/// M0d3: la pagina de prueba no esta prestada (`gpu prestar`).
+pub const IOMMU_NO_SIN_PRUEBA: u32 = 18;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

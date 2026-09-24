@@ -226,6 +226,8 @@ pub const IOMMU_OP_E2_ENCENDER: u64 = 0x05;
 pub const IOMMU_OP_E2_APAGAR: u64 = 0x06;
 pub const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
 pub const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
+pub const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
+pub const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -241,6 +243,9 @@ pub const IOMMU_NO_SIN_AREA: u32 = 12;
 pub const IOMMU_NO_NO_TRADUCIDA: u32 = 13;
 pub const IOMMU_NO_PRESTAMO: u32 = 14;
 pub const IOMMU_NO_RELEIDA: u32 = 15;
+pub const IOMMU_NO_SIN_BUS_MASTER: u32 = 16;
+pub const IOMMU_NO_FUEGO: u32 = 17;
+pub const IOMMU_NO_SIN_PRUEBA: u32 = 18;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -909,6 +914,22 @@ pub const IOMMU_EVENTO_TIPO_SHIFT: u64 = 32;
 pub const IOMMU_EVENTO_BANDERAS_SHIFT: u64 = 36;
 pub const IOMMU_EVENTO_HAY: u64 = 1 << 63;
 pub const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
+/// M0d3 (2026-09-24). Ver `bmo_abi::...::informe`.
+pub const INFO_GPU_FUEGO: u64 = 0xB2;
+pub const FUEGO_PRIMERA_SHIFT: u64 = 11;
+pub const FUEGO_MOTIVO_SHIFT: u64 = 22;
+pub const FUEGO_SEGURIDAD_SHIFT: u64 = 26;
+pub const FUEGO_DMEM_SHIFT: u64 = 28;
+pub const FUEGO_EVENTOS_SHIFT: u64 = 36;
+pub const FUEGO_HECHO: u64 = 1 << 62;
+pub const FUEGO_INTENTADO: u64 = 1 << 63;
+pub const INFO_GPU_FUEGO_LEIDO: u64 = 0xB3;
+pub const INFO_GPU_FRONTERA: u64 = 0xB4;
+pub const FRONTERA_EVENTO: u64 = 1 << 4;
+pub const FRONTERA_BDF: u64 = 1 << 5;
+pub const FRONTERA_DIR: u64 = 1 << 6;
+pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
+pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

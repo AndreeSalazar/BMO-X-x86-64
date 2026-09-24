@@ -78,6 +78,31 @@ fn prestar_prueba() -> Result<u64, u32> {
     bmo::iommu_orden(bmo::IOMMU_OP_PRESTAR_PRUEBA)
 }
 
+fn fuego_hecho() -> bool {
+    bmo::info(bmo::INFO_GPU_FUEGO) & bmo::FUEGO_HECHO != 0
+}
+
+/// La prueba de fuego cuenta solo con las 1024 palabras: 1023 es un NO.
+fn fuego() -> Result<u64, u32> {
+    let v = bmo::iommu_orden(bmo::IOMMU_OP_GPU_FUEGO)?;
+    if !fuego_hecho() {
+        return Err(super::gpu::NO_FUEGO_A_MEDIAS);
+    }
+    Ok(v)
+}
+
+fn frontera_hecha() -> bool {
+    bmo::info(bmo::INFO_GPU_FRONTERA) & bmo::FUEGO_HECHO != 0
+}
+
+fn frontera() -> Result<u64, u32> {
+    let v = bmo::iommu_orden(bmo::IOMMU_OP_GPU_FRONTERA)?;
+    if v == 0 {
+        return Err(super::gpu::NO_SIN_FRONTERA);
+    }
+    Ok(v)
+}
+
 fn encender_iommu() -> Result<u64, u32> {
     bmo::iommu_orden(bmo::IOMMU_OP_ENCENDER)
 }
@@ -105,7 +130,7 @@ fn encender_e2() -> Result<u64, u32> {
 }
 
 /// **Los pasos, en el orden en que hay que darlos.** Ver
-/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e, E2 y M0d2.
+/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e, E2, M0d2 y M0d3.
 const PASOS: &[Paso] = &[
     Paso {
         nombre: b"iommu",
@@ -146,6 +171,22 @@ const PASOS: &[Paso] = &[
         dar: prestar_prueba,
         pide: Some(b"traducir"),
         consejo: b"`iommu`: la fila `domain` dice 1 pagina prestada; lo siguiente es M0d3, que un falcon de la 3060 la LEA por DMA",
+    },
+    Paso {
+        nombre: b"fuego",
+        que: b"LA PRUEBA DE FUEGO: el DMA del falcon del GSP lee la pagina prestada (M0d3)",
+        hecho: fuego_hecho,
+        dar: fuego,
+        pide: Some(b"prestar"),
+        consejo: b"`gpu`: la fila `fuego` dice 1024 de 1024 -- la 3060 leyo tu RAM, y solo lo prestado",
+    },
+    Paso {
+        nombre: b"frontera",
+        que: b"LA FRONTERA: una direccion NO prestada sale como fallo de pagina de la 3060 (M0d3)",
+        hecho: frontera_hecha,
+        dar: frontera,
+        pide: Some(b"fuego"),
+        consejo: b"`iommu`: la fila `event` dice FALLO de pagina, BDF 29:00.0, direccion 0x20000000 -- la venda existe",
     },
 ];
 
@@ -505,7 +546,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es M0d3: que un falcon de la 3060 LEA la pagina prestada (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0: el firmware del GSP, por el mismo camino (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

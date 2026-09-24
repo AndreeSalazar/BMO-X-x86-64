@@ -308,6 +308,10 @@ pub(crate) const IOMMU_OP_E2_APAGAR: u64 = 0x06;
 pub(crate) const IOMMU_OP_TRADUCIR_GPU: u64 = 0x07;
 /// M0d: prestarle la pagina de prueba (solo lectura). Ver `dev/gpu_prestamo.rs`.
 pub(crate) const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
+/// M0d3: la PRUEBA DE FUEGO -- el falcon del GSP lee la pagina prestada.
+pub(crate) const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
+/// M0d3: la FRONTERA -- una direccion no prestada sale como fallo de pagina.
+pub(crate) const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

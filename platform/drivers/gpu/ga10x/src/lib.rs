@@ -38,6 +38,15 @@
 
 /// E2: el VBLANK por interrupcion -- que registros y en que orden (2026-09-24).
 pub mod vblank;
+/// M0d3: el DMA de un falcon, la prueba de fuego de la traduccion (2026-09-24).
+pub mod falcon;
+
+/// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
+/// pruebas, sobre un banco de mentira que apunta cada escritura.
+pub trait Registros {
+    fn leer(&mut self, reg: u32) -> u32;
+    fn escribir(&mut self, reg: u32, v: u32);
+}
 
 // -- Los registros (BAR0) ---------------------------------------------------
 
