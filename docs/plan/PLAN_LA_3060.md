@@ -405,7 +405,7 @@ MEDIDO, no el dicho.
    L0c1 PREGUNTAR (solo lectura): los cuatro leidos y entendidos, la firma
         del booter para el fusible del SEC2, y la VRAM repartida como
         nova-core (heap, elf, boot, wpr2). `gpu gsp` y el paso `gsp` de
-        `save mode`                             [en codigo, 24-09]
+        `save mode`                             [VISTO en metal, 24-09 06:02]
    L0c2 PRESTAR: el GSP-RM (15.513 paginas) y su radix3, el bootloader, la
         firma y la WPR meta, por la IOMMU -- la zona de la 3060 pasa de 128
         paginas a ~16.000, y se comprueba traduciendo, sin arrancar nada
@@ -453,6 +453,17 @@ El escritorio lee los tres chicos enteros y el GSP-RM con `Archivo::reflejar`
 El fusible del SEC2 (`0x824148`) ya se podia leer desde L0a. No cambia el
 kernel. **Como se sabe:** `gpu gsp` dice cuantas paginas habra que prestar y
 la fila `cuadra` dice que el frts del reparto es donde FWSEC monto la WPR2.
+
+**L0c1 en el metal (24-09, 06:02).** `booter boot_ld 61304 B: motor 0x0001
+ucode 3, 2 firmas de 384 B; IMEM 0x8900 B desde +0x0100, DMEM 0x6200 B, la
+firma en DMEM+0x010`, `fusible 0x824148 = 0x00000001 -> version 1 (el fichero
+dice 1); la firma buena del booter es la 0 de 2`, `bootldr ... codigo +0x1800,
+datos +0x0800`, `gsp-rm .fwimage 60 MiB (0x3C99000 B) = 15513 paginas + 33 de
+radix3; firma ga10x 4096 B (leidos 1315 B de el)`, `mapa wpr2
+0x2F4000000..0x2FFF00000 (191 MiB)` y `cuadra ... es donde FWSEC monto la WPR2:
+el reparto cuadra`. Los diez pasos de `save mode` verificados; el dominio sigue
+en 33 paginas y el unico evento es el de la frontera (M0d3). Lo que dijo el
+metal es lo que dijeron los ficheros en el anfitrion, byte a byte.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
