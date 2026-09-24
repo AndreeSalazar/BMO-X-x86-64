@@ -88,7 +88,7 @@ fn contar(r: &mut Resumen, funcion: u32) {
 /// Los textos en claro de los datos del mensaje en `pagina`, sin repetir.
 fn apuntar_textos(r: &mut Resumen, pagina: u64, m: &Mensaje) {
     let mut d = [0u8; MIRADO];
-    let n = (m.largo as usize).min(MIRADO);
+    let n = m.datos().min(MIRADO);
     let mut o = 0;
     while o < n {
         let w = cola(pagina, (CABECERA + o) as u64).to_le_bytes();

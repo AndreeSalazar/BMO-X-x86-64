@@ -240,6 +240,7 @@ pub const IOMMU_OP_GSP_DESPERTAR: u64 = 0x13;
 pub const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
 pub const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
 pub const IOMMU_OP_GSP_LEIDO: u64 = 0x16;
+pub const IOMMU_OP_GSP_SISTEMA: u64 = 0x17;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -287,6 +288,8 @@ pub const IOMMU_NO_BOOTER_MAL: u32 = 44;
 pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
 pub const IOMMU_NO_COLA_ANTES: u32 = 46;
 pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
+pub const IOMMU_NO_SISTEMA_ANTES: u32 = 48;
+pub const IOMMU_NO_SISTEMA_YA: u32 = 49;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).

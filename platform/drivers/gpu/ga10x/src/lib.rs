@@ -54,6 +54,8 @@ pub mod wpr;
 pub mod libos;
 /// L0c4a: los mensajes del GSP -- su cabecera, su suma y su nombre (2026-09-24).
 pub mod rpc;
+/// L0c4b2a: lo que la CPU le escribe al GSP -- SetSystemInfo y SetRegistry (2026-09-24).
+pub mod orden;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

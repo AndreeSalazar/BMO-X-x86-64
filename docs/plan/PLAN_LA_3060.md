@@ -426,7 +426,8 @@ MEDIDO, no el dicho.
         vaciar` y el paso `vaciar`               [VISTO en metal, 24-09 08:14]
    L0c4b2 contestarle hasta su GSP_INIT_DONE, como nova-core:
      L0c4b2a ESCRIBIR en la cola de la CPU: SetSystemInfo y SetRegistry,
-        justo tras ver el RISC-V activo (antes del secuenciador)
+        ANTES de despertar (como nouveau y OpenRM). `gpu sistema` y el
+        paso `sistema`                           [en codigo, 24-09]
      L0c4b2b LEER el secuenciador que pide el GSP: sus ordenes, dichas
         una a una, sin correr ninguna
      L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
@@ -670,6 +671,31 @@ que el GSP-RM vuelva (`gsp/sequencer.rs` de nova-core). Ahora la fila lo dice en
 verde. Y nova-core manda SetSystemInfo y SetRegistry ANTES de eso, al ver el
 RISC-V activo: BMO-X no los mando, y el GSP siguio sin ellos -- quiza los 835
 ASSERT sean eso. Por eso L0c4b2 se parte en tres.
+
+**L0c4b2a (24-09, en codigo): LA PRIMERA VEZ QUE LA CPU LE ESCRIBE AL GSP.**
+`bmo_gpu_ga10x::orden` (3 pruebas) arma `GSP_SET_SYSTEM_INFO` (72, los 928 B
+de `GspSystemInfo` con los campos que llena nova-core: BAR0, BAR1 y BAR3
+fisicas, el BDF, los ID del PCI, el espejo del PCI en 0x88000 y `maxUserVa`) y
+`SET_REGISTRY` (73, las tres claves de nova-core a 1: `RMSecBusResetEnable`,
+`RMForcePcieConfigSave`, `RMDevidCheckIgnore`), con su `seqNum`, `rpc_result` a
+0xFFFFFFFF y la suma que da 0. Los arma el KERNEL (`IOMMU_OP_GSP_SISTEMA`,
+`dev/gpu_libos.rs::escribir_sistema`) directamente en las paginas 0 y 1 de la
+cola de la CPU, con lo que el mismo lee del PCI, y mueve su `writePtr` a 2: el
+escritorio no manda bytes. Van ANTES de despertar, como nouveau
+(`r535_gsp_oneinit`) y OpenRM (`kgspInitRm`); nova-core los manda despues con el
+RISC-V activo y toca el timbre `0x110C00` -- aqui no hace falta, `despertar`
+resetea el falcon del GSP despues. En `save mode`, `sistema` va entre `libos` y
+`despertar`.
+
+** De paso, un error de L0c4a: el `length` del RPC CUENTA los 32 B de su
+cabecera (nova-core, `payload_length`). La suma cubria 32 bytes de mas y dio 0
+en los 835 del metal solo porque detras habia ceros; ahora `Mensaje::datos`.
+
+**Como se sabe (L0c4b2a):** la fila `sistema` relee los dos de la cola, con VRPC
+y la suma en 0; `sysinfo` dice las BAR, el BDF y los ID que se le dieron; y
+`leyo`, tras `despertar`, que el puntero con el que el GSP lee la cola de la
+CPU paso de 0 a 2. Y se espera que la fila `nocat` cambie: si los 835 ASSERT
+eran por no tener esto, bajan.
 
 **Como se sabe:** la fila `vacia` dice cuantos consumidos y de que tipo, y en
 que pagina lee ahora la CPU; `nocat`, los textos en claro de los NOCAT; y

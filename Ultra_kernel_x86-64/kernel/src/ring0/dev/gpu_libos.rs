@@ -234,7 +234,10 @@ fn comprobar() -> Result<u64, u32> {
         }
         // 5. La cabecera de la cola del CPU, como la leera el GSP.
         let cola = por_la_iommu(mem + lb::COLA_CPU).ok_or(IOMMU_NO_LIBOS_PUNTERO)?;
-        sigue(lb::leer_cabecera(cola) == lb::leer_cabecera(&lb::cabecera_cpu()))?;
+        // Sin su `writePtr`: tras `gpu sistema` (L0c4b2a) esta en 2, y un
+        // `gpu libos` de despues no tiene que llamarlo roto.
+        let sin_puntero = |c: (u32, u32, u32, u32, u32, u32, u32)| (c.0, c.1, c.2, c.4, c.5, c.6);
+        sigue(sin_puntero(lb::leer_cabecera(cola)) == sin_puntero(lb::leer_cabecera(&lb::cabecera_cpu())))?;
         // Y la de vaciado, para L0c3b.
         sigue(escribible(IOVA_VACIADO, chicas + 2 * PAGINA))?;
         Ok(())
@@ -318,4 +321,82 @@ pub fn mover_lectura(nuevo: u64) -> Result<u64, u32> {
     unsafe { p.write_volatile(nuevo as u32) };
     core::sync::atomic::fence(Ordering::SeqCst);
     Ok(antes as u64)
+}
+
+// == L0c4b2a: LOS DOS PRIMEROS MENSAJES DE LA CPU (2026-09-24) ================
+//
+// `GSP_SET_SYSTEM_INFO` y `SET_REGISTRY`, a la cola de la CPU y ANTES de
+// despertar el GSP, como nouveau (`r535_gsp_oneinit`) y OpenRM (`kgspInitRm`):
+// el GSP-RM los encuentra al mirar su cola por primera vez. nova-core los manda
+// despues, con el RISC-V ya activo, y toca el timbre (`0x110C00`); aqui no hace
+// falta timbre -- `despertar` resetea el falcon del GSP despues de esto.
+//
+// En el metal (24-09 08:14) el GSP llego a su secuenciador SIN ellos, tras 835
+// ASSERT. Los bytes los arma `bmo_gpu_ga10x::orden` en su hueco de GspMem, con
+// lo que el kernel lee del PCI: el escritorio no manda bytes, solo dice "ya".
+
+/// Sin `gpu libos` no hay cola de la CPU donde escribir.
+pub const IOMMU_NO_SISTEMA_ANTES: u32 = 48;
+/// Ya se mandaron, o el GSP ya desperto: van ANTES, y una sola vez.
+pub const IOMMU_NO_SISTEMA_YA: u32 = 49;
+
+/// Una BAR de memoria del espacio de configuracion, con su mitad alta si es de
+/// 64 bits. `0` si es de E/S.
+fn barra(bus: u8, dev: u8, func: u8, off: u8) -> u64 {
+    let pci = crate::ring0::dev::pci::cfg_read32;
+    let bajo = pci(bus, dev, func, off);
+    if bajo & 1 != 0 {
+        return 0;
+    }
+    let base = (bajo & 0xFFFF_FFF0) as u64;
+    if (bajo >> 1) & 3 == 2 {
+        base | (pci(bus, dev, func, off + 4) as u64) << 32
+    } else {
+        base
+    }
+}
+
+/// **Escribir SetSystemInfo y SetRegistry** en las paginas 0 y 1 de la cola
+/// de la CPU y mover su `writePtr` a 2. `Ok(2)`.
+pub fn escribir_sistema() -> Result<u64, u32> {
+    let f = GSPMEM_F.load(Ordering::Acquire);
+    if f == 0 {
+        return Err(IOMMU_NO_SISTEMA_ANTES);
+    }
+    let Some((bus, dev, func)) = crate::ring0::dev::gpu::bdf() else { return Err(io::IOMMU_NO_SIN_GPU) };
+    let cola = f + lb::COLA_CPU;
+    // `writePtr` de la cola de la CPU: +16 de su cabecera (`msgqTxHeader`).
+    let escrito = crate::ring0::mm::phys_to_virt(cola + 16) as *mut u32;
+    // SAFETY: dentro de GspMem (marcos NEUTRO de este fichero); volatile
+    // porque lo lee el GSP por DMA.
+    if crate::ring0::dev::gpu_despertar::gsp_tomado() || unsafe { escrito.read_volatile() } != 0 {
+        return Err(IOMMU_NO_SISTEMA_YA);
+    }
+    let pci = |off| crate::ring0::dev::pci::cfg_read32(bus, dev, func, off);
+    let s = bmo_gpu_ga10x::orden::Sistema {
+        bar0: barra(bus, dev, func, 0x10),
+        bar1: barra(bus, dev, func, 0x14),
+        bar3: barra(bus, dev, func, 0x1C),
+        bdf: (bus as u16) << 8 | (dev as u16) << 3 | func as u16,
+        id: pci(0x00),
+        subid: pci(0x2C),
+        revision: pci(0x08) as u8,
+    };
+    let hueco = |k: u64| {
+        let p = crate::ring0::mm::phys_to_virt(cola + PAGINA + k * PAGINA) as *mut u8;
+        // SAFETY: la pagina `k` de datos de la cola de la CPU, dentro de
+        // GspMem; las dos (0 y 1) no se pisan y nadie mas las escribe todavia.
+        unsafe { core::slice::from_raw_parts_mut(p, PAGINA as usize) }
+    };
+    let (Some(a), Some(b)) = (bmo_gpu_ga10x::orden::sistema(hueco(0), 0, &s), bmo_gpu_ga10x::orden::registro(hueco(1), 1)) else {
+        return Err(IOMMU_NO_SISTEMA_ANTES);
+    };
+    // Los mensajes enteros ANTES de moverle el puntero (nova-core pone la
+    // barrera en `advance_cpu_write_ptr`).
+    core::sync::atomic::fence(Ordering::SeqCst);
+    // SAFETY: como arriba.
+    unsafe { escrito.write_volatile(2) };
+    core::sync::atomic::fence(Ordering::SeqCst);
+    crate::ring0::cabina::count("gpu", "L0c4b2a: SetSystemInfo y SetRegistry en la cola de la CPU; bytes", (a + b) as u64);
+    Ok(2)
 }

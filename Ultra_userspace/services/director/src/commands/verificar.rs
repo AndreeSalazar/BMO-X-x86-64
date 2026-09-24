@@ -229,11 +229,19 @@ const PASOS: &[Paso] = &[
         consejo: b"`gpu`: la fila `libos` dice PRESTADO para escribir y cada puntero lleva a lo suyo; `iommu`: `domain` 180 paginas mas y sin eventos nuevos -- lo siguiente es L0c3b, despertar el GSP",
     },
     Paso {
+        nombre: b"sistema",
+        que: b"ESCRIBIRLE AL GSP por primera vez: SetSystemInfo y SetRegistry en la cola de la CPU, antes de despertarlo (L0c4b2a)",
+        hecho: super::gspsistema::mandado,
+        dar: super::gspsistema::mandar,
+        pide: Some(b"libos"),
+        consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) -- lo siguiente es L0c4b2b, leer el secuenciador",
+    },
+    Paso {
         nombre: b"despertar",
         que: b"DESPERTAR EL GSP: sus argumentos en el buzon, el booter firmado en el SEC2, y su RISC-V encendido (L0c3b)",
         hecho: super::gsp::despierto,
         dar: super::gsp::despertar,
-        pide: Some(b"libos"),
+        pide: Some(b"sistema"),
         consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es L0c4, hablarle por sus colas",
     },
     Paso {
@@ -255,8 +263,9 @@ const PASOS: &[Paso] = &[
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
-/// camino, se deja sitio -- y la prueba de abajo dice NO si se pasa.
-const MAX_PASOS: usize = 16;
+/// camino, se deja sitio -- y la prueba de abajo dice NO si se pasa. Eran 16
+/// y `sistema` hizo el decimosexto (L0c4b2a, 24-09): L0c4b2b y L0c4b2c vienen.
+const MAX_PASOS: usize = 24;
 const _: () = assert!(PASOS.len() <= MAX_PASOS, "save mode: mas pasos que MAX_PASOS");
 
 /// Que salio de cada paso.

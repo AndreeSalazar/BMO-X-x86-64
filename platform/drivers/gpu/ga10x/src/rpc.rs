@@ -29,6 +29,8 @@ pub const CABECERA: usize = 80;
 pub const FIRMA_VRPC: u32 = 0x4350_5256;
 /// `header_version` 3.0, la de r570.
 pub const VERSION_3_0: u32 = 0x0300_0000;
+/// Lo que mide la cabecera del RPC sola: `length` la CUENTA.
+pub const CABECERA_RPC: usize = 32;
 
 /// La cabecera de un mensaje, leida.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
@@ -66,19 +68,30 @@ impl Mensaje {
         }
     }
 
-    /// Tiene la forma de un mensaje de r570: firma, version, y cabe en las
-    /// paginas que dice ocupar (entre 1 y 16: 64 KiB es el tope de nova-core).
+    /// Tiene la forma de un mensaje de r570: firma, version, un `length` que
+    /// al menos cubre su cabecera, y cabe en las paginas que dice ocupar
+    /// (entre 1 y 16: 64 KiB es el tope de nova-core).
     pub fn bien_formado(&self) -> bool {
         self.firma == FIRMA_VRPC
             && self.version == VERSION_3_0
+            && self.largo as usize >= CABECERA_RPC
             && (1..=16).contains(&self.paginas)
-            && (CABECERA as u64 + self.largo as u64) <= self.paginas as u64 * 4096
+            && (CABECERA + self.datos()) as u64 <= self.paginas as u64 * 4096
     }
 
-    /// Los bytes que cubre la suma, cabecera incluida (`payload_length` de
-    /// nova-core va detras de los 80 de la cabecera).
+    /// **Los bytes de datos**, detras de los 80 de la cabecera.
+    ///
+    /// ** `length` CUENTA los 32 de la cabecera del RPC (nova-core,
+    /// `payload_length`: "`rpc.length` includes the length of the RPC message
+    /// header"). Hasta L0c4b2a (24-09) se leia como si no: la suma cubria 32
+    /// bytes de mas, y dio 0 en los 835 del metal solo porque detras habia ceros.
+    pub fn datos(&self) -> usize {
+        (self.largo as usize).saturating_sub(CABECERA_RPC)
+    }
+
+    /// Los bytes que cubre la suma, cabecera incluida.
     pub fn bytes_sumados(&self) -> usize {
-        CABECERA + self.largo as usize
+        CABECERA + self.datos()
     }
 }
 
@@ -219,7 +232,7 @@ mod pruebas {
         m[40..44].copy_from_slice(&1u32.to_le_bytes());
         m[48..52].copy_from_slice(&VERSION_3_0.to_le_bytes());
         m[52..56].copy_from_slice(&FIRMA_VRPC.to_le_bytes());
-        m[56..60].copy_from_slice(&(datos.len() as u32).to_le_bytes());
+        m[56..60].copy_from_slice(&((CABECERA_RPC + datos.len()) as u32).to_le_bytes());
         m[60..64].copy_from_slice(&funcion.to_le_bytes());
         m[80..80 + datos.len()].copy_from_slice(datos);
         let mut s = Suma::default();
@@ -233,7 +246,7 @@ mod pruebas {
         let m = mensaje(SECUENCIADOR, b"hola GSP");
         let c = Mensaje::de(m[..80].try_into().unwrap());
         assert!(c.bien_formado());
-        assert_eq!((c.funcion, c.numero, c.paginas, c.largo), (0x1002, 7, 1, 8));
+        assert_eq!((c.funcion, c.numero, c.paginas, c.largo, c.datos()), (0x1002, 7, 1, 40, 8));
         let mut s = Suma::default();
         s.mas(&m[..c.bytes_sumados()]);
         assert_eq!(s.valor(), 0);
@@ -263,6 +276,9 @@ mod pruebas {
         m[56..60].copy_from_slice(&5000u32.to_le_bytes());
         assert!(!Mensaje::de(m[..80].try_into().unwrap()).bien_formado(), "no cabe en su pagina");
         assert!(!Mensaje::de(&[0; 80]).bien_formado(), "una pagina a cero");
+        let mut m = mensaje(INIT_DONE, &[]);
+        m[56..60].copy_from_slice(&31u32.to_le_bytes());
+        assert!(!Mensaje::de(m[..80].try_into().unwrap()).bien_formado(), "un length que no cubre ni su cabecera");
     }
 
     #[test]

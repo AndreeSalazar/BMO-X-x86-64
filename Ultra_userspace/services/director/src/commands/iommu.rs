@@ -132,6 +132,8 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_BOOTER_MAL => b"el booter se paro con un ERROR en MAILBOX0: mira la fila `despierto`",
         bmo::IOMMU_NO_COLA_ANTES => b"el GSP no desperto en este arranque: no hay cola que devolverle",
         bmo::IOMMU_NO_COLA_PUNTERO => b"el puntero de lectura pedido no es un hueco de la cola (0..62)",
+        bmo::IOMMU_NO_SISTEMA_ANTES => b"sin `gpu libos` no hay cola de la CPU donde escribirle al GSP",
+        bmo::IOMMU_NO_SISTEMA_YA => b"SetSystemInfo y SetRegistry ya se mandaron, o el GSP ya desperto: van antes y una vez",
         bmo::IOMMU_NO_YA_DESPIERTO => b"el booter ya corrio en este arranque: otra vez pide reiniciar la maquina",
         super::gsp::NO_GSP_NO_PARA => b"el GSP arranco con sus argumentos y no se paro en 2 s",
         super::gsp::NO_SEC2_NO_ACABA => b"el booter ARRANCO en el SEC2 y no se paro en 5 s",

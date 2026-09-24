@@ -28,10 +28,10 @@ use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
 /// Donde empieza GspMem en `INFO_GPU_GSP_MEM`: detras de los tres logs.
-const GSPMEM: u64 = 3 * 16 * 4096;
+pub(crate) const GSPMEM: u64 = 3 * 16 * 4096;
 /// La cola del GSP dentro de GspMem, su `writePtr`, y el `readPtr` de la CPU
 /// sobre ella (que vive en la cabecera de la cola de la CPU).
-const COLA_GSP: u64 = GSPMEM + 0x41000;
+pub(crate) const COLA_GSP: u64 = GSPMEM + 0x41000;
 pub(crate) const ESCRITO: u64 = COLA_GSP + 16;
 pub(crate) const LEIDO_CPU: u64 = GSPMEM + 0x1000 + 32;
 /// Los mensajes: 63 paginas tras la de cabeceras.
