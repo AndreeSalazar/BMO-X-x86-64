@@ -145,9 +145,16 @@ pub(crate) fn fila(s: &mut Output) {
             s.dec(l.gen_max as u64);
             s.text(b" x");
             s.dec(l.ancho_max as u64);
-            if l.gen < l.gen_max {
+            if l.gen == 1 && l.gen < l.gen_max {
                 s.with_ink(INK_ECHO);
                 s.text(b"; en Gen1 porque arranca asi: subirlo es del RM");
+                s.with_ink(INK_PLAIN);
+            } else if l.gen > 1 && !super::gspinit::listo() {
+                // ** Metal 24-09 13:52: Gen3 SIN GSP-RM en este arranque. En
+                // frio la 3060 sale en Gen1 y es el RM quien la sube: si ya
+                // viene subida, el RM de un arranque anterior sigue ahi.
+                s.with_ink(INK_ERR);
+                s.text(b"; ya subida SIN el RM de este arranque: la 3060 viene caliente de antes (APAGA, no reinicies)");
                 s.with_ink(INK_PLAIN);
             }
         }

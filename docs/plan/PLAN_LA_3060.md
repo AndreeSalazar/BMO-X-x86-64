@@ -662,6 +662,18 @@ FWSEC si corrio y el booter llego a extender la WPR2: fallo despues. Se anadio
 MAILBOX1 a la fila `despierto`. Tras APAGAR del todo (08:14), el booter dio 0 y 0
 y el GSP desperto: la regla, de momento, es apagar entre pruebas.
 
+**Otra vez 0x15 (24-09, 13:52), y ahora se ve ANTES.** Mismo cuadro que a las
+07:48: `despierto: +sec2 -os -riscv, MAILBOX0 del SEC2 0x00000015`, y la
+3060 con senales de venir caliente del arranque anterior (el de 13:35, con el
+GSP-RM y el canal vivos): el enlace PCIe ya en Gen3 SIN RM en este arranque
+(en frio sale en Gen1 y lo sube el RM) y el sensor termico sin su bit de
+validez. La repeticion de `save mode` puso encima el motivo 45 y tapo el
+0x15. Tres arreglos: `despertar` compara la WPR2 con la de FWSEC-FRTS y, si
+ya empieza mas abajo (solo lo hace un booter), NO gasta el booter y dice
+`IOMMU_NO_GPU_CALIENTE` (67): APAGA y corta la corriente; el 45 ya no pisa
+el motivo de antes; y las filas `despierto` (0x15) y `pcie` (subida sin RM)
+lo explican. La regla sigue: entre pruebas, APAGAR, no reiniciar.
+
 **L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
 `vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
 x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.

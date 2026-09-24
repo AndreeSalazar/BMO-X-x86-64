@@ -866,6 +866,9 @@ pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
 pub const IOMMU_NO_COPIA: u32 = 65;
 /// L1d3: el tramo no se releyo igual por PRAMIN: no se toco el timbre.
 pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
+/// L0c3b: la 3060 trae el GSP-RM de un arranque anterior (la WPR2 ya
+/// EXTENDIDA antes del booter): un reinicio no la resetea; hay que APAGAR.
+pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

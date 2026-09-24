@@ -73,6 +73,10 @@ pub const IOMMU_NO_SEC2: u32 = 42;
 pub const IOMMU_NO_SEC2_NO_PARA: u32 = 43;
 pub const IOMMU_NO_BOOTER_MAL: u32 = 44;
 pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
+/// La 3060 trae el GSP-RM del arranque ANTERIOR: la WPR2 ya empieza mas
+/// abajo que la de FWSEC-FRTS, y eso solo lo hace un booter. Un reinicio no
+/// resetea la tarjeta; el booter devolveria 0x15 (metal 24-09 07:48 y 13:52).
+pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 
 pub const DESPIERTO_VACIADO: u64 = 1 << 0;
 pub const DESPIERTO_GSP_ARRANCADO: u64 = 1 << 1;
@@ -129,13 +133,30 @@ fn antes() -> Result<Bar0, u32> {
 pub fn despertar() -> Result<u64, u32> {
     if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0 {
         // El booter ya corrio en este arranque: la WPR2 ya tiene el GSP-RM, y
-        // correrlo otra vez sin el booter_unload no se hace.
-        return no(IOMMU_NO_YA_DESPIERTO);
+        // correrlo otra vez sin el booter_unload no se hace. El motivo de
+        // ANTES se queda (metal 24-09 13:52: el 45 de la repeticion de `save
+        // mode` tapaba el 0x15 del booter).
+        return Err(IOMMU_NO_YA_DESPIERTO);
     }
     let mut r = match antes() {
         Ok(r) => r,
         Err(m) => return no(m),
     };
+    // ** LA 3060 CALIENTE. FWSEC-FRTS monta la WPR2 en `frts.desde`; solo el
+    // booter la baja hasta la WPR meta. Si ya empieza mas abajo ANTES de
+    // nuestro booter, la tarjeta trae el GSP-RM de un arranque anterior (un
+    // reinicio no la resetea) y el booter devolveria 0x15: no se gasta.
+    let fb = crate::ring0::dev::gpu::info_fb();
+    let frts = bmo_gpu_ga10x::vbios::frts(
+        fb as u32,
+        crate::ring0::dev::gpu::info_vga() as u32,
+        fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0,
+    );
+    let abajo = ((crate::ring0::dev::gpu::info_wpr2() as u32 >> 4) as u64) << 12;
+    if abajo != 0 && abajo < frts.desde {
+        crate::ring0::cabina::warn("gpu", "L0c3b: la WPR2 ya viene EXTENDIDA de un arranque anterior; empieza en", abajo);
+        return no(IOMMU_NO_GPU_CALIENTE);
+    }
     apuntar(|x| x | DESPIERTO_VALIDO);
 
     // 0. La pagina de vaciado, y que se relea.
@@ -170,7 +191,7 @@ pub fn despertar() -> Result<u64, u32> {
 pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     let e = ESTADO.load(Ordering::Acquire);
     if e & DESPIERTO_SEC2_ARRANCADO != 0 {
-        return no(IOMMU_NO_YA_DESPIERTO);
+        return Err(IOMMU_NO_YA_DESPIERTO);
     }
     let mut r = match antes() {
         Ok(r) => r,

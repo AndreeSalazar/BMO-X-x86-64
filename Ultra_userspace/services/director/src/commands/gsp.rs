@@ -736,6 +736,14 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b", MAILBOX1 0x");
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
+        // ** 0x15: dos veces en el metal (24-09 07:48 y 13:52), las dos tras
+        // REINICIAR sin cortar la corriente con el GSP-RM de antes vivo; y
+        // las dos se arreglaron APAGANDO.
+        if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
+            s.with_ink(INK_ERR);
+            s.text(b" = el booter NO carga sobre el GSP-RM de un arranque anterior: APAGA la maquina (no reinicies)");
+            s.with_ink(INK_ECHO);
+        }
     }
     if d & bmo::DESPIERTO_RISCV_PARADO != 0 && !super::gspvaciar::espera_secuenciador() {
         s.with_ink(INK_ERR);
