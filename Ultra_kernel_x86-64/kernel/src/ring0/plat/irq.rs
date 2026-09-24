@@ -42,9 +42,17 @@ use crate::ring0::task::percpu;
 
 /// El vector del disco. El 48 es el temporizador; este va justo detras.
 pub const VECTOR_DISCO: usize = 49;
+/// El de la 3060 (E2, 2026-09-24): su VBLANK por MSI. Detras del disco.
+pub const VECTOR_GPU: usize = 50;
 
+/// ** EL STUB, UNO para todos los aparatos (2026-09-24). Era el del disco
+/// escrito a mano; con la 3060 (E2) hacian falta dos, y dos copias de 70 lineas
+/// de ensamblador son dos sitios donde arreglar el mismo fallo. `$dispatch`
+/// es lo unico que cambia.
+macro_rules! entrada_de_aparato {
+    ($nombre:ident, $dispatch:path) => {
 #[unsafe(naked)]
-unsafe extern "C" fn disco_entry() -> ! {
+unsafe extern "C" fn $nombre() -> ! {
     naked_asm!(
         // Copia exacta del prologo del temporizador. Ver `plat/timer.rs` para el
         // porque de cada linea -- sobre todo el de poner a cero la cabecera del
@@ -105,7 +113,7 @@ unsafe extern "C" fn disco_entry() -> ! {
         "3: mov rdi, {m_sello}", "mov rsi, rsp", "and rsp, -16", "call {podrido}",
         "4: mov rdi, {m_cs}", "mov rsi, rsp", "and rsp, -16", "call {podrido}",
         "8: mov rdi, {m_cab}", "mov rsi, rsp", "and rsp, -16", "call {podrido}",
-        dispatch = sym disco_dispatch,
+        dispatch = sym $dispatch,
         podrido = sym crate::ring0::plat::faults::contexto_podrido,
         no_xcr0 = sym crate::ring0::plat::trap::XSAVE_NO_XCR0,
         area = const crate::ring0::plat::trap::XSAVE_AREA,
@@ -119,6 +127,11 @@ unsafe extern "C" fn disco_entry() -> ! {
         reserva = const crate::ring0::plat::trap::XSAVE_RESERVA,
     );
 }
+    };
+}
+
+entrada_de_aparato!(disco_entry, disco_dispatch);
+entrada_de_aparato!(gpu_entry, gpu_dispatch);
 
 #[unsafe(no_mangle)]
 extern "C" fn disco_dispatch(_frame: &mut TrapFrame) -> u64 {
@@ -152,4 +165,26 @@ pub fn instalar(idt_ptr: u64) -> bool {
         VECTOR_DISCO,
         disco_entry as *const () as u64,
     )
+}
+
+/// ** EL AVISO DE LA 3060 (E2, 2026-09-24): lo mismo que el del disco. Se
+/// limpia lo que aviso, se cuenta, y si alguien dormia esperando el VBLANK se
+/// le despierta -- el planificador puede cambiar de tarea, asi que se apunta la
+/// publicacion igual que el disco.
+#[unsafe(no_mangle)]
+extern "C" fn gpu_dispatch(_frame: &mut TrapFrame) -> u64 {
+    crate::ring0::plat::trap::registrar_publicacion(
+        percpu::trap_rsp(),
+        crate::ring0::task::scheduler::current_tid(),
+    );
+    crate::ring0::dev::vblank::atender_irq();
+    crate::ring0::plat::timer::eoi();
+    percpu::trap_rsp()
+}
+
+/// Instala el vector de la 3060. Lo llama `dev::vblank::preparar` AL
+/// ARRANCAR, que es cuando la IDT se alcanza; sin MSI programado no lo dispara
+/// nadie, y el MSI lo programa `gpu vblank`, por orden.
+pub fn instalar_gpu(idt_ptr: u64) -> bool {
+    crate::ring0::plat::timer::instalar_vector(idt_ptr, VECTOR_GPU, gpu_entry as *const () as u64)
 }

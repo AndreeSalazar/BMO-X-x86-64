@@ -84,6 +84,12 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_CONTESTA => b"el COMPLETION_WAIT no volvio en 10 ms: se APAGO sola otra vez",
         bmo::IOMMU_NO_APAGADA => b"la IOMMU no la encendio BMO-X: primero `iommu encender`",
         bmo::IOMMU_NO_SIN_GPU => b"no hay una NVIDIA donde la sonda la vio",
+        bmo::IOMMU_NO_GPU_VE => b"EL CANDADO: la 3060 no esta CIEGA en la IOMMU; primero `gpu cegar`",
+        bmo::IOMMU_NO_SIN_MSI => b"la 3060 no anuncia MSI",
+        bmo::IOMMU_NO_SIN_CABEZA => b"la sonda no dejo cabeza que pinte (mira `gpu`)",
+        bmo::IOMMU_NO_SIN_VECTOR => b"el vector 50 no se instalo al arrancar",
+        bmo::IOMMU_NO_E2_NO_ARMA => b"la pantalla no acepto el aviso del VBLANK: se deshizo y el Bus Master se retiro",
+        super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }
 }

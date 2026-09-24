@@ -558,7 +558,11 @@ pub fn find_storage_of(kind: StorageKind, skip: usize) -> Option<StorageLoc> {
 
 /// Habilita Memory Space + Bus Master (DMA) en el dispositivo. Sin BME el
 /// controlador no puede leer sus estructuras en RAM y el driver ve silencio.
-fn enable_mem_bus_master(bus: u8, dev: u8, func: u8) {
+///
+/// ** `pub(crate)` desde E2 (2026-09-24): la 3060 enciende su Bus Master POR
+/// AQUI, y no con una escritura propia, para que el portero la apunte como
+/// adoptada -- que es lo que pide el comentario de abajo.
+pub(crate) fn enable_mem_bus_master(bus: u8, dev: u8, func: u8) {
     let cmd = cfg_read32(bus, dev, func, 0x04);
     cfg_write32(bus, dev, func, 0x04, cmd | 0x0006);
     // == *** Y SE APUNTA QUIEN FUE (2026-09-09) ==========================
@@ -576,6 +580,22 @@ fn enable_mem_bus_master(bus: u8, dev: u8, func: u8) {
     // llamar aqui tambien -- y si no lo hace, su aparato acabara cerrado.
     // Queda dicho para que el fallo se pague donde se cometa.
     super::portero::adoptado(bus, dev, func);
+}
+
+/// **Retira el Bus Master** (E2, 2026-09-24): el aparato vuelve a no poder
+/// escribir -- ni en la RAM ni en el LAPIC. `true` si se quedo retirado.
+///
+/// La mitad ALTA se escribe a cero por lo mismo que en `msi_activar`: es el
+/// registro de estado, y sus bits son "escribe 1 para borrar".
+pub(crate) fn bus_master_apagar(bus: u8, dev: u8, func: u8) -> bool {
+    let cmd = cfg_read32(bus, dev, func, 0x04);
+    cfg_write32(bus, dev, func, 0x04, (cmd & 0xFFFF) & !CMD_BUS_MASTER);
+    cfg_read32(bus, dev, func, 0x04) & CMD_BUS_MASTER == 0
+}
+
+/// El registro de comando, leido ahora (para la escalera de E2).
+pub(crate) fn comando(bus: u8, dev: u8, func: u8) -> u16 {
+    cfg_read32(bus, dev, func, 0x04) as u16
 }
 
 /// El controlador de almacenamiento numero `index` del barrido, SIN tocar su

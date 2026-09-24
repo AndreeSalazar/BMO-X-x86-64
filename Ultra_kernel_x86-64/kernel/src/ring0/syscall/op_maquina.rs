@@ -693,7 +693,12 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             }
             iommu::encender()
         }
-        IOMMU_OP_APAGAR => iommu::apagar(),
+        IOMMU_OP_APAGAR => {
+            // ** EL CANDADO DE E2, al CERRAR: sin IOMMU la 3060 veria toda la
+            // RAM, asi que su Bus Master se retira ANTES de apagarla.
+            crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_CANDADO);
+            iommu::apagar()
+        }
         IOMMU_OP_CEGAR_GPU | IOMMU_OP_VER_GPU => {
             // ** El BDF lo da la SONDA, y se vuelve a mirar que ahi haya una
             // NVIDIA: cegar el BDF equivocado dejaria ciego a otro aparato.
@@ -711,7 +716,26 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("iommu", "el FLUSH del disco antes de cambiar la 3060 no se pudo: se sigue", 0);
             }
-            if arg0 == IOMMU_OP_CEGAR_GPU { iommu::cegar(bdf) } else { iommu::ver(bdf) }
+            if arg0 == IOMMU_OP_CEGAR_GPU {
+                iommu::cegar(bdf)
+            } else {
+                // Lo mismo al quitarle la venda: primero E2 fuera.
+                crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_CANDADO);
+                iommu::ver(bdf)
+            }
+        }
+        // ** E2 (2026-09-24): el VBLANK por MSI. Primera escritura en la 3060
+        // que no es la IOMMU, asi que lleva el mismo FLUSH: lo que el
+        // escritorio acaba de guardar tiene que estar en el disco.
+        IOMMU_OP_E2_ENCENDER => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de E2 no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::vblank::encender()
+        }
+        IOMMU_OP_E2_APAGAR => {
+            let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);
+            Ok(estaba as u64)
         }
         _ => return BmoStatus::err(ERROR_INVALID_ARGUMENT),
     };

@@ -1534,6 +1534,43 @@ pub const IOMMU_GPU_US_SHIFT: u64 = 16;
 pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
 pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
 
+/// # `INFO_GPU_VBLANK` e `INFO_GPU_E2`: la 3060 AVISA (E2, 2026-09-24)
+///
+/// ```text
+///   INFO_GPU_VBLANK  0..31  VBLANKs de la cabeza que pinta, por interrupcion
+///                    32..55 entradas al vector 50 (saturado)
+///                    62     callada desde la interrupcion (tormenta, o no contesta)
+///                    63     armado
+///   INFO_GPU_E2      la ESCALERA, leida al preguntar: MSI, su mascara, Bus
+///                    Master, ciega, encendido, evento, hoja, cima, vector;
+///                    16..31 avisos con bits ajenos, 32..39 por que se apago
+///                    (E2_APAGADO_*), 40..47 VBLANKs de otras cabezas, 48..50
+///                    la cabeza, 63 valida
+/// ```
+pub const INFO_GPU_VBLANK: u64 = 0xAC;
+pub const E2_ENTRADAS_SHIFT: u64 = 32;
+pub const E2_CALLADA: u64 = 1 << 62;
+pub const E2_ARMADO: u64 = 1 << 63;
+pub const INFO_GPU_E2: u64 = 0xAD;
+pub const E2_MSI: u64 = 1 << 0;
+pub const E2_MSI_MASCARA: u64 = 1 << 1;
+pub const E2_BME: u64 = 1 << 2;
+pub const E2_CIEGA: u64 = 1 << 3;
+pub const E2_ENCENDIDO: u64 = 1 << 4;
+pub const E2_EVENTO: u64 = 1 << 5;
+pub const E2_HOJA: u64 = 1 << 6;
+pub const E2_CIMA: u64 = 1 << 7;
+pub const E2_VECTOR: u64 = 1 << 8;
+pub const E2_AJENOS_SHIFT: u64 = 16;
+pub const E2_MOTIVO_SHIFT: u64 = 32;
+pub const E2_OTRAS_SHIFT: u64 = 40;
+pub const E2_CABEZA_SHIFT: u64 = 48;
+pub const E2_VALIDA: u64 = 1 << 63;
+pub const E2_APAGADO_ORDEN: u64 = 1;
+pub const E2_APAGADO_TORMENTA: u64 = 2;
+pub const E2_APAGADO_CANDADO: u64 = 3;
+pub const E2_APAGADO_NO_CONTESTA: u64 = 4;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

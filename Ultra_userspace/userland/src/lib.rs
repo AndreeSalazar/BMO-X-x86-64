@@ -222,12 +222,19 @@ pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 pub const IOMMU_OP_CEGAR_GPU: u64 = 0x03;
 pub const IOMMU_OP_VER_GPU: u64 = 0x04;
+pub const IOMMU_OP_E2_ENCENDER: u64 = 0x05;
+pub const IOMMU_OP_E2_APAGAR: u64 = 0x06;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
 pub const IOMMU_NO_CONTESTA: u32 = 4;
 pub const IOMMU_NO_APAGADA: u32 = 5;
 pub const IOMMU_NO_SIN_GPU: u32 = 6;
+pub const IOMMU_NO_GPU_VE: u32 = 7;
+pub const IOMMU_NO_SIN_MSI: u32 = 8;
+pub const IOMMU_NO_SIN_CABEZA: u32 = 9;
+pub const IOMMU_NO_SIN_VECTOR: u32 = 10;
+pub const IOMMU_NO_E2_NO_ARMA: u32 = 11;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -858,6 +865,30 @@ pub const INFO_IOMMU_GPU: u64 = 0xAB;
 pub const IOMMU_GPU_US_SHIFT: u64 = 16;
 pub const IOMMU_GPU_RELEIDA: u64 = 1 << 62;
 pub const IOMMU_GPU_CIEGA: u64 = 1 << 63;
+/// E2 (2026-09-24): el VBLANK de la 3060 por MSI. Ver `bmo_abi::...::informe`.
+pub const INFO_GPU_VBLANK: u64 = 0xAC;
+pub const E2_ENTRADAS_SHIFT: u64 = 32;
+pub const E2_CALLADA: u64 = 1 << 62;
+pub const E2_ARMADO: u64 = 1 << 63;
+pub const INFO_GPU_E2: u64 = 0xAD;
+pub const E2_MSI: u64 = 1 << 0;
+pub const E2_MSI_MASCARA: u64 = 1 << 1;
+pub const E2_BME: u64 = 1 << 2;
+pub const E2_CIEGA: u64 = 1 << 3;
+pub const E2_ENCENDIDO: u64 = 1 << 4;
+pub const E2_EVENTO: u64 = 1 << 5;
+pub const E2_HOJA: u64 = 1 << 6;
+pub const E2_CIMA: u64 = 1 << 7;
+pub const E2_VECTOR: u64 = 1 << 8;
+pub const E2_AJENOS_SHIFT: u64 = 16;
+pub const E2_MOTIVO_SHIFT: u64 = 32;
+pub const E2_OTRAS_SHIFT: u64 = 40;
+pub const E2_CABEZA_SHIFT: u64 = 48;
+pub const E2_VALIDA: u64 = 1 << 63;
+pub const E2_APAGADO_ORDEN: u64 = 1;
+pub const E2_APAGADO_TORMENTA: u64 = 2;
+pub const E2_APAGADO_CANDADO: u64 = 3;
+pub const E2_APAGADO_NO_CONTESTA: u64 = 4;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

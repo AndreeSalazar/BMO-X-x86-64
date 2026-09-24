@@ -2,7 +2,8 @@
 //! se puede esperar sin firmware.
 //!
 //! [consumo] NADA      solo lee: seis `info`, y uno de ellos lee la linea que
-//!                     barre la tarjeta en ese instante
+//!                     barre la tarjeta en ese instante. `gpu vblank` (E2) es
+//!                     la unica orden de aqui que ESCRIBE, y pasa por el candado
 //!
 //! # Por que existe (2026-09-23)
 //!
@@ -22,7 +23,12 @@ use crate::desktop::Desktop;
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
-/// `gpu`, `gpu cegar`, `gpu ver` desde el escritorio.
+/// `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]` desde el escritorio.
+///
+/// ** `vblank` (E2, 2026-09-24): que la 3060 AVISE del VBLANK por MSI. Es la
+/// primera escritura en la grafica que no es la IOMMU, y el kernel solo la
+/// hace detras del CANDADO: IOMMU encendida y la 3060 ciega. Tras encenderlo
+/// se cuentan los avisos de medio segundo: tienen que ser ~30.
 ///
 /// ** `cegar` y `ver` (M0e, 2026-09-24) cambian la entrada de la 3060 en la
 /// IOMMU: BLOQUEADA (su DMA no alcanza la RAM) o DE PASO. Son ordenes que
@@ -33,9 +39,11 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"" => None,
         b"cegar" | b"ciega" => Some((bmo::IOMMU_OP_CEGAR_GPU, b"gpu cegar" as &[u8])),
         b"ver" => Some((bmo::IOMMU_OP_VER_GPU, b"gpu ver" as &[u8])),
+        b"vblank" | b"e2" => Some((bmo::IOMMU_OP_E2_ENCENDER, b"gpu vblank" as &[u8])),
+        b"vblank off" | b"e2 off" => Some((bmo::IOMMU_OP_E2_APAGAR, b"gpu vblank off" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar` o `gpu ver`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank` o `gpu vblank off`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;
@@ -48,6 +56,27 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         }
         let g = &mut dsk.out.grid;
         match bmo::iommu_orden(op) {
+            Ok(_) if op == bmo::IOMMU_OP_E2_ENCENDER => {
+                let (n, ms) = contar_vblanks(500);
+                g.with_ink(if n > 0 { INK_GOOD } else { INK_ERR });
+                g.text(b"  E2 ARMADO: ");
+                g.dec(n);
+                g.text(b" VBLANKs por interrupcion en ");
+                g.dec(ms);
+                g.text(if n > 0 {
+                    b" ms -- la 3060 AVISA\n" as &[u8]
+                } else {
+                    b" ms -- NO llego ninguno: mira la escalera de abajo\n"
+                });
+            }
+            Ok(v) if op == bmo::IOMMU_OP_E2_APAGAR => {
+                g.with_ink(INK_GOOD);
+                g.text(if v != 0 {
+                    b"  E2 APAGADO: aviso quitado y Bus Master de la 3060 retirado\n" as &[u8]
+                } else {
+                    b"  E2 no estaba encendido\n"
+                });
+            }
             Ok(v) => {
                 g.with_ink(INK_GOOD);
                 g.text(if op == bmo::IOMMU_OP_CEGAR_GPU {
@@ -72,6 +101,103 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     paint_status(p, &dsk.run_box, "grafica", INK_DIM);
     dsk.field.n = 0;
     After::Settle
+}
+
+/// Motivo propio del escritorio (no del kernel): E2 armado y mudo. Fuera del
+/// rango de `IOMMU_NO_*` para no chocar nunca con uno del kernel.
+pub(crate) const NO_E2_MUDO: u32 = 0x100;
+
+/// **Cuenta los VBLANKs de `ms` milisegundos**, cediendo el turno mientras
+/// tanto: los avisos entran entre syscall y syscall. `(avisos, ms de verdad)`.
+pub(crate) fn contar_vblanks(ms: u64) -> (u64, u64) {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let antes = bmo::info(bmo::INFO_GPU_VBLANK) & 0xFFFF_FFFF;
+    let t0 = bmo::ciclos();
+    let fin = t0 + hz / 1000 * ms;
+    while bmo::ciclos() < fin {
+        bmo::yield_screen();
+    }
+    let despues = bmo::info(bmo::INFO_GPU_VBLANK) & 0xFFFF_FFFF;
+    (
+        despues.wrapping_sub(antes) & 0xFFFF_FFFF,
+        (bmo::ciclos() - t0) / (hz / 1000),
+    )
+}
+
+/// **E2: la 3060 AVISA?** La cuenta, y la ESCALERA: cada peldano es un sitio
+/// donde el aviso se puede quedar. En el metal, el primero que falte dice
+/// donde mirar.
+fn fila_e2(s: &mut Output) {
+    let v = bmo::info(bmo::INFO_GPU_VBLANK);
+    let e = bmo::info(bmo::INFO_GPU_E2);
+    campo(s, b"e2");
+    if v & bmo::E2_ARMADO != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"ARMADO: ");
+    } else if v & bmo::E2_CALLADA != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"CALLADO desde la interrupcion (`gpu vblank off` retira el Bus Master): ");
+    } else {
+        s.with_ink(INK_ECHO);
+        s.text(b"apagado: ");
+    }
+    s.dec(v & 0xFFFF_FFFF);
+    s.text(b" VBLANKs por interrupcion, ");
+    s.dec((v >> bmo::E2_ENTRADAS_SHIFT) & 0xFF_FFFF);
+    s.text(b" entradas al vector 50");
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu e2 vblanks", v & 0xFFFF_FFFF, b"");
+    if e & bmo::E2_VALIDA == 0 {
+        return;
+    }
+    campo(s, b"ladder");
+    for (bit, nombre) in [
+        (bmo::E2_VECTOR, b"vector" as &[u8]),
+        (bmo::E2_CIEGA, b"ciega"),
+        (bmo::E2_MSI, b"MSI"),
+        (bmo::E2_BME, b"BME"),
+        (bmo::E2_ENCENDIDO, b"aviso"),
+        (bmo::E2_EVENTO, b"evento"),
+        (bmo::E2_HOJA, b"hoja"),
+        (bmo::E2_CIMA, b"cima"),
+    ] {
+        s.with_ink(if e & bit != 0 { INK_GOOD } else { INK_ECHO });
+        s.text(nombre);
+        s.text(if e & bit != 0 { b"+ " as &[u8] } else { b"- " });
+    }
+    if e & bmo::E2_MSI_MASCARA != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"MSI ENMASCARADO ");
+    }
+    // Un Bus Master encendido con la 3060 viendo la RAM es justo lo que el
+    // candado impide: si alguna vez sale, se grita.
+    if e & bmo::E2_BME != 0 && e & bmo::E2_CIEGA == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"BME SIN CEGAR ");
+    }
+    s.with_ink(INK_ECHO);
+    let ajenos = (e >> bmo::E2_AJENOS_SHIFT) & 0xFFFF;
+    let otras = (e >> bmo::E2_OTRAS_SHIFT) & 0xFF;
+    if ajenos > 0 || otras > 0 {
+        s.text(b"  ajenos ");
+        s.dec(ajenos);
+        s.text(b", de otras cabezas ");
+        s.dec(otras);
+    }
+    let motivo = (e >> bmo::E2_MOTIVO_SHIFT) & 0xFF;
+    if motivo != 0 {
+        s.with_ink(if motivo == bmo::E2_APAGADO_ORDEN { INK_ECHO } else { INK_ERR });
+        s.text(match motivo {
+            bmo::E2_APAGADO_ORDEN => b"  (apagado por orden)" as &[u8],
+            bmo::E2_APAGADO_TORMENTA => b"  (CALLADO: TORMENTA, mas de 1000 avisos en un segundo)",
+            bmo::E2_APAGADO_CANDADO => b"  (apagado por el candado: la IOMMU se apago o la 3060 volvio a ver)",
+            bmo::E2_APAGADO_NO_CONTESTA => b"  (CALLADO: la tarjeta no contesto)",
+            _ => b"  (apagado)",
+        });
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
 }
 
 /// **El cuadro de la grafica.** Lo usan `gpu` y el `save`.
@@ -225,6 +351,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     if let Some(r) = rayo {
         fila_rayo(s, &r, px);
     }
+    fila_e2(s);
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
     } else {

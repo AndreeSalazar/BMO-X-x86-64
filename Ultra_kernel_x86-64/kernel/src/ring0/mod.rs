@@ -219,6 +219,8 @@ pub mod dev {
     /// **LA GRAFICA, PREGUNTADA** (2026-09-23): quien es, que modo barre y si
     /// su VBLANK se ve sin firmware. Solo LEE: ni un bit escrito.
     pub mod gpu;
+    /// E2 (2026-09-24): el VBLANK de la 3060 por MSI, detras del candado.
+    pub mod vblank;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay

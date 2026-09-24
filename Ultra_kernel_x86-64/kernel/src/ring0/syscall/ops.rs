@@ -300,6 +300,10 @@ pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 pub(crate) const IOMMU_OP_CEGAR_GPU: u64 = 0x03;
 /// Devolverle la vista: su entrada, de paso.
 pub(crate) const IOMMU_OP_VER_GPU: u64 = 0x04;
+/// E2: el VBLANK de la 3060 por MSI, detras del candado (ciega). Ver `dev/vblank.rs`.
+pub(crate) const IOMMU_OP_E2_ENCENDER: u64 = 0x05;
+/// E2 apagado: el aviso quitado y el Bus Master retirado.
+pub(crate) const IOMMU_OP_E2_APAGAR: u64 = 0x06;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

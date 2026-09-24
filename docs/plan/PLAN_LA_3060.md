@@ -94,6 +94,35 @@ linea. Es la **primera escritura** en la tarjeta: se decide aparte.
 **Bloquea:** E1 visto en el metal, y la decision de arriba. **Como se sabe:**
 `gpu` cuenta VBLANKs por interrupcion y suben ~60 por segundo.
 
+**E2 en codigo (24-09), por el camino M0: detras de un CANDADO.** El Bus
+Master de la 3060 se enciende SOLO si en ese instante la IOMMU esta encendida y
+la entrada de la 3060 es BLOQUEADA, releida y de ESE BDF (M0e); si no, `NO:
+EL CANDADO`. Y al cerrar igual: `iommu apagar` y `gpu ver` apagan E2 ANTES de
+quitarle la venda, asi que nunca hay Bus Master con la 3060 viendo la RAM. Los
+registros salen de nouveau (v6.10) para el GA106 (`nv176`): el arbol del VFN
+en `0xB80000` (la pantalla es la hoja 4, bit 26), el rearme del MSI en
+`0x088704`, y la pantalla de Volta (`0x611EC0` quien aviso, `0x611800` el
+evento, `0x611CC0`/`0x611D80` la mascara y el encendido del VBLANK). El ORDEN
+vive en `platform/drivers/gpu/ga10x/src/vblank.rs` (10 pruebas contra un banco
+de registros de mentira); el kernel es el pegamento
+(`Ultra_kernel_x86-64/kernel/src/ring0/dev/vblank.rs`): vector 50 instalado AL
+ARRANCAR (la IDT no se alcanza desde un syscall), MSI al LAPIC del BSP, el Bus
+Master por `pci::enable_mem_bus_master` (el portero la adopta), y desde la
+interrupcion solo MMIO: mas de 1.000 avisos en un segundo es una TORMENTA y la
+cima se calla sola. `INFO_GPU_VBLANK` (0xAC) cuenta, `INFO_GPU_E2` (0xAD) es la
+ESCALERA (vector, ciega, MSI, BME, aviso, evento, hoja, cima): en el metal, el
+primer peldano en `-` dice donde se quedo el aviso.
+
+```text
+   gpu vblank        encender (save antes, FLUSH del disco) y contar 500 ms
+   gpu vblank off    quitar el aviso y retirar el Bus Master
+   save mode         iommu -> gpu -> e2, cada uno con su save; e2 escucha
+                     300 ms y si no llega ningun VBLANK el paso NO salio
+```
+
+Falta verlo en el metal: la fila `e2` de `gpu` subiendo ~60 por segundo, la
+escalera en `+`, y `iommu` con los eventos en 0.
+
 ### [ ] E3 -- el compositor al compas de la pantalla
 
 Pintar un cuadro por VBLANK y no mas: hoy el escritorio da ~375 vueltas por

@@ -36,6 +36,9 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
+/// E2: el VBLANK por interrupcion -- que registros y en que orden (2026-09-24).
+pub mod vblank;
+
 // -- Los registros (BAR0) ---------------------------------------------------
 
 /// `NV_PMC_BOOT_0`: la identidad del chip. Siempre se puede leer.

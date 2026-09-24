@@ -57,6 +57,20 @@ pub fn bdf() -> Option<(u8, u8, u8)> {
     Some(((v >> 8) as u8, ((v >> 3) & 0x1F) as u8, (v & 7) as u8))
 }
 
+/// BAR0 por el physmap (`0` = no hay grafica que leer). Para E2 (`dev/vblank.rs`).
+pub fn bar0() -> u64 {
+    BAR0.load(Ordering::Acquire)
+}
+
+/// La cabeza que pinta, si la sonda hallo un Ampere con un modo de verdad.
+pub fn cabeza() -> Option<u32> {
+    let c = CHIP.load(Ordering::Acquire);
+    if c & GPU_AMPERE == 0 || MODO.load(Ordering::Acquire) & GPU_MODO_VALIDO == 0 {
+        return None;
+    }
+    Some(((c >> GPU_CABEZA_SHIFT) & 0x7) as u32)
+}
+
 // -- El contrato, espejo de `bmo_abi::...::informe::GPU_*` --------------------
 
 pub const GPU_BOOT0_MASK: u64 = 0xFFFF_FFFF;

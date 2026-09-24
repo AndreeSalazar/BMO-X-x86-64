@@ -173,6 +173,12 @@ fn bdf(bus: u8, dev: u8, func: u8) -> u16 {
 /// donde se cometio**, que es lo unico que hace mantenible una lista asi.
 pub fn adoptado(bus: u8, dev: u8, func: u8) {
     unsafe {
+        // ** Adoptar dos veces es UNA adopcion (2026-09-24): E2 enciende y
+        // apaga el Bus Master de la 3060 por orden, y cada encendido pasa por
+        // aqui. Sin esto, ocho `gpu vblank` llenarian el registro.
+        if es_adoptado(bdf(bus, dev, func)) {
+            return;
+        }
         if CUANTOS >= ADOPTADOS_MAX {
             // ** No se pisa la casilla 0 ni se hace sitio. Un registro que
             // olvida al primero para meter al noveno convierte a un aparato

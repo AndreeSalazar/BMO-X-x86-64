@@ -21,8 +21,8 @@
 //! hecho no se repite; uno que pide otro que no esta, no se intenta, y se dice.
 //! Si un `save` no se puede escribir, se para todo: sin red no se salta.
 //!
-//! Los pasos viven en [`PASOS`], en el orden en que hay que darlos. Cuando
-//! exista E2 (el VBLANK por interrupcion) sera una fila mas.
+//! Los pasos viven en [`PASOS`], en el orden en que hay que darlos. E2 (el
+//! VBLANK por interrupcion) es la tercera fila desde el 2026-09-24.
 //!
 //! Y queda ARMADO en `datos/modo.txt`: se repite solo en cada arranque, sin el
 //! paso que tumbo la maquina si lo hubo (ver `EL MODO ARMADO`, mas abajo). El
@@ -68,8 +68,26 @@ fn cegar_gpu() -> Result<u64, u32> {
     bmo::iommu_orden(bmo::IOMMU_OP_CEGAR_GPU)
 }
 
+/// E2 cuenta como hecho si esta ARMADO y ya llego al menos un VBLANK: un
+/// aviso encendido que no avisa no es un paso dado.
+fn e2_avisa() -> bool {
+    let v = bmo::info(bmo::INFO_GPU_VBLANK);
+    v & bmo::E2_ARMADO != 0 && v & 0xFFFF_FFFF > 0
+}
+
+/// Encender E2 y ESCUCHAR 300 ms: a 60 Hz son ~18 avisos. Si no llega
+/// ninguno, el paso no salio -- aunque el kernel dijera que si.
+fn encender_e2() -> Result<u64, u32> {
+    let v = bmo::iommu_orden(bmo::IOMMU_OP_E2_ENCENDER)?;
+    let (n, _) = super::gpu::contar_vblanks(300);
+    if n == 0 {
+        return Err(super::gpu::NO_E2_MUDO);
+    }
+    Ok(v)
+}
+
 /// **Los pasos, en el orden en que hay que darlos.** Ver
-/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e, y despues E2.
+/// `docs/plan/PLAN_LA_3060.md`: M0c, M0e y E2.
 const PASOS: &[Paso] = &[
     Paso {
         nombre: b"iommu",
@@ -86,6 +104,14 @@ const PASOS: &[Paso] = &[
         dar: cegar_gpu,
         pide: Some(b"iommu"),
         consejo: b"la 3060 ya no puede tocar tu RAM ni con el Bus Master encendido; lo siguiente es E2, su VBLANK por MSI",
+    },
+    Paso {
+        nombre: b"e2",
+        que: b"la 3060 AVISA del VBLANK por MSI, con el Bus Master tras el candado (E2)",
+        hecho: e2_avisa,
+        dar: encender_e2,
+        pide: Some(b"gpu"),
+        consejo: b"teclea `gpu`: la fila `e2` tiene que subir ~60 por segundo y la escalera en `+`; `iommu` con los eventos en 0",
     },
 ];
 
@@ -416,8 +442,8 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
 
 /// **EL CONSEJERO** (24-09): lo que la caja recomienda AHORA, mirando la
 /// maquina y no un texto fijo. Sale cada vez que Ctrl+Alt invoca la caja, al
-/// arrancar, y al acabar `save mode`. Los pasos salen de [`PASOS`]: el dia que
-/// E2 sea un paso, el consejero lo recomienda sin que nadie lo toque.
+/// arrancar, y al acabar `save mode`. Los pasos salen de [`PASOS`]: E2 entro
+/// como fila el 24-09 y el consejero lo recomienda sin que nadie lo toque.
 pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
     let modo = leer_modo();
     g.with_ink(INK_GOOD);
@@ -445,7 +471,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es E2, el VBLANK de la 3060 por MSI (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es E3, el compositor al compas de la pantalla (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);
