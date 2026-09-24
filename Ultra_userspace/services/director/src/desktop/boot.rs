@@ -108,11 +108,15 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // framebuffer, el `git log` tiene los valores exactos con su porque.
     // ** EL ESTILO, antes del primer pixel del escritorio: el degradado y la
     // barra ya salen con lo que diga `sys/director.cfg` (2026-09-13).
+    marca(&p, "estilo (sys/director.cfg)");
     scene::estilo::cargar();
+    marca(&p, "fondo: leyendo del disco");
     // ** Y LA FOTO DE FONDO, si `fondo_imagen` pide una: se descifra aqui, una
     // vez, antes del primer pixel. Ver `scene::fondo`.
     scene::fondo::cargar(&p);
+    marca(&p, "fondo: pintando");
     paint_background(&p);
+    marca(&p, "iconos: leyendo apps del disco");
     // ** LOS ICONOS, y se leen UNA VEZ.
     //
     // Recorrer `apps\` y sacarle el icono a cada `.bex` son varias lecturas de
@@ -129,7 +133,9 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // sobre su campo de `.bss`, esa copia no llega a existir. Ver la cabecera
     // de `install`, que lleva el desbordamiento del Ryzen con sus numeros.
     let d = super::install(&p, child_console);
+    marca(&p, "iconos: pintando");
     scene::launcher::paint(&p, &d.launcher);
+    marca(&p, "la caja de ordenes");
 
     // ** AQUI NACE EL ESTADO, y de una vez.
     //
@@ -176,5 +182,24 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     }
 
     bmo::consola("escritorio pintado\n");
+    marca(&p, "escritorio listo: el bucle arranca");
     (p, input, d)
+}
+
+/// ** LA MARCA DEL ARRANQUE (2026-09-24). El escritorio se pinta FUERA de la
+/// pantalla (doble bufer), asi que si el arranque se queda a medias lo unico
+/// que se ve es la intro, y una foto de la intro no dice DONDE. El Ryzen se
+/// quedo asi el 24-09 y no hubo forma de saber la etapa. Cada etapa escribe su
+/// nombre abajo a la izquierda y VACIA: la foto de un cuelgue dice ahora en
+/// que paso fue. Tambien va al klog.
+fn marca(p: &bmo::Pantalla, etapa: &str) {
+    const ALTO: u32 = 20;
+    let y = p.alto.saturating_sub(ALTO + 8);
+    p.rect(8, y, 560, ALTO, 0x000A_0E17);
+    let x = p.texto(12, y + 4, "arranque: ", 0x0059_6B8A);
+    p.texto(x, y + 4, etapa, 0x005E_F2E6);
+    p.vaciar();
+    bmo::consola("arranque: ");
+    bmo::consola(etapa);
+    bmo::consola("\n");
 }
