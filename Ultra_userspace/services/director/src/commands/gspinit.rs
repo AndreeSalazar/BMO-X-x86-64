@@ -40,6 +40,9 @@ struct Resumen {
     tipos: [(u32, u32); MAX_TIPOS],
     n_tipos: usize,
     init_done: bool,
+    /// `BAR1_BLOCK | BAR2_BLOCK << 32` antes de correr y tras GSP_INIT_DONE.
+    bar_antes: u64,
+    bar_despues: u64,
     /// Los us desde CORE_RESUME hasta GSP_INIT_DONE.
     espera_us: u64,
 }
@@ -61,6 +64,11 @@ fn guardar(r: Resumen) {
 /// Motivo del escritorio (`gspsecuencia.rs` va hasta 0x11F).
 pub(crate) const NO_INIT_NO_LLEGA: u32 = 0x120;
 
+/// `BAR1_BLOCK | BAR2_BLOCK << 32`, en vivo (selector 3).
+fn bars() -> u64 {
+    bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 3 << 8)
+}
+
 fn sec() -> u64 {
     bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 2 << 8)
 }
@@ -69,7 +77,17 @@ fn sec() -> u64 {
 /// `Ok(ordenes corridas)`.
 pub(crate) fn correr() -> Result<u64, u32> {
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
-    let mut r = Resumen { sec: 0, tramos: 0, no: 0, tipos: [(0, 0); MAX_TIPOS], n_tipos: 0, init_done: false, espera_us: 0 };
+    let mut r = Resumen {
+        sec: 0,
+        tramos: 0,
+        no: 0,
+        tipos: [(0, 0); MAX_TIPOS],
+        n_tipos: 0,
+        init_done: false,
+        espera_us: 0,
+        bar_antes: bars(),
+        bar_despues: 0,
+    };
     let fin = bmo::ciclos() + hz * TECHO_S;
     loop {
         r.tramos += 1;
@@ -124,6 +142,7 @@ pub(crate) fn correr() -> Result<u64, u32> {
         }
         bmo::yield_screen();
     }
+    r.bar_despues = bars();
     guardar(r);
     // Al panel: la casilla I, verde o roja.
     crate::scene::lateral_gsp::init(r.init_done);
@@ -138,8 +157,14 @@ pub(crate) fn listo() -> bool {
     resumen().map_or(false, |r| r.init_done)
 }
 
-/// `gpu init`.
+/// `gpu init`: A MANO, no en `save mode` (metal 24-09 09:54: tras
+/// `GSP_INIT_DONE` la pantalla se quedo QUIETA). Por eso un save antes y otro
+/// despues: si la pantalla ya no ensena nada, lo que paso esta en el disco.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if !super::files::antes_de_arriesgar(dsk, p, b"gpu init") {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
     paint_status(p, &dsk.run_box, "corriendo el secuenciador del GSP", INK_DIM);
     let r = correr();
     let g = &mut dsk.out.grid;
@@ -159,6 +184,16 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     }
     g.with_ink(INK_PLAIN);
     fila(&mut dsk.out.grid);
+    // El save de despues, pase lo que pase con la pantalla.
+    let guardado = super::save_maestro::maestro(dsk, crate::DEFAULT_DUMP, p.rayo()).is_ok();
+    let g = &mut dsk.out.grid;
+    g.with_ink(if guardado { INK_ECHO } else { INK_ERR });
+    g.text(if guardado {
+        b"  lo de arriba, tambien en el save (datos/): si la pantalla se queda quieta, esta ahi\n" as &[u8]
+    } else {
+        b"  el save de despues NO se pudo escribir\n"
+    });
+    g.with_ink(INK_PLAIN);
     paint_status(p, &dsk.run_box, "init", INK_DIM);
     dsk.field.n = 0;
     After::Settle
@@ -236,6 +271,33 @@ pub(crate) fn fila(s: &mut Output) {
             s.dec(t.1 as u64);
         }
     }
+    s.byte(b'\n');
+
+    // BAR1: por donde la CPU pinta el GOP. Si el GSP-RM la hizo virtual, lo
+    // que pinta la CPU ya no cae donde mira la pantalla.
+    campo(s, b"bar1");
+    let virtual_ = |v: u64| v as u32 & 1 << 31 != 0;
+    let (a, d) = (r.bar_antes, r.bar_despues);
+    s.text(b"antes 0x");
+    s.hex(a & 0xFFFF_FFFF, 8);
+    s.text(b", despues 0x");
+    s.hex(d & 0xFFFF_FFFF, 8);
+    s.text(b"  (BAR2 0x");
+    s.hex(a >> 32, 8);
+    s.text(b" -> 0x");
+    s.hex(d >> 32, 8);
+    s.text(b"): ");
+    if !virtual_(a) && virtual_(d) {
+        s.with_ink(INK_ERR);
+        s.text(b"el GSP-RM puso BAR1 VIRTUAL: la pantalla (el GOP) ya no ve lo que pinta la CPU");
+    } else if a != d {
+        s.with_ink(INK_ECHO);
+        s.text(b"BAR1 CAMBIO al arrancar el GSP-RM");
+    } else {
+        s.with_ink(INK_GOOD);
+        s.text(b"BAR1 igual: si la pantalla se paro, no fue esto");
+    }
+    s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu gsp init done", r.init_done as u64, b"");
 }

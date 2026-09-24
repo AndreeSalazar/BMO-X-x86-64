@@ -1725,7 +1725,9 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             con selector 2, el secuenciador (L0c4b2c): `i |
 ///                             fase << 16 | como va << 24 | dato << 32` (como
 ///                             va: 0x40 cargado, 0x80 HECHO, 1 fuera, 2 plazo,
-///                             3 no contesta, 4 falcon, 5 SEC2)
+///                             3 no contesta, 4 falcon, 5 SEC2); con selector 3,
+///                             BAR1_BLOCK | BAR2_BLOCK << 32 (0xB80F40/48, en
+///                             vivo: el bit 31, la BAR virtual)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

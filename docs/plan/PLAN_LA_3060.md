@@ -432,8 +432,9 @@ MEDIDO, no el dicho.
         una a una, sin correr ninguna. `gpu secuenciador` y el paso
         `secuenciador`                          [VISTO en metal, 24-09 08:59]
      L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
-        y esperar GSP_INIT_DONE. `gpu init` y el paso `init`
-                                                [en codigo, 24-09]
+        y esperar GSP_INIT_DONE. `gpu init`, A MANO
+                                                [VISTO en metal, 24-09 09:54]
+     L0c4b3 la PANTALLA tras GSP_INIT_DONE: se quedo quieta (BAR1?)
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -771,6 +772,30 @@ escribe de una vez (`escribir_de`), no de 7 en 7 bytes -- sospechoso de los
 43-46 ms de `latido tarde` de 08:48 y 08:59 --, las filas `init` y `pide`
 dicen si el secuenciador ya se corrio, y los consejos de `save mode` nombran
 el paso siguiente de verdad.
+
+**L0c4b2c en el metal (24-09, 09:54): EL GSP-RM ARRANCO.** `corrio 420 de 420
+ordenes CORRIDAS en 5 tramos de 1 ms; CORE_RESUME: el GSP-RM volvio`, `listo
+GSP_INIT_DONE LLEGO (197 ms tras CORE_RESUME); dijo: GSP_POST_NOCAT_RECORD x1
+UCODE_LIBOS_PRINT x2 GSP_INIT_DONE x1`, y `despierto el RISC-V del GSP esta
+ACTIVO`. La orden 1 (MAILBOX0 bit 31) SI llego: el miedo de L0c4b2c no se
+cumplio.
+
+** Y la pantalla se QUEDO QUIETA: la CPU viva, el texto de `save mode` en
+pantalla y sin panel; el propietario apago a los 10-20 s. La pista, en el
+mismo INFORME: `compose ... copia 381 ps/pixel`, donde todos los de antes
+decian 2600-5300. El GOP se pinta por BAR1 (0xD0000000, la fila `sysinfo`), y
+el GSP-RM, al arrancar, se queda con BAR1 y la pone VIRTUAL: lo que pinta la
+CPU deja de caer donde mira la pantalla. Sin probar. Por eso (L0c4b3):
+
+- `init` SALE de `save mode`: con el modo armado, cada arranque congelaba la
+  pantalla. La cadena acaba en `secuenciador` (el GSP parado, esperando) y
+  `gpu init` se da A MANO, con un save antes y otro despues.
+- `INFO_GPU_DESPIERTO_BUZON` selector 3 lee `BAR1_BLOCK` y `BAR2_BLOCK`
+  (0xB80F40/48, nouveau `tu102_bar`); la fila `bar1` dice antes y despues, y
+  si el GSP-RM la hizo virtual.
+- Si es eso, lo siguiente es pintar sin el GOP por BAR1: pedirle al GSP-RM un
+  hueco de BAR1 para la superficie de la pantalla (L1), o devolverle a BAR1 su
+  modo fisico si el GSP-RM no la usa.
 
 **Como se sabe (L0c4b2c):** `corrio 420 de 420 ordenes CORRIDAS`; `listo
 GSP_INIT_DONE LLEGO`; y `despierto` otra vez con el RISC-V ACTIVO.

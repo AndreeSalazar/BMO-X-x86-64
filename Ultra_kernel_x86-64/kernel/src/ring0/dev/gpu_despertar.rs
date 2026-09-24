@@ -323,6 +323,9 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 2 {
         return info_secuencia();
     }
+    if sel >> 8 == 3 {
+        return info_bar1();
+    }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };
     if bar0 == 0 || ESTADO.load(Ordering::Acquire) & hace_falta == 0 {
@@ -500,6 +503,28 @@ pub fn secuenciar() -> Result<u64, u32> {
             Falla::Sec2(m0) => sec_no(SEC_SEC2, m0, IOMMU_NO_SEC_FALLO),
         },
     }
+}
+
+/// `NV_VIRTUAL_FUNCTION_PRIV_FUNC_BAR1_BLOCK` y `_BAR2_BLOCK` (Turing en
+/// adelante: nouveau `tu102_bar_bar1_init`, 0xB80F40 y 0xB80F48). El bit 31
+/// dice que la BAR es VIRTUAL, por las tablas de pagina de alguien.
+const BAR1_BLOCK: u32 = 0x00B8_0F40;
+const BAR2_BLOCK: u32 = 0x00B8_0F48;
+
+/// `INFO_GPU_DESPIERTO_BUZON` con selector 3: `BAR1_BLOCK | BAR2_BLOCK << 32`,
+/// en vivo; solo lectura.
+///
+/// ** Lo trajo el metal (24-09 09:54): tras `GSP_INIT_DONE` la pantalla se
+/// quedo QUIETA con la CPU viva, y la copia al GOP paso de ~3000 a 381
+/// ps/pixel. El GOP se pinta por BAR1: si el GSP-RM la puso virtual, lo que
+/// pinta la CPU ya no cae donde mira la pantalla. Esto lo dice antes y despues.
+pub fn info_bar1() -> u64 {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 {
+        return 0;
+    }
+    let mut r = Bar0(bar0);
+    r.leer(BAR1_BLOCK) as u64 | (r.leer(BAR2_BLOCK) as u64) << 32
 }
 
 /// `INFO_GPU_DESPIERTO_BUZON` con selector 2: `i | fase << 16 | como va << 24
