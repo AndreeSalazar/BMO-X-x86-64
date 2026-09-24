@@ -243,11 +243,13 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 249;
+pub const ORDENES: usize = 424;
 
 struct Empuje {
     o: [u32; ORDENES],
     n: usize,
+    /// El siguiente escalon.
+    k: u32,
 }
 
 impl Empuje {
@@ -262,6 +264,13 @@ impl Empuje {
     fn semaforo(&mut self, donde: u64, paga: u32) {
         let s = sombreador_va(donde);
         self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, paga, td::INFORME]);
+    }
+
+    /// Un metodo del estado y su escalon detras.
+    fn paso(&mut self, metodo: u32, v: &[u32]) {
+        self.m(metodo, v);
+        self.escalon(self.k);
+        self.k += 1;
     }
 
     /// Un escalon: esperar a que el GR acabe y pagar el semaforo `k`.
@@ -287,58 +296,53 @@ pub fn ordenes() -> [u32; ORDENES] {
 /// Las mismas, con otro semaforo y otra paga (T2 las usa enteras: solo
 /// cambian los programas que hay en `VS` y `PS`).
 pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
-    let mut e = Empuje { o: [0; ORDENES], n: PREFIJO };
+    let mut e = Empuje { o: [0; ORDENES], n: PREFIJO, k: 1 };
     e.o[..PREFIJO].copy_from_slice(&td::ordenes()[..PREFIJO]);
     // ** Metal 24-09 18:27: `estado NO` y un RC_TRIGGERED del canal de GR: un
-    // metodo del estado lo rompe. Un escalon (WAIT_FOR_IDLE + semaforo) tras
-    // cada grupo: el ultimo pagado dice que grupo va detras del fallo.
+    // metodo del estado lo rompe. ** Metal 18:35: Xid 69 (error de CLASE: un
+    // metodo o un valor que AMPERE_B no acepta), en el primer grupo. Ahora un
+    // escalon (WAIT_FOR_IDLE + semaforo) tras CADA metodo: el primero sin
+    // pagar ES el metodo (`NOMBRES`).
     e.escalon(0);
-    e.m(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
+    e.paso(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
     // ** Metal 24-09 17:56: sin esto el dibujo colgo el canal (el semaforo sin
     // pagar). Lo que NVK pone SIEMPRE al empezar un contexto 3D y aqui
     // faltaba: la version de SPH, la ventana local, el sustituto de los
     // atributos, y dibujar pase lo que pase con el render condicional.
-    e.m(SET_SPH_VERSION, &[VERSION_SPH]);
-    e.m(SET_SHADER_LOCAL_MEMORY_WINDOW, &[VENTANA_LOCAL]);
+    e.paso(SET_SPH_VERSION, &[VERSION_SPH]);
+    e.paso(SET_SHADER_LOCAL_MEMORY_WINDOW, &[VENTANA_LOCAL]);
     let z = sombreador_va(SUSTITUTO);
-    e.m(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
-    e.m(SET_RENDER_ENABLE_OVERRIDE, &[1]);
-    e.escalon(1);
+    e.paso(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
+    e.paso(SET_RENDER_ENABLE_OVERRIDE, &[1]);
     // El viewport 0: escala y desplazamiento de 256 (de -1..1 a 0..512), z
     // de 0 a 1, sin cruzar ejes; y su recorte, el destino entero.
-    e.m(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
-    e.m(SET_VIEWPORT_SCALE_OFFSET, &[1]);
-    e.escalon(2);
-    e.m(SET_VIEWPORT_CLIP_HORIZONTAL0, &[LADO << 16, LADO << 16, 0, UNO]);
-    e.m(SET_VIEWPORT_CLIP_CONTROL, &[RECORTE_Z]);
-    e.escalon(3);
+    e.paso(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
+    e.paso(SET_VIEWPORT_SCALE_OFFSET, &[1]);
+    e.paso(SET_VIEWPORT_CLIP_HORIZONTAL0, &[LADO << 16, LADO << 16, 0, UNO]);
+    e.paso(SET_VIEWPORT_CLIP_CONTROL, &[RECORTE_Z]);
     // Origen arriba a la izquierda (y crece hacia abajo, como el escritorio)
     // y el centro del pixel en el medio.
-    e.m(SET_WINDOW_ORIGIN, &[0]);
-    e.m(SET_VIEWPORT_PIXEL, &[0]);
-    e.escalon(4);
+    e.paso(SET_WINDOW_ORIGIN, &[0]);
+    e.paso(SET_VIEWPORT_PIXEL, &[0]);
     // Nada entre el rasterizador y el ROP: sin caras ocultas, sin
     // profundidad, sin plantilla, sin mezcla, sin multimuestreo.
-    e.m(OGL_SET_CULL, &[0]);
-    e.m(SET_ZT_SELECT, &[0]);
-    e.m(SET_DEPTH_TEST, &[0]);
-    e.m(SET_STENCIL_TEST, &[0]);
-    e.m(SET_DEPTH_BOUNDS_TEST, &[0]);
-    e.m(SET_ALPHA_TEST, &[0]);
-    e.m(SET_BLEND0, &[0]);
-    e.m(SET_ANTI_ALIAS_ENABLE, &[0]);
-    e.m(SET_ANTI_ALIAS, &[0]);
-    e.escalon(5);
-    e.m(SET_SAMPLE_MASK_X0_Y0, &[0xFFFF; 4]);
-    e.m(SET_STREAM_OUTPUT, &[0]);
-    e.m(SET_RASTER_ENABLE, &[1]);
-    e.escalon(6);
+    e.paso(OGL_SET_CULL, &[0]);
+    e.paso(SET_ZT_SELECT, &[0]);
+    e.paso(SET_DEPTH_TEST, &[0]);
+    e.paso(SET_STENCIL_TEST, &[0]);
+    e.paso(SET_DEPTH_BOUNDS_TEST, &[0]);
+    e.paso(SET_ALPHA_TEST, &[0]);
+    e.paso(SET_BLEND0, &[0]);
+    e.paso(SET_ANTI_ALIAS_ENABLE, &[0]);
+    e.paso(SET_ANTI_ALIAS, &[0]);
+    e.paso(SET_SAMPLE_MASK_X0_Y0, &[0xFFFF; 4]);
+    e.paso(SET_STREAM_OUTPUT, &[0]);
+    e.paso(SET_RASTER_ENABLE, &[1]);
     // Ningun atributo ni flujo de vertices en memoria: el programa saca la
     // posicion del NUMERO de vertice.
-    e.m(SET_VERTEX_ATTRIBUTE_A0, &[ATRIBUTO_APAGADO; 32]);
-    e.m(SET_VERTEX_STREAM_A_FORMAT0, &[0]);
-    e.m(SET_VERTEX_ID_BASE, &[0]);
-    e.escalon(7);
+    e.paso(SET_VERTEX_ATTRIBUTE_A0, &[ATRIBUTO_APAGADO; 32]);
+    e.paso(SET_VERTEX_STREAM_A_FORMAT0, &[0]);
+    e.paso(SET_VERTEX_ID_BASE, &[0]);
     // Los seis huecos del pipeline: solo el de vertice (1) y el de pixel (5).
     // SHADER, RESERVED_B, RESERVED_A, REGISTER_COUNT, BINDING, ADDRESS_A/B.
     let mut j = 0;
@@ -349,9 +353,9 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
             _ => (0, 0, 0),
         };
         if vivo == 1 {
-            e.m(set_pipeline_shader(j), &[j << 4 | 1, 0, 0, REGISTROS, grupo, (dir >> 32) as u32, dir as u32]);
+            e.paso(set_pipeline_shader(j), &[j << 4 | 1, 0, 0, REGISTROS, grupo, (dir >> 32) as u32, dir as u32]);
         } else {
-            e.m(set_pipeline_shader(j), &[j << 4]);
+            e.paso(set_pipeline_shader(j), &[j << 4]);
         }
         j += 1;
     }
@@ -380,27 +384,64 @@ pub const VERTICES: u64 = 8;
 pub const ESTADO_PAGA: u32 = 0xE500;
 pub const VERTICES_PAGA: u32 = 0x7E00;
 
-/// **Los escalones del estado**, tras los grupos de metodos: donde se pagan
-/// (los 8 mismos para T1c y T2a: van uno detras de otro, nunca a la vez), lo
-/// que pagan y que grupo va DETRAS de cada uno.
+/// **Los escalones del estado**: el 0 tras la limpieza de T1a y uno detras
+/// de CADA metodo del estado, en `SEMAFOROS + 0x300` (los mismos para T1c y
+/// T2a: van uno detras de otro, nunca a la vez). `NOMBRES[k]` es el metodo
+/// que va DETRAS del escalon `k`: si el `k` se pago y el `k + 1` no, el
+/// culpable es `NOMBRES[k]`.
 pub const ESCALONES: u64 = SEMAFOROS + 0x300;
-pub const N_ESCALONES: u32 = 8;
-pub const PAGA_ESCALON: u32 = 0x3060_E5C0 ^ 0x5500;
-pub const GRUPOS: [&str; N_ESCALONES as usize + 1] = [
-    "la limpieza de T1a",
-    "caches, version de SPH, ventana local, sustituto y render",
-    "la escala y el desplazamiento del viewport",
-    "el recorte del viewport y su control de z",
-    "el origen de la ventana y el centro del pixel",
-    "caras, profundidad, plantilla, mezcla y antialias",
-    "las muestras, el stream out y el rasterizador",
-    "los atributos y flujos de vertices",
-    "los seis huecos del pipeline (los programas)",
+pub const NOMBRES: [&str; 33] = [
+    "INVALIDATE_SHADER_CACHES",
+    "SET_SPH_VERSION",
+    "SET_SHADER_LOCAL_MEMORY_WINDOW",
+    "SET_VERTEX_STREAM_SUBSTITUTE_A/B",
+    "SET_RENDER_ENABLE_OVERRIDE",
+    "SET_VIEWPORT_SCALE/OFFSET/SWIZZLE(0)",
+    "SET_VIEWPORT_SCALE_OFFSET",
+    "SET_VIEWPORT_CLIP_HORIZONTAL/VERTICAL/MIN_Z/MAX_Z(0)",
+    "SET_VIEWPORT_CLIP_CONTROL",
+    "SET_WINDOW_ORIGIN",
+    "SET_VIEWPORT_PIXEL",
+    "OGL_SET_CULL",
+    "SET_ZT_SELECT",
+    "SET_DEPTH_TEST",
+    "SET_STENCIL_TEST",
+    "SET_DEPTH_BOUNDS_TEST",
+    "SET_ALPHA_TEST",
+    "SET_BLEND(0)",
+    "SET_ANTI_ALIAS_ENABLE",
+    "SET_ANTI_ALIAS",
+    "SET_SAMPLE_MASK_X0_Y0..X1_Y1",
+    "SET_STREAM_OUTPUT",
+    "SET_RASTER_ENABLE",
+    "SET_VERTEX_ATTRIBUTE_A(0..31)",
+    "SET_VERTEX_STREAM_A_FORMAT(0)",
+    "SET_VERTEX_ID_BASE",
+    "SET_PIPELINE_SHADER(0) apagado",
+    "SET_PIPELINE_SHADER(1) + programa de vertice",
+    "SET_PIPELINE_SHADER(2) apagado",
+    "SET_PIPELINE_SHADER(3) apagado",
+    "SET_PIPELINE_SHADER(4) apagado",
+    "SET_PIPELINE_SHADER(5) + programa de pixel",
+    "(nada: el estado entero paso)",
 ];
+/// Cuantos escalones: el de la limpieza y uno por metodo.
+pub const N_ESCALONES: u32 = NOMBRES.len() as u32;
+pub const PAGA_ESCALON: u32 = 0x3060_E5C0 ^ 0x5500;
 
 /// **Que escalones se pagaron**: el bit `k`, el escalon `k`.
-pub fn escalones<R: Registros>(r: &mut R) -> u32 {
+pub fn escalones<R: Registros>(r: &mut R) -> u64 {
     (0..N_ESCALONES).filter(|&k| leer32(r, ESCALONES + 4 * k as u64) == PAGA_ESCALON + k).fold(0, |m, k| m | 1 << k)
+}
+
+/// **El culpable**: el metodo detras del ultimo escalon pagado seguido, o
+/// `None` si ni la limpieza paso.
+pub fn culpable(pagados: u64) -> Option<&'static str> {
+    if pagados & 1 == 0 {
+        return None;
+    }
+    let seguidos = (!pagados).trailing_zeros() as usize;
+    Some(NOMBRES[(seguidos - 1).min(NOMBRES.len() - 1)])
 }
 
 /// **Hasta donde llego**: bit 0 el estado, bit 1 los vertices, bit 2 el
@@ -515,6 +556,18 @@ mod pruebas {
         assert_eq!(o[b + 1], TRIANGULOS);
         assert_eq!(&o[b + 2..b + 5], &[cabecera_en(0, SET_VERTEX_ARRAY_START, 2), 0, 3]);
         assert_eq!(o[b + 5], cabecera_en(0, END, 1));
+    }
+
+    #[test]
+    fn el_culpable() {
+        assert_eq!(culpable(0), None);
+        assert_eq!(culpable(0b1), Some("INVALIDATE_SHADER_CACHES"));
+        assert_eq!(culpable(0b11), Some("SET_SPH_VERSION"));
+        // Pagados sueltos despues de un hueco no cuentan: el canal ya murio.
+        assert_eq!(culpable(0b1011), Some("SET_SPH_VERSION"));
+        assert_eq!(culpable((1u64 << N_ESCALONES) - 1), Some("(nada: el estado entero paso)"));
+        // Un escalon por metodo: 26 del estado y los 6 huecos, y el de la limpieza.
+        assert_eq!(N_ESCALONES, 1 + 26 + 6);
     }
 
     #[test]

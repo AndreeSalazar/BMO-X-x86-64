@@ -796,7 +796,10 @@ fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
     let pagado = fin == d.paga;
     // La escalera y el motor grafico, como quedaron: los lee `DIAG_3D`.
-    DIAG_3D[0].store(ra::etapas(&mut r, d.semaforo, d.paga) | ra::escalones(&mut r) << 8, Ordering::Release);
+    DIAG_3D[0].store(ra::etapas(&mut r, d.semaforo, d.paga), Ordering::Release);
+    let pagados = ra::escalones(&mut r);
+    DIAG_3D[4].store(pagados as u32, Ordering::Release);
+    DIAG_3D[5].store((pagados >> 32) as u32, Ordering::Release);
     for (k, reg) in GR_MIRADOS.iter().enumerate() {
         DIAG_3D[1 + k].store(bmo_gpu_ga10x::Registros::leer(&mut r, *reg), Ordering::Release);
     }
@@ -821,8 +824,9 @@ fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
 const GR_MIRADOS: [u32; 3] = [0x0040_0100, 0x0040_0108, 0x0040_0700];
 
 /// Lo que quedo del ultimo dibujo 3D: la escalera (bit 0 estado, 1 vertices,
-/// 2 entero; bits 8..15 los escalones del estado) y los tres registros.
-static DIAG_3D: [core::sync::atomic::AtomicU32; 4] = [const { core::sync::atomic::AtomicU32::new(0) }; 4];
+/// 2 entero), los tres registros y los escalones del estado (4: los 32
+/// primeros, 5: el resto).
+static DIAG_3D: [core::sync::atomic::AtomicU32; 6] = [const { core::sync::atomic::AtomicU32::new(0) }; 6];
 
 /// **Op 0x39**: la palabra `k` de `DIAG_3D`.
 pub fn diag_3d(k: u64) -> Result<u64, u32> {

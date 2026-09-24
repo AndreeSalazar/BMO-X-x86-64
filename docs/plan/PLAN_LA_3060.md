@@ -651,6 +651,16 @@ metodos, en SEMAFOROS + 0x300); el primero sin pagar dice el grupo que lo
 rompe (`raster::GRUPOS`, fila `estado`), y el RC_TRIGGERED sale crudo, 8
 palabras, con el Xid probable. 249 palabras.
 
+**EL METAL (24-09, 18:35): Xid 69 en el PRIMER grupo del estado.** El
+RC_TRIGGERED crudo: `1 2 0 2 0x45 1 0xE9 0` -- motor GR, canal 2, y 0x45 =
+69, error de CLASE: AMPERE_B no acepto un metodo o un valor. `estado`: 1 de
+8 escalones (en save mode, la primera vez): paso la limpieza y fallo el
+grupo de caches / version de SPH / ventana local / sustituto / render. (Las
+vueltas tecleadas despues dicen 0 de 8: el canal ya estaba muerto.) Ahora
+UN escalon por METODO (33: la limpieza y 32 metodos, `raster::NOMBRES`) y
+`raster::culpable` nombra el metodo; los escalones van en `DIAG_3D[4..5]`.
+424 palabras.
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

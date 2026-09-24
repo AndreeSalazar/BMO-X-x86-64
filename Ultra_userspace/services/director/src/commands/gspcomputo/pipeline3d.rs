@@ -182,22 +182,29 @@ fn escalera(s: &mut Output) {
     });
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
-    // Los escalones del estado: el primero sin pagar dice que grupo lo rompe.
+    // Los escalones del estado: uno detras de cada metodo. El ultimo pagado
+    // seguido dice que metodo NO acepto AMPERE_B.
     campo(s, b"estado");
-    let pagados = (e >> 8) as u32 & 0xFF;
-    let primero = (0..raster::N_ESCALONES).find(|&k| pagados & 1 << k == 0);
+    let pagados = leer(4).unwrap_or(0) | leer(5).unwrap_or(0) << 32;
     s.dec(pagados.count_ones() as u64);
-    s.text(b" de 8 escalones pagados");
-    match primero {
-        None => s.text(b"; el estado entero paso: el fallo va en "),
-        Some(k) => {
-            s.text(b"; ");
+    s.text(b" de ");
+    s.dec(raster::N_ESCALONES as u64);
+    s.text(b" escalones pagados; ");
+    match raster::culpable(pagados) {
+        None => {
             s.with_ink(INK_ERR);
-            s.text(if k == 0 { b"ni el primero: el fallo va en " as &[u8] } else { b"el fallo va en " });
+            s.text(b"ni la limpieza de T1a paso (el canal ya estaba roto?)");
+        }
+        Some(m) if pagados.count_ones() == raster::N_ESCALONES => {
+            s.with_ink(INK_GOOD);
+            s.text(m.as_bytes());
+        }
+        Some(m) => {
+            s.text(b"el metodo que lo rompe: ");
+            s.with_ink(INK_ERR);
+            s.text(m.as_bytes());
         }
     }
-    let grupo = primero.map_or(raster::N_ESCALONES as usize, |k| k as usize);
-    s.text(raster::GRUPOS[grupo].as_bytes());
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     campo(s, b"gr");
