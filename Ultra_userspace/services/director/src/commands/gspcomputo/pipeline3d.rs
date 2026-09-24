@@ -1,6 +1,9 @@
 //! **T1c y T2a: el triangulo por el PIPELINE 3D** -- las ordenes del
 //! escritorio, su panel y sus filas. Aparte de `gspcomputo.rs` por el censo
 //! modular (L6a): es un hijo, asi que ve su estado sin hacerlo publico.
+//!
+//! [consumo] NADA      corre cuando el propietario lo teclea, o en `save mode`:
+//!                     un trabajo de la 3060 y sus filas; en reposo no hace nada
 
 use bmo_gpu_ga10x::{color3d, raster};
 use bmo_userland as bmo;
