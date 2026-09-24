@@ -42,8 +42,8 @@
 //!
 //! ```text
 //!    1. callar la cima y la hoja de la pantalla (por si el GOP dejo algo)
-//!    2. el MSI: a DONDE (el LAPIC del BSP, vector 50)
-//!    3. el Bus Master, por `pci::enable_mem_bus_master` (el portero la adopta)
+//!    2. el Bus Master, por `pci::enable_mem_bus_master` (el portero la adopta)
+//!    3. el MSI: a DONDE (el LAPIC del BSP, vector 50)
 //!    4. armar: hojas bloqueadas, el aviso de la cabeza, la hoja, la cima
 //! ```
 //!
@@ -196,16 +196,21 @@ pub fn encender() -> Result<u64, u32> {
 
     // 1. Nada avisa mientras se prepara.
     v::callar(&mut r);
-    // 2. A DONDE: el LAPIC del BSP. Preguntado, no supuesto (LEY 24).
+    // 2. El Bus Master, por el UNICO sitio que lo enciende. Va ANTES del MSI
+    // (24-09, el primer save con E2): `msi_activar` avisa "MSI armado en un
+    // aparato SIN maestro de bus" si lo encuentra apagado, y ese aviso salio
+    // en CABINA en una orden que salio BIEN. Encenderlo primero no abre nada:
+    // la cima esta callada (1), el MSI aun apagado, y la 3060 CIEGA.
+    crate::ring0::dev::pci::enable_mem_bus_master(b, d, f);
+    // 3. A DONDE: el LAPIC del BSP. Preguntado, no supuesto (LEY 24).
     let bsp = crate::ring0::plat::smp::tramp::BSP_APIC.load(Ordering::Relaxed);
     let destino = if bsp == u32::MAX { crate::ring0::plat::smp::tramp::apic_id() } else { bsp } as u8;
     let vector = crate::ring0::plat::irq::VECTOR_GPU as u8;
     if !crate::ring0::dev::pci::msi_activar(b, d, f, vector, destino) {
-        crate::ring0::cabina::warn("gpu", "E2: la 3060 no anuncia MSI: no se enciende nada", 0);
+        let _ = crate::ring0::dev::pci::bus_master_apagar(b, d, f);
+        crate::ring0::cabina::warn("gpu", "E2: la 3060 no anuncia MSI: Bus Master retirado, no se enciende nada", 0);
         return Err(IOMMU_NO_SIN_MSI);
     }
-    // 3. El Bus Master, por el UNICO sitio que lo enciende.
-    crate::ring0::dev::pci::enable_mem_bus_master(b, d, f);
     crate::ring0::cabina::count("gpu", "E2: Bus Master de la 3060 ENCENDIDO, CIEGA en la IOMMU; BDF", bdf as u64);
     // 4. Que avise.
     match v::armar(&mut r, cabeza) {

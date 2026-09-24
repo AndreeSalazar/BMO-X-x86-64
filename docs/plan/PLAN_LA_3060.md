@@ -64,7 +64,7 @@ las arregla M2). Y a ojo: arrastrar una ventana sin ver el cuadro partido.
   que llegue; y quien copia vuelve a preguntar tras cada espera. Falta verlo:
   `NO CABEN` a 0 y muchas menos esperas.
 
-### [ ] E2 -- el VBLANK por INTERRUPCION: la primera escritura
+### [x] E2 -- el VBLANK por INTERRUPCION: la primera escritura (visto en metal, 24-09 04:01)
 
 Encender el aviso de VBLANK de la cabeza (`0x611d80 + 4*cabeza`, bit 2, de
 `nvkm/engine/disp/gv100.c`) y el MSI de la GPU, y atenderlo en `0x611800`. Con
@@ -120,8 +120,19 @@ primer peldano en `-` dice donde se quedo el aviso.
                      300 ms y si no llega ningun VBLANK el paso NO salio
 ```
 
-Falta verlo en el metal: la fila `e2` de `gpu` subiendo ~60 por segundo, la
-escalera en `+`, y `iommu` con los eventos en 0.
+**E2 en el metal (24-09, 04:01): la 3060 AVISO.** `e2  4866 VBLANKs por
+interrupcion, 4866 entradas al vector 50` -- cada entrada fue un VBLANK de la
+cabeza 0, ni un aviso ajeno, ni tormenta, ni otra cabeza (~81 s a 60 Hz).
+`iommu`: eventos 0 con el Bus Master encendido, o sea que la 3060 no intento ni
+un DMA, y el MSI paso la entrada BLOQUEADA con IV=0 como decia M0e. Despues
+`gpu vblank off`: `BME- aviso- hoja- cima-` y `(apagado por orden)`. El
+`evento+` que queda tras apagar es el bit del VBLANK que la cabeza sigue
+levantando y ya nadie limpia: sin `aviso` no llega a la hoja.
+
+Un solo ruido: `[!] pci MSI armado en un aparato SIN maestro de bus =104` en
+CABINA -- el orden era MSI y despues Bus Master. Desde el 24-09 el Bus Master va
+PRIMERO (con la cima callada, el MSI apagado y la 3060 ciega no abre nada) y el
+aviso ya no sale en una orden que sale bien.
 
 ### [ ] E3 -- el compositor al compas de la pantalla
 
