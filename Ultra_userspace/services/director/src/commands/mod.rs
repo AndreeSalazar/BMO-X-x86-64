@@ -19,6 +19,8 @@ pub(crate) mod gpu;
 pub(crate) mod iommu;
 /// `save mode`: la verificacion total de los pasos de la GPU (2026-09-24).
 pub(crate) mod verificar;
+/// La tabla de pasos de `save mode` (partida de `verificar`, 24-09).
+pub(crate) mod pasos;
 /// L0a: la VBIOS de la 3060 leida (2026-09-24).
 pub(crate) mod vbios;
 pub(crate) mod gsp;
