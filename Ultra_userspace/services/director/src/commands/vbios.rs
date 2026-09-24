@@ -277,12 +277,24 @@ fn fila_vram(s: &mut Output) {
     if hi == 0 {
         s.text(b"NO hay (lo que FWSEC-FRTS vendra a montar)\n");
     } else {
-        s.with_ink(if lo == f.desde { INK_GOOD } else { INK_ERR });
+        // ** Tras el booter (L0c3b) la WPR2 EMPIEZA MAS ABAJO: el booter la
+        // extiende a todo lo que dice la WPR meta (heap, elf, boot y frts). En
+        // el metal (24-09 07:10) esta fila dijo "NO donde se pidio" justo
+        // cuando mejor habia salido; eso lo mira ahora la fila `cuadra`.
+        let booter = bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_SEC2_ARRANCADO != 0;
+        let bien = lo == f.desde || (booter && lo < f.desde);
+        s.with_ink(if bien { INK_GOOD } else { INK_ERR });
         s.text(b"YA montada: 0x");
         s.hex(lo, 9);
         s.text(b"..0x");
         s.hex(hi, 9);
-        s.text(if lo == f.desde { b" -- donde se pidio" as &[u8] } else { b" -- NO donde se pidio" });
+        s.text(if lo == f.desde {
+            b" -- donde se pidio" as &[u8]
+        } else if bien {
+            b" -- EXTENDIDA por el booter a todo el GSP-RM (mira `cuadra`)"
+        } else {
+            b" -- NO donde se pidio"
+        });
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }

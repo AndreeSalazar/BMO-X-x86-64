@@ -417,7 +417,10 @@ MEDIDO, no el dicho.
    L0c3b el GSP con sus argumentos en el buzon, el booter en el SEC2 con la
         WPR meta en el suyo, y el RISC-V del GSP despierta
         (`is_riscv_active`); sus logs dicen como fue. `gpu despertar` y el
-        paso `despertar`                         [en codigo, 24-09]
+        paso `despertar`                         [VISTO en metal, 24-09 07:10]
+   L0c4a LEER lo que el GSP ya dijo: los mensajes de su cola, sin contestar
+   L0c4b contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
+        su GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -566,6 +569,28 @@ gano `copiar_etiquetado` (la IMEM del booter se etiqueta con su origen, no con
 sus seis pasos en `+`, MAILBOX0 del SEC2 a 0, y la fila `gsplog` dice si el GSP
 escribio en sus logs o en su cola. Si el RISC-V no despierta, lo que el GSP
 alcanzo a escribir esta en `datos/gsplog.bin`.
+
+**L0c3b en el metal (24-09, 07:10): EL GSP DE LA 3060 DESPIERTO, A LA PRIMERA.**
+`despierto el RISC-V del GSP esta ACTIVO: el GSP-RM de la 570.144 corre en tu
+3060 ... +booter +sec2 +os +riscv   firma 0, MAILBOX0 del SEC2 0x00000000` y
+`gsplog el GSP ESCRIBIO en tu RAM: LOGINIT 5579, LOGINTR 0, LOGRM 195; su cola
+62 mensajes`. Y dos pruebas de que el booter leyo NUESTRA WPR meta, sin ser
+fila de nada: la WPR2 paso de `0x2FFE00000` (FWSEC) a `0x2F4000000..0x2FFEE0000`
+-- exactamente la `wpr2` del reparto de L0c1 --; y el dominio subio a 15783
+paginas (las 16 del booter) sin un evento nuevo: ni el booter ni el GSP-RM
+tocaron nada que no se les prestara.
+
+[!] Tres filas mintieron por haber salido bien, y se arreglaron el mismo dia:
+`wpr2 ... NO donde se pidio` (el booter la EXTIENDE; ahora `cuadra` lo compara
+con la `wpr2` del reparto), `frts ARRANCADO y todavia corriendo` (leia en vivo
+un falcon del GSP que ya no era de FWSEC; ahora contesta la foto de antes) y
+`-gsp` en `despierto` (el GSP se paro, y luego el booter lo arranco como RISC-V;
+ahora queda dicho).
+
+**La cola con 62 mensajes es lo siguiente.** Son 62 de los 63 huecos: el GSP-RM
+arranco, hablo, y espera a que alguien le lea y le conteste -- nova-core le
+manda SetSystemInfo y SetRegistry, corre su secuenciador y espera GSP_INIT_DONE.
+Eso es L0c4.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

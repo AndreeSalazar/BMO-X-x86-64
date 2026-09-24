@@ -147,6 +147,8 @@ pub fn despertar() -> Result<u64, u32> {
     }
     apuntar(|x| x | DESPIERTO_VACIADO);
 
+    // Lo que dijo FWSEC, antes de quitarle su falcon.
+    pr::fotografiar_fwsec();
     // 1. El GSP, con sus argumentos de LIBOS en el buzon, arranca (y se para
     // solo: aun no tiene codigo; el que lo pondra es el booter).
     crate::ring0::cabina::info("gpu", "L0c3b: el GSP con sus argumentos de LIBOS en el buzon", gpu_libos::IOVA_LIBOS);
@@ -177,6 +179,9 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     if e & DESPIERTO_GSP_ARRANCADO == 0 || !matches!(fa::como_va(&mut r, fa::GSP), Ok((true, _, _))) {
         return no(IOMMU_NO_GSP_FALCON);
     }
+    // Se paro: queda dicho. Luego el RISC-V lo arranca otra vez y en vivo ya
+    // no se ve (metal 24-09 07:10: la fila decia `-gsp` con el GSP despierto).
+    apuntar(|x| x | DESPIERTO_GSP_PARADO);
 
     // El booter: leido, firmado con la firma del FUSIBLE del SEC2, prestado.
     let Some(f) = booter_fichero else { return no(IOMMU_NO_BOOTER) };
@@ -299,6 +304,12 @@ pub fn info_despierto() -> u64 {
         }
     }
     v
+}
+
+/// **El falcon del GSP ya es del GSP-RM?** Desde que L0c3b lo reseteo, lo que
+/// diga en vivo no es de FWSEC.
+pub fn gsp_tomado() -> bool {
+    ESTADO.load(Ordering::Acquire) & DESPIERTO_GSP_ARRANCADO != 0
 }
 
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 del GSP (vivo).

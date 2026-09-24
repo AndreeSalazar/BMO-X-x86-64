@@ -574,8 +574,35 @@ pub fn info_fwsec() -> u64 {
         return 0;
     }
     v |= FWSEC_TROZOS.load(Ordering::Acquire).count_ones() as u64 & 0xFF;
+    // ** El falcon del GSP ya no es de FWSEC (L0c3b, metal 24-09 07:10): tras
+    // despertar el GSP, leerlo en vivo decia "ARRANCADO y todavia corriendo"
+    // de un FWSEC que acabo hace rato. Se contesta con la FOTO de antes.
+    if crate::ring0::dev::gpu_despertar::gsp_tomado() {
+        v |= FWSEC_FOTO.load(Ordering::Acquire);
+    } else {
+        v |= fwsec_en_vivo(v);
+    }
+    if (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0 {
+        v |= FWSEC_WPR2;
+    }
+    v
+}
+
+/// Lo que ahora dice el falcon del GSP de FWSEC: PARADO y su codigo de FRTS.
+static FWSEC_FOTO: AtomicU64 = AtomicU64::new(0);
+
+/// **La foto de FWSEC**, antes de que L0c3b le quite el falcon del GSP.
+pub fn fotografiar_fwsec() {
+    let v = FWSEC_ESTADO.load(Ordering::Acquire);
+    if v & FWSEC_VALIDO != 0 {
+        fwsec_en_vivo(v);
+    }
+}
+
+fn fwsec_en_vivo(estado: u64) -> u64 {
+    let mut v = 0;
     let bar0 = crate::ring0::dev::gpu::bar0();
-    if bar0 != 0 && v & FWSEC_ARRANCADO != 0 {
+    if bar0 != 0 && estado & FWSEC_ARRANCADO != 0 {
         let mut r = Bar0(bar0);
         if let Ok((parado, _, _)) = fa::como_va(&mut r, fa::GSP) {
             if parado {
@@ -586,9 +613,7 @@ pub fn info_fwsec() -> u64 {
         if !bmo_gpu_ga10x::es_error_pri(e) {
             v |= ((e >> 16) as u64 & 0xFFFF) << FWSEC_ERROR_SHIFT;
         }
-    }
-    if (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0 {
-        v |= FWSEC_WPR2;
+        FWSEC_FOTO.store(v, Ordering::Release);
     }
     v
 }
@@ -598,6 +623,10 @@ pub fn info_fwsec() -> u64 {
 pub fn info_fwsec_buzon() -> u64 {
     let bar0 = crate::ring0::dev::gpu::bar0();
     if bar0 == 0 || FWSEC_ESTADO.load(Ordering::Acquire) & FWSEC_ARRANCADO == 0 {
+        return 0;
+    }
+    if crate::ring0::dev::gpu_despertar::gsp_tomado() {
+        // Los buzones del GSP ya son del GSP-RM; los de FWSEC acabaron en 0.
         return 0;
     }
     match fa::como_va(&mut Bar0(bar0), fa::GSP) {

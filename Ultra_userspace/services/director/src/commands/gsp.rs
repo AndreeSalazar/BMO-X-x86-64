@@ -360,6 +360,12 @@ pub(crate) fn fila(s: &mut Output) {
     } else if lo == m.frts.desde {
         s.with_ink(INK_GOOD);
         s.text(b"; es donde FWSEC monto la WPR2: el reparto cuadra");
+    } else if lo == m.wpr2.desde {
+        // Tras el booter: la WPR2 va desde donde dijo la WPR meta.
+        s.with_ink(INK_GOOD);
+        s.text(b"; el BOOTER extendio la WPR2 a 0x");
+        s.hex(lo, 9);
+        s.text(b", la wpr2 de este reparto: la WPR meta se leyo y cuadra");
     } else {
         s.with_ink(INK_ERR);
         s.text(b"; la WPR2 de FWSEC empieza en OTRO sitio: 0x");
