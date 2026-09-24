@@ -15,8 +15,8 @@
 //!
 //! ```text
 //!    vertice  el de T1c + el color por vertice:
-//!             AST.128 a[0x80], RZ, R8      el vector generico 0 (r, g, b, a)
-//!             AST.128 a[0x70], RZ, R4      la posicion
+//!             AST.128 a[0x80], R8          el vector generico 0 (r, g, b, a)
+//!             AST.128 a[0x70], R4          la posicion
 //!    pixel    MOV R3, 1.0                  alfa
 //!             IPA.PASS R0..R2, a[0x80..0x88]   rojo, verde y azul, mezclados
 //!             EXIT                         (espera la barrera 0 de los IPA)
@@ -68,8 +68,8 @@ pub const CODIGO_VS: [(u64, u64); 23] = [
     (0x3f800000ff0a7807, 0x000fe40000800000), // SEL R10, RZ, 1.0, P1 (azul: v2)
     (0x3f38000005057807, 0x000fe40000800000), // SEL R5, R5, 0.71875, P1
     (0xbf58000000047807, 0x000fe20000800000), // SEL R4, R0, -0.84375, P1
-    (0x000080ffff007322, 0x000fe80000000c08), // AST.128 a[0x80], RZ, R8
-    (0x000070ffff007322, 0x000fe20000000c04), // AST.128 a[0x70], RZ, R4
+    (0x00008008ff007322, 0x000fe80000000cff), // AST.128 a[0x80], R8 (el color)
+    (0x00007004ff007322, 0x000fe20000000cff), // AST.128 a[0x70], R4 (la posicion)
     (0x000000000000794d, 0x000fea0003800000), // EXIT
     (0xfffffff000007947, 0x000fc0000383ffff), // BRA .
 ];

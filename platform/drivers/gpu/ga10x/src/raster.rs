@@ -27,10 +27,15 @@
 //!
 //! ```text
 //!    S2R R0, SR_TID.X          ->  ALD R0, a[0x2fc]          el numero de vertice
-//!    STG.E.128 [R2.64], R4     ->  AST.128 a[0x70], RZ, R4   la posicion (x,y,z,w)
+//!    STG.E.128 [R2.64], R4     ->  AST.128 a[0x70], R4       la posicion (x,y,z,w)
 //!
 //!    ALD  0x321  destino 16..24, vertice 32..40, atributo 40..50, cuantos-1 74..76
-//!    AST  0x322  dato 64..72, vertice 32..40, atributo 40..50, cuantos-1 74..76
+//!    AST  0x322  dato 32..40, vertice 64..72, atributo 40..50, cuantos-1 74..76
+//!
+//! ** 24-09, contra NAK (Mesa 26.2.3, `sm70_encode.rs`): en AST el DATO va en
+//! 32..40 y el VERTICE en 64..72. Se habian leido al reves del orden de
+//! operandos de `nvdisasm` (`AST a[..], Rdato, Rvertice`): la posicion salia
+//! de RZ -- los tres vertices en (0, 0, 0, 0).
 //! ```
 //!
 //! (y los NOP de siempre en las lecturas de la cb0 de CUDA; el control de
@@ -59,6 +64,8 @@ use crate::Registros;
 // Los metodos de `clc797.h` que T1a no usaba.
 pub const INVALIDATE_SHADER_CACHES: u32 = 0x021c;
 pub const SET_RASTER_ENABLE: u32 = 0x037c;
+pub const SET_CT_MRT_ENABLE: u32 = 0x0fac;
+pub const SET_RENDER_ENABLE_C: u32 = 0x1558;
 pub const SET_STREAM_OUTPUT: u32 = 0x0744;
 pub const SET_VIEWPORT_SCALE_X0: u32 = 0x0a00;
 pub const SET_VIEWPORT_CLIP_HORIZONTAL0: u32 = 0x0c00;
@@ -144,7 +151,7 @@ pub const CODIGO_VS: [(u64, u64); 17] = [
     (0x3f580000ff007807, 0x000fe40000000000), // SEL R0, RZ, 0.84375, P0
     (0x3f38000005057807, 0x000fe40000800000), // SEL R5, R5, 0.71875, P1
     (0xbf58000000047807, 0x000fca0000800000), // SEL R4, R0, -0.84375, P1
-    (0x000070ffff007322, 0x000fe20000000c04), // AST.128 a[0x70], RZ, R4
+    (0x00007004ff007322, 0x000fe20000000cff), // AST.128 a[0x70], R4 (dato R4 en 32..40, vertice RZ)
     (0x000000000000794d, 0x000fea0003800000), // EXIT
     (0xfffffff000007947, 0x000fc0000383ffff), // BRA . (el relleno de ptxas)
 ];
@@ -159,8 +166,13 @@ pub const CODIGO_PS: [(u64, u64); 6] = [
     (0xfffffff000007947, 0x000fc0000383ffff), // BRA .
 ];
 
-/// Las 20 palabras de la cabecera (SPH).
-pub const SPH: usize = 20;
+/// Las palabras de la cabecera (SPH): **32** desde Turing (SPH v4).
+///
+/// ** 24-09, contra NVK (`TU102_SHADER_HEADER_SIZE`, 32 * 4) y NAK (`sph.rs`:
+/// version 4 si SM >= 7.3): eran 20 (la v3 de Fermi..Volta). El SM empieza a
+/// ejecutar en la direccion + 128: con 80 bytes de cabecera saltaba las TRES
+/// primeras instrucciones (el ALD del numero de vertice, en el de vertice).
+pub const SPH: usize = 32;
 
 /// Pone a 1 el bit `b` de la cabecera.
 pub const fn bit(mut h: [u32; SPH], b: usize) -> [u32; SPH] {
@@ -168,10 +180,10 @@ pub const fn bit(mut h: [u32; SPH], b: usize) -> [u32; SPH] {
     h
 }
 
-/// `CommonWord0`: SphType (4:0), Version (9:5) = 3, ShaderType (13:10) y
-/// SassVersion (20:17) = 1 -- los de nouveau (`0x20061 | 1 << 10`).
+/// `CommonWord0`: SphType (4:0), Version (9:5) = 4 (Turing y despues, como
+/// NAK), ShaderType (13:10) y SassVersion (20:17) = 1.
 pub const fn palabra0(tipo_sph: u32, tipo: u32) -> u32 {
-    tipo_sph | 3 << 5 | tipo << 10 | 1 << 17
+    tipo_sph | 4 << 5 | tipo << 10 | 1 << 17
 }
 
 /// **La SPH del de vertice** (tipo 1, VTG): lee `ImapVertexId` (bit 351) y
@@ -195,7 +207,8 @@ pub const fn sph_vertice() -> [u32; SPH] {
 /// que nouveau pone siempre ("trap si FRAG_COORD.w = 0").
 pub const fn sph_pixel() -> [u32; SPH] {
     let mut h = [0u32; SPH];
-    h[0] = palabra0(2, PIXEL);
+    // MrtEnable (bit 14): NAK lo pone SIEMPRE en los de pixel.
+    h[0] = palabra0(2, PIXEL) | 1 << 14;
     h = bit(h, 191);
     let mut k = 576;
     while k < 580 {
@@ -240,7 +253,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 397;
+pub const ORDENES: usize = 415;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -334,6 +347,10 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     e.paso(SET_SAMPLE_MASK_X0_Y0, &[0xFFFF; 4]);
     e.paso(SET_STREAM_OUTPUT, &[0]);
     e.paso(SET_RASTER_ENABLE, &[1]);
+    // Como NVK al empezar: dibujar SIEMPRE (sin render condicional) y el
+    // MRT encendido (la SPH del de pixel lo pide, como NAK).
+    e.paso(SET_RENDER_ENABLE_C, &[1]);
+    e.paso(SET_CT_MRT_ENABLE, &[1]);
     // Ningun atributo ni flujo de vertices en memoria: el programa saca la
     // posicion del NUMERO de vertice.
     e.paso(SET_VERTEX_ATTRIBUTE_A0, &[ATRIBUTO_APAGADO; 32]);
@@ -349,7 +366,13 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
             _ => (0, 0, 0),
         };
         if vivo == 1 {
-            e.paso(set_pipeline_shader(j), &[j << 4 | 1, 0, 0, REGISTROS, grupo, (dir >> 32) as u32, dir as u32]);
+            // ** 24-09, contra NVK (`nvk_shader_fill_push`): SHADER, la
+            // direccion (A/B) y REGISTER_COUNT + BINDING, por separado. Antes
+            // iban los 7 de un tiron y eso ESCRIBIA `SET_PIPELINE_RESERVED_B/A`
+            // (0x2004/0x2008), que NVK no toca nunca: reservados.
+            e.m(set_pipeline_shader(j), &[j << 4 | 1]);
+            e.m(set_pipeline_shader(j) + 0x14, &[(dir >> 32) as u32, dir as u32]);
+            e.paso(set_pipeline_shader(j) + 0x0c, &[REGISTROS, grupo]);
         } else {
             e.paso(set_pipeline_shader(j), &[j << 4]);
         }
@@ -386,7 +409,7 @@ pub const VERTICES_PAGA: u32 = 0x7E00;
 /// que va DETRAS del escalon `k`: si el `k` se pago y el `k + 1` no, el
 /// culpable es `NOMBRES[k]`.
 pub const ESCALONES: u64 = SEMAFOROS + 0x300;
-pub const NOMBRES: [&str; 30] = [
+pub const NOMBRES: [&str; 32] = [
     "INVALIDATE_SHADER_CACHES",
     "SET_VERTEX_STREAM_SUBSTITUTE_A/B",
     "SET_VIEWPORT_SCALE/OFFSET/SWIZZLE(0)",
@@ -407,6 +430,8 @@ pub const NOMBRES: [&str; 30] = [
     "SET_SAMPLE_MASK_X0_Y0..X1_Y1",
     "SET_STREAM_OUTPUT",
     "SET_RASTER_ENABLE",
+    "SET_RENDER_ENABLE_C",
+    "SET_CT_MRT_ENABLE",
     "SET_VERTEX_ATTRIBUTE_A(0..31)",
     "SET_VERTEX_STREAM_A_FORMAT(0)",
     "SET_VERTEX_ID_BASE",
@@ -565,7 +590,7 @@ mod pruebas {
         assert_eq!(culpable(0b1011), Some("SET_VERTEX_STREAM_SUBSTITUTE_A/B"));
         assert_eq!(culpable((1u64 << N_ESCALONES) - 1), Some("(nada: el estado entero paso)"));
         // Un escalon por metodo: 26 del estado y los 6 huecos, y el de la limpieza.
-        assert_eq!(N_ESCALONES, 1 + 23 + 6);
+        assert_eq!(N_ESCALONES, 1 + 25 + 6);
     }
 
     #[test]
@@ -599,9 +624,26 @@ mod pruebas {
         let o = ordenes();
         for j in 0..6 {
             let vivo = j == VERTICE || j == PIXEL;
-            let c = cabecera_en(0, set_pipeline_shader(j), if vivo { 7 } else { 1 });
+            let c = cabecera_en(0, set_pipeline_shader(j), 1);
             let k = PREFIJO + o[PREFIJO..].iter().position(|&w| w == c).unwrap();
             assert_eq!(o[k + 1], j << 4 | vivo as u32, "hueco {j}");
+            if vivo {
+                // La direccion y REGISTER_COUNT + BINDING, sin pasar por los
+                // reservados (0x04, 0x08).
+                assert_eq!(o[k + 2], cabecera_en(0, set_pipeline_shader(j) + 0x14, 2));
+                assert_eq!(o[k + 5], cabecera_en(0, set_pipeline_shader(j) + 0x0c, 2));
+                assert_eq!(o[k + 6], REGISTROS);
+            }
+        }
+        // Ningun metodo del empuje cae en SET_PIPELINE_RESERVED_A/B.
+        let mut i = 0;
+        while i < ORDENES {
+            let (n, m) = ((o[i] >> 16 & 0x1FFF) as usize, (o[i] & 0xFFF) << 2);
+            for k in 0..n as u32 {
+                let a = m + 4 * k;
+                assert!(!(0x2000..0x2180).contains(&a) || !matches!(a % 64, 4 | 8), "reservado 0x{a:04x}");
+            }
+            i += 1 + n;
         }
         assert_eq!(set_pipeline_shader(PIXEL), 0x2140);
     }
@@ -609,11 +651,11 @@ mod pruebas {
     #[test]
     fn las_cabeceras() {
         let v = sph_vertice();
-        assert_eq!(v[0], 0x20461);
+        assert_eq!(v[0], 0x20481);
         assert_eq!(v[10], 1 << 31); // ImapVertexId
         assert_eq!(v[13], 0xF << 12); // OmapPosition
         let p = sph_pixel();
-        assert_eq!(p[0], 0x21462);
+        assert_eq!(p[0], 0x25482);
         assert_eq!(p[5], 1 << 31);
         assert_eq!(p[18], 0xF);
     }
@@ -666,4 +708,5 @@ mod pruebas {
         assert_eq!((n(V2.0), n(V2.1)), (0xBF58_0000, 0x3F38_0000));
     }
 }
+
 

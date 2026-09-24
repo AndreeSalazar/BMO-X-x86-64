@@ -678,6 +678,32 @@ Ademas, para que no haya sorpresas despues: el anillo del GPFIFO da la
 vuelta (`blur::siguiente`), y un RC_TRIGGERED avisa de que el canal queda
 MUERTO hasta reiniciar.
 
+**CONTRA MESA (24-09): NVK y NAK de Mesa 26.2.3** (el tarball del archivo
+de Ubuntu: el GitLab de freedesktop no pasa por la red de aqui). Comparado
+metodo a metodo y bit a bit, salieron TRES errores reales mas, y los tres
+habrian roto el triangulo aunque el estado pasara:
+(1) la SPH desde Turing es la **v4 de 32 palabras (128 B)** -- NVK
+`TU102_SHADER_HEADER_SIZE`, NAK version 4 si SM >= 7.3. Con 80 B, el SM
+empezaba a ejecutar en la cuarta instruccion (se saltaba el ALD del numero
+de vertice, y tres de los cuatro MOV del color). (2) en **AST el dato va en
+32..40 y el vertice en 64..72** (NAK `sm70_encode.rs`); estaban al reves: la
+posicion salia de RZ. `nvdisasm` ahora lo da como `AST.128 a[0x70], R4`.
+(3) el hueco del pipeline se escribia de un tiron y pisaba
+`SET_PIPELINE_RESERVED_B/A`, que NVK no toca: ahora SHADER, direccion y
+REGISTER_COUNT + BINDING por separado. Confirmado de NVK: los atributos
+apagados con R32_G32_B32_A32 FLOAT (lo del validador), y que NVK NO usa
+`SET_SPH_VERSION` (usa CHECK_): quitarlo estaba bien. Agregado como NVK:
+`SET_RENDER_ENABLE_C = TRUE`, `SET_CT_MRT_ENABLE = TRUE` y el MrtEnable de la
+SPH del de pixel (NAK lo pone siempre). Coinciden: ALD, IPA, VertexId
+a[0x2fc], posicion a[0x70], generico a[0x80], StoreReq 0xFF/0, las salidas
+del de pixel en R0..R3 al EXIT. El validador: 0 problemas; `nvdisasm` de
+los cuatro programas desde el byte 128, bien. 415 palabras.
+
+**Que no se trabe (24-09):** el `latido del bus ... TARDE 995 ms` de todos
+los save era el kernel esperando a la 3060 UN SEGUNDO sin soltar el CPU: el
+teclado y el raton parados. Ahora gira 20 ms (los trabajos buenos tardan
+30..800 us, la medida no cambia) y despues cede el CPU en cada vuelta.
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

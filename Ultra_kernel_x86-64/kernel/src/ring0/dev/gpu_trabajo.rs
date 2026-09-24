@@ -414,6 +414,25 @@ static FRACTAL_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::At
 /// Lo mas que se espera a la 3060: 262144 hilos de hasta 256 vueltas.
 const FRACTAL_ESPERA_US: u64 = 1_000_000;
 
+/// Hasta aqui se espera GIRANDO; despues, cediendo el CPU en cada vuelta.
+///
+/// ** Metal 24-09 (todos los save de la tarde): `el latido del bus llego
+/// TARDE ... 995 ms`, "el CPU lo tuvo d.bex durante 1001 ms". Era esto: un
+/// trabajo que no volvia (el triangulo 3D) dejaba al kernel dando vueltas UN
+/// SEGUNDO entero sin soltar el CPU, y el hilo del bus USB -- teclado y raton
+/// -- no corria. Un trabajo bueno tarda 30..800 us: se sigue midiendo
+/// girando, exacto; pasados 20 ms ya no es un trabajo bueno y se cede.
+const GIRANDO_US: u64 = 20_000;
+
+/// Una vuelta de espera a la 3060.
+fn esperando(us: u64) {
+    if us < GIRANDO_US {
+        core::hint::spin_loop();
+    } else {
+        crate::ring0::task::scheduler::yield_current();
+    }
+}
+
 fn pixeles_del_fractal() -> Option<&'static [u32]> {
     let f = FRACTAL_F.load(Ordering::Acquire);
     if f == 0 || !FRACTAL_PRESTADO.load(Ordering::Acquire) {
@@ -494,7 +513,7 @@ fn fractal_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         if qmd == fr::PAGA_QMD && fin == fr::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     // La CPU hace la MISMA cuenta, cronometrada, y compara cada pixel.
@@ -559,7 +578,7 @@ fn triangulo_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         if qmd == tr::PAGA_QMD && fin == tr::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
@@ -621,7 +640,7 @@ fn limpiar_3d_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         if fin == td::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
@@ -684,7 +703,7 @@ fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
         if qmd == es::PAGA_QMD && fin == es::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
@@ -788,7 +807,7 @@ fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
         if fin == d.paga {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
@@ -881,7 +900,7 @@ fn giro_(bar0: u64, ficha: u32, e: u32, f: u32) -> Result<u64, u32> {
         if qmd == gi::PAGA_QMD && fin == gi::PAGA_FIN {
             break;
         }
-        core::hint::spin_loop();
+        esperando(us);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
