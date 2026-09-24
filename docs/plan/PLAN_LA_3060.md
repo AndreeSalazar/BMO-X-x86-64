@@ -435,6 +435,8 @@ MEDIDO, no el dicho.
         y esperar GSP_INIT_DONE. `gpu init`, A MANO
                                                 [VISTO en metal, 24-09 09:54]
      L0c4b3 la PANTALLA tras GSP_INIT_DONE: se quedo quieta (BAR1?)
+     L0c4b3a devolverle BAR1 a la pantalla: la del GOP, apuntada antes
+        del secuenciador. `gpu init` solo, y `gpu bar1`  [en codigo, 24-09]
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -796,6 +798,20 @@ CPU deja de caer donde mira la pantalla. Sin probar. Por eso (L0c4b3):
 - Si es eso, lo siguiente es pintar sin el GOP por BAR1: pedirle al GSP-RM un
   hueco de BAR1 para la superficie de la pantalla (L1), o devolverle a BAR1 su
   modo fisico si el GSP-RM no la usa.
+
+**L0c4b3a (24-09, en codigo).** El kernel apunta `BAR1_BLOCK` (0xB80F40) en
+la primera llamada del secuenciador, antes de CORE_RESUME, y
+`IOMMU_OP_GSP_BAR1` le devuelve ESE valor --solo ese: nada que venga del
+escritorio-- y espera el enlace como nouveau (`tu102_bar_bar1_wait`, los bits
+0..1 de 0xB80F50, 2 ms). `gpu init` lo hace solo si ve BAR1 cambiada tras
+`GSP_INIT_DONE`, y repinta el escritorio entero; `gpu bar1` lo hace a mano. Es
+un puente: el GSP-RM, parado esperando RPC, no usa BAR1. Lo de verdad es
+pedirle en L1 su propio hueco de BAR1 para la superficie de la pantalla, y
+luego que pinte la GPU (el canal y el motor de copia).
+
+**Como se sabe (L0c4b3a):** tras `gpu init` la pantalla sigue viva, con el
+panel y la luz del GSP en verde; la fila `bar1` dice si hubo que devolverla;
+y la copia al GOP vuelve a sus ~3000 ps/pixel.
 
 **Como se sabe (L0c4b2c):** `corrio 420 de 420 ordenes CORRIDAS`; `listo
 GSP_INIT_DONE LLEGO`; y `despierto` otra vez con el RISC-V ACTIVO.

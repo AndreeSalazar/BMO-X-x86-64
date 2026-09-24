@@ -686,6 +686,10 @@ pub const IOMMU_OP_GSP_SISTEMA: u64 = 0x17;
 /// = como va (`INFO_GPU_DESPIERTO_BUZON` con selector 2); con `SEC_HECHO`,
 /// acabo y el GSP-RM volvio. Llamar hasta eso o un NO.
 pub const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
+/// L0c4b3a: devolverle a BAR1 (0xB80F40) el valor que tenia antes del
+/// secuenciador, el del GOP: la pantalla vuelve a ver lo que pinta la CPU.
+/// Solo tras `GSP_INIT_DONE`. `Ok` = el de ahora | el del GSP-RM << 32.
+pub const IOMMU_OP_GSP_BAR1: u64 = 0x19;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -787,6 +791,8 @@ pub const IOMMU_NO_SEC_ANTES: u32 = 50;
 pub const IOMMU_NO_SEC_FALLO: u32 = 51;
 /// L0c4b2c: ya se corrio en este arranque.
 pub const IOMMU_NO_SEC_YA: u32 = 52;
+/// L0c4b3a: no hay BAR1 que devolver (sin secuenciador corrido, o sin la de antes).
+pub const IOMMU_NO_BAR1: u32 = 53;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

@@ -43,6 +43,10 @@ struct Resumen {
     /// `BAR1_BLOCK | BAR2_BLOCK << 32` antes de correr y tras GSP_INIT_DONE.
     bar_antes: u64,
     bar_despues: u64,
+    /// Si se le devolvio BAR1 a la pantalla (L0c4b3a): el `Ok` del kernel o
+    /// su NO; y como quedo.
+    bar_devuelta: Option<Result<u64, u32>>,
+    bar_final: u64,
     /// Los us desde CORE_RESUME hasta GSP_INIT_DONE.
     espera_us: u64,
 }
@@ -87,6 +91,8 @@ pub(crate) fn correr() -> Result<u64, u32> {
         espera_us: 0,
         bar_antes: bars(),
         bar_despues: 0,
+        bar_devuelta: None,
+        bar_final: 0,
     };
     let fin = bmo::ciclos() + hz * TECHO_S;
     loop {
@@ -143,6 +149,12 @@ pub(crate) fn correr() -> Result<u64, u32> {
         bmo::yield_screen();
     }
     r.bar_despues = bars();
+    // ** Si el GSP-RM se quedo con BAR1, se le devuelve la del GOP: sin ella
+    // la pantalla no ve lo que pinta la CPU (metal 24-09 09:54).
+    if r.bar_despues as u32 != r.bar_antes as u32 {
+        r.bar_devuelta = Some(bmo::iommu_orden(bmo::IOMMU_OP_GSP_BAR1));
+    }
+    r.bar_final = bars();
     guardar(r);
     // Al panel: la casilla I, verde o roja.
     crate::scene::lateral_gsp::init(r.init_done);
@@ -167,6 +179,8 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     }
     paint_status(p, &dsk.run_box, "corriendo el secuenciador del GSP", INK_DIM);
     let r = correr();
+    // Con BAR1 devuelta, lo que habia en pantalla era de antes: todo otra vez.
+    crate::repintar_escritorio(p, dsk, "init");
     let g = &mut dsk.out.grid;
     match r {
         Ok(n) => {
@@ -195,6 +209,39 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     });
     g.with_ink(INK_PLAIN);
     paint_status(p, &dsk.run_box, "init", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// `gpu bar1`: devolverle BAR1 a la pantalla a mano (lo hace `gpu init` solo
+/// si la ve cambiada).
+pub(crate) fn orden_bar1(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    let r = bmo::iommu_orden(bmo::IOMMU_OP_GSP_BAR1);
+    crate::repintar_escritorio(p, dsk, "bar1");
+    let g = &mut dsk.out.grid;
+    match r {
+        Ok(v) if v as u32 == (v >> 32) as u32 => {
+            g.with_ink(INK_ECHO);
+            g.text(b"  BAR1 ya era la de antes del secuenciador: 0x");
+            g.hex(v & 0xFFFF_FFFF, 8);
+            g.byte(b'\n');
+        }
+        Ok(v) => {
+            g.with_ink(INK_GOOD);
+            g.text(b"  BAR1 DEVUELTA a la pantalla: 0x");
+            g.hex(v >> 32, 8);
+            g.text(b" (la del GSP-RM) -> 0x");
+            g.hex(v & 0xFFFF_FFFF, 8);
+            g.byte(b'\n');
+        }
+        Err(m) => {
+            g.with_ink(INK_ERR);
+            g.text(b"  NO: ");
+            g.text(super::iommu::motivo(m));
+            g.byte(b'\n');
+        }
+    }
+    g.with_ink(INK_PLAIN);
     dsk.field.n = 0;
     After::Settle
 }
@@ -277,7 +324,7 @@ pub(crate) fn fila(s: &mut Output) {
     // que pinta la CPU ya no cae donde mira la pantalla.
     campo(s, b"bar1");
     let virtual_ = |v: u64| v as u32 & 1 << 31 != 0;
-    let (a, d) = (r.bar_antes, r.bar_despues);
+    let (a, d, f) = (r.bar_antes, r.bar_despues, r.bar_final);
     s.text(b"antes 0x");
     s.hex(a & 0xFFFF_FFFF, 8);
     s.text(b", despues 0x");
@@ -287,15 +334,33 @@ pub(crate) fn fila(s: &mut Output) {
     s.text(b" -> 0x");
     s.hex(d >> 32, 8);
     s.text(b"): ");
-    if !virtual_(a) && virtual_(d) {
-        s.with_ink(INK_ERR);
-        s.text(b"el GSP-RM puso BAR1 VIRTUAL: la pantalla (el GOP) ya no ve lo que pinta la CPU");
-    } else if a != d {
-        s.with_ink(INK_ECHO);
-        s.text(b"BAR1 CAMBIO al arrancar el GSP-RM");
-    } else {
-        s.with_ink(INK_GOOD);
-        s.text(b"BAR1 igual: si la pantalla se paro, no fue esto");
+    match r.bar_devuelta {
+        Some(Ok(_)) if f as u32 == a as u32 => {
+            s.with_ink(INK_GOOD);
+            s.text(if virtual_(d) && !virtual_(a) {
+                b"el GSP-RM la puso VIRTUAL y se le DEVOLVIO la del GOP: la pantalla vuelve a ver a la CPU" as &[u8]
+            } else {
+                b"el GSP-RM la CAMBIO y se le DEVOLVIO la del GOP: la pantalla vuelve a ver a la CPU"
+            });
+        }
+        Some(Ok(_)) => {
+            s.with_ink(INK_ERR);
+            s.text(b"se escribio la de antes y NO se quedo: ahora 0x");
+            s.hex(f & 0xFFFF_FFFF, 8);
+        }
+        Some(Err(m)) => {
+            s.with_ink(INK_ERR);
+            s.text(b"CAMBIO y no se pudo devolver: ");
+            s.text(super::iommu::motivo(m));
+        }
+        None if a as u32 != d as u32 => {
+            s.with_ink(INK_ECHO);
+            s.text(b"BAR1 CAMBIO al arrancar el GSP-RM");
+        }
+        None => {
+            s.with_ink(INK_GOOD);
+            s.text(b"BAR1 igual: si la pantalla se paro, no fue esto");
+        }
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');

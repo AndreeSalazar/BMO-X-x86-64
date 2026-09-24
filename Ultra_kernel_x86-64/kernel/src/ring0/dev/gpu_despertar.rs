@@ -463,6 +463,12 @@ pub fn secuenciar() -> Result<u64, u32> {
         return Err(io::IOMMU_NO_SIN_GPU);
     }
     if como & SEC_CARGADO == 0 {
+        // BAR1 tal como la dejo el GOP, ANTES de que el GSP-RM vuelva: para
+        // devolversela a la pantalla (`devolver_bar1`).
+        if BAR1_ANTES.load(Ordering::Acquire) == 0 {
+            let b = Bar0(bar0).leer(BAR1_BLOCK);
+            BAR1_ANTES.store(1 << 63 | b as u64, Ordering::Release);
+        }
         // Sin mensaje todavia NO se queda apuntado: no se ha escrito nada, y
         // se puede volver a pedir cuando llegue. Lo que se queda es una falla
         // a medias, que no se repite.
@@ -510,6 +516,46 @@ pub fn secuenciar() -> Result<u64, u32> {
 /// dice que la BAR es VIRTUAL, por las tablas de pagina de alguien.
 const BAR1_BLOCK: u32 = 0x00B8_0F40;
 const BAR2_BLOCK: u32 = 0x00B8_0F48;
+
+/// Si se esta enlazando BAR1: los bits 0..1 (nouveau `tu102_bar_bar1_wait`).
+const BAR_ENLACE: u32 = 0x00B8_0F50;
+/// `BAR1_BLOCK` antes del secuenciador; bit 63 = apuntado.
+static BAR1_ANTES: AtomicU64 = AtomicU64::new(0);
+/// No hay BAR1 que devolver: el GSP-RM no arranco, o no se apunto la de antes.
+pub const IOMMU_NO_BAR1: u32 = 53;
+
+/// **Devolverle BAR1 a la pantalla** (L0c4b3a): escribir en `BAR1_BLOCK` el
+/// valor que tenia ANTES del secuenciador y esperar a que se enlace (2 ms).
+/// `Ok(el de ahora | el que habia puesto el GSP-RM << 32)`; si ya era el de
+/// antes, no se escribe nada.
+///
+/// ** Por que (metal 24-09 09:54): tras `GSP_INIT_DONE` la pantalla se quedo
+/// quieta con la CPU viva, y la copia al GOP paso de ~3000 a 381 ps/pixel. El
+/// GOP se pinta por BAR1, y el GSP-RM la toma al arrancar. Mientras BMO-X no le
+/// pida al GSP-RM su propio hueco de BAR1 (L1), se le devuelve la del GOP: el
+/// GSP-RM, parado esperando RPC, no la esta usando. Solo se escribe el valor
+/// que el mismo registro tenia: nada que venga del escritorio.
+pub fn devolver_bar1() -> Result<u64, u32> {
+    let a = BAR1_ANTES.load(Ordering::Acquire);
+    if SEC.load(Ordering::Acquire) >> 24 & SEC_HECHO == 0 || a >> 63 == 0 {
+        return Err(IOMMU_NO_BAR1);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 {
+        return Err(io::IOMMU_NO_SIN_GPU);
+    }
+    let mut r = Bar0(bar0);
+    let (antes, ahora) = (a as u32, r.leer(BAR1_BLOCK));
+    if ahora == antes {
+        return Ok(ahora as u64 | (ahora as u64) << 32);
+    }
+    r.escribir(BAR1_BLOCK, antes);
+    let mut t = pr::reloj();
+    let fin = fa::Reloj::us(&mut t) + 2000;
+    while r.leer(BAR_ENLACE) & 3 != 0 && fa::Reloj::us(&mut t) < fin {}
+    crate::ring0::cabina::count("gpu", "L0c4b3a: BAR1 devuelta a la pantalla; la del GSP-RM era", ahora as u64);
+    Ok(r.leer(BAR1_BLOCK) as u64 | (ahora as u64) << 32)
+}
 
 /// `INFO_GPU_DESPIERTO_BUZON` con selector 3: `BAR1_BLOCK | BAR2_BLOCK << 32`,
 /// en vivo; solo lectura.
