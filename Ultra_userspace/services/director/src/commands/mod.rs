@@ -38,6 +38,8 @@ pub(crate) mod gspmotores;
 pub(crate) mod gspcanal;
 /// `gpu gr`: los buferes del contexto de oro de GR0 (M5 G0, 24-09).
 pub(crate) mod gspgr;
+/// `gpu canalgr`: el canal de GR0, pedido, atado y en su lista (M5 G1, 24-09).
+pub(crate) mod gspcanalgr;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

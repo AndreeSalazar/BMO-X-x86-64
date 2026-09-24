@@ -83,7 +83,17 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
                     && d.len() >= CABECERA_ALLOC + n
                     && d[CABECERA_ALLOC..CABECERA_ALLOC + n] == esperados[..n]
             };
-            let es_el_canal = exacto(canal::forma(), canal::parametros);
+            // Los canales de `canal::TODOS` (el de copia y el de GR0), cada
+            // uno con SUS 368 B.
+            let es_el_canal = canal::TODOS.iter().any(|c| {
+                let f = c.forma();
+                let mut esperados = [0u8; canal::MEDIDA];
+                let n = c.parametros(&mut esperados);
+                (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase)
+                    && u32_de(d, 20) as usize == n
+                    && d.len() >= CABECERA_ALLOC + n
+                    && d[CABECERA_ALLOC..CABECERA_ALLOC + n] == esperados[..n]
+            });
             let es_el_copiador = exacto(copia::forma(), copia::parametros);
             if nuestro || es_el_canal || es_el_copiador {
                 Ok(h.funcion)
@@ -142,6 +152,11 @@ mod pruebas {
         assert_eq!(permitido(&h[..n]), Ok(73));
         let n = crate::canal::pedir(&mut h, 12).unwrap();
         assert_eq!(permitido(&h[..n]), Ok(103));
+        let n = crate::canal::GR.pedir(&mut h, 22).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(103));
+        // El de GR0 con el motor del de copia, no.
+        h[CABECERA + CABECERA_ALLOC + 128] = 0x0B;
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
     }
 
     #[test]

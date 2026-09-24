@@ -750,6 +750,11 @@ pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 /// `arg1` = cliente | subdispositivo << 32 (las de `GET_GSP_STATIC_INFO`).
 /// Una pregunta. `Ok` = pagina | numero << 32.
 pub const IOMMU_OP_GSP_GR: u64 = 0x26;
+/// M5 G1: pedir el canal de GR0 (`canal::GR`: chid 2, motor GR0, instancia y
+/// GPFIFO en las paginas 5 y 6 del tramo, su bufer de metodos en 0x3A01_0000).
+/// Con el canal de copia pedido; una vez por arranque. Despues, BIND y
+/// SCHEDULE por `IOMMU_OP_GPU_CANAL_ORDEN` con `AtarGr`/`ProgramarGr`.
+pub const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

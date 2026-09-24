@@ -423,7 +423,25 @@ const PASOS: &[Paso] = &[
         hecho: super::gspgr::hecho,
         dar: super::gspgr::preguntar,
         pide: Some(b"estatica"),
-        consejo: b"`gpu`: la fila `gr` dice 8 buferes y cuanto ocupan, y cada `gr bufer` su medida -- lo siguiente es G1, un canal en GR0",
+        consejo: b"`gpu`: la fila `gr` dice 8 buferes y cuanto ocupan, y cada `gr bufer` su medida -- lo siguiente es `canalgr`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"canalgr",
+        que: b"EL CANAL DE GR0: pedido con la receta del de copia, chid 2 en la lista 0, y su bufer de metodos (M5 G1)",
+        hecho: super::gspcanalgr::pedido,
+        dar: super::gspcanalgr::pedir,
+        pide: Some(b"canal"),
+        consejo: b"`gpu`: la fila `canal gr` dice NV_OK; `iommu`: `domain` 5 paginas mas -- lo siguiente es `encendergr`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"encendergr",
+        que: b"ENCENDER EL CANAL DE GR0: BIND a GR0 y GPFIFO_SCHEDULE (M5 G1)",
+        hecho: super::gspcanalgr::encendido,
+        dar: super::gspcanalgr::encender,
+        pide: Some(b"canalgr"),
+        consejo: b"`gpu`: `atado gr` y `en lista gr` dicen NV_OK -- lo siguiente es G2, los buferes de `gr` en tu VRAM",
         repinta: false,
     },
 ];
@@ -686,6 +704,9 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
         g.with_ink(INK_PLAIN);
     }
     let mut salio = [Salio::Quitado; MAX_PASOS];
+    let mut tiempo = [0u64; MAX_PASOS];
+    let mut intentos = [0u8; MAX_PASOS];
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let mut parado = false;
     for (i, paso) in PASOS.iter().enumerate() {
         salio[i] = if parado {
@@ -707,7 +728,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
                 g.with_ink(INK_PLAIN);
                 parado = true;
                 salio[i] = Salio::Parado;
-                fila(dsk, paso, Salio::Parado);
+                fila(dsk, paso, Salio::Parado, 0, 0);
                 continue;
             }
             // La marca: si la maquina cae AHORA, el arranque siguiente lo sabe.
@@ -717,7 +738,17 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             // Por donde va, en la linea de estado: un paso de varios segundos
             // sin decir cual es parece una maquina colgada.
             crate::scene::sugerir::pista(p, &dsk.run_box, b"save mode", paso.nombre);
-            let r = (paso.dar)();
+            let desde = bmo::ciclos();
+            let mut r = (paso.dar)();
+            intentos[i] = 1;
+            // ** EL REINTENTO (24-09): un paso que solo PREGUNTA y no sale se
+            // da otra vez, una sola: una respuesta que tarda o un mensaje
+            // del GSP por medio no deberian tumbar todo lo que va detras.
+            if r.is_err() && reintentable(paso.nombre) {
+                r = (paso.dar)();
+                intentos[i] = 2;
+            }
+            tiempo[i] = (bmo::ciclos() - desde) * 1_000_000 / hz;
             if armado {
                 escribir_modo(args, None, tumbo);
             }
@@ -729,17 +760,27 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
                 Err(m) => Salio::No(m),
             }
         };
-        fila(dsk, paso, salio[i]);
+        fila(dsk, paso, salio[i], tiempo[i], intentos[i]);
     }
     // Y el save de despues: lo que quedo, tambien en el disco.
     let _ = super::save_maestro::maestro(dsk, DEFAULT_DUMP, p.rayo());
+    let escrito = escribir_pasos(&salio, &tiempo, &intentos, tumbo);
+    resumen(dsk, &salio, tumbo, escrito);
     notas(dsk, &salio, armado);
     super::iommu::report_iommu(&mut dsk.out.grid);
     consejero(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "verificacion total", INK_DIM);
 }
 
-fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
+/// Los pasos que solo PREGUNTAN al GSP-RM (o leen): darlos dos veces no
+/// cambia nada en la 3060, asi que un fallo se reintenta una vez.
+const REINTENTABLES: &[&[u8]] = &[b"estatica", b"objetos", b"salud", b"espacio", b"motores", b"ficha", b"gr"];
+
+fn reintentable(nombre: &[u8]) -> bool {
+    REINTENTABLES.contains(&nombre)
+}
+
+fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio, us: u64, intentos: u8) {
     let g = &mut dsk.out.grid;
     g.text(b"    ");
     g.text(paso.nombre);
@@ -769,9 +810,30 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
             g.with_ink(INK_GOOD);
             g.text(b"HECHO");
         }
+        Salio::No(_) => {
+            g.with_ink(INK_ERR);
+            g.text(b"NO");
+        }
+    }
+    if matches!(s, Salio::Bien | Salio::No(_)) {
+        g.with_ink(INK_ECHO);
+        g.text(b" en ");
+        if us >= 10_000 {
+            g.dec(us / 1000);
+            g.text(b" ms");
+        } else {
+            g.dec(us);
+            g.text(b" us");
+        }
+        if intentos > 1 {
+            g.text(b" (al 2o intento)");
+        }
+    }
+    match s {
+        Salio::Quitado | Salio::YaEstaba | Salio::Parado | Salio::FaltaOtro | Salio::Bien => {}
         Salio::No(m) => {
             g.with_ink(INK_ERR);
-            g.text(b"NO: ");
+            g.text(b": ");
             g.text(super::iommu::motivo(m));
         }
     }
@@ -780,6 +842,113 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
     g.text(paso.que);
     g.with_ink(INK_PLAIN);
     g.byte(b'\n');
+}
+
+/// **EL RESUMEN** (24-09): una linea con la cuenta, y el primer paso que no
+/// salio con su motivo -- lo primero que hay que leer.
+fn resumen(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], tumbo: Option<usize>, escrito: bool) {
+    let n = PASOS.len();
+    let cuenta = |f: fn(&Salio) -> bool| salio[..n].iter().filter(|s| f(s)).count() as u64;
+    let bien = cuenta(|s| matches!(s, Salio::Bien | Salio::YaEstaba));
+    let g = &mut dsk.out.grid;
+    g.separar();
+    g.with_ink(if bien as usize == n { INK_GOOD } else { INK_PLAIN });
+    g.text(b"  RESUMEN  ");
+    g.dec(bien);
+    g.text(b" de ");
+    g.dec(n as u64);
+    g.text(b" pasos bien (");
+    g.dec(cuenta(|s| matches!(s, Salio::Bien)));
+    g.text(b" hechos ahora, ");
+    g.dec(cuenta(|s| matches!(s, Salio::YaEstaba)));
+    g.text(b" ya estaban)");
+    let quitados = cuenta(|s| matches!(s, Salio::Quitado));
+    if quitados > 0 {
+        g.text(b", ");
+        g.dec(quitados);
+        g.text(b" quitados");
+    }
+    g.with_ink(INK_PLAIN);
+    g.byte(b'\n');
+    if let Some(i) = salio[..n].iter().position(|s| matches!(s, Salio::No(_) | Salio::Parado)) {
+        g.with_ink(INK_ERR);
+        g.text(b"           se paro en `");
+        g.text(PASOS[i].nombre);
+        g.text(b"`: ");
+        g.text(match salio[i] {
+            Salio::No(m) => super::iommu::motivo(m),
+            _ => b"el save de antes no se pudo escribir",
+        });
+        g.with_ink(INK_PLAIN);
+        g.byte(b'\n');
+    }
+    if let Some(i) = tumbo {
+        g.with_ink(INK_ERR);
+        g.text(b"           `");
+        g.text(PASOS[i].nombre);
+        g.text(b"` TUMBO la maquina una vez: sigue quitado\n");
+        g.with_ink(INK_PLAIN);
+    }
+    g.with_ink(INK_ECHO);
+    g.text(if escrito {
+        b"           una linea por paso en datos/pasos.txt: pega ESE fichero, no el informe entero\n" as &[u8]
+    } else {
+        b"           datos/pasos.txt no se pudo escribir\n"
+    });
+    g.with_ink(INK_PLAIN);
+}
+
+/// **`datos/pasos.txt`** (24-09): una linea por paso -- nombre, que salio,
+/// cuanto tardo y el motivo --, para pegarlo entero en vez del informe. Lo
+/// que no cabe en una linea esta en el informe maestro de al lado.
+fn escribir_pasos(salio: &[Salio; MAX_PASOS], tiempo: &[u64; MAX_PASOS], intentos: &[u8; MAX_PASOS], tumbo: Option<usize>) -> bool {
+    let Ok(a) = bmo::Archivo::create(b"datos/pasos.txt") else { return false };
+    a.write(b"save mode -- una linea por paso (el detalle, en el informe maestro)\n");
+    for (i, paso) in PASOS.iter().enumerate() {
+        let mut t = [0u8; 160];
+        let estado: &[u8] = match salio[i] {
+            Salio::Quitado => b"QUITADO",
+            Salio::Parado => b"PARADO",
+            Salio::YaEstaba => b"ya estaba",
+            Salio::FaltaOtro => b"no se intento",
+            Salio::Bien => b"HECHO",
+            Salio::No(_) => b"NO",
+        };
+        let mut us = [0u8; 20];
+        let nu = decimal(&mut us, tiempo[i]);
+        let mut n = juntar(&mut t, &[paso.nombre, b": ", estado]);
+        if matches!(salio[i], Salio::Bien | Salio::No(_)) {
+            n += juntar(&mut t[n..], &[b" en ", &us[..nu], b" us"]);
+            if intentos[i] > 1 {
+                n += juntar(&mut t[n..], &[b" (2o intento)"]);
+            }
+        }
+        if let Salio::No(m) = salio[i] {
+            n += juntar(&mut t[n..], &[b" -- ", super::iommu::motivo(m)]);
+        }
+        if tumbo == Some(i) {
+            n += juntar(&mut t[n..], &[b" -- TUMBO la maquina una vez"]);
+        }
+        a.write(&t[..n]);
+        a.write(b"\n");
+    }
+    a.close()
+}
+
+/// `v` en decimal en `t`. Devuelve cuantos bytes.
+fn decimal(t: &mut [u8; 20], mut v: u64) -> usize {
+    let mut k = t.len();
+    loop {
+        k -= 1;
+        t[k] = b'0' + (v % 10) as u8;
+        v /= 10;
+        if v == 0 {
+            break;
+        }
+    }
+    let n = t.len() - k;
+    t.copy_within(k.., 0);
+    n
 }
 
 /// Escribe `partes` en `t` hasta donde quepa. Devuelve cuanto escribio.
@@ -848,24 +1017,36 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
     g.with_ink(INK_PLAIN);
 }
 
-/// **Notas y consejos**: que mirar ahora, paso a paso.
+/// **Notas y consejos**: SOLO lo que importa ahora (24-09: salian los 32
+/// consejos en cada arranque, y lo que habia que mirar se perdia entre
+/// ellos). Cada paso que no salio, con que hacer; y el consejo del ULTIMO
+/// que salio, que es lo que hay que mirar para seguir.
 fn notas(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], armado: bool) {
     let g = &mut dsk.out.grid;
     g.with_ink(INK_GOOD);
     g.text(b"  NOTAS Y CONSEJOS\n");
     g.with_ink(INK_PLAIN);
+    let ultimo_bien = (0..PASOS.len()).rev().find(|&i| matches!(salio[i], Salio::Bien | Salio::YaEstaba));
+    let mut dichas = 0;
     for (i, paso) in PASOS.iter().enumerate() {
+        let texto: &[u8] = match salio[i] {
+            Salio::Bien | Salio::YaEstaba if Some(i) == ultimo_bien => paso.consejo,
+            Salio::Bien | Salio::YaEstaba | Salio::Quitado => continue,
+            Salio::Parado => b"no se dio: sin save de antes no se arriesga nada; mira `disco`",
+            // Solo el primero de una cadena que no se dio: el resto es eco.
+            Salio::FaltaOtro if i > 0 && matches!(salio[i - 1], Salio::FaltaOtro | Salio::No(_)) => continue,
+            Salio::FaltaOtro => b"no se dio: el paso que pide no esta hecho (quita su `-`, o daselo a mano)",
+            Salio::No(_) => b"NO salio: su fila en `gpu` dice por que; la foto de antes esta en el disco y `cabina fallos` lo ultimo",
+        };
         g.text(b"    ");
         g.text(paso.nombre);
         g.text(b": ");
-        match salio[i] {
-            Salio::Bien | Salio::YaEstaba => g.text(paso.consejo),
-            Salio::Quitado => g.text(b"quitado a proposito; `save mode` sin el `-` lo da"),
-            Salio::Parado => g.text(b"no se dio: sin save de antes no se arriesga nada; mira `disco`"),
-            Salio::FaltaOtro => g.text(b"sin el paso que pide no se da: quita el `-` de ese, o daselo a mano antes"),
-            Salio::No(_) => g.text(b"no salio: la foto de la fila de arriba y el `save` de antes estan en el disco; mira `cabina fallos`"),
-        }
+        g.text(texto);
         g.byte(b'\n');
+        dichas += 1;
+    }
+    if dichas == 0 {
+        g.text(b"    nada que mirar: ningun paso se dio\n");
     }
     g.with_ink(INK_ECHO);
     g.text(if armado {

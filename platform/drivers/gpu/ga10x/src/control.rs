@@ -72,13 +72,17 @@ pub enum Control {
     /// (`FIFO_GET_DEVICE_INFO_TABLE`): de que lista de ejecucion es cada
     /// motor, y donde estan los registros de esa lista. Pregunta.
     Dispositivos,
+    /// M5 G1: atar el canal de GR0 a GR0 (`BIND`), por su puerta.
+    AtarGr,
+    /// M5 G1: meter el canal de GR0 en su lista (`GPFIFO_SCHEDULE`).
+    ProgramarGr,
 }
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 8] = [
+    pub const TODOS: [Control; 10] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -87,6 +91,8 @@ impl Control {
         Control::Programar,
         Control::Ficha,
         Control::Dispositivos,
+        Control::AtarGr,
+        Control::ProgramarGr,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -104,6 +110,8 @@ impl Control {
             Control::Programar => (0xA06F_0103, 2, CANAL),
             Control::Ficha => (0xC36F_0108, 4, CANAL),
             Control::Dispositivos => (0x2080_1112, DISPOSITIVOS_MEDIDA, SUBDISPOSITIVO),
+            Control::AtarGr => (0xA06F_0104, 4, crate::canal::GR.asa),
+            Control::ProgramarGr => (0xA06F_0103, 2, crate::canal::GR.asa),
         }
     }
 
@@ -119,6 +127,11 @@ impl Control {
         matches!(self, Control::Atar | Control::Programar)
     }
 
+    /// Las que ENCIENDEN el canal de GR0 (M5 G1): solo tras pedirlo.
+    pub const fn del_canal_gr(self) -> bool {
+        matches!(self, Control::AtarGr | Control::ProgramarGr)
+    }
+
     /// **Los parametros, exactos**: los que se mandan y los unicos que el
     /// contrato deja pasar. Devuelve cuantos bytes llenos.
     pub fn parametros(self, p: &mut [u8]) -> usize {
@@ -132,8 +145,9 @@ impl Control {
         }
         match self {
             Control::Atar => poner(p, 0, MOTOR),
+            Control::AtarGr => poner(p, 0, crate::canal::GR.motor),
             // bEnable = 1; bSkipSubmit = 0.
-            Control::Programar => p[0] = 1,
+            Control::Programar | Control::ProgramarGr => p[0] = 1,
             _ => {}
         }
         medida
@@ -326,7 +340,9 @@ mod pruebas {
         assert_eq!(Control::de(2), Some(Control::Motores));
         assert_eq!(Control::de(6), Some(Control::Ficha));
         assert_eq!(Control::de(7), Some(Control::Dispositivos));
-        assert_eq!(Control::de(8), None);
+        assert_eq!(Control::de(8), Some(Control::AtarGr));
+        assert_eq!(Control::de(10), None);
+        assert!(Control::AtarGr.del_canal_gr() && !Control::AtarGr.del_canal() && !Control::AtarGr.pregunta());
         assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());
         assert!(Control::Motores.pregunta() && Control::Metodos.pregunta() && !Control::Directorio.pregunta());
         assert!(Control::Ficha.pregunta() && !Control::Atar.pregunta() && !Control::Programar.pregunta());

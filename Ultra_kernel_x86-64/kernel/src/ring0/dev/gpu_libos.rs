@@ -678,10 +678,16 @@ static CANAL_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::Atomic
 /// La fisica del bufer de metodos, una vez pedida y prestada.
 static METODOS_F: AtomicU64 = AtomicU64::new(0);
 
-/// El bufer de metodos: sus marcos, a cero y prestados. `Some(fisica)`.
+/// El bufer de metodos del canal de copia: sus marcos, a cero y prestados.
 fn bufer_de_metodos() -> Option<u64> {
-    use bmo_gpu_ga10x::canal::{IOVA_METODOS, METODOS};
-    let f = METODOS_F.load(Ordering::Acquire);
+    bufer_de_metodos_en(&METODOS_F, bmo_gpu_ga10x::canal::IOVA_METODOS)
+}
+
+/// Un bufer de metodos en `IOVA_METODOS`: sus marcos (una vez, en `celda`), a
+/// cero y prestados ESCRIBIBLES, releidos por la IOMMU. `Some(fisica)`.
+fn bufer_de_metodos_en(celda: &AtomicU64, iova: u64) -> Option<u64> {
+    use bmo_gpu_ga10x::canal::METODOS;
+    let f = celda.load(Ordering::Acquire);
     if f != 0 {
         return Some(f);
     }
@@ -689,16 +695,16 @@ fn bufer_de_metodos() -> Option<u64> {
     // La 3060 lo ESCRIBIRA por DMA: NEUTRO.
     let f = phys::alloc_frames_contig_de(paginas, phys::Titular::Neutro)?;
     memoria(f, METODOS).fill(0);
-    if io::prestar_gpu(IOVA_METODOS, f, paginas, true).is_err() {
+    if io::prestar_gpu(iova, f, paginas, true).is_err() {
         return None;
     }
     // Y se ve como se vera: cada pagina, por la IOMMU, escribible y suya.
-    if !(0..paginas).all(|k| escribible(IOVA_METODOS + k * PAGINA, f + k * PAGINA)) {
-        crate::ring0::cabina::warn("gpu", "L1d2b: el bufer de metodos NO se ve por la IOMMU donde se presto; iova", IOVA_METODOS);
+    if !(0..paginas).all(|k| escribible(iova + k * PAGINA, f + k * PAGINA)) {
+        crate::ring0::cabina::warn("gpu", "un bufer de metodos NO se ve por la IOMMU donde se presto; iova", iova);
         return None;
     }
-    METODOS_F.store(f, Ordering::Release);
-    crate::ring0::cabina::count("gpu", "L1d2b: bufer de metodos PRESTADO a la 3060 para escribir; paginas", paginas);
+    celda.store(f, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "bufer de metodos PRESTADO a la 3060 para escribir; iova", iova);
     Some(f)
 }
 
@@ -736,13 +742,14 @@ pub fn pedir_canal() -> Result<u64, u32> {
     }
 }
 
-/// **L1d2c: una orden que ENCIENDE el canal** (`que` = el indice en
-/// `control::Control::TODOS`; solo BIND y GPFIFO_SCHEDULE), con el canal pedido.
+/// **L1d2c (y M5 G1): una orden que ENCIENDE un canal** (`que` = el indice en
+/// `control::Control::TODOS`; solo BIND y GPFIFO_SCHEDULE), con SU canal pedido.
 pub fn orden_canal(que: u64) -> Result<u64, u32> {
-    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.del_canal()) else {
+    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.del_canal() || c.del_canal_gr()) else {
         return Err(IOMMU_NO_CANAL_ORDEN);
     };
-    if !CANAL_PEDIDO.load(Ordering::Acquire) {
+    let pedido = if c.del_canal_gr() { &CANAL_GR_PEDIDO } else { &CANAL_PEDIDO };
+    if !pedido.load(Ordering::Acquire) {
         return Err(IOMMU_NO_CANAL_ORDEN);
     }
     let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
@@ -897,4 +904,46 @@ pub fn preguntar_gr(asas: u64) -> Result<u64, u32> {
     let r = enviar(|h, n| bmo_gpu_ga10x::gr::pedir(h, n, cliente, sub))?;
     crate::ring0::cabina::count("gpu", "M5 G0: buferes de GR preguntados al cliente interno; asa", cliente as u64);
     Ok(r)
+}
+
+// == M5 G1: EL CANAL DE GR0 (2026-09-24) ======================================
+//
+// La misma receta que el de copia (VISTO en el metal), con `canal::GR`: chid 2,
+// motor GR0, instancia y GPFIFO en las paginas 5 y 6 del tramo, el USERD en el
+// hueco 2 de la pagina compartida, y su propio bufer de metodos. Pide el canal
+// de copia antes: el pone a cero la pagina de USERD que comparten.
+
+static CANAL_GR_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static METODOS_GR_F: AtomicU64 = AtomicU64::new(0);
+
+/// **M5 G1: pedir el canal de GR0.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn pedir_canal_gr() -> Result<u64, u32> {
+    use bmo_gpu_ga10x::canal::GR;
+    if !rpc_lista() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    if !CANAL_PEDIDO.load(Ordering::Acquire) || CANAL_GR_PEDIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_CANAL);
+    }
+    let fallo = |m: u32| {
+        CANAL_GR_PEDIDO.store(false, Ordering::Release);
+        Err(m)
+    };
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(crate::ring0::dev::gpu::bar0());
+    for dir in GR.a_cero() {
+        if bmo_gpu_ga10x::vram::a_cero(&mut r, dir) as usize != bmo_gpu_ga10x::vram::PALABRAS {
+            crate::ring0::cabina::warn("gpu", "M5 G1: una pagina del canal de GR0 no quedo a cero; VRAM", dir);
+            return fallo(IOMMU_NO_CANAL_MEMORIA);
+        }
+    }
+    if bufer_de_metodos_en(&METODOS_GR_F, GR.iova_metodos).is_none() {
+        return fallo(IOMMU_NO_CANAL_MEMORIA);
+    }
+    match enviar(|h, n| GR.pedir(h, n)) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "M5 G1: GSP_RM_ALLOC del canal de GR0 pedido; asa", GR.asa as u64);
+            Ok(v)
+        }
+        Err(m) => fallo(m),
+    }
 }

@@ -373,7 +373,11 @@ contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_
        BUNDLE_CB, PAGEPOOL, ATTRIBUTE_CB, RTV_CB_GLOBAL, FECS_EVENT y
        PRIV_ACCESS_MAP -- con la medida, pagina y alineacion de nouveau
        (`gpu gr`, paso `gr`)                         [en codigo, 24-09]
-   G1  un canal en GR0 (lista 0, la de la tabla), como el de L1d2b
+   G1  un canal en GR0 (lista 0, la de la tabla), como el de L1d2b:
+       `canal::GR` (chid 2, instancia y GPFIFO en las paginas 5 y 6 del
+       tramo, USERD en el hueco 2, metodos en 0x3A01_0000), BIND GR0 y
+       SCHEDULE (`gpu canalgr`, pasos `canalgr` y `encendergr`)
+                                                     [en codigo, 24-09]
    G2  los buferes en VRAM propia, mapeados en nuestro espacio (el mapeador
        de L1d1 crece de 16 paginas a los MiB que diga G0)
    G3  PROMOTE_CTX (0x2080012B) con cada uno: MAIN 0, PATCH 2, BUNDLE_CB 3,
@@ -384,6 +388,14 @@ contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_
 
 Los ids de PROMOTE son los de la r570 (`nvrm/gpu.h`), comprobados: una
 primera version los tenia corridos en uno.
+
+**`save mode`, refinado (24-09).** El propietario pidio automatizarlo del
+todo. Ahora, al acabar: una linea de RESUMEN (cuantos bien, en cual se paro y
+por que); las NOTAS solo de lo que no salio y el consejo del ultimo que si
+(antes, los 32 consejos en cada arranque); el tiempo de cada paso en su fila;
+un segundo intento para los pasos que solo PREGUNTAN (`estatica`, `objetos`,
+`salud`, `espacio`, `motores`, `ficha`, `gr`); y `datos/pasos.txt`, una linea
+por paso, para pegar ESE fichero en vez del informe entero.
 
 **Por donde entra el BSF (24-09).** El sobre de `toolchain/lang/spirv/bsf`
 ya esta hecho para esto: "una maquina nueva es un numero nuevo; el formato no

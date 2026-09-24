@@ -105,42 +105,117 @@ fn memoria(d: &mut [u8], o: usize, base: u64, medida: u64, espacio: u32, cache: 
     poner(d, o + 20, cache);
 }
 
+/// **Un canal nuestro**, todo fijo: su chid, su asa, su motor y donde vive.
+/// El de COPIA (L1d2b, VISTO en el metal) y el de GR0 (M5 G1).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Canal {
+    pub chid: u32,
+    pub asa: u32,
+    /// `NV2080_ENGINE_TYPE_*`.
+    pub motor: u32,
+    pub instancia: u64,
+    pub userd: u64,
+    pub gpfifo: u64,
+    pub gpfifo_va: u64,
+    pub iova_metodos: u64,
+}
+
+/// El de copia (L1d2b): lo que dicen las constantes de arriba.
+pub const COPIA: Canal = Canal {
+    chid: CHID,
+    asa: CANAL,
+    motor: MOTOR,
+    instancia: INSTANCIA,
+    userd: USERD,
+    gpfifo: GPFIFO,
+    gpfifo_va: GPFIFO_VA,
+    iova_metodos: IOVA_METODOS,
+};
+
+/// **El de GR0 (M5 G1)**: chid 2, en la lista 0 (la de GR0 en la tabla del
+/// metal, 24-09 14:47). La instancia en la pagina 5 del tramo, el USERD en el
+/// hueco 2 de la pagina de USERD, el GPFIFO en la 6, y su bufer de metodos en
+/// otros 5 marcos de la RAM del PC, en 0x3A01_0000. Canal de USUARIO, como el
+/// de copia (nouveau hace el contexto de oro en uno privilegiado: si el RM lo
+/// pide, el metal lo dira en G3/G4).
+pub const GR: Canal = Canal {
+    chid: 2,
+    asa: 0xF1F0_0000 | 2,
+    motor: 0x01,
+    instancia: TRAMO + 5 * 0x1000,
+    userd: USERD_PAGINA + USERD_MEDIDA * 2,
+    gpfifo: TRAMO + 6 * 0x1000,
+    gpfifo_va: TRAMO_VA + 6 * 0x1000,
+    iova_metodos: 0x3A01_0000,
+};
+
+impl Canal {
+    /// Los `flags` (`NVOS04_FLAGS_*`) de ESTE canal: como [`FLAGS`] con su chid.
+    pub const fn flags(&self) -> u32 {
+        (self.chid % 8) << 8 | (self.chid / 8) << 12 | 1 << 21
+    }
+
+    /// `(hClient, hParent, hObject, hClass, medida)`.
+    pub const fn forma(&self) -> (u32, u32, u32, u32, usize) {
+        (crate::objeto::CLIENTE, DISPOSITIVO, self.asa, AMPERE_CHANNEL_GPFIFO_A, MEDIDA)
+    }
+
+    /// **Los 368 B**, exactos.
+    pub fn parametros(&self, p: &mut [u8]) -> usize {
+        p[..MEDIDA].fill(0);
+        poner64(p, 8, self.gpfifo_va);
+        poner(p, 16, GPFIFO_ENTRADAS);
+        poner(p, 20, self.flags());
+        poner(p, 28, ESPACIO);
+        poner(p, 128, self.motor);
+        // Instancia, USERD y RAMFC en VRAM, sin cache (1, como nouveau); el
+        // bufer de metodos en la RAM del PC (0).
+        memoria(p, 144, self.instancia, INSTANCIA_MEDIDA, VIDEO, 1);
+        memoria(p, 168, self.userd, USERD_MEDIDA, VIDEO, 1);
+        memoria(p, 192, self.instancia, RAMFC_MEDIDA, VIDEO, 1);
+        memoria(p, 216, self.iova_metodos, METODOS, SISTEMA, 0);
+        poner(p, 244, INTERNOS);
+        MEDIDA
+    }
+
+    /// **La pregunta** (`GSP_RM_ALLOC`) en `hueco`.
+    pub fn pedir(&self, hueco: &mut [u8], numero: u32) -> Option<usize> {
+        let (cliente, padre, asa, clase, medida) = self.forma();
+        crate::orden::componer(hueco, numero, crate::objeto::GSP_RM_ALLOC, crate::objeto::CABECERA_ALLOC + medida, |d| {
+            poner(d, 0, cliente);
+            poner(d, 4, padre);
+            poner(d, 8, asa);
+            poner(d, 12, clase);
+            poner(d, 20, medida as u32);
+            self.parametros(&mut d[crate::objeto::CABECERA_ALLOC..]);
+        })
+    }
+
+    /// Las paginas del tramo que se ponen a cero antes de pedirlo (el USERD
+    /// va en la pagina compartida: se pone a cero con el primer canal).
+    pub const fn a_cero(&self) -> [u64; 2] {
+        [self.instancia, self.gpfifo]
+    }
+}
+
+/// Los canales que el contrato deja pedir.
+pub const TODOS: [Canal; 2] = [COPIA, GR];
+
 /// `(hClient, hParent, hObject, hClass, medida)`, como `objeto::Objeto::forma`.
 pub const fn forma() -> (u32, u32, u32, u32, usize) {
-    (crate::objeto::CLIENTE, DISPOSITIVO, CANAL, AMPERE_CHANNEL_GPFIFO_A, MEDIDA)
+    COPIA.forma()
 }
 
-/// **Los 368 B**, exactos: los que se mandan y los unicos que el contrato deja
-/// pasar.
+/// **Los 368 B** del canal de copia.
 pub fn parametros(p: &mut [u8]) -> usize {
-    p[..MEDIDA].fill(0);
-    poner64(p, 8, GPFIFO_VA);
-    poner(p, 16, GPFIFO_ENTRADAS);
-    poner(p, 20, FLAGS);
-    poner(p, 28, ESPACIO);
-    poner(p, 128, MOTOR);
-    // Instancia, USERD y RAMFC en VRAM, sin cache (1, como nouveau); el bufer
-    // de metodos en la RAM del PC (0).
-    memoria(p, 144, INSTANCIA, INSTANCIA_MEDIDA, VIDEO, 1);
-    memoria(p, 168, USERD, USERD_MEDIDA, VIDEO, 1);
-    memoria(p, 192, INSTANCIA, RAMFC_MEDIDA, VIDEO, 1);
-    memoria(p, 216, IOVA_METODOS, METODOS, SISTEMA, 0);
-    poner(p, 244, INTERNOS);
-    MEDIDA
+    COPIA.parametros(p)
 }
 
-/// **La pregunta** (`GSP_RM_ALLOC`) en `hueco`.
+/// **La pregunta** del canal de copia (`GSP_RM_ALLOC`) en `hueco`.
 pub fn pedir(hueco: &mut [u8], numero: u32) -> Option<usize> {
-    let (cliente, padre, asa, clase, medida) = forma();
-    crate::orden::componer(hueco, numero, crate::objeto::GSP_RM_ALLOC, crate::objeto::CABECERA_ALLOC + medida, |d| {
-        poner(d, 0, cliente);
-        poner(d, 4, padre);
-        poner(d, 8, asa);
-        poner(d, 12, clase);
-        poner(d, 20, medida as u32);
-        parametros(&mut d[crate::objeto::CABECERA_ALLOC..]);
-    })
+    COPIA.pedir(hueco, numero)
 }
+
 
 #[cfg(test)]
 mod pruebas {
@@ -188,6 +263,34 @@ mod pruebas {
         assert_eq!((u64_(&p, 216), u64_(&p, 224), u(&p, 232), u(&p, 236)), (0x3A00_0000, 0x5000, 1, 0));
         assert_eq!((u(&p, 240), u(&p, 244)), (0, 0x14), "sin grupo propio; USER, notificadores NONE");
         assert!(p[248..368].iter().all(|&b| b == 0), "notificadores, CC y tpcConfigID");
+    }
+
+    #[test]
+    fn el_canal_de_copia_no_cambio() {
+        // Los 368 B del de copia: los mismos que VIO el metal (24-09 14:55).
+        let (mut a, mut b) = ([0u8; MEDIDA], [0u8; MEDIDA]);
+        parametros(&mut a);
+        COPIA.parametros(&mut b);
+        assert_eq!(a, b);
+        assert_eq!(COPIA.flags(), FLAGS);
+    }
+
+    #[test]
+    fn el_canal_de_gr0() {
+        let mut p = [0xAAu8; MEDIDA];
+        GR.parametros(&mut p);
+        assert_eq!(u(&p, 128), 1, "GR0");
+        assert_eq!(u(&p, 20), 0x0020_0200, "chid 2: indice 2, pagina 0, PAGE_FIXED");
+        assert_eq!(u64_(&p, 8), 0x2_0000_6000, "el GPFIFO en la pagina 6");
+        assert_eq!((u64_(&p, 144), u64_(&p, 168)), (0x420_5000, 0x420_1400));
+        assert_eq!(u64_(&p, 216), 0x3A01_0000);
+        assert_eq!(GR.forma().2, 0xF1F0_0002);
+        // No pisa nada del de copia ni de la copia (paginas 0..4, 8, 12).
+        let fin = TRAMO + crate::vram::TRAMO_PAGINAS as u64 * 0x1000;
+        for d in [GR.instancia, GR.gpfifo] {
+            assert!(d >= TRAMO + 5 * 0x1000 && d < fin && d != TRAMO + 8 * 0x1000 && d != TRAMO + 12 * 0x1000);
+        }
+        assert!(GR.userd != COPIA.userd && GR.iova_metodos >= COPIA.iova_metodos + METODOS);
     }
 
     #[test]

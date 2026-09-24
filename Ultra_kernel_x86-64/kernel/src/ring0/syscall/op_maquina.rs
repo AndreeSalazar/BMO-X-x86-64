@@ -831,6 +831,12 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         IOMMU_OP_GPU_COPIADOR => crate::ring0::dev::gpu_libos::pedir_copiador(),
         IOMMU_OP_GPU_LEER => crate::ring0::dev::gpu_libos::leer_tramo(arg1),
         IOMMU_OP_GSP_GR => crate::ring0::dev::gpu_libos::preguntar_gr(arg1),
+        IOMMU_OP_GPU_CANAL_GR => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::pedir_canal_gr()
+        }
         // ** L1d3: la primera vez que la 3060 EJECUTA algo nuestro. El FLUSH,
         // como el canal.
         IOMMU_OP_GPU_COPIA => {
