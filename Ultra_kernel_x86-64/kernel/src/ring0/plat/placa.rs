@@ -60,7 +60,19 @@ pub use bmo_firmware::{Ivhd, RangoEcam};
 const MAX_TABLAS: usize = bmo_firmware::xsdt::MAX_ENTRADAS;
 
 /// **Memoria fisica, leida.** Es lo UNICO que este fichero hace que el crate no
-/// puede: la direccion ya esta mapeada en el rango de identidad.
+/// puede. Y se lee POR EL PHYSMAP, como `madt.rs`.
+///
+/// ** Hasta el 2026-09-24 leia la direccion fisica TAL CUAL, confiando en que
+/// *"ya esta mapeada en el rango de identidad"*. Eso es verdad al arrancar,
+/// en el espacio del kernel -- y mentira dentro de una syscall, que corre en
+/// el espacio de la TAREA que llamo. El Ryzen lo dijo: `placa` desde el
+/// escritorio (tid 06, `PLACA_OP_*` por `op_contar.rs`) dio un #PF en Ring 0
+/// leyendo `0xBCBEF728`, una tabla ACPI a 3 GiB que el espacio del DIRECTOR no
+/// tiene. O sea que cualquier programa que pidiera esa operacion tumbaba el
+/// kernel. El physmap esta en TODOS los espacios; la identidad baja, no.
+///
+/// Lo que se salga del physmap (`0..16 GiB`) se devuelve VACIO: el recorrido
+/// lo toma por una cabecera que no se lee, que es lo que es.
 ///
 /// *** Lo que se hace con esos bytes --que tabla es, cuantos se leen, si se
 /// cree-- lo decide `bmo_firmware::xsdt`, con banco. Hasta el 2026-09-17 ese
@@ -68,7 +80,13 @@ const MAX_TABLAS: usize = bmo_firmware::xsdt::MAX_ENTRADAS;
 /// para el largo de cada tabla, y las dos copias no hacian lo mismo con una
 /// entrada ilegible. Ver la cabecera de ese modulo.
 unsafe fn leer(fisica: u64, n: usize) -> &'static [u8] {
-    unsafe { core::slice::from_raw_parts(fisica as *const u8, n) }
+    const PHYSMAP_TOPE: u64 = 16 << 30;
+    match fisica.checked_add(n as u64) {
+        Some(fin) if fisica != 0 && fin <= PHYSMAP_TOPE => unsafe {
+            core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(fisica) as *const u8, n)
+        },
+        _ => &[],
+    }
 }
 
 /// El XSDT a partir del RSDP. La regla (firma, ACPI 2.0+, puntero) es del crate.
