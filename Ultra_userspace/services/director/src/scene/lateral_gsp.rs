@@ -28,8 +28,8 @@
 //!
 //! ```text
 //!    3060           49o?     la temperatura; `?` = probable (ver `salud`)
-//!    ~~~~~~~~~~~~~~~~~~~     su HISTORIA, un minuto, de 25 a 95 grados, con
-//!    - - - - - - - - - -     la raya de 83 (donde la 3060 baja relojes)
+//!    ~~~~~~~~~~~~~~~~~~~     su HISTORIA, un minuto, en su propia ventana
+//!    - - - - - - - - - -     (la raya de 83, donde baja relojes, si cabe)
 //!    pstate           P0     lo que dijo el GSP-RM; P0 a tope, P8 reposo
 //!    pcie          1/3 x16   el enlace AHORA / el techo que declara
 //!    vram       12G GDDR6    lo que dijo GET_GSP_STATIC_INFO
@@ -68,12 +68,10 @@ pub(crate) const ALTO: u32 = GSP_ALTO + 12 + GPU_ALTO;
 /// El bloque de la 3060: su renglon, la historia y tres renglones mas.
 const GPU_ALTO: u32 = RENGLON + HIST_ALTO + 4 + 3 * RENGLON;
 const RENGLON: u32 = bmo::GLIFO_ALTO + 2;
-const HIST_ALTO: u32 = 20;
+const HIST_ALTO: u32 = 28;
 /// Muestras de temperatura: una por segundo, a 2 px cada una.
 const MUESTRAS: usize = 68;
-/// La escala de la historia, en grados, y la raya de aviso.
-const T_MIN: u32 = 25;
-const T_MAX: u32 = 95;
+/// La raya de aviso: donde la 3060 empieza a bajar relojes.
 const T_AVISO: u32 = 83;
 const GSP_ALTO: u32 = bmo::GLIFO_ALTO + 8 + NODO + 4 + bmo::GLIFO_ALTO;
 /// Un nodo: un punto de 8 px.
@@ -369,33 +367,54 @@ fn la_3060(p: &bmo::Pantalla, e: &Estado, x0: u32, y: u32, iw: u32) {
     };
     renglon(p, x0, y, iw, "3060", &t[..n], tinta);
 
-    // La historia: una linea en escala FIJA (25..95), para que un grado sea
-    // siempre la misma altura; y la raya de 83, punteada.
+    // ** LA HISTORIA, EN SU PROPIA VENTANA (24-09 11:55). Era una escala fija
+    // 25..95 en 20 px: tres grados eran un pixel y la linea salia plana. Ahora
+    // es la de los `vatios` de abajo: de la menor a la mayor del minuto, con un
+    // margen que no baja de 4 grados (la resolucion; sin suelo, el ruido de un
+    // grado seria una sierra). Area rellena y la linea encima, en el color de
+    // su grado; la raya de 83, solo si 83 cabe en la ventana.
     let gy = y + RENGLON;
     let ancho = (MUESTRAS as u32 * 2).min(iw);
-    let y_de = |g: u32| gy + HIST_ALTO - 2 - (g.clamp(T_MIN, T_MAX) - T_MIN) * (HIST_ALTO - 3) / (T_MAX - T_MIN);
     p.rect(x0, gy + HIST_ALTO - 1, ancho, 1, borde);
-    let raya = y_de(T_AVISO);
-    for k in (0..ancho).step_by(6) {
-        p.rect(x0 + k, raya, 3, 1, mezcla(ROJO, fondo, 160));
-    }
     // SAFETY: el escritorio es un solo hilo.
     let h = unsafe { &*core::ptr::addr_of!(HIST) };
-    let mut antes: Option<u32> = None;
-    for (k, &g) in h.iter().enumerate() {
-        if g == 0 {
-            antes = None;
-            continue;
+    let (mut lo, mut hi) = (u32::MAX, 0u32);
+    for &g in h.iter().filter(|&&g| g != 0) {
+        lo = lo.min(g as u32);
+        hi = hi.max(g as u32);
+    }
+    if lo <= hi {
+        let margen = ((hi - lo) / 4).max(4);
+        let base = lo.saturating_sub(margen);
+        let rango = (hi + margen - base).max(1);
+        let alto = HIST_ALTO - 3;
+        let y_de = |g: u32| gy + HIST_ALTO - 2 - (g.clamp(base, base + rango) - base) * alto / rango;
+        if (base..base + rango).contains(&T_AVISO) {
+            let raya = y_de(T_AVISO);
+            for k in (0..ancho).step_by(6) {
+                p.rect(x0 + k, raya, 3, 1, mezcla(ROJO, fondo, 160));
+            }
         }
-        let yy = y_de(g as u32);
-        let (a, z) = match antes {
-            Some(p0) if p0 < yy => (p0, yy),
-            Some(p0) => (yy, p0),
-            None => (yy, yy),
-        };
-        let c = if g as u32 >= T_AVISO { ROJO } else if g >= 70 { acento() } else { mezcla(VERDE, fondo, 64) };
-        p.rect(x0 + k as u32 * 2, a, 2, z - a + 2, c);
-        antes = Some(yy);
+        let suelo = gy + HIST_ALTO - 1;
+        let mut antes: Option<u32> = None;
+        for (k, &g) in h.iter().enumerate() {
+            if g == 0 {
+                antes = None;
+                continue;
+            }
+            let tono = if g as u32 >= T_AVISO { ROJO } else if g >= 70 { acento() } else { VERDE };
+            let yy = y_de(g as u32);
+            // El area, apagada, hasta el suelo...
+            p.rect(x0 + k as u32 * 2, yy, 2, suelo - yy, mezcla(tono, fondo, 200));
+            // ...y la linea encima, en su tono: un salto se ve entero.
+            let (a, z) = match antes {
+                Some(p0) if p0 < yy => (p0, yy),
+                Some(p0) => (yy, p0),
+                None => (yy, yy),
+            };
+            p.rect(x0 + k as u32 * 2, a, 2, z - a + 2, tono);
+            antes = Some(yy);
+        }
     }
 
     // pstate  P0 -- a tope en el acento, el reposo (P8 y mas) en verde.

@@ -6,8 +6,9 @@
 //!                     parpadeo del cursor
 //!
 //! Aqui no se sabe que ordenes hay: llegan como texto (`commands::sugerencias`
-//! decide, esto solo pinta). La primera va en el color del acento --es la que
-//! TAB escribe-- y las demas apagadas; detras, que hace la primera, si cabe.
+//! decide, esto solo pinta). La ELEGIDA --la que TAB escribe; cada TAB, la
+//! siguiente-- va en el acento con un punto delante, las demas apagadas;
+//! detras, que hace la elegida, si cabe.
 //!
 //! ```text
 //!    Tab  gpu init   gpu estatica   gpu objetos  +2    corre el secuenciador y ...
@@ -15,7 +16,7 @@
 
 use bmo_userland as bmo;
 
-use super::{acento, RunBox, BOX_BG, INK, INK_DIM};
+use super::{acento, RunBox, BOX_BG, INK_DIM};
 
 /// Limpia la linea de estado entera: media frase vieja detras de una nueva
 /// es peor que ninguna (lo mismo que `paint_status`). Devuelve donde empieza
@@ -32,13 +33,19 @@ fn trozo(p: &bmo::Pantalla, c: &RunBox, x: u32, fin: u32, s: &[u8], color: u32) 
     p.texto_bytes(x, c.status_y, &s[..s.len().min(caben)], color)
 }
 
-/// **Las sugerencias.** `lineas` son las ordenes (la primera, la de TAB),
-/// `mas` las que no caben en la fila, y `que` lo que hace la primera.
-pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox, lineas: &[&[u8]], mas: usize, que: &[u8]) {
+/// **Las sugerencias.** `lineas` son las ordenes, `elegida` la que TAB
+/// escribe (en el acento, con su marca), `mas` las que no caben en la fila, y
+/// `que` lo que hace la elegida.
+pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox, lineas: &[&[u8]], elegida: usize, mas: usize, que: &[u8]) {
     let (mut x, fin) = limpiar(p, c);
     x = trozo(p, c, x, fin, b"Tab  ", INK_DIM);
     for (k, l) in lineas.iter().enumerate() {
-        x = trozo(p, c, x, fin, l, if k == 0 { acento() } else { INK });
+        if k == elegida {
+            // La marca: un punto del acento delante, como la luz del panel.
+            p.rect(x, c.status_y + bmo::GLIFO_ALTO / 2 - 2, 4, 4, acento());
+            x += 8;
+        }
+        x = trozo(p, c, x, fin, l, if k == elegida { acento() } else { INK_DIM });
         x = trozo(p, c, x, fin, b"   ", INK_DIM);
     }
     if mas > 0 {

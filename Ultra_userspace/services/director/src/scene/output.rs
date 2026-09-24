@@ -87,6 +87,9 @@ pub(crate) struct Output {
     /// viejas se vuelvan del futuro, pero si tiene que poner el segundo a cero
     /// -- si no, volcar el historial escupiria doscientas lineas en blanco.
     alive_boxes: usize,
+    /// La sangria de la fila en curso si es la CONTINUACION de una que no
+    /// cupo (0 = no lo es). Ver [`Output::envolver`].
+    sangria: usize,
 }
 
 impl Output {
@@ -132,6 +135,7 @@ impl Output {
             // La linea en curso ya cuenta: esta vacia, pero es una fila del
             // historial y no un hueco.
             alive_boxes: 1,
+            sangria: 0,
         }
     }
 
@@ -206,6 +210,7 @@ impl Output {
     }
 
     pub(crate) fn newline(&mut self) {
+        self.sangria = 0;
         self.written += 1;
         self.alive_boxes = (self.alive_boxes + 1).min(OUT_HIST);
         self.col = 0;
@@ -249,15 +254,64 @@ impl Output {
             }
             // Los no imprimibles se tiran en vez de dibujarse como basura.
             c if c < 0x20 => {}
+            // Un espacio justo en el borde: el salto ya separa.
+            b' ' if self.col >= OUT_COLS => self.envolver(),
             c => {
                 if self.col >= OUT_COLS {
-                    self.newline();
+                    self.envolver();
                 }
                 self.cells[self.row][self.col] = c;
                 self.col += 1;
                 self.dirty = true;
             }
         }
+    }
+
+    /// **Una fila que no cabe sigue en la de abajo, bien.** Cortaba en la
+    /// columna 88 a media palabra y seguia en la 0: `control 0x000022000000`
+    /// y debajo `1405` (captura del 24-09 11:55). Ahora:
+    ///
+    /// ```text
+    ///    state     ENCENDIDA por BMO-X (M0c): todo DE PASO por ahora   control
+    ///              0x0000220000001405
+    /// ```
+    ///
+    /// Se corta en el ULTIMO ESPACIO y la palabra entera baja; la fila nueva
+    /// empieza bajo el VALOR (tras la sangria, la etiqueta y sus espacios),
+    /// que es donde el ojo la busca. Una continuacion que tampoco cabe sigue
+    /// con la misma sangria. Como el INFORME se guarda de esta rejilla, el
+    /// fichero sale igual de limpio.
+    fn envolver(&mut self) {
+        let fila = self.cells[self.row];
+        let sangria = if self.sangria > 0 {
+            self.sangria
+        } else {
+            let lead = fila.iter().take_while(|&&c| c == b' ').count();
+            let mut i = lead;
+            while i < OUT_COLS && fila[i] != b' ' {
+                i += 1;
+            }
+            while i < OUT_COLS && fila[i] == b' ' {
+                i += 1;
+            }
+            // Una "etiqueta" de mas de 40 no es una etiqueta: dos de aire.
+            if i > lead && i <= 40 { i } else { (lead + 2).min(40) }
+        };
+        // El ultimo espacio tras la sangria; sin ninguno (una palabra de 80),
+        // se corta a pelo, que es lo unico que se puede hacer.
+        let corte = (sangria + 1..OUT_COLS).rev().find(|&k| fila[k] == b' ');
+        let desde = corte.map_or(OUT_COLS, |k| k + 1);
+        let mut palabra = [b' '; OUT_COLS];
+        let n = OUT_COLS - desde;
+        palabra[..n].copy_from_slice(&fila[desde..]);
+        for k in corte.unwrap_or(OUT_COLS)..OUT_COLS {
+            self.cells[self.row][k] = b' ';
+        }
+        self.newline();
+        self.sangria = sangria;
+        self.cells[self.row][sangria..sangria + n].copy_from_slice(&palabra[..n]);
+        self.col = sangria + n;
+        self.dirty = true;
     }
 
     pub(crate) fn text(&mut self, s: &[u8]) {
@@ -277,6 +331,7 @@ impl Output {
         // reproduce nunca.
         self.row = OUT_HIST - 1;
         self.col = 0;
+        self.sangria = 0;
         self.dirty = true;
         // `written` NO se reinicia: sigue contando desde que arranco el
         // terminal. Ponerlo a cero haria que una marca tomada antes del `clear`

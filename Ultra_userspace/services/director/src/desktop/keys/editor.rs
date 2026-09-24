@@ -33,6 +33,11 @@ pub(crate) fn on_key(dsk: &mut Desktop, p: &bmo::Pantalla, c: u8) -> Edit {
 dsk.field.caret = true;
 dsk.field.since_key = 0;
 dsk.tick.repaint_field = true;
+// Cualquier tecla que no sea TAB suelta las vueltas por las sugerencias: lo
+// que se teclee ahora es la base nueva.
+if c != b'\t' {
+    dsk.field.sug_base_n = 0;
+}
 match c {
     b'\r' | b'\n' => {
         // Eco SIEMPRE, tambien de lo que no se entiende: un
@@ -140,10 +145,21 @@ match c {
     // TAB: completar.
     b'\t' => {
         let antes = dsk.field.n;
-        // Primero una ORDEN (`gpu i` -> `gpu init`); si no la hay, una ruta.
-        dsk.field.n = match crate::commands::sugerencias::completar(&mut dsk.field.path, dsk.field.n) {
+        // Primero una ORDEN: la sugerencia resaltada ENTERA, y cada TAB mas la
+        // siguiente; si no hay orden que sugerir, una ruta.
+        if dsk.field.sug_base_n == 0 {
+            let n = dsk.field.n.min(dsk.field.sug_base.len());
+            dsk.field.sug_base[..n].copy_from_slice(&dsk.field.path[..n]);
+            dsk.field.sug_base_n = n;
+        }
+        let base = dsk.field.sug_base;
+        let bn = dsk.field.sug_base_n;
+        dsk.field.n = match crate::commands::sugerencias::tab(&mut dsk.field.path, dsk.field.n, &base[..bn]) {
             Some(n) => n,
-            None => complete(&mut dsk.field.path, dsk.field.n, &mut dsk.out.grid),
+            None => {
+                dsk.field.sug_base_n = 0;
+                complete(&mut dsk.field.path, dsk.field.n, &mut dsk.out.grid)
+            }
         };
         dsk.field.cur = dsk.field.n;
         if dsk.field.n == antes {

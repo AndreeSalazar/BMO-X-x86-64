@@ -82,41 +82,44 @@ fn viva(linea: &[u8]) -> bool {
     !matches!(parse(linea), Command::Unknown)
 }
 
-/// Las que empiezan por lo tecleado: sus indices en la lista, y cuantas hay
-/// en total (pueden ser mas de [`MAX`]).
+/// Cuantas candidatas caben: la lista entera.
+const TODAS: usize = 64;
+
+/// Las que empiezan por lo tecleado, TODAS: sus indices en la lista.
 #[derive(Clone, Copy)]
 pub(crate) struct Sugeridas {
-    pub i: [usize; MAX],
-    pub n: usize,
+    pub i: [usize; TODAS],
     pub total: usize,
+}
+
+impl Sugeridas {
+    /// La posicion de `linea` entre las candidatas, si es una de ellas.
+    pub(crate) fn donde(&self, linea: &[u8]) -> Option<usize> {
+        self.i[..self.total].iter().position(|&k| LISTA[k].0 == linea)
+    }
+}
+
+fn sin_espacios(t: &[u8]) -> &[u8] {
+    let k = t.iter().take_while(|&&c| c == b' ').count();
+    &t[k..]
 }
 
 /// **Las sugerencias para lo tecleado.** Vacio no sugiere nada; lo que ya es
 /// una orden entera se sugiere igual si hay otras mas largas (`save` -> `save
 /// mode`), pero no sola: repetirle a alguien lo que acaba de escribir no ayuda.
 pub(crate) fn para(tecleado: &[u8]) -> Sugeridas {
-    let mut s = Sugeridas { i: [0; MAX], n: 0, total: 0 };
-    let t = {
-        let mut k = 0;
-        while k < tecleado.len() && tecleado[k] == b' ' {
-            k += 1;
-        }
-        &tecleado[k..]
-    };
+    let mut s = Sugeridas { i: [0; TODAS], total: 0 };
+    let t = sin_espacios(tecleado);
     if t.is_empty() {
         return s;
     }
     for (k, (linea, _)) in LISTA.iter().enumerate() {
-        if empieza(linea, t) && viva(linea) {
-            if s.n < MAX {
-                s.i[s.n] = k;
-                s.n += 1;
-            }
+        if s.total < TODAS && empieza(linea, t) && viva(linea) {
+            s.i[s.total] = k;
             s.total += 1;
         }
     }
     if s.total == 1 && LISTA[s.i[0]].0.len() == t.len() {
-        s.n = 0;
         s.total = 0;
     }
     s
@@ -130,28 +133,27 @@ pub(crate) fn que(i: usize) -> &'static [u8] {
     LISTA[i].1
 }
 
-/// **TAB sobre una orden**: completa hasta donde todas las candidatas
-/// coinciden (entera, si es una). `Some(nueva n)` si escribio algo; `None`
-/// si no hay orden que completar y el TAB es de rutas.
-pub(crate) fn completar(path: &mut [u8], n: usize) -> Option<usize> {
-    let t = &path[..n];
-    let mut comun: Option<&[u8]> = None;
-    for (linea, _) in LISTA {
-        if !empieza(linea, t) || !viva(linea) {
-            continue;
-        }
-        comun = Some(match comun {
-            None => linea,
-            Some(c) => {
-                let k = c.iter().zip(linea.iter()).take_while(|(a, b)| baja(**a) == baja(**b)).count();
-                &c[..k]
-            }
-        });
-    }
-    let c = comun?;
-    if c.len() <= n || c.len() > path.len() {
+/// **TAB sobre una orden** (24-09, *"la tab no aplica las sugerencias"*):
+/// escribe ENTERA la sugerencia resaltada, y cada TAB siguiente pasa a la
+/// otra (vuelve a la primera al acabar), como fish o zsh. `base` es lo que
+/// habia tecleado antes del primer TAB; `path[..n]`, lo que hay ahora.
+/// `Some(nueva n)` si escribio; `None` si no hay orden y el TAB es de rutas.
+///
+/// Antes completaba solo hasta donde TODAS coincidian: con `gp`, `gpu`, y ahi
+/// se quedaba -- la sugerencia pintada en el acento no llegaba nunca.
+pub(crate) fn tab(path: &mut [u8], n: usize, base: &[u8]) -> Option<usize> {
+    let s = para(base);
+    if s.total == 0 {
         return None;
     }
-    path[n..c.len()].copy_from_slice(&c[n..]);
-    Some(c.len())
+    let siguiente = match s.donde(&path[..n]) {
+        Some(k) => (k + 1) % s.total,
+        None => 0,
+    };
+    let l = LISTA[s.i[siguiente]].0;
+    if l.len() > path.len() {
+        return None;
+    }
+    path[..l.len()].copy_from_slice(l);
+    Some(l.len())
 }

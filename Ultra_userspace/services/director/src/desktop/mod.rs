@@ -169,6 +169,10 @@ pub(crate) struct Field {
     /// La linea de estado muestra AHORA sugerencias (y no el mensaje de una
     /// orden, que no se pisa).
     pub sug_pintadas: bool,
+    /// Lo tecleado antes del primer TAB, mientras se dan vueltas por las
+    /// sugerencias (0 = no se dan). Cualquier otra tecla lo suelta.
+    pub sug_base: [u8; 64],
+    pub sug_base_n: usize,
 }
 
 impl Field {
@@ -186,6 +190,8 @@ impl Field {
             ni: 0,
             sug_firma: 0,
             sug_pintadas: false,
+            sug_base: [0; 64],
+            sug_base_n: 0,
         }
     }
 

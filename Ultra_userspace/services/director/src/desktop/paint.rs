@@ -596,7 +596,10 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
 /// sugerencias puestas, vuelve la pista del consejero.
 fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
     use crate::commands::sugerencias as sg;
-    let linea = dsk.field.line();
+    // Copias: la linea y la base se leen mientras se apunta la firma.
+    let copia = dsk.field.path;
+    let linea = &copia[..dsk.field.n];
+    let base_copia = dsk.field.sug_base;
     // FNV-1a; `| 1` para que una linea escrita nunca firme 0 (la vacia).
     let firma = if linea.is_empty() {
         0
@@ -606,9 +609,12 @@ fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
     if firma == dsk.field.sug_firma {
         return;
     }
-    let s = sg::para(linea);
+    // Dando vueltas con TAB, la lista es la de lo tecleado ANTES del primer
+    // TAB, y la resaltada, la que hay escrita ahora.
+    let base = if dsk.field.sug_base_n > 0 { &base_copia[..dsk.field.sug_base_n] } else { linea };
+    let s = sg::para(base);
     dsk.field.sug_firma = firma;
-    if s.n == 0 {
+    if s.total == 0 {
         if dsk.field.sug_pintadas {
             dsk.field.sug_pintadas = false;
             // Campo vacio: vuelve la pista. Con algo escrito que no es una
@@ -621,11 +627,16 @@ fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
         }
         return;
     }
+    // La elegida (la que TAB escribe, o la escrita al dar vueltas) y una
+    // ventana de `MAX` que la contiene.
+    let elegida = s.donde(linea).unwrap_or(0);
+    let desde = elegida.saturating_sub(sg::MAX - 1).min(s.total.saturating_sub(sg::MAX));
+    let n = (s.total - desde).min(sg::MAX);
     let mut lineas: [&[u8]; sg::MAX] = [b""; sg::MAX];
-    for k in 0..s.n {
-        lineas[k] = sg::linea(s.i[k]);
+    for k in 0..n {
+        lineas[k] = sg::linea(s.i[desde + k]);
     }
-    scene::sugerir::pintar(p, &dsk.run_box, &lineas[..s.n], s.total - s.n, sg::que(s.i[0]));
+    scene::sugerir::pintar(p, &dsk.run_box, &lineas[..n], elegida - desde, s.total - n, sg::que(s.i[elegida]));
     dsk.field.sug_pintadas = true;
 }
 

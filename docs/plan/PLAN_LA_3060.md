@@ -888,8 +888,8 @@ vuelta.
    L1c  colgando de ellos: un espacio de direcciones (VASPACE), memoria
         de VRAM y un hueco de BAR1 para la pantalla (y soltar el puente
         de L0c4b3a)
-          L1c1  FERMI_VASPACE_A "de fuera" (`espacio`)   [en codigo, 24-09]
-          L1c2  la CPU escribe en la VRAM, PRAMIN (`vram`) [en codigo, 24-09]
+          L1c1  FERMI_VASPACE_A "de fuera" (`espacio`)   [VISTO 24-09 11:56]
+          L1c2  la CPU escribe en la VRAM, PRAMIN (`vram`) [VISTO 24-09 11:56]
           L1c3  el directorio de paginas en la VRAM, y SET_PAGE_DIRECTORY
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
 ```
@@ -1019,6 +1019,20 @@ tres pasos:
   dicen que esa pagina es usable.
 - **L1c3** (lo siguiente): construir el directorio de paginas de la GPU en la
   VRAM (formato de MMU de Ampere, `ver 2`) y `NV0080_CTRL_CMD_DMA_SET_PAGE_DIRECTORY`.
+
+**L1c1 y L1c2 en el metal (24-09, 11:56): LA CPU ESCRIBE EN LA VRAM.** Los 23
+pasos de `save mode` de una vez. `obj esp espacio 0x90F10000 (clase 0x90F1):
+NV_OK en 1 ms (numero 7)`: el espacio de direcciones es nuestro. `vram PRAMIN
+en 0x004000000: 1024 de 1024 palabras escritas y releidas; devueltas 1024;
+ventana 0xFFF0 devuelta`: la ventana estaba en `0xFFF0` (la base 0xFFF00000,
+la VRAM de lo alto, donde la dejo el firmware) y se le devolvio. Temperatura
+48 grados en reposo.
+
+Y la caja, arreglada tras la captura: TAB escribe la sugerencia ENTERA (y la
+siguiente con cada TAB; antes solo el prefijo comun, y `gp` se quedaba en
+`gpu`); la salida corta en el ultimo espacio y sigue BAJO EL VALOR (antes a
+media palabra y en la columna 0: `control 0x000022000000` / `1405`); la
+historia de la temperatura en su propia ventana (en escala fija salia plana).
 
 **Como se sabe (L1c1 y L1c2):** `obj esp` en NV_OK; `vram` dice 1024 de 1024,
 devueltas 1024 y la ventana devuelta.
