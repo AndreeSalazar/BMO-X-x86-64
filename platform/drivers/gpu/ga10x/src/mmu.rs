@@ -99,6 +99,29 @@ pub const fn mapear(pd3: u64, tablas: [u64; 4], va: u64, pagina: u64) -> [Escrit
     ]
 }
 
+/// Lo mas que mapea [`mapear_tramo`] de una vez.
+pub const MAX_TRAMO: usize = 64;
+
+/// **Mapear un TRAMO**: `n` paginas seguidas, `va.. -> pagina0..`, dentro de
+/// una sola PT (no cruza un limite de 2 MiB). Las `n` PTE primero y las
+/// cuatro PDE despues, de la hoja a la raiz. Devuelve las escrituras y cuantas
+/// son; `None` si el tramo no cabe o no esta alineado a 4 KiB.
+pub fn mapear_tramo(pd3: u64, tablas: [u64; 4], va: u64, pagina0: u64, n: usize) -> Option<([Escritura; MAX_TRAMO + 4], usize)> {
+    let pt_i = indices(va)[4];
+    if n == 0 || n > MAX_TRAMO || pt_i + n > 512 || va & 0xFFF != 0 || pagina0 & 0xFFF != 0 {
+        return None;
+    }
+    let mut e = [(0u64, 0u64); MAX_TRAMO + 4];
+    let pt = tablas[3];
+    for k in 0..n {
+        e[k] = (pt + 8 * (pt_i + k) as u64, pte_vram(pagina0 + 4096 * k as u64));
+    }
+    let una = mapear(pd3, tablas, va, pagina0);
+    // Las cuatro PDE de `mapear` (la PTE ya va arriba).
+    e[n..n + 4].copy_from_slice(&una[1..5]);
+    Some((e, n + 4))
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -136,5 +159,19 @@ mod pruebas {
         assert_eq!(e[2], (t[1] + 8 * 16, pde_vram(t[2])));
         assert_eq!(e[3], (t[0], pde_vram(t[1])));
         assert_eq!(e[4], (raiz, pde_vram(t[0])), "la raiz, la ULTIMA");
+    }
+
+    #[test]
+    fn un_tramo_de_dieciseis_paginas() {
+        let raiz = 0x0410_0000;
+        let t = [0x0410_1000, 0x0410_2000, 0x0410_3000, 0x0410_4000];
+        let (e, n) = mapear_tramo(raiz, t, 0x2_0000_0000, 0x0420_0000, 16).unwrap();
+        assert_eq!(n, 20);
+        for k in 0..16 {
+            assert_eq!(e[k], (t[3] + 8 * k as u64, pte_vram(0x0420_0000 + 4096 * k as u64)));
+        }
+        assert_eq!(e[19], (raiz, pde_vram(t[0])), "la raiz, la ULTIMA");
+        assert!(mapear_tramo(raiz, t, 0x2_001F_F000, 0x0420_0000, 2).is_none(), "cruza 2 MiB");
+        assert!(mapear_tramo(raiz, t, 0x2_0000_0800, 0x0420_0000, 1).is_none(), "sin alinear");
     }
 }

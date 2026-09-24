@@ -715,6 +715,11 @@ pub const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
 /// L1d0: leer la entrada `arg1` (0..4) de la raiz PD3 por PRAMIN, solo lectura.
 /// `Ok` = la PDE cruda. Solo con el directorio puesto.
 pub const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
+/// L1d1: mapear las 16 paginas de `vram::TRAMO` en `vram::TRAMO_VA` de nuestro
+/// espacio (tablas a cero, entradas de la hoja a la raiz, releidas). Una vez
+/// por arranque, con la entrada de la raiz vacia. `Ok` = escrituras |
+/// releidas iguales << 16.
+pub const IOMMU_OP_GPU_TRAMO: u64 = 0x20;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -832,6 +837,8 @@ pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 pub const IOMMU_NO_VRAM: u32 = 59;
 /// L1c3: el directorio ya se puso en este arranque.
 pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
+/// L1d1: la raiz ya tenia esa entrada ocupada, o el tramo ya se mapeo.
+pub const IOMMU_NO_TRAMO: u32 = 61;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

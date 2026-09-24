@@ -267,3 +267,92 @@ pub(crate) fn fila_directorio(s: &mut Output) {
         s.byte(b'\n');
     }
 }
+
+// == L1d1: EL TRAMO ===========================================================
+
+static mut TRAMO: Option<Result<u64, u32>> = None;
+
+fn tramo() -> Option<Result<u64, u32>> {
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of!(TRAMO) }
+}
+
+fn tramo_sano(v: u64) -> bool {
+    let (n, bien) = (v & 0xFFFF, (v >> 16) & 0xFFFF);
+    n > 0 && n == bien
+}
+
+/// Las entradas se escribieron pero alguna no se releyo igual.
+pub(crate) const NO_TRAMO_MAL: u32 = 0x128;
+
+/// **Mapear el tramo** (L1d1): el kernel pone las tablas y relee.
+pub(crate) fn mapear_tramo() -> Result<u64, u32> {
+    let r = match super::gsprpc::usable(vram::TRAMO, 4096 * vram::TRAMO_PAGINAS as u64) {
+        None => Err(NO_VRAM_SIN_REGIONES),
+        Some(false) => Err(NO_VRAM_NO_USABLE),
+        Some(true) => bmo::iommu_orden(bmo::IOMMU_OP_GPU_TRAMO),
+    };
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of_mut!(TRAMO) = Some(r) };
+    match r {
+        Ok(v) if tramo_sano(v) => Ok(v),
+        Ok(_) => Err(NO_TRAMO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn tramo_puesto() -> bool {
+    matches!(tramo(), Some(Ok(v)) if tramo_sano(v))
+}
+
+/// `gpu tramo`.
+pub(crate) fn orden_tramo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "mapeando el tramo en el espacio de la GPU", INK_DIM);
+    let r = mapear_tramo();
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LA GPU YA VE 64 KiB DE TU VRAM POR DIRECCION VIRTUAL: tablas escritas y releidas\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el tramo no quedo mapeado: mira la fila `tramo`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila_tramo(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "tramo", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila `tramo`**, si se pidio.
+pub(crate) fn fila_tramo(s: &mut Output) {
+    let Some(r) = tramo() else { return };
+    campo(s, b"tramo");
+    match r {
+        Err(m) => {
+            s.with_ink(INK_ERR);
+            s.text(b"NO: ");
+            s.text(super::iommu::motivo(m));
+        }
+        Ok(v) => {
+            s.with_ink(if tramo_sano(v) { INK_GOOD } else { INK_ERR });
+            s.text(b"VA 0x");
+            s.hex(vram::TRAMO_VA, 9);
+            s.text(b" -> VRAM 0x");
+            s.hex(vram::TRAMO, 9);
+            s.text(b", ");
+            s.dec(vram::TRAMO_PAGINAS as u64);
+            s.text(b" paginas: ");
+            s.dec((v >> 16) & 0xFFFF);
+            s.text(b" de ");
+            s.dec(v & 0xFFFF);
+            s.text(b" entradas releidas");
+            s.with_ink(INK_ECHO);
+            s.text(b"   PD2..PT en 0x");
+            s.hex(vram::TABLAS[0], 9);
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+}

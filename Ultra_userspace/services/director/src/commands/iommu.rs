@@ -147,6 +147,8 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gsp::NO_RISCV_DORMIDO => b"el booter acabo bien pero el RISC-V del GSP no se encendio en 5 s: mira datos/gsplog.bin",
         super::gspcola::NO_COLA_SIN_GSP => b"el GSP no ha despertado en este arranque: `gpu despertar`",
         super::gspvaciar::NO_VACIAR_MAL => b"al vaciar, un mensaje sin forma o con la suma mal: se paro ahi sin consumirlo (mira la fila `pide`)",
+        bmo::IOMMU_NO_TRAMO => b"la entrada de la raiz para el tramo ya estaba ocupada (no se pisa), o el tramo ya se mapeo",
+        super::gspvram::NO_TRAMO_MAL => b"las tablas se escribieron pero alguna entrada no se releyo igual",
         bmo::IOMMU_NO_DIRECTORIO_YA => b"el directorio ya se puso en este arranque (el RM ya escribio en el): no se repite",
         super::gspvram::NO_DIRECTORIO_NEGADO => b"el GSP-RM contesto pero NO acepto el directorio: su NV_STATUS, en la fila `pd`",
         bmo::IOMMU_NO_VRAM => b"sin 3060 que probar, o la prueba de la VRAM ya estaba en curso",

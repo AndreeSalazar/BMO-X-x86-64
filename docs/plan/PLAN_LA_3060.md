@@ -893,8 +893,9 @@ vuelta.
           L1c3  la raiz PD3 en la VRAM y SET_PAGE_DIRECTORY (`directorio`)
                                                 [VISTO 24-09 12:25]
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
-          L1d0  leer la raiz tras el RM (fila `raiz`)  [en codigo, 24-09]
-          L1d1  mapear paginas propias (PD2..PT) bajo ella
+          L1d0  leer la raiz tras el RM (fila `raiz`)  [VISTO 24-09 12:37]
+          L1d1  mapear 16 paginas propias bajo ella (`tramo`)
+                                                [en codigo, 24-09]
           L1d2  el canal AMPERE_CHANNEL_GPFIFO_A, su USERD y su GPFIFO
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
 ```
@@ -1074,6 +1075,21 @@ cada entrada por PRAMIN, solo lectura, y la fila `raiz` las dice. L1d1 mapea
 en las vacias, o bajo la suya sin pisarla. `bmo_gpu_ga10x::mmu` (3 pruebas):
 el formato v2 de Pascal/Ampere (PDE: VRAM = 1; PTE: VRAM = 0 y bit de
 validez), los cinco niveles y `mapear` de la hoja a la raiz.
+
+**L1d0 en el metal (24-09, 12:37): LA RAIZ ESTA ENTERA VACIA.** `raiz: [0]
+vacia; [1] vacia; [2] vacia; [3] vacia`: al aceptar el directorio de un
+espacio "de fuera", el RM NO colgo nada suyo. Todo el espacio de 49 bits es
+nuestro para mapear.
+
+**L1d1 (en codigo): el tramo.** El MiB de 65 MiB es de las tablas (la raiz y
+detras una PD2, PD1, PD0 y PT, `vram::TABLAS`); el de 66 MiB, de las paginas:
+16 (64 KiB, `vram::TRAMO`) vistas por la GPU en `vram::TRAMO_VA` = 8 GiB (lejos
+de la zona del RM en 4 GiB). `mmu::mapear_tramo` (1 prueba) y
+`vram::mapear_tramo` (1 prueba, sobre una VRAM de mentira de 2 MiB): tablas a
+cero, las 16 PTE y las 4 PDE de la hoja a la raiz, RELEIDAS, y solo si la
+entrada de la raiz sigue vacia. Kernel `IOMMU_OP_GPU_TRAMO` (0x20, motivo 61),
+una vez por arranque; paso `tramo` de `save mode` (25), fila `tramo`. Ahi
+viviran el GPFIFO, el USERD, el bloque de instancia y los datos de L1d.
 
 Y la caja: `buscar` / Ctrl+F sobre Ejecutar (sobre una app sigue siendo su
 pantalla completa): la coincidencia en medio de la ventana y resaltada, las

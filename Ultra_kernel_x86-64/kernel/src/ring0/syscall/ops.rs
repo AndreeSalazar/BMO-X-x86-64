@@ -354,6 +354,8 @@ pub(crate) const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
 pub(crate) const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
 /// L1d0: leer la entrada `arg1` de la raiz PD3. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_RAIZ: u64 = 0x1F;
+/// L1d1: mapear el tramo de VRAM propia bajo la raiz. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_TRAMO: u64 = 0x20;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

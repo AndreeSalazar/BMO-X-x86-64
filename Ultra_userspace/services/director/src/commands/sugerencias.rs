@@ -39,6 +39,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu salud", b"temperatura, enlace PCIe y P-state de la 3060"),
     (b"gpu vram", b"la CPU escribe en la VRAM (PRAMIN) y la deja como estaba"),
     (b"gpu directorio", b"la raiz del espacio de direcciones de la GPU, en tu VRAM"),
+    (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),
     (b"gpu bar1", b"devolverle a BAR1 la del GOP"),
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),

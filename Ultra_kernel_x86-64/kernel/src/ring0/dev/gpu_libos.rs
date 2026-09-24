@@ -444,6 +444,9 @@ pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 pub const IOMMU_NO_VRAM: u32 = 59;
 /// L1c3: el directorio ya se puso en este arranque (el RM ya escribio en el).
 pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
+/// L1d1: la entrada de la raiz para el tramo ya estaba ocupada (no se pisa),
+/// o el tramo ya se mapeo en este arranque.
+pub const IOMMU_NO_TRAMO: u32 = 61;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -611,4 +614,35 @@ pub fn leer_raiz(k: u64) -> Result<u64, u32> {
     }
     let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
     Ok(bmo_gpu_ga10x::vram::leer64(&mut r, bmo_gpu_ga10x::vram::DIRECTORIO + 8 * k))
+}
+
+// == L1d1: EL TRAMO MAPEADO (2026-09-24) =======================================
+//
+// 16 paginas de VRAM nuestra (`vram::TRAMO`) vistas por la GPU en
+// `vram::TRAMO_VA` (8 GiB) de NUESTRO espacio: sus cuatro tablas a cero, las
+// entradas de la hoja a la raiz, y todo releido. Una vez por arranque, y solo
+// con la entrada de la raiz VACIA (la leyo L1d0: el RM no dejo nada).
+
+static TRAMO_PUESTO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Mapear el tramo.** `Ok(escrituras | releidas iguales << 16)`.
+pub fn mapear_tramo() -> Result<u64, u32> {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !DIRECTORIO_PUESTO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_VRAM);
+    }
+    if TRAMO_PUESTO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_TRAMO);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    match bmo_gpu_ga10x::vram::mapear_tramo(&mut r) {
+        Some((n, bien)) => {
+            crate::ring0::cabina::count("gpu", "L1d1: tramo mapeado; entradas releidas", bien as u64);
+            Ok(n as u64 | (bien as u64) << 16)
+        }
+        None => {
+            TRAMO_PUESTO.store(false, Ordering::Release);
+            Err(IOMMU_NO_TRAMO)
+        }
+    }
 }

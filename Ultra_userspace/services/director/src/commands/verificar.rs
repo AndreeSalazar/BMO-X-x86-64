@@ -351,7 +351,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspvram::directorio_puesto,
         dar: super::gspvram::poner_directorio,
         pide: Some(b"espacio"),
-        consejo: b"`gpu`: la fila `pd` dice la raiz PD3 en 0x004100000 con NV_OK -- lo siguiente es L1d, un canal y el motor de copia",
+        consejo: b"`gpu`: la fila `pd` dice la raiz PD3 en 0x004100000 con NV_OK, y `raiz` sus 4 entradas -- lo siguiente es `tramo`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"tramo",
+        que: b"MAPEAR 16 paginas de VRAM propia en nuestro espacio: la GPU las ve en la VA de 8 GiB (L1d1)",
+        hecho: super::gspvram::tramo_puesto,
+        dar: super::gspvram::mapear_tramo,
+        pide: Some(b"directorio"),
+        consejo: b"`gpu`: la fila `tramo` dice 20 de 20 entradas releidas -- lo siguiente es L1d2, el canal GPFIFO",
         repinta: false,
     },
 ];

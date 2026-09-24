@@ -808,6 +808,12 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         IOMMU_OP_GSP_OBJETO => crate::ring0::dev::gpu_libos::pedir_objeto(arg1),
         IOMMU_OP_GSP_CONTROL => crate::ring0::dev::gpu_libos::pedir_control(arg1),
         IOMMU_OP_GPU_RAIZ => crate::ring0::dev::gpu_libos::leer_raiz(arg1),
+        IOMMU_OP_GPU_TRAMO => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de mapear el tramo no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::mapear_tramo()
+        }
         IOMMU_OP_GPU_DIRECTORIO => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del directorio de paginas no se pudo: se sigue", 0);

@@ -46,6 +46,21 @@ pub const PALABRAS: usize = 1024;
 /// por encima de la prueba: dentro de lo usable, y de nadie mas.
 pub const DIRECTORIO: u64 = 0x0410_0000;
 
+// -- L1d1: EL TRAMO MAPEADO ------------------------------------------------
+//
+// El MiB de 65 MiB es de las TABLAS (la raiz y, detras, una de cada nivel); el
+// de 66 MiB, de las PAGINAS que la GPU vera por direccion virtual (sus colas,
+// sus datos). Todo dentro de lo que el GSP-RM dio como usable, y de nadie mas.
+
+/// PD2, PD1, PD0 y PT del tramo, detras de la raiz.
+pub const TABLAS: [u64; 4] = [DIRECTORIO + 0x1000, DIRECTORIO + 0x2000, DIRECTORIO + 0x3000, DIRECTORIO + 0x4000];
+/// Las paginas del tramo, en VRAM.
+pub const TRAMO: u64 = 0x0420_0000;
+/// Donde las ve la GPU: 8 GiB (lejos de los 4 GiB que el RM se reserva).
+pub const TRAMO_VA: u64 = 0x2_0000_0000;
+/// Cuantas: 64 KiB (colas, USERD, instancia y datos de L1d).
+pub const TRAMO_PAGINAS: usize = 16;
+
 /// **La ventana para `dir`**: `(valor del registro, desplazamiento en ella)`.
 pub const fn ventana(dir: u64) -> (u32, u32) {
     let base = dir & !(VENTANA_MEDIDA - 1);
@@ -132,6 +147,36 @@ pub fn leer64<R: Registros>(r: &mut R, dir: u64) -> u64 {
     lo | hi << 32
 }
 
+/// **Escribir 64 bits de VRAM** por la ventana, que queda como estaba.
+pub fn escribir64<R: Registros>(r: &mut R, dir: u64, v: u64) {
+    let (base, off) = ventana(dir);
+    let antes = r.leer(VENTANA_REG);
+    r.escribir(VENTANA_REG, base);
+    r.escribir(VENTANA + off, v as u32);
+    r.escribir(VENTANA + off + 4, (v >> 32) as u32);
+    r.escribir(VENTANA_REG, antes);
+}
+
+/// **L1d1: mapear el tramo** bajo la raiz: sus cuatro tablas a cero, y las
+/// escrituras de `mmu::mapear_tramo` de la hoja a la raiz, RELEIDAS. Solo si
+/// la entrada de la raiz esta VACIA (lo que el RM tenga ahi no se pisa).
+/// Devuelve `(escrituras, releidas iguales)`, o `None` si la raiz ya tenia algo.
+pub fn mapear_tramo<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
+    let i = crate::mmu::indices(TRAMO_VA)[0];
+    if leer64(r, DIRECTORIO + 8 * i as u64) != 0 {
+        return None;
+    }
+    for t in TABLAS {
+        a_cero(r, t);
+    }
+    let (e, n) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, TRAMO_VA, TRAMO, TRAMO_PAGINAS)?;
+    for &(d, v) in &e[..n] {
+        escribir64(r, d, v);
+    }
+    let bien = e[..n].iter().filter(|&&(d, v)| leer64(r, d) == v).count() as u32;
+    Some((n as u32, bien))
+}
+
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
 /// ventana devuelta << 31 | ventana de antes << 32`.
 pub const fn empaquetar(p: &Prueba) -> u64 {
@@ -212,5 +257,43 @@ mod pruebas {
         assert!(f.vram.iter().all(|&w| w == 0));
         assert_eq!(f.ventana, 0x33);
         assert_eq!(ventana(DIRECTORIO), (0x410, 0));
+    }
+
+    /// Una VRAM de mentira mas grande: 2 MiB desde `DIRECTORIO` (las tablas y
+    /// el tramo), por la ventana.
+    struct Grande {
+        ventana: u32,
+        vram: [u32; 1 << 19],
+    }
+
+    impl Registros for Grande {
+        fn leer(&mut self, reg: u32) -> u32 {
+            if reg == VENTANA_REG {
+                return self.ventana;
+            }
+            let dir = ((self.ventana as u64) << 16) + (reg - VENTANA) as u64;
+            self.vram[((dir - DIRECTORIO) / 4) as usize]
+        }
+        fn escribir(&mut self, reg: u32, v: u32) {
+            if reg == VENTANA_REG {
+                self.ventana = v;
+                return;
+            }
+            let dir = ((self.ventana as u64) << 16) + (reg - VENTANA) as u64;
+            self.vram[((dir - DIRECTORIO) / 4) as usize] = v;
+        }
+    }
+
+    #[test]
+    fn el_tramo_se_mapea_y_se_relee() {
+        extern crate std;
+        let mut g = std::boxed::Box::new(Grande { ventana: 0xFFF0, vram: [0; 1 << 19] });
+        let (n, bien) = mapear_tramo(&mut *g).unwrap();
+        assert_eq!((n, bien), (20, 20));
+        assert_eq!(g.ventana, 0xFFF0, "la ventana, como estaba");
+        // La raiz apunta a la PD2 del tramo, en VRAM.
+        assert_eq!(leer64(&mut *g, DIRECTORIO), crate::mmu::pde_vram(TABLAS[0]));
+        // Con la raiz ya ocupada, no se pisa.
+        assert_eq!(mapear_tramo(&mut *g), None);
     }
 }
