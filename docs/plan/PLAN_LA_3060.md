@@ -1047,6 +1047,22 @@ ventana del timbre (`NVC361_TIME_0`, BAR0 0xBB0080) antes y despues de 1 s
 canal en la lista; si esta quieto, la ventana no es esa. Y `+010`/`config` de
 la RAMFC, y GP_GET otra vez al final.
 
+**14:41: el timbre LLEGA.** `timbre: su ventana VIVE (el reloj de 0xBB0080
+corrio)`; `+010 0x0000FACE` (el RM escribio la RAMFC con la marca de nouveau);
+GP_GET 0 un segundo despues y el GSP-RM callado. Descartada la direccion del
+timbre: queda el canal en su LISTA. La ficha 0x1 dice lista 0; y nouveau
+(`r535_fifo_runl_ctor`) se salta las copias GRCE sin GR en su lista ("they
+don't appear to function as async copy engines"). Si COPY2 esta en la lista
+de GR0, su lista no corre sin el contexto de GR (el "golden context" que
+nouveau prepara en `r535_gr_oneinit` antes de ningun canal). Para verlo:
+`Control::Dispositivos` (`FIFO_GET_DEVICE_INFO_TABLE`, 0x20801112, 3212 B de
+ceros, que el contrato compara sin un bufer de 3 KiB) da la lista de cada
+motor y la base de sus registros; y `IOMMU_OP_GPU_LEER` con 63:62 = 01 lee de
+esa lista la config de su CHRAM (+0x004), la del timbre (+0x008, el numero
+en 31:16) y la entrada de NUESTRO canal en la CHRAM (ENABLE, PENDING, BUSY,
+los FAULTED: `dev_runlist.h` de OpenRM), sacando la direccion el kernel. Filas
+`listas` y `en la 3060`.
+
 **Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
 `semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
 eso lo escribe la CPU. Si el semaforo no llega, lo primero a mirar es si

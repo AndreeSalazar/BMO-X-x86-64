@@ -741,6 +741,9 @@ pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 /// `arg1` = la direccion (`copia::legible`: dentro del tramo, alineada a 4).
 /// Solo lectura. `Ok` = la palabra. Con el bit 63, `arg1` bajo es UN registro
 /// de BAR0 de `copia::registro_legible` (el reloj de la ventana del timbre).
+/// Con los bits 63:62 = 01, `arg1` bajo es la BASE de una lista de ejecucion
+/// (`copia::lista_legible`) y 33:32 que se lee: 0 la config de su CHRAM, 1 la
+/// de su timbre, 2 la entrada de NUESTRO canal en su CHRAM.
 pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;

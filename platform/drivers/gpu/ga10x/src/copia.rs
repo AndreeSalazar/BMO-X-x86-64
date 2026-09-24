@@ -288,6 +288,50 @@ pub const fn registro_legible(reg: u32) -> bool {
     reg == RELOJ_USUARIO || reg == RELOJ_USUARIO + 4
 }
 
+// == La lista de ejecucion de nuestro canal (solo lectura) ===================
+//
+// De `ga100_runl_new` de nouveau y `dev_runlist.h` de OpenRM (ga100): en la
+// base de la lista, +0x004 la config de la CHRAM (su direccion en BAR0 en los
+// bits 31:4) y +0x008 la del timbre (el numero de timbre de la lista en 31:16);
+// y en la CHRAM, una palabra por canal con su estado.
+
+/// Lo que se puede leer de una lista: la config de la CHRAM, la del timbre y
+/// la entrada de NUESTRO canal en la CHRAM.
+pub const LISTA_CHRAM: u32 = 0x004;
+pub const LISTA_TIMBRE: u32 = 0x008;
+
+/// Una base de lista que se deja mirar: alineada a 4 KiB, dentro de los 16 MiB
+/// de BAR0 y no cero (la da el RM en la tabla de aparatos).
+pub const fn lista_legible(base: u32) -> bool {
+    base != 0 && base % 0x1000 == 0 && base < 0x0100_0000
+}
+
+/// La direccion en BAR0 de la entrada de `chid` en la CHRAM, de la config.
+pub const fn chram_de(config: u32, chid: u32) -> Option<u32> {
+    let base = config & 0xFFFF_FFF0;
+    if base == 0 || base >= 0x0100_0000 {
+        None
+    } else {
+        Some(base + 4 * chid)
+    }
+}
+
+/// Los bits de una entrada de la CHRAM (`NV_CHRAM_CHANNEL_*`), con su nombre.
+pub const CHRAM_BITS: [(u32, &[u8]); 12] = [
+    (1 << 1, b"ENABLE"),
+    (1 << 2, b"NEXT"),
+    (1 << 3, b"BUSY"),
+    (1 << 4, b"PBDMA_FAULTED"),
+    (1 << 5, b"ENG_FAULTED"),
+    (1 << 6, b"ON_PBDMA"),
+    (1 << 7, b"ON_ENG"),
+    (1 << 8, b"PENDING"),
+    (1 << 9, b"CTX_RELOAD"),
+    (1 << 10, b"PBDMA_BUSY"),
+    (1 << 11, b"ENG_BUSY"),
+    (1 << 12, b"ACQUIRE_FAIL"),
+];
+
 /// La direccion de VRAM que el kernel deja LEER (una palabra): dentro del
 /// tramo y alineada a 4.
 pub const fn legible(dir: u64) -> bool {
@@ -404,6 +448,16 @@ mod pruebas {
         let e = entrada(va(EMPUJE), 17);
         assert_eq!(e as u32, 0x3000, "GET 31:2 de la VA baja");
         assert_eq!((e >> 32) as u32, 2 | 17 << 10, "GET_HI 2, LENGTH 17, MAIN");
+    }
+
+    #[test]
+    fn la_lista_de_ejecucion_solo_se_mira() {
+        assert!(lista_legible(0x0080_4000) && !lista_legible(0) && !lista_legible(0x0080_4004));
+        assert!(!lista_legible(0x0100_0000));
+        assert_eq!(chram_de(0x0080_6007, 1), Some(0x0080_6004), "los 4 bits bajos son el numero de canales");
+        assert_eq!(chram_de(0x0000_0007, 1), None);
+        assert_eq!(chram_de(0x0200_0000, 1), None);
+        assert_eq!(CHRAM_BITS[0], (2, b"ENABLE" as &[u8]));
     }
 
     #[test]

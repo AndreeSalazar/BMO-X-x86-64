@@ -68,13 +68,17 @@ pub enum Control {
     Programar,
     /// L1d2d: la FICHA del timbre (`GET_WORK_SUBMIT_TOKEN`). Pregunta.
     Ficha,
+    /// L1d3, el diagnostico: la tabla de aparatos del FIFO
+    /// (`FIFO_GET_DEVICE_INFO_TABLE`): de que lista de ejecucion es cada
+    /// motor, y donde estan los registros de esa lista. Pregunta.
+    Dispositivos,
 }
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 7] = [
+    pub const TODOS: [Control; 8] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -82,6 +86,7 @@ impl Control {
         Control::Atar,
         Control::Programar,
         Control::Ficha,
+        Control::Dispositivos,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -98,6 +103,7 @@ impl Control {
             Control::Atar => (0xA06F_0104, 4, CANAL),
             Control::Programar => (0xA06F_0103, 2, CANAL),
             Control::Ficha => (0xC36F_0108, 4, CANAL),
+            Control::Dispositivos => (0x2080_1112, DISPOSITIVOS_MEDIDA, SUBDISPOSITIVO),
         }
     }
 
@@ -105,7 +111,7 @@ impl Control {
     /// directorio no: va con su pagina a cero delante, y una vez
     /// (`IOMMU_OP_GPU_DIRECTORIO`).
     pub const fn pregunta(self) -> bool {
-        matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha)
+        matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha | Control::Dispositivos)
     }
 
     /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
@@ -166,6 +172,77 @@ pub fn leer(d: &[u8]) -> Option<Respuesta> {
     }
     let u = |o: usize| u32::from_le_bytes([d[o], d[o + 1], d[o + 2], d[o + 3]]);
     Some(Respuesta { cmd: u(8), estado: u(12), valor: u(CABECERA_CONTROL) })
+}
+
+impl Control {
+    /// **Son estos los parametros de `self`?** Sin un bufer de la medida de los
+    /// mas grandes: los de `Dispositivos` (3212 B) son todo ceros (`baseIndex`
+    /// 0), y el resto caben en 512.
+    pub fn iguales(self, p: &[u8]) -> bool {
+        let medida = self.forma().1;
+        if p.len() < medida {
+            return false;
+        }
+        if let Control::Dispositivos = self {
+            return p[..medida].iter().all(|&b| b == 0);
+        }
+        let mut esperados = [0u8; 512];
+        let n = self.parametros(&mut esperados);
+        p[..n] == esperados[..n]
+    }
+}
+
+// == L1d3, EL DIAGNOSTICO: LA TABLA DE APARATOS DEL FIFO =====================
+//
+// `NV2080_CTRL_FIFO_GET_DEVICE_INFO_TABLE_PARAMS` (r570, igual que r535):
+// `baseIndex`, `numEntries`, `bMore` (y 3 de relleno), y 32 entradas de
+// `NV2080_CTRL_FIFO_DEVICE_ENTRY`: `engineData[16]`, `pbdmaIds[2]`,
+// `pbdmaFaultIds[2]`, `numPbdmas` y `engineName[16]` = 100 B. Es lo que lee
+// nouveau (`r535_fifo_runl_ctor`) para saber de que lista es cada motor.
+
+/// Entradas de la tabla.
+pub const MAX_DISPOSITIVOS: usize = 32;
+const ENTRADA: usize = 100;
+/// Lo que miden los parametros.
+pub const DISPOSITIVOS_MEDIDA: usize = 12 + MAX_DISPOSITIVOS * ENTRADA;
+/// `ENGINE_INFO_TYPE_*`: el indice en `engineData`.
+const TIPO_RM: usize = 2;
+const LISTA: usize = 3;
+const LISTA_BASE: usize = 11;
+const CHRAM_BASE: usize = 14;
+
+/// Un motor de la tabla.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Dispositivo {
+    /// `RM_ENGINE_TYPE_*` (para GR y COPY vale lo mismo que `NV2080_ENGINE_TYPE`).
+    pub tipo: u32,
+    /// El numero de su lista de ejecucion: el `<< 16` de la ficha.
+    pub lista: u32,
+    /// Donde estan en BAR0 los registros de esa lista (`RUNLIST_PRI_BASE`).
+    pub lista_base: u32,
+    /// Y su CHRAM (`CHRAM_PRI_BASE`), si el RM la da.
+    pub chram_base: u32,
+}
+
+/// **La tabla**, de la respuesta (`d` son los datos del mensaje).
+pub fn dispositivos(d: &[u8]) -> ([Dispositivo; MAX_DISPOSITIVOS], usize) {
+    let mut t = [Dispositivo::default(); MAX_DISPOSITIVOS];
+    let p = &d[CABECERA_CONTROL.min(d.len())..];
+    if p.len() < 12 {
+        return (t, 0);
+    }
+    let u = |o: usize| u32::from_le_bytes([p[o], p[o + 1], p[o + 2], p[o + 3]]);
+    let n = (u(4) as usize).min(MAX_DISPOSITIVOS).min((p.len() - 12) / ENTRADA);
+    for (k, x) in t.iter_mut().enumerate().take(n) {
+        let e = 12 + k * ENTRADA;
+        *x = Dispositivo {
+            tipo: u(e + 4 * TIPO_RM),
+            lista: u(e + 4 * LISTA),
+            lista_base: u(e + 4 * LISTA_BASE),
+            chram_base: u(e + 4 * CHRAM_BASE),
+        };
+    }
+    (t, n)
 }
 
 /// `NV2080_GPU_MAX_ENGINES_LIST_SIZE`.
@@ -248,12 +325,15 @@ mod pruebas {
         assert_eq!(Control::de(1), Some(Control::Directorio));
         assert_eq!(Control::de(2), Some(Control::Motores));
         assert_eq!(Control::de(6), Some(Control::Ficha));
-        assert_eq!(Control::de(7), None);
+        assert_eq!(Control::de(7), Some(Control::Dispositivos));
+        assert_eq!(Control::de(8), None);
+        assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());
         assert!(Control::Motores.pregunta() && Control::Metodos.pregunta() && !Control::Directorio.pregunta());
         assert!(Control::Ficha.pregunta() && !Control::Atar.pregunta() && !Control::Programar.pregunta());
         assert!(Control::Atar.del_canal() && Control::Programar.del_canal() && !Control::Ficha.del_canal());
         // El contrato compara los parametros en un bufer de 512 B.
-        assert!(Control::TODOS.iter().all(|c| c.forma().1 <= 512));
+        assert!(Control::TODOS.iter().filter(|&&c| c != Control::Dispositivos).all(|c| c.forma().1 <= 512));
+        assert_eq!(Control::Dispositivos.forma().1, 3212);
     }
 
     #[test]
@@ -289,6 +369,35 @@ mod pruebas {
             p[..medida].copy_from_slice(&d[24..24 + medida]);
             assert_eq!(u32::from_le_bytes(p), primero);
         }
+    }
+
+    #[test]
+    fn la_tabla_de_aparatos() {
+        let mut d = [0u8; CABECERA_CONTROL + DISPOSITIVOS_MEDIDA];
+        let p = CABECERA_CONTROL;
+        d[p + 4..p + 8].copy_from_slice(&2u32.to_le_bytes());
+        // GR0 en la lista 0; COPY2 en la lista 3, sus registros en 0x00B40000.
+        let pon = |d: &mut [u8], k: usize, i: usize, v: u32| {
+            let o = p + 12 + k * 100 + 4 * i;
+            d[o..o + 4].copy_from_slice(&v.to_le_bytes());
+        };
+        pon(&mut d, 0, 2, 1);
+        pon(&mut d, 1, 2, 0x0B);
+        pon(&mut d, 1, 3, 3);
+        pon(&mut d, 1, 11, 0x00B4_0000);
+        pon(&mut d, 1, 14, 0x00B4_1000);
+        let (t, n) = dispositivos(&d);
+        assert_eq!(n, 2);
+        assert_eq!((t[0].tipo, t[0].lista), (1, 0));
+        assert_eq!(t[1], Dispositivo { tipo: 0x0B, lista: 3, lista_base: 0x00B4_0000, chram_base: 0x00B4_1000 });
+        // Sus parametros: ceros, y el contrato los compara sin un bufer de 3 KiB.
+        assert!(Control::Dispositivos.iguales(&[0u8; DISPOSITIVOS_MEDIDA]));
+        let mut malos = [0u8; DISPOSITIVOS_MEDIDA];
+        malos[0] = 1;
+        assert!(!Control::Dispositivos.iguales(&malos));
+        let mut h = [0xAAu8; 4096];
+        let n = pedir(&mut h, 20, Control::Dispositivos).unwrap();
+        assert_eq!(n, CABECERA + 24 + 3212);
     }
 
     #[test]

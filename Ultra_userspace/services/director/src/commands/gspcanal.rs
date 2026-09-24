@@ -253,15 +253,48 @@ fn diagnosticar() {
     // Y GP_GET otra vez: por si la 3060 llego tarde.
     let k = copia::DIAGNOSTICO.iter().position(|&(n, _)| n == b"gp_get").unwrap_or(0);
     let gp_get = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, copia::DIAGNOSTICO[k].1).ok().map(|v| v as u32);
-    con(|c| c.diag = Some((p, otros, Reloj { antes, despues, gp_get })));
+    let listas = Some(listas());
+    con(|c| c.diag = Some((p, otros, Reloj { antes, despues, gp_get, listas })));
 }
 
-/// El reloj de la ventana del timbre, antes y despues de 1 s, y GP_GET al final.
+/// El reloj de la ventana del timbre, antes y despues de 1 s, y GP_GET al final;
+/// y la lista de ejecucion (`Listas`).
 #[derive(Clone, Copy, Default)]
 struct Reloj {
     antes: Option<u32>,
     despues: Option<u32>,
     gp_get: Option<u32>,
+    listas: Option<Result<Listas, u32>>,
+}
+
+/// **La lista de ejecucion de nuestro canal**, segun el RM y segun la 3060:
+/// la tabla de aparatos (`FIFO_GET_DEVICE_INFO_TABLE`), y de la lista del
+/// motor del canal, la config del timbre y la entrada de NUESTRO canal en su
+/// CHRAM (solo lectura, `IOMMU_OP_GPU_LEER` con los bits 63:62 = 01).
+#[derive(Clone, Copy)]
+struct Listas {
+    tabla: [control::Dispositivo; control::MAX_DISPOSITIVOS],
+    n: usize,
+    /// La del motor del canal (COPY2), si esta en la tabla.
+    suya: Option<control::Dispositivo>,
+    config: Option<u32>,
+    timbre: Option<u32>,
+    chram: Option<u32>,
+}
+
+fn listas() -> Result<Listas, u32> {
+    let mut d = [0u8; CABECERA_CONTROL + control::DISPOSITIVOS_MEDIDA];
+    let c = controlar(Control::Dispositivos, &mut d)?;
+    if !c.bien() {
+        return Err(super::gspsalud::NO_CONTROL_NEGADO);
+    }
+    let (tabla, n) = control::dispositivos(&d);
+    let suya = tabla[..n].iter().copied().find(|x| x.tipo == canal::MOTOR);
+    let leer = |que: u64| {
+        let base = suya?.lista_base as u64;
+        bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LEER, 1 << 62 | que << 32 | base).ok().map(|v| v as u32)
+    };
+    Ok(Listas { tabla, n, suya, config: leer(0), timbre: leer(1), chram: leer(2) })
 }
 
 /// Lo pregunta `save mode`.
@@ -350,6 +383,104 @@ fn estado(s: &mut Output, ok: bool, estado: u32, resultado: u32) {
         s.hex(resultado as u64, 8);
     }
     s.with_ink(INK_PLAIN);
+}
+
+/// **Las filas `listas` y `en la 3060`**: de que lista es cada motor de copia
+/// y GR0, y como ve la 3060 NUESTRO canal en la suya. Empieza con un salto de
+/// linea (va dentro de la fila `timbre`) y la deja abierta.
+fn fila_listas(s: &mut Output, l: Option<Result<Listas, u32>>) {
+    let Some(l) = l else { return };
+    s.byte(b'\n');
+    campo(s, b"listas");
+    let l = match l {
+        Err(m) => {
+            no(s, m);
+            return;
+        }
+        Ok(l) => l,
+    };
+    s.dec(l.n as u64);
+    s.text(b" aparatos:");
+    for x in &l.tabla[..l.n] {
+        let (nombre, k) = control::motor(x.tipo);
+        if nombre != b"GR" && nombre != b"COPY" {
+            continue;
+        }
+        s.byte(b' ');
+        s.text(nombre);
+        s.dec(k as u64);
+        s.text(b"=L");
+        s.dec(x.lista as u64);
+    }
+    let gr = l.tabla[..l.n].iter().find(|x| x.tipo == 1).map(|x| x.lista);
+    let Some(suya) = l.suya else {
+        s.with_ink(INK_ERR);
+        s.text(b"; COPY2 NO esta en la tabla");
+        s.with_ink(INK_PLAIN);
+        return;
+    };
+    if gr == Some(suya.lista) {
+        s.with_ink(INK_ERR);
+        s.text(b"; COPY2 COMPARTE la lista de GR0: es una GRCE, y sin contexto de GR su lista no corre");
+        s.with_ink(INK_PLAIN);
+    }
+    s.byte(b'\n');
+    campo(s, b"en la 3060");
+    s.with_ink(INK_ECHO);
+    s.text(b"lista ");
+    s.dec(suya.lista as u64);
+    s.text(b" en 0x");
+    s.hex(suya.lista_base as u64, 8);
+    if let Some(c) = l.config {
+        s.text(b", CHRAM en 0x");
+        s.hex((c & 0xFFFF_FFF0) as u64, 8);
+    }
+    s.with_ink(INK_PLAIN);
+    match l.timbre {
+        Some(t) => {
+            s.text(b"; su timbre es el ");
+            s.dec((t >> 16) as u64);
+            let ficha = match canal_().ficha {
+                Some(Ok(f)) => Some(f.r.valor >> 16),
+                _ => None,
+            };
+            if let Some(f) = ficha {
+                if f != t >> 16 {
+                    s.with_ink(INK_ERR);
+                    s.text(b" y la ficha dice ");
+                    s.dec(f as u64);
+                    s.text(b": NO cuadran");
+                    s.with_ink(INK_PLAIN);
+                }
+            }
+        }
+        None => s.text(b"; su timbre, sin leer"),
+    }
+    match l.chram {
+        Some(v) => {
+            s.text(b"; NUESTRO canal en su CHRAM: 0x");
+            s.hex(v as u64, 8);
+            s.text(b" =");
+            let mut alguno = false;
+            for &(bit, nombre) in &copia::CHRAM_BITS {
+                if v & bit != 0 {
+                    s.byte(b' ');
+                    s.text(nombre);
+                    alguno = true;
+                }
+            }
+            if !alguno {
+                s.with_ink(INK_ERR);
+                s.text(b" nada: el canal NO esta encendido en la 3060");
+                s.with_ink(INK_PLAIN);
+            } else if v & (1 << 1) == 0 {
+                s.with_ink(INK_ERR);
+                s.text(b" (sin ENABLE)");
+                s.with_ink(INK_PLAIN);
+            }
+        }
+        None => s.text(b"; su CHRAM, sin leer"),
+    }
 }
 
 /// **Las filas `canal`, `atado` y `ficha`**, las que se pidieron.
@@ -526,6 +657,7 @@ pub(crate) fn fila(s: &mut Output) {
             s.text(b"; GP_GET 1 s despues: ");
             s.dec(g as u64);
         }
+        fila_listas(s, reloj.listas);
         if otros.n == 0 {
             s.text(b"; el GSP-RM no dijo nada en 1 s");
         } else {

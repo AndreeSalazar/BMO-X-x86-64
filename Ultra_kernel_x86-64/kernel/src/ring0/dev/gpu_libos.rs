@@ -838,6 +838,27 @@ pub fn leer_tramo(dir: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_TRAMO);
     }
     let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    // Con el bit 62: la lista de ejecucion `dir` bajo (la base que dio el RM),
+    // y en 33:32 que: 0 la config de su CHRAM, 1 la de su timbre, 2 la entrada
+    // de NUESTRO canal en la CHRAM (la direccion la saca el kernel de la
+    // config, no se la cree al escritorio). Solo lectura.
+    if dir >> 62 == 1 {
+        use bmo_gpu_ga10x::copia as cp;
+        let base = dir as u32;
+        if !cp::lista_legible(base) {
+            return Err(IOMMU_NO_TRAMO);
+        }
+        let config = bmo_gpu_ga10x::Registros::leer(&mut r, base + cp::LISTA_CHRAM);
+        return match (dir >> 32) & 3 {
+            0 => Ok(config as u64),
+            1 => Ok(bmo_gpu_ga10x::Registros::leer(&mut r, base + cp::LISTA_TIMBRE) as u64),
+            2 => match cp::chram_de(config, bmo_gpu_ga10x::canal::CHID) {
+                Some(c) => Ok(bmo_gpu_ga10x::Registros::leer(&mut r, c) as u64),
+                None => Err(IOMMU_NO_TRAMO),
+            },
+            _ => Err(IOMMU_NO_TRAMO),
+        };
+    }
     if dir >> 63 != 0 {
         let reg = dir as u32;
         if dir >> 32 != 1 << 31 || !bmo_gpu_ga10x::copia::registro_legible(reg) {

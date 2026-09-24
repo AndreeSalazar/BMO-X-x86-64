@@ -96,14 +96,12 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
             let (cliente, objeto, cmd, medida) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 16) as usize);
             let bien = Control::TODOS.iter().any(|&c| {
                 let (c_cmd, c_medida, c_objeto) = c.forma();
-                let mut esperados = [0u8; 512];
-                let n = c.parametros(&mut esperados);
                 cliente == CLIENTE
                     && objeto == c_objeto
                     && cmd == c_cmd
                     && medida == c_medida
-                    && d.len() >= CABECERA_CONTROL + n
-                    && d[CABECERA_CONTROL..CABECERA_CONTROL + n] == esperados[..n]
+                    && d.len() >= CABECERA_CONTROL
+                    && c.iguales(&d[CABECERA_CONTROL..])
             });
             if bien {
                 Ok(h.funcion)
