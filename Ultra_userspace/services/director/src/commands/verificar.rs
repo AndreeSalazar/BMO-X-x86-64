@@ -260,6 +260,14 @@ const PASOS: &[Paso] = &[
         pide: Some(b"cola"),
         consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es L0c4b2, contestarle",
     },
+    Paso {
+        nombre: b"secuenciador",
+        que: b"LEER el secuenciador que pide el GSP, orden a orden, SIN correr ninguna (L0c4b2b)",
+        hecho: super::gspsecuencia::leido,
+        dar: super::gspsecuencia::leer,
+        pide: Some(b"vaciar"),
+        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es L0c4b2c, correrlo hasta GSP_INIT_DONE",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -624,7 +632,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c4b2b: leer el secuenciador que pide el GSP, orden a orden, sin correrlo (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c4b2c: CORRER el secuenciador del GSP hasta su GSP_INIT_DONE (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

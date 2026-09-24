@@ -56,6 +56,8 @@ pub mod libos;
 pub mod rpc;
 /// L0c4b2a: lo que la CPU le escribe al GSP -- SetSystemInfo y SetRegistry (2026-09-24).
 pub mod orden;
+/// L0c4b2b: las ordenes del secuenciador que pide el GSP (2026-09-24).
+pub mod secuenciador;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

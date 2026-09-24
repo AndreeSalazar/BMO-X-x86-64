@@ -429,7 +429,8 @@ MEDIDO, no el dicho.
         ANTES de despertar (como nouveau y OpenRM). `gpu sistema` y el
         paso `sistema`                           [VISTO en metal, 24-09 08:34]
      L0c4b2b LEER el secuenciador que pide el GSP: sus ordenes, dichas
-        una a una, sin correr ninguna
+        una a una, sin correr ninguna. `gpu secuenciador` y el paso
+        `secuenciador`                          [en codigo, 24-09]
      L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
         y esperar GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
@@ -700,6 +701,22 @@ mensaje, `GSP_RUN_CPU_SEQUENCER` con secuencia 0 -- ni un NOCAT, donde antes
 hubo 835 --, y los logs bajaron de LOGINIT 76267 / LOGRM 1767 a 203 / 92. Los
 835 ASSERT eran el GSP-RM sin su SetSystemInfo. Lo que queda es el
 secuenciador (L0c4b2b).
+
+**L0c4b2b (24-09, en codigo).** `bmo_gpu_ga10x::secuenciador` (3 pruebas) lee
+`rpc_run_cpu_sequencer_v17_00`: `bufferSizeDWord`, `cmdIndex` (cuantas
+ordenes, como el `total_cmds` de nova-core), `regSaveArea[8]` y detras las
+ordenes PEGADAS -- un opcode y solo su carga: REG_WRITE (addr, val),
+REG_MODIFY (addr, mask, val), REG_POLL (addr, mask, val, timeout, error),
+DELAY_US, REG_STORE (addr, index) y las cuatro del nucleo sin carga
+(CORE_RESET, CORE_START, CORE_WAIT_FOR_HALT, CORE_RESUME). Se para en la
+primera que no entiende. `commands/gspsecuencia.rs` lee el mensaje donde lo
+dejo `vaciar`, comprueba su suma, lo guarda crudo en `datos/gspsec.bin` y dice
+cada orden con la unidad del registro (PMC, PFB, falcon GSP, PGC6/BSI, falcon
+SEC2). No corre nada ni mueve un puntero.
+
+**Como se sabe (L0c4b2b):** la fila `secuen` dice cuantas ordenes y de que tipo
+(se espera que acabe en CORE_RESUME), y cada fila `orden` que registro toca y
+con que. Con esa lista delante se decide que deja correr el kernel en L0c4b2c.
 
 **Como se sabe (L0c4b2a):** la fila `sistema` relee los dos de la cola, con VRPC
 y la suma en 0; `sysinfo` dice las BAR, el BDF y los ID que se le dieron; y
