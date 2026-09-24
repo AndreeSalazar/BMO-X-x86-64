@@ -183,6 +183,13 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
 
     bmo::consola("escritorio pintado\n");
     marca(&p, "escritorio listo: el bucle arranca");
+    // ** EL MODO ARMADO Y EL CONSEJERO (24-09): si `save mode` quedo armado
+    // en `datos/modo.txt`, se repite aqui -- sin el paso que tumbo la maquina
+    // si lo hubo --; si no, el consejero dice lo siguiente recomendado.
+    marca(&p, "save mode: mirando datos/modo.txt");
+    crate::commands::verificar::al_arrancar(d, &p);
+    paint_output(&p, &d.run_box, &d.out.grid);
+    marca(&p, "listo");
     (p, input, d)
 }
 

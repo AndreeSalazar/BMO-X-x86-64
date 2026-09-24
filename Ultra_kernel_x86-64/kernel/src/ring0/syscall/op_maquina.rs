@@ -705,6 +705,12 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
                 return BmoStatus::negado(iommu::IOMMU_NO_SIN_GPU, 0);
             }
             let bdf = (b as u16) << 8 | (d as u16) << 3 | f as u16;
+            // El mismo FLUSH que antes de encender: lo que el escritorio
+            // acaba de guardar (el save, y la marca `en curso` del modo
+            // armado) tiene que estar en el disco si esto tumba la maquina.
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("iommu", "el FLUSH del disco antes de cambiar la 3060 no se pudo: se sigue", 0);
+            }
             if arg0 == IOMMU_OP_CEGAR_GPU { iommu::cegar(bdf) } else { iommu::ver(bdf) }
         }
         _ => return BmoStatus::err(ERROR_INVALID_ARGUMENT),

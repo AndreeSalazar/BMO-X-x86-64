@@ -293,7 +293,7 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
             // cada vez que la caja se invoca recuerda `save mode` y sus
             // opciones, para que quien la abra sepa que hay una orden que lo
             // verifica todo y la guarda antes. Ver `commands/verificar.rs`.
-            crate::commands::verificar::consejo(&mut dsk.out.grid);
+            crate::commands::verificar::consejero(&mut dsk.out.grid);
             uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
             paint_status(&p, &dsk.run_box, "listo", INK_DIM);
         } else {
