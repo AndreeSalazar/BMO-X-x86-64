@@ -159,7 +159,7 @@ pub(crate) fn listo() -> bool {
 
 /// `gpu init`: A MANO, no en `save mode` (metal 24-09 09:54: tras
 /// `GSP_INIT_DONE` la pantalla se quedo QUIETA). Por eso un save antes y otro
-/// despues: si la pantalla ya no ensena nada, lo que paso esta en el disco.
+/// despues: si la pantalla ya no muestra nada, lo que paso esta en el disco.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     if !super::files::antes_de_arriesgar(dsk, p, b"gpu init") {
         dsk.field.n = 0;
