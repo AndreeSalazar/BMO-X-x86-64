@@ -540,7 +540,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::triangulo_hecho,
         dar: super::gspcomputo::dibujar_triangulo,
         pide: Some(b"fractal"),
-        consejo: b"`gpu`: `triangulo` dice 262144 de 262144; teclea `gpu triangulo` y VELO a pantalla completa -- lo siguiente es T1, el mismo triangulo por el pipeline 3D",
+        consejo: b"`gpu`: `triangulo` dice 262144 de 262144; teclea `gpu triangulo` y VELO a pantalla completa -- lo siguiente es `limpio3d`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"limpio3d",
+        que: b"LA CLASE 3D ESCRIBE PIXELES: AMPERE_B limpia un destino de 512 x 512 con su ROP, sin programas (M5 T1a)",
+        hecho: super::gspcomputo::limpio_3d,
+        dar: super::gspcomputo::limpiar_3d,
+        pide: Some(b"triangulo"),
+        consejo: b"`gpu`: la fila `3d` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu 3d` -- lo siguiente es T1b, los programas de vertice y de pixel",
         repinta: false,
     },
 ];

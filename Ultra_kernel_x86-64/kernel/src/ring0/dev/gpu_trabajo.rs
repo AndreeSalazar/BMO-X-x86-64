@@ -573,3 +573,67 @@ fn triangulo_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+// == M5 T1a: LA CLASE 3D LIMPIA UN DESTINO (2026-09-24) =======================
+//
+// AMPERE_B, con su hardware de pixeles (el ROP) y sin programas, limpia el
+// MISMO MiB que el fractal como destino de render de 512 x 512. La CPU solo
+// cuenta los pixeles que salieron del color de limpieza.
+
+/// **M5 T1a.** `ficha` = la de S3. `Ok(tresde::empaquetar(..))`.
+pub fn limpiar_3d(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = limpiar_3d_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn limpiar_3d_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::fractal as fr;
+    use bmo_gpu_ga10x::tresde as td;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    asegurar_mib(&mut r)?;
+    memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
+    if !td::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5 T1a: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = td::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let mut fin = 0;
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        fin = td::mirar(&mut r).1;
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if fin == td::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let buenos = pixeles_del_fractal().map_or(0, td::comprobar);
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    // Sin QMD: el semaforo de la clase 3D cuenta por los dos.
+    let pagado = fin == td::PAGA_FIN;
+    let v = td::empaquetar(buenos, pagado, pagado, lanzado, us as u32, cpu_us as u32);
+    if td::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5 T1a: LA CLASE 3D LIMPIO 512x512 con su ROP; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5 T1a: la limpieza 3D no salio entera; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}

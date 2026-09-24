@@ -814,6 +814,11 @@ pub const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
 /// `Ok` = `triangulo::empaquetar(..)` (el formato del fractal). Se lee con
 /// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
 pub const IOMMU_OP_GPU_TRIANGULO: u64 = 0x34;
+/// M5 T1a: la clase 3D (AMPERE_B) limpia el MiB del fractal como destino de
+/// render de 512 x 512 con su ROP, sin programas. `arg1` = la ficha de S3.
+/// `Ok` = `tresde::empaquetar(..)`. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el
+/// bit 33.
+pub const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

@@ -396,6 +396,8 @@ pub(crate) const IOMMU_OP_GPU_BLUR: u64 = 0x32;
 pub(crate) const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
 /// M5d T0: el triangulo por computo, con la ficha en `arg1`. Ver `dev/gpu_trabajo.rs`.
 pub(crate) const IOMMU_OP_GPU_TRIANGULO: u64 = 0x34;
+/// M5 T1a: la clase 3D limpia un destino, con la ficha en `arg1`. Ver `dev/gpu_trabajo.rs`.
+pub(crate) const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

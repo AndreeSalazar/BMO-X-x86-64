@@ -172,6 +172,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_GR_PROMOVER => b"G3 necesita el canal de GR0, G2 hecho y las ocho medidas de G0 con el MISMO reparto; o ya se promovio en este arranque",
         bmo::IOMMU_NO_BLUR => b"el blur necesita el lienzo (`lienzo`) antes y una ficha del canal de GR0; o el GPFIFO ya se gasto, o hay uno en marcha",
         bmo::IOMMU_NO_BLUR_PREPARAR => b"la salida del blur no se presto por la IOMMU, sus PTE no estaban vacias, o el tramo no se releyo: no se toco el timbre",
+        super::gspcomputo::NO_LIMPIO3D_MAL => b"la clase 3D se lanzo pero el destino no salio del color de limpieza: la fila `3d`",
         super::gspcomputo::NO_TRIANGULO_MAL => b"el triangulo se lanzo pero no salio igual que la cuenta de la CPU: la fila `triangulo`",
         super::gspcomputo::NO_FRACTAL_MAL => b"el fractal se lanzo pero no salio igual que la cuenta de la CPU: la fila `fractal`",
         super::gspcomputo::NO_BLUR_MAL => b"el blur se lanzo pero no salio igual que la cuenta de la CPU: la fila `blur`",

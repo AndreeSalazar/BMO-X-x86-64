@@ -17,6 +17,7 @@ use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_gpu_ga10x::blur;
 use bmo_gpu_ga10x::fractal;
 use bmo_gpu_ga10x::lienzo;
+use bmo_gpu_ga10x::tresde;
 use bmo_gpu_ga10x::triangulo;
 use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
@@ -57,6 +58,8 @@ struct Computo {
     fractal: Option<Result<u64, u32>>,
     /// T0: el triangulo por computo.
     triangulo: Option<Result<u64, u32>>,
+    /// T1a: la clase 3D limpia un destino.
+    limpio3d: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -89,6 +92,8 @@ pub(crate) const NO_BLUR_SUBIR: u32 = 0x13D;
 pub(crate) const NO_FRACTAL_MAL: u32 = 0x13E;
 /// El triangulo se lanzo pero no salio igual que la CPU (la fila `triangulo`).
 pub(crate) const NO_TRIANGULO_MAL: u32 = 0x13F;
+/// La clase 3D se lanzo pero el destino no salio del color de limpieza.
+pub(crate) const NO_LIMPIO3D_MAL: u32 = 0x140;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -390,11 +395,52 @@ pub(crate) fn triangulo_hecho() -> bool {
     matches!(estado().triangulo, Some(Ok(v)) if triangulo::sano(v))
 }
 
+/// **T1a: la clase 3D limpia un destino** con su ROP, sin programas.
+pub(crate) fn limpiar_3d() -> Result<u64, u32> {
+    let r = hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIMPIAR_3D, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    });
+    con(|c| c.limpio3d = Some(r));
+    match r {
+        Ok(v) if tresde::sano(v) => Ok(v),
+        Ok(_) => Err(NO_LIMPIO3D_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn limpio_3d() -> bool {
+    matches!(estado().limpio3d, Some(Ok(v)) if tresde::sano(v))
+}
+
+/// `gpu 3d`: la clase 3D limpia el destino, y el panel.
+pub(crate) fn orden_3d(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la clase 3D de la 3060 limpia un destino con su ROP", INK_DIM);
+    let r = limpiar_3d();
+    let visto = matches!(r, Ok(v) if panel(p, v, Vista::Limpieza3d));
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LA CLASE 3D DE TU 3060 ESCRIBIO PIXELES CON SU ROP (M5 T1a): mira la fila `3d`\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  la clase 3D no limpio el destino: mira la fila `3d`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// Que muestra el panel.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Vista {
     Fractal,
     Triangulo,
+    Limpieza3d,
 }
 
 /// Una linea de texto sin reservar memoria.
@@ -482,7 +528,13 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     let fila = |y: u32, l: &mut Linea, c: u32| {
         p.texto_bytes(40, y, &l.b[..l.n], c);
     };
-    if que == Vista::Triangulo {
+    if que == Vista::Limpieza3d {
+        p.texto_escala(40, y, "LA CLASE 3D DE TU 3060: EL ROP", CLARO, 2);
+        y += 60;
+        fila(y, Linea::nueva().t(b"AMPERE_B limpio un destino de render de 512 x 512"), CLARO);
+        y += 28;
+        fila(y, Linea::nueva().t(b"sin programas: su hardware de pixeles, en tu RAM"), CLARO);
+    } else if que == Vista::Triangulo {
         p.texto_escala(40, y, "EL PRIMER TRIANGULO DE TU 3060", CLARO, 2);
         y += 60;
         fila(y, Linea::nueva().t(b"las tres funciones de arista, en cada pixel de 512 x 512"), CLARO);
@@ -494,12 +546,28 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
         fila(y, Linea::nueva().t(b"Mandelbrot 512 x 512, hasta ").d(fractal::VUELTAS as u64).t(b" vueltas por pixel"), CLARO);
     }
     y += 28;
-    fila(y, Linea::nueva().d(fractal::PIXELES as u64).t(b" hilos a la vez: 512 bloques de 512"), CLARO);
+    if que != Vista::Limpieza3d {
+        fila(y, Linea::nueva().d(fractal::PIXELES as u64).t(b" hilos a la vez: 512 bloques de 512"), CLARO);
+    }
     y += 48;
     p.texto_escala(40, y, "LA 3060", VERDE, 2);
     y += 36;
     fila(y, Linea::nueva().d(gpu_us as u64).t(b" us, del timbre al semaforo"), CLARO);
     y += 48;
+    if que == Vista::Limpieza3d {
+        // Aqui la CPU no hace la misma cuenta: solo CUENTA los pixeles.
+        let bien = buenos as usize == fractal::PIXELES;
+        fila(
+            y,
+            Linea::nueva().d(buenos as u64).t(b" de 262144 pixeles del color de limpieza (la CPU solo los cuenta)"),
+            if bien { VERDE } else { 0x00FF_5555 },
+        );
+        y += 48;
+        p.texto_escala(40, y, if bien { "EL PIPELINE 3D ESCRIBE: SI" } else { "EL PIPELINE 3D ESCRIBE: NO" }, if bien { VERDE } else { 0x00FF_5555 }, 3);
+        fila(p.alto.saturating_sub(48), Linea::nueva().t(b"pulsa cualquier tecla para volver al escritorio"), TENUE);
+        p.vaciar();
+        return true;
+    }
     p.texto_escala(40, y, "LA CPU (Ryzen 5 5600X, un nucleo)", TENUE, 2);
     y += 36;
     fila(y, Linea::nueva().d(cpu_us as u64).t(b" us, haciendo la MISMA cuenta"), CLARO);
@@ -892,6 +960,32 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(cpu_us as u64);
                 s.text(b" us; semaforos ");
                 s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.limpio3d {
+        campo(s, b"3d");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, pagado, _, lanzado, gpu_us, _) = tresde::desempaquetar(v);
+                if tresde::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"LA CLASE 3D LIMPIO EL DESTINO CON SU ROP: ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"la clase 3D NO limpio el destino entero: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 262144 pixeles del color de limpieza");
+                s.with_ink(INK_ECHO);
+                s.text(b"; semaforo de la clase 3D ");
+                s.text(if pagado { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b"   en ");
+                s.dec(gpu_us as u64);
+                s.text(b" us");
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');
             }

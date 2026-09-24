@@ -899,6 +899,13 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_trabajo::triangulo(arg1)
         }
+        // ** M5 T1a: el mismo MiB, ahora como destino de la clase 3D.
+        IOMMU_OP_GPU_LIMPIAR_3D => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la limpieza 3D no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::limpiar_3d(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);
