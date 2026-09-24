@@ -413,7 +413,7 @@ MEDIDO, no el dicho.
    L0c3a PRESTAR PARA ESCRIBIR lo que el GSP escribe: los argumentos de
         LIBOS, sus tres logs, `rmargs`, sus dos colas y la pagina de
         vaciado (180 paginas), y seguir cada puntero por la IOMMU. Sin
-        arrancar nada. `gpu libos` y el paso `libos`  [en codigo, 24-09]
+        arrancar nada. `gpu libos` y el paso `libos`  [VISTO en metal, 24-09 06:51]
    L0c3b el GSP con sus argumentos en el buzon, el booter en el SEC2 con la
         WPR meta en el suyo, y el RISC-V del GSP despierta
         (`is_riscv_active`); sus logs dicen como fue
@@ -526,6 +526,14 @@ region, la tabla dentro de cada log, `rmargs`, las 129 entradas de GspMem y la
 cabecera de la cola. Todos llevan a los marcos pedidos y la 3060 puede
 escribirlos; la fila `libos` dice cuantos punteros se siguieron. La pagina de
 vaciado se presta ya y se registra en L0c3b.
+
+**L0c3a en el metal (24-09, 06:51).** `libos PRESTADO para escribir, y cada
+puntero del GSP lleva a lo suyo   180 paginas (argumentos, rmargs, vaciado, 3
+logs, 2 colas); 234 punteros seguidos`, `domain 15767 pagina(s) prestada(s)
+tablas 40 de 128`, y el unico evento sigue siendo el de la frontera. Los doce
+pasos de `save mode` verificados. Lo que cuesta todo L0 a la maquina: 97 MiB
+de RAM usada (eran 34), y nada corriendo -- la 3060 todavia no ejecuta nada;
+lo unico que late es E2, ~60 interrupciones por segundo.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
