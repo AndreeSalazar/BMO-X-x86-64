@@ -816,6 +816,15 @@ pub fn copiar(ficha: u64) -> Result<u64, u32> {
         }
         core::hint::spin_loop();
     }
+    // Pagado: GP_GET llega despues (el USERD se escribe cuando le toca a la
+    // 3060). Se le dan hasta 10 ms para que la fila lo diga, sin exigirlo.
+    let pagado_en = us;
+    while semaforo == cp::PAGA && gp_get == 0 && us < pagado_en + 10_000 {
+        gp_get = cp::mirar(&mut r).0;
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        core::hint::spin_loop();
+    }
+    let us = pagado_en;
     let buenas = cp::comprobar(&mut r);
     let v = cp::empaquetar(buenas, gp_get, semaforo == cp::PAGA, lanzada, us as u32);
     if cp::sana(v) {

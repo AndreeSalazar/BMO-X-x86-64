@@ -362,9 +362,14 @@ pub const fn desempaquetar(v: u64) -> (u32, u32, bool, bool, u32) {
 }
 
 /// La copia salio entera.
+///
+/// ** GP_GET NO cuenta. El metal (24-09 14:55): 1024 de 1024 y el semaforo
+/// PAGADO al instante, con GP_GET aun en 0 -- y un segundo despues, 1. La
+/// 3060 escribe GP_GET en el USERD cuando le toca, no cuando acaba: lo que
+/// dice que copio es el destino y el semaforo, que solo escribe ella.
 pub const fn sana(v: u64) -> bool {
-    let (buenas, gp_get, pagado, lanzada, _) = desempaquetar(v);
-    buenas as usize == PALABRAS && gp_get == 1 && pagado && lanzada
+    let (buenas, _, pagado, lanzada, _) = desempaquetar(v);
+    buenas as usize == PALABRAS && pagado && lanzada
 }
 
 #[cfg(test)]
@@ -522,5 +527,7 @@ mod pruebas {
         assert!(sana(v));
         assert_eq!(desempaquetar(v), (1024, 1, true, true, 37));
         assert!(!sana(empaquetar(1023, 1, true, true, 0)));
+        assert!(sana(empaquetar(1024, 0, true, true, 0)), "GP_GET tarde no es fallo (metal 24-09 14:55)");
+        assert!(!sana(empaquetar(1024, 1, false, true, 0)), "sin semaforo, no");
     }
 }

@@ -953,11 +953,9 @@ vuelta.
                                                 [VISTO 24-09 13:35]
                 L1d2d  la ficha (`ficha`)       [VISTO 24-09 13:35]
                        y el timbre: la primera entrada del GPFIFO
-                       (`copia`)                [en codigo, 24-09]
+                       (`copia`)                [VISTO 24-09 14:55]
           L1d3  AMPERE_DMA_COPY_B en el canal: la GPU copia VRAM a VRAM
-                (`copiador` VISTO 24-09 14:19; `copia` en codigo:
-                GP_GET 0 en el metal, con la invalidacion de la MMU
-                y la fila `diag` detras)
+                (`copiador` y `copia`)          [VISTO 24-09 14:55]
 ```
 
 **L1d2a en el metal (24-09, 13:19): LOS MOTORES.** `11: GR0 COPY0 COPY1 COPY2
@@ -1073,6 +1071,19 @@ tabla antes y usa ESE valor (`copia::timbre_de`); la ficha del RM solo si la
 tabla no contesta. Y un fallo nuestro: la fila `en la 3060` dijo "sin leer"
 porque `lista_legible` pedia 4 KiB y la base de la lista de COPY2 es
 0x00C00400; ahora 64 B.
+
+**L1d3 en el metal (24-09, 14:55): LA 3060 COPIO.** `copia: 1024 de 1024
+palabras de VA 0x200008000 a VA 0x20000C000; semaforo PAGADO; timbre
+0x00010001 (la lista de COPY2 segun la tabla)`. El primer trabajo que la RTX
+3060 ejecuta para BMO-X, por su canal, sus tablas de paginas y su timbre, sin
+el driver de NVIDIA. `en la 3060: ... NUESTRO canal en su CHRAM: 0x000000C6 =
+ENABLE NEXT ON_PBDMA ON_ENG`; `diag` un segundo despues, `gp_get 1` y el
+semaforo `0x3060C0DE`; `iommu` sin eventos nuevos. La causa de GP_GET 0 en los
+cuatro intentos de antes: el timbre llevaba la ficha del RM (0x1, la lista
+0, la de GR0) y el canal vive en la 1. La fila todavia salio en rojo por una
+comprobacion nuestra: `sana` exigia GP_GET 1 y la 3060 lo escribe en el USERD
+despues de pagar el semaforo. Arreglado: cuentan el destino y el semaforo,
+que solo escribe ella; GP_GET se espera hasta 10 ms y se muestra.
 
 **Como se sabe (L1d3):** la fila `copia` dice `LA 3060 COPIO: 1024 de 1024`,
 `semaforo PAGADO` y `GP_GET 1`, y `iommu` sigue sin eventos nuevos. Nada de
