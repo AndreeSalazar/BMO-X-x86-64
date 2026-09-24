@@ -33,6 +33,20 @@
 #
 # [!] Se carga con punto: corre en el ambito de `build.ps1` y usa sus `Step`,
 # `Hash256`, `$root` y el `$dataBase` de `ejemplos.ps1`.
+#
+# ** Y tambien se puede correr SOLO (2026-09-24): la primera vez se corrio
+# asi, sin `build.ps1` detras, y el guion solto treinta errores de ruta nula y
+# acabo diciendo "los 4 del GSP, SHA-256 OK" sin haber bajado nada. Ahora,
+# si falta lo de `build.ps1`, se lo pone el mismo; y el OK se CUENTA con los
+# que llegaron, no con los que fallaron -- un error que no lanza no se cuenta.
+if (-not (Get-Command Step -ErrorAction SilentlyContinue)) {
+    function Step { param($m) Write-Host ('  => ' + $m) -ForegroundColor Cyan }
+}
+if (-not (Get-Command Hash256 -ErrorAction SilentlyContinue)) {
+    function Hash256 { param($p) (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash.ToLowerInvariant() }
+}
+if (-not $root) { $root = Split-Path -Parent $PSScriptRoot }
+if (-not $dataBase) { $dataBase = Join-Path $root 'staging\BMO-DATA' }
 
 Step 'Staging firmware del GSP (L0c, 3060)...'
 $fwVersion = '535.113.01'
@@ -48,7 +62,7 @@ $fwLista = @(
 )
 New-Item -ItemType Directory -Path $fwCache -Force | Out-Null
 New-Item -ItemType Directory -Path $fwDestino -Force | Out-Null
-$fwFaltan = 0
+$fwListos = 0
 foreach ($fw in $fwLista) {
     $nombre = $fw[0] + '-' + $fwVersion + '.bin'
     $local  = Join-Path $fwCache $nombre
@@ -72,20 +86,25 @@ foreach ($fw in $fwLista) {
             $ProgressPreference = $progresoPrevio
         }
     }
-    if (-not (Test-Path $local)) { $fwFaltan++; continue }
+    if (-not (Test-Path $local)) { continue }
     if ((Hash256 $local) -ne $fw[2]) {
         Write-Host ('    [fw] ' + $nombre + ' bajo con OTRO SHA-256: no se copia') -ForegroundColor Yellow
         Remove-Item -LiteralPath $local -Force
-        $fwFaltan++
         continue
     }
-    Copy-Item -LiteralPath $local -Destination (Join-Path $fwDestino $fw[1]) -Force
+    $copia = Join-Path $fwDestino $fw[1]
+    Copy-Item -LiteralPath $local -Destination $copia -Force
+    if ((Hash256 $copia) -ne $fw[2]) {
+        Write-Host ('    [fw] ' + $fw[1] + ': la copia a staging salio distinta') -ForegroundColor Yellow
+        continue
+    }
+    $fwListos++
     Write-Host ('    [fw] ' + $fw[1] + ' (' + (Get-Item $local).Length + ' B) <- ' + $nombre) -ForegroundColor DarkGray
 }
-if ($fwFaltan -gt 0) {
-    Write-Host ('    [fw] faltan ' + $fwFaltan + ' de 4: el build sigue, pero L0c no tendra con que arrancar el GSP') -ForegroundColor Yellow
+if ($fwListos -lt $fwLista.Count) {
+    Write-Host ('    [fw] faltan ' + ($fwLista.Count - $fwListos) + ' de 4: el build sigue, pero L0c no tendra con que arrancar el GSP') -ForegroundColor Yellow
     Write-Host ('    [fw]   se pueden dejar a mano en ' + $fwCache) -ForegroundColor Yellow
     Write-Host '    [fw]   (de /lib/firmware/nvidia/ga102/gsp/ de un Linux, descomprimidos)' -ForegroundColor Yellow
 } else {
-    Write-Host '    [fw] los 4 del GSP, SHA-256 OK -> fw\gsp\' -ForegroundColor DarkGray
+    Write-Host ('    [fw] los 4 del GSP, SHA-256 OK -> ' + $fwDestino) -ForegroundColor Green
 }
