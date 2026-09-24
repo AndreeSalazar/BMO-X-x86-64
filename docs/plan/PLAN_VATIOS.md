@@ -338,6 +338,24 @@ bien: esta DIBUJANDO, y lo que trabaja consume.
    mide     `consumo` con DOOM en pantalla entera parado en el menu
 ```
 
+## [ ] W8 -- El 30 %: que gasta el escritorio QUIETO (apuntado el 2026-09-24)
+
+Hasta el 23-09 el contador de reposo del BSP MENTIA: apuntaba como dormido
+todo lo que otra tarea trabajaba (el `sti` iba antes del `mwaitx`; arreglado
+en `00b3aea34`). Con el contador ya honesto, el `save` del 24-09 01:08 dijo
+`bsp dormido 61 %` en 29 s de escritorio sin hacer nada. Parte es el
+arranque, pero apunta a que **el escritorio en reposo gasta un 30-35 % de un
+nucleo** -- y el 99 % de antes lo tapaba.
+
+Sospechosos, por orden: el REPOSO de W4 que no llega a entrar (el testigo
+`reposo` de la barra), el bucle de ~375 vueltas por segundo que cita E3 de
+`PLAN_LA_3060.md`, y los seis ficheros del DIRECTOR que gastan en reposo
+(R21).
+
+**Como se sabe:** un `save` tras dos minutos de escritorio quieto (para que
+el arranque pese poco) da `bsp dormido` por encima del 95 %, y se sabe que
+fichero se llevaba el resto.
+
 ## [ ] W6 -- C2/CC6 por el puerto de E/S del C-state: `C001_0073`, sin AML
 
 La palanca grande, y no estaba en la primera version de este plan. MWAIT en este
