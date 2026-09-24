@@ -674,7 +674,7 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
 /// termina con un OK que es "aceptado", no "guardado": el SSD lo tiene en su
 /// cache. Si encender tumba la maquina, lo guardado tiene que estar en el
 /// disco de verdad. La maquina trabaja para quien la usa.
-pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
+pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu;
     let pid = scheduler::current_pid();
     if crate::ring0::obj::fb::owner() != Some(pid) {
@@ -758,6 +758,16 @@ pub(super) fn iommu(arg0: u64, _arg1: u64) -> BmoStatus {
             } else {
                 crate::ring0::dev::gpu_prestamo::frontera()
             }
+        }
+        // ** L0b (2026-09-24): FWSEC-FRTS. Los trozos no escriben en el
+        // hardware; CORRER si, y lleva el FLUSH como todo lo arriesgado.
+        IOMMU_OP_FWSEC_PREPARAR => crate::ring0::dev::gpu_prestamo::fwsec_preparar(arg1),
+        IOMMU_OP_FWSEC_TROZO => crate::ring0::dev::gpu_prestamo::fwsec_trozo(arg1),
+        IOMMU_OP_FWSEC_CORRER => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de FWSEC no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_prestamo::fwsec_correr()
         }
         IOMMU_OP_E2_APAGAR => {
             let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);

@@ -86,6 +86,9 @@ const TRANSCFG_MASCARA: u32 = 0x0001_0007;
 const TRANSCFG_PC_COHERENTE_FISICA: u32 = 1 | 1 << 2;
 const CMD_256B: u32 = 6 << 8;
 const CMD_LIBRE: u32 = 1 << 1;
+/// `sec` = 1 (bits 2..3) y la IMEM (bit 4): nouveau `ga102_flcn_dma_init`.
+const CMD_SEGURO: u32 = 1 << 2;
+const CMD_IMEM: u32 = 1 << 4;
 const DMEMC_LEER: u32 = 1 << 25;
 
 /// Un trozo de DMA: 256 bytes (`DmaTrfCmdSize::Size256B`).
@@ -208,24 +211,97 @@ pub fn traer(
     bytes: u32,
     plazo_trozo_us: u64,
 ) -> Result<(), NoFuego> {
+    preparar_fbif(r, base)?;
+    copiar(r, t, base, iova, dmem, bytes, false, false, plazo_trozo_us)
+}
+
+/// El FBIF a la RAM del PC, en fisico y sin contexto (`dma_load`, nova-core).
+pub fn preparar_fbif(r: &mut impl Registros, base: u32) -> Result<(), NoFuego> {
     let fbif = leer(r, base + FBIF_CTL)?;
     r.escribir(base + FBIF_CTL, fbif | FBIF_FISICA_SIN_CTX);
     r.escribir(base + DMACTL, 0);
     let tc = leer(r, base + TRANSCFG)?;
     r.escribir(base + TRANSCFG, (tc & !TRANSCFG_MASCARA) | TRANSCFG_PC_COHERENTE_FISICA);
+    Ok(())
+}
+
+/// **Un `dma_wr` de nova-core**: `bytes` desde la direccion del APARATO `iova`
+/// a la IMEM (`imem`) o a la DMEM, a partir de `destino`, a trozos de 256 B.
+/// `seguro` marca cada trozo para el modo seguro del falcon (el de un
+/// firmware firmado: `sec` = 1, bits 2..3 del comando).
+#[allow(clippy::too_many_arguments)]
+pub fn copiar(
+    r: &mut impl Registros,
+    t: &mut impl Reloj,
+    base: u32,
+    iova: u64,
+    destino: u32,
+    bytes: u32,
+    imem: bool,
+    seguro: bool,
+    plazo_trozo_us: u64,
+) -> Result<(), NoFuego> {
     r.escribir(base + DMATRFBASE, (iova >> 8) as u32);
     r.escribir(base + DMATRFBASE1, ((iova >> 40) & 0x1FF) as u32);
+    let cmd = CMD_256B | if imem { CMD_IMEM } else { 0 } | if seguro { CMD_SEGURO } else { 0 };
     let mut pos = 0;
     while pos < bytes {
-        r.escribir(base + DMATRFMOFFS, dmem + pos);
+        r.escribir(base + DMATRFMOFFS, destino + pos);
         r.escribir(base + DMATRFFBOFFS, pos);
-        r.escribir(base + DMATRFCMD, CMD_256B);
+        r.escribir(base + DMATRFCMD, cmd);
         if !esperar(r, t, base + DMATRFCMD, plazo_trozo_us, |v| v & CMD_LIBRE != 0)? {
             return Err(NoFuego::DmaNoAcaba(pos));
         }
         pos += TROZO;
     }
     Ok(())
+}
+
+// -- ** L0b: EL ARRANQUE DE UN FIRMWARE FIRMADO (2026-09-24) ------------------
+
+pub const MAILBOX0: u32 = 0x040;
+pub const MAILBOX1: u32 = 0x044;
+pub const CPUCTL: u32 = 0x100;
+pub const BOOTVEC: u32 = 0x104;
+pub const CPUCTL_ALIAS: u32 = 0x130;
+/// Los del BROM, en el bloque `PFALCON2` (`base + 0x1000`).
+pub const MOD_SEL: u32 = 0x1180;
+pub const BROM_UCODE_ID: u32 = 0x1198;
+pub const BROM_ENGIDMASK: u32 = 0x119c;
+pub const BROM_PARAADDR: u32 = 0x1210;
+const CPUCTL_ARRANCAR: u32 = 1 << 1;
+const CPUCTL_PARADO: u32 = 1 << 4;
+const CPUCTL_ALIAS_EN: u32 = 1 << 6;
+/// `FalconModSelAlgo::Rsa3k`.
+const MOD_SEL_RSA3K: u32 = 1;
+
+/// **Decirle a la ROM de arranque del falcon como comprobar la firma**
+/// (`program_brom_ga102`): donde esta en la DMEM, que motores y que ucode la
+/// validan, y el algoritmo (RSA-3K).
+pub fn brom(r: &mut impl Registros, base: u32, pkc_data_offset: u32, engine_id_mask: u16, ucode_id: u8) {
+    r.escribir(base + BROM_PARAADDR, pkc_data_offset);
+    r.escribir(base + BROM_ENGIDMASK, engine_id_mask as u32);
+    r.escribir(base + BROM_UCODE_ID, ucode_id as u32);
+    r.escribir(base + MOD_SEL, MOD_SEL_RSA3K);
+}
+
+/// **Arrancar** (`Falcon::boot`, sin esperar): `BOOTVEC`, `MAILBOX0` a 0 y
+/// STARTCPU -- por el alias si el falcon lo tiene encendido.
+pub fn arrancar(r: &mut impl Registros, base: u32, bootvec: u32) -> Result<(), NoFuego> {
+    r.escribir(base + BOOTVEC, bootvec);
+    r.escribir(base + MAILBOX0, 0);
+    if leer(r, base + CPUCTL)? & CPUCTL_ALIAS_EN != 0 {
+        r.escribir(base + CPUCTL_ALIAS, CPUCTL_ARRANCAR);
+    } else {
+        r.escribir(base + CPUCTL, CPUCTL_ARRANCAR);
+    }
+    Ok(())
+}
+
+/// Se paro ya? `(parado, MAILBOX0, MAILBOX1)`.
+pub fn como_va(r: &mut impl Registros, base: u32) -> Result<(bool, u32, u32), NoFuego> {
+    let c = leer(r, base + CPUCTL)?;
+    Ok((c & CPUCTL_PARADO != 0, r.leer(base + MAILBOX0), r.leer(base + MAILBOX1)))
 }
 
 /// **Leer la DMEM por PIO**: `n` palabras desde `dmem`, con autoincremento.
@@ -447,6 +523,31 @@ mod pruebas {
         resetear(&mut f, &mut Tic(0), GSP, 0).unwrap();
         f.dma_colgado = true;
         assert_eq!(traer(&mut f, &mut Tic(0), GSP, 0x1000_0000, 0, 4096, 100), Err(NoFuego::DmaNoAcaba(0)));
+    }
+
+    #[test]
+    fn la_imem_en_modo_seguro_lleva_sus_dos_bits() {
+        let mut f = Falcon::nuevo();
+        copiar(&mut f, &mut Tic(0), GSP, 0x1100_0000, 0x0, 512, true, true, 1000).unwrap();
+        let cmds: Vec<u32> = f.escritos.iter().filter(|(r, _)| *r == GSP + DMATRFCMD).map(|e| e.1).collect();
+        assert_eq!(cmds, [0x614, 0x614], "256 B | IMEM | sec=1, como nouveau");
+        assert_eq!(f.reg(GSP + DMATRFBASE), 0x0011_0000);
+    }
+
+    #[test]
+    fn brom_y_arrancar_como_nova_core() {
+        let mut f = Falcon::nuevo();
+        brom(&mut f, GSP, 0x5C0, 0x0400, 9);
+        assert_eq!(f.reg(GSP + BROM_PARAADDR), 0x5C0);
+        assert_eq!(f.reg(GSP + BROM_ENGIDMASK), 0x400);
+        assert_eq!(f.reg(GSP + BROM_UCODE_ID), 9);
+        assert_eq!(f.reg(GSP + MOD_SEL), 1, "RSA-3K");
+        f.poner(GSP + CPUCTL, CPUCTL_ALIAS_EN);
+        arrancar(&mut f, GSP, 0).unwrap();
+        assert_eq!(f.reg(GSP + CPUCTL_ALIAS), CPUCTL_ARRANCAR, "con el alias encendido, por el alias");
+        assert_eq!(f.reg(GSP + MAILBOX0), 0);
+        assert_eq!(GSP + BROM_PARAADDR, 0x111210);
+        assert_eq!(GSP + MOD_SEL, 0x111180);
     }
 
     #[test]

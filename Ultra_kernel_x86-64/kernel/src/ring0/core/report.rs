@@ -443,6 +443,9 @@ const INFO_GPU_FUSIBLE: u64 = 0xB6;
 const INFO_GPU_FB: u64 = 0xB7;
 const INFO_GPU_VGA: u64 = 0xB8;
 const INFO_GPU_WPR2: u64 = 0xB9;
+/// L0b: FWSEC-FRTS, y los buzones de su falcon (2026-09-24).
+const INFO_GPU_FWSEC: u64 = 0xBA;
+const INFO_GPU_FWSEC_BUZON: u64 = 0xBB;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -975,6 +978,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_FB => crate::ring0::dev::gpu::info_fb(),
         INFO_GPU_VGA => crate::ring0::dev::gpu::info_vga(),
         INFO_GPU_WPR2 => crate::ring0::dev::gpu::info_wpr2(),
+        INFO_GPU_FWSEC => crate::ring0::dev::gpu_prestamo::info_fwsec(),
+        INFO_GPU_FWSEC_BUZON => crate::ring0::dev::gpu_prestamo::info_fwsec_buzon(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

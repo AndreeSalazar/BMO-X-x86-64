@@ -196,6 +196,14 @@ const PASOS: &[Paso] = &[
         pide: None,
         consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- lo siguiente es L0b, correr FWSEC-FRTS",
     },
+    Paso {
+        nombre: b"fwsec",
+        que: b"CORRER FWSEC-FRTS: el firmware firmado de la VBIOS monta la WPR2 (L0b)",
+        hecho: super::vbios::hay_wpr2,
+        dar: super::vbios::correr_fwsec,
+        pide: Some(b"vbios"),
+        consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -559,7 +567,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0b: correr FWSEC-FRTS en el falcon del GSP (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c: el booter en el SEC2 y el GSP-RM (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

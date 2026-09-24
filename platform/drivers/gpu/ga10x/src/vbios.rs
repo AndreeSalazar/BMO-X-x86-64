@@ -199,6 +199,29 @@ pub struct Fwsec {
     pub orden_de_fabrica: u32,
 }
 
+/// **Los 44 bytes de un descriptor v3, leidos.** Lo usa tambien el kernel,
+/// que lo vuelve a leer de la ROM por su cuenta antes de cargar nada.
+pub fn descriptor(d: &[u8]) -> Option<Descriptor> {
+    if d.len() < DESCRIPTOR {
+        return None;
+    }
+    let w = |k: usize| u32_en(d, k).unwrap_or(0);
+    Some(Descriptor {
+        hdr: w(0),
+        pkc_data_offset: w(8),
+        interface_offset: w(12),
+        imem_phys_base: w(16),
+        imem_load_size: w(20),
+        imem_virt_base: w(24),
+        dmem_phys_base: w(28),
+        dmem_load_size: w(32),
+        engine_id_mask: u16_en(d, 36)?,
+        ucode_id: d[38],
+        signature_count: d[39],
+        signature_versions: u16_en(d, 40)?,
+    })
+}
+
 /// **Encontrar FWSEC** en la ROM, por el camino de nova-core.
 pub fn fwsec(rom: &[u8]) -> Result<Fwsec, NoVbios> {
     let mut ims = [Imagen::default(); 8];
@@ -257,21 +280,7 @@ pub fn fwsec(rom: &[u8]) -> Result<Fwsec, NoVbios> {
 
     // -- El descriptor v3 --
     let d = rom.get(en_rom..en_rom + DESCRIPTOR).filter(|_| en_rom + DESCRIPTOR <= fin_seg).ok_or(NoVbios::Descriptor(0))?;
-    let w = |k: usize| u32_en(d, k).unwrap_or(0);
-    let desc = Descriptor {
-        hdr: w(0),
-        pkc_data_offset: w(8),
-        interface_offset: w(12),
-        imem_phys_base: w(16),
-        imem_load_size: w(20),
-        imem_virt_base: w(24),
-        dmem_phys_base: w(28),
-        dmem_load_size: w(32),
-        engine_id_mask: u16_en(d, 36).unwrap_or(0),
-        ucode_id: d[38],
-        signature_count: d[39],
-        signature_versions: u16_en(d, 40).unwrap_or(0),
-    };
+    let desc = descriptor(d).ok_or(NoVbios::Descriptor(0))?;
     if desc.version() != 3 {
         return Err(NoVbios::Descriptor(desc.hdr));
     }

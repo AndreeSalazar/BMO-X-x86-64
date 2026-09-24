@@ -42,6 +42,8 @@ pub mod vblank;
 pub mod falcon;
 /// L0a: la VBIOS leida -- donde esta FWSEC y que firma pide (2026-09-24).
 pub mod vbios;
+/// L0b: FWSEC-FRTS preparado -- la orden y la firma, sobre bytes (2026-09-24).
+pub mod fwsec;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

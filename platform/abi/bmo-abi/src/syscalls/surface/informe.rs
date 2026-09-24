@@ -1649,6 +1649,30 @@ pub const GPU_FB_VALIDA: u64 = 1 << 63;
 pub const INFO_GPU_VGA: u64 = 0xB8;
 pub const INFO_GPU_WPR2: u64 = 0xB9;
 
+/// # L0b (2026-09-24): FWSEC-FRTS en el falcon del GSP
+///
+/// ```text
+///   INFO_GPU_FWSEC        0..7 trozos copiados | 8..15 trozos totales |
+///                         16..17 la firma usada | 18 parcheado | 19 prestado |
+///                         20 arrancado | 21 PARADO | 22 hay WPR2 | 32..47 el
+///                         codigo de FRTS (0x1438) | 48..55 el ultimo NO |
+///                         62 preparado | 63 valido
+///   INFO_GPU_FWSEC_BUZON  MAILBOX0 | MAILBOX1 << 32 del falcon del GSP
+/// ```
+pub const INFO_GPU_FWSEC: u64 = 0xBA;
+pub const FWSEC_TOTALES_SHIFT: u64 = 8;
+pub const FWSEC_FIRMA_SHIFT: u64 = 16;
+pub const FWSEC_PARCHEADO: u64 = 1 << 18;
+pub const FWSEC_PRESTADO: u64 = 1 << 19;
+pub const FWSEC_ARRANCADO: u64 = 1 << 20;
+pub const FWSEC_PARADO: u64 = 1 << 21;
+pub const FWSEC_WPR2: u64 = 1 << 22;
+pub const FWSEC_ERROR_SHIFT: u64 = 32;
+pub const FWSEC_MOTIVO_SHIFT: u64 = 48;
+pub const FWSEC_PREPARADO: u64 = 1 << 62;
+pub const FWSEC_VALIDO: u64 = 1 << 63;
+pub const INFO_GPU_FWSEC_BUZON: u64 = 0xBB;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

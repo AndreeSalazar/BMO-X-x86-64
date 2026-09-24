@@ -154,13 +154,19 @@ fn motivo(e: NoFuego) -> u64 {
 
 /// **El candado del fuego.** `Ok(bar0)` o el motivo del NO.
 fn candado() -> Result<u64, u32> {
+    if PRUEBA.load(Ordering::Acquire) & GPU_PRUEBA_PRESTADA == 0 {
+        return Err(IOMMU_NO_SIN_PRUEBA);
+    }
+    candado_dma()
+}
+
+/// **El candado de todo DMA de la 3060**: TRADUCIDA y releida, una NVIDIA en
+/// su BDF, y el Bus Master de E2 encendido (que no se enciende aqui).
+fn candado_dma() -> Result<u64, u32> {
     use crate::ring0::plat::iommu as io;
     let g = io::info_gpu();
     if g & io::IOMMU_GPU_TRADUCIDA == 0 || g & io::IOMMU_GPU_RELEIDA == 0 {
         return Err(io::IOMMU_NO_NO_TRADUCIDA);
-    }
-    if PRUEBA.load(Ordering::Acquire) & GPU_PRUEBA_PRESTADA == 0 {
-        return Err(IOMMU_NO_SIN_PRUEBA);
     }
     let Some((b, d, f)) = crate::ring0::dev::gpu::bdf() else { return Err(io::IOMMU_NO_SIN_GPU) };
     if crate::ring0::dev::pci::cfg_read32(b, d, f, 0) & 0xFFFF != 0x10DE || (g & 0xFFFF) as u16 != (b as u16) << 8 | (d as u16) << 3 | f as u16 {
@@ -295,4 +301,307 @@ pub fn info_fuego_leido() -> u64 {
 }
 pub fn info_frontera() -> u64 {
     FRONTERA.load(Ordering::Acquire)
+}
+
+// == L0b: FWSEC-FRTS (2026-09-24) ==============================================
+//
+// El firmware FIRMADO de la VBIOS corre en el falcon del GSP y aparta la WPR2
+// en la VRAM. Es la puerta del booter y del GSP-RM. Por el mismo camino que la
+// prueba de fuego: el ucode se copia de la ROM a paginas NEUTRO, se PRESTA a la
+// 3060 solo para leer en `IOVA_FWSEC`, y el DMA del falcon lo trae -- ahora a la
+// IMEM y a la DMEM, en modo seguro, con la firma que pide el fusible puesta.
+//
+// Tres ordenes y no una, por la maquina: la ROM se lee de 4 KiB en 4 KiB (un
+// syscall cada trozo), y el arranque vuelve en cuanto el falcon ARRANCA -- quien
+// espera a que se pare es el escritorio, cediendo el turno, y no el kernel con
+// las interrupciones cerradas. Hasta 2 s, dice nova-core.
+//
+//    PREPARAR(en_rom)  el kernel relee el descriptor de la ROM por su cuenta
+//                      y lo juzga: v3, del GSP, medidas que caben
+//    TROZO(k)          4 KiB de ucode, de la ROM al bufer
+//    CORRER            la orden FRTS y la firma (`bmo_gpu_ga10x::fwsec`), el
+//                      prestamo, reset, IMEM y DMEM por DMA seguro, BROM y
+//                      STARTCPU. `INFO_GPU_FWSEC` dice despues si se paro, su
+//                      MAILBOX0, el codigo de FRTS y si hay WPR2
+
+use bmo_gpu_ga10x::vbios as vb;
+
+/// Donde ve la 3060 el ucode de FWSEC: lejos de la pagina de prueba.
+pub const IOVA_FWSEC: u64 = 0x1100_0000;
+/// 32 paginas = 128 KiB: el ucode del Ryzen mide 58 KiB.
+const FWSEC_PAGINAS: u64 = 32;
+
+pub const IOMMU_NO_FWSEC_DESC: u32 = 19;
+pub const IOMMU_NO_FWSEC_SIN_PREPARAR: u32 = 20;
+pub const IOMMU_NO_FWSEC_FIRMA: u32 = 21;
+pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
+pub const IOMMU_NO_WPR2_YA: u32 = 23;
+pub const IOMMU_NO_GFW: u32 = 24;
+pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
+
+pub const FWSEC_TOTALES_SHIFT: u64 = 8;
+pub const FWSEC_FIRMA_SHIFT: u64 = 16;
+pub const FWSEC_PARCHEADO: u64 = 1 << 18;
+pub const FWSEC_PRESTADO: u64 = 1 << 19;
+pub const FWSEC_ARRANCADO: u64 = 1 << 20;
+pub const FWSEC_PARADO: u64 = 1 << 21;
+pub const FWSEC_WPR2: u64 = 1 << 22;
+pub const FWSEC_ERROR_SHIFT: u64 = 32;
+pub const FWSEC_MOTIVO_SHIFT: u64 = 48;
+pub const FWSEC_PREPARADO: u64 = 1 << 62;
+pub const FWSEC_VALIDO: u64 = 1 << 63;
+
+/// La fisica del bufer (0 = aun no).
+static FWSEC_BUF: AtomicU64 = AtomicU64::new(0);
+/// Donde empieza el descriptor en la ROM.
+static FWSEC_EN_ROM: AtomicU64 = AtomicU64::new(0);
+/// Los trozos de 4 KiB ya copiados (un bit cada uno).
+static FWSEC_TROZOS: AtomicU64 = AtomicU64::new(0);
+/// El estado sin lo que se lee en vivo (ver `info_fwsec`).
+static FWSEC_ESTADO: AtomicU64 = AtomicU64::new(0);
+/// El descriptor, juzgado en PREPARAR. El escritorio es el unico que llega
+/// aqui (solo quien tiene la pantalla), y de uno en uno.
+static mut FWSEC_DESC: Option<vb::Descriptor> = None;
+
+fn desc() -> Option<vb::Descriptor> {
+    // SAFETY: ver `FWSEC_DESC`.
+    unsafe { *core::ptr::addr_of!(FWSEC_DESC) }
+}
+
+fn apuntar(f: impl FnOnce(u64) -> u64) {
+    let v = FWSEC_ESTADO.load(Ordering::Acquire);
+    FWSEC_ESTADO.store(f(v), Ordering::Release);
+}
+
+fn no(motivo: u32) -> Result<u64, u32> {
+    apuntar(|v| (v & !(0xFF << FWSEC_MOTIVO_SHIFT)) | (motivo as u64 & 0xFF) << FWSEC_MOTIVO_SHIFT);
+    Err(motivo)
+}
+
+/// Un byte de la ROM, por su palabra.
+fn rom_byte(r: &mut Bar0, p: usize) -> u8 {
+    let w = bmo_gpu_ga10x::Registros::leer(r, vb::ROM + (p as u32 & !3));
+    (w >> ((p & 3) * 8)) as u8
+}
+
+/// `n` bytes de la ROM desde `p` a `dst`: por palabras si `p` va a 4.
+fn rom_a(r: &mut Bar0, p: usize, dst: &mut [u8]) {
+    if p % 4 == 0 {
+        for (i, c) in dst.chunks_mut(4).enumerate() {
+            let w = bmo_gpu_ga10x::Registros::leer(r, vb::ROM + (p + i * 4) as u32).to_le_bytes();
+            c.copy_from_slice(&w[..c.len()]);
+        }
+    } else {
+        for (i, b) in dst.iter_mut().enumerate() {
+            *b = rom_byte(r, p + i);
+        }
+    }
+}
+
+fn total(d: &vb::Descriptor) -> usize {
+    d.imem_load_size as usize + (d.dmem_load_size as usize).next_multiple_of(256)
+}
+
+fn bufer() -> &'static mut [u8] {
+    let f = FWSEC_BUF.load(Ordering::Acquire);
+    // SAFETY: las paginas NEUTRO de `fwsec_preparar`, de este fichero; la 3060
+    // solo las LEE (prestadas sin escritura).
+    unsafe { core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(f) as *mut u8, (FWSEC_PAGINAS * 4096) as usize) }
+}
+
+/// **PREPARAR**: juzgar el descriptor que empieza en `en_rom`. `Ok(trozos)`.
+pub fn fwsec_preparar(en_rom: u64) -> Result<u64, u32> {
+    use crate::ring0::mm::phys;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 {
+        return no(crate::ring0::plat::iommu::IOMMU_NO_SIN_GPU);
+    }
+    let e = en_rom as usize;
+    if e + vb::DESCRIPTOR > vb::ROM_MAX {
+        return no(IOMMU_NO_FWSEC_DESC);
+    }
+    let mut r = Bar0(bar0);
+    let mut b = [0u8; vb::DESCRIPTOR];
+    rom_a(&mut r, e, &mut b);
+    let Some(d) = vb::descriptor(&b) else { return no(IOMMU_NO_FWSEC_DESC) };
+    let t = total(&d);
+    let bien = d.version() == 3
+        && d.engine_id_mask & 0x0400 != 0
+        && d.signature_count > 0
+        && d.imem_load_size % 256 == 0
+        && d.dmem_load_size > 0
+        && t <= (FWSEC_PAGINAS * 4096) as usize
+        && d.medida() >= vb::DESCRIPTOR + d.signature_count as usize * vb::FIRMA
+        && e + d.medida() + t <= vb::ROM_MAX;
+    if !bien {
+        return no(IOMMU_NO_FWSEC_DESC);
+    }
+    if FWSEC_BUF.load(Ordering::Acquire) == 0 {
+        // La 3060 lo leera por DMA: NEUTRO.
+        let Some(f) = phys::alloc_frames_contig_de(FWSEC_PAGINAS, phys::Titular::Neutro) else {
+            return no(crate::ring0::plat::iommu::IOMMU_NO_SIN_AREA);
+        };
+        FWSEC_BUF.store(f, Ordering::Release);
+    }
+    bufer().fill(0);
+    // SAFETY: ver `FWSEC_DESC`.
+    unsafe { *core::ptr::addr_of_mut!(FWSEC_DESC) = Some(d) };
+    FWSEC_EN_ROM.store(en_rom, Ordering::Release);
+    FWSEC_TROZOS.store(0, Ordering::Release);
+    let n = t.div_ceil(4096) as u64;
+    apuntar(|v| (v & (FWSEC_PRESTADO | 0xFF << FWSEC_MOTIVO_SHIFT)) | FWSEC_VALIDO | FWSEC_PREPARADO | n << FWSEC_TOTALES_SHIFT);
+    crate::ring0::cabina::count("gpu", "L0b: FWSEC juzgado en la ROM; trozos de 4 KiB", n);
+    Ok(n)
+}
+
+/// **TROZO k**: 4 KiB de ucode, de la ROM al bufer. `Ok(bits de los copiados)`.
+pub fn fwsec_trozo(k: u64) -> Result<u64, u32> {
+    let Some(d) = desc() else { return no(IOMMU_NO_FWSEC_SIN_PREPARAR) };
+    let t = total(&d);
+    let n = t.div_ceil(4096) as u64;
+    if k >= n {
+        return no(IOMMU_NO_FWSEC_SIN_PREPARAR);
+    }
+    let mut r = Bar0(crate::ring0::dev::gpu::bar0());
+    let desde = k as usize * 4096;
+    let hasta = (desde + 4096).min(d.imem_load_size as usize + d.dmem_load_size as usize);
+    let origen = FWSEC_EN_ROM.load(Ordering::Acquire) as usize + d.medida() + desde;
+    if hasta > desde {
+        rom_a(&mut r, origen, &mut bufer()[desde..hasta]);
+    }
+    let bits = FWSEC_TROZOS.load(Ordering::Acquire) | 1 << k;
+    FWSEC_TROZOS.store(bits, Ordering::Release);
+    Ok(bits)
+}
+
+/// **CORRER**: parchear, firmar, prestar, cargar y ARRANCAR. `Ok(frts)` en
+/// cuanto el falcon arranca; si acabo bien lo dice `INFO_GPU_FWSEC`.
+pub fn fwsec_correr() -> Result<u64, u32> {
+    use crate::ring0::plat::iommu as io;
+    let Some(d) = desc() else { return no(IOMMU_NO_FWSEC_SIN_PREPARAR) };
+    let t = total(&d);
+    let n = t.div_ceil(4096) as u64;
+    if FWSEC_TROZOS.load(Ordering::Acquire) != (1u64 << n) - 1 {
+        return no(IOMMU_NO_FWSEC_SIN_PREPARAR);
+    }
+    let bar0 = match candado_dma() {
+        Ok(b) => b,
+        Err(m) => return no(m),
+    };
+    let w = crate::ring0::dev::gpu::info_wpr2();
+    if (w >> 32) as u32 >> 4 != 0 {
+        return no(IOMMU_NO_WPR2_YA);
+    }
+    let fb = crate::ring0::dev::gpu::info_fb();
+    if fb & crate::ring0::dev::gpu::GPU_FB_PLM_LEIBLE == 0 || (fb >> crate::ring0::dev::gpu::GPU_FB_GFW_SHIFT) & 0xFF != 0xFF {
+        return no(IOMMU_NO_GFW);
+    }
+    let frts = vb::frts(
+        fb as u32,
+        crate::ring0::dev::gpu::info_vga() as u32,
+        fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0,
+    );
+    let mut r = Bar0(bar0);
+    let ucode = &mut bufer()[..t];
+
+    // La orden: FRTS en su region.
+    if bmo_gpu_ga10x::fwsec::parchear(ucode, &d, frts.desde, frts.hasta - frts.desde).is_err() {
+        return no(IOMMU_NO_FWSEC_PARCHE);
+    }
+    apuntar(|v| v | FWSEC_PARCHEADO);
+    // La firma: la que pide el FUSIBLE (el fallo 4 de FastOS).
+    let Some(reg) = vb::registro_fusible(d.engine_id_mask, d.ucode_id) else { return no(IOMMU_NO_FWSEC_FIRMA) };
+    let version = vb::version_del_fusible(bmo_gpu_ga10x::Registros::leer(&mut r, reg));
+    let Some(idx) = vb::indice_de_firma(d.signature_versions, version).filter(|&i| i < d.signature_count as u32) else {
+        return no(IOMMU_NO_FWSEC_FIRMA);
+    };
+    let mut firma = [0u8; vb::FIRMA];
+    let en_rom = FWSEC_EN_ROM.load(Ordering::Acquire) as usize;
+    rom_a(&mut r, en_rom + vb::DESCRIPTOR + idx as usize * vb::FIRMA, &mut firma);
+    if bmo_gpu_ga10x::fwsec::poner_firma(ucode, &d, &firma).is_err() {
+        return no(IOMMU_NO_FWSEC_PARCHE);
+    }
+    apuntar(|v| (v & !(3 << FWSEC_FIRMA_SHIFT)) | (idx as u64 & 3) << FWSEC_FIRMA_SHIFT);
+
+    // El prestamo, solo para leer, una vez.
+    if FWSEC_ESTADO.load(Ordering::Acquire) & FWSEC_PRESTADO == 0 {
+        if let Err(m) = io::prestar_gpu(IOVA_FWSEC, FWSEC_BUF.load(Ordering::Acquire), FWSEC_PAGINAS, false) {
+            return no(m);
+        }
+        apuntar(|v| v | FWSEC_PRESTADO);
+    }
+
+    // El falcon: como `FwsecFirmware::run` de nova-core, sin esperar al final.
+    crate::ring0::cabina::info("gpu", "L0b: FWSEC-FRTS al falcon del GSP; FRTS en la VRAM desde", frts.desde);
+    let mut tr = reloj();
+    let boot0 = bmo_gpu_ga10x::Registros::leer(&mut r, bmo_gpu_ga10x::BOOT_0);
+    let cargado = fa::resetear(&mut r, &mut tr, fa::GSP, boot0)
+        .and_then(|_| fa::preparar_fbif(&mut r, fa::GSP))
+        .and_then(|_| fa::copiar(&mut r, &mut tr, fa::GSP, IOVA_FWSEC, d.imem_phys_base, d.imem_load_size, true, true, 50_000))
+        .and_then(|_| {
+            fa::copiar(
+                &mut r,
+                &mut tr,
+                fa::GSP,
+                IOVA_FWSEC + d.imem_load_size as u64,
+                d.dmem_phys_base,
+                (d.dmem_load_size).next_multiple_of(256),
+                false,
+                true,
+                50_000,
+            )
+        });
+    if let Err(e) = cargado {
+        crate::ring0::cabina::warn("gpu", "L0b: el falcon no dejo cargar FWSEC; motivo", motivo(e));
+        return no(IOMMU_NO_FWSEC_FALCON);
+    }
+    fa::brom(&mut r, fa::GSP, d.pkc_data_offset, d.engine_id_mask, d.ucode_id);
+    if fa::arrancar(&mut r, fa::GSP, 0).is_err() {
+        return no(IOMMU_NO_FWSEC_FALCON);
+    }
+    apuntar(|v| v | FWSEC_ARRANCADO);
+    crate::ring0::cabina::count("gpu", "L0b: FWSEC-FRTS ARRANCADO en el falcon del GSP; firma", idx as u64);
+    Ok(frts.desde)
+}
+
+/// `INFO_GPU_FWSEC`: `0..7` trozos copiados | `8..15` trozos totales | `16..17`
+/// la firma usada | 18 parcheado | 19 prestado | 20 arrancado | 21 PARADO
+/// (en vivo) | 22 hay WPR2 (en vivo) | `32..47` el codigo de FRTS de
+/// `0x1438` (en vivo) | `48..55` el ultimo NO | 62 preparado | 63 valido.
+pub fn info_fwsec() -> u64 {
+    let mut v = FWSEC_ESTADO.load(Ordering::Acquire);
+    if v & FWSEC_VALIDO == 0 {
+        return 0;
+    }
+    v |= FWSEC_TROZOS.load(Ordering::Acquire).count_ones() as u64 & 0xFF;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 != 0 && v & FWSEC_ARRANCADO != 0 {
+        let mut r = Bar0(bar0);
+        if let Ok((parado, _, _)) = fa::como_va(&mut r, fa::GSP) {
+            if parado {
+                v |= FWSEC_PARADO;
+            }
+        }
+        let e = bmo_gpu_ga10x::Registros::leer(&mut r, 0x0000_1438);
+        if !bmo_gpu_ga10x::es_error_pri(e) {
+            v |= ((e >> 16) as u64 & 0xFFFF) << FWSEC_ERROR_SHIFT;
+        }
+    }
+    if (crate::ring0::dev::gpu::info_wpr2() >> 32) as u32 >> 4 != 0 {
+        v |= FWSEC_WPR2;
+    }
+    v
+}
+
+/// `INFO_GPU_FWSEC_BUZON`: MAILBOX0 | MAILBOX1 << 32 del falcon del GSP, si
+/// FWSEC arranco.
+pub fn info_fwsec_buzon() -> u64 {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || FWSEC_ESTADO.load(Ordering::Acquire) & FWSEC_ARRANCADO == 0 {
+        return 0;
+    }
+    match fa::como_va(&mut Bar0(bar0), fa::GSP) {
+        Ok((_, m0, m1)) => m0 as u64 | (m1 as u64) << 32,
+        Err(_) => 0,
+    }
 }

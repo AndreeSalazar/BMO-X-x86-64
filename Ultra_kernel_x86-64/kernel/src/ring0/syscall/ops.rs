@@ -312,6 +312,12 @@ pub(crate) const IOMMU_OP_PRESTAR_PRUEBA: u64 = 0x08;
 pub(crate) const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
 /// M0d3: la FRONTERA -- una direccion no prestada sale como fallo de pagina.
 pub(crate) const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
+/// L0b: FWSEC -- juzgar el descriptor (`arg1` = donde empieza en la ROM).
+pub(crate) const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
+/// L0b: FWSEC -- copiar el trozo `arg1` de 4 KiB de la ROM al bufer.
+pub(crate) const IOMMU_OP_FWSEC_TROZO: u64 = 0x0C;
+/// L0b: FWSEC -- parchear, firmar, prestar, cargar y arrancar.
+pub(crate) const IOMMU_OP_FWSEC_CORRER: u64 = 0x0D;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

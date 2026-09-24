@@ -642,6 +642,14 @@ pub const IOMMU_OP_GPU_FUEGO: u64 = 0x09;
 /// M0d3: la FRONTERA -- lo mismo desde una direccion NO prestada: `Ok(1)` si
 /// la IOMMU lo paro con un evento con el BDF de la 3060 y esa direccion.
 pub const IOMMU_OP_GPU_FRONTERA: u64 = 0x0A;
+/// L0b: FWSEC -- el kernel juzga el descriptor que empieza en `arg1` (offset en
+/// la ROM). `Ok` lleva cuantos trozos de 4 KiB hay que copiar.
+pub const IOMMU_OP_FWSEC_PREPARAR: u64 = 0x0B;
+/// L0b: FWSEC -- copiar el trozo `arg1` de la ROM al bufer. Sin escribir en la 3060.
+pub const IOMMU_OP_FWSEC_TROZO: u64 = 0x0C;
+/// L0b: FWSEC -- la orden FRTS, la firma del fusible, el prestamo, IMEM y DMEM
+/// por DMA seguro y STARTCPU. Vuelve al arrancar: si acabo, `INFO_GPU_FWSEC`.
+pub const IOMMU_OP_FWSEC_CORRER: u64 = 0x0D;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -674,6 +682,20 @@ pub const IOMMU_NO_SIN_BUS_MASTER: u32 = 16;
 pub const IOMMU_NO_FUEGO: u32 = 17;
 /// M0d3: la pagina de prueba no esta prestada (`gpu prestar`).
 pub const IOMMU_NO_SIN_PRUEBA: u32 = 18;
+/// L0b: el descriptor de la ROM no es un FWSEC v3 del GSP que quepa.
+pub const IOMMU_NO_FWSEC_DESC: u32 = 19;
+/// L0b: sin PREPARAR, o faltan trozos por copiar.
+pub const IOMMU_NO_FWSEC_SIN_PREPARAR: u32 = 20;
+/// L0b: el fusible no pide ninguna de las firmas del descriptor.
+pub const IOMMU_NO_FWSEC_FIRMA: u32 = 21;
+/// L0b: la orden FRTS o la firma no se pudieron poner.
+pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
+/// L0b: ya hay WPR2: hace falta reiniciar la 3060.
+pub const IOMMU_NO_WPR2_YA: u32 = 23;
+/// L0b: el firmware de arranque de la tarjeta no acabo (o no se deja leer).
+pub const IOMMU_NO_GFW: u32 = 24;
+/// L0b: el falcon no dejo resetearse o cargar por DMA.
+pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

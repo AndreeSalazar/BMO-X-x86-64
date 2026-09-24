@@ -392,13 +392,33 @@ MEDIDO, no el dicho.
         imagenes, el BIT, la tabla de la PMU, el descriptor v3 de FWSEC,
         la DMEMMAPPER (donde va la orden FRTS), el fusible del motor y la
         firma que pide, la VRAM, donde ira FRTS y si ya hay WPR2. La ROM
-        queda en datos/vbios.rom                               [en codigo]
+        queda en datos/vbios.rom                [VISTO en metal, 24-09 04:58]
    L0b  CORRER FWSEC-FRTS en el falcon del GSP: su ucode PRESTADO por la
         IOMMU (como la pagina de M0d3), la orden cambiada a FRTS, la firma
         del fusible puesta, IMEM y DMEM por DMA, BROM, arrancar, y MAILBOX0
-        a 0. Como se sabe: la fila `wpr2` dice YA montada
+        a 0. Como se sabe: la fila `wpr2` dice YA montada       [en codigo]
    L0c  el booter en el SEC2 y el GSP-RM (los ~69 MB), por el mismo camino
 ```
+
+**L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
+EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
+B, motor 0x0400 ucode 9, 3 firmas (versiones 0x0007)`, `DMAP en DMEM+0x0560; la
+orden va en DMEM+0x07C0 (64 B)`, `fusible 0x8241E0 = 0x00000003 -> version 2; la
+firma buena es la 2 de 3`, `vram 12288 MiB; FRTS iria en
+0x2FFE00000..0x2FFF00000; el firmware de arranque ACABO`, `wpr2 NO hay`.
+
+**L0b (24-09, en codigo).** `bmo_gpu_ga10x::fwsec` cambia la orden a FRTS (los 44
+bytes empaquetados de nova-core: ReadVbios + FrtsRegion en paginas, tipo VRAM) y
+pone la firma del fusible en DMEM + `pkc_data_offset`; `falcon.rs` gana el DMA a
+la IMEM en modo seguro, el BROM (`+0x1180/0x1198/0x119C/0x1210`) y el arranque
+(`MAILBOX0`, STARTCPU por el alias). El kernel (`dev/gpu_prestamo.rs`, la fila
+GPU del censo pasa a x2) lo hace en tres ordenes -- PREPARAR relee y juzga el
+descriptor por su cuenta, TROZO copia 4 KiB de la ROM por syscall, CORRER
+parchea, firma, presta 32 paginas SOLO LECTURA en `0x11000000`, resetea, carga y
+arranca -- y el escritorio espera a que el falcon se pare cediendo el turno, 3 s
+como mucho. Exito = MAILBOX0 0, el codigo de FRTS (`0x1438`, bits 16..31) 0 y la
+WPR2 donde se pidio. `gpu fwsec`, la fila `frts`, y el paso `fwsec` de `save
+mode` (hecho = hay WPR2, que sobrevive hasta que la 3060 se reinicia).
 
 L0a vive en `platform/drivers/gpu/ga10x/src/vbios.rs` (9 pruebas contra una
 ROM de mentira armada byte a byte, y bytes hostiles que nunca la revientan),

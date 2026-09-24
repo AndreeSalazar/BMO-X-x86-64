@@ -240,6 +240,7 @@ pub(crate) fn fila(s: &mut Output) {
         }
     }
     fila_vram(s);
+    fila_fwsec(s);
 }
 
 /// La VRAM, donde ira FRTS, el arranque del firmware y la WPR2 de ahora.
@@ -276,13 +277,136 @@ fn fila_vram(s: &mut Output) {
     if hi == 0 {
         s.text(b"NO hay (lo que FWSEC-FRTS vendra a montar)\n");
     } else {
-        s.with_ink(INK_GOOD);
+        s.with_ink(if lo == f.desde { INK_GOOD } else { INK_ERR });
         s.text(b"YA montada: 0x");
         s.hex(lo, 9);
         s.text(b"..0x");
         s.hex(hi, 9);
+        s.text(if lo == f.desde { b" -- donde se pidio" as &[u8] } else { b" -- NO donde se pidio" });
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }
     super::datos::anotar(b"gpu vram mb", mb as u64, b"MiB");
+}
+
+// == L0b: CORRER FWSEC-FRTS (2026-09-24) =========================================
+//
+// El kernel juzga el descriptor otra vez por su cuenta (no se fia del offset
+// que le da el escritorio), copia el ucode de la ROM en trozos de 4 KiB -- un
+// syscall cada uno, la maquina sigue viva entre medias --, parchea la orden,
+// pone la firma del fusible, lo presta a la 3060 y arranca el falcon. Aqui se
+// ESPERA a que se pare cediendo el turno, hasta 3 s (nova-core da 2).
+
+pub(crate) const NO_SIN_VBIOS: u32 = 0x113;
+pub(crate) const NO_FWSEC_NO_PARA: u32 = 0x114;
+pub(crate) const NO_FWSEC_MAL: u32 = 0x115;
+
+/// Hay WPR2 montada? Es lo que deja FWSEC-FRTS, y lo que mira `save mode`.
+pub(crate) fn hay_wpr2() -> bool {
+    (bmo::info(bmo::INFO_GPU_WPR2) >> 32) as u32 >> 4 != 0
+}
+
+/// **`gpu fwsec`, y el paso de `save mode`.** `Ok(donde empieza FRTS)`.
+pub(crate) fn correr_fwsec() -> Result<u64, u32> {
+    if resumen().is_none() {
+        leer()?;
+    }
+    let Some(en_rom) = resumen().and_then(|r| r.fwsec.ok()).map(|f| f.en_rom) else {
+        return Err(NO_SIN_VBIOS);
+    };
+    let n = bmo::iommu_orden_con(bmo::IOMMU_OP_FWSEC_PREPARAR, en_rom as u64)?;
+    for k in 0..n {
+        bmo::iommu_orden_con(bmo::IOMMU_OP_FWSEC_TROZO, k)?;
+    }
+    let frts = bmo::iommu_orden(bmo::IOMMU_OP_FWSEC_CORRER)?;
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let fin = bmo::ciclos() + hz * 3;
+    while bmo::info(bmo::INFO_GPU_FWSEC) & bmo::FWSEC_PARADO == 0 {
+        if bmo::ciclos() >= fin {
+            return Err(NO_FWSEC_NO_PARA);
+        }
+        bmo::yield_screen();
+    }
+    let f = bmo::info(bmo::INFO_GPU_FWSEC);
+    let mbox0 = bmo::info(bmo::INFO_GPU_FWSEC_BUZON) as u32;
+    if mbox0 != 0 || (f >> bmo::FWSEC_ERROR_SHIFT) & 0xFFFF != 0 || f & bmo::FWSEC_WPR2 == 0 {
+        return Err(NO_FWSEC_MAL);
+    }
+    Ok(frts)
+}
+
+/// `gpu fwsec`.
+pub(crate) fn orden_fwsec(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if !super::files::antes_de_arriesgar(dsk, p, b"gpu fwsec") {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    paint_status(p, &dsk.run_box, "FWSEC-FRTS en el falcon del GSP", INK_DIM);
+    let r = correr_fwsec();
+    let g = &mut dsk.out.grid;
+    match r {
+        Ok(frts) => {
+            g.with_ink(INK_GOOD);
+            g.text(b"  FWSEC-FRTS CORRIO: el firmware firmado de tu VBIOS monto la WPR2 desde 0x");
+            g.hex(frts, 9);
+            g.byte(b'\n');
+        }
+        Err(m) => {
+            g.with_ink(INK_ERR);
+            g.text(b"  NO: ");
+            g.text(super::iommu::motivo(m));
+            g.byte(b'\n');
+        }
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "fwsec", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila de L0b**, si se intento.
+fn fila_fwsec(s: &mut Output) {
+    let f = bmo::info(bmo::INFO_GPU_FWSEC);
+    if f & bmo::FWSEC_VALIDO == 0 {
+        return;
+    }
+    campo(s, b"frts");
+    let (copiados, totales) = (f & 0xFF, (f >> bmo::FWSEC_TOTALES_SHIFT) & 0xFF);
+    if f & bmo::FWSEC_ARRANCADO == 0 {
+        s.with_ink(INK_ECHO);
+        s.text(b"sin arrancar: ");
+        s.dec(copiados);
+        s.text(b" de ");
+        s.dec(totales);
+        s.text(b" trozos copiados");
+        let m = (f >> bmo::FWSEC_MOTIVO_SHIFT) & 0xFF;
+        if m != 0 {
+            s.with_ink(INK_ERR);
+            s.text(b"; el ultimo NO: ");
+            s.text(super::iommu::motivo(m as u32));
+        }
+    } else {
+        let mbox0 = bmo::info(bmo::INFO_GPU_FWSEC_BUZON) as u32;
+        let error = (f >> bmo::FWSEC_ERROR_SHIFT) & 0xFFFF;
+        let bien = f & bmo::FWSEC_PARADO != 0 && mbox0 == 0 && error == 0 && f & bmo::FWSEC_WPR2 != 0;
+        s.with_ink(if bien { INK_GOOD } else { INK_ERR });
+        s.text(if f & bmo::FWSEC_PARADO == 0 {
+            b"ARRANCADO y todavia corriendo" as &[u8]
+        } else if bien {
+            b"CORRIO: el falcon se paro con MAILBOX0 = 0 y la WPR2 montada"
+        } else {
+            b"se paro, pero NO dejo la WPR2 bien"
+        });
+        s.with_ink(INK_ECHO);
+        s.text(b"   firma ");
+        s.dec((f >> bmo::FWSEC_FIRMA_SHIFT) & 3);
+        s.text(b", MAILBOX0 0x");
+        s.hex(mbox0 as u64, 8);
+        s.text(b", codigo FRTS 0x");
+        s.hex(error, 4);
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu fwsec", f, b"");
 }
