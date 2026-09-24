@@ -169,9 +169,9 @@ pub(crate) fn listo() -> bool {
     resumen().map_or(false, |r| r.init_done)
 }
 
-/// `gpu init`: A MANO, no en `save mode` (metal 24-09 09:54: tras
-/// `GSP_INIT_DONE` la pantalla se quedo QUIETA). Por eso un save antes y otro
-/// despues: si la pantalla ya no muestra nada, lo que paso esta en el disco.
+/// `gpu init`, a mano: un save antes y otro despues, por si la pantalla se
+/// queda quieta (metal 24-09 09:54, era BAR1: desde L0c4b3a se devuelve). En
+/// `save mode` es el paso `init`, seguido de `estatica` y `objetos`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     if !super::files::antes_de_arriesgar(dsk, p, b"gpu init") {
         dsk.field.n = 0;
@@ -187,7 +187,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         if super::gsprpc::preguntar() == Ok(0) {
             // Y con el RM contestando, NUESTROS objetos (L1b).
             paint_status(p, &dsk.run_box, "pidiendole objetos al GSP-RM", INK_DIM);
-            let _ = super::gspobjeto::pedir();
+            if super::gspobjeto::pedir().is_ok() {
+                // Y con los objetos, su primera orden de control: el P-state.
+                let _ = super::gspsalud::preguntar();
+            }
         }
     }
     let g = &mut dsk.out.grid;
@@ -209,6 +212,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     fila(&mut dsk.out.grid);
     super::gsprpc::fila(&mut dsk.out.grid);
     super::gspobjeto::fila(&mut dsk.out.grid);
+    super::gspsalud::fila(&mut dsk.out.grid);
     // El save de despues, pase lo que pase con la pantalla.
     let guardado = super::save_maestro::maestro(dsk, crate::DEFAULT_DUMP, p.rayo()).is_ok();
     let g = &mut dsk.out.grid;

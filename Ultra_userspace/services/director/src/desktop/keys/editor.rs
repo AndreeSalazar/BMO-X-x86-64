@@ -46,6 +46,12 @@ match c {
         // El eco en su tinta y la respuesta en la normal: al
         // mirar la rejilla, los comandos son las anclas y todo
         // lo de debajo es lo que contestaron.
+        // Una fila en blanco entre la respuesta de antes y esta orden: sin
+        // ella, dos respuestas seguidas se leen como una (24-09).
+        dsk.out.grid.separar();
+        // La linea de estado pasa a ser de la orden que va a correr.
+        dsk.field.sug_pintadas = false;
+        dsk.field.sug_firma = 0;
         dsk.out.grid.with_ink(INK_ECHO);
         dsk.out.grid.byte(0xB7);
         dsk.out.grid.byte(b' ');
@@ -134,7 +140,11 @@ match c {
     // TAB: completar.
     b'\t' => {
         let antes = dsk.field.n;
-        dsk.field.n = complete(&mut dsk.field.path, dsk.field.n, &mut dsk.out.grid);
+        // Primero una ORDEN (`gpu i` -> `gpu init`); si no la hay, una ruta.
+        dsk.field.n = match crate::commands::sugerencias::completar(&mut dsk.field.path, dsk.field.n) {
+            Some(n) => n,
+            None => complete(&mut dsk.field.path, dsk.field.n, &mut dsk.out.grid),
+        };
         dsk.field.cur = dsk.field.n;
         if dsk.field.n == antes {
             paint_status(&p, &dsk.run_box, "nada que completar", INK_DIM);

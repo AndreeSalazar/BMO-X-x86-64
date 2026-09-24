@@ -109,6 +109,9 @@ pub(crate) mod lateral;
 /// **La luz del GSP** en el panel: por donde va el arranque del GSP de la 3060
 /// (L0), en siete casillas y una palabra (2026-09-24).
 pub(crate) mod lateral_gsp;
+/// **La linea de sugerencias** bajo el campo de Ejecutar: que ordenes empiezan
+/// por lo tecleado, y la pista del consejero al invocar la caja (2026-09-24).
+pub(crate) mod sugerir;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".

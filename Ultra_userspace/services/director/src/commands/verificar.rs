@@ -50,6 +50,9 @@ struct Paso {
     pide: Option<&'static [u8]>,
     /// Lo que mirar despues si salio bien.
     consejo: &'static [u8],
+    /// Tras darlo, repintar el escritorio entero: `init` cambia BAR1 y lo
+    /// que habia en pantalla era de antes (L0c4b3a).
+    repinta: bool,
 }
 
 fn iommu_encendida() -> bool {
@@ -139,6 +142,7 @@ const PASOS: &[Paso] = &[
         dar: encender_iommu,
         pide: None,
         consejo: b"usa la maquina un par de minutos (DOOM, el disco, el raton) y teclea `iommu`: los eventos tienen que seguir en 0",
+        repinta: false,
     },
     Paso {
         nombre: b"gpu",
@@ -147,6 +151,7 @@ const PASOS: &[Paso] = &[
         dar: cegar_gpu,
         pide: Some(b"iommu"),
         consejo: b"la 3060 ya no puede tocar tu RAM ni con el Bus Master encendido; lo siguiente es E2, su VBLANK por MSI",
+        repinta: false,
     },
     Paso {
         nombre: b"e2",
@@ -155,6 +160,7 @@ const PASOS: &[Paso] = &[
         dar: encender_e2,
         pide: Some(b"gpu"),
         consejo: b"teclea `gpu`: la fila `e2` tiene que subir ~60 por segundo y la escalera en `+`; `iommu` con los eventos en 0",
+        repinta: false,
     },
     Paso {
         nombre: b"traducir",
@@ -163,6 +169,7 @@ const PASOS: &[Paso] = &[
         dar: traducir_gpu,
         pide: Some(b"gpu"),
         consejo: b"`iommu`: la fila 3060 dice TRADUCIDA, sin fila `event`; y `gpu`: la fila `e2` sigue subiendo (el MSI pasa la entrada traducida)",
+        repinta: false,
     },
     Paso {
         nombre: b"prestar",
@@ -171,6 +178,7 @@ const PASOS: &[Paso] = &[
         dar: prestar_prueba,
         pide: Some(b"traducir"),
         consejo: b"`iommu`: la fila `domain` dice 1 pagina prestada; lo siguiente es M0d3, que un falcon de la 3060 la LEA por DMA",
+        repinta: false,
     },
     Paso {
         nombre: b"fuego",
@@ -179,6 +187,7 @@ const PASOS: &[Paso] = &[
         dar: fuego,
         pide: Some(b"prestar"),
         consejo: b"`gpu`: la fila `fuego` dice 1024 de 1024 -- la 3060 leyo tu RAM, y solo lo prestado",
+        repinta: false,
     },
     Paso {
         nombre: b"frontera",
@@ -187,6 +196,7 @@ const PASOS: &[Paso] = &[
         dar: frontera,
         pide: Some(b"fuego"),
         consejo: b"`iommu`: la fila `event` dice FALLO de pagina, BDF 29:00.0, direccion 0x20000000 -- la venda existe",
+        repinta: false,
     },
     Paso {
         nombre: b"vbios",
@@ -195,6 +205,7 @@ const PASOS: &[Paso] = &[
         dar: super::vbios::paso,
         pide: None,
         consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- lo siguiente es L0b, correr FWSEC-FRTS",
+        repinta: false,
     },
     Paso {
         nombre: b"fwsec",
@@ -203,6 +214,7 @@ const PASOS: &[Paso] = &[
         dar: super::vbios::correr_fwsec,
         pide: Some(b"vbios"),
         consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
+        repinta: false,
     },
     Paso {
         nombre: b"gsp",
@@ -211,6 +223,7 @@ const PASOS: &[Paso] = &[
         dar: super::gsp::leer,
         pide: None,
         consejo: b"`gpu`: filas `booter`, `fusible`, `bootldr`, `gsp-rm`, `mapa` y `cuadra` -- lo siguiente es L0c2, prestar el GSP-RM por la radix3",
+        repinta: false,
     },
     Paso {
         nombre: b"radix",
@@ -219,6 +232,7 @@ const PASOS: &[Paso] = &[
         dar: super::gsp::radix,
         pide: Some(b"gsp"),
         consejo: b"`gpu`: la fila `radix` dice PRESTADO y la 570.144 entera, blake3 e7856ee2b387917b; `iommu`: `domain` ~15.600 paginas y sin eventos nuevos -- lo siguiente es L0c3, el booter en el SEC2",
+        repinta: false,
     },
     Paso {
         nombre: b"libos",
@@ -227,6 +241,7 @@ const PASOS: &[Paso] = &[
         dar: super::gsp::libos,
         pide: Some(b"radix"),
         consejo: b"`gpu`: la fila `libos` dice PRESTADO para escribir y cada puntero lleva a lo suyo; `iommu`: `domain` 180 paginas mas y sin eventos nuevos -- lo siguiente es `sistema`, escribirle SetSystemInfo y SetRegistry antes de despertarlo",
+        repinta: false,
     },
     Paso {
         nombre: b"sistema",
@@ -235,6 +250,7 @@ const PASOS: &[Paso] = &[
         dar: super::gspsistema::mandar,
         pide: Some(b"libos"),
         consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) tras `despertar`",
+        repinta: false,
     },
     Paso {
         nombre: b"despertar",
@@ -243,6 +259,7 @@ const PASOS: &[Paso] = &[
         dar: super::gsp::despertar,
         pide: Some(b"sistema"),
         consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es `cola`, leer lo que dijo",
+        repinta: false,
     },
     Paso {
         nombre: b"cola",
@@ -251,6 +268,7 @@ const PASOS: &[Paso] = &[
         dar: super::gspcola::leer,
         pide: Some(b"despertar"),
         consejo: b"`gpu`: la fila `cola` dice cuantos mensajes, todos con firma y suma; `dijo` que tipos; la cola cruda en datos/gspcola.bin -- lo siguiente es `vaciar`",
+        repinta: false,
     },
     Paso {
         nombre: b"vaciar",
@@ -259,6 +277,7 @@ const PASOS: &[Paso] = &[
         dar: super::gspvaciar::vaciar,
         pide: Some(b"cola"),
         consejo: b"`gpu`: la fila `vacia` dice cuantos consumidos, `nocat` lo que traian en claro y `pide` el primero que espera respuesta; crudos en datos/gspnocat.bin -- lo siguiente es `secuenciador`, leer lo que pide",
+        repinta: false,
     },
     Paso {
         nombre: b"secuenciador",
@@ -266,7 +285,47 @@ const PASOS: &[Paso] = &[
         hecho: super::gspsecuencia::leido,
         dar: super::gspsecuencia::leer,
         pide: Some(b"vaciar"),
-        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es `gpu init` A MANO: tras GSP_INIT_DONE la pantalla se quedo quieta (09:54); hace un save antes y otro despues",
+        consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es `init`",
+        repinta: false,
+    },
+    // ** `init` VUELVE a save mode (24-09): salio el 09:54 porque tras
+    // GSP_INIT_DONE la pantalla se quedaba quieta, y era BAR1. Desde L0c4b3a
+    // (VISTO 10:13) `correr` se la devuelve al GOP, y aqui se repinta todo.
+    Paso {
+        nombre: b"init",
+        que: b"CORRER el secuenciador hasta GSP_INIT_DONE: el GSP-RM de la 570.144 ARRANCA, y BAR1 vuelve a la pantalla (L0c4b2c)",
+        hecho: super::gspinit::listo,
+        dar: super::gspinit::correr,
+        pide: Some(b"secuenciador"),
+        consejo: b"`gpu`: `corrio` dice las ordenes CORRIDAS, `listo` GSP_INIT_DONE y `bar1` que se le DEVOLVIO la del GOP; el panel, `gsp LISTO`",
+        repinta: true,
+    },
+    Paso {
+        nombre: b"estatica",
+        que: b"LA PRIMERA RPC: GET_GSP_STATIC_INFO, lo que el GSP-RM dice de la 3060 (L1a)",
+        hecho: super::gsprpc::contestada,
+        dar: super::gsprpc::preguntar,
+        pide: Some(b"init"),
+        consejo: b"`gpu`: `rpc` CONTESTADA con rpc_result 0, `nombre` tu RTX 3060, `memoria` 12288 MiB de GDDR6 y 192 bits",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"objetos",
+        que: b"NUESTROS objetos en el RM por GSP_RM_ALLOC: cliente, dispositivo y subdispositivo (L1b)",
+        hecho: super::gspobjeto::listos,
+        dar: super::gspobjeto::paso,
+        pide: Some(b"estatica"),
+        consejo: b"`gpu`: las filas `obj cli`, `obj disp` y `obj sub` en NV_OK -- lo siguiente, su primera orden de control",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"salud",
+        que: b"la primera ORDEN DE CONTROL sobre nuestro subdispositivo: el P-state (GSP_RM_CONTROL); y la temperatura y el PCIe (L1b)",
+        hecho: super::gspsalud::hecho,
+        dar: super::gspsalud::preguntar,
+        pide: Some(b"objetos"),
+        consejo: b"`gpu`: `pstate` dice P0..P15 con NV_OK, `temp` los grados del sensor y `pcie` el enlace; el panel, lo mismo -- lo siguiente es L1c, el espacio de direcciones y la VRAM propia",
+        repinta: false,
     },
 ];
 
@@ -510,6 +569,21 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
         g.with_ink(INK_PLAIN);
     }
     let armado = leer_modo().is_some();
+    // ** EL SAVE DE EMERGENCIA, ANTES DE TODO (24-09): aunque todos los pasos
+    // esten hechos y no se arriesgue nada, lo que la maquina es AHORA queda en
+    // el disco (datos/) desde el primer instante. Los de antes de cada paso
+    // vienen despues.
+    {
+        let ok = super::save_maestro::maestro(dsk, DEFAULT_DUMP, p.rayo()).is_ok();
+        let g = &mut dsk.out.grid;
+        g.with_ink(if ok { INK_GOOD } else { INK_ERR });
+        g.text(if ok {
+            b"  save de emergencia ESCRITO antes de todo: el informe y los datos ya estan en datos/\n" as &[u8]
+        } else {
+            b"  el save de emergencia NO se pudo escribir: mira `disco` (los pasos lo intentan otra vez)\n"
+        });
+        g.with_ink(INK_PLAIN);
+    }
     let mut salio = [Salio::Quitado; MAX_PASOS];
     let mut parado = false;
     for (i, paso) in PASOS.iter().enumerate() {
@@ -539,9 +613,15 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             if armado {
                 escribir_modo(args, Some(i), tumbo);
             }
+            // Por donde va, en la linea de estado: un paso de varios segundos
+            // sin decir cual es parece una maquina colgada.
+            crate::scene::sugerir::pista(p, &dsk.run_box, b"save mode", paso.nombre);
             let r = (paso.dar)();
             if armado {
                 escribir_modo(args, None, tumbo);
+            }
+            if paso.repinta && r.is_ok() {
+                crate::repintar_escritorio(p, dsk, "save mode");
             }
             match r {
                 Ok(_) => Salio::Bien,
@@ -601,58 +681,69 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio) {
     g.byte(b'\n');
 }
 
+/// Escribe `partes` en `t` hasta donde quepa. Devuelve cuanto escribio.
+fn juntar(t: &mut [u8], partes: &[&[u8]]) -> usize {
+    let mut n = 0;
+    for p in partes {
+        let k = p.len().min(t.len() - n);
+        t[n..n + k].copy_from_slice(&p[..k]);
+        n += k;
+    }
+    n
+}
+
+/// **LA PISTA** (24-09): el consejero en UNA linea, para la linea de estado
+/// de la caja. `(etiqueta, cuanto de t)`. Ver `desktop::paint::pista_consejero`.
+pub(crate) fn pista(t: &mut [u8]) -> (&'static [u8], usize) {
+    let modo = leer_modo();
+    let armado: &[u8] = if modo.is_some() { b"  (armado)" } else { b"" };
+    match (modo.as_ref().and_then(|m| m.tumbo), PASOS.iter().position(|p| !(p.hecho)())) {
+        (Some(i), _) => (b"cuidado", juntar(t, &[b"`", PASOS[i].nombre, b"` tumbo la maquina: quitado de save mode, a mano y con save"])),
+        (None, Some(i)) => (b"siguiente", juntar(t, &[b"save mode -> ", PASOS[i].nombre, b": ", PASOS[i].que, armado])),
+        (None, None) => (b"verificado", juntar(t, &[b"los ", paso_n(), b" pasos; `gpu` lo muestra todo", armado])),
+    }
+}
+
+/// Cuantos pasos, en texto (hasta 99).
+fn paso_n() -> &'static [u8] {
+    const N: [u8; 2] = [b'0' + (PASOS.len() / 10) as u8, b'0' + (PASOS.len() % 10) as u8];
+    if PASOS.len() < 10 {
+        &N[1..]
+    } else {
+        &N
+    }
+}
+
 /// **EL CONSEJERO** (24-09): lo que la caja recomienda AHORA, mirando la
-/// maquina y no un texto fijo. Sale cada vez que Ctrl+Alt invoca la caja, al
-/// arrancar, y al acabar `save mode`. Los pasos salen de [`PASOS`]: E2 entro
-/// como fila el 24-09 y el consejero lo recomienda sin que nadie lo toque.
+/// maquina y no un texto fijo. Sale al arrancar y al acabar `save mode`; al
+/// invocar la caja (Ctrl+Alt) sale solo su [`pista`], en la linea de estado:
+/// agregarlo a la salida cada vez la mezclaba (el propietario, 24-09). Dos
+/// lineas, alineadas: lo siguiente, y el modo.
 pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
     let modo = leer_modo();
+    g.separar();
     g.with_ink(INK_GOOD);
-    g.text(b"  CONSEJERO: ");
+    g.text(b"  CONSEJERO  ");
     g.with_ink(INK_PLAIN);
-    let siguiente = PASOS.iter().position(|p| !(p.hecho)());
-    match (modo.as_ref().and_then(|m| m.tumbo), siguiente) {
-        (Some(i), _) => {
-            g.text(b"el paso `");
-            g.text(PASOS[i].nombre);
-            g.text(b"` TUMBO la maquina un arranque atras y quedo quitado; antes de volver a darlo, `save` y a mano\n");
-        }
-        (None, Some(i)) => {
-            g.text(b"lo siguiente es `");
-            g.text(PASOS[i].nombre);
-            g.text(b"` (");
-            g.text(PASOS[i].que);
-            g.text(b"): `save mode` lo da con un save antes\n");
-        }
-        (None, None) => {
-            g.text(b"todo verificado (");
-            for (i, p) in PASOS.iter().enumerate() {
-                if i > 0 {
-                    g.text(b", ");
-                }
-                g.text(p.nombre);
-            }
-            g.text(b"); lo siguiente es `gpu init` A MANO (no va en save mode: tras GSP_INIT_DONE la pantalla se quedo quieta); con su save antes y despues, la fila `bar1` dice si fue BAR1\n");
-        }
-    }
+    let mut t = [0u8; 160];
+    let (etiqueta, n) = pista(&mut t);
+    g.text(etiqueta);
+    g.text(b": ");
+    g.text(&t[..n]);
+    g.byte(b'\n');
     g.with_ink(INK_ECHO);
+    g.text(b"              ");
     match &modo {
         Some(m) => {
-            g.text(b"             save mode ARMADO (`save mode");
+            g.text(b"modo ARMADO (`save mode");
             if m.n > 0 {
                 g.text(b" ");
                 g.text(m.args());
             }
-            g.text(b"`): se repite solo si la maquina se reinicia o cae; `save mode off` lo desarma\n");
+            g.text(b"`): se repite si la maquina cae; `save mode off` lo desarma\n");
         }
-        None => g.text(b"             save mode SIN ARMAR: `save mode` lo corre y lo deja armado para el proximo arranque\n"),
+        None => g.text(b"`save mode` lo corre y lo deja ARMADO; `-paso` quita uno\n"),
     }
-    g.text(b"             quita pasos con");
-    for p in PASOS {
-        g.text(b" -");
-        g.text(p.nombre);
-    }
-    g.text(b"   |   `save auto` / `save manual`: guardar solo antes de lo arriesgado\n");
     g.with_ink(INK_PLAIN);
 }
 

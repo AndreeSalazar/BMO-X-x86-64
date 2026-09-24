@@ -105,6 +105,16 @@ pub(crate) fn pedir() -> Result<(), u32> {
     Ok(())
 }
 
+/// Lo pregunta `save mode`: los tres existen.
+pub(crate) fn listos() -> bool {
+    resumen().map_or(false, |r| r.n == 3 && r.uno.iter().all(vale))
+}
+
+/// El paso de `save mode`: `Ok(3)` con los tres.
+pub(crate) fn paso() -> Result<u64, u32> {
+    pedir().map(|()| 3)
+}
+
 /// `gpu objetos`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "pidiendole objetos al GSP-RM", INK_DIM);

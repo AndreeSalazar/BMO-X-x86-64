@@ -455,6 +455,8 @@ const INFO_GPU_LIBOS: u64 = 0xBE;
 const INFO_GPU_DESPIERTO: u64 = 0xBF;
 const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
 const INFO_GPU_GSP_MEM: u64 = 0xC1;
+/// La temperatura y el enlace PCIe de la 3060, en solo lectura (con selector) (2026-09-24).
+const INFO_GPU_SALUD: u64 = 0xC2;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -909,6 +911,7 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_FUSIBLE => crate::ring0::dev::gpu::info_fusible(c),
         c if c & 0xFF == INFO_GPU_DESPIERTO_BUZON => crate::ring0::dev::gpu_despertar::info_despierto_buzon(c),
         c if c & 0xFF == INFO_GPU_GSP_MEM => crate::ring0::dev::gpu_libos::info_gsp_mem(c),
+        c if c & 0xFF == INFO_GPU_SALUD => crate::ring0::dev::gpu::info_salud(c),
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
         c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {

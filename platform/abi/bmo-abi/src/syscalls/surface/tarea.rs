@@ -698,6 +698,10 @@ pub const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 /// kernel: `arg1` = 0 cliente, 1 dispositivo, 2 subdispositivo (asas fijas,
 /// las de `bmo_gpu_ga10x::objeto`). `Ok` = la pagina | el numero << 32.
 pub const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
+/// L1b: GSP_RM_CONTROL sobre nuestro subdispositivo, armado por el kernel:
+/// `arg1` = 0 el P-state (la lista, `bmo_gpu_ga10x::control`). `Ok` = la
+/// pagina | el numero << 32.
+pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -807,6 +811,10 @@ pub const IOMMU_NO_RPC_ANTES: u32 = 54;
 pub const IOMMU_NO_RPC_LLENA: u32 = 55;
 /// L1b: no es uno de los tres objetos.
 pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
+/// El mensaje armado no esta en el contrato de la cola: no sale.
+pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
+/// No es una de las ordenes de control de la lista.
+pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

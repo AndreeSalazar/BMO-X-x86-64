@@ -125,6 +125,11 @@ pub(crate) fn esperar(funcion: u32, d: &mut [u8], otros: &mut Otros) -> Result<(
     Err(NO_RPC_SIN_RESPUESTA)
 }
 
+/// Lo pregunta `save mode`: el GSP-RM contesto, con `rpc_result` 0.
+pub(crate) fn contestada() -> bool {
+    resumen().map_or(false, |r| r.e.is_some() && r.resultado == 0)
+}
+
 /// **Preguntar y esperar la respuesta.** `Ok(rpc_result)`.
 pub(crate) fn preguntar() -> Result<u64, u32> {
     let mut r = Resumen { numero: 0, e: None, resultado: 0, espera_us: 0, otros: Otros::default(), no: 0 };
@@ -140,6 +145,10 @@ pub(crate) fn preguntar() -> Result<u64, u32> {
     match esperar(estatica::GET_GSP_STATIC_INFO, &mut d, &mut r.otros) {
         Ok((m, us)) => {
             r.e = estatica::leer(&d);
+            // Al panel: la VRAM, como la dijo el GSP-RM.
+            if let Some(e) = r.e {
+                crate::scene::lateral_gsp::vram((e.vram >> 20) as u32, e.ram_tipo as u8);
+            }
             r.resultado = m.resultado;
             r.espera_us = us;
         }

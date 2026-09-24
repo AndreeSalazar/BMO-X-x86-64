@@ -1757,6 +1757,18 @@ pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 
+/// # `INFO_GPU_SALUD`: la 3060 en solo lectura, sin el GSP-RM (2026-09-24)
+///
+/// ```text
+///   selector 0   el sensor de temperatura crudo (0x020460): bits 3..16 en
+///                1/256 de grado, bit 29 valido (`bmo_gpu_ga10x::salud`)
+///   selector 1   el enlace PCIe: Link Status (16 bits) | Link Capabilities
+///                << 32, de la capacidad PCI Express de la 3060
+/// ```
+///
+/// Los dos son lecturas: ni un registro se escribe. 0 = no hay 3060.
+pub const INFO_GPU_SALUD: u64 = 0xC2;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

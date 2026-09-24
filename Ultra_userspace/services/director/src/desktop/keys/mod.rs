@@ -49,7 +49,6 @@ use bmo_userland as bmo;
 
 use super::{Desktop, Ventana};
 use crate::scene::{self, scene_color};
-use crate::scene::{paint_status, INK_DIM};
 use crate::{erase_box, uncover};
 use crate::PATH_MAX;
 
@@ -293,9 +292,11 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
             // cada vez que la caja se invoca recuerda `save mode` y sus
             // opciones, para que quien la abra sepa que hay una orden que lo
             // verifica todo y la guarda antes. Ver `commands/verificar.rs`.
-            crate::commands::verificar::consejero(&mut dsk.out.grid);
+            // ** En UNA linea y en la de estado (24-09): se agregaba a la
+            // salida tres lineas en cada Ctrl+Alt, entre las respuestas de
+            // las ordenes, y la caja parecia "MAS mezclada" (el propietario).
             uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-            paint_status(&p, &dsk.run_box, "listo", INK_DIM);
+            crate::desktop::paint::pista_consejero(dsk, &p);
         } else {
             dsk.win.focus.close(Ventana::Run);
             erase_box(&p, &dsk.run_box);

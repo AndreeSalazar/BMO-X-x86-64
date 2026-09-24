@@ -23,6 +23,21 @@
 //! palabra RESPIRA mientras el RISC-V del GSP esta activo: vivo se ve vivo,
 //! como la aguja del pulso. Lo pidio el propietario (24-09): *"que si
 //! despierta algo mi GPU se lee"*, y luego *"mas elegante"*.
+//!
+//! # Y debajo, LA 3060 (24-09, *"poner en HUD por completo"*)
+//!
+//! ```text
+//!    3060              45o  P8     la temperatura del sensor (o = grado) y
+//!                                  el P-state
+//!    pcie 4 x16     12G GDDR6     el enlace AHORA (y el maximo si va por
+//!                                 debajo: en reposo baja, y es ahorro)
+//! ```
+//!
+//! La temperatura y el enlace se leen cada vuelta (`INFO_GPU_SALUD`, dos
+//! lecturas); el P-state y la VRAM los apunta el escritorio cuando se los
+//! pregunta al GSP-RM (`commands` llama a `scene`, no al reves). Los VATIOS de
+//! la 3060 no estan: NVIDIA no publica la orden del RM que los da (ver
+//! `bmo_gpu_ga10x::salud`), y un numero inventado es peor que ninguno.
 
 use bmo_userland as bmo;
 
@@ -39,8 +54,10 @@ const NOMBRES_NO: [&str; PASOS] = ["NO fwsec", "NO radix", "NO libos", "NO siste
 const VERDE: u32 = 0x0022_C55E;
 const ROJO: u32 = 0x00EF_4444;
 
-/// Lo que mide el bloque: la palabra, el camino de nodos y sus letras.
-pub(crate) const ALTO: u32 = bmo::GLIFO_ALTO + 8 + NODO + 4 + bmo::GLIFO_ALTO;
+/// Lo que mide el bloque: la palabra, el camino de nodos y sus letras, y los
+/// dos renglones de la 3060.
+pub(crate) const ALTO: u32 = GSP_ALTO + 10 + 2 * bmo::GLIFO_ALTO + 2;
+const GSP_ALTO: u32 = bmo::GLIFO_ALTO + 8 + NODO + 4 + bmo::GLIFO_ALTO;
 /// Un nodo: un punto de 8 px.
 const NODO: u32 = 8;
 /// La letra de cada nodo, bajo el.
@@ -57,6 +74,12 @@ struct Estado {
     /// Con el RISC-V vivo, la luz respira: cambia de tono cada muestra, y el
     /// bloque se repinta a 4 Hz solo mientras tanto.
     respira: bool,
+    /// La 3060: el sensor crudo, el enlace (`LNKSTA | LNKCAP << 32`), el
+    /// P-state (`0xFF` sin preguntar) y la VRAM que dijo el GSP-RM.
+    termico: u32,
+    enlace: u64,
+    pstate: u8,
+    vram: (u32, u8),
 }
 
 /// Lo pintado, para no repintar si no cambio.
@@ -67,6 +90,22 @@ static mut PINTADO: Option<Estado> = None;
 static mut INIT: u8 = 0;
 /// La fase de la respiracion de la luz.
 static mut FASE: bool = false;
+/// Lo que apunta el escritorio al preguntarle al GSP-RM: el P-state (`0xFF`
+/// sin preguntar) y la VRAM `(MiB, tipo de RAM)`.
+static mut PSTATE: u8 = 0xFF;
+static mut VRAM: (u32, u8) = (0, 0);
+
+/// **El P-state**, tal como lo contesto el GSP-RM (`commands::gspsalud`).
+pub(crate) fn pstate(p: u8) {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { PSTATE = p };
+}
+
+/// **La VRAM**, tal como la dijo `GET_GSP_STATIC_INFO` (`commands::gsprpc`).
+pub(crate) fn vram(mib: u32, tipo: u8) {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { VRAM = (mib, tipo) };
+}
 
 /// **`gpu init` acabo**: con `GSP_INIT_DONE` o sin el.
 pub(crate) fn init(llego: bool) {
@@ -124,7 +163,19 @@ fn leer() -> Estado {
         FASE = !FASE;
         FASE
     };
-    Estado { hechos: bits, fallo, hallada, riscv, respira }
+    // SAFETY: el escritorio es un solo hilo.
+    let (pstate, vram) = unsafe { (PSTATE, VRAM) };
+    Estado {
+        hechos: bits,
+        fallo,
+        hallada,
+        riscv,
+        respira,
+        termico: bmo::info(bmo::INFO_GPU_SALUD) as u32,
+        enlace: bmo::info(bmo::INFO_GPU_SALUD | 1 << 8),
+        pstate,
+        vram,
+    }
 }
 
 /// `a` hacia `b`, `t` de 256.
@@ -227,5 +278,88 @@ pub(crate) fn pintar(p: &bmo::Pantalla, x0: u32, y: u32, iw: u32) {
         };
         let lx = (x + NODO / 2).saturating_sub(bmo::GLIFO_ANCHO / 2);
         p.texto_bytes(lx, ny + NODO + 4, &LETRAS[k..k + 1], tinta);
+    }
+    if e.hallada {
+        la_3060(p, &e, x0, y + GSP_ALTO + 10, iw);
+    }
+}
+
+/// Un numero en `t` desde `n`; devuelve donde acabo.
+fn num(t: &mut [u8], n: usize, v: u32) -> usize {
+    let mut d = [0u8; 10];
+    let k = crate::text::decimal(v as u64, &mut d);
+    let k = k.min(t.len() - n);
+    t[n..n + k].copy_from_slice(&d[..k]);
+    n + k
+}
+
+fn poner(t: &mut [u8], n: usize, s: &[u8]) -> usize {
+    let k = s.len().min(t.len() - n);
+    t[n..n + k].copy_from_slice(&s[..k]);
+    n + k
+}
+
+/// **Los dos renglones de la 3060**: a la izquierda el nombre apagado, a la
+/// derecha la cifra en claro -- el mismo idioma que los instrumentos de abajo.
+fn la_3060(p: &bmo::Pantalla, e: &Estado, x0: u32, y: u32, iw: u32) {
+    use bmo_gpu_ga10x::{estatica, salud};
+    let derecha = |t: &[u8]| (x0 + iw).saturating_sub(t.len() as u32 * bmo::GLIFO_ANCHO);
+
+    // 3060   45 grados  P8
+    p.texto(x0, y, "3060", INK_DIM);
+    let mut t = [0u8; 16];
+    let mut n = 0;
+    let grados = salud::grados(e.termico);
+    match grados {
+        Some(g) => {
+            n = num(&mut t, n, g);
+            n = poner(&mut t, n, &[0xB0]);
+        }
+        None => n = poner(&mut t, n, b"--"),
+    }
+    if e.pstate != 0xFF {
+        n = poner(&mut t, n, b"  P");
+        n = num(&mut t, n, e.pstate as u32);
+    }
+    // Verde hasta 70, el acento hasta 83 (donde la 3060 empieza a bajar
+    // relojes), rojo encima.
+    let tinta = match grados {
+        Some(g) if g >= 83 => ROJO,
+        Some(g) if g >= 70 => acento(),
+        Some(_) => VERDE,
+        None => INK_DIM,
+    };
+    p.texto_bytes(derecha(&t[..n]), y, &t[..n], tinta);
+
+    // pcie 4 x16   12G GDDR6
+    let y = y + bmo::GLIFO_ALTO + 2;
+    let mut t = [0u8; 24];
+    let mut n = 0;
+    if let Some(l) = salud::enlace(e.enlace as u16, (e.enlace >> 32) as u32) {
+        n = poner(&mut t, n, b"pcie ");
+        n = num(&mut t, n, l.gen as u32);
+        // Por debajo de lo que puede: se dice el maximo, apagado no, entre /.
+        if l.gen < l.gen_max {
+            n = poner(&mut t, n, b"/");
+            n = num(&mut t, n, l.gen_max as u32);
+        }
+        n = poner(&mut t, n, b" x");
+        n = num(&mut t, n, l.ancho as u32);
+    } else {
+        n = poner(&mut t, n, b"pcie --");
+    }
+    p.texto_bytes(x0, y, &t[..n], INK_DIM);
+    if e.vram.0 != 0 {
+        let mut t = [0u8; 16];
+        let mut n = num(&mut t, 0, e.vram.0 >> 10);
+        n = poner(&mut t, n, b"G");
+        // El tipo solo si es uno de los que tienen nombre corto: "tipo
+        // desconocido" no cabe al lado del enlace.
+        let r = estatica::ram(e.vram.1 as u32);
+        if r.len() <= 6 {
+            n = poner(&mut t, n, b" ");
+            n = poner(&mut t, n, r);
+        }
+        p.texto_bytes(derecha(&t[..n]), y, &t[..n], INK);
     }
 }

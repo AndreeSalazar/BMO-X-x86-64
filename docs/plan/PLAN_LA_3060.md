@@ -948,6 +948,37 @@ Y la fila `memoria`, cruda: `+0x4D0: 7 0 0 C0 11 0 7`. El bus (192 = 0xC0) y
 `RAM_TYPE_GDDR6` (0x11) estan 4 B DESPUES de lo que dice el header de OpenRM:
 dos aciertos exactos. Se leen donde los puso el firmware.
 
+**L1b+ (24-09, en codigo): EL CONTRATO, LA PRIMERA ORDEN DE CONTROL Y LA 3060
+EN EL PANEL.**
+
+- `bmo_gpu_ga10x::contrato` (2 pruebas): la lista CERRADA de lo que sale hacia
+  el GSP-RM -- SetSystemInfo, SetRegistry, GET_GSP_STATIC_INFO, `GSP_RM_ALLOC`
+  solo de nuestros tres objetos (asas y clases) y `GSP_RM_CONTROL` solo sobre
+  nuestro subdispositivo y solo las ordenes de `control::Control`. El kernel la
+  pasa sobre cada mensaje YA armado, antes de mover el `writePtr`: lo que no
+  esta no sale y el timbre no suena (motivo 57). Es la segunda llave: la
+  primera es que el escritorio nunca manda bytes.
+- `bmo_gpu_ga10x::control` (2 pruebas): `GSP_RM_CONTROL` (RPC 76, cabecera de
+  24 B) con una orden, `PERF_GET_CURRENT_PSTATE` (0x20802068, 4 B). Kernel
+  `IOMMU_OP_GSP_CONTROL` (0x1C, motivo 58); escritorio `gpu salud`, paso
+  `salud` de `save mode`, y sola tras `gpu init`.
+- `bmo_gpu_ga10x::salud` (2 pruebas) e `INFO_GPU_SALUD` (0xC2): la temperatura
+  del sensor `0x020460` (nouveau `gp100_temp_get`, bit 29 valido) y el enlace
+  PCIe (Link Status y Link Capabilities), dos lecturas. En el panel, bajo la
+  luz del GSP: `3060  45o  P8` y `pcie 4 x16  12G GDDR6`.
+- **Los VATIOS de la 3060 no estan, y se dice por que**: la potencia la leen
+  sensores de la PMU por I2C y la orden del RM que la da no esta en OpenRM
+  570.144 (`ctrl2080pmgr.h`, `thermal`, `clk` y `fan` salen sin ordenes).
+- `save mode` VUELVE a llevar `init`, y detras `estatica`, `objetos` y `salud`:
+  una sola orden lo da todo. Antes de todo, un save de EMERGENCIA (aunque no
+  haya nada que arriesgar); `init` repinta el escritorio; el paso en curso se
+  ve en la linea de estado.
+- La caja de Ctrl+Alt: el consejero ya no se AGREGA a la salida en cada
+  invocacion (la mezclaba): sale en UNA linea, la de estado. Mientras se
+  teclea, esa linea SUGIERE ordenes (`commands::sugerencias`, cada una pasada
+  por `parse`), y TAB completa ordenes antes que rutas. Una fila en blanco
+  separa cada orden de la respuesta de antes.
+
 **Como se sabe (L1b):** las filas `obj cli`, `obj disp` y `obj sub` dicen
 `NV_OK` (o `ya existia`, si se pidieron antes en el mismo arranque). Un
 `parametros de otra medida` (0x3A) es un struct de otra version; `padre

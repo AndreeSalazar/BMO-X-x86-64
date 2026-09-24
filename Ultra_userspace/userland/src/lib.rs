@@ -245,6 +245,7 @@ pub const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 pub const IOMMU_OP_GSP_BAR1: u64 = 0x19;
 pub const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 pub const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
+pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -301,6 +302,8 @@ pub const IOMMU_NO_BAR1: u32 = 53;
 pub const IOMMU_NO_RPC_ANTES: u32 = 54;
 pub const IOMMU_NO_RPC_LLENA: u32 = 55;
 pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
+pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
+pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -1055,6 +1058,7 @@ pub const SEC_NO_CONTESTA: u64 = 3;
 pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
+pub const INFO_GPU_SALUD: u64 = 0xC2;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

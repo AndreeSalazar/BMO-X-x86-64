@@ -1,0 +1,131 @@
+//! **EL CONTRATO DE LA COLA DE LA CPU** -- la lista CERRADA de lo que puede
+//! salir de este sistema hacia el GSP-RM. El kernel la pasa sobre cada mensaje
+//! ya armado, antes de mover el `writePtr` y de tocar el timbre: lo que no esta
+//! aqui no sale, lo haya armado quien lo haya armado.
+//!
+//! capa: puro -- mira bytes; no toca un registro (L8)
+//!
+//! [eje]     AISLAMIENTO -- el escritorio nunca manda bytes al GSP (dice CUAL
+//!           pregunta, de una lista); esto es la segunda llave: aunque un
+//!           camino del kernel armara otra cosa, el timbre no suena
+//!
+//! ```text
+//!    SET_SYSTEM_INFO   72   antes de despertar (L0c4b2a)
+//!    SET_REGISTRY      73   antes de despertar (L0c4b2a)
+//!    GET_GSP_STATIC_INFO 65 L1a
+//!    GSP_RM_ALLOC     103   L1b: SOLO nuestro cliente, dispositivo y
+//!                           subdispositivo, con sus asas y clases
+//!    GSP_RM_CONTROL    76   SOLO sobre nuestro subdispositivo, y SOLO las
+//!                           ordenes de `control::Control`
+//! ```
+//!
+//! Agrandar la lista es una decision, y se toma aqui: con su prueba.
+
+use crate::control::{Control, CABECERA_CONTROL, GSP_RM_CONTROL};
+use crate::estatica::GET_GSP_STATIC_INFO;
+use crate::objeto::{Objeto, CLIENTE, GSP_RM_ALLOC, SUBDISPOSITIVO};
+use crate::orden::{SET_REGISTRY, SET_SYSTEM_INFO};
+use crate::rpc::{Mensaje, CABECERA};
+
+/// Por que NO.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum No {
+    /// Corto, o sin la forma de un mensaje (firma, version, medida).
+    Forma,
+    /// Una funcion que no esta en la lista.
+    Funcion(u32),
+    /// Un `GSP_RM_ALLOC` que no es uno de nuestros tres objetos.
+    Objeto,
+    /// Un `GSP_RM_CONTROL` fuera de nuestro subdispositivo o de la lista.
+    Control,
+}
+
+fn u32_de(b: &[u8], o: usize) -> u32 {
+    u32::from_le_bytes([b[o], b[o + 1], b[o + 2], b[o + 3]])
+}
+
+/// **El mensaje entero (cabecera de 80 B y datos) puede salir?**
+pub fn permitido(m: &[u8]) -> Result<u32, No> {
+    if m.len() < CABECERA {
+        return Err(No::Forma);
+    }
+    let h = Mensaje::de(m[..CABECERA].try_into().map_err(|_| No::Forma)?);
+    if !h.bien_formado() || m.len() < CABECERA + h.datos() {
+        return Err(No::Forma);
+    }
+    let d = &m[CABECERA..CABECERA + h.datos()];
+    match h.funcion {
+        SET_SYSTEM_INFO | SET_REGISTRY | GET_GSP_STATIC_INFO => Ok(h.funcion),
+        GSP_RM_ALLOC => {
+            if d.len() < 16 {
+                return Err(No::Objeto);
+            }
+            let (cliente, padre, asa, clase) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 12));
+            let nuestro = Objeto::TODOS.iter().any(|o| {
+                let f = o.forma();
+                (f.0, f.1, f.2, f.3) == (cliente, padre, asa, clase)
+            });
+            if nuestro {
+                Ok(h.funcion)
+            } else {
+                Err(No::Objeto)
+            }
+        }
+        GSP_RM_CONTROL => {
+            if d.len() < CABECERA_CONTROL {
+                return Err(No::Control);
+            }
+            let (cliente, objeto, cmd) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8));
+            if cliente == CLIENTE && objeto == SUBDISPOSITIVO && Control::TODOS.iter().any(|c| c.forma().0 == cmd) {
+                Ok(h.funcion)
+            } else {
+                Err(No::Control)
+            }
+        }
+        f => Err(No::Funcion(f)),
+    }
+}
+
+#[cfg(test)]
+mod pruebas {
+    use super::*;
+    use crate::{control, estatica, objeto, orden};
+
+    #[test]
+    fn lo_de_la_lista_sale() {
+        let mut h = [0u8; 4096];
+        let n = estatica::pregunta(&mut h, 2).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(65));
+        for o in Objeto::TODOS {
+            let n = objeto::pedir(&mut h, 3, o).unwrap();
+            assert_eq!(permitido(&h[..n]), Ok(103));
+        }
+        let n = control::pedir(&mut h, 4, Control::Pstate).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(76));
+        let n = orden::registro(&mut h, 1).unwrap();
+        assert_eq!(permitido(&h[..n]), Ok(73));
+    }
+
+    #[test]
+    fn lo_de_fuera_no_sale() {
+        let mut h = [0u8; 4096];
+        // Una funcion que no esta: FREE (10).
+        let n = orden::componer(&mut h, 5, 10, 16, |_| {}).unwrap();
+        assert_eq!(permitido(&h[..n]), Err(No::Funcion(10)));
+        // Un ALLOC de otra clase (un canal, 0xC56F) con nuestras asas.
+        let n = objeto::pedir(&mut h, 6, Objeto::Subdispositivo).unwrap();
+        h[CABECERA + 12..CABECERA + 16].copy_from_slice(&0xC56Fu32.to_le_bytes());
+        assert_eq!(permitido(&h[..n]), Err(No::Objeto));
+        // Un CONTROL sobre las asas INTERNAS del RM, no las nuestras.
+        let n = control::pedir(&mut h, 7, Control::Pstate).unwrap();
+        h[CABECERA..CABECERA + 4].copy_from_slice(&0xC200_0006u32.to_le_bytes());
+        assert_eq!(permitido(&h[..n]), Err(No::Control));
+        // Una orden de control que no esta en la lista.
+        let n = control::pedir(&mut h, 8, Control::Pstate).unwrap();
+        h[CABECERA + 8..CABECERA + 12].copy_from_slice(&0x2080_0101u32.to_le_bytes());
+        assert_eq!(permitido(&h[..n]), Err(No::Control));
+        // Corto, o sin forma.
+        assert_eq!(permitido(&h[..40]), Err(No::Forma));
+        assert_eq!(permitido(&[0u8; 200]), Err(No::Forma));
+    }
+}

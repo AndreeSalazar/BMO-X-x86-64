@@ -64,6 +64,12 @@ pub mod correr;
 pub mod estatica;
 /// L1b: GSP_RM_ALLOC -- nuestro cliente, dispositivo y subdispositivo (2026-09-24).
 pub mod objeto;
+/// L1b: GSP_RM_CONTROL -- preguntas de control a nuestro subdispositivo (2026-09-24).
+pub mod control;
+/// La lista CERRADA de lo que sale hacia el GSP-RM, y el NO de lo demas (2026-09-24).
+pub mod contrato;
+/// La temperatura y el enlace PCIe de la 3060, en solo lectura (2026-09-24).
+pub mod salud;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

@@ -429,6 +429,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         && !dsk.win.switcher_painted && !dsk.win.nya_painted
     {
         paint_field(&p, &dsk.run_box, dsk.field.line(), dsk.field.cur, dsk.field.caret);
+        sugerencias(dsk, &p);
         repintar_apps_encima(dsk);
     }
 
@@ -584,4 +585,57 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // Una instruccion, una vez por fotograma, al final de todo. Ver
     // `Pantalla::vaciar`.
     p.vaciar();
+}
+
+/// **Las sugerencias bajo el campo** (2026-09-24), solo si cambio lo tecleado:
+/// el parpadeo del cursor repinta el campo cuatro veces por segundo y la linea
+/// no tiene por que ir detras. Ver `commands::sugerencias`.
+///
+/// La linea de estado es de quien la escribio: una orden deja ahi su mensaje
+/// y eso no se pisa hasta que se teclea otra vez. Al vaciar el campo con
+/// sugerencias puestas, vuelve la pista del consejero.
+fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    use crate::commands::sugerencias as sg;
+    let linea = dsk.field.line();
+    // FNV-1a; `| 1` para que una linea escrita nunca firme 0 (la vacia).
+    let firma = if linea.is_empty() {
+        0
+    } else {
+        linea.iter().fold(0xCBF2_9CE4_8422_2325u64, |h, &b| (h ^ b as u64).wrapping_mul(0x100_0000_01B3)) | 1
+    };
+    if firma == dsk.field.sug_firma {
+        return;
+    }
+    let s = sg::para(linea);
+    dsk.field.sug_firma = firma;
+    if s.n == 0 {
+        if dsk.field.sug_pintadas {
+            dsk.field.sug_pintadas = false;
+            // Campo vacio: vuelve la pista. Con algo escrito que no es una
+            // orden de la lista (una ruta tras `ls `), la linea se calla.
+            if firma == 0 {
+                pista_consejero(dsk, p);
+            } else {
+                paint_status(p, &dsk.run_box, "", scene::INK_DIM);
+            }
+        }
+        return;
+    }
+    let mut lineas: [&[u8]; sg::MAX] = [b""; sg::MAX];
+    for k in 0..s.n {
+        lineas[k] = sg::linea(s.i[k]);
+    }
+    scene::sugerir::pintar(p, &dsk.run_box, &lineas[..s.n], s.total - s.n, sg::que(s.i[0]));
+    dsk.field.sug_pintadas = true;
+}
+
+/// **La pista del consejero** en la linea de estado: lo siguiente recomendado,
+/// en UNA linea. Sale al invocar la caja (Ctrl+Alt) y al vaciar el campo; el
+/// consejero entero solo va a la salida al arrancar y tras `save mode`.
+pub(crate) fn pista_consejero(dsk: &mut Desktop, p: &bmo::Pantalla) {
+    let mut t = [0u8; 160];
+    let (etiqueta, n) = crate::commands::verificar::pista(&mut t);
+    scene::sugerir::pista(p, &dsk.run_box, etiqueta, &t[..n]);
+    dsk.field.sug_pintadas = false;
+    dsk.field.sug_firma = 0;
 }

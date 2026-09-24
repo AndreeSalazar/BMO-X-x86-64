@@ -163,6 +163,12 @@ pub(crate) struct Field {
     /// puts any there, when an icon is clicked.
     pub injected: [u8; 32],
     pub ni: usize,
+    /// La linea para la que se pintaron sugerencias por ultima vez (su
+    /// firma; 0 = vacia). Ver `desktop::paint::sugerencias`.
+    pub sug_firma: u64,
+    /// La linea de estado muestra AHORA sugerencias (y no el mensaje de una
+    /// orden, que no se pisa).
+    pub sug_pintadas: bool,
 }
 
 impl Field {
@@ -178,6 +184,8 @@ impl Field {
             since_key: 0,
             injected: [0; 32],
             ni: 0,
+            sug_firma: 0,
+            sug_pintadas: false,
         }
     }
 

@@ -806,6 +806,7 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         IOMMU_OP_GSP_BAR1 => crate::ring0::dev::gpu_despertar::devolver_bar1(),
         IOMMU_OP_GSP_ESTATICA => crate::ring0::dev::gpu_libos::preguntar_estatica(),
         IOMMU_OP_GSP_OBJETO => crate::ring0::dev::gpu_libos::pedir_objeto(arg1),
+        IOMMU_OP_GSP_CONTROL => crate::ring0::dev::gpu_libos::pedir_control(arg1),
         IOMMU_OP_E2_APAGAR => {
             let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);
             Ok(estaba as u64)

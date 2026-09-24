@@ -346,6 +346,8 @@ pub(crate) const IOMMU_OP_GSP_BAR1: u64 = 0x19;
 pub(crate) const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 /// L1b: pedirle al GSP-RM uno de NUESTROS objetos (GSP_RM_ALLOC). Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
+/// L1b: una orden de control (GSP_RM_CONTROL) sobre nuestro subdispositivo. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

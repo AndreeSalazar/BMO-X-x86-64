@@ -135,6 +135,7 @@ pub fn estado(e: u32) -> &'static [u8] {
         0x33 => b"asa invalida",
         0x36 => b"padre invalido",
         0x3A => b"parametros de otra medida",
+        0x56 => b"no soportado",
         _ => b"otro NV_STATUS",
     }
 }

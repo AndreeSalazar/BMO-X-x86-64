@@ -399,6 +399,11 @@ pub fn escribir_sistema() -> Result<u64, u32> {
     let (Some(a), Some(b)) = (bmo_gpu_ga10x::orden::sistema(hueco(0), 0, &s), bmo_gpu_ga10x::orden::registro(hueco(1), 1)) else {
         return Err(IOMMU_NO_SISTEMA_ANTES);
     };
+    // El contrato, tambien aqui: lo que sale hacia el GSP pasa por la lista.
+    if bmo_gpu_ga10x::contrato::permitido(&hueco(0)[..a]).is_err() || bmo_gpu_ga10x::contrato::permitido(&hueco(1)[..b]).is_err() {
+        crate::ring0::cabina::warn("gpu", "contrato: SetSystemInfo o SetRegistry fuera de la lista; no se mandan", 0);
+        return Err(IOMMU_NO_SISTEMA_ANTES);
+    }
     // Los mensajes enteros ANTES de moverle el puntero (nova-core pone la
     // barrera en `advance_cpu_write_ptr`).
     core::sync::atomic::fence(Ordering::SeqCst);
@@ -430,6 +435,11 @@ pub const IOMMU_NO_RPC_ANTES: u32 = 54;
 pub const IOMMU_NO_RPC_LLENA: u32 = 55;
 /// L1b: no es uno de los tres objetos.
 pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
+/// El mensaje armado no esta en el contrato (`bmo_gpu_ga10x::contrato`): no
+/// sale, y el timbre no suena.
+pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
+/// No es una de las ordenes de control de la lista.
+pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -450,6 +460,17 @@ pub fn pedir_objeto(que: u64) -> Result<u64, u32> {
     };
     let r = enviar(|h, n| bmo_gpu_ga10x::objeto::pedir(h, n, o))?;
     crate::ring0::cabina::count("gpu", "L1b: GSP_RM_ALLOC pedido; asa", o.asa() as u64);
+    Ok(r)
+}
+
+/// **L1b: una orden de control** sobre nuestro subdispositivo (`que` = el
+/// indice en `bmo_gpu_ga10x::control::Control::TODOS`).
+pub fn pedir_control(que: u64) -> Result<u64, u32> {
+    let Some(c) = bmo_gpu_ga10x::control::Control::de(que) else {
+        return Err(IOMMU_NO_RPC_CONTROL);
+    };
+    let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
+    crate::ring0::cabina::count("gpu", "L1b: GSP_RM_CONTROL pedido; cmd", c.forma().0 as u64);
     Ok(r)
 }
 
@@ -478,8 +499,19 @@ fn enviar(armar: impl FnOnce(&mut [u8], u32) -> Option<usize>) -> Result<u64, u3
     // SAFETY: la pagina `wp` de datos de la cola de la CPU, libre (el GSP ya
     // leyo hasta `rp`, y `wp + 1 != rp`); nadie mas la escribe.
     let hueco = unsafe { core::slice::from_raw_parts_mut(p, PAGINA as usize) };
-    if armar(hueco, numero).is_none() {
+    let Some(n) = armar(hueco, numero) else {
         return Err(IOMMU_NO_RPC_ANTES);
+    };
+    // ** LA SEGUNDA LLAVE: el mensaje ya armado pasa por el contrato ANTES de
+    // mover el `writePtr`. Si no esta en la lista, la pagina queda escrita
+    // pero el GSP no la ve (su puntero no avanza) y el timbre no suena.
+    if let Err(no) = bmo_gpu_ga10x::contrato::permitido(&hueco[..n]) {
+        let f = match no {
+            bmo_gpu_ga10x::contrato::No::Funcion(f) => f as u64,
+            _ => 0,
+        };
+        crate::ring0::cabina::warn("gpu", "contrato: un mensaje al GSP fuera de la lista NO sale; funcion", f);
+        return Err(IOMMU_NO_RPC_CONTRATO);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     // SAFETY: como arriba.

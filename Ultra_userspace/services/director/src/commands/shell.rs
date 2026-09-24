@@ -257,6 +257,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    save auto     guarda solo antes de lo arriesgado  (o manual)\n");
     dsk.out.grid.text(b"    iommu         la frontera del DMA   (encender | apagar)\n");
     dsk.out.grid.text(b"    gpu           la 3060 y su rayo     (cegar | ver)\n");
+    dsk.out.grid.text(b"    gpu salud     temperatura, PCIe y P-state   (tambien en el panel)\n");
     dsk.out.grid.with_ink(INK_ECHO);
     dsk.out.grid.text(b"  ESTA CAJA ---------------------------------------------------\n");
     dsk.out.grid.with_ink(INK_PLAIN);
@@ -264,7 +265,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    calc          la calculadora     perf   lo que cuesta pintar\n");
     dsk.out.grid.text(b"    captura       la pantalla a capturas/   (ventana | zona: con el raton)\n");
     dsk.out.grid.text(b"    Ctrl+Shift+C copia la linea    Ctrl+V la pega    Ctrl+C frena\n");
-    dsk.out.grid.text(b"    TAB completa            Ctrl+A / Ctrl+E   inicio / fin\n");
+    dsk.out.grid.text(b"    TAB completa ordenes y rutas   Ctrl+A / Ctrl+E   inicio / fin\n");
     dsk.out.grid.text(b"    Ctrl+K corta al final   Ctrl+W borra palabra   Ctrl+U linea\n");
     dsk.out.grid.text(b"    Ctrl+Alt esconde o invoca esta ventana\n");
     dsk.out.grid.with_ink(INK_ECHO);

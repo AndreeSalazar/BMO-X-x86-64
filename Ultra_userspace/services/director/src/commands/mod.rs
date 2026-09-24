@@ -8,6 +8,8 @@
 //! esta carpeta no sabe de que color es la ventana.
 
 pub(crate) mod complete;
+/// Las sugerencias de la caja mientras se teclea, y TAB sobre ordenes (24-09).
+pub(crate) mod sugerencias;
 /// ** LA TERMINAL DEL DISCO: la unica caja de ordenes que ACTUA sobre el
 /// almacen. Fichero propio por eso y no por medida. Ver su cabecera.
 pub(crate) mod disco;
@@ -26,6 +28,8 @@ pub(crate) mod gspsecuencia;
 pub(crate) mod gspinit;
 pub(crate) mod gsprpc;
 pub(crate) mod gspobjeto;
+/// `gpu salud`: temperatura, enlace PCIe y P-state de la 3060 (24-09).
+pub(crate) mod gspsalud;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

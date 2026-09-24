@@ -460,3 +460,42 @@ pub fn info_wpr2() -> u64 {
     }
     leer(bar0, 0x001F_A824) as u64 | (leer(bar0, 0x001F_A828) as u64) << 32
 }
+
+// == LA SALUD, EN SOLO LECTURA (2026-09-24) ===================================
+//
+// Para el panel del escritorio: la temperatura del chip por su sensor
+// (`bmo_gpu_ga10x::salud::TERMICO`, como nouveau) y el enlace PCIe por la
+// capacidad PCI Express. Dos lecturas; ni un registro se escribe.
+
+/// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`.
+pub fn info_salud(sel: u64) -> u64 {
+    let bar0 = bar0();
+    let Some((b, d, f)) = bdf() else { return 0 };
+    if sel >> 8 == 0 {
+        if bar0 == 0 {
+            return 0;
+        }
+        // Por el mismo `Bar0` que lee BOOT_0: leido y nada mas.
+        let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+        return bmo_gpu_ga10x::Registros::leer(&mut r, bmo_gpu_ga10x::salud::TERMICO) as u64;
+    }
+    let pci = crate::ring0::dev::pci::cfg_read32;
+    // La lista de capacidades: el bit 4 del estado dice que la hay.
+    if pci(b, d, f, 0x04) >> 16 & 0x10 == 0 {
+        return 0;
+    }
+    let mut p = (pci(b, d, f, 0x34) & 0xFC) as u8;
+    let mut vueltas = 0;
+    // `p + 0x10` en un `u8`: una capacidad no empieza pasado 0xEC.
+    while p != 0 && p <= 0xEC && vueltas < 48 {
+        let c = pci(b, d, f, p);
+        if c & 0xFF == 0x10 {
+            let cap = pci(b, d, f, p + 0x0C) as u64;
+            let sta = (pci(b, d, f, p + 0x10) >> 16) as u64;
+            return sta | cap << 32;
+        }
+        p = ((c >> 8) & 0xFC) as u8;
+        vueltas += 1;
+    }
+    0
+}

@@ -221,6 +221,14 @@ impl Output {
         self.dirty = true;
     }
 
+    /// **Una fila en blanco antes de un bloque nuevo**, si la de arriba tiene
+    /// algo y la de ahora esta vacia. Dos seguidas no: el aire es uno.
+    pub(crate) fn separar(&mut self) {
+        if self.col == 0 && self.alive_boxes > 1 && self.row > 0 && !self.line(self.row - 1).is_empty() {
+            self.newline();
+        }
+    }
+
     pub(crate) fn byte(&mut self, b: u8) {
         match b {
             b'\n' => self.newline(),
