@@ -1202,9 +1202,19 @@ fn una_cadena_que_cruza_dos_sectores_de_la_fat() {
     let (s1, _) = v.donde_en_la_fat(primero + 199);
     assert_eq!(s1, s0 + 1, "la prueba no cruza: el volumen de mentira cambio");
 
+    // Con el primer sector entrega lo que ese sector cubre y sigue desde el
+    // primer cluster cuya entrada esta en el segundo. NO pide el segundo desde
+    // el cursor: eso era el cuelgue de los iconos (ver
+    // `el_hilo_no_se_queda_pidiendo_dos_ventanas_para_siempre`).
     let uno = fat_cruda(&v, s0, 1);
     let plan = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat { sector: s0, bytes: &uno });
-    assert_eq!(plan, Plan::Falta(s1), "con el primer sector, pide el segundo");
+    let Plan::Tramo(parte) = plan else { panic!("con el primer sector tenia que entregar algo: {plan:?}") };
+    let entradas = 512 / 4;
+    let hasta = (primero / entradas + 1) * entradas; // primer cluster del segundo sector
+    assert_eq!(parte.siguiente, hasta, "sigue donde empieza el segundo sector");
+    assert_eq!(parte.bytes, (hasta - primero) as usize * 512);
+    let plan = v.planear_tramo_en(hasta, parte.bytes, tam, 1 << 20, &VentanaFat { sector: s0, bytes: &uno });
+    assert_eq!(plan, Plan::Falta(s1), "desde ahi, pide el segundo");
 
     let dos = fat_cruda(&v, s0, 2);
     let Plan::Tramo(puro) = v.planear_tramo_en(primero, 0, tam, 1 << 20, &VentanaFat { sector: s0, bytes: &dos })
@@ -1248,4 +1258,75 @@ fn la_ventana_de_la_fat_no_se_sale_de_la_fat() {
     assert_eq!(v.ventana_fat(fin, 8), None);
     assert_eq!(v.ventana_fat(inicio - 1, 8), None);
     assert_eq!(v.ventana_fat(inicio, 0), None);
+}
+
+/// **Lee un fichero COMO LO LEE EL HILO DEL DISCO**: UNA sola ventana de la
+/// FAT, alineada a `max` sectores, que se tira y se vuelve a pedir cada vez
+/// que el plan dice `Falta`. Es `cargando::paso` sin el aparato. `None` si el
+/// plan no deja de pedir: en el kernel eso no es un error, es un escritorio
+/// que se queda en "iconos: leyendo apps del disco" para siempre.
+fn leer_como_el_hilo(v: &FatVolume, primero: u32, tam: u32, tope: usize, max: u64) -> Option<(Vec<u8>, usize)> {
+    let mut dst = vec![0u8; (tam as usize).div_ceil(512) * 512 + 512];
+    let (mut cluster, mut ya, mut ventanas) = (primero, 0usize, 0usize);
+    let mut ventana: Option<(u64, Vec<u8>)> = None;
+    for _ in 0..256 {
+        let plan = match &ventana {
+            Some((sector, bytes)) => v.planear_tramo_en(cluster, ya, tam, tope, &VentanaFat { sector: *sector, bytes }),
+            None => v.planear_tramo_en(cluster, ya, tam, tope, &VentanaFat::VACIA),
+        };
+        match plan {
+            Plan::Nada => {
+                dst.truncate(ya);
+                return Some((dst, ventanas));
+            }
+            Plan::Falta(s) => {
+                let (desde, _, n) = v.ventana_fat(s, max).expect("es de la FAT");
+                ventana = Some((desde, fat_cruda(v, desde, n)));
+                ventanas += 1;
+            }
+            Plan::Tramo(t) => {
+                assert!(t.bytes > 0, "un tramo vacio es un bucle infinito");
+                let hasta = ya + t.sectores as usize * 512;
+                assert!(read(t.lba, t.sectores, &mut dst[ya..hasta]));
+                ya += t.bytes;
+                if t.siguiente == 0 {
+                    dst.truncate(ya);
+                    return Some((dst, ventanas));
+                }
+                cluster = t.siguiente;
+            }
+        }
+    }
+    None
+}
+
+/// *** **EL CUELGUE DE LOS ICONOS (Ryzen, 2026-09-24).** El arranque se quedo
+/// en "iconos: leyendo apps del disco": un `.bex` cuya carrera de clusters
+/// SEGUIDOS cruza el borde de la ventana de la FAT del hilo (8 sectores, cada
+/// 1.024 clusters) no acababa nunca. El plan pedia la ventana de delante; con
+/// ella en la mano volvia a empezar desde el cursor, cuya entrada estaba en la
+/// de DETRAS, y la pedia otra vez -- la de delante, la de detras... sin fin, y
+/// `esperar_entero` durmiendo sobre un archivo que no se movia.
+///
+/// Aqui la ventana es de UN sector para cruzar su borde con el volumen chico
+/// de las pruebas: es la misma frontera, a otra escala.
+#[test]
+fn el_hilo_no_se_queda_pidiendo_dos_ventanas_para_siempre() {
+    let (_turno, mut v) = volumen();
+    let datos: Vec<u8> = (0..200 * 512u32).map(|i| (i % 247) as u8).collect();
+    v.save_file_in_dir(2, &name("BORDE   BIN"), &datos).expect("debe guardar");
+    let (primero, tam) = v.find_file(&name("BORDE   BIN")).expect("debe estar");
+    let (s0, _) = v.donde_en_la_fat(primero);
+    let (s1, _) = v.donde_en_la_fat(primero + 199);
+    assert_eq!(s1, s0 + 1, "la prueba no cruza: el volumen de mentira cambio");
+
+    let (leido, ventanas) = leer_como_el_hilo(&v, primero, tam, 1 << 20, 1)
+        .expect("el plan pide la ventana de delante y la de detras para siempre");
+    assert_eq!(leido, datos);
+    assert_eq!(ventanas, 2, "una ventana por sector de la FAT, ni una vuelta mas");
+
+    // Y con ventanas que cubren las dos, lo mismo en una sola orden.
+    let (leido, ventanas) = leer_como_el_hilo(&v, primero, tam, 1 << 20, 8).expect("acaba");
+    assert_eq!(leido, datos);
+    assert_eq!(ventanas, 1);
 }

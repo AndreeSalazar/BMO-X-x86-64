@@ -124,6 +124,13 @@ impl Drop for Directorio {
 
 // -- Un archivo ----------------------------------------------------------
 
+/// Cuantas miradas SEGUIDAS sin un byte nuevo aguanta
+/// [`Archivo::esperar_entero`] antes de traer el archivo sin el hilo del disco.
+/// Cada una es un `WAIT` de 100 ms: 3 s quieto. Una orden de 1 MiB son ~2 ms
+/// en el SATA del Ryzen, asi que esto no es un disco lento: es un disco que no
+/// va a llegar.
+const SIN_AVANCE: u32 = 30;
+
 /// Un archivo abierto del volumen de datos.
 ///
 /// Hermano de [`Directorio`]: aquel deja PREGUNTAR que hay, este deja mover
@@ -243,10 +250,32 @@ impl Archivo {
     ///
     /// [!] El plazo de cada espera es una RED, no el ritmo: si un aviso se
     /// perdiera, se vuelve a mirar a los 100 ms en vez de quedarse para siempre.
+    ///
+    /// *** Y **volver a mirar no es salir** (Ryzen, 2026-09-24): el arranque se
+    /// quedo en "iconos: leyendo apps del disco" porque el hilo del disco no
+    /// movia un `.bex` (el plan de la FAT pedia dos ventanas sin fin, ver
+    /// `bmo_fat32::plan`), y aqui se miraba cada 100 ms un numero que no
+    /// cambiaba, para siempre. Ahora, tras [`SIN_AVANCE`] miradas seguidas sin
+    /// un byte nuevo, el archivo se trae por el CAMINO SINCRONO de siempre --el
+    /// que no pasa por el hilo--, y si ni ese avanza, se devuelve lo que haya:
+    /// un archivo corto se nota; un escritorio colgado no dice nada.
     pub fn esperar_entero(&self) {
+        let mut antes = u64::MAX;
+        let mut quieto = 0u32;
         loop {
             let v = self.listo_crudo();
             if v & (1 << 63) != 0 {
+                return;
+            }
+            if v == antes {
+                quieto += 1;
+            } else {
+                antes = v;
+                quieto = 0;
+            }
+            if quieto >= SIN_AVANCE {
+                crate::consola("disco: el hilo no mueve este archivo; lo traigo por el camino sincrono\n");
+                self.traer_sin_el_hilo();
                 return;
             }
             let st = crate::sys::wait(self.cap, v, 100_000_000);
@@ -254,6 +283,24 @@ impl Archivo {
                 // Este handle no se puede esperar: el camino de antes.
                 continue;
             }
+        }
+    }
+
+    /// **El camino sincrono, a mano.** Cualquier operacion que no sea
+    /// `ARCH_OP_LISTO` empuja un trozo DENTRO del kernel, sin el hilo
+    /// (`cargando::avanzar`); `MEDIDA` es la que no mueve el cursor. Cada
+    /// vuelta trae algo o da el archivo por acabado, y si una no trae nada se
+    /// para aqui: aunque el kernel prometa avanzar, esto no depende de ello.
+    fn traer_sin_el_hilo(&self) {
+        let mut antes = self.listo_crudo();
+        while antes & (1 << 63) == 0 {
+            self.size();
+            let v = self.listo_crudo();
+            if v == antes {
+                crate::consola("disco: el archivo no avanza ni sin el hilo; queda corto\n");
+                return;
+            }
+            antes = v;
         }
     }
 

@@ -77,7 +77,9 @@ pub enum Plan {
     Tramo(Tramo),
     /// Para seguir la cadena le falta ESTE sector de la FAT, relativo al
     /// volumen. Quien llama lo trae --a su manera y a su tiempo-- y vuelve a
-    /// preguntar desde el mismo cursor.
+    /// preguntar desde el mismo cursor. Solo sale para la entrada DEL CURSOR:
+    /// si falta una mas adelante, el plan entrega lo que ya tenia (ver
+    /// `planear_con`), asi que una sola ventana basta para avanzar siempre.
     Falta(u64),
 }
 
@@ -210,7 +212,20 @@ impl FatVolume {
                 break;
             }
             let (sector, idx) = self.donde_en_la_fat(ultimo);
-            let Some(crudo) = entrada(sector, idx) else { return Plan::Falta(sector) };
+            let Some(crudo) = entrada(sector, idx) else {
+                // *** Si ya hay clusters en la mano, se ENTREGAN y el cursor
+                // pasa a `ultimo`, que se sabe que sigue (el anterior apunta a
+                // el). Pedir la FAT desde el cursor viejo era el cuelgue de los
+                // iconos (Ryzen, 24-09): con UNA ventana, la carrera que cruza su
+                // borde pedia la de delante, y con ella la de detras, sin fin.
+                // Asi cada `Falta` va seguido de al menos un cluster entregado.
+                if n > 1 {
+                    n -= 1;
+                    siguiente = ultimo;
+                    break;
+                }
+                return Plan::Falta(sector);
+            };
             let otro = match self.siguiente_de(crudo) {
                 Some(c) => c,
                 // Fin de cadena antes que fin de fichero: se entrega lo que hay
