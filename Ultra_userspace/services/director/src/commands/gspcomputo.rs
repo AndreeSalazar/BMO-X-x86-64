@@ -18,6 +18,7 @@ use bmo_gpu_ga10x::blur;
 use bmo_gpu_ga10x::fractal;
 use bmo_gpu_ga10x::lienzo;
 use bmo_gpu_ga10x::escena;
+use bmo_gpu_ga10x::raster;
 use bmo_gpu_ga10x::tresde;
 use bmo_gpu_ga10x::triangulo;
 use bmo_gpu_ga10x::sombreador;
@@ -63,6 +64,8 @@ struct Computo {
     limpio3d: Option<Result<u64, u32>>,
     /// E: la escena 3D con luz.
     escena: Option<Result<u64, u32>>,
+    /// T1c: el triangulo por el rasterizador.
+    raster: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -99,6 +102,8 @@ pub(crate) const NO_TRIANGULO_MAL: u32 = 0x13F;
 pub(crate) const NO_LIMPIO3D_MAL: u32 = 0x140;
 /// La escena se lanzo pero no salio igual que la CPU (la fila `escena`).
 pub(crate) const NO_ESCENA_MAL: u32 = 0x141;
+/// El triangulo 3D se lanzo pero no salio igual que el juez (la fila `raster`).
+pub(crate) const NO_RASTER_MAL: u32 = 0x142;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -459,6 +464,46 @@ pub(crate) fn orden_escena(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     After::Settle
 }
 
+/// **T1c: el triangulo por el rasterizador** de la 3060.
+pub(crate) fn dibujar_raster() -> Result<u64, u32> {
+    let r = hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_RASTER, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    });
+    con(|c| c.raster = Some(r));
+    match r {
+        Ok(v) if raster::sano(v) => Ok(v),
+        Ok(_) => Err(NO_RASTER_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn raster_hecho() -> bool {
+    matches!(estado().raster, Some(Ok(v)) if raster::sano(v))
+}
+
+/// `gpu raster`: el triangulo por el pipeline 3D, a pantalla completa.
+pub(crate) fn orden_raster(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "el rasterizador de la 3060 dibuja un triangulo", INK_DIM);
+    let r = dibujar_raster();
+    let visto = matches!(r, Ok(v) if panel(p, v, Vista::Raster));
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL TRIANGULO POR EL RASTERIZADOR DE TU 3060 (M5 T1c): mira la fila `raster`\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el triangulo 3D no salio: mira la fila `raster`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// `gpu 3d`: la clase 3D limpia el destino, y el panel.
 pub(crate) fn orden_3d(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "la clase 3D de la 3060 limpia un destino con su ROP", INK_DIM);
@@ -487,6 +532,7 @@ enum Vista {
     Triangulo,
     Limpieza3d,
     Escena,
+    Raster,
 }
 
 /// Una linea de texto sin reservar memoria.
@@ -574,7 +620,13 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     let fila = |y: u32, l: &mut Linea, c: u32| {
         p.texto_bytes(40, y, &l.b[..l.n], c);
     };
-    if que == Vista::Escena {
+    if que == Vista::Raster {
+        p.texto_escala(40, y, "EL TRIANGULO POR EL RASTERIZADOR", CLARO, 2);
+        y += 60;
+        fila(y, Linea::nueva().t(b"vertice -> rasterizador -> pixel -> ROP: el pipeline 3D"), CLARO);
+        y += 28;
+        fila(y, Linea::nueva().t(b"3 vertices; la 3060 decide que pixeles quedan dentro"), CLARO);
+    } else if que == Vista::Escena {
         p.texto_escala(40, y, "UNA ESCENA 3D CON LUZ, POR TU 3060", CLARO, 2);
         y += 60;
         fila(y, Linea::nueva().t(b"esfera: rayo, normal, luz difusa y brillo especular"), CLARO);
@@ -598,7 +650,7 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
         fila(y, Linea::nueva().t(b"Mandelbrot 512 x 512, hasta ").d(fractal::VUELTAS as u64).t(b" vueltas por pixel"), CLARO);
     }
     y += 28;
-    if que != Vista::Limpieza3d {
+    if que != Vista::Limpieza3d && que != Vista::Raster {
         fila(y, Linea::nueva().d(fractal::PIXELES as u64).t(b" hilos a la vez: 512 bloques de 512"), CLARO);
     }
     y += 48;
@@ -606,16 +658,17 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     y += 36;
     fila(y, Linea::nueva().d(gpu_us as u64).t(b" us, del timbre al semaforo"), CLARO);
     y += 48;
-    if que == Vista::Limpieza3d {
+    if que == Vista::Limpieza3d || que == Vista::Raster {
         // Aqui la CPU no hace la misma cuenta: solo CUENTA los pixeles.
         let bien = buenos as usize == fractal::PIXELES;
-        fila(
-            y,
-            Linea::nueva().d(buenos as u64).t(b" de 262144 pixeles del color de limpieza (la CPU solo los cuenta)"),
-            if bien { VERDE } else { 0x00FF_5555 },
-        );
+        let (dice, si, no) = if que == Vista::Raster {
+            (b" de 262144 pixeles donde el juez dice (la CPU no dibuja: sabe cuales van dentro)" as &[u8], "EL RASTERIZADOR DIBUJA: SI", "EL RASTERIZADOR DIBUJA: NO")
+        } else {
+            (b" de 262144 pixeles del color de limpieza (la CPU solo los cuenta)" as &[u8], "EL PIPELINE 3D ESCRIBE: SI", "EL PIPELINE 3D ESCRIBE: NO")
+        };
+        fila(y, Linea::nueva().d(buenos as u64).t(dice), if bien { VERDE } else { 0x00FF_5555 });
         y += 48;
-        p.texto_escala(40, y, if bien { "EL PIPELINE 3D ESCRIBE: SI" } else { "EL PIPELINE 3D ESCRIBE: NO" }, if bien { VERDE } else { 0x00FF_5555 }, 3);
+        p.texto_escala(40, y, if bien { si } else { no }, if bien { VERDE } else { 0x00FF_5555 }, 3);
         fila(p.alto.saturating_sub(48), Linea::nueva().t(b"pulsa cualquier tecla para volver al escritorio"), TENUE);
         p.vaciar();
         return true;
@@ -1069,6 +1122,32 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(cpu_us as u64);
                 s.text(b" us; semaforos ");
                 s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.raster {
+        campo(s, b"raster");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, pagado, _, lanzado, gpu_us, _) = raster::desempaquetar(v);
+                if raster::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"EL RASTERIZADOR DE LA 3060 DIBUJO EL TRIANGULO: ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el triangulo 3D NO salio como dice el juez: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 262144 pixeles donde el juez dice");
+                s.with_ink(INK_ECHO);
+                s.text(b"; semaforo de la clase 3D ");
+                s.text(if pagado { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b"   en ");
+                s.dec(gpu_us as u64);
+                s.text(b" us");
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');
             }

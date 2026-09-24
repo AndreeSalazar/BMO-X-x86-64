@@ -533,7 +533,16 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::escena_hecha,
         dar: super::gspcomputo::dibujar_escena,
         pide: Some(b"triangulo"),
-        consejo: b"`gpu`: `escena` dice 262144 de 262144; teclea `gpu escena` y VELA a pantalla completa -- lo siguiente es T1b, los programas de vertice y de pixel",
+        consejo: b"`gpu`: `escena` dice 262144 de 262144; teclea `gpu escena` y VELA a pantalla completa -- lo siguiente es `raster`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"raster",
+        que: b"EL TRIANGULO POR EL RASTERIZADOR: programa de vertice, rasterizador, programa de pixel y ROP de la 3060, con juez (M5 T1b + T1c)",
+        hecho: super::gspcomputo::raster_hecho,
+        dar: super::gspcomputo::dibujar_raster,
+        pide: Some(b"limpio3d"),
+        consejo: b"`gpu`: `raster` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu raster` y VELO -- lo siguiente es T2: vertices con color y profundidad",
         repinta: false,
     },
 ];

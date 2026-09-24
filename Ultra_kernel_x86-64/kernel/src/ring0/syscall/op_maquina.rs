@@ -907,6 +907,13 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             crate::ring0::dev::gpu_trabajo::limpiar_3d(arg1)
         }
         // ** M5d E: el mismo MiB. El FLUSH, igual.
+        // ** M5 T1c: el mismo MiB, ahora con un triangulo del rasterizador.
+        IOMMU_OP_GPU_RASTER => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del triangulo 3D no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::raster(arg1)
+        }
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

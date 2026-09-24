@@ -824,6 +824,11 @@ pub const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
 /// = `escena::empaquetar(..)`. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit
 /// 33.
 pub const IOMMU_OP_GPU_ESCENA: u64 = 0x36;
+/// M5 T1c: el triangulo por el RASTERIZADOR de la 3060 (AMPERE_B con un
+/// programa de vertice y uno de pixel) sobre el destino de T1a. `arg1` = la
+/// ficha de S3. `Ok` = `raster::empaquetar(..)`. Se lee con
+/// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
+pub const IOMMU_OP_GPU_RASTER: u64 = 0x37;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

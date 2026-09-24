@@ -568,6 +568,33 @@ en memoria, ventana, recorte, mezcla, los programas atados); (3) los
 vertices (o sacados del numero de vertice en el propio programa) y el
 dibujo (BEGIN/END). Es el nivel mas grande de M5.
 
+**EL METAL (24-09, 17:34):** `3d` 262144 de 262144 y el semaforo PAGADO: la
+clase 3D escribe con su ROP (el cuadro magenta ES el color de limpieza).
+`escena` 262144 de 262144, la 3060 en 430 us y la CPU en 1715.
+
+**T1b + T1c en codigo (24-09): el triangulo por el RASTERIZADOR.**
+`raster.rs`. ALD y AST SI existen; con los campos a cero no salian porque
+`nvdisasm` rechaza sin los bits de control y con el registro de 24..32
+distinto de RZ. Probados uno a uno:
+
+```text
+   ALD  0x321  destino 16..24, vertice 32..40, atributo 40..50, cuantos-1 74..76,
+               .P 76, .O 79; 24..32 = RZ
+   AST  0x322  dato 64..72, vertice 32..40, atributo 40..50, cuantos-1 74..76
+```
+
+El programa de VERTICE sale de `ptxas` (un programa de computo con la misma
+logica: elegir el vertice por su numero) cambiando `S2R` por
+`ALD R0, a[0x2fc]` (VertexId) y `STG.E.128` por `AST.128 a[0x70], RZ, R4`
+(la posicion), con el control de `ptxas`. El de PIXEL: cuatro MOV, el color
+sale en R0..R3. Las dos SPH, con los bits de la especificacion (VertexId 351,
+OmapPosition 428..431; OmapTarget0 576..579 y ImapPositionW 191, como
+nouveau). El estado 3D entero en 159 palabras: T1a, el viewport, nada entre
+rasterizador y ROP, ningun atributo de memoria, los seis huecos del pipeline
+y `BEGIN / START 0, 3 / END`. El juez: con vertices enteros ningun centro de
+pixel cae en una arista (probado en los 262144), asi que la CPU sabe
+EXACTAMENTE cuales salen verdes. `gpu raster`, paso `raster`.
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.

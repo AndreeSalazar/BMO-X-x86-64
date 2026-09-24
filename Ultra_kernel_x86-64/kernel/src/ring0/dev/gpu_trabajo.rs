@@ -698,3 +698,68 @@ fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+// == M5 T1b + T1c: EL TRIANGULO POR EL RASTERIZADOR (2026-09-24) ==============
+//
+// Lo de T1a (el destino, limpio a magenta) y encima UN triangulo por el
+// pipeline 3D entero: programa de vertice, rasterizador, programa de pixel y
+// ROP. La CPU no dibuja: sabe que pixeles tienen el centro dentro y cuenta.
+
+/// **M5 T1c.** `ficha` = la de S3. `Ok(raster::empaquetar(..))`.
+pub fn raster(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = raster_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn raster_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::fractal as fr;
+    use bmo_gpu_ga10x::raster as ra;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    asegurar_mib(&mut r)?;
+    memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
+    if !ra::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5 T1c: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = ra::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let mut fin = 0;
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        fin = ra::mirar(&mut r).1;
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if fin == ra::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let buenos = pixeles_del_fractal().map_or(0, ra::comprobar);
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    let pagado = fin == ra::PAGA_FIN;
+    let v = ra::empaquetar(buenos, pagado, pagado, lanzado, us as u32, cpu_us as u32);
+    if ra::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5 T1c: EL RASTERIZADOR DE LA 3060 DIBUJO EL TRIANGULO, igual que el juez; us", us);
+    } else {
+        let verdes = pixeles_del_fractal().map_or(0, ra::verdes);
+        crate::ring0::cabina::warn("gpu", "M5 T1c: el triangulo no salio igual que el juez; pixeles buenos", buenos as u64);
+        crate::ring0::cabina::warn("gpu", "M5 T1c: pixeles verdes (los del programa de pixel)", verdes as u64);
+    }
+    Ok(v)
+}

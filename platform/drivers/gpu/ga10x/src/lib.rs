@@ -95,6 +95,8 @@ pub mod triangulo;
 
 pub mod tresde;
 
+pub mod raster;
+
 pub mod escena;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las

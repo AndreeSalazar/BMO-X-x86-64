@@ -47,6 +47,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu canalgr", b"el canal del motor grafico: pedido, atado a GR0 y en su lista"),
     (b"gpu grmem", b"los buferes del motor grafico en tu VRAM, mapeados para la GPU"),
     (b"gpu oro", b"el contexto de oro de GR0: PROMOTE_CTX y AMPERE_B"),
+    (b"gpu raster", b"el triangulo por el rasterizador de la 3060: programas de vertice y de pixel, el pipeline 3D de verdad"),
     (b"gpu escena", b"una escena 3D con luz dibujada por la 3060: esfera, brillo, suelo y sombra"),
     (b"gpu 3d", b"la clase 3D de la 3060 escribe pixeles con su ROP: el primer paso del pipeline 3D"),
     (b"gpu triangulo", b"el primer triangulo de la 3060, a pantalla completa: tres aristas y tres colores"),
