@@ -173,6 +173,9 @@ pub(crate) struct Field {
     /// sugerencias (0 = no se dan). Cualquier otra tecla lo suelta.
     pub sug_base: [u8; 64],
     pub sug_base_n: usize,
+    /// Las sugerencias PINTADAS ahora (sus indices en la lista), para el clic.
+    pub sug_vistas: [usize; 4],
+    pub sug_vistas_n: usize,
 }
 
 impl Field {
@@ -192,6 +195,8 @@ impl Field {
             sug_pintadas: false,
             sug_base: [0; 64],
             sug_base_n: 0,
+            sug_vistas: [0; 4],
+            sug_vistas_n: 0,
         }
     }
 

@@ -14,9 +14,26 @@
 //!                                paramsSize, flags; y los parametros
 //!    PERF_GET_CURRENT_PSTATE     0x20802068, 4 B: currPstate, una mascara
 //!                                NV2080_CTRL_PERF_PSTATES_P0 = 1 .. P15 = 0x8000
+//!                                (sobre el SUBDISPOSITIVO)
+//!    DMA_SET_PAGE_DIRECTORY      0x00801813, 32 B (L1c3, sobre el DISPOSITIVO):
+//!                                physAddress +0, numEntries +8, flags +12
+//!                                (APERTURE 0 = VIDMEM), hVASpace +16, chId
+//!                                +20, subDeviceId +24, pasid +28
 //! ```
+//!
+//! # El directorio de paginas (L1c3)
+//!
+//! El espacio de L1c1 es "de fuera": su raiz la pone quien hace de RM de la
+//! CPU. La raiz del formato de Ampere (el de Pascal, `gp100_vmm_desc_*` de
+//! nouveau, `page[0]` de 47 bits) es la PD3: 4 entradas de 8 B, que es el
+//! `numEntries = 1 << 2` de `r535/vmm.c`. Va en una pagina NUESTRA de VRAM
+//! ([`crate::vram::DIRECTORIO`]), a cero: todo sin mapear. Lo que el RM se
+//! reserve lo escribe el mismo ahi.
+//!
+//! Los parametros son FIJOS -- la direccion, el espacio -- y el contrato los
+//! compara byte a byte con estos: ni el kernel puede mandar otro directorio.
 
-use crate::objeto::{CLIENTE, SUBDISPOSITIVO};
+use crate::objeto::{CLIENTE, DISPOSITIVO, ESPACIO, SUBDISPOSITIVO};
 use crate::orden;
 
 /// `NV_VGPU_MSG_FUNCTION_GSP_RM_CONTROL`.
@@ -28,20 +45,47 @@ pub const CABECERA_CONTROL: usize = 24;
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Control {
     Pstate,
+    /// L1c3: la raiz de NUESTRO espacio de direcciones, en nuestra VRAM.
+    Directorio,
 }
 
+/// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
+pub const PD3_ENTRADAS: u32 = 4;
+
 impl Control {
-    pub const TODOS: [Control; 1] = [Control::Pstate];
+    pub const TODOS: [Control; 2] = [Control::Pstate, Control::Directorio];
 
     pub fn de(n: u64) -> Option<Control> {
         Self::TODOS.get(n as usize).copied()
     }
 
-    /// `(cmd, medida de los parametros)`.
-    pub const fn forma(self) -> (u32, usize) {
+    /// `(cmd, medida de los parametros, objeto sobre el que va)`.
+    pub const fn forma(self) -> (u32, usize, u32) {
         match self {
-            Control::Pstate => (0x2080_2068, 4),
+            Control::Pstate => (0x2080_2068, 4, SUBDISPOSITIVO),
+            Control::Directorio => (0x0080_1813, 32, DISPOSITIVO),
         }
+    }
+
+    /// Una PREGUNTA, que se puede pedir sola (`IOMMU_OP_GSP_CONTROL`). El
+    /// directorio no: va con su pagina a cero delante, y una vez
+    /// (`IOMMU_OP_GPU_DIRECTORIO`).
+    pub const fn pregunta(self) -> bool {
+        matches!(self, Control::Pstate)
+    }
+
+    /// **Los parametros, exactos**: los que se mandan y los unicos que el
+    /// contrato deja pasar. Devuelve cuantos bytes llenos.
+    pub fn parametros(self, p: &mut [u8]) -> usize {
+        let medida = self.forma().1;
+        p[..medida].fill(0);
+        if let Control::Directorio = self {
+            p[0..8].copy_from_slice(&crate::vram::DIRECTORIO.to_le_bytes());
+            poner(p, 8, PD3_ENTRADAS);
+            // flags 0: APERTURE VIDMEM.
+            poner(p, 16, ESPACIO);
+        }
+        medida
     }
 }
 
@@ -51,12 +95,13 @@ fn poner(d: &mut [u8], o: usize, v: u32) {
 
 /// **La pregunta** en `hueco`, sobre nuestro subdispositivo.
 pub fn pedir(hueco: &mut [u8], numero: u32, c: Control) -> Option<usize> {
-    let (cmd, medida) = c.forma();
+    let (cmd, medida, objeto) = c.forma();
     orden::componer(hueco, numero, GSP_RM_CONTROL, CABECERA_CONTROL + medida, |d| {
         poner(d, 0, CLIENTE);
-        poner(d, 4, SUBDISPOSITIVO);
+        poner(d, 4, objeto);
         poner(d, 8, cmd);
         poner(d, 16, medida as u32);
+        c.parametros(&mut d[CABECERA_CONTROL..]);
     })
 }
 
@@ -115,6 +160,23 @@ mod pruebas {
         assert_eq!(pstate(1), Some(0));
         assert_eq!(pstate(0), None);
         assert_eq!(pstate(0x101), None);
-        assert_eq!(Control::de(1), None);
+        assert_eq!(Control::de(1), Some(Control::Directorio));
+        assert_eq!(Control::de(2), None);
+    }
+
+    #[test]
+    fn el_directorio_va_al_dispositivo_con_lo_fijo() {
+        let mut h = [0xAAu8; 4096];
+        let n = pedir(&mut h, 9, Control::Directorio).unwrap();
+        assert_eq!(n, CABECERA + 24 + 32);
+        let d = &h[CABECERA..];
+        let u = |o: usize| u32::from_le_bytes(d[o..o + 4].try_into().unwrap());
+        assert_eq!((u(0), u(4), u(8), u(16)), (CLIENTE, DISPOSITIVO, 0x0080_1813, 32));
+        let p = &d[24..56];
+        assert_eq!(u64::from_le_bytes(p[0..8].try_into().unwrap()), crate::vram::DIRECTORIO);
+        assert_eq!(u(24 + 8), 4, "la PD3: 4 entradas");
+        assert_eq!(u(24 + 12), 0, "VIDMEM");
+        assert_eq!(u(24 + 16), ESPACIO);
+        assert!(p[20..32].iter().all(|&b| b == 0), "chId, subDeviceId y pasid a cero");
     }
 }

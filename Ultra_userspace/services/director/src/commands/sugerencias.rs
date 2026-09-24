@@ -38,6 +38,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu objetos", b"nuestro cliente, dispositivo y subdispositivo en el RM"),
     (b"gpu salud", b"temperatura, enlace PCIe y P-state de la 3060"),
     (b"gpu vram", b"la CPU escribe en la VRAM (PRAMIN) y la deja como estaba"),
+    (b"gpu directorio", b"la raiz del espacio de direcciones de la GPU, en tu VRAM"),
     (b"gpu bar1", b"devolverle a BAR1 la del GOP"),
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),
@@ -142,15 +143,30 @@ pub(crate) fn que(i: usize) -> &'static [u8] {
 /// Antes completaba solo hasta donde TODAS coincidian: con `gp`, `gpu`, y ahi
 /// se quedaba -- la sugerencia pintada en el acento no llegaba nunca.
 pub(crate) fn tab(path: &mut [u8], n: usize, base: &[u8]) -> Option<usize> {
+    mover(path, n, base, true)
+}
+
+/// **Moverse por las sugerencias** (24-09: *"con flecha izquierda y
+/// derecha"*): `adelante` la siguiente, si no la anterior, dando la vuelta.
+/// Sin ninguna elegida aun, la primera (o la ultima hacia atras).
+pub(crate) fn mover(path: &mut [u8], n: usize, base: &[u8], adelante: bool) -> Option<usize> {
     let s = para(base);
     if s.total == 0 {
         return None;
     }
-    let siguiente = match s.donde(&path[..n]) {
-        Some(k) => (k + 1) % s.total,
-        None => 0,
+    let k = match (s.donde(&path[..n]), adelante) {
+        (Some(k), true) => (k + 1) % s.total,
+        (Some(k), false) => (k + s.total - 1) % s.total,
+        (None, true) => 0,
+        (None, false) => s.total - 1,
     };
-    let l = LISTA[s.i[siguiente]].0;
+    escribir(path, s.i[k])
+}
+
+/// **Escribir la sugerencia `i`** (su indice en la lista) en el campo, entera.
+/// Lo usa tambien el CLIC sobre la linea de sugerencias.
+pub(crate) fn escribir(path: &mut [u8], i: usize) -> Option<usize> {
+    let l = LISTA.get(i)?.0;
     if l.len() > path.len() {
         return None;
     }

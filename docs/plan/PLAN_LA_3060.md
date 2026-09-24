@@ -890,7 +890,8 @@ vuelta.
         de L0c4b3a)
           L1c1  FERMI_VASPACE_A "de fuera" (`espacio`)   [VISTO 24-09 11:56]
           L1c2  la CPU escribe en la VRAM, PRAMIN (`vram`) [VISTO 24-09 11:56]
-          L1c3  el directorio de paginas en la VRAM, y SET_PAGE_DIRECTORY
+          L1c3  la raiz PD3 en la VRAM y SET_PAGE_DIRECTORY (`directorio`)
+                                                [en codigo, 24-09]
    L1d  un canal y el motor de COPIA: que la GPU mueva los pixeles
 ```
 
@@ -1033,6 +1034,32 @@ siguiente con cada TAB; antes solo el prefijo comun, y `gp` se quedaba en
 `gpu`); la salida corta en el ultimo espacio y sigue BAJO EL VALOR (antes a
 media palabra y en la columna 0: `control 0x000022000000` / `1405`); la
 historia de la temperatura en su propia ventana (en escala fija salia plana).
+
+**12:07: la caja, otra vuelta.** Los 23 pasos otra vez (`obj esp` NV_OK,
+`vram` 1024 de 1024). El corte nuevo PEGABA palabras (`luzde RECORTE`,
+`lodesarma`, `` `gpuinit` ``): el espacio que llegaba justo en el borde movia
+la palabra de antes y se perdia el. Arreglado (`Output::saltar`), y la
+continuacion cae bajo el ULTIMO CAMPO de la fila (el que empieza tras dos
+espacios), no tras la primera palabra: `vetos DMA` y las filas de tres
+columnas seguian en la columna 10 o bajo el numero. Las etiquetas de `campo`
+y `label` llevan `:` y se pintan apagadas (`Output::etiqueta`), cada seccion
+con una fila en blanco delante. Las sugerencias se eligen tambien con las
+flechas (tras un TAB) y con un CLIC.
+
+**L1c3 (24-09, en codigo): LA RAIZ.** `control::Control::Directorio`:
+`NV0080_CTRL_CMD_DMA_SET_PAGE_DIRECTORY` (0x801813, 32 B) sobre el
+DISPOSITIVO, con `physAddress` = `vram::DIRECTORIO` (0x4100000, 65 MiB, 1 MiB
+sobre la prueba), `numEntries` 4 (la PD3 de Ampere: `page[0]` de 47 bits de
+nouveau, `gp100_vmm_desc_16[4]`, 2 bits), APERTURE VIDMEM y `hVASpace` el
+nuestro. El contrato ahora compara los PARAMETROS de cada control byte a byte
+con los esperados (otra direccion, u otro objeto: NO). El kernel
+(`IOMMU_OP_GPU_DIRECTORIO`, 0x1E, motivo 60) pone la pagina a cero por PRAMIN
+y manda la RPC, UNA vez por arranque: despues el RM escribe en esa raiz lo que
+se reserve. La op de control (0x1C) solo sirve PREGUNTAS. Paso `directorio`
+de `save mode` (24).
+
+**Como se sabe (L1c3):** la fila `pd` dice `raiz PD3 en 0x004100000 (4
+entradas, a cero): NV_OK`.
 
 **Como se sabe (L1c1 y L1c2):** `obj esp` en NV_OK; `vram` dice 1024 de 1024,
 devueltas 1024 y la ventana devuelta.

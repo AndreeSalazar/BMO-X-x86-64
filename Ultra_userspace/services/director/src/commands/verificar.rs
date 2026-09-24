@@ -342,7 +342,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspvram::hecha,
         dar: super::gspvram::probar,
         pide: Some(b"estatica"),
-        consejo: b"`gpu`: la fila `vram` dice 1024 de 1024 y devueltas 1024 con la ventana devuelta -- lo siguiente es L1c3, el directorio de paginas en la VRAM",
+        consejo: b"`gpu`: la fila `vram` dice 1024 de 1024 y devueltas 1024 con la ventana devuelta -- lo siguiente es `directorio`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"directorio",
+        que: b"la RAIZ de nuestro espacio de direcciones: una pagina de VRAM a cero y SET_PAGE_DIRECTORY (L1c3)",
+        hecho: super::gspvram::directorio_puesto,
+        dar: super::gspvram::poner_directorio,
+        pide: Some(b"espacio"),
+        consejo: b"`gpu`: la fila `pd` dice la raiz PD3 en 0x004100000 con NV_OK -- lo siguiente es L1d, un canal y el motor de copia",
         repinta: false,
     },
 ];

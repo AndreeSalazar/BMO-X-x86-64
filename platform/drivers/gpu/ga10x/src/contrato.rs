@@ -15,15 +15,17 @@
 //!    GET_GSP_STATIC_INFO 65 L1a
 //!    GSP_RM_ALLOC     103   L1b: SOLO nuestro cliente, dispositivo y
 //!                           subdispositivo, con sus asas y clases
-//!    GSP_RM_CONTROL    76   SOLO sobre nuestro subdispositivo, y SOLO las
-//!                           ordenes de `control::Control`
+//!    GSP_RM_CONTROL    76   SOLO las ordenes de `control::Control`, cada
+//!                           una sobre SU objeto nuestro y con SUS parametros
+//!                           exactos (el directorio de L1c3: su direccion y
+//!                           su espacio, byte a byte)
 //! ```
 //!
 //! Agrandar la lista es una decision, y se toma aqui: con su prueba.
 
 use crate::control::{Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use crate::estatica::GET_GSP_STATIC_INFO;
-use crate::objeto::{Objeto, CLIENTE, GSP_RM_ALLOC, SUBDISPOSITIVO};
+use crate::objeto::{Objeto, CLIENTE, GSP_RM_ALLOC};
 use crate::orden::{SET_REGISTRY, SET_SYSTEM_INFO};
 use crate::rpc::{Mensaje, CABECERA};
 
@@ -75,8 +77,19 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
             if d.len() < CABECERA_CONTROL {
                 return Err(No::Control);
             }
-            let (cliente, objeto, cmd) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8));
-            if cliente == CLIENTE && objeto == SUBDISPOSITIVO && Control::TODOS.iter().any(|c| c.forma().0 == cmd) {
+            let (cliente, objeto, cmd, medida) = (u32_de(d, 0), u32_de(d, 4), u32_de(d, 8), u32_de(d, 16) as usize);
+            let bien = Control::TODOS.iter().any(|&c| {
+                let (c_cmd, c_medida, c_objeto) = c.forma();
+                let mut esperados = [0u8; 64];
+                let n = c.parametros(&mut esperados);
+                cliente == CLIENTE
+                    && objeto == c_objeto
+                    && cmd == c_cmd
+                    && medida == c_medida
+                    && d.len() >= CABECERA_CONTROL + n
+                    && d[CABECERA_CONTROL..CABECERA_CONTROL + n] == esperados[..n]
+            });
+            if bien {
                 Ok(h.funcion)
             } else {
                 Err(No::Control)
@@ -100,8 +113,10 @@ mod pruebas {
             let n = objeto::pedir(&mut h, 3, o).unwrap();
             assert_eq!(permitido(&h[..n]), Ok(103));
         }
-        let n = control::pedir(&mut h, 4, Control::Pstate).unwrap();
-        assert_eq!(permitido(&h[..n]), Ok(76));
+        for c in Control::TODOS {
+            let n = control::pedir(&mut h, 4, c).unwrap();
+            assert_eq!(permitido(&h[..n]), Ok(76));
+        }
         let n = orden::registro(&mut h, 1).unwrap();
         assert_eq!(permitido(&h[..n]), Ok(73));
     }
@@ -123,6 +138,15 @@ mod pruebas {
         // Una orden de control que no esta en la lista.
         let n = control::pedir(&mut h, 8, Control::Pstate).unwrap();
         h[CABECERA + 8..CABECERA + 12].copy_from_slice(&0x2080_0101u32.to_le_bytes());
+        assert_eq!(permitido(&h[..n]), Err(No::Control));
+        // El directorio en OTRA direccion de VRAM: los parametros no son los
+        // fijos.
+        let n = control::pedir(&mut h, 9, Control::Directorio).unwrap();
+        h[CABECERA + 24] ^= 0x10;
+        assert_eq!(permitido(&h[..n]), Err(No::Control));
+        // El directorio sobre el subdispositivo, no sobre el dispositivo.
+        let n = control::pedir(&mut h, 10, Control::Directorio).unwrap();
+        h[CABECERA + 4..CABECERA + 8].copy_from_slice(&crate::objeto::SUBDISPOSITIVO.to_le_bytes());
         assert_eq!(permitido(&h[..n]), Err(No::Control));
         // Corto, o sin forma.
         assert_eq!(permitido(&h[..40]), Err(No::Forma));

@@ -37,7 +37,11 @@ use crate::scene::output::{Output, INK_GOOD, INK_ECHO, INK_ERR, INK_PLAIN};
 use crate::scene::OUT_COLS;
 
 /// Un rotulo de seccion, para que el informe no sea un muro de renglones.
+///
+/// ** Con una fila en blanco delante (24-09): dos secciones seguidas se leian
+/// como una sola, "juntas".
 pub(crate) fn section(s: &mut Output, title: &[u8]) {
+    s.separar();
     s.with_ink(INK_ECHO);
     s.text(b"  ");
     s.text(title);
@@ -58,11 +62,11 @@ pub(crate) fn section(s: &mut Output, title: &[u8]) {
 /// palabra.
 pub(crate) fn label(s: &mut Output, name: &[u8]) {
     s.text(b"    ");
-    s.text(name);
-    for _ in name.len()..14 {
+    s.etiqueta(name);
+    for _ in name.len() + 1..14 {
         s.byte(b' ');
     }
-    if name.len() >= 14 {
+    if name.len() + 1 >= 14 {
         s.byte(b' ');
     }
 }
@@ -96,10 +100,17 @@ fn etiqueta_de_fila(s: &mut Output, que: &[u8], ancho: usize) -> usize {
 /// UNA palabra --`medium`, `link`, `queue`-- catorce dejan cuatro espacios en
 /// blanco en cada renglon y la tabla se lee como una lista suelta. Una tabla
 /// junta se lee de un vistazo; esa es toda la diferencia.
+///
+/// ** Con `:` y apagada (24-09): `obj cli:   cliente ...`. La etiqueta pegada
+/// al valor en la misma tinta se leia como una sola cosa; ahora la columna es
+/// de 11 y siempre queda un espacio.
 pub(crate) fn campo(s: &mut Output, name: &[u8]) {
     s.text(b"    ");
-    s.text(name);
-    for _ in name.len()..10 {
+    s.etiqueta(name);
+    for _ in name.len() + 1..11 {
+        s.byte(b' ');
+    }
+    if name.len() + 1 >= 11 {
         s.byte(b' ');
     }
 }

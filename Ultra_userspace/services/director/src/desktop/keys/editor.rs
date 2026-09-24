@@ -35,7 +35,8 @@ dsk.field.since_key = 0;
 dsk.tick.repaint_field = true;
 // Cualquier tecla que no sea TAB suelta las vueltas por las sugerencias: lo
 // que se teclee ahora es la base nueva.
-if c != b'\t' {
+// Las flechas izquierda y derecha, TRAS un TAB, tambien eligen.
+if c != b'\t' && !(dsk.field.sug_base_n > 0 && (c == 0x82 || c == 0x83)) {
     dsk.field.sug_base_n = 0;
 }
 match c {
@@ -279,6 +280,17 @@ match c {
         }
     }
     // IZQUIERDA / DERECHA -- mover el cursor.
+    // ** Tras un TAB (dando vueltas por las sugerencias), eligen: la
+    // anterior y la siguiente (24-09). Si no, mueven el cursor, como siempre.
+    0x82 | 0x83 if dsk.field.sug_base_n > 0 => {
+        let base = dsk.field.sug_base;
+        let bn = dsk.field.sug_base_n;
+        if let Some(n) = crate::commands::sugerencias::mover(&mut dsk.field.path, dsk.field.n, &base[..bn], c == 0x83) {
+            dsk.field.n = n;
+            dsk.field.cur = n;
+        }
+        dsk.tick.repaint_field = true;
+    }
     0x82 => {
         if dsk.field.cur > 0 { dsk.field.cur -= 1; dsk.tick.repaint_field = true; }
     }

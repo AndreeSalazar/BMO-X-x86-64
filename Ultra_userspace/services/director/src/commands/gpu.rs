@@ -88,6 +88,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"vram" {
         return super::gspvram::orden(dsk, p);
     }
+    if arg == b"directorio" {
+        return super::gspvram::orden_directorio(dsk, p);
+    }
     let op = match arg {
         b"" => None,
         b"cegar" | b"ciega" => Some((bmo::IOMMU_OP_CEGAR_GPU, b"gpu cegar" as &[u8])),
@@ -100,7 +103,7 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"frontera" => Some((bmo::IOMMU_OP_GPU_FRONTERA, b"gpu frontera" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec`, `gpu gsp`, `gpu radix`, `gpu libos`, `gpu sistema`, `gpu despertar`, `gpu cola`, `gpu vaciar`, `gpu secuenciador`, `gpu init`, `gpu bar1`, `gpu estatica`, `gpu objetos`, `gpu salud` o `gpu vram`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec`, `gpu gsp`, `gpu radix`, `gpu libos`, `gpu sistema`, `gpu despertar`, `gpu cola`, `gpu vaciar`, `gpu secuenciador`, `gpu init`, `gpu bar1`, `gpu estatica`, `gpu objetos`, `gpu salud`, `gpu vram` o `gpu directorio`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;
@@ -520,6 +523,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     super::gspobjeto::fila(s);
     super::gspsalud::fila(s);
     super::gspvram::fila(s);
+    super::gspvram::fila_directorio(s);
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
     } else {

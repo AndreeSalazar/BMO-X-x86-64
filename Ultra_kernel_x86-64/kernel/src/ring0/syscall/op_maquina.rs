@@ -807,6 +807,12 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         IOMMU_OP_GSP_ESTATICA => crate::ring0::dev::gpu_libos::preguntar_estatica(),
         IOMMU_OP_GSP_OBJETO => crate::ring0::dev::gpu_libos::pedir_objeto(arg1),
         IOMMU_OP_GSP_CONTROL => crate::ring0::dev::gpu_libos::pedir_control(arg1),
+        IOMMU_OP_GPU_DIRECTORIO => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del directorio de paginas no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::poner_directorio()
+        }
         IOMMU_OP_GPU_VRAM => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de escribir en la VRAM no se pudo: se sigue", 0);

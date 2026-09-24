@@ -13,10 +13,29 @@
 //! ```text
 //!    Tab  gpu init   gpu estatica   gpu objetos  +2    corre el secuenciador y ...
 //! ```
+//!
+//! Y se ELIGEN (24-09): TAB y, tras el, las flechas izquierda y derecha; o un
+//! CLIC sobre una (`en` dice cual hay bajo el puntero).
 
 use bmo_userland as bmo;
 
 use super::{acento, RunBox, BOX_BG, INK_DIM};
+
+/// Donde quedo cada sugerencia pintada: `[x0, x1)` en pantalla, para el
+/// CLIC. Se pisa en cada pintada; `pista` las borra.
+static mut ZONAS: [(u32, u32); 8] = [(0, 0); 8];
+static mut N_ZONAS: usize = 0;
+
+/// **La sugerencia bajo el puntero**, su posicion en la fila pintada, si el
+/// clic cae en la linea de estado sobre una.
+pub(crate) fn en(c: &RunBox, x: u32, y: u32) -> Option<usize> {
+    if y < c.status_y || y >= c.status_y + bmo::GLIFO_ALTO {
+        return None;
+    }
+    // SAFETY: el escritorio es un solo hilo.
+    let (z, n) = unsafe { (*core::ptr::addr_of!(ZONAS), N_ZONAS) };
+    z[..n].iter().position(|&(a, b)| x >= a && x < b)
+}
 
 /// Limpia la linea de estado entera: media frase vieja detras de una nueva
 /// es peor que ninguna (lo mismo que `paint_status`). Devuelve donde empieza
@@ -39,13 +58,23 @@ fn trozo(p: &bmo::Pantalla, c: &RunBox, x: u32, fin: u32, s: &[u8], color: u32) 
 pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox, lineas: &[&[u8]], elegida: usize, mas: usize, que: &[u8]) {
     let (mut x, fin) = limpiar(p, c);
     x = trozo(p, c, x, fin, b"Tab  ", INK_DIM);
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { N_ZONAS = 0 };
     for (k, l) in lineas.iter().enumerate() {
+        let x0 = x;
         if k == elegida {
             // La marca: un punto del acento delante, como la luz del panel.
             p.rect(x, c.status_y + bmo::GLIFO_ALTO / 2 - 2, 4, 4, acento());
             x += 8;
         }
         x = trozo(p, c, x, fin, l, if k == elegida { acento() } else { INK_DIM });
+        // SAFETY: el escritorio es un solo hilo.
+        unsafe {
+            if N_ZONAS < 8 {
+                (*core::ptr::addr_of_mut!(ZONAS))[N_ZONAS] = (x0, x);
+                N_ZONAS += 1;
+            }
+        }
         x = trozo(p, c, x, fin, b"   ", INK_DIM);
     }
     if mas > 0 {
@@ -65,6 +94,8 @@ pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox, lineas: &[&[u8]], elegida: u
 /// **La pista del consejero** al invocar la caja: `etiqueta` en el acento y
 /// el texto apagado, en la misma linea.
 pub(crate) fn pista(p: &bmo::Pantalla, c: &RunBox, etiqueta: &[u8], texto: &[u8]) {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { N_ZONAS = 0 };
     let (mut x, fin) = limpiar(p, c);
     x = trozo(p, c, x, fin, etiqueta, acento());
     x = trozo(p, c, x, fin, b"  ", INK_DIM);

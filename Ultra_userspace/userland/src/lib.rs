@@ -247,6 +247,7 @@ pub const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 pub const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
 pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 pub const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
+pub const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -306,6 +307,7 @@ pub const IOMMU_NO_RPC_OBJETO: u32 = 56;
 pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
 pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 pub const IOMMU_NO_VRAM: u32 = 59;
+pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).

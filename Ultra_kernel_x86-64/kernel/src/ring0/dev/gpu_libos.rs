@@ -442,6 +442,8 @@ pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
 pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 /// L1c2: sin 3060 que probar, o la prueba de la VRAM ya esta en curso.
 pub const IOMMU_NO_VRAM: u32 = 59;
+/// L1c3: el directorio ya se puso en este arranque (el RM ya escribio en el).
+pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
 
 /// El timbre de la cola de la CPU.
 const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
@@ -468,12 +470,19 @@ pub fn pedir_objeto(que: u64) -> Result<u64, u32> {
 /// **L1b: una orden de control** sobre nuestro subdispositivo (`que` = el
 /// indice en `bmo_gpu_ga10x::control::Control::TODOS`).
 pub fn pedir_control(que: u64) -> Result<u64, u32> {
-    let Some(c) = bmo_gpu_ga10x::control::Control::de(que) else {
+    // Solo las PREGUNTAS: el directorio tiene su propia puerta.
+    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.pregunta()) else {
         return Err(IOMMU_NO_RPC_CONTROL);
     };
     let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;
     crate::ring0::cabina::count("gpu", "L1b: GSP_RM_CONTROL pedido; cmd", c.forma().0 as u64);
     Ok(r)
+}
+
+/// La cola de la CPU esta lista para una RPC (el GSP-RM arrancado).
+fn rpc_lista() -> bool {
+    use crate::ring0::dev::gpu_despertar as d;
+    GSPMEM_F.load(Ordering::Acquire) != 0 && crate::ring0::dev::gpu::bar0() != 0 && d::info_secuencia() >> 24 & d::SEC_HECHO != 0
 }
 
 /// **Una pregunta a la cola de la CPU**: la arma `armar` en la pagina
@@ -551,4 +560,43 @@ pub fn probar_vram() -> Result<u64, u32> {
         crate::ring0::cabina::warn("gpu", "L1c2: la VRAM o la ventana NO quedaron como estaban; devueltas", p.devueltas as u64);
     }
     Ok(bmo_gpu_ga10x::vram::empaquetar(&p))
+}
+
+// == L1c3: EL DIRECTORIO DE PAGINAS (2026-09-24) ===============================
+//
+// La raiz de NUESTRO espacio de direcciones (L1c1, "de fuera"): una pagina de
+// VRAM propia (`vram::DIRECTORIO`) a cero por la ventana PRAMIN, y detras
+// `NV0080_CTRL_CMD_DMA_SET_PAGE_DIRECTORY` con la direccion y el espacio
+// FIJOS (`control::Control::Directorio`; el contrato los compara byte a
+// byte). UNA vez por arranque: despues el RM escribe en esa raiz lo que se
+// reserva, y volver a ponerla a cero se lo borraria.
+
+static DIRECTORIO_PUESTO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Poner el directorio.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn poner_directorio() -> Result<u64, u32> {
+    if !rpc_lista() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    if DIRECTORIO_PUESTO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_DIRECTORIO_YA);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(crate::ring0::dev::gpu::bar0());
+    let ceros = bmo_gpu_ga10x::vram::a_cero(&mut r, bmo_gpu_ga10x::vram::DIRECTORIO);
+    if ceros as usize != bmo_gpu_ga10x::vram::PALABRAS {
+        crate::ring0::cabina::warn("gpu", "L1c3: la raiz no quedo a cero; palabras a cero", ceros as u64);
+        DIRECTORIO_PUESTO.store(false, Ordering::Release);
+        return Err(IOMMU_NO_VRAM);
+    }
+    match enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, bmo_gpu_ga10x::control::Control::Directorio)) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "L1c3: SET_PAGE_DIRECTORY pedido; raiz en VRAM", bmo_gpu_ga10x::vram::DIRECTORIO);
+            Ok(v)
+        }
+        Err(m) => {
+            // No salio: la raiz sigue siendo solo nuestra, se puede reintentar.
+            DIRECTORIO_PUESTO.store(false, Ordering::Release);
+            Err(m)
+        }
+    }
 }

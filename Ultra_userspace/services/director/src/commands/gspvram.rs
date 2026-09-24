@@ -8,7 +8,15 @@
 //! Antes de pedirla se mira que esos 64 MiB caen en VRAM que el GSP-RM dio como
 //! USABLE (L1a): sin esa respuesta, o fuera de ella, no se pide. La direccion
 //! no la elige el escritorio: el kernel solo acepta esa.
+//!
+//! # `gpu directorio` (L1c3)
+//!
+//! La raiz de NUESTRO espacio de direcciones: el kernel pone a cero su pagina
+//! (`vram::DIRECTORIO`, 65 MiB) y manda `SET_PAGE_DIRECTORY` con la direccion
+//! y el espacio fijos; aqui se espera la respuesta del RM. Una vez por
+//! arranque: despues el RM escribe en esa raiz.
 
+use bmo_gpu_ga10x::control::{self, CABECERA_CONTROL, GSP_RM_CONTROL};
 use bmo_gpu_ga10x::vram;
 use bmo_userland as bmo;
 
@@ -103,6 +111,121 @@ pub(crate) fn fila(s: &mut Output) {
             s.hex(antes as u64, 4);
             s.text(if ventana { b" devuelta" as &[u8] } else { b" NO devuelta" });
         }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+}
+
+// == L1c3: EL DIRECTORIO ======================================================
+
+#[derive(Clone, Copy, Default)]
+struct Directorio {
+    numero: u32,
+    r: Option<control::Respuesta>,
+    resultado: u32,
+    espera_us: u64,
+    no: u32,
+}
+
+static mut DIRECTORIO: Option<Directorio> = None;
+
+fn directorio() -> Option<Directorio> {
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of!(DIRECTORIO) }
+}
+
+/// El RM contesto, pero no acepto el directorio.
+pub(crate) const NO_DIRECTORIO_NEGADO: u32 = 0x127;
+
+fn aceptado(d: &Directorio) -> bool {
+    d.no == 0 && matches!(d.r, Some(r) if r.estado == 0) && d.resultado == 0
+}
+
+/// **Poner el directorio y esperar al RM.** `Ok(())` si lo acepto.
+pub(crate) fn poner_directorio() -> Result<u64, u32> {
+    let mut d = Directorio::default();
+    match super::gsprpc::usable(vram::DIRECTORIO, 4 * vram::PALABRAS as u64) {
+        None => d.no = NO_VRAM_SIN_REGIONES,
+        Some(false) => d.no = NO_VRAM_NO_USABLE,
+        Some(true) => match bmo::iommu_orden(bmo::IOMMU_OP_GPU_DIRECTORIO) {
+            Ok(v) => d.numero = (v >> 32) as u32,
+            Err(m) => d.no = m,
+        },
+    }
+    if d.no == 0 {
+        let mut b = [0u8; CABECERA_CONTROL + 4];
+        let mut otros = super::gsprpc::Otros::default();
+        match super::gsprpc::esperar(GSP_RM_CONTROL, &mut b, &mut otros) {
+            Ok((m, us)) => {
+                d.r = control::leer(&b);
+                d.resultado = m.resultado;
+                d.espera_us = us;
+            }
+            Err(no) => d.no = no,
+        }
+    }
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of_mut!(DIRECTORIO) = Some(d) };
+    if aceptado(&d) {
+        Ok(vram::DIRECTORIO)
+    } else if d.no != 0 {
+        Err(d.no)
+    } else {
+        Err(NO_DIRECTORIO_NEGADO)
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn directorio_puesto() -> bool {
+    directorio().map_or(false, |d| aceptado(&d))
+}
+
+/// `gpu directorio`.
+pub(crate) fn orden_directorio(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "poniendo el directorio de paginas", INK_DIM);
+    let r = poner_directorio();
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  EL RM ACEPTO NUESTRO DIRECTORIO DE PAGINAS: el espacio de la GPU ya tiene raiz, en tu VRAM\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el directorio no quedo puesto: mira la fila `pd`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila_directorio(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "directorio", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila `pd`**, si se pidio.
+pub(crate) fn fila_directorio(s: &mut Output) {
+    let Some(d) = directorio() else { return };
+    campo(s, b"pd");
+    if d.no != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"NO: ");
+        s.text(super::iommu::motivo(d.no));
+    } else if let Some(r) = d.r {
+        s.with_ink(if aceptado(&d) { INK_GOOD } else { INK_ERR });
+        s.text(b"raiz PD3 en 0x");
+        s.hex(vram::DIRECTORIO, 9);
+        s.text(b" (");
+        s.dec(control::PD3_ENTRADAS as u64);
+        s.text(b" entradas, a cero): ");
+        s.text(bmo_gpu_ga10x::objeto::estado(r.estado));
+        if r.estado != 0 {
+            s.text(b" (0x");
+            s.hex(r.estado as u64, 2);
+            s.byte(b')');
+        }
+        s.with_ink(INK_PLAIN);
+        s.text(b"   SET_PAGE_DIRECTORY en ");
+        s.dec(d.espera_us / 1000);
+        s.text(b" ms (numero ");
+        s.dec(d.numero as u64);
+        s.byte(b')');
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');

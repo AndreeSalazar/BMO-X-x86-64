@@ -56,6 +56,9 @@ pub(crate) struct Output {
     pub(crate) cells: [[u8; OUT_COLS]; OUT_HIST],
     /// Con que color se pinta cada fila.
     pub(crate) ink: [u8; OUT_HIST],
+    /// La ETIQUETA de cada fila (`obj cli:`), como columnas `desde..hasta`:
+    /// se pinta apagada para que no se junte con su valor. `(0, 0)` = sin.
+    pub(crate) etiq: [(u8, u8); OUT_HIST],
     /// Con que color se escribe a partir de ahora.
     pub(crate) ink_now: u8,
     pub(crate) row: usize,
@@ -103,6 +106,7 @@ impl Output {
         Self {
             cells: [[b' '; OUT_COLS]; OUT_HIST],
             ink: [INK_PLAIN; OUT_HIST],
+            etiq: [(0, 0); OUT_HIST],
             view: 0,
             ink_now: INK_PLAIN,
             // ** SE ESCRIBE EN LA ULTIMA FILA, no en la primera.
@@ -190,9 +194,11 @@ impl Output {
         for f in 1..OUT_HIST {
             self.cells[f - 1] = self.cells[f];
             self.ink[f - 1] = self.ink[f];
+            self.etiq[f - 1] = self.etiq[f];
         }
         self.cells[OUT_HIST - 1] = [b' '; OUT_COLS];
         self.ink[OUT_HIST - 1] = self.ink_now;
+        self.etiq[OUT_HIST - 1] = (0, 0);
     }
 
     /// Sube o baja la ventana. Positivo = hacia atras en el tiempo.
@@ -223,6 +229,7 @@ impl Output {
             self.row += 1;
         }
         self.ink[self.row] = self.ink_now;
+        self.etiq[self.row] = (0, 0);
         self.dirty = true;
     }
 
@@ -255,7 +262,7 @@ impl Output {
             // Los no imprimibles se tiran en vez de dibujarse como basura.
             c if c < 0x20 => {}
             // Un espacio justo en el borde: el salto ya separa.
-            b' ' if self.col >= OUT_COLS => self.envolver(),
+            b' ' if self.col >= OUT_COLS => self.saltar(false),
             c => {
                 if self.col >= OUT_COLS {
                     self.envolver();
@@ -282,36 +289,76 @@ impl Output {
     /// con la misma sangria. Como el INFORME se guarda de esta rejilla, el
     /// fichero sale igual de limpio.
     fn envolver(&mut self) {
+        self.saltar(true);
+    }
+
+    /// **Donde sigue una fila que no cupo.** Bajo el ULTIMO CAMPO: el ultimo
+    /// texto que empieza tras dos espacios o mas, si no pasa de la columna 56
+    /// -- en una fila de tabla (`nombre   0   lo que significa`) es la
+    /// explicacion, que es lo que se estaba escribiendo. Si no hay campos (una
+    /// nota, `iommu: usa la ...`), bajo lo que sigue a la primera palabra. Y si
+    /// eso tampoco vale, dos de aire.
+    ///
+    /// ** Era siempre "tras la primera palabra", y con etiquetas de dos
+    /// palabras (`vetos DMA`) o filas de tres columnas la continuacion caia en
+    /// la 10 o bajo el NUMERO (informe del 24-09 12:07).
+    fn sangria_de(fila: &[u8; OUT_COLS]) -> usize {
+        let lead = fila.iter().take_while(|&&c| c == b' ').count();
+        let campo = (lead + 2..57.min(OUT_COLS)).rev().find(|&p| fila[p] != b' ' && fila[p - 1] == b' ' && fila[p - 2] == b' ');
+        if let Some(p) = campo {
+            return p;
+        }
+        let mut i = lead;
+        while i < OUT_COLS && fila[i] != b' ' {
+            i += 1;
+        }
+        while i < OUT_COLS && fila[i] == b' ' {
+            i += 1;
+        }
+        if i > lead && i <= 40 { i } else { (lead + 2).min(40) }
+    }
+
+    /// **Seguir en la fila de abajo.** Con `mover`, la palabra a medias del
+    /// borde baja entera (se corta en el ULTIMO espacio). Sin el -- llego un
+    /// espacio justo en el borde --, la fila acabo en una palabra entera y no
+    /// se mueve nada: ese espacio ES el salto.
+    ///
+    /// ** Y aqui estaba el fallo de las palabras pegadas (`luzde RECORTE`,
+    /// `lodesarma`, `` `gpuinit` ``, 12:07): el espacio del borde movia la
+    /// palabra de ANTES y se perdia el mismo.
+    fn saltar(&mut self, mover: bool) {
         let fila = self.cells[self.row];
-        let sangria = if self.sangria > 0 {
-            self.sangria
-        } else {
-            let lead = fila.iter().take_while(|&&c| c == b' ').count();
-            let mut i = lead;
-            while i < OUT_COLS && fila[i] != b' ' {
-                i += 1;
-            }
-            while i < OUT_COLS && fila[i] == b' ' {
-                i += 1;
-            }
-            // Una "etiqueta" de mas de 40 no es una etiqueta: dos de aire.
-            if i > lead && i <= 40 { i } else { (lead + 2).min(40) }
-        };
-        // El ultimo espacio tras la sangria; sin ninguno (una palabra de 80),
-        // se corta a pelo, que es lo unico que se puede hacer.
-        let corte = (sangria + 1..OUT_COLS).rev().find(|&k| fila[k] == b' ');
-        let desde = corte.map_or(OUT_COLS, |k| k + 1);
+        let sangria = if self.sangria > 0 { self.sangria } else { Self::sangria_de(&fila) };
         let mut palabra = [b' '; OUT_COLS];
-        let n = OUT_COLS - desde;
-        palabra[..n].copy_from_slice(&fila[desde..]);
-        for k in corte.unwrap_or(OUT_COLS)..OUT_COLS {
-            self.cells[self.row][k] = b' ';
+        let mut n = 0;
+        if mover {
+            // El ultimo espacio tras la sangria; sin ninguno (una palabra de
+            // 80), se corta a pelo, que es lo unico que se puede hacer.
+            if let Some(k) = (sangria + 1..OUT_COLS).rev().find(|&k| fila[k] == b' ') {
+                n = OUT_COLS - (k + 1);
+                palabra[..n].copy_from_slice(&fila[k + 1..]);
+                for c in k..OUT_COLS {
+                    self.cells[self.row][c] = b' ';
+                }
+            }
         }
         self.newline();
         self.sangria = sangria;
         self.cells[self.row][sangria..sangria + n].copy_from_slice(&palabra[..n]);
         self.col = sangria + n;
         self.dirty = true;
+    }
+
+    /// **Una etiqueta**: `nombre:` en la fila, y apuntada para pintarse
+    /// apagada (24-09, *"eso `datos:`, y separar de los demas que no se
+    /// junten tanto"*). En el informe de texto queda el `:`.
+    pub(crate) fn etiqueta(&mut self, nombre: &[u8]) {
+        let desde = self.col;
+        self.text(nombre);
+        self.byte(b':');
+        if self.col > desde && self.col <= OUT_COLS {
+            self.etiq[self.row] = (desde as u8, self.col as u8);
+        }
     }
 
     pub(crate) fn text(&mut self, s: &[u8]) {
@@ -323,6 +370,7 @@ impl Output {
     pub(crate) fn clear(&mut self) {
         self.cells = [[b' '; OUT_COLS]; OUT_HIST];
         self.ink = [INK_PLAIN; OUT_HIST];
+        self.etiq = [(0, 0); OUT_HIST];
         self.view = 0;
         self.ink_now = INK_PLAIN;
         // La misma fila que en `new`, y por el mismo motivo: si `clear`
@@ -482,12 +530,18 @@ pub(crate) fn paint_output(p: &bmo::Pantalla, c: &RunBox, s: &Output) {
     let base = OUT_HIST - filas - s.view;
     for f in 0..filas {
         let color = ink_color(s.ink[base + f]);
-        p.texto_bytes(
-            c.out_x,
-            c.out_y + f as u32 * bmo::GLIFO_ALTO,
-            &s.cells[base + f],
-            color,
-        );
+        let y = c.out_y + f as u32 * bmo::GLIFO_ALTO;
+        let fila = &s.cells[base + f];
+        // La etiqueta, apagada; lo de antes y lo de despues, en la tinta de la
+        // fila. Tres trozos seguidos: cada glifo se pinta una vez.
+        let (a, z) = (s.etiq[base + f].0 as usize, s.etiq[base + f].1 as usize);
+        if z > a && z <= OUT_COLS {
+            let x = p.texto_bytes(c.out_x, y, &fila[..a], color);
+            let x = p.texto_bytes(x, y, &fila[a..z], INK_DIM);
+            p.texto_bytes(x, y, &fila[z..], color);
+        } else {
+            p.texto_bytes(c.out_x, y, fila, color);
+        }
     }
     // Y si se ha subido, DECIRLO. Una ventana que muestra el pasado sin avisar
     // se confunde con una que se quedo colgada.

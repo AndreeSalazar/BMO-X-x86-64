@@ -635,7 +635,9 @@ fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let mut lineas: [&[u8]; sg::MAX] = [b""; sg::MAX];
     for k in 0..n {
         lineas[k] = sg::linea(s.i[desde + k]);
+        dsk.field.sug_vistas[k] = s.i[desde + k];
     }
+    dsk.field.sug_vistas_n = n;
     scene::sugerir::pintar(p, &dsk.run_box, &lineas[..n], elegida - desde, s.total - n, sg::que(s.i[elegida]));
     dsk.field.sug_pintadas = true;
 }
@@ -649,4 +651,29 @@ pub(crate) fn pista_consejero(dsk: &mut Desktop, p: &bmo::Pantalla) {
     scene::sugerir::pista(p, &dsk.run_box, etiqueta, &t[..n]);
     dsk.field.sug_pintadas = false;
     dsk.field.sug_firma = 0;
+}
+
+/// **Un CLIC sobre la linea de sugerencias** (24-09): escribe la que se toco,
+/// entera, y deja seguir con TAB y las flechas desde ahi. `true` si habia una.
+pub(crate) fn clic_sugerencia(dsk: &mut Desktop, x: u32, y: u32) -> bool {
+    use crate::commands::sugerencias as sg;
+    if !dsk.field.sug_pintadas {
+        return false;
+    }
+    let Some(k) = scene::sugerir::en(&dsk.run_box, x, y) else { return false };
+    if k >= dsk.field.sug_vistas_n {
+        return false;
+    }
+    // La base, si aun no se daban vueltas: lo tecleado ahora.
+    if dsk.field.sug_base_n == 0 {
+        let n = dsk.field.n.min(dsk.field.sug_base.len());
+        dsk.field.sug_base[..n].copy_from_slice(&dsk.field.path[..n]);
+        dsk.field.sug_base_n = n;
+    }
+    if let Some(n) = sg::escribir(&mut dsk.field.path, dsk.field.sug_vistas[k]) {
+        dsk.field.n = n;
+        dsk.field.cur = n;
+        dsk.tick.repaint_field = true;
+    }
+    true
 }

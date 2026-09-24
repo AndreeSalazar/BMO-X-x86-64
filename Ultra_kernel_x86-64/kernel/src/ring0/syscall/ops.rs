@@ -350,6 +350,8 @@ pub(crate) const IOMMU_OP_GSP_OBJETO: u64 = 0x1B;
 pub(crate) const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 /// L1c2: la prueba de la VRAM por la ventana PRAMIN. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
+/// L1c3: la raiz del espacio de direcciones en VRAM y SET_PAGE_DIRECTORY. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

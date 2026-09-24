@@ -42,6 +42,9 @@ pub const VENTANA_MEDIDA: u64 = 1 << 20;
 pub const PRUEBA: u64 = 0x0400_0000;
 /// Palabras de la prueba: una pagina.
 pub const PALABRAS: usize = 1024;
+/// L1c3: la pagina del DIRECTORIO de paginas (la PD3 de nuestro espacio), 1 MiB
+/// por encima de la prueba: dentro de lo usable, y de nadie mas.
+pub const DIRECTORIO: u64 = 0x0410_0000;
 
 /// **La ventana para `dir`**: `(valor del registro, desplazamiento en ella)`.
 pub const fn ventana(dir: u64) -> (u32, u32) {
@@ -99,6 +102,22 @@ pub fn probar<R: Registros>(r: &mut R, guardado: &mut [u32; PALABRAS]) -> Prueba
     r.escribir(VENTANA_REG, p.ventana_antes);
     p.ventana_devuelta = r.leer(VENTANA_REG) == p.ventana_antes;
     p
+}
+
+/// **Una pagina de VRAM a cero** (L1c3: la raiz vacia, todo sin mapear), por
+/// la ventana, que queda como estaba. Devuelve cuantas palabras se releyeron
+/// a cero (de [`PALABRAS`]).
+pub fn a_cero<R: Registros>(r: &mut R, dir: u64) -> u32 {
+    let (base, off) = ventana(dir);
+    let antes = r.leer(VENTANA_REG);
+    r.escribir(VENTANA_REG, base);
+    let d = |k: usize| VENTANA + off + 4 * k as u32;
+    for k in 0..PALABRAS {
+        r.escribir(d(k), 0);
+    }
+    let ceros = (0..PALABRAS).filter(|&k| r.leer(d(k)) == 0).count() as u32;
+    r.escribir(VENTANA_REG, antes);
+    ceros
 }
 
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
@@ -172,5 +191,14 @@ mod pruebas {
         let p = probar(&mut f, &mut g);
         assert_eq!(p.buenas, 1020);
         assert_eq!(p.primera_mal, Some((1020, 0)));
+    }
+
+    #[test]
+    fn la_raiz_a_cero_y_la_ventana_como_estaba() {
+        let mut f = Falsa { ventana: 0x33, vram: [0xFFFF_FFFF; PALABRAS], rotas: 0 };
+        assert_eq!(a_cero(&mut f, DIRECTORIO), 1024);
+        assert!(f.vram.iter().all(|&w| w == 0));
+        assert_eq!(f.ventana, 0x33);
+        assert_eq!(ventana(DIRECTORIO), (0x410, 0));
     }
 }

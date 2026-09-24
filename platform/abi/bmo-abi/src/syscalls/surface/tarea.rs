@@ -707,6 +707,11 @@ pub const IOMMU_OP_GSP_CONTROL: u64 = 0x1C;
 /// = `vram::empaquetar` (buenas | devueltas << 16 | ventana devuelta << 31 |
 /// ventana de antes << 32).
 pub const IOMMU_OP_GPU_VRAM: u64 = 0x1D;
+/// L1c3: la raiz de NUESTRO espacio de direcciones -- una pagina de VRAM fija
+/// (`bmo_gpu_ga10x::vram::DIRECTORIO`) a cero, y `SET_PAGE_DIRECTORY` con la
+/// direccion y el espacio fijos. Una vez por arranque. `Ok` = la pagina | el
+/// numero << 32; la respuesta llega por la cola del GSP.
+pub const IOMMU_OP_GPU_DIRECTORIO: u64 = 0x1E;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -822,6 +827,8 @@ pub const IOMMU_NO_RPC_CONTRATO: u32 = 57;
 pub const IOMMU_NO_RPC_CONTROL: u32 = 58;
 /// L1c2: sin 3060, o la prueba de la VRAM ya en curso.
 pub const IOMMU_NO_VRAM: u32 = 59;
+/// L1c3: el directorio ya se puso en este arranque.
+pub const IOMMU_NO_DIRECTORIO_YA: u32 = 60;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;
