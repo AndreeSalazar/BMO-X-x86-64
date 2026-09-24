@@ -725,6 +725,12 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     if d & bmo::DESPIERTO_SEC2_ARRANCADO != 0 {
         s.text(b", MAILBOX0 del SEC2 0x");
         s.hex(d >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+        // MAILBOX1: lo otro que devuelve el booter; nova-core lo imprime
+        // tambien (metal 24-09 07:48: MAILBOX0 0x15, y sin su pareja).
+        let m1 = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 1 << 8) >> 32;
+        s.text(b", MAILBOX1 0x");
+        s.hex(m1, 8);
+        super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
     }
     if d & bmo::DESPIERTO_RISCV_PARADO != 0 {
         s.with_ink(INK_ERR);

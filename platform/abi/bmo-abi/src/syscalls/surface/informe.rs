@@ -1720,7 +1720,8 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             8 RISC-V parado | 9 se VIO activo | 10..11 la
 ///                             firma | 15 valido | 16..23 el ultimo NO |
 ///                             32..63 MAILBOX0 del SEC2
-///   INFO_GPU_DESPIERTO_BUZON  MAILBOX0 | MAILBOX1 << 32 del GSP
+///   INFO_GPU_DESPIERTO_BUZON  MAILBOX0 | MAILBOX1 << 32 del GSP; con selector
+///                             1 (`1 << 8`), los del SEC2 si el booter arranco
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

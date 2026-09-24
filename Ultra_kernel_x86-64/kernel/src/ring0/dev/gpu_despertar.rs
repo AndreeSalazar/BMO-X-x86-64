@@ -312,13 +312,19 @@ pub fn gsp_tomado() -> bool {
     ESTADO.load(Ordering::Acquire) & DESPIERTO_GSP_ARRANCADO != 0
 }
 
-/// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 del GSP (vivo).
-pub fn info_despierto_buzon() -> u64 {
+/// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
+/// con selector 1 (`1 << 8`) del SEC2, si el booter arranco.
+///
+/// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
+/// = 0x15 donde tres veces antes dio 0. nova-core imprime los DOS buzones al
+/// fallar; aqui solo se veia el primero.
+pub fn info_despierto_buzon(sel: u64) -> u64 {
     let bar0 = crate::ring0::dev::gpu::bar0();
-    if bar0 == 0 || ESTADO.load(Ordering::Acquire) & DESPIERTO_GSP_ARRANCADO == 0 {
+    let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };
+    if bar0 == 0 || ESTADO.load(Ordering::Acquire) & hace_falta == 0 {
         return 0;
     }
-    match fa::como_va(&mut Bar0(bar0), fa::GSP) {
+    match fa::como_va(&mut Bar0(bar0), falcon) {
         Ok((_, m0, m1)) => m0 as u64 | (m1 as u64) << 32,
         Err(_) => 0,
     }

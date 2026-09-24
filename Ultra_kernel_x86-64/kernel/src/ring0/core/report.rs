@@ -907,6 +907,7 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_ESPERA => crate::ring0::dev::gpu::info_espera(c),
         c if c & 0xFF == INFO_GPU_ROM => crate::ring0::dev::gpu::info_rom(c),
         c if c & 0xFF == INFO_GPU_FUSIBLE => crate::ring0::dev::gpu::info_fusible(c),
+        c if c & 0xFF == INFO_GPU_DESPIERTO_BUZON => crate::ring0::dev::gpu_despertar::info_despierto_buzon(c),
         c if c & 0xFF == INFO_GPU_GSP_MEM => crate::ring0::dev::gpu_libos::info_gsp_mem(c),
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
         c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
@@ -994,7 +995,6 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_GSP_HASH => crate::ring0::dev::gpu_gsp::info_gsp_hash(),
         INFO_GPU_LIBOS => crate::ring0::dev::gpu_libos::info_libos(),
         INFO_GPU_DESPIERTO => crate::ring0::dev::gpu_despertar::info_despierto(),
-        INFO_GPU_DESPIERTO_BUZON => crate::ring0::dev::gpu_despertar::info_despierto_buzon(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //
