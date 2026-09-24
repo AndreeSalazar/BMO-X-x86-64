@@ -120,6 +120,7 @@ under it is a slogan.
 | Writes its own report | `save` from the desktop: seven chapters (machine, memory, consumption, programs, disk, autopsy) as sheets in `informe/`, plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
 | The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
 | Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
+| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM and runs SM86 shaders: a Mandelbrot **103x** faster than one Ryzen core, bit-exact. See [below](#the-rtx-3060-driven-from-scratch) (2026-09-24) |
 | The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 32 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3` |
 
 ### Watch it boot
@@ -180,6 +181,59 @@ also caught three bugs; they are listed with it in
 **[docs/evidencia/](docs/evidencia/)**.
 
 Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
+
+### The RTX 3060, driven from scratch
+
+<!-- ===================================================================
+     LAS CAPTURAS DE LA 3060 VAN AQUI. Nombres que ya esperan las lineas
+     de abajo (copialas de `capturas/` del disco a `docs/evidencia/`):
+
+       16-3060-blur.png      el gato del fondo y, al lado, desenfocado
+       17-3060-fractal.png   el panel del fractal a pantalla completa
+       18-3060-triangulo.png el panel del triangulo (cuando salga)
+     =================================================================== -->
+
+**One consumer card, nothing else: an NVIDIA GeForce RTX 3060 12 GB (GA106).**
+No CUDA, no NVIDIA driver, no Linux underneath. BMO-X wakes the card's own
+GSP firmware (the signed one NVIDIA ships, 570.144) and then talks to it the
+way the open drivers do -- every message byte-checked by a kernel contract
+before it leaves, and every page the card may touch lent through the AMD
+IOMMU, one by one. Anything else the card tries to reach is a page fault, and
+`frontera` proves it on every boot.
+
+What the card has done for BMO-X, each line read back and checked by the CPU:
+
+| | |
+|---|---|
+| Woke the GSP | FWSEC, booter and the 60 MiB GSP-RM image, `GSP_INIT_DONE` in ~200 ms |
+| First job | the copy engine moved 4 KiB between two VRAM pages -- 1024 of 1024 words |
+| The graphics engine | its golden context built from **our** VRAM (`PROMOTE_CTX` + `AMPERE_B`), then a semaphore only the graphics engine can pay: paid in 45 us |
+| First shader | 32 threads of SM86 machine code, each writing its own word -- 32 of 32 |
+| Painted in the PC's RAM | 128x128 pixels written by 16384 threads into 64 KiB lent by the IOMMU |
+| Blur | a 128x128 piece of **your own screen**, blurred 7x7 by the card -- 16384 of 16384 pixels equal to the CPU's answer, bit for bit |
+| Mandelbrot 512x512 | 262144 threads, up to 256 iterations each: **176 us on the card, 18203 us on one Ryzen core -- 103x** -- and every pixel equal to the CPU's |
+| Triangle | the three edge functions of a rasterizer in 262144 threads, colours blended by weight (in code; the hardware 3D pipeline is next) |
+
+![The card blurs a piece of the desktop](docs/evidencia/16-3060-blur.png)
+
+![The 3060 panel: the fractal and the race against the CPU](docs/evidencia/17-3060-fractal.png)
+
+**How the machine code was obtained, honestly.** The SM86 programs are not
+guessed: they come out of NVIDIA's own `ptxas` and are read back with NVIDIA's
+own `nvdisasm`, both from PyPI. Two instructions CUDA always adds (a stack
+pointer and a memory descriptor, both read from a constant buffer only the
+CUDA driver fills) are replaced by NOPs **keeping their scheduling bits**, and
+the disassembler confirms the result. Integer arithmetic everywhere, so the CPU
+can recompute every pixel exactly: a floating-point FMA on the card and on the
+CPU would round differently, and "almost equal" proves nothing.
+
+**What it is not, yet.** The triangle above is drawn by a compute program, not
+by the card's fixed-function rasterizer. That is the next level (T1): vertex
+and pixel programs in SASS, which `ptxas` does not produce, so they are encoded
+by hand and checked against `nvdisasm` -- with BMO-X's own software rasterizer
+(`bmo-dibujo`, same edge functions, same top-left rule) as the judge of every
+pixel. The whole road, every step with its date and its result on the metal:
+**[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**.
 
 ---
 
