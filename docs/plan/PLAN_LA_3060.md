@@ -409,7 +409,7 @@ MEDIDO, no el dicho.
    L0c2 PRESTAR: el GSP-RM (15.513 paginas) y su radix3, el bootloader, la
         firma y la WPR meta, por la IOMMU; y RELEERLO entero por la radix3,
         como lo recorrera el GSP, con su BLAKE3. Sin arrancar nada. `gpu
-        radix` y el paso `radix` de `save mode`  [en codigo, 24-09]
+        radix` y el paso `radix` de `save mode`  [VISTO en metal, 24-09 06:34]
    L0c3 el booter en el SEC2: MAILBOX0/1 = la WPR meta, y el RISC-V del GSP
         despierta (`is_riscv_active`)
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
@@ -493,6 +493,13 @@ el del `.fwimage` de la 570.144 calculado en el anfitrion con el mismo
 `bmo-hash` (`e7856ee2b387917b...`). La fila `radix` dice `PRESTADO y la radix3
 lleva al GSP-RM de la 570.144 entero`, y `iommu` ~15.600 paginas sin eventos
 nuevos.
+
+**L0c2 en el metal (24-09, 06:34).** `radix PRESTADO y la radix3 lleva al GSP-RM
+de la 570.144 entero   15554 paginas; 122 de 122 trozos releidos; blake3
+E7856EE2B387917B` -- el mismo BLAKE3 que el anfitrion. `domain 15587 pagina(s)
+prestada(s)   tablas 38 de 128` (las 33 de antes + 15.554), y el unico evento
+sigue siendo el de la frontera. La RAM usada paso de 34 a 97 MiB: los 61 MB del
+GSP-RM, en marcos NEUTRO. E2 siguio contando y nada se quejo en el anillo.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
