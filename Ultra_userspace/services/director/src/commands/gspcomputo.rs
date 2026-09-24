@@ -17,6 +17,7 @@ use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
 use bmo_gpu_ga10x::blur;
 use bmo_gpu_ga10x::fractal;
 use bmo_gpu_ga10x::lienzo;
+use bmo_gpu_ga10x::escena;
 use bmo_gpu_ga10x::tresde;
 use bmo_gpu_ga10x::triangulo;
 use bmo_gpu_ga10x::sombreador;
@@ -60,6 +61,8 @@ struct Computo {
     triangulo: Option<Result<u64, u32>>,
     /// T1a: la clase 3D limpia un destino.
     limpio3d: Option<Result<u64, u32>>,
+    /// E: la escena 3D con luz.
+    escena: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -94,6 +97,8 @@ pub(crate) const NO_FRACTAL_MAL: u32 = 0x13E;
 pub(crate) const NO_TRIANGULO_MAL: u32 = 0x13F;
 /// La clase 3D se lanzo pero el destino no salio del color de limpieza.
 pub(crate) const NO_LIMPIO3D_MAL: u32 = 0x140;
+/// La escena se lanzo pero no salio igual que la CPU (la fila `escena`).
+pub(crate) const NO_ESCENA_MAL: u32 = 0x141;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -414,6 +419,46 @@ pub(crate) fn limpio_3d() -> bool {
     matches!(estado().limpio3d, Some(Ok(v)) if tresde::sano(v))
 }
 
+/// **E: la escena 3D con luz**, dibujada por la 3060.
+pub(crate) fn dibujar_escena() -> Result<u64, u32> {
+    let r = hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_ESCENA, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    });
+    con(|c| c.escena = Some(r));
+    match r {
+        Ok(v) if escena::sano(v) => Ok(v),
+        Ok(_) => Err(NO_ESCENA_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn escena_hecha() -> bool {
+    matches!(estado().escena, Some(Ok(v)) if escena::sano(v))
+}
+
+/// `gpu escena`: la escena 3D con luz, a pantalla completa.
+pub(crate) fn orden_escena(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 dibuja una escena 3D con luz", INK_DIM);
+    let r = dibujar_escena();
+    let visto = matches!(r, Ok(v) if panel(p, v, Vista::Escena));
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = visto };
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LA ESCENA 3D CON LUZ, DIBUJADA POR TU 3060 (M5d E): mira la fila `escena`\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  la escena no salio: mira la fila `escena`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// `gpu 3d`: la clase 3D limpia el destino, y el panel.
 pub(crate) fn orden_3d(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "la clase 3D de la 3060 limpia un destino con su ROP", INK_DIM);
@@ -441,6 +486,7 @@ enum Vista {
     Fractal,
     Triangulo,
     Limpieza3d,
+    Escena,
 }
 
 /// Una linea de texto sin reservar memoria.
@@ -528,7 +574,13 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     let fila = |y: u32, l: &mut Linea, c: u32| {
         p.texto_bytes(40, y, &l.b[..l.n], c);
     };
-    if que == Vista::Limpieza3d {
+    if que == Vista::Escena {
+        p.texto_escala(40, y, "UNA ESCENA 3D CON LUZ, POR TU 3060", CLARO, 2);
+        y += 60;
+        fila(y, Linea::nueva().t(b"esfera: rayo, normal, luz difusa y brillo especular"), CLARO);
+        y += 28;
+        fila(y, Linea::nueva().t(b"suelo en perspectiva con cuadros, sombra y cielo"), CLARO);
+    } else if que == Vista::Limpieza3d {
         p.texto_escala(40, y, "LA CLASE 3D DE TU 3060: EL ROP", CLARO, 2);
         y += 60;
         fila(y, Linea::nueva().t(b"AMPERE_B limpio un destino de render de 512 x 512"), CLARO);
@@ -592,7 +644,11 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     y += 28;
     fila(
         y,
-        Linea::nueva().t(if que == Vista::Triangulo { b"aritmetica entera: las aristas suman siempre el area" as &[u8] } else { b"aritmetica entera Q4.28: sin redondeos distintos" }),
+        Linea::nueva().t(match que {
+            Vista::Triangulo => b"aritmetica entera: las aristas suman siempre el area" as &[u8],
+            Vista::Escena => b"aritmetica entera: la CPU no dibuja, solo rehace la cuenta",
+            _ => b"aritmetica entera Q4.28: sin redondeos distintos",
+        }),
         TENUE,
     );
     y += 28;
@@ -986,6 +1042,33 @@ pub(crate) fn fila(s: &mut Output) {
                 s.text(b"   en ");
                 s.dec(gpu_us as u64);
                 s.text(b" us");
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.escena {
+        campo(s, b"escena");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, qmd, fin, lanzado, gpu_us, cpu_us) = escena::desempaquetar(v);
+                if escena::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"LA 3060 DIBUJO LA ESCENA 3D CON LUZ (512x512): ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"la escena NO salio igual que la CPU: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 262144 pixeles iguales a la CPU");
+                s.with_ink(INK_ECHO);
+                s.text(b"; la 3060 en ");
+                s.dec(gpu_us as u64);
+                s.text(b" us, la CPU en ");
+                s.dec(cpu_us as u64);
+                s.text(b" us; semaforos ");
+                s.text(if qmd && fin { b"PAGADOS" as &[u8] } else { b"sin pagar" });
                 s.with_ink(INK_PLAIN);
                 s.byte(b'\n');
             }

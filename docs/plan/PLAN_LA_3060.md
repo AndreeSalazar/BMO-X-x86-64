@@ -536,6 +536,28 @@ y exacto (las aristas suman siempre el area doble, 172800), comparado bit a
 bit con la CPU. `gpu triangulo`, paso `triangulo`, el mismo panel a pantalla
 completa. En el MISMO MiB que el fractal.
 
+**EL TRIANGULO, en el metal (24-09, 17:08), con foto:** 262144 de 262144; la
+3060 en 791 us y la CPU en 631: aqui gana la CPU, porque la cuenta por pixel
+es ligera y lo que cuesta es llevar 1 MiB a la RAM por PCIe (Gen1 ese
+arranque). El panel lo dice asi, no "0 veces". Fractal: x216.
+
+**T1a en codigo (24-09):** la clase 3D (AMPERE_B) limpia el MiB del fractal
+como destino de render de 512 x 512 (PITCH, A8R8G8B8) con `CLEAR_SURFACE`,
+sin programas, y paga su semaforo tras TODAS las escrituras. Cada metodo,
+de `clc797.h`. `gpu 3d`, paso `limpio3d`: "EL PIPELINE 3D ESCRIBE: SI/NO".
+
+**M5d E, la escena 3D con luz, en codigo (24-09):** pedida por el
+propietario ("3D y elementos tipicos, luz; la GPU dibuja, no la CPU"). Una
+esfera con luz difusa y brillo especular, un suelo en perspectiva con
+cuadros y sombra, y cielo: 262144 hilos, uno por pixel, todo ENTERO (la raiz
+digito a digito, las divisiones truncando) para que la CPU rehaga la cuenta y
+compare. SASS de `ptxas`, 158 instrucciones. `gpu escena`, paso `escena`.
+
+**El mapa de SM86 (24-09):** 4096 codigos probados contra `nvdisasm`: 333
+existen. Entre ellos `IPA` (0x326), `OUT` (0x324), `ISBERD` (0x923),
+`PIXLD` (0x925), `KILL` (0x95b). `ALD`/`AST` (atributos) NO salen con sus
+campos a cero: encontrar sus campos es lo primero de T1b.
+
 **T1, el triangulo por el PIPELINE 3D (estudio, 24-09):** `ptxas` NO compila
 programas de vertice ni de pixel (solo computo). Pero `nvdisasm -b SM86` SI
 conoce sus instrucciones (probado: `IPA.PASS R0, P0, a[0x0]`), asi que se

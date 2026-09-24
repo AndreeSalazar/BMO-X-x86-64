@@ -271,6 +271,7 @@ pub const IOMMU_OP_GPU_BLUR: u64 = 0x32;
 pub const IOMMU_OP_GPU_FRACTAL: u64 = 0x33;
 pub const IOMMU_OP_GPU_TRIANGULO: u64 = 0x34;
 pub const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
+pub const IOMMU_OP_GPU_ESCENA: u64 = 0x36;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

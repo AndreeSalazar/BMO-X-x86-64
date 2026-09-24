@@ -637,3 +637,64 @@ fn limpiar_3d_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+// == M5d E: LA ESCENA 3D CON LUZ (2026-09-24) ==================================
+//
+// La esfera iluminada, el suelo con sombra y el cielo: 262144 hilos en el MISMO
+// MiB que el fractal; cronometrado y comparado con la CPU como el fractal.
+
+/// **M5d E: la escena.** `ficha` = la de S3. `Ok(escena::empaquetar(..))`.
+pub fn escena(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::blur as bl;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let r = escena_(bar0, ficha as u32, e);
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::escena as es;
+    use bmo_gpu_ga10x::fractal as fr;
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    asegurar_mib(&mut r)?;
+    memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
+    if !es::preparar(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", "M5d E: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let lanzado = es::lanzar(&mut r, ficha, e);
+    if lanzado {
+        BLUR_ENTRADA.store(e + 1, Ordering::Release);
+    }
+    let (mut qmd, mut fin) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < FRACTAL_ESPERA_US {
+        (_, qmd, fin) = es::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == es::PAGA_QMD && fin == es::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    let buenos = pixeles_del_fractal().map_or(0, es::comprobar);
+    let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
+    let v = es::empaquetar(buenos, qmd == es::PAGA_QMD, fin == es::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
+    if es::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d E: LA 3060 DIBUJO LA ESCENA 3D con luz, igual que la CPU; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d E: la escena no salio igual que la CPU; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}

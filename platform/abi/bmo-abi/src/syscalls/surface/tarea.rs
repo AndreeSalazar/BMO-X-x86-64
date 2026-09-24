@@ -819,6 +819,11 @@ pub const IOMMU_OP_GPU_TRIANGULO: u64 = 0x34;
 /// `Ok` = `tresde::empaquetar(..)`. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el
 /// bit 33.
 pub const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
+/// M5d E: la escena 3D con luz (esfera, suelo con sombra, cielo), en 512 x
+/// 512 hilos y en el MISMO MiB que el fractal. `arg1` = la ficha de S3. `Ok`
+/// = `escena::empaquetar(..)`. Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit
+/// 33.
+pub const IOMMU_OP_GPU_ESCENA: u64 = 0x36;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

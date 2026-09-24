@@ -549,7 +549,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::limpio_3d,
         dar: super::gspcomputo::limpiar_3d,
         pide: Some(b"triangulo"),
-        consejo: b"`gpu`: la fila `3d` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu 3d` -- lo siguiente es T1b, los programas de vertice y de pixel",
+        consejo: b"`gpu`: la fila `3d` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu 3d` -- lo siguiente es `escena`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"escena",
+        que: b"LA ESCENA 3D CON LUZ: esfera iluminada, suelo con sombra y cielo, dibujada por la 3060 y comparada bit a bit (M5d E)",
+        hecho: super::gspcomputo::escena_hecha,
+        dar: super::gspcomputo::dibujar_escena,
+        pide: Some(b"triangulo"),
+        consejo: b"`gpu`: `escena` dice 262144 de 262144; teclea `gpu escena` y VELA a pantalla completa -- lo siguiente es T1b, los programas de vertice y de pixel",
         repinta: false,
     },
 ];
