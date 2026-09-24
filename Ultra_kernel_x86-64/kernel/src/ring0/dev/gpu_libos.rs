@@ -34,7 +34,9 @@
 //!
 //! # Lo que NO hace
 //!
-//! No escribe un registro de la 3060 ni arranca nada. Eso es L0c3b.
+//! No arranca nada: eso es L0c3b. El unico registro de la 3060 que escribe es
+//! el TIMBRE del GSP (0x110C00), y solo tras `GSP_INIT_DONE`, para avisar de
+//! una RPC (L1a, al final).
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -405,4 +407,61 @@ pub fn escribir_sistema() -> Result<u64, u32> {
     core::sync::atomic::fence(Ordering::SeqCst);
     crate::ring0::cabina::count("gpu", "L0c4b2a: SetSystemInfo y SetRegistry en la cola de la CPU; bytes", (a + b) as u64);
     Ok(2)
+}
+
+// == L1a: LA PRIMERA RPC DE VERDAD (2026-09-24) ================================
+//
+// Con el GSP-RM arrancado (metal 24-09 10:13), la CPU PREGUNTA y el GSP-RM
+// CONTESTA: `GET_GSP_STATIC_INFO`, lo que el GSP-RM dice de la 3060. La
+// pregunta la arma el kernel (`bmo_gpu_ga10x::estatica`) en la pagina
+// siguiente de la cola de la CPU, mueve su `writePtr` y toca el TIMBRE
+// (`NV_PGSP_QUEUE_HEAD(0)` = 0x110C00, como `notify_gsp` de nova-core): el
+// GSP-RM ya corre y no mira la cola si no se le avisa. La respuesta llega por
+// la cola del GSP y la lee el escritorio. Solo esta RPC: el escritorio no
+// manda bytes.
+
+/// El GSP-RM no esta arrancado (sin secuenciador corrido) o no hay colas.
+pub const IOMMU_NO_RPC_ANTES: u32 = 54;
+/// La cola de la CPU esta llena: el GSP-RM no ha leido lo de antes.
+pub const IOMMU_NO_RPC_LLENA: u32 = 55;
+
+/// El timbre de la cola de la CPU.
+const TIMBRE: u32 = bmo_gpu_ga10x::falcon::GSP + 0xC00;
+/// El numero de la siguiente pregunta (0 y 1 fueron SetSystemInfo y SetRegistry).
+static NUMERO_RPC: AtomicU64 = AtomicU64::new(2);
+
+/// **Preguntar `GET_GSP_STATIC_INFO`.** `Ok(pagina | numero << 32)`.
+pub fn preguntar_estatica() -> Result<u64, u32> {
+    use crate::ring0::dev::gpu_despertar as d;
+    let f = GSPMEM_F.load(Ordering::Acquire);
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if f == 0 || bar0 == 0 || d::info_secuencia() >> 24 & d::SEC_HECHO == 0 {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    let cola = f + lb::COLA_CPU;
+    let escrito = crate::ring0::mm::phys_to_virt(cola + 16) as *mut u32;
+    // Hasta donde leyo el GSP la cola de la CPU: el `readPtr` de la cabecera
+    // de SU cola (+32).
+    let leido = crate::ring0::mm::phys_to_virt(f + lb::COLA_GSP + lb::RX_HDR_OFF as u64) as *const u32;
+    // SAFETY: dentro de GspMem (marcos NEUTRO de este fichero); volatile: la 3060.
+    let (wp, rp) = unsafe { (escrito.read_volatile() as u64 % lb::MSGQ_PAGINAS, leido.read_volatile() as u64 % lb::MSGQ_PAGINAS) };
+    let siguiente = (wp + 1) % lb::MSGQ_PAGINAS;
+    if siguiente == rp {
+        return Err(IOMMU_NO_RPC_LLENA);
+    }
+    let numero = NUMERO_RPC.fetch_add(1, Ordering::AcqRel) as u32;
+    let p = crate::ring0::mm::phys_to_virt(cola + PAGINA + wp * PAGINA) as *mut u8;
+    // SAFETY: la pagina `wp` de datos de la cola de la CPU, libre (el GSP ya
+    // leyo hasta `rp`, y `wp + 1 != rp`); nadie mas la escribe.
+    let hueco = unsafe { core::slice::from_raw_parts_mut(p, PAGINA as usize) };
+    if bmo_gpu_ga10x::estatica::pregunta(hueco, numero).is_none() {
+        return Err(IOMMU_NO_RPC_ANTES);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    // SAFETY: como arriba.
+    unsafe { escrito.write_volatile(siguiente as u32) };
+    core::sync::atomic::fence(Ordering::SeqCst);
+    bmo_gpu_ga10x::Registros::escribir(&mut crate::ring0::dev::gpu_prestamo::Bar0(bar0), TIMBRE, 0);
+    crate::ring0::cabina::count("gpu", "L1a: GET_GSP_STATIC_INFO preguntada; numero", numero as u64);
+    Ok(wp | (numero as u64) << 32)
 }

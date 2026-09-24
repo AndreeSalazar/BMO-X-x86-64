@@ -690,6 +690,10 @@ pub const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 /// secuenciador, el del GOP: la pantalla vuelve a ver lo que pinta la CPU.
 /// Solo tras `GSP_INIT_DONE`. `Ok` = el de ahora | el del GSP-RM << 32.
 pub const IOMMU_OP_GSP_BAR1: u64 = 0x19;
+/// L1a: la primera RPC -- GET_GSP_STATIC_INFO a la cola de la CPU, armada por
+/// el kernel, y el timbre del GSP. La respuesta llega por la cola del GSP.
+/// `Ok` = la pagina | el numero de la pregunta << 32.
+pub const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -793,6 +797,10 @@ pub const IOMMU_NO_SEC_FALLO: u32 = 51;
 pub const IOMMU_NO_SEC_YA: u32 = 52;
 /// L0c4b3a: no hay BAR1 que devolver (sin secuenciador corrido, o sin la de antes).
 pub const IOMMU_NO_BAR1: u32 = 53;
+/// L1a: el GSP-RM no esta arrancado, o no hay colas.
+pub const IOMMU_NO_RPC_ANTES: u32 = 54;
+/// L1a: la cola de la CPU esta llena.
+pub const IOMMU_NO_RPC_LLENA: u32 = 55;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

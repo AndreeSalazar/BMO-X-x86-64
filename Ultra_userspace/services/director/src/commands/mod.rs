@@ -24,6 +24,7 @@ pub(crate) mod gspcola;
 pub(crate) mod gspsistema;
 pub(crate) mod gspsecuencia;
 pub(crate) mod gspinit;
+pub(crate) mod gsprpc;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

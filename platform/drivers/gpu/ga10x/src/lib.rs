@@ -60,6 +60,8 @@ pub mod orden;
 pub mod secuenciador;
 /// L0c4b2c: correr el secuenciador, por tramos y solo en el falcon del GSP (2026-09-24).
 pub mod correr;
+/// L1a: GET_GSP_STATIC_INFO -- lo que el GSP-RM dice de la 3060 (2026-09-24).
+pub mod estatica;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

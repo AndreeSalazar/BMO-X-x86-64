@@ -342,6 +342,8 @@ pub(crate) const IOMMU_OP_GSP_SISTEMA: u64 = 0x17;
 pub(crate) const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 /// L0c4b3a: devolverle a BAR1 el valor de antes del secuenciador. Ver `dev/gpu_despertar.rs`.
 pub(crate) const IOMMU_OP_GSP_BAR1: u64 = 0x19;
+/// L1a: preguntarle al GSP-RM GET_GSP_STATIC_INFO. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_ESTATICA: u64 = 0x1A;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

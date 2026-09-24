@@ -436,7 +436,8 @@ MEDIDO, no el dicho.
                                                 [VISTO en metal, 24-09 09:54]
      L0c4b3 la PANTALLA tras GSP_INIT_DONE: se quedo quieta (BAR1?)
      L0c4b3a devolverle BAR1 a la pantalla: la del GOP, apuntada antes
-        del secuenciador. `gpu init` solo, y `gpu bar1`  [en codigo, 24-09]
+        del secuenciador. `gpu init` solo, y `gpu bar1`
+                                                [VISTO en metal, 24-09 10:13]
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -876,6 +877,37 @@ sabe:** el RISC-V del GSP responde en su buzon y las colas de mensajes dan la
 vuelta.
 
 ### [ ] L1 -- hablar con el GSP-RM (RPC)
+
+```text
+   L1a  la PRIMERA RPC: GET_GSP_STATIC_INFO -- el nombre de la 3060 segun
+        el GSP-RM, su VRAM, sus regiones y las ASAS del RM. `gpu estatica`,
+        y sola tras `gpu init`                  [en codigo, 24-09]
+   L1b  pedirle objetos con esas asas: memoria, un hueco de BAR1 para la
+        pantalla (y soltar el puente de L0c4b3a)
+   L1c  un canal y el motor de COPIA: que la GPU mueva los pixeles
+```
+
+**L0c4b3a en el metal (24-09, 10:13): LA PANTALLA SOBREVIVE AL GSP-RM.** `bar1
+antes 0x002FFF00, despues 0x802F3E90 (BAR2 0xC02F3E91 -> 0xC02F3E91): el GSP-RM
+la puso VIRTUAL y se le DEVOLVIO la del GOP`. Con el GSP-RM corriendo (`RISC-V
+ACTIVO`), el escritorio siguio vivo: DOOM a 70 fps, el cubo, 16.032 cajas
+compuestas y la copia al GOP otra vez en 5393 ps/pixel. El diagnostico de
+09:54 era ese.
+
+**L1a (24-09, en codigo).** `bmo_gpu_ga10x::estatica` (2 pruebas) arma la
+pregunta --la RPC 65 con los 1656 B de `GspStaticConfigInfo_t` a cero-- y lee
+la respuesta en los offsets de las bindings r570.144 (sacados compilandolas en
+el anfitrion): `gpuNameString` +0x4EC, `fb_length` +0x4C8, las regiones +0x158,
+`bar1PdeBase` +0x600, `hInternalClient/Device/Subdevice` +0x640. El kernel
+(`IOMMU_OP_GSP_ESTATICA`, `dev/gpu_libos.rs::preguntar_estatica`) la pone en la
+pagina siguiente de la cola de la CPU, mueve su `writePtr` y toca el TIMBRE
+(0x110C00, `notify_gsp` de nova-core): el primer registro que se escribe para
+hablarle a un GSP-RM vivo. El escritorio (`commands/gsprpc.rs`) espera la
+respuesta 5 s, consume lo que llegue antes y la lee.
+
+**Como se sabe (L1a):** la fila `rpc` dice CONTESTADA con `rpc_result 0`;
+`nombre` dice lo que el GSP-RM cree que es tu tarjeta; `memoria` sus 12 GiB;
+`asas` las tres asas del RM, que son la llave de L1b.
 
 Las colas en memoria compartida, los argumentos de libos, el registro y la
 informacion del sistema. Atado a UNA version del firmware: el protocolo cambia
