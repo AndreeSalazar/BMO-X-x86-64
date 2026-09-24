@@ -50,10 +50,25 @@ fn guardar(r: Resumen) {
     unsafe { *core::ptr::addr_of_mut!(RESUMEN) = Some(r) };
 }
 
-/// Existe: lo creo ahora, o ya estaba de antes.
-fn vale(u: &Uno) -> bool {
-    u.no == 0 && u.resultado == 0 && matches!(u.r, Some(r) if r.estado == 0 || r.estado == YA_EXISTE)
+/// La numero de la pregunta que CREO cada objeto (con `NV_OK`), para todo el
+/// arranque: pedirlos otra vez contesta `ya existia` y eso no lo borra.
+static mut CREADO: [u32; 3] = [0; 3];
+
+fn creado() -> [u32; 3] {
+    // SAFETY: como `resumen`.
+    unsafe { *core::ptr::addr_of!(CREADO) }
 }
+
+/// Existe: lo creo ahora, o ya estaba de antes. El GSP-RM pone el mismo
+/// `NV_STATUS` en el `rpc_result` (metal 24-09 10:52: 0x19 en los dos).
+fn vale(u: &Uno) -> bool {
+    u.no == 0
+        && matches!(u.r, Some(r) if (r.estado == 0 || r.estado == YA_EXISTE)
+            && (u.resultado == 0 || u.resultado == r.estado))
+}
+
+/// Motivo del escritorio: el RM contesto, pero NO dio el objeto.
+pub(crate) const NO_OBJ_NEGADO: u32 = 0x122;
 
 /// **Pedir los tres.** `Ok(())` si los tres existen.
 pub(crate) fn pedir() -> Result<(), u32> {
@@ -76,8 +91,12 @@ pub(crate) fn pedir() -> Result<(), u32> {
                 Err(no) => u.no = no,
             }
         }
+        if vale(u) && matches!(u.r, Some(x) if x.estado == 0) {
+            // SAFETY: como `resumen`.
+            unsafe { (*core::ptr::addr_of_mut!(CREADO))[k] = u.numero };
+        }
         if !vale(u) {
-            let no = if u.no != 0 { u.no } else { super::gsprpc::NO_RPC_SIN_RESPUESTA };
+            let no = if u.no != 0 { u.no } else { NO_OBJ_NEGADO };
             guardar(r);
             return Err(no);
         }
@@ -143,6 +162,11 @@ pub(crate) fn fila(s: &mut Output) {
             s.text(b" ms (numero ");
             s.dec(u.numero as u64);
             s.byte(b')');
+            let c = creado()[k];
+            if x.estado == YA_EXISTE && c != 0 {
+                s.text(b"; CREADO con NV_OK en la numero ");
+                s.dec(c as u64);
+            }
         }
         s.with_ink(INK_PLAIN);
         if k + 1 == r.n {

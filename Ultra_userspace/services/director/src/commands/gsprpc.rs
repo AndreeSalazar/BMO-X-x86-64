@@ -223,22 +223,22 @@ pub(crate) fn fila(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 
-    // El bus, el tipo y la L2 no salen como dicen sus nombres (ver
-    // `estatica.rs`): van crudos, con las mascaras, para leerlos en metal.
+    // El bus y el tipo, donde el metal los mostro (ver `estatica.rs`); las 7
+    // palabras de +0x4D0, crudas.
     campo(s, b"memoria");
     mib(s, e.vram);
-    s.text(b" de VRAM");
-    s.with_ink(INK_ECHO);
-    s.text(b"; crudo: bus ");
+    s.text(b" de ");
+    s.text(estatica::ram(e.ram_tipo));
+    s.text(b", bus de ");
     s.dec(e.bus_bits as u64);
-    s.text(b", tipo ");
-    s.dec(e.ram_tipo as u64);
-    s.text(b", L2 ");
-    s.dec(e.l2 as u64);
-    s.text(b", fbio 0x");
-    s.hex(e.fbio, 4);
-    s.text(b", fbp 0x");
-    s.hex(e.fbp, 4);
+    s.text(b" bits");
+    s.with_ink(INK_ECHO);
+    s.text(b"; +0x4D0:");
+    for w in e.crudo {
+        s.byte(b' ');
+        // Sin cortar: las cifras que haga falta, 2 como poco.
+        s.hex(w as u64, ((35 - (w | 1).leading_zeros() as usize) / 4).max(2));
+    }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
 

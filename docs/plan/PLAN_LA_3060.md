@@ -935,6 +935,19 @@ los arma con el mismo `enviar` que L1a: el escritorio dice CUAL, nunca manda
 bytes. `commands/gspobjeto.rs` los pide en orden y se para en el primero que
 no sale; `gpu init` los pide solo, tras la respuesta de L1a.
 
+**L1b en el metal (24-09, 10:52): EL RM TIENE NUESTRO CLIENTE.** `gpu init`
+mando los tres (numeros 3, 4 y 5: la siguiente a mano fue la 6, y el escritorio
+solo pide el siguiente si el anterior salio, asi que cliente y dispositivo
+salieron). `gpu objetos` a mano: `cliente 0xC1D0000B: ya existia (0x19),
+rpc_result 0x00000019`: el RM lo tenia. El escritorio se paro ahi por un fallo
+NUESTRO: el GSP-RM repite el `NV_STATUS` en el `rpc_result`, y `vale` pedia
+`rpc_result 0`. Arreglado: vale si los dos dicen lo mismo; y la numero que CREO
+cada objeto se recuerda todo el arranque (`CREADO con NV_OK en la numero N`).
+
+Y la fila `memoria`, cruda: `+0x4D0: 7 0 0 C0 11 0 7`. El bus (192 = 0xC0) y
+`RAM_TYPE_GDDR6` (0x11) estan 4 B DESPUES de lo que dice el header de OpenRM:
+dos aciertos exactos. Se leen donde los puso el firmware.
+
 **Como se sabe (L1b):** las filas `obj cli`, `obj disp` y `obj sub` dicen
 `NV_OK` (o `ya existia`, si se pidieron antes en el mismo arranque). Un
 `parametros de otra medida` (0x3A) es un struct de otra version; `padre

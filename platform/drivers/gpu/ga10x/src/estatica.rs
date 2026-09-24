@@ -14,11 +14,8 @@
 //!                                 base, limit, reserved, performance,
 //!                                 supportCompressed, supportISO, bProtected
 //!    +0x4C8  fb_length            la VRAM, en bytes
-//!    +0x4D0  fbio_mask
-//!    +0x4D8  fb_bus_width         el bus, en bits
-//!    +0x4DC  fb_ram_type
-//!    +0x4E0  fbp_mask
-//!    +0x4E8  l2_cache_size
+//!    +0x4D0  .. +0x4EC            fbio_mask, fb_bus_width, fb_ram_type,
+//!                                 fbp_mask, l2_cache_size: ver abajo
 //!    +0x4EC  gpuNameString[64]    "NVIDIA GeForce RTX 3060"
 //!    +0x52C  gpuShortNameString[64]
 //!    +0x600  bar1PdeBase, bar2PdeBase
@@ -29,9 +26,13 @@
 //! "Usable" es lo que nova-core deja usar (`usable_fb_regions`): ni reservada
 //! ni protegida, y con compresion e ISO.
 //!
-//! En metal (10:35) el bus salio 0, el tipo 192 y la L2 0, con esos offsets
-//! iguales a `gsp_static_config.h` de OpenRM 570.144: el GSP-RM no los llena
-//! como dice su nombre. Se muestran tal cual, con las mascaras, sin creerlos.
+//! # Lo que dijo el metal entre +0x4D0 y +0x4EC (24-09 10:52)
+//!
+//! El header (`gsp_static_config.h` de OpenRM 570.144, comprobado) pone el bus
+//! en +0x4D8 y el tipo en +0x4DC. El metal: +0x4D8 = 0, +0x4DC = **192** (el
+//! bus de la 3060) y +0x4E0 = **0x11** (`NV2080_CTRL_FB_INFO_RAM_TYPE_GDDR6`,
+//! la suya). Dos aciertos exactos: el firmware los tiene 4 B mas alla. Se leen
+//! donde los PUSO el firmware, y las 7 palabras van crudas para quien dude.
 
 use crate::orden;
 
@@ -55,11 +56,11 @@ pub struct Estatica {
     pub nombre: [u8; 64],
     pub corto: [u8; 64],
     pub vram: u64,
-    pub fbio: u64,
+    /// +0x4DC y +0x4E0: donde el metal los mostro (ver arriba).
     pub bus_bits: u32,
     pub ram_tipo: u32,
-    pub fbp: u64,
-    pub l2: u32,
+    /// Las 7 palabras de +0x4D0 a +0x4EC, tal cual.
+    pub crudo: [u32; 7],
     pub bar1_pde: u64,
     pub bar2_pde: u64,
     /// Las asas internas del RM: con ellas se piden objetos en L1b.
@@ -105,11 +106,9 @@ pub fn leer(d: &[u8]) -> Option<Estatica> {
         nombre,
         corto,
         vram: u64_de(d, 0x4C8),
-        fbio: u64_de(d, 0x4D0),
-        bus_bits: u32_de(d, 0x4D8),
-        ram_tipo: u32_de(d, 0x4DC),
-        fbp: u64_de(d, 0x4E0),
-        l2: u32_de(d, 0x4E8),
+        bus_bits: u32_de(d, 0x4DC),
+        ram_tipo: u32_de(d, 0x4E0),
+        crudo: core::array::from_fn(|k| u32_de(d, 0x4D0 + 4 * k)),
         bar1_pde: u64_de(d, 0x600),
         bar2_pde: u64_de(d, 0x608),
         cliente: u32_de(d, 0x640),
@@ -120,6 +119,17 @@ pub fn leer(d: &[u8]) -> Option<Estatica> {
         regiones,
         n_regiones: n,
     })
+}
+
+/// El nombre de un `NV2080_CTRL_FB_INFO_RAM_TYPE_*` de los de Ampere.
+pub fn ram(t: u32) -> &'static [u8] {
+    match t {
+        0x08 => b"GDDR5",
+        0x11 => b"GDDR6",
+        0x12 => b"GDDR6X",
+        0x0F => b"HBM2",
+        _ => b"tipo desconocido",
+    }
 }
 
 /// El texto de un nombre: hasta su primer 0.
@@ -157,8 +167,11 @@ mod pruebas {
         d[0x4EC..0x4EC + 23].copy_from_slice(b"NVIDIA GeForce RTX 3060");
         d[0x52C..0x52C + 5].copy_from_slice(b"GA106");
         d[0x4C8..0x4D0].copy_from_slice(&(12u64 << 30).to_le_bytes());
-        d[0x4D8..0x4DC].copy_from_slice(&192u32.to_le_bytes());
-        d[0x4E0..0x4E8].copy_from_slice(&0x3Fu64.to_le_bytes());
+        // Lo que salio en el metal el 24-09 10:52.
+        d[0x4D0] = 7;
+        d[0x4DC..0x4E0].copy_from_slice(&192u32.to_le_bytes());
+        d[0x4E0] = 0x11;
+        d[0x4E8] = 7;
         d[0x640..0x644].copy_from_slice(&0xC1D0_0001u32.to_le_bytes());
         d[0x644..0x648].copy_from_slice(&0x5C00_0002u32.to_le_bytes());
         d[0x648..0x64C].copy_from_slice(&0x5C00_0003u32.to_le_bytes());
@@ -177,7 +190,8 @@ mod pruebas {
         let e = leer(&d).unwrap();
         assert_eq!(texto(&e.nombre), b"NVIDIA GeForce RTX 3060");
         assert_eq!(texto(&e.corto), b"GA106");
-        assert_eq!((e.vram, e.bus_bits, e.fbp), (12 << 30, 192, 0x3F));
+        assert_eq!((e.vram, e.bus_bits, ram(e.ram_tipo)), (12 << 30, 192, b"GDDR6" as &[u8]));
+        assert_eq!(e.crudo, [7, 0, 0, 192, 0x11, 0, 7]);
         assert_eq!((e.cliente, e.dispositivo, e.subdispositivo), (0xC1D0_0001, 0x5C00_0002, 0x5C00_0003));
         assert!(e.uefi && !e.efi_init);
         assert_eq!(e.n_regiones, 2);
