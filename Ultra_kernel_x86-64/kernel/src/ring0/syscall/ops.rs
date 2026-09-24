@@ -370,6 +370,8 @@ pub(crate) const IOMMU_OP_GPU_LEER: u64 = 0x25;
 pub(crate) const IOMMU_OP_GSP_GR: u64 = 0x26;
 /// M5 G1: pedir el canal de GR0. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
+/// M5 G2: los buferes de GR en VRAM y mapeados. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_GR_MEMORIA: u64 = 0x28;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

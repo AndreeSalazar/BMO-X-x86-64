@@ -441,7 +441,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcanalgr::encendido,
         dar: super::gspcanalgr::encender,
         pide: Some(b"canalgr"),
-        consejo: b"`gpu`: `atado gr` y `en lista gr` dicen NV_OK -- lo siguiente es G2, los buferes de `gr` en tu VRAM",
+        consejo: b"`gpu`: `atado gr` y `en lista gr` dicen NV_OK -- lo siguiente es `grmem`, los buferes de `gr` en tu VRAM",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"grmem",
+        que: b"LOS BUFERES DE GR EN TU VRAM: los que llena el RM a cero, todo mapeado en la VA de 12 GiB y la MMU invalidada (M5 G2)",
+        hecho: super::gspgr::mapeado,
+        dar: super::gspgr::mapear,
+        pide: Some(b"gr"),
+        consejo: b"`gpu`: `gr memoria` dice todas las entradas releidas y `gr donde` cada bufer; `iommu` sin eventos nuevos -- lo siguiente es G3, PROMOTE_CTX",
         repinta: false,
     },
 ];

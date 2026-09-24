@@ -161,6 +161,118 @@ pub fn total(t: &[Bufer; 8]) -> u64 {
     })
 }
 
+// == G2: LOS BUFERES EN VRAM, MAPEADOS ======================================
+//
+// Donde van (el metal, 24-09 15:22: 26048 KiB, con ATTRIBUTE_CB de 8517 KiB
+// alineado a 16 MiB):
+//
+// ```text
+//    VRAM  0x0800_0000 ..  (128 MiB: lo usable empieza en 49; el tramo, 66)
+//    VA    0x3_0000_0000 .. (12 GiB: la PD1 del tramo, entrada 24; el tramo
+//                           es la 16)
+//    tablas 0x0430_0000:  una PD0 y hasta 16 PT (32 MiB de 4 KiB)
+// ```
+//
+// El MISMO desplazamiento en VRAM y en VA, y las dos bases alineadas a 128
+// MiB: la alineacion de cada bufer vale en las dos. Paginas de 4 KiB para
+// todo (el formato ya VISTO en el metal con el tramo y la copia): las de 64
+// KiB y 2 MiB de nouveau son rendimiento, no correccion.
+//
+// Los que el RM LLENA (`iniciar`) van PRIMERO: asi el kernel los pone a cero
+// de un tramo seguido, `[0, cero_hasta)`, sin saber de buferes.
+
+/// Donde empiezan en VRAM.
+pub const VRAM: u64 = 0x0800_0000;
+/// Donde los ve la GPU.
+pub const VA: u64 = 0x3_0000_0000;
+/// La PD0 y las PT, en VRAM.
+pub const TABLAS: u64 = 0x0430_0000;
+/// Cuantas PT caben: 16 x 2 MiB.
+pub const PTS: usize = 16;
+/// Lo mas que se mapea.
+pub const MAX_BYTES: u64 = PTS as u64 * (2 << 20);
+
+/// Un bufer ya colocado: su desplazamiento desde [`VRAM`] y desde [`VA`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub struct Colocado {
+    pub b: Bufer,
+    pub off: u64,
+}
+
+impl Colocado {
+    pub const fn vram(&self) -> u64 {
+        VRAM + self.off
+    }
+    pub const fn va(&self) -> u64 {
+        VA + self.off
+    }
+}
+
+/// **El reparto**: primero los que el RM llena, despues los demas, cada uno
+/// alineado. `(colocados, total, cero_hasta)`, o `None` si no cabe.
+pub fn repartir(t: &[Bufer; 8]) -> Option<([Colocado; 8], u64, u64)> {
+    let mut c = [Colocado::default(); 8];
+    let mut off = 0u64;
+    let mut k = 0;
+    let mut cero_hasta = 0;
+    for primero in [true, false] {
+        for b in t.iter().filter(|b| b.iniciar == primero) {
+            let a = 1u64 << b.alinear;
+            off = (off + a - 1) & !(a - 1);
+            c[k] = Colocado { b: *b, off };
+            off += (b.medida + 0xFFF) & !0xFFF;
+            k += 1;
+        }
+        if primero {
+            cero_hasta = off;
+        }
+    }
+    (off <= MAX_BYTES).then_some((c, off, cero_hasta))
+}
+
+/// La entrada de la PD1 del tramo que cuelga [`VA`] (el tramo usa la 16).
+pub const fn entrada_pd1() -> u64 {
+    crate::vram::TABLAS[1] + 8 * crate::mmu::indices(VA)[2] as u64
+}
+
+/// **G2: mapear `bytes` de VRAM desde [`VRAM`] en [`VA`]**: la PD0 y las PT a
+/// cero, las PTE, las PDE de la PD0 y al final la de la PD1 (de la hoja a la
+/// raiz), todo RELEIDO. Solo si esa entrada de la PD1 esta VACIA. Devuelve
+/// `(escrituras, releidas iguales)`.
+pub fn mapear<R: crate::Registros>(r: &mut R, bytes: u64) -> Option<(u32, u32)> {
+    use crate::mmu::{indices, pde_vram, pte_vram};
+    use crate::vram::{a_cero, escribir64, leer64};
+    if bytes == 0 || bytes > MAX_BYTES || VA % (2 << 20) != 0 {
+        return None;
+    }
+    if leer64(r, entrada_pd1()) != 0 {
+        return None;
+    }
+    let paginas = bytes.div_ceil(0x1000);
+    let pts = paginas.div_ceil(512) as usize;
+    let pd0 = TABLAS;
+    let pt = |k: usize| TABLAS + 0x1000 * (1 + k as u64);
+    for k in 0..=pts {
+        a_cero(r, TABLAS + 0x1000 * k as u64);
+    }
+    let (mut n, mut bien) = (0u32, 0u32);
+    let mut poner = |r: &mut R, dir: u64, v: u64| {
+        escribir64(r, dir, v);
+        n += 1;
+        bien += (leer64(r, dir) == v) as u32;
+    };
+    for p in 0..paginas {
+        poner(r, pt((p / 512) as usize) + 8 * (p % 512), pte_vram(VRAM + p * 0x1000));
+    }
+    let i0 = indices(VA)[3] as u64;
+    for k in 0..pts {
+        // La mitad de 4 KiB de la PD0 es la segunda (+8), como el tramo.
+        poner(r, pd0 + 16 * (i0 + k as u64) + 8, pde_vram(pt(k)));
+    }
+    poner(r, entrada_pd1(), pde_vram(pd0));
+    Some((n, bien))
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -185,6 +297,89 @@ mod pruebas {
         let mut otra = h;
         otra[CABECERA + 8] = 0x33;
         assert!(!permitida(&otra[CABECERA..n]));
+    }
+
+    /// Una VRAM de mentira de 8 MiB desde el DIRECTORIO (las tablas del tramo
+    /// y las de G2), por la ventana PRAMIN.
+    struct Falsa {
+        ventana: u32,
+        vram: std::vec::Vec<u32>,
+    }
+    extern crate std;
+
+    impl crate::Registros for Falsa {
+        fn leer(&mut self, reg: u32) -> u32 {
+            if reg == crate::vram::VENTANA_REG {
+                return self.ventana;
+            }
+            let dir = ((self.ventana as u64) << 16) + (reg - crate::vram::VENTANA) as u64;
+            self.vram.get(((dir - crate::vram::DIRECTORIO) / 4) as usize).copied().unwrap_or(0)
+        }
+        fn escribir(&mut self, reg: u32, v: u32) {
+            if reg == crate::vram::VENTANA_REG {
+                self.ventana = v;
+                return;
+            }
+            let dir = ((self.ventana as u64) << 16) + (reg - crate::vram::VENTANA) as u64;
+            if let Some(c) = self.vram.get_mut(((dir - crate::vram::DIRECTORIO) / 4) as usize) {
+                *c = v;
+            }
+        }
+    }
+
+    /// Las medidas que dijo el RM en el metal (24-09 15:22).
+    fn del_metal() -> [Bufer; 8] {
+        let mut d = [0u8; CABECERA_CONTROL + MEDIDA];
+        for (id, m) in [(0x00, 694016u32), (0x10, 16384), (0x11, 12288), (0x0D, 131072), (0x13, 8720896), (0x14, 524288), (0x17, 65536), (0x18, 524288)] {
+            let o = CABECERA_CONTROL + 8 * id;
+            d[o..o + 4].copy_from_slice(&m.to_le_bytes());
+        }
+        buferes(&d).unwrap()
+    }
+
+    #[test]
+    fn el_reparto_del_metal_cabe() {
+        let t = del_metal();
+        assert_eq!(total(&t), 26048 * 1024 + 0, "lo que dijo la fila `gr` es la suma sin huecos de alineacion al final");
+        let (c, bytes, cero) = repartir(&t).unwrap();
+        // Los que el RM llena, primero y seguidos.
+        assert!(c[..4].iter().all(|x| x.b.iniciar) && c[4..].iter().all(|x| !x.b.iniciar));
+        assert!(c[..4].iter().all(|x| x.off + x.b.medida <= cero));
+        for x in &c {
+            assert_eq!(x.off % (1 << x.b.alinear), 0, "{:?} alineado", core::str::from_utf8(x.b.nombre));
+            assert_eq!(x.vram() % (1 << x.b.alinear), 0);
+            assert_eq!(x.va() % (1 << x.b.alinear), 0);
+        }
+        // Sin solapes.
+        for i in 0..8 {
+            for j in i + 1..8 {
+                let (a, b) = (c[i], c[j]);
+                assert!(a.off + a.b.medida <= b.off || b.off + b.b.medida <= a.off);
+            }
+        }
+        assert!(bytes <= MAX_BYTES && cero < bytes);
+        // Y todo cae en lo usable del metal (0x003110000..0x2F06DFFFF), lejos
+        // del tramo (0x4200000) y de las tablas.
+        assert!(VRAM >= 0x0311_0000 && VRAM + bytes < 0x2_F06D_FFFF);
+        assert!(TABLAS + 0x1000 * (PTS as u64 + 1) <= VRAM && TABLAS >= crate::vram::TRAMO + 0x10000);
+    }
+
+    #[test]
+    fn el_mapeo_de_g2_se_relee() {
+        let mut f = Falsa { ventana: 0xFFF0, vram: std::vec![0u32; 2 << 20] };
+        let (_, bytes, _) = repartir(&del_metal()).unwrap();
+        let (n, bien) = mapear(&mut f, bytes).unwrap();
+        assert_eq!(n, bien);
+        let paginas = bytes.div_ceil(0x1000);
+        assert_eq!(n as u64, paginas + paginas.div_ceil(512) + 1);
+        assert_eq!(f.ventana, 0xFFF0);
+        // La PD1 del tramo apunta a nuestra PD0, y la primera PTE a VRAM.
+        assert_eq!(crate::vram::leer64(&mut f, entrada_pd1()), crate::mmu::pde_vram(TABLAS));
+        assert_eq!(crate::vram::leer64(&mut f, TABLAS + 0x1000), crate::mmu::pte_vram(VRAM));
+        // No toca la entrada del tramo.
+        assert_ne!(entrada_pd1(), crate::vram::TABLAS[1] + 8 * crate::mmu::indices(crate::vram::TRAMO_VA)[2] as u64);
+        // Otra vez: la entrada ya esta ocupada, no se pisa.
+        assert_eq!(mapear(&mut f, bytes), None);
     }
 
     #[test]

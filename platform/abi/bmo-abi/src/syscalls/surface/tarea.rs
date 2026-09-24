@@ -755,6 +755,11 @@ pub const IOMMU_OP_GSP_GR: u64 = 0x26;
 /// Con el canal de copia pedido; una vez por arranque. Despues, BIND y
 /// SCHEDULE por `IOMMU_OP_GPU_CANAL_ORDEN` con `AtarGr`/`ProgramarGr`.
 pub const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
+/// M5 G2: `arg1` = bytes | cero_hasta << 32 (de `gr::repartir`): pone a
+/// cero `[gr::VRAM, +cero_hasta)` por PRAMIN, mapea `bytes` desde `gr::VRAM`
+/// en `gr::VA` (`gr::mapear`) e invalida la MMU. Una vez por arranque, con el
+/// tramo mapeado. `Ok` = escrituras | releidas << 16 | paginas a cero << 32.
+pub const IOMMU_OP_GPU_GR_MEMORIA: u64 = 0x28;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -884,6 +889,8 @@ pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
 pub const IOMMU_NO_COPIA: u32 = 65;
 /// L1d3: el tramo no se releyo igual por PRAMIN: no se toco el timbre.
 pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
+/// M5 G2: medidas fuera de lo que cabe, el tramo sin mapear, o ya se hizo.
+pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

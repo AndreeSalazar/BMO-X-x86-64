@@ -74,12 +74,77 @@ pub(crate) fn hecho() -> bool {
 }
 
 /// Los buferes, para G2.
-#[allow(dead_code)]
 pub(crate) fn buferes() -> Option<[Bufer; 8]> {
     match ultimo() {
         Some(Ok(g)) if bien(&g) => g.buferes,
         _ => None,
     }
+}
+
+// == G2: LOS BUFERES EN VRAM, MAPEADOS ======================================
+
+static mut MEMORIA: Option<Result<u64, u32>> = None;
+
+fn memoria() -> Option<Result<u64, u32>> {
+    // SAFETY: como `ultimo`.
+    unsafe { *core::ptr::addr_of!(MEMORIA) }
+}
+
+/// Sin los buferes de G0 (`gpu gr`), o no caben en lo que G2 mapea.
+pub(crate) const NO_GR_SIN_BUFERES: u32 = 0x133;
+/// Las entradas se escribieron pero alguna no se releyo igual.
+pub(crate) const NO_GR_MAPEO_MAL: u32 = 0x134;
+
+fn memoria_sana(v: u64) -> bool {
+    let (n, bien) = (v & 0xFFFF, (v >> 16) & 0xFFFF);
+    n > 0 && n == bien
+}
+
+/// **G2: los buferes en VRAM, mapeados.** El reparto lo hace el escritorio
+/// con lo que dijo G0; el kernel solo recibe cuanto mapear y hasta donde poner
+/// a cero. Antes, que todo caiga en VRAM que el GSP-RM dio como usable.
+pub(crate) fn mapear() -> Result<u64, u32> {
+    let r = (|| {
+        let t = buferes().ok_or(NO_GR_SIN_BUFERES)?;
+        let (_, bytes, cero) = gr::repartir(&t).ok_or(NO_GR_SIN_BUFERES)?;
+        match super::gsprpc::usable(gr::VRAM, bytes) {
+            None => return Err(super::gspvram::NO_VRAM_SIN_REGIONES),
+            Some(false) => return Err(super::gspvram::NO_VRAM_NO_USABLE),
+            Some(true) => {}
+        }
+        bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_GR_MEMORIA, bytes | cero << 32)
+    })();
+    // SAFETY: como `ultimo`.
+    unsafe { *core::ptr::addr_of_mut!(MEMORIA) = Some(r) };
+    match r {
+        Ok(v) if memoria_sana(v) => Ok(v),
+        Ok(_) => Err(NO_GR_MAPEO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn mapeado() -> bool {
+    matches!(memoria(), Some(Ok(v)) if memoria_sana(v))
+}
+
+/// `gpu grmem`.
+pub(crate) fn orden_memoria(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "poniendo los buferes de GR en tu VRAM", INK_DIM);
+    let r = mapear();
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LOS BUFERES DEL MOTOR GRAFICO YA ESTAN EN TU VRAM Y LA GPU LOS VE (G2 de M5)\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  los buferes de GR no quedaron mapeados: mira la fila `gr memoria`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "grmem", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
 }
 
 /// `gpu gr`.
@@ -177,5 +242,52 @@ pub(crate) fn fila(s: &mut Output) {
             s.byte(b'\n');
         }
         super::datos::anotar(b"gpu gr total", gr::total(&t), b"B");
+    }
+    fila_memoria(s);
+}
+
+/// **La fila `gr memoria`** (G2), si se pidio; y donde quedo cada bufer.
+fn fila_memoria(s: &mut Output) {
+    let Some(r) = memoria() else { return };
+    campo(s, b"gr memoria");
+    match r {
+        Err(m) => {
+            s.with_ink(INK_ERR);
+            s.text(b"NO: ");
+            s.text(super::iommu::motivo(m));
+        }
+        Ok(v) => {
+            s.with_ink(if memoria_sana(v) { INK_GOOD } else { INK_ERR });
+            s.text(b"VRAM 0x");
+            s.hex(gr::VRAM, 9);
+            s.text(b" -> VA 0x");
+            s.hex(gr::VA, 9);
+            s.text(b": ");
+            s.dec((v >> 16) & 0xFFFF);
+            s.text(b" de ");
+            s.dec(v & 0xFFFF);
+            s.text(b" entradas releidas");
+            s.with_ink(INK_ECHO);
+            s.text(b"; ");
+            s.dec(v >> 32);
+            s.text(b" paginas a cero (las que llena el RM); tablas en 0x");
+            s.hex(gr::TABLAS, 9);
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    if let Some((c, _, _)) = buferes().and_then(|t| gr::repartir(&t)) {
+        campo(s, b"gr donde");
+        s.with_ink(INK_ECHO);
+        for (k, x) in c.iter().enumerate() {
+            if k > 0 {
+                s.text(b", ");
+            }
+            s.text(x.b.nombre);
+            s.text(b" +0x");
+            s.hex(x.off, 7);
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
     }
 }

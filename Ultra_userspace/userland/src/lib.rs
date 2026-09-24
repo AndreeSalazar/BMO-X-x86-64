@@ -257,6 +257,7 @@ pub const IOMMU_OP_GPU_COPIA: u64 = 0x24;
 pub const IOMMU_OP_GPU_LEER: u64 = 0x25;
 pub const IOMMU_OP_GSP_GR: u64 = 0x26;
 pub const IOMMU_OP_GPU_CANAL_GR: u64 = 0x27;
+pub const IOMMU_OP_GPU_GR_MEMORIA: u64 = 0x28;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -323,6 +324,7 @@ pub const IOMMU_NO_CANAL_MEMORIA: u32 = 63;
 pub const IOMMU_NO_CANAL_ORDEN: u32 = 64;
 pub const IOMMU_NO_COPIA: u32 = 65;
 pub const IOMMU_NO_COPIA_PREPARAR: u32 = 66;
+pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

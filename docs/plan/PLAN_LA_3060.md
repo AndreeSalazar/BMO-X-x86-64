@@ -372,19 +372,37 @@ contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_
        L1a); ocho buferes -- MAIN (+64 cabeceras de subcontexto), PATCH,
        BUNDLE_CB, PAGEPOOL, ATTRIBUTE_CB, RTV_CB_GLOBAL, FECS_EVENT y
        PRIV_ACCESS_MAP -- con la medida, pagina y alineacion de nouveau
-       (`gpu gr`, paso `gr`)                         [en codigo, 24-09]
+       (`gpu gr`, paso `gr`)                         [VISTO 24-09 15:22]
    G1  un canal en GR0 (lista 0, la de la tabla), como el de L1d2b:
        `canal::GR` (chid 2, instancia y GPFIFO en las paginas 5 y 6 del
        tramo, USERD en el hueco 2, metodos en 0x3A01_0000), BIND GR0 y
        SCHEDULE (`gpu canalgr`, pasos `canalgr` y `encendergr`)
+                                                     [VISTO 24-09 15:22]
+   G2  los buferes en VRAM propia, mapeados en nuestro espacio: desde
+       VRAM 0x0800_0000, en la VA 0x3_0000_0000 (la entrada 24 de la PD1
+       del tramo), con una PD0 y hasta 16 PT en 0x0430_0000; los que llena
+       el RM PRIMERO y a cero; paginas de 4 KiB (`gpu grmem`, paso `grmem`)
                                                      [en codigo, 24-09]
-   G2  los buferes en VRAM propia, mapeados en nuestro espacio (el mapeador
-       de L1d1 crece de 16 paginas a los MiB que diga G0)
    G3  PROMOTE_CTX (0x2080012B) con cada uno: MAIN 0, PATCH 2, BUNDLE_CB 3,
        PAGEPOOL 4, ATTRIBUTE_CB 5, RTV 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10
        (no mapeado) y UNRESTRICTED_PRIV_ACCESS_MAP 11 con su memoria
    G4  AMPERE_B (0xC797) en ese canal: el RM hace el contexto de ORO
 ```
+
+**G0 y G1 en el metal (24-09, 15:22): 34 de 34 pasos.** `gr: 8 buferes para
+el contexto de oro de GR0, 26048 KiB`: MAIN 936 KiB (694016 B + 64 cabeceras),
+PATCH 16, BUNDLE_CB 12, PAGEPOOL 128, ATTRIBUTE_CB 8517 KiB (alineado a 16
+MiB), RTV_CB_GLOBAL 512, FECS_EVENT 64, PRIV_ACCESS_MAP 512. `canal gr:
+0xF1F00002 (chid 2, GR0): NV_OK`, `atado gr: NV_OK`, `en lista gr: NV_OK`. Y
+`copia` en verde con la comprobacion arreglada. G2 se probo en el anfitrion
+con ESAS medidas: el reparto cabe en 25 MiB, sin solapes y alineado en VRAM
+y en VA.
+
+G3 (siguiente), `NV2080_CTRL_GPU_PROMOTE_CTX_PARAMS` de la 570.144:
+`engineType, hClient, ChID, hChanClient, hObject, hVirtMemory, virtAddress,
+size, entryCount` y `promoteEntry[]` de `{gpuPhysAddr, gpuVirtAddr, size,
+physAttr, bufferId (u16), bInitialize (u8), bNonmapped (u8)}`; nouveau pone
+`engineType 1`, el cliente y el canal, y `physAttr 4` en los que inicializa.
 
 Los ids de PROMOTE son los de la r570 (`nvrm/gpu.h`), comprobados: una
 primera version los tenia corridos en uno.

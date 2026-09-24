@@ -947,3 +947,57 @@ pub fn pedir_canal_gr() -> Result<u64, u32> {
         Err(m) => fallo(m),
     }
 }
+
+// == M5 G2: LOS BUFERES DE GR EN VRAM, MAPEADOS (2026-09-24) ==================
+//
+// `gr::repartir` los coloca desde `gr::VRAM` y los ve la GPU desde `gr::VA`,
+// con los que el RM llena PRIMERO: el kernel solo recibe cuanto mapear y hasta
+// donde poner a cero, y no sabe de buferes. A cero por PRAMIN (pagina a pagina,
+// releida), el mapeo de `gr::mapear` (tablas nuevas, de la hoja a la raiz,
+// releidas) y la MMU invalidada, como tras el tramo. Una vez por arranque.
+
+/// L1d/M5 G2: los buferes de GR ya estan en VRAM y mapeados.
+static GR_MAPEADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// G2: medidas fuera de lo que cabe, el tramo sin mapear, o ya se hizo.
+pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
+
+/// **M5 G2.** `arg` = bytes | cero_hasta << 32. `Ok(escrituras | releidas
+/// << 16 | paginas a cero << 32)`.
+pub fn mapear_gr(arg: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::gr;
+    let (bytes, cero) = (arg & 0xFFFF_FFFF, arg >> 32);
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0
+        || !TRAMO_PUESTO.load(Ordering::Acquire)
+        || bytes == 0
+        || bytes > gr::MAX_BYTES
+        || cero > bytes
+        || bytes % PAGINA != 0
+        || cero % PAGINA != 0
+    {
+        return Err(IOMMU_NO_GR_MEMORIA);
+    }
+    if GR_MAPEADO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_GR_MEMORIA);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    // Los que el RM llena, a cero (como `nvkm_memory_new(.., zero = init)`).
+    let mut ceros = 0u64;
+    for k in 0..cero / PAGINA {
+        if bmo_gpu_ga10x::vram::a_cero(&mut r, gr::VRAM + k * PAGINA) as usize == bmo_gpu_ga10x::vram::PALABRAS {
+            ceros += 1;
+        }
+    }
+    let Some((n, bien)) = gr::mapear(&mut r, bytes) else {
+        GR_MAPEADO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "M5 G2: la entrada de la PD1 para los buferes de GR ya estaba ocupada; no se pisa", 0);
+        return Err(IOMMU_NO_GR_MEMORIA);
+    };
+    // La GPU tira lo que tuviera de nuestras tablas (como tras el tramo).
+    let invalidada = bmo_gpu_ga10x::copia::invalidar(&mut r);
+    if !invalidada {
+        crate::ring0::cabina::warn("gpu", "M5 G2: la invalidacion de la MMU no acabo", 0);
+    }
+    crate::ring0::cabina::count("gpu", "M5 G2: buferes de GR mapeados; entradas releidas", bien as u64);
+    Ok(n as u64 & 0xFFFF | (bien as u64 & 0xFFFF) << 16 | ceros << 32)
+}
