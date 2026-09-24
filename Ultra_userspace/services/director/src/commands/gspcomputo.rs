@@ -504,12 +504,21 @@ fn panel(p: &bmo::Pantalla, v: u64, que: Vista) -> bool {
     y += 36;
     fila(y, Linea::nueva().d(cpu_us as u64).t(b" us, haciendo la MISMA cuenta"), CLARO);
     y += 48;
-    if gpu_us > 0 {
+    if gpu_us > 0 && cpu_us >= gpu_us {
         let veces = cpu_us as u64 / gpu_us as u64;
         let mut l = Linea::nueva();
         l.t(b"LA 3060 FUE ").d(veces).t(b" VECES MAS RAPIDA");
         p.texto_escala(40, y, core::str::from_utf8(&l.b[..l.n]).unwrap_or(""), VERDE, 2);
         y += 48;
+    } else if gpu_us > 0 {
+        // ** Metal 24-09 17:08: el triangulo salio `x0` -- 791 us contra 631.
+        // No es que la 3060 sea lenta: la cuenta por pixel es LIGERA y lo que
+        // cuesta es escribir 1 MiB en la RAM del PC por PCIe (ese arranque, en
+        // Gen1). Se dice como es en vez de pintar "0 veces".
+        p.texto_escala(40, y, "AQUI GANO LA CPU: trabajo ligero", TENUE, 2);
+        y += 36;
+        fila(y, Linea::nueva().t(b"la cuenta por pixel es poca; lo que cuesta es llevar 1 MiB a tu RAM por PCIe"), TENUE);
+        y += 40;
     }
     fila(y, Linea::nueva().d(buenos as u64).t(b" de 262144 pixeles iguales a la CPU, bit a bit"), if buenos as usize == fractal::PIXELES { VERDE } else { 0x00FF_5555 });
     y += 28;
