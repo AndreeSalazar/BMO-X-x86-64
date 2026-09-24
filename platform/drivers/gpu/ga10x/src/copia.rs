@@ -99,7 +99,12 @@ pub const LANZAR: u32 = 2 | 1 << 2 | 1 << 3 | 1 << 7 | 1 << 8;
 
 /// Cabecera `INC_METHOD` en el subcanal de la copia.
 pub const fn cabecera(metodo: u32, cuenta: u32) -> u32 {
-    1 << 29 | cuenta << 16 | SUBCANAL << 13 | metodo >> 2
+    cabecera_en(SUBCANAL, metodo, cuenta)
+}
+
+/// Cabecera `INC_METHOD` en `subcanal` (la copia usa el 4; el computo, el 1).
+pub const fn cabecera_en(subcanal: u32, metodo: u32, cuenta: u32) -> u32 {
+    1 << 29 | cuenta << 16 | subcanal << 13 | metodo >> 2
 }
 
 /// `(hClient, hParent, hObject, hClass, medida)`, como `canal::forma`.
@@ -163,7 +168,7 @@ pub const fn entrada(va: u64, palabras: u32) -> u64 {
 
 /// Escribir palabras seguidas en la VRAM por la ventana (misma ventana: no
 /// cruzan 1 MiB), y devolver cuantas se RELEEN iguales.
-fn escribir<R: Registros>(r: &mut R, dir: u64, p: &[u32]) -> usize {
+pub(crate) fn escribir<R: Registros>(r: &mut R, dir: u64, p: &[u32]) -> usize {
     let (base, off) = ventana(dir);
     let antes = r.leer(VENTANA_REG);
     r.escribir(VENTANA_REG, base);

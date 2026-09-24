@@ -773,6 +773,14 @@ pub const IOMMU_OP_GSP_GR_PROMOVER: u64 = 0x2A;
 /// corre el contexto de oro. Tras G3; una vez por arranque. `Ok` = pagina |
 /// numero << 32.
 pub const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
+/// M5d S1: AMPERE_COMPUTE_B (0xC7C0) colgado del canal de GR0, sin
+/// parametros. Tras G4; una vez por arranque. `Ok` = pagina | numero << 32.
+pub const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
+/// M5d S3: el primer trabajo del motor grafico, `arg1` = la ficha del canal
+/// de GR0 con su lista (`computo::ficha_valida`): SET_OBJECT del computo y un
+/// semaforo de INFORME en el tramo. Una vez por arranque. `Ok` =
+/// `computo::empaquetar(semaforo, GP_GET, lanzado, us)`.
+pub const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -909,6 +917,12 @@ pub const IOMMU_NO_GR_MEMORIA: u32 = 68;
 pub const IOMMU_NO_GR_PROMOVER: u32 = 69;
 /// M5 G4: sin G3, o el objeto 3D ya se pidio.
 pub const IOMMU_NO_GR_TRESDE: u32 = 70;
+/// M5d S1: sin el oro (G4), o el computo ya se pidio.
+pub const IOMMU_NO_COMPUTO: u32 = 71;
+/// M5d S3: sin el computo, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_TRABAJO_GR: u32 = 72;
+/// M5d S3: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

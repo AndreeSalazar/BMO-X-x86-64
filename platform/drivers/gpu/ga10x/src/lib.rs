@@ -81,6 +81,8 @@ pub mod copia;
 /// M5 G0: los buferes de contexto que pide el motor grafico (2026-09-24).
 pub mod gr;
 
+pub mod computo;
+
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.
 pub trait Registros {

@@ -1095,3 +1095,85 @@ pub fn pedir_tresde() -> Result<u64, u32> {
         }
     }
 }
+
+// == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
+//
+// Tras el oro (VISTO en el metal 24-09 15:51): AMPERE_COMPUTE_B en el canal de
+// GR0 por RPC, y UNA vez por arranque el primer trabajo del motor grafico --
+// la receta de la copia (`copiar`) con `bmo_gpu_ga10x::computo`: ordenes y
+// GPFIFO por PRAMIN en el tramo, GP_PUT del canal de GR0 y la ficha en el
+// timbre. Lo paga un semaforo de INFORME: solo lo escribe el GR.
+
+static COMPUTO_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static TRABAJO_GR_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// S1: sin el oro (G4), o el computo ya se pidio.
+pub const IOMMU_NO_COMPUTO: u32 = 71;
+/// S3: sin el computo, una ficha que no es del canal de GR0, o ya se hizo.
+pub const IOMMU_NO_TRABAJO_GR: u32 = 72;
+/// S3: el tramo no se releyo igual: no se toco el timbre.
+pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
+
+/// **M5d S1: AMPERE_COMPUTE_B.** `Ok(pagina | numero << 32)` de la RPC.
+pub fn pedir_computo() -> Result<u64, u32> {
+    if !GR_TRESDE.load(Ordering::Acquire) || COMPUTO_PEDIDO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_COMPUTO);
+    }
+    match enviar(bmo_gpu_ga10x::computo::pedir) {
+        Ok(v) => {
+            crate::ring0::cabina::count("gpu", "M5d S1: GSP_RM_ALLOC de AMPERE_COMPUTE_B pedido; asa", bmo_gpu_ga10x::computo::COMPUTO as u64);
+            Ok(v)
+        }
+        Err(e) => {
+            COMPUTO_PEDIDO.store(false, Ordering::Release);
+            Err(e)
+        }
+    }
+}
+
+/// **M5d S3: el primer trabajo del GR.** `ficha` = la de `FichaGr` con la
+/// lista de GR0 (la de la tabla de aparatos). `Ok(computo::empaquetar(..))`.
+pub fn trabajo_gr(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::computo as cm;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !COMPUTO_PEDIDO.load(Ordering::Acquire) || !cm::ficha_valida(ficha) {
+        return Err(IOMMU_NO_TRABAJO_GR);
+    }
+    if TRABAJO_GR_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_TRABAJO_GR);
+    }
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    if !cm::preparar(&mut r) {
+        // Nada llego a la 3060: se puede reintentar.
+        TRABAJO_GR_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "M5d S3: el tramo no quedo preparado; no se toca el timbre", 0);
+        return Err(IOMMU_NO_TRABAJO_GR_PREPARAR);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = cm::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut semaforo) = (0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, semaforo) = cm::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if semaforo == cm::PAGA {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    // Como la copia: GP_GET llega despues; hasta 10 ms, sin exigirlo.
+    let pagado_en = us;
+    while semaforo == cm::PAGA && gp_get == 0 && us < pagado_en + 10_000 {
+        gp_get = cm::mirar(&mut r).0;
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        core::hint::spin_loop();
+    }
+    let v = cm::empaquetar(semaforo, gp_get, lanzado, pagado_en as u32);
+    if cm::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d S3: EL MOTOR GRAFICO CORRIO nuestro trabajo; us", pagado_en);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d S3: el GR no pago el semaforo; lo que habia", semaforo as u64);
+    }
+    Ok(v)
+}

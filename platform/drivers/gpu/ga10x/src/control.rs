@@ -76,13 +76,15 @@ pub enum Control {
     AtarGr,
     /// M5 G1: meter el canal de GR0 en su lista (`GPFIFO_SCHEDULE`).
     ProgramarGr,
+    /// M5d S2: la FICHA del timbre del canal de GR0. Pregunta.
+    FichaGr,
 }
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 10] = [
+    pub const TODOS: [Control; 11] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -93,6 +95,7 @@ impl Control {
         Control::Dispositivos,
         Control::AtarGr,
         Control::ProgramarGr,
+        Control::FichaGr,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -112,6 +115,7 @@ impl Control {
             Control::Dispositivos => (0x2080_1112, DISPOSITIVOS_MEDIDA, SUBDISPOSITIVO),
             Control::AtarGr => (0xA06F_0104, 4, crate::canal::GR.asa),
             Control::ProgramarGr => (0xA06F_0103, 2, crate::canal::GR.asa),
+            Control::FichaGr => (0xC36F_0108, 4, crate::canal::GR.asa),
         }
     }
 
@@ -119,7 +123,7 @@ impl Control {
     /// directorio no: va con su pagina a cero delante, y una vez
     /// (`IOMMU_OP_GPU_DIRECTORIO`).
     pub const fn pregunta(self) -> bool {
-        matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha | Control::Dispositivos)
+        matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha | Control::Dispositivos | Control::FichaGr)
     }
 
     /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
@@ -341,7 +345,9 @@ mod pruebas {
         assert_eq!(Control::de(6), Some(Control::Ficha));
         assert_eq!(Control::de(7), Some(Control::Dispositivos));
         assert_eq!(Control::de(8), Some(Control::AtarGr));
-        assert_eq!(Control::de(10), None);
+        assert_eq!(Control::de(10), Some(Control::FichaGr));
+        assert_eq!(Control::de(11), None);
+        assert!(Control::FichaGr.pregunta() && !Control::FichaGr.del_canal_gr());
         assert!(Control::AtarGr.del_canal_gr() && !Control::AtarGr.del_canal() && !Control::AtarGr.pregunta());
         assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());
         assert!(Control::Motores.pregunta() && Control::Metodos.pregunta() && !Control::Directorio.pregunta());

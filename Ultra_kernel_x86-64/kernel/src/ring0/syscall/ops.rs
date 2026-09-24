@@ -378,6 +378,10 @@ pub(crate) const IOMMU_OP_GPU_GR_MEDIDA: u64 = 0x29;
 pub(crate) const IOMMU_OP_GSP_GR_PROMOVER: u64 = 0x2A;
 /// M5 G4: AMPERE_B en el canal de GR0. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
+/// M5d S1: AMPERE_COMPUTE_B en el canal de GR0. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
+/// M5d S3: el primer trabajo del GR, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

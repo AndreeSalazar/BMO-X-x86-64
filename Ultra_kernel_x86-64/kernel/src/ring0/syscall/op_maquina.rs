@@ -850,6 +850,15 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
                 crate::ring0::dev::gpu_libos::pedir_tresde()
             }
         }
+        IOMMU_OP_GSP_COMPUTO => crate::ring0::dev::gpu_libos::pedir_computo(),
+        // ** M5d S3: la primera vez que el MOTOR GRAFICO ejecuta algo nuestro.
+        // El FLUSH, como la copia.
+        IOMMU_OP_GPU_TRABAJO_GR => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del primer trabajo del GR no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_libos::trabajo_gr(arg1)
+        }
         IOMMU_OP_GPU_CANAL_GR => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de pedir el canal de GR0 no se pudo: se sigue", 0);

@@ -40,6 +40,9 @@ pub(crate) mod gspcanal;
 pub(crate) mod gspgr;
 /// `gpu canalgr`: el canal de GR0, pedido, atado y en su lista (M5 G1, 24-09).
 pub(crate) mod gspcanalgr;
+/// `gpu computo`: AMPERE_COMPUTE_B, la ficha de GR0 y el primer trabajo del
+/// motor grafico (M5d S1..S3, 24-09).
+pub(crate) mod gspcomputo;
 pub(crate) mod gspvaciar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por

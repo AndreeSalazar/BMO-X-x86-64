@@ -98,7 +98,10 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
             // M5 G4: AMPERE_B en el canal de GR0, SIN parametros (nouveau).
             let t = crate::gr::forma_tresde();
             let es_el_tresde = (t.0, t.1, t.2, t.3) == (cliente, padre, asa, clase) && u32_de(d, 20) == 0;
-            if nuestro || es_el_canal || es_el_copiador || es_el_tresde {
+            // M5d S1: AMPERE_COMPUTE_B en el mismo canal, tambien sin parametros.
+            let c = crate::computo::forma();
+            let es_el_computo = (c.0, c.1, c.2, c.3) == (cliente, padre, asa, clase) && u32_de(d, 20) == 0;
+            if nuestro || es_el_canal || es_el_copiador || es_el_tresde || es_el_computo {
                 Ok(h.funcion)
             } else {
                 Err(No::Objeto)

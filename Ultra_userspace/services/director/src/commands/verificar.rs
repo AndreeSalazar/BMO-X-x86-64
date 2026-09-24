@@ -468,7 +468,34 @@ const PASOS: &[Paso] = &[
         hecho: super::gspgr::de_oro,
         dar: super::gspgr::tresde,
         pide: Some(b"promover"),
-        consejo: b"`gpu`: la segunda `gr oro` dice AMPERE_B NV_OK; `iommu` sin eventos nuevos -- el motor grafico ya puede recibir trabajo: lo siguiente es el computo (M5d)",
+        consejo: b"`gpu`: la segunda `gr oro` dice AMPERE_B NV_OK; `iommu` sin eventos nuevos -- lo siguiente es `computo`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"computo",
+        que: b"LA CLASE DE COMPUTO: AMPERE_COMPUTE_B (0xC7C0) en el canal de GR0, sin parametros (M5d S1)",
+        hecho: super::gspcomputo::pedido,
+        dar: super::gspcomputo::pedir,
+        pide: Some(b"oro"),
+        consejo: b"`gpu`: la fila `computo` dice NV_OK -- lo siguiente es `fichagr`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"fichagr",
+        que: b"LA FICHA DEL CANAL DE GR0 y la lista de GR0 en la tabla de aparatos (M5d S2)",
+        hecho: super::gspcomputo::ficha_leida,
+        dar: super::gspcomputo::ficha,
+        pide: Some(b"canalgr"),
+        consejo: b"`gpu`: la fila `ficha gr` dice la ficha y la lista de GR0 -- lo siguiente es `trabajogr`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"trabajogr",
+        que: b"EL PRIMER TRABAJO DEL MOTOR GRAFICO: SET_OBJECT del computo y un semaforo de INFORME, que solo paga el GR (M5d S3)",
+        hecho: super::gspcomputo::trabajado,
+        dar: super::gspcomputo::trabajar,
+        pide: Some(b"computo"),
+        consejo: b"`gpu`: `gr trabajo` dice PAGADO; `iommu` sin eventos nuevos -- el GR corre NUESTRO trabajo: lo siguiente es el primer sombreador (S4, el SASS)",
         repinta: false,
     },
 ];
@@ -801,7 +828,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
 
 /// Los pasos que solo PREGUNTAN al GSP-RM (o leen): darlos dos veces no
 /// cambia nada en la 3060, asi que un fallo se reintenta una vez.
-const REINTENTABLES: &[&[u8]] = &[b"estatica", b"objetos", b"salud", b"espacio", b"motores", b"ficha", b"gr"];
+const REINTENTABLES: &[&[u8]] = &[b"estatica", b"objetos", b"salud", b"espacio", b"motores", b"ficha", b"gr", b"fichagr"];
 
 fn reintentable(nombre: &[u8]) -> bool {
     REINTENTABLES.contains(&nombre)

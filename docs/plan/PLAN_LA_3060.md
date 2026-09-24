@@ -386,9 +386,9 @@ contexto de GR, la receta de `r535_gr_oneinit` / `r570_gr_get_ctxbufs_and_zcull_
    G3  PROMOTE_CTX (0x2080012B) con cada uno: MAIN 0, PATCH 2, BUNDLE_CB 3,
        PAGEPOOL 4, ATTRIBUTE_CB 5, RTV 6, FECS_EVENT 9, PRIV_ACCESS_MAP 10
        (no mapeado) y UNRESTRICTED_PRIV_ACCESS_MAP 11 con su memoria
-       (`gpu oro`, paso `promover`)                  [en codigo, 24-09]
+       (`gpu oro`, paso `promover`)                  [VISTO 24-09 15:51]
    G4  AMPERE_B (0xC797) en ese canal: el RM hace el contexto de ORO
-       (`gpu oro`, paso `oro`)                       [en codigo, 24-09]
+       (`gpu oro`, paso `oro`)                       [VISTO 24-09 15:51]
 ```
 
 **G0 y G1 en el metal (24-09, 15:22): 34 de 34 pasos.** `gr: 8 buferes para
@@ -441,6 +441,19 @@ y escritos (24-09):**
   reservado; el nuestro es de USUARIO. Y nouveau no le hace BIND ni SCHEDULE
   antes; el nuestro ya los tiene (G1). Cambiarlo es otra forma de canal, no
   un arreglo de G3.
+
+**EL CONTEXTO DE ORO, en el metal (24-09, 15:51): 37 de 37.** `gr: 9
+buferes, 26560 KiB`; `gr memoria: 6382 de 6382 releidas; 512 paginas a
+cero`; `gr oro: PROMOTE_CTX de 9 buferes: NV_OK en 10 ms` y `AMPERE_B
+0xC7970002 en el canal de GR0: NV_OK en 3 ms, 0 mensajes mas del GSP`. El
+canal de USUARIO basto: no hizo falta el privilegiado de nouveau. LOGRM
+paso de 636 a 1036593 B en ese arranque: el RM escribio mucho en su log
+durante el oro; `datos/gsplog.bin` lo tiene y se mira si S3 no sale.
+
+S1..S3 en codigo (24-09): `bmo_gpu_ga10x::computo`, `gpu computo`, pasos
+`computo`, `fichagr` y `trabajogr`. El trabajo lo paga un semaforo de
+INFORME (`SET_REPORT_SEMAPHORE_*` de `clc7c0.h`), que ejecuta el FE del GR
+y no el PBDMA: si se paga, el motor grafico corrio NUESTRO GPFIFO.
 
 **Del oro al primer sombreador (M5d, contado paso a paso, 24-09).** Cada
 fila es un paso de `save mode`, con su prueba en el anfitrion y su fila en
