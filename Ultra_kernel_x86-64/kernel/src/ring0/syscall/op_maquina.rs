@@ -788,6 +788,18 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_libos::libos()
         }
+        // ** L0c3b: firmware firmado en DOS falcons. El FLUSH, como FWSEC.
+        IOMMU_OP_GSP_DESPERTAR | IOMMU_OP_GSP_BOOTER => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de despertar el GSP no se pudo: se sigue", 0);
+            }
+            if arg0 == IOMMU_OP_GSP_DESPERTAR {
+                crate::ring0::dev::gpu_despertar::despertar()
+            } else {
+                super::op_gsp::booter()
+            }
+        }
+        IOMMU_OP_GSP_ACABAR => crate::ring0::dev::gpu_despertar::acabar(),
         IOMMU_OP_E2_APAGAR => {
             let estaba = crate::ring0::dev::vblank::apagar(crate::ring0::dev::vblank::E2_APAGADO_ORDEN);
             Ok(estaba as u64)

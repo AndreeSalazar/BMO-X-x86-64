@@ -451,6 +451,10 @@ const INFO_GPU_GSP: u64 = 0xBC;
 const INFO_GPU_GSP_HASH: u64 = 0xBD;
 /// L0c3a: LIBOS, logs, rmargs y colas, prestados y comprobados (2026-09-24).
 const INFO_GPU_LIBOS: u64 = 0xBE;
+/// L0c3b: el GSP despierto, sus buzones, y lo que escribe (con selector) (2026-09-24).
+const INFO_GPU_DESPIERTO: u64 = 0xBF;
+const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+const INFO_GPU_GSP_MEM: u64 = 0xC1;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -903,6 +907,7 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_ESPERA => crate::ring0::dev::gpu::info_espera(c),
         c if c & 0xFF == INFO_GPU_ROM => crate::ring0::dev::gpu::info_rom(c),
         c if c & 0xFF == INFO_GPU_FUSIBLE => crate::ring0::dev::gpu::info_fusible(c),
+        c if c & 0xFF == INFO_GPU_GSP_MEM => crate::ring0::dev::gpu_libos::info_gsp_mem(c),
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
         c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
@@ -988,6 +993,8 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_GSP => crate::ring0::dev::gpu_gsp::info_gsp(),
         INFO_GPU_GSP_HASH => crate::ring0::dev::gpu_gsp::info_gsp_hash(),
         INFO_GPU_LIBOS => crate::ring0::dev::gpu_libos::info_libos(),
+        INFO_GPU_DESPIERTO => crate::ring0::dev::gpu_despertar::info_despierto(),
+        INFO_GPU_DESPIERTO_BUZON => crate::ring0::dev::gpu_despertar::info_despierto_buzon(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

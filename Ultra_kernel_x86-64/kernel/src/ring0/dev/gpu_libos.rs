@@ -259,3 +259,27 @@ pub fn info_libos() -> u64 {
     }
     v | SEGUIDOS.load(Ordering::Acquire).min(0xFFFF)
 }
+
+/// Los 3 logs y GspMem, uno detras de otro, como los ve `INFO_GPU_GSP_MEM`.
+pub const VENTANA_LOGS: u64 = LOGS * PAGINA;
+pub const VENTANA_TOTAL: u64 = VENTANA_LOGS + lb::GSPMEM_PAGINAS * PAGINA;
+
+/// **`INFO_GPU_GSP_MEM`**: 8 bytes de lo que el GSP escribe, en `desde`
+/// contado sobre `0..0x30000` los logs (LOGINIT, LOGINTR, LOGRM) y detras
+/// GspMem. Para leerlo desde el escritorio, como la ROM en L0a. 0 si no hay.
+pub fn info_gsp_mem(sel: u64) -> u64 {
+    let desde = (sel >> 8) & !7;
+    let (f, o) = if desde < VENTANA_LOGS {
+        (LOGS_F.load(Ordering::Acquire), desde)
+    } else if desde < VENTANA_TOTAL {
+        (GSPMEM_F.load(Ordering::Acquire), desde - VENTANA_LOGS)
+    } else {
+        return 0;
+    };
+    if f == 0 {
+        return 0;
+    }
+    // SAFETY: un marco NEUTRO de este fichero, dentro de lo que se pidio; lo
+    // escribe la 3060 por DMA, y por eso se lee volatile.
+    unsafe { (crate::ring0::mm::phys_to_virt(f + o) as *const u64).read_volatile() }
+}

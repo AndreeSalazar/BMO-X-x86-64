@@ -372,6 +372,7 @@ pub(crate) fn fila(s: &mut Output) {
     }
     fila_radix(s);
     fila_libos(s);
+    fila_despierto(s);
 }
 
 // == L0c2: EL GSP-RM PRESTADO POR SU RADIX3 (2026-09-24) =========================
@@ -569,4 +570,190 @@ pub(crate) fn fila_libos(s: &mut Output) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::datos::anotar(b"gpu gsp libos", l, b"");
+}
+
+// == L0c3b: DESPERTAR EL GSP (2026-09-24) ========================================
+//
+// Tres ordenes del kernel y tres esperas aqui, cediendo el turno: el GSP se
+// para tras su arranque vacio, el SEC2 se para con el booter hecho, y el
+// RISC-V del GSP se enciende. Salga como salga, lo que el GSP escribio en sus
+// logs se guarda en `datos/gsplog.bin`: si algo falla, ahi dice por que.
+
+const RUTA_LOG: &[u8] = b"datos/gsplog.bin";
+/// Los tres logs: 3 x 16 paginas.
+const LOGS_BYTES: u64 = 3 * 16 * 4096;
+/// Donde esta, dentro de `INFO_GPU_GSP_MEM`, el `writePtr` de la cola del GSP:
+/// tras los logs, GspMem + la cola del GSP + 16.
+const COLA_GSP_ESCRITO: u64 = LOGS_BYTES + 0x41000 + 16;
+
+pub(crate) const NO_GSP_NO_PARA: u32 = 0x118;
+pub(crate) const NO_SEC2_NO_ACABA: u32 = 0x119;
+pub(crate) const NO_RISCV_DORMIDO: u32 = 0x11A;
+
+/// Esperar, cediendo el turno, hasta `ms`, a que `INFO_GPU_DESPIERTO` cumpla.
+fn esperar(ms: u64, cumple: impl Fn(u64) -> bool) -> bool {
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let fin = bmo::ciclos() + hz / 1000 * ms;
+    loop {
+        if cumple(bmo::info(bmo::INFO_GPU_DESPIERTO)) {
+            return true;
+        }
+        if bmo::ciclos() >= fin {
+            return false;
+        }
+        bmo::yield_screen();
+    }
+}
+
+fn mem(desde: u64) -> u64 {
+    bmo::info(bmo::INFO_GPU_GSP_MEM | desde << 8)
+}
+
+/// Los tres logs del GSP, crudos, a `datos/gsplog.bin`. `true` si se guardo.
+fn guardar_logs() -> bool {
+    let Some(bloque) = bmo::Memoria::request(LOGS_BYTES) else { return false };
+    // SAFETY: el bloque mide LOGS_BYTES, es de este proceso y se escribe aqui
+    // antes de leerse.
+    let b = unsafe { core::slice::from_raw_parts_mut(bloque.base(), LOGS_BYTES as usize) };
+    for o in (0..LOGS_BYTES).step_by(8) {
+        b[o as usize..o as usize + 8].copy_from_slice(&mem(o).to_le_bytes());
+    }
+    match bmo::Archivo::create(RUTA_LOG) {
+        Ok(a) => a.escribir_de(&bloque, 0, LOGS_BYTES) == LOGS_BYTES && a.close(),
+        Err(_) => false,
+    }
+}
+
+fn despertar_sin_logs() -> Result<u64, u32> {
+    if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO != 0 {
+        return Ok(1);
+    }
+    bmo::iommu_orden(bmo::IOMMU_OP_GSP_DESPERTAR)?;
+    if !esperar(2000, |d| d & bmo::DESPIERTO_GSP_PARADO != 0) {
+        return Err(NO_GSP_NO_PARA);
+    }
+    bmo::iommu_orden(bmo::IOMMU_OP_GSP_BOOTER)?;
+    // nova-core da 2 s al booter; aqui 5, que sube 60 MB a la WPR2.
+    if !esperar(5000, |d| d & bmo::DESPIERTO_SEC2_PARADO != 0) {
+        return Err(NO_SEC2_NO_ACABA);
+    }
+    bmo::iommu_orden(bmo::IOMMU_OP_GSP_ACABAR)?;
+    if !esperar(5000, |d| d & bmo::DESPIERTO_RISCV_ACTIVO != 0) {
+        return Err(NO_RISCV_DORMIDO);
+    }
+    Ok(1)
+}
+
+/// **`gpu despertar`, y el paso de `save mode`.** Salga como salga, los logs.
+pub(crate) fn despertar() -> Result<u64, u32> {
+    let r = despertar_sin_logs();
+    guardar_logs();
+    r
+}
+
+/// Lo pregunta `save mode`: el RISC-V del GSP se vio activo.
+pub(crate) fn despierto() -> bool {
+    bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO != 0
+}
+
+/// `gpu despertar`.
+pub(crate) fn orden_despertar(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if !super::files::antes_de_arriesgar(dsk, p, b"gpu despertar") {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    paint_status(p, &dsk.run_box, "despertando el GSP: el booter en el SEC2", INK_DIM);
+    let r = despertar();
+    let g = &mut dsk.out.grid;
+    match r {
+        Ok(_) => {
+            g.with_ink(INK_GOOD);
+            g.text(b"  EL GSP DESPERTO: el RISC-V del GSP de tu 3060 esta ACTIVO; sus logs en datos/gsplog.bin\n");
+        }
+        Err(m) => {
+            g.with_ink(INK_ERR);
+            g.text(b"  NO: ");
+            g.text(super::iommu::motivo(m));
+            g.text(b" -- los logs del GSP, en datos/gsplog.bin\n");
+        }
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "despertar", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+fn paso(s: &mut Output, hecho: bool, nombre: &[u8]) {
+    s.with_ink(if hecho { INK_GOOD } else { INK_ECHO });
+    s.text(if hecho { b" +" as &[u8] } else { b" -" });
+    s.text(nombre);
+}
+
+/// **Las filas de L0c3b**, si se intento.
+pub(crate) fn fila_despierto(s: &mut Output) {
+    let d = bmo::info(bmo::INFO_GPU_DESPIERTO);
+    if d & bmo::DESPIERTO_VALIDO == 0 {
+        return;
+    }
+    campo(s, b"despierto");
+    if d & bmo::DESPIERTO_RISCV_ACTIVO != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"el RISC-V del GSP esta ACTIVO: el GSP-RM de la 570.144 corre en tu 3060 ");
+    } else if d & bmo::DESPIERTO_VISTO != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"el RISC-V se vio activo y YA NO lo esta ");
+    } else {
+        s.with_ink(INK_ECHO);
+        s.text(b"el RISC-V del GSP no esta activo ");
+    }
+    paso(s, d & bmo::DESPIERTO_VACIADO != 0, b"vaciado");
+    paso(s, d & bmo::DESPIERTO_GSP_PARADO != 0, b"gsp");
+    paso(s, d & bmo::DESPIERTO_BOOTER != 0, b"booter");
+    paso(s, d & bmo::DESPIERTO_SEC2_PARADO != 0, b"sec2");
+    paso(s, d & bmo::DESPIERTO_OS != 0, b"os");
+    paso(s, d & bmo::DESPIERTO_RISCV_ACTIVO != 0, b"riscv");
+    s.with_ink(INK_ECHO);
+    s.text(b"   firma ");
+    s.dec((d >> bmo::DESPIERTO_FIRMA_SHIFT) & 3);
+    if d & bmo::DESPIERTO_SEC2_ARRANCADO != 0 {
+        s.text(b", MAILBOX0 del SEC2 0x");
+        s.hex(d >> bmo::DESPIERTO_BUZON_SHIFT, 8);
+    }
+    if d & bmo::DESPIERTO_RISCV_PARADO != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"; el RISC-V dice PARADO");
+    }
+    let m = (d >> bmo::DESPIERTO_MOTIVO_SHIFT) & 0xFF;
+    if m != 0 && d & bmo::DESPIERTO_VISTO == 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"; el ultimo NO: ");
+        s.text(super::iommu::motivo(m as u32));
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    // Lo que el GSP escribio: los punteros de sus logs y de su cola.
+    campo(s, b"gsplog");
+    let (ini, intr, rm) = (mem(0), mem(16 * 4096), mem(32 * 4096));
+    let cola = mem(COLA_GSP_ESCRITO) & 0xFFFF_FFFF;
+    let b = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON);
+    let escribio = ini | intr | rm | cola != 0;
+    s.with_ink(if escribio { INK_GOOD } else { INK_ECHO });
+    s.text(if escribio { b"el GSP ESCRIBIO en tu RAM: " as &[u8] } else { b"el GSP no ha escrito nada: " });
+    s.with_ink(INK_PLAIN);
+    s.text(b"LOGINIT ");
+    s.dec(ini);
+    s.text(b", LOGINTR ");
+    s.dec(intr);
+    s.text(b", LOGRM ");
+    s.dec(rm);
+    s.text(b"; su cola ");
+    s.dec(cola);
+    s.text(b" mensajes; MAILBOX0 del GSP 0x");
+    s.hex(b & 0xFFFF_FFFF, 8);
+    s.with_ink(INK_ECHO);
+    s.text(b"   -> datos/gsplog.bin");
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+    super::datos::anotar(b"gpu gsp despierto", d, b"");
 }

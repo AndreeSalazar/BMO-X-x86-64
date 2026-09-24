@@ -416,7 +416,8 @@ MEDIDO, no el dicho.
         arrancar nada. `gpu libos` y el paso `libos`  [VISTO en metal, 24-09 06:51]
    L0c3b el GSP con sus argumentos en el buzon, el booter en el SEC2 con la
         WPR meta en el suyo, y el RISC-V del GSP despierta
-        (`is_riscv_active`); sus logs dicen como fue
+        (`is_riscv_active`); sus logs dicen como fue. `gpu despertar` y el
+        paso `despertar`                         [en codigo, 24-09]
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -534,6 +535,37 @@ tablas 40 de 128`, y el unico evento sigue siendo el de la frontera. Los doce
 pasos de `save mode` verificados. Lo que cuesta todo L0 a la maquina: 97 MiB
 de RAM usada (eran 34), y nada corriendo -- la 3060 todavia no ejecuta nada;
 lo unico que late es E2, ~60 interrupciones por segundo.
+
+**L0c3b (24-09, en codigo).** `dev/gpu_despertar.rs` (fila GPU del censo, x1)
+sigue `gsp/hal/tu102.rs::boot` y `gsp/boot.rs` de nova-core en su orden, en
+TRES ordenes -- el escritorio espera entre ellas cediendo el turno, porque
+nova-core da 2 s a cada falcon y 2 s dentro de un syscall son 500 latidos del
+bus USB --:
+
+```text
+   DESPERTAR  la pagina de vaciado (0x100C40 / 0x100C10, y releida); el GSP
+              reseteado, MAILBOX0/1 = 0x3C000000 (sus argumentos de LIBOS),
+              STARTCPU. Se para solo: aun no tiene codigo
+   BOOTER     boot_ld.bin firmado con la firma que pide el fusible del SEC2
+              (la 0), prestado SOLO LECTURA en 0x3B000000; SEC2 reseteado,
+              FBIF, la app 0 a la IMEM SEGURA con su ETIQUETA (+0x100), los
+              datos a la DMEM, el BROM, BOOTVEC 0x100, MAILBOX0/1 = la WPR meta
+              (0x3E007000), STARTCPU
+   ACABAR     el SEC2 parado con MAILBOX0 = 0; el registro OS del GSP = la
+              `app_version` del bootloader
+```
+
+Y el escritorio espera al RISC-V ACTIVO (`0x111388` bit 7), hasta 5 s. Salga
+como salga, los tres logs del GSP se guardan crudos en `datos/gsplog.bin`
+(`INFO_GPU_GSP_MEM`, de 8 en 8 bytes, como la ROM). `bmo_gpu_ga10x::falcon`
+gano `copiar_etiquetado` (la IMEM del booter se etiqueta con su origen, no con
+0: arranca en 0x100), `arrancar_con` (los buzones antes de STARTCPU) y
+`riscv`; 3 pruebas.
+
+**Como se sabe:** la fila `despierto` dice `el RISC-V del GSP esta ACTIVO` con
+sus seis pasos en `+`, MAILBOX0 del SEC2 a 0, y la fila `gsplog` dice si el GSP
+escribio en sus logs o en su cola. Si el RISC-V no despierta, lo que el GSP
+alcanzo a escribir esta en `datos/gsplog.bin`.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048

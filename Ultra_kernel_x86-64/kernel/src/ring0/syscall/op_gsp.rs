@@ -68,6 +68,12 @@ pub(super) fn preparar() -> Result<u64, u32> {
     r
 }
 
+/// **BOOTER** (L0c3b): abre `boot_ld.bin` y se lo da.
+pub(super) fn booter() -> Result<u64, u32> {
+    let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_BOOTER);
+    crate::ring0::dev::gpu_despertar::booter(b.as_mut().map(|f| f as &mut dyn Fichero))
+}
+
 /// **TROZO k**, con el mismo `gsp.bin` y su cursor.
 pub(super) fn trozo(k: u64) -> Result<u64, u32> {
     // SAFETY: ver `GSP`.

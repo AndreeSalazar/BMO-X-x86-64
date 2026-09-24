@@ -227,6 +227,8 @@ pub mod dev {
     pub mod gpu_gsp;
     /// L0c3a: lo que el GSP escribe -- LIBOS, logs, rmargs y colas (2026-09-24).
     pub mod gpu_libos;
+    /// L0c3b: el booter en el SEC2 despierta el GSP (2026-09-24).
+    pub mod gpu_despertar;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay

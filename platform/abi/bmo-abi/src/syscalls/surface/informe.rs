@@ -1711,6 +1711,38 @@ pub const LIBOS_PRESTADO: u64 = 1 << 57;
 pub const LIBOS_COMPROBADO: u64 = 1 << 58;
 pub const LIBOS_VALIDO: u64 = 1 << 63;
 
+/// # L0c3b (2026-09-24): el GSP despierto
+///
+/// ```text
+///   INFO_GPU_DESPIERTO        0 vaciado | 1 GSP arrancado | 2 GSP PARADO |
+///                             3 booter firmado y prestado | 4 SEC2 arrancado |
+///                             5 SEC2 PARADO | 6 OS escrito | 7 RISC-V ACTIVO |
+///                             8 RISC-V parado | 9 se VIO activo | 10..11 la
+///                             firma | 15 valido | 16..23 el ultimo NO |
+///                             32..63 MAILBOX0 del SEC2
+///   INFO_GPU_DESPIERTO_BUZON  MAILBOX0 | MAILBOX1 << 32 del GSP
+///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
+///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
+///                             LOGRM; detras, GspMem
+/// ```
+pub const INFO_GPU_DESPIERTO: u64 = 0xBF;
+pub const DESPIERTO_VACIADO: u64 = 1 << 0;
+pub const DESPIERTO_GSP_ARRANCADO: u64 = 1 << 1;
+pub const DESPIERTO_GSP_PARADO: u64 = 1 << 2;
+pub const DESPIERTO_BOOTER: u64 = 1 << 3;
+pub const DESPIERTO_SEC2_ARRANCADO: u64 = 1 << 4;
+pub const DESPIERTO_SEC2_PARADO: u64 = 1 << 5;
+pub const DESPIERTO_OS: u64 = 1 << 6;
+pub const DESPIERTO_RISCV_ACTIVO: u64 = 1 << 7;
+pub const DESPIERTO_RISCV_PARADO: u64 = 1 << 8;
+pub const DESPIERTO_VISTO: u64 = 1 << 9;
+pub const DESPIERTO_FIRMA_SHIFT: u64 = 10;
+pub const DESPIERTO_VALIDO: u64 = 1 << 15;
+pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
+pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
+pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

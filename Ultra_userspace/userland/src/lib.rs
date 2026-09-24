@@ -236,6 +236,9 @@ pub const IOMMU_OP_GSP_TROZO: u64 = 0x0F;
 pub const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
 pub const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 pub const IOMMU_OP_GSP_LIBOS: u64 = 0x12;
+pub const IOMMU_OP_GSP_DESPERTAR: u64 = 0x13;
+pub const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
+pub const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -272,6 +275,15 @@ pub const IOMMU_NO_GSP_RADIX: u32 = 33;
 pub const IOMMU_NO_LIBOS_ORDEN: u32 = 34;
 pub const IOMMU_NO_LIBOS_MARCOS: u32 = 35;
 pub const IOMMU_NO_LIBOS_PUNTERO: u32 = 36;
+pub const IOMMU_NO_DESPERTAR_ANTES: u32 = 37;
+pub const IOMMU_NO_BOOTER: u32 = 38;
+pub const IOMMU_NO_BOOTER_FIRMA: u32 = 39;
+pub const IOMMU_NO_VACIADO: u32 = 40;
+pub const IOMMU_NO_GSP_FALCON: u32 = 41;
+pub const IOMMU_NO_SEC2: u32 = 42;
+pub const IOMMU_NO_SEC2_NO_PARA: u32 = 43;
+pub const IOMMU_NO_BOOTER_MAL: u32 = 44;
+pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -1001,6 +1013,24 @@ pub const LIBOS_PREPARADO: u64 = 1 << 56;
 pub const LIBOS_PRESTADO: u64 = 1 << 57;
 pub const LIBOS_COMPROBADO: u64 = 1 << 58;
 pub const LIBOS_VALIDO: u64 = 1 << 63;
+/// L0c3b (2026-09-24). Ver `bmo_abi::...::informe`.
+pub const INFO_GPU_DESPIERTO: u64 = 0xBF;
+pub const DESPIERTO_VACIADO: u64 = 1 << 0;
+pub const DESPIERTO_GSP_ARRANCADO: u64 = 1 << 1;
+pub const DESPIERTO_GSP_PARADO: u64 = 1 << 2;
+pub const DESPIERTO_BOOTER: u64 = 1 << 3;
+pub const DESPIERTO_SEC2_ARRANCADO: u64 = 1 << 4;
+pub const DESPIERTO_SEC2_PARADO: u64 = 1 << 5;
+pub const DESPIERTO_OS: u64 = 1 << 6;
+pub const DESPIERTO_RISCV_ACTIVO: u64 = 1 << 7;
+pub const DESPIERTO_RISCV_PARADO: u64 = 1 << 8;
+pub const DESPIERTO_VISTO: u64 = 1 << 9;
+pub const DESPIERTO_FIRMA_SHIFT: u64 = 10;
+pub const DESPIERTO_VALIDO: u64 = 1 << 15;
+pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
+pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
+pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

@@ -241,13 +241,35 @@ pub fn copiar(
     seguro: bool,
     plazo_trozo_us: u64,
 ) -> Result<(), NoFuego> {
+    copiar_etiquetado(r, t, base, iova, 0, destino, bytes, imem, seguro, plazo_trozo_us)
+}
+
+/// **`copiar` con ETIQUETA** (L0c3b): cada trozo sale de `iova + origen + pos`
+/// y lleva `origen + pos` en `DMATRFFBOFFS`. En la IMEM ese numero es la
+/// direccion VIRTUAL del codigo -- la etiqueta de su bloque --, y por eso el
+/// booter, cuya app 0 empieza en +0x100, se copia con `origen` 0x100 y arranca
+/// en 0x100 (`dma_wr` de nova-core: "the start offset as a virtual address tag").
+/// Con `origen` 0 es el `copiar` de siempre.
+#[allow(clippy::too_many_arguments)]
+pub fn copiar_etiquetado(
+    r: &mut impl Registros,
+    t: &mut impl Reloj,
+    base: u32,
+    iova: u64,
+    origen: u32,
+    destino: u32,
+    bytes: u32,
+    imem: bool,
+    seguro: bool,
+    plazo_trozo_us: u64,
+) -> Result<(), NoFuego> {
     r.escribir(base + DMATRFBASE, (iova >> 8) as u32);
     r.escribir(base + DMATRFBASE1, ((iova >> 40) & 0x1FF) as u32);
     let cmd = CMD_256B | if imem { CMD_IMEM } else { 0 } | if seguro { CMD_SEGURO } else { 0 };
     let mut pos = 0;
     while pos < bytes {
         r.escribir(base + DMATRFMOFFS, destino + pos);
-        r.escribir(base + DMATRFFBOFFS, pos);
+        r.escribir(base + DMATRFFBOFFS, origen + pos);
         r.escribir(base + DMATRFCMD, cmd);
         if !esperar(r, t, base + DMATRFCMD, plazo_trozo_us, |v| v & CMD_LIBRE != 0)? {
             return Err(NoFuego::DmaNoAcaba(pos));
@@ -288,8 +310,29 @@ pub fn brom(r: &mut impl Registros, base: u32, pkc_data_offset: u32, engine_id_m
 /// **Arrancar** (`Falcon::boot`, sin esperar): `BOOTVEC`, `MAILBOX0` a 0 y
 /// STARTCPU -- por el alias si el falcon lo tiene encendido.
 pub fn arrancar(r: &mut impl Registros, base: u32, bootvec: u32) -> Result<(), NoFuego> {
-    r.escribir(base + BOOTVEC, bootvec);
-    r.escribir(base + MAILBOX0, 0);
+    arrancar_con(r, base, Some(bootvec), Some(0), None)
+}
+
+/// **Arrancar con los buzones puestos** (`Falcon::boot` de nova-core: primero
+/// los buzones, luego STARTCPU). Es como se le dice al GSP donde estan sus
+/// argumentos de LIBOS, y al booter donde esta la WPR meta (L0c3b). `None` no
+/// toca ese registro.
+pub fn arrancar_con(
+    r: &mut impl Registros,
+    base: u32,
+    bootvec: Option<u32>,
+    mbox0: Option<u32>,
+    mbox1: Option<u32>,
+) -> Result<(), NoFuego> {
+    if let Some(v) = bootvec {
+        r.escribir(base + BOOTVEC, v);
+    }
+    if let Some(v) = mbox0 {
+        r.escribir(base + MAILBOX0, v);
+    }
+    if let Some(v) = mbox1 {
+        r.escribir(base + MAILBOX1, v);
+    }
     if leer(r, base + CPUCTL)? & CPUCTL_ALIAS_EN != 0 {
         r.escribir(base + CPUCTL_ALIAS, CPUCTL_ARRANCAR);
     } else {
@@ -302,6 +345,22 @@ pub fn arrancar(r: &mut impl Registros, base: u32, bootvec: u32) -> Result<(), N
 pub fn como_va(r: &mut impl Registros, base: u32) -> Result<(bool, u32, u32), NoFuego> {
     let c = leer(r, base + CPUCTL)?;
     Ok((c & CPUCTL_PARADO != 0, r.leer(base + MAILBOX0), r.leer(base + MAILBOX1)))
+}
+
+// -- ** L0c3b: EL RISC-V DEL GSP (2026-09-24) ---------------------------------
+
+/// `NV_PRISCV_RISCV_CPUCTL`, en el bloque `PFALCON2` (`base + 0x1000 + 0x388`).
+pub const RISCV_CPUCTL: u32 = 0x1388;
+const RISCV_ACTIVO: u32 = 1 << 7;
+const RISCV_PARADO: u32 = 1 << 4;
+/// `NV_PFALCON_FALCON_OS`: la version de la app que el GSP-RM espera ver.
+pub const OS: u32 = 0x080;
+
+/// **El RISC-V de este falcon**: `(activo, parado)` (`is_riscv_active` y
+/// `is_riscv_halted` de nova-core). Activo es lo que se espera tras el booter.
+pub fn riscv(r: &mut impl Registros, base: u32) -> Result<(bool, bool), NoFuego> {
+    let c = leer(r, base + RISCV_CPUCTL)?;
+    Ok((c & RISCV_ACTIVO != 0, c & RISCV_PARADO != 0))
 }
 
 /// **Leer la DMEM por PIO**: `n` palabras desde `dmem`, con autoincremento.
@@ -451,6 +510,40 @@ mod pruebas {
             self.0 += 1;
             self.0
         }
+    }
+
+    #[test]
+    fn la_imem_del_booter_se_copia_con_su_etiqueta() {
+        let mut f = Falcon::nuevo();
+        let mut t = Tic(0);
+        copiar_etiquetado(&mut f, &mut t, GSP, 0x3B00_0000, 0x100, 0, 0x300, true, true, 10).unwrap();
+        let fb: Vec<u32> = f.escritos.iter().filter(|(r, _)| *r == GSP + DMATRFFBOFFS).map(|e| e.1).collect();
+        let m: Vec<u32> = f.escritos.iter().filter(|(r, _)| *r == GSP + DMATRFMOFFS).map(|e| e.1).collect();
+        assert_eq!(fb, [0x100, 0x200, 0x300], "la etiqueta es el origen");
+        assert_eq!(m, [0, 0x100, 0x200], "el destino empieza en 0");
+        assert_eq!(f.reg(GSP + DMATRFBASE), 0x3B00_0000 >> 8, "la base es el principio del ucode");
+    }
+
+    #[test]
+    fn arrancar_con_pone_los_buzones_antes_de_arrancar() {
+        let mut f = Falcon::nuevo();
+        arrancar_con(&mut f, GSP, None, Some(0x3C00_0000), Some(0)).unwrap();
+        let orden: Vec<u32> = f.escritos.iter().map(|e| e.0 - GSP).collect();
+        assert_eq!(orden, [MAILBOX0, MAILBOX1, CPUCTL], "sin BOOTVEC, buzones y luego STARTCPU");
+        assert_eq!(f.reg(GSP + MAILBOX0), 0x3C00_0000);
+        let mut g = Falcon::nuevo();
+        arrancar(&mut g, GSP, 0x100).unwrap();
+        let orden: Vec<u32> = g.escritos.iter().map(|e| e.0 - GSP).collect();
+        assert_eq!(orden, [BOOTVEC, MAILBOX0, CPUCTL], "el de FWSEC no cambia");
+    }
+
+    #[test]
+    fn el_riscv_activo_y_parado() {
+        let mut f = Falcon::nuevo();
+        f.poner(GSP + RISCV_CPUCTL, 1 << 7);
+        assert_eq!(riscv(&mut f, GSP), Ok((true, false)));
+        f.poner(GSP + RISCV_CPUCTL, 1 << 4);
+        assert_eq!(riscv(&mut f, GSP), Ok((false, true)));
     }
 
     #[test]

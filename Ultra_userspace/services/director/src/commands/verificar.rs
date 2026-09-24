@@ -228,6 +228,14 @@ const PASOS: &[Paso] = &[
         pide: Some(b"radix"),
         consejo: b"`gpu`: la fila `libos` dice PRESTADO para escribir y cada puntero lleva a lo suyo; `iommu`: `domain` 180 paginas mas y sin eventos nuevos -- lo siguiente es L0c3b, despertar el GSP",
     },
+    Paso {
+        nombre: b"despertar",
+        que: b"DESPERTAR EL GSP: sus argumentos en el buzon, el booter firmado en el SEC2, y su RISC-V encendido (L0c3b)",
+        hecho: super::gsp::despierto,
+        dar: super::gsp::despertar,
+        pide: Some(b"libos"),
+        consejo: b"`gpu`: la fila `despierto` dice el RISC-V ACTIVO y `gsplog` que el GSP ESCRIBIO; sus logs en datos/gsplog.bin -- lo siguiente es L0c4, hablarle por sus colas",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -591,7 +599,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c3b: el booter en el SEC2 despierta el GSP (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c4: hablarle al GSP por sus colas hasta su GSP_INIT_DONE (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

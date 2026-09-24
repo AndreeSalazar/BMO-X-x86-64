@@ -665,6 +665,15 @@ pub const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 /// pagina de vaciado, prestados a la 3060 ESCRIBIBLES; y cada puntero que
 /// seguira el GSP, seguido por la IOMMU. `Ok` = punteros seguidos.
 pub const IOMMU_OP_GSP_LIBOS: u64 = 0x12;
+/// L0c3b: la pagina de vaciado registrada y el GSP con sus argumentos de LIBOS
+/// en el buzon. Vuelve al arrancarlo; si se paro, `INFO_GPU_DESPIERTO`.
+pub const IOMMU_OP_GSP_DESPERTAR: u64 = 0x13;
+/// L0c3b: con el GSP parado, el booter FIRMADO al SEC2 con la WPR meta en su
+/// buzon. Vuelve al arrancar el SEC2 (`Ok` = la firma usada).
+pub const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
+/// L0c3b: el SEC2 parado con MAILBOX0 = 0, y el registro OS del GSP escrito.
+/// Despues, el RISC-V del GSP se mira en `INFO_GPU_DESPIERTO`.
+pub const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -733,6 +742,25 @@ pub const IOMMU_NO_LIBOS_ORDEN: u32 = 34;
 pub const IOMMU_NO_LIBOS_MARCOS: u32 = 35;
 /// L0c3a: un puntero no lleva, por la IOMMU, a donde tiene que llevar.
 pub const IOMMU_NO_LIBOS_PUNTERO: u32 = 36;
+/// L0c3b: falta algo de antes EN ESTE ARRANQUE: la WPR2 de FWSEC, el GSP-RM
+/// por su radix3 (`gpu radix`) o LIBOS (`gpu libos`).
+pub const IOMMU_NO_DESPERTAR_ANTES: u32 = 37;
+/// L0c3b: `fw/gsp/boot_ld.bin` no esta, o no es un booter del SEC2 que quepa.
+pub const IOMMU_NO_BOOTER: u32 = 38;
+/// L0c3b: el fusible del SEC2 no pide ninguna firma del booter.
+pub const IOMMU_NO_BOOTER_FIRMA: u32 = 39;
+/// L0c3b: la pagina de vaciado no se releyo en 0x100C10.
+pub const IOMMU_NO_VACIADO: u32 = 40;
+/// L0c3b: el falcon del GSP no se reseteo, o no esta parado para el booter.
+pub const IOMMU_NO_GSP_FALCON: u32 = 41;
+/// L0c3b: el SEC2 no dejo resetearse, cargar el booter por DMA o arrancar.
+pub const IOMMU_NO_SEC2: u32 = 42;
+/// L0c3b: el SEC2 todavia no se paro.
+pub const IOMMU_NO_SEC2_NO_PARA: u32 = 43;
+/// L0c3b: el booter se paro con MAILBOX0 distinto de 0: su codigo de error.
+pub const IOMMU_NO_BOOTER_MAL: u32 = 44;
+/// L0c3b: el booter ya corrio en este arranque; otra vez pide reiniciar la 3060.
+pub const IOMMU_NO_YA_DESPIERTO: u32 = 45;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

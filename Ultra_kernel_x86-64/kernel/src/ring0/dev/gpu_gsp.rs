@@ -527,3 +527,9 @@ pub fn info_gsp_hash() -> u64 {
     let d = if r != [0; 32] { r } else { c };
     u64::from_le_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]])
 }
+
+/// La `app_version` del bootloader, si se preparo: lo que L0c3b escribe en el
+/// registro `OS` del GSP antes de esperar a su RISC-V (`write_os_version`).
+pub fn app_version() -> Option<u32> {
+    plan().map(|p| p.bootloader.app_version)
+}

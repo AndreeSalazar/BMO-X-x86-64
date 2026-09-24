@@ -119,7 +119,7 @@ static FUEGO_LEIDO: AtomicU64 = AtomicU64::new(0);
 static FRONTERA: AtomicU64 = AtomicU64::new(0);
 
 /// Los registros de la 3060 por BAR0 en el physmap (como `dev/vblank.rs`).
-struct Bar0(u64);
+pub(crate) struct Bar0(pub(crate) u64);
 
 impl bmo_gpu_ga10x::Registros for Bar0 {
     fn leer(&mut self, reg: u32) -> u32 {
@@ -134,7 +134,7 @@ impl bmo_gpu_ga10x::Registros for Bar0 {
 }
 
 /// El reloj del falcon: el TSC en microsegundos.
-struct Tsc(u64);
+pub(crate) struct Tsc(u64);
 
 impl fa::Reloj for Tsc {
     fn us(&mut self) -> u64 {
@@ -142,7 +142,7 @@ impl fa::Reloj for Tsc {
     }
 }
 
-fn motivo(e: NoFuego) -> u64 {
+pub(crate) fn motivo(e: NoFuego) -> u64 {
     match e {
         NoFuego::NoContesta(_) => 1,
         NoFuego::NoLimpia => 2,
@@ -162,7 +162,7 @@ fn candado() -> Result<u64, u32> {
 
 /// **El candado de todo DMA de la 3060**: TRADUCIDA y releida, una NVIDIA en
 /// su BDF, y el Bus Master de E2 encendido (que no se enciende aqui).
-fn candado_dma() -> Result<u64, u32> {
+pub(crate) fn candado_dma() -> Result<u64, u32> {
     use crate::ring0::plat::iommu as io;
     let g = io::info_gpu();
     if g & io::IOMMU_GPU_TRADUCIDA == 0 || g & io::IOMMU_GPU_RELEIDA == 0 {
@@ -187,7 +187,7 @@ fn eventos() -> u64 {
     if e & crate::ring0::plat::iommu::IOMMU_EVENTO_HAY != 0 { e & 0xFFFF } else { 0 }
 }
 
-fn reloj() -> Tsc {
+pub(crate) fn reloj() -> Tsc {
     Tsc((crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1))
 }
 

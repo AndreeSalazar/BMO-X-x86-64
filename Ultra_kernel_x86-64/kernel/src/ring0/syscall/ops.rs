@@ -328,6 +328,12 @@ pub(crate) const IOMMU_OP_GSP_PRESTAR: u64 = 0x10;
 pub(crate) const IOMMU_OP_GSP_COMPROBAR: u64 = 0x11;
 /// L0c3a: LIBOS, logs, rmargs y colas, prestados ESCRIBIBLES y comprobados. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GSP_LIBOS: u64 = 0x12;
+/// L0c3b: la pagina de vaciado y el GSP con LIBOS en el buzon. Ver `dev/gpu_despertar.rs`.
+pub(crate) const IOMMU_OP_GSP_DESPERTAR: u64 = 0x13;
+/// L0c3b: el booter firmado al SEC2, con la WPR meta en el buzon.
+pub(crate) const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
+/// L0c3b: el SEC2 parado con MAILBOX0 = 0, y el OS del GSP escrito.
+pub(crate) const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
