@@ -624,7 +624,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c4b: contestarle al GSP (secuenciador, SetSystemInfo, SetRegistry) hasta su GSP_INIT_DONE (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0c4b2b: leer el secuenciador que pide el GSP, orden a orden, sin correrlo (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

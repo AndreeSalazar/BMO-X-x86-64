@@ -427,7 +427,7 @@ MEDIDO, no el dicho.
    L0c4b2 contestarle hasta su GSP_INIT_DONE, como nova-core:
      L0c4b2a ESCRIBIR en la cola de la CPU: SetSystemInfo y SetRegistry,
         ANTES de despertar (como nouveau y OpenRM). `gpu sistema` y el
-        paso `sistema`                           [en codigo, 24-09]
+        paso `sistema`                           [VISTO en metal, 24-09 08:34]
      L0c4b2b LEER el secuenciador que pide el GSP: sus ordenes, dichas
         una a una, sin correr ninguna
      L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
@@ -690,6 +690,16 @@ resetea el falcon del GSP despues. En `save mode`, `sistema` va entre `libos` y
 ** De paso, un error de L0c4a: el `length` del RPC CUENTA los 32 B de su
 cabecera (nova-core, `payload_length`). La suma cubria 32 bytes de mas y dio 0
 en los 835 del metal solo porque detras habia ceros; ahora `Mensaje::datos`.
+
+**L0c4b2a en el metal (24-09, 08:34): LOS LEYO, y se acabaron los ASSERT.**
+`sistema GSP_SET_SYSTEM_INFO (928 B, suma 0) y SET_REGISTRY (117 B, suma 0)`,
+`sysinfo BAR0 0x0FB000000, BAR1 0x00D0000000, BAR3 0x00E0000000; PCI 29:00.0
+10DE:2504 sub 1462:397D rev A1` y `leyo el GSP LOS LEYO: su puntero sobre la
+cola de la CPU esta en 2`. Y lo que cambio detras: la cola del GSP trae UN
+mensaje, `GSP_RUN_CPU_SEQUENCER` con secuencia 0 -- ni un NOCAT, donde antes
+hubo 835 --, y los logs bajaron de LOGINIT 76267 / LOGRM 1767 a 203 / 92. Los
+835 ASSERT eran el GSP-RM sin su SetSystemInfo. Lo que queda es el
+secuenciador (L0c4b2b).
 
 **Como se sabe (L0c4b2a):** la fila `sistema` relee los dos de la cola, con VRPC
 y la suma en 0; `sysinfo` dice las BAR, el BDF y los ID que se le dieron; y
