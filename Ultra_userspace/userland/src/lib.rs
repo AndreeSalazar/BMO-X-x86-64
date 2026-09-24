@@ -264,6 +264,8 @@ pub const IOMMU_OP_GSP_GR_TRESDE: u64 = 0x2B;
 pub const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
 pub const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
 pub const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
+pub const IOMMU_OP_GPU_LIENZO: u64 = 0x2F;
+pub const IOMMU_OP_GPU_LIENZO_LEER: u64 = 0x30;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -338,6 +340,8 @@ pub const IOMMU_NO_TRABAJO_GR: u32 = 72;
 pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
 pub const IOMMU_NO_SOMBREO: u32 = 74;
 pub const IOMMU_NO_SOMBREO_PREPARAR: u32 = 75;
+pub const IOMMU_NO_LIENZO: u32 = 76;
+pub const IOMMU_NO_LIENZO_PREPARAR: u32 = 77;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

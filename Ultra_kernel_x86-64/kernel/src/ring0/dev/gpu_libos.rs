@@ -1233,3 +1233,109 @@ pub fn sombrear(ficha: u64) -> Result<u64, u32> {
     }
     Ok(v)
 }
+
+// == M5d L: EL LIENZO -- LA 3060 PINTA EN LA RAM DEL PC (2026-09-24) ==========
+//
+// Tras el primer sombreador (VISTO 24-09 16:21). 64 KiB de RAM del PC (16
+// marcos NEUTRO, por `grupo`), a cero y prestados ESCRIBIBLES en
+// `lienzo::IOVA`; sus 16 PTE de SISTEMA en la PT del tramo (solo si estaban
+// vacias); y un programa de 128 x 128 hilos (`lienzo::CODIGO`) que pinta un
+// degradado. La CPU lo comprueba pixel a pixel y el escritorio lo lee de dos
+// en dos (`leer_lienzo`).
+
+static LIENZO_F: AtomicU64 = AtomicU64::new(0);
+static LIENZO_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+static LIENZO_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// L: sin el primer sombreador, una ficha ajena, o ya se pinto.
+pub const IOMMU_NO_LIENZO: u32 = 76;
+/// L: el lienzo no se presto, sus PTE no estaban vacias, o el tramo no se
+/// releyo: no se toco el timbre.
+pub const IOMMU_NO_LIENZO_PREPARAR: u32 = 77;
+
+/// Los pixeles del lienzo, si ya se presto.
+fn pixeles_del_lienzo() -> Option<&'static [u32]> {
+    let f = LIENZO_F.load(Ordering::Acquire);
+    if f == 0 || !LIENZO_PRESTADO.load(Ordering::Acquire) {
+        return None;
+    }
+    let b = memoria(f, bmo_gpu_ga10x::lienzo::PAGINAS * PAGINA);
+    // SAFETY: `b` son los marcos del lienzo, alineados a pagina (y por tanto a
+    // 4) y de 64 KiB justos.
+    Some(unsafe { core::slice::from_raw_parts(b.as_ptr() as *const u32, bmo_gpu_ga10x::lienzo::PIXELES) })
+}
+
+/// **M5d L: que la 3060 pinte el lienzo.** `ficha` = la de S3.
+/// `Ok(lienzo::empaquetar(..))`.
+pub fn pintar_lienzo(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::lienzo as lz;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !SOMBREO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    if LIENZO_HECHO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    let fallo = |m: u32, que: &str, v: u64| {
+        LIENZO_HECHO.store(false, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", que, v);
+        Err(m)
+    };
+    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    // Una vez por arranque: prestar y mapear.
+    if !LIENZO_PRESTADO.load(Ordering::Acquire) {
+        let Some(f) = grupo(&LIENZO_F, lz::PAGINAS) else {
+            return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: no hubo 16 marcos seguidos para el lienzo", 0);
+        };
+        memoria(f, lz::PAGINAS * PAGINA).fill(0);
+        if io::prestar_gpu(lz::IOVA, f, lz::PAGINAS, true).is_err()
+            || !(0..lz::PAGINAS).all(|k| escribible(lz::IOVA + k * PAGINA, f + k * PAGINA))
+        {
+            return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: el lienzo no se ve por la IOMMU donde se presto; iova", lz::IOVA);
+        }
+        match lz::mapear(&mut r) {
+            Some((n, bien)) if n == bien => {}
+            _ => return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: las PTE del lienzo no estaban vacias o no se releyeron", 0),
+        }
+        LIENZO_PRESTADO.store(true, Ordering::Release);
+        crate::ring0::cabina::count("gpu", "M5d L: lienzo de 64 KiB PRESTADO a la 3060 y mapeado; iova", lz::IOVA);
+    }
+    // Cada vez, de cero: lo que se lea despues lo pinto la 3060.
+    memoria(LIENZO_F.load(Ordering::Acquire), lz::PAGINAS * PAGINA).fill(0);
+    if !lz::preparar(&mut r) {
+        return fallo(IOMMU_NO_LIENZO_PREPARAR, "M5d L: el tramo no quedo preparado; no se toca el timbre", 0);
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let lanzado = lz::lanzar(&mut r, ficha as u32);
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    let (mut gp_get, mut qmd, mut fin) = (0, 0, 0);
+    let mut us = 0;
+    while lanzado && us < COPIA_ESPERA_US {
+        (gp_get, qmd, fin) = lz::mirar(&mut r);
+        us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if qmd == lz::PAGA_QMD && fin == lz::PAGA_FIN {
+            break;
+        }
+        core::hint::spin_loop();
+    }
+    core::sync::atomic::fence(Ordering::SeqCst);
+    let buenos = pixeles_del_lienzo().map_or(0, lz::comprobar);
+    let v = lz::empaquetar(buenos, qmd == lz::PAGA_QMD, fin == lz::PAGA_FIN, lanzado, gp_get, us as u32);
+    if lz::sano(v) {
+        crate::ring0::cabina::count("gpu", "M5d L: LA 3060 PINTO 128x128 pixeles en la RAM del PC; us", us);
+    } else {
+        crate::ring0::cabina::warn("gpu", "M5d L: el lienzo no salio entero; pixeles buenos", buenos as u64);
+    }
+    Ok(v)
+}
+
+/// **Leer el lienzo, dos pixeles por llamada**: `k` = el par (0..8192).
+/// `Ok(pixel 2k | pixel 2k+1 << 32)`. Solo tras `pintar_lienzo`. Solo lectura.
+pub fn leer_lienzo(k: u64) -> Result<u64, u32> {
+    if !LIENZO_HECHO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_LIENZO);
+    }
+    let p = pixeles_del_lienzo().ok_or(IOMMU_NO_LIENZO)?;
+    let i = (k as usize).checked_mul(2).filter(|&i| i + 1 < p.len()).ok_or(IOMMU_NO_LIENZO)?;
+    Ok(p[i] as u64 | (p[i + 1] as u64) << 32)
+}

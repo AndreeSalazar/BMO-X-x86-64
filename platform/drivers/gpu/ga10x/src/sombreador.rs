@@ -128,11 +128,16 @@ pub fn leer_campo(q: &[u32; QMD_PALABRAS], hi: u32, lo: u32) -> u64 {
     (lo..=hi).fold(0u64, |v, b| v | (((q[(b / 32) as usize] >> (b % 32)) & 1) as u64) << (b - lo))
 }
 
-/// **El QMD V03_00**, campo a campo (`NVC7C0_QMDV03_00_*`).
+/// **El QMD V03_00** del primer sombreador.
 pub fn qmd() -> [u32; QMD_PALABRAS] {
+    qmd_con(va(PROGRAMA), HILOS, 1, va(SEMAFORO_QMD), PAGA_QMD)
+}
+
+/// **Un QMD V03_00**, campo a campo (`NVC7C0_QMDV03_00_*`): `bloques` x 1 x 1
+/// de `hilos` x 1 x 1, el programa en `programa` y RELEASE0 con `paga` en
+/// `sem` al acabar la rejilla.
+pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32) -> [u32; QMD_PALABRAS] {
     let mut q = [0u32; QMD_PALABRAS];
-    let programa = va(PROGRAMA);
-    let sem = va(SEMAFORO_QMD);
     campo(&mut q, 133, 128, 0x3F); // QMD_GROUP_ID (el de NVK)
     campo(&mut q, 134, 134, 1); // SM_GLOBAL_CACHING_ENABLE
     for b in 186..=191 {
@@ -140,7 +145,7 @@ pub fn qmd() -> [u32; QMD_PALABRAS] {
     }
     campo(&mut q, 369, 368, 1); // CWD_MEMBAR_TYPE L1_SYSMEMBAR
     campo(&mut q, 378, 378, 1); // API_VISIBLE_CALL_LIMIT NO_CHECK
-    campo(&mut q, 415, 384, 1); // CTA_RASTER_WIDTH
+    campo(&mut q, 415, 384, bloques as u64); // CTA_RASTER_WIDTH
     campo(&mut q, 431, 416, 1); // CTA_RASTER_HEIGHT
     campo(&mut q, 463, 448, 1); // CTA_RASTER_DEPTH
     // Memoria compartida: 0 B; la config de la SM, 8 KiB (8K / 4K + 1).
@@ -149,7 +154,7 @@ pub fn qmd() -> [u32; QMD_PALABRAS] {
     campo(&mut q, 662, 657, 3); // TARGET_SM_CONFIG_SHARED_MEM_SIZE
     campo(&mut q, 579, 576, 0); // QMD_VERSION
     campo(&mut q, 583, 580, 3); // QMD_MAJOR_VERSION
-    campo(&mut q, 607, 592, HILOS as u64); // CTA_THREAD_DIMENSION0
+    campo(&mut q, 607, 592, hilos as u64); // CTA_THREAD_DIMENSION0
     campo(&mut q, 623, 608, 1); // CTA_THREAD_DIMENSION1
     campo(&mut q, 639, 624, 1); // CTA_THREAD_DIMENSION2
     campo(&mut q, 656, 648, REGISTROS as u64); // REGISTER_COUNT_V
@@ -159,7 +164,7 @@ pub fn qmd() -> [u32; QMD_PALABRAS] {
     campo(&mut q, 819, 819, 1); // RELEASE0_MEMBAR_TYPE FE_SYSMEMBAR
     campo(&mut q, 823, 823, 1); // RELEASE0_ENABLE
     campo(&mut q, 831, 830, 1); // RELEASE0_STRUCTURE_SIZE ONE_WORD
-    campo(&mut q, 863, 832, PAGA_QMD as u64);
+    campo(&mut q, 863, 832, paga as u64);
     campo(&mut q, 1567, 1536, programa & 0xFFFF_FFFF); // PROGRAM_ADDRESS_LOWER
     campo(&mut q, 1584, 1568, programa >> 32); // PROGRAM_ADDRESS_UPPER
     q
@@ -183,8 +188,11 @@ pub const ORDENES: usize = 19;
 /// en 0xFF_0000_0000, como NVK: lejos del tramo y de los buferes de GR), el
 /// QMD, esperar a que el GR acabe, y el semaforo de informe.
 pub fn ordenes() -> [u32; ORDENES] {
-    let q = va(QMD);
-    let s = va(SEMAFORO_FIN);
+    ordenes_con(va(QMD), va(SEMAFORO_FIN), PAGA_FIN)
+}
+
+/// Las mismas ordenes para otro QMD y otro semaforo de informe.
+pub fn ordenes_con(q: u64, s: u64, paga: u32) -> [u32; ORDENES] {
     let c = |m, n| cabecera_en(SUBCANAL, m, n);
     [
         c(SET_OBJECT, 1),
@@ -204,7 +212,7 @@ pub fn ordenes() -> [u32; ORDENES] {
         c(SET_REPORT_SEMAPHORE_A, 4),
         (s >> 32) as u32,
         s as u32,
-        PAGA_FIN,
+        paga,
         computo::INFORME,
     ]
 }

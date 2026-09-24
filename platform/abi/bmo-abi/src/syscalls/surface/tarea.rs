@@ -786,6 +786,14 @@ pub const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
 /// 1 del GPFIFO de GR0. Tras S3; una vez por arranque. `Ok` =
 /// `sombreador::empaquetar(..)`.
 pub const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
+/// M5d L: el lienzo, `arg1` = la ficha de S3: 16 marcos de RAM del PC
+/// prestados ESCRIBIBLES en `lienzo::IOVA` y mapeados en `lienzo::VA` (una vez
+/// por arranque), y un programa de 128 x 128 hilos que pinta un degradado. Tras
+/// el primer sombreador; una vez por arranque. `Ok` = `lienzo::empaquetar(..)`.
+pub const IOMMU_OP_GPU_LIENZO: u64 = 0x2F;
+/// M5d L: leer el lienzo, `arg1` = el par de pixeles (0..8192). Solo lectura,
+/// tras pintarlo. `Ok` = pixel 2k | pixel 2k+1 << 32 (0x00RRGGBB).
+pub const IOMMU_OP_GPU_LIENZO_LEER: u64 = 0x30;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -932,6 +940,11 @@ pub const IOMMU_NO_TRABAJO_GR_PREPARAR: u32 = 73;
 pub const IOMMU_NO_SOMBREO: u32 = 74;
 /// M5d S4..S6: el tramo no se releyo igual: no se toco el timbre.
 pub const IOMMU_NO_SOMBREO_PREPARAR: u32 = 75;
+/// M5d L: sin el primer sombreador, una ficha ajena, o ya se pinto.
+pub const IOMMU_NO_LIENZO: u32 = 76;
+/// M5d L: el lienzo no se presto, sus PTE no estaban vacias, o el tramo no se
+/// releyo: no se toco el timbre.
+pub const IOMMU_NO_LIENZO_PREPARAR: u32 = 77;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

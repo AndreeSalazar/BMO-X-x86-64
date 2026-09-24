@@ -504,7 +504,16 @@ const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::sombreado,
         dar: super::gspcomputo::sombrear,
         pide: Some(b"trabajogr"),
-        consejo: b"`gpu`: `sombreo` dice 32 de 32 y los dos semaforos PAGADOS; `iommu` sin eventos nuevos -- la 3060 corre NUESTROS programas: lo siguiente es el blur",
+        consejo: b"`gpu`: `sombreo` dice 32 de 32 y los dos semaforos PAGADOS; `iommu` sin eventos nuevos -- lo siguiente es `lienzo`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"lienzo",
+        que: b"LA 3060 PINTA EN LA RAM DEL PC: 128 x 128 hilos, un degradado en 64 KiB prestados por la IOMMU (M5d L)",
+        hecho: super::gspcomputo::pintado,
+        dar: super::gspcomputo::pintar,
+        pide: Some(b"sombreo"),
+        consejo: b"`gpu`: `lienzo` dice 16384 de 16384; `iommu` sin eventos nuevos -- teclea `gpu lienzo` y VELO en tu pantalla; lo siguiente es el blur",
         repinta: false,
     },
 ];

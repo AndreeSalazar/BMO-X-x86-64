@@ -63,6 +63,13 @@ pub const fn pte_vram(pagina: u64) -> u64 {
 /// buferes de contexto (`gf100_vmm_map_v0 { .priv = 1 }`).
 pub const PTE_PRIV: u64 = 1 << 5;
 
+/// Una PTE valida de una pagina de 4 KiB en la RAM del PC, vista por su IOVA:
+/// apertura 2 (sistema COHERENTE: la CPU la ve sin vaciar caches) y VOL (la
+/// GPU no la guarda en su L2), como nouveau con la memoria del anfitrion.
+pub const fn pte_sistema(iova: u64) -> u64 {
+    1 | 2 << 1 | 1 << 3 | iova >> 4
+}
+
 /// Lo que dice una PDE leida.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Pde {

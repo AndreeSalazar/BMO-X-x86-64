@@ -470,6 +470,24 @@ bit 101 a 0, comprobado cambiandolo). El QMD V03_00 campo a campo de
 `clc7c0qmd.h`, con el semaforo RELEASE0 al acabar la rejilla. Cuando el BSF
 emita SASS (kind 2), este programa es su primer oraculo: los mismos 160 B.
 
+**EL PRIMER SOMBREADOR, en el metal (24-09, 16:21): 41 de 41.** `sombreo: EL
+PRIMER SOMBREADOR CORRIO: 32 de 32 hilos escribieron lo suyo; semaforo del
+QMD PAGADO, de informe PAGADO, GP_GET 2 en 1 us`. El SASS de `ptxas` con las
+dos lecturas de CUDA en NOP corre tal cual en la 3060.
+
+**M5d L, el lienzo, en codigo (24-09):** lo primero que se VE. 64 KiB de RAM
+del PC (16 marcos NEUTRO) prestados ESCRIBIBLES en la IOVA 0x3A02_0000 y
+mapeados en la VA 0x2_0001_0000 (entradas 16..31 de la PT del tramo, PTE de
+SISTEMA coherente y VOL); un programa de 128 x 128 hilos (de `ptxas`, igual
+que el primero) pinta un degradado; la CPU lo comprueba pixel a pixel y
+`gpu lienzo` lo muestra, 4 veces mas grande, arriba a la derecha.
+`bmo_gpu_ga10x::lienzo`, paso `lienzo`. El QMD y las ordenes del primer
+sombreador, generalizados (`qmd_con`, `ordenes_con`).
+
+Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
+anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
+de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.
+
 **Del oro al primer sombreador (M5d, contado paso a paso, 24-09).** Cada
 fila es un paso de `save mode`, con su prueba en el anfitrion y su fila en
 `gpu`; ninguno se junta con otro, como la copia (L1d):

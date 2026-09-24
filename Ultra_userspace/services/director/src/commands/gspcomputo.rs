@@ -14,6 +14,7 @@ use bmo_gpu_ga10x::computo;
 use bmo_gpu_ga10x::control::{self, Control, CABECERA_CONTROL};
 use bmo_gpu_ga10x::copia;
 use bmo_gpu_ga10x::objeto::{self, CABECERA_ALLOC};
+use bmo_gpu_ga10x::lienzo;
 use bmo_gpu_ga10x::sombreador;
 use bmo_userland as bmo;
 
@@ -44,6 +45,8 @@ struct Computo {
     timbre: Option<(u32, bool)>,
     /// S4..S6: el primer sombreador.
     sombreo: Option<Result<u64, u32>>,
+    /// L: el lienzo.
+    lienzo: Option<Result<u64, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -66,6 +69,8 @@ pub(crate) const NO_TRABAJO_SIN_FICHA: u32 = 0x138;
 pub(crate) const NO_TRABAJO_MAL: u32 = 0x139;
 /// El sombreador se lanzo pero no escribio sus 32 palabras (la fila `sombreo`).
 pub(crate) const NO_SOMBREO_MAL: u32 = 0x13A;
+/// El lienzo se lanzo pero no salio entero (la fila `lienzo`).
+pub(crate) const NO_LIENZO_MAL: u32 = 0x13B;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -172,6 +177,87 @@ pub(crate) fn sombrear() -> Result<u64, u32> {
 /// Lo pregunta `save mode`.
 pub(crate) fn sombreado() -> bool {
     matches!(estado().sombreo, Some(Ok(v)) if sombreador::sano(v))
+}
+
+/// **L: el lienzo** -- la 3060 pinta 128 x 128 pixeles en la RAM del PC.
+pub(crate) fn pintar() -> Result<u64, u32> {
+    let e = estado();
+    let r = match e.timbre {
+        Some((v, _)) => bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO, v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    };
+    con(|c| c.lienzo = Some(r));
+    match r {
+        Ok(v) if lienzo::sano(v) => Ok(v),
+        Ok(_) => Err(NO_LIENZO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn pintado() -> bool {
+    matches!(estado().lienzo, Some(Ok(v)) if lienzo::sano(v))
+}
+
+/// Los pixeles, leidos del kernel de dos en dos.
+static mut PIXELES: [u32; lienzo::PIXELES] = [0; lienzo::PIXELES];
+
+/// **Mostrar el lienzo**: cada pixel, un cuadro de `escala` x `escala`, arriba
+/// a la derecha, con un marco. `false` si el kernel no lo dio entero.
+fn mostrar(p: &bmo::Pantalla, escala: u32) -> bool {
+    // SAFETY: el escritorio es un solo hilo; solo se toca desde aqui.
+    let px = unsafe { &mut *core::ptr::addr_of_mut!(PIXELES) };
+    for k in 0..lienzo::PIXELES / 2 {
+        match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_LIENZO_LEER, k as u64) {
+            Ok(v) => {
+                px[2 * k] = v as u32;
+                px[2 * k + 1] = (v >> 32) as u32;
+            }
+            Err(_) => return false,
+        }
+    }
+    let lado = lienzo::LADO * escala;
+    let x0 = p.ancho.saturating_sub(lado + 32);
+    let y0 = 96;
+    p.rect(x0 - 3, y0 - 3, lado + 6, lado + 6, 0x0076_B900);
+    for (k, &c) in px.iter().enumerate() {
+        let (x, y) = (k as u32 % lienzo::LADO, k as u32 / lienzo::LADO);
+        p.rect(x0 + x * escala, y0 + y * escala, escala, escala, c & 0x00FF_FFFF);
+    }
+    true
+}
+
+/// `gpu lienzo`: lo que falte hasta el primer sombreador, el lienzo, y
+/// mostrarlo en la pantalla.
+pub(crate) fn orden_lienzo(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la 3060 pinta en la RAM del PC", INK_DIM);
+    let mut r = if pedido() { Ok(0) } else { pedir() };
+    if r.is_ok() && !ficha_leida() {
+        r = ficha();
+    }
+    if r.is_ok() && !trabajado() {
+        r = trabajar();
+    }
+    if r.is_ok() && !sombreado() {
+        r = sombrear();
+    }
+    if r.is_ok() && !pintado() {
+        r = pintar();
+    }
+    let visto = r.is_ok() && mostrar(p, 4);
+    let g = &mut dsk.out.grid;
+    if visto {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LO QUE VES ARRIBA A LA DERECHA LO PINTO TU 3060: 16384 hilos, un pixel cada uno (M5d L)\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el lienzo no salio: mira la fila `lienzo`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "lienzo", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
 }
 
 /// `gpu sombreo`: S1..S3 si faltan, y el primer sombreador.
@@ -343,6 +429,38 @@ pub(crate) fn fila(s: &mut Output) {
                 s.text(if fin { b"PAGADO" as &[u8] } else { b"sin pagar" });
                 s.text(b", GP_GET ");
                 s.dec(gp_get as u64);
+                s.text(b"   en ");
+                s.dec(us as u64);
+                s.text(b" us");
+                s.with_ink(INK_PLAIN);
+                s.byte(b'\n');
+            }
+        }
+    }
+    if let Some(r) = c.lienzo {
+        campo(s, b"lienzo");
+        match r {
+            Err(m) => no(s, m),
+            Ok(v) => {
+                let (buenos, qmd, fin, lanzado, gp_get, us) = lienzo::desempaquetar(v);
+                if lienzo::sano(v) {
+                    s.with_ink(INK_GOOD);
+                    s.text(b"LA 3060 PINTO EN LA RAM DEL PC: ");
+                } else {
+                    s.with_ink(INK_ERR);
+                    s.text(if lanzado { b"el lienzo NO salio entero: " as &[u8] } else { b"no se lanzo: " });
+                }
+                s.dec(buenos as u64);
+                s.text(b" de 16384 pixeles como tocan");
+                s.with_ink(INK_ECHO);
+                s.text(b"; semaforo del QMD ");
+                s.text(if qmd { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", de informe ");
+                s.text(if fin { b"PAGADO" as &[u8] } else { b"sin pagar" });
+                s.text(b", GP_GET ");
+                s.dec(gp_get as u64);
+                s.text(b"; IOVA 0x");
+                s.hex(lienzo::IOVA, 8);
                 s.text(b"   en ");
                 s.dec(us as u64);
                 s.text(b" us");

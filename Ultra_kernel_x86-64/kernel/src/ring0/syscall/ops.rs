@@ -384,6 +384,10 @@ pub(crate) const IOMMU_OP_GSP_COMPUTO: u64 = 0x2C;
 pub(crate) const IOMMU_OP_GPU_TRABAJO_GR: u64 = 0x2D;
 /// M5d S4..S6: el primer sombreador, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
 pub(crate) const IOMMU_OP_GPU_SOMBREO: u64 = 0x2E;
+/// M5d L: que la 3060 pinte el lienzo, con la ficha en `arg1`. Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_LIENZO: u64 = 0x2F;
+/// M5d L: leer dos pixeles del lienzo (solo lectura). Ver `dev/gpu_libos.rs`.
+pub(crate) const IOMMU_OP_GPU_LIENZO_LEER: u64 = 0x30;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
