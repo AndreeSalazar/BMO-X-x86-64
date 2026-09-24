@@ -1721,7 +1721,11 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             firma | 15 valido | 16..23 el ultimo NO |
 ///                             32..63 MAILBOX0 del SEC2
 ///   INFO_GPU_DESPIERTO_BUZON  MAILBOX0 | MAILBOX1 << 32 del GSP; con selector
-///                             1 (`1 << 8`), los del SEC2 si el booter arranco
+///                             1 (`1 << 8`), los del SEC2 si el booter arranco;
+///                             con selector 2, el secuenciador (L0c4b2c): `i |
+///                             fase << 16 | como va << 24 | dato << 32` (como
+///                             va: 0x40 cargado, 0x80 HECHO, 1 fuera, 2 plazo,
+///                             3 no contesta, 4 falcon, 5 SEC2, 6 mensaje)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
@@ -1742,6 +1746,14 @@ pub const DESPIERTO_VALIDO: u64 = 1 << 15;
 pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
 pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
 pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+pub const SEC_CARGADO: u64 = 0x40;
+pub const SEC_HECHO: u64 = 0x80;
+pub const SEC_FUERA: u64 = 1;
+pub const SEC_PLAZO: u64 = 2;
+pub const SEC_NO_CONTESTA: u64 = 3;
+pub const SEC_FALCON: u64 = 4;
+pub const SEC_SEC2: u64 = 5;
+pub const SEC_MENSAJE: u64 = 6;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)

@@ -430,9 +430,10 @@ MEDIDO, no el dicho.
         paso `sistema`                           [VISTO en metal, 24-09 08:34]
      L0c4b2b LEER el secuenciador que pide el GSP: sus ordenes, dichas
         una a una, sin correr ninguna. `gpu secuenciador` y el paso
-        `secuenciador`                          [en codigo, 24-09]
+        `secuenciador`                          [VISTO en metal, 24-09 08:59]
      L0c4b2c CORRERLO (RegWrite/Modify/Poll/Delay/Store y CORE_RESUME)
-        y esperar GSP_INIT_DONE
+        y esperar GSP_INIT_DONE. `gpu init` y el paso `init`
+                                                [en codigo, 24-09]
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
 
@@ -728,6 +729,36 @@ la WPR2), y bloques de 256 B con `0x110114`/`0x11011C` y la orden `0x614` en
 `0x110118`, esperando su bit 0. Ahora la fila `toca` cuenta que unidades toca
 todo el secuenciador y `nucleo` donde caen las cuatro del nucleo: con eso se
 decide que deja escribir el kernel en L0c4b2c.
+
+**L0c4b2b en el metal (24-09, 08:59): `toca falcon GSP x416`.** Las 416
+ordenes con registro, TODAS en el falcon del GSP (0x110000..0x111FFF);
+`nucleo CORE_RESET en la 3, CORE_START en la 418, CORE_WAIT_FOR_HALT en la
+419, CORE_RESUME en la 420`. Las ultimas: el DMA a IMEM acaba, y la BROM
+(`0x111210` PARAADDR, `0x11119C` ENGIDMASK, `0x111198` UCODE_ID, `0x111180`
+MOD_SEL), MAILBOX0 `<- 0xFE` y BOOTVEC `<- 0x100`: el GSP-RM carga un ucode
+firmado en el falcon del GSP, lo arranca, espera a que se pare y pide volver.
+
+**L0c4b2c (24-09, en codigo): CORRERLO.** `bmo_gpu_ga10x::correr` (5 pruebas,
+con una 3060 de mentira) hace cada orden como nova-core (`gsp/sequencer.rs`),
+pero por TRAMOS: cada llamada corre hasta 1 ms y dice donde se quedo; una
+espera que no llega no bloquea, sigue contando su plazo en la llamada
+siguiente (REG_POLL 4 s sin plazo, la parada 2 s, la vuelta 2 s). Antes del
+primer bit, `validar` mira TODAS: solo el falcon del GSP, alineado a 4 -- una
+sola fuera y no se escribe nada. CORE_RESUME en tres fases: reset del GSP y
+LIBOS a sus buzones y arrancar el SEC2; esperar el bit 26 de
+`NV_PGC6_BSI_SECURE_SCRATCH_14` (0x1180F8); MAILBOX0 del SEC2 a 0, el OS del
+GSP, y su RISC-V activo. El kernel (`IOMMU_OP_GSP_SECUENCIAR`,
+`dev/gpu_despertar.rs::secuenciar`) lee el mensaje EL MISMO de la cola del
+GSP, con su suma, y al acabar devuelve sus huecos; una vez por arranque. El
+escritorio (`commands/gspinit.rs`) llama tramo a tramo y luego consume lo
+que diga el GSP-RM hasta su `GSP_INIT_DONE` (10 s).
+
+** Lo que puede salir: la orden 1 espera el bit 31 de MAILBOX0 del GSP, y la
+fila `gsplog` de 08:59 lo leyo a 0. Si no se pone, la orden 1 acaba en su
+plazo (4 s) SIN haber escrito nada, y la fila `corrio` dice lo ultimo leido.
+
+**Como se sabe (L0c4b2c):** `corrio 420 de 420 ordenes CORRIDAS`; `listo
+GSP_INIT_DONE LLEGO`; y `despierto` otra vez con el RISC-V ACTIVO.
 
 **Como se sabe (L0c4b2b):** la fila `secuen` dice cuantas ordenes y de que tipo
 (se espera que acabe en CORE_RESUME), y cada fila `orden` que registro toca y

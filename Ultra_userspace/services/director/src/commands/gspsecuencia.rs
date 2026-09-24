@@ -129,6 +129,17 @@ pub(crate) fn leer() -> Result<u64, u32> {
     Ok(r.total as u64)
 }
 
+/// La orden `i` leida (para decir en cual se paro L0c4b2c) y cuantas hay.
+pub(crate) fn orden_n(i: usize) -> Option<Orden> {
+    let r = resumen()?;
+    // SAFETY: como `resumen`.
+    (i < r.n).then(|| unsafe { (*core::ptr::addr_of!(ORDENES))[i] })
+}
+
+pub(crate) fn total() -> u32 {
+    resumen().map_or(0, |r| r.total)
+}
+
 /// Lo pregunta `save mode`: leido entero, y entendido.
 pub(crate) fn leido() -> bool {
     resumen().map_or(false, |r| r.roto.is_none() && r.total > 0)
@@ -163,7 +174,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
 const TIPOS: [&[u8]; 9] = [b"ESCRIBIR", b"MODIFICAR", b"ESPERAR", b"RETRASO", b"LEER", b"CORE_RESET", b"CORE_START", b"CORE_WAIT_FOR_HALT", b"CORE_RESUME"];
 
 /// Una fila `orden`: su numero, su nombre, lo que toca y la unidad.
-fn una(s: &mut Output, i: usize, o: &Orden) {
+pub(crate) fn una(s: &mut Output, i: usize, o: &Orden) {
     campo(s, b"orden");
     s.with_ink(INK_ECHO);
     for _ in 0..(3usize.saturating_sub(digitos(i + 1))) {

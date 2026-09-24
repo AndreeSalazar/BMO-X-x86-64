@@ -268,6 +268,14 @@ const PASOS: &[Paso] = &[
         pide: Some(b"vaciar"),
         consejo: b"`gpu`: la fila `secuen` dice cuantas ordenes y de que tipo, y cada `orden` que registro toca y con que; crudo en datos/gspsec.bin -- lo siguiente es L0c4b2c, correrlo hasta GSP_INIT_DONE",
     },
+    Paso {
+        nombre: b"init",
+        que: b"CORRER el secuenciador del GSP (solo su falcon) hasta su GSP_INIT_DONE: el GSP-RM arrancado (L0c4b2c)",
+        hecho: super::gspinit::listo,
+        dar: super::gspinit::correr,
+        pide: Some(b"secuenciador"),
+        consejo: b"`gpu`: la fila `corrio` dice las 420 ordenes CORRIDAS, `listo` que llego GSP_INIT_DONE y `despierto` el RISC-V ACTIVO otra vez -- lo siguiente es L1, hablar con el GSP-RM por RPC",
+    },
 ];
 
 /// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
@@ -632,7 +640,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0c4b2c: CORRER el secuenciador del GSP hasta su GSP_INIT_DONE (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L1: hablar con el GSP-RM por RPC -- GET_GSP_STATIC_INFO, lo que el GSP dice de tu 3060 (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);

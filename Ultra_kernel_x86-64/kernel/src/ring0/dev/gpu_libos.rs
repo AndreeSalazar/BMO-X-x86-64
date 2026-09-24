@@ -335,6 +335,12 @@ pub fn mover_lectura(nuevo: u64) -> Result<u64, u32> {
 // ASSERT. Los bytes los arma `bmo_gpu_ga10x::orden` en su hueco de GspMem, con
 // lo que el kernel lee del PCI: el escritorio no manda bytes, solo dice "ya".
 
+/// GspMem, en fisica (`0` = sin `gpu libos`). Para L0c4b2c, que lee el
+/// secuenciador de la cola del GSP.
+pub(crate) fn gspmem() -> u64 {
+    GSPMEM_F.load(Ordering::Acquire)
+}
+
 /// Sin `gpu libos` no hay cola de la CPU donde escribir.
 pub const IOMMU_NO_SISTEMA_ANTES: u32 = 48;
 /// Ya se mandaron, o el GSP ya desperto: van ANTES, y una sola vez.

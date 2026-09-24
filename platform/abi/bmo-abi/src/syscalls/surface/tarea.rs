@@ -681,6 +681,11 @@ pub const IOMMU_OP_GSP_LEIDO: u64 = 0x16;
 /// CPU, armados por el kernel con lo que lee del PCI; ANTES de despertar el
 /// GSP y una sola vez. `Ok(2)` = el `writePtr` nuevo.
 pub const IOMMU_OP_GSP_SISTEMA: u64 = 0x17;
+/// L0c4b2c: un tramo (1 ms) del secuenciador que pidio el GSP; el kernel lo
+/// lee el mismo de la cola del GSP y solo deja tocar el falcon del GSP. `Ok`
+/// = como va (`INFO_GPU_DESPIERTO_BUZON` con selector 2); con `SEC_HECHO`,
+/// acabo y el GSP-RM volvio. Llamar hasta eso o un NO.
+pub const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -776,6 +781,12 @@ pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
 pub const IOMMU_NO_SISTEMA_ANTES: u32 = 48;
 /// L0c4b2a: ya se mandaron, o el GSP ya desperto.
 pub const IOMMU_NO_SISTEMA_YA: u32 = 49;
+/// L0c4b2c: el GSP no desperto, o lo primero de su cola no es un secuenciador entero.
+pub const IOMMU_NO_SEC_ANTES: u32 = 50;
+/// L0c4b2c: una orden fallo o se sale del falcon del GSP (el detalle, selector 2).
+pub const IOMMU_NO_SEC_FALLO: u32 = 51;
+/// L0c4b2c: ya se corrio en este arranque.
+pub const IOMMU_NO_SEC_YA: u32 = 52;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
 /// -96..+24 dB y devuelve lo que quedo puesto, tambien como `i64`.
 pub const AUDIO_MANDO_FADER: u64 = 1;

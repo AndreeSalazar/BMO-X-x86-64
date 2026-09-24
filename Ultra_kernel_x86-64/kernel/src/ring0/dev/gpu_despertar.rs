@@ -313,12 +313,16 @@ pub fn gsp_tomado() -> bool {
 }
 
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
-/// con selector 1 (`1 << 8`) del SEC2, si el booter arranco.
+/// con selector 1 (`1 << 8`) del SEC2, si el booter arranco; con selector 2,
+/// como va el secuenciador (L0c4b2c, `info_secuencia`).
 ///
 /// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
 /// = 0x15 donde tres veces antes dio 0. nova-core imprime los DOS buzones al
 /// fallar; aqui solo se veia el primero.
 pub fn info_despierto_buzon(sel: u64) -> u64 {
+    if sel >> 8 == 2 {
+        return info_secuencia();
+    }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };
     if bar0 == 0 || ESTADO.load(Ordering::Acquire) & hace_falta == 0 {
@@ -328,4 +332,179 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
         Ok((_, m0, m1)) => m0 as u64 | (m1 as u64) << 32,
         Err(_) => 0,
     }
+}
+
+// == L0c4b2c: CORRER EL SECUENCIADOR (2026-09-24) =============================
+//
+// El GSP-RM se para tras pedir `GSP_RUN_CPU_SEQUENCER` y espera a que la CPU
+// haga sus ordenes. El metal (24-09 08:59) trajo 420: 416 con registro, TODAS
+// en el falcon del GSP, y al final CORE_RESET/START/WAIT_FOR_HALT/RESUME.
+//
+// El kernel lee el mensaje EL MISMO de la cola del GSP (el escritorio solo
+// dice "sigue"), comprueba su suma, lo entiende con `bmo_gpu_ga10x::
+// secuenciador` y valida TODAS las ordenes contra lo permitido (el falcon del
+// GSP) antes de la primera escritura. Luego lo corre `bmo_gpu_ga10x::correr`
+// en tramos de 1 ms: cada llamada sigue donde se quedo la anterior, y las
+// esperas cuentan su plazo entre llamadas. Acabado, devuelve los huecos del
+// mensaje al GSP. Una sola vez por arranque: a medias no se repite.
+
+use bmo_gpu_ga10x::correr::{Contexto, Corredor, Falla, Tramo};
+use bmo_gpu_ga10x::secuenciador::{self as sq, Orden};
+
+/// El GSP no desperto, o lo primero de su cola no es un secuenciador entero.
+pub const IOMMU_NO_SEC_ANTES: u32 = 50;
+/// Una orden fallo o se sale del falcon del GSP: el detalle en `info_secuencia`.
+pub const IOMMU_NO_SEC_FALLO: u32 = 51;
+/// Ya se corrio en este arranque.
+pub const IOMMU_NO_SEC_YA: u32 = 52;
+
+const MAX_ORDENES: usize = 1024;
+const MAX_BYTES: usize = 16 * PAGINA as usize;
+const TRAMO_US: u64 = 1000;
+
+/// `info_secuencia`, bits 24..31: como va.
+pub const SEC_CARGADO: u64 = 0x40;
+pub const SEC_HECHO: u64 = 0x80;
+/// ...o por que se paro (`Falla`).
+pub const SEC_FUERA: u64 = 1;
+pub const SEC_PLAZO: u64 = 2;
+pub const SEC_NO_CONTESTA: u64 = 3;
+pub const SEC_FALCON: u64 = 4;
+pub const SEC_SEC2: u64 = 5;
+pub const SEC_MENSAJE: u64 = 6;
+
+/// `i | fase << 16 | como va << 24 | dato << 32`.
+static SEC: AtomicU64 = AtomicU64::new(0);
+/// Desde cuando se espera lo que se espera (us + 1; 0 = nada).
+static SEC_DESDE: AtomicU64 = AtomicU64::new(0);
+/// `ordenes | paginas del mensaje << 16 | su pagina << 24`.
+static SEC_MSG: AtomicU64 = AtomicU64::new(0);
+static mut SEC_ORDENES: [Orden; MAX_ORDENES] = [Orden::Resetear; MAX_ORDENES];
+static mut SEC_DATOS: [u8; MAX_BYTES] = [0; MAX_BYTES];
+
+fn sec_no(codigo: u64, dato: u32, motivo: u32) -> Result<u64, u32> {
+    let v = SEC.load(Ordering::Acquire) & 0xFF_FFFF;
+    SEC.store(v | codigo << 24 | (dato as u64) << 32, Ordering::Release);
+    crate::ring0::cabina::warn("gpu", "L0c4b2c: el secuenciador se paro; como va", SEC.load(Ordering::Acquire));
+    Err(motivo)
+}
+
+/// **Cargar el secuenciador** de la cola del GSP: su suma, sus ordenes. `Ok(n)`.
+fn cargar() -> Result<usize, u32> {
+    let f = gpu_libos::gspmem();
+    if f == 0 {
+        return Err(IOMMU_NO_SEC_ANTES);
+    }
+    let ver = |o: u64| crate::ring0::mm::phys_to_virt(f + o);
+    // El readPtr de la CPU (cabecera rx de la cola de la CPU).
+    // SAFETY: dentro de GspMem (marcos NEUTRO de `gpu_libos`); volatile: la 3060.
+    let p = unsafe { (ver(bmo_gpu_ga10x::libos::COLA_CPU + 32) as *const u32).read_volatile() } as u64 % 63;
+    let byte = |o: usize| -> u8 {
+        let d = bmo_gpu_ga10x::libos::COLA_GSP + PAGINA + (p * PAGINA + o as u64) % (63 * PAGINA);
+        // SAFETY: como arriba, dentro de las 63 paginas de la cola del GSP.
+        unsafe { (ver(d) as *const u8).read_volatile() }
+    };
+    let mut c = [0u8; bmo_gpu_ga10x::rpc::CABECERA];
+    for (k, b) in c.iter_mut().enumerate() {
+        *b = byte(k);
+    }
+    let m = bmo_gpu_ga10x::rpc::Mensaje::de(&c);
+    if !m.bien_formado() || m.funcion != bmo_gpu_ga10x::rpc::SECUENCIADOR || m.datos() > MAX_BYTES {
+        return Err(IOMMU_NO_SEC_ANTES);
+    }
+    // SAFETY: SEC_DATOS y SEC_ORDENES solo se tocan aqui y en `secuenciar`,
+    // desde la syscall del escritorio (un solo hilo).
+    let datos = unsafe { &mut *core::ptr::addr_of_mut!(SEC_DATOS) };
+    let mut s = bmo_gpu_ga10x::rpc::Suma::default();
+    s.mas(&c);
+    for k in 0..m.datos() {
+        datos[k] = byte(bmo_gpu_ga10x::rpc::CABECERA + k);
+    }
+    s.mas(&datos[..m.datos()]);
+    if s.valor() != 0 {
+        return Err(IOMMU_NO_SEC_ANTES);
+    }
+    // SAFETY: como arriba.
+    let ordenes = unsafe { &mut *core::ptr::addr_of_mut!(SEC_ORDENES) };
+    let mut n = 0;
+    for x in sq::ordenes(&datos[..m.datos()]) {
+        match x {
+            Ok(o) if n < MAX_ORDENES => {
+                ordenes[n] = o;
+                n += 1;
+            }
+            _ => return Err(IOMMU_NO_SEC_ANTES),
+        }
+    }
+    SEC_MSG.store(n as u64 | (m.paginas as u64) << 16 | p << 24, Ordering::Release);
+    SEC.store(SEC_CARGADO << 24, Ordering::Release);
+    crate::ring0::cabina::count("gpu", "L0c4b2c: secuenciador cargado de la cola del GSP; ordenes", n as u64);
+    Ok(n)
+}
+
+/// **Un tramo del secuenciador.** `Ok(info_secuencia)`: con `SEC_HECHO`, el
+/// GSP-RM volvio y los huecos del mensaje ya son suyos; si no, llamar otra vez.
+pub fn secuenciar() -> Result<u64, u32> {
+    if ESTADO.load(Ordering::Acquire) & DESPIERTO_VISTO == 0 {
+        return Err(IOMMU_NO_SEC_ANTES);
+    }
+    let v = SEC.load(Ordering::Acquire);
+    let como = v >> 24 & 0xFF;
+    if como & SEC_HECHO != 0 {
+        return Err(IOMMU_NO_SEC_YA);
+    }
+    if como & 0x3F != 0 {
+        return Err(IOMMU_NO_SEC_FALLO);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 {
+        return Err(io::IOMMU_NO_SIN_GPU);
+    }
+    if como & SEC_CARGADO == 0 {
+        if let Err(m) = cargar() {
+            return sec_no(SEC_MENSAJE, 0, m);
+        }
+    }
+    let msg = SEC_MSG.load(Ordering::Acquire);
+    let n = (msg & 0xFFFF) as usize;
+    // SAFETY: como en `cargar`.
+    let ordenes = unsafe { &(&*core::ptr::addr_of!(SEC_ORDENES))[..n] };
+    let v = SEC.load(Ordering::Acquire);
+    let desde = SEC_DESDE.load(Ordering::Acquire);
+    let mut c = Corredor { i: (v & 0xFFFF) as usize, fase: (v >> 16 & 0xFF) as u8, desde: desde.checked_sub(1) };
+    let mut r = Bar0(bar0);
+    let ctx = Contexto {
+        boot0: r.leer(bmo_gpu_ga10x::BOOT_0),
+        libos: gpu_libos::IOVA_LIBOS,
+        os: gpu_gsp::app_version().unwrap_or(0),
+    };
+    let tramo = c.correr(ordenes, &mut r, &mut pr::reloj(), &ctx, TRAMO_US);
+    SEC.store(c.i as u64 | (c.fase as u64) << 16 | SEC_CARGADO << 24, Ordering::Release);
+    SEC_DESDE.store(c.desde.map_or(0, |d| d + 1), Ordering::Release);
+    match tramo {
+        Tramo::Sigue => Ok(info_secuencia()),
+        Tramo::Hecho => {
+            // El mensaje, consumido: sus huecos vuelven al GSP (nova-core lo
+            // consume al recibirlo, antes de correrlo).
+            let (paginas, p) = (msg >> 16 & 0xFF, msg >> 24 & 0xFF);
+            let _ = gpu_libos::mover_lectura((p + paginas) % 63);
+            SEC.fetch_or(SEC_HECHO << 24, Ordering::AcqRel);
+            crate::ring0::cabina::count("gpu", "L0c4b2c: SECUENCIADOR CORRIDO y el GSP-RM volvio; ordenes", n as u64);
+            Ok(info_secuencia())
+        }
+        Tramo::Falla(f) => match f {
+            Falla::Fuera(_, reg) => sec_no(SEC_FUERA, reg, IOMMU_NO_SEC_FALLO),
+            Falla::Plazo(_, visto) => sec_no(SEC_PLAZO, visto, IOMMU_NO_SEC_FALLO),
+            Falla::NoContesta(_, reg) => sec_no(SEC_NO_CONTESTA, reg, IOMMU_NO_SEC_FALLO),
+            Falla::Falcon(_, e) => sec_no(SEC_FALCON, pr::motivo(e) as u32, IOMMU_NO_SEC_FALLO),
+            Falla::Sec2(m0) => sec_no(SEC_SEC2, m0, IOMMU_NO_SEC_FALLO),
+        },
+    }
+}
+
+/// `INFO_GPU_DESPIERTO_BUZON` con selector 2: `i | fase << 16 | como va << 24
+/// | dato << 32` -- `i` la orden en curso (o la que fallo), y el dato de la
+/// falla (el registro, o MAILBOX0 del SEC2, o el motivo del falcon).
+pub fn info_secuencia() -> u64 {
+    SEC.load(Ordering::Acquire)
 }

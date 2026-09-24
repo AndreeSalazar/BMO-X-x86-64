@@ -215,6 +215,16 @@ pub fn traer(
     copiar(r, t, base, iova, dmem, bytes, false, false, plazo_trozo_us)
 }
 
+/// **El DMA del falcon, a cero** (nova-core `Falcon::dma_reset`, lo que hace
+/// CORE_RESET del secuenciador tras el reset): fisico sin contexto permitido,
+/// y `DMACTL` a 0. Sin tocar `TRANSCFG`, a diferencia de `preparar_fbif`.
+pub fn reset_dma(r: &mut impl Registros, base: u32) -> Result<(), NoFuego> {
+    let fbif = leer(r, base + FBIF_CTL)?;
+    r.escribir(base + FBIF_CTL, fbif | FBIF_FISICA_SIN_CTX);
+    r.escribir(base + DMACTL, 0);
+    Ok(())
+}
+
 /// El FBIF a la RAM del PC, en fisico y sin contexto (`dma_load`, nova-core).
 pub fn preparar_fbif(r: &mut impl Registros, base: u32) -> Result<(), NoFuego> {
     let fbif = leer(r, base + FBIF_CTL)?;

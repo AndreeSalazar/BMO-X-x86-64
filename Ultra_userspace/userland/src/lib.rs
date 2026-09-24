@@ -241,6 +241,7 @@ pub const IOMMU_OP_GSP_BOOTER: u64 = 0x14;
 pub const IOMMU_OP_GSP_ACABAR: u64 = 0x15;
 pub const IOMMU_OP_GSP_LEIDO: u64 = 0x16;
 pub const IOMMU_OP_GSP_SISTEMA: u64 = 0x17;
+pub const IOMMU_OP_GSP_SECUENCIAR: u64 = 0x18;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -290,6 +291,9 @@ pub const IOMMU_NO_COLA_ANTES: u32 = 46;
 pub const IOMMU_NO_COLA_PUNTERO: u32 = 47;
 pub const IOMMU_NO_SISTEMA_ANTES: u32 = 48;
 pub const IOMMU_NO_SISTEMA_YA: u32 = 49;
+pub const IOMMU_NO_SEC_ANTES: u32 = 50;
+pub const IOMMU_NO_SEC_FALLO: u32 = 51;
+pub const IOMMU_NO_SEC_YA: u32 = 52;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;
 /// Callar (1) o descallar (0).
@@ -1036,6 +1040,14 @@ pub const DESPIERTO_VALIDO: u64 = 1 << 15;
 pub const DESPIERTO_MOTIVO_SHIFT: u64 = 16;
 pub const DESPIERTO_BUZON_SHIFT: u64 = 32;
 pub const INFO_GPU_DESPIERTO_BUZON: u64 = 0xC0;
+pub const SEC_CARGADO: u64 = 0x40;
+pub const SEC_HECHO: u64 = 0x80;
+pub const SEC_FUERA: u64 = 1;
+pub const SEC_PLAZO: u64 = 2;
+pub const SEC_NO_CONTESTA: u64 = 3;
+pub const SEC_FALCON: u64 = 4;
+pub const SEC_SEC2: u64 = 5;
+pub const SEC_MENSAJE: u64 = 6;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 pub const SERIE_COLA: u64 = 1 << 63;
 
