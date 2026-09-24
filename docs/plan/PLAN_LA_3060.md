@@ -396,7 +396,8 @@ MEDIDO, no el dicho.
    L0b  CORRER FWSEC-FRTS en el falcon del GSP: su ucode PRESTADO por la
         IOMMU (como la pagina de M0d3), la orden cambiada a FRTS, la firma
         del fusible puesta, IMEM y DMEM por DMA, BROM, arrancar, y MAILBOX0
-        a 0. Como se sabe: la fila `wpr2` dice YA montada       [en codigo]
+        a 0. Como se sabe: la fila `wpr2` dice YA montada
+                                                [VISTO en metal, 24-09 05:19]
    L0c  el booter en el SEC2 y el GSP-RM (los ~69 MB), por el mismo camino
 ```
 
@@ -419,6 +420,15 @@ arranca -- y el escritorio espera a que el falcon se pare cediendo el turno, 3 s
 como mucho. Exito = MAILBOX0 0, el codigo de FRTS (`0x1438`, bits 16..31) 0 y la
 WPR2 donde se pidio. `gpu fwsec`, la fila `frts`, y el paso `fwsec` de `save
 mode` (hecho = hay WPR2, que sobrevive hasta que la 3060 se reinicia).
+
+**L0b en el metal (24-09, 05:19): EL PRIMER FIRMWARE QUE BMO-X EJECUTA EN LA
+3060.** `frts CORRIO: el falcon se paro con MAILBOX0 = 0 y la WPR2 montada   firma
+2, MAILBOX0 0x00000000, codigo FRTS 0x0000` y `wpr2 YA montada:
+0x2FFE00000..0x2FFEE0000 -- donde se pidio` (896 KiB de la MiB pedida: FRTS usa
+lo que necesita). `domain 33 paginas prestadas` (la de prueba y las 32 de FWSEC),
+sin eventos nuevos: el ucode firmado se leyo por la IOMMU y no toco nada mas. Y
+E2 siguio contando. Es exactamente donde se para nova-core en Linux 6.17
+("GPU instance built"), y aqui detras de una IOMMU que traduce.
 
 L0a vive en `platform/drivers/gpu/ga10x/src/vbios.rs` (9 pruebas contra una
 ROM de mentira armada byte a byte, y bytes hostiles que nunca la revientan),
