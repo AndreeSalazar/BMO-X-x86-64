@@ -707,6 +707,47 @@ fn escena_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
 
 /// **M5 T1c.** `ficha` = la de S3. `Ok(raster::empaquetar(..))`.
 pub fn raster(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::raster as ra;
+    dibujo_3d(ficha, &Dibujo3d {
+        nombre: "M5 T1c",
+        preparar: ra::preparar,
+        mirar: ra::mirar,
+        paga: ra::PAGA_FIN,
+        semaforo: ra::SEMAFORO_FIN,
+        comprobar: ra::comprobar,
+        verdes: Some(ra::verdes),
+    })
+}
+
+/// **M5 T2a: el triangulo con color, mezclado por el rasterizador.**
+pub fn color_3d(ficha: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::color3d as c3;
+    dibujo_3d(ficha, &Dibujo3d {
+        nombre: "M5 T2a",
+        preparar: c3::preparar,
+        mirar: c3::mirar,
+        paga: c3::PAGA_FIN,
+        semaforo: c3::SEMAFORO_FIN,
+        comprobar: c3::comprobar,
+        verdes: None,
+    })
+}
+
+use crate::ring0::dev::gpu_prestamo::Bar0;
+
+/// Un dibujo por el pipeline 3D: sus programas, su semaforo y su juez.
+struct Dibujo3d {
+    nombre: &'static str,
+    preparar: fn(&mut Bar0, u32) -> bool,
+    mirar: fn(&mut Bar0) -> (u32, u32),
+    paga: u32,
+    semaforo: u64,
+    comprobar: fn(&[u32]) -> u32,
+    /// Los pixeles del color del programa de pixel, para el log si no sale.
+    verdes: Option<fn(&[u32]) -> u32>,
+}
+
+fn dibujo_3d(ficha: u64, d: &Dibujo3d) -> Result<u64, u32> {
     use bmo_gpu_ga10x::blur as bl;
     let bar0 = crate::ring0::dev::gpu::bar0();
     if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) || !bmo_gpu_ga10x::computo::ficha_valida(ficha) {
@@ -716,19 +757,20 @@ pub fn raster(ficha: u64) -> Result<u64, u32> {
     if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_BLUR);
     }
-    let r = raster_(bar0, ficha as u32, e);
+    let r = dibujo_3d_(bar0, ficha as u32, e, d);
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
 
-fn raster_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
+fn dibujo_3d_(bar0: u64, ficha: u32, e: u32, d: &Dibujo3d) -> Result<u64, u32> {
     use bmo_gpu_ga10x::fractal as fr;
     use bmo_gpu_ga10x::raster as ra;
-    let mut r = crate::ring0::dev::gpu_prestamo::Bar0(bar0);
+    let mut r = Bar0(bar0);
     asegurar_mib(&mut r)?;
     memoria(FRACTAL_F.load(Ordering::Acquire), fr::PAGINAS * PAGINA).fill(0);
-    if !ra::preparar(&mut r, e) {
-        crate::ring0::cabina::warn("gpu", "M5 T1c: el tramo no quedo preparado; no se toca el timbre", 0);
+    if !(d.preparar)(&mut r, e) {
+        crate::ring0::cabina::warn("gpu", d.nombre, 0);
+        crate::ring0::cabina::warn("gpu", "  el tramo 3D no quedo preparado; no se toca el timbre", 0);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
@@ -741,25 +783,48 @@ fn raster_(bar0: u64, ficha: u32, e: u32) -> Result<u64, u32> {
     let mut fin = 0;
     let mut us = 0;
     while lanzado && us < FRACTAL_ESPERA_US {
-        fin = ra::mirar(&mut r).1;
+        fin = (d.mirar)(&mut r).1;
         us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
-        if fin == ra::PAGA_FIN {
+        if fin == d.paga {
             break;
         }
         core::hint::spin_loop();
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
-    let buenos = pixeles_del_fractal().map_or(0, ra::comprobar);
+    let buenos = pixeles_del_fractal().map_or(0, d.comprobar);
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
-    let pagado = fin == ra::PAGA_FIN;
+    let pagado = fin == d.paga;
+    // La escalera y el motor grafico, como quedaron: los lee `DIAG_3D`.
+    DIAG_3D[0].store(ra::etapas(&mut r, d.semaforo, d.paga), Ordering::Release);
+    for (k, reg) in GR_MIRADOS.iter().enumerate() {
+        DIAG_3D[1 + k].store(bmo_gpu_ga10x::Registros::leer(&mut r, *reg), Ordering::Release);
+    }
     let v = ra::empaquetar(buenos, pagado, pagado, lanzado, us as u32, cpu_us as u32);
     if ra::sano(v) {
-        crate::ring0::cabina::count("gpu", "M5 T1c: EL RASTERIZADOR DE LA 3060 DIBUJO EL TRIANGULO, igual que el juez; us", us);
+        crate::ring0::cabina::count("gpu", d.nombre, us);
+        crate::ring0::cabina::count("gpu", "  EL RASTERIZADOR DE LA 3060 DIBUJO, igual que el juez; us", us);
     } else {
-        let verdes = pixeles_del_fractal().map_or(0, ra::verdes);
-        crate::ring0::cabina::warn("gpu", "M5 T1c: el triangulo no salio igual que el juez; pixeles buenos", buenos as u64);
-        crate::ring0::cabina::warn("gpu", "M5 T1c: pixeles verdes (los del programa de pixel)", verdes as u64);
+        crate::ring0::cabina::warn("gpu", d.nombre, buenos as u64);
+        crate::ring0::cabina::warn("gpu", "  el dibujo 3D no salio igual que el juez; pixeles buenos", buenos as u64);
+        if let Some(f) = d.verdes {
+            let verdes = pixeles_del_fractal().map_or(0, f);
+            crate::ring0::cabina::warn("gpu", "  pixeles verdes (los del programa de pixel)", verdes as u64);
+        }
     }
     Ok(v)
+}
+
+/// Los registros del motor grafico que se miran tras un dibujo 3D: su
+/// interrupcion (`NV_PGRAPH_INTR`), su excepcion (`NV_PGRAPH_EXCEPTION`) y
+/// que unidades siguen ocupadas (`NV_PGRAPH_STATUS`). Solo se LEEN.
+const GR_MIRADOS: [u32; 3] = [0x0040_0100, 0x0040_0108, 0x0040_0700];
+
+/// Lo que quedo del ultimo dibujo 3D: la escalera (bit 0 estado, 1 vertices,
+/// 2 entero) y los tres registros.
+static DIAG_3D: [core::sync::atomic::AtomicU32; 4] = [const { core::sync::atomic::AtomicU32::new(0) }; 4];
+
+/// **Op 0x39**: la palabra `k` de `DIAG_3D`.
+pub fn diag_3d(k: u64) -> Result<u64, u32> {
+    DIAG_3D.get(k as usize).map(|v| v.load(Ordering::Acquire) as u64).ok_or(IOMMU_NO_BLUR)
 }

@@ -166,14 +166,14 @@ pub const CODIGO_PS: [(u64, u64); 6] = [
 pub const SPH: usize = 20;
 
 /// Pone a 1 el bit `b` de la cabecera.
-const fn bit(mut h: [u32; SPH], b: usize) -> [u32; SPH] {
+pub const fn bit(mut h: [u32; SPH], b: usize) -> [u32; SPH] {
     h[b / 32] |= 1 << (b % 32);
     h
 }
 
 /// `CommonWord0`: SphType (4:0), Version (9:5) = 3, ShaderType (13:10) y
 /// SassVersion (20:17) = 1 -- los de nouveau (`0x20061 | 1 << 10`).
-const fn palabra0(tipo_sph: u32, tipo: u32) -> u32 {
+pub const fn palabra0(tipo_sph: u32, tipo: u32) -> u32 {
     tipo_sph | 3 << 5 | tipo << 10 | 1 << 17
 }
 
@@ -212,7 +212,7 @@ pub const PALABRAS_VS: usize = SPH + CODIGO_VS.len() * 4;
 pub const PALABRAS_PS: usize = SPH + CODIGO_PS.len() * 4;
 
 /// Cabecera y codigo, en palabras, tal como van a memoria.
-const fn programa<const N: usize>(sph: [u32; SPH], codigo: &[(u64, u64)]) -> [u32; N] {
+pub const fn programa<const N: usize>(sph: [u32; SPH], codigo: &[(u64, u64)]) -> [u32; N] {
     let mut w = [0u32; N];
     let mut k = 0;
     while k < SPH {
@@ -243,7 +243,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 168;
+pub const ORDENES: usize = 193;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -257,11 +257,30 @@ impl Empuje {
         self.o[self.n + 1..self.n + 1 + v.len()].copy_from_slice(v);
         self.n += 1 + v.len();
     }
+
+    /// Un semaforo de informe tras todas las escrituras.
+    fn semaforo(&mut self, donde: u64, paga: u32) {
+        let s = sombreador_va(donde);
+        self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, paga, td::INFORME]);
+    }
+
+    /// EL DIBUJO: tres vertices, un triangulo.
+    fn dibujo(&mut self) {
+        self.m(BEGIN, &[TRIANGULOS]);
+        self.m(SET_VERTEX_ARRAY_START, &[0, 3]);
+        self.m(END, &[0]);
+    }
 }
 
 /// **Las ordenes**: limpiar (T1a), el estado 3D, los dos programas, el
 /// dibujo de TRES vertices y el semaforo tras todas las escrituras.
 pub fn ordenes() -> [u32; ORDENES] {
+    ordenes_con(SEMAFORO_FIN, PAGA_FIN)
+}
+
+/// Las mismas, con otro semaforo y otra paga (T2 las usa enteras: solo
+/// cambian los programas que hay en `VS` y `PS`).
+pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     let mut e = Empuje { o: [0; ORDENES], n: PREFIJO };
     e.o[..PREFIJO].copy_from_slice(&td::ordenes()[..PREFIJO]);
     e.m(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
@@ -319,30 +338,58 @@ pub fn ordenes() -> [u32; ORDENES] {
         }
         j += 1;
     }
-    // EL DIBUJO: tres vertices, un triangulo.
-    e.m(BEGIN, &[TRIANGULOS]);
-    e.m(SET_VERTEX_ARRAY_START, &[0, 3]);
-    e.m(END, &[0]);
+    // ** Metal 24-09 18:06: el dibujo se quedo esperando SIN excepcion (el
+    // GSP no conto ningun Xid). Una ESCALERA de semaforos dice hasta donde
+    // llego en UN arranque: (1) el estado aceptado, (2) el dibujo con el
+    // rasterizador APAGADO -- solo corre el programa de vertice --, (3) el
+    // dibujo entero. El primero sin pagar es la etapa que se cuelga.
     e.m(td::WAIT_FOR_IDLE, &[0]);
-    let s = sombreador_va(SEMAFORO_FIN);
-    e.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, PAGA_FIN, td::INFORME]);
+    e.semaforo(semaforo + ESTADO, paga ^ ESTADO_PAGA);
+    e.m(SET_RASTER_ENABLE, &[0]);
+    e.dibujo();
+    e.m(td::WAIT_FOR_IDLE, &[0]);
+    e.semaforo(semaforo + VERTICES, paga ^ VERTICES_PAGA);
+    e.m(SET_RASTER_ENABLE, &[1]);
+    e.dibujo();
+    e.m(td::WAIT_FOR_IDLE, &[0]);
+    e.semaforo(semaforo, paga);
     debug_assert!(e.n == ORDENES);
     e.o
+}
+
+/// Donde van los escalones, tras el semaforo final, y lo que pagan.
+pub const ESTADO: u64 = 4;
+pub const VERTICES: u64 = 8;
+pub const ESTADO_PAGA: u32 = 0xE500;
+pub const VERTICES_PAGA: u32 = 0x7E00;
+
+/// **Hasta donde llego**: bit 0 el estado, bit 1 los vertices, bit 2 el
+/// dibujo entero.
+pub fn etapas<R: Registros>(r: &mut R, semaforo: u64, paga: u32) -> u32 {
+    (leer32(r, semaforo + ESTADO) == paga ^ ESTADO_PAGA) as u32
+        | ((leer32(r, semaforo + VERTICES) == paga ^ VERTICES_PAGA) as u32) << 1
+        | ((leer32(r, semaforo) == paga) as u32) << 2
 }
 
 /// **Preparar** con la entrada `e` del GPFIFO de GR: el semaforo a cero, los
 /// dos programas en su pagina, las ordenes y la entrada.
 pub fn preparar<R: Registros>(r: &mut R, e: u32) -> bool {
-    if !crate::blur::entrada_valida(e) {
+    preparar_con(r, e, &vertice(), &pixel(), SEMAFORO_FIN, PAGA_FIN)
+}
+
+/// Lo mismo con otros dos programas (cabecera y codigo), otro semaforo y
+/// otra paga.
+pub fn preparar_con<R: Registros>(r: &mut R, e: u32, vs: &[u32], ps: &[u32], semaforo: u64, paga: u32) -> bool {
+    if !crate::blur::entrada_valida(e) || vs.len() * 4 > (PS - VS) as usize || ps.len() * 4 > 4096 - (PS - VS) as usize {
         return false;
     }
-    let o = ordenes();
+    let o = ordenes_con(semaforo, paga);
     let en = entrada(sombreador_va(EMPUJE), ORDENES as u32);
-    escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
+    escribir(r, semaforo, &[0; 4]) == 4
         && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
         && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
-        && escribir(r, VS, &vertice()) == PALABRAS_VS
-        && escribir(r, PS, &pixel()) == PALABRAS_PS
+        && escribir(r, VS, vs) == vs.len()
+        && escribir(r, PS, ps) == ps.len()
         && escribir(r, EMPUJE, &o) == ORDENES
         && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
 }
@@ -357,13 +404,17 @@ pub fn lanzar<R: Registros>(r: &mut R, ficha: u32, e: u32) -> bool {
 
 /// `(GP_GET, semaforo)`.
 pub fn mirar<R: Registros>(r: &mut R) -> (u32, u32) {
-    (leer32(r, GR.userd + GP_GET), leer32(r, SEMAFORO_FIN))
+    mirar_en(r, SEMAFORO_FIN)
+}
+
+pub fn mirar_en<R: Registros>(r: &mut R, semaforo: u64) -> (u32, u32) {
+    (leer32(r, GR.userd + GP_GET), leer32(r, semaforo))
 }
 
 // == El juez =================================================================
 
 /// La arista en el CENTRO del pixel, con todo al doble para seguir entero.
-const fn arista_centro(a: (i32, i32), b: (i32, i32), x: u32, y: u32) -> i32 {
+pub const fn arista_centro(a: (i32, i32), b: (i32, i32), x: u32, y: u32) -> i32 {
     arista((2 * a.0, 2 * a.1), (2 * b.0, 2 * b.1), 2 * x as i32 + 1, 2 * y as i32 + 1)
 }
 
@@ -401,6 +452,8 @@ const _: () = assert!(SEMAFORO_FIN > crate::escena::SEMAFORO_FIN && SEMAFORO_FIN
 
 #[cfg(test)]
 mod pruebas {
+    extern crate std;
+
     use super::*;
 
     #[test]
@@ -420,6 +473,26 @@ mod pruebas {
         assert_eq!(o[b + 1], TRIANGULOS);
         assert_eq!(&o[b + 2..b + 5], &[cabecera_en(0, SET_VERTEX_ARRAY_START, 2), 0, 3]);
         assert_eq!(o[b + 5], cabecera_en(0, END, 1));
+    }
+
+    #[test]
+    fn la_escalera() {
+        let o = ordenes();
+        let sem = cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4);
+        // Tres semaforos en orden: estado, vertices, el final.
+        let k: std::vec::Vec<usize> = (0..ORDENES).filter(|&i| o[i] == sem).collect();
+        assert_eq!(k.len(), 3);
+        let donde = |i: usize| ((o[i + 1] as u64) << 32) | o[i + 2] as u64;
+        assert_eq!(donde(k[0]), sombreador_va(SEMAFORO_FIN + ESTADO));
+        assert_eq!(donde(k[1]), sombreador_va(SEMAFORO_FIN + VERTICES));
+        assert_eq!(donde(k[2]), sombreador_va(SEMAFORO_FIN));
+        assert_eq!((o[k[0] + 3], o[k[1] + 3]), (PAGA_FIN ^ ESTADO_PAGA, PAGA_FIN ^ VERTICES_PAGA));
+        // Dos dibujos: el primero con el rasterizador APAGADO.
+        let b: std::vec::Vec<usize> = (0..ORDENES).filter(|&i| o[i] == cabecera_en(0, BEGIN, 1)).collect();
+        assert_eq!(b.len(), 2);
+        assert!(k[0] < b[0] && b[0] < k[1] && k[1] < b[1] && b[1] < k[2]);
+        assert_eq!(&o[b[0] - 2..b[0]], &[cabecera_en(0, SET_RASTER_ENABLE, 1), 0]);
+        assert_eq!(&o[b[1] - 2..b[1]], &[cabecera_en(0, SET_RASTER_ENABLE, 1), 1]);
     }
 
     #[test]

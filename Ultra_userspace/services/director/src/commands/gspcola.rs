@@ -333,9 +333,11 @@ pub(crate) fn fila(s: &mut Output) {
 // `OS_ERROR_LOG` (con el texto del error). Nadie los consume aqui, asi que
 // siguen en la cola: se leen SIN moverla, como `gpu cola`.
 
-/// Los que cuentan un fallo.
+/// Los que cuentan un fallo. Los NOCAT no: el metal de las 18:06 trajo
+/// cuatro y eran tablas de textos del arranque (GR_STATUS, PERF NVDEC0...),
+/// no un fallo; se cuentan aparte.
 const fn es_aviso(f: u32) -> bool {
-    matches!(f, 0x1004..=0x1006 | 0x1020..=0x1022)
+    matches!(f, 0x1004..=0x1006 | 0x1021 | 0x1022)
 }
 
 /// El nombre de unos numeros "Xid" de NVIDIA.
@@ -366,12 +368,13 @@ pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {
     let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) as u64;
     let leido = (mem(LEIDO_CPU) & 0xFFFF_FFFF) as u64;
     let (fin, mut p) = (escrito % PAGINAS, leido % PAGINAS);
-    let (mut vueltas, mut n) = (0, 0);
+    let (mut vueltas, mut n, mut nocat) = (0, 0, 0);
     while p != fin && vueltas < PAGINAS {
         let m = Mensaje::de(&cabecera(p));
         if !m.bien_formado() {
             break;
         }
+        nocat += (m.funcion == rpc::NOCAT) as u64;
         if es_aviso(m.funcion) {
             n += 1;
             if n <= max {
@@ -388,7 +391,9 @@ pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {
     }
     if n == 0 {
         campo(s, b"gsp aviso");
-        s.text(b"ninguno en la cola del GSP: la 3060 no conto una excepcion (o aun no)\n");
+        s.text(b"ni un RC_TRIGGERED ni un MMU_FAULT: la 3060 no conto una excepcion; ");
+        s.dec(nocat);
+        s.text(b" NOCAT sin leer (crudos con `gpu cola`)\n");
     }
     n
 }

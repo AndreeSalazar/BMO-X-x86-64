@@ -542,7 +542,16 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::gspcomputo::raster_hecho,
         dar: super::gspcomputo::dibujar_raster,
         pide: Some(b"limpio3d"),
-        consejo: b"`gpu`: `raster` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu raster` y VELO -- lo siguiente es T2: vertices con color y profundidad",
+        consejo: b"`gpu`: `raster` dice 262144 de 262144 y el semaforo PAGADO; teclea `gpu raster` y VELO -- lo siguiente es `color`",
+        repinta: false,
+    },
+    Paso {
+        nombre: b"color",
+        que: b"TRES COLORES MEZCLADOS POR EL RASTERIZADOR: cada vertice con su color, la 3060 los mezcla en cada pixel con IPA (M5 T2a)",
+        hecho: super::gspcomputo::color3d_hecho,
+        dar: super::gspcomputo::dibujar_color3d,
+        pide: Some(b"raster"),
+        consejo: b"`gpu`: `color` dice 262144 de 262144; teclea `gpu color` y VELO -- lo siguiente es T2b, la profundidad (dos triangulos que se cruzan)",
         repinta: false,
     },
 ];

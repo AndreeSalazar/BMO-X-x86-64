@@ -609,6 +609,23 @@ fila `raster` lee la cola del GSP SIN moverla y saca sus avisos:
 `RC_TRIGGERED` (motor, canal, Xid: 13 excepcion de GR, 31 fallo de pagina,
 69 error de clase), `MMU_FAULT_QUEUED`, `OS_ERROR_LOG` con su texto.
 
+**T1c EN EL METAL (24-09, 18:06): igual, y el GSP no dice nada.** El estado
+de NVK no cambio el resultado. Los avisos: CERO `RC_TRIGGERED` y cero
+`MMU_FAULT_QUEUED`; solo cuatro NOCAT que son tablas de textos del arranque.
+Sin Xid, la 3060 no ve una excepcion: alguna unidad del pipeline 3D se
+queda ESPERANDO. Para saber cual en UN arranque: una ESCALERA de semaforos
+en el mismo trabajo -- (1) el estado aceptado, (2) el dibujo con el
+rasterizador apagado (solo el programa de vertice), (3) el dibujo entero --
+y, al rendirse, `NV_PGRAPH_INTR` (0x400100), `NV_PGRAPH_EXCEPTION`
+(0x400108) y `NV_PGRAPH_STATUS` (0x400700, que unidades siguen ocupadas),
+solo leidos. Filas `escalera` y `gr` bajo `raster`. 193 palabras.
+
+**T2a atado (24-09):** `color3d.rs`, op 0x38, `gpu color`, paso `color`
+(pide `raster`). El juez: el peso de cada vertice en el centro del pixel,
+x255 y redondeado, con 1 de margen por canal (el ROP redondea al pasar a 8
+bits). La orden, el panel y las filas de T1c/T2a, en
+`gspcomputo/pipeline3d.rs` (censo modular).
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

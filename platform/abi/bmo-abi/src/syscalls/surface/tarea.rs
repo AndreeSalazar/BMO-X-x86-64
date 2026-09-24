@@ -829,6 +829,14 @@ pub const IOMMU_OP_GPU_ESCENA: u64 = 0x36;
 /// ficha de S3. `Ok` = `raster::empaquetar(..)`. Se lee con
 /// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
 pub const IOMMU_OP_GPU_RASTER: u64 = 0x37;
+/// M5 T2a: el triangulo de T1c con un color por vertice, mezclado por el
+/// rasterizador (IPA). `arg1` = la ficha de S3. `Ok` = `color3d::empaquetar(..)`.
+/// Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
+pub const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
+/// M5 T1c: lo que quedo del ultimo dibujo 3D, palabra `arg1`: 0 la escalera
+/// de semaforos (bit 0 el estado, 1 los vertices, 2 el dibujo entero), 1
+/// `NV_PGRAPH_INTR`, 2 `NV_PGRAPH_EXCEPTION`, 3 `NV_PGRAPH_STATUS`. Solo lee.
+pub const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

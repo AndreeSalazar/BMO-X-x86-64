@@ -402,6 +402,10 @@ pub(crate) const IOMMU_OP_GPU_LIMPIAR_3D: u64 = 0x35;
 pub(crate) const IOMMU_OP_GPU_ESCENA: u64 = 0x36;
 /// M5 T1c: el triangulo por el rasterizador, con la ficha en `arg1`. Ver `dev/gpu_trabajo.rs`.
 pub(crate) const IOMMU_OP_GPU_RASTER: u64 = 0x37;
+/// M5 T2a: el triangulo con color mezclado por el rasterizador, con la ficha en `arg1`.
+pub(crate) const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
+/// M5 T1c: lo que quedo del ultimo dibujo 3D (la escalera, los registros de GR), palabra `arg1`.
+pub(crate) const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

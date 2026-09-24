@@ -914,6 +914,15 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
             crate::ring0::dev::gpu_trabajo::raster(arg1)
         }
+        // ** M5 T2a: el mismo dibujo, con color por vertice.
+        IOMMU_OP_GPU_COLOR_3D => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del triangulo con color no se pudo: se sigue", 0);
+            }
+            crate::ring0::dev::gpu_trabajo::color_3d(arg1)
+        }
+        // ** M5 T1c: solo lee lo que dejo el ultimo dibujo 3D.
+        IOMMU_OP_GPU_DIAG_3D => crate::ring0::dev::gpu_trabajo::diag_3d(arg1),
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

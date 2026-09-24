@@ -97,6 +97,8 @@ pub mod tresde;
 
 pub mod raster;
 
+pub mod color3d;
+
 pub mod escena;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
