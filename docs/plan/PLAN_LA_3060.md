@@ -184,7 +184,8 @@ pasos, cada uno visto en el metal antes del siguiente:
                 de `iommu`                                      [en codigo]
           M0d3  LA PRUEBA DE FUEGO: el DMA de un falcon de la 3060 LEE la
                 pagina prestada (y una NO prestada sale como FALLO DE
-                PAGINA con su BDF). Es el primer ladrillo de L0  [en codigo]
+                PAGINA con su BDF). Es el primer ladrillo de L0
+                                              [VISTO en metal, 24-09 04:43]
           M0d4  disco, USB y red traducidos: ven solo lo que el juez de
                 DMA (R-DMA) les presto; los IVMD, en identidad
    M0e  la 3060 CIEGA: su entrada BLOQUEADA (V + TV, sin IR ni IW), las
@@ -277,6 +278,15 @@ de nova-core (Linux 6.17) y nouveau (6.10). Pide la 3060 TRADUCIDA, la pagina
 prestada y el Bus Master de E2 -- no lo enciende: tiene un solo propietario. Son los
 fallos 1, 2 y 3 de FastOS, cada uno en su linea. `save mode` suma `fuego` y
 `frontera`.
+
+**M0d3 en el metal (24-09, 04:43): LA 3060 LEYO LA RAM DEL PC, Y SOLO LO
+PRESTADO.** `fuego  la 3060 LEYO la pagina prestada: 1024 de 1024 palabras, por
+el DMA del falcon del GSP   DMEM 64 KiB, seguridad 3, DMA 48 us, eventos nuevos
+0` y `frontera  AGUANTA ... tipo del evento 2`, con `iommu`: `event  FALLO de
+pagina de un aparato   BDF 29:00.0 direccion 0x0000000020000000`. Los cuatro
+pasos que tumbaron a FastOS en el SEC2 --reset, FBIF, direcciones, firma--
+pasaron aqui en el falcon del GSP, sin firma porque no se ejecuto nada, y detras
+de la IOMMU. Nada se cayo, y E2 siguio contando (6250 VBLANKs).
 
 **M0b** (`platform/drivers/iommu/amdvi/src/tablas.rs`, 7 pruebas; y
 `bmo_firmware::ivrs::por_entrada`): la entrada en sus tres formas (bloqueada,
@@ -373,6 +383,27 @@ MEDIDO, no el dicho.
 ## 3. LATE -- el firmware cerrado, detras de la IOMMU
 
 ### [ ] L0 -- SEC2 arranca el booter, y el GSP-RM corre
+
+** Por escalones (24-09), cada uno visto en el metal antes del siguiente:
+
+```text
+   L0a  PREGUNTAR (solo lectura): la VBIOS entera por la ventana PROM
+        (BAR0 + 0x300000), de 8 en 8 bytes desde el escritorio; sus
+        imagenes, el BIT, la tabla de la PMU, el descriptor v3 de FWSEC,
+        la DMEMMAPPER (donde va la orden FRTS), el fusible del motor y la
+        firma que pide, la VRAM, donde ira FRTS y si ya hay WPR2. La ROM
+        queda en datos/vbios.rom                               [en codigo]
+   L0b  CORRER FWSEC-FRTS en el falcon del GSP: su ucode PRESTADO por la
+        IOMMU (como la pagina de M0d3), la orden cambiada a FRTS, la firma
+        del fusible puesta, IMEM y DMEM por DMA, BROM, arrancar, y MAILBOX0
+        a 0. Como se sabe: la fila `wpr2` dice YA montada
+   L0c  el booter en el SEC2 y el GSP-RM (los ~69 MB), por el mismo camino
+```
+
+L0a vive en `platform/drivers/gpu/ga10x/src/vbios.rs` (9 pruebas contra una
+ROM de mentira armada byte a byte, y bytes hostiles que nunca la revientan),
+`dev/gpu.rs` (`INFO_GPU_ROM/FUSIBLE/FB/VGA/WPR2`, todo lectura) y
+`director/src/commands/vbios.rs` (`gpu vbios`, y el paso `vbios` de `save mode`).
 
 Los cuatro fallos que tumbaron a FastOS, leidos en su `loader.rs` (sigue en el
 git; se borro en `0e43d7f34`) y escritos en `GPU_NVIDIA_MAESTRO.md` 6b: reset

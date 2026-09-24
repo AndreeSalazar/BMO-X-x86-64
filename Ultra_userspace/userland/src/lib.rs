@@ -930,6 +930,16 @@ pub const FRONTERA_BDF: u64 = 1 << 5;
 pub const FRONTERA_DIR: u64 = 1 << 6;
 pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
 pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
+/// L0a (2026-09-24). Ver `bmo_abi::...::informe`.
+pub const INFO_GPU_ROM: u64 = 0xB5;
+pub const INFO_GPU_FUSIBLE: u64 = 0xB6;
+pub const INFO_GPU_FB: u64 = 0xB7;
+pub const GPU_FB_GFW_SHIFT: u64 = 32;
+pub const GPU_FB_PLM_LEIBLE: u64 = 1 << 40;
+pub const GPU_FB_SIN_PANTALLA: u64 = 1 << 41;
+pub const GPU_FB_VALIDA: u64 = 1 << 63;
+pub const INFO_GPU_VGA: u64 = 0xB8;
+pub const INFO_GPU_WPR2: u64 = 0xB9;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

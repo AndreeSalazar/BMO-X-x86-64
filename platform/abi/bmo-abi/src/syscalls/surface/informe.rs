@@ -1626,6 +1626,29 @@ pub const FRONTERA_DIR: u64 = 1 << 6;
 pub const FRONTERA_DMA_ACABO: u64 = 1 << 7;
 pub const FRONTERA_MOTIVO_SHIFT: u64 = 8;
 
+/// # L0a (2026-09-24): lo que FWSEC necesita, preguntado (todo lectura)
+///
+/// ```text
+///   INFO_GPU_ROM      con selector: 8 bytes de la ROM desde el offset de los
+///                     bits 8..27 (alineado a 8); la ventana mide 1 MiB
+///   INFO_GPU_FUSIBLE  con selector: el registro de fusibles de los bits 8..39,
+///                     solo 0x824100..0x824200 (las versiones de ucode)
+///   INFO_GPU_FB       0..31 VRAM usable en MiB | 32..39 progreso del arranque
+///                     del firmware (0xFF acabado) | 40 se pudo leer | 41 la
+///                     pantalla apagada por fusible | 63 valida
+///   INFO_GPU_VGA      NV_PDISP_VGA_WORKSPACE_BASE crudo
+///   INFO_GPU_WPR2     0x1FA824 | 0x1FA828 << 32 (arriba a 0 = no hay WPR2)
+/// ```
+pub const INFO_GPU_ROM: u64 = 0xB5;
+pub const INFO_GPU_FUSIBLE: u64 = 0xB6;
+pub const INFO_GPU_FB: u64 = 0xB7;
+pub const GPU_FB_GFW_SHIFT: u64 = 32;
+pub const GPU_FB_PLM_LEIBLE: u64 = 1 << 40;
+pub const GPU_FB_SIN_PANTALLA: u64 = 1 << 41;
+pub const GPU_FB_VALIDA: u64 = 1 << 63;
+pub const INFO_GPU_VGA: u64 = 0xB8;
+pub const INFO_GPU_WPR2: u64 = 0xB9;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

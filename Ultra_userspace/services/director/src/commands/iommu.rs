@@ -98,6 +98,9 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_SIN_PRUEBA => b"la pagina de prueba no esta prestada: primero `gpu prestar`",
         super::gpu::NO_FUEGO_A_MEDIAS => b"el DMA acabo pero la DMEM NO es la pagina prestada: mira la fila `fuego`",
         super::gpu::NO_SIN_FRONTERA => b"la IOMMU NO apunto el fallo de pagina de la 3060: mira la fila `frontera`",
+        super::vbios::NO_SIN_MEMORIA => b"no hubo 1 MiB para leer la ROM",
+        super::vbios::NO_SIN_FWSEC => b"la VBIOS se leyo pero FWSEC no se entendio: mira la fila `fwsec` de `gpu`",
+        super::vbios::NO_SIN_FIRMA => b"FWSEC no trae firma para el fusible de esta tarjeta: mira la fila `fusible`",
         super::gpu::NO_E2_MUDO => b"E2 quedo ARMADO pero no llego ni un VBLANK: mira la escalera de `gpu`",
         _ => b"el kernel dijo que no, sin motivo conocido",
     }

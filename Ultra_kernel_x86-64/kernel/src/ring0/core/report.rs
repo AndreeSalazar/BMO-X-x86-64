@@ -437,6 +437,12 @@ const INFO_IOMMU_EVENTO_DIR: u64 = 0xB1;
 const INFO_GPU_FUEGO: u64 = 0xB2;
 const INFO_GPU_FUEGO_LEIDO: u64 = 0xB3;
 const INFO_GPU_FRONTERA: u64 = 0xB4;
+/// L0a: la ROM (con selector), el fusible (con selector), la VRAM, la VGA y la WPR2.
+const INFO_GPU_ROM: u64 = 0xB5;
+const INFO_GPU_FUSIBLE: u64 = 0xB6;
+const INFO_GPU_FB: u64 = 0xB7;
+const INFO_GPU_VGA: u64 = 0xB8;
+const INFO_GPU_WPR2: u64 = 0xB9;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -887,6 +893,8 @@ pub fn campo(n: u64) -> Option<u64> {
                 | ((crate::ring0::dev::usb::audio::pendientes() & 0xFFFF_FFFF) << 32)
         }
         c if c & 0xFF == INFO_GPU_ESPERA => crate::ring0::dev::gpu::info_espera(c),
+        c if c & 0xFF == INFO_GPU_ROM => crate::ring0::dev::gpu::info_rom(c),
+        c if c & 0xFF == INFO_GPU_FUSIBLE => crate::ring0::dev::gpu::info_fusible(c),
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
         c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
@@ -964,6 +972,9 @@ pub fn campo(n: u64) -> Option<u64> {
         INFO_GPU_FUEGO => crate::ring0::dev::gpu_prestamo::info_fuego(),
         INFO_GPU_FUEGO_LEIDO => crate::ring0::dev::gpu_prestamo::info_fuego_leido(),
         INFO_GPU_FRONTERA => crate::ring0::dev::gpu_prestamo::info_frontera(),
+        INFO_GPU_FB => crate::ring0::dev::gpu::info_fb(),
+        INFO_GPU_VGA => crate::ring0::dev::gpu::info_vga(),
+        INFO_GPU_WPR2 => crate::ring0::dev::gpu::info_wpr2(),
         INFO_ENTERRADOR => crate::ring0::task::enterrador::cuentas(),
         // == *** LOS DOCE DEL DMA, y por que salen de tres sitios ========
         //

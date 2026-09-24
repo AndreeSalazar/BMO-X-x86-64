@@ -188,7 +188,20 @@ const PASOS: &[Paso] = &[
         pide: Some(b"fuego"),
         consejo: b"`iommu`: la fila `event` dice FALLO de pagina, BDF 29:00.0, direccion 0x20000000 -- la venda existe",
     },
+    Paso {
+        nombre: b"vbios",
+        que: b"leer la VBIOS, hallar FWSEC y su firma para este fusible; solo lectura (L0a)",
+        hecho: super::vbios::lista,
+        dar: super::vbios::paso,
+        pide: None,
+        consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- lo siguiente es L0b, correr FWSEC-FRTS",
+    },
 ];
+
+/// Cuantos pasos caben. Eran 8 y `vbios` hizo el octavo (24-09): con L0 en
+/// camino, se deja sitio -- y la prueba de abajo dice NO si se pasa.
+const MAX_PASOS: usize = 16;
+const _: () = assert!(PASOS.len() <= MAX_PASOS, "save mode: mas pasos que MAX_PASOS");
 
 /// Que salio de cada paso.
 #[derive(Clone, Copy, PartialEq)]
@@ -300,8 +313,8 @@ fn desarmar() -> bool {
 }
 
 /// Los `-paso` de unos argumentos. `Err(t)` con el que no es un paso.
-fn quitados_de(args: &[u8]) -> Result<[bool; 8], &[u8]> {
-    let mut quitados = [false; 8];
+fn quitados_de(args: &[u8]) -> Result<[bool; MAX_PASOS], &[u8]> {
+    let mut quitados = [false; MAX_PASOS];
     for t in args.split(|&b| b == b' ').filter(|t| !t.is_empty()) {
         match t.strip_prefix(b"-").and_then(paso_por_nombre) {
             Some(i) => quitados[i] = true,
@@ -414,7 +427,7 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 
 /// **Los pasos, en orden**, con un save antes de cada uno y la marca `en
 /// curso` alrededor. Lo comparten la orden y el arranque.
-fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; 8], args: &[u8], tumbo: Option<usize>) {
+fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], args: &[u8], tumbo: Option<usize>) {
     {
         let g = &mut dsk.out.grid;
         g.with_ink(INK_GOOD);
@@ -424,7 +437,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; 8], args: &[u8
         g.with_ink(INK_PLAIN);
     }
     let armado = leer_modo().is_some();
-    let mut salio = [Salio::Quitado; 8];
+    let mut salio = [Salio::Quitado; MAX_PASOS];
     let mut parado = false;
     for (i, paso) in PASOS.iter().enumerate() {
         salio[i] = if parado {
@@ -546,7 +559,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
                 }
                 g.text(p.nombre);
             }
-            g.text(b"); lo siguiente del plan es L0: el firmware del GSP, por el mismo camino (todavia no es un paso)\n");
+            g.text(b"); lo siguiente del plan es L0b: correr FWSEC-FRTS en el falcon del GSP (todavia no es un paso)\n");
         }
     }
     g.with_ink(INK_ECHO);
@@ -571,7 +584,7 @@ pub(crate) fn consejero(g: &mut crate::scene::output::Output) {
 }
 
 /// **Notas y consejos**: que mirar ahora, paso a paso.
-fn notas(dsk: &mut Desktop, salio: &[Salio; 8], armado: bool) {
+fn notas(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], armado: bool) {
     let g = &mut dsk.out.grid;
     g.with_ink(INK_GOOD);
     g.text(b"  NOTAS Y CONSEJOS\n");

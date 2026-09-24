@@ -40,6 +40,8 @@
 pub mod vblank;
 /// M0d3: el DMA de un falcon, la prueba de fuego de la traduccion (2026-09-24).
 pub mod falcon;
+/// L0a: la VBIOS leida -- donde esta FWSEC y que firma pide (2026-09-24).
+pub mod vbios;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

@@ -387,3 +387,76 @@ pub fn info_espera(sel: u64) -> u64 {
     let ns = (e.lineas as u64 * linea_ns).min(GPU_ESPERA_NS_MASK);
     GPU_ESPERA_VALIDA | ns | if e.cabe { 0 } else { GPU_ESPERA_NO_CABE }
 }
+
+// -- ** L0a: LO QUE FWSEC NECESITA, PREGUNTADO (2026-09-24) -------------------
+//
+// Todo lectura, como el resto de este fichero. La ROM se sirve de OCHO en ocho
+// bytes y la recorre el escritorio: leer su MiB entero aqui dentro seria un
+// cuarto de segundo con las interrupciones cerradas. Quien la entiende es
+// `bmo_gpu_ga10x::vbios`, en el escritorio.
+
+pub const GPU_FB_GFW_SHIFT: u64 = 32;
+pub const GPU_FB_PLM_LEIBLE: u64 = 1 << 40;
+pub const GPU_FB_SIN_PANTALLA: u64 = 1 << 41;
+pub const GPU_FB_VALIDA: u64 = 1 << 63;
+
+/// `INFO_GPU_ROM`: ocho bytes de la ROM desde el offset de los bits 8..27
+/// (alineado a 8). `0` sin grafica o fuera de la ventana de 1 MiB.
+pub fn info_rom(sel: u64) -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    let off = ((sel >> 8) & 0xF_FFF8) as u32;
+    if bar0 == 0 || off as usize >= ga10x::vbios::ROM_MAX {
+        return 0;
+    }
+    let lo = leer(bar0, ga10x::vbios::ROM + off) as u64;
+    let hi = leer(bar0, ga10x::vbios::ROM + off + 4) as u64;
+    lo | hi << 32
+}
+
+/// `INFO_GPU_FUSIBLE`: el registro de fusibles de los bits 8..39, crudo. Solo
+/// los de version de ucode (`0x824100..0x824200`): lo demas contesta 0.
+pub fn info_fusible(sel: u64) -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    let reg = ((sel >> 8) & 0xFFFF_FFFC) as u32;
+    if bar0 == 0 || !(ga10x::vbios::FUSIBLE_NVDEC..ga10x::vbios::FUSIBLE_NVDEC + 0x100).contains(&reg) {
+        return 0;
+    }
+    leer(bar0, reg) as u64
+}
+
+/// `INFO_GPU_FB`: `0..31` VRAM usable en MiB | `32..39` el progreso del
+/// arranque del firmware (0xFF acabado) | 40 se pudo leer | 41 la pantalla
+/// apagada por fusible | 63 valida. El progreso solo se lee si su mascara de
+/// privilegio lo deja, como nova-core (`gfw.rs`).
+pub fn info_fb() -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    if bar0 == 0 || CHIP.load(Ordering::Acquire) & GPU_AMPERE == 0 {
+        return 0;
+    }
+    let mb = leer(bar0, 0x0011_83A4);
+    let mut x = GPU_FB_VALIDA | if ga10x::es_error_pri(mb) { 0 } else { mb as u64 };
+    let plm = leer(bar0, 0x0011_8128);
+    if !ga10x::es_error_pri(plm) && plm & 1 != 0 {
+        x |= GPU_FB_PLM_LEIBLE | ((leer(bar0, 0x0011_8234) & 0xFF) as u64) << GPU_FB_GFW_SHIFT;
+    }
+    if leer(bar0, 0x0082_0C04) & 1 != 0 {
+        x |= GPU_FB_SIN_PANTALLA;
+    }
+    x
+}
+
+/// `INFO_GPU_VGA`: `NV_PDISP_VGA_WORKSPACE_BASE` crudo.
+pub fn info_vga() -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    if bar0 == 0 { 0 } else { leer(bar0, 0x0062_5F04) as u64 }
+}
+
+/// `INFO_GPU_WPR2`: los dos limites de la WPR2 crudos (`0x1FA824` abajo,
+/// `0x1FA828` arriba << 32). Arriba a 0 = no hay WPR2.
+pub fn info_wpr2() -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    if bar0 == 0 {
+        return 0;
+    }
+    leer(bar0, 0x001F_A824) as u64 | (leer(bar0, 0x001F_A828) as u64) << 32
+}
