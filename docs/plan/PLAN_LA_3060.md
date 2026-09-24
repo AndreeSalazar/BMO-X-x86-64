@@ -419,8 +419,11 @@ MEDIDO, no el dicho.
         (`is_riscv_active`); sus logs dicen como fue. `gpu despertar` y el
         paso `despertar`                         [VISTO en metal, 24-09 07:10]
    L0c4a LEER lo que el GSP ya dijo: los mensajes de su cola, sin contestar
-        ni mover un puntero. `gpu cola` y el paso `cola`  [en codigo, 24-09]
-   L0c4b contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
+        ni mover un puntero. `gpu cola` y el paso `cola`  [VISTO en metal, 24-09 07:34]
+   L0c4b1 VACIAR la cola del GSP: leer cada mensaje, decir lo que traen
+        los NOCAT y mover el puntero de lectura de la CPU, para que el GSP
+        pueda seguir hablando -- y ver que dice cuando ya cabe
+   L0c4b2 contestarle (el secuenciador, SetSystemInfo, SetRegistry) hasta
         su GSP_INIT_DONE
    L0c4 las colas de mensajes y GSP_INIT_DONE: el GSP-RM contesta
 ```
@@ -616,6 +619,16 @@ espera a que el `writePtr` del GSP se quede quieto medio segundo (5 s como
 mucho) antes de recorrerla, y una cola vacia lo dice asi, no como "0 mensajes".
 Las tres filas arregladas en L0c3b ya salieron bien: `wpr2 EXTENDIDA por el
 booter`, `frts CORRIO` (la foto), `+gsp`, y `cuadra` con la wpr2 del reparto.
+
+**L0c4a en el metal (24-09, 07:34): EL GSP HABLA, y su cola esta LLENA.** `cola
+62 mensajes del GSP en las paginas 0..62 de su cola; secuencia 0..61` -- todos
+con VRPC y la suma en 0 -- y `dijo GSP_POST_NOCAT_RECORD (0x1020) x62`. Los 62
+son registros NOCAT (diagnostico del GSP-RM), y 62 de 63 huecos es la cola
+LLENA: lo que el GSP diga despues -- su secuenciador, su GSP_INIT_DONE -- no
+cabe hasta que alguien lea. nova-core no los descifra: los consume y sigue
+esperando el suyo (`receive_msg`: "Messages with non-matching function codes are
+silently consumed"). Por eso L0c4b se parte: primero VACIAR y ver que dicen los
+NOCAT y que viene detras; despues, contestar.
 
 **L0a en el metal (24-09, 04:58):** `vbios 546 KiB en 4 imagenes: PCI-AT(63K)
 EFI(82K) FWSEC(21K) FWSEC(379K)`, `fwsec v3 en 0x41210: IMEM 57856 B, DMEM 2048
