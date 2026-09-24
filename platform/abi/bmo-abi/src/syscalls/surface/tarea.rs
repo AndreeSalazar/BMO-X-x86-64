@@ -834,7 +834,8 @@ pub const IOMMU_OP_GPU_RASTER: u64 = 0x37;
 /// Se lee con `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33.
 pub const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
 /// M5 T1c: lo que quedo del ultimo dibujo 3D, palabra `arg1`: 0 la escalera
-/// de semaforos (bit 0 el estado, 1 los vertices, 2 el dibujo entero), 1
+/// de semaforos (bit 0 el estado, 1 los vertices, 2 el dibujo entero; bits
+/// 8..15 los escalones del estado, `raster::GRUPOS`), 1
 /// `NV_PGRAPH_INTR`, 2 `NV_PGRAPH_EXCEPTION`, 3 `NV_PGRAPH_STATUS`. Solo lee.
 pub const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 /// M5d G: UN fotograma (256 x 256) de la esfera que gira y bota, por computo.

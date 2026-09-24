@@ -401,18 +401,27 @@ pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {
 /// Lo que dice cada uno.
 fn aviso(s: &mut Output, p: u64, m: &Mensaje) {
     match m.funcion {
-        // rpc_rc_triggered_v17_02: motor (2080), canal, tipo, alcance.
+        // ** Metal 24-09 18:27: leido como v17_02 (motor, canal, TIPO) dio
+        // "Xid 0": la 570 trae mas campos entre el canal y el tipo. Se dan las
+        // 8 primeras palabras CRUDAS y el Xid probable: la primera, despues
+        // del canal, que es un Xid conocido.
         0x1004 => {
             s.text(b": motor 0x");
             s.hex(dato32(p, 0) as u64, 2);
             s.text(b", canal ");
             s.dec(dato32(p, 4) as u64);
-            let t = dato32(p, 8);
-            s.text(b", Xid ");
-            s.dec(t as u64);
-            s.text(b" = ");
-            s.with_ink(INK_ECHO);
-            s.text(xid(t));
+            s.text(b"; crudo");
+            for k in 0..8 {
+                s.text(b" ");
+                s.hex(dato32(p, 4 * k) as u64, 8);
+            }
+            if let Some(t) = (2..8).map(|k| dato32(p, 4 * k)).find(|&t| xid(t) != b"?") {
+                s.text(b"; Xid ");
+                s.dec(t as u64);
+                s.text(b" = ");
+                s.with_ink(INK_ECHO);
+                s.text(xid(t));
+            }
         }
         // rpc_os_error_log_v17_00: tipo, runlist, canal y el texto.
         0x1006 => {

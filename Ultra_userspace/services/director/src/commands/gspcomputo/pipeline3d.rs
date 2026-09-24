@@ -182,6 +182,24 @@ fn escalera(s: &mut Output) {
     });
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
+    // Los escalones del estado: el primero sin pagar dice que grupo lo rompe.
+    campo(s, b"estado");
+    let pagados = (e >> 8) as u32 & 0xFF;
+    let primero = (0..raster::N_ESCALONES).find(|&k| pagados & 1 << k == 0);
+    s.dec(pagados.count_ones() as u64);
+    s.text(b" de 8 escalones pagados");
+    match primero {
+        None => s.text(b"; el estado entero paso: el fallo va en "),
+        Some(k) => {
+            s.text(b"; ");
+            s.with_ink(INK_ERR);
+            s.text(if k == 0 { b"ni el primero: el fallo va en " as &[u8] } else { b"el fallo va en " });
+        }
+    }
+    let grupo = primero.map_or(raster::N_ESCALONES as usize, |k| k as usize);
+    s.text(raster::GRUPOS[grupo].as_bytes());
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
     campo(s, b"gr");
     for (k, nombre) in [(1, b"INTR 0x" as &[u8]), (2, b"   EXCEPTION 0x"), (3, b"   STATUS 0x")] {
         s.text(nombre);

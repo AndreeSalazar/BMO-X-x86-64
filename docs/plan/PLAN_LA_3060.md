@@ -639,6 +639,18 @@ dibuja y luego ~6 s en bucle, sin pedir mas a la 3060), paso `giro`. Gasta
 32 entradas del GPFIFO de GR por vuelta (hay ~508 por arranque, sin vuelta
 del anillo todavia).
 
+**EL METAL (24-09, 18:27): la esfera que gira SI (32 de 32, 29 us por
+fotograma) y T1c rompe el canal EN EL ESTADO.** `escalera`: estado NO,
+vertices NO, dibujo NO; y un `RC_TRIGGERED` del canal 2 (GR): el GSP-RM vio
+un error y RECUPERO el canal -- lo mata, por eso el `gpu giro` tecleado
+DESPUES del raster dio 0 de 32 (en save mode, que va antes, dio 32). Los
+registros de GR a 0: ya reseteados por la recuperacion. "Xid 0" era una
+lectura mia: en la 570 el mensaje trae mas campos antes del tipo. Ahora:
+8 ESCALONES dentro del estado (WAIT_FOR_IDLE + semaforo tras cada grupo de
+metodos, en SEMAFOROS + 0x300); el primero sin pagar dice el grupo que lo
+rompe (`raster::GRUPOS`, fila `estado`), y el RC_TRIGGERED sale crudo, 8
+palabras, con el Xid probable. 249 palabras.
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

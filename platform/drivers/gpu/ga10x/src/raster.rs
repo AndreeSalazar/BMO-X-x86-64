@@ -243,7 +243,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 193;
+pub const ORDENES: usize = 249;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -262,6 +262,12 @@ impl Empuje {
     fn semaforo(&mut self, donde: u64, paga: u32) {
         let s = sombreador_va(donde);
         self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, paga, td::INFORME]);
+    }
+
+    /// Un escalon: esperar a que el GR acabe y pagar el semaforo `k`.
+    fn escalon(&mut self, k: u32) {
+        self.m(td::WAIT_FOR_IDLE, &[0]);
+        self.semaforo(ESCALONES + 4 * k as u64, PAGA_ESCALON + k);
     }
 
     /// EL DIBUJO: tres vertices, un triangulo.
@@ -283,6 +289,10 @@ pub fn ordenes() -> [u32; ORDENES] {
 pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     let mut e = Empuje { o: [0; ORDENES], n: PREFIJO };
     e.o[..PREFIJO].copy_from_slice(&td::ordenes()[..PREFIJO]);
+    // ** Metal 24-09 18:27: `estado NO` y un RC_TRIGGERED del canal de GR: un
+    // metodo del estado lo rompe. Un escalon (WAIT_FOR_IDLE + semaforo) tras
+    // cada grupo: el ultimo pagado dice que grupo va detras del fallo.
+    e.escalon(0);
     e.m(INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);
     // ** Metal 24-09 17:56: sin esto el dibujo colgo el canal (el semaforo sin
     // pagar). Lo que NVK pone SIEMPRE al empezar un contexto 3D y aqui
@@ -293,16 +303,20 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     let z = sombreador_va(SUSTITUTO);
     e.m(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
     e.m(SET_RENDER_ENABLE_OVERRIDE, &[1]);
+    e.escalon(1);
     // El viewport 0: escala y desplazamiento de 256 (de -1..1 a 0..512), z
     // de 0 a 1, sin cruzar ejes; y su recorte, el destino entero.
     e.m(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
     e.m(SET_VIEWPORT_SCALE_OFFSET, &[1]);
+    e.escalon(2);
     e.m(SET_VIEWPORT_CLIP_HORIZONTAL0, &[LADO << 16, LADO << 16, 0, UNO]);
     e.m(SET_VIEWPORT_CLIP_CONTROL, &[RECORTE_Z]);
+    e.escalon(3);
     // Origen arriba a la izquierda (y crece hacia abajo, como el escritorio)
     // y el centro del pixel en el medio.
     e.m(SET_WINDOW_ORIGIN, &[0]);
     e.m(SET_VIEWPORT_PIXEL, &[0]);
+    e.escalon(4);
     // Nada entre el rasterizador y el ROP: sin caras ocultas, sin
     // profundidad, sin plantilla, sin mezcla, sin multimuestreo.
     e.m(OGL_SET_CULL, &[0]);
@@ -314,14 +328,17 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     e.m(SET_BLEND0, &[0]);
     e.m(SET_ANTI_ALIAS_ENABLE, &[0]);
     e.m(SET_ANTI_ALIAS, &[0]);
+    e.escalon(5);
     e.m(SET_SAMPLE_MASK_X0_Y0, &[0xFFFF; 4]);
     e.m(SET_STREAM_OUTPUT, &[0]);
     e.m(SET_RASTER_ENABLE, &[1]);
+    e.escalon(6);
     // Ningun atributo ni flujo de vertices en memoria: el programa saca la
     // posicion del NUMERO de vertice.
     e.m(SET_VERTEX_ATTRIBUTE_A0, &[ATRIBUTO_APAGADO; 32]);
     e.m(SET_VERTEX_STREAM_A_FORMAT0, &[0]);
     e.m(SET_VERTEX_ID_BASE, &[0]);
+    e.escalon(7);
     // Los seis huecos del pipeline: solo el de vertice (1) y el de pixel (5).
     // SHADER, RESERVED_B, RESERVED_A, REGISTER_COUNT, BINDING, ADDRESS_A/B.
     let mut j = 0;
@@ -363,6 +380,29 @@ pub const VERTICES: u64 = 8;
 pub const ESTADO_PAGA: u32 = 0xE500;
 pub const VERTICES_PAGA: u32 = 0x7E00;
 
+/// **Los escalones del estado**, tras los grupos de metodos: donde se pagan
+/// (los 8 mismos para T1c y T2a: van uno detras de otro, nunca a la vez), lo
+/// que pagan y que grupo va DETRAS de cada uno.
+pub const ESCALONES: u64 = SEMAFOROS + 0x300;
+pub const N_ESCALONES: u32 = 8;
+pub const PAGA_ESCALON: u32 = 0x3060_E5C0 ^ 0x5500;
+pub const GRUPOS: [&str; N_ESCALONES as usize + 1] = [
+    "la limpieza de T1a",
+    "caches, version de SPH, ventana local, sustituto y render",
+    "la escala y el desplazamiento del viewport",
+    "el recorte del viewport y su control de z",
+    "el origen de la ventana y el centro del pixel",
+    "caras, profundidad, plantilla, mezcla y antialias",
+    "las muestras, el stream out y el rasterizador",
+    "los atributos y flujos de vertices",
+    "los seis huecos del pipeline (los programas)",
+];
+
+/// **Que escalones se pagaron**: el bit `k`, el escalon `k`.
+pub fn escalones<R: Registros>(r: &mut R) -> u32 {
+    (0..N_ESCALONES).filter(|&k| leer32(r, ESCALONES + 4 * k as u64) == PAGA_ESCALON + k).fold(0, |m, k| m | 1 << k)
+}
+
 /// **Hasta donde llego**: bit 0 el estado, bit 1 los vertices, bit 2 el
 /// dibujo entero.
 pub fn etapas<R: Registros>(r: &mut R, semaforo: u64, paga: u32) -> u32 {
@@ -386,6 +426,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, vs: &[u32], ps: &[u32], sem
     let o = ordenes_con(semaforo, paga);
     let en = entrada(sombreador_va(EMPUJE), ORDENES as u32);
     escribir(r, semaforo, &[0; 4]) == 4
+        && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
         && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
         && a_cero(r, SUSTITUTO) as usize == crate::vram::PALABRAS
         && escribir(r, VS, vs) == vs.len()
@@ -448,6 +489,7 @@ pub use crate::fractal::{desempaquetar, empaquetar, sano};
 
 const _: () = assert!(PALABRAS_VS * 4 <= (PS - VS) as usize && PALABRAS_PS * 4 <= 4096 - (PS - VS) as usize);
 const _: () = assert!(ORDENES * 4 <= 4096);
+const _: () = assert!(ESCALONES >= SEMAFOROS + 0x200 && ESCALONES + 4 * N_ESCALONES as u64 <= crate::giro::PARAMETROS);
 const _: () = assert!(SEMAFORO_FIN > crate::escena::SEMAFORO_FIN && SEMAFORO_FIN + 16 <= SEMAFOROS + 4096);
 
 #[cfg(test)]
@@ -481,8 +523,14 @@ mod pruebas {
         let sem = cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4);
         // Tres semaforos en orden: estado, vertices, el final.
         let k: std::vec::Vec<usize> = (0..ORDENES).filter(|&i| o[i] == sem).collect();
-        assert_eq!(k.len(), 3);
+        assert_eq!(k.len(), 3 + N_ESCALONES as usize);
         let donde = |i: usize| ((o[i + 1] as u64) << 32) | o[i + 2] as u64;
+        // Los escalones del estado, en orden, y despues los tres de siempre.
+        for e in 0..N_ESCALONES as usize {
+            assert_eq!(donde(k[e]), sombreador_va(ESCALONES + 4 * e as u64));
+            assert_eq!(o[k[e] + 3], PAGA_ESCALON + e as u32);
+        }
+        let k = &k[N_ESCALONES as usize..];
         assert_eq!(donde(k[0]), sombreador_va(SEMAFORO_FIN + ESTADO));
         assert_eq!(donde(k[1]), sombreador_va(SEMAFORO_FIN + VERTICES));
         assert_eq!(donde(k[2]), sombreador_va(SEMAFORO_FIN));
