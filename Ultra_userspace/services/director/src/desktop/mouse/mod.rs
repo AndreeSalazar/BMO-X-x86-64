@@ -323,8 +323,9 @@ fn repartir(
         // se lo pida, no que tu se lo des.
         if button && !dsk.tick.button_before {
             dsk.win.focus.clic_en(v);
-            // Un clic sobre una sugerencia la escribe (24-09).
-            if v == Ventana::Run {
+            // Un clic sobre una sugerencia la escribe (24-09); sobre un boton
+            // de las barras del Explorador, lo hace (25-09).
+            if v == Ventana::Run && !crate::desktop::caja::clic(dsk, p, pos.x, pos.y) {
                 crate::desktop::paint::clic_sugerencia(dsk, pos.x, pos.y);
             }
         }

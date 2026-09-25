@@ -112,6 +112,9 @@ pub(crate) mod lateral_gsp;
 /// **La linea de sugerencias** bajo el campo de Ejecutar: que ordenes empiezan
 /// por lo tecleado, y la pista del consejero al invocar la caja (2026-09-24).
 pub(crate) mod sugerir;
+/// **La caja organizada como un Explorador** (25-09): pestana, flechas,
+/// direccion, buscador, botones de orden y barra de estado.
+pub(crate) mod caja;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
 /// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
 pub(crate) mod globo;
@@ -484,18 +487,22 @@ impl RunBox {
     pub(crate) fn relayout(&mut self) {
         self.x = self.chrome.x;
         self.y = self.chrome.y;
-        self.field_x = self.x + 18;
-        self.field_y = self.y + 54;
-        self.field_w = self.chrome.width.saturating_sub(36);
-        self.field_h = 28;
+        // ** COMO UN EXPLORADOR (25-09): el campo es la barra de DIRECCION,
+        // detras de las flechas y antes del buscador; debajo, la barra de
+        // ordenes. La cuenta es de `caja`, que es quien pinta esas barras.
+        let (fx, fy, fw, fh) = caja::campo(self.x, self.y, self.chrome.width);
+        self.field_x = fx;
+        self.field_y = fy;
+        self.field_w = fw;
+        self.field_h = fh;
         self.texto_x = self.field_x + 6;
         self.texto_y = self.field_y + 6;
-        // El estado va JUSTO debajo del campo, no al fondo de la caja: el
-        // fondo es ahora la salida, y un mensaje de error a veinte lineas
-        // de distancia de la linea que lo causo no lo lee nadie.
-        self.status_y = self.field_y + self.field_h + 10;
+        // El estado va JUSTO debajo de las barras, como la cabecera de las
+        // columnas del Explorador: un mensaje de error a veinte lineas de la
+        // orden que lo causo no lo lee nadie.
+        self.status_y = self.y + caja::ARRIBA + 8;
         self.out_x = self.x + 18;
-        self.out_y = self.field_y + self.field_h + 40;
+        self.out_y = self.status_y + bmo::GLIFO_ALTO + 14;
     }
 
     /// Lo que mide la ventana AHORA. No es `BOX_W`: eso es el minimo.
@@ -518,7 +525,7 @@ impl RunBox {
     /// El `24` del final es el pie donde viven los atajos: sin reservarlo, la
     /// ultima fila de texto se comeria esa linea al agrandar.
     pub(crate) fn out_rows(&self) -> usize {
-        let fondo = self.y + self.h().saturating_sub(24);
+        let fondo = self.y + self.h().saturating_sub(caja::PIE_H + 4);
         let alto = fondo.saturating_sub(self.out_y);
         ((alto / bmo::GLIFO_ALTO) as usize).min(OUT_ROWS)
     }
@@ -583,7 +590,7 @@ pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32
             return acento();
         }
         if y < c.y + TITLE_H {
-            return BOX_TITLE;
+            return caja::color_en(c, x, y).unwrap_or(BOX_TITLE);
         }
         if x >= c.field_x
             && x < c.field_x + c.field_w
@@ -592,7 +599,8 @@ pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32
         {
             return FIELD_BG;
         }
-        return BOX_BG;
+        // Las barras del Explorador (y su buscador): las dice `caja`.
+        return caja::color_en(c, x, y).unwrap_or(BOX_BG);
     }
     background_at(x, y, height)
 }
@@ -628,52 +636,12 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     // y lo que se arregle en el marco le llega sola.
     c.chrome.paint_chrome(p, BOX_EDGE, BOX_BG, BOX_TITLE, acento());
 
-    // El punto de la izquierda: el mismo lenguaje que la marca de la barra de
-    // arriba. Dos sitios, un solo idioma.
-    p.rect(c.x + 16, c.y + 10, 8, 8, acento());
-    p.texto(c.x + 32, c.y + 7, "Ejecutar", INK);
-    p.texto(c.x + 32 + 10 * bmo::GLIFO_ANCHO, c.y + 7, "BMO-X", INK_DIM);
-
-    p.texto(
-        c.x + 18,
-        c.y + 36,
-        // ** ESTA PISTA DEJA DE SER UN CATALOGO, y esa es la correccion.
-        //
-        // Era la SEGUNDA lista de ordenes del sistema, escrita a mano, y le
-        // paso lo unico que le puede pasar a una segunda lista: se separo de la
-        // primera. En la foto del 2026-08-18 anunciaba `sella` --que se mudo a
-        // F12 hace dias y aqui contesta "se mudo"-- y **no nombraba `disco`**,
-        // que es la orden mas nueva y la unica destructiva.
-        //
-        // El comentario que estaba en este sitio celebraba haber AGREGADO
-        // `estratos` por lo mismo: *"una funcion que no se anuncia no es una
-        // funcion discreta, es una funcion que no esta"*. Cierto, y por eso la
-        // linea se lleno -- hasta que anunciar se volvio mantener dos verdades.
-        //
-        // > Un catalogo duplicado no envejece: se PUDRE. La cura no es
-        // > actualizarlo, es que deje de ser un catalogo.
-        //
-        // Ahora nombra **las puertas** --lo que se teclea a diario y lo que hay
-        // que saber que existe-- y manda a `ayuda`, que es la lista entera, por
-        // categorias y en un solo sitio. Agregar una orden ya no obliga a tocar
-        // esto; si algun dia obliga, es que esta linea volvio a ser un catalogo.
-        "ruta de un .bex y Enter.   disco / info / ls / lee / guarda.   ayuda: la lista entera",
-        INK_DIM,
-    );
-    // * Las dos ventanas del sistema, DICHAS. Un atajo que no esta escrito en
-    // ninguna parte es un atajo que solo conoce quien lo programo -- y F11 existe
-    // precisamente para los dias en que esta caja no responde.
-    //
-    // Va al PIE de la caja, no debajo de la pista: ahi lo puse primero y
-    // `field_y` es exactamente `y + 54`, asi que el marco del campo lo pintaba
-    // encima y la linea no se veia. Se cazo en la foto -- el texto se emitia y
-    // desaparecia en la instruccion siguiente.
-    p.texto(
-        c.x + 18,
-        c.y + c.h() - 22,
-        "F11 kernel  F12 datos  ESC cierra   |   Ctrl+flechas encaja  Ctrl+Q cierra  Ctrl+Alt esconde",
-        INK_DIM,
-    );
+    // ** LA CAJA ORGANIZADA COMO UN EXPLORADOR (25-09): la pestana, la barra
+    // de navegacion (flechas, direccion y buscador), la de ordenes, la
+    // cabecera y la barra de estado. La pista de antes ("ruta de un .bex y
+    // Enter ... ayuda: la lista entera") vive ahora en el campo vacio, y los
+    // atajos del pie en la barra de estado. Ver `caja`.
+    caja::pintar(p, c);
 
     // 5. El campo. **El acento va SOLO en la linea de abajo**, no rodeandolo.
     //
@@ -695,6 +663,11 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
 #[inline(never)]
 pub(crate) fn paint_field(p: &bmo::Pantalla, c: &RunBox, path: &[u8], cur: usize, caret: bool) {
     p.rect(c.field_x, c.field_y, c.field_w, c.field_h, FIELD_BG);
+    // Vacio, dice DONDE se esta y que se teclea, como la direccion del
+    // Explorador (25-09).
+    if path.is_empty() {
+        caja::direccion(p, c);
+    }
 
     // La ventana visible se calcula alrededor del CURSOR, no del final.
     //

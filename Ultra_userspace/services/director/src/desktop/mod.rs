@@ -65,6 +65,8 @@ pub(crate) mod globo;
 pub(crate) mod brillo;
 /// **ABRIR Y CERRAR**: que ventana nacio o se fue en este fotograma (2026-09-25).
 pub(crate) mod transicion;
+/// **LA CAJA COMO UN EXPLORADOR**: que hace cada boton al pulsarlo (25-09).
+pub(crate) mod caja;
 /// **EL ARRANQUE ORQUESTADO**: la CPU prepara, la 3060 toma el control (2026-09-25).
 pub(crate) mod arranque;
 
