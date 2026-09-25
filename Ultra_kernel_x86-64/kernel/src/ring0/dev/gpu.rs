@@ -479,12 +479,30 @@ pub fn info_wpr2() -> u64 {
 static FRIO_WPR2: AtomicU64 = AtomicU64::new(0);
 static FRIO_ENLACE: AtomicU64 = AtomicU64::new(0);
 
+/// ** LO QUE HIZO EL CARGADOR (25-09): si la 3060 llego CALIENTE y la
+/// reinicio por el bus antes de `ExitBootServices` (`s1_cpu::gpu_reinicio`).
+/// Las banderas `GPU_REINICIO_*` de `boot_context`, y las dos lecturas crudas
+/// (RISC-V del GSP abajo, WPR2 arriba) antes y despues.
+static CARGADOR: [AtomicU64; 3] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
+
+/// Lo apunta `phase::main` desde el `BootContext`, antes de `sondear`.
+pub fn cargador(banderas: u64, antes: u64, despues: u64) {
+    CARGADOR[0].store(banderas, Ordering::Release);
+    CARGADOR[1].store(antes, Ordering::Release);
+    CARGADOR[2].store(despues, Ordering::Release);
+    if banderas & boot_context::GPU_REINICIO_HECHO != 0 {
+        crate::ring0::cabina::warn("gpu", "el cargador REINICIO la 3060 por el bus (venia caliente); banderas", banderas);
+    }
+}
+
 /// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`;
-/// 2 la WPR2 cruda AL SONDEAR (bit 63: se tomo); 3 el enlace AL SONDEAR.
+/// 2 la WPR2 cruda AL SONDEAR (bit 63: se tomo); 3 el enlace AL SONDEAR;
+/// 4, 5 y 6 lo que hizo el cargador (banderas, lecturas antes, despues).
 pub fn info_salud(sel: u64) -> u64 {
     match sel >> 8 {
         2 => return FRIO_WPR2.load(Ordering::Acquire),
         3 => return FRIO_ENLACE.load(Ordering::Acquire),
+        4..=6 => return CARGADOR[(sel >> 8) as usize - 4].load(Ordering::Acquire),
         _ => {}
     }
     let bar0 = bar0();

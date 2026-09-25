@@ -42,6 +42,8 @@ pub use boot_context::{BootContext, MemoryEntry, MAX_MEMORY_ENTRIES, KERNEL_STAG
 /// THE FIRMWARE SIDE: UEFI types, protocol GUIDs, and the four stages that end
 /// at `ExitBootServices` -- after which there is no firmware left to ask.
 mod uefi;
+/// The GPU reset before GOP, when the card comes warm (2026-09-25).
+mod gpu_reinicio;
 /// MSRs AND `CPUID`: the vocabulary, with no policy in it.
 mod msr;
 /// COM1: the only output that exists before there is a screen.
@@ -102,6 +104,10 @@ pub extern "efiapi" fn s1_entry(
     ser_print!(" version="); ser_dec!(ctx.version as usize); ser_print!("\n");
 
     unsafe { con_mark(system_table as *mut EfiSystemTable, "s1:enter "); }
+    // 1b. The GPU, reset if it comes warm from another OS -- BEFORE the
+    // memory map (its UEFI driver allocates again) and before GOP (it is
+    // that driver that lights the monitor again). See `gpu_reinicio`.
+    unsafe { gpu_reinicio::reiniciar_si_caliente(ctx, system_table as *mut EfiSystemTable); }
     // 2. Memory map
     let mut mem_buf = [0u8; 32768];
     let ec = unsafe { fill_memory_map(ctx, &mut mem_buf, system_table as *mut EfiSystemTable) };

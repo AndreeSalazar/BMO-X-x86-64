@@ -377,6 +377,8 @@ pub fn main(ctx: &mut BootContext) {
     crate::ring0::dev::disk::init();
     // ** Y LA GRAFICA, PREGUNTADA (2026-09-23): quien es y si su VBLANK se ve
     // sin firmware. Solo lee; cronometra la linea como mucho 80 ms.
+    // Y antes, lo que hizo el cargador con ella (el reinicio si venia caliente).
+    crate::ring0::dev::gpu::cargador(ctx.gpu_reinicio, ctx.gpu_reinicio_antes, ctx.gpu_reinicio_despues);
     crate::ring0::dev::gpu::sondear();
     // ** Y SU VECTOR (E2, 2026-09-24): el 50 en la IDT, AHORA, porque la IDT
     // solo se alcanza al arrancar. Sin MSI programado no lo dispara nadie; lo

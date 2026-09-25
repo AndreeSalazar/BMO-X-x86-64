@@ -42,7 +42,7 @@ pub const RING3_WORKSPACE_SIZE: u64 = 1024 * 1024;
 pub const COM1: u16 = 0x3F8;
 
 #[repr(C)] pub struct EfiTableHeader { signature: u64, revision: u32, header_size: u32, crc32: u32, _reserved: u32 }
-#[repr(C)] pub struct EfiBootServices { hdr: EfiTableHeader, _pad: [u8; 44 * 8] }
+#[repr(C)] pub struct EfiBootServices { pub(crate) hdr: EfiTableHeader, _pad: [u8; 44 * 8] }
 #[repr(C)] pub struct EfiSystemTable {
     hdr: EfiTableHeader, _firmware: *mut core::ffi::c_void,
     _firmware_revision: u32, _firmware_pad: u32,
@@ -50,7 +50,7 @@ pub const COM1: u16 = 0x3F8;
     _cout_handle: EfiHandle, _con_out: *mut core::ffi::c_void,
     _cerr_handle: EfiHandle, _con_err: *mut core::ffi::c_void,
     _runtime: *mut core::ffi::c_void,
-    boot_services: *mut EfiBootServices, _num_tables: usize, _config_tables: *mut core::ffi::c_void,
+    pub(crate) boot_services: *mut EfiBootServices, _num_tables: usize, _config_tables: *mut core::ffi::c_void,
 }
 #[repr(C)] pub struct EfiGuid { data1: u32, data2: u16, data3: u16, data4: [u8; 8] }
 #[repr(C)] pub struct EfiSimpleFileSystemProtocol { revision: u64, open_volume: unsafe extern "efiapi" fn(*const Self, *mut *mut core::ffi::c_void) -> EfiStatus }
@@ -78,6 +78,9 @@ pub const COM1: u16 = 0x3F8;
 //   EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID    = 9042a9de-23dc-4a38-96fb-7aded080516a
 pub static mut FILE_SYSTEM_GUID: EfiGuid = EfiGuid { data1: 0x964e5b22, data2: 0x6409, data3: 0x11d2, data4: [0x8e, 0x39, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b] };
 pub static mut LOADED_IMAGE_GUID: EfiGuid = EfiGuid { data1: 0x5b1b31a1, data2: 0x9562, data3: 0x11d2, data4: [0x8e, 0x3f, 0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b] };
+//   EFI_PCI_IO_PROTOCOL_GUID             = 4cf5b200-68b8-4ca5-9eec-b23e3f50029a
+//   (the GPU reset finds the card's handle with it: `gpu_reinicio`)
+pub static mut PCI_IO_GUID: EfiGuid = EfiGuid { data1: 0x4cf5b200, data2: 0x68b8, data3: 0x4ca5, data4: [0x9e, 0xec, 0xb2, 0x3e, 0x3f, 0x50, 0x02, 0x9a] };
 pub static mut GOP_GUID: EfiGuid = EfiGuid { data1: 0x9042a9de, data2: 0x23dc, data3: 0x4a38, data4: [0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a] };
 
 

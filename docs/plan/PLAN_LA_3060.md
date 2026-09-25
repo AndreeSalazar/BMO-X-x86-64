@@ -1892,3 +1892,24 @@ encima de los de arranque, y el mismo sombreador de M5 va mas rapido.
   corre en SU procesador; BMO-X solo le presta memoria y habla por colas.
 - Comprar otra tarjeta para esquivar esto: la 3060 no bloquea nada de lo que se
   esta construyendo.
+
+**LA 3060 CALIENTE, REINICIADA POR EL CARGADOR (25-09).** Metal 05:31:
+tras Windows y reiniciar, `gsp NO desperto` y un fallo de pagina de la 3060
+en el IOMMU. Lo que Linux hace (nova-core: *"The GPU will need to be reset
+before the driver can bind again"*; el driver de NVIDIA: WPR2 arriba, no
+arranca) es un reinicio PCIe de la funcion. BMO-X no puede hacerlo desde el
+kernel: el reinicio tambien borra el modo de pantalla del GOP y BMO-X no
+tiene modeset propio. Asi que va en `s1_cpu` (`gpu_reinicio.rs`), antes de
+`ExitBootServices`: se reinicia si viene caliente (RISC-V del GSP activo o WPR2 arriba;
+NO el enlace Gen3, que el 24-09 14:09 salio en frio), DisconnectController,
+guardar la configuracion de cada funcion, Secondary Bus Reset 2 ms en el
+puente, esperar a que conteste, restaurar, esperar al GFW (hasta 4 s) y
+ConnectController (el driver UEFI de la tarjeta enciende el monitor). El
+resultado viaja en `BootContext::gpu_reinicio*` -> `INFO_GPU_SALUD` 4, 5, 6
+-> la fila `cargador` de `gpu salud`. Interruptor al compilar
+(`BMO_GPU_REINICIO=no|siempre`): la placa no tiene FAT en la UEFI. Queda por
+ver en el metal: que la UEFI encienda la tarjeta tras el reinicio y que
+`despertar` salga despues. Si la BAR1 venia redimensionada (Resizable BAR),
+el reinicio la devuelve a su medida de fabrica: la capacidad extendida no
+se alcanza por los puertos 0xCF8.
+

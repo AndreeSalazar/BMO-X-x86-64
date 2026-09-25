@@ -175,6 +175,8 @@ pub(crate) fn fila(s: &mut Output) {
         s.byte(b'\n');
     }
 
+    cargador(s);
+
     if let Some(u) = ultimo() {
         campo(s, b"pstate");
         match u {
@@ -211,4 +213,90 @@ pub(crate) fn fila(s: &mut Output) {
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }
+}
+
+// == LO QUE HIZO EL CARGADOR (25-09) =========================================
+//
+// Las banderas de `boot_context::GPU_REINICIO_*` (el cargador `s1_cpu` las
+// escribe, el kernel las publica en `INFO_GPU_SALUD` 4, 5 y 6). Copiadas
+// aqui con el mismo valor: el director no enlaza con `boot_context`.
+const R_HALLADA: u64 = 1 << 1;
+const R_CALIENTE: u64 = 1 << 2;
+const R_APAGADO: u64 = 1 << 3;
+const R_SIEMPRE: u64 = 1 << 4;
+const R_HECHO: u64 = 1 << 5;
+const R_VOLVIO: u64 = 1 << 6;
+const R_GFW: u64 = 1 << 7;
+const R_GOP: u64 = 1 << 8;
+const R_SIN_PUENTE: u64 = 1 << 9;
+const R_SIN_HANDLE: u64 = 1 << 10;
+const R_POR_RISCV: u64 = 1 << 11;
+const R_POR_WPR2: u64 = 1 << 12;
+
+/// Las dos lecturas crudas: RISC-V del GSP abajo, WPR2 arriba.
+fn lecturas(s: &mut Output, v: u64) {
+    s.text(b"riscv 0x");
+    s.hex(v & 0xFFFF_FFFF, 8);
+    s.text(b" wpr2 0x");
+    s.hex(v >> 32, 8);
+}
+
+/// **La fila `cargador`**: si la 3060 llego caliente, y si el cargador la
+/// reinicio por el bus antes de que BMO-X la mirara.
+fn cargador(s: &mut Output) {
+    let f = bmo::info(bmo::INFO_GPU_SALUD | 4 << 8);
+    if f & R_HALLADA == 0 {
+        return;
+    }
+    let antes = bmo::info(bmo::INFO_GPU_SALUD | 5 << 8);
+    campo(s, b"cargador");
+    if f & R_HECHO != 0 {
+        let bien = f & (R_VOLVIO | R_GFW | R_GOP) == R_VOLVIO | R_GFW | R_GOP;
+        s.with_ink(if bien { INK_GOOD } else { INK_ERR });
+        s.text(if f & R_CALIENTE != 0 { b"venia CALIENTE" as &[u8] } else { b"fria, pero `siempre`" });
+        if f & R_POR_RISCV != 0 {
+            s.text(b" (su GSP seguia en marcha)");
+        } else if f & R_POR_WPR2 != 0 {
+            s.text(b" (la WPR2 seguia arriba)");
+        }
+        s.text(b": REINICIADA por el bus en ");
+        s.dec(f >> 32 & 0xFFFF);
+        s.text(b" ms; ");
+        s.text(if f & R_VOLVIO != 0 { b"volvio" as &[u8] } else { b"NO volvio" });
+        s.text(if f & R_GFW != 0 { b", su firmware arranco" as &[u8] } else { b", su firmware NO acabo" });
+        s.text(if f & R_GOP != 0 { b", la pantalla volvio" as &[u8] } else { b", la pantalla NO volvio" });
+        s.with_ink(INK_ECHO);
+        s.text(b"   antes ");
+        lecturas(s, antes);
+        s.text(b", despues ");
+        lecturas(s, bmo::info(bmo::INFO_GPU_SALUD | 6 << 8));
+        s.text(b"; Gen");
+        s.dec(f >> 16 & 0xF);
+        s.text(b" -> Gen");
+        s.dec(f >> 20 & 0xF);
+    } else if f & R_CALIENTE != 0 {
+        s.with_ink(INK_ERR);
+        s.text(b"venia CALIENTE y NO se reinicio: ");
+        s.text(if f & R_APAGADO != 0 {
+            b"compilado con BMO_GPU_REINICIO=no" as &[u8]
+        } else if f & R_SIN_PUENTE != 0 {
+            b"no hay puente encima de la 3060 que pulsar"
+        } else if f & R_SIN_HANDLE != 0 {
+            b"la UEFI no dio su asa: su driver no se podia parar"
+        } else {
+            b"sin BAR0 de memoria"
+        });
+        s.with_ink(INK_ECHO);
+        s.text(b"   ");
+        lecturas(s, antes);
+    } else {
+        s.with_ink(INK_ECHO);
+        s.text(b"fria al llegar (GSP parado, sin WPR2): el cargador no la toco   ");
+        lecturas(s, antes);
+        if f & R_SIEMPRE != 0 {
+            s.text(b"; `siempre` sin reiniciar: mira el puerto serie");
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
 }

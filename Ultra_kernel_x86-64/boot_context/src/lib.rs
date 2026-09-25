@@ -8,6 +8,46 @@
 
 pub const MAGIC: u64 = 0x464F_5343_424F_4F54; // "FOSCBOOT"
 pub const VERSION: u32 = 3;
+
+// == THE LOADER'S GPU RESET (2026-09-25) ======================================
+//
+// A card that never lost power since another OS (or a BMO-X reboot without
+// `gpu apagar`) started its GSP cannot be woken again: `despertar` answers
+// 67 or the booter 0x15. Linux answers that with a PCIe reset; BMO-X does it
+// in `s1_cpu`, BEFORE ExitBootServices, so the card's own UEFI driver can
+// light the monitor again. What happened travels in `gpu_reinicio`.
+
+/// The loader looked (0 everywhere = an older loader).
+pub const GPU_REINICIO_MIRADO: u64 = 1 << 0;
+/// An NVIDIA display controller was on the bus.
+pub const GPU_REINICIO_HALLADA: u64 = 1 << 1;
+/// It came WARM: the GSP RISC-V active or the WPR2 up.
+pub const GPU_REINICIO_CALIENTE: u64 = 1 << 2;
+/// Built with `BMO_GPU_REINICIO=no`: never reset.
+pub const GPU_REINICIO_APAGADO: u64 = 1 << 3;
+/// Built with `BMO_GPU_REINICIO=siempre`: reset even when cold (to test it).
+pub const GPU_REINICIO_SIEMPRE: u64 = 1 << 4;
+/// The secondary bus reset was pulsed.
+pub const GPU_REINICIO_HECHO: u64 = 1 << 5;
+/// The card answered its config space again afterwards.
+pub const GPU_REINICIO_VOLVIO: u64 = 1 << 6;
+/// Its own firmware (GFW) finished booting afterwards.
+pub const GPU_REINICIO_GFW: u64 = 1 << 7;
+/// ConnectController gave the card back to its UEFI driver (the monitor).
+pub const GPU_REINICIO_GOP: u64 = 1 << 8;
+/// No bridge above it: nothing to pulse.
+pub const GPU_REINICIO_SIN_PUENTE: u64 = 1 << 9;
+/// No UEFI handle for it: its driver could not be stopped, so no reset.
+pub const GPU_REINICIO_SIN_HANDLE: u64 = 1 << 10;
+/// Why it was warm: the GSP RISC-V was active...
+pub const GPU_REINICIO_POR_RISCV: u64 = 1 << 11;
+/// ...or the WPR2 was up.
+pub const GPU_REINICIO_POR_WPR2: u64 = 1 << 12;
+/// PCIe link speed (Gen) before and after, 4 bits each.
+pub const GPU_REINICIO_GEN_ANTES_SHIFT: u64 = 16;
+pub const GPU_REINICIO_GEN_DESPUES_SHIFT: u64 = 20;
+/// How long the whole reset took, in ms (16 bits).
+pub const GPU_REINICIO_MS_SHIFT: u64 = 32;
 pub const MAX_MEMORY_ENTRIES: usize = 64;
 pub const MAX_STAGES: usize = 13; // 12 Faggin stages + kernel
 pub const KERNEL_STAGE_INDEX: usize = MAX_STAGES - 1;
@@ -96,8 +136,16 @@ pub struct BootContext {
     pub ring3_workspace_phys: u64,
     pub ring3_workspace_size: u64,
 
+    // Layer 11 (2026-09-25): the loader's GPU reset (`s1_cpu::gpu_reinicio`).
+    // `gpu_reinicio` carries the GPU_REINICIO_* flags; `_antes` and
+    // `_despues` the raw signals before and after (GSP RISC-V CPUCTL in the
+    // low half, WPR2_HI in the high half). All zero = an older loader.
+    pub gpu_reinicio: u64,
+    pub gpu_reinicio_antes: u64,
+    pub gpu_reinicio_despues: u64,
+
     // ?????? Padding for future use ?????????????????????????????????????????????????????????????????????????????????
-    _reserved: [u64; 12],
+    _reserved: [u64; 9],
 }
 
 impl BootContext {
@@ -136,7 +184,10 @@ impl BootContext {
             ring3_payload_size: 0,
             ring3_workspace_phys: 0,
             ring3_workspace_size: 0,
-            _reserved: [0; 12],
+            gpu_reinicio: 0,
+            gpu_reinicio_antes: 0,
+            gpu_reinicio_despues: 0,
+            _reserved: [0; 9],
         }
     }
 
