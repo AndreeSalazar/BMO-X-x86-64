@@ -55,6 +55,8 @@ const SALE_MS: u64 = 300;
 const CIAN: u32 = 0x0000_F0FF;
 const MAGENTA: u32 = 0x00FF_2BD6;
 const AMARILLO: u32 = 0x00FC_EE0A;
+const VERDE: u32 = 0x0039_FF14;
+const ROJO: u32 = 0x00FF_3355;
 const TINTA: u32 = 0x00EA_F6FF;
 const TINTA_SOMBRA: u32 = 0x0012_5A73;
 const NEGRO: u32 = 0x0008_0410;
@@ -99,6 +101,29 @@ pub(crate) struct Cara<'a> {
     /// Cuanto lleva vivo y cuanto va a vivir, en ms.
     pub edad_ms: u64,
     pub vida_ms: u64,
+    /// De que color va la placa: un consejo, algo que SALIO, algo que NO.
+    pub tono: Tono,
+}
+
+/// El tono de un globo: la placa lo dice antes de leerlo.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Tono {
+    /// Un consejo o un dato: la placa amarilla de siempre.
+    Consejo,
+    /// Algo salio: verde neon.
+    Bien,
+    /// Algo no salio: rojo.
+    Mal,
+}
+
+impl Tono {
+    fn placa(self) -> u32 {
+        match self {
+            Tono::Consejo => AMARILLO,
+            Tono::Bien => VERDE,
+            Tono::Mal => ROJO,
+        }
+    }
 }
 
 /// `a` hacia `b` en `t` de 256.
@@ -256,7 +281,7 @@ pub(crate) fn poner(p: &bmo::Pantalla, ax: u32, ay: u32, c: &Cara) {
     let tw = c.titulo.len() as u32 * bmo::GLIFO_ANCHO + 12;
     if tx + tw + 4 < bx + w {
         p.rect(tx + 3, by - 9 + 3, tw, bmo::GLIFO_ALTO + 2, MAGENTA);
-        p.rect(tx, by - 9, tw, bmo::GLIFO_ALTO + 2, AMARILLO);
+        p.rect(tx, by - 9, tw, bmo::GLIFO_ALTO + 2, c.tono.placa());
         p.texto_bytes(tx + 6, by - 8, c.titulo, NEGRO);
     }
 

@@ -380,6 +380,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
     let escrito = escribir_pasos(&salio, &tiempo, &intentos, tumbo);
     resumen(dsk, &salio, tumbo, escrito);
     notas(dsk, &salio, armado);
+    avisar_fin(&salio);
     // ** Y con el volcado verificado, la 3060 vuelca CADA fotograma desde ya.
     super::gspvolcado::activar(&mut dsk.out.grid, p);
     super::iommu::report_iommu(&mut dsk.out.grid);
@@ -683,4 +684,44 @@ fn notas(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], armado: bool) {
         b"    al reiniciar todo esto vuelve a APAGADO, y el modo no esta armado: no se repite\n"
     });
     g.with_ink(INK_PLAIN);
+}
+
+/// **El globo al acabar `save mode`**: cuantos pasos salieron, en verde, o
+/// cuantos NO, en rojo -- junto al puntero, sin tener que leer la salida.
+fn avisar_fin(salio: &[Salio; MAX_PASOS]) {
+    use crate::desktop::globo::{avisar, Tono};
+    let bien = salio[..PASOS.len()].iter().filter(|s| matches!(s, Salio::Bien | Salio::YaEstaba)).count();
+    let no = salio[..PASOS.len()].iter().filter(|s| matches!(s, Salio::No(_))).count();
+    let mut t = [0u8; 64];
+    let mut n = 0;
+    let mut poner = |s: &[u8]| {
+        for &c in s {
+            if n < t.len() {
+                t[n] = c;
+                n += 1;
+            }
+        }
+    };
+    let mut d = [0u8; 4];
+    let cifra = |v: usize, d: &mut [u8; 4]| -> usize {
+        let s = [b'0' + (v / 100 % 10) as u8, b'0' + (v / 10 % 10) as u8, b'0' + (v % 10) as u8];
+        let k = if v >= 100 { 0 } else if v >= 10 { 1 } else { 2 };
+        d[..3 - k].copy_from_slice(&s[k..]);
+        3 - k
+    };
+    let k = cifra(bien, &mut d);
+    poner(&d[..k]);
+    poner(b" de ");
+    let k = cifra(PASOS.len(), &mut d);
+    poner(&d[..k]);
+    if no == 0 {
+        poner(b" pasos: la 3060 lista y verificada");
+        avisar(b"save mode", &t[..n], Tono::Bien);
+    } else {
+        poner(b" pasos; ");
+        let k = cifra(no, &mut d);
+        poner(&d[..k]);
+        poner(b" NO: mira `gpu`");
+        avisar(b"save mode", &t[..n], Tono::Mal);
+    }
 }

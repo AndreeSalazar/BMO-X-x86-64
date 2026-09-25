@@ -188,6 +188,7 @@ impl Pantalla {
     /// ** Es UNA instruccion desde el 09-09, y es literalmente lo que el
     /// comentario de `FB_OP_BYTES` llevaba un mes prediciendo.
     pub fn limpiar(&self, color: u32) {
+        self.valla();
         // * El tope es el MENOR de los dos, y esto no es prudencia de mas.
         //
         // `pixeles()` mide el area que mapeo el KERNEL, que puede ser mas
@@ -214,6 +215,7 @@ impl Pantalla {
     /// ** El arbol del director la llama en **155 sitios**, asi que su coste por
     /// pixel no es un detalle: es el precio del escritorio.
     pub fn rect(&self, x: u32, y: u32, ancho: u32, alto: u32, color: u32) {
+        self.valla();
         let x1 = (x.saturating_add(ancho)).min(self.ancho);
         let y1 = (y.saturating_add(alto)).min(self.alto);
         if x >= x1 || y >= y1 {
@@ -329,16 +331,52 @@ impl Pantalla {
         self.anotar(&sucias);
     }
 
-    /// **Las cajas a la 3060**: una llamada por caja y la ULTIMA toca el timbre
-    /// y vuelve con la valla pagada -- cuando vuelve, la 3060 ya no lee el
-    /// lienzo y se puede pintar encima. `false` si alguna no salio.
+    /// **Las cajas a la 3060**: una llamada por caja; la ULTIMA toca el timbre
+    /// y VUELVE sin esperar (1c) -- la CPU sigue mientras la 3060 copia.
+    ///
+    /// ** Y detras del RAYO: antes del timbre se espera a que el monitor no
+    /// este barriendo las filas que se van a copiar (el VBLANK si son todas).
+    /// La 3060 copia ~16 veces mas rapido de lo que barre el monitor, asi que
+    /// empezando detras del rayo no la alcanza: sin desgarro.
+    /// `false` si alguna no salio.
     fn volcar_gpu(&self, sucias: &crate::sin_gpu::sucio::Sucias) -> bool {
         let cajas = sucias.cajas();
         let n = cajas.len();
-        cajas.iter().enumerate().all(|(k, &(x0, y0, x1, y1))| {
+        let (mut ymin, mut ymax, mut xmax) = (u32::MAX, 0u32, 0u32);
+        for &(x0, y0, x1, y1) in cajas {
+            ymin = ymin.min(y0);
+            ymax = ymax.max(y1);
+            xmax = xmax.max(x1 - x0);
+        }
+        let bien = cajas.iter().enumerate().all(|(k, &(x0, y0, x1, y1))| {
+            if k + 1 == n {
+                let _ = self.rayo_gpu.antes(ymin, ymax, xmax);
+            }
             let arg = volcador_caja(x0, y0, x1 - x0, y1 - y0, k + 1 == n);
             crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, arg).is_ok()
-        })
+        });
+        self.pendiente.set(bien);
+        bien
+    }
+
+    /// **LA VALLA** (1c): si hay una tanda de la 3060 en vuelo, esperar a que
+    /// la pague ANTES de escribir en el lienzo -- si no, la 3060 copiaria
+    /// medio fotograma nuevo. La llaman las tres puertas por las que se
+    /// escribe (`limpiar`, `rect`, `punto_sin_comprobar`); sin tanda en vuelo
+    /// es mirar un `Cell`. Si la espera falla, se vuelve a la CPU.
+    #[inline(always)]
+    pub fn valla(&self) {
+        if self.pendiente.get() {
+            self.esperar_valla();
+        }
+    }
+
+    #[cold]
+    fn esperar_valla(&self) {
+        self.pendiente.set(false);
+        if crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, VOLCADOR_ESPERAR << 60).is_err() {
+            self.por_gpu.set(false);
+        }
     }
 
     /// **Que la 3060 haga el volcado** de aqui en adelante: le presta el
@@ -354,6 +392,7 @@ impl Pantalla {
 
     /// **Volver a la CPU**: el kernel espera la ultima tanda y devuelve el lienzo.
     pub fn volcar_por_cpu(&self) {
+        self.valla();
         if self.por_gpu.replace(false) {
             let _ = crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, VOLCADOR_SOLTAR << 60);
         }
@@ -418,6 +457,7 @@ pub const VOLCADOR_ARMAR: u64 = 1;
 pub const VOLCADOR_CAJA: u64 = 2;
 pub const VOLCADOR_SOLTAR: u64 = 3;
 pub const VOLCADOR_COMO_VA: u64 = 4;
+pub const VOLCADOR_ESPERAR: u64 = 5;
 
 /// Una caja sucia `(x, y, ancho, alto)` de 13 bits, y si es la ultima.
 pub const fn volcador_caja(x: u32, y: u32, w: u32, h: u32, ultima: bool) -> u64 {

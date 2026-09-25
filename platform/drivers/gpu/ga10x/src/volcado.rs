@@ -231,6 +231,10 @@ pub const CAJA: u64 = 2;
 pub const SOLTAR: u64 = 3;
 /// Solo lectura: `tandas | armado << 32`.
 pub const COMO_VA: u64 = 4;
+/// ** LA VALLA, aparte (1c, 2026-09-25): la CAJA ultima ya NO espera -- toca
+/// el timbre y vuelve. Se espera con ESPERAR justo antes de que la CPU vuelva
+/// a escribir en el lienzo; para entonces la 3060 casi siempre ya acabo.
+pub const ESPERAR: u64 = 5;
 
 /// La suborden de un argumento.
 pub const fn suborden(arg: u64) -> u64 {

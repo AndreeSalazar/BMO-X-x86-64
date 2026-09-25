@@ -99,6 +99,12 @@ fn volcado_(bar0: u64, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64,
         if FISICA.load(Ordering::Acquire) != fisica {
             return Err(IOMMU_NO_VOLCADO);
         }
+        // La ultima tanda de cada fotograma, pagada: esta copia usa su
+        // segmento de ordenes y su semaforo.
+        let n = NUMERO.load(Ordering::Acquire);
+        if n != 0 && !vl::pagada(&mut r, n) {
+            esperar(&mut r, n)?;
+        }
         return copiar(&mut r, ficha, fisica, p);
     }
     let paginas = vl::paginas(p);
@@ -191,10 +197,11 @@ fn copiar(r: &mut Bar0, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64
 // marcos no se liberan con la 3060 viendolos. Los dos por [`suelta_si_es_de`].
 //
 // Cada fotograma el escritorio manda sus cajas sucias, una por llamada, y la
-// ULTIMA cierra la tanda: un timbre, y se espera (girando, acotado) a que la
-// 3060 pague el semaforo con el NUMERO de la tanda. Es la VALLA: cuando la
-// llamada vuelve, la CPU puede pintar otra vez en el lienzo sin que la 3060
-// este leyendolo. Una pantalla entera son ~1-2 ms por PCIe; unas letras,
+// ULTIMA cierra la tanda y toca el timbre -- y VUELVE (1c): la CPU sigue con lo
+// suyo mientras la 3060 copia. La VALLA (que la 3060 pague el semaforo con el
+// NUMERO de la tanda) se espera aparte, con ESPERAR, justo antes de que la CPU
+// vuelva a escribir en el lienzo; y la tanda siguiente la espera tambien antes
+// de pisar el segmento de ordenes y el semaforo. Una pantalla entera son ~1-2 ms por PCIe; unas letras,
 // microsegundos -- contra los ~27 ms de la CPU moviendo 8 MiB.
 
 /// El lienzo prestado para quedarse, de quien, y donde.
@@ -206,7 +213,9 @@ static FISICA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::ne
 static MEDIDAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 /// El numero de la ultima tanda.
 static NUMERO: AtomicU32 = AtomicU32::new(0);
-/// Tandas enviadas y pagadas, para la fila.
+/// Tandas ENVIADAS (el timbre tocado), para la fila; `TANDAS` cuenta las que
+/// se vieron pagadas al esperarlas.
+static ENVIADAS: AtomicU32 = AtomicU32::new(0);
 static TANDAS: AtomicU32 = AtomicU32::new(0);
 /// La tanda en construccion. Solo la toca quien tiene `EN_MARCHA`.
 static mut TANDA: vl::Tanda = vl::Tanda::nueva();
@@ -226,6 +235,7 @@ pub fn volcador(arg: u64) -> Result<u64, u32> {
         vl::CAJA => caja(pid, arg),
         vl::SOLTAR => soltar(pid).map(|()| 0),
         vl::COMO_VA => Ok(como_va()),
+        vl::ESPERAR => valla(pid),
         _ => Err(IOMMU_NO_VOLCADO),
     }
 }
@@ -279,8 +289,8 @@ fn armar(pid: u32, lienzo: u64) -> Result<u64, u32> {
     hecho.map(|()| 0)
 }
 
-/// **Una caja sucia**; la ultima cierra la tanda, toca el timbre y espera la
-/// valla. `Ok(us)` que tardo la 3060 (0 si no era la ultima).
+/// **Una caja sucia**; la ultima cierra la tanda y toca el timbre, SIN esperar.
+/// `Ok(numero de la tanda)` (0 si no era la ultima).
 fn caja(pid: u32, arg: u64) -> Result<u64, u32> {
     if !ARMADO.load(Ordering::Acquire) || PROPIETARIO.load(Ordering::Acquire) != pid {
         return Err(IOMMU_NO_VOLCADO);
@@ -300,21 +310,43 @@ fn caja(pid: u32, arg: u64) -> Result<u64, u32> {
     } else if !ultima {
         Ok(0)
     } else {
-        let numero = NUMERO.load(Ordering::Acquire).wrapping_add(1).max(1);
-        NUMERO.store(numero, Ordering::Release);
         let mut regs = Bar0(bar0);
+        // La de antes, pagada: esta pisa su segmento de ordenes y su semaforo.
+        let antes = NUMERO.load(Ordering::Acquire);
+        let libre = antes == 0 || vl::pagada(&mut regs, antes) || esperar(&mut regs, antes).is_ok();
+        let numero = antes.wrapping_add(1).max(1);
         let e = ENTRADA.load(Ordering::Acquire);
-        let enviada = t.cerrar(numero) && vl::enviar(&mut regs, t, e, ficha);
+        let enviada = libre && t.cerrar(numero) && vl::enviar(&mut regs, t, e, ficha);
         *t = vl::Tanda::nueva();
         if enviada {
+            NUMERO.store(numero, Ordering::Release);
+            ENVIADAS.fetch_add(1, Ordering::AcqRel);
             ENTRADA.store(vl::siguiente(e), Ordering::Release);
-            esperar(&mut regs, numero)
+            Ok(numero as u64)
         } else {
             Err(IOMMU_NO_VOLCADO)
         }
     };
     EN_MARCHA.store(false, Ordering::Release);
     r
+}
+
+/// **ESPERAR**: la valla de la ultima tanda, desde el escritorio. `Ok(us)`
+/// que hubo que esperar (casi siempre 0: la 3060 ya acabo).
+fn valla(pid: u32) -> Result<u64, u32> {
+    if !ARMADO.load(Ordering::Acquire) || PROPIETARIO.load(Ordering::Acquire) != pid {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let numero = NUMERO.load(Ordering::Acquire);
+    if bar0 == 0 || numero == 0 {
+        return Ok(0);
+    }
+    let mut r = Bar0(bar0);
+    if vl::pagada(&mut r, numero) {
+        return Ok(0);
+    }
+    esperar(&mut r, numero)
 }
 
 /// **La valla**: girar hasta que la 3060 pague `numero`. `Ok(us)`.
@@ -361,7 +393,7 @@ pub fn suelta_si_es_de(pid: u32) {
     }
 }
 
-/// Para la fila: `tandas | armado << 32`.
+/// Para la fila: `enviadas | armado << 32`.
 pub fn como_va() -> u64 {
-    TANDAS.load(Ordering::Acquire) as u64 | (ARMADO.load(Ordering::Acquire) as u64) << 32
+    ENVIADAS.load(Ordering::Acquire) as u64 | (ARMADO.load(Ordering::Acquire) as u64) << 32
 }

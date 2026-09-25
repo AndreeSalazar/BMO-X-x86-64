@@ -800,7 +800,16 @@ fotogramas, los fps y los us de la 3060 por fotograma.
       propietario de la pantalla: lo devuelven `gpu volcado off`, soltar la
       pantalla (prestarla a un juego) y la estacion `fb` del desmontaje, que
       va antes que `memory`. Si una tanda falla, la Pantalla vuelve SOLA a la
-      CPU. Lo arma `save mode` al acabar (si `volcado` salio) y `gpu volcado`]
+      CPU. Lo arma `save mode` al acabar (si `volcado` salio) y `gpu volcado`.
+      paso 1c EN CODIGO 25-09: la CPU NO ESPERA. La CAJA ultima toca el
+      timbre y vuelve; la VALLA (ESPERAR, suborden 5) la pide la PRIMERA
+      escritura al lienzo del fotograma siguiente (`Pantalla::valla` en
+      `limpiar`, `rect` y `punto_sin_comprobar`), y para entonces la 3060
+      casi siempre ya acabo. Y el timbre va DETRAS DEL RAYO (E1): se espera a
+      que el monitor no este barriendo las filas de la tanda (el VBLANK si
+      son todas); la 3060 copia ~16 veces mas rapido de lo que barre, asi
+      que no la alcanza. Dos lienzos de verdad (pintar uno mientras se copia
+      el otro) y el page flip son el paso 3: piden los canales de pantalla]
    3  SIN DESGARRO: esperar al VBLANK (E2 ya lo da por interrupcion) antes
       de cada fotograma; y despues M2, el page flip de verdad (los canales
       de pantalla, core y window, por el RM): dos superficies y cambiar la

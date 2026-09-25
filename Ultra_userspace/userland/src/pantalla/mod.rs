@@ -43,7 +43,7 @@ mod roja;
 mod verde;
 
 pub use amarilla::{Volcado, Volcador};
-pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_SOLTAR};
+pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_ESPERAR, VOLCADOR_SOLTAR};
 pub use verde::{GLIFO_ALTO, GLIFO_ANCHO};
 
 // -- La pantalla ---------------------------------------------------------
@@ -122,6 +122,13 @@ pub struct Pantalla {
     /// [`Pantalla::volcar_por_gpu`] y se QUITA SOLO si una tanda falla (la GPU
     /// apagada, un plazo): el fotograma sale por la CPU y los siguientes tambien.
     por_gpu: core::cell::Cell<bool>,
+    /// ** Una tanda de la 3060 en vuelo (1c): la VALLA sin esperar. La espera
+    /// la primera escritura al lienzo ([`Pantalla::valla`]), no el volcado.
+    pendiente: core::cell::Cell<bool>,
+    /// El rayo de las copias de la 3060: sin aprender coste por pixel (copia
+    /// 16 veces mas rapido de lo que barre el monitor), solo espera a que el
+    /// rayo salga de las filas que se van a copiar.
+    rayo_gpu: crate::sin_gpu::rayo::Rayo,
 }
 
 impl Pantalla {
@@ -153,6 +160,8 @@ impl Pantalla {
             }),
             rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
             por_gpu: core::cell::Cell::new(false),
+            pendiente: core::cell::Cell::new(false),
+            rayo_gpu: crate::sin_gpu::rayo::Rayo::nuevo(),
         })
     }
 
@@ -242,6 +251,7 @@ impl Pantalla {
     /// de aqui lo hacen; de fuera no lo llama nadie.
     #[inline(always)]
     pub unsafe fn punto_sin_comprobar(&self, x: u32, y: u32, color: u32) {
+        self.valla();
         unsafe {
             self.lienzo
                 .add((y as usize) * (self.stride as usize) + x as usize)

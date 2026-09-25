@@ -18,6 +18,7 @@ use bmo_userland as bmo;
 
 use crate::desktop::Desktop;
 use crate::scene::globo::{self, Cara, LETRAS};
+pub(crate) use crate::scene::globo::Tono;
 
 /// Lo que vive un globo.
 pub(crate) const DURA_MS: u64 = 20_000;
@@ -57,6 +58,11 @@ struct Estado {
     turno: u32,
     /// Donde estaba el raton la ultima vez que se miro.
     raton: (u32, u32),
+    /// Un AVISO por nacer (`avisar`): pasa delante del turno y de la pausa.
+    aviso: bool,
+    tono: Tono,
+    /// Si el volcado lo hacia la 3060 la ultima vez que se miro.
+    gpu_antes: bool,
     titulo: [u8; 16],
     tn: usize,
     texto: [u8; LETRAS],
@@ -68,6 +74,9 @@ static mut ESTADO: Estado = Estado {
     desde: 0,
     siguiente: 0,
     pintado: 0,
+    aviso: false,
+    tono: Tono::Consejo,
+    gpu_antes: false,
     turno: 0,
     raton: (u32::MAX, u32::MAX),
     titulo: [0; 16],
@@ -142,7 +151,23 @@ fn de_la_3060(e: &mut Estado, turno: u32) -> bool {
     true
 }
 
+/// **Un AVISO**: algo acaba de pasar y se dice YA, junto al puntero, aunque
+/// haya otro globo vivo o se este en la pausa. Lo llaman las ordenes (save
+/// mode al acabar, el volcado por la 3060...).
+pub(crate) fn avisar(titulo: &[u8], texto: &[u8], tono: Tono) {
+    let e = estado();
+    let mut l = Linea { b: &mut e.titulo, n: 0 };
+    l.t(titulo);
+    e.tn = l.n;
+    let mut l = Linea { b: &mut e.texto, n: 0 };
+    l.t(texto);
+    e.n = l.n;
+    e.tono = tono;
+    e.aviso = true;
+}
+
 fn nacer(e: &mut Estado, ahora: u64) {
+    e.tono = Tono::Consejo;
     let turno = e.turno;
     e.turno = e.turno.wrapping_add(1);
     if turno % 2 == 1 || !de_la_3060(e, turno / 2) {
@@ -168,11 +193,21 @@ pub(crate) fn quitar_capas(p: &bmo::Pantalla) {
 /// fotograma que pinta, ANTES de la capa del recorte y del cursor. `tapado`:
 /// una ventana a pantalla completa (ahi no se habla).
 pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
+    // Si la 3060 dejo de volcar (una tanda fallo, o `gpu volcado off`), se dice.
+    let gpu = p.volcando_por_gpu();
+    if estado().gpu_antes && !gpu {
+        avisar(b"volcado", b"vuelve a la CPU: la 3060 ya no lleva el escritorio", Tono::Mal);
+    }
     let e = estado();
+    e.gpu_antes = gpu;
     let ahora = bmo::ciclos();
     if e.por_ms == 0 {
         e.por_ms = (bmo::info(bmo::INFO_TSC_HZ) / 1000).max(1);
         e.siguiente = ahora + PRIMERO_MS * e.por_ms;
+    }
+    if e.aviso {
+        e.aviso = false;
+        e.desde = ahora;
     }
     let (ax, ay) = (dsk.tick.ax, dsk.tick.ay);
     let movido = (ax, ay) != e.raton;
@@ -193,7 +228,7 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
         return;
     }
     e.pintado = ahora;
-    let cara = Cara { titulo: &e.titulo[..e.tn], texto: &e.texto[..e.n], edad_ms: ms, vida_ms: DURA_MS };
+    let cara = Cara { titulo: &e.titulo[..e.tn], texto: &e.texto[..e.n], edad_ms: ms, vida_ms: DURA_MS, tono: e.tono };
     globo::poner(p, ax, ay, &cara);
 }
 
@@ -202,5 +237,5 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
 /// bucle en cada vuelta: solo lee el reloj.
 pub(crate) fn anima() -> bool {
     let e = estado();
-    e.desde != 0 && bmo::ciclos().wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
+    e.aviso || e.desde != 0 && bmo::ciclos().wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
 }

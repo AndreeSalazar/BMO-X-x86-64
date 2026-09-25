@@ -82,6 +82,7 @@ const _: () = {
     assert!(bmo::volcador_caja(1919, 1079, 7, 3, true) == vl::caja(1919, 1079, 7, 3, true));
     assert!(bmo::volcador_caja(0, 5, 1920, 1, false) == vl::caja(0, 5, 1920, 1, false));
     assert!(bmo::VOLCADOR_ARMAR == vl::ARMAR && bmo::VOLCADOR_SOLTAR == vl::SOLTAR && bmo::VOLCADOR_COMO_VA == vl::COMO_VA);
+    assert!(bmo::VOLCADOR_ESPERAR == vl::ESPERAR);
 };
 
 /// **Que la 3060 vuelque CADA fotograma**, si la copia verificada salio. Lo
@@ -94,6 +95,7 @@ pub(crate) fn activar(s: &mut Output, p: &bmo::Pantalla) {
         Ok(()) => {
             s.with_ink(INK_GOOD);
             s.text(b"  LA 3060 VUELCA TU ESCRITORIO EN CADA FOTOGRAMA desde ahora (`gpu volcado off` lo devuelve a la CPU)\n");
+            crate::desktop::globo::avisar(b"LA 3060", b"vuelca tu escritorio en cada fotograma: la CPU queda libre", crate::desktop::globo::Tono::Bien);
         }
         Err(m) => {
             s.with_ink(INK_ERR);
@@ -199,7 +201,7 @@ pub(crate) fn fila(s: &mut Output) {
             s.with_ink(INK_GOOD);
             s.text(b"POR LA 3060: ");
             s.dec(v & 0xFFFF_FFFF);
-            s.text(b" tandas pagadas (una por fotograma, con su valla)");
+            s.text(b" tandas enviadas (una por fotograma; la CPU no espera: la valla, al volver a pintar)");
             s.with_ink(INK_PLAIN);
             s.byte(b'\n');
         }
