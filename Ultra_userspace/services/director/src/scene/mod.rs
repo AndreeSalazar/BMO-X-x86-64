@@ -115,6 +115,9 @@ pub(crate) mod sugerir;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
 /// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
 pub(crate) mod globo;
+/// **El destello del foco**: la ventana que toma el foco se enciende en neon
+/// y se apaga sola (2026-09-25). Cuando y de quien, `desktop::brillo`.
+pub(crate) mod brillo;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".

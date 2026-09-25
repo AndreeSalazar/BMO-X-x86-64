@@ -127,14 +127,14 @@ impl Tono {
 }
 
 /// `a` hacia `b` en `t` de 256.
-fn mezcla(a: u32, b: u32, t: u32) -> u32 {
+pub(crate) fn mezcla(a: u32, b: u32, t: u32) -> u32 {
     let t = t.min(256);
     let c = |s: u32| (((a >> s) & 0xFF) * (256 - t) + ((b >> s) & 0xFF) * t) >> 8;
     c(16) << 16 | c(8) << 8 | c(0)
 }
 
 /// Una onda triangular de 0 a 256 con periodo `periodo` ms.
-fn onda(ms: u64, periodo: u64) -> u32 {
+pub(crate) fn onda(ms: u64, periodo: u64) -> u32 {
     let f = (ms % periodo) * 512 / periodo;
     (if f < 256 { f } else { 512 - f }) as u32
 }

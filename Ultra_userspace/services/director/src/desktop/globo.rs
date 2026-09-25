@@ -187,6 +187,7 @@ fn nacer(e: &mut Estado, ahora: u64) {
 pub(crate) fn quitar_capas(p: &bmo::Pantalla) {
     crate::desktop::captura::capa_quitar(p);
     globo::quitar(p);
+    crate::scene::brillo::quitar(p);
 }
 
 /// **El globo de este fotograma**: nace, sigue al raton o se va. Al FINAL del

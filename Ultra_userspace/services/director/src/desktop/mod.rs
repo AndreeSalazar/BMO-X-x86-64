@@ -61,6 +61,8 @@ pub(crate) mod captura;
 pub(crate) mod mosaico;
 /// **EL GLOBO DEL PUNTERO**: cuando nace, que dice y cuanto vive (2026-09-25).
 pub(crate) mod globo;
+/// **EL DESTELLO DEL FOCO**: cuando nace y sobre que ventana (2026-09-25).
+pub(crate) mod brillo;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la

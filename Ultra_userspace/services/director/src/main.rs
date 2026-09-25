@@ -987,7 +987,7 @@ pub extern "C" fn _start() -> ! {
         }
         // ** Y el medidor del MAESTRO, mientras suena: pinta, pero NO es
         // actividad (W4b). `toca` no cruza puertas: mira el reloj.
-        dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima();
+        dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::brillo::anima();
 
         // -- LA ENTRADA, en dos mitades que no se pueden mezclar --
         //

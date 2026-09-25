@@ -37,6 +37,10 @@ pub(crate) fn seguir(dsk: &mut Desktop, p: &bmo::Pantalla) {
         return;
     }
     dsk.win.foco_pintado = ahora;
+    // ** Y la ventana que lo toma, se ENCIENDE (el destello de `brillo`).
+    if let Some(v) = ahora {
+        crate::desktop::brillo::encender(v);
+    }
     let es = |v: Ventana| ahora == Some(v);
 
     dsk.run_box.chrome.foco = es(Ventana::Run);
