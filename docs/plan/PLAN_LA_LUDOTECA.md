@@ -435,3 +435,107 @@ partir de esa lista medida, no al reves.
       hoy los datos del clasico y en que formato; y `rayosx` sobre el
       `StarCraft.exe` clasico para comparar. **Como se sabe:** las tres
       respuestas apuntadas en esta seccion, con su fuente.
+
+## 11. El efecto domino: los clasicos con motor abierto, en orden (25-09)
+
+La idea es correcta y tiene nombre: **cada juego desbloquea UNA pieza que
+el siguiente ya da por hecha**. No se salta al jefe final; se tumba la
+primera ficha y cada una empuja a la siguiente. El orden no es por fecha ni
+por fama: es por **que capacidad pide** cada motor a BMO-X. Ya lo decia
+`platform/drivers/gpu/rdna4/PLAN_VULKAN.md` ("para juegos antiguos el
+camino es SDL + motores abiertos") y `docs/identidad/QUE_DESBLOQUEA.md`
+(OpenTTD y ScummVM piden compilacion separada); esta seccion lo ordena.
+
+Regla de las columnas: **motor** = el codigo que se compila (tiene que ser
+abierto); **datos** = lo que dice "gratis" si hay datos libres o shareware
+legales, o "comprar" si hace falta el juego original. La licencia va
+marcada POR COMPROBAR donde no es GPL limpia (motores sacados por
+ingenieria inversa, o licencias propias como la de Build).
+
+### Ficha 1 -- 2D por la CPU (lo que ya hace DOOM: pixeles al framebuffer)
+
+| Motor | Juego | Licencia | Datos | Que desbloquea |
+|---|---|---|---|---|
+| **Wolf4SDL** | Wolfenstein 3D | GPL (id, 2012) -- POR COMPROBAR la version | gratis (shareware) | **rayos por columna**: el abuelo de DOOM, mas chico -- el censo mas facil |
+| **SDLPoP** | Prince of Persia | GPL (desensamblado) -- POR COMPROBAR | comprar | animacion por fotogramas, paletas VGA |
+| **Omnispeak** / Commander Genius | Commander Keen 4-6 | GPL (reimplementacion) | Keen 1 shareware gratis | desplazamiento suave por azulejos |
+| **Vanilla Conquer** | C&C y Red Alert | GPL (EA, 2020) | **gratis**: EA los libero como freeware en 2007-2008 | ★ estrategia en tiempo real; audio en mezcla; **C++ acotado** |
+| **Stratagus + Wargus** | Warcraft II | GPL | comprar (GOG lo vende) | motor RTS generico + **Lua** |
+| **fheroes2** | Heroes of Might and Magic II | GPL | la demo sirve | C++ con STL, por turnos (no pide tiempo real) |
+| **DevilutionX** | Diablo | POR COMPROBAR (reimplementacion) | la version shareware sirve | lector de MPQ -- la **misma** familia de archivo que StarCraft (seccion 10) |
+| **OpenBW** | StarCraft | POR COMPROBAR (L5) | comprar / gratis de Blizzard | ya en la seccion 10 |
+| **CorsixTH** | Theme Hospital | MIT | la demo sirve | **Lua embebido** de verdad |
+| **OpenXcom** | UFO / X-COM | GPL | comprar | C++ grande con YAML |
+| **OpenTTD** | Transport Tycoon Deluxe | GPL | ★ **gratis**: OpenGFX + OpenSFX + OpenMSX | **compilacion separada** (~600k C++, QUE_DESBLOQUEA palanca 2) |
+| **ScummVM** | cientos de aventuras | GPL | varias gratis (Beneath a Steel Sky, Flight of the Amazon Queen, Lure of the Temptress) | un **interprete**: un motor, muchos juegos |
+
+### Ficha 2 -- 3D por software (la CPU pinta; float de verdad)
+
+| Motor | Juego | Licencia | Datos | Que desbloquea |
+|---|---|---|---|---|
+| doomgeneric (**hecho**) | DOOM / Freedoom | GPL | gratis | la ficha que ya cayo |
+| Chocolate Heretic / Hexen | Heretic, Hexen | GPL (id/Raven, 2008) | shareware gratis | el mismo motor con inventario: casi gratis despues de DOOM |
+| **Quake** (WinQuake) | Quake | GPL | shareware gratis (pak0) | ★ **float + 3D real** -- la ficha de la sonda (seccion 10, jefe 3) |
+| **Yamagi Quake II** | Quake II | GPL | demo gratis | renderizador por software `ref_soft` **y** GL en el mismo motor: la bisagra hacia la GPU |
+| **EDuke32** | Duke Nukem 3D | GPL + licencia Build -- POR COMPROBAR | shareware gratis | motor Build (sectores, espejos) |
+| **NBlood** | Blood | POR COMPROBAR (Build) | comprar | el mismo Build: si cae Duke, Blood viene casi solo |
+| **DXX-Rebirth** | Descent 1-2 | mixta (Parallax + GPL) -- POR COMPROBAR | shareware gratis | 6 grados de libertad por software |
+| **TheForceEngine** | Dark Forces | GPL | comprar | motor Jedi de LucasArts |
+| **Xash3D FWGS** | Half-Life | motor GPL; la DLL del juego es del SDK de Valve -- POR COMPROBAR | **ya lo tienes** (Steam) | tiene renderizador por **software**: Half-Life sin GPU es posible |
+
+### Ficha 3 -- GPU con tuberia fija ("GL de 1999")
+
+| Motor | Juego | Licencia | Datos | Que desbloquea |
+|---|---|---|---|---|
+| **Yamagi Quake II** (ref_gl1) | Quake II | GPL | demo gratis | el MISMO juego de la ficha 2, ahora por la 3060: se compara pixel a pixel |
+| **ioquake3** | Quake III Arena | GPL | demo gratis / comprar | GL con multitextura; red |
+| **OpenJK** | Jedi Outcast / Academy | GPL | comprar | idTech3 con mas estado |
+| Xash3D (ref_gl) | Half-Life | igual que arriba | ya lo tienes | el Half-Life de la ficha 2, por GPU |
+
+### Ficha 4 -- GPU con sombreadores (SPIR-V, el Vulkan de la casa)
+
+| Motor | Juego | Licencia | Datos | Que desbloquea |
+|---|---|---|---|---|
+| **vkQuake** | Quake | GPL | shareware gratis | ★ el puente: el Quake de la ficha 2, por Vulkan (L4) |
+| **dhewm3** | Doom 3 | GPL (con terminos extra de id) | comprar | sombras por stencil, sombreadores |
+| **OpenMW** | Morrowind | GPL | comprar | mundo abierto; pide mucho C++ y OpenSceneGraph -- ficha tardia |
+
+Asi se lee: **cada fila de una ficha reusa lo que dejo la anterior**. Quake
+por software deja el float y el lector PAK; Quake II deja el mismo juego
+con dos renderizadores (la prueba honesta: software contra GPU, mismos
+pixeles); vkQuake deja la primera lista medida de Vulkan. Y los juegos con
+**datos gratis** (Wolf3D, Freedoom, Quake, C&C, OpenTTD) son los que se
+prueban primero: no dependen de que compres nada, y cualquiera puede
+repetir la prueba.
+
+### Vulkan contra Direct3D: por que Vulkan, y no por moda
+
+| | Vulkan | Direct3D 12 |
+|---|---|---|
+| Especificacion | abierta (Khronos), publica entera | Microsoft publica DirectX-Specs, pero el API es COM de Windows |
+| Pruebas de conformidad | **CTS abierto**: BMO-X puede correrlo contra su subconjunto | el HLK es de Windows |
+| Sombreadores | **SPIR-V**, abierto -- BMO-X ya lo lee | DXIL (bitcode de LLVM); el compilador DXC es abierto. Microsoft anuncio (2024) que el Shader Model 7 adoptara SPIR-V -- POR COMPROBAR cuando llegue |
+| Controladores abiertos para aprender | Mesa **NVK** (NVIDIA) y RADV (AMD), en C, leibles | ninguno: en Linux D3D se **traduce** a Vulkan (DXVK, vkd3d) |
+| Encaje con BMO-X | explicito: buffers de comandos, semaforos, barreras -- lo MISMO que ya hacen GPFIFO y los semaforos de `gpu pantalla` | tambien explicito (D3D12 y Vulkan son primos), pero amarrado a DXGI/WDDM |
+| Juegos abiertos | vkQuake, ports con Vulkan, y todo lo GL se puede subir despues | casi ninguno: un juego D3D es un juego de Windows |
+
+Conclusion: **no es que D3D12 sea "peor" como diseno** -- en la GPU son casi
+lo mismo. Es que Vulkan esta **abierto por los cuatro lados** (especificacion,
+pruebas, sombreadores, controladores de referencia) y D3D esta cerrado por
+el lado que importa: vive dentro de Windows. Por eso el camino de BMO-X es
+el de las fichas: primero CPU, luego un Vulkan de la casa medido juego a
+juego. Y un juego D3D (Cyberpunk) sigue siendo el jefe final por la
+seccion 9, no por esta tabla.
+
+- [ ] **L6 -- la primera ficha nueva: Wolf4SDL.** Traerlo a `BMO-externo`
+      con el shareware, pasar el censo del compilador C (como la sonda de
+      Quake) y apuntar que le falta. **Como se sabe:** la lista de fallos
+      (o cero) apuntada aqui, con la version de Wolf4SDL.
+- [ ] **L7 -- licencias de la tabla, comprobadas.** Para cada fila marcada
+      POR COMPROBAR, leer el archivo de licencia del repositorio del motor y
+      apuntar el nombre exacto. **Como se sabe:** esta seccion sin ningun
+      POR COMPROBAR de licencia, cada fila con su fuente.
+- [ ] **L8 -- C&C con datos libres.** Comprobar que Vanilla Conquer arranca
+      con los datos freeware de EA (no con el Remastered) y cuanto C++ pide.
+      **Como se sabe:** el tamanio del C++ y la lista de rasgos de C++ que
+      usa, apuntados aqui.
