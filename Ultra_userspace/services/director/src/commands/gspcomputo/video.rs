@@ -178,6 +178,88 @@ fn reproducir(ruta: &[u8], f: vi::Formato, fps: u32) -> Result<Repro, u32> {
     Ok(r)
 }
 
+/// **Lo que da `save mode`**: 90 fotogramas (3 s) de la carta de ajuste de
+/// `video::carta`, hechos en memoria -- sin fichero, asi el paso se prueba
+/// solo en cada arranque. 640x360, a 30 fps.
+pub(crate) fn dibujar_video() -> Result<u64, u32> {
+    let r = carta(90);
+    con(|c| c.video = Some(r));
+    match r {
+        Ok(v) if v.bien() => Ok(v.buenos as u64),
+        Ok(_) => Err(super::NO_VIDEO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+pub(crate) fn video_hecho() -> bool {
+    matches!(estado().video, Some(Ok(v)) if v.bien())
+}
+
+fn carta(n: u32) -> Result<Repro, u32> {
+    let f = vi::Formato { ancho: 640, alto: 360 };
+    let fps = 30;
+    let ficha = ficha()?;
+    let encaje = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_VIDEO_FORMATO, f.ancho as u64 | (f.alto as u64) << 16 | ficha << 32)?;
+    let bytes = f.bytes();
+    let bloque = bmo::Memoria::request(bytes).ok_or(super::NO_VIDEO_SIN_MEMORIA)?;
+    // SAFETY: el bloque mide `bytes`, es de este proceso y solo se usa aqui.
+    let nv12 = unsafe { core::slice::from_raw_parts_mut(bloque.base(), bytes as usize) };
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let us = |c: u64| c * 1_000_000 / hz;
+    let periodo = hz / fps as u64;
+    let mut r = Repro {
+        ancho: f.ancho,
+        alto: f.alto,
+        escala: (encaje & 0xFF) as u32,
+        fps,
+        en_fichero: n as u64,
+        pedidos: 0,
+        buenos: 0,
+        disco_us: 0,
+        gpu_us: 0,
+        cpu_us: 0,
+        total_us: 0,
+        tarde: 0,
+        fin: Fin::Final,
+        malo: None,
+    };
+    let desde = bmo::ciclos();
+    for k in 0..n {
+        // "disco" aqui es lo que tarda la CPU en HACER la carta.
+        let t = bmo::ciclos();
+        vi::carta(&f, k, nv12);
+        r.disco_us += us(bmo::ciclos() - t);
+        let cargar = if k == 0 { bmo::VIDEO_CARGAR } else { 0 };
+        let v = match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_VIDEO, bloque.base() as u64 | cargar) {
+            Ok(v) => v,
+            Err(m) => {
+                r.fin = Fin::Mal;
+                r.malo = Some((k, Err(m)));
+                break;
+            }
+        };
+        r.pedidos += 1;
+        let (_, _, _, _, gpu_us, cpu_us) = vi::desempaquetar(v);
+        r.gpu_us += gpu_us as u64;
+        r.cpu_us += cpu_us as u64;
+        if !vi::sano(v) {
+            r.fin = Fin::Mal;
+            r.malo = Some((k, Ok(v)));
+            break;
+        }
+        r.buenos += 1;
+        let hora = desde + (k as u64 + 1) * periodo;
+        if bmo::ciclos() > hora {
+            r.tarde += 1;
+        }
+        while bmo::ciclos() < hora {
+            bmo::yield_screen();
+        }
+    }
+    r.total_us = us(bmo::ciclos() - desde);
+    Ok(r)
+}
+
 const VERDE: u32 = 0x0076_B900;
 const CLARO: u32 = 0x00E6_EDF6;
 const TENUE: u32 = 0x008A_94A6;

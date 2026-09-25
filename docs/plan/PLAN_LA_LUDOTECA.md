@@ -95,3 +95,64 @@ lineas y una tabla:
   cumple: `build/ejemplos.ps1`, "ni el codigo ni el WAD pueden vivir aqui").
 - Nada de saltarse el DRM o las condiciones de una tienda: GOG vende sin DRM
   y es la primera por eso; Steam, solo por el camino B.
+
+---
+
+## 5. "Personal": la cuenta de BMO-X es una CAJA, no un login
+
+El propietario (25-09): *"BMO-X tendria su configuracion automatica de
+cuenta, `Personal`, como caja fuerte, y yo decido cuando ponerla en
+internet; no login en Google ni nada"*. Encaja con lo que ya hay:
+
+```text
+   Personal      vive SOLO en el disco de BMO-X: tu lista de juegos, tus
+                 partidas guardadas, tus preferencias, y la LLAVE que empareja
+                 BMO-X con TU antena (P0 de PLAN_CLOUD_LOCAL). Nada mas
+   el login      NUNCA en BMO-X. La cuenta de GOG la abre la antena, en SU
+                 navegador; a BMO-X no llega ni la clave ni el token: le
+                 llegan las lineas de `bmo-ludoteca`
+   internet      un interruptor que pulsa el propietario, como el GRIFO de la
+                 red (el TX detras de una puerta de un solo uso, 14-09).
+                 Cerrado por defecto; abierto, solo hacia SU antena
+```
+
+Lo que NO promete todavia: que el disco este CIFRADO. Eso pide AES y es el
+mismo muro de la criptografia que el TLS. Hasta entonces, "caja fuerte"
+quiere decir "no sale de la maquina sin que tu lo digas", no "si te roban
+el disco no lo leen".
+
+## 6. El camino B, simple: sacar de Proton SOLO sus pixeles
+
+El propietario: *"no es solo que sean millones de lineas: esos millones
+tenemos que VERIFICARLOS, y cambian todo"*. Exacto, y por eso la unica
+parte de Proton que entra en BMO-X es su SALIDA:
+
+```text
+   Proton por dentro   Wine (la API de Windows, ~25 anios), DXVK (Direct3D
+                       9/10/11 -> Vulkan), vkd3d-proton (D3D12 -> Vulkan),
+                       FAudio, y todo encima de un kernel Linux, glibc y un
+                       Vulkan conforme. Ninguna pieza se "extrae" sola: DXVK
+                       sin Vulkan no hace nada, Wine sin POSIX no arranca
+   lo que se extrae    los PIXELES que Proton ya dibujo en TU PC, y de vuelta
+                       las TECLAS y el RATON. Nada mas cruza
+   lo que se verifica  el protocolo: una cabecera fija, un fotograma
+                       comprimido (MPEG-1 hoy, H.264 con NVDEC despues) y los
+                       eventos de entrada. Cabe en una pagina, con su banco
+                       de lineas mutadas como `bmo-antena`; el resto -- los
+                       millones -- corre y se actualiza FUERA, sin tocar BMO-X
+```
+
+Escalones del B simple, sobre los de la seccion 3:
+
+- [ ] **J4a -- el emisor en el PC.** Un script (ffmpeg captura la ventana del
+      juego y la comprime) y el protocolo `ESPEJO/1` en `bmo-antena`, con
+      banco. **Como se sabe:** `cliente.py` recibe fotogramas del PC.
+- [ ] **J4b -- BMO-X lo ve.** Con TCP en el metal (G5) y un decodificador
+      (pl_mpeg, o NVDEC), cada fotograma a la pantalla por `gpu video`.
+- [ ] **J4c -- las manos.** Las teclas y el raton de BMO-X vuelven al PC.
+
+## 7. El nombre de la app
+
+Propuestos (25-09), a elegir por el propietario: **Recreativa** (la maquina
+de los salones: corto, en castellano, y dice JUGAR), **Ludoteca** (el de
+este plan) o **Salon**.

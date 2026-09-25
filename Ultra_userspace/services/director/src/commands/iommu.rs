@@ -183,6 +183,8 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gspvolcado::NO_VOLCADO_SIN_LIENZO => b"el escritorio pinta directo al panel (sin doble bufer): no hay lienzo que volcar",
         super::gspapagar::NO_APAGAR_SB_MAL => b"FWSEC-SB acabo con error, el codigo en la fila `apagado` (se siguio con el booter de descarga)",
         super::gspapagar::NO_APAGAR_NO_DESCARGA => b"el booter de descarga no se paro en 5 s, o se paro sin bajar la WPR2 (su MAILBOX0, en la fila `apagado`)",
+        super::gspaguante::NO_AGUANTE_NADA => b"ningun trabajo de la 3060 salio todavia en este arranque: no hay nada que repetir",
+        super::gspaguante::NO_AGUANTE_TROPEZO => b"el juez dijo bien pero la IOMMU vio un evento nuevo o el GSP un aviso de fallo nuevo: la fila `aguante`",
         super::gspcomputo::NO_VIDEO_MAL => b"un fotograma del video no salio igual que la cuenta de la CPU: la fila `video`",
         super::gspcomputo::NO_VIDEO_SIN_MEMORIA => b"no hubo un bloque de memoria para un fotograma del video",
         bmo::IOMMU_NO_VIDEO => b"la 3060 no puede poner el video: sin el canal de GR (`gpu lienzo` antes), sin la pantalla en modo fisico, un formato impar o mas grande que la pantalla, o uno ya en marcha",

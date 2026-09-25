@@ -93,7 +93,7 @@ fn grados() -> u32 {
     bmo_gpu_ga10x::salud::lectura(bmo::info(bmo::INFO_GPU_SALUD) as u32).map_or(0, |(g, _)| g)
 }
 
-fn aguantar(minutos: u64) -> Aguante {
+fn aguantar(segundos: u64) -> Aguante {
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let mut a = Aguante::default();
     for (k, t) in TRABAJOS.iter().enumerate() {
@@ -105,7 +105,7 @@ fn aguantar(minutos: u64) -> Aguante {
     // un evento de la IOMMU esperado) no cuenta; lo NUEVO si.
     let (ev0, av0) = (eventos_iommu(), super::gspcola::contar_avisos());
     let desde = bmo::ciclos();
-    let fin = desde + hz * 60 * minutos;
+    let fin = desde + hz * segundos;
     'vueltas: while bmo::ciclos() < fin {
         for (k, t) in TRABAJOS.iter().enumerate() {
             if !a.cuentas[k].entra {
@@ -142,6 +142,32 @@ fn aguantar(minutos: u64) -> Aguante {
     a
 }
 
+/// Lo que da `save mode` (25-09): 20 segundos, para que CADA arranque armado
+/// traiga el aguante sin teclear nada. La pantalla la repinta el paso.
+pub(crate) const SEGUNDOS_SAVE: u64 = 20;
+
+pub(crate) fn aguantar_save() -> Result<u64, u32> {
+    if !TRABAJOS.iter().any(|t| (t.2)()) {
+        return Err(NO_AGUANTE_NADA);
+    }
+    let a = aguantar(SEGUNDOS_SAVE);
+    // SAFETY: como `ultimo`.
+    unsafe { *core::ptr::addr_of_mut!(ULTIMO) = Some(a) };
+    match a.fallo {
+        None => Ok(a.vueltas as u64),
+        Some((_, _, Tropiezo::No(m))) => Err(m),
+        Some(_) => Err(NO_AGUANTE_TROPEZO),
+    }
+}
+
+pub(crate) fn aguante_hecho() -> bool {
+    matches!(ultimo(), Some(a) if a.fallo.is_none() && a.vueltas > 0)
+}
+
+/// Motivos del escritorio (`gspvolcado.rs` va hasta 0x14B; el video, 0x14D).
+pub(crate) const NO_AGUANTE_NADA: u32 = 0x14E;
+pub(crate) const NO_AGUANTE_TROPEZO: u32 = 0x14F;
+
 /// `gpu aguante [minutos]`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, args: &[u8]) -> After {
     let t = args.trim_ascii();
@@ -174,7 +200,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, args: &[u8]) -> After 
         return After::Settle;
     }
     paint_status(p, &dsk.run_box, "la 3060 bajo carga larga: todos sus trabajos, vuelta tras vuelta", INK_DIM);
-    let a = aguantar(minutos);
+    let a = aguantar(60 * minutos);
     // SAFETY: como `ultimo`.
     unsafe { *core::ptr::addr_of_mut!(ULTIMO) = Some(a) };
     // `pantalla` y `giro` pintan encima del escritorio.

@@ -33,7 +33,7 @@ mod pantalla;
 pub(crate) use pantalla::{dibujar_pantalla, fotograma, medir_pantalla, orden_pantalla, pantalla_hecha};
 /// M6 V0: el video NV12, pasado a color y agrandado por la 3060.
 mod video;
-pub(crate) use video::orden_video;
+pub(crate) use video::{dibujar_video, orden_video, video_hecho};
 pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};

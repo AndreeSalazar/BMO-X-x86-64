@@ -159,6 +159,45 @@ pub const fn muestra(f: &Formato, e: &Encaje, k: u32) -> (u32, u32) {
     ((i * (w - 1)) / 15, (j * (h - 1)) / 15)
 }
 
+/// Las 8 barras de color de 75 % (blanco, amarillo, cian, verde, magenta,
+/// rojo, azul, negro) en `(Y, U, V)` de BT.601 de rango limitado.
+pub const BARRAS: [(u8, u8, u8); 8] = [
+    (180, 128, 128),
+    (162, 44, 142),
+    (131, 156, 44),
+    (112, 72, 58),
+    (84, 184, 198),
+    (65, 100, 212),
+    (35, 212, 114),
+    (16, 128, 128),
+];
+
+/// **La carta de ajuste del fotograma `f`**, sin fichero (`save mode`): las 8
+/// barras corriendo 4 pixeles por fotograma hacia la izquierda y un cuadrado
+/// blanco de `alto/4` que cruza en diagonal. Escribe `f.bytes()` en `nv12`.
+pub fn carta(fmt: &Formato, f: u32, nv12: &mut [u8]) {
+    let (w, h) = (fmt.ancho as usize, fmt.alto as usize);
+    let barra = |x: usize| BARRAS[((x + 4 * f as usize) * 8 / w) % 8];
+    let lado = (h / 4) & !1;
+    let cx = (f as usize * 6) % (w - lado).max(1) & !1;
+    let cy = (f as usize * 4) % (h - lado).max(1) & !1;
+    let dentro = |x: usize, y: usize| x >= cx && x < cx + lado && y >= cy && y < cy + lado;
+    for y in 0..h {
+        for x in 0..w {
+            nv12[y * w + x] = if dentro(x, y) { 235 } else { barra(x).0 };
+        }
+    }
+    for by in 0..h / 2 {
+        for bx in 0..w / 2 {
+            let (x, y) = (2 * bx, 2 * by);
+            let (u, v) = if dentro(x, y) { (128, 128) } else { (barra(x).1, barra(x).2) };
+            let k = w * h + by * w + x;
+            nv12[k] = u;
+            nv12[k + 1] = v;
+        }
+    }
+}
+
 /// La entrada de la PD1 del tramo que cuelga [`VA`].
 pub const fn entrada_pd1() -> u64 {
     crate::vram::TABLAS[1] + 8 * indices(VA)[2] as u64
@@ -508,6 +547,23 @@ mod pruebas {
         assert_eq!(pixel(&nv12, &f, &e, false, 3, 1), color(235, 128, 128, false), "el (1, 0) del origen, agrandado x2");
         assert_eq!(pixel(&nv12, &f, &e, false, 5, 0), color(81, 90, 240, false), "el segundo bloque usa su UV");
         assert_eq!(pixel(&nv12, &f, &e, false, 0, 3), color(41, 128, 128, false));
+    }
+
+    #[test]
+    fn la_carta_de_ajuste() {
+        let f = Formato { ancho: 64, alto: 32 };
+        let mut b = std::vec![0u8; f.bytes() as usize];
+        carta(&f, 0, &mut b);
+        let e = Encaje { escala: 1, x0: 0, y0: 0 };
+        // Las barras, de izquierda a derecha, en su color (lejos del cuadrado).
+        assert_eq!(pixel(&b, &f, &e, false, 60, 30), color(16, 128, 128, false), "la ultima, negra");
+        assert_eq!(pixel(&b, &f, &e, false, 36, 30), color(84, 184, 198, false), "magenta");
+        assert_eq!(pixel(&b, &f, &e, false, 40, 30), color(65, 100, 212, false), "roja");
+        assert_eq!(pixel(&b, &f, &e, false, 0, 0), color(235, 128, 128, false), "el cuadrado, en la esquina al empezar");
+        // Se mueve: el fotograma 1 no es el 0.
+        let mut c = std::vec![0u8; f.bytes() as usize];
+        carta(&f, 1, &mut c);
+        assert_ne!(b, c);
     }
 
     #[test]

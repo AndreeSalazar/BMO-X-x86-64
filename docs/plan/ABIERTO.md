@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   317 casillas ABIERTAS en 39 planes
+   320 casillas ABIERTAS en 39 planes
    276 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -148,6 +148,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 8 abiertas, 0 hechas
+
+*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
+
+- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
+- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
+- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
+- ... y 5 mas
+
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
 *PLAN EL BUS APARTE -- el USB en su propio nucleo, y lo que hay que pagar antes*
@@ -272,15 +281,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 el LECTOR, las cinco comprobaciones -> Ultra_userspace/services/director/src/scene/cara.rs
 - [ ] 4 desde un FICHERO suelto, y que se pinte -> Ultra_userspace/services/director/src/scene/cara_ca
 - [ ] 5 en la seccion 0x0B del .bex -> toolchain/tools/maqueta/pruebas/calc.dorado
-- ... y 2 mas
-
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 5 abiertas, 0 hechas
-
-*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
-
-- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
-- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
-- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
 - ... y 2 mas
 
 ## [`PLAN_LA_PILA_HUERFANA.md`](PLAN_LA_PILA_HUERFANA.md) -- 5 abiertas, 3 hechas

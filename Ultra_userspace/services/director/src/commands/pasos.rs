@@ -581,6 +581,25 @@ pub(crate) const PASOS: &[Paso] = &[
         consejo: b"`gpu`: la fila `volcado` dice 1024 de 1024; teclea `gpu volcado` y compara la 3060 con la CPU",
         repinta: true,
     },
+    // ** LOS DOS DEL 25-09, para que el modo ARMADO lo traiga todo solo.
+    Paso {
+        nombre: b"video",
+        que: b"EL VIDEO POR LA 3060: 90 fotogramas NV12 de una carta de ajuste hecha en memoria (sin fichero), pasados a color y agrandados por la 3060 directo a la pantalla; 256 muestras cada uno (M6 V0)",
+        hecho: super::gspcomputo::video_hecho,
+        dar: super::gspcomputo::dibujar_video,
+        pide: Some(b"pantalla"),
+        consejo: b"`gpu`: la fila `video` dice 90 de 90 a 30 fps; con un .nv12 de verdad (ffmpeg), `gpu video <fichero> 640x360`",
+        repinta: true,
+    },
+    Paso {
+        nombre: b"aguante",
+        que: b"LA 3060 BAJO CARGA: 20 s repitiendo todos sus trabajos con su juez, mirando la IOMMU, el GSP y la temperatura; se para en el primer fallo (D1..D4)",
+        hecho: super::gspaguante::aguante_hecho,
+        dar: super::gspaguante::aguantar_save,
+        pide: Some(b"pantalla"),
+        consejo: b"`gpu`: la fila `aguante` dice las vueltas sin un fallo y la temperatura; para mas, `gpu aguante 10`",
+        repinta: true,
+    },
     // ** Y SIN `apagado` (L0c5, 25-09). Era el ultimo paso, y tras el la 3060
     // no trabajaba hasta el arranque siguiente: `gpu raster` despues de un
     // `save mode` decia NO, y el modo ARMADO la dejaba apagada en CADA
