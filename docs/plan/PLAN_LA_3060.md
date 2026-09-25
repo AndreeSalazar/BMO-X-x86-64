@@ -1126,6 +1126,28 @@ EXTENDIDA antes de nuestro booter. **El 0x15 del booter queda sin causa
 conocida**: dos veces (07:48 y 13:52), y el arranque siguiente fue bien las
 dos.
 
+**Tercer 0x15 (24-09, 19:12), y ahora con PISTA.** Mismo cuadro (+sec2 -os
+-riscv, MAILBOX0 del SEC2 0x15, FWSEC-FRTS SI corrio). Comparado con el
+driver abierto de NVIDIA (570.144, `kernel_gsp_tu102.c`): la secuencia es la
+MISMA -- esperar al GFW, FWSEC-FRTS, reset del SEC2, booter --, el Scrubber
+no hace falta (la region del GSP son 192 MiB, dentro de los 256 que el GFW ya
+limpia) y el RM tampoco descifra el codigo: solo dice "Booter failed with
+non-zero error code". La pista la da **nova-core** (Linux,
+`nova-core/gsp/boot.rs`): si el GSP no se APAGA con su paquete de descarga,
+*"The GPU will need to be reset before the driver can bind again"*. **BMO-X
+nunca apaga el GSP**: al reiniciar (o al apagar sin que la tarjeta pierda la
+corriente) el GSP-RM y su WPR2 siguen vivos, y el booter siguiente falla.
+Las tres veces vinieron detras de una sesion con el GSP corriendo. El apagado
+ordenado, como nouveau (`tu102_gsp_fini` + `r535_gsp_fini`):
+(1) RPC `UNLOADING_GUEST_DRIVER` (47); (2) esperar hasta 2 s a que el
+MAILBOX0 del falcon del GSP (+0x040) diga 0x80000000 (suspendido); (3) reset
+del falcon del GSP; (4) **FWSEC-SB** (el mismo FWSEC, orden 0x19 en vez de
+la 0x15 de FRTS; el error en 0x1400 + 0x15*4, 16 bits); (5) **booter
+unload** en el SEC2 (`boot_ul`, que BMO-X ya carga y comprueba y nunca usa)
+con MAILBOX0 = MAILBOX1 = 0xFF, y comprobar que la WPR2 cae
+(`0x1fa828` = 0). Mientras no este: APAGAR del todo (cortar la corriente de
+la fuente unos 30 s) entre pruebas, no reiniciar.
+
 **L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
 `vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
 x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.
