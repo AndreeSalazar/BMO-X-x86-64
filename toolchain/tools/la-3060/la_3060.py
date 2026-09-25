@@ -39,6 +39,13 @@ las esperas, que es la deuda que se quiere bajar):
                    `es_la_3060_12g` y el prestamo `vram_es_la_suya`
     O3 OPTIMIZADA  `bmo-gpu-ga10x` lleva `opt-level = 3` con nombre en el
                    perfil release del kernel y del userspace
+    N  NEUTRO      (25-09, P1 del pase) `dev/pase_gpu.rs` y el crate
+                   `bmo-pase-gpu` son de CUALQUIER GPU: su codigo no nombra
+                   un modulo de NVIDIA (`gpu_trabajo`, `gpu_libos`,
+                   `gpu_apagar`, `bmo_gpu_ga10x`...) ni un registro. Lo de
+                   la 3060 va en su `Motor` (`gpu_trabajo/pase_nv.rs`). El
+                   propietario: "AISLAR BIEN POR COMPLETO el NVIDIA eso por si
+                   voy a tener mi GPU alternativos"
 
     --check   lo que corre el build
 """
@@ -220,6 +227,28 @@ def optimizada(fallos):
             fallos.append('O3: %s no lleva `[profile.release.package."bmo-gpu-ga10x"] opt-level = 3`' % rel(ruta))
 
 
+NEUTROS = [os.path.join(RING0, 'dev', 'pase_gpu.rs')] + sorted(
+    glob.glob(os.path.join(RAIZ, 'platform', 'shared', 'bmo-pase-gpu', 'src', '*.rs')))
+RX_NVIDIA = re.compile(
+    r'\b(gpu_trabajo|gpu_libos|gpu_apagar|gpu_despertar|gpu_gsp|gpu_prestamo|pase_nv|dev::vblank|'
+    r'bmo_gpu_ga10x|Bar0|bar0|bar1\w*|gsp\w*|GSP\w*|nvidia|NVIDIA|ga10x|GA10\w*|ampere|AMPERE\w*)\b')
+
+
+def neutro(fallos):
+    vistos = 0
+    for r in NEUTROS:
+        if not os.path.exists(r):
+            continue
+        vistos += 1
+        for n, l in enumerate(sin_comentarios(leer(r)).split('\n'), 1):
+            m = RX_NVIDIA.search(l)
+            if m:
+                fallos.append('N: %s:%d nombra `%s` en el pase NEUTRO: lo de una tarjeta va en su Motor' % (rel(r), n, m.group(1)))
+    if vistos < 2:
+        fallos.append('N: no se encuentran dev/pase_gpu.rs y el crate bmo-pase-gpu: el guardian no mira')
+    return vistos
+
+
 def esperas():
     cuenta = {}
     for r in sorted(glob.glob(os.path.join(RING0, 'dev', '**', '*.rs'), recursive=True)):
@@ -249,6 +278,7 @@ def main():
     n_motivos = motivos(fallos)
     suyos = identidad(fallos)
     optimizada(fallos)
+    n_neutros = neutro(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -264,8 +294,8 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; %d esperas girando%s'
-          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, total, extra))
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d esperas girando%s'
+          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, total, extra))
     return 0
 
 

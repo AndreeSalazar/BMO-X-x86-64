@@ -290,6 +290,7 @@ pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 pub const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
 pub const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
 pub const VIDEO_CARGAR: u64 = 1 << 63;
+pub const IOMMU_OP_GPU_PASE: u64 = 0x44;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;
@@ -375,6 +376,7 @@ pub const IOMMU_NO_PANTALLA: u32 = 81;
 pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
 pub const IOMMU_NO_VOLCADO: u32 = 83;
 pub const IOMMU_NO_VIDEO: u32 = 85;
+pub const IOMMU_NO_PASE: u32 = 86;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

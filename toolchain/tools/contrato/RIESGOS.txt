@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-122
+123
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -19,6 +19,7 @@
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/core/purga.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/disk/centinela.rs
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu.rs
+# UNICO              Ultra_kernel_x86-64/kernel/src/ring0/dev/pase_gpu.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/mod.rs
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/roja.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/verde.rs

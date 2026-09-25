@@ -2,7 +2,7 @@
 //! la lee el kernel sin creerla.
 //!
 //! [carril]  ROJO      el unico sitio donde el kernel lee cajas que escribio Ring 3
-//! [cuesta]  DATO      una caja mal leida manda a la 3060 a copiar fuera de la pantalla
+//! [cuesta]  DATO      una caja mal leida manda a la GPU a copiar fuera de la pantalla
 //! [riesgo]  AJENO     esta memoria la escribe el proceso, y puede cambiarla
 //!                     MIENTRAS el kernel la lee
 //!
@@ -14,7 +14,7 @@
 //!    1         el kernel          VERSION
 //!    2         el kernel          ESTADO: 0 abierto, si no el `radar::Motivo`
 //!    3         el kernel          ENVIADO: la ultima tanda con el timbre tocado
-//!    4         el kernel          PAGADO: la ultima que la 3060 pago
+//!    4         el kernel          PAGADO: la ultima que la GPU pago
 //!    5         el kernel          ancho | alto << 16 de la pantalla
 //!    8         el proceso         CERRADO: el numero de la tanda lista
 //!    9         el proceso         N: cuantas cajas trae
@@ -35,7 +35,7 @@
 //! Dibuja en el lienzo, escribe las cajas y N, y **el numero el ultimo** (con
 //! una barrera Release delante: es lo que dice "ya esta"). No cierra la
 //! siguiente hasta que ENVIADO diga la suya, y no vuelve a pintar en el lienzo
-//! hasta que PAGADO la diga: la 3060 lo esta leyendo.
+//! hasta que PAGADO la diga: la GPU lo esta leyendo.
 
 /// `BGPU`, leido en little-endian. Un buzon revocado lo tiene a cero.
 pub const MAGIA: u32 = u32::from_le_bytes(*b"BGPU");
@@ -96,7 +96,7 @@ impl Tanda {
         &self.cajas[..self.n]
     }
 
-    /// Los bytes que movera la 3060 (4 por pixel).
+    /// Los bytes que movera la GPU (4 por pixel).
     pub fn bytes(&self) -> u64 {
         self.cajas().iter().map(|c| c.area() * 4).sum()
     }
@@ -141,9 +141,9 @@ impl Lado {
     }
 
     /// **Un latido.** `copia` = las palabras del buzon, copiadas UNA vez;
-    /// `pagado` = lo que la 3060 dice en SU semaforo (no lo que dice el buzon).
+    /// `pagado` = lo que la GPU dice en SU semaforo (no lo que dice el buzon).
     ///
-    /// `Ok(None)`: nada nuevo, o la anterior aun no esta pagada (la 3060 sigue
+    /// `Ok(None)`: nada nuevo, o la anterior aun no esta pagada (la GPU sigue
     /// leyendo el lienzo; se mira en el latido siguiente). `Ok(Some)`: la tanda,
     /// y el numero ya cuenta como enviado.
     pub fn leer(&mut self, copia: &[u32], m: Medidas, pagado: u32) -> Result<Option<Tanda>, Mal> {
@@ -268,7 +268,7 @@ mod pruebas {
         assert_eq!(escribir(&mut b, 1, &[caja(0, 0, 1, 1); MAX_CAJAS + 1]), None);
     }
 
-    /// *** Mientras la 3060 no pague la anterior, la nueva espera (no es mentira).
+    /// *** Mientras la GPU no pague la anterior, la nueva espera (no es mentira).
     #[test]
     fn sin_pagar_la_anterior_se_espera_al_latido_siguiente() {
         let mut b = buzon();

@@ -15,6 +15,9 @@ bmo-rtc = { path = "../../../platform/drivers/rtc" }
 # Lo que la grafica contesta (el nombre del chip): el MISMO crate que usa el
 # kernel, para que la tabla de nombres viva en un sitio (2026-09-23).
 bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
+# P1: el PASE de la GPU. Neutro: la forma del buzon y los veredictos, la misma
+# aritmetica que lee el kernel.
+bmo-pase-gpu = { path = "../../../platform/shared/bmo-pase-gpu" }
 bmo-iommu-amdvi = { path = "../../../platform/drivers/iommu/amdvi" }
 bmo-userland = { path = "../../userland" }
 # La politica de FOCO (quien recibe las teclas). Alli se puede PROBAR -- este

@@ -429,6 +429,9 @@ pub(crate) const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 pub(crate) const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
 /// M6 V0: un fotograma NV12 de un bloque del escritorio, a la pantalla por la 3060.
 pub(crate) const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
+/// P1: EL PASE de la GPU (ABRIR, CERRAR, ESTADO en los bits 63..60 de
+/// `arg1`). Ver `dev/pase_gpu.rs`.
+pub(crate) const IOMMU_OP_GPU_PASE: u64 = 0x44;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -966,6 +969,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_VOLCADOR => "GPU_VOLCADOR",
         IOMMU_OP_GPU_VIDEO_FORMATO => "GPU_VIDEO_FORMATO",
         IOMMU_OP_GPU_VIDEO => "GPU_VIDEO",
+        IOMMU_OP_GPU_PASE => "GPU_PASE",
         _ => "?",
     }
 }

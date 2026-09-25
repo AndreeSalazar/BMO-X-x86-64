@@ -973,6 +973,10 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
         // ** M6 V0: el video; sin FLUSH del disco: los fotogramas van seguidos.
         IOMMU_OP_GPU_VIDEO_FORMATO => crate::ring0::dev::gpu_trabajo::video_formato(arg1),
         IOMMU_OP_GPU_VIDEO => crate::ring0::dev::gpu_trabajo::video(arg1),
+        // ** P1: EL PASE. La puerta elige el MOTOR de la GPU que hay (hoy solo
+        // la 3060; otra tarjeta seria `.or_else(|| su_motor())`); `pase_gpu`
+        // es neutro y no sabe cual es.
+        IOMMU_OP_GPU_PASE => crate::ring0::dev::pase_gpu::orden(pid, arg1, crate::ring0::dev::gpu_trabajo::pase_nv::motor()),
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

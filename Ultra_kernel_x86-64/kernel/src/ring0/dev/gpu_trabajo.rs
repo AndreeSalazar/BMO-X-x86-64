@@ -25,6 +25,8 @@ pub use pantalla::{pantalla, IOMMU_NO_PANTALLA};
 /// El volcado del escritorio por el motor de copia (compositor por GPU, 1).
 mod volcado;
 pub use volcado::{suelta_si_es_de, volcado, volcador, IOMMU_NO_VOLCADO};
+/// P1: el motor del pase (`dev/pase_gpu.rs`) para la 3060.
+pub mod pase_nv;
 /// M6 V0: un fotograma NV12, convertido y agrandado por la 3060 en la pantalla.
 mod video;
 pub use video::{video, video_formato, IOMMU_NO_VIDEO};

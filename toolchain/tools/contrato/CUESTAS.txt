@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-127
+128
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -19,6 +19,7 @@
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/gato/masks.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/core/purga.rs
 # TAREA     Ultra_kernel_x86-64/kernel/src/ring0/dev/disk/centinela.rs
+# PUERTA    Ultra_kernel_x86-64/kernel/src/ring0/dev/pase_gpu.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/mod.rs
 # MAQUINA   Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/roja.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/verde.rs

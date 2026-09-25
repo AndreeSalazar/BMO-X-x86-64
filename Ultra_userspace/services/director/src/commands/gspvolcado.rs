@@ -63,6 +63,12 @@ pub(crate) fn apuntar(p: &bmo::Pantalla) {
     }
 }
 
+/// El lienzo del escritorio (0: pinta directo al panel). Lo usa `gpu pase`.
+pub(crate) fn lienzo() -> u64 {
+    // SAFETY: como `resumen`.
+    unsafe { *core::ptr::addr_of!(LIENZO) }
+}
+
 fn pedir(cpu_us: Option<u64>) -> Result<u64, u32> {
     // SAFETY: como `resumen`.
     let lienzo = unsafe { *core::ptr::addr_of!(LIENZO) };

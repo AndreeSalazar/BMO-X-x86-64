@@ -41,6 +41,8 @@ pub(crate) mod gspmotores;
 /// `gpu volcado`: el compositor por GPU, paso 1 -- el motor de copia lleva el
 /// escritorio a la pantalla (25-09).
 pub(crate) mod gspvolcado;
+/// `gpu pase`: P1 del pase de la GPU -- abrir, mirar el buzon, cerrar.
+pub(crate) mod gsppase;
 /// `gpu canal`: el primer canal, atado a COPY2 y con su ficha (L1d2b/L1d2c, 24-09).
 pub(crate) mod gspcanal;
 /// `gpu gr`: los buferes del contexto de oro de GR0 (M5 G0, 24-09).

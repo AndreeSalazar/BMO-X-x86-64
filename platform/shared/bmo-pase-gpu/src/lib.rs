@@ -47,6 +47,13 @@
 //! lienzo, prestado de solo lectura): cambiarlos a destiempo estropea la
 //! pantalla del propio proceso y nada mas -- y el radar lo nota.
 //!
+//! # *** NEUTRO: la GPU de hoy es la 3060, el crate no lo sabe
+//!
+//! Ni un nombre de fabricante en el codigo: lo de cada tarjeta lo pone su
+//! `Motor` en el kernel (`dev/pase_gpu.rs` define el rasgo; el de la 3060
+//! vive en `dev/gpu_trabajo/pase_nv.rs`). El guardian `la-3060` (regla N) lo
+//! vigila del lado del kernel.
+//!
 //! # *** Revocar no apaga la pantalla
 //!
 //! Un pase revocado devuelve el lienzo y deja el motivo en el buzon. El
@@ -57,5 +64,6 @@
 #![forbid(unsafe_code)]
 
 pub mod buzon;
+pub mod orden;
 pub mod pase;
 pub mod radar;

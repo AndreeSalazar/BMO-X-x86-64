@@ -385,6 +385,7 @@ dependencies = [
  "bmo-net",
  "bmo-orquesta",
  "bmo-particiones",
+ "bmo-pase-gpu",
  "bmo-prestamo-juicio",
  "bmo-puerta-red",
  "bmo-rtc",

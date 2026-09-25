@@ -100,6 +100,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"volcado" {
         return super::gspvolcado::orden(dsk, p);
     }
+    if arg == b"pase" {
+        return super::gsppase::orden(dsk, p);
+    }
     if arg == b"volcado off" {
         return super::gspvolcado::orden_off(dsk, p);
     }

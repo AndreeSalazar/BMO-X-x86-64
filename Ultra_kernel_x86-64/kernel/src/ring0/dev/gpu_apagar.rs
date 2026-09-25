@@ -75,9 +75,11 @@ pub fn despedido() -> bool {
 /// timbre no lo contesta nadie y cada trabajo esperaba su segundo entero
 /// (metal 24-09 20:36: `giro` y `raster` 1000001 us, `NV_PGRAPH_*` =
 /// 0xBADF1201). Quedan las de la IOMMU y la sonda (`op` 0x01..0x0A), las que
-/// solo LEEN (0x16, 0x25, 0x30, 0x39) y las del propio apagado (0x3B..0x3E).
+/// solo LEEN (0x16, 0x25, 0x30, 0x39), las del propio apagado (0x3B..0x3E) y
+/// el PASE (0x44): se cierra al despedir, y CERRAR y ESTADO tienen que poder
+/// decirlo despues; ABRIR lo niega el propio pase (`Aparato::apagado`).
 pub const fn permitida(op: u64) -> bool {
-    matches!(op, 0x01..=0x0A | 0x16 | 0x25 | 0x30 | 0x39 | 0x3B..=0x3E)
+    matches!(op, 0x01..=0x0A | 0x16 | 0x25 | 0x30 | 0x39 | 0x3B..=0x3E | 0x44)
 }
 
 /// **1. DESPEDIR**: la RPC, con el GSP-RM despierto. `Ok(pagina | numero
@@ -86,6 +88,9 @@ pub fn despedir() -> Result<u64, u32> {
     if de::info_despierto() & de::DESPIERTO_VISTO == 0 || ESTADO.load(Ordering::Acquire) & APAGADO_DESPEDIDO != 0 {
         return Err(IOMMU_NO_APAGAR);
     }
+    // ** El pase se cierra ANTES: su lienzo no se queda prestado a una 3060
+    // que ya no va a copiar.
+    crate::ring0::dev::pase_gpu::cerrar_por_apagado();
     let r = crate::ring0::dev::gpu_libos::enviar(dc::pedir)?;
     ESTADO.fetch_or(APAGADO_DESPEDIDO, Ordering::AcqRel);
     crate::ring0::cabina::count("gpu", "L0c5: UNLOADING_GUEST_DRIVER al GSP-RM; numero", r >> 32);

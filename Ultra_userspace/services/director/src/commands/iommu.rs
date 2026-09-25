@@ -188,6 +188,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gspcomputo::NO_VIDEO_MAL => b"un fotograma del video no salio igual que la cuenta de la CPU: la fila `video`",
         super::gspcomputo::NO_VIDEO_SIN_MEMORIA => b"no hubo un bloque de memoria para un fotograma del video",
         bmo::IOMMU_NO_VIDEO => b"la 3060 no puede poner el video: sin el canal de GR (`gpu lienzo` antes), sin la pantalla en modo fisico, un formato impar o mas grande que la pantalla, o uno ya en marcha",
+        bmo::IOMMU_NO_PASE => b"el pase de la GPU no se abrio: `gpu pase` dice el por que (pantalla, IOMMU, VBLANK, lienzo u ocupado)",
         super::gspcomputo::NO_PANTALLA_MAL => b"un fotograma a pantalla completa no salio igual que la cuenta de la CPU: la fila `pantalla`",
         super::gspcomputo::NO_GIRO_MAL => b"un fotograma de la esfera que gira no salio igual que la cuenta de la CPU: la fila `giro`",
         super::gspcomputo::NO_COLOR3D_MAL => b"el triangulo con color se lanzo pero no salio como dice el juez: la fila `color` (y los avisos del GSP debajo)",

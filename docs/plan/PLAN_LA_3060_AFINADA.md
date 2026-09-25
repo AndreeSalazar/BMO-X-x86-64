@@ -470,12 +470,31 @@ buzon, y el escritorio vuelve a `CAJA`/`ESPERAR`, que siguen ahi.
       una vez, numero que salta o caja fuera = mentira, mas de media pantalla
       sucia = UNA copia entera) y `radar::Radar::mirar`. **Como se sabe:**
       `cargo test -p bmo-pase-gpu`, 23 pruebas.
-- [ ] **P1 -- el kernel: `GPU_PASE_ABRIR` y el buzon mapeado.** Una op nueva
-      que junta los `pase::Hechos`, presta el lienzo como `armar` de
-      `dev/gpu_trabajo/volcado.rs` y mapea una pagina `buzon::formar`; soltar
-      por `suelta_si_es_de` (muerte y pantalla soltada, las mismas estaciones).
-      **Como se sabe:** `gpu pase` abre, dice el motivo al cerrar, y `gpu
-      volcado` sigue verde con el pase cerrado.
+- [ ] **P1 -- el kernel: `GPU_PASE` y el buzon mapeado.** **En codigo
+      (25-09), falta verlo en el metal.** Partido en DOS para que NVIDIA
+      quede aislada por completo (el propietario: *"por si voy a tener mi
+      GPU alternativos"*):
+
+      ```text
+         dev/pase_gpu.rs            NEUTRO: quien pide, el lienzo, el buzon
+                                    (un marco, VA 0x2_0010_0000), la LAPIDA,
+                                    las estaciones (soltar, morir, apagado) y
+                                    el rasgo `Motor`
+         gpu_trabajo/pase_nv.rs     el Motor de la 3060: lo que sabe del
+                                    aparato, la medida, prestar y devolver
+                                    (la IOVA y las tablas del volcador)
+         la puerta (op 0x44)        elige el motor: `pase_nv::motor()`; otra
+                                    tarjeta seria `.or_else(su_motor)`
+      ```
+
+      El guardian `la-3060` gana la regla **N (NEUTRO)**: `dev/pase_gpu.rs` y
+      el crate no nombran ni un modulo de NVIDIA ni un registro (probado
+      metiendo un `gpu_libos` a proposito: FAIL). El pase y el volcador se
+      excluyen (misma IOVA), y el volcado de una vez tambien dice que no con
+      el pase abierto. Motivo 86 (`IOMMU_NO_PASE`); el por que exacto, en
+      ESTADO. **Como se sabe:** `gpu vblank` y despues `gpu pase` dice cinco
+      `si` (ABRIR, el buzon, CERRAR, la lapida, ESTADO), y `gpu volcado`
+      sigue verde despues.
 - [ ] **P2 -- el latido en el VBLANK.** En el aviso de E2 (o un hilo que
       despierta con el): `Lado::leer` -> empuje del motor de copia -> ENVIADO
       y PAGADO al buzon -> `Radar::mirar`; muestras cuando `toca_mirar`.

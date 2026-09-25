@@ -9,28 +9,28 @@
 //!
 //! No esta en el camino del fotograma -- estar ahi seria la burocracia que el
 //! pase acaba de quitar. En cada VBLANK mira lo que ya paso: el buzon, la valla
-//! de la 3060 (su semaforo, no lo que diga el proceso) y, uno de cada
+//! de la GPU (su semaforo, no lo que diga el proceso) y, uno de cada
 //! [`MIRAR_CADA`] barridos, unas muestras de la pantalla contra el lienzo.
 //!
 //! ```text
 //!    el buzon miente (numero, cajas)     el proceso esta roto o ataca    AL MOMENTO
-//!    el GSP se despidio                  la 3060 ya no acepta trabajo    AL MOMENTO
+//!    la GPU se apago en orden            ya no acepta trabajo            AL MOMENTO
 //!    el proceso murio / solto la pantalla lo pedido, cumplido            AL MOMENTO
-//!    el semaforo dice un numero raro     la 3060 escribio basura         AL MOMENTO
-//!    la 3060 no paga una tanda           colgada: 6 barridos (~100 ms)   al 6
+//!    el semaforo dice un numero raro     la GPU escribio basura          AL MOMENTO
+//!    la GPU no paga una tanda            colgada: 6 barridos (~100 ms)   al 6
 //!    las muestras no cuadran             3 miradas SEGUIDAS              a la 3
 //! ```
 //!
 //! # *** Por que las muestras malas no revocan a la primera
 //!
 //! Porque el lienzo es del proceso y el protocolo le pide no pintar hasta
-//! PAGADO -- si lo hace, la muestra sale mala sin que la 3060 tenga la culpa.
-//! Una vez es una carrera; tres miradas seguidas (~0,8 s) es una 3060 que
+//! PAGADO -- si lo hace, la muestra sale mala sin que la GPU tenga la culpa.
+//! Una vez es una carrera; tres miradas seguidas (~0,8 s) es una GPU que
 //! pinta mal o un escritorio que no respeta la valla, y en los dos casos el
 //! atajo se acaba. La comprobacion no se quita (regla 8 de OPTIMIZACION): se
 //! saca del camino del fotograma y se pone aqui.
 //!
-//! [!] Lo que el radar NO para: la 3060 leyendo lo que se le presto. Eso lo
+//! [!] Lo que el radar NO para: la GPU leyendo lo que se le presto. Eso lo
 //! acota la IOMMU (solo lectura, solo el lienzo); al revocar se devuelve.
 
 use crate::buzon::Mal;
@@ -50,7 +50,7 @@ pub enum Motivo {
     CerradoPorElPropietario = 1,
     PropietarioMurio = 2,
     PantallaSoltada = 3,
-    GspApagado = 4,
+    AparatoApagado = 4,
     NumeroImposible = 5,
     CajasImposibles = 6,
     CajaFuera = 7,
@@ -70,7 +70,7 @@ impl Motivo {
             1 => Motivo::CerradoPorElPropietario,
             2 => Motivo::PropietarioMurio,
             3 => Motivo::PantallaSoltada,
-            4 => Motivo::GspApagado,
+            4 => Motivo::AparatoApagado,
             5 => Motivo::NumeroImposible,
             6 => Motivo::CajasImposibles,
             7 => Motivo::CajaFuera,
@@ -87,20 +87,20 @@ impl Motivo {
             Motivo::CerradoPorElPropietario => "lo cerro quien lo abrio",
             Motivo::PropietarioMurio => "el proceso murio",
             Motivo::PantallaSoltada => "el proceso solto la pantalla",
-            Motivo::GspApagado => "el GSP se despidio",
+            Motivo::AparatoApagado => "la GPU se apago en orden",
             Motivo::NumeroImposible => "el escritorio cerro una tanda sin esperar a la anterior",
             Motivo::CajasImposibles => "el buzon declara cero cajas o mas de 64",
             Motivo::CajaFuera => "una caja vacia o fuera de la pantalla",
             Motivo::BuzonRoto => "el buzon del kernel no tiene su forma",
-            Motivo::Colgada => "la 3060 no pago una tanda en 6 barridos (~100 ms)",
+            Motivo::Colgada => "la GPU no pago una tanda en 6 barridos (~100 ms)",
             Motivo::PintaMal => "3 miradas seguidas con muestras que no cuadran",
-            Motivo::SemaforoRaro => "el semaforo de la 3060 dice un numero que no se envio",
+            Motivo::SemaforoRaro => "el semaforo de la GPU dice un numero que no se envio",
         }
     }
 
     /// Lo decidio el propietario o el sistema, y no un fallo: no se grita en CABINA.
     pub fn es_normal(self) -> bool {
-        matches!(self, Motivo::CerradoPorElPropietario | Motivo::PropietarioMurio | Motivo::PantallaSoltada | Motivo::GspApagado)
+        matches!(self, Motivo::CerradoPorElPropietario | Motivo::PropietarioMurio | Motivo::PantallaSoltada | Motivo::AparatoApagado)
     }
 }
 
@@ -122,14 +122,14 @@ pub struct Vuelta {
     pub mal: Option<Mal>,
     /// La ultima tanda con el timbre tocado (el numero del KERNEL).
     pub enviado: u32,
-    /// Lo que dice el semaforo de la 3060.
+    /// Lo que dice el semaforo de la GPU.
     pub pagado: u32,
     /// La anterior a `enviado` (lo unico, ademas de `enviado`, que puede decir
     /// un semaforo sano mientras la ultima esta en vuelo).
     pub anterior: u32,
     pub propietario_vivo: bool,
     pub propietario_pantalla: bool,
-    pub gsp_vivo: bool,
+    pub aparato_vivo: bool,
     /// Solo en los barridos que tocaba mirar: cuantas muestras NO cuadraron.
     pub malas: Option<u32>,
 }
@@ -162,8 +162,8 @@ impl Radar {
         if v.pagado != v.enviado && v.pagado != v.anterior {
             return Some(Motivo::SemaforoRaro);
         }
-        if !v.gsp_vivo {
-            return Some(Motivo::GspApagado);
+        if !v.aparato_vivo {
+            return Some(Motivo::AparatoApagado);
         }
         if !v.propietario_vivo {
             return Some(Motivo::PropietarioMurio);
@@ -204,7 +204,7 @@ mod pruebas {
             anterior: n.saturating_sub(1),
             propietario_vivo: true,
             propietario_pantalla: true,
-            gsp_vivo: true,
+            aparato_vivo: true,
             ..Vuelta::default()
         }
     }
@@ -305,8 +305,8 @@ mod pruebas {
     #[test]
     fn lo_normal_y_lo_que_no() {
         let mut v = tranquila(1);
-        v.gsp_vivo = false;
-        assert_eq!(Radar::nuevo().mirar(&v), Some(Motivo::GspApagado));
+        v.aparato_vivo = false;
+        assert_eq!(Radar::nuevo().mirar(&v), Some(Motivo::AparatoApagado));
         let mut v = tranquila(1);
         v.propietario_pantalla = false;
         assert_eq!(Radar::nuevo().mirar(&v), Some(Motivo::PantallaSoltada));

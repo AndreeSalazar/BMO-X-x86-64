@@ -893,6 +893,10 @@ pub const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
 pub const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
 /// El bit 63 de `IOMMU_OP_GPU_VIDEO`: cargar el programa, el QMD y las ordenes.
 pub const VIDEO_CARGAR: u64 = 1 << 63;
+/// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
+/// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
+/// o ESTADO en los bits 63..60 de `arg1`.
+pub const IOMMU_OP_GPU_PASE: u64 = 0x44;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -1067,6 +1071,9 @@ pub const IOMMU_NO_VOLCADO: u32 = 83;
 /// formato impar o mas grande que la pantalla, un fotograma que no es un
 /// bloque del que llama, o uno ya en marcha.
 pub const IOMMU_NO_VIDEO: u32 = 85;
+/// P1: el pase no se abrio (o no habia que cerrar). El POR QUE exacto, un
+/// `bmo_pase_gpu::pase::NoPase`, lo dice la suborden ESTADO.
+pub const IOMMU_NO_PASE: u32 = 86;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

@@ -63,7 +63,9 @@ pub fn volcado(lienzo: u64) -> Result<u64, u32> {
     if fisica % PAGINA != 0 || fisica + p.bytes() > crate::ring0::mm::PHYSMAP_SIZE {
         return Err(IOMMU_NO_VOLCADO);
     }
-    if EN_MARCHA.swap(true, Ordering::AcqRel) {
+    // ** Con el PASE abierto su lienzo esta en la misma IOVA: prestar y
+    // devolver aqui se lo quitaria a la 3060 por debajo.
+    if crate::ring0::dev::pase_gpu::abierto() || EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_VOLCADO);
     }
     let r = volcado_(bar0, ficha, fisica, &p);
@@ -73,7 +75,7 @@ pub fn volcado(lienzo: u64) -> Result<u64, u32> {
 
 /// Las tablas del lienzo y la pantalla del GOP, mapeadas para la 3060 (una
 /// vez por arranque).
-fn asegurar_mapas(r: &mut Bar0, p: &pa::Pantalla) -> Result<(), u32> {
+pub(super) fn asegurar_mapas(r: &mut Bar0, p: &pa::Pantalla) -> Result<(), u32> {
     asegurar_mapa(r, p)?;
     if !MAPEADO.load(Ordering::Acquire) {
         match vl::mapear(r, p) {
@@ -269,7 +271,8 @@ fn armar(pid: u32, lienzo: u64) -> Result<u64, u32> {
     let Some(fisica) = crate::ring0::obj::memory::fisica_de(pid, lienzo, p.bytes()) else {
         return Err(IOMMU_NO_VOLCADO);
     };
-    if fisica % PAGINA != 0 || EN_MARCHA.swap(true, Ordering::AcqRel) {
+    // ** El pase y el volcador prestan la misma IOVA: uno a la vez.
+    if fisica % PAGINA != 0 || crate::ring0::dev::pase_gpu::abierto() || EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_VOLCADO);
     }
     let mut r = Bar0(bar0);
@@ -404,6 +407,11 @@ pub fn suelta_si_es_de(pid: u32) {
     if ARMADO.load(Ordering::Acquire) && PROPIETARIO.load(Ordering::Acquire) == pid {
         let _ = soltar(pid);
     }
+}
+
+/// El volcador tiene un lienzo prestado: el pase dice "ocupado".
+pub(super) fn armado() -> bool {
+    ARMADO.load(Ordering::Acquire)
 }
 
 /// Para la fila, segun el selector (`vl::COMO_VA_*`): `enviadas | armado <<

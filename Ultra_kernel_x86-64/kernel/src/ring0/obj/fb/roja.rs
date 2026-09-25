@@ -173,7 +173,8 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
         cap::revoke(pid, h);
     }
     // El volcado por la 3060 es del PROPIETARIO de la pantalla: al soltarla (un
-    // juego a pantalla completa), su lienzo se devuelve.
+    // juego a pantalla completa), su lienzo se devuelve. Y el PASE, igual.
+    crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, false);
     crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
     crate::info::ceder_fb(false);
     OWNER.store(NO_OWNER, Ordering::SeqCst);
@@ -299,7 +300,8 @@ pub fn process_died(pid: u32) {
         HANDLE.store(0, Ordering::SeqCst);
         // ** Y si la 3060 volcaba su lienzo en cada fotograma, el prestamo se
         // devuelve AQUI: esta estacion va antes que `memory`, que libera los
-        // marcos que la 3060 estaba viendo (R-DMA-3).
+        // marcos que la 3060 estaba viendo (R-DMA-3). El PASE, igual.
+        crate::ring0::dev::pase_gpu::suelta_si_es_de(pid, true);
         crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
         crate::info::ceder_fb(false);
         // WARN y no INFO: el que suelta la pantalla es el que la estaba
