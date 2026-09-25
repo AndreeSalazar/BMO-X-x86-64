@@ -609,10 +609,68 @@ impl Chrome {
             TITLE_H - 2 - RADIUS,
             title_bg,
         );
-        p.rect(self.x + 1, self.y + TITLE_H - 1, self.width - 2, 1, acento);
+        self.paint_hacker(p, edge, title_bg, acento);
 
         self.paint_buttons(p, title_bg);
         self.paint_corner_grip(p, edge);
+    }
+
+    /// ** EL ESTILO HACKER (2026-09-25, pedido: *"todo hyprland estilo
+    /// cyberpunk pero modo estilo hacker futurista"*). Sobre el marco de
+    /// siempre, sin mover ni un pixel de su geometria:
+    ///
+    /// ```text
+    ///    scanlines     una fila de cada dos, un pelo mas oscura, en la barra
+    ///    la linea      bajo la barra, del acento a nada, con un "cursor" claro
+    ///    esquinas HUD  el borde, mas grueso y mas claro junto a las curvas
+    ///    segmentos     tres barritas inclinadas (dos llenas) antes de los botones
+    /// ```
+    ///
+    /// Todo DENTRO del rectangulo de la ventana: lo de fuera (la sombra) ya
+    /// lo repinta el escritorio al moverla, y un adorno fuera dejaria rastro.
+    fn paint_hacker(&self, p: &bmo::Pantalla, edge: u32, title_bg: u32, acento: u32) {
+        use super::globo::mezcla;
+        let (x, y, w) = (self.x, self.y, self.width);
+        // Scanlines: solo donde la barra ya es recta (bajo la curva).
+        let oscura = mezcla(title_bg, 0, 46);
+        let mut fila = RADIUS + 2;
+        while fila < TITLE_H - 1 {
+            p.rect(x + 1, y + fila, w - 2, 1, oscura);
+            fila += 2;
+        }
+        // La linea de acento, en degradado hacia el fondo de la barra, y su
+        // cursor: un tramo claro de 24 px despues de la curva.
+        let largo = w - 2;
+        let tramos = 24u32;
+        for t in 0..tramos {
+            let (a, b) = (largo * t / tramos, largo * (t + 1) / tramos);
+            if b > a {
+                p.rect(x + 1 + a, y + TITLE_H - 1, b - a, 1, mezcla(acento, title_bg, t * 220 / tramos));
+            }
+        }
+        p.rect(x + RADIUS + 4, y + TITLE_H - 2, 24.min(largo), 2, mezcla(acento, 0x00FF_FFFF, 110));
+        // Esquinas HUD: 14 px de borde, doble y mas claro, tras cada curva.
+        let claro = mezcla(edge, 0x00FF_FFFF, 90);
+        let brazo = 14u32.min(w / 4).min(self.height / 4);
+        let h = self.height;
+        for (bx, by) in [(x + RADIUS, y), (x + w - RADIUS - brazo, y), (x + RADIUS, y + h - 2), (x + w - RADIUS - brazo, y + h - 2)] {
+            p.rect(bx, by, brazo, 2, claro);
+        }
+        for (bx, by) in [(x, y + RADIUS), (x + w - 2, y + RADIUS), (x, y + h - RADIUS - brazo), (x + w - 2, y + h - RADIUS - brazo)] {
+            p.rect(bx, by, 2, brazo, claro);
+        }
+        // Los segmentos, antes del primer boton: tres barritas inclinadas.
+        let primero = self.boton_x(0);
+        if primero > x + 120 {
+            let sx = primero - 34;
+            let sy = y + TITLE_H / 2 - 3;
+            for k in 0..3u32 {
+                let color = if k < 2 { acento } else { mezcla(acento, title_bg, 170) };
+                for r in 0..6u32 {
+                    p.rect(sx + k * 10 + (5 - r), sy + r, 5, 1, color);
+                }
+            }
+        }
     }
 
     /// Los tres, dibujados con rectangulos porque la fuente no trae sus glifos

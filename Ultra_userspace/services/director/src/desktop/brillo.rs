@@ -4,8 +4,9 @@
 //! neon y se apaga sola, y asi se ve a donde van las teclas sin buscar.
 //!
 //! [consumo] LATE      ~700 ms a ~30 fotogramas por segundo tras cada cambio
-//!                     de foco ([`anima`], que solo mira el reloj); con el
-//!                     foco quieto, nada (L6h)
+//!                     de foco ([`anima`], que solo mira el reloj). El borde
+//!                     vivo de despues NO pide fotogramas: avanza en los del
+//!                     cuarto de segundo que el escritorio ya pinta (L6h)
 //!
 //! La cara la pinta `scene::brillo`; esto dice cuando nace (`foco::seguir`
 //! lo enciende) y sobre que caja (la de la ventana AHORA: si se mueve
@@ -44,29 +45,35 @@ pub(crate) fn encender(v: Ventana) {
     e.pintado = 0;
 }
 
-/// **El destello de este fotograma**, si vive. Al FINAL del fotograma que
-/// pinta, ANTES del globo. `tapado`: una ventana a pantalla completa.
+/// **Apagar**: nadie tiene el foco.
+pub(crate) fn apagar() {
+    estado().ventana = None;
+}
+
+/// **El borde vivo de este fotograma** (y el destello, si vive). Al FINAL
+/// del fotograma que pinta, ANTES del globo. `tapado`: una ventana a pantalla
+/// completa.
 pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
     let e = estado();
     let Some(v) = e.ventana else { return };
     let ahora = bmo::ciclos();
     let ms = ahora.wrapping_sub(e.desde) / e.por_ms.max(1);
-    if ms >= DURA_MS {
-        e.ventana = None;
-        return;
-    }
     let Some(caja) = crate::desktop::foco::caja(dsk, v) else { return };
     // A pantalla completa (o tapado por una) no hay borde que encender.
     if tapado || caja.2 >= p.ancho && caja.3 >= p.alto {
         return;
     }
     e.pintado = ahora;
-    crate::scene::brillo::poner(p, caja, ms, DURA_MS);
+    crate::scene::brillo::poner(p, caja, ms, DURA_MS, ahora / e.por_ms.max(1));
 }
 
 /// **Pide fotograma** mientras vive un destello: uno cada [`FOTOGRAMA_MS`].
 /// Lo pregunta el bucle en cada vuelta: solo lee el reloj.
 pub(crate) fn anima() -> bool {
     let e = estado();
-    e.ventana.is_some() && bmo::ciclos().wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
+    let ahora = bmo::ciclos();
+    // Solo el DESTELLO pide fotogramas; el borde vivo va en los del cuarto.
+    e.ventana.is_some()
+        && ahora.wrapping_sub(e.desde) < DURA_MS * e.por_ms
+        && ahora.wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
 }
