@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-124
+127
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -114,6 +114,9 @@
 # MAQUINA   platform/shared/bmo-fisica-juicio/src/lib.rs
 # MAQUINA   platform/shared/bmo-mmio-juicio/src/lib.rs
 # DATO      platform/shared/bmo-orquesta/src/lib.rs
+# DATO      platform/shared/bmo-pase-gpu/src/buzon.rs
+# NADA      platform/shared/bmo-pase-gpu/src/pase.rs
+# NADA      platform/shared/bmo-pase-gpu/src/radar.rs
 # DATO      platform/shared/bmo-pila/src/dhcp.rs
 # DATO      platform/shared/bmo-pila/src/dns.rs
 # MAQUINA   platform/shared/bmo-prestamo-juicio/src/lib.rs

@@ -1,0 +1,11 @@
+[package]
+name = "bmo-pase-gpu"
+version = "0.1.0"
+edition = "2021"
+description = "El PASE de la 3060: la burocracia se paga una vez, el buzon de cajas sin syscalls y el radar que late con el VBLANK. Politica pura, probada en el anfitrion."
+license = "Apache-2.0"
+
+# Sin dependencias, a proposito: lo enlazan el kernel (que JUZGA) y Ring 3 (que
+# ESCRIBE el buzon), y L8 no deja que Ring 3 enlace `bmo-gpu-ga10x`, que es un
+# driver. El mismo argumento que `bmo-puerta-red`.
+[dependencies]

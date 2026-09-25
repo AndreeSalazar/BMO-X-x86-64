@@ -529,6 +529,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-pase-gpu"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-pila"
 version = "0.1.0"
 dependencies = [

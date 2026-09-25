@@ -432,6 +432,78 @@ en una codificacion a mano se veria ANTES de arrancar el Ryzen.
 
 ---
 
+## 5c. EL PASE DE LA 3060 (P) -- la burocracia una vez, y el radar en cada barrido
+
+El propietario (25-09): *"la GPU puede tener lo mismo una sola vez la
+burocracia y le viene el radar eso para exprimir con todo?"* -- **si**, y la
+pieza ya tiene forma: `platform/shared/bmo-pase-gpu` (puro, 23 pruebas), la
+misma ruta de `docs/identidad/LA_RUTA.md` que el GATE RED
+(`platform/shared/bmo-puerta-red`), con UNA diferencia: **el latido es el
+VBLANK** (E2, `Ultra_kernel_x86-64/kernel/src/ring0/dev/vblank.rs`), no 4 ms.
+La pantalla se barre 60 veces por segundo; lo que se copie entre dos barridos
+no se ve antes.
+
+```text
+   hoy (volcador ARMADO)                     con el pase
+   ARMAR: el lienzo prestado una vez    ->   igual: ya era "pagar una vez"
+   CAJA x N: un syscall por caja sucia  ->   N cajas en el buzon, 0 syscalls
+   la ultima toca el timbre             ->   el latido del VBLANK lo toca
+   ESPERAR: la CPU GIRA hasta 50 ms     ->   nadie gira: el latido mira el semaforo
+   la comprobacion, cuando se pide      ->   el radar: muestras 1 de cada 16 barridos
+   sin nadie mirando entre llamadas     ->   colgada (6 barridos), semaforo raro,
+                                              muestras malas (3 seguidas): REVOCA
+```
+
+**Lo que se gana, sin inflar:** los syscalls son ~1000 ciclos cada uno
+(`syscall/mod.rs`): 20 cajas son ~5 us, casi nada. Lo que se gana es lo que hoy
+GIRA (la valla), el RITMO (uno por barrido: ni fotogramas que nadie ve ni
+tearing) y sacar la comprobacion del camino del fotograma sin quitarla (regla
+8). Es A3 sin esperar a la interrupcion de la 3060: la interrupcion que hace
+falta ya existe, es la del monitor.
+
+**Revocar no apaga la pantalla:** el lienzo se devuelve, el motivo queda en el
+buzon, y el escritorio vuelve a `CAJA`/`ESPERAR`, que siguen ahi.
+
+- [x] **P0 -- la politica, pura y con banco.** `bmo-pase-gpu`: `pase::juzgar`
+      (8 preguntas en orden, la pantalla primero y el VBLANK como pregunta: sin
+      latido no hay radar, y sin radar no hay pase), `buzon::Lado::leer` (copia
+      una vez, numero que salta o caja fuera = mentira, mas de media pantalla
+      sucia = UNA copia entera) y `radar::Radar::mirar`. **Como se sabe:**
+      `cargo test -p bmo-pase-gpu`, 23 pruebas.
+- [ ] **P1 -- el kernel: `GPU_PASE_ABRIR` y el buzon mapeado.** Una op nueva
+      que junta los `pase::Hechos`, presta el lienzo como `armar` de
+      `dev/gpu_trabajo/volcado.rs` y mapea una pagina `buzon::formar`; soltar
+      por `suelta_si_es_de` (muerte y pantalla soltada, las mismas estaciones).
+      **Como se sabe:** `gpu pase` abre, dice el motivo al cerrar, y `gpu
+      volcado` sigue verde con el pase cerrado.
+- [ ] **P2 -- el latido en el VBLANK.** En el aviso de E2 (o un hilo que
+      despierta con el): `Lado::leer` -> empuje del motor de copia -> ENVIADO
+      y PAGADO al buzon -> `Radar::mirar`; muestras cuando `toca_mirar`.
+      Revocar = `buzon::revocar` + `devolver_gpu`. **Como se sabe:** la fila
+      `volcado` dice `esperas 0` y `tandas == barridos` con el escritorio
+      quieto moviendo el raton.
+- [ ] **P3 -- el escritorio usa el buzon.** `buzon::escribir` en vez de un
+      `CAJA` por caja; si ESTADO != 0, vuelve al camino de siempre y lo dice
+      en CABINA. **Como se sabe:** DOOM a 60/70 fps con 0 syscalls de volcado
+      por fotograma (FRAPS-X lo pinta encima).
+- [ ] **P4 -- el mismo pase para el video.** Hoy `gpu video` presta y devuelve
+      el fotograma EN CADA llamada (~50 us de IOMMU para 85 paginas) y gira
+      esperando; con el pase, un anillo de fotogramas prestado una vez y el
+      mismo radar. **Como se sabe:** `video` sin `prestar_gpu` por fotograma
+      en el klog.
+
+### Lo que MAS falta optimizar, en orden (25-09)
+
+```text
+   1  C2  relojes de la 3060 (L2)      la mayor de todas, y no toca el camino caliente
+   2  P   el pase (arriba)             la CPU deja de girar; un fotograma por barrido
+   3  C1  muestreo en pantalla         ya en codigo, falta el numero del metal
+   4  C4  dos tandas en vuelo          con el pase, casi sale sola (ENVIADO/PAGADO)
+   5  C5  el page flip (M2)            0 bytes por fotograma: lo ultimo que queda
+```
+
+---
+
 ## 6. Las REGLAS ESTRICTAS de la 3060, juntas
 
 El propietario: *"vamos a PONER REGLAS ESTRICTAS en GPU para respetar al GPU

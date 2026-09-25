@@ -11,19 +11,21 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-116
+122
 # AJENO              Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/core/gato/masks.rs
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/core/purga.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/disk/centinela.rs
+# AJENO              Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/mod.rs
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/roja.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/portero/verde.rs
 # SILENCIO RELOJ     Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/maestro.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/portero.rs
 # AJENO RELOJ        Ultra_kernel_x86-64/kernel/src/ring0/dev/usb/voces.rs
+# AJENO              Ultra_kernel_x86-64/kernel/src/ring0/dev/vblank.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/amarilla.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/mod.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/mm/phys/roja.rs
@@ -42,6 +44,7 @@
 # AJENO SILENCIO     Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/roja.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/testigo/verde.rs
 #                    Ultra_kernel_x86-64/kernel/src/ring0/plat/faults/verde.rs
+# AJENO              Ultra_kernel_x86-64/kernel/src/ring0/plat/iommu.rs
 # ESPEJO             Ultra_kernel_x86-64/kernel/src/ring0/plat/perfil_placa.rs
 # ESPEJO SILENCIO    Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/atril.rs
 # SILENCIO           Ultra_kernel_x86-64/kernel/src/ring0/plat/smp/dormir.rs
@@ -107,6 +110,9 @@
 # SILENCIO           platform/shared/bmo-dma-juicio/src/lib.rs
 # ESPEJO             platform/shared/bmo-fisica-juicio/src/lib.rs
 # ESPEJO SILENCIO    platform/shared/bmo-orquesta/src/lib.rs
+# AJENO              platform/shared/bmo-pase-gpu/src/buzon.rs
+# UNICO              platform/shared/bmo-pase-gpu/src/pase.rs
+# RELOJ              platform/shared/bmo-pase-gpu/src/radar.rs
 # AJENO              platform/shared/bmo-pila/src/dhcp.rs
 # AJENO              platform/shared/bmo-pila/src/dns.rs
 # AJENO              platform/shared/bmo-puerta-red/src/buzon.rs
