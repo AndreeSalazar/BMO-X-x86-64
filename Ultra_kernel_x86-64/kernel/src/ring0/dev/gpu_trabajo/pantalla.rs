@@ -33,7 +33,9 @@ fn la_pantalla() -> Option<pa::Pantalla> {
     // SAFETY: escrito una vez al arrancar (`info::init_from`), solo se lee.
     let (fb, fmt) = unsafe { (crate::info::FB_ADDR, crate::info::FB_PIXEL_FORMAT) };
     // UEFI: 0 = rojo en el byte 0 (RGB); 1 = azul en el byte 0 (BGR).
-    pa::desde_gop(fb, crate::ring0::dev::gpu_libos::bar1(), d.stride, d.width, d.height, fmt == 0)
+    let p = pa::desde_gop(fb, crate::ring0::dev::gpu_libos::bar1(), d.stride, d.width, d.height, fmt == 0)?;
+    // Las muestras se leen por el physmap: el framebuffer entero dentro de el.
+    (fb + p.bytes() <= crate::ring0::mm::PHYSMAP_SIZE).then_some(p)
 }
 
 /// **M5d P.** `arg` = la ficha de S3 (bits 0..31), el fotograma (32..55) y
@@ -97,14 +99,31 @@ fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bo
     }
     core::sync::atomic::fence(Ordering::SeqCst);
     // Las muestras, leidas de donde mira el monitor.
+    //
+    // ** POR EL PHYSMAP, no por `display().base` (metal 25-09: #PF "proteccion
+    // leyendo desde el KERNEL" en `save mode`, justo tras `color`). `base` es
+    // la direccion FISICA del GOP usada como puntero: vale con el CR3 del
+    // arranque, pero esto corre en una syscall, con el CR3 del ESCRITORIO, y
+    // ahi esa misma direccion (0xD000_0000 = `vmm::FRAMEBUFFER_VA_BASE`) es su
+    // pagina de USUARIO de la pantalla: Ring 0 leyendola es lo que CR4.SMAP
+    // corta. El physmap es del kernel en todos los CR3. Y va con `clflush`:
+    // el espejo es WB y la 3060 escribe la VRAM sin pasar por esta cache.
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
+    // SAFETY: escrito una vez al arrancar (`info::init_from`), solo se lee.
+    let fb = crate::ring0::mm::phys_to_virt(unsafe { crate::info::FB_ADDR }) as *const u32;
     let buenos = crate::ring0::dev::framebuffer::display().map_or(0, |d| {
         (0..pa::MUESTRAS)
             .filter(|&k| {
                 let (x, y) = pa::muestra(p, k);
                 // SAFETY: (x, y) dentro de la pantalla del GOP (`muestra` no
-                // pasa de ancho-1 x alto-1); lectura de 32 bits alineada.
-                let v = unsafe { d.base.add(y as usize * d.stride as usize + x as usize).read_volatile() };
+                // pasa de ancho-1 x alto-1), por el physmap (`la_pantalla` ya
+                // exigio el framebuffer dentro de BAR1, por debajo de 16 GiB);
+                // lectura de 32 bits alineada.
+                let v = unsafe {
+                    let q = fb.add(y as usize * d.stride as usize + x as usize);
+                    core::arch::x86_64::_mm_clflush(q as *const u8);
+                    q.read_volatile()
+                };
                 v & 0x00FF_FFFF == pa::pixel(p, &m, x, y)
             })
             .count() as u32
