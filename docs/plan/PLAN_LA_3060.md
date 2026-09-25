@@ -10,6 +10,10 @@
 > El porque de cada decision --lo legal, lo que dejo FastOS, la soberania-- esta
 > en [`../maestro/GPU_NVIDIA_MAESTRO.md`](../maestro/GPU_NVIDIA_MAESTRO.md),
 > seccion 6b. Aqui solo las casillas: que falta, que lo bloquea, como se sabe.
+>
+> Y aislarla mas, medirla y optimizarla sin aflojarla (la autoridad `MAQUINA`,
+> el guardian `la-3060`, los carriles, las esperas por interrupcion):
+> [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md), del 25-09.
 
 ---
 
@@ -1883,16 +1887,6 @@ con varios expertos. Un Vulkan que corra LO DE ESTA CASA no es eso.
 **Bloquea:** L1. **Como se sabe:** `gpu` dice los relojes de la 3060 por
 encima de los de arranque, y el mismo sombreador de M5 va mas rapido.
 
----
-
-## 4. Lo que NO se hace nunca
-
-- Cargar el GSP sin la IOMMU encendida.
-- Firmware de terceros en Ring 0 (ver `docs/identidad/` y CODEOWNERS): el GSP
-  corre en SU procesador; BMO-X solo le presta memoria y habla por colas.
-- Comprar otra tarjeta para esquivar esto: la 3060 no bloquea nada de lo que se
-  esta construyendo.
-
 **LA 3060 CALIENTE, REINICIADA POR EL CARGADOR (25-09).** Metal 05:31:
 tras Windows y reiniciar, `gsp NO desperto` y un fallo de pagina de la 3060
 en el IOMMU. Lo que Linux hace (nova-core: *"The GPU will need to be reset
@@ -1913,3 +1907,12 @@ ver en el metal: que la UEFI encienda la tarjeta tras el reinicio y que
 el reinicio la devuelve a su medida de fabrica: la capacidad extendida no
 se alcanza por los puertos 0xCF8.
 
+---
+
+## 4. Lo que NO se hace nunca
+
+- Cargar el GSP sin la IOMMU encendida.
+- Firmware de terceros en Ring 0 (ver `docs/identidad/` y CODEOWNERS): el GSP
+  corre en SU procesador; BMO-X solo le presta memoria y habla por colas.
+- Comprar otra tarjeta para esquivar esto: la 3060 no bloquea nada de lo que se
+  esta construyendo.

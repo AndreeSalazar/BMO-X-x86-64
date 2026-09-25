@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 46 planes
+# LO QUE FALTA -- las casillas abiertas de los 47 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   293 casillas ABIERTAS en 37 planes
-   272 hechas
+   306 casillas ABIERTAS en 38 planes
+   274 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -75,6 +75,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
+
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 13 abiertas, 2 hechas
+
+*PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
+
+- [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
+- [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
+- [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
+- ... y 10 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 
