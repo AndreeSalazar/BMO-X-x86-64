@@ -564,6 +564,13 @@ impl Linea {
 /// app a pantalla completa) y la primera tecla lo cierra.
 static mut PANEL_ABIERTO: bool = false;
 
+/// **Abrir el panel** desde fuera de `gspcomputo` (`gpu cubo`): la primera
+/// tecla devuelve el escritorio.
+pub(crate) fn abrir_panel() {
+    // SAFETY: como `panel_abierto`.
+    unsafe { *core::ptr::addr_of_mut!(PANEL_ABIERTO) = true };
+}
+
 pub(crate) fn panel_abierto() -> bool {
     // SAFETY: el escritorio es un solo hilo.
     unsafe { *core::ptr::addr_of!(PANEL_ABIERTO) }

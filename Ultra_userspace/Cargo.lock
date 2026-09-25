@@ -24,6 +24,10 @@ name = "bmo-cripto"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-cubo"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-dibujo"
 version = "0.1.0"
 
@@ -106,6 +110,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-antena",
  "bmo-config",
+ "bmo-cubo",
  "bmo-dibujo",
  "bmo-foco",
  "bmo-fraps",

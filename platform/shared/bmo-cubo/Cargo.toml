@@ -1,0 +1,12 @@
+[package]
+name = "bmo-cubo"
+version = "0.1.0"
+edition = "2021"
+description = "El cubo sin plataforma (cubo-neutro, traido): malla, matrices, luz y el juez por CPU que da los mismos pixeles que la 3060 bajo D3D12. Puro, con banco."
+license = "Apache-2.0"
+
+# Sin dependencias, a proposito (como el original: `cargo tree` es este crate y ya).
+[dependencies]
+
+[lib]
+name = "bmo_cubo"

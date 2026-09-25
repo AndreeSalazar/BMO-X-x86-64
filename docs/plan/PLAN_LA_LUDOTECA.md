@@ -885,10 +885,12 @@ que llama a Windows.
       vkQuake 0.50 y las del cubo, juntas) como interfaz, con el backend CPU
       primero. **Como se sabe:** un crate puro con banco que dibuja el cubo
       por el backend CPU y lo compara con una imagen fija.
-- [ ] **X4 -- `gpu cubo` por CPU en BMO-X.** `cubo-neutro` traido como crate
-      puro (con su procedencia: rama y hash), y el fotograma 30 dibujado en el
-      Ryzen igual, bit a bit, que la referencia de D3D12. **Como se sabe:** la
-      fila `cubo` dice 921600 de 921600 contra la huella de la referencia.
+- [ ] **X4 -- `gpu cubo` por CPU en BMO-X.** **En codigo (25-09), falta el
+      metal.** `cubo-neutro` traido como `platform/shared/bmo-cubo` (con su
+      PROCEDENCIA), las huellas de la 3060 en `referencia.rs`, y la orden
+      `gpu cubo [N]`. La historia entera, por que era inesperado y lo que
+      abre: [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md). **Como se sabe:** la fila
+      `cubo` dice IGUAL contra la huella de D3D12 en la 3060.
 - [ ] **X5 -- `gpu cubo` por la 3060 en BMO-X.** El mismo cubo por AMPERE_B,
       con la pieza nueva: el depth buffer. Y las 4 preguntas del README de
       `cubo-neutro`, contestadas con la 3060 SIN Windows (sobre todo la 4: si

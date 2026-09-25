@@ -43,6 +43,8 @@ pub(crate) mod gspmotores;
 pub(crate) mod gspvolcado;
 /// `gpu pase`: P1 del pase de la GPU -- abrir, mirar el buzon, cerrar.
 pub(crate) mod gsppase;
+/// `gpu cubo`: X4 -- el cubo del estudio D3D, por la CPU, contra la huella de la 3060.
+pub(crate) mod gspcubo;
 /// `gpu canal`: el primer canal, atado a COPY2 y con su ficha (L1d2b/L1d2c, 24-09).
 pub(crate) mod gspcanal;
 /// `gpu gr`: los buferes del contexto de oro de GR0 (M5 G0, 24-09).

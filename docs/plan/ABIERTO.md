@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 48 planes
+# LO QUE FALTA -- las casillas abiertas de los 49 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   344 casillas ABIERTAS en 39 planes
-   284 hechas
+   347 casillas ABIERTAS en 40 planes
+   285 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -318,6 +318,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5. EL CENSO DE LO PERMANENTE. Trinquete de residente en el build:
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
+
+## [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md) -- 3 abiertas, 1 hechas
+
+*PLAN EL CUBO -- lo que salio de estudiar Direct3D, y por que era inesperado*
+
+- [ ] X4 -- gpu cubo en el Ryzen. En codigo (25-09), falta el metal.
+- [ ] X5 -- el cubo por la 3060, sin Windows. El mismo fotograma por
+- [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
 
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 

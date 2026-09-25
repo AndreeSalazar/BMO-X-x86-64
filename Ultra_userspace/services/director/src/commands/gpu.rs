@@ -100,6 +100,11 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"volcado" {
         return super::gspvolcado::orden(dsk, p);
     }
+    if let Some(resto) = arg.strip_prefix(b"cubo") {
+        if resto.is_empty() || resto[0] == b' ' {
+            return super::gspcubo::orden(dsk, p, resto);
+        }
+    }
     if arg == b"pase" {
         return super::gsppase::orden(dsk, p);
     }

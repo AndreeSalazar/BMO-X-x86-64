@@ -169,6 +169,10 @@ name = "bmo-cripto"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-cubo"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-dibujo"
 version = "0.1.0"
 
