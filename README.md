@@ -16,7 +16,16 @@ No LLVM. No GCC. No ELF. No QEMU.**
 ![languages](https://img.shields.io/badge/native_languages-COBOL_-_C_-_C%2B%2B_-_Ada_-_INTI-8957e5)
 ![format](https://img.shields.io/badge/executable_format-BEF2_(own)-8957e5)
 ![inti](https://img.shields.io/badge/system_language-INTI-f0883e)
+![gpu](https://img.shields.io/badge/GPU-RTX_3060_driven_from_scratch-76b900)
 ![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
+
+<p align="center">
+  <img src="docs/evidencia/23-globo-del-puntero.png" alt="The BMO-X desktop with the pointer's neon bubble: LA 3060 -- awake, at 49 degrees" width="100%">
+</p>
+<p align="center"><sub>The BMO-X desktop. The neon bubble follows the pointer for 20 seconds with
+what the RTX 3060 is doing right now, or a shortcut of the house -- it opens with a
+cartoon bounce, types itself out and closes. Every pixel of it is BMO-X's own code
+(<a href="#the-desktop-talks-back">how this image was made</a>).</sub></p>
 
 Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
 filesystem, **five native compilers** and the executable format they emit. It
@@ -109,7 +118,7 @@ under it is a slogan.
 | 12 cores | SMP bring-up, `12 of 12` |
 | Ring 3 isolation | a fault kills the task; the kernel takes the screen back and prints its last four lines |
 | Traps its own undefined behaviour | INTI `llano` on the Ryzen: overflow, divide-by-zero and bad conversion all caught **in metal** |
-| Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **58 fps** in a window -- every pixel expanded and blitted by the CPU, no GPU. Played to the character's death on 2026-09-20 on the new format and the new C emitter (**-59 %** instructions on the metro, hybrid register calling convention), which no CPU had run before that day |
+| Plays DOOM | full width with the status bar, 1600x1000 scaled x5, **58 fps** in a window -- every pixel expanded and blitted by the CPU, no GPU. Played to the character's death on 2026-09-20 on the new format and the new C emitter (**-59 %** instructions on the metro, hybrid register calling convention), which no CPU had run before that day. On 2026-09-24, x3 at 960x600 and **~70 fps** in a window, beside the sound panel and the RTX 3060 awake in P0 ([photo](docs/evidencia/22-doom-y-la-3060.jpg)) |
 | 12 cores doing real work | a kernel-side workload measured at **11,52x** over one core |
 | Explains its own crashes in Spanish | a page fault inside the framebuffer prints `ESCRIBIA EN LA PANTALLA QUE YA NO ES SUYA -- fila 231`, not just an address |
 | Both frozen syscalls in use | `WAIT` had **one** call site in the whole repo until 2026-09-08 -- and it was a plain sleep. The compositor is now its first real user, blocking on the hardware beat. ⚠ It still spins when the machine is idle (nobody else is Ready, so the scheduler has nowhere to switch); that is `P2.2` in [`PLAN_EL_PLAZO.md`](docs/plan/PLAN_EL_PLAZO.md) |
@@ -120,7 +129,7 @@ under it is a slogan.
 | Writes its own report | `save` from the desktop: seven chapters (machine, memory, consumption, programs, disk, autopsy) as sheets in `informe/`, plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
 | The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
 | Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
-| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM and runs SM86 shaders: a Mandelbrot **103x** faster than one Ryzen core, bit-exact. See [below](#the-rtx-3060-driven-from-scratch) (2026-09-24) |
+| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM, runs SM86 shaders (a Mandelbrot **221x** faster than one Ryzen core, bit-exact), draws triangles with the card's own rasterizer and **paints the whole monitor, 1920x1080 at ~245 fps**. `save mode`: **51 of 51 steps** on the Ryzen (2026-09-24). See [below](#the-rtx-3060-driven-from-scratch) |
 | The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 32 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3` |
 
 ### Watch it boot
@@ -194,6 +203,9 @@ Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
        19-3060-color.png     el de tres colores (`gpu color`)
        20-3060-giro.png/gif  la esfera que gira (`gpu giro`)
        21-3060-pantalla.png  el monitor entero pintado por la 3060
+       22-doom-y-la-3060.jpg DOOM en ventana y la 3060 en el panel (YA ESTA)
+       23/24-globo-*.png     el globo del puntero: RENDER en el anfitrion (YA
+                             ESTA); una foto del metal lo sustituye
      =================================================================== -->
 
 **One consumer card, nothing else: an NVIDIA GeForce RTX 3060 12 GB (GA106).**
@@ -214,17 +226,19 @@ What the card has done for BMO-X, each line read back and checked by the CPU:
 | First shader | 32 threads of SM86 machine code, each writing its own word -- 32 of 32 |
 | Painted in the PC's RAM | 128x128 pixels written by 16384 threads into 64 KiB lent by the IOMMU |
 | Blur | a 128x128 piece of **your own screen**, blurred 7x7 by the card -- 16384 of 16384 pixels equal to the CPU's answer, bit for bit |
-| Mandelbrot 512x512 | 262144 threads, up to 256 iterations each: **176 us on the card, 18203 us on one Ryzen core -- 103x** -- and every pixel equal to the CPU's |
+| Mandelbrot 512x512 | 262144 threads, up to 256 iterations each: **83 us on the card, 18380 us on one Ryzen core -- 221x** (103x the first day, 176 us) -- and every pixel equal to the CPU's |
 | Triangle, by compute | the three edge functions of a rasterizer in 262144 threads, colours blended by weight |
 | A sphere that spins and bounces | 32 frames, one card job each, light and shadow, every frame equal to the CPU's -- 29 us per frame |
 | **Triangle, by the hardware rasterizer** | `AMPERE_B`: a vertex program and a pixel program in hand-checked SASS, the card's own rasterizer and ROP -- **seen on the metal (2026-09-24 19:43, 50 of 50 steps)** |
 | **Three colours blended by the rasterizer** | per-vertex colour interpolated by `IPA` in the pixel program -- seen on the metal the same boot |
-| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame (in code, 2026-09-25) |
-| Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean (in code, 2026-09-25) |
+| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame. **Seen on the metal (2026-09-24 21:36): 8 of 8 frames at 1920x1080, ~245 fps, 866 us of card per frame.** Its first try took the kernel down: the check read the framebuffer through its *physical* address inside a syscall, where that same number is the desktop's own user page -- SMAP said no. It reads through the kernel's physmap now |
+| Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean. Seen on the metal twice (`+wpr2-abajo`, SB error 0); now ~2 s instead of 7, and done by `reboot`, not by `save mode` -- so the card keeps working after the verification. The warm-reboot proof is the one line still pending |
 
 ![The card blurs a piece of the desktop](docs/evidencia/16-3060-blur.png)
 
 ![The 3060 panel: the fractal and the race against the CPU](docs/evidencia/17-3060-fractal.png)
+
+![DOOM in a window, the sound panel, and the side panel with the RTX 3060 awake: gsp LISTO, 49 degrees, P0, PCIe Gen3 x16, 12 GiB GDDR6](docs/evidencia/22-doom-y-la-3060.jpg)
 
 **How the machine code was obtained, honestly.** The SM86 programs are not
 guessed: they come out of NVIDIA's own `ptxas` and are read back with NVIDIA's
@@ -243,15 +257,47 @@ broke, and a method-by-method comparison against Mesa's NVK and NAK (the
 128-byte v4 shader header of Turing+, the operand order of `AST`, the
 reserved methods NVK never writes). Four boots later: 50 of 50.
 
-**What it is not, yet.** The card now paints the whole monitor, but the
-desktop is still composed by the CPU in RAM and copied to the screen; the next
-step is to let the copy engine (already working) do that copy, then wait for
-the vertical blank, then a real page flip. After that: depth, many triangles
-with perspective, and SASS emitted by BMO-X's own compiler instead of
+**What it is not, yet -- and why Windows looks "ready at once".** The card
+paints the whole monitor, but the *desktop* is still composed by the CPU in
+RAM and copied to the screen, pixel by pixel. Windows feels instant because
+its compositor lives on the GPU; BMO-X's does not, yet. The road, in order,
+each step on top of something that already runs on the metal:
+
+1. **The copy to the screen by the card** -- the copy engine (working since
+   L1d) moves the desktop's canvas to the framebuffer instead of the CPU.
+2. **Windows as textures in VRAM**, blended by the card: shadows, rounded
+   corners, transparency.
+3. **Blur behind the windows** with the shader that already blurs your screen.
+4. **Animations on the vertical blank** (the card already reports it by MSI),
+   then a real page flip.
+
+And for games: depth, many triangles with perspective, a small graphics API
+for Ring 3 programs, and SASS emitted by BMO-X's own compiler instead of
 `ptxas`. The card also still runs at its boot clocks. The whole road, every
 step with its date and its result on the metal:
 **[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**, and the log of the day:
 **[METAL_2026-09-25.md](docs/metal/METAL_2026-09-25.md)**.
+
+### The desktop talks back
+
+![The pointer's bubble, close up: a yellow tag LA 3060, the neon border, the text typing itself out and the time bar](docs/evidencia/24-globo-de-cerca.png)
+
+A bubble follows the pointer for 20 seconds, then waits 45 and comes back on
+the next mouse move: what the RTX 3060 is doing right now (asleep, the step
+still missing, or its temperature) or a shortcut of the house. Dark glass
+with scanlines and a diagonal weave, blended with whatever is underneath; a
+neon border that breathes from cyan to magenta with a four-ring glow and a
+flash running along it; it enters with a cartoon bounce (20 % -> 108 % ->
+100 % in 350 ms), floats, types itself with the two newest letters glitching
+in cyan and magenta, and snaps shut. About 30 frames a second **only while it
+lives**; none otherwise. Code: `scene/globo.rs` paints, `desktop/globo.rs`
+decides.
+
+> **How these two images were made, honestly.** They are not a photo of the
+> monitor yet. The bubble was drawn by the very same `scene/globo.rs`, run on
+> the host against a fake screen that uses BMO-X's real 8x16 font, on top of a
+> capture of the desktop taken on the Ryzen. The photo from the metal replaces
+> them when it exists.
 
 ---
 
@@ -770,6 +816,8 @@ row below is **work on top of something that already runs**, except the last one
 | 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
 | ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
 | 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
+| 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
+| ⚪ | **Games on the GPU** -- depth, perspective, a small graphics API for Ring 3, and SASS from BMO-X's own compiler | the compositor first, then the compiler |
 | ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
 | ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
 

@@ -248,6 +248,29 @@ wallpaper, and the line in `Ejecutar` that reported the first capture:
 
 ---
 
+## 13. The RTX 3060, awake beside DOOM (2026-09-24)
+
+![DOOM, the sound panel and the RTX 3060 in the side panel](22-doom-y-la-3060.jpg)
+
+A capture of the desktop on the Ryzen: DOOM in a window at x3 960x600 and
+~70 fps (its `[perf]` lines in the Ejecutar window say so), the MAESTRO sound
+panel, and in the side panel the RTX 3060 **driven by BMO-X**: `gsp LISTO`,
+49 degrees, `P0`, PCIe Gen3 x16, 12 GiB of GDDR6. The same boot passed
+`save mode` 51 of 51.
+
+## 14. The pointer's bubble -- a render, and said so
+
+![The desktop with the pointer's bubble](23-globo-del-puntero.png)
+
+![The bubble, close up](24-globo-de-cerca.png)
+
+**These two are not photos of the monitor.** The bubble was drawn by the very
+same `Ultra_userspace/services/director/src/scene/globo.rs`, compiled on the
+host against a fake `Pantalla` that uses BMO-X's real 8x16 font
+(`userland/src/font16_data.rs`), on top of capture 22. They show what the code
+paints, 4 seconds into a bubble's life. A photo from the metal replaces them
+when it exists -- and until then the caption says what they are.
+
 ## How this folder works
 
 These are **progress markers, one batch per milestone**. When something starts
