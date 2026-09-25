@@ -9,7 +9,8 @@
 //! # El orden (nouveau, `tu102_gsp_fini`)
 //!
 //! ```text
-//!    despedir    UNLOADING_GUEST_DRIVER (47); se espera su respuesta (5 s)
+//!    despedir    UNLOADING_GUEST_DRIVER (47); se espera su respuesta O que
+//!                se suspenda, lo que llegue antes (hasta 5 s)
 //!    suspendido  el MAILBOX0 del GSP = 0x80000000 (hasta 2 s)
 //!    cerrar      FWSEC-SB en el falcon del GSP; se espera que pare (5 s)
 //!    descargar   el booter de descarga en el SEC2; se espera que pare (5 s)
@@ -27,7 +28,7 @@
 use bmo_gpu_ga10x::descarga as dc;
 use bmo_userland as bmo;
 
-use super::gsprpc::{esperar, Otros};
+use super::gsprpc::{esperar_o, Otros};
 use super::tabla::campo;
 use super::After;
 use crate::desktop::Desktop;
@@ -106,10 +107,14 @@ pub(crate) fn hecho() -> bool {
 fn pasos(r: &mut Resumen) -> Result<u64, u32> {
     if info() & DESPEDIDO == 0 {
         bmo::iommu_orden_con(bmo::IOMMU_OP_GSP_DESPEDIR, 0)?;
-        // La respuesta llega ANTES de suspenderse.
+        // ** La respuesta O la suspension, lo que llegue antes (25-09). En el
+        // metal (20:36 y 21:36) la 570.144 se suspende SIN contestar, y se
+        // esperaban los 5 s enteros: 5 de los 7 del apagado. La cola se sigue
+        // vaciando mientras (18 NOCAT llegaron ahi).
         let mut d = [0u8; dc::BYTES];
-        match esperar(dc::UNLOADING_GUEST_DRIVER, &mut d, &mut r.otros) {
+        match esperar_o(dc::UNLOADING_GUEST_DRIVER, &mut d, &mut r.otros, || info() & SUSPENDIDO != 0) {
             Ok((m, us)) => r.respuesta = Some((m.resultado, us)),
+            Err(_) if info() & SUSPENDIDO != 0 => {}
             Err(m) => avisar(r, m),
         }
     }
@@ -138,7 +143,8 @@ fn avisar(r: &mut Resumen, m: u32) {
     r.aviso = r.aviso.or(Some(m));
 }
 
-/// **Apagarlo**, entero. Tambien lo llaman `reboot` y `save mode`.
+/// **Apagarlo**, entero. Lo llama tambien `reboot` (y ya no `save mode`: ver
+/// `pasos.rs`).
 pub(crate) fn apagar() -> Result<u64, u32> {
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
@@ -237,6 +243,7 @@ pub(crate) fn fila(s: &mut Output) {
                 s.hex(resultado as u64, 8);
                 s.byte(b')');
             }
+            None if v & (SUSPENDIDO | SB) != 0 => s.text(b"; se suspendio sin contestar la despedida (no se espera)"),
             None if v & DESPEDIDO != 0 => s.text(b"; la despedida sin respuesta"),
             None => {}
         }

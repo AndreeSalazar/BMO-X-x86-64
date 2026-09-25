@@ -1219,9 +1219,11 @@ sus 8 B a cero; los registros; los juicios), `fwsec::parchear_sb`, y en el
 kernel `dev/gpu_apagar.rs` con tres ordenes y una pregunta (0x3B DESPEDIR,
 0x3C CERRAR, 0x3D DESCARGAR, 0x3E APAGADO, motivo 80). Tras la despedida el
 kernel no deja salir ni una RPC mas. En el escritorio: `gpu apagar`, la fila
-`apagado` (`+despedido +suspendido +sb +sb-bien +descarga +wpr2-abajo`), el
-paso `apagado` AL FINAL de `save mode` (pide solo `despertar`), y `reboot`
-lo corre solo antes de reiniciar. Leido otra vez el `tu102_gsp_fini` de
+`apagado` (`+despedido +suspendido +sb +sb-bien +descarga +wpr2-abajo`), y
+`reboot` lo corre solo antes de reiniciar. (El paso `apagado` AL FINAL de
+`save mode` se QUITO el 25-09: tras el, `gpu raster` decia NO y el modo
+armado dejaba la 3060 apagada en cada arranque. Y la despedida ya no espera
+5 s una respuesta que la 570.144 no manda: corta al suspenderse.) Leido otra vez el `tu102_gsp_fini` de
 nouveau: compara MAILBOX0 == 0x80000000, pero NO se para si algo falla (sin
 suspenderse, SB con error: WARN_ON y sigue); y la descarga solo se juzga por
 la WPR2 abajo. BMO-X hace lo mismo: lo que no sale se apunta ("por el

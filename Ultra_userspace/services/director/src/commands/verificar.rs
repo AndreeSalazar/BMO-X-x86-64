@@ -160,9 +160,13 @@ fn desarmar() -> bool {
 }
 
 /// Los `-paso` de unos argumentos. `Err(t)` con el que no es un paso.
+/// Pasos que ya no existen: un `-nombre` suyo en un `datos/modo.txt` de antes
+/// se ignora, en vez de desarmar el modo por un nombre desconocido.
+const RETIRADOS: &[&[u8]] = &[b"-apagado"];
+
 fn quitados_de(args: &[u8]) -> Result<[bool; MAX_PASOS], &[u8]> {
     let mut quitados = [false; MAX_PASOS];
-    for t in args.split(|&b| b == b' ').filter(|t| !t.is_empty()) {
+    for t in args.split(|&b| b == b' ').filter(|t| !t.is_empty() && !RETIRADOS.contains(t)) {
         match t.strip_prefix(b"-").and_then(paso_por_nombre) {
             Some(i) => quitados[i] = true,
             None => return Err(t),
@@ -320,8 +324,6 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             Salio::Parado
         } else if quitados[i] {
             Salio::Quitado
-        } else if apagado && paso.nombre == b"apagado" {
-            Salio::YaEstaba
         } else if (paso.hecho)() {
             Salio::YaEstaba
         } else if apagado {

@@ -90,6 +90,13 @@ pub(crate) const NO_RPC_SIN_RESPUESTA: u32 = 0x121;
 /// datos en `d` (hasta donde quepan), y el mensaje y los us que tardo.
 /// Lo demas que llegue se consume y se cuenta en `otros`.
 pub(crate) fn esperar(funcion: u32, d: &mut [u8], otros: &mut Otros) -> Result<(Mensaje, u64), u32> {
+    esperar_o(funcion, d, otros, || false)
+}
+
+/// Como [`esperar`], pero deja de esperar (`Err`) en cuanto `basta()`: la
+/// despedida de L0c5, cuya respuesta el GSP-RM no manda y lo que cuenta es
+/// que se suspenda. Lo que llega mientras se sigue consumiendo.
+pub(crate) fn esperar_o(funcion: u32, d: &mut [u8], otros: &mut Otros, basta: impl Fn() -> bool) -> Result<(Mensaje, u64), u32> {
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
     let fin = desde + hz * ESPERA_S;
@@ -119,6 +126,9 @@ pub(crate) fn esperar(funcion: u32, d: &mut [u8], otros: &mut Otros) -> Result<(
             if mia {
                 return Ok((m, (bmo::ciclos() - desde) * 1_000_000 / hz));
             }
+        }
+        if basta() {
+            return Err(NO_RPC_SIN_RESPUESTA);
         }
         bmo::yield_screen();
     }

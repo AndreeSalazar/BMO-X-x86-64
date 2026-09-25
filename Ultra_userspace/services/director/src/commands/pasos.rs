@@ -572,16 +572,9 @@ pub(crate) const PASOS: &[Paso] = &[
         consejo: b"`gpu`: la fila `pantalla` dice 8 de 8 y los fps; teclea `gpu pantalla` y VELA tomar el monitor entero",
         repinta: true,
     },
-    // ** EL ULTIMO, SIEMPRE (L0c5, 25-09): tras el, el GSP-RM ya no contesta.
-    // Pide solo `despertar`: aunque algo de en medio falle, se apaga igual,
-    // y el siguiente arranque (tambien con el boton de reset) sale limpio.
-    Paso {
-        nombre: b"apagado",
-        que: b"EL GSP APAGADO EN ORDEN: la despedida al GSP-RM, FWSEC-SB y el booter de descarga baja la WPR2 -- el booter del arranque siguiente no sale con 0x15 (L0c5)",
-        hecho: super::gspapagar::hecho,
-        dar: super::gspapagar::apagar,
-        pide: Some(b"despertar"),
-        consejo: b"`gpu`: la fila `apagado` dice EL GSP APAGADO EN ORDEN y `wpr2-abajo`; ya puedes reiniciar -- para volver a usar la 3060, arranca otra vez",
-        repinta: false,
-    },
+    // ** Y SIN `apagado` (L0c5, 25-09). Era el ultimo paso, y tras el la 3060
+    // no trabajaba hasta el arranque siguiente: `gpu raster` despues de un
+    // `save mode` decia NO, y el modo ARMADO la dejaba apagada en CADA
+    // arranque. Apagar es de quien reinicia: `reboot` lo hace solo, y `gpu
+    // apagar` a mano (antes del boton de reset, si se usa ese).
 ];
