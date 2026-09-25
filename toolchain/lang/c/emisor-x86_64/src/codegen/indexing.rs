@@ -147,6 +147,17 @@ impl Codegen {
     /// da un error -- da otro numero.
     pub(super) fn emit_guardar_campo(&mut self, base: &Expr, campo: &str, por: Por, val: &Expr) {
         let (offset, ftyp) = self.campo(base, campo, por);
+        // *** UN CAMPO DE BITS se recorta a su ancho ANTES de guardarse (25-09).
+        // El valor recortado se queda en rax: es tambien el valor de la
+        // asignacion (`(f.a = 9)` vale 1 con `a:3`), como manda C.
+        if let Some((bits, con_signo)) = self.recorte_de_campo(base, campo, por, &ftyp) {
+            {
+                direccion_y_valor(self, |s| s.base_de_campo(base, por), val);
+                self.emit_recorte_de_bits(bits, con_signo);
+                self.emit_store_elem_desde_rax_en_rdx(&ftyp, offset);
+                return;
+            }
+        }
         // ** `p->campo = v` con `p` una variable (19-09): la base va a rdx
         // directa, y el campo se escribe con su desplazamiento dentro del
         // `mov`. Siete instrucciones pasan a tres en `this->centimos = c`.
@@ -159,6 +170,34 @@ impl Codegen {
             }
         }
         self.emit_guardar_en_direccion(|s| s.base_de_campo(base, por), offset, &ftyp, val);
+    }
+
+    /// **`(bits, con_signo)` si `base.campo` es un campo de bits** mas estrecho
+    /// que su tipo; `None` si no hay nada que recortar. Lo preguntan los DOS que
+    /// escriben un campo: `=` y los compuestos (`+=`, `|=`...).
+    fn recorte_de_campo(&mut self, base: &Expr, campo: &str, por: Por, ftyp: &TypeSpec) -> Option<(u8, bool)> {
+        let bits = self.bits_de_campo(base, campo, matches!(por, Por::Puntero))?;
+        if bits as u32 >= self.type_stack_size(ftyp) * 8 {
+            return None;
+        }
+        let con_signo = matches!(ftyp, TypeSpec::Int | TypeSpec::Short | TypeSpec::Char | TypeSpec::Long | TypeSpec::LongLong);
+        Some((bits, con_signo))
+    }
+
+    /// **Recorta rax a `bits` bits**: con signo, extendiendo el bit alto; sin
+    /// signo, con una mascara. Es lo que C hace al guardar en un campo de bits.
+    fn emit_recorte_de_bits(&mut self, bits: u8, con_signo: bool) {
+        if bits == 0 {
+            self.emit_xor_eax();
+            return;
+        }
+        let corre = 64 - bits;
+        self.code.extend_from_slice(&[0x48, 0xC1, 0xE0, corre]); // shl rax, 64-bits
+        if con_signo {
+            self.code.extend_from_slice(&[0x48, 0xC1, 0xF8, corre]); // sar rax, 64-bits
+        } else {
+            self.code.extend_from_slice(&[0x48, 0xC1, 0xE8, corre]); // shr rax, 64-bits
+        }
     }
 
     /// **`[direccion + offset] = val`**, con la direccion en rax al volver de
@@ -463,6 +502,17 @@ impl Codegen {
         let unsigned = self.expr_is_unsigned(lvalue) || self.expr_is_unsigned(rhs);
         let op = Self::bytes_de_op(kind, unsigned);
         self.code.extend_from_slice(&op);
+        // Un CAMPO DE BITS se recorta tambien aqui: `b.u += 5` con `u:5` y 30
+        // dentro guardaba 35 (ESPEJO, 25-09). El `=` lo hace en
+        // `emit_guardar_campo`; este es el otro que escribe un campo.
+        let recorte = match lvalue {
+            Expr::Field(b, c) => self.recorte_de_campo(b, c, Por::Valor, &elem),
+            Expr::Arrow(b, c) => self.recorte_de_campo(b, c, Por::Puntero, &elem),
+            _ => None,
+        };
+        if let Some((bits, con_signo)) = recorte {
+            self.emit_recorte_de_bits(bits, con_signo);
+        }
 
         // 5. Guardar en la direccion guardada.
         self.code.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax  (resultado)
@@ -712,5 +762,19 @@ impl crate::tipos::Ambito for Codegen {
     /// las funciones, definidas y prototipadas.
     fn tipo_de_retorno(&self, funcion: &str) -> Option<TypeSpec> {
         self.firmas.get(funcion).map(|(_, ret)| ret.clone())
+    }
+}
+
+/// La direccion a rdx y el valor a rax, en el orden de `emit_guardar_en_direccion`
+/// (la direccion primero, aparcada en la pila si evaluar el valor la pisaria).
+fn direccion_y_valor(s: &mut crate::codegen::Codegen, direccion: impl FnOnce(&mut crate::codegen::Codegen), val: &Expr) {
+    direccion(s); // rax = base
+    if s.sin_pila(val) {
+        s.code.extend_from_slice(&[0x48, 0x89, 0xC2]); // mov rdx, rax
+        s.emit_expr(val);
+    } else {
+        s.code.push(0x50); // push base
+        s.emit_expr(val);
+        s.code.push(0x5A); // pop rdx = base
     }
 }

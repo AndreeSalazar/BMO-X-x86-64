@@ -28,6 +28,10 @@ pub enum Veredicto {
     Salida { texto: String },
     NoCompila(String),
     NoTermina,
+    /// Murio por una signal (SIGFPE, SIGSEGV...): hizo algo indefinido --dividir
+    /// por cero, salirse de la memoria--, y lo que imprimio antes no es un
+    /// veredicto. El reductor fabrica estos al cambiar `(b | 1)` por `(0u)`.
+    Revienta,
 }
 
 /// **Los que hay** para esta lengua, en orden: GCC y despues Clang.
@@ -116,5 +120,8 @@ fn ejecutar(exe: &Path) -> Veredicto {
         Ok(o) => o,
         Err(_) => return Veredicto::NoTermina,
     };
+    if salida.status.code().is_none() {
+        return Veredicto::Revienta;
+    }
     Veredicto::Salida { texto: String::from_utf8_lossy(&salida.stdout).into_owned() }
 }

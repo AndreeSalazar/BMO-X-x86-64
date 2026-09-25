@@ -67,10 +67,19 @@ fn raiz() -> PathBuf {
     r.canonicalize().unwrap_or(r)
 }
 
+/// La carpeta de trabajo de ESTE proceso. Por proceso y no compartida: con
+/// `vigilar` corriendo y otro `espejo` a mano, los dos escribian el mismo
+/// `caso_clang` a la vez y un caso bueno salia "apartado" (25-09).
 fn trabajo() -> PathBuf {
-    let t = raiz().join("target").join("espejo");
-    let _ = std::fs::create_dir_all(t.join("fallos"));
+    let t = raiz().join("target").join("espejo").join(format!("p{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&t);
+    let _ = std::fs::create_dir_all(fallos());
     t
+}
+
+/// Los fallos SI se comparten: son para mirarlos despues.
+fn fallos() -> PathBuf {
+    raiz().join("target").join("espejo").join("fallos")
 }
 
 /// **Juzga un programa**: lo corren los de fuera, y despues BMO.
@@ -85,6 +94,7 @@ fn juzgar(lengua: Lengua, ruta: &Path, externos: &[Externo], tmp: &Path) -> Juic
             },
             Veredicto::NoCompila(m) => return Juicio::Apartado(format!("{} no lo compila: {m}", x.nombre)),
             Veredicto::NoTermina => return Juicio::Apartado(format!("{} no termina", x.nombre)),
+            Veredicto::Revienta => return Juicio::Apartado(format!("con {} el programa revienta (indefinido)", x.nombre)),
         }
     }
     let Some(texto) = esperado else {
@@ -231,11 +241,63 @@ fn reducir(ruta: &Path, externos: &[Externo]) -> Option<PathBuf> {
             trozo /= 2;
         }
     }
+    // ** SEGUNDA PASADA: dentro de las lineas. Quitar lineas deja las que
+    // hacen falta, pero una linea de C puede llevar cuarenta operaciones y solo
+    // una es la culpable. Se prueba a cambiar cada parentesis por `0u`, del mas
+    // grande al mas chico: si el fallo sigue, esa parte no era.
+    let mut cambio = true;
+    while cambio {
+        cambio = false;
+        for li in 0..lineas.len() {
+            let mut grupos = parentesis(&lineas[li]);
+            grupos.sort_by_key(|&(a, b)| std::cmp::Reverse(b - a));
+            for (a, b) in grupos {
+                if b - a < 6 {
+                    continue;
+                }
+                let mut nueva = lineas[li].clone();
+                if b > nueva.len() || !nueva.is_char_boundary(a) || !nueva.is_char_boundary(b) {
+                    continue;
+                }
+                nueva.replace_range(a..b, "(0u)");
+                let mut candidato = lineas.clone();
+                candidato[li] = nueva;
+                let _ = std::fs::write(&prueba, candidato.join("\n") + "\n");
+                pruebas += 1;
+                if tipo(&juzgar(lengua, &prueba, externos, &tmp)).as_ref() == Some(&objetivo) {
+                    lineas = candidato;
+                    cambio = true;
+                    // Los parentesis de esta linea ya no estan donde estaban.
+                    break;
+                }
+            }
+        }
+    }
     let nombre = ruta.file_stem().and_then(|n| n.to_str()).unwrap_or("caso");
-    let salida = tmp.join("fallos").join(format!("{nombre}.reducido.{}", if lengua == Lengua::C { "c" } else { "cpp" }));
+    let salida = fallos().join(format!("{nombre}.reducido.{}", if lengua == Lengua::C { "c" } else { "cpp" }));
     std::fs::write(&salida, lineas.join("\n") + "\n").ok()?;
     println!("  reducido de {} a {} lineas en {pruebas} pruebas", original.lines().count(), lineas.len());
     Some(salida)
+}
+
+/// Los `(...)` equilibrados de una linea, como rangos de bytes. Sin mirar
+/// cadenas: una linea con `printf("(")` da algun rango de mas, y el juez lo
+/// rechaza al compilar.
+fn parentesis(l: &str) -> Vec<(usize, usize)> {
+    let mut pila = Vec::new();
+    let mut out = Vec::new();
+    for (i, c) in l.char_indices() {
+        match c {
+            '(' => pila.push(i),
+            ')' => {
+                if let Some(a) = pila.pop() {
+                    out.push((a, i + 1));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
 }
 
 /// **Los casos escritos a mano**, de `casos/c` o `casos/cpp`.
@@ -275,7 +337,7 @@ fn azar(lengua: Lengua, n: u64, desde: u64, externos: &[Externo], ver: bool) -> 
         let nombre = format!("azar {s}");
         if !matches!(j, Juicio::Igual | Juicio::Apartado(_)) {
             // Se guarda para mirarlo: el programa y lo que paso.
-            let guardado = tmp.join("fallos").join(format!("azar_{s}.{ext}"));
+            let guardado = fallos().join(format!("azar_{s}.{ext}"));
             let _ = std::fs::copy(&ruta, &guardado);
             if ver {
                 println!("  {:<12} {}   -> {}", nombre, texto_juicio(&j), guardado.display());
@@ -466,7 +528,18 @@ fn a_ascii(s: &str) -> String {
 fn main() {
     // Los panicos del compilador o del emulador son DATOS aqui: se recogen con
     // `catch_unwind` y se dicen en su fila. Sin esto llenarian la pantalla.
-    std::panic::set_hook(Box::new(|_| {}));
+    // `ESPEJO_DEPURA=1` los deja ver: para cuando el que revienta es el espejo.
+    if std::env::var_os("ESPEJO_DEPURA").is_none() {
+        std::panic::set_hook(Box::new(|_| {}));
+    }
+    // La carpeta de este proceso se borra al salir, salga por donde salga.
+    struct Limpia;
+    impl Drop for Limpia {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(trabajo());
+        }
+    }
+    let _limpia = Limpia;
     let args: Vec<String> = std::env::args().skip(1).collect();
     let resumen_modo = args.iter().any(|a| a == "--resumen");
     let con_informe = args.iter().any(|a| a == "--informe");

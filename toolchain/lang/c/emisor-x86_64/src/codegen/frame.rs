@@ -366,6 +366,14 @@ impl Codegen {
             self.code.extend_from_slice(&[0x48, 0x8D, 0x15, 0, 0, 0, 0]);
             self.global_fixups.push((self.code.len() - 4, name.to_string()));
             self.emit_store_elem_desde_rax_en_rdx(&typ, 0);
+        } else {
+            // *** Y ESCRIBIR en un nombre que no existe tampoco se calla (25-09).
+            // Aqui no habia `else`: la escritura se perdia y el programa seguia
+            // con el valor viejo. Leer ese mismo nombre SI daba error desde el
+            // 17-09; escribirlo era la mitad que faltaba.
+            self.errors.push(format!(
+                "se escribe en '{name}' y no esta declarado (ni local, ni global, ni static de esta funcion)"
+            ));
         }
     }
 
@@ -627,8 +635,31 @@ impl Codegen {
         }
     }
 
+    /// `++x` y `--x` sobre una variable con sitio.
+    ///
+    /// *** ERA UN CERO CALLADO (hasta el 25-09). Un nombre sin variable hacia
+    /// `xor eax,eax` y volvia: el `++` no incrementaba NADA y el valor del
+    /// `++k` era un cero con pinta de dato. Asi se escondio que `++k` sobre una
+    /// `static` local no pasaba por el alias `funcion.k` (el parser la dejaba
+    /// con el nombre crudo): `static int k = 0; return ++k;` devolvia 0 en
+    /// cada llamada, COMPILABA, y solo lo vio ESPEJO ejecutandolo contra GCC
+    /// (`toolchain/tools/espejo/casos/c/14_estaticos.c`).
+    ///
+    /// Es el mismo patron que ya se quito de `emit_load_var` y de `&x`: un
+    /// compilador que no sabe donde esta algo lo DICE con el nombre delante.
+    fn inc_dec_sin_sitio(&mut self, name: &str, op: &str) -> bool {
+        if self.var_offsets.contains_key(name) || self.global_offsets.contains_key(name) {
+            return false;
+        }
+        self.errors.push(format!(
+            "'{op}{name}': '{name}' no esta declarado (ni local, ni global, ni static de esta funcion)"
+        ));
+        self.emit_xor_eax();
+        true
+    }
+
     pub(super) fn emit_inc_var(&mut self, name: &str) {
-        if !self.var_offsets.contains_key(name) && !self.global_offsets.contains_key(name) { self.emit_xor_eax(); return; }
+        if self.inc_dec_sin_sitio(name, "++") { return; }
         let paso = self.paso_de_puntero(name);
         self.emit_load_var(name);
         self.emit_suma_paso(paso, false);
@@ -636,7 +667,7 @@ impl Codegen {
     }
 
     pub(super) fn emit_dec_var(&mut self, name: &str) {
-        if !self.var_offsets.contains_key(name) && !self.global_offsets.contains_key(name) { self.emit_xor_eax(); return; }
+        if self.inc_dec_sin_sitio(name, "--") { return; }
         let paso = self.paso_de_puntero(name);
         self.emit_load_var(name);
         self.emit_suma_paso(paso, true);

@@ -162,10 +162,33 @@ impl Parser {
         let mut cases = Vec::new();
         let mut current = Vec::new();
         let mut current_val = None;
+        // ** Hay una etiqueta ABIERTA: un `case` o `default` leido cuyo caso
+        // aun no se ha guardado. Se guarda aunque su cuerpo este VACIO.
+        //
+        // Antes se guardaba solo `if !current.is_empty()`, y eso borraba las
+        // etiquetas APILADAS: en `case 0: case 1: case 2: break;` el 0 y el 1
+        // no tenian cuerpo, se perdian, y el 1 y el 2 acababan en el
+        // `default`. Lo encontro ESPEJO el 25-09 reduciendo un programa al
+        // azar (`toolchain/tools/espejo/casos/c/18_switch_apilados.c`). Un caso
+        // vacio no es un caso que sobra: CAE al siguiente, y el codegen ya
+        // emite cada cuerpo detras del anterior.
+        let mut abierta = false;
+        // ** Lo que va ANTES de la primera etiqueta. En C no se ejecuta nunca:
+        // el salto del `switch` va a una etiqueta o fuera. Se guardaba como un
+        // caso con `value: None` -- que es la marca del `default` -- y corria
+        // cuando nada coincidia (`19_switch_antes_del_case.c`).
+        let mut previas: Vec<Stmt> = Vec::new();
         loop {
             match self.peek() {
                 Token::Case => {
-                    if !current.is_empty() { cases.push(Case { value: current_val, stmts: std::mem::take(&mut current) }); }
+                    if abierta || !current.is_empty() {
+                        if abierta {
+                            cases.push(Case { value: current_val, stmts: std::mem::take(&mut current) });
+                        } else {
+                            previas.append(&mut current);
+                        }
+                    }
+                    abierta = true;
                     self.advance();
                     // * La etiqueta de un `case` es una EXPRESION CONSTANTE.
                     //
@@ -189,7 +212,14 @@ impl Parser {
                     self.expect(&Token::Colon)?;
                 }
                 Token::Default => {
-                    if !current.is_empty() { cases.push(Case { value: current_val, stmts: std::mem::take(&mut current) }); }
+                    if abierta || !current.is_empty() {
+                        if abierta {
+                            cases.push(Case { value: current_val, stmts: std::mem::take(&mut current) });
+                        } else {
+                            previas.append(&mut current);
+                        }
+                    }
+                    abierta = true;
                     self.advance();
                     current_val = None;
                     self.expect(&Token::Colon)?;
@@ -199,8 +229,33 @@ impl Parser {
                 _ => { current.push(self.parse_stmt()?); }
             }
         }
-        if !current.is_empty() { cases.push(Case { value: current_val, stmts: current }); }
-        Ok(Stmt::Switch(expr, cases))
+        if abierta {
+            cases.push(Case { value: current_val, stmts: current });
+        } else {
+            // Un `switch` sin ninguna etiqueta: todo su cuerpo es de antes.
+            previas.append(&mut current);
+        }
+        if previas.is_empty() {
+            return Ok(Stmt::Switch(expr, cases));
+        }
+        // Lo de antes de la primera etiqueta: sus DECLARACIONES suben delante
+        // del `switch` (los casos pueden usarlas) y SIN su inicializador, que C
+        // tampoco ejecuta porque el salto se lo salta; lo demas queda en un
+        // `if (0)`, que no corre nunca. El valor del `switch` se sigue
+        // evaluando una sola vez, despues.
+        let mut fuera = Vec::new();
+        let mut muerto = Vec::new();
+        for st in previas {
+            match st {
+                Stmt::DeclAssign(t, n, _) => fuera.push(Stmt::DeclAssign(t, n, None)),
+                otro => muerto.push(otro),
+            }
+        }
+        if !muerto.is_empty() {
+            fuera.push(Stmt::If(Expr::Int(0), Box::new(Stmt::Block(muerto)), None));
+        }
+        fuera.push(Stmt::Switch(expr, cases));
+        Ok(Stmt::Block(fuera))
     }
 
     pub(super) fn parse_return(&mut self) -> Result<Stmt, CError> {

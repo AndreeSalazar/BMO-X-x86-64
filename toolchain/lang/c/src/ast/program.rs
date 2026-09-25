@@ -16,6 +16,11 @@ use super::stmt::Stmt;
 pub struct StructMember {
     pub typ: TypeSpec,
     pub name: String,
+    /// El ancho de un CAMPO DE BITS (`unsigned a:3` -> `Some(3)`); `None` en
+    /// un miembro normal. El campo ocupa su tipo entero --no se empaqueta, ver
+    /// `parser/declarations.rs`--, pero lo que se ESCRIBE se recorta a este
+    /// ancho, que es lo que C manda (`f.a = 9` guarda 1).
+    pub bits: Option<u8>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -157,7 +157,11 @@ el driver de NVIDIA, en el mismo silicio".
       17 pruebas (las 14 del original y 3 de `referencia`, entre ellas
       `el_juez_da_las_huellas_de_la_3060`). **Como se sabe:** `cargo test -p
       bmo-cubo`, y el binario freestanding soft-float da las tres huellas.
-- [ ] **X4 -- `gpu cubo` en el Ryzen.** **En codigo (25-09), falta el metal.**
+- [x] **X4 -- `gpu cubo` en el Ryzen.** **Visto el 25-09 a las 15:53:** el
+      fotograma 30 y el 60 IGUALES, bit a bit, a D3D12 en la 3060, en 25.066 y
+      25.183 us de CPU (el anfitrion decia ~29 ms: el Ryzen va algo mas
+      deprisa). El 31 dice que no hay captura. **Tres sistemas, el mismo
+      numero** -- Windows, Linux y ahora BMO-X en su metal.
       El director dibuja el fotograma 30 por CPU (soft-float), lo pinta
       centrado y compara su huella. **Como se sabe:** la fila dice `IGUAL, bit
       a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows`, y los us de

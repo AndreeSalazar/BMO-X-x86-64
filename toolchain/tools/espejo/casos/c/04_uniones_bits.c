@@ -1,5 +1,6 @@
-/* Uniones y campos de bits: el mismo sitio visto de dos formas, y bits
- * empaquetados que se leen igual que se escribieron. */
+/* Uniones y campos de bits: el mismo sitio visto de dos formas, y bits que se
+ * leen igual que se escribieron (recortados a su ancho). Lo que MIDE la
+ * estructura es otra pregunta: `20_bits_empaquetados.c`. */
 #include <stdio.h>
 union u { unsigned int n; unsigned char b[4]; };
 struct banderas { unsigned int a : 3; unsigned int b : 5; unsigned int c : 8; unsigned int d : 16; };
@@ -12,6 +13,5 @@ int main(void) {
     printf("bits %u %u %u %u\n", f.a, f.b, f.c, f.d);
     f.a = 9;
     printf("corta %u\n", f.a);
-    printf("medida %d\n", (int)sizeof(struct banderas));
     return 0;
 }

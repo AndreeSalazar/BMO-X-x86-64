@@ -561,7 +561,7 @@ impl Parser {
             {
                 let (mname, mtyp) = self.parse_fnptr_tail()?;
                 self.skip_semicolon();
-                members.push(StructMember { typ: mtyp, name: mname });
+                members.push(StructMember { typ: mtyp, name: mname, bits: None });
                 continue;
             }
             let mname = match self.advance() {
@@ -600,19 +600,25 @@ impl Parser {
             // escritura sea leer-modificar-escribir. Eso es correcto solo si
             // se hace entero; a medias da campos que se pisan.
             //
-            // Mientras no este, un `unsigned a:3` ocupa sus cuatro bytes y
-            // **guarda lo que le metas**: el programa hace lo que dice, solo
-            // que la estructura mide mas. Lo que NO vale es un layout binario
-            // ajeno -- ver BRECHA.md.
+            // Mientras no este, un `unsigned a:3` ocupa sus cuatro bytes. Lo
+            // que NO vale es un layout binario ajeno -- ver BRECHA.md.
+            //
+            // *** Y el ancho YA NO SE TIRA (25-09). Aqui se leia y se perdia,
+            // asi que `f.a = 9` en 3 bits guardaba 9: un programa que cuenta
+            // con que el campo de la vuelta daba otra cosa y COMPILABA. Lo vio
+            // ESPEJO ejecutandolo contra GCC y Clang
+            // (`toolchain/tools/espejo/casos/c/04_uniones_bits.c`). Ahora
+            // viaja en el miembro y el codegen recorta al escribir.
+            let mut bits = None;
             if *self.peek() == Token::Colon {
                 self.advance();
                 match self.advance() {
-                    Token::IntLit(_, _) => {}
+                    Token::IntLit(v, _) if (0..=64).contains(&v) => bits = Some(v as u8),
                     t => return Err(CError::new(self.line(), format!(
-                        "'{mname}:': la anchura de un campo de bits es un numero, no {t:?}"))),
+                        "'{mname}:': la anchura de un campo de bits es un numero de 0 a 64, no {t:?}"))),
                 }
             }
-            members.push(StructMember { typ: mtype, name: mname });
+            members.push(StructMember { typ: mtype, name: mname, bits });
             // * `int data1, data2, data3, data4;` INSIDE the aggregate.
             //
             // One member per line was the assumption, and C does not make it.
@@ -625,7 +631,7 @@ impl Parser {
             let mut mas = Vec::new();
             self.declaradores_tras_coma(&base, &mut mas)?;
             for (t2, n2) in mas {
-                members.push(StructMember { typ: t2, name: n2 });
+                members.push(StructMember { typ: t2, name: n2, bits: None });
             }
             self.skip_semicolon();
         }

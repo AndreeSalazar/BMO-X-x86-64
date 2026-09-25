@@ -770,13 +770,18 @@ que hace falta.
       anfitrion, BMO en el emulador-- y compara lo impreso; genera programas
       al azar sin comportamiento indefinido, REDUCE un fallo a lo minimo, y
       vigila en tiempo real (`espejo vigilar`). Ver su README.
-- [ ] **C3 -- lo que ESPEJO encontro el primer dia.** Cuatro fallos que
+- [x] **C3 -- lo que ESPEJO encontro el primer dia.** Cuatro fallos que
       COMPILAN y dan otra cosa, que ninguna sonda veia: las etiquetas
       apiladas de un `switch` (`case 0: case 1: case 2:` manda el 1 y el 2 al
       `default`), el codigo antes del primer `case`, el campo de bits que no
       corta (`f.a = 9` en 3 bits) y el `static` local que no recuerda. Y en
       C++, el literal `ull` por encima del maximo con signo. **Como se sabe:**
       `espejo casos` los da IGUALES (`casos/c/04`, `14`, `18`, `19`).
+      *Hecho 25-09, con `espejo vigilar`:* los cuatro, y el cero callado que
+      escondia el del `static` (`++x` y `x = v` sobre un nombre que no esta
+      ya son un ERROR). Y tres mas que salieron al subir a 500 al azar: el
+      tipo del ternario, el acarreo bajo un bit a bit y la constante plegada
+      con signo. **1000 de 1000 al azar**; 12 pruebas en `silencios.rs`.
 - [ ] **C2 -- las dos primeras capas del lenguaje:** `sizeof` en una expresion
       constante, y el puntero a funcion que devuelve `float`/`double` (el
       valor en `xmm0`). **Como se sabe:** la capa 2 y la 3 bajan de 70 a 0.
@@ -885,8 +890,10 @@ que llama a Windows.
       vkQuake 0.50 y las del cubo, juntas) como interfaz, con el backend CPU
       primero. **Como se sabe:** un crate puro con banco que dibuja el cubo
       por el backend CPU y lo compara con una imagen fija.
-- [ ] **X4 -- `gpu cubo` por CPU en BMO-X.** **En codigo (25-09), falta el
-      metal.** `cubo-neutro` traido como `platform/shared/bmo-cubo` (con su
+- [x] **X4 -- `gpu cubo` por CPU en BMO-X.** **Visto en el Ryzen el 25-09
+      (15:53):** `gpu cubo` y `gpu cubo 60` dicen *IGUAL, bit a bit, a lo que
+      D3D12 dibujo en la RTX 3060 bajo Windows*, en 25.066 y 25.183 us de CPU
+      (soft-float); `gpu cubo 31` dice que no hay captura, como tocaba. `cubo-neutro` traido como `platform/shared/bmo-cubo` (con su
       PROCEDENCIA), las huellas de la 3060 en `referencia.rs`, y la orden
       `gpu cubo [N]`. La historia entera, por que era inesperado y lo que
       abre: [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md). **Como se sabe:** la fila

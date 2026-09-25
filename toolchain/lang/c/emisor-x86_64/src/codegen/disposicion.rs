@@ -48,6 +48,9 @@ impl Codegen {
             let sz = self.type_stack_size(&m.typ);
             layout.push((m.name.clone(), d.coloca(sz, self.type_align(&m.typ)), sz));
             self.field_types.insert((name.to_string(), m.name.clone()), m.typ.clone());
+            if let Some(b) = m.bits {
+                self.field_bits.insert((name.to_string(), m.name.clone()), b);
+            }
         }
         self.struct_layouts.insert(name.to_string(), layout);
         self.struct_sizes.insert(name.to_string(), d.total());
@@ -61,6 +64,9 @@ impl Codegen {
             let sz = self.type_stack_size(&m.typ);
             layout.push((m.name.clone(), d.coloca(sz, self.type_align(&m.typ)), sz));
             self.field_types.insert((name.to_string(), m.name.clone()), m.typ.clone());
+            if let Some(b) = m.bits {
+                self.field_bits.insert((name.to_string(), m.name.clone()), b);
+            }
         }
         self.struct_layouts.insert(name.to_string(), layout);
         self.struct_sizes.insert(name.to_string(), d.total());
@@ -183,6 +189,17 @@ impl Codegen {
     /// pregunta --donde cae y cuanto mide-- y pedirlas por separado es como se
     /// llega a resolver una y no la otra: exactamente lo que pasaba cuando el
     /// offset caia a 0 y el tipo a `Long` por dos caminos distintos.
+    /// **El ancho de bits de `base.campo` (o `base->campo`)**, si es un campo
+    /// de bits. Lo pregunta quien ESCRIBE: ver `emit_guardar_campo`.
+    pub(super) fn bits_de_campo(&mut self, base: &Expr, campo: &str, por_puntero: bool) -> Option<u8> {
+        let ag = if por_puntero {
+            crate::tipos::agregado_apuntado(self, base)
+        } else {
+            crate::tipos::agregado_de(self, base)
+        }?;
+        self.field_bits.get(&(ag.to_string(), campo.to_string())).copied()
+    }
+
     pub(super) fn campo_de_valor(&mut self, base: &Expr, campo: &str) -> (u32, TypeSpec) {
         let ag = crate::tipos::agregado_de(self, base);
         let tipo = self.tipo_de_campo_o_ancho(ag.as_deref(), campo);

@@ -426,10 +426,11 @@ pub fn descender_unidad(p: &cpp::Program, objeto: bool) -> Result<c::Program, Cp
             miembros.push(c::StructMember {
                 typ: c::TypeSpec::Ptr(Box::new(c::TypeSpec::Long)),
                 name: crate::parser::VPTR.into(),
+                bits: None,
             });
         }
         for m in &cl.members {
-            miembros.push(c::StructMember { typ: tipo(&m.typ)?, name: m.name.clone() });
+            miembros.push(c::StructMember { typ: tipo(&m.typ)?, name: m.name.clone(), bits: None });
         }
         out.globals.push(c::GlobalDecl::Struct(cl.name.clone(), miembros));
 

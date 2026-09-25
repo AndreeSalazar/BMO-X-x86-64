@@ -237,6 +237,8 @@ struct Codegen {
     /// mismos `members` con los que coloca -- y `cotejar_disposicion` comprueba
     /// que las dos colocaciones digan lo mismo.
     field_types: HashMap<(String, String), TypeSpec>,
+    /// El ancho de cada campo de bits, por `(agregado, campo)`.
+    field_bits: HashMap<(String, String), u8>,
     label_positions: HashMap<String, usize>,
     goto_relocs: Vec<(usize, String)>,
     entry_offset: usize,
@@ -344,6 +346,7 @@ impl Codegen {
             ranuras_con_nombre: 0,
             struct_layouts: HashMap::new(), struct_sizes: HashMap::new(),
             field_types: HashMap::new(),
+            field_bits: HashMap::new(),
             struct_aligns: HashMap::new(),
             label_positions: HashMap::new(), goto_relocs: Vec::new(),
             entry_offset: 0, is_entry_function: false,

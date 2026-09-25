@@ -192,7 +192,41 @@ pub(in crate::codegen) fn constante_para_emitir(e: &Expr) -> Option<i64> {
     if !seguro_sin_signo(e) {
         return None;
     }
-    constante_de(e)
+    let v = constante_de(e)?;
+    // *** Y EL RECORTE QUE HARIA LA RUTA LARGA, aplicado al numero (25-09).
+    //
+    // El numero plegado sale como INMEDIATO, y un inmediato no pasa por
+    // `recortar_a_32`. `424671700u - 2218538477u` plegaba a -1793866777: en la
+    // ruta larga eso es `unsigned int` y el `mov eax,eax` lo deja en
+    // 2501100519; como inmediato, x86 lo extendia con signo y una comparacion
+    // sin signo contra el veia un numero de 64 bits gigante. `x > (a - b)` con
+    // constantes daba lo contrario que con variables. Lo encontro ESPEJO el
+    // 25-09 (`casos/c/23_constante_plegada_sin_signo.c`).
+    //
+    // El tipo lo dice el MISMO juez que decide el recorte de la ruta larga
+    // (`tipos::recorte_de`): una expresion constante no tiene nombres, asi que
+    // no le hace falta tabla ninguna.
+    Some(match crate::tipos::recorte_de(&SinNombres, e) {
+        Some(true) => v as u32 as i64,
+        Some(false) => v as i32 as i64,
+        None => v,
+    })
+}
+
+/// El ambito de una expresion CONSTANTE: no tiene variables, campos ni
+/// llamadas que preguntar. Si alguna llegara, `None` -- y el juez no recorta.
+struct SinNombres;
+
+impl crate::tipos::Ambito for SinNombres {
+    fn tipo_de_variable(&self, _: &str) -> Option<TypeSpec> {
+        None
+    }
+    fn tipo_de_campo(&self, _: &str, _: &str) -> Option<TypeSpec> {
+        None
+    }
+    fn tipo_de_retorno(&self, _: &str) -> Option<TypeSpec> {
+        None
+    }
 }
 
 /// El resultado de esta expresion es el mismo con signo y sin el?

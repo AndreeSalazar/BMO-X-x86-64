@@ -212,6 +212,30 @@ pub fn tipo_de<A: Ambito + ?Sized>(amb: &A, e: &Expr) -> Option<TypeSpec> {
         // [!] En C el tipo de `a << b` es el de A SOLAS --el operando derecho
         // no participa--, que es distinto de todas las demas.
         Expr::Mul(a, b) => conversion_usual(tipo_de(amb, a), tipo_de(amb, b)),
+
+        // *** Y LOS QUE NO CRECEN TAMBIEN TIENEN TIPO (25-09). No necesitan
+        // recorte propio --eso sigue siendo cierto-- pero decir `None` aqui
+        // dejaba SIN TIPO a quien los contiene: en `(u + (x & k)) | 1` el `&`
+        // no tenia tipo, asi que la suma tampoco, asi que la suma no se
+        // recortaba, y el acarreo de 33 bits llegaba al `|` y de ahi a un `%`
+        // hecho en 64. Lo encontro ESPEJO reduciendo un programa al azar
+        // (`casos/c/22_acarreo_bajo_un_bit_a_bit.c`). La regla es la de C:
+        // la conversion usual para los aritmeticos, `int` para los que
+        // contestan verdad o mentira.
+        Expr::Div(a, b)
+        | Expr::Mod(a, b)
+        | Expr::BitAnd(a, b)
+        | Expr::BitOr(a, b)
+        | Expr::BitXor(a, b) => conversion_usual(tipo_de(amb, a), tipo_de(amb, b)),
+        Expr::Eq(..)
+        | Expr::Neq(..)
+        | Expr::Lt(..)
+        | Expr::Gt(..)
+        | Expr::Le(..)
+        | Expr::Ge(..)
+        | Expr::LAnd(..)
+        | Expr::LOr(..)
+        | Expr::Not(_) => Some(TypeSpec::Int),
         Expr::Shl(a, _) | Expr::Shr(a, _) => {
             let t = tipo_de(amb, a)?;
             if ancho(&t) < 4 {
@@ -271,7 +295,26 @@ pub fn tipo_de<A: Ambito + ?Sized>(amb: &A, e: &Expr) -> Option<TypeSpec> {
         Expr::Call(nombre, _) => amb.tipo_de_retorno(nombre),
 
         // -- ramas ---------------------------------------------------------
-        Expr::Conditional(_, a, b) => tipo_de(amb, a).or_else(|| tipo_de(amb, b)),
+        // *** `c ? a : b` vale el tipo COMUN de las dos ramas (C11 6.5.15p5),
+        // no el de la primera. Con `k ? 0u : x` y `x` de 64 bits, esto decia
+        // `unsigned int`, y quien lo sumaba recortaba a 32: el valor de 64 bits
+        // perdia su mitad alta sin un aviso. Lo encontro ESPEJO el 25-09
+        // reduciendo un programa al azar (`casos/c/21_ternario_de_64.c`).
+        Expr::Conditional(_, a, b) => {
+            let (ta, tb) = (tipo_de(amb, a), tipo_de(amb, b));
+            // Un puntero (o un array que decae) manda: `c ? p : 0` es un puntero.
+            if es_direccion(&ta) {
+                return Some(decaido(ta?));
+            }
+            if es_direccion(&tb) {
+                return Some(decaido(tb?));
+            }
+            match (&ta, &tb) {
+                (Some(x), Some(y)) if es_entero(x) && es_entero(y) => conversion_usual(ta, tb),
+                // Flotantes, structs o una rama sin tipo conocido: lo que se sepa.
+                _ => ta.or(tb),
+            }
+        }
         Expr::Comma(v) => tipo_de(amb, v.last()?),
 
         // `entero op entero` cae aqui A PROPOSITO. Ver la cabecera.
@@ -363,6 +406,23 @@ fn ancho(t: &TypeSpec) -> u32 {
         TypeSpec::Int | TypeSpec::UnsignedInt => 4,
         _ => 8,
     }
+}
+
+/// Un entero de cualquier ancho: lo que entra en la conversion usual.
+fn es_entero(t: &TypeSpec) -> bool {
+    matches!(
+        t,
+        TypeSpec::Char
+            | TypeSpec::UnsignedChar
+            | TypeSpec::Short
+            | TypeSpec::UnsignedShort
+            | TypeSpec::Int
+            | TypeSpec::UnsignedInt
+            | TypeSpec::Long
+            | TypeSpec::UnsignedLong
+            | TypeSpec::LongLong
+            | TypeSpec::UnsignedLongLong
+    )
 }
 
 fn es_sin_signo(t: &TypeSpec) -> bool {

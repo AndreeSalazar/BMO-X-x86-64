@@ -271,6 +271,11 @@ impl Parser {
                         Some(Token::Arrow) | Some(Token::Dot) | Some(Token::OpenBracket))
                     {
                         self.advance();
+                        // ** POR EL ALIAS, como cualquier otro nombre (25-09):
+                        // una `static` local vive como `funcion.n`, y este
+                        // atajo la dejaba con el nombre crudo. `++n` no
+                        // incrementaba nada (ver `emit_inc_var`).
+                        let n = self.static_alias.get(&n).cloned().unwrap_or(n);
                         return Ok(Expr::PreInc(n));
                     }
                 }
@@ -286,6 +291,7 @@ impl Parser {
                         Some(Token::Arrow) | Some(Token::Dot) | Some(Token::OpenBracket))
                     {
                         self.advance();
+                        let n = self.static_alias.get(&n).cloned().unwrap_or(n);
                         return Ok(Expr::PreDec(n));
                     }
                 }
