@@ -309,6 +309,51 @@ biblioteca de GOG que los tienes):
                           pieza de la que haria falta
 ```
 
+**Lo que el propietario TIENE (25-09, su Steam y su escritorio), juego a
+juego.** La pregunta es siempre la misma: hay un MOTOR ABIERTO que lea sus
+datos?
+
+```text
+   Half-Life (1998)          SI. Su motor (GoldSrc) viene de Quake, y Xash3D
+                             FWGS es un motor ABIERTO y compatible, con
+                             renderizador de SOFTWARE y de GL; la logica del
+                             juego sale de hlsdk-portable (el SDK de Valve,
+                             que su licencia deja usar con Half-Life). Se
+                             copian TUS datos (la carpeta `valve/`). Es el
+                             camino A con un juego que YA compraste
+   Half-Life 2, HL2 DM,      NO. Source y Source 2 son cerrados; el codigo
+   HL DM Source, Black Mesa, filtrado de Source (2020) NO se usa: no es de uso
+   Garry's Mod, L4D2, CS2,   legal. Camino B (streaming)
+   Dota 2
+   Cyberpunk 2077 (GOG)      NO por A: REDengine 4 cerrado. Camino B
+   Warframe, Zenless Zone    NO: servicios en linea con antitrampas; ni por A
+   Zero, Apex, Call of Duty  ni por B tiene sentido en BMO-X
+   el resto de la lista      motores cerrados (Unreal, Unity, RE Engine...):
+                             camino B
+```
+
+**Y dos jefes que NO hay que comprar**, gratis y legales:
+
+```text
+   Freedoom        un DOOM entero, libre (BSD): el mismo .bex de DOOM, otro WAD
+   Quake shareware el episodio 1 de Quake, que id dejo repartir libremente:
+                   su `id1/pak0.pak` basta para el jefe 3
+```
+
+La escalera, con lo que hay de verdad: **DOOM** (hecho) -> **Freedoom** ->
+**Quake shareware** por software -> **Half-Life** (Xash3D, primero por
+software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
+... -> **Cyberpunk 2077**.
+
+- [ ] **L0 -- Freedoom.** `freedoom1.wad` y `freedoom2.wad` junto al DOOM de
+      siempre. **Como se sabe:** el primer mapa de Freedoom se juega en el
+      Ryzen con el mismo `.bex`.
+- [ ] **L3 -- el jefe que ya compraste: Half-Life por software.** Xash3D
+      FWGS (su renderizador de software) y hlsdk-portable, compilados para
+      BMO-X, con la carpeta `valve/` copiada del Half-Life de Steam. Pide lo
+      de Quake (coma flotante de BMO C) y C++ para el SDK. Antes de empezar,
+      las licencias leidas y apuntadas aqui. **Como se sabe:** el tren del
+      principio (`c0a0`) llega a Black Mesa en el Ryzen.
 - [ ] **L1 -- el jefe 2: Heretic o Hexen.** Chocolate Heretic/Hexen
       compilado a `.bex` como DOOM, con `heretic.wad` o `hexen.wad` de GOG.
       **Como se sabe:** el primer nivel se juega en el Ryzen.
