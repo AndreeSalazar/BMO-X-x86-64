@@ -860,7 +860,7 @@ de un fotograma, el diccionario y una imagen de referencia), nunca el codigo
 que llama a Windows.
 
 - [x] **X1 -- el cubo, medido.** El cubo DX12 en Windows (simple, sin motor)
-      y su tabla de importaciones. **Como se sabe:** `estudio-d3d/CENSO.md`
+      y su tabla de importaciones. **Como se sabe:** https://github.com/AndreeSalazar/EPICX-FRAMEWORK-DirectX12/blob/estudio-d3d/estudio-d3d/CENSO.md
       en la rama `estudio-d3d` de EPICX-FRAMEWORK-DirectX12 (`412542e`),
       por `dumpbin`: 92 funciones la linea base (CPU, sin D3D), 112 el D3D9,
       109 el D3D10 y el D3D11, 112 el D3D12. **Y la leccion para `rayosx`:**
@@ -868,7 +868,7 @@ que llama a Windows.
       `D3D12SerializeRootSignature`); el resto de D3D12 va por las vtables
       COM, que ninguna tabla de importaciones ve. Las 663 de Cyberpunk
       (seccion 9) NO cuentan su D3D12.
-- [x] **X2 -- el diccionario.** `estudio-d3d/DICCIONARIO.md`: cada llamada del
+- [x] **X2 -- el diccionario.** https://github.com/AndreeSalazar/EPICX-FRAMEWORK-DirectX12/blob/estudio-d3d/estudio-d3d/DICCIONARIO.md: cada llamada del
       cubo DX12 con lo que hace con la memoria y con la sincronia, bytes
       medidos por `GetResourceAllocationInfo` (el vertex buffer pide 960 B y
       el driver reserva 65.536: paginas de 64 KiB, como los buferes del GR
