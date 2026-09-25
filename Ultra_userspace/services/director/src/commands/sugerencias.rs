@@ -44,6 +44,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),
     (b"gpu volcado", b"la 3060 lleva tu escritorio a la pantalla, contra la CPU"),
     (b"gpu cubo", b"el cubo del estudio D3D, por la CPU, igual bit a bit que la 3060 bajo Windows"),
+    (b"gpu cubo 3060", b"X5: el mismo cubo dibujado por la 3060 SIN Windows, y su huella contra D3D12"),
     (b"gpu pase", b"el pase de la GPU: el lienzo prestado una vez y el buzon, abierto y cerrado"),
     (b"gpu motores", b"que motores tiene la 3060 y el de copia para el canal (COPY2)"),
     (b"gpu canal", b"el primer canal de la 3060: pedido, atado a COPY2 y con su ficha"),

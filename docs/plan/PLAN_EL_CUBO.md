@@ -169,11 +169,27 @@ el driver de NVIDIA, en el mismo silicio".
       centrado y compara su huella. **Como se sabe:** la fila dice `IGUAL, bit
       a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows`, y los us de
       CPU.
-- [ ] **X5 -- el cubo por la 3060, sin Windows.** El mismo fotograma por
-      AMPERE_B con depth buffer, y su huella contra la de D3D12. **Como se
-      sabe:** la misma fila, con `la 3060` en vez de `la CPU`; y si no cuadra,
-      el juez con `unorm8 = a_unorm8` (redondeo exacto) dice si la regla 4 era
-      del driver.
+- [ ] **X5 -- el cubo por la 3060, sin Windows.** HECHO en el codigo el
+      25-09, falta el metal: `gpu cubo 3060 [N]`. La 3060 lo dibuja con el
+      pipeline 3D de T1c DIRECTO en una ventana de 1280x720 de la pantalla (el
+      mapa de `gpu pantalla`), y el escritorio lo lee de vuelta. Lo nuevo contra
+      T1c: el destino (la pantalla, formato del GOP), el viewport de D3D (640,
+      -360, 1 / 640, 360, 0), la limpieza al FONDO y un par de programas por
+      triangulo (hasta 8) -- con SOLO instrucciones que ya corrieron (MOV, SEL,
+      ISETP, ALD, AST, EXIT). La tanda sale de las cuentas del juez
+      (`bmo_cubo::tanda`); el estado es el de T1c metodo a metodo (la prueba
+      `el_estado_es_el_de_t1c`). **Sin depth buffer, a proposito:** el cubo es
+      convexo y con las caras traseras fuera cada pixel lo cubre una sola cara;
+      `sin_profundidad_da_las_huellas_de_la_3060` y `sin_profundidad_es_el_juez`
+      (la vuelta entera) lo prueban. **Como se sabe:** la fila dice `IGUAL, bit
+      a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows: ahora SIN
+      Windows` en el 0, el 30 y el 60, y `IGUAL, pixel a pixel, al juez` en los
+      demas. Si no: `el primero en (x, y)` con lo que dio la 3060 y lo que dice
+      el juez; un color con UNA unidad de diferencia es la pregunta de la regla
+      4 (el juez con `a_unorm8` exacto dice si era del driver).
+- [ ] **X5b -- el depth buffer.** Para lo que NO es convexo (dos objetos que
+      se tapan): ZETA, su limpieza y el test LESS, y el culling por hardware.
+      **Como se sabe:** dos cubos que se cruzan, contra el juez con z-buffer.
 - [ ] **X6 -- mas huellas.** Las 360 de la vuelta, generadas en Windows por
       `estudio-d3d` y apuntadas en `referencia.rs` (2,9 KiB). **Como se sabe:**
       `gpu cubo N` tiene contra que medirse para cualquier N de 0 a 359.

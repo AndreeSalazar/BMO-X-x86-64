@@ -12,7 +12,12 @@
 //!    gpu cubo        el fotograma 30
 //!    gpu cubo 60     otro (con huella de la 3060: 0, 30 y 60; los demas se
 //!                    dibujan, pero no hay contra que medirlos)
+//!    gpu cubo 3060 [N]   X5: el mismo, dibujado por la 3060 SIN Windows
+//!                        (`gspcubo/la3060.rs`)
 //! ```
+
+/// X5: el cubo por la 3060, sin Windows.
+mod la3060;
 
 use bmo_cubo::referencia as rf;
 use bmo_userland as bmo;
@@ -77,6 +82,11 @@ impl Texto {
 
 /// `gpu cubo [fotograma]`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After {
+    if let Some(r) = resto.trim_ascii().strip_prefix(b"3060") {
+        if r.is_empty() || r[0] == b' ' {
+            return la3060::orden(dsk, p, r);
+        }
+    }
     let f = numero(resto).unwrap_or(30);
     paint_status(p, &dsk.run_box, "el cubo del estudio D3D, dibujado por la CPU", INK_DIM);
     let (w, h) = (rf::ANCHO, rf::ALTO);

@@ -162,7 +162,7 @@ pub(super) fn fila(s: &mut Output, c: &Computo) {
 
 /// **Hasta donde llego el dibujo** (la escalera de semaforos) y como quedo el
 /// motor grafico, si no volvio.
-fn escalera(s: &mut Output) {
+pub(crate) fn escalera(s: &mut Output) {
     let leer = |k: u64| bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIAG_3D, k).ok();
     let Some(e) = leer(0) else { return };
     campo(s, b"escalera");

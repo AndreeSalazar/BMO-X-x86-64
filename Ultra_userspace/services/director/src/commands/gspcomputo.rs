@@ -34,7 +34,7 @@ pub(crate) use pantalla::{dibujar_pantalla, fotograma, medir_pantalla, orden_pan
 /// M6 V0: el video NV12, pasado a color y agrandado por la 3060.
 mod video;
 pub(crate) use video::{dibujar_video, orden_video, video_hecho};
-pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, orden_color3d, orden_raster, raster_hecho};
+pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, escalera, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};
 use super::gspsalud::{controlar, Contestada};
@@ -319,6 +319,15 @@ fn hasta_el_lienzo() -> Result<u64, u32> {
         r = pintar();
     }
     r
+}
+
+/// **X5 (`gpu cubo 3060`)**: todo hasta el lienzo, y la ficha del timbre de
+/// GR0 que los trabajos de la 3060 llevan en su orden.
+pub(crate) fn ficha_del_gr() -> Result<u64, u32> {
+    hasta_el_lienzo().and_then(|_| match estado().timbre {
+        Some((v, _)) => Ok(v as u64),
+        None => Err(NO_TRABAJO_SIN_FICHA),
+    })
 }
 
 /// **B: el blur** de lo que haya en el lienzo (en `save mode`, el degradado).

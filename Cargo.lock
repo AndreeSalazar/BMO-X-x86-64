@@ -371,6 +371,7 @@ dependencies = [
  "bmo-channel",
  "bmo-ciudad",
  "bmo-cola",
+ "bmo-cubo",
  "bmo-dibujo",
  "bmo-disco-juicio",
  "bmo-dma-forma",

@@ -897,6 +897,14 @@ pub const VIDEO_CARGAR: u64 = 1 << 63;
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.
 pub const IOMMU_OP_GPU_PASE: u64 = 0x44;
+/// X5: el cubo del estudio D3D por la 3060, sin Windows, en una ventana de
+/// 1280x720 centrada en la pantalla. DIBUJAR: `arg1` = la ficha de S3 (bits
+/// 0..31) y el fotograma (32..40, menor que 360); `Ok` = `cubo::empaquetar(..)`.
+/// LEER (con [`CUBO_LEER`]): `arg1` = `CUBO_LEER | k`, los pixeles `2k` y
+/// `2k + 1` de la ventana, fila a fila, como `0x00RRGGBB`; `Ok(p0 | p1 << 32)`.
+pub const IOMMU_OP_GPU_CUBO: u64 = 0x45;
+/// El bit 63 de `IOMMU_OP_GPU_CUBO`: LEER en vez de DIBUJAR.
+pub const CUBO_LEER: u64 = 1 << 63;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

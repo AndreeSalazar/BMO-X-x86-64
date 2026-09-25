@@ -409,6 +409,22 @@ pub fn suelta_si_es_de(pid: u32) {
     }
 }
 
+/// **X5: nada del volcado en vuelo** -- la ultima tanda pagada (o su plazo).
+/// Lo pide quien va a escribir en la pantalla por otro camino (el cubo) y a
+/// leerla despues: una copia en vuelo podria caerle encima.
+pub(super) fn quieto() -> Result<(), u32> {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let numero = NUMERO.load(Ordering::Acquire);
+    if !ARMADO.load(Ordering::Acquire) || bar0 == 0 || numero == 0 {
+        return Ok(());
+    }
+    let mut r = Bar0(bar0);
+    if vl::pagada(&mut r, numero) {
+        return Ok(());
+    }
+    esperar(&mut r, numero).map(|_| ())
+}
+
 /// El volcador tiene un lienzo prestado: el pase dice "ocupado".
 pub(super) fn armado() -> bool {
     ARMADO.load(Ordering::Acquire)

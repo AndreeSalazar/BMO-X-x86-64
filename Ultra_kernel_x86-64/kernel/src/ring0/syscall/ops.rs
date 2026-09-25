@@ -432,6 +432,9 @@ pub(crate) const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
 /// P1: EL PASE de la GPU (ABRIR, CERRAR, ESTADO en los bits 63..60 de
 /// `arg1`). Ver `dev/pase_gpu.rs`.
 pub(crate) const IOMMU_OP_GPU_PASE: u64 = 0x44;
+/// X5: el cubo del estudio D3D por la 3060 (DIBUJAR, o LEER con el bit 63).
+/// Ver `dev/gpu_trabajo/cubo.rs`.
+pub(crate) const IOMMU_OP_GPU_CUBO: u64 = 0x45;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -970,6 +973,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_VIDEO_FORMATO => "GPU_VIDEO_FORMATO",
         IOMMU_OP_GPU_VIDEO => "GPU_VIDEO",
         IOMMU_OP_GPU_PASE => "GPU_PASE",
+        IOMMU_OP_GPU_CUBO => "GPU_CUBO",
         _ => "?",
     }
 }

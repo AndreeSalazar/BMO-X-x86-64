@@ -977,6 +977,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
         // la 3060; otra tarjeta seria `.or_else(|| su_motor())`); `pase_gpu`
         // es neutro y no sabe cual es.
         IOMMU_OP_GPU_PASE => crate::ring0::dev::pase_gpu::orden(pid, arg1, crate::ring0::dev::gpu_trabajo::pase_nv::motor()),
+        // ** X5: el cubo por la 3060; sin FLUSH del disco: la lectura de
+        // vuelta son 460.800 llamadas seguidas.
+        IOMMU_OP_GPU_CUBO => crate::ring0::dev::gpu_trabajo::cubo(arg1),
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

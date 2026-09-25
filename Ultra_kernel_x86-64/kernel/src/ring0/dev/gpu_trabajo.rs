@@ -30,6 +30,9 @@ pub mod pase_nv;
 /// M6 V0: un fotograma NV12, convertido y agrandado por la 3060 en la pantalla.
 mod video;
 pub use video::{video, video_formato, IOMMU_NO_VIDEO};
+/// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
+mod cubo;
+pub use cubo::cubo;
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

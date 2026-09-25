@@ -112,6 +112,8 @@ pub mod video;
 pub mod volcado;
 
 pub mod escena;
+/// X5: el cubo del estudio D3D por la 3060, sin Windows (2026-09-25).
+pub mod cubo;
 /// LA 3060 12G, y solo ella: la identidad que el kernel exige (2026-09-25).
 pub mod identidad;
 

@@ -30,6 +30,7 @@ extern crate std;
 pub mod mat;
 pub mod num;
 pub mod referencia;
+pub mod tanda;
 
 use mat::{mul, perspectiva, rotacion_x, rotacion_y, transformar, transformar_dir, vista, Mat4};
 use num::{normalizar, punto, redondear, redondear_par, saturar, DOS_PI, PI, V3};

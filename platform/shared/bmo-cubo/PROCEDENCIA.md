@@ -20,9 +20,13 @@ propietario:
    lineas que cambian son TRES textos de `assert!` (`lib.rs` 240 y 426,
    `num.rs` 120). Ni una cuenta.
 2. **La cabecera de BMO-X** en `lib.rs` (`generacion`, `capa`, `[carril]`,
-   `[cuesta]`) y `pub mod referencia;`.
+   `[cuesta]`), `pub mod referencia;` y `pub mod tanda;`.
 3. **`src/referencia.rs` es PROPIO**: las huellas de las tres capturas de
    D3D12 en la 3060, y la prueba de que el juez las da.
+4. **`src/tanda.rs` es PROPIO** (X5): el cubo de un fotograma como se le da
+   al rasterizador de la 3060 (posiciones de recorte, caras visibles y su
+   color), con las MISMAS cuentas del juez, y la prueba de que sin depth
+   buffer sale la misma imagen. `pub mod tanda;` en `lib.rs`.
 
 ## Por que se puede fiar
 
