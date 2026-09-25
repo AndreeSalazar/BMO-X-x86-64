@@ -53,6 +53,12 @@ struct Estado {
     corridos: u32,
     /// Un paso cambio lo que lee el monitor: el fondo entero otra vez.
     fondo_sucio: bool,
+    /// Lo que brilla el fondo mientras la 3060 duerme: baja en cada pintada.
+    luz: u32,
+    /// La 3060 ya desperto y ya se vio (la animacion va una vez).
+    despierta: bool,
+    /// El gato del final, a todo brillo.
+    final_: bool,
 }
 
 static mut ESTADO: Estado = Estado {
@@ -65,7 +71,16 @@ static mut ESTADO: Estado = Estado {
     n: 0,
     corridos: 0,
     fondo_sucio: false,
+    luz: LUZ,
+    despierta: false,
+    final_: false,
 };
+
+/// La luz del fondo al empezar, y lo que baja en cada pintada.
+const LUZ: u32 = 110;
+const BAJA: u32 = 6;
+/// La animacion de LA 3060 DESPERTO.
+const DESPIERTA_MS: u64 = 1100;
 
 fn estado() -> &'static mut Estado {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde el arranque.
@@ -100,7 +115,32 @@ pub(crate) fn empezar(p: &bmo::Pantalla, total: usize) {
     e.n = 0;
     e.corridos = 0;
     e.fondo_sucio = true;
+    e.luz = LUZ;
+    e.despierta = false;
+    e.final_ = false;
     pintar(p, b"save mode", b"el modo esta ARMADO: se repite cada paso de la 3060, con un save antes de cada uno", b"CPU: leyendo datos/modo.txt", CIAN);
+}
+
+/// **Una etapa del escritorio**, que se prepara DETRAS del panel: la marca
+/// del arranque (`boot::marca`) la dice aqui en vez de abajo a la izquierda,
+/// y el fondo entero se repinta encima de lo que el escritorio dejo en el
+/// lienzo (el escritorio sale entero al final, `repintar_escritorio`).
+pub(crate) fn etapa(p: &bmo::Pantalla, que: &str) {
+    if !estado().activo {
+        return;
+    }
+    estado().fondo_sucio = true;
+    pintar(p, b"escritorio", que.as_bytes(), b"CPU: el escritorio se prepara detras de este panel", CIAN);
+}
+
+/// **Sigue** (lo llama `al_arrancar`): si ya empezo tras el gato, no se
+/// empieza otra vez; si no, ahora.
+pub(crate) fn seguir(p: &bmo::Pantalla, total: usize) {
+    if !estado().activo {
+        empezar(p, total);
+        return;
+    }
+    estado().fondo_sucio = true;
 }
 
 /// Si el arranque orquestado lleva la pantalla (entonces nadie mas pinta).
@@ -148,12 +188,49 @@ pub(crate) fn repintar() {
     estado().fondo_sucio = true;
 }
 
+/// **LA 3060 DESPERTO**: el gato grande que se enciende, ~[`DESPIERTA_MS`]
+/// a ~30 fotogramas por segundo. Una vez por arranque.
+fn despertar(p: &bmo::Pantalla) {
+    let e = estado();
+    sa::fondo(p, 0);
+    let desde = bmo::ciclos();
+    loop {
+        let ms = bmo::ciclos().wrapping_sub(desde) / e.por_ms;
+        let t = (ms.min(DESPIERTA_MS) * 1000 / DESPIERTA_MS) as u32;
+        sa::despertar(p, t);
+        p.vaciar();
+        if ms >= DESPIERTA_MS {
+            break;
+        }
+        esperar_ms(33);
+    }
+    e.fondo_sucio = true;
+}
+
 fn pintar(p: &bmo::Pantalla, nombre: &[u8], que: &[u8], etapa: &[u8], acento: u32) {
     let e = estado();
+    // La 3060 acaba de despertar (el paso `despertar`): se celebra, y desde
+    // aqui el fondo brilla y el gato del panel tambien.
+    if !e.despierta && crate::commands::gsp::despierto() {
+        e.despierta = true;
+        despertar(p);
+    }
+    // Mientras duerme, la pantalla se va apagando: el fondo entero cada vez.
+    if !e.despierta {
+        e.luz = e.luz.saturating_sub(BAJA).max(8);
+        e.fondo_sucio = true;
+    }
     if e.fondo_sucio {
-        sa::fondo(p);
+        sa::fondo(p, if e.despierta { 256 } else { e.luz });
         e.fondo_sucio = false;
     }
+    let gato = if e.final_ {
+        256
+    } else if e.despierta {
+        150 + crate::scene::globo::onda(ms(e), 1400) * 60 / 256
+    } else {
+        0
+    };
     let v = Vista {
         estados: &e.estados[..e.total],
         nombre,
@@ -162,6 +239,7 @@ fn pintar(p: &bmo::Pantalla, nombre: &[u8], que: &[u8], etapa: &[u8], acento: u3
         ms: ms(e),
         etapa,
         acento,
+        gato,
     };
     sa::panel(p, &v);
     p.vaciar();
@@ -202,6 +280,7 @@ fn tomar(p: &bmo::Pantalla) {
         MAGENTA,
     );
     esperar_ms(ANTES_MS);
+    estado().final_ = true;
     let desde = bmo::ciclos();
     let hasta = desde + TOMA_MS * estado().por_ms;
     let (mut buenos, mut motivo) = (0u32, None);

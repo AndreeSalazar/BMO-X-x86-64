@@ -93,6 +93,10 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // klog. Tenia razon en sospechar.
     scene::splash::paint(&p, input.as_ref(), has_console);
     bmo::consola("entrada a Ring 3 pintada\n");
+    // ** EL ARRANQUE ORQUESTADO, JUSTO TRAS EL GATO (25-09): con `save mode`
+    // armado, del gato se pasa DIRECTO al panel, y el escritorio se prepara
+    // detras (`marca` lo dice en el panel). Sin armar, como siempre.
+    crate::commands::verificar::antes_del_escritorio(&p);
 
     // -- El escritorio --
     //
@@ -202,6 +206,15 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
 /// nombre abajo a la izquierda y VACIA: la foto de un cuelgue dice ahora en
 /// que paso fue. Tambien va al klog.
 fn marca(p: &bmo::Pantalla, etapa: &str) {
+    // Con el arranque orquestado delante, la etapa va en su panel: pintarla
+    // aqui y vaciar sacaria el escritorio a trozos por encima.
+    if crate::desktop::arranque::activo() {
+        crate::desktop::arranque::etapa(p, etapa);
+        bmo::consola("arranque: ");
+        bmo::consola(etapa);
+        bmo::consola("\n");
+        return;
+    }
     const ALTO: u32 = 20;
     let y = p.alto.saturating_sub(ALTO + 8);
     p.rect(8, y, 560, ALTO, 0x000A_0E17);

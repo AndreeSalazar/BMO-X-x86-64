@@ -238,6 +238,9 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
 /// tumbo la maquina, si lo hubo. Lo llama el arranque del escritorio.
 pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let Some(m) = leer_modo() else {
+        // Si el panel ya salio tras el gato y ahora no se lee el modo, se
+        // devuelve el escritorio (sin 3060: no corrio nada).
+        crate::desktop::arranque::acabar(dsk, p);
         consejero(&mut dsk.out.grid);
         return;
     };
@@ -257,6 +260,7 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         escribir_modo(&args[..n], None, tumbo);
     }
     let Ok(quitados) = quitados_de(&args[..n]) else {
+        crate::desktop::arranque::acabar(dsk, p);
         consejero(&mut dsk.out.grid);
         return;
     };
@@ -276,8 +280,17 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     // ** EL ARRANQUE ORQUESTADO (25-09): mientras se repite, la pantalla es
     // el panel del arranque, no el escritorio; al final, la 3060 toma el
     // control (`desktop::arranque`).
-    crate::desktop::arranque::empezar(p, PASOS.len());
+    crate::desktop::arranque::seguir(p, PASOS.len());
     correr(dsk, p, &quitados, &copia[..n], tumbo);
+}
+
+/// **Justo tras el gato de la intro**: si `save mode` esta armado, el panel
+/// del arranque orquestado sale YA, y el escritorio se prepara detras (sin
+/// verse a trozos entre el gato y el panel). Lo llama `desktop::boot`.
+pub(crate) fn antes_del_escritorio(p: &bmo::Pantalla) {
+    if leer_modo().is_some() {
+        crate::desktop::arranque::empezar(p, PASOS.len());
+    }
 }
 
 /// **Los pasos, en orden**, con un save antes de cada uno y la marca `en

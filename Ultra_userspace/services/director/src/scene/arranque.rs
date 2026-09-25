@@ -23,6 +23,7 @@
 
 use bmo_userland as bmo;
 
+use super::gato;
 use super::globo::{mezcla, onda};
 
 /// Como acabo (o va) cada paso, en la barra y en la bitacora.
@@ -43,6 +44,8 @@ const ROJO: u32 = 0x00FF_3B5C;
 const AMBAR: u32 = 0x00FF_C23D;
 const FONDO: u32 = 0x0004_060B;
 const REJILLA: u32 = 0x000A_1820;
+/// La rejilla cuando la 3060 esta despierta: la pantalla BRILLA.
+const REJILLA_VIVA: u32 = 0x0010_3A4C;
 const PANEL: u32 = 0x0007_0B12;
 const RAYA: u32 = 0x0005_080E;
 const APAGADO: u32 = 0x0012_1C26;
@@ -71,6 +74,8 @@ pub(crate) struct Vista<'a> {
     /// La linea de abajo: quien lleva la maquina.
     pub(crate) etapa: &'a [u8],
     pub(crate) acento: u32,
+    /// Cuanto brilla el gato, sobre 256: 0 duerme (la 3060 no desperto).
+    pub(crate) gato: u32,
 }
 
 fn azar(s: u64) -> u64 {
@@ -89,18 +94,113 @@ fn esquinas(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), largo: u32, c
     }
 }
 
-/// **El fondo**: negro azulado, una rejilla tenue y los angulos. A pantalla
-/// completa: solo al empezar, o si un paso cambio lo que lee el monitor.
-pub(crate) fn fondo(p: &bmo::Pantalla) {
+/// **El fondo**: negro azulado, una rejilla y los angulos, a pantalla
+/// completa. `luz` sobre 256: mientras la 3060 duerme se va APAGANDO paso a
+/// paso (de 110 hacia el negro); cuando despierta, 256: la rejilla en neon.
+pub(crate) fn fondo(p: &bmo::Pantalla, luz: u32) {
     p.rect(0, 0, p.ancho, p.alto, FONDO);
+    let rejilla = if luz >= 256 { REJILLA_VIVA } else { mezcla(FONDO, REJILLA, luz * 2) };
     for x in (0..p.ancho).step_by(48) {
-        p.rect(x, 0, 1, p.alto, REJILLA);
+        p.rect(x, 0, 1, p.alto, rejilla);
     }
     for y in (0..p.alto).step_by(48) {
-        p.rect(0, y, p.ancho, 1, REJILLA);
+        p.rect(0, y, p.ancho, 1, rejilla);
     }
-    esquinas(p, (12, 12, p.ancho.saturating_sub(24), p.alto.saturating_sub(24)), 48, TENUE);
-    p.texto(28, 24, "BMO-X // RING 3 // EL DIRECTOR ORQUESTA EL ARRANQUE", TENUE);
+    let angulos = if luz >= 256 { CIAN } else { mezcla(FONDO, TENUE, luz * 2) };
+    esquinas(p, (12, 12, p.ancho.saturating_sub(24), p.alto.saturating_sub(24)), 48, angulos);
+    p.texto(28, 24, "BMO-X // RING 3 // EL DIRECTOR ORQUESTA EL ARRANQUE", angulos);
+}
+
+/// **El gato de la intro** (`scene::gato`), en `(x, y)`: a `escala` enteros,
+/// o a la MITAD si `escala` es 0 (un pixel si alguno de los cuatro lo es: asi
+/// no se pierde un trazo de un pixel). `luz` sobre 256: 0 duerme en gris; con
+/// luz, el trazo en neon y un HALO alrededor que crece con ella, mezclado con
+/// `fondo`. Los ojos, en `ojos`.
+pub(crate) fn pintar_gato(p: &bmo::Pantalla, x: u32, y: u32, escala: u32, luz: u32, ojos: u32, fondo: u32) {
+    let bit = |m: &[u8], fx: u32, fy: u32| {
+        let i = (fy * gato::WIDTH + fx) as usize;
+        m[i / 8] >> (i % 8) & 1 == 1
+    };
+    let (paso, lado) = if escala == 0 { (2, 1) } else { (1, escala) };
+    // Cada pixel del gato: (px, py, es ojo).
+    let cada = |f: &mut dyn FnMut(u32, u32, bool)| {
+        for fy in (0..gato::HEIGHT).step_by(paso as usize) {
+            for fx in (0..gato::WIDTH).step_by(paso as usize) {
+                let mut trazo = false;
+                let mut ojo = false;
+                for (dx, dy) in [(0, 0), (1, 0), (0, 1), (1, 1)].into_iter().take(if paso == 2 { 4 } else { 1 }) {
+                    if fx + dx < gato::WIDTH && fy + dy < gato::HEIGHT {
+                        ojo |= bit(&gato::EYES, fx + dx, fy + dy);
+                        trazo |= bit(&gato::STROKE, fx + dx, fy + dy);
+                    }
+                }
+                if ojo || trazo {
+                    f(x + fx / paso * lado, y + fy / paso * lado, ojo);
+                }
+            }
+        }
+    };
+    let neon = mezcla(CIAN, MAGENTA, 70);
+    if luz == 0 {
+        cada(&mut |px, py, ojo| p.rect(px, py, lado, lado, if ojo { 0x0023_4A5A } else { 0x0030_3A48 }));
+        return;
+    }
+    // El halo: de fuera adentro, cada capa mas cerca y mas viva.
+    for (r, a) in [(3 * lado + 2, 48u32), (2 * lado + 1, 110), (lado, 190)] {
+        let c = mezcla(fondo, neon, a * luz / 256);
+        cada(&mut |px, py, _| p.rect(px.saturating_sub(r), py.saturating_sub(r), lado + 2 * r, lado + 2 * r, c));
+    }
+    // El trazo: neon, y blanco del todo en el golpe (luz 256).
+    let trazo = if luz >= 256 { BLANCO } else { mezcla(neon, BLANCO, luz / 2) };
+    cada(&mut |px, py, ojo| p.rect(px, py, lado, lado, if ojo { ojos } else { trazo }));
+}
+
+/// **LA 3060 DESPERTO**: un fotograma de la animacion (`t` de 0 a 1000) --
+/// el gato grande en el centro, que se enciende de golpe en blanco y se queda
+/// en neon, una raya que barre de arriba abajo y el titulo que se escribe
+/// solo. Pinta solo su caja: el fondo negro lo pone quien la llama.
+pub(crate) fn despertar(p: &bmo::Pantalla, t: u32) {
+    const ESCALA: u32 = 2;
+    let (gw, gh) = (gato::WIDTH * ESCALA, gato::HEIGHT * ESCALA);
+    let w = gw + 400;
+    let h = gh + 150;
+    let x0 = p.ancho.saturating_sub(w) / 2;
+    let y0 = p.alto.saturating_sub(h) / 2;
+    p.rect(x0, y0, w, h, FONDO);
+    // El golpe: sube a todo en 120 ms (blanco), y se asienta en el neon.
+    let luz = if t < 120 { 256 } else { 256 - (t - 120).min(500) * 90 / 500 };
+    let ojos = if t < 250 { BLANCO } else { mezcla(AMBAR, CIAN, ((t - 250).min(400) * 256 / 400) as u32) };
+    let gx = x0 + (w - gw) / 2;
+    let gy = y0 + 10;
+    pintar_gato(p, gx, gy, ESCALA, luz, ojos, FONDO);
+    // La onda del golpe: un marco que sale del gato y se apaga al llegar al
+    // borde de la caja (que se limpia en cada fotograma: no deja rastro).
+    if t < 600 {
+        let (cx, cy) = (gx + gw / 2, gy + gh / 2);
+        let (rw, rh) = (w / 2 * t / 600, h / 2 * t / 600);
+        let c = mezcla(FONDO, if t < 300 { BLANCO } else { MAGENTA }, 256 - t * 256 / 600);
+        let (ax, ay) = (cx.saturating_sub(rw).max(x0), cy.saturating_sub(rh).max(y0));
+        let (bw, bh) = ((cx + rw).min(x0 + w - 2) - ax, (cy + rh).min(y0 + h - 2) - ay);
+        p.rect(ax, ay, bw, 2, c);
+        p.rect(ax, ay + bh, bw + 2, 2, c);
+        p.rect(ax, ay, 2, bh, c);
+        p.rect(ax + bw, ay, 2, bh, c);
+    }
+    // La raya que barre al gato, como un escaner.
+    let ry = gy + (gh * (t % 500) / 500);
+    p.rect(x0 + 60, ry, w - 120, 2, mezcla(FONDO, CIAN, 200));
+    // El titulo, letra a letra, con su sombra magenta.
+    const TITULO: &str = "LA 3060 DESPERTO";
+    let n = (TITULO.len() as u32 * t.min(600) / 600) as usize;
+    let tw = bmo::Pantalla::ancho_escala(TITULO, 3);
+    let tx = x0 + w.saturating_sub(tw) / 2;
+    let ty = gy + gh + 30;
+    p.texto_escala(tx + 3, ty + 2, &TITULO[..n], MAGENTA, 3);
+    p.texto_escala(tx, ty, &TITULO[..n], if t < 200 { BLANCO } else { CIAN }, 3);
+    if t > 500 {
+        let s = "el GSP responde: desde aqui la 3060 trabaja";
+        p.texto(x0 + w.saturating_sub(bmo::Pantalla::ancho_escala(s, 1)) / 2, ty + 60, s, CLARO);
+    }
 }
 
 /// Donde va el panel: centrado, hasta 1040x620.
@@ -252,8 +352,13 @@ pub(crate) fn panel(p: &bmo::Pantalla, v: &Vista) {
     let mut b = [0u8; 24];
 
     // La cabecera: el logo, que es esto y por donde va.
-    logo(p, x + 32, y + 28, v.ms / 70 ^ v.estados.len() as u64);
-    let tx = x + 32 + bmo::Pantalla::ancho_escala("BMO-X", 6) + 36;
+    // El gato de la intro, a la mitad: duerme en gris hasta que la 3060
+    // despierta, y entonces brilla. El que dice "funciona".
+    let ojos = if v.gato == 0 { 0 } else { v.acento };
+    pintar_gato(p, x + 28, y + 26, 0, v.gato, ojos, PANEL);
+    let lx = x + 28 + gato::WIDTH / 2 + 20;
+    logo(p, lx, y + 28, v.ms / 70 ^ v.estados.len() as u64);
+    let tx = lx + bmo::Pantalla::ancho_escala("BMO-X", 6) + 28;
     p.texto_escala(tx, y + 34, "ARRANQUE ORQUESTADO", v.acento, 2);
     p.texto(tx, y + 72, "la CPU prepara la RAM y despierta la 3060;", CLARO);
     p.texto(tx, y + 92, "en cuanto la 3060 puede, toma la pantalla", CLARO);
