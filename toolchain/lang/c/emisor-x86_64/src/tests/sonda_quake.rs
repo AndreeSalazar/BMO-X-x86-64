@@ -72,6 +72,18 @@ typedef float vec3_t[3];
 int main() { vec3_t v = {1.0f, -2.0f, 0.5f}; int i;
   for (i = 0; i < 3; i++) { v[i] = -v[i]; v[i] *= 2; v[i] -= 0.5f; }
   printf("%d %d %d\n", (int)(v[0]*10), (int)(v[1]*10), (int)(v[2]*10)); return 0; }"#, "-25 35 -15"),
+    ("math.h: sqrt, floor, ceil, trunc", r#"
+#include <math.h>
+int main() { printf("%d %d %d %d %d %d\n", (int)(sqrt(2.25) * 100), (int)floor(-1.5), (int)ceil(-1.5),
+  (int)floor(2.0), (int)ceil(2.25), (int)trunc(-2.75)); return 0; }"#, "150 -2 -1 2 3 -2"),
+    ("math.h: la longitud de un vector (VectorLength)", r#"
+#include <math.h>
+typedef float vec3_t[3];
+float Length(vec3_t v) { return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]); }
+int main() { vec3_t v = {3, 4, 12}; printf("%d\n", (int)Length(v)); return 0; }"#, "13"),
+    ("math.h: el signo del cero de trunc", r#"
+#include <math.h>
+int main() { double z = trunc(-0.5); printf("%d\n", 1.0 / z < 0); return 0; }"#, "1"),
 ];
 
 /// Corre un caso sin dejar que un fallo tumbe a los demas: en su propio

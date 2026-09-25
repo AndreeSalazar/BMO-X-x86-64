@@ -10,6 +10,7 @@
  *
  * No estan, y se dice. Un `sin` que devolviera el argumento seria peor que un
  * error de compilacion: el programa correria y pintaria el mundo torcido.
+ * (`sqrt`, `trunc`, `floor` y `ceil` SI estan: ver abajo, lo exacto.)
  *
  * [!] `sqrtsd` es UNA instruccion de SSE2 y entraria por `intrinsics.toml` sin
  * escribir una serie -- ese es el camino cuando haga falta, y es una fila de
@@ -35,6 +36,65 @@ float fabsf(float v) {
         return -v;
     }
     return v;
+}
+
+/* == Lo EXACTO (25-09, para Quake) ========================================
+ *
+ * Estas redondean UNA vez, o ninguna: su resultado es el correcto bit a bit,
+ * no una aproximacion. Por eso pueden estar ya; las series (`sin`, `cos`,
+ * `atan`, `pow`) esperan a la tabla de `math::table`, la misma que usa el
+ * emisor de SPIR-V, para que no haya dos definiciones de un seno. */
+
+#include <semantic/semantic.h>
+
+/* Raiz cuadrada: `sqrtsd`, UNA instruccion de SSE2, correctamente redondeada
+ * por el propio procesador (IEEE 754). */
+double sqrt(double v) {
+    return __sqrtsd(v);
+}
+
+float sqrtf(float v) {
+    return (float)__sqrtsd(v);
+}
+
+/* Hacia cero. A partir de 2^52 un double ya es entero (y el infinito y el
+ * NaN se devuelven tal cual); por debajo, cabe en un `long long`. El cero
+ * conserva su signo: trunc(-0.5) es -0.0, no +0.0. */
+double trunc(double v) {
+    double t;
+    if (v != v || v >= 4503599627370496.0 || v <= -4503599627370496.0) {
+        return v;
+    }
+    t = (double)(long long)v;
+    if (t == 0.0 && v < 0.0) {
+        return -0.0;
+    }
+    return t;
+}
+
+/* Hacia menos infinito y hacia mas infinito, desde `trunc`. */
+double floor(double v) {
+    double t = trunc(v);
+    if (v < t) {
+        t = t - 1.0;
+    }
+    return t;
+}
+
+double ceil(double v) {
+    double t = trunc(v);
+    if (v > t) {
+        t = t + 1.0;
+    }
+    return t;
+}
+
+float floorf(float v) {
+    return (float)floor(v);
+}
+
+float ceilf(float v) {
+    return (float)ceil(v);
 }
 
 #endif /* BMO_MATH_H */
