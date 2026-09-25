@@ -29,11 +29,19 @@ import struct
 import sys
 
 FAMILIAS = [
-    ("graficos", ("d3d", "dxgi", "opengl", "vulkan", "libgl", "libegl", "ddraw", "sdl")),
-    ("sonido", ("dsound", "xaudio", "winmm", "openal", "libasound", "libpulse", "fmod")),
+    # Los reescaladores (DLSS por Streamline, FSR, XeSS) y AGS van con los
+    # graficos: hablan con el driver de la tarjeta.
+    ("graficos", ("d3d", "dxgi", "opengl", "vulkan", "libgl", "libegl", "ddraw", "sdl", "sl.interposer", "ffx_", "xess", "xell", "amd_ags", "nvapi")),
+    ("video", ("bink", "mfplat", "avcodec")),
+    ("fisica", ("physx", "pxfoundation", "pxpvd")),
+    ("sonido", ("dsound", "xaudio", "winmm", "openal", "libasound", "libpulse", "fmod", "wwise")),
     ("entrada", ("xinput", "dinput", "hid", "libudev")),
     ("red", ("ws2_32", "wininet", "winhttp", "libcurl", "libssl", "steam_api", "galaxy")),
 ]
+
+# Las que abren MAS bibliotecas en marcha: lo que cargan asi NO esta en la
+# tabla (Cyberpunk 2077 es DirectX 12 y `d3d12.dll` no sale en la suya).
+EN_MARCHA = ("LoadLibraryA", "LoadLibraryW", "LoadLibraryExA", "LoadLibraryExW", "GetProcAddress", "dlopen", "dlsym")
 
 
 def familia(biblio):
@@ -160,7 +168,7 @@ def elf(d):
 
 # ---------------------------------------------------------------- informe ---
 
-def informe(ruta, d):
+def informe(ruta, d, del_juego=frozenset()):
     for tipo, leer in (("PE (Windows)", pe), ("ELF (Linux)", elf)):
         r = leer(d)
         if r:
@@ -173,15 +181,25 @@ def informe(ruta, d):
     print("%s: %s, %s" % (ruta, tipo, maquina))
     print("  pide %d funcion(es) de %d biblioteca(s) de fuera" % (total, len([k for k in imps if not k.startswith("(")])))
     cuenta = {}
+    trae, trae_f = 0, 0
     for biblio, funcs in sorted(imps.items()):
-        print("    %-28s %5d" % (biblio, len(funcs)))
+        propia = biblio.split(" ")[0].lower() in del_juego
+        print("    %-34s %5d%s" % (biblio, len(funcs), "   (la TRAE el juego)" if propia else ""))
         f = familia(biblio)
         cuenta[f] = cuenta.get(f, 0) + len(funcs)
+        trae += propia
+        trae_f += len(funcs) if propia else 0
     print("  por familia: " + ", ".join("%s %d" % kv for kv in sorted(cuenta.items())))
     # Los de GRAFICOS, con nombre: dicen QUE API usa (DirectX 9, 11, 12...).
     graf = sorted({f for b, fs in imps.items() if familia(b) == "graficos" for f in fs})
     if graf:
         print("  graficos, por nombre: " + ", ".join(graf[:12]) + (" ..." if len(graf) > 12 else ""))
+    if del_juego:
+        print("  %d biblioteca(s) las TRAE el juego (%d funciones: codigo cerrado de terceros que tambien pide lo suyo);" % (trae, trae_f))
+        print("  el resto las pone el sistema (Windows)")
+    carga = sorted({f for fs in imps.values() for f in fs if f in EN_MARCHA})
+    if carga:
+        print("  [!] usa " + ", ".join(carga) + ": abre MAS bibliotecas en marcha, y esas NO salen en la tabla")
     print("  para comparar: devorar un ELF ESTATICO de nivel 1 son ~15 llamadas")
     return 0
 
@@ -229,6 +247,8 @@ def prueba():
     assert imps == {"kernel32.dll": ["ExitProcess", "CreateFileA", "#7"], "d3d12.dll (retrasada)": ["D3D12CreateDevice"]}, imps
     assert familia("d3d11.dll") == "graficos" and familia("XINPUT1_4.dll") == "entrada"
     assert familia("libSDL2-2.0.so.0") == "graficos" and familia("kernel32.dll") == "sistema"
+    assert familia("PhysX3_x64.dll") == "fisica" and familia("bink2w64.dll") == "video"
+    assert familia("sl.interposer.dll") == "graficos" and familia("libxess.dll") == "graficos"
     assert pe(b"MZ" + b"\0" * 62) is None and elf(b"nada") is None
     # Un ELF de verdad del anfitrion, si lo hay: tiene que pedir su libc.
     for ruta in ("/bin/ls", "/usr/bin/env"):
@@ -258,7 +278,14 @@ def exes_de(carpeta):
     return [r for _, r in sorted(todos, reverse=True)]
 
 
-def uno(ruta):
+def bibliotecas_de(carpeta):
+    """Los nombres (en minusculas) de las .dll y .so que vienen EN la carpeta
+    del juego: las que no pone el sistema."""
+    import os
+    return frozenset(f.lower() for _, _, fs in os.walk(carpeta) for f in fs if f.lower().endswith((".dll", ".so")) or ".so." in f.lower())
+
+
+def uno(ruta, del_juego=frozenset()):
     import os
     if not os.path.exists(ruta):
         print("%s: no existe. Pon la ruta de TU juego entre comillas; o la CARPETA del juego, y se buscan sus .exe" % ruta)
@@ -269,9 +296,10 @@ def uno(ruta):
             print("%s: carpeta sin ningun .exe" % ruta)
             return 1
         print("%s: %d .exe; primero el mas grande" % (ruta, len(exes)))
-        return max(uno(r) for r in exes[:4])
+        del_juego = bibliotecas_de(ruta)
+        return max(uno(r, del_juego) for r in exes[:4])
     try:
-        return informe(ruta, open(ruta, "rb").read())
+        return informe(ruta, open(ruta, "rb").read(), del_juego)
     except (ValueError, struct.error, IndexError) as e:
         print("%s: no se pudo leer entero (%s)" % (ruta, e))
         return 1

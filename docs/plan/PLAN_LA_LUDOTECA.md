@@ -220,6 +220,36 @@ ESTATICO son ~15 llamadas. Esa distancia es la que hay que verificar.
       vale: busca sus `.exe`, del mas grande al mas chico, y cuenta tambien
       las importaciones RETRASADAS, donde los juegos grandes ponen media API).
 
+**La primera medida: Cyberpunk 2077 de GOG (25-09, en el Windows del
+propietario).** El caso mas dificil que existe, a proposito:
+
+```text
+   ejecutable                  funciones  bibliotecas  lo que dice
+   bin\x64\Cyberpunk2077.exe    663         36       sistema 589, red 58,
+                                                       entrada 12, sonido 4
+   tools\redmod\bin\redMod.exe  440         19       D3D11 para las herramientas
+   tools\redmod\bin\scc.exe     243         16
+   REDprelauncher.exe           837         26       Qt5 + Poco: el lanzador
+```
+
+Lo que dicen, leido:
+
+- **663 es la PRIMERA capa.** Detras vienen PhysX (fisica), Bink (video),
+  Oodle (compresion), ICU (texto), libcurl (red), REDGalaxy (la tienda) y los
+  tres reescaladores de las tres marcas: `sl.interposer` (DLSS, NVIDIA),
+  `ffx_fsr3` (AMD) y `libxess` (Intel). Son DLL CERRADAS de terceros que el
+  juego TRAE y que piden, a su vez, lo suyo a Windows.
+- **Y `d3d12.dll` NO sale en la tabla**, siendo un juego de DirectX 12: la
+  abre en marcha (`LoadLibrary` + `GetProcAddress`), y `sl.interposer` se
+  mete DELANTE de ella. La tabla dice lo que el programa pide AL ARRANCAR, no
+  todo lo que llega a usar. Desde el 25-09 `rayosx` lo avisa (`[!] usa
+  LoadLibrary...`) y separa las DLL que TRAE el juego de las del sistema.
+- **La conclusion, medida:** entre el camino A (un motor abierto y un WAD:
+  0 funciones de Windows) y Cyberpunk hay cientos de funciones en la primera
+  capa, decenas de DLL cerradas debajo, y una API grafica cargada en marcha.
+  El camino A no es el facil: es el HONESTO -- solo promete lo que se puede
+  verificar entero.
+
 **Y el NTFS no hace falta (25-09).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
 basta con COPIAR, desde Windows, el fichero de datos (`doom2.wad`, `pak0.pak`)
