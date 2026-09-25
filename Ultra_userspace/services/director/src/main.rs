@@ -1014,7 +1014,7 @@ pub extern "C" fn _start() -> ! {
                 dsk.save_under.lift(&p);
                 // Y la capa del recorte, DESPUES del cursor: el orden inverso al
                 // de ponerlos (ver `desktop::captura`).
-                desktop::captura::capa_quitar(&p);
+                desktop::globo::quitar_capas(&p);
             }
 
             desktop::keys::edges(&mut dsk, &p, &g);

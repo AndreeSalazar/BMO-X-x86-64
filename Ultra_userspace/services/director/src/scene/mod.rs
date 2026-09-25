@@ -112,6 +112,9 @@ pub(crate) mod lateral_gsp;
 /// **La linea de sugerencias** bajo el campo de Ejecutar: que ordenes empiezan
 /// por lo tecleado, y la pista del consejero al invocar la caja (2026-09-24).
 pub(crate) mod sugerir;
+/// **El globo del puntero**: un consejo o un dato que sigue al raton unos
+/// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
+pub(crate) mod globo;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".

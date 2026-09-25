@@ -59,6 +59,8 @@ pub(crate) mod captura;
 /// **EL MOSAICO** (Ctrl+T, HUD 4): las ventanas se reparten el area util,
 /// maestro y pila, sin taparse.
 pub(crate) mod mosaico;
+/// **EL GLOBO DEL PUNTERO**: cuando nace, que dice y cuanto vive (2026-09-25).
+pub(crate) mod globo;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la

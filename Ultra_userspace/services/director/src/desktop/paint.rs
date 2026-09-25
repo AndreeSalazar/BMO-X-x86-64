@@ -235,6 +235,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
                             // hace nada--, asi que llamarlo aqui no cuesta
                             // nada en los fotogramas que ya lo apartaron.
                             dsk.save_under.lift(&p);
+                            crate::scene::globo::quitar(&p);
                             paint_calc(&p, &dsk.calc_pad, &dsk.calc, dsk.tick.calc_hover);
                         }
                     } else if dsk.resp_n < dsk.resp.len() && b >= 0x20 {
@@ -262,6 +263,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             dsk.calc.clear();
             paint_status(&p, &dsk.run_box, "el motor se fue sin contestar", INK_BAD);
             dsk.save_under.lift(&p);
+            crate::scene::globo::quitar(&p);
             paint_calc(&p, &dsk.calc_pad, &dsk.calc, dsk.tick.calc_hover);
         }
     }
@@ -540,7 +542,9 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
 
     // -- La capa del RECORTE (Ctrl+Shift+S), justo ANTES del cursor: el cursor
     // guarda lo que tapa, y lo que tapa tiene que incluir la capa. --
+    // Y el globo del puntero, DEBAJO de las dos: se quita el ultimo.
     if dsk.tick.will_paint {
+        crate::desktop::globo::poner(dsk, &p, fs);
         crate::desktop::captura::capa_poner(&p);
     }
 
