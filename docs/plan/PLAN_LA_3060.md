@@ -781,6 +781,9 @@ fotogramas, los fps y los us de la 3060 por fotograma.
       ya funciona (L1d, 1024 de 1024): prestar el lienzo por la IOMMU y que
       el copiador lo suba al framebuffer. La CPU deja de mover pixeles del
       escritorio entero
+      [VISTO EN EL METAL 25-09 04:46: `volcado: 1024 de 1024 muestras;
+      semaforo PAGADO; la 3060 en 649 us` y `cada foto: 19866 tandas
+      enviadas`, con DOOM (70 fps) y el cubo a la vez, sin un fallo]
       [paso 1 EN CODIGO 25-09: `gpu volcado` y el paso `volcado` de save
       mode. El lienzo del escritorio (KIND_MEMORIA contiguo) se presta SOLO
       LECTURA en la IOVA 0x5000_0000 lo que dura UNA copia (`fisica_de` dice
