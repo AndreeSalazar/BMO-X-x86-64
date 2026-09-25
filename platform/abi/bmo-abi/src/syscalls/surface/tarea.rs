@@ -1028,6 +1028,9 @@ pub const IOMMU_NO_APAGAR: u32 = 80;
 /// M5d P: BAR1 no esta en modo fisico (sin `gpu init`), el framebuffer del
 /// GOP no cae dentro de BAR1 y por debajo de 64 MiB de VRAM, o no se mapeo.
 pub const IOMMU_NO_PANTALLA: u32 = 81;
+/// L0c5: el GSP ya se apago en orden en este arranque; la 3060 no trabaja
+/// hasta el siguiente. Toda orden de trabajo pedida despues lo dice al instante.
+pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

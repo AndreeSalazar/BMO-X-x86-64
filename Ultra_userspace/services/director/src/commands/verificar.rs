@@ -56,6 +56,8 @@ enum Salio {
     Parado,
     YaEstaba,
     FaltaOtro,
+    /// L0c5: el GSP ya se apago en orden en este arranque; la 3060 no trabaja.
+    GspApagado,
     Bien,
     No(u32),
 }
@@ -302,13 +304,28 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
     let mut intentos = [0u8; MAX_PASOS];
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let mut parado = false;
+    // ** L0c5 (metal 24-09 20:36): tras `apagado` la 3060 no trabaja hasta el
+    // siguiente arranque. Un `save mode` otra vez en el MISMO arranque volvia
+    // a dar `fwsec` (su WPR2 ya estaba abajo, que es justo lo que se busca)
+    // y salia en rojo. Lo que no esta hecho no se intenta: se dice por que.
+    let apagado = super::gspapagar::hecho();
+    if apagado {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_ECHO);
+        g.text(b"  el GSP ya se APAGO EN ORDEN en este arranque: los pasos de la 3060 que falten se dan en el siguiente\n");
+        g.with_ink(INK_PLAIN);
+    }
     for (i, paso) in PASOS.iter().enumerate() {
         salio[i] = if parado {
             Salio::Parado
         } else if quitados[i] {
             Salio::Quitado
+        } else if apagado && paso.nombre == b"apagado" {
+            Salio::YaEstaba
         } else if (paso.hecho)() {
             Salio::YaEstaba
+        } else if apagado {
+            Salio::GspApagado
         } else if paso.pide.map_or(false, |otro| !PASOS.iter().any(|p| p.nombre == otro && (p.hecho)())) {
             Salio::FaltaOtro
         } else {
@@ -394,6 +411,10 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio, us: u64, intentos: u8) {
             g.with_ink(INK_ERR);
             g.text(b"PARADO: el save de antes no se pudo escribir");
         }
+        Salio::GspApagado => {
+            g.with_ink(INK_ECHO);
+            g.text(b"NO SE INTENTA: el GSP ya se apago en orden en este arranque");
+        }
         Salio::FaltaOtro => {
             g.with_ink(INK_ERR);
             g.text(b"NO SE INTENTA: pide `");
@@ -424,7 +445,7 @@ fn fila(dsk: &mut Desktop, paso: &Paso, s: Salio, us: u64, intentos: u8) {
         }
     }
     match s {
-        Salio::Quitado | Salio::YaEstaba | Salio::Parado | Salio::FaltaOtro | Salio::Bien => {}
+        Salio::Quitado | Salio::YaEstaba | Salio::Parado | Salio::FaltaOtro | Salio::GspApagado | Salio::Bien => {}
         Salio::No(m) => {
             g.with_ink(INK_ERR);
             g.text(b": ");
@@ -461,6 +482,12 @@ fn resumen(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], tumbo: Option<usize>, 
         g.text(b", ");
         g.dec(quitados);
         g.text(b" quitados");
+    }
+    let tras_apagar = cuenta(|s| matches!(s, Salio::GspApagado));
+    if tras_apagar > 0 {
+        g.text(b", ");
+        g.dec(tras_apagar);
+        g.text(b" para el siguiente arranque (el GSP ya se apago)");
     }
     g.with_ink(INK_PLAIN);
     g.byte(b'\n');
@@ -505,6 +532,7 @@ fn escribir_pasos(salio: &[Salio; MAX_PASOS], tiempo: &[u64; MAX_PASOS], intento
             Salio::Parado => b"PARADO",
             Salio::YaEstaba => b"ya estaba",
             Salio::FaltaOtro => b"no se intento",
+            Salio::GspApagado => b"no se intento: el GSP ya se apago en este arranque",
             Salio::Bien => b"HECHO",
             Salio::No(_) => b"NO",
         };
@@ -626,6 +654,8 @@ fn notas(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], armado: bool) {
         let texto: &[u8] = match salio[i] {
             Salio::Bien | Salio::YaEstaba if Some(i) == ultimo_bien => paso.consejo,
             Salio::Bien | Salio::YaEstaba | Salio::Quitado => continue,
+            Salio::GspApagado if i > 0 && matches!(salio[i - 1], Salio::GspApagado) => continue,
+            Salio::GspApagado => b"no se dio: el GSP ya se apago en orden en este arranque; arranca otra vez (sin cortar la corriente) y `save mode` lo da",
             Salio::Parado => b"no se dio: sin save de antes no se arriesga nada; mira `disco`",
             // Solo el primero de una cadena que no se dio: el resto es eco.
             Salio::FaltaOtro if i > 0 && matches!(salio[i - 1], Salio::FaltaOtro | Salio::No(_)) => continue,

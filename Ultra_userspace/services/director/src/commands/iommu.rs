@@ -174,6 +174,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_BLUR_PREPARAR => b"la salida del blur no se presto por la IOMMU, sus PTE no estaban vacias, o el tramo no se releyo: no se toco el timbre",
         bmo::IOMMU_NO_APAGAR => b"el GSP no esta en el paso de antes del apagado (sin despertar, sin despedir, sin FWSEC-SB) o ese paso ya se dio; tras la despedida, ni una RPC mas",
         bmo::IOMMU_NO_PANTALLA => b"la 3060 no puede pintar la pantalla: BAR1 no esta en modo fisico (primero `gpu init`), o el framebuffer del GOP no cae donde se puede mapear",
+        bmo::IOMMU_NO_GSP_APAGADO => b"el GSP ya se APAGO EN ORDEN en este arranque (`gpu apagar` o el ultimo paso de `save mode`): la 3060 no trabaja hasta que arranques otra vez",
         super::gspapagar::NO_APAGAR_NO_SUSPENDE => b"el GSP-RM no se suspendio en 2 s tras la despedida (se siguio igual)",
         super::gspapagar::NO_APAGAR_SB_NO_ACABA => b"FWSEC-SB no se paro en 5 s (se siguio con el booter de descarga)",
         super::gspapagar::NO_APAGAR_SB_MAL => b"FWSEC-SB acabo con error, el codigo en la fila `apagado` (se siguio con el booter de descarga)",

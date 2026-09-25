@@ -685,6 +685,11 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
         );
         return BmoStatus::negado(iommu::IOMMU_NO_ESCRITORIO, 0);
     }
+    // ** L0c5: con el GSP apagado en orden, la 3060 no trabaja hasta el
+    // siguiente arranque. Se dice YA, en vez de tocar un timbre que nadie oye.
+    if crate::ring0::dev::gpu_apagar::despedido() && !crate::ring0::dev::gpu_apagar::permitida(arg0) {
+        return BmoStatus::negado(crate::ring0::dev::gpu_apagar::IOMMU_NO_GSP_APAGADO, 0);
+    }
     let r = match arg0 {
         IOMMU_OP_ENCENDER => {
             crate::ring0::cabina::info("iommu", "ENCENDER, pedido por el escritorio", pid as u64);

@@ -362,6 +362,7 @@ pub const IOMMU_NO_BLUR: u32 = 78;
 pub const IOMMU_NO_BLUR_PREPARAR: u32 = 79;
 pub const IOMMU_NO_APAGAR: u32 = 80;
 pub const IOMMU_NO_PANTALLA: u32 = 81;
+pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

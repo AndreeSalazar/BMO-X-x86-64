@@ -40,6 +40,10 @@ use crate::ring0::dev::gpu_prestamo::{self as pr, Bar0};
 /// FWSEC-SB...), o ese paso ya se dio.
 pub const IOMMU_NO_APAGAR: u32 = 80;
 
+/// La 3060 ya se apago en orden en este arranque: no trabaja hasta el
+/// siguiente. Lo dice toda orden de trabajo pedida despues (ver `permitida`).
+pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
+
 pub const APAGADO_DESPEDIDO: u64 = 1 << 0;
 pub const APAGADO_SUSPENDIDO: u64 = 1 << 1;
 pub const APAGADO_SB: u64 = 1 << 2;
@@ -64,6 +68,16 @@ fn bar0() -> Result<Bar0, u32> {
 /// Si ya se le pidio al GSP-RM que se fuera: desde ahi, ni una RPC mas.
 pub fn despedido() -> bool {
     ESTADO.load(Ordering::Acquire) & APAGADO_DESPEDIDO != 0
+}
+
+/// **Lo que se puede pedir tras la despedida.** Sin el GSP-RM, y con FWSEC-SB
+/// y la descarga hechos, el motor grafico y los canales ya no existen: un
+/// timbre no lo contesta nadie y cada trabajo esperaba su segundo entero
+/// (metal 24-09 20:36: `giro` y `raster` 1000001 us, `NV_PGRAPH_*` =
+/// 0xBADF1201). Quedan las de la IOMMU y la sonda (`op` 0x01..0x0A), las que
+/// solo LEEN (0x16, 0x25, 0x30, 0x39) y las del propio apagado (0x3B..0x3E).
+pub const fn permitida(op: u64) -> bool {
+    matches!(op, 0x01..=0x0A | 0x16 | 0x25 | 0x30 | 0x39 | 0x3B..=0x3E)
 }
 
 /// **1. DESPEDIR**: la RPC, con el GSP-RM despierto. `Ok(pagina | numero
