@@ -661,11 +661,19 @@ Half-Life (su `valve/` tiene cientos de ficheros por carpeta); E3 en cuanto
 se instalen y quiten juegos grandes; E4 es lo que convierte ESTRATOS en la
 caja de la Ludoteca.
 
-- [ ] **E1 -- carpetas de mas de 36 entradas.** El bloque de entradas como
+- [x] **E1 -- carpetas de mas de 36 entradas.** El bloque de entradas como
       flujo de varios bloques, con el mismo arbol que `:datos`
       (`bmo_estratos::flujo`). **Como se sabe:** `cargo test -p
       bmo-estratos` con una carpeta de 1000 entradas leida entera, y una de
       36 igual que hoy (sin cambiar el formato de las viejas).
+      *Hecho 25-09:* `bmo_estratos::carpeta` (examinar, reescribir, buscar),
+      9 pruebas: 1000 entradas creadas UNA A UNA por el camino del kernel y
+      leidas enteras; 36 byte a byte igual que `entradas_con`; una de 3200
+      (dos niveles) republicada; quitar, renombrar y repuntar justo en la
+      entrada que cruza de bloque. El kernel reescribe cada nivel de la ruta
+      asi y busca a trozos; `estratos-fmt` ya no se niega (401 ficheros en
+      una carpeta, `--verificar` OK). Queda el panel de Datos, que pinta las
+      64 primeras y avisa. Falta la prueba de metal: crear la entrada 37.
 - [ ] **E2 -- copiar una carpeta entera.** De FAT32 a ESTRATOS, recursiva y
       con nombres largos. **Como se sabe:** `valve/` de Half-Life copiada y
       su arbol igual, fichero a fichero, con su suma.

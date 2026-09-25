@@ -61,10 +61,14 @@ use crate::FormatError;
 
 /// Cuantas entradas caben en el bloque de `:entradas` de un directorio.
 ///
-/// ** 36, y ese es el techo de ficheros por carpeta mientras el atributo viva en
-/// UN bloque sin indireccion. No es un limite del formato --`Attr::en_bloques`
-/// admite cuatro niveles-- es el limite de esta version, y se dice en vez de
-/// descubrirse el dia 37.
+/// ** 36. Hasta el 25-09 era el techo de ficheros por carpeta, porque el kernel
+/// republicaba la lista en UN bloque con las funciones de aqui abajo. Desde E1
+/// el kernel la republica como flujo (`crate::carpeta`) y 36 es solo cuantas
+/// caben en el primer bloque: la 37 abre un nivel de indireccion.
+///
+/// [!] Las cuatro `entradas_*` de un bloque se quedan como la REFERENCIA: una
+/// carpeta de hasta 36 tiene que salir de `carpeta::reescribir` byte a byte igual
+/// que de ellas, y lo prueba `treinta_y_seis_salen_igual_que_con_el_bloque_de_siempre`.
 pub const ENTRADAS_POR_BLOQUE: usize = BLOQUE / ENTRADA_LEN;
 
 /// **El nodo de un fichero chico**, con su contenido DENTRO.
@@ -330,8 +334,8 @@ pub fn nodo_de_directorio_vacio() -> [u8; NODO_LEN] {
 ///
 /// `entradas` es el puntero al bloque que acaba de llenar [`entradas_con`], y
 /// `bytes` lo que aquella devolvio. Niveles 0: **la raiz ES el dato**, sin
-/// indireccion -- con 36 entradas por bloque, un nivel mas es para el dia que
-/// una carpeta pase de 36 ficheros.
+/// indireccion. Una carpeta de mas de 36 lleva niveles, y ese nodo lo hace
+/// `carpeta::nodo_de`.
 pub fn nodo_de_directorio(entradas: BlockPtr, bytes: u64) -> Result<[u8; NODO_LEN], FormatError> {
     let a = Attr::en_bloques(ATTR_ENTRADAS, bytes, 0, entradas)?;
     Ok(Nodo::nuevo(Tipo::Directorio).con(a)?.encode())

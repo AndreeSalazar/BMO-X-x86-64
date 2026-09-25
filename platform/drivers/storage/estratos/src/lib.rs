@@ -55,6 +55,9 @@
 /// escribe un sector -- se decide el ORDEN, que es lo que cuesta datos si se
 /// equivoca, y por eso se prueba en el anfitrion.
 pub mod escritura;
+/// E1: LA LISTA DE UNA CARPETA COMO FLUJO. Carpetas de cualquier medida,
+/// republicadas a trozos y sin `alloc`.
+pub mod carpeta;
 /// PARTIR UN FLUJO EN BLOQUES y construir su arbol: el espejo de `read`. Es lo
 /// que sube el techo de los 96 bytes que caben dentro de un nodo.
 pub mod flujo;

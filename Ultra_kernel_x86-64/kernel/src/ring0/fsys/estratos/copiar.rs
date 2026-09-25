@@ -87,7 +87,11 @@ pub enum Origen<'a> {
 /// [!] Estaticos y no en la pila. Son cuatro bloques de 4 KiB y la pila del
 /// kernel son 64 KiB para todo -- montarlos en un marco se lleva un cuarto de
 /// ella para una operacion que ademas llama a disco.
-static mut INDICE: [[u8; BLOQUE]; es::objects::NIVELES_MAX] =
+///
+/// ** Y los usan DOS arboles, uno detras de otro: el del contenido (aqui) y
+/// despues el de cada lista de entradas (`escribir`, E1). No se solapan: el del
+/// contenido se cierra antes de que empiece la escalera de carpetas.
+pub(super) static mut INDICE: [[u8; BLOQUE]; es::objects::NIVELES_MAX] =
     [[0u8; BLOQUE]; es::objects::NIVELES_MAX];
 /// Donde aterriza cada trozo leido del origen antes de escribirse.
 static mut TROZO: [u8; BLOQUE] = [0u8; BLOQUE];

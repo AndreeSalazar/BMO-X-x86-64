@@ -84,8 +84,8 @@ pub(crate) fn guia(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     s.with_ink(INK_GOOD);
     s.text(b"  LO QUE TODAVIA NO SE PUEDE, para no buscarlo\n");
     s.with_ink(INK_PLAIN);
-    s.text(b"    en ESTRATOS un fichero entra en 96 bytes y una carpeta en 36:\n");
-    s.text(b"    lo mas grande pide un arbol de bloques, y esa es otra tanda.\n");
+    s.text(b"    `estratos escribe` guarda hasta 96 bytes: lo mas grande entra\n");
+    s.text(b"    copiandolo desde la FAT32. Las carpetas no tienen tope.\n");
     s.text(b"    Y los de ls, cat y write son de la FAT32 (datos/, cobol/, c/),\n");
     s.text(b"    que es la particion que Windows tambien sabe leer.\n");
     s.with_ink(INK_ECHO);

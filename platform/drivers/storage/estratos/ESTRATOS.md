@@ -124,9 +124,10 @@ alcanzable, que es la razon de que este sistema de ficheros exista.
 |---|---|---|---|
 | bytes por fichero (crear) | **96** | `RESIDENTE_MAX`, `objects.rs:134` | `Gesto::Fichero` |
 | bytes por fichero (copiar) | -- | `flujo.rs` lo tumbo el 19-08 | nadie: `Gesto::Copia` parte en bloques |
-| entradas por carpeta (escribir) | **36** | `ENTRADAS_POR_BLOQUE`, `escritura.rs` | republicar cualquier nivel |
-| entradas por carpeta (listar/buscar) | **64** | `MAX_ENTRIES`, `dir.rs` | `buscar_en`, y por debajo `open` y `resolver` |
-| entradas por carpeta (formatear) | **36** | `cabe_la_carpeta`, `estratos-fmt` | desde el 19-08; antes no habia |
+| entradas por carpeta (escribir) | -- | E1 lo tumbo el 25-09: `carpeta.rs` | nadie: la lista se republica como flujo |
+| entradas por carpeta (buscar) | -- | E1: `carpeta::buscar` | nadie: `open` y `resolver` buscan a trozos |
+| entradas por carpeta (listar) | **64** | `MAX_ENTRIES`, `dir.rs` | el panel de Datos: pinta las 64 primeras y dice que hay mas |
+| entradas por carpeta (formatear) | -- | E1 quito `cabe_la_carpeta` | nadie |
 
 Ninguno es del formato: `Attr::en_bloques` admite cuatro niveles de indireccion
 y hasta el 19-08 **solo el formateador del anfitrion los escribia**. `flujo.rs`
@@ -384,7 +385,7 @@ en dos mitades que no son el mismo trabajo.
 | 1.1 | **leer el contenido desde Ring 3** | **HECHO** (19-08). `Archivo` resuelve ESTRATOS primero y FAT32 despues, con la misma regla que usa `launch`. |
 | 1.2a | **el techo de 96, por el lado del DISCO** | **HECHO** (19-08). `flujo.rs` construye el arbol de indireccion sin `alloc`, y `Gesto::Copia` lo usa: una copia de FAT32 escribe lo que mida. |
 | 1.2b | **el techo de 96, por el lado de la PUERTA** | **HECHO** (19-08). `ES_GESTO_ORIGEN` + `ES_GESTO_FICHERO_DE`: el contenido viaja por una capability de `KIND_MEMORIA`, dos llamadas para cualquier medida. Ver *"La puerta"* mas arriba. ** Y esa misma puerta es la que necesita `guardar`, que ya no esta bloqueada. |
-| 1.3 | **subir el tope de 36 por carpeta** | `ENTRADAS_POR_BLOQUE` = un bloque de entradas. Necesita que `:entradas` use indireccion **al republicar** -- la misma maquinaria de 1.2a, asi que sale casi gratis. Junta de paso los tres numeros distintos (36 escribir / 64 listar / 36 formatear). |
+| 1.3 | **subir el tope de 36 por carpeta** | **HECHO** (25-09, E1 de `docs/plan/PLAN_LA_LUDOTECA.md`). `carpeta.rs`: la lista se examina y se reescribe a trozos con `flujo::Arbol`, sin `alloc`; buscar tambien va a trozos. Hasta 36 entradas el bloque sale igual que antes, byte a byte. De los tres numeros queda uno: el 64 del panel que LISTA. |
 | 1.4 | **el guardia de los topes** | **HECHO** (19-08). No sube ningun tope: impide que se pasen en silencio. Ver *"El guardia de los topes"* en la section 0.1. |
 
 ★ **HECHO EL 20-08: EL QUINTO VERBO.** Faltaba `guardar`, y no estaba en

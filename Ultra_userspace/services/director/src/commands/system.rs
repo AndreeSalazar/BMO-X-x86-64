@@ -112,7 +112,7 @@ pub(crate) fn estratos_escribe(
         s.with_ink(INK_PLAIN);
         // Los cuatro que se ven en la practica. El motivo exacto lo dice el
         // kernel en F11: aqui no se adivina cual fue.
-        s.text(b"  el nombre ya existe / la carpeta esta llena (36) /\n");
+        s.text(b"  el nombre ya existe / el disco esta lleno /\n");
         s.text(b"  la escritura esta cerrada / no hay volumen.  F11 dice cual.\n");
     } else {
         s.with_ink(INK_GOOD);

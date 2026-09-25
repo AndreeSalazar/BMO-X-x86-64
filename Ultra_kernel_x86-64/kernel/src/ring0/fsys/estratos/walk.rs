@@ -62,6 +62,21 @@ impl es::Fuente for DelDisco {
     }
 }
 
+/// **Los buffers del descenso por un flujo**: todos menos el nivel 0.
+///
+/// El nivel 0 del scratch lo usa `seguir()` para nodos y estratos; el recorrido
+/// se queda con los de abajo para no pisarselo. Una sola funcion para los tres
+/// que bajan --`flujo`, `read_and_sign` y las listas de `carpeta`-- en vez de
+/// tres `unsafe` que tienen que acordarse del `[1..]`.
+pub(crate) fn scratch_de_flujo() -> &'static mut [[u8; BLOQUE]] {
+    // SAFETY: el kernel lee y escribe ESTRATOS desde un solo hilo, y ningun
+    // recorrido se anida dentro de otro: cada uno termina antes del siguiente.
+    unsafe {
+        let s = &mut *core::ptr::addr_of_mut!(SCRATCH);
+        &mut s[1..]
+    }
+}
+
 /// Reconstruye un flujo entero en `dst`. Devuelve los bytes escritos.
 ///
 /// El recorrido del arbol NO vive aqui: es `bmo_estratos::descender`, el mismo
@@ -77,12 +92,7 @@ pub fn flujo(a: &Attr, dst: &mut [u8]) -> Option<usize> {
     }
     let raiz = a.raiz()?;
 
-    // El nivel 0 del scratch lo usa `seguir()` para nodos y estratos; el
-    // recorrido se queda con los de abajo para no pisarselo.
-    let scratch = unsafe {
-        let s = &mut *core::ptr::addr_of_mut!(SCRATCH);
-        &mut s[1..]
-    };
+    let scratch = scratch_de_flujo();
 
     let mut escritos = 0usize;
     let r = es::descender(&mut DelDisco, &raiz, a.levels, scratch, &mut |trozo| {
@@ -162,10 +172,7 @@ pub fn read_and_sign(n: &Nodo, dst: &mut [u8]) -> Option<(usize, usize, Firma)> 
         dst[..copiados].copy_from_slice(&d[..copiados]);
     } else {
         let raiz = a.raiz()?;
-        let scratch = unsafe {
-            let s = &mut *core::ptr::addr_of_mut!(SCRATCH);
-            &mut s[1..]
-        };
+        let scratch = scratch_de_flujo();
         let tam = a.size as usize;
         let r = es::descender(&mut DelDisco, &raiz, a.levels, scratch, &mut |trozo| {
             // ** El hasher se come SOLO lo que el archivo mide. `descender`

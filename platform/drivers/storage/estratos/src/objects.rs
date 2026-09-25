@@ -378,6 +378,17 @@ impl Entrada {
         Ok(Self { name: n, nombre_len: b.len(), nodo })
     }
 
+    /// **La misma entrada apuntando a otro nodo**, con el nombre en sus BYTES.
+    ///
+    /// ** No es `Entrada::nueva(e.nombre_str(), nodo)`: el nombre es Latin-1 y
+    /// `nombre_str` contesta `""` si no es UTF-8, asi que repuntar `an~o` por ese
+    /// camino lo dejaria sin nombre. Y tampoco se toma el nombre que TECLEO quien
+    /// pasaba: `juegos/x` escrito en minusculas no le cambia el nombre a `Juegos`.
+    pub fn con_nodo(mut self, nodo: BlockPtr) -> Self {
+        self.nodo = nodo;
+        self
+    }
+
     /// El nombre TAL COMO SE ESCRIBIO. Se conserva aunque las comparaciones
     /// ignoren mayusculas: es lo que espera cualquiera que venga de Windows y
     /// no cuesta nada.

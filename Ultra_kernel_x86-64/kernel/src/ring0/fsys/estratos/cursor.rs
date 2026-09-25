@@ -449,21 +449,17 @@ pub mod cursor {
 /// fijo y no hay `alloc`. Lo levanta la indireccion de `:entradas`, que es el
 /// mismo trabajo que `flujo` ya hizo para el contenido.
 pub(crate) fn buscar_en(dir: &Nodo, name: &str) -> Option<BlockPtr> {
-    let (n, truncado) = entries(dir)?;
-    for i in 0..n {
-        let e = entrada(i)?;
-        if e.se_llama(name) { return Some(e.nodo); }
+    // ** E1 (25-09): se busca POR FLUJO, sin listar a un buffer. Antes pasaba
+    // por `entries()` --64 entradas-- y en una carpeta mas grande un nombre
+    // de la 65 en adelante "no existia" para `open` y para `resolver`.
+    let a = dir.attr(bmo_estratos::objects::ATTR_ENTRADAS)?;
+    match bmo_estratos::carpeta::buscar(&mut DelDisco, Some(a), name, scratch_de_flujo()) {
+        Ok(e) => e.map(|e| e.nodo),
+        Err(e) => {
+            crate::ring0::cabina::fault("estratos", e.name(), a.raiz().map_or(0, |r| r.lba));
+            None
+        }
     }
-    // No estaba en lo que se leyo Y no se leyo todo: el "no" que se devuelve no
-    // es un "no" del disco, es un "no" de este buffer.
-    if truncado {
-        crate::ring0::cabina::warn(
-            "estratos",
-            "el listado no cabia entero: ese nombre puede existir y no verse",
-            n as u64,
-        );
-    }
-    None
 }
 
 /// Busca un nodo por ruta: `c/holac.bex`.

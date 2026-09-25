@@ -333,10 +333,10 @@ partir de ahi tiene historial, no se pisa por accidente y se puede firmar.
 FAT32 es donde lo dejas; ESTRATOS es donde vive.
 
 [!] Lo que hoy frena ese reparto, dicho: leer el contenido desde Ring 3 (S1a) y
-que la Biblioteca mire ESTRATOS (S1b). Y el tope de **36 entradas por carpeta**
-de ESTRATOS: una carpeta de videos pasa de ahi enseguida, asi que se reparten en
-subcarpetas hasta que el 1.3 de
-`platform/drivers/storage/estratos/ESTRATOS.md` lo levante.
+que la Biblioteca mire ESTRATOS (S1b). El tope de **36 entradas por carpeta**
+de ESTRATOS ya no esta: lo levanto E1 (25-09, el 1.3 de
+`platform/drivers/storage/estratos/ESTRATOS.md`), y una carpeta de videos
+cabe entera.
 
 ---
 

@@ -56,11 +56,9 @@
 //! ventana en la que se pierda algo.
 
 use bmo_estratos as es;
-use bmo_estratos::escritura::{
-    entradas_con, entradas_renombrando, entradas_repuntando, entradas_sin, nodo_de_directorio,
-    nodo_de_directorio_vacio, nodo_de_fichero,
-};
-use bmo_estratos::objects::{Attr, BlockPtr, ATTR_ENTRADAS, BLOQUE, NODO_LEN};
+use bmo_estratos::carpeta::{self, Cambio, Choque, Veredicto};
+use bmo_estratos::escritura::{nodo_de_directorio_vacio, nodo_de_fichero};
+use bmo_estratos::objects::{BlockPtr, ATTR_ENTRADAS, BLOQUE, NODO_LEN};
 
 use super::{
     copia_en_uso, dir, identidad_ok, superbloque, walk, write_block, write_superblock, WriteError,
@@ -70,12 +68,14 @@ use crate::ring0::dev::disk;
 /// Bloques que cuesta un fichero: el suyo, las entradas, el directorio, el estrato.
 const BLOQUES_POR_FICHERO: u64 = 4;
 
-/// Las entradas que YA tiene la raiz. Estatico y no en la pila: son 4 KiB, y la
-/// pila del kernel son 64 para todo.
-static mut PREVIAS: [u8; BLOQUE] = [0u8; BLOQUE];
-/// El bloque de entradas NUEVO. Tiene que ser otro buffer: se lee del de arriba
-/// mientras se escribe en este.
-static mut ENTRADAS: [u8; BLOQUE] = [0u8; BLOQUE];
+/// Donde se juntan las entradas NUEVAS de una lista antes de salir al disco.
+/// Estatico y no en la pila: son 4 KiB, y la pila del kernel son 64 para todo.
+///
+/// ** Antes eran dos buffers de un bloque --la lista de hoy y la nueva-- y ESO
+/// era el tope de 36 entradas por carpeta. Desde E1 (25-09) la lista de hoy no
+/// se carga: se lee a trozos (`carpeta::reescribir`) y la nueva sale bloque a
+/// bloque por aqui.
+static mut PASO: [u8; BLOQUE] = [0u8; BLOQUE];
 /// Un bloque de paso para escribir cada objeto chico con su relleno.
 static mut BLOQUE_TMP: [u8; BLOQUE] = [0u8; BLOQUE];
 
@@ -170,6 +170,60 @@ static mut NODOS: [Option<es::objects::Nodo>; HONDO_MAX + 1] = [None; HONDO_MAX 
 /// Con que nombre se bajo a cada nivel. `NOMBRES[0]` no se usa: la raiz no tiene.
 static mut NOMBRES: [[u8; 64]; HONDO_MAX + 1] = [[0; 64]; HONDO_MAX + 1];
 static mut NOMBRES_LEN: [usize; HONDO_MAX + 1] = [0; HONDO_MAX + 1];
+/// Lo que contesto `carpeta::examinar` en cada nivel: cuanto cuesta su lista
+/// nueva. Se decide ANTES de reservar y se usa DESPUES, al escribir.
+static mut VEREDICTOS: [Option<Veredicto>; HONDO_MAX + 1] = [None; HONDO_MAX + 1];
+
+/// El nombre con el que se bajo al nivel `k` (`k >= 1`).
+fn nombre_de(k: usize) -> Result<&'static str, WriteError> {
+    // La referencia se saca del array ENTERO y se indexa despues: coger
+    // `&(*ptr)[i]` es una autoref sobre un puntero crudo, y el compilador la
+    // rechaza con razon.
+    let todos = unsafe { &*core::ptr::addr_of!(NOMBRES) };
+    let largo = unsafe { (*core::ptr::addr_of!(NOMBRES_LEN))[k] };
+    core::str::from_utf8(&todos[k][..largo]).map_err(|_| WriteError::RutaNoEsta)
+}
+
+/// **El cambio que le toca a la lista del nivel `k`.**
+///
+/// El del final es el que pidio el gesto; los de paso, repuntar hacia el hijo
+/// que acaba de cambiar. `nodo` es el puntero nuevo: al examinar todavia no
+/// existe y va `NULO` -- examinar no lo mira.
+fn cambio_de<'a>(
+    k: usize,
+    hondo: usize,
+    gesto: &Gesto<'a>,
+    nodo: BlockPtr,
+) -> Result<Cambio<'a>, WriteError> {
+    if k < hondo {
+        return Ok(Cambio::Repuntar { nombre: nombre_de(k + 1)?, nodo });
+    }
+    Ok(match *gesto {
+        Gesto::Fichero { nombre, .. } | Gesto::Carpeta { nombre } | Gesto::Copia { nombre, .. } => {
+            Cambio::Con { nombre, nodo }
+        }
+        // ** CREAR O SUSTITUIR, decidido MIRANDO lo que hay: lo decide
+        // `examinar` con la lista delante, no una bandera del llamante.
+        Gesto::Guardar { nombre, .. } => Cambio::Guardar { nombre, nodo },
+        Gesto::Quitar { nombre } => Cambio::Sin { nombre },
+        Gesto::Renombrar { viejo, nuevo } => Cambio::Renombrar { viejo, nuevo },
+    })
+}
+
+/// Por que no se pudo, dicho en la lengua del kernel.
+///
+/// ** En un nivel de PASO cualquier choque es que la ruta miente: se bajo por
+/// ese nombre hace un momento. En el del final, cada choque es del gesto.
+fn motivo_de(c: Choque, de_paso: bool) -> WriteError {
+    match c {
+        Choque::Roto(_) => WriteError::NoSeLeeLaRaiz,
+        _ if de_paso => WriteError::RutaNoEsta,
+        Choque::Llena => WriteError::CarpetaLlena,
+        Choque::Repetido | Choque::NoEsta | Choque::Ocupado | Choque::NombreMalo => {
+            WriteError::NombreNoVale
+        }
+    }
+}
 
 /// Recorre `ruta` desde la raiz y deja el camino en los estaticos.
 ///
@@ -301,9 +355,28 @@ fn publicar(ruta: &str, gesto: &Gesto) -> Result<u64, WriteError> {
         }
         _ => None,
     };
+    // ** E1: CADA LISTA SE EXAMINA ANTES DE RESERVAR. Lo que cuesta una
+    // carpeta ya no es "un bloque": es el arbol de su lista nueva, y eso
+    // depende de lo que diga la de hoy (si el nombre esta, `guardar` no agrega).
+    // Si algo no se puede, se dice aqui -- sin haber pedido un solo bloque.
+    let veredictos = unsafe { &mut *core::ptr::addr_of_mut!(VEREDICTOS) };
+    let mut listas = 0u64;
+    for k in 0..niveles {
+        let este = unsafe { (*core::ptr::addr_of!(NODOS))[k] }.ok_or(WriteError::NoSeLeeLaRaiz)?;
+        let cambio = cambio_de(k, hondo, gesto, BlockPtr::NULO)?;
+        let v = carpeta::examinar(
+            &mut walk::DelDisco,
+            este.attr(ATTR_ENTRADAS),
+            &cambio,
+            walk::scratch_de_flujo(),
+        )
+        .map_err(|c| motivo_de(c, k < hondo))?;
+        listas += v.bloques() + 1;
+        veredictos[k] = Some(v);
+    }
     let cuesta = gesto.bloques_de_objeto()
         + flujo.map(|(bloques, _, _)| bloques).unwrap_or(0)
-        + 2 * niveles as u64
+        + listas
         + 1;
     let mut t = es::escritura::Transaccion::open(&sb, copia_en_uso(), identidad_ok())
         .map_err(WriteError::Rechazada)?;
@@ -332,108 +405,51 @@ fn publicar(ruta: &str, gesto: &Gesto) -> Result<u64, WriteError> {
         None
     };
 
-    // -- DE ABAJO HACIA ARRIBA. Cada nivel publica su nodo, y el de encima
-    // repunta su entrada hacia el.
-    let previas = unsafe { &mut *core::ptr::addr_of_mut!(PREVIAS) };
-    let entradas = unsafe { &mut *core::ptr::addr_of_mut!(ENTRADAS) };
+    // -- DE ABAJO HACIA ARRIBA. Cada nivel publica su lista y su nodo, y el de
+    // encima repunta su entrada hacia el.
+    let paso = unsafe { &mut *core::ptr::addr_of_mut!(PASO) };
+    let indice = unsafe { &mut *core::ptr::addr_of_mut!(super::copiar::INDICE) };
+    let mut poner_bloque = |lba: u64, d: &[u8]| poner(lba, d).is_ok();
 
     let mut hijo: Option<BlockPtr> = None;
     let mut nivel = hondo as isize;
     while nivel >= 0 {
         let k = nivel as usize;
         let este = unsafe { (*core::ptr::addr_of!(NODOS))[k] }.ok_or(WriteError::NoSeLeeLaRaiz)?;
-        let n_previas = match este.attr(ATTR_ENTRADAS) {
-            None => 0,
-            Some(a) => leer_entradas(a, previas)?,
-        };
-
-        let n_ent = if k == hondo {
-            // El nivel del final: aqui pasa lo que el gesto pedia.
-            match gesto {
-                Gesto::Fichero { nombre, .. }
-                | Gesto::Carpeta { nombre }
-                | Gesto::Copia { nombre, .. } => entradas_con(
-                    &previas[..n_previas],
-                    nombre,
-                    p_objeto.ok_or(WriteError::NoCabe)?,
-                    entradas,
-                ),
-                // ** CREAR O SUSTITUIR, decidido MIRANDO lo que hay.
-                //
-                // No es una bandera del llamante: es una pregunta a las
-                // entradas de ahora mismo. `entradas_repuntando` falla si el
-                // nombre no esta --hace bien: para un nivel de paso, no estar
-                // es que el recorrido miente-- asi que aqui se prueba esa y se
-                // cae a `entradas_con` cuando dice que no.
-                //
-                // ** El orden importa: se intenta SUSTITUIR primero. Al reves,
-                // `entradas_con` rechazaria el duplicado y se acabaria creando
-                // un segundo fichero con el mismo nombre en el unico caso en el
-                // que hay que hacer justo lo contrario.
-                Gesto::Guardar { nombre, .. } => {
-                    let nodo = p_objeto.ok_or(WriteError::NoCabe)?;
-                    entradas_repuntando(&previas[..n_previas], nombre, nodo, entradas)
-                        .or_else(|_| entradas_con(&previas[..n_previas], nombre, nodo, entradas))
-                }
-                Gesto::Quitar { nombre } => entradas_sin(&previas[..n_previas], nombre, entradas),
-                Gesto::Renombrar { viejo, nuevo } => {
-                    entradas_renombrando(&previas[..n_previas], viejo, nuevo, entradas)
-                }
-            }
-            // ** LOS DOS MOTIVOS SE SEPARAN AQUI, y antes eran uno solo.
-            //
-            // Todo esto contestaba `NoCabe` --*"no cabe: hoy un fichero entra
-            // en 96 bytes"*-- y para una carpeta llena eso es MENTIRA: el
-            // fichero cabia, la carpeta no. Un mensaje asi manda a encoger el
-            // fichero, que no arregla nada, y esconde el limite de verdad.
-            //
-            // La cuenta se hace ANTES de mirar el resultado porque la crate del
-            // formato rechaza los tres casos --lleno, repetido, ausente-- con el
-            // mismo error. Lo que si se puede saber aqui es si estaba llena.
-            .map_err(|_| {
-                let cabian = n_previas / es::objects::ENTRADA_LEN;
-                if cabian >= es::escritura::ENTRADAS_POR_BLOQUE {
-                    WriteError::CarpetaLlena
-                } else {
-                    WriteError::NombreNoVale
-                }
-            })?
+        let v = veredictos[k].ok_or(WriteError::NoSeLeeLaRaiz)?;
+        // El nodo nuevo al que apunta la entrada que cambia: el objeto en el
+        // nivel del final, el hijo recien escrito en los de paso. Quitar y
+        // renombrar no apuntan a nada nuevo.
+        let nodo = if k == hondo {
+            p_objeto.unwrap_or(BlockPtr::NULO)
         } else {
-            // Un nivel de paso: su hijo tiene nodo nuevo, asi que su entrada
-            // tiene que apuntar ahi. El nombre es el que se uso para bajar.
-            let largo = unsafe { (*core::ptr::addr_of!(NOMBRES_LEN))[k + 1] };
-            // La referencia se saca del array ENTERO y se indexa despues: coger
-            // `&(*ptr)[i]` es una autoref sobre un puntero crudo, y el
-            // compilador la rechaza con razon.
-            let todos = unsafe { &*core::ptr::addr_of!(NOMBRES) };
-            let bytes = &todos[k + 1][..largo];
-            let nom = core::str::from_utf8(bytes).map_err(|_| WriteError::RutaNoEsta)?;
-            entradas_repuntando(
-                &previas[..n_previas],
-                nom,
-                hijo.ok_or(WriteError::RutaNoEsta)?,
-                entradas,
-            )
-            .map_err(|_| WriteError::RutaNoEsta)?
+            hijo.ok_or(WriteError::RutaNoEsta)?
         };
+        let cambio = cambio_de(k, hondo, gesto, nodo)?;
+
+        // ** La lista nueva, a trozos: se lee la de hoy y se va escribiendo la
+        // nueva en los `v.bloques()` que se reservaron para ella. Hasta 36
+        // entradas es UN bloque, el mismo que antes de E1, byte a byte.
+        let lista = carpeta::reescribir(
+            &mut walk::DelDisco,
+            este.attr(ATTR_ENTRADAS),
+            &cambio,
+            &v,
+            cursor,
+            walk::scratch_de_flujo(),
+            &mut indice[..],
+            paso,
+            &mut poner_bloque,
+        )
+        .map_err(|e| match e {
+            es::FormatError::Io => WriteError::NoEscribio,
+            _ => WriteError::NoSeLeeLaRaiz,
+        })?;
+        cursor += v.bloques();
 
         // El nodo del nivel. Si se quedo sin entradas, es una carpeta vacia --
         // el MISMO nodo que una recien nacida, no un estado nuevo.
-        //
-        // [!] El bloque de entradas reservado se escribe igual, aunque quede a
-        // cero y nadie lo apunte. Devolverlo obligaria a que la reserva
-        // dependiera del RESULTADO de la transformacion, o sea a pedir el sitio
-        // despues de saber cuanto hace falta. Un bloque suelto es exactamente el
-        // trabajo del recolector.
-        poner(cursor, &entradas[..n_ent])?;
-        let p_ent = BlockPtr::nuevo(cursor, 0, &entradas[..n_ent]);
-        cursor += 1;
-
-        let nodo_d = if n_ent == 0 {
-            nodo_de_directorio_vacio()
-        } else {
-            nodo_de_directorio(p_ent, n_ent as u64).map_err(|_| WriteError::NoCabe)?
-        };
+        let nodo_d = carpeta::nodo_de(lista, &v).map_err(|_| WriteError::NoCabe)?;
         poner(cursor, &nodo_d)?;
         hijo = Some(BlockPtr::nuevo(cursor, 0, &nodo_d));
         cursor += 1;
@@ -820,42 +836,6 @@ pub fn renombrar(ruta: &str, viejo: &str, nuevo: &str) -> Result<u64, WriteError
     aplicar(ruta, Gesto::Renombrar { viejo, nuevo })
 }
 
-/// Las entradas de un nivel, ENTERAS o ninguna. `0` si el atributo esta vacio.
-///
-/// === ** POR QUE SE MIDE ANTES DE LEER ===
-///
-/// Porque `walk::flujo` **trunca en silencio** cuando el destino se llena, y
-/// hace bien: su otro cliente es el panel que pinta un listado, y ahi lo que se
-/// quiere es lo que quepa. Aqui no. Aqui la lista se vuelve a escribir, asi que
-/// leer la mitad y publicar seria **dejar fuera del arbol vivo** todas las
-/// entradas a partir de la 37 -- sin un error, sin un aviso, y con el gesto
-/// contestando que fue bien.
-///
-/// El tope es NUESTRO --`:entradas` vive en un bloque mientras no tenga
-/// indireccion-- y por eso lo dice el, con su propio motivo. Es la misma regla
-/// que ya sigue `cursor::verify` con su buffer de 256 KiB: *un limite propio se
-/// confiesa, no se disfraza de fallo del disco.*
-///
-/// [!] Y hasta hoy no reventaba por una casualidad aritmetica: 4096 no es
-/// multiplo de 112, asi que el corte dejaba 64 bytes sueltos y la crate del
-/// formato lo rechazaba con `BadField` -- que aqui se traducia a *"ese nombre no
-/// vale"* o *"esa ruta no existe"*. Dos mensajes que mandan a mirar donde no es,
-/// y una garantia de datos colgando de una division que no sale exacta.
-fn leer_entradas(a: &Attr, dst: &mut [u8; BLOQUE]) -> Result<usize, WriteError> {
-    // Lo que YA hay no cabe de una vez: se para ANTES de leer nada y antes de
-    // abrir la transaccion, o sea sin haber tocado un solo sector.
-    if a.size as usize > dst.len() {
-        return Err(WriteError::CarpetaNoCabeEntera);
-    }
-    match walk::flujo(a, dst) {
-        Some(n) => Ok(n),
-        // No poder leer lo que YA hay es lo peor que puede pasar aqui: escribir
-        // sin ello dejaria un directorio con una sola entrada y el resto
-        // huerfano. Se para antes de abrir la transaccion.
-        None => Err(WriteError::NoSeLeeLaRaiz),
-    }
-}
-
 /// Escribe un trozo en su bloque, con el relleno a cero.
 ///
 /// ** El relleno va a CERO y no se deja lo que hubiera: el `BlockPtr` solo
@@ -881,6 +861,10 @@ pub(super) fn poner(bloque: u64, datos: &[u8]) -> Result<(), WriteError> {
 ///
 /// `hondo` es lo que baja la ruta (`0` = la raiz) y `objeto` si el gesto crea
 /// algo. Dos bloques por nivel, uno por el objeto y uno por el estrato.
+///
+/// [!] Es el coste con carpetas de hasta 36 entradas, que es el caso de siempre.
+/// Una carpeta mas grande cuesta el arbol de su lista (`Veredicto::bloques`), y
+/// eso solo se sabe leyendola: `publicar` lo cuenta de verdad antes de reservar.
 pub const fn coste(hondo: usize, objeto: bool) -> u64 {
     (objeto as u64) + 2 * (hondo as u64 + 1) + 1
 }

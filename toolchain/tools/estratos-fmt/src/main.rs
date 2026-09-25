@@ -160,52 +160,23 @@ fn escribir_archivo(log: &mut Log, datos: &[u8]) -> std::io::Result<BlockPtr> {
     log.objeto(&nodo.encode())
 }
 
-/// **El tope de una carpeta, dicho antes de escribir nada.**
-///
-/// Vive suelta porque se pregunta DOS veces y las dos hacen falta:
-/// [`meter_carpeta`] la llama con los hijos contados --antes de meter un solo
-/// fichero, para no dejar media imagen escrita-- y [`escribir_directorio`] la
-/// vuelve a llamar por si algun dia hay otro camino hasta el. La primera es la
-/// educada; la segunda es la que no se puede saltar.
-fn cabe_la_carpeta(de_donde: &str, cuantas: usize) {
-    if cuantas <= es::escritura::ENTRADAS_POR_BLOQUE {
-        return;
-    }
-    eprintln!();
-    eprintln!(
-        "estratos-fmt: {} tiene {} entradas y el tope de hoy son {}.",
-        de_donde, cuantas, es::escritura::ENTRADAS_POR_BLOQUE
-    );
-    eprintln!("              El volumen se escribiria bien y el kernel NO podria crear,");
-    eprintln!("              borrar ni renombrar nada dentro de esa carpeta: republicarla");
-    eprintln!("              pasa por leer sus entradas a un bloque de 4096 bytes.");
-    eprintln!("              Reparte esa carpeta en subcarpetas y vuelve a formatear.");
-    std::process::exit(1);
-}
-
 /// Escribe un directorio con sus entradas ya resueltas.
 ///
-/// === ** POR QUE ESTO SE NIEGA A ESCRIBIR UNA CARPETA GRANDE ===
+/// === ** Y YA NO SE NIEGA A ESCRIBIR UNA CARPETA GRANDE (E1, 25-09) ===
 ///
-/// Aqui hay `Vec`, asi que una carpeta de mil entradas se escribiria sin
-/// pestanear, con su arbol de indireccion y todo. **El kernel no la puede
-/// modificar**: republicar una carpeta pasa por leer sus entradas a UN bloque
-/// --36 entradas-- y buscar un nombre pasa por un buffer de 64.
+/// Hasta hoy aqui habia un tope de 36 entradas, y era correcto: el kernel
+/// republicaba una carpeta leyendo sus entradas a UN bloque, asi que una de mil
+/// se habria escrito bien y **no se habria podido tocar nunca**. El sitio de
+/// decir que no era este, el unico momento en que esa carpeta aun no existia.
 ///
-/// O sea que sin este tope, el anfitrion puede parir un volumen que arranca,
-/// que se lee y que **rechaza cualquier escritura dentro de esa carpeta** con un
-/// motivo que no lleva a ninguna parte. El sitio de decir que no es este: el
-/// unico momento en el que esa carpeta todavia no existe.
-///
-/// ** El tope es de la version del KERNEL, no del formato. `Attr::en_bloques`
-/// admite cuatro niveles y este mismo fichero los escribe; el dia que
-/// `:entradas` tenga indireccion al republicar, este numero sube con el.
+/// Desde E1 el kernel republica la lista como flujo (`bmo_estratos::carpeta`),
+/// con el MISMO arbol que escribe `escribir_arbol`: entradas contiguas de 112
+/// bytes partidas en trozos de 4096. El tope se quita porque el que lo pedia ya
+/// no lo tiene.
 fn escribir_directorio(
     log: &mut Log,
-    de_donde: &str,
     entradas: &[(String, BlockPtr)],
 ) -> std::io::Result<BlockPtr> {
-    cabe_la_carpeta(de_donde, entradas.len());
     let mut cuerpo = Vec::with_capacity(entradas.len() * ENTRADA_LEN);
     for (name, ptr) in entradas {
         let e = Entrada::nueva(name, *ptr).expect("nombre valido");
@@ -228,9 +199,6 @@ fn meter_carpeta(log: &mut Log, dir: &Path, sangria: usize) -> std::io::Result<B
     // Orden estable: dos formateos de la misma carpeta dan el mismo volumen, y
     // eso hace que los hashes se puedan comparar entre ejecuciones.
     hijos.sort_by_key(|e| e.file_name());
-    // ** ANTES de meter un solo fichero. Si la carpeta no va a caber, decirlo
-    // despues de haber escrito sus cuarenta hijos deja media imagen hecha.
-    cabe_la_carpeta(&dir.display().to_string(), hijos.len());
     for h in hijos {
         let name = h.file_name().to_string_lossy().to_string();
         let ruta = h.path();
@@ -245,7 +213,7 @@ fn meter_carpeta(log: &mut Log, dir: &Path, sangria: usize) -> std::io::Result<B
         };
         entradas.push((name, ptr));
     }
-    escribir_directorio(log, &dir.display().to_string(), &entradas)
+    escribir_directorio(log, &entradas)
 }
 
 // -- Lectura de vuelta -------------------------------------------------------
@@ -547,7 +515,7 @@ fn main() {
     println!("  contenido:");
     let raiz = match &o.desde {
         Some(dir) => meter_carpeta(&mut log, dir, 4).expect("escribiendo el arbol"),
-        None => escribir_directorio(&mut log, "la raiz", &[]).expect("raiz vacia"),
+        None => escribir_directorio(&mut log, &[]).expect("raiz vacia"),
     };
 
     let estrato = es::Estrato::new(raiz, BlockPtr::NULO, 0, es::Autor::Herramienta, &o.motivo);
