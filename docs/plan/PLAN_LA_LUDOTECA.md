@@ -257,3 +257,61 @@ a la particion de datos de BMO-X, como ya se hace con `doom1.wad`; y un juego
 del camino B se queda en Windows, que es donde corre. Un lector de NTFS en
 BMO-X es mucho codigo para verificar y no desbloquea nada de esto: no se
 parte el disco por esto.
+
+---
+
+## 9. Cyberpunk 2077, el JEFE FINAL -- y la escalera hasta el
+
+El propietario (25-09): *"Cyberpunk 2077 que compre es DRM FREE: vamos a
+aplicar el metodo DOOM generic con sus datos; es DirectX 12, y NAGA ya lo
+tengo en BMO-externo. Seria mi JEFE FINAL"*.
+
+**Por que el metodo DOOM no le sirve (todavia), dicho claro:**
+
+```text
+   DOOM        el MOTOR es abierto (id lo libero en 1997, GPL): se compila a
+               .bex y lee el WAD que compraste. Datos + motor abierto = juego
+   Cyberpunk   SIN DRM quiere decir sin proteccion de copia, NO motor abierto.
+               Sus datos (.archive) se pueden LEER -- la comunidad de mods los
+               documenta --, pero el REDengine 4 que los dibuja es cerrado. Sin
+               motor, los datos son un disco sin tocadiscos
+   NAGA        traduce sombreadores entre WGSL, SPIR-V y GLSL; de HLSL solo
+               ESCRIBE. Cyberpunk trae sus sombreadores ya compilados en DXIL,
+               y eso Naga no lo lee (en Proton lo hace dxil-spirv). Y DirectX
+               12 no son solo sombreadores: listas de ordenes, montones de
+               descriptores, barreras, estados de pipeline -- vkd3d-proton
+               entero, encima de un Vulkan
+```
+
+**La escalera: cada jefe deja una pieza para el siguiente.** Todos por el
+camino A (motor abierto + los datos que compraste; comprobar en TU
+biblioteca de GOG que los tienes):
+
+```text
+   1  DOOM, DOOM II       doomgeneric, CPU                  [HECHO: corre]
+   2  Heretic, Hexen      el mismo linaje (Chocolate Doom)  casi gratis
+   3  Quake               WinQuake, su RENDERIZADOR DE SOFTWARE: el primer 3D
+                          de verdad, en la CPU; pide la coma flotante de BMO C
+                          y ~40.000 lineas de C
+   4  Quake II            Yamagi, tambien con renderizador de software
+   5  Quake con la 3060   el primer juego que dibuja la TARJETA: una capa
+                          chica de "GL" sobre AMPERE_B -- la profundidad (T2b),
+                          las texturas (T3) y muchos triangulos. Todo lo que
+                          ya sale en `gpu raster` y `gpu color`, hecho juego
+   6  un juego con sombreadores   motor abierto que pide programas de la
+                          tarjeta: el BSF emitiendo SASS (M5d) y VERRANO
+   ...
+   FINAL  Cyberpunk 2077  hoy: por el camino B (streaming desde el PC donde
+                          corre). Nativo: pediria la API de Windows (Wine), D3D12
+                          (vkd3d) y un Vulkan conforme para la 3060 -- anios, y
+                          fuera de la identidad de BMO-X (seccion 0). Es el jefe
+                          que marca la DIRECCION: cada escalon de abajo es una
+                          pieza de la que haria falta
+```
+
+- [ ] **L1 -- el jefe 2: Heretic o Hexen.** Chocolate Heretic/Hexen
+      compilado a `.bex` como DOOM, con `heretic.wad` o `hexen.wad` de GOG.
+      **Como se sabe:** el primer nivel se juega en el Ryzen.
+- [ ] **L2 -- el jefe 3: Quake por software.** WinQuake con BMO C, y
+      `id1/pak0.pak` de GOG. **Como se sabe:** `start.bsp` se recorre en el
+      Ryzen, y el `[perf]` dice los fps de la CPU.

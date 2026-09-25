@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   321 casillas ABIERTAS en 39 planes
+   323 casillas ABIERTAS en 39 planes
    277 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -103,6 +103,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0 -- la IOMMU (AMD-Vi) encendida: el NEUTRO pasa de censo a frontera
 - ... y 8 mas
 
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 11 abiertas, 1 hechas
+
+*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
+
+- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
+- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
+- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
+- ... y 8 mas
+
 ## [`PLAN_LA_PUERTA_SE_PARTE.md`](PLAN_LA_PUERTA_SE_PARTE.md) -- 11 abiertas, 8 hechas
 
 *PLAN LA PUERTA SE PARTE -- dividir lo que no se puede abaratar*
@@ -137,15 +146,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
-- ... y 6 mas
-
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 9 abiertas, 1 hechas
-
-*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
-
-- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
-- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
-- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
