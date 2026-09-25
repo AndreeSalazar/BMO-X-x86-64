@@ -970,6 +970,9 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
         IOMMU_OP_GPU_VOLCADO => crate::ring0::dev::gpu_trabajo::volcado(arg1),
         // ** Cada fotograma: sin FLUSH del disco ni nada que no sea la copia.
         IOMMU_OP_GPU_VOLCADOR => crate::ring0::dev::gpu_trabajo::volcador(arg1),
+        // ** M6 V0: el video; sin FLUSH del disco: los fotogramas van seguidos.
+        IOMMU_OP_GPU_VIDEO_FORMATO => crate::ring0::dev::gpu_trabajo::video_formato(arg1),
+        IOMMU_OP_GPU_VIDEO => crate::ring0::dev::gpu_trabajo::video(arg1),
         IOMMU_OP_GPU_ESCENA => {
             if !crate::ring0::dev::disk::flush() {
                 crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de la escena no se pudo: se sigue", 0);

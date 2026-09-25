@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   306 casillas ABIERTAS en 38 planes
+   307 casillas ABIERTAS en 38 planes
    276 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -31,14 +31,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 45 abiertas, 16 hechas
+## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 
 *PLAN CLOUD LOCAL -- el movil es la ANTENA, BMO-X es la pantalla*
 
 - [ ] S0 -- lo que tiene que estar antes. G5 de docs/plan/PLAN_RED_TX.md:
 - [ ] S1a -- LEER de ESTRATOS. Medido el 2026-09-14 en
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
-- ... y 42 mas
+- ... y 43 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 

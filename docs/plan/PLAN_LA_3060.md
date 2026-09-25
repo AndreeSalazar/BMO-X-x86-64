@@ -772,6 +772,299 @@ resolucion, directamente en el framebuffer del GOP, que vive en su VRAM:
 **Como se sabe:** el monitor entero se mueve; la fila dice N de N
 fotogramas, los fps y los us de la 3060 por fotograma.
 
+**M6 V0, EL VIDEO POR LA 3060, en codigo (25-09).** Pedido por el
+propietario: *"el mp4 y otros elementos que la GPU ya pueda"*. Un `.mp4` es
+una caja con H.264 dentro, y un decodificador de H.264 en software son meses;
+la 3060 trae NVDEC, que lo hace en hardware y ENTREGA NV12. Asi que primero
+se construye el tramo de DESPUES del decodificador, que sirve igual para
+NVDEC, para pl_mpeg y para la antena: un fotograma NV12 (Y, y detras UV
+intercalado) pasa a RGB (BT.601 de rango limitado, en enteros) y se agranda
+por un entero, centrado, DIRECTAMENTE en el framebuffer del GOP.
+
+```text
+   origen   un bloque KIND_MEMORIA del escritorio con UN fotograma, prestado
+            SOLO LECTURA en la IOVA 0x5400_0000 durante UNA llamada; VA
+            0x6_0000_0000 (PD1 entrada 48), tablas en 0x0460_0000, PTE de
+            sistema; hasta 8 MiB (un 1920x1080 NV12 son 3 MiB)
+   programa ptxas sm_86, 184 instrucciones, 24 registros: un hilo por bloque
+            2x2 del origen (4 Y y un par UV, cada byte leido UNA vez por
+            PCIe), y los 4 cuadrados de s x s en la pantalla
+   juez     256 pixeles de la pantalla, rehechos por la CPU desde el MISMO
+            NV12 y leidos por el physmap con clflush
+   ordenes  0x42 VIDEO_FORMATO (ancho | alto << 16 | ficha << 32 -> escala,
+            x0, y0), 0x43 VIDEO (la VA del bloque | bit 63 cargar); motivo 85
+   la orden `gpu video <fichero> <ancho>x<alto> [fps]`: lee el fichero con
+            LEER_EN (del disco al bloque, sin escala), un trabajo por
+            fotograma, a su hora; la fila `video` parte cada fotograma en
+            disco, 3060 y comprobar, y cuenta los que llegaron tarde
+```
+
+El fichero sale de cualquier video, en Windows o en la antena:
+`ffmpeg -i video.mp4 -vf scale=640:360 -pix_fmt nv12 -f rawvideo clip.nv12`
+(640x360 sale x3 a 1920x1080). Sin sonido: el tubo de audio va aparte
+(A1). **Como se sabe:** el video se ve a pantalla completa y la fila dice N
+de N fotogramas, los fps y donde se va el tiempo. Lo siguiente, con la fila
+en la mano: si manda el DISCO (345 KB por fotograma de 640x360 a 30 fps son
+10 MB/s), leer por adelantado en otro bloque; si manda la 3060, el prestamo
+continuo como el volcador armado. Y despues NVDEC (clase de video del RM,
+`nvdec_drv.h`): el `.mp4` de verdad, con la CPU solo leyendo el contenedor.
+
+<details><summary>El PTX de origen de M6 V0</summary>
+
+```text
+.version 7.1
+.target sm_86
+.address_size 64
+.visible .entry vid()
+{
+  .reg .b32 %r<120>;
+  .reg .b64 %rd<40>;
+  .reg .pred %p<16>;
+  // los parametros del fotograma, en VA 0x2_0000_E580
+  mov.b64 %rd30, {58752, 2};
+  ld.volatile.global.u32 %r40, [%rd30];
+  ld.volatile.global.u32 %r41, [%rd30+4];
+  ld.volatile.global.u32 %r42, [%rd30+8];
+  ld.volatile.global.u32 %r43, [%rd30+12];
+  ld.volatile.global.u32 %r44, [%rd30+16];
+  ld.volatile.global.u32 %r45, [%rd30+20];
+  ld.volatile.global.u32 %r46, [%rd30+24];
+  ld.volatile.global.u32 %r47, [%rd30+28];
+  ld.volatile.global.u32 %r48, [%rd30+32];
+  // bx, by: el bloque 2x2 del origen
+  mov.u32 %r1, %tid.x;
+  mov.u32 %r2, %ctaid.x;
+  mov.u32 %r3, %ctaid.y;
+  shl.b32 %r4, %r2, 8;
+  add.s32 %r1, %r4, %r1;
+  shr.u32 %r5, %r42, 1;
+  setp.ge.u32 %p1, %r1, %r5;
+  @%p1 bra FIN;
+  mov.b64 %rd1, {%r40, %r41};
+  // Y de las dos lineas y el par UV
+  shl.b32 %r6, %r1, 1;
+  shl.b32 %r7, %r3, 1;
+  mad.lo.s32 %r8, %r7, %r42, %r6;
+  cvt.u64.u32 %rd2, %r8;
+  add.s64 %rd3, %rd1, %rd2;
+  ld.global.u16 %r10, [%rd3];
+  cvt.u64.u32 %rd4, %r42;
+  add.s64 %rd5, %rd3, %rd4;
+  ld.global.u16 %r11, [%rd5];
+  mul.lo.s32 %r12, %r42, %r43;
+  mad.lo.s32 %r13, %r3, %r42, %r6;
+  add.s32 %r13, %r13, %r12;
+  cvt.u64.u32 %rd6, %r13;
+  add.s64 %rd7, %rd1, %rd6;
+  ld.global.u16 %r14, [%rd7];
+  // D = U - 128, E = V - 128
+  and.b32 %r15, %r14, 255;
+  sub.s32 %r15, %r15, 128;
+  shr.u32 %r16, %r14, 8;
+  sub.s32 %r16, %r16, 128;
+  // los terminos de color comunes a los cuatro
+  mul.lo.s32 %r17, %r16, 409;
+  mul.lo.s32 %r18, %r15, -100;
+  mad.lo.s32 %r18, %r16, -208, %r18;
+  mul.lo.s32 %r19, %r15, 516;
+  setp.ne.u32 %p2, %r48, 0;
+  // la esquina del destino de este bloque: (2bx*s, 2by*s)
+  mul.lo.s32 %r20, %r6, %r47;
+  mul.lo.s32 %r21, %r7, %r47;
+  mov.b64 %rd8, {%r44, %r45};
+  // el pixel (0, 0) del bloque
+  shr.u32 %r60, %r10, 0;
+  and.b32 %r60, %r60, 255;
+  sub.s32 %r60, %r60, 16;
+  mul.lo.s32 %r60, %r60, 298;
+  add.s32 %r60, %r60, 128;
+  add.s32 %r61, %r60, %r17;
+  shr.s32 %r61, %r61, 8;
+  max.s32 %r61, %r61, 0;
+  min.s32 %r61, %r61, 255;
+  add.s32 %r62, %r60, %r18;
+  shr.s32 %r62, %r62, 8;
+  max.s32 %r62, %r62, 0;
+  min.s32 %r62, %r62, 255;
+  add.s32 %r63, %r60, %r19;
+  shr.s32 %r63, %r63, 8;
+  max.s32 %r63, %r63, 0;
+  min.s32 %r63, %r63, 255;
+  selp.b32 %r64, %r63, %r61, %p2;
+  selp.b32 %r65, %r61, %r63, %p2;
+  shl.b32 %r64, %r64, 16;
+  shl.b32 %r62, %r62, 8;
+  or.b32 %r66, %r64, %r62;
+  or.b32 %r66, %r66, %r65;
+  // su cuadrado de s x s en la pantalla
+  add.s32 %r67, %r21, 0;
+  add.s32 %r68, %r20, 0;
+  mov.u32 %r30, 0;
+FILA0:
+  .pragma "nounroll";
+  mov.u32 %r31, %r30;
+  add.s32 %r31, %r31, %r21;
+  mov.u32 %r32, 0;
+COL0:
+  .pragma "nounroll";
+  mad.lo.s32 %r33, %r31, %r46, %r20;
+  add.s32 %r33, %r33, %r32;
+  mul.wide.u32 %rd9, %r33, 4;
+  add.s64 %rd10, %rd8, %rd9;
+  st.global.u32 [%rd10], %r66;
+  add.s32 %r32, %r32, 1;
+  setp.lt.u32 %p3, %r32, %r47;
+  @%p3 bra COL0;
+  add.s32 %r30, %r30, 1;
+  setp.lt.u32 %p4, %r30, %r47;
+  @%p4 bra FILA0;
+  // el pixel (1, 0) del bloque
+  shr.u32 %r72, %r10, 8;
+  and.b32 %r72, %r72, 255;
+  sub.s32 %r72, %r72, 16;
+  mul.lo.s32 %r72, %r72, 298;
+  add.s32 %r72, %r72, 128;
+  add.s32 %r73, %r72, %r17;
+  shr.s32 %r73, %r73, 8;
+  max.s32 %r73, %r73, 0;
+  min.s32 %r73, %r73, 255;
+  add.s32 %r74, %r72, %r18;
+  shr.s32 %r74, %r74, 8;
+  max.s32 %r74, %r74, 0;
+  min.s32 %r74, %r74, 255;
+  add.s32 %r75, %r72, %r19;
+  shr.s32 %r75, %r75, 8;
+  max.s32 %r75, %r75, 0;
+  min.s32 %r75, %r75, 255;
+  selp.b32 %r76, %r75, %r73, %p2;
+  selp.b32 %r77, %r73, %r75, %p2;
+  shl.b32 %r76, %r76, 16;
+  shl.b32 %r74, %r74, 8;
+  or.b32 %r78, %r76, %r74;
+  or.b32 %r78, %r78, %r77;
+  // su cuadrado de s x s en la pantalla
+  add.s32 %r79, %r21, 0;
+  add.s32 %r80, %r20, 1;
+  mov.u32 %r30, 0;
+FILA1:
+  .pragma "nounroll";
+  mov.u32 %r31, %r30;
+  add.s32 %r31, %r31, %r21;
+  mov.u32 %r32, 0;
+COL1:
+  .pragma "nounroll";
+  mad.lo.s32 %r33, %r31, %r46, %r20;
+  add.s32 %r33, %r33, %r32;
+  add.s32 %r33, %r33, %r47;
+  mul.wide.u32 %rd9, %r33, 4;
+  add.s64 %rd10, %rd8, %rd9;
+  st.global.u32 [%rd10], %r78;
+  add.s32 %r32, %r32, 1;
+  setp.lt.u32 %p3, %r32, %r47;
+  @%p3 bra COL1;
+  add.s32 %r30, %r30, 1;
+  setp.lt.u32 %p4, %r30, %r47;
+  @%p4 bra FILA1;
+  // el pixel (0, 1) del bloque
+  shr.u32 %r84, %r11, 0;
+  and.b32 %r84, %r84, 255;
+  sub.s32 %r84, %r84, 16;
+  mul.lo.s32 %r84, %r84, 298;
+  add.s32 %r84, %r84, 128;
+  add.s32 %r85, %r84, %r17;
+  shr.s32 %r85, %r85, 8;
+  max.s32 %r85, %r85, 0;
+  min.s32 %r85, %r85, 255;
+  add.s32 %r86, %r84, %r18;
+  shr.s32 %r86, %r86, 8;
+  max.s32 %r86, %r86, 0;
+  min.s32 %r86, %r86, 255;
+  add.s32 %r87, %r84, %r19;
+  shr.s32 %r87, %r87, 8;
+  max.s32 %r87, %r87, 0;
+  min.s32 %r87, %r87, 255;
+  selp.b32 %r88, %r87, %r85, %p2;
+  selp.b32 %r89, %r85, %r87, %p2;
+  shl.b32 %r88, %r88, 16;
+  shl.b32 %r86, %r86, 8;
+  or.b32 %r90, %r88, %r86;
+  or.b32 %r90, %r90, %r89;
+  // su cuadrado de s x s en la pantalla
+  add.s32 %r91, %r21, 1;
+  add.s32 %r92, %r20, 0;
+  mov.u32 %r30, 0;
+FILA2:
+  .pragma "nounroll";
+  add.s32 %r31, %r47, %r30;
+  add.s32 %r31, %r31, %r21;
+  mov.u32 %r32, 0;
+COL2:
+  .pragma "nounroll";
+  mad.lo.s32 %r33, %r31, %r46, %r20;
+  add.s32 %r33, %r33, %r32;
+  mul.wide.u32 %rd9, %r33, 4;
+  add.s64 %rd10, %rd8, %rd9;
+  st.global.u32 [%rd10], %r90;
+  add.s32 %r32, %r32, 1;
+  setp.lt.u32 %p3, %r32, %r47;
+  @%p3 bra COL2;
+  add.s32 %r30, %r30, 1;
+  setp.lt.u32 %p4, %r30, %r47;
+  @%p4 bra FILA2;
+  // el pixel (1, 1) del bloque
+  shr.u32 %r96, %r11, 8;
+  and.b32 %r96, %r96, 255;
+  sub.s32 %r96, %r96, 16;
+  mul.lo.s32 %r96, %r96, 298;
+  add.s32 %r96, %r96, 128;
+  add.s32 %r97, %r96, %r17;
+  shr.s32 %r97, %r97, 8;
+  max.s32 %r97, %r97, 0;
+  min.s32 %r97, %r97, 255;
+  add.s32 %r98, %r96, %r18;
+  shr.s32 %r98, %r98, 8;
+  max.s32 %r98, %r98, 0;
+  min.s32 %r98, %r98, 255;
+  add.s32 %r99, %r96, %r19;
+  shr.s32 %r99, %r99, 8;
+  max.s32 %r99, %r99, 0;
+  min.s32 %r99, %r99, 255;
+  selp.b32 %r100, %r99, %r97, %p2;
+  selp.b32 %r101, %r97, %r99, %p2;
+  shl.b32 %r100, %r100, 16;
+  shl.b32 %r98, %r98, 8;
+  or.b32 %r102, %r100, %r98;
+  or.b32 %r102, %r102, %r101;
+  // su cuadrado de s x s en la pantalla
+  add.s32 %r103, %r21, 1;
+  add.s32 %r104, %r20, 1;
+  mov.u32 %r30, 0;
+FILA3:
+  .pragma "nounroll";
+  add.s32 %r31, %r47, %r30;
+  add.s32 %r31, %r31, %r21;
+  mov.u32 %r32, 0;
+COL3:
+  .pragma "nounroll";
+  mad.lo.s32 %r33, %r31, %r46, %r20;
+  add.s32 %r33, %r33, %r32;
+  add.s32 %r33, %r33, %r47;
+  mul.wide.u32 %rd9, %r33, 4;
+  add.s64 %rd10, %rd8, %rd9;
+  st.global.u32 [%rd10], %r102;
+  add.s32 %r32, %r32, 1;
+  setp.lt.u32 %p3, %r32, %r47;
+  @%p3 bra COL3;
+  add.s32 %r30, %r30, 1;
+  setp.lt.u32 %p4, %r30, %r47;
+  @%p4 bra FILA3;
+FIN:
+  ret;
+}
+```
+
+</details>
+
 **LO QUE FALTA (25-09), en orden, y por que ninguno es "el ultimo":**
 
 ```text

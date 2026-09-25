@@ -105,6 +105,8 @@ pub mod color3d;
 pub mod giro;
 
 pub mod pantalla;
+
+pub mod video;
 /// El volcado por la 3060: el motor de copia lleva el lienzo del escritorio
 /// a la pantalla (compositor por GPU, paso 1; 2026-09-25).
 pub mod volcado;

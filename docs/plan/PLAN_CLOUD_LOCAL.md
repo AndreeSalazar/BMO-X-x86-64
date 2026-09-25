@@ -95,6 +95,15 @@ pantalla tal cual.
       Biblioteca los lista de ahi y dice de que volumen es cada uno. **Como se
       sabe:** el `.mpg` copiado sale en la Biblioteca marcado como de ESTRATOS.
 
+- [ ] **S1-GPU -- la mitad de ABAJO del reproductor, en la 3060.** En codigo
+      el 2026-09-25 (M6 V0 de `PLAN_LA_3060.md`): `gpu video <fichero>
+      <ancho>x<alto> [fps]` pone un video NV12 crudo a pantalla completa; la
+      3060 hace el color y el escalado, la CPU solo lee el disco. El NV12 lo
+      da ffmpeg de CUALQUIER `.mp4`, y es lo mismo que entregaran pl_mpeg y
+      NVDEC: el decodificador se enchufa encima sin tocar esto. **Como se
+      sabe:** un clip de 640x360 se ve a 1920x1080 y la fila `video` dice N
+      de N a 30 fps.
+
 - [ ] **S1 -- el reproductor LOCAL.** Una app `.bex` en BMO C con pl_mpeg
       (licencia MIT, un solo fichero) que abre un `.mpg` del disco y lo pinta en
       su ventana, con el audio por el tubo. Sin red: primero se prueba que BMO-X

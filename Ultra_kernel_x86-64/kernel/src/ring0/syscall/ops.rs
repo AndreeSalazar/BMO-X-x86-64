@@ -425,6 +425,10 @@ pub(crate) const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 /// Compositor por GPU, paso 1b: el volcado en CADA fotograma (armar, cajas
 /// sucias con su valla, soltar). Ver `dev/gpu_trabajo/volcado.rs`.
 pub(crate) const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
+/// M6 V0: el formato de una tanda de video NV12. Ver `dev/gpu_trabajo/video.rs`.
+pub(crate) const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
+/// M6 V0: un fotograma NV12 de un bloque del escritorio, a la pantalla por la 3060.
+pub(crate) const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -960,6 +964,8 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_PANTALLA => "GPU_PANTALLA",
         IOMMU_OP_GPU_VOLCADO => "GPU_VOLCADO",
         IOMMU_OP_GPU_VOLCADOR => "GPU_VOLCADOR",
+        IOMMU_OP_GPU_VIDEO_FORMATO => "GPU_VIDEO_FORMATO",
+        IOMMU_OP_GPU_VIDEO => "GPU_VIDEO",
         _ => "?",
     }
 }

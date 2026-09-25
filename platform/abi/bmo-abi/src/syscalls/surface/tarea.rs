@@ -876,6 +876,18 @@ pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 /// suborden en 63..60 (`volcado::ARMAR`, `CAJA`, `SOLTAR`, `COMO_VA`); la
 /// CAJA ultima de un fotograma toca el timbre y vuelve con la valla pagada.
 pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
+/// M6 V0: el formato de una tanda de video NV12. `arg1` = ancho (0..15),
+/// alto (16..31) y la ficha de S3 (32..63). `Ok` = escala | x0 << 8 |
+/// y0 << 32: como cae en la pantalla (agrandado por un entero y centrado).
+pub const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
+/// M6 V0: UN fotograma NV12 (Y y detras UV intercalado) de un bloque
+/// KIND_MEMORIA del que llama, convertido a RGB y agrandado por la 3060
+/// directamente en el framebuffer del GOP. `arg1` = la VA del bloque, y el
+/// bit 63 para cargar el programa (el primero de cada tanda). Prestado SOLO
+/// LECTURA durante la llamada. `Ok` = `video::empaquetar(..)` (de 256 muestras).
+pub const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
+/// El bit 63 de `IOMMU_OP_GPU_VIDEO`: cargar el programa, el QMD y las ordenes.
+pub const VIDEO_CARGAR: u64 = 1 << 63;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -1046,6 +1058,10 @@ pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
 /// El volcado por la 3060 no se puede: sin la copia de L1d3, sin la pantalla
 /// del GOP en modo fisico, un lienzo que no es del que llama, o uno en marcha.
 pub const IOMMU_NO_VOLCADO: u32 = 83;
+/// M6 V0: sin el canal de GR y su ficha, sin la pantalla en modo fisico, un
+/// formato impar o mas grande que la pantalla, un fotograma que no es un
+/// bloque del que llama, o uno ya en marcha.
+pub const IOMMU_NO_VIDEO: u32 = 85;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

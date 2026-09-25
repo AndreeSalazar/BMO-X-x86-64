@@ -25,6 +25,9 @@ pub use pantalla::{pantalla, IOMMU_NO_PANTALLA};
 /// El volcado del escritorio por el motor de copia (compositor por GPU, 1).
 mod volcado;
 pub use volcado::{suelta_si_es_de, volcado, volcador, IOMMU_NO_VOLCADO};
+/// M6 V0: un fotograma NV12, convertido y agrandado por la 3060 en la pantalla.
+mod video;
+pub use video::{video, video_formato, IOMMU_NO_VIDEO};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
