@@ -359,6 +359,29 @@ fn dato32(pagina: u64, o: u64) -> u32 {
     (w >> ((d & 7) * 8)) as u32
 }
 
+/// **D4: cuantos avisos de fallo** (RC_TRIGGERED, MMU_FAULT...) hay sin leer
+/// en la cola del GSP, sin pintar nada. `gpu aguante` lo mira tras cada
+/// trabajo: uno nuevo es un fallo de esa vuelta aunque el juez dijera bien.
+pub(crate) fn contar_avisos() -> u32 {
+    if bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO == 0 {
+        return 0;
+    }
+    let escrito = (mem(ESCRITO) & 0xFFFF_FFFF) as u64;
+    let leido = (mem(LEIDO_CPU) & 0xFFFF_FFFF) as u64;
+    let (fin, mut p) = (escrito % PAGINAS, leido % PAGINAS);
+    let (mut vueltas, mut n) = (0, 0);
+    while p != fin && vueltas < PAGINAS {
+        let m = Mensaje::de(&cabecera(p));
+        if !m.bien_formado() {
+            break;
+        }
+        n += es_aviso(m.funcion) as u32;
+        p = (p + m.paginas as u64) % PAGINAS;
+        vueltas += m.paginas as u64;
+    }
+    n
+}
+
 /// **Las filas `gsp aviso`**: los mensajes de fallo que el GSP dejo sin leer,
 /// como mucho `max`. Devuelve cuantos habia.
 pub(crate) fn avisos(s: &mut Output, max: u32) -> u32 {

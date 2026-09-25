@@ -29,6 +29,9 @@ pub const CARGAR: u64 = 1 << 56;
 /// Bit de `arg` (C1, 25-09): comprobar solo [`pa::POCAS`] muestras que rotan,
 /// no las 1024. Lo pide el escritorio en los fotogramas de paso.
 pub const POCAS: u64 = 1 << 57;
+/// Bit de `arg` (D2, 25-09): comprobar TODA la pantalla, pixel a pixel, ademas
+/// de las muestras. El recuento queda en `DIAG_3D[6..7]` (comprobados, malos).
+pub const ENTERA: u64 = 1 << 58;
 
 /// La pantalla del GOP en la VRAM, si se puede. La usa tambien el volcado.
 pub(super) fn la_pantalla() -> Option<pa::Pantalla> {
@@ -58,7 +61,7 @@ pub fn pantalla(arg: u64) -> Result<u64, u32> {
     if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_BLUR);
     }
-    let r = pantalla_(bar0, ficha as u32, e, f, &p, arg & CARGAR != 0, arg & POCAS != 0);
+    let r = pantalla_(bar0, ficha as u32, e, f, &p, arg & CARGAR != 0, arg & POCAS != 0, arg & ENTERA != 0);
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
@@ -83,7 +86,8 @@ pub(super) fn asegurar_mapa(r: &mut Bar0, p: &pa::Pantalla) -> Result<bool, u32>
     }
 }
 
-fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool, pocas: bool) -> Result<u64, u32> {
+#[allow(clippy::too_many_arguments)]
+fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool, pocas: bool, entera: bool) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
     let primera = asegurar_mapa(&mut r, p)?;
     let m = pa::marco(f, p.ancho, p.alto);
@@ -142,6 +146,36 @@ fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bo
             })
             .count() as u32
     });
+    // ** D2: TODA la pantalla, pixel a pixel. Unos cientos de ms de CPU (el
+    // fractal entero, rehecho): se cede el CPU en cada linea para que el bus
+    // USB siga vivo, y el escritorio lo pide uno de cada 64 fotogramas.
+    if entera {
+        let malos = (0..p.alto)
+            .map(|y| {
+                let fila = (0..p.ancho)
+                    .filter(|&x| {
+                        // SAFETY: como las muestras: (x, y) dentro de la
+                        // pantalla, por el physmap; 32 bits alineados.
+                        let v = unsafe {
+                            let q = fb.add(y as usize * p.pitch as usize + x as usize);
+                            if x % 16 == 0 {
+                                core::arch::x86_64::_mm_clflush(q as *const u8);
+                            }
+                            q.read_volatile()
+                        };
+                        v & 0x00FF_FFFF != pa::pixel(p, &m, x, y)
+                    })
+                    .count() as u32;
+                crate::ring0::task::scheduler::yield_current();
+                fila
+            })
+            .sum::<u32>();
+        super::DIAG_3D[6].store(p.ancho * p.alto, Ordering::Release);
+        super::DIAG_3D[7].store(malos, Ordering::Release);
+        if malos != 0 {
+            crate::ring0::cabina::warn("gpu", "D2: la pantalla ENTERA no salio igual que la CPU; pixeles malos", malos as u64);
+        }
+    }
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
     let v = pa::empaquetar(buenos, qmd == pa::PAGA_QMD, fin == pa::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
     if !pa::sano_con(v, esperadas) {

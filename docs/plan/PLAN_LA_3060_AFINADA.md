@@ -384,6 +384,13 @@ el RM a nuestra carga: se anota).
 
 ### [ ] D2 -- la pantalla ENTERA, bit a bit, uno de cada N fotogramas
 
+En codigo el 25-09 para `pantalla` (el video, despues): el bit 58
+(`PANTALLA_ENTERA`) hace que el kernel rehaga y compare TODA la pantalla,
+cediendo el CPU en cada linea; los comprobados y los malos quedan en
+`DIAG_3D` 6 y 7. `gpu pantalla` lo pide uno de cada 64 fotogramas y `save
+mode` en el ultimo de sus 8; ese tiempo de CPU sale de los fps.
+
+
 `gpu pantalla` y `gpu video` miran 1024, 256 o 16 pixeles. Una vez cada 64
 fotogramas, el kernel compara los 2 millones (1920x1080) con la cuenta de la
 CPU: unos 30 ms de CPU, que en 64 fotogramas son ~0,5 ms por fotograma. Un
@@ -391,6 +398,10 @@ bit nuevo en el argumento (`TODA`) y el recuento en la fila. **Como se
 sabe:** `pantalla: ... 2073600 de 2073600 en los fotogramas enteros`.
 
 ### [ ] D3 -- la frontera, DESPUES de todo
+
+En codigo el 25-09 dentro de `gpu aguante`: un evento NUEVO de la IOMMU tras
+un trabajo es un FALLO de esa vuelta, aunque su juez dijera bien.
+
 
 Hoy la IOMMU dice los fallos de pagina de la 3060, y el unico esperado es
 el de la prueba de frontera (0x2000_0000, en cada arranque). Al acabar
@@ -401,6 +412,10 @@ dice `1 pendiente` y la fila `aguante` lo repite como `frontera: 1 (la de
 la prueba)`.
 
 ### [ ] D4 -- el GSP-RM, callado
+
+En codigo el 25-09 dentro de `gpu aguante` (`gspcola::contar_avisos`): un
+aviso de fallo NUEVO en la cola del GSP es un FALLO de esa vuelta.
+
 
 Tras cada trabajo, cero `RC_TRIGGERED` y cero `MMU_FAULT` nuevos en su cola
 (ya se leen: `gspcola::avisos`). D1 ya los muestra al acabar; falta que

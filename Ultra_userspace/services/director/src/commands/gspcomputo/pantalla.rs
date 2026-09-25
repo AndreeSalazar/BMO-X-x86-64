@@ -34,16 +34,22 @@ pub(super) struct Tanda {
     /// muestras comprobo (1024 por fotograma, o 16 con el muestreo de C1).
     cpu_us: u64,
     muestras: u64,
+    /// D2: fotogramas mirados ENTEROS, sus pixeles, los malos, y lo que
+    /// tardo la CPU en mirarlos (fuera de los fps: no es la 3060).
+    enteros: u32,
+    px: u64,
+    malos: u64,
+    entera_us: u64,
 }
 
 impl Tanda {
     fn bien(&self) -> bool {
-        self.pedidos > 0 && self.buenos == self.pedidos
+        self.pedidos > 0 && self.buenos == self.pedidos && self.malos == 0
     }
 
     /// Fotogramas por segundo, en decimas.
     fn fps10(&self) -> u64 {
-        self.buenos as u64 * 10_000_000 / self.total_us.max(1)
+        self.buenos as u64 * 10_000_000 / self.total_us.saturating_sub(self.entera_us).max(1)
     }
 
     /// **B1: un fotograma, partido** en us: `(total, la 3060, comprobar,
@@ -74,6 +80,10 @@ fn bits(f: u32, todas: bool) -> (u64, u32) {
 
 const _: () = assert!(bmo::PANTALLA_POCAS == 1 << 57 && bmo::PANTALLA_CARGAR == 1 << 56);
 
+/// D2: cada cuantos fotogramas se mira la pantalla ENTERA (y siempre el
+/// ultimo de una tanda de `save mode`).
+const CADA_ENTERA: u32 = 64;
+
 /// **Una tanda de `n` fotogramas**, seguidos; se para en el primero malo.
 fn tanda(n: u32, ancho: u32, alto: u32, todas: bool) -> Result<Tanda, u32> {
     let ficha = ficha()?;
@@ -82,13 +92,22 @@ fn tanda(n: u32, ancho: u32, alto: u32, todas: bool) -> Result<Tanda, u32> {
     let mut t = Tanda { ancho, alto, ..Tanda::default() };
     for f in 0..n {
         let (b, esperadas) = bits(f, todas);
+        let entera = f % CADA_ENTERA == CADA_ENTERA - 1 || (todas && f + 1 == n);
+        let b = b | if entera { bmo::PANTALLA_ENTERA } else { 0 };
         let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | b)?;
         t.pedidos += 1;
         let (_, _, _, _, gpu_us, cpu_us) = pa::desempaquetar(r);
         t.gpu_us += gpu_us as u64;
-        t.cpu_us += cpu_us as u64;
         t.muestras += esperadas as u64;
-        if !pa::sano_con(r, esperadas) {
+        if entera {
+            t.enteros += 1;
+            t.px += bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIAG_3D, 6).unwrap_or(0);
+            t.malos += bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIAG_3D, 7).unwrap_or(0);
+            t.entera_us += cpu_us as u64;
+        } else {
+            t.cpu_us += cpu_us as u64;
+        }
+        if !pa::sano_con(r, esperadas) || t.malos != 0 {
             t.malo = Some((f, r));
             break;
         }
@@ -241,6 +260,17 @@ pub(super) fn fila(s: &mut Output, c: &super::Computo) {
     s.dec(t.muestras / t.pedidos.max(1) as u64);
     s.text(b" muestras) + preparar y syscall ");
     s.dec(resto);
+    if t.enteros > 0 {
+        s.text(b"; D2: ");
+        s.dec(t.enteros as u64);
+        s.text(b" fotograma(s) mirados ENTEROS, ");
+        s.dec(t.px - t.malos);
+        s.text(b" de ");
+        s.dec(t.px);
+        s.text(b" pixeles iguales (");
+        s.dec(t.entera_us / t.enteros as u64 / 1000);
+        s.text(b" ms de CPU cada uno, fuera de los fps)");
+    }
     if let Some((f, r)) = t.malo {
         let (buenos, qmd, fin, _, _, _) = pa::desempaquetar(r);
         s.text(b"; el ");

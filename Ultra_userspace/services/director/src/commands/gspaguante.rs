@@ -50,13 +50,34 @@ struct Cuenta {
     peor_us: u64,
 }
 
+/// Por que se paro una vuelta.
+#[derive(Clone, Copy)]
+enum Tropiezo {
+    /// El trabajo dijo NO (o su juez).
+    No(u32),
+    /// D3: la IOMMU vio eventos nuevos (cuantos, y la direccion del ultimo).
+    Iommu(u64, u64),
+    /// D4: el GSP-RM dejo avisos de fallo nuevos en su cola.
+    Gsp(u32),
+}
+
+/// Los eventos de la IOMMU que hay pendientes (de toda la maquina).
+fn eventos_iommu() -> u64 {
+    let e = bmo::info(bmo::INFO_IOMMU_EVENTO);
+    if e & bmo::IOMMU_EVENTO_HAY == 0 {
+        0
+    } else {
+        e & 0xFFFF
+    }
+}
+
 #[derive(Clone, Copy, Default)]
 struct Aguante {
     cuentas: [Cuenta; N],
     vueltas: u32,
     segundos: u64,
-    /// El que fallo: su indice, la vuelta y su NO.
-    fallo: Option<(usize, u32, u32)>,
+    /// El que fallo: su indice, la vuelta y por que.
+    fallo: Option<(usize, u32, Tropiezo)>,
     /// Grados al empezar, lo mas alto y al acabar (0 = sin lectura).
     temp: (u32, u32, u32),
 }
@@ -80,6 +101,9 @@ fn aguantar(minutos: u64) -> Aguante {
     }
     let t0 = grados();
     a.temp = (t0, t0, t0);
+    // D3 y D4: lo que ya habia al empezar (la frontera de cada arranque es
+    // un evento de la IOMMU esperado) no cuenta; lo NUEVO si.
+    let (ev0, av0) = (eventos_iommu(), super::gspcola::contar_avisos());
     let desde = bmo::ciclos();
     let fin = desde + hz * 60 * minutos;
     'vueltas: while bmo::ciclos() < fin {
@@ -93,10 +117,16 @@ fn aguantar(minutos: u64) -> Aguante {
             let c = &mut a.cuentas[k];
             c.us += us;
             c.peor_us = c.peor_us.max(us);
-            match r {
-                Ok(_) => c.bien += 1,
-                Err(m) => {
-                    a.fallo = Some((k, a.vueltas, m));
+            let tropiezo = match r {
+                Err(m) => Some(Tropiezo::No(m)),
+                Ok(_) if eventos_iommu() > ev0 => Some(Tropiezo::Iommu(eventos_iommu() - ev0, bmo::info(bmo::INFO_IOMMU_EVENTO_DIR))),
+                Ok(_) if super::gspcola::contar_avisos() > av0 => Some(Tropiezo::Gsp(super::gspcola::contar_avisos() - av0)),
+                Ok(_) => None,
+            };
+            match tropiezo {
+                None => c.bien += 1,
+                Some(t) => {
+                    a.fallo = Some((k, a.vueltas, t));
                     break 'vueltas;
                 }
             }
@@ -172,15 +202,29 @@ pub(crate) fn fila(s: &mut Output) {
     s.text(b" vueltas en ");
     s.dec(a.segundos);
     s.text(b" s");
-    if let Some((k, v, m)) = a.fallo {
+    if let Some((k, v, t)) = a.fallo {
         s.text(b"; FALLO `");
         s.text(TRABAJOS[k].0);
         s.text(b"` en la vuelta ");
         s.dec(v as u64 + 1);
         s.text(b": ");
-        s.text(super::iommu::motivo(m));
+        match t {
+            Tropiezo::No(m) => s.text(super::iommu::motivo(m)),
+            Tropiezo::Iommu(n, dir) => {
+                s.text(b"el juez dijo bien pero la IOMMU vio ");
+                s.dec(n);
+                s.text(b" evento(s) NUEVO(S): la 3060 toco lo que no se le presto (el ultimo en 0x");
+                s.hex(dir, 16);
+                s.text(b"; D3)");
+            }
+            Tropiezo::Gsp(n) => {
+                s.text(b"el juez dijo bien pero el GSP-RM dejo ");
+                s.dec(n as u64);
+                s.text(b" aviso(s) de fallo NUEVO(S) en su cola (debajo; D4)");
+            }
+        }
     } else {
-        s.text(b", sin un fallo");
+        s.text(b", sin un fallo, sin un evento nuevo de la IOMMU ni un aviso nuevo del GSP");
     }
     s.with_ink(INK_ECHO);
     if a.temp.0 != 0 {

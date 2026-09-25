@@ -855,7 +855,9 @@ const GR_MIRADOS: [u32; 3] = [0x0040_0100, 0x0040_0108, 0x0040_0700];
 /// Lo que quedo del ultimo dibujo 3D: la escalera (bit 0 estado, 1 vertices,
 /// 2 entero), los tres registros y los escalones del estado (4: los 32
 /// primeros, 5: el resto).
-static DIAG_3D: [core::sync::atomic::AtomicU32; 6] = [const { core::sync::atomic::AtomicU32::new(0) }; 6];
+/// 0..5 los del dibujo 3D; 6 y 7 (D2) los pixeles comprobados y los malos
+/// del ultimo fotograma de `pantalla` mirado ENTERO.
+static DIAG_3D: [core::sync::atomic::AtomicU32; 8] = [const { core::sync::atomic::AtomicU32::new(0) }; 8];
 
 /// **Op 0x39**: la palabra `k` de `DIAG_3D`.
 pub fn diag_3d(k: u64) -> Result<u64, u32> {
