@@ -20,15 +20,35 @@
 //!    0..120 ms    se enciende: de nada a todo, blanco en el borde
 //!    120..700     se apaga despacio, de cian a magenta
 //! ```
+//!
+//! # ** Y SIGUE LA ESQUINA REDONDA (25-09)
+//!
+//! Pedido del propietario: *"los del borde aplicar tambien en iluminacion"*.
+//! La ventana es redonda desde `borde` (radio 10, suavizada), y el neon seguia
+//! midiendo la distancia al RECTANGULO: un halo cuadrado alrededor de una
+//! ventana redonda, y el hueco de cada esquina --lo que la curva le quita a la
+//! caja-- apagado. Ahora:
+//!
+//! ```text
+//!    distancia   `borde::distancia8`: al redondeado de verdad, en octavos
+//!                de pixel, la misma curva que pinta la ventana
+//!    anillos     se INTERPOLAN entre las tablas: el brillo cae suave, no a
+//!                escalones de un pixel
+//!    esquinas    se guardan y se encienden tambien los cuatro cuadrados de
+//!                `R_VENTANA` de DENTRO de la caja, y el pixel que la curva
+//!                cubre a medias se enciende a medias
+//! ```
 
 use bmo_userland as bmo;
 
+use super::borde::{distancia8, R_VENTANA};
 use super::globo::{mezcla, onda};
 
 /// Lo que sale por fuera de la ventana.
 const GROSOR: u32 = 10;
-/// Cuatro tiras de una ventana de hasta 4K.
-const GUARDADO: usize = (2 * (3840 + 2 * GROSOR) * GROSOR + 2 * 2160 * GROSOR) as usize;
+/// Cuatro tiras de una ventana de hasta 4K, y las cuatro esquinas de dentro.
+const GUARDADO: usize =
+    (2 * (3840 + 2 * GROSOR) * GROSOR + 2 * 2160 * GROSOR + 4 * R_VENTANA * R_VENTANA) as usize;
 const SUBE_MS: u64 = 120;
 /// El borde vivo, sin destello: tres anillos.
 const GROSOR_VIVO: u32 = 3;
@@ -45,12 +65,12 @@ const ANILLOS: [u32; GROSOR as usize] = [256, 235, 200, 160, 124, 92, 64, 40, 22
 
 struct Brillo {
     px: [u32; GUARDADO],
-    tiras: [(u32, u32, u32, u32); 4],
+    tiras: [(u32, u32, u32, u32); 8],
     n: usize,
     puesto: bool,
 }
 
-static mut BRILLO: Brillo = Brillo { px: [0; GUARDADO], tiras: [(0, 0, 0, 0); 4], n: 0, puesto: false };
+static mut BRILLO: Brillo = Brillo { px: [0; GUARDADO], tiras: [(0, 0, 0, 0); 8], n: 0, puesto: false };
 
 fn brillo() -> &'static mut Brillo {
     // SAFETY: el escritorio es un solo hilo; esto solo se toca desde el compositor.
@@ -99,15 +119,21 @@ pub(crate) fn poner(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), edad_
     // El perimetro, y donde va el degradado en esta vuelta.
     let perimetro = 2 * (w as u64 + h as u64);
     let giro = ahora_ms % VUELTA_MS * perimetro / VUELTA_MS;
-    // Donde cae un pixel de fuera, en el perimetro (en el sentido del reloj).
+    // Donde cae un pixel en el perimetro (en el sentido del reloj): en el del
+    // lado mas cerca. ** Por el lado mas cerca y no por "de que lado de la caja
+    // cae": los de las esquinas de DENTRO no caen fuera de ningun lado, y
+    // mandarlos al de la izquierda les daba el color de la otra punta.
     let en_perimetro = |px: u32, py: u32| -> u64 {
         let cx = px.clamp(x, x + w - 1);
         let cy = py.clamp(y, y + h - 1);
-        if py < y {
+        let (arriba, derecha) = (cy - y, x + w - 1 - cx);
+        let (abajo, izquierda) = (y + h - 1 - cy, cx - x);
+        let menor = arriba.min(derecha).min(abajo).min(izquierda);
+        if arriba == menor {
             (cx - x) as u64
-        } else if px >= x + w {
+        } else if derecha == menor {
             w as u64 + (cy - y) as u64
-        } else if py >= y + h {
+        } else if abajo == menor {
             w as u64 + h as u64 + (x + w - 1 - cx) as u64
         } else {
             2 * w as u64 + h as u64 + (y + h - 1 - cy) as u64
@@ -117,7 +143,7 @@ pub(crate) fn poner(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), edad_
     let (x0, y0) = (x.saturating_sub(grosor), y.saturating_sub(grosor));
     let x1 = (x + w + grosor).min(p.ancho);
     let y1 = (y + h + grosor).min(p.alto);
-    let mut tiras = [(0u32, 0u32, 0u32, 0u32); 4];
+    let mut tiras = [(0u32, 0u32, 0u32, 0u32); 8];
     let mut n = 0;
     let mut tira = |t: (u32, u32, u32, u32)| {
         if t.2 > 0 && t.3 > 0 {
@@ -129,6 +155,16 @@ pub(crate) fn poner(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), edad_
     tira((x0, (y + h).min(y1), x1 - x0, y1.saturating_sub(y + h)));
     tira((x0, y, x.saturating_sub(x0), h.min(y1.saturating_sub(y))));
     tira(((x + w).min(x1), y, x1.saturating_sub(x + w), h.min(y1.saturating_sub(y))));
+    // Las cuatro esquinas de DENTRO de la caja: lo que la curva le quita. El
+    // mismo radio que `borde::ventana`, que tampoco redondea una ventana chica.
+    let r = if w > 2 * R_VENTANA + 2 && h > 2 * R_VENTANA + 2 { R_VENTANA } else { 0 };
+    if r > 0 {
+        for (ex, ey) in [(x, y), (x + w - r, y), (x, y + h - r), (x + w - r, y + h - r)] {
+            if ex < p.ancho && ey < p.alto {
+                tira((ex, ey, r.min(p.ancho - ex), r.min(p.alto - ey)));
+            }
+        }
+    }
     let total: usize = tiras[..n].iter().map(|t| (t.2 * t.3) as usize).sum();
     if total > GUARDADO {
         return;
@@ -148,27 +184,56 @@ pub(crate) fn poner(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), edad_
     b.tiras = tiras;
     b.n = n;
     b.puesto = true;
-    // Pintar: cada pixel segun a cuantos pixeles esta de la ventana.
+    // Pintar: cada pixel segun a cuanto esta del borde REDONDO de la ventana.
+    let caja = (x, y, w, h);
     let mut k = 0usize;
     for &(tx, ty, tw, th) in &tiras[..n] {
         p.marcar(tx, ty, tw, th);
         for dy in 0..th {
             for dx in 0..tw {
                 let (px, py) = (tx + dx, ty + dy);
-                let fx = if px < x { x - px } else if px >= x + w { px - (x + w) + 1 } else { 0 };
-                let fy = if py < y { y - py } else if py >= y + h { py - (y + h) + 1 } else { 0 };
-                let d = fx.max(fy).clamp(1, grosor) as usize - 1;
+                let debajo = b.px[k];
+                k += 1;
+                // En octavos de pixel, desde el borde de fuera: el pixel
+                // pegado a un lado recto esta a 4 (medio pixel).
+                let d8 = distancia8(px, py, caja, r);
+                if d8 <= -4 {
+                    // Dentro de la ventana: no se toca (el pixel ya esta como
+                    // estaba, y se devolvera igual).
+                    continue;
+                }
+                // Lo que la ventana NO cubre de este pixel, sobre 8: el de la
+                // curva cubierto a medias se enciende a medias.
+                let fuera = (d8 + 4).clamp(0, 8) as u32;
+                // El anillo, con decimales: 0 = el pegado a la ventana.
+                let a8 = (d8 - 4).max(0) as u32;
+                let alfa = anillo(&VIVO, a8).max(anillo(&ANILLOS[..grosor as usize], a8) * fuerza / 256);
+                if alfa == 0 {
+                    continue;
+                }
                 // El degradado: dos vueltas de cian a magenta por perimetro,
                 // corridas por el giro.
                 let pos = (en_perimetro(px, py) + perimetro - giro) % perimetro;
                 let neon = mezcla(CIAN, MAGENTA, onda(pos * 2000 / perimetro, 1000));
-                let vivo = if d < VIVO.len() { VIVO[d] } else { 0 };
-                let alfa = vivo.max(ANILLOS[d] * fuerza / 256);
                 // El anillo de dentro, al encenderse, casi blanco.
-                let color = if d == 0 { mezcla(neon, BLANCO, fuerza / 2) } else { neon };
-                p.punto_ya_marcado(px, py, mezcla(b.px[k], color, alfa));
-                k += 1;
+                let cerca = 8u32.saturating_sub(a8);
+                let color = mezcla(neon, BLANCO, fuerza / 2 * cerca / 8);
+                p.punto_ya_marcado(px, py, mezcla(debajo, color, alfa * fuerza_de(fuera) / 256));
             }
         }
     }
+}
+
+/// Lo que brilla la tabla `t` a `a8` octavos de pixel del borde, interpolado
+/// entre anillo y anillo. Fuera de la tabla, nada.
+fn anillo(t: &[u32], a8: u32) -> u32 {
+    let (i, f) = ((a8 / 8) as usize, a8 % 8);
+    let a = t.get(i).copied().unwrap_or(0);
+    let b = t.get(i + 1).copied().unwrap_or(0);
+    (a * (8 - f) + b * f) / 8
+}
+
+/// De octavos de pixel descubiertos a fuerza sobre 256.
+fn fuerza_de(fuera: u32) -> u32 {
+    fuera * 32
 }

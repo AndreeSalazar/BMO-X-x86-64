@@ -80,6 +80,43 @@ pub(crate) fn dentro(x: u32, y: u32, rx: u32, ry: u32, w: u32, h: u32, r: u32) -
     x >= rx + s && x < rx + w - s
 }
 
+/// Raiz cuadrada entera (por abajo). Sin `f64`: esto corre en `no_std`.
+fn raiz(n: u64) -> u64 {
+    if n < 2 {
+        return n;
+    }
+    let mut x = n;
+    let mut y = (x + 1) / 2;
+    while y < x {
+        x = y;
+        y = (x + n / x) / 2;
+    }
+    x
+}
+
+/// **A cuanto esta el pixel `(px, py)` del borde de FUERA de un redondeado**
+/// de radio `r`, en OCTAVOS de pixel y medido desde su centro: negativo dentro,
+/// positivo fuera. El pixel pegado a un lado recto da `4` (medio pixel).
+///
+/// Es la misma curva que [`ventana`]: circulos de centro `(x + r, y + r)` en
+/// las esquinas. La usa `brillo` para que el neon del foco siga la esquina
+/// redonda en vez de dibujar un cuadrado alrededor.
+pub(crate) fn distancia8(px: u32, py: u32, (x, y, w, h): (u32, u32, u32, u32), r: u32) -> i64 {
+    let (fx, fy) = (px as i64 * 8 + 4, py as i64 * 8 + 4);
+    let r8 = r as i64 * 8;
+    // El rectangulo de los centros de las esquinas.
+    let (x0, y0) = (x as i64 * 8 + r8, y as i64 * 8 + r8);
+    let (x1, y1) = ((x + w) as i64 * 8 - r8, (y + h) as i64 * 8 - r8);
+    let qx = (x0 - fx).max(fx - x1);
+    let qy = (y0 - fy).max(fy - y1);
+    if qx <= 0 && qy <= 0 {
+        // Dentro del rectangulo de centros: lo que manda es el lado mas cerca.
+        return qx.max(qy) - r8;
+    }
+    let (ax, ay) = (qx.max(0) as u64, qy.max(0) as u64);
+    raiz(ax * ax + ay * ay) as i64 - r8
+}
+
 /// Un redondeado de radio `r`, sin suavizar.
 pub(crate) fn relleno_r(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, r: u32, color: u32) {
     if r == 0 || w <= 2 * r || h <= 2 * r {
