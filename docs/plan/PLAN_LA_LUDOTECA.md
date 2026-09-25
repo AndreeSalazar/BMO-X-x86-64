@@ -859,14 +859,39 @@ BMO-X: lo que CRUZA a este repo es lo NEUTRO (la malla, las matrices, el orden
 de un fotograma, el diccionario y una imagen de referencia), nunca el codigo
 que llama a Windows.
 
-- [ ] **X1 -- el cubo, medido.** El cubo DX12 en Windows (simple, sin motor)
-      y `rayosx cubo.exe`. **Como se sabe:** su tabla de importaciones
-      apuntada aqui, por DLL, con el numero exacto de funciones.
-- [ ] **X2 -- el diccionario.** Cada llamada del cubo (device, cola, lista de
-      ordenes, heaps, barreras, fence, present) junto a la pieza de BMO-X que
-      ya hace lo mismo (GPFIFO, empuje, semaforo, tablas, page flip).
-      **Como se sabe:** la tabla completa, sin una fila "no se".
+- [x] **X1 -- el cubo, medido.** El cubo DX12 en Windows (simple, sin motor)
+      y su tabla de importaciones. **Como se sabe:** `estudio-d3d/CENSO.md`
+      en la rama `estudio-d3d` de EPICX-FRAMEWORK-DirectX12 (`412542e`),
+      por `dumpbin`: 92 funciones la linea base (CPU, sin D3D), 112 el D3D9,
+      109 el D3D10 y el D3D11, 112 el D3D12. **Y la leccion para `rayosx`:**
+      `d3d12.dll` aporta DOS importaciones (`D3D12CreateDevice` y
+      `D3D12SerializeRootSignature`); el resto de D3D12 va por las vtables
+      COM, que ninguna tabla de importaciones ve. Las 663 de Cyberpunk
+      (seccion 9) NO cuentan su D3D12.
+- [x] **X2 -- el diccionario.** `estudio-d3d/DICCIONARIO.md`: cada llamada del
+      cubo DX12 con lo que hace con la memoria y con la sincronia, bytes
+      medidos por `GetResourceAllocationInfo` (el vertex buffer pide 960 B y
+      el driver reserva 65.536: paginas de 64 KiB, como los buferes del GR
+      en BMO-X); y de D3D9/10/11 solo lo que cambia.
+- [x] **X2b -- el juez, neutro y exacto.** `cubo-neutro` (`#![no_std]`, sin
+      dependencias, 14 pruebas) dibuja el cubo por CPU IGUAL que la 3060 bajo
+      D3D12, con 4 reglas halladas midiendo (centro de pixel, subpixel al
+      par, orden del viewport, UNORM8 truncando a 12 bits). **Comprobado
+      aqui el 25-09:** compila para `x86_64-unknown-none` (lo que no se pudo
+      en Windows) y el juez corrido en LINUX da **0 pixeles distintos** de
+      921.600 contra las capturas de D3D12 en la 3060, en los fotogramas 0,
+      30 y 60. Queda 1 pixel sin explicar en 360 fotogramas, dicho asi.
 - [ ] **X3 -- el RHI, escrito como rasgo.** La primera lista (las 67 de
       vkQuake 0.50 y las del cubo, juntas) como interfaz, con el backend CPU
       primero. **Como se sabe:** un crate puro con banco que dibuja el cubo
       por el backend CPU y lo compara con una imagen fija.
+- [ ] **X4 -- `gpu cubo` por CPU en BMO-X.** `cubo-neutro` traido como crate
+      puro (con su procedencia: rama y hash), y el fotograma 30 dibujado en el
+      Ryzen igual, bit a bit, que la referencia de D3D12. **Como se sabe:** la
+      fila `cubo` dice 921600 de 921600 contra la huella de la referencia.
+- [ ] **X5 -- `gpu cubo` por la 3060 en BMO-X.** El mismo cubo por AMPERE_B,
+      con la pieza nueva: el depth buffer. Y las 4 preguntas del README de
+      `cubo-neutro`, contestadas con la 3060 SIN Windows (sobre todo la 4: si
+      el truncado a 12 bits es del silicio o de como el driver lo configura).
+      **Como se sabe:** la fila dice los pixeles contra el juez con
+      `Reglas::D3D10` y con `unorm8 = truncar_12`.
