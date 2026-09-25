@@ -375,3 +375,63 @@ software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
       `printf("%f")` y las series (`sin`, `cos`, `atan2`, `pow`), que van con
       la MISMA tabla que el emisor de SPIR-V (`math::table`). **Como se sabe:** `start.bsp` se recorre en el
       Ryzen, y el `[perf]` dice los fps de la CPU.
+
+---
+
+## 10. StarCraft, StarCraft II y "Vulkan puro" (25-09)
+
+El propietario: *"analizas StarCraft, el original con Brood War, y
+StarCraft 2? Y podria enfocar en Vulkan puro para BMO-X"*. Con la pregunta
+de siempre -- hay un motor ABIERTO que lea tus datos? -- y lo que no esta
+comprobado, dicho:
+
+```text
+   StarCraft + Brood War   CANDIDATO al camino A. Es 2D: sprites de 8 bits
+   (1998)                  en 640x480 con paleta, o sea lo que BMO-X ya
+                           pinta con la CPU (como DOOM, sin la 3060). Hay
+                           una reimplementacion abierta de su motor, OpenBW
+                           (C++), que lee los ficheros de datos ORIGINALES.
+                           Y Blizzard regalo el clasico en 2017. POR
+                           COMPROBAR antes de prometer nada: la licencia de
+                           OpenBW, como se consiguen hoy los datos del
+                           clasico, y en que formato vienen (MPQ el viejo,
+                           CASC el Remastered). Pide C++ (como Half-Life) y
+                           un lector de MPQ
+   StarCraft II            NO por A: motor cerrado, DirectX 9/11 en Windows,
+                           y ninguna reimplementacion. Es gratis desde 2017,
+                           pero eso no abre el motor. Camino B (streaming)
+```
+
+**"Vulkan puro" tiene sentido, con UNA condicion: que sea el Vulkan DE ESTA
+CASA, no el de todos.** Son dos metas (`PLAN_VULKAN.md`, "las dos metas"):
+
+```text
+   un Vulkan CONFORME   el que pasa el CTS de Khronos y arranca juegos de
+                        otros: cada juego pide SU lista de caracteristicas
+                        (descriptorIndexing, timelineSemaphore, dynamic
+                        Rendering...) y sin una no arranca. NVK tardo ~2
+                        anios con varios expertos. Y aun asi, un juego de
+                        Windows seguiria pidiendo Win32 encima
+   un Vulkan de la CASA un SUBCONJUNTO sobre AMPERE_B -- el que ya dibuja
+                        `gpu raster` y `gpu color` -- con SPIR-V como
+                        entrada, que es justo lo que ya leen el lector de
+                        SPIR-V y el BSF. Rechaza con motivo lo que no tiene
+                        (como el juez de PLAN_EL_SOMBREADOR)
+```
+
+Y el puente entre los dos tiene nombre: **vkQuake**, Quake (GPL) con un
+renderizador de Vulkan. Seria el jefe 5 por Vulkan en vez de por "GL": el
+MISMO juego del jefe 3, ahora dibujado por la 3060 con SPIR-V. POR
+COMPROBAR: que version de Vulkan y que extensiones pide la version de
+vkQuake que se elija (las nuevas piden mas); el subconjunto se dibuja a
+partir de esa lista medida, no al reves.
+
+- [ ] **L4 -- la lista de vkQuake.** Leer (sin compilar) que pide vkQuake a
+      Vulkan: version, extensiones y `VkPhysicalDeviceFeatures`, y apuntarla
+      aqui como la primera lista del Vulkan de la casa. **Como se sabe:** la
+      tabla en esta seccion, con la version de vkQuake y cada funcion
+      `vk*` que llama.
+- [ ] **L5 -- StarCraft, comprobado.** La licencia de OpenBW, de donde salen
+      hoy los datos del clasico y en que formato; y `rayosx` sobre el
+      `StarCraft.exe` clasico para comparar. **Como se sabe:** las tres
+      respuestas apuntadas en esta seccion, con su fuente.

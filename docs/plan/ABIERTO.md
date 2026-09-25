@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   325 casillas ABIERTAS en 39 planes
+   327 casillas ABIERTAS en 39 planes
    277 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -76,6 +76,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL PRIMER CLIENTE: INTI. Porque puede declarar el alias. Y
 - ... y 12 mas
 
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 15 abiertas, 1 hechas
+
+*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
+
+- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
+- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
+- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
+- ... y 12 mas
+
 ## [`PLAN_EL_PLAZO.md`](PLAN_EL_PLAZO.md) -- 14 abiertas, 1 hechas
 
 *PLAN EL PLAZO -- V-Sync, VBlank y la deuda de planificacion*
@@ -84,15 +93,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
-
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 13 abiertas, 1 hechas
-
-*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
-
-- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
-- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
-- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
-- ... y 10 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 
