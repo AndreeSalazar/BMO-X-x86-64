@@ -800,6 +800,19 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
             }
         }
         IOMMU_OP_GSP_ACABAR => crate::ring0::dev::gpu_despertar::acabar(),
+        // ** L0c5: el apagado en orden. Firmware firmado otra vez: el FLUSH, como al despertar.
+        IOMMU_OP_GSP_DESPEDIR => crate::ring0::dev::gpu_apagar::despedir(),
+        IOMMU_OP_GSP_CERRAR | IOMMU_OP_GSP_DESCARGAR => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes de apagar el GSP no se pudo: se sigue", 0);
+            }
+            if arg0 == IOMMU_OP_GSP_CERRAR {
+                crate::ring0::dev::gpu_apagar::cerrar()
+            } else {
+                super::op_gsp::descargador()
+            }
+        }
+        IOMMU_OP_GSP_APAGADO => Ok(crate::ring0::dev::gpu_apagar::info()),
         IOMMU_OP_GSP_LEIDO => crate::ring0::dev::gpu_libos::mover_lectura(arg1),
         IOMMU_OP_GSP_SISTEMA => crate::ring0::dev::gpu_libos::escribir_sistema(),
         IOMMU_OP_GSP_SECUENCIAR => crate::ring0::dev::gpu_despertar::secuenciar(),

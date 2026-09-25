@@ -408,6 +408,14 @@ pub(crate) const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
 pub(crate) const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 /// M5d G: un fotograma de la esfera que gira, `arg1` = ficha | fotograma << 32.
 pub(crate) const IOMMU_OP_GPU_GIRO: u64 = 0x3A;
+/// L0c5: la RPC UNLOADING_GUEST_DRIVER al GSP-RM. Ver `dev/gpu_apagar.rs`.
+pub(crate) const IOMMU_OP_GSP_DESPEDIR: u64 = 0x3B;
+/// L0c5: tras despedir, FWSEC-SB en el falcon del GSP.
+pub(crate) const IOMMU_OP_GSP_CERRAR: u64 = 0x3C;
+/// L0c5: tras FWSEC-SB, el booter de descarga en el SEC2.
+pub(crate) const IOMMU_OP_GSP_DESCARGAR: u64 = 0x3D;
+/// L0c5: como va el apagado, leido en vivo.
+pub(crate) const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

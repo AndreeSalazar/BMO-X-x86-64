@@ -563,4 +563,16 @@ pub(crate) const PASOS: &[Paso] = &[
         consejo: b"`gpu`: `color` dice 262144 de 262144; teclea `gpu color` y VELO -- lo siguiente es T2b, la profundidad (dos triangulos que se cruzan)",
         repinta: false,
     },
+    // ** EL ULTIMO, SIEMPRE (L0c5, 25-09): tras el, el GSP-RM ya no contesta.
+    // Pide solo `despertar`: aunque algo de en medio falle, se apaga igual,
+    // y el siguiente arranque (tambien con el boton de reset) sale limpio.
+    Paso {
+        nombre: b"apagado",
+        que: b"EL GSP APAGADO EN ORDEN: la despedida al GSP-RM, FWSEC-SB y el booter de descarga baja la WPR2 -- el booter del arranque siguiente no sale con 0x15 (L0c5)",
+        hecho: super::gspapagar::hecho,
+        dar: super::gspapagar::apagar,
+        pide: Some(b"despertar"),
+        consejo: b"`gpu`: la fila `apagado` dice EL GSP APAGADO EN ORDEN y `wpr2-abajo`; ya puedes reiniciar -- para volver a usar la 3060, arranca otra vez",
+        repinta: false,
+    },
 ];

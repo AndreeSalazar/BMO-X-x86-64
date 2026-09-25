@@ -266,6 +266,73 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     Ok(idx as u64)
 }
 
+/// Donde deja el build el booter de DESCARGA (L0c5).
+pub const RUTA_DESCARGADOR: &str = "fw/gsp/boot_ul.bin";
+
+/// **EL BOOTER DE DESCARGA** (L0c5, al APAGAR): el paso 5 de
+/// `bmo_gpu_ga10x::descarga`, con el GSP-RM ya despedido y FWSEC-SB hecho
+/// (lo comprueba `gpu_apagar`). El mismo camino que `booter` -- el mismo
+/// bufer, ya prestado, la firma que pide el FUSIBLE --, con `boot_ul.bin` y
+/// los dos buzones a 0xFF (`tu102_gsp_fini` de nouveau). `Ok(firma)` en
+/// cuanto el SEC2 arranca; acaba con la WPR2 abajo.
+pub fn descargador(fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::descarga as dc;
+    let e = ESTADO.load(Ordering::Acquire);
+    // Solo se descarga lo que ESTE arranque cargo: el bufer y su prestamo son
+    // los del booter de subida.
+    if e & DESPIERTO_BOOTER == 0 || e & DESPIERTO_SEC2_ARRANCADO == 0 {
+        return Err(IOMMU_NO_DESPERTAR_ANTES);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let base = BOOTER_F.load(Ordering::Acquire);
+    if bar0 == 0 || base == 0 {
+        return Err(IOMMU_NO_DESPERTAR_ANTES);
+    }
+    let mut r = Bar0(bar0);
+    let Some(f) = fichero else { return Err(IOMMU_NO_BOOTER) };
+    let todo = memoria(base, BOOTER_PAGINAS * PAGINA);
+    todo.fill(0);
+    let (ucode, fichero) = todo.split_at_mut(UCODE_BYTES as usize);
+    let medida = f.medida();
+    if medida > fichero.len() as u64 || f.leer(0, &mut fichero[..medida as usize]) != medida as usize {
+        return Err(IOMMU_NO_BOOTER);
+    }
+    let fichero = &fichero[..medida as usize];
+    let Ok(b) = booter::booter(fichero) else { return Err(IOMMU_NO_BOOTER) };
+    if b.bin.bytes as u64 > UCODE_BYTES || b.engine_id_mask & 1 == 0 || b.dmem.origen % 256 != 0 {
+        return Err(IOMMU_NO_BOOTER);
+    }
+    let Some(reg) = vb::registro_fusible(b.engine_id_mask, b.ucode_id) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
+    let Some(idx) = b.indice_de_firma(r.leer(reg)) else { return Err(IOMMU_NO_BOOTER_FIRMA) };
+    ucode[..b.bin.bytes as usize].copy_from_slice(b.bin.ucode(fichero));
+    if booter::firmar(fichero, &b, idx, ucode).is_err() {
+        return Err(IOMMU_NO_BOOTER_FIRMA);
+    }
+    crate::ring0::cabina::info("gpu", "L0c5: el booter de DESCARGA al SEC2; firma", idx as u64);
+    let mut t = pr::reloj();
+    let boot0 = r.leer(bmo_gpu_ga10x::BOOT_0);
+    let a256 = |n: u32| n.next_multiple_of(256);
+    let cargado = fa::resetear(&mut r, &mut t, fa::SEC2, boot0)
+        .and_then(|_| fa::preparar_fbif(&mut r, fa::SEC2))
+        .and_then(|_| {
+            fa::copiar_etiquetado(&mut r, &mut t, fa::SEC2, IOVA_BOOTER, b.imem.origen, b.imem.destino, a256(b.imem.bytes), true, true, 50_000)
+        })
+        .and_then(|_| {
+            fa::copiar(&mut r, &mut t, fa::SEC2, IOVA_BOOTER + b.dmem.origen as u64, b.dmem.destino, a256(b.dmem.bytes), false, false, 50_000)
+        });
+    if let Err(e) = cargado {
+        crate::ring0::cabina::warn("gpu", "L0c5: el SEC2 no dejo cargar el booter de descarga; motivo", pr::motivo(e));
+        return Err(IOMMU_NO_SEC2);
+    }
+    fa::brom(&mut r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
+    let m = dc::BUZON_DESCARGA;
+    if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m), Some(m)).is_err() {
+        return Err(IOMMU_NO_SEC2);
+    }
+    crate::ring0::cabina::count("gpu", "L0c5: el booter de DESCARGA ARRANCADO en el SEC2; firma", idx as u64);
+    Ok(idx as u64)
+}
+
 /// **ACABAR**: el SEC2 parado con MAILBOX0 = 0, y el OS del GSP escrito.
 /// `Ok(MAILBOX1 del SEC2)`.
 pub fn acabar() -> Result<u64, u32> {

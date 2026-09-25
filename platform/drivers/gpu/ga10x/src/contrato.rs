@@ -24,12 +24,16 @@
 //!                           una sobre SU objeto nuestro y con SUS parametros
 //!                           exactos (el directorio de L1c3: su direccion y
 //!                           su espacio, byte a byte)
+//!    UNLOADING_GUEST_DRIVER 47  L0c5: la despedida del GSP-RM, SOLO la
+//!                           descarga normal (sus 8 B a cero: ni suspender
+//!                           ni GC6, nivel 0)
 //! ```
 //!
 //! Agrandar la lista es una decision, y se toma aqui: con su prueba.
 
 use crate::canal;
 use crate::copia;
+use crate::descarga;
 use crate::control::{Control, CABECERA_CONTROL, GSP_RM_CONTROL};
 use crate::estatica::GET_GSP_STATIC_INFO;
 use crate::objeto::{Objeto, CABECERA_ALLOC, CLIENTE, GSP_RM_ALLOC};
@@ -65,6 +69,9 @@ pub fn permitido(m: &[u8]) -> Result<u32, No> {
     let d = &m[CABECERA..CABECERA + h.datos()];
     match h.funcion {
         SET_SYSTEM_INFO | SET_REGISTRY | GET_GSP_STATIC_INFO => Ok(h.funcion),
+        // La descarga normal y NADA mas: una suspension dejaria al GSP-RM
+        // esperando una vuelta que este sistema no sabe dar.
+        descarga::UNLOADING_GUEST_DRIVER if d == descarga::DATOS => Ok(h.funcion),
         GSP_RM_ALLOC => {
             if d.len() < 16 {
                 return Err(No::Objeto);

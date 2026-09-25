@@ -999,7 +999,22 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 /// "se colgo" en la foto. `Pantalla` escribe directo
 /// al framebuffer, asi que al volver de `text` ya
 /// esta en el cristal: no hay nada que vaciar.
+///
+/// ** L0c5 (25-09): con el GSP despierto, primero se APAGA EN ORDEN (`gpu
+/// apagar`): sin eso el booter del arranque siguiente salia con `0x15`. Si
+/// no sale, se reinicia igual y se dice: la salida es cortar la corriente.
 pub(crate) fn reboot(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    if super::gspapagar::hace_falta() {
+        paint_status(&p, &dsk.run_box, "apagando el GSP en orden antes de reiniciar", INK_DIM);
+        match super::gspapagar::apagar() {
+            Ok(_) => dsk.out.grid.text(b"  el GSP, apagado en orden: la WPR2 abajo\n"),
+            Err(m) => {
+                dsk.out.grid.text(b"  el GSP NO se apago en orden (");
+                dsk.out.grid.text(super::iommu::motivo(m));
+                dsk.out.grid.text(b"): si el booter sale con 0x15, corta la corriente\n");
+            }
+        }
+    }
     dsk.out.grid.text(b"  reiniciando...\n");
     paint_status(&p, &dsk.run_box, "reiniciando", INK_DIM);
     bmo::reiniciar();

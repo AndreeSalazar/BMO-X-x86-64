@@ -843,6 +843,21 @@ pub const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 /// `giro::FOTOGRAMAS`). `Ok` = `giro::empaquetar(..)`. Se lee con
 /// `IOMMU_OP_GPU_LIENZO_LEER` y el bit 33 (los primeros 256 KiB).
 pub const IOMMU_OP_GPU_GIRO: u64 = 0x3A;
+/// L0c5: el apagado en orden del GSP, 1 de 3: la RPC
+/// UNLOADING_GUEST_DRIVER (47) al GSP-RM despierto. `Ok` = pagina | numero
+/// << 32, como toda RPC; la respuesta se espera por la cola.
+pub const IOMMU_OP_GSP_DESPEDIR: u64 = 0x3B;
+/// L0c5, 2 de 3: tras despedir (suspendido o no, como nouveau), FWSEC-SB en
+/// el falcon del GSP. `Ok` = la firma usada.
+pub const IOMMU_OP_GSP_CERRAR: u64 = 0x3C;
+/// L0c5, 3 de 3: tras FWSEC-SB (bien o no, como nouveau), el booter de
+/// descarga (`boot_ul.bin`) en el SEC2. `Ok` = la firma usada.
+pub const IOMMU_OP_GSP_DESCARGAR: u64 = 0x3D;
+/// L0c5: como va el apagado, leido en vivo. Bits: 0 despedido, 1 suspendido,
+/// 2 FWSEC-SB arrancado, 3 su falcon parado, 4 SB bien, 5 descargador
+/// arrancado, 6 SEC2 parado, 7 HECHO (la WPR2 abajo); 8..23 el error de SB;
+/// 32..63 el MAILBOX0 del falcon que toque.
+pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -999,6 +1014,9 @@ pub const IOMMU_NO_BLUR: u32 = 78;
 /// M5d B: la salida no se presto, sus PTE no estaban vacias, o el tramo no se
 /// releyo: no se toco el timbre.
 pub const IOMMU_NO_BLUR_PREPARAR: u32 = 79;
+/// L0c5: el GSP no esta en el paso de antes del apagado (sin despertar, sin
+/// despedir, sin FWSEC-SB), o ese paso ya se dio; tras despedir, toda RPC.
+pub const IOMMU_NO_APAGAR: u32 = 80;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

@@ -231,6 +231,8 @@ pub mod dev {
     pub mod gpu_trabajo;
     /// L0c3b: el booter en el SEC2 despierta el GSP (2026-09-24).
     pub mod gpu_despertar;
+    /// L0c5: el GSP apagado en orden, para que el siguiente arranque la encuentre limpia (2026-09-25).
+    pub mod gpu_apagar;
     pub mod keyboard;
     pub mod pci;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay

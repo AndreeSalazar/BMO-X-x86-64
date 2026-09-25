@@ -46,6 +46,8 @@ pub(crate) mod gspcanalgr;
 /// motor grafico (M5d S1..S3, 24-09).
 pub(crate) mod gspcomputo;
 pub(crate) mod gspvaciar;
+/// `gpu apagar`: el GSP apagado en orden antes de reiniciar (L0c5, 25-09).
+pub(crate) mod gspapagar;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
 /// ordenes -- ver su cabecera.

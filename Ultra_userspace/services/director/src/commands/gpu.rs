@@ -139,6 +139,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"giro" {
         return super::gspcomputo::orden_giro(dsk, p);
     }
+    if arg == b"apagar" {
+        return super::gspapagar::orden(dsk, p);
+    }
     if arg == b"color" {
         return super::gspcomputo::orden_color3d(dsk, p);
     }
@@ -160,7 +163,7 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
         b"frontera" => Some((bmo::IOMMU_OP_GPU_FRONTERA, b"gpu frontera" as &[u8])),
         _ => {
             dsk.out.grid.with_ink(INK_ERR);
-            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec`, `gpu gsp`, `gpu radix`, `gpu libos`, `gpu sistema`, `gpu despertar`, `gpu cola`, `gpu vaciar`, `gpu secuenciador`, `gpu init`, `gpu bar1`, `gpu estatica`, `gpu objetos`, `gpu salud`, `gpu vram`, `gpu directorio`, `gpu tramo`, `gpu motores`, `gpu canal`, `gpu copia`, `gpu gr`, `gpu canalgr`, `gpu grmem`, `gpu oro`, `gpu computo`, `gpu sombreo`, `gpu lienzo`, `gpu blur`, `gpu fractal`, `gpu triangulo`, `gpu 3d`, `gpu escena`, `gpu raster`, `gpu color` o `gpu giro`\n");
+            dsk.out.grid.text(b"  gpu: `gpu`, `gpu cegar`, `gpu ver`, `gpu vblank [off]`, `gpu traducir`, `gpu prestar`, `gpu fuego`, `gpu frontera`, `gpu vbios`, `gpu fwsec`, `gpu gsp`, `gpu radix`, `gpu libos`, `gpu sistema`, `gpu despertar`, `gpu cola`, `gpu vaciar`, `gpu secuenciador`, `gpu init`, `gpu bar1`, `gpu estatica`, `gpu objetos`, `gpu salud`, `gpu vram`, `gpu directorio`, `gpu tramo`, `gpu motores`, `gpu canal`, `gpu copia`, `gpu gr`, `gpu canalgr`, `gpu grmem`, `gpu oro`, `gpu computo`, `gpu sombreo`, `gpu lienzo`, `gpu blur`, `gpu fractal`, `gpu triangulo`, `gpu 3d`, `gpu escena`, `gpu raster`, `gpu color`, `gpu giro` o `gpu apagar`\n");
             dsk.out.grid.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return After::Settle;
@@ -587,6 +590,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     super::gspgr::fila(s);
     super::gspcanalgr::fila(s);
     super::gspcomputo::fila(s);
+    super::gspapagar::fila(s);
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");
     } else {

@@ -60,6 +60,9 @@ pub mod orden;
 pub mod secuenciador;
 /// L0c4b2c: correr el secuenciador, por tramos y solo en el falcon del GSP (2026-09-24).
 pub mod correr;
+
+/// L0c5: apagar el GSP en orden (2026-09-25).
+pub mod descarga;
 /// L1a: GET_GSP_STATIC_INFO -- lo que el GSP-RM dice de la 3060 (2026-09-24).
 pub mod estatica;
 /// L1b: GSP_RM_ALLOC -- nuestro cliente, dispositivo y subdispositivo (2026-09-24).

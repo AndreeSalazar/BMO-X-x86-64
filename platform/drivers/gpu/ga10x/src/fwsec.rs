@@ -30,6 +30,8 @@ use crate::vbios::{Descriptor, FIRMA, ORDEN_FRTS};
 const APPIF_DMEMMAPPER: u32 = 0x4;
 /// Lo que mide `FrtsCmd`: `ReadVbios` (24) + `FrtsRegion` (20).
 pub const ORDEN_FRTS_BYTES: usize = 44;
+/// Lo que mide `ReadVbios` sola (la orden SB no lleva region).
+pub const LEER_VBIOS_BYTES: usize = 24;
 const REGION_EN_LA_VRAM: u32 = 2;
 
 /// Por que no.
@@ -69,13 +71,26 @@ pub struct Parche {
 /// **Cambiar la orden a FRTS** en `ucode` (IMEM y luego DMEM), con la region
 /// `frts_desde..frts_desde + frts_bytes` de la VRAM.
 pub fn parchear(ucode: &mut [u8], d: &Descriptor, frts_desde: u64, frts_bytes: u64) -> Result<Parche, NoParche> {
+    if frts_desde % 4096 != 0 || frts_bytes % 4096 != 0 || (frts_desde >> 12) > u32::MAX as u64 || frts_bytes == 0 {
+        return Err(NoParche::FrtsRara);
+    }
+    parchear_orden(ucode, d, ORDEN_FRTS, Some((frts_desde, frts_bytes)))
+}
+
+/// **Cambiar la orden a SB** (L0c5, al APAGAR el GSP): la misma
+/// `ReadVbios` y la orden `0x19`, sin region -- como `nvkm_gsp_fwsec_patch`
+/// de nouveau, que solo escribe la region para FRTS.
+pub fn parchear_sb(ucode: &mut [u8], d: &Descriptor) -> Result<Parche, NoParche> {
+    parchear_orden(ucode, d, crate::descarga::ORDEN_SB, None)
+}
+
+/// Lo comun: la DMEMMAPPER, su `ReadVbios` y su orden; la region de FRTS
+/// solo si la hay.
+fn parchear_orden(ucode: &mut [u8], d: &Descriptor, orden: u32, frts: Option<(u64, u64)>) -> Result<Parche, NoParche> {
     let imem = d.imem_load_size as usize;
     let fin = imem + d.dmem_load_size as usize;
     if ucode.len() < fin {
         return Err(NoParche::Corto);
-    }
-    if frts_desde % 4096 != 0 || frts_bytes % 4096 != 0 || (frts_desde >> 12) > u32::MAX as u64 || frts_bytes == 0 {
-        return Err(NoParche::FrtsRara);
     }
     let h = imem + d.interface_offset as usize;
     let cab = ucode.get(h..h + 4).filter(|_| h + 4 <= fin).ok_or(NoParche::SinAppif)?;
@@ -99,7 +114,8 @@ pub fn parchear(ucode: &mut [u8], d: &Descriptor, frts_desde: u64, frts_bytes: u
         let orden_en = u32_en(ucode, m + 8).unwrap_or(0);
         let cabe = u32_en(ucode, m + 12).unwrap_or(0) as usize;
         let o = imem + orden_en as usize;
-        if cabe < ORDEN_FRTS_BYTES || o + ORDEN_FRTS_BYTES > fin {
+        let mide = if frts.is_some() { ORDEN_FRTS_BYTES } else { LEER_VBIOS_BYTES };
+        if cabe < mide || o + mide > fin {
             return Err(NoParche::OrdenNoCabe);
         }
         let antes = u32_en(ucode, m + 44).unwrap_or(0);
@@ -111,12 +127,14 @@ pub fn parchear(ucode: &mut [u8], d: &Descriptor, frts_desde: u64, frts_bytes: u
         poner32(ucode, o + 16, 0);
         poner32(ucode, o + 20, 2);
         // FrtsRegion: ver, hdr, addr y size en paginas, tipo.
-        poner32(ucode, o + 24, 1);
-        poner32(ucode, o + 28, 20);
-        poner32(ucode, o + 32, (frts_desde >> 12) as u32);
-        poner32(ucode, o + 36, (frts_bytes >> 12) as u32);
-        poner32(ucode, o + 40, REGION_EN_LA_VRAM);
-        poner32(ucode, m + 44, ORDEN_FRTS);
+        if let Some((frts_desde, frts_bytes)) = frts {
+            poner32(ucode, o + 24, 1);
+            poner32(ucode, o + 28, 20);
+            poner32(ucode, o + 32, (frts_desde >> 12) as u32);
+            poner32(ucode, o + 36, (frts_bytes >> 12) as u32);
+            poner32(ucode, o + 40, REGION_EN_LA_VRAM);
+        }
+        poner32(ucode, m + 44, orden);
         return Ok(Parche { dmemmapper: base, orden_en, antes });
     }
     Err(NoParche::SinDmemmapper)
@@ -186,6 +204,26 @@ mod pruebas {
         assert_eq!(u32_en(&u, 0x200 + 0x560 + 44), Some(ORDEN_FRTS));
         assert_eq!(u[o + 44], 0xEE, "ni un byte mas alla de los 44");
         assert_eq!(&u[0x200 + 0x560..0x200 + 0x564], b"DMAP", "la firma de la DMEMMAPPER no se toca");
+    }
+
+    #[test]
+    fn la_orden_sb_lleva_solo_leer_vbios() {
+        // Al APAGAR (L0c5): la orden 0x19 y la ReadVbios, y NI UN byte de
+        // region -- lo que hubiera ahi se queda.
+        let mut u = ucode();
+        let p = parchear_sb(&mut u, &desc()).unwrap();
+        assert_eq!(p.orden_en, 0x7C0);
+        let o = 0x200 + 0x7C0;
+        let w = |k: usize| u32::from_le_bytes(u[o + k..o + k + 4].try_into().unwrap());
+        assert_eq!([w(0), w(4), w(8), w(12), w(16), w(20)], [1, 24, 0, 0, 0, 2], "ReadVbios");
+        assert_eq!(u[o + 24], 0xEE, "sin region");
+        assert_eq!(u32_en(&u, 0x200 + 0x560 + 44), Some(0x19));
+        // Y sobre un ucode ya parcheado para FRTS, cambia la orden y deja la
+        // region como estaba (FWSEC-SB no la lee).
+        let mut u = ucode();
+        parchear(&mut u, &desc(), 0x2_FFE0_0000, 1 << 20).unwrap();
+        let p = parchear_sb(&mut u, &desc()).unwrap();
+        assert_eq!((p.antes, u32_en(&u, 0x200 + 0x560 + 44)), (ORDEN_FRTS, Some(0x19)));
     }
 
     #[test]

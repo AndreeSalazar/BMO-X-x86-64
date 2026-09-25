@@ -1148,6 +1148,22 @@ con MAILBOX0 = MAILBOX1 = 0xFF, y comprobar que la WPR2 cae
 (`0x1fa828` = 0). Mientras no este: APAGAR del todo (cortar la corriente de
 la fuente unos 30 s) entre pruebas, no reiniciar.
 
+**L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
+`bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con
+sus 8 B a cero; los registros; los juicios), `fwsec::parchear_sb`, y en el
+kernel `dev/gpu_apagar.rs` con tres ordenes y una pregunta (0x3B DESPEDIR,
+0x3C CERRAR, 0x3D DESCARGAR, 0x3E APAGADO, motivo 80). Tras la despedida el
+kernel no deja salir ni una RPC mas. En el escritorio: `gpu apagar`, la fila
+`apagado` (`+despedido +suspendido +sb +sb-bien +descarga +wpr2-abajo`), el
+paso `apagado` AL FINAL de `save mode` (pide solo `despertar`), y `reboot`
+lo corre solo antes de reiniciar. Leido otra vez el `tu102_gsp_fini` de
+nouveau: compara MAILBOX0 == 0x80000000, pero NO se para si algo falla (sin
+suspenderse, SB con error: WARN_ON y sigue); y la descarga solo se juzga por
+la WPR2 abajo. BMO-X hace lo mismo: lo que no sale se apunta ("por el
+camino") y se sigue hasta el booter de descarga. Falta verlo en el metal:
+`save mode` y luego REINICIAR (sin cortar la corriente); si el booter no
+sale con 0x15, L0c5 esta.
+
 **L0c4b1 en el metal (24-09, 08:14): 835 NOCAT, y DETRAS EL SECUENCIADOR.**
 `vacia 835 consumidos; la CPU lee ahora en la pagina 16: GSP_POST_NOCAT_RECORD
 x835` y `pide GSP_RUN_CPU_SEQUENCER (0x1002) numero 835`: lo que se esperaba.

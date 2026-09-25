@@ -512,6 +512,10 @@ pub(super) fn enviar(armar: impl FnOnce(&mut [u8], u32) -> Option<usize>) -> Res
     if f == 0 || bar0 == 0 || d::info_secuencia() >> 24 & d::SEC_HECHO == 0 {
         return Err(IOMMU_NO_RPC_ANTES);
     }
+    // L0c5: despedido el GSP-RM, nadie contesta ya: ni una RPC mas.
+    if crate::ring0::dev::gpu_apagar::despedido() {
+        return Err(crate::ring0::dev::gpu_apagar::IOMMU_NO_APAGAR);
+    }
     let cola = f + lb::COLA_CPU;
     let escrito = crate::ring0::mm::phys_to_virt(cola + 16) as *mut u32;
     // Hasta donde leyo el GSP la cola de la CPU: el `readPtr` de la cabecera

@@ -477,7 +477,6 @@ pub fn fwsec_trozo(k: u64) -> Result<u64, u32> {
 /// **CORRER**: parchear, firmar, prestar, cargar y ARRANCAR. `Ok(frts)` en
 /// cuanto el falcon arranca; si acabo bien lo dice `INFO_GPU_FWSEC`.
 pub fn fwsec_correr() -> Result<u64, u32> {
-    use crate::ring0::plat::iommu as io;
     let Some(d) = desc() else { return no(IOMMU_NO_FWSEC_SIN_PREPARAR) };
     let t = total(&d);
     let n = t.div_ceil(4096) as u64;
@@ -509,38 +508,52 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         return no(IOMMU_NO_FWSEC_PARCHE);
     }
     apuntar(|v| v | FWSEC_PARCHEADO);
+    let idx = match firmar_cargar_arrancar(&mut r, &d, ucode, "L0b: FWSEC-FRTS al falcon del GSP") {
+        Ok(i) => i,
+        Err(m) => return no(m),
+    };
+    apuntar(|v| v | FWSEC_ARRANCADO);
+    crate::ring0::cabina::count("gpu", "L0b: FWSEC-FRTS ARRANCADO en el falcon del GSP; firma", idx as u64);
+    Ok(frts.desde)
+}
+
+/// La firma que pide el fusible, el prestamo (una vez), la carga en el falcon
+/// del GSP y el arranque: lo mismo para FRTS (al arrancar) y para SB (L0c5, al
+/// apagar). `Ok(indice de la firma)`; el `Err` es el motivo, sin apuntar.
+fn firmar_cargar_arrancar(r: &mut Bar0, d: &vb::Descriptor, ucode: &mut [u8], que: &str) -> Result<u32, u32> {
+    use crate::ring0::plat::iommu as io;
     // La firma: la que pide el FUSIBLE (el fallo 4 de FastOS).
-    let Some(reg) = vb::registro_fusible(d.engine_id_mask, d.ucode_id) else { return no(IOMMU_NO_FWSEC_FIRMA) };
-    let version = vb::version_del_fusible(bmo_gpu_ga10x::Registros::leer(&mut r, reg));
+    let Some(reg) = vb::registro_fusible(d.engine_id_mask, d.ucode_id) else { return Err(IOMMU_NO_FWSEC_FIRMA) };
+    let version = vb::version_del_fusible(bmo_gpu_ga10x::Registros::leer(r, reg));
     let Some(idx) = vb::indice_de_firma(d.signature_versions, version).filter(|&i| i < d.signature_count as u32) else {
-        return no(IOMMU_NO_FWSEC_FIRMA);
+        return Err(IOMMU_NO_FWSEC_FIRMA);
     };
     let mut firma = [0u8; vb::FIRMA];
     let en_rom = FWSEC_EN_ROM.load(Ordering::Acquire) as usize;
-    rom_a(&mut r, en_rom + vb::DESCRIPTOR + idx as usize * vb::FIRMA, &mut firma);
-    if bmo_gpu_ga10x::fwsec::poner_firma(ucode, &d, &firma).is_err() {
-        return no(IOMMU_NO_FWSEC_PARCHE);
+    rom_a(r, en_rom + vb::DESCRIPTOR + idx as usize * vb::FIRMA, &mut firma);
+    if bmo_gpu_ga10x::fwsec::poner_firma(ucode, d, &firma).is_err() {
+        return Err(IOMMU_NO_FWSEC_PARCHE);
     }
     apuntar(|v| (v & !(3 << FWSEC_FIRMA_SHIFT)) | (idx as u64 & 3) << FWSEC_FIRMA_SHIFT);
 
     // El prestamo, solo para leer, una vez.
     if FWSEC_ESTADO.load(Ordering::Acquire) & FWSEC_PRESTADO == 0 {
         if let Err(m) = io::prestar_gpu(IOVA_FWSEC, FWSEC_BUF.load(Ordering::Acquire), FWSEC_PAGINAS, false) {
-            return no(m);
+            return Err(m);
         }
         apuntar(|v| v | FWSEC_PRESTADO);
     }
 
     // El falcon: como `FwsecFirmware::run` de nova-core, sin esperar al final.
-    crate::ring0::cabina::info("gpu", "L0b: FWSEC-FRTS al falcon del GSP; FRTS en la VRAM desde", frts.desde);
+    crate::ring0::cabina::info("gpu", que, 0);
     let mut tr = reloj();
-    let boot0 = bmo_gpu_ga10x::Registros::leer(&mut r, bmo_gpu_ga10x::BOOT_0);
-    let cargado = fa::resetear(&mut r, &mut tr, fa::GSP, boot0)
-        .and_then(|_| fa::preparar_fbif(&mut r, fa::GSP))
-        .and_then(|_| fa::copiar(&mut r, &mut tr, fa::GSP, IOVA_FWSEC, d.imem_phys_base, d.imem_load_size, true, true, 50_000))
+    let boot0 = bmo_gpu_ga10x::Registros::leer(r, bmo_gpu_ga10x::BOOT_0);
+    let cargado = fa::resetear(r, &mut tr, fa::GSP, boot0)
+        .and_then(|_| fa::preparar_fbif(r, fa::GSP))
+        .and_then(|_| fa::copiar(r, &mut tr, fa::GSP, IOVA_FWSEC, d.imem_phys_base, d.imem_load_size, true, true, 50_000))
         .and_then(|_| {
             fa::copiar(
-                &mut r,
+                r,
                 &mut tr,
                 fa::GSP,
                 IOVA_FWSEC + d.imem_load_size as u64,
@@ -553,15 +566,43 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         });
     if let Err(e) = cargado {
         crate::ring0::cabina::warn("gpu", "L0b: el falcon no dejo cargar FWSEC; motivo", motivo(e));
-        return no(IOMMU_NO_FWSEC_FALCON);
+        return Err(IOMMU_NO_FWSEC_FALCON);
     }
-    fa::brom(&mut r, fa::GSP, d.pkc_data_offset, d.engine_id_mask, d.ucode_id);
-    if fa::arrancar(&mut r, fa::GSP, 0).is_err() {
-        return no(IOMMU_NO_FWSEC_FALCON);
+    fa::brom(r, fa::GSP, d.pkc_data_offset, d.engine_id_mask, d.ucode_id);
+    if fa::arrancar(r, fa::GSP, 0).is_err() {
+        return Err(IOMMU_NO_FWSEC_FALCON);
     }
-    apuntar(|v| v | FWSEC_ARRANCADO);
-    crate::ring0::cabina::count("gpu", "L0b: FWSEC-FRTS ARRANCADO en el falcon del GSP; firma", idx as u64);
-    Ok(frts.desde)
+    Ok(idx)
+}
+
+/// **FWSEC-SB** (L0c5, al APAGAR el GSP): el MISMO FWSEC de FRTS, que sigue
+/// en su bufer desde el arranque, parcheado con la orden SB (0x19) y firmado
+/// otra vez. Sin las condiciones de FRTS: aqui la WPR2 SI esta montada. Quien
+/// llama ya se aseguro de que el GSP-RM se suspendio. `Ok(firma)` en cuanto el
+/// falcon arranca; su error, en `descarga::SB_ERROR`.
+pub fn fwsec_sb() -> Result<u64, u32> {
+    let Some(d) = desc() else { return no(IOMMU_NO_FWSEC_SIN_PREPARAR) };
+    let t = total(&d);
+    let n = t.div_ceil(4096) as u64;
+    if FWSEC_TROZOS.load(Ordering::Acquire) != (1u64 << n) - 1 || FWSEC_ESTADO.load(Ordering::Acquire) & FWSEC_ARRANCADO == 0 {
+        return no(IOMMU_NO_FWSEC_SIN_PREPARAR);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 {
+        return no(crate::ring0::plat::iommu::IOMMU_NO_SIN_GPU);
+    }
+    let mut r = Bar0(bar0);
+    let ucode = &mut bufer()[..t];
+    if bmo_gpu_ga10x::fwsec::parchear_sb(ucode, &d).is_err() {
+        return no(IOMMU_NO_FWSEC_PARCHE);
+    }
+    match firmar_cargar_arrancar(&mut r, &d, ucode, "L0c5: FWSEC-SB al falcon del GSP (apagar)") {
+        Ok(idx) => {
+            crate::ring0::cabina::count("gpu", "L0c5: FWSEC-SB ARRANCADO en el falcon del GSP; firma", idx as u64);
+            Ok(idx as u64)
+        }
+        Err(m) => no(m),
+    }
 }
 
 /// `INFO_GPU_FWSEC`: `0..7` trozos copiados | `8..15` trozos totales | `16..17`
