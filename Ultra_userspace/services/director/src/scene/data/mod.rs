@@ -778,8 +778,7 @@ fn node_box(
     // Sombra propia. Es lo que separa las cajas del fondo de la ventana y lo
     // que hace que un grafo parezca un grafo y no una lista con marcos.
     rounded_rect(p, x + 2, y + 3, width, NODE_H, SHADOW_NODE);
-    rounded_rect(p, x, y, width, NODE_H, edge);
-    rounded_rect(p, x + 1, y + 1, width - 2, NODE_H - 2, cuerpo);
+    crate::scene::borde::marco(p, x, y, width, NODE_H, crate::scene::RADIUS, edge, cuerpo);
 
     // * El PUNTO de clase, no una solapa lateral.
     //

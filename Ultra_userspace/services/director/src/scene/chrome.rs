@@ -593,21 +593,20 @@ impl Chrome {
         // ** EL BORDE DE FOCO: el de la ventana a la que van las teclas es del
         // acento; los demas, del color de su ventana (que dice CUAL es).
         let edge = if self.foco { super::acento() } else { edge };
-        rounded_rect(p, self.x, self.y, self.width, self.height, edge);
-        rounded_rect(p, self.x + 1, self.y + 1, self.width - 2, self.height - 2, cuerpo);
-
-        // La barra, con la MISMA curva que la ventana o asomaria por fuera de
-        // sus esquinas.
-        for i in 0..RADIUS {
-            let s = curve(i);
-            p.rect(self.x + s, self.y + 1 + i, self.width - 2 * s, 1, title_bg);
-        }
-        p.rect(
-            self.x + 1,
-            self.y + 1 + RADIUS,
-            self.width - 2,
-            TITLE_H - 2 - RADIUS,
+        // ** LA VENTANA, REDONDA DE VERDAD (25-09): radio 10, las cuatro
+        // esquinas suavizadas contra el escritorio, el borde de 1 px CONSTANTE
+        // y la barra de titulo con la curva de DENTRO. Antes: la curva corrida
+        // una fila, el borde que engordaba en las esquinas y la barra que se
+        // comia un pixel del borde. Ver `borde`.
+        let alto = p.alto;
+        super::borde::ventana(
+            p,
+            (self.x, self.y, self.width, self.height),
+            edge,
             title_bg,
+            TITLE_H - 1,
+            cuerpo,
+            &|px, py| super::background_at(px, py, alto),
         );
         self.paint_hacker(p, edge, title_bg, acento);
 
@@ -633,7 +632,7 @@ impl Chrome {
         let (x, y, w) = (self.x, self.y, self.width);
         // Scanlines: solo donde la barra ya es recta (bajo la curva).
         let oscura = mezcla(title_bg, 0, 46);
-        let mut fila = RADIUS + 2;
+        let mut fila = super::borde::R_VENTANA + 2;
         while fila < TITLE_H - 1 {
             p.rect(x + 1, y + fila, w - 2, 1, oscura);
             fila += 2;
@@ -648,16 +647,19 @@ impl Chrome {
                 p.rect(x + 1 + a, y + TITLE_H - 1, b - a, 1, mezcla(acento, title_bg, t * 220 / tramos));
             }
         }
-        p.rect(x + RADIUS + 4, y + TITLE_H - 2, 24.min(largo), 2, mezcla(acento, 0x00FF_FFFF, 110));
-        // Esquinas HUD: 14 px de borde, doble y mas claro, tras cada curva.
+        let r = super::borde::R_VENTANA;
+        p.rect(x + r + 4, y + TITLE_H - 2, 24.min(largo), 2, mezcla(acento, 0x00FF_FFFF, 110));
+        // Esquinas HUD: 14 px de borde mas claro, justo donde acaba cada
+        // curva y SOBRE la raya del borde (1 px, no 2: el de 2 asomaba por
+        // dentro y no cuadraba con el borde de al lado, 25-09).
         let claro = mezcla(edge, 0x00FF_FFFF, 90);
         let brazo = 14u32.min(w / 4).min(self.height / 4);
         let h = self.height;
-        for (bx, by) in [(x + RADIUS, y), (x + w - RADIUS - brazo, y), (x + RADIUS, y + h - 2), (x + w - RADIUS - brazo, y + h - 2)] {
-            p.rect(bx, by, brazo, 2, claro);
+        for (bx, by) in [(x + r, y), (x + w - r - brazo, y), (x + r, y + h - 1), (x + w - r - brazo, y + h - 1)] {
+            p.rect(bx, by, brazo, 1, claro);
         }
-        for (bx, by) in [(x, y + RADIUS), (x + w - 2, y + RADIUS), (x, y + h - RADIUS - brazo), (x + w - 2, y + h - RADIUS - brazo)] {
-            p.rect(bx, by, 2, brazo, claro);
+        for (bx, by) in [(x, y + r), (x + w - 1, y + r), (x, y + h - r - brazo), (x + w - 1, y + h - r - brazo)] {
+            p.rect(bx, by, 1, brazo, claro);
         }
         // Los segmentos, antes del primer boton: tres barritas inclinadas.
         let primero = self.boton_x(0);

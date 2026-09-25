@@ -113,14 +113,6 @@ fn icono(p: &bmo::Pantalla, x: u32, y: u32, ic: &Icono, color: u32) {
     }
 }
 
-/// Un rectangulo con las cuatro esquinas biseladas un pixel.
-fn redondo(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), color: u32, fuera: u32) {
-    p.rect(x, y, w, h, color);
-    for &(cx, cy) in &[(x, y), (x + w - 1, y), (x, y + h - 1), (x + w - 1, y + h - 1)] {
-        p.rect(cx, cy, 1, 1, fuera);
-    }
-}
-
 // -- La geometria: UNA cuenta, la usan el pintor y el puntero -----------------
 
 /// La barra de direccion: el campo de siempre (`RunBox::field_*`).
@@ -204,7 +196,10 @@ pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox) {
     let a = acento();
     // La solapa: se funde con la banda de abajo, sobre el rail de neon.
     let t = (c.x + 10, c.y + 5, SOLAPA_W, TITLE_H - 6);
-    redondo(p, t, BANDA, BOX_TITLE);
+    // Redondeada arriba (suavizada contra la barra) y recta abajo: pegada a
+    // la banda, como la del Explorador.
+    super::borde::pastilla(p, t, 6, BANDA, BANDA, BOX_TITLE);
+    p.rect(t.0, t.1 + t.3 - 6, t.2, 6, BANDA);
     p.rect(t.0 + 10, c.y + 12, 8, 8, a);
     p.texto(t.0 + 26, c.y + 9, "Ejecutar", INK);
     p.texto(t.0 + SOLAPA_W - 18, c.y + 9, "x", INK_DIM);
@@ -225,7 +220,9 @@ pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox) {
 
     // El buscador: la lupa, y su texto si hay sitio (Ctrl+F busca en la salida).
     let b = buscador(c);
-    redondo(p, b, FIELD_BG, BANDA);
+    // La misma pastilla que el campo (radio 5, borde de 1 px): dos cajas de
+    // texto en la misma barra con dos bordes distintos era lo que no cuadraba.
+    super::borde::pastilla(p, b, 5, FIELD_BG, BOX_EDGE, BANDA);
     if b.2 > BOTON {
         p.texto(b.0 + 10, b.1 + 6, "Buscar  (Ctrl+F)", INK_DIM);
         icono(p, b.0 + b.2 - 20, b.1 + 8, &LUPA, INK_DIM);

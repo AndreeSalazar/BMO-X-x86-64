@@ -55,7 +55,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use super::estilo::estilo;
 use super::pulso::Lectura;
-use super::{acento, inside_rounded, rounded_rect, INK, INK_DIM};
+use super::{acento, inside_rounded, INK, INK_DIM};
 use crate::ventana::Ventana;
 
 /// El ancho del panel: diecisiete letras (`SIN TECLADO USB` y su luz) y el
@@ -222,7 +222,8 @@ pub(crate) fn color_en(x: u32, y: u32, alto: u32) -> Option<u32> {
     if !inside_rounded(x, y, bx, by, bw, bh) {
         return None;
     }
-    if !inside_rounded(x, y, bx + 1, by + 1, bw - 2, bh - 2) {
+    // El cuerpo lleva radio RADIUS - 1 (el marco de 1 px constante de `borde`).
+    if !crate::scene::borde::dentro(x, y, bx + 1, by + 1, bw - 2, bh - 2, crate::scene::RADIUS - 1) {
         return Some(e.barra_borde);
     }
     Some(e.barra_fondo)
@@ -423,8 +424,7 @@ pub(crate) fn latido(p: &bmo::Pantalla, mw: Option<u64>, l: &Lectura) {
     if forzar {
         let (bx, by, bw, bh) = caja(p.alto);
         if e.barra_flotante {
-            rounded_rect(p, bx, by, bw, bh, e.barra_borde);
-            rounded_rect(p, bx + 1, by + 1, bw - 2, bh - 2, e.barra_fondo);
+            crate::scene::borde::marco(p, bx, by, bw, bh, crate::scene::RADIUS, e.barra_borde, e.barra_fondo);
         } else {
             p.rect(bx, by, bw, bh, e.barra_fondo);
             p.rect(bx + bw - 1, by, 1, bh, e.barra_borde);

@@ -519,7 +519,7 @@ repetir la prueba.
 | Encaje con BMO-X | explicito: buffers de comandos, semaforos, barreras -- lo MISMO que ya hacen GPFIFO y los semaforos de `gpu pantalla` | tambien explicito (D3D12 y Vulkan son primos), pero amarrado a DXGI/WDDM |
 | Juegos abiertos | vkQuake, ports con Vulkan, y todo lo GL se puede subir despues | casi ninguno: un juego D3D es un juego de Windows |
 
-Conclusion: **no es que D3D12 sea "peor" como diseno** -- en la GPU son casi
+Conclusion: **no es que D3D12 sea "peor" como esquema** -- en la GPU son casi
 lo mismo. Es que Vulkan esta **abierto por los cuatro lados** (especificacion,
 pruebas, sombreadores, controladores de referencia) y D3D esta cerrado por
 el lado que importa: vive dentro de Windows. Por eso el camino de BMO-X es

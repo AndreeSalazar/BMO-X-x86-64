@@ -115,6 +115,9 @@ pub(crate) mod sugerir;
 /// **La caja organizada como un Explorador** (25-09): solapa, flechas,
 /// direccion, buscador, botones de orden y barra de estado.
 pub(crate) mod caja;
+/// **Los bordes que cuadran** (25-09): la curva calculada, marcos de 1 px
+/// constante, ventanas y pastillas suavizadas, y la sombra que se desvanece.
+pub(crate) mod borde;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
 /// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
 pub(crate) mod globo;
@@ -194,9 +197,10 @@ pub(crate) fn acento() -> u32 {
 // coma flotante que este sistema no tiene.
 
 pub(crate) const RADIUS: u32 = 8;
-/// Cuanto se mete cada fila del extremo. Es un cuarto de circulo de radio 8
-/// tabulado: `CURVE_TABLE[0]` es la fila del borde y `CURVE_TABLE[7]` ya no se mete.
-const CURVE_TABLE: [u32; RADIUS as usize] = [8, 5, 3, 2, 1, 1, 0, 0];
+// ** La tabla de sangrias (`[8, 5, 3, 2, 1, 1, 0, 0]`) estaba CORRIDA UNA FILA:
+// un cuarto de circulo de radio 8 es `[5, 3, 2, 1, 1, 0, 0, 0]`, y la
+// esquina salia achatada (25-09, "el borde no cuadra en pixeles"). Ahora la
+// curva se calcula (`borde::sangria`) y no hay tabla que corregir.
 
 /// Esta `(x, y)` DENTRO de un rectangulo de esquinas redondeadas?
 ///
@@ -205,44 +209,14 @@ const CURVE_TABLE: [u32; RADIUS as usize] = [8, 5, 3, 2, 1, 1, 0, 0];
 /// del color de la ventana en las esquinas. Un redondeo que solo sabe pintar
 /// deja basura al desaparecer.
 pub(crate) fn inside_rounded(x: u32, y: u32, rx: u32, ry: u32, w: u32, h: u32) -> bool {
-    if x < rx || x >= rx + w || y < ry || y >= ry + h {
-        return false;
-    }
-    let dy = y - ry;
-    let from_edge = if dy < RADIUS {
-        Some(dy)
-    } else if dy >= h - RADIUS {
-        Some(h - 1 - dy)
-    } else {
-        None
-    };
-    match from_edge {
-        None => true,
-        Some(i) => {
-            let s = CURVE_TABLE[i as usize];
-            x >= rx + s && x < rx + w - s
-        }
-    }
+    borde::dentro(x, y, rx, ry, w, h, RADIUS)
 }
 
-/// La sangria de la fila `i` de una esquina. Para quien redondee a mano una
-/// barra de titulo: tiene que usar LA MISMA curva que su ventana o asomara.
-pub(crate) fn curve(i: u32) -> u32 {
-    CURVE_TABLE[(i as usize).min(CURVE_TABLE.len() - 1)]
-}
-
-/// Un rectangulo con las esquinas comidas. Diecisiete `rect` y ya.
+/// Un rectangulo con las esquinas comidas (radio [`RADIUS`], sin suavizar).
+/// Para un marco de 1 px con cuerpo, `borde::marco`: el cuerpo lleva radio
+/// `RADIUS - 1`, o el borde engorda en las curvas.
 pub(crate) fn rounded_rect(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32, color: u32) {
-    if w <= 2 * RADIUS || h <= 2 * RADIUS {
-        p.rect(x, y, w, h, color);
-        return;
-    }
-    for i in 0..RADIUS {
-        let s = CURVE_TABLE[i as usize];
-        p.rect(x + s, y + i, w - 2 * s, 1, color);
-        p.rect(x + s, y + h - 1 - i, w - 2 * s, 1, color);
-    }
-    p.rect(x, y + RADIUS, w, h - 2 * RADIUS, color);
+    borde::relleno_r(p, x, y, w, h, RADIUS, color);
 }
 
 /// La sombra de una ventana: **dos capas**, no una.
@@ -266,12 +240,11 @@ pub(crate) const SHADOW_RIGHT: u32 = 8;
 pub(crate) const SHADOW_BOTTOM: u32 = 10;
 
 pub(crate) fn shadow(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
-    const FAR: u32 = 0x0007_060F;
-    const NEAR: u32 = 0x0003_0208;
-    // Las medidas salen de las constantes de arriba: el borde derecho cae en
-    // `x + w + SHADOW_RIGHT` y el de abajo en `y + h + SHADOW_BOTTOM`.
-    rounded_rect(p, x + 2, y + 4, w + SHADOW_RIGHT - 2, h + SHADOW_BOTTOM - 4, FAR);
-    rounded_rect(p, x + 3, y + 5, w + SHADOW_RIGHT - 5, h + SHADOW_BOTTOM - 7, NEAR);
+    // ** Ya no son dos anillos duros: una sombra que se DESVANECE sobre el
+    // escritorio (25-09), dentro de las mismas `SHADOW_RIGHT`/`SHADOW_BOTTOM`
+    // que limpia el borrado.
+    let alto = p.alto;
+    borde::sombra(p, (x, y, w, h), SHADOW_RIGHT, SHADOW_BOTTOM, &|px, py| background_at(px, py, alto));
 }
 
 /// El color del escritorio en la fila `y`. El degradado, dicho una sola vez.
@@ -575,8 +548,8 @@ pub(crate) fn scene_color(c: &RunBox, visible: bool, x: u32, y: u32, height: u32
     // modelo creyera que la caja es cuadrada, al taparla y destaparla quedarian
     // cuatro pellizcos de su color en las esquinas -- un redondeo que solo sabe
     // pintar deja basura al desaparecer.
-    if visible && inside_rounded(x, y, c.x, c.y, c.w(), c.h()) {
-        let on_edge = !inside_rounded(x, y, c.x + 1, c.y + 1, c.w() - 2, c.h() - 2);
+    if visible && borde::dentro(x, y, c.x, c.y, c.w(), c.h(), borde::R_VENTANA) {
+        let on_edge = !borde::dentro(x, y, c.x + 1, c.y + 1, c.w() - 2, c.h() - 2, borde::R_VENTANA - 1);
         if on_edge {
             // El borde de la terminal es del acento cuando tiene el foco (HUD 2):
             // este modelo tiene que decir lo mismo que `paint_chrome`.
@@ -650,9 +623,11 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     // acento pasa a ser un marco y deja de marcar. Una raya bajo el campo dice
     // "aqui se escribe" con un cuarto de la tinta -- es lo que hacen Windows 11
     // y todos los escritorios de Linux modernos, y por este motivo.
-    p.rect(c.field_x - 1, c.field_y - 1, c.field_w + 2, c.field_h + 2, BOX_EDGE);
-    p.rect(c.field_x, c.field_y, c.field_w, c.field_h, FIELD_BG);
-    p.rect(c.field_x, c.field_y + c.field_h, c.field_w, 2, acento());
+    // ** Una PASTILLA (25-09): radio 5, suavizada sobre la banda, y la raya
+    // del acento DENTRO de su curva, como la de Windows 11 -- antes eran tres
+    // rectangulos, y el borde cuadrado junto al buscador redondo no cuadraba.
+    borde::pastilla(p, (c.field_x, c.field_y, c.field_w, c.field_h), 5, FIELD_BG, BOX_EDGE, caja::BANDA);
+    p.rect(c.field_x + 4, c.field_y + c.field_h - 2, c.field_w - 8, 2, acento());
 }
 
 /// El contenido del campo: la ruta y el cursor de escritura.
@@ -662,7 +637,9 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
 /// medio glifo del anterior porque el nuevo es mas estrecho.
 #[inline(never)]
 pub(crate) fn paint_field(p: &bmo::Pantalla, c: &RunBox, path: &[u8], cur: usize, caret: bool) {
-    p.rect(c.field_x, c.field_y, c.field_w, c.field_h, FIELD_BG);
+    // Solo DENTRO de la pastilla: su borde redondo y la raya del acento no se
+    // repintan en cada tecla.
+    p.rect(c.field_x + 3, c.field_y + 2, c.field_w - 6, c.field_h - 4, FIELD_BG);
     // Vacio, dice DONDE se esta y que se teclea, como la direccion del
     // Explorador (25-09).
     if path.is_empty() {

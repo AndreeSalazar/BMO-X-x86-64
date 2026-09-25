@@ -283,15 +283,13 @@ pub(crate) fn en(z: &Zona, from: usize, px: u32, py: u32) -> Option<Golpe> {
 
 fn panel(p: &bmo::Pantalla, z: &Zona) {
     rounded_rect(p, z.x + 2, z.y + 3, z.w, z.h, SHADOW_NODE);
-    rounded_rect(p, z.x, z.y, z.w, z.h, DATA_EDGE);
-    rounded_rect(p, z.x + 1, z.y + 1, z.w - 2, z.h - 2, NODE_BG);
+    crate::scene::borde::marco(p, z.x, z.y, z.w, z.h, crate::scene::RADIUS, DATA_EDGE, NODE_BG);
 }
 
 /// El realce de lo elegido: el acento de borde y un relleno oscuro. Es el
 /// mismo en el panel de categorias y en la lista.
 fn realzar(p: &bmo::Pantalla, x: u32, y: u32, w: u32, h: u32) {
-    rounded_rect(p, x, y, w, h, sel_neon());
-    rounded_rect(p, x + 1, y + 1, w - 2, h - 2, SEL_FONDO);
+    crate::scene::borde::marco(p, x, y, w, h, crate::scene::RADIUS, sel_neon(), SEL_FONDO);
 }
 
 /// El icono de una clase: un DIBUJO desde el 2026-09-13, no una letra. Ver
