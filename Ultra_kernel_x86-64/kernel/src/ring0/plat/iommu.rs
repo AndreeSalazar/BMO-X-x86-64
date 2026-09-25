@@ -37,6 +37,12 @@ use bmo_firmware::ivrs;
 use bmo_iommu_amdvi as amdvi;
 use core::sync::atomic::{AtomicU64, Ordering};
 
+/// **La orden EN CURSO** de `TASK_OP_IOMMU` (la IOMMU y la 3060): `op + 1`
+/// (0 = ninguna) y su `arg1`. La pantalla de fallo del kernel la dice: un
+/// `rip` solo se nombra con el ELF exacto que corria, y la orden dice el paso
+/// aunque no lo haya (metal 25-09: un #PF en `save mode` sin nombre).
+pub static EN_CURSO: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
+
 /// Especiales e IVMD que se guardan. Un Zen trae un IOAPIC o dos y un HPET.
 pub const MAX_ESPECIALES: usize = 8;
 pub const MAX_IVMD: usize = 8;

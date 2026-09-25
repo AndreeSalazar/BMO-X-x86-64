@@ -675,6 +675,16 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
 /// cache. Si encender tumba la maquina, lo guardado tiene que estar en el
 /// disco de verdad. La maquina trabaja para quien la usa.
 pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
+    use crate::ring0::plat::iommu::EN_CURSO;
+    use core::sync::atomic::Ordering;
+    EN_CURSO[1].store(arg1, Ordering::Relaxed);
+    EN_CURSO[0].store(arg0.wrapping_add(1), Ordering::Release);
+    let r = iommu_(arg0, arg1);
+    EN_CURSO[0].store(0, Ordering::Release);
+    r
+}
+
+fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu;
     let pid = scheduler::current_pid();
     if crate::ring0::obj::fb::owner() != Some(pid) {
