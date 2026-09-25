@@ -886,7 +886,11 @@ que llama a Windows.
       en Windows) y el juez corrido en LINUX da **0 pixeles distintos** de
       921.600 contra las capturas de D3D12 en la 3060, en los fotogramas 0,
       30 y 60. Queda 1 pixel sin explicar en 360 fotogramas, dicho asi.
-- [ ] **X3 -- el RHI, escrito como rasgo.** La primera lista (las 67 de
+- [x] **X3 -- el RHI, escrito como rasgo.** **Hecho el 25-09 como VERRANO
+      V0** ([`PLAN_VERRANO.md`](PLAN_VERRANO.md)): `bmo-verrano` con
+      `Backend::draw` y el backend CPU (el juez), que da las huellas de D3D12;
+      el backend 3060 toma sus programas del BSF (`kind` SM86). Las 67 de
+      vkQuake son V5. Lo que se planeo: la primera lista (las 67 de
       vkQuake 0.50 y las del cubo, juntas) como interfaz, con el backend CPU
       primero. **Como se sabe:** un crate puro con banco que dibuja el cubo
       por el backend CPU y lo compara con una imagen fija.

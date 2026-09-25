@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 49 planes
+# LO QUE FALTA -- las casillas abiertas de los 50 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   343 casillas ABIERTAS en 40 planes
-   291 hechas
+   348 casillas ABIERTAS en 41 planes
+   294 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -40,14 +40,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 25 abiertas, 10 hechas
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 24 abiertas, 11 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
 - [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
 - [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
 - [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
-- ... y 22 mas
+- ... y 21 mas
 
 ## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 5 hechas
 
@@ -236,6 +236,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-4 -- EL METAL. Un .bex firmado que arranque en el Ryzen y
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
+- ... y 3 mas
+
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 6 abiertas, 2 hechas
+
+*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
+
+- [ ] V0c -- gpu verrano en el Ryzen. La 3060 dibuja el cubo con los
+- [ ] V1 -- el cubo en MOVIMIENTO, con fps. N fotogramas seguidos por
+- [ ] V2 -- la profundidad y el culling (X5b de
 - ... y 3 mas
 
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas

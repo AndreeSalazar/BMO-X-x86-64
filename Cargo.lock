@@ -290,6 +290,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-gpu-ga10x"
 version = "0.1.0"
+dependencies = [
+ "bmo-bsf",
+]
 
 [[package]]
 name = "bmo-gpu-rdna4"
@@ -639,6 +642,13 @@ version = "0.1.0"
 dependencies = [
  "bmo-abi",
  "bmo-bex-gate",
+]
+
+[[package]]
+name = "bmo-verrano"
+version = "0.1.0"
+dependencies = [
+ "bmo-cubo",
 ]
 
 [[package]]

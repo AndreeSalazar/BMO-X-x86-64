@@ -108,6 +108,13 @@ pub const WRITES: u8 = bmo_spirv_front::WRITES;
 pub mod kind {
     /// x86-64, el emisor escalar de S4 (`bmo-spirv-x86-64`).
     pub const X86_64_SCALAR: u16 = 1;
+    /// **La RTX 3060: SASS de SM86** (VERRANO V0, 25-09). El codigo es la
+    /// cabecera SPH (128 B) y detras las instrucciones de 128 bits; lo copia
+    /// a la VRAM quien dibuja y la 3060 lo ejecuta tal cual: no traduce nada
+    /// al arrancar. `init` = 0 (la SPH), `main` = 128 (la primera
+    /// instruccion). Hoy lo escribe una persona (`emitter` = "a-mano": sin espacios, como pide el lector); el
+    /// emisor de SPIR-V a SM86 es otra casilla.
+    pub const SM86: u16 = 2;
 }
 
 /// El contrato de llamada del codigo de un objetivo.
@@ -117,6 +124,12 @@ pub mod abi {
     /// palabra` por invocacion, System V; tabla de `(direccion u64, bytes u64)`
     /// en el orden de las ranuras del objetivo.
     pub const X86_64_V1: u16 = 1;
+    /// SM86 v1 (`bmo_gpu_ga10x::tuberia`): la ranura `k` de la tabla de
+    /// buffers, su direccion (u64) en una VA que fija el dibujante; el de
+    /// vertice recibe el numero de vertice en `a[0x2fc]` y deja la posicion en
+    /// `a[0x70]` y el generico 0 en `a[0x80]`; el de pixel lee el generico 0
+    /// por IPA y deja el color en R0..R3.
+    pub const SM86_V1: u16 = 2;
 }
 
 /// Lo que el codigo pide a la CPU. El consumidor pasa lo que TIENE y un

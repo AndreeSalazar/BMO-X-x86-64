@@ -1,0 +1,16 @@
+[package]
+name = "bmo-verrano"
+version = "0.1.0"
+edition = "2021"
+description = "VERRANO, la API de dibujo de BMO-X (V0): un fotograma de vertices, y los backends que lo dibujan -- la CPU (el juez) y la 3060. Puro."
+license = "Apache-2.0"
+
+# Sin dependencias: la API y el backend CPU son aritmetica sobre buferes que
+# da quien llama. El backend de la 3060 vive donde se toca la tarjeta.
+[dependencies]
+
+[dev-dependencies]
+bmo-cubo = { path = "../bmo-cubo" }
+
+[lib]
+name = "bmo_verrano"

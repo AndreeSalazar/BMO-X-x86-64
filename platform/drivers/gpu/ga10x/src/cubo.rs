@@ -147,7 +147,7 @@ pub const fn a_rrggbb(v: u32, rgb: bool) -> u32 {
 
 /// Pone el control (bits 105..125 de la instruccion: 41..61 de la palabra
 /// alta) y conserva lo demas.
-const fn con_control(hi: u64, control: u64) -> u64 {
+pub const fn con_control(hi: u64, control: u64) -> u64 {
     (hi & ((1 << 41) - 1)) | control << 41
 }
 
@@ -234,7 +234,7 @@ pub struct Ordenes {
 }
 
 impl Ordenes {
-    fn m(&mut self, metodo: u32, v: &[u32]) {
+    pub(crate) fn m(&mut self, metodo: u32, v: &[u32]) {
         self.o[self.n] = cabecera_en(SUBCANAL, metodo, v.len() as u32);
         let mut i = 0;
         while i < v.len() {
@@ -244,7 +244,7 @@ impl Ordenes {
         self.n += 1 + v.len();
     }
 
-    fn semaforo(&mut self, donde: u64, paga: u32) {
+    pub(crate) fn semaforo(&mut self, donde: u64, paga: u32) {
         let s = sombreador_va(donde);
         self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, paga, td::INFORME]);
     }
@@ -271,8 +271,14 @@ impl Ordenes {
     }
 
     fn dibujo(&mut self) {
+        self.dibujo_de(3);
+    }
+
+    /// Un dibujo de `vertices` vertices seguidos (desde el 0): `vertices / 3`
+    /// triangulos.
+    pub(crate) fn dibujo_de(&mut self, vertices: u32) {
         self.m(BEGIN, &[TRIANGULOS]);
-        self.m(ra::SET_VERTEX_ARRAY_START, &[0, 3]);
+        self.m(ra::SET_VERTEX_ARRAY_START, &[0, vertices]);
         self.m(END, &[0]);
     }
 }
@@ -281,8 +287,34 @@ const fn f(x: f32) -> u32 {
     x.to_bits()
 }
 
-/// **Las ordenes** para `n` triangulos (1..=8) en la ventana `v`.
+/// **Las ordenes** para `n` triangulos (1..=8) en la ventana `v`, un par de
+/// programas por triangulo.
 pub fn ordenes(v: &Ventana, n: usize) -> Ordenes {
+    let mut e = hasta_el_dibujo(v);
+    for t in 0..n {
+        if t > 0 {
+            e.programas(t);
+        }
+        e.dibujo();
+    }
+    e.cerrar();
+    e
+}
+
+impl Ordenes {
+    /// Esperar al GR y pagar el semaforo del dibujo entero.
+    pub(crate) fn cerrar(&mut self) {
+        self.m(td::WAIT_FOR_IDLE, &[0]);
+        self.semaforo(SEMAFORO_FIN, PAGA_FIN);
+    }
+}
+
+/// **Todo menos los dibujos**: la limpieza de la ventana, el estado de T1c
+/// con su escalera (los programas en los huecos 1 y 5 son los de `vs(0)` y
+/// `ps(0)`), el primer triangulo SIN rasterizar y el rasterizador de vuelta.
+/// Lo comparten X5 (un par de programas por triangulo) y la tuberia fija de
+/// VERRANO (`tuberia`: un par para todos).
+pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
     let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1 };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
@@ -351,14 +383,6 @@ pub fn ordenes(v: &Ventana, n: usize) -> Ordenes {
     e.m(td::WAIT_FOR_IDLE, &[0]);
     e.semaforo(SEMAFORO_FIN + VERTICES, PAGA_FIN ^ VERTICES_PAGA);
     e.m(ra::SET_RASTER_ENABLE, &[1]);
-    for t in 0..n {
-        if t > 0 {
-            e.programas(t);
-        }
-        e.dibujo();
-    }
-    e.m(td::WAIT_FOR_IDLE, &[0]);
-    e.semaforo(SEMAFORO_FIN, PAGA_FIN);
     e
 }
 

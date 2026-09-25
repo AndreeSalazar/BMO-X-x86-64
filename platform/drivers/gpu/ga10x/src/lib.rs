@@ -114,6 +114,9 @@ pub mod volcado;
 pub mod escena;
 /// X5: el cubo del estudio D3D por la 3060, sin Windows (2026-09-25).
 pub mod cubo;
+/// VERRANO V0: la tuberia FIJA -- dos programas que no cambian y los datos
+/// en un buffer (2026-09-25).
+pub mod tuberia;
 /// LA 3060 12G, y solo ella: la identidad que el kernel exige (2026-09-25).
 pub mod identidad;
 

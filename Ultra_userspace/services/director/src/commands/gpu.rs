@@ -105,6 +105,11 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
             return super::gspcubo::orden(dsk, p, resto);
         }
     }
+    if let Some(resto) = arg.strip_prefix(b"verrano") {
+        if resto.is_empty() || resto[0] == b' ' {
+            return super::gspcubo::orden_verrano(dsk, p, resto);
+        }
+    }
     if arg == b"pase" {
         return super::gsppase::orden(dsk, p);
     }

@@ -20,6 +20,10 @@ bmo-gpu-ga10x = { path = "../../../platform/drivers/gpu/ga10x" }
 bmo-pase-gpu = { path = "../../../platform/shared/bmo-pase-gpu" }
 # X4: el cubo del estudio D3D (cubo-neutro, traido) y las huellas de la 3060.
 bmo-cubo = { path = "../../../platform/shared/bmo-cubo" }
+# VERRANO V0: la API de dibujo (el backend CPU es el juez) y el BSF, de donde
+# salen los programas de la 3060 ya traducidos (`kind` SM86).
+bmo-verrano = { path = "../../../platform/shared/verrano" }
+bmo-bsf = { path = "../../../toolchain/lang/spirv/bsf" }
 bmo-iommu-amdvi = { path = "../../../platform/drivers/iommu/amdvi" }
 bmo-userland = { path = "../../userland" }
 # La politica de FOCO (quien recibe las teclas). Alli se puede PROBAR -- este

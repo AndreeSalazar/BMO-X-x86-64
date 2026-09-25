@@ -109,6 +109,7 @@ name = "bmo-service-director"
 version = "0.1.0"
 dependencies = [
  "bmo-antena",
+ "bmo-bsf",
  "bmo-config",
  "bmo-cubo",
  "bmo-dibujo",
@@ -124,6 +125,7 @@ dependencies = [
  "bmo-ritmo",
  "bmo-rtc",
  "bmo-userland",
+ "bmo-verrano",
 ]
 
 [[package]]
@@ -151,3 +153,7 @@ dependencies = [
  "bmo-dibujo",
  "bmo-puerta-red",
 ]
+
+[[package]]
+name = "bmo-verrano"
+version = "0.1.0"

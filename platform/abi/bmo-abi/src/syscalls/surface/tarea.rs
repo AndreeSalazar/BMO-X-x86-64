@@ -905,6 +905,10 @@ pub const IOMMU_OP_GPU_PASE: u64 = 0x44;
 pub const IOMMU_OP_GPU_CUBO: u64 = 0x45;
 /// El bit 63 de `IOMMU_OP_GPU_CUBO`: LEER en vez de DIBUJAR.
 pub const CUBO_LEER: u64 = 1 << 63;
+/// El bit 62 de `IOMMU_OP_GPU_CUBO`: VERRANO V0, `arg1` = este bit | la VA
+/// de un paquete del que llama (`bmo_gpu_ga10x::tuberia::Paquete`: los dos
+/// programas tomados del BSF y los vertices). `Ok` como DIBUJAR.
+pub const CUBO_VERRANO: u64 = 1 << 62;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

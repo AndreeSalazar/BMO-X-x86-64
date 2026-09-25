@@ -18,6 +18,9 @@
 
 /// X5: el cubo por la 3060, sin Windows.
 mod la3060;
+/// VERRANO V0: el cubo por la API, con sus dos backends.
+mod verrano;
+pub(crate) use verrano::orden as orden_verrano;
 
 use bmo_cubo::referencia as rf;
 use bmo_userland as bmo;

@@ -13,3 +13,9 @@ path = "src/lib.rs"
 # numeros que el kernel LEYO por MMIO y devuelve lo que significan. No toca un
 # registro y no decide nada -- por eso se prueba entero en el anfitrion.
 [dependencies]
+
+# Solo para el banco (`tests/bsf_sm86.rs`): la tuberia de VERRANO V0 viaja
+# en un BSF, y el banco lo fabrica y lo lee con el MISMO lector que usara
+# quien dibuja. El crate que enlaza el kernel sigue sin dependencias.
+[dev-dependencies]
+bmo-bsf = { path = "../../../../toolchain/lang/spirv/bsf" }

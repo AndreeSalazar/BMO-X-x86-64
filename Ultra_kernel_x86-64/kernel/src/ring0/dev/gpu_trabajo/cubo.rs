@@ -16,6 +16,10 @@
 //!             Ok(cubo::empaquetar(..)): us de la 3060, triangulos, escalera
 //!    LEER     arg = CUBO_LEER | k: los pixeles 2k y 2k+1 de la ventana, fila
 //!             a fila, como 0x00RRGGBB (Ok(p0 | p1 << 32)); solo tras DIBUJAR
+//!    VERRANO  arg = CUBO_VERRANO | la VA de un paquete del escritorio
+//!             (`tuberia::Paquete`: sus dos programas, tomados del BSF, y sus
+//!             vertices). La tuberia FIJA de VERRANO V0: el kernel sube el
+//!             codigo tal cual, no traduce nada. Ok como DIBUJAR
 //! ```
 //!
 //! La lectura va de dos en dos y no la ventana entera en una llamada por lo
@@ -34,6 +38,9 @@ use crate::ring0::dev::gpu_prestamo::Bar0;
 /// El bit de `arg` que pide LEER en vez de DIBUJAR.
 pub const CUBO_LEER: u64 = 1 << 63;
 
+/// El bit de `arg` que pide dibujar un paquete de VERRANO V0.
+pub const CUBO_VERRANO: u64 = 1 << 62;
+
 /// Ya se dibujo en este arranque (LEER antes no tiene que leer).
 static DIBUJADO: AtomicBool = AtomicBool::new(false);
 /// Cuantos fotogramas del cubo dibujo la 3060 (para el log).
@@ -43,6 +50,9 @@ static VECES: AtomicU32 = AtomicU32::new(0);
 pub fn cubo(arg: u64) -> Result<u64, u32> {
     if arg & CUBO_LEER != 0 {
         return leer(arg & 0xF_FFFF);
+    }
+    if arg & CUBO_VERRANO != 0 {
+        return verrano(arg & 0xFFFF_FFFF_FFFF);
     }
     let (ficha, f) = (arg & 0xFFFF_FFFF, (arg >> 32) as u32 & 0x1FF);
     let bar0 = crate::ring0::dev::gpu::bar0();
@@ -66,16 +76,66 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
     }
     // Lo que el volcado del escritorio tenga en vuelo, antes: si no, su copia
     // podria caer ENCIMA del cubo entre el dibujo y la lectura.
-    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, &v, &tris[..t.n]));
+    let tris = &tris[..t.n];
+    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, t.n as u32, |r| cu::preparar(r, e, &v, tris)));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
 
-fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, tris: &[cu::Triangulo]) -> Result<u64, u32> {
+/// **VERRANO V0**: el paquete del escritorio (sus dos programas y sus
+/// vertices) por la tuberia fija.
+fn verrano(va: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::tuberia as tu;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let Some(p) = la_pantalla() else { return Err(IOMMU_NO_PANTALLA) };
+    let Some(v) = cu::ventana(&p) else { return Err(IOMMU_NO_PANTALLA) };
+    if !crate::ring0::dev::gpu_despertar::bar1_fisica() {
+        return Err(IOMMU_NO_PANTALLA);
+    }
+    // El paquete: un bloque de quien lo pide, entero, dentro del physmap.
+    let pid = crate::ring0::task::scheduler::current_pid();
+    let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
+    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, tu::CABECERA as u64).filter(|&f| dentro(f, tu::CABECERA as u64)) else {
+        crate::ring0::cabina::warn("gpu", "VERRANO: el paquete no es un bloque de quien lo pide", va);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    // SAFETY: `fisica_de` dio CABECERA bytes de un bloque del proceso, dentro
+    // del physmap (comprobado); solo se leen.
+    let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, tu::CABECERA) };
+    let Some(total) = tu::medida(cabecera) else { return Err(IOMMU_NO_BLUR_PREPARAR) };
+    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    // SAFETY: como arriba, con `total` bytes; el escritorio esta dentro de
+    // esta llamada y no los toca mientras.
+    let bytes = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, total) };
+    let Some(paquete) = tu::leer(bytes) else {
+        crate::ring0::cabina::warn("gpu", "VERRANO: el paquete no se sostiene (programas o vertices); bytes", total as u64);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    if !bmo_gpu_ga10x::computo::ficha_valida(paquete.ficha as u64) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let e = BLUR_ENTRADA.load(Ordering::Acquire);
+    if !bmo_gpu_ga10x::blur::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let n = (paquete.vertices.len() / tu::BYTES_VERTICE / 3) as u32;
+    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, |r| tu::preparar(r, e, &v, &paquete)));
+    BLUR_EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+/// El dibujo, de X5 o de VERRANO: preparar, el timbre, esperar el semaforo,
+/// y la escalera. `n` = los triangulos.
+fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, n: u32, preparar: impl FnOnce(&mut Bar0) -> bool) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
     asegurar_mapa(&mut r, p)?;
-    if !cu::preparar(&mut r, e, v, tris) {
-        crate::ring0::cabina::warn("gpu", "X5: el tramo del cubo no quedo preparado; no se toca el timbre", tris.len() as u64);
+    if !preparar(&mut r) {
+        crate::ring0::cabina::warn("gpu", "X5: el tramo del cubo no quedo preparado; no se toca el timbre", n as u64);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     }
     core::sync::atomic::fence(Ordering::SeqCst);
@@ -105,7 +165,7 @@ fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla,
     for (k, reg) in super::GR_MIRADOS.iter().enumerate() {
         DIAG_3D[1 + k].store(bmo_gpu_ga10x::Registros::leer(&mut r, *reg), Ordering::Release);
     }
-    let v = cu::empaquetar(us as u32, tris.len() as u32, etapas, lanzado);
+    let v = cu::empaquetar(us as u32, n, etapas, lanzado);
     if cu::sano(v) {
         DIBUJADO.store(true, Ordering::Release);
         let n = VECES.fetch_add(1, Ordering::AcqRel) + 1;
