@@ -112,7 +112,7 @@ pub(crate) mod lateral_gsp;
 /// **La linea de sugerencias** bajo el campo de Ejecutar: que ordenes empiezan
 /// por lo tecleado, y la pista del consejero al invocar la caja (2026-09-24).
 pub(crate) mod sugerir;
-/// **La caja organizada como un Explorador** (25-09): pestana, flechas,
+/// **La caja organizada como un Explorador** (25-09): solapa, flechas,
 /// direccion, buscador, botones de orden y barra de estado.
 pub(crate) mod caja;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
@@ -636,7 +636,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     // y lo que se arregle en el marco le llega sola.
     c.chrome.paint_chrome(p, BOX_EDGE, BOX_BG, BOX_TITLE, acento());
 
-    // ** LA CAJA ORGANIZADA COMO UN EXPLORADOR (25-09): la pestana, la barra
+    // ** LA CAJA ORGANIZADA COMO UN EXPLORADOR (25-09): la solapa, la barra
     // de navegacion (flechas, direccion y buscador), la de ordenes, la
     // cabecera y la barra de estado. La pista de antes ("ruta de un .bex y
     // Enter ... ayuda: la lista entera") vive ahora en el campo vacio, y los

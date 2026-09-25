@@ -43,8 +43,8 @@ pub(crate) const PIE_H: u32 = 28;
 /// El boton de una flecha, y los de la barra de ordenes.
 const BOTON: u32 = 30;
 const BOTON_H: u32 = 28;
-/// La pestana del titulo.
-const PESTANA_W: u32 = 150;
+/// La solapa del titulo.
+const SOLAPA_W: u32 = 150;
 /// Por debajo de este ancho, el buscador es solo su lupa.
 const ANCHO_BUSCADOR: u32 = 1000;
 const BUSCADOR_W: u32 = 200;
@@ -184,8 +184,8 @@ pub(crate) fn boton_en(c: &RunBox, x: u32, y: u32) -> Option<Boton> {
 /// caja que cae en lo de este fichero, o `None` si no es suyo.
 pub(crate) fn color_en(c: &RunBox, x: u32, y: u32) -> Option<u32> {
     if y < c.y + TITLE_H {
-        let pestana = x >= c.x + 10 && x < c.x + 10 + PESTANA_W && y >= c.y + 5 && y < c.y + TITLE_H - 1;
-        return pestana.then_some(BANDA);
+        let solapa = x >= c.x + 10 && x < c.x + 10 + SOLAPA_W && y >= c.y + 5 && y < c.y + TITLE_H - 1;
+        return solapa.then_some(BANDA);
     }
     if y < c.y + ARRIBA {
         if dentro(x, y, buscador(c)) {
@@ -198,17 +198,17 @@ pub(crate) fn color_en(c: &RunBox, x: u32, y: u32) -> Option<u32> {
 
 // -- El pintor ----------------------------------------------------------------
 
-/// **Todo lo que no es el marco, el campo ni la salida**: la pestana, las dos
+/// **Todo lo que no es el marco, el campo ni la salida**: la solapa, las dos
 /// bandas, los botones, la cabecera y el pie. Lo llama `paint_run_box`.
 pub(crate) fn pintar(p: &bmo::Pantalla, c: &RunBox) {
     let a = acento();
-    // La pestana: se funde con la banda de abajo, sobre el rail de neon.
-    let t = (c.x + 10, c.y + 5, PESTANA_W, TITLE_H - 6);
+    // La solapa: se funde con la banda de abajo, sobre el rail de neon.
+    let t = (c.x + 10, c.y + 5, SOLAPA_W, TITLE_H - 6);
     redondo(p, t, BANDA, BOX_TITLE);
     p.rect(t.0 + 10, c.y + 12, 8, 8, a);
     p.texto(t.0 + 26, c.y + 9, "Ejecutar", INK);
-    p.texto(t.0 + PESTANA_W - 18, c.y + 9, "x", INK_DIM);
-    p.texto(t.0 + PESTANA_W + 10, c.y + 9, "+", INK_DIM);
+    p.texto(t.0 + SOLAPA_W - 18, c.y + 9, "x", INK_DIM);
+    p.texto(t.0 + SOLAPA_W + 10, c.y + 9, "+", INK_DIM);
 
     // Las dos bandas, y la raya que las separa del cuerpo.
     p.rect(c.x + 1, c.y + TITLE_H, c.w() - 2, NAV_H + ORDENES_H, BANDA);
