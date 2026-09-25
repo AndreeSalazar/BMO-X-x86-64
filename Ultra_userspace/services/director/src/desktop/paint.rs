@@ -237,6 +237,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
                             dsk.save_under.lift(&p);
                             crate::scene::globo::quitar(&p);
                             crate::scene::brillo::quitar(&p);
+                            crate::scene::transicion::quitar(&p);
                             paint_calc(&p, &dsk.calc_pad, &dsk.calc, dsk.tick.calc_hover);
                         }
                     } else if dsk.resp_n < dsk.resp.len() && b >= 0x20 {
@@ -266,6 +267,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             dsk.save_under.lift(&p);
             crate::scene::globo::quitar(&p);
             crate::scene::brillo::quitar(&p);
+            crate::scene::transicion::quitar(&p);
             paint_calc(&p, &dsk.calc_pad, &dsk.calc, dsk.tick.calc_hover);
         }
     }
@@ -547,6 +549,7 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // Y el globo del puntero, DEBAJO de las dos, y el destello del foco
     // debajo de todo: se quitan los ultimos, al reves.
     if dsk.tick.will_paint {
+        crate::desktop::transicion::poner(dsk, &p, fs);
         crate::desktop::brillo::poner(dsk, &p, fs);
         crate::desktop::globo::poner(dsk, &p, fs);
         crate::desktop::captura::capa_poner(&p);

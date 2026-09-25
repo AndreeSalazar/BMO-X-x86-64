@@ -63,6 +63,8 @@ pub(crate) mod mosaico;
 pub(crate) mod globo;
 /// **EL DESTELLO DEL FOCO**: cuando nace y sobre que ventana (2026-09-25).
 pub(crate) mod brillo;
+/// **ABRIR Y CERRAR**: que ventana nacio o se fue en este fotograma (2026-09-25).
+pub(crate) mod transicion;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la
