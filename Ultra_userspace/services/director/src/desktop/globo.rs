@@ -3,9 +3,11 @@
 //! simple o recomendacion ... como 20 segundos ... GPU que falta prender o
 //! curiosidad"*.
 //!
-//! [consumo] NADA      en cada fotograma que pinta mira el reloj (`rdtsc`, sin
-//!                     puerta); al NACER un globo, unas pocas preguntas al
-//!                     kernel -- una vez por minuto, no por fotograma (L6h)
+//! [consumo] LATE      mientras vive un globo pide ~30 fotogramas por segundo
+//!                     ([`anima`], que solo mira el reloj: `rdtsc`, sin
+//!                     puerta); al NACER, unas pocas preguntas al kernel --
+//!                     una vez por minuto, no por fotograma. Sin globo, nada
+//!                     (L6h)
 //!
 //! La cara la pinta `scene::globo`; esto la mueve. Nace cuando el raton se
 //! MUEVE (asi sale donde se esta mirando) y ya paso la pausa; vive
@@ -23,10 +25,8 @@ pub(crate) const DURA_MS: u64 = 20_000;
 const PAUSA_MS: u64 = 45_000;
 /// El primero, tras arrancar el escritorio.
 const PRIMERO_MS: u64 = 3_000;
-/// Letras por segundo de la maquina de escribir.
-const LETRAS_POR_S: u64 = 40;
-/// Los ultimos, apagandose.
-const APAGA_MS: u64 = 3_000;
+/// Un fotograma de la animacion: ~30 por segundo.
+const FOTOGRAMA_MS: u64 = 33;
 
 /// Los datos y atajos, por turno. Cada uno tiene que ser VERDAD en esta casa:
 /// una orden que cambie de nombre se cambia aqui.
@@ -52,6 +52,8 @@ struct Estado {
     desde: u64,
     /// Antes de esto no nace otro.
     siguiente: u64,
+    /// El ultimo fotograma pintado con el globo, para [`anima`].
+    pintado: u64,
     turno: u32,
     /// Donde estaba el raton la ultima vez que se miro.
     raton: (u32, u32),
@@ -65,6 +67,7 @@ static mut ESTADO: Estado = Estado {
     por_ms: 0,
     desde: 0,
     siguiente: 0,
+    pintado: 0,
     turno: 0,
     raton: (u32::MAX, u32::MAX),
     titulo: [0; 16],
@@ -189,12 +192,15 @@ pub(crate) fn poner(dsk: &Desktop, p: &bmo::Pantalla, tapado: bool) {
         e.siguiente = ahora + PAUSA_MS * e.por_ms;
         return;
     }
-    let cara = Cara {
-        titulo: &e.titulo[..e.tn],
-        texto: &e.texto[..e.n],
-        escritas: (ms * LETRAS_POR_S / 1000) as usize,
-        queda: (1000 - ms * 1000 / DURA_MS) as u32,
-        apagandose: DURA_MS - ms < APAGA_MS,
-    };
+    e.pintado = ahora;
+    let cara = Cara { titulo: &e.titulo[..e.tn], texto: &e.texto[..e.n], edad_ms: ms, vida_ms: DURA_MS };
     globo::poner(p, ax, ay, &cara);
+}
+
+/// **Pide fotograma** mientras vive un globo: uno cada [`FOTOGRAMA_MS`], para
+/// que la animacion no vaya a saltos de cuarto de segundo. Lo pregunta el
+/// bucle en cada vuelta: solo lee el reloj.
+pub(crate) fn anima() -> bool {
+    let e = estado();
+    e.desde != 0 && bmo::ciclos().wrapping_sub(e.pintado) >= FOTOGRAMA_MS * e.por_ms
 }
