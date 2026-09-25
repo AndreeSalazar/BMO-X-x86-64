@@ -283,6 +283,7 @@ pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
 pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
+pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

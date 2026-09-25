@@ -11,8 +11,20 @@
 //! `bmo_gpu_ga10x::volcado`. El escritorio solo dice DONDE esta su lienzo:
 //! el kernel comprueba que es un bloque suyo antes de prestarselo a la 3060.
 //!
-//! Lo siguiente (1b) es que el compositor lo use en CADA fotograma, por la
-//! costura que `userland::pantalla::Volcador` dejo escrita.
+//! **Y 1b: EN CADA FOTOGRAMA.** Con la copia verificada, [`activar`] le dice a
+//! la `Pantalla` que vuelque por la 3060 (`Volcador::Gpu`): las cajas sucias
+//! van al motor de copia en UNA tanda por fotograma y la ultima vuelve con la
+//! valla pagada. Lo hace solo `save mode` al acabar, y `gpu volcado`; `gpu
+//! volcado off` vuelve a la CPU; y si una tanda falla, vuelve sola.
+//!
+//! # Como "lo lleva gratis" Windows, y por que aqui tambien
+//!
+//! No es gratis: es que la CPU NO COPIA. Deja el trabajo en una cola (el
+//! GPFIFO), toca un timbre y sigue; la GPU copia sola. Lo unico que se espera
+//! es la VALLA -- el semaforo que la GPU escribe al acabar --, y solo porque
+//! la CPU va a pintar otra vez en el mismo lienzo que la GPU esta leyendo.
+//! Con dos lienzos (uno se pinta mientras el otro se copia) ni eso: es el page
+//! flip, el paso 3 del plan.
 
 use bmo_gpu_ga10x::volcado as vl;
 use bmo_userland as bmo;
@@ -64,6 +76,44 @@ fn pedir(cpu_us: Option<u64>) -> Result<u64, u32> {
     }
 }
 
+// El argumento de `IOMMU_OP_GPU_VOLCADOR` se escribe en `userland` y se lee
+// en el kernel con el crate: que digan lo mismo se comprueba AL COMPILAR.
+const _: () = {
+    assert!(bmo::volcador_caja(1919, 1079, 7, 3, true) == vl::caja(1919, 1079, 7, 3, true));
+    assert!(bmo::volcador_caja(0, 5, 1920, 1, false) == vl::caja(0, 5, 1920, 1, false));
+    assert!(bmo::VOLCADOR_ARMAR == vl::ARMAR && bmo::VOLCADOR_SOLTAR == vl::SOLTAR && bmo::VOLCADOR_COMO_VA == vl::COMO_VA);
+};
+
+/// **Que la 3060 vuelque CADA fotograma**, si la copia verificada salio. Lo
+/// llama `save mode` al acabar. Dice en una linea lo que paso.
+pub(crate) fn activar(s: &mut Output, p: &bmo::Pantalla) {
+    if !hecho() || p.volcando_por_gpu() {
+        return;
+    }
+    match p.volcar_por_gpu() {
+        Ok(()) => {
+            s.with_ink(INK_GOOD);
+            s.text(b"  LA 3060 VUELCA TU ESCRITORIO EN CADA FOTOGRAMA desde ahora (`gpu volcado off` lo devuelve a la CPU)\n");
+        }
+        Err(m) => {
+            s.with_ink(INK_ERR);
+            s.text(b"  el volcado en cada fotograma no se armo: ");
+            s.text(super::iommu::motivo(m));
+            s.byte(b'\n');
+        }
+    }
+    s.with_ink(INK_PLAIN);
+}
+
+/// `gpu volcado off`: vuelve a la CPU.
+pub(crate) fn orden_off(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    p.volcar_por_cpu();
+    dsk.out.grid.text(b"  el volcado vuelve a la CPU; el lienzo, devuelto por la 3060\n");
+    fila(&mut dsk.out.grid);
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// El paso `volcado` de `save mode` (sin la medida de la CPU: no tiene la
 /// pantalla a mano).
 pub(crate) fn volcar() -> Result<u64, u32> {
@@ -96,6 +146,8 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         g.text(b"  el volcado por la 3060 no salio: mira la fila `volcado`\n");
     }
     g.with_ink(INK_PLAIN);
+    // Verificado: desde ya, cada fotograma.
+    activar(&mut dsk.out.grid, p);
     fila(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "volcado", INK_DIM);
     dsk.field.n = 0;
@@ -140,4 +192,16 @@ pub(crate) fn fila(s: &mut Output) {
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
+    // Y cada fotograma: cuantas tandas lleva la 3060.
+    if let Ok(v) = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_VOLCADOR, bmo::VOLCADOR_COMO_VA << 60) {
+        if v >> 32 & 1 != 0 {
+            campo(s, b"cada foto");
+            s.with_ink(INK_GOOD);
+            s.text(b"POR LA 3060: ");
+            s.dec(v & 0xFFFF_FFFF);
+            s.text(b" tandas pagadas (una por fotograma, con su valla)");
+            s.with_ink(INK_PLAIN);
+            s.byte(b'\n');
+        }
+    }
 }

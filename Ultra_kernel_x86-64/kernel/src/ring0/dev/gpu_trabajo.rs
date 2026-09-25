@@ -24,7 +24,7 @@ mod pantalla;
 pub use pantalla::{pantalla, IOMMU_NO_PANTALLA};
 /// El volcado del escritorio por el motor de copia (compositor por GPU, 1).
 mod volcado;
-pub use volcado::{volcado, IOMMU_NO_VOLCADO};
+pub use volcado::{suelta_si_es_de, volcado, volcador, IOMMU_NO_VOLCADO};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

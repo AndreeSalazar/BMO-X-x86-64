@@ -208,6 +208,168 @@ pub const fn sano(v: u64) -> bool {
     lanzado && pagado && buenas == crate::pantalla::MUESTRAS
 }
 
+// == 1b: EL VOLCADO EN CADA FOTOGRAMA ==========================================
+//
+// Lo de arriba es UNA copia verificada (el paso de `save mode`). Para cada
+// fotograma cambian tres cosas:
+//
+//    el prestamo   vive lo que el escritorio (ARMAR), y se devuelve al
+//                  soltarlo o al morir el propietario de la pantalla
+//    lo que va     solo las CAJAS SUCIAS del fotograma, todas en UNA tanda:
+//                  un segmento de ordenes, UNA entrada del GPFIFO, UN timbre
+//    la valla      el semaforo lleva el NUMERO de la tanda; se espera a que
+//                  la 3060 lo escriba antes de que la CPU vuelva a pintar
+//                  en el lienzo (si no, copiaria medio fotograma nuevo)
+//
+// Y se escribe por PRAMIN SIN releer: releer cada palabra es una lectura por
+// PCIe (~1 us) y aqui van ~100 por fotograma. La prueba de que llego no es
+// releer las ordenes: es que la 3060 pague el semaforo con ESE numero.
+
+/// Las suborden de `IOMMU_OP_GPU_VOLCADOR`, en los bits 63..60 del argumento.
+pub const ARMAR: u64 = 1;
+pub const CAJA: u64 = 2;
+pub const SOLTAR: u64 = 3;
+/// Solo lectura: `tandas | armado << 32`.
+pub const COMO_VA: u64 = 4;
+
+/// La suborden de un argumento.
+pub const fn suborden(arg: u64) -> u64 {
+    arg >> 60
+}
+
+/// `ARMAR` con la VA del lienzo (47 bits de usuario).
+pub const fn armar(lienzo: u64) -> u64 {
+    ARMAR << 60 | (lienzo & ((1 << 47) - 1))
+}
+
+/// La VA del lienzo de un `ARMAR`.
+pub const fn lienzo_de(arg: u64) -> u64 {
+    arg & ((1 << 47) - 1)
+}
+
+/// Una CAJA sucia `(x, y, ancho, alto)`, 13 bits cada una, y si es la
+/// ULTIMA del fotograma (la que cierra la tanda y toca el timbre).
+pub const fn caja(x: u32, y: u32, w: u32, h: u32, ultima: bool) -> u64 {
+    let m = 0x1FFF;
+    CAJA << 60 | (ultima as u64) << 52 | (h as u64 & m) << 39 | (w as u64 & m) << 26 | (y as u64 & m) << 13 | (x as u64 & m)
+}
+
+/// `(x, y, ancho, alto, ultima)` de una CAJA.
+pub const fn caja_de(arg: u64) -> (u32, u32, u32, u32, bool) {
+    let m = 0x1FFF;
+    ((arg & m) as u32, (arg >> 13 & m) as u32, (arg >> 26 & m) as u32, (arg >> 39 & m) as u32, arg >> 52 & 1 != 0)
+}
+
+/// Lo mas que lleva una tanda (el escritorio parte lo sucio en 8 como mucho).
+pub const MAX_CAJAS: usize = 16;
+/// SET_OBJECT, 11 por caja y el semaforo de la ultima.
+pub const PALABRAS_TANDA: usize = 2 + 11 * MAX_CAJAS + 4;
+
+/// `LAUNCH_DMA` de una caja que NO es la ultima: como [`LANZAR`] pero sin
+/// semaforo (el tipo, bits 4..3, a 0).
+pub const LANZAR_SIN_SEMAFORO: u32 = (LANZAR & !(3 << 3)) | MULTI_LINE;
+
+/// **Una tanda**: las ordenes de las cajas de UN fotograma.
+pub struct Tanda {
+    pub w: [u32; PALABRAS_TANDA],
+    pub n: usize,
+    pub cajas: usize,
+}
+
+impl Tanda {
+    pub const fn nueva() -> Self {
+        let mut w = [0u32; PALABRAS_TANDA];
+        w[0] = cabecera(SET_OBJECT, 1);
+        w[1] = AMPERE_DMA_COPY_B;
+        Tanda { w, n: 2, cajas: 0 }
+    }
+
+    /// **Una caja mas**, del lienzo al MISMO sitio de la pantalla. `false`
+    /// si se sale de la pantalla, esta vacia o ya no cabe (no se agrega).
+    pub fn caja(&mut self, p: &Pantalla, x: u32, y: u32, w: u32, h: u32) -> bool {
+        if w == 0 || h == 0 || x + w > p.ancho || y + h > p.alto || self.cajas >= MAX_CAJAS {
+            return false;
+        }
+        let off = 4 * (y as u64 * p.pitch as u64 + x as u64);
+        let (o, d) = (VA + off, crate::pantalla::VA + off);
+        let paso = p.pitch * 4;
+        let c = [
+            cabecera(OFFSET_IN_UPPER, 8),
+            (o >> 32) as u32,
+            o as u32,
+            (d >> 32) as u32,
+            d as u32,
+            paso,
+            paso,
+            w * 4,
+            h,
+            cabecera(LAUNCH_DMA, 1),
+            LANZAR_SIN_SEMAFORO,
+        ];
+        self.w[self.n..self.n + c.len()].copy_from_slice(&c);
+        self.n += c.len();
+        self.cajas += 1;
+        true
+    }
+
+    /// **Cerrar la tanda**: la ultima caja paga el semaforo con `numero` (el
+    /// SET_SEMAPHORE va DELANTE de su LAUNCH_DMA, y ese LAUNCH lo suelta).
+    /// `false` si no hay ninguna caja.
+    pub fn cerrar(&mut self, numero: u32) -> bool {
+        if self.cajas == 0 {
+            return false;
+        }
+        let s = va(SEMAFORO);
+        // La ultima caja acaba en [LAUNCH_DMA, flags]: el semaforo se mete
+        // delante y su LAUNCH pasa a soltarlo.
+        let launch = self.n - 2;
+        let sem = [cabecera(SET_SEMAPHORE_A, 3), (s >> 32) as u32, s as u32, numero];
+        self.w.copy_within(launch..self.n, launch + sem.len());
+        self.w[launch..launch + sem.len()].copy_from_slice(&sem);
+        self.n += sem.len();
+        self.w[self.n - 1] = LANZAR | MULTI_LINE;
+        true
+    }
+}
+
+/// Palabras seguidas por la ventana, SIN releerlas (ver arriba). La ventana
+/// queda como estaba.
+fn escribir_sin_releer<R: Registros>(r: &mut R, dir: u64, p: &[u32]) {
+    let (base, off) = crate::vram::ventana(dir);
+    let antes = r.leer(crate::vram::VENTANA_REG);
+    r.escribir(crate::vram::VENTANA_REG, base);
+    for (k, &v) in p.iter().enumerate() {
+        r.escribir(crate::vram::VENTANA + off + 4 * k as u32, v);
+    }
+    r.escribir(crate::vram::VENTANA_REG, antes);
+}
+
+/// **Enviar una tanda cerrada** por la entrada `e`: el semaforo a 0, las
+/// ordenes, la entrada, GP_PUT a la siguiente y el timbre. Sin invalidar la
+/// MMU: el mapa no cambia de un fotograma a otro (se invalida al ARMAR).
+pub fn enviar<R: Registros>(r: &mut R, t: &Tanda, e: u32, ficha: u32) -> bool {
+    if t.cajas == 0 || e >= GPFIFO_ENTRADAS || t.n > 512 {
+        return false;
+    }
+    let en = entrada(va(EMPUJE), t.n as u32);
+    escribir_sin_releer(r, SEMAFORO, &[0]);
+    escribir_sin_releer(r, EMPUJE, &t.w[..t.n]);
+    escribir_sin_releer(r, GPFIFO + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
+    escribir_sin_releer(r, USERD + GP_PUT, &[siguiente(e)]);
+    r.escribir(TIMBRE, ficha);
+    true
+}
+
+/// La 3060 ya pago el semaforo de la tanda `numero`.
+pub fn pagada<R: Registros>(r: &mut R, numero: u32) -> bool {
+    leer32(r, SEMAFORO) == numero
+}
+
+/// La invalidacion de la MMU que hace falta UNA vez al armar.
+pub fn invalidar_mmu<R: Registros>(r: &mut R) -> bool {
+    invalidar(r)
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -253,6 +415,43 @@ mod pruebas {
         assert!(!sano(empaquetar(1024, false, true, 812)));
         assert_eq!(contrario(0x0012_3456), 0x00ED_CBA9);
         assert_ne!(contrario(0), 0);
+    }
+
+    #[test]
+    fn una_tanda_de_cajas() {
+        assert_eq!(caja_de(caja(10, 20, 300, 40, true)), (10, 20, 300, 40, true));
+        assert_eq!(caja_de(caja(1919, 1079, 1, 1, false)), (1919, 1079, 1, 1, false));
+        assert_eq!(suborden(caja(0, 0, 1, 1, false)), CAJA);
+        assert_eq!(lienzo_de(armar(0x4000_1000)), 0x4000_1000);
+        assert_eq!(suborden(armar(0x4000_1000)), ARMAR);
+        let mut t = Tanda::nueva();
+        assert!(!t.cerrar(1), "sin cajas no se cierra");
+        assert!(t.caja(&FHD, 100, 50, 200, 30));
+        assert!(t.caja(&FHD, 0, 0, 1920, 1080));
+        assert!(!t.caja(&FHD, 1900, 0, 30, 1), "se sale por la derecha");
+        assert!(!t.caja(&FHD, 0, 0, 0, 5), "vacia");
+        assert!(t.cerrar(7));
+        assert_eq!(t.n, 2 + 11 + 11 + 4);
+        // La primera caja: su origen y su destino, en el mismo sitio.
+        let off = 4 * (50 * 1920 + 100) as u64;
+        assert_eq!((t.w[3] as u64) << 32 | t.w[4] as u64, VA + off);
+        assert_eq!((t.w[5] as u64) << 32 | t.w[6] as u64, crate::pantalla::VA + off);
+        assert_eq!((t.w[9], t.w[10]), (800, 30));
+        assert_eq!(t.w[12], LANZAR_SIN_SEMAFORO);
+        assert_eq!(LANZAR_SIN_SEMAFORO >> 3 & 3, 0, "sin semaforo");
+        // La ultima: el semaforo DELANTE de su LAUNCH, con el numero, y el
+        // LAUNCH lo suelta.
+        assert_eq!(t.w[t.n - 6], cabecera_en(4, SET_SEMAPHORE_A, 3));
+        assert_eq!(t.w[t.n - 3], 7);
+        assert_eq!(t.w[t.n - 2], cabecera_en(4, LAUNCH_DMA, 1));
+        assert_eq!(t.w[t.n - 1], LANZAR | MULTI_LINE);
+        assert!(PALABRAS_TANDA <= 512, "cabe en la media pagina de ordenes");
+        let mut llena = Tanda::nueva();
+        for k in 0..MAX_CAJAS as u32 {
+            assert!(llena.caja(&FHD, k, 0, 1, 1));
+        }
+        assert!(!llena.caja(&FHD, 99, 0, 1, 1), "no cabe una mas");
+        assert!(llena.cerrar(1) && llena.n <= PALABRAS_TANDA);
     }
 
     #[test]

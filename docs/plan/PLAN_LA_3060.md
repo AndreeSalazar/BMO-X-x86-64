@@ -790,9 +790,17 @@ fotogramas, los fps y los us de la 3060 por fotograma.
       PITCH de `alto` lineas con MULTI_LINE (bit 9 de LAUNCH_DMA), por la
       entrada siguiente de su GPFIFO y el timbre que dejo L1d3. Se sabe por
       1024 muestras pintadas ANTES con el color contrario; la fila dice la
-      3060 contra la CPU. Lo que sigue (1b): que el compositor lo use en
-      CADA fotograma, con el prestamo viviendo lo que el proceso y muriendo
-      con el en el desmontaje]
+      3060 contra la CPU.
+      paso 1b EN CODIGO 25-09: CADA FOTOGRAMA. `userland::Volcador::Gpu`:
+      `vaciar()` manda las cajas sucias (una llamada por caja,
+      IOMMU_OP_GPU_VOLCADOR 0x41) y la ULTIMA cierra la tanda -- un segmento
+      de ordenes, UNA entrada del GPFIFO, UN timbre, sin releer por PRAMIN --
+      y vuelve con la VALLA pagada (el semaforo con el NUMERO de la tanda):
+      entonces la CPU ya puede pintar en el lienzo. El prestamo vive lo que el
+      propietario de la pantalla: lo devuelven `gpu volcado off`, soltar la
+      pantalla (prestarla a un juego) y la estacion `fb` del desmontaje, que
+      va antes que `memory`. Si una tanda falla, la Pantalla vuelve SOLA a la
+      CPU. Lo arma `save mode` al acabar (si `volcado` salio) y `gpu volcado`]
    3  SIN DESGARRO: esperar al VBLANK (E2 ya lo da por interrupcion) antes
       de cada fotograma; y despues M2, el page flip de verdad (los canales
       de pantalla, core y window, por el RM): dos superficies y cambiar la

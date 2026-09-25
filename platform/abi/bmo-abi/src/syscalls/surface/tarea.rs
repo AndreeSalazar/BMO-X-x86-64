@@ -870,6 +870,10 @@ pub const PANTALLA_CARGAR: u64 = 1 << 56;
 /// del escritorio a la pantalla del GOP. `arg1` = la VA del lienzo (un bloque
 /// del que llama, de la medida de la pantalla). `Ok` = `volcado::empaquetar(..)`.
 pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
+/// Compositor por GPU, paso 1b: el volcado en CADA fotograma. `arg1` lleva la
+/// suborden en 63..60 (`volcado::ARMAR`, `CAJA`, `SOLTAR`, `COMO_VA`); la
+/// CAJA ultima de un fotograma toca el timbre y vuelve con la valla pagada.
+pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

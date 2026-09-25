@@ -71,11 +71,12 @@ pub fn volcado(lienzo: u64) -> Result<u64, u32> {
     r
 }
 
-fn volcado_(bar0: u64, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64, u32> {
-    let mut r = Bar0(bar0);
-    asegurar_mapa(&mut r, p)?;
+/// Las tablas del lienzo y la pantalla del GOP, mapeadas para la 3060 (una
+/// vez por arranque).
+fn asegurar_mapas(r: &mut Bar0, p: &pa::Pantalla) -> Result<(), u32> {
+    asegurar_mapa(r, p)?;
     if !MAPEADO.load(Ordering::Acquire) {
-        match vl::mapear(&mut r, p) {
+        match vl::mapear(r, p) {
             Some((n, bien)) if n == bien => {
                 MAPEADO.store(true, Ordering::Release);
                 crate::ring0::cabina::count("gpu", "volcado: el lienzo MAPEADO para la 3060 (PTE de sistema); paginas", vl::paginas(p));
@@ -85,6 +86,20 @@ fn volcado_(bar0: u64, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64,
                 return Err(IOMMU_NO_VOLCADO);
             }
         }
+    }
+    Ok(())
+}
+
+fn volcado_(bar0: u64, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64, u32> {
+    let mut r = Bar0(bar0);
+    asegurar_mapas(&mut r, p)?;
+    // Con el volcador ARMADO el lienzo ya esta prestado (el mismo, del mismo
+    // propietario): ni se presta otra vez ni se devuelve al acabar.
+    if ARMADO.load(Ordering::Acquire) {
+        if FISICA.load(Ordering::Acquire) != fisica {
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        return copiar(&mut r, ficha, fisica, p);
     }
     let paginas = vl::paginas(p);
     if io::prestar_gpu(vl::IOVA, fisica, paginas, false).is_err() {
@@ -165,4 +180,188 @@ fn copiar(r: &mut Bar0, ficha: u32, fisica: u64, p: &pa::Pantalla) -> Result<u64
         crate::ring0::cabina::warn("gpu", "volcado: la copia no salio entera; muestras buenas", buenas as u64);
     }
     Ok(v)
+}
+
+// == 1b: EL VOLCADO EN CADA FOTOGRAMA =========================================
+//
+// `ARMAR` presta el lienzo (SOLO LECTURA) para quedarse: vive lo que el propietario
+// de la pantalla lo sea. Lo devuelven `SOLTAR`, soltar la pantalla
+// (`obj::fb::release`, al prestarla a un juego) y la estacion `fb` del
+// desmontaje (`obj::fb::process_died`), que va ANTES que `memory`: los
+// marcos no se liberan con la 3060 viendolos. Los dos por [`suelta_si_es_de`].
+//
+// Cada fotograma el escritorio manda sus cajas sucias, una por llamada, y la
+// ULTIMA cierra la tanda: un timbre, y se espera (girando, acotado) a que la
+// 3060 pague el semaforo con el NUMERO de la tanda. Es la VALLA: cuando la
+// llamada vuelve, la CPU puede pintar otra vez en el lienzo sin que la 3060
+// este leyendolo. Una pantalla entera son ~1-2 ms por PCIe; unas letras,
+// microsegundos -- contra los ~27 ms de la CPU moviendo 8 MiB.
+
+/// El lienzo prestado para quedarse, de quien, y donde.
+static ARMADO: AtomicBool = AtomicBool::new(false);
+static PROPIETARIO: AtomicU32 = AtomicU32::new(0);
+static FISICA: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+/// La pantalla del armado: `pitch | ancho << 16 | alto << 32` (la VRAM y el
+/// color no hacen falta para copiar cajas).
+static MEDIDAS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+/// El numero de la ultima tanda.
+static NUMERO: AtomicU32 = AtomicU32::new(0);
+/// Tandas enviadas y pagadas, para la fila.
+static TANDAS: AtomicU32 = AtomicU32::new(0);
+/// La tanda en construccion. Solo la toca quien tiene `EN_MARCHA`.
+static mut TANDA: vl::Tanda = vl::Tanda::nueva();
+/// Lo mas que se espera a que la 3060 pague una tanda.
+const TANDA_ESPERA_US: u64 = 50_000;
+
+fn medidas() -> pa::Pantalla {
+    let m = MEDIDAS.load(Ordering::Acquire);
+    pa::Pantalla { vram: 0, pitch: m as u32 & 0xFFFF, ancho: (m >> 16) as u32 & 0xFFFF, alto: (m >> 32) as u32 & 0xFFFF, rgb: false }
+}
+
+/// **`IOMMU_OP_GPU_VOLCADOR`**: `ARMAR`, `CAJA` o `SOLTAR` (bits 63..60).
+pub fn volcador(arg: u64) -> Result<u64, u32> {
+    let pid = crate::ring0::task::scheduler::current_pid();
+    match vl::suborden(arg) {
+        vl::ARMAR => armar(pid, vl::lienzo_de(arg)),
+        vl::CAJA => caja(pid, arg),
+        vl::SOLTAR => soltar(pid).map(|()| 0),
+        vl::COMO_VA => Ok(como_va()),
+        _ => Err(IOMMU_NO_VOLCADO),
+    }
+}
+
+fn armar(pid: u32, lienzo: u64) -> Result<u64, u32> {
+    let Some(p) = la_pantalla() else { return Err(IOMMU_NO_VOLCADO) };
+    if ARMADO.load(Ordering::Acquire) {
+        if PROPIETARIO.load(Ordering::Acquire) != pid {
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        // El mismo lienzo: ya esta. OTRO (un lienzo nuevo del mismo propietario):
+        // se devuelve el viejo antes de prestar el nuevo.
+        if crate::ring0::obj::memory::fisica_de(pid, lienzo, p.bytes()) == Some(FISICA.load(Ordering::Acquire)) {
+            return Ok(TANDAS.load(Ordering::Acquire) as u64);
+        }
+        soltar(pid)?;
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if bar0 == 0
+        || crate::ring0::dev::gpu_libos::timbre_de_copia().is_none()
+        || !vl::cabe(&p)
+        || !crate::ring0::dev::gpu_despertar::bar1_fisica()
+    {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let Some(fisica) = crate::ring0::obj::memory::fisica_de(pid, lienzo, p.bytes()) else {
+        return Err(IOMMU_NO_VOLCADO);
+    };
+    if fisica % PAGINA != 0 || EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let mut r = Bar0(bar0);
+    let hecho = asegurar_mapas(&mut r, &p).and_then(|()| {
+        io::prestar_gpu(vl::IOVA, fisica, vl::paginas(&p), false).map_err(|_| IOMMU_NO_VOLCADO)?;
+        if !vl::invalidar_mmu(&mut r) {
+            let _ = io::devolver_gpu(vl::IOVA, vl::paginas(&p));
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        Ok(())
+    });
+    if hecho.is_ok() {
+        FISICA.store(fisica, Ordering::Release);
+        MEDIDAS.store(p.pitch as u64 | (p.ancho as u64) << 16 | (p.alto as u64) << 32, Ordering::Release);
+        PROPIETARIO.store(pid, Ordering::Release);
+        // SAFETY: con `EN_MARCHA` tomado nadie mas toca la tanda.
+        unsafe { *core::ptr::addr_of_mut!(TANDA) = vl::Tanda::nueva() };
+        ARMADO.store(true, Ordering::Release);
+        crate::ring0::cabina::count("gpu", "volcador ARMADO: la 3060 lleva el escritorio a la pantalla en cada fotograma; pid", pid as u64);
+    }
+    EN_MARCHA.store(false, Ordering::Release);
+    hecho.map(|()| 0)
+}
+
+/// **Una caja sucia**; la ultima cierra la tanda, toca el timbre y espera la
+/// valla. `Ok(us)` que tardo la 3060 (0 si no era la ultima).
+fn caja(pid: u32, arg: u64) -> Result<u64, u32> {
+    if !ARMADO.load(Ordering::Acquire) || PROPIETARIO.load(Ordering::Acquire) != pid {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let Some(ficha) = crate::ring0::dev::gpu_libos::timbre_de_copia() else { return Err(IOMMU_NO_VOLCADO) };
+    if bar0 == 0 || EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let (x, y, w, h, ultima) = vl::caja_de(arg);
+    let p = medidas();
+    // SAFETY: con `EN_MARCHA` tomado nadie mas toca la tanda.
+    let t = unsafe { &mut *core::ptr::addr_of_mut!(TANDA) };
+    let r = if !t.caja(&p, x, y, w, h) {
+        *t = vl::Tanda::nueva();
+        Err(IOMMU_NO_VOLCADO)
+    } else if !ultima {
+        Ok(0)
+    } else {
+        let numero = NUMERO.load(Ordering::Acquire).wrapping_add(1).max(1);
+        NUMERO.store(numero, Ordering::Release);
+        let mut regs = Bar0(bar0);
+        let e = ENTRADA.load(Ordering::Acquire);
+        let enviada = t.cerrar(numero) && vl::enviar(&mut regs, t, e, ficha);
+        *t = vl::Tanda::nueva();
+        if enviada {
+            ENTRADA.store(vl::siguiente(e), Ordering::Release);
+            esperar(&mut regs, numero)
+        } else {
+            Err(IOMMU_NO_VOLCADO)
+        }
+    };
+    EN_MARCHA.store(false, Ordering::Release);
+    r
+}
+
+/// **La valla**: girar hasta que la 3060 pague `numero`. `Ok(us)`.
+fn esperar(r: &mut Bar0, numero: u32) -> Result<u64, u32> {
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    loop {
+        if vl::pagada(r, numero) {
+            TANDAS.fetch_add(1, Ordering::AcqRel);
+            return Ok((crate::ring0::task::scheduler::rdtsc() - desde) / hz);
+        }
+        if (crate::ring0::task::scheduler::rdtsc() - desde) / hz > TANDA_ESPERA_US {
+            crate::ring0::cabina::warn("gpu", "volcador: la 3060 no pago la tanda a tiempo; numero", numero as u64);
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        core::hint::spin_loop();
+    }
+}
+
+/// **Soltar el lienzo**: se espera la ultima tanda y se devuelve el prestamo.
+fn soltar(pid: u32) -> Result<(), u32> {
+    if !ARMADO.load(Ordering::Acquire) || PROPIETARIO.load(Ordering::Acquire) != pid {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let p = medidas();
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let numero = NUMERO.load(Ordering::Acquire);
+    if bar0 != 0 && numero != 0 && !vl::pagada(&mut Bar0(bar0), numero) {
+        // Nada en vuelo cuando se devuelve (la ultima tanda, o su plazo).
+        let _ = esperar(&mut Bar0(bar0), numero);
+    }
+    ARMADO.store(false, Ordering::Release);
+    let _ = io::devolver_gpu(vl::IOVA, vl::paginas(&p));
+    crate::ring0::cabina::count("gpu", "volcador SUELTO: el lienzo devuelto por la 3060; tandas", TANDAS.load(Ordering::Acquire) as u64);
+    Ok(())
+}
+
+/// **El propietario de la pantalla la suelta o muere**: si era el del volcador, su
+/// lienzo se devuelve AQUI -- al morir, antes de que `memory` libere sus
+/// marcos.
+pub fn suelta_si_es_de(pid: u32) {
+    if ARMADO.load(Ordering::Acquire) && PROPIETARIO.load(Ordering::Acquire) == pid {
+        let _ = soltar(pid);
+    }
+}
+
+/// Para la fila: `tandas | armado << 32`.
+pub fn como_va() -> u64 {
+    TANDAS.load(Ordering::Acquire) as u64 | (ARMADO.load(Ordering::Acquire) as u64) << 32
 }

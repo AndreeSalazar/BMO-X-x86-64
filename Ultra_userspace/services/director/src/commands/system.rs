@@ -1005,6 +1005,8 @@ pub(crate) fn smp(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
 /// no sale, se reinicia igual y se dice: la salida es cortar la corriente.
 pub(crate) fn reboot(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     if super::gspapagar::hace_falta() {
+        // Antes del apagado: la 3060 deja de volcar y devuelve el lienzo.
+        p.volcar_por_cpu();
         paint_status(&p, &dsk.run_box, "apagando el GSP en orden antes de reiniciar", INK_DIM);
         match super::gspapagar::apagar() {
             Ok(_) => dsk.out.grid.text(b"  el GSP, apagado en orden: la WPR2 abajo\n"),

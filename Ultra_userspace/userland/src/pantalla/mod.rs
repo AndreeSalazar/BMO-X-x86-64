@@ -43,6 +43,7 @@ mod roja;
 mod verde;
 
 pub use amarilla::{Volcado, Volcador};
+pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_SOLTAR};
 pub use verde::{GLIFO_ALTO, GLIFO_ANCHO};
 
 // -- La pantalla ---------------------------------------------------------
@@ -116,6 +117,11 @@ pub struct Pantalla {
     /// El rayo de la tarjeta: se le pregunta antes de copiar cada caja. Ver
     /// `sin_gpu/rayo.rs`.
     rayo: crate::sin_gpu::rayo::Rayo,
+    /// ** EL VOLCADO LO HACE LA 3060 (compositor por GPU, 1b; 2026-09-25): las
+    /// cajas sucias van al motor de copia en vez de a `rep movsb`. Se pone con
+    /// [`Pantalla::volcar_por_gpu`] y se QUITA SOLO si una tanda falla (la GPU
+    /// apagada, un plazo): el fotograma sale por la CPU y los siguientes tambien.
+    por_gpu: core::cell::Cell<bool>,
 }
 
 impl Pantalla {
@@ -146,6 +152,7 @@ impl Pantalla {
                 modo: Volcador::Ninguno,
             }),
             rayo: crate::sin_gpu::rayo::Rayo::nuevo(),
+            por_gpu: core::cell::Cell::new(false),
         })
     }
 

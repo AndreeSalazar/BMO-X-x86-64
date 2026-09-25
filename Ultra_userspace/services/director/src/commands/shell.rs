@@ -71,6 +71,7 @@ pub(crate) fn paint_cost(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(match v.modo {
         bmo::Volcador::Ninguno => b"directo al panel (SIN doble bufer)\n" as &[u8],
         bmo::Volcador::Directo => b"doble bufer, volcado por CPU\n",
+        bmo::Volcador::Gpu => b"doble bufer, volcado por la 3060 (motor de copia, con valla)\n",
     });
     dsk.out.grid.text(b"    fotogramas  ");
     let mut d = [0u8; 10];

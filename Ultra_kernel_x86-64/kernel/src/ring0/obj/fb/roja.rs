@@ -172,6 +172,9 @@ pub fn release(pid: u32, aspace: u64) -> Result<(), u32> {
     if h != 0 {
         cap::revoke(pid, h);
     }
+    // El volcado por la 3060 es del PROPIETARIO de la pantalla: al soltarla (un
+    // juego a pantalla completa), su lienzo se devuelve.
+    crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
     crate::info::ceder_fb(false);
     OWNER.store(NO_OWNER, Ordering::SeqCst);
     crate::ring0::cabina::info("fb", "pantalla SOLTADA por su propietario", pid as u64);
@@ -294,6 +297,10 @@ pub fn process_died(pid: u32) {
         // haria que un `release` posterior intentase revocar el handle de un
         // muerto. Se limpia aqui, que es donde la propiedad cambia.
         HANDLE.store(0, Ordering::SeqCst);
+        // ** Y si la 3060 volcaba su lienzo en cada fotograma, el prestamo se
+        // devuelve AQUI: esta estacion va antes que `memory`, que libera los
+        // marcos que la 3060 estaba viendo (R-DMA-3).
+        crate::ring0::dev::gpu_trabajo::suelta_si_es_de(pid);
         crate::info::ceder_fb(false);
         // WARN y no INFO: el que suelta la pantalla es el que la estaba
         // pintando, o sea el escritorio. Que muera NO es rutina -- es la

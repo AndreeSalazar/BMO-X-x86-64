@@ -380,6 +380,8 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
     let escrito = escribir_pasos(&salio, &tiempo, &intentos, tumbo);
     resumen(dsk, &salio, tumbo, escrito);
     notas(dsk, &salio, armado);
+    // ** Y con el volcado verificado, la 3060 vuelca CADA fotograma desde ya.
+    super::gspvolcado::activar(&mut dsk.out.grid, p);
     super::iommu::report_iommu(&mut dsk.out.grid);
     consejero(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "verificacion total", INK_DIM);

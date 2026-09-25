@@ -628,6 +628,9 @@ fn lend_screen(
     // La entrada se suelta DESPUES de la pantalla y se recupera ANTES, o sea en
     // orden inverso: si algo falla en medio, el escritorio prefiere quedarse sin
     // teclado un momento que sin pantalla.
+    // La 3060 deja de volcar: la pantalla deja de ser nuestra (el kernel lo
+    // haria igual al soltarla; asi el lienzo sale devuelto y dicho).
+    p.volcar_por_cpu();
     let mut had_input = false;
     if let Some(e) = input {
         had_input = true;

@@ -285,6 +285,15 @@ impl Pantalla {
         if self.lienzo == self.panel || sucias.vacia() {
             return;
         }
+        // ** POR LA 3060, si esta armada: y si algo falla, este fotograma y los
+        // siguientes salen por la CPU de abajo, sin que nadie tenga que pedirlo.
+        if self.por_gpu.get() {
+            if self.volcar_gpu(&sucias) {
+                self.anotar(&sucias);
+                return;
+            }
+            self.por_gpu.set(false);
+        }
         let stride = self.stride as usize;
         for &(x0, y0, x1, y1) in sucias.cajas() {
             let ancho = (x1 - x0) as usize;
@@ -318,6 +327,41 @@ impl Pantalla {
             self.rayo.despues(alto as u32, ancho as u32, t0);
         }
         self.anotar(&sucias);
+    }
+
+    /// **Las cajas a la 3060**: una llamada por caja y la ULTIMA toca el timbre
+    /// y vuelve con la valla pagada -- cuando vuelve, la 3060 ya no lee el
+    /// lienzo y se puede pintar encima. `false` si alguna no salio.
+    fn volcar_gpu(&self, sucias: &crate::sin_gpu::sucio::Sucias) -> bool {
+        let cajas = sucias.cajas();
+        let n = cajas.len();
+        cajas.iter().enumerate().all(|(k, &(x0, y0, x1, y1))| {
+            let arg = volcador_caja(x0, y0, x1 - x0, y1 - y0, k + 1 == n);
+            crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, arg).is_ok()
+        })
+    }
+
+    /// **Que la 3060 haga el volcado** de aqui en adelante: le presta el
+    /// lienzo (solo lectura, lo que viva este proceso). Solo con doble bufer.
+    pub fn volcar_por_gpu(&self) -> Result<(), u32> {
+        if self.lienzo == self.panel {
+            return Err(0);
+        }
+        crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, VOLCADOR_ARMAR << 60 | (self.lienzo as u64 & ((1 << 47) - 1)))?;
+        self.por_gpu.set(true);
+        Ok(())
+    }
+
+    /// **Volver a la CPU**: el kernel espera la ultima tanda y devuelve el lienzo.
+    pub fn volcar_por_cpu(&self) {
+        if self.por_gpu.replace(false) {
+            let _ = crate::iommu_orden_con(crate::IOMMU_OP_GPU_VOLCADOR, VOLCADOR_SOLTAR << 60);
+        }
+    }
+
+    /// El volcado lo hace la 3060 ahora mismo.
+    pub fn volcando_por_gpu(&self) -> bool {
+        self.por_gpu.get()
     }
 
     /// **Asegura que lo escrito se puede LEER.** Llamar antes de [`Self::read`].
@@ -361,4 +405,22 @@ impl Pantalla {
                 .read_volatile()
         }
     }
+}
+
+// == La forma del argumento de `IOMMU_OP_GPU_VOLCADOR` =========================
+//
+// ESPEJO de `bmo_gpu_ga10x::volcado` (`armar`, `caja`), que es lo que el
+// kernel usa para leerlo. `userland` no depende del crate de la 3060 a
+// proposito; el escritorio, que depende de los dos, comprueba al COMPILAR que
+// dicen lo mismo (`commands::gspvolcado`).
+
+pub const VOLCADOR_ARMAR: u64 = 1;
+pub const VOLCADOR_CAJA: u64 = 2;
+pub const VOLCADOR_SOLTAR: u64 = 3;
+pub const VOLCADOR_COMO_VA: u64 = 4;
+
+/// Una caja sucia `(x, y, ancho, alto)` de 13 bits, y si es la ultima.
+pub const fn volcador_caja(x: u32, y: u32, w: u32, h: u32, ultima: bool) -> u64 {
+    let m = 0x1FFF;
+    VOLCADOR_CAJA << 60 | (ultima as u64) << 52 | (h as u64 & m) << 39 | (w as u64 & m) << 26 | (y as u64 & m) << 13 | (x as u64 & m)
 }

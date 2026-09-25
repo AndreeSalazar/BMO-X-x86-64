@@ -100,7 +100,13 @@ impl Pantalla {
     /// `ocupada` de `endpoint.rs`, borrado el 08-09 por mentir desde el dia uno.
     pub fn volcado(&self) -> Volcado {
         let mut v = self.volcado.get();
-        v.modo = if self.lienzo == self.panel { Volcador::Ninguno } else { Volcador::Directo };
+        v.modo = if self.lienzo == self.panel {
+            Volcador::Ninguno
+        } else if self.por_gpu.get() {
+            Volcador::Gpu
+        } else {
+            Volcador::Directo
+        };
         v
     }
 }
@@ -150,6 +156,10 @@ pub enum Volcador {
     /// de dos pixeles por escritura `volatile`, que el compilador tenia
     /// prohibido tocar: ver la cabecera de `roja.rs`.
     Directo,
+    /// ** Por la 3060 (2026-09-25): las cajas sucias de cada fotograma van al
+    /// motor de copia de la tarjeta en UNA tanda -- un timbre -- y la ultima
+    /// vuelve con la VALLA pagada. La costura de arriba, usada.
+    Gpu,
 }
 
 /// Lo que ha costado el volcado, para poder **perfilar antes de comprar nada**.
