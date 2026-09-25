@@ -772,7 +772,10 @@ fotogramas, los fps y los us de la 3060 por fotograma.
 
 ```text
    1  VERLO en el metal: L0c5 (reiniciar sin cortar la corriente, sin 0x15)
-      y M5d P (la pantalla entera)                         [siguiente arranque]
+                                                           [siguiente arranque]
+      y M5d P (la pantalla entera)   [VISTO 24-09 21:36: 8 de 8 a 1920x1080,
+      250 fps, 866 us la 3060 por fotograma -- tras leer las muestras por el
+      physmap; la primera vez tumbo el kernel, ver METAL_2026-09-25]
    2  EL VOLCADO POR LA GPU: el escritorio se pinta en un lienzo de la RAM y
       la CPU lo copia al GOP (27,6 ms la pantalla entera). El canal de COPIA
       ya funciona (L1d, 1024 de 1024): prestar el lienzo por la IOMMU y que
