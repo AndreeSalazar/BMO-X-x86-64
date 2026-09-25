@@ -635,6 +635,11 @@ fn juntar(t: &mut [u8], partes: &[&[u8]]) -> usize {
 pub(crate) fn pista(t: &mut [u8]) -> (&'static [u8], usize) {
     let modo = leer_modo();
     let armado: &[u8] = if modo.is_some() { b"  (armado)" } else { b"" };
+    // Caliente va primero: con la 3060 asi, ningun paso de despues sale, y
+    // "siguiente: despertar" mandaria a repetir lo que no puede salir.
+    if !super::gsp::despierto() && super::gsp::caliente() {
+        return (b"cuidado", juntar(t, &[super::gsp::CALIENTE]));
+    }
     match (modo.as_ref().and_then(|m| m.tumbo), PASOS.iter().position(|p| !(p.hecho)())) {
         (Some(i), _) => (b"cuidado", juntar(t, &[b"`", PASOS[i].nombre, b"` tumbo la maquina: quitado de save mode, a mano y con save"])),
         (None, Some(i)) => (b"siguiente", juntar(t, &[b"save mode -> ", PASOS[i].nombre, b": ", PASOS[i].que, armado])),
@@ -731,6 +736,10 @@ fn notas(dsk: &mut Desktop, salio: &[Salio; MAX_PASOS], armado: bool) {
 /// cuantos NO, en rojo -- junto al puntero, sin tener que leer la salida.
 fn avisar_fin(salio: &[Salio; MAX_PASOS]) {
     use crate::desktop::globo::{avisar, Tono};
+    if !super::gsp::despierto() && super::gsp::caliente() {
+        avisar(b"la 3060", b"viene CALIENTE (Windows o un reinicio): apaga del todo 15 s y vuelve", Tono::Mal);
+        return;
+    }
     let bien = salio[..PASOS.len()].iter().filter(|s| matches!(s, Salio::Bien | Salio::YaEstaba)).count();
     let no = salio[..PASOS.len()].iter().filter(|s| matches!(s, Salio::No(_))).count();
     let mut t = [0u8; 64];

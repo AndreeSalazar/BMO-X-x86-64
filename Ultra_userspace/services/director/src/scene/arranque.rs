@@ -41,7 +41,7 @@ const BLANCO: u32 = 0x00FF_FFFF;
 const CLARO: u32 = 0x00C8_D6E5;
 const TENUE: u32 = 0x0059_6B8A;
 const ROJO: u32 = 0x00FF_3B5C;
-const AMBAR: u32 = 0x00FF_C23D;
+pub(crate) const AMBAR: u32 = 0x00FF_C23D;
 const FONDO: u32 = 0x0004_060B;
 const REJILLA: u32 = 0x000A_1820;
 /// La rejilla cuando la 3060 esta despierta: la pantalla BRILLA.

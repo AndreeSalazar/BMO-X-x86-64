@@ -255,6 +255,9 @@ pub(crate) fn acabar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     if e.corridos > 0 {
         if crate::commands::gspcomputo::pantalla_hecha() {
             tomar(p);
+        } else if crate::commands::gsp::caliente() {
+            pintar(p, b"la 3060 viene CALIENTE", crate::commands::gsp::CALIENTE, b"CPU: arranque hecho sin la 3060", sa::AMBAR);
+            esperar_ms(2 * DESPUES_MS);
         } else {
             pintar(
                 p,

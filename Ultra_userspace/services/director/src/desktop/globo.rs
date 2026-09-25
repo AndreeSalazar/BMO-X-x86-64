@@ -128,7 +128,10 @@ fn de_la_3060(e: &mut Estado, turno: u32) -> bool {
         return false;
     }
     let mut l = Linea { b: &mut e.texto, n: 0 };
-    let titulo: &[u8] = if !crate::commands::gsp::despierto() {
+    let titulo: &[u8] = if !crate::commands::gsp::despierto() && crate::commands::gsp::caliente() {
+        l.t(b"viene CALIENTE (Windows o un reinicio sin `gpu apagar`): apaga del todo 15 s y vuelve");
+        b"cuidado"
+    } else if !crate::commands::gsp::despierto() {
         l.t(b"esta dormida: `save mode` la despierta y la prueba entera");
         b"LA 3060"
     } else if turno % 4 == 0 {

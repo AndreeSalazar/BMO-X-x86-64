@@ -657,6 +657,23 @@ pub(crate) fn despertar() -> Result<u64, u32> {
     r
 }
 
+/// **LA 3060 VIENE CALIENTE** (25-09): `despertar` se nego porque la WPR2
+/// ya venia extendida (67), o el booter devolvio 0x15. Las dos caras de una
+/// tarjeta que NO perdio la corriente desde que otro arranco su GSP: Windows
+/// (reiniciar desde alli), o un reinicio de BMO-X sin `gpu apagar`.
+pub(crate) fn caliente() -> bool {
+    let d = bmo::info(bmo::INFO_GPU_DESPIERTO);
+    if d & bmo::DESPIERTO_VISTO != 0 {
+        return false;
+    }
+    let motivo = (d >> bmo::DESPIERTO_MOTIVO_SHIFT) & 0xFF;
+    motivo == bmo::IOMMU_NO_GPU_CALIENTE as u64
+        || d & bmo::DESPIERTO_SEC2_ARRANCADO != 0 && (d >> bmo::DESPIERTO_BUZON_SHIFT) & 0xFFFF_FFFF == 0x15
+}
+
+/// Lo que se dice cuando viene caliente: que es y que hacer.
+pub(crate) const CALIENTE: &[u8] = b"la 3060 viene CALIENTE: no perdio la corriente desde que Windows (o un reinicio sin `gpu apagar`) arranco su GSP. Apaga 15 s sin corriente y vuelve";
+
 /// Lo pregunta `save mode`: el RISC-V del GSP se vio activo.
 pub(crate) fn despierto() -> bool {
     bmo::info(bmo::INFO_GPU_DESPIERTO) & bmo::DESPIERTO_VISTO != 0
