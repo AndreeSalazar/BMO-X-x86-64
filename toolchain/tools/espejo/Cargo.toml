@@ -1,0 +1,20 @@
+[package]
+name = "bmo-espejo"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "ESPEJO: BMO C y BMO C++ contra GCC y Clang. El mismo programa por los dos lados, ejecutado, y la salida comparada; mas el C de terceros, pelado capa a capa."
+
+# Herramienta de ANFITRION, como el metro: compila con los emisores de verdad,
+# ejecuta en el emulador, y llama a GCC y Clang si estan. No corre en la
+# maquina ni viaja en un `.bex`.
+[dependencies]
+bmo-lower = { path = "../../forge/bmo-lower", features = ["emulator"] }
+
+bmo-enlazar = { path = "../bmo-enlazar" }
+bmo-c-x86-64 = { path = "../../lang/c/emisor-x86_64" }
+bmo-cpp-x86-64 = { path = "../../lang/cpp/emisor-x86_64" }
+
+[[bin]]
+name = "espejo"
+path = "src/main.rs"

@@ -95,6 +95,7 @@
 /toolchain/tools/codeowners/                 @AndreeSalazar
 /toolchain/tools/isa/                        @AndreeSalazar
 /toolchain/tools/metro/                      @AndreeSalazar
+/toolchain/tools/espejo/                     @AndreeSalazar
 /toolchain/tools/relevo/                     @AndreeSalazar
 /toolchain/tools/medida/                     @AndreeSalazar
 

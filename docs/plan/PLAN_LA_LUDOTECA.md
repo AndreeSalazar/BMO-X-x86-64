@@ -760,10 +760,23 @@ Lo que se aprende: **dos rasgos del lenguaje paran el 85 % de un juego entero**,
 y ninguna sonda los pedia. Una sonda mide lo que alguien penso; un juego mide lo
 que hace falta.
 
-- [ ] **C1 -- la brecha real, generada.** `c-gen` pela capa a capa un corpus
+- [x] **C1 -- la brecha real, generada.** `c-gen` pela capa a capa un corpus
       (vkQuake 0.50 primero; Quake, Quake 2 y OpenBW despues) y escribe la
       tabla en `BRECHA.md`, al lado de las sondas. **Como se sabe:** la tabla
       sale sola y sube cuando se arregla una capa.
+      *Hecho 25-09, y mas grande:* `toolchain/tools/espejo` (ESPEJO). Ademas
+      de pelar un corpus (`espejo corpus`, la misma tabla de arriba en 2 s),
+      compila y EJECUTA cada programa por los dos lados --GCC y Clang en el
+      anfitrion, BMO en el emulador-- y compara lo impreso; genera programas
+      al azar sin comportamiento indefinido, REDUCE un fallo a lo minimo, y
+      vigila en tiempo real (`espejo vigilar`). Ver su README.
+- [ ] **C3 -- lo que ESPEJO encontro el primer dia.** Cuatro fallos que
+      COMPILAN y dan otra cosa, que ninguna sonda veia: las etiquetas
+      apiladas de un `switch` (`case 0: case 1: case 2:` manda el 1 y el 2 al
+      `default`), el codigo antes del primer `case`, el campo de bits que no
+      corta (`f.a = 9` en 3 bits) y el `static` local que no recuerda. Y en
+      C++, el literal `ull` por encima del maximo con signo. **Como se sabe:**
+      `espejo casos` los da IGUALES (`casos/c/04`, `14`, `18`, `19`).
 - [ ] **C2 -- las dos primeras capas del lenguaje:** `sizeof` en una expresion
       constante, y el puntero a funcion que devuelve `float`/`double` (el
       valor en `xmm0`). **Como se sabe:** la capa 2 y la 3 bajan de 70 a 0.

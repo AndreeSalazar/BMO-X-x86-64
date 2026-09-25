@@ -204,6 +204,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-espejo"
+version = "0.1.0"
+dependencies = [
+ "bmo-c-x86-64",
+ "bmo-cpp-x86-64",
+ "bmo-enlazar",
+ "bmo-lower",
+]
+
+[[package]]
 name = "bmo-estratos"
 version = "0.1.0"
 dependencies = [
