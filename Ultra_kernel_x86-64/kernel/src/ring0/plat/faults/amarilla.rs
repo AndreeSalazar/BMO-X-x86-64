@@ -462,11 +462,11 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
 
     // ** QUE ORDEN DE LA 3060 IBA (25-09): el `rip` solo se nombra con el ELF
     // exacto; esto dice el paso de `save mode` con cualquier build.
-    let op = crate::ring0::plat::iommu::EN_CURSO[0].load(core::sync::atomic::Ordering::Acquire);
-    if op != 0 {
+    if let Some((op, arg, nombre)) = crate::ring0::plat::iommu::cual() {
         let mut l = Line::new();
-        l.s("EN CURSO: la orden de la IOMMU/3060 op=0x"); l.hex(op.wrapping_sub(1), 2);
-        l.s(" arg=0x"); l.hex(crate::ring0::plat::iommu::EN_CURSO[1].load(core::sync::atomic::Ordering::Relaxed), 12);
+        l.s("EN CURSO: la orden de la 3060 "); l.s(nombre);
+        l.s(" op=0x"); l.hex(op, 2);
+        l.s(" arg=0x"); l.hex(arg, 12);
         inf.push(l);
     }
 

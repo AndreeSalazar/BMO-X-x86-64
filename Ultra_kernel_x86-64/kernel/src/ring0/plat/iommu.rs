@@ -41,7 +41,36 @@ use core::sync::atomic::{AtomicU64, Ordering};
 /// (0 = ninguna) y su `arg1`. La pantalla de fallo del kernel la dice: un
 /// `rip` solo se nombra con el ELF exacto que corria, y la orden dice el paso
 /// aunque no lo haya (metal 25-09: un #PF en `save mode` sin nombre).
-pub static EN_CURSO: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
+static EN_CURSO: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
+/// Su nombre, `(puntero, medida)` de un `&'static str`: lo da `syscall` (que
+/// tiene las constantes) como parametro, y esta familia no lo importa.
+static EN_CURSO_NOMBRE: [AtomicU64; 2] = [AtomicU64::new(0), AtomicU64::new(0)];
+
+/// Apunta la orden que empieza, `Some((op, arg, nombre))`, o que acabo.
+pub fn en_curso(orden: Option<(u64, u64, &'static str)>) {
+    match orden {
+        Some((op, arg, nombre)) => {
+            EN_CURSO[1].store(arg, Ordering::Relaxed);
+            EN_CURSO_NOMBRE[0].store(nombre.as_ptr() as u64, Ordering::Relaxed);
+            EN_CURSO_NOMBRE[1].store(nombre.len() as u64, Ordering::Relaxed);
+            EN_CURSO[0].store(op.wrapping_add(1), Ordering::Release);
+        }
+        None => EN_CURSO[0].store(0, Ordering::Release),
+    }
+}
+
+/// La orden en curso, si la hay: `(op, arg, nombre)`.
+pub fn cual() -> Option<(u64, u64, &'static str)> {
+    let op = EN_CURSO[0].load(Ordering::Acquire);
+    if op == 0 {
+        return None;
+    }
+    let (p, n) = (EN_CURSO_NOMBRE[0].load(Ordering::Relaxed), EN_CURSO_NOMBRE[1].load(Ordering::Relaxed));
+    // SAFETY: `p`/`n` son los de un `&'static str` que dio `en_curso`, escritos
+    // antes que el `op` (Release/Acquire).
+    let nombre = unsafe { core::str::from_utf8_unchecked(core::slice::from_raw_parts(p as *const u8, n as usize)) };
+    Some((op - 1, EN_CURSO[1].load(Ordering::Relaxed), nombre))
+}
 
 /// Especiales e IVMD que se guardan. Un Zen trae un IOAPIC o dos y un HPET.
 pub const MAX_ESPECIALES: usize = 8;
