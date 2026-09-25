@@ -161,7 +161,10 @@ el driver de NVIDIA, en el mismo silicio".
       fotograma 30 y el 60 IGUALES, bit a bit, a D3D12 en la 3060, en 25.066 y
       25.183 us de CPU (el anfitrion decia ~29 ms: el Ryzen va algo mas
       deprisa). El 31 dice que no hay captura. **Tres sistemas, el mismo
-      numero** -- Windows, Linux y ahora BMO-X en su metal.
+      numero** -- Windows, Linux y ahora BMO-X en su metal. **Repetido a las
+      16:10 (fotos):** el 30 en 25.297 us y el 60 en 25.541 us, IGUALES otra
+      vez; el 31 en 25.137 us, sin captura. La huella no se mueve de un
+      arranque a otro: el juez es estable, no tuvo suerte una vez.
       El director dibuja el fotograma 30 por CPU (soft-float), lo pinta
       centrado y compara su huella. **Como se sabe:** la fila dice `IGUAL, bit
       a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows`, y los us de
