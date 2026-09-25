@@ -727,6 +727,68 @@ a[0x80] el color por vertice) y el de pixel `IPA.PASS R0..R2, a[0x80..0x88]`
 con la barrera 0 y el EXIT esperandola; SPH del pixel con el vector generico
 0 en ScreenLinear (3). Se ata cuando T1c salga.
 
+**EL METAL (24-09, 19:43): 50 de 50.** El triangulo por el rasterizador
+(T1c) y el de tres colores mezclados por IPA (T2a) SALIERON en la 3060, con
+la esfera que gira y todo `save mode` en verde. Lo que lo arreglo, en orden:
+el validador contra `clc797.h` (los atributos apagados), y Mesa (la SPH v4
+de 128 B, el AST con el dato en su sitio, sin los metodos reservados, el
+EXIT esperando a los AST). Despues de ese arranque, el booter del siguiente
+dio 0x15: es L0c5 (el GSP nunca se apagaba), ya en codigo.
+
+**M5d P, LA 3060 TOMA LA PANTALLA, en codigo (25-09).** Pedido por el
+propietario tras el 50 de 50: *"que TOME TODO en mi pantalla, que dibuje,
+que optimice"*. Hasta ahora la 3060 dibujaba en la RAM del PC (el MiB del
+fractal) y la CPU lo LEIA de 8 en 8 bytes por syscall y lo copiaba, escalado,
+a la pantalla. Ahora la 3060 escribe CADA pixel del monitor, a su
+resolucion, directamente en el framebuffer del GOP, que vive en su VRAM:
+
+```text
+   donde    BAR1 en modo FISICO (el GOP la deja asi, 0x002FFF00, y `gpu init`
+            se la devuelve): la VRAM de la pantalla es `fb - BAR1`, en lo
+            bajo, por debajo de los 49 MiB que el RM da como usables
+   mapa     VA 0x4_0000_0000 (la PD1 del tramo, entrada 32), una PD0 y hasta
+            16 PT en 0x0440_0000 (32 MiB: hasta 3840x2160), PTE de VRAM sin
+            PRIV y kind 0 (PITCH: lineal, como la lee el escaner)
+   programa ptxas sm_86, 62 instrucciones, 19 registros: Mandelbrot Q4.28
+            (la cuenta de `fractal`) con 10 parametros en memoria, rejilla de
+            (ancho/256) x alto bloques (`qmd_rejilla`, CTA_RASTER_HEIGHT)
+   la tanda un zoom al valle de los caballitos de mar (-0.7436, 0.1318),
+            100 fotogramas acercandose (x243/256 cada uno, ~180 veces) y 100
+            volviendo, la paleta girando; el programa, el QMD y las ordenes
+            solo en el PRIMER fotograma (bit 56): despues, unas 20
+            escrituras por PRAMIN por fotograma
+   juez     la CPU rehace 1024 pixeles (una rejilla de 32x32 que toca las
+            cuatro esquinas) y los LEE DEL FRAMEBUFFER: si salen, la 3060
+            escribio donde mira el monitor
+```
+
+`bmo_gpu_ga10x::pantalla` (8 pruebas), op 0x3F, motivo 81, `gpu pantalla`
+(400 fotogramas y los fps, con una caja de la CPU encima al acabar), fila
+`pantalla`, paso `pantalla` en `save mode` (8 fotogramas, pide `escena`).
+**Como se sabe:** el monitor entero se mueve; la fila dice N de N
+fotogramas, los fps y los us de la 3060 por fotograma.
+
+**LO QUE FALTA (25-09), en orden, y por que ninguno es "el ultimo":**
+
+```text
+   1  VERLO en el metal: L0c5 (reiniciar sin cortar la corriente, sin 0x15)
+      y M5d P (la pantalla entera)                         [siguiente arranque]
+   2  EL VOLCADO POR LA GPU: el escritorio se pinta en un lienzo de la RAM y
+      la CPU lo copia al GOP (27,6 ms la pantalla entera). El canal de COPIA
+      ya funciona (L1d, 1024 de 1024): prestar el lienzo por la IOMMU y que
+      el copiador lo suba al framebuffer. La CPU deja de mover pixeles del
+      escritorio entero
+   3  SIN DESGARRO: esperar al VBLANK (E2 ya lo da por interrupcion) antes
+      de cada fotograma; y despues M2, el page flip de verdad (los canales
+      de pantalla, core y window, por el RM): dos superficies y cambiar la
+      que lee el escaner
+   4  T2b la profundidad (Z32F, PTE kind 6), T3 muchos triangulos y la
+      perspectiva (IPA + 1/w), texturas: una escena 3D por el rasterizador
+   5  M5d el BSF emite SASS (kind 2): los programas dejan de salir de ptxas
+   6  L2 los RELOJES: la 3060 corre a los de arranque y el enlace en Gen1;
+      subirlos es del RM (P-state), y todo lo de arriba ira mas rapido
+```
+
 Tambien en ese save: `pcie: Gen1 x16 (2.5 GT/s) de Gen3 x16`, cuando los
 anteriores decian Gen3. Es el enlace en reposo que el RM baja: no cambia nada
 de lo que se probo, y se mira si algun dia la copia o el lienzo van lentos.

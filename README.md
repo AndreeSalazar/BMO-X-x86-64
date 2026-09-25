@@ -190,7 +190,10 @@ Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
 
        16-3060-blur.png      el gato del fondo y, al lado, desenfocado
        17-3060-fractal.png   el panel del fractal a pantalla completa
-       18-3060-triangulo.png el panel del triangulo (cuando salga)
+       18-3060-raster.png    el triangulo del rasterizador (`gpu raster`)
+       19-3060-color.png     el de tres colores (`gpu color`)
+       20-3060-giro.png/gif  la esfera que gira (`gpu giro`)
+       21-3060-pantalla.png  el monitor entero pintado por la 3060
      =================================================================== -->
 
 **One consumer card, nothing else: an NVIDIA GeForce RTX 3060 12 GB (GA106).**
@@ -212,7 +215,12 @@ What the card has done for BMO-X, each line read back and checked by the CPU:
 | Painted in the PC's RAM | 128x128 pixels written by 16384 threads into 64 KiB lent by the IOMMU |
 | Blur | a 128x128 piece of **your own screen**, blurred 7x7 by the card -- 16384 of 16384 pixels equal to the CPU's answer, bit for bit |
 | Mandelbrot 512x512 | 262144 threads, up to 256 iterations each: **176 us on the card, 18203 us on one Ryzen core -- 103x** -- and every pixel equal to the CPU's |
-| Triangle | the three edge functions of a rasterizer in 262144 threads, colours blended by weight (in code; the hardware 3D pipeline is next) |
+| Triangle, by compute | the three edge functions of a rasterizer in 262144 threads, colours blended by weight |
+| A sphere that spins and bounces | 32 frames, one card job each, light and shadow, every frame equal to the CPU's -- 29 us per frame |
+| **Triangle, by the hardware rasterizer** | `AMPERE_B`: a vertex program and a pixel program in hand-checked SASS, the card's own rasterizer and ROP -- **seen on the metal (2026-09-24 19:43, 50 of 50 steps)** |
+| **Three colours blended by the rasterizer** | per-vertex colour interpolated by `IPA` in the pixel program -- seen on the metal the same boot |
+| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame (in code, 2026-09-25) |
+| Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean (in code, 2026-09-25) |
 
 ![The card blurs a piece of the desktop](docs/evidencia/16-3060-blur.png)
 
@@ -227,13 +235,23 @@ the disassembler confirms the result. Integer arithmetic everywhere, so the CPU
 can recompute every pixel exactly: a floating-point FMA on the card and on the
 CPU would round differently, and "almost equal" proves nothing.
 
-**What it is not, yet.** The triangle above is drawn by a compute program, not
-by the card's fixed-function rasterizer. That is the next level (T1): vertex
-and pixel programs in SASS, which `ptxas` does not produce, so they are encoded
-by hand and checked against `nvdisasm` -- with BMO-X's own software rasterizer
-(`bmo-dibujo`, same edge functions, same top-left rule) as the judge of every
-pixel. The whole road, every step with its date and its result on the metal:
-**[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**.
+**Getting the rasterizer right, honestly.** The first hardware triangle hung
+the channel with a class error (Xid 69). What found it was not guessing: a
+validator that decodes every word of the pushbuffer against NVIDIA's own
+`clc797.h`, one semaphore after every method so the log names the method that
+broke, and a method-by-method comparison against Mesa's NVK and NAK (the
+128-byte v4 shader header of Turing+, the operand order of `AST`, the
+reserved methods NVK never writes). Four boots later: 50 of 50.
+
+**What it is not, yet.** The card now paints the whole monitor, but the
+desktop is still composed by the CPU in RAM and copied to the screen; the next
+step is to let the copy engine (already working) do that copy, then wait for
+the vertical blank, then a real page flip. After that: depth, many triangles
+with perspective, and SASS emitted by BMO-X's own compiler instead of
+`ptxas`. The card also still runs at its boot clocks. The whole road, every
+step with its date and its result on the metal:
+**[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**, and the log of the day:
+**[METAL_2026-09-25.md](docs/metal/METAL_2026-09-25.md)**.
 
 ---
 
