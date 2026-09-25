@@ -916,6 +916,21 @@ try {
                 Copy-Item -LiteralPath $doomWad -Destination $wadDst -Force
                 Write-Host ('    [doom] doom1.wad (' + (Get-Item $wadDst).Length + ' B) -> apps\') -ForegroundColor DarkGray
             }
+            # ** L0 de PLAN_LA_LUDOTECA (25-09): FREEDOOM, un DOOM entero y LIBRE
+            # (BSD), para el mismo `doom.bex`. Si esta en `BMO-externo\doom\`
+            # (freedoom.github.io), va al lado con un nombre 8.3 FIJO: el FAT32 de
+            # BMO-X busca por nombre corto, y `freedoom1.wad` no lo es -- Windows
+            # le inventaria `FREEDO~1.WAD`, y ese nombre no lo sabe nadie.
+            # Que `doom.bex` lo ABRA depende del port (fuera del arbol): se
+            # prueba en el Ryzen. Sin los WAD, este paso no dice nada.
+            foreach ($n in 1, 2) {
+                $libre = Join-Path $doomRaiz ('doom\freedoom' + $n + '.wad')
+                if (Test-Path $libre) {
+                    $libreDst = Join-Path (Join-Path $dataBase 'apps') ('freedm' + $n + '.wad')
+                    Copy-Item -LiteralPath $libre -Destination $libreDst -Force
+                    Write-Host ('    [doom] freedoom' + $n + '.wad (Freedoom, BSD) -> apps\freedm' + $n + '.wad') -ForegroundColor DarkGray
+                }
+            }
             # El consejo de aqui decia "desde el shell de Ring 0", y eso era
             # cierto mientras `lend_screen` tenia un plazo de 500 ms: DOOM tarda
             # ~10 s en reclamar la pantalla, el escritorio se cansaba y se la

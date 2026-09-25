@@ -345,9 +345,12 @@ La escalera, con lo que hay de verdad: **DOOM** (hecho) -> **Freedoom** ->
 software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
 ... -> **Cyberpunk 2077**.
 
-- [ ] **L0 -- Freedoom.** `freedoom1.wad` y `freedoom2.wad` junto al DOOM de
-      siempre. **Como se sabe:** el primer mapa de Freedoom se juega en el
-      Ryzen con el mismo `.bex`.
+- [ ] **L0 -- Freedoom.** `freedoom1.wad` y `freedoom2.wad` en
+      `BMO-externo\doom\`, y el build (`build/ejemplos.ps1`, preparado el
+      25-09) los deja en `apps\` como `freedm1.wad` y `freedm2.wad`: el FAT32
+      de BMO-X busca por nombre 8.3. Falta que el port (`doomgeneric_bmo.c`,
+      fuera del arbol) abra ese WAD en vez de `doom1.wad`. **Como se sabe:**
+      el primer mapa de Freedoom se juega en el Ryzen con el mismo `.bex`.
 - [ ] **L3 -- el jefe que ya compraste: Half-Life por software.** Xash3D
       FWGS (su renderizador de software) y hlsdk-portable, compilados para
       BMO-X, con la carpeta `valve/` copiada del Half-Life de Steam. Pide lo
