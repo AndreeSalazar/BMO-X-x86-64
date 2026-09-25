@@ -836,9 +836,7 @@ pub const IOMMU_OP_GPU_COLOR_3D: u64 = 0x38;
 /// M5 T1c: lo que quedo del ultimo dibujo 3D, palabra `arg1`: 0 la escalera
 /// de semaforos (bit 0 el estado, 1 los vertices, 2 el dibujo entero), 1
 /// `NV_PGRAPH_INTR`, 2 `NV_PGRAPH_EXCEPTION`, 3 `NV_PGRAPH_STATUS`, 4 y 5 los
-/// escalones del estado (bits 0..31 y 32..63; `raster::culpable`); 6 y 7 (D2) los
-/// pixeles comprobados y los malos del ultimo fotograma de `pantalla` mirado
-/// ENTERO (`PANTALLA_ENTERA`). Solo lee.
+/// escalones del estado (bits 0..31 y 32..63; `raster::culpable`). Solo lee.
 pub const IOMMU_OP_GPU_DIAG_3D: u64 = 0x39;
 /// M5d G: UN fotograma (256 x 256) de la esfera que gira y bota, por computo.
 /// `arg1` = la ficha de S3 (bits 0..31) y el fotograma (32..39, menor que
@@ -870,9 +868,11 @@ pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
 /// C1 (25-09): comprobar solo las 16 muestras que rotan, no las 1024.
 pub const PANTALLA_POCAS: u64 = 1 << 57;
-/// D2: el bit 58 de `IOMMU_OP_GPU_PANTALLA`: comprobar TODA la pantalla, pixel
-/// a pixel. Los comprobados y los malos, en `IOMMU_OP_GPU_DIAG_3D` 6 y 7.
-pub const PANTALLA_ENTERA: u64 = 1 << 58;
+/// D2: el bit 58 de `IOMMU_OP_GPU_PANTALLA`: NO pintar; comparar UNA FILA (`y`
+/// en los bits 0..15, el fotograma en 32..55) pixel a pixel contra la CPU.
+/// `Ok(malos | cpu_us << 32)`. Una fila por llamada: un syscall corre con las
+/// interrupciones cerradas, y la pantalla entera son ~2 s (metal 25-09 13:35).
+pub const PANTALLA_FILA: u64 = 1 << 58;
 /// Compositor por GPU, paso 1: el motor de copia de la 3060 lleva el lienzo
 /// del escritorio a la pantalla del GOP. `arg1` = la VA del lienzo (un bloque
 /// del que llama, de la medida de la pantalla). `Ok` = `volcado::empaquetar(..)`.

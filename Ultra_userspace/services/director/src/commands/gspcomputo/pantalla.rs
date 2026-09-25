@@ -54,9 +54,12 @@ impl Tanda {
 
     /// **B1: un fotograma, partido** en us: `(total, la 3060, comprobar,
     /// el resto)`. El resto es preparar por PRAMIN, el timbre y el syscall.
+    ///
+    /// ** Sin D2 (metal 25-09 13:35: "preparar y syscall 286922 us" eran los
+    /// ~2 s de la pantalla entera repartidos entre 8 fotogramas).
     fn partido(&self) -> (u64, u64, u64, u64) {
         let n = self.pedidos.max(1) as u64;
-        let (total, gpu, cpu) = (self.total_us / n, self.gpu_us / n, self.cpu_us / n);
+        let (total, gpu, cpu) = (self.total_us.saturating_sub(self.entera_us) / n, self.gpu_us / n, self.cpu_us / n);
         (total, gpu, cpu, total.saturating_sub(gpu + cpu))
     }
 }
@@ -93,19 +96,24 @@ fn tanda(n: u32, ancho: u32, alto: u32, todas: bool) -> Result<Tanda, u32> {
     for f in 0..n {
         let (b, esperadas) = bits(f, todas);
         let entera = f % CADA_ENTERA == CADA_ENTERA - 1 || (todas && f + 1 == n);
-        let b = b | if entera { bmo::PANTALLA_ENTERA } else { 0 };
         let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | b)?;
         t.pedidos += 1;
         let (_, _, _, _, gpu_us, cpu_us) = pa::desempaquetar(r);
         t.gpu_us += gpu_us as u64;
         t.muestras += esperadas as u64;
+        t.cpu_us += cpu_us as u64;
         if entera {
+            // ** D2 FILA A FILA (metal 25-09 13:35): la pantalla entera en UN
+            // syscall eran ~2 s con las interrupciones cerradas y el bus USB
+            // 2300 ms tarde. Entre fila y fila se vuelve aqui y se abren.
+            let desde_d2 = bmo::ciclos();
+            for y in 0..alto {
+                let v = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, bmo::PANTALLA_FILA | (f as u64) << 32 | y as u64)?;
+                t.malos += v & 0xFFFF_FFFF;
+            }
             t.enteros += 1;
-            t.px += bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIAG_3D, 6).unwrap_or(0);
-            t.malos += bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIAG_3D, 7).unwrap_or(0);
-            t.entera_us += cpu_us as u64;
-        } else {
-            t.cpu_us += cpu_us as u64;
+            t.px += ancho as u64 * alto as u64;
+            t.entera_us += (bmo::ciclos() - desde_d2) * 1_000_000 / hz;
         }
         if !pa::sano_con(r, esperadas) || t.malos != 0 {
             t.malo = Some((f, r));

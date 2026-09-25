@@ -384,17 +384,28 @@ el RM a nuestra carga: se anota).
 
 ### [ ] D2 -- la pantalla ENTERA, bit a bit, uno de cada N fotogramas
 
-En codigo el 25-09 para `pantalla` (el video, despues): el bit 58
-(`PANTALLA_ENTERA`) hace que el kernel rehaga y compare TODA la pantalla,
-cediendo el CPU en cada linea; los comprobados y los malos quedan en
-`DIAG_3D` 6 y 7. `gpu pantalla` lo pide uno de cada 64 fotogramas y `save
-mode` en el ultimo de sus 8; ese tiempo de CPU sale de los fps.
+**Visto en el metal (25-09 13:35): 2073600 de 2073600 iguales -- y el
+precio, que no era el previsto.** La primera version comparaba la pantalla
+entera en UN syscall "cediendo el CPU en cada linea". Pero un syscall corre
+con las interrupciones CERRADAS (`SFMASK`): fueron **2097 ms sin reloj** ("el
+reloj dio 2 ticks"), el bus USB llego **2300 ms tarde**, y ceder no servia
+porque sin tick nadie despierta. Ademas la fila `partido` repartia esos 2 s
+entre los 8 fotogramas ("preparar y syscall 286922 us", 37,7 fps).
+
+Arreglado el mismo dia: el bit 58 es ahora `PANTALLA_FILA` -- NO pinta,
+compara UNA fila (`y` en los bits 0..15) y devuelve `malos | cpu_us << 32`.
+El escritorio pide las 1080 filas una a una; entre dos, vuelve a Ring 3 y las
+interrupciones se abren: el peor hueco es una fila (~2 ms, dentro del compas
+de 4 ms del bus). `partido` ya no cuenta D2. `gpu pantalla` lo pide uno de
+cada 64 fotogramas y `save mode` en el ultimo de sus 8. **Como se sabe:** el
+siguiente informe dice `latido tarde` por debajo de 10 ms con `save mode`, y
+`pantalla` vuelve a ~250 fps.
 
 
 `gpu pantalla` y `gpu video` miran 1024, 256 o 16 pixeles. Una vez cada 64
 fotogramas, el kernel compara los 2 millones (1920x1080) con la cuenta de la
-CPU: unos 30 ms de CPU, que en 64 fotogramas son ~0,5 ms por fotograma. Un
-bit nuevo en el argumento (`TODA`) y el recuento en la fila. **Como se
+CPU: se estimo en ~30 ms y costo ~2 s (el fractal rehecho por pixel, y la
+VRAM leida por PCIe); por eso va fila a fila y fuera de los fps. **Como se
 sabe:** `pantalla: ... 2073600 de 2073600 en los fotogramas enteros`.
 
 ### [ ] D3 -- la frontera, DESPUES de todo

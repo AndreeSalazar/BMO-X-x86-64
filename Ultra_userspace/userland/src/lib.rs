@@ -284,7 +284,7 @@ pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
 /// C1 (25-09): comprobar solo las 16 muestras que rotan, no las 1024.
 pub const PANTALLA_POCAS: u64 = 1 << 57;
-pub const PANTALLA_ENTERA: u64 = 1 << 58;
+pub const PANTALLA_FILA: u64 = 1 << 58;
 pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 pub const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
