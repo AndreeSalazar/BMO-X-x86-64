@@ -10,6 +10,9 @@
 > aislar MAS con CARRIL y obligando a que mis guardianes PROTEJAN de GPU para
 > optimizacion, el porque y todo eso"*.
 >
+> Y el porque de las reglas, desde la historia de NVIDIA (el NV1, las firmas de
+> Maxwell 2, el GSP de Turing, el 0x2504): [`../maestro/NVIDIA_HISTORIA.md`](../maestro/NVIDIA_HISTORIA.md).
+>
 > Las casillas de la 3060 que ya existian siguen en
 > [`PLAN_LA_3060.md`](PLAN_LA_3060.md). Aqui va lo que sale de estudiarla ENTERA
 > con un objetivo: que optimizarla no la afloje.
@@ -128,6 +131,30 @@ los motivos), o agregar "una espera rapida" que gira (E).
 `clean: ... 65 ordenes y 83 motivos iguales en los tres sitios; 11 esperas
 girando`.
 
+### [x] A7 -- la 3060 12G, y SOLO ella (2026-09-25)
+
+`platform/drivers/gpu/ga10x/src/identidad.rs`: `10DE:2503` o `10DE:2504` (la
+del propietario), GA106 (chipset 0x176) y 12288 MiB. La sonda
+(`dev/gpu.rs::sondear`) deja SIN BAR0 cualquier otra: ni una lectura mas, ni un
+VBLANK, ni una orden, y la fila `chip` lo dice (`GPU_LA_3060_12G`, bit 61 de
+`INFO_GPU_CHIP`). La VRAM se mira cuando el GFW acabo, antes de FWSEC
+(`dev/gpu_prestamo.rs`, motivo 84 `IOMMU_NO_OTRA_TARJETA`). El cargador solo
+reinicia esa misma tarjeta (`s1_cpu/src/gpu_reinicio.rs`).
+
+**Por que es aislar Y optimizar:** cada direccion de VRAM de este driver (el
+tramo, las tablas, FRTS) se midio en esa tarjeta; en otra caerian en otro
+sitio. Y lo que un driver general pregunta en cada arranque, aqui es una
+constante. **Como se sabe:** `la_3060.py` regla I (las dos listas iguales y las
+dos llamadas en su sitio) y las dos pruebas de `identidad.rs`.
+
+### [x] A8 -- `opt-level = 3` con nombre, y vigilado (2026-09-25)
+
+Ya lo era por herencia; ahora es `[profile.release.package."bmo-gpu-ga10x"]`
+en `Ultra_kernel_x86-64/Cargo.toml` y `Ultra_userspace/Cargo.toml`, y la regla
+O3 de `la_3060.py` exige que siga. Dicho claro: optimiza el codigo de la CPU
+que habla con la 3060; lo que corre DENTRO de la 3060 son sus sombreadores,
+que ya van en codigo maquina (`pantalla.rs::CODIGO`).
+
 ### [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
 
 Hoy el nucleo que pide un trabajo gira hasta 20 ms (`GIRANDO_US` en
@@ -193,6 +220,12 @@ mode` sigue en 51 de 51.
 
 ### [ ] B1 -- el fotograma de `gpu pantalla`, partido en sus trozos
 
+**En codigo (25-09), falta verlo en el metal.** La tanda de
+`commands/gspcomputo/pantalla.rs` suma lo que tardo la CPU en comprobar
+(`cpu_us`, que el kernel ya empaquetaba) y cuantas muestras miro; la fila
+`pantalla` y el panel de `gpu pantalla` dicen `partido: X us = 3060 Y +
+comprobar Z (N muestras) + preparar y syscall W`, y `datos/` los anota.
+
 Ya se mide el total (250 fps = 4,0 ms) y la 3060 (866 us), y el kernel ya
 empaqueta `cpu_us`, lo que tarda en comprobar (`dev/gpu_trabajo/pantalla.rs`).
 Falta decirlo: la fila `pantalla` de
@@ -202,6 +235,12 @@ Falta decirlo: la fila `pantalla` de
 **Como se sabe:** los cuatro trozos suman el total, +-5 %.
 
 ### [ ] B2 -- el volcado por tanda: cajas, bytes y us de la 3060
+
+**En codigo (25-09), falta verlo en el metal.** El kernel cuenta los bytes de
+cada tanda enviada y las veces que la CPU tuvo que esperar a la anterior
+(`dev/gpu_trabajo/volcado.rs`, selectores `COMO_VA_BYTES` y `COMO_VA_ESPERAS`
+de `ga10x/src/volcado.rs`); la fila `volcado` dice MB/s contra el techo del bus
+(`salud::mb_por_segundo`, con su prueba) y `cada foto` KiB por tanda y esperas.
 
 `gspvolcado.rs` cuenta tandas; falta cuanto se copio y cuanto tardo cada una,
 para saber si el presupuesto lo pone el escaner (16,7 ms a 60 Hz) o la 3060.
@@ -221,6 +260,12 @@ MHz del GR y de la memoria. Sin esto, C2 no se puede medir.
 ## 5. OPTIMIZAR -- cada una con quien pone el presupuesto
 
 ### [ ] C1 -- comprobar por MUESTREO, no las 1024 en cada fotograma
+
+**En codigo (25-09), falta el numero del metal.** `pantalla::POCAS` (16) y
+`muestra_de_paso` (rotan 7 por fotograma: en 64 pasan por las 1024, con su
+prueba) en `ga10x/src/pantalla.rs`; el bit `PANTALLA_POCAS` (57) lo pide el
+escritorio en los fotogramas de paso; el primero de cada tanda, todo `save
+mode` y el que CARGA siguen comprobando las 1024.
 
 **Presupuesto:** la 3060 (866 us por fotograma). **Lo que se gana:** la
 mayor parte de los ~3,1 ms que no son de la 3060 (B1 dira cuanto exactamente).
@@ -283,9 +328,54 @@ el sombreador de computo probado, escalar es un trabajo de la 3060.
 
 **Como se sabe:** el `[perf]` de DOOM da `expansion` cerca de 0 us de CPU.
 
+### El volcado: 649 us, y cuanto MAS se puede bajar
+
+La cuenta, con lo medido el 25-09:
+
+```text
+   1920 x 1080 x 4 B          8.294.400 B
+   en 649 us                  ~12.780 MB/s
+   el techo de Gen3 x16       15.760 MB/s (antes de cabeceras)   -> ~81 %
+```
+
+**Ya va casi al techo del CABLE**: con las cabeceras de cada paquete PCIe, lo
+que queda por ganar copiando desde la RAM del PC es poco. Asi que bajarlo no es
+"copiar mas rapido", es la regla 3 de OPTIMIZACION: **hacer menos**.
+
+```text
+   que                                   hasta cuanto   casilla
+   el enlace a Gen4 (la 3060 lo sabe)    ~325 us        lo sube el RM (L2)
+   el lienzo DENTRO de la VRAM           ~50 us         M1 (BAR1) + C3
+   no copiar: cambiar lo que mira        0 us           C5 (M2, page flip)
+   y en cada fotograma: solo lo SUCIO    ya se hace     las cajas de la tanda
+```
+
+B2 dira el porcentaje real en la fila `volcado`, y cuantas veces la CPU tuvo
+que esperar (la promesa es cero).
+
 ---
 
-## 6. Lo que NO se hace, aunque parezca mas rapido
+## 6. Las REGLAS ESTRICTAS de la 3060, juntas
+
+El propietario: *"vamos a PONER REGLAS ESTRICTAS en GPU para respetar al GPU
+MAXIMO"*. Las que vigila una maquina, y las que salen de la historia:
+
+```text
+   la-3060 (build)   P  la puerta pide la autoridad MAQUINA
+                     R  los registros solo en dev/gpu*, gpu_trabajo/, vblank.rs
+                     O  las 65 ordenes iguales en kernel, ABI y userland
+                     M  los motivos iguales, sin choques, con su texto
+                     E  las esperas girando, trinquete (11 -> 0)
+                     I  la 3060 12G y solo ella, igual en crate y cargador
+                     O3 bmo-gpu-ga10x a opt-level = 3, con nombre
+   el contrato       cada RPC al GSP, por lista blanca (ga10x/src/contrato.rs)
+   la historia       H1..H6 de ../maestro/NVIDIA_HISTORIA.md
+   la ley 0          correcto, medido, rapido: nada se acelera sin su numero
+```
+
+---
+
+## 7. Lo que NO se hace, aunque parezca mas rapido
 
 - **Optimizar sin el numero de B1..B3 delante.** Es la ley 0.
 - **Quitar una comprobacion entera** en vez de muestrear (C1): la correccion
@@ -300,12 +390,14 @@ el sombreador de computo probado, escalar es un trabajo de la 3060.
 
 ---
 
-## 7. El orden, y por que ese
+## 8. El orden, y por que ese
 
 ```text
    hecho    A1 la puerta con MAQUINA      A2 el guardian la-3060
-   1        B1 B2 B3   medir: sin esto, todo lo demas es a ciegas
-   2        C1         la mayor parte del fotograma, y la casilla mas corta
+            A7 la 3060 12G y solo ella    A8 opt-level 3 con nombre
+   en codigo  B1 B2 y C1 (25-09): falta el numero del metal
+   1        B3         los MHz: sin esto, C2 no se puede medir
+   2        C1         verlo en el metal: de 250 fps hacia ~1000
    3        C2         los relojes: la mejora mas grande sin tocar el camino
    4        A4         partir por carriles ANTES de tocar lo caliente
    5        A3 -> C4   interrupcion, y entonces dos tandas en vuelo

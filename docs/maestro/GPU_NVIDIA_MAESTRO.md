@@ -16,6 +16,10 @@
 
 ---
 
+> Y la historia de NVIDIA --por que la 3060 tiene GSP, firmas y relojes de
+> arranque, y por que la tuya es la 0x2504--, con las reglas que salen de ella:
+> [`NVIDIA_HISTORIA.md`](NVIDIA_HISTORIA.md) (2026-09-25).
+
 # 0. ★★ LA RESPUESTA, ANTES DE LOS DETALLES
 
 ```text

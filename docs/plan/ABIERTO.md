@@ -8,7 +8,7 @@
 
 ```text
    306 casillas ABIERTAS en 38 planes
-   274 hechas
+   276 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -76,7 +76,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
 
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 13 abiertas, 2 hechas
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 13 abiertas, 4 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
 
