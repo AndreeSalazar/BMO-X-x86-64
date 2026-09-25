@@ -60,6 +60,8 @@ pub(crate) fn boot() -> (bmo::Pantalla, Option<bmo::Entrada>, &'static mut Deskt
     // no se puede diagnosticar nada.
     if p.activar_doble_bufer() {
         bmo::consola("doble bufer: pintando fuera de la pantalla\n");
+        // Y donde, para el volcado por la 3060 (`gpu volcado`).
+        crate::commands::gspvolcado::apuntar(&p);
     } else {
         bmo::consola("SIN doble bufer: no hubo bloque, pinto directo al panel\n");
     }

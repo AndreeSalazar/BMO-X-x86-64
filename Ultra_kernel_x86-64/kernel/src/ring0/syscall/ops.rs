@@ -419,6 +419,9 @@ pub(crate) const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 /// M5d P: un fotograma de la pantalla entera, pintado por la 3060 en el
 /// framebuffer del GOP. Ver `dev/gpu_trabajo/pantalla.rs`.
 pub(crate) const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
+/// Compositor por GPU, paso 1: el motor de copia lleva el lienzo del
+/// escritorio a la pantalla. Ver `dev/gpu_trabajo/volcado.rs`.
+pub(crate) const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -952,6 +955,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GSP_DESCARGAR => "GSP_DESCARGAR",
         IOMMU_OP_GSP_APAGADO => "GSP_APAGADO",
         IOMMU_OP_GPU_PANTALLA => "GPU_PANTALLA",
+        IOMMU_OP_GPU_VOLCADO => "GPU_VOLCADO",
         _ => "?",
     }
 }

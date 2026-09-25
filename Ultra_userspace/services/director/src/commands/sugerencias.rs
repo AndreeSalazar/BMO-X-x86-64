@@ -40,6 +40,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu vram", b"la CPU escribe en la VRAM (PRAMIN) y la deja como estaba"),
     (b"gpu directorio", b"la raiz del espacio de direcciones de la GPU, en tu VRAM"),
     (b"gpu tramo", b"mapear 64 KiB de tu VRAM en el espacio de la GPU"),
+    (b"gpu volcado", b"la 3060 lleva tu escritorio a la pantalla, contra la CPU"),
     (b"gpu motores", b"que motores tiene la 3060 y el de copia para el canal (COPY2)"),
     (b"gpu canal", b"el primer canal de la 3060: pedido, atado a COPY2 y con su ficha"),
     (b"gpu copia", b"el primer trabajo de la 3060: copiar 4 KiB de VRAM por su canal"),

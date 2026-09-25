@@ -1,0 +1,143 @@
+//! **`gpu volcado`: EL COMPOSITOR POR GPU, PASO 1** (2026-09-25) -- el motor
+//! de copia de la 3060 lleva el lienzo del escritorio a la pantalla, lo que
+//! hoy hace la CPU con `rep movsb` en cada fotograma. Aqui se pide UNO, se
+//! comprueba (1024 muestras) y se cronometra contra la CPU.
+//!
+//! [consumo] NADA      corre cuando el propietario lo teclea, o en `save mode`:
+//!                     una copia de la pantalla entera y una de la CPU para
+//!                     comparar
+//!
+//! Lo que pasa dentro esta en el kernel (`dev/gpu_trabajo/volcado.rs`) y en
+//! `bmo_gpu_ga10x::volcado`. El escritorio solo dice DONDE esta su lienzo:
+//! el kernel comprueba que es un bloque suyo antes de prestarselo a la 3060.
+//!
+//! Lo siguiente (1b) es que el compositor lo use en CADA fotograma, por la
+//! costura que `userland::pantalla::Volcador` dejo escrita.
+
+use bmo_gpu_ga10x::volcado as vl;
+use bmo_userland as bmo;
+
+use super::tabla::campo;
+use super::After;
+use crate::desktop::Desktop;
+use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
+use crate::scene::{paint_status, INK_DIM};
+
+/// Motivo del escritorio: la 3060 copio, pero no todas las muestras salieron.
+pub(crate) const NO_VOLCADO_MAL: u32 = 0x14A;
+/// Motivo del escritorio: el escritorio pinta directo al panel (sin lienzo).
+pub(crate) const NO_VOLCADO_SIN_LIENZO: u32 = 0x14B;
+
+#[derive(Clone, Copy)]
+struct Resumen {
+    r: Result<u64, u32>,
+    /// Lo que tardo la CPU en el mismo volcado, si se midio (`gpu volcado`).
+    cpu_us: Option<u64>,
+}
+
+static mut LIENZO: u64 = 0;
+static mut RESUMEN: Option<Resumen> = None;
+
+fn resumen() -> Option<Resumen> {
+    // SAFETY: el escritorio es un solo hilo; esto solo se toca desde sus ordenes.
+    unsafe { *core::ptr::addr_of!(RESUMEN) }
+}
+
+/// **Donde pinta el escritorio**: lo apunta el arranque al tener doble bufer.
+pub(crate) fn apuntar(p: &bmo::Pantalla) {
+    if p.tiene_doble_bufer() {
+        // SAFETY: como `resumen`.
+        unsafe { *core::ptr::addr_of_mut!(LIENZO) = p.lienzo as u64 };
+    }
+}
+
+fn pedir(cpu_us: Option<u64>) -> Result<u64, u32> {
+    // SAFETY: como `resumen`.
+    let lienzo = unsafe { *core::ptr::addr_of!(LIENZO) };
+    let r = if lienzo == 0 { Err(NO_VOLCADO_SIN_LIENZO) } else { bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_VOLCADO, lienzo) };
+    // SAFETY: como `resumen`.
+    unsafe { *core::ptr::addr_of_mut!(RESUMEN) = Some(Resumen { r, cpu_us }) };
+    match r {
+        Ok(v) if vl::sano(v) => Ok(v),
+        Ok(_) => Err(NO_VOLCADO_MAL),
+        Err(m) => Err(m),
+    }
+}
+
+/// El paso `volcado` de `save mode` (sin la medida de la CPU: no tiene la
+/// pantalla a mano).
+pub(crate) fn volcar() -> Result<u64, u32> {
+    pedir(resumen().and_then(|r| r.cpu_us))
+}
+
+/// Lo pregunta `save mode`.
+pub(crate) fn hecho() -> bool {
+    matches!(resumen(), Some(Resumen { r: Ok(v), .. }) if vl::sano(v))
+}
+
+/// `gpu volcado`: primero la CPU vuelca la pantalla ENTERA (lo que cuesta
+/// hoy), despues la 3060 lo mismo.
+pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    paint_status(p, &dsk.run_box, "la CPU vuelca la pantalla entera, y luego la 3060", INK_DIM);
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    p.marcar(0, 0, p.ancho, p.alto);
+    let desde = bmo::ciclos();
+    p.vaciar();
+    let cpu_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
+    let r = pedir(Some(cpu_us));
+    // Lo de la 3060 ya es el lienzo; si no salio, la CPU lo deja bien.
+    p.marcar(0, 0, p.ancho, p.alto);
+    let g = &mut dsk.out.grid;
+    if r.is_ok() {
+        g.with_ink(INK_GOOD);
+        g.text(b"  LA 3060 LLEVO TU ESCRITORIO A LA PANTALLA: el motor de copia, en una orden\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  el volcado por la 3060 no salio: mira la fila `volcado`\n");
+    }
+    g.with_ink(INK_PLAIN);
+    fila(&mut dsk.out.grid);
+    paint_status(p, &dsk.run_box, "volcado", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// **La fila `volcado`**, si se pidio.
+pub(crate) fn fila(s: &mut Output) {
+    let Some(u) = resumen() else { return };
+    campo(s, b"volcado");
+    match u.r {
+        Err(m) => {
+            s.with_ink(INK_ERR);
+            s.text(b"NO: ");
+            s.text(super::iommu::motivo(m));
+        }
+        Ok(v) => {
+            let (buenas, pagado, lanzado, us) = vl::desempaquetar(v);
+            s.with_ink(if vl::sano(v) { INK_GOOD } else { INK_ERR });
+            if vl::sano(v) {
+                s.text(b"LA 3060 LLEVO TU ESCRITORIO A LA PANTALLA: ");
+            }
+            s.dec(buenas as u64);
+            s.text(b" de 1024 muestras; ");
+            s.text(if pagado { b"semaforo PAGADO" as &[u8] } else if lanzado { b"semaforo SIN PAGAR" } else { b"sin lanzar" });
+            s.with_ink(INK_PLAIN);
+            s.text(b"; la 3060 en ");
+            s.dec(us as u64);
+            s.text(b" us");
+            if let Some(c) = u.cpu_us {
+                s.text(b", la CPU en ");
+                s.dec(c);
+                s.text(b" us");
+                if us > 0 {
+                    s.with_ink(INK_ECHO);
+                    s.text(b" (x");
+                    s.dec(c / us as u64);
+                    s.byte(b')');
+                }
+            }
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+}

@@ -572,6 +572,15 @@ pub(crate) const PASOS: &[Paso] = &[
         consejo: b"`gpu`: la fila `pantalla` dice 8 de 8 y los fps; teclea `gpu pantalla` y VELA tomar el monitor entero",
         repinta: true,
     },
+    Paso {
+        nombre: b"volcado",
+        que: b"EL COMPOSITOR POR GPU, PASO 1: el motor de copia lleva el lienzo del escritorio a la pantalla en una orden; 1024 muestras comprobadas",
+        hecho: super::gspvolcado::hecho,
+        dar: super::gspvolcado::volcar,
+        pide: Some(b"copia"),
+        consejo: b"`gpu`: la fila `volcado` dice 1024 de 1024; teclea `gpu volcado` y compara la 3060 con la CPU",
+        repinta: true,
+    },
     // ** Y SIN `apagado` (L0c5, 25-09). Era el ultimo paso, y tras el la 3060
     // no trabajaba hasta el arranque siguiente: `gpu raster` despues de un
     // `save mode` decia NO, y el modo ARMADO la dejaba apagada en CADA

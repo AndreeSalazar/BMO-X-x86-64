@@ -27,8 +27,8 @@ static MAPEADA: AtomicBool = AtomicBool::new(false);
 /// Bit de `arg`: cargar tambien el programa, el QMD y las ordenes.
 pub const CARGAR: u64 = 1 << 56;
 
-/// La pantalla del GOP en la VRAM, si se puede.
-fn la_pantalla() -> Option<pa::Pantalla> {
+/// La pantalla del GOP en la VRAM, si se puede. La usa tambien el volcado.
+pub(super) fn la_pantalla() -> Option<pa::Pantalla> {
     let d = crate::ring0::dev::framebuffer::display()?;
     // SAFETY: escrito una vez al arrancar (`info::init_from`), solo se lee.
     let (fb, fmt) = unsafe { (crate::info::FB_ADDR, crate::info::FB_PIXEL_FORMAT) };
@@ -60,21 +60,29 @@ pub fn pantalla(arg: u64) -> Result<u64, u32> {
     r
 }
 
-fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
-    let mut r = Bar0(bar0);
-    let primera = !MAPEADA.load(Ordering::Acquire);
-    if primera {
-        match pa::mapear(&mut r, p) {
-            Some((n, bien)) if n == bien => {
-                MAPEADA.store(true, Ordering::Release);
-                crate::ring0::cabina::count("gpu", "M5d P: la pantalla del GOP MAPEADA para la 3060; KiB", p.bytes() / 1024);
-            }
-            _ => {
-                crate::ring0::cabina::warn("gpu", "M5d P: la pantalla no se pudo mapear; VRAM", p.vram);
-                return Err(IOMMU_NO_PANTALLA);
-            }
+/// **La pantalla del GOP mapeada para la 3060**, una vez por arranque (la VRAM
+/// de las tablas no cambia). La usa tambien el volcado, que la pone de
+/// DESTINO. `Ok(true)` si se mapeo AHORA.
+pub(super) fn asegurar_mapa(r: &mut Bar0, p: &pa::Pantalla) -> Result<bool, u32> {
+    if MAPEADA.load(Ordering::Acquire) {
+        return Ok(false);
+    }
+    match pa::mapear(r, p) {
+        Some((n, bien)) if n == bien => {
+            MAPEADA.store(true, Ordering::Release);
+            crate::ring0::cabina::count("gpu", "M5d P: la pantalla del GOP MAPEADA para la 3060; KiB", p.bytes() / 1024);
+            Ok(true)
+        }
+        _ => {
+            crate::ring0::cabina::warn("gpu", "M5d P: la pantalla no se pudo mapear; VRAM", p.vram);
+            Err(IOMMU_NO_PANTALLA)
         }
     }
+}
+
+fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
+    let mut r = Bar0(bar0);
+    let primera = asegurar_mapa(&mut r, p)?;
     let m = pa::marco(f, p.ancho, p.alto);
     if !pa::preparar(&mut r, e, p, &m, cargar || primera) {
         crate::ring0::cabina::warn("gpu", "M5d P: el tramo no quedo preparado; no se toca el timbre", f as u64);

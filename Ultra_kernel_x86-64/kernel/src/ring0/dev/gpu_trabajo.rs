@@ -22,6 +22,9 @@ use crate::ring0::plat::iommu as io;
 /// M5d P: la 3060 pinta la pantalla entera, en el framebuffer del GOP.
 mod pantalla;
 pub use pantalla::{pantalla, IOMMU_NO_PANTALLA};
+/// El volcado del escritorio por el motor de copia (compositor por GPU, 1).
+mod volcado;
+pub use volcado::{volcado, IOMMU_NO_VOLCADO};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

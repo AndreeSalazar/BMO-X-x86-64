@@ -861,6 +861,25 @@ pub fn prestar_gpu(iova: u64, fisica: u64, paginas: u64, escribe: bool) -> Resul
     Ok(us)
 }
 
+/// **DEVOLVER lo prestado a la 3060**: `paginas` desde `iova` dejan de
+/// traducirse (vuelve el fallo de pagina) y se invalida el dominio. Lo usa el
+/// volcado del escritorio (compositor por GPU, paso 1), que presta el lienzo
+/// del escritorio solo lo que dura una copia: el lienzo es de un PROCESO, y
+/// un prestamo que sobreviviera al proceso dejaria a la 3060 leyendo marcos
+/// que ya son de otro (R-DMA-3). `Ok(us)` de la invalidacion.
+pub fn devolver_gpu(iova: u64, paginas: u64) -> Result<u64, u32> {
+    use amdvi::tablas::Orden;
+    let Some(d) = dominio_gpu() else { return fallo(IOMMU_NO_SIN_AREA) };
+    d.quitar(&mut Area, iova, paginas);
+    let Some(us) = mandar(&[Orden::invalidar_paginas(DOMINIO_GPU)]) else {
+        return fallo(IOMMU_NO_CONTESTA);
+    };
+    // Solo lo llama el escritorio (un hilo): leer y escribir no se cruzan.
+    PRESTADAS.store(PRESTADAS.load(Ordering::Acquire).saturating_sub(paginas), Ordering::Release);
+    crate::ring0::cabina::count("iommu", "M0d: paginas DEVUELTAS por la 3060", paginas);
+    Ok(us)
+}
+
 /// **Que ve la 3060 en `iova`**, recorriendo sus tablas por el mismo camino
 /// que la IOMMU (el ORACULO de `prestar_gpu`). `Some((fisica, escribe))` si
 /// esta prestada; `None` si ahi le saldria un fallo de pagina. Lo usa L0c2

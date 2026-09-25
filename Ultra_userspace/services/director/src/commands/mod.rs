@@ -36,6 +36,9 @@ pub(crate) mod gspsalud;
 pub(crate) mod gspvram;
 /// `gpu motores`: que motores tiene la 3060 y el de copia del canal (L1d2a, 24-09).
 pub(crate) mod gspmotores;
+/// `gpu volcado`: el compositor por GPU, paso 1 -- el motor de copia lleva el
+/// escritorio a la pantalla (25-09).
+pub(crate) mod gspvolcado;
 /// `gpu canal`: el primer canal, atado a COPY2 y con su ficha (L1d2b/L1d2c, 24-09).
 pub(crate) mod gspcanal;
 /// `gpu gr`: los buferes del contexto de oro de GR0 (M5 G0, 24-09).

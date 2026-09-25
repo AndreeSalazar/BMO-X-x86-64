@@ -777,6 +777,14 @@ pub fn orden_canal(que: u64) -> Result<u64, u32> {
 
 static COPIADOR_PEDIDO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 static COPIA_HECHA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// El timbre con el que la copia de L1d3 SALIO (lista << 16 | chid, de la
+/// tabla de aparatos); 0 si no salio. Lo reusa el volcado del escritorio.
+static COPIA_TIMBRE: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+
+/// El timbre del canal de copia, si la copia de L1d3 salio sana.
+pub(super) fn timbre_de_copia() -> Option<u32> {
+    Some(COPIA_TIMBRE.load(Ordering::Acquire)).filter(|&t| t != 0)
+}
 /// Lo mas que se espera a la 3060: una pagina son microsegundos.
 pub(super) const COPIA_ESPERA_US: u64 = 100_000;
 
@@ -845,6 +853,7 @@ pub fn copiar(ficha: u64) -> Result<u64, u32> {
     let buenas = cp::comprobar(&mut r);
     let v = cp::empaquetar(buenas, gp_get, semaforo == cp::PAGA, lanzada, us as u32);
     if cp::sana(v) {
+        COPIA_TIMBRE.store(ficha as u32, Ordering::Release);
         crate::ring0::cabina::count("gpu", "L1d3: LA 3060 COPIO una pagina de VRAM por su canal; us", us);
     } else {
         crate::ring0::cabina::warn("gpu", "L1d3: la copia no salio entera; palabras buenas", buenas as u64);

@@ -781,6 +781,18 @@ fotogramas, los fps y los us de la 3060 por fotograma.
       ya funciona (L1d, 1024 de 1024): prestar el lienzo por la IOMMU y que
       el copiador lo suba al framebuffer. La CPU deja de mover pixeles del
       escritorio entero
+      [paso 1 EN CODIGO 25-09: `gpu volcado` y el paso `volcado` de save
+      mode. El lienzo del escritorio (KIND_MEMORIA contiguo) se presta SOLO
+      LECTURA en la IOVA 0x5000_0000 lo que dura UNA copia (`fisica_de` dice
+      que es del que llama; `devolver_gpu` al acabar), se ve en la VA
+      0x5_0000_0000 (PD1 40, tablas en VRAM 0x0450_0000, PTE de sistema), y
+      COPY2 lo copia a la pantalla del GOP (la VA de M5d P) en UNA orden
+      PITCH de `alto` lineas con MULTI_LINE (bit 9 de LAUNCH_DMA), por la
+      entrada siguiente de su GPFIFO y el timbre que dejo L1d3. Se sabe por
+      1024 muestras pintadas ANTES con el color contrario; la fila dice la
+      3060 contra la CPU. Lo que sigue (1b): que el compositor lo use en
+      CADA fotograma, con el prestamo viviendo lo que el proceso y muriendo
+      con el en el desmontaje]
    3  SIN DESGARRO: esperar al VBLANK (E2 ya lo da por interrupcion) antes
       de cada fotograma; y despues M2, el page flip de verdad (los canales
       de pantalla, core y window, por el RM): dos superficies y cambiar la

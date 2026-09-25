@@ -94,6 +94,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"tramo" {
         return super::gspvram::orden_tramo(dsk, p);
     }
+    if arg == b"volcado" {
+        return super::gspvolcado::orden(dsk, p);
+    }
     if arg == b"motores" {
         return super::gspmotores::orden(dsk, p);
     }
@@ -589,6 +592,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     super::gspvram::fila_directorio(s);
     super::gspvram::fila_tramo(s);
     super::gspmotores::fila(s);
+    super::gspvolcado::fila(s);
     super::gspcanal::fila(s);
     super::gspgr::fila(s);
     super::gspcanalgr::fila(s);

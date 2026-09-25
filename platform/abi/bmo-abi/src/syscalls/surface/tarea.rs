@@ -866,6 +866,10 @@ pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 /// El bit 56 de `IOMMU_OP_GPU_PANTALLA`: cargar el programa, el QMD y las ordenes.
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
+/// Compositor por GPU, paso 1: el motor de copia de la 3060 lleva el lienzo
+/// del escritorio a la pantalla del GOP. `arg1` = la VA del lienzo (un bloque
+/// del que llama, de la medida de la pantalla). `Ok` = `volcado::empaquetar(..)`.
+pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -1031,6 +1035,9 @@ pub const IOMMU_NO_PANTALLA: u32 = 81;
 /// L0c5: el GSP ya se apago en orden en este arranque; la 3060 no trabaja
 /// hasta el siguiente. Toda orden de trabajo pedida despues lo dice al instante.
 pub const IOMMU_NO_GSP_APAGADO: u32 = 82;
+/// El volcado por la 3060 no se puede: sin la copia de L1d3, sin la pantalla
+/// del GOP en modo fisico, un lienzo que no es del que llama, o uno en marcha.
+pub const IOMMU_NO_VOLCADO: u32 = 83;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a
