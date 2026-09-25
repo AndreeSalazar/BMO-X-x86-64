@@ -151,8 +151,67 @@ Escalones del B simple, sobre los de la seccion 3:
       (pl_mpeg, o NVDEC), cada fotograma a la pantalla por `gpu video`.
 - [ ] **J4c -- las manos.** Las teclas y el raton de BMO-X vuelven al PC.
 
-## 7. El nombre de la app
+## 7. El nombre de la app: LUDOTECA
 
-Propuestos (25-09), a elegir por el propietario: **Recreativa** (la maquina
-de los salones: corto, en castellano, y dice JUGAR), **Ludoteca** (el de
-este plan) o **Salon**.
+Elegido por el propietario el 25-09 (entre Recreativa, Ludoteca y Salon).
+La app se llama **Ludoteca**, como este plan, y su crate `bmo-ludoteca`.
+
+## 8. "El x86-64 no cambia: se puede analizar" -- lo que es verdad y lo que no
+
+El propietario (25-09): *"todos los frontends van por AST, pero lo que se
+emite en x86-64 nunca cambia; entonces se pueden analizar"*. La casa ya
+apuesta a eso: el guardian `isa` dice que los frontends son lo unico
+agnostico y que TODO lo que se emite es x86-64. Investigado:
+
+```text
+   VERDAD     las INSTRUCCIONES de un juego de Windows ya son x86-64 y ya
+              corren en el Ryzen tal cual. Por eso Wine se llama "Wine Is
+              Not an Emulator": no traduce ni una instruccion. La CPU nunca
+              fue el problema
+   VERDAD     lo que un binario pide de FUERA esta escrito en el propio
+              binario: la tabla de IMPORTACIONES (en un .exe, las DLL y sus
+              funciones; en un ELF, las bibliotecas NEEDED y los simbolos
+              sin definir). Se lee sin ejecutar nada
+   PRECEDENTE Native Client de Google (2009-2020) VERIFICABA codigo maquina
+              x86-64 sin su fuente: un validador de unos miles de lineas
+              aceptaba o rechazaba un programa entero con reglas fijas
+              (saltos alineados a 32 B, accesos a memoria enmascarados, ni
+              `syscall` ni `int`). Probaba SEGURIDAD -- que no se sale de su
+              caja --, no que funcione; y pedia compilar con SU toolchain:
+              un .exe normal no pasaba
+```
+
+Y por que eso no hace chico a Proton:
+
+```text
+   1  lo que hay que DAR son las importaciones, no las instrucciones: cada
+      funcion importada (CreateFileW, D3D11CreateDevice...) tiene que existir
+      y hacer lo que Windows hace. Eso ES Wine
+   2  se puede verificar QUE pide un binario, no QUE HACE: lo segundo, en
+      general, es indecidible (Rice). Native Client verificaba una propiedad
+      (la caja), no el comportamiento
+   3  el codigo que cambia en marcha: DXVK genera sombreadores al vuelo, y el
+      DRM y los antitrampas (Denuvo) se ofuscan y se reescriben solos: ahi el
+      analisis estatico no llega
+   4  la GPU NO es x86-64: su codigo maquina cambia con cada generacion (el
+      SASS de SM86 no es el de SM89). BMO-X ya lo vive: sus programas salen de
+      `ptxas -arch=sm_86` y solo valen para esta 3060
+```
+
+**Lo que SI vale la pena: medir antes de decidir.** `toolchain/tools/rayosx`
+lee un `.exe` o un ELF y dice cuantas funciones pide, de que bibliotecas y
+por familia. Medido en el anfitrion el 25-09: hasta `/bin/ls`, un comando
+chico, pide **120** funciones de `libc`; el nivel 1 de devorar un ELF
+ESTATICO son ~15 llamadas. Esa distancia es la que hay que verificar.
+
+- [x] **J-R -- `rayosx`, la medida.** HECHO el 25-09 en el anfitrion:
+      `toolchain/tools/rayosx/rayosx.py`, con su banco (`--prueba`: un PE
+      hecho a mano y un ELF del anfitrion). **Como se sabe:** `python
+      rayosx.py --prueba` en verde.
+- [ ] **J5 -- medir TUS juegos.** Pasar `rayosx` por los `.exe` y los ELF de
+      Linux de tus juegos de GOG y apuntar la tabla aqui: cuantos piden solo
+      SDL2 + libc + OpenGL/Vulkan (los ELF de Linux suelen ser asi). Si es
+      un grupo grande y su superficie cabe en una pagina, se estudia una capa
+      SDL2 en Ring 3 (la estrategia B de `ENTRAR_EN_SU_ECOSISTEMA.md`, sin
+      tocar el kernel). Si no, camino A o B y nada mas. **Como se sabe:** la
+      tabla medida, juego a juego, en esta seccion.

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   320 casillas ABIERTAS en 39 planes
-   276 hechas
+   321 casillas ABIERTAS en 39 planes
+   277 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -139,6 +139,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 6 mas
 
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 9 abiertas, 1 hechas
+
+*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
+
+- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
+- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
+- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
+- ... y 6 mas
+
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -147,15 +156,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
-
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 8 abiertas, 0 hechas
-
-*PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
-
-- [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
-- [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
-- [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
-- ... y 5 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 

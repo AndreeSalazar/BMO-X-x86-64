@@ -48,7 +48,7 @@ documento recien escrito esta huerfano un rato por definicion.
 
 ---
 
-# 3. LOS OBREROS -- 14
+# 3. LOS OBREROS -- 16
 
 | herramienta | fabrica |
 |---|---|
@@ -67,6 +67,7 @@ documento recien escrito esta huerfano un rato por definicion.
 | [`vista-ciudad`](vista-ciudad/) | la vista de `bmo-ciudad` |
 | [`simbolo`](simbolo/) | la tabla de simbolos |
 | [`antena`](antena/) | **no fabrica para el build: corre en el MOVIL.** Es la antena del CLOUD LOCAL -- sirve una carpeta de videos a UNA IP, convertida a MPEG-1 -- y `cliente.py` la prueba desde un PC. Ver [`docs/plan/PLAN_CLOUD_LOCAL.md`](../../docs/plan/PLAN_CLOUD_LOCAL.md) |
+| [`rayosx`](rayosx/) | **no fabrica: MIDE.** Lee un `.exe` de Windows o un ELF de Linux (los de GOG) SIN ejecutarlo y dice que pide de fuera: cada biblioteca, cuantas funciones y por familia (graficos, sonido, entrada, red). Es la cuenta de lo que habria que VERIFICAR para que corriera. Ver la seccion 8 de [`docs/plan/PLAN_LA_LUDOTECA.md`](../../docs/plan/PLAN_LA_LUDOTECA.md) |
 
 ---
 
