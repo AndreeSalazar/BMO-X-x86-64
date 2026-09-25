@@ -229,8 +229,22 @@ pub const fn sano(v: u64) -> bool {
 pub const ARMAR: u64 = 1;
 pub const CAJA: u64 = 2;
 pub const SOLTAR: u64 = 3;
-/// Solo lectura: `tandas | armado << 32`.
+/// Solo lectura: `tandas | armado << 32` (selector [`COMO_VA_TANDAS`]).
 pub const COMO_VA: u64 = 4;
+// ** B2 (25-09): lo que se mide del volcado de cada fotograma, por selector en
+// los bits bajos de `COMO_VA` -- sin suborden nueva, solo lectura.
+/// `tandas | armado << 32`, como siempre.
+pub const COMO_VA_TANDAS: u64 = 0;
+/// Los bytes que la 3060 copio en todas las tandas enviadas.
+pub const COMO_VA_BYTES: u64 = 1;
+/// Cuantas tandas tuvo que ESPERAR la CPU a que la anterior se pagara (la
+/// promesa es "la CPU nunca espera": esto dice cuanto se cumple).
+pub const COMO_VA_ESPERAS: u64 = 2;
+
+/// El selector de un `COMO_VA`.
+pub const fn como_va_de(arg: u64) -> u64 {
+    arg & 0xF
+}
 /// ** LA VALLA, aparte (1c, 2026-09-25): la CAJA ultima ya NO espera -- toca
 /// el timbre y vuelve. Se espera con ESPERAR justo antes de que la CPU vuelva
 /// a escribir en el lienzo; para entonces la 3060 casi siempre ya acabo.

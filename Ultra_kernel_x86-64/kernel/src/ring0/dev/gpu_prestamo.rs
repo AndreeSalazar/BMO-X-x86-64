@@ -337,6 +337,9 @@ pub const IOMMU_NO_FWSEC_FIRMA: u32 = 21;
 pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
 pub const IOMMU_NO_WPR2_YA: u32 = 23;
 pub const IOMMU_NO_GFW: u32 = 24;
+/// La tarjeta no es la 3060 12G: su VRAM no son 12288 MiB
+/// (`bmo_gpu_ga10x::identidad`). Nada de lo que sigue se escribio para otra.
+pub const IOMMU_NO_OTRA_TARJETA: u32 = 84;
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
 
 pub const FWSEC_TOTALES_SHIFT: u64 = 8;
@@ -494,6 +497,12 @@ pub fn fwsec_correr() -> Result<u64, u32> {
     let fb = crate::ring0::dev::gpu::info_fb();
     if fb & crate::ring0::dev::gpu::GPU_FB_PLM_LEIBLE == 0 || (fb >> crate::ring0::dev::gpu::GPU_FB_GFW_SHIFT) & 0xFF != 0xFF {
         return no(IOMMU_NO_GFW);
+    }
+    // ** LA 3060 12G, Y SOLO ELLA (25-09): con el GFW acabado, la VRAM ya se
+    // puede leer; FRTS y todo lo de despues se calcula desde ella.
+    if !bmo_gpu_ga10x::identidad::vram_es_la_suya(fb as u32) {
+        crate::ring0::cabina::warn("gpu", "no es la 3060 12G: la VRAM no son 12288 MiB, sino", fb & 0xFFFF_FFFF);
+        return no(IOMMU_NO_OTRA_TARJETA);
     }
     let frts = vb::frts(
         fb as u32,

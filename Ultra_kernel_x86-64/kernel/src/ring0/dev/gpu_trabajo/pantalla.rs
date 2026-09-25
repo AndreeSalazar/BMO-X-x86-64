@@ -26,6 +26,9 @@ static MAPEADA: AtomicBool = AtomicBool::new(false);
 
 /// Bit de `arg`: cargar tambien el programa, el QMD y las ordenes.
 pub const CARGAR: u64 = 1 << 56;
+/// Bit de `arg` (C1, 25-09): comprobar solo [`pa::POCAS`] muestras que rotan,
+/// no las 1024. Lo pide el escritorio en los fotogramas de paso.
+pub const POCAS: u64 = 1 << 57;
 
 /// La pantalla del GOP en la VRAM, si se puede. La usa tambien el volcado.
 pub(super) fn la_pantalla() -> Option<pa::Pantalla> {
@@ -38,8 +41,8 @@ pub(super) fn la_pantalla() -> Option<pa::Pantalla> {
     (fb + p.bytes() <= crate::ring0::mm::PHYSMAP_SIZE).then_some(p)
 }
 
-/// **M5d P.** `arg` = la ficha de S3 (bits 0..31), el fotograma (32..55) y
-/// [`CARGAR`]. `Ok(pantalla::empaquetar(..))`.
+/// **M5d P.** `arg` = la ficha de S3 (bits 0..31), el fotograma (32..55),
+/// [`CARGAR`] y [`POCAS`]. `Ok(pantalla::empaquetar(..))`.
 pub fn pantalla(arg: u64) -> Result<u64, u32> {
     use bmo_gpu_ga10x::blur as bl;
     let (ficha, f) = (arg & 0xFFFF_FFFF, (arg >> 32) as u32 & 0xFF_FFFF);
@@ -55,7 +58,7 @@ pub fn pantalla(arg: u64) -> Result<u64, u32> {
     if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_BLUR);
     }
-    let r = pantalla_(bar0, ficha as u32, e, f, &p, arg & CARGAR != 0);
+    let r = pantalla_(bar0, ficha as u32, e, f, &p, arg & CARGAR != 0, arg & POCAS != 0);
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
@@ -80,7 +83,7 @@ pub(super) fn asegurar_mapa(r: &mut Bar0, p: &pa::Pantalla) -> Result<bool, u32>
     }
 }
 
-fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
+fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bool, pocas: bool) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
     let primera = asegurar_mapa(&mut r, p)?;
     let m = pa::marco(f, p.ancho, p.alto);
@@ -119,8 +122,11 @@ fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bo
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
     // SAFETY: escrito una vez al arrancar (`info::init_from`), solo se lee.
     let fb = crate::ring0::mm::phys_to_virt(unsafe { crate::info::FB_ADDR }) as *const u32;
+    // C1: las 1024, o POCAS que rotan con el fotograma (en 64 pasan por todas).
+    let (cuantas, esperadas) = if pocas { (pa::POCAS, pa::POCAS) } else { (pa::MUESTRAS, pa::MUESTRAS) };
     let buenos = crate::ring0::dev::framebuffer::display().map_or(0, |d| {
-        (0..pa::MUESTRAS)
+        (0..cuantas)
+            .map(|i| if pocas { pa::muestra_de_paso(f, i) } else { i })
             .filter(|&k| {
                 let (x, y) = pa::muestra(p, k);
                 // SAFETY: (x, y) dentro de la pantalla del GOP (`muestra` no
@@ -138,7 +144,7 @@ fn pantalla_(bar0: u64, ficha: u32, e: u32, f: u32, p: &pa::Pantalla, cargar: bo
     });
     let cpu_us = (crate::ring0::task::scheduler::rdtsc() - cpu_desde) / hz;
     let v = pa::empaquetar(buenos, qmd == pa::PAGA_QMD, fin == pa::PAGA_FIN, lanzado, us as u32, cpu_us as u32);
-    if !pa::sano(v) {
+    if !pa::sano_con(v, esperadas) {
         crate::ring0::cabina::warn("gpu", "M5d P: un fotograma no salio igual que la CPU; muestras buenas", buenos as u64);
     }
     Ok(v)

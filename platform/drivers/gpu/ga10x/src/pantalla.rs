@@ -241,6 +241,35 @@ pub fn pixel(p: &Pantalla, m: &Marco, x: u32, y: u32) -> u32 {
     color(vueltas(cr, ci), m.desplaza, p.rgb)
 }
 
+// == C1 (25-09): COMPROBAR POR MUESTREO ======================================
+//
+// Metal 25-09: un fotograma de `gpu pantalla` eran 4,0 ms y la 3060 solo 0,866;
+// casi todo lo demas era la CPU comprobando las 1024 muestras (una lectura de
+// VRAM por el PCIe y el fractal recalculado, cada una). La correccion es un
+// EJE y no se quita: el primer fotograma de cada tanda (y todos los de `save
+// mode`) comprueba las 1024; los demas, [`POCAS`] que ROTAN, de forma que 64
+// fotogramas seguidos pasan por las 1024 posiciones. Una 3060 que pinta mal
+// sigue cazandose; solo tarda unos fotogramas mas en verse DONDE.
+
+/// Las muestras de un fotograma de paso.
+pub const POCAS: u32 = 16;
+/// Cada cuantas posiciones cae una muestra de paso.
+const SALTO: u32 = MUESTRAS / POCAS;
+const _: () = assert!(MUESTRAS % POCAS == 0);
+
+/// **La muestra `i` (de [`POCAS`]) del fotograma `f`**: el indice `k` de
+/// [`muestra`]. Un desplazamiento que avanza 7 por fotograma (7 y 64 son
+/// primos entre si: los 64 desplazamientos salen todos antes de repetir).
+pub const fn muestra_de_paso(f: u32, i: u32) -> u32 {
+    i * SALTO + f.wrapping_mul(7) % SALTO
+}
+
+/// Sano con `esperadas` muestras comprobadas (las 1024, o [`POCAS`]).
+pub const fn sano_con(v: u64, esperadas: u32) -> bool {
+    let (buenos, qmd, fin, lanzado, _, _) = desempaquetar(v);
+    buenos == esperadas && qmd && fin && lanzado
+}
+
 /// La muestra `k` (de [`MUESTRAS`]): una rejilla de 32 x 32 que toca los
 /// cuatro bordes.
 pub const fn muestra(p: &Pantalla, k: u32) -> (u32, u32) {
@@ -367,10 +396,9 @@ pub fn mirar<R: Registros>(r: &mut R) -> (u32, u32, u32) {
 
 pub use crate::fractal::{desempaquetar, empaquetar};
 
-/// Sano: los dos semaforos pagados y las muestras iguales.
+/// Sano: los dos semaforos pagados y las 1024 muestras iguales.
 pub const fn sano(v: u64) -> bool {
-    let (buenos, qmd, fin, lanzado, _, _) = desempaquetar(v);
-    buenos == MUESTRAS && qmd && fin && lanzado
+    sano_con(v, MUESTRAS)
 }
 
 const _: () = assert!(PALABRAS_CODIGO * 4 <= 4096);
@@ -385,6 +413,35 @@ mod pruebas {
     use super::*;
 
     const FHD: Pantalla = Pantalla { vram: 0, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+
+    #[test]
+    fn las_muestras_de_paso_pasan_por_todas_en_64_fotogramas() {
+        let mut vista = [false; MUESTRAS as usize];
+        for f in 0..64 {
+            let mut en_este = [false; MUESTRAS as usize];
+            for i in 0..POCAS {
+                let k = muestra_de_paso(f, i);
+                assert!(k < MUESTRAS);
+                // Dentro de un fotograma no se repite ninguna.
+                assert!(!en_este[k as usize]);
+                en_este[k as usize] = true;
+                vista[k as usize] = true;
+            }
+        }
+        assert!(vista.iter().all(|&v| v));
+        // Y el fotograma 1000 sigue dentro, con el contador ya dado vueltas.
+        assert!((0..POCAS).all(|i| muestra_de_paso(u32::MAX - 3, i) < MUESTRAS));
+    }
+
+    #[test]
+    fn sano_segun_cuantas_se_pidieron() {
+        let pocas = crate::fractal::empaquetar(POCAS, true, true, true, 800, 20);
+        assert!(sano_con(pocas, POCAS));
+        assert!(!sano(pocas));
+        let todas = crate::fractal::empaquetar(MUESTRAS, true, true, true, 800, 3000);
+        assert!(sano(todas));
+        assert!(!sano_con(crate::fractal::empaquetar(POCAS - 1, true, true, true, 1, 1), POCAS));
+    }
 
     #[test]
     fn la_pantalla_se_cuelga_de_su_propia_entrada() {

@@ -30,6 +30,10 @@ pub(super) struct Tanda {
     alto: u32,
     /// El primero que no salio, si alguno.
     malo: Option<(u32, u64)>,
+    /// B1 (25-09): lo que tardo la CPU en COMPROBAR, sumado, y cuantas
+    /// muestras comprobo (1024 por fotograma, o 16 con el muestreo de C1).
+    cpu_us: u64,
+    muestras: u64,
 }
 
 impl Tanda {
@@ -41,6 +45,14 @@ impl Tanda {
     fn fps10(&self) -> u64 {
         self.buenos as u64 * 10_000_000 / self.total_us.max(1)
     }
+
+    /// **B1: un fotograma, partido** en us: `(total, la 3060, comprobar,
+    /// el resto)`. El resto es preparar por PRAMIN, el timbre y el syscall.
+    fn partido(&self) -> (u64, u64, u64, u64) {
+        let n = self.pedidos.max(1) as u64;
+        let (total, gpu, cpu) = (self.total_us / n, self.gpu_us / n, self.cpu_us / n);
+        (total, gpu, cpu, total.saturating_sub(gpu + cpu))
+    }
 }
 
 fn ficha() -> Result<u64, u32> {
@@ -48,19 +60,35 @@ fn ficha() -> Result<u64, u32> {
     estado().timbre.map(|(v, _)| v as u64).ok_or(NO_TRABAJO_SIN_FICHA)
 }
 
+/// Los bits de un fotograma: el primero carga el programa y comprueba las
+/// 1024; con `todas` (lo de `save mode`) TODOS las 1024; si no, los de paso
+/// comprueban [`pa::POCAS`] que rotan (C1). `(bits, muestras esperadas)`.
+fn bits(f: u32, todas: bool) -> (u64, u32) {
+    let cargar = if f == 0 { bmo::PANTALLA_CARGAR } else { 0 };
+    if todas || f == 0 {
+        (cargar, pa::MUESTRAS)
+    } else {
+        (bmo::PANTALLA_POCAS, pa::POCAS)
+    }
+}
+
+const _: () = assert!(bmo::PANTALLA_POCAS == 1 << 57 && bmo::PANTALLA_CARGAR == 1 << 56);
+
 /// **Una tanda de `n` fotogramas**, seguidos; se para en el primero malo.
-fn tanda(n: u32, ancho: u32, alto: u32) -> Result<Tanda, u32> {
+fn tanda(n: u32, ancho: u32, alto: u32, todas: bool) -> Result<Tanda, u32> {
     let ficha = ficha()?;
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
     let mut t = Tanda { ancho, alto, ..Tanda::default() };
     for f in 0..n {
-        let cargar = if f == 0 { bmo::PANTALLA_CARGAR } else { 0 };
-        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | cargar)?;
+        let (b, esperadas) = bits(f, todas);
+        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | b)?;
         t.pedidos += 1;
-        let (_, _, _, _, gpu_us, _) = pa::desempaquetar(r);
+        let (_, _, _, _, gpu_us, cpu_us) = pa::desempaquetar(r);
         t.gpu_us += gpu_us as u64;
-        if !pa::sano(r) {
+        t.cpu_us += cpu_us as u64;
+        t.muestras += esperadas as u64;
+        if !pa::sano_con(r, esperadas) {
             t.malo = Some((f, r));
             break;
         }
@@ -82,7 +110,7 @@ fn guardar(r: Result<Tanda, u32>) -> Result<u64, u32> {
 /// Lo que da `save mode`: 8 fotogramas (la pantalla se repinta despues).
 pub(crate) fn dibujar_pantalla() -> Result<u64, u32> {
     let (ancho, alto) = medidas();
-    guardar(tanda(8, ancho, alto))
+    guardar(tanda(8, ancho, alto, true))
 }
 
 pub(crate) fn pantalla_hecha() -> bool {
@@ -98,9 +126,10 @@ pub(crate) fn fotograma(f: u32, cargar: bool) -> Result<bool, u32> {
         return Err(NO_PANTALLA_MAL);
     }
     let ficha = estado().timbre.map(|(v, _)| v as u64).ok_or(NO_TRABAJO_SIN_FICHA)?;
-    let cargar = if cargar { bmo::PANTALLA_CARGAR } else { 0 };
-    let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | cargar)?;
-    Ok(pa::sano(r))
+    // El que carga comprueba las 1024; los de paso, las POCAS que rotan (C1).
+    let (b, esperadas) = if cargar { (bmo::PANTALLA_CARGAR, pa::MUESTRAS) } else { (bmo::PANTALLA_POCAS, pa::POCAS) };
+    let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | b)?;
+    Ok(pa::sano_con(r, esperadas))
 }
 
 /// Las medidas del modo que barre la 3060 (`INFO_GPU_MODO`): las del GOP.
@@ -117,7 +146,7 @@ const CAJA: u32 = 0x000B_0D12;
 /// `gpu pantalla`: dos ciclos a pantalla completa, y lo que dijo encima.
 pub(crate) fn orden_pantalla(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     paint_status(p, &dsk.run_box, "la 3060 toma la pantalla entera", INK_DIM);
-    let r = tanda(2 * pa::CICLO, p.ancho, p.alto);
+    let r = tanda(2 * pa::CICLO, p.ancho, p.alto, false);
     let _ = guardar(r);
     // La caja de abajo, pintada por la CPU ENCIMA de lo ultimo de la 3060:
     // solo esa caja se vuelca, el resto es de la 3060.
@@ -138,7 +167,14 @@ pub(crate) fn orden_pantalla(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
             p.texto_bytes(40, y + 54, super::super::iommu::motivo(m), 0x00FF_5555);
         }
     }
-    p.texto_bytes(40, y + 78, b"cada pixel lo escribe la 3060 donde mira el monitor; la CPU comprueba 1024 por fotograma", TENUE);
+    // B1: el fotograma partido en sus trozos.
+    if let Ok(t) = r {
+        let (total, gpu, cpu, resto) = t.partido();
+        let mut l = Linea::nueva();
+        l.t(b"un fotograma: ").d(total).t(b" us = la 3060 ").d(gpu).t(b" + comprobar ").d(cpu);
+        l.t(b" (").d(t.muestras / t.pedidos.max(1) as u64).t(b" muestras) + preparar y syscall ").d(resto);
+        p.texto_bytes(40, y + 78, &l.b[..l.n], TENUE);
+    }
     p.texto_bytes(40, y + 100, b"pulsa cualquier tecla para volver al escritorio", TENUE);
     p.vaciar();
     // SAFETY: como `panel_abierto`.
@@ -181,6 +217,18 @@ pub(super) fn fila(s: &mut Output, c: &super::Computo) {
     s.text(b" fps, la 3060 en ");
     s.dec(t.gpu_us / t.pedidos.max(1) as u64);
     s.text(b" us por fotograma");
+    // B1 (25-09): el fotograma partido, y cuantas muestras comprobo cada uno.
+    let (total, gpu, cpu, resto) = t.partido();
+    s.text(b"; partido: ");
+    s.dec(total);
+    s.text(b" us = 3060 ");
+    s.dec(gpu);
+    s.text(b" + comprobar ");
+    s.dec(cpu);
+    s.text(b" (");
+    s.dec(t.muestras / t.pedidos.max(1) as u64);
+    s.text(b" muestras) + preparar y syscall ");
+    s.dec(resto);
     if let Some((f, r)) = t.malo {
         let (buenos, qmd, fin, _, _, _) = pa::desempaquetar(r);
         s.text(b"; el ");
@@ -193,4 +241,6 @@ pub(super) fn fila(s: &mut Output, c: &super::Computo) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::super::datos::anotar(b"gpu pantalla fps10", t.fps10(), b"");
+    super::super::datos::anotar(b"gpu pantalla comprobar us", cpu, b"");
+    super::super::datos::anotar(b"gpu pantalla resto us", resto, b"");
 }

@@ -69,6 +69,23 @@ pub struct Enlace {
     pub ancho_max: u8,
 }
 
+/// **Lo mas que da el bus** en MB/s, para `gen` y `ancho` (B2, 25-09): por
+/// linea y ya descontada la codificacion (8b/10b en Gen1 y Gen2, 128b/130b
+/// desde Gen3), antes de las cabeceras de cada paquete. Es el techo que un
+/// volcado desde la RAM del PC no puede pasar: sirve para decir si lo que se
+/// mide es la 3060 o el cable.
+pub const fn mb_por_segundo(gen: u8, ancho: u8) -> u32 {
+    let por_linea = match gen {
+        1 => 250,
+        2 => 500,
+        3 => 985,
+        4 => 1969,
+        5 => 3938,
+        _ => 0,
+    };
+    por_linea * ancho as u32
+}
+
 /// **El enlace**, de Link Status (16 bits) y Link Capabilities (32 bits) de la
 /// capacidad PCI Express. `None` si no hay capacidad (ambos a 0).
 pub fn enlace(estado: u16, capacidad: u32) -> Option<Enlace> {
@@ -108,6 +125,15 @@ mod pruebas {
         // Lo que dio la 3060 el 24-09 11:25: probable, 49 grados.
         assert_eq!(lectura(0xC000_3168), Some((49, Fe::Probable)));
         assert_eq!(lectura(0x8000_0000), None, "0 grados no es una lectura");
+    }
+
+    #[test]
+    fn el_techo_del_bus() {
+        // La 3060 en su ranura x16: Gen3 (como llega) y Gen4 (lo que sabe).
+        assert_eq!(mb_por_segundo(3, 16), 15_760);
+        assert_eq!(mb_por_segundo(4, 16), 31_504);
+        assert_eq!(mb_por_segundo(1, 16), 4_000);
+        assert_eq!(mb_por_segundo(0, 16), 0);
     }
 
     #[test]

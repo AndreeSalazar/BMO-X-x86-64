@@ -147,12 +147,21 @@ unsafe fn handle_de(system_table: *mut EfiSystemTable, bus: u8, dev: u8, func: u
 
 // -- Finding it -------------------------------------------------------------
 
-/// The first NVIDIA display controller: `(bus, dev)` (function 0).
+/// THE 3060 12G AND ONLY IT (2026-09-25): the same list as
+/// `bmo_gpu_ga10x::identidad::DISPOSITIVOS` (this stage does not link that
+/// crate; the `la-3060` guardian demands both lists match). Any other NVIDIA
+/// card is never reset: nothing of BMO-X was written for it.
+const DISPOSITIVOS: [u16; 2] = [0x2503, 0x2504];
+
+/// The 3060 12G display controller: `(bus, dev)` (function 0).
 unsafe fn buscar() -> Option<(u8, u8)> {
     for bus in 0..=255u8 {
         for dev in 0..32u8 {
             let id = cfg(bus, dev, 0, 0);
-            if id & 0xFFFF == 0x10DE && cfg(bus, dev, 0, 0x08) >> 24 == 0x03 {
+            if id & 0xFFFF == 0x10DE
+                && DISPOSITIVOS.contains(&((id >> 16) as u16))
+                && cfg(bus, dev, 0, 0x08) >> 24 == 0x03
+            {
                 return Some((bus, dev));
             }
         }

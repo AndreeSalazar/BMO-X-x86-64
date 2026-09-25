@@ -79,6 +79,8 @@ pub const GPU_CABEZAS_SHIFT: u64 = 48;
 pub const GPU_CABEZA_SHIFT: u64 = 56;
 pub const GPU_AMPERE: u64 = 1 << 62;
 pub const GPU_HALLADA: u64 = 1 << 63;
+/// Es la 3060 12G (`bmo_gpu_ga10x::identidad`): la unica que BMO-X maneja.
+pub const GPU_LA_3060_12G: u64 = 1 << 61;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
@@ -142,6 +144,17 @@ pub fn sondear() {
         return;
     }
     c |= GPU_AMPERE;
+    // ** LA 3060 12G, Y SOLO ELLA (25-09). Todo lo que viene detras (el
+    // tramo de VRAM, las tablas, FRTS, las recetas) se escribio para esa
+    // tarjeta. Otra se deja SIN BAR0: ni una lectura mas, ni un VBLANK, ni una
+    // orden. Lo dice la fila `chip` del escritorio.
+    if !ga10x::identidad::es_la_3060_12g(device, chip) {
+        BAR0.store(0, Ordering::Release);
+        CHIP.store(c, Ordering::Release);
+        crate::ring0::cabina::warn("gpu", "no es la 3060 12G (BMO-X solo maneja esa): no se toca; dispositivo", device as u64);
+        return;
+    }
+    c |= GPU_LA_3060_12G;
 
     // Las cabezas que existen, y la primera con un modo de verdad: la que
     // dejo encendida el GOP.

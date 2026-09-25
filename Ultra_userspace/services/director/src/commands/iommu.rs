@@ -107,6 +107,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         bmo::IOMMU_NO_FWSEC_PARCHE => b"la orden FRTS o la firma no se pudieron poner en el ucode",
         bmo::IOMMU_NO_WPR2_YA => b"YA hay WPR2: la 3060 necesita un reinicio para volver a correr FWSEC",
         bmo::IOMMU_NO_GFW => b"el firmware de arranque de la tarjeta no acabo (o no se deja leer)",
+        bmo::IOMMU_NO_OTRA_TARJETA => b"no es la 3060 12G: su VRAM no son 12288 MiB, y BMO-X solo maneja esa",
         bmo::IOMMU_NO_FWSEC_FALCON => b"el falcon del GSP no dejo resetearse o cargar FWSEC por DMA",
         super::vbios::NO_SIN_VBIOS => b"la VBIOS no se leyo o no trae FWSEC: `gpu vbios`",
         super::vbios::NO_FWSEC_NO_PARA => b"FWSEC ARRANCO y no se paro en 3 s: mira la fila `frts`",

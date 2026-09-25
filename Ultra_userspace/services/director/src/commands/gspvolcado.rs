@@ -179,6 +179,35 @@ pub(crate) fn fila(s: &mut Output) {
             s.text(b"; la 3060 en ");
             s.dec(us as u64);
             s.text(b" us");
+            // B2 (25-09): a cuanto fue, contra lo que da el cable. Si va cerca
+            // del techo del bus, lo que queda por ganar no es de la 3060.
+            let modo = bmo::info(bmo::INFO_GPU_MODO);
+            let bytes = (modo & 0xFFFF) * (modo >> 16 & 0xFFFF) * 4;
+            if us > 0 && bytes > 0 {
+                let mbs = bytes / us as u64;
+                s.with_ink(INK_ECHO);
+                s.text(b"; ");
+                s.dec(bytes / 1024);
+                s.text(b" KiB a ");
+                s.dec(mbs);
+                s.text(b" MB/s");
+                let l = bmo::info(bmo::INFO_GPU_SALUD | 1 << 8);
+                if let Some(e) = bmo_gpu_ga10x::salud::enlace(l as u16, (l >> 32) as u32) {
+                    let techo = bmo_gpu_ga10x::salud::mb_por_segundo(e.gen, e.ancho) as u64;
+                    if techo > 0 {
+                        s.text(b", el ");
+                        s.dec(mbs * 100 / techo);
+                        s.text(b"% de lo que da el bus (Gen");
+                        s.dec(e.gen as u64);
+                        s.text(b" x");
+                        s.dec(e.ancho as u64);
+                        s.text(b": ");
+                        s.dec(techo);
+                        s.text(b" MB/s)");
+                    }
+                }
+                s.with_ink(INK_PLAIN);
+            }
             if let Some(c) = u.cpu_us {
                 s.text(b", la CPU en ");
                 s.dec(c);
@@ -202,6 +231,19 @@ pub(crate) fn fila(s: &mut Output) {
             s.text(b"POR LA 3060: ");
             s.dec(v & 0xFFFF_FFFF);
             s.text(b" tandas enviadas (una por fotograma; la CPU no espera: la valla, al volver a pintar)");
+            // B2: cuanto copia cada una, y cuantas veces la CPU SI espero.
+            let tandas = (v & 0xFFFF_FFFF).max(1);
+            let como = |sel: u64| bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_VOLCADOR, bmo::VOLCADOR_COMO_VA << 60 | sel).unwrap_or(0);
+            let bytes = como(vl::COMO_VA_BYTES);
+            let esperas = como(vl::COMO_VA_ESPERAS);
+            s.with_ink(INK_ECHO);
+            s.text(b"; ");
+            s.dec(bytes / tandas / 1024);
+            s.text(b" KiB por tanda, ");
+            s.dec(bytes >> 20);
+            s.text(b" MiB en total; la CPU espero ");
+            s.dec(esperas);
+            s.text(b" veces");
             s.with_ink(INK_PLAIN);
             s.byte(b'\n');
         }

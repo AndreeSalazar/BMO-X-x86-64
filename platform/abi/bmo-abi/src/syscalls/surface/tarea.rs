@@ -866,6 +866,8 @@ pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 /// El bit 56 de `IOMMU_OP_GPU_PANTALLA`: cargar el programa, el QMD y las ordenes.
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
+/// C1 (25-09): comprobar solo las 16 muestras que rotan, no las 1024.
+pub const PANTALLA_POCAS: u64 = 1 << 57;
 /// Compositor por GPU, paso 1: el motor de copia de la 3060 lleva el lienzo
 /// del escritorio a la pantalla del GOP. `arg1` = la VA del lienzo (un bloque
 /// del que llama, de la medida de la pantalla). `Ok` = `volcado::empaquetar(..)`.
@@ -918,6 +920,8 @@ pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
 pub const IOMMU_NO_WPR2_YA: u32 = 23;
 /// L0b: el firmware de arranque de la tarjeta no acabo (o no se deja leer).
 pub const IOMMU_NO_GFW: u32 = 24;
+/// No es la 3060 12G: su VRAM no son 12288 MiB (25-09).
+pub const IOMMU_NO_OTRA_TARJETA: u32 = 84;
 /// L0b: el falcon no dejo resetearse o cargar por DMA.
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
 /// L0c2: no esta `fw/gsp/gsp.bin` o `fw/gsp/bootldr.bin`.

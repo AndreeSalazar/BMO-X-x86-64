@@ -110,6 +110,8 @@ pub mod pantalla;
 pub mod volcado;
 
 pub mod escena;
+/// LA 3060 12G, y solo ella: la identidad que el kernel exige (2026-09-25).
+pub mod identidad;
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

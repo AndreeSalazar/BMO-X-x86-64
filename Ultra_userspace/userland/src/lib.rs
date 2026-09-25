@@ -282,6 +282,8 @@ pub const IOMMU_OP_GSP_DESCARGAR: u64 = 0x3D;
 pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
 pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 pub const PANTALLA_CARGAR: u64 = 1 << 56;
+/// C1 (25-09): comprobar solo las 16 muestras que rotan, no las 1024.
+pub const PANTALLA_POCAS: u64 = 1 << 57;
 pub const IOMMU_OP_GPU_VOLCADO: u64 = 0x40;
 pub const IOMMU_OP_GPU_VOLCADOR: u64 = 0x41;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
@@ -308,6 +310,8 @@ pub const IOMMU_NO_FWSEC_FIRMA: u32 = 21;
 pub const IOMMU_NO_FWSEC_PARCHE: u32 = 22;
 pub const IOMMU_NO_WPR2_YA: u32 = 23;
 pub const IOMMU_NO_GFW: u32 = 24;
+/// No es la 3060 12G: su VRAM no son 12288 MiB (25-09).
+pub const IOMMU_NO_OTRA_TARJETA: u32 = 84;
 pub const IOMMU_NO_FWSEC_FALCON: u32 = 25;
 pub const IOMMU_NO_GSP_FICHERO: u32 = 26;
 pub const IOMMU_NO_GSP_FORMATO: u32 = 27;
@@ -927,6 +931,8 @@ pub const GPU_CABEZAS_SHIFT: u64 = 48;
 pub const GPU_CABEZA_SHIFT: u64 = 56;
 pub const GPU_AMPERE: u64 = 1 << 62;
 pub const GPU_HALLADA: u64 = 1 << 63;
+/// Es la 3060 12G, la unica que BMO-X maneja (25-09).
+pub const GPU_LA_3060_12G: u64 = 1 << 61;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;

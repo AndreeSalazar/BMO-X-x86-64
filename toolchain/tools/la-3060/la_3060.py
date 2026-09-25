@@ -33,6 +33,12 @@ las esperas, que es la deuda que se quiere bajar):
     E  ESPERAS     los `spin_loop()` de la 3060 en Ring 0 son un trinquete:
                    cada uno es un nucleo girando mientras la tarjeta trabaja,
                    y el camino es cambiarlos por esperas con interrupcion
+    I  IDENTIDAD   la 3060 12G y SOLO ella (25-09): la lista de dispositivos
+                   del crate (`identidad.rs`) y la del cargador
+                   (`gpu_reinicio.rs`) son la misma; la sonda del kernel pide
+                   `es_la_3060_12g` y el prestamo `vram_es_la_suya`
+    O3 OPTIMIZADA  `bmo-gpu-ga10x` lleva `opt-level = 3` con nombre en el
+                   perfil release del kernel y del userspace
 
     --check   lo que corre el build
 """
@@ -178,6 +184,42 @@ def motivos(fallos):
     return len(kv)
 
 
+IDENTIDAD = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src', 'identidad.rs')
+CARGADOR = os.path.join(RAIZ, 'Ultra_kernel_x86-64', 'faggin', 's1_cpu', 'src', 'gpu_reinicio.rs')
+RX_LISTA = re.compile(r'const DISPOSITIVOS\s*:\s*\[u16;\s*\d+\]\s*=\s*\[([^\]]*)\]')
+
+
+def lista(ruta):
+    m = RX_LISTA.search(sin_comentarios(leer(ruta)))
+    if not m:
+        return None
+    return sorted(int(x.strip().replace('_', ''), 0) for x in m.group(1).split(',') if x.strip())
+
+
+def identidad(fallos):
+    crate, cargador = lista(IDENTIDAD), lista(CARGADOR)
+    if not crate:
+        fallos.append('I: no se lee `DISPOSITIVOS` de %s' % rel(IDENTIDAD))
+    if not cargador:
+        fallos.append('I: no se lee `DISPOSITIVOS` de %s' % rel(CARGADOR))
+    if crate and cargador and crate != cargador:
+        fallos.append('I: el crate maneja %s y el cargador reinicia %s: la misma 3060 o ninguna'
+                      % ([hex(x) for x in crate], [hex(x) for x in cargador]))
+    for fichero, llamada in (('dev/gpu.rs', 'identidad::es_la_3060_12g('), ('dev/gpu_prestamo.rs', 'identidad::vram_es_la_suya(')):
+        if llamada not in sin_comentarios(leer(os.path.join(RING0, *fichero.split('/')))):
+            fallos.append('I: %s ya no llama a `%s`: el kernel manejaria otra tarjeta como si fuera la 3060 12G' % (fichero, llamada.rstrip('(')))
+    return crate or []
+
+
+def optimizada(fallos):
+    for ws in ('Ultra_kernel_x86-64', 'Ultra_userspace'):
+        ruta = os.path.join(RAIZ, ws, 'Cargo.toml')
+        t = leer(ruta)
+        m = re.search(r'\[profile\.release\.package\."bmo-gpu-ga10x"\]([^\[]*)', t)
+        if not m or not re.search(r'^\s*opt-level\s*=\s*3\s*$', m.group(1), re.M):
+            fallos.append('O3: %s no lleva `[profile.release.package."bmo-gpu-ga10x"] opt-level = 3`' % rel(ruta))
+
+
 def esperas():
     cuenta = {}
     for r in sorted(glob.glob(os.path.join(RING0, 'dev', '**', '*.rs'), recursive=True)):
@@ -205,6 +247,8 @@ def main():
     registros(fallos)
     n_ordenes = ordenes(fallos)
     n_motivos = motivos(fallos)
+    suyos = identidad(fallos)
+    optimizada(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -220,8 +264,8 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; los registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; %d esperas girando%s'
-          % (n_ordenes, n_motivos, total, extra))
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; %d esperas girando%s'
+          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, total, extra))
     return 0
 
 

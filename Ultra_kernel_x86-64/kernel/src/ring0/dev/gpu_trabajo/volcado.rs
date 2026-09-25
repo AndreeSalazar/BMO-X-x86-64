@@ -219,6 +219,11 @@ static ENVIADAS: AtomicU32 = AtomicU32::new(0);
 static TANDAS: AtomicU32 = AtomicU32::new(0);
 /// La tanda en construccion. Solo la toca quien tiene `EN_MARCHA`.
 static mut TANDA: vl::Tanda = vl::Tanda::nueva();
+/// B2 (25-09): los bytes de las cajas de la tanda que se esta juntando, los
+/// de todas las enviadas, y cuantas veces la CPU espero a la anterior.
+static POR_ENVIAR: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static BYTES: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+static ESPERAS: AtomicU32 = AtomicU32::new(0);
 /// Lo mas que se espera a que la 3060 pague una tanda.
 const TANDA_ESPERA_US: u64 = 50_000;
 
@@ -234,7 +239,7 @@ pub fn volcador(arg: u64) -> Result<u64, u32> {
         vl::ARMAR => armar(pid, vl::lienzo_de(arg)),
         vl::CAJA => caja(pid, arg),
         vl::SOLTAR => soltar(pid).map(|()| 0),
-        vl::COMO_VA => Ok(como_va()),
+        vl::COMO_VA => Ok(como_va(vl::como_va_de(arg))),
         vl::ESPERAR => valla(pid),
         _ => Err(IOMMU_NO_VOLCADO),
     }
@@ -306,14 +311,21 @@ fn caja(pid: u32, arg: u64) -> Result<u64, u32> {
     let t = unsafe { &mut *core::ptr::addr_of_mut!(TANDA) };
     let r = if !t.caja(&p, x, y, w, h) {
         *t = vl::Tanda::nueva();
+        POR_ENVIAR.store(0, Ordering::Release);
         Err(IOMMU_NO_VOLCADO)
     } else if !ultima {
+        POR_ENVIAR.fetch_add(w as u64 * h as u64 * 4, Ordering::AcqRel);
         Ok(0)
     } else {
+        let bytes = POR_ENVIAR.swap(0, Ordering::AcqRel) + w as u64 * h as u64 * 4;
         let mut regs = Bar0(bar0);
         // La de antes, pagada: esta pisa su segmento de ordenes y su semaforo.
         let antes = NUMERO.load(Ordering::Acquire);
-        let libre = antes == 0 || vl::pagada(&mut regs, antes) || esperar(&mut regs, antes).is_ok();
+        let pagada = antes == 0 || vl::pagada(&mut regs, antes);
+        if !pagada {
+            ESPERAS.fetch_add(1, Ordering::AcqRel);
+        }
+        let libre = pagada || esperar(&mut regs, antes).is_ok();
         let numero = antes.wrapping_add(1).max(1);
         let e = ENTRADA.load(Ordering::Acquire);
         let enviada = libre && t.cerrar(numero) && vl::enviar(&mut regs, t, e, ficha);
@@ -321,6 +333,7 @@ fn caja(pid: u32, arg: u64) -> Result<u64, u32> {
         if enviada {
             NUMERO.store(numero, Ordering::Release);
             ENVIADAS.fetch_add(1, Ordering::AcqRel);
+            BYTES.fetch_add(bytes, Ordering::AcqRel);
             ENTRADA.store(vl::siguiente(e), Ordering::Release);
             Ok(numero as u64)
         } else {
@@ -393,7 +406,12 @@ pub fn suelta_si_es_de(pid: u32) {
     }
 }
 
-/// Para la fila: `enviadas | armado << 32`.
-pub fn como_va() -> u64 {
-    ENVIADAS.load(Ordering::Acquire) as u64 | (ARMADO.load(Ordering::Acquire) as u64) << 32
+/// Para la fila, segun el selector (`vl::COMO_VA_*`): `enviadas | armado <<
+/// 32`, los bytes copiados, o las veces que la CPU tuvo que esperar.
+pub fn como_va(sel: u64) -> u64 {
+    match sel {
+        vl::COMO_VA_BYTES => BYTES.load(Ordering::Acquire),
+        vl::COMO_VA_ESPERAS => ESPERAS.load(Ordering::Acquire) as u64,
+        _ => ENVIADAS.load(Ordering::Acquire) as u64 | (ARMADO.load(Ordering::Acquire) as u64) << 32,
+    }
 }

@@ -458,6 +458,10 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
         veredicto(s, false, b"el chip no es un Ampere: este codigo no sabe leerlo");
         return;
     }
+    if c & bmo::GPU_LA_3060_12G == 0 {
+        veredicto(s, false, b"no es la 3060 12G (10DE:2503/2504, GA106): BMO-X solo maneja esa, y esta no la toca");
+        return;
+    }
 
     let mascara = (c >> bmo::GPU_CABEZAS_SHIFT) & 0xFF;
     campo(s, b"heads");

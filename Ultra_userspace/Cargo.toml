@@ -18,3 +18,11 @@ trim-paths = "all"
 panic = "abort"
 lto = true
 codegen-units = 1
+
+# ** LA 3060 A opt-level = 3, DICHO Y VIGILADO (2026-09-25). Ya lo era por el
+# perfil de arriba; ahora es una linea con nombre, porque el propietario lo
+# pidio como REGLA y el guardian `la-3060` exige que siga aqui. Aplica al
+# codigo de la CPU que habla con la 3060 (recetas, empujes, comprobaciones):
+# lo que corre DENTRO de la 3060 son sus sombreadores, ya en codigo maquina.
+[profile.release.package."bmo-gpu-ga10x"]
+opt-level = 3

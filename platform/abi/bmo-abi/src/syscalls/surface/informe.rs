@@ -1383,6 +1383,8 @@ pub const GPU_CABEZAS_SHIFT: u64 = 48;
 pub const GPU_CABEZA_SHIFT: u64 = 56;
 pub const GPU_AMPERE: u64 = 1 << 62;
 pub const GPU_HALLADA: u64 = 1 << 63;
+/// Es la 3060 12G, la unica que BMO-X maneja (25-09).
+pub const GPU_LA_3060_12G: u64 = 1 << 61;
 pub const GPU_MODO_VALIDO: u64 = 1 << 63;
 pub const GPU_TIEMPO_MEDIDO: u64 = 1 << 63;
 pub const GPU_LINEA_VBLANK: u64 = 1 << 16;
