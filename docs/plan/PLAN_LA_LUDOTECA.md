@@ -848,6 +848,17 @@ seccion 9, mas DLL cerradas de terceros): es **tu cubo**.
    F  Cyberpunk                 el jefe final, por la misma escalera
 ```
 
+**Lo que ya hay (25-09, en el repo EPICX-FRAMEWORK-DirectX12 del
+propietario, carpeta `BMOX/`, sin confirmar):** otra IA escribio un cubo por
+cada Direct3D -- 9, 10, 11 y 12 -- en Rust (`windows` 0.58), con profundidad,
+luz y caras ocultas, medidos en la 3060 (~8700 / ~9200 / ~8900 / ~6000 fps; el
+12 pierde con UN cubo, como se espera). Encontro ademas que el antiguo
+`cube_dx12.rs` dibujaba por CPU (`softbuffer`): el `BMOX-12` es el primer D3D12
+de verdad. [!] El nombre `BMOX` es un envoltorio de la API de Microsoft, no
+BMO-X: lo que CRUZA a este repo es lo NEUTRO (la malla, las matrices, el orden
+de un fotograma, el diccionario y una imagen de referencia), nunca el codigo
+que llama a Windows.
+
 - [ ] **X1 -- el cubo, medido.** El cubo DX12 en Windows (simple, sin motor)
       y `rayosx cubo.exe`. **Como se sabe:** su tabla de importaciones
       apuntada aqui, por DLL, con el numero exacto de funciones.
