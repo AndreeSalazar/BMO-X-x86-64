@@ -15,6 +15,7 @@ que verificar (PLAN_LA_LUDOTECA, seccion 8), medida en vez de adivinada.
 Un OBRERO de medida, no un guardian: no para ningun build. Lee sin ejecutar.
 
     python rayosx.py juego.exe            PE32 / PE32+ de Windows
+    python rayosx.py "C:\\...\\Cyberpunk 2077"  una CARPETA: busca sus .exe
     python rayosx.py juego.x86_64         ELF64 de Linux (los de GOG para Linux)
     python rayosx.py --prueba             su banco: un PE y un ELF hechos aqui
 
@@ -63,6 +64,10 @@ def pe(d):
     ancho = 8 if magia == 0x20B else 4
     dirs = opc + (112 if ancho == 8 else 96)
     imp_rva = struct.unpack_from("<I", d, dirs + 8)[0]
+    # La 13: las importaciones RETRASADAS (se cargan al primer uso; los
+    # juegos grandes ponen ahi media API).
+    retr_rva = struct.unpack_from("<I", d, dirs + 13 * 8)[0]
+    base = struct.unpack_from("<Q" if ancho == 8 else "<I", d, opc + (24 if ancho == 8 else 28))[0]
     secs = []
     for k in range(nsec):
         s = opc + tam_opc + 40 * k
@@ -96,6 +101,28 @@ def pe(d):
                 t += ancho
             imps.setdefault(dll, []).extend(funcs)
             p += 20
+    if retr_rva:
+        p = off(retr_rva)
+        while True:
+            attr, nombre, _, _, int_rva = struct.unpack_from("<IIIII", d, p)
+            if not nombre:
+                break
+            # attr bit 0: RVA; sin el, direcciones virtuales (los muy viejos).
+            rva = (lambda v: v) if attr & 1 else (lambda v: v - base)
+            dll = cadena(d, off(rva(nombre)))
+            funcs = []
+            t = off(rva(int_rva))
+            while True:
+                v = struct.unpack_from("<Q" if ancho == 8 else "<I", d, t)[0]
+                if v == 0:
+                    break
+                if v >> (ancho * 8 - 1):
+                    funcs.append("#%d" % (v & 0xFFFF))
+                else:
+                    funcs.append(cadena(d, off(rva(v) & 0x7FFFFFFF) + 2))
+                t += ancho
+            imps.setdefault(dll + " (retrasada)", []).extend(funcs)
+            p += 32
     return ({0x8664: "x86-64", 0x14C: "x86 (32 bits)"}.get(maquina, "0x%x" % maquina), imps)
 
 
@@ -151,6 +178,10 @@ def informe(ruta, d):
         f = familia(biblio)
         cuenta[f] = cuenta.get(f, 0) + len(funcs)
     print("  por familia: " + ", ".join("%s %d" % kv for kv in sorted(cuenta.items())))
+    # Los de GRAFICOS, con nombre: dicen QUE API usa (DirectX 9, 11, 12...).
+    graf = sorted({f for b, fs in imps.items() if familia(b) == "graficos" for f in fs})
+    if graf:
+        print("  graficos, por nombre: " + ", ".join(graf[:12]) + (" ..." if len(graf) > 12 else ""))
     print("  para comparar: devorar un ELF ESTATICO de nivel 1 son ~15 llamadas")
     return 0
 
@@ -172,6 +203,11 @@ def pe_de_prueba():
     struct.pack_into("<QQQQ", datos, 0x60, sec_rva + 0x100, sec_rva + 0x110, (1 << 63) | 7, 0)
     # descriptor en +0x00, y uno a cero detras
     struct.pack_into("<IIIII", datos, 0, sec_rva + 0x60, 0, 0, sec_rva + 0x120, sec_rva + 0x60)
+    # una RETRASADA, como un juego de DirectX 12: d3d12.dll!D3D12CreateDevice
+    poner(0x180, b"d3d12.dll\0")
+    poner(0x1C0, b"\0\0D3D12CreateDevice\0")
+    struct.pack_into("<QQ", datos, 0x1A0, sec_rva + 0x1C0, 0)
+    struct.pack_into("<IIIIIIII", datos, 0x140, 1, sec_rva + 0x180, 0, sec_rva + 0x1A0, sec_rva + 0x1A0, 0, 0, 0)
     cab = bytearray(0x200)
     cab[:2] = b"MZ"
     struct.pack_into("<I", cab, 0x3C, 0x40)
@@ -180,6 +216,7 @@ def pe_de_prueba():
     opc = 0x58
     struct.pack_into("<H", cab, opc, 0x20B)
     struct.pack_into("<II", cab, opc + 112 + 8, sec_rva, 40)
+    struct.pack_into("<II", cab, opc + 112 + 13 * 8, sec_rva + 0x140, 64)
     s = opc + 240
     cab[s:s + 8] = b".idata\0\0"
     struct.pack_into("<IIII", cab, s + 8, 0x200, sec_rva, 0x200, sec_raw)
@@ -189,7 +226,7 @@ def pe_de_prueba():
 def prueba():
     maquina, imps = pe(pe_de_prueba())
     assert maquina == "x86-64", maquina
-    assert imps == {"kernel32.dll": ["ExitProcess", "CreateFileA", "#7"]}, imps
+    assert imps == {"kernel32.dll": ["ExitProcess", "CreateFileA", "#7"], "d3d12.dll (retrasada)": ["D3D12CreateDevice"]}, imps
     assert familia("d3d11.dll") == "graficos" and familia("XINPUT1_4.dll") == "entrada"
     assert familia("libSDL2-2.0.so.0") == "graficos" and familia("kernel32.dll") == "sistema"
     assert pe(b"MZ" + b"\0" * 62) is None and elf(b"nada") is None
@@ -207,13 +244,46 @@ def prueba():
     return 0
 
 
+def exes_de(carpeta):
+    """Los .exe de una carpeta y sus subcarpetas, del mas grande al mas chico
+    (el del juego suele ser el mas grande; los lanzadores y el reportero de
+    fallos, chicos)."""
+    import os
+    todos = []
+    for raiz, _, ficheros in os.walk(carpeta):
+        for f in ficheros:
+            if f.lower().endswith(".exe"):
+                r = os.path.join(raiz, f)
+                todos.append((os.path.getsize(r), r))
+    return [r for _, r in sorted(todos, reverse=True)]
+
+
+def uno(ruta):
+    import os
+    if not os.path.exists(ruta):
+        print("%s: no existe. Pon la ruta de TU juego entre comillas; o la CARPETA del juego, y se buscan sus .exe" % ruta)
+        return 1
+    if os.path.isdir(ruta):
+        exes = exes_de(ruta)
+        if not exes:
+            print("%s: carpeta sin ningun .exe" % ruta)
+            return 1
+        print("%s: %d .exe; primero el mas grande" % (ruta, len(exes)))
+        return max(uno(r) for r in exes[:4])
+    try:
+        return informe(ruta, open(ruta, "rb").read())
+    except (ValueError, struct.error, IndexError) as e:
+        print("%s: no se pudo leer entero (%s)" % (ruta, e))
+        return 1
+
+
 def main(args):
     if args == ["--prueba"]:
         return prueba()
     if not args:
         print(__doc__)
         return 1
-    return max(informe(r, open(r, "rb").read()) for r in args)
+    return max(uno(r) for r in args)
 
 
 if __name__ == "__main__":

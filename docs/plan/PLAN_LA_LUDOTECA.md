@@ -214,4 +214,16 @@ ESTATICO son ~15 llamadas. Esa distancia es la que hay que verificar.
       un grupo grande y su superficie cabe en una pagina, se estudia una capa
       SDL2 en Ring 3 (la estrategia B de `ENTRAR_EN_SU_ECOSISTEMA.md`, sin
       tocar el kernel). Si no, camino A o B y nada mas. **Como se sabe:** la
-      tabla medida, juego a juego, en esta seccion.
+      tabla medida, juego a juego, en esta seccion. Se mide EN WINDOWS,
+      donde estan los juegos: `python toolchain\tools\rayosx\rayosx.py
+      "C:\Program Files\GOG Galaxy\Games\Cyberpunk 2077"` (una carpeta
+      vale: busca sus `.exe`, del mas grande al mas chico, y cuenta tambien
+      las importaciones RETRASADAS, donde los juegos grandes ponen media API).
+
+**Y el NTFS no hace falta (25-09).** Los juegos de GOG viven en el volumen
+NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
+basta con COPIAR, desde Windows, el fichero de datos (`doom2.wad`, `pak0.pak`)
+a la particion de datos de BMO-X, como ya se hace con `doom1.wad`; y un juego
+del camino B se queda en Windows, que es donde corre. Un lector de NTFS en
+BMO-X es mucho codigo para verificar y no desbloquea nada de esto: no se
+parte el disco por esto.
