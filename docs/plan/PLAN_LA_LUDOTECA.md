@@ -780,3 +780,82 @@ que hace falta.
 - [ ] **C2 -- las dos primeras capas del lenguaje:** `sizeof` en una expresion
       constante, y el puntero a funcion que devuelve `float`/`double` (el
       valor en `xmm0`). **Como se sabe:** la capa 2 y la 3 bajan de 70 a 0.
+
+## 16. El RHI de BMO-X y PROTON-X: traducir UNA cosa, medida (25-09)
+
+El propietario: *"la capa RHI traduce las ordenes del juego a la API de la
+consola, entonces BMO-X puede tener su RHI ... podria inspirarme en Proton
+... ese esta lleno de POSIX, y metio TODO por si acaso ... PROTON-X, propio,
+PARA concentrar una cosa"*. Tiene sentido, con dos piezas que van en
+direcciones CONTRARIAS y una regla que las ata.
+
+### El RHI: hacia DENTRO (los juegos que se compilan aqui)
+
+Un RHI no es una API publica: es la interfaz INTERNA que un motor usa para no
+saber que GPU hay debajo. BMO-X ya tiene la forma, y es de hoy: el rasgo
+`Motor` de `Ultra_kernel_x86-64/kernel/src/ring0/dev/pase_gpu.rs` -- el pase
+no nombra a NVIDIA, cada tarjeta trae su motor. El RHI es lo mismo para
+DIBUJAR:
+
+```text
+   el juego (vkQuake, DOOM, tu cubo)
+        |  las 67 funciones de vkQuake 0.50 (seccion 12) = la primera lista
+        v
+   RHI de BMO-X (VERRANO: buferes, imagenes, tuberia, ordenes, vallas)
+        |
+        +-- backend 3060   AMPERE_B + SASS (lo que ya dibuja `gpu raster`)
+        +-- backend CPU    el mismo resultado por software: el JUEZ
+        +-- backend otra   la tarjeta alternativa, sin tocar lo de arriba
+```
+
+El backend CPU no es el plan B: es el juez de siempre (cada trabajo de la
+3060 ya se compara con la CPU). Con un RHI, TODO lo que se dibuje tiene juez.
+
+### PROTON-X: hacia FUERA (un `.exe` de Windows, traducido)
+
+Proton es Wine (la API de Windows ENTERA, ~25 anios) + DXVK/vkd3d-proton
+(Direct3D -> Vulkan) + un runtime, todo sobre POSIX y un Vulkan conforme. Es
+enorme porque sirve a CUALQUIER programa de Windows: por si acaso.
+PROTON-X sirve a UNO, y lo que implementa lo dice `rayosx`, no la intuicion:
+
+```text
+   Proton                          PROTON-X
+   toda la API, por si acaso       las funciones que el .exe IMPORTA (rayosx)
+   sobre POSIX (Wine se escribio   sobre INVOKE, en Ring 3, como libreria
+     para Unix)                      (la regla de ENTRAR_EN_SU_ECOSISTEMA:
+                                     el kernel no se entera de Windows)
+   D3D12 -> Vulkan conforme        D3D12 -> el RHI de la casa
+   una funcion que falta: stub     una funcion que falta: NO arranca, y dice
+     silencioso, a veces anda        CUAL (el mismo juez que el sombreador)
+```
+
+**Lo que NO se ahorra, dicho antes:** lo dificil de Windows no es POSIX, es
+su SEMANTICA -- el cargador de PE y sus DLL, hilos y TLS, excepciones (SEH),
+COM, el registro, ficheros mapeados. Y lo dificil de D3D12 son sus
+sombreadores: DXIL, que habria que llevar a SPIR-V o a SASS. Por eso el
+primer cliente de PROTON-X NO es Cyberpunk (663 funciones de 36 bibliotecas,
+seccion 9, mas DLL cerradas de terceros): es **tu cubo**.
+
+### La escalera de PROTON-X, del cubo al jefe
+
+```text
+   1  cubo.exe tuyo (DX12)      lo escribiste: sabes que llama. rayosx lo
+                                cuenta (d3d12, dxgi, user32, kernel32)
+   2  cubo.exe en BMO-X         cargador de PE en Ring 3 + esas funciones
+                                + D3D12 -> RHI, con DXIL de UN sombreador
+   3  un juego D3D9/11 chico    la lista crece medida, no a ciegas
+   4  ...                       cada juego suma SU lista; la tabla la escribe rayosx
+   F  Cyberpunk                 el jefe final, por la misma escalera
+```
+
+- [ ] **X1 -- el cubo, medido.** El cubo DX12 en Windows (simple, sin motor)
+      y `rayosx cubo.exe`. **Como se sabe:** su tabla de importaciones
+      apuntada aqui, por DLL, con el numero exacto de funciones.
+- [ ] **X2 -- el diccionario.** Cada llamada del cubo (device, cola, lista de
+      ordenes, heaps, barreras, fence, present) junto a la pieza de BMO-X que
+      ya hace lo mismo (GPFIFO, empuje, semaforo, tablas, page flip).
+      **Como se sabe:** la tabla completa, sin una fila "no se".
+- [ ] **X3 -- el RHI, escrito como rasgo.** La primera lista (las 67 de
+      vkQuake 0.50 y las del cubo, juntas) como interfaz, con el backend CPU
+      primero. **Como se sabe:** un crate puro con banco que dibuja el cubo
+      por el backend CPU y lo compara con una imagen fija.
