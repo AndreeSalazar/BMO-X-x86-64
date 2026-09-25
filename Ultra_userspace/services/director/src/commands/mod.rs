@@ -32,6 +32,8 @@ pub(crate) mod gsprpc;
 pub(crate) mod gspobjeto;
 /// `gpu salud`: temperatura, enlace PCIe y P-state de la 3060 (24-09).
 pub(crate) mod gspsalud;
+/// `gpu relojes`: la 3060 al maximo un minuto, medida antes y despues (C2, 25-09).
+pub(crate) mod gsprelojes;
 /// `gpu vram`: la CPU escribe en la VRAM por PRAMIN (L1c2, 24-09).
 pub(crate) mod gspvram;
 /// `gpu motores`: que motores tiene la 3060 y el de copia del canal (L1d2a, 24-09).

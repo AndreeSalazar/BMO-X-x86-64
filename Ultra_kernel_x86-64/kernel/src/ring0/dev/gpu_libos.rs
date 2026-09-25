@@ -494,8 +494,10 @@ pub fn pedir_objeto(que: u64) -> Result<u64, u32> {
 /// **L1b: una orden de control** sobre nuestro subdispositivo (`que` = el
 /// indice en `bmo_gpu_ga10x::control::Control::TODOS`).
 pub fn pedir_control(que: u64) -> Result<u64, u32> {
-    // Solo las PREGUNTAS: el directorio tiene su propia puerta.
-    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.pregunta()) else {
+    // Solo las PREGUNTAS, y los dos ajustes de RELOJES (C2, 25-09: al maximo
+    // un minuto, o quitarlo; el contrato los deja salir solo con sus 8 bytes
+    // exactos). El directorio y el canal tienen su propia puerta.
+    let Some(c) = bmo_gpu_ga10x::control::Control::de(que).filter(|c| c.pregunta() || c.relojes()) else {
         return Err(IOMMU_NO_RPC_CONTROL);
     };
     let r = enviar(|h, n| bmo_gpu_ga10x::control::pedir(h, n, c))?;

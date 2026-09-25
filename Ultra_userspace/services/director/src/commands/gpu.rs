@@ -85,6 +85,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"salud" {
         return super::gspsalud::orden(dsk, p);
     }
+    if arg == b"relojes" || arg == b"relojes off" {
+        return super::gsprelojes::orden(dsk, p, arg == b"relojes off");
+    }
     if arg == b"vram" {
         return super::gspvram::orden(dsk, p);
     }

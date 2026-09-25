@@ -26,7 +26,25 @@
 //!    GET_WORK_SUBMIT_TOKEN       0xC36F0108, 4 B (L1d2d, sobre el CANAL):
 //!                                workSubmitToken, lo que se escribe en el
 //!                                timbre
+//!    PERF_BOOST                  0x2080200A, 8 B (C2, 25-09, sobre el
+//!                                SUBDISPOSITIVO): flags (bits 1:0 = 2
+//!                                BOOST_TO_MAX, 0 CLEAR) y duration en s
 //! ```
+//!
+//! # Los relojes (C2, 2026-09-25)
+//!
+//! NVIDIA NO publica como leer los relojes: `ctrl2080clk.h` de sus modulos
+//! abiertos (570.144) es un fichero sin una sola orden, y los codigos de
+//! dominio (GPC, memoria) tampoco estan. Lo que SI publica, plano y sin
+//! punteros (asi que cabe en una RPC al GSP), es `PERF_BOOST` en
+//! `ctrl2080perf.h`: *"boost P-State ... to the highest for a limited
+//! duration"*. Es lo que las firmas de Maxwell 2 le quitaron a nouveau, y el
+//! GSP-RM lo devuelve: quien sube los relojes es el, BMO-X solo lo pide.
+//!
+//! Se pide con duracion FIJA ([`SUBIDA_SEGUNDOS`]) y no "hasta que se quite":
+//! respetar la 3060 es que se BAJE sola si el escritorio se olvida. Y como no
+//! hay MHz que leer, lo que dice si funciono es el mismo fotograma de `gpu
+//! pantalla` medido antes y despues (la ley 0: el numero, no la promesa).
 //!
 //! # El directorio de paginas (L1c3)
 //!
@@ -78,13 +96,27 @@ pub enum Control {
     ProgramarGr,
     /// M5d S2: la FICHA del timbre del canal de GR0. Pregunta.
     FichaGr,
+    /// C2: los relojes AL MAXIMO durante [`SUBIDA_SEGUNDOS`] (`PERF_BOOST`,
+    /// BOOST_TO_MAX). Un ajuste, no una pregunta: su puerta es [`Control::relojes`].
+    RelojesArriba,
+    /// C2: quitar la subida (`PERF_BOOST`, CLEAR): el RM vuelve a lo suyo.
+    RelojesNormales,
 }
+
+/// `NV2080_CTRL_CMD_PERF_BOOST`.
+pub const PERF_BOOST: u32 = 0x2080_200A;
+/// `NV2080_CTRL_PERF_BOOST_FLAGS_CMD_BOOST_TO_MAX` y `_CLEAR`.
+pub const BOOST_AL_MAXIMO: u32 = 2;
+pub const BOOST_QUITAR: u32 = 0;
+/// Lo que dura una subida. El RM acepta hasta 3600; un minuto basta para
+/// medir y para una sesion de trabajo, y si nadie la renueva, la 3060 baja.
+pub const SUBIDA_SEGUNDOS: u32 = 60;
 
 /// Entradas de la PD3 de Ampere: 2 bits de direccion (48..47).
 pub const PD3_ENTRADAS: u32 = 4;
 
 impl Control {
-    pub const TODOS: [Control; 11] = [
+    pub const TODOS: [Control; 13] = [
         Control::Pstate,
         Control::Directorio,
         Control::Motores,
@@ -96,6 +128,9 @@ impl Control {
         Control::AtarGr,
         Control::ProgramarGr,
         Control::FichaGr,
+        // C2 (25-09): AL FINAL, que los indices de antes no se muevan.
+        Control::RelojesArriba,
+        Control::RelojesNormales,
     ];
 
     pub fn de(n: u64) -> Option<Control> {
@@ -116,6 +151,7 @@ impl Control {
             Control::AtarGr => (0xA06F_0104, 4, crate::canal::GR.asa),
             Control::ProgramarGr => (0xA06F_0103, 2, crate::canal::GR.asa),
             Control::FichaGr => (0xC36F_0108, 4, crate::canal::GR.asa),
+            Control::RelojesArriba | Control::RelojesNormales => (PERF_BOOST, 8, SUBDISPOSITIVO),
         }
     }
 
@@ -124,6 +160,13 @@ impl Control {
     /// (`IOMMU_OP_GPU_DIRECTORIO`).
     pub const fn pregunta(self) -> bool {
         matches!(self, Control::Pstate | Control::Motores | Control::Metodos | Control::Ficha | Control::Dispositivos | Control::FichaGr)
+    }
+
+    /// **Los relojes** (C2): un ajuste que se pide SOLO, como una pregunta,
+    /// porque no depende de nada mas que del subdispositivo. Solo estos dos:
+    /// al maximo un rato, o quitarlo.
+    pub const fn relojes(self) -> bool {
+        matches!(self, Control::RelojesArriba | Control::RelojesNormales)
     }
 
     /// Las que ENCIENDEN el canal (L1d2c): solo por su puerta, tras pedirlo.
@@ -152,6 +195,12 @@ impl Control {
             Control::AtarGr => poner(p, 0, crate::canal::GR.motor),
             // bEnable = 1; bSkipSubmit = 0.
             Control::Programar | Control::ProgramarGr => p[0] = 1,
+            // flags, duration (en segundos).
+            Control::RelojesArriba => {
+                poner(p, 0, BOOST_AL_MAXIMO);
+                poner(p, 4, SUBIDA_SEGUNDOS);
+            }
+            Control::RelojesNormales => poner(p, 0, BOOST_QUITAR),
             _ => {}
         }
         medida
@@ -311,6 +360,27 @@ pub fn pstate(mascara: u32) -> Option<u8> {
 
 #[cfg(test)]
 mod pruebas {
+
+    #[test]
+    fn los_relojes_van_con_sus_8_bytes_exactos() {
+        let mut p = [0xAAu8; 8];
+        assert_eq!(Control::RelojesArriba.parametros(&mut p), 8);
+        assert_eq!(p, [2, 0, 0, 0, 60, 0, 0, 0]);
+        assert_eq!(Control::RelojesNormales.parametros(&mut p), 8);
+        assert_eq!(p, [0; 8]);
+        assert_eq!(Control::RelojesArriba.forma(), (0x2080_200A, 8, SUBDISPOSITIVO));
+        // Un ajuste, no una pregunta; y ninguna otra orden es de relojes.
+        assert!(Control::RelojesArriba.relojes() && !Control::RelojesArriba.pregunta());
+        assert_eq!(Control::TODOS.iter().filter(|c| c.relojes()).count(), 2);
+        // Otra duracion (una subida de una hora, o "para siempre") NO es la nuestra.
+        assert!(!Control::RelojesArriba.iguales(&[2, 0, 0, 0, 0x10, 0x0E, 0, 0]));
+        assert!(!Control::RelojesArriba.iguales(&[2, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF]));
+        // Los indices de antes siguen donde estaban.
+        assert_eq!(Control::de(0), Some(Control::Pstate));
+        assert_eq!(Control::de(10), Some(Control::FichaGr));
+        assert_eq!(Control::de(11), Some(Control::RelojesArriba));
+    }
+
     use super::*;
     use crate::rpc::{Mensaje, Suma, CABECERA};
 
@@ -346,7 +416,7 @@ mod pruebas {
         assert_eq!(Control::de(7), Some(Control::Dispositivos));
         assert_eq!(Control::de(8), Some(Control::AtarGr));
         assert_eq!(Control::de(10), Some(Control::FichaGr));
-        assert_eq!(Control::de(11), None);
+        assert_eq!(Control::de(13), None);
         assert!(Control::FichaGr.pregunta() && !Control::FichaGr.del_canal_gr());
         assert!(Control::AtarGr.del_canal_gr() && !Control::AtarGr.del_canal() && !Control::AtarGr.pregunta());
         assert!(Control::Dispositivos.pregunta() && !Control::Dispositivos.del_canal());

@@ -176,6 +176,7 @@ pub(crate) fn fila(s: &mut Output) {
     }
 
     cargador(s);
+    super::gsprelojes::fila(s);
 
     if let Some(u) = ultimo() {
         campo(s, b"pstate");

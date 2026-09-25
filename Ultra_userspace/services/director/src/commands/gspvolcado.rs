@@ -192,18 +192,24 @@ pub(crate) fn fila(s: &mut Output) {
                 s.dec(mbs);
                 s.text(b" MB/s");
                 let l = bmo::info(bmo::INFO_GPU_SALUD | 1 << 8);
+                // ** Contra el TECHO del enlace (LNKCAP), no contra la marcha de
+                // ahora: el RM lo baja a Gen1 en reposo y lo sube al trabajar
+                // (metal 25-09 06:56: "12721 MB/s, el 318% de Gen1" -- la copia
+                // fue en Gen3 y la fila miro despues, ya en reposo).
                 if let Some(e) = bmo_gpu_ga10x::salud::enlace(l as u16, (l >> 32) as u32) {
-                    let techo = bmo_gpu_ga10x::salud::mb_por_segundo(e.gen, e.ancho) as u64;
+                    let techo = bmo_gpu_ga10x::salud::mb_por_segundo(e.gen_max, e.ancho_max) as u64;
                     if techo > 0 {
                         s.text(b", el ");
                         s.dec(mbs * 100 / techo);
-                        s.text(b"% de lo que da el bus (Gen");
-                        s.dec(e.gen as u64);
+                        s.text(b"% del techo del bus (Gen");
+                        s.dec(e.gen_max as u64);
                         s.text(b" x");
-                        s.dec(e.ancho as u64);
+                        s.dec(e.ancho_max as u64);
                         s.text(b": ");
                         s.dec(techo);
-                        s.text(b" MB/s)");
+                        s.text(b" MB/s; al mirar iba en Gen");
+                        s.dec(e.gen as u64);
+                        s.text(b": el RM lo sube y baja solo)");
                     }
                 }
                 s.with_ink(INK_PLAIN);

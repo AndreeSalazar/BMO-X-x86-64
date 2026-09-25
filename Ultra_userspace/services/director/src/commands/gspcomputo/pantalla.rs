@@ -113,6 +113,18 @@ pub(crate) fn dibujar_pantalla() -> Result<u64, u32> {
     guardar(tanda(8, ancho, alto, true))
 }
 
+/// **C2: medir la 3060** con `n` fotogramas de paso (el muestreo de C1):
+/// `Ok((us de la 3060 por fotograma, fps en decimas))`. Pinta en la pantalla
+/// (quien llama la repinta despues).
+pub(crate) fn medir_pantalla(n: u32) -> Result<(u64, u64), u32> {
+    let (ancho, alto) = medidas();
+    let t = tanda(n, ancho, alto, false)?;
+    if !t.bien() {
+        return Err(NO_PANTALLA_MAL);
+    }
+    Ok((t.gpu_us / t.pedidos.max(1) as u64, t.fps10()))
+}
+
 pub(crate) fn pantalla_hecha() -> bool {
     matches!(estado().pantalla, Some(Ok(t)) if t.bien())
 }

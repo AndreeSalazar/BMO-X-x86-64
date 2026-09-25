@@ -30,7 +30,7 @@ mod giro;
 pub(crate) use giro::{dibujar_giro, giro_hecho, orden_giro};
 /// P: la 3060 pinta la pantalla entera.
 mod pantalla;
-pub(crate) use pantalla::{dibujar_pantalla, fotograma, orden_pantalla, pantalla_hecha};
+pub(crate) use pantalla::{dibujar_pantalla, fotograma, medir_pantalla, orden_pantalla, pantalla_hecha};
 pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};
