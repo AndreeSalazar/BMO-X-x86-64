@@ -169,8 +169,13 @@ el driver de NVIDIA, en el mismo silicio".
       centrado y compara su huella. **Como se sabe:** la fila dice `IGUAL, bit
       a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows`, y los us de
       CPU.
-- [ ] **X5 -- el cubo por la 3060, sin Windows.** HECHO en el codigo el
-      25-09, falta el metal: `gpu cubo 3060 [N]`. La 3060 lo dibuja con el
+- [x] **X5 -- el cubo por la 3060, sin Windows.** **VISTO en el Ryzen el
+      25-09 a las 17:08, a la PRIMERA:** `gpu cubo 3060` dijo *fotograma 30:
+      la 3060 en 368 us (4 triangulos); huella 0x2b3985e93e1a6574* e *IGUAL,
+      bit a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows: ahora SIN
+      Windows*; la lectura de vuelta, 2109 ms. La misma huella que D3D12 y que
+      el juez: **cuatro caminos, el mismo numero** (D3D12 en Windows, el juez
+      en Linux, el juez en BMO-X, y la 3060 en BMO-X). `gpu cubo 3060 [N]`. La 3060 lo dibuja con el
       pipeline 3D de T1c DIRECTO en una ventana de 1280x720 de la pantalla (el
       mapa de `gpu pantalla`), y el escritorio lo lee de vuelta. Lo nuevo contra
       T1c: el destino (la pantalla, formato del GOP), el viewport de D3D (640,
@@ -187,6 +192,13 @@ el driver de NVIDIA, en el mismo silicio".
       demas. Si no: `el primero en (x, y)` con lo que dio la 3060 y lo que dice
       el juez; un color con UNA unidad de diferencia es la pregunta de la regla
       4 (el juez con `a_unorm8` exacto dice si era del driver).
+- [ ] **X5c -- el 0 y el 60, y el pixel sin explicar.** `gpu cubo 3060 0` y
+      `gpu cubo 3060 60`, y sobre todo `gpu cubo 3060 32`: en Windows la 3060
+      pinto VERDE el pixel (523, 199) del fotograma 32 y el juez pone el
+      fondo (el unico en 360 fotogramas, seccion 6). **Como se sabe:** si la
+      3060 SIN Windows dice `DISTINTO: 1 pixeles` con `el primero en (523,
+      199): la 3060 ...` verde, el pixel es del SILICIO y no del driver; si
+      dice IGUAL al juez, era de como Windows configuraba el dibujo.
 - [ ] **X5b -- el depth buffer.** Para lo que NO es convexo (dos objetos que
       se tapan): ZETA, su limpieza y el test LESS, y el culling por hardware.
       **Como se sabe:** dos cubos que se cruzan, contra el juez con z-buffer.

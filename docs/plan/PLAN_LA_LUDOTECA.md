@@ -898,8 +898,11 @@ que llama a Windows.
       `gpu cubo [N]`. La historia entera, por que era inesperado y lo que
       abre: [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md). **Como se sabe:** la fila
       `cubo` dice IGUAL contra la huella de D3D12 en la 3060.
-- [ ] **X5 -- `gpu cubo` por la 3060 en BMO-X.** El mismo cubo por AMPERE_B,
-      con la pieza nueva: el depth buffer. Y las 4 preguntas del README de
+- [x] **X5 -- `gpu cubo` por la 3060 en BMO-X.** **VISTO el 25-09 a las
+      17:08:** `gpu cubo 3060` IGUAL, bit a bit, a D3D12 en la 3060, en 368 us
+      y a la primera; sin depth buffer (el cubo es convexo: probado), que paso
+      a X5b de [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md). Lo que se planeo:
+      el mismo cubo por AMPERE_B, con la pieza nueva: el depth buffer. Y las 4 preguntas del README de
       `cubo-neutro`, contestadas con la 3060 SIN Windows (sobre todo la 4: si
       el truncado a 12 bits es del silicio o de como el driver lo configura).
       **Como se sabe:** la fila dice los pixeles contra el juez con
