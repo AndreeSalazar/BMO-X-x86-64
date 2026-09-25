@@ -704,6 +704,22 @@ los save era el kernel esperando a la 3060 UN SEGUNDO sin soltar el CPU: el
 teclado y el raton parados. Ahora gira 20 ms (los trabajos buenos tardan
 30..800 us, la medida no cambia) y despues cede el CPU en cada vuelta.
 
+**MAS CONTRA MESA (25-09):** (1) EXIT es un salto y NAK espera ahi TODA
+barrera abierta (`calc_instr_deps.rs`, `add_barrier`): los AST ahora ponen
+la barrera de lectura 1 y el EXIT la espera (ALD, AST e IPA son de latencia
+variable en NAK, como se habia supuesto). (2) Para un destino LINEAL NVK
+escribe tambien `SET_COLOR_TARGET_LAYER = 0` y `SET_COLOR_COMPRESSION = 0`,
+y exige direccion y fila multiplos de 128 B (se cumple: 0x2_0003_0000 y
+2048): agregados, 433 palabras, validador 0 problemas. (3) T2a confirmado:
+en SM >= 7.0 NAK interpola sin perspectiva con `ScreenLinear` + `IPA.PASS`,
+nada mas. Con PERSPECTIVA (la escena 3D de verdad) multiplica por 1/w con
+`fmul.rtz` detras de cada IPA. (4) Para T2b: en Turing+ Mesa (`nil`) pone
+un Z32_FLOAT en `GENERIC_MEMORY` (kind 6 de la PTE, bits 56..63; el 0 es
+PITCH, el de ahora), bloque-lineal: la profundidad necesita PTE de kind 6,
+no una clase especial. (5) Optimizar la lectura de imagenes (131072
+syscalls por 512 x 512, de 8 en 8 bytes) choca con la regla de que el
+kernel no escribe en la memoria de una app: se deja al propietario.
+
 **T2a preparado (sin atar):** `IPA` (0x326): destino 16..24, atributo/4
 64..74, predicado de salida 81..84 (7 = ninguno), modo 78..79 (0 PASS, 1
 CONSTANT). El de vertice de `ptxas` con dos `AST.128` (a[0x70] la posicion,

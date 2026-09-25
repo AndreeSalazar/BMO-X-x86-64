@@ -65,6 +65,8 @@ use crate::Registros;
 pub const INVALIDATE_SHADER_CACHES: u32 = 0x021c;
 pub const SET_RASTER_ENABLE: u32 = 0x037c;
 pub const SET_CT_MRT_ENABLE: u32 = 0x0fac;
+pub const SET_COLOR_TARGET_LAYER0: u32 = 0x0820;
+pub const SET_COLOR_COMPRESSION0: u32 = 0x19e0;
 pub const SET_RENDER_ENABLE_C: u32 = 0x1558;
 pub const SET_STREAM_OUTPUT: u32 = 0x0744;
 pub const SET_VIEWPORT_SCALE_X0: u32 = 0x0a00;
@@ -151,8 +153,8 @@ pub const CODIGO_VS: [(u64, u64); 17] = [
     (0x3f580000ff007807, 0x000fe40000000000), // SEL R0, RZ, 0.84375, P0
     (0x3f38000005057807, 0x000fe40000800000), // SEL R5, R5, 0.71875, P1
     (0xbf58000000047807, 0x000fca0000800000), // SEL R4, R0, -0.84375, P1
-    (0x00007004ff007322, 0x000fe20000000cff), // AST.128 a[0x70], R4 (dato R4 en 32..40, vertice RZ)
-    (0x000000000000794d, 0x000fea0003800000), // EXIT
+    (0x00007004ff007322, 0x0003e20000000cff), // AST.128 a[0x70], R4 (dato R4 en 32..40, vertice RZ); barrera de lectura 1
+    (0x000000000000794d, 0x002fea0003800000), // EXIT, esperando la barrera 1 (el AST), como NAK
     (0xfffffff000007947, 0x000fc0000383ffff), // BRA . (el relleno de ptxas)
 ];
 
@@ -253,7 +255,7 @@ pub const fn pixel() -> [u32; PALABRAS_PS] {
 
 /// T1a sin su semaforo: el destino, el recorte, la limpieza a magenta.
 pub const PREFIJO: usize = td::ORDENES - 5;
-pub const ORDENES: usize = 415;
+pub const ORDENES: usize = 433;
 
 struct Empuje {
     o: [u32; ORDENES],
@@ -323,6 +325,12 @@ pub fn ordenes_con(semaforo: u64, paga: u32) -> [u32; ORDENES] {
     // para los atributos apagados, nada mas).
     let z = sombreador_va(SUSTITUTO);
     e.paso(SET_VERTEX_STREAM_SUBSTITUTE_A, &[(z >> 32) as u32, z as u32]);
+    // El destino, como lo termina NVK para uno LINEAL (`nvk_cmd_draw.c`): la
+    // capa 0 y SIN compresion (el oro puede traerla encendida, y un destino
+    // en la RAM del PC, en PITCH, no se comprime). Direccion y fila, multiplos
+    // de 128 B: lo que NVK exige para dibujar en lineal sin sombra.
+    e.paso(SET_COLOR_TARGET_LAYER0, &[0]);
+    e.paso(SET_COLOR_COMPRESSION0, &[0]);
     // El viewport 0: escala y desplazamiento de 256 (de -1..1 a 0..512), z
     // de 0 a 1, sin cruzar ejes; y su recorte, el destino entero.
     e.paso(SET_VIEWPORT_SCALE_X0, &[F256, F256, MEDIO, F256, F256, MEDIO, SIN_CRUZAR]);
@@ -409,9 +417,11 @@ pub const VERTICES_PAGA: u32 = 0x7E00;
 /// que va DETRAS del escalon `k`: si el `k` se pago y el `k + 1` no, el
 /// culpable es `NOMBRES[k]`.
 pub const ESCALONES: u64 = SEMAFOROS + 0x300;
-pub const NOMBRES: [&str; 32] = [
+pub const NOMBRES: [&str; 34] = [
     "INVALIDATE_SHADER_CACHES",
     "SET_VERTEX_STREAM_SUBSTITUTE_A/B",
+    "SET_COLOR_TARGET_LAYER(0)",
+    "SET_COLOR_COMPRESSION(0)",
     "SET_VIEWPORT_SCALE/OFFSET/SWIZZLE(0)",
     "SET_VIEWPORT_SCALE_OFFSET",
     "SET_VIEWPORT_CLIP_HORIZONTAL/VERTICAL/MIN_Z/MAX_Z(0)",
@@ -582,6 +592,25 @@ mod pruebas {
     }
 
     #[test]
+    fn exit_espera_a_los_ast() {
+        // Como NAK: EXIT es un salto y espera TODA barrera abierta. Cada AST
+        // pone la barrera de lectura 1 (bits 49..51 de la palabra alta) y
+        // EXIT la espera (mascara en 52..57).
+        let ctrl = |hi: u64| hi >> 41;
+        for cod in [&CODIGO_VS[..], &crate::color3d::CODIGO_VS[..]] {
+            for &(lo, hi) in cod {
+                match lo & 0xFFF {
+                    0x322 => assert_eq!(ctrl(hi) >> 8 & 7, 1, "AST con la barrera de lectura 1"),
+                    0x94d => assert_ne!(ctrl(hi) >> 11 & 0b10, 0, "EXIT espera la barrera 1"),
+                    _ => {}
+                }
+            }
+        }
+        // El destino: direccion y fila multiplos de 128 B (NVK, lineal).
+        assert_eq!((crate::fractal::VA % 128, (LADO * 4) % 128), (0, 0));
+    }
+
+    #[test]
     fn el_culpable() {
         assert_eq!(culpable(0), None);
         assert_eq!(culpable(0b1), Some("INVALIDATE_SHADER_CACHES"));
@@ -590,7 +619,7 @@ mod pruebas {
         assert_eq!(culpable(0b1011), Some("SET_VERTEX_STREAM_SUBSTITUTE_A/B"));
         assert_eq!(culpable((1u64 << N_ESCALONES) - 1), Some("(nada: el estado entero paso)"));
         // Un escalon por metodo: 26 del estado y los 6 huecos, y el de la limpieza.
-        assert_eq!(N_ESCALONES, 1 + 25 + 6);
+        assert_eq!(N_ESCALONES, 1 + 27 + 6);
     }
 
     #[test]
