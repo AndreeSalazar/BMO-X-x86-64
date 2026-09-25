@@ -126,13 +126,16 @@ el driver de NVIDIA, en el mismo silicio".
 
 ## 6. Lo que NO dice, dicho antes
 
-- **1 pixel en 360 fotogramas** sigue sin explicacion.
+- **1 pixel en 360 fotogramas** sigue sin explicacion en la CUENTA, pero
+  ya se sabe de quien es: la 3060 lo pinta igual sin Windows (X5c). Es del
+  silicio; el juez lo lleva apuntado (`referencia::SIN_EXPLICAR`).
 - **Tres huellas, no 360.** El barrido entero se hizo en Windows; aqui se
   fijan tres. Mas capturas = mas huellas (X6).
 - **Solo 1280x720, sin texturas, sin mezcla, sin MSAA.** El juez sabe
   exactamente lo que hace el cubo, y nada mas.
-- **La regla 4 se midio a traves del driver de Windows.** Puede ser del
-  silicio o de su configuracion: por eso es la pregunta de X5.
+- **La regla 4 se midio a traves del driver de Windows.** Contestado el
+  25-09 (X5c): es del SILICIO -- BMO-X configura el ROP sin el driver y
+  trunca igual.
 - **El soft-float de BMO-X es lento**: en el anfitrion el juez hace un
   fotograma en ~29 ms; en el Ryzen lo dira la fila `cubo`.
 
@@ -192,7 +195,22 @@ el driver de NVIDIA, en el mismo silicio".
       demas. Si no: `el primero en (x, y)` con lo que dio la 3060 y lo que dice
       el juez; un color con UNA unidad de diferencia es la pregunta de la regla
       4 (el juez con `a_unorm8` exacto dice si era del driver).
-- [ ] **X5c -- el 0 y el 60, y el pixel sin explicar.** `gpu cubo 3060 0` y
+- [x] **X5c -- el pixel sin explicar y la regla 4: del SILICIO.** **VISTO
+      el 25-09 a las 17:18:** `gpu cubo 3060 32` dio la huella
+      `0x768333a1b90633e2`, 26.236 pixeles distintos del juez exacto, y el
+      primero en (523, 199): la 3060 `0x1e8a1e` (verde), el juez el fondo.
+      Contado aqui: 26.235 son la cara amarilla con el azul en `0x21` y no en
+      `0x22` (la regla 4: truncar a 12 bits), y 1 es ESE pixel. El juez con la
+      regla 4 y ese pixel da **exactamente** esa huella
+      (`referencia::el_modelo_da_lo_que_dibujo_la_3060`). BMO-X configura el
+      ROP y el rasterizador sin el driver de NVIDIA y sale lo mismo que en
+      Windows: **las dos cosas son del silicio**, no de como el driver lo
+      configuraba. Desde ahora `gpu cubo 3060` mide contra ese MODELO
+      (`referencia::como_la_3060`) y dice aparte cuanto difiere el juez exacto.
+      La regla 4 se ve en 37 de los 360 fotogramas (el 23 y el 102, ~77.000
+      pixeles cada uno). Lo que se planeo: `gpu cubo 3060 0` y
+      `gpu cubo 3060 60`, y sobre todo `gpu cubo 3060 32`.
+      (Lo que decia la casilla:) `gpu cubo 3060 0` y
       `gpu cubo 3060 60`, y sobre todo `gpu cubo 3060 32`: en Windows la 3060
       pinto VERDE el pixel (523, 199) del fotograma 32 y el juez pone el
       fondo (el unico en 360 fotogramas, seccion 6). **Como se sabe:** si la

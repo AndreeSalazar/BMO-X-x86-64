@@ -5,8 +5,11 @@
 //!
 //! ```text
 //!    su huella        contra la captura de D3D12 en la 3060 (fotogramas 0, 30, 60)
-//!    cada pixel       contra el juez (cualquier fotograma de 0 a 359)
-//!    el primero malo  donde, lo que dio la 3060 y lo que dice el juez
+//!    cada pixel       contra el MODELO de la 3060 (`referencia::como_la_3060`:
+//!                     el juez con la regla 4 del silicio y el pixel sin
+//!                     explicar), en cualquier fotograma de 0 a 359
+//!    el primero malo  donde, lo que dio la 3060 y lo que dice el modelo
+//!    el juez exacto   cuantos pixeles cambia la regla 4 (lo del silicio)
 //! ```
 //!
 //! Lo que se ve en la ventana es lo que LEYO de la pantalla: los pixeles que
@@ -95,11 +98,16 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         }
     }
     let leer_ms = (bmo::ciclos() - desde) * 1000 / hz;
+    let distinto = |a: &u32, b: &u32| *a & 0x00FF_FFFF != *b & 0x00FF_FFFF;
+    // Dos jueces: el de D3D10 con el redondeo exacto, y el MODELO de la 3060
+    // (la regla 4 del silicio y el pixel sin explicar: visto el 25-09 17:18).
     bmo_cubo::dibujar_por_cpu(bmo_cubo::angulo_de_fotograma(f), w, h, juez);
+    let exactos = gpu.iter().zip(juez.iter()).filter(|(a, b)| distinto(a, b)).count();
+    rf::como_la_3060(f, juez);
     let huella = rf::huella(gpu);
     let d3d = rf::de_la_3060(f);
-    let malos = gpu.iter().zip(juez.iter()).filter(|(a, b)| **a & 0x00FF_FFFF != **b & 0x00FF_FFFF).count();
-    let primero = gpu.iter().zip(juez.iter()).position(|(a, b)| *a & 0x00FF_FFFF != *b & 0x00FF_FFFF);
+    let malos = gpu.iter().zip(juez.iter()).filter(|(a, b)| distinto(a, b)).count();
+    let primero = gpu.iter().zip(juez.iter()).position(|(a, b)| distinto(a, b));
 
     // A la pantalla: lo leido, donde lo dibujo la 3060, y el veredicto.
     p.marcar(x0, y0, w, h);
@@ -117,21 +125,25 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     } else if d3d == Some(huella) {
         (b"IGUAL, bit a bit, a lo que D3D12 dibujo en la RTX 3060 bajo Windows: ahora SIN Windows", VERDE)
     } else if malos == 0 {
-        u.t(b"IGUAL, pixel a pixel, al juez (sin captura de D3D12 para este fotograma)");
+        u.t(b"IGUAL, pixel a pixel, al modelo de la 3060 (el juez con la regla 4 del silicio)");
         (u.s(), VERDE)
     } else {
-        u.t(b"DISTINTO: ").d(malos as u64).t(b" pixeles no son los del juez");
+        u.t(b"DISTINTO: ").d(malos as u64).t(b" pixeles no son los del modelo de la 3060");
         (u.s(), ROJO)
     };
+    // Debajo: el primer pixel malo; o, si no hay, lo que el juez EXACTO no
+    // explica (la regla 4 y los pixeles sin explicar), si algo.
     let mut q = Texto::nuevo();
     if let Some(i) = primero {
         let (x, y) = (i as u32 % w, i as u32 / w);
-        q.t(b"el primero en (").d(x as u64).t(b", ").d(y as u64).t(b"): la 3060 ").x(gpu[i] as u64 & 0xFF_FFFF).t(b", el juez ").x(juez[i] as u64 & 0xFF_FFFF);
+        q.t(b"el primero en (").d(x as u64).t(b", ").d(y as u64).t(b"): la 3060 ").x(gpu[i] as u64 & 0xFF_FFFF).t(b", el modelo ").x(juez[i] as u64 & 0xFF_FFFF);
+    } else if exactos > 0 {
+        q.t(b"el juez exacto difiere en ").d(exactos as u64).t(b": la regla 4 y lo sin explicar, del SILICIO");
     }
     let yt = p.alto.saturating_sub(120);
     p.texto_bytes(40, yt, t.s(), CLARO);
     p.texto_bytes(40, yt + 24, veredicto, color);
-    if primero.is_some() {
+    if !q.s().is_empty() {
         p.texto_bytes(40, yt + 48, q.s(), TENUE);
     }
     p.texto_bytes(40, p.alto.saturating_sub(40), b"pulsa cualquier tecla para volver al escritorio", TENUE);
@@ -146,7 +158,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     g.text(b"\n              ");
     g.text(veredicto);
     g.byte(b'\n');
-    if primero.is_some() {
+    if !q.s().is_empty() {
         g.text(b"              ");
         g.text(q.s());
         g.byte(b'\n');

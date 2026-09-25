@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   344 casillas ABIERTAS en 40 planes
-   290 hechas
+   343 casillas ABIERTAS en 40 planes
+   291 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -319,14 +319,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 6. ENTREGAR EN CERO. Mover el borrado del devolver al entregar, UNA
 - ... y 1 mas
 
-## [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md) -- 3 abiertas, 3 hechas
-
-*PLAN EL CUBO -- lo que salio de estudiar Direct3D, y por que era inesperado*
-
-- [ ] X5c -- el 0 y el 60, y el pixel sin explicar. gpu cubo 3060 0 y
-- [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
-- [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
-
 ## [`PLAN_EL_SILICIO.md`](PLAN_EL_SILICIO.md) -- 3 abiertas, 5 hechas
 
 *PLAN EL SILICIO*
@@ -357,6 +349,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] A1 -- SET_INTERFACE -- ⛔ EL RYZEN LO NEGO. Corregido el 26-08, sin ejecutar
 - [ ] A1 SET_INTERFACE EL METAL LO NEGO; corregido 26-08
+
+## [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md) -- 2 abiertas, 4 hechas
+
+*PLAN EL CUBO -- lo que salio de estudiar Direct3D, y por que era inesperado*
+
+- [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
+- [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
 
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 
