@@ -447,18 +447,16 @@ int main(){ v[1].a=8; v[1].b=9; printf(\"%d %d\", dame(1)->a, dame(1)->b); retur
 par_t *dame(int i){ return &v[i]; }"), "8 9");
 }
 
-/// [!] LIMITE DECLARADO: un `double` GLOBAL no esta soportado, y el compilador
-/// lo dice con esas palabras --*"usa locales"*--. Tampoco bloquea a DOOM: su
-/// render es de enteros de punto fijo, sin un solo flotante.
-#[test] fn s8_un_double_global_se_rechaza_diciendolo() {
-    // [!] DECLARARLO compila; lo que se rechaza es USARLO. La primera version
-    // de esta casilla solo lo declaraba y pasaba en verde sin comprobar nada --
-    // una casilla que no ejerce lo que dice su nombre.
-    let e = crate::compile_source_to_bef(
-        "double d = 0;
-         int main() { d = 2.5; printf(\"%d\", (int)(d * 2)); return 0; }",
-    ).expect_err("hoy no se soporta");
-    assert!(e.message.contains("aun no soportada"), "tiene que decirlo: {}", e.message);
+/// ** EL LIMITE CAYO (25-09, sonda de Quake), y la casilla se da la vuelta:
+/// un `double` GLOBAL se lee, se ESCRIBE y vale lo que se le dio. Hasta ese
+/// dia se rechazaba diciendo *"usa locales"*; Quake esta lleno de flotantes
+/// globales, y DOOM no tenia ninguno.
+#[test] fn s8_un_double_global_se_escribe_y_se_lee() {
+    assert_eq!(run_c("double d = 0;
+int main() { d = 2.5; printf(\"%d\", (int)(d * 2)); return 0; }"), "5");
+    // Y un entero en un global flotante vale 1.0, no los bits del entero 1.
+    assert_eq!(run_c("float f = 1;
+int main() { printf(\"%d\", (int)(f * 10)); return 0; }"), "10");
 }
 
 // == SONDA `R_ClearClipSegs`: la lista de recorte del BSP, literal ==========

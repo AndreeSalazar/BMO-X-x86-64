@@ -488,6 +488,14 @@ impl Parser {
         if *self.peek() == Token::OpenParen
             && self.tokens.get(self.pos + 1) == Some(&Token::Star)
         {
+            // ** Un puntero a funcion que devuelve un FLOTANTE (sonda de
+            // Quake, 25-09): su tipo es opaco (`Ptr(Void)`) y el retorno se
+            // pierde, asi que la llamada leeria `rax` en vez de `xmm0` -- un
+            // numero cualquiera, sin error. Hasta que el tipo lleve su
+            // retorno, se dice NO aqui.
+            if matches!(typ, TypeSpec::Float | TypeSpec::Double) {
+                return Err(CError::new(self.line(), "un puntero a funcion que devuelve float/double aun no: su llamada leeria el resultado del registro equivocado (rax, no xmm0)".to_string()));
+            }
             match self.parse_fnptr_tail() {
                 Ok((fname, ftyp)) => {
                     if *self.peek() != Token::Semicolon && *self.peek() != Token::Assign {
@@ -818,6 +826,10 @@ impl Parser {
         if *self.peek() == Token::OpenParen
             && self.tokens.get(self.pos + 1) == Some(&Token::Star)
         {
+            // Ver `try_parse_decl`: el retorno flotante se perderia.
+            if matches!(typ, TypeSpec::Float | TypeSpec::Double) {
+                return Err(CError::new(self.line(), "un puntero a funcion que devuelve float/double aun no: su llamada leeria el resultado del registro equivocado (rax, no xmm0)".to_string()));
+            }
             let (fname, ftyp) = self.parse_fnptr_tail()?;
             return Ok((ftyp, fname));
         }

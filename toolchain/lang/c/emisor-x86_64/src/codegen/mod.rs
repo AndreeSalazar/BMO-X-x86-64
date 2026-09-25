@@ -494,6 +494,21 @@ impl Codegen {
                             continue;
                         }
                     }
+                    // ** UN FLOTANTE en la tabla (sonda de Quake, 25-09):
+                    // `vec3_t vec3_origin = {0,0,0}` y las tablas de luz. Sus
+                    // bytes IEEE con el ancho del elemento; un `1` entero en un
+                    // `float` vale 1.0, no sus bits.
+                    if Self::is_float_ty(&e.tipo) {
+                        if let Some(v) = Self::constante_flotante(&e.valor) {
+                            let destino = off as usize + e.offset as usize;
+                            for (i, b) in Self::bytes_flotantes(v, &e.tipo).into_iter().enumerate() {
+                                if destino + i < self.global_data.len() {
+                                    self.global_data[destino + i] = b;
+                                }
+                            }
+                            continue;
+                        }
+                    }
                     let Some(valor) = decidir::plegado::constante_de(&e.valor) else {
                         self.errors.push(format!(
                             "en la tabla global '{name}', el valor del offset {} no es una \
@@ -562,6 +577,18 @@ impl Codegen {
                 // hacer esto": es un valor legitimo, asi que el error viaja
                 // hasta donde ya no se puede rastrear.
                 let literal = init.as_ref().and_then(|e| decidir::plegado::constante_de(&e));
+                // ** Un global FLOTANTE con cualquier constante plegable
+                // (sonda de Quake, 25-09): `float f = 1;` escribia los BITS
+                // del entero 1 (1.4e-45 como float). Ahora vale 1.0.
+                let flotante = init.as_ref().filter(|_| Self::is_float_ty(typ)).and_then(|e| Self::constante_flotante(e));
+                if let Some(v) = flotante {
+                    let bytes = Self::bytes_flotantes(v, typ);
+                    for k in 0..size {
+                        self.global_data.push(*bytes.get(k as usize).unwrap_or(&0));
+                    }
+                    self.global_offsets.insert(name.clone(), (off, typ.clone()));
+                    continue;
+                }
                 match (init, literal) {
                     (_, Some(n)) => {
                         let bytes: Vec<u8> = match size {
@@ -1324,6 +1351,16 @@ impl Codegen {
                 let bytes = self.type_stack_size(typ);
                 self.emit_cero_local(base, bytes);
                 for e in escrituras {
+                    // ** UN FLOTANTE, POR SU RUTA (sonda de Quake, 25-09):
+                    // `vec3_t v = {1.5f, 2, 0.5f}` quedaba a CERO -- el valor
+                    // iba por el camino entero, donde un `FloatLit` no deja
+                    // nada en `rax`. Lo mismo que `emit_guardar_flotante` ya
+                    // cuenta para los otros cinco destinos.
+                    if Self::is_float_ty(&e.tipo) {
+                        self.emit_fexpr_operand(&e.valor);
+                        self.store_float_rbp(base + e.offset as i32, &e.tipo);
+                        continue;
+                    }
                     self.emit_expr(&e.valor);
                     self.emit_store_rbp(base + e.offset as i32, &e.tipo);
                 }

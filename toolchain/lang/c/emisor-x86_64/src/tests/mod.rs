@@ -122,6 +122,8 @@ mod varargs_de_doom;
 /// The census HARNESS: sweep a matrix of cells and compare the whole report.
 /// Shared by all seven probes below.
 mod census;
+/// L2 de PLAN_LA_LUDOTECA: lo que Quake pide a la coma flotante, ejecutado.
+mod sonda_quake;
 /// CONTAINER x OPERATION -- the census of what BMO C can do. 28 cells, green.
 mod probe_language;
 /// LAYOUT -- where each field falls and how big the aggregate is, measured

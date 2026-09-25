@@ -361,5 +361,15 @@ software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
       compilado a `.bex` como DOOM, con `heretic.wad` o `hexen.wad` de GOG.
       **Como se sabe:** el primer nivel se juega en el Ryzen.
 - [ ] **L2 -- el jefe 3: Quake por software.** WinQuake con BMO C, y
-      `id1/pak0.pak` de GOG. **Como se sabe:** `start.bsp` se recorre en el
+      `id1/pak0.pak` (el del shareware basta: id lo dejo repartir). Paso 1,
+      la coma flotante de BMO C, en marcha el 25-09: la SONDA DE QUAKE
+      (`toolchain/lang/c/emisor-x86_64/src/tests/sonda_quake.rs`) ejecuta lo
+      que pide su `mathlib.c` -- `vec3_t`, `DotProduct`, `CrossProduct`,
+      structs, globales, ternarios, asignaciones compuestas -- y encontro
+      CINCO fallos del compilador, todos arreglados: el ternario flotante
+      tumbaba el compilador, un `float` local con `{...}` quedaba a cero,
+      `t[i] *= 2` y `p->x += y` daban cero, los globales flotantes no se
+      escribian, y `float f = 1;` global valia 1.4e-45. 14 de 15 casos; falta
+      `printf("%f")`. Paso 2: `math.h` (`sqrt`, `sin`, `cos`, `atan2`,
+      `floor`...) con la MISMA tabla que el emisor de SPIR-V. **Como se sabe:** `start.bsp` se recorre en el
       Ryzen, y el `[perf]` dice los fps de la CPU.

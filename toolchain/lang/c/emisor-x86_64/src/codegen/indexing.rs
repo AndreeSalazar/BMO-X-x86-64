@@ -442,6 +442,9 @@ impl Codegen {
         // El tipo del elemento decide el ancho del load y del store. Sacarlo del
         // lvalue y no suponer 8 bytes es lo que evita pisar el campo de al lado.
         let elem = self.tipo_del_lvalue(lvalue);
+        if Self::is_float_ty(&elem) {
+            return self.emit_assign_op_flotante(lvalue, kind, rhs, &elem);
+        }
 
         // 1. La direccion, UNA vez. Los efectos secundarios del lvalue --el
         //    `i++` de `a[i++]`-- ocurren aqui y solo aqui.
@@ -466,6 +469,54 @@ impl Codegen {
         self.code.push(0x58);                             // pop rax       (direccion)
         self.emit_store_elem(&elem);
         self.code.extend_from_slice(&[0x48, 0x89, 0xD0]); // mov rax, rdx  (el valor)
+    }
+
+    /// ** `t[i] *= 2`, `p->x += 0.5f`, `*q -= y` con un FLOTANTE (sonda de
+    /// Quake, 25-09): iban por el camino entero y daban CERO -- el valor viejo
+    /// se leia con `mov` (sus bits como entero) y el nuevo se guardaba igual.
+    /// Mismo orden que el entero: la direccion UNA vez, el viejo, el derecho,
+    /// la operacion en `double` y el guardado con el ancho del lugar. Deja el
+    /// resultado en `xmm0` (y truncado en `rax`, por si lo mira un contexto
+    /// entero).
+    fn emit_assign_op_flotante(&mut self, lvalue: &Expr, kind: AssignOpKind, rhs: &Expr, elem: &TypeSpec) {
+        let op: &[u8] = match kind {
+            AssignOpKind::Add => &[0xF2, 0x0F, 0x58, 0xC1], // addsd xmm0,xmm1
+            AssignOpKind::Sub => &[0xF2, 0x0F, 0x5C, 0xC1], // subsd
+            AssignOpKind::Mul => &[0xF2, 0x0F, 0x59, 0xC1], // mulsd
+            AssignOpKind::Div => &[0xF2, 0x0F, 0x5E, 0xC1], // divsd
+            _ => {
+                self.errors.push("en coma flotante solo hay `+=`, `-=`, `*=` y `/=`: `%=` y los de bits piden enteros (C11 6.5.16.2)".to_string());
+                return;
+            }
+        };
+        let f32 = matches!(elem, TypeSpec::Float);
+        // 1. La direccion, UNA vez.
+        self.emit_lvalue_addr(lvalue);
+        self.code.push(0x50); // push direccion
+        // 2. El viejo, como double, a la pila.
+        if f32 {
+            self.code.extend_from_slice(&[0xF3, 0x0F, 0x10, 0x00]); // movss xmm0,[rax]
+            self.code.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0,xmm0
+        } else {
+            self.code.extend_from_slice(&[0xF2, 0x0F, 0x10, 0x00]); // movsd xmm0,[rax]
+        }
+        self.code.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]);       // sub rsp,8
+        self.code.extend_from_slice(&[0xF2, 0x0F, 0x11, 0x04, 0x24]); // movsd [rsp],xmm0
+        // 3. El derecho, y la operacion: xmm0 = viejo OP derecho.
+        self.emit_fexpr_operand(rhs);
+        self.code.extend_from_slice(&[0xF2, 0x0F, 0x10, 0xC8]);       // movsd xmm1,xmm0
+        self.code.extend_from_slice(&[0xF2, 0x0F, 0x10, 0x04, 0x24]); // movsd xmm0,[rsp]
+        self.code.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);       // add rsp,8
+        self.code.extend_from_slice(op);
+        // 4. Guardar en la direccion guardada, con su ancho.
+        self.code.push(0x58); // pop rax (direccion)
+        if f32 {
+            self.code.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC8]); // cvtsd2ss xmm1,xmm0
+            self.code.extend_from_slice(&[0xF3, 0x0F, 0x11, 0x08]); // movss [rax],xmm1
+        } else {
+            self.code.extend_from_slice(&[0xF2, 0x0F, 0x11, 0x00]); // movsd [rax],xmm0
+        }
+        self.code.extend_from_slice(&[0xF2, 0x48, 0x0F, 0x2C, 0xC0]); // cvttsd2si rax,xmm0
     }
 
     /// La direccion de un lvalue, sea de la forma que sea. Reusa los mismos

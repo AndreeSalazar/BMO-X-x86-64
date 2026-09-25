@@ -83,6 +83,45 @@ impl Codegen {
         }
     }
 
+    /// ** EL VALOR DE UNA CONSTANTE FLOTANTE, plegada al compilar (sonda de
+    /// Quake, 25-09): `1.5f`, `-0.5`, `1` (un entero en un `float`: vale 1.0,
+    /// no sus bits), `(float)2`, y `+ - * /` entre ellas (`1.0/3`). `None`
+    /// si no es una constante. Lo usan los globales y sus tablas: UN sitio
+    /// que sabe plegar, no tres.
+    pub(super) fn constante_flotante(e: &Expr) -> Option<f64> {
+        match e {
+            Expr::FloatLit(f) => Some(*f),
+            Expr::Neg(a) => Self::constante_flotante(a).map(|v| -v),
+            Expr::Cast(_, a) => Self::constante_flotante(a),
+            Expr::Add(a, b) => Some(Self::constante_flotante(a)? + Self::constante_flotante(b)?),
+            Expr::Sub(a, b) => Some(Self::constante_flotante(a)? - Self::constante_flotante(b)?),
+            Expr::Mul(a, b) => Some(Self::constante_flotante(a)? * Self::constante_flotante(b)?),
+            Expr::Div(a, b) => Some(Self::constante_flotante(a)? / Self::constante_flotante(b)?),
+            otro => super::decidir::plegado::constante_de(otro).map(|n| n as f64),
+        }
+    }
+
+    /// Los bytes IEEE de `v` con el ancho de `tipo` (4 un `float`, 8 un `double`).
+    pub(super) fn bytes_flotantes(v: f64, tipo: &TypeSpec) -> Vec<u8> {
+        if matches!(tipo, TypeSpec::Float) {
+            (v as f32).to_bits().to_le_bytes().to_vec()
+        } else {
+            v.to_bits().to_le_bytes().to_vec()
+        }
+    }
+
+    /// Guarda xmm0 (double) en `[rbp+off]` con el ancho de `tipo` (un
+    /// `float` se estrecha antes con `cvtsd2ss`).
+    pub(super) fn store_float_rbp(&mut self, off: i32, tipo: &TypeSpec) {
+        if matches!(tipo, TypeSpec::Float) {
+            self.code.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0,xmm0
+            self.code.extend_from_slice(&[0xF3, 0x0F, 0x11]);       // movss [rbp+off],xmm0
+        } else {
+            self.code.extend_from_slice(&[0xF2, 0x0F, 0x11]);       // movsd [rbp+off],xmm0
+        }
+        self.emit_rbp_disp(off);
+    }
+
     /// Guarda xmm0 (double) en una variable float/double del stack.
     pub(super) fn store_float_var(&mut self, name: &str) {
         if let Some(&(off, ref typ)) = self.var_offsets.get(name) {
@@ -96,8 +135,24 @@ impl Codegen {
                 self.code.extend_from_slice(&[0xF2, 0x0F, 0x11]);       // movsd [rbp+off],xmm0
                 self.emit_rbp_disp(off);
             }
+        } else if let Some(&(_, ref typ)) = self.global_offsets.get(name) {
+            // ** Y ESCRIBIRLO (sonda de Quake, 25-09): el global ya se LEIA
+            // (ver `emit_load_float_var`); guardar era "usa locales". La
+            // misma `lea` rip-relativa, y el store con su ancho.
+            let is_f32 = matches!(typ, TypeSpec::Float);
+            if is_f32 {
+                self.code.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]);    // cvtsd2ss xmm0,xmm0
+            }
+            self.code.extend_from_slice(&[0x48, 0x8D, 0x05, 0, 0, 0, 0]); // lea rax,[rip+g]
+            self.global_fixups.push((self.code.len() - 4, name.to_string()));
+            if is_f32 {
+                self.code.extend_from_slice(&[0xF3, 0x0F, 0x11, 0x00]);    // movss [rax],xmm0
+                self.code.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]);    // cvtss2sd: xmm0 vuelve a double
+            } else {
+                self.code.extend_from_slice(&[0xF2, 0x0F, 0x11, 0x00]);    // movsd [rax],xmm0
+            }
         } else {
-            self.errors.push(format!("variable float global '{name}' aun no soportada (usa locales)"));
+            self.errors.push(format!("variable float '{name}' no esta declarada"));
         }
     }
 
@@ -264,8 +319,33 @@ impl Codegen {
             Expr::Sub(a, b) => self.emit_fbinop(a, b, &[0xF2, 0x0F, 0x5C, 0xC1]), // subsd
             Expr::Mul(a, b) => self.emit_fbinop(a, b, &[0xF2, 0x0F, 0x59, 0xC1]), // mulsd
             Expr::Div(a, b) => self.emit_fbinop(a, b, &[0xF2, 0x0F, 0x5E, 0xC1]), // divsd
+            // ** EL TERNARIO (sonda de Quake, 25-09): `a > b ? a : b` con
+            // flotantes MATABA al compilador -- el tercero de la misma familia
+            // que cuentan los dos brazos de arriba: `expr_is_float` decia que
+            // SI, aqui no habia brazo, el comodin volvia a preguntar.
+            Expr::Conditional(c, t, f) => {
+                let else_lbl = self.fresh_label();
+                let end_lbl = self.fresh_label();
+                self.emit_test_cond(c, else_lbl);
+                self.emit_fexpr_operand(t);
+                self.emit_jmp_reloc(end_lbl);
+                self.resolve_label(else_lbl);
+                self.emit_fexpr_operand(f);
+                self.resolve_label(end_lbl);
+            }
+            // *** Y EL COMODIN YA NO PUEDE LLAMARSE A SI MISMO. Tres veces la
+            // misma caida (intrinsecos, lugares, ternario): una forma que
+            // `expr_is_float` llama flotante y que aqui no tiene brazo. Ahora
+            // eso es un ERROR con nombre, no una pila desbordada -- y la
+            // cuarta forma que falte lo dira ella sola.
+            _ if self.expr_is_float(e) => {
+                self.errors.push("coma flotante: esta forma de expresion aun no tiene ruta SSE (el comodin de `emit_fexpr` no la sabe)".to_string());
+            }
             // cualquier otra cosa: es entera -> convertir a double
-            _ => self.emit_fexpr_operand(e),
+            _ => {
+                self.emit_expr(e);          // rax = valor entero
+                self.emit_int_to_double();  // xmm0 = (double) rax
+            }
         }
     }
 

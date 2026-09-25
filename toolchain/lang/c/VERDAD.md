@@ -266,7 +266,9 @@ suposiciones.
 |---|---|---|
 | **Devolver structs** | `q = haz()` con el puntero oculto en `rdi` | Hoy se rechaza con motivo |
 | **`scanf` de varias conversiones** | `%d %d` de una linea | Hoy se rechaza pidiendo partirlo |
-| **Floats globales** y como argumento | Ruta `xmm` en los bordes | Diferido con error honesto |
+| ~~Floats globales~~ | HECHO el 25-09 (sonda de Quake): se leen, se escriben, y sus tablas se inicializan con sus bytes IEEE | -- |
+| **`printf("%f")`** | Convertir un `double` a decimal en la ejecucion | Hoy se rechaza con motivo |
+| **Punteros a funcion que devuelven float** | El tipo del puntero tiene que llevar su retorno | Hoy se rechaza con motivo (antes daba 0) |
 | **Invocacion de macro en varias lineas** | Juntar las lineas antes de expandir | Hoy se dice, no se adivina |
 
 ---
