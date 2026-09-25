@@ -678,3 +678,92 @@ caja de la Ludoteca.
       con nombres largos. **Como se sabe:** `valve/` de Half-Life copiada y
       su arbol igual, fichero a fichero, con su suma.
 
+
+## 14. FRAPS-X, y la grabacion por NVENC (25-09)
+
+El propietario: *"FRAPS + OBS propio + Action!, los 3 fusionados, exclusivo en
+BMO-X"*, y despues *"como que no se puede con la 3060? investigar!"*.
+
+**Hecho:** el contador y el banco (`platform/shared/bmo-fraps`, 8 pruebas;
+`desktop::fraps` y `scene::fraps` en el DIRECTOR). Mide lo de delante --la app
+a pantalla completa, la del foco o el escritorio-- por la secuencia de su
+superficie, y se pinta encima de todo, un juego a pantalla completa incluido.
+`Ctrl+Shift+F` lo pone y lo mueve de esquina; `Ctrl+Shift+B` hace el banco
+(minimo, media, maximo, 1 % y 0,1 % bajos) a `capturas/banNNNNN.csv`. Las
+capturas (Impr Pant, PNG propio) ya existian.
+
+### NVENC en la 3060: SI es razonable, y lo que cambio
+
+Lo que decia el 25-09 al principio del dia --*"su interfaz es cerrada"*-- era lo que
+sabia de memoria, y **estaba viejo**. Leido hoy:
+
+```text
+   open-gpu-doc  classes/video/clc7b7.h     la clase NVENC de Ampere (GA10x):
+                                            sus metodos (SET_IN_CUR_PIC,
+                                            SET_OUT_BITSTREAM, EXECUTE...)
+                 classes/video/nvenc_drv.h  3.830 lineas, licencia MIT,
+                                            publicado 2026-06-09: las
+                                            estructuras que lee el motor
+                                            (pic_setup de H.264 y H.265,
+                                            control de ritmo, estado), y
+                                            NV_NVENC_DRV_MAGIC 0xC7B70006
+                                            para NVENC 7.3 = la 3060
+   open-gpu-kernel-modules  resource_list.h  NVC7B7_VIDEO_ENCODER se reserva
+                                            DEBAJO DE UN CANAL, sin privilegio:
+                                            el mismo camino que ya recorren el
+                                            motor de copia y el de computo
+   el metal (PLAN_LA_3060)                  GET_ENGINES_V2 ya devolvio NVENC0
+```
+
+Lo que el motor pide: la imagen en **NV12** (luma + croma, lineal por bloques o
+en teselas de 16x16); el motor escribe la cabecera de cada slice y sus datos, y
+la SPS/PPS las escribe el software. H.264 y H.265 en la 3060 (AV1 es de la
+serie 40).
+
+Y por que es la buena para BMO-X, que no es Windows: **OBS sin NVIDIA usa x264,
+que es la CPU**, y aqui hoy corre un nucleo que tambien es el del juego. NVENC es
+silicio aparte: no le quita ni un ciclo a la CPU ni a los nucleos de la GPU. Y
+el fotograma YA esta en la VRAM: el volcado lo sube cada fotograma.
+
+- [ ] **N1 -- el motor responde.** Un canal en el runlist de NVENC0, el objeto
+      `NVC7B7_VIDEO_ENCODER`, un `NOP` y un semaforo. La lista blanca del
+      contrato y `la_3060.py` lo aceptan con su motivo. **Como se sabe:** `gpu
+      nvenc` dice que el semaforo llego; si el GSP pide un ucode del motor que
+      no trae, se dice con el codigo que devuelve.
+- [ ] **N2 -- una imagen.** El escritorio a NV12 por el motor de computo, una
+      IDR con QP fijo, la SPS/PPS escritas aqui. **Como se sabe:** un `.h264`
+      en `capturas/` que VLC abre en Windows.
+- [ ] **N3 -- un video.** P-frames con su referencia y control de ritmo, 60
+      por segundo. **Como se sabe:** FRAPS-X graba un minuto de DOOM y el banco
+      de ese minuto no baja.
+- [ ] **N4 -- el contenedor.** `.mp4` (o `.mkv`) propio, para que lo abra
+      cualquiera.
+
+## 15. La BRECHA REAL del C propio: vkQuake 0.50 compilado (25-09)
+
+El propietario: *"tomar lo que mi C tiene y el C de tercero, para madurar"*.
+`toolchain/lang/c/BRECHA.md` mide 32 de 32 **sondas**, programas chicos
+escritos aqui. Esto es el otro lado: el C de un juego de verdad, fichero a
+fichero, con `c -c` y apuntando el PRIMER error de cada uno. Medido hoy:
+
+```text
+   capa                                         ficheros que para (de 82)
+   1  cabeceras del sistema (sys/types.h...)    78   -> vacias de relleno
+   2  sizeof en la medida de un array           70   el COMPILE_TIME_ASSERT de
+      (typedef int x[(sizeof(char)==1)*2-1])         q_stdinc.h: TODO el juego
+   3  puntero a funcion que devuelve float      70   el propio compilador lo
+                                                     dice: leeria rax, no xmm0
+   -  #if con macros de SDL, size_t             12   API, no lenguaje
+```
+
+Lo que se aprende: **dos rasgos del lenguaje paran el 85 % de un juego entero**,
+y ninguna sonda los pedia. Una sonda mide lo que alguien penso; un juego mide lo
+que hace falta.
+
+- [ ] **C1 -- la brecha real, generada.** `c-gen` pela capa a capa un corpus
+      (vkQuake 0.50 primero; Quake, Quake 2 y OpenBW despues) y escribe la
+      tabla en `BRECHA.md`, al lado de las sondas. **Como se sabe:** la tabla
+      sale sola y sube cuando se arregla una capa.
+- [ ] **C2 -- las dos primeras capas del lenguaje:** `sizeof` en una expresion
+      constante, y el puntero a funcion que devuelve `float`/`double` (el
+      valor en `xmm0`). **Como se sabe:** la capa 2 y la 3 bajan de 70 a 0.
