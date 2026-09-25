@@ -416,6 +416,9 @@ pub(crate) const IOMMU_OP_GSP_CERRAR: u64 = 0x3C;
 pub(crate) const IOMMU_OP_GSP_DESCARGAR: u64 = 0x3D;
 /// L0c5: como va el apagado, leido en vivo.
 pub(crate) const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
+/// M5d P: un fotograma de la pantalla entera, pintado por la 3060 en el
+/// framebuffer del GOP. Ver `dev/gpu_trabajo/pantalla.rs`.
+pub(crate) const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///

@@ -858,6 +858,14 @@ pub const IOMMU_OP_GSP_DESCARGAR: u64 = 0x3D;
 /// arrancado, 6 SEC2 parado, 7 HECHO (la WPR2 abajo); 8..23 el error de SB;
 /// 32..63 el MAILBOX0 del falcon que toque.
 pub const IOMMU_OP_GSP_APAGADO: u64 = 0x3E;
+/// M5d P: UN fotograma de la pantalla ENTERA, pintado por la 3060
+/// directamente en el framebuffer del GOP (en su VRAM), a la resolucion del
+/// GOP. `arg1` = la ficha de S3 (bits 0..31), el fotograma (32..55) y el bit
+/// 56 para cargar el programa (el primero de cada tanda). `Ok` =
+/// `pantalla::empaquetar(..)`: las muestras iguales a la CPU (de 1024).
+pub const IOMMU_OP_GPU_PANTALLA: u64 = 0x3F;
+/// El bit 56 de `IOMMU_OP_GPU_PANTALLA`: cargar el programa, el QMD y las ordenes.
+pub const PANTALLA_CARGAR: u64 = 1 << 56;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
@@ -1017,6 +1025,9 @@ pub const IOMMU_NO_BLUR_PREPARAR: u32 = 79;
 /// L0c5: el GSP no esta en el paso de antes del apagado (sin despertar, sin
 /// despedir, sin FWSEC-SB), o ese paso ya se dio; tras despedir, toda RPC.
 pub const IOMMU_NO_APAGAR: u32 = 80;
+/// M5d P: BAR1 no esta en modo fisico (sin `gpu init`), el framebuffer del
+/// GOP no cae dentro de BAR1 y por debajo de 64 MiB de VRAM, o no se mapeo.
+pub const IOMMU_NO_PANTALLA: u32 = 81;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

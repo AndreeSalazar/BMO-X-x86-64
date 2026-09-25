@@ -351,6 +351,12 @@ pub const IOMMU_NO_SISTEMA_YA: u32 = 49;
 
 /// Una BAR de memoria del espacio de configuracion, con su mitad alta si es de
 /// 64 bits. `0` si es de E/S.
+/// Donde esta BAR1 en el espacio fisico del PC (M5d P: la pantalla en la
+/// VRAM es `fb - BAR1`). `0` sin 3060.
+pub fn bar1() -> u64 {
+    crate::ring0::dev::gpu::bdf().map_or(0, |(bus, dev, func)| barra(bus, dev, func, 0x14))
+}
+
 fn barra(bus: u8, dev: u8, func: u8, off: u8) -> u64 {
     let pci = crate::ring0::dev::pci::cfg_read32;
     let bajo = pci(bus, dev, func, off);

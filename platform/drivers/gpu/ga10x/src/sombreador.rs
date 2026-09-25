@@ -137,6 +137,12 @@ pub fn qmd() -> [u32; QMD_PALABRAS] {
 /// de `hilos` x 1 x 1, el programa en `programa` y RELEASE0 con `paga` en
 /// `sem` al acabar la rejilla.
 pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32, registros: u32) -> [u32; QMD_PALABRAS] {
+    qmd_rejilla(programa, hilos, bloques, 1, sem, paga, registros)
+}
+
+/// **Un QMD V03_00 con rejilla de DOS dimensiones**: `bloques` x `filas` x 1
+/// (M5d P: la pantalla entera, una fila de bloques por linea).
+pub fn qmd_rejilla(programa: u64, hilos: u32, bloques: u32, filas: u32, sem: u64, paga: u32, registros: u32) -> [u32; QMD_PALABRAS] {
     let mut q = [0u32; QMD_PALABRAS];
     campo(&mut q, 133, 128, 0x3F); // QMD_GROUP_ID (el de NVK)
     campo(&mut q, 134, 134, 1); // SM_GLOBAL_CACHING_ENABLE
@@ -146,7 +152,7 @@ pub fn qmd_con(programa: u64, hilos: u32, bloques: u32, sem: u64, paga: u32, reg
     campo(&mut q, 369, 368, 1); // CWD_MEMBAR_TYPE L1_SYSMEMBAR
     campo(&mut q, 378, 378, 1); // API_VISIBLE_CALL_LIMIT NO_CHECK
     campo(&mut q, 415, 384, bloques as u64); // CTA_RASTER_WIDTH
-    campo(&mut q, 431, 416, 1); // CTA_RASTER_HEIGHT
+    campo(&mut q, 431, 416, filas as u64); // CTA_RASTER_HEIGHT
     campo(&mut q, 463, 448, 1); // CTA_RASTER_DEPTH
     // Memoria compartida: 0 B; la config de la SM, 8 KiB (8K / 4K + 1).
     campo(&mut q, 567, 562, 3); // MIN_SM_CONFIG_SHARED_MEM_SIZE

@@ -28,6 +28,9 @@ mod pipeline3d;
 /// G: la esfera que gira y bota.
 mod giro;
 pub(crate) use giro::{dibujar_giro, giro_hecho, orden_giro};
+/// P: la 3060 pinta la pantalla entera.
+mod pantalla;
+pub(crate) use pantalla::{dibujar_pantalla, orden_pantalla, pantalla_hecha};
 pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};
@@ -76,6 +79,8 @@ struct Computo {
     color3d: Option<Result<u64, u32>>,
     /// G: la esfera que gira, sus 32 fotogramas.
     giro: Option<Result<giro::Vuelta, u32>>,
+    /// P: la ultima tanda a pantalla completa.
+    pantalla: Option<Result<pantalla::Tanda, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -118,6 +123,8 @@ pub(crate) const NO_RASTER_MAL: u32 = 0x142;
 pub(crate) const NO_COLOR3D_MAL: u32 = 0x143;
 /// Un fotograma de la esfera que gira no salio igual que la CPU (la fila `giro`).
 pub(crate) const NO_GIRO_MAL: u32 = 0x144;
+/// Un fotograma a pantalla completa no salio igual que la CPU (la fila `pantalla`).
+pub(crate) const NO_PANTALLA_MAL: u32 = 0x149;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -1112,4 +1119,5 @@ pub(crate) fn fila(s: &mut Output) {
     }
     pipeline3d::fila(s, &c);
     giro::fila(s, &c);
+    pantalla::fila(s, &c);
 }

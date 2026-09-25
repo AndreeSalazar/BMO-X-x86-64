@@ -605,6 +605,17 @@ pub fn secuenciar() -> Result<u64, u32> {
 const BAR1_BLOCK: u32 = 0x00B8_0F40;
 const BAR2_BLOCK: u32 = 0x00B8_0F48;
 
+/// **BAR1 en modo FISICO** (el bit 31 de `BAR1_BLOCK` a 0, como la deja el
+/// GOP y como la devuelve `devolver_bar1`): la direccion `d` de BAR1 es la
+/// `d` de la VRAM. M5d P lo pide antes de pintar la pantalla por la GPU.
+pub fn bar1_fisica() -> bool {
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    bar0 != 0 && {
+        let v = Bar0(bar0).leer(BAR1_BLOCK);
+        !bmo_gpu_ga10x::es_error_pri(v) && v >> 31 == 0
+    }
+}
+
 /// Si se esta enlazando BAR1: los bits 0..1 (nouveau `tu102_bar_bar1_wait`).
 const BAR_ENLACE: u32 = 0x00B8_0F50;
 /// `BAR1_BLOCK` antes del secuenciador; bit 63 = apuntado.

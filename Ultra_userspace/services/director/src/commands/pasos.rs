@@ -563,6 +563,15 @@ pub(crate) const PASOS: &[Paso] = &[
         consejo: b"`gpu`: `color` dice 262144 de 262144; teclea `gpu color` y VELO -- lo siguiente es T2b, la profundidad (dos triangulos que se cruzan)",
         repinta: false,
     },
+    Paso {
+        nombre: b"pantalla",
+        que: b"LA 3060 TOMA LA PANTALLA: 8 fotogramas a la resolucion del monitor, escritos por la 3060 directamente en el framebuffer del GOP; la CPU comprueba 1024 pixeles de cada uno (M5d P)",
+        hecho: super::gspcomputo::pantalla_hecha,
+        dar: super::gspcomputo::dibujar_pantalla,
+        pide: Some(b"escena"),
+        consejo: b"`gpu`: la fila `pantalla` dice 8 de 8 y los fps; teclea `gpu pantalla` y VELA tomar el monitor entero",
+        repinta: true,
+    },
     // ** EL ULTIMO, SIEMPRE (L0c5, 25-09): tras el, el GSP-RM ya no contesta.
     // Pide solo `despertar`: aunque algo de en medio falle, se apaga igual,
     // y el siguiente arranque (tambien con el boton de reset) sale limpio.

@@ -19,6 +19,10 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use super::gpu_libos::{enviar, escribible, grupo, memoria, COPIA_ESPERA_US, GR_TRESDE, PAGINA};
 use crate::ring0::plat::iommu as io;
 
+/// M5d P: la 3060 pinta la pantalla entera, en el framebuffer del GOP.
+mod pantalla;
+pub use pantalla::{pantalla, IOMMU_NO_PANTALLA};
+
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
 // Tras el oro (VISTO en el metal 24-09 15:51): AMPERE_COMPUTE_B en el canal de
