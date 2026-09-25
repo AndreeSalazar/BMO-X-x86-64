@@ -122,6 +122,9 @@ pub(crate) enum Command<'a> {
     /// `captura ventana`: la de delante; `captura zona`: el recorte con el
     /// raton. Ver `desktop::captura`.
     Captura(u8),
+    /// `fraps`: el contador de FPS (siguiente esquina, o fuera); `fraps banco`:
+    /// empieza o para el banco. Lo mismo que Ctrl+Shift+F y Ctrl+Shift+B.
+    Fraps(bool),
     /// `sella` escrito AQUI, donde ya no vive: la orden se mudo a la ventana de
     /// ESTRATOS (F12, tecla `S`) y esto lleva la nota con la direccion nueva.
     SealMoved,
@@ -404,6 +407,7 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         }
         b"calc" | b"calculadora" => Command::Calculator,
         b"aspecto" | b"estilo" => Command::Aspecto,
+        b"fraps" | b"fps" => Command::Fraps(matches!(rest, b"banco" | b"bench" | b"benchmark")),
         b"captura" | b"screenshot" | b"impr" => Command::Captura(match rest {
             b"ventana" => 1,
             b"zona" | b"recorte" => 2,

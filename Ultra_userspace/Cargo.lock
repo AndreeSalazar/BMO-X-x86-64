@@ -32,6 +32,10 @@ name = "bmo-foco"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-fraps"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-golpe"
 version = "0.1.0"
 
@@ -100,6 +104,7 @@ dependencies = [
  "bmo-config",
  "bmo-dibujo",
  "bmo-foco",
+ "bmo-fraps",
  "bmo-golpe",
  "bmo-gpu-ga10x",
  "bmo-imagen",

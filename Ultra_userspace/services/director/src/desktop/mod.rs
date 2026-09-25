@@ -63,6 +63,8 @@ pub(crate) mod mosaico;
 pub(crate) mod globo;
 /// **EL DESTELLO DEL FOCO**: cuando nace y sobre que ventana (2026-09-25).
 pub(crate) mod brillo;
+/// FRAPS-X: el contador de FPS encima de todo y el banco de pruebas.
+pub(crate) mod fraps;
 /// **ABRIR Y CERRAR**: que ventana nacio o se fue en este fotograma (2026-09-25).
 pub(crate) mod transicion;
 /// **LA CAJA COMO UN EXPLORADOR**: que hace cada boton al pulsarlo (25-09).

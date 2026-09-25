@@ -266,6 +266,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"    buscar <x>    Ctrl+F: lo busca en la salida; cada Enter, la anterior\n");
     dsk.out.grid.text(b"    calc          la calculadora     perf   lo que cuesta pintar\n");
     dsk.out.grid.text(b"    captura       la pantalla a capturas/   (ventana | zona: con el raton)\n");
+    dsk.out.grid.text(b"    fraps         FRAPS-X: los FPS en una esquina (Ctrl+Shift+F); fraps banco (Ctrl+Shift+B)\n");
     dsk.out.grid.text(b"    Ctrl+Shift+C copia la linea    Ctrl+V la pega    Ctrl+C frena\n");
     dsk.out.grid.text(b"    TAB completa ordenes y rutas   Ctrl+A / Ctrl+E   inicio / fin\n");
     dsk.out.grid.text(b"    Ctrl+K corta al final   Ctrl+W borra palabra   Ctrl+U linea\n");

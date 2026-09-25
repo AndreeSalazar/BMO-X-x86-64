@@ -553,6 +553,10 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         crate::desktop::brillo::poner(dsk, &p, fs);
         crate::desktop::globo::poner(dsk, &p, fs);
         crate::desktop::captura::capa_poner(&p);
+        // ** FRAPS-X, ENCIMA de las capas y debajo del cursor: el contador se
+        // lee sobre cualquier cosa, un juego a pantalla completa incluido.
+        crate::desktop::fraps::poner(&p);
+        crate::desktop::fraps::pinto();
     }
 
     // -- El cursor del raton, ENCIMA de todo y lo ultimo --

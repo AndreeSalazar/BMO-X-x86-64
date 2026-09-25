@@ -87,6 +87,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"ext", b"que ofrece el silicio y que coge BMO"),
     (b"cache", b"L1, L2 y L3 medidas"),
     (b"captura", b"la pantalla a capturas/"),
+    (b"fraps", b"FRAPS-X: los FPS en una esquina (fraps banco: el banco)"),
     (b"aspecto", b"el editor de colores del escritorio"),
     (b"calc", b"la calculadora"),
     (b"perf", b"lo que cuesta pintar"),

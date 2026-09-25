@@ -65,6 +65,17 @@ if c == crate::desktop::captura::TECLA_IMPR {
     crate::desktop::captura::tomar(dsk, p, m & bmo::MOD_ALT != 0);
     return Key::Taken;
 }
+// ** FRAPS-X: Ctrl+Shift+F el contador, Ctrl+Shift+B el banco. ANTES que
+// Ctrl+F (pantalla completa) y Ctrl+B (el panel), que llegan con el mismo byte
+// cocido: aqui se distinguen por el Shift. Con Ctrl, ninguna app se las queda.
+if ctrl && m & bmo::MOD_SHIFT != 0 && c == 0x06 {
+    crate::desktop::fraps::alternar(dsk, p);
+    return Key::Taken;
+}
+if ctrl && m & bmo::MOD_SHIFT != 0 && c == 0x02 {
+    crate::desktop::fraps::banco(dsk, p);
+    return Key::Taken;
+}
 if alt_alone && c == 0x09 {
     if m & bmo::MOD_SHIFT != 0 {
         dsk.win.focus.conmutar_atras();

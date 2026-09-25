@@ -188,6 +188,8 @@ fn nacer(e: &mut Estado, ahora: u64) {
 /// **Quita las capas de encima**, al PRINCIPIO del fotograma y despues del
 /// cursor: la del recorte y el globo, al reves de como se pusieron.
 pub(crate) fn quitar_capas(p: &bmo::Pantalla) {
+    // FRAPS-X, el primero: es el que se pone el ultimo.
+    crate::desktop::fraps::quitar(p);
     crate::desktop::captura::capa_quitar(p);
     globo::quitar(p);
     crate::scene::brillo::quitar(p);

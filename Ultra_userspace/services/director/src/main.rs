@@ -974,6 +974,9 @@ pub extern "C" fn _start() -> ! {
         // rejilla sucia o una ventana naciendo, esta vuelta no contaba para el
         // ritmo de ninguna app. Cuesta lo mismo que antes en casi toda vuelta.
         let hay_nuevo = dsk.table.mirar();
+        // FRAPS-X: cuantos fotogramas nuevos tiene lo de delante. Apagado no
+        // lee nada.
+        desktop::fraps::vuelta(&dsk);
         dsk.tick.actividad = dsk.out.grid.dirty
             || born
             || dead > 0
@@ -987,7 +990,7 @@ pub extern "C" fn _start() -> ! {
         }
         // ** Y el medidor del MAESTRO, mientras suena: pinta, pero NO es
         // actividad (W4b). `toca` no cruza puertas: mira el reloj.
-        dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::brillo::anima() || desktop::transicion::anima();
+        dsk.tick.will_paint = dsk.tick.actividad || dsk.tick.quarter || desktop::sonido::toca(&dsk) || desktop::globo::anima() || desktop::brillo::anima() || desktop::transicion::anima() || desktop::fraps::anima();
 
         // -- LA ENTRADA, en dos mitades que no se pueden mezclar --
         //

@@ -266,6 +266,10 @@ name = "bmo-fontgen"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-fraps"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-golpe"
 version = "0.1.0"
 

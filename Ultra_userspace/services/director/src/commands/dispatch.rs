@@ -57,6 +57,15 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
             }
             After::Settle
         }
+        Command::Fraps(banco) => {
+            dsk.field.n = 0;
+            if banco {
+                crate::desktop::fraps::banco(dsk, p);
+            } else {
+                crate::desktop::fraps::alternar(dsk, p);
+            }
+            After::Settle
+        }
         Command::Aspecto => {
             dsk.field.n = 0;
             crate::desktop::aspecto::abrir(dsk, p);

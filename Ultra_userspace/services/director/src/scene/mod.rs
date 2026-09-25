@@ -118,6 +118,8 @@ pub(crate) mod caja;
 /// **Los bordes que cuadran** (25-09): la curva calculada, marcos de 1 px
 /// constante, ventanas y pastillas suavizadas, y la sombra que se desvanece.
 pub(crate) mod borde;
+/// La cara de FRAPS-X: el contador de FPS, pintado (el cuando es de `desktop::fraps`).
+pub(crate) mod fraps;
 /// **El globo del puntero**: un consejo o un dato que sigue al raton unos
 /// segundos, animado (2026-09-25). Que dice y cuando, `desktop::globo`.
 pub(crate) mod globo;

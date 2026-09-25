@@ -433,6 +433,12 @@ impl Surface {
         p.texto_bytes(self.chrome.x + 26, self.chrome.y + 7, &n[..length], INK);
     }
 
+    /// **La secuencia que la app publico ahora mismo.** La lee FRAPS-X: cada
+    /// vez que sube, la app entrego un fotograma. `None` si la cabecera no se lee.
+    pub(crate) fn secuencia(&self) -> Option<u32> {
+        Header::read(self.base, self.bytes).map(|c| c.sequence)
+    }
+
     /// Ha cambiado de medida o de sitio? Entonces hay que repintar el cromo y
     /// devolverle al escritorio lo que la ventana deje de tapar.
     fn moved(&mut self) -> bool {

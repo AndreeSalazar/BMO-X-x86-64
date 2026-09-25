@@ -1,0 +1,11 @@
+[package]
+name = "bmo-fraps"
+version = "0.1.0"
+edition = "2021"
+description = "FRAPS-X: fotogramas por segundo contados con reloj, el peor fotograma de cada segundo, y un banco de pruebas (minimo, media, maximo, 1% y 0,1% bajos) sin memoria dinamica."
+license = "Apache-2.0"
+
+# Sin dependencias, por lo mismo que `bmo-ritmo`: existe para poder PROBARSE en
+# el anfitrion. Contar fotogramas contra un reloj es aritmetica, y la
+# aritmetica no se prueba dentro de un `.bex`.
+[dependencies]
