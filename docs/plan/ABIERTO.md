@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   307 casillas ABIERTAS en 38 planes
+   312 casillas ABIERTAS en 38 planes
    276 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -39,6 +39,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1a -- LEER de ESTRATOS. Medido el 2026-09-14 en
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
+
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 18 abiertas, 4 hechas
+
+*PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
+
+- [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
+- [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
+- [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
+- ... y 15 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
@@ -75,15 +84,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] P2.3 -- el kernel publica el TIEMPO DE CPU de una tarea. Hoy
 - [ ] P2.4 -- envejecimiento en choose_next, y SOLO si P2.1+P2.2 no bastan.
 - ... y 11 mas
-
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 13 abiertas, 4 hechas
-
-*PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
-
-- [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
-- [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
-- [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
-- ... y 10 mas
 
 ## [`PLAN_EL_COMPAS.md`](PLAN_EL_COMPAS.md) -- 12 abiertas, 4 hechas
 

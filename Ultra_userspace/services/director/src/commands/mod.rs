@@ -53,6 +53,8 @@ pub(crate) mod gspcomputo;
 pub(crate) mod gspvaciar;
 /// `gpu apagar`: el GSP apagado en orden antes de reiniciar (L0c5, 25-09).
 pub(crate) mod gspapagar;
+/// `gpu aguante`: D1, la 3060 bajo carga larga (25-09).
+pub(crate) mod gspaguante;
 /// ** POR DONDE EMPEZAR. La orden que faltaba, y la pidio quien lo escribio
 /// todo: *"ironicamente yo como creador no se usar"*. Va por TAREAS y no por
 /// ordenes -- ver su cabecera.

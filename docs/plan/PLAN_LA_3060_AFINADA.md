@@ -355,6 +355,68 @@ que esperar (la promesa es cero).
 
 ---
 
+## 5b. VERIFICAR MAS FUERTE (D) -- lo que una sola vez no dice
+
+El propietario (25-09): *"la propuesta para verificar mas en mi GPU MAS
+FUERTE"*. `save mode` da cada trabajo UNA vez y lo juzga por muestras. Lo
+que se escapa asi tiene tres formas, y cada D tapa una:
+
+```text
+   el tiempo      sale una vez y falla a la 500 (el anillo del GPFIFO ya lo
+                  hizo, 24-09), o con la tarjeta caliente       -> D1
+   el muestreo    1024 o 16 muestras de 2 millones de pixeles  -> D2
+   lo de al lado  el trabajo sale bien pero la 3060 toco algo que no era
+                  suyo, o el GSP-RM se quejo en silencio       -> D3, D4
+```
+
+### [ ] D1 -- `gpu aguante [minutos]`: la 3060 bajo carga larga
+
+En codigo el 25-09 (`commands/gspaguante.rs`). Repite vuelta tras vuelta
+TODOS los trabajos que ya salieron en ese arranque (fractal, triangulo,
+escena, raster, color, giro, pantalla), cada uno con su juez, de 1 a 30
+minutos (2 sin numero), cediendo el CPU entre trabajo y trabajo (el bus USB
+sigue vivo). Se para en el PRIMER fallo y lo nombra, con la vuelta; la fila
+dice por trabajo cuantos bien, la media y la peor vez, y la temperatura
+al empezar, lo mas alta y al acabar; debajo, los avisos del GSP.
+**Como se sabe:** `aguante: N vueltas en 120 s, sin un fallo`, y la
+temperatura sube y se queda (si sube sin parar, el ventilador no lo mueve
+el RM a nuestra carga: se anota).
+
+### [ ] D2 -- la pantalla ENTERA, bit a bit, uno de cada N fotogramas
+
+`gpu pantalla` y `gpu video` miran 1024, 256 o 16 pixeles. Una vez cada 64
+fotogramas, el kernel compara los 2 millones (1920x1080) con la cuenta de la
+CPU: unos 30 ms de CPU, que en 64 fotogramas son ~0,5 ms por fotograma. Un
+bit nuevo en el argumento (`TODA`) y el recuento en la fila. **Como se
+sabe:** `pantalla: ... 2073600 de 2073600 en los fotogramas enteros`.
+
+### [ ] D3 -- la frontera, DESPUES de todo
+
+Hoy la IOMMU dice los fallos de pagina de la 3060, y el unico esperado es
+el de la prueba de frontera (0x2000_0000, en cada arranque). Al acabar
+`save mode` y `gpu aguante`: el recuento de eventos de la 3060 tiene que
+seguir en 1. Un fallo mas es la 3060 leyendo o escribiendo donde no se le
+presto, aunque el trabajo saliera bien. **Como se sabe:** la fila `event`
+dice `1 pendiente` y la fila `aguante` lo repite como `frontera: 1 (la de
+la prueba)`.
+
+### [ ] D4 -- el GSP-RM, callado
+
+Tras cada trabajo, cero `RC_TRIGGERED` y cero `MMU_FAULT` nuevos en su cola
+(ya se leen: `gspcola::avisos`). D1 ya los muestra al acabar; falta que
+cuenten como FALLO de la vuelta en la que llegaron.
+
+### [ ] D5 -- el programa, ejecutado en el anfitrion
+
+Cada SASS se comprueba hoy con `nvdisasm` (que lee bien) y en el metal (que
+corre bien). Falta el medio: un interprete de las ~40 instrucciones SM86 que
+usamos (IMAD, IADD3, LOP3, SHF, ISETP, SEL, LDG, STG, BRA, EXIT...) en
+`cargo test`, que corra el programa de `pantalla` o `video` sobre una
+memoria de mentira y lo compare con la cuenta de la CPU. Un fallo de un bit
+en una codificacion a mano se veria ANTES de arrancar el Ryzen.
+
+---
+
 ## 6. Las REGLAS ESTRICTAS de la 3060, juntas
 
 El propietario: *"vamos a PONER REGLAS ESTRICTAS en GPU para respetar al GPU
@@ -403,6 +465,8 @@ MAXIMO"*. Las que vigila una maquina, y las que salen de la historia:
    5        A3 -> C4   interrupcion, y entonces dos tandas en vuelo
    6        C3 C5 C6   empujes en RAM, page flip, escalado de DOOM
    7        A5 A6      los prestamos con su vuelta, y el driver a Ring 3
+   junto a todo  D1 en cada tanda de cambios (2 minutos); D2..D5 cuando se
+                 toque la pantalla, el video o un programa nuevo
 ```
 
 Medir primero porque C1 y C2 dependen de B1 y B3 para saber si salieron. A4
