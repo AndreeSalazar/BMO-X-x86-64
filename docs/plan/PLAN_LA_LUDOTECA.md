@@ -426,15 +426,26 @@ COMPROBAR: que version de Vulkan y que extensiones pide la version de
 vkQuake que se elija (las nuevas piden mas); el subconjunto se dibuja a
 partir de esa lista medida, no al reves.
 
-- [ ] **L4 -- la lista de vkQuake.** Leer (sin compilar) que pide vkQuake a
-      Vulkan: version, extensiones y `VkPhysicalDeviceFeatures`, y apuntarla
-      aqui como la primera lista del Vulkan de la casa. **Como se sabe:** la
-      tabla en esta seccion, con la version de vkQuake y cada funcion
-      `vk*` que llama.
+- [x] **L4 -- la lista de vkQuake.** HECHO el 25-09, leido del codigo sin
+      compilar: la tabla y la lista entera en la seccion 12. **Como se sabe:**
+      la tabla de la seccion 12, con la version (0.50, commit del
+      2016-08-07, y la de `master` del 2026-09-23) y cada funcion `vk*`.
 - [ ] **L5 -- StarCraft, comprobado.** La licencia de OpenBW, de donde salen
       hoy los datos del clasico y en que formato; y `rayosx` sobre el
       `StarCraft.exe` clasico para comparar. **Como se sabe:** las tres
       respuestas apuntadas en esta seccion, con su fuente.
+      **Medido el 25-09** (clon de `github.com/openbw/openbw`, ultimo commit
+      2026-08-13): el repositorio **NO trae licencia** -- ni `LICENSE` ni
+      cabecera con permiso; su README manda a `OpenBW/bwapi`, que es LGPL-3
+      pero es la API de los bots, no el motor. Sin licencia, lo que rige es
+      "todos los derechos reservados": **no se puede compilar y repartir con
+      BMO-X sin permiso de sus autores**. El motor son ~36.000 lineas de C++
+      en cabeceras (plantillas, `<memory>`, `<functional>`,
+      `<unordered_map>`) y la cara ~3.400 sobre SDL2; lee los MPQ el mismo
+      (`data_loading.h`, sin StormLib) y pide TRES ficheros del clasico:
+      `StarDat.mpq`, `BrooDat.mpq` y `Patch_rt.mpq`. Falta: de donde salen
+      hoy esos tres (el Remastered los trae en CASC, no en MPQ) y `rayosx`
+      sobre el `StarCraft.exe` clasico.
 
 ## 11. El efecto domino: los clasicos con motor abierto, en orden (25-09)
 
@@ -539,3 +550,123 @@ seccion 9, no por esta tabla.
       con los datos freeware de EA (no con el Remastered) y cuanto C++ pide.
       **Como se sabe:** el tamanio del C++ y la lista de rasgos de C++ que
       usa, apuntados aqui.
+
+---
+
+## 12. La escalera por VULKAN, medida (25-09)
+
+El propietario: *"empezar con algo simple, para mejorar, y hasta el final
+BOSS"*. Medido en el codigo de vkQuake (GPL-2), sin compilarlo:
+
+| | vkQuake **0.50** (2016-08-07) | vkQuake `master` (2026-09-23) |
+|---|---|---|
+| Vulkan | 1.0 | 1.0, o 1.1 si la hay |
+| funciones `vk*` distintas | **67** | 95 |
+| extensiones | solo `surface` y `swapchain` (+ la de su ventana) | ~20: `swapchain` obligada; opcionales `descriptor_indexing`, `push_descriptor`, `float16_int8`, `subgroup_size_control`, `present_wait2`... y **trazado de rayos** (`acceleration_structure`, `ray_query`) |
+| sombreadores | **12** (vertices y fragmentos) | 51 (con computo) |
+| obligado | una cola grafica y un formato de profundidad `D24_UNORM_S8` o `D32_SFLOAT_S8` | lo mismo |
+| funciones de SDL2 | 75 | 187 |
+| hilos | no | si (su sistema de tareas) |
+| lineas (C) | ~68.000 | ~168.000 |
+
+**El escalon simple es la 0.50**: el mismo Quake, con la tercera parte de lo
+que pide la de hoy. Sus 67 funciones, por familia (sin el prefijo `vk`):
+
+```text
+   instancia y aparato  10  CreateInstance EnumeratePhysicalDevices CreateDevice
+                            GetDeviceQueue GetPhysicalDeviceProperties
+                            GetPhysicalDeviceQueueFamilyProperties
+                            Enumerate{Instance,Device}ExtensionProperties
+                            Get{Instance,Device}ProcAddr
+   memoria y buferes     9  AllocateMemory FreeMemory MapMemory FlushMappedMemoryRanges
+                            CreateBuffer DestroyBuffer BindBufferMemory
+                            GetBufferMemoryRequirements GetPhysicalDeviceMemoryProperties
+   imagenes              7  CreateImage DestroyImage CreateImageView DestroyImageView
+                            BindImageMemory GetImageMemoryRequirements CreateSampler
+   tuberia               7  CreateRenderPass CreateFramebuffer DestroyFramebuffer
+                            CreatePipelineLayout CreateGraphicsPipelines
+                            CreateShaderModule DestroyShaderModule
+   descriptores          5  CreateDescriptorSetLayout CreateDescriptorPool
+                            AllocateDescriptorSets UpdateDescriptorSets FreeDescriptorSets
+   ordenes              21  CreateCommandPool AllocateCommandBuffers Begin/EndCommandBuffer
+                            CmdBeginRenderPass CmdNextSubpass CmdEndRenderPass
+                            CmdBindPipeline CmdBindDescriptorSets CmdPushConstants
+                            CmdBindVertexBuffers CmdBindIndexBuffer CmdDraw CmdDrawIndexed
+                            CmdSetViewport CmdSetScissor CmdSetDepthBias
+                            CmdCopyBuffer CmdCopyBufferToImage CmdPipelineBarrier
+                            QueueSubmit
+   sincronia             5  CreateFence ResetFences WaitForFences CreateSemaphore
+                            DeviceWaitIdle
+   pantalla              3  QueuePresentKHR y la superficie de su ventana (Win32 o
+                            XCB); las del swapchain las busca por puntero
+```
+
+Y a que pieza de la 3060 de BMO-X cae cada familia -- lo que ya esta y lo
+que falta:
+
+```text
+   QueueSubmit, Fence, Semaphore   el GPFIFO y los semaforos de `gpu pantalla`   YA
+   CreateShaderModule              SPIR-V: el lector y el BSF (PLAN_EL_SOMBREADOR) EN OBRAS
+   CreateGraphicsPipelines, CmdDraw AMPERE_B: `gpu raster` y `gpu color`          YA (1 triangulo)
+   CmdCopyBuffer(ToImage)          el motor de copia (COPY2, `gpu copia`)          YA
+   CreateImage + Sampler           TEXTURAS: T3                                   FALTA
+   el formato D24S8                PROFUNDIDAD: T2b                               FALTA
+   miles de CmdDraw por fotograma  A3 + C4 de PLAN_LA_3060_AFINADA                FALTA
+   QueuePresentKHR                 el volcado de hoy, o el page flip (M2)         YA / M2
+   la ventana, la entrada, el sonido  una capa tipo SDL2 en Ring 3 (75 funciones) FALTA
+```
+
+La escalera por Vulkan, cada escalon con su lista medida antes de empezarlo:
+
+```text
+   1  vkQuake 0.50      Quake shareware (gratis)    67 vk, 12 sombreadores
+   2  Quake3e           Quake III, demo gratis      por medir
+   3  vkQuake master    el mismo Quake, mas moderno 95 vk, computo, hilos
+   4  RBDOOM-3-BFG      Doom 3 BFG (comprar)        Vulkan 1.2, por medir
+   FINAL  Quake II RTX  demo gratis, GPL (NVIDIA)   trazado de rayos: los nucleos
+                        RT de la 3060. El jefe final ABIERTO: el mismo objetivo
+                        que Cyberpunk (la tarjeta al maximo), verificable entero
+```
+
+- [ ] **L9 -- la capa SDL2, medida.** Las 75 funciones `SDL_*` de vkQuake
+      0.50, por familia (ventana, entrada, sonido, tiempo, ficheros), y cuales
+      ya tienen su pieza en BMO-X. **Como se sabe:** la tabla apuntada aqui.
+
+## 13. ESTRATOS para la Ludoteca: que ya guarda y que le falta (25-09)
+
+El propietario: *"ESTRATOS seria para organizar pero falta, no? puede
+guardar TODOS esos elementos?"*. Leido el formato
+(`platform/drivers/storage/estratos`) y el kernel
+(`Ultra_kernel_x86-64/kernel/src/ring0/fsys/estratos`):
+
+```text
+   YA      ficheros de mas de 100 GB (4 niveles de indireccion de 85 punteros),
+           nombres de hasta 63 letras (el FAT32 de BMO-X busca por 8.3), cada
+           bloque con su BLAKE3, la historia entera (volver a una version),
+           crear, carpetas, copiar un fichero desde el FAT32, renombrar, quitar
+   FALTA   E1  una carpeta con MAS DE 36 entradas: hoy caben en un bloque
+               (ENTRADAS_POR_BLOQUE = 4096 / 112)
+           E2  copiar una CARPETA entera desde el FAT32, con sus nombres largos
+           E3  el RECOLECTOR: en copia-en-escritura lo borrado no vuelve solo;
+               sin el, quitar un juego no libera su sitio
+           E4  el MANIFIESTO de cada juego (`:manifiesto` ya existe en el
+               formato): las lineas de `bmo-ludoteca` y la suma de cada
+               fichero, comprobadas al abrir
+```
+
+Lo que eso quiere decir, juego a juego: **los primeros jefes no esperan a
+ESTRATOS.** DOOM (1 WAD), Quake (`id1/pak0.pak`), StarCraft (3 MPQ) son
+pocos ficheros grandes, y eso ESTRATOS ya lo guarda. E1 y E2 hacen falta con
+Half-Life (su `valve/` tiene cientos de ficheros por carpeta); E3 en cuanto
+se instalen y quiten juegos grandes; E4 es lo que convierte ESTRATOS en la
+caja de la Ludoteca.
+
+- [ ] **E1 -- carpetas de mas de 36 entradas.** El bloque de entradas como
+      flujo de varios bloques, con el mismo arbol que `:datos`
+      (`bmo_estratos::flujo`). **Como se sabe:** `cargo test -p
+      bmo-estratos` con una carpeta de 1000 entradas leida entera, y una de
+      36 igual que hoy (sin cambiar el formato de las viejas).
+- [ ] **E2 -- copiar una carpeta entera.** De FAT32 a ESTRATOS, recursiva y
+      con nombres largos. **Como se sabe:** `valve/` de Half-Life copiada y
+      su arbol igual, fichero a fichero, con su suma.
+
