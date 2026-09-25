@@ -273,6 +273,10 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         g.with_ink(INK_PLAIN);
     }
     let copia = args;
+    // ** EL ARRANQUE ORQUESTADO (25-09): mientras se repite, la pantalla es
+    // el panel del arranque, no el escritorio; al final, la 3060 toma el
+    // control (`desktop::arranque`).
+    crate::desktop::arranque::empezar(p, PASOS.len());
     correr(dsk, p, &quitados, &copia[..n], tumbo);
 }
 
@@ -350,7 +354,12 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             }
             // Por donde va, en la linea de estado: un paso de varios segundos
             // sin decir cual es parece una maquina colgada.
-            crate::scene::sugerir::pista(p, &dsk.run_box, b"save mode", paso.nombre);
+            let arranque = crate::desktop::arranque::activo();
+            if arranque {
+                crate::desktop::arranque::paso(p, i, paso.nombre, paso.que);
+            } else {
+                crate::scene::sugerir::pista(p, &dsk.run_box, b"save mode", paso.nombre);
+            }
             let desde = bmo::ciclos();
             let mut r = (paso.dar)();
             intentos[i] = 1;
@@ -366,7 +375,11 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
                 escribir_modo(args, None, tumbo);
             }
             if paso.repinta && r.is_ok() {
-                crate::repintar_escritorio(p, dsk, "save mode");
+                if arranque {
+                    crate::desktop::arranque::repintar();
+                } else {
+                    crate::repintar_escritorio(p, dsk, "save mode");
+                }
             }
             match r {
                 Ok(_) => Salio::Bien,
@@ -374,6 +387,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             }
         };
         fila(dsk, paso, salio[i], tiempo[i], intentos[i]);
+        crate::desktop::arranque::salio(i, paso.nombre, al_panel(salio[i]), tiempo[i]);
     }
     // Y el save de despues: lo que quedo, tambien en el disco.
     let _ = super::save_maestro::maestro(dsk, DEFAULT_DUMP, p.rayo());
@@ -381,11 +395,25 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
     resumen(dsk, &salio, tumbo, escrito);
     notas(dsk, &salio, armado);
     avisar_fin(&salio);
+    // El arranque orquestado acaba aqui: la 3060 toma el control y el
+    // escritorio vuelve (antes de armar el volcado, que es de ese escritorio).
+    crate::desktop::arranque::acabar(dsk, p);
     // ** Y con el volcado verificado, la 3060 vuelca CADA fotograma desde ya.
     super::gspvolcado::activar(&mut dsk.out.grid, p);
     super::iommu::report_iommu(&mut dsk.out.grid);
     consejero(&mut dsk.out.grid);
     paint_status(p, &dsk.run_box, "verificacion total", INK_DIM);
+}
+
+/// Como sale un paso en el panel del arranque orquestado.
+fn al_panel(s: Salio) -> u8 {
+    use crate::scene::arranque as sa;
+    match s {
+        Salio::Bien => sa::BIEN,
+        Salio::YaEstaba => sa::YA,
+        Salio::No(_) => sa::MAL,
+        Salio::Quitado | Salio::Parado | Salio::FaltaOtro | Salio::GspApagado => sa::SALTO,
+    }
 }
 
 /// Los pasos que solo PREGUNTAN al GSP-RM (o leen): darlos dos veces no

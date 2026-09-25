@@ -65,6 +65,8 @@ pub(crate) mod globo;
 pub(crate) mod brillo;
 /// **ABRIR Y CERRAR**: que ventana nacio o se fue en este fotograma (2026-09-25).
 pub(crate) mod transicion;
+/// **EL ARRANQUE ORQUESTADO**: la CPU prepara, la 3060 toma el control (2026-09-25).
+pub(crate) mod arranque;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la

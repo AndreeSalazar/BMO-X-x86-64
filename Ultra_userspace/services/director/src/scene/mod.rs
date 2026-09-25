@@ -121,6 +121,9 @@ pub(crate) mod brillo;
 /// **Abrir y cerrar como un tubo de rayos catodicos**: el marco de neon de una
 /// ventana que nace o se va (2026-09-25). Cuando, `desktop::transicion`.
 pub(crate) mod transicion;
+/// **El arranque orquestado**: el panel del arranque con `save mode` armado
+/// (2026-09-25). Cuando y que, `desktop::arranque`.
+pub(crate) mod arranque;
 /// **La SUPERFICIE de una app**: memoria que otro proceso dibuja y el DIRECTOR
 /// pega dentro de un marco. Es lo que convierte "prestar la pantalla entera" en
 /// "tener una ventana".

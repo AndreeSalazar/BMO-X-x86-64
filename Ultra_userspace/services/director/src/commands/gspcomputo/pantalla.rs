@@ -89,6 +89,20 @@ pub(crate) fn pantalla_hecha() -> bool {
     matches!(estado().pantalla, Some(Ok(t)) if t.bien())
 }
 
+/// **Un fotograma suelto** a pantalla completa, para el arranque orquestado
+/// (`desktop::arranque`): sin tanda ni fila, y SOLO si `pantalla` ya salio
+/// -- nunca da pasos que falten (`hasta_el_lienzo` si los daria). `cargar`:
+/// el programa, en el primero. `Ok(false)`: la 3060 lo pinto mal.
+pub(crate) fn fotograma(f: u32, cargar: bool) -> Result<bool, u32> {
+    if !pantalla_hecha() {
+        return Err(NO_PANTALLA_MAL);
+    }
+    let ficha = estado().timbre.map(|(v, _)| v as u64).ok_or(NO_TRABAJO_SIN_FICHA)?;
+    let cargar = if cargar { bmo::PANTALLA_CARGAR } else { 0 };
+    let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA, ficha | (f as u64) << 32 | cargar)?;
+    Ok(pa::sano(r))
+}
+
 /// Las medidas del modo que barre la 3060 (`INFO_GPU_MODO`): las del GOP.
 fn medidas() -> (u32, u32) {
     let v = bmo::info(bmo::INFO_GPU_MODO);
