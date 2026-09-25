@@ -685,6 +685,19 @@ pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
 fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu;
     let pid = scheduler::current_pid();
+    // ** LAS DOS LLAVES (25-09). La AUTORIDAD: solo quien arranco Ring 0 (el
+    // escritorio, o un `run` del shell 0) manda en la IOMMU y en la 3060 --
+    // una app con la pantalla PRESTADA la tiene delante pero no es suya. Y la
+    // PANTALLA, como antes: el volcado y lo que pinta la 3060 son de quien la
+    // tiene ahora. El guardian `la-3060` exige que esta llave siga aqui.
+    if !crate::ring0::task::autoridad::tiene(pid, crate::ring0::task::autoridad::MAQUINA) {
+        crate::ring0::cabina::warn(
+            "iommu",
+            "la IOMMU y la 3060 son del escritorio que arranco el kernel: negado al pid",
+            pid as u64,
+        );
+        return BmoStatus::negado(iommu::IOMMU_NO_ESCRITORIO, 0);
+    }
     if crate::ring0::obj::fb::owner() != Some(pid) {
         crate::ring0::cabina::warn(
             "iommu",

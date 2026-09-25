@@ -1,0 +1,5 @@
+# la-3060: cuantos core::hint::spin_loop() hay en el codigo de la 3060 en Ring 0
+# (dev/gpu*, dev/gpu_trabajo/, dev/vblank.rs). TRINQUETE: solo puede bajar.
+# Cada uno es un nucleo girando mientras la tarjeta trabaja; el camino es
+# esperar con interrupcion (docs/plan/PLAN_LA_3060_AFINADA.md, A3).
+11

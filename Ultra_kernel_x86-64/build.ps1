@@ -325,6 +325,15 @@ Guardian 'Validating the open-work index matches the plans' `
 Guardian 'Validating every USB static says who writes it' `
     'toolchain\tools\escritores\escritores.py' 'los escritores del USB' `
     'escritores: un static mut del USB no dice quien lo escribe, o `ambos` subio (ver arriba)'
+# ** LA 3060 (25-09): el dia que funciono entera, el propietario pidio que los
+# guardianes la PROTEJAN antes de optimizarla. La puerta de sus 65 ordenes
+# pide la autoridad MAQUINA (una app con la pantalla prestada no manda en
+# ella), sus registros solo se tocan en dev/gpu*, sus ordenes y motivos valen
+# lo mismo en kernel, ABI y userland, y sus esperas girando son un trinquete.
+# Ver toolchain/tools/la-3060/la_3060.py
+Guardian 'Validating the 3060 stays fenced' `
+    'toolchain\tools\la-3060\la_3060.py' 'la puerta y el cerco de la 3060' `
+    'la-3060: la 3060 se aflojo (ver arriba)'
 Guardian 'Validating compiler warnings do not grow' `
     'toolchain\tools\avisos\avisos.py' 'los avisos del compilador' `
     'avisos: los avisos del compilador SUBIERON (ver arriba)'

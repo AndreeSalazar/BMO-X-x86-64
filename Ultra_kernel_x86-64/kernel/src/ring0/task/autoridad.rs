@@ -61,6 +61,10 @@
 //! > El dia que aparezca una tercera, la pregunta que hay que hacerse primero es
 //! > si esa operacion **de verdad no tiene objeto** -- o si es que todavia no se
 //! > ha encontrado cual es.
+//!
+//! (Nacio con dos. `RED` hizo la tercera y `MAQUINA` la cuarta, y las dos
+//! contestaron esa pregunta en su propia cabecera: el objeto existe, pero lo
+//! que se juzga no puede viajar a un hijo.)
 
 use core::sync::atomic::{AtomicU64, Ordering};
 
@@ -78,9 +82,19 @@ pub const LANZAR: u64 = 1 << 1;
 /// exactamente lo que un handle no puede expresar: un handle se pasa, y el
 /// cable no se le presta a quien un proceso de Ring 3 decida lanzar.
 pub const RED: u64 = 1 << 2;
+/// **Mover la IOMMU y la 3060** (`OP_IOMMU` con sus 65 ordenes, 2026-09-25).
+///
+/// *** La cuarta, y por la misma razon que `RED`. La 3060 SI es un objeto,
+/// pero lo que aqui se concede --prestarle RAM del PC a un aparato que hace
+/// DMA, despertar su GSP, cegarla o apagar la IOMMU-- no se puede pasar a un
+/// hijo, y un handle se pasa. Antes la puerta solo miraba *quien tiene la
+/// pantalla*, y el escritorio la PRESTA: con DOOM delante, DOOM pasaba la
+/// puerta de las 65 ordenes. La pantalla dice quien pinta; esto, quien
+/// manda en la maquina.
+pub const MAQUINA: u64 = 1 << 3;
 
 /// Lo que se le da a un proceso que arranco Ring 0.
-pub const DE_SISTEMA: u64 = REINICIAR | LANZAR | RED;
+pub const DE_SISTEMA: u64 = REINICIAR | LANZAR | RED | MAQUINA;
 
 /// Lo que se le da a un proceso lanzado desde Ring 3. **Nada, y va con nombre**
 /// para que el sitio que lo pasa diga lo que hace en vez de escribir un `0`.
