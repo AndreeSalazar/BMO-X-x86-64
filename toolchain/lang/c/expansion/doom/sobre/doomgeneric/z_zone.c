@@ -139,21 +139,21 @@ void Z_Free (void* ptr)
          *
          * ** Esta es la UNICA linea de DOOM que escribe un cero del ancho de
          * un puntero en una direccion que le dio otro. Y el 31-08 el metal
-         * enseno dos heridas de ese calibre exacto en la misma corrida: el
+         * mostro dos heridas de ese calibre exacto en la misma corrida: el
          * `size` de un bloque de la zona (offset 0) y un `next` de la lista
          * de vissprites (offset 8, y por eso murio leyendo `scale`).
          *
          * El invariante que se comprueba antes de disparar es
          * `*block->user == ptr`, que lo mantienen solos los tres unicos
-         * sitios que tocan `user`. Ver `bmo_dueno_sano` en
+         * sitios que tocan `user`. Ver `bmo_owner_ok` en
          * `doomgeneric_bmo.c`, donde esta el razonamiento entero.
          *
          * [!] Si dice que no, el cero NO SE ESCRIBE. Eso cambia la conducta
          * del programa a proposito: cambia un disparo a ciegas por una fuga
          * contenida, y lo dice en voz alta cada vez. Se quita el dia que el
          * culpable tenga nombre. */
-        int bmo_dueno_sano(void **user, void *ptr, int tag, int tam);
-        if (bmo_dueno_sano(block->user, ptr, block->tag, block->size))
+        int bmo_owner_ok(void **user, void *ptr, int tag, int tam);
+        if (bmo_owner_ok(block->user, ptr, block->tag, block->size))
         {
             // clear the user's mark
             *block->user = 0;

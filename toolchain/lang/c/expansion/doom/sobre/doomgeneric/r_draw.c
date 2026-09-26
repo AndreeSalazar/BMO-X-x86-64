@@ -143,7 +143,7 @@ int bmo_censo_dichos = 0;
 /* == INSTRUMENTO C3b: EL CENSO DE SPANS (2026-09-11) ======================
  *
  * El censo de columnas contesto en el metal: 320 de 320, un tramo, ninguna
- * plana. Eso exonera R_DrawColumn. Y el dueno dijo donde sigue: "el FONDO".
+ * plana. Eso exonera R_DrawColumn. Y el propietario dijo donde sigue: "el FONDO".
  * El fondo son los planos, y los planos no pasan por R_DrawColumn: pasan por
  * AQUI, por R_DrawSpan.
  *
@@ -193,7 +193,7 @@ void bmo_spans_dice(void)
  * Cuatro instrumentos seguidos buscaron por que el fondo no se pintaba:
  * C4 (todas las etapas vivas), C5 (la escala bien), C6 (los planos con top 0
  * bottom 2) y C7 (lo que entra, bien). Con eso, `llvm-objdump` sobre el .bex
- * enseno `mov rax, 0x2` donde tenia que leer `bottom`: la constante del enum
+ * mostro `mov rax, 0x2` donde tenia que leer `bottom`: la constante del enum
  * `{ top, middle, bottom }` de p_spec.h tapaba a las locales de
  * R_RenderSegLoop. Arreglado en BMO C (`ccb71825`) y confirmado en el Ryzen:
  * `spans 212, filas 150 de 200`. Los cuatro se quitan porque ya contestaron;

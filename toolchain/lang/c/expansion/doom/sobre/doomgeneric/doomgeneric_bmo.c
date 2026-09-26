@@ -26,7 +26,7 @@
 
 /* ** ESTO VA ANTES QUE NADA, y el orden importa de verdad.
  *
- * `<stdlib.h>` trae el monton de Ring 3, y su tamano se declara con este
+ * `<stdlib.h>` trae el monton de Ring 3, y su medida se declara con este
  * `#define` **antes** de la primera inclusion. La primera la hace
  * `doomgeneric.h` desde dentro de `bmo_unity.c`, asi que si esto fuera detras
  * el monton se quedaria en el 1 MiB por defecto y la zona de DOOM --6 MiB-- no
@@ -56,7 +56,7 @@
  * hace `doomgeneric.h` desde dentro de `bmo_unity.c`. */
 #define FEATURE_SOUND 1
 
-/* ** 320x200: EL TAMANO EXACTO DE DOOM, Y LA ESCALA SE HACE AQUI.
+/* ** 320x200: EL MEDIDA EXACTO DE DOOM, Y LA ESCALA SE HACE AQUI.
  *
  * Esto decia 640x400, y con eso `i_video.c` se encargaba del x2. Suena bien y
  * cuesta tres cosas, las tres medibles:
@@ -250,7 +250,7 @@ static int g_med_tic0;                      /* `gametic` en la ultima linea */
 static int g_med_crudas;                    /* eventos de tecla leidos */
 static int g_med_teclas;                    /* los que DOOM entiende */
 
-/* Del par (panel, escala) salen el tamano y la esquina. Es una funcion y no
+/* Del par (panel, escala) salen el medida y la esquina. Es una funcion y no
  * cuatro lineas dentro de `DG_Init` porque la escala cambia en caliente, y dos
  * copias de este calculo se separarian el dia que una de las dos se toque. */
 static void geometria(void)
@@ -455,7 +455,7 @@ void DG_Init()
     g_escala_max = escala_a;
     if (escala_b < g_escala_max) { g_escala_max = escala_b; }
     if (g_escala_max > ESCALA_TOPE) { g_escala_max = ESCALA_TOPE; }
-    /* Un panel mas pequeno que 320x200 no existe hoy, pero si existiera la
+    /* Un panel mas chico que 320x200 no existe hoy, pero si existiera la
      * escala 0 dejaria la pantalla negra sin decir por que: se fuerza a 1 y el
      * recorte lo hace el blit. */
     if (g_escala_max < 1) { g_escala_max = 1; }
@@ -802,7 +802,7 @@ void DG_SleepMs(uint32_t ms)
  *     `k`, la `f` o la `b` no hay ninguno,
  *   - guardar una partida pide ESCRIBIR SU NOMBRE, o sea el alfabeto entero,
  *   - F2/F3 guardan y cargan, F6/F9 son la partida rapida, F10 sale,
- *   - `+` y `-` cambian el tamano de la ventana del juego,
+ *   - `+` y `-` cambian el medida de la ventana del juego,
  *   - y Pausa es Pausa.
  *
  * O sea que la diferencia entre "se mueve" y "se juega" era una tabla. */
@@ -837,7 +837,7 @@ static unsigned char g_tabla[128] = {
     [BMO_SC_CTRL] = KEY_RCTRL,
     [BMO_SC_MAYUS_IZQ] = KEY_RSHIFT,
     [BMO_SC_MAYUS_DER] = KEY_RSHIFT,
-    /* Strafe. Las dos mitades del Alt, porque en un teclado espanol la derecha
+    /* Strafe. Las dos mitades del Alt, porque en un teclado castellano la derecha
      * es AltGr y sale con codigo propio. */
     [BMO_SC_ALT] = KEY_RALT,
     [BMO_SC_ALTGR] = KEY_RALT,
@@ -956,7 +956,7 @@ int DG_GetKey(int *pressed, unsigned char *doomKey)
          * entregar nada. Solo al PULSAR -- si se hiciera en las dos caras, una
          * pulsacion saltaria dos escalas. */
         if (sc == BMO_SC_BLOQ_DESPL) {
-            /* En ventana la superficie tiene el tamano con el que nacio: no
+            /* En ventana la superficie tiene el medida con el que nacio: no
              * hay escala que cambiar, y se dice en vez de callar. */
             if ((e & BMO_EVENTO_PULSADA) != 0) {
                 if (g_sup != 0) {
@@ -1015,14 +1015,14 @@ void DG_SetWindowTitle(const char *title)
  * enteros a 43 fps con el monton ya roto: **la corrupcion es LATENTE**, en un
  * bloque que nadie usa.
  *
- * ★★★ SEGUNDA CORRIDA DEL MISMO DIA, y estrecha el caso 111 veces: con los
+ * *** SEGUNDA CORRIDA DEL MISMO DIA, y estrecha el caso 111 veces: con los
  * ocho puntos de control puestos, **`R_Init` sale SANO** (1129 bloques) y
  * tambien P_Init, S_Init, D_CheckNetGame, HU_Init y ST_Init (1334). El unico
  * sitio que queda es `D_DoomLoop`, o sea **DOCE bloques**. Lo de arriba --"lo
  * destroza el arranque"-- era cierto en el sentido flojo (pasa antes del primer
  * fotograma) y FALSO en el que importaba (no es `R_Init`).
  *
- * ★★ Y el ancho del disparo acusa solo. La foto fue:
+ * ** Y el ancho del disparo acusa solo. La foto fue:
  *
  *     BLOQUE 1336 en +1889056: dice 0, hasta el siguiente hay 672
  *                              | tag 1  id 1d4a11  (id BUENO)
@@ -1034,7 +1034,7 @@ void DG_SetWindowTitle(const char *title)
  * linea diria `id PISADO`. Lo que encaja es **UN almacenamiento suelto del
  * ancho de un puntero, con valor 0**.
  *
- * ★ Y en `z_zone.c` hay UNA sola linea asi: `Z_Free` -> `*block->user = 0`.
+ * * Y en `z_zone.c` hay UNA sola linea asi: `Z_Free` -> `*block->user = 0`.
  * `user` es una direccion que da el llamante (`&lumpcache[lump]`, `&ptr`), o
  * sea **el mismo genero de fallo que ya se cazo tres veces en `Expr::AddrOf` y
  * en `pointer_scale`**. Sospechoso numero uno; no probado.
@@ -1043,10 +1043,10 @@ void DG_SetWindowTitle(const char *title)
  * delante sin decir donde ni de que. Esto camina la misma lista y **cuenta lo
  * que ve**.
  *
- * ★★ Y lo que decide el caso es UN campo: `id`. Cada bloque lleva `ZONEID`
+ * ** Y lo que decide el caso es UN campo: `id`. Cada bloque lleva `ZONEID`
  * (0x1d4a11) grabado en su cabecera.
  *
- *     id CORRECTO y tamano mal  -> la cabecera esta intacta, luego el que se
+ *     id CORRECTO y medida mal  -> la cabecera esta intacta, luego el que se
  *                                  equivoca es el ASIGNADOR (aritmetica), no
  *                                  un vecino que escribio de mas.
  *     id BASURA                 -> alguien PISO la cabecera: es un desbordamiento
@@ -1068,25 +1068,25 @@ void DG_SetWindowTitle(const char *title)
  * ** El destrozo es LATENTE: DOOM jugo 129 tics con el dentro y solo se murio
  * cuando `Z_CheckHeap` miro, al final de `G_DoLoadLevel`. O sea que lo unico
  * que impide jugar --y por tanto MEDIR: escalas, teclado, fps-- es la mirada,
- * no el dano.
+ * no el perjuicio.
  *
- * Y el dano es UN campo. La lista de bloques se recorre por `next`, que esta
+ * Y el perjuicio es UN campo. La lista de bloques se recorre por `next`, que esta
  * bien; el invariante que `Z_CheckHeap` exige es `b + b->size == b->next`, y
  * `b->next` es la respuesta correcta escrita al lado. Reponerlo es aritmetica,
  * no adivinanza.
  *
  * [!] Solo se remienda si `id` es el bueno. Con la cabecera PISADA no se sabe
  * si `next` es de fiar, y una tablilla sobre un hueso que no es el suyo hace
- * mas dano que la cojera.
+ * mas perjuicio que la cojera.
  *
- * ⚠ LO QUE NO ARREGLA: quien escribio ese cero sigue suelto. Por eso el
+ * [!] LO QUE NO ARREGLA: quien escribio ese cero sigue suelto. Por eso el
  * remiendo se CUENTA y se dice en voz alta en cada linea, y por eso la sonda de
  * `jugando` sigue puesta -- si el numero de remiendos CRECE mientras se juega,
  * hay un segundo destrozo y eso hay que saberlo antes de arreglar el primero.
  * Se pone a 0 el dia que el culpable tenga nombre. */
-#define TABLILLA_DEL_TAMANO 1
+#define SIZE_TABLE 1
 
-static int g_dueno_malo;
+static int g_owner_bad;
 
 /* -- ** EL AUDITOR NO SE REPITE, y esto no es cosmetica (2026-08-31) --------
  *
@@ -1094,7 +1094,7 @@ static int g_dueno_malo;
  * lineas cada vez. A 28 fps eso son ~110 lineas por segundo, todas iguales.
  *
  * *** Y el precio no es el ruido: es que **la consola tiene fondo**. En las
- * cinco corridas de estos dos dias el dueno perdio el principio del log
+ * cinco corridas de estos dos dias el propietario perdio el principio del log
  * SIEMPRE, y el principio es donde esta el cepo -- la unica linea que dice QUE
  * LLAMADA rompio el bloque. La respuesta que se dio entonces fue reordenar el
  * resumen para que el veredicto fuera primero: eso ataca el sintoma. Esto
@@ -1117,7 +1117,7 @@ static int g_ult_malos;
 static int g_ult_vueltas;
 static int g_callados;
 static int g_estreno;
-/* ** SANO NO HABLA (2026-09-21). El dueno lo pidio con el `save` en la mano:
+/* ** SANO NO HABLA (2026-09-21). El propietario lo pidio con el `save` en la mano:
  * 482 renglones de `paso N: Z_Malloc` y `jugando: SANO` cada pocos fotogramas
  * taparon la sesion entera y el lo leyo como un bucle infinito. Desde que DOOM
  * se juega y su plan esta cerrado, una auditoria que no encuentra nada es un
@@ -1208,7 +1208,7 @@ static int auditar_monton(char *donde)
          * dijeron `(0 libres)`: **`PU_FREE` es 4, no 0** (`z_zone.h`: el enum
          * arranca en `PU_STATIC = 1`). La columna no estaba diciendo "no hay
          * huecos", estaba diciendo nada. No afecta al veredicto --el ROTO sale
-         * del invariante de tamanos-- pero un cero que siempre es cero acaba
+         * del invariante de medidas-- pero un cero que siempre es cero acaba
          * leyendose como un dato. */
         if (b->tag == PU_FREE) {
             libres = libres + 1;
@@ -1254,9 +1254,9 @@ static int auditar_monton(char *donde)
                     printf("  (id bueno y size raro: NO SE SABE)\n");
                 }
 
-                /* -- ★ LA LECTURA CRUDA, y por que es la pregunta que falta -
+                /* -- * LA LECTURA CRUDA, y por que es la pregunta que falta -
                  *
-                 * ** El 31-08 la sonda del dueno contesto `0 dueno`: la unica
+                 * ** El 31-08 la sonda del propietario contesto `0 propietario`: la unica
                  * linea de DOOM que escribe un cero del ancho de un puntero
                  * NO disparo ni una vez. Luego nadie escribio ese cero por
                  * ahi. Y sin embargo hay un dato que llevaba TRES corridas
@@ -1287,7 +1287,7 @@ static int auditar_monton(char *donde)
                        " y el campo dice %d\n",
                        (int)((unsigned long long)b - base), crudo, b->size);
 
-                /* -- ★★ EL VECINO DE ARRIBA, y por que es LA pregunta ------
+                /* -- ** EL VECINO DE ARRIBA, y por que es LA pregunta ------
                  *
                  * Los dos cortes anteriores salieron FALSOS y los dos por lo
                  * mismo: buscaban al que escribe entre el codigo que sabe que
@@ -1295,7 +1295,7 @@ static int auditar_monton(char *donde)
                  *
                  *     la memoria dice 0 DE VERDAD (crudo == campo)
                  *     el remiendo SI llega (la tablilla nunca se quejo)
-                 *     `Z_Free` no dispara a nadie (0 dueno)
+                 *     `Z_Free` no dispara a nadie (0 propietario)
                  *     y vuelve a 0 EN CADA FOTOGRAMA, misma direccion
                  *
                  * ** Algo escribe ahi ~28 veces por segundo y no es el
@@ -1359,12 +1359,12 @@ static int auditar_monton(char *donde)
             /* La tablilla. Va FUERA del `if (malos <= 3)`: ese tope es del
              * papel, no del hueso -- se remienda todo lo remendable aunque
              * solo se impriman los tres primeros. */
-            if (TABLILLA_DEL_TAMANO && b->id == ZONEID_BMO) {
+            if (SIZE_TABLE && b->id == ZONEID_BMO) {
                 relee = (int)((unsigned long long)b->next
                               - (unsigned long long)b);
                 b->size = relee;
                 remendados = remendados + 1;
-                /* ★ Y SE RELEE LO QUE SE ACABA DE ESCRIBIR.
+                /* * Y SE RELEE LO QUE SE ACABA DE ESCRIBIR.
                  *
                  * Esto cierra el caso sin esperar al fotograma siguiente. La
                  * tablilla lleva tres corridas escribiendo 672 y contandolo, y
@@ -1421,7 +1421,7 @@ static int auditar_monton(char *donde)
     } else {
         /* ** El orden NO es de gusto: es por donde corta la autopsia. Lo que
          * decide la investigacion --PISADO o ASIGNADOR-- va primero; el
-         * recuento, que es contexto, va detras y puede perderse sin dano. */
+         * recuento, que es contexto, va detras y puede perderse sin perjuicio. */
         /* ** TRES ESTADOS, Y NINGUNO ADIVINA. (2026-09-02)
          *
          * El binario de antes tenia una rama verdadera y otra falsa:
@@ -1454,11 +1454,11 @@ static int auditar_monton(char *donde)
         } else {
             veredicto = "SIN-DECIDIR";
         }
-        printf("[heap] %s: %s +%d t%d size %d  %d/%d rotos, %d rem, %d dueno\n",
+        printf("[heap] %s: %s +%d t%d size %d  %d/%d rotos, %d rem, %d propietario\n",
                donde,
                veredicto,
                primer_off, primer_tag, primer_size,
-               malos, vueltas, remendados, g_dueno_malo);
+               malos, vueltas, remendados, g_owner_bad);
     }
     return malos;
 }
@@ -1474,9 +1474,9 @@ void bmo_auditar(char *donde)
     (void)auditar_monton(donde);
 }
 
-/* -- 2b. LA SONDA DEL DUENO: coger la escritura ANTES de que ocurra ------
+/* -- 2b. LA SONDA DEL PROPIETARIO: coger la escritura ANTES de que ocurra ------
  *
- * ** El auditor de arriba encuentra el DANO. Esto busca la MANO.
+ * ** El auditor de arriba encuentra el PERJUICIO. Esto busca la MANO.
  *
  * Lo que dijo el metal el 2026-08-31, jugando de verdad:
  *
@@ -1497,7 +1497,7 @@ void bmo_auditar(char *donde)
  *     Dos victimas de distinta especie, un solo genero de herida:
  *     OCHO BYTES DE CERO EN UNA DIRECCION QUE NO TOCABA.
  *
- * ★ Y en las 56.465 lineas de DOOM hay UNA sola linea que escribe un cero del
+ * * Y en las 56.465 lineas de DOOM hay UNA sola linea que escribe un cero del
  * ancho de un puntero en una direccion que le dio otro:
  *
  *     Z_Free:   *block->user = 0;
@@ -1529,7 +1529,7 @@ void bmo_auditar(char *donde)
  * saltaba la escritura. Era razonable **mientras la hipotesis estaba viva**:
  * contener el disparo era la mitad del experimento.
  *
- * El metal contesto `0 dueno` TRES corridas seguidas: el invariante no falla
+ * El metal contesto `0 propietario` TRES corridas seguidas: el invariante no falla
  * nunca. O sea que la contencion no protege de nada -- y lo que queda es un
  * cambio de conducta dentro del asignador, escrito para una teoria muerta,
  * esperando a que dentro de tres semanas alguien lo lea y no sepa por que esta.
@@ -1552,14 +1552,14 @@ void bmo_auditar(char *donde)
  *     de morirse en R_SortVisSprites  -> ademas es la MISMA, y el caso de la
  *                                        lista de sprites se cierra con el
  *
- * [!] Leer `*user` no anade riesgo: es la misma direccion que la linea de
+ * [!] Leer `*user` no agrega riesgo: es la misma direccion que la linea de
  * abajo iba a ESCRIBIR. Lo unico que se filtra antes es el alineado y el
  * primer sitio de memoria, porque de un puntero podrido lo mas probable es
- * que sea un numero pequeno, y ahi conviene contarlo en vez de morirse. */
-static int g_dueno_dicho = 0;
-#define DUENOS_QUE_SE_CUENTAN 8
+ * que sea un numero chico, y ahi conviene contarlo en vez de morirse. */
+static int g_owner_told = 0;
+#define OWNERS_COUNTED 8
 
-int bmo_dueno_sano(void **user, void *ptr, int tag, int tam)
+int bmo_owner_ok(void **user, void *ptr, int tag, int tam)
 {
     unsigned long long u;
     unsigned long long base;
@@ -1572,10 +1572,10 @@ int bmo_dueno_sano(void **user, void *ptr, int tag, int tam)
     /* Un `void**` que no esta a 8 no lo calculo ningun `&` legitimo: es un
      * numero que se colo. Y por debajo de 4 KiB no hay nada de nadie. */
     if ((u & 7) != 0 || u < 0x1000) {
-        g_dueno_malo = g_dueno_malo + 1;
-        if (g_dueno_dicho < DUENOS_QUE_SE_CUENTAN) {
-            g_dueno_dicho = g_dueno_dicho + 1;
-            printf("[heap] DUENO IMPOSIBLE: user=%x (ni alineado ni mapeable)"
+        g_owner_bad = g_owner_bad + 1;
+        if (g_owner_told < OWNERS_COUNTED) {
+            g_owner_told = g_owner_told + 1;
+            printf("[heap] PROPIETARIO IMPOSIBLE: user=%x (ni alineado ni mapeable)"
                    "  del bloque t%d de %d bytes\n",
                    (unsigned int)u, tag, tam);
         }
@@ -1594,19 +1594,19 @@ int bmo_dueno_sano(void **user, void *ptr, int tag, int tam)
     /* Falla el invariante. Se dice DE DONDE sale el puntero: si cae dentro de
      * la zona se da el offset, que es el mismo numero con el que habla el
      * auditor y se compara de un vistazo con el +1889056 del bloque roto. */
-    g_dueno_malo = g_dueno_malo + 1;
-    if (g_dueno_dicho < DUENOS_QUE_SE_CUENTAN) {
-        g_dueno_dicho = g_dueno_dicho + 1;
+    g_owner_bad = g_owner_bad + 1;
+    if (g_owner_told < OWNERS_COUNTED) {
+        g_owner_told = g_owner_told + 1;
         base = (unsigned long long)mainzone;
         fin = base + (unsigned long long)mainzone->size;
         if (u >= base && u < fin) {
             donde = (int)(u - base);
-            printf("[heap] DUENO MALO: user=+%d (DENTRO de la zona)"
+            printf("[heap] PROPIETARIO MALO: user=+%d (DENTRO de la zona)"
                    "  dice %x, deberia %x  | bloque t%d de %d bytes\n",
                    donde, (unsigned int)(unsigned long long)dice,
                    (unsigned int)(unsigned long long)ptr, tag, tam);
         } else {
-            printf("[heap] DUENO MALO: user=%x (fuera de la zona)"
+            printf("[heap] PROPIETARIO MALO: user=%x (fuera de la zona)"
                    "  dice %x, deberia %x  | bloque t%d de %d bytes\n",
                    (unsigned int)u, (unsigned int)(unsigned long long)dice,
                    (unsigned int)(unsigned long long)ptr, tag, tam);
@@ -1690,7 +1690,7 @@ static unsigned long g_canario_mirados;
  * captura tambien es una linea suelta que se puede perder.
  *
  * > Una captura que solo se dice UNA VEZ no es una captura: es una loteria
- * > contra el tamano de la consola.
+ * > contra el medida de la consola.
  *
  * Ahora el sitio se GUARDA y lo repite la auditoria en cada vuelta. */
 static char *g_canario_donde;
@@ -1773,7 +1773,7 @@ void bmo_canario(char *donde)
  * == Por que se INFORMA y se SALTA, en vez de morir ==
  *
  * El original llama a `I_Error`, que mata el juego. Eso probaria el caso una vez
- * y dejaria al dueno sin DOOM. Saltarse la fila que no existe **no pierde nada**
+ * y dejaria al propietario sin DOOM. Saltarse la fila que no existe **no pierde nada**
  * --esa fila no se ve, esta fuera de la pantalla-- y para la corrupcion en el
  * sitio donde nace.
  *
@@ -1816,7 +1816,7 @@ unsigned long bmo_filas_fuera(void)
  *
  * `Z_Malloc` y `Z_Free` llaman aqui al terminar. Mientras el cepo esta
  * ARMADO --solo durante ese primer Tick-- cada llamada deja su linea, y **la
- * primera que diga ROTO es la culpable**, con el tamano que se pidio delante
+ * primera que diga ROTO es la culpable**, con el medida que se pidio delante
  * para poder buscarla en el fuente.
  *
  * [!] Armado a mano y no siempre: cada paso camina los ~1338 bloques. Durante
@@ -1917,7 +1917,7 @@ void bmo_zona_paso(char *que, int tam)
  *   fps          si baja de ~20, no se juega, y lo demas dice por donde.
  *   us/fotograma lo mismo del reves, que es lo que se compara con los 28.571
  *                us que dura un tic de DOOM (35 por segundo).
- *   us de blit   cuanto de eso es COPIAR a la pantalla. Si es pequeno, el
+ *   us de blit   cuanto de eso es COPIAR a la pantalla. Si es chico, el
  *                lento es el renderizador y la copia directa al framebuffer
  *                no arreglaria nada.
  *   tics         si `gametic` no sube, el mundo no avanza aunque se pinte.
@@ -1944,10 +1944,10 @@ void bmo_zona_paso(char *que, int tam)
  * *quien* rompe el monton, sino **CUANDO** -- y son dos respuestas muy
  * distintas:
  *
- *   · si ya esta roto en el fotograma 1, el culpable es el ARRANQUE (`R_Init`
+ *   - si ya esta roto en el fotograma 1, el culpable es el ARRANQUE (`R_Init`
  *     y compania), y el nivel no tiene nada que ver: solo fue el primero en
  *     mirar.
- *   · si aguanta 170 tics sanos y revienta al entrar el demo, es
+ *   - si aguanta 170 tics sanos y revienta al entrar el demo, es
  *     `P_SetupLevel` -- el codigo que castea structs encima de los bytes
  *     crudos del WAD.
  *
@@ -2013,7 +2013,7 @@ static void medir(void)
      * nucleo a DOOM" de "el sistema le dio EL nucleo bueno a toda velocidad".
      * Con este numero al lado de los fps, la frase deja de ser una opinion.
      *
-     * ★ Se pregunta UNA vez por linea a proposito: es una medida por
+     * * Se pregunta UNA vez por linea a proposito: es una medida por
      * diferencia entre dos lecturas, asi que preguntarla dos veces seguidas
      * mide un intervalo de microsegundos y contesta cualquier cosa. */
     mhz = (int)(bmo_info(BMO_INFO_CPU_HZ_REAL) / 1000000);
@@ -2023,7 +2023,7 @@ static void medir(void)
            g_escala, g_dst_ancho, g_dst_alto,
            fps, us, us_blit, gametic - g_med_tic0, g_med_teclas, g_med_crudas,
            mhz, vivos);
-    /* == LA VENTANA DE VISTA, EN LA LINEA QUE EL DUENO SI LEE ============
+    /* == LA VENTANA DE VISTA, EN LA LINEA QUE EL PROPIETARIO SI LEE ============
      *
      * ** El instrumento del 04-09 imprimia estos numeros en
      * `R_ExecuteSetViewSize`... que corre UNA vez, al arrancar, y para
@@ -2288,7 +2288,7 @@ int main()
             printf("[vivo] fotograma %d\n", g_latido);
         }
 
-        /* -- ★★ EL PUNTO QUE FALTABA, y faltaba por MI culpa (2026-08-31) ----
+        /* -- ** EL PUNTO QUE FALTABA, y faltaba por MI culpa (2026-08-31) ----
          *
          * ** El canario se desplego y NO CANTO NI UNA VEZ, con la auditoria
          * gritando en cada fotograma que el bloque estaba roto. Las dos cosas

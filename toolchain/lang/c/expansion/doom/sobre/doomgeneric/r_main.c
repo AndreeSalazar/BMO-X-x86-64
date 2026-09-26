@@ -821,7 +821,7 @@ void R_Init (void)
      * una preferencia, es un fallo con permiso.
      *
      * [!] Y la causa sigue viva: si algo los cambia DESPUES de esta linea, la
-     * linea de `[perf]` lo va a ensenar, porque lleva los tres numeros. Fijar
+     * linea de `[perf]` lo va a mostrar, porque lleva los tres numeros. Fijar
      * aqui no cierra la investigacion: la traslada a un sitio donde se ve. */
     /* == 05-09, SEGUNDA VUELTA: 10, NO 11 ===============================
      *
