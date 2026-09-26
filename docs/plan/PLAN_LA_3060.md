@@ -1643,6 +1643,7 @@ Los seis arranques con informe, lado a lado:
 | 25-09 20:19 | bien | Gen3 x16 | 54 grados | frio |
 | 25-09 20:39 | bien | Gen3 x16 | 55 grados | frio |
 | 25-09 20:51 | 0x15 | **Gen4** x16 | sin dato | frio |
+| 25-09 20:59 | 0x15 | **Gen4** x16 | sin dato | frio |
 
 **Cuidado con la columna `pcie`:** separa buenos de malos PERFECTO, y casi
 seguro es CONSECUENCIA, no causa: esa fila lee la capacidad del enlace que
@@ -1660,6 +1661,19 @@ funciones que no existen dejan peticiones no soportadas. El unico de enlace
 de verdad: 20:04.0 con `error-del-receptor` (capa fisica). Desde este build
 el metiche dice CUALES bits son NUEVOS en la sesion (antes solo contaba) y
 pone nombre a cada bit de AER.
+
+**20:59, el septimo 0x15, primera vez con lo NUEVO.** La autopsia, calcada a
+la de 20:51 (BSI 0 con el handoff abajo antes y despues, GSP en 0xBADF1002 /
+0xBADF5620 = el GSP ni contesta, SEC2 0x10 = parado, WPR2 montada, el booter
+no toco ni una palabra de la meta). El metiche dice por primera vez que
+29:00.0, LA 3060, apunto EN ESTA SESION `aborto-recibido`, CORREGIBLE y
+peticion-no-soportada. Dos lecturas posibles: (a) es consecuencia -- tras el
+0x15 alguien lee registros del GSP muerto y cada lectura deja su huella; (b)
+es la causa -- una peticion de la 3060 al bus que el IOMMU o la placa rechaza
+DURANTE el booter. Lo decide un arranque BUENO con este build: si 29:00.0
+tambien trae algo NUEVO, es (a) y se descarta; si no trae nada, el bus entra
+en la lista de sospechosos. Desde aqui CABINA avisa cada chisme nuevo UNA vez
+(en 20:59 salio cuatro veces, una por pregunta).
 
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con

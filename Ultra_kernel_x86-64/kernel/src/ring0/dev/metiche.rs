@@ -65,6 +65,26 @@ static ANTES_AER: [AtomicU64; MAX] = [const { AtomicU64::new(0) }; MAX];
 /// al arrancar -- lo que paso EN ESTA SESION (26-09, metal 20:51: "11 ahora,
 /// 11 al arrancar" no decia si alguno era nuevo).
 static NUEVOS: AtomicU64 = AtomicU64::new(0);
+/// Lo NUEVO que ya se aviso a CABINA (`QUIEN` + `AER` de cada aviso): cada
+/// chisme nuevo se avisa UNA vez, no en cada pregunta (metal 20:59: el mismo
+/// aviso cuatro veces, una por cada `INFO_METICHE` del informe).
+static AVISADOS: [AtomicU64; MAX * 2] = [const { AtomicU64::new(0) }; MAX * 2];
+
+/// Si `quien`/`aer` ya se avisaron; si no, los apunta y dice que no.
+fn ya_avisado(quien: u64, aer: u64) -> bool {
+    for k in 0..MAX {
+        let q = AVISADOS[2 * k].load(Ordering::Acquire);
+        if q == quien && AVISADOS[2 * k + 1].load(Ordering::Acquire) == aer {
+            return true;
+        }
+        if q == 0 {
+            AVISADOS[2 * k].store(quien, Ordering::Release);
+            AVISADOS[2 * k + 1].store(aer, Ordering::Release);
+            return false;
+        }
+    }
+    true // lleno: ya se aviso bastante
+}
 
 /// Si `quien`/`aer` traen algun bit que la foto de arranque no tenia.
 fn es_nuevo(quien: u64, aer: u64) -> bool {
@@ -154,7 +174,9 @@ pub fn preguntar() -> u32 {
             ANTES_AER[k].store(a, Ordering::Release);
         } else if es_nuevo(q, a) {
             nuevos |= 1 << k;
-            crate::ring0::cabina::warn("metiche", "NUEVO en esta sesion: bdf | status << 16 | devsta << 32", q);
+            if !ya_avisado(q, a) {
+                crate::ring0::cabina::warn("metiche", "NUEVO en esta sesion: bdf | status << 16 | devsta << 32", q);
+            }
         }
     }
     NUEVOS.store(nuevos, Ordering::Release);
