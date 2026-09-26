@@ -504,6 +504,68 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       SI se ponen al lado de los ~3780. **Como se sabe:** la tabla, con las
       dos columnas medidas igual.
 
+### Y la pregunta: "se puede concluir que la CPU y la GPU cooperan?" (26-09)
+
+**En el banco, SI, y medido** (`docs/metal/METAL_2026-09-25.md`, seccion 24):
+
+```text
+   anillo    2525 fps   la CPU ya no espera cada fotograma: 4 en vuelo
+   coopera   7452 fps   la CPU calcula QUE limpiar (la union de los dos
+                        recuadros del cubo) y la 3060 limpia solo eso
+   maximo   28596 fps   coopera + PERF_BOOST: la 3060 18 us por fotograma,
+                        la CPU espera 4 us
+   fotograma 30         IGUAL al de D3D12, bit a bit, en los tres
+```
+
+Dos matices que el mismo METAL dice y aqui no se esconden: con `maximo` el
+cuello ya es la CPU (~35 us de pared contra 18 de la 3060: eso es el carril
+E), y los 28596 NO se ponen al lado de los ~3780 de D3D12, que limpia la
+ventana entera y presenta cada fotograma (esa carrera justa es P2).
+
+Cooperar aqui quiere decir algo concreto: **cada una hace lo que sabe y
+ninguna espera a la otra**. La CPU sabe donde esta el cubo (y la 3060 no);
+la 3060 pinta millones de pixeles (y la CPU no). Eso esta hecho.
+
+**En un JUEGO, todavia no.** El cubo vive DENTRO del escritorio, que es el
+unico que habla con la 3060. Que coopere un programa de otro proceso es M6;
+la lamina de INTI (E6, cuarto paso) es el primer caso, y le falta el metal.
+DOOM es el segundo, y es el carril D.
+
+### D -- DOOM SOBRE VERRANO (26-09)
+
+Lo pidio el propietario: *"ya es hora de meter mi VERRANO con mi API"*.
+DOOM pinta por SOFTWARE (su renderizador no usa ni coma flotante) en un bufer
+de 32 bits (`DG_ScreenBuffer`), y la CPU lo estira a la ventana. VERRANO no
+le quita a DOOM su forma de pintar: le quita a la CPU el trabajo de
+**presentarlo**, que es donde la 3060 es imbatible.
+
+- [~] **D0 -- DOOM en el arbol.** `toolchain/lang/c/expansion/doom/`: las
+      fuentes al commit fijado (`FUENTES.txt`), la config de la primera
+      partida (`default.cfg`), Freedoom con un comando, y el build mira ahi
+      primero. **Falta:** `traer.ps1 -Mudar` en la maquina donde vive
+      `BMO-externo` y su commit -- el port solo existe alli.
+      **Como se sabe:** `build.ps1` dice `el port del ARBOL` y DOOM se juega.
+- [ ] **D1 -- DOOM dice por que se cierra.** Sin fallo de Ring 3, DOOM no se
+      estrella: SALE, casi siempre por `I_Error` con su motivo (ver el README
+      de la expansion, seccion 4). **Como se sabe:** la linea de `I_Error` en
+      la consola del escritorio, o DOOM jugandose con los tres WAD.
+- [ ] **D2 -- la TEXTURA de DOOM** (pide M3). Su fotograma subido a la VRAM
+      por el motor de copia, sin que la CPU lo toque pixel a pixel.
+      **Como se sabe:** leido de vuelta, bit a bit el bufer de DOOM.
+- [ ] **D3 -- el ESCALADO por la 3060.** Dos triangulos y la textura de D2,
+      estirados a la ventana con el muestreador. El juez ya existe: el
+      escalado de la CPU (`c/emisor-x86_64/src/tests/escalado_de_doom.rs`),
+      y con muestreo de punto la 3060 tiene que dar lo mismo. **Como se
+      sabe:** el fotograma de la 3060 IGUAL al de la CPU, y el `[perf]` de
+      DOOM sin el tiempo de escalar.
+- [ ] **D4 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
+      pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
+      aplica el programa de pixel. **Como se sabe:** igual que D3, con 4
+      veces menos bytes por fotograma.
+
+El orden: **D0 -> D1 -> M3 -> D2 -> D3 -> D4.** D1 antes que nada: un juego
+que se cierra sin decir por que no se puede medir.
+
 ## 2b. Los idiomas de las GPU, y donde se aisla cada uno (26-09)
 
 Una GPU solo ejecuta SU codigo maquina; SPIR-V es el idioma de paso. Y los

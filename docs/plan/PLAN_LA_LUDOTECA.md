@@ -351,6 +351,11 @@ software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
       de BMO-X busca por nombre 8.3. Falta que el port (`doomgeneric_bmo.c`,
       fuera del arbol) abra ese WAD en vez de `doom1.wad`. **Como se sabe:**
       el primer mapa de Freedoom se juega en el Ryzen con el mismo `.bex`.
+      **26-09:** `toolchain/lang/c/expansion/doom/traer.ps1 -Freedoom` los
+      baja (v0.13.0) a `wad/`, y el build los busca ahi primero. [!] Si DOOM
+      se cierra solo con Freedoom, el primer sospechoso es la ZONA:
+      doomgeneric pide 6 MiB y Freedoom pesa mas que el shareware (`-mb 16`
+      en el argv del port; ver el README de la expansion, seccion 4).
 - [ ] **L3 -- el jefe que ya compraste: Half-Life por software.** Xash3D
       FWGS (su renderizador de software) y hlsdk-portable, compilados para
       BMO-X, con la carpeta `valve/` copiada del Half-Life de Steam. Pide lo
