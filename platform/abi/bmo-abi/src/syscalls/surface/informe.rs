@@ -1792,6 +1792,22 @@ pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 /// Todo son lecturas: ni un registro se escribe. 0 = no hay 3060.
 pub const INFO_GPU_SALUD: u64 = 0xC2;
 
+/// # `INFO_METICHE`: los errores que el hardware apunto solo (2026-09-26)
+///
+/// ```text
+///   selector 0      PREGUNTA otra vez a todas las funciones PCI y da
+///                   `funciones | con AER << 16 | con errores << 32 |
+///                   preguntas << 48`
+///   selector 1      cuantas confesaron AL ARRANCAR
+///   selector 2+2k   la funcion k: `bdf | Status << 16 | Device Status << 32
+///                   | vendor << 48` (solo los bits de error)
+///   selector 3+2k   su AER: `no corregible | corregible << 32` (pegajosos:
+///                   sobreviven a un reinicio en caliente)
+/// ```
+///
+/// Solo lee: esos bits se borran ESCRIBIENDO, y BMO-X no los borra.
+pub const INFO_METICHE: u64 = 0xC3;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

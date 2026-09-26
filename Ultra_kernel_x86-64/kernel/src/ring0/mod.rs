@@ -238,6 +238,9 @@ pub mod dev {
     pub mod pase_gpu;
     pub mod keyboard;
     pub mod pci;
+    /// **EL METICHE** (26-09): los errores que el hardware apunto por su
+    /// cuenta, preguntados a todos. Solo lee.
+    pub mod metiche;
     /// **EL PORTERO DEL BUS**: que hay enchufado a la placa y para que hay
     /// codigo. La segunda puerta del portero -- la primera es `usb::portero`,
     /// que mira lo que LLEGA; esta mira lo que HAY. No escribe ni un bit.

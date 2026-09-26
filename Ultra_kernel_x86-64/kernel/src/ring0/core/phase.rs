@@ -435,6 +435,9 @@ pub fn main(ctx: &mut BootContext) {
     // [!] Y no escribe un bit: ni MEM, ni Bus Master, ni un BAR. Es una
     // pregunta, como la NIC y como la placa. Ver `dev/portero/verde.rs`.
     crate::ring0::dev::portero::censar();
+    // ** EL METICHE: con el censo hecho (y ECAM montado), a cada funcion se le
+    // pregunta lo que apunto sin que nadie le preguntara. Solo lee.
+    crate::ring0::dev::metiche::preguntar();
     // *** EL PORTERO DURO -- quien alcanza la RAM y nadie lo adopto.
     //
     // ** Va DESPUES del censo y despues de los tres `find_*`, y esta vez el

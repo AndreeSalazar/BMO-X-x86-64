@@ -73,6 +73,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),
     (b"iommu", b"la frontera del DMA de todo aparato"),
+    (b"metiche", b"lo que el hardware apunto solo: los errores del bus, preguntados a todos"),
     (b"info", b"RAM, CPU, tareas y disco"),
     (b"consumo", b"nucleos, MHz, vatios y RAM en tabla"),
     (b"cpu", b"el procesador y su reloj"),

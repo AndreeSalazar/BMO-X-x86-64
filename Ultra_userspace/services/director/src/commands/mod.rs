@@ -45,6 +45,8 @@ pub(crate) mod gspvolcado;
 pub(crate) mod gsppase;
 /// `gpu cubo`: X4 -- el cubo del estudio D3D, por la CPU, contra la huella de la 3060.
 pub(crate) mod gspcubo;
+/// `metiche`: los errores que el hardware apunto solo, preguntados a todos (26-09).
+pub(crate) mod metiche;
 /// `gpu canal`: el primer canal, atado a COPY2 y con su ficha (L1d2b/L1d2c, 24-09).
 pub(crate) mod gspcanal;
 /// `gpu gr`: los buferes del contexto de oro de GR0 (M5 G0, 24-09).
@@ -194,6 +196,8 @@ pub(crate) enum Command<'a> {
     Gpu(&'a [u8]),
     /// `iommu`, `iommu encender`, `iommu apagar` (M0c).
     Iommu(&'a [u8]),
+    /// `metiche`: los errores que el hardware apunto solo (26-09).
+    Metiche,
     /// **El censo de extensiones**: que declara este silicio y que coge BMO.
     ///
     /// Vivia SOLO en el shell de Ring 0, y a ese shell no se vuelve una vez
@@ -566,6 +570,8 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"gpu" | b"grafica" => Command::Gpu(rest),
         // La IOMMU, PREGUNTADA: si el firmware la dejo encendida y a quien atiende.
         b"iommu" => Command::Iommu(rest),
+        // EL METICHE: a cada funcion PCI, lo que apunto sin que nadie preguntara.
+        b"metiche" | b"chisme" => Command::Metiche,
         // Los mismos dos nombres que el shell de Ring 0, para que lo que se
         // aprende en un sitio valga en el otro.
         b"ext" | b"extensiones" => Command::Ext,

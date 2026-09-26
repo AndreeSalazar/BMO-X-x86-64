@@ -92,6 +92,7 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::Cpu => system::cpu(dsk, p),
         Command::Gpu(arg) => super::gpu::gpu(dsk, p, arg),
         Command::Iommu(arg) => super::iommu::iommu(dsk, p, arg),
+        Command::Metiche => super::metiche::orden(dsk, p),
         Command::Ext => system::ext(dsk, p),
         Command::Cache => system::cache(dsk, p),
         Command::Consumo => system::consumo(dsk, p),

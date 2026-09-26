@@ -152,6 +152,7 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
                 super::reports::report_ext(g);
                 super::gpu::report_gpu(g, Some(rayo));
                 super::iommu::report_iommu(g);
+                super::metiche::report_metiche(g);
             }
             2 => super::reports::report_memory(g),
             3 => super::reports::report_consumo(g, tick),
@@ -198,6 +199,20 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     }
     let m = g.mark();
     regla(g);
+    // ** LO QUE HAY QUE PEGAR, AL FINAL (26-09). El propietario copia el final
+    // del informe, y la fila `autopsia` vivia arriba, en la seccion de la GPU:
+    // dos informes seguidos llegaron sin ella. Aqui va otra vez, junta con el
+    // metiche, donde se copia seguro -- sin tener que acordarse.
+    g.with_ink(INK_ECHO);
+    g.text(b"  PARA PEGAR -- la autopsia del booter y el chisme del bus:\n");
+    g.with_ink(INK_PLAIN);
+    super::gsp::fila_despierto(g);
+    let r = bmo::info(bmo::INFO_METICHE);
+    super::tabla::campo(g, b"metiche");
+    g.dec(r >> 32 & 0xFFFF);
+    g.text(b" funciones confiesan errores ahora, ");
+    g.dec(bmo::info(bmo::INFO_METICHE | 1 << 8));
+    g.text(b" al arrancar (el detalle: capitulo 2, `metiche`)\n");
     g.with_ink(INK_ECHO);
     g.text(b"  fin del informe: ");
     g.dec(c.lineas as u64);

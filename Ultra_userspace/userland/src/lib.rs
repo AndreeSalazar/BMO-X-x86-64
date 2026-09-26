@@ -1138,6 +1138,7 @@ pub const SEC_FALCON: u64 = 4;
 pub const SEC_SEC2: u64 = 5;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 pub const INFO_GPU_SALUD: u64 = 0xC2;
+pub const INFO_METICHE: u64 = 0xC3;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
