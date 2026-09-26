@@ -140,18 +140,33 @@ pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
     Some(m.n)
 }
 
-/// **Lee `datos/modo.txt`.** `None` = no esta armado.
+/// ** EL ARRANQUE POR DEFECTO (26-09): `init`, SIEMPRE.
+///
+/// Pedido del propietario: *"que obligue SIEMPRE aparece y que sea gpu init
+/// para que prepare mi GPU"*. Sin `datos/modo.txt`, sin la linea `save mode`
+/// o con `save mode off`, el arranque NO se queda sin panel: hace lo de
+/// `save mode init` (despertar la 3060 hasta `init`, y el escritorio). Lo
+/// unico que lo quita es `save mode nunca`: la salida de emergencia, por si
+/// algun dia despertar la 3060 fuera lo que tumba la maquina (y aun asi, la
+/// marca `en curso` ya quita sola el paso que tumbo).
+const POR_DEFECTO: &[u8] = b"init";
+
+/// **Lee `datos/modo.txt`.** `None` solo con `save mode nunca`; si no esta
+/// armado, el modo POR DEFECTO (`POR_QUE_NO` dice por que).
 fn leer_modo() -> Option<Modo> {
-    let a = match bmo::Archivo::leer_de(MODO) {
-        Ok(a) => a,
+    let mut buf = [0u8; 256];
+    let n = match bmo::Archivo::leer_de(MODO) {
+        Ok(a) => {
+            let n = a.read(&mut buf);
+            a.close();
+            n
+        }
         Err(e) => {
             apuntar_por_que(1 | (e as u64) << 8);
-            return None;
+            0
         }
     };
-    let mut buf = [0u8; 256];
-    let n = a.read(&mut buf);
-    a.close();
+    let no_abrio = por_que_no() & 0xFF == 1 && n == 0;
     // La marca, del suyo (los `modo.txt` de antes la llevaban dentro: se
     // siguen entendiendo).
     let mut marca = [0u8; 128];
@@ -161,7 +176,7 @@ fn leer_modo() -> Option<Modo> {
         k
     });
     let mut m = Modo { args: [0; 64], n: 0, en_curso: None, tumbo: None };
-    let mut armado = false;
+    let (mut armado, mut nunca) = (false, false);
     let lineas = buf[..n].split(|&b| b == b'\n').chain(marca[..k].split(|&b| b == b'\n'));
     for linea in lineas.map(|l| l.strip_suffix(b"\r").unwrap_or(l)) {
         if let Some(r) = linea.strip_prefix(b"save mode") {
@@ -174,10 +189,21 @@ fn leer_modo() -> Option<Modo> {
             m.en_curso = paso_por_nombre(r);
         } else if let Some(r) = linea.strip_prefix(b"tumbo: ") {
             m.tumbo = paso_por_nombre(r);
+        } else if linea == b"nunca" {
+            nunca = true;
         }
     }
-    apuntar_por_que(if armado { 0 } else if n == 0 { 2 } else { 3 });
-    armado.then_some(m)
+    if !no_abrio {
+        apuntar_por_que(if armado { 0 } else if nunca { 4 } else if n == 0 { 2 } else { 3 });
+    }
+    if nunca && !armado {
+        return None;
+    }
+    if !armado {
+        m.args[..POR_DEFECTO.len()].copy_from_slice(POR_DEFECTO);
+        m.n = POR_DEFECTO.len();
+    }
+    Some(m)
 }
 
 /// **Escribe el modo**: armado con `args`. `false` si no se pudo escribir.
@@ -212,9 +238,9 @@ fn marcar(en_curso: Option<usize>, tumbo: Option<usize>) -> bool {
 }
 
 /// **Desarma**: el fichero queda, pero sin `save mode` dentro.
-fn desarmar() -> bool {
+fn desarmar(nunca: bool) -> bool {
     let Ok(a) = bmo::Archivo::create(MODO) else { return false };
-    a.write(b"apagado\n");
+    a.write(if nunca { b"nunca\n" as &[u8] } else { b"apagado\n" });
     a.close()
 }
 
@@ -266,14 +292,17 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
     } else {
         return None;
     };
-    if resto == b"off" || resto == b"apagar" {
-        let ok = desarmar();
+    if resto == b"off" || resto == b"apagar" || resto == b"nunca" {
+        let nunca = resto == b"nunca";
+        let ok = desarmar(nunca);
         let g = &mut dsk.out.grid;
         g.with_ink(if ok { INK_GOOD } else { INK_ERR });
-        g.text(if ok {
-            b"  save mode DESARMADO: al arrancar ya no se repite\n" as &[u8]
+        g.text(if !ok {
+            b"  save mode: no se pudo escribir datos/modo.txt\n" as &[u8]
+        } else if nunca {
+            b"  save mode NUNCA: al arrancar, ni panel ni 3060 (`save mode off` vuelve a `init` por defecto)\n"
         } else {
-            b"  save mode: no se pudo escribir datos/modo.txt\n"
+            b"  save mode DESARMADO: al arrancar, lo POR DEFECTO -- solo despertar la 3060 hasta `init` (`save mode nunca` lo quita)\n"
         });
         g.with_ink(INK_PLAIN);
         dsk.field.n = 0;
@@ -374,11 +403,7 @@ pub(crate) fn antes_del_escritorio(p: &bmo::Pantalla) {
         crate::desktop::arranque::empezar(p, total);
     } else {
         // Sin panel tras el gato: POR QUE, al klog y a la fila `receta`.
-        bmo::consola(match por_que_no() & 0xFF {
-            1 => "save mode: datos/modo.txt NO SE PUDO ABRIR tras el gato: sin panel\n",
-            2 => "save mode: datos/modo.txt se leyo VACIO tras el gato: sin panel\n",
-            _ => "save mode: desarmado (datos/modo.txt sin `save mode`): sin panel\n",
-        });
+        bmo::consola("save mode NUNCA (datos/modo.txt): sin panel ni 3060, a proposito\n");
     }
 }
 

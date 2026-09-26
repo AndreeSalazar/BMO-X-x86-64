@@ -216,17 +216,21 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
         Some(n) => {
             g.text(b"save mode ");
             g.text(&args[..n]);
-        }
-        None => {
-            g.text(match super::verificar::por_que_no() & 0xFF {
-                1 => b"save mode: datos/modo.txt NO SE PUDO ABRIR, codigo " as &[u8],
-                2 => b"save mode: datos/modo.txt se leyo VACIO",
-                _ => b"save mode DESARMADO (datos/modo.txt sin la linea `save mode`)",
-            });
-            if super::verificar::por_que_no() & 0xFF == 1 {
-                g.dec(super::verificar::por_que_no() >> 8);
+            // El POR DEFECTO (`init`), y por que no habia uno armado.
+            let q = super::verificar::por_que_no();
+            if q & 0xFF != 0 {
+                g.text(match q & 0xFF {
+                    1 => b" (POR DEFECTO: datos/modo.txt NO SE PUDO ABRIR, codigo " as &[u8],
+                    2 => b" (POR DEFECTO: datos/modo.txt vacio)",
+                    _ => b" (POR DEFECTO: no hay uno armado)",
+                });
+                if q & 0xFF == 1 {
+                    g.dec(q >> 8);
+                    g.text(b")");
+                }
             }
         }
+        None => g.text(b"save mode NUNCA: ni panel ni 3060 al arrancar, a proposito"),
     }
     let corrio = |v: u64| if v & bmo::FUEGO_INTENTADO != 0 { b"CORRIO" as &[u8] } else { b"no corrio" };
     g.text(b"; fuego ");
