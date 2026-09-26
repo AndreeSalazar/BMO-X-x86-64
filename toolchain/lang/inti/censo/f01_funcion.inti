@@ -1,4 +1,7 @@
-# sonda: f01_funcion          espera: COMPILA
+# sonda: f01_funcion          espera: E0135
+# (26-09) Decia COMPILA, y compilaba A MEDIAS: `para cada n en numeros` no se
+# bajaba y el bucle se saltaba entero. Vuelve a COMPILA el dia del runtime de
+# listas. El censo lo cazo al primer intento, que es para lo que existe.
 perfil pleno
 
 funcion media(numeros es lista de numero) devuelve numero

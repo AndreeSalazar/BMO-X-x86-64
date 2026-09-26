@@ -257,6 +257,13 @@ repite                              # infinito a proposito
   bug clasico de borrar mientras se itera, y aqui no compila.
 - ⚠ `0 hasta 10` **excluye el 10**. Se elige el mismo convenio que el indice
   base 0 (sec. 9) para no tener dos reglas distintas en la cabeza.
+- ★ **Hasta el 2026-09-26 dos de las tres formas no se bajaban**, y las dos en
+  silencio: `para cada i en 0 hasta n` no emitia NADA (el bucle se saltaba
+  entero) y `repite n veces` no emitia su contador (el bucle no acababa). Las
+  destapo la tanda del cubo de VERRANO escrita en INTI. Ahora las dos cuentan
+  (`hasta` se calcula una vez; `continua` sube o baja el contador) y tienen sus
+  pruebas en el emisor. **`para cada x en lista` sigue sin bajarse**, pero ya
+  no calla: es `E0135` hasta que exista el runtime de listas.
 
 ---
 

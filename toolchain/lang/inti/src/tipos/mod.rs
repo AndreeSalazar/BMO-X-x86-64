@@ -74,6 +74,18 @@ use crate::disposicion::{es_de_comparar, tipos_de, Plano};
 pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
     let mut avisos = Vec::new();
 
+    // ** RECORRER UNA COLECCION, en los DOS perfiles (2026-09-26): esto no es
+    // una regla de tipos sino de lo que el compilador sabe bajar, y las listas
+    // son de `pleno` -- justo donde la puerta de abajo no deja pasar.
+    for d in &m.declaraciones {
+        match d {
+            Decl::Funcion(f) => recorridos(&f.cuerpo, &mut avisos),
+            Decl::Operacion { funcion, .. } => recorridos(&funcion.cuerpo, &mut avisos),
+            Decl::Registro { operaciones, .. } => operaciones.iter().for_each(|f| recorridos(&f.cuerpo, &mut avisos)),
+            Decl::Constante { .. } => {}
+        }
+    }
+
     // ** Solo en `llano`, por lo mismo que `disposicion`: en `pleno` un valor
     // puede cambiar de forma en ejecucion, y medirlo con estas reglas
     // denunciaria programas correctos. El dia que `pleno` tenga su modelo, esta
@@ -97,6 +109,42 @@ pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
     }
 
     Cosecha::con((), avisos)
+}
+
+/// `para cada x en lista` todavia no se baja (pide el runtime de listas), y
+/// hasta el 2026-09-26 compilaba y el bucle NO SE EJECUTABA. Ahora se dice.
+fn recorridos(b: &Bloque, avisos: &mut Vec<Aviso>) {
+    for s in b {
+        match s {
+            Sent::ParaCada { hasta, sitio, cuerpo, .. } => {
+                if hasta.is_none() {
+                    avisos.push(
+                        Aviso::nuevo(
+                            codigos::RECORRER_SIN_RUNTIME,
+                            "Recorrer una coleccion con `para cada` todavia no se puede compilar.".to_string(),
+                            *sitio,
+                        )
+                        .con_habia(
+                            "Recorrer pide saber como esta hecha la coleccion por dentro, y ese runtime no \
+                             existe todavia. Hasta el 2026-09-26 esto compilaba y el bucle NO SE EJECUTABA: \
+                             se saltaba entero, sin decir nada."
+                                .to_string(),
+                        )
+                        .con_hacer("recorre con un rango: `para cada i en 0 hasta cuantos`"),
+                    );
+                }
+                recorridos(cuerpo, avisos);
+            }
+            Sent::Si { ramas, sino, .. } => {
+                ramas.iter().for_each(|(_, c)| recorridos(c, avisos));
+                if let Some(c) = sino {
+                    recorridos(c, avisos);
+                }
+            }
+            Sent::Repite { cuerpo, .. } | Sent::Crudo { cuerpo, .. } | Sent::Paralelo { cuerpo, .. } => recorridos(cuerpo, avisos),
+            _ => {}
+        }
+    }
 }
 
 fn revisa(f: &Funcion, plano: &Plano, avisos: &mut Vec<Aviso>) {

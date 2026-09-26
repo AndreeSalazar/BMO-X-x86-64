@@ -230,3 +230,14 @@ fn mezclar_flotante32_y_flotante64_se_denuncia_y_un_literal_no() {
     assert!(!f("    cambiante b es flotante32 = 0.25\n    devuelve b + a\n").contains(&"E0022"));
     assert!(!f("    devuelve a + flotante32(x)\n").contains(&"E0022"));
 }
+
+/// ** `para cada x en lista` no se baja todavia, y lo DICE (2026-09-26): hasta
+/// hoy compilaba y el bucle se saltaba entero. La forma con rango si se baja,
+/// y no se denuncia.
+#[test]
+fn recorrer_una_coleccion_se_dice_y_el_rango_no() {
+    let lista = "perfil pleno\n\nfuncion f(xs es lista de entero64) devuelve entero64\n    cambiante s es entero64 = 0\n    para cada x en xs\n        s = s + 1\n    devuelve s\n";
+    assert!(codigos_de(lista).contains(&"E0135"), "{:?}", codigos_de(lista));
+    let rango = con("    cambiante s es entero64 = 0\n    para cada i en 0 hasta n\n        s = s + 1\n    devuelve s\n");
+    assert!(!codigos_de(&rango).contains(&"E0135"));
+}

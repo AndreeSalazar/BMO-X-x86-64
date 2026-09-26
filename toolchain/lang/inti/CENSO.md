@@ -71,7 +71,7 @@ esperando a su fase.
 
 | sonda | que fija | espera |
 |---|---|---|
-| `f01_funcion` | funcion con tipos, `devuelve`, `de` como llamada | **COMPILA** |
+| `f01_funcion` | funcion con tipos, `devuelve`, `de` como llamada | **E0135** hasta el runtime de listas (26-09: `para cada` sobre una lista no se bajaba y el bucle se saltaba entero; ahora se dice) |
 | `f02_defecto_congelado` | ★ el defecto se congela: la sorpresa 1 de Python no existe | **COMPILA**, la lista no se acumula |
 | `f03_sin_closures` | ★ no hay funciones anidadas ni anonimas: el *late binding* no existe **por ausencia** | `E0101` |
 | `f04_parametro_fijo` | un parametro no se cambia dentro | `E0033` |

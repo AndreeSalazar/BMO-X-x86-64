@@ -205,6 +205,53 @@ funcion f(a es entero64, b es entero64) devuelve entero64
 }
 
 /// Un `si` que bifurca de verdad. Este es el que un volcado no distingue.
+// ===================================================================
+//  *** LOS BUCLES QUE CONTAN (2026-09-26)
+// ===================================================================
+//
+// `para cada i en 0 hasta n` no emitia NADA (el bucle se saltaba entero) y
+// `repite n veces` no emitia el contador (el bucle no acababa). Ninguna prueba
+// del emisor los corria: los destapo la tanda del cubo en INTI.
+
+fn con_n(cuerpo: &str) -> String {
+    format!("perfil llano\n\nfuncion f(a es entero64, b es entero64) devuelve entero64\n    cambiante n es entero64 = 0\n{cuerpo}    devuelve n\n")
+}
+
+#[test]
+fn para_cada_con_rango_da_sus_vueltas() {
+    assert_eq!(ejecuta(&con_n("    para cada i en 0 hasta 24\n        n = n + 1\n"), 0, 0), 24);
+    // El final NO entra: 3 + 4 + ... + 9.
+    assert_eq!(ejecuta(&con_n("    para cada i en 3 hasta 10\n        n = n + i\n"), 0, 0), 42);
+    // Con los limites de los parametros, y un rango vacio no da ninguna.
+    assert_eq!(ejecuta(&con_n("    para cada i en a hasta b\n        n = n + 1\n"), 5, 12), 7);
+    assert_eq!(ejecuta(&con_n("    para cada i en a hasta b\n        n = n + 1\n"), 9, 2), 0);
+}
+
+#[test]
+fn para_cada_continua_sube_y_corta_sale() {
+    // `continua` no se salta el `i + 1`: si lo hiciera, no acabaria.
+    let pares = "    para cada i en 0 hasta 10\n        si (i resto 2) no es 0\n            continua\n        n = n + 1\n";
+    assert_eq!(ejecuta(&con_n(pares), 0, 0), 5);
+    let corta = "    para cada i en 0 hasta 100\n        si i = 7\n            corta\n        n = n + 1\n";
+    assert_eq!(ejecuta(&con_n(corta), 0, 0), 7);
+}
+
+#[test]
+fn para_cada_anidados_cuentan_por_separado() {
+    let dos = "    para cada i en 0 hasta 4\n        para cada j en 0 hasta 3\n            n = n + 1\n";
+    assert_eq!(ejecuta(&con_n(dos), 0, 0), 12);
+}
+
+#[test]
+fn repite_veces_acaba_y_cuenta() {
+    assert_eq!(ejecuta(&con_n("    repite 4 veces\n        n = n + 1\n"), 0, 0), 4);
+    assert_eq!(ejecuta(&con_n("    repite a veces\n        n = n + 2\n"), 6, 0), 12);
+    assert_eq!(ejecuta(&con_n("    repite 0 veces\n        n = n + 1\n"), 0, 0), 0);
+    // `continua` baja el contador: si no, `repite` no acabaria.
+    let salta = "    repite 5 veces\n        n = n + 1\n        continua\n";
+    assert_eq!(ejecuta(&con_n(salta), 0, 0), 5);
+}
+
 #[test]
 fn un_si_bifurca() {
     let f = "\
