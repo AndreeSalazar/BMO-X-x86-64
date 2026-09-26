@@ -212,7 +212,9 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     g.dec(r >> 32 & 0xFFFF);
     g.text(b" funciones confiesan errores ahora, ");
     g.dec(bmo::info(bmo::INFO_METICHE | 1 << 8));
-    g.text(b" al arrancar (el detalle: capitulo 2, `metiche`)\n");
+    g.text(b" al arrancar; con algo NUEVO en esta sesion: ");
+    g.dec(bmo::info(bmo::INFO_METICHE | 34 << 8).count_ones() as u64);
+    g.text(b" (el detalle: capitulo 2, `metiche`)\n");
     g.with_ink(INK_ECHO);
     g.text(b"  fin del informe: ");
     g.dec(c.lineas as u64);

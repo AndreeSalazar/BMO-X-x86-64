@@ -1803,6 +1803,8 @@ pub const INFO_GPU_SALUD: u64 = 0xC2;
 ///                   | vendor << 48` (solo los bits de error)
 ///   selector 3+2k   su AER: `no corregible | corregible << 32` (pegajosos:
 ///                   sobreviven a un reinicio en caliente)
+///   selector 34     bit k: la funcion k trae algun bit que NO tenia al
+///                   arrancar (lo que paso en ESTA sesion)
 /// ```
 ///
 /// Solo lee: esos bits se borran ESCRIBIENDO, y BMO-X no los borra.

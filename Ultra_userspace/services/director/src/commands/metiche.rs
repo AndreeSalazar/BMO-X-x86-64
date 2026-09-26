@@ -33,6 +33,32 @@ const STATUS: &[(u32, &[u8])] = &[
     (15, b"paridad"),
 ];
 const DEVSTA: &[(u32, &[u8])] = &[(0, b"CORREGIBLE"), (1, b"NO-FATAL"), (2, b"FATAL"), (3, b"peticion-no-soportada")];
+/// AER, errores CORREGIBLES (PCIe 7.8.4.5).
+const AER_COR: &[(u32, &[u8])] = &[
+    (0, b"error-del-receptor"),
+    (6, b"TLP-malo"),
+    (7, b"DLLP-malo"),
+    (8, b"vuelta-de-reintentos"),
+    (12, b"plazo-de-reintento"),
+    (13, b"aviso-no-fatal"),
+    (14, b"interno-corregido"),
+    (15, b"cabecera-desbordada"),
+];
+/// AER, errores NO corregibles (PCIe 7.8.4.2).
+const AER_UNC: &[(u32, &[u8])] = &[
+    (4, b"protocolo-del-enlace"),
+    (5, b"caida-sorpresa"),
+    (12, b"TLP-envenenado"),
+    (13, b"control-de-flujo"),
+    (14, b"PLAZO-DE-RESPUESTA"),
+    (15, b"aborto-del-que-responde"),
+    (16, b"respuesta-inesperada"),
+    (17, b"desborde-del-receptor"),
+    (18, b"TLP-deforme"),
+    (19, b"ECRC"),
+    (20, b"peticion-no-soportada"),
+    (21, b"violacion-ACS"),
+];
 
 /// **La seccion `metiche`**: pregunta OTRA VEZ (asi se ve lo nuevo de esta
 /// sesion contra lo que habia al arrancar) y dice quien confeso.
@@ -56,6 +82,8 @@ pub(crate) fn report_metiche(s: &mut Output) {
     super::datos::anotar(b"metiche funciones", funciones, b"");
     super::datos::anotar(b"metiche con errores", ahora, b"");
     super::datos::anotar(b"metiche con errores al arrancar", al_arrancar, b"");
+    let nuevos = bmo::info(bmo::INFO_METICHE | 34 << 8);
+    super::datos::anotar(b"metiche nuevos en la sesion", nuevos.count_ones() as u64, b"");
     for k in 0..ahora.min(16) {
         let q = bmo::info(bmo::INFO_METICHE | (2 + 2 * k) << 8);
         let a = bmo::info(bmo::INFO_METICHE | (3 + 2 * k) << 8);
@@ -73,12 +101,17 @@ pub(crate) fn report_metiche(s: &mut Output) {
         bits(s, q >> 16 & 0xFFFF, STATUS);
         bits(s, q >> 32 & 0xFFFF, DEVSTA);
         if a != 0 {
-            s.text(b"; AER no corregible 0x");
-            s.hex(a & 0xFFFF_FFFF, 8);
-            s.text(b" corregible 0x");
-            s.hex(a >> 32, 8);
-            s.text(b" (pegajosos: pueden ser de ANTES)");
+            s.text(b"; AER");
+            if a & 0xFFFF_FFFF != 0 {
+                s.text(b" NO corregible:");
+                bits(s, a & 0xFFFF_FFFF, AER_UNC);
+            }
+            if a >> 32 != 0 {
+                s.text(b" corregible:");
+                bits(s, a >> 32, AER_COR);
+            }
         }
+        s.text(if nuevos >> k & 1 != 0 { b"  <- NUEVO en esta sesion" as &[u8] } else { b"  (ya estaba al arrancar)" });
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }

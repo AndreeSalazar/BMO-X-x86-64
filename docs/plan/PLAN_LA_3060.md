@@ -1615,6 +1615,52 @@ propietario (`platform/drivers/gpu/ga10x/src/lectura/aon.rs`), el crate partido 
 carpetas por carril, la etiqueta `[estado]` y la regla A del guardian
 `la-3060`. La anatomia entera: `platform/drivers/gpu/ga10x/ANATOMIA.md`.
 
+**Sexto 0x15 (25-09, 20:51): la autopsia COMPLETA, y la primera tabla de
+buenos contra malos.**
+
+```text
+   autopsia   al pararse el SEC2 (245785 us):
+              GSP MAILBOX0/1 0xBADF1002, CPUCTL del GSP 0xBADF5620 (CRUDOS)
+              SEC2 CPUCTL 0x00000010 (parado), WPR2 extendida
+              la WPR meta: el booter cambio 0 palabras; verified 0, bootCount 0
+```
+
+- **El GSP no contesta cuando el booter se para:** sus registros dan
+  `0xBADF....`, el patron de un error de PRI (el falcon no responde: en
+  reset, sin reloj o bloqueado). El booter lo toco -- lo reseteo para
+  cargarlo -- y se paro antes de soltarlo. No se afirma cual de los tres.
+- **La WPR meta sin tocar** en el malo. Falta la foto de un BUENO para saber
+  si el booter la escribe al acabar: si en los buenos cambia, el malo se para
+  ANTES de ese punto.
+
+Los seis arranques con informe, lado a lado:
+
+| arranque | booter | `pcie ... de` | temp | al llegar |
+|---|---|---|---|---|
+| 25-09 13:35 | bien | Gen3 x16 | 56 grados | frio |
+| 25-09 19:38 | 0x15 | **Gen4** x16 | sin dato | frio |
+| 25-09 19:59 | 0x15 | **Gen4** x16 | sin dato | frio |
+| 25-09 20:19 | bien | Gen3 x16 | 54 grados | frio |
+| 25-09 20:39 | bien | Gen3 x16 | 55 grados | frio |
+| 25-09 20:51 | 0x15 | **Gen4** x16 | sin dato | frio |
+
+**Cuidado con la columna `pcie`:** separa buenos de malos PERFECTO, y casi
+seguro es CONSECUENCIA, no causa: esa fila lee la capacidad del enlace que
+anuncia la 3060, y con el GSP-RM vivo el RM la baja a lo que da la placa
+(Gen3, una A320); sin GSP-RM se queda en la de fabrica (Gen4). Lo mismo el
+sensor termico: sin GSP-RM no tiene su bit de validez. Se apunta porque una
+correlacion perfecta NO se descarta sin medirla: si el enlace se leyera ANTES
+del booter y tambien separara, seria otra historia.
+
+**El metiche, primera vez:** 11 funciones con bits de error, las mismas al
+arrancar que al final. La 3060 (29:00.0) trae `aborto-recibido`, CORREGIBLE y
+peticion-no-soportada; su audio (29:00.1) y muchos puentes de AMD, el aviso
+no fatal de AER (bit 13) -- lo habitual tras enumerar un bus: los sondeos a
+funciones que no existen dejan peticiones no soportadas. El unico de enlace
+de verdad: 20:04.0 con `error-del-receptor` (capa fisica). Desde este build
+el metiche dice CUALES bits son NUEVOS en la sesion (antes solo contaba) y
+pone nombre a cada bit de AER.
+
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con
 sus 8 B a cero; los registros; los juicios), `fwsec::parchear_sb`, y en el

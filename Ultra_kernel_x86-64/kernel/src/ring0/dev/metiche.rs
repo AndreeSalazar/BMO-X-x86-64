@@ -58,6 +58,26 @@ static QUIEN: [AtomicU64; MAX] = [const { AtomicU64::new(0) }; MAX];
 static AER: [AtomicU64; MAX] = [const { AtomicU64::new(0) }; MAX];
 /// Lo que dijo la PRIMERA pregunta (al arrancar): `con_chisme`.
 static AL_ARRANCAR: AtomicU64 = AtomicU64::new(u64::MAX);
+/// La foto AL ARRANCAR, funcion a funcion (como `QUIEN` y `AER`).
+static ANTES_QUIEN: [AtomicU64; MAX] = [const { AtomicU64::new(0) }; MAX];
+static ANTES_AER: [AtomicU64; MAX] = [const { AtomicU64::new(0) }; MAX];
+/// Bit `k`: la funcion `k` de la ultima pregunta trae algun bit que NO tenia
+/// al arrancar -- lo que paso EN ESTA SESION (26-09, metal 20:51: "11 ahora,
+/// 11 al arrancar" no decia si alguno era nuevo).
+static NUEVOS: AtomicU64 = AtomicU64::new(0);
+
+/// Si `quien`/`aer` traen algun bit que la foto de arranque no tenia.
+fn es_nuevo(quien: u64, aer: u64) -> bool {
+    let bdf = quien & 0xFFFF;
+    for k in 0..MAX {
+        let q = ANTES_QUIEN[k].load(Ordering::Acquire);
+        if q != 0 && q & 0xFFFF == bdf {
+            let a = ANTES_AER[k].load(Ordering::Acquire);
+            return (quien >> 16 & !(q >> 16)) & 0xFFFF_FFFF != 0 || aer & !a != 0;
+        }
+    }
+    true
+}
 
 /// El Device Status de PCIe de una funcion, si tiene la capacidad (id 0x10).
 fn devsta(bus: u8, dev: u8, func: u8) -> Option<u16> {
@@ -126,6 +146,18 @@ pub fn preguntar() -> u32 {
     let preguntas = (RESUMEN.load(Ordering::Acquire) >> 48).wrapping_add(1) & 0xFFFF;
     RESUMEN.store(funciones & 0xFFFF | (con_aer & 0xFFFF) << 16 | (chismes as u64) << 32 | preguntas << 48, Ordering::Release);
     let primera = AL_ARRANCAR.compare_exchange(u64::MAX, chismes as u64, Ordering::AcqRel, Ordering::Acquire).is_ok();
+    let mut nuevos = 0u64;
+    for k in 0..(chismes as usize).min(MAX) {
+        let (q, a) = (QUIEN[k].load(Ordering::Acquire), AER[k].load(Ordering::Acquire));
+        if primera {
+            ANTES_QUIEN[k].store(q, Ordering::Release);
+            ANTES_AER[k].store(a, Ordering::Release);
+        } else if es_nuevo(q, a) {
+            nuevos |= 1 << k;
+            crate::ring0::cabina::warn("metiche", "NUEVO en esta sesion: bdf | status << 16 | devsta << 32", q);
+        }
+    }
+    NUEVOS.store(nuevos, Ordering::Release);
     // A CABINA: queda en la caja negra aunque nadie mire el informe.
     if primera {
         let c = crate::ring0::cabina::count;
@@ -145,7 +177,8 @@ pub fn preguntar() -> u32 {
 /// `INFO_METICHE`: selector 0 PREGUNTA otra vez y da el resumen
 /// (`funciones | con_aer << 16 | con_chisme << 32 | preguntas << 48`); 1 lo
 /// que confesaron AL ARRANCAR; `2 + 2k` y `3 + 2k` la funcion `k` (ver
-/// `QUIEN` y `AER`).
+/// `QUIEN` y `AER`); 34 la mascara de las que traen algo NUEVO desde el
+/// arranque.
 pub fn info(sel: u64) -> u64 {
     match sel >> 8 {
         0 => {
@@ -153,6 +186,7 @@ pub fn info(sel: u64) -> u64 {
             RESUMEN.load(Ordering::Acquire)
         }
         1 => AL_ARRANCAR.load(Ordering::Acquire),
+        34 => NUEVOS.load(Ordering::Acquire),
         s if s >= 2 && ((s - 2) / 2) < MAX as u64 => {
             let k = ((s - 2) / 2) as usize;
             if s % 2 == 0 { QUIEN[k].load(Ordering::Acquire) } else { AER[k].load(Ordering::Acquire) }
