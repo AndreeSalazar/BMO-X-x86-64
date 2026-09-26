@@ -850,7 +850,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         // ** 0x15: nueve veces en el metal (24-09 y 25-09), seis seguidas EN
         // FRIO: cortar la corriente NO lo arregla. La causa (25-09, 3 de 3):
         // `fuego`/`frontera` usaban el falcon del GSP antes que el booter; ya
-        // no son pasos de `save mode`. El caso: `ga10x/EL_0x15.md`.
+        // no son pasos de `save mode`. El caso: `platform/drivers/gpu/ga10x/EL_0x15.md`.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
             let con_prueba = bmo::info(bmo::INFO_GPU_FRONTERA) & bmo::FUEGO_INTENTADO != 0 || bmo::info(bmo::INFO_GPU_FUEGO) & bmo::FUEGO_INTENTADO != 0;
