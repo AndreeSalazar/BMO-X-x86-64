@@ -249,6 +249,8 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     if op.exige {
         aparato.exigir(&mut exigido);
     }
+    let bucle = bmo::ciclos();
+    let mut dentro = 0u64;
     for i in 0..n {
         let f = (i % 360) as usize;
         let k = cuantos[f] as usize;
@@ -257,6 +259,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
                 let ciclos = bmo::ciclos() - desde;
+                dentro += ciclos;
                 cuentas.apuntar(ciclos, &st);
                 if let Some(t) = tablero.as_mut() {
                     t.apuntar(ciclos, &st);
@@ -266,6 +269,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             Err(e) => return destino::fallo(dsk, e, Some(i), op),
         }
     }
+    let bucle = bmo::ciclos() - bucle;
     // El cierre: lo que quedo en vuelo, dentro del reloj.
     let desde = bmo::ciclos();
     let cierre_us = match aparato.finish() {
@@ -341,6 +345,33 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(b"           ");
         g.text(nota.s());
         g.byte(b'\n');
+    }
+    // ** E2: de que es la pared. El bucle entero = lo de dentro de `draw`
+    // (partido por la puerta, abajo) + el tablero + lo demas del bucle.
+    let tablero_ciclos = tablero.as_ref().map_or(0, |t| t.pintar_ciclos());
+    let por = |c: u64| c * 10_000_000 / hz / n.max(1) as u64;
+    let mut e2 = Texto::nuevo();
+    e2.t(b"E2, la pared del bucle: ");
+    destino::decimas(&mut e2, por(bucle));
+    e2.t(b" por fotograma = draw ");
+    destino::decimas(&mut e2, por(dentro));
+    e2.t(b" + tablero ");
+    destino::decimas(&mut e2, por(tablero_ciclos));
+    e2.t(b" + resto ");
+    destino::decimas(&mut e2, por(bucle.saturating_sub(dentro + tablero_ciclos)));
+    let mut e2b = Texto::nuevo();
+    aparato.nota_fases(&mut e2b);
+    for linea_e2 in [e2.s(), e2b.s()] {
+        if !linea_e2.is_empty() {
+            g.text(b"           ");
+            g.text(linea_e2);
+            g.byte(b'\n');
+        }
+    }
+    if let Some((c, pq, pu, pr)) = aparato.fases() {
+        for (clave, v) in [(b"gpu verrano e2 cuentas" as &[u8], c), (b"gpu verrano e2 paquete", pq), (b"gpu verrano e2 puerta", pu), (b"gpu verrano e2 preparar", pr), (b"gpu verrano e2 pared", por(bucle))] {
+            super::super::datos::anotar(clave, v, b"decimas de us");
+        }
     }
     let (kf, ku): (&[u8], &[u8]) = if op.exige && op.coopera {
         (b"gpu verrano banco maximo fps", b"gpu verrano banco maximo us")

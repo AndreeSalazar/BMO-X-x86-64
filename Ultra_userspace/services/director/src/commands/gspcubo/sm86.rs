@@ -159,9 +159,33 @@ pub(super) struct Aparato<'a> {
     dibujos: u64,
     /// E1: el gobernador de los relojes.
     gobierno: Gobierno,
+    /// E2: el cronometro de cada fase de `draw`.
+    fases: Fases,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
+}
+
+/// **E2 -- DE QUE SON LOS US DEL ESCRITORIO** (26-09). Con `maximo` la pared
+/// era ~35 us: 15 los prepara el kernel, 18 son de la 3060 EN PARALELO, y
+/// ~20 no se veian. Tres fases de `draw`, en ciclos del TSC, sumadas:
+///
+/// ```text
+///    cuentas   los vertices a bits y la caja de `coopera` (`Frame::cover`,
+///              coma flotante POR SOFTWARE en el escritorio: E6)
+///    paquete   escribir el paquete: los ~700 B de programas otra vez (E3)
+///              y los vertices
+///    puerta    la llamada al kernel entera; dentro, lo que el kernel dice
+///              que tardo en preparar (`Stats::prepare_us`); lo demas es
+///              entrar, salir, juzgar la huella y la espera del anillo
+/// ```
+#[derive(Default)]
+struct Fases {
+    n: u64,
+    cuentas: u64,
+    paquete: u64,
+    puerta: u64,
+    preparar_us: u64,
 }
 
 /// Donde cae la ventana de 1280x720 en esta pantalla (la misma cuenta que el
@@ -212,11 +236,12 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
+        let t0 = bmo::ciclos();
         check(frame, out, tu::MAX_VERTICES)?;
         // V0: la ventana del cubo y su FONDO son los de las ordenes de X5.
         if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
@@ -227,8 +252,10 @@ impl Backend for Aparato<'_> {
             *d = tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) };
         }
         let limpiar = if self.coopera { self.recorte(frame) } else { None };
+        let t1 = bmo::ciclos();
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
         tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
+        let t2 = bmo::ciclos();
         let modo = if self.coopera {
             bmo::CUBO_ANILLO | bmo::CUBO_COOPERA
         } else if self.anillo {
@@ -239,6 +266,13 @@ impl Backend for Aparato<'_> {
             0
         };
         let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VERRANO | modo | self.paquete.as_ptr() as u64).map_err(Error::Device)?;
+        let t3 = bmo::ciclos();
+        let f = &mut self.fases;
+        f.n += 1;
+        f.cuentas += t1 - t0;
+        f.paquete += t2 - t1;
+        f.puerta += t3 - t2;
+        f.preparar_us += cu::preparado(r).1 as u64;
         let (us, tris, etapas, _) = cu::desempaquetar(r);
         if !cu::sano(r) {
             return Err(Error::Device(ESCALERA | etapas));
@@ -288,6 +322,33 @@ impl Aparato<'_> {
         self.limpiados += r.unwrap_or(Rect::full(frame.viewport)).area();
         self.dibujos += 1;
         r
+    }
+
+    /// **E2**: cuanto de cada fotograma se fue en cada fase de `draw`, en
+    /// decimas de us por fotograma: `(cuentas, paquete, puerta, preparar)`.
+    pub(super) fn fases(&self) -> Option<(u64, u64, u64, u64)> {
+        let f = &self.fases;
+        if f.n == 0 {
+            return None;
+        }
+        let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+        let d = |c: u64| c * 10_000_000 / hz / f.n;
+        Some((d(f.cuentas), d(f.paquete), d(f.puerta), f.preparar_us * 10 / f.n))
+    }
+
+    /// Las fases de E2, dichas.
+    pub(super) fn nota_fases(&self, t: &mut Texto) {
+        if let Some((c, pq, pu, pr)) = self.fases() {
+            t.t(b"E2, dentro de draw por fotograma: cuentas ");
+            decimas(t, c);
+            t.t(b", paquete ");
+            decimas(t, pq);
+            t.t(b", puerta ");
+            decimas(t, pu);
+            t.t(b" (el kernel prepara ");
+            decimas(t, pr);
+            t.t(b", el resto es entrar, salir y esperar)");
+        }
     }
 
     /// Lo que la puerta tiene que decir del banco (V1c: cuanto se limpio).
@@ -456,6 +517,11 @@ pub(super) fn fallo(dsk: &mut Desktop, e: Error, en: Option<u32>, op: Opciones) 
 /// `sinldg` salio bien: lo que eso quiere decir.
 pub(super) fn sin_ldg_pagado(dsk: &mut Desktop) -> After {
     linea(dsk, b"  SIN LDG la 3060 PAGO los VERTICES y el dibujo: el cuelgue es del LDG (o de la direccion que lee). El cubo sale vacio a proposito", INK_GOOD)
+}
+
+/// `v` decimas de us, como `12.3 us`.
+pub(super) fn decimas(t: &mut Texto, v: u64) {
+    t.d(v / 10).t(b".").d(v % 10).t(b" us");
 }
 
 fn motivo(dsk: &mut Desktop, m: u32) -> After {

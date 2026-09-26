@@ -371,6 +371,14 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       kernel), 18 de la 3060 en paralelo, y ~20 que no se ven. Un
       cronometro por fases en el banco: armar el paquete, `Frame::cover`,
       la llamada, el tablero. **Como se sabe:** las fases suman la pared.
+      **Escrito (26-09, tarde), falta el metal:** al acabar el banco, dos
+      lineas `E2`: la pared del bucle = `draw` + tablero + resto; y dentro de
+      `draw` (en la puerta `sm86.rs`): cuentas (vertices a bits y
+      `Frame::cover`, la coma flotante por software), paquete (los ~700 B de
+      programas + vertices), puerta (la llamada entera) y, dentro de ella,
+      lo que el kernel dice que tardo en preparar. En decimas de us, y a
+      `datos` (`gpu verrano e2 ...`). Lo que diga decide el orden de E3, E4
+      y E6 (si las cuentas pesan, INTI o SSE; si pesa el paquete, E3).
 - [ ] **E3 -- el paquete SIN programas.** Con el anillo armado, cada
       fotograma lleva de nuevo los ~700 B del BSF y el kernel los huele
       (FNV) para saber que son los mismos. Un paquete "solo vertices" que
