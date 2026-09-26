@@ -442,6 +442,10 @@ fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::
     use bmo_gpu_ga10x::anillo as an;
     vaciar(r)?;
     ANILLO_HUELLA.store(0, Ordering::Release);
+    // El anillo pisa EMPUJE y TABLA: el caliente de V1 (`ligero`) ya no
+    // puede reusar lo suyo. Su entrada lo diria casi siempre, pero tras 512
+    // envios la entrada da la vuelta y podria casar.
+    CALIENTE_HUELLA.store(0, Ordering::Release);
     super::volcado::quieto()?;
     asegurar_pagina(r)?;
     super::memoria(ANILLO_F.load(Ordering::Acquire), an::PAGINAS * super::PAGINA).fill(0);

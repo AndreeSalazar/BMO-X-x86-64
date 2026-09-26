@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   354 casillas ABIERTAS en 43 planes
+   355 casillas ABIERTAS en 43 planes
    304 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -194,6 +194,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
 - ... y 4 mas
 
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 7 abiertas, 4 hechas
+
+*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
+
+- [ ] V1b -- EL ANILLO: la CPU ORQUESTA, no espera. Lo que pidio el
+- [ ] V1c -- EXPRIMIR: quien refuerza a quien. Lo pidio el propietario
+- [ ] V2 -- la profundidad y el culling (X5b de
+- ... y 4 mas
+
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
 *PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
@@ -237,15 +246,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-4 -- EL METAL. Un .bex firmado que arranque en el Ryzen y
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
-- ... y 3 mas
-
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 6 abiertas, 4 hechas
-
-*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
-
-- [ ] V1b -- EL ANILLO: la CPU ORQUESTA, no espera. Lo que pidio el
-- [ ] V2 -- la profundidad y el culling (X5b de
-- [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - ... y 3 mas
 
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas

@@ -172,6 +172,61 @@ la SPH (128 B) y detras las instrucciones.
       3060. **Como se sabe:** `gpu verrano banco anillo` dice IGUAL al
       final (el 30 va TAMBIEN por el anillo), `N en vuelo`, y los fps por
       encima de ligero; la meta, los ~3780 de Windows.
+- [ ] **V1c -- EXPRIMIR: quien refuerza a quien.** Lo pidio el propietario
+      el 26-09: la CPU no espera ni le dice a la 3060 que hacer; la
+      REFUERZA si hace falta. El anillo ya da la senal para decidirlo: la
+      columna ESPERA DE LA CPU del tablero.
+
+      ```text
+         espera > 0   la 3060 es el cuello: la CPU va por delante y le
+                      QUITA trabajo (menos esperas en sus ordenes, los
+                      vertices en VRAM, mas ranuras) o hace otra cosa
+                      (fisica, audio, el juego) en vez de girar
+         espera = 0   la CPU es el cuello: lo que cuesta cada envio
+      ```
+
+      Lo que queda, en orden, cada paso una variable y juzgado por el 30
+      contra D3D12 (las cifras son ESTIMADAS, no medidas):
+
+      ```text
+         1  MEDIR la 3060 en vuelo. Hoy, con el anillo, no se sabe cuanto
+            tarda la tarjeta: solo cuanto espero la CPU. Un informe de
+            CUATRO palabras (SET_REPORT_SEMAPHORE_D STRUCTURE_SIZE = 0,
+            `clc797.h`) escribe ademas el reloj de la 3060 en ns: uno al
+            empezar y otro al acabar cada fotograma. Sin esto, lo demas
+            es a ciegas
+         2  las ORDENES en RAM. La cola de cada ranura (14 palabras) hoy va
+            por la ventana PRAMIN (~0,5 us por palabra). En RAM del PC,
+            como los vertices, la CPU las escribe a velocidad de RAM; por
+            la ventana quedan la entrada y GP_PUT (3 palabras). Y con las
+            512 entradas del GPFIFO escritas al ARMAR, solo GP_PUT: 1
+            escritura y el timbre, sin ninguna LECTURA por PCIe (la de la
+            ventana tambien se va si se recuerda donde quedo). ~8 us -> ~1
+         3  los VERTICES dentro de las ordenes. La clase 3D trae su propio
+            copiador en linea (LINE_LENGTH_IN, OFFSET_OUT, LAUNCH_DMA,
+            LOAD_INLINE_DATA): la 3060 los escribe en SU VRAM en orden,
+            antes del dibujo. El programa de vertice lee VRAM y no PCIe, y
+            la tabla deja de cambiar (sin su semaforo y su espera). Hay que
+            ver si pide una espera antes del dibujo
+         4  quitar ESPERAS. La de tras limpiar y la de antes de la valla
+            probablemente sobran: la valla ya es "tras todas las escrituras,
+            en todo el pipeline" (RELEASE bit 4, PIPELINE_LOCATION 15). Una
+            a una
+         5  SET_VERTEX_ID_BASE (0x1118, hoy a 0) como alternativa a la
+            tabla: si el numero de vertice que ve el programa lo incluye,
+            cada ranura es un desplazamiento y no un semaforo. Experimento
+         6  mas ranuras (8) si la espera salta a rafagas
+         7  el paquete SIN programas: hoy cada fotograma lleva los ~700 B
+            del BSF y el kernel los huele (FNV). Con el anillo armado,
+            solo los vertices
+         8  V3 de verdad: la matriz (16 palabras) por LOAD_CONSTANT_BUFFER
+            (0x238c) y los 8 vertices del cubo FIJOS en la VRAM: la 3060
+            transforma, como D3D12. Programas nuevos en el BSF (y el juez)
+      ```
+
+      **Como se sabe:** cada paso sube los fps de `gpu verrano banco
+      anillo` y el 30 sigue IGUAL; el 1 dice ademas cuanto de cada
+      fotograma es de la 3060.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.

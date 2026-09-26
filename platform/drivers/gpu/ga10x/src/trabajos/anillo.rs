@@ -159,12 +159,17 @@ pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: 
         && escribir_bytes(r, PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2;
     // Las cuatro, enteras: la cabeza de cada una no se vuelve a escribir.
+    // (Una `Ordenes` a la vez: son 4 KiB y esto corre en la pila del
+    // syscall.)
+    let mut primera = 0;
     for k in 0..RANURAS {
         let Some((o, _)) = ordenes(v, k, n / 3, if k == ranura(numero) { numero } else { 0 }) else { return false };
         bien = bien && escribir(r, empuje(k), &o.o[..o.n]) == o.n;
+        if k == ranura(numero) {
+            primera = o.n;
+        }
     }
-    let Some((o, _)) = ordenes(v, ranura(numero), n / 3, numero) else { return false };
-    let en = entrada(sombreador_va(empuje(ranura(numero))), o.n as u32);
+    let en = entrada(sombreador_va(empuje(ranura(numero))), primera as u32);
     bien && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
 }
 
