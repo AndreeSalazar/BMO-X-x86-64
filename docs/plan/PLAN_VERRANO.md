@@ -604,8 +604,10 @@ le pide a VERRANO; el jefe esta medido en
    1  DOOM               doom1.wad (shareware)         la CPU pinta          HECHO 20-09
    2  Freedoom           freedm1/freedm2 (BSD)         D0, D1                EN MARCHA
    3  DOOM por VERRANO   el mismo                      M3 (texturas), D2-D4  carril D
-   4  Quake, software    pak0.pak (shareware)          la coma flotante de   EN MARCHA
-                                                       BMO C (L2)            (sonda de Quake)
+   4  Quake, software    pak0.pak (shareware)          la coma flotante de   EN MARCHA: las
+                                                       BMO C (L2)            series de math.h
+                                                                             HECHAS (26-09);
+                                                                             falta printf %f
    5  vkQuake 0.50       el mismo pak0                 M1 profundidad, M3,   --
                                                        M4 SPIR-V a SM86,
                                                        M5 las 67 vk, M6

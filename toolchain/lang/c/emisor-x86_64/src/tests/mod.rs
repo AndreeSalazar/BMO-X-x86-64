@@ -124,6 +124,7 @@ mod varargs_de_doom;
 mod census;
 /// L2 de PLAN_LA_LUDOTECA: lo que Quake pide a la coma flotante, ejecutado.
 mod sonda_quake;
+mod serie_de_math_h;
 /// CONTAINER x OPERATION -- the census of what BMO C can do. 28 cells, green.
 mod probe_language;
 /// LAYOUT -- where each field falls and how big the aggregate is, measured

@@ -257,9 +257,11 @@ fn pow2(k: i64) -> f64 {
 
 /// **LA TABLA de las trascendentes**: constantes y coeficientes, UNA vez.
 ///
-/// La leen `math` (el oraculo) y el emisor de x86-64 (`bmo-spirv-x86-64`):
-/// los dos evaluan los mismos polinomios con los mismos numeros y en el mismo
-/// orden, asi que dan los mismos bits. Si cada uno llevara su copia, un
+/// La leen `math` (el oraculo), el emisor de x86-64 (`bmo-spirv-x86-64`) y,
+/// desde el 26-09, `<math.h>` de BMO C (copiada en BITS; la prueba
+/// `serie_de_math_h` de BMO C exige que sea esta): los tres evaluan los mismos
+/// polinomios con los mismos numeros y en el mismo orden, asi que dan los
+/// mismos bits. Si cada uno llevara su copia, un
 /// coeficiente corregido en un sitio y no en el otro separaria las dos
 /// definiciones sin que ninguna prueba lo notara hasta el Ryzen.
 ///
@@ -280,6 +282,14 @@ pub mod table {
     /// Por encima, `exp` es infinito; por debajo, 0.
     pub const EXP_MAX: f64 = 709.0;
     pub const EXP_MIN: f64 = -745.0;
+
+    /// raiz de 2: el corte de `ln` (mantisa en [sqrt2/2, sqrt2]).
+    pub const SQRT_2: f64 = core::f64::consts::SQRT_2;
+    /// Para `atan` (26-09): pi/6, raiz de 3 y tan(pi/12), el punto a partir del
+    /// cual se reduce con atan(a) = pi/6 + atan((a sqrt3 - 1) / (sqrt3 + a)).
+    pub const FRAC_PI_6: f64 = core::f64::consts::FRAC_PI_6;
+    pub const SQRT_3: f64 = 1.732_050_807_568_877_2;
+    pub const TAN_PI_12: f64 = 0.267_949_192_431_122_7;
 
     /// seno de r en [-pi/4, pi/4]: `r * P(r^2)`, Taylor hasta r^13.
     pub const SIN: [f64; 7] = [
@@ -318,6 +328,26 @@ pub mod table {
         1.0 / 1.0,
         1.0 / 1.0,
     ];
+    /// atan(a) para |a| <= tan(pi/12): `a P(a^2)`, la serie hasta a^31
+    /// (el primer termino que falta, a^33/33, es < 1.5e-20 ahi).
+    pub const ATAN: [f64; 16] = [
+        -1.0 / 31.0,
+        1.0 / 29.0,
+        -1.0 / 27.0,
+        1.0 / 25.0,
+        -1.0 / 23.0,
+        1.0 / 21.0,
+        -1.0 / 19.0,
+        1.0 / 17.0,
+        -1.0 / 15.0,
+        1.0 / 13.0,
+        -1.0 / 11.0,
+        1.0 / 9.0,
+        -1.0 / 7.0,
+        1.0 / 5.0,
+        -1.0 / 3.0,
+        1.0,
+    ];
     /// ln(m) = 2 s P(s^2), s = (m - 1)/(m + 1): la serie de atanh hasta s^21.
     pub const LN: [f64; 11] = [
         1.0 / 21.0,
@@ -353,7 +383,7 @@ fn sin_cos_reducido(r: f64) -> (f64, f64) {
 
 /// `(seno, coseno)` en doble. La reduccion usa pi/2 en dos trozos: exacta
 /// hasta |x| ~ 2^20, que es mucho mas de lo que Vulkan promete.
-fn sin_cos_f64(x: f64) -> (f64, f64) {
+pub fn sin_cos_f64(x: f64) -> (f64, f64) {
     if !x.is_finite() {
         return (f64::NAN, f64::NAN);
     }
@@ -369,7 +399,7 @@ fn sin_cos_f64(x: f64) -> (f64, f64) {
 }
 
 /// `e^x` en doble.
-fn exp_f64(x: f64) -> f64 {
+pub fn exp_f64(x: f64) -> f64 {
     if x.is_nan() {
         return x;
     }
@@ -389,7 +419,7 @@ fn exp_f64(x: f64) -> f64 {
 }
 
 /// `ln(x)` en doble, para x > 0 finito.
-fn ln_f64(x: f64) -> f64 {
+pub fn ln_f64(x: f64) -> f64 {
     if x.is_nan() || x < 0.0 {
         return f64::NAN;
     }
@@ -409,7 +439,7 @@ fn ln_f64(x: f64) -> f64 {
     }
     e -= 1023;
     let mut m = f64::from_bits((b & 0x000F_FFFF_FFFF_FFFF) | 0x3FF0_0000_0000_0000); // [1, 2)
-    if m > core::f64::consts::SQRT_2 {
+    if m > table::SQRT_2 {
         m *= 0.5;
         e += 1;
     }
@@ -446,4 +476,126 @@ pub fn log(x: f32) -> f32 {
 /// infinito, y = 0 da NaN, que es lo que sale de la formula).
 pub fn pow(x: f32, y: f32) -> f32 {
     exp_f64(y as f64 * ln_f64(x as f64)) as f32
+}
+
+// == LAS DE C (26-09): `<math.h>` de BMO C, operacion por operacion ==========
+//
+// Escalon 4 de la escalera al jefe final (PLAN_VERRANO 2d): Quake por
+// software pide `sin`, `cos`, `atan2`, `pow`... en DOBLE. Son estas, con la
+// MISMA tabla, y `tables/standards/C/math.h` repite cada operacion en el
+// mismo orden: la prueba `serie_de_math_h` de BMO C exige los mismos bits.
+// Como las de arriba: UNA definicion, no el redondeo correcto siempre.
+
+/// `tan` en doble: seno entre coseno, de la misma reduccion.
+pub fn tan_f64(x: f64) -> f64 {
+    let (s, c) = sin_cos_f64(x);
+    s / c
+}
+
+/// `atan` en doble. |x| > 1 se invierte (atan(a) = pi/2 - atan(1/a)); por
+/// encima de tan(pi/12) se reduce con pi/6; y la serie hace el resto.
+pub fn atan_f64(x: f64) -> f64 {
+    if x.is_nan() {
+        return x;
+    }
+    let neg = x.is_sign_negative();
+    let mut a = if neg { -x } else { x };
+    let inv = a > 1.0;
+    if inv {
+        a = 1.0 / a;
+    }
+    let red = a > table::TAN_PI_12;
+    if red {
+        a = (a * table::SQRT_3 - 1.0) / (table::SQRT_3 + a);
+    }
+    let mut r = a * horner(&table::ATAN, a * a);
+    if red {
+        r = r + table::FRAC_PI_6;
+    }
+    if inv {
+        r = (FRAC_PI_2_HI - r) + FRAC_PI_2_LO;
+    }
+    if neg {
+        -r
+    } else {
+        r
+    }
+}
+
+/// `atan2(y, x)` en doble, con los ceros con signo y los infinitos de C99
+/// (F.10.1.4).
+pub fn atan2_f64(y: f64, x: f64) -> f64 {
+    let pi = 2.0 * FRAC_PI_2_HI + 2.0 * FRAC_PI_2_LO;
+    let pi_2 = FRAC_PI_2_HI + FRAC_PI_2_LO;
+    if x.is_nan() || y.is_nan() {
+        return x + y;
+    }
+    let yneg = y.is_sign_negative();
+    let r = if y == 0.0 {
+        if x > 0.0 || (x == 0.0 && !x.is_sign_negative()) {
+            return y;
+        }
+        pi
+    } else if x == 0.0 {
+        pi_2
+    } else if x.is_infinite() {
+        match (y.is_infinite(), x > 0.0) {
+            (true, true) => 0.5 * pi_2,
+            (true, false) => 1.5 * pi_2,
+            (false, true) => 0.0,
+            (false, false) => pi,
+        }
+    } else if y.is_infinite() {
+        pi_2
+    } else {
+        let q = y / x;
+        let z = atan_f64(if q < 0.0 { -q } else { q });
+        if x > 0.0 {
+            z
+        } else {
+            (2.0 * FRAC_PI_2_HI - z) + 2.0 * FRAC_PI_2_LO
+        }
+    };
+    if yneg {
+        -r
+    } else {
+        r
+    }
+}
+
+/// `pow(x, y)` de C99 (F.10.4.4): los casos especiales, y el resto como
+/// e^(y ln |x|) con el signo de x si y es entero impar. [!] NO redondea
+/// bien: el error crece con |y ln x| (unas decenas de ULP con resultados
+/// enormes). Para la gamma de Quake --pow(i/255, 1/gamma)-- sobra.
+pub fn pow_c_f64(x: f64, y: f64) -> f64 {
+    if y == 0.0 || x == 1.0 {
+        return 1.0;
+    }
+    if x.is_nan() || y.is_nan() {
+        return x + y;
+    }
+    let ax = if x < 0.0 { -x } else { x };
+    if y.is_infinite() {
+        if ax == 1.0 {
+            return 1.0;
+        }
+        return if (ax < 1.0) == (y < 0.0) { f64::INFINITY } else { 0.0 };
+    }
+    // A partir de 2^52 todo doble es entero; por debajo, cabe en un i64.
+    let entero = !(y > -4_503_599_627_370_496.0 && y < 4_503_599_627_370_496.0) || y == (y as i64) as f64;
+    let impar = entero && (if y < 0.0 { -y } else { y }) < 9_007_199_254_740_992.0 && (y as i64) & 1 == 1;
+    if x == 0.0 || x.is_infinite() {
+        // |x| en {0, inf}: 0 o inf segun y y cual; el signo, si y es impar.
+        let r = if (x == 0.0) == (y > 0.0) { 0.0 } else { f64::INFINITY };
+        return if impar && x.is_sign_negative() { -r } else { r };
+    }
+    if x < 0.0 && !entero {
+        return f64::NAN;
+    }
+    let r = exp_f64(y * ln_f64(ax));
+    if x < 0.0 && impar {
+        -r
+    } else {
+        r
+    }
 }

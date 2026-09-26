@@ -378,7 +378,15 @@ software) -> **Half-Life con la 3060** (su renderizador GL sobre AMPERE_B) ->
       EXACTO hecho el 25-09: `sqrt` (la instruccion `sqrtsd`), `trunc`,
       `floor`, `ceil` (con el signo del cero). 17 de 18 casos; faltan
       `printf("%f")` y las series (`sin`, `cos`, `atan2`, `pow`), que van con
-      la MISMA tabla que el emisor de SPIR-V (`math::table`). **Como se sabe:** `start.bsp` se recorre en el
+      la MISMA tabla que el emisor de SPIR-V (`math::table`). **Paso 3, LAS
+      SERIES, hecho el 26-09:** `sin`, `cos`, `tan`, `atan` (nueva en la
+      tabla), `atan2`, `exp`, `log`, `pow` y sus `f`, en `math.h` con la
+      tabla en BITS; 5216 resultados bit a bit los del oraculo, con ceros con
+      signo, infinitos, NaN y subnormales
+      (`c/emisor-x86_64/src/tests/serie_de_math_h.rs`). Y destaparon un fallo
+      de BMO C: con un NaN, `==` y `<` salian CIERTOS y `!=` FALSO (un solo
+      `setcc` tras `comisd`); arreglado, con su prueba. La sonda: 18 de 19.
+      Falta `printf("%f")`. **Como se sabe:** `start.bsp` se recorre en el
       Ryzen, y el `[perf]` dice los fps de la CPU.
 
 ---

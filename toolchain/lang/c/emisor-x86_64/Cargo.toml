@@ -39,3 +39,7 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # solo juzga `[dependencies]`, y aqui no entra nada del otro lado.
 bmo-inti-front = { path = "../../inti" }
 bmo-inti-x86-64 = { path = "../../inti/emisor-x86_64" }
+# ** EL ORACULO DE <math.h> (2026-09-26): las series de BMO C son las de
+# `bmo_spirv_front::math`, operacion por operacion, con la misma tabla. La
+# prueba `serie_de_math_h` exige los mismos bits. Tambien solo del BANCO.
+bmo-spirv-front = { path = "../../spirv" }

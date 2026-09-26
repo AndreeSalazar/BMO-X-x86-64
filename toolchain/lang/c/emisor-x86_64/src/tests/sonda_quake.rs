@@ -84,6 +84,14 @@ int main() { vec3_t v = {3, 4, 12}; printf("%d\n", (int)Length(v)); return 0; }"
     ("math.h: el signo del cero de trunc", r#"
 #include <math.h>
 int main() { double z = trunc(-0.5); printf("%d\n", 1.0 / z < 0); return 0; }"#, "1"),
+    // ** Las series (26-09): `AngleVectors` (seno y coseno de grados) y
+    // `VectoAngles` (atan2 a grados), como las escribe `mathlib.c`.
+    ("math.h: sin, cos, atan2 (AngleVectors y VectoAngles)", r#"
+#include <math.h>
+#define M_PI 3.14159265358979323846
+int main() { double a = 30.0 * (M_PI * 2 / 360); double yaw = atan2(1.0, 1.0) * 180 / M_PI;
+  printf("%d %d %d %d\n", (int)(sin(a) * 1000 + 0.5), (int)(cos(a) * 1000 + 0.5), (int)(yaw + 0.5), (int)(pow(2.0, 10.0)));
+  return 0; }"#, "500 866 45 1024"),
 ];
 
 /// Corre un caso sin dejar que un fallo tumbe a los demas: en su propio

@@ -109,6 +109,7 @@ dependencies = [
  "bmo-lower",
  "bmo-mods",
  "bmo-sem-asm",
+ "bmo-spirv-front",
  "bmo-verify",
 ]
 
