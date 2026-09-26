@@ -1016,9 +1016,9 @@ def main():
             refused += 1
             continue
         changed += 1
+        print(("  rewritten: " if args.apply else "  would rewrite: ") + rel)
         if args.apply:
-            with open(path, "w", encoding="utf-8", newline="") as fh:
-                fh.write(after)
+            with open(path, "w", encoding="utf-8", newline="") as fh: fh.write(after)
 
     if args.fijar:
         n = sum(x for x, _ in strings_left)

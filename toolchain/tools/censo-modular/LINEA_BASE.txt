@@ -21,6 +21,8 @@
 # aplica a la fabrica y no a lo que emite.
 
 [EXENTOS]
+toolchain/lang/c/expansion/doom/sobre/doomgeneric/d_main.c  codigo de DOOM (id Software, GPL-2.0) con los toques del port: su modularidad la decidio id, no la casa (26-09). doomgeneric_bmo.c, que SI es de la casa, sigue juzgado
+toolchain/lang/c/expansion/doom/sobre/doomgeneric/g_game.c  codigo de DOOM (id Software, GPL-2.0) con los toques del port: su modularidad la decidio id, no la casa (26-09). doomgeneric_bmo.c, que SI es de la casa, sigue juzgado
 
 # SUBIDAS -- cada techo que se levanto, con su por que. No se
 # borran: una lista de excusas que se puede leer entera es lo que
