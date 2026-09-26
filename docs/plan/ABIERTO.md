@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   353 casillas ABIERTAS en 43 planes
-   306 hechas
+   367 casillas ABIERTAS en 43 planes
+   307 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -58,6 +58,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- los CARRILES de la 3060: una carpeta que no mezcla
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
+
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 19 abiertas, 7 hechas
+
+*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
+
+- [ ] V2 -- la profundidad y el culling (X5b de
+- [ ] V3 -- las constantes. La matriz en un buffer y el programa de
+- [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
+- ... y 16 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 
@@ -300,15 +309,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 1. ARRANCAR Y LEER. Reproducir --matar Ring 3, volver a entrar-- y
 - [ ] 2. EL JUEZ, en su crate. platform/shared/bmo-pila-juicio: *"se
 - [ ] 3. reap PREGUNTA AL JUEZ en vez de mirar solo su rsp. El cambio
-- ... y 2 mas
-
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 5 abiertas, 6 hechas
-
-*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
-
-- [ ] V2 -- la profundidad y el culling (X5b de
-- [ ] V3 -- las constantes. La matriz en un buffer y el programa de
-- [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
 - ... y 2 mas
 
 ## [`PLAN_DIRECTOR_CENSO.md`](PLAN_DIRECTOR_CENSO.md) -- 4 abiertas, 11 hechas

@@ -320,6 +320,103 @@ la SPH (128 B) y detras las instrucciones.
 
 ---
 
+## 2c. EL ORDEN (26-09, tras los 28596 fps): tres carriles
+
+Lo pidio el propietario tras ver `maximo`: *"organizar por completo esos 3,
+pero que la CPU EXPRIMA"*. Los tres carriles, en ESTE orden, y por que:
+
+```text
+   E  LA CPU EXPRIME     primero: es la base. Lo que la CPU sabe y la 3060
+                         no, y lo que la 3060 no dice y hay que medir
+                         (PERFIL/GPU.txt). Sin esto, lo demas va a ciegas
+   M  EL MOTOR           segundo: lo que falta para JUGAR -- que la 3060
+                         haga el trabajo de un motor, no solo pinte
+   P  PRESENTAR          ultimo: sin cortes en pantalla, y la carrera justa
+                         contra D3D12. Lo mas caro, y lo que menos cambia
+```
+
+**Que es VERRANO, en una linea (y la respuesta a "un BSF con cubo como
+Windows pero para jugar"):** SI. VERRANO es la API (lo que en Windows es
+D3D12), el BSF el sobre con los programas ya traducidos para ESTA tarjeta
+(lo que alli es el DXIL y la cache de sombreadores del driver), y el juego
+tiene TODO el control: ni DWM, ni cadena de intercambio, ni driver ajeno
+entre medias. El cubo es el primer juego; lo que sigue le da lo que un juego
+pide.
+
+**Y INTI, donde entra:** INTI emite coma flotante y SIMD DE VERDAD (`xmm`,
+`emisor-x86_64/src/pruebas/simd.rs`); el escritorio de Rust no (su destino,
+`x86_64-unknown-none`, la hace por software: las tandas del banco son
+~33 us por fotograma asi). INTI no habla con la 3060 --eso lo hace el
+BSF--, pero es el lenguaje natural de lo que la CPU calcula por un juego:
+la fisica, las matrices, la logica. Entra en E6 y en M6.
+
+### E -- LA CPU EXPRIME
+
+- [x] **E0 -- lo hecho.** El anillo (V1b), `coopera`, `exige` y las
+      marcas del reloj (V1c): `maximo` 28596 fps, la 3060 18 us, la CPU
+      espera 4. Y el PERFIL de la 3060 escrito (`PERFIL/GPU.txt`, "lo que
+      la 3060 no dice").
+- [ ] **E1 -- el GOBERNADOR: exigir solo, y a tiempo.** Hoy `exige` es una
+      palabra. El orquestador lo decide solo por lo que mide: si la ESPERA
+      DE LA CPU sube (el cuello es la 3060), pide PERF_BOOST; y lo renueva
+      antes de los 60 s mientras haya trabajo seguido, y lo suelta al acabar
+      (`gpu relojes off`). **Como se sabe:** `gpu verrano banco coopera`
+      con N grande (mas de 60 s) no se cae a P8 a la mitad.
+- [ ] **E2 -- medir el escritorio.** ~35 us de pared: 15 de preparar (el
+      kernel), 18 de la 3060 en paralelo, y ~20 que no se ven. Un
+      cronometro por fases en el banco: armar el paquete, `Frame::cover`,
+      la llamada, el tablero. **Como se sabe:** las fases suman la pared.
+- [ ] **E3 -- el paquete SIN programas.** Con el anillo armado, cada
+      fotograma lleva de nuevo los ~700 B del BSF y el kernel los huele
+      (FNV) para saber que son los mismos. Un paquete "solo vertices" que
+      nombra la huella del armado. **Como se sabe:** preparar baja.
+- [ ] **E4 -- una escritura y el timbre.** La cola de cada ranura en RAM
+      prestada (como los vertices) y las 512 entradas del GPFIFO escritas
+      al armar: por fotograma, GP_PUT y el timbre, sin ninguna lectura por
+      PCIe. **Como se sabe:** preparar por debajo de 5 us.
+- [ ] **E5 -- mas ranuras si hace falta.** 8 en vez de 4, si con la 3060
+      en P0 la espera salta a rafagas. **Como se sabe:** la grafica de la
+      pared, lisa.
+- [ ] **E6 -- la cuenta de la CPU con coma flotante de verdad.** Las
+      tandas y `Frame::cover` hoy van por software. O el escritorio aprende
+      SSE (el kernel ya guarda x87+SSE de Ring 3: `xcr0 0x3` en la ficha
+      BEF2 de `d.bex`), o esa cuenta la hace INTI. Con M2 (la matriz en la
+      3060) la mayor parte deja de ser de la CPU. **Como se sabe:** las
+      tandas de los 360 angulos, de ~12 ms a menos de 1.
+
+### M -- EL MOTOR
+
+- [ ] **M1 = V2 -- la profundidad.** Un z-buffer en la VRAM y dos cubos que
+      se tapan. **Como se sabe:** contra el juez de la CPU con z-buffer.
+- [ ] **M2 = V3 -- la matriz en la 3060.** Los 8 vertices del cubo FIJOS en
+      la VRAM, la matriz por `LOAD_CONSTANT_BUFFER` (0x238c, `clc797.h`)
+      dentro de las ordenes -- 16 numeros por fotograma --, y el programa
+      de vertice la aplica: lo que hace D3D12. Programas nuevos en el BSF,
+      con su juez. **Como se sabe:** la huella del 30 contra D3D12, igual.
+- [ ] **M3 -- las texturas.** Una textura en la VRAM y su muestreador (los
+      descriptores TIC/TSC de Ampere). **Como se sabe:** contra el juez.
+- [ ] **M4 = V4 -- el emisor SPIR-V a SM86.** Los programas del BSF salen
+      de su GLSL, no escritos a mano. **Como se sabe:** el BSF refabricado
+      da los mismos bytes que el SASS a mano en V0.
+- [ ] **M5 = V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50.
+- [ ] **M6 -- un juego de OTRO proceso.** Hoy solo el escritorio habla con
+      la 3060 (autoridad MAQUINA). Un juego --en C o en INTI-- le da sus
+      fotogramas por el PASE (el lienzo prestado y el buzon, P1 de la GPU)
+      y el escritorio orquesta. **Como se sabe:** el cubo girando desde un
+      `.ibx`.
+
+### P -- PRESENTAR
+
+- [ ] **P1 -- dos superficies y el cambio en el VBLANK** (M2 de
+      [`PLAN_LA_3060.md`](PLAN_LA_3060.md), C5 de
+      [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md)): dibujar en una
+      mientras el monitor escanea la otra, y cambiarlas en el borrado. Sin
+      cortes. **Como se sabe:** el banco con presentar, y ni un corte.
+- [ ] **P2 -- la carrera justa contra D3D12.** Con P1, limpiar la ventana
+      ENTERA y presentar cada fotograma, como hace `estudio-d3d`: esos fps
+      SI se ponen al lado de los ~3780. **Como se sabe:** la tabla, con las
+      dos columnas medidas igual.
+
 ## 2b. Los idiomas de las GPU, y donde se aisla cada uno (26-09)
 
 Una GPU solo ejecuta SU codigo maquina; SPIR-V es el idioma de paso. Y los

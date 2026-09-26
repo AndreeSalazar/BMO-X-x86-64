@@ -13,11 +13,39 @@ LA QUE HAY PUESTA HOY
   fabricante: NVIDIA
   modelo: RTX 3060 12GB
   familia: Ampere (GA106)
-  driver en BMO-X: NINGUNO
+  driver en BMO-X: bmo-gpu-ga10x (platform/drivers/gpu/ga10x), desde el 23-09:
+      el GSP-RM de la 570.144 arrancado por BMO-X, y desde el 25-09 el
+      pipeline 3D (X5, VERRANO). La cronologia: docs/plan/PLAN_LA_3060.md
 
   ** Y desde el 07-09 la maquina LO DICE. `dev/portero/verde.rs` censa el bus y suelta
   en CABINA: "hay una GRAFICA NVIDIA y BMO-X no tiene codigo para ella".
   Antes esa tarjeta estaba dentro y el sistema no la nombraba ni una vez.
+
+
+LO QUE LA 3060 NO DICE, MEDIDO (26-09)
+---------------------------------------
+
+  La regla de esta carpeta: lo que se le puede preguntar se pregunta; lo que
+  no, se mide y se ESCRIBE. La 3060 dice su nombre, su memoria y su P-state
+  (el GSP-RM lo contesta). Lo que NO dice es a que velocidad va en cada uno
+  --NVIDIA no publica como leer sus MHz--, y eso es lo que hay que suponer al
+  darle trabajo. Medido con `gpu verrano banco` (METAL_2026-09-25 23 y 24),
+  el mismo fotograma, la 3060 cronometrada por SU reloj:
+
+  arranca_en: P8 (reposo). Nadie le pide mas al arrancar
+  limpiar_720p_en_p8: ~300 us (1280x720, 3,7 MB; anillo: 334 us por fotograma)
+  limpiar_14pc_en_p8: 103 us por fotograma (`coopera`: solo la caja del cubo)
+  el_mismo_con_perf_boost: 18 us (x5,7). PERF_BOOST al GSP-RM, 60 s, baja sola
+  pramin_con_la_3060_limpiando: la ventana de BAR0 COMPITE con ella: preparar
+      78 us en P8 limpiando todo, 23 recortado, 15 en P0
+
+  ** Lo que se deduce para quien le da trabajo (el orquestador): a la 3060
+  hay que PEDIRLE los relojes antes de un tramo de trabajo seguido (`exige`),
+  y renovarlos antes de los 60 s; y no mandarle trabajo que la CPU sabe
+  innecesario (limpiar lo que no cambio). Sin eso, va 20 veces por debajo.
+
+  [!] Un perfil de UN banco, en UNA tarde. La temperatura, la fuente y la
+  version del GSP-RM lo pueden mover: el dia que cambie, se mide otra vez.
 
 
 LA QUE EL PLAN SUPONE
