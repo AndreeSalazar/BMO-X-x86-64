@@ -160,6 +160,15 @@ empieza por `TOMA TU BODRIO:` y dice la instruccion, el registro y la regla:
   barreras que ya nadie encendia (R3): se limpiaron, para que la prueba de
   una variable cambie solo las cargas.
 
+  **[!] Y ese veredicto estaba MAL (26-09 06:33).** La 3060 dijo `Xid 13, Out
+  Of Range Register`: el juez v1 contaba los registros contra `REGISTROS`,
+  pero en Volta y despues DOS se gastan en el contador de programa (NAK
+  `hw_reserved_gprs`) y el de vertice usaba R14 con 16. El juez aprendio la
+  regla (`juez::RESERVADOS`) y ahora dice `TOMA TU BODRIO: R5 ... instruccion
+  6 (14)` con el de V0; con R1, VERRANO dibujo IGUAL a D3D12 (06:46). Y la
+  prueba `con_lo_que_se_le_envia` juzga cada programa con los registros que
+  de verdad van en las ordenes y los QMD.
+
 ## [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
 
 > **La del build, hecha (26-09):** `tests/bsf_sm86.rs` juzga los dos

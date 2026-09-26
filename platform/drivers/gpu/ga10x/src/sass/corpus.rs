@@ -7,7 +7,8 @@
 //! Un juez se calibra con lo que se SABE bueno: todo lo de `ORO` dibujo o
 //! calculo en el metal, comparado bit a bit por la CPU. Si el juez le dice que
 //! no a uno de ellos, el que esta mal es el juez. Y aparte, lo que NO se sabe
-//! bueno: la variante `sinldg` de VERRANO (nunca llego a correr entera).
+//! bueno: la variante `sinldg` de VERRANO (nunca corrio: la orden no la
+//! reconocia hasta el 26-09).
 //! Los de VERRANO V0 pasaron al oro el 26-09 06:46: IGUAL a D3D12.
 
 use super::juez::Contexto;

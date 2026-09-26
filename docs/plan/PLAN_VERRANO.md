@@ -103,8 +103,11 @@ la SPH (128 B) y detras las instrucciones.
       **Metal 26-09 06:33 -- LA CAUSA.** `gpu cubo 3060` IGUAL a D3D12 (el
       canal sano), y `gpu verrano sinldg` colgado en los VERTICES igual, pero
       ahora con `gsp aviso`: **Xid 13, "Graphics SM Warp Exception on (GPC 0,
-      TPC 1, SM 0): Out Of Range Register"**. No era el LDG (sin LDG tambien):
-      era un REGISTRO. En Volta y despues, de los `REGISTROS = 16` que se le
+      TPC 1, SM 0): Out Of Range Register"**: un REGISTRO. ([!] Esa
+      corrida NO fue la variante sin LDG: `gpu.rs` pasaba " sinldg" con su
+      espacio y la orden no lo reconocia, asi que corrio el programa normal.
+      Arreglado el 26-09; la conclusion no depende de ella: el arreglo del
+      registro dibujo IGUAL.) En Volta y despues, de los `REGISTROS = 16` que se le
       dan al programa, DOS se gastan en el contador de programa (NAK `sm70.rs`,
       `hw_reserved_gprs`): quedan R0..R13, y el de vertice usaba **R14** para
       `vertice * 32`. Arreglo: R1 (`tuberia::DESPLAZAMIENTO`), `cubo.bsf`

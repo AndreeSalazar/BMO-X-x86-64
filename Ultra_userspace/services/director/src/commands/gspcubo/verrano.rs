@@ -39,6 +39,8 @@ struct La3060<'a> {
     vs: &'a [u8],
     ps: &'a [u8],
     leer_ms: u64,
+    /// Leer la imagen de vuelta (el juez la quiere); el banco (V1) no.
+    leer: bool,
 }
 
 impl Backend for La3060<'_> {
@@ -57,6 +59,9 @@ impl Backend for La3060<'_> {
         let (us, tris, etapas, _) = cu::desempaquetar(r);
         if !cu::sano(r) {
             return Err(Error::Device(0x5E00 | etapas));
+        }
+        if !self.leer {
+            return Ok(Stats { triangles: tris, device_us: us });
         }
         let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
         let desde = bmo::ciclos();
@@ -88,6 +93,10 @@ fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8])> {
 
 /// `gpu verrano [fotograma]`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After {
+    // [!] `gpu.rs` pasa el resto CON su espacio delante (" sinldg"): sin
+    // recortarlo, `sinldg` no se reconocia nunca y el 26-09 06:33 corrio el
+    // programa normal con ese nombre. Se recorta aqui, una vez, para todos.
+    let resto = resto.trim_ascii();
     let f = numero(resto).unwrap_or(30).min(359);
     paint_status(p, &dsk.run_box, "VERRANO V0: el cubo por la API de BMO-X, en la 3060 y en la CPU", INK_DIM);
     let (w, h) = (cu::ANCHO, cu::ALTO);
@@ -148,7 +157,12 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         Ok(fi) => fi,
         Err(m) => return motivo(dsk, m),
     };
-    let mut la3060 = La3060 { ficha, paquete, vs, ps, leer_ms: 0 };
+    // ** `gpu verrano banco [N]` (V1): N fotogramas seguidos, sin leer.
+    if let Some(r) = resto.strip_prefix(b"banco") {
+        let n = numero(r).unwrap_or(360).clamp(1, 3600);
+        return banco(dsk, p, La3060 { ficha, paquete, vs, ps, leer_ms: 0, leer: false }, gpu, n);
+    }
+    let mut la3060 = La3060 { ficha, paquete, vs, ps, leer_ms: 0, leer: true };
     let s3060 = la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
@@ -250,6 +264,98 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     g.dec(la3060.leer_ms);
     g.text(b" ms\n");
     super::super::datos::anotar(b"gpu verrano us", st.device_us as u64, b"");
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// Los vertices de VERRANO del fotograma `f` (la tanda del juez).
+fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; tu::MAX_VERTICES]) -> Option<usize> {
+    let t = bmo_cubo::tanda::de_fotograma(f, w, h)?;
+    let mut k = 0;
+    for tri in t.tris() {
+        for &pos in tri.clip.iter() {
+            v[k] = Vertex { position: pos, color: tri.color };
+            k += 1;
+        }
+    }
+    Some(k)
+}
+
+/// ** V1 -- EL CUBO EN MOVIMIENTO, CON FPS (`gpu verrano banco [N]`).
+///
+/// N fotogramas seguidos por VERRANO (el cubo gira: fotograma `i` = angulo
+/// `i` de 360), cada uno dibujado por la 3060 directo en su ventana de la
+/// pantalla -- se VE girar --, SIN leerlo de vuelta: leer 1280x720 por la
+/// puerta cuesta ~2 s y es justo lo que el banco no mide. Al final, UNO se
+/// lee y se juzga (el 30, contra la huella de D3D12): unos fps que dibujan
+/// otra cosa no valen nada.
+///
+/// Lo que se mide, dicho: `pared` es todo (preparar el paquete, la puerta,
+/// subir los vertices por PRAMIN y esperar el semaforo); `3060` es solo lo
+/// que la tarjeta tardo en dibujar. La tabla de `estudio-d3d` (D3D12 ~3.800
+/// fps en Windows) mide un bucle de presentacion, no esto: se ponen al lado,
+/// no se igualan.
+fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut la3060: La3060, gpu: &mut [u32], n: u32) -> After {
+    let (w, h) = (cu::ANCHO, cu::ALTO);
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let mut v = [Vertex::default(); tu::MAX_VERTICES];
+    let (mut dispositivo, mut peor) = (0u64, 0u64);
+    let desde = bmo::ciclos();
+    for i in 0..n {
+        let Some(k) = vertices(i % 360, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
+        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
+        match la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
+            Ok(st) => {
+                dispositivo += st.device_us as u64;
+                peor = peor.max(st.device_us as u64);
+            }
+            Err(Error::Device(m)) if m & 0xFF00 == 0x5E00 => {
+                let g = &mut dsk.out.grid;
+                g.with_ink(INK_ERR);
+                g.text(b"  NO  el banco se paro en el fotograma ");
+                g.dec(i as u64);
+                g.text(b"; la escalera:\n");
+                g.with_ink(INK_PLAIN);
+                super::super::gspcomputo::escalera(g);
+                super::super::gspcola::avisos(g, 4);
+                dsk.field.n = 0;
+                return After::Settle;
+            }
+            Err(Error::Device(m)) => return motivo(dsk, m),
+            Err(_) => return linea(dsk, b"  NO  un fotograma no es valido para VERRANO V0", INK_ERR),
+        }
+    }
+    let pared_us = ((bmo::ciclos() - desde) * 1_000_000 / hz).max(1);
+    // El juicio: el 30 otra vez, leido y comparado con D3D12.
+    la3060.leer = true;
+    let k = vertices(30, w, h, &mut v).unwrap_or(0);
+    let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
+    let igual = la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }).is_ok() && rf::de_la_3060(30) == Some(rf::huella(gpu));
+
+    let mut a = Texto::nuevo();
+    a.t(b"banco: ").d(n as u64).t(b" fotogramas en ").d(pared_us / 1000).t(b" ms = ").d(n as u64 * 1_000_000 / pared_us).t(b" fps de pared");
+    let mut b = Texto::nuevo();
+    b.t(b"la 3060 sola: ").d(dispositivo / n as u64).t(b" us de media, el peor ").d(peor).t(b" us = ").d(n as u64 * 1_000_000 / dispositivo.max(1)).t(b" fps si solo dibujara");
+    let veredicto: &[u8] = if igual { b"y el fotograma 30, leido al final: IGUAL a D3D12 en la 3060 bajo Windows" } else { b"PERO el fotograma 30, leido al final, NO es el de D3D12: esos fps no valen" };
+    let yt = p.alto.saturating_sub(120);
+    p.texto_bytes(40, yt, a.s(), CLARO);
+    p.texto_bytes(40, yt + 24, b.s(), TENUE);
+    p.texto_bytes(40, yt + 48, veredicto, if igual { VERDE } else { ROJO });
+    p.texto_bytes(40, p.alto.saturating_sub(40), b"pulsa cualquier tecla para volver al escritorio", TENUE);
+    p.vaciar();
+    super::super::gspcomputo::abrir_panel();
+    let g = &mut dsk.out.grid;
+    g.with_ink(if igual { INK_GOOD } else { INK_ERR });
+    g.text(b"  verrano ");
+    g.text(a.s());
+    g.text(b"\n           ");
+    g.text(b.s());
+    g.text(b"\n           ");
+    g.text(veredicto);
+    g.byte(b'\n');
+    g.with_ink(INK_PLAIN);
+    super::super::datos::anotar(b"gpu verrano banco fps", n as u64 * 1_000_000 / pared_us, b"fps");
+    super::super::datos::anotar(b"gpu verrano banco us", dispositivo / n as u64, b"us");
     dsk.field.n = 0;
     After::Settle
 }
