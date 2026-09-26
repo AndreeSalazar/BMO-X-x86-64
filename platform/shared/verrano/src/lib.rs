@@ -107,6 +107,12 @@ pub struct Stats {
     pub triangles: u32,
     /// Lo que tardo el aparato (0 si no lo sabe medir).
     pub device_us: u32,
+    /// Lo que costo dejarle el fotograma listo (subir los datos, las
+    /// ordenes) antes de que empezara; 0 si no lo sabe medir.
+    pub prepare_us: u32,
+    /// Si se reuso lo fijo del fotograma anterior (programas, ordenes) y
+    /// solo se subio lo que cambio. Lo decide el backend, no quien llama.
+    pub warm: bool,
 }
 
 /// **Por que un fotograma no se dibujo.**

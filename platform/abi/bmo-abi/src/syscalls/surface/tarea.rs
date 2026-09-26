@@ -1090,6 +1090,9 @@ pub const IOMMU_NO_VIDEO: u32 = 85;
 /// P1: el pase no se abrio (o no habia que cerrar). El POR QUE exacto, un
 /// `bmo_pase_gpu::pase::NoPase`, lo dice la suborden ESTADO.
 pub const IOMMU_NO_PASE: u32 = 86;
+/// J2: un programa del paquete de VERRANO que el juez del SASS rechaza (TOMA
+/// TU BODRIO): no llega a la 3060. La regla y la instruccion, en la cabina.
+pub const IOMMU_NO_BODRIO: u32 = 87;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

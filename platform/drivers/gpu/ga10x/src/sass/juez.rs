@@ -522,9 +522,11 @@ pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio
     Ok(v)
 }
 
-/// Cuantas instrucciones caben en un programa que se juzga en bytes: las
-/// que caben en el hueco mas grande de la tuberia.
-pub const MAX_INSTRUCCIONES: usize = 256;
+/// Cuantas instrucciones caben en un programa que se juzga en bytes. El
+/// hueco mas grande de la tuberia (`cubo::PASO_VS`, 512 B con su SPH) lleva
+/// 24; 64 deja margen sin pesar en la pila del kernel, que juzga aqui mismo
+/// en su puerta (1 KiB de copia).
+pub const MAX_INSTRUCCIONES: usize = 64;
 
 /// **JUZGAR UN PROGRAMA TAL COMO VIAJA** -- la cabecera SPH (128 B) y
 /// detras las instrucciones, en bytes: lo que guarda el BSF (`kind` SM86) y lo

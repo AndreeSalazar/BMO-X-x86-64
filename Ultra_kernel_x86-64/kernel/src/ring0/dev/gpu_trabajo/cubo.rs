@@ -52,11 +52,17 @@ pub const CUBO_VERRANO: u64 = 1 << 62;
 /// Con VERRANO: las ordenes sin la escalera (`tuberia::ordenes_con`).
 pub const CUBO_LIGERO: u64 = 1 << 61;
 
+/// **TOMA TU BODRIO** en la puerta: un programa del paquete de VERRANO que
+/// el juez del SASS (`bmo_gpu_ga10x::sass::juez`) rechaza no se sube.
+pub const IOMMU_NO_BODRIO: u32 = 87;
+
 /// Lo que dejo el ultimo dibujo de VERRANO pagado entero: la huella de lo
 /// fijo (0 = nada que reusar), la entrada del GR tras el, y cuando.
 static CALIENTE_HUELLA: AtomicU64 = AtomicU64::new(0);
 static CALIENTE_ENTRADA: AtomicU32 = AtomicU32::new(u32::MAX);
 static CALIENTE_TSC: AtomicU64 = AtomicU64::new(0);
+/// La huella de los programas del ultimo dibujo pagado (ya juzgados).
+static CALIENTE_PROGRAMAS: AtomicU64 = AtomicU64::new(0);
 
 /// Ya se dibujo en este arranque (LEER antes no tiene que leer).
 static DIBUJADO: AtomicBool = AtomicBool::new(false);
@@ -136,6 +142,22 @@ fn verrano(va: u64, ligero: bool) -> Result<u64, u32> {
     if !bmo_gpu_ga10x::computo::ficha_valida(paquete.ficha as u64) {
         return Err(IOMMU_NO_BLUR);
     }
+    // ** EL JUEZ EN LA PUERTA (J2, 26-09): lo que el escritorio diga haber
+    // juzgado no cuenta; aqui se juzga otra vez, con los registros que las
+    // ordenes le dan (`raster::REGISTROS`), y un BODRIO no llega a la 3060.
+    // En caliente no hace falta: la huella de lo fijo lleva los programas,
+    // y los de un dibujo pagado ya pasaron por aqui.
+    if !caliente_posible(&paquete) {
+        let r = bmo_gpu_ga10x::raster::REGISTROS;
+        for (cual, prog) in [("vertice", paquete.vs), ("pixel", paquete.ps)] {
+            if let Err(b) = bmo_gpu_ga10x::sass::juez::juzgar_programa(prog, r) {
+                crate::ring0::cabina::warn("gpu", cual, b.instruccion as u64);
+                crate::ring0::cabina::warn("gpu", b.regla.nombre(), b.que as u64);
+                crate::ring0::cabina::warn("gpu", "VERRANO: TOMA TU BODRIO, el juez no deja subir el programa; instruccion", b.instruccion as u64);
+                return Err(IOMMU_NO_BODRIO);
+            }
+        }
+    }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_BLUR);
@@ -167,10 +189,29 @@ fn verrano(va: u64, ligero: bool) -> Result<u64, u32> {
         if cu::sano(x) {
             CALIENTE_ENTRADA.store(BLUR_ENTRADA.load(Ordering::Acquire), Ordering::Release);
             CALIENTE_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
+            CALIENTE_PROGRAMAS.store(huella_programas(&paquete), Ordering::Release);
             CALIENTE_HUELLA.store(huella, Ordering::Release);
         }
     }
     r
+}
+
+/// Si este paquete PODRIA ir en caliente (sus programas son los del ultimo
+/// dibujo pagado): solo mira la huella, sin gastarla -- la decision de verdad
+/// la toma `verrano` mas abajo, con la entrada y el reloj.
+fn caliente_posible(p: &bmo_gpu_ga10x::tuberia::Paquete) -> bool {
+    let h = CALIENTE_HUELLA.load(Ordering::Acquire);
+    h != 0 && CALIENTE_PROGRAMAS.load(Ordering::Acquire) == huella_programas(p)
+}
+
+/// La huella de los DOS programas solos (FNV-1a), para saber sin la
+/// ventana si ya se juzgaron.
+fn huella_programas(p: &bmo_gpu_ga10x::tuberia::Paquete) -> u64 {
+    let mut h = 0xcbf2_9ce4_8422_2325u64;
+    for &x in p.vs.iter().chain([0xA5u8].iter()).chain(p.ps.iter()) {
+        h = (h ^ x as u64).wrapping_mul(0x0100_0000_01b3);
+    }
+    h
 }
 
 /// El dibujo, de X5 o de VERRANO: preparar, el timbre, esperar el semaforo,
