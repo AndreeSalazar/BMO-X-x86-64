@@ -4,6 +4,7 @@
 //!
 //! capa: puro -- el kernel lee los dos registros; esto los entiende (L8)
 //!
+//! [estado]  VOLATIL       el sensor de temperatura y el enlace PCIe, en vivo
 //! [eje]     CORRECCION -- una temperatura con el bit de validez caido no es
 //!           0 grados: es "sin dato"
 //!

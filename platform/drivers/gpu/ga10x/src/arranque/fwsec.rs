@@ -4,6 +4,7 @@
 //!
 //! capa: puro -- cambia bytes de un bufer; no toca un registro (L8)
 //!
+//! [estado]  ROM WPR       FWSEC sale de la VBIOS y MONTA la WPR2 (FRTS): la region que sobrevive a un reinicio
 //! [eje]     CORRECCION -- un byte mal puesto aqui es un firmware firmado que
 //!           la ROM del falcon rechaza, o una WPR2 donde no se dijo
 //!

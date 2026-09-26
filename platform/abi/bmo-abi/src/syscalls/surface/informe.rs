@@ -1734,8 +1734,10 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             GFW << 32` ANTES del booter; 5 `SCRATCH_14 | us
 ///                             del booter << 32` al verse el SEC2 parado; 6
 ///                             MAILBOX0 | MAILBOX1 << 32 del GSP en ese
-///                             instante; 7 la WPR2 en ese instante (bit 63 de
-///                             4 y 5: se tomo)
+///                             instante (CRUDOS: un 0xBADF.... es el error de
+///                             PRI tal cual); 7 la WPR2 en ese instante; 8
+///                             CPUCTL del GSP | CPUCTL del SEC2 << 32, crudos
+///                             (bit 63 de 4 y 5: se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

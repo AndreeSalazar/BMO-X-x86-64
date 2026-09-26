@@ -2,6 +2,7 @@
 //!
 //! capa: puro -- decide el ORDEN de las escrituras; quien las hace es el kernel, por el trait [`Registros`] (L8)
 //!
+//! [estado]  VOLATIL       el aviso del VBLANK: registros de la pantalla que un reset borra
 //! [eje]     CORRECCION -- la primera vez que BMO-X ESCRIBE en la 3060
 //!
 //! # Por que existe (2026-09-24)

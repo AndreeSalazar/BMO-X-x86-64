@@ -155,6 +155,18 @@ O3 de `la_3060.py` exige que siga. Dicho claro: optimiza el codigo de la CPU
 que habla con la 3060; lo que corre DENTRO de la 3060 son sus sombreadores,
 que ya van en codigo maquina (`pantalla.rs::CODIGO`).
 
+### [x] A9 -- lo que SOBREVIVE a un reinicio, con UN propietario y sin escritura (2026-09-26)
+
+Tras el quinto 0x15 del booter. `bmo-gpu-ga10x` partido en seis carpetas por
+carril (`lectura`, `arranque`, `rm`, `memoria`, `motores`, `trabajos`; los
+`pub use` dejan los caminos de siempre); las direcciones PGC6/BSI y WPR2
+juntas en `lectura/aon.rs`, con su motivo y la tabla de que sobrevive a que;
+la etiqueta `[estado]` (VOLATIL VRAM WPR AON FUSIBLE ROM RAM) en cada fichero
+de `arranque/` y `lectura/`; y la regla A de `la-3060`: A1 el `[estado]`, A2
+esos numeros solo en su propietario, A3 ni una escritura. Probada metiendo un
+literal, una escritura y una cabecera quitada: tres FAIL. **Como se sabe:**
+`la_3060.py --check`. La guia: `platform/drivers/gpu/ga10x/ANATOMIA.md`.
+
 ### [ ] A3 -- esperar a la 3060 con INTERRUPCION, y el trinquete E a cero
 
 Hoy el nucleo que pide un trabajo gira hasta 20 ms (`GIRANDO_US` en

@@ -3,6 +3,7 @@
 //!
 //! capa: puro -- cuentas sobre numeros que el kernel ya leyo; no toca un registro (L8)
 //!
+//! [estado]  WPR VRAM      el reparto de la VRAM de arriba y la WPR meta que dice donde va cada cosa
 //! [eje]     CORRECCION -- un rango que se pisa con otro es el GSP-RM
 //!           escribiendo encima de su propio codigo
 //!

@@ -11,7 +11,7 @@
 # El numero va solo en la primera linea util. Lo de abajo es el inventario, y es
 # comentario: esta para leerlo, no para juzgarlo.
 
-129
+130
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/cabina/caida.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/autopsy.rs
 # NADA      Ultra_kernel_x86-64/kernel/src/ring0/core/desmontaje.rs
@@ -128,6 +128,7 @@
 # NADA      platform/shared/bmo-usbred/src/clase.rs
 # NADA      platform/shared/bmo-usbred/src/politica.rs
 # DATO      platform/shared/bmo-usbred/src/rndis.rs
+# NADA      platform/shared/verrano/src/lib.rs
 # DATO      toolchain/lang/c/emisor-x86_64/src/codegen/bex.rs
 # TAREA     toolchain/lang/c/emisor-x86_64/src/codegen/decidir/imagen.rs
 # DATO      toolchain/lang/c/emisor-x86_64/src/codegen/decidir/plegado.rs

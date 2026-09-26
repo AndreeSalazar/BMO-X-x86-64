@@ -3,6 +3,7 @@
 //!
 //! capa: puro -- recibe el fichero entero y devuelve donde esta cada cosa; no toca un registro (L8)
 //!
+//! [estado]  FUSIBLE WPR   la firma la elige el fusible del SEC2; el booter EXTIENDE la WPR2 a todo el GSP-RM
 //! [eje]     CORRECCION -- un offset mal leido aqui es un firmware firmado que
 //!           la ROM del SEC2 rechaza, o una firma puesta encima del codigo
 //!

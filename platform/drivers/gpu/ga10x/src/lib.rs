@@ -36,89 +36,28 @@
 #![no_std]
 #![forbid(unsafe_code)]
 
-/// E2: el VBLANK por interrupcion -- que registros y en que orden (2026-09-24).
-pub mod vblank;
-/// M0d3: el DMA de un falcon, la prueba de fuego de la traduccion (2026-09-24).
-pub mod falcon;
-/// L0a: la VBIOS leida -- donde esta FWSEC y que firma pide (2026-09-24).
-pub mod vbios;
-/// L0b: FWSEC-FRTS preparado -- la orden y la firma, sobre bytes (2026-09-24).
-pub mod fwsec;
-/// L0c1: el booter y el bootloader RISC-V, leidos sobre bytes (2026-09-24).
-pub mod booter;
-/// L0c1: las secciones del GSP-RM, sin traerse sus 63 MB (2026-09-24).
-pub mod elf;
-/// L0c1: el reparto de la VRAM y la `GspFwWprMeta` (2026-09-24).
-pub mod wpr;
-/// L0c3a: los argumentos de LIBOS, los logs, `rmargs` y las colas (2026-09-24).
-pub mod libos;
-/// L0c4a: los mensajes del GSP -- su cabecera, su suma y su nombre (2026-09-24).
-pub mod rpc;
-/// L0c4b2a: lo que la CPU le escribe al GSP -- SetSystemInfo y SetRegistry (2026-09-24).
-pub mod orden;
-/// L0c4b2b: las ordenes del secuenciador que pide el GSP (2026-09-24).
-pub mod secuenciador;
-/// L0c4b2c: correr el secuenciador, por tramos y solo en el falcon del GSP (2026-09-24).
-pub mod correr;
-
-/// L0c5: apagar el GSP en orden (2026-09-25).
-pub mod descarga;
-/// L1a: GET_GSP_STATIC_INFO -- lo que el GSP-RM dice de la 3060 (2026-09-24).
-pub mod estatica;
-/// L1b: GSP_RM_ALLOC -- nuestro cliente, dispositivo y subdispositivo (2026-09-24).
-pub mod objeto;
-/// L1b: GSP_RM_CONTROL -- preguntas de control a nuestro subdispositivo (2026-09-24).
-pub mod control;
-/// La lista CERRADA de lo que sale hacia el GSP-RM, y el NO de lo demas (2026-09-24).
-pub mod contrato;
-/// La temperatura y el enlace PCIe de la 3060, en solo lectura (2026-09-24).
-pub mod salud;
-/// L1c2: la CPU escribe en la VRAM por la ventana PRAMIN, sin pisar nada (2026-09-24).
-pub mod vram;
-/// L1d: el formato de la MMU (PDE, PTE, los cinco niveles) y mapear una pagina (2026-09-24).
-pub mod mmu;
-/// L1d2b: el canal AMPERE_CHANNEL_GPFIFO_A, sus 368 B exactos (2026-09-24).
-pub mod canal;
-/// L1d2d y L1d3: el copiador y la primera copia VRAM a VRAM (2026-09-24).
-pub mod copia;
-/// M5 G0: los buferes de contexto que pide el motor grafico (2026-09-24).
-pub mod gr;
-
-pub mod computo;
-
-pub mod sombreador;
-
-pub mod lienzo;
-
-pub mod blur;
-
-pub mod fractal;
-
-pub mod triangulo;
-
-pub mod tresde;
-
-pub mod raster;
-
-pub mod color3d;
-
-pub mod giro;
-
-pub mod pantalla;
-
-pub mod video;
-/// El volcado por la 3060: el motor de copia lleva el lienzo del escritorio
-/// a la pantalla (compositor por GPU, paso 1; 2026-09-25).
-pub mod volcado;
-
-pub mod escena;
-/// X5: el cubo del estudio D3D por la 3060, sin Windows (2026-09-25).
-pub mod cubo;
-/// VERRANO V0: la tuberia FIJA -- dos programas que no cambian y los datos
-/// en un buffer (2026-09-25).
-pub mod tuberia;
-/// LA 3060 12G, y solo ella: la identidad que el kernel exige (2026-09-25).
-pub mod identidad;
+// ** LAS CARPETAS (26-09): cada una es un CARRIL, con sus reglas en su
+// `mod.rs` y en `ANATOMIA.md`. Los `pub use` dejan los caminos de siempre
+// (`bmo_gpu_ga10x::falcon`, `crate::vram`): moverse de carpeta no cambia a
+// quien usa el modulo.
+/// LO QUE SE LEE ANTES DE MANDAR: quien es la tarjeta, como esta y lo que sobrevive.
+pub mod lectura;
+pub use lectura::{identidad, salud, vblank, aon};
+/// EL ARRANQUE Y EL APAGADO DEL GSP: firmware firmado, falcons, la WPR2.
+pub mod arranque;
+pub use arranque::{falcon, vbios, fwsec, booter, elf, wpr, libos, secuenciador, correr, descarga};
+/// LA CONVERSACION CON EL GSP-RM: mensajes, y la lista cerrada de lo que sale.
+pub mod rm;
+pub use rm::{rpc, orden, estatica, objeto, control, contrato};
+/// LA MEMORIA DE LA TARJETA: la ventana PRAMIN y las tablas de la MMU.
+pub mod memoria;
+pub use memoria::{vram, mmu};
+/// LOS MOTORES: canales, copiador, contexto grafico, computo, SASS y la clase 3D.
+pub mod motores;
+pub use motores::{canal, copia, gr, computo, sombreador, tresde};
+/// LOS TRABAJOS: lo que la 3060 dibuja o calcula, cada uno con su juez en la CPU.
+pub mod trabajos;
+pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, volcado, escena, cubo, tuberia};
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las
 /// pruebas, sobre un banco de mentira que apunta cada escritura.

@@ -1590,6 +1590,31 @@ bus cuando llega caliente; se le suma este bit a su "caliente". Si no hay
 diferencia, H1 cae y se prueba H3 (el `wbinvd`) sola. Mientras: **APAGAR y
 cortar la corriente 30 s entre pruebas** sigue siendo la regla.
 
+**Quinto 0x15 (25-09, 19:59): la primera AUTOPSIA, y H1 cae por su bit.**
+
+```text
+   al llegar   sin WPR2; BSI 0x00000000 (handoff abajo), GFW 0xFF
+   autopsia    antes del booter: BSI 0 handoff abajo
+               al pararse (246475 us): BSI 0, GSP MAILBOX0/1 "0xFFFFFFFF"
+               WPR2 0x02F40000/0x02FFEE00 (extendida, como las otras veces)
+```
+
+- **H1 por el bit 26 cae**: el bit estaba ABAJO antes del booter y aun asi
+  0x15. (Y `arranque/correr.rs` ya sabia que ese bit lo PONE el GSP-RM al
+  volver: en un arranque bueno sube DESPUES del booter, no antes.) El dominio
+  AON sigue sin medir entero: solo se mira ese registro.
+- **El GSP no se dejaba leer al pararse el SEC2**: el "0xFFFFFFFF" era el
+  centinela de la autopsia para "error de PRI". Ahora se guardan los numeros
+  CRUDOS (el `0xBADF....` dice por que) y los CPUCTL del GSP y del SEC2
+  (`INFO_GPU_DESPIERTO_BUZON` 8).
+- **Los 246 ms** son lo que tardo alguien en MIRAR, no el booter: es un techo.
+- Falta lo que decide: **la autopsia de un arranque BUENO** para comparar.
+
+Y por pedido del propietario, el estado que sobrevive quedo AISLADO: un
+propietario (`platform/drivers/gpu/ga10x/src/lectura/aon.rs`), el crate partido en
+carpetas por carril, la etiqueta `[estado]` y la regla A del guardian
+`la-3060`. La anatomia entera: `platform/drivers/gpu/ga10x/ANATOMIA.md`.
+
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con
 sus 8 B a cero; los registros; los juicios), `fwsec::parchear_sb`, y en el

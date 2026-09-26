@@ -3,6 +3,7 @@
 //!
 //! capa: puro -- decide el ORDEN de las lecturas y escrituras; quien las hace es el kernel, por [`Registros`] y [`Reloj`] (L8)
 //!
+//! [estado]  VOLATIL RAM   los registros de un falcon los borra su reset; su DMA lee la RAM del PC por la IOMMU
 //! [eje]     CORRECCION -- el primer DMA de la 3060 que BMO-X pide
 //!
 //! # Por que existe (2026-09-24)

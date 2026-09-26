@@ -1,5 +1,7 @@
 //! **LA 3060 12G, Y SOLO ELLA** (2026-09-25).
 //!
+//! [estado]  FUSIBLE AON   BOOT_0 del silicio y la VRAM que escribe el firmware de arranque en PGC6
+//!
 //! El propietario: *"AISLAR por completo ... en la version que VA A SER, `GPU
 //! RTX 3060 12G`, eso mismo que mi BMO-X en x86-64: SOLO agarre uno, por
 //! motivos, eso es optimizacion tambien"*.

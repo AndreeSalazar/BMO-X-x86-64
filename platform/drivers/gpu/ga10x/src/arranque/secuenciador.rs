@@ -4,6 +4,7 @@
 //!
 //! capa: puro -- lee bytes y dice que ordenes son; no toca un registro (L8)
 //!
+//! [estado]  AON VOLATIL   descifra lo que PIDE el GSP, que nombra registros PGC6/BSI; no los escribe
 //! [eje]     CORRECCION -- una orden mal partida es escribir en un registro
 //!           el valor de la siguiente; se para en la primera que no se entiende
 //!

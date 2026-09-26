@@ -3,6 +3,7 @@
 //!
 //! capa: puro -- pide bytes a una `Fuente` y devuelve donde esta cada seccion; no toca un registro (L8)
 //!
+//! [estado]  RAM WPR       los bytes del GSP-RM, en la RAM del PC, que el booter copia DENTRO de la WPR2
 //! [eje]     CORRECCION -- la seccion equivocada es otro firmware, o la firma
 //!           de otra familia de GPU
 //!

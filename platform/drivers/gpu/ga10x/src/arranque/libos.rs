@@ -4,6 +4,7 @@
 //!
 //! capa: puro -- arma bytes y dice donde va cada cosa; no toca un registro (L8)
 //!
+//! [estado]  RAM           lo que el GSP escribe en la RAM del PC: argumentos, logs y colas
 //! [eje]     CORRECCION -- un offset mal puesto aqui es un GSP que escribe su
 //!           primer mensaje donde nadie lo va a buscar, o un fallo de pagina
 //!

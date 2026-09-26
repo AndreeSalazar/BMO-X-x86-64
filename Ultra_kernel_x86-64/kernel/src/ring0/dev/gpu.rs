@@ -454,11 +454,11 @@ pub fn info_fb() -> u64 {
     if bar0 == 0 || CHIP.load(Ordering::Acquire) & GPU_AMPERE == 0 {
         return 0;
     }
-    let mb = leer(bar0, 0x0011_83A4);
+    let mb = leer(bar0, ga10x::aon::VRAM_MIB);
     let mut x = GPU_FB_VALIDA | if ga10x::es_error_pri(mb) { 0 } else { mb as u64 };
-    let plm = leer(bar0, 0x0011_8128);
+    let plm = leer(bar0, ga10x::aon::GFW_PLM);
     if !ga10x::es_error_pri(plm) && plm & 1 != 0 {
-        x |= GPU_FB_PLM_LEIBLE | ((leer(bar0, 0x0011_8234) & 0xFF) as u64) << GPU_FB_GFW_SHIFT;
+        x |= GPU_FB_PLM_LEIBLE | ((leer(bar0, ga10x::aon::GFW_PROGRESO) & 0xFF) as u64) << GPU_FB_GFW_SHIFT;
     }
     if leer(bar0, 0x0082_0C04) & 1 != 0 {
         x |= GPU_FB_SIN_PANTALLA;
@@ -479,7 +479,7 @@ pub fn info_wpr2() -> u64 {
     if bar0 == 0 {
         return 0;
     }
-    leer(bar0, 0x001F_A824) as u64 | (leer(bar0, 0x001F_A828) as u64) << 32
+    leer(bar0, ga10x::aon::WPR2_LO) as u64 | (leer(bar0, ga10x::aon::WPR2_HI) as u64) << 32
 }
 
 // == LA SALUD, EN SOLO LECTURA (2026-09-24) ===================================
@@ -495,15 +495,9 @@ static FRIO_ENLACE: AtomicU64 = AtomicU64::new(0);
 /// `info_bsi` AL SONDEAR. Ver alli.
 static FRIO_BSI: AtomicU64 = AtomicU64::new(0);
 
-/// `NV_PGC6_BSI_SECURE_SCRATCH_14` (nova-core, `regs.rs`): su bit 26,
-/// `boot_stage_3_handoff`, dice si el GSP completo su carga. Vive en el
-/// dominio que NO se apaga con un reinicio en caliente.
-const BSI_SECURE_SCRATCH_14: u32 = 0x0011_80F8;
-/// `NV_PGC6_AON_SECURE_SCRATCH_GROUP_05[0]`: bits 0..7, el progreso del
-/// firmware de arranque de la tarjeta (0xFF = acabo).
-const GFW_PROGRESO: u32 = 0x0011_8234;
-/// El bit de `boot_stage_3_handoff` en `BSI_SECURE_SCRATCH_14`.
-pub const BSI_HANDOFF: u64 = 1 << 26;
+/// El bit de `boot_stage_3_handoff`, como lo empaqueta [`info_bsi`]. Las
+/// direcciones y su porque viven en `bmo_gpu_ga10x::aon`.
+pub const BSI_HANDOFF: u64 = ga10x::aon::BSI_14_HANDOFF as u64;
 
 /// ** EL 0x15 DEL BOOTER, MEDIDO (26-09): el cuarto 0x15 llego con la 3060
 /// FRIA segun la WPR2 (`al llegar` sin WPR2, el cargador no la toco), y eso
@@ -516,7 +510,7 @@ pub fn info_bsi() -> u64 {
     if bar0 == 0 {
         return 0;
     }
-    leer(bar0, BSI_SECURE_SCRATCH_14) as u64 | ((leer(bar0, GFW_PROGRESO) & 0xFF) as u64) << 32 | 1 << 63
+    leer(bar0, ga10x::aon::BSI_14) as u64 | ((leer(bar0, ga10x::aon::GFW_PROGRESO) & 0xFF) as u64) << 32 | 1 << 63
 }
 
 /// ** LO QUE HIZO EL CARGADOR (25-09): si la 3060 llego CALIENTE y la

@@ -5,6 +5,7 @@
 //! capa: puro -- el mensaje, los registros y lo que tienen que decir; los
 //! falcons y la cola los toca el kernel (L8)
 //!
+//! [estado]  WPR           el apagado ordenado se juzga por UNA cosa: la WPR2 abajo
 //! [eje]     CORRECCION -- el orden de nouveau (`tu102_gsp_fini` +
 //!           `r535_gsp_fini`, Linux) y del RM de NVIDIA (`kgspTeardown_TU102`)
 //!
@@ -64,8 +65,8 @@ pub const fn sb_bien(v: u32) -> bool {
 
 /// Lo que va en los buzones del SEC2 para una descarga normal.
 pub const BUZON_DESCARGA: u32 = 0xFF;
-/// `NV_PFB_PRI_MMU_WPR2_ADDR_HI`: cero cuando ya no hay WPR2.
-pub const WPR2_HI: u32 = 0x001F_A828;
+/// `NV_PFB_PRI_MMU_WPR2_ADDR_HI`: cero cuando ya no hay WPR2 (de `aon`).
+pub use crate::aon::WPR2_HI;
 
 /// Si el booter de descarga hizo lo suyo: la WPR2 abajo. Es lo UNICO que
 /// mira nouveau (`tu102_gsp_booter_unload`); su MAILBOX0 se muestra, no juzga.

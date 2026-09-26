@@ -39,6 +39,18 @@ las esperas, que es la deuda que se quiere bajar):
                    `es_la_3060_12g` y el prestamo `vram_es_la_suya`
     O3 OPTIMIZADA  `bmo-gpu-ga10x` lleva `opt-level = 3` con nombre en el
                    perfil release del kernel y del userspace
+    A  AON         (26-09, tras el quinto 0x15 del booter) LO QUE SOBREVIVE
+                   A UN REINICIO tiene UN propietario y NADIE lo escribe:
+                   A1 cada fichero de `ga10x/src/arranque/` y `lectura/`
+                      declara `[estado]` con el vocabulario cerrado
+                      (VOLATIL VRAM WPR AON FUSIBLE ROM RAM) y su motivo
+                   A2 los numeros del dominio PGC6/BSI (0x118000..0x118FFF)
+                      y de la WPR2 (0x1FA824/28) viven SOLO en
+                      `lectura/aon.rs` (y en `arranque/secuenciador.rs`,
+                      que descifra lo que PIDE el GSP); el kernel y el resto
+                      del crate usan `aon::`
+                   A3 ni una escritura: ninguna linea con `escribir(` o
+                      `write_volatile` nombra `aon::`, y `aon.rs` no escribe
     N  NEUTRO      (25-09, P1 del pase) `dev/pase_gpu.rs` y el crate
                    `bmo-pase-gpu` son de CUALQUIER GPU: su codigo no nombra
                    un modulo de NVIDIA (`gpu_trabajo`, `gpu_libos`,
@@ -191,7 +203,7 @@ def motivos(fallos):
     return len(kv)
 
 
-IDENTIDAD = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src', 'identidad.rs')
+IDENTIDAD = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src', 'lectura', 'identidad.rs')
 CARGADOR = os.path.join(RAIZ, 'Ultra_kernel_x86-64', 'faggin', 's1_cpu', 'src', 'gpu_reinicio.rs')
 RX_LISTA = re.compile(r'const DISPOSITIVOS\s*:\s*\[u16;\s*\d+\]\s*=\s*\[([^\]]*)\]')
 
@@ -249,6 +261,51 @@ def neutro(fallos):
     return vistos
 
 
+GA10X = os.path.join(RAIZ, 'platform', 'drivers', 'gpu', 'ga10x', 'src')
+ESTADOS = ('VOLATIL', 'VRAM', 'WPR', 'AON', 'FUSIBLE', 'ROM', 'RAM')
+RX_AON = re.compile(r'\b0x0*11_?8[0-9A-Fa-f]_?[0-9A-Fa-f]{2}\b|\b0x0*1F_?A82[48]\b', re.I)
+PROPIETARIOS_AON = ('lectura/aon.rs', 'arranque/secuenciador.rs')
+
+
+def aon(fallos):
+    vistos = 0
+    for carpeta in ('arranque', 'lectura'):
+        for r in sorted(glob.glob(os.path.join(GA10X, carpeta, '*.rs'))):
+            if r.endswith('mod.rs'):
+                continue
+            vistos += 1
+            # `[estado]  AON WPR  el motivo`: los estados separados por UN
+            # espacio, y el motivo detras de DOS (si no, no se sabe donde acaba).
+            m = re.search(r'^//! \[estado\]\s+([A-Z]+(?: [A-Z]+)*) {2,}\S', leer(r), re.M)
+            if not m:
+                fallos.append('A1: %s no declara `[estado]` (y su motivo): lo que toca de la tarjeta tiene que decirse' % rel(r))
+                continue
+            malas = [e for e in m.group(1).split() if e not in ESTADOS]
+            if malas:
+                fallos.append('A1: %s declara %s, fuera del vocabulario (%s)' % (rel(r), malas, ' '.join(ESTADOS)))
+    if vistos < 10:
+        fallos.append('A1: solo %d ficheros en ga10x/src/arranque y lectura: el guardian no mira donde debe' % vistos)
+    donde = [os.path.join(GA10X, '**', '*.rs'), os.path.join(RING0, '**', '*.rs'),
+             os.path.join(RAIZ, 'Ultra_kernel_x86-64', 'uefi_chain', '**', '*.rs')]
+    for patron in donde:
+        for r in glob.glob(patron, recursive=True):
+            rr = rel(r)
+            if any(rr.endswith(d) for d in PROPIETARIOS_AON):
+                continue
+            for n, l in enumerate(sin_comentarios(leer(r)).split('\n'), 1):
+                m = RX_AON.search(l)
+                if m:
+                    fallos.append('A2: %s:%d escribe el numero %s, que es de lo que SOBREVIVE: usa `aon::`' % (rr, n, m.group(0)))
+                if 'aon::' in l and ('escribir(' in l or 'write_volatile' in l):
+                    fallos.append('A3: %s:%d ESCRIBE en lo que sobrevive: BMO-X no escribe ahi, nunca' % (rr, n))
+    propietario = os.path.join(GA10X, 'lectura', 'aon.rs')
+    if not os.path.exists(propietario):
+        fallos.append('A2: falta ga10x/src/lectura/aon.rs, el propietario de lo que sobrevive')
+    elif re.search(r'escribir|write_volatile', sin_comentarios(leer(propietario))):
+        fallos.append('A3: lectura/aon.rs ESCRIBE: el propietario de lo que sobrevive solo nombra y lee')
+    return vistos
+
+
 def esperas():
     cuenta = {}
     for r in sorted(glob.glob(os.path.join(RING0, 'dev', '**', '*.rs'), recursive=True)):
@@ -279,6 +336,7 @@ def main():
     suyos = identidad(fallos)
     optimizada(fallos)
     n_neutros = neutro(fallos)
+    n_aon = aon(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -294,8 +352,8 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d esperas girando%s'
-          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, total, extra))
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; %d esperas girando%s'
+          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, total, extra))
     return 0
 
 

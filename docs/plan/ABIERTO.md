@@ -8,7 +8,7 @@
 
 ```text
    348 casillas ABIERTAS en 41 planes
-   294 hechas
+   295 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -49,7 +49,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
 - ... y 21 mas
 
-## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 5 hechas
+## [`PLAN_LA_3060_AFINADA.md`](PLAN_LA_3060_AFINADA.md) -- 22 abiertas, 6 hechas
 
 *PLAN LA 3060 AFINADA -- aislar mas, medir, y solo entonces optimizar*
 

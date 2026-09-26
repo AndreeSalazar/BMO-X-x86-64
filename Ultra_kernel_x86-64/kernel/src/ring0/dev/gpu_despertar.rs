@@ -283,13 +283,19 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 //         borro: el GSP se reseteo o su FMC corrio -- nova-core: "GSP-FMC
 //         normally clears the boot parameters address from the mailboxes")
 //    [3]  en ese instante: la WPR2 (`INFO_GPU_WPR2`)
+//    [4]  en ese instante: CPUCTL del GSP | CPUCTL del SEC2 << 32, CRUDOS
+//
+// ** CRUDOS (26-09): el 25-09 19:59 [2] salio 0xFFFFFFFF/0xFFFFFFFF, y ese
+// era el centinela de "el registro contesto con error de PRI" -- el GSP no se
+// dejaba leer al pararse el SEC2. El numero crudo (0xBADF....) dice POR QUE:
+// ahora se guarda tal cual, sin juicio.
 //
 // La comparacion que decide: si los arranques que dan 0x15 traen el bit
 // `BSI_HANDOFF` puesto ANTES del booter y los que dan 0 no, la causa es ese
 // estado que sobrevive al reinicio, y el arreglo es exigirlo abajo (o
 // reiniciar la tarjeta) antes de gastar el booter.
 
-static AUTOPSIA: [AtomicU64; 4] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
+static AUTOPSIA: [AtomicU64; 5] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
 static BOOTER_TSC: AtomicU64 = AtomicU64::new(0);
 
 /// La foto del SEC2 recien parado, UNA vez por arranque.
@@ -299,11 +305,11 @@ fn autopsiar(r: &mut Bar0) {
     }
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let us = crate::ring0::task::scheduler::rdtsc().saturating_sub(BOOTER_TSC.load(Ordering::Acquire)) / hz;
-    let (gm0, gm1) = match fa::como_va(r, fa::GSP) {
-        Ok((_, m0, m1)) => (m0, m1),
-        Err(_) => (0xFFFF_FFFF, 0xFFFF_FFFF),
-    };
+    use bmo_gpu_ga10x::Registros;
+    let (gm0, gm1) = (r.leer(fa::GSP + fa::MAILBOX0), r.leer(fa::GSP + fa::MAILBOX1));
     AUTOPSIA[2].store(gm0 as u64 | (gm1 as u64) << 32, Ordering::Release);
+    let (gc, sc) = (r.leer(fa::GSP + fa::CPUCTL), r.leer(fa::SEC2 + fa::CPUCTL));
+    AUTOPSIA[4].store(gc as u64 | (sc as u64) << 32, Ordering::Release);
     AUTOPSIA[3].store(crate::ring0::dev::gpu::info_wpr2(), Ordering::Release);
     AUTOPSIA[1].store(crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF | us.min(0x7FFF_FFFF) << 32 | 1 << 63, Ordering::Release);
 }
@@ -449,7 +455,7 @@ pub fn gsp_tomado() -> bool {
 
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
 /// con selector 1 (`1 << 8`) del SEC2, si el booter arranco; con selector 2,
-/// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..7 la
+/// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..8 la
 /// AUTOPSIA DEL BOOTER (ver `autopsiar`).
 ///
 /// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
@@ -462,7 +468,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=7).contains(&(sel >> 8)) {
+    if (4..=8).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

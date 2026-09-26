@@ -751,6 +751,13 @@ fn fila_autopsia(s: &mut Output) {
         s.hex(w as u32 as u64, 8);
         s.text(b"/0x");
         s.hex(w >> 32, 8);
+        // CRUDOS: un 0xBADF.... es que el falcon no se dejaba leer.
+        let c = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 8 << 8);
+        s.text(b", CPUCTL GSP 0x");
+        s.hex(c as u32 as u64, 8);
+        s.text(b" SEC2 0x");
+        s.hex(c >> 32, 8);
+        super::datos::anotar(b"gpu booter cpuctl gsp", c as u32 as u64, b"");
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");

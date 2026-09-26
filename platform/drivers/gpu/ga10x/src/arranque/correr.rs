@@ -6,6 +6,7 @@
 //!
 //! capa: puro -- recibe los registros y el reloj como rasgos; no sabe de BAR0 (L8)
 //!
+//! [estado]  AON VOLATIL   ESPERA el bit de vuelta en BSI_14 (solo lo lee) y escribe SOLO en el falcon del GSP
 //! [eje]     CORRECCION -- es la primera vez que la CPU escribe registros de
 //!           la 3060 porque lo pide su firmware: nada fuera de lo permitido
 //!
@@ -36,9 +37,9 @@ use crate::{es_error_pri, Registros};
 pub const DESDE: u32 = fa::GSP;
 pub const HASTA: u32 = fa::GSP + 0x1FFF;
 
-/// `NV_PGC6_BSI_SECURE_SCRATCH_14`, y su bit `boot_stage_3_handoff`.
-pub const BSI_14: u32 = 0x0011_80F8;
-pub const VUELTA: u32 = 1 << 26;
+/// `NV_PGC6_BSI_SECURE_SCRATCH_14`, y su bit `boot_stage_3_handoff`: de
+/// `aon`, el unico propietario de lo que sobrevive.
+pub use crate::aon::{BSI_14, BSI_14_HANDOFF as VUELTA};
 
 /// Los plazos de nova-core: REG_POLL sin plazo = 4 s; esperar la parada, 2 s;
 /// la vuelta del GSP-RM, 2 s. El RISC-V activo tras la vuelta: 100 ms (nova-core

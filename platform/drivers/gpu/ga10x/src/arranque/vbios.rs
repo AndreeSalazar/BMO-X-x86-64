@@ -3,6 +3,7 @@
 //!
 //! capa: puro -- recibe la ROM entera como bytes y devuelve lo que dice; no toca un registro (L8)
 //!
+//! [estado]  ROM FUSIBLE   la VBIOS de la placa (fija) y la version de firma que dicen los fusibles
 //! [eje]     CORRECCION -- un solo byte mal contado aqui es firmware ajeno
 //!           ejecutandose con la firma equivocada
 //!
