@@ -179,8 +179,22 @@ pub const fn sph_pixel() -> [u32; SPH] {
     h
 }
 
+/// **La SPH del de vertice**: la de T2a (posicion y generico 0) y ademas
+/// `DoesLoadOrStore`, porque ESTE lee los vertices con LDG.
+///
+/// ** Metal 25-09 20:19: `gpu verrano` se paro en el escalon de los VERTICES
+/// (el dibujo con el rasterizador apagado: solo el programa de vertice) sin
+/// excepcion y con INTR/EXCEPTION/STATUS a 0. Lo unico nuevo de este programa
+/// frente a X5 son los LDG, y su SPH no decia que los hacia: NAK y nvc0 ponen
+/// el bit 26 en cuanto un programa toca memoria global.
+pub const fn sph_vertice() -> [u32; SPH] {
+    let mut h = crate::color3d::sph_vertice();
+    h[0] |= crate::raster::LEE_O_ESCRIBE;
+    h
+}
+
 pub const fn vertice() -> [u32; PALABRAS_VS] {
-    programa(crate::color3d::sph_vertice(), &codigo_vs())
+    programa(sph_vertice(), &codigo_vs())
 }
 
 pub const fn pixel() -> [u32; PALABRAS_PS] {
@@ -370,6 +384,17 @@ mod pruebas {
         assert_eq!(esp(17), 1 << 3);
         // Y el AST de la posicion es el de T1c salvo el control.
         assert_eq!(sin_control(AST_POSICION), sin_control(crate::raster::CODIGO_VS[14]));
+    }
+
+    /// El de vertice dice que lee memoria (bit 26) y el resto de su SPH es
+    /// la de T2a; el de pixel no lee memoria y no lo dice.
+    #[test]
+    fn la_sph_dice_que_lee_memoria() {
+        let (h, t2a) = (sph_vertice(), crate::color3d::sph_vertice());
+        assert_eq!(h[0], t2a[0] | 1 << 26);
+        assert_eq!(&h[1..], &t2a[1..]);
+        assert_eq!(vertice()[0] & 1 << 26, 1 << 26);
+        assert_eq!(pixel()[0] & 1 << 26, 0);
     }
 
     #[test]

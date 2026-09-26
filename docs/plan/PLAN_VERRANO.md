@@ -67,6 +67,19 @@ la SPH (128 B) y detras las instrucciones.
       la CPU = D3D12 en la 3060 bajo Windows` en el 0, el 30 y el 60; `IGUAL,
       pixel a pixel` en los demas (el 32, con su pixel sin explicar dicho
       aparte). Si no, `el primero en (x, y)` y la escalera de siempre.
+      **Metal 25-09 20:19: NO, la escalera se para en los VERTICES** (el
+      dibujo con el rasterizador apagado: solo corre el programa de
+      vertice), sin excepcion e INTR/EXCEPTION/STATUS a 0. El programa de
+      vertice colgado. **El arreglo (26-09):** su SPH no decia que lee
+      memoria. NAK (`sph.rs`: `set_does_load_or_store(uses_global_mem)`) y
+      nvc0 (`hdr[0] |= 1 << 26` con `io.globalAccess`) ponen
+      `CommonWord0.DoesLoadOrStore` (bit 26) en cuanto un programa hace
+      LDG/STG; el computo no lo necesita porque no tiene SPH (manda su QMD),
+      y por eso el LDG de `giro` y `blur` corria. `tuberia::sph_vertice` lo
+      pone, `raster::LEE_O_ESCRIBE` lo nombra, y `cubo.bsf` se refabrico
+      (`BSF_FIJAR=1`): la misma medida, otra huella. Si aun asi se para en
+      los VERTICES, lo siguiente es el LDG mismo: la direccion de la tabla
+      (`0x2_0000_E600`) en el espacio del canal de GR.
 - [ ] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
       VERRANO sin leer de vuelta (solo la huella de algunos), para poner los
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en

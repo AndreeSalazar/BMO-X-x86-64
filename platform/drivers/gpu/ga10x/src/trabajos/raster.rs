@@ -184,9 +184,19 @@ pub const fn bit(mut h: [u32; SPH], b: usize) -> [u32; SPH] {
 
 /// `CommonWord0`: SphType (4:0), Version (9:5) = 4 (Turing y despues, como
 /// NAK), ShaderType (13:10) y SassVersion (20:17) = 1.
+///
+/// Lo que NO se pone aqui: `DoesLoadOrStore` (bit 26, [`LEE_O_ESCRIBE`]), que
+/// solo lleva el programa que lee o escribe memoria global.
 pub const fn palabra0(tipo_sph: u32, tipo: u32) -> u32 {
     tipo_sph | 4 << 5 | tipo << 10 | 1 << 17
 }
+
+/// `CommonWord0.DoesLoadOrStore` (bit 26): el programa hace LDG/STG. NAK
+/// (`sph.rs`, `set_does_load_or_store(info.uses_global_mem)`) y nvc0
+/// (`hdr[0] |= 1 << 26` con `io.globalAccess`) lo ponen SIEMPRE que el
+/// programa toca memoria global; los de computo no tienen SPH (su QMD manda).
+/// Sin el, VERRANO V0 colgo el dibujo en los VERTICES (metal 25-09 20:19).
+pub const LEE_O_ESCRIBE: u32 = 1 << 26;
 
 /// **La SPH del de vertice** (tipo 1, VTG): lee `ImapVertexId` (bit 351) y
 /// escribe `OmapPositionX..W` (bits 428..431). StoreReqStart (19:12 de la
