@@ -58,6 +58,19 @@ las esperas, que es la deuda que se quiere bajar):
                    la 3060 va en su `Motor` (`gpu_trabajo/pase_nv.rs`). El
                    propietario: "AISLAR BIEN POR COMPLETO el NVIDIA eso por si
                    voy a tener mi GPU alternativos"
+    S  EL SOBRE Y SU PUERTA (26-09, `docs/plan/PLAN_EL_AISLAMIENTO.md`):
+                   cada GPU trae SU emisor, SU juez y SU adaptador; lo comun
+                   no conoce a ninguna
+                   S1 el sobre (`bmo-bsf`) no depende de un emisor ni de un
+                      driver, ni en su Cargo.toml ni en su codigo
+                   S2 la API (`platform/shared/verrano`) no nombra una GPU
+                   S3 VERRANO en el escritorio (`gspcubo/verrano.rs`,
+                      `tablero.rs`) no nombra la 3060: solo `gspcubo/sm86.rs`
+                      (la puerta) toma el driver, el `kind` y el juez
+                   S4 la puerta del kernel (`CUBO_VERRANO`) juzga los
+                      programas antes de subirlos
+                   El propietario: "TIENEN QUE AISLARSE POR COMPLETO ... si
+                   tengo otra GPU no es lo mismo"
 
     --check   lo que corre el build
 """
@@ -327,6 +340,74 @@ def linea_base():
     return None
 
 
+SOBRE = os.path.join(RAIZ, 'toolchain', 'lang', 'spirv', 'bsf')
+API = os.path.join(RAIZ, 'platform', 'shared', 'verrano')
+GSPCUBO = os.path.join(RAIZ, 'Ultra_userspace', 'services', 'director', 'src', 'commands', 'gspcubo')
+PUERTA_KERNEL = os.path.join(RING0, 'dev', 'gpu_trabajo', 'cubo.rs')
+RX_EMISOR = re.compile(r'\b(bmo[-_]spirv[-_]x86[-_]64|bmo[-_]gpu[-_]ga10x|bmo[-_]bsf[-_]x86[-_]64|emisor)\b')
+RX_UNA_GPU = re.compile(r'\b(bmo_gpu_ga10x|ga10x|GA10\w*|SM86\w*|sm86|sass|tuberia|nvidia|NVIDIA|ampere|AMPERE\w*)\b')
+
+
+def dependencias(cargo):
+    """Las lineas de [dependencies] (no dev-) de un Cargo.toml, sin comentarios."""
+    t, dentro, out = leer(cargo), False, []
+    for l in t.split('\n'):
+        l = l.split('#', 1)[0].strip()
+        if l.startswith('['):
+            dentro = l == '[dependencies]'
+        elif dentro and l:
+            out.append(l)
+    return out
+
+
+def sobre(fallos):
+    vistos = 0
+    cargo = os.path.join(SOBRE, 'Cargo.toml')
+    if os.path.exists(cargo):
+        vistos += 1
+        for l in dependencias(cargo):
+            m = RX_EMISOR.search(l)
+            if m:
+                fallos.append('S1: el sobre depende de `%s`: el sobre no conoce emisores ni drivers; eso va en el adaptador de cada uno' % m.group(1))
+    for r in sorted(glob.glob(os.path.join(SOBRE, 'src', '*.rs'))):
+        vistos += 1
+        for n, l in enumerate(sin_comentarios(leer(r)).split('\n'), 1):
+            m = RX_EMISOR.search(l)
+            if m:
+                fallos.append('S1: %s:%d nombra `%s` en el sobre' % (rel(r), n, m.group(1)))
+    api = [os.path.join(API, 'Cargo.toml')] + sorted(glob.glob(os.path.join(API, 'src', '*.rs')))
+    for r in api:
+        if not os.path.exists(r):
+            continue
+        vistos += 1
+        t = leer(r)
+        lineas = dependencias(r) if r.endswith('.toml') else sin_comentarios(t).split('\n')
+        for n, l in enumerate(lineas, 1):
+            m = RX_UNA_GPU.search(l) or RX_EMISOR.search(l)
+            if m:
+                fallos.append('S2: %s:%d nombra `%s` en la API: la API no sabe que GPU hay debajo' % (rel(r), n, m.group(1)))
+    for nombre in ('verrano.rs', 'tablero.rs'):
+        r = os.path.join(GSPCUBO, nombre)
+        if not os.path.exists(r):
+            fallos.append('S3: falta %s: el guardian no mira' % rel(r))
+            continue
+        vistos += 1
+        for n, l in enumerate(sin_comentarios(leer(r)).split('\n'), 1):
+            if re.search(r'\buse\s+super::sm86\s+as\s+destino\s*;', l):
+                continue
+            m = RX_UNA_GPU.search(l) or re.search(r'\b(kind::\w+|bmo_bsf)\b', l)
+            if m:
+                fallos.append('S3: %s:%d nombra `%s`: VERRANO habla con la tarjeta por `destino` (gspcubo/sm86.rs) y por nada mas' % (rel(r), n, m.group(1)))
+    if not os.path.exists(os.path.join(GSPCUBO, 'sm86.rs')):
+        fallos.append('S3: falta gspcubo/sm86.rs, la puerta de la 3060')
+    t = sin_comentarios(leer(PUERTA_KERNEL)) if os.path.exists(PUERTA_KERNEL) else ''
+    if 'juez::juzgar_programa(' not in t or 'IOMMU_NO_BODRIO' not in t:
+        fallos.append('S4: %s ya no juzga los programas de VERRANO antes de subirlos (juez::juzgar_programa + IOMMU_NO_BODRIO)' % rel(PUERTA_KERNEL))
+    if vistos < 6:
+        fallos.append('S: solo %d ficheros del sobre, la API y VERRANO encontrados: el guardian no mira' % vistos)
+    return vistos
+
+
 def main():
     fallos = []
     puerta(fallos)
@@ -337,6 +418,7 @@ def main():
     optimizada(fallos)
     n_neutros = neutro(fallos)
     n_aon = aon(fallos)
+    n_sobre = sobre(fallos)
     giros = esperas()
     total = sum(giros.values())
     base = linea_base()
@@ -352,8 +434,8 @@ def main():
             print('  ' + f)
         return 1
     extra = '' if base is None or total == base else ' (bajo de %d: baja la linea base en %s)' % (base, rel(BASE))
-    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; %d esperas girando%s'
-          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, total, extra))
+    print('clean: la puerta pide MAQUINA; solo la 3060 12G (%s); registros solo en dev/gpu*; %d ordenes y %d motivos iguales en los tres sitios; opt-level 3; el pase NEUTRO en %d ficheros sin NVIDIA; %d ficheros declaran su [estado] y lo que SOBREVIVE tiene un propietario que no escribe; el sobre, la API y VERRANO sin una GPU dentro (%d ficheros) y el juez en la puerta; %d esperas girando%s'
+          % ('/'.join('%04X' % x for x in suyos), n_ordenes, n_motivos, n_neutros, n_aon, n_sobre, total, extra))
     return 0
 
 

@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 51 planes
+# LO QUE FALTA -- las casillas abiertas de los 52 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   354 casillas ABIERTAS en 42 planes
-   298 hechas
+   354 casillas ABIERTAS en 43 planes
+   303 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -22,6 +22,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 # CASI TERMINADOS -- lo que se cierra con poco
 
 - [`PLAN_BEF_NATIVO.md`](PLAN_BEF_NATIVO.md) -- 9 de 10 hechas, faltan 1
+- [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
@@ -220,15 +221,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
 - ... y 3 mas
 
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 6 abiertas, 2 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
-- [ ] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
-- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
-- ... y 3 mas
-
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas
 
 *PLAN RED TX -- transmitir, con el DMA contado y el cable detras de un grifo*
@@ -299,6 +291,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 3 el LECTOR, las cinco comprobaciones -> Ultra_userspace/services/director/src/scene/cara.rs
 - [ ] 4 desde un FICHERO suelto, y que se pinte -> Ultra_userspace/services/director/src/scene/cara_ca
 - [ ] 5 en la seccion 0x0B del .bex -> toolchain/tools/maqueta/pruebas/calc.dorado
+- ... y 2 mas
+
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 5 abiertas, 3 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
+- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
+- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
 - ... y 2 mas
 
 ## [`PLAN_LA_PILA_HUERFANA.md`](PLAN_LA_PILA_HUERFANA.md) -- 5 abiertas, 3 hechas
@@ -387,6 +388,12 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 *PLAN: BEF nativo -- un formato de BMO-X x86-64, no un ELF con otro nombre*
 
 - [ ] B9 -- medir la decision 2 (paginas alineadas o compacto) con DOOM
+
+## [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 1 abiertas, 4 hechas
+
+*PLAN EL AISLAMIENTO -- cada GPU con su emisor, su juez y su puerta*
+
+- [ ] A5 -- LA SEGUNDA TARJETA (cuando la haya)
 
 ## [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 1 abiertas, 8 hechas
 

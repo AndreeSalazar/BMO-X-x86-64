@@ -169,7 +169,7 @@ empieza por `TOMA TU BODRIO:` y dice la instruccion, el registro y la regla:
   prueba `con_lo_que_se_le_envia` juzga cada programa con los registros que
   de verdad van en las ordenes y los QMD.
 
-## [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
+## [x] J2 -- EL JUEZ EN LAS DOS PUERTAS
 
 > **La del build, hecha (26-09):** `tests/bsf_sm86.rs` juzga los dos
 > programas antes de fabricar `cubo.bsf`; con un bodrio, no hay sobre. Y lo
@@ -183,6 +183,11 @@ empieza por `TOMA TU BODRIO:` y dice la instruccion, el registro y la regla:
 > programa de vertice del BSF: TOMA TU BODRIO: ...`); con los dos buenos, el
 > veredicto sale en la pantalla y en el tablero del banco. Queda la puerta
 > del kernel, que es la que no se puede saltar.
+>
+> **Y la del kernel, hecha (26-09):** `CUBO_VERRANO` juzga antes de subir y
+> un bodrio vuelve con `IOMMU_NO_BODRIO` (87). Ver A3 de
+> [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md). Falta verlo en el metal
+> con un sobre roto a proposito.
 
 `bsf_sm86` (la prueba que fabrica `cubo.bsf`) llama al juez y no escribe el
 sobre si dice NO. El kernel llama al mismo juez en `CUBO_VERRANO` antes de
