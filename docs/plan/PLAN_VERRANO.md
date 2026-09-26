@@ -137,7 +137,7 @@ la SPH (128 B) y detras las instrucciones.
       **VISTO el 26-09 07:54** (`METAL_2026-09-25.md` 22): escalera 1246
       fps (la 3060 395 us, preparar 173), ligero 1726 fps (281 us, preparar
       168), el 30 IGUAL a D3D12 al final. Windows: ~3780. Por eso V1b.
-- [ ] **V1b -- EL ANILLO: la CPU ORQUESTA, no espera.** Lo que pidio el
+- [x] **V1b -- EL ANILLO: la CPU ORQUESTA, no espera.** Lo que pidio el
       propietario tras ver 1726 contra ~3780: "mi CPU no tiene que esperar
       sino que ORQUESTE". `gpu verrano banco anillo`
       (`bmo_gpu_ga10x::anillo`, `gpu_trabajo/cubo.rs`):
@@ -172,7 +172,26 @@ la SPH (128 B) y detras las instrucciones.
       3060. **Como se sabe:** `gpu verrano banco anillo` dice IGUAL al
       final (el 30 va TAMBIEN por el anillo), `N en vuelo`, y los fps por
       encima de ligero; la meta, los ~3780 de Windows.
-- [ ] **V1c -- EXPRIMIR: quien refuerza a quien.** Lo pidio el propietario
+      **VISTO el 26-09 08:35** (`METAL_2026-09-25.md` 23): **2925 fps**
+      contra 1378 de ligero en la misma sesion, preparar 21 us, 359 en
+      vuelo, el 30 IGUAL. La CPU espera 247 us por ranura: ahora el cuello
+      es la 3060 (en P8, relojes de reposo).
+- [ ] **V1c -- EXPRIMIR: quien refuerza a quien.** **Primer paso escrito
+      (26-09, tras el metal de las 08:35): `gpu verrano banco coopera`.**
+      La CPU esperaba el 72 % de cada fotograma; ahora, en vez de esperar,
+      le QUITA trabajo a la 3060: sabe donde estaba el cubo y donde va a
+      estar (`Frame::cover`, la caja de los vertices por el viewport, 2
+      pixeles de margen), y la 3060 limpia SOLO esa union
+      (`SET_CLEAR_RECT_*` + `USE_CLEAR_RECT`, `clc797.h`), no la ventana
+      entera. El recorte viaja en la cabecera del paquete (bytes 20..28); el
+      kernel lo usa en el anillo con `CUBO_COOPERA` y arma limpiando TODO.
+      La limpieza pasa a la cola de cada ranura, y su espera es tambien la
+      de la tabla: una espera menos. **Probado en el anfitrion:** en los 360
+      fotogramas del giro y el 30, la imagen recortada es IGUAL a la entera,
+      el margen minimo 2 pixeles, y se limpia un **14 %** de la ventana de
+      media (`bmo_verrano::cpu`, `la_limpieza_recortada_da_lo_mismo`).
+      **Como se sabe:** `gpu verrano banco coopera` dice IGUAL al final, la
+      espera de la CPU baja y los fps suben sobre los 2925 del anillo. Lo pidio el propietario
       el 26-09: la CPU no espera ni le dice a la 3060 que hacer; la
       REFUERZA si hace falta. El anillo ya dice como decidirlo: la
       columna ESPERA DE LA CPU del tablero.

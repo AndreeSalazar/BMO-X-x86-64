@@ -32,7 +32,7 @@ use bmo_bsf::{abi, kind, Bsf};
 use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::{cubo as cu, raster, tuberia as tu};
 use bmo_userland as bmo;
-use bmo_verrano::{check, Backend, Error, Frame, Image, Stats};
+use bmo_verrano::{check, Backend, Error, Frame, Image, Rect, Stats};
 
 use super::super::After;
 use super::Texto;
@@ -62,6 +62,10 @@ pub(super) struct Opciones {
     /// y cada fotograma EN VUELO -- la CPU envia el siguiente mientras la
     /// tarjeta dibuja este (`bmo_gpu_ga10x::anillo`).
     pub anillo: bool,
+    /// `coopera` (V1c): el anillo, y la CPU le dice a la tarjeta QUE hace
+    /// falta limpiar -- donde estaba el cubo y donde va a estar --, en vez
+    /// de la ventana entera (`anillo::ordenes_con`).
+    pub coopera: bool,
 }
 
 impl Opciones {
@@ -75,6 +79,11 @@ impl Opciones {
                     o.anillo = true;
                     o.ligero = true;
                 }
+                b"coopera" => {
+                    o.coopera = true;
+                    o.anillo = true;
+                    o.ligero = true;
+                }
                 _ => {}
             }
         }
@@ -83,7 +92,9 @@ impl Opciones {
 
     /// Como se dice el modo en el tablero.
     pub(super) fn modo(&self) -> &'static [u8] {
-        if self.anillo {
+        if self.coopera {
+            b"coopera: la CPU le recorta la limpieza"
+        } else if self.anillo {
             b"anillo: la CPU orquesta, no espera"
         } else if self.ligero {
             b"ligero, sin escalera"
@@ -113,6 +124,13 @@ pub(super) struct Aparato<'a> {
     propio_n: usize,
     ligero: bool,
     anillo: bool,
+    coopera: bool,
+    /// V1c: la caja del fotograma anterior (`Frame::cover`); `None` = no se
+    /// sabe, se limpia todo.
+    antes: Option<Rect>,
+    /// V1c: pixeles que se mandaron limpiar, y en cuantos fotogramas.
+    limpiados: u64,
+    dibujos: u64,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
@@ -166,7 +184,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -180,9 +198,12 @@ impl Backend for Aparato<'_> {
         for (d, s) in v.iter_mut().zip(frame.vertices) {
             *d = tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) };
         }
+        let limpiar = if self.coopera { self.recorte(frame) } else { None };
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
-        tu::escribir_paquete(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()]).ok_or(Error::Vertices)?;
-        let modo = if self.anillo {
+        tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
+        let modo = if self.coopera {
+            bmo::CUBO_ANILLO | bmo::CUBO_COOPERA
+        } else if self.anillo {
             bmo::CUBO_ANILLO
         } else if self.ligero {
             bmo::CUBO_LIGERO
@@ -221,6 +242,30 @@ impl Backend for Aparato<'_> {
     }
 }
 
+impl Aparato<'_> {
+    /// **V1c: lo que hace falta limpiar** antes de dibujar `frame`: su caja
+    /// (`Frame::cover`) unida a la del anterior (lo que hay que borrar); lo
+    /// demas de la ventana ya es fondo. `None` = la ventana entera (el
+    /// primero, o una caja que no se sabe). La prueba de que da lo mismo:
+    /// `bmo_verrano::cpu`, `la_limpieza_recortada_da_lo_mismo`.
+    fn recorte(&mut self, frame: &Frame) -> Option<Rect> {
+        let ahora = frame.cover();
+        let r = self.antes.zip(ahora).map(|(a, c)| a.union(c));
+        self.antes = ahora;
+        self.limpiados += r.unwrap_or(Rect::full(frame.viewport)).area();
+        self.dibujos += 1;
+        r
+    }
+
+    /// Lo que la puerta tiene que decir del banco (V1c: cuanto se limpio).
+    pub(super) fn nota(&self, t: &mut Texto) {
+        if self.coopera && self.dibujos > 0 {
+            let ventana = self.dibujos * (cu::ANCHO * cu::ALTO) as u64;
+            t.t(b"la CPU recorto la limpieza: ").d(self.limpiados * 100 / ventana).t(b"% de la ventana de media (").d(self.limpiados / self.dibujos).t(b" pixeles por fotograma, de ").d((cu::ANCHO * cu::ALTO) as u64).t(b")");
+        }
+    }
+}
+
 /// `Error::Device(ESCALERA | etapas)`: se lanzo y no se pago entero.
 const ESCALERA: u32 = 0x5E00;
 
@@ -238,7 +283,9 @@ pub(super) fn fallo(dsk: &mut Desktop, e: Error, en: Option<u32>, op: Opciones) 
                 }
                 None => g.text(b"  NO  VERRANO en la 3060 no se pago entero"),
             }
-            if op.anillo {
+            if op.coopera {
+                g.text(b" (coopera: sin escalera; sin `coopera` dice donde)");
+            } else if op.anillo {
                 g.text(b" (anillo: sin escalera; sin `anillo` dice donde)");
             } else if op.ligero {
                 g.text(b" (ligero: sin escalera; sin `ligero` dice donde)");

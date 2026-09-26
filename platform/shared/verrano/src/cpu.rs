@@ -163,6 +163,46 @@ mod pruebas {
         assert_eq!(HUELLAS_BMO_X[0].0, 32);
     }
 
+    /// *** V1c: la limpieza RECORTADA da el MISMO fotograma. Lo que no es
+    /// fondo cae dentro de `Frame::cover`, y una imagen que solo limpia la
+    /// caja de antes unida a la de ahora (lo que hace `coopera` en la 3060)
+    /// es, fotograma a fotograma, la limpiada entera. Uno de cada 7 del giro
+    /// (en el anfitrion se miraron los 360: iguales, margen minimo 2 px, un
+    /// 14 % de la ventana de media) y el 30 al final, como el banco.
+    #[test]
+    fn la_limpieza_recortada_da_lo_mismo() {
+        let n = (ANCHO * ALTO) as usize;
+        let mut inc = vec![0u32; n];
+        let mut antes: Option<crate::Rect> = None;
+        for f in (0..360).step_by(7).chain([30]) {
+            let v = vertices(f);
+            let frame = Frame { clear: FONDO_F, vertices: &v, viewport: Viewport { width: ANCHO, height: ALTO } };
+            let px = dibujar(Cpu::LA_3060, f);
+            let fondo = Unorm8::Truncate12.pack(FONDO_F);
+            let c = frame.cover().unwrap();
+            for (i, &p) in px.iter().enumerate() {
+                let (x, y) = (i as u32 % ANCHO, i as u32 / ANCHO);
+                assert!(p == fondo || (c.x0..c.x1).contains(&x) && (c.y0..c.y1).contains(&y), "fotograma {f}: ({x}, {y}) fuera de {c:?}");
+            }
+            let r = antes.map_or(crate::Rect::full(frame.viewport), |a| a.union(c));
+            antes = Some(c);
+            for y in r.y0..r.y1 {
+                inc[(y * ANCHO + r.x0) as usize..(y * ANCHO + r.x1) as usize].fill(fondo);
+            }
+            for (d, &p) in inc.iter_mut().zip(&px) {
+                if p != fondo {
+                    *d = p;
+                }
+            }
+            assert!(inc == px, "fotograma {f}: la recortada no es la entera");
+        }
+        // Sin vertices, o uno que no se proyecta: la imagen entera.
+        let vp = Viewport { width: ANCHO, height: ALTO };
+        assert_eq!(Frame { clear: FONDO_F, vertices: &[], viewport: vp }.cover(), None);
+        let detras = [Vertex { position: [0.0, 0.0, 0.5, -1.0], color: [1.0; 4] }; 3];
+        assert_eq!(Frame { clear: FONDO_F, vertices: &detras, viewport: vp }.cover(), None);
+    }
+
     #[test]
     fn comprueba_lo_que_le_dan() {
         let v = vertices(0);

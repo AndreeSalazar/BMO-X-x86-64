@@ -297,6 +297,7 @@ pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;
 pub const CUBO_ANILLO: u64 = 1 << 60;
 pub const CUBO_VACIAR: u64 = 1 << 59;
+pub const CUBO_COOPERA: u64 = 1 << 58;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

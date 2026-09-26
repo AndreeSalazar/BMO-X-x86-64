@@ -49,6 +49,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu verrano banco", b"VERRANO V1: el cubo GIRANDO, 360 fotogramas seguidos por la 3060, con sus fps y el 30 juzgado contra D3D12"),
     (b"gpu verrano banco ligero", b"VERRANO V1: lo mismo SIN la escalera de diagnostico (2 esperas en vez de ~30 por fotograma): los fps de verdad"),
     (b"gpu verrano banco anillo", b"VERRANO V1b: la CPU ORQUESTA -- envia el fotograma siguiente mientras la tarjeta dibuja este, vertices en RAM, sin esperar"),
+    (b"gpu verrano banco coopera", b"VERRANO V1c: CPU y tarjeta COOPERAN -- la CPU sabe donde esta el cubo y la tarjeta solo limpia eso, no la ventana entera"),
     (b"gpu pase", b"el pase de la GPU: el lienzo prestado una vez y el buzon, abierto y cerrado"),
     (b"gpu motores", b"que motores tiene la 3060 y el de copia para el canal (COPY2)"),
     (b"gpu canal", b"el primer canal de la 3060: pedido, atado a COPY2 y con su ficha"),

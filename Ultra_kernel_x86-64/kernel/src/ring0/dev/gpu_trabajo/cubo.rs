@@ -26,6 +26,10 @@
 //!             vertices en RAM del PC y el fotograma EN VUELO -- se envia y
 //!             se vuelve, sin esperar a la 3060 (`cubo::es_en_vuelo`)
 //!    VACIAR   arg = CUBO_VACIAR: esperar lo que el anillo dejo en vuelo
+//!    COOPERA  con ANILLO (V1c): la limpieza RECORTADA a lo que el
+//!             escritorio dice en el paquete (`Paquete::limpiar`): la CPU
+//!             sabe donde estaba y donde va a estar el cubo, y la 3060 solo
+//!             limpia eso. El primero, al armar, limpia la ventana entera
 //! ```
 //!
 //! ** EL ANILLO (V1b, 26-09): la CPU ORQUESTA, no espera. El primer
@@ -71,6 +75,9 @@ pub const CUBO_ANILLO: u64 = 1 << 60;
 /// Solo: vaciar el anillo.
 pub const CUBO_VACIAR: u64 = 1 << 59;
 
+/// Con el anillo: la limpieza recortada (V1c).
+pub const CUBO_COOPERA: u64 = 1 << 58;
+
 /// **TOMA TU BODRIO** en la puerta: un programa del paquete de VERRANO que
 /// el juez del SASS (`bmo_gpu_ga10x::sass::juez`) rechaza no se sube.
 pub const IOMMU_NO_BODRIO: u32 = 87;
@@ -110,7 +117,8 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
         return vaciar_con_cerrojo();
     }
     if arg & CUBO_VERRANO != 0 {
-        return verrano(arg & 0xFFFF_FFFF_FFFF, arg & CUBO_LIGERO != 0, arg & CUBO_ANILLO != 0);
+        let anillo = arg & CUBO_ANILLO != 0;
+        return verrano(arg & 0xFFFF_FFFF_FFFF, arg & CUBO_LIGERO != 0, anillo, anillo && arg & CUBO_COOPERA != 0);
     }
     let (ficha, f) = (arg & 0xFFFF_FFFF, (arg >> 32) as u32 & 0x1FF);
     let bar0 = crate::ring0::dev::gpu::bar0();
@@ -142,7 +150,7 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
 
 /// **VERRANO V0**: el paquete del escritorio (sus dos programas y sus
 /// vertices) por la tuberia fija. Con `anillo`, por el anillo (V1b).
-fn verrano(va: u64, ligero: bool, anillo: bool) -> Result<u64, u32> {
+fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::tuberia as tu;
     let bar0 = crate::ring0::dev::gpu::bar0();
     if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) {
@@ -183,7 +191,7 @@ fn verrano(va: u64, ligero: bool, anillo: bool) -> Result<u64, u32> {
     // En caliente no hace falta: la huella de lo fijo lleva los programas,
     // y los de un dibujo pagado ya pasaron por aqui. En el anillo, igual:
     // los de un anillo ARMADO ya pasaron por aqui al armarlo.
-    let huella_anillo = if anillo { bmo_gpu_ga10x::anillo::huella(&v, &paquete) } else { 0 };
+    let huella_anillo = if anillo { bmo_gpu_ga10x::anillo::huella(&v, &paquete, coopera) } else { 0 };
     let ya_juzgados = if anillo { ANILLO_HUELLA.load(Ordering::Acquire) == huella_anillo } else { caliente_posible(&paquete) };
     if !ya_juzgados {
         let r = bmo_gpu_ga10x::raster::REGISTROS;
@@ -204,7 +212,7 @@ fn verrano(va: u64, ligero: bool, anillo: bool) -> Result<u64, u32> {
         if !bmo_gpu_ga10x::blur::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
             return Err(IOMMU_NO_BLUR);
         }
-        let r = en_anillo(bar0, e, &p, &v, &paquete, huella_anillo);
+        let r = en_anillo(bar0, e, &p, &v, &paquete, huella_anillo, coopera);
         BLUR_EN_MARCHA.store(false, Ordering::Release);
         return r;
     }
@@ -367,7 +375,7 @@ fn a_la_ranura(k: u32, vertices: &[u8]) {
 /// **VERRANO por el anillo** (con el cerrojo tomado, SIN vaciar): si el
 /// anillo esta armado con lo mismo, el fotograma se ENVIA y se vuelve; si
 /// no, se ARMA en frio con este fotograma y se espera.
-fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, huella: u64) -> Result<u64, u32> {
+fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, huella: u64, coopera: bool) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let desde = crate::ring0::task::scheduler::rdtsc();
@@ -382,16 +390,19 @@ fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::V
         && ANILLO_ENTRADA.load(Ordering::Acquire) == e
         && desde.wrapping_sub(ANILLO_TSC.load(Ordering::Acquire)) < crate::ring0::task::scheduler::tsc_freq() / 10;
     if armado {
-        enviar_en_anillo(&mut r, e, v, paquete, n, desde, hz)
+        // V1c: el recorte que dijo el escritorio; sin el, la ventana entera.
+        let recorte = coopera.then(|| paquete.limpiar.unwrap_or(bmo_gpu_ga10x::anillo::TODA));
+        enviar_en_anillo(&mut r, e, v, paquete, n, desde, hz, recorte)
     } else {
-        armar_anillo(&mut r, e, v, paquete, n, huella, desde, hz)
+        armar_anillo(&mut r, e, v, paquete, n, huella, desde, hz, coopera)
     }
 }
 
 /// **Enviar** el fotograma siguiente: su ranura libre (si la 3060 va
 /// CUATRO por detras, se la espera), sus vertices a la RAM, la cola, la
 /// entrada, GP_PUT y el timbre. Sin releer, sin invalidar, sin esperar.
-fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, desde: u64, hz: u64) -> Result<u64, u32> {
+#[allow(clippy::too_many_arguments)]
+fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, desde: u64, hz: u64, recorte: Option<(u32, u32)>) -> Result<u64, u32> {
     use bmo_gpu_ga10x::anillo as an;
     let numero = ANILLO_NUMERO.load(Ordering::Acquire).wrapping_add(1);
     // La ranura la usaba el fotograma de hace RANURAS: tiene que estar pagado.
@@ -419,7 +430,7 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
     }
     a_la_ranura(an::ranura(numero), paquete.vertices);
     core::sync::atomic::fence(Ordering::SeqCst);
-    if !an::enviar(r, e, v, n as usize, numero, paquete.ficha) {
+    if !an::enviar(r, e, v, n as usize, numero, paquete.ficha, recorte) {
         ANILLO_HUELLA.store(0, Ordering::Release);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     }
@@ -438,7 +449,7 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
 /// cuatro ranuras, releidos; el timbre CON invalidacion de la MMU, y se
 /// espera a que se pague. Solo entonces queda armado.
 #[allow(clippy::too_many_arguments)]
-fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, huella: u64, desde: u64, hz: u64) -> Result<u64, u32> {
+fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, huella: u64, desde: u64, hz: u64, coopera: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::anillo as an;
     vaciar(r)?;
     ANILLO_HUELLA.store(0, Ordering::Release);
@@ -450,7 +461,7 @@ fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::
     asegurar_pagina(r)?;
     super::memoria(ANILLO_F.load(Ordering::Acquire), an::PAGINAS * super::PAGINA).fill(0);
     a_la_ranura(an::ranura(1), paquete.vertices);
-    if !an::armar(r, e, v, paquete, 1) {
+    if !an::armar(r, e, v, paquete, 1, coopera) {
         crate::ring0::cabina::warn("gpu", "V1b: el anillo no quedo armado; no se toca el timbre", n as u64);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     }

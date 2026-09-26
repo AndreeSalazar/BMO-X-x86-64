@@ -330,6 +330,13 @@ pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
 /// no hay semaforos de ESTADO ni de VERTICES: de la escalera de etapas solo
 /// se paga el bit 2 (el dibujo entero), que es el que pide `sano`.
 pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
+    hasta_el_dibujo_de(v, escalera, true)
+}
+
+/// Lo mismo, y `limpiar` = con la limpieza de la ventana al principio. Sin
+/// ella (VERRANO V1c, `anillo::Limpieza::Recorte`), la limpieza va en la cola
+/// de cada fotograma, recortada: el color de limpieza SI se pone aqui.
+pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool) -> Ordenes {
     let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1, escalera };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
@@ -341,9 +348,11 @@ pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
     e.m(td::SET_SCISSOR_ENABLE0, &[0]);
     e.m(td::SET_CT_WRITE0, &[td::ESCRIBIR_RGBA]);
     e.m(td::SET_COLOR_CLEAR_VALUE0, &FONDO);
-    e.m(td::SET_CLEAR_SURFACE_CONTROL, &[0]);
-    e.m(td::CLEAR_SURFACE, &[td::LIMPIAR_RGBA]);
-    e.m(td::WAIT_FOR_IDLE, &[0]);
+    if limpiar {
+        e.m(td::SET_CLEAR_SURFACE_CONTROL, &[0]);
+        e.m(td::CLEAR_SURFACE, &[td::LIMPIAR_RGBA]);
+        e.m(td::WAIT_FOR_IDLE, &[0]);
+    }
     // El estado de T1c, metodo a metodo y con su escalera.
     e.escalon(0);
     e.paso(ra::INVALIDATE_SHADER_CACHES, &[INVALIDAR_TODO]);

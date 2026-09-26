@@ -252,7 +252,8 @@ pub fn bytes<const N: usize>(palabras: &[u32; N], out: &mut [u8]) -> usize {
 /// `"VRN0"`: el paquete de VERRANO V0.
 pub const MAGIA: u32 = u32::from_le_bytes(*b"VRN0");
 /// La cabecera: magia, ficha de GR, vertices, bytes del de vertice, bytes
-/// del de pixel (y ceros hasta 32).
+/// del de pixel, el RECORTE de la limpieza (V1c: dos palabras, 0 = la
+/// ventana entera) y ceros hasta 32.
 pub const CABECERA: usize = 32;
 
 /// **El paquete**: los dos programas (tomados del BSF por la app, con sus
@@ -263,6 +264,17 @@ pub struct Paquete<'a> {
     pub vs: &'a [u8],
     pub ps: &'a [u8],
     pub vertices: &'a [u8],
+    /// V1c: lo que HACE FALTA limpiar, si quien dibuja lo sabe --
+    /// `(xmin | xmax << 16, ymin | ymax << 16)` en pixeles de la ventana, el
+    /// maximo fuera (`SET_CLEAR_RECT_*`). `None` = la ventana entera. Solo lo
+    /// usa el anillo en modo `coopera`; los demas limpian siempre todo.
+    pub limpiar: Option<(u32, u32)>,
+}
+
+/// Un recorte que cabe en la ventana y no es vacio.
+pub const fn recorte_valido(h: u32, v: u32) -> bool {
+    let (x0, x1, y0, y1) = (h & 0xFFFF, h >> 16, v & 0xFFFF, v >> 16);
+    x0 < x1 && x1 <= cu::ANCHO && y0 < y1 && y1 <= cu::ALTO
 }
 
 fn u32le(b: &[u8], i: usize) -> u32 {
@@ -277,7 +289,11 @@ fn programa_valido(p: &[u8], tipo: u32, hueco: u64) -> bool {
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
 pub fn medida(cabecera: &[u8]) -> Option<usize> {
-    if cabecera.len() < CABECERA || u32le(cabecera, 0) != MAGIA || cabecera[20..CABECERA].iter().any(|&b| b != 0) {
+    if cabecera.len() < CABECERA || u32le(cabecera, 0) != MAGIA || cabecera[28..CABECERA].iter().any(|&b| b != 0) {
+        return None;
+    }
+    let (h, v) = (u32le(cabecera, 20), u32le(cabecera, 24));
+    if (h, v) != (0, 0) && !recorte_valido(h, v) {
         return None;
     }
     let (n, vs, ps) = (u32le(cabecera, 8) as usize, u32le(cabecera, 12) as usize, u32le(cabecera, 16) as usize);
@@ -294,18 +310,26 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
         return None;
     }
     let (vs, ps) = (u32le(b, 12) as usize, u32le(b, 16) as usize);
-    let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..] };
+    let (h, v) = (u32le(b, 20), u32le(b, 24));
+    let limpiar = ((h, v) != (0, 0)).then_some((h, v));
+    let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..], limpiar };
     (programa_valido(p.vs, crate::raster::VERTICE, cu::PASO_VS) && programa_valido(p.ps, crate::raster::PIXEL, cu::PASO_PS)).then_some(p)
 }
 
 /// **Escribir** un paquete en `out`; devuelve cuanto mide.
 pub fn escribir_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: &[Vertice]) -> Option<usize> {
+    escribir_paquete_con(out, ficha, vs, ps, vertices, None)
+}
+
+/// Lo mismo, con el recorte de la limpieza (V1c).
+pub fn escribir_paquete_con(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: &[Vertice], limpiar: Option<(u32, u32)>) -> Option<usize> {
     let total = CABECERA + vs.len() + ps.len() + vertices.len() * BYTES_VERTICE;
     if out.len() < total {
         return None;
     }
     out[..CABECERA].fill(0);
-    for (k, v) in [MAGIA, ficha, vertices.len() as u32, vs.len() as u32, ps.len() as u32].iter().enumerate() {
+    let (h, v) = limpiar.unwrap_or((0, 0));
+    for (k, v) in [MAGIA, ficha, vertices.len() as u32, vs.len() as u32, ps.len() as u32, h, v].iter().enumerate() {
         out[4 * k..4 * k + 4].copy_from_slice(&v.to_le_bytes());
     }
     out[CABECERA..CABECERA + vs.len()].copy_from_slice(vs);
@@ -598,7 +622,7 @@ mod pruebas {
         bytes(&vertice(), &mut vs);
         bytes(&pixel(), &mut ps);
         let (a, b) = ([7u8; 6 * BYTES_VERTICE], [9u8; 6 * BYTES_VERTICE]);
-        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x };
+        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x, limpiar: None };
         let (vs, ps): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(vs)), std::boxed::Box::leak(std::boxed::Box::new(ps)));
         let (a, b): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(a)), std::boxed::Box::leak(std::boxed::Box::new(b)));
         let h = huella_fija(&v, &p(a, vs, ps), false);
@@ -620,10 +644,17 @@ mod pruebas {
         assert_eq!(medida(&b[..CABECERA]), Some(n));
         let p = leer(&b[..n]).unwrap();
         assert_eq!((p.ficha, p.vs, p.ps, p.vertices.len()), (0xF1C4, &vs[..], &ps[..], 6 * BYTES_VERTICE));
+        assert_eq!(p.limpiar, None, "sin recorte: la ventana entera");
         // El de vertice en el hueco del de pixel no pasa, ni 4 vertices.
         let n2 = escribir_paquete(&mut b, 1, &ps, &vs, &v).unwrap_or(0);
         assert!(n2 == 0 || leer(&b[..n2]).is_none());
         assert!(escribir_paquete(&mut b, 1, &vs, &ps, &v[..4]).is_none());
+        // V1c: el recorte viaja en la cabecera, y uno que no cabe no pasa.
+        let r = (100 | 500 << 16, 20 | 400 << 16);
+        let n = escribir_paquete_con(&mut b, 1, &vs, &ps, &v, Some(r)).unwrap();
+        assert_eq!(leer(&b[..n]).unwrap().limpiar, Some(r));
+        assert!(escribir_paquete_con(&mut b, 1, &vs, &ps, &v, Some((500 | 100 << 16, 20 | 400 << 16))).is_none(), "al reves");
+        assert!(escribir_paquete_con(&mut b, 1, &vs, &ps, &v, Some((0 | 1281 << 16, 0 | 720 << 16))).is_none(), "fuera");
     }
 
     #[test]

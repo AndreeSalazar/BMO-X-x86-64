@@ -921,6 +921,10 @@ pub const CUBO_ANILLO: u64 = 1 << 60;
 /// El bit 59 (solo): VACIAR el anillo -- esperar a que la 3060 pague todo
 /// lo que quedo en vuelo. `Ok(us esperados)`.
 pub const CUBO_VACIAR: u64 = 1 << 59;
+/// El bit 58, con [`CUBO_ANILLO`]: COOPERA (V1c). La limpieza recortada a
+/// lo que dice la cabecera del paquete (`tuberia::Paquete::limpiar`): la CPU
+/// sabe donde estaba el cubo y donde va a estar; la 3060 solo limpia eso.
+pub const CUBO_COOPERA: u64 = 1 << 58;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

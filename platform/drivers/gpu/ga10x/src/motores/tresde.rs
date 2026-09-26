@@ -42,6 +42,13 @@ pub const SET_WINDOW_OFFSET_X: u32 = 0x0df8;
 pub const SET_SCISSOR_ENABLE0: u32 = 0x0e00;
 pub const SET_SURFACE_CLIP_HORIZONTAL: u32 = 0x0ff4;
 pub const SET_CLEAR_SURFACE_CONTROL: u32 = 0x10f8;
+/// `SET_CLEAR_RECT_HORIZONTAL` (xmin | xmax << 16) y, detras,
+/// `SET_CLEAR_RECT_VERTICAL` (ymin | ymax << 16): el rectangulo que limpia
+/// `CLEAR_SURFACE` si `SET_CLEAR_SURFACE_CONTROL` dice [`USAR_RECT`]
+/// (`clc797.h`; el maximo, como NVK: x + ancho).
+pub const SET_CLEAR_RECT_HORIZONTAL: u32 = 0x0d6c;
+/// `SET_CLEAR_SURFACE_CONTROL_USE_CLEAR_RECT` (bit 4).
+pub const USAR_RECT: u32 = 1 << 4;
 pub const SET_CT_SELECT: u32 = 0x121c;
 pub const CLEAR_SURFACE: u32 = 0x19d0;
 pub const SET_CT_WRITE0: u32 = 0x1a00;

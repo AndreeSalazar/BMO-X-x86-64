@@ -318,7 +318,16 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     g.text(b"           ");
     g.text(c.s());
     g.byte(b'\n');
-    let (kf, ku): (&[u8], &[u8]) = if op.anillo {
+    let mut nota = Texto::nuevo();
+    aparato.nota(&mut nota);
+    if !nota.s().is_empty() {
+        g.text(b"           ");
+        g.text(nota.s());
+        g.byte(b'\n');
+    }
+    let (kf, ku): (&[u8], &[u8]) = if op.coopera {
+        (b"gpu verrano banco coopera fps", b"gpu verrano banco coopera us")
+    } else if op.anillo {
         (b"gpu verrano banco anillo fps", b"gpu verrano banco anillo us")
     } else if op.ligero {
         (b"gpu verrano banco ligero fps", b"gpu verrano banco ligero us")

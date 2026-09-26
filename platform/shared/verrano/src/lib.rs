@@ -96,6 +96,62 @@ pub struct Frame<'a> {
     pub viewport: Viewport,
 }
 
+/// **Un rectangulo de pixeles**: `x0..x1` por `y0..y1` (el maximo fuera).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Rect {
+    pub x0: u32,
+    pub x1: u32,
+    pub y0: u32,
+    pub y1: u32,
+}
+
+impl Rect {
+    /// La imagen entera del viewport.
+    pub fn full(v: Viewport) -> Rect {
+        Rect { x0: 0, x1: v.width, y0: 0, y1: v.height }
+    }
+
+    /// El menor rectangulo que tiene a los dos.
+    pub fn union(self, o: Rect) -> Rect {
+        Rect { x0: self.x0.min(o.x0), x1: self.x1.max(o.x1), y0: self.y0.min(o.y0), y1: self.y1.max(o.y1) }
+    }
+
+    pub fn area(self) -> u64 {
+        (self.x1.saturating_sub(self.x0)) as u64 * (self.y1.saturating_sub(self.y0)) as u64
+    }
+}
+
+impl Frame<'_> {
+    /// **Donde PUEDEN pintar sus triangulos** (V1c): cada vertice por el
+    /// viewport de D3D (`x * w/2 + w/2`, `y * -h/2 + h/2`), y 2 pixeles de
+    /// margen a cada lado -- un triangulo no sale de la caja de sus
+    /// vertices. Fuera de ella el fotograma es su color de limpieza. `None`
+    /// si algun vertice no se deja proyectar (w <= 0, o no finito) o no hay
+    /// vertices: entonces, la imagen entera.
+    ///
+    /// Es lo que la CPU sabe y la tarjeta no: con la caja de este fotograma
+    /// y la del anterior, un backend limpia SOLO eso (`coopera`).
+    pub fn cover(&self) -> Option<Rect> {
+        let (w, h) = (self.viewport.width, self.viewport.height);
+        let (mw, mh) = ((w / 2) as f32, (h / 2) as f32);
+        let (mut x0, mut x1, mut y0, mut y1) = (f32::MAX, f32::MIN, f32::MAX, f32::MIN);
+        for v in self.vertices {
+            let [x, y, _, q] = v.position;
+            if !(q > 0.0 && q.is_finite() && x.is_finite() && y.is_finite()) {
+                return None;
+            }
+            let (sx, sy) = (x / q * mw + mw, -y / q * mh + mh);
+            x0 = x0.min(sx);
+            x1 = x1.max(sx);
+            y0 = y0.min(sy);
+            y1 = y1.max(sy);
+        }
+        let a = |f: f32, tope: u32| f.clamp(0.0, tope as f32) as u32;
+        let r = Rect { x0: a(x0 - 2.0, w), x1: a(x1 + 3.0, w), y0: a(y0 - 2.0, h), y1: a(y1 + 3.0, h) };
+        (!self.vertices.is_empty() && r.x0 < r.x1 && r.y0 < r.y1).then_some(r)
+    }
+}
+
 /// **Donde se dibuja**: `width * height` pixeles `0xAARRGGBB`, fila 0 arriba.
 pub struct Image<'a> {
     pub pixels: &'a mut [u32],
