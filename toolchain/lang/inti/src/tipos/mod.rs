@@ -83,13 +83,23 @@ pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
         return Cosecha::con((), avisos);
     }
 
+    // Las constantes del modulo que son un literal numerico: se escriben en el
+    // ancho de donde van, igual que el literal (`ir::expresion::operando`).
+    let literales: std::collections::HashSet<String> = m
+        .declaraciones
+        .iter()
+        .filter_map(|d| match d {
+            Decl::Constante { nombre, valor, .. } if es_literal(valor, &Default::default()) => Some(nombre.clone()),
+            _ => None,
+        })
+        .collect();
     for d in &m.declaraciones {
         match d {
-            Decl::Funcion(f) => revisa(f, plano, &mut avisos),
-            Decl::Operacion { funcion, .. } => revisa(funcion, plano, &mut avisos),
+            Decl::Funcion(f) => revisa(f, plano, &literales, &mut avisos),
+            Decl::Operacion { funcion, .. } => revisa(funcion, plano, &literales, &mut avisos),
             Decl::Registro { operaciones, .. } => {
                 for f in operaciones {
-                    revisa(f, plano, &mut avisos);
+                    revisa(f, plano, &literales, &mut avisos);
                 }
             }
             Decl::Constante { .. } => {}
@@ -99,11 +109,12 @@ pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
     Cosecha::con((), avisos)
 }
 
-fn revisa(f: &Funcion, plano: &Plano, avisos: &mut Vec<Aviso>) {
+fn revisa(f: &Funcion, plano: &Plano, literales: &std::collections::HashSet<String>, avisos: &mut Vec<Aviso>) {
     let tipos = tipos_de(f);
     let mut v = Revision {
         plano,
         tipos: &tipos,
+        literales,
         avisos,
     };
     v.bloque(&f.cuerpo);
@@ -112,6 +123,8 @@ fn revisa(f: &Funcion, plano: &Plano, avisos: &mut Vec<Aviso>) {
 struct Revision<'a> {
     plano: &'a Plano,
     tipos: &'a HashMap<String, Tipo>,
+    /// Las constantes del modulo que son un literal numerico.
+    literales: &'a std::collections::HashSet<String>,
     avisos: &'a mut Vec<Aviso>,
 }
 
@@ -214,7 +227,7 @@ impl Revision<'_> {
         // literal se escribe en el ancho del otro lado -- `x * 0.5` --, pero
         // dos valores de 32 y de 64 son dos redondeos distintos: se pide.
         if a.es_flotante() && b.es_flotante() {
-            if es_literal(izq) || es_literal(der) {
+            if es_literal(izq, self.literales) || es_literal(der, self.literales) {
                 return;
             }
             self.avisos.push(
@@ -300,7 +313,7 @@ impl Revision<'_> {
             return;
         }
         // Un literal de coma flotante se escribe en el ancho del destino.
-        if esperado.es_flotante() && dado.es_flotante() && es_literal(valor) {
+        if esperado.es_flotante() && dado.es_flotante() && es_literal(valor, self.literales) {
             return;
         }
         let (que, como) = if esperado.es_flotante() && dado.es_flotante() {
@@ -379,11 +392,16 @@ fn sitio_de(e: &Expr) -> Sitio {
 #[cfg(test)]
 mod pruebas;
 
-/// Un literal numerico (con su `-`): se escribe en el ancho de donde va.
-fn es_literal(e: &Expr) -> bool {
+/// Un literal numerico (con su `-`), o una cuenta hecha solo de ellos
+/// (`-1.0 / 6.0`): se escribe, y se cuenta, en el ancho de donde va.
+fn es_literal(e: &Expr, literales: &std::collections::HashSet<String>) -> bool {
     match e {
         Expr::Numero(..) => true,
-        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => matches!(**valor, Expr::Numero(..)),
+        Expr::Nombre(n, _) => literales.contains(n),
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => es_literal(valor, literales),
+        Expr::Binaria { op: Op::Suma | Op::Resta | Op::Por | Op::Divide, izquierda, derecha, .. } => {
+            es_literal(izquierda, literales) && es_literal(derecha, literales)
+        }
         _ => false,
     }
 }

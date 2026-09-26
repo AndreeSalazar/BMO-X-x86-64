@@ -61,3 +61,7 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # Para `pruebas/convencion.rs`: leer `inti.toml` y compararla con el contrato.
 # La misma version que ya usa el frontend: no entra nada nuevo.
 toml = "0.8"
+# ** EL JUEZ DEL CUBO DE VERRANO (2026-09-26): `tests/cubo.rs` compara la
+# tanda que calcula `ejemplos/cubo.inti` con la suya, bit a bit. Es puro -- ni
+# un `unsafe`, ni un aparato --, asi que no mete nada del sistema en el banco.
+bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }

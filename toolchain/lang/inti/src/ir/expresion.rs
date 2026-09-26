@@ -19,6 +19,30 @@
 
 use super::*;
 
+/// Un literal numerico, con su `-`.
+pub(crate) fn es_literal_numerico(e: &Expr) -> bool {
+    match e {
+        Expr::Numero(..) => true,
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => matches!(**valor, Expr::Numero(..)),
+        _ => false,
+    }
+}
+
+/// **Una expresion hecha SOLO de literales** (y de constantes del modulo que
+/// son un literal): `-1.0 / 6.0`, `PI * 0.5`. No tiene aritmetica propia: la
+/// toma del sitio donde va (`Descenso::operando`).
+pub(crate) fn solo_literales(e: &Expr, literales: &std::collections::HashMap<String, Expr>) -> bool {
+    match e {
+        Expr::Numero(..) => true,
+        Expr::Nombre(n, _) => literales.contains_key(n),
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => solo_literales(valor, literales),
+        Expr::Binaria { op: Op::Suma | Op::Resta | Op::Por | Op::Divide, izquierda, derecha, .. } => {
+            solo_literales(izquierda, literales) && solo_literales(derecha, literales)
+        }
+        _ => false,
+    }
+}
+
 /// **Un literal numerico escrito en el binario `clase`** (`-` incluido): de
 /// su TEXTO al binario pedido, de una vez. `None` si `e` no es un literal o
 /// `clase` no es de coma flotante.
@@ -65,6 +89,21 @@ impl Descenso<'_> {
         if clase.es_flotante() {
             if let Some(c) = literal_en(e, clase) {
                 return Valor::Const(c);
+            }
+            // Una constante del modulo que es un literal: desde SU texto.
+            if let Expr::Nombre(n, _) = e {
+                if self.busca_local(n).is_none() {
+                    if let Some(c) = self.literales.get(n).and_then(|l| literal_en(l, clase)) {
+                        return Valor::Const(c);
+                    }
+                }
+            }
+            // Una expresion solo de literales: en la aritmetica de aqui.
+            if matches!(e, Expr::Binaria { .. } | Expr::Unaria { .. }) && solo_literales(e, self.literales) {
+                let antes = self.forzada.replace(clase);
+                let v = self.expresion(e);
+                self.forzada = antes;
+                return v;
             }
         }
         self.expresion(e)
@@ -209,7 +248,9 @@ impl Descenso<'_> {
                 //
                 // *** Y con su ANCHO (2026-09-26): si un lado es del binario de
                 // 32, la operacion es de 32 (`clase_de_operacion`).
-                let clase = self.plano.clase_de_operacion(izquierda, derecha, &self.tipos);
+                let clase = self
+                    .forzada
+                    .unwrap_or_else(|| self.plano.clase_de_operacion(izquierda, derecha, &self.tipos));
                 // *** Y SI LLEVA SIGNO, que hasta el 2026-08-23 no se preguntaba
                 // NUNCA: el emisor bajaba `setl`, `idiv` y `jo` para todo, asi
                 // que `2 < 18446744073709551615` en `natural64` daba FALSO.
@@ -392,11 +433,12 @@ impl Descenso<'_> {
                 // ** Se pregunta ANTES de bajar, sobre el arbol, por lo mismo
                 // que en la binaria: una vez bajado ya no es mas que un valor,
                 // y un valor no dice de que tipo era.
-                let clase = match self.plano.clase_de(valor, &self.tipos) {
-                    Some(c) if c.es_flotante() => c,
+                let clase = match (self.forzada, self.plano.clase_de(valor, &self.tipos)) {
+                    (Some(f), _) => f,
+                    (None, Some(c)) if c.es_flotante() => c,
                     _ => Clase::Entero,
                 };
-                let v = self.expresion(valor);
+                let v = self.operando(valor, clase);
                 let t = self.temporal();
                 self.pon(Instr::Unaria {
                     destino: t,
@@ -558,9 +600,20 @@ impl Descenso<'_> {
                 }
 
                 let q = self.expresion(que);
+                // ** Un literal pasado a un parametro de coma flotante, en el
+                // ancho del parametro (2026-09-26): `pon(b, i, 1.0)` con `x es
+                // flotante32` pasa el `1.0` DE 32.
+                let clases: Vec<Option<Clase>> = match &**que {
+                    Expr::Nombre(n, _) => self.firmas.get(n).cloned().unwrap_or_default(),
+                    _ => Vec::new(),
+                };
                 let args: Vec<Valor> = argumentos
                     .iter()
-                    .map(|a| self.expresion(&a.valor))
+                    .enumerate()
+                    .map(|(k, a)| match clases.get(k).copied().flatten() {
+                        Some(c) => self.operando(&a.valor, c),
+                        None => self.expresion(&a.valor),
+                    })
                     .collect();
                 let t = self.temporal();
                 self.pon(Instr::Llama {

@@ -354,6 +354,7 @@ name = "bmo-inti-x86-64"
 version = "0.1.0"
 dependencies = [
  "bmo-abi",
+ "bmo-cubo",
  "bmo-inti-front",
  "bmo-lower",
  "bmo-mods",

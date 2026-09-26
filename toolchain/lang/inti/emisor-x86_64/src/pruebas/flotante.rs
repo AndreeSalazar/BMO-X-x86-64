@@ -599,3 +599,21 @@ fn un_literal_entero_en_coma_flotante_es_su_numero() {
     let r = ejecuta("perfil llano\n\nfuncion f devuelve flotante64\n    cambiante a es flotante64 = 2\n    devuelve a\n", 0, 0);
     assert_eq!(como_numero(r), 2.0, "y guardado en uno de 64");
 }
+
+/// Una cuenta hecha solo de literales toma el ancho de donde va (`-1.0 / 6.0`
+/// en una de 32 es una division de 32, como en Rust); y una constante del
+/// modulo, desde su TEXTO.
+#[test]
+fn los_literales_y_las_constantes_en_32() {
+    let c = "perfil llano\n\nPI = 3.1415927\n\nfuncion f devuelve flotante32\n    cambiante r es flotante32 = 0.3\n    devuelve r * (-1.0 / 6.0 + r * PI)\n";
+    let esperado = 0.3f32 * (-1.0f32 / 6.0f32 + 0.3f32 * 3.141_592_7f32);
+    assert_eq!(ejecuta(c, 0, 0) as u32, esperado.to_bits());
+}
+
+/// Los BITS de un flotante32 y la vuelta (`usa matematica`): la raiz del juez
+/// del cubo empieza asi.
+#[test]
+fn los_bits_de_un_flotante32() {
+    let c = "perfil llano\nusa matematica\n\nfuncion f devuelve flotante32\n    cambiante x es flotante32 = 27.25\n    devuelve flotante32_de((bits_de(x) desplaza derecha 1) + 532487669)\n";
+    assert_eq!(ejecuta(c, 0, 0) as u32, f32::from_bits((27.25f32.to_bits() >> 1) + 0x1FBD_1DF5).to_bits());
+}

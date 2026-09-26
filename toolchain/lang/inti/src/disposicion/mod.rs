@@ -594,7 +594,20 @@ impl Plano {
             // `flotante64(x)` dice de que es lo que sale, y lo dice el nombre
             // que se escribio. Una conversion en INTI se pide, no se supone.
             Expr::Llamada { que, .. } => match &**que {
-                Expr::Nombre(n, _) => self.medidas.clase(n),
+                // ** Y los que cambian el TIPO sin tocar los bits (`usa
+                // matematica`): lo que sale es de otra aritmetica que lo que
+                // entro, y sin esto `flotante32_de(n) * 0.5` se contaria en 64.
+                Expr::Nombre(n, _) if n == "flotante32_de" => Some(Clase::Flotante32),
+                Expr::Nombre(n, _) if n == "flotante_de" => Some(Clase::Flotante),
+                Expr::Nombre(n, _) if n == "bits_de" => Some(Clase::Entero),
+                // ** Y una funcion del modulo, por lo que DICE que devuelve
+                // (2026-09-26). Sin esto `lee(b, i) * lee(b, j)` con `lee`
+                // devolviendo `flotante32` se contaba como producto de ENTEROS
+                // sobre los bits: compilaba y daba otro numero.
+                Expr::Nombre(n, _) => self
+                    .medidas
+                    .clase(n)
+                    .or_else(|| self.retornos.get(n).and_then(|t| self.clase_del_tipo(t))),
                 _ => None,
             },
             _ => match self.tipo_de(e, tipos) {

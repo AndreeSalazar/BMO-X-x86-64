@@ -114,8 +114,14 @@ fn cada_nombre_de_la_maquina_emite_bytes() {
     gratis.sort();
     assert_eq!(
         gratis,
-        vec!["bits_de".to_string(), "flotante_de".to_string()],
-        "las filas de CERO bytes son exactamente dos, y son las dos          reinterpretaciones. Si aparece otra, o falta una, hay que mirarla"
+        // `flotante32_de` es la tercera (2026-09-26): los cuatro bytes de un
+        // `flotante32` ya viven en el registro general, igual que los ocho.
+        vec![
+            "bits_de".to_string(),
+            "flotante32_de".to_string(),
+            "flotante_de".to_string()
+        ],
+        "las filas de CERO bytes son exactamente tres, y son las tres          reinterpretaciones. Si aparece otra, o falta una, hay que mirarla"
     );
 }
 

@@ -795,6 +795,20 @@ funcion seno(r es flotante32) devuelve flotante32
 - Y el mismo dia, lo que prometia el punto de arriba y no hacia nada: `a * 2`
   con `a` de coma flotante bajaba el `2` como ENTERO y daba `1.5e-323` en vez
   de `3.0`. Ahora el literal entero pasa al binario de la operacion.
+- **Una expresion hecha SOLO de literales** (`2.0 * 3.14159265`) o una
+  **constante de modulo que es un literal** (`constante dos_pi = 6.2831855`) se
+  escribe tambien en el ancho de donde va, desde su texto. Por eso
+  `dos_pi / 360.0` junto a un `flotante32` no pide conversion.
+- **Los argumentos de una llamada** se estrechan con la firma de la funcion
+  llamada, y **lo que devuelve una funcion** tiene la clase de su tipo: `f() * g()`
+  con dos funciones `flotante32` multiplica en 32, no como enteros.
+- `flotante32_de(b)` es el `flotante32` que forman esos cuatro bytes, y
+  `bits_de(x)` con `x` de 32 da sus cuatro bytes. Como con 64: **cero bytes
+  emitidos**, el valor ya vive en el registro general.
+- La prueba de todo junto es `ejemplos/cubo.inti`: el cubo de VERRANO (matrices,
+  vertices, la tanda de 516 bytes por fotograma) calculado en INTI y comparado
+  **byte a byte** con `bmo_cubo::tanda` en los 360 fotogramas
+  (`emisor-x86_64/tests/cubo.rs`).
 
 ### Lo que NO lleva detras: ninguna comprobacion
 

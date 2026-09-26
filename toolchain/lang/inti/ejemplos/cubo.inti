@@ -1,0 +1,411 @@
+# EL CUBO DE VERRANO, EN INTI -- la tanda de cada fotograma, BIT A BIT la del
+# juez (`platform/shared/bmo-cubo`, `tanda::de_fotograma`).
+#
+# Lo que VERRANO le pide a la CPU antes de que dibuje la 3060: girar el cubo,
+# proyectarlo, quitar las caras de atras e iluminar las de delante. El juez lo
+# hace en Rust con `f32`; esto lo hace INTI con `flotante32` y tiene que dar
+# EXACTAMENTE los mismos bits en los 360 fotogramas del giro -- lo comprueba
+# `emisor-x86_64/tests/cubo.rs` contra el juez.
+#
+# Por que se puede: el juez solo usa + - * /, comparaciones y conversiones --
+# nada de libm--, e IEEE-754 da un unico resultado para cada una. INTI no
+# funde operaciones (Regla 11) ni reordena: el mismo orden, los mismos bits.
+#
+# Sale `/inti/cubo.tanda`: por fotograma, 4 bytes con cuantos triangulos y 8
+# huecos de 16 flotantes (los tres vertices en coordenadas de recorte y el
+# color), 516 bytes.
+perfil llano
+usa bmo
+usa memoria
+usa matematica
+
+# -- los numeros del juez (`bmo-cubo/src/num.rs` y `lib.rs`) -----------------
+pi = 3.1415927
+medio_pi = 1.5707964
+dos_pi = 6.2831855
+dos_pi_alto = 6.2831855
+dos_pi_bajo = -0.00000017484555
+cerca = 0.1
+lejos = 100.0
+ambiente = 0.25
+subpixel = 256.0
+ancho = 1280
+alto = 720
+caben = 8
+
+# -- los huecos del bloque, contados en flotantes de 4 bytes -----------------
+vp = 0
+vn = 72
+vc = 90
+ry = 128
+rx = 144
+mw = 160
+mv = 176
+mp = 192
+mpv = 208
+wvp = 224
+luz = 240
+paso = 248
+clip = 320
+# enteros de 8 bytes (sx, sy, detras), en bytes desde el bloque
+enteros = 2048
+salida = 4096
+por_fotograma = 516
+
+# ===================================================================
+#  1. La memoria -- los dos unicos bloques `crudo`
+# ===================================================================
+
+funcion lee(b es natural64, i es natural64) devuelve flotante32
+    crudo
+        devuelve flotante32_de(lee_natural32(b + i * 4))
+
+funcion pon(b es natural64, i es natural64, x es flotante32)
+    crudo
+        escribe_natural32(b + i * 4, bits_de(x))
+
+funcion lee_entero(b es natural64, i es natural64) devuelve entero64
+    crudo
+        devuelve entero64(lee_natural64(b + enteros + i * 8))
+
+funcion pon_entero(b es natural64, i es natural64, v es entero64)
+    crudo
+        escribe_natural64(b + enteros + i * 8, v)
+
+funcion pon3(b es natural64, i es natural64, x es flotante32, y es flotante32, z es flotante32)
+    pon(b, i, x)
+    pon(b, i + 1, y)
+    pon(b, i + 2, z)
+
+# ===================================================================
+#  2. Los numeros (`num.rs`)
+# ===================================================================
+
+funcion absoluto32(x es flotante32) devuelve flotante32
+    devuelve flotante32_de(bits_de(x) bits_y 2147483647)
+
+# Al mas cercano, mitades hacia fuera del cero.
+funcion redondear(x es flotante32) devuelve entero64
+    si x >= 0.0
+        devuelve entero64(x + 0.5)
+    devuelve 0 - entero64(-x + 0.5)
+
+# Al mas cercano, empates al PAR: lo que hace la GPU al pasar a punto fijo.
+funcion redondear_par(x es flotante32) devuelve entero64
+    t es entero64 = entero64(x)
+    cambiante piso es entero64 = t
+    si flotante32(t) > x
+        piso = t - 1
+    fraccion es flotante32 = x - flotante32(piso)
+    si fraccion > 0.5 o (fraccion = 0.5 y piso resto 2 no es 0)
+        devuelve piso + 1
+    devuelve piso
+
+# A [-pi, pi], con 2pi partido en dos (Cody-Waite).
+funcion reducir(x es flotante32) devuelve flotante32
+    k es flotante32 = flotante32(redondear(x / dos_pi))
+    devuelve (x - k * dos_pi_alto) - k * dos_pi_bajo
+
+funcion seno(x es flotante32) devuelve flotante32
+    cambiante r es flotante32 = reducir(x)
+    si r > medio_pi
+        r = pi - r
+    sino si r < -medio_pi
+        r = -pi - r
+    r2 es flotante32 = r * r
+    devuelve r * (1.0 + r2 * (-1.0 / 6.0 + r2 * (1.0 / 120.0 + r2 * (-1.0 / 5040.0 + r2 * (1.0 / 362880.0 + r2 * (-1.0 / 39916800.0))))))
+
+funcion coseno(x es flotante32) devuelve flotante32
+    cambiante r es flotante32 = absoluto32(reducir(x))
+    cambiante signo es flotante32 = 1.0
+    si r > medio_pi
+        r = pi - r
+        signo = -1.0
+    r2 es flotante32 = r * r
+    devuelve signo * (1.0 + r2 * (-0.5 + r2 * (1.0 / 24.0 + r2 * (-1.0 / 720.0 + r2 * (1.0 / 40320.0 + r2 * (-1.0 / 3628800.0 + r2 * (1.0 / 479001600.0)))))))
+
+funcion tangente(x es flotante32) devuelve flotante32
+    devuelve seno(x) / coseno(x)
+
+# La raiz del juez: estimacion POR LOS BITS y cuatro pasos de Newton. Por eso
+# `bits_de` y `flotante32_de`: los mismos bits de partida, los mismos al final.
+funcion raiz32(x es flotante32) devuelve flotante32
+    si x <= 0.0
+        si x = 0.0
+            devuelve 0.0
+        devuelve flotante32_de(2143289344)
+    cambiante y es flotante32 = flotante32_de((bits_de(x) desplaza derecha 1) + 532487669)
+    cambiante k es entero64 = 0
+    repite mientras k < 4
+        y = 0.5 * (y + x / y)
+        k = k + 1
+    devuelve y
+
+funcion saturar(x es flotante32) devuelve flotante32
+    cambiante y es flotante32 = x
+    si y < 0.0
+        y = 0.0
+    si y > 1.0
+        y = 1.0
+    devuelve y
+
+# -- vectores de tres, en huecos del bloque ---------------------------------
+
+funcion punto(b es natural64, i es natural64, j es natural64) devuelve flotante32
+    devuelve lee(b, i) * lee(b, j) + lee(b, i + 1) * lee(b, j + 1) + lee(b, i + 2) * lee(b, j + 2)
+
+funcion normalizar(b es natural64, i es natural64, d es natural64)
+    inv es flotante32 = 1.0 / raiz32(punto(b, i, i))
+    pon3(b, d, lee(b, i) * inv, lee(b, i + 1) * inv, lee(b, i + 2) * inv)
+
+funcion cruz(b es natural64, i es natural64, j es natural64, d es natural64)
+    pon3(b, d, lee(b, i + 1) * lee(b, j + 2) - lee(b, i + 2) * lee(b, j + 1), lee(b, i + 2) * lee(b, j) - lee(b, i) * lee(b, j + 2), lee(b, i) * lee(b, j + 1) - lee(b, i + 1) * lee(b, j))
+
+# ===================================================================
+#  3. Las matrices (`mat.rs`): 16 flotantes, por columnas
+# ===================================================================
+
+# `r = a * c` (primero se aplica `c`).
+funcion mul(b es natural64, a es natural64, c es natural64, r es natural64)
+    cambiante col es natural64 = 0
+    repite mientras col < 4
+        cambiante f es natural64 = 0
+        repite mientras f < 4
+            pon(b, r + col * 4 + f, lee(b, a + f) * lee(b, c + col * 4) + lee(b, a + 4 + f) * lee(b, c + col * 4 + 1) + lee(b, a + 8 + f) * lee(b, c + col * 4 + 2) + lee(b, a + 12 + f) * lee(b, c + col * 4 + 3))
+            f = f + 1
+        col = col + 1
+
+# `d = m * v`, con `v` de cuatro en su hueco.
+funcion transformar(b es natural64, m es natural64, v es natural64, d es natural64)
+    cambiante f es natural64 = 0
+    repite mientras f < 4
+        pon(b, d + f, lee(b, m + f) * lee(b, v) + lee(b, m + 4 + f) * lee(b, v + 1) + lee(b, m + 8 + f) * lee(b, v + 2) + lee(b, m + 12 + f) * lee(b, v + 3))
+        f = f + 1
+
+funcion matriz(b es natural64, m es natural64, a es flotante32, c es flotante32, e es flotante32, g es flotante32)
+    # Una columna: cuatro flotantes seguidos.
+    pon(b, m, a)
+    pon(b, m + 1, c)
+    pon(b, m + 2, e)
+    pon(b, m + 3, g)
+
+funcion rotacion_y(b es natural64, a es flotante32, m es natural64)
+    s es flotante32 = seno(a)
+    c es flotante32 = coseno(a)
+    matriz(b, m, c, 0.0, -s, 0.0)
+    matriz(b, m + 4, 0.0, 1.0, 0.0, 0.0)
+    matriz(b, m + 8, s, 0.0, c, 0.0)
+    matriz(b, m + 12, 0.0, 0.0, 0.0, 1.0)
+
+funcion rotacion_x(b es natural64, a es flotante32, m es natural64)
+    s es flotante32 = seno(a)
+    c es flotante32 = coseno(a)
+    matriz(b, m, 1.0, 0.0, 0.0, 0.0)
+    matriz(b, m + 4, 0.0, c, s, 0.0)
+    matriz(b, m + 8, 0.0, -s, c, 0.0)
+    matriz(b, m + 12, 0.0, 0.0, 0.0, 1.0)
+
+# La camara del juez: el ojo en (0, 1.5, -5) mirando al origen, Y arriba.
+funcion vista(b es natural64)
+    ojo es natural64 = paso
+    arriba es natural64 = paso + 3
+    dif es natural64 = paso + 6
+    f es natural64 = paso + 9
+    c es natural64 = paso + 12
+    s es natural64 = paso + 15
+    u es natural64 = paso + 18
+    pon3(b, ojo, 0.0, 1.5, -5.0)
+    pon3(b, arriba, 0.0, 1.0, 0.0)
+    pon3(b, dif, 0.0 - lee(b, ojo), 0.0 - lee(b, ojo + 1), 0.0 - lee(b, ojo + 2))
+    normalizar(b, dif, f)
+    cruz(b, arriba, f, c)
+    normalizar(b, c, s)
+    cruz(b, f, s, u)
+    matriz(b, mv, lee(b, s), lee(b, u), lee(b, f), 0.0)
+    matriz(b, mv + 4, lee(b, s + 1), lee(b, u + 1), lee(b, f + 1), 0.0)
+    matriz(b, mv + 8, lee(b, s + 2), lee(b, u + 2), lee(b, f + 2), 0.0)
+    matriz(b, mv + 12, -punto(b, s, ojo), -punto(b, u, ojo), -punto(b, f, ojo), 1.0)
+
+funcion perspectiva(b es natural64, fov es flotante32, aspecto es flotante32)
+    h es flotante32 = 1.0 / tangente(fov * 0.5)
+    w es flotante32 = h / aspecto
+    r es flotante32 = lejos / (lejos - cerca)
+    matriz(b, mp, w, 0.0, 0.0, 0.0)
+    matriz(b, mp + 4, 0.0, h, 0.0, 0.0)
+    matriz(b, mp + 8, 0.0, 0.0, r, 1.0)
+    matriz(b, mp + 12, 0.0, 0.0, -r * cerca, 0.0)
+
+# ===================================================================
+#  4. El cubo (`lib.rs`): 24 vertices, cuatro por cara con su normal
+# ===================================================================
+
+funcion esquina_u(e es natural64) devuelve flotante32
+    si e = 0 o e = 3
+        devuelve -1.0
+    devuelve 1.0
+
+funcion esquina_v(e es natural64) devuelve flotante32
+    si e < 2
+        devuelve 1.0
+    devuelve -1.0
+
+# Los cuatro vertices de la cara `c`: n + du * a + dv * b, con n, du y dv en
+# `paso`, `paso + 3` y `paso + 6`.
+funcion esquinas(b es natural64, c es natural64)
+    cambiante e es natural64 = 0
+    repite mientras e < 4
+        a es flotante32 = esquina_u(e)
+        v es flotante32 = esquina_v(e)
+        cambiante k es natural64 = 0
+        repite mientras k < 3
+            pon(b, vp + (c * 4 + e) * 3 + k, lee(b, paso + k) + lee(b, paso + 3 + k) * a + lee(b, paso + 6 + k) * v)
+            k = k + 1
+        e = e + 1
+
+funcion cara(b es natural64, c es natural64, r es flotante32, g es flotante32, z es flotante32)
+    pon3(b, vn + c * 3, lee(b, paso), lee(b, paso + 1), lee(b, paso + 2))
+    pon3(b, vc + c * 4, r, g, z)
+    pon(b, vc + c * 4 + 3, 1.0)
+    esquinas(b, c)
+
+funcion vertices(b es natural64)
+    # frente: verde
+    pon3(b, paso, 0.0, 0.0, -1.0)
+    pon3(b, paso + 3, 1.0, 0.0, 0.0)
+    pon3(b, paso + 6, 0.0, 1.0, 0.0)
+    cara(b, 0, 0.19, 0.88, 0.19)
+    # atras: rojo
+    pon3(b, paso, 0.0, 0.0, 1.0)
+    pon3(b, paso + 3, -1.0, 0.0, 0.0)
+    pon3(b, paso + 6, 0.0, 1.0, 0.0)
+    cara(b, 1, 0.88, 0.19, 0.19)
+    # derecha: amarillo
+    pon3(b, paso, 1.0, 0.0, 0.0)
+    pon3(b, paso + 3, 0.0, 0.0, 1.0)
+    pon3(b, paso + 6, 0.0, 1.0, 0.0)
+    cara(b, 2, 0.88, 0.88, 0.19)
+    # izquierda: azul
+    pon3(b, paso, -1.0, 0.0, 0.0)
+    pon3(b, paso + 3, 0.0, 0.0, -1.0)
+    pon3(b, paso + 6, 0.0, 1.0, 0.0)
+    cara(b, 3, 0.19, 0.19, 0.88)
+    # arriba: magenta
+    pon3(b, paso, 0.0, 1.0, 0.0)
+    pon3(b, paso + 3, 1.0, 0.0, 0.0)
+    pon3(b, paso + 6, 0.0, 0.0, 1.0)
+    cara(b, 4, 0.88, 0.19, 0.88)
+    # abajo: cian
+    pon3(b, paso, 0.0, -1.0, 0.0)
+    pon3(b, paso + 3, 1.0, 0.0, 0.0)
+    pon3(b, paso + 6, 0.0, 0.0, -1.0)
+    cara(b, 5, 0.19, 0.88, 0.88)
+
+# ===================================================================
+#  5. La tanda del fotograma (`tanda.rs`)
+# ===================================================================
+
+funcion arista(ax es entero64, ay es entero64, bx es entero64, by es entero64, px es entero64, py es entero64) devuelve entero64
+    devuelve (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+
+# World = rotar X (0,7 x angulo) y luego Y; y WVP = P * V * W.
+funcion constantes(b es natural64, angulo es flotante32, aspecto es flotante32)
+    rotacion_y(b, angulo, ry)
+    rotacion_x(b, angulo * 0.7, rx)
+    mul(b, ry, rx, mw)
+    perspectiva(b, pi / 3.0, aspecto)
+    mul(b, mp, mv, mpv)
+    mul(b, mpv, mw, wvp)
+
+# El color de la cara `c` con la normal ya en el mundo en `n`, al hueco `d`.
+funcion iluminar(b es natural64, c es natural64, n es natural64, d es natural64)
+    normalizar(b, n, paso + 30)
+    x es flotante32 = saturar(punto(b, paso + 30, luz))
+    k es flotante32 = lee(b, luz + 3) + (1.0 - lee(b, luz + 3)) * x
+    pon3(b, d, lee(b, vc + c * 4) * k, lee(b, vc + c * 4 + 1) * k, lee(b, vc + c * 4 + 2) * k)
+    pon(b, d + 3, lee(b, vc + c * 4 + 3))
+
+# Los tres vertices de un triangulo, y su color, al hueco `d` de la salida.
+funcion triangulo(b es natural64, d es natural64, i0 es natural64, i1 es natural64, i2 es natural64, c es natural64)
+    cambiante k es natural64 = 0
+    repite mientras k < 4
+        pon(b, d + k, lee(b, clip + i0 * 4 + k))
+        pon(b, d + 4 + k, lee(b, clip + i1 * 4 + k))
+        pon(b, d + 8 + k, lee(b, clip + i2 * 4 + k))
+        k = k + 1
+    # La normal de la cara, al mundo: la parte 3x3 de W.
+    pon3(b, paso + 40, lee(b, vn + c * 3), lee(b, vn + c * 3 + 1), lee(b, vn + c * 3 + 2))
+    pon(b, paso + 43, 0.0)
+    transformar(b, mw, paso + 40, paso + 44)
+    iluminar(b, c, paso + 44, d + 12)
+
+# **La tanda del fotograma `f`** en el hueco `o` (en flotantes desde el
+# bloque). Devuelve 0, o 1 si miraran a la camara mas de `caben` triangulos.
+funcion tanda(b es natural64, f es natural64, o es natural64) devuelve natural64
+    angulo es flotante32 = flotante32(f) * (dos_pi / 360.0)
+    constantes(b, angulo, flotante32(ancho) / flotante32(alto))
+    medio_w es flotante32 = flotante32(ancho) * 0.5
+    medio_h es flotante32 = flotante32(alto) * 0.5
+    cambiante i es natural64 = 0
+    repite mientras i < 24
+        pon3(b, paso + 50, lee(b, vp + i * 3), lee(b, vp + i * 3 + 1), lee(b, vp + i * 3 + 2))
+        pon(b, paso + 53, 1.0)
+        transformar(b, wvp, paso + 50, clip + i * 4)
+        w es flotante32 = lee(b, clip + i * 4 + 3)
+        cambiante detras es entero64 = 0
+        si w <= 0.0
+            detras = 1
+        inv_w es flotante32 = 1.0 / w
+        nx es flotante32 = lee(b, clip + i * 4) * inv_w
+        ny es flotante32 = lee(b, clip + i * 4 + 1) * inv_w
+        pon_entero(b, i, redondear_par((nx * medio_w + medio_w) * subpixel))
+        pon_entero(b, 24 + i, redondear_par((-ny * medio_h + medio_h) * subpixel))
+        pon_entero(b, 48 + i, detras)
+        i = i + 1
+    cambiante n es natural64 = 0
+    cambiante k es natural64 = 0
+    repite mientras k < 12
+        c es natural64 = k entre 2
+        i0 es natural64 = c * 4
+        i1 es natural64 = c * 4 + 1 + k resto 2
+        i2 es natural64 = c * 4 + 2 + k resto 2
+        detras es entero64 = lee_entero(b, 48 + i0) + lee_entero(b, 48 + i1) + lee_entero(b, 48 + i2)
+        si detras = 0
+            area es entero64 = arista(lee_entero(b, i0), lee_entero(b, 24 + i0), lee_entero(b, i1), lee_entero(b, 24 + i1), lee_entero(b, i2), lee_entero(b, 24 + i2))
+            si area > 0
+                si n = caben
+                    devuelve 1
+                triangulo(b, o + 1 + n * 16, i0, i1, i2, c)
+                n = n + 1
+        k = k + 1
+    crudo
+        escribe_natural32(b + o * 4, n)
+    devuelve 0
+
+# ===================================================================
+#  6. El programa: los 360 fotogramas del giro, a un fichero
+# ===================================================================
+
+funcion principal devuelve entero32
+    medida es natural64 = salida + 360 * por_fotograma
+    bloque es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, medida, 0, 0)
+    si bloque = 0
+        devuelve 1
+    b es natural64 = invoca_valor(bloque, op_base_del_bloque, 0, 0, 0)
+    vertices(b)
+    vista(b)
+    pon3(b, paso + 60, 0.4, 0.8, -0.5)
+    normalizar(b, paso + 60, luz)
+    pon(b, luz + 3, ambiente)
+    cambiante f es natural64 = 0
+    repite mientras f < 360
+        si tanda(b, f, (salida + f * por_fotograma) entre 4) no es 0
+            devuelve 2
+        f = f + 1
+    invoca(mi_tarea, op_ruta, ocho_bytes("/inti/cu"), 0, 0)
+    invoca(mi_tarea, op_ruta, ocho_bytes("bo.tanda"), 0, 0)
+    fichero es natural64 = invoca_valor(mi_tarea, op_archivo_crear, 0, 0, 0)
+    si fichero = 0
+        devuelve 3
+    invoca(fichero, op_arch_escribir_de, bloque, salida, 360 * por_fotograma)
+    invoca(fichero, op_arch_cerrar, 0, 0, 0)
+    devuelve 0

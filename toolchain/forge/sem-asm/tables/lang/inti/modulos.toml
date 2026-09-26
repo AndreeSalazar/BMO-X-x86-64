@@ -447,6 +447,10 @@ absoluto = "el valor absoluto de un flotante64"
 #  `bits_de(3.5)` da los ocho bytes. Ver `arch/x86_64/inti.toml`.
 bits_de     = "los ocho bytes de un flotante64, sin convertir su valor"
 flotante_de = "el flotante64 que forman esos ocho bytes"
+#  ** Y el de 32 (2026-09-26): los CUATRO bytes de un `flotante32` son su
+#  patron entero en la mitad baja, asi que `bits_de` ya los da. La vuelta pide
+#  su nombre, porque el tipo que sale es otro.
+flotante32_de = "el flotante32 que forman esos cuatro bytes"
 
 
 #  ** CON CUERPO desde el 2026-09-16 (N0 de docs/plan/PLAN_NAVEGAR.md): las

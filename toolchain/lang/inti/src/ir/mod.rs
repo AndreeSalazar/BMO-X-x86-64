@@ -147,12 +147,29 @@ pub fn bajar_con(
     let mut congeladas: std::collections::HashMap<String, Const> =
         std::collections::HashMap::new();
     let mut tablas: std::collections::HashMap<String, u32> = std::collections::HashMap::new();
+    // ** Y el TEXTO de las que son un literal numerico (2026-09-26): `PI =
+    // 3.1415927` se congela en el binario de 64, pero usada en una cuenta de 32
+    // tiene que escribirse en 32 DESDE SU TEXTO (`expresion::literal_en`), no
+    // redondear dos veces.
+    let mut literales: std::collections::HashMap<String, Expr> = std::collections::HashMap::new();
+    // ** Y la aritmetica de cada parametro de cada funcion del modulo: un
+    // literal pasado a un parametro `flotante32` se escribe en 32 (2026-09-26).
+    let mut firmas: std::collections::HashMap<String, Vec<Option<Clase>>> = std::collections::HashMap::new();
+    for d in &m.declaraciones {
+        if let Decl::Funcion(f) = d {
+            let clases = f.parametros.iter().map(|p| p.tipo.as_ref().and_then(|t| plano.clase_del_tipo(t))).collect();
+            firmas.insert(f.nombre.clone(), clases);
+        }
+    }
     // El mapa "indice del pozo -> indice en congelados", compartido por todas
     // las funciones: el pozo no se repite, asi que su congelado tampoco.
     let mut textos_congelados: Vec<u32> = Vec::new();
 
     for d in &m.declaraciones {
         if let Decl::Constante { nombre, valor, .. } = d {
+            if expresion::es_literal_numerico(valor) {
+                literales.insert(nombre.clone(), valor.clone());
+            }
             if let Some(c) = congelar(valor) {
                 congeladas.insert(nombre.clone(), c);
             } else if let Some((bytes, ancho)) = congelar_tabla(valor) {
@@ -176,11 +193,11 @@ pub fn bajar_con(
     for d in &m.declaraciones {
         match d {
             Decl::Funcion(f) => {
-                let ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
+                let ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &literales, &firmas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
                 salida.funciones.push(ir);
             }
             Decl::Operacion { tipo, funcion } => {
-                let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(funcion);
+                let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &literales, &firmas, &tablas, tabla, plano, m.perfil, metal).funcion(funcion);
                 // El nombre lleva el tipo delante para que dos operaciones con
                 // el mismo nombre en tipos distintos no se pisen.
                 ir.nombre = format!("{}.{}", tipo, funcion.nombre);
@@ -192,7 +209,7 @@ pub fn bajar_con(
                 ..
             } => {
                 for f in operaciones {
-                    let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
+                    let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &literales, &firmas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
                     ir.nombre = format!("{}.{}", nombre, f.nombre);
                     salida.funciones.push(ir);
                 }

@@ -307,6 +307,9 @@ absoluto        = "absd"
 #  quien comprueba -- es el mismo razonamiento que `raiz(-1)`.
 bits_de         = "bits_de_flotante"
 flotante_de     = "flotante_de_bits"
+#  El de 32: tambien cero bytes (un `flotante32` vive como su patron de 32
+#  bits en la mitad baja de un registro general).
+flotante32_de   = "flotante_de_bits"
 
 # -- tiempo y espera ------------------------------------------------
 lee_reloj       = "rdtsc"

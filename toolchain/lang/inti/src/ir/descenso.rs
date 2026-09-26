@@ -49,6 +49,15 @@ pub(super) struct Descenso<'t> {
     /// mismo en toda maquina. Es la misma decision que ya estaba tomada para las
     /// constantes del ABI unas lineas mas abajo.
     pub(super) congeladas: &'t std::collections::HashMap<String, Const>,
+    /// El literal de cada constante numerica del modulo, para escribirla en
+    /// el binario de 32 desde su texto (ver `bajar_con`).
+    pub(super) literales: &'t std::collections::HashMap<String, Expr>,
+    /// La aritmetica de los parametros de cada funcion del modulo.
+    pub(super) firmas: &'t std::collections::HashMap<String, Vec<Option<Clase>>>,
+    /// ** La aritmetica IMPUESTA mientras se baja una expresion hecha solo de
+    /// literales en un sitio que ya tiene la suya: `-1.0 / 6.0` en una cuenta
+    /// de 32 es una division DE 32, como en Rust (`expresion::operando`).
+    pub(super) forzada: Option<Clase>,
     /// Las tablas congeladas, por nombre -> indice en `ModuloIr::congelados`.
     pub(super) tablas: &'t std::collections::HashMap<String, u32>,
     /// Donde salta un `corta` y donde un `continua`, de fuera a dentro.
@@ -105,6 +114,8 @@ impl<'t> Descenso<'t> {
         congelados: &'t mut Vec<crate::ir::forma::Congelado>,
         textos_congelados: &'t mut Vec<u32>,
         congeladas: &'t std::collections::HashMap<String, Const>,
+        literales: &'t std::collections::HashMap<String, Expr>,
+        firmas: &'t std::collections::HashMap<String, Vec<Option<Clase>>>,
         tablas: &'t std::collections::HashMap<String, u32>,
         tabla: &'t crate::tablas::Modulos,
         plano: &'t crate::disposicion::Plano,
@@ -120,6 +131,9 @@ impl<'t> Descenso<'t> {
             congelados,
             textos_congelados,
             congeladas,
+            literales,
+            firmas,
+            forzada: None,
             tablas,
             bucles: Vec::new(),
             tabla,
