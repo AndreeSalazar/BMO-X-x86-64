@@ -231,6 +231,11 @@ pub struct Ordenes {
     pub o: [u32; MAX_ORDENES],
     pub n: usize,
     k: u32,
+    /// Con la ESCALERA de T1c (un WAIT_FOR_IDLE y un semaforo tras cada
+    /// metodo, y el primer triangulo sin rasterizar): lo que dice DONDE se
+    /// colgo. Sin ella (`ligero`), las mismas ordenes de estado sin esperar
+    /// entre una y otra -- lo que hace un driver que ya sabe que funcionan.
+    escalera: bool,
 }
 
 impl Ordenes {
@@ -250,6 +255,9 @@ impl Ordenes {
     }
 
     fn escalon(&mut self, k: u32) {
+        if !self.escalera {
+            return;
+        }
         self.m(td::WAIT_FOR_IDLE, &[0]);
         self.semaforo(ESCALONES + 4 * k as u64, PAGA_ESCALON + k);
     }
@@ -315,7 +323,14 @@ impl Ordenes {
 /// Lo comparten X5 (un par de programas por triangulo) y la tuberia fija de
 /// VERRANO (`tuberia`: un par para todos).
 pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
-    let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1 };
+    hasta_el_dibujo_con(v, true)
+}
+
+/// Lo mismo, con la escalera o sin ella (VERRANO `ligero`). Sin escalera
+/// no hay semaforos de ESTADO ni de VERTICES: de la escalera de etapas solo
+/// se paga el bit 2 (el dibujo entero), que es el que pide `sano`.
+pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
+    let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1, escalera };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
     let formato = if v.rgb { FORMATO_RGB } else { td::FORMATO };
@@ -376,6 +391,9 @@ pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
     }
     // La escalera de T1c: el estado, el primer triangulo sin rasterizar, y
     // todos.
+    if !escalera {
+        return e;
+    }
     e.m(td::WAIT_FOR_IDLE, &[0]);
     e.semaforo(SEMAFORO_FIN + ESTADO, PAGA_FIN ^ ESTADO_PAGA);
     e.m(ra::SET_RASTER_ENABLE, &[0]);
@@ -423,6 +441,19 @@ pub const fn empaquetar(us: u32, n: u32, etapas: u32, lanzado: bool) -> u64 {
 /// `(us, triangulos, etapas, lanzado)`.
 pub const fn desempaquetar(v: u64) -> (u32, u32, u32, bool) {
     (v as u32, (v >> 32) as u32 & 0xFF, (v >> 40) as u32 & 0x7, v >> 43 & 1 != 0)
+}
+
+/// VERRANO (V1) le pone al `Ok` lo que costo PREPARAR: el bit 44 si fue EN
+/// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..64
+/// (hasta ~0,5 s; mas, satura). X5 los deja a cero.
+pub const fn con_preparar(v: u64, caliente: bool, us: u64) -> u64 {
+    let us = if us > 0x7_FFFF { 0x7_FFFF } else { us };
+    v & ((1 << 44) - 1) | (caliente as u64) << 44 | us << 45
+}
+
+/// `(en caliente, us de preparar)` de un `Ok` de VERRANO.
+pub const fn preparado(v: u64) -> (bool, u32) {
+    (v >> 44 & 1 != 0, (v >> 45) as u32)
 }
 
 /// Pago el dibujo entero (el bit 2 de la escalera).

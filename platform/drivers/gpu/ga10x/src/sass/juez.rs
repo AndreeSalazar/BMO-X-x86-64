@@ -522,6 +522,41 @@ pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio
     Ok(v)
 }
 
+/// Cuantas instrucciones caben en un programa que se juzga en bytes: las
+/// que caben en el hueco mas grande de la tuberia.
+pub const MAX_INSTRUCCIONES: usize = 256;
+
+/// **JUZGAR UN PROGRAMA TAL COMO VIAJA** -- la cabecera SPH (128 B) y
+/// detras las instrucciones, en bytes: lo que guarda el BSF (`kind` SM86) y lo
+/// que el kernel sube. Asi el que toma un programa de un sobre lo juzga ANTES
+/// de mandarlo, con los registros que de verdad le va a dar la tarjeta.
+///
+/// Un programa que no se sostiene como bytes (cabecera corta, instrucciones a
+/// medias, demasiadas) tambien es BODRIO: R5, la cabecera miente sobre lo que
+/// trae.
+pub fn juzgar_programa(bytes: &[u8], registros: u32) -> Result<Veredicto, Bodrio> {
+    let cabecera = 4 * SPH;
+    if bytes.len() < cabecera + 16 || (bytes.len() - cabecera) % 16 != 0 {
+        return no(Regla::R5CabeceraMiente, 0, bytes.len() as u32, "no es una cabecera SPH y instrucciones enteras de 128 bits");
+    }
+    let n = (bytes.len() - cabecera) / 16;
+    if n > MAX_INSTRUCCIONES {
+        return no(Regla::R5CabeceraMiente, MAX_INSTRUCCIONES, n as u32, "mas instrucciones de las que caben en un hueco de la tuberia");
+    }
+    let u32le = |i: usize| u32::from_le_bytes([bytes[i], bytes[i + 1], bytes[i + 2], bytes[i + 3]]);
+    let u64le = |i: usize| u32le(i) as u64 | (u32le(i + 4) as u64) << 32;
+    let mut sph = [0u32; SPH];
+    for (k, w) in sph.iter_mut().enumerate() {
+        *w = u32le(4 * k);
+    }
+    let mut codigo = [(0u64, 0u64); MAX_INSTRUCCIONES];
+    for (k, c) in codigo[..n].iter_mut().enumerate() {
+        let b = cabecera + 16 * k;
+        *c = (u64le(b), u64le(b + 8));
+    }
+    juzgar(&codigo[..n], &Contexto { registros, sph: Some(&sph) })
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
@@ -688,6 +723,21 @@ mod pruebas {
     /// como quedo (con R1). Con la regla de los 2 registros del contador de
     /// programa, el juez caza el de V0 -- lo que la 3060 dijo con su Xid 13
     /// ("Out Of Range Register", metal 26-09 06:33) -- y aprueba el arreglado.
+    /// Los bytes del BSF dicen lo mismo que las instrucciones: el programa
+    /// de VERRANO tal como viaja es PERFECTO Y PRECISO, y uno cortado es
+    /// BODRIO.
+    #[test]
+    fn en_bytes_como_viaja() {
+        let mut b = [0u8; 4 * tu::PALABRAS_VS];
+        let n = tu::bytes(&tu::vertice(), &mut b);
+        assert!(juzgar_programa(&b[..n], raster::REGISTROS).is_ok());
+        let mut b = [0u8; 4 * tu::PALABRAS_PS];
+        let n = tu::bytes(&tu::pixel(), &mut b);
+        assert!(juzgar_programa(&b[..n], raster::REGISTROS).is_ok());
+        assert_eq!(juzgar_programa(&b[..n - 8], raster::REGISTROS).unwrap_err().regla, Regla::R5CabeceraMiente);
+        assert_eq!(juzgar_programa(&b[..4 * SPH], raster::REGISTROS).unwrap_err().regla, Regla::R5CabeceraMiente);
+    }
+
     #[test]
     fn verrano_segun_el_juez() {
         let sph = tu::sph_vertice();

@@ -909,6 +909,10 @@ pub const CUBO_LEER: u64 = 1 << 63;
 /// de un paquete del que llama (`bmo_gpu_ga10x::tuberia::Paquete`: los dos
 /// programas tomados del BSF y los vertices). `Ok` como DIBUJAR.
 pub const CUBO_VERRANO: u64 = 1 << 62;
+/// El bit 61, con [`CUBO_VERRANO`]: las ordenes SIN la escalera de T1c
+/// (V1 `ligero`). `Ok` lleva ademas lo que costo preparar
+/// (`cubo::preparado`: en caliente o no, y sus us).
+pub const CUBO_LIGERO: u64 = 1 << 61;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;

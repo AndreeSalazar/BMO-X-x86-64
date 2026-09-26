@@ -19,15 +19,23 @@
 //!    VERRANO  arg = CUBO_VERRANO | la VA de un paquete del escritorio
 //!             (`tuberia::Paquete`: sus dos programas, tomados del BSF, y sus
 //!             vertices). La tuberia FIJA de VERRANO V0: el kernel sube el
-//!             codigo tal cual, no traduce nada. Ok como DIBUJAR
+//!             codigo tal cual, no traduce nada. Ok como DIBUJAR, con lo que
+//!             costo preparar (`cubo::con_preparar`)
+//!    LIGERO   con VERRANO: las ordenes SIN la escalera de T1c (V1)
 //! ```
+//!
+//! ** EN CALIENTE (V1, 26-09): un dibujo de VERRANO con los MISMOS
+//! programas, triangulos, ventana y modo que el anterior, sin que nadie haya
+//! lanzado nada por el GR entre medias y a menos de 100 ms, solo escribe lo
+//! que cambia (`tuberia::preparar_caliente`). Lo decide ESTE fichero, no el
+//! escritorio: el escritorio no puede pedir "en caliente".
 //!
 //! La lectura va de dos en dos y no la ventana entera en una llamada por lo
 //! mismo que D2 (`pantalla::FILA`): un syscall corre con las interrupciones
 //! cerradas, y 921.600 pixeles leidos de la VRAM son demasiado tiempo sin
 //! reloj.
 
-use core::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use bmo_gpu_ga10x::cubo as cu;
 
@@ -41,6 +49,15 @@ pub const CUBO_LEER: u64 = 1 << 63;
 /// El bit de `arg` que pide dibujar un paquete de VERRANO V0.
 pub const CUBO_VERRANO: u64 = 1 << 62;
 
+/// Con VERRANO: las ordenes sin la escalera (`tuberia::ordenes_con`).
+pub const CUBO_LIGERO: u64 = 1 << 61;
+
+/// Lo que dejo el ultimo dibujo de VERRANO pagado entero: la huella de lo
+/// fijo (0 = nada que reusar), la entrada del GR tras el, y cuando.
+static CALIENTE_HUELLA: AtomicU64 = AtomicU64::new(0);
+static CALIENTE_ENTRADA: AtomicU32 = AtomicU32::new(u32::MAX);
+static CALIENTE_TSC: AtomicU64 = AtomicU64::new(0);
+
 /// Ya se dibujo en este arranque (LEER antes no tiene que leer).
 static DIBUJADO: AtomicBool = AtomicBool::new(false);
 /// Cuantos fotogramas del cubo dibujo la 3060 (para el log).
@@ -52,7 +69,7 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
         return leer(arg & 0xF_FFFF);
     }
     if arg & CUBO_VERRANO != 0 {
-        return verrano(arg & 0xFFFF_FFFF_FFFF);
+        return verrano(arg & 0xFFFF_FFFF_FFFF, arg & CUBO_LIGERO != 0);
     }
     let (ficha, f) = (arg & 0xFFFF_FFFF, (arg >> 32) as u32 & 0x1FF);
     let bar0 = crate::ring0::dev::gpu::bar0();
@@ -77,14 +94,14 @@ pub fn cubo(arg: u64) -> Result<u64, u32> {
     // Lo que el volcado del escritorio tenga en vuelo, antes: si no, su copia
     // podria caer ENCIMA del cubo entre el dibujo y la lectura.
     let tris = &tris[..t.n];
-    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, t.n as u32, |r| cu::preparar(r, e, &v, tris)));
+    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, ficha as u32, e, &p, t.n as u32, true, |r| cu::preparar(r, e, &v, tris)));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
 
 /// **VERRANO V0**: el paquete del escritorio (sus dos programas y sus
 /// vertices) por la tuberia fija.
-fn verrano(va: u64) -> Result<u64, u32> {
+fn verrano(va: u64, ligero: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::tuberia as tu;
     let bar0 = crate::ring0::dev::gpu::bar0();
     if bar0 == 0 || !LIENZO_HECHO.load(Ordering::Acquire) {
@@ -124,14 +141,43 @@ fn verrano(va: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let n = (paquete.vertices.len() / tu::BYTES_VERTICE / 3) as u32;
-    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, |r| tu::preparar(r, e, &v, &paquete)));
+    // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
+    // desde nuestro ultimo dibujo (la entrada sigue donde la dejamos) y fue
+    // hace menos de 100 ms (entre dos fotogramas de un banco, no entre dos
+    // ordenes tecleadas: un preparar de otro trabajo que fallo a medias no
+    // mueve la entrada, pero tampoco cabe en ese hueco). Y se olvida ANTES
+    // de dibujar: si este sale mal, el siguiente va en frio.
+    let huella = tu::huella_fija(&v, &paquete, ligero);
+    let tsc = crate::ring0::task::scheduler::tsc_freq().max(1);
+    let ahora = crate::ring0::task::scheduler::rdtsc();
+    let caliente = CALIENTE_HUELLA.swap(0, Ordering::AcqRel) == huella
+        && CALIENTE_ENTRADA.load(Ordering::Acquire) == e
+        && ahora.wrapping_sub(CALIENTE_TSC.load(Ordering::Acquire)) < tsc / 10;
+    let mut preparar_ciclos = 0u64;
+    let preparar = |r: &mut Bar0| {
+        let desde = crate::ring0::task::scheduler::rdtsc();
+        let bien = if caliente { tu::preparar_caliente(r, e, &v, &paquete, ligero) } else { tu::preparar_con(r, e, &v, &paquete, ligero) };
+        preparar_ciclos = crate::ring0::task::scheduler::rdtsc() - desde;
+        bien
+    };
+    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
+    let r = r.map(|x| cu::con_preparar(x, caliente, preparar_ciclos * 1_000_000 / tsc));
+    if let Ok(x) = r {
+        if cu::sano(x) {
+            CALIENTE_ENTRADA.store(BLUR_ENTRADA.load(Ordering::Acquire), Ordering::Release);
+            CALIENTE_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
+            CALIENTE_HUELLA.store(huella, Ordering::Release);
+        }
+    }
     r
 }
 
 /// El dibujo, de X5 o de VERRANO: preparar, el timbre, esperar el semaforo,
-/// y la escalera. `n` = los triangulos.
-fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, n: u32, preparar: impl FnOnce(&mut Bar0) -> bool) -> Result<u64, u32> {
+/// y la escalera. `n` = los triangulos. `escalera` = leer los escalones y
+/// los registros del GR al acabar (sin ella, VERRANO `ligero`, no hay
+/// escalones que leer: son ~40 lecturas por PCIe menos por fotograma).
+fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, n: u32, escalera: bool, preparar: impl FnOnce(&mut Bar0) -> bool) -> Result<u64, u32> {
     let mut r = Bar0(bar0);
     asegurar_mapa(&mut r, p)?;
     if !preparar(&mut r) {
@@ -159,11 +205,13 @@ fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla,
     // 3060` los muestra si no se pago).
     let etapas = bmo_gpu_ga10x::raster::etapas(&mut r, cu::SEMAFORO_FIN, cu::PAGA_FIN);
     DIAG_3D[0].store(etapas, Ordering::Release);
-    let pagados = bmo_gpu_ga10x::raster::escalones(&mut r);
-    DIAG_3D[4].store(pagados as u32, Ordering::Release);
-    DIAG_3D[5].store((pagados >> 32) as u32, Ordering::Release);
-    for (k, reg) in super::GR_MIRADOS.iter().enumerate() {
-        DIAG_3D[1 + k].store(bmo_gpu_ga10x::Registros::leer(&mut r, *reg), Ordering::Release);
+    if escalera || etapas & 0b100 == 0 {
+        let pagados = bmo_gpu_ga10x::raster::escalones(&mut r);
+        DIAG_3D[4].store(pagados as u32, Ordering::Release);
+        DIAG_3D[5].store((pagados >> 32) as u32, Ordering::Release);
+        for (k, reg) in super::GR_MIRADOS.iter().enumerate() {
+            DIAG_3D[1 + k].store(bmo_gpu_ga10x::Registros::leer(&mut r, *reg), Ordering::Release);
+        }
     }
     let v = cu::empaquetar(us as u32, n, etapas, lanzado);
     if cu::sano(v) {

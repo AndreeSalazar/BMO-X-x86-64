@@ -339,7 +339,12 @@ fn escribir_bytes<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
 
 /// **Las ordenes**: las de X5 hasta el dibujo, y UN dibujo de `3n` vertices.
 pub fn ordenes(v: &Ventana, n: usize) -> cu::Ordenes {
-    let mut e = cu::hasta_el_dibujo(v);
+    ordenes_con(v, n, false)
+}
+
+/// Las mismas, `ligero` = SIN la escalera de T1c (ver `cubo::Ordenes`).
+pub fn ordenes_con(v: &Ventana, n: usize, ligero: bool) -> cu::Ordenes {
+    let mut e = cu::hasta_el_dibujo_con(v, !ligero);
     e.dibujo_de(3 * n as u32);
     e.cerrar();
     e
@@ -349,11 +354,16 @@ pub fn ordenes(v: &Ventana, n: usize) -> cu::Ordenes {
 /// como llegan: el kernel no traduce nada), la tabla, los vertices, las
 /// ordenes y la entrada.
 pub fn preparar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete) -> bool {
+    preparar_con(r, e, v, p, false)
+}
+
+/// `preparar`, con las ordenes `ligero` o con su escalera.
+pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
     let n = p.vertices.len() / BYTES_VERTICE;
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return false;
     }
-    let o = ordenes(v, n / 3);
+    let o = ordenes_con(v, n / 3, ligero);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
     let va = sombreador_va(VERTICES);
     escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
@@ -369,6 +379,70 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete) -> bo
 }
 
 pub use crate::cubo::{empaquetar, lanzar, mirar, sano};
+
+// == EN CALIENTE (V1, 26-09) =================================================
+//
+// `preparar` pone a cero TRES paginas de VRAM y RELEE cada palabra: 3072
+// lecturas por PCIe (~1 us cada una, lo medido en `volcado`), y relee
+// tambien los programas, la tabla, los vertices y las ordenes. Para UN
+// fotograma es lo correcto. Para 360 seguidos con los MISMOS programas es
+// volver a escribir lo que ya esta escrito y preguntar 4.000 veces si llego.
+//
+// En caliente solo va lo que CAMBIA de un fotograma a otro, y sin releer
+// (como `volcado`): los semaforos a cero, los vertices y la entrada del
+// GPFIFO. La prueba de que llego no es releer: es que la 3060 pague el
+// semaforo del dibujo -- y el banco, al acabar, juzga un fotograma contra
+// D3D12 hecho TAMBIEN en caliente.
+//
+// [!] Quien decide si se puede es el KERNEL (`gpu_trabajo/cubo.rs`), no el
+// que pide: los mismos programas (esta huella), nadie mas lanzo nada por el
+// GR desde el ultimo dibujo de VERRANO, y ese dibujo se pago entero.
+
+/// **La huella de lo FIJO** de un dibujo de VERRANO: los dos programas, los
+/// triangulos, la ventana y si va `ligero` -- todo lo que `preparar` escribe
+/// y el caliente NO vuelve a escribir. FNV-1a de 64 bits.
+pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
+    let mut h = 0xcbf2_9ce4_8422_2325u64;
+    let mut mezclar = |b: &[u8]| {
+        for &x in b {
+            h = (h ^ x as u64).wrapping_mul(0x0100_0000_01b3);
+        }
+    };
+    mezclar(p.vs);
+    mezclar(&[0xA5]);
+    mezclar(p.ps);
+    for x in [p.vertices.len() as u64, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+        mezclar(&x.to_le_bytes());
+    }
+    h
+}
+
+/// **Preparar EN CALIENTE**: lo que cambia, sin releer. Los programas, la
+/// tabla y las ordenes tienen que estar ya donde los dejo un `preparar_con`
+/// con la misma [`huella_fija`] (eso lo comprueba el kernel, no esto).
+pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
+    let n = p.vertices.len() / BYTES_VERTICE;
+    if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
+        return false;
+    }
+    let o = ordenes_con(v, n / 3, ligero);
+    let en = entrada(sombreador_va(EMPUJE), o.n as u32);
+    let vol = crate::volcado::escribir_sin_releer;
+    vol(r, SEMAFORO_FIN, &[0; 4]);
+    if !ligero {
+        vol(r, ESCALONES, &[0; N_ESCALONES as usize]);
+    }
+    let mut w = [0u32; 64];
+    for (k, trozo) in p.vertices.chunks(256).enumerate() {
+        let m = trozo.len() / 4;
+        for (i, q) in trozo.chunks_exact(4).enumerate() {
+            w[i] = u32le(q, 0);
+        }
+        vol(r, VERTICES + 256 * k as u64, &w[..m]);
+    }
+    vol(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
+    true
+}
 
 const _: () = assert!(PALABRAS_VS * 4 <= cu::PASO_VS as usize && PALABRAS_PS * 4 <= cu::PASO_PS as usize);
 const _: () = assert!(VS == cu::vs(0) && PS == cu::ps(0));
@@ -479,6 +553,59 @@ mod pruebas {
         // que cambia son los programas que hay en las dos paginas.
         let (x5, uno) = (crate::cubo::ordenes(&v, 1), ordenes(&v, 1));
         assert_eq!(&uno.o[..uno.n], &x5.o[..x5.n]);
+    }
+
+    /// V1 `ligero`: el MISMO estado y el MISMO dibujo, sin la escalera --
+    /// dos WAIT_FOR_IDLE (tras limpiar y al cerrar), UN semaforo (el del
+    /// final) y un solo dibujo, el de todos los vertices.
+    #[test]
+    fn ligero_es_la_escalera_sin_escalones() {
+        use crate::copia::cabecera_en;
+        use crate::tresde as td;
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let (con, sin) = (ordenes_con(&v, 12, false), ordenes_con(&v, 12, true));
+        let (con, sin) = (&con.o[..con.n], &sin.o[..sin.n]);
+        let cuenta = |w: &[u32], m: u32, n: u32| w.iter().filter(|&&x| x == cabecera_en(0, m, n)).count();
+        assert_eq!(cuenta(sin, td::WAIT_FOR_IDLE, 1), 2);
+        assert_eq!(cuenta(sin, td::SET_REPORT_SEMAPHORE_A, 4), 1);
+        assert!(cuenta(con, td::WAIT_FOR_IDLE, 1) > 20, "la escalera espera tras cada metodo");
+        let starts: std::vec::Vec<u32> = sin.windows(3).filter(|q| q[0] == cabecera_en(0, crate::raster::SET_VERTEX_ARRAY_START, 2)).map(|q| q[2]).collect();
+        assert_eq!(starts, [36]);
+        // Lo de `ligero` es lo de la escalera en el mismo orden: quitando de
+        // la escalera sus escalones, sale una secuencia que CONTIENE a ligero.
+        let mut i = 0;
+        for &x in sin {
+            while i < con.len() && con[i] != x {
+                i += 1;
+            }
+            assert!(i < con.len(), "ligero trae una palabra que la escalera no: {x:#x}");
+            i += 1;
+        }
+        // Y el numero de registros que se le da a cada programa, el mismo.
+        let regs = |w: &[u32]| w.windows(2).filter(|q| q[0] == cabecera_en(0, crate::raster::set_pipeline_shader(1) + 0x0c, 2)).map(|q| q[1]).collect::<std::vec::Vec<u32>>();
+        assert_eq!(regs(sin), regs(con));
+    }
+
+    /// La huella de lo fijo: cambia con los programas y con `ligero`, y NO
+    /// con los vertices (lo unico que el caliente vuelve a escribir).
+    #[test]
+    fn la_huella_de_lo_fijo() {
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let mut vs = [0u8; 4 * PALABRAS_VS];
+        let mut ps = [0u8; 4 * PALABRAS_PS];
+        bytes(&vertice(), &mut vs);
+        bytes(&pixel(), &mut ps);
+        let (a, b) = ([7u8; 6 * BYTES_VERTICE], [9u8; 6 * BYTES_VERTICE]);
+        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x };
+        let (vs, ps): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(vs)), std::boxed::Box::leak(std::boxed::Box::new(ps)));
+        let (a, b): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(a)), std::boxed::Box::leak(std::boxed::Box::new(b)));
+        let h = huella_fija(&v, &p(a, vs, ps), false);
+        assert_eq!(h, huella_fija(&v, &p(b, vs, ps), false), "los vertices no son lo fijo");
+        assert_ne!(h, huella_fija(&v, &p(a, vs, ps), true), "ligero cambia las ordenes");
+        assert_ne!(h, huella_fija(&v, &p(a, ps, vs), false), "otros programas");
+        assert_ne!(h, huella_fija(&v, &p(&a[..3 * BYTES_VERTICE], vs, ps), false), "otros triangulos, otras ordenes");
     }
 
     #[test]

@@ -294,6 +294,7 @@ pub const IOMMU_OP_GPU_PASE: u64 = 0x44;
 pub const IOMMU_OP_GPU_CUBO: u64 = 0x45;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
+pub const CUBO_LIGERO: u64 = 1 << 61;
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
 pub const IOMMU_NO_YA_ENCENDIDA: u32 = 3;

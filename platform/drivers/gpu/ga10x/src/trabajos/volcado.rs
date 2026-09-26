@@ -352,7 +352,7 @@ impl Tanda {
 
 /// Palabras seguidas por la ventana, SIN releerlas (ver arriba). La ventana
 /// queda como estaba.
-fn escribir_sin_releer<R: Registros>(r: &mut R, dir: u64, p: &[u32]) {
+pub(crate) fn escribir_sin_releer<R: Registros>(r: &mut R, dir: u64, p: &[u32]) {
     let (base, off) = crate::vram::ventana(dir);
     let antes = r.leer(crate::vram::VENTANA_REG);
     r.escribir(crate::vram::VENTANA_REG, base);
