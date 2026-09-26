@@ -225,15 +225,35 @@ fn desarmar() -> bool {
 /// armada con ellos sigue valiendo.
 const RETIRADOS: &[&[u8]] = &[b"-apagado", b"-fuego", b"-frontera"];
 
+/// ** `save mode init` -- EL ARRANQUE QUE SOLO DESPIERTA LA 3060 (26-09).
+///
+/// Pedido del propietario: *"que SOLO enfoque en DESPERTAR la GPU como gpu
+/// init siempre"*. Un paso nombrado SIN `-` es el ULTIMO que se da: todo lo
+/// que va detras queda quitado. `save mode init` repite en cada arranque
+/// hasta `init` (el GSP-RM arriba, BAR1 de vuelta) y deja el escritorio; las
+/// pruebas del motor grafico, la pantalla y el aguante quedan para `save
+/// mode` a secas. Vale con cualquier paso: `save mode estatica`.
 fn quitados_de(args: &[u8]) -> Result<[bool; MAX_PASOS], &[u8]> {
     let mut quitados = [false; MAX_PASOS];
     for t in args.split(|&b| b == b' ').filter(|t| !t.is_empty() && !RETIRADOS.contains(t)) {
+        if let Some(hasta) = paso_por_nombre(t) {
+            for q in quitados.iter_mut().take(PASOS.len()).skip(hasta + 1) {
+                *q = true;
+            }
+            continue;
+        }
         match t.strip_prefix(b"-").and_then(paso_por_nombre) {
             Some(i) => quitados[i] = true,
             None => return Err(t),
         }
     }
     Ok(quitados)
+}
+
+/// Cuantos pasos lleva el panel: hasta el ultimo que NO esta quitado. Con
+/// `save mode init`, la barra acaba en `init` y no en el ultimo paso.
+fn cuantos_pasos(quitados: &[bool; MAX_PASOS]) -> usize {
+    (0..PASOS.len()).rev().find(|&i| !quitados[i]).map_or(PASOS.len(), |i| i + 1)
 }
 
 /// **`save mode [-nombre ...]` / `save mode off`**. `None` si `arg` no es
@@ -273,7 +293,7 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
                 g.text(b" -");
                 g.text(p.nombre);
             }
-            g.text(b"   (y `save mode off` lo desarma)\n");
+            g.text(b"   (un paso SIN `-` es el ultimo: `save mode init` solo despierta la 3060; `save mode off` lo desarma)\n");
             g.with_ink(INK_PLAIN);
             dsk.field.n = 0;
             return Some(After::Settle);
@@ -341,7 +361,7 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     // ** EL ARRANQUE ORQUESTADO (25-09): mientras se repite, la pantalla es
     // el panel del arranque, no el escritorio; al final, la 3060 toma el
     // control (`desktop::arranque`).
-    crate::desktop::arranque::seguir(p, PASOS.len());
+    crate::desktop::arranque::seguir(p, cuantos_pasos(&quitados));
     correr(dsk, p, &quitados, tumbo);
 }
 
@@ -349,8 +369,9 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 /// del arranque orquestado sale YA, y el escritorio se prepara detras (sin
 /// verse a trozos entre el gato y el panel). Lo llama `desktop::boot`.
 pub(crate) fn antes_del_escritorio(p: &bmo::Pantalla) {
-    if leer_modo().is_some() {
-        crate::desktop::arranque::empezar(p, PASOS.len());
+    if let Some(m) = leer_modo() {
+        let total = quitados_de(m.args()).map_or(PASOS.len(), |q| cuantos_pasos(&q));
+        crate::desktop::arranque::empezar(p, total);
     } else {
         // Sin panel tras el gato: POR QUE, al klog y a la fila `receta`.
         bmo::consola(match por_que_no() & 0xFF {

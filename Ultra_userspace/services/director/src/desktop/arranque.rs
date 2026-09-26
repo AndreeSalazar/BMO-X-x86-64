@@ -258,6 +258,17 @@ pub(crate) fn acabar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         } else if crate::commands::gsp::caliente() {
             pintar(p, b"la 3060 viene CALIENTE", crate::commands::gsp::CALIENTE, b"CPU: arranque hecho sin la 3060", sa::AMBAR);
             esperar_ms(2 * DESPUES_MS);
+        } else if crate::commands::gsp::despierto() {
+            // `save mode init` (26-09): el arranque que SOLO despierta la
+            // 3060 acaba aqui, con el GSP-RM corriendo; lo demas, a mano.
+            pintar(
+                p,
+                b"LA 3060 DESPIERTA",
+                b"el GSP-RM de la 570.144 corre en tu 3060 y BAR1 volvio a la pantalla: lista para `gpu cubo 3060`, `gpu pantalla` o jugar",
+                b"3060: despierta; el escritorio sale ahora",
+                VERDE,
+            );
+            esperar_ms(DESPUES_MS);
         } else {
             pintar(
                 p,
