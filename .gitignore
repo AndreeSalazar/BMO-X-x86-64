@@ -58,3 +58,9 @@ toolchain/lang/inti/sondas/*.bex
 # lo que se versiona es el port (`sobre/`, `cola/`), la config y el commit.
 /toolchain/lang/c/expansion/doom/fuentes/
 /toolchain/lang/c/expansion/doom/wad/
+# Y lo que el port GENERA o deja de resto: nunca entra (26-09). `out/` es la
+# musica renderizada (~86 MB, y puede salir del WAD comercial).
+/toolchain/lang/c/expansion/doom/cola/out/
+/toolchain/lang/c/expansion/doom/**/*.wav
+/toolchain/lang/c/expansion/doom/**/*.antes
+/toolchain/lang/c/expansion/doom/**/*.sonda-vieja

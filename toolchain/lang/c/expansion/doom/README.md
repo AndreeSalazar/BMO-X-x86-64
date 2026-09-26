@@ -33,8 +33,14 @@
 ```
 
 `-Mudar` solo copia a `sobre/` lo que **difiere** del commit fijado (mismo
-contenido = no se copia), y no pisa nada que ya este en el arbol salvo con
-`-Forzar`. Despues, en cualquier maquina, `traer.ps1` a secas trae las fuentes
+contenido = no se copia; los finales de linea CRLF/LF no cuentan), y no pisa
+nada que ya este en el arbol salvo con `-Forzar`. **No muda** lo que es del
+repo de arriba (el `.gitignore` de doomgeneric --que hacia a git ignorar el
+port entero--, el `.sln`, sus README), lo GENERADO (`cola/out/`: la musica
+renderizada, ~86 MB que pueden salir del WAD comercial) ni los restos
+(`*.antes`, `*.sonda-vieja`). Y si el port de fuera es un clon de otro
+commit que el de `FUENTES.txt`, se para y lo dice: comparar contra el commit
+equivocado haria pasar por "del port" todo lo que cambio arriba. Despues, en cualquier maquina, `traer.ps1` a secas trae las fuentes
 y `build.ps1` compila como siempre: `build/ejemplos.ps1` mira primero aqui y,
 si aqui no esta, sigue mirando `BMO-externo\` como antes.
 

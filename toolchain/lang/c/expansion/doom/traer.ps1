@@ -71,17 +71,53 @@ if (-not (Test-Path (Join-Path $prist '.git'))) {
 #            de una copia limpia y sale el mismo arbol que habia fuera
 #   cola\    BMO-externo\doom-port entero: los stubs de `include\` (lo que
 #            `$BMO_MODS` hace ganar), unity.py, las sondas
+#
+# ** Lo que NO se muda (26-09, lo encontro la primera mudanza de verdad):
+#   - fuera de `doomgeneric\` del arbol de doomgeneric: su `.gitignore` (que
+#     dice `doomgeneric` y hacia a git ignorar el port ENTERO), el `.sln`, sus
+#     README y LICENSE. Son del repo de arriba, no del port
+#   - lo GENERADO: `out\` (la musica renderizada, ~86 MB de .wav que ademas
+#     pueden salir del WAD comercial), objetos, ejecutables, WAD
+#   - los RESTOS: `*.antes`, `*.orig`, `*.bak`, y las `*.h.sonda-vieja` que se
+#     apartaron para que NO taparan a las de la fabrica
+# Y se compara SIN los finales de linea: un checkout de Windows (CRLF) y uno
+# de Linux (LF) del mismo fichero son el mismo fichero.
+$restos = '\\\.git\\|\\__pycache__\\|\\out\\|\.(o|obj|exe|bex|bo|wad|pdb|ilk|pyc|wav|mp3|ogg|antes|orig|bak|sonda-vieja)$|(^|\\)\.gitignore$'
+
+function Huella($f) {
+    if ($f -match '\.(c|h|py|txt|md|mk|ps1|cfg)$|(^|\\)Makefile$') {
+        $t = [IO.File]::ReadAllText($f) -replace "`r`n", "`n"
+        $sha = [Security.Cryptography.SHA256]::Create()
+        return [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($t)))
+    }
+    return (Get-FileHash -LiteralPath $f).Hash
+}
+
 if ($Mudar) {
     $suyo = Join-Path $externo 'doom\doomgeneric'
     if (-not (Test-Path $suyo)) { throw "no esta ${suyo}: nada que mudar" }
-    $fuera = '\\\.git\\|\.(o|obj|exe|bex|bo|wad|pdb|ilk)$'
-    $n = 0; $iguales = 0
-    Get-ChildItem -LiteralPath $suyo -Recurse -File | ForEach-Object {
+    # ** DE QUE COMMIT PARTE EL PORT. Si el de fuera es un clon, lo dice su
+    # HEAD; y si no es el de FUENTES.txt, comparar contra el fijado copiaria
+    # como "del port" todo lo que cambio arriba entre los dos. Se para.
+    if (Test-Path (Join-Path $suyo '.git')) {
+        $base = (git -C $suyo rev-parse HEAD).Trim()
+        if ($base -ne $commit) {
+            Write-Host "[doom] [!] el port de fuera parte de $base" -ForegroundColor Yellow
+            Write-Host "[doom]     y FUENTES.txt fija $commit" -ForegroundColor Yellow
+            Write-Host '[doom]     Pon ese commit en FUENTES.txt, borra fuentes\ (y sobre\ y cola\ si ya' -ForegroundColor Yellow
+            Write-Host '[doom]     los habia) y repite: asi sobre\ es SOLO lo que el port cambio.' -ForegroundColor Yellow
+            throw 'el commit base del port no es el fijado'
+        }
+    }
+    $n = 0; $iguales = 0; $fuera = 0
+    Get-ChildItem -LiteralPath $suyo -Recurse -File -Force | ForEach-Object {
         $rel = $_.FullName.Substring($suyo.Length).TrimStart('\')
-        if (('\' + $rel) -match $fuera) { return }
+        if (-not $rel.StartsWith('doomgeneric\') -or ('\' + $rel) -match $restos) {
+            if (-not ($rel -match '^\.git\\')) { $fuera++ }
+            return
+        }
         $limpio = Join-Path $prist $rel
-        if ((Test-Path $limpio) -and
-            (Get-FileHash $limpio).Hash -eq (Get-FileHash $_.FullName).Hash) {
+        if ((Test-Path $limpio) -and (Huella $limpio) -eq (Huella $_.FullName)) {
             $iguales++
             return
         }
@@ -92,21 +128,21 @@ if ($Mudar) {
         Write-Host "[doom]   sobre\$rel"
         $n++
     }
-    Write-Host "[doom] sobre: $n fichero(s) del port; $iguales iguales al commit fijado (no se copian)"
+    Write-Host "[doom] sobre: $n fichero(s) del port; $iguales iguales al commit fijado; $fuera que no se mudan"
 
     $suCola = Join-Path $externo 'doom-port'
     if (Test-Path $suCola) {
-        $m = 0
-        Get-ChildItem -LiteralPath $suCola -Recurse -File | ForEach-Object {
+        $m = 0; $fuera = 0
+        Get-ChildItem -LiteralPath $suCola -Recurse -File -Force | ForEach-Object {
             $rel = $_.FullName.Substring($suCola.Length).TrimStart('\')
-            if (('\' + $rel) -match '\\\.git\\|\\__pycache__\\|\.(o|obj|exe|bex|bo|wad|pyc)$') { return }
+            if (('\' + $rel) -match $restos) { $fuera++; return }
             $dst = Join-Path $cola $rel
             if ((Test-Path $dst) -and -not $Forzar) { return }
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
             Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
             $m++
         }
-        Write-Host "[doom] cola: $m fichero(s) de doom-port"
+        Write-Host "[doom] cola: $m fichero(s) de doom-port; $fuera que no se mudan"
     } else {
         Write-Host "[doom] [!] no esta ${suCola}: la cola no se muda" -ForegroundColor Yellow
     }
