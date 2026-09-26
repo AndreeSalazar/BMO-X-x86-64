@@ -81,16 +81,21 @@ if (-not (Test-Path (Join-Path $prist '.git'))) {
 #   - los RESTOS: `*.antes`, `*.orig`, `*.bak`, y las `*.h.sonda-vieja` que se
 #     apartaron para que NO taparan a las de la fabrica
 # Y se compara SIN los finales de linea: un checkout de Windows (CRLF) y uno
-# de Linux (LF) del mismo fichero son el mismo fichero.
+# de Linux (LF) del mismo fichero son el mismo fichero (ver `Huella`).
 $restos = '\\\.git\\|\\__pycache__\\|\\out\\|\.(o|obj|exe|bex|bo|wad|pdb|ilk|pyc|wav|mp3|ogg|antes|orig|bak|sonda-vieja)$|(^|\\)\.gitignore$'
 
+# ** Todo fichero que no sea BINARIO (sin un byte cero) se compara sin sus
+# CR antes de LF. Primero se decidia por la extension, y `Makefile.sdl` o un
+# `.vcxproj` se colaban como "del port" solo por venir en CRLF (26-09, nueve
+# de 27). Latin-1 es uno a uno con los bytes: nada se pierde al pasar a texto.
 function Huella($f) {
-    if ($f -match '\.(c|h|py|txt|md|mk|ps1|cfg)$|(^|\\)Makefile$') {
-        $t = [IO.File]::ReadAllText($f) -replace "`r`n", "`n"
-        $sha = [Security.Cryptography.SHA256]::Create()
-        return [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($t)))
+    $b = [IO.File]::ReadAllBytes($f)
+    if ([Array]::IndexOf($b, [byte]0) -lt 0) {
+        $l1 = [Text.Encoding]::GetEncoding(28591)
+        $b = $l1.GetBytes(($l1.GetString($b) -replace "`r`n", "`n"))
     }
-    return (Get-FileHash -LiteralPath $f).Hash
+    $sha = [Security.Cryptography.SHA256]::Create()
+    return [BitConverter]::ToString($sha.ComputeHash($b))
 }
 
 if ($Mudar) {
