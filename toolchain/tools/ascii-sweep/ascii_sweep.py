@@ -1016,6 +1016,10 @@ def main():
             refused += 1
             continue
         changed += 1
+        # El NOMBRE de cada uno, tambien en seco (26-09): "4 files would be
+        # rewritten" sin decir cuales obligaba a replicar esta vuelta a mano
+        # para saber si alguno caia fuera de lo que se queria tocar.
+        print(("  rewritten: " if args.apply else "  would rewrite: ") + rel)
         if args.apply:
             with open(path, "w", encoding="utf-8", newline="") as fh:
                 fh.write(after)
