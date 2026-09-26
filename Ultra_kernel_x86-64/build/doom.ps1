@@ -79,7 +79,13 @@ if (-not $SinDoom) {
         Write-Host '    [doom] falta doom1.wad: se compila igual, pero no habra con que jugar' -ForegroundColor Yellow
     }
     if (Test-Path $doomFte) {
-        Step 'Building DOOM (opcional, GPL, fuera del arbol)'
+        # El titulo dice de DONDE compila: desde el 26-09 el port vive en el
+        # arbol, y "fuera del arbol" pasaba a ser mentira las mas de las veces.
+        if ($doomFte.StartsWith($doomExp)) {
+            Step 'Building DOOM (opcional, GPL, port del arbol)'
+        } else {
+            Step 'Building DOOM (opcional, GPL, desde BMO-externo)'
+        }
         $doomDst = Join-Path (Join-Path $dataBase 'apps') 'doom.bex'
         $modsPrevio = $env:BMO_MODS
         $env:BMO_MODS = $doomInc
