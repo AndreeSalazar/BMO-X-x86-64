@@ -155,37 +155,7 @@ pub(crate) fn fila(s: &mut Output) {
     }
     s.byte(b'\n');
 
-    // ** LA FOTO AL LLEGAR: cruda, sin veredicto. El metal (24-09 14:09) la
-    // leyo "con techo" y aun asi FWSEC-FRTS encontro la WPR2 vacia: al sondear
-    // el firmware de arranque de la tarjeta aun no acabo. Solo para mirar.
-    let w = bmo::info(bmo::INFO_GPU_SALUD | 2 << 8);
-    if w >> 63 != 0 {
-        campo(s, b"al llegar");
-        let f = bmo::info(bmo::INFO_GPU_SALUD | 3 << 8);
-        s.with_ink(INK_ECHO);
-        s.text(b"crudo, antes del firmware de arranque: WPR2 0x");
-        s.hex(w as u32 as u64, 8);
-        s.text(b" / 0x");
-        s.hex((w >> 32) as u32 as u64, 8);
-        if let Some(l) = salud::enlace(f as u16, (f >> 32) as u32) {
-            s.text(b", enlace Gen");
-            s.dec(l.gen as u64);
-        }
-        // ** 26-09: lo que sobrevive a un reinicio SIN la WPR2 (el cuarto
-        // 0x15 del booter llego "frio" segun ella). Solo para mirar.
-        let b = bmo::info(bmo::INFO_GPU_SALUD | 7 << 8);
-        if b >> 63 != 0 {
-            s.text(b"; BSI 0x");
-            s.hex(b as u32 as u64, 8);
-            s.text(if b & 1 << 26 != 0 { b" (handoff PUESTO)" as &[u8] } else { b" (handoff abajo)" });
-            s.text(b", GFW 0x");
-            s.hex(b >> 32 & 0xFF, 2);
-            super::datos::anotar(b"gpu bsi al llegar", b as u32 as u64, b"");
-        }
-        s.with_ink(INK_PLAIN);
-        s.byte(b'\n');
-    }
-
+    al_llegar(s);
     cargador(s);
     super::gsprelojes::fila(s);
 
@@ -253,9 +223,44 @@ fn lecturas(s: &mut Output, v: u64) {
     s.hex(v >> 32, 8);
 }
 
+/// **La fila `al llegar`**: la foto cruda del sondeo. Tambien en el bloque
+/// PARA PEGAR (26-09): cuando la 3060 llega CALIENTE, es la mitad del porque.
+pub(crate) fn al_llegar(s: &mut Output) {
+    // ** LA FOTO AL LLEGAR: cruda, sin veredicto. El metal (24-09 14:09) la
+    // leyo "con techo" y aun asi FWSEC-FRTS encontro la WPR2 vacia: al sondear
+    // el firmware de arranque de la tarjeta aun no acabo. Solo para mirar.
+    let w = bmo::info(bmo::INFO_GPU_SALUD | 2 << 8);
+    if w >> 63 != 0 {
+        campo(s, b"al llegar");
+        let f = bmo::info(bmo::INFO_GPU_SALUD | 3 << 8);
+        s.with_ink(INK_ECHO);
+        s.text(b"crudo, antes del firmware de arranque: WPR2 0x");
+        s.hex(w as u32 as u64, 8);
+        s.text(b" / 0x");
+        s.hex((w >> 32) as u32 as u64, 8);
+        if let Some(l) = salud::enlace(f as u16, (f >> 32) as u32) {
+            s.text(b", enlace Gen");
+            s.dec(l.gen as u64);
+        }
+        // ** 26-09: lo que sobrevive a un reinicio SIN la WPR2 (el cuarto
+        // 0x15 del booter llego "frio" segun ella). Solo para mirar.
+        let b = bmo::info(bmo::INFO_GPU_SALUD | 7 << 8);
+        if b >> 63 != 0 {
+            s.text(b"; BSI 0x");
+            s.hex(b as u32 as u64, 8);
+            s.text(if b & 1 << 26 != 0 { b" (handoff PUESTO)" as &[u8] } else { b" (handoff abajo)" });
+            s.text(b", GFW 0x");
+            s.hex(b >> 32 & 0xFF, 2);
+            super::datos::anotar(b"gpu bsi al llegar", b as u32 as u64, b"");
+        }
+        s.with_ink(INK_PLAIN);
+        s.byte(b'\n');
+    }
+}
+
 /// **La fila `cargador`**: si la 3060 llego caliente, y si el cargador la
-/// reinicio por el bus antes de que BMO-X la mirara.
-fn cargador(s: &mut Output) {
+/// reinicio por el bus antes de que BMO-X la mirara. Tambien en PARA PEGAR.
+pub(crate) fn cargador(s: &mut Output) {
     let f = bmo::info(bmo::INFO_GPU_SALUD | 4 << 8);
     if f & R_HALLADA == 0 {
         return;

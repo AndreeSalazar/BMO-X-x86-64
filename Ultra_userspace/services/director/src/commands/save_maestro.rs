@@ -238,6 +238,11 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     g.text(b", frontera ");
     g.text(corrio(bmo::info(bmo::INFO_GPU_FRONTERA)));
     g.text(b"; build con la autopsia del bus (26-09)\n");
+    // ** 26-09: la 3060 llego CALIENTE dos o tres veces "en frio". Lo que
+    // decide por que -- la foto al sondear y lo que hizo el cargador (el
+    // reinicio por el bus) -- va aqui, sin buscarlo en el capitulo 2.
+    super::gspsalud::al_llegar(g);
+    super::gspsalud::cargador(g);
     super::gsp::fila_despierto(g);
     let r = bmo::info(bmo::INFO_METICHE);
     super::tabla::campo(g, b"metiche");
