@@ -32,19 +32,34 @@ const FOTOGRAMA_MS: u64 = 33;
 /// Los datos y atajos, por turno. Cada uno tiene que ser VERDAD en esta casa:
 /// una orden que cambie de nombre se cambia aqui.
 const SABIAS: &[(&[u8], &[u8])] = &[
-    (b"sabias", b"el fractal en la 3060 sale unas 220 veces mas rapido que en la CPU"),
+    // El primero de la rueda (26-09, lo pidio el propietario): la receta que
+    // deja a la GSP recuperarse bien.
+    (b"consejo", b"`save mode init`: la GSP despierta en orden; un cuelgue se salta"),
+    (b"sabias", b"`run inti/cubo.ibx` y `gpu verrano banco inti`: INTI cuenta"),
+    (b"sabias", b"el fractal en la 3060 sale unas 220 veces mas rapido que la CPU"),
     (b"atajo", b"Ctrl+F busca en la salida; cada Enter, la coincidencia anterior"),
     (b"sabias", b"`gpu pantalla`: la 3060 pinta tu monitor entero, 400 fotogramas"),
     (b"atajo", b"TAB completa la orden; las flechas eligen entre las sugerencias"),
-    (b"sabias", b"el GSP es un RISC-V dentro de la 3060: ahi corre su firmware 570.144"),
+    (b"sabias", b"el GSP es un RISC-V dentro de la 3060: corre el firmware 570.144"),
     (b"atajo", b"`save` escribe el INFORME MAESTRO en datos/salida.txt"),
-    (b"sabias", b"`reboot` apaga el GSP en orden: el arranque siguiente sale limpio"),
+    (b"sabias", b"`reboot` apaga el GSP en orden: el arranque siguiente, limpio"),
     (b"atajo", b"Ctrl+Alt: el consejero dice el siguiente paso"),
     (b"sabias", b"la IOMMU: la 3060 solo ve la RAM que BMO-X le presta"),
     (b"atajo", b"Ctrl+Shift+S recorta un trozo de pantalla con el raton"),
     (b"sabias", b"`gpu giro`: una esfera que gira y bota, dibujada por la 3060"),
     (b"atajo", b"`gpu` a secas: cada fila de la verificacion de la 3060"),
 ];
+
+/// ** Cada consejo CABE en su linea (26-09): el globo corta en `LETRAS`, y
+/// tres de la rueda --y el aviso de la 3060 caliente-- se leian cortados.
+/// Esto no compila si uno se pasa.
+const _: () = {
+    let mut i = 0;
+    while i < SABIAS.len() {
+        assert!(SABIAS[i].1.len() <= LETRAS, "un consejo del globo no cabe en su linea");
+        i += 1;
+    }
+};
 
 struct Estado {
     /// Ciclos del TSC por ms; 0 hasta la primera vez.
@@ -129,10 +144,12 @@ fn de_la_3060(e: &mut Estado, turno: u32) -> bool {
     }
     let mut l = Linea { b: &mut e.texto, n: 0 };
     let titulo: &[u8] = if !crate::commands::gsp::despierto() && crate::commands::gsp::caliente() {
-        l.t(b"viene CALIENTE (Windows o un reinicio sin `gpu apagar`): apaga del todo 15 s y vuelve");
+        // [!] 64 letras caben en la linea (`LETRAS`): la de antes media 86 y
+        // el consejo se leia CORTADO, justo el que importa.
+        l.t(b"viene CALIENTE: 15 s sin corriente, y luego `save mode init`");
         b"cuidado"
     } else if !crate::commands::gsp::despierto() {
-        l.t(b"esta dormida: `save mode` la despierta y la prueba entera");
+        l.t(b"dormida: `save mode init` la despierta en orden, paso a paso");
         b"LA 3060"
     } else if turno % 4 == 0 {
         // El consejero, en una linea: el paso que falta, o que esta todo.
