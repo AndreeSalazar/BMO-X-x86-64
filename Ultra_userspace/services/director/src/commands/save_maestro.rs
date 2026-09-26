@@ -206,6 +206,25 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     g.with_ink(INK_ECHO);
     g.text(b"  PARA PEGAR -- la autopsia del booter y el chisme del bus:\n");
     g.with_ink(INK_PLAIN);
+    // LA RECETA (26-09, metal 21:16): que se pidio de verdad en ESTE
+    // arranque. Sin esta fila, un `-frontera` que no llego a armarse o un
+    // build viejo se confunden con un resultado.
+    super::tabla::campo(g, b"receta");
+    let mut args = [0u8; 64];
+    match super::verificar::receta(&mut args) {
+        Some(0) => g.text(b"save mode (sin quitar nada)"),
+        Some(n) => {
+            g.text(b"save mode ");
+            g.text(&args[..n]);
+        }
+        None => g.text(b"save mode DESARMADO"),
+    }
+    let corrio = |v: u64| if v & bmo::FUEGO_INTENTADO != 0 { b"CORRIO" as &[u8] } else { b"no corrio" };
+    g.text(b"; fuego ");
+    g.text(corrio(bmo::info(bmo::INFO_GPU_FUEGO)));
+    g.text(b", frontera ");
+    g.text(corrio(bmo::info(bmo::INFO_GPU_FRONTERA)));
+    g.text(b"; build con la autopsia del bus (26-09)\n");
     super::gsp::fila_despierto(g);
     let r = bmo::info(bmo::INFO_METICHE);
     super::tabla::campo(g, b"metiche");

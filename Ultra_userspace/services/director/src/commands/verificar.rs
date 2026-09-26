@@ -106,6 +106,14 @@ fn paso_por_nombre(nombre: &[u8]) -> Option<usize> {
 }
 
 /// **Lee `datos/modo.txt`.** `None` = no esta armado.
+/// **La receta armada**, para el informe: los argumentos de `save mode` en
+/// `datos/modo.txt` (`None` = desarmado). Los `-paso` quitados van aqui.
+pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
+    let m = leer_modo()?;
+    buf[..m.n].copy_from_slice(&m.args[..m.n]);
+    Some(m.n)
+}
+
 fn leer_modo() -> Option<Modo> {
     let a = bmo::Archivo::leer_de(MODO).ok()?;
     let mut buf = [0u8; 256];
