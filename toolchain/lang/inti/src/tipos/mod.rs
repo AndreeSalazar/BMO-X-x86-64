@@ -66,7 +66,7 @@
 
 use std::collections::HashMap;
 
-use crate::arbol::{Bloque, Clase, Decl, Expr, Funcion, Modulo, Op, Repeticion, Sent, Tipo};
+use crate::arbol::{Bloque, Decl, Expr, Funcion, Modulo, Op, Repeticion, Sent, Tipo};
 use crate::aviso::{codigos, Aviso, Cosecha, Sitio};
 use crate::disposicion::{es_de_comparar, tipos_de, Plano};
 
@@ -210,6 +210,29 @@ impl Revision<'_> {
         if a == b {
             return;
         }
+        // ** Los dos de coma flotante, de distinto ANCHO (2026-09-26). Un
+        // literal se escribe en el ancho del otro lado -- `x * 0.5` --, pero
+        // dos valores de 32 y de 64 son dos redondeos distintos: se pide.
+        if a.es_flotante() && b.es_flotante() {
+            if es_literal(izq) || es_literal(der) {
+                return;
+            }
+            self.avisos.push(
+                Aviso::nuevo(
+                    codigos::SIN_CONVERSION,
+                    "Aqui se mezclan un flotante32 y un flotante64.".to_string(),
+                    sitio,
+                )
+                .con_habia(
+                    "INTI no elige el ancho por ti. El binario de 32 y el de 64 redondean distinto: \
+                     operar los dos juntos obliga a escoger uno, y esa eleccion cambia los bits \
+                     del resultado."
+                        .to_string(),
+                )
+                .con_hacer("pide el ancho por su nombre: `flotante32(...)` o `flotante64(...)` sobre un lado"),
+            );
+            return;
+        }
         self.avisos.push(
             Aviso::nuevo(
                 codigos::SIN_CONVERSION,
@@ -222,7 +245,7 @@ impl Revision<'_> {
                  operarlos juntos no da un numero raro: da OTRO numero, y el programa sigue."
                     .to_string(),
             )
-            .con_hacer(if matches!(a, Clase::Flotante) {
+            .con_hacer(if a.es_flotante() {
                 "pide la conversion por su nombre: `flotante64(...)` sobre el otro lado"
             } else {
                 "pide la conversion por su nombre: `flotante64(...)` sobre este lado"
@@ -276,7 +299,16 @@ impl Revision<'_> {
         if esperado == dado {
             return;
         }
-        let (que, como) = if matches!(esperado, Clase::Flotante) {
+        // Un literal de coma flotante se escribe en el ancho del destino.
+        if esperado.es_flotante() && dado.es_flotante() && es_literal(valor) {
+            return;
+        }
+        let (que, como) = if esperado.es_flotante() && dado.es_flotante() {
+            (
+                "Aqui se guarda un flotante de un ancho donde va uno del otro.",
+                "pide el ancho por su nombre: `flotante32(...)` o `flotante64(...)`",
+            )
+        } else if esperado.es_flotante() {
             (
                 "Aqui se guarda un entero donde va un numero de coma flotante.",
                 "pide la conversion por su nombre: `flotante64(...)`",
@@ -346,3 +378,12 @@ fn sitio_de(e: &Expr) -> Sitio {
 
 #[cfg(test)]
 mod pruebas;
+
+/// Un literal numerico (con su `-`): se escribe en el ancho de donde va.
+fn es_literal(e: &Expr) -> bool {
+    match e {
+        Expr::Numero(..) => true,
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => matches!(**valor, Expr::Numero(..)),
+        _ => false,
+    }
+}

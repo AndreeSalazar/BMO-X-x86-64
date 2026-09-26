@@ -230,3 +230,4 @@ fn las_locales_son_indices_y_no_direcciones() {
         .iter()
         .any(|i| matches!(i, Instr::Guarda { destino: Local(2), .. })));
 }
+

@@ -156,6 +156,74 @@ pub(crate) fn binaria(out: &mut Vec<u8>, op: Op, sin_signo: bool) {
     }
 }
 
+/// `movd xmmN, r32` (los 4 bytes bajos del registro; `N` y `r` < 8).
+fn movd_xmm_de_r32(out: &mut Vec<u8>, xmm: u8, reg: u8) {
+    debug_assert!(xmm < 8 && reg < 8);
+    out.extend_from_slice(&[0x66, 0x0F, 0x6E, 0xC0 | xmm << 3 | reg]);
+}
+
+/// `movd r32, xmmN` -- y los 32 bits altos del registro a cero.
+pub(crate) fn movd_r32_de_xmm(out: &mut Vec<u8>, reg: u8, xmm: u8) {
+    debug_assert!(xmm < 8 && reg < 8);
+    out.extend_from_slice(&[0x66, 0x0F, 0x7E, 0xC0 | xmm << 3 | reg]);
+}
+
+/// `movd xmm0, r32` para las conversiones de `funcion`.
+pub(crate) fn a_xmm0_32(out: &mut Vec<u8>, reg: u8) {
+    movd_xmm_de_r32(out, 0, reg);
+}
+
+/// **Las operaciones del binario de 32** (`flotante32`, 2026-09-26).
+///
+/// EL MISMO MODELO que [`flotante`] --los bits viven en un registro normal y
+/// solo cruzan para operar--, con los 4 bytes bajos: un `flotante32` es su
+/// patron de 32 bits con la mitad alta a cero. Y la misma Regla 11: ni `fma`
+/// ni reasociacion, y ahora tampoco el atajo de operar en 64 y redondear al
+/// final -- que es lo que se hacia sin decirlo, y daba OTROS bits.
+pub(crate) fn flotante32(out: &mut Vec<u8>, op: Op) {
+    match op {
+        Op::Suma | Op::Resta | Op::Por | Op::Divide => {
+            movd_xmm_de_r32(out, 0, IZQ);
+            movd_xmm_de_r32(out, 1, DER);
+            let codigo = match op {
+                Op::Suma => 0x58,
+                Op::Resta => 0x5C,
+                Op::Por => 0x59,
+                _ => 0x5E,
+            };
+            // `addss/subss/mulss/divss xmm0, xmm1`.
+            out.extend_from_slice(&[0xF3, 0x0F, codigo, 0xC1]);
+            movd_r32_de_xmm(out, IZQ, 0);
+        }
+        // Las comparaciones, con el MISMO truco del NaN que `flotante`:
+        // `comiss` deja las banderas igual que `comisd`.
+        Op::Igual | Op::NoEs | Op::Menor | Op::Mayor | Op::MenorIgual | Op::MayorIgual => {
+            let del_reves = matches!(op, Op::Menor | Op::MenorIgual);
+            let (a, b) = if del_reves { (DER, IZQ) } else { (IZQ, DER) };
+            movd_xmm_de_r32(out, 0, a);
+            movd_xmm_de_r32(out, 1, b);
+            out.extend_from_slice(&[0x0F, 0x2F, 0xC1]); // comiss xmm0, xmm1
+            match op {
+                Op::Mayor | Op::Menor => x86::setcc_low(out, 0x97, IZQ),
+                Op::MayorIgual | Op::MenorIgual => x86::setcc_low(out, 0x93, IZQ),
+                Op::Igual => {
+                    x86::setcc_low(out, 0x94, IZQ);
+                    x86::setcc_low(out, 0x9B, DER);
+                    x86::and_low_low(out, IZQ, DER);
+                }
+                _ => {
+                    x86::setcc_low(out, 0x95, IZQ);
+                    x86::setcc_low(out, 0x9A, DER);
+                    x86::or_low_low(out, IZQ, DER);
+                }
+            }
+            x86::movzx_r64_low(out, IZQ, IZQ);
+        }
+        // Como en `flotante`: `disposicion` ya denuncio el resto (E0123).
+        _ => flotante(out, op),
+    }
+}
+
 /// Las operaciones de coma flotante.
 ///
 /// ## ** EL MODELO, y por que este y no el bueno

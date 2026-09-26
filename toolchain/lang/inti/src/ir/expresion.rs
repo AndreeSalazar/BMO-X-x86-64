@@ -19,7 +19,57 @@
 
 use super::*;
 
+/// **Un literal numerico escrito en el binario `clase`** (`-` incluido): de
+/// su TEXTO al binario pedido, de una vez. `None` si `e` no es un literal o
+/// `clase` no es de coma flotante.
+///
+/// ** Un literal SIN punto tambien: `2` en una operacion de coma flotante es
+/// `2.0` (GRAMATICA 14d), y el entero pasa al binario redondeando al mas
+/// cercano, como hace la conversion.
+pub(super) fn literal_en(e: &Expr, clase: Clase) -> Option<Const> {
+    let (texto, negativo, n) = match e {
+        Expr::Numero(n, _) => (&n.texto, false, n),
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => match &**valor {
+            Expr::Numero(n, _) => (&n.texto, true, n),
+            _ => return None,
+        },
+        _ => return None,
+    };
+    let entero = if n.con_punto { None } else { Some(parse_entero(texto, n.base)?) };
+    match clase {
+        Clase::Flotante32 => {
+            let f = match entero {
+                Some(v) => v as f32,
+                None => texto.parse::<f32>().ok()?,
+            };
+            let f = if negativo { -f } else { f };
+            Some(Const::Flotante(f.to_bits() as u64))
+        }
+        Clase::Flotante => {
+            let f = match entero {
+                Some(v) => v as f64,
+                None => texto.parse::<f64>().ok()?,
+            };
+            let f = if negativo { -f } else { f };
+            Some(Const::Flotante(f.to_bits()))
+        }
+        Clase::Entero => None,
+    }
+}
+
 impl Descenso<'_> {
+    /// **Un operando de una operacion de aritmetica `clase`**: si es un
+    /// literal y la operacion es de coma flotante, en SU binario
+    /// ([`literal_en`]); si no, como cualquier expresion.
+    pub(super) fn operando(&mut self, e: &Expr, clase: Clase) -> Valor {
+        if clase.es_flotante() {
+            if let Some(c) = literal_en(e, clase) {
+                return Valor::Const(c);
+            }
+        }
+        self.expresion(e)
+    }
+
     pub(super) fn expresion(&mut self, e: &Expr) -> Valor {
         match e {
             Expr::Numero(n, _) => {
@@ -156,13 +206,10 @@ impl Descenso<'_> {
                 // Y se pregunta ANTES de bajar los operandos, sobre el arbol:
                 // una vez bajados ya no son mas que valores, y un valor no dice
                 // de que tipo era.
-                let clase = if self.plano.es_flotante(izquierda, &self.tipos)
-                    || self.plano.es_flotante(derecha, &self.tipos)
-                {
-                    Clase::Flotante
-                } else {
-                    Clase::Entero
-                };
+                //
+                // *** Y con su ANCHO (2026-09-26): si un lado es del binario de
+                // 32, la operacion es de 32 (`clase_de_operacion`).
+                let clase = self.plano.clase_de_operacion(izquierda, derecha, &self.tipos);
                 // *** Y SI LLEVA SIGNO, que hasta el 2026-08-23 no se preguntaba
                 // NUNCA: el emisor bajaba `setl`, `idiv` y `jo` para todo, asi
                 // que `2 < 18446744073709551615` en `natural64` daba FALSO.
@@ -257,8 +304,14 @@ impl Descenso<'_> {
                     });
                     return Valor::Temporal(t);
                 }
-                let i = self.expresion(izquierda);
-                let d = self.expresion(derecha);
+                // *** LOS LITERALES, EN LA ARITMETICA DE LA OPERACION
+                // (2026-09-26). `a * 2` con `a` de coma flotante bajaba el `2`
+                // como ENTERO y el emisor lo operaba como los bits de un
+                // flotante: con `a = 1.5` daba 1.5e-323 y no 3.0 -- lo que la
+                // gramatica prometia (14d) sin que nada lo hiciera. Y `x + 0.1`
+                // con `x` de 32 tiene que sumar el `0.1` DE 32. Ver `operando`.
+                let i = self.operando(izquierda, clase);
+                let d = self.operando(derecha, clase);
 
                 // ** LAS DOS FAMILIAS DE COMPROBACION, y por que van en sitios
                 // distintos. Costo un dia entenderlo y explica por que tres de
@@ -304,7 +357,7 @@ impl Descenso<'_> {
                 // dividendo es el minimo Y el divisor es -1. Es la unica de las
                 // cinco que necesita mirar dos.
                 if matches!(op, Op::Entre | Op::Divide | Op::Resto)
-                    && !matches!(clase, Clase::Flotante)
+                    && !clase.es_flotante()
                 {
                     self.pon(Instr::Comprueba {
                         que: Comprobacion::Cociente,
@@ -339,10 +392,9 @@ impl Descenso<'_> {
                 // ** Se pregunta ANTES de bajar, sobre el arbol, por lo mismo
                 // que en la binaria: una vez bajado ya no es mas que un valor,
                 // y un valor no dice de que tipo era.
-                let clase = if self.plano.es_flotante(valor, &self.tipos) {
-                    Clase::Flotante
-                } else {
-                    Clase::Entero
+                let clase = match self.plano.clase_de(valor, &self.tipos) {
+                    Some(c) if c.es_flotante() => c,
+                    _ => Clase::Entero,
                 };
                 let v = self.expresion(valor);
                 let t = self.temporal();
@@ -386,17 +438,30 @@ impl Descenso<'_> {
                 }
                 if let Expr::Nombre(n, sitio) = &**que {
                     if self.plano.es_conversion(n) && argumentos.len() == 1 {
-                        let hacia = if self.plano.convierte_a_flotante(n) {
-                            Clase::Flotante
-                        } else {
-                            Clase::Entero
+                        let hacia = self.plano.clase_de_conversion(n).unwrap_or(Clase::Entero);
+                        let mut desde = match self.plano.clase_de(&argumentos[0].valor, &self.tipos) {
+                            Some(c) if c.es_flotante() => c,
+                            _ => Clase::Entero,
                         };
-                        let desde = if self.plano.es_flotante(&argumentos[0].valor, &self.tipos) {
-                            Clase::Flotante
-                        } else {
-                            Clase::Entero
-                        };
-                        let v = self.expresion(&argumentos[0].valor);
+                        // ** `flotante32(0.1)` NO SE CALCULA: se ESCRIBE. El
+                        // literal pasa de su texto al binario pedido de una
+                        // vez -- pasar por el de 64 y estrecharlo redondearia
+                        // dos veces, y en algun numero daria otro bit.
+                        if hacia.es_flotante() {
+                            if let Some(c) = literal_en(&argumentos[0].valor, hacia) {
+                                return Valor::Const(c);
+                            }
+                        }
+                        let mut v = self.expresion(&argumentos[0].valor);
+                        // ** Del binario de 32 a un entero se pasa por el de
+                        // 64 (exacto: todo binario de 32 cabe en uno de 64),
+                        // y asi la Regla 12 mira lo MISMO que mira siempre.
+                        if desde == Clase::Flotante32 && hacia == Clase::Entero {
+                            let t = self.temporal();
+                            self.pon(Instr::Convierte { destino: t, valor: v, desde, hacia: Clase::Flotante });
+                            v = Valor::Temporal(t);
+                            desde = Clase::Flotante;
+                        }
 
                         // ** LA REGLA 12, y va ANTES por lo mismo que la 3:
                         // despues de truncar ya no queda el numero original que
@@ -407,7 +472,7 @@ impl Descenso<'_> {
                         // no tiene respuesta: 1e10 cabe en un `entero64` y no
                         // cabe en un `entero32`. Sale del plano, que es quien
                         // mide.
-                        if desde == Clase::Flotante && hacia == Clase::Entero {
+                        if desde.es_flotante() && hacia == Clase::Entero {
                             let bytes = self
                                 .plano
                                 .medida_de(&crate::arbol::Tipo::Nombre(n.clone()))

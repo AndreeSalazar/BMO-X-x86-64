@@ -400,10 +400,30 @@ pub enum Op {
 /// (Esta explicacion nombraba un registro concreto en su primera version y la
 /// tumbo `tests/agnostico.rs`. Tenia razon dos veces, como en F5b: el frontend
 /// no puede nombrarlo, y la frase dice mas sin el.)
+///
+/// ## *** `Flotante32`: el ANCHO tambien es aritmetica (2026-09-26)
+///
+/// IEEE-754 tiene dos binarios y redondean distinto: `0.1 + 0.2` en 32 bits
+/// es `0x3E99999A` y en 64 es otro numero. Hasta hoy `flotante32` se leia
+/// como tipo y se operaba en 64 -- compilaba, corria y daba OTRO numero,
+/// la familia de fallos que INTI existe para cerrar. Lo destapo el cubo de
+/// VERRANO: el juez de la 3060 cuenta en 32 bits, y un programa en INTI que
+/// quiera dar SUS mismos bits tiene que contar igual. Sigue sin nombrar
+/// maquina: "binario de 32" es una norma de 1985, no un registro.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Clase {
     Entero,
+    /// IEEE-754 binario de 64 (`flotante64`).
     Flotante,
+    /// IEEE-754 binario de 32 (`flotante32`).
+    Flotante32,
+}
+
+impl Clase {
+    /// Es de coma flotante, de cualquier ancho?
+    pub fn es_flotante(self) -> bool {
+        matches!(self, Clase::Flotante | Clase::Flotante32)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

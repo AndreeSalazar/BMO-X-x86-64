@@ -93,6 +93,10 @@ pub(super) struct Descenso<'t> {
     /// Texto` estuvo bajando a un cero durante meses precisamente porque el
     /// emisor lo confesaba y nadie mas.
     pub(super) sin_ancho: usize,
+    /// **De que aritmetica devuelve la funcion que se esta bajando**
+    /// (2026-09-26): `devuelve 0.5` en una que devuelve `flotante32` tiene que
+    /// devolver el `0.5` DE 32 (`expresion::literal_en`).
+    pub(super) retorno: Option<Clase>,
 }
 
 impl<'t> Descenso<'t> {
@@ -125,6 +129,7 @@ impl<'t> Descenso<'t> {
             tipos: std::collections::HashMap::new(),
             sin_ancho: 0,
             medidas_locales: Vec::new(),
+            retorno: None,
         }
     }
 
@@ -419,6 +424,7 @@ impl<'t> Descenso<'t> {
         // no bajaba a `junta`, porque aqui `a` no tenia tipo. La comprobacion
         // decia que si y el codigo decia que no -- y el que manda es el codigo.
         self.tipos = crate::disposicion::tipos_de_con(f, Some(self.plano));
+        self.retorno = f.retorno.as_ref().and_then(|r| self.plano.clase_del_tipo(&r.tipo));
         for p in &f.parametros {
             self.local(&p.nombre);
         }
@@ -442,7 +448,7 @@ impl<'t> Descenso<'t> {
 
     fn sentencia(&mut self, s: &Sent) {
         match s {
-            Sent::Asigna { destino, valor, .. } => {
+            Sent::Asigna { destino, valor, tipo, .. } => {
                 // *** `notas es lista de entero64 = [1, 2, 3]` (2026-08-23).
                 //
                 // Se construye AQUI y no en `expresion` por una razon que no es
@@ -468,7 +474,17 @@ impl<'t> Descenso<'t> {
                     }
                     return;
                 }
-                let v = self.expresion(valor);
+                // ** Un literal se escribe en la aritmetica del DESTINO
+                // (2026-09-26): `x es flotante32 = 0.1` guarda el `0.1` de 32,
+                // y `x es flotante64 = 2` el `2.0`.
+                let esperada = match tipo {
+                    Some(t) => self.plano.clase_del_tipo(t),
+                    None => self.plano.clase_de(destino, &self.tipos),
+                };
+                let v = match esperada {
+                    Some(c) => self.operando(valor, c),
+                    None => self.expresion(valor),
+                };
                 match destino {
                     Expr::Nombre(n, _) => {
                         let l = self.local(n);
@@ -505,7 +521,11 @@ impl<'t> Descenso<'t> {
                 // llamadas a `siguiente`.
             }
             Sent::Devuelve { valor, .. } => {
-                let v = valor.as_ref().map(|e| self.expresion(e));
+                let clase = self.retorno;
+                let v = valor.as_ref().map(|e| match clase {
+                    Some(c) => self.operando(e, c),
+                    None => self.expresion(e),
+                });
                 self.pon(Instr::Devuelve(v));
             }
             Sent::Falla { motivo, .. } => {

@@ -160,6 +160,15 @@ impl Marco {
         // ** Una medida de 0 significa "no se sabe", y se le da una palabra: es
         // lo que se hacia antes para todas, asi que un tipo del que no consta la
         // medida no cambia de comportamiento por existir esta tabla.
+        //
+        // *** Y NUNCA MENOS DE UNA PALABRA (2026-09-26). Una local se guarda y
+        // se carga ENTERA, ocho bytes (`mov_a_marco`), sea del tipo que sea:
+        // en registro vive como palabra. Con dos locales de 4 bytes
+        // (`entero32`, `flotante32`) seguidas, guardar la segunda pisaba la
+        // primera -- en silencio, y solo en la pila: casi todas acaban en un
+        // registro, y por eso no se habia visto. Lo destapo la primera prueba
+        // con tres `flotante32`. Lo que mide mas (un `numero`, un registro)
+        // sigue midiendo lo suyo.
         let mut sitios_locales = Vec::with_capacity(f.locales as usize);
         let mut cursor = 0i32;
         for i in 0..f.locales as usize {
@@ -167,8 +176,8 @@ impl Marco {
                 .medidas_locales
                 .get(i)
                 .copied()
-                .filter(|x| *x > 0)
-                .unwrap_or(PALABRA as u32) as i32;
+                .unwrap_or(0)
+                .max(PALABRA as u32) as i32;
             let alineacion = medida.min(PALABRA).max(1);
             cursor += medida;
             // Redondear hacia arriba: el marco baja, asi que el sitio de esta

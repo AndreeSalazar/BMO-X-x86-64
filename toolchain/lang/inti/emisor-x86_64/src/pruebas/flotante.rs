@@ -519,3 +519,83 @@ funcion prueba() devuelve natural64
 ";
     assert_eq!(ejecuta_en(f, "prueba", 0, 0), (3.75f64).to_bits());
 }
+
+// ===================================================================
+//  *** EL BINARIO DE 32 (2026-09-26) -- `flotante32` de verdad
+// ===================================================================
+//
+//  Hasta hoy `flotante32` se aceptaba como tipo y se operaba en 64: `0.1 +
+//  0.2` en una funcion que devolvia `flotante32` salia `0x3FD3333333333334`
+//  (el resultado de 64, entero) en vez de `0x3E99999A`. Compilaba, corria y
+//  daba OTRO numero. Lo destapo el cubo de VERRANO: un programa que quiera
+//  dar los MISMOS bits que el juez de la 3060 tiene que contar en 32.
+//
+//  Cada respuesta de aqui es la de Rust con `f32`: el mismo IEEE-754.
+
+/// Corre una funcion de `flotante32` y devuelve sus 32 bits (y que la mitad
+/// alta quedo a cero: un `flotante32` es su patron de 32 bits, nada mas).
+fn de32(cuerpo: &str) -> u32 {
+    let r = ejecuta(&format!("perfil llano\n\nfuncion f devuelve flotante32\n{}", cuerpo), 0, 0);
+    assert_eq!(r >> 32, 0, "la mitad alta de un flotante32, a cero: {:#x}", r);
+    r as u32
+}
+
+#[test]
+fn el_binario_de_32_da_sus_bits_y_no_los_de_64() {
+    assert_eq!(de32("    cambiante a es flotante32 = 0.1\n    devuelve a + 0.2\n"), (0.1f32 + 0.2f32).to_bits());
+    assert_eq!(de32("    cambiante a es flotante32 = 1.0\n    devuelve a / 3.0\n"), (1.0f32 / 3.0f32).to_bits());
+    assert_eq!(de32("    cambiante a es flotante32 = 0.7\n    devuelve a * 0.3 - 0.21\n"), (0.7f32 * 0.3f32 - 0.21f32).to_bits());
+    // Y el literal suelto, en el ancho de lo que devuelve.
+    assert_eq!(de32("    devuelve 0.1\n"), 0.1f32.to_bits());
+    assert_eq!(de32("    devuelve -2.5\n"), (-2.5f32).to_bits());
+}
+
+/// Negar es voltear el bit 31, no el 63; y sin tocar la mitad alta.
+#[test]
+fn negar_un_flotante32() {
+    assert_eq!(de32("    cambiante a es flotante32 = 1.5\n    devuelve -a\n"), (-1.5f32).to_bits());
+    assert_eq!(de32("    cambiante a es flotante32 = 0.0\n    devuelve -a\n"), (-0.0f32).to_bits());
+}
+
+/// Las comparaciones del de 32, con el NaN como manda IEEE-754.
+#[test]
+fn comparar_en_32_y_el_nan() {
+    let si = |c: &str| {
+        ejecuta(&format!("perfil llano\n\nfuncion f devuelve logico\n    cambiante a es flotante32 = 0.1\n    cambiante z es flotante32 = 0.0\n    cambiante n es flotante32 = z / z\n    devuelve {}\n", c), 0, 0)
+    };
+    assert_eq!(si("a < 0.2"), 1);
+    assert_eq!(si("a > 0.2"), 0);
+    // `0.1` de 32 es MAYOR que `0.1` de 64 (se redondeo hacia arriba), pero
+    // aqui los dos lados son de 32: iguales.
+    assert_eq!(si("a = 0.1"), 1);
+    assert_eq!(si("n = n"), 0, "NaN no es igual a si mismo");
+    assert_eq!(si("n no es n"), 1);
+    assert_eq!(si("n < a"), 0);
+}
+
+/// Las conversiones: de y hacia enteros, y entre los dos anchos. El literal
+/// convertido se ESCRIBE en el binario pedido desde su texto (sin pasar por
+/// el de 64 y redondear dos veces).
+#[test]
+fn convertir_con_el_de_32() {
+    assert_eq!(de32("    devuelve flotante32(7)\n"), 7.0f32.to_bits());
+    assert_eq!(de32("    cambiante n es entero64 = 16777217\n    devuelve flotante32(n)\n"), (16_777_217i64 as f32).to_bits());
+    assert_eq!(de32("    devuelve flotante32(0.1)\n"), 0.1f32.to_bits());
+    assert_eq!(de32("    cambiante x es flotante64 = 0.1\n    devuelve flotante32(x)\n"), (0.1f64 as f32).to_bits());
+    let entero = |c: &str| ejecuta(&format!("perfil llano\n\nfuncion f devuelve entero64\n    cambiante a es flotante32 = -2.75\n    devuelve {}\n", c), 0, 0) as i64;
+    assert_eq!(entero("entero64(a)"), -2, "trunca hacia cero");
+    let ancho = ejecuta("perfil llano\n\nfuncion f devuelve flotante64\n    cambiante a es flotante32 = 0.1\n    devuelve flotante64(a)\n", 0, 0);
+    assert_eq!(f64::from_bits(ancho), 0.1f32 as f64, "del de 32 al de 64: exacto");
+}
+
+/// *** Y EL QUE PROMETIA LA GRAMATICA (14d): `a * 2` con `a` de coma
+/// flotante ES de coma flotante. Bajaba el `2` como ENTERO y lo operaba como
+/// bits de un flotante: `1.5 * 2` daba 1.5e-323.
+#[test]
+fn un_literal_entero_en_coma_flotante_es_su_numero() {
+    let r = ejecuta("perfil llano\n\nfuncion f devuelve flotante64\n    cambiante a es flotante64 = 1.5\n    devuelve a * 2\n", 0, 0);
+    assert_eq!(como_numero(r), 3.0);
+    assert_eq!(de32("    cambiante a es flotante32 = 1.5\n    devuelve 2 * a - 1\n"), 2.0f32.to_bits());
+    let r = ejecuta("perfil llano\n\nfuncion f devuelve flotante64\n    cambiante a es flotante64 = 2\n    devuelve a\n", 0, 0);
+    assert_eq!(como_numero(r), 2.0, "y guardado en uno de 64");
+}

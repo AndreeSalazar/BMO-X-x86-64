@@ -157,6 +157,7 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
                     // fallar siempre.
                     Clase::Entero => binaria(out, *op, *sin_signo),
                     Clase::Flotante => flotante(out, *op),
+                    Clase::Flotante32 => crate::operaciones::flotante32(out, *op),
                 }
                 guarda_temporal(out, IZQ, *destino, &marco);
             }
@@ -182,6 +183,27 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
                     (Clase::Flotante, Clase::Entero) => {
                         x86::movq_xmm_de_r64(out, 0, IZQ);
                         x86::cvttsd2si_r64(out, IZQ);
+                    }
+                    // ** El binario de 32 (2026-09-26). Entre los dos anchos
+                    // SI cambian los bits: `cvtss2sd` (exacto) y `cvtsd2ss`
+                    // (redondea al mas cercano, como manda IEEE-754).
+                    (Clase::Entero, Clase::Flotante32) => {
+                        out.extend_from_slice(&[0xF3, 0x48, 0x0F, 0x2A, 0xC0]); // cvtsi2ss xmm0, rax
+                        crate::operaciones::movd_r32_de_xmm(out, IZQ, 0);
+                    }
+                    (Clase::Flotante32, Clase::Entero) => {
+                        crate::operaciones::a_xmm0_32(out, IZQ);
+                        out.extend_from_slice(&[0xF3, 0x48, 0x0F, 0x2C, 0xC0]); // cvttss2si rax, xmm0
+                    }
+                    (Clase::Flotante32, Clase::Flotante) => {
+                        crate::operaciones::a_xmm0_32(out, IZQ);
+                        out.extend_from_slice(&[0xF3, 0x0F, 0x5A, 0xC0]); // cvtss2sd xmm0, xmm0
+                        x86::movq_r64_de_xmm(out, IZQ, 0);
+                    }
+                    (Clase::Flotante, Clase::Flotante32) => {
+                        x86::movq_xmm_de_r64(out, 0, IZQ);
+                        out.extend_from_slice(&[0xF2, 0x0F, 0x5A, 0xC0]); // cvtsd2ss xmm0, xmm0
+                        crate::operaciones::movd_r32_de_xmm(out, IZQ, 0);
                     }
                     // De entero a entero y de flotante a flotante, los bits ya
                     // estan. Estrechar --de `entero64` a `entero8`-- es otra
@@ -216,6 +238,14 @@ pub(crate) fn emitir_funcion(f: &FuncionIr, out: &mut Vec<u8>, taller: &Taller) 
                         // cabe en 32 bits, asi que va por registro -- la misma
                         // forma que usa `absd` para su mascara.
                         x86::mov_r64_imm64(out, 1, 1u64 << 63);
+                        out.extend_from_slice(&[0x48, 0x31, 0xC8]); // xor rax, rcx
+                    }
+                    // El de 32: su signo es el bit 31 (la mitad alta, a cero,
+                    // sigue a cero). La misma forma que el de 64.
+                    bmo_inti_front::arbol::OpUno::Menos
+                        if matches!(clase, bmo_inti_front::ir::Clase::Flotante32) =>
+                    {
+                        x86::mov_r64_imm64(out, 1, 1u64 << 31);
                         out.extend_from_slice(&[0x48, 0x31, 0xC8]); // xor rax, rcx
                     }
                     bmo_inti_front::arbol::OpUno::Menos => x86::neg_r64(out, IZQ),

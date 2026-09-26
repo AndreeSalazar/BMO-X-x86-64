@@ -191,6 +191,20 @@ impl Medidas {
         self.flotantes.iter().any(|f| f == nombre)
     }
 
+    /// **De que clase de aritmetica es este tipo** (`None`: de ninguna). El
+    /// ancho de un flotante sale de su MEDIDA en la tabla, no de su nombre:
+    /// 4 bytes es el binario de 32.
+    pub fn clase(&self, nombre: &str) -> Option<crate::arbol::Clase> {
+        use crate::arbol::Clase;
+        if self.es_flotante(nombre) {
+            Some(if self.de(nombre) == Some(4) { Clase::Flotante32 } else { Clase::Flotante })
+        } else if self.es_entero(nombre) {
+            Some(Clase::Entero)
+        } else {
+            None
+        }
+    }
+
     /// **Este tipo lleva signo?** `false` para los `natural*`.
     ///
     /// [!] Y para lo que NO esta en ninguna lista devuelve `true`, que es lo
@@ -379,6 +393,27 @@ impl Plano {
         self.medidas.es_flotante(nombre)
     }
 
+    /// A que clase de aritmetica convierte `nombre(...)` (con su ancho).
+    pub fn clase_de_conversion(&self, nombre: &str) -> Option<crate::arbol::Clase> {
+        self.medidas.clase(nombre)
+    }
+
+    /// **La aritmetica de una operacion entre `a` y `b`.** Basta con que un
+    /// lado sea de coma flotante; y si alguno es del binario de 32, la
+    /// operacion es de 32 (el otro lado, si es un literal, se escribe en 32;
+    /// si no lo es, `tipos` ya lo denuncio como mezcla).
+    pub fn clase_de_operacion(&self, a: &Expr, b: &Expr, tipos: &HashMap<String, Tipo>) -> crate::arbol::Clase {
+        use crate::arbol::Clase;
+        let (x, y) = (self.clase_de(a, tipos), self.clase_de(b, tipos));
+        if x == Some(Clase::Flotante32) || y == Some(Clase::Flotante32) {
+            Clase::Flotante32
+        } else if x.is_some_and(Clase::es_flotante) || y.is_some_and(Clase::es_flotante) {
+            Clase::Flotante
+        } else {
+            Clase::Entero
+        }
+    }
+
     /// El tipo de una expresion, si esta escrito en algun sitio.
     ///
     /// ** Vive en el plano y no en cada usuario porque **los dos que preguntan
@@ -476,7 +511,7 @@ impl Plano {
     /// aritmetica es de flotantes; que el otro pueda estar ahi es una pregunta
     /// de tipos, y la contesta quien comprueba, no quien emite.
     pub fn es_flotante(&self, e: &Expr, tipos: &HashMap<String, Tipo>) -> bool {
-        matches!(self.clase_de(e, tipos), Some(crate::arbol::Clase::Flotante))
+        self.clase_de(e, tipos).is_some_and(crate::arbol::Clase::es_flotante)
     }
 
     /// **Esta expresion se opera SIN SIGNO?** (2026-08-23)
@@ -546,20 +581,24 @@ impl Plano {
                 if es_de_comparar(*op) {
                     return None;
                 }
-                self.clase_de(izquierda, tipos)
-                    .or_else(|| self.clase_de(derecha, tipos))
+                // El binario de 32 manda: `0.5 * x` con `x` de 32 es de 32
+                // (el literal se adapta; ver `clase_de_operacion`).
+                let (a, b) = (self.clase_de(izquierda, tipos), self.clase_de(derecha, tipos));
+                if a == Some(Clase::Flotante32) || b == Some(Clase::Flotante32) {
+                    Some(Clase::Flotante32)
+                } else {
+                    a.or(b)
+                }
             }
             Expr::Unaria { valor, .. } => self.clase_de(valor, tipos),
             // `flotante64(x)` dice de que es lo que sale, y lo dice el nombre
             // que se escribio. Una conversion en INTI se pide, no se supone.
             Expr::Llamada { que, .. } => match &**que {
-                Expr::Nombre(n, _) if self.medidas.es_flotante(n) => Some(Clase::Flotante),
-                Expr::Nombre(n, _) if self.medidas.es_entero(n) => Some(Clase::Entero),
+                Expr::Nombre(n, _) => self.medidas.clase(n),
                 _ => None,
             },
             _ => match self.tipo_de(e, tipos) {
-                Some(Tipo::Nombre(n)) if self.medidas.es_flotante(&n) => Some(Clase::Flotante),
-                Some(Tipo::Nombre(n)) if self.medidas.es_entero(&n) => Some(Clase::Entero),
+                Some(Tipo::Nombre(n)) if self.medidas.clase(&n).is_some() => self.medidas.clase(&n),
                 // Un `bufer` es una direccion, y una direccion es un entero.
                 Some(Tipo::Bufer(_)) => Some(Clase::Entero),
                 _ => None,
@@ -571,8 +610,7 @@ impl Plano {
     pub fn clase_del_tipo(&self, t: &Tipo) -> Option<crate::arbol::Clase> {
         use crate::arbol::Clase;
         match t {
-            Tipo::Nombre(n) if self.medidas.es_flotante(n) => Some(Clase::Flotante),
-            Tipo::Nombre(n) if self.medidas.es_entero(n) => Some(Clase::Entero),
+            Tipo::Nombre(n) if self.medidas.clase(n).is_some() => self.medidas.clase(n),
             Tipo::Bufer(_) => Some(Clase::Entero),
             _ => None,
         }

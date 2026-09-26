@@ -769,6 +769,33 @@ funcion desde_entero(n es entero64) devuelve flotante64
   implicita, que es la regla del censo `v05`.
 - `entero64(f)` **trunca hacia el cero**: 2,9 da 2 y -2,9 da -2.
 
+### ★★ `flotante32` -- el binario de 32, de verdad (2026-09-26)
+
+IEEE-754 tiene dos binarios y **redondean distinto**: `0.1 + 0.2` en 32 bits es
+`0x3E99999A`, y en 64 otro numero. `flotante32` se aceptaba como tipo desde el
+principio y se operaba en 64 -- compilaba, corria y daba **otros bits**. Desde el
+26-09 es su propia aritmetica (`Clase::Flotante32`): suma, resta, producto,
+cociente y las seis comparaciones en el binario de 32, con el NaN como en 64.
+
+```inti
+funcion seno(r es flotante32) devuelve flotante32
+    cambiante r2 es flotante32 = r * r
+    devuelve r * (1.0 + r2 * (-0.16666667 + r2 * 0.008333334))
+```
+
+- **Un literal se escribe en el ancho de donde va**: en una operacion con un
+  `flotante32`, en una variable `flotante32` o en lo que devuelve una funcion
+  de 32. Se escribe desde su TEXTO, de una vez: pasar por el de 64 y estrecharlo
+  redondearia dos veces.
+- **Los dos anchos no se mezclan sin pedirlo** (`E0022`): `a + x` con `a` de 32
+  y `x` de 64 obliga a escoger uno, y esa eleccion cambia los bits. Se pide con
+  `flotante32(x)` o `flotante64(a)` -- de 32 a 64 es exacto; de 64 a 32
+  redondea al mas cercano.
+- `flotante32(0.1)` **no se calcula: se escribe**, desde el texto del literal.
+- Y el mismo dia, lo que prometia el punto de arriba y no hacia nada: `a * 2`
+  con `a` de coma flotante bajaba el `2` como ENTERO y daba `1.5e-323` en vez
+  de `3.0`. Ahora el literal entero pasa al binario de la operacion.
+
 ### Lo que NO lleva detras: ninguna comprobacion
 
 Y no es una excepcion a *"INTI no tiene comportamiento indefinido"*:

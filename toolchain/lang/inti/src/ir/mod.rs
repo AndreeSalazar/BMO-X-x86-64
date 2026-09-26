@@ -213,7 +213,7 @@ pub fn bajar_con(
 /// unica cosa que hay que ver **antes**, porque despues de la division no queda
 /// programa que mire nada.
 fn comprobacion_antes(op: Op, clase: Clase) -> Option<Comprobacion> {
-    if matches!(clase, Clase::Flotante) {
+    if clase.es_flotante() {
         return None;
     }
     match op {
@@ -308,7 +308,7 @@ fn comprobacion_despues(op: Op, clase: Clase) -> Option<Comprobacion> {
     // Atrapar aqui no agregaria ni una pizca de seguridad. Quitaria la
     // aritmetica: un calculo que desborda a infinito y luego vuelve al rango es
     // corriente, y con una trampa en medio no se puede escribir.
-    if matches!(clase, Clase::Flotante) {
+    if clase.es_flotante() {
         return None;
     }
     match op {

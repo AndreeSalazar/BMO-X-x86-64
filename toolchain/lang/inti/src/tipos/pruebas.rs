@@ -211,3 +211,22 @@ funcion pinta(pantalla es bufer de natural32, cuantos es entero64, color es ente
 ";
     assert!(codigos_de(f).is_empty());
 }
+
+/// ** Los dos anchos de coma flotante no se mezclan sin pedirlo (2026-09-26):
+/// el binario de 32 y el de 64 redondean distinto. Un LITERAL si: se escribe
+/// en el ancho de donde va.
+#[test]
+fn mezclar_flotante32_y_flotante64_se_denuncia_y_un_literal_no() {
+    let f = |cuerpo: &str| {
+        codigos_de(&format!(
+            "perfil llano\n\nfuncion f(a es flotante32, x es flotante64) devuelve flotante32\n{}",
+            cuerpo
+        ))
+    };
+    assert!(f("    devuelve a + x\n").contains(&"E0022"));
+    assert!(f("    cambiante b es flotante32 = x\n    devuelve b\n").contains(&"E0022"));
+    assert!(!f("    devuelve a * 0.5\n").contains(&"E0022"));
+    assert!(!f("    devuelve -0.5 + a\n").contains(&"E0022"));
+    assert!(!f("    cambiante b es flotante32 = 0.25\n    devuelve b + a\n").contains(&"E0022"));
+    assert!(!f("    devuelve a + flotante32(x)\n").contains(&"E0022"));
+}
