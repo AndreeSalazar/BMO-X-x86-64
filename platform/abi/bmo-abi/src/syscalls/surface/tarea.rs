@@ -893,6 +893,17 @@ pub const IOMMU_OP_GPU_VIDEO_FORMATO: u64 = 0x42;
 pub const IOMMU_OP_GPU_VIDEO: u64 = 0x43;
 /// El bit 63 de `IOMMU_OP_GPU_VIDEO`: cargar el programa, el QMD y las ordenes.
 pub const VIDEO_CARGAR: u64 = 1 << 63;
+/// D2: el formato de una tanda de imagenes de 32 bits `0x00RRGGBB` (DOOM:
+/// 320 x 200). `arg1` = ancho (0..15), alto (16..31) y la ficha de S3
+/// (32..63). `Ok` = escala | x0 << 8 | y0 << 32, como `IOMMU_OP_GPU_VIDEO_FORMATO`.
+pub const IOMMU_OP_GPU_IMAGEN_FORMATO: u64 = 0x46;
+/// D2: UNA imagen de un bloque KIND_MEMORIA del que llama, agrandada por la
+/// 3060 directamente en el framebuffer del GOP. `arg1` = la VA del bloque, y
+/// el bit 63 para cargar el programa. Prestada SOLO LECTURA durante la
+/// llamada. `Ok` = `imagen::empaquetar(..)` (de 256 muestras).
+pub const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
+/// El bit 63 de `IOMMU_OP_GPU_IMAGEN`: cargar el programa, el QMD y las ordenes.
+pub const IMAGEN_CARGAR: u64 = 1 << 63;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.
@@ -1105,6 +1116,10 @@ pub const IOMMU_NO_PASE: u32 = 86;
 /// J2: un programa del paquete de VERRANO que el juez del SASS rechaza (TOMA
 /// TU BODRIO): no llega a la 3060. La regla y la instruccion, en la cabina.
 pub const IOMMU_NO_BODRIO: u32 = 87;
+/// D2: la imagen no se puede, por lo mismo que el video (`IOMMU_NO_VIDEO`):
+/// sin el canal de GR, sin la pantalla en modo fisico, un formato que no cabe,
+/// un fotograma que no es un bloque del que llama, o uno ya en marcha.
+pub const IOMMU_NO_IMAGEN: u32 = 88;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

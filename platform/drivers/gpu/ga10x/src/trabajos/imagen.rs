@@ -203,6 +203,29 @@ pub const fn muestra(f: &Formato, e: &Encaje, k: u32) -> (u32, u32) {
     ((i * (w - 1)) / 15, (j * (h - 1)) / 15)
 }
 
+/// Las 8 barras de color de 75 % (blanco, amarillo, cian, verde, magenta,
+/// rojo, azul, negro), en `0x00RRGGBB`.
+pub const BARRAS: [u32; 8] = [0x00BF_BFBF, 0x00BF_BF00, 0x0000_BFBF, 0x0000_BF00, 0x00BF_00BF, 0x00BF_0000, 0x0000_00BF, 0x0000_0000];
+
+/// **La carta de ajuste del fotograma `k`**, sin fichero (`gpu imagen` a
+/// secas y `save mode`): las 8 barras corriendo 2 pixeles por fotograma y un
+/// cuadrado blanco de `alto/4` que cruza en diagonal, con el ALFA puesto (como
+/// lo deja DOOM), para que el programa demuestre que lo quita. Escribe
+/// `ancho x alto` pixeles en `out`.
+pub fn carta(f: &Formato, k: u32, out: &mut [u32]) {
+    let (w, h) = (f.ancho as usize, f.alto as usize);
+    let lado = h / 4;
+    let cx = (k as usize * 3) % (w - lado).max(1);
+    let cy = (k as usize * 2) % (h - lado).max(1);
+    for y in 0..h {
+        for x in 0..w {
+            let dentro = x >= cx && x < cx + lado && y >= cy && y < cy + lado;
+            let c = if dentro { 0x00FF_FFFF } else { BARRAS[((x + 2 * k as usize) * 8 / w) % 8] };
+            out[y * w + x] = 0xFF00_0000 | c;
+        }
+    }
+}
+
 /// **El programa**, como lo leyo `nvdisasm` (el PTX de origen, arriba).
 pub const CODIGO: [(u64, u64); 46] = [
     (0x0000000000007918, 0x000fe40000000000), // NOP (era IMAD.MOV.U32 R1, RZ, RZ, c[0x0][0x28])
@@ -384,6 +407,20 @@ mod pruebas {
         assert_eq!(nops.len(), 2, "las dos lecturas de CUDA, en NOP, y ningun otro");
         assert!(nops.iter().all(|&k| k < 8 && CODIGO[k].1 & ((1 << 41) - 1) == 0), "al principio, con solo sus bits de planificacion");
         assert_eq!(CODIGO[CODIGO.len() - 2].0 & 0xFFF, 0x94D, "acaba en EXIT");
+    }
+
+    #[test]
+    fn la_carta_corre_y_lleva_el_alfa_que_el_programa_quita() {
+        let f = Formato::DOOM;
+        let mut a = std::vec![0u32; (f.ancho * f.alto) as usize];
+        let mut b = a.clone();
+        carta(&f, 0, &mut a);
+        carta(&f, 1, &mut b);
+        assert_ne!(a, b, "se mueve");
+        assert!(a.iter().all(|&v| v >> 24 == 0xFF), "con alfa, como DOOM");
+        let e = Encaje { escala: 5, x0: 0, y0: 0 };
+        assert_eq!(pixel(&a, &f, &e, false, 0, 0), 0x00FF_FFFF, "el cuadrado, en la esquina al empezar");
+        assert_eq!(pixel(&a, &f, &e, false, 319 * 5, 199 * 5), BARRAS[7], "la ultima barra, negra");
     }
 
     #[test]

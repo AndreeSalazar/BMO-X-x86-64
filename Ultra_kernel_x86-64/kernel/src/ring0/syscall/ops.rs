@@ -435,6 +435,11 @@ pub(crate) const IOMMU_OP_GPU_PASE: u64 = 0x44;
 /// X5: el cubo del estudio D3D por la 3060 (DIBUJAR, o LEER con el bit 63).
 /// Ver `dev/gpu_trabajo/cubo.rs`.
 pub(crate) const IOMMU_OP_GPU_CUBO: u64 = 0x45;
+/// D2: el formato de una tanda de imagenes de 32 bits (DOOM). Ver
+/// `dev/gpu_trabajo/imagen.rs`.
+pub(crate) const IOMMU_OP_GPU_IMAGEN_FORMATO: u64 = 0x46;
+/// D2: una imagen `0x00RRGGBB` de un bloque del escritorio, a la pantalla por la 3060.
+pub(crate) const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -974,6 +979,8 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_VIDEO => "GPU_VIDEO",
         IOMMU_OP_GPU_PASE => "GPU_PASE",
         IOMMU_OP_GPU_CUBO => "GPU_CUBO",
+        IOMMU_OP_GPU_IMAGEN_FORMATO => "GPU_IMAGEN_FORMATO",
+        IOMMU_OP_GPU_IMAGEN => "GPU_IMAGEN",
         _ => "?",
     }
 }

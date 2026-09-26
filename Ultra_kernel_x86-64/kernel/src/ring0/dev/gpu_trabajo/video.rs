@@ -93,7 +93,9 @@ pub fn video(arg: u64) -> Result<u64, u32> {
     r
 }
 
-fn asegurar_mapas(r: &mut Bar0, p: &pa::Pantalla) -> Result<bool, u32> {
+/// La pantalla y el mapa del ORIGEN, una vez por arranque. Lo usa tambien
+/// `imagen` (D2), que presta su fotograma en el MISMO sitio: el mapa es uno.
+pub(super) fn asegurar_mapas(r: &mut Bar0, p: &pa::Pantalla) -> Result<bool, u32> {
     let pantalla = asegurar_mapa(r, p).map_err(|_| IOMMU_NO_VIDEO)?;
     if MAPEADO.load(Ordering::Acquire) {
         return Ok(pantalla);

@@ -572,11 +572,15 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
       fabrico EN LA NUBE, con el `ptxas` 12.9 y el `nvdisasm` 13.4 de PyPI; la
       cadena se valido rehaciendo el primer sombreador desde su PTX (8 de 10
       instrucciones iguales, y las 2 restantes son las dos NOP de siempre).
-- [ ] **D2b -- `gpu imagen` en el metal.** El trabajo del kernel y la orden
-      del escritorio, calcados de `gpu video` (el mismo prestamo del origen):
-      `gpu imagen <fichero> 320x200`, con un fotograma crudo de 32 bits (una
-      captura de DOOM de FRAPS-X). **Como se sabe:** la imagen x5 centrada en
-      la pantalla y la fila dice 256 de 256 muestras.
+- [ ] **D2b -- `gpu imagen` en el metal.** **Escrito el 26-09, falta el
+      metal:** el trabajo del kernel (`gpu_trabajo/imagen.rs`, ordenes 0x46
+      y 0x47, motivo 88) calcado de `gpu video` y con SU mapa del origen; la
+      orden `gpu imagen` (sin fichero: la carta de 320x200 hecha en memoria,
+      90 fotogramas a 35 fps, para probar sin preparar nada) y `gpu imagen
+      <fichero> <ancho>x<alto> [fps]` con fotogramas crudos de 32 bits; la
+      fila `imagen`. `la-3060`: 71 ordenes y 88 motivos iguales en los tres
+      sitios. Como probarlo: `docs/metal/METAL_2026-09-25.md`, seccion 25.
+      **Como se sabe:** la carta x5 centrada y la fila dice 90 de 90.
 - [ ] **D2c -- DOOM EN VIVO por la 3060.** El port deja de agrandar: entrega
       sus 320 x 200 al escritorio (una superficie x1, o una lamina como la de
       INTI) y el escritorio le pide a la 3060 cada fotograma. **Como se

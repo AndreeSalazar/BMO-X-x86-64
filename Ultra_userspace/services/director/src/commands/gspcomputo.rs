@@ -34,6 +34,9 @@ pub(crate) use pantalla::{dibujar_pantalla, fotograma, medir_pantalla, orden_pan
 /// M6 V0: el video NV12, pasado a color y agrandado por la 3060.
 mod video;
 pub(crate) use video::{dibujar_video, orden_video, video_hecho};
+/// D2b: una imagen de 32 bits (DOOM), agrandada por la 3060.
+mod imagen;
+pub(crate) use imagen::orden_imagen;
 pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, escalera, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};
@@ -86,6 +89,8 @@ struct Computo {
     pantalla: Option<Result<pantalla::Tanda, u32>>,
     /// M6 V0: la ultima reproduccion de `gpu video`.
     video: Option<Result<video::Repro, u32>>,
+    /// D2b: la ultima tanda de `gpu imagen`.
+    imagen: Option<Result<imagen::Tanda, u32>>,
 }
 
 static mut ESTADO: Option<Computo> = None;
@@ -134,6 +139,11 @@ pub(crate) const NO_PANTALLA_MAL: u32 = 0x149;
 pub(crate) const NO_VIDEO_MAL: u32 = 0x14C;
 /// No hubo un bloque de memoria para un fotograma del video.
 pub(crate) const NO_VIDEO_SIN_MEMORIA: u32 = 0x14D;
+/// Un fotograma de `gpu imagen` no salio igual que la CPU, o el fichero se
+/// acabo a medias (la fila `imagen`).
+pub(crate) const NO_IMAGEN_MAL: u32 = 0x150;
+/// No hubo un bloque de memoria para un fotograma de `gpu imagen`.
+pub(crate) const NO_IMAGEN_SIN_MEMORIA: u32 = 0x151;
 
 fn pedido_bien(p: &Option<Result<Pedido, u32>>) -> bool {
     matches!(p, Some(Ok(p)) if p.r.estado == 0 && p.resultado == 0)
@@ -1146,4 +1156,5 @@ pub(crate) fn fila(s: &mut Output) {
     giro::fila(s, &c);
     pantalla::fila(s, &c);
     video::fila(s, &c);
+    imagen::fila(s, &c);
 }
