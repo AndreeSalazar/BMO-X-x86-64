@@ -1478,6 +1478,11 @@ crudo a `datos/gspnocat.bin` y SOLO DESPUES se devuelve su hueco; el primero que
 pide algo se queda sin tocar. Vaciada, espera hasta 3 s a que el GSP diga mas
 (10 s en total) y sigue.
 
+> **El 0x15, en limpio:** [`EL_0x15.md`](../../platform/drivers/gpu/ga10x/EL_0x15.md)
+> (lo sabido, lo descartado y el experimento) y
+> [`EL_0x15_ARRANQUES.csv`](../../platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv)
+> (un arranque por fila). Lo de abajo es la historia en el orden en que paso.
+
 **L0c3b en el metal (24-09, 07:48): el booter devolvio 0x15.** MAILBOX0 del
 SEC2 = 0x15 donde tres veces antes dio 0, tras REINICIAR sin cortar la
 corriente con el GSP-RM de antes corriendo (nunca se apago con `booter_unload`).

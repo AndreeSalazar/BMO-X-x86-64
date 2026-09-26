@@ -1,0 +1,15 @@
+fecha,hora,booter,sec2_mailbox0,al_llegar,fuego_frontera_antes,build_autopsia,gsp_mailbox0_al_pararse,cpuctl_gsp_al_pararse,bsi14_antes,bsi14_al_pararse,wpr2_al_pararse,wpr_meta_palabras,iommu_eventos_durante,pcie_capacidad,nota
+2026-09-24,07:48,0x15,0x00000015,caliente,si,no,,,,,,,,,reinicio con el GSP-RM vivo (D1); arreglado con L0c5 y cortando la corriente
+2026-09-24,08:14,bien,0x00000000,frio,si,no,,,,,,,,,tras apagar del todo
+2026-09-24,13:52,0x15,0x00000015,frio (FRTS corrio),si,no,,,,,,,,,
+2026-09-24,19:12,0x15,0x00000015,frio (FRTS corrio),si,no,,,,,,,,,
+2026-09-25,13:35,bien,0x00000000,frio,si,no,,,,,,,,Gen3 x16,
+2026-09-25,19:38,0x15,0x00000015,frio,si,no,,,,,0x02F40000/0x02FFEE00,,,Gen4 x16,primer 0x15 con la tarjeta fria segun la WPR2
+2026-09-25,19:59,0x15,0x00000015,frio,si,parcial,0xFFFFFFFF (centinela),,0x00000000,0x00000000,0x02F40000/0x02FFEE00,,,Gen4 x16,primera autopsia; cae el bit 26 de BSI_14
+2026-09-25,20:19,bien,0x00000000,frio,si,parcial,,,,,,,,Gen3 x16,
+2026-09-25,20:39,bien,0x00000000,frio,si,parcial,,,,,,,,Gen3 x16,
+2026-09-25,20:51,0x15,0x00000015,frio,si,si,0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,,Gen4 x16,primera autopsia completa
+2026-09-25,20:59,0x15,0x00000015,frio,si,si,0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,,Gen4 x16,metiche: aborto-recibido NUEVO en la 3060 (era frontera)
+2026-09-25,21:08,0x15,0x00000015,frio,si,si,0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,,Gen4 x16,el fallo de la IOMMU en 0x20000000 = frontera
+2026-09-25,21:16,0x15,0x00000015,frio,si,si (build viejo),0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,,Gen4 x16,receta sin armar: no vale para el experimento
+2026-09-25,~21:30,bien,0x00000000,frio,NO (save mode -fuego -frontera),si (bus e IOMMU),0x00000000,0xBADF5720,0x00000000,0x11000000,0x02F40000/0x02FFEE00,0,0 -> 0,,primer arranque sin frontera; GSP-RM arriba (LOGRM 2428417)

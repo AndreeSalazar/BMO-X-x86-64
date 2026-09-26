@@ -4558,3 +4558,27 @@ ecos con su tiempo y `red dns <nombre>` le pregunta al DNS del router.
 - **El DNS no se cree los punteros.** Solo hacia atras, nunca al mismo sitio y
   como mucho 16 saltos; un A de un nombre que no se pregunto se ignora, y un
   CNAME solo se sigue dentro de la misma respuesta.
+
+## Ep. 85 -- El 0x15: nueve NO del booter, y el sospechoso era nuestro
+
+**2026-09-24 y 25.** El booter de NVIDIA (en el SEC2 de la 3060) se para con
+`0x15` y el GSP no arranca. A veces. NVIDIA no dice que es 0x15.
+
+**Sintoma**: nueve veces, seis seguidas EN FRIO el 25-09 -- cortar la
+corriente, que arreglo el primero, ya no arreglaba nada.
+**Lo que se hizo**: no tocar el camino del booter y MEDIR, en los buenos y en
+los malos: la autopsia (buzones y CPUCTL crudos del GSP y del SEC2, BSI, la
+WPR2, la WPR meta, y el bus de la 3060 y la IOMMU antes y despues), el metiche
+(los bits de error que cada aparato PCI apunto solo) y la receta (con que se
+hizo cada arranque). Cayeron ocho hipotesis, cada una por un dato.
+**Culpable (sospechoso, 1 de 3)**: `fuego` y `frontera`, las pruebas de la
+IOMMU, usan el DMA del falcon del GSP -- y `frontera` deja que la IOMMU aborte
+uno -- justo antes del booter. Sin ellas (`save mode -fuego -frontera`), el
+primer arranque en frio levanto el GSP. Lo que separa un malo de un bueno: en
+el malo los buzones del GSP dan `0xBADF1002` (no contesta); en el bueno, 0.
+**Moraleja**: el fallo intermitente no se arregla, se mide hasta que una sola
+variable lo separa. Y una prueba que toca el hardware es parte del
+experimento: tambien puede ser la causa. El caso entero, con un resumen en
+ingles para nova-core y nouveau:
+`platform/drivers/gpu/ga10x/EL_0x15.md`, y los arranques en
+`EL_0x15_ARRANQUES.csv`.
