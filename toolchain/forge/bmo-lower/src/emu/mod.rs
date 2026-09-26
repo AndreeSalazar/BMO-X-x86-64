@@ -259,6 +259,17 @@ pub struct Machine {
     /// solo se emite consigo mismo (para hacer 0.0), poner la mitad baja a
     /// cero es exactamente correcto.
     pub xmm: [u64; 16],
+    /// **La mitad ALTA de cada `xmm`** (2026-09-26): los carriles 2 y 3 de
+    /// cuatro `flotante32`.
+    ///
+    /// ** Llego con las de SSE empaquetado de INTI (`suma_de_cuatro32`...):
+    /// un vertice son cuatro `f32`, y `mulps` opera los CUATRO. Aparte de
+    /// `xmm` y no ensanchandolo, por lo mismo que `ymm`: todo lo escalar sigue
+    /// leyendo y escribiendo `xmm` como siempre. Lo que el silicio hace con la
+    /// mitad alta si se modela: `movss`/`movsd` desde memoria y `movd`/`movq`
+    /// hacia un `xmm` la ponen a CERO; la aritmetica escalar la deja como
+    /// estaba.
+    pub xmm_alto: [u64; 16],
     /// **Los `ymm` enteros: cuatro `flotante64` cada uno** (2026-08-23).
     ///
     /// ** Aparte de `xmm` y no ensanchandolo, a proposito. `xmm` guarda 64 bits
@@ -477,6 +488,7 @@ impl Machine {
         let mut m = Self {
             regs: [0; 16],
             xmm: [0; 16],
+            xmm_alto: [0; 16],
             ymm: [[0; 4]; 16],
             code,
             rip: 0,
@@ -1416,7 +1428,7 @@ impl Machine {
                     0x05 => self.do_syscall(),
 
                     // == SSE ESCALAR: doble Y simple, en `sse.rs` (2026-09-23) ==
-                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x57..=0x5F | 0x6E | 0x7E => {
+                    0x10 | 0x11 | 0x2A | 0x2C | 0x2E | 0x2F | 0x51 | 0x57..=0x5F | 0x6E | 0x7E | 0xC6 => {
                         self.sse(second, sse::Prefijos { f2, f3, op16, wide, rex_r, rex_x, rex_b })
                     }
                     // movsx reg, r/m8 -- carga un char CON signo

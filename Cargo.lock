@@ -301,6 +301,7 @@ name = "bmo-gpu-ga10x"
 version = "0.1.0"
 dependencies = [
  "bmo-bsf",
+ "bmo-verrano",
 ]
 
 [[package]]
@@ -360,6 +361,7 @@ dependencies = [
  "bmo-mods",
  "bmo-sem-asm",
  "bmo-verify",
+ "bmo-verrano",
  "toml",
 ]
 

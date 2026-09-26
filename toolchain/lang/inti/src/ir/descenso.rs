@@ -49,15 +49,6 @@ pub(super) struct Descenso<'t> {
     /// mismo en toda maquina. Es la misma decision que ya estaba tomada para las
     /// constantes del ABI unas lineas mas abajo.
     pub(super) congeladas: &'t std::collections::HashMap<String, Const>,
-    /// El literal de cada constante numerica del modulo, para escribirla en
-    /// el binario de 32 desde su texto (ver `bajar_con`).
-    pub(super) literales: &'t std::collections::HashMap<String, Expr>,
-    /// La aritmetica de los parametros de cada funcion del modulo.
-    pub(super) firmas: &'t std::collections::HashMap<String, Vec<Option<Clase>>>,
-    /// ** La aritmetica IMPUESTA mientras se baja una expresion hecha solo de
-    /// literales en un sitio que ya tiene la suya: `-1.0 / 6.0` en una cuenta
-    /// de 32 es una division DE 32, como en Rust (`expresion::operando`).
-    pub(super) forzada: Option<Clase>,
     /// Las tablas congeladas, por nombre -> indice en `ModuloIr::congelados`.
     pub(super) tablas: &'t std::collections::HashMap<String, u32>,
     /// Donde salta un `corta` y donde un `continua`, de fuera a dentro.
@@ -106,6 +97,11 @@ pub(super) struct Descenso<'t> {
     /// (2026-09-26): `devuelve 0.5` en una que devuelve `flotante32` tiene que
     /// devolver el `0.5` DE 32 (`expresion::literal_en`).
     pub(super) retorno: Option<Clase>,
+    /// Las firmas de las funciones del modulo: nombre -> (parametro, su
+    /// aritmetica). Para bajar cada argumento en la de SU parametro.
+    pub(super) firmas: &'t std::collections::HashMap<String, Vec<(String, Option<Clase>)>>,
+    /// Las constantes del modulo que son un literal, con su texto.
+    pub(super) literales: &'t std::collections::HashMap<String, Expr>,
 }
 
 impl<'t> Descenso<'t> {
@@ -114,13 +110,13 @@ impl<'t> Descenso<'t> {
         congelados: &'t mut Vec<crate::ir::forma::Congelado>,
         textos_congelados: &'t mut Vec<u32>,
         congeladas: &'t std::collections::HashMap<String, Const>,
-        literales: &'t std::collections::HashMap<String, Expr>,
-        firmas: &'t std::collections::HashMap<String, Vec<Option<Clase>>>,
         tablas: &'t std::collections::HashMap<String, u32>,
         tabla: &'t crate::tablas::Modulos,
         plano: &'t crate::disposicion::Plano,
         perfil: crate::arbol::Perfil,
         metal: &'t [String],
+        firmas: &'t std::collections::HashMap<String, Vec<(String, Option<Clase>)>>,
+        literales: &'t std::collections::HashMap<String, Expr>,
     ) -> Self {
         Self {
             instrucciones: Vec::new(),
@@ -131,9 +127,6 @@ impl<'t> Descenso<'t> {
             congelados,
             textos_congelados,
             congeladas,
-            literales,
-            firmas,
-            forzada: None,
             tablas,
             bucles: Vec::new(),
             tabla,
@@ -144,6 +137,8 @@ impl<'t> Descenso<'t> {
             sin_ancho: 0,
             medidas_locales: Vec::new(),
             retorno: None,
+            firmas,
+            literales,
         }
     }
 
@@ -529,10 +524,16 @@ impl<'t> Descenso<'t> {
             }
             Sent::Si { ramas, sino, .. } => self.si(ramas, sino.as_ref()),
             Sent::Repite { forma, cuerpo, .. } => self.repite(forma, cuerpo),
+            // *** `para cada i en 0 hasta 10` (2026-09-26): un contador. Hasta
+            // hoy esta rama no emitia NADA -- ni la forma con rango, que no
+            // necesita ningun runtime --, asi que el bucle compilaba, corria y
+            // SE SALTABA ENTERO. Lo destapo la tanda del cubo en INTI: cero
+            // caras donde el juez dice cuatro. Ver `para_cada_rango`.
+            Sent::ParaCada { nombre, desde, hasta: Some(hasta), cuerpo, .. } => self.para_cada_rango(nombre, desde, hasta, cuerpo),
             Sent::ParaCada { .. } => {
-                // Recorrer pide saber como esta hecha una lista, y eso es el
-                // runtime. Cuando exista, esto se convierte en un bucle con
-                // llamadas a `siguiente`.
+                // `para cada x en lista`: recorrer pide saber como esta hecha
+                // una lista, y eso es el runtime. Cuando exista, esto se
+                // convierte en un bucle con llamadas a `siguiente`.
             }
             Sent::Devuelve { valor, .. } => {
                 let clase = self.retorno;
@@ -586,13 +587,42 @@ impl<'t> Descenso<'t> {
     }
 
     fn repite(&mut self, forma: &Repeticion, cuerpo: &Bloque) {
+        // *** `repite N veces` (2026-09-26): la rama de `Veces` no emitia el
+        // contador ("se hara con el emisor"), y el salto de vuelta del final
+        // SI se emitia. O sea que `repite 4 veces` era un bucle INFINITO --
+        // compilaba y no volvia. Ahora el contador es una local anonima de
+        // una palabra: se carga con N y se baja de uno en uno.
+        if let Repeticion::Veces(n) = forma {
+            let cuenta = self.local_anonima(8);
+            let v = self.operando(n, Clase::Entero);
+            self.pon(Instr::Guarda { destino: cuenta, valor: v });
+            let (vuelta, dentro, sigue, salida) = (self.etiqueta(), self.etiqueta(), self.etiqueta(), self.etiqueta());
+            self.pon(Instr::Etiqueta(vuelta));
+            let quedan = self.temporal();
+            self.pon(Instr::Binaria { destino: quedan, op: Op::Mayor, clase: Clase::Entero, sin_signo: false, izquierda: Valor::Local(cuenta), derecha: Valor::Const(Const::Entero(0)) });
+            self.pon(Instr::SaltaSi { cond: Valor::Temporal(quedan), cierto: dentro, falso: salida });
+            self.pon(Instr::Etiqueta(dentro));
+            // `continua` va a BAJAR el contador, no a la condicion: si no,
+            // una vuelta con `continua` no contaria.
+            self.bucles.push((salida, sigue));
+            self.bloque(cuerpo);
+            self.bucles.pop();
+            self.pon(Instr::Etiqueta(sigue));
+            let menos = self.temporal();
+            self.pon(Instr::Binaria { destino: menos, op: Op::Resta, clase: Clase::Entero, sin_signo: false, izquierda: Valor::Local(cuenta), derecha: Valor::Const(Const::Entero(1)) });
+            self.pon(Instr::Guarda { destino: cuenta, valor: Valor::Temporal(menos) });
+            self.pon(Instr::Salta(vuelta));
+            self.pon(Instr::Etiqueta(salida));
+            return;
+        }
+
         let vuelta = self.etiqueta();
         let dentro = self.etiqueta();
         let salida = self.etiqueta();
 
         self.pon(Instr::Etiqueta(vuelta));
         match forma {
-            Repeticion::Siempre => {}
+            Repeticion::Siempre | Repeticion::Veces(_) => {}
             Repeticion::Mientras(cond) => {
                 let v = self.expresion(cond);
                 self.pon(Instr::SaltaSi {
@@ -602,16 +632,43 @@ impl<'t> Descenso<'t> {
                 });
                 self.pon(Instr::Etiqueta(dentro));
             }
-            Repeticion::Veces(_) => {
-                // Un contador pide una local anonima y un tipo entero. Se hara
-                // con el emisor, que es quien sabe los anchos.
-            }
         }
 
         self.bucles.push((salida, vuelta));
         self.bloque(cuerpo);
         self.bucles.pop();
 
+        self.pon(Instr::Salta(vuelta));
+        self.pon(Instr::Etiqueta(salida));
+    }
+
+    /// **`para cada i en desde hasta hasta`**: `i` empieza en `desde`, la
+    /// vuelta corre mientras `i < hasta` (el final NO entra, sec. 8), y
+    /// `continua` va a SUBIR `i`. `hasta` se calcula UNA vez, antes de la
+    /// primera vuelta: el cuerpo no puede mover la meta.
+    fn para_cada_rango(&mut self, nombre: &str, desde: &Expr, hasta: &Expr, cuerpo: &Bloque) {
+        let sin_signo = self.plano.sin_signo(desde, &self.tipos) || self.plano.sin_signo(hasta, &self.tipos);
+        let i = self.local(nombre);
+        let v = self.operando(desde, Clase::Entero);
+        self.pon(Instr::Guarda { destino: i, valor: v });
+        let meta = self.local_anonima(8);
+        let h = self.operando(hasta, Clase::Entero);
+        self.pon(Instr::Guarda { destino: meta, valor: h });
+        let (vuelta, dentro, sigue, salida) = (self.etiqueta(), self.etiqueta(), self.etiqueta(), self.etiqueta());
+        self.pon(Instr::Etiqueta(vuelta));
+        let cabe = self.temporal();
+        self.pon(Instr::Binaria { destino: cabe, op: Op::Menor, clase: Clase::Entero, sin_signo, izquierda: Valor::Local(i), derecha: Valor::Local(meta) });
+        self.pon(Instr::SaltaSi { cond: Valor::Temporal(cabe), cierto: dentro, falso: salida });
+        self.pon(Instr::Etiqueta(dentro));
+        self.bucles.push((salida, sigue));
+        self.bloque(cuerpo);
+        self.bucles.pop();
+        self.pon(Instr::Etiqueta(sigue));
+        // Sin comprobar el desborde: `i < hasta` acaba de ser cierto, asi que
+        // `i + 1 <= hasta` cabe siempre.
+        let mas = self.temporal();
+        self.pon(Instr::Binaria { destino: mas, op: Op::Suma, clase: Clase::Entero, sin_signo, izquierda: Valor::Local(i), derecha: Valor::Const(Const::Entero(1)) });
+        self.pon(Instr::Guarda { destino: i, valor: Valor::Temporal(mas) });
         self.pon(Instr::Salta(vuelta));
         self.pon(Instr::Etiqueta(salida));
     }

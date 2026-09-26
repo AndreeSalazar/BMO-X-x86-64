@@ -61,7 +61,9 @@ bmo-lower = { path = "../../../forge/bmo-lower", features = ["emulator"] }
 # Para `pruebas/convencion.rs`: leer `inti.toml` y compararla con el contrato.
 # La misma version que ya usa el frontend: no entra nada nuevo.
 toml = "0.8"
-# ** EL JUEZ DEL CUBO DE VERRANO (2026-09-26): `tests/cubo.rs` compara la
-# tanda que calcula `ejemplos/cubo.inti` con la suya, bit a bit. Es puro -- ni
-# un `unsafe`, ni un aparato --, asi que no mete nada del sistema en el banco.
+# La prueba de oro de las de cuatro `flotante32` (`pruebas/simd.rs`): el cubo
+# de VERRANO transformado por INTI, bit a bit contra su juez. `no_std`, puro.
 bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
+# Y la API de dibujo: la tanda de INTI escribe `bmo_verrano::Vertex` tal cual,
+# y la prueba la compara con el `Frame` que arma VERRANO. Neutra: no nombra GPU.
+bmo-verrano = { path = "../../../../platform/shared/verrano" }

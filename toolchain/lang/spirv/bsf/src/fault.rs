@@ -58,6 +58,9 @@ pub enum What {
     TooSmall { set: u32, binding: u32, need: u32 },
     /// Al despachar: de solo lectura uno en el que el sombreador escribe.
     ReadOnly { set: u32, binding: u32 },
+    /// Al despachar: lo que pasa de los bytes fijos no es un numero ENTERO de
+    /// elementos (`stride`). El sombreador leeria medio elemento del final.
+    Stride { set: u32, binding: u32, stride: u32 },
 }
 
 /// Un NO, con donde.
@@ -103,6 +106,7 @@ impl fmt::Display for What {
             What::Extra { set, binding } => write!(f, "sobra el buffer set {} binding {}", set, binding),
             What::TooSmall { set, binding, need } => write!(f, "buffer set {} binding {} mide menos de {}", set, binding, need),
             What::ReadOnly { set, binding } => write!(f, "buffer set {} binding {} es de solo lectura y el sombreador escribe", set, binding),
+            What::Stride { set, binding, stride } => write!(f, "buffer set {} binding {} no es un numero entero de elementos de {} bytes", set, binding, stride),
         }
     }
 }

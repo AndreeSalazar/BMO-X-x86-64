@@ -257,6 +257,13 @@ repite                              # infinito a proposito
   bug clasico de borrar mientras se itera, y aqui no compila.
 - ⚠ `0 hasta 10` **excluye el 10**. Se elige el mismo convenio que el indice
   base 0 (sec. 9) para no tener dos reglas distintas en la cabeza.
+- ★ **Hasta el 2026-09-26 dos de las tres formas no se bajaban**, y las dos en
+  silencio: `para cada i en 0 hasta n` no emitia NADA (el bucle se saltaba
+  entero) y `repite n veces` no emitia su contador (el bucle no acababa). Las
+  destapo la tanda del cubo de VERRANO escrita en INTI. Ahora las dos cuentan
+  (`hasta` se calcula una vez; `continua` sube o baja el contador) y tienen sus
+  pruebas en el emisor. **`para cada x en lista` sigue sin bajarse**, pero ya
+  no calla: es `E0135` hasta que exista el runtime de listas.
 
 ---
 
@@ -795,20 +802,49 @@ funcion seno(r es flotante32) devuelve flotante32
 - Y el mismo dia, lo que prometia el punto de arriba y no hacia nada: `a * 2`
   con `a` de coma flotante bajaba el `2` como ENTERO y daba `1.5e-323` en vez
   de `3.0`. Ahora el literal entero pasa al binario de la operacion.
-- **Una expresion hecha SOLO de literales** (`2.0 * 3.14159265`) o una
-  **constante de modulo que es un literal** (`constante dos_pi = 6.2831855`) se
-  escribe tambien en el ancho de donde va, desde su texto. Por eso
-  `dos_pi / 360.0` junto a un `flotante32` no pide conversion.
-- **Los argumentos de una llamada** se estrechan con la firma de la funcion
-  llamada, y **lo que devuelve una funcion** tiene la clase de su tipo: `f() * g()`
-  con dos funciones `flotante32` multiplica en 32, no como enteros.
-- `flotante32_de(b)` es el `flotante32` que forman esos cuatro bytes, y
-  `bits_de(x)` con `x` de 32 da sus cuatro bytes. Como con 64: **cero bytes
-  emitidos**, el valor ya vive en el registro general.
-- La prueba de todo junto es `ejemplos/cubo.inti`: el cubo de VERRANO (matrices,
-  vertices, la tanda de 516 bytes por fotograma) calculado en INTI y comparado
-  **byte a byte** con `bmo_cubo::tanda` en los 360 fotogramas
-  (`emisor-x86_64/tests/cubo.rs`).
+
+### ★★ Cuatro `flotante32` de golpe: un vertice en un registro (2026-09-26)
+
+SSE (128 bits, la base de todo x86-64: no pide AVX), en `crudo` porque
+reciben DIRECCIONES de 16 bytes:
+
+```
+reparte_de_cuatro32(destino, fuente)      destino[0..4] = fuente[0]
+suma_de_cuatro32(destino, a, b)           destino = a + b      (cuatro carriles)
+resta_de_cuatro32(destino, a, b)          destino = a - b
+por_de_cuatro32(destino, a, b)            destino = a * b
+acumula_de_cuatro32(destino, a, b)        destino = destino + a * b
+```
+
+- **`acumula` NO es `funde`**: dos redondeos, como `+` y `*` sueltos. Con
+  FMA, 270 de los 360 angulos del cubo de VERRANO darian otra matriz y el
+  cubo dejaria de ser IGUAL a D3D12 (`pruebas/simd.rs`, medido).
+- Una matriz por columnas por un vertice = un `reparte` + `por` y tres
+  `reparte` + `acumula`: `((c0*x + c1*y) + c2*z) + c3*w`, el orden del juez.
+  **La prueba de oro**: los 24 vertices del cubo en los 360 angulos, bit a
+  bit contra `bmo_cubo::mat::transformar`.
+- Y el mismo dia el banco dejo de mentir sobre `funde_de_cuatro`: el emulador
+  hacia `acc + a*b` con DOS redondeos. Ahora redondea una vez, como el
+  silicio (`(1+2^-30)(1-2^-30) - 1` da `-2^-60`, no `0`).
+
+### ★★ Y tres anchos que se perdian por el camino (2026-09-26)
+
+La app del cubo de VERRANO (`ejemplos/cubo.inti`: seno, coseno, matrices,
+todo en `flotante32`) destapo TRES sitios donde el 32 se volvia 64 sin
+avisar, y los tres daban otro numero:
+
+- **un literal pasado a un parametro `flotante32`**: `pon32(d, 1.0)` escribia
+  la mitad baja del 1.0 de 64, o sea CERO. Ahora el argumento va en la
+  aritmetica de SU parametro (el descenso conoce las firmas del modulo);
+- **una cuenta de literales**: `x es flotante32 = 1.0 / 3.0` se hacia en 64 y
+  se guardaba su mitad baja (`0x55555555`). Ahora va en la del destino;
+- **una constante de nivel superior**: `PI = 3.1415927` llegaba en 64 a un
+  `flotante32`. Ahora se escribe, desde su texto, en el ancho de donde va.
+
+Con prueba los tres (`pruebas/flotante.rs`). Y lo que **sigue** abierto,
+dicho: el compilador lleva UN tipo por nombre y funcion. Dos variables con
+el mismo nombre en dos bloques de la misma funcion, una `flotante32` y otra
+entera, comparten ese tipo -- `cubo.inti` lo esquiva con otro nombre.
 
 ### Lo que NO lleva detras: ninguna comprobacion
 

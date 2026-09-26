@@ -371,6 +371,14 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       kernel), 18 de la 3060 en paralelo, y ~20 que no se ven. Un
       cronometro por fases en el banco: armar el paquete, `Frame::cover`,
       la llamada, el tablero. **Como se sabe:** las fases suman la pared.
+      **Escrito (26-09, tarde), falta el metal:** al acabar el banco, dos
+      lineas `E2`: la pared del bucle = `draw` + tablero + resto; y dentro de
+      `draw` (en la puerta `sm86.rs`): cuentas (vertices a bits y
+      `Frame::cover`, la coma flotante por software), paquete (los ~700 B de
+      programas + vertices), puerta (la llamada entera) y, dentro de ella,
+      lo que el kernel dice que tardo en preparar. En decimas de us, y a
+      `datos` (`gpu verrano e2 ...`). Lo que diga decide el orden de E3, E4
+      y E6 (si las cuentas pesan, INTI o SSE; si pesa el paquete, E3).
 - [ ] **E3 -- el paquete SIN programas.** Con el anillo armado, cada
       fotograma lleva de nuevo los ~700 B del BSF y el kernel los huele
       (FNV) para saber que son los mismos. Un paquete "solo vertices" que
@@ -388,6 +396,80 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       BEF2 de `d.bex`), o esa cuenta la hace INTI. Con M2 (la matriz en la
       3060) la mayor parte deja de ser de la CPU. **Como se sabe:** las
       tandas de los 360 angulos, de ~12 ms a menos de 1.
+      **Primer paso hecho (26-09, en el banco, no en el metal):** INTI
+      cuenta un vertice en UN registro. `reparte`/`suma`/`resta`/`por`/
+      `acumula_de_cuatro32` (SSE, sin AVX), y la prueba de oro: los 24
+      vertices del cubo en los 360 angulos, transformados por INTI, bit a
+      bit los de `bmo_cubo` (`inti/emisor-x86_64/src/pruebas/simd.rs`).
+      `acumula` redondea DOS veces a proposito: con FMA 270 de 360 matrices
+      salen distintas.
+      **Segundo paso hecho (26-09):** la TANDA ENTERA en INTI
+      (`toolchain/lang/inti/ejemplos/cubo.inti`): los vertices a recorte con
+      SSE, la division, el redondeo al par a subpixeles, que caras miran y su
+      luz -- bit a bit la de `bmo_cubo::tanda::de_fotograma` en los 360
+      fotogramas (cuantas caras, sus vertices y su color). ~23.900
+      instrucciones por fotograma en el emulador. Y escribirla destapo DOS
+      bucles de INTI que no existian (`para cada ... hasta` no emitia nada,
+      `repite N veces` no acababa): arreglados, con pruebas, y recorrer una
+      lista ya no calla (`E0135`).
+      **Tercer paso hecho (26-09): EL CONTRATO, sin nada que pelear.** INTI
+      escribe `Vertex` de VERRANO DIRECTO en la memoria que le den (el
+      `Frame`), bit a bit el que arma el escritorio en los 360 fotogramas.
+      Lo SABE por contrato: `verrano_vertice/posicion/color` en su tabla, con
+      espejo contra `bmo_verrano::VERTEX_*`. El BSF dice, desde su SPIR-V,
+      que su programa lee elementos de 32 bytes: la puerta de la 3060 lo
+      exige al abrir (`sm86.rs::contrato`) y juzga cada `Frame` con
+      `ModuleView::check`, que ahora pide elementos ENTEROS (`What::Stride`).
+      Y la copia al paquete es de bits: `tuberia::Vertice` y `Vertex` tienen
+      la misma forma, o no compila.
+      **Cuarto paso hecho (26-09, falta el metal): EL TRANSPORTE, sin pelea.**
+      ```text
+         la lamina   bmo_verrano::lamina: el bloque que la app OFRECE (magia
+                     BVER), dos ranuras, un SELLO por ranura y la secuencia al
+                     final. Sin cerrojo. La prueba de dos hilos cazo la
+                     primera version (solo la secuencia): medio fotograma
+                     leido. Con el sello, ~700.000 fotogramas enteros por
+                     corrida y ninguno roto
+         la puerta   la MISMA que toma las superficies reconoce BVER y se la da
+                     a VERRANO (antes la habria soltado por no ser BSUP); una
+                     a la vez; se suelta si su app muere
+         INTI        `usa verrano` (runtime/verrano.inti): verrano_lamina,
+                     verrano_empieza, verrano_acaba. Y `ejemplos/cubo.inti`,
+                     la app: cuenta TODO (malla, seno y coseno, matrices,
+                     tanda) y publica; bit a bit el juez en los 360
+         VERRANO     `gpu verrano banco inti`: lo ULTIMO publicado, sin
+                     esperar; un fotograma pisado se descarta y se repite el
+                     anterior; al final, el ultimo de INTI contra el juez
+      ```
+      Y el port destapo TRES anchos de INTI que se perdian (literal a un
+      parametro de 32, cuenta de literales, constante de nivel superior):
+      arreglados, con prueba. **Como se sabe:** en el metal, `run
+      inti/cubo.ibx`, el escritorio dice `[verrano] tid N ofrecio una
+      lamina`, y `gpu verrano banco inti` acaba con `IGUAL al juez`.
+      [!] Lo que queda dicho: con las cuatro ventanas llenas, la puerta no
+      toma NINGUNA oferta (tampoco una lamina) hasta que se cierre una.
+- [ ] **E7 -- 256 BITS: el PERFIL decide el ancho.** Zen 3 tiene AVX2 de 256
+      bits: DOS vertices por instruccion. Lo que falta, y en este orden:
+      ```text
+         a  el PERFIL lo confirma: `PERFIL/CPU.txt` tiene AVX2 y FMA en
+            `visto: ?`. La orden `ext` en el Ryzen, foto, y las dos filas
+         b  la puerta lo deja: el arranque pone XCR0 = 7 y `XSAVE` guarda
+            TODO lo que XCR0 enciende (RFBM = -1, 1024 B: los ymm caben),
+            pero `bmo-bex-gate` dice XCR0_PRESERVADO = 0x3 y RECHAZA a quien
+            declare AVX. Que las dos cosas digan lo mismo, con un guardian
+            que las ate (el area de XSAVE y lo que la puerta promete)
+         c  INTI pregunta al perfil antes de emitir (lo pidio el propietario
+            el 18-09): `_de_ocho32` (vmulps/vaddps ymm, SIN FMA, por lo de
+            E6) solo si AVX2 esta `visto: si`, y el `.ibx` declara AVX en su
+            `xcr0`. Si no, las de cuatro (SSE), que valen en cualquier x86-64
+      ```
+      [!] Y dicho antes de medir: con 24 vertices el ancho casi no se nota;
+      lo que lo nota es un juego (fisica, animacion, muchas mallas). Hoy las
+      de AVX de `flotante64` ya se emiten en `.ibx` que NO declaran AVX:
+      funciona porque el kernel guarda los ymm igual, pero la cabecera
+      miente (b lo arregla).
+      **Como se sabe:** `ext` pinta AVX2 si; un `.ibx` con `_de_ocho32` pasa
+      la puerta; la tanda con ocho da los mismos bits que con cuatro.
 
 ### M -- EL MOTOR
 

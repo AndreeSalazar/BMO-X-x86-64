@@ -39,7 +39,6 @@ se prueba**. `cpu.inti` corrio en metal sin tocar ninguno de los tres caminos.
 | [`sondas/pulso.inti`](sondas/pulso.inti) | ⭐ el perfil del kernel en tiempo real (MHz, mW, obreros) y **el NO del kernel con su motivo** | `inti/pulso.ibx` |
 | [`ejemplos/bico.inti`](ejemplos/bico.inti) | ⭐ BMP/QOI -> BICO, contra ficheros rotos | `inti/bico.ibx` |
 | [`ejemplos/png.inti`](ejemplos/png.inti) | escribe un PNG valido | -- |
-| [`ejemplos/cubo.inti`](ejemplos/cubo.inti) | ⭐ el cubo de VERRANO en `flotante32`: 360 tandas, **byte a byte** iguales a las de Rust | -- |
 
 ## Que es, en una frase
 

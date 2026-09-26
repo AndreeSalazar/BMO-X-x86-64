@@ -37,6 +37,13 @@ impl<'a> ModuleView<'a> {
             if g.bytes < b.base_bytes as u64 {
                 return Err(Fault::at(What::TooSmall { set, binding, need: b.base_bytes }, 0));
             }
+            // ** Y un numero ENTERO de elementos (26-09): el SPIR-V dice cuanto
+            // mide cada uno (`stride`), y quien da el buffer --INTI, la API--
+            // tiene que dar elementos enteros. Si no, el sombreador leeria el
+            // ultimo a medias: memoria que nadie escribio.
+            if b.stride > 0 && (g.bytes - b.base_bytes as u64) % b.stride as u64 != 0 {
+                return Err(Fault::at(What::Stride { set, binding, stride: b.stride }, 0));
+            }
             if b.access & WRITES != 0 && !g.writable {
                 return Err(Fault::at(What::ReadOnly { set, binding }, 0));
             }

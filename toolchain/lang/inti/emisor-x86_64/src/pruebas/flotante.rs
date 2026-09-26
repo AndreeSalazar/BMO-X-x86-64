@@ -600,20 +600,25 @@ fn un_literal_entero_en_coma_flotante_es_su_numero() {
     assert_eq!(como_numero(r), 2.0, "y guardado en uno de 64");
 }
 
-/// Una cuenta hecha solo de literales toma el ancho de donde va (`-1.0 / 6.0`
-/// en una de 32 es una division de 32, como en Rust); y una constante del
-/// modulo, desde su TEXTO.
+/// *** TRES FALLOS MUDOS del ancho de 32 (2026-09-26), los tres destapados por
+/// la app del cubo de VERRANO en INTI, y los tres daban OTRO numero sin avisar:
+///
+/// ```text
+///    un literal a un parametro flotante32   iba en 64: pon32(d, 1.0) escribia 0
+///    una cuenta de literales                1.0 / 3.0 se hacia en 64 y se
+///                                           guardaba su mitad baja
+///    una constante de nivel superior        PI = 3.1415927 llegaba en 64
+/// ```
 #[test]
-fn los_literales_y_las_constantes_en_32() {
-    let c = "perfil llano\n\nPI = 3.1415927\n\nfuncion f devuelve flotante32\n    cambiante r es flotante32 = 0.3\n    devuelve r * (-1.0 / 6.0 + r * PI)\n";
-    let esperado = 0.3f32 * (-1.0f32 / 6.0f32 + 0.3f32 * 3.141_592_7f32);
-    assert_eq!(ejecuta(c, 0, 0) as u32, esperado.to_bits());
-}
-
-/// Los BITS de un flotante32 y la vuelta (`usa matematica`): la raiz del juez
-/// del cubo empieza asi.
-#[test]
-fn los_bits_de_un_flotante32() {
-    let c = "perfil llano\nusa matematica\n\nfuncion f devuelve flotante32\n    cambiante x es flotante32 = 27.25\n    devuelve flotante32_de((bits_de(x) desplaza derecha 1) + 532487669)\n";
-    assert_eq!(ejecuta(c, 0, 0) as u32, f32::from_bits((27.25f32.to_bits() >> 1) + 0x1FBD_1DF5).to_bits());
+fn el_ancho_de_32_llega_a_argumentos_cuentas_y_constantes() {
+    let f = |cuerpo: &str| {
+        let r = ejecuta_en(&format!("perfil llano\n\nPI = 3.1415927\n\nfuncion id(x es flotante32) devuelve flotante32\n    devuelve x\n\nfuncion f devuelve flotante32\n{cuerpo}"), "f", 0, 0);
+        r as u32
+    };
+    assert_eq!(f("    devuelve id(1.0)\n"), 1f32.to_bits(), "literal a un parametro de 32");
+    assert_eq!(f("    devuelve id(0.4)\n"), 0.4f32.to_bits(), "literal a un parametro de 32");
+    assert_eq!(f("    x es flotante32 = 1.0 / 3.0\n    devuelve x\n"), (1f32 / 3.0).to_bits(), "cuenta de literales");
+    assert_eq!(f("    x es flotante32 = 0.0 - 1.5\n    devuelve x\n"), (-1.5f32).to_bits(), "cuenta de literales");
+    assert_eq!(f("    x es flotante32 = PI\n    devuelve x\n"), 3.1415927f32.to_bits(), "constante de nivel superior");
+    assert_eq!(f("    devuelve id(PI)\n"), 3.1415927f32.to_bits(), "constante a un parametro de 32");
 }

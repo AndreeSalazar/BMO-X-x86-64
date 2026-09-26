@@ -530,6 +530,88 @@ description = "Limpia la mitad alta de los ymm: sin esto, volver a SSE cuesta de
 bytes = [0xC5, 0xF8, 0x77]         # vzeroupper
 args = []
 
+# ===================================================================
+#  *** SSE: CUATRO flotante32 A LA VEZ -- UN VERTICE EN UN REGISTRO (2026-09-26)
+# ===================================================================
+#
+#  El propietario, con VERRANO a 28596 fps y la CPU de cuello: *"que exprima
+#  todo"*. Un vertice son cuatro `flotante32` (x, y, z, w): 16 bytes, UN `xmm`.
+#
+#  ## Por que SSE y no AVX
+#
+#  Es la base de TODO x86-64 (1999): no pide que el kernel encienda el estado
+#  AVX (`xcr0`), ni que la CPU lo tenga. Y para cuatro de 32 bits, 128 bits es
+#  justo lo que cabe: AVX solo daria el doble de ancho, y un vertice no lo usa.
+#
+#  ## *** `acumula_de_cuatro32` NO ES `funde`: DOS redondeos, a proposito
+#
+#      funde (FMA)   destino + a * b, redondeado UNA vez
+#      acumula       a * b redondeado, y despues + destino redondeado
+#
+#  El juez del cubo (`bmo-cubo`, el que da los bits de D3D12) hace `+` y `*`
+#  sueltos. Con FMA el vertice sale con OTROS bits y el cubo deja de ser IGUAL.
+#  Por eso aqui no hay FMA de 32: el numero correcto es el del juez.
+#
+#  ## Y con `acumula` una matriz por un vertice es bit a bit la del juez
+#
+#  Las matrices de `bmo-cubo` van por COLUMNAS, y `transformar` suma de
+#  izquierda a derecha: ((c0*v0 + c1*v1) + c2*v2) + c3*v3. Cuatro columnas,
+#  cuatro `reparte`, un `por` y tres `acumula`: el mismo orden, en cada carril
+#  (`inti/emisor-x86_64/src/pruebas/simd.rs`, contra `bmo_cubo`).
+#
+#  Todas reciben DIRECCIONES (16 bytes cada una, sin alinear: `movups`), como
+#  las de AVX, y por lo mismo piden `crudo`.
+[sse_suma4f]
+description = "Cuatro flotante32 de golpe: destino[0..4] = a[0..4] + b[0..4]"
+bytes = [
+    0x0F, 0x10, 0x06,              # movups xmm0, [rsi]
+    0x0F, 0x10, 0x0A,              # movups xmm1, [rdx]
+    0x0F, 0x58, 0xC1,              # addps  xmm0, xmm1
+    0x0F, 0x11, 0x07,              # movups [rdi], xmm0
+]
+args = ["rdi", "rsi", "rdx"]
+
+[sse_resta4f]
+description = "Cuatro flotante32 de golpe: destino = a - b"
+bytes = [
+    0x0F, 0x10, 0x06,              # movups xmm0, [rsi]
+    0x0F, 0x10, 0x0A,              # movups xmm1, [rdx]
+    0x0F, 0x5C, 0xC1,              # subps  xmm0, xmm1
+    0x0F, 0x11, 0x07,              # movups [rdi], xmm0
+]
+args = ["rdi", "rsi", "rdx"]
+
+[sse_por4f]
+description = "Cuatro flotante32 de golpe: destino = a * b"
+bytes = [
+    0x0F, 0x10, 0x06,              # movups xmm0, [rsi]
+    0x0F, 0x10, 0x0A,              # movups xmm1, [rdx]
+    0x0F, 0x59, 0xC1,              # mulps  xmm0, xmm1
+    0x0F, 0x11, 0x07,              # movups [rdi], xmm0
+]
+args = ["rdi", "rsi", "rdx"]
+
+[sse_acumula4f]
+description = "Cuatro flotante32: destino = destino + a * b, con DOS redondeos (no es FMA: es lo que hace el juez)"
+bytes = [
+    0x0F, 0x10, 0x06,              # movups xmm0, [rsi]
+    0x0F, 0x10, 0x0A,              # movups xmm1, [rdx]
+    0x0F, 0x59, 0xC1,              # mulps  xmm0, xmm1     (a * b, redondeado)
+    0x0F, 0x10, 0x0F,              # movups xmm1, [rdi]    (el acumulador)
+    0x0F, 0x58, 0xC8,              # addps  xmm1, xmm0     (+ destino, redondeado)
+    0x0F, 0x11, 0x0F,              # movups [rdi], xmm1
+]
+args = ["rdi", "rsi", "rdx"]
+
+[sse_reparte4f]
+description = "Un flotante32 en los cuatro carriles: destino[0..4] = fuente[0]"
+bytes = [
+    0xF3, 0x0F, 0x10, 0x06,        # movss  xmm0, [rsi]
+    0x0F, 0xC6, 0xC0, 0x00,        # shufps xmm0, xmm0, 0
+    0x0F, 0x11, 0x07,              # movups [rdi], xmm0
+]
+args = ["rdi", "rsi"]
+
 #  ** `absoluto` NO ES UNA INSTRUCCION, y aun asi cabe en una fila.
 #
 #  x86-64 no tiene "valor absoluto de un double". Lo que hay es apagar el bit

@@ -114,13 +114,19 @@ impl Machine {
                 }
             }
             // vfmadd231pd: `reg = reg + vvvv * rm`. **Lee el destino primero.**
+            //
+            // *** Y con UN redondeo (26-09): esto era `acc + a * b` en Rust,
+            // que redondea DOS veces -- o sea, no era FMA. El silicio da
+            // otros bits (`1+2^-30` por `1-2^-30` menos 1: `-2^-60` en el
+            // Ryzen, `0` aqui), y un banco que aprueba lo que el metal
+            // suspende es justo lo que este emulador existe para no ser.
+            // Mudo desde el 23-08: las pruebas usaban numeros exactos.
             0xB8 => {
                 let acc = self.ymm[reg];
                 let a = self.ymm[vvvv];
                 let b = leer(self, &rm);
                 for k in 0..4 {
-                    let r = f64::from_bits(acc[k])
-                        + f64::from_bits(a[k]) * f64::from_bits(b[k]);
+                    let r = f64::from_bits(a[k]).mul_add(f64::from_bits(b[k]), f64::from_bits(acc[k]));
                     self.ymm[reg][k] = r.to_bits();
                 }
             }

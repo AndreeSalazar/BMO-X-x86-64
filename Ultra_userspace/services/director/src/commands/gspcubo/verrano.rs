@@ -20,6 +20,7 @@
 use bmo_cubo::referencia as rf;
 use bmo_userland as bmo;
 use bmo_verrano::cpu::Cpu;
+use bmo_verrano::lamina::{Lamina, Leido};
 use bmo_verrano::{Backend, Frame, Image, Vertex, Viewport};
 
 use super::super::After;
@@ -81,7 +82,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     if let Some(r) = banco_pedido {
         let n = r.split(|&c| c == b' ').find_map(numero).unwrap_or(360).clamp(1, 3600);
         aparato.leer = false;
-        return banco(dsk, p, aparato, op, gpu, n, y0 + h);
+        // `inti`: los vertices NO los cuenta el escritorio: los lee de la
+        // LAMINA que ofrecio una app (INTI), fotograma a fotograma.
+        let inti = r.split(|&c| c == b' ').any(|w| w == b"inti");
+        return banco(dsk, p, aparato, op, gpu, n, y0 + h, inti);
     }
     let s_aparato = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
@@ -219,8 +223,30 @@ fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; MAX_VERTICES]) -> Option<us
 ///                 quede se espera (`Backend::finish`) DENTRO del reloj:
 ///                 unos fps que no esperan al ultimo fotograma no valen
 /// ```
-fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32) -> After {
+fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32, inti: bool) -> After {
     let (w, h) = (rf::ANCHO, rf::ALTO);
+    // ** `inti` (26-09): la LAMINA que ofrecio la app. Se abre UNA vez, y su
+    // cabecera no se cree (`Lamina::abrir`).
+    let tomada = if inti {
+        match dsk.table.lamina() {
+            Some(t) => Some(t),
+            None => return linea(dsk, b"  NO  nadie ofrecio una lamina de VERRANO: lanza antes la app de INTI que la publica (run inti/cubo.ibx)", INK_ERR),
+        }
+    } else {
+        None
+    };
+    // SAFETY: `tomar_prestado_de` mapeo `bytes` desde `base` en este proceso
+    // y la lamina no se suelta mientras dura el banco (solo `reap_dead`, que
+    // corre en el bucle del escritorio, no aqui). Se ve como palabras
+    // ATOMICAS: la app las escribe a la vez, y asi lo dice el tipo.
+    let palabras = tomada.map(|t| unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) });
+    let lamina = match palabras.map(Lamina::abrir) {
+        None => None,
+        Some(Ok(l)) => Some(l),
+        Some(Err(_)) => return linea(dsk, b"  NO  la lamina ofrecida no se sostiene (magia, version o capacidad que no cabe en lo prestado): no se dibuja", INK_ERR),
+    };
+    let mut de_inti = DeInti { tid: tomada.map_or(0, |t| t.tid), ..DeInti::default() };
+    let mut vi = [Vertex::default(); MAX_VERTICES];
     let modo = op.modo();
     let mut tablero = Tablero::nuevo(p, fin_y, n, destino::ETIQUETA, modo, b"PERFECTO Y PRECISO");
     // Sin banda (pantalla de 1280x720), las mismas cuentas sin pintarlas.
@@ -249,14 +275,55 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     if op.exige {
         aparato.exigir(&mut exigido);
     }
+    let bucle = bmo::ciclos();
+    let mut dentro = 0u64;
+    // Las vueltas hechas: `n`, salvo que la app de la lamina se calle antes.
+    let mut hechos = n;
     for i in 0..n {
         let f = (i % 360) as usize;
         let k = cuantos[f] as usize;
-        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &tandas[f * MAX_VERTICES..][..k], viewport: Viewport { width: w, height: h } };
+        // ** Con lamina, AL RITMO DE LA APP (26-09). Cada vuelta dibuja un
+        // fotograma NUEVO de la app: si lo ultimo publicado ya se dibujo, se
+        // duerme 1 ms y se vuelve a mirar. La primera version dibujaba lo
+        // ultimo sin esperar, a ~28.000 vueltas por segundo contra los 60
+        // de la app: 360 vueltas en 13 ms, el mismo fotograma 470 veces y el
+        // giro sin verse. Asi N son N fotogramas de la app (360 = una vuelta
+        // entera, 6 s), y si la app deja de publicar 2 s, el banco acaba.
+        let de_la_app: Option<&[Vertex]> = match lamina.as_ref() {
+            None => None,
+            Some(l) => {
+                let limite = bmo::ciclos() + 2 * hz;
+                loop {
+                    match l.leer(&mut vi) {
+                        Leido::Fotograma { fotograma, vertices } if !de_inti.visto || fotograma != de_inti.fotograma => {
+                            de_inti.nuevo(fotograma, &vi[..vertices]);
+                            break;
+                        }
+                        Leido::Fotograma { .. } | Leido::Nada => de_inti.esperando += 1,
+                        // Pillada a medio escribir: la siguiente mirada la vera entera.
+                        Leido::Rota => de_inti.rotos += 1,
+                        Leido::Mentira => return linea(dsk, b"  NO  la lamina dice un numero de vertices imposible (mas que su capacidad o no triangulos enteros): la app miente, se para", INK_ERR),
+                    }
+                    if bmo::ciclos() > limite {
+                        break;
+                    }
+                    bmo::wait(0, 0, 1_000_000);
+                }
+                if bmo::ciclos() > limite {
+                    de_inti.callada = true;
+                    hechos = i;
+                    break;
+                }
+                Some(&de_inti.v[..de_inti.n])
+            }
+        };
+        let vertices = de_la_app.unwrap_or(&tandas[f * MAX_VERTICES..][..k]);
+        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h } };
         let desde = bmo::ciclos();
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
                 let ciclos = bmo::ciclos() - desde;
+                dentro += ciclos;
                 cuentas.apuntar(ciclos, &st);
                 if let Some(t) = tablero.as_mut() {
                     t.apuntar(ciclos, &st);
@@ -266,11 +333,18 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             Err(e) => return destino::fallo(dsk, e, Some(i), op),
         }
     }
+    let bucle = bmo::ciclos() - bucle;
+    // ** VERRANO ENTIENDE A INTI: el ultimo fotograma que la app publico se
+    // compara, vertice a vertice y bit a bit, con el del juez de la CPU.
+    let mut juicio_inti = Texto::nuevo();
+    if lamina.is_some() {
+        de_inti.juzgar(w, h, &mut juicio_inti);
+    }
     // El cierre: lo que quedo en vuelo, dentro del reloj.
     let desde = bmo::ciclos();
     let cierre_us = match aparato.finish() {
         Ok(us) => us,
-        Err(e) => return destino::fallo(dsk, e, Some(n), op),
+        Err(e) => return destino::fallo(dsk, e, Some(hechos), op),
     };
     let cierre = bmo::ciclos() - desde;
     cuentas.ciclos += cierre;
@@ -335,6 +409,13 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(gobierno.s());
         g.byte(b'\n');
     }
+    if !juicio_inti.s().is_empty() {
+        g.with_ink(if de_inti.igual { INK_GOOD } else { INK_ERR });
+        g.text(b"           ");
+        g.text(juicio_inti.s());
+        g.byte(b'\n');
+        g.with_ink(INK_PLAIN);
+    }
     let mut nota = Texto::nuevo();
     aparato.nota(&mut nota);
     if !nota.s().is_empty() {
@@ -342,7 +423,37 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(nota.s());
         g.byte(b'\n');
     }
-    let (kf, ku): (&[u8], &[u8]) = if op.exige && op.coopera {
+    // ** E2: de que es la pared. El bucle entero = lo de dentro de `draw`
+    // (partido por la puerta, abajo) + el tablero + lo demas del bucle.
+    let tablero_ciclos = tablero.as_ref().map_or(0, |t| t.pintar_ciclos());
+    let por = |c: u64| c * 10_000_000 / hz / hechos.max(1) as u64;
+    let mut e2 = Texto::nuevo();
+    e2.t(b"E2, la pared del bucle: ");
+    destino::decimas(&mut e2, por(bucle));
+    e2.t(b" por fotograma = draw ");
+    destino::decimas(&mut e2, por(dentro));
+    e2.t(b" + tablero ");
+    destino::decimas(&mut e2, por(tablero_ciclos));
+    e2.t(b" + resto ");
+    destino::decimas(&mut e2, por(bucle.saturating_sub(dentro + tablero_ciclos)));
+    let mut e2b = Texto::nuevo();
+    aparato.nota_fases(&mut e2b);
+    for linea_e2 in [e2.s(), e2b.s()] {
+        if !linea_e2.is_empty() {
+            g.text(b"           ");
+            g.text(linea_e2);
+            g.byte(b'\n');
+        }
+    }
+    if let Some((c, pq, pu, pr)) = aparato.fases() {
+        for (clave, v) in [(b"gpu verrano e2 cuentas" as &[u8], c), (b"gpu verrano e2 paquete", pq), (b"gpu verrano e2 puerta", pu), (b"gpu verrano e2 preparar", pr), (b"gpu verrano e2 pared", por(bucle))] {
+            super::super::datos::anotar(clave, v, b"decimas de us");
+        }
+    }
+    // Con lamina el ritmo es el de la app (~60), no el del aparato: va aparte.
+    let (kf, ku): (&[u8], &[u8]) = if lamina.is_some() {
+        (b"gpu verrano banco inti fps", b"gpu verrano banco inti us")
+    } else if op.exige && op.coopera {
         (b"gpu verrano banco maximo fps", b"gpu verrano banco maximo us")
     } else if op.coopera {
         (b"gpu verrano banco coopera fps", b"gpu verrano banco coopera us")
@@ -357,6 +468,56 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     super::super::datos::anotar(ku, tarjeta, b"us");
     dsk.field.n = 0;
     After::Settle
+}
+
+/// ** Lo que VERRANO recibio de la app por la lamina, y su juicio.
+struct DeInti {
+    /// El ultimo fotograma entero, para repetirlo si el siguiente se rompe.
+    v: [Vertex; MAX_VERTICES],
+    n: usize,
+    fotograma: u32,
+    visto: bool,
+    /// Fotogramas DISTINTOS recibidos, repetidos por rotos, vueltas sin nada.
+    distintos: u32,
+    rotos: u32,
+    esperando: u32,
+    igual: bool,
+    /// De que app es la lamina.
+    tid: u32,
+    /// La app dejo de publicar (2 s sin un fotograma nuevo) y el banco acabo antes.
+    callada: bool,
+}
+
+impl Default for DeInti {
+    fn default() -> Self {
+        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false }
+    }
+}
+
+impl DeInti {
+    fn nuevo(&mut self, fotograma: u32, v: &[Vertex]) {
+        if !self.visto || fotograma != self.fotograma {
+            self.distintos += 1;
+        }
+        self.v[..v.len()].copy_from_slice(v);
+        self.n = v.len();
+        self.fotograma = fotograma;
+        self.visto = true;
+    }
+
+    /// El ultimo de la app contra el juez de la CPU, bit a bit.
+    fn juzgar(&mut self, w: u32, h: u32, t: &mut Texto) {
+        t.t(b"INTI (tid ").d(self.tid as u64).t(b") por la lamina: ").d(self.distintos as u64).t(b" fotogramas distintos, ").d(self.rotos as u64).t(b" repetidos por rotos, ").d(self.esperando as u64).t(b" vueltas sin nada");
+        if !self.visto {
+            t.t(b"; la app no publico NINGUNO");
+            return;
+        }
+        let mut juez = [Vertex::default(); MAX_VERTICES];
+        let k = vertices(self.fotograma % 360, w, h, &mut juez).unwrap_or(usize::MAX);
+        let bits = |v: &Vertex| (v.position.map(f32::to_bits), v.color.map(f32::to_bits));
+        self.igual = k == self.n && self.v[..self.n].iter().zip(&juez[..self.n]).all(|(a, b)| bits(a) == bits(b));
+        t.t(b"; el ultimo, el ").d(self.fotograma as u64).t(if self.igual { b": IGUAL al juez, bit a bit" } else { b": DISTINTO del juez" });
+    }
 }
 
 /// Las cuentas del banco cuando no hay banda para el tablero.

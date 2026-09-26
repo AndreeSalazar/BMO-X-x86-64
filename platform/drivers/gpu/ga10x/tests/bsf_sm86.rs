@@ -87,6 +87,11 @@ fn la_tuberia_viaja_en_su_bsf() {
     bsf.verify_all().expect("capa 4: cada hash");
     let (vs, ps) = (bsf.module(0), bsf.module(1));
     assert_eq!((vs.name(), vs.model(), ps.name(), ps.model()), (&b"cubo_vertice"[..], 0, &b"cubo_pixel"[..], 4));
+    // ** El contrato (26-09): el programa de vertice lee `Vertex` de VERRANO
+    // -- elementos de 32 bytes desde el 0 del buffer 0 --, que es lo que INTI
+    // escribe directo. La puerta (`gspcubo/sm86.rs::contrato`) lo exige al abrir.
+    let b = vs.binding(0);
+    assert_eq!((vs.binding_count(), b.set, b.binding, b.storage, b.access, b.base_bytes, b.stride), (1, 0, 0, true, READS, 0, bmo_verrano::VERTEX_BYTES as u32));
     let tv = vs.target(kind::SM86, abi::SM86_V1, 0).expect("hay codigo para la 3060");
     let tp = ps.target(kind::SM86, abi::SM86_V1, 0).expect("hay codigo para la 3060");
     assert_eq!(tv.code().unwrap(), &bytes(&tuberia::vertice())[..]);

@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   367 casillas ABIERTAS en 43 planes
+   368 casillas ABIERTAS en 43 planes
    307 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -59,14 +59,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5 -- cada prestamo a la 3060 dice quien lo devuelve
 - ... y 19 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 19 abiertas, 7 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 20 abiertas, 7 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
 - [ ] V2 -- la profundidad y el culling (X5b de
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - [ ] V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.
-- ... y 16 mas
+- ... y 17 mas
 
 ## [`PLAN_AUTOCURACION.md`](PLAN_AUTOCURACION.md) -- 17 abiertas, 0 hechas
 

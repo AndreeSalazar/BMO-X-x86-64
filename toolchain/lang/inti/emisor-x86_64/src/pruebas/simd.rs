@@ -137,3 +137,378 @@ fn las_de_avx_piden_crudo_y_por_eso_se_cuentan() {
     assert!(dentro.codigos().is_empty(), "{:?}", dentro.codigos());
     assert_eq!(dentro.valor.bloques_crudo, 1, "y el bloque se CUENTA");
 }
+
+// ===================================================================
+//  *** CUATRO flotante32 CON SSE: un vertice en un registro (2026-09-26)
+// ===================================================================
+
+/// Un programa `llano` con UNA funcion `prueba(base, n)` en `crudo`; la
+/// memoria la prepara el banco (`maquina_en`).
+fn con_cuatro32(cuerpo: &str) -> String {
+    format!(
+        "perfil llano\nusa x86_64\nusa memoria\n\nfuncion prueba(base es natural64, n es natural64) devuelve natural64\n    crudo\n{}        devuelve 0\n",
+        cuerpo
+    )
+}
+
+/// Cuatro `f32` en memoria, desde `dir`.
+fn pon4(m: &mut Machine, dir: u64, v: [f32; 4]) {
+    m.pon_u64(dir, v[0].to_bits() as u64 | (v[1].to_bits() as u64) << 32);
+    m.pon_u64(dir + 8, v[2].to_bits() as u64 | (v[3].to_bits() as u64) << 32);
+}
+
+/// Cuatro `f32` de memoria, como BITS (la comparacion es bit a bit).
+fn lee4(m: &Machine, dir: u64) -> [u32; 4] {
+    let (lo, hi) = (m.read_u64(dir), m.read_u64(dir + 8));
+    [lo as u32, (lo >> 32) as u32, hi as u32, (hi >> 32) as u32]
+}
+
+const B: u64 = 0x40000;
+
+/// ***Las cuatro operaciones, los CUATRO carriles.*** El cuarto es el que se
+/// pierde si alguien emite una instruccion escalar donde va una empaquetada.
+#[test]
+fn las_de_cuatro32_operan_los_cuatro_carriles() {
+    let a = [1.5f32, -2.25, 1e30, 0.1];
+    let b = [0.25f32, 4.0, -1e30, 0.2];
+    for (nombre, f) in [
+        ("suma_de_cuatro32", (|x: f32, y: f32| x + y) as fn(f32, f32) -> f32),
+        ("resta_de_cuatro32", |x, y| x - y),
+        ("por_de_cuatro32", |x, y| x * y),
+    ] {
+        let fuente = con_cuatro32(&format!("        {nombre}(base + 32, base, base + 16)\n"));
+        let m = maquina_en(&fuente, "prueba", B, 0, |m| {
+            pon4(m, B, a);
+            pon4(m, B + 16, b);
+        });
+        let want: [u32; 4] = core::array::from_fn(|k| f(a[k], b[k]).to_bits());
+        assert_eq!(lee4(&m, B + 32), want, "{nombre}");
+    }
+}
+
+/// `reparte_de_cuatro32` copia UN numero en los cuatro carriles.
+#[test]
+fn reparte_llena_los_cuatro() {
+    let fuente = con_cuatro32("        reparte_de_cuatro32(base + 16, base)\n");
+    let m = maquina_en(&fuente, "prueba", B, 0, |m| pon4(m, B, [-3.5, 9.0, 9.0, 9.0]));
+    assert_eq!(lee4(&m, B + 16), [(-3.5f32).to_bits(); 4]);
+}
+
+/// ***`acumula` NO es FMA: dos redondeos, los del juez.*** Con
+/// `a = 1 + e`, `b = 1 - e` y el destino a `-1`, el producto exacto es
+/// `1 - e^2`, que en `f32` no cabe: FMA lo usa entero y da `-e^2`; dos
+/// redondeos lo pierden. Se compara contra la cuenta de Rust en `f32`
+/// (`d + a * b`, dos redondeos), que es la del juez del cubo, y la prueba
+/// exige tener un carril donde FMA daria otra cosa.
+#[test]
+fn acumula_redondea_dos_veces_como_el_juez() {
+    let a = [1.0f32 + 1.0 / 4096.0, 1.1, 3.3, 1.0 + f32::EPSILON];
+    let b = [1.0f32 - 1.0 / 4096.0, 0.7, 1e-8, 1.0 - f32::EPSILON];
+    let d = [-1.0f32, 0.3, 7.0, -1.0];
+    let fuente = con_cuatro32("        acumula_de_cuatro32(base + 32, base, base + 16)\n");
+    let m = maquina_en(&fuente, "prueba", B, 0, |m| {
+        pon4(m, B, a);
+        pon4(m, B + 16, b);
+        pon4(m, B + 32, d);
+    });
+    let dos: [u32; 4] = core::array::from_fn(|k| (d[k] + a[k] * b[k]).to_bits());
+    let fma: [u32; 4] = core::array::from_fn(|k| a[k].mul_add(b[k], d[k]).to_bits());
+    assert_eq!(lee4(&m, B + 32), dos, "acumula = destino + a*b con dos redondeos");
+    assert_ne!(dos, fma, "la prueba tiene que tener un carril donde FMA da otra cosa");
+}
+
+/// ***`funde_de_cuatro` SI es FMA, y el emulador ya no miente sobre ello.***
+/// Hasta el 26-09 el emulador hacia `acc + a*b` en dos pasos: con
+/// `(1+2^-30)(1-2^-30) - 1` daba `0`, y el Ryzen da `-2^-60`.
+#[test]
+fn funde_de_cuatro_redondea_una_vez_como_el_silicio() {
+    let x = 1.0f64 + 2f64.powi(-30);
+    let y = 1.0f64 - 2f64.powi(-30);
+    let mut cuerpo = String::new();
+    for i in 0..4 {
+        cuerpo += &pon("a", i, x);
+        cuerpo += &pon("b", i, y);
+        cuerpo += &pon("c", i, -1.0);
+    }
+    cuerpo += "        funde_de_cuatro(c, a, b)\n";
+    cuerpo += "        devuelve lee_natural64(c + 8)\n";
+    let r = ejecuta_en(&con_reales(&cuerpo), "prueba", 0x40000, 0);
+    assert_eq!(f64::from_bits(r), -(2f64.powi(-60)), "FMA: un solo redondeo");
+}
+
+/// ***LA PRUEBA DE ORO: el cubo de VERRANO, transformado por INTI, bit a bit
+/// contra su juez.*** Los ocho vertices de `bmo_cubo`, por la matriz `wvp` de
+/// los 360 angulos, con `reparte` + `por` + tres `acumula` por vertice (las
+/// matrices van por columnas: ((c0*x + c1*y) + c2*z) + c3*w, el orden del
+/// juez). Tienen que salir EXACTAMENTE los `clip` de
+/// `bmo_cubo::mat::transformar`, que son los que VERRANO le manda a la 3060
+/// y los que dan el IGUAL con D3D12.
+#[test]
+fn el_cubo_por_inti_es_el_del_juez_en_los_360() {
+    use bmo_cubo::{angulo_de_fotograma, constantes, mat::transformar, vertices, NUM_VERTICES};
+    // base: la matriz (64 B), los vertices (NUM_VERTICES x 16), el reparto
+    // (16) y la salida (NUM_VERTICES x 16).
+    let (mat, ver) = (B, B + 64);
+    let rep = ver + 16 * NUM_VERTICES as u64;
+    let sal = rep + 16;
+    let mut cuerpo = String::new();
+    for i in 0..NUM_VERTICES as u64 {
+        let (v, o) = (ver + 16 * i, sal + 16 * i);
+        cuerpo += &format!("        reparte_de_cuatro32({rep}, {v})\n        por_de_cuatro32({o}, {mat}, {rep})\n");
+        for c in 1..4u64 {
+            cuerpo += &format!("        reparte_de_cuatro32({rep}, {})\n        acumula_de_cuatro32({o}, {}, {rep})\n", v + 4 * c, mat + 16 * c);
+        }
+    }
+    let fuente = con_cuatro32(&cuerpo);
+    let vs = vertices();
+    for f in 0..360 {
+        let c = constantes(angulo_de_fotograma(f), 1280.0 / 720.0);
+        let m = maquina_en(&fuente, "prueba", B, 0, |m| {
+            for k in 0..4 {
+                pon4(m, mat + 16 * k as u64, [c.wvp[4 * k], c.wvp[4 * k + 1], c.wvp[4 * k + 2], c.wvp[4 * k + 3]]);
+            }
+            for (i, v) in vs.iter().enumerate() {
+                pon4(m, ver + 16 * i as u64, [v.pos[0], v.pos[1], v.pos[2], 1.0]);
+            }
+        });
+        for (i, v) in vs.iter().enumerate() {
+            let juez = transformar(&c.wvp, [v.pos[0], v.pos[1], v.pos[2], 1.0]).map(f32::to_bits);
+            assert_eq!(lee4(&m, sal + 16 * i as u64), juez, "fotograma {f}, vertice {i}");
+        }
+    }
+    // ** Y lo que se VIO al escribirla: en ESTA cuenta FMA daria lo mismo.
+    // Los vertices del cubo son +-1 con w = 1, y multiplicar por +-1 es
+    // exacto: no hay nada que redondear dos veces. Donde FMA SI cambia los
+    // bits es multiplicando MATRICES (la `wvp` de cada angulo), y ahi es
+    // donde `acumula` hace falta (`multiplicar_matrices_con_fma_da_otros_bits`).
+}
+
+/// ***Por que `acumula` y no `funde`, medido***: la `wvp` de cada angulo es
+/// `(proyeccion * vista) * mundo` (`bmo_cubo::constantes`). En el angulo 0 el
+/// mundo es la identidad, asi que su `wvp` ES `proyeccion * vista`; con ella,
+/// la `wvp` de cada angulo hecha con FMA sale con OTROS bits en alguno. Y con
+/// esos bits el cubo ya no es el de D3D12.
+#[test]
+fn multiplicar_matrices_con_fma_da_otros_bits() {
+    use bmo_cubo::mat::{mul, rotacion_x, rotacion_y};
+    use bmo_cubo::{angulo_de_fotograma, constantes};
+    let aspecto = 1280.0 / 720.0;
+    let pv = constantes(angulo_de_fotograma(0), aspecto).wvp;
+    let distintos = (0..360)
+        .filter(|&f| {
+            let a = angulo_de_fotograma(f);
+            let mundo = mul(&rotacion_y(a), &rotacion_x(a * 0.7));
+            let juez = constantes(a, aspecto).wvp;
+            assert_eq!(mul(&pv, &mundo).map(f32::to_bits), juez.map(f32::to_bits), "la wvp es pv * mundo");
+            (0..16).any(|i| {
+                let (c, r) = (i / 4, i % 4);
+                let (x, y) = (&pv, &mundo);
+                let fma = x[12 + r].mul_add(y[c * 4 + 3], x[8 + r].mul_add(y[c * 4 + 2], x[4 + r].mul_add(y[c * 4 + 1], x[r] * y[c * 4])));
+                fma.to_bits() != juez[i].to_bits()
+            })
+        })
+        .count();
+    assert!(distintos > 0, "con FMA la wvp de algun angulo tiene que salir distinta");
+    std::eprintln!("con FMA, {distintos} de 360 angulos dan otra wvp");
+}
+
+
+/// ***LA TANDA ENTERA EN INTI, ESCRITA DIRECTO EN VERRANO**
+/// (`inti/ejemplos/cubo.inti`): fotograma a fotograma, los `Vertex` que INTI
+/// deja en `salida` son BIT A BIT los del `Frame` que arma VERRANO
+/// (`gspcubo/verrano.rs::vertices`: por cada cara de `bmo_cubo::tanda`, sus
+/// tres vertices en recorte con el color de la cara). Sin copiar ni convertir:
+/// lo que INTI escribe es lo que VERRANO dibuja.
+#[test]
+fn la_tanda_de_inti_escribe_el_frame_de_verrano_en_los_360() {
+    use bmo_cubo::{angulo_de_fotograma, constantes, indices, tanda::de_fotograma, vertices};
+    use bmo_verrano::{Vertex, VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
+    let fuente = include_str!("../../../ejemplos/cubo.inti");
+    let salida = B + 4096;
+    let (w, h) = (1280u32, 720u32);
+    let vs = vertices();
+    let is = indices();
+    for f in 0..360 {
+        let c = constantes(angulo_de_fotograma(f), w as f32 / h as f32);
+        let m = maquina_en(fuente, "tanda", B, salida, |m| {
+            for k in 0..4u64 {
+                let k4 = 4 * k as usize;
+                pon4(m, B + 16 * k, [c.wvp[k4], c.wvp[k4 + 1], c.wvp[k4 + 2], c.wvp[k4 + 3]]);
+                pon4(m, B + 64 + 16 * k, [c.world[k4], c.world[k4 + 1], c.world[k4 + 2], c.world[k4 + 3]]);
+            }
+            pon4(m, B + 128, c.luz);
+            pon4(m, B + 144, [w as f32 * 0.5, h as f32 * 0.5, 256.0, 0.0]);
+            for (i, v) in vs.iter().enumerate() {
+                pon4(m, B + 160 + 16 * i as u64, [v.pos[0], v.pos[1], v.pos[2], 1.0]);
+                pon4(m, B + 544 + 16 * i as u64, [v.normal[0], v.normal[1], v.normal[2], 0.0]);
+                pon4(m, B + 928 + 16 * i as u64, v.color);
+            }
+            for k in 0..is.len() / 2 {
+                m.pon_u64(B + 1312 + 8 * k as u64, is[2 * k] as u64 | (is[2 * k + 1] as u64) << 32);
+            }
+        });
+        // El `Frame` de VERRANO, como lo arma el escritorio.
+        let frame: std::vec::Vec<Vertex> = de_fotograma(f, w, h)
+            .expect("la tanda de Rust cabe")
+            .tris()
+            .iter()
+            .flat_map(|t| t.clip.iter().map(move |&p| Vertex { position: p, color: t.color }))
+            .collect();
+        assert_eq!(m.regs[0] as i64, frame.len() as i64, "fotograma {f}: cuantos vertices");
+        for (k, v) in frame.iter().enumerate() {
+            let dir = salida + (VERTEX_BYTES * k) as u64;
+            assert_eq!(lee4(&m, dir + VERTEX_POSITION as u64), v.position.map(f32::to_bits), "fotograma {f}, vertice {k}: la posicion");
+            assert_eq!(lee4(&m, dir + VERTEX_COLOR as u64), v.color.map(f32::to_bits), "fotograma {f}, vertice {k}: el color");
+        }
+    }
+}
+
+/// La entrada de la tanda del fotograma `f` (la de `cubo.inti`), en `B`.
+fn entrada_de_la_tanda(m: &mut Machine, f: u32) {
+    use bmo_cubo::{angulo_de_fotograma, constantes, indices, vertices};
+    let c = constantes(angulo_de_fotograma(f), 1280.0 / 720.0);
+    for k in 0..4u64 {
+        let k4 = 4 * k as usize;
+        pon4(m, B + 16 * k, [c.wvp[k4], c.wvp[k4 + 1], c.wvp[k4 + 2], c.wvp[k4 + 3]]);
+        pon4(m, B + 64 + 16 * k, [c.world[k4], c.world[k4 + 1], c.world[k4 + 2], c.world[k4 + 3]]);
+    }
+    pon4(m, B + 128, c.luz);
+    pon4(m, B + 144, [640.0, 360.0, 256.0, 0.0]);
+    for (i, v) in vertices().iter().enumerate() {
+        pon4(m, B + 160 + 16 * i as u64, [v.pos[0], v.pos[1], v.pos[2], 1.0]);
+        pon4(m, B + 544 + 16 * i as u64, [v.normal[0], v.normal[1], v.normal[2], 0.0]);
+        pon4(m, B + 928 + 16 * i as u64, v.color);
+    }
+    let is = indices();
+    for k in 0..is.len() / 2 {
+        m.pon_u64(B + 1312 + 8 * k as u64, is[2 * k] as u64 | (is[2 * k + 1] as u64) << 32);
+    }
+}
+
+/// ***DE EXTREMO A EXTREMO, SIN PELEA***: INTI publica la tanda en una LAMINA
+/// de VERRANO (`publica` de `cubo.inti`, con su sello y su secuencia) y el
+/// LECTOR de VERRANO en Rust (`bmo_verrano::lamina`) la abre y la lee DE ESA
+/// MISMA MEMORIA: fotograma entero, su numero, y sus vertices bit a bit los
+/// del `Frame` que dibuja VERRANO. Con la secuencia de cada fotograma a
+/// proposito, para que se alternen las dos ranuras.
+#[test]
+fn inti_publica_en_la_lamina_y_verrano_la_lee_en_los_360() {
+    use bmo_verrano::lamina::{self, Lamina, Leido};
+    use bmo_verrano::Vertex;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    let fuente = include_str!("../../../ejemplos/cubo.inti");
+    let dir = B + 8192;
+    let capacidad = 36;
+    let palabras = lamina::bytes_para(capacidad) / 4;
+    for f in 0..360u32 {
+        // La lamina la crea la app: aqui, la de Rust, y a la memoria del
+        // emulador palabra a palabra. La secuencia en `f`: la ranura cambia.
+        let hecha: std::vec::Vec<AtomicU32> = (0..palabras).map(|_| AtomicU32::new(0)).collect();
+        Lamina::crear(&hecha, capacidad).unwrap();
+        hecha[lamina::CAMPO_SECUENCIA].store(f, Ordering::Relaxed);
+        let m = maquina_en(fuente, "publica", dir, B, |m| {
+            entrada_de_la_tanda(m, f);
+            for k in (0..palabras).step_by(2) {
+                let hi = hecha.get(k + 1).map_or(0, |x| x.load(Ordering::Relaxed) as u64);
+                m.pon_u64(dir + 4 * k as u64, hecha[k].load(Ordering::Relaxed) as u64 | hi << 32);
+            }
+            // El tercer argumento, el fotograma.
+            m.regs[2] = f as u64;
+        });
+        // Lo que VERRANO ve: la misma memoria, leida por su lector.
+        let vista: std::vec::Vec<AtomicU32> = (0..palabras).map(|k| AtomicU32::new(m.read_u64(dir + 4 * k as u64) as u32)).collect();
+        let l = Lamina::abrir(&vista).expect("la lamina que escribio INTI se abre");
+        let mut out = [Vertex::default(); 36];
+        let frame: std::vec::Vec<Vertex> = bmo_cubo::tanda::de_fotograma(f, 1280, 720)
+            .unwrap()
+            .tris()
+            .iter()
+            .flat_map(|t| t.clip.iter().map(move |&p| Vertex { position: p, color: t.color }))
+            .collect();
+        assert_eq!(m.regs[0] as i64, frame.len() as i64, "fotograma {f}: lo que devuelve publica");
+        assert_eq!(l.leer(&mut out), Leido::Fotograma { fotograma: f, vertices: frame.len() }, "fotograma {f}");
+        for (k, v) in frame.iter().enumerate() {
+            assert_eq!(out[k].position.map(f32::to_bits), v.position.map(f32::to_bits), "fotograma {f}, vertice {k}");
+            assert_eq!(out[k].color.map(f32::to_bits), v.color.map(f32::to_bits), "fotograma {f}, vertice {k}: color");
+        }
+        // Y los dos sellos, PARES: nadie quedo escribiendo.
+        assert_eq!(vista[lamina::CAMPO_SELLO].load(Ordering::Relaxed) % 2, 0);
+        assert_eq!(vista[lamina::CAMPO_SELLO + 1].load(Ordering::Relaxed) % 2, 0);
+    }
+}
+
+/// ***LAS CUENTAS DE CADA FOTOGRAMA, EN INTI*** (`cubo.inti`: `malla`,
+/// `prepara`, `mundo`): la malla, la luz, la pantalla, el mundo y la wvp de
+/// cada angulo, BIT A BIT los de `bmo_cubo` (`vertices`, `indices`,
+/// `constantes`). Con esto la app no necesita a nadie para contar.
+#[test]
+fn las_cuentas_de_cada_fotograma_son_las_del_juez() {
+    use bmo_cubo::{angulo_de_fotograma, constantes, indices, vertices};
+    let fuente = include_str!("../../../ejemplos/cubo.inti");
+    let e = B;
+    let vs = vertices();
+    let is = indices();
+    for f in (0..360u32).step_by(7).chain([30, 359]) {
+        let m = maquina_en(fuente, "cuenta", e, f as u64, |_| {});
+        let c = constantes(angulo_de_fotograma(f), 1280.0 / 720.0);
+        let bits = |dir: u64| m.read_u64(dir) as u32;
+        for k in 0..16u64 {
+            assert_eq!(bits(e + 4 * k), c.wvp[k as usize].to_bits(), "fotograma {f}: wvp[{k}]");
+            assert_eq!(bits(e + 64 + 4 * k), c.world[k as usize].to_bits(), "fotograma {f}: world[{k}]");
+        }
+        for k in 0..4u64 {
+            assert_eq!(bits(e + 128 + 4 * k), c.luz[k as usize].to_bits(), "fotograma {f}: luz[{k}]");
+        }
+        assert_eq!([bits(e + 144), bits(e + 148), bits(e + 152)], [640f32.to_bits(), 360f32.to_bits(), 256f32.to_bits()]);
+        if f == 0 {
+            for (i, v) in vs.iter().enumerate() {
+                let d = |o: u64, k: u64| bits(e + o + 16 * i as u64 + 4 * k);
+                assert_eq!([d(160, 0), d(160, 1), d(160, 2), d(160, 3)], [v.pos[0].to_bits(), v.pos[1].to_bits(), v.pos[2].to_bits(), 1f32.to_bits()], "vertice {i}");
+                assert_eq!([d(544, 0), d(544, 1), d(544, 2), d(544, 3)], [v.normal[0].to_bits(), v.normal[1].to_bits(), v.normal[2].to_bits(), 0f32.to_bits()], "normal {i}");
+                assert_eq!([d(928, 0), d(928, 1), d(928, 2), d(928, 3)], v.color.map(f32::to_bits), "color {i}");
+            }
+            for (k, &x) in is.iter().enumerate() {
+                assert_eq!(bits(e + 1312 + 4 * k as u64), x as u32, "indice {k}");
+            }
+        }
+    }
+}
+
+/// ***LA APP ENTERA, FOTOGRAMA A FOTOGRAMA***: `un_fotograma` de `cubo.inti` cuenta
+/// TODO desde cero (malla, matrices, tanda) y lo publica en la lamina con `usa
+/// verrano`; el lector de VERRANO en Rust lo lee: el `Frame` del juez, bit a
+/// bit. Es lo que `principal` hace en cada vuelta.
+#[test]
+fn la_app_cuenta_y_publica_sola_lo_mismo_que_el_juez() {
+    use bmo_verrano::lamina::{self, Lamina, Leido};
+    use bmo_verrano::Vertex;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    let fuente = include_str!("../../../ejemplos/cubo.inti");
+    let dir = B + 8192;
+    let capacidad = 24;
+    let palabras = lamina::bytes_para(capacidad) / 4;
+    for f in 0..360u32 {
+        let hecha: std::vec::Vec<AtomicU32> = (0..palabras).map(|_| AtomicU32::new(0)).collect();
+        Lamina::crear(&hecha, capacidad).unwrap();
+        hecha[lamina::CAMPO_SECUENCIA].store(f, Ordering::Relaxed);
+        let m = maquina_en(fuente, "un_fotograma", dir, B, |m| {
+            for k in (0..palabras).step_by(2) {
+                let hi = hecha.get(k + 1).map_or(0, |x| x.load(Ordering::Relaxed) as u64);
+                m.pon_u64(dir + 4 * k as u64, hecha[k].load(Ordering::Relaxed) as u64 | hi << 32);
+            }
+            m.regs[2] = f as u64;
+        });
+        let vista: std::vec::Vec<AtomicU32> = (0..palabras).map(|k| AtomicU32::new(m.read_u64(dir + 4 * k as u64) as u32)).collect();
+        let frame: std::vec::Vec<Vertex> = bmo_cubo::tanda::de_fotograma(f, 1280, 720)
+            .unwrap()
+            .tris()
+            .iter()
+            .flat_map(|t| t.clip.iter().map(move |&p| Vertex { position: p, color: t.color }))
+            .collect();
+        let mut out = [Vertex::default(); 24];
+        assert_eq!(Lamina::abrir(&vista).unwrap().leer(&mut out), Leido::Fotograma { fotograma: f, vertices: frame.len() }, "fotograma {f}");
+        for (k, v) in frame.iter().enumerate() {
+            assert_eq!((out[k].position.map(f32::to_bits), out[k].color.map(f32::to_bits)), (v.position.map(f32::to_bits), v.color.map(f32::to_bits)), "fotograma {f}, vertice {k}");
+        }
+    }
+}

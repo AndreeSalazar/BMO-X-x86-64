@@ -74,6 +74,18 @@ use crate::disposicion::{es_de_comparar, tipos_de, Plano};
 pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
     let mut avisos = Vec::new();
 
+    // ** RECORRER UNA COLECCION, en los DOS perfiles (2026-09-26): esto no es
+    // una regla de tipos sino de lo que el compilador sabe bajar, y las listas
+    // son de `pleno` -- justo donde la puerta de abajo no deja pasar.
+    for d in &m.declaraciones {
+        match d {
+            Decl::Funcion(f) => recorridos(&f.cuerpo, &mut avisos),
+            Decl::Operacion { funcion, .. } => recorridos(&funcion.cuerpo, &mut avisos),
+            Decl::Registro { operaciones, .. } => operaciones.iter().for_each(|f| recorridos(&f.cuerpo, &mut avisos)),
+            Decl::Constante { .. } => {}
+        }
+    }
+
     // ** Solo en `llano`, por lo mismo que `disposicion`: en `pleno` un valor
     // puede cambiar de forma en ejecucion, y medirlo con estas reglas
     // denunciaria programas correctos. El dia que `pleno` tenga su modelo, esta
@@ -83,23 +95,13 @@ pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
         return Cosecha::con((), avisos);
     }
 
-    // Las constantes del modulo que son un literal numerico: se escriben en el
-    // ancho de donde van, igual que el literal (`ir::expresion::operando`).
-    let literales: std::collections::HashSet<String> = m
-        .declaraciones
-        .iter()
-        .filter_map(|d| match d {
-            Decl::Constante { nombre, valor, .. } if es_literal(valor, &Default::default()) => Some(nombre.clone()),
-            _ => None,
-        })
-        .collect();
     for d in &m.declaraciones {
         match d {
-            Decl::Funcion(f) => revisa(f, plano, &literales, &mut avisos),
-            Decl::Operacion { funcion, .. } => revisa(funcion, plano, &literales, &mut avisos),
+            Decl::Funcion(f) => revisa(f, plano, &mut avisos),
+            Decl::Operacion { funcion, .. } => revisa(funcion, plano, &mut avisos),
             Decl::Registro { operaciones, .. } => {
                 for f in operaciones {
-                    revisa(f, plano, &literales, &mut avisos);
+                    revisa(f, plano, &mut avisos);
                 }
             }
             Decl::Constante { .. } => {}
@@ -109,12 +111,47 @@ pub fn comprobar(m: &Modulo, plano: &Plano) -> Cosecha<()> {
     Cosecha::con((), avisos)
 }
 
-fn revisa(f: &Funcion, plano: &Plano, literales: &std::collections::HashSet<String>, avisos: &mut Vec<Aviso>) {
+/// `para cada x en lista` todavia no se baja (pide el runtime de listas), y
+/// hasta el 2026-09-26 compilaba y el bucle NO SE EJECUTABA. Ahora se dice.
+fn recorridos(b: &Bloque, avisos: &mut Vec<Aviso>) {
+    for s in b {
+        match s {
+            Sent::ParaCada { hasta, sitio, cuerpo, .. } => {
+                if hasta.is_none() {
+                    avisos.push(
+                        Aviso::nuevo(
+                            codigos::RECORRER_SIN_RUNTIME,
+                            "Recorrer una coleccion con `para cada` todavia no se puede compilar.".to_string(),
+                            *sitio,
+                        )
+                        .con_habia(
+                            "Recorrer pide saber como esta hecha la coleccion por dentro, y ese runtime no \
+                             existe todavia. Hasta el 2026-09-26 esto compilaba y el bucle NO SE EJECUTABA: \
+                             se saltaba entero, sin decir nada."
+                                .to_string(),
+                        )
+                        .con_hacer("recorre con un rango: `para cada i en 0 hasta cuantos`"),
+                    );
+                }
+                recorridos(cuerpo, avisos);
+            }
+            Sent::Si { ramas, sino, .. } => {
+                ramas.iter().for_each(|(_, c)| recorridos(c, avisos));
+                if let Some(c) = sino {
+                    recorridos(c, avisos);
+                }
+            }
+            Sent::Repite { cuerpo, .. } | Sent::Crudo { cuerpo, .. } | Sent::Paralelo { cuerpo, .. } => recorridos(cuerpo, avisos),
+            _ => {}
+        }
+    }
+}
+
+fn revisa(f: &Funcion, plano: &Plano, avisos: &mut Vec<Aviso>) {
     let tipos = tipos_de(f);
     let mut v = Revision {
         plano,
         tipos: &tipos,
-        literales,
         avisos,
     };
     v.bloque(&f.cuerpo);
@@ -123,8 +160,6 @@ fn revisa(f: &Funcion, plano: &Plano, literales: &std::collections::HashSet<Stri
 struct Revision<'a> {
     plano: &'a Plano,
     tipos: &'a HashMap<String, Tipo>,
-    /// Las constantes del modulo que son un literal numerico.
-    literales: &'a std::collections::HashSet<String>,
     avisos: &'a mut Vec<Aviso>,
 }
 
@@ -227,7 +262,7 @@ impl Revision<'_> {
         // literal se escribe en el ancho del otro lado -- `x * 0.5` --, pero
         // dos valores de 32 y de 64 son dos redondeos distintos: se pide.
         if a.es_flotante() && b.es_flotante() {
-            if es_literal(izq, self.literales) || es_literal(der, self.literales) {
+            if es_literal(izq) || es_literal(der) {
                 return;
             }
             self.avisos.push(
@@ -313,7 +348,7 @@ impl Revision<'_> {
             return;
         }
         // Un literal de coma flotante se escribe en el ancho del destino.
-        if esperado.es_flotante() && dado.es_flotante() && es_literal(valor, self.literales) {
+        if esperado.es_flotante() && dado.es_flotante() && es_literal(valor) {
             return;
         }
         let (que, como) = if esperado.es_flotante() && dado.es_flotante() {
@@ -392,16 +427,11 @@ fn sitio_de(e: &Expr) -> Sitio {
 #[cfg(test)]
 mod pruebas;
 
-/// Un literal numerico (con su `-`), o una cuenta hecha solo de ellos
-/// (`-1.0 / 6.0`): se escribe, y se cuenta, en el ancho de donde va.
-fn es_literal(e: &Expr, literales: &std::collections::HashSet<String>) -> bool {
+/// Un literal numerico (con su `-`): se escribe en el ancho de donde va.
+fn es_literal(e: &Expr) -> bool {
     match e {
         Expr::Numero(..) => true,
-        Expr::Nombre(n, _) => literales.contains(n),
-        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => es_literal(valor, literales),
-        Expr::Binaria { op: Op::Suma | Op::Resta | Op::Por | Op::Divide, izquierda, derecha, .. } => {
-            es_literal(izquierda, literales) && es_literal(derecha, literales)
-        }
+        Expr::Unaria { op: crate::arbol::OpUno::Menos, valor, .. } => matches!(**valor, Expr::Numero(..)),
         _ => false,
     }
 }

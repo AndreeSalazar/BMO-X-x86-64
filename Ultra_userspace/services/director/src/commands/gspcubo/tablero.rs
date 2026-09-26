@@ -180,6 +180,11 @@ impl Tablero {
         self.pintar_banda(p, fps, Some((veredicto, igual)));
     }
 
+    /// Lo que costo pintar el tablero, en ciclos (E2 lo separa de la pared).
+    pub(super) fn pintar_ciclos(&self) -> u64 {
+        self.pintar
+    }
+
     /// fps de todo el banco, sin lo que costo el tablero.
     pub(super) fn fps(&self) -> u64 {
         self.por_segundo(self.hechos, self.ciclos)

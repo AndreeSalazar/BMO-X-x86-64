@@ -19,3 +19,5 @@ path = "src/lib.rs"
 # quien dibuja. El crate que enlaza el kernel sigue sin dependencias.
 [dev-dependencies]
 bmo-bsf = { path = "../../../../toolchain/lang/spirv/bsf" }
+# Y la API: el BSF tiene que leer los `Vertex` que VERRANO (e INTI) escriben.
+bmo-verrano = { path = "../../../shared/verrano" }

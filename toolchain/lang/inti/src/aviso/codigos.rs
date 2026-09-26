@@ -217,6 +217,11 @@ pub const NECESITA_DE_MAS: Codigo = Codigo("E0133");
 /// La misma clase declarada dos veces. **No se suman**: dos lineas que hablan
 /// de lo mismo son un descuido, y elegir una por el orden seria adivinar.
 pub const NECESITA_REPETIDA: Codigo = Codigo("E0134");
+/// `para cada x en lista`: recorrer una coleccion pide el runtime de listas,
+/// que todavia no existe. Hasta el 26-09 esa forma compilaba y **no emitia
+/// nada** -- el bucle se saltaba entero, en silencio. La forma con rango
+/// (`para cada i en 0 hasta n`) si se baja.
+pub const RECORRER_SIN_RUNTIME: Codigo = Codigo("E0135");
 
 /// Todos los codigos, para el test que comprueba que ninguno se repite.
 pub const TODOS: &[Codigo] = &[
@@ -277,6 +282,7 @@ pub const TODOS: &[Codigo] = &[
     NECESITA_SIN_MOTIVO,
     NECESITA_DE_MAS,
     NECESITA_REPETIDA,
+    RECORRER_SIN_RUNTIME,
 ];
 
 #[cfg(test)]
