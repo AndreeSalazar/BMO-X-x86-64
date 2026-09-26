@@ -412,18 +412,26 @@ pub fn suelta_si_es_de(pid: u32) {
 /// **X5: nada del volcado en vuelo** -- la ultima tanda pagada (o su plazo).
 /// Lo pide quien va a escribir en la pantalla por otro camino (el cubo) y a
 /// leerla despues: una copia en vuelo podria caerle encima.
+///
+/// ** V1b (26-09): la ultima tanda que se VIO pagada se recuerda: preguntar
+/// otra vez por la misma son dos lecturas por la ventana (~2 us) para nada.
 pub(super) fn quieto() -> Result<(), u32> {
     let bar0 = crate::ring0::dev::gpu::bar0();
     let numero = NUMERO.load(Ordering::Acquire);
-    if !ARMADO.load(Ordering::Acquire) || bar0 == 0 || numero == 0 {
+    if !ARMADO.load(Ordering::Acquire) || bar0 == 0 || numero == 0 || QUIETO_VISTO.load(Ordering::Acquire) == numero {
         return Ok(());
     }
     let mut r = Bar0(bar0);
-    if vl::pagada(&mut r, numero) {
-        return Ok(());
+    if !vl::pagada(&mut r, numero) {
+        esperar(&mut r, numero)?;
     }
-    esperar(&mut r, numero).map(|_| ())
+    // `NUMERO` solo crece (`volcado`): la vista vale hasta la siguiente tanda.
+    QUIETO_VISTO.store(numero, Ordering::Release);
+    Ok(())
 }
+
+/// La ultima tanda del volcado que `quieto` vio pagada.
+static QUIETO_VISTO: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 
 /// El volcador tiene un lienzo prestado: el pase dice "ocupado".
 pub(super) fn armado() -> bool {

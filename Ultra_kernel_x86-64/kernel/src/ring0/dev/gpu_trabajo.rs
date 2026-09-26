@@ -301,6 +301,21 @@ static BLUR_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::Atomi
 static BLUR_ENTRADA: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(bmo_gpu_ga10x::blur::PRIMERA_ENTRADA);
 /// Uno en marcha: ni otro blur ni subir pixeles mientras.
 static BLUR_EN_MARCHA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Tomar el GR** para un trabajo que NO es el anillo de VERRANO (V1b): el
+/// cerrojo de "uno en marcha" y, si el anillo tiene fotogramas en vuelo,
+/// esperarlos y olvidarlo -- comparten el tramo (programas, tabla, ordenes)
+/// y este va a escribir en el. `true` = ocupado, como el `swap` de antes.
+fn gr_ocupado() -> bool {
+    if BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return true;
+    }
+    if cubo::soltar_anillo().is_err() {
+        BLUR_EN_MARCHA.store(false, Ordering::Release);
+        return true;
+    }
+    false
+}
 /// B: sin el lienzo, una ficha ajena, el GPFIFO gastado, o uno en marcha.
 pub const IOMMU_NO_BLUR: u32 = 78;
 /// B: la salida no se presto, sus PTE no estaban vacias, o el tramo no se
@@ -343,7 +358,7 @@ pub fn blur(ficha: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = blur_(bar0, ficha as u32, e);
@@ -466,7 +481,7 @@ pub fn fractal(ficha: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = fractal_(bar0, ficha as u32, e);
@@ -560,7 +575,7 @@ pub fn triangulo(ficha: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = triangulo_(bar0, ficha as u32, e);
@@ -622,7 +637,7 @@ pub fn limpiar_3d(ficha: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = limpiar_3d_(bar0, ficha as u32, e);
@@ -685,7 +700,7 @@ pub fn escena(ficha: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = escena_(bar0, ficha as u32, e);
@@ -788,7 +803,7 @@ fn dibujo_3d(ficha: u64, d: &Dibujo3d) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = dibujo_3d_(bar0, ficha as u32, e, d);
@@ -885,7 +900,7 @@ pub fn giro(arg: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_BLUR);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = giro_(bar0, ficha as u32, e, f);

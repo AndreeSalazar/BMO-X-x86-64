@@ -444,22 +444,41 @@ pub const fn desempaquetar(v: u64) -> (u32, u32, u32, bool) {
 }
 
 /// VERRANO (V1) le pone al `Ok` lo que costo PREPARAR: el bit 44 si fue EN
-/// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..64
-/// (hasta ~0,5 s; mas, satura). X5 los deja a cero.
+/// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..63
+/// (hasta ~0,26 s; mas, satura). X5 los deja a cero.
 pub const fn con_preparar(v: u64, caliente: bool, us: u64) -> u64 {
-    let us = if us > 0x7_FFFF { 0x7_FFFF } else { us };
-    v & ((1 << 44) - 1) | (caliente as u64) << 44 | us << 45
+    let us = if us > 0x3_FFFF { 0x3_FFFF } else { us };
+    v & ((1 << 44) - 1 | EN_VUELO) | (caliente as u64) << 44 | us << 45
 }
 
 /// `(en caliente, us de preparar)` de un `Ok` de VERRANO.
 pub const fn preparado(v: u64) -> (bool, u32) {
-    (v >> 44 & 1 != 0, (v >> 45) as u32)
+    (v >> 44 & 1 != 0, (v >> 45) as u32 & 0x3_FFFF)
 }
 
-/// Pago el dibujo entero (el bit 2 de la escalera).
+/// **V1b, EL ANILLO (`anillo`)**: el bit 63 del `Ok` dice que el fotograma
+/// quedo EN VUELO -- enviado, sin esperar a que se pague. Sus us (0..31) no
+/// son entonces lo que tardo la 3060, sino lo que la CPU espero a que su
+/// ranura quedara libre (0 si la 3060 va por delante). Que se pago lo dice
+/// la valla despues: al reusar la ranura, o al vaciar el anillo.
+pub const EN_VUELO: u64 = 1 << 63;
+
+/// El `Ok` de un fotograma que queda en vuelo: se lanzo, `n` triangulos, y
+/// `espera_us` la CPU esperando su ranura.
+pub const fn en_vuelo(espera_us: u32, n: u32) -> u64 {
+    empaquetar(espera_us, n, 0, true) | EN_VUELO
+}
+
+/// Si el `Ok` es de un fotograma en vuelo.
+pub const fn es_en_vuelo(v: u64) -> bool {
+    v & EN_VUELO != 0
+}
+
+/// Pago el dibujo entero (el bit 2 de la escalera), o quedo en vuelo en
+/// el anillo (lo que la 3060 pague se ve despues, en la valla).
 pub const fn sano(v: u64) -> bool {
     let (_, n, etapas, lanzado) = desempaquetar(v);
-    lanzado && n > 0 && etapas & 0b100 != 0
+    lanzado && n > 0 && (etapas & 0b100 != 0 || es_en_vuelo(v))
 }
 
 const _: () = assert!(PALABRAS_VS * 4 <= PASO_VS as usize && PALABRAS_PS * 4 <= PASO_PS as usize);
@@ -474,6 +493,20 @@ mod pruebas {
 
     use super::*;
     use crate::raster::CODIGO_VS as T1C;
+
+    /// El `Ok` de VERRANO: caliente, preparar y en vuelo no se pisan.
+    #[test]
+    fn el_ok_de_verrano() {
+        let v = con_preparar(empaquetar(281, 12, 0b100, true), true, 168);
+        assert_eq!(desempaquetar(v), (281, 12, 0b100, true));
+        assert_eq!(preparado(v), (true, 168));
+        assert!(sano(v) && !es_en_vuelo(v));
+        let w = con_preparar(en_vuelo(3, 12), true, 1 << 30);
+        assert!(es_en_vuelo(w) && sano(w));
+        assert_eq!(preparado(w), (true, 0x3_FFFF), "satura sin tocar el bit 63");
+        assert_eq!(desempaquetar(w), (3, 12, 0, true));
+        assert!(!sano(empaquetar(3, 12, 0, true)), "ni pagado ni en vuelo");
+    }
 
     /// Los codificadores dan las instrucciones de T1c (salvo el control, que
     /// aqui es mas lento a proposito).

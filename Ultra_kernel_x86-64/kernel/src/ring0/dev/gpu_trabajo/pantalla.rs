@@ -69,7 +69,7 @@ pub fn pantalla(arg: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_PANTALLA);
     }
     let e = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(e) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(e) || super::gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
     let r = pantalla_(bar0, ficha as u32, e, f, &p, arg & CARGAR != 0, arg & POCAS != 0);

@@ -34,7 +34,9 @@
 //! - Ni profundidad ni culling: dibuja lo que le dan, en orden (el cubo es
 //!   convexo y la app le da solo las caras de delante).
 //! - Un solo tipo de vertice y un solo par de programas: los del cubo.
-//! - Sin buferes ni vallas propios: un fotograma entra y sale entero.
+//! - Sin buferes propios. Vallas, desde V1b solo por dentro: un backend
+//!   puede dejar el fotograma EN VUELO (`Stats::in_flight`) y
+//!   `Backend::finish` espera lo que quede.
 
 #![no_std]
 #![forbid(unsafe_code)]
@@ -113,6 +115,12 @@ pub struct Stats {
     /// Si se reuso lo fijo del fotograma anterior (programas, ordenes) y
     /// solo se subio lo que cambio. Lo decide el backend, no quien llama.
     pub warm: bool,
+    /// El fotograma quedo EN VUELO (V1b): enviado sin esperar a que el
+    /// aparato lo acabe -- la CPU orquesta, no espera. Entonces `device_us`
+    /// es lo que la CPU espero a que hubiera sitio para el (0 si el aparato
+    /// va por delante), no lo que tardo el aparato. Lo que quede en vuelo
+    /// lo espera [`Backend::finish`].
+    pub in_flight: bool,
 }
 
 /// **Por que un fotograma no se dibujo.**
@@ -129,6 +137,13 @@ pub enum Error {
 /// **Un backend de VERRANO**: dibuja un fotograma en una imagen.
 pub trait Backend {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error>;
+
+    /// **Esperar lo que quedo en vuelo**: vuelve cuando el aparato acabo
+    /// todos los fotogramas que `draw` envio. `Ok(us esperados)`. Un
+    /// backend que no deja nada en vuelo (la CPU) no espera nada.
+    fn finish(&mut self) -> Result<u32, Error> {
+        Ok(0)
+    }
 }
 
 /// Lo que la app comprueba antes de pedir nada (igual para todos los backends).

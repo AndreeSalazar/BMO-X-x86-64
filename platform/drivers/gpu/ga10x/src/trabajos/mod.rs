@@ -25,3 +25,6 @@ pub mod cubo;
 /// VERRANO V0: la tuberia FIJA -- dos programas que no cambian y los datos
 /// en un buffer (2026-09-25).
 pub mod tuberia;
+/// VERRANO V1b: el anillo -- la CPU prepara el fotograma N+1 mientras la
+/// 3060 dibuja el N (2026-09-26).
+pub mod anillo;

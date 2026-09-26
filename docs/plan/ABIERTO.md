@@ -8,7 +8,7 @@
 
 ```text
    354 casillas ABIERTAS en 43 planes
-   303 hechas
+   304 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -239,11 +239,11 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
 - ... y 3 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 6 abiertas, 3 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 6 abiertas, 4 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 
-- [ ] V1 -- el cubo en MOVIMIENTO, con fps. N fotogramas seguidos por
+- [ ] V1b -- EL ANILLO: la CPU ORQUESTA, no espera. Lo que pidio el
 - [ ] V2 -- la profundidad y el culling (X5b de
 - [ ] V3 -- las constantes. La matriz en un buffer y el programa de
 - ... y 3 mas

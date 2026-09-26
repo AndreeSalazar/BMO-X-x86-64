@@ -85,7 +85,7 @@ pub fn video(arg: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_VIDEO);
     }
     let en = BLUR_ENTRADA.load(Ordering::Acquire);
-    if !bl::entrada_valida(en) || BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
+    if !bl::entrada_valida(en) || super::gr_ocupado() {
         return Err(IOMMU_NO_VIDEO);
     }
     let r = video_(bar0, ficha, en, fisica, &f, &e, &p, arg & CARGAR != 0);

@@ -321,7 +321,7 @@ pub fn escribir_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertic
 }
 
 /// Escribe bytes (multiplo de 4) en la VRAM, de 64 palabras en 64.
-fn escribir_bytes<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
+pub(crate) fn escribir_bytes<R: Registros>(r: &mut R, dir: u64, b: &[u8]) -> bool {
     let mut w = [0u32; 64];
     for (k, trozo) in b.chunks(256).enumerate() {
         let n = trozo.len() / 4;

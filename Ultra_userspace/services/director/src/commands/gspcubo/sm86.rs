@@ -58,6 +58,10 @@ pub(super) struct Opciones {
     pub sin_ldg: bool,
     /// `ligero`: las ordenes sin la escalera de T1c.
     pub ligero: bool,
+    /// `anillo` (V1b): las ordenes de `ligero`, los vertices en RAM del PC
+    /// y cada fotograma EN VUELO -- la CPU envia el siguiente mientras la
+    /// tarjeta dibuja este (`bmo_gpu_ga10x::anillo`).
+    pub anillo: bool,
 }
 
 impl Opciones {
@@ -67,6 +71,10 @@ impl Opciones {
             match w {
                 b"sinldg" => o.sin_ldg = true,
                 b"ligero" => o.ligero = true,
+                b"anillo" => {
+                    o.anillo = true;
+                    o.ligero = true;
+                }
                 _ => {}
             }
         }
@@ -75,7 +83,9 @@ impl Opciones {
 
     /// Como se dice el modo en el tablero.
     pub(super) fn modo(&self) -> &'static [u8] {
-        if self.ligero {
+        if self.anillo {
+            b"anillo: la CPU orquesta, no espera"
+        } else if self.ligero {
             b"ligero, sin escalera"
         } else {
             b"con la escalera de T1c"
@@ -102,6 +112,7 @@ pub(super) struct Aparato<'a> {
     propio: [u8; 4 * tu::PALABRAS_VS],
     propio_n: usize,
     ligero: bool,
+    anillo: bool,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
@@ -155,7 +166,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -171,14 +182,20 @@ impl Backend for Aparato<'_> {
         }
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
         tu::escribir_paquete(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()]).ok_or(Error::Vertices)?;
-        let ligero = if self.ligero { bmo::CUBO_LIGERO } else { 0 };
-        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VERRANO | ligero | self.paquete.as_ptr() as u64).map_err(Error::Device)?;
+        let modo = if self.anillo {
+            bmo::CUBO_ANILLO
+        } else if self.ligero {
+            bmo::CUBO_LIGERO
+        } else {
+            0
+        };
+        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VERRANO | modo | self.paquete.as_ptr() as u64).map_err(Error::Device)?;
         let (us, tris, etapas, _) = cu::desempaquetar(r);
         if !cu::sano(r) {
             return Err(Error::Device(ESCALERA | etapas));
         }
         let (warm, prepare_us) = cu::preparado(r);
-        let st = Stats { triangles: tris, device_us: us, prepare_us, warm };
+        let st = Stats { triangles: tris, device_us: us, prepare_us, warm, in_flight: cu::es_en_vuelo(r) };
         if !self.leer {
             return Ok(st);
         }
@@ -192,6 +209,15 @@ impl Backend for Aparato<'_> {
         }
         self.leer_ms = (bmo::ciclos() - desde) * 1000 / hz;
         Ok(st)
+    }
+
+    /// Lo que el anillo dejo en vuelo, pagado (`CUBO_VACIAR`). Sin anillo
+    /// no queda nada: cada `draw` ya espero el suyo.
+    fn finish(&mut self) -> Result<u32, Error> {
+        if !self.anillo {
+            return Ok(0);
+        }
+        bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VACIAR).map(|us| us as u32).map_err(Error::Device)
     }
 }
 
@@ -212,7 +238,9 @@ pub(super) fn fallo(dsk: &mut Desktop, e: Error, en: Option<u32>, op: Opciones) 
                 }
                 None => g.text(b"  NO  VERRANO en la 3060 no se pago entero"),
             }
-            if op.ligero {
+            if op.anillo {
+                g.text(b" (anillo: sin escalera; sin `anillo` dice donde)");
+            } else if op.ligero {
                 g.text(b" (ligero: sin escalera; sin `ligero` dice donde)");
             }
             g.text(b"; la escalera:\n");

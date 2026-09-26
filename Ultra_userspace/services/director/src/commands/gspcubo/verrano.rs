@@ -203,8 +203,22 @@ fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; MAX_VERTICES]) -> Option<us
 /// los fps y dicho aparte. `preparar` es lo que el kernel tarda en dejar el
 /// fotograma listo en la VRAM: en frio relee ~4.000 palabras por PCIe, en
 /// caliente (del segundo fotograma en adelante) solo escribe los vertices.
-/// Las opciones del aparato (en la 3060, `ligero`: sin la escalera de T1c)
-/// las entiende el aparato, no este fichero.
+/// Las opciones del aparato (en la 3060, `ligero`: sin la escalera de T1c;
+/// `anillo`: el fotograma EN VUELO) las entiende el aparato, no este
+/// fichero.
+///
+/// ** V1b, "la CPU no espera: ORQUESTA" (26-09). Dos cosas de aqui:
+///
+/// ```text
+///    las tandas   los vertices de los 360 angulos se cuentan ANTES, una
+///                 vez: en el escritorio la coma flotante es por software
+///                 (decenas de us por fotograma), y un juego trae su
+///                 animacion hecha. El banco mide ORQUESTAR y dibujar, no
+///                 la trigonometria; lo que costo contarlas se dice aparte
+///    el cierre    con un aparato que deja fotogramas EN VUELO, lo que
+///                 quede se espera (`Backend::finish`) DENTRO del reloj:
+///                 unos fps que no esperan al ultimo fotograma no valen
+/// ```
 fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32) -> After {
     let (w, h) = (rf::ANCHO, rf::ALTO);
     let modo = op.modo();
@@ -212,21 +226,51 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     // Sin banda (pantalla de 1280x720), las mismas cuentas sin pintarlas.
     let mut cuentas = Cuentas::default();
     let mut v = [Vertex::default(); MAX_VERTICES];
+    // Las tandas, antes (ver arriba).
+    let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
+    let angulos = n.min(360) as usize;
+    let Some(bloque) = bmo::Memoria::request((angulos * MAX_VERTICES * core::mem::size_of::<Vertex>()) as u64) else {
+        return linea(dsk, b"  NO  sin memoria para las tandas del banco", INK_ERR);
+    };
+    // SAFETY: el bloque mide `angulos * MAX_VERTICES` vertices (`repr(C)`,
+    // de f32: cualquier bit vale), alineado a pagina, es de este proceso y
+    // solo se usa aqui; vive hasta el final de esta funcion.
+    let tandas = unsafe { core::slice::from_raw_parts_mut(bloque.base() as *mut Vertex, angulos * MAX_VERTICES) };
+    let mut cuantos = [0u8; 360];
+    let desde = bmo::ciclos();
+    for (f, (t, c)) in tandas.chunks_exact_mut(MAX_VERTICES).zip(cuantos.iter_mut()).enumerate() {
+        let Some(k) = vertices(f as u32, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
+        t.copy_from_slice(&v);
+        *c = k as u8;
+    }
+    let tandas_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
     for i in 0..n {
-        let Some(k) = vertices(i % 360, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
-        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
+        let f = (i % 360) as usize;
+        let k = cuantos[f] as usize;
+        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &tandas[f * MAX_VERTICES..][..k], viewport: Viewport { width: w, height: h } };
         let desde = bmo::ciclos();
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
                 let ciclos = bmo::ciclos() - desde;
                 cuentas.apuntar(ciclos, st.device_us);
                 if let Some(t) = tablero.as_mut() {
-                    t.apuntar(ciclos, st.device_us, st.prepare_us, st.warm);
+                    t.apuntar(ciclos, st.device_us, st.prepare_us, st.warm, st.in_flight);
                     t.quizas(p);
                 }
             }
             Err(e) => return destino::fallo(dsk, e, Some(i), op),
         }
+    }
+    // El cierre: lo que quedo en vuelo, dentro del reloj.
+    let desde = bmo::ciclos();
+    let cierre_us = match aparato.finish() {
+        Ok(us) => us,
+        Err(e) => return destino::fallo(dsk, e, Some(n), op),
+    };
+    let cierre = bmo::ciclos() - desde;
+    cuentas.ciclos += cierre;
+    if let Some(t) = tablero.as_mut() {
+        t.cierre(cierre);
     }
     // El juicio: el 30 otra vez, por el MISMO camino (con lo que el aparato
     // reuse y en el mismo modo), leido y comparado con D3D12.
@@ -269,7 +313,18 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     g.text(veredicto);
     g.byte(b'\n');
     g.with_ink(INK_PLAIN);
-    let (kf, ku): (&[u8], &[u8]) = if op.ligero { (b"gpu verrano banco ligero fps", b"gpu verrano banco ligero us") } else { (b"gpu verrano banco fps", b"gpu verrano banco us") };
+    let mut c = Texto::nuevo();
+    c.t(b"tandas de vertices contadas ANTES: ").d(angulos as u64).t(b" angulos en ").d(tandas_us).t(b" us (fuera del reloj); el cierre, ").d(cierre_us as u64).t(b" us esperando lo que quedo en vuelo (dentro)");
+    g.text(b"           ");
+    g.text(c.s());
+    g.byte(b'\n');
+    let (kf, ku): (&[u8], &[u8]) = if op.anillo {
+        (b"gpu verrano banco anillo fps", b"gpu verrano banco anillo us")
+    } else if op.ligero {
+        (b"gpu verrano banco ligero fps", b"gpu verrano banco ligero us")
+    } else {
+        (b"gpu verrano banco fps", b"gpu verrano banco us")
+    };
     super::super::datos::anotar(kf, fps, b"fps");
     super::super::datos::anotar(ku, tarjeta, b"us");
     dsk.field.n = 0;

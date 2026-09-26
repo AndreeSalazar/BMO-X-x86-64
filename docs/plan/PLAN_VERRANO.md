@@ -114,7 +114,7 @@ la SPH (128 B) y detras las instrucciones.
       refabricado, y el juez del SASS aprende la regla -- con ella, el de V0
       sale `TOMA TU BODRIO: R5 ... instruccion 6 (14)`, lo mismo que dijo la
       3060. Como se sabe: `gpu verrano` dice IGUAL.
-- [ ] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
+- [x] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
       VERRANO sin leer de vuelta (solo la huella de algunos), para poner los
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en
       Windows). **Como se sabe:** `gpu verrano banco` dice los fps y que las
@@ -134,6 +134,44 @@ la SPH (128 B) y detras las instrucciones.
       fotograma juzgado va por el MISMO camino (caliente, y ligero si se
       pidio). **Como se sabe:** `gpu verrano banco` y `gpu verrano banco
       ligero` dicen IGUAL al final, y el `preparar` de los dos baja.
+      **VISTO el 26-09 07:54** (`METAL_2026-09-25.md` 22): escalera 1246
+      fps (la 3060 395 us, preparar 173), ligero 1726 fps (281 us, preparar
+      168), el 30 IGUAL a D3D12 al final. Windows: ~3780. Por eso V1b.
+- [ ] **V1b -- EL ANILLO: la CPU ORQUESTA, no espera.** Lo que pidio el
+      propietario tras ver 1726 contra ~3780: "mi CPU no tiene que esperar
+      sino que ORQUESTE". `gpu verrano banco anillo`
+      (`bmo_gpu_ga10x::anillo`, `gpu_trabajo/cubo.rs`):
+
+      ```text
+         los vertices   en RAM del PC: una pagina (IOVA 0x3A20_0000, VA
+                        0x2_0013_0000, la entrada 304 de la PT del tramo),
+                        prestada a la 3060 SOLO LECTURA. La CPU escribe a
+                        velocidad de RAM, no ~0,5 us por palabra
+         las ranuras    4: sus vertices (1 KiB) y sus ordenes (1 KiB de
+                        EMPUJE). Las ordenes, las de `ligero` con UN semaforo
+                        mas: la 3060 escribe en TABLA la direccion de los
+                        vertices de su ranura (y WAIT_FOR_IDLE). Los programas
+                        del BSF no cambian un bit
+         la valla       un semaforo con el NUMERO del fotograma: la ranura
+                        se reusa cuando la 3060 pago el de hace 4
+         por fotograma  los vertices (RAM) y 17 palabras por la ventana (la
+                        cola de las ordenes, la entrada y GP_PUT), en UNA
+                        apertura y sin releer; el timbre. Sin invalidar la
+                        MMU. Y se vuelve: el fotograma queda EN VUELO
+         el escritorio  las tandas de los 360 angulos, contadas ANTES (la
+                        coma flotante del escritorio es por software); y
+                        `Backend::finish` espera lo que quede, DENTRO del
+                        reloj
+      ```
+
+      El primer fotograma ARMA el anillo en frio (todo releido, y se espera
+      a que se pague). Cualquier otro trabajo del GR (`gr_ocupado`) y LEER
+      vacian el anillo antes: comparten el tramo. En el tablero, con
+      fotogramas en vuelo, la columna del aparato es la ESPERA DE LA CPU
+      por una ranura (0 si la 3060 va por delante), no lo que tarda la
+      3060. **Como se sabe:** `gpu verrano banco anillo` dice IGUAL al
+      final (el 30 va TAMBIEN por el anillo), `N en vuelo`, y los fps por
+      encima de ligero; la meta, los ~3780 de Windows.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.

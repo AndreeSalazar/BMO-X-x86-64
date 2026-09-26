@@ -66,6 +66,10 @@ pub(super) struct Tablero {
     /// Preparar: suma en us, y cuantos fueron en caliente.
     preparar: u64,
     calientes: u32,
+    /// Cuantos quedaron EN VUELO (V1b): de esos, lo que se apunta como "el
+    /// aparato" es lo que la CPU espero a que hubiera sitio, no lo que tardo
+    /// la tarjeta.
+    vuelo: u32,
     /// Lo que costo pintar el tablero, en ciclos.
     pintar: u64,
     /// La ventana del ultimo repintado: fotogramas y ciclos.
@@ -101,6 +105,7 @@ impl Tablero {
             peor: 0,
             preparar: 0,
             calientes: 0,
+            vuelo: 0,
             pintar: 0,
             v_hechos: 0,
             v_ciclos: 0,
@@ -110,8 +115,8 @@ impl Tablero {
     }
 
     /// Un fotograma hecho: sus ciclos de pared, los us del aparato y los de
-    /// preparar, y si fue en caliente.
-    pub(super) fn apuntar(&mut self, ciclos: u64, tarjeta_us: u32, preparar_us: u32, caliente: bool) {
+    /// preparar, si fue en caliente y si quedo en vuelo.
+    pub(super) fn apuntar(&mut self, ciclos: u64, tarjeta_us: u32, preparar_us: u32, caliente: bool, en_vuelo: bool) {
         self.muestras[self.hechos as usize % MUESTRAS] = tarjeta_us;
         self.hechos += 1;
         self.ciclos += ciclos;
@@ -122,6 +127,24 @@ impl Tablero {
         self.peor = self.peor.max(tarjeta_us);
         self.preparar += preparar_us as u64;
         self.calientes += caliente as u32;
+        self.vuelo += en_vuelo as u32;
+    }
+
+    /// El cierre: lo que se espero a que acabara lo que quedo en vuelo.
+    /// Cuenta en la pared (los fps lo pagan), no como un fotograma mas.
+    pub(super) fn cierre(&mut self, ciclos: u64) {
+        self.ciclos += ciclos;
+        self.v_ciclos += ciclos;
+    }
+
+    /// Como se dice la columna del aparato: con fotogramas en vuelo, lo que
+    /// se mide es la espera de la CPU por una ranura libre.
+    fn columna(&self) -> &'static [u8] {
+        if self.vuelo > 0 {
+            b"ESPERA DE LA CPU"
+        } else {
+            self.aparato
+        }
     }
 
     /// Repinta si toca (cada [`CADA_MS`]), y apunta lo que costo.
@@ -162,7 +185,12 @@ impl Tablero {
     /// Las cuentas para el panel del escritorio (y para `datos`).
     pub(super) fn resumen(&self, a: &mut Texto, b: &mut Texto) {
         a.t(b"banco: ").d(self.hechos as u64).t(b" fotogramas en ").d(self.ciclos * 1000 / self.hz).t(b" ms = ").d(self.fps()).t(b" fps de pared (").t(self.modo).t(b")");
-        b.t(self.aparato).t(b" ").d(self.tarjeta_media()).t(b" us (").d(self.mejor.min(self.peor) as u64).t(b"..").d(self.peor as u64).t(b"), preparar ").d(self.preparar_medio()).t(b" us, ").d(self.calientes as u64).t(b" en caliente; tablero ").d(self.pintar * 1000 / self.hz).t(b" ms aparte");
+        if self.vuelo > 0 {
+            b.t(b"la CPU espero ").d(self.tarjeta_media()).t(b" us por ranura (").d(self.mejor.min(self.peor) as u64).t(b"..").d(self.peor as u64).t(b"), ").d(self.vuelo as u64).t(b" en vuelo");
+        } else {
+            b.t(self.aparato).t(b" ").d(self.tarjeta_media()).t(b" us (").d(self.mejor.min(self.peor) as u64).t(b"..").d(self.peor as u64).t(b")");
+        }
+        b.t(b", preparar ").d(self.preparar_medio()).t(b" us, ").d(self.calientes as u64).t(b" en caliente; tablero ").d(self.pintar * 1000 / self.hz).t(b" ms aparte");
     }
 
     fn por_segundo(&self, n: u32, ciclos: u64) -> u64 {
@@ -182,7 +210,7 @@ impl Tablero {
         let ty = y + 14;
         let ny = y + 34;
         etiqueta(p, x, ty, b"FOTOGRAMAS POR SEGUNDO");
-        etiqueta(p, x + col, ty, self.aparato);
+        etiqueta(p, x + col, ty, self.columna());
         etiqueta(p, x + 2 * col, ty, b"PREPARAR");
         etiqueta(p, x + 3 * col, ty, b"FOTOGRAMA");
 
@@ -203,7 +231,11 @@ impl Tablero {
         // Debajo de las cifras: el modo y el juez, en perla.
         let my = ny + 54;
         let mut t = Texto::nuevo();
-        t.t(self.modo).t(b"  -  ").d(self.calientes as u64).t(b" en caliente  -  juez: ").t(self.juez);
+        t.t(self.modo).t(b"  -  ").d(self.calientes as u64).t(b" en caliente");
+        if self.vuelo > 0 {
+            t.t(b"  -  ").d(self.vuelo as u64).t(b" en vuelo");
+        }
+        t.t(b"  -  juez: ").t(self.juez);
         p.texto_bytes(x, my, t.s(), PERLA);
 
         // La grafica del aparato (a la derecha, si cabe): una barra por
@@ -215,7 +247,7 @@ impl Tablero {
             let caben = ((gw / 3) as usize).min(MUESTRAS).min(self.hechos as usize);
             let tope = (0..caben).map(|k| self.muestra(k)).max().unwrap_or(1).max(1);
             let mut t = Texto::nuevo();
-            t.t(self.aparato).t(b", FOTOGRAMA A FOTOGRAMA");
+            t.t(self.columna()).t(b", FOTOGRAMA A FOTOGRAMA");
             etiqueta(p, gx, ty, t.s());
             p.rect(gx, ny + gh, gw, 1, SOMBRA);
             for k in 0..caben {

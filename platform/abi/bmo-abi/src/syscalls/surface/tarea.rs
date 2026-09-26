@@ -913,6 +913,14 @@ pub const CUBO_VERRANO: u64 = 1 << 62;
 /// (V1 `ligero`). `Ok` lleva ademas lo que costo preparar
 /// (`cubo::preparado`: en caliente o no, y sus us).
 pub const CUBO_LIGERO: u64 = 1 << 61;
+/// El bit 60, con [`CUBO_VERRANO`]: EL ANILLO (V1b). Las ordenes de
+/// `ligero`, los vertices en RAM del PC y el fotograma EN VUELO: el `Ok`
+/// vuelve sin esperar a que la 3060 lo pague (`cubo::es_en_vuelo`; sus us son
+/// lo que la CPU espero a que su ranura quedara libre).
+pub const CUBO_ANILLO: u64 = 1 << 60;
+/// El bit 59 (solo): VACIAR el anillo -- esperar a que la 3060 pague todo
+/// lo que quedo en vuelo. `Ok(us esperados)`.
+pub const CUBO_VACIAR: u64 = 1 << 59;
 /// Motivos del NO, en las banderas de `ERROR_NEGADO`.
 pub const IOMMU_NO_ESCRITORIO: u32 = 1;
 pub const IOMMU_NO_TABLAS: u32 = 2;
