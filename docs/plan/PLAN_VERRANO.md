@@ -107,6 +107,10 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
+> **V3b y V4, hechos plan (26-09):** [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md)
+> -- los datos para estudiar (NAK, CUDA, el metal), donde vive cada pieza y
+> las casillas J0..J2 (el juez) y E1..E5 (el emisor).
+
 - [ ] **V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.**
       Pedido del propietario (26-09): *"si la GPU no dice nada ... que el
       compilador diga ... que la GPU NO CALLE, si CALLA el compilador habla
