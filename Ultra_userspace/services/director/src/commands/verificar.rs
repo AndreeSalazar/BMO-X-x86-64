@@ -70,7 +70,7 @@ enum Salio {
 //
 // ** Y con MEMORIA, porque repetir a ciegas es un bucle de caidas: si un paso
 // tumba la maquina, el arranque siguiente lo volveria a dar, y el otro, y el
-// otro. Antes de CADA paso se escribe `en curso: <paso>` en el fichero (y el
+// otro. Antes de CADA paso se escribe `en curso: <paso>` en `datos/encurso.txt` (y el
 // kernel hace FLUSH del disco antes de tocar la IOMMU, asi que llega); al
 // acabar, se borra. Si un arranque encuentra un `en curso`, ese paso TUMBO la
 // maquina la vez anterior: se QUITA solo (`-paso`), se apunta `tumbo: paso` y
@@ -83,6 +83,33 @@ enum Salio {
 
 /// Donde vive el modo armado. 8.3, como todo en FAT32.
 const MODO: &[u8] = b"datos/modo.txt";
+/// Donde vive la marca `en curso` / `tumbo`, APARTE (26-09).
+///
+/// ** Por que aparte: la marca se reescribe dos veces por paso (~100 por
+/// arranque) y `modo.txt` decide si el panel sale tras el gato. El
+/// propietario vio el panel salir A VECES (25-09 21:16). Con la marca dentro
+/// de `modo.txt`, cada una de esas ~100 escrituras reemplazaba el fichero que
+/// dice "ARMADO", y un corte de corriente con el disco a medias (su FLUSH "no
+/// termina lo que empezo", fila `barrier`) podia dejarlo sin la linea `save
+/// mode`: desarmado sin que nadie lo pidiera. Ahora `modo.txt` solo se
+/// escribe cuando se teclea `save mode` (o cuando un paso tumba la maquina).
+const EN_CURSO: &[u8] = b"datos/encurso.txt";
+
+/// Por que el ultimo `leer_modo` dijo que NO: 0 si dijo que si; 1 no se
+/// pudo abrir (el codigo << 8); 2 se leyo vacio; 3 sin la linea `save mode`
+/// (desarmado de verdad, o el fichero estropeado).
+static mut POR_QUE_NO: u64 = 0;
+
+/// `POR_QUE_NO`, para la fila `receta` del informe y el arranque.
+pub(crate) fn por_que_no() -> u64 {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { core::ptr::addr_of!(POR_QUE_NO).read() }
+}
+
+fn apuntar_por_que(v: u64) {
+    // SAFETY: el escritorio es un solo hilo.
+    unsafe { core::ptr::addr_of_mut!(POR_QUE_NO).write(v) }
+}
 
 /// El modo leido del disco.
 struct Modo {
@@ -105,7 +132,6 @@ fn paso_por_nombre(nombre: &[u8]) -> Option<usize> {
     PASOS.iter().position(|p| p.nombre == nombre)
 }
 
-/// **Lee `datos/modo.txt`.** `None` = no esta armado.
 /// **La receta armada**, para el informe: los argumentos de `save mode` en
 /// `datos/modo.txt` (`None` = desarmado). Los `-paso` quitados van aqui.
 pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
@@ -114,14 +140,30 @@ pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
     Some(m.n)
 }
 
+/// **Lee `datos/modo.txt`.** `None` = no esta armado.
 fn leer_modo() -> Option<Modo> {
-    let a = bmo::Archivo::leer_de(MODO).ok()?;
+    let a = match bmo::Archivo::leer_de(MODO) {
+        Ok(a) => a,
+        Err(e) => {
+            apuntar_por_que(1 | (e as u64) << 8);
+            return None;
+        }
+    };
     let mut buf = [0u8; 256];
     let n = a.read(&mut buf);
     a.close();
+    // La marca, del suyo (los `modo.txt` de antes la llevaban dentro: se
+    // siguen entendiendo).
+    let mut marca = [0u8; 128];
+    let k = bmo::Archivo::leer_de(EN_CURSO).map_or(0, |a| {
+        let k = a.read(&mut marca);
+        a.close();
+        k
+    });
     let mut m = Modo { args: [0; 64], n: 0, en_curso: None, tumbo: None };
     let mut armado = false;
-    for linea in buf[..n].split(|&b| b == b'\n').map(|l| l.strip_suffix(b"\r").unwrap_or(l)) {
+    let lineas = buf[..n].split(|&b| b == b'\n').chain(marca[..k].split(|&b| b == b'\n'));
+    for linea in lineas.map(|l| l.strip_suffix(b"\r").unwrap_or(l)) {
         if let Some(r) = linea.strip_prefix(b"save mode") {
             let r = r.strip_prefix(b" ").unwrap_or(r);
             let k = r.len().min(m.args.len());
@@ -134,12 +176,14 @@ fn leer_modo() -> Option<Modo> {
             m.tumbo = paso_por_nombre(r);
         }
     }
+    apuntar_por_que(if armado { 0 } else if n == 0 { 2 } else { 3 });
     armado.then_some(m)
 }
 
-/// **Escribe el modo**: armado con `args`, el paso en curso y el que tumbo.
-/// `false` si no se pudo escribir.
-fn escribir_modo(args: &[u8], en_curso: Option<usize>, tumbo: Option<usize>) -> bool {
+/// **Escribe el modo**: armado con `args`. `false` si no se pudo escribir.
+/// Solo al teclear `save mode` y cuando un paso tumbo la maquina: NUNCA
+/// entre pasos (ver `EN_CURSO`).
+fn escribir_modo(args: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(MODO) else { return false };
     a.write(b"save mode");
     if !args.is_empty() {
@@ -147,6 +191,13 @@ fn escribir_modo(args: &[u8], en_curso: Option<usize>, tumbo: Option<usize>) -> 
         a.write(args);
     }
     a.write(b"\n");
+    a.close()
+}
+
+/// **La marca**: el paso en curso y el que tumbo, en `EN_CURSO`.
+fn marcar(en_curso: Option<usize>, tumbo: Option<usize>) -> bool {
+    let Ok(a) = bmo::Archivo::create(EN_CURSO) else { return false };
+    a.write(b"marca de save mode\n");
     if let Some(i) = en_curso {
         a.write(b"en curso: ");
         a.write(PASOS[i].nombre);
@@ -226,7 +277,7 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
             return Some(After::Settle);
         }
     };
-    let armado = escribir_modo(resto, None, None);
+    let armado = escribir_modo(resto) && marcar(None, None);
     {
         let g = &mut dsk.out.grid;
         g.with_ink(if armado { INK_GOOD } else { INK_ERR });
@@ -237,7 +288,7 @@ pub(crate) fn save_mode(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> Opt
         });
         g.with_ink(INK_PLAIN);
     }
-    correr(dsk, p, &quitados, resto, None);
+    correr(dsk, p, &quitados, None);
     dsk.field.n = 0;
     Some(After::Settle)
 }
@@ -265,7 +316,8 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
             args[n + 2..n + 2 + nombre.len()].copy_from_slice(nombre);
             n += 2 + nombre.len();
         }
-        escribir_modo(&args[..n], None, tumbo);
+        escribir_modo(&args[..n]);
+        marcar(None, tumbo);
     }
     let Ok(quitados) = quitados_de(&args[..n]) else {
         crate::desktop::arranque::acabar(dsk, p);
@@ -284,12 +336,11 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
         }
         g.with_ink(INK_PLAIN);
     }
-    let copia = args;
     // ** EL ARRANQUE ORQUESTADO (25-09): mientras se repite, la pantalla es
     // el panel del arranque, no el escritorio; al final, la 3060 toma el
     // control (`desktop::arranque`).
     crate::desktop::arranque::seguir(p, PASOS.len());
-    correr(dsk, p, &quitados, &copia[..n], tumbo);
+    correr(dsk, p, &quitados, tumbo);
 }
 
 /// **Justo tras el gato de la intro**: si `save mode` esta armado, el panel
@@ -298,12 +349,19 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
 pub(crate) fn antes_del_escritorio(p: &bmo::Pantalla) {
     if leer_modo().is_some() {
         crate::desktop::arranque::empezar(p, PASOS.len());
+    } else {
+        // Sin panel tras el gato: POR QUE, al klog y a la fila `receta`.
+        bmo::consola(match por_que_no() & 0xFF {
+            1 => "save mode: datos/modo.txt NO SE PUDO ABRIR tras el gato: sin panel\n",
+            2 => "save mode: datos/modo.txt se leyo VACIO tras el gato: sin panel\n",
+            _ => "save mode: desarmado (datos/modo.txt sin `save mode`): sin panel\n",
+        });
     }
 }
 
 /// **Los pasos, en orden**, con un save antes de cada uno y la marca `en
 /// curso` alrededor. Lo comparten la orden y el arranque.
-fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], args: &[u8], tumbo: Option<usize>) {
+fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], tumbo: Option<usize>) {
     {
         let g = &mut dsk.out.grid;
         g.with_ink(INK_GOOD);
@@ -371,7 +429,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             }
             // La marca: si la maquina cae AHORA, el arranque siguiente lo sabe.
             if armado {
-                escribir_modo(args, Some(i), tumbo);
+                marcar(Some(i), tumbo);
             }
             // Por donde va, en la linea de estado: un paso de varios segundos
             // sin decir cual es parece una maquina colgada.
@@ -393,7 +451,7 @@ fn correr(dsk: &mut Desktop, p: &bmo::Pantalla, quitados: &[bool; MAX_PASOS], ar
             }
             tiempo[i] = (bmo::ciclos() - desde) * 1_000_000 / hz;
             if armado {
-                escribir_modo(args, None, tumbo);
+                marcar(None, tumbo);
             }
             if paso.repinta && r.is_ok() {
                 if arranque {

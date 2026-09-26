@@ -217,7 +217,16 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
             g.text(b"save mode ");
             g.text(&args[..n]);
         }
-        None => g.text(b"save mode DESARMADO"),
+        None => {
+            g.text(match super::verificar::por_que_no() & 0xFF {
+                1 => b"save mode: datos/modo.txt NO SE PUDO ABRIR, codigo " as &[u8],
+                2 => b"save mode: datos/modo.txt se leyo VACIO",
+                _ => b"save mode DESARMADO (datos/modo.txt sin la linea `save mode`)",
+            });
+            if super::verificar::por_que_no() & 0xFF == 1 {
+                g.dec(super::verificar::por_que_no() >> 8);
+            }
+        }
     }
     let corrio = |v: u64| if v & bmo::FUEGO_INTENTADO != 0 { b"CORRIO" as &[u8] } else { b"no corrio" };
     g.text(b"; fuego ");
