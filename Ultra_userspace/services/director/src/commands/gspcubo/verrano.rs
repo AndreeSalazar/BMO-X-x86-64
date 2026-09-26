@@ -247,7 +247,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     // `exige`: la tarjeta al maximo ANTES del reloj del banco.
     let mut exigido = Texto::nuevo();
     if op.exige {
-        destino::exigir(&mut exigido);
+        aparato.exigir(&mut exigido);
     }
     for i in 0..n {
         let f = (i % 360) as usize;
@@ -326,6 +326,13 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     if !exigido.s().is_empty() {
         g.text(b"           ");
         g.text(exigido.s());
+        g.byte(b'\n');
+    }
+    let mut gobierno = Texto::nuevo();
+    aparato.cerrar(&mut gobierno);
+    if !gobierno.s().is_empty() {
+        g.text(b"           ");
+        g.text(gobierno.s());
         g.byte(b'\n');
     }
     let mut nota = Texto::nuevo();

@@ -362,6 +362,11 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       antes de los 60 s mientras haya trabajo seguido, y lo suelta al acabar
       (`gpu relojes off`). **Como se sabe:** `gpu verrano banco coopera`
       con N grande (mas de 60 s) no se cae a P8 a la mitad.
+      **Escrito (26-09):** `Gobierno` en la puerta `sm86.rs`, en `anillo` y
+      `coopera` (`reposo` lo apaga): exige cuando la espera media de 8
+      fotogramas en vuelo pasa de 10 us, SIN parar el banco (`gsprelojes::
+      mandar`, sin rampa ni P-state), renueva a los 50 s y suelta al
+      acabar. El panel dice en que fotograma exigio y si solto.
 - [ ] **E2 -- medir el escritorio.** ~35 us de pared: 15 de preparar (el
       kernel), 18 de la 3060 en paralelo, y ~20 que no se ven. Un
       cronometro por fases en el banco: armar el paquete, `Frame::cover`,

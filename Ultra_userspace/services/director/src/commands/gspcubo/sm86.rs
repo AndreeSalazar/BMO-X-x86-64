@@ -69,6 +69,9 @@ pub(super) struct Opciones {
     /// `exige` (V1c): antes del banco, los relojes de la tarjeta AL MAXIMO
     /// (`PERF_BOOST` al GSP-RM, 60 s): la CPU no deja que trabaje en reposo.
     pub exige: bool,
+    /// `reposo` (E1): sin gobernador -- la tarjeta a los relojes que tenga,
+    /// para medirla a proposito en reposo.
+    pub reposo: bool,
 }
 
 impl Opciones {
@@ -88,6 +91,7 @@ impl Opciones {
                     o.ligero = true;
                 }
                 b"exige" => o.exige = true,
+                b"reposo" => o.reposo = true,
                 // Todo lo que hay: la CPU coopera Y exige.
                 b"maximo" => {
                     o.exige = true;
@@ -153,6 +157,8 @@ pub(super) struct Aparato<'a> {
     /// V1c: pixeles que se mandaron limpiar, y en cuantos fotogramas.
     limpiados: u64,
     dibujos: u64,
+    /// E1: el gobernador de los relojes.
+    gobierno: Gobierno,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
@@ -206,7 +212,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -240,6 +246,9 @@ impl Backend for Aparato<'_> {
         let (warm, prepare_us) = cu::preparado(r);
         let in_flight = cu::es_en_vuelo(r);
         let (wait_us, device_us) = if in_flight { cu::vuelo(r) } else { (0, us) };
+        if in_flight {
+            self.gobierno.mirar(wait_us, self.dibujos);
+        }
         let st = Stats { triangles: tris, device_us, prepare_us, warm, in_flight, wait_us };
         if !self.leer {
             return Ok(st);
@@ -290,9 +299,97 @@ impl Aparato<'_> {
     }
 }
 
+/// **E1 -- EL GOBERNADOR de los relojes.** El orquestador decide solo, por
+/// lo que mide: si la CPU espera (media de los ultimos [`VENTANA`]
+/// fotogramas en vuelo por encima de [`UMBRAL_US`]), el cuello es la
+/// tarjeta, y se le EXIGE (`PERF_BOOST`, sin parar el banco a esperar la
+/// rampa); mientras siga el trabajo, se RENUEVA antes de que caduque (el RM
+/// la da por [`SUBIDA_SEGUNDOS`]); y al acabar se SUELTA: la tarjeta vuelve
+/// a reposo. Solo mira fotogramas en vuelo: en los demas modos la CPU ya
+/// espera cada uno y esperar no dice quien es el cuello.
+#[derive(Default)]
+struct Gobierno {
+    activo: bool,
+    /// Cuando se subio la ultima vez (ciclos); `None` = no se subio.
+    subido: Option<u64>,
+    esperas: [u32; VENTANA],
+    vistas: usize,
+    /// Cuantas ordenes se mandaron (subir y renovar) y cuantas acepto el RM.
+    pedidas: u32,
+    aceptadas: u32,
+    /// En que fotograma exigio por primera vez el gobernador.
+    primera: Option<u64>,
+}
+
+/// Los fotogramas que se miran para decidir.
+const VENTANA: usize = 8;
+/// Esperar de media mas que esto es que la tarjeta no da abasto.
+const UMBRAL_US: u32 = 10;
+/// Se renueva a los 50 s de una subida de 60.
+const RENOVAR_S: u64 = bmo_gpu_ga10x::control::SUBIDA_SEGUNDOS as u64 - 10;
+
+impl Gobierno {
+    fn mirar(&mut self, espera_us: u32, dibujo: u64) {
+        if !self.activo {
+            return;
+        }
+        self.esperas[self.vistas % VENTANA] = espera_us;
+        self.vistas += 1;
+        let hz = bmo::info(bmo::INFO_TSC_HZ).max(1);
+        let ahora = bmo::ciclos();
+        let toca = match self.subido {
+            Some(desde) => ahora.wrapping_sub(desde) / hz >= RENOVAR_S,
+            None => self.vistas >= VENTANA && self.esperas.iter().map(|&e| e as u64).sum::<u64>() / VENTANA as u64 > UMBRAL_US as u64,
+        };
+        if toca {
+            if self.subido.is_none() && self.primera.is_none() {
+                self.primera = Some(dibujo);
+            }
+            self.subir();
+        }
+    }
+
+    fn subir(&mut self) {
+        self.pedidas += 1;
+        if super::super::gsprelojes::mandar(true) {
+            self.aceptadas += 1;
+        }
+        self.subido = Some(bmo::ciclos());
+    }
+}
+
+impl Aparato<'_> {
+    /// **Exigir** (`exige`): la tarjeta al maximo antes de darle trabajo
+    /// (con la rampa y el P-state, que aqui SI se puede esperar), y lo que
+    /// paso, dicho en `t`. El gobernador lo renovara y lo soltara.
+    pub(super) fn exigir(&mut self, t: &mut Texto) {
+        exigir(t);
+        self.gobierno.activo = true;
+        self.gobierno.subido = Some(bmo::ciclos());
+    }
+
+    /// **Al acabar**: el gobernador suelta lo que subio, y lo cuenta en `t`.
+    pub(super) fn cerrar(&mut self, t: &mut Texto) {
+        let g = &mut self.gobierno;
+        if g.subido.is_none() {
+            if g.activo && g.vistas > 0 {
+                t.t(b"el gobernador no exigio: la CPU no espero a la tarjeta (la tarjeta daba abasto)");
+            }
+            return;
+        }
+        let soltado = super::super::gsprelojes::mandar(false);
+        match g.primera {
+            Some(f) => t.t(b"el gobernador EXIGIO solo en el fotograma ").d(f),
+            None => t.t(b"exigido antes del banco"),
+        };
+        t.t(b"; ").d(g.pedidas as u64).t(b" orden(es) al GSP-RM, ").d(g.aceptadas as u64).t(b" aceptada(s); al acabar, ").t(if soltado { b"SOLTADO: la tarjeta vuelve a reposo" as &[u8] } else { b"no se pudo soltar (baja sola a los 60 s)" });
+        g.subido = None;
+    }
+}
+
 /// **Exigir** (`exige`): la tarjeta al maximo antes de darle trabajo, y lo
 /// que paso, dicho en `t`.
-pub(super) fn exigir(t: &mut Texto) {
+fn exigir(t: &mut Texto) {
     let p = |t: &mut Texto, k: Option<u8>| {
         match k {
             Some(k) => t.t(b"P").d(k as u64),

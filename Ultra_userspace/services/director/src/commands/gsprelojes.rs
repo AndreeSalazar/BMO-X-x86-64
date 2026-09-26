@@ -94,6 +94,22 @@ pub(crate) fn exigir() -> Option<(bool, Option<u8>, Option<u8>)> {
     Some((matches!(r, Ok(c) if c.bien()), antes, despues))
 }
 
+/// **Subir o soltar SIN esperar la rampa ni preguntar el P-state** (E1, el
+/// gobernador del banco): solo la orden al GSP-RM, en mitad de un tramo de
+/// trabajo que no puede pararse 100 ms. `true` = el RM lo acepto. Se apunta
+/// como la ultima subida (la fila `relojes`).
+pub(crate) fn mandar(arriba: bool) -> bool {
+    if !super::gspobjeto::listos() {
+        return false;
+    }
+    let c = if arriba { Control::RelojesArriba } else { Control::RelojesNormales };
+    let r = controlar(c, &mut [0u8; CABECERA_CONTROL + 8]);
+    let s = Subida { arriba, r, pstate: (None, None), antes: None, despues: None, desde: bmo::ciclos() };
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of_mut!(ULTIMA) = Some(s) };
+    matches!(r, Ok(c) if c.bien())
+}
+
 /// `gpu relojes` (`quitar` = `gpu relojes off`).
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, quitar: bool) -> After {
     dsk.field.n = 0;
