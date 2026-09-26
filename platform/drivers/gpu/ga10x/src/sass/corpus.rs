@@ -13,7 +13,7 @@
 
 use super::juez::Contexto;
 use crate::raster::SPH;
-use crate::{blur, color3d, cubo, escena, fractal, giro, lienzo, pantalla, raster, sombreador, triangulo, tuberia, video};
+use crate::{blur, color3d, cubo, escena, fractal, giro, imagen, lienzo, pantalla, raster, sombreador, triangulo, tuberia, video};
 
 /// Un programa del corpus.
 pub struct Programa {
@@ -60,7 +60,7 @@ const fn grafico(nombre: &'static str, origen: &'static str, codigo: &'static [(
 }
 
 /// **El oro**: todo lo de aqui corrio en la 3060 y la CPU lo dio por bueno.
-pub static ORO: [Programa; 17] = [
+pub static ORO: [Programa; 18] = [
     computo("sombreador", "M5d S4: 32 de 32 hilos", &sombreador::CODIGO, sombreador::REGISTROS),
     computo("lienzo", "M5d L: 16384 de 16384 pixeles", &lienzo::CODIGO, sombreador::REGISTROS),
     computo("blur", "M5d B: igual a la CPU", &blur::CODIGO, blur::REGISTROS),
@@ -70,6 +70,7 @@ pub static ORO: [Programa; 17] = [
     computo("giro", "M5d G: 32 fotogramas", &giro::CODIGO, giro::REGISTROS),
     computo("pantalla", "M5d P: la pantalla entera, ~466 fps", &pantalla::CODIGO, pantalla::REGISTROS),
     computo("video", "M6 V0", &video::CODIGO, video::REGISTROS),
+    computo("imagen", "D2b: 90 de 90 (metal 26-09 17:52), el primero fabricado en la nube", &imagen::CODIGO, imagen::REGISTROS),
     grafico("raster vertice", "T1c: 50 de 50", &raster::CODIGO_VS, &SPH_RASTER_VS),
     grafico("raster pixel", "T1c: 50 de 50", &raster::CODIGO_PS, &SPH_RASTER_PS),
     grafico("color3d vertice", "T2a: tres colores", &color3d::CODIGO_VS, &SPH_COLOR_VS),
