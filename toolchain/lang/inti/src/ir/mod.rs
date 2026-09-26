@@ -173,14 +173,43 @@ pub fn bajar_con(
         }
     }
 
+    // *** LAS FIRMAS de las funciones del modulo (2026-09-26): la aritmetica de
+    // cada parametro. Sin ellas, un literal pasado a un parametro `flotante32`
+    // se bajaba en 64 -- `pon32(dir, 1.0)` escribia la mitad BAJA del 1.0 de
+    // 64 bits, o sea un CERO, sin un solo aviso. Lo destapo la app del cubo de
+    // VERRANO: NaN en la matriz de vista.
+    // *** Y LAS CONSTANTES QUE SON UN LITERAL, con su texto (2026-09-26):
+    // `PI32 = 3.1415927` se congelaba en 64 y en una variable `flotante32`
+    // llegaba su mitad BAJA -- un numero enorme, sin aviso. Con el texto, la
+    // constante se escribe en la aritmetica de donde va, como un literal.
+    let literales: std::collections::HashMap<String, Expr> = m
+        .declaraciones
+        .iter()
+        .filter_map(|d| match d {
+            Decl::Constante { nombre, valor, .. } if expresion::es_literal_numerico(valor) => Some((nombre.clone(), valor.clone())),
+            _ => None,
+        })
+        .collect();
+    let firmas: std::collections::HashMap<String, Vec<(String, Option<Clase>)>> = m
+        .declaraciones
+        .iter()
+        .filter_map(|d| match d {
+            Decl::Funcion(f) => Some((
+                f.nombre.clone(),
+                f.parametros.iter().map(|p| (p.nombre.clone(), p.tipo.as_ref().and_then(|t| plano.clase_del_tipo(t)))).collect(),
+            )),
+            _ => None,
+        })
+        .collect();
+
     for d in &m.declaraciones {
         match d {
             Decl::Funcion(f) => {
-                let ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
+                let ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal, &firmas, &literales).funcion(f);
                 salida.funciones.push(ir);
             }
             Decl::Operacion { tipo, funcion } => {
-                let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(funcion);
+                let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal, &firmas, &literales).funcion(funcion);
                 // El nombre lleva el tipo delante para que dos operaciones con
                 // el mismo nombre en tipos distintos no se pisen.
                 ir.nombre = format!("{}.{}", tipo, funcion.nombre);
@@ -192,7 +221,7 @@ pub fn bajar_con(
                 ..
             } => {
                 for f in operaciones {
-                    let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal).funcion(f);
+                    let mut ir = Descenso::nueva(&mut salida.textos, &mut salida.congelados, &mut textos_congelados, &congeladas, &tablas, tabla, plano, m.perfil, metal, &firmas, &literales).funcion(f);
                     ir.nombre = format!("{}.{}", nombre, f.nombre);
                     salida.funciones.push(ir);
                 }

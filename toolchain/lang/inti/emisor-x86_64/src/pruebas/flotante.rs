@@ -599,3 +599,26 @@ fn un_literal_entero_en_coma_flotante_es_su_numero() {
     let r = ejecuta("perfil llano\n\nfuncion f devuelve flotante64\n    cambiante a es flotante64 = 2\n    devuelve a\n", 0, 0);
     assert_eq!(como_numero(r), 2.0, "y guardado en uno de 64");
 }
+
+/// *** TRES FALLOS MUDOS del ancho de 32 (2026-09-26), los tres destapados por
+/// la app del cubo de VERRANO en INTI, y los tres daban OTRO numero sin avisar:
+///
+/// ```text
+///    un literal a un parametro flotante32   iba en 64: pon32(d, 1.0) escribia 0
+///    una cuenta de literales                1.0 / 3.0 se hacia en 64 y se
+///                                           guardaba su mitad baja
+///    una constante de nivel superior        PI = 3.1415927 llegaba en 64
+/// ```
+#[test]
+fn el_ancho_de_32_llega_a_argumentos_cuentas_y_constantes() {
+    let f = |cuerpo: &str| {
+        let r = ejecuta_en(&format!("perfil llano\n\nPI = 3.1415927\n\nfuncion id(x es flotante32) devuelve flotante32\n    devuelve x\n\nfuncion f devuelve flotante32\n{cuerpo}"), "f", 0, 0);
+        r as u32
+    };
+    assert_eq!(f("    devuelve id(1.0)\n"), 1f32.to_bits(), "literal a un parametro de 32");
+    assert_eq!(f("    devuelve id(0.4)\n"), 0.4f32.to_bits(), "literal a un parametro de 32");
+    assert_eq!(f("    x es flotante32 = 1.0 / 3.0\n    devuelve x\n"), (1f32 / 3.0).to_bits(), "cuenta de literales");
+    assert_eq!(f("    x es flotante32 = 0.0 - 1.5\n    devuelve x\n"), (-1.5f32).to_bits(), "cuenta de literales");
+    assert_eq!(f("    x es flotante32 = PI\n    devuelve x\n"), 3.1415927f32.to_bits(), "constante de nivel superior");
+    assert_eq!(f("    devuelve id(PI)\n"), 3.1415927f32.to_bits(), "constante a un parametro de 32");
+}

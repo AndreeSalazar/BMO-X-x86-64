@@ -97,6 +97,11 @@ pub(super) struct Descenso<'t> {
     /// (2026-09-26): `devuelve 0.5` en una que devuelve `flotante32` tiene que
     /// devolver el `0.5` DE 32 (`expresion::literal_en`).
     pub(super) retorno: Option<Clase>,
+    /// Las firmas de las funciones del modulo: nombre -> (parametro, su
+    /// aritmetica). Para bajar cada argumento en la de SU parametro.
+    pub(super) firmas: &'t std::collections::HashMap<String, Vec<(String, Option<Clase>)>>,
+    /// Las constantes del modulo que son un literal, con su texto.
+    pub(super) literales: &'t std::collections::HashMap<String, Expr>,
 }
 
 impl<'t> Descenso<'t> {
@@ -110,6 +115,8 @@ impl<'t> Descenso<'t> {
         plano: &'t crate::disposicion::Plano,
         perfil: crate::arbol::Perfil,
         metal: &'t [String],
+        firmas: &'t std::collections::HashMap<String, Vec<(String, Option<Clase>)>>,
+        literales: &'t std::collections::HashMap<String, Expr>,
     ) -> Self {
         Self {
             instrucciones: Vec::new(),
@@ -130,6 +137,8 @@ impl<'t> Descenso<'t> {
             sin_ancho: 0,
             medidas_locales: Vec::new(),
             retorno: None,
+            firmas,
+            literales,
         }
     }
 

@@ -827,6 +827,25 @@ acumula_de_cuatro32(destino, a, b)        destino = destino + a * b
   hacia `acc + a*b` con DOS redondeos. Ahora redondea una vez, como el
   silicio (`(1+2^-30)(1-2^-30) - 1` da `-2^-60`, no `0`).
 
+### ★★ Y tres anchos que se perdian por el camino (2026-09-26)
+
+La app del cubo de VERRANO (`ejemplos/cubo.inti`: seno, coseno, matrices,
+todo en `flotante32`) destapo TRES sitios donde el 32 se volvia 64 sin
+avisar, y los tres daban otro numero:
+
+- **un literal pasado a un parametro `flotante32`**: `pon32(d, 1.0)` escribia
+  la mitad baja del 1.0 de 64, o sea CERO. Ahora el argumento va en la
+  aritmetica de SU parametro (el descenso conoce las firmas del modulo);
+- **una cuenta de literales**: `x es flotante32 = 1.0 / 3.0` se hacia en 64 y
+  se guardaba su mitad baja (`0x55555555`). Ahora va en la del destino;
+- **una constante de nivel superior**: `PI = 3.1415927` llegaba en 64 a un
+  `flotante32`. Ahora se escribe, desde su texto, en el ancho de donde va.
+
+Con prueba los tres (`pruebas/flotante.rs`). Y lo que **sigue** abierto,
+dicho: el compilador lleva UN tipo por nombre y funcion. Dos variables con
+el mismo nombre en dos bloques de la misma funcion, una `flotante32` y otra
+entera, comparten ese tipo -- `cubo.inti` lo esquiva con otro nombre.
+
 ### Lo que NO lleva detras: ninguna comprobacion
 
 Y no es una excepcion a *"INTI no tiene comportamiento indefinido"*:
