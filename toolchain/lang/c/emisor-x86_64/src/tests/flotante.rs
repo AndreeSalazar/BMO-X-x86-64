@@ -227,3 +227,32 @@ int main() {
     );
     assert_eq!(out.trim(), "250");
 }
+
+/// *** LAS SEIS COMPARACIONES CON UN NaN (2026-09-26).
+///
+/// `comisd` con un NaN deja "desordenado" (ZF = PF = CF = 1), y con UN solo
+/// `setcc` salia `NaN == 0.0` cierto, `x != x` falso y `NaN < 1.0` cierto. Lo
+/// destapo `<math.h>` (`pow(0, NaN)` daba 1). C99 F.3: con un NaN las cuatro
+/// de orden y `==` son falsas, y `!=` es cierta. En expresion y en `if`, que
+/// van por caminos distintos del emisor.
+#[test]
+fn las_seis_comparaciones_con_un_nan() {
+    let out = run_c_con_pp(
+        r#"
+int main() {
+    double cero = 0.0;
+    double n = cero / cero;
+    double uno = 1.0;
+    printf("%d%d%d%d%d%d ", n == uno, n != uno, n < uno, n <= uno, n > uno, n >= uno);
+    printf("%d%d%d%d%d%d ", uno == n, uno != n, uno < n, uno <= n, uno > n, uno >= n);
+    printf("%d%d ", n == n, n != n);
+    if (n == n) { printf("mal"); } else { printf("bien"); }
+    if (n < uno) { printf("mal"); } else { printf("bien"); }
+    if (n != n) { printf("bien"); } else { printf("mal"); }
+    printf(" %d%d%d%d%d%d\n", uno == 1.0, uno != 2.0, uno < 2.0, uno <= 1.0, uno > 0.5, uno >= 1.0);
+    return 0;
+}
+"#,
+    );
+    assert_eq!(out.trim(), "010000 010000 01 bienbienbien 111111");
+}

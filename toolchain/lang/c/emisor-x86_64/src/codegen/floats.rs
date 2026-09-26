@@ -359,8 +359,46 @@ impl Codegen {
         self.code.extend_from_slice(&[0xF2, 0x0F, 0x10, 0xC8]);       // movsd xmm1,xmm0 (b)
         self.code.extend_from_slice(&[0xF2, 0x0F, 0x10, 0x04, 0x24]); // movsd xmm0,[rsp] (a)
         self.code.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]);       // add rsp,8
-        self.code.extend_from_slice(&[0x66, 0x0F, 0x2F, 0xC1]);       // comisd xmm0,xmm1
-        self.code.extend_from_slice(&[0x0F, setcc, 0xC0]);            // setcc al
+        // *** EL NaN (2026-09-26). `comisd` con un NaN da "desordenado":
+        // ZF = PF = CF = 1. Con un solo `setcc`, `NaN == 0.0` salia CIERTO
+        // (sete), `x != x` FALSO (setne), y `NaN < 1.0` y `<=` CIERTOS (setb,
+        // setbe). Lo destapo `<math.h>`: `pow(0, NaN)` daba 1 y `atan2` no
+        // veia el NaN. IEEE 754 y C99 (F.3): con un NaN, las cuatro de orden y
+        // `==` son falsas y `!=` es cierta. Asi:
+        //
+        //    ==   sete al ; setnp cl ; and al, cl     igual Y ordenado
+        //    !=   setne al ; setp cl ; or al, cl      distinto O desordenado
+        //    <    b > a  (comisd xmm1, xmm0 ; seta)   seta ya es falso con NaN
+        //    <=   b >= a (comisd xmm1, xmm0 ; setae)  y setae tambien
+        //    > >= como estaban: seta/setae
+        //
+        // `cl` porque rcx es scratch del emisor (`frame.rs`, la residencia: un
+        // parametro que llega en rcx se traslada a r11), y es el mismo par que
+        // usa INTI. `ah` NO: el emulador lee el registro de byte 4 como `spl`,
+        // y un `setnp` ahi pisaba la pila (asi salio, el programa no acababa).
+        match setcc {
+            0x92 | 0x96 => {
+                self.code.extend_from_slice(&[0x66, 0x0F, 0x2F, 0xC8]); // comisd xmm1,xmm0
+                let cruzado = if setcc == 0x92 { 0x97 } else { 0x93 };
+                self.code.extend_from_slice(&[0x0F, cruzado, 0xC0]); // seta/setae al
+            }
+            0x94 => {
+                self.code.extend_from_slice(&[0x66, 0x0F, 0x2F, 0xC1]); // comisd xmm0,xmm1
+                self.code.extend_from_slice(&[0x0F, 0x94, 0xC0]); // sete al
+                self.code.extend_from_slice(&[0x0F, 0x9B, 0xC1]); // setnp cl
+                self.code.extend_from_slice(&[0x20, 0xC8]); // and al, cl
+            }
+            0x95 => {
+                self.code.extend_from_slice(&[0x66, 0x0F, 0x2F, 0xC1]); // comisd xmm0,xmm1
+                self.code.extend_from_slice(&[0x0F, 0x95, 0xC0]); // setne al
+                self.code.extend_from_slice(&[0x0F, 0x9A, 0xC1]); // setp cl
+                self.code.extend_from_slice(&[0x08, 0xC8]); // or al, cl
+            }
+            _ => {
+                self.code.extend_from_slice(&[0x66, 0x0F, 0x2F, 0xC1]); // comisd xmm0,xmm1
+                self.code.extend_from_slice(&[0x0F, setcc, 0xC0]); // setcc al
+            }
+        }
         self.code.extend_from_slice(&[0x0F, 0xB6, 0xC0]);            // movzx eax, al
     }
 }
