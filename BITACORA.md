@@ -4571,10 +4571,10 @@ los malos: la autopsia (buzones y CPUCTL crudos del GSP y del SEC2, BSI, la
 WPR2, la WPR meta, y el bus de la 3060 y la IOMMU antes y despues), el metiche
 (los bits de error que cada aparato PCI apunto solo) y la receta (con que se
 hizo cada arranque). Cayeron ocho hipotesis, cada una por un dato.
-**Culpable (sospechoso, 1 de 3)**: `fuego` y `frontera`, las pruebas de la
+**Culpable (sospechoso, 2 de 3)**: `fuego` y `frontera`, las pruebas de la
 IOMMU, usan el DMA del falcon del GSP -- y `frontera` deja que la IOMMU aborte
-uno -- justo antes del booter. Sin ellas (`save mode -fuego -frontera`), el
-primer arranque en frio levanto el GSP. Lo que separa un malo de un bueno: en
+uno -- justo antes del booter. Sin ellas (`save mode -fuego -frontera`), los
+dos primeros arranques en frio levantaron el GSP. Lo que separa un malo de un bueno: en
 el malo los buzones del GSP dan `0xBADF1002` (no contesta); en el bueno, 0.
 **Moraleja**: el fallo intermitente no se arregla, se mide hasta que una sola
 variable lo separa. Y una prueba que toca el hardware es parte del
