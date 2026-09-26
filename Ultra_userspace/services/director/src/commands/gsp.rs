@@ -763,7 +763,10 @@ fn fila_autopsia(s: &mut Output) {
         if mm >> 63 != 0 {
             let v = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 10 << 8);
             let n = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 11 << 8);
-            s.text(b"; la WPR meta: el booter cambio ");
+            // [!] NO es un reloj: en el arranque BUENO del 25-09 (sin
+            // frontera) tambien salio 0. El booter trabaja con su copia en
+            // la WPR de la VRAM, no con esta.
+            s.text(b"; la WPR meta de la RAM (no discrimina: 0 tambien en los buenos): cambio ");
             s.dec((mm as u32).count_ones() as u64);
             s.text(b" palabras (mascara 0x");
             s.hex(mm & 0xFFFF_FFFF, 8);
@@ -844,12 +847,18 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b", MAILBOX1 0x");
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
-        // ** 0x15: cuatro veces en el metal (24-09 07:48, 13:52, 19:12 y
-        // 25-09 19:38), la ultima con la 3060 FRIA segun la WPR2. Causa sin
-        // conocer: la fila `autopsia` junta lo que la separara.
+        // ** 0x15: nueve veces en el metal (24-09 y 25-09), seis seguidas EN
+        // FRIO: cortar la corriente NO lo arregla. El sospechoso (25-09):
+        // `fuego`/`frontera` usan el falcon del GSP antes que el booter. El
+        // caso entero: `platform/drivers/gpu/ga10x/EL_0x15.md`.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
-            s.text(b" = el booter no cargo (causa aun sin saber: mira la fila `autopsia`); APAGA y corta la corriente 30 s");
+            let con_prueba = bmo::info(bmo::INFO_GPU_FRONTERA) & bmo::FUEGO_INTENTADO != 0 || bmo::info(bmo::INFO_GPU_FUEGO) & bmo::FUEGO_INTENTADO != 0;
+            s.text(if con_prueba {
+                b" = el booter no cargo, y `fuego`/`frontera` corrieron antes en el falcon del GSP: arma `save mode -fuego -frontera` y arranca otra vez" as &[u8]
+            } else {
+                b" = el booter no cargo SIN `fuego` ni `frontera`: el sospechoso queda absuelto; pega la fila `autopsia` (EL_0x15.md)"
+            });
             s.with_ink(INK_ECHO);
         }
     }
