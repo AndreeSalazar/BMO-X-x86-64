@@ -119,6 +119,10 @@ la SPH (128 B) y detras las instrucciones.
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en
       Windows). **Como se sabe:** `gpu verrano banco` dice los fps y que las
       huellas medidas siguen IGUALES.
+      **Escrito (26-09), falta el metal:** `gpu verrano banco [N]` dibuja N
+      fotogramas (360 por defecto, 1..3600) sin leer de vuelta, dice los fps
+      de pared y los de solo la tarjeta, y al final lee el fotograma 30 y lo
+      juzga contra `de_la_3060(30)` de D3D12.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.
