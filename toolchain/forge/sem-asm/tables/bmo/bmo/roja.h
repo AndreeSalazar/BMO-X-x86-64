@@ -74,6 +74,9 @@
 #define BMO_OP_ARCHIVO_ABRIR 0x10
 #define BMO_OP_ARCHIVO_CREAR 0x11
 #define BMO_OP_INFO 0x13
+/* MIS ARGUMENTOS: lo que venia detras de la ruta al lanzarme, 8 bytes por
+ * trozo (el trozo 0, los primeros 8). 0 = se acabo. Ver `bmo_argumento`. */
+#define BMO_OP_ARGUMENTOS 0x33
 /* El SONIDO. Exclusivo como la pantalla; ver <bmo/sonido.h>. */
 #define BMO_OP_SONIDO_RECLAMAR 0x21
 #define BMO_OP_SONIDO_SOLTAR 0x22
@@ -139,6 +142,13 @@ void bmo_ceder() {
  * A 60 fotogramas por segundo, 16.000.000 ns. */
 void bmo_dormir(unsigned long long nanos) {
     __syscall(BMO_WAIT, 0, 0, nanos, 0, 0);
+}
+
+/* El trozo `k` de mis argumentos: 8 bytes en little-endian, como una palabra
+ * de `BMO_OP_RUTA`. `run apps/doom.bex 3060` da "3060" en el trozo 0. No hay
+ * `argv`: es UN texto, y quien lo lee sabe como partirlo. */
+unsigned long long bmo_argumento(unsigned long long k) {
+    return bmo_valor(BMO_TAREA_ACTUAL, BMO_OP_ARGUMENTOS, k, 0, 0);
 }
 
 /* Un dato numerico del sistema. `0` si el kernel no sabe contestar ese campo. */

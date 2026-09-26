@@ -38,6 +38,10 @@
  * copiando y no convirtiendo. Un formato distinto seria una conversion por
  * pixel y por fotograma en el proceso que menos puede permitirsela. */
 #define BMO_SUP_BGRA32 0
+/* Los mismos pixeles, A LA 3060 (D2c, 26-09): la app no agranda y el DIRECTOR,
+ * si la 3060 esta lista, se la pide a ella a pantalla completa. Si no, la
+ * compone como BGRA32. Ver `bmo_superficie_a_la_3060`. */
+#define BMO_SUP_A_LA_3060 1
 
 /* Lo que ocupa el buzon antes de la primera ranura: cabeza, cola y el puntero. */
 #define BMO_SUP_BUZON_CABECERA 16
@@ -85,6 +89,18 @@ void bmo_superficie_lista(BMO_SUPERFICIE *s) {
         return;
     }
     bmo_sup_poner(s->base, 5, bmo_sup_leer(s->base, 5) + 1);
+}
+
+/* ** PEDIRLE A LA 3060 QUE LA PRESENTE (D2c, 2026-09-26): cambia el formato de
+ * la cabecera a `BMO_SUP_A_LA_3060`. Los pixeles no cambian de forma: la app
+ * deja de agrandar y el DIRECTOR decide si la 3060 puede (despues de `save
+ * mode`) o si la compone el como siempre. El DIRECTOR relee la cabecera en
+ * cada fotograma, asi que se puede pedir despues de crearla. */
+void bmo_superficie_a_la_3060(BMO_SUPERFICIE *s) {
+    if (s == 0) {
+        return;
+    }
+    bmo_sup_poner(s->base, 4, BMO_SUP_A_LA_3060);
 }
 
 /* Pide la memoria, escribe la cabecera y **se la ofrece a quien nos lanzo**.

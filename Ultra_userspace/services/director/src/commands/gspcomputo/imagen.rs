@@ -29,6 +29,7 @@ use super::super::tabla::campo;
 use super::super::After;
 use super::{con, estado, hasta_el_lienzo, no, Linea, NO_TRABAJO_SIN_FICHA, PANEL_ABIERTO};
 use crate::desktop::Desktop;
+use crate::scene::surface::{Table, MAX as CAJAS};
 use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
@@ -306,4 +307,123 @@ pub(super) fn fila(s: &mut Output, c: &super::Computo) {
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
     super::super::datos::anotar(b"gpu imagen fps10", t.fps10(), b"");
+}
+
+// == D2c: DOOM EN VIVO POR LA 3060 (2026-09-26) ===============================
+//
+// Una app que pinta su 320 x 200 SIN agrandar y lo marca `SUP_A_LA_3060`
+// (DOOM con `3060` detras: `gpu doom`, o su icono con la 3060 lista) no se
+// compone con la CPU: se pone a pantalla completa y la 3060 la agranda
+// DIRECTAMENTE en la pantalla con `imagen`, leyendo el fotograma del PRESTAMO
+// que el escritorio tomo (IMAGEN_PRESTADO). El volcado del escritorio solo
+// copia lo sucio del lienzo, asi que mientras nada se pinte encima (ni el
+// cursor: ver `desktop::paint`), la 3060 manda en la pantalla.
+
+/// La vuelta anterior la 3060 presento: el programa sigue cargado. Si no,
+/// la proxima lo carga (otro trabajo de la 3060 pudo usar sus paginas).
+static mut EN_VIVO: bool = false;
+/// El formato que se le dio a la 3060 en esta racha.
+static mut FORMATO_VIVO: (u32, u32) = (0, 0);
+
+/// **La 3060 esta lista para presentar**, SIN arrancar nada: el lienzo de M5d
+/// hecho (lo deja `save mode`) y la ficha del timbre de GR0. Esto se pregunta
+/// en cada vuelta: `hasta_el_lienzo` arrancaria pasos, y eso no puede ir aqui.
+pub(crate) fn la_3060_lista() -> Option<u64> {
+    if !super::pintado() {
+        return None;
+    }
+    estado().timbre.map(|(v, _)| v as u64)
+}
+
+/// Un fotograma prestado a la pantalla. `nuevo`: el formato y el programa.
+fn presentar(va: u64, ancho: u32, alto: u32, ficha: u64, nuevo: bool) -> Result<u64, u32> {
+    if nuevo {
+        bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_IMAGEN_FORMATO, ancho as u64 | (alto as u64) << 16 | ficha << 32)?;
+    }
+    let cargar = if nuevo { bmo::IMAGEN_CARGAR } else { 0 };
+    let v = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_IMAGEN, va | bmo::IMAGEN_PRESTADO | cargar)?;
+    if im::sano(v) {
+        Ok(v)
+    } else {
+        Err(super::NO_IMAGEN_MAL)
+    }
+}
+
+/// **Cada vuelta del escritorio**: las apps que piden la 3060. `true` si la
+/// 3060 manda en la pantalla (entonces no se pinta el cursor).
+///
+/// Sin la 3060 lista no se hace nada: la app se compone con la CPU como
+/// cualquier ventana (chica, 320 x 200). Si la 3060 dice NO, se dice una vez
+/// por la consola y la app vuelve a la CPU para siempre -- un NO reintentado
+/// en cada vuelta seria un escritorio atascado.
+pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla) -> bool {
+    let mut manda = false;
+    for i in 0..CAJAS {
+        let Some((va, ancho, alto, seq)) = t.get(i).and_then(|s| s.para_la_3060()) else { continue };
+        let Some(ficha) = la_3060_lista() else { continue };
+        manda = true;
+        // ** LA ENTRADA: pantalla completa y el lienzo en negro (lo que la
+        // imagen agrandada no cubre). Esta vuelta solo sale el negro.
+        if !t.get(i).is_some_and(|s| s.a_pantalla_completa()) {
+            t.pantalla_completa(i, p);
+            p.rect(0, 0, p.ancho, p.alto, 0);
+            if let Some(s) = t.get_mut(i) {
+                s.reservada_para_la_3060();
+            }
+            // SAFETY: el escritorio es un solo hilo.
+            unsafe { *core::ptr::addr_of_mut!(EN_VIVO) = false };
+            continue;
+        }
+        // SAFETY: el escritorio es un solo hilo.
+        let nuevo = unsafe { !EN_VIVO || FORMATO_VIVO != (ancho, alto) };
+        if !nuevo && t.get(i).is_some_and(|s| s.presentada() == seq) {
+            continue;
+        }
+        let r = presentar(va, ancho, alto, ficha, nuevo);
+        let Some(s) = t.get_mut(i) else { continue };
+        match r {
+            Ok(_) => {
+                s.presentada_por_la_3060(seq);
+                // SAFETY: el escritorio es un solo hilo.
+                unsafe {
+                    *core::ptr::addr_of_mut!(EN_VIVO) = true;
+                    *core::ptr::addr_of_mut!(FORMATO_VIVO) = (ancho, alto);
+                }
+            }
+            Err(m) => {
+                s.sin_la_3060();
+                manda = false;
+                bmo::consola("[3060] la app vuelve a la CPU: ");
+                bmo::consola(core::str::from_utf8(super::super::iommu::motivo(m)).unwrap_or("?"));
+                bmo::consola("\n");
+            }
+        }
+    }
+    if !manda {
+        // SAFETY: el escritorio es un solo hilo.
+        unsafe {
+            *core::ptr::addr_of_mut!(EN_VIVO) = false;
+            *core::ptr::addr_of_mut!(FORMATO_VIVO) = (0, 0);
+        }
+    }
+    manda
+}
+
+/// **`gpu doom`**: DOOM por la 3060. Lanza `apps/doom.bex 3060` por la misma
+/// ranura que un icono; si la 3060 no esta lista, lo dice y no lanza.
+pub(crate) fn orden_doom(dsk: &mut Desktop) -> After {
+    let g = &mut dsk.out.grid;
+    if la_3060_lista().is_none() {
+        g.with_ink(INK_ERR);
+        g.text(b"  la 3060 no esta lista para DOOM: primero `save mode` (o `gpu lienzo`)\n");
+    } else if crate::scene::abrir::pedir(&[b"apps/doom.bex", b"3060"]) {
+        g.with_ink(INK_GOOD);
+        g.text(b"  DOOM POR LA 3060: 320x200, la tarjeta lo agranda a pantalla completa\n");
+    } else {
+        g.with_ink(INK_ERR);
+        g.text(b"  no se pudo pedir el lanzamiento de apps/doom.bex\n");
+    }
+    g.with_ink(INK_PLAIN);
+    dsk.field.n = 0;
+    After::Settle
 }

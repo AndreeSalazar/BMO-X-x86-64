@@ -61,6 +61,9 @@ const HEADER_TAG: u64 = bmo::SUP_CABECERA;
 /// conversion por pixel y por fotograma en el proceso que menos puede
 /// permitirsela no es soporte, es una promesa que se paga en cada vuelta.
 const BGRA32: u32 = bmo::SUP_BGRA32 as u32;
+/// Los mismos pixeles, pero la app pide que los presente la 3060 (D2c): no
+/// hay conversion, solo quien los mueve. Ver [`Surface::para_la_3060`].
+const A_LA_3060: u32 = bmo::SUP_A_LA_3060 as u32;
 
 /// Lo que ocupa el buzon antes de la primera ranura: cabeza, cola y el estado
 /// del puntero.
@@ -92,6 +95,8 @@ pub(crate) struct Header {
     buzon: u64,
     /// Cuantas ranuras tiene, ya comprobado que es potencia de dos.
     ranuras: u32,
+    /// La app pidio que la presente la 3060 (`SUP_A_LA_3060`).
+    a_la_3060: bool,
 }
 
 /// Un `u32` de la cabecera. `volatile` porque **lo escribe otro proceso**: sin
@@ -107,7 +112,8 @@ impl Header {
     /// `bytes` es lo que dijo el KERNEL que se presto, y es el unico numero de
     /// aqui en el que se puede confiar: todo lo demas lo escribio la app.
     pub(crate) fn read(base: u64, bytes: u64) -> Option<Header> {
-        if bytes < HEADER_TAG || campo(base, 0) != MAGIC || campo(base, 4) != BGRA32 {
+        let formato = campo(base, 4);
+        if bytes < HEADER_TAG || campo(base, 0) != MAGIC || (formato != BGRA32 && formato != A_LA_3060) {
             return None;
         }
         let (width, height, stride) = (campo(base, 1), campo(base, 2), campo(base, 3));
@@ -141,7 +147,7 @@ impl Header {
             buzon = 0;
             ranuras = 0;
         }
-        Some(Header { width, height, stride, sequence: campo(base, 5), buzon, ranuras })
+        Some(Header { width, height, stride, sequence: campo(base, 5), buzon, ranuras, a_la_3060: formato == A_LA_3060 })
     }
 }
 
@@ -185,6 +191,13 @@ pub(crate) struct Surface {
     /// La app publica, este proceso presenta, y `bmo-ritmo` dice quien espera a
     /// quien. Lo lee `perf`. Ver `docs/maestro/INTI_Y_LA_GPU.md` sec. 6.
     pub(crate) ritmo: bmo_ritmo::Ritmo,
+    /// == D2c: LA PRESENTA LA 3060 (2026-09-26) ==========================
+    /// `true` mientras la 3060 pone sus fotogramas en la pantalla: `compose`
+    /// no la pega (lo haria encima con la CPU). Lo decide el escritorio.
+    por_3060: bool,
+    /// La 3060 dijo que NO una vez: se compone con la CPU hasta que la app
+    /// muera. Un NO que se reintenta en cada vuelta es un escritorio atascado.
+    sin_3060: bool,
 }
 
 impl Surface {
@@ -220,6 +233,8 @@ impl Surface {
             acusada: false,
             configurado: (cab.width, cab.height, 0),
             ritmo: bmo_ritmo::Ritmo::nuevo(),
+            por_3060: false,
+            sin_3060: false,
         };
         s.marcar_tomada(&cab);
         Some(s)
@@ -291,6 +306,9 @@ impl Surface {
     /// medio fuera del panel no puede escribir mas alla del lienzo, y el marco
     /// puede ser mas chico que la superficie si el usuario lo encogio.
     pub(crate) fn compose(&mut self, p: &bmo::Pantalla) -> bool {
+        if self.por_3060 {
+            return false;
+        }
         let Some(cab) = Header::read(self.base, self.bytes) else {
             return false;
         };
@@ -326,6 +344,47 @@ impl Surface {
         self.stuck = cab.sequence;
         self.ritmo.presento();
         true
+    }
+
+    /// **D2c: lo que la 3060 necesita para presentarla**, si la app lo pidio
+    /// (`SUP_A_LA_3060`), no esta minimizada y la 3060 no dijo ya que no:
+    /// `(la VA de los pixeles, ancho, alto, secuencia)`. Solo sin relleno
+    /// (stride = ancho): el programa `imagen` lee filas seguidas.
+    pub(crate) fn para_la_3060(&self) -> Option<(u64, u32, u32, u32)> {
+        if self.chrome.minimized || self.sin_3060 {
+            return None;
+        }
+        let cab = Header::read(self.base, self.bytes)?;
+        (cab.a_la_3060 && cab.stride == cab.width).then_some((self.base + HEADER_TAG, cab.width, cab.height, cab.sequence))
+    }
+
+    /// Desde ya la presenta la 3060 (la vuelta de entrada, en negro): que
+    /// `compose` no la pegue chica en una esquina mientras tanto.
+    pub(crate) fn reservada_para_la_3060(&mut self) {
+        self.por_3060 = true;
+    }
+
+    /// La ultima secuencia presentada (por la CPU o por la 3060).
+    pub(crate) fn presentada(&self) -> u32 {
+        self.stuck
+    }
+
+    /// La 3060 puso el fotograma `seq`: desde ahora `compose` no la pega.
+    pub(crate) fn presentada_por_la_3060(&mut self, seq: u32) {
+        self.por_3060 = true;
+        self.stuck = seq;
+        self.ritmo.presento();
+    }
+
+    /// La 3060 dijo NO: vuelve a componerla la CPU, y no se reintenta.
+    pub(crate) fn sin_la_3060(&mut self) {
+        self.por_3060 = false;
+        self.sin_3060 = true;
+        self.repaint_all();
+    }
+
+    pub(crate) fn a_pantalla_completa(&self) -> bool {
+        self.chrome.is_fullscreen()
     }
 
     /// El cromo de la ventana: el marco con sus tres botones y el titulo.

@@ -599,12 +599,18 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
                   sus marcos vayan seguidos, y el origen puede empezar dentro
                   de su pagina (el `malloc` de DOOM): `imagen::paginas` y
                   `parametros_desde`
-         port     `doomgeneric_bmo.c`: una superficie de 320x200 x1 marcada
-                  "a la 3060" en su cabecera, sin agrandar
-         escritorio  la ve marcada: deja de volcar, y en cada fotograma nuevo
-                  llama a IMAGEN con el prestamo; las teclas siguen yendo a
-                  DOOM; al morir DOOM (o con su tecla) vuelve el escritorio
+         port     HECHO (26-09): con el argumento `3060` (`run apps/doom.bex
+                  3060`, `bmo_argumento`) una superficie de 320x200 x1
+                  marcada `SUP_A_LA_3060` en su cabecera, sin agrandar
+         escritorio  HECHO (26-09): la ve marcada y con la 3060 lista la pone
+                  a pantalla completa (una vuelta en negro), no la pega con
+                  la CPU, no pone el cursor, y en cada secuencia nueva llama
+                  a IMAGEN con el prestamo; las teclas siguen yendo a DOOM;
+                  al morir DOOM vuelve el escritorio. Un NO de la 3060 la
+                  devuelve a la CPU para siempre (dicho en la consola). El
+                  icono de DOOM y `gpu doom` la lanzan con `3060`
       ```
+      **Falta el metal:** `docs/metal/METAL_2026-09-25.md`, seccion 26.
 - [ ] **D3 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
       pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
       aplica el mismo programa. **Como se sabe:** igual que D2c, con 4 veces

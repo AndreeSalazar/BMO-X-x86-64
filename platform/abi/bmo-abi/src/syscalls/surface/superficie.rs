@@ -63,8 +63,13 @@
 pub const SUP_MAGIC: u64 = 0x5055_5342;
 /// Lo que ocupa la cabecera antes del primer pixel.
 pub const SUP_CABECERA: u64 = 32;
-/// El unico formato: BGRA de 32 bits, el del framebuffer. Se compone COPIANDO.
+/// El formato de siempre: BGRA de 32 bits, el del framebuffer. Se compone COPIANDO.
 pub const SUP_BGRA32: u64 = 0;
+/// **Los mismos pixeles, A LA 3060** (D2c de `PLAN_VERRANO`, 2026-09-26): la
+/// app no agranda; el DIRECTOR, si la 3060 esta lista, la pone a pantalla
+/// completa y le pide a la 3060 cada fotograma nuevo (`IOMMU_OP_GPU_IMAGEN`
+/// con `IMAGEN_PRESTADO`). Si no lo esta, se compone como `SUP_BGRA32`.
+pub const SUP_A_LA_3060: u64 = 1;
 /// Indice (en `u32`) del campo `secuencia` dentro de la cabecera.
 pub const SUP_CAMPO_SECUENCIA: u64 = 5;
 

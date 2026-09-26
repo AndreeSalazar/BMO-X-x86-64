@@ -98,11 +98,14 @@ La linea exacta sale por la consola del escritorio. Con ella se sabe cual es.
 
 ## 5. Y VERRANO
 
-DOOM pinta por software en un bufer de 32 bits (`DG_ScreenBuffer`), y el
-escalado a la ventana lo hace hoy la CPU. VERRANO entra por ahi: ese bufer como
-TEXTURA en la 3060 y dos triangulos que la estiran a la ventana. Es el carril
-**D** de [`PLAN_VERRANO.md`](../../../../../docs/plan/PLAN_VERRANO.md), y pide M3
-(las texturas) y M6 (un juego de otro proceso).
+DOOM pinta por software en un bufer de 32 bits (`DG_ScreenBuffer`). En una
+ventana, el agrandado lo hace la CPU. **A LA 3060** (D2c, 26-09) lo hace la
+tarjeta: tras `save mode`, el icono de DOOM (o `gpu doom`) lanza
+`apps/doom.bex 3060`; el port entrega sus 320 x 200 sin agrandar y el
+escritorio le pide a la 3060, en cada fotograma, que los ponga a pantalla
+completa. Es el carril **D** de
+[`PLAN_VERRANO.md`](../../../../../docs/plan/PLAN_VERRANO.md); lo siguiente es la
+paleta en la 3060 (D3) y, para Quake, las texturas (M3).
 
 ## 6. Licencia
 

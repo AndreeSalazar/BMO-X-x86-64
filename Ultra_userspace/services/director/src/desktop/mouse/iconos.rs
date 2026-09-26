@@ -52,13 +52,17 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) {
             scene::launcher::repintar(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible);
             if let Some(app) = dsk.launcher.app(i) {
                 let r = app.path();
+                // ** D2c: DOOM, con la 3060 lista (tras `save mode`), va A LA
+                // 3060: `run apps/doom.bex 3060`. Sin ella, como siempre.
+                let cola: &[u8] = if r.ends_with(b"doom.bex") && crate::commands::gspcomputo::la_3060_lista().is_some() { b" 3060" } else { b"" };
                 // `run ` + la ruta. Si no cupiera se deja como estaba:
                 // media ruta lanzaria otra cosa, y eso es peor que no
                 // lanzar nada.
-                if 4 + r.len() <= dsk.field.path.len() {
+                if 4 + r.len() + cola.len() <= dsk.field.path.len() {
                     dsk.field.path[..4].copy_from_slice(b"run ");
                     dsk.field.path[4..4 + r.len()].copy_from_slice(r);
-                    dsk.field.n = 4 + r.len();
+                    dsk.field.path[4 + r.len()..4 + r.len() + cola.len()].copy_from_slice(cola);
+                    dsk.field.n = 4 + r.len() + cola.len();
                     dsk.field.cur = dsk.field.n;
                     dsk.tick.repaint_field = true;
                     // Solo el SEGUNDO dispara.

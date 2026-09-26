@@ -464,6 +464,9 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     if scene::dirty::hay() {
         dsk.tick.will_paint = true;
     }
+    // ** D2c: las apps A LA 3060 (DOOM con `gpu doom`) no se pegan: la 3060
+    // las agranda directamente en la pantalla. Antes de componer las demas.
+    let manda_la_3060 = crate::commands::gspcomputo::presentar_apps(&mut dsk.table, &p);
     if dsk.tick.will_paint {
         for &(vx, vy, va, vl) in dsk.tick.dead_boxes[..dead].iter() {
             erase_window(&p, &dsk.run_box, vx, vy, va, vl, dsk.win.visible);
@@ -565,7 +568,9 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // guarda debajo es lo definitivo. Ponerlo antes obligaria a que cada
     // ventana supiera esquivarlo -- que es justo lo que no se puede pedir a
     // una ventana que todavia no existe.
-    if dsk.tick.ax != u32::MAX {
+    // Con la 3060 mandando en la pantalla, el cursor NO se pone: su caja
+    // sucia se volcaria encima de lo que la tarjeta acaba de escribir.
+    if dsk.tick.ax != u32::MAX && !manda_la_3060 {
         // * QUE ESTA DICIENDO EL PUNTERO.
         //
         // Se decide aqui, al final del fotograma, porque es aqui donde ya

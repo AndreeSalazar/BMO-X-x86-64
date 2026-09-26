@@ -355,6 +355,21 @@ static void cambiar_escala(void)
     printf("DOOM: escala x%d -> %d x %d\n", g_escala, g_dst_ancho, g_dst_alto);
 }
 
+/* -- 2.0a  A LA 3060 (D2c de PLAN_VERRANO, 2026-09-26) ------------------
+ *
+ * `gpu doom` lanza `apps/doom.bex 3060`. Con ese argumento DOOM NO agranda:
+ * su ventana es de 320 x 200, marcada `BMO_SUP_A_LA_3060`, y el DIRECTOR le
+ * pide a la 3060 que la ponga a pantalla completa (x5 en 1920x1080) en cada
+ * fotograma nuevo. Lo que era `expandir_fila` y `escala` memcpy por fila --a
+ * x5, ~4,4 ms y 6,4 MB por fotograma, medido abajo-- lo hace la tarjeta.
+ *
+ * Si la 3060 no esta lista (sin `save mode`), el DIRECTOR compone la ventana
+ * como siempre y se ve de 320 x 200: chica, pero DOOM no se entera. */
+static int g_a_la_3060;
+
+/* "3060" en little-endian: el trozo 0 de los argumentos (`bmo_argumento`). */
+#define ARGUMENTO_3060 0x30363033ULL
+
 /* -- 2.0  DG_Init: reclamar pantalla y entrada -------------------------- */
 
 /* ** AQUI HABIA TRES NUMEROS DEL KERNEL COPIADOS A MANO, y se fueron el
@@ -373,6 +388,7 @@ void DG_Init()
 {
     int escala_a;
     int escala_b;
+    int escala_ventana;
     BMO_PANTALLA pan;
     unsigned long long hz;
 
@@ -390,9 +406,14 @@ void DG_Init()
      * la ventana primero, `presta` se quedaria treinta segundos a oscuras
      * esperando una reclamacion que no llega. Ver "DOOM EN UNA VENTANA". */
     if (bmo_pantalla_abrir(&pan) == 0) {
+        g_a_la_3060 = bmo_argumento(0) == ARGUMENTO_3060;
+        escala_ventana = VENTANA_ESCALA;
+        if (g_a_la_3060) {
+            escala_ventana = 1;
+        }
         /* 64 ranuras de buzon, las mismas que el raycaster. */
-        g_sup = bmo_superficie_crear_con_buzon(DOOMGENERIC_RESX * VENTANA_ESCALA,
-                                               DOOMGENERIC_RESY * VENTANA_ESCALA, 64);
+        g_sup = bmo_superficie_crear_con_buzon(DOOMGENERIC_RESX * escala_ventana,
+                                               DOOMGENERIC_RESY * escala_ventana, 64);
         if (g_sup == 0) {
             /* *** TRES CAUSAS, Y HASTA EL 12-09 ESTE MENSAJE SOLO CONTABA DOS.
              *
@@ -406,11 +427,15 @@ void DG_Init()
             return;
         }
         g_fb = (unsigned long long)bmo_superficie_pixeles(g_sup);
-        g_ancho = DOOMGENERIC_RESX * VENTANA_ESCALA;
-        g_alto = DOOMGENERIC_RESY * VENTANA_ESCALA;
+        g_ancho = DOOMGENERIC_RESX * escala_ventana;
+        g_alto = DOOMGENERIC_RESY * escala_ventana;
         g_paso = g_ancho;               /* sin relleno: stride = ancho */
-        g_escala_max = VENTANA_ESCALA;
-        g_escala = VENTANA_ESCALA;
+        g_escala_max = escala_ventana;
+        g_escala = escala_ventana;
+        if (g_a_la_3060) {
+            bmo_superficie_a_la_3060(g_sup);
+            printf("DOOM: 320 x 200 A LA 3060 -- la tarjeta agranda, no la CPU\n");
+        }
         geometria();
         /* La memoria del monton no viene a cero, y el DIRECTOR pega lo que
          * haya en cuanto suba la secuencia. */

@@ -104,9 +104,10 @@
 0x07 ARCH_OP_SALTAR                 BMO_ARCH_SALTAR                  operacion sobre KIND_ARCHIVO
 0x08 ARCH_OP_ESCRIBIR_DE            BMO_ARCH_ESCRIBIR_DE             operacion sobre KIND_ARCHIVO
 0xFFFFFFFFFFFFFFFE CURRENT_TASK                   BMO_TAREA_ACTUAL                 la pseudo-capability de uno mismo. NO se transfiere nunca
-0x00 SUP_BGRA32                     BMO_SUP_BGRA32                   el unico formato de pixel: el del framebuffer, se compone copiando
+0x00 SUP_BGRA32                     BMO_SUP_BGRA32                   el formato de pixel del framebuffer, se compone copiando
 0x00 SUP_ESTADO_VENTANA             BMO_SUP_ESTADO_VENTANA           EV_CONFIGURE: ventana normal
 0x00 SUP_VISTA_SE_VE                BMO_SUP_VISTA_SE_VE              byte 2 del estado del buzon: se ve
+0x01 SUP_A_LA_3060                  BMO_SUP_A_LA_3060                los mismos pixeles, pero los presenta la 3060 a pantalla completa (D2c)
 0x01 SUP_ESTADO_MAXIMIZADA          BMO_SUP_ESTADO_MAXIMIZADA        EV_CONFIGURE: maximizada
 0x01 SUP_VISTA_MINIMIZADA           BMO_SUP_VISTA_MINIMIZADA         VISTA: minimizada (R-APP8: la app se salta el dibujo)
 0x02 SUP_ESTADO_COMPLETA            BMO_SUP_ESTADO_COMPLETA          EV_CONFIGURE: pantalla completa
@@ -145,3 +146,4 @@
 0x26 TASK_OP_MI_PADRE               BMO_OP_MI_PADRE                  operacion sobre BMO_TAREA_ACTUAL
 0x31 TASK_OP_ATRIL                  BMO_OP_ATRIL                     poner un numero en el atril de la orquesta. Campo 0..3, sin puntero a funcion
 0x32 TASK_OP_TOCAR                  BMO_OP_TOCAR                     tocad: una PARTE del catalogo de bmo-orquesta, BLOQUEA hasta que acaba
+0x33 TASK_OP_ARGUMENTOS             BMO_OP_ARGUMENTOS                

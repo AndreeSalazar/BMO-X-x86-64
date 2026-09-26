@@ -36,7 +36,7 @@ mod video;
 pub(crate) use video::{dibujar_video, orden_video, video_hecho};
 /// D2b: una imagen de 32 bits (DOOM), agrandada por la 3060.
 mod imagen;
-pub(crate) use imagen::orden_imagen;
+pub(crate) use imagen::{la_3060_lista, orden_doom, orden_imagen, presentar_apps};
 pub(crate) use pipeline3d::{color3d_hecho, dibujar_color3d, dibujar_raster, escalera, orden_color3d, orden_raster, raster_hecho};
 
 use super::gsprpc::{esperar, Otros};

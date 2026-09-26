@@ -746,6 +746,7 @@ pub const INFO_TAREAS_LIBRES: u64 = 0x0A;
 pub const SUP_MAGIC: u64 = 0x5055_5342;
 pub const SUP_CABECERA: u64 = 32;
 pub const SUP_BGRA32: u64 = 0;
+pub const SUP_A_LA_3060: u64 = 1;
 pub const SUP_CAMPO_SECUENCIA: u64 = 5;
 pub const SUP_BUZON_CABECERA: u64 = 16;
 pub const SUP_BUZON_RANURA: u64 = 8;
