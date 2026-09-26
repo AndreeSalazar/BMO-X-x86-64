@@ -1006,6 +1006,19 @@ impl Table {
         hay
     }
 
+    /// La lamina de VERRANO, si hay una y su app sigue viva.
+    pub(crate) fn lamina(&self) -> Option<LaminaTomada> {
+        self.lamina
+    }
+
+    /// **Es `tid` quien publica la lamina?** Una app asi es un PRODUCTOR: no
+    /// lee la consola, y lo que se teclea mientras corre es para el escritorio
+    /// (`gpu verrano banco inti`), no para ella. (26-09: sin esto la orden
+    /// se iba a `cubo.ibx`, que no la leia, y el banco no arrancaba nunca.)
+    pub(crate) fn publica_lamina(&self, tid: u32) -> bool {
+        tid != 0 && self.lamina.is_some_and(|l| l.tid == tid)
+    }
+
     /// **Retira las ventanas cuya app murio** y devuelve cuantas, dejando sus
     /// rectangulos en `cajas`.
     ///
@@ -1018,11 +1031,6 @@ impl Table {
     /// CONGELADA, que es indistinguible de una app pensando. Sin esto, la
     /// ventana de un programa que ya no existe se quedaria en pantalla con su
     /// ultimo fotograma y sus tres botones, como si fuera a responder.
-    /// La lamina de VERRANO, si hay una y su app sigue viva.
-    pub(crate) fn lamina(&self) -> Option<LaminaTomada> {
-        self.lamina
-    }
-
     pub(crate) fn reap_dead(&mut self, cajas: &mut [(u32, u32, u32, u32); MAX]) -> usize {
         // La lamina de una app muerta se suelta, como su ventana.
         if let Some(l) = self.lamina {

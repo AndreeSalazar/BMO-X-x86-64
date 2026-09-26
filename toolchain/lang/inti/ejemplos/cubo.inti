@@ -533,9 +533,16 @@ funcion un_fotograma(l es natural64, e es natural64, f es natural64) devuelve en
     cuenta(e, f)
     devuelve publica(l, e, f)
 
-# **LA APP**: una lamina para VERRANO, y fotogramas sin parar. La cuenta de
+# **LA APP**: una lamina para VERRANO, y un fotograma cada 1/60 s. La cuenta de
 # cada uno es de esta CPU, con SSE; el dibujo, de la 3060. Se va sola al acabar.
-FOTOGRAMAS = 3600000
+#
+# ** AL RITMO DEL OJO, no al de la CPU (26-09). La primera version publicaba sin
+# parar: 3.600.000 fotogramas en pocos segundos, un nucleo entero ocupado y el
+# banco de VERRANO a la mitad (15.038 fps contra 28.596). El giro no se veia:
+# acababa antes de que el banco empezara. Con `espera_a` la app duerme entre
+# fotogramas: 360 grados en 6 s, y 36.000 fotogramas son 10 minutos.
+FOTOGRAMAS = 36000
+FOTOGRAMA_NS = 16666666
 
 funcion principal devuelve entero32
     l = verrano_lamina(3 * CABEN)
@@ -553,5 +560,6 @@ funcion principal devuelve entero32
     repite mientras f < FOTOGRAMAS
         mundo(e, f resto 360)
         publica(l, e, f resto 360)
+        espera_a(0, 0, FOTOGRAMA_NS)
         f = f + 1
     devuelve 0

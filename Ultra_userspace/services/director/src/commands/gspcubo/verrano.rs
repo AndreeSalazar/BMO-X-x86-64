@@ -277,27 +277,45 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     }
     let bucle = bmo::ciclos();
     let mut dentro = 0u64;
+    // Las vueltas hechas: `n`, salvo que la app de la lamina se calle antes.
+    let mut hechos = n;
     for i in 0..n {
         let f = (i % 360) as usize;
         let k = cuantos[f] as usize;
-        // Con lamina: lo ULTIMO que la app publico, sin esperarla nunca. Un
-        // fotograma que la app estaba pisando se descarta y se repite el
-        // anterior; si aun no publico nada, esta vuelta no dibuja.
-        let de_la_app: Option<&[Vertex]> = match lamina.as_ref().map(|l| l.leer(&mut vi)) {
+        // ** Con lamina, AL RITMO DE LA APP (26-09). Cada vuelta dibuja un
+        // fotograma NUEVO de la app: si lo ultimo publicado ya se dibujo, se
+        // duerme 1 ms y se vuelve a mirar. La primera version dibujaba lo
+        // ultimo sin esperar, a ~28.000 vueltas por segundo contra los 60
+        // de la app: 360 vueltas en 13 ms, el mismo fotograma 470 veces y el
+        // giro sin verse. Asi N son N fotogramas de la app (360 = una vuelta
+        // entera, 6 s), y si la app deja de publicar 2 s, el banco acaba.
+        let de_la_app: Option<&[Vertex]> = match lamina.as_ref() {
             None => None,
-            Some(Leido::Fotograma { fotograma, vertices }) => {
-                de_inti.nuevo(fotograma, &vi[..vertices]);
+            Some(l) => {
+                let limite = bmo::ciclos() + 2 * hz;
+                loop {
+                    match l.leer(&mut vi) {
+                        Leido::Fotograma { fotograma, vertices } if !de_inti.visto || fotograma != de_inti.fotograma => {
+                            de_inti.nuevo(fotograma, &vi[..vertices]);
+                            break;
+                        }
+                        Leido::Fotograma { .. } | Leido::Nada => de_inti.esperando += 1,
+                        // Pillada a medio escribir: la siguiente mirada la vera entera.
+                        Leido::Rota => de_inti.rotos += 1,
+                        Leido::Mentira => return linea(dsk, b"  NO  la lamina dice un numero de vertices imposible (mas que su capacidad o no triangulos enteros): la app miente, se para", INK_ERR),
+                    }
+                    if bmo::ciclos() > limite {
+                        break;
+                    }
+                    bmo::wait(0, 0, 1_000_000);
+                }
+                if bmo::ciclos() > limite {
+                    de_inti.callada = true;
+                    hechos = i;
+                    break;
+                }
                 Some(&de_inti.v[..de_inti.n])
             }
-            Some(Leido::Rota) if de_inti.visto => {
-                de_inti.rotos += 1;
-                Some(&de_inti.v[..de_inti.n])
-            }
-            Some(Leido::Rota | Leido::Nada) => {
-                de_inti.esperando += 1;
-                continue;
-            }
-            Some(Leido::Mentira) => return linea(dsk, b"  NO  la lamina dice un numero de vertices imposible (mas que su capacidad o no triangulos enteros): la app miente, se para", INK_ERR),
         };
         let vertices = de_la_app.unwrap_or(&tandas[f * MAX_VERTICES..][..k]);
         let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h } };
@@ -326,7 +344,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     let desde = bmo::ciclos();
     let cierre_us = match aparato.finish() {
         Ok(us) => us,
-        Err(e) => return destino::fallo(dsk, e, Some(n), op),
+        Err(e) => return destino::fallo(dsk, e, Some(hechos), op),
     };
     let cierre = bmo::ciclos() - desde;
     cuentas.ciclos += cierre;
@@ -408,7 +426,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     // ** E2: de que es la pared. El bucle entero = lo de dentro de `draw`
     // (partido por la puerta, abajo) + el tablero + lo demas del bucle.
     let tablero_ciclos = tablero.as_ref().map_or(0, |t| t.pintar_ciclos());
-    let por = |c: u64| c * 10_000_000 / hz / n.max(1) as u64;
+    let por = |c: u64| c * 10_000_000 / hz / hechos.max(1) as u64;
     let mut e2 = Texto::nuevo();
     e2.t(b"E2, la pared del bucle: ");
     destino::decimas(&mut e2, por(bucle));
@@ -432,7 +450,10 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             super::super::datos::anotar(clave, v, b"decimas de us");
         }
     }
-    let (kf, ku): (&[u8], &[u8]) = if op.exige && op.coopera {
+    // Con lamina el ritmo es el de la app (~60), no el del aparato: va aparte.
+    let (kf, ku): (&[u8], &[u8]) = if lamina.is_some() {
+        (b"gpu verrano banco inti fps", b"gpu verrano banco inti us")
+    } else if op.exige && op.coopera {
         (b"gpu verrano banco maximo fps", b"gpu verrano banco maximo us")
     } else if op.coopera {
         (b"gpu verrano banco coopera fps", b"gpu verrano banco coopera us")
@@ -463,11 +484,13 @@ struct DeInti {
     igual: bool,
     /// De que app es la lamina.
     tid: u32,
+    /// La app dejo de publicar (2 s sin un fotograma nuevo) y el banco acabo antes.
+    callada: bool,
 }
 
 impl Default for DeInti {
     fn default() -> Self {
-        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0 }
+        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0, callada: false }
     }
 }
 

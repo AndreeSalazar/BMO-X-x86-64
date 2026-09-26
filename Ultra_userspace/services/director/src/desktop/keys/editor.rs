@@ -83,7 +83,12 @@ match c {
         // espera al motor, ese hijo es SUYO y ya recibio sus
         // tres lineas. Colar una mas ahi le cambiaria la
         // cuenta a alguien que no la pidio.
+        //
+        // ** Y se excluye el hijo que PUBLICA la lamina de VERRANO: ese no lee
+        // la consola, y la orden que se teclea a su lado es para mirarlo.
+        let productor = dsk.out.run.as_ref().is_some_and(|r| dsk.table.publica_lamina(r.tid));
         let from_child = !dsk.calc.waiting
+            && !productor
             && dsk.out.console.as_ref().map(|cc| cc.has_child()).unwrap_or(false);
 
         if from_child {
