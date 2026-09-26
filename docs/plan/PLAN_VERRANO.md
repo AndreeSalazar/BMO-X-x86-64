@@ -86,6 +86,16 @@ la SPH (128 B) y detras las instrucciones.
       bit 26 sigue sin medirse. Arreglo: `gpu verrano` y `gpu cubo 3060` dan
       antes los pasos que les falten hasta `lienzo`
       (`verificar::preparar_hasta`, en orden y con la marca `en curso`).
+      **Metal 26-09 05:07, en frio:** `preparado: 24 paso(s)` y otra vez
+      `estado SI vertices NO`, INTR/EXCEPTION/STATUS a 0: **el bit 26 no era
+      (o no era solo)**. Dos instrumentos para el siguiente arranque: la fila
+      `gsp aviso` detras de la escalera (un Xid 31 = FALLO DE PAGINA de lo que
+      lee el LDG; un 13 = excepcion del sombreador) y `gpu verrano sinldg`,
+      el mismo programa de vertice con los LDG cambiados por MOV de
+      constantes: si ESE paga los vertices, el culpable es el LDG. Orden:
+      primero `gpu cubo 3060` (X5, que dibujaba), despues `gpu verrano
+      sinldg`, y al final `gpu verrano` -- un cuelgue deja el canal de GR
+      muerto hasta reiniciar, asi que lo que falla va el ultimo.
 - [ ] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
       VERRANO sin leer de vuelta (solo la huella de algunos), para poner los
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en

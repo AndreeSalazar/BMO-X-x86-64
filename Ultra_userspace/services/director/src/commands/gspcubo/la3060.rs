@@ -80,6 +80,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
                     g.text(b" us\n");
                     g.with_ink(INK_PLAIN);
                     super::super::gspcomputo::escalera(g);
+                    super::super::gspcola::avisos(g, 4);
                 }
             }
             g.with_ink(INK_PLAIN);

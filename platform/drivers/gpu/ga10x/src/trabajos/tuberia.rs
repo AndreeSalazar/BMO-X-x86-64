@@ -165,6 +165,32 @@ pub const fn codigo_vs() -> [(u64, u64); INSTR_VS] {
     o
 }
 
+/// **La prueba de UNA variable** (26-09, metal 05:07): el de vertice con el
+/// bit 26 puesto SIGUE colgado en los VERTICES. Este es el mismo programa sin
+/// NINGUN LDG: los dos de la tabla son NOP y los ocho del vertice son MOV de
+/// constantes (posicion `(0, 0, 0.5, 1)`, color blanco). Los triangulos salen
+/// de area cero -- no pintan nada --, pero el escalon de los VERTICES (el
+/// dibujo con el rasterizador apagado) SI tiene que pagarse. Si se paga, el
+/// que cuelga es el LDG (o la direccion que lee); si no, es otra cosa del
+/// programa y los LDG quedan absueltos. `gpu verrano sinldg`.
+pub const fn codigo_vs_sin_ldg() -> [(u64, u64); INSTR_VS] {
+    let mut o = codigo_vs();
+    o[4] = cu::NOP;
+    o[5] = cu::NOP;
+    let v = [0u32, 0, 0x3F00_0000, 0x3F80_0000, 0x3F80_0000, 0x3F80_0000, 0x3F80_0000, 0x3F80_0000];
+    let mut k = 0;
+    while k < 8 {
+        o[9 + k] = mov(4 + k as u64, v[k]);
+        k += 1;
+    }
+    o
+}
+
+/// El de vertice SIN LDG, con la SPH de siempre (ver `codigo_vs_sin_ldg`).
+pub const fn vertice_sin_ldg() -> [u32; PALABRAS_VS] {
+    programa(sph_vertice(), &codigo_vs_sin_ldg())
+}
+
 /// **El programa de pixel**: los cuatro canales por IPA (el de T2a, y el
 /// alfa tambien), y el EXIT de T2a que espera la barrera 0.
 pub const fn codigo_ps() -> [(u64, u64); INSTR_PS] {
@@ -388,6 +414,18 @@ mod pruebas {
 
     /// El de vertice dice que lee memoria (bit 26) y el resto de su SPH es
     /// la de T2a; el de pixel no lee memoria y no lo dice.
+    #[test]
+    fn sin_ldg_es_el_mismo_menos_las_cargas() {
+        let (a, b) = (codigo_vs(), codigo_vs_sin_ldg());
+        for i in 0..INSTR_VS {
+            let carga = i == 4 || i == 5 || (9..17).contains(&i);
+            assert_eq!(a[i] == b[i], !carga, "instruccion {i}");
+            // Ni un LDG (0x981 en los 12 bits bajos) en la variante.
+            assert_ne!(b[i].0 & 0xFFF, 0x981, "instruccion {i}");
+        }
+        assert_eq!(b[9 + 3], mov(7, 0x3F80_0000));
+    }
+
     #[test]
     fn la_sph_dice_que_lee_memoria() {
         let (h, t2a) = (sph_vertice(), crate::color3d::sph_vertice());

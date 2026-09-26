@@ -97,6 +97,18 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     let Some((vs, ps)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
         return linea(dsk, b"  NO  el BSF de la tuberia no se sostiene: no se dibuja nada", INK_ERR);
     };
+    // ** `gpu verrano sinldg` (26-09): el de vertice SIN sus LDG, fabricado
+    // aqui y no tomado del BSF -- la prueba de una variable del cuelgue en
+    // los VERTICES (`tuberia::codigo_vs_sin_ldg`). No dibuja el cubo: solo
+    // dice si el escalon de los vertices se paga.
+    let sin_ldg = resto.starts_with(b"sinldg");
+    let mut propio = [0u8; 4 * tu::PALABRAS_VS];
+    let vs: &[u8] = if sin_ldg {
+        let n = tu::bytes(&tu::vertice_sin_ldg(), &mut propio);
+        &propio[..n]
+    } else {
+        vs
+    };
     let n = (w * h) as usize;
     let (Some(bloque), Some(caja)) = (bmo::Memoria::request(2 * n as u64 * 4), bmo::Memoria::request(4096)) else {
         return linea(dsk, b"  NO  sin memoria para dos fotogramas de 1280x720", INK_ERR);
@@ -151,12 +163,25 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
             g.text(b"  NO  VERRANO en la 3060 no se pago entero; la escalera:\n");
             g.with_ink(INK_PLAIN);
             super::super::gspcomputo::escalera(g);
+            // Y lo que el GSP conto: un Xid 31 es un FALLO DE PAGINA (la
+            // direccion que lee el LDG), un 13 una excepcion del sombreador.
+            super::super::gspcola::avisos(g, 4);
+            if sin_ldg {
+                g.with_ink(INK_ERR);
+                g.text(b"  SIN LDG y aun asi colgado en los VERTICES: los LDG quedan ABSUELTOS; es otra cosa del programa\n");
+                g.with_ink(INK_PLAIN);
+            }
             dsk.field.n = 0;
             return After::Settle;
         }
         (Err(Error::Device(m)), _) => return motivo(dsk, m),
         _ => return linea(dsk, b"  NO  el fotograma no es valido para VERRANO V0", INK_ERR),
     };
+
+    if sin_ldg {
+        let _ = st;
+        return linea(dsk, b"  SIN LDG la 3060 PAGO los VERTICES y el dibujo: el cuelgue es del LDG (o de la direccion que lee). El cubo sale vacio a proposito", INK_GOOD);
+    }
 
     // Las dos imagenes, pixel a pixel; lo que el juez no explica, aparte.
     let distinto = |i: usize| gpu[i] & 0x00FF_FFFF != cpu[i] & 0x00FF_FFFF;
