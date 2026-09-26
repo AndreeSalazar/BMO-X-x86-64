@@ -7,6 +7,14 @@
 use super::Machine;
 
 impl Machine {
+    /// **Lo que un banco deja en memoria ANTES de correr** (2026-09-26: las
+    /// matrices del cubo para las de cuatro `flotante32` de INTI). Va por el
+    /// mismo camino que el programa, asi que respeta las paginas de solo
+    /// lectura igual.
+    pub fn pon_u64(&mut self, addr: u64, value: u64) {
+        self.write_u64(addr, value);
+    }
+
     pub(super) fn write_u64(&mut self, addr: u64, value: u64) {
         for i in 0..8 {
             self.escribe(addr + i, ((value >> (i * 8)) & 0xFF) as u8);

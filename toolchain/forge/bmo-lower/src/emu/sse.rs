@@ -133,6 +133,8 @@ impl Machine {
                 let v = match src {
                     Operand::Reg(r) => self.xmm[r],
                     Operand::Mem(a) => {
+                        // Desde memoria, la mitad alta a cero (los 128).
+                        self.xmm_alto[reg] = 0;
                         if f3 {
                             // `movss` carga 32 bits y **pone a cero el
                             // resto** cuando viene de memoria. Desde
@@ -263,6 +265,9 @@ impl Machine {
                 let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
                 let v = self.leer_xmm(src);
                 self.xmm[reg] ^= v;
+                if let Operand::Reg(r) = src {
+                    self.xmm_alto[reg] ^= self.xmm_alto[r];
+                }
             }
             // movq xmm, r64 -- los BITS de un entero, tal cual
             //
@@ -279,6 +284,8 @@ impl Machine {
                 let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
                 let v = self.load(src, wide);
                 self.xmm[reg] = if wide { v } else { v & 0xFFFF_FFFF };
+                // `movd`/`movq` hacia un `xmm` ponen a cero hasta el bit 127.
+                self.xmm_alto[reg] = 0;
             }
             // movq r64, xmm / movd r32, xmm -- el camino de VUELTA
             //
@@ -343,8 +350,74 @@ impl Machine {
                 };
                 self.write_reg(reg, r as u64, true);
             }
+            // ---- EMPAQUETADO `ps`: cuatro `flotante32` (2026-09-26) ------
+            //
+            // Sin prefijo. Solo lo que emiten las filas `sse_*4f` de
+            // `intrinsics.toml` (INTI: `suma_de_cuatro32`...), y en su forma.
+            // movups xmm, xmm/m128
+            0x10 if !op16 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let v = self.leer128(src);
+                self.escribir128(reg, v);
+            }
+            // movups m128/xmm, xmm
+            0x11 if !op16 => {
+                let (reg, dst) = self.modrm(rex_r, rex_x, rex_b);
+                let v = self.leer128(Operand::Reg(reg));
+                match dst {
+                    Operand::Reg(r) => self.escribir128(r, v),
+                    Operand::Mem(a) => {
+                        for (k, x) in v.iter().enumerate() {
+                            self.store(Operand::Mem(a + 4 * k as u64), *x as u64, 4);
+                        }
+                    }
+                }
+            }
+            // addps / mulps / subps: carril a carril, cada uno redondeado a
+            // `f32` como el silicio (la cuenta de Rust en `f32` es IEEE).
+            0x58 | 0x59 | 0x5C if !op16 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let a = self.leer128(Operand::Reg(reg));
+                let b = self.leer128(src);
+                let mut r = [0u32; 4];
+                for k in 0..4 {
+                    let (x, y) = (f32::from_bits(a[k]), f32::from_bits(b[k]));
+                    r[k] = match second {
+                        0x58 => x + y,
+                        0x59 => x * y,
+                        _ => x - y,
+                    }
+                    .to_bits();
+                }
+                self.escribir128(reg, r);
+            }
+            // shufps xmm, xmm/m128, imm8: los dos de abajo salen del destino,
+            // los dos de arriba de la fuente; cada uno lo elige un par de bits.
+            0xC6 if !op16 => {
+                let (reg, src) = self.modrm(rex_r, rex_x, rex_b);
+                let imm = self.fetch_u8();
+                let a = self.leer128(Operand::Reg(reg));
+                let b = self.leer128(src);
+                let sel = |k: u32| (imm >> (2 * k) & 3) as usize;
+                self.escribir128(reg, [a[sel(0)], a[sel(1)], b[sel(2)], b[sel(3)]]);
+            }
             other => panic!("opcode 0F {other:#04X} no emitido por BMO"),
         }
+    }
+
+    /// Los cuatro carriles de 32 bits de un `xmm` entero, o 16 bytes de
+    /// memoria.
+    fn leer128(&self, op: Operand) -> [u32; 4] {
+        let (lo, hi) = match op {
+            Operand::Reg(r) => (self.xmm[r], self.xmm_alto[r]),
+            Operand::Mem(a) => (self.read_u64(a), self.read_u64(a + 8)),
+        };
+        [lo as u32, (lo >> 32) as u32, hi as u32, (hi >> 32) as u32]
+    }
+
+    fn escribir128(&mut self, reg: usize, v: [u32; 4]) {
+        self.xmm[reg] = v[0] as u64 | (v[1] as u64) << 32;
+        self.xmm_alto[reg] = v[2] as u64 | (v[3] as u64) << 32;
     }
 
     /// Los 32 bits bajos de un operando `ss`: de un registro, o CUATRO bytes de
