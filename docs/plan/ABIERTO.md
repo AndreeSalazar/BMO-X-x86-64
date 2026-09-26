@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   372 casillas ABIERTAS en 43 planes
+   373 casillas ABIERTAS en 43 planes
    307 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -41,14 +41,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 24 abiertas, 11 hechas
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 25 abiertas, 11 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
 - [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
 - [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
 - [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
-- ... y 21 mas
+- ... y 22 mas
 
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 24 abiertas, 7 hechas
 

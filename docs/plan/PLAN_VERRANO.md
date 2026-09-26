@@ -590,6 +590,50 @@ le quita a DOOM su forma de pintar: le quita a la CPU el trabajo de
 El orden: **D0 -> D1 -> M3 -> D2 -> D3 -> D4.** D1 antes que nada: un juego
 que se cierra sin decir por que no se puede medir.
 
+## 2d. LA ESCALERA AL JEFE FINAL: de DOOM a Quake II RTX (26-09)
+
+El propietario: *"enfocate en algo importante: DOOM, esa meta con Freedoom,
+para ir al FINAL BOSS de Quake RTX"*. Todo lo de arriba (E, M, P, D) se
+ordena por esto. Cada escalon es un JUEGO que se juega en el Ryzen, y dice que
+le pide a VERRANO; el jefe esta medido en
+[`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) (seccion 12, "El JEFE FINAL").
+
+```text
+   escalon               el juego (datos gratis)      lo que pide           estado
+   ---------------------------------------------------------------------------------
+   1  DOOM               doom1.wad (shareware)         la CPU pinta          HECHO 20-09
+   2  Freedoom           freedm1/freedm2 (BSD)         D0, D1                EN MARCHA
+   3  DOOM por VERRANO   el mismo                      M3 (texturas), D2-D4  carril D
+   4  Quake, software    pak0.pak (shareware)          la coma flotante de   EN MARCHA
+                                                       BMO C (L2)            (sonda de Quake)
+   5  vkQuake 0.50       el mismo pak0                 M1 profundidad, M3,   --
+                                                       M4 SPIR-V a SM86,
+                                                       M5 las 67 vk, M6
+   6  el COMPUTO grande  (sin juego: el banco)         el denoiser de Q2RTX  --
+                                                       por computo, contra
+                                                       su juez de la CPU
+   7  los RAYOS por      (sin juego: el banco)         un BVH y ray_query    --
+      computo                                          en los SM, sin
+                                                       nucleos RT
+   FINAL Quake II RTX    la demo, en su paquete        109 vk, Vulkan 1.2,   --
+                                                       57 programas
+   REVANCHA  los nucleos RT de la 3060                 el formato del BVH    --
+                                                       de Ampere (V3b)
+```
+
+**Por que este orden y no otro:** cada escalon deja una pieza que el
+siguiente usa, y ninguno pide dos piezas nuevas a la vez. Freedoom (2) antes
+que nada porque es gratis y LIBRE: todo lo que se muestre del camino se puede
+repartir. DOOM por VERRANO (3) antes que Quake porque es el primer juego de
+OTRO proceso que le da trabajo a la 3060 (M6 en chico). Y los escalones 6 y 7
+existen porque Quake II RTX es **un juego de computo** (27 programas de
+computo contra 7 de triangulos): el computo ya corre en la 3060 (el blur de
+M5d B), asi que el jefe esta mas cerca de lo hecho de lo que parece.
+
+[!] El muro esta dicho en la Ludoteca: el formato del BVH de los nucleos RT
+no es publico. Por eso el FINAL se gana por computo (7) y los nucleos RT son
+la REVANCHA, no la condicion.
+
 ## 2b. Los idiomas de las GPU, y donde se aisla cada uno (26-09)
 
 Una GPU solo ejecuta SU codigo maquina; SPIR-V es el idioma de paso. Y los

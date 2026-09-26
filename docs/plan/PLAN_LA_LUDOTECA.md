@@ -633,6 +633,46 @@ La escalera por Vulkan, cada escalon con su lista medida antes de empezarlo:
                         que Cyberpunk (la tarjeta al maximo), verificable entero
 ```
 
+### El JEFE FINAL, medido (26-09): Quake II RTX
+
+El propietario: *"DOOM con Freedoom, para ir al FINAL BOSS de Quake RTX"*. El
+de NVIDIA es **Quake II RTX** (`NVIDIA/Q2RTX`, GPL-2.0; su paquete oficial es
+gratis y trae los niveles de la demo de Quake II; con los `pak*.pak` de GOG o
+Steam, el juego entero). Medido en su codigo como vkQuake arriba, sin
+compilarlo (commit `f2526e9`, 2025-12-10):
+
+| | vkQuake 0.50 (escalon 1) | **Quake II RTX** (FINAL) |
+|---|---|---|
+| Vulkan | 1.0 | **1.2** |
+| funciones `vk*` llamadas | 67 | **109** (125 nombres distintos, con los punteros) |
+| extensiones | `surface`, `swapchain` | `swapchain`, **`acceleration_structure`**, **`ray_query`** o **`ray_tracing_pipeline`** (elige una), `deferred_host_operations`, `pipeline_library`, `bind_memory2`, `device_group` |
+| sombreadores | 12 (vertice y fragmento) | **57** + 13 cabeceras: 27 de computo, 4 `rgen`, 5 `rahit`, 1 `rchit`, 1 `rmiss`, 1 `rint`, 4 de vertice, 3 de fragmento, 11 `.glsl` |
+| lineas (C) | ~68.000 | ~156.000 (34.000 el renderizador `vkpt`) |
+| SDL | 75 funciones | 59 |
+
+**Lo que dice la medida:**
+
+- **Es un juego de COMPUTO**: 27 programas de computo contra 7 de vertice
+  y fragmento. El denoiser (ASVGF), la niebla, el tono, el cielo: todo es
+  computo. Y el computo **ya corre en la 3060 de BMO-X** (el blur de M5d B,
+  `bmo_gpu_ga10x::computo`). El camino de Quake II RTX pasa mas cerca de lo
+  hecho que el de un juego "de triangulos".
+- **Puede ir SIN la tuberia de rayos**: elige `ray_query` (rayos lanzados
+  DESDE un programa de computo) o `ray_tracing_pipeline`. Con `ray_query`
+  basta un programa de computo que recorra la estructura de aceleracion.
+- [!] **EL MURO, dicho antes de llegar**: los nucleos RT de Ampere recorren un
+  BVH con un formato que NVIDIA no publica, y las instrucciones SASS que los
+  usan tampoco estan en ningun manual. Dos caminos: (a) el BVH y su recorrido
+  POR COMPUTO, en los SM, sin nucleos RT -- funciona, mas lento, y todo es de
+  la casa; (b) aprender el formato de los nucleos RT como se aprendio el SASS
+  de V0 (el juez del SASS, V3b), mirando lo que hacen los drivers abiertos.
+  **Primero (a)**: el jefe cae por computo, y (b) es la revancha.
+
+- [ ] **L10 -- el JEFE FINAL: Quake II RTX en el Ryzen.** Por la escalera de
+      [`PLAN_VERRANO.md`](PLAN_VERRANO.md) (seccion 2d). **Como se sabe:** el
+      primer nivel de la demo, con sus sombras de rayos, y el `[perf]` de la
+      3060.
+
 - [ ] **L9 -- la capa SDL2, medida.** Las 75 funciones `SDL_*` de vkQuake
       0.50, por familia (ventana, entrada, sonido, tiempo, ficheros), y cuales
       ya tienen su pieza en BMO-X. **Como se sabe:** la tabla apuntada aqui.
