@@ -174,7 +174,7 @@ la SPH (128 B) y detras las instrucciones.
       encima de ligero; la meta, los ~3780 de Windows.
 - [ ] **V1c -- EXPRIMIR: quien refuerza a quien.** Lo pidio el propietario
       el 26-09: la CPU no espera ni le dice a la 3060 que hacer; la
-      REFUERZA si hace falta. El anillo ya da la senal para decidirlo: la
+      REFUERZA si hace falta. El anillo ya dice como decidirlo: la
       columna ESPERA DE LA CPU del tablero.
 
       ```text
