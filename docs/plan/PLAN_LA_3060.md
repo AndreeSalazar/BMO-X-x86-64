@@ -1645,6 +1645,8 @@ Los seis arranques con informe, lado a lado:
 | 25-09 20:51 | 0x15 | **Gen4** x16 | sin dato | frio |
 | 25-09 20:59 | 0x15 | **Gen4** x16 | sin dato | frio |
 | 25-09 21:08 | 0x15 | **Gen4** x16 | sin dato | frio |
+| 25-09 21:16 | 0x15 | **Gen4** x16 | sin dato | frio (build viejo, con frontera) |
+| 25-09 ~21:30 | **bien** | -- | -- | frio, `save mode -fuego -frontera` |
 
 **Cuidado con la columna `pcie`:** separa buenos de malos PERFECTO, y casi
 seguro es CONSECUENCIA, no causa: esa fila lee la capacidad del enlace que
@@ -1693,6 +1695,31 @@ prepare. Nadie depende de esos dos pasos (`vbios` y `gsp` no los piden), asi
 que `save mode -fuego -frontera` los quita. Tres arranques en frio asi: si
 los tres dan 0, `fuego` y `frontera` se van DESPUES de `init`; si sale un
 0x15, quedan absueltos.
+
+**El primero SIN frontera: el GSP arriba (25-09, tras las 21:16).** `receta:
+save mode -fuego -frontera; fuego no corrio, frontera no corrio`, en frio, y
+el GSP-RM corre (LOGRM 2428417, 33 mensajes). Uno de tres: los buenos de antes
+(13:35, 20:19, 20:39) tambien tenian frontera, asi que uno solo no la condena.
+Lo que ya ensena este arranque bueno, comparado con los malos:
+
+```text
+                       malo (x8)            bueno sin frontera
+   GSP MAILBOX0/1      0xBADF1002           0x00000000   (el FMC los borro)
+   CPUCTL del GSP      0xBADF5620           0xBADF5720   (ilegible en los dos)
+   BSI al pararse      0x00000000           0x11000000
+   WPR meta cambiada   0 palabras           0 palabras   <- NO discrimina
+   bus de la 3060      --                   igual antes y despues; IOMMU 0 -> 0
+```
+
+(1) **La mascara de la WPR meta no sirve de reloj**: en un arranque BUENO el
+booter tampoco toca la copia de la RAM (la copia a la WPR de la VRAM y trabaja
+alli). "Cambio 0 palabras" en los malos NO dice que parara antes de empezar.
+(2) **Lo que separa es el GSP**: en los malos ni sus buzones se dejan leer
+(0xBADF1002, error de PRI); en el bueno se leen y estan a 0. El booter falla
+con el falcon del GSP inaccesible -- justo el falcon que `fuego` y `frontera`
+usan para su DMA (y `frontera` lo deja con un DMA abortado por la IOMMU) antes
+de que el booter lo prepare. (3) El `aborto-recibido` de la 3060 no aparece sin
+frontera: confirmado que era suyo.
 
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con
