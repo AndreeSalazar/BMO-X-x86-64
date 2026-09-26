@@ -17,6 +17,7 @@ No LLVM. No GCC. No ELF. No QEMU.**
 ![format](https://img.shields.io/badge/executable_format-BEF2_(own)-8957e5)
 ![inti](https://img.shields.io/badge/system_language-INTI-f0883e)
 ![gpu](https://img.shields.io/badge/GPU-RTX_3060_driven_from_scratch-76b900)
+![0x15](https://img.shields.io/badge/case_0x15-solved-76b900)
 ![license](https://img.shields.io/badge/license-Apache_2.0-d29922)
 
 <p align="center">
@@ -31,7 +32,7 @@ Written from scratch in Rust -- the boot chain, the kernel, the drivers, the
 filesystem, **five native compilers** and the executable format they emit. It
 boots on an AMD Ryzen 5 5600X and occupies **5.4 MiB of 14.8 GiB of RAM**.
 
-**2.197 commits - 1.523 files - 17 April to 21 September 2026 - one developer.**
+**One developer, since 17 April 2026 -- Lima, Peru.**
 
 **One architecture, on purpose.** The name of the kernel directory is
 `Ultra_kernel_x86-64` and that is the whole portability story: BMO-X targets
@@ -72,6 +73,21 @@ IMPRIME en pantalla es castellano sin acentos, y eso tiene su propio motivo tecn
 (ver `CONTRIBUTING.md`).
 
 </details>
+
+<p align="center">
+  <a href="#-what-the-silicon-has-actually-done">What runs</a> &middot;
+  <a href="#the-rtx-3060-driven-from-scratch">The RTX 3060</a> &middot;
+  <a href="#case-file-the-booter-that-said-no-0x15"><b>Case 0x15</b></a> &middot;
+  <a href="#try-it-yourself">Try it</a> &middot;
+  <a href="#why-it-is-built-this-way">Why</a> &middot;
+  <a href="#what-is-next-and-what-blocks-it">Next</a> &middot;
+  <a href="#going-deeper">Docs</a>
+</p>
+
+> **New -- [case `0x15`](#case-file-the-booter-that-said-no-0x15).** NVIDIA's own
+> signed booter refused to start the RTX 3060's firmware nine times, with an
+> error code nobody publishes. BMO-X measured every boot until one variable
+> separated good from bad -- and found the cause.
 
 ---
 
@@ -129,7 +145,8 @@ under it is a slogan.
 | Writes its own report | `save` from the desktop: seven chapters (machine, memory, consumption, programs, disk, autopsy) as sheets in `informe/`, plus `DATOS.TXT` -- the same numbers as `capitulo.clave = valor unidad`, one per line, for a machine to read (2026-09-21) |
 | The orchestrator enforces rank | a kernel thread declares `(period, budget)`; the tick charges every turn, a thread that overruns is set aside until its period ends, and `save` prints `incumplio` per thread. Measured on metal the day it landed: the USB bus, `4 ms / 3000 us`, went from 176 overruns to 20 once the real culprit was found |
 | Enumerates USB without freezing the mouse | a mute device on port 1 cost the bus thread **933 ms per attempt**, felt as stutter. Enumeration is now a state machine advanced one step per 4 ms pump; the worst pump measured on the Ryzen went from 932.898 us to **7.922 us** (2026-09-21) |
-| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM, runs SM86 shaders (a Mandelbrot **221x** faster than one Ryzen core, bit-exact), draws triangles with the card's own rasterizer and **paints the whole monitor, 1920x1080 at ~245 fps**. `save mode`: **51 of 51 steps** on the Ryzen (2026-09-24). See [below](#the-rtx-3060-driven-from-scratch) |
+| Drives an RTX 3060 with no NVIDIA driver | wakes its GSP firmware, builds the graphics engine's context in its own VRAM, runs SM86 shaders (a Mandelbrot **221x** faster than one Ryzen core, bit-exact), draws triangles with the card's own rasterizer and **paints the whole monitor, 1920x1080 at ~245 fps**. `save mode`: **51 of 51 steps** on the Ryzen (2026-09-24), and **every boot now wakes the card by itself**. See [below](#the-rtx-3060-driven-from-scratch) |
+| Hunts a firmware bug to its cause | NVIDIA's signed booter refused to start the GPU's firmware (`0x15`) nine times, no public meaning, six times in a row on a cold machine. BMO-X measured every boot, good and bad, until **one variable separated them** -- and the variable was its own. [The case](#case-file-the-booter-that-said-no-0x15) |
 | The kernel stack cannot leak silently | 16 KiB was overrun by one syscall path (the desktop died at DOOM launch); it is 32 KiB now, and `pila.py` reads every frame from the disassembly and refuses a build whose deepest path does not fit. Confirmed: DOOM launched, played and closed with `ningun fallo de Ring 3` |
 
 ### Watch it boot
@@ -159,7 +176,7 @@ under it is a slogan.
 
 A short edited piece: title card, then the machine coming up, from the
 firmware's own boot picker to BMO-X. **[Same thing as video, with sound and at
-full size](https://github.com/AndreeSalazar/BMO-X/blob/main/docs/evidencia/15.mp4)**
+full size](https://github.com/AndreeSalazar/BMO-X-x86-64/blob/main/docs/evidencia/15.mp4)**
 (7 s, 848x480).
 
 The unbroken take for the sceptic is a different recording and is
@@ -191,7 +208,30 @@ also caught three bugs; they are listed with it in
 
 Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
 
-### The RTX 3060, driven from scratch
+### The desktop talks back
+
+![The pointer's bubble, close up: a yellow tag LA 3060, the neon border, the text typing itself out and the time bar](docs/evidencia/24-globo-de-cerca.png)
+
+A bubble follows the pointer for 20 seconds, then waits 45 and comes back on
+the next mouse move: what the RTX 3060 is doing right now (asleep, the step
+still missing, or its temperature) or a shortcut of the house. Dark glass
+with scanlines and a diagonal weave, blended with whatever is underneath; a
+neon border that breathes from cyan to magenta with a four-ring glow and a
+flash running along it; it enters with a cartoon bounce (20 % -> 108 % ->
+100 % in 350 ms), floats, types itself with the two newest letters glitching
+in cyan and magenta, and snaps shut. About 30 frames a second **only while it
+lives**; none otherwise. Code: `scene/globo.rs` paints, `desktop/globo.rs`
+decides.
+
+> **How these two images were made, honestly.** They are not a photo of the
+> monitor yet. The bubble was drawn by the very same `scene/globo.rs`, run on
+> the host against a fake screen that uses BMO-X's real 8x16 font, on top of a
+> capture of the desktop taken on the Ryzen. The photo from the metal replaces
+> them when it exists.
+
+---
+
+## The RTX 3060, driven from scratch
 
 <!-- ===================================================================
      LAS CAPTURAS DE LA 3060 VAN AQUI. Nombres que ya esperan las lineas
@@ -206,6 +246,10 @@ Photographs, telemetry and the exact dates: **[AVANCES.md](AVANCES.md)**.
        22-doom-y-la-3060.jpg DOOM en ventana y la 3060 en el panel (YA ESTA)
        23/24-globo-*.png     el globo del puntero: RENDER en el anfitrion (YA
                              ESTA); una foto del metal lo sustituye
+
+     [!] 26-09: las lineas ![...](16-...) y ![...](17-...) se QUITARON porque
+     esos ficheros no existen y GitHub los pintaba como enlaces rotos. Cuando
+     las capturas esten en docs/evidencia/, se ponen aqui debajo de la tabla.
      =================================================================== -->
 
 **One consumer card, nothing else: an NVIDIA GeForce RTX 3060 12 GB (GA106).**
@@ -213,14 +257,15 @@ No CUDA, no NVIDIA driver, no Linux underneath. BMO-X wakes the card's own
 GSP firmware (the signed one NVIDIA ships, 570.144) and then talks to it the
 way the open drivers do -- every message byte-checked by a kernel contract
 before it leaves, and every page the card may touch lent through the AMD
-IOMMU, one by one. Anything else the card tries to reach is a page fault, and
-`frontera` proves it on every boot.
+IOMMU, one by one. Anything else the card tries to reach is a page fault --
+`gpu frontera` proves it on demand (never right before the booter: that is
+[the 0x15 story](#case-file-the-booter-that-said-no-0x15)).
 
 What the card has done for BMO-X, each line read back and checked by the CPU:
 
 | | |
 |---|---|
-| Woke the GSP | FWSEC, booter and the 60 MiB GSP-RM image, `GSP_INIT_DONE` in ~200 ms |
+| Woke the GSP | FWSEC, booter and the 60 MiB GSP-RM image, `GSP_INIT_DONE` in ~200 ms. **Since 2026-09-26 on every boot**: after the cat, an orchestrated panel wakes the card up to `init` and hands over the desktop |
 | First job | the copy engine moved 4 KiB between two VRAM pages -- 1024 of 1024 words |
 | The graphics engine | its golden context built from **our** VRAM (`PROMOTE_CTX` + `AMPERE_B`), then a semaphore only the graphics engine can pay: paid in 45 us |
 | First shader | 32 threads of SM86 machine code, each writing its own word -- 32 of 32 |
@@ -231,12 +276,9 @@ What the card has done for BMO-X, each line read back and checked by the CPU:
 | A sphere that spins and bounces | 32 frames, one card job each, light and shadow, every frame equal to the CPU's -- 29 us per frame |
 | **Triangle, by the hardware rasterizer** | `AMPERE_B`: a vertex program and a pixel program in hand-checked SASS, the card's own rasterizer and ROP -- **seen on the metal (2026-09-24 19:43, 50 of 50 steps)** |
 | **Three colours blended by the rasterizer** | per-vertex colour interpolated by `IPA` in the pixel program -- seen on the metal the same boot |
-| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame. **Seen on the metal (2026-09-24 21:36): 8 of 8 frames at 1920x1080, ~245 fps, 866 us of card per frame.** Its first try took the kernel down: the check read the framebuffer through its *physical* address inside a syscall, where that same number is the desktop's own user page -- SMAP said no. It reads through the kernel's physmap now |
+| **The whole screen** | a Mandelbrot zoom at the monitor's own resolution, every pixel written by the card **straight into the framebuffer the monitor scans** -- the CPU moves no pixel, it only re-checks 1024 per frame. **Seen on the metal (2026-09-24 21:36): 8 of 8 frames at 1920x1080, ~245 fps; ~466 fps on 2026-09-25 once the check left the syscall.** Its first try took the kernel down: the check read the framebuffer through its *physical* address inside a syscall, where that same number is the desktop's own user page -- SMAP said no. It reads through the kernel's physmap now |
+| **The D3D12 cube, without Windows** | the cube from the D3D study, drawn by the card's own rasterizer and **equal to what D3D12 draws on the same 3060 under Windows** -- including one pixel neither side can explain, which is therefore the silicon's (2026-09-25) |
 | Switched off in order | the GSP-RM is told to leave, FWSEC-SB closes, the unload booter takes its protected memory down -- so the next warm boot finds the card clean. Seen on the metal twice (`+wpr2-abajo`, SB error 0); now ~2 s instead of 7, and done by `reboot`, not by `save mode` -- so the card keeps working after the verification. The warm-reboot proof is the one line still pending |
-
-![The card blurs a piece of the desktop](docs/evidencia/16-3060-blur.png)
-
-![The 3060 panel: the fractal and the race against the CPU](docs/evidencia/17-3060-fractal.png)
 
 ![DOOM in a window, the sound panel, and the side panel with the RTX 3060 awake: gsp LISTO, 49 degrees, P0, PCIe Gen3 x16, 12 GiB GDDR6](docs/evidencia/22-doom-y-la-3060.jpg)
 
@@ -278,26 +320,61 @@ step with its date and its result on the metal:
 **[PLAN_LA_3060.md](docs/plan/PLAN_LA_3060.md)**, and the log of the day:
 **[METAL_2026-09-25.md](docs/metal/METAL_2026-09-25.md)**.
 
-### The desktop talks back
+---
 
-![The pointer's bubble, close up: a yellow tag LA 3060, the neon border, the text typing itself out and the time bar](docs/evidencia/24-globo-de-cerca.png)
+## Case file: the booter that said no (`0x15`)
 
-A bubble follows the pointer for 20 seconds, then waits 45 and comes back on
-the next mouse move: what the RTX 3060 is doing right now (asleep, the step
-still missing, or its temperature) or a shortcut of the house. Dark glass
-with scanlines and a diagonal weave, blended with whatever is underneath; a
-neon border that breathes from cyan to magenta with a four-ring glow and a
-flash running along it; it enters with a cartoon bounce (20 % -> 108 % ->
-100 % in 350 ms), floats, types itself with the two newest letters glitching
-in cyan and magenta, and snaps shut. About 30 frames a second **only while it
-lives**; none otherwise. Code: `scene/globo.rs` paints, `desktop/globo.rs`
-decides.
+<p align="center"><b>Nine refusals. No public meaning. Eight hypotheses dead. One cause -- and it was ours.</b></p>
 
-> **How these two images were made, honestly.** They are not a photo of the
-> monitor yet. The bubble was drawn by the very same `scene/globo.rs`, run on
-> the host against a fake screen that uses BMO-X's real 8x16 font, on top of a
-> capture of the desktop taken on the Ryzen. The photo from the metal replaces
-> them when it exists.
+To start its GPU firmware, the 3060 runs a program **signed by NVIDIA** on one of
+its security processors: the *booter*. On 24 and 25 September it answered
+`0x15` instead of `0` -- nine times, **six in a row on a machine that had been
+unplugged**. NVIDIA does not publish what `0x15` means; its own open driver only
+prints *"Booter failed with non-zero error code"*. Nothing here invents that meaning.
+
+**What BMO-X did instead of guessing: it stopped changing things and measured.**
+
+| instrument | what it records, on good boots **and** bad ones |
+|---|---|
+| the **autopsy** | before the booter and the instant it stops: both falcons' mailboxes and `CPUCTL` **raw**, the protected region, the scratch register NVIDIA's open drivers read, the booter's metadata page, and the card's PCIe error bits and the IOMMU's fault count |
+| the **metiche** ("the nosy one") | every PCI function's own error log -- Status, PCIe device status, AER -- asked at boot and again later, never cleared, so what is *new this session* stands out |
+| the **recipe** | exactly what the boot was asked to do, so a boot made with the wrong build cannot pass for a result |
+
+Eight hypotheses fell, each to a number: a warm card, the handoff bit, a
+miscomputed input, the IOMMU, a bus error, the metadata page as a progress
+clock, the PCIe link speed... What was left was one line:
+
+```text
+                          bad boots (x6, cold)     good boot
+   GSP mailboxes          0xBADF1002 (no answer)   0x00000000 (cleared by its firmware)
+   scratch at the stop    0x00000000               0x11000000
+```
+
+**The cause:** BMO-X's own IOMMU self-test (`fuego`, `frontera`) borrowed the
+**GSP falcon's DMA** -- one transfer deliberately aborted by the IOMMU -- a
+moment before the booter had to take that same falcon over.
+
+```text
+   with the self-test before the booter      3 good, 6 with 0x15
+   without it                                every cold boot good (4 documented)
+   three good in a row by pure luck          1 in 27
+```
+
+The self-test left the boot sequence, the kernel now **refuses** it once the
+booter has run, and the autopsy keeps being taken on every boot without anyone
+asking. What is still open is stated too: *which* state inside the falcon the
+booter rejects.
+
+> **For nova-core and nouveau developers:** three facts we have not seen
+> published -- `0x15` arrives with the protected region already *extended* (a
+> mid-booter failure, not a load failure); GSP mailboxes reading `0xBADF1002`
+> at the stop separate it from a good boot; and the `GspFwWprMeta` copy in
+> system memory is **not** modified by the booter even on success. The English
+> summary is in the case file.
+
+**[Read the whole case -> EL_0x15.md](platform/drivers/gpu/ga10x/EL_0x15.md)** -
+[the boots, one per row](platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv) -
+[the card's anatomy](platform/drivers/gpu/ga10x/ANATOMIA.md)
 
 ---
 
@@ -342,50 +419,6 @@ testing yesterday's kernel without noticing.
 > The script refuses an NTFS volume rather than reporting a false success, so
 > pointing it at a Ventoy payload partition fails loudly instead of quietly.
 
-### 2b. Or skip the script entirely -- copy two things onto a stick.
-
-The build leaves a folder that *is* the layout of a bootable stick, so **copying
-it needs nothing but a file manager** -- Linux, macOS or Windows:
-
-```text
-Ultra_kernel_x86-64/staging/
-    EFI/BOOT/BOOTX64.EFI      <- the whole operating system
-    EFI/BOOT/BMO-MANIFEST.TXT <- sizes and SHA-256, for checking
-    BMO-DATA/                 <- the desktop and the programs
-```
-
-1. Format a USB stick as **FAT32** (not exFAT, not NTFS -- UEFI reads FAT).
-2. Copy **the contents of `staging/`** to the root of the stick, so that the
-   stick ends up with `EFI\BOOT\BOOTX64.EFI` and `BMO-DATA\` at its top level.
-3. That is the whole deployment. There is no bootloader to install, no
-   `grub.cfg`, no initrd, no kernel command line, and nothing to configure.
-
-> **[!] Where `staging/` comes from, said straight.** It is produced by
-> `build.ps1`, and **that script only runs on Windows today** -- it looks for
-> `llvm-objcopy.exe` under `%USERPROFILE%\.rustup` and hardcodes `.exe` paths.
-> So *copying* needs no Windows and *producing* still does, and saying only the
-> first half would be a half-truth.
->
-> The fix is a prebuilt archive, and it is small enough to be silly:
-> **718 KB zipped** for the whole system, the desktop and 28 programs. It goes
-> on the **[Releases](https://github.com/AndreeSalazar/BMO-X/releases)** page.
-> If that page is empty when you read this, the archive is not up yet and
-> building on Windows is the only path -- which is worth knowing before you
-> plan an evening around it.
->
-> Making the build itself run on Linux is a small job nobody has done: the Rust
-> side is already cross-platform, it is the PowerShell around it that is not.
-
-**Why it is that simple**: UEFI firmware looks for `EFI\BOOT\BOOTX64.EFI` on any
-FAT volume and runs it. BMO-X *is* that file -- boot chain, kernel and drivers
-in one binary -- so there is nothing left for a bootloader to do. Ventoy, GRUB
-and rEFInd all exist to choose between things and hand off; here there is
-nothing to hand off to.
-
-That also means the firmware's own boot menu lists it directly, next to
-`Windows Boot Manager`, which is what photo 1 in
-**[docs/evidencia/](docs/evidencia/)** shows.
-
 ### 3. Turn Secure Boot off first.
 
 **This is the one that will waste your evening otherwise.** `BOOTX64.EFI` is not
@@ -414,6 +447,56 @@ setup itself (**Del** or **F2**) has a boot-order page that does the same thing.
 Pick `BMO-X` and you are in. Click the
 DOOM icon, or type `info`, `cpu`, `mem`, `ls` in the launcher. `Ctrl+Alt+ESC`
 always takes the machine back from whatever is running.
+
+<details>
+<summary><b>No script? Copy two things onto a stick</b></summary>
+
+The build leaves a folder that *is* the layout of a bootable stick, so **copying
+it needs nothing but a file manager** -- Linux, macOS or Windows:
+
+```text
+Ultra_kernel_x86-64/staging/
+    EFI/BOOT/BOOTX64.EFI      <- the whole operating system
+    EFI/BOOT/BMO-MANIFEST.TXT <- sizes and SHA-256, for checking
+    BMO-DATA/                 <- the desktop and the programs
+```
+
+1. Format a USB stick as **FAT32** (not exFAT, not NTFS -- UEFI reads FAT).
+2. Copy **the contents of `staging/`** to the root of the stick, so that the
+   stick ends up with `EFI\BOOT\BOOTX64.EFI` and `BMO-DATA\` at its top level.
+3. That is the whole deployment. There is no bootloader to install, no
+   `grub.cfg`, no initrd, no kernel command line, and nothing to configure.
+
+> **[!] Where `staging/` comes from, said straight.** It is produced by
+> `build.ps1`, and **that script only runs on Windows today** -- it looks for
+> `llvm-objcopy.exe` under `%USERPROFILE%\.rustup` and hardcodes `.exe` paths.
+> So *copying* needs no Windows and *producing* still does, and saying only the
+> first half would be a half-truth.
+>
+> The fix is a prebuilt archive, and it is small enough to be silly:
+> **718 KB zipped** for the whole system, the desktop and 28 programs. It goes
+> on the **[Releases](https://github.com/AndreeSalazar/BMO-X-x86-64/releases)** page.
+> If that page is empty when you read this, the archive is not up yet and
+> building on Windows is the only path -- which is worth knowing before you
+> plan an evening around it.
+>
+> Making the build itself run on Linux is a small job nobody has done: the Rust
+> side is already cross-platform, it is the PowerShell around it that is not.
+
+**Why it is that simple**: UEFI firmware looks for `EFI\BOOT\BOOTX64.EFI` on any
+FAT volume and runs it. BMO-X *is* that file -- boot chain, kernel and drivers
+in one binary -- so there is nothing left for a bootloader to do. Ventoy, GRUB
+and rEFInd all exist to choose between things and hand off; here there is
+nothing to hand off to.
+
+That also means the firmware's own boot menu lists it directly, next to
+`Windows Boot Manager`, which is what photo 1 in
+**[docs/evidencia/](docs/evidencia/)** shows.
+
+</details>
+
+<details>
+<summary><b>What gets written, why it is that small, and the one command that only reads</b></summary>
 
 ### What actually gets written
 
@@ -464,6 +547,8 @@ boot at all.
 Says what the build trees weigh before you delete anything. Cargo leaves about
 5,7 GB across four workspaces. It deletes nothing unless you add `-Borrar`.
 
+</details>
+
 ---
 
 ## Why it is built this way
@@ -513,7 +598,10 @@ absence of failure -- surviving it and being able to say what happened.
   <img src="docs/arte/inti.png" alt="INTI -- habla con la CPU" width="360">
 </p>
 
-## The Hopper test
+## The Hopper test and INTI
+
+<details>
+<summary><b>The Hopper test -- does the machine carry the work the human carried by hand?</b></summary>
 
 Grace Hopper's argument was never *"computers should be friendly"*. It was
 sharper than that: **the machine should carry the work the human was carrying
@@ -631,9 +719,10 @@ can build on it **on stated terms**, not so the system fits everyone.
 
 The divergence is the audience. It was never the strictness.
 
----
+</details>
 
-## Why INTI exists
+<details>
+<summary><b>Why INTI exists -- the system language, and why C was demoted</b></summary>
 
 **INTI is the system language of BMO-X.** Python's syntax, assembly's control,
 and a compiler that will not leave a single operation without a rule. It
@@ -708,13 +797,16 @@ compiled, ran, and did something else. Each now has a test.
 > **[ESTADO.md](toolchain/lang/inti/ESTADO.md)** takes the three claims apart and
 > says which of them is paid for.
 
+</details>
+
 ---
 
 ## What it deliberately does not do
 
-No networking stack, no GPU driver, no dynamic linking, no processes talking
-over sockets, no package manager, no accounts. Some of those are queued and some
-are refused; **[ARQUITECTURA.md](ARQUITECTURA.md)** says which is which and why.
+No dynamic linking, no package manager, no accounts, no POSIX layer, and no
+generic drivers: every device is **profiled** -- this CPU, this xHCI, this RTX
+3060 -- never "any card". Some of those are queued and some are refused;
+**[ARQUITECTURA.md](ARQUITECTURA.md)** says which is which and why.
 
 It is also not a Linux, not a hobby OS aiming at POSIX, and not trying to run
 anybody else's binaries. A program for BMO-X is compiled for BMO-X. And it is
@@ -723,7 +815,10 @@ says so and a guardian enforces it.
 
 ---
 
-## The second objective: **the day the card arrives, it gets profiled**
+## The second objective and cloud local
+
+<details>
+<summary><b>The second objective: the day the AMD card arrives, it gets profiled</b></summary>
 
 The primary objective is banking on BMO-X. This is the one behind it, and it is
 stated here because the *shape* of the work is the point, not the hardware.
@@ -802,71 +897,10 @@ measured*, which is not the same as *long*.
 The full reasoning: **[PLAN_VULKAN.md](platform/drivers/gpu/rdna4/PLAN_VULKAN.md)**
 and **[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
 
----
+</details>
 
-## What is next, and what blocks it
-
-The plans are public because an estimate nobody can check is advertising. Each
-row below is **work on top of something that already runs**, except the last one.
-
-| | | blocked by |
-|---|---|---|
-| 🟢 | **Talk to the LAN and to the internet** -- receives, transmits behind a one-time gate with a 4 ms radar, gets its own IP by DHCP, and `ping` is answered by the router and by a server on the internet (2026-09-14) | done on metal |
-| 🟡 | **Give the 12 cores work from Ring 3** -- the door is built (`ATRIL` / `TOCAR`, two operations, a closed catalogue of parts) and the kernel side already measured **11,52x** | one boot: `smp orquesta` has never been executed |
-| 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
-| ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
-| 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
-| 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
-| ⚪ | **Games on the GPU** -- depth, perspective, a small graphics API for Ring 3, and SASS from BMO-X's own compiler | the compositor first, then the compiler |
-| ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
-| ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
-
-**The ceiling has a name.** Everything above it is work; cryptography is the one
-piece that is an *invention*. X25519, AES-GCM, SHA-256, X.509 -- written wrong it
-does not fail, it **works and does not protect**.
-
-And it is the same debt twice: the elliptic curve HTTPS needs is the one a signed
-`.bex` needs. **Paying it once collects twice.**
-
-> **[!] This paragraph used to say** *"today `verify_ed25519` says yes to a
-> signature of zeros, and nothing calls it yet"*. **That has been false since
-> 2026-08-24**, when that function was deleted, and real Ed25519 landed the day
-> after. `bmo-firma` verifies against a trust anchor and refuses without one.
->
-> The accurate statement was narrower and still uncomfortable: **the machinery
-> worked and nothing signed shipped through it.** Every `.bex` went out with
-> `sig_algo = 0` -- integrity, not authorship -- and the trust anchor was empty.
-> The gap was never the algorithm; it was that **nothing in the tree could
-> sign**, which is why the writer emitted a zero and the anchor had nothing to
-> hold.
->
-> **Closed on 2026-09-10.** `toolchain/tools/bmo-firmar` signs an already-built
-> `.bex` in place -- the signature is the one block no hash covers, so stamping
-> it moves nothing else, and what gets signed is the binary that was tested
-> rather than a rebuilt sibling. It links `bmo-firma`, the same crate the kernel
-> runs, so "verified on the host" and "verified on the metal" are one claim and
-> not two that resemble each other. The private key never enters the repository:
-> the tool walks the ancestors for a `.git` and refuses. The anchor now holds one
-> key, by name.
->
-> What is still open is honest and small: **no signed `.bex` has booted on the
-> Ryzen yet**, and `exige_firma()` is still `false`. Both are checkboxes with a
-> verification written next to them, in `docs/plan/PLAN_SEGURIDAD.md`.
-
-The full reasoning, with what each piece costs and why:
-**[PLAN_EL_PERFIL_TOTAL.md](docs/plan/terminado/PLAN_EL_PERFIL_TOTAL.md)** (what this
-machine gives without buying anything) and
-**[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
-
-> **On estimates.** A profile here measures between **600 and 1.900 lines** --
-> that is four measurements, not an opinion: the Ryzen profile is 952, AHCI is
-> 1.103, xHCI is 1.871. Where a number has not been measured, this repository
-> says *not measured* rather than guessing. That is not modesty; a guess written
-> down becomes a fact three months later.
-
----
-
-## Cloud local: the phone is the antenna
+<details>
+<summary><b>Cloud local: the phone is the antenna</b></summary>
 
 YouTube will not run on BMO-X, and the reason is not the kernel. A video site
 needs HTTPS, a JavaScript engine, a modern codec and synchronized audio, and each
@@ -927,6 +961,70 @@ The desktop does it in 0.5 s. Honest numbers, measured 2026-09-16.
 The plan, with a check next to every step:
 **[PLAN_CLOUD_LOCAL.md](docs/plan/PLAN_CLOUD_LOCAL.md)**.
 
+</details>
+
+---
+
+## What is next, and what blocks it
+
+The plans are public because an estimate nobody can check is advertising. Each
+row below is **work on top of something that already runs**, except the last one.
+
+| | | blocked by |
+|---|---|---|
+| 🟢 | **Talk to the LAN and to the internet** -- receives, transmits behind a one-time gate with a 4 ms radar, gets its own IP by DHCP, and `ping` is answered by the router and by a server on the internet (2026-09-14) | done on metal |
+| 🟡 | **Give the 12 cores work from Ring 3** -- the door is built (`ATRIL` / `TOCAR`, two operations, a closed catalogue of parts) and the kernel side already measured **11,52x** | one boot: `smp orquesta` has never been executed |
+| 🟡 | **A LAN that works and is measured** -- `ping` works; DNS, files and banking terminals against a local server come next | DNS answers, then TCP on the metal |
+| ⚪ | **Cloud local** -- your phone does the web and BMO-X shows it (see below) | TCP on the metal, then a local MPEG-1 player |
+| 🟡 | **Sound** -- the headset is claimed by the enumerator with its descriptor in hand, volume and the isochronous pipe are driven by the bus thread (never from a syscall), the pipe opens itself on claim, and enumeration is done in **two beats** of its own: first the host *listens* to the device at address 0 to learn how it speaks (its EP0 packet), then a clean reset, the address and the papers -- each step justified by the USB and xHCI specs, not by what another host does. Written 2026-09-21; the first image shipped with two extra steps that left keyboard and mouse out, found by reading and removed 2026-09-22 | the next boot: the `save` says whether the 7.1 headset answered |
+| 🟡 | **The desktop composed by the RTX 3060** -- step 1, the copy engine moves the desktop to the screen instead of the CPU; then windows as textures, blur behind them, animations on the vertical blank | one boot per step, each checked pixel by pixel against the CPU |
+| 🟡 | **Games on the GPU** -- **VERRANO**, BMO-X's own drawing API: the D3D cube through the card's rasterizer with two programs shipped ready-made in BMO-X's own shader format (**BSF**) and the vertices in a buffer. Its hang at the vertex stage was traced to a shader-header bit (`DoesLoadOrStore`) on 2026-09-26 | one boot: `gpu verrano` |
+| ⚪ | **A local assistant**, running as a Ring 3 app over your own files -- parked by decision; its step 0 (closed decisions over `DATOS.TXT`, no model) needs nothing | `exp`, and the core door |
+| ⛔ | **Anything over the internet** | **cryptography** -- and that is the ceiling |
+
+**The ceiling has a name.** Everything above it is work; cryptography is the one
+piece that is an *invention*. X25519, AES-GCM, SHA-256, X.509 -- written wrong it
+does not fail, it **works and does not protect**.
+
+And it is the same debt twice: the elliptic curve HTTPS needs is the one a signed
+`.bex` needs. **Paying it once collects twice.**
+
+> **[!] This paragraph used to say** *"today `verify_ed25519` says yes to a
+> signature of zeros, and nothing calls it yet"*. **That has been false since
+> 2026-08-24**, when that function was deleted, and real Ed25519 landed the day
+> after. `bmo-firma` verifies against a trust anchor and refuses without one.
+>
+> The accurate statement was narrower and still uncomfortable: **the machinery
+> worked and nothing signed shipped through it.** Every `.bex` went out with
+> `sig_algo = 0` -- integrity, not authorship -- and the trust anchor was empty.
+> The gap was never the algorithm; it was that **nothing in the tree could
+> sign**, which is why the writer emitted a zero and the anchor had nothing to
+> hold.
+>
+> **Closed on 2026-09-10.** `toolchain/tools/bmo-firmar` signs an already-built
+> `.bex` in place -- the signature is the one block no hash covers, so stamping
+> it moves nothing else, and what gets signed is the binary that was tested
+> rather than a rebuilt sibling. It links `bmo-firma`, the same crate the kernel
+> runs, so "verified on the host" and "verified on the metal" are one claim and
+> not two that resemble each other. The private key never enters the repository:
+> the tool walks the ancestors for a `.git` and refuses. The anchor now holds one
+> key, by name.
+>
+> What is still open is honest and small: **no signed `.bex` has booted on the
+> Ryzen yet**, and `exige_firma()` is still `false`. Both are checkboxes with a
+> verification written next to them, in `docs/plan/PLAN_SEGURIDAD.md`.
+
+The full reasoning, with what each piece costs and why:
+**[PLAN_EL_PERFIL_TOTAL.md](docs/plan/terminado/PLAN_EL_PERFIL_TOTAL.md)** (what this
+machine gives without buying anything) and
+**[PLAN_EL_ASISTENTE.md](docs/plan/en_pausa/PLAN_EL_ASISTENTE.md)**.
+
+> **On estimates.** A profile here measures between **600 and 1.900 lines** --
+> that is four measurements, not an opinion: the Ryzen profile is 952, AHCI is
+> 1.103, xHCI is 1.871. Where a number has not been measured, this repository
+> says *not measured* rather than guessing. That is not modesty; a guess written
+> down becomes a fact three months later.
+
 ---
 
 ## How to be suspicious of it
@@ -964,6 +1062,8 @@ because the reason a decision was made is worth more than the decision.
 | **[META-KERNEL_HARD.md](FUERO/META-KERNEL_HARD.md)** | The law of the machine. A rule exists only if it carries the component that demands it and the number it demands |
 | **[META-APP_HARD.md](FUERO/META-APP_HARD.md)** | The law of an app. What BMO-X demands of anything that wants to be one, and what it gives back |
 | **[META-SDK_HARD.md](FUERO/META-SDK_HARD.md)** | The law of **REX**: the nine `<bmo/...>` headers an app is written with, and the two tests that keep a library from becoming a framework |
+| ★ **[EL_0x15.md](platform/drivers/gpu/ga10x/EL_0x15.md)** | **The 0x15 case file**: the symptom, the instruments, the eight hypotheses that fell and the number that felled each, the cause, and a summary in English for nova-core and nouveau. The boots, one per row: [`EL_0x15_ARRANQUES.csv`](platform/drivers/gpu/ga10x/EL_0x15_ARRANQUES.csv) |
+| **[ANATOMIA.md](platform/drivers/gpu/ga10x/ANATOMIA.md)** | The MSI RTX 3060 12G from the inside: engines, chain of trust, what survives what, and every byte handed to the booter |
 | **[ARQUITECTURA.md](ARQUITECTURA.md)** | The full technical picture: layout, boot path, the operation table, the allocator, the complete status list |
 | **[BITACORA.md](BITACORA.md)** | The build log, episode by episode. **Every bug that cost a day is written down with its root cause** |
 | **[AVANCES.md](AVANCES.md)** | What is done, what is waiting for a boot, and the photographs |
