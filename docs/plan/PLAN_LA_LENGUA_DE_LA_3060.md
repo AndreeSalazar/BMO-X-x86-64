@@ -175,6 +175,14 @@ empieza por `TOMA TU BODRIO:` y dice la instruccion, el registro y la regla:
 > programas antes de fabricar `cubo.bsf`; con un bodrio, no hay sobre. Y lo
 > dice: `cubo.bsf cubo_vertice: PERFECTO Y PRECISO: 20 instrucciones, 32
 > lecturas y 4 esperas comprobadas`. Falta la del kernel.
+>
+> **Y la del escritorio (26-09, tarde):** `juez::juzgar_programa` juzga un
+> programa TAL COMO VIAJA (la SPH y las instrucciones en bytes, lo que guarda
+> el BSF). `gpu verrano` lo llama sobre los dos programas del sobre antes de
+> armar el paquete: con un bodrio no se manda nada y lo dice (`NO  el
+> programa de vertice del BSF: TOMA TU BODRIO: ...`); con los dos buenos, el
+> veredicto sale en la pantalla y en el tablero del banco. Queda la puerta
+> del kernel, que es la que no se puede saltar.
 
 `bsf_sm86` (la prueba que fabrica `cubo.bsf`) llama al juez y no escribe el
 sobre si dice NO. El kernel llama al mismo juez en `CUBO_VERRANO` antes de

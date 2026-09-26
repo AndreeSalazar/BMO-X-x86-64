@@ -123,6 +123,17 @@ la SPH (128 B) y detras las instrucciones.
       fotogramas (360 por defecto, 1..3600) sin leer de vuelta, dice los fps
       de pared y los de solo la tarjeta, y al final lee el fotograma 30 y lo
       juzga contra `de_la_3060(30)` de D3D12.
+      **Y afinado (26-09, tarde), tambien sin ver el metal:** el TABLERO en
+      vivo debajo del cubo (fps, la 3060, preparar, el avance y una barra
+      por fotograma; `gspcubo/tablero.rs`, repintado cada 66 ms y
+      descontado de los fps); el kernel prepara EN CALIENTE del segundo
+      fotograma en adelante (mismos programas, nadie mas en el GR, < 100
+      ms: solo los vertices, sin releer; en frio eran ~4.000 lecturas por
+      PCIe); `banco ligero` quita la escalera de T1c (2 WAIT_FOR_IDLE en vez
+      de ~30); y el juez mira los programas del BSF antes de mandarlos. El
+      fotograma juzgado va por el MISMO camino (caliente, y ligero si se
+      pidio). **Como se sabe:** `gpu verrano banco` y `gpu verrano banco
+      ligero` dicen IGUAL al final, y el `preparar` de los dos baja.
 - [ ] **V2 -- la profundidad y el culling** (X5b de
       [`PLAN_EL_CUBO.md`](PLAN_EL_CUBO.md)): dos cubos que se tapan.
       **Como se sabe:** contra el juez con z-buffer.

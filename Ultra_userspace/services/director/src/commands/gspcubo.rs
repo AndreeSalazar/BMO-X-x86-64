@@ -20,6 +20,8 @@
 mod la3060;
 /// VERRANO V0: el cubo por la API, con sus dos backends.
 mod verrano;
+/// VERRANO V1: el tablero del banco, en vivo.
+mod tablero;
 pub(crate) use verrano::orden as orden_verrano;
 
 use bmo_cubo::referencia as rf;
@@ -38,13 +40,13 @@ const TENUE: u32 = 0x0088_8888;
 
 /// Un texto con numeros, sin `alloc`.
 struct Texto {
-    b: [u8; 120],
+    b: [u8; 160],
     n: usize,
 }
 
 impl Texto {
     fn nuevo() -> Self {
-        Texto { b: [0; 120], n: 0 }
+        Texto { b: [0; 160], n: 0 }
     }
     fn t(&mut self, s: &[u8]) -> &mut Self {
         for &c in s {
@@ -80,6 +82,14 @@ impl Texto {
     }
     fn s(&self) -> &[u8] {
         &self.b[..self.n]
+    }
+}
+
+/// Para escribir un `Display` (el BODRIO del juez) sin `alloc`.
+impl core::fmt::Write for Texto {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.t(s.as_bytes());
+        Ok(())
     }
 }
 
