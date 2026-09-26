@@ -142,7 +142,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
         Ok(n) => n,
         Err((cual, b)) => {
             let mut t = Texto::nuevo();
-            let _ = core::fmt::write(&mut t, format_args!("  NO  el programa de {cual} del BSF: {b}"));
+            let _ = core::fmt::write(&mut t, format_args!("  NO  el programa de {cual} del BSF:\n  {b}\n  {}", juez::REMATE));
             return Err(linea(dsk, t.s(), INK_ERR));
         }
     };

@@ -131,15 +131,24 @@ pub struct Veredicto {
     pub esperas: u32,
 }
 
+/// Como firma el juez lo que dice (el nombre lo puso el propietario el 26-09:
+/// es el juez de V3b, `PLAN_VERRANO.md`).
+pub const FIRMA: &str = "[BMO-X Juez V3b]";
+
+/// **EL REMATE**, la linea que va DETRAS de un bodrio. Del propietario, el
+/// 26-09: *"no es para humillar"* -- es para que un NO no se lea como un
+/// aviso mas. Solo sale con un bodrio: lo PERFECTO Y PRECISO no se remata.
+pub const REMATE: &str = "[BMO-X Juez V3b]: UN FRACASADO! UN FRACASADO!!!";
+
 impl core::fmt::Display for Bodrio {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "TOMA TU BODRIO: {} en la instruccion {} ({}): {}", self.regla.nombre(), self.instruccion, self.que, self.detalle)
+        write!(f, "{}: TOMA TU BODRIO! {} en la instruccion {} ({}): {}", FIRMA, self.regla.nombre(), self.instruccion, self.que, self.detalle)
     }
 }
 
 impl core::fmt::Display for Veredicto {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "PERFECTO Y PRECISO: {} instrucciones, {} lecturas y {} esperas comprobadas", self.instrucciones, self.lecturas, self.esperas)
+        write!(f, "{}: PERFECTO Y PRECISO: {} instrucciones, {} lecturas y {} esperas comprobadas", FIRMA, self.instrucciones, self.lecturas, self.esperas)
     }
 }
 
@@ -725,6 +734,25 @@ mod pruebas {
     /// como quedo (con R1). Con la regla de los 2 registros del contador de
     /// programa, el juez caza el de V0 -- lo que la 3060 dijo con su Xid 13
     /// ("Out Of Range Register", metal 26-09 06:33) -- y aprueba el arreglado.
+    /// Como lo dice: firmado, y el remate solo detras de un bodrio. En ASCII:
+    /// la fuente del metal es de 8x16 y no tiene emojis.
+    #[test]
+    fn como_lo_dice() {
+        extern crate std;
+        let b = juez_verrano_bodrio();
+        let t = std::format!("{b}");
+        assert!(t.starts_with("[BMO-X Juez V3b]: TOMA TU BODRIO! R5"), "{t}");
+        assert!(REMATE.is_ascii() && FIRMA.is_ascii() && t.is_ascii());
+        let v = juzgar(&verrano(), &ctx_verrano(&tu::sph_vertice())).unwrap();
+        assert!(std::format!("{v}").starts_with("[BMO-X Juez V3b]: PERFECTO Y PRECISO: "));
+    }
+
+    fn juez_verrano_bodrio() -> Bodrio {
+        let mut b = [0u8; 4 * tu::PALABRAS_VS];
+        let n = tu::bytes(&tu::vertice(), &mut b);
+        juzgar_programa(&b[..n - 8], raster::REGISTROS).unwrap_err()
+    }
+
     /// Los bytes del BSF dicen lo mismo que las instrucciones: el programa
     /// de VERRANO tal como viaja es PERFECTO Y PRECISO, y uno cortado es
     /// BODRIO.

@@ -153,7 +153,8 @@ fn verrano(va: u64, ligero: bool) -> Result<u64, u32> {
             if let Err(b) = bmo_gpu_ga10x::sass::juez::juzgar_programa(prog, r) {
                 crate::ring0::cabina::warn("gpu", cual, b.instruccion as u64);
                 crate::ring0::cabina::warn("gpu", b.regla.nombre(), b.que as u64);
-                crate::ring0::cabina::warn("gpu", "VERRANO: TOMA TU BODRIO, el juez no deja subir el programa; instruccion", b.instruccion as u64);
+                crate::ring0::cabina::warn("gpu", "[BMO-X Juez V3b]: TOMA TU BODRIO! no sube a la 3060; instruccion", b.instruccion as u64);
+                crate::ring0::cabina::warn("gpu", bmo_gpu_ga10x::sass::juez::REMATE, 87);
                 return Err(IOMMU_NO_BODRIO);
             }
         }

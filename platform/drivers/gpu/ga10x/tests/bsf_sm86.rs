@@ -45,7 +45,7 @@ fn juzgar_antes() {
     for (nombre, codigo, sph) in [("cubo_vertice", &tuberia::codigo_vs()[..], &sv), ("cubo_pixel", &tuberia::codigo_ps()[..], &sp)] {
         match juez::juzgar(codigo, &juez::Contexto { registros, sph: Some(sph) }) {
             Ok(v) => eprintln!("cubo.bsf {nombre}: {v}"),
-            Err(b) => panic!("cubo.bsf {nombre}: {b} -- no se fabrica el sobre"),
+            Err(b) => panic!("cubo.bsf {nombre}: {b}\n{} -- no se fabrica el sobre", juez::REMATE),
         }
     }
 }

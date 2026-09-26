@@ -42,13 +42,13 @@ const TENUE: u32 = 0x0088_8888;
 
 /// Un texto con numeros, sin `alloc`.
 struct Texto {
-    b: [u8; 160],
+    b: [u8; 256],
     n: usize,
 }
 
 impl Texto {
     fn nuevo() -> Self {
-        Texto { b: [0; 160], n: 0 }
+        Texto { b: [0; 256], n: 0 }
     }
     fn t(&mut self, s: &[u8]) -> &mut Self {
         for &c in s {
