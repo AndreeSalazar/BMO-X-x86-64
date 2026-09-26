@@ -362,3 +362,77 @@ fn la_tanda_de_inti_escribe_el_frame_de_verrano_en_los_360() {
         }
     }
 }
+
+/// La entrada de la tanda del fotograma `f` (la de `tanda.inti`), en `B`.
+fn entrada_de_la_tanda(m: &mut Machine, f: u32) {
+    use bmo_cubo::{angulo_de_fotograma, constantes, indices, vertices};
+    let c = constantes(angulo_de_fotograma(f), 1280.0 / 720.0);
+    for k in 0..4u64 {
+        let k4 = 4 * k as usize;
+        pon4(m, B + 16 * k, [c.wvp[k4], c.wvp[k4 + 1], c.wvp[k4 + 2], c.wvp[k4 + 3]]);
+        pon4(m, B + 64 + 16 * k, [c.world[k4], c.world[k4 + 1], c.world[k4 + 2], c.world[k4 + 3]]);
+    }
+    pon4(m, B + 128, c.luz);
+    pon4(m, B + 144, [640.0, 360.0, 256.0, 0.0]);
+    for (i, v) in vertices().iter().enumerate() {
+        pon4(m, B + 160 + 16 * i as u64, [v.pos[0], v.pos[1], v.pos[2], 1.0]);
+        pon4(m, B + 544 + 16 * i as u64, [v.normal[0], v.normal[1], v.normal[2], 0.0]);
+        pon4(m, B + 928 + 16 * i as u64, v.color);
+    }
+    let is = indices();
+    for k in 0..is.len() / 2 {
+        m.pon_u64(B + 1312 + 8 * k as u64, is[2 * k] as u64 | (is[2 * k + 1] as u64) << 32);
+    }
+}
+
+/// ***DE EXTREMO A EXTREMO, SIN PELEA***: INTI publica la tanda en una LAMINA
+/// de VERRANO (`publica` de `tanda.inti`, con su sello y su secuencia) y el
+/// LECTOR de VERRANO en Rust (`bmo_verrano::lamina`) la abre y la lee DE ESA
+/// MISMA MEMORIA: fotograma entero, su numero, y sus vertices bit a bit los
+/// del `Frame` que dibuja VERRANO. Con la secuencia de cada fotograma a
+/// proposito, para que se alternen las dos ranuras.
+#[test]
+fn inti_publica_en_la_lamina_y_verrano_la_lee_en_los_360() {
+    use bmo_verrano::lamina::{self, Lamina, Leido};
+    use bmo_verrano::Vertex;
+    use core::sync::atomic::{AtomicU32, Ordering};
+    let fuente = include_str!("../../../ejemplos/tanda.inti");
+    let dir = B + 8192;
+    let capacidad = 36;
+    let palabras = lamina::bytes_para(capacidad) / 4;
+    for f in 0..360u32 {
+        // La lamina la crea la app: aqui, la de Rust, y a la memoria del
+        // emulador palabra a palabra. La secuencia en `f`: la ranura cambia.
+        let hecha: std::vec::Vec<AtomicU32> = (0..palabras).map(|_| AtomicU32::new(0)).collect();
+        Lamina::crear(&hecha, capacidad).unwrap();
+        hecha[lamina::CAMPO_SECUENCIA].store(f, Ordering::Relaxed);
+        let m = maquina_en(fuente, "publica", dir, B, |m| {
+            entrada_de_la_tanda(m, f);
+            for k in (0..palabras).step_by(2) {
+                let hi = hecha.get(k + 1).map_or(0, |x| x.load(Ordering::Relaxed) as u64);
+                m.pon_u64(dir + 4 * k as u64, hecha[k].load(Ordering::Relaxed) as u64 | hi << 32);
+            }
+            // El tercer argumento, el fotograma.
+            m.regs[2] = f as u64;
+        });
+        // Lo que VERRANO ve: la misma memoria, leida por su lector.
+        let vista: std::vec::Vec<AtomicU32> = (0..palabras).map(|k| AtomicU32::new(m.read_u64(dir + 4 * k as u64) as u32)).collect();
+        let l = Lamina::abrir(&vista).expect("la lamina que escribio INTI se abre");
+        let mut out = [Vertex::default(); 36];
+        let frame: std::vec::Vec<Vertex> = bmo_cubo::tanda::de_fotograma(f, 1280, 720)
+            .unwrap()
+            .tris()
+            .iter()
+            .flat_map(|t| t.clip.iter().map(move |&p| Vertex { position: p, color: t.color }))
+            .collect();
+        assert_eq!(m.regs[0] as i64, frame.len() as i64, "fotograma {f}: lo que devuelve publica");
+        assert_eq!(l.leer(&mut out), Leido::Fotograma { fotograma: f, vertices: frame.len() }, "fotograma {f}");
+        for (k, v) in frame.iter().enumerate() {
+            assert_eq!(out[k].position.map(f32::to_bits), v.position.map(f32::to_bits), "fotograma {f}, vertice {k}");
+            assert_eq!(out[k].color.map(f32::to_bits), v.color.map(f32::to_bits), "fotograma {f}, vertice {k}: color");
+        }
+        // Y los dos sellos, PARES: nadie quedo escribiendo.
+        assert_eq!(vista[lamina::CAMPO_SELLO].load(Ordering::Relaxed) % 2, 0);
+        assert_eq!(vista[lamina::CAMPO_SELLO + 1].load(Ordering::Relaxed) % 2, 0);
+    }
+}

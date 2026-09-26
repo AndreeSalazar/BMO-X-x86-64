@@ -42,6 +42,8 @@
 #![forbid(unsafe_code)]
 
 pub mod cpu;
+/// La lamina: el bloque que otro proceso (INTI) escribe y VERRANO lee, sin cerrojo.
+pub mod lamina;
 
 /// **Un vertice**, como lo lee `cubo.vert`: la posicion ya en coordenadas
 /// de RECORTE (x, y, z, w) y el color (r, g, b, a). 32 bytes.

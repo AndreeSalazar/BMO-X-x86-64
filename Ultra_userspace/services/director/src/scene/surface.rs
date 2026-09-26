@@ -648,6 +648,21 @@ pub(crate) struct Table {
     sup: [Option<Surface>; MAX],
     /// La pantalla entera esta prestada a otro programa: no se ve ninguna caja.
     prestada: bool,
+    /// ** La LAMINA DE VERRANO que alguien ofrecio (2026-09-26): una a la vez.
+    /// Llega por la MISMA puerta que las superficies y se reconoce por su
+    /// magia (`bmo_verrano::lamina::MAGIA`, `BVER`): asi ninguna de las dos
+    /// cosas se queda con lo de la otra. La dibuja `gpu verrano banco inti`.
+    lamina: Option<LaminaTomada>,
+}
+
+/// Una lamina tomada: el prestamo y de quien es. Se lee con
+/// `bmo_verrano::lamina::Lamina::abrir`, que NO se cree la cabecera.
+#[derive(Clone, Copy)]
+pub(crate) struct LaminaTomada {
+    pub handle: u64,
+    pub base: u64,
+    pub bytes: u64,
+    pub tid: u32,
 }
 
 /// Cuantos fotogramas entregados a ciegas hacen falta para acusar: un segundo
@@ -686,11 +701,13 @@ pub(crate) enum Adopcion {
     NoEsSuperficie { tid: u32, bytes: u64 },
     /// Nadie ofrecio nada. Es el caso normal y no se dice.
     NadieOfrece,
+    /// Alguien ofrecio una LAMINA DE VERRANO (magia `BVER`): la tiene VERRANO.
+    Lamina { tid: u32, bytes: u64 },
 }
 
 impl Table {
     pub(crate) fn new() -> Self {
-        Table { sup: [None, None, None, None], prestada: false }
+        Table { sup: [None, None, None, None], prestada: false, lamina: None }
     }
 
     /// **Una vez por vuelta: que se ve de cada caja**, y se le dice a su app.
@@ -899,6 +916,22 @@ impl Table {
             return Adopcion::NadieOfrece;
         };
         let tid = bmo::prestado_propietario(handle);
+        // ** UNA PUERTA, UNA DECISION (2026-09-26): antes de mirarla como
+        // superficie, se mira si es una LAMINA DE VERRANO. Si lo es, va a
+        // VERRANO y no se suelta por "no ser BSUP". La vieja, si la habia, se
+        // devuelve: una a la vez.
+        if bytes >= 4 {
+            // SAFETY: `tomar_prestado_de` acaba de mapear `bytes` (>= 4) bytes
+            // desde `base` en este proceso; se lee UNA palabra alineada.
+            let magia = unsafe { (base as *const u32).read_volatile() };
+            if magia == bmo_verrano::lamina::MAGIA {
+                if let Some(vieja) = self.lamina.take() {
+                    bmo::soltar_prestado(vieja.handle);
+                }
+                self.lamina = Some(LaminaTomada { handle, base, bytes, tid });
+                return Adopcion::Lamina { tid, bytes };
+            }
+        }
         // ** UNA APP, UNA VENTANA (2026-09-12). Si este tid ya tiene caja, lo
         // que ofrece es su respuesta a un CONFIGURE, y va a SU ranura.
         //
@@ -985,7 +1018,19 @@ impl Table {
     /// CONGELADA, que es indistinguible de una app pensando. Sin esto, la
     /// ventana de un programa que ya no existe se quedaria en pantalla con su
     /// ultimo fotograma y sus tres botones, como si fuera a responder.
+    /// La lamina de VERRANO, si hay una y su app sigue viva.
+    pub(crate) fn lamina(&self) -> Option<LaminaTomada> {
+        self.lamina
+    }
+
     pub(crate) fn reap_dead(&mut self, cajas: &mut [(u32, u32, u32, u32); MAX]) -> usize {
+        // La lamina de una app muerta se suelta, como su ventana.
+        if let Some(l) = self.lamina {
+            if bmo::prestado_propietario(l.handle) == 0 {
+                bmo::soltar_prestado(l.handle);
+                self.lamina = None;
+            }
+        }
         let mut n = 0;
         for gap in self.sup.iter_mut() {
             let dead_one = match gap.as_ref() {

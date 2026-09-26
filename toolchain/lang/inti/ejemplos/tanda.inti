@@ -169,6 +169,41 @@ funcion tanda(base es natural64, salida es natural64) devuelve entero64
             n = n + 1
         devuelve 3 * n
 
+# ** PUBLICAR EN LA LAMINA DE VERRANO (26-09): la tanda del fotograma, en la
+# ranura que VERRANO NO esta leyendo, con el trato de
+# `platform/shared/verrano/src/lamina.rs` -- y en ESE orden, que es todo el
+# trato: sello impar, los vertices, su numero y su fotograma, sello par, y la
+# secuencia lo ultimo. En x86-64 las escrituras se ven en el orden en que se
+# hacen, y este fichero no tiene nada que las reordene: no hacen falta
+# barreras. Sin cerrojo: VERRANO nunca espera a esta app, y esta app nunca
+# espera a VERRANO.
+#
+# Devuelve cuantos vertices publico; -1 si miran mas caras de las que caben
+# (no publica nada), -2 si la lamina es mas chica que una tanda.
+funcion publica(lamina es natural64, entrada es natural64, fotograma es natural64) devuelve entero64
+    crudo
+        capacidad = lee_natural32(lamina + 4 * verrano_campo_capacidad)
+        si capacidad < 3 * CABEN
+            devuelve -2
+        s = lee_natural32(lamina + 4 * verrano_campo_secuencia)
+        k = (s + 1) resto 2
+        sello_dir = lamina + 4 * (verrano_campo_sello + k)
+        sello = lee_natural32(sello_dir)
+        # IMPAR: "estoy escribiendo aqui".
+        escribe_natural32(sello_dir, sello + 1)
+        salida = lamina + verrano_lamina_cabecera + k * capacidad * verrano_vertice
+        n = tanda(entrada, salida)
+        si n < 0
+            # Nada publicado: el sello vuelve a PAR y la secuencia no se toca.
+            escribe_natural32(sello_dir, sello + 2)
+            devuelve n
+        escribe_natural32(lamina + 4 * (verrano_campo_vertices + k), natural64(n))
+        escribe_natural32(lamina + 4 * (verrano_campo_fotograma + k), fotograma)
+        # PAR: "acabe". Y la publicacion, lo ultimo.
+        escribe_natural32(sello_dir, sello + 2)
+        escribe_natural32(lamina + 4 * verrano_campo_secuencia, s + 1)
+        devuelve n
+
 funcion copia16(a es natural64, b es natural64) devuelve natural64
     crudo
         escribe_natural64(a, lee_natural64(b))

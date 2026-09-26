@@ -20,6 +20,7 @@
 use bmo_cubo::referencia as rf;
 use bmo_userland as bmo;
 use bmo_verrano::cpu::Cpu;
+use bmo_verrano::lamina::{Lamina, Leido};
 use bmo_verrano::{Backend, Frame, Image, Vertex, Viewport};
 
 use super::super::After;
@@ -81,7 +82,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     if let Some(r) = banco_pedido {
         let n = r.split(|&c| c == b' ').find_map(numero).unwrap_or(360).clamp(1, 3600);
         aparato.leer = false;
-        return banco(dsk, p, aparato, op, gpu, n, y0 + h);
+        // `inti`: los vertices NO los cuenta el escritorio: los lee de la
+        // LAMINA que ofrecio una app (INTI), fotograma a fotograma.
+        let inti = r.split(|&c| c == b' ').any(|w| w == b"inti");
+        return banco(dsk, p, aparato, op, gpu, n, y0 + h, inti);
     }
     let s_aparato = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
@@ -219,8 +223,30 @@ fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; MAX_VERTICES]) -> Option<us
 ///                 quede se espera (`Backend::finish`) DENTRO del reloj:
 ///                 unos fps que no esperan al ultimo fotograma no valen
 /// ```
-fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32) -> After {
+fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32, inti: bool) -> After {
     let (w, h) = (rf::ANCHO, rf::ALTO);
+    // ** `inti` (26-09): la LAMINA que ofrecio la app. Se abre UNA vez, y su
+    // cabecera no se cree (`Lamina::abrir`).
+    let tomada = if inti {
+        match dsk.table.lamina() {
+            Some(t) => Some(t),
+            None => return linea(dsk, b"  NO  nadie ofrecio una lamina de VERRANO: lanza antes la app de INTI que la publica (run inti/cubo.ibx)", INK_ERR),
+        }
+    } else {
+        None
+    };
+    // SAFETY: `tomar_prestado_de` mapeo `bytes` desde `base` en este proceso
+    // y la lamina no se suelta mientras dura el banco (solo `reap_dead`, que
+    // corre en el bucle del escritorio, no aqui). Se ve como palabras
+    // ATOMICAS: la app las escribe a la vez, y asi lo dice el tipo.
+    let palabras = tomada.map(|t| unsafe { core::slice::from_raw_parts(t.base as *const core::sync::atomic::AtomicU32, (t.bytes / 4) as usize) });
+    let lamina = match palabras.map(Lamina::abrir) {
+        None => None,
+        Some(Ok(l)) => Some(l),
+        Some(Err(_)) => return linea(dsk, b"  NO  la lamina ofrecida no se sostiene (magia, version o capacidad que no cabe en lo prestado): no se dibuja", INK_ERR),
+    };
+    let mut de_inti = DeInti { tid: tomada.map_or(0, |t| t.tid), ..DeInti::default() };
+    let mut vi = [Vertex::default(); MAX_VERTICES];
     let modo = op.modo();
     let mut tablero = Tablero::nuevo(p, fin_y, n, destino::ETIQUETA, modo, b"PERFECTO Y PRECISO");
     // Sin banda (pantalla de 1280x720), las mismas cuentas sin pintarlas.
@@ -254,7 +280,27 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     for i in 0..n {
         let f = (i % 360) as usize;
         let k = cuantos[f] as usize;
-        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &tandas[f * MAX_VERTICES..][..k], viewport: Viewport { width: w, height: h } };
+        // Con lamina: lo ULTIMO que la app publico, sin esperarla nunca. Un
+        // fotograma que la app estaba pisando se descarta y se repite el
+        // anterior; si aun no publico nada, esta vuelta no dibuja.
+        let de_la_app: Option<&[Vertex]> = match lamina.as_ref().map(|l| l.leer(&mut vi)) {
+            None => None,
+            Some(Leido::Fotograma { fotograma, vertices }) => {
+                de_inti.nuevo(fotograma, &vi[..vertices]);
+                Some(&de_inti.v[..de_inti.n])
+            }
+            Some(Leido::Rota) if de_inti.visto => {
+                de_inti.rotos += 1;
+                Some(&de_inti.v[..de_inti.n])
+            }
+            Some(Leido::Rota | Leido::Nada) => {
+                de_inti.esperando += 1;
+                continue;
+            }
+            Some(Leido::Mentira) => return linea(dsk, b"  NO  la lamina dice un numero de vertices imposible (mas que su capacidad o no triangulos enteros): la app miente, se para", INK_ERR),
+        };
+        let vertices = de_la_app.unwrap_or(&tandas[f * MAX_VERTICES..][..k]);
+        let frame = Frame { clear: bmo_cubo::FONDO_F, vertices, viewport: Viewport { width: w, height: h } };
         let desde = bmo::ciclos();
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
@@ -270,6 +316,12 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         }
     }
     let bucle = bmo::ciclos() - bucle;
+    // ** VERRANO ENTIENDE A INTI: el ultimo fotograma que la app publico se
+    // compara, vertice a vertice y bit a bit, con el del juez de la CPU.
+    let mut juicio_inti = Texto::nuevo();
+    if lamina.is_some() {
+        de_inti.juzgar(w, h, &mut juicio_inti);
+    }
     // El cierre: lo que quedo en vuelo, dentro del reloj.
     let desde = bmo::ciclos();
     let cierre_us = match aparato.finish() {
@@ -339,6 +391,13 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(gobierno.s());
         g.byte(b'\n');
     }
+    if !juicio_inti.s().is_empty() {
+        g.with_ink(if de_inti.igual { INK_GOOD } else { INK_ERR });
+        g.text(b"           ");
+        g.text(juicio_inti.s());
+        g.byte(b'\n');
+        g.with_ink(INK_PLAIN);
+    }
     let mut nota = Texto::nuevo();
     aparato.nota(&mut nota);
     if !nota.s().is_empty() {
@@ -388,6 +447,54 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     super::super::datos::anotar(ku, tarjeta, b"us");
     dsk.field.n = 0;
     After::Settle
+}
+
+/// ** Lo que VERRANO recibio de la app por la lamina, y su juicio.
+struct DeInti {
+    /// El ultimo fotograma entero, para repetirlo si el siguiente se rompe.
+    v: [Vertex; MAX_VERTICES],
+    n: usize,
+    fotograma: u32,
+    visto: bool,
+    /// Fotogramas DISTINTOS recibidos, repetidos por rotos, vueltas sin nada.
+    distintos: u32,
+    rotos: u32,
+    esperando: u32,
+    igual: bool,
+    /// De que app es la lamina.
+    tid: u32,
+}
+
+impl Default for DeInti {
+    fn default() -> Self {
+        DeInti { v: [Vertex::default(); MAX_VERTICES], n: 0, fotograma: 0, visto: false, distintos: 0, rotos: 0, esperando: 0, igual: false, tid: 0 }
+    }
+}
+
+impl DeInti {
+    fn nuevo(&mut self, fotograma: u32, v: &[Vertex]) {
+        if !self.visto || fotograma != self.fotograma {
+            self.distintos += 1;
+        }
+        self.v[..v.len()].copy_from_slice(v);
+        self.n = v.len();
+        self.fotograma = fotograma;
+        self.visto = true;
+    }
+
+    /// El ultimo de la app contra el juez de la CPU, bit a bit.
+    fn juzgar(&mut self, w: u32, h: u32, t: &mut Texto) {
+        t.t(b"INTI (tid ").d(self.tid as u64).t(b") por la lamina: ").d(self.distintos as u64).t(b" fotogramas distintos, ").d(self.rotos as u64).t(b" repetidos por rotos, ").d(self.esperando as u64).t(b" vueltas sin nada");
+        if !self.visto {
+            t.t(b"; la app no publico NINGUNO");
+            return;
+        }
+        let mut juez = [Vertex::default(); MAX_VERTICES];
+        let k = vertices(self.fotograma % 360, w, h, &mut juez).unwrap_or(usize::MAX);
+        let bits = |v: &Vertex| (v.position.map(f32::to_bits), v.color.map(f32::to_bits));
+        self.igual = k == self.n && self.v[..self.n].iter().zip(&juez[..self.n]).all(|(a, b)| bits(a) == bits(b));
+        t.t(b"; el ultimo, el ").d(self.fotograma as u64).t(if self.igual { b": IGUAL al juez, bit a bit" } else { b": DISTINTO del juez" });
+    }
 }
 
 /// Las cuentas del banco cuando no hay banda para el tablero.

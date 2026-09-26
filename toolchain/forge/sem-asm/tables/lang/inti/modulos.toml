@@ -379,6 +379,17 @@ vista_tapada         = "0x04"
 verrano_vertice      = "0x20"
 verrano_posicion     = "0x00"
 verrano_color        = "0x10"
+#  ** LA LAMINA (2026-09-26): el bloque que la app OFRECE al escritorio y por el
+#  que VERRANO lee sus vertices sin cerrojo. La forma y el trato estan en
+#  `platform/shared/verrano/src/lamina.rs`; los CAMPOS son indices de palabra
+#  de 32 bits (la direccion es `lamina + 4 * campo`). Mismo espejo.
+verrano_lamina_magia     = "0x52455642"
+verrano_lamina_cabecera  = "0x40"
+verrano_campo_capacidad  = "0x03"
+verrano_campo_secuencia  = "0x04"
+verrano_campo_vertices   = "0x05"
+verrano_campo_fotograma  = "0x07"
+verrano_campo_sello      = "0x09"
 
 #  ** LOS BITS -- el nombre es agnostico, la instruccion es de la maquina.
 #

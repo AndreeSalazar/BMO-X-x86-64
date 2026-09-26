@@ -874,6 +874,18 @@ pub extern "C" fn _start() -> ! {
                 dsk.tick.repaint_field = true;
             }
             scene::surface::Adopcion::NadieOfrece => {}
+            // ** Una LAMINA DE VERRANO (26-09): no es una ventana, es de donde
+            // VERRANO lee los vertices que cuenta otra app (INTI).
+            scene::surface::Adopcion::Lamina { tid, bytes } => {
+                let mut l = [0u8; 96];
+                let mut n = pega(b"  [verrano] tid ", &mut l, 0);
+                n = num(tid, &mut l, n);
+                n = pega(b" ofrecio una lamina (", &mut l, n);
+                n = num(bytes.min(u32::MAX as u64) as u32, &mut l, n);
+                n = pega(b" B): `gpu verrano banco inti` la dibuja\n", &mut l, n);
+                dsk.out.grid.text(&l[..n]);
+                dsk.tick.repaint_field = true;
+            }
         }
         // Y las que se quedaron sin propietario. Va ANTES de pintar nada: la ventana
         // de una app muerta tiene que desaparecer en el mismo fotograma en que
