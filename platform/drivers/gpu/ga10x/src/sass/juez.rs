@@ -49,7 +49,9 @@
 //!                                     esperarla
 //!    R5  la cabecera miente           LDG/STG sin DoesLoadOrStore (bit 26); un
 //!                                     ALD/AST a un atributo que la SPH no
-//!                                     declara; un registro >= REGISTROS
+//!                                     declara; un registro >= REGISTROS - 2
+//!                                     (en Volta y despues, DOS se gastan en el
+//!                                     contador de programa)
 //!    R6  final sucio                  EXIT con un AST aun leyendo sus datos
 //!    R0  no se                        una instruccion que el juez no conoce:
 //!                                     tambien es NO (un juez que aprueba lo que
@@ -195,6 +197,15 @@ const NADA: (u8, u8) = (RZ, 0);
 fn reg(r: u32, n: u8) -> (u8, u8) {
     if r as u8 == RZ { NADA } else { (r as u8, n) }
 }
+
+/// ** Los registros que la tarjeta se queda (26-09, metal 06:33). En Volta y
+/// despues, de los que se le dan a un programa, DOS se gastan en el contador
+/// de programa (NAK `sm70.rs`, `hw_reserved_gprs`: "2 GPRs get burned for the
+/// program counter", la nota de la tabla 2 del documento de Volta), y NAK
+/// escribe `num_gprs + 2`. Con `REGISTROS = 16` el programa tiene R0..R13: el
+/// de vertice de VERRANO V0 usaba R14 y la 3060 lo dijo con su Xid 13 --
+/// "Graphics SM Warp Exception: Out Of Range Register". El juez v1 no lo sabia.
+pub const RESERVADOS: u32 = 2;
 
 /// Cuantos registros mueve un LDG/STG por su tipo (73..76).
 fn por_tipo(t: u32) -> u8 {
@@ -421,8 +432,8 @@ pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio
         }
         // R5: la cabecera y los registros.
         for &(r, n) in i.lee.iter().chain(core::iter::once(&i.escribe)) {
-            if n > 0 && r as u32 + n as u32 > ctx.registros {
-                return no(Regla::R5CabeceraMiente, k, r as u32 + n as u32 - 1, "usa un registro por encima de REGISTROS");
+            if n > 0 && r as u32 + n as u32 + RESERVADOS > ctx.registros {
+                return no(Regla::R5CabeceraMiente, k, r as u32 + n as u32 - 1, "usa un registro que la tarjeta no le da (REGISTROS menos los 2 del contador de programa)");
             }
         }
         if let Some(h) = ctx.sph {
@@ -600,13 +611,19 @@ mod pruebas {
         assert_eq!(regla(&c, &ctx), Regla::R6FinalSucio);
     }
 
-    /// J1 (c): el de vertice de VERRANO V0, el que se cuelga. Lo que dice el
-    /// juez v1, apuntado: PERFECTO en lo que mira. O sea, el cuelgue NO es de
-    /// esperas, barreras, fuentes, registros ni cabecera: hay que buscarlo
-    /// fuera de lo que el juez v1 mira (la direccion que lee el LDG, lo que
-    /// la 3060 tiene mapeado en ese espacio; `gsp aviso` lo dira).
+    /// J1 (c): el de vertice de VERRANO V0 tal como se colgo (con R14) y
+    /// como quedo (con R1). Con la regla de los 2 registros del contador de
+    /// programa, el juez caza el de V0 -- lo que la 3060 dijo con su Xid 13
+    /// ("Out Of Range Register", metal 26-09 06:33) -- y aprueba el arreglado.
     #[test]
     fn verrano_segun_el_juez() {
+        let sph = tu::sph_vertice();
+        let ctx = ctx_verrano(&sph);
+        let mut v0 = verrano();
+        v0[6] = tu::imad_shl(14, 0, tu::BYTES_VERTICE as u32, tu::espera(1 << 0));
+        v0[7] = tu::iadd3_acarreo(2, 0, 2, 14, tu::espera(1 << 2));
+        let b = juzgar(&v0, &ctx).expect_err("el de V0 es un bodrio");
+        assert_eq!((b.regla, b.instruccion, b.que), (Regla::R5CabeceraMiente, 6, 14));
         for p in SOSPECHOSOS.iter() {
             assert!(juzgar(p.codigo, &p.contexto()).is_ok(), "{}: {:?}", p.nombre, juzgar(p.codigo, &p.contexto()));
         }

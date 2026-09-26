@@ -96,6 +96,17 @@ la SPH (128 B) y detras las instrucciones.
       primero `gpu cubo 3060` (X5, que dibujaba), despues `gpu verrano
       sinldg`, y al final `gpu verrano` -- un cuelgue deja el canal de GR
       muerto hasta reiniciar, asi que lo que falla va el ultimo.
+      **Metal 26-09 06:33 -- LA CAUSA.** `gpu cubo 3060` IGUAL a D3D12 (el
+      canal sano), y `gpu verrano sinldg` colgado en los VERTICES igual, pero
+      ahora con `gsp aviso`: **Xid 13, "Graphics SM Warp Exception on (GPC 0,
+      TPC 1, SM 0): Out Of Range Register"**. No era el LDG (sin LDG tambien):
+      era un REGISTRO. En Volta y despues, de los `REGISTROS = 16` que se le
+      dan al programa, DOS se gastan en el contador de programa (NAK `sm70.rs`,
+      `hw_reserved_gprs`): quedan R0..R13, y el de vertice usaba **R14** para
+      `vertice * 32`. Arreglo: R1 (`tuberia::DESPLAZAMIENTO`), `cubo.bsf`
+      refabricado, y el juez del SASS aprende la regla -- con ella, el de V0
+      sale `TOMA TU BODRIO: R5 ... instruccion 6 (14)`, lo mismo que dijo la
+      3060. Como se sabe: `gpu verrano` dice IGUAL.
 - [ ] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
       VERRANO sin leer de vuelta (solo la huella de algunos), para poner los
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en

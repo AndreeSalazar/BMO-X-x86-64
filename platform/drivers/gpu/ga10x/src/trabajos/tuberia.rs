@@ -34,7 +34,7 @@
 //! ```text
 //!    vertice (21)  ALD R0 <- el vertice; R12:R13 <- 0x2_0000_0000
 //!                  LDG R2, R3 <- la ranura 0 de la tabla (la direccion)
-//!                  R14 = vertice * 32; R2:R3 += R14 (IADD3 + IMAD.X)
+//!                  R1 = vertice * 32; R2:R3 += R1 (IADD3 + IMAD.X)
 //!                  LDG R4..R7 <- la posicion, R8..R11 <- el color
 //!                  AST.128 a[0x70], R4 ; AST.128 a[0x80], R8 ; EXIT
 //!    pixel (7)     IPA R0..R3 <- el color ; EXIT
@@ -134,6 +134,9 @@ pub const AST_POSICION: (u64, u64) = (cu::AST_POSICION.0, con_control(cu::AST_PO
 /// `AST.128 a[0x80], R8`: el de T2a, tal cual.
 pub const AST_COLOR: (u64, u64) = crate::color3d::CODIGO_VS[19];
 
+/// El registro del desplazamiento del vertice (vertice * 32).
+pub const DESPLAZAMIENTO: u64 = 1;
+
 pub const INSTR_VS: usize = 21;
 pub const INSTR_PS: usize = 6;
 pub const PALABRAS_VS: usize = SPH + INSTR_VS * 4;
@@ -150,8 +153,11 @@ pub const fn codigo_vs() -> [(u64, u64); INSTR_VS] {
     o[3] = mov(13, (base >> 32) as u32);
     o[4] = ldg(2, 12, off, carga(2));
     o[5] = ldg(3, 12, off + 4, carga(2));
-    o[6] = imad_shl(14, 0, BYTES_VERTICE as u32, espera(1 << 0));
-    o[7] = iadd3_acarreo(2, 0, 2, 14, espera(1 << 2));
+    // ** R1 y no R14 (26-09, metal 06:33): con `REGISTROS = 16` la 3060 da
+    // R0..R13 -- dos se gastan en el contador de programa --, y el R14 de V0
+    // fue su Xid 13, "Out Of Range Register". R1 esta libre en este programa.
+    o[6] = imad_shl(DESPLAZAMIENTO, 0, BYTES_VERTICE as u32, espera(1 << 0));
+    o[7] = iadd3_acarreo(2, 0, 2, DESPLAZAMIENTO, espera(1 << 2));
     o[8] = imad_x(3, 3, 0xFF, 0, ALU);
     let mut k = 0;
     while k < 8 {
