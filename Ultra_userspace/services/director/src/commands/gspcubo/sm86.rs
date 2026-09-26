@@ -28,11 +28,11 @@
 //! Y el kernel vuelve a juzgar en su puerta (`CUBO_VERRANO`): lo de aqui es
 //! para decirlo claro en la pantalla, lo de alli es lo que no se puede saltar.
 
-use bmo_bsf::{abi, kind, Bsf};
+use bmo_bsf::{abi, kind, Bsf, Given, ModuleView, READS};
 use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::{cubo as cu, raster, tuberia as tu};
 use bmo_userland as bmo;
-use bmo_verrano::{check, Backend, Error, Frame, Image, Rect, Stats};
+use bmo_verrano::{check, Backend, Error, Frame, Image, Rect, Stats, VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
 
 use super::super::After;
 use super::Texto;
@@ -161,6 +161,8 @@ pub(super) struct Aparato<'a> {
     gobierno: Gobierno,
     /// E2: el cronometro de cada fase de `draw`.
     fases: Fases,
+    /// El modulo de vertice del BSF: su tabla de buffers juzga cada `Frame`.
+    vertice: ModuleView<'static>,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
     pub leer: bool,
     pub leer_ms: u64,
@@ -196,26 +198,66 @@ pub(super) fn ventana(p: &bmo::Pantalla) -> (u32, u32) {
 
 /// Los dos programas de ESTA tarjeta en el sobre, comprobados (capas 1 a 4
 /// de lo que se toma).
-fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8])> {
+/// Y el modulo de vertice entero: su tabla de buffers es el CONTRATO de lo
+/// que su programa lee (ver [`contrato`]).
+fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8], ModuleView<'static>)> {
     let mut vs = None;
     let mut ps = None;
     for m in bsf.modules() {
         let codigo = m.target(kind::SM86, abi::SM86_V1, 0).and_then(|t| t.code().ok());
         match m.name() {
-            b"cubo_vertice" => vs = codigo,
+            b"cubo_vertice" => vs = codigo.map(|c| (c, m)),
             b"cubo_pixel" => ps = codigo,
             _ => {}
         }
     }
-    Some((vs?, ps?))
+    let (vs, modulo) = vs?;
+    Some((vs, ps?, modulo))
+}
+
+// ** EL CONTRATO ENTRE INTI, VERRANO Y EL BSF (26-09) -- sin nada que pelear.
+//
+// ```text
+//    INTI      escribe `Vertex` de VERRANO (`verrano_vertice` de su tabla, con
+//              su espejo contra `bmo_verrano::VERTEX_*`)
+//    VERRANO   los lleva en `Frame::vertices`, tal cual
+//    el BSF    su modulo `cubo_vertice` DICE, sacado de su SPIR-V, que lee
+//              elementos de `stride` bytes desde el byte `base` del buffer 0
+//    la 3060   lee el paquete que arma esta puerta: `tuberia::Vertice`
+// ```
+//
+// Al ABRIR se exige que los cuatro digan lo mismo (`contrato`); al DIBUJAR,
+// que el buffer sea un numero entero de elementos (`ModuleView::check`). Y la
+// copia al paquete es de BITS, no una conversion: `tuberia::Vertice` y
+// `Vertex` tienen la misma forma, y esto no compila si dejan de tenerla.
+const _: () = assert!(tu::BYTES_VERTICE == VERTEX_BYTES && VERTEX_POSITION == 0 && VERTEX_COLOR == 16);
+
+/// **El contrato**, comprobado: lo que el programa de vertice del BSF lee es
+/// lo que VERRANO (y INTI) escriben. `Err` = lo que no cuadra, dicho.
+fn contrato(m: &ModuleView) -> Result<(), &'static [u8]> {
+    if m.binding_count() != 1 {
+        return Err(b"  NO  el programa de vertice del BSF pide otros buffers que el de los vertices: VERRANO V0 solo da uno");
+    }
+    let b = m.binding(0);
+    if (b.set, b.binding, b.storage, b.access) != (0, 0, true, READS) {
+        return Err(b"  NO  el programa de vertice del BSF no lee un buffer de almacenamiento set 0 binding 0: no es el que VERRANO le da");
+    }
+    if b.base_bytes != 0 || b.stride != VERTEX_BYTES as u32 {
+        return Err(b"  NO  el BSF lee vertices de otra medida que la de VERRANO (Vertex: 32 bytes, posicion y color): no se entienden");
+    }
+    Ok(())
 }
 
 /// **Abrir la 3060 para VERRANO**: el sobre, el juez y la tarjeta. `Err` ya
 /// lo dijo en el panel.
 pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8], op: Opciones) -> Result<(Aparato<'a>, Abierto), After> {
-    let Some((vs, ps)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
+    let Some((vs, ps, modulo)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
         return Err(linea(dsk, b"  NO  el BSF no trae codigo SM86 (ABI SM86_V1) que se sostenga: no se dibuja nada", INK_ERR));
     };
+    // El contrato, ANTES que nada: lo que el programa lee es lo que se le da.
+    if let Err(que) = contrato(&modulo) {
+        return Err(linea(dsk, que, INK_ERR));
+    }
     // El juez, ANTES de que la 3060 vea nada.
     let r = raster::REGISTROS;
     let juicio = juez::juzgar_programa(vs, r).map_err(|b| ("vertice", b)).and_then(|a| juez::juzgar_programa(ps, r).map(|b| a.instrucciones + b.instrucciones).map_err(|b| ("pixel", b)));
@@ -236,13 +278,16 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         let t0 = bmo::ciclos();
         check(frame, out, tu::MAX_VERTICES)?;
+        // Lo que se le da al programa, contra lo que el programa dice leer.
+        let dado = Given { set: 0, binding: 0, addr: frame.vertices.as_ptr() as u64, bytes: (frame.vertices.len() * VERTEX_BYTES) as u64, writable: false };
+        self.vertice.check(&[dado]).map_err(|_| Error::Vertices)?;
         // V0: la ventana del cubo y su FONDO son los de las ordenes de X5.
         if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
             return Err(Error::Image);

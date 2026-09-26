@@ -411,8 +411,18 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       instrucciones por fotograma en el emulador. Y escribirla destapo DOS
       bucles de INTI que no existian (`para cada ... hasta` no emitia nada,
       `repite N veces` no acababa): arreglados, con pruebas, y recorrer una
-      lista ya no calla (`E0135`). Falta: que el escritorio la use (INTI
-      corre como `.ibx` aparte: como le pasa los vertices a VERRANO).
+      lista ya no calla (`E0135`).
+      **Tercer paso hecho (26-09): EL CONTRATO, sin nada que pelear.** INTI
+      escribe `Vertex` de VERRANO DIRECTO en la memoria que le den (el
+      `Frame`), bit a bit el que arma el escritorio en los 360 fotogramas.
+      Lo SABE por contrato: `verrano_vertice/posicion/color` en su tabla, con
+      espejo contra `bmo_verrano::VERTEX_*`. El BSF dice, desde su SPIR-V,
+      que su programa lee elementos de 32 bytes: la puerta de la 3060 lo
+      exige al abrir (`sm86.rs::contrato`) y juzga cada `Frame` con
+      `ModuleView::check`, que ahora pide elementos ENTEROS (`What::Stride`).
+      Y la copia al paquete es de bits: `tuberia::Vertice` y `Vertex` tienen
+      la misma forma, o no compila. Falta: el TRANSPORTE (INTI corre como
+      `.ibx` aparte: que memoria le da VERRANO para escribir).
 - [ ] **E7 -- 256 BITS: el PERFIL decide el ancho.** Zen 3 tiene AVX2 de 256
       bits: DOS vertices por instruccion. Lo que falta, y en este orden:
       ```text

@@ -9,11 +9,19 @@ usa matematica
 # miran a la camara, sus vertices en coordenadas de recorte y su color con la
 # luz. Es lo que VERRANO le manda a la 3060, y lo que da el IGUAL con D3D12.
 #
+# ** Y LO ESCRIBE DIRECTO (26-09): la salida son `Vertex` de VERRANO -- el
+# formato de la API, no el de una GPU --, en la memoria que diga quien llama
+# (`salida`): el `Frame` que dibuja VERRANO, sin copiar ni convertir nada. INTI
+# lo SABE por contrato: `verrano_vertice`, `verrano_posicion` y
+# `verrano_color` salen de la tabla, y un espejo exige que sean los de
+# `bmo_verrano` (`VERTEX_*`). Un numero de este fichero no puede separarse
+# de la API sin que falle una prueba.
+#
 # La CPU lo cuenta con SSE de verdad: cada vertice es UN registro de cuatro
 # flotante32 (`reparte`/`por`/`acumula_de_cuatro32`), y lo demas en flotante32
 # escalar. Sin FMA en ningun sitio: el juez redondea dos veces, y aqui tambien.
 #
-# La memoria, desde `base` (lo que prepara quien llama):
+# La memoria de ENTRADA, desde `base` (lo que prepara quien llama):
 #
 #     0     wvp       16 flotante32, por columnas
 #     64    world     16 flotante32, por columnas
@@ -27,10 +35,13 @@ usa matematica
 #     1472  clip      24 x 16         (sale de aqui)
 #     1856  sx, sy    24 x 2 x natural64, con DESPLAZA sumado (siempre >= 0)
 #     2240  detras    24 x natural64
-#     2432  n         natural64: cuantas caras miran
-#     2440  caras     8 x (clip 0, clip 1, clip 2, color) = 8 x 64
+#     2432  normal    16 bytes de trabajo: la normal de la cara, al mundo
 #
-# Devuelve cuantas caras; -1 si no caben ocho (la tanda de Rust da `None`).
+# La SALIDA, desde `salida`: tres `Vertex` por cara que mira (hasta CABEN
+# caras, o sea 3 x CABEN x verrano_vertice bytes).
+#
+# Devuelve cuantos VERTICES escribio (lo que mide `Frame::vertices`); -1 si
+# miran mas de CABEN caras (la tanda de Rust da `None`).
 
 CABEN = 8
 # Los subpixeles pueden salir negativos (un vertice fuera de la ventana) y la
@@ -81,7 +92,7 @@ funcion raiz32(x es flotante32) devuelve flotante32
 funcion arista(ax es entero64, ay es entero64, bx es entero64, by es entero64, px es entero64, py es entero64) devuelve entero64
     devuelve (bx - ax) * (py - ay) - (by - ay) * (px - ax)
 
-funcion tanda(base es natural64) devuelve entero64
+funcion tanda(base es natural64, salida es natural64) devuelve entero64
     crudo
         rep = base + 1456
         medio_w es flotante32 = f32(base + 144)
@@ -117,16 +128,13 @@ funcion tanda(base es natural64) devuelve entero64
                 continua
             si n = CABEN
                 devuelve -1
-            cara = base + 2440 + 64 * natural64(n)
-            copia16(cara, base + 1472 + 16 * a)
-            copia16(cara + 16, base + 1472 + 16 * b)
-            copia16(cara + 32, base + 1472 + 16 * c)
             # La normal al mundo (w = 0), normalizada, y la luz del juez:
             # rgb * (ambiente + (1 - ambiente) * saturar(punto(n, L))).
-            transforma(base + 64, base + 544 + 16 * a, cara + 48, rep)
-            px es flotante32 = f32(cara + 48)
-            py es flotante32 = f32(cara + 52)
-            pz es flotante32 = f32(cara + 56)
+            normal = base + 2432
+            transforma(base + 64, base + 544 + 16 * a, normal, rep)
+            px es flotante32 = f32(normal)
+            py es flotante32 = f32(normal + 4)
+            pz es flotante32 = f32(normal + 8)
             largo es flotante32 = raiz32(px * px + py * py + pz * pz)
             inv es flotante32 = 1.0 / largo
             lx es flotante32 = f32(base + 128)
@@ -143,13 +151,23 @@ funcion tanda(base es natural64) devuelve entero64
             r es flotante32 = f32(col)
             g es flotante32 = f32(col + 4)
             b2 es flotante32 = f32(col + 8)
-            escribe_natural32(cara + 48, bits_de(r * luz))
-            escribe_natural32(cara + 52, bits_de(g * luz))
-            escribe_natural32(cara + 56, bits_de(b2 * luz))
-            escribe_natural32(cara + 60, lee_natural32(col + 12))
+            # Los tres `Vertex` de la cara, en su sitio de la salida: la
+            # posicion de cada uno y el MISMO color (el de la cara, con luz).
+            primero = salida + verrano_vertice * 3 * natural64(n)
+            para cada j en 0 hasta 3
+                v = primero + verrano_vertice * j
+                si j = 0
+                    copia16(v + verrano_posicion, base + 1472 + 16 * a)
+                si j = 1
+                    copia16(v + verrano_posicion, base + 1472 + 16 * b)
+                si j = 2
+                    copia16(v + verrano_posicion, base + 1472 + 16 * c)
+                escribe_natural32(v + verrano_color, bits_de(r * luz))
+                escribe_natural32(v + verrano_color + 4, bits_de(g * luz))
+                escribe_natural32(v + verrano_color + 8, bits_de(b2 * luz))
+                escribe_natural32(v + verrano_color + 12, lee_natural32(col + 12))
             n = n + 1
-        escribe_natural64(base + 2432, natural64(n))
-        devuelve n
+        devuelve 3 * n
 
 funcion copia16(a es natural64, b es natural64) devuelve natural64
     crudo

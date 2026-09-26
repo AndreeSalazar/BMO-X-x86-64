@@ -233,6 +233,12 @@ fn la_gpu_mira_los_buffers_antes_de_despachar() {
     assert_eq!(m.check(&[salida, chica]).unwrap_err().what, What::TooSmall { set: 0, binding: 1, need: 24 });
     let fija = Given { writable: false, ..salida };
     assert_eq!(m.check(&[fija, ventana]).unwrap_err().what, What::ReadOnly { set: 0, binding: 0 });
+    // Un numero ENTERO de elementos (26-09): la salida es un arreglo de
+    // `uint` (4 bytes); dos bytes de mas serian medio elemento.
+    let b0 = m.binding(0);
+    assert!(b0.stride > 0, "la salida de mandelbrot es un arreglo sin medida");
+    let media = Given { bytes: salida.bytes + b0.stride as u64 / 2, ..salida };
+    assert_eq!(m.check(&[media, ventana]).unwrap_err().what, What::Stride { set: 0, binding: 0, stride: b0.stride });
     let otra = Given { binding: 7, ..ventana };
     assert_eq!(m.check(&[salida, ventana, otra]).unwrap_err().what, What::Extra { set: 0, binding: 7 });
     assert_eq!(m.check(&[salida, ventana, ventana]).unwrap_err().what, What::Extra { set: 0, binding: 1 });

@@ -54,6 +54,8 @@ fn abi_superficie() -> PathBuf {
 enum Fuente {
     Kernel(&'static str),
     Abi(&'static str),
+    /// La API de dibujo (`platform/shared/verrano/src/`): el vertice.
+    Verrano(&'static str),
 }
 
 /// El valor de `const NOMBRE: <tipo> = <numero>;` en ese fichero del kernel.
@@ -70,6 +72,11 @@ fn del_kernel(fichero: &str, nombre: &str) -> u64 {
 
 fn del_abi(fichero: &str, nombre: &str) -> u64 {
     constante_en(abi_superficie().join(fichero), fichero, nombre)
+}
+
+fn de_verrano(fichero: &str, nombre: &str) -> u64 {
+    let ruta = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../platform/shared/verrano/src").join(fichero);
+    constante_en(ruta, fichero, nombre)
 }
 
 fn constante_en(ruta: PathBuf, fichero: &str, nombre: &str) -> u64 {
@@ -100,6 +107,9 @@ fn constante_en(ruta: PathBuf, fichero: &str, nombre: &str) -> u64 {
 
 /// nombre en INTI, de donde se lee, nombre alli.
 const ESPEJO: &[(&str, Fuente, &str)] = &[
+    ("verrano_vertice", Fuente::Verrano("lib.rs"), "VERTEX_BYTES"),
+    ("verrano_posicion", Fuente::Verrano("lib.rs"), "VERTEX_POSITION"),
+    ("verrano_color", Fuente::Verrano("lib.rs"), "VERTEX_COLOR"),
     ("mi_tarea", Fuente::Abi("puertas.rs"), "CURRENT_TASK"),
     ("op_info", Fuente::Kernel("syscall/ops.rs"), "TASK_OP_INFO"),
     ("op_consola_escribir", Fuente::Kernel("syscall/ops.rs"), "TASK_OP_CONSOLE_WRITE"),
@@ -171,6 +181,7 @@ fn los_numeros_del_perfil_y_del_prestamo_son_los_del_kernel() {
         let real = match fuente {
             Fuente::Kernel(f) => del_kernel(f, nombre),
             Fuente::Abi(f) => del_abi(f, nombre),
+            Fuente::Verrano(f) => de_verrano(f, nombre),
         };
         if tabla != real {
             mal.push(format!("{} = {:#x}, y {} dice {:#x}", inti, tabla, nombre, real));

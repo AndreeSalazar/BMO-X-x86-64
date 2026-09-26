@@ -52,6 +52,19 @@ pub struct Vertex {
     pub color: [f32; 4],
 }
 
+/// **El contrato del vertice, en bytes** (2026-09-26): lo que un programa que
+/// NO es Rust -- INTI, que cuenta la tanda en la CPU con SSE -- escribe para
+/// que VERRANO lo tome TAL CUAL, sin convertir nada. INTI lo conoce por
+/// `verrano_vertice`, `verrano_posicion` y `verrano_color` de su tabla
+/// (`sem-asm/tables/lang/inti/modulos.toml`), y
+/// `inti/tests/espejo_del_kernel.rs` exige que digan esto mismo.
+pub const VERTEX_BYTES: usize = 32;
+pub const VERTEX_POSITION: usize = 0;
+pub const VERTEX_COLOR: usize = 16;
+const _: () = assert!(core::mem::size_of::<Vertex>() == VERTEX_BYTES);
+const _: () = assert!(core::mem::offset_of!(Vertex, position) == VERTEX_POSITION);
+const _: () = assert!(core::mem::offset_of!(Vertex, color) == VERTEX_COLOR);
+
 /// El viewport de D3D: la imagen entera, profundidad 0..1.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Viewport {

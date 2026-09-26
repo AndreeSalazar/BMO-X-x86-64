@@ -64,3 +64,6 @@ toml = "0.8"
 # La prueba de oro de las de cuatro `flotante32` (`pruebas/simd.rs`): el cubo
 # de VERRANO transformado por INTI, bit a bit contra su juez. `no_std`, puro.
 bmo-cubo = { path = "../../../../platform/shared/bmo-cubo" }
+# Y la API de dibujo: la tanda de INTI escribe `bmo_verrano::Vertex` tal cual,
+# y la prueba la compara con el `Frame` que arma VERRANO. Neutra: no nombra GPU.
+bmo-verrano = { path = "../../../../platform/shared/verrano" }

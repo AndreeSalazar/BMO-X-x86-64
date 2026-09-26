@@ -313,23 +313,28 @@ fn multiplicar_matrices_con_fma_da_otros_bits() {
 }
 
 
-/// ***LA TANDA ENTERA EN INTI** (`inti/ejemplos/tanda.inti`), fotograma a
-/// fotograma contra `bmo_cubo::tanda::de_fotograma`: cuantas caras, y de cada
-/// una sus tres vertices en recorte y su color, BIT A BIT. Es lo que VERRANO
-/// le manda a la 3060.
+/// ***LA TANDA ENTERA EN INTI, ESCRITA DIRECTO EN VERRANO**
+/// (`inti/ejemplos/tanda.inti`): fotograma a fotograma, los `Vertex` que INTI
+/// deja en `salida` son BIT A BIT los del `Frame` que arma VERRANO
+/// (`gspcubo/verrano.rs::vertices`: por cada cara de `bmo_cubo::tanda`, sus
+/// tres vertices en recorte con el color de la cara). Sin copiar ni convertir:
+/// lo que INTI escribe es lo que VERRANO dibuja.
 #[test]
-fn la_tanda_de_inti_es_la_del_juez_en_los_360() {
+fn la_tanda_de_inti_escribe_el_frame_de_verrano_en_los_360() {
     use bmo_cubo::{angulo_de_fotograma, constantes, indices, tanda::de_fotograma, vertices};
+    use bmo_verrano::{Vertex, VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
     let fuente = include_str!("../../../ejemplos/tanda.inti");
+    let salida = B + 4096;
     let (w, h) = (1280u32, 720u32);
     let vs = vertices();
     let is = indices();
     for f in 0..360 {
         let c = constantes(angulo_de_fotograma(f), w as f32 / h as f32);
-        let m = maquina_en(fuente, "tanda", B, 0, |m| {
-            for k in 0..4 {
-                pon4(m, B + 16 * k, [c.wvp[4 * k as usize], c.wvp[4 * k as usize + 1], c.wvp[4 * k as usize + 2], c.wvp[4 * k as usize + 3]]);
-                pon4(m, B + 64 + 16 * k, [c.world[4 * k as usize], c.world[4 * k as usize + 1], c.world[4 * k as usize + 2], c.world[4 * k as usize + 3]]);
+        let m = maquina_en(fuente, "tanda", B, salida, |m| {
+            for k in 0..4u64 {
+                let k4 = 4 * k as usize;
+                pon4(m, B + 16 * k, [c.wvp[k4], c.wvp[k4 + 1], c.wvp[k4 + 2], c.wvp[k4 + 3]]);
+                pon4(m, B + 64 + 16 * k, [c.world[k4], c.world[k4 + 1], c.world[k4 + 2], c.world[k4 + 3]]);
             }
             pon4(m, B + 128, c.luz);
             pon4(m, B + 144, [w as f32 * 0.5, h as f32 * 0.5, 256.0, 0.0]);
@@ -342,14 +347,18 @@ fn la_tanda_de_inti_es_la_del_juez_en_los_360() {
                 m.pon_u64(B + 1312 + 8 * k as u64, is[2 * k] as u64 | (is[2 * k + 1] as u64) << 32);
             }
         });
-        let juez = de_fotograma(f, w, h).expect("la tanda de Rust cabe");
-        assert_eq!(m.regs[0] as i64, juez.n as i64, "fotograma {f}: cuantas caras");
-        for (t, tri) in juez.tris().iter().enumerate() {
-            let cara = B + 2440 + 64 * t as u64;
-            for v in 0..3 {
-                assert_eq!(lee4(&m, cara + 16 * v as u64), tri.clip[v].map(f32::to_bits), "fotograma {f}, cara {t}, vertice {v}");
-            }
-            assert_eq!(lee4(&m, cara + 48), tri.color.map(f32::to_bits), "fotograma {f}, cara {t}: el color");
+        // El `Frame` de VERRANO, como lo arma el escritorio.
+        let frame: std::vec::Vec<Vertex> = de_fotograma(f, w, h)
+            .expect("la tanda de Rust cabe")
+            .tris()
+            .iter()
+            .flat_map(|t| t.clip.iter().map(move |&p| Vertex { position: p, color: t.color }))
+            .collect();
+        assert_eq!(m.regs[0] as i64, frame.len() as i64, "fotograma {f}: cuantos vertices");
+        for (k, v) in frame.iter().enumerate() {
+            let dir = salida + (VERTEX_BYTES * k) as u64;
+            assert_eq!(lee4(&m, dir + VERTEX_POSITION as u64), v.position.map(f32::to_bits), "fotograma {f}, vertice {k}: la posicion");
+            assert_eq!(lee4(&m, dir + VERTEX_COLOR as u64), v.color.map(f32::to_bits), "fotograma {f}, vertice {k}: el color");
         }
     }
 }

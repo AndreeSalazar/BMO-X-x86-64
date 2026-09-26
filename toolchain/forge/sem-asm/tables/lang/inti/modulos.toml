@@ -370,6 +370,16 @@ vista_fuera          = "0x02"
 vista_prestada       = "0x03"
 vista_tapada         = "0x04"
 
+#  ** EL VERTICE DE VERRANO (2026-09-26): lo que INTI escribe para que la API de
+#  dibujo lo tome TAL CUAL, sin convertir. Es `bmo_verrano::Vertex` --`repr(C)`,
+#  posicion x y z w y color r g b a, cuatro flotante32 cada uno--, NEUTRO: no es
+#  el formato de ninguna GPU, es el de la API. La tarjeta que haya debajo lo
+#  traduce en SU puerta (hoy `gspcubo/sm86.rs`). `tests/espejo_del_kernel.rs`
+#  los lee de `platform/shared/verrano` (VERTEX_*).
+verrano_vertice      = "0x20"
+verrano_posicion     = "0x00"
+verrano_color        = "0x10"
+
 #  ** LOS BITS -- el nombre es agnostico, la instruccion es de la maquina.
 #
 #  Peticion de Eddi (2026-08-19): *"una libreria de binarios literalmente, pero
