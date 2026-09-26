@@ -104,6 +104,7 @@ siempre (`bmo_gpu_ga10x::falcon`).
 | `memoria/` | ROJO | vram, mmu | tablas de la MMU: una PTE mala da memoria ajena |
 | `motores/` | AMARILLO | canal, copia, gr, computo, sombreador, tresde | canales y clases, pagados por semaforo |
 | `trabajos/` | VERDE | lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, volcado, escena, cubo, tuberia | bytes y jueces; tocan la tarjeta por `motores` y `memoria` |
+| `sass/` | VERDE | **juez** (el juez del SASS: `TOMA TU BODRIO` o `PERFECTO Y PRECISO`), corpus (lo que ya corrio en el metal) | nada: lee programas y dice SI o NO, antes de que la 3060 los vea |
 
 Cada fichero de `arranque/` y `lectura/` declara en su cabecera:
 

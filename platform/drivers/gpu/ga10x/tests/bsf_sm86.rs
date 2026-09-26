@@ -9,6 +9,7 @@
 //! -p bmo-gpu-ga10x --test bsf_sm86`.
 
 use bmo_bsf::{abi, kind, write, Binding, Bsf, ModuleIn, TargetIn, READS};
+use bmo_gpu_ga10x::sass::juez;
 use bmo_gpu_ga10x::tuberia;
 
 const VS_SPV: &[u8] = include_bytes!("../sombreadores/cubo.vert.spv");
@@ -35,7 +36,22 @@ fn bytes<const N: usize>(p: &[u32; N]) -> Vec<u8> {
     b
 }
 
+/// ** EL JUEZ DEL SASS, antes del sobre (J2 de PLAN_LA_LENGUA_DE_LA_3060):
+/// si dice `TOMA TU BODRIO`, no hay BSF. Si dice `PERFECTO Y PRECISO`, se
+/// fabrica -- y se dice.
+fn juzgar_antes() {
+    let (sv, sp) = (tuberia::sph_vertice(), tuberia::sph_pixel());
+    let registros = bmo_gpu_ga10x::raster::REGISTROS;
+    for (nombre, codigo, sph) in [("cubo_vertice", &tuberia::codigo_vs()[..], &sv), ("cubo_pixel", &tuberia::codigo_ps()[..], &sp)] {
+        match juez::juzgar(codigo, &juez::Contexto { registros, sph: Some(sph) }) {
+            Ok(v) => eprintln!("cubo.bsf {nombre}: {v}"),
+            Err(b) => panic!("cubo.bsf {nombre}: {b} -- no se fabrica el sobre"),
+        }
+    }
+}
+
 fn fabricar() -> Vec<u8> {
+    juzgar_antes();
     let (vs, ps) = (bytes(&tuberia::vertice()), bytes(&tuberia::pixel()));
     let buffers = [Binding { set: 0, binding: 0, storage: true, access: READS, base_bytes: 0, stride: tuberia::BYTES_VERTICE as u32 }];
     let objetivo = |code: &'static [u8], slots: &'static [u8]| TargetIn {

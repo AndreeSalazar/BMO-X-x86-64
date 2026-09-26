@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   357 casillas ABIERTAS en 42 planes
-   295 hechas
+   355 casillas ABIERTAS en 42 planes
+   297 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -157,15 +157,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 8 abiertas, 0 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] J0 -- EL CORPUS DE ORO
-- [ ] J1 -- EL JUEZ DEL SASS: las reglas, cada una con su programa roto
-- [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
-- ... y 5 mas
-
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
 *PLAN EL BUS APARTE -- el USB en su propio nucleo, y lo que hay que pagar antes*
@@ -236,6 +227,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] Y1.1 subir el bInterval del raton a Ring 0 y a Ring 3. Sin ese
 - [ ] Y1.2 que BUS_PERIOD_MS salga del minimo de los aparatos vivos y no
 - [ ] no promete 0 ms, y llamarlo asi seria vender humo: un pixel viaja por
+- ... y 3 mas
+
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 6 abiertas, 2 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
+- [ ] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
+- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
 - ... y 3 mas
 
 ## [`PLAN_RED_TX.md`](PLAN_RED_TX.md) -- 6 abiertas, 8 hechas

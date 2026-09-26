@@ -183,6 +183,12 @@ pub const fn codigo_vs_sin_ldg() -> [(u64, u64); INSTR_VS] {
         o[9 + k] = mov(4 + k as u64, v[k]);
         k += 1;
     }
+    // ** Y sin esperar las barreras de los LDG que ya no estan (el juez del
+    // SASS, R3: esperar una barrera que nadie enciende). La 3060 no se
+    // colgaria por eso -- una barrera a cero no se espera --, pero la prueba
+    // de UNA variable tiene que ser limpia: solo cambian las cargas.
+    o[7] = (o[7].0, con_control(o[7].1, ALU));
+    o[17] = (o[17].0, con_control(o[17].1, 1 | 1 << 4 | 7 << 5 | 1 << 8));
     o
 }
 
@@ -419,7 +425,13 @@ mod pruebas {
         let (a, b) = (codigo_vs(), codigo_vs_sin_ldg());
         for i in 0..INSTR_VS {
             let carga = i == 4 || i == 5 || (9..17).contains(&i);
-            assert_eq!(a[i] == b[i], !carga, "instruccion {i}");
+            // 7 y 17: la misma instruccion, sin esperar las barreras de las cargas.
+            let espera = i == 7 || i == 17;
+            assert_eq!(a[i] == b[i], !carga && !espera, "instruccion {i}");
+            if espera {
+                assert_eq!(sin_control(a[i]), sin_control(b[i]), "instruccion {i}");
+                assert_eq!(b[i].1 >> 52 & 0x3F, 0, "instruccion {i} no espera nada");
+            }
             // Ni un LDG (0x981 en los 12 bits bajos) en la variante.
             assert_ne!(b[i].0 & 0xFFF, 0x981, "instruccion {i}");
         }

@@ -57,6 +57,9 @@ pub mod motores;
 pub use motores::{canal, copia, gr, computo, sombreador, tresde};
 /// LOS TRABAJOS: lo que la 3060 dibuja o calcula, cada uno con su juez en la CPU.
 pub mod trabajos;
+
+/// El idioma de la 3060: el juez del SASS y su corpus (26-09).
+pub mod sass;
 pub use trabajos::{lienzo, blur, fractal, triangulo, raster, color3d, giro, pantalla, video, volcado, escena, cubo, tuberia};
 
 /// **Quien toca los registros.** El kernel lo implementa sobre BAR0; las

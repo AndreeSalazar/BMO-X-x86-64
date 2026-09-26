@@ -98,7 +98,7 @@ NVIDIA nueva otra tabla de latencias. El lector de SPIR-V no se entera.
 
 # 3. LAS CASILLAS
 
-## [ ] J0 -- EL CORPUS DE ORO
+## [x] J0 -- EL CORPUS DE ORO
 
 Los programas que ya corrieron en el metal, sacados a una lista con su nombre
 y su origen: `raster` (T1c), `color3d` (T2a), `cubo` (X5), `giro`, `blur`,
@@ -108,8 +108,12 @@ VERRANO V0 aparte, marcado **sospechoso**.
 - **Bloquea:** nada.
 - **Como se sabe:** una prueba recorre la lista y cada programa se decodifica
   entero (ninguna instruccion desconocida para el decodificador de J1).
+- **Hecho (26-09):** `ga10x/src/sass/corpus.rs` -- `ORO`, 15 programas
+  (`sombreador`, `lienzo`, `blur`, `fractal`, `triangulo`, `escena`, `giro`,
+  `pantalla`, `video`, y el de vertice y el de pixel de T1c, T2a y X5), y
+  `SOSPECHOSOS`, 3 (los de VERRANO V0 y la variante sin LDG).
 
-## [ ] J1 -- EL JUEZ DEL SASS: las reglas, cada una con su programa roto
+## [x] J1 -- EL JUEZ DEL SASS: las reglas, cada una con su programa roto
 
 Un decodificador de lo que BMO-X ya emite (LDG, STG, ALD, AST, IPA, MOV, IMAD,
 IADD3, LOP3, FFMA, ISETP, BRA, EXIT, NOP, S2R...) y seis reglas. Cada NO
@@ -139,8 +143,29 @@ empieza por `TOMA TU BODRIO:` y dice la instruccion, el registro y la regla:
   regla y no con otra; (c) se le pasa el de vertice de VERRANO V0 y se apunta
   lo que dice -- si dice NO, su motivo es la pista del cuelgue, sin gastar un
   arranque; si dice que si, el cuelgue no es de los bits de control y se dice.
+- **Hecho (26-09):** `ga10x/src/sass/juez.rs`, `no_std` y sin memoria
+  dinamica. Lo que mostraron los 15 de oro al calibrarlo, cada cosa ya en el
+  codigo con su fuente:
+  - una fuente AUSENTE deja su campo a 0, que es R0: cada opcode dice
+    cuantas fuentes tiene (NAK `encode_alu_src2` no escribe nada si no hay);
+  - una desacoplada lee sus fuentes AL EMITIRSE, salvo que encienda barrera
+    de LECTURA (la tabla de Ampere da 1 ciclo de WAR, y `ptxas` cuenta con
+    ello); y esperar su barrera de ESCRITURA libera tambien sus fuentes;
+  - el `BRA .` de relleno detras del EXIT no es un bucle.
+  **El veredicto sobre VERRANO V0: PERFECTO Y PRECISO.** Esperas, barreras,
+  fuentes, registros y cabecera estan bien: el cuelgue en los VERTICES NO es
+  de nada de eso. Lo que queda es lo que v1 no mira -- la direccion que lee el
+  LDG y si esta mapeada para ese canal --, y eso lo dira `gsp aviso` (un Xid
+  31 es un fallo de pagina). La variante `sinldg` tenia DOS esperas a
+  barreras que ya nadie encendia (R3): se limpiaron, para que la prueba de
+  una variable cambie solo las cargas.
 
 ## [ ] J2 -- EL JUEZ EN LAS DOS PUERTAS
+
+> **La del build, hecha (26-09):** `tests/bsf_sm86.rs` juzga los dos
+> programas antes de fabricar `cubo.bsf`; con un bodrio, no hay sobre. Y lo
+> dice: `cubo.bsf cubo_vertice: PERFECTO Y PRECISO: 20 instrucciones, 32
+> lecturas y 4 esperas comprobadas`. Falta la del kernel.
 
 `bsf_sm86` (la prueba que fabrica `cubo.bsf`) llama al juez y no escribe el
 sobre si dice NO. El kernel llama al mismo juez en `CUBO_VERRANO` antes de
