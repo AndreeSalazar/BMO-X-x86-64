@@ -1,0 +1,163 @@
+perfil llano
+usa x86_64
+usa memoria
+usa matematica
+
+# LA TANDA DEL CUBO DE VERRANO, EN INTI (2026-09-26, E6 de docs/plan/PLAN_VERRANO.md)
+#
+# Lo mismo que `bmo_cubo::tanda::de_fotograma`, BIT A BIT: que caras del cubo
+# miran a la camara, sus vertices en coordenadas de recorte y su color con la
+# luz. Es lo que VERRANO le manda a la 3060, y lo que da el IGUAL con D3D12.
+#
+# La CPU lo cuenta con SSE de verdad: cada vertice es UN registro de cuatro
+# flotante32 (`reparte`/`por`/`acumula_de_cuatro32`), y lo demas en flotante32
+# escalar. Sin FMA en ningun sitio: el juez redondea dos veces, y aqui tambien.
+#
+# La memoria, desde `base` (lo que prepara quien llama):
+#
+#     0     wvp       16 flotante32, por columnas
+#     64    world     16 flotante32, por columnas
+#     128   luz       x, y, z (ya normalizada), ambiente
+#     144   medio_w, medio_h, subpixel, (nada)
+#     160   posicion  24 x (x, y, z, 1)
+#     544   normal    24 x (x, y, z, 0)
+#     928   color     24 x (r, g, b, a)
+#     1312  indices   36 x natural32
+#     1456  reparto   16 bytes de trabajo
+#     1472  clip      24 x 16         (sale de aqui)
+#     1856  sx, sy    24 x 2 x natural64, con DESPLAZA sumado (siempre >= 0)
+#     2240  detras    24 x natural64
+#     2432  n         natural64: cuantas caras miran
+#     2440  caras     8 x (clip 0, clip 1, clip 2, color) = 8 x 64
+#
+# Devuelve cuantas caras; -1 si no caben ocho (la tanda de Rust da `None`).
+
+CABEN = 8
+# Los subpixeles pueden salir negativos (un vertice fuera de la ventana) y la
+# memoria se lee como natural: se guardan corridos 2^40 y se devuelven.
+DESPLAZA = 1099511627776
+
+# El vector de 4 en `v` por la matriz de 16 en `m` (por columnas), a `o`:
+# ((c0*x + c1*y) + c2*z) + c3*w -- el orden de `bmo_cubo::mat::transformar`.
+funcion transforma(m es natural64, v es natural64, o es natural64, rep es natural64) devuelve natural64
+    crudo
+        reparte_de_cuatro32(rep, v)
+        por_de_cuatro32(o, m, rep)
+        reparte_de_cuatro32(rep, v + 4)
+        acumula_de_cuatro32(o, m + 16, rep)
+        reparte_de_cuatro32(rep, v + 8)
+        acumula_de_cuatro32(o, m + 32, rep)
+        reparte_de_cuatro32(rep, v + 12)
+        acumula_de_cuatro32(o, m + 48, rep)
+    devuelve 0
+
+funcion f32(dir es natural64) devuelve flotante32
+    crudo
+        x es flotante32 = flotante_de(lee_natural32(dir))
+        devuelve x
+
+# Redondeo al entero mas cercano, empates al PAR: `bmo_cubo::num::redondear_par`.
+funcion redondear_par(x es flotante32) devuelve entero64
+    t es entero64 = entero64(x)
+    cambiante piso es entero64 = t
+    si flotante32(t) > x
+        piso = t - 1
+    resto_x es flotante32 = x - flotante32(piso)
+    si resto_x > 0.5
+        devuelve piso + 1
+    si (resto_x = 0.5) y ((piso resto 2) no es 0)
+        devuelve piso + 1
+    devuelve piso
+
+# Raiz: estimacion por bits y cuatro pasos de Newton (`bmo_cubo::num::raiz`).
+funcion raiz32(x es flotante32) devuelve flotante32
+    si x <= 0.0
+        devuelve 0.0
+    cambiante y es flotante32 = flotante_de((bits_de(x) desplaza derecha 1) + 532487669)
+    repite 4 veces
+        y = 0.5 * (y + x / y)
+    devuelve y
+
+funcion arista(ax es entero64, ay es entero64, bx es entero64, by es entero64, px es entero64, py es entero64) devuelve entero64
+    devuelve (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+
+funcion tanda(base es natural64) devuelve entero64
+    crudo
+        rep = base + 1456
+        medio_w es flotante32 = f32(base + 144)
+        medio_h es flotante32 = f32(base + 148)
+        subpixel es flotante32 = f32(base + 152)
+        # 1. Los vertices: a recorte, y a subpixeles de pantalla.
+        para cada i en 0 hasta 24
+            o = base + 1472 + 16 * i
+            transforma(base, base + 160 + 16 * i, o, rep)
+            w es flotante32 = f32(o + 12)
+            x es flotante32 = f32(o)
+            y es flotante32 = f32(o + 4)
+            si w <= 0.0
+                escribe_natural64(base + 2240 + 8 * i, 1)
+            sino
+                escribe_natural64(base + 2240 + 8 * i, 0)
+                inv_w es flotante32 = 1.0 / w
+                nx es flotante32 = x * inv_w
+                ny es flotante32 = y * inv_w
+                sx = redondear_par((nx * medio_w + medio_w) * subpixel)
+                sy = redondear_par((-ny * medio_h + medio_h) * subpixel)
+                escribe_natural64(base + 1856 + 16 * i, natural64(sx + DESPLAZA))
+                escribe_natural64(base + 1864 + 16 * i, natural64(sy + DESPLAZA))
+        # 2. Las caras que miran, con su luz.
+        cambiante n es entero64 = 0
+        para cada k en 0 hasta 12
+            a = lee_natural32(base + 1312 + 12 * k)
+            b = lee_natural32(base + 1316 + 12 * k)
+            c = lee_natural32(base + 1320 + 12 * k)
+            si lee_natural64(base + 2240 + 8 * a) + lee_natural64(base + 2240 + 8 * b) + lee_natural64(base + 2240 + 8 * c) no es 0
+                continua
+            si arista(e64(base + 1856 + 16 * a), e64(base + 1864 + 16 * a), e64(base + 1856 + 16 * b), e64(base + 1864 + 16 * b), e64(base + 1856 + 16 * c), e64(base + 1864 + 16 * c)) <= 0
+                continua
+            si n = CABEN
+                devuelve -1
+            cara = base + 2440 + 64 * natural64(n)
+            copia16(cara, base + 1472 + 16 * a)
+            copia16(cara + 16, base + 1472 + 16 * b)
+            copia16(cara + 32, base + 1472 + 16 * c)
+            # La normal al mundo (w = 0), normalizada, y la luz del juez:
+            # rgb * (ambiente + (1 - ambiente) * saturar(punto(n, L))).
+            transforma(base + 64, base + 544 + 16 * a, cara + 48, rep)
+            px es flotante32 = f32(cara + 48)
+            py es flotante32 = f32(cara + 52)
+            pz es flotante32 = f32(cara + 56)
+            largo es flotante32 = raiz32(px * px + py * py + pz * pz)
+            inv es flotante32 = 1.0 / largo
+            lx es flotante32 = f32(base + 128)
+            ly es flotante32 = f32(base + 132)
+            lz es flotante32 = f32(base + 136)
+            cambiante d es flotante32 = px * inv * lx + py * inv * ly + pz * inv * lz
+            si d < 0.0
+                d = 0.0
+            si d > 1.0
+                d = 1.0
+            amb es flotante32 = f32(base + 140)
+            luz es flotante32 = amb + (1.0 - amb) * d
+            col = base + 928 + 16 * a
+            r es flotante32 = f32(col)
+            g es flotante32 = f32(col + 4)
+            b2 es flotante32 = f32(col + 8)
+            escribe_natural32(cara + 48, bits_de(r * luz))
+            escribe_natural32(cara + 52, bits_de(g * luz))
+            escribe_natural32(cara + 56, bits_de(b2 * luz))
+            escribe_natural32(cara + 60, lee_natural32(col + 12))
+            n = n + 1
+        escribe_natural64(base + 2432, natural64(n))
+        devuelve n
+
+funcion copia16(a es natural64, b es natural64) devuelve natural64
+    crudo
+        escribe_natural64(a, lee_natural64(b))
+        escribe_natural64(a + 8, lee_natural64(b + 8))
+    devuelve 0
+
+funcion e64(dir es natural64) devuelve entero64
+    crudo
+        v = lee_natural64(dir)
+        devuelve entero64(v) - DESPLAZA

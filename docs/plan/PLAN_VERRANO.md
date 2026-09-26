@@ -402,8 +402,39 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       vertices del cubo en los 360 angulos, transformados por INTI, bit a
       bit los de `bmo_cubo` (`inti/emisor-x86_64/src/pruebas/simd.rs`).
       `acumula` redondea DOS veces a proposito: con FMA 270 de 360 matrices
-      salen distintas. Falta: que INTI haga la tanda entera (la division, el
-      redondeo al par, las caras) y que el escritorio la use.
+      salen distintas.
+      **Segundo paso hecho (26-09):** la TANDA ENTERA en INTI
+      (`toolchain/lang/inti/ejemplos/tanda.inti`): los vertices a recorte con
+      SSE, la division, el redondeo al par a subpixeles, que caras miran y su
+      luz -- bit a bit la de `bmo_cubo::tanda::de_fotograma` en los 360
+      fotogramas (cuantas caras, sus vertices y su color). ~23.900
+      instrucciones por fotograma en el emulador. Y escribirla destapo DOS
+      bucles de INTI que no existian (`para cada ... hasta` no emitia nada,
+      `repite N veces` no acababa): arreglados, con pruebas, y recorrer una
+      lista ya no calla (`E0135`). Falta: que el escritorio la use (INTI
+      corre como `.ibx` aparte: como le pasa los vertices a VERRANO).
+- [ ] **E7 -- 256 BITS: el PERFIL decide el ancho.** Zen 3 tiene AVX2 de 256
+      bits: DOS vertices por instruccion. Lo que falta, y en este orden:
+      ```text
+         a  el PERFIL lo confirma: `PERFIL/CPU.txt` tiene AVX2 y FMA en
+            `visto: ?`. La orden `ext` en el Ryzen, foto, y las dos filas
+         b  la puerta lo deja: el arranque pone XCR0 = 7 y `XSAVE` guarda
+            TODO lo que XCR0 enciende (RFBM = -1, 1024 B: los ymm caben),
+            pero `bmo-bex-gate` dice XCR0_PRESERVADO = 0x3 y RECHAZA a quien
+            declare AVX. Que las dos cosas digan lo mismo, con un guardian
+            que las ate (el area de XSAVE y lo que la puerta promete)
+         c  INTI pregunta al perfil antes de emitir (lo pidio el propietario
+            el 18-09): `_de_ocho32` (vmulps/vaddps ymm, SIN FMA, por lo de
+            E6) solo si AVX2 esta `visto: si`, y el `.ibx` declara AVX en su
+            `xcr0`. Si no, las de cuatro (SSE), que valen en cualquier x86-64
+      ```
+      [!] Y dicho antes de medir: con 24 vertices el ancho casi no se nota;
+      lo que lo nota es un juego (fisica, animacion, muchas mallas). Hoy las
+      de AVX de `flotante64` ya se emiten en `.ibx` que NO declaran AVX:
+      funciona porque el kernel guarda los ymm igual, pero la cabecera
+      miente (b lo arregla).
+      **Como se sabe:** `ext` pinta AVX2 si; un `.ibx` con `_de_ocho32` pasa
+      la puerta; la tanda con ocho da los mismos bits que con cuatro.
 
 ### M -- EL MOTOR
 

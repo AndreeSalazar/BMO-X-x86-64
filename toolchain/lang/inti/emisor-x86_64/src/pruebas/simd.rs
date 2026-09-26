@@ -311,3 +311,45 @@ fn multiplicar_matrices_con_fma_da_otros_bits() {
     assert!(distintos > 0, "con FMA la wvp de algun angulo tiene que salir distinta");
     std::eprintln!("con FMA, {distintos} de 360 angulos dan otra wvp");
 }
+
+
+/// ***LA TANDA ENTERA EN INTI** (`inti/ejemplos/tanda.inti`), fotograma a
+/// fotograma contra `bmo_cubo::tanda::de_fotograma`: cuantas caras, y de cada
+/// una sus tres vertices en recorte y su color, BIT A BIT. Es lo que VERRANO
+/// le manda a la 3060.
+#[test]
+fn la_tanda_de_inti_es_la_del_juez_en_los_360() {
+    use bmo_cubo::{angulo_de_fotograma, constantes, indices, tanda::de_fotograma, vertices};
+    let fuente = include_str!("../../../ejemplos/tanda.inti");
+    let (w, h) = (1280u32, 720u32);
+    let vs = vertices();
+    let is = indices();
+    for f in 0..360 {
+        let c = constantes(angulo_de_fotograma(f), w as f32 / h as f32);
+        let m = maquina_en(fuente, "tanda", B, 0, |m| {
+            for k in 0..4 {
+                pon4(m, B + 16 * k, [c.wvp[4 * k as usize], c.wvp[4 * k as usize + 1], c.wvp[4 * k as usize + 2], c.wvp[4 * k as usize + 3]]);
+                pon4(m, B + 64 + 16 * k, [c.world[4 * k as usize], c.world[4 * k as usize + 1], c.world[4 * k as usize + 2], c.world[4 * k as usize + 3]]);
+            }
+            pon4(m, B + 128, c.luz);
+            pon4(m, B + 144, [w as f32 * 0.5, h as f32 * 0.5, 256.0, 0.0]);
+            for (i, v) in vs.iter().enumerate() {
+                pon4(m, B + 160 + 16 * i as u64, [v.pos[0], v.pos[1], v.pos[2], 1.0]);
+                pon4(m, B + 544 + 16 * i as u64, [v.normal[0], v.normal[1], v.normal[2], 0.0]);
+                pon4(m, B + 928 + 16 * i as u64, v.color);
+            }
+            for k in 0..is.len() / 2 {
+                m.pon_u64(B + 1312 + 8 * k as u64, is[2 * k] as u64 | (is[2 * k + 1] as u64) << 32);
+            }
+        });
+        let juez = de_fotograma(f, w, h).expect("la tanda de Rust cabe");
+        assert_eq!(m.regs[0] as i64, juez.n as i64, "fotograma {f}: cuantas caras");
+        for (t, tri) in juez.tris().iter().enumerate() {
+            let cara = B + 2440 + 64 * t as u64;
+            for v in 0..3 {
+                assert_eq!(lee4(&m, cara + 16 * v as u64), tri.clip[v].map(f32::to_bits), "fotograma {f}, cara {t}, vertice {v}");
+            }
+            assert_eq!(lee4(&m, cara + 48), tri.color.map(f32::to_bits), "fotograma {f}, cara {t}: el color");
+        }
+    }
+}
