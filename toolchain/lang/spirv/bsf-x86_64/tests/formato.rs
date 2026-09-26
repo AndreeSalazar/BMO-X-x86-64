@@ -3,6 +3,7 @@
 //! que si sabe rehacer los hashes la caza la capa que le toca.
 
 use bmo_bsf::*;
+use bmo_bsf_x86_64::*;
 use bmo_spirv_front::read;
 use bmo_spirv_x86_64::{emit, tables_words};
 
@@ -11,7 +12,7 @@ const MANDELBROT: &[u8] = include_bytes!("../../pruebas/mandelbrot.spv");
 const SAXPY: &[u8] = include_bytes!("../../pruebas/saxpy.spv");
 const DX_MANDELBROT: &[u8] = include_bytes!("../../pruebas/hlsl/mandelbrot.spv");
 
-/// Lo que hace `bmo-bsf fabricar`, en chico.
+/// Lo que hace `bmo-bsf-x86-64 fabricar`, en chico.
 fn fabricar(entradas: &[(&str, &[u8])]) -> Vec<u8> {
     let mut hechos = Vec::new();
     let mut codigos = Vec::new();
@@ -72,7 +73,7 @@ fn todas(bytes: &[u8]) -> Result<(), Fault> {
         bsf.deep(i, &mut ids)?;
         let mut tablas = vec![0u32; 1 << 13];
         let mut code = vec![0u8; 1 << 20];
-        assert_eq!(bsf.reproduce(i, &mut ids, &mut tablas, &mut code)?, 1);
+        assert_eq!(reproducir(&bsf, i, &mut ids, &mut tablas, &mut code)?, 1);
     }
     Ok(())
 }

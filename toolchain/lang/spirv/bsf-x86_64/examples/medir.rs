@@ -6,11 +6,12 @@
 //! Las capas 5 (releer y re-emitir) se miden aparte: son las que paga quien
 //! fabrica, no quien abre.
 //!
-//!     cargo run --release -p bmo-bsf --example medir
+//!     cargo run --release -p bmo-bsf-x86-64 --example medir
 
 use std::time::Instant;
 
 use bmo_bsf::*;
+use bmo_bsf_x86_64::*;
 use bmo_spirv_front::read;
 use bmo_spirv_x86_64::{emit, tables_words};
 
@@ -72,7 +73,7 @@ fn main() {
         let mut code2 = vec![0u8; 1 << 20];
         let t = Instant::now();
         for _ in 0..N {
-            b.reproduce(0, &mut ids, &mut tablas, &mut code2).unwrap();
+            reproducir(&b, 0, &mut ids, &mut tablas, &mut code2).unwrap();
         }
         let repro = t.elapsed() / N;
 

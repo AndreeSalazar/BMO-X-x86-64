@@ -69,7 +69,8 @@ pub struct Fault {
 }
 
 impl Fault {
-    pub(crate) const fn at(what: What, at: usize) -> Self {
+    /// Un fallo en `at` (lo usan tambien los adaptadores de cada emisor).
+    pub const fn at(what: What, at: usize) -> Self {
         Fault { what, at }
     }
 }

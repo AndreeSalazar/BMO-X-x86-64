@@ -8,6 +8,7 @@
 use core::ffi::c_void;
 
 use bmo_bsf::*;
+use bmo_bsf_x86_64::*;
 use bmo_spirv_front::{read, Buffer, Interpreter};
 use bmo_spirv_x86_64::{emit, tables_words, IDS_WORDS};
 

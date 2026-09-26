@@ -35,7 +35,7 @@ SPIR-V **no se forkea: es una especificacion, no un programa.**
 | `src/math.rs` -- la aritmetica | S3, S3b | la DEFINICION: `sqrt`, `floor`, `fma`... bit a bit contra la biblioteca estandar; `sin`, `cos`, `exp`, `log`, `pow` en doble, a un ULP; el emisor tendra que igualarla |
 | `emisor-x86_64/` (crate `bmo-spirv-x86-64`) -- el emisor | S4, S4b | hecho, escalar: los mismos bits que el oraculo en su banco y en los 28 de Naga que caben; las trascendentes en doble, leyendo la MISMA tabla que `math` (`math::table`) |
 | `src/interface.rs` -- `interface(&Module) -> Interface` | S6 | los buffers que el modulo TOCA: `set`, `binding`, clase, lo que el codigo hace con cada uno (lee/escribe, seguido hasta su variable) y su forma (bytes fijos + paso) |
-| `bsf/` (crate `bmo-bsf`) -- el BSF, BMO Format Shader | S6 | hecho: SPIR-V + interfaz + el x86-64 ya traducido, en el anexo `0x09` del `.bex`; cinco capas, ningun bit cambia sin que se note; `bmo-bsf fabricar` / `ver`. Y desde el 25-09 el SASS de la RTX 3060 (`kind::SM86`, a mano: VERRANO V0, `docs/plan/PLAN_VERRANO.md`) |
+| `bsf/` (crate `bmo-bsf`) -- el BSF, BMO Format Shader | S6 | hecho: SPIR-V + interfaz + el x86-64 ya traducido, en el anexo `0x09` del `.bex`; cinco capas, ningun bit cambia sin que se note; `bmo-bsf-x86-64 fabricar` / `ver` (el sobre no conoce emisores desde el 26-09: [`PLAN_EL_AISLAMIENTO.md`](../../../docs/plan/PLAN_EL_AISLAMIENTO.md)). Y desde el 25-09 el SASS de la RTX 3060 (`kind::SM86`, a mano: VERRANO V0, `docs/plan/PLAN_VERRANO.md`) |
 
 ## La API habla ingles; la casa, castellano
 

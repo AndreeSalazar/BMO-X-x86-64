@@ -77,6 +77,15 @@ version = "0.1.0"
 dependencies = [
  "bmo-hash",
  "bmo-spirv-front",
+]
+
+[[package]]
+name = "bmo-bsf-x86-64"
+version = "0.1.0"
+dependencies = [
+ "bmo-bsf",
+ "bmo-hash",
+ "bmo-spirv-front",
  "bmo-spirv-x86-64",
 ]
 

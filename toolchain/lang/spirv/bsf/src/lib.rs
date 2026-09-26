@@ -39,7 +39,8 @@
 //!    opcional: releer el
 //!    SPIR-V con el juez y exigir que la tabla sea exactamente su interfaz
 //!    ([`Bsf::deep`]), y re-emitir para ver que el codigo es el que saldria
-//!    ([`Bsf::reproduce`]).
+//!    (lo hace el adaptador de cada emisor: `bmo_bsf_x86_64::reproducir`;
+//!    este crate no conoce a ninguno).
 //! 5. **Determinista.** Los mismos `.spv` dan los mismos bytes: sin fechas,
 //!    sin rutas, sin orden de llegada.
 //!
@@ -73,7 +74,7 @@ mod read;
 mod write;
 
 pub use check::Given;
-pub use deep::{facts, x86_64_target, Facts, EMITTER};
+pub use deep::{facts, spirv_fault, Facts};
 pub use fault::{Fault, What};
 pub use read::{Bsf, ModuleView, TargetView};
 pub use write::{size, write, ModuleIn, TargetIn};

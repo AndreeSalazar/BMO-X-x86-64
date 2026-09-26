@@ -1,0 +1,26 @@
+[package]
+name = "bmo-bsf-x86-64"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "El adaptador del emisor x86-64 al BSF: lo emitido como objetivo X86_64_SCALAR, y la capa que lo re-emite. El sobre (bmo-bsf) no conoce emisores."
+
+# Un emisor, un adaptador (PLAN_EL_AISLAMIENTO A1). `no_std` sin `alloc` como
+# los tres de los que depende, para que la herramienta y una app lo usen igual.
+[dependencies]
+bmo-bsf = { path = "../bsf" }
+bmo-spirv-front = { path = ".." }
+bmo-spirv-x86-64 = { path = "../emisor-x86_64" }
+
+[lib]
+name = "bmo_bsf_x86_64"
+path = "src/lib.rs"
+
+# La herramienta del anfitrion: fabrica un `.bsf` de unos `.spv` y lo muestra.
+[[bin]]
+name = "bmo-bsf-x86-64"
+path = "src/main.rs"
+
+# El banco rehace hashes a mano (el fabricante que miente sabiendo hacerlo).
+[dev-dependencies]
+bmo-hash = { path = "../../../../platform/shared/bmo-hash" }

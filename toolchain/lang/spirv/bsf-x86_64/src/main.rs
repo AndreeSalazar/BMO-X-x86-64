@@ -1,8 +1,8 @@
-//! **`bmo-bsf`** -- fabrica un BSF de unos `.spv`, y lo muestra.
+//! **`bmo-bsf-x86-64`** -- fabrica un BSF de unos `.spv`, y lo muestra.
 //!
 //! ```text
-//!   bmo-bsf fabricar mandelbrot.spv [nombre=otro.spv ...] -o sombras.bsf
-//!   bmo-bsf ver sombras.bsf
+//!   bmo-bsf-x86-64 fabricar mandelbrot.spv [nombre=otro.spv ...] -o sombras.bsf
+//!   bmo-bsf-x86-64 ver sombras.bsf
 //! ```
 //!
 //! Al fabricar paga todas las capas, la profunda incluida: relee cada SPIR-V
@@ -16,14 +16,15 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use bmo_bsf::*;
+use bmo_bsf_x86_64::*;
 use bmo_spirv_front::read;
 use bmo_spirv_x86_64::{emit, tables_words};
 
 fn uso() -> ExitCode {
     eprintln!(
         "uso:
-  bmo-bsf fabricar <a.spv> [nombre=<b.spv> ...] -o <salida.bsf>
-  bmo-bsf ver <fichero.bsf>
+  bmo-bsf-x86-64 fabricar <a.spv> [nombre=<b.spv> ...] -o <salida.bsf>
+  bmo-bsf-x86-64 ver <fichero.bsf>
 
   El nombre de un modulo es el del fichero sin extension, o el que se diga
   con nombre=ruta. Es como lo pide el programa."
@@ -163,7 +164,7 @@ fn todas_las_capas(bytes: &[u8]) -> Result<Bsf<'_>, Fault> {
         bsf.deep(i, &mut ids)?;
         let mut tablas = vec![0u32; 2 * ids.len()];
         let mut code = vec![0u8; 1 << 20];
-        bsf.reproduce(i, &mut ids, &mut tablas, &mut code)?;
+        reproducir(&bsf, i, &mut ids, &mut tablas, &mut code)?;
     }
     Ok(bsf)
 }

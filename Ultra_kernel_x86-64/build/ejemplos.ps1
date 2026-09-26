@@ -116,14 +116,15 @@ try {
     # -- S6: su BSF, dentro (anexo 0x09) --------------------------------
     #
     # El MISMO mandelbrot, traducido AQUI en el anfitrion y metido en el `.bex`
-    # con su interfaz. `bmo-bsf` paga las cinco capas al fabricar (relee y
-    # re-emite); `bmo-pack -s` lo vuelve a comprobar antes de meterlo. La app
+    # con su interfaz. `bmo-bsf-x86-64` (el adaptador del emisor x86-64 al
+    # sobre; el sobre no conoce emisores) paga las cinco capas al fabricar
+    # (relee y re-emite); `bmo-pack -s` lo vuelve a comprobar antes de meterlo. La app
     # lo abre sin traducir y lo compara con su propio JIT.
     $sombraBsf = Join-Path $env:TEMP 'bmo-sombra.bsf'
     $spv = Join-Path (Get-Location) 'toolchain\lang\spirv\pruebas\mandelbrot.spv'
-    $out = & (Obrero bmo-bsf) 'fabricar' $spv '-o' $sombraBsf 2>&1
+    $out = & (Obrero bmo-bsf-x86-64) 'fabricar' $spv '-o' $sombraBsf 2>&1
     $out | ForEach-Object { Write-Host ('    [bsf] ' + $_.ToString().Trim()) -ForegroundColor DarkGray }
-    if ($LASTEXITCODE -ne 0) { Fail 'bmo-bsf no fabrico el BSF de sombra' }
+    if ($LASTEXITCODE -ne 0) { Fail 'bmo-bsf-x86-64 no fabrico el BSF de sombra' }
     $out = & (Obrero bmo-pack) $sombraBex '-s' $sombraBsf '-o' $sombraBex 2>&1
     $out | ForEach-Object {
         if ($_ -match 'sombreadores|\[X\]') { Write-Host ('    [sombra] ' + $_.ToString().Trim()) -ForegroundColor DarkGray }
