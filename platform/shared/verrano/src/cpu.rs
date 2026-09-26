@@ -107,7 +107,7 @@ impl Backend for Cpu {
                 }
             }
         }
-        Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false })
+        Ok(Stats { triangles: n, device_us: 0, prepare_us: 0, warm: false, in_flight: false, wait_us: 0 })
     }
 }
 

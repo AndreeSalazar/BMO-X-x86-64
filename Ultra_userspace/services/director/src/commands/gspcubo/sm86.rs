@@ -66,6 +66,9 @@ pub(super) struct Opciones {
     /// falta limpiar -- donde estaba el cubo y donde va a estar --, en vez
     /// de la ventana entera (`anillo::ordenes_con`).
     pub coopera: bool,
+    /// `exige` (V1c): antes del banco, los relojes de la tarjeta AL MAXIMO
+    /// (`PERF_BOOST` al GSP-RM, 60 s): la CPU no deja que trabaje en reposo.
+    pub exige: bool,
 }
 
 impl Opciones {
@@ -84,6 +87,14 @@ impl Opciones {
                     o.anillo = true;
                     o.ligero = true;
                 }
+                b"exige" => o.exige = true,
+                // Todo lo que hay: la CPU coopera Y exige.
+                b"maximo" => {
+                    o.exige = true;
+                    o.coopera = true;
+                    o.anillo = true;
+                    o.ligero = true;
+                }
                 _ => {}
             }
         }
@@ -92,6 +103,17 @@ impl Opciones {
 
     /// Como se dice el modo en el tablero.
     pub(super) fn modo(&self) -> &'static [u8] {
+        if self.exige {
+            return if self.coopera {
+                b"maximo: coopera y relojes EXIGIDOS"
+            } else if self.anillo {
+                b"anillo, relojes EXIGIDOS"
+            } else if self.ligero {
+                b"ligero, relojes EXIGIDOS"
+            } else {
+                b"escalera, relojes EXIGIDOS"
+            };
+        }
         if self.coopera {
             b"coopera: la CPU le recorta la limpieza"
         } else if self.anillo {
@@ -216,7 +238,9 @@ impl Backend for Aparato<'_> {
             return Err(Error::Device(ESCALERA | etapas));
         }
         let (warm, prepare_us) = cu::preparado(r);
-        let st = Stats { triangles: tris, device_us: us, prepare_us, warm, in_flight: cu::es_en_vuelo(r) };
+        let in_flight = cu::es_en_vuelo(r);
+        let (wait_us, device_us) = if in_flight { cu::vuelo(r) } else { (0, us) };
+        let st = Stats { triangles: tris, device_us, prepare_us, warm, in_flight, wait_us };
         if !self.leer {
             return Ok(st);
         }
@@ -262,6 +286,29 @@ impl Aparato<'_> {
         if self.coopera && self.dibujos > 0 {
             let ventana = self.dibujos * (cu::ANCHO * cu::ALTO) as u64;
             t.t(b"la CPU recorto la limpieza: ").d(self.limpiados * 100 / ventana).t(b"% de la ventana de media (").d(self.limpiados / self.dibujos).t(b" pixeles por fotograma, de ").d((cu::ANCHO * cu::ALTO) as u64).t(b")");
+        }
+    }
+}
+
+/// **Exigir** (`exige`): la tarjeta al maximo antes de darle trabajo, y lo
+/// que paso, dicho en `t`.
+pub(super) fn exigir(t: &mut Texto) {
+    let p = |t: &mut Texto, k: Option<u8>| {
+        match k {
+            Some(k) => t.t(b"P").d(k as u64),
+            None => t.t(b"P?"),
+        };
+    };
+    match super::super::gsprelojes::exigir() {
+        Some((bien, antes, despues)) => {
+            t.t(if bien { b"la CPU le EXIGIO a la tarjeta: PERF_BOOST aceptado, " as &[u8] } else { b"la CPU le exigio a la tarjeta, y el GSP-RM NO acepto PERF_BOOST: " });
+            p(t, antes);
+            t.t(b" -> ");
+            p(t, despues);
+            t.t(b" (`gpu salud`, fila `relojes`)");
+        }
+        None => {
+            t.t(b"no se pudo exigir: el GSP-RM aun no esta");
         }
     }
 }

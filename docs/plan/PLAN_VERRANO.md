@@ -191,7 +191,27 @@ la SPH (128 B) y detras las instrucciones.
       el margen minimo 2 pixeles, y se limpia un **14 %** de la ventana de
       media (`bmo_verrano::cpu`, `la_limpieza_recortada_da_lo_mismo`).
       **Como se sabe:** `gpu verrano banco coopera` dice IGUAL al final, la
-      espera de la CPU baja y los fps suben sobre los 2925 del anillo. Lo pidio el propietario
+      espera de la CPU baja y los fps suben sobre los 2925 del anillo.
+      **Y la CPU EXIGE (26-09, sin metal todavia):**
+
+      ```text
+         exige    antes del banco, PERF_BOOST al GSP-RM (60 s): la CPU no
+                  deja que la 3060 trabaje en P8; dice el P-state antes y
+                  despues. `gpu verrano banco maximo` = coopera + exige
+         marcas   cada fotograma deja el RELOJ de la 3060 al empezar y al
+                  acabar (informe de cuatro palabras, `clc797.h`); el kernel
+                  lee uno de cada cuatro antes de reusar la ranura. El
+                  tablero vuelve a decir LA 3060 en us DE VERDAD, y la
+                  ESPERA DE LA CPU en su propia columna
+         menos    por fotograma solo se escriben por la ventana las palabras
+                  que CAMBIAN (`anillo::cambian`: vertices, valla y, en
+                  coopera, el recorte): 5 a 7 escrituras en vez de ~31
+      ```
+
+      **Como se sabe:** `gpu verrano banco maximo` dice `PERF_BOOST
+      aceptado, P8 -> P0` (o por que no), LA 3060 baja, y el 30 IGUAL.
+
+      Lo pidio el propietario
       el 26-09: la CPU no espera ni le dice a la 3060 que hacer; la
       REFUERZA si hace falta. El anillo ya dice como decidirlo: la
       columna ESPERA DE LA CPU del tablero.

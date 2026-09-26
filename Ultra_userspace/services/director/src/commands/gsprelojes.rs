@@ -75,6 +75,25 @@ fn dormir_ms(ms: u64) {
     }
 }
 
+/// **Exigir** (VERRANO V1c, `gpu verrano banco exige`): los relojes al
+/// maximo SIN medir la pantalla -- lo pide quien va a dar trabajo seguido a
+/// la 3060 y no quiere que lo haga a relojes de reposo. Se apunta como la
+/// ultima subida (la fila `relojes` lo dice). `(el RM lo acepto, el P-state
+/// antes, despues)`; `None` si el GSP-RM y nuestros objetos aun no estan.
+pub(crate) fn exigir() -> Option<(bool, Option<u8>, Option<u8>)> {
+    if !super::gspobjeto::listos() {
+        return None;
+    }
+    let antes = pstate();
+    let r = controlar(Control::RelojesArriba, &mut [0u8; CABECERA_CONTROL + 8]);
+    dormir_ms(100);
+    let despues = pstate();
+    let s = Subida { arriba: true, r, pstate: (antes, despues), antes: None, despues: None, desde: bmo::ciclos() };
+    // SAFETY: como `ultima`.
+    unsafe { *core::ptr::addr_of_mut!(ULTIMA) = Some(s) };
+    Some((matches!(r, Ok(c) if c.bien()), antes, despues))
+}
+
 /// `gpu relojes` (`quitar` = `gpu relojes off`).
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, quitar: bool) -> After {
     dsk.field.n = 0;

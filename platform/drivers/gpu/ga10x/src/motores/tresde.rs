@@ -65,6 +65,11 @@ pub const LIMPIAR_RGBA: u32 = 0b1111 << 2;
 /// `SET_REPORT_SEMAPHORE_D`: RELEASE, tras TODAS las escrituras (bit 4), en
 /// todo el pipeline (15 en 15:12), una palabra (bit 28).
 pub const INFORME: u32 = 1 << 28 | 0xF << 12 | 1 << 4;
+/// El mismo informe en CUATRO palabras (STRUCTURE_SIZE = FOUR_WORDS, bit
+/// 28 a 0, `clc797.h`): la paga en la primera y, en la tercera y la cuarta,
+/// el RELOJ de la 3060 en ns (el mismo formato que lee nouveau para sus
+/// `PIPE_QUERY_TIMESTAMP`). 16 bytes, alineados a 16.
+pub const INFORME_CON_RELOJ: u32 = INFORME & !(1 << 28);
 
 /// El color de limpieza: R = 1, G = 0, B = 1, A = 1 (floats exactos: sin
 /// redondeo al pasar a 8 bits). En memoria, `0xFFFF00FF`.

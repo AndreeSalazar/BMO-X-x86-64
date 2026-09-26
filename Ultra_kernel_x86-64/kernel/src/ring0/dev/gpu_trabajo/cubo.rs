@@ -428,7 +428,12 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
             esperando(espera);
         }
     }
-    a_la_ranura(an::ranura(numero), paquete.vertices);
+    // Lo que tardo la 3060 en el fotograma que deja la ranura (pagado, y
+    // su ranura aun sin tocar): sus dos marcas de reloj. Una ranura de cada
+    // cuatro -- son 4 lecturas por la ventana (~5 us) y la muestra basta.
+    let k = an::ranura(numero);
+    let tarjeta = if k == 0 { an::tardo(r, k).unwrap_or(0) } else { 0 };
+    a_la_ranura(k, paquete.vertices);
     core::sync::atomic::fence(Ordering::SeqCst);
     if !an::enviar(r, e, v, n as usize, numero, paquete.ficha, recorte) {
         ANILLO_HUELLA.store(0, Ordering::Release);
@@ -441,7 +446,7 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
     let fin = crate::ring0::task::scheduler::rdtsc();
     ANILLO_TSC.store(fin, Ordering::Release);
     let preparar = ((fin - desde) / hz).saturating_sub(espera);
-    Ok(cu::con_preparar(cu::en_vuelo(espera as u32, n), true, preparar))
+    Ok(cu::con_preparar(cu::en_vuelo(espera as u32, tarjeta, n), true, preparar))
 }
 
 /// **Armar** el anillo con este fotograma (el numero 1), en frio: lo que

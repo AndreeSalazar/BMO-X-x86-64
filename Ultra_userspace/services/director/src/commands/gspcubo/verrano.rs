@@ -244,6 +244,11 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         *c = k as u8;
     }
     let tandas_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
+    // `exige`: la tarjeta al maximo ANTES del reloj del banco.
+    let mut exigido = Texto::nuevo();
+    if op.exige {
+        destino::exigir(&mut exigido);
+    }
     for i in 0..n {
         let f = (i % 360) as usize;
         let k = cuantos[f] as usize;
@@ -252,9 +257,9 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
                 let ciclos = bmo::ciclos() - desde;
-                cuentas.apuntar(ciclos, st.device_us);
+                cuentas.apuntar(ciclos, &st);
                 if let Some(t) = tablero.as_mut() {
-                    t.apuntar(ciclos, st.device_us, st.prepare_us, st.warm, st.in_flight);
+                    t.apuntar(ciclos, &st);
                     t.quizas(p);
                 }
             }
@@ -299,7 +304,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
             p.texto_bytes(40, yt + 48, veredicto, if igual { VERDE } else { ROJO });
             p.texto_bytes(40, p.alto.saturating_sub(40), b"pulsa cualquier tecla para volver al escritorio", TENUE);
             p.vaciar();
-            (cuentas.fps(), cuentas.tarjeta / cuentas.n.max(1) as u64)
+            (cuentas.fps(), cuentas.tarjeta / cuentas.muestras.max(1) as u64)
         }
     };
     super::super::gspcomputo::abrir_panel();
@@ -318,6 +323,11 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
     g.text(b"           ");
     g.text(c.s());
     g.byte(b'\n');
+    if !exigido.s().is_empty() {
+        g.text(b"           ");
+        g.text(exigido.s());
+        g.byte(b'\n');
+    }
     let mut nota = Texto::nuevo();
     aparato.nota(&mut nota);
     if !nota.s().is_empty() {
@@ -325,7 +335,9 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op
         g.text(nota.s());
         g.byte(b'\n');
     }
-    let (kf, ku): (&[u8], &[u8]) = if op.coopera {
+    let (kf, ku): (&[u8], &[u8]) = if op.exige && op.coopera {
+        (b"gpu verrano banco maximo fps", b"gpu verrano banco maximo us")
+    } else if op.coopera {
         (b"gpu verrano banco coopera fps", b"gpu verrano banco coopera us")
     } else if op.anillo {
         (b"gpu verrano banco anillo fps", b"gpu verrano banco anillo us")
@@ -346,15 +358,20 @@ struct Cuentas {
     n: u32,
     ciclos: u64,
     tarjeta: u64,
+    /// Las muestras del aparato (en vuelo, no cada fotograma trae una).
+    muestras: u32,
     peor: u32,
 }
 
 impl Cuentas {
-    fn apuntar(&mut self, ciclos: u64, us: u32) {
+    fn apuntar(&mut self, ciclos: u64, st: &bmo_verrano::Stats) {
         self.n += 1;
         self.ciclos += ciclos;
-        self.tarjeta += us as u64;
-        self.peor = self.peor.max(us);
+        if st.device_us > 0 || !st.in_flight {
+            self.muestras += 1;
+            self.tarjeta += st.device_us as u64;
+            self.peor = self.peor.max(st.device_us);
+        }
     }
 
     fn fps(&self) -> u64 {
@@ -363,7 +380,7 @@ impl Cuentas {
 
     fn resumen(&self, a: &mut Texto, b: &mut Texto, modo: &[u8]) {
         a.t(b"banco: ").d(self.n as u64).t(b" fotogramas = ").d(self.fps()).t(b" fps de pared (").t(modo).t(b")");
-        b.t(b"el aparato ").d(self.tarjeta / self.n.max(1) as u64).t(b" us de media, el peor ").d(self.peor as u64).t(b" us");
+        b.t(b"el aparato ").d(self.tarjeta / self.muestras.max(1) as u64).t(b" us de media, el peor ").d(self.peor as u64).t(b" us");
     }
 }
 

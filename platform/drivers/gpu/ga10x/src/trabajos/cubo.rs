@@ -254,6 +254,13 @@ impl Ordenes {
         self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, paga, td::INFORME]);
     }
 
+    /// El reloj de la 3060 en `donde` (16 bytes: paga 0 y el reloj en ns en
+    /// +8), cuando todo lo de antes acabo (`td::INFORME_CON_RELOJ`).
+    pub(crate) fn marca(&mut self, donde: u64) {
+        let s = sombreador_va(donde);
+        self.m(td::SET_REPORT_SEMAPHORE_A, &[(s >> 32) as u32, s as u32, 0, td::INFORME_CON_RELOJ]);
+    }
+
     fn escalon(&mut self, k: u32) {
         if !self.escalera {
             return;
@@ -330,16 +337,21 @@ pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
 /// no hay semaforos de ESTADO ni de VERTICES: de la escalera de etapas solo
 /// se paga el bit 2 (el dibujo entero), que es el que pide `sano`.
 pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
-    hasta_el_dibujo_de(v, escalera, true)
+    hasta_el_dibujo_de(v, escalera, true, None)
 }
 
 /// Lo mismo, y `limpiar` = con la limpieza de la ventana al principio. Sin
-/// ella (VERRANO V1c, `anillo::Limpieza::Recorte`), la limpieza va en la cola
-/// de cada fotograma, recortada: el color de limpieza SI se pone aqui.
-pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool) -> Ordenes {
+/// ella (VERRANO V1c, `anillo::ordenes_con` con recorte), la limpieza va en
+/// la cola de cada fotograma, recortada: el color de limpieza SI se pone
+/// aqui. Con `marca` (V1c), justo tras la clase, un informe de cuatro
+/// palabras en esa direccion: el RELOJ de la 3060 al empezar el fotograma.
+pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, marca: Option<u64>) -> Ordenes {
     let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1, escalera };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
+    if let Some(dir) = marca {
+        e.marca(dir);
+    }
     let formato = if v.rgb { FORMATO_RGB } else { td::FORMATO };
     e.m(td::SET_COLOR_TARGET_A0, &[(v.va >> 32) as u32, v.va as u32, v.fila, ALTO, formato, td::MEMORIA_PITCH, 1, 0]);
     e.m(td::SET_CT_SELECT, &[1]);
@@ -472,10 +484,18 @@ pub const fn preparado(v: u64) -> (bool, u32) {
 /// la valla despues: al reusar la ranura, o al vaciar el anillo.
 pub const EN_VUELO: u64 = 1 << 63;
 
-/// El `Ok` de un fotograma que queda en vuelo: se lanzo, `n` triangulos, y
-/// `espera_us` la CPU esperando su ranura.
-pub const fn en_vuelo(espera_us: u32, n: u32) -> u64 {
-    empaquetar(espera_us, n, 0, true) | EN_VUELO
+/// El `Ok` de un fotograma que queda en vuelo: se lanzo, `n` triangulos,
+/// `espera_us` la CPU esperando su ranura (0..15 del campo de us) y
+/// `tarjeta_us` lo que tardo la 3060 en el fotograma de hace `RANURAS`, por
+/// su propio reloj (16..31; 0 = no se sabe). Los dos saturan en 65535.
+pub const fn en_vuelo(espera_us: u32, tarjeta_us: u32, n: u32) -> u64 {
+    let (e, t) = (if espera_us > 0xFFFF { 0xFFFF } else { espera_us }, if tarjeta_us > 0xFFFF { 0xFFFF } else { tarjeta_us });
+    empaquetar(e | t << 16, n, 0, true) | EN_VUELO
+}
+
+/// `(espera de la CPU, la 3060)` en us de un `Ok` en vuelo.
+pub const fn vuelo(v: u64) -> (u32, u32) {
+    (v as u32 & 0xFFFF, (v as u32) >> 16)
 }
 
 /// Si el `Ok` es de un fotograma en vuelo.
@@ -510,10 +530,12 @@ mod pruebas {
         assert_eq!(desempaquetar(v), (281, 12, 0b100, true));
         assert_eq!(preparado(v), (true, 168));
         assert!(sano(v) && !es_en_vuelo(v));
-        let w = con_preparar(en_vuelo(3, 12), true, 1 << 30);
+        let w = con_preparar(en_vuelo(3, 97, 12), true, 1 << 30);
         assert!(es_en_vuelo(w) && sano(w));
         assert_eq!(preparado(w), (true, 0x3_FFFF), "satura sin tocar el bit 63");
-        assert_eq!(desempaquetar(w), (3, 12, 0, true));
+        assert_eq!(desempaquetar(w), (3 | 97 << 16, 12, 0, true));
+        assert_eq!(vuelo(w), (3, 97));
+        assert_eq!(vuelo(en_vuelo(70_000, 1 << 20, 1)), (0xFFFF, 0xFFFF), "saturan");
         assert!(!sano(empaquetar(3, 12, 0, true)), "ni pagado ni en vuelo");
     }
 

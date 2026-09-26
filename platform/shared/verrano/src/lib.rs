@@ -173,10 +173,13 @@ pub struct Stats {
     pub warm: bool,
     /// El fotograma quedo EN VUELO (V1b): enviado sin esperar a que el
     /// aparato lo acabe -- la CPU orquesta, no espera. Entonces `device_us`
-    /// es lo que la CPU espero a que hubiera sitio para el (0 si el aparato
-    /// va por delante), no lo que tardo el aparato. Lo que quede en vuelo
-    /// lo espera [`Backend::finish`].
+    /// es lo que tardo el aparato en un fotograma ANTERIOR, por su propio
+    /// reloj (0 = sin muestra esta vez), y lo que la CPU espero va en
+    /// `wait_us`. Lo que quede en vuelo lo espera [`Backend::finish`].
     pub in_flight: bool,
+    /// Lo que la CPU espero a que hubiera sitio para este fotograma (0 si
+    /// el aparato va por delante). Si sube, el cuello es el aparato.
+    pub wait_us: u32,
 }
 
 /// **Por que un fotograma no se dibujo.**

@@ -38,11 +38,15 @@
 //!    la valla       UN semaforo (SEMAFOROS + 0x170) con el NUMERO del
 //!                   fotograma. La ranura k se reusa cuando la 3060 ya pago
 //!                   el fotograma de hace RANURAS
-//!    por fotograma  los vertices (RAM); la COLA de sus ordenes (el dibujo,
-//!                   su espera y la valla: 14 palabras), la entrada del
-//!                   GPFIFO y GP_PUT, TODO en una sola apertura de la
-//!                   ventana y sin releer; y el timbre. Sin invalidar la
-//!                   MMU: el mapa no cambia (se invalida al ARMAR)
+//!    por fotograma  los vertices (RAM); lo que CAMBIA de sus ordenes (el
+//!                   numero de vertices y el de la valla; en `coopera`,
+//!                   tambien el recorte: 2 a 4 palabras, `cambian`), la
+//!                   entrada del GPFIFO y GP_PUT, TODO en una sola apertura
+//!                   de la ventana y sin releer; y el timbre. Sin invalidar
+//!                   la MMU: el mapa no cambia (se invalida al ARMAR)
+//!    las marcas     (V1c) el reloj de la 3060 al empezar y al acabar cada
+//!                   fotograma, en su ranura (`MARCAS`): lo que tardo la
+//!                   tarjeta aunque la CPU no la espere (`tardo`)
 //! ```
 //!
 //! # Armar
@@ -80,6 +84,16 @@ pub const VA: u64 = TRAMO_VA + PT_PRIMERA as u64 * 4096;
 pub const SEMAFORO: u64 = SEMAFOROS + 0x170;
 /// Lo que caben las ordenes de una ranura (un cuarto de EMPUJE).
 pub const PALABRAS_RANURA: usize = 256;
+/// **Las MARCAS del reloj de la 3060** (V1c): por ranura, 32 bytes -- el
+/// informe de cuatro palabras al EMPEZAR su fotograma (+0) y al ACABARLO
+/// (+16), cada uno con el reloj en ns en +8. Lo que tardo la tarjeta, por
+/// su propio reloj, aunque la CPU no la haya esperado.
+pub const MARCAS: u64 = SEMAFOROS + 0x180;
+
+/// Donde marca la ranura `k` el principio de su fotograma (y +16, el fin).
+pub const fn marca(k: u32) -> u64 {
+    MARCAS + 32 * k as u64
+}
 
 /// La ranura del fotograma `numero`.
 pub const fn ranura(numero: u32) -> u32 {
@@ -136,7 +150,7 @@ pub fn ordenes_con(v: &Ventana, k: u32, n: usize, numero: u32, recorte: Option<(
     if n == 0 || n > CABEN || k >= RANURAS || recorte.is_some_and(|(h, v)| !crate::tuberia::recorte_valido(h, v)) {
         return None;
     }
-    let mut e = cu::hasta_el_dibujo_de(v, false, recorte.is_none());
+    let mut e = cu::hasta_el_dibujo_de(v, false, recorte.is_none(), Some(marca(k)));
     e.semaforo(TABLA, vertices_va(k) as u32);
     let cola = match recorte {
         None => {
@@ -154,6 +168,7 @@ pub fn ordenes_con(v: &Ventana, k: u32, n: usize, numero: u32, recorte: Option<(
     };
     e.dibujo_de(3 * n as u32);
     e.m(td::WAIT_FOR_IDLE, &[0]);
+    e.marca(marca(k) + 16);
     e.semaforo(SEMAFORO, numero);
     (e.n <= PALABRAS_RANURA).then_some((e, cola))
 }
@@ -184,6 +199,7 @@ pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: 
     }
     let va = vertices_va(ranura(numero));
     let mut bien = escribir(r, SEMAFORO, &[0]) == 1
+        && escribir(r, MARCAS, &[0; 8 * RANURAS as usize]) == 8 * RANURAS as usize
         && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
         && a_cero(r, SALIDA) as usize == crate::vram::PALABRAS
         && a_cero(r, PROGRAMA) as usize == crate::vram::PALABRAS
@@ -206,6 +222,25 @@ pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: 
     bien && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
 }
 
+/// **Lo que CAMBIA** de un fotograma a otro en la cola de una ranura, con
+/// sus ordenes ya enteras en la VRAM (las escribio `armar`): el recorte de
+/// la limpieza (V1c), el numero de vertices del dibujo y el numero de la
+/// valla. Lo demas de la cola -- cabeceras, direcciones, esperas, marcas --
+/// solo depende de la ranura. Hasta 4 indices de `o`; el resto, `usize::MAX`.
+pub fn cambian(o: &cu::Ordenes, cola: usize, recorte: bool) -> [usize; 4] {
+    let mut c = [usize::MAX; 4];
+    if recorte {
+        c[0] = cola + 1;
+        c[1] = cola + 2;
+    }
+    let inicio = crate::copia::cabecera_en(td::SUBCANAL, crate::raster::SET_VERTEX_ARRAY_START, 2);
+    if let Some(j) = (cola..o.n).find(|&j| o.o[j] == inicio) {
+        c[2] = j + 2;
+    }
+    c[3] = o.n - 2;
+    c
+}
+
 /// Escribir `p` en la VRAM `dir` con la ventana YA abierta en su sitio.
 fn poner<R: Registros>(r: &mut R, dir: u64, p: &[u32]) {
     let off = ventana(dir).1;
@@ -215,8 +250,9 @@ fn poner<R: Registros>(r: &mut R, dir: u64, p: &[u32]) {
 }
 
 /// **Enviar el fotograma `numero`** con `n` triangulos por la entrada `e`,
-/// EN EL ANILLO: la cola de sus ordenes, la entrada del GPFIFO y GP_PUT, en
-/// una sola apertura de la ventana y sin releer; y el timbre. Ni invalida la
+/// EN EL ANILLO: lo que cambia de sus ordenes ([`cambian`]), la entrada del
+/// GPFIFO y GP_PUT, en una sola apertura de la ventana y sin releer; y el
+/// timbre. Ni invalida la
 /// MMU ni espera. Sus vertices ya estan en su ranura de RAM, y el kernel ya
 /// vio pagado el fotograma `numero - RANURAS` (el que usaba la ranura).
 /// `recorte`: el de V1c si el anillo se armo con `coopera` (y `None` si no).
@@ -229,7 +265,13 @@ pub fn enviar<R: Registros>(r: &mut R, e: u32, v: &Ventana, n: usize, numero: u3
     let en = entrada(sombreador_va(empuje(k)), o.n as u32);
     let antes = r.leer(VENTANA_REG);
     r.escribir(VENTANA_REG, ventana(EMPUJE).0);
-    poner(r, empuje(k) + 4 * cola as u64, &o.o[cola..o.n]);
+    // Solo lo que cambia (4 palabras, no las ~28 de la cola): ~0,5 us cada
+    // una por la ventana.
+    for i in cambian(&o, cola, recorte.is_some()) {
+        if i < o.n {
+            poner(r, empuje(k) + 4 * i as u64, &[o.o[i]]);
+        }
+    }
     poner(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
     poner(r, GR.userd + GP_PUT, &[crate::blur::siguiente(e)]);
     r.escribir(VENTANA_REG, antes);
@@ -262,6 +304,24 @@ pub fn pagado<R: Registros>(r: &mut R) -> u32 {
     leer32(r, SEMAFORO)
 }
 
+/// **Lo que tardo la 3060** en el ultimo fotograma de la ranura `k`, por
+/// sus marcas: del reloj al empezar al reloj al acabar, en us. Solo vale
+/// con ese fotograma PAGADO y la ranura sin reusar (lo sabe el kernel).
+/// `None` si no hay marcas (la ranura aun no se uso desde armar) o no
+/// cuadran.
+pub fn tardo<R: Registros>(r: &mut R, k: u32) -> Option<u32> {
+    let (base, off) = ventana(marca(k));
+    let antes = r.leer(VENTANA_REG);
+    r.escribir(VENTANA_REG, base);
+    let mut w = [0u32; 4];
+    for (i, d) in [8u32, 12, 24, 28].iter().enumerate() {
+        w[i] = r.leer(VENTANA + off + d);
+    }
+    r.escribir(VENTANA_REG, antes);
+    let (desde, hasta) = (w[0] as u64 | (w[1] as u64) << 32, w[2] as u64 | (w[3] as u64) << 32);
+    (desde != 0 && hasta >= desde).then(|| ((hasta - desde) / 1000).min(u32::MAX as u64) as u32)
+}
+
 // Todo lo que `enviar` escribe cae en la MISMA ventana: la del tramo.
 const _: () = assert!(ventana(EMPUJE).0 == ventana(GR.gpfifo).0 && ventana(EMPUJE).0 == ventana(GR.userd).0);
 const _: () = assert!(ventana(EMPUJE + 4096 - 4).0 == ventana(EMPUJE).0);
@@ -274,7 +334,9 @@ const _: () = assert!(VA >> 32 == (VA + PAGINAS * 4096 - 1) >> 32 && VA >> 32 ==
 // Tras el fractal, en la PT y en la IOVA; la valla, tras la del cubo.
 const _: () = assert!(PT_PRIMERA as u64 >= crate::fractal::PT_PRIMERA as u64 + crate::fractal::PAGINAS && PT_PRIMERA as u64 + PAGINAS <= 512);
 const _: () = assert!(IOVA >= crate::fractal::IOVA + crate::fractal::PAGINAS * 4096 && IOVA + PAGINAS * 4096 <= crate::volcado::IOVA);
-const _: () = assert!(SEMAFORO >= cu::SEMAFORO_FIN + 16 && SEMAFORO + 4 <= SEMAFOROS + 0x200);
+const _: () = assert!(SEMAFORO >= cu::SEMAFORO_FIN + 16 && SEMAFORO + 4 <= MARCAS);
+// Las marcas: 16 bytes alineados a 16, antes de lo que usa el resto (0x200).
+const _: () = assert!(MARCAS % 16 == 0 && marca(RANURAS) <= SEMAFOROS + 0x200);
 
 #[cfg(test)]
 mod pruebas {
@@ -293,6 +355,8 @@ mod pruebas {
         base: u32,
         regs: Vec<(u32, u32)>,
         lecturas: u32,
+        /// Palabras escritas en la VRAM (por la ventana).
+        escrituras: u32,
     }
 
     impl Registros for Placa {
@@ -308,6 +372,7 @@ mod pruebas {
             if reg == VENTANA_REG {
                 self.base = v;
             } else if (VENTANA..VENTANA + crate::vram::VENTANA_MEDIDA as u32).contains(&reg) {
+                self.escrituras += 1;
                 self.vram.insert(((self.base as u64) << 16) + (reg - VENTANA) as u64, v);
             } else {
                 self.regs.push((reg, v));
@@ -353,16 +418,26 @@ mod pruebas {
         let (o, cola) = ordenes(&v, 2, 6, 77).unwrap();
         let l = crate::tuberia::ordenes_con(&v, 6, true);
         let (o, l) = (&o.o[..o.n], &l.o[..l.n]);
-        // La cabeza de ligero, tal cual; y detras la tabla y su espera.
+        // La cabeza de ligero, tal cual, con la marca del principio tras la
+        // clase; y detras la tabla y su espera.
         let cabeza = cola - 7;
-        assert_eq!(&o[..cabeza], &l[..cabeza]);
+        let m = |dir: u64| {
+            let a = sombreador_va(dir);
+            [cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4), (a >> 32) as u32, a as u32, 0, td::INFORME_CON_RELOJ]
+        };
+        assert_eq!(&o[..2], &l[..2], "la clase");
+        assert_eq!(&o[2..7], &m(marca(2)), "el reloj al empezar");
+        assert_eq!(&o[7..cabeza], &l[2..cabeza - 5]);
         let t = sombreador_va(TABLA);
         assert_eq!(&o[cabeza..cola], &[cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4), (t >> 32) as u32, t as u32, vertices_va(2) as u32, td::INFORME, cabecera_en(0, td::WAIT_FOR_IDLE, 1), 0]);
-        // La cola: el dibujo y la espera de ligero, y la valla con el numero.
+        // La cola: el dibujo y la espera de ligero, el reloj al acabar, y la
+        // valla con el numero.
         let s = sombreador_va(SEMAFORO);
-        assert_eq!(&o[cola..o.len() - 4], &l[cabeza..l.len() - 4]);
-        assert_eq!(&o[o.len() - 4..], &[(s >> 32) as u32, s as u32, 77, td::INFORME]);
-        assert_eq!(o.len() - cola, 14);
+        let lc = cabeza - 5;
+        assert_eq!(&o[cola..cola + 9], &l[lc..lc + 9]);
+        assert_eq!(&o[cola + 9..cola + 14], &m(marca(2) + 16), "el reloj al acabar");
+        assert_eq!(&o[cola + 14..], &[cabecera_en(0, td::SET_REPORT_SEMAPHORE_A, 4), (s >> 32) as u32, s as u32, 77, td::INFORME]);
+        assert_eq!(o.len() - cola, 19);
         // Y caben las de mas triangulos.
         assert!(ordenes(&v, 3, CABEN, 1).is_some());
         assert!(ordenes(&v, 4, 1, 1).is_none() && ordenes(&v, 0, CABEN + 1, 1).is_none());
@@ -412,9 +487,10 @@ mod pruebas {
 
         // El fotograma 6 (ranura 2), con 3 triangulos, por la entrada 11.
         r.base = 0x42;
-        let (lecturas, regs) = (r.lecturas, r.regs.len());
+        let (lecturas, regs, escritas) = (r.lecturas, r.regs.len(), r.escrituras);
         assert!(enviar(&mut r, 11, &v, 3, 6, 0xF1C4, None));
         assert_eq!(r.lecturas - lecturas, 1, "solo la ventana de antes");
+        assert_eq!(r.escrituras - escritas, 2 + 2 + 1, "los vertices y la valla; la entrada; GP_PUT");
         assert_eq!(r.base, 0x42, "la ventana, como estaba");
         assert_eq!(&r.regs[regs..], &[(TIMBRE, 0xF1C4)]);
         let (o6, _) = ordenes(&v, 2, 3, 6).unwrap();
@@ -473,7 +549,7 @@ mod pruebas {
         // La cola: recorte, limpiar CON el recorte, espera, y lo de V1b.
         assert_eq!(&o[cola..cola + 9], &[cabecera_en(0, td::SET_CLEAR_RECT_HORIZONTAL, 2), r.0, r.1, cabecera_en(0, td::SET_CLEAR_SURFACE_CONTROL, 1), td::USAR_RECT, cabecera_en(0, td::CLEAR_SURFACE, 1), td::LIMPIAR_RGBA, cabecera_en(0, td::WAIT_FOR_IDLE, 1), 0]);
         assert_eq!(&o[cola + 9..], &b[cb..]);
-        assert_eq!(o.len() - cola, 23);
+        assert_eq!(o.len() - cola, 28);
         // Y la cabeza no depende del recorte; uno que no cabe no vale.
         let (c, cc) = ordenes_con(&v, 1, 4, 3, Some(TODA)).unwrap();
         assert_eq!((cc, &c.o[..cc]), (cola, &o[..cola]));
@@ -494,9 +570,30 @@ mod pruebas {
         let (o1, _) = ordenes_con(&v, 1, 4, 1, Some(TODA)).unwrap();
         assert_eq!(r.palabras(empuje(1), o1.n), &o1.o[..o1.n]);
         let rec = (300 | 700 << 16, 100 | 500 << 16);
+        let escritas = r.escrituras;
         assert!(enviar(&mut r, 11, &v, 4, 2, 0xF1C4, Some(rec)));
+        assert_eq!(r.escrituras - escritas, 4 + 2 + 1, "el recorte, los vertices y la valla; la entrada; GP_PUT");
         let (o2, _) = ordenes_con(&v, 2, 4, 2, Some(rec)).unwrap();
         assert_eq!(r.palabras(empuje(2), o2.n), &o2.o[..o2.n]);
+    }
+
+    /// Lo que tardo la 3060, por sus marcas: del reloj del principio al
+    /// del fin (en +8 de cada informe de cuatro palabras).
+    #[test]
+    fn el_reloj_de_la_3060() {
+        let mut r = Placa::default();
+        assert_eq!(tardo(&mut r, 2), None, "sin marcas");
+        let poner64 = |r: &mut Placa, dir: u64, v: u64| {
+            r.vram.insert(dir, v as u32);
+            r.vram.insert(dir + 4, (v >> 32) as u32);
+        };
+        poner64(&mut r, marca(2) + 8, 0x1_0000_0000);
+        poner64(&mut r, marca(2) + 24, 0x1_0000_0000 + 123_456);
+        r.base = 0x77;
+        assert_eq!(tardo(&mut r, 2), Some(123));
+        assert_eq!(r.base, 0x77, "la ventana, como estaba");
+        poner64(&mut r, marca(2) + 24, 5);
+        assert_eq!(tardo(&mut r, 2), None, "el fin antes del principio: no cuadra");
     }
 
     #[test]
