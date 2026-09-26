@@ -37,6 +37,9 @@ pub const IOMMU_NO_IMAGEN: u32 = 88;
 
 /// Bit de `arg` de [`imagen`]: cargar el programa, el QMD y las ordenes.
 pub const CARGAR: u64 = 1 << 63;
+/// Bit de `arg` de [`imagen`] (D2c): la VA es de un PRESTAMO que el que llama
+/// TOMO (el fotograma que DOOM le ofrecio), no de un bloque suyo.
+pub const PRESTADO: u64 = 1 << 62;
 
 /// El formato de la tanda: `ancho | alto << 16 | ficha << 32`; 0 = ninguno.
 static FORMATO: AtomicU64 = AtomicU64::new(0);
@@ -74,33 +77,51 @@ pub fn imagen(arg: u64) -> Result<u64, u32> {
         return Err(IOMMU_NO_IMAGEN);
     }
     let pid = crate::ring0::task::scheduler::current_pid();
-    let va = arg & !CARGAR;
-    let Some(fisica) = crate::ring0::obj::memory::fisica_de(pid, va, f.bytes()) else {
-        crate::ring0::cabina::warn("gpu", "imagen: el fotograma no es un bloque de quien lo pide", va);
-        return Err(IOMMU_NO_IMAGEN);
+    let va = arg & !(CARGAR | PRESTADO);
+    // ** De donde sale el fotograma: un bloque propio (la carta, un fichero) o
+    // un PRESTAMO tomado (D2c: el de DOOM, que empieza donde cayo su `malloc`).
+    // En los dos, la fisica de una PAGINA y cuanto anda el fotograma dentro.
+    let (fisica, dentro) = if arg & PRESTADO != 0 {
+        let Some(t) = crate::ring0::obj::loan::fisica_tomada(pid, va, f.bytes()) else {
+            crate::ring0::cabina::warn("gpu", "imagen: el fotograma no es un prestamo tomado por quien lo pide, o sus marcos no van seguidos", va);
+            return Err(IOMMU_NO_IMAGEN);
+        };
+        t
+    } else {
+        let Some(fisica) = crate::ring0::obj::memory::fisica_de(pid, va, f.bytes()) else {
+            crate::ring0::cabina::warn("gpu", "imagen: el fotograma no es un bloque de quien lo pide", va);
+            return Err(IOMMU_NO_IMAGEN);
+        };
+        if fisica % PAGINA != 0 {
+            return Err(IOMMU_NO_IMAGEN);
+        }
+        (fisica, 0)
     };
-    if fisica % PAGINA != 0 || fisica + f.bytes() > crate::ring0::mm::PHYSMAP_SIZE {
+    let Some(paginas) = im::paginas(&f, dentro) else { return Err(IOMMU_NO_IMAGEN) };
+    if fisica + paginas * PAGINA > crate::ring0::mm::PHYSMAP_SIZE {
         return Err(IOMMU_NO_IMAGEN);
     }
     let en = BLUR_ENTRADA.load(Ordering::Acquire);
     if !bl::entrada_valida(en) || super::gr_ocupado() {
         return Err(IOMMU_NO_IMAGEN);
     }
-    let r = imagen_(bar0, ficha, en, fisica, &f, &e, &p, arg & CARGAR != 0);
+    let r = imagen_(bar0, ficha, en, (fisica, dentro, paginas), &f, &e, &p, arg & CARGAR != 0);
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     r
 }
 
 #[allow(clippy::too_many_arguments)]
-fn imagen_(bar0: u64, ficha: u32, en: u32, fisica: u64, f: &im::Formato, e: &im::Encaje, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
+/// `origen` = (la fisica de la primera pagina, donde empieza el fotograma
+/// dentro de ella, cuantas paginas se prestan).
+fn imagen_(bar0: u64, ficha: u32, en: u32, origen: (u64, u64, u64), f: &im::Formato, e: &im::Encaje, p: &pa::Pantalla, cargar: bool) -> Result<u64, u32> {
+    let (fisica, dentro, paginas) = origen;
     let mut r = Bar0(bar0);
     let nuevo = asegurar_mapas(&mut r, p).map_err(|_| IOMMU_NO_IMAGEN)?;
-    let paginas = f.bytes().div_ceil(PAGINA);
     if io::prestar_gpu(im::IOVA, fisica, paginas, false).is_err() {
         crate::ring0::cabina::warn("gpu", "imagen: el fotograma no se pudo prestar a la 3060; fisica", fisica);
         return Err(IOMMU_NO_IMAGEN);
     }
-    let parametros = im::parametros(f, e, p);
+    let parametros = im::parametros_desde(f, e, p, dentro);
     let preparado = im::preparar(&mut r, en, f, &parametros, cargar || nuevo);
     let (mut lanzado, mut qmd, mut fin, mut us) = (false, 0, 0, 0);
     if preparado {
@@ -133,9 +154,11 @@ fn imagen_(bar0: u64, ficha: u32, en: u32, fisica: u64, f: &im::Formato, e: &im:
     // Las muestras: la imagen del bloque y la pantalla, las dos por el
     // physmap (la pantalla con `clflush`, como `video`).
     let cpu_desde = crate::ring0::task::scheduler::rdtsc();
-    // SAFETY: `fisica_de` dio `f.bytes()` seguidos de un bloque del proceso,
-    // dentro del physmap (comprobado arriba), alineado a pagina; solo se leen.
-    let origen = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(fisica) as *const u32, (f.ancho * f.alto) as usize) };
+    // SAFETY: `fisica_de` o `fisica_tomada` dieron `paginas` marcos SEGUIDOS
+    // desde `fisica` (un bloque del proceso, o un prestamo que tomo), dentro
+    // del physmap (comprobado arriba); `dentro` es multiplo de 4 y el
+    // fotograma cabe en ellas (`im::paginas`); solo se leen.
+    let origen = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(fisica + dentro) as *const u32, (f.ancho * f.alto) as usize) };
     // SAFETY: escrito una vez al arrancar (`info::init_from`), solo se lee.
     let fb = crate::ring0::mm::phys_to_virt(unsafe { crate::info::FB_ADDR }) as *const u32;
     let buenos = (0..im::MUESTRAS)

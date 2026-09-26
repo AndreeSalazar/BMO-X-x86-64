@@ -295,6 +295,7 @@ pub const IOMMU_OP_GPU_CUBO: u64 = 0x45;
 pub const IOMMU_OP_GPU_IMAGEN_FORMATO: u64 = 0x46;
 pub const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
 pub const IMAGEN_CARGAR: u64 = 1 << 63;
+pub const IMAGEN_PRESTADO: u64 = 1 << 62;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;

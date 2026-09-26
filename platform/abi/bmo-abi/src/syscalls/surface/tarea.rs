@@ -904,6 +904,10 @@ pub const IOMMU_OP_GPU_IMAGEN_FORMATO: u64 = 0x46;
 pub const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
 /// El bit 63 de `IOMMU_OP_GPU_IMAGEN`: cargar el programa, el QMD y las ordenes.
 pub const IMAGEN_CARGAR: u64 = 1 << 63;
+/// El bit 62 de `IOMMU_OP_GPU_IMAGEN` (D2c): la VA es de un PRESTAMO que el
+/// que llama TOMO (el fotograma de otra app, p. ej. DOOM), no de un bloque
+/// suyo. El kernel exige que sea suyo y que sus marcos vayan seguidos.
+pub const IMAGEN_PRESTADO: u64 = 1 << 62;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

@@ -173,8 +173,27 @@ pub const fn encaje(f: &Formato, p: &Pantalla) -> Option<Encaje> {
 /// esquina del destino (ya con `x0, y0`), el paso de la pantalla, la escala
 /// y si el GOP es RGB.
 pub fn parametros(f: &Formato, e: &Encaje, p: &Pantalla) -> [u32; N_PARAMETROS] {
+    parametros_desde(f, e, p, 0)
+}
+
+/// Los mismos, con el origen `dentro` bytes pasada su primera pagina (D2c: un
+/// fotograma PRESTADO, que sale de un `malloc` y no empieza en pagina). Tiene
+/// que ser multiplo de 4: el programa lee palabras.
+pub fn parametros_desde(f: &Formato, e: &Encaje, p: &Pantalla, dentro: u64) -> [u32; N_PARAMETROS] {
     let d = crate::pantalla::VA + 4 * (e.y0 as u64 * p.pitch as u64 + e.x0 as u64);
-    [VA as u32, (VA >> 32) as u32, f.ancho, f.alto, d as u32, (d >> 32) as u32, p.pitch, e.escala, p.rgb as u32]
+    let o = VA + dentro;
+    [o as u32, (o >> 32) as u32, f.ancho, f.alto, d as u32, (d >> 32) as u32, p.pitch, e.escala, p.rgb as u32]
+}
+
+/// Las paginas que se prestan a la 3060 para `f` empezando `dentro` bytes
+/// pasada una pagina. Caben en el mapa del origen (el de `video`) o `None`.
+pub const fn paginas(f: &Formato, dentro: u64) -> Option<u64> {
+    let n = (dentro + f.bytes()).div_ceil(4096);
+    if dentro % 4 == 0 && dentro < 4096 && n * 4096 <= crate::video::MAX_BYTES {
+        Some(n)
+    } else {
+        None
+    }
 }
 
 /// El color que escribe el programa: sin el alfa, y rojo y azul cambiados si
@@ -388,6 +407,19 @@ mod pruebas {
         assert_eq!((p[4] as u64) | (p[5] as u64) << 32, crate::pantalla::VA + 4 * (40 * 1920 + 160));
         assert_eq!(&p[2..4], &[320, 200]);
         assert_eq!(&p[6..], &[1920, 5, 0]);
+    }
+
+    #[test]
+    fn un_origen_prestado_empieza_dentro_de_su_pagina() {
+        let (f, e) = (Formato::DOOM, encaje(&Formato::DOOM, &FHD).unwrap());
+        let p = parametros_desde(&f, &e, &FHD, 0x2C0);
+        assert_eq!((p[0] as u64) | (p[1] as u64) << 32, VA + 0x2C0);
+        assert_eq!(&p[2..], &parametros(&f, &e, &FHD)[2..], "lo demas, igual");
+        assert_eq!(paginas(&f, 0), Some(63), "256000 B: 62,5 paginas");
+        assert_eq!(paginas(&f, 0x2C0), Some(63));
+        assert_eq!(paginas(&f, 0xF00), Some(64), "cruza una pagina mas");
+        assert_eq!(paginas(&f, 2), None, "el programa lee palabras");
+        assert_eq!(paginas(&f, 4096), None);
     }
 
     #[test]

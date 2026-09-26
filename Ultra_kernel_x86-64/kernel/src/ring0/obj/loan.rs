@@ -450,6 +450,38 @@ pub fn hay_prestado_en(pid: u32, base: u64, bytes: u64) -> bool {
     false
 }
 
+/// **Donde vive en la RAM un trozo de lo que `pid` TOMO** (D2c de
+/// `PLAN_VERRANO`: la 3060 lee el fotograma que DOOM le presto al
+/// escritorio). `va` y `bytes` en el espacio del que tomo.
+///
+/// `Some((fisica, dentro))`: la fisica de la PRIMERA pagina y cuanto anda el
+/// trozo dentro de ella. Solo si el trozo cae ENTERO en un prestamo tomado por
+/// `pid` y sus marcos van SEGUIDOS -- la 3060 lo ve por la IOMMU como un tramo,
+/// y un tramo roto seria leer marcos de otro. Se traduce en el espacio del que
+/// llama (durante su syscall, `read_cr3()` es el suyo): lo mismo que el ve.
+///
+/// No sabe para que se pregunta: como el resto de este modulo, mueve y
+/// comprueba paginas, nada mas.
+pub fn fisica_tomada(pid: u32, va: u64, bytes: u64) -> Option<(u64, u64)> {
+    let ofertas = unsafe { &*core::ptr::addr_of!(OFERTAS) };
+    let fin = va.checked_add(bytes)?;
+    ofertas.iter().find(|o| {
+        let desde = o.va_destino + o.dentro;
+        o.viva && o.tomada && o.destino == pid && va >= desde && fin <= desde + o.bytes
+    })?;
+    let dentro = va & (mm::PAGE - 1);
+    let pagina = va - dentro;
+    let paginas = (dentro + bytes).div_ceil(mm::PAGE);
+    let aspace = vmm::read_cr3();
+    let primera = vmm::translate(aspace, pagina)?;
+    for k in 1..paginas {
+        if vmm::translate(aspace, pagina + k * mm::PAGE)? != primera + k * mm::PAGE {
+            return None;
+        }
+    }
+    Some((primera, dentro))
+}
+
 pub fn process_died(pid: u32, aspace: u64) {
     let ofertas = unsafe { &mut *core::ptr::addr_of_mut!(OFERTAS) };
     for o in ofertas.iter_mut() {

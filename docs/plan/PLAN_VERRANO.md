@@ -572,8 +572,11 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
       fabrico EN LA NUBE, con el `ptxas` 12.9 y el `nvdisasm` 13.4 de PyPI; la
       cadena se valido rehaciendo el primer sombreador desde su PTX (8 de 10
       instrucciones iguales, y las 2 restantes son las dos NOP de siempre).
-- [ ] **D2b -- `gpu imagen` en el metal.** **Escrito el 26-09, falta el
-      metal:** el trabajo del kernel (`gpu_trabajo/imagen.rs`, ordenes 0x46
+- [x] **D2b -- `gpu imagen` en el metal.** **HECHO en el metal el 26-09
+      17:52:** `LA 3060 AGRANDO LA IMAGEN: 90 de 90 fotogramas de la carta,
+      320x200 (x5); 34.9 fps de 35; la 3060 679 us, comprobar 560 us; 0
+      tarde`. El primer programa FABRICADO EN LA NUBE corrio a la primera,
+      bit a bit la CPU. Lo que se escribio: el trabajo del kernel (`gpu_trabajo/imagen.rs`, ordenes 0x46
       y 0x47, motivo 88) calcado de `gpu video` y con SU mapa del origen; la
       orden `gpu imagen` (sin fichero: la carta de 320x200 hecha en memoria,
       90 fotogramas a 35 fps, para probar sin preparar nada) y `gpu imagen
@@ -582,9 +585,26 @@ vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
       sitios. Como probarlo: `docs/metal/METAL_2026-09-25.md`, seccion 25.
       **Como se sabe:** la carta x5 centrada y la fila dice 90 de 90.
 - [ ] **D2c -- DOOM EN VIVO por la 3060.** El port deja de agrandar: entrega
-      sus 320 x 200 al escritorio (una superficie x1, o una lamina como la de
-      INTI) y el escritorio le pide a la 3060 cada fotograma. **Como se
-      sabe:** DOOM se juega a x5 y su `[perf]` dice 0 ms de agrandar.
+      sus 320 x 200 al escritorio y el escritorio le pide a la 3060 cada
+      fotograma. **Como se sabe:** DOOM se juega a x5 y su `[perf]` dice 0 ms
+      de agrandar. Tres piezas, y por que la pantalla ENTERA: el volcado del
+      escritorio (1c) repinta la pantalla en cada fotograma, asi que la 3060
+      no puede escribir DOOM encima de una ventana; a pantalla completa el
+      escritorio deja de volcar mientras DOOM juega, como con los paneles de
+      `gpu`.
+      ```text
+         kernel   HECHO (26-09): `IOMMU_OP_GPU_IMAGEN` con IMAGEN_PRESTADO
+                  (bit 62) lee un fotograma que el escritorio TOMO prestado:
+                  `loan::fisica_tomada` exige que el prestamo sea suyo y que
+                  sus marcos vayan seguidos, y el origen puede empezar dentro
+                  de su pagina (el `malloc` de DOOM): `imagen::paginas` y
+                  `parametros_desde`
+         port     `doomgeneric_bmo.c`: una superficie de 320x200 x1 marcada
+                  "a la 3060" en su cabecera, sin agrandar
+         escritorio  la ve marcada: deja de volcar, y en cada fotograma nuevo
+                  llama a IMAGEN con el prestamo; las teclas siguen yendo a
+                  DOOM; al morir DOOM (o con su tecla) vuelve el escritorio
+      ```
 - [ ] **D3 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
       pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
       aplica el mismo programa. **Como se sabe:** igual que D2c, con 4 veces
