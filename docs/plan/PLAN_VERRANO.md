@@ -59,7 +59,11 @@ la SPH (128 B) y detras las instrucciones.
       --test bsf_sm86`: lo que se toma del sobre es byte a byte lo que el
       kernel escribe, el fichero del repositorio es el que sale
       (determinista), y un bit cambiado del codigo no pasa.
-- [ ] **V0c -- `gpu verrano` en el Ryzen.** La 3060 dibuja el cubo con los
+- [x] **V0c -- `gpu verrano` en el Ryzen.** **HECHO el 26-09 06:46:**
+      `fotograma 30: la 3060 en 923 us, la CPU en 1796 us` e `IGUAL: VERRANO
+      en la 3060 = VERRANO en la CPU = D3D12 en la 3060 bajo Windows`, con
+      los programas del BSF (vertice 464 B, pixel 224 B) y 4 triangulos en UN
+      dibujo. Lo que faltaba era R1 en vez de R14 (abajo). La 3060 dibuja el cubo con los
       dos programas del BSF y los vertices en un buffer, en UN dibujo. Lo
       nuevo en el metal: los `LDG` en un programa de VERTICE (hasta hoy solo
       en computo), el IPA del cuarto canal y un dibujo de `3n` vertices.

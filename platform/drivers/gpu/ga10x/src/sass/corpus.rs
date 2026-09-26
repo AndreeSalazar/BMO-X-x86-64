@@ -7,7 +7,8 @@
 //! Un juez se calibra con lo que se SABE bueno: todo lo de `ORO` dibujo o
 //! calculo en el metal, comparado bit a bit por la CPU. Si el juez le dice que
 //! no a uno de ellos, el que esta mal es el juez. Y aparte, lo que NO se sabe
-//! bueno: el de vertice de VERRANO V0, colgado en los VERTICES.
+//! bueno: la variante `sinldg` de VERRANO (nunca llego a correr entera).
+//! Los de VERRANO V0 pasaron al oro el 26-09 06:46: IGUAL a D3D12.
 
 use super::juez::Contexto;
 use crate::raster::SPH;
@@ -58,7 +59,7 @@ const fn grafico(nombre: &'static str, origen: &'static str, codigo: &'static [(
 }
 
 /// **El oro**: todo lo de aqui corrio en la 3060 y la CPU lo dio por bueno.
-pub static ORO: [Programa; 15] = [
+pub static ORO: [Programa; 17] = [
     computo("sombreador", "M5d S4: 32 de 32 hilos", &sombreador::CODIGO, sombreador::REGISTROS),
     computo("lienzo", "M5d L: 16384 de 16384 pixeles", &lienzo::CODIGO, sombreador::REGISTROS),
     computo("blur", "M5d B: igual a la CPU", &blur::CODIGO, blur::REGISTROS),
@@ -74,11 +75,11 @@ pub static ORO: [Programa; 15] = [
     grafico("color3d pixel", "T2a: tres colores", &color3d::CODIGO_PS, &SPH_COLOR_PS),
     grafico("X5 vertice", "X5: el cubo IGUAL a D3D12", &X5_VS, &SPH_RASTER_VS),
     grafico("X5 pixel", "X5: el cubo IGUAL a D3D12", &X5_PS, &SPH_RASTER_PS),
+    grafico("VERRANO vertice", "VERRANO V0: IGUAL a D3D12 (metal 26-09 06:46), con R1", &VERRANO_VS, &SPH_VERRANO_VS),
+    grafico("VERRANO pixel", "VERRANO V0: IGUAL a D3D12 (metal 26-09 06:46)", &VERRANO_PS, &SPH_VERRANO_PS),
 ];
 
 /// **Los sospechosos**: lo que NO se sabe bueno.
-pub static SOSPECHOSOS: [Programa; 3] = [
-    grafico("VERRANO vertice", "VERRANO V0: colgado en los VERTICES (metal 25-09 y 26-09)", &VERRANO_VS, &SPH_VERRANO_VS),
-    grafico("VERRANO pixel", "VERRANO V0: no llego a correr (el de vertice se cuelga antes)", &VERRANO_PS, &SPH_VERRANO_PS),
+pub static SOSPECHOSOS: [Programa; 1] = [
     grafico("VERRANO vertice sin LDG", "la prueba de una variable (gpu verrano sinldg)", &VERRANO_VS_SIN_LDG, &SPH_VERRANO_VS),
 ];
