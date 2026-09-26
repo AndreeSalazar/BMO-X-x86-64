@@ -827,6 +827,11 @@ try {
     # Techne. Ni el codigo ni el WAD pueden vivir aqui, asi que el port entero
     # vive en `BMO-externo\`, al lado del repo y fuera de el.
     #
+    # (26-09) Ahora el PORT si vive aqui (`toolchain\lang\c\expansion\doom`):
+    # lo que es de la casa, y lo que toca de DOOM, en `sobre\`. Las fuentes GPL
+    # enteras y los WAD siguen fuera de git: `traer.ps1` las trae al commit
+    # fijado. Ver el README de esa carpeta.
+    #
     # Lo que SI puede vivir aqui es una RUTA. Este paso mira si el port esta; si
     # no esta, dice una linea y sigue. Un `build.ps1` que fallara porque a otro
     # no le apetece bajarse DOOM seria un build roto para todo el mundo menos
@@ -850,6 +855,36 @@ try {
         $doomFte   = Join-Path $doomRaiz 'doom\doomgeneric\doomgeneric\doomgeneric_bmo.c'
         $doomWad   = Join-Path $doomRaiz 'doom\doom1.wad'
         $doomInc   = Join-Path $doomRaiz 'doom-port\include'
+        # ** DESDE EL 26-09, DOOM PUEDE VIVIR EN EL ARBOL, y si esta, manda.
+        #
+        # `toolchain\lang\c\expansion\doom\traer.ps1` deja tres cosas: las
+        # fuentes GPL al commit de FUENTES.txt en `fuentes\` (fuera de git), lo
+        # que el port les cambia o agrega en `sobre\` y los stubs en `cola\`.
+        # Aqui se arma la OBRA: una copia limpia de las fuentes con `sobre\`
+        # encima, cada build desde cero -- asi un fichero borrado de `sobre\` no
+        # sobrevive en la obra. Si el arbol no lo tiene, BMO-externo como antes.
+        $doomExp   = Join-Path $repo 'toolchain\lang\c\expansion\doom'
+        $doomLimpio = Join-Path $doomExp 'fuentes\doomgeneric'
+        $doomSobre = Join-Path $doomExp 'sobre'
+        if ((Test-Path (Join-Path $doomSobre 'doomgeneric\doomgeneric_bmo.c')) -and
+            (Test-Path (Join-Path $doomLimpio 'doomgeneric\doomgeneric.h'))) {
+            $obra = Join-Path $doomExp 'fuentes\obra'
+            if (Test-Path $obra) { Remove-Item -Recurse -Force $obra }
+            foreach ($desde in $doomLimpio, $doomSobre) {
+                Get-ChildItem -LiteralPath $desde -Recurse -File | ForEach-Object {
+                    $rel = $_.FullName.Substring($desde.Length).TrimStart('\')
+                    if (('\' + $rel) -match '\\\.git\\') { return }
+                    $dst = Join-Path $obra $rel
+                    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dst) | Out-Null
+                    Copy-Item -LiteralPath $_.FullName -Destination $dst -Force
+                }
+            }
+            $doomFte = Join-Path $obra 'doomgeneric\doomgeneric_bmo.c'
+            $doomInc = Join-Path $doomExp 'cola\include'
+            Write-Host '    [doom] el port del ARBOL (expansion\doom), fuentes fijadas' -ForegroundColor DarkGray
+        }
+        $doomWadArbol = Join-Path $doomExp 'wad\doom1.wad'
+        if (Test-Path $doomWadArbol) { $doomWad = $doomWadArbol }
         if (-not (Test-Path $doomFte)) {
             Write-Host '    [doom] BMO-externo no esta: se salta (es GPL, vive fuera del repo)' -ForegroundColor DarkGray
         } elseif (-not (Test-Path $doomWad)) {
@@ -929,12 +964,25 @@ try {
             # Que `doom.bex` lo ABRA depende del port (fuera del arbol): se
             # prueba en el Ryzen. Sin los WAD, este paso no dice nada.
             foreach ($n in 1, 2) {
-                $libre = Join-Path $doomRaiz ('doom\freedoom' + $n + '.wad')
+                $libre = Join-Path $doomExp ('wad\freedoom' + $n + '.wad')
+                if (-not (Test-Path $libre)) {
+                    $libre = Join-Path $doomRaiz ('doom\freedoom' + $n + '.wad')
+                }
                 if (Test-Path $libre) {
                     $libreDst = Join-Path (Join-Path $dataBase 'apps') ('freedm' + $n + '.wad')
                     Copy-Item -LiteralPath $libre -Destination $libreDst -Force
                     Write-Host ('    [doom] freedoom' + $n + '.wad (Freedoom, BSD) -> apps\freedm' + $n + '.wad') -ForegroundColor DarkGray
                 }
+            }
+            # ** LA CONFIGURACION: `default.cfg` en la RAIZ del volumen, que es
+            # donde DOOM la busca (`./default.cfg`, METAL_2026-08-13). Solo si NO
+            # esta: al salir, DOOM guarda ahi la del jugador, y un build que la
+            # pisara le borraria sus ajustes cada vez.
+            $doomCfg = Join-Path $doomExp 'default.cfg'
+            $cfgDst  = Join-Path $dataBase 'default.cfg'
+            if ((Test-Path $doomCfg) -and -not (Test-Path $cfgDst)) {
+                Copy-Item -LiteralPath $doomCfg -Destination $cfgDst
+                Write-Host '    [doom] default.cfg -> raiz (la primera vez; luego es del jugador)' -ForegroundColor DarkGray
             }
             # El consejo de aqui decia "desde el shell de Ring 0", y eso era
             # cierto mientras `lend_screen` tenia un plazo de 500 ms: DOOM tarda

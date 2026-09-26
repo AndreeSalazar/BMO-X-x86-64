@@ -52,3 +52,9 @@ __pycache__/
 
 # Los `.bex` de las sondas se generan con `inti`; el fuente es lo que se guarda.
 toolchain/lang/inti/sondas/*.bex
+
+# DOOM en el arbol (toolchain/lang/c/expansion/doom): las fuentes GPL al commit
+# de FUENTES.txt, la obra que arma el build y los WAD. Los trae `traer.ps1`;
+# lo que se versiona es el port (`sobre/`, `cola/`), la config y el commit.
+/toolchain/lang/c/expansion/doom/fuentes/
+/toolchain/lang/c/expansion/doom/wad/

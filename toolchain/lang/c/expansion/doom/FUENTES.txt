@@ -1,0 +1,17 @@
+# Las fuentes GPL de DOOM que usa esta expansion: DE DONDE y QUE COMMIT.
+#
+# No se copian al arbol (Apache-2.0): se traen con `traer.ps1` a `fuentes/`,
+# que esta en el .gitignore. Fijar el commit es lo que hace que dos maquinas
+# compilen EL MISMO doom.bex: sin el, "doomgeneric" es lo que haya hoy.
+#
+# Cambiar de commit es una decision, no un despiste: se cambia esta linea, se
+# compila, se juega en el Ryzen, y se dice en el commit por que.
+
+repo    https://github.com/ozkl/doomgeneric
+commit  dcb7a8dbc7a16ce3dda29382ac9aae9d77d21284
+fecha   2026-04-12
+licencia GPL-2.0 (doomgeneric/LICENSE en el propio repo)
+
+# Los WAD libres (camino L0 de PLAN_LA_LUDOTECA). Freedoom es BSD: se puede
+# repartir. `traer.ps1 -Freedoom` los baja a `wad/` (tambien en el .gitignore).
+freedoom https://github.com/freedoom/freedoom/releases/download/v0.13.0/freedoom-0.13.0.zip

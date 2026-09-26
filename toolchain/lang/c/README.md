@@ -22,9 +22,12 @@
 
    LA EXPANSION -- lo que USA la fabrica y no es de la casa
    ------------------------------------------------------------------------
-   ../BMO-externo/doom/                 las fuentes de DOOM (GPL): FUERA del arbol
-   ../BMO-externo/doom-port/            la cola del port: unity.py, los stubs de
-                                        compatibilidad (<windows.h>, <go32.h>...)
+   toolchain/lang/c/expansion/doom/     (26-09) el port de DOOM EN EL ARBOL:
+                                        sobre/ (lo que toca de DOOM), cola/
+                                        (stubs, unity.py), la config, y el
+                                        COMMIT de las fuentes. GPL-2.0
+   ../BMO-externo/doom/                 las fuentes de DOOM (GPL): antes, y
+   ../BMO-externo/doom-port/            hasta que se corra `traer.ps1 -Mudar`
 ```
 
 ** `tables/` no se mueve ni se renombra, y el motivo esta en
@@ -85,7 +88,14 @@ desde agosto-- se fue.
 
 # 4. [!] LO QUE QUEDA POR DECIDIR, y es del propietario
 
-## 4.1 La cola del port NO esta versionada
+## 4.1 La cola del port NO esta versionada -- DECIDIDO el 26-09: la b)
+
+> El propietario, el 26-09: *"meter TODO el DOOM completo con configuracion"*.
+> Hecho asi: [`expansion/doom/`](expansion/doom/README.md). El port y lo que
+> toca de DOOM entran al arbol como GPL-2.0 (dicho en `NOTICE`); las fuentes
+> enteras se traen al commit fijado en `FUENTES.txt`. La mudanza la hace
+> `traer.ps1 -Mudar` en la maquina donde vive `BMO-externo`. Lo de abajo es
+> como estaba la pregunta.
 
 `BMO-externo/` no es repositorio git. Ahi viven `unity.py`, los stubs, y --lo
 que mas cuesta-- **los instrumentos que se le meten a DOOM para cazar fallos**:

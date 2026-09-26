@@ -27,9 +27,13 @@ product after this one is not covered by that grant.
 
 THIRD-PARTY
 
-The DOOM port under BMO-externo/ is not part of this repository and is not
-covered by this license: it is GPL, it lives outside the tree, and the build
-skips it when it is absent.
+toolchain/lang/c/expansion/doom/ holds the DOOM port (since 2026-09-26). Its
+sobre/ and cola/ folders are distributed under the GNU General Public License,
+version 2 (GPL-2.0), because they are DOOM files or exist only to be built
+together with DOOM; they are NOT covered by the Apache License above. The
+DOOM sources themselves (ozkl/doomgeneric, GPL-2.0) are not in the tree:
+traer.ps1 fetches them at the commit pinned in FUENTES.txt. The build skips
+DOOM when the port or the sources are absent.
 
 doom1.wad, when present, is id Software's shareware data and is redistributed
 under its own terms.
