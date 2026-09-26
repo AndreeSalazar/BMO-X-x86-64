@@ -622,3 +622,28 @@ fn el_ancho_de_32_llega_a_argumentos_cuentas_y_constantes() {
     assert_eq!(f("    x es flotante32 = PI\n    devuelve x\n"), 3.1415927f32.to_bits(), "constante de nivel superior");
     assert_eq!(f("    devuelve id(PI)\n"), 3.1415927f32.to_bits(), "constante a un parametro de 32");
 }
+
+/// *** UNA LLAMADA OPERA EN LA CLASE QUE SU FUNCION DICE QUE DEVUELVE.
+///
+/// `a() * b()` con dos funciones de coma flotante no tenia clase: se
+/// multiplicaban los BITS como enteros y el revisor lo daba por bueno.
+///
+/// ```text
+///                        antes     ahora
+///    a() * 2.0           inf       3.0
+///    a() * b()           0         3.375
+///    2.0 * a() + b()     -1.125    5.25
+/// ```
+#[test]
+fn una_llamada_opera_en_la_clase_que_devuelve() {
+    let de = |ancho: &str, cuerpo: &str| {
+        ejecuta_en(&format!("perfil llano\n\nfuncion a devuelve {ancho}\n    devuelve 1.5\n\nfuncion b devuelve {ancho}\n    devuelve 2.25\n\nfuncion f devuelve {ancho}\n    devuelve {cuerpo}\n"), "f", 0, 0)
+    };
+    let de32 = |cuerpo: &str| f32::from_bits(de("flotante32", cuerpo) as u32);
+    let de64 = |cuerpo: &str| f64::from_bits(de("flotante64", cuerpo));
+    assert_eq!(de32("a() * 2.0"), 3.0);
+    assert_eq!(de32("a() * b()"), 3.375);
+    assert_eq!(de32("2.0 * a() + b()"), 5.25);
+    assert_eq!(de64("a() * b()"), 3.375);
+    assert_eq!(de64("2.0 * a() + b()"), 5.25);
+}

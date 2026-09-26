@@ -593,8 +593,15 @@ impl Plano {
             Expr::Unaria { valor, .. } => self.clase_de(valor, tipos),
             // `flotante64(x)` dice de que es lo que sale, y lo dice el nombre
             // que se escribio. Una conversion en INTI se pide, no se supone.
+            // ** Y una funcion del modulo, por lo que DICE que devuelve
+            // (2026-09-26). Sin esto `a() * 2.0` con `a` devolviendo
+            // `flotante32` escribia el literal en 64 y operaba en otra clase:
+            // compilaba, sin aviso, y daba `inf` en vez de `3.0`.
             Expr::Llamada { que, .. } => match &**que {
-                Expr::Nombre(n, _) => self.medidas.clase(n),
+                Expr::Nombre(n, _) => self
+                    .medidas
+                    .clase(n)
+                    .or_else(|| self.retornos.get(n).and_then(|t| self.clase_del_tipo(t))),
                 _ => None,
             },
             _ => match self.tipo_de(e, tipos) {
