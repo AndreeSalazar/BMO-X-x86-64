@@ -1,6 +1,6 @@
 # traer.ps1 -- DOOM ENTERO en el arbol: las fuentes fijadas, la mudanza del
 # port y los WAD libres. Lo lee `README.md` de esta carpeta; lo usa
-# `Ultra_kernel_x86-64/build/ejemplos.ps1`.
+# `Ultra_kernel_x86-64/build/doom.ps1` (el paso de DOOM del build).
 #
 #   .\traer.ps1              trae las fuentes GPL al commit de FUENTES.txt
 #   .\traer.ps1 -Mudar       y ademas muda el port de ..\BMO-externo al arbol
