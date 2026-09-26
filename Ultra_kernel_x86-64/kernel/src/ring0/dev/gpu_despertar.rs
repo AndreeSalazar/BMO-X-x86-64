@@ -129,7 +129,19 @@ fn antes() -> Result<Bar0, u32> {
 
 /// **DESPERTAR**: 0 y 1 del orden. `Ok(IOVA de los argumentos)` en cuanto el
 /// GSP arranca; si se paro, lo dice `INFO_GPU_DESPIERTO`.
+/// Si el camino del booter ya empezo en este arranque (el GSP o el SEC2
+/// arrancados): desde ahi, nadie resetea el falcon del GSP.
+pub fn gsp_tocado() -> bool {
+    ESTADO.load(Ordering::Acquire) & (DESPIERTO_GSP_ARRANCADO | DESPIERTO_SEC2_ARRANCADO) != 0
+}
+
 pub fn despertar() -> Result<u64, u32> {
+    // ** EL 0x15 (EL_0x15.md): el falcon del GSP usado para DMA antes del
+    // booter lo dejaba en un estado que el booter no acepta. No se niega --
+    // a mano es una prueba legitima -- pero queda en la caja negra.
+    if crate::ring0::dev::gpu_prestamo::falcon_gsp_usado() {
+        crate::ring0::cabina::warn("gpu", "L0c3b: el falcon del GSP ya hizo DMA en este arranque (fuego/frontera): el booter puede dar 0x15", 0);
+    }
     if ESTADO.load(Ordering::Acquire) & DESPIERTO_SEC2_ARRANCADO != 0 {
         // El booter ya corrio en este arranque: la WPR2 ya tiene el GSP-RM, y
         // correrlo otra vez sin el booter_unload no se hace. El motivo de

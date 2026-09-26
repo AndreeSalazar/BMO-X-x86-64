@@ -848,16 +848,16 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
         // ** 0x15: nueve veces en el metal (24-09 y 25-09), seis seguidas EN
-        // FRIO: cortar la corriente NO lo arregla. El sospechoso (25-09):
-        // `fuego`/`frontera` usan el falcon del GSP antes que el booter. El
-        // caso entero: `platform/drivers/gpu/ga10x/EL_0x15.md`.
+        // FRIO: cortar la corriente NO lo arregla. La causa (25-09, 3 de 3):
+        // `fuego`/`frontera` usaban el falcon del GSP antes que el booter; ya
+        // no son pasos de `save mode`. El caso: `ga10x/EL_0x15.md`.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
             let con_prueba = bmo::info(bmo::INFO_GPU_FRONTERA) & bmo::FUEGO_INTENTADO != 0 || bmo::info(bmo::INFO_GPU_FUEGO) & bmo::FUEGO_INTENTADO != 0;
             s.text(if con_prueba {
-                b" = el booter no cargo, y `fuego`/`frontera` corrieron antes en el falcon del GSP: arma `save mode -fuego -frontera` y arranca otra vez" as &[u8]
+                b" = el booter no cargo, y `gpu fuego`/`gpu frontera` corrieron ANTES en el falcon del GSP (la causa conocida): arranca otra vez sin darlas" as &[u8]
             } else {
-                b" = el booter no cargo SIN `fuego` ni `frontera`: el sospechoso queda absuelto; pega la fila `autopsia` (EL_0x15.md)"
+                b" = el booter no cargo SIN `fuego` ni `frontera`: un 0x15 NUEVO, no el conocido; pega la fila `autopsia` (EL_0x15.md)"
             });
             s.with_ink(INK_ECHO);
         }

@@ -153,11 +153,31 @@ pub(crate) fn motivo(e: NoFuego) -> u64 {
 }
 
 /// **El candado del fuego.** `Ok(bar0)` o el motivo del NO.
+///
+/// ** Y NUNCA con el GSP en marcha (26-09, EL_0x15.md): `fuego` y `frontera`
+/// RESETEAN el falcon del GSP; con el booter ya dado, lo matarian. Y el falcon
+/// que usan queda apuntado: el caso del 0x15 mostro que tocarlo antes del
+/// booter es lo que lo tumbaba (3 de 3 arranques en frio buenos sin ellas).
 fn candado() -> Result<u64, u32> {
     if PRUEBA.load(Ordering::Acquire) & GPU_PRUEBA_PRESTADA == 0 {
         return Err(IOMMU_NO_SIN_PRUEBA);
     }
-    candado_dma()
+    if crate::ring0::dev::gpu_despertar::gsp_tocado() {
+        crate::ring0::cabina::warn("gpu", "M0d3 NEGADA: el booter ya corrio; resetear el falcon del GSP lo mataria", 0);
+        return Err(crate::ring0::dev::gpu_despertar::IOMMU_NO_YA_DESPIERTO);
+    }
+    let bar0 = candado_dma()?;
+    FALCON_GSP_USADO.store(true, Ordering::Release);
+    Ok(bar0)
+}
+
+/// `fuego` o `frontera` usaron el DMA del falcon del GSP en este arranque.
+static FALCON_GSP_USADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// Si el falcon del GSP ya hizo DMA para una prueba en este arranque: el
+/// booter que venga detras puede dar 0x15 (EL_0x15.md).
+pub fn falcon_gsp_usado() -> bool {
+    FALCON_GSP_USADO.load(Ordering::Acquire)
 }
 
 /// **El candado de todo DMA de la 3060**: TRADUCIDA y releida, una NVIDIA en

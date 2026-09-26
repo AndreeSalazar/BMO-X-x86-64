@@ -221,7 +221,9 @@ fn desarmar() -> bool {
 /// Los `-paso` de unos argumentos. `Err(t)` con el que no es un paso.
 /// Pasos que ya no existen: un `-nombre` suyo en un `datos/modo.txt` de antes
 /// se ignora, en vez de desarmar el modo por un nombre desconocido.
-const RETIRADOS: &[&[u8]] = &[b"-apagado"];
+/// `-fuego` y `-frontera`: pasos hasta el 26-09 (EL_0x15.md); la receta
+/// armada con ellos sigue valiendo.
+const RETIRADOS: &[&[u8]] = &[b"-apagado", b"-fuego", b"-frontera"];
 
 fn quitados_de(args: &[u8]) -> Result<[bool; MAX_PASOS], &[u8]> {
     let mut quitados = [false; MAX_PASOS];
