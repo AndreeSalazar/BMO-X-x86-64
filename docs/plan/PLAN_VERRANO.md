@@ -404,7 +404,7 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       `acumula` redondea DOS veces a proposito: con FMA 270 de 360 matrices
       salen distintas.
       **Segundo paso hecho (26-09):** la TANDA ENTERA en INTI
-      (`toolchain/lang/inti/ejemplos/tanda.inti`): los vertices a recorte con
+      (`toolchain/lang/inti/ejemplos/cubo.inti`): los vertices a recorte con
       SSE, la division, el redondeo al par a subpixeles, que caras miran y su
       luz -- bit a bit la de `bmo_cubo::tanda::de_fotograma` en los 360
       fotogramas (cuantas caras, sus vertices y su color). ~23.900
@@ -421,8 +421,33 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       exige al abrir (`sm86.rs::contrato`) y juzga cada `Frame` con
       `ModuleView::check`, que ahora pide elementos ENTEROS (`What::Stride`).
       Y la copia al paquete es de bits: `tuberia::Vertice` y `Vertex` tienen
-      la misma forma, o no compila. Falta: el TRANSPORTE (INTI corre como
-      `.ibx` aparte: que memoria le da VERRANO para escribir).
+      la misma forma, o no compila.
+      **Cuarto paso hecho (26-09, falta el metal): EL TRANSPORTE, sin pelea.**
+      ```text
+         la lamina   bmo_verrano::lamina: el bloque que la app OFRECE (magia
+                     BVER), dos ranuras, un SELLO por ranura y la secuencia al
+                     final. Sin cerrojo. La prueba de dos hilos cazo la
+                     primera version (solo la secuencia): medio fotograma
+                     leido. Con el sello, ~700.000 fotogramas enteros por
+                     corrida y ninguno roto
+         la puerta   la MISMA que toma las superficies reconoce BVER y se la da
+                     a VERRANO (antes la habria soltado por no ser BSUP); una
+                     a la vez; se suelta si su app muere
+         INTI        `usa verrano` (runtime/verrano.inti): verrano_lamina,
+                     verrano_empieza, verrano_acaba. Y `ejemplos/cubo.inti`,
+                     la app: cuenta TODO (malla, seno y coseno, matrices,
+                     tanda) y publica; bit a bit el juez en los 360
+         VERRANO     `gpu verrano banco inti`: lo ULTIMO publicado, sin
+                     esperar; un fotograma pisado se descarta y se repite el
+                     anterior; al final, el ultimo de INTI contra el juez
+      ```
+      Y el port destapo TRES anchos de INTI que se perdian (literal a un
+      parametro de 32, cuenta de literales, constante de nivel superior):
+      arreglados, con prueba. **Como se sabe:** en el metal, `run
+      inti/cubo.ibx`, el escritorio dice `[verrano] tid N ofrecio una
+      lamina`, y `gpu verrano banco inti` acaba con `IGUAL al juez`.
+      [!] Lo que queda dicho: con las cuatro ventanas llenas, la puerta no
+      toma NINGUNA oferta (tampoco una lamina) hasta que se cierre una.
 - [ ] **E7 -- 256 BITS: el PERFIL decide el ancho.** Zen 3 tiene AVX2 de 256
       bits: DOS vertices por instruccion. Lo que falta, y en este orden:
       ```text

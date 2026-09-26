@@ -1,0 +1,101 @@
+# verrano.inti -- LA LAMINA DE VERRANO, en INTI: pedir el bloque, escribir su
+# cabecera, OFRECERSELA a quien nos lanzo (el escritorio) y publicar
+# fotogramas de vertices en ella, SIN CERROJO (2026-09-26).
+#
+# == El trato, y donde vive ==
+#
+# La forma y el trato estan UNA vez en `platform/shared/verrano/src/lamina.rs`
+# (el lector de VERRANO, con su prueba de dos hilos). Aqui se escriben por
+# NOMBRE (`verrano_campo_*`, `verrano_lamina_*`, `verrano_vertice`), y
+# `tests/espejo_del_kernel.rs` exige que esos nombres valgan lo mismo que alli.
+#
+# == Como se usa ==
+#
+#     l = verrano_lamina(capacidad)          # 0 si nadie compone
+#     repite
+#         salida = verrano_empieza(l)        # donde escribir, ranura libre
+#         ... escribir n Vertex en `salida` ...
+#         verrano_acaba(l, n, fotograma)     # y solo aqui lo ve VERRANO
+#
+# == Por que no hace falta ninguna barrera ==
+#
+# En x86-64 las escrituras se ven en el orden en que se hacen (TSO), e INTI no
+# reordena nada: el sello impar, los vertices, su numero, su fotograma, el
+# sello par y la secuencia salen en ESE orden. Es todo el trato.
+#
+# == La cola privada ==
+#
+# Como en la superficie: 16 bytes DETRAS de lo ofrecido, con el handle del
+# bloque. El escritorio solo ve [l, l + ofrecidos): un handle a la vista de
+# otro proceso seria una capability regalada.
+
+perfil llano
+usa bmo
+usa memoria
+
+COLA_PRIVADA = 16
+
+# Lo que mide una lamina de `capacidad` vertices por ranura.
+funcion verrano_bytes(capacidad es natural64) devuelve natural64
+    devuelve verrano_lamina_cabecera + 2 * capacidad * verrano_vertice
+
+funcion verrano_campo(l es natural64, i es natural64) devuelve natural64
+    crudo
+        v = lee_natural32(l + 4 * i)
+        devuelve v
+
+funcion verrano_pon_campo(l es natural64, i es natural64, v es natural64)
+    crudo
+        escribe_natural32(l + 4 * i, v)
+
+# **Crear la lamina** y ofrecersela a quien nos lanzo. Devuelve su direccion,
+# o 0 si no hay memoria o nadie la va a leer.
+funcion verrano_lamina(capacidad es natural64) devuelve natural64
+    si capacidad = 0
+        devuelve 0
+    cambiante bytes es natural64 = verrano_bytes(capacidad)
+    cambiante bloque es natural64 = invoca_valor(mi_tarea, op_pedir_memoria, bytes + COLA_PRIVADA, 0, 0)
+    si bloque = 0
+        devuelve 0
+    cambiante l es natural64 = invoca_valor(bloque, op_base_del_bloque, 0, 0, 0)
+    si l = 0
+        devuelve 0
+    # La cabecera entera ANTES de ofrecer: si el escritorio la tomara antes,
+    # leeria basura. Las 16 palabras a cero, y despues lo que no es cero.
+    para cada i en 0 hasta 16
+        verrano_pon_campo(l, i, 0)
+    verrano_pon_campo(l, 0, verrano_lamina_magia)
+    verrano_pon_campo(l, 1, 1)
+    verrano_pon_campo(l, 2, verrano_lamina_cabecera)
+    verrano_pon_campo(l, verrano_campo_capacidad, capacidad)
+    crudo
+        escribe_natural64(l + bytes, bloque)
+        escribe_natural64(l + bytes + 8, bytes)
+    cambiante padre es natural64 = invoca_valor(mi_tarea, op_mi_padre, 0, 0, 0)
+    si padre = 0
+        devuelve 0
+    si invoca_valor(bloque, op_ofrecer, 0, bytes, padre) = 0
+        devuelve 0
+    devuelve l
+
+funcion verrano_capacidad(l es natural64) devuelve natural64
+    devuelve verrano_campo(l, verrano_campo_capacidad)
+
+# **Empezar un fotograma**: el sello de la ranura LIBRE a impar ("estoy
+# escribiendo aqui") y donde escribir los vertices.
+funcion verrano_empieza(l es natural64) devuelve natural64
+    k = (verrano_campo(l, verrano_campo_secuencia) + 1) resto 2
+    sello = verrano_campo(l, verrano_campo_sello + k)
+    verrano_pon_campo(l, verrano_campo_sello + k, (sello + 1) resto 4294967296)
+    devuelve l + verrano_lamina_cabecera + k * verrano_capacidad(l) * verrano_vertice
+
+# **Acabar un fotograma**: su numero de vertices y su fotograma, el sello a
+# PAR ("acabe") y la secuencia, LO ULTIMO: la publicacion.
+funcion verrano_acaba(l es natural64, vertices es natural64, fotograma es natural64)
+    s = verrano_campo(l, verrano_campo_secuencia)
+    k = (s + 1) resto 2
+    verrano_pon_campo(l, verrano_campo_vertices + k, vertices)
+    verrano_pon_campo(l, verrano_campo_fotograma + k, fotograma)
+    sello = verrano_campo(l, verrano_campo_sello + k)
+    verrano_pon_campo(l, verrano_campo_sello + k, (sello + 1) resto 4294967296)
+    verrano_pon_campo(l, verrano_campo_secuencia, (s + 1) resto 4294967296)

@@ -525,6 +525,19 @@ superficie_tomada          = "el DIRECTOR ya la tomo (bit 24)"
 #  LA LAMINA: la pagina ya maquetada que manda la antena, leida y pintada
 #  desde INTI (2026-09-18, N2 de PLAN_NAVEGAR). Las reglas son las de
 #  `platform/shared/bmo-antena/src/lamina.rs`; aqui solo se recorren.
+#  ** LA LAMINA DE VERRANO (2026-09-26): el bloque que una app ofrece al
+#  escritorio para que VERRANO lea sus vertices, sin cerrojo. Cuerpo en
+#  `runtime/verrano.inti`; el trato, en `platform/shared/verrano/src/lamina.rs`.
+#  [!] No es `[lamina]` (esa es la de NAVEGAR, las paginas `.lam`): otra cosa.
+[verrano]
+verrano_lamina     = "pide el bloque, escribe la cabecera BVER y se la ofrece a quien nos lanzo; 0 si nadie la lee"
+verrano_bytes      = "lo que mide una lamina de tantos vertices por ranura"
+verrano_capacidad  = "cuantos vertices caben en cada ranura"
+verrano_empieza    = "sella la ranura libre (impar) y devuelve donde escribir los vertices"
+verrano_acaba      = "cuantos vertices y que fotograma; el sello a par y la secuencia, lo ultimo: la publicacion"
+verrano_campo      = "una palabra de 32 bits de la cabecera, por indice"
+verrano_pon_campo  = "escribe una palabra de la cabecera"
+
 [lamina]
 lamina_pinta    = "pinta la lamina que hay en un bloque, desplazada; 0 o codigo * 65536 + linea"
 lamina_cabecera = "LAMINA ancho alto n: ancho y alto empaquetados, o NADA_MAS"

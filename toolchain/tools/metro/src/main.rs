@@ -88,6 +88,7 @@ const BANCO: &[(&str, &str)] = &[
     ("inti", "toolchain/lang/inti/sondas/ventana.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/bico.inti"),
     ("inti", "toolchain/lang/inti/ejemplos/musica.inti"),
+    ("inti", "toolchain/lang/inti/ejemplos/cubo.inti"),
     ("inti", "Ultra_userspace/apps/navegar/navegar.inti"),
 ];
 
