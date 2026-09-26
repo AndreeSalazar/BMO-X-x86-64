@@ -396,6 +396,14 @@ la fisica, las matrices, la logica. Entra en E6 y en M6.
       BEF2 de `d.bex`), o esa cuenta la hace INTI. Con M2 (la matriz en la
       3060) la mayor parte deja de ser de la CPU. **Como se sabe:** las
       tandas de los 360 angulos, de ~12 ms a menos de 1.
+      **Primer paso hecho (26-09, en el banco, no en el metal):** INTI
+      cuenta un vertice en UN registro. `reparte`/`suma`/`resta`/`por`/
+      `acumula_de_cuatro32` (SSE, sin AVX), y la prueba de oro: los 24
+      vertices del cubo en los 360 angulos, transformados por INTI, bit a
+      bit los de `bmo_cubo` (`inti/emisor-x86_64/src/pruebas/simd.rs`).
+      `acumula` redondea DOS veces a proposito: con FMA 270 de 360 matrices
+      salen distintas. Falta: que INTI haga la tanda entera (la division, el
+      redondeo al par, las caras) y que el escritorio la use.
 
 ### M -- EL MOTOR
 

@@ -286,6 +286,18 @@ resta_de_cuatro      = "avx_resta4"
 por_de_cuatro        = "avx_por4"
 funde_de_cuatro      = "avx_funde4"
 limpia_los_altos     = "avx_sin_altos"
+
+# ===================================================================
+#  *** CUATRO flotante32 A LA VEZ: un vertice en un registro (2026-09-26)
+# ===================================================================
+#
+#  SSE, no AVX (ver la fila en intrinsics.toml). Y `acumula` NO es `funde`:
+#  dos redondeos, para dar los MISMOS bits que el juez del cubo.
+suma_de_cuatro32     = "sse_suma4f"
+resta_de_cuatro32    = "sse_resta4f"
+por_de_cuatro32      = "sse_por4f"
+acumula_de_cuatro32  = "sse_acumula4f"
+reparte_de_cuatro32  = "sse_reparte4f"
 absoluto        = "absd"
 
 # -- ** los BITS de un flotante, que no son su valor -----------------
@@ -450,6 +462,9 @@ piden = [
     # programa, y nadie comprueba que quepan. Es memoria cruda, como
     # `escribe_natural64`, asi que estan aqui por la misma regla.
     "suma_de_cuatro", "resta_de_cuatro", "por_de_cuatro", "funde_de_cuatro",
+    # Y las de SSE (2026-09-26): 16 bytes en direcciones del programa.
+    "suma_de_cuatro32", "resta_de_cuatro32", "por_de_cuatro32",
+    "acumula_de_cuatro32", "reparte_de_cuatro32",
     "entrada_puerto", "entrada_puerto16", "entrada_puerto32",
     "escribe_puerto", "escribe_puerto16", "escribe_puerto32",
     "lee_msr", "escribe_msr",

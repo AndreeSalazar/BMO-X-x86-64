@@ -96,6 +96,12 @@ fn ejecuta(fuente: &str, a: u64, b: u64) -> u64 {
 /// arrancar siempre por la primera probaria la de arriba en vez de la que
 /// interesa.
 fn ejecuta_en(fuente: &str, nombre: &str, a: u64, b: u64) -> u64 {
+    maquina_en(fuente, nombre, a, b, |_| {}).regs[0]
+}
+
+/// `ejecuta_en`, con la memoria preparada ANTES (`preparar`) y la maquina
+/// entera DESPUES, para leer lo que el programa dejo en memoria.
+fn maquina_en(fuente: &str, nombre: &str, a: u64, b: u64, preparar: impl FnOnce(&mut Machine)) -> Machine {
     let e = emitido(fuente);
     let inicio = e
         .inicios
@@ -145,10 +151,10 @@ fn ejecuta_en(fuente: &str, nombre: &str, a: u64, b: u64) -> u64 {
         }
     }
 
+    preparar(&mut m);
     m.regs[7] = a;
     m.regs[6] = b;
-    let m = run(m, 100_000);
-    m.regs[0]
+    run(m, 100_000)
 }
 
 const SUMA: &str = "\

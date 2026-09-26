@@ -796,6 +796,30 @@ funcion seno(r es flotante32) devuelve flotante32
   con `a` de coma flotante bajaba el `2` como ENTERO y daba `1.5e-323` en vez
   de `3.0`. Ahora el literal entero pasa al binario de la operacion.
 
+### ★★ Cuatro `flotante32` de golpe: un vertice en un registro (2026-09-26)
+
+SSE (128 bits, la base de todo x86-64: no pide AVX), en `crudo` porque
+reciben DIRECCIONES de 16 bytes:
+
+```
+reparte_de_cuatro32(destino, fuente)      destino[0..4] = fuente[0]
+suma_de_cuatro32(destino, a, b)           destino = a + b      (cuatro carriles)
+resta_de_cuatro32(destino, a, b)          destino = a - b
+por_de_cuatro32(destino, a, b)            destino = a * b
+acumula_de_cuatro32(destino, a, b)        destino = destino + a * b
+```
+
+- **`acumula` NO es `funde`**: dos redondeos, como `+` y `*` sueltos. Con
+  FMA, 270 de los 360 angulos del cubo de VERRANO darian otra matriz y el
+  cubo dejaria de ser IGUAL a D3D12 (`pruebas/simd.rs`, medido).
+- Una matriz por columnas por un vertice = un `reparte` + `por` y tres
+  `reparte` + `acumula`: `((c0*x + c1*y) + c2*z) + c3*w`, el orden del juez.
+  **La prueba de oro**: los 24 vertices del cubo en los 360 angulos, bit a
+  bit contra `bmo_cubo::mat::transformar`.
+- Y el mismo dia el banco dejo de mentir sobre `funde_de_cuatro`: el emulador
+  hacia `acc + a*b` con DOS redondeos. Ahora redondea una vez, como el
+  silicio (`(1+2^-30)(1-2^-30) - 1` da `-2^-60`, no `0`).
+
 ### Lo que NO lleva detras: ninguna comprobacion
 
 Y no es una excepcion a *"INTI no tiene comportamiento indefinido"*:
