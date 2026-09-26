@@ -107,16 +107,72 @@ la SPH (128 B) y detras las instrucciones.
 - [ ] **V3 -- las constantes.** La matriz en un buffer y el programa de
       vertice multiplicando (lo que hace D3D): la pregunta del FMA, medida.
       **Como se sabe:** la huella de D3D12 sale con las cuentas en la 3060.
+- [ ] **V3b -- EL JUEZ DEL SASS: si la GPU calla, el compilador habla.**
+      Pedido del propietario (26-09): *"si la GPU no dice nada ... que el
+      compilador diga ... que la GPU NO CALLE, si CALLA el compilador habla
+      por nosotros"*. Un programa de SM86 mal hecho no da error: la 3060 se
+      CUELGA o calcula basura en silencio (VERRANO V0, INTR/EXCEPTION/STATUS
+      a 0). Asi que ANTES de que un programa entre en un BSF, un juez lo lee
+      instruccion a instruccion y dice NO con el motivo: una lectura de un
+      registro que carga un LDG/ALD sin esperar su barrera; una barrera que
+      se espera y nadie escribe (o que se escribe y nadie espera); un stall
+      mas corto que la latencia de la instruccion de antes; un registro por
+      encima de `REGISTROS`; un LDG/STG con la SPH sin `DoesLoadOrStore`; un
+      `AST` a un atributo que la SPH no declara; un `EXIT` con un `AST`
+      pendiente. Es el guardian de la GPU: como `la-3060` protege el build
+      del kernel, este protege lo que la 3060 va a ejecutar. **Como se
+      sabe:** los programas que YA corrieron en el metal (T1c, T2a, X5,
+      giro, blur, fractal) pasan; cada regla tiene un programa roto a
+      proposito que el juez rechaza con SU motivo; y se pasa al de vertice
+      de VERRANO V0 -- si dice NO, el motivo es la pista del cuelgue.
 - [ ] **V4 -- el emisor SPIR-V a SM86.** El `kind` SM86 deja de ser "a
       mano": el SASS sale de `cubo.vert.spv` en el anfitrion, como el x86-64
-      de S4. **Como se sabe:** `Bsf::reproduce` comprueba tambien los
-      objetivos SM86.
+      de S4, reusando el lector, el juez de SPIR-V y el oraculo de
+      `PLAN_EL_SOMBREADOR.md` (neutros) y un emisor propio de SM86 que pone
+      los bits de control -- espera, barreras, stall -- por regla, no a
+      mano, y cuya salida pasa por el juez de V3b. **Como se sabe:**
+      `Bsf::reproduce` comprueba tambien los objetivos SM86, y el juez de
+      V3b no rechaza nada de lo que emite.
 - [ ] **V5 -- Vulkan a VERRANO.** Las 67 funciones de vkQuake 0.50
       (Ludoteca 16) traducidas a VERRANO: el primer juego por la 3060.
       **Como se sabe:** vkQuake dibuja su primer fotograma y el backend CPU
       da lo mismo.
 
 ---
+
+## 2b. Los idiomas de las GPU, y donde se aisla cada uno (26-09)
+
+Una GPU solo ejecuta SU codigo maquina; SPIR-V es el idioma de paso. Y los
+codigos maquina NO son iguales:
+
+```text
+   NVIDIA   SASS, uno por generacion: SM75 Turing, SM86 Ampere (la 3060),
+            SM89 Ada, SM120 Blackwell. Familia parecida desde Volta
+            (instrucciones de 128 bits con los bits de control dentro), pero
+            opcodes, latencias y cabecera cambian: NVIDIA NO garantiza el SASS
+            entre generaciones (para eso existe PTX)
+   AMD      el ISA de RDNA (GFX10, 11, 12): publicado por AMD, otro mundo --
+            unidades escalar y vectorial, y esperas por contador (s_waitcnt)
+   Intel    el ISA de Xe: registros GRF y marcas de dependencia por software
+            (SWSB), otro mas
+```
+
+Lo que eso decide en BMO-X, con la ley de la casa (hardware PERFILADO):
+
+```text
+   NEUTRO, una vez     el lector de SPIR-V, su juez y el oraculo (PLAN_EL_SOMBREADOR)
+   POR GPU, aislado    el emisor, su juez del SASS (V3b) y su ABI, en el crate
+                       de ESA tarjeta: ga10x (SM86), rdna4 (GFX12), ...
+   el sobre (BSF)      viaja el SPIR-V de origen y un objetivo por GPU (`kind`),
+                       cada uno con su hash: la 3060 recibe solo el suyo
+```
+
+Una NVIDIA nueva no es un compilador nuevo: es un DIALECTO -- otra tabla de
+opcodes y latencias y otra version de la cabecera, como un perfil de CPU. Una
+AMD o una Intel si son otro emisor, pero en su propio carril: no toca ni una
+linea del de la 3060 ni del lector neutro. El BSF no "entiende" el idioma --
+lo entiende el compilador --; el BSF GARANTIZA que lo que llega a la GPU es
+exactamente lo que el juez aprobo, y para que GPU se hizo.
 
 ## 3. Lo que V0 NO es, dicho antes
 

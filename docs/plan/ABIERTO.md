@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   348 casillas ABIERTAS en 41 planes
+   349 casillas ABIERTAS en 41 planes
    295 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -193,6 +193,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
 - ... y 4 mas
 
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 7 abiertas, 2 hechas
+
+*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
+
+- [ ] V0c -- gpu verrano en el Ryzen. La 3060 dibuja el cubo con los
+- [ ] V1 -- el cubo en MOVIMIENTO, con fps. N fotogramas seguidos por
+- [ ] V2 -- la profundidad y el culling (X5b de
+- ... y 4 mas
+
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
 
 *PLAN EL ENLAZADOR -- la pieza que madura a CINCO lenguajes a la vez*
@@ -236,15 +245,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S-FIRMA-4 -- EL METAL. Un .bex firmado que arranque en el Ryzen y
 - [ ] S-FIRMA-5 -- exige_firma() = true. Lo ultimo, y **no antes de que
 - [ ] C8e -- EL METAL. Los hallazgos 1, 2, 4, 5 y 6 tocan codigo que corre en
-- ... y 3 mas
-
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 6 abiertas, 2 hechas
-
-*PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
-
-- [ ] V0c -- gpu verrano en el Ryzen. La 3060 dibuja el cubo con los
-- [ ] V1 -- el cubo en MOVIMIENTO, con fps. N fotogramas seguidos por
-- [ ] V2 -- la profundidad y el culling (X5b de
 - ... y 3 mas
 
 ## [`PLAN_CODEGEN.md`](PLAN_CODEGEN.md) -- 5 abiertas, 4 hechas
