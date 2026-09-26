@@ -73,7 +73,7 @@ if (-not (Test-Path (Join-Path $prist '.git'))) {
 #            `$BMO_MODS` hace ganar), unity.py, las sondas
 if ($Mudar) {
     $suyo = Join-Path $externo 'doom\doomgeneric'
-    if (-not (Test-Path $suyo)) { throw "no esta $suyo: nada que mudar" }
+    if (-not (Test-Path $suyo)) { throw "no esta ${suyo}: nada que mudar" }
     $fuera = '\\\.git\\|\.(o|obj|exe|bex|bo|wad|pdb|ilk)$'
     $n = 0; $iguales = 0
     Get-ChildItem -LiteralPath $suyo -Recurse -File | ForEach-Object {
@@ -108,18 +108,44 @@ if ($Mudar) {
         }
         Write-Host "[doom] cola: $m fichero(s) de doom-port"
     } else {
-        Write-Host "[doom] [!] no esta $suCola: la cola no se muda" -ForegroundColor Yellow
+        Write-Host "[doom] [!] no esta ${suCola}: la cola no se muda" -ForegroundColor Yellow
     }
     Write-Host '[doom] Revisa `git status` y haz el commit: desde hoy el port vive aqui.'
 }
 
 # -- 3. FREEDOOM (BSD), a wad\ -----------------------------------------------
+#
+# Primero el zip que ya este en BMO-externo (alli se bajo el 25-09, con su
+# CHECKSUM al lado); si no esta, se baja. Si hay CHECKSUM se compara el
+# SHA-256 y, si no casa, se para: un WAD corrupto da un DOOM que se cierra
+# sin que nadie sepa por que.
 if ($Freedoom) {
     $zipUrl = Linea 'freedoom'
+    $zipNom = Split-Path -Leaf $zipUrl
     New-Item -ItemType Directory -Force -Path $wad | Out-Null
-    $zip = Join-Path $wad 'freedoom.zip'
-    Write-Host "[doom] Freedoom: $zipUrl"
-    Invoke-WebRequest -Uri $zipUrl -OutFile $zip
+    $local = Join-Path $externo $zipNom
+    $borrarZip = $false
+    if (Test-Path $local) {
+        $zip = $local
+        Write-Host "[doom] Freedoom: el zip de BMO-externo ($zipNom)"
+    } else {
+        $zip = Join-Path $wad $zipNom
+        Write-Host "[doom] Freedoom: $zipUrl"
+        Invoke-WebRequest -Uri $zipUrl -OutFile $zip
+        $borrarZip = $true
+    }
+    $suma = Join-Path $externo ($zipNom -replace '\.zip$', '-CHECKSUM')
+    if (Test-Path $suma) {
+        $h = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+        $dice = (Get-Content $suma -Raw).ToLower()
+        if ($dice -match $h) {
+            Write-Host "[doom]   SHA-256 casa con $(Split-Path -Leaf $suma)" -ForegroundColor DarkGray
+        } elseif ($dice -match '[0-9a-f]{64}') {
+            throw "el SHA-256 de $zipNom ($h) no esta en $(Split-Path -Leaf $suma)"
+        } else {
+            Write-Host "[doom]   [!] $(Split-Path -Leaf $suma) no trae un SHA-256: no se comprueba" -ForegroundColor Yellow
+        }
+    }
     $tmp = Join-Path $wad 'tmp'
     Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force
     foreach ($w in 'freedoom1.wad', 'freedoom2.wad') {
@@ -129,5 +155,6 @@ if ($Freedoom) {
             Write-Host "[doom]   wad\$w ($($f.Length) B)"
         }
     }
-    Remove-Item -Recurse -Force $tmp, $zip
+    Remove-Item -Recurse -Force $tmp
+    if ($borrarZip) { Remove-Item -Force $zip }
 }

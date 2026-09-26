@@ -545,6 +545,30 @@ le quita a DOOM su forma de pintar: le quita a la CPU el trabajo de
       primero. **Falta:** `traer.ps1 -Mudar` en la maquina donde vive
       `BMO-externo` y su commit -- el port solo existe alli.
       **Como se sabe:** `build.ps1` dice `el port del ARBOL` y DOOM se juega.
+      **Donde vive hoy (foto del 26-09):** `Documentos\BMO-externo\`, al
+      lado del repo, con `doom\` (las fuentes y `doom1.wad`), `doom-port\`
+      (la cola), `antena\`, `firmware\`, `naga-corpus\`, y
+      `freedoom-0.13.0.zip` (23,6 MB) con su `freedoom-0.13.0-CHECKSUM`.
+      Freedoom nunca llego al volumen: el build buscaba `doom\freedoom1.wad`
+      y el zip seguia cerrado -- `traer.ps1 -Freedoom` lo abre, y comprueba
+      el SHA-256 contra el CHECKSUM.
+      **Pendiente, en este orden:**
+      ```text
+         1  traer.ps1 -Mudar -Freedoom   la primera vez fallo al PARSEAR
+                                         ("$suyo:" dentro de comillas es
+                                         una unidad para PowerShell);
+                                         arreglado con ${suyo}. Nada se mudo
+         2  el commit local c7ff75ea0    se llama "el port de DOOM se muda
+                                         al arbol" y solo trae CAP00002.PNG
+                                         (1 MB), que ademas esta borrado en
+                                         el arbol. NO esta en GitHub: se
+                                         deshace con `git reset --soft
+                                         HEAD~1` y se decide aparte que es
+                                         esa imagen
+         3  el commit de la mudanza      sobre/ y cola/, sin .wad, sin .bex,
+                                         sin fuentes/
+         4  build.ps1 y jugar            la linea `el port del ARBOL`, y D1
+      ```
 - [ ] **D1 -- DOOM dice por que se cierra.** Sin fallo de Ring 3, DOOM no se
       estrella: SALE, casi siempre por `I_Error` con su motivo (ver el README
       de la expansion, seccion 4). **Como se sabe:** la linea de `I_Error` en
