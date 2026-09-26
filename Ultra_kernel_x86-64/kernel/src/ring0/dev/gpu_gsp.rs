@@ -506,6 +506,13 @@ pub fn comprobar(k: u64) -> Result<u64, u32> {
         &mut *core::ptr::addr_of_mut!(HASH_RADIX)
     };
     let Some(hash) = hash.as_mut() else { return no(IOMMU_NO_GSP_ORDEN) };
+    // ** LA CAJA NEGRA (26-09): un arranque se quedo 30 minutos quieto y lo
+    // ultimo que apunto fue "radix3 PRESTADOS" -- lo siguiente son estos 122
+    // trozos, que no decian nada hasta el ultimo. Ahora dicen por donde van
+    // (1 de cada 32): si vuelve a pasar, la caja negra dice si fue aqui.
+    if k == 0 || k % 32 == 31 {
+        crate::ring0::cabina::count("gpu", "L0c2: comprobando la radix3 por la IOMMU; trozo", k);
+    }
     let desde = k * TROZO;
     let hasta = (desde + TROZO).min(p.imagen.bytes);
     let mut a = desde;
