@@ -1700,7 +1700,7 @@ los tres dan 0, `fuego` y `frontera` se van DESPUES de `init`; si sale un
 save mode -fuego -frontera; fuego no corrio, frontera no corrio`, en frio, y
 el GSP-RM corre (LOGRM 2428417, 33 mensajes). Uno de tres: los buenos de antes
 (13:35, 20:19, 20:39) tambien tenian frontera, asi que uno solo no la condena.
-Lo que ya ensena este arranque bueno, comparado con los malos:
+Lo que ya muestra este arranque bueno, comparado con los malos:
 
 ```text
                        malo (x8)            bueno sin frontera
