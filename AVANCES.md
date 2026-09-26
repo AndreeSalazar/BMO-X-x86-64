@@ -15,6 +15,33 @@ una escuela de esquema; la ponen las piezas que hay dentro de la caja.
 Toolchain propio (C / COBOL / **Ada** / C++ -> BEF -> BEX nativo), y los
 tres primeros **ya han ejecutado en el Ryzen**.
 
+> ## ★★★ Al 2026-09-26 -- DOOM ENTRA AL ARBOL, Y LA 3060 SE FABRICA EN LA NUBE
+>
+> La meta del dia (`docs/plan/PLAN_VERRANO.md`, 2d): la escalera al jefe
+> final, **DOOM -> Freedoom -> Quake -> ... -> Quake II RTX**, con cada
+> escalon diciendo que le pide a la 3060.
+>
+> - **DOOM vive en el arbol** (`toolchain/lang/c/expansion/doom/`, D0): el
+>   port (`sobre/`, `cola/`, GPL-2.0 segun `NOTICE`), las fuentes de
+>   doomgeneric al commit fijado, `default.cfg` y Freedoom con un comando
+>   (`traer.ps1`). El build lo compila desde ahi; la mudanza no cambio ni un
+>   byte del `.bex`.
+> - **`math.h` tiene sus series** (escalon 4, Quake): `sin`, `cos`, `tan`,
+>   `atan`, `atan2`, `exp`, `log`, `pow`, la MISMA definicion que el emisor de
+>   SPIR-V; 5216 resultados bit a bit. Y cayo un fallo de BMO C: con un NaN,
+>   `==` y `<` daban CIERTO y `!=` FALSO.
+> - **INTI**: el cubo de VERRANO bit a bit, y `a() * b()` con funciones de
+>   coma flotante ya no multiplica los bits como enteros.
+> - **D2a, `imagen`**: el programa que agranda el 320 x 200 de DOOM
+>   DIRECTAMENTE en la pantalla, por computo (como `video`), sin esperar a las
+>   texturas. **Y el SASS se fabrico en la nube**: el `ptxas` 12.9 de PyPI,
+>   validado rehaciendo el primer sombreador bit a bit. Ya no hace falta un
+>   Windows con CUDA para darle un programa nuevo a la 3060.
+>
+> **Lo siguiente, en orden:** D1 (DOOM en el Ryzen con los tres WAD; si se
+> cierra, la linea de `I_Error`), D2b (`gpu imagen` en el metal), D2c (DOOM
+> en vivo por la 3060), y `printf("%f")` para la sonda de Quake.
+
 > ## ★★★ Al 2026-08-16 -- SE MIDIO LA PUERTA, Y EL CENSO PAGO SOLO
 >
 > **Cuatro numeros nuevos que antes no existian en el arbol**, los cuatro

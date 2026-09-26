@@ -8,7 +8,7 @@
 
 ```text
    373 casillas ABIERTAS en 43 planes
-   307 hechas
+   309 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -50,7 +50,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
 - ... y 22 mas
 
-## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 24 abiertas, 7 hechas
+## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 24 abiertas, 9 hechas
 
 *PLAN VERRANO -- la API de dibujo de BMO-X, con el BSF debajo*
 

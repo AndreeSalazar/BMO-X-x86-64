@@ -539,56 +539,55 @@ de 32 bits (`DG_ScreenBuffer`), y la CPU lo estira a la ventana. VERRANO no
 le quita a DOOM su forma de pintar: le quita a la CPU el trabajo de
 **presentarlo**, que es donde la 3060 es imbatible.
 
-- [~] **D0 -- DOOM en el arbol.** `toolchain/lang/c/expansion/doom/`: las
-      fuentes al commit fijado (`FUENTES.txt`), la config de la primera
-      partida (`default.cfg`), Freedoom con un comando, y el build mira ahi
-      primero. **Falta:** `traer.ps1 -Mudar` en la maquina donde vive
-      `BMO-externo` y su commit -- el port solo existe alli.
-      **Como se sabe:** `build.ps1` dice `el port del ARBOL` y DOOM se juega.
-      **Donde vive hoy (foto del 26-09):** `Documentos\BMO-externo\`, al
-      lado del repo, con `doom\` (las fuentes y `doom1.wad`), `doom-port\`
-      (la cola), `antena\`, `firmware\`, `naga-corpus\`, y
-      `freedoom-0.13.0.zip` (23,6 MB) con su `freedoom-0.13.0-CHECKSUM`.
-      Freedoom nunca llego al volumen: el build buscaba `doom\freedoom1.wad`
-      y el zip seguia cerrado -- `traer.ps1 -Freedoom` lo abre, y comprueba
-      el SHA-256 contra el CHECKSUM.
-      **Pendiente, en este orden:**
-      ```text
-         1  traer.ps1 -Mudar -Freedoom   la primera vez fallo al PARSEAR
-                                         ("$suyo:" dentro de comillas es
-                                         una unidad para PowerShell);
-                                         arreglado con ${suyo}. Nada se mudo
-         2  el commit local c7ff75ea0    se llama "el port de DOOM se muda
-                                         al arbol" y solo trae CAP00002.PNG
-                                         (1 MB), que ademas esta borrado en
-                                         el arbol. NO esta en GitHub: se
-                                         deshace con `git reset --soft
-                                         HEAD~1` y se decide aparte que es
-                                         esa imagen
-         3  el commit de la mudanza      sobre/ y cola/, sin .wad, sin .bex,
-                                         sin fuentes/
-         4  build.ps1 y jugar            la linea `el port del ARBOL`, y D1
-      ```
+- [x] **D0 -- DOOM en el arbol.** HECHO el 26-09: `toolchain/lang/c/
+      expansion/doom/` (las fuentes al commit fijado, `sobre/` con lo que el
+      port cambia, `cola/` con los stubs, `default.cfg`, Freedoom con un
+      comando), mudado desde `BMO-externo` por `traer.ps1 -Mudar`, a la regla
+      de la casa (ASCII, sin enes caidas) y con L6a en verde. El build del
+      propietario: `[doom] el port del ARBOL`, `doom.bex` 786.834 B, y
+      `doom1.wad`, `freedm1.wad`, `freedm2.wad` y `default.cfg` al volumen.
+      El de fuera y el del arbol, comparados: la mudanza no cambio ni un
+      byte (los 2 B de diferencia son de los renombres).
 - [ ] **D1 -- DOOM dice por que se cierra.** Sin fallo de Ring 3, DOOM no se
       estrella: SALE, casi siempre por `I_Error` con su motivo (ver el README
-      de la expansion, seccion 4). **Como se sabe:** la linea de `I_Error` en
-      la consola del escritorio, o DOOM jugandose con los tres WAD.
-- [ ] **D2 -- la TEXTURA de DOOM** (pide M3). Su fotograma subido a la VRAM
-      por el motor de copia, sin que la CPU lo toque pixel a pixel.
-      **Como se sabe:** leido de vuelta, bit a bit el bufer de DOOM.
-- [ ] **D3 -- el ESCALADO por la 3060.** Dos triangulos y la textura de D2,
-      estirados a la ventana con el muestreador. El juez ya existe: el
-      escalado de la CPU (`c/emisor-x86_64/src/tests/escalado_de_doom.rs`),
-      y con muestreo de punto la 3060 tiene que dar lo mismo. **Como se
-      sabe:** el fotograma de la 3060 IGUAL al de la CPU, y el `[perf]` de
-      DOOM sin el tiempo de escalar.
-- [ ] **D4 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
-      pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
-      aplica el programa de pixel. **Como se sabe:** igual que D3, con 4
-      veces menos bytes por fotograma.
+      de la expansion, seccion 4). **Como se sabe:** DOOM jugandose en el
+      Ryzen con `doom1.wad`, `freedm1.wad` y `freedm2.wad`, o la linea de
+      `I_Error` en la consola.
 
-El orden: **D0 -> D1 -> M3 -> D2 -> D3 -> D4.** D1 antes que nada: un juego
-que se cierra sin decir por que no se puede medir.
+**D2 va por COMPUTO, no espera a M3 (26-09).** Leyendo el port salio lo que
+cuesta hoy: DOOM pinta 320 x 200 y la CPU lo AGRANDA (x3 en ventana, hasta x5
+a pantalla completa; su propia medida: a x5, ~4,4 ms y 6,4 MB por fotograma).
+Y la 3060 ya escribe cada pixel de la pantalla con un programa de computo:
+`pantalla` (M5d P, el fractal, en el metal) y `video` (M6 V0: un fotograma de
+la RAM prestado por la IOMMU, agrandado por un entero y escrito donde mira el
+monitor). Para DOOM hace falta lo mismo que `video` con pixeles de 32 bits en
+vez de NV12: ni texturas, ni muestreador, ni tuberia 3D.
+
+- [x] **D2a -- el programa `imagen`.** HECHO el 26-09:
+      `bmo_gpu_ga10x::imagen`, un hilo por pixel del origen (se lee UNA vez
+      por el PCIe) que escribe su cuadrado de s x s; los parametros y el
+      encaje de `video`; la referencia es el agrandado de DOOM (`(x / s, y /
+      s)`); 46 instrucciones, 15 registros, y el juez del SASS lo da por
+      bueno. **Y la novedad que vale para toda la escalera:** el SASS se
+      fabrico EN LA NUBE, con el `ptxas` 12.9 y el `nvdisasm` 13.4 de PyPI; la
+      cadena se valido rehaciendo el primer sombreador desde su PTX (8 de 10
+      instrucciones iguales, y las 2 restantes son las dos NOP de siempre).
+- [ ] **D2b -- `gpu imagen` en el metal.** El trabajo del kernel y la orden
+      del escritorio, calcados de `gpu video` (el mismo prestamo del origen):
+      `gpu imagen <fichero> 320x200`, con un fotograma crudo de 32 bits (una
+      captura de DOOM de FRAPS-X). **Como se sabe:** la imagen x5 centrada en
+      la pantalla y la fila dice 256 de 256 muestras.
+- [ ] **D2c -- DOOM EN VIVO por la 3060.** El port deja de agrandar: entrega
+      sus 320 x 200 al escritorio (una superficie x1, o una lamina como la de
+      INTI) y el escritorio le pide a la 3060 cada fotograma. **Como se
+      sabe:** DOOM se juega a x5 y su `[perf]` dice 0 ms de agrandar.
+- [ ] **D3 -- la PALETA en la 3060.** Con `CMAP256` DOOM pinta 8 bits por
+      pixel: por el bus viaja la CUARTA parte, y la tabla de 256 colores la
+      aplica el mismo programa. **Como se sabe:** igual que D2c, con 4 veces
+      menos bytes por fotograma.
+
+El orden: **D1 -> D2b -> D2c -> D3.** M3 (las texturas) sigue haciendo falta,
+pero para Quake, no para DOOM.
 
 ## 2d. LA ESCALERA AL JEFE FINAL: de DOOM a Quake II RTX (26-09)
 
@@ -603,7 +602,9 @@ le pide a VERRANO; el jefe esta medido en
    ---------------------------------------------------------------------------------
    1  DOOM               doom1.wad (shareware)         la CPU pinta          HECHO 20-09
    2  Freedoom           freedm1/freedm2 (BSD)         D0, D1                EN MARCHA
-   3  DOOM por VERRANO   el mismo                      M3 (texturas), D2-D4  carril D
+   3  DOOM por la 3060   el mismo                      computo (`imagen`,    carril D:
+                                                       como `video`) y la    D0 y D2a
+                                                       paleta                HECHOS
    4  Quake, software    pak0.pak (shareware)          la coma flotante de   EN MARCHA: las
                                                        BMO C (L2)            series de math.h
                                                                              HECHAS (26-09);
