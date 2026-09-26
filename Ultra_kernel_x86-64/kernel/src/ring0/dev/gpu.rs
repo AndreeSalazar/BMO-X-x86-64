@@ -134,6 +134,7 @@ pub fn sondear() {
     // acabado y estos registros no dicen nada todavia.
     FRIO_WPR2.store(info_wpr2() | 1 << 63, Ordering::Release);
     FRIO_ENLACE.store(info_salud(1 << 8), Ordering::Release);
+    FRIO_BSI.store(info_bsi(), Ordering::Release);
 
     let chip = ga10x::Chip(leer(bar0, ga10x::BOOT_0));
     let mut c = GPU_HALLADA | (chip.0 as u64 & GPU_BOOT0_MASK) | ((device as u64) << GPU_DEVICE_SHIFT);
@@ -491,6 +492,32 @@ pub fn info_wpr2() -> u64 {
 /// << 32`) al sondear.
 static FRIO_WPR2: AtomicU64 = AtomicU64::new(0);
 static FRIO_ENLACE: AtomicU64 = AtomicU64::new(0);
+/// `info_bsi` AL SONDEAR. Ver alli.
+static FRIO_BSI: AtomicU64 = AtomicU64::new(0);
+
+/// `NV_PGC6_BSI_SECURE_SCRATCH_14` (nova-core, `regs.rs`): su bit 26,
+/// `boot_stage_3_handoff`, dice si el GSP completo su carga. Vive en el
+/// dominio que NO se apaga con un reinicio en caliente.
+const BSI_SECURE_SCRATCH_14: u32 = 0x0011_80F8;
+/// `NV_PGC6_AON_SECURE_SCRATCH_GROUP_05[0]`: bits 0..7, el progreso del
+/// firmware de arranque de la tarjeta (0xFF = acabo).
+const GFW_PROGRESO: u32 = 0x0011_8234;
+/// El bit de `boot_stage_3_handoff` en `BSI_SECURE_SCRATCH_14`.
+pub const BSI_HANDOFF: u64 = 1 << 26;
+
+/// ** EL 0x15 DEL BOOTER, MEDIDO (26-09): el cuarto 0x15 llego con la 3060
+/// FRIA segun la WPR2 (`al llegar` sin WPR2, el cargador no la toco), y eso
+/// tumbo la hipotesis de "venia caliente" medida por la WPR2. Pero la WPR2
+/// no es lo unico que sobrevive a un reinicio sin cortar la corriente: el
+/// dominio AON/BSI tambien. `SCRATCH_14 | progreso << 32 | 1 << 63`. SOLO SE
+/// LEE: es para saber, no para decidir (todavia).
+pub fn info_bsi() -> u64 {
+    let bar0 = BAR0.load(Ordering::Acquire);
+    if bar0 == 0 {
+        return 0;
+    }
+    leer(bar0, BSI_SECURE_SCRATCH_14) as u64 | ((leer(bar0, GFW_PROGRESO) & 0xFF) as u64) << 32 | 1 << 63
+}
 
 /// ** LO QUE HIZO EL CARGADOR (25-09): si la 3060 llego CALIENTE y la
 /// reinicio por el bus antes de `ExitBootServices` (`s1_cpu::gpu_reinicio`).
@@ -510,12 +537,15 @@ pub fn cargador(banderas: u64, antes: u64, despues: u64) {
 
 /// `INFO_GPU_SALUD`: selector 0 el sensor crudo, 1 `LNKSTA | LNKCAP << 32`;
 /// 2 la WPR2 cruda AL SONDEAR (bit 63: se tomo); 3 el enlace AL SONDEAR;
-/// 4, 5 y 6 lo que hizo el cargador (banderas, lecturas antes, despues).
+/// 4, 5 y 6 lo que hizo el cargador (banderas, lecturas antes, despues); 7
+/// `info_bsi` AL SONDEAR y 8 `info_bsi` AHORA.
 pub fn info_salud(sel: u64) -> u64 {
     match sel >> 8 {
         2 => return FRIO_WPR2.load(Ordering::Acquire),
         3 => return FRIO_ENLACE.load(Ordering::Acquire),
         4..=6 => return CARGADOR[(sel >> 8) as usize - 4].load(Ordering::Acquire),
+        7 => return FRIO_BSI.load(Ordering::Acquire),
+        8 => return info_bsi(),
         _ => {}
     }
     let bar0 = bar0();

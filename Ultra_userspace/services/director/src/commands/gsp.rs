@@ -714,6 +714,51 @@ fn paso(s: &mut Output, hecho: bool, nombre: &[u8]) {
 }
 
 /// **Las filas de L0c3b**, si se intento.
+/// **La fila `autopsia`** (26-09): las fotos del kernel alrededor del booter,
+/// SALGA BIEN O MAL -- un 0 tambien se apunta, porque la causa del 0x15 sale
+/// de COMPARAR arranques buenos con malos. Todo va a `datos/`.
+fn fila_autopsia(s: &mut Output) {
+    let antes = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 4 << 8);
+    let parado = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 5 << 8);
+    if antes >> 63 == 0 {
+        return;
+    }
+    let handoff = |v: u64| if v & 1 << 26 != 0 { b"PUESTO" as &[u8] } else { b"abajo" };
+    campo(s, b"autopsia");
+    s.with_ink(INK_ECHO);
+    s.text(b"antes del booter: BSI 0x");
+    s.hex(antes as u32 as u64, 8);
+    s.text(b" handoff ");
+    s.text(handoff(antes));
+    s.text(b", GFW 0x");
+    s.hex(antes >> 32 & 0xFF, 2);
+    super::datos::anotar(b"gpu booter bsi antes", antes as u32 as u64, b"");
+    if parado >> 63 != 0 {
+        let gsp = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 6 << 8);
+        let w = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 7 << 8);
+        let us = parado >> 32 & 0x7FFF_FFFF;
+        s.text(b"; al pararse (");
+        s.dec(us);
+        s.text(b" us): BSI 0x");
+        s.hex(parado as u32 as u64, 8);
+        s.text(b" handoff ");
+        s.text(handoff(parado));
+        s.text(b", GSP MAILBOX0 0x");
+        s.hex(gsp as u32 as u64, 8);
+        s.text(b" MAILBOX1 0x");
+        s.hex(gsp >> 32, 8);
+        s.text(b", WPR2 0x");
+        s.hex(w as u32 as u64, 8);
+        s.text(b"/0x");
+        s.hex(w >> 32, 8);
+        super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
+        super::datos::anotar(b"gpu booter us", us, b"us");
+        super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");
+    }
+    s.with_ink(INK_PLAIN);
+    s.byte(b'\n');
+}
+
 pub(crate) fn fila_despierto(s: &mut Output) {
     let d = bmo::info(bmo::INFO_GPU_DESPIERTO);
     if d & bmo::DESPIERTO_VALIDO == 0 {
@@ -753,13 +798,12 @@ pub(crate) fn fila_despierto(s: &mut Output) {
         s.text(b", MAILBOX1 0x");
         s.hex(m1, 8);
         super::datos::anotar(b"gpu sec2 mailbox1", m1, b"");
-        // ** 0x15: dos veces en el metal (24-09 07:48 y 13:52), y el
-        // siguiente arranque fue bien las dos. NO es "la tarjeta venia
-        // caliente": a las 13:52 FWSEC-FRTS corrio, y solo corre con la WPR2
-        // vacia. Causa sin conocer.
+        // ** 0x15: cuatro veces en el metal (24-09 07:48, 13:52, 19:12 y
+        // 25-09 19:38), la ultima con la 3060 FRIA segun la WPR2. Causa sin
+        // conocer: la fila `autopsia` junta lo que la separara.
         if d >> bmo::DESPIERTO_BUZON_SHIFT & 0xFFFF_FFFF == 0x15 {
             s.with_ink(INK_ERR);
-            s.text(b" = el booter no cargo (causa aun sin saber; dos veces en el metal): arranca otra vez");
+            s.text(b" = el booter no cargo (causa aun sin saber: mira la fila `autopsia`); APAGA y corta la corriente 30 s");
             s.with_ink(INK_ECHO);
         }
     }
@@ -775,6 +819,7 @@ pub(crate) fn fila_despierto(s: &mut Output) {
     }
     s.with_ink(INK_PLAIN);
     s.byte(b'\n');
+    fila_autopsia(s);
     // Lo que el GSP escribio: los punteros de sus logs y de su cola.
     campo(s, b"gsplog");
     let (ini, intr, rm) = (mem(0), mem(16 * 4096), mem(32 * 4096));

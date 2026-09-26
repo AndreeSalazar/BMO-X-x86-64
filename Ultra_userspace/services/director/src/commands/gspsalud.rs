@@ -171,6 +171,17 @@ pub(crate) fn fila(s: &mut Output) {
             s.text(b", enlace Gen");
             s.dec(l.gen as u64);
         }
+        // ** 26-09: lo que sobrevive a un reinicio SIN la WPR2 (el cuarto
+        // 0x15 del booter llego "frio" segun ella). Solo para mirar.
+        let b = bmo::info(bmo::INFO_GPU_SALUD | 7 << 8);
+        if b >> 63 != 0 {
+            s.text(b"; BSI 0x");
+            s.hex(b as u32 as u64, 8);
+            s.text(if b & 1 << 26 != 0 { b" (handoff PUESTO)" as &[u8] } else { b" (handoff abajo)" });
+            s.text(b", GFW 0x");
+            s.hex(b >> 32 & 0xFF, 2);
+            super::datos::anotar(b"gpu bsi al llegar", b as u32 as u64, b"");
+        }
         s.with_ink(INK_PLAIN);
         s.byte(b'\n');
     }

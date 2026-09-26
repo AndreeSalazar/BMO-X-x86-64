@@ -1729,7 +1729,13 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             va: 0x40 cargado, 0x80 HECHO, 1 fuera, 2 plazo,
 ///                             3 no contesta, 4 falcon, 5 SEC2); con selector 3,
 ///                             BAR1_BLOCK | BAR2_BLOCK << 32 (0xB80F40/48, en
-///                             vivo: el bit 31, la BAR virtual)
+///                             vivo: el bit 31, la BAR virtual); 4..7, la
+///                             AUTOPSIA DEL BOOTER (26-09): 4 `SCRATCH_14 |
+///                             GFW << 32` ANTES del booter; 5 `SCRATCH_14 | us
+///                             del booter << 32` al verse el SEC2 parado; 6
+///                             MAILBOX0 | MAILBOX1 << 32 del GSP en ese
+///                             instante; 7 la WPR2 en ese instante (bit 63 de
+///                             4 y 5: se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
@@ -1770,6 +1776,12 @@ pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 ///                63 = se tomo. Solo para mirar: al sondear el firmware de
 ///                arranque de la tarjeta aun no acabo (metal 24-09 14:09)
 ///   selector 3   el enlace AL SONDEAR, como el selector 1
+///   selector 4..6 lo que hizo el cargador (banderas, antes, despues)
+///   selector 7   AL SONDEAR: `NV_PGC6_BSI_SECURE_SCRATCH_14` (bit 26,
+///                `boot_stage_3_handoff`) | el progreso del firmware de
+///                arranque (0x118234, bits 0..7) << 32, bit 63 = se tomo
+///   selector 8   lo mismo, AHORA (26-09: el 0x15 del booter con la 3060
+///                fria segun la WPR2)
 /// ```
 ///
 /// Todo son lecturas: ni un registro se escribe. 0 = no hay 3060.

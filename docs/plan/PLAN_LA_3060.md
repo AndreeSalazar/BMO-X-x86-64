@@ -1542,6 +1542,54 @@ con MAILBOX0 = MAILBOX1 = 0xFF, y comprobar que la WPR2 cae
 (`0x1fa828` = 0). Mientras no este: APAGAR del todo (cortar la corriente de
 la fuente unos 30 s) entre pruebas, no reiniciar.
 
+**Cuarto 0x15 (25-09, 19:38), y con la 3060 FRIA: las hipotesis, en limpio
+(26-09).** `al llegar` sin WPR2, `cargador: fria al llegar (GSP parado, sin
+WPR2)`, FWSEC-FRTS corrio -- y el booter otra vez 0x15. Lo que SI dice el
+informe, leido despacio:
+
+```text
+   wpr2       0x2F4000000..: el booter EXTENDIO la WPR2 a todo el GSP-RM
+              -> cargo, paso su firma, leyo la WPR meta por la IOMMU y trabajo
+   evento     el unico de la IOMMU es la frontera (0x20000000, a proposito)
+              -> ni una lectura del booter fallo por DMA
+   gsplog     MAILBOX0 del GSP = 0, y ahi se escribieron los argumentos de LIBOS
+              -> alguien lo borro: el GSP se reseteo o su FMC empezo
+              (nova-core: "GSP-FMC normally clears the boot parameters address")
+   despierto  +sec2 -os -riscv: el RISC-V del GSP no quedo activo
+```
+
+O sea: el 0x15 no es "no arranco": es **fallo A MITAD**, despues de extender
+la WPR2 y probablemente al arrancar o verificar el GSP. NVIDIA no publica que
+es el 0x15 (el RM solo imprime "Booter failed with non-zero error code"), asi
+que no se inventa. Las hipotesis vivas, de mas a menos probable:
+
+| | hipotesis | la encaja | la mide |
+|---|---|---|---|
+| H1 | **estado que sobrevive al reinicio SIN la WPR2**: el dominio AON/BSI. nova-core lee `NV_PGC6_BSI_SECURE_SCRATCH_14` (0x1180F8), bit 26 `boot_stage_3_handoff`: si el GSP completo su carga | los 4 llegaron detras de sesiones con el GSP vivo; cortar la corriente lo arreglo las veces que se hizo; la WPR2 "fria" no dice nada de ese dominio | `autopsia`: BSI antes del booter, en arranques buenos Y malos |
+| H2 | **el tiempo**: el booter arranca demasiado pronto o tarde respecto a FWSEC o al reset del GSP | que sea intermitente | `autopsia`: los us del booter; el orden de pasos ya es el de NVIDIA |
+| H3 | **coherencia de cache**: la 3060 lee de la RAM lo que la CPU aun tiene sin escribir | intermitente, y lo ultimo escrito antes del booter es la WPR meta | (despues) un `wbinvd` antes del booter, UNA prueba aparte |
+| H4 | **la imagen cambio** entre cargarla y el booter | el booter verifica tras copiar | el BLAKE3 por la radix3 ya cuadra al cargar; faltaria repetirlo justo antes |
+
+**Lo que se hizo (26-09): MEDIR, sin cambiar el camino.** Cambiar algo con un
+fallo que sale una vez de cada muchas no dice cual cambio lo arreglo. Tres
+fotos, solo lecturas:
+
+- `gpu::info_bsi` (SCRATCH_14 y el progreso del GFW), AL SONDEAR:
+  `INFO_GPU_SALUD` selector 7 (y 8 en vivo). La fila `al llegar` lo dice.
+- LA AUTOPSIA DEL BOOTER (`dev/gpu_despertar.rs`, `INFO_GPU_DESPIERTO_BUZON`
+  4..7): BSI justo antes de arrancar el booter; y la primera vez que se ve el
+  SEC2 parado, BSI otra vez, los us desde el arranque, los dos buzones del GSP
+  y la WPR2. **Se toma SALGA BIEN O MAL**: la causa sale de comparar.
+- La fila `autopsia` en `gpu`, y todo a `datos/` (`gpu booter bsi antes`,
+  `... parado`, `gpu booter us`, `gpu booter gsp mailbox0`, `gpu bsi al llegar`).
+
+**Como se decide:** con 2 o 3 arranques buenos y 1 malo ya se ve. Si el malo
+trae `handoff PUESTO` antes del booter y los buenos `abajo`, es H1, y el
+arreglo es el del cargador: `s1_cpu::gpu_reinicio` ya reinicia la 3060 por el
+bus cuando llega caliente; se le suma este bit a su "caliente". Si no hay
+diferencia, H1 cae y se prueba H3 (el `wbinvd`) sola. Mientras: **APAGAR y
+cortar la corriente 30 s entre pruebas** sigue siendo la regla.
+
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con
 sus 8 B a cero; los registros; los juicios), `fwsec::parchear_sb`, y en el

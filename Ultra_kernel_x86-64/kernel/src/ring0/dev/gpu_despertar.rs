@@ -258,12 +258,54 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     }
     fa::brom(&mut r, fa::SEC2, b.pkc_data_offset(), b.engine_id_mask, b.ucode_id);
     let m = IOVA_WPR_META;
+    // La foto [0] de la autopsia, y el reloj del booter.
+    AUTOPSIA[0].store(crate::ring0::dev::gpu::info_bsi(), Ordering::Release);
+    BOOTER_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
     apuntar(|x| x | DESPIERTO_SEC2_ARRANCADO);
     crate::ring0::cabina::count("gpu", "L0c3b: el BOOTER ARRANCADO en el SEC2; firma", idx as u64);
     Ok(idx as u64)
+}
+
+// == LA AUTOPSIA DEL BOOTER (26-09) ==========================================
+//
+// Cuatro 0x15 y dos hipotesis caidas (la WPR2 caliente; "reiniciaste sin
+// cortar la corriente" cuando la tarjeta llego fria). Antes de cambiar nada,
+// medir: tres fotos, SOLO lecturas, sin tocar el camino del booter.
+//
+//    [0]  justo ANTES de arrancar el booter: `gpu::info_bsi`
+//    [1]  la PRIMERA vez que se ve el SEC2 parado: `info_bsi` | los us desde
+//         el arranque del booter << 32 (resolucion: la de quien pregunta)
+//    [2]  en ese instante: MAILBOX0 | MAILBOX1 << 32 del falcon del GSP (lo
+//         escribimos con los argumentos de LIBOS; si esta a 0, alguien lo
+//         borro: el GSP se reseteo o su FMC corrio -- nova-core: "GSP-FMC
+//         normally clears the boot parameters address from the mailboxes")
+//    [3]  en ese instante: la WPR2 (`INFO_GPU_WPR2`)
+//
+// La comparacion que decide: si los arranques que dan 0x15 traen el bit
+// `BSI_HANDOFF` puesto ANTES del booter y los que dan 0 no, la causa es ese
+// estado que sobrevive al reinicio, y el arreglo es exigirlo abajo (o
+// reiniciar la tarjeta) antes de gastar el booter.
+
+static AUTOPSIA: [AtomicU64; 4] = [AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0), AtomicU64::new(0)];
+static BOOTER_TSC: AtomicU64 = AtomicU64::new(0);
+
+/// La foto del SEC2 recien parado, UNA vez por arranque.
+fn autopsiar(r: &mut Bar0) {
+    if AUTOPSIA[1].load(Ordering::Acquire) != 0 {
+        return;
+    }
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let us = crate::ring0::task::scheduler::rdtsc().saturating_sub(BOOTER_TSC.load(Ordering::Acquire)) / hz;
+    let (gm0, gm1) = match fa::como_va(r, fa::GSP) {
+        Ok((_, m0, m1)) => (m0, m1),
+        Err(_) => (0xFFFF_FFFF, 0xFFFF_FFFF),
+    };
+    AUTOPSIA[2].store(gm0 as u64 | (gm1 as u64) << 32, Ordering::Release);
+    AUTOPSIA[3].store(crate::ring0::dev::gpu::info_wpr2(), Ordering::Release);
+    AUTOPSIA[1].store(crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF | us.min(0x7FFF_FFFF) << 32 | 1 << 63, Ordering::Release);
 }
 
 /// Donde deja el build el booter de DESCARGA (L0c5).
@@ -348,6 +390,7 @@ pub fn acabar() -> Result<u64, u32> {
     if !parado {
         return no(IOMMU_NO_SEC2_NO_PARA);
     }
+    autopsiar(&mut r);
     if m0 != 0 {
         return no(IOMMU_NO_BOOTER_MAL);
     }
@@ -381,6 +424,10 @@ pub fn info_despierto() -> u64 {
     if v & DESPIERTO_SEC2_ARRANCADO != 0 {
         if let Ok((parado, m0, _)) = fa::como_va(&mut r, fa::SEC2) {
             v |= if parado { DESPIERTO_SEC2_PARADO } else { 0 } | (m0 as u64) << DESPIERTO_BUZON_SHIFT;
+            // Solo en el arranque que cargo el booter, no tras la descarga.
+            if parado && BOOTER_TSC.load(Ordering::Acquire) != 0 {
+                autopsiar(&mut r);
+            }
         }
         if let Ok((activo, parado)) = fa::riscv(&mut r, fa::GSP) {
             v |= if activo { DESPIERTO_RISCV_ACTIVO } else { 0 } | if parado { DESPIERTO_RISCV_PARADO } else { 0 };
@@ -402,7 +449,8 @@ pub fn gsp_tomado() -> bool {
 
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
 /// con selector 1 (`1 << 8`) del SEC2, si el booter arranco; con selector 2,
-/// como va el secuenciador (L0c4b2c, `info_secuencia`).
+/// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..7 la
+/// AUTOPSIA DEL BOOTER (ver `autopsiar`).
 ///
 /// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
 /// = 0x15 donde tres veces antes dio 0. nova-core imprime los DOS buzones al
@@ -413,6 +461,9 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     }
     if sel >> 8 == 3 {
         return info_bar1();
+    }
+    if (4..=7).contains(&(sel >> 8)) {
+        return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();
     let (falcon, hace_falta) = if sel >> 8 == 1 { (fa::SEC2, DESPIERTO_SEC2_ARRANCADO) } else { (fa::GSP, DESPIERTO_GSP_ARRANCADO) };
