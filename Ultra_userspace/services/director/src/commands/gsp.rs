@@ -758,6 +758,23 @@ fn fila_autopsia(s: &mut Output) {
         s.text(b" SEC2 0x");
         s.hex(c >> 32, 8);
         super::datos::anotar(b"gpu booter cpuctl gsp", c as u32 as u64, b"");
+        // HASTA DONDE LLEGO: lo que el booter escribio en la WPR meta.
+        let mm = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 9 << 8);
+        if mm >> 63 != 0 {
+            let v = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 10 << 8);
+            let n = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 11 << 8);
+            s.text(b"; la WPR meta: el booter cambio ");
+            s.dec((mm as u32).count_ones() as u64);
+            s.text(b" palabras (mascara 0x");
+            s.hex(mm & 0xFFFF_FFFF, 8);
+            s.text(b"), verified 0x");
+            s.hex(v, 16);
+            s.text(b", bootCount ");
+            s.dec(n);
+            super::datos::anotar(b"gpu booter meta mascara", mm & 0xFFFF_FFFF, b"");
+            super::datos::anotar(b"gpu booter meta verified", v, b"");
+            super::datos::anotar(b"gpu booter meta bootcount", n, b"");
+        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");

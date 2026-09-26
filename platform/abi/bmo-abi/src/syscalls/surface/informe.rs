@@ -1736,8 +1736,11 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             MAILBOX0 | MAILBOX1 << 32 del GSP en ese
 ///                             instante (CRUDOS: un 0xBADF.... es el error de
 ///                             PRI tal cual); 7 la WPR2 en ese instante; 8
-///                             CPUCTL del GSP | CPUCTL del SEC2 << 32, crudos
-///                             (bit 63 de 4 y 5: se tomo)
+///                             CPUCTL del GSP | CPUCTL del SEC2 << 32, crudos;
+///                             9 las palabras de la WPR meta que cambio el
+///                             booter (mascara de 32) | se tomo << 63; 10 su
+///                             `verified`; 11 su `bootCount` (bit 63 de 4 y 5:
+///                             se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

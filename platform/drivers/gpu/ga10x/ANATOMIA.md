@@ -152,3 +152,75 @@ con el vocabulario cerrado `VOLATIL VRAM WPR AON FUSIBLE ROM RAM`.
 Las fuentes publicas usadas: nova-core (Linux, `drivers/gpu/nova-core`),
 nouveau (`nvkm/subdev/gsp`) y el driver abierto de NVIDIA 570.144
 (`kernel_gsp_tu102.c`).
+
+## 9. Lo que BMO-X le entrega al booter, dato por dato (26-09)
+
+El 0x15 es un NO del booter. Un NO tiene que venir de algo que se le dio, del
+estado de la tarjeta, o del momento. Esto es TODO lo que se le da, con de
+donde sale cada numero y si puede cambiar de un arranque a otro. **Un dato
+que varia entre arranques es un sospechoso; uno fijo, no.**
+
+### 9a. Los registros, en orden (`dev/gpu_despertar.rs`)
+
+| paso | que se escribe | valor | varia? |
+|---|---|---|---|
+| 0 | la pagina de VACIADO del GSP (`VACIADO`, `VACIADO_HI`), releida | IOVA `0x3C002000` | fijo |
+| 1 | reset del falcon del GSP; sus MAILBOX0/1 = los argumentos de LIBOS; arranca y se para solo | IOVA `0x3C000000` | fijo |
+| 2 | reset del SEC2; FBIF en fisico coherente (`TRANSCFG`), `DMACTL` 0 | constantes | fijo |
+| 2 | IMEM y DMEM del SEC2, copiadas por DMA desde el booter prestado | IOVA `0x3B000000`, firma elegida por el fusible (la 0 de 2) | fijo |
+| 2 | los parametros de la ROM (`brom`): offset de PKC, mascara de motor, ucode id, RSA-3K | del propio `boot_ld` | fijo |
+| 2 | BOOTVEC, MAILBOX0/1 del SEC2 = la IOVA de la WPR meta, STARTCPU | IOVA `0x3E007000` | fijo |
+
+### 9b. La WPR meta: los 256 bytes que el booter lee (`arranque/wpr.rs`)
+
+La forma es `GspFwWprMeta` (nova-core y el driver abierto de NVIDIA). Valores
+de la 3060 del propietario (fila `mapa` del informe):
+
+| byte | campo | que es | valor | de donde | varia? |
+|---|---|---|---|---|---|
+| 0 | magic | la firma de la estructura | `0xDC3AAE21371A60B3` | constante | fijo |
+| 8 | revision | la version de la forma | 1 | constante | fijo |
+| 16 | sysmemAddrOfRadix3Elf | donde esta la tabla radix3 del GSP-RM | IOVA `0x3F000000` | BMO-X | fijo |
+| 24 | sizeOfRadix3Elf | los bytes del GSP-RM | `0x3C99000` | el `.fwimage` | fijo |
+| 32 | sysmemAddrOfBootloader | el bootloader RISC-V | IOVA `0x3E000000` | BMO-X | fijo |
+| 40..64 | medida y offsets de codigo, datos y manifiesto del bootloader | lo que el RISC-V arranca | del `bootldr` | fijo |
+| 72, 80 | sysmemAddrOfSignature, sizeOfSignature | la firma ga10x del GSP-RM | IOVA `0x3E006000`, 4096 B | el ELF | fijo |
+| 88..104 | gspFwRsvdStart, nonWprHeap | lo de debajo de la WPR2 | `0x2F3F00000`, 1 MiB | `wpr::mapa` | fijo si la VRAM y la VGA lo son |
+| 112 | gspFwWprStart | donde EXTIENDE el booter la WPR2 | `0x2F4000000` | `wpr::mapa` | fijo (y el metal lo confirma) |
+| 120, 128 | gspFwHeap | el heap del GSP-RM | 128 MiB desde `0x2F4100000` | `wpr::heap` | fijo |
+| 136 | gspFwOffset | donde copia el booter el ELF | `0x2FC160000` | `wpr::mapa` | fijo |
+| 144 | bootBinOffset | donde va el bootloader | `0x2FFDFA000` | `wpr::mapa` | fijo |
+| 152, 160 | frtsOffset, frtsSize | lo que monto FWSEC-FRTS | `0x2FFE00000`, 1 MiB | `vbios::frts` | fijo |
+| 168 | gspFwWprEnd | el final de la WPR2 | `0x2FFF00000` (a 128 KiB) | `wpr::mapa` | fijo |
+| 176 | fbSize | la VRAM entera | 12 GiB | `0x1183A4` (GFW) | fijo si el GFW acabo |
+| 184, 192 | vgaWorkspace | la zona de la pantalla de arranque | desde `0x2FFF00000` | `info_vga` | fijo |
+| **200** | **bootCount** | **lo escribe el booter/GSP** | BMO-X pone 0 | -- | **la autopsia lo lee** |
+| 208..240 | la union del RPC, particiones VF, flags | sin usar en Ampere sin VF | 0 | -- | fijo |
+| 244 | pmuReservedSize | la reserva de la PMU | 0 en Ampere | -- | fijo |
+| **248** | **verified** | **lo escribe el booter al comprobar la imagen** | BMO-X pone 0 | -- | **la autopsia lo lee** |
+
+**Lo que dice la tabla:** todo lo que BMO-X entrega es FIJO de un arranque a
+otro -- y el metal lo confirma: el `mapa` sale identico en los arranques
+buenos y en los malos. Con eso, el 0x15 NO viene de un dato mal calculado
+por BMO-X, salvo que el GFW no hubiera acabado (y la fila dice `GFW 0xFF`).
+Queda el estado de la tarjeta y el momento.
+
+### 9c. Lo que ahora se apunta solo (save mode y CABINA)
+
+Cada arranque, BUENO O MALO, sin teclear nada:
+
+```text
+   al llegar      BSI_14, el progreso del GFW, la WPR2 cruda
+   autopsia       antes del booter: BSI_14
+                  al pararse el SEC2: MAILBOX0/1 del SEC2 y del GSP (crudos),
+                  los CPUCTL de los dos, la WPR2, los us, y
+                  QUE PALABRAS DE LA WPR META CAMBIO EL BOOTER, su
+                  `verified` y su `bootCount` -- HASTA DONDE LLEGO
+   donde          la fila `autopsia` del informe, `datos/DATOS.TXT` (gpu
+                  booter ...) y CABINA (la caja negra y el serie)
+```
+
+**Como se lee:** en un arranque bueno el booter llega al final y deja su
+huella en la meta; en uno malo, si la mascara o `verified` salen distintos,
+se sabe EN QUE ETAPA se paro. Eso es lo que convierte un 0x15 sin
+explicacion en un "se paro antes (o despues) de verificar la imagen".

@@ -400,6 +400,10 @@ pub fn prestar() -> Result<u64, u32> {
         let pag = memoria(aux + AUX_META * PAGINA, PAGINA);
         pag.fill(0);
         pag[..meta.len()].copy_from_slice(&meta);
+        // Lo que se escribio, palabra a palabra, para ver despues que toco el booter.
+        for (k, w) in META_ESCRITA.iter().enumerate() {
+            w.store(u64::from_le_bytes(meta[k * 8..k * 8 + 8].try_into().unwrap_or([0; 8])), Ordering::Release);
+        }
     }
 
     // El prestamo, pieza a pieza; lo ya prestado no se repite.
@@ -431,6 +435,34 @@ pub fn prestar() -> Result<u64, u32> {
     COMPROBADOS.store(0, Ordering::Release);
     crate::ring0::cabina::count("gpu", "L0c2: el GSP-RM y su radix3 PRESTADOS a la 3060; paginas", total);
     Ok(total)
+}
+
+// == LA WPR META DESPUES DEL BOOTER (26-09) ===================================
+//
+// La pagina de la WPR meta es la UNICA que la 3060 puede escribir (el prestamo
+// `PRESTADO_META`), y el booter escribe en ella mientras trabaja: el byte 200
+// (`bootCount`) y el 248 (`verified`), segun la forma de `wpr::wpr_meta`. Que
+// palabras cambio dice HASTA DONDE llego, sin saber que significa su 0x15:
+// se compara un arranque bueno con uno malo.
+
+/// Las 32 palabras de 8 bytes de la meta, como las escribio BMO-X.
+static META_ESCRITA: [AtomicU64; 32] = [const { AtomicU64::new(0) }; 32];
+
+/// **La meta ahora, contra la escrita**: `(mascara de palabras cambiadas,
+/// bootCount, verified)`. `None` si aun no se presto.
+pub fn meta_cambios() -> Option<(u32, u64, u64)> {
+    let aux = AUX.load(Ordering::Acquire);
+    if aux == 0 || PRESTADO.load(Ordering::Acquire) & PRESTADO_META == 0 {
+        return None;
+    }
+    let base = aux + AUX_META * PAGINA;
+    let mut mascara = 0u32;
+    for (k, w) in META_ESCRITA.iter().enumerate() {
+        if palabra_en(base + k as u64 * 8) != w.load(Ordering::Acquire) {
+            mascara |= 1 << k;
+        }
+    }
+    Some((mascara, palabra_en(base + 200), palabra_en(base + 248)))
 }
 
 /// Una palabra de 64 bits en la fisica `f`.
