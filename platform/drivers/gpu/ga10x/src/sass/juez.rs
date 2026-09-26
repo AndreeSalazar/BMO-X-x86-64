@@ -611,6 +611,79 @@ mod pruebas {
         assert_eq!(regla(&c, &ctx), Regla::R6FinalSucio);
     }
 
+    /// ** LO QUE SE LE ENVIA A LA 3060 (26-09, pedido del propietario: "fijate
+    /// en lo que le envia para configurar eso antes"). El juez no se fia de un
+    /// numero escrito a mano en el corpus: saca los registros de las ORDENES
+    /// y de los QMD de verdad -- `SET_PIPELINE_REGISTER_COUNT` de cada hueco
+    /// del pipeline y `REGISTER_COUNT_V` (bits 648..656) de cada QMD -- y juzga
+    /// cada programa con ESE numero. Si alguien sube un programa sin subir lo
+    /// que se envia (o al reves), esto dice TOMA TU BODRIO antes que la 3060.
+    #[test]
+    fn con_lo_que_se_le_envia() {
+        use crate::raster::{set_pipeline_shader, PIXEL, VERTICE};
+        use crate::sombreador::{leer_campo, QMD_PALABRAS};
+        use crate::{blur, escena, fractal, giro, lienzo, pantalla, sombreador, triangulo, video};
+
+        // Los registros que las ordenes dan al hueco `j` del pipeline.
+        fn enviados(o: &[u32], j: u32) -> u32 {
+            let quiero = set_pipeline_shader(j) + 0x0c;
+            let mut i = 0;
+            while i < o.len() {
+                let (n, m) = ((o[i] >> 16 & 0x1FFF) as usize, (o[i] & 0xFFF) << 2);
+                for k in 0..n {
+                    if m + 4 * k as u32 == quiero && i + 1 + k < o.len() {
+                        return o[i + 1 + k];
+                    }
+                }
+                i += 1 + n;
+            }
+            panic!("las ordenes no dan registros al hueco {j}")
+        }
+
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = cu::ventana(&gop).unwrap();
+        let (x5, verrano_o) = (cu::ordenes(&v, 1), tu::ordenes(&v, 6));
+        let t1c = raster::ordenes();
+        let (sv, sp) = (tu::sph_vertice(), tu::sph_pixel());
+        let (rv, rp) = (raster::sph_vertice(), raster::sph_pixel());
+        let (cv, cp) = (color3d::sph_vertice(), color3d::sph_pixel());
+        let t = cu::Triangulo { clip: [[0; 4]; 3], color: [0; 4] };
+        let graficos: [(&str, &[u32], u32, &[(u64, u64)], &[u32; SPH]); 8] = [
+            ("T1c vertice", &t1c[..], VERTICE, &raster::CODIGO_VS, &rv),
+            ("T1c pixel", &t1c[..], PIXEL, &raster::CODIGO_PS, &rp),
+            ("T2a vertice", &t1c[..], VERTICE, &color3d::CODIGO_VS, &cv),
+            ("T2a pixel", &t1c[..], PIXEL, &color3d::CODIGO_PS, &cp),
+            ("X5 vertice", &x5.o[..x5.n], VERTICE, &cu::codigo_vs(&t), &rv),
+            ("X5 pixel", &x5.o[..x5.n], PIXEL, &cu::codigo_ps(&t), &rp),
+            ("VERRANO vertice", &verrano_o.o[..verrano_o.n], VERTICE, &tu::codigo_vs(), &sv),
+            ("VERRANO pixel", &verrano_o.o[..verrano_o.n], PIXEL, &tu::codigo_ps(), &sp),
+        ];
+        for (nombre, o, j, codigo, sph) in graficos {
+            let r = enviados(o, j);
+            let v = juzgar(codigo, &Contexto { registros: r, sph: Some(sph) });
+            assert!(v.is_ok(), "{nombre} con los {r} registros que se le envian: {}", v.unwrap_err());
+        }
+
+        let registros = |q: &[u32; QMD_PALABRAS]| leer_campo(q, 656, 648) as u32;
+        let computo: [(&str, [u32; QMD_PALABRAS], &[(u64, u64)]); 9] = [
+            ("sombreador", sombreador::qmd(), &sombreador::CODIGO),
+            ("lienzo", lienzo::qmd(), &lienzo::CODIGO),
+            ("blur", blur::qmd(), &blur::CODIGO),
+            ("fractal", fractal::qmd(), &fractal::CODIGO),
+            ("triangulo", triangulo::qmd(), &triangulo::CODIGO),
+            ("escena", escena::qmd(), &escena::CODIGO),
+            ("giro", giro::qmd(), &giro::CODIGO),
+            ("pantalla", pantalla::qmd(&gop), &pantalla::CODIGO),
+            ("video", video::qmd(&video::Formato { ancho: 640, alto: 360 }), &video::CODIGO),
+        ];
+        for (nombre, q, codigo) in computo {
+            let r = registros(&q);
+            assert!(r > 0, "{nombre}: el QMD no da registros");
+            let v = juzgar(codigo, &Contexto { registros: r, sph: None });
+            assert!(v.is_ok(), "{nombre} con los {r} registros de su QMD: {}", v.unwrap_err());
+        }
+    }
+
     /// J1 (c): el de vertice de VERRANO V0 tal como se colgo (con R14) y
     /// como quedo (con R1). Con la regla de los 2 registros del contador de
     /// programa, el juez caza el de V0 -- lo que la 3060 dijo con su Xid 13
