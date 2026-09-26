@@ -138,7 +138,7 @@ con el vocabulario cerrado `VOLATIL VRAM WPR AON FUSIBLE ROM RAM`.
 | 25-09 13:35 | D2: 2 s con las interrupciones cerradas | un syscall no cede: la comparacion va fila a fila |
 | 25-09 | el color a 8 bits trunca a 12 bits | es del silicio (X5c), no de Windows |
 | 25-09 19:38 y 19:59 | 0x15 con la tarjeta fria segun la WPR2, y con BSI abajo | la WPR2 no es todo el estado; el GSP no se dejaba leer al pararse el SEC2 |
-| 25-09 ~21:30 | el primer arranque en frio SIN `fuego`/`frontera` levanta el GSP | el sospechoso del 0x15 es nuestro: el falcon del GSP tocado antes del booter (2 de 3). El caso: [`EL_0x15.md`](EL_0x15.md) |
+| 25-09 ~21:30 | el primer arranque en frio SIN `fuego`/`frontera` levanta el GSP | la causa del 0x15 era nuestra: el falcon del GSP tocado antes del booter (3 de 3; fuera de `save mode`). El caso: [`EL_0x15.md`](EL_0x15.md) |
 
 ## 8. Lo que falta medir (sin esto, seguira habiendo sorpresas)
 
