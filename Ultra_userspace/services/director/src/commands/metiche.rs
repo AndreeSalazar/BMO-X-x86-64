@@ -15,7 +15,7 @@ use crate::scene::output::{Output, INK_ECHO, INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
 /// Los nombres de los bits, para que un numero diga algo.
-fn bits(s: &mut Output, v: u64, nombres: &[(u32, &[u8])]) {
+pub(crate) fn bits(s: &mut Output, v: u64, nombres: &[(u32, &[u8])]) {
     for &(b, n) in nombres {
         if v >> b & 1 != 0 {
             s.byte(b' ');
@@ -24,7 +24,7 @@ fn bits(s: &mut Output, v: u64, nombres: &[(u32, &[u8])]) {
     }
 }
 
-const STATUS: &[(u32, &[u8])] = &[
+pub(crate) const STATUS: &[(u32, &[u8])] = &[
     (8, b"paridad-de-datos"),
     (11, b"aborto-dado"),
     (12, b"aborto-recibido"),
@@ -32,9 +32,9 @@ const STATUS: &[(u32, &[u8])] = &[
     (14, b"error-del-sistema"),
     (15, b"paridad"),
 ];
-const DEVSTA: &[(u32, &[u8])] = &[(0, b"CORREGIBLE"), (1, b"NO-FATAL"), (2, b"FATAL"), (3, b"peticion-no-soportada")];
+pub(crate) const DEVSTA: &[(u32, &[u8])] = &[(0, b"CORREGIBLE"), (1, b"NO-FATAL"), (2, b"FATAL"), (3, b"peticion-no-soportada")];
 /// AER, errores CORREGIBLES (PCIe 7.8.4.5).
-const AER_COR: &[(u32, &[u8])] = &[
+pub(crate) const AER_COR: &[(u32, &[u8])] = &[
     (0, b"error-del-receptor"),
     (6, b"TLP-malo"),
     (7, b"DLLP-malo"),
@@ -45,7 +45,7 @@ const AER_COR: &[(u32, &[u8])] = &[
     (15, b"cabecera-desbordada"),
 ];
 /// AER, errores NO corregibles (PCIe 7.8.4.2).
-const AER_UNC: &[(u32, &[u8])] = &[
+pub(crate) const AER_UNC: &[(u32, &[u8])] = &[
     (4, b"protocolo-del-enlace"),
     (5, b"caida-sorpresa"),
     (12, b"TLP-envenenado"),
@@ -59,6 +59,20 @@ const AER_UNC: &[(u32, &[u8])] = &[
     (20, b"peticion-no-soportada"),
     (21, b"violacion-ACS"),
 ];
+
+/// **Los bits de error de UNA funcion**, empaquetados como los da la autopsia
+/// del booter (`status | devsta << 16 | aer corregible << 20 | aer no
+/// corregible << 36`), con su nombre. Nada = `limpio`.
+pub(crate) fn bits_de_una(s: &mut Output, v: u64) {
+    if v & !(1 << 63) == 0 {
+        s.text(b" limpio");
+        return;
+    }
+    bits(s, v & 0xFFFF, STATUS);
+    bits(s, v >> 16 & 0xF, DEVSTA);
+    bits(s, v >> 20 & 0xFFFF, AER_COR);
+    bits(s, v >> 36 & 0x3F_FFFF, AER_UNC);
+}
 
 /// **La seccion `metiche`**: pregunta OTRA VEZ (asi se ve lo nuevo de esta
 /// sesion contra lo que habia al arrancar) y dice quien confeso.

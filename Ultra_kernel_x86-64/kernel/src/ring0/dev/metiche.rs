@@ -127,6 +127,19 @@ fn aer(bus: u8, dev: u8, func: u8) -> Option<(u32, u32)> {
     Some((unc, cor))
 }
 
+/// **Una sola funcion, empaquetada** (la 3060 en la autopsia del booter):
+/// `status | devsta << 16 | aer corregible << 20 | aer no corregible << 36`,
+/// cada uno con solo sus bits de error, y el bit 63 = se leyo.
+pub fn una(bus: u8, dev: u8, func: u8) -> u64 {
+    if pci::cfg_read32(bus, dev, func, 0x00) == 0xFFFF_FFFF {
+        return 0;
+    }
+    let status = (pci::cfg_read32(bus, dev, func, 0x04) >> 16) as u16 & STATUS_ERRORES;
+    let devsta = devsta(bus, dev, func).unwrap_or(0) & DEVSTA_ERRORES;
+    let (unc, cor) = aer(bus, dev, func).unwrap_or((0, 0));
+    status as u64 | (devsta as u64) << 16 | (cor as u64 & 0xFFFF) << 20 | (unc as u64 & 0x3F_FFFF) << 36 | 1 << 63
+}
+
 /// **PREGUNTAR a todos.** Solo lee. Devuelve cuantas funciones confesaron.
 pub fn preguntar() -> u32 {
     let (mut funciones, mut con_aer, mut chismes) = (0u64, 0u64, 0u32);

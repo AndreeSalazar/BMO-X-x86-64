@@ -182,7 +182,8 @@ pub(crate) fn candado_dma() -> Result<u64, u32> {
     Ok(bar0)
 }
 
-fn eventos() -> u64 {
+/// Cuantos eventos lleva apuntados la IOMMU (0 si ninguno).
+pub(crate) fn eventos() -> u64 {
     let e = crate::ring0::plat::iommu::info_evento();
     if e & crate::ring0::plat::iommu::IOMMU_EVENTO_HAY != 0 { e & 0xFFFF } else { 0 }
 }

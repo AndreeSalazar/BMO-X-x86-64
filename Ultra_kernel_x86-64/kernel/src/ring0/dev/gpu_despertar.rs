@@ -260,6 +260,8 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     let m = IOVA_WPR_META;
     // La foto [0] de la autopsia, y el reloj del booter.
     AUTOPSIA[0].store(crate::ring0::dev::gpu::info_bsi(), Ordering::Release);
+    AUTOPSIA[8].store(bus_3060(), Ordering::Release);
+    AUTOPSIA[10].store(crate::ring0::dev::gpu_prestamo::eventos(), Ordering::Release);
     BOOTER_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
@@ -288,6 +290,15 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 //         tomo << 63 -- HASTA DONDE LLEGO (`gpu_gsp::meta_cambios`)
 //    [6]  su `verified` (byte 248)
 //    [7]  su `bootCount` (byte 200)
+//    [8]  el bus de la 3060 ANTES del booter: sus bits de error de PCI
+//         (`metiche::una`), y [9] los mismos al pararse
+//    [10] los eventos de la IOMMU antes | al pararse << 32
+//
+// ** [8..10] (26-09, metal 20:59 y 21:08): el metiche vio a la 3060 con
+// `aborto-recibido` NUEVO en la sesion. `gpu frontera` lo provoca a proposito
+// (el DMA a una direccion NO prestada) y corre ANTES del booter: si [8] ya lo
+// trae, es nuestro y del booter no dice nada; si aparece entre [8] y [9], o
+// suben los eventos de la IOMMU, el booter choco con el bus o con la IOMMU.
 //
 // Y todo va tambien a CABINA: queda en la caja negra y en el serie aunque
 // nadie pegue el informe.
@@ -302,7 +313,12 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 // estado que sobrevive al reinicio, y el arreglo es exigirlo abajo (o
 // reiniciar la tarjeta) antes de gastar el booter.
 
-static AUTOPSIA: [AtomicU64; 8] = [const { AtomicU64::new(0) }; 8];
+static AUTOPSIA: [AtomicU64; 11] = [const { AtomicU64::new(0) }; 11];
+
+/// El bus de la 3060 (`metiche::una`), 0 si no hay BDF.
+fn bus_3060() -> u64 {
+    crate::ring0::dev::gpu::bdf().map_or(0, |(b, d, f)| crate::ring0::dev::metiche::una(b, d, f))
+}
 static BOOTER_TSC: AtomicU64 = AtomicU64::new(0);
 
 /// La foto del SEC2 recien parado, UNA vez por arranque.
@@ -331,6 +347,12 @@ fn autopsiar(r: &mut Bar0) {
     c("  ...CPUCTL GSP | SEC2 << 32, crudos", gc as u64 | (sc as u64) << 32);
     c("  ...la WPR meta: palabras que cambio el booter (mascara)", AUTOPSIA[5].load(Ordering::Acquire) & 0xFFFF_FFFF);
     c("  ...su verified", AUTOPSIA[6].load(Ordering::Acquire));
+    AUTOPSIA[9].store(bus_3060(), Ordering::Release);
+    let ev = AUTOPSIA[10].load(Ordering::Acquire) & 0xFFFF_FFFF;
+    AUTOPSIA[10].store(ev | crate::ring0::dev::gpu_prestamo::eventos() << 32, Ordering::Release);
+    c("  ...el bus de la 3060 antes del booter (metiche::una)", AUTOPSIA[8].load(Ordering::Acquire));
+    c("  ...y al pararse", AUTOPSIA[9].load(Ordering::Acquire));
+    c("  ...eventos de la IOMMU antes | al pararse << 32", AUTOPSIA[10].load(Ordering::Acquire));
     AUTOPSIA[3].store(crate::ring0::dev::gpu::info_wpr2(), Ordering::Release);
     AUTOPSIA[1].store(crate::ring0::dev::gpu::info_bsi() & 0xFFFF_FFFF | us.min(0x7FFF_FFFF) << 32 | 1 << 63, Ordering::Release);
 }
@@ -476,7 +498,7 @@ pub fn gsp_tomado() -> bool {
 
 /// `INFO_GPU_DESPIERTO_BUZON`: MAILBOX0 | MAILBOX1 << 32 (vivo) del GSP, o
 /// con selector 1 (`1 << 8`) del SEC2, si el booter arranco; con selector 2,
-/// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..11 la
+/// como va el secuenciador (L0c4b2c, `info_secuencia`); 3 BAR1; 4..14 la
 /// AUTOPSIA DEL BOOTER (ver `autopsiar`).
 ///
 /// ** El SEC2 lo trajo el metal (24-09 07:48): el booter se paro con MAILBOX0
@@ -489,7 +511,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=11).contains(&(sel >> 8)) {
+    if (4..=14).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

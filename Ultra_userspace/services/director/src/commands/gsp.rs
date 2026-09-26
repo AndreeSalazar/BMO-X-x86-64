@@ -775,6 +775,28 @@ fn fila_autopsia(s: &mut Output) {
             super::datos::anotar(b"gpu booter meta verified", v, b"");
             super::datos::anotar(b"gpu booter meta bootcount", n, b"");
         }
+        // EL BUS DE LA 3060 y la IOMMU, antes y al pararse: lo que dio el
+        // metiche NUEVO, fue `gpu frontera` (antes) o el booter (entre medias).
+        let (ba, bp) = (bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 12 << 8), bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 13 << 8));
+        let ev = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 14 << 8);
+        if ba >> 63 != 0 && bp >> 63 != 0 {
+            s.text(b"; el bus de la 3060 antes:");
+            super::metiche::bits_de_una(s, ba);
+            if bp == ba {
+                s.text(b", al pararse IGUAL");
+            } else {
+                s.text(b", al pararse CAMBIO a:");
+                super::metiche::bits_de_una(s, bp);
+            }
+            s.text(b"; eventos de la IOMMU ");
+            s.dec(ev & 0xFFFF_FFFF);
+            s.text(b" -> ");
+            s.dec(ev >> 32);
+            s.text(if ev & 0xFFFF_FFFF == ev >> 32 { b" (el booter no choco con ella)" as &[u8] } else { b" (SUBIERON DURANTE EL BOOTER)" });
+            super::datos::anotar(b"gpu booter bus antes", ba, b"");
+            super::datos::anotar(b"gpu booter bus parado", bp, b"");
+            super::datos::anotar(b"gpu booter iommu eventos", ev, b"");
+        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");

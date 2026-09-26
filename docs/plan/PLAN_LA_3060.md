@@ -1644,6 +1644,7 @@ Los seis arranques con informe, lado a lado:
 | 25-09 20:39 | bien | Gen3 x16 | 55 grados | frio |
 | 25-09 20:51 | 0x15 | **Gen4** x16 | sin dato | frio |
 | 25-09 20:59 | 0x15 | **Gen4** x16 | sin dato | frio |
+| 25-09 21:08 | 0x15 | **Gen4** x16 | sin dato | frio |
 
 **Cuidado con la columna `pcie`:** separa buenos de malos PERFECTO, y casi
 seguro es CONSECUENCIA, no causa: esa fila lee la capacidad del enlace que
@@ -1674,6 +1675,24 @@ DURANTE el booter. Lo decide un arranque BUENO con este build: si 29:00.0
 tambien trae algo NUEVO, es (a) y se descarta; si no trae nada, el bus entra
 en la lista de sospechosos. Desde aqui CABINA avisa cada chisme nuevo UNA vez
 (en 20:59 salio cuatro veces, una por pregunta).
+
+**21:08, el octavo, y la pista de 20:59 se explica sola.** Autopsia calcada
+otra vez. Y en el mismo informe, la IOMMU: `1 pendiente, FALLO de pagina de
+29:00.0 en 0x20000000` -- la direccion de `gpu frontera`, la prueba que manda
+al falcon del GSP a leer donde NO se presta. La IOMMU lo corta y la 3060 recibe
+una respuesta de error: eso es `aborto-recibido` y peticion-no-soportada. Lo
+NUEVO del metiche lo puso BMO-X a proposito, y `save mode` da `fuego` y
+`frontera` ANTES de `despertar`, en los arranques buenos y en los malos.
+
+Dos cosas que siguen de ahi. (1) La autopsia gana tres fotos: el bus de la
+3060 (`metiche::una`) antes del booter y al pararse, y los eventos de la
+IOMMU en los dos instantes: si el booter choca con el bus o con la IOMMU, se
+ve entre medias. (2) El experimento de UNA variable, sin codigo: `frontera`
+deja el falcon del GSP con un DMA abortado justo antes de que el booter lo
+prepare. Nadie depende de esos dos pasos (`vbios` y `gsp` no los piden), asi
+que `save mode -fuego -frontera` los quita. Tres arranques en frio asi: si
+los tres dan 0, `fuego` y `frontera` se van DESPUES de `init`; si sale un
+0x15, quedan absueltos.
 
 **L0c5, EL APAGADO ORDENADO, en codigo (25-09).** Tras el 50 de 50 (19:43).
 `bmo_gpu_ga10x::descarga` (el mensaje, que el contrato deja salir SOLO con

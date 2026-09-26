@@ -1739,7 +1739,12 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             CPUCTL del GSP | CPUCTL del SEC2 << 32, crudos;
 ///                             9 las palabras de la WPR meta que cambio el
 ///                             booter (mascara de 32) | se tomo << 63; 10 su
-///                             `verified`; 11 su `bootCount` (bit 63 de 4 y 5:
+///                             `verified`; 11 su `bootCount`; 12 los bits de
+///                             error de PCI de la 3060 ANTES del booter
+///                             (`status | devsta << 16 | aer corregible << 20 |
+///                             aer no corregible << 36`, bit 63 se leyo); 13
+///                             los mismos al pararse; 14 los eventos de la
+///                             IOMMU antes | al pararse << 32 (bit 63 de 4 y 5:
 ///                             se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
