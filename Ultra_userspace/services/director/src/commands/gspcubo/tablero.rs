@@ -1,5 +1,5 @@
 //! **EL TABLERO DEL BANCO** (VERRANO V1, 26-09) -- lo que se ve MIENTRAS la
-//! 3060 gira el cubo: los fps, lo que tarda la tarjeta, lo que cuesta
+//! tarjeta gira el cubo: los fps, lo que tarda, lo que cuesta
 //! prepararle cada fotograma y por donde va, en una banda debajo de la
 //! ventana del cubo.
 //!
@@ -9,7 +9,7 @@
 //!
 //! # La regla de la banda
 //!
-//! La 3060 dibuja el cubo directamente en la memoria que escanea el monitor.
+//! El aparato dibuja el cubo directamente en la memoria que escanea el monitor.
 //! El lienzo del escritorio, en esa ventana, tiene el FONDO: si una caja
 //! sucia la tocara, el volcado taparia el cubo con el fondo. Por eso todo el
 //! tablero cae en UNA banda que empieza debajo de la ventana, se pinta
@@ -52,16 +52,18 @@ pub(super) struct Tablero {
     alto: u32,
     hz: u64,
     total: u32,
+    /// El aparato, como lo dice su puerta (`LA 3060`).
+    aparato: &'static [u8],
     modo: &'static [u8],
     juez: &'static [u8],
     /// Fotogramas dibujados, y sus ciclos de pared (sin el tablero).
     hechos: u32,
     ciclos: u64,
-    /// La 3060: suma, mejor y peor, en us.
+    /// El aparato: suma, mejor y peor, en us.
     tarjeta: u64,
     mejor: u32,
     peor: u32,
-    /// Preparar (kernel): suma en us, y cuantos fueron en caliente.
+    /// Preparar: suma en us, y cuantos fueron en caliente.
     preparar: u64,
     calientes: u32,
     /// Lo que costo pintar el tablero, en ciclos.
@@ -76,7 +78,7 @@ pub(super) struct Tablero {
 impl Tablero {
     /// La banda debajo de una ventana que acaba en `fin_y`, o `None` si no
     /// cabe.
-    pub(super) fn nuevo(p: &bmo::Pantalla, fin_y: u32, total: u32, modo: &'static [u8], juez: &'static [u8]) -> Option<Self> {
+    pub(super) fn nuevo(p: &bmo::Pantalla, fin_y: u32, total: u32, aparato: &'static [u8], modo: &'static [u8], juez: &'static [u8]) -> Option<Self> {
         let y = fin_y + 12;
         let alto = p.alto.checked_sub(y)?;
         if alto < ALTO_MINIMO || p.ancho < 1024 {
@@ -89,6 +91,7 @@ impl Tablero {
             alto,
             hz: bmo::info(bmo::INFO_TSC_HZ).max(1000),
             total,
+            aparato,
             modo,
             juez,
             hechos: 0,
@@ -106,7 +109,7 @@ impl Tablero {
         })
     }
 
-    /// Un fotograma hecho: sus ciclos de pared, los us de la 3060 y los de
+    /// Un fotograma hecho: sus ciclos de pared, los us del aparato y los de
     /// preparar, y si fue en caliente.
     pub(super) fn apuntar(&mut self, ciclos: u64, tarjeta_us: u32, preparar_us: u32, caliente: bool) {
         self.muestras[self.hechos as usize % MUESTRAS] = tarjeta_us;
@@ -147,7 +150,7 @@ impl Tablero {
         self.por_segundo(self.hechos, self.ciclos)
     }
 
-    /// La 3060, de media, en us.
+    /// El aparato, de media, en us.
     pub(super) fn tarjeta_media(&self) -> u64 {
         self.tarjeta / self.hechos.max(1) as u64
     }
@@ -159,7 +162,7 @@ impl Tablero {
     /// Las cuentas para el panel del escritorio (y para `datos`).
     pub(super) fn resumen(&self, a: &mut Texto, b: &mut Texto) {
         a.t(b"banco: ").d(self.hechos as u64).t(b" fotogramas en ").d(self.ciclos * 1000 / self.hz).t(b" ms = ").d(self.fps()).t(b" fps de pared (").t(self.modo).t(b")");
-        b.t(b"la 3060 ").d(self.tarjeta_media()).t(b" us (").d(self.mejor.min(self.peor) as u64).t(b"..").d(self.peor as u64).t(b"), preparar ").d(self.preparar_medio()).t(b" us, ").d(self.calientes as u64).t(b" en caliente; tablero ").d(self.pintar * 1000 / self.hz).t(b" ms aparte");
+        b.t(self.aparato).t(b" ").d(self.tarjeta_media()).t(b" us (").d(self.mejor.min(self.peor) as u64).t(b"..").d(self.peor as u64).t(b"), preparar ").d(self.preparar_medio()).t(b" us, ").d(self.calientes as u64).t(b" en caliente; tablero ").d(self.pintar * 1000 / self.hz).t(b" ms aparte");
     }
 
     fn por_segundo(&self, n: u32, ciclos: u64) -> u64 {
@@ -179,7 +182,7 @@ impl Tablero {
         let ty = y + 14;
         let ny = y + 34;
         etiqueta(p, x, ty, b"FOTOGRAMAS POR SEGUNDO");
-        etiqueta(p, x + col, ty, b"LA 3060");
+        etiqueta(p, x + col, ty, self.aparato);
         etiqueta(p, x + 2 * col, ty, b"PREPARAR");
         etiqueta(p, x + 3 * col, ty, b"FOTOGRAMA");
 
@@ -203,7 +206,7 @@ impl Tablero {
         t.t(self.modo).t(b"  -  ").d(self.calientes as u64).t(b" en caliente  -  juez: ").t(self.juez);
         p.texto_bytes(x, my, t.s(), PERLA);
 
-        // La grafica de la 3060 (a la derecha, si cabe): una barra por
+        // La grafica del aparato (a la derecha, si cabe): una barra por
         // fotograma, el ultimo en oro.
         let gx = x + 4 * col + 24;
         let gw = (x + w).saturating_sub(gx);
@@ -211,7 +214,9 @@ impl Tablero {
         if gw >= 3 * 40 {
             let caben = ((gw / 3) as usize).min(MUESTRAS).min(self.hechos as usize);
             let tope = (0..caben).map(|k| self.muestra(k)).max().unwrap_or(1).max(1);
-            etiqueta(p, gx, ty, b"LA 3060, FOTOGRAMA A FOTOGRAMA");
+            let mut t = Texto::nuevo();
+            t.t(self.aparato).t(b", FOTOGRAMA A FOTOGRAMA");
+            etiqueta(p, gx, ty, t.s());
             p.rect(gx, ny + gh, gw, 1, SOMBRA);
             for k in 0..caben {
                 let v = self.muestra(k);

@@ -22,6 +22,8 @@ mod la3060;
 mod verrano;
 /// VERRANO V1: el tablero del banco, en vivo.
 mod tablero;
+/// VERRANO: la UNICA puerta a la RTX 3060 12G (SM86). Ver PLAN_EL_AISLAMIENTO.
+mod sm86;
 pub(crate) use verrano::orden as orden_verrano;
 
 use bmo_cubo::referencia as rf;

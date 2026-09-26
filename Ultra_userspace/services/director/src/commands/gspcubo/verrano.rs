@@ -1,239 +1,102 @@
-//! **`gpu verrano [fotograma]`: VERRANO V0** -- el cubo del estudio D3D por
-//! la API de dibujo de BMO-X, con sus DOS backends y el mismo fotograma:
+//! **`gpu verrano [fotograma]`: VERRANO V0 y V1** -- el cubo del estudio D3D
+//! por la API de dibujo de BMO-X, con sus DOS backends y el mismo fotograma:
 //!
 //! ```text
-//!    la 3060   los dos programas FIJOS, tomados del BSF (`kind` SM86, sus
-//!              hashes comprobados al tomarlos), y los vertices en un buffer:
-//!              la 3060 no compila nada; el kernel sube lo que le dan
-//!    la CPU    `bmo_verrano::cpu::Cpu::LA_3060`: el juez con la regla 4
+//!    el aparato  lo que haya detras de la puerta `destino` (hoy la RTX 3060
+//!                12G: `sm86.rs`). Este fichero NO la nombra: habla VERRANO
+//!    la CPU      `bmo_verrano::cpu::Cpu::LA_3060`: el juez con la regla 4
 //! ```
 //!
-//! Se comparan pixel a pixel, y la huella de la 3060 contra D3D12 (0, 30,
+//! Se comparan pixel a pixel, y la huella del aparato contra D3D12 (0, 30,
 //! 60) y contra lo medido bajo BMO-X (32). Lo que se ve en la ventana es lo
-//! que escribio la 3060, leido de la pantalla.
+//! que escribio el aparato, leido de la pantalla.
+//!
+//! ** AISLADO (26-09, `docs/plan/PLAN_EL_AISLAMIENTO.md` A2): aqui no entra
+//! ni el driver de la 3060, ni `kind::SM86`, ni su juez. Lo vigila `la-3060`
+//! (regla S): otra GPU es otro `destino`, y este fichero no cambia.
 //!
 //! [consumo] NADA      corre cuando el propietario lo teclea
 
-use bmo_bsf::{abi, kind, Bsf};
 use bmo_cubo::referencia as rf;
-use bmo_gpu_ga10x::sass::juez::{self, Bodrio};
-use bmo_gpu_ga10x::{cubo as cu, tuberia as tu};
 use bmo_userland as bmo;
 use bmo_verrano::cpu::Cpu;
-use bmo_verrano::{check, Backend, Error, Frame, Image, Stats, Vertex, Viewport};
+use bmo_verrano::{Backend, Frame, Image, Vertex, Viewport};
 
 use super::super::After;
+use super::sm86 as destino;
 use super::tablero::Tablero;
 use super::{numero, Texto, CLARO, FONDO, ROJO, TENUE, VERDE};
 use crate::desktop::Desktop;
 use crate::scene::output::{INK_ERR, INK_GOOD, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 
-/// El sobre de los programas: fabricado en el anfitrion
-/// (`ga10x/tests/bsf_sm86.rs`), viaja dentro de `d.bex`.
-const SOBRE: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/cubo.bsf"));
+/// Los vertices que caben en un fotograma de la escena (3 por triangulo).
+const MAX_VERTICES: usize = 3 * bmo_cubo::tanda::CABEN;
 
-/// **El backend de la 3060**: el paquete (programas del BSF + vertices) al
-/// kernel, y la ventana leida de vuelta.
-struct La3060<'a> {
-    ficha: u64,
-    paquete: &'a mut [u8],
-    vs: &'a [u8],
-    ps: &'a [u8],
-    leer_ms: u64,
-    /// Leer la imagen de vuelta (el juez la quiere); el banco (V1) no.
-    leer: bool,
-    /// Las ordenes sin la escalera de T1c (`gpu verrano banco ligero`).
-    ligero: bool,
-    /// El `Ok` entero del ultimo dibujo: lo que costo preparar va ahi
-    /// (`cubo::preparado`), y `Stats` no lo lleva.
-    ultimo: u64,
-}
-
-impl Backend for La3060<'_> {
-    fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
-        check(frame, out, tu::MAX_VERTICES)?;
-        // V0: la ventana del cubo y su FONDO son los de las ordenes de X5.
-        if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
-            return Err(Error::Image);
-        }
-        let mut v = [tu::Vertice::default(); tu::MAX_VERTICES];
-        for (d, s) in v.iter_mut().zip(frame.vertices) {
-            *d = tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) };
-        }
-        tu::escribir_paquete(self.paquete, self.ficha as u32, self.vs, self.ps, &v[..frame.vertices.len()]).ok_or(Error::Vertices)?;
-        let ligero = if self.ligero { bmo::CUBO_LIGERO } else { 0 };
-        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_VERRANO | ligero | self.paquete.as_ptr() as u64).map_err(Error::Device)?;
-        self.ultimo = r;
-        let (us, tris, etapas, _) = cu::desempaquetar(r);
-        if !cu::sano(r) {
-            return Err(Error::Device(0x5E00 | etapas));
-        }
-        if !self.leer {
-            return Ok(Stats { triangles: tris, device_us: us });
-        }
-        let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
-        let desde = bmo::ciclos();
-        let n = (out.width * out.height) as usize;
-        for k in 0..n / 2 {
-            let d = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_LEER | k as u64).map_err(Error::Device)?;
-            out.pixels[2 * k] = 0xFF00_0000 | d as u32;
-            out.pixels[2 * k + 1] = 0xFF00_0000 | (d >> 32) as u32;
-        }
-        self.leer_ms = (bmo::ciclos() - desde) * 1000 / hz;
-        Ok(Stats { triangles: tris, device_us: us })
-    }
-}
-
-/// **El juez, antes de mandar nada** (J2, lado del escritorio): los dos
-/// programas del sobre, tal como viajan, con los registros que la tarjeta
-/// les va a dar. `Ok` = el total de instrucciones juzgadas.
-fn juzgar(vs: &[u8], ps: &[u8]) -> Result<usize, (&'static str, Bodrio)> {
-    let r = bmo_gpu_ga10x::raster::REGISTROS;
-    let a = juez::juzgar_programa(vs, r).map_err(|b| ("vertice", b))?;
-    let b = juez::juzgar_programa(ps, r).map_err(|b| ("pixel", b))?;
-    Ok(a.instrucciones + b.instrucciones)
-}
-
-/// Los dos programas del sobre, comprobados (capas 1 a 4 de lo que se toma).
-fn programas(bsf: &Bsf<'static>) -> Option<(&'static [u8], &'static [u8])> {
-    let mut vs = None;
-    let mut ps = None;
-    for m in bsf.modules() {
-        let codigo = m.target(kind::SM86, abi::SM86_V1, 0).and_then(|t| t.code().ok());
-        match m.name() {
-            b"cubo_vertice" => vs = codigo,
-            b"cubo_pixel" => ps = codigo,
-            _ => {}
-        }
-    }
-    Some((vs?, ps?))
-}
-
-/// `gpu verrano [fotograma]`.
+/// `gpu verrano [fotograma] | banco [N] [opciones del aparato]`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After {
     // [!] `gpu.rs` pasa el resto CON su espacio delante (" sinldg"): sin
     // recortarlo, `sinldg` no se reconocia nunca y el 26-09 06:33 corrio el
     // programa normal con ese nombre. Se recorta aqui, una vez, para todos.
     let resto = resto.trim_ascii();
     let f = numero(resto).unwrap_or(30).min(359);
-    paint_status(p, &dsk.run_box, "VERRANO V0: el cubo por la API de BMO-X, en la 3060 y en la CPU", INK_DIM);
-    let (w, h) = (cu::ANCHO, cu::ALTO);
+    let banco_pedido = resto.strip_prefix(b"banco");
+    // Lo que no es de VERRANO (`ligero`, `sinldg`...) lo entiende el aparato.
+    let op = destino::Opciones::de(resto);
+    paint_status(p, &dsk.run_box, "VERRANO: el cubo por la API de BMO-X, en el aparato y en la CPU", INK_DIM);
+    let (w, h) = (rf::ANCHO, rf::ALTO);
     if p.ancho < w || p.alto < h {
         return linea(dsk, b"  NO  la pantalla es mas chica que 1280x720", INK_ERR);
     }
-    let Some((vs, ps)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
-        return linea(dsk, b"  NO  el BSF de la tuberia no se sostiene: no se dibuja nada", INK_ERR);
-    };
-    // El juez, ANTES de que la 3060 vea nada: un BODRIO no se manda.
-    let juzgadas = match juzgar(vs, ps) {
-        Ok(n) => n,
-        Err((cual, b)) => {
-            let mut t = Texto::nuevo();
-            let _ = core::fmt::write(&mut t, format_args!("  NO  el programa de {cual} del BSF: {b}"));
-            return linea(dsk, t.s(), INK_ERR);
-        }
-    };
-    // ** `gpu verrano sinldg` (26-09): el de vertice SIN sus LDG, fabricado
-    // aqui y no tomado del BSF -- la prueba de una variable del cuelgue en
-    // los VERTICES (`tuberia::codigo_vs_sin_ldg`). No dibuja el cubo: solo
-    // dice si el escalon de los vertices se paga.
-    let sin_ldg = resto.starts_with(b"sinldg");
-    let mut propio = [0u8; 4 * tu::PALABRAS_VS];
-    let vs: &[u8] = if sin_ldg {
-        let n = tu::bytes(&tu::vertice_sin_ldg(), &mut propio);
-        &propio[..n]
-    } else {
-        vs
-    };
     let n = (w * h) as usize;
-    let (Some(bloque), Some(caja)) = (bmo::Memoria::request(2 * n as u64 * 4), bmo::Memoria::request(4096)) else {
+    let (Some(bloque), Some(caja)) = (bmo::Memoria::request(2 * n as u64 * 4), bmo::Memoria::request(destino::CAJA)) else {
         return linea(dsk, b"  NO  sin memoria para dos fotogramas de 1280x720", INK_ERR);
     };
     // SAFETY: el bloque mide 2n palabras de 32 bits, alineado a pagina, es de
     // este proceso y solo se usa aqui; las dos mitades no se pisan. La caja,
-    // 4096 bytes del proceso, para el paquete.
+    // `destino::CAJA` bytes del proceso, para lo que el aparato arme.
     let (gpu, cpu) = unsafe { core::slice::from_raw_parts_mut(bloque.base() as *mut u32, 2 * n).split_at_mut(n) };
     // SAFETY: como arriba.
-    let paquete = unsafe { core::slice::from_raw_parts_mut(caja.base() as *mut u8, 4096) };
+    let caja = unsafe { core::slice::from_raw_parts_mut(caja.base() as *mut u8, destino::CAJA as usize) };
 
     // El fotograma: la tanda del juez en vertices de VERRANO.
-    let Some(t) = bmo_cubo::tanda::de_fotograma(f, w, h) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
-    let mut v = [Vertex::default(); tu::MAX_VERTICES];
-    let mut k = 0;
-    for tri in t.tris() {
-        for &pos in tri.clip.iter() {
-            v[k] = Vertex { position: pos, color: tri.color };
-            k += 1;
-        }
-    }
+    let mut v = [Vertex::default(); MAX_VERTICES];
+    let Some(k) = vertices(f, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
     let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
 
-    // Lo que falte del motor grafico (con `init` por defecto, casi todo).
-    if super::super::verificar::preparar_hasta(dsk, p, b"lienzo").is_err() {
-        dsk.field.n = 0;
-        return After::Settle;
-    }
+    // La puerta: el sobre con el codigo de ESTE aparato, su juez, la tarjeta.
+    let (mut aparato, abierto) = match destino::abrir(dsk, p, caja, op) {
+        Ok(x) => x,
+        Err(a) => return a,
+    };
 
     // La pantalla ANTES del dibujo, como `gpu cubo 3060`.
-    let (x0, y0) = (((p.ancho - w) / 2) & !31, (p.alto - h) / 2);
-    let banco_pedido = resto.strip_prefix(b"banco");
+    let (x0, y0) = destino::ventana(p);
     p.rect(0, 0, p.ancho, p.alto, FONDO);
-    let titulo = if banco_pedido.is_some() { "VERRANO V1: EL CUBO GIRANDO EN LA 3060" } else { "VERRANO V0: EL CUBO POR LA API DE BMO-X" };
+    let titulo = if banco_pedido.is_some() { "VERRANO V1: EL CUBO GIRANDO" } else { "VERRANO V0: EL CUBO POR LA API DE BMO-X" };
     p.texto_escala(40, 24, titulo, CLARO, 2);
     p.vaciar();
 
-    let ficha = match super::super::gspcomputo::ficha_del_gr() {
-        Ok(fi) => fi,
-        Err(m) => return motivo(dsk, m),
-    };
-    // ** `gpu verrano banco [N] [ligero]` (V1): N fotogramas seguidos, sin
-    // leer; `ligero`, sin la escalera de T1c.
+    // ** `gpu verrano banco [N]` (V1): N fotogramas seguidos, sin leer.
     if let Some(r) = banco_pedido {
-        let (mut n, mut ligero) = (360, false);
-        for palabra in r.split(|&c| c == b' ').filter(|w| !w.is_empty()) {
-            if palabra == b"ligero" {
-                ligero = true;
-            } else if let Some(k) = numero(palabra) {
-                n = k.clamp(1, 3600);
-            }
-        }
-        let la3060 = La3060 { ficha, paquete, vs, ps, leer_ms: 0, leer: false, ligero, ultimo: 0 };
-        return banco(dsk, p, la3060, gpu, n, y0 + h);
+        let n = r.split(|&c| c == b' ').find_map(numero).unwrap_or(360).clamp(1, 3600);
+        aparato.leer = false;
+        return banco(dsk, p, aparato, op, gpu, n, y0 + h);
     }
-    let mut la3060 = La3060 { ficha, paquete, vs, ps, leer_ms: 0, leer: true, ligero: false, ultimo: 0 };
-    let s3060 = la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
+    let s_aparato = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h });
     let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
     let desde = bmo::ciclos();
     let mut juez = Cpu::LA_3060;
     let scpu = juez.draw(&frame, &mut Image { pixels: cpu, width: w, height: h });
     let cpu_us = (bmo::ciclos() - desde) * 1_000_000 / hz;
-    let (st, _) = match (s3060, scpu) {
-        (Ok(a), Ok(b)) => (a, b),
-        (Err(Error::Device(m)), _) if m & 0xFF00 == 0x5E00 => {
-            let g = &mut dsk.out.grid;
-            g.with_ink(INK_ERR);
-            g.text(b"  NO  VERRANO en la 3060 no se pago entero; la escalera:\n");
-            g.with_ink(INK_PLAIN);
-            super::super::gspcomputo::escalera(g);
-            // Y lo que el GSP conto: un Xid 31 es un FALLO DE PAGINA (la
-            // direccion que lee el LDG), un 13 una excepcion del sombreador.
-            super::super::gspcola::avisos(g, 4);
-            if sin_ldg {
-                g.with_ink(INK_ERR);
-                g.text(b"  SIN LDG y aun asi colgado en los VERTICES: los LDG quedan ABSUELTOS; es otra cosa del programa\n");
-                g.with_ink(INK_PLAIN);
-            }
-            dsk.field.n = 0;
-            return After::Settle;
-        }
-        (Err(Error::Device(m)), _) => return motivo(dsk, m),
-        _ => return linea(dsk, b"  NO  el fotograma no es valido para VERRANO V0", INK_ERR),
+    let st = match (s_aparato, scpu) {
+        (Ok(a), Ok(_)) => a,
+        (Err(e), _) => return destino::fallo(dsk, e, None, op),
+        (_, Err(_)) => return linea(dsk, b"  NO  la CPU no dibujo el fotograma (el juez no sabe hacerlo)", INK_ERR),
     };
 
-    if sin_ldg {
-        let _ = st;
-        return linea(dsk, b"  SIN LDG la 3060 PAGO los VERTICES y el dibujo: el cuelgue es del LDG (o de la direccion que lee). El cubo sale vacio a proposito", INK_GOOD);
+    if op.sin_ldg {
+        return destino::sin_ldg_pagado(dsk);
     }
 
     // Las dos imagenes, pixel a pixel; lo que el juez no explica, aparte.
@@ -253,26 +116,26 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         }
     }
     let mut a = Texto::nuevo();
-    a.t(b"fotograma ").d(f as u64).t(b": la 3060 en ").d(st.device_us as u64).t(b" us, la CPU en ").d(cpu_us).t(b" us; huella ").x(huella);
+    a.t(b"fotograma ").d(f as u64).t(b": el aparato en ").d(st.device_us as u64).t(b" us, la CPU en ").d(cpu_us).t(b" us; huella ").x(huella);
     let mut b = Texto::nuevo();
     let (veredicto, color): (&[u8], u32) = if malos > 0 {
-        b.t(b"DISTINTO: ").d(malos as u64).t(b" pixeles entre la 3060 y la CPU");
+        b.t(b"DISTINTO: ").d(malos as u64).t(b" pixeles entre el aparato y la CPU");
         (b.s(), ROJO)
     } else if d3d {
-        (b"IGUAL: VERRANO en la 3060 = VERRANO en la CPU = D3D12 en la 3060 bajo Windows", VERDE)
+        (b"IGUAL: VERRANO en el aparato = VERRANO en la CPU = D3D12 en la 3060 bajo Windows", VERDE)
     } else if medida {
-        (b"IGUAL: VERRANO en la 3060 = lo que la 3060 dibujo en X5, y = la CPU", VERDE)
+        (b"IGUAL: VERRANO en el aparato = lo que la 3060 dibujo en X5, y = la CPU", VERDE)
     } else {
-        (b"IGUAL, pixel a pixel: VERRANO en la 3060 = VERRANO en la CPU", VERDE)
+        (b"IGUAL, pixel a pixel: VERRANO en el aparato = VERRANO en la CPU", VERDE)
     };
     let mut c = Texto::nuevo();
     if let Some(i) = primero {
-        c.t(b"el primero en (").d((i as u32 % w) as u64).t(b", ").d((i as u32 / w) as u64).t(b"): la 3060 ").x(gpu[i] as u64 & 0xFF_FFFF).t(b", la CPU ").x(cpu[i] as u64 & 0xFF_FFFF);
+        c.t(b"el primero en (").d((i as u32 % w) as u64).t(b", ").d((i as u32 / w) as u64).t(b"): el aparato ").x(gpu[i] as u64 & 0xFF_FFFF).t(b", la CPU ").x(cpu[i] as u64 & 0xFF_FFFF);
     } else if sin_explicar > 0 {
         c.t(b"y ").d(sin_explicar as u64).t(b" pixel sin explicar (del silicio, como con X5 y en Windows)");
     }
     let mut d = Texto::nuevo();
-    d.t(b"programas del BSF (SM86): vertice ").d(vs.len() as u64).t(b" B, pixel ").d(ps.len() as u64).t(b" B; ").d(st.triangles as u64).t(b" triangulos en UN dibujo; juez: PERFECTO Y PRECISO (").d(juzgadas as u64).t(b")");
+    d.t(destino::NOMBRE).t(b": programas del BSF ").d(abierto.bytes_vs as u64).t(b" + ").d(abierto.bytes_ps as u64).t(b" B; ").d(st.triangles as u64).t(b" triangulos en UN dibujo; juez: PERFECTO Y PRECISO (").d(abierto.instrucciones as u64).t(b")");
     let yt = p.alto.saturating_sub(144);
     p.texto_bytes(40, yt, a.s(), CLARO);
     p.texto_bytes(40, yt + 24, veredicto, color);
@@ -300,7 +163,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         }
     }
     g.text(b"           leido de la pantalla en ");
-    g.dec(la3060.leer_ms);
+    g.dec(aparato.leer_ms);
     g.text(b" ms\n");
     super::super::datos::anotar(b"gpu verrano us", st.device_us as u64, b"");
     dsk.field.n = 0;
@@ -308,7 +171,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
 }
 
 /// Los vertices de VERRANO del fotograma `f` (la tanda del juez).
-fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; tu::MAX_VERTICES]) -> Option<usize> {
+fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; MAX_VERTICES]) -> Option<usize> {
     let t = bmo_cubo::tanda::de_fotograma(f, w, h)?;
     let mut k = 0;
     for tri in t.tris() {
@@ -320,17 +183,17 @@ fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; tu::MAX_VERTICES]) -> Optio
     Some(k)
 }
 
-/// ** V1 -- EL CUBO EN MOVIMIENTO, CON FPS (`gpu verrano banco [N] [ligero]`).
+/// ** V1 -- EL CUBO EN MOVIMIENTO, CON FPS (`gpu verrano banco [N]`).
 ///
 /// N fotogramas seguidos por VERRANO (el cubo gira: fotograma `i` = angulo
-/// `i` de 360), cada uno dibujado por la 3060 directo en su ventana de la
+/// `i` de 360), cada uno dibujado por el aparato directo en su ventana de la
 /// pantalla -- se VE girar --, SIN leerlo de vuelta: leer 1280x720 por la
 /// puerta cuesta ~2 s y es justo lo que el banco no mide. Al final, UNO se
 /// lee y se juzga (el 30, contra la huella de D3D12): unos fps que dibujan
 /// otra cosa no valen nada.
 ///
 /// Lo que se mide, dicho: `pared` es todo (preparar el paquete, la puerta,
-/// subir los vertices por PRAMIN y esperar el semaforo); `3060` es solo lo
+/// subir los vertices y esperar el semaforo); `aparato` es solo lo
 /// que la tarjeta tardo en dibujar. La tabla de `estudio-d3d` (D3D12 ~3.800
 /// fps en Windows) mide un bucle de presentacion, no esto: se ponen al lado,
 /// no se igualan.
@@ -340,54 +203,37 @@ fn vertices(f: u32, w: u32, h: u32, v: &mut [Vertex; tu::MAX_VERTICES]) -> Optio
 /// los fps y dicho aparte. `preparar` es lo que el kernel tarda en dejar el
 /// fotograma listo en la VRAM: en frio relee ~4.000 palabras por PCIe, en
 /// caliente (del segundo fotograma en adelante) solo escribe los vertices.
-/// `ligero` quita ademas la escalera de T1c: ~30 WAIT_FOR_IDLE menos por
-/// fotograma en la 3060.
-fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut la3060: La3060, gpu: &mut [u32], n: u32, fin_y: u32) -> After {
-    let (w, h) = (cu::ANCHO, cu::ALTO);
-    let modo: &'static [u8] = if la3060.ligero { b"ligero, sin escalera" } else { b"con la escalera de T1c" };
-    let mut tablero = Tablero::nuevo(p, fin_y, n, modo, b"PERFECTO Y PRECISO");
+/// Las opciones del aparato (en la 3060, `ligero`: sin la escalera de T1c)
+/// las entiende el aparato, no este fichero.
+fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut aparato: destino::Aparato, op: destino::Opciones, gpu: &mut [u32], n: u32, fin_y: u32) -> After {
+    let (w, h) = (rf::ANCHO, rf::ALTO);
+    let modo = op.modo();
+    let mut tablero = Tablero::nuevo(p, fin_y, n, destino::ETIQUETA, modo, b"PERFECTO Y PRECISO");
     // Sin banda (pantalla de 1280x720), las mismas cuentas sin pintarlas.
     let mut cuentas = Cuentas::default();
-    let mut v = [Vertex::default(); tu::MAX_VERTICES];
+    let mut v = [Vertex::default(); MAX_VERTICES];
     for i in 0..n {
         let Some(k) = vertices(i % 360, w, h, &mut v) else { return linea(dsk, b"  NO  la tanda no cabe", INK_ERR) };
         let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
         let desde = bmo::ciclos();
-        match la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
+        match aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }) {
             Ok(st) => {
-                let (caliente, preparar) = cu::preparado(la3060.ultimo);
                 let ciclos = bmo::ciclos() - desde;
                 cuentas.apuntar(ciclos, st.device_us);
                 if let Some(t) = tablero.as_mut() {
-                    t.apuntar(ciclos, st.device_us, preparar, caliente);
+                    t.apuntar(ciclos, st.device_us, st.prepare_us, st.warm);
                     t.quizas(p);
                 }
             }
-            Err(Error::Device(m)) if m & 0xFF00 == 0x5E00 => {
-                let g = &mut dsk.out.grid;
-                g.with_ink(INK_ERR);
-                g.text(b"  NO  el banco se paro en el fotograma ");
-                g.dec(i as u64);
-                if la3060.ligero {
-                    g.text(b" (ligero: sin escalera; `gpu verrano banco` sin ligero dice donde)");
-                }
-                g.text(b"; la escalera:\n");
-                g.with_ink(INK_PLAIN);
-                super::super::gspcomputo::escalera(g);
-                super::super::gspcola::avisos(g, 4);
-                dsk.field.n = 0;
-                return After::Settle;
-            }
-            Err(Error::Device(m)) => return motivo(dsk, m),
-            Err(_) => return linea(dsk, b"  NO  un fotograma no es valido para VERRANO V0", INK_ERR),
+            Err(e) => return destino::fallo(dsk, e, Some(i), op),
         }
     }
-    // El juicio: el 30 otra vez, por el MISMO camino (en caliente y con el
-    // mismo modo), leido y comparado con D3D12.
-    la3060.leer = true;
+    // El juicio: el 30 otra vez, por el MISMO camino (con lo que el aparato
+    // reuse y en el mismo modo), leido y comparado con D3D12.
+    aparato.leer = true;
     let k = vertices(30, w, h, &mut v).unwrap_or(0);
     let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
-    let igual = la3060.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }).is_ok() && rf::de_la_3060(30) == Some(rf::huella(gpu));
+    let igual = aparato.draw(&frame, &mut Image { pixels: gpu, width: w, height: h }).is_ok() && rf::de_la_3060(30) == Some(rf::huella(gpu));
     let veredicto: &[u8] = if igual {
         b"el fotograma 30, leido al final: IGUAL a D3D12 en la 3060 bajo Windows"
     } else {
@@ -423,7 +269,7 @@ fn banco(dsk: &mut Desktop, p: &bmo::Pantalla, mut la3060: La3060, gpu: &mut [u3
     g.text(veredicto);
     g.byte(b'\n');
     g.with_ink(INK_PLAIN);
-    let (kf, ku): (&[u8], &[u8]) = if la3060.ligero { (b"gpu verrano banco ligero fps", b"gpu verrano banco ligero us") } else { (b"gpu verrano banco fps", b"gpu verrano banco us") };
+    let (kf, ku): (&[u8], &[u8]) = if op.ligero { (b"gpu verrano banco ligero fps", b"gpu verrano banco ligero us") } else { (b"gpu verrano banco fps", b"gpu verrano banco us") };
     super::super::datos::anotar(kf, fps, b"fps");
     super::super::datos::anotar(ku, tarjeta, b"us");
     dsk.field.n = 0;
@@ -453,19 +299,8 @@ impl Cuentas {
 
     fn resumen(&self, a: &mut Texto, b: &mut Texto, modo: &[u8]) {
         a.t(b"banco: ").d(self.n as u64).t(b" fotogramas = ").d(self.fps()).t(b" fps de pared (").t(modo).t(b")");
-        b.t(b"la 3060 ").d(self.tarjeta / self.n.max(1) as u64).t(b" us de media, el peor ").d(self.peor as u64).t(b" us");
+        b.t(b"el aparato ").d(self.tarjeta / self.n.max(1) as u64).t(b" us de media, el peor ").d(self.peor as u64).t(b" us");
     }
-}
-
-fn motivo(dsk: &mut Desktop, m: u32) -> After {
-    let g = &mut dsk.out.grid;
-    g.with_ink(INK_ERR);
-    g.text(b"  NO  VERRANO en la 3060 no dibujo: motivo ");
-    g.dec(m as u64);
-    g.text(b" (`gpu` lo explica)\n");
-    g.with_ink(INK_PLAIN);
-    dsk.field.n = 0;
-    After::Settle
 }
 
 fn linea(dsk: &mut Desktop, texto: &[u8], tinta: u8) -> After {
