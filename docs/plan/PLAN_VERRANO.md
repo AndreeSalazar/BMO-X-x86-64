@@ -176,7 +176,10 @@ la SPH (128 B) y detras las instrucciones.
       contra 1378 de ligero en la misma sesion, preparar 21 us, 359 en
       vuelo, el 30 IGUAL. La CPU espera 247 us por ranura: ahora el cuello
       es la 3060 (en P8, relojes de reposo).
-- [ ] **V1c -- EXPRIMIR: quien refuerza a quien.** **Primer paso escrito
+- [x] **V1c -- EXPRIMIR: quien refuerza a quien.** **VISTO el 26-09**
+      (`METAL_2026-09-25.md` 24): anillo 2525 fps (la 3060 334 us), coopera
+      7452 (103 us), maximo **28596** (18 us, la CPU espera 4): el 30 IGUAL
+      en los tres. Ahora el cuello es la CPU (~35 us de pared). **Primer paso escrito
       (26-09, tras el metal de las 08:35): `gpu verrano banco coopera`.**
       La CPU esperaba el 72 % de cada fotograma; ahora, en vez de esperar,
       le QUITA trabajo a la 3060: sabe donde estaba el cubo y donde va a
@@ -210,6 +213,14 @@ la SPH (128 B) y detras las instrucciones.
 
       **Como se sabe:** `gpu verrano banco maximo` dice `PERF_BOOST
       aceptado, P8 -> P0` (o por que no), LA 3060 baja, y el 30 IGUAL.
+
+      **Lo que queda (la CPU es ahora el cuello, 35 us de pared contra 18
+      de la 3060):** el paquete sin los ~700 B de programas en cada
+      fotograma (paso 7); la cola de cada ranura en RAM y las entradas del
+      GPFIFO escritas al armar (paso 2: una escritura por PCIe y el timbre);
+      y medir el escritorio (el paquete, `Frame::cover` en coma flotante por
+      software, la llamada) para saber de que son los ~20 us que no son del
+      kernel.
 
       Lo pidio el propietario
       el 26-09: la CPU no espera ni le dice a la 3060 que hacer; la
