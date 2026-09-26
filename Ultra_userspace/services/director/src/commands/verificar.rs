@@ -394,6 +394,58 @@ pub(crate) fn al_arrancar(dsk: &mut Desktop, p: &bmo::Pantalla) {
     correr(dsk, p, &quitados, tumbo);
 }
 
+/// ** PREPARAR LO QUE FALTE (26-09, metal 22:33).
+///
+/// Con el arranque por defecto (`init`) la 3060 despierta, pero el motor
+/// grafico no: `gpu verrano` contesto `motivo 71` (sin el contexto de oro).
+/// Las ordenes que dibujan piden aqui los pasos que les faltan, EN ORDEN y
+/// hasta `hasta`, sin el informe de antes de cada uno (es lo que las haria
+/// lentas) pero CON la marca `en curso`: si uno tumba la maquina, el
+/// arranque siguiente lo sabe igual. `Ok(pasos dados)`, o el motivo del
+/// primero que dijo que no (y su nombre en la caja de salida).
+pub(crate) fn preparar_hasta(dsk: &mut Desktop, p: &bmo::Pantalla, hasta: &[u8]) -> Result<u32, u32> {
+    let Some(fin) = paso_por_nombre(hasta) else { return Ok(0) };
+    let tumbo = leer_modo().and_then(|m| m.tumbo);
+    let mut dados = 0u32;
+    for (i, paso) in PASOS.iter().enumerate().take(fin + 1) {
+        if (paso.hecho)() {
+            continue;
+        }
+        crate::scene::sugerir::pista(p, &dsk.run_box, b"preparando", paso.nombre);
+        marcar(Some(i), tumbo);
+        let r = (paso.dar)();
+        marcar(None, tumbo);
+        if paso.repinta && r.is_ok() {
+            crate::repintar_escritorio(p, dsk, "preparar");
+        }
+        let g = &mut dsk.out.grid;
+        match r {
+            Ok(_) => dados += 1,
+            Err(m) => {
+                g.with_ink(INK_ERR);
+                g.text(b"  NO  preparando `");
+                g.text(paso.nombre);
+                g.text(b"`: motivo ");
+                g.dec(m as u64);
+                g.text(b" (`gpu` lo explica)\n");
+                g.with_ink(INK_PLAIN);
+                return Err(m);
+            }
+        }
+    }
+    if dados > 0 {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_GOOD);
+        g.text(b"  preparado: ");
+        g.dec(dados as u64);
+        g.text(b" paso(s) que faltaban, hasta `");
+        g.text(hasta);
+        g.text(b"`\n");
+        g.with_ink(INK_PLAIN);
+    }
+    Ok(dados)
+}
+
 /// **Justo tras el gato de la intro**: si `save mode` esta armado, el panel
 /// del arranque orquestado sale YA, y el escritorio se prepara detras (sin
 /// verse a trozos entre el gato y el panel). Lo llama `desktop::boot`.

@@ -120,6 +120,12 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     }
     let frame = Frame { clear: bmo_cubo::FONDO_F, vertices: &v[..k], viewport: Viewport { width: w, height: h } };
 
+    // Lo que falte del motor grafico (con `init` por defecto, casi todo).
+    if super::super::verificar::preparar_hasta(dsk, p, b"lienzo").is_err() {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+
     // La pantalla ANTES del dibujo, como `gpu cubo 3060`.
     let (x0, y0) = (((p.ancho - w) / 2) & !31, (p.alto - h) / 2);
     p.rect(0, 0, p.ancho, p.alto, FONDO);

@@ -44,6 +44,12 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // este proceso y solo se usa aqui; las dos mitades no se pisan.
     let (gpu, juez) = unsafe { core::slice::from_raw_parts_mut(bloque.base() as *mut u32, 2 * n).split_at_mut(n) };
 
+    // Lo que falte del motor grafico (con `init` por defecto, casi todo).
+    if super::super::verificar::preparar_hasta(dsk, p, b"lienzo").is_err() {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+
     // La pantalla ANTES del dibujo: lo que se pinte despues por la CPU no
     // puede caer encima del cubo entre el dibujo y la lectura.
     let (x0, y0) = (((p.ancho - w) / 2) & !31, (p.alto - h) / 2);

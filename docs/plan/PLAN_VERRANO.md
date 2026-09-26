@@ -80,6 +80,12 @@ la SPH (128 B) y detras las instrucciones.
       (`BSF_FIJAR=1`): la misma medida, otra huella. Si aun asi se para en
       los VERTICES, lo siguiente es el LDG mismo: la direccion de la tabla
       (`0x2_0000_E600`) en el espacio del canal de GR.
+      **Metal 25-09 22:33, con el arranque POR DEFECTO (`init`):** `NO
+      VERRANO en la 3060 no dibujo: motivo 71` -- sin el contexto de oro: el
+      arranque ya no prepara el motor grafico. No llego a dibujar, asi que el
+      bit 26 sigue sin medirse. Arreglo: `gpu verrano` y `gpu cubo 3060` dan
+      antes los pasos que les falten hasta `lienzo`
+      (`verificar::preparar_hasta`, en orden y con la marca `en curso`).
 - [ ] **V1 -- el cubo en MOVIMIENTO, con fps.** N fotogramas seguidos por
       VERRANO sin leer de vuelta (solo la huella de algunos), para poner los
       fps de BMO-X al lado de la tabla de `estudio-d3d` (D3D12 ~3.800 fps en
