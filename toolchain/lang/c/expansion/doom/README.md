@@ -96,6 +96,16 @@ tres que mas se ven:
 
 La linea exacta sale por la consola del escritorio. Con ella se sabe cual es.
 
+**Si se cae SIN `I_Error`, justo despues de `P_Init`** (fallo de Ring 3 con un
+salto a una direccion chica, como 8): era esto el 27-09. En la unidad unica
+(`bmo_unity.c`) habia dos `anims` --el de `p_spec.c` y un `static` de
+`wi_stuff.c`--, BMO C se quedaba con el ultimo, y `P_InitPicAnims` escribia
+sus animaciones encima de `DG_sound_module`. Arreglado en los dos lados:
+`unity.py` renombra el de `wi_stuff.c` (`RENOMBRES`) y el compilador ya no
+lo acepta en silencio (`registrar_global`, `codegen/bex.rs`). Se cazo
+corriendo DOOM entero en el emulador de BMO C con Freedoom y un vigia en la
+direccion que cambiaba.
+
 ## 5. Y VERRANO
 
 DOOM pinta por software en un bufer de 32 bits (`DG_ScreenBuffer`). En una

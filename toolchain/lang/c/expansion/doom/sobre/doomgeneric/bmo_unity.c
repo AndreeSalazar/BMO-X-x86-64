@@ -78,5 +78,7 @@
 #include "w_file_stdc.c"
 #include "w_main.c"
 #include "w_wad.c"
+#define anims wi_anims
 #include "wi_stuff.c"
+#undef anims
 #include "z_zone.c"
