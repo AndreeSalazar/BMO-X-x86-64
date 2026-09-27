@@ -450,7 +450,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            el escritorio, esos marcos no volvian nunca. Ahora
            `obj/memory.rs` los apunta (`RETENIDOS`) y los libera cuando se
            suelta el ultimo prestamo que los sujetaba.
-      P3b3b [HECHO el 27-09, en el banco; falta el metal] los sombreadores
+      P3b3b [HECHO el 27-09, VISTO en el metal] los sombreadores
            NATIVOS en la CPU, con INTI. El Rust de Ring 3 no puede usar SSE
            (el target es soft-float; encenderlo lo retira rustc, issue
            #162235, y tumba a LLVM con SIGILL: comprobado), y el interprete
@@ -477,6 +477,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            la 3060 con el codigo nativo (romper `mulss` las pierde,
            comprobado); y los opcodes son los de las filas SSE de la tabla de
            INTI (`intrinsics.toml`), con FMad como su `acumula` y ni una FMA.
+           En el Ryzen, el 27-09 10:58: `cubo.exe` dibujo el mismo cubo con
+           los sombreadores nativos en un bloque sellado, sin un aviso.
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
@@ -488,7 +490,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       todo D3D12 va por ahi y ninguna tabla de importaciones lo ve), ficheros
       mapeados. Un `.exe` de pruebas tuyo por cada una. **Como se sabe:** el
       mismo `.exe` da la misma salida en Windows y en BMO-X.
-      P4a [HECHO el 27-09, en el banco; falta el metal] LOS HILOS. BMO-X no
+      P4a [HECHO el 27-09, VISTO en el metal] LOS HILOS. BMO-X no
            tiene hilos de Ring 3 (una tarea, un hilo; el FUERO los deja para
            cuando haya SMP), asi que PROTON-X se los da al `.exe` DENTRO de
            su tarea, COOPERATIVOS (el modelo M:1): cada hilo con su pila (del
@@ -521,6 +523,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            el anfitrion los xmm los guarda ya el compilador (con SSE): el
            banco los ve solo por el MXCSR (quitar su `ldmxcsr` del relevo da
            MAL, comprobado); el juez de los xmm es `hilos.exe` en el Ryzen.
+           En el Ryzen, el 27-09 10:58: `hilos.exe` dijo `bien` diecinueve
+           veces y salio con 0 -- incluida la linea de xmm6..xmm15, la que el
+           anfitrion no podia juzgar: el relevo de la casa los guarda de
+           verdad con la casa en soft-float.
            Lo que falta, dicho: un hilo que da vueltas sin esperar no suelta
            el turno (no hay reloj que se lo quite).
       P4b [HECHO el 27-09] LA COSTURA con quien dibuja: `bmo_proton_x::lote`.
