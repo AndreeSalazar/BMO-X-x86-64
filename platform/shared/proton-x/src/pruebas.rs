@@ -305,3 +305,66 @@ fn un_dib_de_abajo_arriba_cae_derecho() {
     cab[14] = 24;
     assert_eq!(leer_dib(&cab), Err(NoPinta::Formato { bits: 24, compresion: 0 }));
 }
+
+// ============================ P3b1: DXIL ============================
+
+use crate::dxil::{self, Etapa};
+
+const CUBO_VS: &[u8] = include_bytes!("../prueba/cubo_vs.dxil");
+const CUBO_PS: &[u8] = include_bytes!("../prueba/cubo_ps.dxil");
+
+fn semanticas(v: &[dxil::Elemento]) -> Vec<(&str, u32, u8)> {
+    v.iter().map(|e| (e.semantica.as_str(), e.registro, e.mascara)).collect()
+}
+
+/// El testigo es `dxc -dumpbin` de los mismos bytes (ver prueba/HACER.txt):
+/// lo que dice ahi es lo que el lector tiene que encontrar solo.
+#[test]
+fn el_sombreador_de_vertices_del_cubo_se_lee_entero() {
+    let s = dxil::leer(CUBO_VS).unwrap();
+    assert_eq!(s.etapa, Etapa::Vertice);
+    assert_eq!(s.modelo, (6, 0));
+    assert_eq!(s.partes, [*b"SFI0", *b"ISG1", *b"OSG1", *b"PSV0", *b"STAT", *b"HASH", *b"DXIL"]);
+    assert_eq!(semanticas(&s.entradas), [("POSITION", 0, 0b0111), ("NORMAL", 1, 0b0111), ("COLOR", 2, 0b1111)]);
+    assert_eq!(semanticas(&s.salidas), [("SV_Position", 0, 0b1111), ("NORMAL", 1, 0b0111), ("COLOR", 2, 0b1111)]);
+    assert_eq!(s.salidas[0].sistema, 1, "SV_Position es el valor de sistema 1");
+    assert_eq!(s.modulo.productor, "dxc(private) 1.8.0.4662 (416fab6b5)", "llvm.ident, como lo dice dxc -dumpbin");
+    let e = s.modulo.entrada().unwrap();
+    assert_eq!((e.nombre.as_str(), e.instrucciones), ("vertice", 80));
+    let mut ops = s.modulo.operaciones();
+    ops.sort();
+    assert_eq!(ops, ["dx.op.cbufferLoadLegacy.f32", "dx.op.createHandle", "dx.op.loadInput.f32", "dx.op.storeOutput.f32", "dx.op.tertiary.f32"]);
+}
+
+#[test]
+fn el_sombreador_de_pixeles_del_cubo_se_lee_entero() {
+    let s = dxil::leer(CUBO_PS).unwrap();
+    assert_eq!(s.etapa, Etapa::Pixel);
+    assert_eq!(semanticas(&s.entradas), [("SV_Position", 0, 0b1111), ("NORMAL", 1, 0b0111), ("COLOR", 2, 0b1111)]);
+    assert_eq!(semanticas(&s.salidas), [("SV_Target", 0, 0b1111)]);
+    assert_eq!(s.salidas[0].sistema, 64, "SV_Target es el valor de sistema 64");
+    let e = s.modulo.entrada().unwrap();
+    assert_eq!((e.nombre.as_str(), e.instrucciones), ("pixel", 31));
+    let mut ops = s.modulo.operaciones();
+    ops.sort();
+    assert_eq!(ops, ["dx.op.cbufferLoadLegacy.f32", "dx.op.createHandle", "dx.op.dot3.f32", "dx.op.loadInput.f32", "dx.op.storeOutput.f32", "dx.op.unary.f32"]);
+}
+
+#[test]
+fn un_sombreador_roto_dice_donde() {
+    // Sin la parte DXIL (su FourCC cambiado): no es de P3.
+    let mut d = CUBO_VS.to_vec();
+    let o = d.windows(4).rposition(|w| w == b"DXIL").unwrap();
+    let parte = d[..o].windows(4).rposition(|w| w == b"DXIL").unwrap_or(o);
+    d[parte..parte + 4].copy_from_slice(b"XXXX");
+    assert!(matches!(dxil::leer(&d), Err(dxil::NoSombreador::SinDxil) | Err(dxil::NoSombreador::Contenedor(_))));
+    // El bitcode cortado a la mitad: el lector dice en que bit se quedo.
+    let s = dxil::leer(CUBO_VS).unwrap();
+    assert!(!s.modulo.bloques.is_empty());
+    let bc_desde = CUBO_VS.windows(4).position(|w| w == [b'B', b'C', 0xC0, 0xDE]).unwrap();
+    let cortado = &CUBO_VS[bc_desde..bc_desde + 600];
+    assert!(matches!(dxil::bits::leer(cortado), Err(dxil::NoLee::Corto { .. })));
+    // Y lo que no es DXBC, tampoco.
+    assert_eq!(dxil::leer(b"MZ.."), Err(dxil::NoSombreador::Contenedor("no empieza por DXBC")));
+}
+

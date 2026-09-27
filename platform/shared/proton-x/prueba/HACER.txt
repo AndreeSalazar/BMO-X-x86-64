@@ -77,3 +77,24 @@ del orden de la cabecera de Windows (d3d12.h y dxgi1_2.h de mingw-w64,
 consultadas el 27-09 y NO traidas al arbol). En Windows abre una ventana de
 320x200 limpia de azul; cada letra, el color siguiente; q o ESC cierran, y
 sale con el numero de Present.
+
+cubo_vs.dxil y cubo_ps.dxil -- los sombreadores del cubo (P3b1, 27-09)
+
+De `cubo.hlsl` (las mismas cuentas que el cubo de X1, bmo-cubo), con `dxc`,
+el compilador de HLSL de Microsoft, la version de Linux de su pagina de
+publicaciones (linux_dxc_2024_07_31.x86_64.tar.gz: libdxcompiler 1.8
+4662-416fab6b, con su libdxil.so), en la nube:
+
+   dxc -T vs_6_0 -E vertice -Fo cubo_vs.dxil cubo.hlsl
+   dxc -T ps_6_0 -E pixel -Fo cubo_ps.dxil cubo.hlsl
+
+Reproducibles (comprobado dos veces). sha256:
+
+   7c10321a21df6028ed80cdd706ceb4f72965b9eac7586902d363b68dcc966a70  cubo_vs.dxil
+   7eb1787b410ec5b1808ec5472555131cdfa821933b115d2ecc923083984382eb  cubo_ps.dxil
+
+Y el TESTIGO: lo que `dxc -dumpbin` dice de esos mismos bytes, en
+`cubo_vs.ll` y `cubo_ps.ll` (el LLVM de dentro, en texto). El banco de
+`bmo_proton_x::dxil` compara lo que su lector encuentra solo con lo que dice
+ahi: las partes, las firmas, la etapa, las funciones y cuantas instrucciones
+tiene cada una. Nada del compilador entra al arbol: solo sus salidas.

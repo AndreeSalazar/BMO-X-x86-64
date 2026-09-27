@@ -363,11 +363,26 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       de hoy es DXIL (SM6, `dxc`): bitcode de LLVM dentro de un contenedor
       `DXBC`. Un desvio por DXBC seria un lector que el jefe final no usa.
       En cuatro escalones, cada uno con su banco:
-      P3b1 el contenedor y el bitcode: leer el `DXBC` (sus partes: `DXIL`,
-           las firmas de entrada y salida) y el flujo de bits de LLVM
-           (bloques, abreviaturas, registros), puro y probado con los dos
-           sombreadores del cubo compilados por `dxc` (el oficial, en la
-           nube; los `.dxil` al banco con su receta, como `hola.exe`).
+      P3b1 [HECHO el 27-09] el contenedor y el bitcode:
+           `bmo_proton_x::dxil` (puro, sin `unsafe`) lee el `DXBC` (sus
+           partes, las firmas ISG1/OSG1 y la cabecera del programa: etapa y
+           modelo), el flujo de bits de LLVM entero (`dxil/bits.rs`: bloques,
+           BLOCKINFO, abreviaturas, Array, Char6, Blob) y el modulo: las
+           funciones con su nombre de la tabla de simbolos, cuales son
+           `dx.op.*`, cuantas instrucciones tiene cada cuerpo, y quien lo
+           hizo (el `llvm.ident` de los metadatos: en 3.7 no hay bloque
+           IDENTIFICATION). Los sombreadores del banco son los del cubo de
+           X1 en HLSL (`prueba/cubo.hlsl`), compilados por `dxc` 1.8 (el
+           oficial, version Linux) a `cubo_vs.dxil` y `cubo_ps.dxil`,
+           reproducibles, con su testigo `dxc -dumpbin` al lado. **Como se
+           sabe:** lo que el lector encuentra solo es lo que dice el testigo
+           -- vertice: POSITION/NORMAL/COLOR -> SV_Position/NORMAL/COLOR,
+           `vertice` con 80 instrucciones y 5 operaciones de D3D; pixel:
+           `pixel` con 31 y 6, SV_Target (valor de sistema 64); productor
+           `dxc(private) 1.8.0.4662` --, y un bitcode cortado dice en que
+           bit se quedo. Compila para `x86_64-unknown-none`. Y un dato para
+           P3b3: dxc funde `mul` + `add` en FMad; la igualdad bit a bit con
+           D3D12 en la 3060 tendra que decidir si se funde o no.
       P3b2 la tuberia: CreateRootSignature, CreateGraphicsPipelineState,
            CreateCommittedResource + Map (el bufer de vertices y el de
            constantes), IASetVertexBuffers, RSSetViewports, DrawInstanced.
