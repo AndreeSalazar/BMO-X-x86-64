@@ -719,7 +719,13 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            strlen, wcslen, strcmp, strncmp). **Como se sabe:**
            `prueba/ucrt.exe` dice `bien` diecinueve veces en el anfitrion, y
            su ultima linea la escribe una funcion de _crt_atexit (quitar esa
-           llamada de exit la calla, comprobado). *Lo que falta, dicho: lo del
+           llamada de exit la calla, comprobado). **En Windows (27-09):** se
+           CALLO despues de _initterm_e -- la prueba pasaba una tabla de
+           onexit con basura, y el UCRT de verdad da por iniciada una tabla
+           cuyo primero no es su fin (no la toca) y registrar en ella tumba el
+           proceso. La casa perdonaba lo que Windows no: ahora hace lo mismo,
+           y la prueba pasa la tabla a ceros como el CRT. Falta verlo otra vez
+           en Windows. *Lo que falta, dicho: lo del
            mecanismo de excepciones de C++ (__CxxFrameHandler3,
            _CxxThrowException) va con P4c; el `printf` del CRT
            (__stdio_common_*) no esta; y lo que un `.exe` de MSVC enlaza
@@ -772,6 +778,19 @@ V4. Por eso, aunque P3b4 este antes en la lista de arriba, se hace despues.
       las unidades RT de la 3060. Es el escalon mas lejano de la escalera de
       VERRANO (Quake II RTX, `PLAN_VERRANO.md` 2d). **Como se sabe:** un
       `.exe` DXR tuyo dibuja igual que en Windows.
+**Medidas pendientes con `rayosx` (27-09).** `rayosx` sin nada detras solo
+muestra su ayuda; hay que darle el `.exe` o la carpeta:
+
+```text
+   python toolchain\tools\rayosx\rayosx.py ruta\a\BMOX-12.exe          P3c: lo que
+                                                                    le falta de verdad
+   python toolchain\tools\rayosx\rayosx.py "D:\...\Cyberpunk 2077"      F: otra vez,
+                                                                    ya en el disco D:
+```
+
+El propietario borro Cyberpunk de C: y lo esta pasando a D:; la medida del
+25-09 (Ludoteca, seccion 9) sigue valiendo hasta repetirla alli.
+
 **Donde instalar Cyberpunk (27-09, el propietario: "PERSONAL D ese podria
 entrar en mi Cyberpunk 2077").** `Personal (D:)` tiene 111 GB libres y el
 juego pide unos 70 GB (Ludoteca, seccion 9): cabe, con margen para Phantom

@@ -134,7 +134,11 @@ static void el_arranque(void) {
 }
 
 static void la_tabla_de_salida(void) {
-    ONEXIT t;
+    /* A CERO, como las tablas estaticas del CRT: el UCRT de Windows solo
+     * inicia una tabla cuyo primero es igual a su fin; una con basura la da
+     * por iniciada, y registrar en ella tumba el proceso (el 27-09, en
+     * Windows, este .exe se callaba aqui por eso). */
+    ONEXIT t = {0, 0, 0};
     n_orden = 0;
     mira(_initialize_onexit_table(&t) == 0 && _register_onexit_function(&t, uno) == 0 && _register_onexit_function(&t, dos) == 0 && _register_onexit_function(&t, tres) == 0,
          "una tabla de onexit con tres", 3);

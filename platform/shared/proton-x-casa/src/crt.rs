@@ -248,12 +248,22 @@ struct Tabla {
     fin: u64,
 }
 
+/// Como el UCRT: una tabla cuyo primero NO es su fin se da por iniciada y
+/// no se toca (asi la iniciar dos veces no pierde lo registrado). Una tabla
+/// con basura, por eso, no sirve: tiene que llegar a ceros, como las
+/// estaticas del CRT. (Se vio el 27-09 en Windows: la casa perdonaba lo que
+/// Windows no.)
 extern "win64" fn initialize_onexit_table(t: *mut Tabla) -> i32 {
     if t.is_null() {
         return -1;
     }
     // SAFETY: una tabla del `.exe`.
-    unsafe { *t = Tabla { primero: 0, ultimo: 0, fin: 0 } };
+    unsafe {
+        if (*t).primero != (*t).fin {
+            return 0;
+        }
+        *t = Tabla { primero: 0, ultimo: 0, fin: 0 };
+    }
     0
 }
 

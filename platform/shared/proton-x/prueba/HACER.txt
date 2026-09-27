@@ -289,7 +289,7 @@ CRT (crt_runtime.def, crt_heap.def, crt_string.def) y de vcruntime140.dll
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   dd4b35a65451fa3fa10cb29c35b5e4677e52184ed60c9a6ae784aaea926be059
+   e40b2e716b2460678f9ad09def6e1eb8cb0333ef9793ea7ffce7b7a7a169e06f
 
 Dice `bien` diecinueve veces y la ultima linea la escribe una funcion
 registrada con _crt_atexit cuando exit() la llama; sale con 0. En Windows
