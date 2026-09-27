@@ -1,14 +1,14 @@
 <!-- GENERADO por toolchain/tools/planes. No se edita a mano. -->
 
-# LO QUE FALTA -- las casillas abiertas de los 52 planes
+# LO QUE FALTA -- las casillas abiertas de los 53 planes
 
 > Generado por `toolchain/tools/planes`. **El build comprueba que
 > este fichero y los planes dicen lo mismo**, asi que no puede
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   372 casillas ABIERTAS en 43 planes
-   310 hechas
+   379 casillas ABIERTAS en 44 planes
+   311 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -201,6 +201,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- LAS SUPOSICIONES DE DISPOSICION
 - [ ] A5 -- LA TABLA DEL UB, que era el encargo original
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
+- ... y 4 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 7 abiertas, 1 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P1 -- hola.exe de consola en BMO-X. Un .exe tuyo (escrito y
+- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
+- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas

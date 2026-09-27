@@ -90,7 +90,10 @@ lineas y una tabla:
 
 ## 4. Lo que NO se hace
 
-- Ningun `.exe` en BMO-X, ni Wine, ni Proton, ni una capa Win32.
+- Ni Wine, ni Proton, ni una capa Win32 general. **Cambiado el 27-09 por el
+  propietario:** un `.exe` SI, pero solo por PROTON-X -- x86-64, en Ring 3, y
+  con lo que ese `.exe` importa, medido por `rayosx`
+  ([`PLAN_PROTON_X.md`](PLAN_PROTON_X.md)).
 - Ningun fichero de un juego en el repositorio: ni WAD ni PAK (DOOM ya lo
   cumple: `build/ejemplos.ps1`, "ni el codigo ni el WAD pueden vivir aqui").
 - Nada de saltarse el DRM o las condiciones de una tienda: GOG vende sin DRM
@@ -840,6 +843,12 @@ que hace falta.
       valor en `xmm0`). **Como se sabe:** la capa 2 y la 3 bajan de 70 a 0.
 
 ## 16. El RHI de BMO-X y PROTON-X: traducir UNA cosa, medida (25-09)
+
+> **Desde el 27-09 PROTON-X tiene plan propio:**
+> [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- la regla x86-64 (y por que), la
+> investigacion de como se portea (Cyberpunk en Mac, Switch 2, Stadia; Wine,
+> DXVK, vkd3d-proton) y la escalera P0..F. Lo de abajo (X1..X5) queda aqui
+> como historia, hecho.
 
 El propietario: *"la capa RHI traduce las ordenes del juego a la API de la
 consola, entonces BMO-X puede tener su RHI ... podria inspirarme en Proton
