@@ -18,13 +18,15 @@
 //! De la cabecera de DXIL sale la ETAPA (vertice, pixel...) y el modelo
 //! (6.0); del bitcode, el modulo (`Modulo`): que funciones hay, cuales son
 //! declaraciones de `dx.op.*` (las operaciones de D3D) y cuantas instrucciones
-//! tiene cada cuerpo. Que hace cada instruccion es P3b3.
+//! tiene cada cuerpo. Que hace cada instruccion, y correrlo, es P3b3:
+//! `programa.rs`.
 //!
 //! Las formas son las de la documentacion publica de DXIL
 //! (DirectXShaderCompiler, `docs/DXIL.rst` y `DxilContainer.h`); el banco las
 //! comprueba contra lo que dice `dxc -dumpbin` de los mismos bytes.
 
 pub mod bits;
+pub mod programa;
 
 use alloc::string::String;
 use alloc::vec::Vec;

@@ -383,7 +383,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            bit se quedo. Compila para `x86_64-unknown-none`. Y un dato para
            P3b3: dxc funde `mul` + `add` en FMad; la igualdad bit a bit con
            D3D12 en la 3060 tendra que decidir si se funde o no.
-      P3b2 [HECHO el 27-09, en el banco; falta el metal] la tuberia:
+      P3b2 [HECHO el 27-09, VISTO en el metal] la tuberia:
            `bmo_proton_x::dxbc` (el contenedor y su HUELLA: el MD5 con el
            final de Microsoft, IGUAL en los tres blobs de dxc) y
            `bmo_proton_x::raiz` (la root signature 1.0: leerla y escribirla,
@@ -411,12 +411,40 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            -- lo que X4 subio a la 3060 --, con viewport 1280x720, descarte
            de detras y la ventana limpia con el fondo de X1. En Windows el
            mismo `.exe` dibuja el cubo: ese es el juez de que el programa es
-           D3D12 de verdad. En BMO-X, hoy, fondo y un aviso de P3b3.
-      P3b3 los sombreadores EN LA CPU: las pocas operaciones de DXIL que el
-           cubo usa (cargar la entrada, multiplicar por la matriz, sacar
-           posicion y color), interpretadas, y el triangulo por el backend
-           CPU de VERRANO -- el juez. IGUAL, bit a bit, que D3D12 en la 3060
-           (las huellas de X4).
+           D3D12 de verdad (el propietario lo vio dibujar el cubo). En el
+           Ryzen, el 27-09 09:48: la ventana, el fondo de X1 y un solo aviso,
+           el de P3b3; ni un hueco que falte ni un fallo de Ring 3.
+      P3b3 [HECHO el 27-09, en el banco; falta el metal] los sombreadores
+           EN LA CPU. `bmo_proton_x::dxil::programa` lee el CUERPO del DXIL
+           (tipos, constantes del modulo y de la funcion, operandos
+           relativos, llamadas a `dx.op.*`) y lo compila a un programa de
+           registros: LoadInput, StoreOutput, CreateHandle,
+           CBufferLoadLegacy, fmul/fadd/fsub/fdiv, extractvalue, FMad,
+           Dot2/3/4, Rsqrt, Sqrt, Saturate, FAbs, FMin, FMax; lo demas se
+           dice por su nombre al crear el PSO. `bmo_proton_x::trama` es el
+           rasterizador: las cuatro reglas del juez (centro del pixel, 1/256
+           con empates al par, viewport, top-left), descarte y cara de
+           delante, viewport + tijera + destino, y atributos con perspectiva
+           (uno igual en los tres vertices es ESE, exacto; si al sombreador
+           de pixeles le entra lo mismo que al pixel anterior, su color se
+           reusa: una vez por cara en el cubo). Va en `bmo_proton_x` y no en
+           VERRANO porque VERRANO V0 toma un color por triangulo, y D3D12
+           pide atributos por pixel. Las decisiones de numeros: FMad SIN
+           fundir y Dot de izquierda a derecha (asi cuenta el juez), Rsqrt =
+           1 / la raiz EXACTA (en enteros: igual con soft-float). **Como se
+           sabe:** el sombreador de vertices corrido da BIT A BIT `wvp * pos`
+           y la normal del juez; y `cubo.exe` entero, en el anfitrion con la
+           casa, presenta en cada fotograma (0, 30, 60) la HUELLA de lo que
+           D3D12 dibujo en la 3060 bajo Windows -- sin el juez de por medio:
+           los DXIL de dxc, corridos. Lo que falta, contado y dicho: recorte
+           (w <= 0 o fuera de 0..w no se pinta), profundidad, mezcla,
+           texturas, SV_Position en el de pixeles, saltos en el DXIL.
+           Y de paso, el hueco que vio el propietario al cerrar `cubo.exe`
+           con ^C (`no devuelto: sigue PRESTADO a otro`, 3.5 MiB): el
+           kernel apuntaba el bloque retenido en ningun sitio y, al soltarlo
+           el escritorio, esos marcos no volvian nunca. Ahora
+           `obj/memory.rs` los apunta (`RETENIDOS`) y los libera cuando se
+           suelta el ultimo prestamo que los sujetaba.
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).

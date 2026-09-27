@@ -9,5 +9,10 @@ license = "Apache-2.0"
 # (la app de Ring 3) pone la memoria, el sellado y el salto.
 [dependencies]
 
+# Solo para el banco: el cubo de X1 (sus cuentas y las huellas de la 3060) es
+# la verdad contra la que se mide el interprete de DXIL y el rasterizador.
+[dev-dependencies]
+bmo-cubo = { path = "../bmo-cubo" }
+
 [lib]
 name = "bmo_proton_x"

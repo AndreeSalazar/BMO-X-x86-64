@@ -569,6 +569,9 @@ version = "0.1.0"
 [[package]]
 name = "bmo-proton-x"
 version = "0.1.0"
+dependencies = [
+ "bmo-cubo",
+]
 
 [[package]]
 name = "bmo-proton-x-casa"

@@ -422,3 +422,190 @@ fn una_root_signature_con_tabla_constantes_y_sampler_va_y_vuelve() {
     assert_eq!(raiz::leer(&d), Ok(f));
     assert_eq!(raiz::leer(CUBO_VS), Err(raiz::NoFirma::SinRts0), "un sombreador no es una root signature");
 }
+
+// -- P3b3: los sombreadores del cubo, EJECUTADOS ------------------------------
+
+use crate::dxil::programa::{self, compilar, Op};
+
+fn cb_de(f: u32) -> Vec<u8> {
+    let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+    c.wvp.iter().chain(&c.world).chain(&c.luz).flat_map(|x| x.to_le_bytes()).collect()
+}
+
+/// **El sombreador de vertices, corrido, da BIT A BIT las cuentas del juez**:
+/// `wvp * pos` (el FMad sin fundir es la suma de izquierda a derecha de
+/// `transformar`), la normal por la parte 3x3 de `world`, y el color tal cual.
+#[test]
+fn el_sombreador_de_vertices_corrido_da_las_cuentas_del_juez() {
+    let p = compilar(&dxil::leer(CUBO_VS).unwrap()).unwrap();
+    assert_eq!((p.entradas, p.salidas, p.filas_cb), (3, 3, 7));
+    assert_eq!(p.ops.iter().filter(|o| matches!(o, Op::Mad { .. })).count(), 14, "las 14 FMad del testigo");
+    let mut regs = Vec::new();
+    for f in [0u32, 30, 60, 123] {
+        let cb = cb_de(f);
+        let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+        for v in bmo_cubo::vertices() {
+            let e = [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color];
+            let mut s = [[0.0f32; 4]; 3];
+            p.correr(&e, &cb, &mut s, &mut regs);
+            let bits = |x: &[f32]| x.iter().map(|f| f.to_bits()).collect::<Vec<_>>();
+            assert_eq!(bits(&s[0]), bits(&bmo_cubo::mat::transformar(&c.wvp, [v.pos[0], v.pos[1], v.pos[2], 1.0])), "SV_Position, fotograma {f}");
+            assert_eq!(bits(&s[1][..3]), bits(&bmo_cubo::mat::transformar_dir(&c.world, v.normal)), "NORMAL, fotograma {f}");
+            assert_eq!(s[2], v.color);
+        }
+    }
+}
+
+/// **El de pixeles, corrido, da el color de `iluminar`**: la misma luz, la
+/// misma saturacion, y a 8 bits el MISMO pixel en todas las caras.
+#[test]
+fn el_sombreador_de_pixeles_corrido_ilumina_como_el_juez() {
+    let p = compilar(&dxil::leer(CUBO_PS).unwrap()).unwrap();
+    assert_eq!((p.salidas, p.filas_cb, p.lee), (1, 9, 0b110), "NORMAL y COLOR; SV_Position no");
+    let mut regs = Vec::new();
+    for f in [0u32, 30, 60] {
+        let cb = cb_de(f);
+        let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+        for v in bmo_cubo::vertices() {
+            let n = bmo_cubo::mat::transformar_dir(&c.world, v.normal);
+            let e = [[0.0; 4], [n[0], n[1], n[2], 0.0], v.color];
+            let mut s = [[0.0f32; 4]; 1];
+            p.correr(&e, &cb, &mut s, &mut regs);
+            let juez = bmo_cubo::iluminar(v.color, n, c.luz);
+            assert_eq!(bmo_cubo::empaquetar(s[0]), bmo_cubo::empaquetar(juez), "fotograma {f}");
+        }
+    }
+}
+
+/// La raiz de la casa es la EXACTA (la de IEEE-754), en enteros.
+#[test]
+fn la_raiz_de_enteros_es_la_de_ieee() {
+    let mut x = 1.0e-44f32;
+    while x < 1.0e37 {
+        for y in [x, f32::from_bits(x.to_bits() + 1), f32::from_bits(x.to_bits() + 12345)] {
+            assert_eq!(programa::raiz(y).to_bits(), y.sqrt().to_bits(), "raiz({y:e})");
+        }
+        x *= 1.37;
+    }
+    for y in [0.0f32, -0.0, 1.0, 4.0, 2.0, f32::INFINITY, f32::MIN_POSITIVE, f32::MAX] {
+        assert_eq!(programa::raiz(y).to_bits(), y.sqrt().to_bits(), "raiz({y:e})");
+    }
+    assert!(programa::raiz(-1.0).is_nan());
+    assert_eq!(programa::saturar(f32::NAN), 0.0);
+}
+
+use crate::trama;
+
+/// El cubo del fotograma `f` por la tuberia entera de la CPU: los DXIL de
+/// dxc corridos (vertices y pixeles) y la trama, como en un Draw de la casa.
+fn cubo_por_la_casa(f: u32) -> (Vec<u32>, trama::Cuenta) {
+    let (vs, ps) = (compilar(&dxil::leer(CUBO_VS).unwrap()).unwrap(), compilar(&dxil::leer(CUBO_PS).unwrap()).unwrap());
+    let cb = cb_de(f);
+    let mut regs = Vec::new();
+    let sombreados: Vec<trama::Sombreado> = bmo_cubo::vertices()
+        .iter()
+        .map(|v| {
+            let e = [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color];
+            let mut s = [[0.0f32; 4]; 3];
+            vs.correr(&e, &cb, &mut s, &mut regs);
+            // La firma de entrada del de pixeles: SV_Position, NORMAL, COLOR.
+            trama::Sombreado { pos: s[0], atributos: vec![[0.0; 4], s[1], s[2]] }
+        })
+        .collect();
+    let idx = bmo_cubo::indices();
+    let tris: Vec<[usize; 3]> = idx.chunks(3).map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
+    let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
+    let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte: 3, antihorario: false };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true };
+    let mut regs_ps = Vec::new();
+    let cuenta = trama::dibujar(&reglas, &sombreados, &tris, &mut d, |e| {
+        let mut s = [[0.0f32; 4]; 1];
+        ps.correr(e, &cb, &mut s, &mut regs_ps);
+        s[0]
+    });
+    (px, cuenta)
+}
+
+/// *** P3b3: LOS SOMBREADORES DE DXC, CORRIDOS EN LA CPU, DIBUJAN LO QUE
+/// DIBUJO D3D12 EN LA 3060: las huellas de los fotogramas 0, 30 y 60, bit a
+/// bit, sin el juez de por medio (el juez solo presta los datos del cubo).
+#[test]
+fn los_dxil_corridos_y_la_trama_dan_las_huellas_de_d3d12() {
+    for (f, esperada) in bmo_cubo::referencia::HUELLAS {
+        let (px, cuenta) = cubo_por_la_casa(f);
+        assert_eq!(bmo_cubo::referencia::huella(&px), esperada, "fotograma {f}: {cuenta:?}");
+        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.sin_recortar), (12, 0));
+        // Cada cara es plana: el sombreador corre una vez por triangulo, no
+        // por pixel (la memoria de la trama).
+        assert!(cuenta.sombreados <= cuenta.dibujados as u64, "{cuenta:?}");
+    }
+}
+
+/// Un triangulo de pantalla completa... casi: de (0,0) a (8,0) a (0,8) en un
+/// destino de 8x8, en coordenadas de recorte con `w` por vertice.
+fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<trama::Sombreado> {
+    // x_ndc = px / 4 - 1, y_ndc = 1 - py / 4; en recorte, por w.
+    let p = [(0.0f32, 0.0f32), (8.0, 0.0), (0.0, 8.0)];
+    let mut v: Vec<trama::Sombreado> = (0..3)
+        .map(|k| trama::Sombreado { pos: [(p[k].0 / 4.0 - 1.0) * w[k], (1.0 - p[k].1 / 4.0) * w[k], 0.0, w[k]], atributos: vec![[atributo[k], 0.0, 0.0, 1.0]] })
+        .collect();
+    if !horario {
+        v.swap(1, 2);
+    }
+    v
+}
+
+fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>, trama::Cuenta) {
+    let mut px = vec![0u32; 64];
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true };
+    let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| e[0]);
+    (px, c)
+}
+
+#[test]
+fn la_trama_descarta_la_cara_que_toca() {
+    let h = triangulo([1.0; 3], [1.0; 3], true);
+    let a = triangulo([1.0; 3], [1.0; 3], false);
+    // (0,0) (8,0) (0,8) en pantalla es HORARIO: la de delante por defecto.
+    assert_eq!(pinta(&h, 3, false).1.dibujados, 1);
+    assert_eq!(pinta(&a, 3, false).1.descartados, 1);
+    assert_eq!(pinta(&h, 2, false).1.descartados, 1);
+    assert_eq!(pinta(&a, 3, true).1.dibujados, 1, "FrontCounterClockwise da la vuelta");
+    // Sin descarte se pintan las dos, y los MISMOS pixeles.
+    assert_eq!(pinta(&h, 1, false).0, pinta(&a, 1, false).0);
+    // Los centros con x + y < 7: 28. Los ocho de x + y = 7 caen JUSTO en la
+    // diagonal, que baja de (8,0) a (0,8): ni "top" ni "left", fuera.
+    assert_eq!(pinta(&h, 1, false).1.pixeles, 28);
+}
+
+#[test]
+fn la_trama_interpola_con_perspectiva() {
+    // El atributo vale 0 en el vertice de (0,0) y 1 en los otros dos. Con w
+    // iguales, en el centro del pixel (0,0) -- (0.5, 0.5) -- vale 1/8;
+    // con el vertice de (0,0) cuatro veces mas cerca (w = 1 contra 4), el
+    // mismo pixel ve mucho menos de los lejanos: 1/29.
+    let plano = pinta(&triangulo([1.0; 3], [0.0, 1.0, 1.0], true), 1, false);
+    let lejos = pinta(&triangulo([1.0, 4.0, 4.0], [0.0, 1.0, 1.0], true), 1, false);
+    let rojo = |p: u32| (p >> 16) & 0xFF;
+    assert_eq!(rojo(plano.0[0]), trama::unorm8(1.0 / 8.0));
+    assert_eq!(rojo(lejos.0[0]), trama::unorm8(1.0 / 29.0));
+    // Cambia en cada pixel: el sombreador corre en cada uno... salvo uno. El
+    // ultimo de la fila 5 y el primero de la 6 ven lo mismo (7/8) y van
+    // seguidos: la memoria reusa el color, que es la misma cuenta.
+    assert_eq!(plano.1.sombreados, plano.1.pixeles - 1);
+    // Y un atributo igual en los tres es ESE, exacto: una sola vez.
+    let fijo = pinta(&triangulo([1.0, 3.0, 7.0], [0.3; 3], true), 1, false);
+    assert_eq!(fijo.1.sombreados, 1);
+    assert!(fijo.0.iter().filter(|&&p| p != 0).all(|&p| rojo(p) == trama::unorm8(0.3)));
+}
+
+#[test]
+fn la_trama_no_pinta_lo_que_no_sabe_recortar() {
+    let mut v = triangulo([1.0; 3], [1.0; 3], true);
+    v[1].pos[3] = -1.0;
+    let (px, c) = pinta(&v, 1, false);
+    assert_eq!((c.sin_recortar, c.pixeles), (1, 0));
+    assert!(px.iter().all(|&p| p == 0));
+}

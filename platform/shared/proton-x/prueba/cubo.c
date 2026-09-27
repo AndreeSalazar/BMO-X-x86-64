@@ -24,8 +24,8 @@
  *
  * Las estructuras son las de d3d12.h, campo a campo, y cada desplazamiento
  * que cuenta se COMPRUEBA al compilar (los _Static_assert): con clang o con
- * MSVC, en Windows este .exe dibuja el cubo. En BMO-X, en P3b2, la casa
- * limpia el fondo y captura el dibujo entero; los sombreadores corren en P3b3.
+ * MSVC, en Windows este .exe dibuja el cubo. En BMO-X lo dibuja la casa
+ * (P3b3): los mismos DXIL, corridos en la CPU, y la misma imagen.
  *
  *    una letra   30 fotogramas mas (el cubo gira 30 grados)
  *    q o ESC     cierra

@@ -90,6 +90,9 @@ static PANTALLA: Mutex<Vec<(Vec<u32>, u32, u32)>> = Mutex::new(Vec::new());
 static MOSTRADAS: AtomicU32 = AtomicU32::new(0);
 static PRESENTADAS: AtomicU32 = AtomicU32::new(0);
 static DORMIDAS: AtomicU32 = AtomicU32::new(0);
+/// La huella (`bmo_cubo::referencia::huella`) de cada superficie PRESENTADA,
+/// en orden: lo que se vio en la ventana, fotograma a fotograma.
+static VISTAS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
 
 /// **El guion del buzon.** Cada `evento` saca el siguiente; un 0 del guion es
 /// "ahora no hay nada", y se gasta. Asi se ve lo que hace `GetMessageW` cuando
@@ -113,8 +116,11 @@ fn mostrar(_s: &Superficie) -> bool {
     true
 }
 
-fn presentar(_s: &Superficie) {
+fn presentar(s: &Superficie) {
     PRESENTADAS.fetch_add(1, Ordering::SeqCst);
+    // SAFETY: la superficie es un Vec de PANTALLA (ver `superficie`), vivo.
+    let px = unsafe { core::slice::from_raw_parts(s.pixeles, (s.stride * s.alto) as usize) };
+    VISTAS.lock().unwrap().push(bmo_cubo::referencia::huella(px));
 }
 
 fn evento(_s: &Superficie) -> u64 {
@@ -227,6 +233,7 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     }
     DICHO.lock().unwrap().clear();
     PANTALLA.lock().unwrap().clear();
+    VISTAS.lock().unwrap().clear();
     for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS] {
         c.store(0, Ordering::SeqCst);
     }
@@ -361,13 +368,17 @@ fn cubo_datos_h_es_lo_que_fabrica_su_ejemplo() {
     assert!(cubo_datos::texto() == CUBO_DATOS_H, "rehacer: cargo run -p bmo-proton-x-casa --example cubo_datos > platform/shared/proton-x/prueba/cubo_datos.h");
 }
 
-/// **P3b2 en el anfitrion**: `cubo.exe`, un programa D3D12 ENTERO (root
-/// signature serializada, PSO con los DXIL de dxc, buferes UPLOAD mapeados,
-/// y cada fotograma Reset con el PSO, raiz, CBV, viewport, destino, limpiar,
-/// vertices, indices y DrawIndexedInstanced). La tuberia de la casa captura lo
-/// que cada dibujo VERIA, y aqui se compara con X1: los vertices, los indices
-/// y las constantes de los fotogramas 0, 30 y 60 son, bit a bit, los de
-/// `bmo-cubo` (lo que X4 subio a la 3060 para sus huellas).
+/// **P3b2 y P3b3 en el anfitrion**: `cubo.exe`, un programa D3D12 ENTERO
+/// (root signature serializada, PSO con los DXIL de dxc, buferes UPLOAD
+/// mapeados, y cada fotograma Reset con el PSO, raiz, CBV, viewport, destino,
+/// limpiar, vertices, indices y DrawIndexedInstanced). Dos cosas:
+///
+/// - lo que cada dibujo VE (la captura de P3b2): los vertices, los indices y
+///   las constantes de los fotogramas 0, 30 y 60 son, bit a bit, los de
+///   `bmo-cubo` (lo que X4 subio a la 3060);
+/// - lo que se VIO (P3b3): la ventana de cada Present tiene la HUELLA de lo
+///   que D3D12 dibujo en la 3060 bajo Windows. Los sombreadores de dxc
+///   corridos en la CPU y la trama de la casa, sin el juez de por medio.
 #[test]
 fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
     let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
@@ -375,9 +386,12 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
     let (salio, dicho, _) = correr_exe(&uno, CUBO, true, &[letra(b'b'), 0, letra(b'b'), 0, letra(b'q')]);
     assert_eq!(
         String::from_utf8_lossy(&dicho),
-        "PROTON-X: Draw: la tuberia esta entera y se captura; los sombreadores corren en P3b3\n",
-        "un aviso, el de P3b3, y ni un hueco que falte"
+        "",
+        "ni un aviso ni un hueco que falte: la casa supo hacer todo el dibujo"
     );
+    let vistas = VISTAS.lock().unwrap().clone();
+    let huellas: Vec<u64> = bmo_cubo::referencia::HUELLAS.iter().map(|&(_, h)| h).collect();
+    assert_eq!(vistas, huellas, "lo que se vio en cada Present es lo que dibujo la 3060 (fotogramas 0, 30, 60)");
     // PostQuitMessage(presentados): el de arrancar y el de cada letra.
     assert_eq!(salio, 3);
     assert_eq!(PRESENTADAS.load(Ordering::SeqCst), 3);
@@ -409,8 +423,8 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
         assert!(d.constantes == esperado, "las constantes del fotograma {f}");
     }
 
-    // La ventana: 1280x720, limpia con el fondo de X1 (16, 16, 24) en BGRA.
+    // La ventana: 1280x720; la esquina, el fondo de X1 (16, 16, 24) en BGRA.
     let p = PANTALLA.lock().unwrap();
     assert_eq!((p[0].1, p[0].2), (1280, 720));
-    assert!(p[0].0.iter().all(|&c| c == 0xFF10_1018), "primero {:#x}", p[0].0[0]);
+    assert_eq!(p[0].0[0], 0xFF10_1018);
 }

@@ -161,8 +161,8 @@ try {
     # Y `limpia.exe` (P3a, 27-09): D3D12 y DXGI de la casa limpian la ventana
     # y presentan; una letra, el color siguiente.
     # Y `cubo.exe` (P3b2, 27-09): el cubo de X1 con la tuberia ENTERA de D3D12
-    # (root signature, PSO con DXIL, buferes, DrawIndexedInstanced). En P3b2
-    # la casa limpia el fondo y captura el dibujo; los sombreadores, en P3b3.
+    # (root signature, PSO con DXIL, buferes, DrawIndexedInstanced). Desde
+    # P3b3 la casa lo DIBUJA: los DXIL corridos en la CPU y su trama.
     foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }

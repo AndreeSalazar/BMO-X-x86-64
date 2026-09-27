@@ -19,8 +19,8 @@
 //! **Lo que es de P3a y lo que no:** limpiar un blanco y presentarlo. La
 //! tuberia (root signature, PSO, buferes, los `Set*` de la lista y los
 //! `Draw`) es P3b2 y vive en `tuberia.rs`: aqui solo se cuelga de los huecos.
-//! Los sombreadores todavia no corren (P3b3). El backend es la CPU; la 3060
-//! entra por VERRANO cuando haya algo que dibujar que no sea un color.
+//! Desde P3b3 los sombreadores CORREN: los DXIL, en la CPU, y la trama de
+//! `bmo_proton_x`. La 3060 entra cuando el DXIL pase a SASS (P3b4).
 //!
 //! **El ABI que no se ve:** los metodos de C++ que DEVUELVEN un struct
 //! (`GetCPUDescriptorHandleForHeapStart`) lo hacen, en Windows x64, por un

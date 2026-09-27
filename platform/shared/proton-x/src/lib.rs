@@ -41,6 +41,7 @@ pub mod dxil;
 pub mod pe;
 pub mod raiz;
 pub mod teb;
+pub mod trama;
 pub mod ventanas;
 
 pub use cargar::{colocar, importaciones, partir, resolver, Funcion, Importacion, Partes, PAGINA};
