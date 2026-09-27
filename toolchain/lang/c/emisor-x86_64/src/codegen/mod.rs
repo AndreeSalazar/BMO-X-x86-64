@@ -533,7 +533,7 @@ impl Codegen {
                         }
                     }
                 }
-                self.global_offsets.insert(name.clone(), (off, typ.clone()));
+                self.registrar_global(name, off, typ);
                 continue;
             }
             if let GlobalDecl::Var(typ, name, init) = decl {
@@ -589,7 +589,7 @@ impl Codegen {
                     for k in 0..size {
                         self.global_data.push(*bytes.get(k as usize).unwrap_or(&0));
                     }
-                    self.global_offsets.insert(name.clone(), (off, typ.clone()));
+                    self.registrar_global(name, off, typ);
                     continue;
                 }
                 match (init, literal) {
@@ -692,7 +692,7 @@ impl Codegen {
                         for _ in 0..size { self.global_data.push(0); }
                     }
                 }
-                self.global_offsets.insert(name.clone(), (off, typ.clone()));
+                self.registrar_global(name, off, typ);
             }
         }
         // * Los globales ya estan colocados: ahora se separan los que son todo

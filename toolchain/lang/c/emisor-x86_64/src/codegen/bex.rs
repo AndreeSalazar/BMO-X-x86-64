@@ -402,4 +402,43 @@ impl Codegen {
         b.entrada(self.entry_offset as u32);
         b.construir().unwrap_or_default()
     }
+
+    /// **Un global con su nombre: `global_offsets`, y DOS con el mismo, un
+    /// error** (2026-09-27).
+    ///
+    /// *** DOOM MURIO ASI EN EL METAL, y la sonda de cuatro dias no lo veia.
+    /// En el `.bex` unico de DOOM (`bmo_unity.c`: todos los `.c` en una
+    /// unidad) hay DOS `anims`: `anim_t anims[32]` de `p_spec.c` y
+    /// `static anim_t *anims[4]` de `wi_stuff.c`, otro tipo y otra medida. En
+    /// C eso es un error (tipos en conflicto); aqui el ultimo pisaba al
+    /// primero EN SILENCIO, `P_InitPicAnims` escribia sus 22 animaciones de 20
+    /// bytes en un arreglo de 32, y la escritura caia en `DG_sound_module`:
+    /// `CacheSounds` pasaba a valer 8 (la `speed` de la animacion) y DOOM
+    /// saltaba ahi al acabar `S_Init`. Lo cazo el emulador con un vigia en esa
+    /// direccion. El mismo patron de siempre: un compilador que no sabe cual de
+    /// los dos es lo DICE con el nombre delante.
+    ///
+    /// Lo que SI es legal, y se sigue aceptando: la misma declaracion repetida
+    /// (`extern int x;` y luego `int x;`), y un arreglo sin medida junto a uno
+    /// con medida (`extern char *t[];` e `char *t[8] = {...}`). En ese ultimo
+    /// caso manda el que MIDE, venga antes o despues: antes ganaba el ultimo, y
+    /// un `extern t[]` detras de la definicion dejaba el nombre en un hueco de
+    /// cero bytes, encima del global de al lado.
+    pub(super) fn registrar_global(&mut self, name: &str, off: u32, typ: &TypeSpec) {
+        let incompleto = |t: &TypeSpec| matches!(t, TypeSpec::Array(_, 0));
+        if let Some((_, viejo)) = self.global_offsets.get(name) {
+            let compatibles = viejo == typ
+                || matches!((viejo, typ), (TypeSpec::Array(a, n), TypeSpec::Array(b, m)) if a == b && (*n == 0 || *m == 0));
+            if !compatibles {
+                self.errors.push(format!(
+                    "el global '{name}' se declara dos veces con tipos distintos ({viejo:?} y {typ:?}). \
+                     En C es un error; en un unity build suele ser un `static` de fichero repetido: \
+                     renombra uno (`#define {name} otro_{name}` antes de su `#include`)"
+                ));
+            } else if incompleto(typ) && !incompleto(viejo) {
+                return;
+            }
+        }
+        self.global_offsets.insert(name.to_string(), (off, typ.clone()));
+    }
 }

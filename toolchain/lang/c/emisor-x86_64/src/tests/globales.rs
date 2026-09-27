@@ -388,3 +388,28 @@ fn el_cuerpo_y_el_asterisco_en_la_misma_frase_se_rechazan_con_motivo() {
         e.message
     );
 }
+
+/// *** DOS GLOBALES CON EL MISMO NOMBRE Y OTRO TIPO: un error (27-09).
+///
+/// Asi murio DOOM: en su unidad unica, `anim_t anims[32]` (p_spec.c) y
+/// `static anim_t *anims[4]` (wi_stuff.c). El ultimo pisaba al primero en
+/// silencio y `P_InitPicAnims` escribia 440 bytes en 32, encima de
+/// `DG_sound_module`. Ver `registrar_global` en `codegen/bex.rs`.
+#[test]
+fn dos_globales_con_el_mismo_nombre_y_otro_tipo_se_rechazan() {
+    let fuente = "struct a { int x; int y; int z; }; struct a anims[32]; \
+                  static int *anims[4]; int main() { return 0; }";
+    let e = compile_source_to_bef(fuente).expect_err("tiene que decir que no");
+    assert!(e.message.contains("'anims'") && e.message.contains("dos veces"), "dice: {}", e.message);
+}
+
+/// Y lo que es legal sigue valiendo: un `extern` sin medida DETRAS de la
+/// definicion ya no deja el nombre en un hueco de cero bytes.
+#[test]
+fn un_extern_sin_medida_detras_de_la_tabla_no_la_pierde() {
+    let out = run_c(
+        "int t[3] = { 7, 8, 9 }; int despues = 5; extern int t[]; \
+         int main() { t[2] = t[2] + 1; printf(\"%d %d %d\\n\", t[0], t[2], despues); return 0; }",
+    );
+    assert_eq!(out.trim(), "7 10 5");
+}
