@@ -271,6 +271,36 @@ const FREE_SLOT: Count = Count {
 
 static mut CUENTAS: [Count; MAX_PROCS] = [FREE_SLOT; MAX_PROCS];
 
+/// **Un bloque de un proceso MUERTO que no se pudo devolver** porque otro lo
+/// tenia tomado en prestamo (la superficie de una ventana, con el escritorio
+/// componiendo encima). `owner == 0`: ranura libre.
+///
+/// === El hueco que tapa (27-09) ===
+///
+/// Antes, `process_died` saltaba el bloque retenido y ponia la cuenta del
+/// proceso a `FREE_SLOT`: ya nadie sabia donde estaban esos marcos. Cuando el
+/// escritorio soltaba la superficie huerfana, `loan::undo` la desmapeaba SIN
+/// liberar (a proposito: los marcos son del que presto) y la RAM se perdia
+/// para siempre. Lo vio el propietario el 27-09 al cerrar `cubo.exe` con ^C:
+/// `no devuelto: sigue PRESTADO a otro =3690496`, una ventana de 1280x720 que
+/// no volvia. Aqui se apunta lo retenido, y [`devuelto`] lo libera cuando el
+/// ultimo prestamo que lo sujetaba se suelta.
+#[derive(Clone, Copy)]
+struct Retenido {
+    owner: u32,
+    base: u64,
+    fisica: u64,
+    bytes: u64,
+}
+
+const SIN_RETENIDO: Retenido = Retenido { owner: 0, base: 0, fisica: 0, bytes: 0 };
+
+/// Tantos como cuentas caben por procesos por bloques: no puede desbordarse
+/// mientras cada bloque retenido sea de una cuenta que existio.
+const MAX_RETENIDOS: usize = MAX_PROCS * MAX_PETICIONES;
+
+static mut RETENIDOS: [Retenido; MAX_RETENIDOS] = [SIN_RETENIDO; MAX_RETENIDOS];
+
 /// Total entregado desde el arranque, para `info`. **No baja al morir un
 /// proceso**, y es a proposito: es "cuanta memoria ha pedido Ring 3 en esta
 /// sesion", no "cuanta hay pedida ahora". Un contador historico dicho como tal
@@ -750,6 +780,13 @@ pub fn process_died(pid: u32) {
             // ** LA PREGUNTA QUE EVITA LLEVARSE EL ESCRITORIO POR DELANTE.
             if crate::ring0::obj::loan::hay_prestado_en(pid, b.base, b.bytes) {
                 retenidos += b.bytes;
+                // Se APUNTA: cuando se suelte el prestamo, [`devuelto`] lo
+                // libera. Sin sitio (no deberia: ver `MAX_RETENIDOS`) se
+                // queda como antes, fuera, y lo dice el aviso de abajo.
+                let tabla = &mut *core::ptr::addr_of_mut!(RETENIDOS);
+                if let Some(r) = tabla.iter_mut().find(|r| r.owner == 0) {
+                    *r = Retenido { owner: pid, base: b.base, fisica: b.fisica, bytes: b.bytes };
+                }
                 continue;
             }
             let paginas = b.bytes / mm::PAGE;
@@ -1049,6 +1086,7 @@ pub fn secuencia_de(pid: u32, base: u64) -> u64 {
 /// despierta a quien la este esperando. Si el propietario ya no tiene cuenta (murio
 /// antes: prestamo huerfano), no hay a quien avisar y no pasa nada.
 pub fn devuelto(owner: u32, origen: u64) {
+    liberar_retenido(owner, origen);
     let Some(slot) = slot(owner) else { return };
     let mut llave = 0u64;
     unsafe {
@@ -1064,6 +1102,25 @@ pub fn devuelto(owner: u32, origen: u64) {
     if llave != 0 {
         crate::ring0::task::scheduler::wake_by_key(llave);
     }
+}
+
+/// **Un prestamo de un bloque RETENIDO volvio**: si ya nadie mas lo tiene
+/// tomado, sus marcos vuelven al asignador (a cero, como al morir). Lo llama
+/// [`devuelto`], y `loan.rs` lo llama DESPUES de borrar la oferta, asi que
+/// `hay_prestado_en` ya no la ve.
+fn liberar_retenido(owner: u32, origen: u64) {
+    let tabla = unsafe { &mut *core::ptr::addr_of_mut!(RETENIDOS) };
+    let Some(r) = tabla.iter_mut().find(|r| r.owner == owner && origen >= r.base && origen < r.base + r.bytes) else { return };
+    if crate::ring0::obj::loan::hay_prestado_en(owner, r.base, r.bytes) {
+        return;
+    }
+    for p in 0..r.bytes / mm::PAGE {
+        let marco = r.fisica + p * mm::PAGE;
+        mm::phys::zero_frame(marco);
+        mm::phys::free_frame(marco);
+    }
+    crate::ring0::cabina::bytes("mem", "memoria retenida devuelta al soltar el prestamo", r.bytes);
+    *r = SIN_RETENIDO;
 }
 
 pub fn operation(base: u64, operation: u64, pid: u32) -> Option<u64> {

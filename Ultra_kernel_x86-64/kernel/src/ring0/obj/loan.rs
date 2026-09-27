@@ -368,8 +368,10 @@ pub fn operation(base: u64, op: u64, pid: u32) -> Option<u64> {
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
             // El propietario puede estar DURMIENDO sobre su bloque (WAIT): la
             // secuencia del bloque sube y se le despierta. Ver `memory::devuelto`.
-            super::memory::devuelto(ofertas[i].owner, ofertas[i].origen);
+            // La oferta se borra ANTES, por lo mismo que en `process_died`.
+            let (owner, origen) = (ofertas[i].owner, ofertas[i].origen);
             ofertas[i] = NOTHING;
+            super::memory::devuelto(owner, origen);
             // ** Y EL HANDLE SE REVOCA, que no es limpieza cosmetica.
             //
             // Sin esto, un handle viejo sigue vivo apuntando a esta VA. La
@@ -492,9 +494,12 @@ pub fn process_died(pid: u32, aspace: u64) {
             let paginas = mapeado_de(o);
             undo(aspace, o.va_destino, paginas);
             crate::ring0::cabina::info("prestamo", "devuelto por el pid", pid as u64);
-            // Morir tambien es devolver: el propietario que espere se entera igual.
-            super::memory::devuelto(o.owner, o.origen);
+            // Morir tambien es devolver: el propietario que espere se entera
+            // igual. La oferta se borra ANTES: si el propietario ya murio, su
+            // bloque retenido se libera solo si ninguna otra lo sujeta.
+            let (owner, origen) = (o.owner, o.origen);
             *o = NOTHING;
+            super::memory::devuelto(owner, origen);
         } else if o.owner == pid && !o.tomada {
             // Murio el que prestaba y nadie llego a tomarlo. La oferta no vale:
             // su espacio de direcciones se destruye y no habria contra que
