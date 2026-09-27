@@ -110,8 +110,10 @@ pub extern "C" fn _start() -> ! {
     }
     drop(a);
 
-    // El monton: el .exe copiado, la imagen y lo que el cargador anote.
-    let para_monton = (3 * mide + (1 << 20)).min(64 << 20);
+    // El monton: el .exe copiado, la imagen y lo que el cargador anote; y lo
+    // que piden las DLL de la casa, que desde P3b2 son back buffers de
+    // 1280x720 (3.5 MiB cada uno) y los buferes del `.exe`. 32 MiB de mas.
+    let para_monton = (3 * mide + (32 << 20)).min(64 << 20);
     let Some(bloque) = bmo::Memoria::request(para_monton) else {
         di("PROTON-X: NO -- sin memoria para el monton del cargador\n");
         bmo::salir();

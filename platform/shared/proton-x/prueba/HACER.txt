@@ -98,3 +98,33 @@ Y el TESTIGO: lo que `dxc -dumpbin` dice de esos mismos bytes, en
 `bmo_proton_x::dxil` compara lo que su lector encuentra solo con lo que dice
 ahi: las partes, las firmas, la etapa, las funciones y cuantas instrucciones
 tiene cada una. Nada del compilador entra al arbol: solo sus salidas.
+
+raiz.rts -- la root signature del cubo, serializada por dxc (P3b2, 27-09)
+
+   dxc -T rootsig_1_0 -E Raiz -Fo raiz.rts raiz.hlsl
+
+El testigo de `bmo_proton_x::raiz::serializar`: la casa escribe estos MISMOS
+bytes, huella del contenedor incluida.
+
+cubo.exe -- el de P3b2 (27-09): el cubo de X1 con la tuberia entera de D3D12
+
+d3d12.def suma D3D12SerializeRootSignature (los otros cuatro .exe salen
+IDENTICOS con el, comprobado). Primero los datos, fabricados desde bmo-cubo
+(vertices, indices, las constantes de los 360 fotogramas a 1280x720, y los
+dos .dxil de arriba tal cual):
+
+   cargo run -p bmo-proton-x-casa --example cubo_datos > platform/shared/proton-x/prueba/cubo_datos.h
+   llvm-dlltool -m i386:x86-64 -d d3d12.def -l d3d12.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c cubo.c -o cubo.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:windows /dynamicbase /brepro cubo.obj user32.lib d3d12.lib dxgi.lib kernel32.lib /out:cubo.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   ca542c894e3a3c10a5e1281123a4c66dca597b774b8020c8d0b9215603c3e30c
+
+Las estructuras de D3D12 estan escritas en cubo.c campo a campo, y los
+_Static_assert comprueban cada desplazamiento que la casa lee (el PSO_DESC
+mide 656 bytes). En Windows abre una ventana de 1280x720 con el cubo de X1
+iluminado sobre el fondo (16, 16, 24); cada letra lo gira 30 fotogramas; q o
+ESC cierran, y sale con el numero de Present. Si D3D12 rechaza algo, sale con
+un codigo 0xE1xx/0xE2xx que dice que paso (0xE203: el PSO).

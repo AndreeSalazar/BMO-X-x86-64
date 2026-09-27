@@ -574,6 +574,7 @@ version = "0.1.0"
 name = "bmo-proton-x-casa"
 version = "0.1.0"
 dependencies = [
+ "bmo-cubo",
  "bmo-proton-x",
 ]
 

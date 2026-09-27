@@ -368,3 +368,57 @@ fn un_sombreador_roto_dice_donde() {
     assert_eq!(dxil::leer(b"MZ.."), Err(dxil::NoSombreador::Contenedor("no empieza por DXBC")));
 }
 
+
+// ============================ P3b2: DXBC y la root signature ============================
+
+use crate::{dxbc, raiz};
+
+const RAIZ_RTS: &[u8] = include_bytes!("../prueba/raiz.rts");
+
+/// La huella de DXBC (el MD5 con el final de Microsoft) de TRES blobs de dxc:
+/// la root signature y los dos sombreadores del cubo.
+#[test]
+fn la_huella_de_dxbc_es_la_de_microsoft() {
+    for blob in [RAIZ_RTS, CUBO_VS, CUBO_PS] {
+        assert_eq!(dxbc::huella(blob), blob[4..20], "la huella que escribio dxc");
+    }
+    // Un byte cambiado, otra huella.
+    let mut d = RAIZ_RTS.to_vec();
+    d[60] ^= 1;
+    assert_ne!(dxbc::huella(&d), RAIZ_RTS[4..20]);
+}
+
+fn firma_del_cubo() -> raiz::Firma {
+    raiz::Firma {
+        parametros: vec![raiz::Parametro { tipo: raiz::CBV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 0, espacio: 0 } }],
+        samplers: Vec::new(),
+        banderas: raiz::CON_INPUT_LAYOUT,
+    }
+}
+
+#[test]
+fn la_root_signature_del_cubo_se_lee_y_se_escribe_como_dxc() {
+    assert_eq!(raiz::leer(RAIZ_RTS), Ok(firma_del_cubo()));
+    // Serializada por la casa: los MISMOS 88 bytes que dxc, huella incluida.
+    assert_eq!(raiz::serializar(&firma_del_cubo()), RAIZ_RTS);
+}
+
+#[test]
+fn una_root_signature_con_tabla_constantes_y_sampler_va_y_vuelve() {
+    let f = raiz::Firma {
+        parametros: vec![
+            raiz::Parametro { tipo: raiz::TABLA, visibilidad: 5, carga: raiz::Carga::Tabla(vec![
+                raiz::Rango { tipo: 0, cuantos: 2, registro: 0, espacio: 0, desde: 0 },
+                raiz::Rango { tipo: 2, cuantos: 1, registro: 1, espacio: 0, desde: 2 },
+            ]) },
+            raiz::Parametro { tipo: raiz::CONSTANTES, visibilidad: 1, carga: raiz::Carga::Constantes { registro: 1, espacio: 0, cuantas: 4 } },
+            raiz::Parametro { tipo: raiz::SRV, visibilidad: 0, carga: raiz::Carga::Descriptor { registro: 3, espacio: 1 } },
+        ],
+        samplers: vec![[21, 1, 1, 1, 0, 16, 4, 0, 0, u32::MAX, 0, 0, 5]],
+        banderas: raiz::CON_INPUT_LAYOUT,
+    };
+    let d = raiz::serializar(&f);
+    assert_eq!(dxbc::huella(&d), d[4..20]);
+    assert_eq!(raiz::leer(&d), Ok(f));
+    assert_eq!(raiz::leer(CUBO_VS), Err(raiz::NoFirma::SinRts0), "un sombreador no es una root signature");
+}

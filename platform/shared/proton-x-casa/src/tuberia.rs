@@ -1,0 +1,567 @@
+//! **La tuberia de D3D12 de la casa** (P3b2, 27-09): root signature, PSO,
+//! buferes, y lo que cada `Draw` ve.
+//!
+//! ```text
+//!    D3D12SerializeRootSignature  la estructura del .exe -> RTS0 (los MISMOS
+//!                                 bytes que Microsoft: bmo_proton_x::raiz)
+//!    CreateRootSignature          RTS0 -> la firma, leida
+//!    CreateGraphicsPipelineState  los dos DXIL leidos (bmo_proton_x::dxil),
+//!                                 y el input layout CRUZADO con la firma de
+//!                                 entrada del vertice: una semantica que el
+//!                                 sombreador no tiene es E_INVALIDARG
+//!    CreateCommittedResource      un BUFER en memoria de este proceso,
+//!                                 alineado a 256; su "direccion de GPU" es
+//!                                 la de la CPU
+//!    Map / Unmap / GetGPUVirtualAddress
+//!    la lista                     IASetPrimitiveTopology, IASetVertexBuffers,
+//!                                 IASetIndexBuffer, RSSetViewports,
+//!                                 RSSetScissorRects, OMSetRenderTargets,
+//!                                 SetPipelineState, SetGraphicsRootSignature,
+//!                                 SetGraphicsRootConstantBufferView,
+//!                                 DrawInstanced, DrawIndexedInstanced
+//! ```
+//!
+//! **Cada direccion que da el `.exe` se RESUELVE** contra el registro de
+//! buferes de la casa (inicio, medida): una que no cae dentro de ninguno se
+//! dice y no se lee. Leer a ciegas una direccion ajena seria el fallo de pagina
+//! que nadie sabria explicar.
+//!
+//! **Lo que hace un Draw en P3b2:** al ejecutarse la lista, junta TODO lo que
+//! el dibujo veria -- los vertices leidos a traves del input layout, los
+//! indices, las constantes de b0, el viewport, el PSO -- y lo deja en
+//! [`dibujos`]. Los sombreadores no corren todavia (P3b3): se dice una vez.
+
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::UnsafeCell;
+
+use bmo_proton_x::dxil::{self, Etapa, Sombreador};
+use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
+
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
+use crate::{aviso, dir};
+
+// -- Constantes de D3D12 que se miran ---------------------------------------
+
+const RS_VERSION_1: u32 = 1;
+const DIMENSION_BUFFER: u32 = 1;
+const FMT_R32G32B32A32_FLOAT: u32 = 2;
+const FMT_R32G32B32_FLOAT: u32 = 6;
+const FMT_R32G32_FLOAT: u32 = 16;
+const FMT_R32_FLOAT: u32 = 41;
+const FMT_R16_UINT: u32 = 57;
+const FMT_R32_UINT: u32 = 42;
+const APPEND_ALIGNED: u32 = 0xFFFF_FFFF;
+pub const TRIANGLELIST: u32 = 4;
+
+// -- Lectura de la memoria del .exe -----------------------------------------
+
+/// Un `u32` de una estructura del `.exe`.
+///
+/// # Safety
+/// `p + o` son 4 bytes legibles del `.exe`, como promete Windows.
+unsafe fn u32_de(p: *const u8, o: usize) -> u32 {
+    (p.add(o) as *const u32).read_unaligned()
+}
+
+unsafe fn u64_de(p: *const u8, o: usize) -> u64 {
+    (p.add(o) as *const u64).read_unaligned()
+}
+
+unsafe fn f32_de(p: *const u8, o: usize) -> f32 {
+    (p.add(o) as *const f32).read_unaligned()
+}
+
+unsafe fn cadena_c(p: *const u8) -> String {
+    let mut s = String::new();
+    let mut i = 0;
+    while i < 256 {
+        let c = p.add(i).read();
+        if c == 0 {
+            break;
+        }
+        s.push(c as char);
+        i += 1;
+    }
+    s
+}
+
+// -- El blob ----------------------------------------------------------------
+
+pub struct Blob {
+    bytes: Vec<u8>,
+}
+
+fn blob(bytes: Vec<u8>) -> u64 {
+    let vt = vtabla::<{ com::BLOB }>(&[(3, dir!(get_buffer_pointer)), (4, dir!(get_buffer_size))]);
+    nuevo(com::BLOB, vt, Blob { bytes }) as u64
+}
+
+extern "win64" fn get_buffer_pointer(this: u64) -> *const u8 {
+    // SAFETY: `this` es un Blob de la casa.
+    unsafe { de::<Blob>(this).bytes.as_ptr() }
+}
+
+extern "win64" fn get_buffer_size(this: u64) -> usize {
+    // SAFETY: como arriba.
+    unsafe { de::<Blob>(this).bytes.len() }
+}
+
+// -- La root signature ------------------------------------------------------
+
+pub struct RootSignature {
+    pub firma: Firma,
+}
+
+/// `D3D12_ROOT_SIGNATURE_DESC` (40 B): NumParameters +0, pParameters +8,
+/// NumStaticSamplers +16, pStaticSamplers +24, Flags +32. Cada
+/// `D3D12_ROOT_PARAMETER` (32 B): tipo +0, la union +8, visibilidad +24.
+unsafe fn firma_de(desc: *const u8) -> Result<Firma, &'static str> {
+    let (n, pars, ns, samps, banderas) = (u32_de(desc, 0), u64_de(desc, 8) as *const u8, u32_de(desc, 16), u64_de(desc, 24) as *const u8, u32_de(desc, 32));
+    let mut parametros = Vec::with_capacity(n as usize);
+    for i in 0..n as usize {
+        let p = pars.add(32 * i);
+        let tipo = u32_de(p, 0);
+        let carga = match tipo {
+            raiz::TABLA => {
+                let (nr, rangos) = (u32_de(p, 8), u64_de(p, 16) as *const u8);
+                // D3D12_DESCRIPTOR_RANGE: 5 u32.
+                Carga::Tabla((0..nr as usize).map(|k| {
+                    let r = rangos.add(20 * k);
+                    Rango { tipo: u32_de(r, 0), cuantos: u32_de(r, 4), registro: u32_de(r, 8), espacio: u32_de(r, 12), desde: u32_de(r, 16) }
+                }).collect())
+            }
+            raiz::CONSTANTES => Carga::Constantes { registro: u32_de(p, 8), espacio: u32_de(p, 12), cuantas: u32_de(p, 16) },
+            raiz::CBV | raiz::SRV | raiz::UAV => Carga::Descriptor { registro: u32_de(p, 8), espacio: u32_de(p, 12) },
+            _ => return Err("un parametro de un tipo que D3D12 no tiene"),
+        };
+        parametros.push(Parametro { tipo, visibilidad: u32_de(p, 24), carga });
+    }
+    let samplers = (0..ns as usize).map(|k| core::array::from_fn(|j| u32_de(samps, 52 * k + 4 * j))).collect();
+    Ok(Firma { parametros, samplers, banderas })
+}
+
+/// `D3D12SerializeRootSignature(desc, version, ppBlob, ppError)`.
+extern "win64" fn d3d12_serialize_root_signature(desc: *const u8, version: u32, pp: *mut u64, pp_error: *mut u64) -> i32 {
+    if !pp_error.is_null() {
+        // SAFETY: un puntero del `.exe` a donde dejar el blob de errores.
+        unsafe { *pp_error = 0 };
+    }
+    if desc.is_null() || version != RS_VERSION_1 {
+        aviso("D3D12SerializeRootSignature: solo la version 1.0, todavia");
+        return E_INVALIDARG;
+    }
+    // SAFETY: un D3D12_ROOT_SIGNATURE_DESC del `.exe`, y lo que apunta.
+    match unsafe { firma_de(desc) } {
+        Ok(f) => dar(pp, blob(raiz::serializar(&f))),
+        Err(m) => {
+            aviso(m);
+            E_INVALIDARG
+        }
+    }
+}
+
+/// `CreateRootSignature(this, nodo, bytes, medida, riid, pp)`.
+pub(crate) extern "win64" fn create_root_signature(_this: u64, _nodo: u32, bytes: *const u8, tam: usize, riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pide(riid, com::ROOTSIG) {
+        return E_NOINTERFACE;
+    }
+    if bytes.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: `tam` bytes del `.exe`.
+    let d = unsafe { core::slice::from_raw_parts(bytes, tam) };
+    match raiz::leer(d) {
+        Ok(firma) => {
+            let vt = vtabla::<{ com::ROOTSIG }>(&[]);
+            dar(pp, nuevo(com::ROOTSIG, vt, RootSignature { firma }) as u64)
+        }
+        Err(_) => {
+            aviso("CreateRootSignature: esos bytes no son una root signature 1.0");
+            E_INVALIDARG
+        }
+    }
+}
+
+// -- El PSO -------------------------------------------------------------------
+
+/// Un elemento del input layout, ya leido.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntradaIa {
+    pub semantica: String,
+    pub indice: u32,
+    pub formato: u32,
+    pub ranura: u32,
+    pub desde: u32,
+}
+
+pub struct Pso {
+    pub raiz: u64,
+    pub vs: Sombreador,
+    pub ps: Sombreador,
+    pub entradas: Vec<EntradaIa>,
+    /// D3D12_CULL_MODE: 1 ninguna, 2 delante, 3 detras.
+    pub descarte: u32,
+    pub antihorario: bool,
+    pub topologia: u32,
+    pub formato_rt: u32,
+}
+
+fn sombreador(bytecode: *const u8, tam: usize, etapa: Etapa, que: &'static str) -> Result<Sombreador, &'static str> {
+    if bytecode.is_null() || tam == 0 {
+        return Err(que);
+    }
+    // SAFETY: `tam` bytes del `.exe` (D3D12_SHADER_BYTECODE).
+    let d = unsafe { core::slice::from_raw_parts(bytecode, tam) };
+    let s = dxil::leer(d).map_err(|_| "CreateGraphicsPipelineState: un sombreador que no es DXIL (o no se lee)")?;
+    if s.etapa != etapa {
+        return Err("CreateGraphicsPipelineState: un sombreador de otra etapa en su hueco");
+    }
+    Ok(s)
+}
+
+/// Lee el `D3D12_GRAPHICS_PIPELINE_STATE_DESC` (656 B, desplazamientos
+/// MEDIDOS con la cabecera de Windows: ver prueba/HACER.txt).
+unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
+    let raiz = u64_de(d, 0);
+    if raiz == 0 {
+        return Err("CreateGraphicsPipelineState sin root signature");
+    }
+    // D3D12_SHADER_BYTECODE de DS +40, HS +56, GS +72: su medida, +8.
+    for o in [40usize, 56, 72] {
+        if u64_de(d, o + 8) != 0 {
+            return Err("CreateGraphicsPipelineState con dominio, casco o geometria: todavia no");
+        }
+    }
+    let vs = sombreador(u64_de(d, 8) as *const u8, u64_de(d, 16) as usize, Etapa::Vertice, "CreateGraphicsPipelineState sin sombreador de vertices")?;
+    let ps = sombreador(u64_de(d, 24) as *const u8, u64_de(d, 32) as usize, Etapa::Pixel, "CreateGraphicsPipelineState sin sombreador de pixeles")?;
+    // El input layout, con los desplazamientos APPEND_ALIGNED resueltos.
+    let (elems, n) = (u64_de(d, 552) as *const u8, u32_de(d, 560));
+    let mut entradas: Vec<EntradaIa> = Vec::with_capacity(n as usize);
+    let mut siguiente = [0u32; 16];
+    for i in 0..n as usize {
+        let e = elems.add(32 * i);
+        let (formato, ranura, desde) = (u32_de(e, 12), u32_de(e, 16), u32_de(e, 20));
+        let bytes = match formato {
+            FMT_R32G32B32A32_FLOAT => 16,
+            FMT_R32G32B32_FLOAT => 12,
+            FMT_R32G32_FLOAT => 8,
+            FMT_R32_FLOAT => 4,
+            _ => return Err("un input layout con un formato que no es float de 32 bits: todavia no"),
+        };
+        let r = (ranura as usize).min(15);
+        let desde = if desde == APPEND_ALIGNED { siguiente[r] } else { desde };
+        siguiente[r] = desde + bytes;
+        entradas.push(EntradaIa { semantica: cadena_c(u64_de(e, 0) as *const u8), indice: u32_de(e, 8), formato, ranura, desde });
+    }
+    // Cada elemento del sombreador de vertices tiene que venir del layout.
+    for f in &vs.entradas {
+        if !entradas.iter().any(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice) {
+            return Err("el sombreador de vertices lee una semantica que el input layout no da");
+        }
+    }
+    let (n_rt, formato_rt) = (u32_de(d, 576), u32_de(d, 580));
+    if n_rt != 1 {
+        return Err("CreateGraphicsPipelineState con mas de un render target: todavia no");
+    }
+    if u32_de(d, 496) != 0 {
+        aviso("CreateGraphicsPipelineState con profundidad: se apunta, y no se usa todavia");
+    }
+    Ok(Pso {
+        raiz,
+        vs,
+        ps,
+        entradas,
+        descarte: u32_de(d, 452 + 4),
+        antihorario: u32_de(d, 452 + 8) != 0,
+        topologia: u32_de(d, 572),
+        formato_rt,
+    })
+}
+
+pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pide(riid, com::PSO) {
+        return E_NOINTERFACE;
+    }
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un D3D12_GRAPHICS_PIPELINE_STATE_DESC del `.exe`.
+    match unsafe { pso_de(desc) } {
+        Ok(pso) => {
+            let vt = vtabla::<{ com::PSO }>(&[]);
+            dar(pp, nuevo(com::PSO, vt, pso) as u64)
+        }
+        Err(m) => {
+            aviso(m);
+            E_INVALIDARG
+        }
+    }
+}
+
+// -- Los buferes y su registro ----------------------------------------------
+
+/// 256 bytes alineados a 256: la unidad de un bufer de la casa (la alineacion
+/// que D3D12 pide a un bufer de constantes).
+#[repr(C, align(256))]
+#[derive(Clone, Copy)]
+struct Trozo([u8; 256]);
+
+pub struct Bufer {
+    trozos: Vec<Trozo>,
+    pub bytes: usize,
+}
+
+impl Bufer {
+    pub fn base(&self) -> u64 {
+        self.trozos.as_ptr() as u64
+    }
+}
+
+struct Registro(UnsafeCell<Vec<(u64, usize)>>);
+// SAFETY: un hilo (ver `Global` en lib.rs).
+unsafe impl Sync for Registro {}
+static BUFERES: Registro = Registro(UnsafeCell::new(Vec::new()));
+static DIBUJOS: Dibujos = Dibujos(UnsafeCell::new(Vec::new()));
+
+struct Dibujos(UnsafeCell<Vec<Dibujo>>);
+// SAFETY: como arriba.
+unsafe impl Sync for Dibujos {}
+
+pub(crate) fn reiniciar() {
+    // SAFETY: un hilo, antes de saltar al `.exe`.
+    unsafe {
+        (*BUFERES.0.get()).clear();
+        (*DIBUJOS.0.get()).clear();
+    }
+}
+
+/// **Resolver una direccion del `.exe`**: los `n` bytes desde `va`, si caen
+/// ENTEROS dentro de un bufer de la casa.
+fn resolver(va: u64, n: usize) -> Option<&'static [u8]> {
+    // SAFETY: un hilo; el registro solo lo toca la casa.
+    let r = unsafe { &*BUFERES.0.get() };
+    r.iter().find(|&&(i, t)| va >= i && va - i + n as u64 <= t as u64)?;
+    // SAFETY: [va, va + n) cae dentro de un bufer vivo de la casa (los
+    // objetos de la casa no se liberan: ver com.rs).
+    Some(unsafe { core::slice::from_raw_parts(va as *const u8, n) })
+}
+
+/// `CreateCommittedResource(this, heap, banderas, desc, estado, clear, riid, pp)`.
+/// `D3D12_RESOURCE_DESC` (56 B): Dimension +0, Width +16. Solo BUFFER.
+pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const u8, _banderas: u32, desc: *const u8, _estado: u32, _clear: *const u8, riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pide(riid, com::RESOURCE) {
+        return E_NOINTERFACE;
+    }
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un D3D12_RESOURCE_DESC del `.exe`.
+    let (dimension, ancho) = unsafe { (u32_de(desc, 0), u64_de(desc, 16)) };
+    if dimension != DIMENSION_BUFFER {
+        aviso("CreateCommittedResource: solo buferes todavia (una textura es de P3b3)");
+        return E_INVALIDARG;
+    }
+    let bytes = ancho as usize;
+    let b = Bufer { trozos: vec![Trozo([0; 256]); bytes.div_ceil(256).max(1)], bytes };
+    // SAFETY: un hilo.
+    unsafe { (*BUFERES.0.get()).push((b.base(), bytes)) };
+    dar(pp, crate::d3d12::recurso_bufer(b))
+}
+
+pub(crate) extern "win64" fn map(this: u64, _sub: u32, _leer: *const u8, pp: *mut u64) -> i32 {
+    let Some(base) = crate::d3d12::base_de_bufer(this) else {
+        aviso("ID3D12Resource::Map sobre algo que no es un bufer: todavia no");
+        return E_INVALIDARG;
+    };
+    if pp.is_null() {
+        return S_OK;
+    }
+    dar(pp, base)
+}
+
+pub(crate) extern "win64" fn unmap(_this: u64, _sub: u32, _escrito: *const u8) {}
+
+pub(crate) extern "win64" fn get_gpu_virtual_address(this: u64) -> u64 {
+    crate::d3d12::base_de_bufer(this).unwrap_or(0)
+}
+
+// -- El estado de dibujo de una lista ---------------------------------------
+
+#[derive(Clone, Copy, Default)]
+pub struct Vista {
+    pub va: u64,
+    pub bytes: u32,
+    /// El paso (vertices) o el formato (indices).
+    pub paso_o_formato: u32,
+}
+
+#[derive(Clone, Default)]
+pub struct Estado {
+    pub pso: u64,
+    pub raiz: u64,
+    /// La direccion dada a cada parametro CBV de la raiz, por su indice.
+    pub cbv: [u64; 16],
+    pub topologia: u32,
+    pub vertices: Vista,
+    pub indices: Vista,
+    pub viewport: [f32; 6],
+    pub tijera: [i32; 4],
+    pub rtv: u64,
+}
+
+/// **Lo que un dibujo ve**, ya leido de la memoria: lo que el banco compara.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dibujo {
+    pub vs: String,
+    pub ps: String,
+    pub topologia: u32,
+    /// Por vertice del bufer, cada elemento del input layout como floats.
+    pub vertices: Vec<Vec<Vec<f32>>>,
+    pub indices: Vec<u32>,
+    /// Los primeros 256 bytes del bufer de constantes de b0 (raiz, CBV).
+    pub constantes: Vec<u8>,
+    pub viewport: [f32; 6],
+    pub descarte: u32,
+    pub antihorario: bool,
+    /// El recurso donde se dibujaria.
+    pub destino: u64,
+    pub cuantos: u32,
+    pub instancias: u32,
+}
+
+/// Cuantos dibujos se guardan (los primeros).
+pub const GUARDADOS: usize = 64;
+
+/// Los dibujos que se ejecutaron desde `empezar` (los [`GUARDADOS`] primeros).
+pub fn dibujos() -> Vec<Dibujo> {
+    // SAFETY: un hilo.
+    unsafe { (*DIBUJOS.0.get()).clone() }
+}
+
+/// **Un dibujo, al ejecutarse**: todo lo que veria, leido y comprobado.
+pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero: u32, base_vertice: i32, indexado: bool) {
+    if e.pso == 0 {
+        aviso("Draw sin PSO: no se dibuja nada");
+        return;
+    }
+    if e.raiz == 0 {
+        aviso("Draw sin SetGraphicsRootSignature: en Windows es un error, y no se dibuja");
+        return;
+    }
+    // SAFETY: un Pso y dos RootSignature de la casa (los Set* solo guardan
+    // de esos).
+    let (pso, firma) = unsafe { (de::<Pso>(e.pso), &de::<RootSignature>(e.raiz).firma) };
+    // SAFETY: como arriba.
+    if firma != unsafe { &de::<RootSignature>(pso.raiz).firma } {
+        aviso("Draw con una root signature distinta de la del PSO: en Windows es un error");
+        return;
+    }
+    if e.rtv == 0 {
+        aviso("Draw sin OMSetRenderTargets: no hay donde dibujar");
+        return;
+    }
+    // SAFETY: el descriptor guarda un Recurso de la casa.
+    if unsafe { crate::d3d12::recurso_de(e.rtv) }.formato != pso.formato_rt {
+        aviso("Draw sobre un render target de otro formato que el del PSO");
+        return;
+    }
+    // SAFETY: un hilo.
+    let v = unsafe { &mut *DIBUJOS.0.get() };
+    if v.is_empty() {
+        aviso("Draw: la tuberia esta entera y se captura; los sombreadores corren en P3b3");
+    }
+    // Se guardan los primeros: en Ring 3 el monton solo avanza (ver
+    // apps/proton-x/src/monton.rs), y un `.exe` que dibuje en cada fotograma
+    // no puede gastarlo en capturas.
+    if v.len() >= GUARDADOS {
+        return;
+    }
+    let entrada = |s: &Sombreador| s.modulo.entrada().map(|f| f.nombre.clone()).unwrap_or_default();
+    let mut d = Dibujo {
+        vs: entrada(&pso.vs),
+        ps: entrada(&pso.ps),
+        topologia: e.topologia,
+        vertices: Vec::new(),
+        indices: Vec::new(),
+        constantes: Vec::new(),
+        viewport: e.viewport,
+        descarte: pso.descarte,
+        antihorario: pso.antihorario,
+        destino: e.rtv,
+        cuantos,
+        instancias,
+    };
+    // Los vertices: todo el bufer de la ranura 0, a traves del layout.
+    let paso = e.vertices.paso_o_formato as usize;
+    if paso > 0 {
+        let Some(vb) = resolver(e.vertices.va, e.vertices.bytes as usize) else {
+            aviso("IASetVertexBuffers: una direccion que no es de ningun bufer de la casa");
+            return;
+        };
+        for v in vb.chunks_exact(paso) {
+            let campos = pso
+                .entradas
+                .iter()
+                .filter(|x| x.ranura == 0)
+                .map(|x| {
+                    let n = match x.formato {
+                        FMT_R32G32B32A32_FLOAT => 4,
+                        FMT_R32G32B32_FLOAT => 3,
+                        FMT_R32G32_FLOAT => 2,
+                        _ => 1,
+                    };
+                    (0..n).map(|k| {
+                        let o = x.desde as usize + 4 * k;
+                        v.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0)
+                    }).collect()
+                })
+                .collect();
+            d.vertices.push(campos);
+        }
+    }
+    if indexado {
+        let ancho = match e.indices.paso_o_formato {
+            FMT_R16_UINT => 2,
+            FMT_R32_UINT => 4,
+            _ => {
+                aviso("IASetIndexBuffer: un formato de indices que no es R16/R32_UINT");
+                return;
+            }
+        };
+        let Some(ib) = resolver(e.indices.va, e.indices.bytes as usize) else {
+            aviso("IASetIndexBuffer: una direccion que no es de ningun bufer de la casa");
+            return;
+        };
+        for i in 0..cuantos as usize {
+            let o = (primero as usize + i) * ancho;
+            let Some(b) = ib.get(o..o + ancho) else {
+                aviso("DrawIndexedInstanced: pide mas indices de los que tiene el bufer");
+                return;
+            };
+            let x = if ancho == 2 { u16::from_le_bytes([b[0], b[1]]) as u32 } else { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) };
+            d.indices.push((x as i64 + base_vertice as i64) as u32);
+        }
+    }
+    // b0: el parametro CBV de la root signature con registro 0, su direccion.
+    if let Some(i) = firma.parametros.iter().position(|p| p.tipo == raiz::CBV && matches!(p.carga, Carga::Descriptor { registro: 0, espacio: 0 })) {
+        match resolver(e.cbv.get(i).copied().unwrap_or(0), 256) {
+            Some(c) => d.constantes = c.to_vec(),
+            None => aviso("SetGraphicsRootConstantBufferView: una direccion que no es de ningun bufer de la casa"),
+        }
+    }
+    v.push(d);
+}
+
+pub(crate) fn buscar(n: &str) -> Option<u64> {
+    Some(match n {
+        "D3D12SerializeRootSignature" => dir!(d3d12_serialize_root_signature),
+        _ => return None,
+    })
+}
+
+// La lectura de floats del `.exe` (viewport) la hace la lista: ver d3d12.rs.
+pub(crate) unsafe fn viewport_de(p: *const u8) -> [f32; 6] {
+    core::array::from_fn(|k| f32_de(p, 4 * k))
+}

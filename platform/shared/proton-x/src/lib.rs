@@ -36,8 +36,10 @@
 extern crate alloc;
 
 pub mod cargar;
+pub mod dxbc;
 pub mod dxil;
 pub mod pe;
+pub mod raiz;
 pub mod teb;
 pub mod ventanas;
 

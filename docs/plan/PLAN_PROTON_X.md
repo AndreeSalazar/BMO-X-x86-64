@@ -383,9 +383,35 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            bit se quedo. Compila para `x86_64-unknown-none`. Y un dato para
            P3b3: dxc funde `mul` + `add` en FMad; la igualdad bit a bit con
            D3D12 en la 3060 tendra que decidir si se funde o no.
-      P3b2 la tuberia: CreateRootSignature, CreateGraphicsPipelineState,
-           CreateCommittedResource + Map (el bufer de vertices y el de
-           constantes), IASetVertexBuffers, RSSetViewports, DrawInstanced.
+      P3b2 [HECHO el 27-09, en el banco; falta el metal] la tuberia:
+           `bmo_proton_x::dxbc` (el contenedor y su HUELLA: el MD5 con el
+           final de Microsoft, IGUAL en los tres blobs de dxc) y
+           `bmo_proton_x::raiz` (la root signature 1.0: leerla y escribirla,
+           byte a byte la de `dxc -T rootsig_1_0`, `prueba/raiz.rts`). En la
+           casa, `tuberia.rs`: D3D12SerializeRootSignature, CreateRootSignature,
+           CreateGraphicsPipelineState (los dos DXIL leidos, cada uno en SU
+           hueco, y el input layout CRUZADO con la firma de entrada del
+           vertice: una semantica que falta es E_INVALIDARG y lo dice),
+           CreateCommittedResource de BUFERES alineados a 256, Map,
+           GetGPUVirtualAddress; y en la lista, IASetPrimitiveTopology,
+           IASetVertexBuffers, IASetIndexBuffer, RSSetViewports,
+           RSSetScissorRects, OMSetRenderTargets, SetPipelineState,
+           SetGraphicsRootSignature, SetGraphicsRootConstantBufferView,
+           DrawInstanced y DrawIndexedInstanced. Un Draw se APUNTA con el
+           estado de ese momento y, al ejecutarse, lee los buferes como la
+           GPU: cada direccion se RESUELVE contra los buferes de la casa (una
+           ajena se dice, no se lee), comprueba PSO, root signature igual a la
+           del PSO y formato del destino, y CAPTURA lo que el dibujo veria.
+           El `.exe` es `prueba/cubo.c`: un programa D3D12 entero y correcto
+           (estructuras de d3d12.h con sus desplazamientos comprobados al
+           compilar), con los datos y los DXIL de `cubo_datos.h` (FABRICADO
+           desde bmo-cubo). **Como se sabe:** `cubo.exe` corre en el
+           anfitrion con la casa, y los dibujos de los fotogramas 0, 30 y 60
+           ven, BIT A BIT, los vertices, los indices y las constantes de X1
+           -- lo que X4 subio a la 3060 --, con viewport 1280x720, descarte
+           de detras y la ventana limpia con el fondo de X1. En Windows el
+           mismo `.exe` dibuja el cubo: ese es el juez de que el programa es
+           D3D12 de verdad. En BMO-X, hoy, fondo y un aviso de P3b3.
       P3b3 los sombreadores EN LA CPU: las pocas operaciones de DXIL que el
            cubo usa (cargar la entrada, multiplicar por la matriz, sacar
            posicion y color), interpretadas, y el triangulo por el backend

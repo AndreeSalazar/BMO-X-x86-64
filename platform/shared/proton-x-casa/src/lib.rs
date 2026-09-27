@@ -1,4 +1,4 @@
-//! # PROTON-X -- las DLL de la casa (P1b, P1d, P2 y P3a)
+//! # PROTON-X -- las DLL de la casa (P1b, P1d, P2, P3a y P3b2)
 //!
 //! generacion: hija -- da lo que un `.exe` importa; no sabe cargarlo ni que
 //! maquina hay debajo
@@ -54,6 +54,7 @@ pub mod d3d12;
 pub mod dxgi;
 pub mod gdi32;
 pub mod kernel32;
+pub mod tuberia;
 pub mod user32;
 
 use alloc::vec::Vec;
@@ -163,6 +164,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.avisos = 0;
     });
     kernel32::reiniciar();
+    tuberia::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -191,7 +193,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n)
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
-        d3d12::buscar(n)
+        d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
         dxgi::buscar(n)
     } else {

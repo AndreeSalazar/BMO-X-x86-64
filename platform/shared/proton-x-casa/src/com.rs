@@ -61,6 +61,9 @@ pub const RESOURCE: usize = 5;
 pub const FENCE: usize = 6;
 pub const FACTORY: usize = 7;
 pub const SWAPCHAIN: usize = 8;
+pub const ROOTSIG: usize = 9;
+pub const PSO: usize = 10;
+pub const BLOB: usize = 11;
 
 const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
 const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
@@ -75,9 +78,12 @@ pub const IID_RESOURCE: Guid = guid(0x696442be, 0xa72e, 0x4059, [0xbc, 0x79, 0x5
 pub const IID_FENCE: Guid = guid(0x0a753dcf, 0xc4d8, 0x4b91, [0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76]);
 pub const IID_FACTORY1: Guid = guid(0x770aae78, 0xf26f, 0x4dba, [0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87]);
 pub const IID_FACTORY2: Guid = guid(0x50c83a1c, 0xe072, 0x4c48, [0x87, 0xb0, 0x36, 0x30, 0xfa, 0x36, 0xa6, 0xd0]);
+pub const IID_ROOTSIG: Guid = guid(0xc54a6b66, 0x72df, 0x4ee8, [0x8b, 0xe5, 0xa9, 0x46, 0xa1, 0x42, 0x92, 0x14]);
+pub const IID_PSO: Guid = guid(0x765a30f3, 0xf624, 0x4c6f, [0xa8, 0x28, 0xac, 0xe9, 0x48, 0x62, 0x24, 0x45]);
+pub const IID_BLOB: Guid = guid(0x8ba5fb08, 0x5195, 0x40e2, [0xac, 0x58, 0x0d, 0x98, 0x9c, 0x3a, 0x01, 0x02]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 9] = [
+pub static INTERFACES: [Interfaz; 12] = [
     Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
@@ -87,6 +93,9 @@ pub static INTERFACES: [Interfaz; 9] = [
     Interfaz { nombre: "ID3D12Fence", metodos: M_ID3D12FENCE, iids: &[IID_FENCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "IDXGIFactory2", metodos: M_IDXGIFACTORY2, iids: &[IID_FACTORY2, IID_FACTORY1] },
     Interfaz { nombre: "IDXGISwapChain1", metodos: M_IDXGISWAPCHAIN1, iids: &[IID_SWAPCHAIN1] },
+    Interfaz { nombre: "ID3D12RootSignature", metodos: M_ID3D12ROOTSIGNATURE, iids: &[IID_ROOTSIG, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12PipelineState", metodos: M_ID3D12PIPELINESTATE, iids: &[IID_PSO, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -159,10 +168,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 9]>);
+struct Vtablas(UnsafeCell<[*const u64; 12]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 9]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 12]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
@@ -296,3 +305,12 @@ pub const M_IDXGISWAPCHAIN1: &[&str] = &[
     "GetCoreWindow", "Present1", "IsTemporaryMonoSupported", "GetRestrictToOutput",
     "SetBackgroundColor", "GetBackgroundColor", "SetRotation", "GetRotation",
 ];
+pub const M_ID3D12ROOTSIGNATURE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice",
+];
+pub const M_ID3D12PIPELINESTATE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "GetCachedBlob",
+];
+pub const M_ID3D10BLOB: &[&str] = &["QueryInterface", "AddRef", "Release", "GetBufferPointer", "GetBufferSize"];

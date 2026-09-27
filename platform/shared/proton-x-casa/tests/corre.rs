@@ -26,7 +26,7 @@
 
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -38,9 +38,20 @@ const HOLA: &[u8] = include_bytes!("../../proton-x/prueba/hola.exe");
 const TEB: &[u8] = include_bytes!("../../proton-x/prueba/teb.exe");
 const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
 const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
+const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
+const CUBO_DATOS_H: &str = include_str!("../../proton-x/prueba/cubo_datos.h");
 
-/// Los `.exe` comparten la vuelta y lo dicho (estaticos): uno a la vez.
+#[path = "../examples/cubo_datos.rs"]
+mod cubo_datos;
+
+/// Los `.exe` comparten la vuelta, lo dicho y la pantalla (estaticos): uno a
+/// la vez. Cada prueba lo coge ENTERA, no solo mientras corre su `.exe`: lo
+/// que mira despues (la pantalla, los dibujos) otra prueba lo borraria.
 static UNO_A_LA_VEZ: Mutex<()> = Mutex::new(());
+
+fn uno_a_la_vez() -> MutexGuard<'static, ()> {
+    UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 const PROT_LEE: u64 = 1;
 const PROT_ESCRIBE: u64 = 2;
@@ -180,8 +191,7 @@ fn poner_gs(v: u64) {
 /// **Cargar y correr un `.exe`** como `proton-x.bex`: partir, colocar en una
 /// base que no es la suya, resolver, codigo R+X, datos sin X; y si `con_teb`,
 /// un TEB y un PEB en el GS. Devuelve (con que salio, lo que dijo, la base).
-fn correr_exe(exe: &[u8], con_teb: bool, guion: &[u64]) -> (u32, Vec<u8>, u64) {
-    let _uno = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
+fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: &[u64]) -> (u32, Vec<u8>, u64) {
     *GUION.lock().unwrap() = guion.iter().copied().collect();
     let pe = leer(exe).unwrap();
     let partes = partir(&pe).unwrap();
@@ -237,7 +247,8 @@ fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
     let pe = leer(HOLA).unwrap();
     // hola.exe: cabeceras y .text en dos paginas; .rdata y .reloc en otras dos.
     assert_eq!(partir(&pe).unwrap(), Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
-    let (salio, dicho, _) = correr_exe(HOLA, false, &[]);
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, HOLA, false, &[]);
     assert_eq!(salio, 0, "ExitProcess con 0: escribio la frase entera");
     assert_eq!(dicho.as_slice(), b"hola desde un .exe de Windows\r\n");
 }
@@ -247,7 +258,8 @@ fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
 /// `gs:[0x30]` leeria de la direccion 0x30: un fallo de pagina, no un "MAL".
 #[test]
 fn teb_exe_encuentra_su_teb_y_su_peb_en_gs() {
-    let (salio, dicho, base) = correr_exe(TEB, true, &[]);
+    let uno = uno_a_la_vez();
+    let (salio, dicho, base) = correr_exe(&uno, TEB, true, &[]);
     let texto = String::from_utf8(dicho).unwrap();
     assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
     assert!(!texto.contains("MAL"), "{texto}");
@@ -276,7 +288,8 @@ fn ventana_exe_abre_su_ventana_pinta_y_obedece_al_teclado_y_al_raton() {
     let letra = |c: u8| 1 << 62 | HAY | PULSADA | c as u64;
     let clic = 1 << 63 | HAY | PULSADA | 1 | 10 << 16 | 20 << 32;
     let guion = [letra(b'b'), 0, 0, clic, 0, 0, letra(b'q')];
-    let (salio, dicho, _) = correr_exe(VENTANA, true, &guion);
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, VENTANA, true, &guion);
     assert_eq!(dicho, b"", "ni un aviso: la casa supo hacer todo lo que pidio");
     // PostQuitMessage((letras << 8) | clics): una letra (la q cierra) y un clic.
     assert_eq!(salio, 0x101);
@@ -302,7 +315,8 @@ fn ventana_exe_abre_su_ventana_pinta_y_obedece_al_teclado_y_al_raton() {
 #[test]
 fn limpia_exe_limpia_su_ventana_con_d3d12_y_presenta_por_dxgi() {
     let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
-    let (salio, dicho, _) = correr_exe(LIMPIA, true, &[letra(b'b'), 0, letra(b'q')]);
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, LIMPIA, true, &[letra(b'b'), 0, letra(b'q')]);
     assert_eq!(String::from_utf8_lossy(&dicho), "", "ni un aviso ni un hueco que falte");
     // PostQuitMessage(presentados): el de arrancar y el de la letra.
     assert_eq!(salio, 2);
@@ -318,10 +332,11 @@ fn limpia_exe_limpia_su_ventana_con_d3d12_y_presenta_por_dxgi() {
 
 /// **Un hueco que la casa no tiene dice su NOMBRE y sale**: nunca un S_OK
 /// callado ni un salto a cero. Se crea un dispositivo por la tabla de la casa
-/// y se salta al hueco 16 de su vtabla, `CreateRootSignature` (de P3b).
+/// y se salta al hueco 11 de su vtabla, `CreateComputePipelineState` (los
+/// sombreadores de calculo no son de P3b).
 #[test]
 fn un_hueco_que_falta_dice_cual_es_y_sale() {
-    let _uno = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
+    let _uno = uno_a_la_vez();
     DICHO.lock().unwrap().clear();
     // SAFETY: nada corre; se pone la plataforma de mentira.
     unsafe { bmo_proton_x_casa::empezar(plataforma()) };
@@ -330,11 +345,72 @@ fn un_hueco_que_falta_dice_cual_es_y_sale() {
     let mut disp = 0u64;
     assert_eq!(crear(0, 0xb000, &bmo_proton_x_casa::com::IID_DEVICE, &mut disp), 0);
     // SAFETY: `disp` es un objeto de la casa: su primer puntero es la vtabla.
-    let hueco16 = unsafe { (*(disp as *const *const u64)).add(16).read() };
-    let salio = unsafe { correr(hueco16) };
-    assert_eq!(salio, 0xC0DE_0010, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 16");
+    let hueco11 = unsafe { (*(disp as *const *const u64)).add(11).read() };
+    let salio = unsafe { correr(hueco11) };
+    assert_eq!(salio, 0xC0DE_000B, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 11");
     assert_eq!(
         String::from_utf8_lossy(&DICHO.lock().unwrap()),
-        "PROTON-X: ID3D12Device::CreateRootSignature (hueco 16) no esta en la casa\n"
+        "PROTON-X: ID3D12Device::CreateComputePipelineState (hueco 11) no esta en la casa\n"
     );
+}
+
+/// **`prueba/cubo_datos.h` es la salida de su fabrica**: nadie lo toco a mano,
+/// y lleva los bits de `bmo-cubo` y los `.dxil` de hoy.
+#[test]
+fn cubo_datos_h_es_lo_que_fabrica_su_ejemplo() {
+    assert!(cubo_datos::texto() == CUBO_DATOS_H, "rehacer: cargo run -p bmo-proton-x-casa --example cubo_datos > platform/shared/proton-x/prueba/cubo_datos.h");
+}
+
+/// **P3b2 en el anfitrion**: `cubo.exe`, un programa D3D12 ENTERO (root
+/// signature serializada, PSO con los DXIL de dxc, buferes UPLOAD mapeados,
+/// y cada fotograma Reset con el PSO, raiz, CBV, viewport, destino, limpiar,
+/// vertices, indices y DrawIndexedInstanced). La tuberia de la casa captura lo
+/// que cada dibujo VERIA, y aqui se compara con X1: los vertices, los indices
+/// y las constantes de los fotogramas 0, 30 y 60 son, bit a bit, los de
+/// `bmo-cubo` (lo que X4 subio a la 3060 para sus huellas).
+#[test]
+fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
+    let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, CUBO, true, &[letra(b'b'), 0, letra(b'b'), 0, letra(b'q')]);
+    assert_eq!(
+        String::from_utf8_lossy(&dicho),
+        "PROTON-X: Draw: la tuberia esta entera y se captura; los sombreadores corren en P3b3\n",
+        "un aviso, el de P3b3, y ni un hueco que falte"
+    );
+    // PostQuitMessage(presentados): el de arrancar y el de cada letra.
+    assert_eq!(salio, 3);
+    assert_eq!(PRESENTADAS.load(Ordering::SeqCst), 3);
+
+    let dibujos = bmo_proton_x_casa::tuberia::dibujos();
+    assert_eq!(dibujos.len(), 3, "un DrawIndexedInstanced por fotograma");
+    let v = bmo_cubo::vertices();
+    let i: Vec<u32> = bmo_cubo::indices().iter().map(|&x| x as u32).collect();
+    for (d, f) in dibujos.iter().zip([0u32, 30, 60]) {
+        assert_eq!((d.vs.as_str(), d.ps.as_str()), ("vertice", "pixel"), "los puntos de entrada de cubo.hlsl");
+        assert_eq!((d.topologia, d.cuantos, d.instancias), (4, 36, 1), "TRIANGLELIST, 36 indices, una instancia");
+        assert_eq!((d.descarte, d.antihorario), (3, false), "descarte de las caras de detras, horario delante");
+        assert_eq!(d.viewport, [0.0, 0.0, 1280.0, 720.0, 0.0, 1.0]);
+        assert_ne!(d.destino, 0);
+        // Los vertices, leidos A TRAVES del input layout: pos, normal, color.
+        assert_eq!(d.vertices.len(), v.len());
+        for (leido, x) in d.vertices.iter().zip(&v) {
+            let bits = |s: &[f32]| s.iter().map(|f| f.to_bits()).collect::<Vec<_>>();
+            assert_eq!(leido.len(), 3);
+            assert_eq!(bits(&leido[0]), bits(&x.pos));
+            assert_eq!(bits(&leido[1]), bits(&x.normal));
+            assert_eq!(bits(&leido[2]), bits(&x.color));
+        }
+        assert_eq!(d.indices, i);
+        // b0: wvp, world y luz del fotograma `f`, y el resto del bufer a cero.
+        let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+        let mut esperado: Vec<u8> = c.wvp.iter().chain(&c.world).chain(&c.luz).flat_map(|x| x.to_le_bytes()).collect();
+        esperado.resize(256, 0);
+        assert!(d.constantes == esperado, "las constantes del fotograma {f}");
+    }
+
+    // La ventana: 1280x720, limpia con el fondo de X1 (16, 16, 24) en BGRA.
+    let p = PANTALLA.lock().unwrap();
+    assert_eq!((p[0].1, p[0].2), (1280, 720));
+    assert!(p[0].0.iter().all(|&c| c == 0xFF10_1018), "primero {:#x}", p[0].0[0]);
 }

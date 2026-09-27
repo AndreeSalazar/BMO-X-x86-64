@@ -12,3 +12,9 @@ bmo-proton-x = { path = "../proton-x" }
 
 [lib]
 name = "bmo_proton_x_casa"
+
+# Solo para el banco y para fabricar `prueba/cubo_datos.h`: el cubo de X1 (sus
+# vertices y las constantes de cada fotograma) es la verdad contra la que se
+# comprueba lo que la tuberia de la casa captura.
+[dev-dependencies]
+bmo-cubo = { path = "../bmo-cubo" }
