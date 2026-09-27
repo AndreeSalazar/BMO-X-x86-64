@@ -309,7 +309,7 @@ compilador con un double y lo pondria el CRT estatico):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   967df5d369f3ca17a6e6bb0ee8d6455a9fe49427b97e545c68404857125647fb
+   29be66ffc43b03efda6db55f3db78c3c61e8a79746a6cbf8d3d6ef13e0e9b684
 
-Dice `bien` catorce veces (cuatro las escriben printf, puts, fputs a stderr y
+Dice `bien` quince veces (cuatro las escriben printf, puts, fputs a stderr y
 fwrite) y sale con 0.

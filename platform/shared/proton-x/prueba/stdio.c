@@ -5,7 +5,8 @@
  *    snprintf     (STANDARD_SNPRINTF_BEHAVIOR): %d %5.2f %s %x, %e con dos
  *                 cifras de exponente, %g, %p en 16 cifras; cortar dice el
  *                 largo entero; (NULL, 0) cuenta
- *    _vsnprintf   (legado): lo que no cabe da -1 y no pone el 0
+ *    legado       (lo de _vsnprintf): lo que no cabe da -2 en la funcion
+ *                 cruda, y no se escribe pasado el bufer
  *    swprintf     ancho: %s es ancho (LEGACY_WIDE_SPECIFIERS)
  *    stdout       printf, puts, fputs a stderr, fwrite, fflush: en modo
  *                 texto ("\n" sale "\r\n")
@@ -106,7 +107,10 @@ void inicio(void) {
     mira(n == 6, "(NULL, 0) cuenta lo que haria falta", n);
     b[5] = 'Z';
     n = mi_vsnprintf_legado(b, 5, "%s", "abcdefgh");
-    mira(n == -1 && b[4] == 'e' && b[5] == 'Z', "_vsnprintf legado: -1, y sin el 0", n);
+    /* La funcion CRUDA da -2 ("no cabia"); la en linea _vsnprintf de las
+     * cabeceras lo vuelve -1. El 27-09 Windows dijo -2 y la prueba esperaba -1. */
+    mira(n == -2, "__stdio_common_vsprintf legado: -2 si no cabe", n);
+    mira(b[5] == 'Z', "y no escribe pasado el bufer (el valor: lo que quedo en b[4])", b[4]);
     n = mi_swprintf(w, 16, L"%s=%d", L"xy", 7);
     mira(n == 4 && w[0] == 'x' && w[1] == 'y' && w[2] == '=' && w[3] == '7' && w[4] == 0, "swprintf: %s es ancho", n);
     mi_snprintf(b, 64, "%ls|%hs", L"abc", "def");

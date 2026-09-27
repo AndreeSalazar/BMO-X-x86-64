@@ -537,7 +537,7 @@ extern "win64" fn stdio_vfwprintf(op: u64, f: u64, fmt: *const u16, _loc: u64, v
 /// Dejar `r` (sin su 0) en un bufer de `n` elementos con las reglas del
 /// UCRT: cabe con su 0, el largo; `buf` NULL y `n` 0, el largo que haria
 /// falta; no cabe: estandar (snprintf) corta con su 0 y da el largo entero;
-/// legado (_vsnprintf) da -1 y solo pone el 0 si se pidio.
+/// legado (lo de _vsnprintf) da -2 y solo pone el 0 si se pidio.
 fn a_bufer<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, opciones: u64) -> i32 {
     if buf.is_null() && n == 0 {
         return r.len() as i32;
@@ -558,10 +558,12 @@ fn a_bufer<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, opciones: u64) -> 
         // SAFETY: el ultimo elemento del bufer.
         unsafe { *buf.add(n - 1) = T::default() };
     }
+    // Legado: -2, "no cabia" (lo vio Windows el 27-09). Es la funcion en
+    // linea `_vsnprintf` de las cabeceras la que lo vuelve -1.
     if opciones & SNPRINTF_ESTANDAR != 0 {
         r.len() as i32
     } else {
-        -1
+        -2
     }
 }
 

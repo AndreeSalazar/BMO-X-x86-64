@@ -665,6 +665,6 @@ fn stdio_exe_tiene_el_printf_de_msvc() {
     assert!(!texto.contains("  MAL   "), "{texto}");
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert!(!texto.replace("\r\n", "").contains('\n'), "modo texto: cada \\n sale \\r\\n: {texto:?}");
-    assert_eq!(texto.matches("  bien  ").count(), 14, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
     assert!(texto.ends_with("stdio.exe: el printf es el de Windows\r\n[salio 0x0]"), "{texto}");
 }

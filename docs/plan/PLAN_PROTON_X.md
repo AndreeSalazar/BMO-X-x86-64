@@ -724,8 +724,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            onexit con basura, y el UCRT de verdad da por iniciada una tabla
            cuyo primero no es su fin (no la toca) y registrar en ella tumba el
            proceso. La casa perdonaba lo que Windows no: ahora hace lo mismo,
-           y la prueba pasa la tabla a ceros como el CRT. Falta verlo otra vez
-           en Windows. **Y el printf (27-09):** `bmo_proton_x::formato` es
+           y la prueba pasa la tabla a ceros como el CRT. Y otra vez en
+           Windows (27-09): diecinueve `bien`, la ultima desde _crt_atexit. **Y el printf (27-09):** `bmo_proton_x::formato` es
            el `printf` de C sin punteros (banderas, ancho, precision, los
            largos de Microsoft, %d %u %o %x %c %s %ls %p %e %f %g; `%n` y `%a`
            tal cual), probado contra C en veinticinco casos; la casa da
@@ -733,7 +733,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            banderas de las cabeceras del UCRT (snprintf estandar, _vsnprintf
            legado, %s ancho en swprintf), puts, fputs, fputc, putchar,
            fwrite y fflush, con stdout y stderr en modo texto. **Como se
-           sabe:** `prueba/stdio.exe` dice `bien` catorce veces (quitar las
+           sabe:** en Windows (27-09) trece de catorce: la funcion CRUDA
+           __stdio_common_vsprintf da -2 cuando no cabe (es la en linea
+           `_vsnprintf` la que lo vuelve -1); la casa y la prueba ya dicen
+           -2. `prueba/stdio.exe` dice `bien` quince veces (quitar las
            dos cifras del exponente de %e da MAL, comprobado). *Lo que falta, dicho: lo del
            mecanismo de excepciones de C++ (__CxxFrameHandler3,
            _CxxThrowException) va con P4c; `fopen` y los FILE de ficheros
