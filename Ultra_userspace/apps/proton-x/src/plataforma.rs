@@ -33,7 +33,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -77,6 +77,15 @@ fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(ruta) else { return false };
     let n = a.write(bytes);
     a.close() && n == bytes.len()
+}
+
+/// Una arena del monton de Windows (P4e): un bloque del kernel, que ya viene
+/// a ceros y vive lo que el proceso (uno de los ocho).
+fn memoria(bytes: usize) -> Option<u64> {
+    let m = bmo::Memoria::request(bytes as u64)?;
+    let base = m.base() as u64;
+    core::mem::forget(m);
+    Some(base)
 }
 
 fn soltar_codigo(base: u64, _bytes: usize) {

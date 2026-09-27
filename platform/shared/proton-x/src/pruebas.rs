@@ -221,6 +221,7 @@ fn el_teb_y_el_peb_tienen_la_forma_de_windows_x64() {
     assert_eq!(u32::from_le_bytes(t[0x68..0x6C].try_into().unwrap()), 0, "LastErrorValue empieza en 0");
     assert_eq!(q(&p, 0x10), 0xE010_3000, "ImageBaseAddress");
     assert_eq!(p[0x02], 0, "BeingDebugged");
+    assert_eq!(q(&p, 0x30), monton::asa(monton::PROPIETARIO_PROCESO), "ProcessHeap: el de GetProcessHeap");
     // Todo lo demas, a cero: ni un byte de lo que habia.
     assert_eq!(t.iter().filter(|&&b| b == 0xAA).count(), 0);
     assert_eq!(p.iter().filter(|&&b| b == 0xAA).count(), 0);
@@ -839,4 +840,212 @@ fn un_fichero_abierto_lee_escribe_y_se_mueve_como_windows() {
     assert_eq!(&a.bytes[23..30], &[0u8; 7], "el hueco, a ceros");
     assert!(a.sucio);
     assert_eq!(a.mover(0, 7), None, "un metodo que no existe");
+}
+
+// -- P4e: el monton, las regiones de VirtualAlloc y el proceso ---------------------
+
+use crate::monton::{self, Bloque, Monton, Palabras};
+use crate::proceso::{self, Entorno};
+use crate::regiones::{self, Consulta, NoVirtual, Regiones, MEM_COMMIT, MEM_RESERVE};
+
+/// Una memoria de mentira: `base` y palabras de 8 bytes.
+struct Mem {
+    base: u64,
+    w: Vec<u64>,
+}
+impl Palabras for Mem {
+    fn leer(&self, d: u64) -> u64 {
+        assert!(d % 8 == 0 && d >= self.base, "lectura torcida o fuera: {d:#x}");
+        self.w[((d - self.base) / 8) as usize]
+    }
+    fn poner(&mut self, d: u64, v: u64) {
+        assert!(d % 8 == 0 && d >= self.base, "escritura torcida o fuera: {d:#x}");
+        self.w[((d - self.base) / 8) as usize] = v;
+    }
+}
+
+fn arena(bytes: u64) -> (Mem, Monton) {
+    let mut m = Mem { base: 0x10_0000, w: vec![0; (bytes / 8) as usize] };
+    let mut h = Monton::nuevo();
+    assert!(h.agregar(&mut m, 0x10_0000, bytes));
+    h.comprobar(&m).unwrap();
+    (m, h)
+}
+
+#[test]
+fn el_monton_pide_suelta_y_fusiona_hasta_quedar_como_estaba() {
+    let (mut m, mut h) = arena(1 << 20);
+    let libre = h.bytes_libres();
+    let a = h.pedir(&mut m, 100, 16, 1).unwrap();
+    let b = h.pedir(&mut m, 0, 16, 1).unwrap();
+    let c = h.pedir(&mut m, 5000, 16, 2).unwrap();
+    assert!(a % 16 == 0 && b % 16 == 0 && c % 16 == 0);
+    assert_eq!(h.bloque(&m, a), Some(Bloque { pedido: 100, propietario: 1 }));
+    assert_eq!(h.bloque(&m, b), Some(Bloque { pedido: 0, propietario: 1 }), "0 bytes: un bloque de verdad, HeapSize 0");
+    h.comprobar(&m).unwrap();
+    // Soltar el de en medio y luego sus vecinos: las tres fusiones.
+    assert_eq!(h.soltar(&mut m, b), Some(Bloque { pedido: 0, propietario: 1 }));
+    assert_eq!(h.soltar(&mut m, b), None, "el doble HeapFree se ve");
+    assert_eq!(h.soltar(&mut m, a + 16), None, "dentro de un bloque: no");
+    assert_eq!(h.soltar(&mut m, 0x42), None, "fuera de las arenas: no");
+    h.comprobar(&m).unwrap();
+    h.soltar(&mut m, a).unwrap();
+    h.soltar(&mut m, c).unwrap();
+    h.comprobar(&m).unwrap();
+    assert_eq!(h.bytes_libres(), libre, "todo suelto: un bloque libre otra vez");
+    assert!(h.pedir(&mut m, libre - 16, 16, 1).is_some(), "y cabe entero");
+    assert_eq!(h.pedir(&mut m, 16, 16, 1), None, "y ya no cabe nada");
+}
+
+#[test]
+fn el_monton_aguanta_miles_de_pedidas_y_ni_un_byte_se_pisa() {
+    let (mut m, mut h) = arena(8 << 20);
+    let libre = h.bytes_libres();
+    let mut x = 0x2545_F491_4F6C_DD1Du64;
+    let mut azar = move || {
+        x ^= x << 13;
+        x ^= x >> 7;
+        x ^= x << 17;
+        x
+    };
+    // (direccion, medida, sello): cada bloque lleva su sello escrito entero.
+    let mut vivos: Vec<(u64, u64, u64)> = Vec::new();
+    for vuelta in 0..6000 {
+        let r = azar();
+        if r % 3 != 0 || vivos.is_empty() {
+            let tam = 1 + r % 3000;
+            let alin = if r % 17 == 0 { 4096 } else { 16 };
+            let p = h.pedir(&mut m, tam, alin, 1 + (r % 4) as u16).expect("cabe");
+            assert_eq!(p % alin, 0);
+            let sello = azar() | 1;
+            for k in 0..tam.div_ceil(8) {
+                m.poner(p + 8 * k, sello ^ k);
+            }
+            vivos.push((p, tam, sello));
+        } else {
+            let (p, tam, sello) = vivos.swap_remove((r as usize / 3) % vivos.len());
+            for k in 0..tam.div_ceil(8) {
+                assert_eq!(m.leer(p + 8 * k), sello ^ k, "alguien piso un bloque vivo");
+            }
+            assert_eq!(h.bloque(&m, p).unwrap().pedido, tam);
+            h.soltar(&mut m, p).unwrap();
+        }
+        if vuelta % 500 == 0 {
+            h.comprobar(&m).unwrap();
+        }
+    }
+    // Crecer y encoger en su sitio sin perder lo de dentro.
+    let (p, tam, sello) = vivos[0];
+    if h.cambiar_en_sitio(&mut m, p, tam / 2 + 1) {
+        assert_eq!(m.leer(p), sello);
+    }
+    vivos[0].1 = h.bloque(&m, p).unwrap().pedido;
+    h.comprobar(&m).unwrap();
+    // HeapDestroy de los del propietario 3, y el resto uno a uno.
+    // (Lo ya suelto no se vuelve a mirar: su cabecera vieja puede seguir ahi,
+    // dentro de un libre -- un monton de C tampoco lo distingue.)
+    let (de_3, resto): (Vec<_>, Vec<_>) = vivos.into_iter().partition(|v| h.bloque(&m, v.0).unwrap().propietario == 3);
+    assert_eq!(h.soltar_de(&mut m, 3) as usize, de_3.len());
+    h.comprobar(&m).unwrap();
+    for (p, _, _) in resto {
+        h.soltar(&mut m, p).unwrap();
+    }
+    h.comprobar(&m).unwrap();
+    assert_eq!(h.bytes_libres(), libre, "seis mil vueltas despues, la arena entera otra vez");
+}
+
+#[test]
+fn el_monton_crece_y_encoge_en_su_sitio() {
+    let (mut m, mut h) = arena(1 << 16);
+    let a = h.pedir(&mut m, 64, 16, 1).unwrap();
+    let b = h.pedir(&mut m, 64, 16, 1).unwrap();
+    assert!(!h.cambiar_en_sitio(&mut m, a, 200), "el de delante esta usado: no");
+    assert_eq!(h.bloque(&m, a).unwrap().pedido, 64, "y nada tocado");
+    assert!(h.cambiar_en_sitio(&mut m, b, 4000), "el de delante esta libre: si");
+    assert_eq!(h.bloque(&m, b).unwrap().pedido, 4000);
+    assert!(h.cambiar_en_sitio(&mut m, b, 10), "encoger siempre");
+    h.comprobar(&m).unwrap();
+    assert!(h.cambiar_en_sitio(&mut m, b, 1 << 15));
+    assert!(!h.cambiar_en_sitio(&mut m, b, 1 << 17), "mas que la arena: no");
+    h.comprobar(&m).unwrap();
+    // Una segunda arena, pegada a la primera en las direcciones: son dos.
+    assert_eq!(h.arenas().len(), 1);
+}
+
+#[test]
+fn los_handles_de_monton_no_se_confunden() {
+    assert_eq!(monton::propietario_de(monton::asa(1)), Some(1));
+    assert_eq!(monton::propietario_de(monton::asa(7)), Some(7));
+    assert_eq!(monton::propietario_de(monton::asa(monton::PROPIETARIO_VIRTUAL)), None, "VirtualAlloc no es un monton");
+    assert_eq!(monton::propietario_de(0), None);
+    assert_eq!(monton::propietario_de(0x5A1D_0001), None, "la consola no es un monton");
+}
+
+#[test]
+fn las_regiones_de_virtualalloc_cuentan_paginas_como_windows() {
+    let base = 0x40_0000;
+    let mut r = Regiones::nuevas();
+    r.nueva(base, 1 << 20, 4, false);
+    assert_eq!(r.consultar(base), Some(Consulta { base, base_region: base, prot_inicial: 4, tam: 1 << 20, estado: MEM_RESERVE, prot: 0 }));
+    // Commit de [base+64K+10, +8K): TRES paginas, las que tocan el rango.
+    let mut ceros = Vec::new();
+    assert_eq!(r.hacer(base + 0x1_0000 + 10, 0x2000, 4, |d, n| ceros.push((d, n))), Ok(base + 0x1_0000));
+    assert_eq!(ceros, [(base + 0x1_0000, 0x3000)]);
+    let c = r.consultar(base + 0x1_0000 + 77).unwrap();
+    assert_eq!((c.base, c.tam, c.estado, c.prot), (base + 0x1_0000, 0x3000, MEM_COMMIT, 4));
+    assert_eq!(r.consultar(base).unwrap().tam, 0x1_0000, "delante, 64 KiB reservados");
+    // Otra vez, mas ancho: solo lo que no estaba hecho va a cero.
+    ceros.clear();
+    r.hacer(base + 0xF000, 0x6000, 4, |d, n| ceros.push((d, n))).unwrap();
+    assert_eq!(ceros, [(base + 0xF000, 0x1000), (base + 0x1_3000, 0x2000)]);
+    assert_eq!(r.proteger(base + 0x1_0000, 1, 2), Ok(4));
+    assert_eq!(r.consultar(base + 0x1_0000).unwrap().tam, 0x1000, "la pagina protegida es su propia tirada");
+    assert_eq!(r.proteger(base, 0x1000, 4), Err(NoVirtual::Direccion), "sobre una reservada: 487");
+    r.deshacer(base + 0x1_0000, 1).unwrap();
+    assert_eq!(r.consultar(base + 0x1_0000).unwrap().estado, MEM_RESERVE);
+    assert_eq!(r.hacer(base + (1 << 20) - 10, 100, 4, |_, _| {}), Err(NoVirtual::Direccion), "saliendo de la region: 487");
+    assert_eq!(r.hacer(0x1000, 100, 4, |_, _| {}), Err(NoVirtual::Direccion));
+    assert_eq!(r.soltar(base, 0x1000), Err(NoVirtual::Parametro), "RELEASE con medida: 87");
+    assert_eq!(r.soltar(base + 0x1000, 0), Err(NoVirtual::Parametro), "RELEASE fuera de la base: 87");
+    assert_eq!(r.soltar(base, 0), Ok(1 << 20));
+    assert_eq!(r.consultar(base), None);
+    assert_eq!(NoVirtual::Direccion.error(), 487);
+    assert_eq!(regiones::paginas(0x1FFF, 2), (0x1000, 0x3000));
+}
+
+#[test]
+fn la_linea_de_ordenes_y_el_nombre_del_exe() {
+    let exe = proceso::ruta_windows("apps/juego.exe");
+    assert_eq!(exe, "C:\\apps\\juego.exe");
+    let l = proceso::linea(&exe, "  -nivel 3 ");
+    assert_eq!(l, "\"C:\\apps\\juego.exe\" -nivel 3");
+    assert_eq!(proceso::argumentos(&l), ["C:\\apps\\juego.exe", "-nivel", "3"]);
+    assert_eq!(proceso::linea(&exe, ""), "\"C:\\apps\\juego.exe\"");
+    // Las reglas del CRT de Microsoft.
+    assert_eq!(proceso::argumentos(r#"a.exe "dos palabras" b\\"c" d\"e f\\g "h""i""#), ["a.exe", "dos palabras", "b\\c", "d\"e", "f\\\\g", "h\"i"]);
+    assert_eq!(proceso::argumentos(r#""C:\a b\x.exe"z y"#), ["C:\\a b\\x.exe", "z", "y"], "el programa: hasta la comilla, sin escapes");
+}
+
+#[test]
+fn el_entorno_es_el_de_windows() {
+    let w = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+    let mut e = Entorno::de_bmo("C:\\apps");
+    assert_eq!(e.leer(&w("path")), Some(&w("C:\\apps")[..]), "sin mayusculas que cuenten");
+    assert_eq!(e.leer(&w("OS")), Some(&w("Windows_NT")[..]));
+    assert_eq!(e.leer(&w("SystemRoot")), None, "no hay un Windows debajo");
+    e.poner(&w("PxPrueba"), Some(&w("hola"))).unwrap();
+    e.poner(&w("PXPRUEBA"), Some(&w("adios"))).unwrap();
+    assert_eq!(e.leer(&w("pxprueba")), Some(&w("adios")[..]));
+    let b = String::from_utf16(&e.bloque()).unwrap();
+    assert!(b.contains("\0PxPrueba=adios\0"), "el nombre, como se escribio la primera vez: {b:?}");
+    assert!(b.ends_with("\0\0"));
+    let nombres: Vec<String> = b.trim_end_matches('\0').split('\0').map(|x| x.split('=').next().unwrap().to_uppercase()).collect();
+    let mut ordenados = nombres.clone();
+    ordenados.sort();
+    assert_eq!(nombres, ordenados, "el bloque va ordenado");
+    assert!(e.poner(&w("A=B"), Some(&w("x"))).is_err());
+    assert!(e.poner(&w(""), Some(&w("x"))).is_err());
+    e.poner(&w("pxprueba"), None).unwrap();
+    assert_eq!(e.leer(&w("PXPRUEBA")), None);
+    assert_eq!(Entorno::vacio().bloque(), [0, 0]);
 }

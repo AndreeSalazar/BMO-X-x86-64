@@ -18,7 +18,8 @@
 //! mucho OCHO bloques vivos (`MAX_PETICIONES`; eran cuatro hasta el 20-09,
 //! cuando llego `MEM_OP_SOLTAR`). Por eso el orden: fichero (1) y monton (2);
 //! se suelta el fichero (1); codigo (2) y datos (3), seguidos. Despues, la
-//! superficie de la ventana y el codigo de los sombreadores (P3b3b). Que esten seguidos
+//! superficie de la ventana, el codigo de los sombreadores (P3b3b) y la arena del
+//! monton de Windows (P4e, 64 MiB, al primer HeapAlloc). Que esten seguidos
 //! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
 //! dice y no salta.
 //!
@@ -87,8 +88,13 @@ pub(crate) fn fin_del_exe(codigo: u32) -> ! {
 pub extern "C" fn _start() -> ! {
     let mut arg = [0u8; 96];
     let n = bmo::argumentos(&mut arg);
-    let ruta: &[u8] = if n == 0 { b"apps/hola.exe" } else { &arg[..n] };
+    let todo: &[u8] = if n == 0 { b"apps/hola.exe" } else { &arg[..n] };
+    // P4e: `apps/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
+    // demas es la linea de ordenes del `.exe` (GetCommandLineW).
+    let corte = todo.iter().position(|&c| c == b' ').unwrap_or(todo.len());
+    let (ruta, resto) = todo.split_at(corte);
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
+    let linea = core::str::from_utf8(resto).unwrap_or("");
 
     // -- 1. El fichero, entero.
     let Ok(a) = bmo::Archivo::leer_de(ruta) else {
@@ -190,6 +196,8 @@ pub extern "C" fn _start() -> ! {
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
     // P4d: su directorio actual es el suyo (`apps` para `apps/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
+    // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes.
+    bmo_proton_x_casa::proceso::poner_exe(nombre, linea);
     // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
     // antes de la entrada, como el cargador de Windows. Corren YA en el
     // codigo sellado; la casa los llama con la pila alineada.

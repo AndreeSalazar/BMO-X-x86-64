@@ -562,6 +562,35 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            copia), y en BMO-X un fichero escrito es de hasta 4 KiB hoy.
            En el Ryzen, el 27-09 11:23: `ficheros.exe` dijo `bien` dieciseis
            veces y salio con 0.
+      P4e [HECHO el 27-09, en el banco; falta el metal] LO QUE PIDE UN CRT.
+           `bmo_proton_x::monton` es el monton de Windows del `.exe`, el suyo
+           y no el del cargador (que solo avanza): cabeceras DENTRO del
+           bloque, lista de libres, y soltar FUSIONA con los dos vecinos --
+           un CRT que hace malloc/free un millon de veces no se come nada, y
+           el monton no pide memoria para apuntar. Un PROPIETARIO de 16 bits por
+           bloque dice de que monton es (el del proceso, uno de HeapCreate,
+           VirtualAlloc); HeapDestroy los suelta de una pasada. Las arenas
+           las da `Plataforma::memoria` (en BMO-X, un bloque del kernel de 64
+           MiB al primer HeapAlloc). `bmo_proton_x::regiones` cuenta las
+           paginas de VirtualAlloc (reservar a 64 KiB, hacer a CERO las que
+           toca un rango, deshacer, soltar, consultar, proteger) y
+           `bmo_proton_x::proceso` da el nombre (`C:\apps\x.exe`), la linea
+           de ordenes (`run sys/proton-x.bex apps/x.exe lo de detras`) y el
+           entorno (OS, PATH, TEMP, TMP, NUMBER_OF_PROCESSORS=1...). El PEB
+           dice su ProcessHeap (+0x30). La casa suma GetProcessHeap, Heap*
+           (Alloc, Free, ReAlloc, Size, Validate, Create, Destroy,
+           SetInformation), Virtual* (Alloc, Free, Query, Protect),
+           GetSystemInfo, GetModuleFileNameW/A, GetCommandLineW/A y el
+           entorno W. **Como se sabe:** el banco puro da seis mil pedidas y
+           sueltas al azar sin pisar un byte y la arena entera al final
+           (`Monton::comprobar` la recorre de punta a punta), y
+           `prueba/crt.exe` dice `bien` treinta y cinco veces en el anfitrion
+           (sabotear HEAP_ZERO_MEMORY da MAL, comprobado). Lo que no es
+           Windows, dicho: reservar ya gasta memoria (el kernel da bloques
+           hechos), no se reserva en una direccion fija, no se ejecuta lo
+           pedido en marcha (PAGE_EXECUTE_*: W^X), READONLY/NOACCESS se
+           apuntan pero la pagina sigue RW, VirtualQuery solo sabe de lo
+           suyo, y una pedida de mas de 64 MiB de una vez no cabe.
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 
@@ -572,10 +601,13 @@ de arriba y de lo que cada una PIDE, no de gustos:
    1  P2 y P3a en el metal   [HECHO 27-09 11:23] obedecen: letras, clic, q
    2  P4d en el metal        [HECHO 27-09 11:23] ficheros.exe, 16 bien
    3  P4c, el despachador    SEH: RaiseException, __C_specific_handler,
-                             RtlUnwindEx (la base ya esta)
-   4  P4e                    lo que tira un CRT de verdad: HeapAlloc,
+                             RtlUnwindEx (la base ya esta). PENDIENTE: se
+                             salto el 27-09 para no parar el orden; P3c lo
+                             PIDE, asi que va antes que P3c
+   4  P4e                    [HECHO en el banco 27-09] HeapAlloc,
                              VirtualAlloc, GetModuleFileNameW, la linea de
-                             ordenes, el entorno
+                             ordenes, el entorno. Falta: run sys/proton-x.bex
+                             apps/crt.exe en el Ryzen (35 bien)
    5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar: pide
                              P4c y P4e (su runtime de Rust para Windows)
    6  VERRANO V2 a V4        PLAN_VERRANO: profundidad, constantes, y el

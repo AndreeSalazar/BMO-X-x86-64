@@ -7,6 +7,9 @@
 //!    GetCurrentProcessId/ThreadId  el ClientId del TEB              (P1d)
 //!    GetModuleHandleW(NULL)      la base del .exe, del PEB          (P2)
 //!    los objetos, los hilos, el TLS y la hora: `hilos.rs`       (P4)
+//!    los ficheros: `ficheros.rs`                                (P4d)
+//!    la memoria: `memoria.rs`; el nombre, la linea y el entorno:
+//!    `proceso.rs`                                               (P4e)
 //! ```
 //!
 //! Las que leen el TEB lo leen por `gs:`, como Windows: el TEB es la verdad, no
@@ -91,6 +94,11 @@ extern "win64" fn get_module_handle_w(nombre: *const u16) -> u64 {
         set_last_error(ERROR_MOD_NOT_FOUND);
         return 0;
     }
+    base_imagen()
+}
+
+/// La base del `.exe`, del PEB.
+pub(crate) fn base_imagen() -> u64 {
     // SAFETY: el TEB y el PEB son de este proceso; `+0x60` y `+0x10` caen dentro.
     unsafe {
         let peb = ((teb() + teb::TEB_PEB as u64) as *const u64).read();

@@ -166,3 +166,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Escribe y lee `pxtest.txt` en su directorio actual (en Windows, donde se
 lance; en BMO-X, `apps`). Dice `bien` dieciseis veces y sale con 0.
+
+crt.exe -- el de P4e (27-09): lo que pide un CRT de Windows
+
+kernel32.def suma GetProcessHeap, HeapAlloc, HeapFree, HeapReAlloc, HeapSize,
+HeapCreate, HeapDestroy, VirtualAlloc, VirtualFree, VirtualQuery,
+VirtualProtect, GetSystemInfo, GetModuleFileNameW/A, GetCommandLineW/A,
+GetEnvironmentVariableW, SetEnvironmentVariableW, GetEnvironmentStringsW y
+FreeEnvironmentStringsW; hola, teb, hilos y ficheros salen IDENTICOS con el:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c crt.c -o crt.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro crt.obj kernel32.lib /out:crt.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   d0b09886159af1cb0087dbae7c2d0c59dd86d556664e197b4ee47eca11d19389
+
+Dice `bien` treinta y cinco veces y sale con 0. En Windows, lo mismo. El
+numero de la derecha de cada linea es solo para mirar: C no fija en que
+orden se evaluan los argumentos, y a veces se calcula antes de la llamada.

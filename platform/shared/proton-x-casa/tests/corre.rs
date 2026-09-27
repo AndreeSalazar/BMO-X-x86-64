@@ -41,6 +41,11 @@ const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
 const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
 const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
 const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
+const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
+
+/// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
+/// GetModuleFileNameW y su GetCommandLineW).
+static NOMBRE: Mutex<(&str, &str)> = Mutex::new(("apps/prueba.exe", ""));
 const CUBO_DATOS_H: &str = include_str!("../../proton-x/prueba/cubo_datos.h");
 
 #[path = "../examples/cubo_datos.rs"]
@@ -160,7 +165,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -201,6 +206,15 @@ fn leer_fichero(ruta: &[u8]) -> Option<Vec<u8>> {
 fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(r) = std::str::from_utf8(ruta) else { return false };
     std::fs::write(volumen().join(r), bytes).is_ok()
+}
+
+/// Una arena del monton de Windows (P4e): memoria del anfitrion a ceros, que
+/// no se suelta (vive lo que el proceso, como en BMO-X).
+fn memoria(bytes: usize) -> Option<u64> {
+    let forma = std::alloc::Layout::from_size_align(bytes, 1 << 16).ok()?;
+    // SAFETY: una forma de medida no nula.
+    let p = unsafe { std::alloc::alloc_zeroed(forma) };
+    (!p.is_null()).then_some(p as u64)
 }
 
 /// La hora del banco: la del anfitrion, desde que empezo el proceso.
@@ -296,6 +310,8 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(t, base) };
     // P4d: como `run sys/proton-x.bex apps/x.exe`, su directorio es `apps`.
     bmo_proton_x_casa::ficheros::poner_directorio("apps");
+    let (nombre, resto) = *NOMBRE.lock().unwrap();
+    bmo_proton_x_casa::proceso::poner_exe(nombre, resto);
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
         poner_gs(0);
@@ -515,4 +531,20 @@ fn ficheros_exe_lee_y_escribe_ficheros_como_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 16, "{texto}");
     assert!(texto.ends_with("ficheros.exe: los ficheros son los de Windows\r\n[salio 0x0]"), "{texto}");
     assert_eq!(std::fs::read(volumen().join("apps/pxtest.txt")).unwrap(), b"corto", "y en el volumen queda lo ultimo que escribio");
+}
+
+/// **P4e en el anfitrion**: `crt.exe` pide y suelta del monton de Windows
+/// (dos mil bloques, 8 MiB, un HeapCreate), reserva y hace paginas con
+/// VirtualAlloc, y lee su nombre, su linea y su entorno.
+#[test]
+fn crt_exe_tiene_la_memoria_y_el_proceso_de_windows() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("apps/crt.exe", "-nivel 3");
+    let (salio, dicho, _) = correr_exe(&uno, CRT, true, &[]);
+    *NOMBRE.lock().unwrap() = ("apps/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 35, "{texto}");
+    assert!(texto.ends_with("crt.exe: la memoria y el proceso son los de Windows\r\n[salio 0x0]"), "{texto}");
 }

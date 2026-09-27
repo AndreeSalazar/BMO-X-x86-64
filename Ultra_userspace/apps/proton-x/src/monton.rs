@@ -5,8 +5,8 @@
 //! da BLOQUES enteros (`KIND_MEMORIA`) y el proceso decide. Para cargar un
 //! `.exe` basta lo mas simple que existe: pedir un bloque una vez y repartirlo
 //! hacia delante. `dealloc` no devuelve nada; el bloque entero muere con el
-//! proceso. Cuando un `.exe` pida `HeapAlloc` (P4), ese sera OTRO monton, el
-//! suyo, con su politica.
+//! proceso. El `HeapAlloc` del `.exe` es OTRO monton, el suyo, que si
+//! devuelve (P4e: `bmo_proton_x::monton`, en arenas de `Plataforma::memoria`).
 
 use core::alloc::{GlobalAlloc, Layout};
 use core::cell::UnsafeCell;

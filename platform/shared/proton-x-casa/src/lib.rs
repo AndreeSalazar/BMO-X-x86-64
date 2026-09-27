@@ -56,7 +56,9 @@ pub mod ficheros;
 pub mod gdi32;
 pub mod hilos;
 pub mod kernel32;
+pub mod memoria;
 pub mod nativo;
+pub mod proceso;
 pub mod tuberia;
 pub mod user32;
 
@@ -112,6 +114,9 @@ pub struct Plataforma {
     pub leer_fichero: fn(&[u8]) -> Option<Vec<u8>>,
     /// Escribir un fichero entero (crearlo o reemplazarlo). `false` si no salio.
     pub escribir_fichero: fn(&[u8], &[u8]) -> bool,
+    /// Un bloque NUEVO de estos bytes, R+W y a ceros, que vive lo que el
+    /// proceso: una arena del monton de Windows (P4e). `None` si no hay.
+    pub memoria: fn(usize) -> Option<u64>,
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -188,6 +193,8 @@ pub unsafe fn empezar(p: Plataforma) {
     tuberia::reiniciar();
     nativo::reiniciar();
     ficheros::reiniciar();
+    memoria::reiniciar();
+    proceso::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -210,7 +217,7 @@ pub fn aviso(texto: &str) {
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let Funcion::Nombre(n) = f else { return None };
     if dll.eq_ignore_ascii_case("kernel32.dll") {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

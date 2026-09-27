@@ -16,7 +16,7 @@
 //!    0x010  StackLimit   (fondo)        0x010  ImageBaseAddress    la base
 //!    0x030  Self         el TEB                                    del .exe
 //!    0x040  ClientId.UniqueProcess
-//!    0x048  ClientId.UniqueThread
+//!    0x048  ClientId.UniqueThread      0x030  ProcessHeap         (P4e)
 //!    0x060  ProcessEnvironmentBlock
 //!    0x068  LastErrorValue (u32)
 //! ```
@@ -40,6 +40,9 @@ pub const TEB_LAST_ERROR: usize = 0x68;
 
 pub const PEB_BEING_DEBUGGED: usize = 0x02;
 pub const PEB_IMAGE_BASE: usize = 0x10;
+/// `ProcessHeap` (P4e): el HANDLE de `GetProcessHeap`, leido de aqui por
+/// quien no llama a nadie.
+pub const PEB_PROCESS_HEAP: usize = 0x30;
 
 /// Lo que se sabe de ESTE hilo y de ESTE proceso al arrancar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,4 +83,5 @@ pub fn escribir_teb(teb: &mut [u8], h: &Hilo) {
 pub fn escribir_peb(peb: &mut [u8], h: &Hilo) {
     peb[..PEB_BYTES].fill(0);
     pon(peb, PEB_IMAGE_BASE, h.base_imagen);
+    pon(peb, PEB_PROCESS_HEAP, crate::monton::asa(crate::monton::PROPIETARIO_PROCESO));
 }

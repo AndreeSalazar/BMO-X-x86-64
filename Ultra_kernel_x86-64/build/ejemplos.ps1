@@ -167,10 +167,11 @@ try {
     # los hilos cooperativos de la casa; dice `bien` diecinueve veces.
     # Y `ficheros.exe` (P4d, 27-09): CreateFileW, ReadFile, SetFilePointerEx...
     # junto a si mismo (`apps/pxtest.txt`); dice `bien` dieciseis veces.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe')) {
+    # Y `crt.exe` (P4e, 27-09): HeapAlloc, VirtualAlloc, su nombre, su linea y su entorno.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros}.exe (run sys/proton-x.bex apps/ficheros.exe)' -ForegroundColor DarkGray
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt}.exe (run sys/proton-x.bex apps/crt.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------
