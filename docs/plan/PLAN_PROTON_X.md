@@ -414,7 +414,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            D3D12 de verdad (el propietario lo vio dibujar el cubo). En el
            Ryzen, el 27-09 09:48: la ventana, el fondo de X1 y un solo aviso,
            el de P3b3; ni un hueco que falte ni un fallo de Ring 3.
-      P3b3 [HECHO el 27-09, en el banco; falta el metal] los sombreadores
+      P3b3 [HECHO el 27-09, VISTO en el metal] los sombreadores
            EN LA CPU. `bmo_proton_x::dxil::programa` lee el CUERPO del DXIL
            (tipos, constantes del modulo y de la funcion, operandos
            relativos, llamadas a `dx.op.*`) y lo compila a un programa de
@@ -439,6 +439,11 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            los DXIL de dxc, corridos. Lo que falta, contado y dicho: recorte
            (w <= 0 o fuera de 0..w no se pinta), profundidad, mezcla,
            texturas, SV_Position en el de pixeles, saltos en el DXIL.
+           En el Ryzen, el 27-09 10:11: `run sys/proton-x.bex apps/cubo.exe`
+           dibujo el cubo -- el mismo que el propietario vio en Windows 11 a
+           las 10:13, cara verde y tapa magenta en el mismo sitio --, sin un
+           aviso y sin un fallo de Ring 3. La primera imagen de un `.exe` de
+           D3D12 dibujada por BMO-X, con los sombreadores de dxc corridos.
            Y de paso, el hueco que vio el propietario al cerrar `cubo.exe`
            con ^C (`no devuelto: sigue PRESTADO a otro`, 3.5 MiB): el
            kernel apuntaba el bloque retenido en ningun sitio y, al soltarlo
