@@ -39,6 +39,7 @@ const TEB: &[u8] = include_bytes!("../../proton-x/prueba/teb.exe");
 const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
 const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
 const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
+const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
 const CUBO_DATOS_H: &str = include_str!("../../proton-x/prueba/cubo_datos.h");
 
 #[path = "../examples/cubo_datos.rs"]
@@ -133,6 +134,9 @@ fn dormir() {
     if DORMIDAS.fetch_add(1, Ordering::SeqCst) > 1000 {
         salir(0xDEAD);
     }
+    // De verdad, como en BMO-X (4 ms alli): los plazos de P4 (Sleep, WaitFor*
+    // con tiempo) cuentan con que el reloj avance mientras se duerme.
+    std::thread::sleep(std::time::Duration::from_micros(500));
 }
 
 /// Donde volver al salir, y con que pila: los deja [`correr`].
@@ -155,7 +159,13 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu }
+}
+
+/// La hora del banco: la del anfitrion, desde que empezo el proceso.
+fn ahora_ns() -> u64 {
+    static ORIGEN: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    ORIGEN.get_or_init(std::time::Instant::now).elapsed().as_nanos() as u64
 }
 
 /// **Saltar a la entrada** con la pila alineada y su sombra, y volver aqui
@@ -239,6 +249,10 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     }
     // SAFETY: un `.exe` a la vez (el cerrojo de arriba), antes de saltar.
     unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    // P4: el TLS, como el cargador de Windows (y como `proton-x.bex`).
+    let t = tls::leer(&pe, &img, base).unwrap();
+    // SAFETY: GS puesto (si hay TEB), `empezar` hecho, la imagen en su sitio.
+    unsafe { bmo_proton_x_casa::hilos::preparar_tls(t, base) };
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
         poner_gs(0);
@@ -427,4 +441,18 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
     let p = PANTALLA.lock().unwrap();
     assert_eq!((p[0].1, p[0].2), (1280, 720));
     assert_eq!(p[0].0[0], 0xFF10_1018);
+}
+
+/// **P4 en el anfitrion**: `hilos.exe`, hilos, TLS y sincronizacion de
+/// Windows con los hilos COOPERATIVOS de la casa. Lo que dice no depende del
+/// orden en que corran los hilos: es lo mismo que dice en Windows.
+#[test]
+fn hilos_exe_tiene_hilos_tls_y_sincronizacion_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, HILOS, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 19, "{texto}");
+    assert!(texto.ends_with("hilos.exe: los hilos son los de Windows\r\n[salio 0x0]"), "{texto}");
+    assert_eq!(salio, 0, "{texto}");
 }

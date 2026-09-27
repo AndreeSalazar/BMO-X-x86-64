@@ -128,3 +128,24 @@ mide 656 bytes). En Windows abre una ventana de 1280x720 con el cubo de X1
 iluminado sobre el fondo (16, 16, 24); cada letra lo gira 30 fotogramas; q o
 ESC cierran, y sale con el numero de Present. Si D3D12 rechaza algo, sale con
 un codigo 0xE1xx/0xE2xx que dice que paso (0xE203: el PSO).
+
+hilos.exe -- el de P4 (27-09): hilos, TLS y sincronizacion de Windows
+
+kernel32.def suma 22 (CreateThread, ResumeThread, GetExitCodeThread,
+WaitForMultipleObjects, Sleep, SwitchToThread, CreateSemaphoreW,
+ReleaseSemaphore, Tls*, *CriticalSection, *SRWLock*, *ConditionVariable*);
+los otros cinco .exe salen IDENTICOS con el, comprobado:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c hilos.c -o hilos.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro hilos.obj kernel32.lib /out:hilos.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   9ac5cbd63ab09b6f1dbc408e5e28b08b5f54ef40a2b94554707a3f9c60625cbd
+
+Sin CRT, `_tls_used` (el directorio de TLS que el enlazador busca por su
+nombre) va definido en hilos.c, como en tlssup.c del CRT de Microsoft: con
+el, `__declspec(thread)` y los callbacks del TLS funcionan igual en Windows.
+En Windows dice `bien` diecinueve veces y sale con 0; lo que dice no depende
+del orden en que corran los hilos (alli, de verdad y en varios nucleos).

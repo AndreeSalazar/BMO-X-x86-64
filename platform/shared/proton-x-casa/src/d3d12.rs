@@ -31,7 +31,7 @@ use alloc::vec::Vec;
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Com, Guid, E_NOINTERFACE, S_FALSE, S_OK};
 use crate::tuberia::{self, Bufer, Estado, Vista};
-use crate::{aviso, dir, kernel32};
+use crate::{aviso, dir, hilos};
 
 pub const DXGI_FORMAT_R8G8B8A8_UNORM: u32 = 28;
 pub const DXGI_FORMAT_B8G8R8A8_UNORM: u32 = 87;
@@ -76,6 +76,22 @@ pub struct Recurso {
 
 pub struct Valla {
     valor: u64,
+    /// `SetEventOnCompletion` de un valor que no ha llegado: (valor, evento).
+    /// Desde P4 hay otros hilos que pueden hacer Signal despues.
+    pendientes: Vec<(u64, u64)>,
+}
+
+/// Poner el valor de una valla y encender los eventos que ya tocan.
+fn marcar(v: &mut Valla, valor: u64) {
+    v.valor = valor;
+    v.pendientes.retain(|&(x, ev)| {
+        if x <= valor {
+            hilos::encender_evento(ev);
+            false
+        } else {
+            true
+        }
+    });
 }
 
 // -- Crear objetos ----------------------------------------------------------
@@ -214,7 +230,7 @@ extern "win64" fn create_fence(_this: u64, inicial: u64, _banderas: u32, riid: *
         (9, dir!(set_event_on_completion)),
         (10, dir!(fence_signal)),
     ]);
-    dar(pp, nuevo(com::FENCE, vt, Valla { valor: inicial }) as u64)
+    dar(pp, nuevo(com::FENCE, vt, Valla { valor: inicial, pendientes: Vec::new() }) as u64)
 }
 
 // -- El monton de descriptores ---------------------------------------------
@@ -444,7 +460,7 @@ extern "win64" fn execute_command_lists(_this: u64, n: u32, listas: *const u64) 
 /// La cola es sincrona: cuando se pide `Signal`, todo lo anterior YA termino.
 extern "win64" fn queue_signal(_this: u64, valla: u64, valor: u64) -> i32 {
     // SAFETY: una Valla de la casa.
-    unsafe { de::<Valla>(valla).valor = valor };
+    marcar(unsafe { de::<Valla>(valla) }, valor);
     S_OK
 }
 
@@ -459,20 +475,28 @@ extern "win64" fn get_completed_value(this: u64) -> u64 {
 
 extern "win64" fn fence_signal(this: u64, valor: u64) -> i32 {
     // SAFETY: como arriba.
-    unsafe { de::<Valla>(this).valor = valor };
+    marcar(unsafe { de::<Valla>(this) }, valor);
     S_OK
 }
 
 /// `SetEventOnCompletion(this, valor, evento)`: si ya se llego, el evento se
-/// enciende YA. Si no, en una cola sincrona no va a llegar nunca: se dice.
+/// enciende YA; si no, cuando un Signal (de la cola o de otro hilo) llegue.
+/// Con evento nulo, Windows ESPERA ahi mismo: aqui se cede el turno hasta que
+/// llegue (o hasta el bloqueo mutuo, que se dice).
 extern "win64" fn set_event_on_completion(this: u64, valor: u64, evento: u64) -> i32 {
     // SAFETY: como arriba.
-    let hecho = unsafe { de::<Valla>(this).valor } >= valor;
-    if !hecho {
-        aviso("SetEventOnCompletion: la valla espera un valor que nadie ha pedido todavia");
+    let v = unsafe { de::<Valla>(this) };
+    if v.valor >= valor {
+        if evento != 0 {
+            hilos::encender_evento(evento);
+        }
+        return S_OK;
+    }
+    if evento == 0 {
+        aviso("SetEventOnCompletion sin evento sobre un valor que no ha llegado: todavia no");
         return crate::com::E_FAIL;
     }
-    kernel32::encender_evento(evento);
+    v.pendientes.push((valor, evento));
     S_OK
 }
 

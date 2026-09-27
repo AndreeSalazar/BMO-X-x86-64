@@ -57,9 +57,6 @@ pub fn partir(pe: &Pe) -> Result<Partes, Fallo> {
 /// **La imagen, en su base**: cabeceras y secciones en su RVA, el resto a
 /// cero, y las relocalizaciones aplicadas si `base` no es la del enlazador.
 pub fn colocar(pe: &Pe, d: &[u8], base: u64) -> Result<Vec<u8>, Fallo> {
-    if pe.tls.rva != 0 {
-        return Err(Fallo::PideTls);
-    }
     let mut img = vec![0u8; pe.tam_imagen as usize];
     let h = (pe.tam_cabeceras as usize).min(d.len()).min(img.len());
     img[..h].copy_from_slice(&d[..h]);

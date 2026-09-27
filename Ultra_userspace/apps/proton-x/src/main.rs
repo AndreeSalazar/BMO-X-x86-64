@@ -35,7 +35,7 @@ mod plataforma;
 
 use alloc::format;
 use alloc::vec::Vec;
-use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, teb, Permiso};
+use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, teb, tls, Permiso};
 use bmo_userland as bmo;
 
 #[global_allocator]
@@ -153,6 +153,9 @@ pub extern "C" fn _start() -> ! {
     // -- 4 y 5. Colocar en SU direccion y resolver contra la casa.
     let mut img = colocar(&pe, &exe, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     let imps = importaciones(&pe, &img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    // P4: su TLS (`__declspec(thread)` y los callbacks), leido de la imagen
+    // YA relocalizada: sus direcciones son las de aqui.
+    let tls_del_exe = tls::leer(&pe, &img, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     let (delante, detras) = img.split_at(partes.codigo as usize);
     // SAFETY: cada bloque mide lo que `partir` dijo, y es nuestro.
@@ -183,6 +186,14 @@ pub extern "C" fn _start() -> ! {
     // superficies del escritorio y su buzon).
     // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
+    // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
+    // antes de la entrada, como el cargador de Windows. Corren YA en el
+    // codigo sellado; la casa los llama con la pila alineada.
+    if let Some(t) = &tls_del_exe {
+        di(&format!("PROTON-X: TLS: {} B por hilo, {} callback(s)\n", t.bytes(), t.callbacks.len()));
+    }
+    // SAFETY: el GS ya esta en el TEB, `empezar` hecho, la imagen sellada.
+    unsafe { bmo_proton_x_casa::hilos::preparar_tls(tls_del_exe, base) };
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera: sin `Drop`, que la soltaria.
     core::mem::forget(codigo);

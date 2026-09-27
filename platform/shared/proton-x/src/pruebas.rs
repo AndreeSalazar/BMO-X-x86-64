@@ -496,34 +496,24 @@ fn la_raiz_de_enteros_es_la_de_ieee() {
 
 use crate::trama;
 
-/// El cubo del fotograma `f` por la tuberia entera de la CPU: los DXIL de
-/// dxc corridos (vertices y pixeles) y la trama, como en un Draw de la casa.
+/// El cubo del fotograma `f` como LOTE (`lote::en_cpu`, la costura que usa
+/// la casa): los bytes de los vertices, los indices, las constantes, y los
+/// DXIL de dxc enlazados con el input layout de `cubo.c`.
 fn cubo_por_la_casa(f: u32) -> (Vec<u32>, trama::Cuenta) {
-    let (vs, ps) = (compilar(&dxil::leer(CUBO_VS).unwrap()).unwrap(), compilar(&dxil::leer(CUBO_PS).unwrap()).unwrap());
+    use crate::lote::{self, ElementoIa, Lote, Topologia};
+    let (vs, ps) = (dxil::leer(CUBO_VS).unwrap(), dxil::leer(CUBO_PS).unwrap());
+    let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde };
+    let entradas = [e("POSITION", 6, 0), e("NORMAL", 6, 12), e("COLOR", 2, 24)];
+    let enlace = lote::enlazar(&vs, &ps, &entradas).unwrap();
+    let vertices: Vec<u8> = bmo_cubo::vertices().iter().flat_map(|v| v.pos.iter().chain(&v.normal).chain(&v.color).flat_map(|x| x.to_le_bytes())).collect();
+    let ids: Vec<u32> = bmo_cubo::indices().iter().map(|&i| i as u32).collect();
     let cb = cb_de(f);
-    let mut regs = Vec::new();
-    let sombreados: Vec<trama::Sombreado> = bmo_cubo::vertices()
-        .iter()
-        .map(|v| {
-            let e = [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color];
-            let mut s = [[0.0f32; 4]; 3];
-            vs.correr(&e, &cb, &mut s, &mut regs);
-            // La firma de entrada del de pixeles: SV_Position, NORMAL, COLOR.
-            trama::Sombreado { pos: s[0], atributos: vec![[0.0; 4], s[1], s[2]] }
-        })
-        .collect();
-    let idx = bmo_cubo::indices();
-    let tris: Vec<[usize; 3]> = idx.chunks(3).map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect();
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
-    let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte: 3, antihorario: false };
+    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas };
+    let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true };
-    let mut regs_ps = Vec::new();
-    let cuenta = trama::dibujar(&reglas, &sombreados, &tris, &mut d, |e| {
-        let mut s = [[0.0f32; 4]; 1];
-        ps.correr(e, &cb, &mut s, &mut regs_ps);
-        s[0]
-    });
+    let cuenta = lote::en_cpu(&l, &mut d).unwrap();
     (px, cuenta)
 }
 
@@ -608,4 +598,155 @@ fn la_trama_no_pinta_lo_que_no_sabe_recortar() {
     let (px, c) = pinta(&v, 1, false);
     assert_eq!((c.sin_recortar, c.pixeles), (1, 0));
     assert!(px.iter().all(|&p| p == 0));
+}
+
+// -- P4: los hilos, decididos ---------------------------------------------------
+
+use crate::hilos::{Estado, Objeto, Planificador, Turno, WAIT_OBJECT_0, WAIT_TIMEOUT};
+
+#[test]
+fn un_evento_despierta_al_que_espera_y_el_automatico_se_apaga() {
+    let mut p = Planificador::nuevo();
+    let ev = p.nuevo_objeto(Objeto::Evento { manual: false, encendido: false });
+    let (h1, _) = p.crear(false);
+    // El principal espera el evento: no se cumple, queda esperando.
+    assert_eq!(p.esperar(&[ev], false, None, 0), None);
+    // Le toca al 1 (el principal no puede).
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1));
+    p.actual = h1;
+    p.encender(ev, true);
+    // El 1 cede: el principal ve el evento, lo consume, y sigue.
+    assert_eq!(p.siguiente(0), Turno::Hilo(0));
+    assert_eq!(p.resultado(0), WAIT_OBJECT_0);
+    assert_eq!(p.objeto(ev), Some(Objeto::Evento { manual: false, encendido: false }), "automatico: se apaga al soltar a uno");
+}
+
+#[test]
+fn esperar_todos_o_cualquiera_y_los_plazos() {
+    let mut p = Planificador::nuevo();
+    let a = p.nuevo_objeto(Objeto::Evento { manual: true, encendido: false });
+    let b = p.nuevo_objeto(Objeto::Semaforo { cuenta: 1, max: 4 });
+    // Cualquiera: el semaforo (indice 1) ya esta.
+    assert_eq!(p.esperar(&[a, b], false, None, 0), Some(WAIT_OBJECT_0 + 1));
+    assert_eq!(p.objeto(b), Some(Objeto::Semaforo { cuenta: 0, max: 4 }));
+    // Todos: falta el evento; con plazo en 100 ns.
+    assert_eq!(p.esperar(&[a, b], true, Some(100), 0), None);
+    assert_eq!(p.siguiente(50), Turno::Esperar(100), "nadie puede: se duerme hasta el plazo");
+    assert_eq!(p.siguiente(100), Turno::Hilo(0));
+    assert_eq!(p.resultado(0), WAIT_TIMEOUT);
+    // Un plazo ya vencido contesta en el acto.
+    assert_eq!(p.esperar(&[a], false, Some(5), 10), Some(WAIT_TIMEOUT));
+    assert_eq!(p.soltar_semaforo(b, 4), Some(0));
+    assert_eq!(p.soltar_semaforo(b, 1), None, "pasaria del maximo");
+}
+
+#[test]
+fn esperar_a_un_hilo_es_esperar_a_que_acabe() {
+    let mut p = Planificador::nuevo();
+    let (h, obj) = p.crear(true);
+    assert_eq!(p.estado(h), Some(&Estado::Suspendido(1)));
+    assert_eq!(p.esperar(&[obj], false, None, 0), None);
+    assert_eq!(p.siguiente(0), Turno::Bloqueo, "suspendido y esperado: nadie puede seguir NUNCA");
+    assert_eq!(p.reanudar(h), Some(1));
+    assert_eq!(p.siguiente(0), Turno::Hilo(h));
+    p.actual = h;
+    p.terminar(h, 42);
+    assert_eq!(p.siguiente(0), Turno::Hilo(0));
+    assert_eq!(p.salida(h), Some(42));
+    assert_eq!(p.vivos(), 1);
+}
+
+#[test]
+fn una_seccion_critica_es_recursiva_y_el_otro_espera() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    let cs = 0x1000;
+    assert!(p.entrar(cs, true, true));
+    assert!(p.entrar(cs, true, true), "el propietario vuelve a entrar");
+    p.actual = h1;
+    assert!(!p.probar(cs, true, true));
+    assert!(!p.entrar(cs, true, true), "el 1 queda esperando");
+    assert_eq!(p.siguiente(0), Turno::Hilo(0));
+    p.actual = 0;
+    assert!(p.salir(cs, true));
+    assert_eq!(p.siguiente(0), Turno::Hilo(0), "todavia no: le queda una vuelta de recursion");
+    assert!(p.salir(cs, true));
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1), "libre: el 1 la coge al tocarle");
+    assert_eq!(p.ver_cerrojo(cs).map(|c| (c.propietario, c.recursion)), Some((Some(h1), 1)));
+    p.actual = h1;
+    assert!(!p.salir(0x9999, true), "soltar lo que no es tuyo: no");
+}
+
+#[test]
+fn srw_lectores_juntos_y_escritor_solo() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    let l = 0x2000;
+    assert!(p.entrar(l, false, false));
+    p.actual = h1;
+    assert!(p.entrar(l, false, false), "dos lectores a la vez");
+    assert!(!p.probar(l, true, false), "un escritor no entra con lectores");
+    assert!(p.salir(l, false));
+    p.actual = 0;
+    assert!(p.salir(l, false));
+    assert!(p.probar(l, true, false));
+    assert!(!p.probar(l, true, false), "SRW no es recursivo");
+}
+
+#[test]
+fn una_condicion_despierta_en_orden_de_llegada() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    let (h2, _) = p.crear(false);
+    let cv = 0x3000;
+    p.actual = h1;
+    p.dormir_en(cv, None);
+    p.actual = h2;
+    p.dormir_en(cv, Some(1000));
+    p.actual = 0;
+    p.despertar(cv, false);
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1), "el primero que llego");
+    p.actual = h1;
+    assert_eq!(p.siguiente(10), Turno::Hilo(0), "el 2 sigue dormido");
+    p.actual = 0;
+    assert_eq!(p.siguiente(1000), Turno::Hilo(h1));
+    assert_eq!(p.siguiente(1000), Turno::Hilo(h1));
+    p.actual = h1;
+    assert_eq!(p.siguiente(1000), Turno::Hilo(h2), "al 2 se le paso el plazo");
+    assert_eq!(p.resultado(h2), WAIT_TIMEOUT);
+}
+
+#[test]
+fn todos_esperando_para_siempre_es_un_bloqueo() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    let (a, b) = (0x10, 0x20);
+    assert!(p.entrar(a, true, true));
+    p.actual = h1;
+    assert!(p.entrar(b, true, true));
+    assert!(!p.entrar(a, true, true));
+    p.actual = 0;
+    assert!(!p.entrar(b, true, true));
+    assert_eq!(p.siguiente(0), Turno::Bloqueo);
+}
+
+#[test]
+fn dormir_cede_hasta_la_hora() {
+    let mut p = Planificador::nuevo();
+    let (h1, _) = p.crear(false);
+    p.dormir(500);
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1));
+    p.actual = h1;
+    p.dormir(300);
+    assert_eq!(p.siguiente(0), Turno::Esperar(300));
+    assert_eq!(p.siguiente(400), Turno::Hilo(h1));
+}
+
+#[test]
+fn un_lote_sin_input_layout_para_una_semantica_no_se_enlaza() {
+    use crate::lote::{self, ElementoIa};
+    let (vs, ps) = (dxil::leer(CUBO_VS).unwrap(), dxil::leer(CUBO_PS).unwrap());
+    let sin_color = [ElementoIa { semantica: "POSITION".into(), indice: 0, formato: 6, ranura: 0, desde: 0 }, ElementoIa { semantica: "NORMAL".into(), indice: 0, formato: 6, ranura: 0, desde: 12 }];
+    assert_eq!(lote::enlazar(&vs, &ps, &sin_color).err().as_deref(), Some("el sombreador de vertices lee COLOR0 y el input layout no lo da"));
+    assert_eq!(lote::triangulos(&[0, 1, 2, 3], lote::Topologia::Tira), vec![[0, 1, 2], [2, 1, 3]], "en la tira, el impar se da la vuelta");
 }

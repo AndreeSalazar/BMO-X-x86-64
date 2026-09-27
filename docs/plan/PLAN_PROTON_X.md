@@ -461,6 +461,49 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       todo D3D12 va por ahi y ninguna tabla de importaciones lo ve), ficheros
       mapeados. Un `.exe` de pruebas tuyo por cada una. **Como se sabe:** el
       mismo `.exe` da la misma salida en Windows y en BMO-X.
+      P4a [HECHO el 27-09, en el banco; falta el metal] LOS HILOS. BMO-X no
+           tiene hilos de Ring 3 (una tarea, un hilo; el FUERO los deja para
+           cuando haya SMP), asi que PROTON-X se los da al `.exe` DENTRO de
+           su tarea, COOPERATIVOS (el modelo M:1): cada hilo con su pila (del
+           monton, con un canario al fondo que se mira en cada relevo), su
+           TEB y su GS, su copia del TLS estatico y sus ranuras de TlsAlloc;
+           se cede el turno cuando uno ESPERA. `bmo_proton_x::hilos` decide
+           (puro, con banco: eventos, semaforos, hilos, secciones criticas
+           recursivas, SRW con lectores, condiciones en orden de llegada,
+           plazos, y el BLOQUEO MUTUO, que se dice y sale con 0xDEAD10CC en
+           vez de colgarse). `bmo_proton_x::tls` lee el directorio 9 del PE;
+           el cargador deja el bloque del hilo principal en `TEB+0x58` y
+           llama a los callbacks con PROCESS_ATTACH antes de la entrada (y
+           con THREAD_ATTACH/DETACH en cada hilo, en ESE hilo). La casa
+           (`hilos.rs`) hace el relevo en ensamblador guardando lo que Windows
+           x64 da por conservado -- rbx rbp rdi rsi r12..r15, xmm6..xmm15, el
+           MXCSR y la x87 -- porque en Ring 3 la casa es soft-float y el
+           compilador no sabe que los xmm existen; y 46 nombres de kernel32
+           (CreateThread, WaitFor*, Sleep, Tls*, *CriticalSection*, *SRWLock*,
+           *ConditionVariable*, semaforos, eventos, GetTickCount*,
+           QueryPerformance*). La valla de D3D12 ya enciende eventos que
+           llegan DESPUES (un Signal de otro hilo). **Como se sabe:**
+           `prueba/hilos.exe` (sin CRT, con su `_tls_used`) dice `bien`
+           diecinueve veces en el anfitrion con la casa: hilos y su codigo de
+           salida, CREATE_SUSPENDED, TEB y pila propios, TLS dinamico y
+           estatico, los callbacks, 4 x 10000 sumas en una seccion critica con
+           el turno cedido DENTRO, productor y consumidor con semaforos, una
+           cola con SRW y condicion, un plazo, y xmm6..xmm15 y el MXCSR
+           intactos aunque otro hilo los ensucie. Lo que no depende del orden
+           de los hilos, que es lo que Windows tambien tiene que decir. [!] En
+           el anfitrion los xmm los guarda ya el compilador (con SSE): el
+           banco los ve solo por el MXCSR (quitar su `ldmxcsr` del relevo da
+           MAL, comprobado); el juez de los xmm es `hilos.exe` en el Ryzen.
+           Lo que falta, dicho: un hilo que da vueltas sin esperar no suelta
+           el turno (no hay reloj que se lo quite).
+      P4b [HECHO el 27-09] LA COSTURA con quien dibuja: `bmo_proton_x::lote`.
+           La casa traduce D3D12 (punteros, descriptores, root signature) a
+           un LOTE neutro -- sombreadores cosidos, bytes de vertices, ids,
+           topologia, cb, reglas -- y lo dibuja el `Ejecutor` que pone la
+           plataforma (`Plataforma::dibujar`). Hoy `lote::en_cpu` (el que dio
+           las huellas de la 3060, y el banco lo prueba EN la costura); con
+           P3b4, el de VERRANO con la 3060, y `en_cpu` de juez. La casa no
+           cambia para eso.
 - [ ] **P5 -- un juego chico de verdad.** Uno de TU biblioteca de GOG, 64
       bits, D3D11 o D3D12, sin antitrampas, elegido por `rayosx` (el de
       MENOS importaciones que diga DENTRO). **Como se sabe:** su primer nivel

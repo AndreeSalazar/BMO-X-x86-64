@@ -260,7 +260,11 @@ extern "win64" fn get_message_w(msg: *mut u8, h: u64, min: u32, max: u32) -> i32
             escribir_msg(msg, &m);
             return if m.mensaje == WM_QUIT { 0 } else { 1 };
         }
-        (p.dormir)();
+        // Sin mensajes: primero otros hilos del `.exe` (P4); si ninguno puede
+        // seguir, dormir.
+        if !crate::hilos::ceder() {
+            (p.dormir)();
+        }
     }
 }
 

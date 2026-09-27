@@ -163,10 +163,12 @@ try {
     # Y `cubo.exe` (P3b2, 27-09): el cubo de X1 con la tuberia ENTERA de D3D12
     # (root signature, PSO con DXIL, buferes, DrawIndexedInstanced). Desde
     # P3b3 la casa lo DIBUJA: los DXIL corridos en la CPU y su trama.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe')) {
+    # Y `hilos.exe` (P4, 27-09): hilos, TLS y sincronizacion de Windows con
+    # los hilos cooperativos de la casa; dice `bien` diecinueve veces.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo}.exe (run sys/proton-x.bex apps/cubo.exe)' -ForegroundColor DarkGray
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos}.exe (run sys/proton-x.bex apps/hilos.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

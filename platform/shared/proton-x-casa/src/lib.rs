@@ -1,4 +1,4 @@
-//! # PROTON-X -- las DLL de la casa (P1b, P1d, P2, P3a y P3b2)
+//! # PROTON-X -- las DLL de la casa (P1b, P1d, P2, P3 y P4)
 //!
 //! generacion: hija -- da lo que un `.exe` importa; no sabe cargarlo ni que
 //! maquina hay debajo
@@ -53,6 +53,7 @@ pub mod com;
 pub mod d3d12;
 pub mod dxgi;
 pub mod gdi32;
+pub mod hilos;
 pub mod kernel32;
 pub mod tuberia;
 pub mod user32;
@@ -91,6 +92,15 @@ pub struct Plataforma {
     pub evento: fn(&Superficie) -> u64,
     /// Nada que hacer: dormir un poco (`GetMessage` sin mensajes).
     pub dormir: fn(),
+    /// Poner el GS de este hilo de la plataforma (el TEB del hilo de Windows
+    /// que va a correr): `TASK_OP_PON_GS` en BMO-X (P4).
+    pub poner_gs: fn(u64),
+    /// La hora, en nanosegundos desde cualquier origen fijo (P4: Sleep,
+    /// los plazos, QueryPerformanceCounter).
+    pub ahora_ns: fn() -> u64,
+    /// Quien DIBUJA un lote de D3D12 (P4, la costura con VERRANO): hoy
+    /// `bmo_proton_x::lote::en_cpu`; con la 3060, el ejecutor de VERRANO.
+    pub dibujar: bmo_proton_x::lote::Ejecutor,
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -163,7 +173,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.cola = Cola::nueva();
         e.avisos = 0;
     });
-    kernel32::reiniciar();
+    hilos::reiniciar();
     tuberia::reiniciar();
 }
 
@@ -187,7 +197,7 @@ pub fn aviso(texto: &str) {
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let Funcion::Nombre(n) = f else { return None };
     if dll.eq_ignore_ascii_case("kernel32.dll") {
-        kernel32::buscar(n)
+        kernel32::buscar(n).or_else(|| hilos::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

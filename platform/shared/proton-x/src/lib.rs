@@ -40,7 +40,10 @@ pub mod dxbc;
 pub mod dxil;
 pub mod pe;
 pub mod raiz;
+pub mod hilos;
+pub mod lote;
 pub mod teb;
+pub mod tls;
 pub mod trama;
 pub mod ventanas;
 
@@ -70,8 +73,8 @@ pub enum Fallo {
     SinRelocalizaciones,
     /// Una relocalizacion de un tipo que un PE32+ x86-64 no deberia traer.
     Relocalizacion { rva: u32, tipo: u16 },
-    /// Pide TLS (el directorio 9): se da en P4, no antes.
-    PideTls,
+    /// Su directorio de TLS (el 9) no cuadra: fuera de la imagen o sin fin.
+    Tls(&'static str),
     /// Una seccion que no es codigo cae en las paginas del codigo: con
     /// bloques enteros no se sella una sin la otra.
     NoSeParte(String),
@@ -89,7 +92,7 @@ impl fmt::Display for Fallo {
             Fallo::EscribeYEjecuta(n) => write!(f, "la seccion {n} se puede escribir Y ejecutar: el W^X de la casa no lo deja"),
             Fallo::SinRelocalizaciones => write!(f, "hay que moverlo de su base y el enlazador le quito las relocalizaciones (RELOCS_STRIPPED)"),
             Fallo::Relocalizacion { rva, tipo } => write!(f, "relocalizacion de tipo {tipo} en la RVA {rva:#x}: un PE32+ x86-64 solo trae DIR64"),
-            Fallo::PideTls => write!(f, "pide TLS (el directorio 9): se da en P4"),
+            Fallo::Tls(m) => write!(f, "su TLS (el directorio 9): {m}"),
             Fallo::NoSeParte(n) => write!(f, "la seccion {n} no es codigo y cae en las paginas del codigo: no se sella una sin la otra"),
             Fallo::Faltan(v) => {
                 write!(f, "no arranca: faltan {} funcion(es) en la tabla de la casa:", v.len())?;

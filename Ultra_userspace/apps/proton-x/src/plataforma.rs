@@ -12,6 +12,9 @@
 //!    presentar    subir la secuencia: el dibujo esta entero (R-APP4)
 //!    evento       el siguiente del buzon, o 0
 //!    dormir       4 ms: un .exe esperando teclas no gasta CPU (R21)
+//!    poner_gs     el TEB del hilo de Windows que va a correr (P4):
+//!                 TASK_OP_PON_GS, que no toca el MSR si no cambia
+//!    ahora_ns     `rdtsc` y la frecuencia que publica el kernel (INFO_TSC_HZ)
 //! ```
 //!
 //! La superficie es la MISMA que pide una app de INTI o de C
@@ -25,7 +28,28 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu }
+}
+
+/// Un GS que el kernel no acepta seria un hilo sin TEB: no se sigue.
+fn poner_gs(teb: u64) {
+    if bmo::poner_gs(teb).is_err() {
+        bmo::consola("PROTON-X: el kernel no pone el GS de un hilo: no se sigue\n");
+        super::fin_del_exe(0xC000_0005);
+    }
+}
+
+/// La frecuencia del TSC, pedida una vez (0 = todavia no).
+static TSC_HZ: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+fn ahora_ns() -> u64 {
+    use core::sync::atomic::Ordering;
+    let mut hz = TSC_HZ.load(Ordering::Relaxed);
+    if hz == 0 {
+        hz = bmo::info(bmo::INFO_TSC_HZ).max(1);
+        TSC_HZ.store(hz, Ordering::Relaxed);
+    }
+    (bmo::ciclos() as u128 * 1_000_000_000 / hz as u128) as u64
 }
 
 /// La consola es de lineas: el retorno de carro de Windows pintaria un

@@ -39,13 +39,13 @@ use core::cell::UnsafeCell;
 
 use alloc::format;
 
-use bmo_proton_x::dxil::programa::{self, Programa};
 use bmo_proton_x::dxil::{self, Etapa, Sombreador};
+use bmo_proton_x::lote::{enlazar, Enlace, Lote, NoDibuja, Topologia};
 use bmo_proton_x::trama;
 use bmo_proton_x::raiz::{self, Carga, Firma, Parametro, Rango};
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
-use crate::{aviso, dir};
+use crate::{aviso, dir, plataforma};
 
 // -- Constantes de D3D12 que se miran ---------------------------------------
 
@@ -191,15 +191,8 @@ pub(crate) extern "win64" fn create_root_signature(_this: u64, _nodo: u32, bytes
 
 // -- El PSO -------------------------------------------------------------------
 
-/// Un elemento del input layout, ya leido.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntradaIa {
-    pub semantica: String,
-    pub indice: u32,
-    pub formato: u32,
-    pub ranura: u32,
-    pub desde: u32,
-}
+/// Un elemento del input layout, ya leido (la forma neutra de `lote`).
+pub use bmo_proton_x::lote::ElementoIa as EntradaIa;
 
 pub struct Pso {
     pub raiz: u64,
@@ -218,57 +211,6 @@ pub struct Pso {
     pub mezcla: bool,
 }
 
-/// **Los dos sombreadores, listos y cosidos**: de donde sale cada entrada del
-/// de vertices (el input layout) y cada entrada del de pixeles (las salidas
-/// del de vertices).
-pub struct Enlace {
-    pub vs: Programa,
-    pub ps: Programa,
-    /// Por elemento de entrada del de vertices: su elemento del input layout.
-    pub desde_ia: Vec<usize>,
-    /// La salida del de vertices que es SV_Position.
-    pub posicion: usize,
-    /// Por elemento de entrada del de pixeles: la salida del de vertices que
-    /// le llega (`None`: SV_Position, que hoy no lee).
-    pub desde_vs: Vec<Option<usize>>,
-}
-
-/// SV_Position en una firma (valor de sistema 1).
-const SV_POSITION: u32 = 1;
-
-fn enlazar(vs: &Sombreador, ps: &Sombreador, entradas: &[EntradaIa]) -> Result<Enlace, String> {
-    let (pv, pp) = (programa::compilar(vs), programa::compilar(ps));
-    let pv = pv.map_err(|e| format!("el sombreador de vertices no se sabe correr todavia: {e:?}"))?;
-    let pp = pp.map_err(|e| format!("el sombreador de pixeles no se sabe correr todavia: {e:?}"))?;
-    let mut desde_ia = Vec::with_capacity(vs.entradas.len());
-    for f in &vs.entradas {
-        if f.sistema != 0 {
-            return Err(format!("el sombreador de vertices lee el valor de sistema {} ({}): todavia no", f.sistema, f.semantica));
-        }
-        // pso_de ya comprobo que esta: una semantica que falta es E_INVALIDARG.
-        desde_ia.push(entradas.iter().position(|e| e.semantica.eq_ignore_ascii_case(&f.semantica) && e.indice == f.indice).unwrap_or(0));
-    }
-    let posicion = vs.salidas.iter().position(|f| f.sistema == SV_POSITION).ok_or_else(|| String::from("el sombreador de vertices no escribe SV_Position"))?;
-    let mut desde_vs = Vec::with_capacity(ps.entradas.len());
-    for (i, f) in ps.entradas.iter().enumerate() {
-        if f.sistema == SV_POSITION {
-            if pp.lee & (1 << i) != 0 {
-                return Err(String::from("el sombreador de pixeles lee SV_Position: todavia no"));
-            }
-            desde_vs.push(None);
-            continue;
-        }
-        let k = vs.salidas.iter().position(|o| o.semantica.eq_ignore_ascii_case(&f.semantica) && o.indice == f.indice);
-        match k {
-            Some(k) => desde_vs.push(Some(k)),
-            None => return Err(format!("el sombreador de pixeles lee {}{} y el de vertices no lo escribe", f.semantica, f.indice)),
-        }
-    }
-    if pp.salidas != 1 {
-        return Err(String::from("el sombreador de pixeles escribe mas de un render target: todavia no"));
-    }
-    Ok(Enlace { vs: pv, ps: pp, desde_ia, posicion, desde_vs })
-}
 
 fn sombreador(bytecode: *const u8, tam: usize, etapa: Etapa, que: &'static str) -> Result<Sombreador, &'static str> {
     if bytecode.is_null() || tam == 0 {
@@ -623,15 +565,6 @@ pub(crate) fn ejecutar_dibujo(e: &Estado, cuantos: u32, instancias: u32, primero
     v.push(d);
 }
 
-/// Los componentes de un formato de vertice (floats de 32 bits).
-fn componentes(formato: u32) -> usize {
-    match formato {
-        FMT_R32G32B32A32_FLOAT => 4,
-        FMT_R32G32B32_FLOAT => 3,
-        FMT_R32G32_FLOAT => 2,
-        _ => 1,
-    }
-}
 
 const TRIANGLESTRIP: u32 = 5;
 const FMT_B8G8R8A8_UNORM: u32 = 87;
@@ -684,10 +617,9 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     } else {
         ids.extend(primero..primero + cuantos);
     }
-    let tris: Vec<[usize; 3]> = match e.topologia {
-        TRIANGLELIST => ids.chunks_exact(3).map(|t| [t[0] as usize, t[1] as usize, t[2] as usize]).collect(),
-        // En una tira, los impares se dan la vuelta para que todos giren igual.
-        TRIANGLESTRIP => ids.windows(3).enumerate().map(|(i, t)| if i % 2 == 0 { [t[0] as usize, t[1] as usize, t[2] as usize] } else { [t[1] as usize, t[0] as usize, t[2] as usize] }).collect(),
+    let topologia = match e.topologia {
+        TRIANGLELIST => Topologia::Lista,
+        TRIANGLESTRIP => Topologia::Tira,
         _ => {
             aviso("Draw con una topologia que no es de triangulos (lista o tira): todavia no");
             return;
@@ -717,52 +649,25 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             return;
         }
     };
-    // El sombreador de vertices, UNA vez por vertice distinto.
-    let n_vertices = vb.len() / paso;
-    let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
-    let mut sombreados: Vec<trama::Sombreado> = Vec::new();
-    let mut regs = Vec::new();
-    let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len()];
-    let mut sal = vec![[0.0f32; 4]; en.vs.salidas];
-    let mut tris_locales = Vec::with_capacity(tris.len());
-    for t in &tris {
-        let mut local = [0usize; 3];
-        for (k, &id) in t.iter().enumerate() {
-            let Some(ranura) = hecho.get_mut(id) else {
-                aviso("Draw: un indice que pasa del bufer de vertices");
-                return;
-            };
-            if let Some(i) = *ranura {
-                local[k] = i;
-                continue;
-            }
-            let v = &vb[id * paso..id * paso + paso];
-            for (x, &ia) in ent.iter_mut().zip(&en.desde_ia) {
-                let el = &pso.entradas[ia];
-                *x = [0.0, 0.0, 0.0, 1.0];
-                for c in 0..componentes(el.formato) {
-                    let o = el.desde as usize + 4 * c;
-                    x[c] = v.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0);
-                }
-            }
-            en.vs.correr(&ent, cb, &mut sal, &mut regs);
-            let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| sal.get(k).copied()).unwrap_or([0.0; 4])).collect();
-            sombreados.push(trama::Sombreado { pos: sal[en.posicion], atributos });
-            *ranura = Some(sombreados.len() - 1);
-            local[k] = sombreados.len() - 1;
-        }
-        tris_locales.push(local);
-    }
-    let reglas = trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario };
+    // Hasta aqui, D3D12. Lo que sigue es un LOTE, y lo dibuja quien la
+    // plataforma diga (hoy la CPU; luego VERRANO con la 3060).
+    let lote = Lote {
+        enlace: en,
+        entradas: &pso.entradas,
+        vertices: vb,
+        paso,
+        ids: &ids,
+        topologia,
+        cb,
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario },
+    };
     let (ancho, alto) = (rt.ancho, rt.alto);
     let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra };
-    let mut sal_ps = [[0.0f32; 4]; 1];
-    let cuenta = trama::dibujar(&reglas, &sombreados, &tris_locales, &mut destino, |x| {
-        en.ps.correr(x, cb, &mut sal_ps, &mut regs);
-        sal_ps[0]
-    });
-    if cuenta.sin_recortar > 0 {
-        aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan");
+    match (plataforma().dibujar)(&lote, &mut destino) {
+        Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
+        Ok(_) => {}
+        Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
+        Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
     }
 }
 
