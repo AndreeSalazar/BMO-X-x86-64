@@ -325,7 +325,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       `hola.exe` y `teb.exe` no tienen ningun `movaps` y no se enteraron; el
       banco tampoco, porque su trampolin ya alineaba. Arreglo: `proton-x.bex`
       salta a la entrada con `and rsp, -16` y la sombra, como Windows.
-      Falta el metal otra vez: `run sys/proton-x.bex apps/ventana.exe`
+      **Y en el Ryzen, con el arreglo (27-09, 06:13):** la ventana SALIO en
+      el escritorio de BMO-X -- `[ventana] tid 7 322x229`, `App 1` en la
+      barra, el degradado y el marco dorado de `ventana.exe`, pintados por su
+      StretchDIBits. Falta verla obedecer: `run sys/proton-x.bex apps/ventana.exe`
       abre su ventana en el escritorio de BMO-X, las letras cambian el
       tinte, el clic deja el cuadrado y `q` la cierra.
 - [ ] **P3 -- el cubo D3D12.** Partido en tres el 27-09, porque el `.exe`
