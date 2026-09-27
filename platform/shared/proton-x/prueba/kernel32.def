@@ -8,3 +8,7 @@ GetLastError
 GetCurrentProcessId
 GetCurrentThreadId
 GetModuleHandleW
+CreateEventW
+SetEvent
+WaitForSingleObject
+CloseHandle

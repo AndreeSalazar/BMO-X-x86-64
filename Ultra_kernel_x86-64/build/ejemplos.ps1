@@ -158,7 +158,9 @@ try {
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y
     # el gdi32 de la casa. Letras cambian el tinte, un clic deja un cuadrado, q
     # o ESC la cierran.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe')) {
+    # Y `limpia.exe` (P3a, 27-09): D3D12 y DXGI de la casa limpian la ventana
+    # y presentan; una letra, el color siguiente.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
     Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana}.exe (run sys/proton-x.bex apps/ventana.exe)' -ForegroundColor DarkGray

@@ -285,10 +285,17 @@ extern "win64" fn dispatch_message_w(msg: *const u8) -> i64 {
     }
 }
 
-/// `DefWindowProcW`: WM_CLOSE cierra la ventana (DestroyWindow); lo demas, 0.
+/// `DefWindowProcW`: WM_CLOSE cierra la ventana (DestroyWindow); WM_PAINT la
+/// VALIDA (lo que hace el BeginPaint/EndPaint de Windows por dentro: sin
+/// esto, un `.exe` que pinta con D3D12 y deja WM_PAINT al sistema recibiria
+/// WM_PAINT sin fin); lo demas, 0.
 extern "win64" fn def_window_proc_w(h: u64, m: u32, _w: u64, _l: u64) -> i64 {
-    if m == WM_CLOSE {
-        destroy_window(h);
+    match m {
+        WM_CLOSE => {
+            destroy_window(h);
+        }
+        WM_PAINT => con(|e| e.cola.validar(h)),
+        _ => {}
     }
     0
 }

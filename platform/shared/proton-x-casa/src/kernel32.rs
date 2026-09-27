@@ -6,7 +6,14 @@
 //!    SetLastError, GetLastError  en el TEB, por gs:[0x68]           (P1d)
 //!    GetCurrentProcessId/ThreadId  el ClientId del TEB              (P1d)
 //!    GetModuleHandleW(NULL)      la base del .exe, del PEB          (P2)
+//!    CreateEventW, SetEvent,     los eventos que enciende la valla  (P3a)
+//!    WaitForSingleObject, CloseHandle
 //! ```
+//!
+//! **Los eventos, en un mundo sincrono:** la cola de D3D12 de la casa termina
+//! antes de volver, asi que un evento que se espera ya esta encendido. Uno que
+//! NO lo esta no se va a encender nunca (no hay otro hilo): esperar para siempre
+//! seria colgar el `.exe` en silencio, y se dice en vez de eso.
 //!
 //! Las que leen el TEB lo leen por `gs:`, como Windows: el TEB es la verdad, no
 //! una variable de aqui. Un `.exe` que lea `gs:[0x68]` sin llamar a nadie ve
@@ -14,7 +21,10 @@
 
 use bmo_proton_x::teb;
 
-use crate::{dir, plataforma};
+use alloc::vec::Vec;
+use core::cell::UnsafeCell;
+
+use crate::{aviso, dir, plataforma};
 
 /// Los dos que van a la consola. Valores que no son punteros ni se confunden
 /// con `INVALID_HANDLE_VALUE` (-1).
@@ -96,6 +106,67 @@ extern "win64" fn get_module_handle_w(nombre: *const u16) -> u64 {
     }
 }
 
+/// Los eventos: (reinicio manual, encendido). El handle es `EVENTO + i`.
+struct Eventos(UnsafeCell<Vec<(bool, bool)>>);
+// SAFETY: un hilo (ver `Global` en lib.rs).
+unsafe impl Sync for Eventos {}
+static EVENTOS: Eventos = Eventos(UnsafeCell::new(Vec::new()));
+const EVENTO: u64 = 0x5E00_0000;
+const WAIT_OBJECT_0: u32 = 0;
+const WAIT_TIMEOUT: u32 = 0x102;
+const WAIT_FAILED: u32 = 0xFFFF_FFFF;
+const INFINITE: u32 = 0xFFFF_FFFF;
+
+fn eventos() -> &'static mut Vec<(bool, bool)> {
+    // SAFETY: un hilo, y nadie guarda la referencia.
+    unsafe { &mut *EVENTOS.0.get() }
+}
+
+pub(crate) fn reiniciar() {
+    eventos().clear();
+}
+
+pub(crate) fn encender_evento(h: u64) {
+    if let Some(e) = h.checked_sub(EVENTO).and_then(|i| eventos().get_mut(i as usize)) {
+        e.1 = true;
+    }
+}
+
+extern "win64" fn create_event_w(_attr: u64, manual: i32, inicial: i32, _nombre: *const u16) -> u64 {
+    let v = eventos();
+    v.push((manual != 0, inicial != 0));
+    EVENTO + (v.len() - 1) as u64
+}
+
+extern "win64" fn set_event(h: u64) -> i32 {
+    encender_evento(h);
+    1
+}
+
+/// `WaitForSingleObject`: un evento encendido contesta YA (y se apaga si es de
+/// reinicio automatico). Uno apagado no se va a encender (ver la cabecera).
+extern "win64" fn wait_for_single_object(h: u64, ms: u32) -> u32 {
+    let Some(e) = h.checked_sub(EVENTO).and_then(|i| eventos().get_mut(i as usize)) else {
+        aviso("WaitForSingleObject sobre algo que no es un evento de la casa");
+        return WAIT_FAILED;
+    };
+    if e.1 {
+        if !e.0 {
+            e.1 = false;
+        }
+        return WAIT_OBJECT_0;
+    }
+    if ms == INFINITE {
+        aviso("WaitForSingleObject(INFINITE) sobre un evento que nadie va a encender: no se cuelga");
+        return WAIT_FAILED;
+    }
+    WAIT_TIMEOUT
+}
+
+extern "win64" fn close_handle(_h: u64) -> i32 {
+    1
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "GetStdHandle" => dir!(get_std_handle),
@@ -106,6 +177,10 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "GetCurrentProcessId" => dir!(get_current_process_id),
         "GetCurrentThreadId" => dir!(get_current_thread_id),
         "GetModuleHandleW" => dir!(get_module_handle_w),
+        "CreateEventW" => dir!(create_event_w),
+        "SetEvent" => dir!(set_event),
+        "WaitForSingleObject" => dir!(wait_for_single_object),
+        "CloseHandle" => dir!(close_handle),
         _ => return None,
     })
 }

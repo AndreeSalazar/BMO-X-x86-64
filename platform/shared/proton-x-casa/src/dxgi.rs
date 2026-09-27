@@ -1,0 +1,121 @@
+//! **`dxgi.dll` de la casa** (P3a, 27-09): la fabrica y la cadena de
+//! intercambio, sobre la ventana de P2.
+//!
+//! ```text
+//!    CreateDXGIFactory1/2       la fabrica
+//!    CreateSwapChainForHwnd     N back buffers (recursos de d3d12.rs) del
+//!                               medida de la ventana, y la ventana
+//!    GetBuffer(i)               el back buffer i
+//!    Present                    el back buffer ACTUAL a la superficie de la
+//!                               ventana (el de P2), y se pasa al siguiente
+//!    MakeWindowAssociation      nada: aqui no hay Alt+Enter que desactivar
+//! ```
+//!
+//! Los buffers giran como en el modelo FLIP de Windows: tras `Present` el
+//! actual es el siguiente (el `.exe` lleva la cuenta o pregunta a
+//! `IDXGISwapChain3::GetCurrentBackBufferIndex`, que es de P3b).
+
+use alloc::vec::Vec;
+
+use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
+use crate::d3d12::{recurso, recurso_de, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
+use crate::{aviso, dir, plataforma, user32};
+
+pub struct Fabrica;
+
+pub struct Cadena {
+    hwnd: u64,
+    buffers: Vec<u64>,
+    actual: usize,
+}
+
+fn fabrica(riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pide(riid, com::FACTORY) {
+        aviso("CreateDXGIFactory: pide una fabrica que la casa no tiene (IDXGIFactory4+?)");
+        return E_NOINTERFACE;
+    }
+    let vt = vtabla::<{ com::FACTORY }>(&[(8, dir!(make_window_association)), (15, dir!(create_swap_chain_for_hwnd))]);
+    dar(pp, nuevo(com::FACTORY, vt, Fabrica) as u64)
+}
+
+extern "win64" fn create_dxgi_factory1(riid: *const Guid, pp: *mut u64) -> i32 {
+    fabrica(riid, pp)
+}
+
+extern "win64" fn create_dxgi_factory2(_banderas: u32, riid: *const Guid, pp: *mut u64) -> i32 {
+    fabrica(riid, pp)
+}
+
+extern "win64" fn make_window_association(_this: u64, _hwnd: u64, _banderas: u32) -> i32 {
+    S_OK
+}
+
+/// `CreateSwapChainForHwnd(this, cola, hwnd, desc1, fs, salida, pp)`.
+/// `DXGI_SWAP_CHAIN_DESC1`: Width +0, Height +4, Format +8, BufferCount +28.
+/// Un ancho o alto 0 es "el de la ventana", como en Windows.
+extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, desc: *const u8, _fs: *const u8, _salida: u64, pp: *mut u64) -> i32 {
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    let Some(sup) = user32::superficie_de(hwnd) else {
+        aviso("CreateSwapChainForHwnd: esa ventana no es de la casa");
+        return E_INVALIDARG;
+    };
+    // SAFETY: un DXGI_SWAP_CHAIN_DESC1 del `.exe` (48 bytes).
+    let (w, h, formato, n) = unsafe {
+        let u = |o: usize| (desc.add(o) as *const u32).read_unaligned();
+        (u(0), u(4), u(8), u(28))
+    };
+    if formato != DXGI_FORMAT_R8G8B8A8_UNORM && formato != DXGI_FORMAT_B8G8R8A8_UNORM {
+        aviso("CreateSwapChainForHwnd: solo R8G8B8A8_UNORM y B8G8R8A8_UNORM, todavia");
+        return E_INVALIDARG;
+    }
+    let (w, h) = (if w == 0 { sup.ancho } else { w }, if h == 0 { sup.alto } else { h });
+    let buffers = (0..n.clamp(1, 4)).map(|_| recurso(w, h, formato)).collect();
+    let vt = vtabla::<{ com::SWAPCHAIN }>(&[(8, dir!(present)), (9, dir!(get_buffer))]);
+    dar(pp, nuevo(com::SWAPCHAIN, vt, Cadena { hwnd, buffers, actual: 0 }) as u64)
+}
+
+extern "win64" fn get_buffer(this: u64, i: u32, riid: *const Guid, pp: *mut u64) -> i32 {
+    if !pide(riid, com::RESOURCE) {
+        return E_NOINTERFACE;
+    }
+    // SAFETY: `this` es una Cadena de la casa.
+    let c = unsafe { de::<Cadena>(this) };
+    match c.buffers.get(i as usize) {
+        Some(&b) => dar(pp, b),
+        None => E_INVALIDARG,
+    }
+}
+
+/// `Present(this, intervalo, banderas)`: el back buffer actual a la ventana.
+/// Lo que no cabe se recorta; lo que sobra de la ventana no se toca.
+extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
+    // SAFETY: `this` es una Cadena de la casa.
+    let c = unsafe { de::<Cadena>(this) };
+    let Some(sup) = user32::superficie_de(c.hwnd) else { return E_INVALIDARG };
+    // SAFETY: un Recurso de la casa.
+    let r = unsafe { recurso_de(c.buffers[c.actual]) };
+    // SAFETY: la superficie mide `stride * alto` pixeles y es de este proceso.
+    let destino = unsafe { core::slice::from_raw_parts_mut(sup.pixeles, sup.stride as usize * sup.alto as usize) };
+    let (w, h) = (r.ancho.min(sup.ancho) as usize, r.alto.min(sup.alto) as usize);
+    for y in 0..h {
+        let fila = &r.pixeles[y * r.ancho as usize..][..w];
+        let dst = &mut destino[y * sup.stride as usize..][..w];
+        for (d, &p) in dst.iter_mut().zip(fila) {
+            // La superficie es B,G,R,A: R8G8B8A8 cambia R y B de sitio.
+            *d = if r.formato == DXGI_FORMAT_R8G8B8A8_UNORM { p & 0xFF00_FF00 | (p & 0xFF) << 16 | (p >> 16) & 0xFF } else { p };
+        }
+    }
+    (plataforma().presentar)(&sup);
+    c.actual = (c.actual + 1) % c.buffers.len();
+    S_OK
+}
+
+pub(crate) fn buscar(n: &str) -> Option<u64> {
+    Some(match n {
+        "CreateDXGIFactory1" => dir!(create_dxgi_factory1),
+        "CreateDXGIFactory2" => dir!(create_dxgi_factory2),
+        _ => return None,
+    })
+}

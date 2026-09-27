@@ -1,0 +1,298 @@
+//! **COM de la casa** (P3a, 27-09): la forma de un objeto de D3D12 y DXGI.
+//!
+//! D3D12 casi no se importa: `d3d12.dll` da DOS funciones (`D3D12CreateDevice`
+//! y `D3D12SerializeRootSignature`) y todo lo demas son METODOS de objetos COM
+//! -- punteros a una VTABLA de funciones, con `this` delante (lo midio X1: las
+//! tablas de importaciones no lo ven). Aqui vive esa forma:
+//!
+//! ```text
+//!    un objeto   [vtabla][interfaz][referencias][lo suyo...]
+//!    la vtabla   los metodos en el ORDEN de la cabecera de Windows (d3d12.h,
+//!                dxgi1_2.h): un hueco movido llama a otro metodo, y no falla
+//!    un hueco    que la casa no tiene: su PROPIA funcion `falta`, que dice
+//!                "ID3D12Device::CreateRootSignature no esta en la casa" y
+//!                sale. Nunca un S_OK callado ni un salto a cero
+//! ```
+//!
+//! Los nombres de los metodos (`M_*`, abajo) son los de las cabeceras de
+//! Windows, en su orden: con ellos el aviso dice CUAL pidio el `.exe`.
+
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::vec::Vec;
+use core::cell::UnsafeCell;
+
+use crate::{aviso, plataforma};
+
+pub const S_OK: i32 = 0;
+pub const S_FALSE: i32 = 1;
+pub const E_NOINTERFACE: i32 = 0x8000_4002_u32 as i32;
+pub const E_INVALIDARG: i32 = 0x8007_0057_u32 as i32;
+pub const E_FAIL: i32 = 0x8000_4005_u32 as i32;
+pub const E_POINTER: i32 = 0x8000_4003_u32 as i32;
+
+/// Un GUID tal como esta en memoria: Data1 (u32), Data2 y Data3 (u16) en
+/// little-endian, y los ocho bytes de Data4.
+pub type Guid = [u8; 16];
+
+pub const fn guid(d1: u32, d2: u16, d3: u16, d4: [u8; 8]) -> Guid {
+    let a = d1.to_le_bytes();
+    let b = d2.to_le_bytes();
+    let c = d3.to_le_bytes();
+    [a[0], a[1], a[2], a[3], b[0], b[1], c[0], c[1], d4[0], d4[1], d4[2], d4[3], d4[4], d4[5], d4[6], d4[7]]
+}
+
+pub const IID_IUNKNOWN: Guid = guid(0x0000_0000, 0x0000, 0x0000, [0xC0, 0, 0, 0, 0, 0, 0, 0x46]);
+
+/// Las interfaces de la casa: su nombre, sus metodos y los IID que acepta
+/// `QueryInterface` (la suya y las que hereda).
+pub struct Interfaz {
+    pub nombre: &'static str,
+    pub metodos: &'static [&'static str],
+    pub iids: &'static [Guid],
+}
+
+pub const DEVICE: usize = 0;
+pub const QUEUE: usize = 1;
+pub const ALLOCATOR: usize = 2;
+pub const LIST: usize = 3;
+pub const HEAP: usize = 4;
+pub const RESOURCE: usize = 5;
+pub const FENCE: usize = 6;
+pub const FACTORY: usize = 7;
+pub const SWAPCHAIN: usize = 8;
+
+const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
+const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
+const IID_PAGEABLE: Guid = guid(0x63ee58fb, 0x1268, 0x4835, [0x86, 0xda, 0xf0, 0x08, 0xce, 0x62, 0xf0, 0xd6]);
+const IID_COMMANDLIST: Guid = guid(0x7116d91c, 0xe7e4, 0x47ce, [0xb8, 0xc6, 0xec, 0x81, 0x68, 0xf4, 0x37, 0xe5]);
+pub const IID_DEVICE: Guid = guid(0x189819f1, 0x1db6, 0x4b57, [0xbe, 0x54, 0x18, 0x21, 0x33, 0x9b, 0x85, 0xf7]);
+pub const IID_QUEUE: Guid = guid(0x0ec870a6, 0x5d7e, 0x4c22, [0x8c, 0xfc, 0x5b, 0xaa, 0xe0, 0x76, 0x16, 0xed]);
+pub const IID_ALLOCATOR: Guid = guid(0x6102dee4, 0xaf59, 0x4b09, [0xb9, 0x99, 0xb4, 0x4d, 0x73, 0xf0, 0x9b, 0x24]);
+pub const IID_LIST: Guid = guid(0x5b160d0f, 0xac1b, 0x4185, [0x8b, 0xa8, 0xb3, 0xae, 0x42, 0xa5, 0xa4, 0x55]);
+pub const IID_HEAP: Guid = guid(0x8efb471d, 0x616c, 0x4f49, [0x90, 0xf7, 0x12, 0x7b, 0xb7, 0x63, 0xfa, 0x51]);
+pub const IID_RESOURCE: Guid = guid(0x696442be, 0xa72e, 0x4059, [0xbc, 0x79, 0x5b, 0x5c, 0x98, 0x04, 0x0f, 0xad]);
+pub const IID_FENCE: Guid = guid(0x0a753dcf, 0xc4d8, 0x4b91, [0xad, 0xf6, 0xbe, 0x5a, 0x60, 0xd9, 0x5a, 0x76]);
+pub const IID_FACTORY1: Guid = guid(0x770aae78, 0xf26f, 0x4dba, [0xa8, 0x29, 0x25, 0x3c, 0x83, 0xd1, 0xb3, 0x87]);
+pub const IID_FACTORY2: Guid = guid(0x50c83a1c, 0xe072, 0x4c48, [0x87, 0xb0, 0x36, 0x30, 0xfa, 0x36, 0xa6, 0xd0]);
+pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
+
+pub static INTERFACES: [Interfaz; 9] = [
+    Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12GraphicsCommandList", metodos: M_ID3D12GRAPHICSCOMMANDLIST, iids: &[IID_LIST, IID_COMMANDLIST, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12DescriptorHeap", metodos: M_ID3D12DESCRIPTORHEAP, iids: &[IID_HEAP, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12Resource", metodos: M_ID3D12RESOURCE, iids: &[IID_RESOURCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "ID3D12Fence", metodos: M_ID3D12FENCE, iids: &[IID_FENCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
+    Interfaz { nombre: "IDXGIFactory2", metodos: M_IDXGIFACTORY2, iids: &[IID_FACTORY2, IID_FACTORY1] },
+    Interfaz { nombre: "IDXGISwapChain1", metodos: M_IDXGISWAPCHAIN1, iids: &[IID_SWAPCHAIN1] },
+];
+
+/// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
+/// solo mira el primer puntero (la vtabla); lo demas es nuestro.
+#[repr(C)]
+pub struct Com<T> {
+    vtabla: *const u64,
+    interfaz: u32,
+    refs: u32,
+    pub t: T,
+}
+
+/// Lo que se sabe de cualquier objeto sin saber su `T`.
+#[repr(C)]
+struct Cabecera {
+    vtabla: *const u64,
+    interfaz: u32,
+    refs: u32,
+}
+
+/// **Un hueco que la casa no tiene.** Uno por (interfaz, metodo): el aviso
+/// dice cual, y el proceso sale con `0xC0DE0000 | interfaz << 8 | metodo`.
+extern "win64" fn falta<const I: usize, const S: usize>() -> ! {
+    let i = &INTERFACES[I];
+    aviso(&format!("{}::{} (hueco {}) no esta en la casa", i.nombre, i.metodos.get(S).copied().unwrap_or("?"), S));
+    (plataforma().salir)(0xC0DE_0000 | (I as u32) << 8 | S as u32)
+}
+
+macro_rules! faltas {
+    ($i:ident; $($s:literal)*) => { [$(falta::<$i, $s> as *const () as usize as u64),*] };
+}
+
+fn faltas_de<const I: usize>() -> [u64; 60] {
+    faltas!(I; 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59)
+}
+
+extern "win64" fn query_interface(this: *mut Cabecera, riid: *const Guid, ppv: *mut u64) -> i32 {
+    if ppv.is_null() {
+        return E_POINTER;
+    }
+    // SAFETY: `this` es un objeto de la casa; `riid`, un GUID del `.exe`.
+    let (i, iid) = unsafe { ((*this).interfaz as usize, riid.read_unaligned()) };
+    if iid == IID_IUNKNOWN || INTERFACES[i].iids.contains(&iid) {
+        add_ref(this);
+        // SAFETY: `ppv` es un puntero del `.exe` a donde dejar la interfaz.
+        unsafe { *ppv = this as u64 };
+        S_OK
+    } else {
+        // SAFETY: como arriba.
+        unsafe { *ppv = 0 };
+        E_NOINTERFACE
+    }
+}
+
+extern "win64" fn add_ref(this: *mut Cabecera) -> u32 {
+    // SAFETY: un objeto de la casa.
+    unsafe {
+        (*this).refs += 1;
+        (*this).refs
+    }
+}
+
+/// Un objeto que llega a cero no se libera: vive lo que el proceso. Un `.exe`
+/// que use un objeto soltado no pisa memoria ajena (P3a no reusa nada).
+extern "win64" fn release(this: *mut Cabecera) -> u32 {
+    // SAFETY: un objeto de la casa.
+    unsafe {
+        (*this).refs = (*this).refs.saturating_sub(1);
+        (*this).refs
+    }
+}
+
+struct Vtablas(UnsafeCell<[*const u64; 9]>);
+// SAFETY: un hilo (ver `Global` en lib.rs).
+unsafe impl Sync for Vtablas {}
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 9]));
+
+/// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
+/// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
+pub fn vtabla<const I: usize>(metodos: &[(usize, u64)]) -> *const u64 {
+    // SAFETY: un hilo; ninguna llamada al `.exe` dentro.
+    let cache = unsafe { &mut *VTABLAS.0.get() };
+    if !cache[I].is_null() {
+        return cache[I];
+    }
+    let n = INTERFACES[I].metodos.len();
+    let mut v: Vec<u64> = faltas_de::<I>()[..n].to_vec();
+    v[0] = crate::dir!(query_interface);
+    v[1] = crate::dir!(add_ref);
+    v[2] = crate::dir!(release);
+    for &(hueco, f) in metodos {
+        v[hueco] = f;
+    }
+    cache[I] = Box::leak(v.into_boxed_slice()).as_ptr();
+    cache[I]
+}
+
+/// **Un objeto nuevo** de la interfaz `I`, con una referencia.
+pub fn nuevo<T>(interfaz: usize, vt: *const u64, t: T) -> *mut Com<T> {
+    Box::leak(Box::new(Com { vtabla: vt, interfaz: interfaz as u32, refs: 1, t }))
+}
+
+/// Lo de dentro de un objeto de la casa.
+///
+/// # Safety
+/// `p` es un `Com<T>` de la casa, del `T` que se dice.
+pub unsafe fn de<'a, T>(p: u64) -> &'a mut T {
+    &mut (*(p as *mut Com<T>)).t
+}
+
+/// El IID que pide el `.exe`, y si es uno de los de `I`.
+pub fn pide(riid: *const Guid, i: usize) -> bool {
+    if riid.is_null() {
+        return false;
+    }
+    // SAFETY: un GUID del `.exe`.
+    let g = unsafe { riid.read_unaligned() };
+    g == IID_IUNKNOWN || INTERFACES[i].iids.contains(&g)
+}
+
+/// Dejar un objeto en el `void **ppv` del `.exe`.
+pub fn dar(ppv: *mut u64, obj: u64) -> i32 {
+    if ppv.is_null() {
+        return E_POINTER;
+    }
+    // SAFETY: un puntero del `.exe` a donde dejar la interfaz.
+    unsafe { *ppv = obj };
+    S_OK
+}
+
+// -- Los metodos de cada interfaz, en el orden de las cabeceras de Windows --
+
+pub const M_ID3D12DEVICE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetNodeCount", "CreateCommandQueue",
+    "CreateCommandAllocator", "CreateGraphicsPipelineState", "CreateComputePipelineState",
+    "CreateCommandList", "CheckFeatureSupport", "CreateDescriptorHeap",
+    "GetDescriptorHandleIncrementSize", "CreateRootSignature", "CreateConstantBufferView",
+    "CreateShaderResourceView", "CreateUnorderedAccessView", "CreateRenderTargetView",
+    "CreateDepthStencilView", "CreateSampler", "CopyDescriptors", "CopyDescriptorsSimple",
+    "GetResourceAllocationInfo", "GetCustomHeapProperties", "CreateCommittedResource",
+    "CreateHeap", "CreatePlacedResource", "CreateReservedResource", "CreateSharedHandle",
+    "OpenSharedHandle", "OpenSharedHandleByName", "MakeResident", "Evict", "CreateFence",
+    "GetDeviceRemovedReason", "GetCopyableFootprints", "CreateQueryHeap", "SetStablePowerState",
+    "CreateCommandSignature", "GetResourceTiling", "GetAdapterLuid",
+];
+pub const M_ID3D12COMMANDQUEUE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "UpdateTileMappings", "CopyTileMappings",
+    "ExecuteCommandLists", "SetMarker", "BeginEvent", "EndEvent", "Signal", "Wait",
+    "GetTimestampFrequency", "GetClockCalibration", "GetDesc",
+];
+pub const M_ID3D12COMMANDALLOCATOR: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "Reset",
+];
+pub const M_ID3D12GRAPHICSCOMMANDLIST: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "GetType", "Close", "Reset",
+    "ClearState", "DrawInstanced", "DrawIndexedInstanced", "Dispatch", "CopyBufferRegion",
+    "CopyTextureRegion", "CopyResource", "CopyTiles", "ResolveSubresource",
+    "IASetPrimitiveTopology", "RSSetViewports", "RSSetScissorRects", "OMSetBlendFactor",
+    "OMSetStencilRef", "SetPipelineState", "ResourceBarrier", "ExecuteBundle",
+    "SetDescriptorHeaps", "SetComputeRootSignature", "SetGraphicsRootSignature",
+    "SetComputeRootDescriptorTable", "SetGraphicsRootDescriptorTable",
+    "SetComputeRoot32BitConstant", "SetGraphicsRoot32BitConstant",
+    "SetComputeRoot32BitConstants", "SetGraphicsRoot32BitConstants",
+    "SetComputeRootConstantBufferView", "SetGraphicsRootConstantBufferView",
+    "SetComputeRootShaderResourceView", "SetGraphicsRootShaderResourceView",
+    "SetComputeRootUnorderedAccessView", "SetGraphicsRootUnorderedAccessView",
+    "IASetIndexBuffer", "IASetVertexBuffers", "SOSetTargets", "OMSetRenderTargets",
+    "ClearDepthStencilView", "ClearRenderTargetView", "ClearUnorderedAccessViewUint",
+    "ClearUnorderedAccessViewFloat", "DiscardResource", "BeginQuery", "EndQuery",
+    "ResolveQueryData", "SetPredication", "SetMarker", "BeginEvent", "EndEvent",
+    "ExecuteIndirect",
+];
+pub const M_ID3D12DESCRIPTORHEAP: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "GetDesc",
+    "GetCPUDescriptorHandleForHeapStart", "GetGPUDescriptorHandleForHeapStart",
+];
+pub const M_ID3D12RESOURCE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "Map", "Unmap", "GetDesc",
+    "GetGPUVirtualAddress", "WriteToSubresource", "ReadFromSubresource", "GetHeapProperties",
+];
+pub const M_ID3D12FENCE: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",
+    "SetPrivateDataInterface", "SetName", "GetDevice", "GetCompletedValue",
+    "SetEventOnCompletion", "Signal",
+];
+pub const M_IDXGIFACTORY2: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
+    "GetPrivateData", "GetParent", "EnumAdapters", "MakeWindowAssociation",
+    "GetWindowAssociation", "CreateSwapChain", "CreateSoftwareAdapter", "EnumAdapters1",
+    "IsCurrent", "IsWindowedStereoEnabled", "CreateSwapChainForHwnd",
+    "CreateSwapChainForCoreWindow", "GetSharedResourceAdapterLuid",
+    "RegisterStereoStatusWindow", "RegisterStereoStatusEvent", "UnregisterStereoStatus",
+    "RegisterOcclusionStatusWindow", "RegisterOcclusionStatusEvent",
+    "UnregisterOcclusionStatus", "CreateSwapChainForComposition",
+];
+pub const M_IDXGISWAPCHAIN1: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
+    "GetPrivateData", "GetParent", "GetDevice", "Present", "GetBuffer", "SetFullscreenState",
+    "GetFullscreenState", "GetDesc", "ResizeBuffers", "ResizeTarget", "GetContainingOutput",
+    "GetFrameStatistics", "GetLastPresentCount", "GetDesc1", "GetFullscreenDesc", "GetHwnd",
+    "GetCoreWindow", "Present1", "IsTemporaryMonoSupported", "GetRestrictToOutput",
+    "SetBackgroundColor", "GetBackgroundColor", "SetRotation", "GetRotation",
+];

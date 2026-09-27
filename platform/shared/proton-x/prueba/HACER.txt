@@ -56,3 +56,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 a `memset`, que sin CRT no existe. En Windows abre una ventana de 320x200 con
 un degradado y un marco dorado; una letra cambia el tinte, un clic deja un
 cuadrado blanco, q o ESC cierran, y sale con (letras << 8) | clics.
+
+limpia.exe -- el de P3a (27-09): D3D12 y DXGI limpian una ventana
+
+Dos bibliotecas mas (d3d12.def, dxgi.def) y cuatro de kernel32 (CreateEventW,
+SetEvent, WaitForSingleObject, CloseHandle); los otros tres .exe salen
+IDENTICOS con ellas:
+
+   llvm-dlltool -m i386:x86-64 -d d3d12.def -l d3d12.lib
+   llvm-dlltool -m i386:x86-64 -d dxgi.def -l dxgi.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c limpia.c -o limpia.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:windows /dynamicbase /brepro limpia.obj user32.lib d3d12.lib dxgi.lib kernel32.lib /out:limpia.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   bcf51a70c626f6fd284cf6c1e58e714946914da9528f275ad7a0e75196a79c06
+
+Sin d3d12.h: llama a cada metodo por su HUECO en la vtabla, con los numeros
+del orden de la cabecera de Windows (d3d12.h y dxgi1_2.h de mingw-w64,
+consultadas el 27-09 y NO traidas al arbol). En Windows abre una ventana de
+320x200 limpia de azul; cada letra, el color siguiente; q o ESC cierran, y
+sale con el numero de Present.

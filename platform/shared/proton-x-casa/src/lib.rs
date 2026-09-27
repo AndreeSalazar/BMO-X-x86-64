@@ -1,10 +1,11 @@
-//! # PROTON-X -- las DLL de la casa (P1b, P1d y P2)
+//! # PROTON-X -- las DLL de la casa (P1b, P1d, P2 y P3a)
 //!
 //! generacion: hija -- da lo que un `.exe` importa; no sabe cargarlo ni que
 //! maquina hay debajo
 //!
-//! Lo que un `.exe` de Windows importa de `kernel32.dll`, `user32.dll` y
-//! `gdi32.dll`, escrito en Rust como `extern "win64"`: el compilador pone la
+//! Lo que un `.exe` de Windows importa de `kernel32.dll`, `user32.dll`,
+//! `gdi32.dll`, `d3d12.dll` y `dxgi.dll` (y los objetos COM que estas dos
+//! devuelven, `com.rs`), escrito en Rust como `extern "win64"`: el compilador pone la
 //! convencion de Windows (rcx, rdx, r8, r9, 32 bytes de sombra y el resto en
 //! la pila) sin una linea de ensamblador. [`tabla`] es LA TABLA DE LA CASA:
 //! la direccion de cada funcion que existe, y ninguna mas.
@@ -26,6 +27,17 @@
 //! mensaje es cada evento, como cae un DIB-- vive en `bmo_proton_x::ventanas`,
 //! que es puro y lo prueba su banco.
 //!
+//! # [!] Ningun `float` POR VALOR, todavia
+//!
+//! En Ring 3 de BMO-X (`x86_64-unknown-none`) Rust compila los `float` por
+//! SOFTWARE y los pasa en registros ENTEROS; Windows x64 los pasa en `xmm`. Un
+//! `extern "win64" fn(x: f32)` de aqui leeria el `float` del sitio equivocado
+//! (y el banco del anfitrion, con SSE, no lo veria). Hoy ninguna funcion de la
+//! casa recibe ni devuelve un `float` por valor: los colores de
+//! `ClearRenderTargetView` van por PUNTERO. La primera que lo necesite
+//! (`OMSetBlendFactor` va por puntero; `SetGraphicsRoot32BitConstant` es un
+//! `u32`) tendra que leer el `xmm` a mano.
+//!
 //! # Lo que NO hay, y se dice
 //!
 //! Una funcion que no esta en [`tabla`] no se rellena: el cargador dice cual
@@ -37,6 +49,9 @@
 
 extern crate alloc;
 
+pub mod com;
+pub mod d3d12;
+pub mod dxgi;
 pub mod gdi32;
 pub mod kernel32;
 pub mod user32;
@@ -147,6 +162,7 @@ pub unsafe fn empezar(p: Plataforma) {
         e.cola = Cola::nueva();
         e.avisos = 0;
     });
+    kernel32::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -174,6 +190,10 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n)
+    } else if dll.eq_ignore_ascii_case("d3d12.dll") {
+        d3d12::buscar(n)
+    } else if dll.eq_ignore_ascii_case("dxgi.dll") {
+        dxgi::buscar(n)
     } else {
         None
     }

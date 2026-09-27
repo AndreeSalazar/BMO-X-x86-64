@@ -328,12 +328,37 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       Falta el metal otra vez: `run sys/proton-x.bex apps/ventana.exe`
       abre su ventana en el escritorio de BMO-X, las letras cambian el
       tinte, el clic deja el cuadrado y `q` la cierra.
-- [ ] **P3 -- el cubo D3D12, EL MISMO `.exe`.** El BMOX-12 de
-      EPICX-FRAMEWORK (el de X1) cargado sin tocar: `d3d12`/`dxgi` de la casa
-      hacia VERRANO, y sus dos sombreadores DXIL por dxil-spirv (MIT, se
-      puede traer con su licencia) hasta SASS. El juez ya existe: las huellas
-      de D3D12 en la 3060 de X4. **Como se sabe:** `proton-x cubo.exe` dibuja
-      IGUAL, bit a bit, que D3D12 en Windows -- el mismo criterio que X5.
+- [ ] **P3 -- el cubo D3D12.** Partido en tres el 27-09, porque el `.exe`
+      de X1 (`BMOX-12`, Rust con `std` de Windows) trae su runtime entero
+      --~110 importaciones, hilos, TLS y excepciones--, que es P4:
+- [ ] **P3a -- D3D12 y DXGI limpian la ventana.** El CODIGO esta (27-09).
+      `prueba/limpia.exe` (4,5 KiB, reproducible): el esqueleto de todo
+      programa D3D12 -- D3D12CreateDevice, CreateDXGIFactory2, la cola, la
+      cadena de intercambio sobre la ventana de P2, el monton de RTV, el
+      asignador, la lista, la valla y su evento -- y cada fotograma barrera,
+      ClearRenderTargetView, Close, ExecuteCommandLists, Present, Signal.
+      Sin d3d12.h: cada metodo por su HUECO en la vtabla. La casa suma
+      `com.rs` (la forma de un objeto COM: vtabla en el orden de las
+      cabeceras de Windows, QueryInterface por IID, y un hueco que no esta
+      dice "ID3D12Device::CreateRootSignature (hueco 16) no esta en la
+      casa" y sale con 0xC0DE0000 | interfaz << 8 | hueco), `d3d12.rs` y
+      `dxgi.rs`: la cola es SINCRONA y de la CPU (las ordenes se hacen en
+      ExecuteCommandLists, la valla ya esta cumplida al volver) y Present
+      copia el back buffer a la superficie de la ventana. **Como se sabe:**
+      en el anfitrion `limpia.exe` CORRE con las DLL de la casa: dos Present,
+      los 64.000 pixeles del color exacto (0.75, 0.25, 0.0 -> 0xFFBF4000) y
+      sale con 2, ni un aviso; y un hueco de P3b llamado de verdad dice su
+      nombre y sale con 0xC0DE0010. Falta el metal: `run sys/proton-x.bex
+      apps/limpia.exe` abre una ventana azul, cada letra la cambia de color
+      y `q` la cierra.
+- [ ] **P3b -- el cubo con sus sombreadores.** Root signature, PSO,
+      buferes de vertices, DrawInstanced, y lo dificil: los sombreadores.
+      Llegan en DXIL (bitcode de LLVM) y van a SPIR-V (dxil-spirv, MIT) y de
+      ahi al SASS de la 3060 con su juez, o al backend CPU de VERRANO. El
+      juez ya existe: las huellas de D3D12 en la 3060 (X4, X5).
+- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** Pide P4 (el
+      runtime de Rust para Windows). **Como se sabe:** `proton-x cubo.exe`
+      dibuja IGUAL, bit a bit, que D3D12 en Windows -- el criterio de X5.
 - [ ] **P4 -- la semantica dificil, con banco.** Hilos y TLS, excepciones
       (SEH y el desenrollado de x64), COM (las vtables: X1 midio que casi
       todo D3D12 va por ahi y ninguna tabla de importaciones lo ve), ficheros

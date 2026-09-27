@@ -37,6 +37,7 @@ use bmo_proton_x_casa::{Plataforma, Superficie};
 const HOLA: &[u8] = include_bytes!("../../proton-x/prueba/hola.exe");
 const TEB: &[u8] = include_bytes!("../../proton-x/prueba/teb.exe");
 const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
+const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
 
 /// Los `.exe` comparten la vuelta y lo dicho (estaticos): uno a la vez.
 static UNO_A_LA_VEZ: Mutex<()> = Mutex::new(());
@@ -292,4 +293,48 @@ fn ventana_exe_abre_su_ventana_pinta_y_obedece_al_teclado_y_al_raton() {
     assert_eq!(en(10, 20), 0xFFFF_FFFF, "el cuadrado blanco donde cayo el clic");
     // El degradado con el tinte 1 (una letra): en (100, 100), r=128 g=0x80 b=79.
     assert_eq!(en(100, 100), 0xFF80_804F);
+}
+
+/// **P3a en el anfitrion**: `limpia.exe`, el esqueleto de todo programa D3D12
+/// (dispositivo, cola, cadena de intercambio, RTV, lista, valla y evento), con
+/// el `d3d12` y el `dxgi` de la casa. Limpia y presenta al arrancar, y otra
+/// vez con el color siguiente en cada letra.
+#[test]
+fn limpia_exe_limpia_su_ventana_con_d3d12_y_presenta_por_dxgi() {
+    let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
+    let (salio, dicho, _) = correr_exe(LIMPIA, true, &[letra(b'b'), 0, letra(b'q')]);
+    assert_eq!(String::from_utf8_lossy(&dicho), "", "ni un aviso ni un hueco que falte");
+    // PostQuitMessage(presentados): el de arrancar y el de la letra.
+    assert_eq!(salio, 2);
+    assert_eq!(PRESENTADAS.load(Ordering::SeqCst), 2);
+    let p = PANTALLA.lock().unwrap();
+    assert_eq!(p.len(), 1, "una ventana");
+    let (px, ancho, alto) = (&p[0].0, p[0].1, p[0].2);
+    assert_eq!((ancho, alto), (320, 200));
+    // El color 2 (0.75, 0.25, 0.0) en R8G8B8A8, presentado en la superficie
+    // BGRA: R = 191, G = 64, B = 0. Todos los pixeles.
+    assert!(px.iter().all(|&c| c == 0xFFBF_4000), "primero {:#x}", px[0]);
+}
+
+/// **Un hueco que la casa no tiene dice su NOMBRE y sale**: nunca un S_OK
+/// callado ni un salto a cero. Se crea un dispositivo por la tabla de la casa
+/// y se salta al hueco 16 de su vtabla, `CreateRootSignature` (de P3b).
+#[test]
+fn un_hueco_que_falta_dice_cual_es_y_sale() {
+    let _uno = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
+    DICHO.lock().unwrap().clear();
+    // SAFETY: nada corre; se pone la plataforma de mentira.
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    let dir = bmo_proton_x_casa::tabla("d3d12.dll", &Funcion::Nombre("D3D12CreateDevice".into())).unwrap();
+    let crear: extern "win64" fn(u64, u32, *const [u8; 16], *mut u64) -> i32 = unsafe { core::mem::transmute(dir as usize) };
+    let mut disp = 0u64;
+    assert_eq!(crear(0, 0xb000, &bmo_proton_x_casa::com::IID_DEVICE, &mut disp), 0);
+    // SAFETY: `disp` es un objeto de la casa: su primer puntero es la vtabla.
+    let hueco16 = unsafe { (*(disp as *const *const u64)).add(16).read() };
+    let salio = unsafe { correr(hueco16) };
+    assert_eq!(salio, 0xC0DE_0010, "0xC0DE0000 | interfaz 0 (el dispositivo) << 8 | hueco 16");
+    assert_eq!(
+        String::from_utf8_lossy(&DICHO.lock().unwrap()),
+        "PROTON-X: ID3D12Device::CreateRootSignature (hueco 16) no esta en la casa\n"
+    );
 }
