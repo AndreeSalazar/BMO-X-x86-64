@@ -186,12 +186,37 @@ pub extern "C" fn _start() -> ! {
     core::mem::forget(codigo);
     core::mem::forget(datos);
 
-    // -- 7. Saltar. `extern "win64"`: el compilador alinea la pila y deja la
-    // sombra de 32 bytes, como el cargador de Windows.
+    // -- 7. Saltar, con la pila COMO LA DEJA WINDOWS: alineada a 16 antes del
+    // `call` y con la sombra de 32 bytes.
+    //
+    // *** NO SE LE PUEDE DEJAR AL COMPILADOR (P2 en el metal, 27-09). El kernel
+    // arranca Ring 3 con `rsp = USER_STACK_TOP`, alineado a 16 JUSTO al entrar
+    // en `_start`, y Rust da por hecho lo que deja un `call` (16 + 8): toda esta
+    // app corre desalineada 8 bytes y a ella le da igual (sin SSE en Ring 3).
+    // Pero un `extern "win64"` llamado desde aqui le pasaba al `.exe` la pila
+    // torcida, y el compilador de Microsoft guarda xmm6..xmm15 con `movaps`:
+    // `ventana.exe` murio con un #GP en su primera instruccion, y `hola` y
+    // `teb`, sin `movaps`, no se enteraron. El banco del anfitrion tampoco: su
+    // trampolin ya alineaba. Una vez alineada la entrada, todo lo que el `.exe`
+    // llama (la casa) y lo que la casa le devuelve (su WndProc) sale derecho.
+    let r: u64;
     // SAFETY: la entrada cae en una seccion de codigo del bloque sellado
-    // (comprobado arriba) y la imagen esta colocada y resuelta.
-    let entrada: extern "win64" fn() -> u32 = unsafe { core::mem::transmute(base + pe.entrada as u64) };
-    let r = entrada();
+    // (comprobado arriba) y la imagen esta colocada y resuelta. `r12` es
+    // no volatil en Windows x64: el `.exe` lo devuelve como estaba.
+    unsafe {
+        core::arch::asm!(
+            "mov r12, rsp",
+            "and rsp, -16",
+            "sub rsp, 32",
+            "call {entrada}",
+            "mov rsp, r12",
+            entrada = in(reg) base + pe.entrada as u64,
+            out("r12") _,
+            lateout("rax") r,
+            clobber_abi("win64"),
+        );
+    }
+    let r = r as u32;
     fin_del_exe(r)
 }
 

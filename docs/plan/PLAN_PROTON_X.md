@@ -316,7 +316,16 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       ofrece UNA vez, se pinta tres veces (el ultimo WM_PAINT lo cancela
       DestroyWindow, como en Windows), el pixel del clic es blanco, el del
       tinte es 0xFF80804F, y sale con 0x101; ni un aviso, estable en cinco
-      corridas. Falta el metal: `run sys/proton-x.bex apps/ventana.exe`
+      corridas. **Primer intento en el Ryzen (27-09): fallo de Ring 3**
+      nada mas saltar. El motivo: el kernel arranca Ring 3 con la pila
+      alineada a 16 al ENTRAR en `_start`, y Rust da por hecho la de despues
+      de un `call` (16 + 8), asi que la app le pasaba al `.exe` la pila
+      torcida 8 bytes; el compilador de Microsoft guarda xmm6 con `movaps`
+      (xmm6..15 no son volatiles en Windows x64) y eso es un #GP.
+      `hola.exe` y `teb.exe` no tienen ningun `movaps` y no se enteraron; el
+      banco tampoco, porque su trampolin ya alineaba. Arreglo: `proton-x.bex`
+      salta a la entrada con `and rsp, -16` y la sombra, como Windows.
+      Falta el metal otra vez: `run sys/proton-x.bex apps/ventana.exe`
       abre su ventana en el escritorio de BMO-X, las letras cambian el
       tinte, el clic deja el cuadrado y `q` la cierra.
 - [ ] **P3 -- el cubo D3D12, EL MISMO `.exe`.** El BMOX-12 de
