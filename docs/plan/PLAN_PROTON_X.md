@@ -347,10 +347,75 @@ decide por su tienda**. El orden sale solo: primero lo de GOG sin DRM (tus
 tienda. Lo de Steam, Epic y Rockstar que exija su cliente se queda en
 Windows (camino B de la Ludoteca, por streaming).
 
-- [ ] **P-censo -- TU biblioteca, medida.** `rayosx` por la carpeta de cada
-      juego instalado, en tu Windows, y la tabla aqui: DENTRO/FUERA, tienda,
-      antitrampas, API grafica y cuantas funciones. **Como se sabe:** la
-      tabla, juego a juego, con la fecha.
+- [x] **P-censo -- TU biblioteca, medida.** HECHO el 27-09 (26-09 por la
+      noche en la hora del Ryzen): `rayosx` por la carpeta de cada juego del
+      escritorio del propietario, y por las DLL de su motor cuando el `.exe`
+      es solo un lanzador. La tabla y lo que dice, en 4b.1. **Como se sabe:**
+      la tabla de 4b.1, juego a juego, con la fecha.
+
+### 4b.1 El censo (27-09): lo que `rayosx` dijo de cada juego
+
+```text
+   juego (tienda)     binario que manda        CPU      tienda        antitrampas        API grafica              funciones
+   -----------------  -----------------------  -------  ------------  -----------------  -----------------------  ---------------------------
+   Cyberpunk 2077     Cyberpunk2077.exe        DENTRO   REDGalaxy64   ninguno            D3D12 (+DXGI, AGS,       663 de 36 bibliotecas;
+     (GOG)                                              (10, SDK de   en la tabla ni     Streamline/DLSS, FSR3,   20 las trae el juego (303)
+                                                        GOG: el       en la carpeta      XeSS; D3D11 de reserva)
+                                                        juego no lo
+                                                        exige)
+   Dota 2 (Steam)     dota2.exe = lanzador     DENTRO   steam_api64   VAC: va por el     Vulkan o D3D11:          110 el .exe; el motor:
+                      (110); el motor es       (las 4)  (22 + 13)     cliente de Steam,  rendersystemvulkan.dll   engine2 903, client 991,
+                      engine2.dll + client.dll                        no sale en tabla   y rendersystemdx11.dll   vulkan 466, dx11 447
+   Warframe (Steam)   Warframe.x64.exe         DENTRO   steam_api64   ninguno visible    D3D11 y D3D12            679 de 32 bibliotecas;
+                                                        (9) + EOSSDK                     (retrasadas) + AGS +     11 las trae el juego (171)
+                                                        (38, cuentas                     Aftermath
+                                                        de Epic)
+   Zenless Zone Zero  ZenlessZoneZero.exe =    DENTRO   su cuenta     HoYoKProtect.sys   Unity; la tabla solo     9 el .exe; UnityPlayer 561,
+     (Steam)          lanzador (9); el juego   (las 4)  (mhypbase,    = CONTROLADOR DE   ve wgl*, y D3D/Vulkan    GameAssembly 332,
+                      es UnityPlayer.dll +              HoYo SDK)     KERNEL: FUERA      se abren en marcha       mhypbase 449
+                      GameAssembly.dll (IL2CPP:                       en la practica     (vulkan-1.dll viene
+                      C# ya compilado a x86-64)                       (seccion 5)        en la carpeta)
+   Left 4 Dead 2      left4dead2.exe +         FUERA:   steam_api     VAC, como Dota 2   D3D9 (shaderapidx9) o    70 el .exe; engine 443,
+     (Steam)          engine.dll               32 bits  (23)                             Vulkan (shaderapivk),    shaderapivk 147
+                                                                                         los dos de 32 bits
+```
+
+**Lo que dice, en cuatro lineas:**
+
+```text
+   1  POR LA CPU CABEN 4 DE 5. Solo Left 4 Dead 2 se queda fuera, y por la
+      regla de la seccion 1 (32 bits = WOW64), no por su API
+   2  POR LA TIENDA Y EL ANTITRAMPAS, SOLO CYBERPUNK PASA LIMPIO. Es de GOG,
+      y su REDGalaxy64 es el SDK de GOG, que el juego no exige. Dota 2 y
+      Warframe hablan con Steam (y Warframe tambien con las cuentas de Epic);
+      Zenless trae un controlador de kernel. Los tres ultimos son ademas
+      servicios EN LINEA: sin sus servidores no hay juego, pase lo que pase
+      con PROTON-X
+   3  CYBERPUNK ES D3D12, o sea el ultimo tramo de la escalera (P6 con DXR).
+      Dota 2 trae un RENDERIZADOR VULKAN propio: el unico de la lista cuya
+      grafica no pediria traducir D3D -- pero es de Steam
+   4  EL PRIMERO DE LA COLA SIGUE SIENDO CYBERPUNK, como decia la seccion 4b;
+      el censo lo confirma con numeros en vez de suponerlo
+```
+
+**Y lo que el censo mostro de `rayosx`**, que es trabajo para la herramienta
+y no para los juegos:
+
+```text
+   a  "EL .exe MAS GRANDE" NO ES SIEMPRE EL JUEGO. En Zenless el mas grande
+      era el DESINSTALADOR, y en Dota 2, Zenless y Left 4 Dead 2 el .exe del
+      juego es un lanzador de 9-110 funciones: el motor vive en DLL
+      (engine2/client, UnityPlayer/GameAssembly, engine). Las DLL se midieron
+      a mano, una por una. Arreglo: saltar unins*/crash*/launcher y medir
+      tambien las DLL grandes del juego
+   b  LA TABLA NO VE LO QUE SE ABRE EN MARCHA. Los cinco usan LoadLibrary:
+      el renderizador Vulkan de Dota 2 no importa vulkan-1.dll, y Unity no
+      importa D3D. La columna "API grafica" sale de los NOMBRES de las DLL de
+      la carpeta, no de las importaciones
+   c  UN ANTITRAMPAS DE KERNEL NO ES UNA IMPORTACION. HoYoKProtect.sys no sale
+      en ninguna tabla: lo carga el lanzador como controlador. Arreglo: que
+      rayosx mire tambien los .sys de la carpeta y los nombres conocidos
+```
 
 ## 4c. El banco contra Windows: fps Y vatios
 

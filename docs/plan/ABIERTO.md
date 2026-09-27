@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   382 casillas ABIERTAS en 44 planes
-   314 hechas
+   381 casillas ABIERTAS en 44 planes
+   315 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -158,15 +158,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
 - ... y 6 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 4 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P1d -- la decision del GS. DECIDIDO y hecho en el codigo el 27-09:
-- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
-- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
-- ... y 6 mas
-
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas
 
 *PLAN_VATIOS -- lo que gasta el CPU en reposo, y por que*
@@ -175,6 +166,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 5 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P1d -- la decision del GS. DECIDIDO y hecho en el codigo el 27-09:
+- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
+- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
+- ... y 5 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
