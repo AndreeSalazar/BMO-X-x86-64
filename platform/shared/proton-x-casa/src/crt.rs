@@ -20,9 +20,15 @@
 //! por los API set del CRT (`api-ms-win-crt-*-l1-1-0.dll`), que es como los
 //! importa un `.exe` de MSVC.
 //!
-//! Lo que no es Windows, dicho: el `printf` y compania del CRT (sus
-//! `__stdio_common_*`) no estan todavia; un `.exe` que los pida no carga y
-//! dice cuales. Y lo que es del mecanismo de excepciones de C++ va con P4c.
+//!    stdio         __acrt_iob_func (stdin, stdout, stderr), los
+//!                  __stdio_common_v(f)(w)printf y v(s)(w)printf con el
+//!                  formato de `bmo_proton_x::formato`, puts, fputs, fputc,
+//!                  putc, putchar, fwrite, fflush; en modo TEXTO: "\n" sale
+//!                  "\r\n", como en Windows
+//!
+//! Lo que no es Windows, dicho: `fopen` y los FILE de ficheros no estan (los
+//! tres estandar si); y lo que es del mecanismo de excepciones de C++ va con
+//! P4c.
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -423,6 +429,201 @@ extern "win64" fn strcmp(a: *const u8, b: *const u8) -> i32 {
     strncmp(a, b, usize::MAX)
 }
 
+// -- stdio ------------------------------------------------------------------------------------
+
+use bmo_proton_x::formato::{self, Argumentos};
+
+/// Los tres FILE estandar: la casa solo necesita sus DIRECCIONES distintas.
+struct Files(UnsafeCell<[u64; 3]>);
+// SAFETY: nadie los lee ni escribe; solo se da su direccion.
+unsafe impl Sync for Files {}
+static FILES: Files = Files(UnsafeCell::new([0; 3]));
+
+extern "win64" fn acrt_iob_func(i: u32) -> u64 {
+    FILES.0.get() as u64 + 8 * (i.min(2) as u64)
+}
+
+/// El numero (0, 1, 2) de un FILE estandar.
+fn cual(f: u64) -> Option<u64> {
+    let base = FILES.0.get() as u64;
+    (f >= base && f < base + 24 && (f - base) % 8 == 0).then(|| (f - base) / 8)
+}
+
+/// Escribir en un FILE estandar, en modo texto. Los bytes, o -1.
+fn a_stream(f: u64, b: &[u8]) -> i32 {
+    let h = match cual(f) {
+        Some(1) => crate::kernel32::estandar(-11),
+        Some(2) => crate::kernel32::estandar(-12),
+        _ => return -1,
+    };
+    let mut t = Vec::with_capacity(b.len() + 8);
+    for &c in b {
+        if c == b'\n' {
+            t.push(b'\r');
+        }
+        t.push(c);
+    }
+    let mut n = 0u32;
+    if crate::kernel32::write_file(h, t.as_ptr(), t.len() as u32, &mut n, 0) == 0 {
+        return -1;
+    }
+    b.len() as i32
+}
+
+/// Un `va_list` de Windows x64: ranuras de 8 bytes seguidas.
+struct Va(*const u64);
+
+fn cadena_c(p: u64) -> Vec<u8> {
+    let mut v = Vec::new();
+    // SAFETY: una cadena del `.exe` acabada en 0.
+    unsafe {
+        while *((p + v.len() as u64) as *const u8) != 0 {
+            v.push(*((p + v.len() as u64) as *const u8));
+        }
+    }
+    v
+}
+
+fn cadena_w(p: u64) -> Vec<u16> {
+    let mut v = Vec::new();
+    // SAFETY: una cadena UTF-16 del `.exe` acabada en 0.
+    unsafe {
+        while *((p as *const u16).add(v.len())) != 0 {
+            v.push(*((p as *const u16).add(v.len())));
+        }
+    }
+    v
+}
+
+impl Argumentos for Va {
+    fn entero(&mut self) -> u64 {
+        // SAFETY: el `va_list` que dio el `.exe`: una ranura por argumento.
+        let v = unsafe { self.0.read_unaligned() };
+        // SAFETY: la siguiente ranura.
+        self.0 = unsafe { self.0.add(1) };
+        v
+    }
+    fn cadena(&mut self, p: u64) -> Vec<u8> {
+        cadena_c(p)
+    }
+    fn cadena_ancha(&mut self, p: u64) -> Vec<u8> {
+        bmo_proton_x::texto::a_estrecho(&cadena_w(p), false).unwrap_or_default()
+    }
+}
+
+/// `_CRT_INTERNAL_PRINTF_LEGACY_VSPRINTF_NULL_TERMINATION`,
+/// `..._STANDARD_SNPRINTF_BEHAVIOR` y `..._LEGACY_WIDE_SPECIFIERS`.
+const NULO_LEGADO: u64 = 1;
+const SNPRINTF_ESTANDAR: u64 = 2;
+const ANCHOS_LEGADOS: u64 = 4;
+
+fn formatear_a(fmt: *const u8, va: u64) -> Vec<u8> {
+    formato::formatear(&cadena_c(fmt as u64), &mut Va(va as *const u64), false)
+}
+
+fn formatear_w(opciones: u64, fmt: *const u16, va: u64) -> Vec<u8> {
+    let f = bmo_proton_x::texto::a_estrecho(&cadena_w(fmt as u64), false).unwrap_or_default();
+    formato::formatear(&f, &mut Va(va as *const u64), opciones & ANCHOS_LEGADOS != 0)
+}
+
+extern "win64" fn stdio_vfprintf(_op: u64, f: u64, fmt: *const u8, _loc: u64, va: u64) -> i32 {
+    a_stream(f, &formatear_a(fmt, va))
+}
+
+extern "win64" fn stdio_vfwprintf(op: u64, f: u64, fmt: *const u16, _loc: u64, va: u64) -> i32 {
+    a_stream(f, &formatear_w(op, fmt, va))
+}
+
+/// Dejar `r` (sin su 0) en un bufer de `n` elementos con las reglas del
+/// UCRT: cabe con su 0, el largo; `buf` NULL y `n` 0, el largo que haria
+/// falta; no cabe: estandar (snprintf) corta con su 0 y da el largo entero;
+/// legado (_vsnprintf) da -1 y solo pone el 0 si se pidio.
+fn a_bufer<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, opciones: u64) -> i32 {
+    if buf.is_null() && n == 0 {
+        return r.len() as i32;
+    }
+    if buf.is_null() {
+        return -1;
+    }
+    let cabe = r.len() < n;
+    let k = r.len().min(n);
+    // SAFETY: el `.exe` da `n` elementos en `buf`.
+    unsafe { core::ptr::copy_nonoverlapping(r.as_ptr(), buf, if cabe { r.len() } else { k.saturating_sub((opciones & (SNPRINTF_ESTANDAR | NULO_LEGADO) != 0) as usize) }) };
+    if cabe {
+        // SAFETY: cabe con su 0.
+        unsafe { *buf.add(r.len()) = T::default() };
+        return r.len() as i32;
+    }
+    if n > 0 && opciones & (SNPRINTF_ESTANDAR | NULO_LEGADO) != 0 {
+        // SAFETY: el ultimo elemento del bufer.
+        unsafe { *buf.add(n - 1) = T::default() };
+    }
+    if opciones & SNPRINTF_ESTANDAR != 0 {
+        r.len() as i32
+    } else {
+        -1
+    }
+}
+
+extern "win64" fn stdio_vsprintf(op: u64, buf: *mut u8, n: usize, fmt: *const u8, _loc: u64, va: u64) -> i32 {
+    a_bufer(&formatear_a(fmt, va), buf, n, op)
+}
+
+extern "win64" fn stdio_vswprintf(op: u64, buf: *mut u16, n: usize, fmt: *const u16, _loc: u64, va: u64) -> i32 {
+    let w: Vec<u16> = alloc::string::String::from_utf8_lossy(&formatear_w(op, fmt, va)).encode_utf16().collect();
+    a_bufer(&w, buf, n, op)
+}
+
+extern "win64" fn puts(s: *const u8) -> i32 {
+    let mut b = cadena_c(s as u64);
+    b.push(b'\n');
+    if a_stream(acrt_iob_func(1), &b) < 0 {
+        -1
+    } else {
+        0
+    }
+}
+
+extern "win64" fn fputs(s: *const u8, f: u64) -> i32 {
+    if a_stream(f, &cadena_c(s as u64)) < 0 {
+        -1
+    } else {
+        0
+    }
+}
+
+extern "win64" fn fputc(c: i32, f: u64) -> i32 {
+    if a_stream(f, &[c as u8]) < 0 {
+        -1
+    } else {
+        c & 0xFF
+    }
+}
+
+extern "win64" fn putchar(c: i32) -> i32 {
+    fputc(c, acrt_iob_func(1))
+}
+
+extern "win64" fn fwrite(p: *const u8, medida: usize, n: usize, f: u64) -> usize {
+    let Some(t) = medida.checked_mul(n).filter(|&t| t > 0) else { return 0 };
+    // SAFETY: `medida * n` bytes del `.exe`.
+    let b = unsafe { core::slice::from_raw_parts(p, t) };
+    if a_stream(f, b) < 0 {
+        0
+    } else {
+        n
+    }
+}
+
+extern "win64" fn fflush(f: u64) -> i32 {
+    // Nada en un bufer: cada escritura salio ya. NULL (todos) tambien vale.
+    if f == 0 || cual(f).is_some() {
+        0
+    } else {
+        -1
+    }
+}
+
 /// Si `dll` es del CRT: la suya, `vcruntime140.dll` o un API set `api-ms-win-crt-*`.
 pub(crate) fn es_del_crt(dll: &str) -> bool {
     dll.eq_ignore_ascii_case("ucrtbase.dll") || dll.eq_ignore_ascii_case("vcruntime140.dll") || (dll.len() > 15 && dll.as_bytes()[..15].eq_ignore_ascii_case(b"api-ms-win-crt-"))
@@ -464,6 +665,17 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "wcslen" => dir!(wcslen),
         "strcmp" => dir!(strcmp),
         "strncmp" => dir!(strncmp),
+        "__acrt_iob_func" => dir!(acrt_iob_func),
+        "__stdio_common_vfprintf" => dir!(stdio_vfprintf),
+        "__stdio_common_vfwprintf" => dir!(stdio_vfwprintf),
+        "__stdio_common_vsprintf" => dir!(stdio_vsprintf),
+        "__stdio_common_vswprintf" => dir!(stdio_vswprintf),
+        "puts" => dir!(puts),
+        "fputs" => dir!(fputs),
+        "fputc" | "putc" => dir!(fputc),
+        "putchar" => dir!(putchar),
+        "fwrite" => dir!(fwrite),
+        "fflush" => dir!(fflush),
         _ => return None,
     })
 }

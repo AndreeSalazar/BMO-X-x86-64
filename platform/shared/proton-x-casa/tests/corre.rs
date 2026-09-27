@@ -47,6 +47,7 @@ const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
 const CARPETAS: &[u8] = include_bytes!("../../proton-x/prueba/carpetas.exe");
 const SISTEMA: &[u8] = include_bytes!("../../proton-x/prueba/sistema.exe");
 const UCRT: &[u8] = include_bytes!("../../proton-x/prueba/ucrt.exe");
+const STDIO: &[u8] = include_bytes!("../../proton-x/prueba/stdio.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -651,4 +652,19 @@ fn ucrt_exe_tiene_el_crt_de_msvc() {
     assert!(texto.contains("__p___argc y __p___argv: argv[argc] es NULL 0x0000000000000003"), "tres argumentos: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 19, "{texto}");
     assert!(texto.ends_with("ucrt.exe: el CRT es el de Windows (dicho desde _crt_atexit)\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4f5 en el anfitrion**: `stdio.exe` -- el printf del CRT de MSVC
+/// (__stdio_common_* con las banderas de las cabeceras del UCRT), y stdout y
+/// stderr en modo texto.
+#[test]
+fn stdio_exe_tiene_el_printf_de_msvc() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, STDIO, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert!(!texto.replace("\r\n", "").contains('\n'), "modo texto: cada \\n sale \\r\\n: {texto:?}");
+    assert_eq!(texto.matches("  bien  ").count(), 14, "{texto}");
+    assert!(texto.ends_with("stdio.exe: el printf es el de Windows\r\n[salio 0x0]"), "{texto}");
 }

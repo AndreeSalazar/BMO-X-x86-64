@@ -725,10 +725,19 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            cuyo primero no es su fin (no la toca) y registrar en ella tumba el
            proceso. La casa perdonaba lo que Windows no: ahora hace lo mismo,
            y la prueba pasa la tabla a ceros como el CRT. Falta verlo otra vez
-           en Windows. *Lo que falta, dicho: lo del
+           en Windows. **Y el printf (27-09):** `bmo_proton_x::formato` es
+           el `printf` de C sin punteros (banderas, ancho, precision, los
+           largos de Microsoft, %d %u %o %x %c %s %ls %p %e %f %g; `%n` y `%a`
+           tal cual), probado contra C en veinticinco casos; la casa da
+           __acrt_iob_func, los __stdio_common_v(f)(s)(w)printf con las
+           banderas de las cabeceras del UCRT (snprintf estandar, _vsnprintf
+           legado, %s ancho en swprintf), puts, fputs, fputc, putchar,
+           fwrite y fflush, con stdout y stderr en modo texto. **Como se
+           sabe:** `prueba/stdio.exe` dice `bien` catorce veces (quitar las
+           dos cifras del exponente de %e da MAL, comprobado). *Lo que falta, dicho: lo del
            mecanismo de excepciones de C++ (__CxxFrameHandler3,
-           _CxxThrowException) va con P4c; el `printf` del CRT
-           (__stdio_common_*) no esta; y lo que un `.exe` de MSVC enlaza
+           _CxxThrowException) va con P4c; `fopen` y los FILE de ficheros
+           no estan (los tres estandar si); y lo que un `.exe` de MSVC enlaza
            ESTATICO (mainCRTStartup, __chkstk, _fltused, _tls_index, atexit)
            va dentro de su imagen, pero sus objetos piden alguna funcion mas
            del CRT -- la lista exacta la dara `rayosx` sobre BMOX-12 (P3c).

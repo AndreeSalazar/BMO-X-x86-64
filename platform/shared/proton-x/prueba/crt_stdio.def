@@ -1,0 +1,10 @@
+LIBRARY api-ms-win-crt-stdio-l1-1-0.dll
+EXPORTS
+__acrt_iob_func
+__stdio_common_vfprintf
+__stdio_common_vsprintf
+__stdio_common_vswprintf
+puts
+fputs
+fwrite
+fflush

@@ -1179,3 +1179,39 @@ fn los_ntstatus_y_los_mensajes_de_windows() {
         assert!(mensajes::texto(e).is_some_and(|t| t.ends_with('.')), "{e}");
     }
 }
+
+// -- P4f5: el printf de C ----------------------------------------------------------
+
+#[test]
+fn el_printf_de_c_da_lo_mismo_que_c() {
+    use crate::formato::{a_texto, formatear, Lista};
+    fn f(fmt: &[u8], r: &[u64], c: &[(u64, &str)]) -> String {
+        a_texto(formatear(fmt, &mut Lista { ranuras: r, cadenas: c, i: 0 }, false))
+    }
+    assert_eq!(f(b"[%d]", &[42], &[]), "[42]");
+    assert_eq!(f(b"[%5d|%-5d|%05d]", &[42, 42, 42], &[]), "[   42|42   |00042]");
+    assert_eq!(f(b"[%+d % d]", &[7, 7], &[]), "[+7  7]");
+    assert_eq!(f(b"[%d]", &[18446744073709551599], &[]), "[-17]");
+    assert_eq!(f(b"[%x %X %#x %o %#o]", &[255, 255, 255, 8, 8], &[]), "[ff FF 0xff 10 010]");
+    assert_eq!(f(b"[%.3d]", &[5], &[]), "[005]");
+    assert_eq!(f(b"[%10.4f]", &[4614256656543962353u64], &[]), "[    3.1416]");
+    assert_eq!(f(b"[%e]", &[4683220299150161609u64], &[]), "[1.234568e+05]");
+    assert_eq!(f(b"[%.2E]", &[4548669923058963014u64], &[]), "[1.23E-04]");
+    assert_eq!(f(b"[%g %g %g %g]", &[4681608360884174848u64, 4696837146684686336u64, 4547007122018943789u64, 4532020583610935537u64], &[]), "[100000 1e+06 0.0001 1e-05]");
+    assert_eq!(f(b"[%#g]", &[4607182418800017408u64], &[]), "[1.00000]");
+    assert_eq!(f(b"[%.3g]", &[4614256650576692846u64], &[]), "[3.14]");
+    assert_eq!(f(b"[%f]", &[13826050856027422720u64], &[]), "[-0.500000]");
+    assert_eq!(f(b"[%.0f %.0f]", &[4602678819172646912u64, 4609434218613702656u64], &[]), "[0 2]");
+    assert_eq!(f(b"[%c%c]", &[111, 107], &[]), "[ok]");
+    assert_eq!(f(b"[%s|%10s|%-6s|%.2s]", &[0x1001, 0x1002, 0x1003, 0x1004], &[(0x1001, "hola"), (0x1002, "hola"), (0x1003, "hola"), (0x1004, "hola")]), "[hola|      hola|hola  |ho]");
+    assert_eq!(f(b"[%%]", &[], &[]), "[%]");
+    assert_eq!(f(b"[%u]", &[4294967295], &[]), "[4294967295]");
+    assert_eq!(f(b"[%*d|%-*d]", &[6, 42, 6, 42], &[]), "[    42|42    ]");
+    assert_eq!(f(b"[%.*f]", &[2, 4613303441197561744u64], &[]), "[2.72]");
+    // Lo del UCRT: %p en 16 cifras mayusculas, (null), y %ls ancho.
+    assert_eq!(f(b"%p", &[0xABCD], &[]), "000000000000ABCD");
+    assert_eq!(f(b"[%s]", &[0], &[]), "[(null)]");
+    assert_eq!(f(b"%hhd %hd %lld", &[0x1FF, 0x1FFFF, u64::MAX], &[]), "-1 -1 -1");
+    assert_eq!(f(b"%I64u", &[u64::MAX], &[]), "18446744073709551615");
+    assert_eq!(f(b"%a y %n", &[], &[]), "%a y %n", "tal cual, sin consumir");
+}

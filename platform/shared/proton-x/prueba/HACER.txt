@@ -294,3 +294,22 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` diecinueve veces y la ultima linea la escribe una funcion
 registrada con _crt_atexit cuando exit() la llama; sale con 0. En Windows
 pide vcruntime140.dll (el redistribuible de Visual C++; lo traen los juegos).
+
+stdio.exe -- el de P4f5 (27-09): el printf del CRT de MSVC
+
+Llama a __stdio_common_* como las funciones en linea de las cabeceras del
+UCRT (printf, snprintf, _vsnprintf, swprintf), con sus banderas; importa de
+api-ms-win-crt-stdio-l1-1-0.dll (crt_stdio.def). Define `_fltused` (lo pide el
+compilador con un double y lo pondria el CRT estatico):
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d crt_stdio.def -l crt_stdio.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c stdio.c -o stdio.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro stdio.obj kernel32.lib crt_stdio.lib /out:stdio.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   967df5d369f3ca17a6e6bb0ee8d6455a9fe49427b97e545c68404857125647fb
+
+Dice `bien` catorce veces (cuatro las escriben printf, puts, fputs a stderr y
+fwrite) y sale con 0.

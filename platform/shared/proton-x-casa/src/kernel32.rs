@@ -66,6 +66,11 @@ extern "win64" fn get_std_handle(n: u32) -> u64 {
     }
 }
 
+/// El handle estandar `n` (-10, -11, -12), con lo que cambio SetStdHandle.
+pub(crate) fn estandar(n: i32) -> u64 {
+    get_std_handle(n as u32)
+}
+
 extern "win64" fn set_std_handle(n: u32, h: u64) -> i32 {
     match indice_std(n) {
         Some(i) => {

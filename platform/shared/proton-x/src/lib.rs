@@ -40,6 +40,7 @@ pub mod desenrollar;
 pub mod dxbc;
 pub mod dxil;
 pub mod ficheros;
+pub mod formato;
 pub mod pe;
 pub mod proceso;
 pub mod raiz;
