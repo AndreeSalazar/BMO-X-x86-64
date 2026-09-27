@@ -567,6 +567,10 @@ name = "bmo-prestamo-juicio"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-proton-x"
+version = "0.1.0"
+
+[[package]]
 name = "bmo-puerta-red"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,13 @@
+[package]
+name = "bmo-proton-x"
+version = "0.1.0"
+edition = "2021"
+description = "PROTON-X, el cargador: lee un .exe x86-64 de Windows, lo coloca en memoria, aplica sus relocalizaciones y resuelve sus importaciones contra la tabla de la casa. Puro."
+license = "Apache-2.0"
+
+# Sin dependencias: bytes que entran, bytes que salen. Quien cargue de verdad
+# (la app de Ring 3) pone la memoria, el sellado y el salto.
+[dependencies]
+
+[lib]
+name = "bmo_proton_x"

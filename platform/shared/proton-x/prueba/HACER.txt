@@ -1,0 +1,21 @@
+hola.exe -- el primer .exe de PROTON-X (P1a), y como se rehace
+
+Se fabrico en la nube (Linux) el 2026-09-27, con clang 18 y lld-link (el
+enlazador de LLVM compatible con el de Microsoft), sin el CRT y sin Windows:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -c hola.c -o hola.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro hola.obj kernel32.lib /out:hola.exe
+
+`/brepro` lo hace REPRODUCIBLE: las mismas fuentes dan el mismo .exe, byte a
+byte (comprobado dos veces). sha256 del que esta aqui:
+
+   13249ac8e6ba77419b572c1e2a80c4e4c883e6754f9ad172be31b168bc14955a
+
+En Windows, con MSVC, sale un .exe distinto pero equivalente:
+
+   cl /O1 /GS- /c hola.c
+   link /nodefaultlib /entry:inicio /subsystem:console hola.obj kernel32.lib
+
+Y corre en Windows tal cual: `hola.exe` imprime la frase y sale con 0. Ese es
+el juez de P1c: BMO-X tiene que decir LO MISMO.
