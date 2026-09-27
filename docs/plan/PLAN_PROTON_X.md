@@ -487,6 +487,41 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
 - [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** Pide P4 (el
       runtime de Rust para Windows). **Como se sabe:** `proton-x cubo.exe`
       dibuja IGUAL, bit a bit, que D3D12 en Windows -- el criterio de X5.
+      **MEDIDO el 27-09, sin Windows.** BMOX-12 es `estudio_d3d12` de la rama
+      `estudio-d3d` de EPICX-FRAMEWORK (su `CENSO.md`: 112 funciones de 15
+      DLL). Compilado aqui para `x86_64-pc-windows-msvc` con `lld-link`,
+      `/entry:main` y `/force:unresolved` (sin el CRT estatico de Microsoft
+      no corre, pero su tabla de importaciones es la de verdad: cuadra con el
+      censo), y cruzada nombre a nombre con la tabla de la casa:
+```text
+   importa 78 nombres de 9 DLL (+ los del CRT estatico); a la casa le faltaban
+   P3c1  PeekMessageW, AdjustWindowRect, LoadCursorW, SetWindowTextW,
+         LoadLibraryExA, GetErrorInfo, SysStringLen, SysFreeString,
+         RoOriginateErrorW (el crate `windows` para sus HRESULT), ceil,
+         _register_thread_local_exe_atexit_callback, terminate  [HECHO 27-09]
+   P3c2  D3DCompile: el cubo COMPILA su HLSL en marcha (FXC, Shader Model
+         5.0: vs_5_0 / ps_5_0). En BMO-X no hay compilador de HLSL; lo
+         honesto es PAGAR UNA VEZ: compilarlo en Windows (d3dcompiler_47,
+         el mismo) a un fichero por (fuente, entrada, perfil) y que la casa
+         lo devuelva, y si no esta, que lo diga con su huella
+   P3c3  el bytecode de SM5 (DXBC con SHEX): la casa ejecuta DXIL (SM6, el
+         de dxc); SM5 es OTRO lenguaje de maquina virtual (registros r#, v#,
+         o#, cb#[]) y pide su lector y su interprete hacia el mismo lote
+   P4c   AddVectoredExceptionHandler, RtlCaptureContext,
+         RtlLookupFunctionEntry, RtlVirtualUnwind, y lo de C++ del CRT
+```
+      Lo que la tabla NO ve son los metodos COM (por vtabla): su
+      diccionario (DICCIONARIO de la rama estudio-d3d) los lista, y hay que cruzarlos con los huecos de
+      `com.rs` de la casa. P3c1 **Como se sabe:** `prueba/peek.exe` dice
+      `bien` doce veces (poner `ceil` a redondear hacia abajo da MAL,
+      comprobado). Para repetir la medida:
+```text
+   cd estudio-d3d
+   RUSTFLAGS="-C linker=lld-link -C link-arg=/force:unresolved -C link-arg=/entry:main"
+     cargo build --release -p estudio_d3d12 --target x86_64-pc-windows-msvc
+   llvm-readobj --coff-imports target/x86_64-pc-windows-msvc/release/estudio_d3d12.exe
+```
+
 - [ ] **P4 -- la semantica dificil, con banco.** Hilos y TLS, excepciones
       (SEH y el desenrollado de x64), COM (las vtables: X1 midio que casi
       todo D3D12 va por ahi y ninguna tabla de importaciones lo ve), ficheros
@@ -761,9 +796,10 @@ de arriba y de lo que cada una PIDE, no de gustos:
                              VirtualAlloc, GetModuleFileNameW, la linea de
                              ordenes, el entorno. Falta: run sys/proton-x.bex
                              window/crt.exe en el Ryzen (35 bien)
-   5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar: pide
-                             P4c, P4e y P4f (su runtime de Rust para
-                             Windows: 157 nombres, medidos el 27-09)
+   5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar.
+                             MEDIDO (27-09): le faltan P3c2 (D3DCompile,
+                             pagando una vez), P3c3 (el bytecode de SM5) y
+                             P4c; P3c1 hecho
    6  VERRANO V2 a V4        PLAN_VERRANO: profundidad, constantes, y el
                              emisor SPIR-V a SM86. P3b4 los PIDE
    7  P3b4                   el lote de PROTON-X lo dibuja la 3060

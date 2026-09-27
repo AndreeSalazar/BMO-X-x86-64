@@ -30,7 +30,7 @@ use crate::{aviso, dir, kernel32};
 /// Las DLL de la casa, en el orden de sus HANDLE.
 /// (P4f4: tambien las de la `std` de Rust -- ntdll, kernelbase, ws2_32,
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress.)
-const DLL: [&str; 10] = ["kernel32.dll", "user32.dll", "gdi32.dll", "d3d12.dll", "dxgi.dll", "ntdll.dll", "kernelbase.dll", "ws2_32.dll", "userenv.dll", "bcryptprimitives.dll"];
+const DLL: [&str; 11] = ["kernel32.dll", "user32.dll", "gdi32.dll", "d3d12.dll", "dxgi.dll", "ntdll.dll", "kernelbase.dll", "ws2_32.dll", "userenv.dll", "bcryptprimitives.dll", "oleaut32.dll"];
 
 const ERROR_MOD_NOT_FOUND: u32 = 126;
 const ERROR_PROC_NOT_FOUND: u32 = 127;
@@ -111,6 +111,10 @@ extern "win64" fn load_library_w(n: *const u16) -> u64 {
     cargar(unsafe { ancha(n) })
 }
 
+extern "win64" fn load_library_ex_a(n: *const u8, _fichero: u64, _banderas: u32) -> u64 {
+    load_library_a(n)
+}
+
 extern "win64" fn load_library_ex_w(n: *const u16, _fichero: u64, _banderas: u32) -> u64 {
     load_library_w(n)
 }
@@ -187,6 +191,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "LoadLibraryA" => dir!(load_library_a),
         "LoadLibraryW" => dir!(load_library_w),
         "LoadLibraryExW" => dir!(load_library_ex_w),
+        "LoadLibraryExA" => dir!(load_library_ex_a),
         "FreeLibrary" => dir!(free_library),
         "GetModuleHandleA" => dir!(get_module_handle_a),
         "GetModuleHandleExW" => dir!(get_module_handle_ex_w),

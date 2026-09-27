@@ -52,6 +52,7 @@ struct Estado {
     /// Lo que se registro con _crt_atexit: corre al salir, al reves.
     al_salir: Vec<u64>,
     commode: i32,
+    tl_atexit: u64,
 }
 
 struct Global(UnsafeCell<Estado>);
@@ -71,6 +72,7 @@ static ESTADO: Global = Global(UnsafeCell::new(Estado {
     env_w: Vec::new(),
     al_salir: Vec::new(),
     commode: 0,
+    tl_atexit: 0,
 }));
 
 fn estado() -> &'static mut Estado {
@@ -93,6 +95,7 @@ pub(crate) fn reiniciar() {
     e.env_w.clear();
     e.al_salir.clear();
     e.commode = 0;
+    e.tl_atexit = 0;
 }
 
 // -- El arranque -----------------------------------------------------------------
@@ -218,6 +221,11 @@ extern "win64" fn p_commode() -> *mut i32 {
 
 /// Lo registrado con _crt_atexit, al reves, una vez.
 fn correr_al_salir() {
+    let tl = core::mem::take(&mut estado().tl_atexit);
+    if tl != 0 {
+        // SAFETY: un PIMAGE_TLS_CALLBACK del `.exe`: (base, motivo, 0).
+        unsafe { crate::hilos::llamar_win64(tl, crate::kernel32::base_imagen(), 0, 0) };
+    }
     while let Some(f) = estado().al_salir.pop() {
         // SAFETY: `void f(void)` que el `.exe` registro.
         unsafe { crate::hilos::llamar_win64(f, 0, 0, 0) };
@@ -626,6 +634,31 @@ extern "win64" fn fflush(f: u64) -> i32 {
     }
 }
 
+// -- Lo de P3c1: lo que un .exe de MSVC pide ademas ----------------------------
+
+// `ceil(double)`: el `double` llega y vuelve en xmm0, y la casa es soft-float
+// (no sabe de xmm0): tres instrucciones a mano. ROUNDSD (SSE4.1) con modo 2,
+// hacia +infinito, es exactamente ceil: -0.5 da -0, y NaN/inf quedan igual.
+core::arch::global_asm!(".globl proton_x_ceil", "proton_x_ceil:", "roundsd xmm0, xmm0, 2", "ret");
+core::arch::global_asm!(".globl proton_x_floor", "proton_x_floor:", "roundsd xmm0, xmm0, 1", "ret");
+extern "C" {
+    fn proton_x_ceil();
+    fn proton_x_floor();
+}
+
+/// `_register_thread_local_exe_atexit_callback`: lo que el CRT estatico de
+/// un `.exe` registra para sus `thread_local` (un callback de TLS); se llama
+/// al salir con DLL_PROCESS_DETACH.
+extern "win64" fn register_tl_atexit(cb: u64) {
+    estado().tl_atexit = cb;
+}
+
+/// `terminate()`: como `abort` del UCRT, sale con 3.
+extern "win64" fn terminate() -> ! {
+    crate::aviso("terminate(): el .exe se termina (como abort, codigo 3)");
+    (plataforma().salir)(3)
+}
+
 /// Si `dll` es del CRT: la suya, `vcruntime140.dll` o un API set `api-ms-win-crt-*`.
 pub(crate) fn es_del_crt(dll: &str) -> bool {
     dll.eq_ignore_ascii_case("ucrtbase.dll") || dll.eq_ignore_ascii_case("vcruntime140.dll") || (dll.len() > 15 && dll.as_bytes()[..15].eq_ignore_ascii_case(b"api-ms-win-crt-"))
@@ -667,6 +700,10 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "wcslen" => dir!(wcslen),
         "strcmp" => dir!(strcmp),
         "strncmp" => dir!(strncmp),
+        "ceil" => dir!(proton_x_ceil),
+        "floor" => dir!(proton_x_floor),
+        "_register_thread_local_exe_atexit_callback" => dir!(register_tl_atexit),
+        "terminate" => dir!(terminate),
         "__acrt_iob_func" => dir!(acrt_iob_func),
         "__stdio_common_vfprintf" => dir!(stdio_vfprintf),
         "__stdio_common_vfwprintf" => dir!(stdio_vfwprintf),

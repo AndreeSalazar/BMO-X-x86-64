@@ -428,10 +428,52 @@ extern "win64" fn update_proc_thread_attribute(_l: u64, _f: u32, _a: usize, _v: 
 
 extern "win64" fn delete_proc_thread_attribute_list(_l: u64) {}
 
+// -- Los errores COM (P3c1): lo que el crate `windows` pide para un HRESULT --
+
+/// `GetErrorInfo(0, **info)`: no hay informacion de error: S_FALSE y NULL.
+extern "win64" fn get_error_info(_r: u32, info: *mut u64) -> i32 {
+    if !info.is_null() {
+        // SAFETY: un IErrorInfo** del `.exe`.
+        unsafe { *info = 0 };
+    }
+    1
+}
+
+/// Un BSTR: la medida en bytes (u32) va 4 bytes antes del texto.
+extern "win64" fn sys_string_len(b: u64) -> u32 {
+    if b == 0 {
+        return 0;
+    }
+    // SAFETY: un BSTR del `.exe`.
+    unsafe { ((b - 4) as *const u32).read_unaligned() / 2 }
+}
+
+extern "win64" fn sys_free_string(b: u64) {
+    if b != 0 && !memoria::soltar_del_proceso(b - 4) {
+        aviso("SysFreeString de un BSTR que no dio la casa");
+    }
+}
+
+/// `RoOriginateErrorW`: nadie escucha errores de WinRT: FALSE, "no se guardo".
+extern "win64" fn ro_originate_error_w(_hr: i32, _n: u32, _texto: u64) -> i32 {
+    0
+}
+
+/// Las de oleaut32.dll.
+pub(crate) fn buscar_oleaut32(n: &str) -> Option<u64> {
+    Some(match n {
+        "GetErrorInfo" => dir!(get_error_info),
+        "SysStringLen" => dir!(sys_string_len),
+        "SysFreeString" => dir!(sys_free_string),
+        _ => return None,
+    })
+}
+
 /// Las de kernel32 (y kernelbase y los API set).
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "FormatMessageW" => dir!(format_message_w),
+        "RoOriginateErrorW" => dir!(ro_originate_error_w),
         "LocalFree" => dir!(local_free),
         "GetWindowsDirectoryW" => dir!(get_windows_directory_w),
         "GetSystemDirectoryW" => dir!(get_system_directory_w),

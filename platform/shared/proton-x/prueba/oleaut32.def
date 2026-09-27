@@ -1,0 +1,5 @@
+LIBRARY oleaut32.dll
+EXPORTS
+GetErrorInfo
+SysStringLen
+SysFreeString

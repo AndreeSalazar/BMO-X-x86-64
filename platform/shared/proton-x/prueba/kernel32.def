@@ -128,3 +128,4 @@ GetExitCodeProcess
 TerminateProcess
 CreateProcessW
 InitializeProcThreadAttributeList
+LoadLibraryExA

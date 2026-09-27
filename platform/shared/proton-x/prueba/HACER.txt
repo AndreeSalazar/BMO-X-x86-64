@@ -313,3 +313,25 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` quince veces (cuatro las escriben printf, puts, fputs a stderr y
 fwrite) y sale con 0.
+
+peek.exe -- el de P3c1 (27-09): lo chico que le faltaba a BMOX-12
+
+user32.def suma PeekMessageW, PostQuitMessage, AdjustWindowRect y LoadCursorW
+(ventana.exe sale IDENTICO con el); kernel32.def suma LoadLibraryExA; y hay
+tres .def nuevos: oleaut32.def, winrt.def (api-ms-win-core-winrt-error) y
+crt_math.def (ceil, floor). Define `_fltused`:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d user32.def -l user32.lib
+   llvm-dlltool -m i386:x86-64 -d oleaut32.def -l oleaut32.lib
+   llvm-dlltool -m i386:x86-64 -d winrt.def -l winrt.lib
+   llvm-dlltool -m i386:x86-64 -d crt_math.def -l crt_math.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c peek.c -o peek.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro peek.obj kernel32.lib user32.lib oleaut32.lib winrt.lib crt_math.lib /out:peek.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   1c18f16c2532b975317c8303eadcc4af321b64a1c0153bfc9f16b2bf41010ffc
+
+Dice `bien` doce veces y sale con 0. En Windows AdjustWindowRect SI agranda
+el rectangulo (le suma el marco); la prueba solo mira que no lo achique.

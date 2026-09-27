@@ -48,6 +48,7 @@ const CARPETAS: &[u8] = include_bytes!("../../proton-x/prueba/carpetas.exe");
 const SISTEMA: &[u8] = include_bytes!("../../proton-x/prueba/sistema.exe");
 const UCRT: &[u8] = include_bytes!("../../proton-x/prueba/ucrt.exe");
 const STDIO: &[u8] = include_bytes!("../../proton-x/prueba/stdio.exe");
+const PEEK: &[u8] = include_bytes!("../../proton-x/prueba/peek.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -667,4 +668,18 @@ fn stdio_exe_tiene_el_printf_de_msvc() {
     assert!(!texto.replace("\r\n", "").contains('\n'), "modo texto: cada \\n sale \\r\\n: {texto:?}");
     assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
     assert!(texto.ends_with("stdio.exe: el printf es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a
+/// BMOX-12 (PeekMessageW, AdjustWindowRect, LoadCursorW, LoadLibraryExA,
+/// oleaut32, RoOriginateErrorW, ceil y floor con el double en xmm0).
+#[test]
+fn peek_exe_tiene_lo_chico_de_bmox12() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, PEEK, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 12, "{texto}");
+    assert!(texto.ends_with("peek.exe: lo chico de BMOX-12 es lo de Windows\r\n[salio 0x0]"), "{texto}");
 }

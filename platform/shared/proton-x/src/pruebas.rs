@@ -1215,3 +1215,16 @@ fn el_printf_de_c_da_lo_mismo_que_c() {
     assert_eq!(f(b"%I64u", &[u64::MAX], &[]), "18446744073709551615");
     assert_eq!(f(b"%a y %n", &[], &[]), "%a y %n", "tal cual, sin consumir");
 }
+
+#[test]
+fn mirar_la_cola_no_saca_nada() {
+    use crate::ventanas::{Cola, Msg, WM_QUIT};
+    let mut c = Cola::nueva();
+    assert_eq!(c.mirar(), None);
+    c.salir(5);
+    let q = Msg { hwnd: 0, mensaje: WM_QUIT, wparam: 5, lparam: 0 };
+    assert_eq!(c.mirar(), Some(q));
+    assert_eq!(c.mirar(), Some(q), "mirar dos veces: lo mismo");
+    assert_eq!(c.sacar(), Some(q));
+    assert_eq!(c.mirar(), None, "sacado, ya no esta");
+}

@@ -176,7 +176,8 @@ try {
     # Y `sistema.exe` (P4f4, 27-09): NtReadFile, ProcessPrng, FormatMessageW, la red, procesos.
     # Y `ucrt.exe` (P4f5, 27-09): el CRT de MSVC de sus DLL (argv, _initterm, exit, malloc, memcpy).
     # Y `stdio.exe` (P4f5, 27-09): el printf del CRT de MSVC, stdout y stderr en modo texto.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe')) {
+    # Y `peek.exe` (P3c1, 27-09): lo chico que le faltaba a BMOX-12 (PeekMessageW, ceil...).
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(

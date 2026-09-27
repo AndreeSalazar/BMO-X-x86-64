@@ -180,6 +180,18 @@ impl Cola {
         self.llegados.retain(|m| m.hwnd != hwnd);
     }
 
+    /// **El siguiente SIN sacarlo** (`PeekMessage` con PM_NOREMOVE, P3c1):
+    /// el mismo que daria [`Self::sacar`].
+    pub fn mirar(&self) -> Option<Msg> {
+        if let Some(m) = self.llegados.front() {
+            return Some(*m);
+        }
+        if let Some(c) = self.salir {
+            return Some(Msg { hwnd: 0, mensaje: WM_QUIT, wparam: c as u32 as u64, lparam: 0 });
+        }
+        self.invalidas.first().map(|&hwnd| Msg { hwnd, mensaje: WM_PAINT, wparam: 0, lparam: 0 })
+    }
+
     /// **El siguiente**, en el orden de Windows. `None` si no hay nada (y
     /// `GetMessage` duerme).
     pub fn sacar(&mut self) -> Option<Msg> {

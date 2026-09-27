@@ -235,6 +235,23 @@ fn escribir_msg(p: *mut u8, m: &Msg) {
 /// `GetMessageW`: el siguiente mensaje; >0 si es uno, 0 si es WM_QUIT. Si no
 /// hay nada, se miran los buzones y se duerme: un `.exe` esperando teclas no
 /// gasta CPU.
+/// Lo que llego a los buzones de las ventanas, a la cola.
+fn bombear() {
+    let p = plataforma();
+    let vivas: Vec<(u64, Superficie)> = con(|e| e.ventanas.iter().filter(|v| v.viva && v.mostrada).map(|v| (v.hwnd, v.sup)).collect());
+    for (hwnd, sup) in vivas {
+        loop {
+            let ev = (p.evento)(&sup);
+            if ev == 0 {
+                break;
+            }
+            if let Some(m) = de_evento(hwnd, ev) {
+                con(|e| e.cola.publicar(m));
+            }
+        }
+    }
+}
+
 extern "win64" fn get_message_w(msg: *mut u8, h: u64, min: u32, max: u32) -> i32 {
     if msg.is_null() {
         return -1;
@@ -244,18 +261,7 @@ extern "win64" fn get_message_w(msg: *mut u8, h: u64, min: u32, max: u32) -> i32
     }
     let p = plataforma();
     loop {
-        let vivas: Vec<(u64, Superficie)> = con(|e| e.ventanas.iter().filter(|v| v.viva && v.mostrada).map(|v| (v.hwnd, v.sup)).collect());
-        for (hwnd, sup) in vivas {
-            loop {
-                let ev = (p.evento)(&sup);
-                if ev == 0 {
-                    break;
-                }
-                if let Some(m) = de_evento(hwnd, ev) {
-                    con(|e| e.cola.publicar(m));
-                }
-            }
-        }
+        bombear();
         if let Some(m) = con(|e| e.cola.sacar()) {
             escribir_msg(msg, &m);
             return if m.mensaje == WM_QUIT { 0 } else { 1 };
@@ -266,6 +272,53 @@ extern "win64" fn get_message_w(msg: *mut u8, h: u64, min: u32, max: u32) -> i32
             (p.dormir)();
         }
     }
+}
+
+const PM_REMOVE: u32 = 1;
+
+/// `PeekMessageW` (P3c1): como GetMessageW pero SIN esperar: 1 si habia
+/// uno (y con PM_REMOVE se saca), 0 si no. Un bucle de juego vive de esto;
+/// cuando no hay nada se cede el turno a otro hilo del `.exe` (si lo hay).
+extern "win64" fn peek_message_w(msg: *mut u8, h: u64, min: u32, max: u32, quitar: u32) -> i32 {
+    if msg.is_null() {
+        return 0;
+    }
+    if h != 0 || min != 0 || max != 0 {
+        aviso("PeekMessageW con filtro: todavia no filtra, da el siguiente de todos");
+    }
+    bombear();
+    let m = if quitar & PM_REMOVE != 0 { con(|e| e.cola.sacar()) } else { con(|e| e.cola.mirar()) };
+    match m {
+        Some(m) => {
+            escribir_msg(msg, &m);
+            1
+        }
+        None => {
+            crate::hilos::ceder();
+            0
+        }
+    }
+}
+
+/// `AdjustWindowRect(Ex)`: el marco lo pinta el escritorio de BMO-X y la
+/// ventana ES su area de cliente (P2): el rectangulo no cambia.
+extern "win64" fn adjust_window_rect(r: *mut i32, _estilo: u32, _menu: i32) -> i32 {
+    (!r.is_null()) as i32
+}
+
+extern "win64" fn adjust_window_rect_ex(r: *mut i32, _estilo: u32, _menu: i32, _ex: u32) -> i32 {
+    (!r.is_null()) as i32
+}
+
+/// `LoadCursorW`: un handle; el cursor lo pinta el escritorio.
+extern "win64" fn load_cursor_w(_inst: u64, id: u64) -> u64 {
+    0x5A1D_C000_0000 | (id & 0xFFFF)
+}
+
+/// `SetWindowTextW`: si la ventana existe, si. El titulo lo pone el
+/// escritorio de BMO-X; el de Windows no se muestra todavia.
+extern "win64" fn set_window_text_w(h: u64, _t: *const u16) -> i32 {
+    con(|e| e.ventanas.iter().any(|v| v.hwnd == h && v.viva)) as i32
 }
 
 /// `TranslateMessage`: aqui no traduce -- las letras ya llegan cocinadas del
@@ -366,6 +419,11 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "ShowWindow" => dir!(show_window),
         "UpdateWindow" => dir!(update_window),
         "GetMessageW" => dir!(get_message_w),
+        "PeekMessageW" => dir!(peek_message_w),
+        "AdjustWindowRect" => dir!(adjust_window_rect),
+        "AdjustWindowRectEx" => dir!(adjust_window_rect_ex),
+        "LoadCursorW" => dir!(load_cursor_w),
+        "SetWindowTextW" => dir!(set_window_text_w),
         "TranslateMessage" => dir!(translate_message),
         "DispatchMessageW" => dir!(dispatch_message_w),
         "DefWindowProcW" => dir!(def_window_proc_w),

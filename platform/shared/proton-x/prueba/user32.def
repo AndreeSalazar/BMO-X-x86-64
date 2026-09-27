@@ -13,3 +13,6 @@ DestroyWindow
 InvalidateRect
 BeginPaint
 EndPaint
+PeekMessageW
+AdjustWindowRect
+LoadCursorW
