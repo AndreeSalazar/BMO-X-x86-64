@@ -24,6 +24,10 @@ El tipo, la maquina, cada biblioteca con cuantas funciones pide, y una
 cuenta por FAMILIA (graficos, sonido, entrada, sistema): la superficie que
 tendria que existir. Para comparar: el nivel 1 de "devorar" un ELF estatico
 son ~15 llamadas (docs/identidad/ENTRAR_EN_SU_ECOSISTEMA.md).
+
+Y de un PE, el VEREDICTO DE PROTON-X (27-09): DENTRO solo si es PE32+, AMD64
+y codigo maquina; FUERA con su motivo si es de 32 bits, ARM, o .NET (IL). La
+regla y su por que: docs/plan/PLAN_PROTON_X.md, seccion 1.
 """
 import struct
 import sys
@@ -134,6 +138,47 @@ def pe(d):
     return ({0x8664: "x86-64", 0x14C: "x86 (32 bits)"}.get(maquina, "0x%x" % maquina), imps)
 
 
+# ---------------------------------------------------------------- PROTON-X -
+
+# Las maquinas que un PE puede declarar y PROTON-X NO acepta, con su nombre.
+MAQUINAS_FUERA = {
+    0x14C: "x86 de 32 bits (pediria WOW64: un segundo mundo entero)",
+    0xAA64: "ARM64 (otras instrucciones: pediria traducirlas, como FEX o Rosetta)",
+    0xA641: "ARM64EC (ARM con llamadas de x64: sigue siendo ARM)",
+    0xA64E: "ARM64X (dos binarios en uno, ARM64 y ARM64EC)",
+    0x1C4: "ARM de 32 bits",
+}
+
+
+def proton_x(d):
+    """**El veredicto de PROTON-X** para un PE: `(dentro, motivo)`.
+
+    PROTON-X es SOLO x86-64 (docs/plan/PLAN_PROTON_X.md, seccion 1): las
+    instrucciones del juego corren TAL CUAL en el Ryzen y no hay capa que las
+    traduzca. Dentro, tres cosas a la vez: PE32+ (magia 0x20B), maquina AMD64
+    (0x8664) y codigo MAQUINA -- un .exe de .NET (el directorio 14, el de la
+    CLR) lleva IL, un bytecode que pide un runtime entero, aunque su cabecera
+    diga AMD64."""
+    if d[:2] != b"MZ":
+        return (False, "no es un PE")
+    e = struct.unpack_from("<I", d, 0x3C)[0]
+    if d[e:e + 4] != b"PE\0\0":
+        return (False, "no es un PE")
+    maquina = struct.unpack_from("<H", d, e + 4)[0]
+    opc = e + 24
+    magia = struct.unpack_from("<H", d, opc)[0]
+    if maquina in MAQUINAS_FUERA:
+        return (False, MAQUINAS_FUERA[maquina])
+    if maquina != 0x8664:
+        return (False, "maquina 0x%x: no es x86-64" % maquina)
+    if magia != 0x20B:
+        return (False, "cabecera PE32 (de 32 bits) con maquina AMD64: no es un PE32+")
+    clr = struct.unpack_from("<I", d, opc + 112 + 14 * 8)[0]
+    if clr:
+        return (False, ".NET: lleva IL, no instrucciones x86-64 (pediria una CLR)")
+    return (True, "PE32+ x86-64 con codigo maquina: sus instrucciones corren tal cual en el Ryzen")
+
+
 # ---------------------------------------------------------------- ELF -------
 
 def elf(d):
@@ -179,6 +224,9 @@ def informe(ruta, d, del_juego=frozenset()):
     maquina, imps = r
     total = sum(len(v) for v in imps.values())
     print("%s: %s, %s" % (ruta, tipo, maquina))
+    if leer is pe:
+        dentro, motivo = proton_x(d)
+        print("  PROTON-X: %s -- %s" % ("DENTRO" if dentro else "FUERA", motivo))
     print("  pide %d funcion(es) de %d biblioteca(s) de fuera" % (total, len([k for k in imps if not k.startswith("(")])))
     cuenta = {}
     trae, trae_f = 0, 0
@@ -250,6 +298,21 @@ def prueba():
     assert familia("PhysX3_x64.dll") == "fisica" and familia("bink2w64.dll") == "video"
     assert familia("sl.interposer.dll") == "graficos" and familia("libxess.dll") == "graficos"
     assert pe(b"MZ" + b"\0" * 62) is None and elf(b"nada") is None
+    # PROTON-X: el PE de prueba esta DENTRO, y cada mutacion lo saca con SU motivo.
+    bueno = pe_de_prueba()
+    assert proton_x(bueno)[0], proton_x(bueno)
+    for maquina, palabra in ((0x14C, "32 bits"), (0xAA64, "ARM64"), (0xA641, "ARM64EC"), (0x1C0, "0x1c0")):
+        m = bytearray(bueno)
+        struct.pack_into("<H", m, 0x44, maquina)
+        dentro, motivo = proton_x(bytes(m))
+        assert not dentro and palabra in motivo, (hex(maquina), motivo)
+    m = bytearray(bueno)
+    struct.pack_into("<H", m, 0x58, 0x10B)
+    assert proton_x(bytes(m)) == (False, "cabecera PE32 (de 32 bits) con maquina AMD64: no es un PE32+")
+    m = bytearray(bueno)
+    struct.pack_into("<II", m, 0x58 + 112 + 14 * 8, 0x2000, 72)
+    assert ".NET" in proton_x(bytes(m))[1]
+    assert proton_x(b"nada") == (False, "no es un PE")
     # Un ELF de verdad del anfitrion, si lo hay: tiene que pedir su libc.
     for ruta in ("/bin/ls", "/usr/bin/env"):
         try:
@@ -260,7 +323,7 @@ def prueba():
         if r:
             assert any(k.startswith("libc.so") for k in r[1]), r[1].keys()
             break
-    print("rayosx: banco en verde (un PE hecho aqui, y un ELF del anfitrion si lo hay)")
+    print("rayosx: banco en verde (un PE hecho aqui y sus 6 mutaciones de PROTON-X, y un ELF del anfitrion si lo hay)")
     return 0
 
 
