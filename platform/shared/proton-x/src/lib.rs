@@ -38,6 +38,7 @@ extern crate alloc;
 pub mod cargar;
 pub mod pe;
 pub mod teb;
+pub mod ventanas;
 
 pub use cargar::{colocar, importaciones, partir, resolver, Funcion, Importacion, Partes, PAGINA};
 pub use pe::{leer, Pe, Permiso, Seccion};

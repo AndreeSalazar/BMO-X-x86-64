@@ -225,3 +225,83 @@ fn el_teb_y_el_peb_tienen_la_forma_de_windows_x64() {
     assert_eq!(t.iter().filter(|&&b| b == 0xAA).count(), 0);
     assert_eq!(p.iter().filter(|&&b| b == 0xAA).count(), 0);
 }
+
+// ============================ P2: ventanas ============================
+
+use crate::ventanas::*;
+
+const VENTANA_EXE: &[u8] = include_bytes!("../prueba/ventana.exe");
+
+#[test]
+fn ventana_exe_pide_dieciseis_de_tres_dll() {
+    let pe = leer(VENTANA_EXE).unwrap();
+    let img = colocar(&pe, VENTANA_EXE, 0x7_0000_0000).unwrap();
+    let imps = importaciones(&pe, &img).unwrap();
+    let cuantas = |dll: &str| imps.iter().filter(|i| i.dll.eq_ignore_ascii_case(dll)).count();
+    assert_eq!((cuantas("user32.dll"), cuantas("gdi32.dll"), cuantas("kernel32.dll")), (13, 1, 2));
+    // Los 256 KB del bufer de pixeles van en .data (ceros): la parte de datos.
+    let partes = partir(&pe).unwrap();
+    assert_eq!(partes.codigo, 2 * PAGINA);
+    assert!(partes.datos as usize >= 320 * 200 * 4);
+}
+
+#[test]
+fn la_cola_saca_en_el_orden_de_windows() {
+    let mut c = Cola::nueva();
+    let tecla = Msg { hwnd: 1, mensaje: WM_CHAR, wparam: b'a' as u64, lparam: 1 };
+    c.invalidar(1);
+    c.invalidar(1);
+    c.publicar(tecla);
+    c.salir(7);
+    // Lo llegado primero, luego WM_QUIT, y WM_PAINT el ultimo.
+    assert_eq!(c.sacar(), Some(tecla));
+    assert_eq!(c.sacar().map(|m| (m.mensaje, m.wparam)), Some((WM_QUIT, 7)));
+    assert_eq!(c.sacar().map(|m| (m.mensaje, m.hwnd)), Some((WM_PAINT, 1)));
+    // Sin BeginPaint sigue invalida: el mismo WM_PAINT otra vez, UNO.
+    assert_eq!(c.sacar().map(|m| m.mensaje), Some(WM_PAINT));
+    c.validar(1);
+    assert_eq!(c.sacar(), None);
+}
+
+#[test]
+fn los_eventos_de_bmo_x_son_los_mensajes_de_windows() {
+    // Una letra (bit 62): WM_CHAR.
+    let e = 1 << 62 | 1 << 8 | 1 << 9 | b'z' as u64;
+    assert_eq!(de_evento(5, e).map(|m| (m.mensaje, m.wparam)), Some((WM_CHAR, b'z' as u64)));
+    // Un clic izquierdo en (10, 20): WM_LBUTTONDOWN con x | y << 16.
+    let e = 1 << 63 | 1 << 8 | 1 << 9 | 1 | 10 << 16 | 20 << 32;
+    assert_eq!(de_evento(5, e), Some(Msg { hwnd: 5, mensaje: WM_LBUTTONDOWN, wparam: MK_LBUTTON, lparam: 10 | 20 << 16 }));
+    // Soltar ESC (scancode 0x01): WM_KEYUP con VK_ESCAPE y los bits 30 y 31.
+    let m = de_evento(5, 1 << 8 | 0x01).unwrap();
+    assert_eq!((m.mensaje, m.wparam, m.lparam >> 30), (WM_KEYUP, 0x1B, 3));
+    // La A del teclado: VK 'A'.
+    assert_eq!(de_evento(5, 1 << 8 | 1 << 9 | 0x1E).map(|m| (m.mensaje, m.wparam)), Some((WM_KEYDOWN, b'A' as u64)));
+    // Un raton sin boton no es mensaje; un evento vacio tampoco.
+    assert_eq!(de_evento(5, 1 << 63 | 1 << 8 | 30 << 16), None);
+    assert_eq!(de_evento(5, 0), None);
+}
+
+#[test]
+fn un_dib_de_abajo_arriba_cae_derecho() {
+    // 2x2, de ABAJO arriba (biHeight positivo): la fila 0 del bufer es la de abajo.
+    let mut cab = vec![0u8; 40];
+    cab[0] = 40;
+    cab[4] = 2;
+    cab[8] = 2;
+    cab[14] = 32;
+    let dib = leer_dib(&cab).unwrap();
+    assert!(!dib.de_arriba);
+    let bits: Vec<u8> = [0x11u32, 0x22, 0x33, 0x44].iter().flat_map(|p| p.to_le_bytes()).collect();
+    let mut d = vec![0u32; 3 * 3];
+    let r = Rect { x: 1, y: 1, ancho: 2, alto: 2 };
+    let todo = Rect { x: 0, y: 0, ancho: 2, alto: 2 };
+    assert_eq!(copiar_dib(&mut d, 3, 3, 3, r, todo, &bits, &dib), Ok(2));
+    // Arriba de la ventana va la fila de ARRIBA del dibujo: 0x33, 0x44.
+    assert_eq!(&d[4..6], &[0xFF00_0033, 0xFF00_0044]);
+    assert_eq!(&d[7..9], &[0xFF00_0011, 0xFF00_0022]);
+    assert_eq!(d[0], 0, "fuera del rectangulo no se toca");
+    // Estirar y los formatos que no son 32 bits dicen cual es su NO.
+    assert_eq!(copiar_dib(&mut d, 3, 3, 3, Rect { ancho: 3, ..r }, todo, &bits, &dib), Err(NoPinta::Escala));
+    cab[14] = 24;
+    assert_eq!(leer_dib(&cab), Err(NoPinta::Formato { bits: 24, compresion: 0 }));
+}

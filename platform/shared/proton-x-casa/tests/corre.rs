@@ -1,41 +1,42 @@
-//! **`hola.exe` y `teb.exe` CORREN en esta CPU** (P1b y P1d, 27-09): el banco
-//! de verdad.
+//! **`hola.exe`, `teb.exe` y `ventana.exe` CORREN en esta CPU** (P1b, P1d y
+//! P2, 27-09): el banco de verdad, con las DLL de la casa DE VERDAD.
 //!
 //! Las otras pruebas miran los bytes. Esta EJECUTA el `.exe` de Windows en el
-//! anfitrion (Linux, x86-64), como lo hara `proton-x.bex` en el Ryzen:
+//! anfitrion (Linux, x86-64), como `proton-x.bex` en el Ryzen:
 //!
 //! ```text
 //!    partir     dos zonas seguidas: codigo (R+X, sin W) y datos (R+W, sin X)
-//!    colocar    en la direccion de verdad, con las relocalizaciones
-//!    resolver   contra una tabla de la casa de PRUEBA: tres `extern "win64"`
-//!    saltar     a su entrada, con la convencion de Windows (rcx, rdx, r8, r9
-//!               y 32 bytes de sombra): la pone el compilador, no un parche
+//!    colocar    en una base que no es la suya, con las relocalizaciones
+//!    resolver   contra `bmo_proton_x_casa::tabla`: LAS MISMAS kernel32,
+//!               user32 y gdi32 que corren en BMO-X
+//!    el GS      un TEB y un PEB (`bmo_proton_x::teb`) y `arch_prctl`, lo que
+//!               en BMO-X es `TASK_OP_PON_GS`
+//!    saltar     a su entrada con la convencion de Windows
 //! ```
 //!
-//! Y se mira lo que dijo y con que salio. Si el cargador colocara mal una
-//! seccion, relocalizara mal el puntero o dejara una ranura de la IAT vacia,
-//! aqui no sale un "distinto": sale un fallo de pagina.
+//! Lo unico de mentira es la PLATAFORMA de debajo ([`plataforma`]): la consola
+//! es un `Vec`, una superficie es memoria de este proceso y el buzon es un
+//! guion de teclas y clics. Si el cargador o una DLL de la casa fallan, aqui
+//! no sale un "distinto": sale un fallo de pagina.
 //!
-//! La memoria se pide con `mmap`/`mprotect` por `syscall`, sin `libc`: el
-//! crate sigue sin dependencias.
-//!
-//! **P1d, el GS.** `teb.exe` lee su TEB en `gs:[0x30]` como el CRT de
-//! Microsoft. Aqui se lo pone `arch_prctl(ARCH_SET_GS)` --el GS de este hilo
-//! en Linux-- y en BMO-X `TASK_OP_PON_GS`: la misma pieza, dos kernels. El
-//! TEB y el PEB los escribe `bmo_proton_x::teb`, el mismo que usa la app.
-//!
-//! `ExitProcess` no vuelve (en BMO-X es `salir`). Aqui el proceso es el de las
-//! pruebas y no puede morir, asi que `ExitProcess` salta de vuelta a donde se
+//! La memoria se pide con `mmap`/`mprotect` por `syscall`, sin `libc`.
+//! `ExitProcess` no vuelve (en BMO-X es `salir`); aqui el proceso es el de las
+//! pruebas y no puede morir, asi que la plataforma salta de vuelta a donde se
 //! llamo a la entrada, con la pila de entonces: [`correr`].
 
 #![cfg(all(target_os = "linux", target_arch = "x86_64"))]
 
 use std::sync::Mutex;
 
-use bmo_proton_x::*;
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU32, Ordering};
 
-const HOLA: &[u8] = include_bytes!("../prueba/hola.exe");
-const TEB: &[u8] = include_bytes!("../prueba/teb.exe");
+use bmo_proton_x::*;
+use bmo_proton_x_casa::{Plataforma, Superficie};
+
+const HOLA: &[u8] = include_bytes!("../../proton-x/prueba/hola.exe");
+const TEB: &[u8] = include_bytes!("../../proton-x/prueba/teb.exe");
+const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
 
 /// Los `.exe` comparten la vuelta y lo dicho (estaticos): uno a la vez.
 static UNO_A_LA_VEZ: Mutex<()> = Mutex::new(());
@@ -67,26 +68,53 @@ fn munmap(dir: u64, bytes: u64) {
     unsafe { syscall6(11, dir, bytes, 0, 0, 0, 0) };
 }
 
-// ======================= LA TABLA DE LA CASA DE PRUEBA =======================
+// ============================ LA PLATAFORMA DE MENTIRA ============================
 
-const SALIDA_ESTANDAR: u64 = 0x5A1D_A000;
 static DICHO: Mutex<Vec<u8>> = Mutex::new(Vec::new());
 
-extern "win64" fn get_std_handle(n: u32) -> u64 {
-    // STD_OUTPUT_HANDLE = (DWORD)-11
-    if n == (-11i32) as u32 { SALIDA_ESTANDAR } else { u64::MAX }
+/// Las superficies que pidio el `.exe`: (pixeles, ancho, alto), y cuantas
+/// veces se mostraron y se presentaron.
+static PANTALLA: Mutex<Vec<(Vec<u32>, u32, u32)>> = Mutex::new(Vec::new());
+static MOSTRADAS: AtomicU32 = AtomicU32::new(0);
+static PRESENTADAS: AtomicU32 = AtomicU32::new(0);
+static DORMIDAS: AtomicU32 = AtomicU32::new(0);
+
+/// **El guion del buzon.** Cada `evento` saca el siguiente; un 0 del guion es
+/// "ahora no hay nada", y se gasta. Asi se ve lo que hace `GetMessageW` cuando
+/// la cola se queda libre: pintar.
+static GUION: Mutex<VecDeque<u64>> = Mutex::new(VecDeque::new());
+
+fn escribir(b: &[u8]) {
+    DICHO.lock().unwrap().extend_from_slice(b);
 }
 
-extern "win64" fn write_file(h: u64, b: *const u8, n: u32, escritos: *mut u32, _ov: u64) -> i32 {
-    if h != SALIDA_ESTANDAR {
-        return 0;
+fn superficie(ancho: u32, alto: u32) -> Option<Superficie> {
+    let mut p = PANTALLA.lock().unwrap();
+    p.push((vec![0u32; (ancho * alto) as usize], ancho, alto));
+    let i = p.len() - 1;
+    // El Vec no se mueve mientras viva la prueba: su puntero vale.
+    Some(Superficie { pixeles: p[i].0.as_mut_ptr(), ancho, alto, stride: ancho, dato: i as u64 })
+}
+
+fn mostrar(_s: &Superficie) -> bool {
+    MOSTRADAS.fetch_add(1, Ordering::SeqCst);
+    true
+}
+
+fn presentar(_s: &Superficie) {
+    PRESENTADAS.fetch_add(1, Ordering::SeqCst);
+}
+
+fn evento(_s: &Superficie) -> u64 {
+    GUION.lock().unwrap().pop_front().unwrap_or(0)
+}
+
+/// Un `.exe` que espera para siempre no puede colgar el banco: a las mil
+/// siestas, fuera con 0xDEAD.
+fn dormir() {
+    if DORMIDAS.fetch_add(1, Ordering::SeqCst) > 1000 {
+        salir(0xDEAD);
     }
-    let bytes = unsafe { core::slice::from_raw_parts(b, n as usize) };
-    DICHO.lock().unwrap().extend_from_slice(bytes);
-    if !escritos.is_null() {
-        unsafe { *escritos = n };
-    }
-    1
 }
 
 /// Donde volver al salir, y con que pila: los deja [`correr`].
@@ -95,7 +123,7 @@ static mut VUELTA: u64 = 0;
 static mut MARCO: u64 = 0;
 static mut SALIO: u32 = u32::MAX;
 
-extern "win64" fn exit_process(codigo: u32) -> ! {
+fn salir(codigo: u32) -> ! {
     unsafe {
         SALIO = codigo;
         core::arch::asm!(
@@ -108,43 +136,8 @@ extern "win64" fn exit_process(codigo: u32) -> ! {
     }
 }
 
-fn gs_teb() -> u64 {
-    let v: u64;
-    unsafe { core::arch::asm!("mov {}, gs:[0x30]", out(reg) v, options(nostack, readonly)) };
-    v
-}
-
-/// Como en Windows: el ultimo error VIVE en el TEB, no en una variable nuestra.
-extern "win64" fn set_last_error(e: u32) {
-    unsafe { ((gs_teb() + teb::TEB_LAST_ERROR as u64) as *mut u32).write(e) };
-}
-
-extern "win64" fn get_last_error() -> u32 {
-    unsafe { ((gs_teb() + teb::TEB_LAST_ERROR as u64) as *const u32).read() }
-}
-
-extern "win64" fn get_current_process_id() -> u32 {
-    unsafe { ((gs_teb() + teb::TEB_PROCESS_ID as u64) as *const u64).read() as u32 }
-}
-
-extern "win64" fn get_current_thread_id() -> u32 {
-    unsafe { ((gs_teb() + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
-}
-
-fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
-    if !dll.eq_ignore_ascii_case("kernel32.dll") {
-        return None;
-    }
-    match f {
-        Funcion::Nombre(n) if n == "GetStdHandle" => Some(get_std_handle as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "WriteFile" => Some(write_file as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "ExitProcess" => Some(exit_process as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "SetLastError" => Some(set_last_error as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "GetLastError" => Some(get_last_error as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "GetCurrentProcessId" => Some(get_current_process_id as *const () as usize as u64),
-        Funcion::Nombre(n) if n == "GetCurrentThreadId" => Some(get_current_thread_id as *const () as usize as u64),
-        _ => None,
-    }
+fn plataforma() -> Plataforma {
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir }
 }
 
 /// **Saltar a la entrada** con la pila alineada y su sombra, y volver aqui
@@ -186,8 +179,9 @@ fn poner_gs(v: u64) {
 /// **Cargar y correr un `.exe`** como `proton-x.bex`: partir, colocar en una
 /// base que no es la suya, resolver, codigo R+X, datos sin X; y si `con_teb`,
 /// un TEB y un PEB en el GS. Devuelve (con que salio, lo que dijo, la base).
-fn correr_exe(exe: &[u8], con_teb: bool) -> (u32, Vec<u8>, u64) {
+fn correr_exe(exe: &[u8], con_teb: bool, guion: &[u64]) -> (u32, Vec<u8>, u64) {
     let _uno = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
+    *GUION.lock().unwrap() = guion.iter().copied().collect();
     let pe = leer(exe).unwrap();
     let partes = partir(&pe).unwrap();
     let total = (partes.codigo + partes.datos) as u64;
@@ -195,7 +189,7 @@ fn correr_exe(exe: &[u8], con_teb: bool) -> (u32, Vec<u8>, u64) {
     assert_ne!(base, pe.base, "en una base que NO es la suya");
     let mut img = colocar(&pe, exe, base).unwrap();
     let imps = importaciones(&pe, &img).unwrap();
-    resolver(&mut img, &imps, tabla).unwrap();
+    resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap();
     unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
     mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);
     let hilo_mem = (teb::TEB_BYTES + teb::PEB_BYTES) as u64;
@@ -221,6 +215,12 @@ fn correr_exe(exe: &[u8], con_teb: bool) -> (u32, Vec<u8>, u64) {
         poner_gs(mem);
     }
     DICHO.lock().unwrap().clear();
+    PANTALLA.lock().unwrap().clear();
+    for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS] {
+        c.store(0, Ordering::SeqCst);
+    }
+    // SAFETY: un `.exe` a la vez (el cerrojo de arriba), antes de saltar.
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
         poner_gs(0);
@@ -236,7 +236,7 @@ fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
     let pe = leer(HOLA).unwrap();
     // hola.exe: cabeceras y .text en dos paginas; .rdata y .reloc en otras dos.
     assert_eq!(partir(&pe).unwrap(), Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
-    let (salio, dicho, _) = correr_exe(HOLA, false);
+    let (salio, dicho, _) = correr_exe(HOLA, false, &[]);
     assert_eq!(salio, 0, "ExitProcess con 0: escribio la frase entera");
     assert_eq!(dicho.as_slice(), b"hola desde un .exe de Windows\r\n");
 }
@@ -246,7 +246,7 @@ fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
 /// `gs:[0x30]` leeria de la direccion 0x30: un fallo de pagina, no un "MAL".
 #[test]
 fn teb_exe_encuentra_su_teb_y_su_peb_en_gs() {
-    let (salio, dicho, base) = correr_exe(TEB, true);
+    let (salio, dicho, base) = correr_exe(TEB, true, &[]);
     let texto = String::from_utf8(dicho).unwrap();
     assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
     assert!(!texto.contains("MAL"), "{texto}");
@@ -263,4 +263,33 @@ fn una_seccion_de_datos_en_las_paginas_del_codigo_no_se_parte() {
     // .rdata movida a la pagina de .text, a proposito.
     pe.secciones[1].rva = pe.secciones[0].rva + 0x100;
     assert_eq!(partir(&pe), Err(Fallo::NoSeParte(".rdata".into())));
+}
+
+/// **P2 en el anfitrion**: `ventana.exe`, una ventana Win32 de manual, con el
+/// `user32` y el `gdi32` de la casa. El guion: una letra, un clic en (10, 20)
+/// y `q`, con un momento libre entre cada uno (ahi Windows pinta).
+#[test]
+fn ventana_exe_abre_su_ventana_pinta_y_obedece_al_teclado_y_al_raton() {
+    const HAY: u64 = 1 << 8;
+    const PULSADA: u64 = 1 << 9;
+    let letra = |c: u8| 1 << 62 | HAY | PULSADA | c as u64;
+    let clic = 1 << 63 | HAY | PULSADA | 1 | 10 << 16 | 20 << 32;
+    let guion = [letra(b'b'), 0, 0, clic, 0, 0, letra(b'q')];
+    let (salio, dicho, _) = correr_exe(VENTANA, true, &guion);
+    assert_eq!(dicho, b"", "ni un aviso: la casa supo hacer todo lo que pidio");
+    // PostQuitMessage((letras << 8) | clics): una letra (la q cierra) y un clic.
+    assert_eq!(salio, 0x101);
+    assert_eq!(MOSTRADAS.load(Ordering::SeqCst), 1, "ShowWindow la ofrecio UNA vez");
+    // Tres dibujos: UpdateWindow, tras la letra y tras el clic. La q destruye
+    // la ventana antes de que su ultimo WM_PAINT salga, como en Windows.
+    assert_eq!(PRESENTADAS.load(Ordering::SeqCst), 3);
+    let p = PANTALLA.lock().unwrap();
+    assert_eq!(p.len(), 1);
+    let (px, ancho, alto) = (&p[0].0, p[0].1, p[0].2);
+    assert_eq!((ancho, alto), (320, 200));
+    let en = |x: u32, y: u32| px[(y * ancho + x) as usize];
+    assert_eq!(en(0, 0), 0xFFFF_D700, "el marco dorado");
+    assert_eq!(en(10, 20), 0xFFFF_FFFF, "el cuadrado blanco donde cayo el clic");
+    // El degradado con el tinte 1 (una letra): en (100, 100), r=128 g=0x80 b=79.
+    assert_eq!(en(100, 100), 0xFF80_804F);
 }

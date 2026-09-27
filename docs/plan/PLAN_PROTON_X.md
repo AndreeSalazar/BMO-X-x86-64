@@ -292,10 +292,33 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       entre un hilo de PROTON-X y otro con distinto GS, y nada mas; al lado
       de los ~720 de una puerta y los miles de un cambio con `xsave`, es
       ruido. Los que no lo piden pagan una comparacion.
-- [ ] **P2 -- la ventana Win32.** Un `.exe` tuyo con `CreateWindowExW`, su
-      bucle de mensajes y pixeles pintados por la CPU. La ventana es una
-      superficie del director; las teclas llegan por su buzon. **Como se
-      sabe:** la ventana sale en BMO-X, y sus pixeles son los de Windows.
+- [ ] **P2 -- la ventana Win32.** El CODIGO esta (27-09). Un `.exe` de
+      manual (`prueba/ventana.exe`, 4 KiB, reproducible): RegisterClassExW,
+      CreateWindowExW, ShowWindow, UpdateWindow, el bucle de GetMessageW /
+      TranslateMessage / DispatchMessageW, y WM_PAINT con StretchDIBits de un
+      bufer pintado por la CPU. Pide 16 funciones de tres DLL. Las DLL de la
+      casa se mudaron a su crate, `platform/shared/proton-x-casa`
+      (`kernel32`, `user32`, `gdi32` como `extern "win64"`), sobre una
+      PLATAFORMA que pone quien carga: en el Ryzen, la puerta de BMO-X
+      (`apps/proton-x/src/plataforma.rs`: la consola, una SUPERFICIE del
+      escritorio con su buzon -- la misma de VERRANO y DOOM); en el banco,
+      una pantalla de mentira. Lo que se dice sin punteros -- la cola en el
+      orden de Windows (lo llegado, WM_QUIT, WM_PAINT sintetizado), cada
+      evento de BMO-X como WM_CHAR, WM_KEYDOWN/UP con su VK o
+      WM_LBUTTONDOWN, y la copia de un DIB de 32 bits de arriba abajo o de
+      abajo arriba -- es `bmo_proton_x::ventanas`, puro. Lo que no sabe
+      todavia (estirar, un trozo del DIB, filtrar GetMessage) contesta el
+      fallo de Windows y lo dice por la consola. Lo que no es Windows, dicho:
+      el marco lo pinta el escritorio (ancho x alto son el area de cliente) y
+      cerrar con su X mata el proceso. **Como se sabe:** en el anfitrion
+      `ventana.exe` CORRE con las DLL de la casa de verdad (`tests/corre.rs`
+      de la casa): una letra, un clic en (10, 20) y `q`; la ventana se
+      ofrece UNA vez, se pinta tres veces (el ultimo WM_PAINT lo cancela
+      DestroyWindow, como en Windows), el pixel del clic es blanco, el del
+      tinte es 0xFF80804F, y sale con 0x101; ni un aviso, estable en cinco
+      corridas. Falta el metal: `run sys/proton-x.bex apps/ventana.exe`
+      abre su ventana en el escritorio de BMO-X, las letras cambian el
+      tinte, el clic deja el cuadrado y `q` la cierra.
 - [ ] **P3 -- el cubo D3D12, EL MISMO `.exe`.** El BMOX-12 de
       EPICX-FRAMEWORK (el de X1) cargado sin tocar: `d3d12`/`dxgi` de la casa
       hacia VERRANO, y sus dos sombreadores DXIL por dxil-spirv (MIT, se
@@ -324,6 +347,51 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       GB de datos, copiados desde Windows (el NTFS no hace falta, Ludoteca
       seccion 8). **Como se sabe:** Night City en el Ryzen, y la imagen
       comparada con la de Windows como hizo CD Projekt Red con el Mac.
+
+## 4a. PAGAR UNA VEZ -- lo que PROTON-X ya hace, y lo que falta (27-09)
+
+El propietario, con P1 hecho: *"PROTON-X solo en x86-64 parece que PURGA,
+no? una sola vez y ya [...] se puede optimizar al estilo de mi syscall que
+solo paga una vez y se purga por completo, y los servicios (Cyberpunk 2077)
+arranquen normal?"*. Si, y es la misma regla de la casa (*elegir uno y pagar
+una vez*), aplicada a Windows:
+
+```text
+   lo que YA se paga una vez, al cargar       lo que pasa despues, en marcha
+   ------------------------------------      -------------------------------
+   leer y juzgar el PE (rayosx, P0)           las instrucciones del .exe: EN
+   colocar y relocalizar (P1a)                EL RYZEN, TAL CUAL. Nadie las
+   resolver CADA importacion (P1a)            mira ni las traduce
+   sellar el codigo (W^X)                     una llamada a la casa: `call
+   el TEB y el PEB (P1d)                      [rip+x]` a una funcion Rust, sin
+                                              tabla, sin busqueda, sin puente
+```
+
+Por eso "purga": despues de `resolver`, PROTON-X no esta en medio. La IAT
+del `.exe` apunta DIRECTAMENTE a las funciones de la casa, y el codigo que
+ejecuta es el suyo. Lo unico que se paga en marcha es lo que la casa HACE
+(pintar, leer el buzon), no una capa de traduccion.
+
+Y **los servicios de Windows no se arrancan**: no hay `services.exe`, ni
+`svchost`, ni el registro entero. Se da SOLO lo que el `.exe` importa (lo
+cuenta `rayosx`), y una funcion que no esta no arranca -- nada mas se carga
+por si acaso. Eso es lo que Wine no puede hacer (sirve a CUALQUIER programa)
+y aqui es la regla.
+
+Lo que FALTA para pagar una vez de verdad en un juego grande, y es donde se
+gana:
+
+```text
+   los SOMBREADORES   DXIL -> SPIR-V -> SASS se traduce UNA vez y se guarda
+                      en un .bsf con su juez (el sobre que ya existe), como
+                      la cache de DXVK pero comprobada: la segunda vez que
+                      arranca Cyberpunk no traduce ni uno (P3)
+   la IMAGEN          colocada, relocalizada y resuelta una vez, se puede
+                      guardar sellada: la segunda vez ni se relocaliza (una
+                      "imagen precocinada", como el `.bex`)
+   las DLL del juego  PhysX, Bink, Oodle son PE x86-64: se cargan igual, y
+                      su resolucion entra en la misma cuenta
+```
 
 ## 4b. "La MAYORIA de los juegos?" -- lo que decide, medido y no a ojo
 

@@ -14,3 +14,6 @@ bmo-userland = { path = "../../userland" }
 # (`tests/corre.rs` de alli). Aqui se pone lo que el no sabe: la memoria de
 # verdad, el sellado, la tabla de la casa y el salto.
 bmo-proton-x = { path = "../../../platform/shared/proton-x" }
+# Las DLL de la casa (kernel32, user32, gdi32): las mismas que corre el banco
+# del anfitrion. Aqui se les pone la plataforma de BMO-X (`src/plataforma.rs`).
+bmo-proton-x-casa = { path = "../../../platform/shared/proton-x-casa" }

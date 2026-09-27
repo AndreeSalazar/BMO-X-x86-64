@@ -1,0 +1,14 @@
+[package]
+name = "bmo-proton-x-casa"
+version = "0.1.0"
+edition = "2021"
+description = "PROTON-X, las DLL de la casa: kernel32, user32 y gdi32 como extern \"win64\", sobre una plataforma que pone quien carga (BMO-X en el Ryzen, una pantalla de mentira en el banco)."
+license = "Apache-2.0"
+
+# Sin la puerta de BMO-X a proposito: lo que toca el sistema llega por
+# `Plataforma`. Asi el banco del anfitrion corre el MISMO codigo que el Ryzen.
+[dependencies]
+bmo-proton-x = { path = "../proton-x" }
+
+[lib]
+name = "bmo_proton_x_casa"

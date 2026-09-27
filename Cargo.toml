@@ -101,6 +101,7 @@ members = [
     "platform/shared/bmo-cubo",
     "platform/shared/verrano",
     "platform/shared/proton-x",
+    "platform/shared/proton-x-casa",
     "platform/shared/bmo-pase-gpu",
     "platform/shared/bmo-puerta-red",
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de

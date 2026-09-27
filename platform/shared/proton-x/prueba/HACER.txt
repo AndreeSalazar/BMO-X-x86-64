@@ -37,3 +37,22 @@ No trae .reloc: todo lo suyo es relativo a RIP. Sin RELOCS_STRIPPED en la
 cabecera COFF, el cargador de Windows lo mueve sin corregir nada, y el de
 PROTON-X tambien desde el 27-09. En Windows dice seis veces `bien` y sale con
 0: ese es el juez de P1d.
+
+ventana.exe -- el de P2 (27-09): una ventana Win32 de manual
+
+Tres bibliotecas de importacion (kernel32.def suma GetModuleHandleW; user32.def
+y gdi32.def son nuevas). hola.exe y teb.exe salen IDENTICOS con ellas:
+
+   llvm-dlltool -m i386:x86-64 -d user32.def -l user32.lib
+   llvm-dlltool -m i386:x86-64 -d gdi32.def -l gdi32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c ventana.c -o ventana.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:windows /dynamicbase /brepro ventana.obj user32.lib gdi32.lib kernel32.lib /out:ventana.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   f1f8647f3e6c4104566e7ca6b8f6e58365641698816cf3cc35c904c66103fdc3
+
+`-fno-builtin` para que clang no convierta el bucle de pintar en una llamada
+a `memset`, que sin CRT no existe. En Windows abre una ventana de 320x200 con
+un degradado y un marco dorado; una letra cambia el tinte, un clic deja un
+cuadrado blanco, q o ESC cierran, y sale con (letras << 8) | clics.

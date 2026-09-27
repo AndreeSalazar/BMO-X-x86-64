@@ -155,10 +155,13 @@ try {
     if (-not (Test-Path $protonBex)) { Fail 'bex-link no produjo proton-x.bex' }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
-    foreach ($exe in @('hola.exe', 'teb.exe')) {
+    # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y
+    # el gdi32 de la casa. Letras cambian el tinte, un clic deja un cuadrado, q
+    # o ESC la cierran.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex, apps\hola.exe y apps\teb.exe (run sys/proton-x.bex apps/teb.exe)' -ForegroundColor DarkGray
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana}.exe (run sys/proton-x.bex apps/ventana.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

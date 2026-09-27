@@ -7,3 +7,4 @@ SetLastError
 GetLastError
 GetCurrentProcessId
 GetCurrentThreadId
+GetModuleHandleW

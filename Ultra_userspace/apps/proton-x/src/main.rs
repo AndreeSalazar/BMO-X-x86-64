@@ -7,7 +7,7 @@
 //!    2  el veredicto y la forma (bmo-proton-x)    solo PE32+ x86-64
 //!    3  partir: codigo delante, datos detras      dos bloques SEGUIDOS
 //!    4  colocar en SU direccion, relocalizar      la base es la del bloque
-//!    5  resolver contra la tabla de la casa       kernel32.rs, o no arranca
+//!    5  resolver contra la tabla de la casa       bmo-proton-x-casa, o no arranca
 //!    6  SELLAR el codigo (MEM_OP_SELLAR)          R+X sin W; los datos, sin X
 //!    7  saltar a su entrada, como `extern "win64"`
 //! ```
@@ -30,8 +30,8 @@
 
 extern crate alloc;
 
-mod kernel32;
 mod monton;
+mod plataforma;
 
 use alloc::format;
 use alloc::vec::Vec;
@@ -151,7 +151,7 @@ pub extern "C" fn _start() -> ! {
     // -- 4 y 5. Colocar en SU direccion y resolver contra la casa.
     let mut img = colocar(&pe, &exe, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     let imps = importaciones(&pe, &img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    resolver(&mut img, &imps, kernel32::buscar).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     let (delante, detras) = img.split_at(partes.codigo as usize);
     // SAFETY: cada bloque mide lo que `partir` dijo, y es nuestro.
     unsafe {
@@ -177,6 +177,10 @@ pub extern "C" fn _start() -> ! {
     ));
     // -- 6b. P1d: el TEB y el PEB, y el GS del hilo apuntando al TEB.
     poner_teb(base);
+    // -- 6c. P2: las DLL de la casa, con BMO-X debajo (la consola, las
+    // superficies del escritorio y su buzon).
+    // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
+    unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera: sin `Drop`, que la soltaria.
     core::mem::forget(codigo);

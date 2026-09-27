@@ -207,7 +207,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
 
-- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
+- [ ] P2 -- la ventana Win32. El CODIGO esta (27-09). Un .exe de
 - [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
 - [ ] P4 -- la semantica dificil, con banco. Hilos y TLS, excepciones
 - ... y 4 mas
