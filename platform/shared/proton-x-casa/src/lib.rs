@@ -55,6 +55,7 @@ pub mod dxgi;
 pub mod gdi32;
 pub mod hilos;
 pub mod kernel32;
+pub mod nativo;
 pub mod tuberia;
 pub mod user32;
 
@@ -101,6 +102,11 @@ pub struct Plataforma {
     /// Quien DIBUJA un lote de D3D12 (P4, la costura con VERRANO): hoy
     /// `bmo_proton_x::lote::en_cpu`; con la 3060, el ejecutor de VERRANO.
     pub dibujar: bmo_proton_x::lote::Ejecutor,
+    /// Estos bytes, como CODIGO: un bloque nuevo, copiado y SELLADO (W^X);
+    /// su direccion, o `None` si no se pudo (P3b3b: los sombreadores nativos).
+    pub sellar_codigo: fn(&[u8]) -> Option<u64>,
+    /// Soltar un bloque de `sellar_codigo` (direccion y medida).
+    pub soltar_codigo: fn(u64, usize),
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -175,6 +181,7 @@ pub unsafe fn empezar(p: Plataforma) {
     });
     hilos::reiniciar();
     tuberia::reiniciar();
+    nativo::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:

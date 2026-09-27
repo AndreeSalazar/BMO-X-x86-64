@@ -148,11 +148,23 @@ pub fn triangulos(ids: &[u32], t: Topologia) -> Vec<[u32; 3]> {
     }
 }
 
+/// Corre un sombreador: entradas -> salidas (el cbuffer lo lleva dentro).
+pub type Corre<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]);
+
 /// **El ejecutor de la CPU** (P3b3): el sombreador de vertices UNA vez por
 /// vertice distinto, los triangulos por la trama, el de pixeles en cada pixel
-/// que cubren. Es el que dio las huellas de D3D12 en la 3060: el juez de los
-/// que vengan.
+/// que cubren -- con los sombreadores INTERPRETADOS. Es el que dio las huellas
+/// de D3D12 en la 3060: el juez de los que vengan.
 pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
+    let (mut rv, mut rp) = (Vec::new(), Vec::new());
+    let en = l.enlace;
+    en_cpu_con(l, destino, &mut |e, s| en.vs.correr(e, l.cb, s, &mut rv), &mut |e, s| en.ps.correr(e, l.cb, s, &mut rp))
+}
+
+/// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
+/// el interprete, o su traduccion a x86-64). La trama y el orden no cambian:
+/// lo unico que cambia es QUIEN hace las cuentas de cada sombreador.
+pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: Corre) -> Result<trama::Cuenta, NoDibuja> {
     if l.paso == 0 {
         return Err(NoDibuja::SinVertices);
     }
@@ -160,8 +172,7 @@ pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, N
     let n_vertices = l.vertices.len() / l.paso;
     let mut hecho: Vec<Option<usize>> = vec![None; n_vertices];
     let mut sombreados: Vec<trama::Sombreado> = Vec::new();
-    let mut regs = Vec::new();
-    let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len()];
+    let mut ent = vec![[0.0f32, 0.0, 0.0, 1.0]; en.desde_ia.len().max(en.vs.entradas)];
     let mut sal = vec![[0.0f32; 4]; en.vs.salidas];
     let tris = triangulos(l.ids, l.topologia);
     let mut locales = Vec::with_capacity(tris.len());
@@ -182,7 +193,7 @@ pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, N
                     x[c] = v.get(o..o + 4).map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]])).unwrap_or(0.0);
                 }
             }
-            en.vs.correr(&ent, l.cb, &mut sal, &mut regs);
+            vs(&ent, &mut sal);
             let atributos = en.desde_vs.iter().map(|o| o.and_then(|k| sal.get(k).copied()).unwrap_or([0.0; 4])).collect();
             sombreados.push(trama::Sombreado { pos: sal[en.posicion], atributos });
             *ranura = Some(sombreados.len() - 1);
@@ -192,7 +203,7 @@ pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, N
     }
     let mut sal_ps = [[0.0f32; 4]; 1];
     Ok(trama::dibujar(&l.reglas, &sombreados, &locales, destino, |x| {
-        en.ps.correr(x, l.cb, &mut sal_ps, &mut regs);
+        ps(x, &mut sal_ps);
         sal_ps[0]
     }))
 }

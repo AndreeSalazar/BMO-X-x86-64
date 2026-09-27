@@ -42,6 +42,7 @@ pub mod pe;
 pub mod raiz;
 pub mod hilos;
 pub mod lote;
+pub mod nativo;
 pub mod teb;
 pub mod tls;
 pub mod trama;

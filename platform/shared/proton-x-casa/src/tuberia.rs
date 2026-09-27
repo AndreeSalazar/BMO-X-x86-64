@@ -304,7 +304,13 @@ pub(crate) extern "win64" fn create_graphics_pipeline_state(_this: u64, desc: *c
     match unsafe { pso_de(desc) } {
         Ok(pso) => {
             let vt = vtabla::<{ com::PSO }>(&[]);
-            dar(pp, nuevo(com::PSO, vt, pso) as u64)
+            let obj = nuevo(com::PSO, vt, pso) as u64;
+            // P3b3b: sus sombreadores, traducidos a x86-64 una vez, aqui.
+            // SAFETY: el Pso recien creado; vive lo que el proceso.
+            if let Ok(en) = &unsafe { de::<Pso>(obj) }.enlace {
+                crate::nativo::registrar(en);
+            }
+            dar(pp, obj)
         }
         Err(m) => {
             aviso(m);

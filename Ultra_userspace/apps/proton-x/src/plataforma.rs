@@ -15,6 +15,9 @@
 //!    poner_gs     el TEB del hilo de Windows que va a correr (P4):
 //!                 TASK_OP_PON_GS, que no toca el MSR si no cambia
 //!    ahora_ns     `rdtsc` y la frecuencia que publica el kernel (INFO_TSC_HZ)
+//!    dibujar      los lotes de D3D12: con los sombreadores NATIVOS de la casa
+//!    sellar_codigo  un bloque, los bytes y MEM_OP_SELLAR (W^X); soltarlo es
+//!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
 //! ```
 //!
 //! La superficie es la MISMA que pide una app de INTI o de C
@@ -28,7 +31,34 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo }
+}
+
+/// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
+/// anterior al sellar el siguiente).
+struct Codigo(core::cell::UnsafeCell<alloc::vec::Vec<bmo::Memoria>>);
+// SAFETY: una tarea, y los hilos de la casa son cooperativos.
+unsafe impl Sync for Codigo {}
+static CODIGO: Codigo = Codigo(core::cell::UnsafeCell::new(alloc::vec::Vec::new()));
+
+fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
+    let m = bmo::Memoria::request(bytes.len() as u64)?;
+    // SAFETY: el bloque recien pedido mide al menos `bytes.len()` y es nuestro.
+    unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), m.base(), bytes.len()) };
+    // Si el kernel dice que no, `m` se suelta al salir (su Drop).
+    m.sellar().ok()?;
+    let base = m.base() as u64;
+    // SAFETY: ver `Codigo`.
+    unsafe { (*CODIGO.0.get()).push(m) };
+    Some(base)
+}
+
+fn soltar_codigo(base: u64, _bytes: usize) {
+    // SAFETY: ver `Codigo`.
+    let v = unsafe { &mut *CODIGO.0.get() };
+    if let Some(i) = v.iter().position(|m| m.base() as u64 == base) {
+        v.swap_remove(i).soltar();
+    }
 }
 
 /// Un GS que el kernel no acepta seria un hilo sin TEB: no se sigue.

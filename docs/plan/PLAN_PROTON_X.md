@@ -450,6 +450,33 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            el escritorio, esos marcos no volvian nunca. Ahora
            `obj/memory.rs` los apunta (`RETENIDOS`) y los libera cuando se
            suelta el ultimo prestamo que los sujetaba.
+      P3b3b [HECHO el 27-09, en el banco; falta el metal] los sombreadores
+           NATIVOS en la CPU, con INTI. El Rust de Ring 3 no puede usar SSE
+           (el target es soft-float; encenderlo lo retira rustc, issue
+           #162235, y tumba a LLVM con SIGILL: comprobado), y el interprete
+           hacia cada `fmul` con una rutina de software. INTI si emite SSE en
+           Ring 3, y con la MISMA regla de numeros a la que llego P3b3 por su
+           cuenta (`acumula` = dos redondeos, no FMA; el orden del juez).
+           `bmo_proton_x::nativo` traduce el `Programa` de cada sombreador a
+           x86-64 escalar con SSE (movss/mulss/addss/subss/divss/sqrtss;
+           Saturate, FMin y FMax con el NaN de D3D; el MXCSR de quien llama
+           guardado y el de D3D puesto), independiente de donde caiga. La casa
+           (`nativo.rs`) lo traduce al crear el PSO y lo pone en UN bloque
+           SELLADO (`MEM_OP_SELLAR`, que se escribio para esto: "la pieza que
+           un JIT necesita"); con cada PSO nuevo, un bloque nuevo con todo y
+           el viejo SOLTADO (`MEM_OP_SOLTAR`): vivo, siempre uno. El limite no
+           era cuatro sino OCHO bloques vivos (`MAX_PETICIONES`, desde el
+           20-09): proton-x gasta monton, codigo, datos, la ventana y este.
+           Sin bloque, se interpreta y se dice (dan lo mismo). El ejecutor es
+           el de la casa (`nativo::dibujar`, por la costura del lote).
+           **Como se sabe:** el JUEZ es el interprete -- los dos sombreadores
+           del cubo en los 360 fotogramas, cada operacion con NaN, infinitos,
+           -0 y subnormales, y 20.000 valores cualesquiera, BIT A BIT
+           (`tests/nativo.rs`; cambiar el orden de FMin da 132 distintos,
+           comprobado); `cubo.exe` en el anfitrion sigue dando las huellas de
+           la 3060 con el codigo nativo (romper `mulss` las pierde,
+           comprobado); y los opcodes son los de las filas SSE de la tabla de
+           INTI (`intrinsics.toml`), con FMad como su `acumula` y ni una FMA.
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).

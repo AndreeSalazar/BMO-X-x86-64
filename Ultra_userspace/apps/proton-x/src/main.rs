@@ -15,8 +15,10 @@
 //! **Lo que el kernel pone y este fichero cuenta con ello** (ring0/obj/
 //! memory.rs): cada bloque que se pide cae JUSTO DETRAS del anterior en las
 //! direcciones del proceso (el cursor solo avanza), y un proceso tiene como
-//! mucho CUATRO bloques vivos. Por eso el orden: fichero (1) y monton (2); se
-//! suelta el fichero (1); codigo (2) y datos (3), seguidos. Que esten seguidos
+//! mucho OCHO bloques vivos (`MAX_PETICIONES`; eran cuatro hasta el 20-09,
+//! cuando llego `MEM_OP_SOLTAR`). Por eso el orden: fichero (1) y monton (2);
+//! se suelta el fichero (1); codigo (2) y datos (3), seguidos. Despues, la
+//! superficie de la ventana y el codigo de los sombreadores (P3b3b). Que esten seguidos
 //! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
 //! dice y no salta.
 //!

@@ -750,3 +750,52 @@ fn un_lote_sin_input_layout_para_una_semantica_no_se_enlaza() {
     assert_eq!(lote::enlazar(&vs, &ps, &sin_color).err().as_deref(), Some("el sombreador de vertices lee COLOR0 y el input layout no lo da"));
     assert_eq!(lote::triangulos(&[0, 1, 2, 3], lote::Topologia::Tira), vec![[0, 1, 2], [2, 1, 3]], "en la tira, el impar se da la vuelta");
 }
+
+// -- P3b3b: los sombreadores nativos, con las reglas de INTI ---------------------
+
+/// La tabla de INTI: las filas de SSE que su emisor pone en Ring 3.
+const INTI_INTRINSECOS: &str = include_str!("../../../../toolchain/forge/sem-asm/tables/arch/x86_64/intrinsics.toml");
+
+/// Los bytes de una fila `[nombre]` de la tabla de INTI.
+fn fila_de_inti(nombre: &str) -> Vec<u8> {
+    let desde = INTI_INTRINSECOS.find(&alloc::format!("[{nombre}]")).unwrap_or_else(|| panic!("INTI ya no tiene [{nombre}]"));
+    let t = &INTI_INTRINSECOS[desde..];
+    // Linea a linea hasta la `]` que cierra (los comentarios traen `[rsi]`).
+    let t = &t[t.find("bytes = [").unwrap() + 9..];
+    t.lines()
+        .map(|l| l.split('#').next().unwrap().trim())
+        .take_while(|l| !l.starts_with(']'))
+        .flat_map(|l| l.split(','))
+        .filter_map(|x| x.trim().strip_prefix("0x"))
+        .map(|h| u8::from_str_radix(h, 16).unwrap())
+        .collect()
+}
+
+/// **Los opcodes son los de INTI**: sus filas empaquetadas (`addps`,
+/// `mulps`, `subps`: `0F op`) y las escalares de aqui (`F3 0F op`) son la
+/// misma operacion en un carril; y el `acumula` de INTI (dos redondeos,
+/// primero `mulps` y despues `addps`) es el FMad de aqui.
+#[test]
+fn los_opcodes_nativos_son_los_de_las_filas_sse_de_inti() {
+    use crate::nativo::{ADDSS, MULSS, SUBSS};
+    let tiene = |fila: &[u8], op: u8| fila.windows(2).any(|w| w == [0x0F, op]);
+    assert!(tiene(&fila_de_inti("sse_suma4f"), ADDSS));
+    assert!(tiene(&fila_de_inti("sse_por4f"), MULSS));
+    assert!(tiene(&fila_de_inti("sse_resta4f"), SUBSS));
+    let acumula = fila_de_inti("sse_acumula4f");
+    let (m, a) = (acumula.windows(2).position(|w| w == [0x0F, MULSS]).unwrap(), acumula.windows(2).position(|w| w == [0x0F, ADDSS]).unwrap());
+    assert!(m < a, "acumula: primero el producto, despues la suma");
+    // Y el FMad de aqui es eso mismo: mulss y despues addss, dos redondeos.
+    let p = crate::dxil::programa::Programa {
+        ops: vec![Op::Mad { d: 0, a: 1, b: 2, c: 3 }],
+        iniciales: vec![0.0; 4],
+        entradas: 0,
+        salidas: 0,
+        lee: 0,
+        filas_cb: 0,
+    };
+    let b = crate::nativo::compilar(&p);
+    let (m, a) = (b.windows(3).position(|w| w == [0xF3, 0x0F, MULSS]).unwrap(), b.windows(3).position(|w| w == [0xF3, 0x0F, ADDSS]).unwrap());
+    assert!(m < a);
+    assert!(!b.windows(2).any(|w| w == [0x0F, 0x38]), "ni una instruccion de FMA (0F 38 ..): FMad NO se funde");
+}

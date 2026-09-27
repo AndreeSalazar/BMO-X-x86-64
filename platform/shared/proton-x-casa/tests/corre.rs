@@ -159,7 +159,26 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo }
+}
+
+/// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
+/// R+W a R+X (sin W). Cuantos se sellaron y cuantos se soltaron, para el banco.
+static SELLADOS: AtomicU32 = AtomicU32::new(0);
+static SOLTADOS: AtomicU32 = AtomicU32::new(0);
+
+fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
+    let n = bytes.len().div_ceil(4096) as u64 * 4096;
+    let base = mmap(n);
+    unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), base as *mut u8, bytes.len()) };
+    mprotect(base, n, PROT_LEE | PROT_EJECUTA);
+    SELLADOS.fetch_add(1, Ordering::SeqCst);
+    Some(base)
+}
+
+fn soltar_codigo(base: u64, bytes: usize) {
+    munmap(base, bytes.div_ceil(4096) as u64 * 4096);
+    SOLTADOS.fetch_add(1, Ordering::SeqCst);
 }
 
 /// La hora del banco: la del anfitrion, desde que empezo el proceso.
@@ -244,7 +263,7 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     DICHO.lock().unwrap().clear();
     PANTALLA.lock().unwrap().clear();
     VISTAS.lock().unwrap().clear();
-    for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS] {
+    for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS, &SELLADOS, &SOLTADOS] {
         c.store(0, Ordering::SeqCst);
     }
     // SAFETY: un `.exe` a la vez (el cerrojo de arriba), antes de saltar.
@@ -410,6 +429,9 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
     assert_eq!(salio, 3);
     assert_eq!(PRESENTADAS.load(Ordering::SeqCst), 3);
 
+    // P3b3b: un PSO, un bloque de codigo sellado; y lo que se VIO arriba lo
+    // dibujaron sus sombreadores NATIVOS (el ejecutor de la casa).
+    assert_eq!(SELLADOS.load(Ordering::SeqCst), 1, "un PSO: un bloque sellado");
     let dibujos = bmo_proton_x_casa::tuberia::dibujos();
     assert_eq!(dibujos.len(), 3, "un DrawIndexedInstanced por fotograma");
     let v = bmo_cubo::vertices();
