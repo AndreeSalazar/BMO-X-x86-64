@@ -807,6 +807,34 @@ Write-Host '  s1_cpu@0x100000 s2_mem@0x200000 kernel@0x400000' -ForegroundColor 
 Write-Host ''
 
 
+# ** LO QUE ESTE BUILD HIZO Y NO LLEGO A NINGUN DISCO (2026-09-27).
+#
+# Sin `-Data` ni `-Todo` el build no escribe en discos (es su postura, ver
+# `-Data` arriba), y el `Espejo` solo habla si se le nombra una unidad. O sea
+# que un `.\build.ps1` a secas compila un programa NUEVO, lo deja en `staging`
+# y se calla. Paso el 27-09: `run sys/proton-x.bex` dijo "el archivo no esta"
+# con el build bien hecho: el disco era el de antes, sin `apps\` ni `datos\`.
+#
+# Esto no copia nada: lista lo que este build ESCRIBIO en `staging\BMO-DATA`
+# (por fecha, contra `$buildStart`) y da el comando.
+function SinCopiar {
+    if ($Data -or $espejoLetra) { return }
+    $src = Join-Path $root 'staging\BMO-DATA'
+    if (-not (Test-Path $src)) { return }
+    $nuevos = @(Get-ChildItem -Path $src -Recurse -File | Where-Object { $_.LastWriteTime -ge $buildStart })
+    if ($nuevos.Count -eq 0) { return }
+    Write-Host ''
+    Write-Host ('  [!] {0} archivo(s) de programas hechos por este build y SIN COPIAR a ningun disco (falta -Data o -Todo):' -f $nuevos.Count) -ForegroundColor Yellow
+    $muestra = $nuevos | Sort-Object FullName | Select-Object -First 12
+    foreach ($f in $muestra) {
+        Write-Host ('      ' + $f.FullName.Substring($src.Length).TrimStart([char]'\')) -ForegroundColor Yellow
+    }
+    if ($nuevos.Count -gt 12) { Write-Host ('      ... y ' + ($nuevos.Count - 12) + ' mas') -ForegroundColor Yellow }
+    Write-Host '      En BMO-X diran "el archivo no esta" hasta que se copien:' -ForegroundColor Yellow
+    Write-Host '      .\Ultra_kernel_x86-64\build.ps1 -Todo -Drive <letra> -Yes' -ForegroundColor Yellow
+    Write-Host ''
+}
+
 # A que unidad se le hace el espejo. `-Data` manda; luego `-Flash`; y si solo
 # se compilo, la que se haya ESCRITO en `-Drive` -no vale el valor por defecto,
 # o el espejo saldria contra una unidad que nadie nombro.
@@ -817,6 +845,7 @@ elseif ($PSBoundParameters.ContainsKey('Drive')) { $espejoLetra = $Drive.TrimEnd
 
 if ($BuildOnly) {
     Espejo $espejoLetra
+    SinCopiar
     exit 0
 }
 
@@ -824,3 +853,4 @@ if ($BuildOnly) {
 . (Join-Path $PSScriptRoot 'build\discos.ps1')
 
 Espejo $espejoLetra
+SinCopiar
