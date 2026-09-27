@@ -351,14 +351,34 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       en el anfitrion `limpia.exe` CORRE con las DLL de la casa: dos Present,
       los 64.000 pixeles del color exacto (0.75, 0.25, 0.0 -> 0xFFBF4000) y
       sale con 2, ni un aviso; y un hueco de P3b llamado de verdad dice su
-      nombre y sale con 0xC0DE0010. Falta el metal: `run sys/proton-x.bex
-      apps/limpia.exe` abre una ventana azul, cada letra la cambia de color
-      y `q` la cierra.
+      nombre y sale con 0xC0DE0010. **Y en el Ryzen (27-09, 06:30):** la
+      ventana salio AZUL -- (0.0, 0.25, 0.75), R 0 G 64 B 191, el primer
+      color de `limpia.exe`, limpiado por el ClearRenderTargetView de la casa
+      y puesto por su Present; el wrmsr del GS, 185 ciclos. Falta verla
+      cambiar de color con una letra y cerrarse con `q`.
 - [ ] **P3b -- el cubo con sus sombreadores.** Root signature, PSO,
       buferes de vertices, DrawInstanced, y lo dificil: los sombreadores.
-      Llegan en DXIL (bitcode de LLVM) y van a SPIR-V (dxil-spirv, MIT) y de
-      ahi al SASS de la 3060 con su juez, o al backend CPU de VERRANO. El
-      juez ya existe: las huellas de D3D12 en la 3060 (X4, X5).
+      Decidido el 27-09: **DXIL, no DXBC**. DXBC (SM5, `fxc`) es mas facil
+      de leer, pero es lo viejo; lo que traen Cyberpunk y todo juego D3D12
+      de hoy es DXIL (SM6, `dxc`): bitcode de LLVM dentro de un contenedor
+      `DXBC`. Un desvio por DXBC seria un lector que el jefe final no usa.
+      En cuatro escalones, cada uno con su banco:
+      P3b1 el contenedor y el bitcode: leer el `DXBC` (sus partes: `DXIL`,
+           las firmas de entrada y salida) y el flujo de bits de LLVM
+           (bloques, abreviaturas, registros), puro y probado con los dos
+           sombreadores del cubo compilados por `dxc` (el oficial, en la
+           nube; los `.dxil` al banco con su receta, como `hola.exe`).
+      P3b2 la tuberia: CreateRootSignature, CreateGraphicsPipelineState,
+           CreateCommittedResource + Map (el bufer de vertices y el de
+           constantes), IASetVertexBuffers, RSSetViewports, DrawInstanced.
+      P3b3 los sombreadores EN LA CPU: las pocas operaciones de DXIL que el
+           cubo usa (cargar la entrada, multiplicar por la matriz, sacar
+           posicion y color), interpretadas, y el triangulo por el backend
+           CPU de VERRANO -- el juez. IGUAL, bit a bit, que D3D12 en la 3060
+           (las huellas de X4).
+      P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
+           en `.bsf` por la huella del sombreador; la segunda vez no se
+           traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
 - [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** Pide P4 (el
       runtime de Rust para Windows). **Como se sabe:** `proton-x cubo.exe`
       dibuja IGUAL, bit a bit, que D3D12 en Windows -- el criterio de X5.
