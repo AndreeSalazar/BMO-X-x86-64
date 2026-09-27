@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   382 casillas ABIERTAS en 44 planes
-   313 hechas
+   381 casillas ABIERTAS en 44 planes
+   314 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -140,15 +140,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
 - ... y 7 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 10 abiertas, 3 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P1c -- hola.exe en el Ryzen. El CODIGO esta (27-09):
-- [ ] P1d -- la decision del GS (seccion 3). Con el primer .exe que SI
-- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
-- ... y 7 mas
-
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 9 abiertas, 7 hechas
 
 *DIRECTOR -- de compositor a administrador*
@@ -165,6 +156,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1 -- LA CADENA, con una fuente y sin remuestrear
 - [ ] S2 -- LA FRACCION: 44.100 Hz y sus parientes
 - [ ] S3 -- EL MEZCLADOR: N fuentes, una salida
+- ... y 6 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 9 abiertas, 4 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P1d -- la decision del GS (seccion 3). Con el primer .exe que SI
+- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
+- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
 - ... y 6 mas
 
 ## [`PLAN_VATIOS.md`](PLAN_VATIOS.md) -- 9 abiertas, 4 hechas

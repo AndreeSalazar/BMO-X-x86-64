@@ -246,7 +246,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       `hola desde un .exe de Windows\r\n` y `ExitProcess(0)`, estable en
       cinco corridas. Un fallo del cargador ahi no es un "distinto": es un
       fallo de pagina.
-- [ ] **P1c -- `hola.exe` en el Ryzen.** El CODIGO esta (27-09):
+- [x] **P1c -- `hola.exe` en el Ryzen.** HECHO EN EL METAL el 27-09. El codigo:
       `Ultra_userspace/apps/proton-x` -> `sys/proton-x.bex` (el build lo
       enlaza y copia `hola.exe` a `apps/`). Lee el `.exe`, lo PARTE
       (`bmo_proton_x::partir`: cabeceras y codigo delante, datos detras) en
@@ -257,8 +257,12 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       `hola.exe` no toca `gs:` (sus 19 instrucciones), asi que no espera a
       P1d. `bex-link` lo enlaza y `bmo-bex-gate` lo ADMITE. **Como se
       sabe:** `run sys/proton-x.bex apps/hola.exe` dice en BMO-X la frase
-      de `hola.exe` en Windows y `el .exe salio con 0` (falta verlo en el
-      metal).
+      de `hola.exe` en Windows y `el .exe salio con 0`. Visto en el Ryzen el
+      27-09: `apps/hola.exe: 2560 B, PE32+ x86-64; en 0xe0103000 (el
+      enlazador queria 0x140000000); 3 funcion(es) de la casa; codigo 8 KiB
+      SELLADO, datos 8 KiB sin X; monton 19472 B`, luego `hola desde un .exe
+      de Windows` y `el .exe salio con 0`, sin un fallo de Ring 3. Movido de
+      base (las relocalizaciones trabajaron) y con el W^X de la casa.
 - [ ] **P1d -- la decision del GS (seccion 3).** Con el primer `.exe` que SI
       lea `gs:[0x30]` (el CRT de Microsoft lo hace), no antes. **Como se
       sabe:** la decision escrita aqui, con lo que cuesta en el cambio de
