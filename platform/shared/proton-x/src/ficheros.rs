@@ -73,6 +73,18 @@ pub fn ruta(w: &[u16], dir: &str) -> Result<String, NoRuta> {
     Ok(partes.join("/"))
 }
 
+/// **Como [`ruta`], pero la RAIZ del volumen es una ruta** (`""`): para lo
+/// que nombra carpetas (`C:\\`, `..` desde `window`, `.` en la raiz). Vacia o
+/// un dispositivo (`\\\\.\\`) sigue sin ser nada.
+pub fn ruta_o_raiz(w: &[u16], dir: &str) -> Result<String, NoRuta> {
+    let fin = w.iter().position(|&c| c == 0).unwrap_or(w.len());
+    let dispositivo = w.len() >= 2 && fin >= 2 && [w[0], w[1]].iter().all(|&c| c == b'\\' as u16 || c == b'/' as u16) && !(fin >= 4 && w[2] == b'?' as u16);
+    match ruta(w, dir) {
+        Err(NoRuta::NoEsFichero) if fin > 0 && !dispositivo => Ok(String::new()),
+        r => r,
+    }
+}
+
 /// `FILE_BEGIN`, `FILE_CURRENT`, `FILE_END`.
 pub const DESDE_INICIO: u32 = 0;
 pub const DESDE_AQUI: u32 = 1;
@@ -88,6 +100,8 @@ pub struct Abierto {
     pub escribe: bool,
     /// Se escribio algo: al cerrar, sale entero.
     pub sucio: bool,
+    /// Una CARPETA abierta (FILE_FLAG_BACKUP_SEMANTICS, P4f3): sin bytes.
+    pub carpeta: bool,
 }
 
 impl Abierto {
@@ -131,4 +145,80 @@ impl Abierto {
         self.pos = nueva as u64;
         Some(self.pos)
     }
+}
+
+// -- P4f3: las carpetas ---------------------------------------------------------------
+
+/// **Una entrada de una carpeta** del volumen, como la da quien lista.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Entrada {
+    pub nombre: String,
+    pub carpeta: bool,
+    pub bytes: u64,
+}
+
+fn igual_sin_mayusculas(a: u8, b: u8) -> bool {
+    a.eq_ignore_ascii_case(&b)
+}
+
+/// **Los comodines de Windows**: `*` cualquier cosa (tambien nada), `?` un
+/// caracter, sin mayusculas que cuenten. Y la regla vieja de Windows: `*.*`
+/// es "todo", aunque el nombre no tenga punto.
+pub fn comodin(patron: &str, nombre: &str) -> bool {
+    if patron == "*.*" || patron == "*" {
+        return true;
+    }
+    let (p, n) = (patron.as_bytes(), nombre.as_bytes());
+    // El de siempre, con vuelta atras al ultimo `*`.
+    let (mut i, mut j, mut estrella, mut marca) = (0, 0, None, 0);
+    while j < n.len() {
+        if i < p.len() && (p[i] == b'?' || igual_sin_mayusculas(p[i], n[j])) {
+            i += 1;
+            j += 1;
+        } else if i < p.len() && p[i] == b'*' {
+            estrella = Some(i);
+            marca = j;
+            i += 1;
+        } else if let Some(e) = estrella {
+            i = e + 1;
+            marca += 1;
+            j = marca;
+        } else {
+            return false;
+        }
+    }
+    while i < p.len() && p[i] == b'*' {
+        i += 1;
+    }
+    i == p.len()
+}
+
+/// **Partir lo que se busca** (`FindFirstFileW("datos\\*.pak")`): la carpeta
+/// del volumen donde mirar y el patron del ultimo trozo.
+pub fn partir_patron(w: &[u16], dir: &str) -> Result<(String, String), NoRuta> {
+    let fin = w.iter().position(|&c| c == 0).unwrap_or(w.len());
+    let w = &w[..fin];
+    let corte = w.iter().rposition(|&c| c == b'\\' as u16 || c == b'/' as u16);
+    let (carpeta, patron) = match corte {
+        Some(k) => (&w[..k + 1], &w[k + 1..]),
+        None => (&w[..0], w),
+    };
+    if patron.is_empty() || patron.iter().any(|&c| c >= 0x80) {
+        return Err(NoRuta::NoEsFichero);
+    }
+    let patron: String = patron.iter().map(|&c| c as u8 as char).collect();
+    // La carpeta: "" es el directorio actual; "X:\\" o "\\" la raiz.
+    let carpeta = if carpeta.is_empty() {
+        String::from(dir.trim_matches('/'))
+    } else {
+        let mut c: Vec<u16> = carpeta.to_vec();
+        c.push(b'.' as u16);
+        match ruta(&c, dir) {
+            Ok(r) => r,
+            // Todo se resolvio a la raiz del volumen.
+            Err(NoRuta::NoEsFichero) => String::new(),
+            Err(e) => return Err(e),
+        }
+    };
+    Ok((carpeta, patron))
 }

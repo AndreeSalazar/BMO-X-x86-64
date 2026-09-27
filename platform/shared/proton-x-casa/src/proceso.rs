@@ -66,6 +66,12 @@ pub fn poner_exe(ruta: &str, resto: &str) {
     e.linea_a = linea.bytes().chain([0]).collect();
 }
 
+/// Una variable del entorno (P4f3: GetTempPathW lee TMP).
+pub(crate) fn variable(n: &str) -> Option<Vec<u16>> {
+    let w: Vec<u16> = n.encode_utf16().collect();
+    estado().entorno.leer(&w).map(|v| v.to_vec())
+}
+
 /// El nombre del `.exe` sin su ruta (`crt.exe`), para GetModuleHandle.
 pub(crate) fn nombre_exe() -> alloc::string::String {
     let e = &estado().exe_a;

@@ -559,7 +559,9 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            errores 2, 80, 131 y 183 de Windows, y CREATE_ALWAYS vaciando), y
            en el volumen queda lo ultimo que escribio. Lo que no hay, dicho:
            dos handles que escriben el mismo fichero (cada uno tiene su
-           copia), y en BMO-X un fichero escrito es de hasta 4 KiB hoy.
+           copia). [Corregido el 27-09, P4f3: el "hasta 4 KiB" no era verdad
+           -- el bufer del kernel crece; lo caro era `Archivo::write`, siete
+           bytes por llamada. Ahora sale de UNA con `escribir_de`.]
            En el Ryzen, el 27-09 11:23: `ficheros.exe` dijo `bien` dieciseis
            veces y salio con 0.
       P4e [HECHO el 27-09, en el banco; falta el metal] LO QUE PIDE UN CRT.
@@ -613,7 +615,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                              DuplicateHandle, SetHandleInformation, SleepEx,
                              WaitForSingleObjectEx, los temporizadores
                              esperables, GetSystemTimePreciseAsFileTime
-   P4f3  ficheros y          CreateDirectoryW, RemoveDirectoryW, DeleteFileW,
+   P4f3  ficheros y          CreateDirectoryW, RemoveDirectoryW, DeleteFileW,  [HECHO*]
          directorios         MoveFileExW, CopyFileExW, FindFirstFileExW,
                              FindNextFileW, FindClose, GetFullPathNameW,
                              Get/SetCurrentDirectoryW, GetFileInformation*,
@@ -654,6 +656,29 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            Lo que no es Windows, dicho: sin APC, un handle duplicado es el
            mismo numero con una copia mas, un fichero no se duplica, y la
            hora de la placa se toma como UTC.
+           P4f3 [HECHO en el banco 27-09] LAS CARPETAS. Lo que el FAT32 de
+           BMO-X da a Ring 3 hoy es leer, crear o reemplazar un fichero
+           entero y LISTAR una carpeta; con eso son de verdad FindFirstFileW
+           (comodines de Windows, `.` y `..` fuera de la raiz), los
+           atributos de carpeta sin leer el fichero, abrir una CARPETA con
+           FILE_FLAG_BACKUP_SEMANTICS (la `std` de Rust lo hace para
+           `metadata`), GetFullPathNameW, Get/SetCurrentDirectoryW,
+           GetTempPathW, la informacion por handle (FileBasicInfo,
+           FileStandardInfo, FileAttributeTagInfo), cambiar la medida
+           (SetFileInformationByHandle, SetEndOfFile), GetFinalPathNameByHandleW
+           y CopyFileW/ExW. `Plataforma::listar` (en BMO-X, `bmo::Directorio`)
+           y `bmo_proton_x::ficheros` (`comodin`, `partir_patron`,
+           `ruta_o_raiz`). **Como se sabe:** `prueba/carpetas.exe` dice
+           `bien` treinta y cuatro veces en el anfitrion, dos veces seguidas
+           (sabotear el comodin da MAL, comprobado). *Lo que NO es: el FAT32
+           de BMO-X no BORRA, no crea CARPETAS y no RENOMBRA desde Ring 3 --
+           no hay la operacion en el kernel. DeleteFileW, RemoveDirectoryW,
+           CreateDirectoryW y MoveFileExW contestan el error de Windows si lo
+           nombrado no esta, y ERROR_ACCESS_DENIED dicho por la consola si
+           esta: es lo que el kernel tiene que aprender (tres operaciones de
+           FAT32 en Ring 0, fuera de PROTON-X). Tampoco: las fechas de los
+           ficheros (0), atributos que no sean NORMAL/DIRECTORY, SetFileTime,
+           y la rutina de progreso de CopyFileExW.
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 

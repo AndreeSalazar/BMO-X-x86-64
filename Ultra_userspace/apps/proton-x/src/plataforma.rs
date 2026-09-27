@@ -33,7 +33,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -73,10 +73,37 @@ fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
     Some(v)
 }
 
+/// Un fichero entero, de UNA llamada (P4f3): los bytes a un bloque y
+/// `Archivo::escribir_de`, en vez de siete bytes por llamada con `write`.
+/// Sin bloque libre (son ocho), el camino lento: sale igual.
 fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
     let Ok(a) = bmo::Archivo::create(ruta) else { return false };
-    let n = a.write(bytes);
+    let n = if bytes.is_empty() {
+        0
+    } else if let Some(b) = bmo::Memoria::request(bytes.len() as u64) {
+        // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
+        unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), b.base(), bytes.len()) };
+        let n = a.escribir_de(&b, 0, bytes.len() as u64) as usize;
+        b.soltar();
+        n
+    } else {
+        a.write(bytes)
+    };
     a.close() && n == bytes.len()
+}
+
+/// Lo que hay en una carpeta del volumen (P4f3), con el nombre 8.3 como lo
+/// muestra BMO-X (`cobol.bex`, en minuscula). `""` es la raiz.
+fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada>> {
+    let d = bmo::Directorio::open(ruta).ok()?;
+    let mut v = alloc::vec::Vec::new();
+    while let Some(e) = d.next() {
+        let mut n = [0u8; 12];
+        let k = e.legible(&mut n);
+        let nombre = alloc::string::String::from(core::str::from_utf8(&n[..k]).unwrap_or("?"));
+        v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta: e.es_dir, bytes: e.bytes as u64 });
+    }
+    Some(v)
 }
 
 /// Una arena del monton de Windows (P4e): un bloque del kernel, que ya viene

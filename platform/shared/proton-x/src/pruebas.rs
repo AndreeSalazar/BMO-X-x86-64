@@ -1125,3 +1125,38 @@ fn la_hora_de_windows_cuenta_desde_1601() {
     assert_eq!(hora::filetime(0, 0), 116_444_736_000_000_000);
     assert_eq!(hora::filetime(1, 250), 116_444_736_010_000_002);
 }
+
+// -- P4f3: las carpetas -------------------------------------------------------------
+
+#[test]
+fn los_comodines_son_los_de_windows() {
+    use crate::ficheros::comodin;
+    assert!(comodin("*.txt", "a.TXT"), "sin mayusculas que cuenten");
+    assert!(comodin("px?.txt", "pxa.txt"));
+    assert!(!comodin("px?.txt", "pxab.txt"), "? es UN caracter");
+    assert!(comodin("*", "lo_que_sea"));
+    assert!(comodin("*.*", "sin_punto"), "*.* es todo, como en Windows");
+    assert!(comodin("a*b*c", "aXXbYYc"));
+    assert!(!comodin("a*b*c", "aXXbYY"));
+    assert!(comodin("**x", "x"));
+    assert!(!comodin("*.pak", "datos.pak.bak"));
+}
+
+#[test]
+fn partir_lo_que_se_busca() {
+    use crate::ficheros::partir_patron;
+    let w = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+    assert_eq!(partir_patron(&w("*.txt"), "window"), Ok(("window".into(), "*.txt".into())));
+    assert_eq!(partir_patron(&w("datos\\*.pak"), "window"), Ok(("window/datos".into(), "*.pak".into())));
+    assert_eq!(partir_patron(&w("C:\\*"), "window"), Ok(("".into(), "*".into())), "la raiz del volumen");
+    assert_eq!(partir_patron(&w("..\\*"), "window"), Ok(("".into(), "*".into())));
+    assert_eq!(partir_patron(&w("..\\..\\*"), "window"), Err(NoRuta::FueraDelVolumen));
+    assert_eq!(partir_patron(&w("datos\\"), "window"), Err(NoRuta::NoEsFichero), "sin patron no se busca nada");
+    use crate::ficheros::ruta_o_raiz;
+    assert_eq!(ruta_o_raiz(&w(".."), "window"), Ok("".into()), "subir desde window: la raiz");
+    assert_eq!(ruta_o_raiz(&w("C:\\"), "window"), Ok("".into()));
+    assert_eq!(ruta_o_raiz(&w("."), ""), Ok("".into()));
+    assert_eq!(ruta_o_raiz(&w("."), "window"), Ok("window".into()));
+    assert_eq!(ruta_o_raiz(&w(""), "window"), Err(NoRuta::NoEsFichero), "vacia: nada");
+    assert_eq!(ruta_o_raiz(&w("\\\\.\\CON"), "window"), Err(NoRuta::NoEsFichero), "un dispositivo: nada");
+}

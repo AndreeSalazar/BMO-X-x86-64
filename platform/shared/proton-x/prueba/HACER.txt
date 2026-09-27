@@ -226,3 +226,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` veinticuatro veces y sale con 0 (tarda unos 150 ms: espera de
 verdad a sus temporizadores).
+
+carpetas.exe -- el de P4f3 (27-09): las carpetas y lo que se pregunta de un fichero
+
+kernel32.def suma FindFirstFileW, FindNextFileW, FindClose,
+GetFileAttributesExW, SetFileAttributesW, Get/SetCurrentDirectoryW,
+GetFullPathNameW, GetTempPathW, GetLogicalDrives, GetFileInformationByHandle(Ex),
+SetFileInformationByHandle, GetFinalPathNameByHandleW, LockFileEx,
+UnlockFileEx, CopyFileW, DeleteFileW, RemoveDirectoryW, MoveFileExW y
+CreateDirectoryW; los otros siete salen IDENTICOS:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c carpetas.c -o carpetas.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro carpetas.obj kernel32.lib /out:carpetas.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   b7812e4265aac4a743a2fb5e1c3ff512e00735a0761bde17b4f82ddf7c79e069
+
+Dice `bien` treinta y cuatro veces y sale con 0. Deja pqa.txt, pqb.txt y
+pzc.txt en su directorio actual y se puede correr otra vez. En Windows, no
+desde la raiz de una unidad (SetCurrentDirectoryW("..") tiene que subir).

@@ -49,6 +49,7 @@
 
 extern crate alloc;
 
+pub mod carpetas;
 pub mod com;
 pub mod d3d12;
 pub mod dxgi;
@@ -123,6 +124,9 @@ pub struct Plataforma {
     /// La fecha de la placa, en segundos desde 1970, o `None` si no se sabe
     /// (P4f2: GetSystemTimeAsFileTime).
     pub fecha: fn() -> Option<u64>,
+    /// Lo que hay en una carpeta del volumen (P4f3: FindFirstFileW), o
+    /// `None` si no es una carpeta. `""` es la raiz.
+    pub listar: fn(&[u8]) -> Option<Vec<bmo_proton_x::ficheros::Entrada>>,
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -202,6 +206,7 @@ pub unsafe fn empezar(p: Plataforma) {
     memoria::reiniciar();
     proceso::reiniciar();
     esperas::reiniciar();
+    carpetas::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -228,7 +233,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
     let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
     if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

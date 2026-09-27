@@ -12,9 +12,9 @@
 //!
 //! El directorio actual es el del `.exe` (lo dice quien carga). Lo que no
 //! hay, dicho: compartir un fichero entre dos handles que escriben (cada uno
-//! tiene su copia), y en BMO-X hoy un fichero que se escribe es de hasta
-//! 4 KiB (el limite de `Archivo::write`): si no sale entero, CloseHandle lo
-//! dice.
+//! tiene su copia). En BMO-X un fichero escrito sale de UNA llamada
+//! (`Archivo::escribir_de`, P4f3) y de la medida que sea; si no sale entero,
+//! CloseHandle lo dice. Las carpetas: `carpetas.rs` (P4f3).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -36,15 +36,17 @@ const OPEN_EXISTING: u32 = 3;
 const OPEN_ALWAYS: u32 = 4;
 const TRUNCATE_EXISTING: u32 = 5;
 
-const ERROR_FILE_NOT_FOUND: u32 = 2;
-const ERROR_PATH_NOT_FOUND: u32 = 3;
+const ERROR_INVALID_FUNCTION: u32 = 1;
+pub(crate) const ERROR_FILE_NOT_FOUND: u32 = 2;
+const ERROR_ACCESS_DENIED: u32 = 5;
+const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+pub(crate) const ERROR_PATH_NOT_FOUND: u32 = 3;
 const ERROR_INVALID_HANDLE: u32 = 6;
 const ERROR_FILE_EXISTS: u32 = 80;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const ERROR_NEGATIVE_SEEK: u32 = 131;
 const ERROR_ALREADY_EXISTS: u32 = 183;
 const ERROR_WRITE_FAULT: u32 = 29;
-const FILE_ATTRIBUTE_NORMAL: u32 = 0x80;
 const INVALID_FILE_ATTRIBUTES: u32 = u32::MAX;
 const FILE_TYPE_DISK: u32 = 1;
 
@@ -75,17 +77,29 @@ pub fn poner_directorio(dir: &str) {
     estado().dir = String::from(dir.trim_matches('/'));
 }
 
+/// El directorio actual (ruta del volumen, `window`).
+pub(crate) fn directorio() -> String {
+    estado().dir.clone()
+}
+
+/// Un handle nuevo para `a`.
+pub(crate) fn abrir(a: Abierto) -> u64 {
+    let v = &mut estado().abiertos;
+    v.push(Some(a));
+    FICHERO + (v.len() - 1) as u64
+}
+
 /// Si `h` es un fichero de la casa.
 pub(crate) fn es_fichero(h: u64) -> bool {
     abierto(h).is_some()
 }
 
-fn abierto(h: u64) -> Option<&'static mut Abierto> {
+pub(crate) fn abierto(h: u64) -> Option<&'static mut Abierto> {
     let i = h.checked_sub(FICHERO)? as usize;
     estado().abiertos.get_mut(i)?.as_mut()
 }
 
-fn ruta_de(nombre: *const u16) -> Result<String, u32> {
+pub(crate) fn ruta_de(nombre: *const u16) -> Result<String, u32> {
     if nombre.is_null() {
         return Err(ERROR_INVALID_PARAMETER);
     }
@@ -103,14 +117,31 @@ fn ruta_de(nombre: *const u16) -> Result<String, u32> {
 }
 
 /// `CreateFileW(nombre, acceso, compartir, seguridad, disposicion, banderas, plantilla)`.
-extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, _banderas: u32, _plantilla: u64) -> u64 {
+extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, banderas: u32, _plantilla: u64) -> u64 {
     let ruta = match ruta_de(nombre) {
         Ok(r) => r,
+        // P4f3: la raiz del volumen es una carpeta ("C:\\", "\\").
+        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => String::new(),
         Err(e) => {
             kernel32::poner_error(e);
             return NO_VALE;
         }
     };
+    // P4f3: una CARPETA se abre solo con FILE_FLAG_BACKUP_SEMANTICS, como en
+    // Windows (la `std` de Rust lo hace para `metadata`); si no, acceso denegado.
+    if ruta.is_empty() || crate::carpetas::entrada(&ruta).is_some_and(|e| e.carpeta) {
+        if banderas & FILE_FLAG_BACKUP_SEMANTICS == 0 || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS) {
+            kernel32::poner_error(ERROR_ACCESS_DENIED);
+            return NO_VALE;
+        }
+        kernel32::poner_error(0);
+        return abrir(Abierto { ruta, lee: true, carpeta: true, ..Abierto::default() });
+    }
+    // Una carpeta de por medio que no esta: ERROR_PATH_NOT_FOUND, no el 2.
+    if !crate::carpetas::padre_existe(&ruta) {
+        kernel32::poner_error(ERROR_PATH_NOT_FOUND);
+        return NO_VALE;
+    }
     let habia = (plataforma().leer_fichero)(ruta.as_bytes());
     let existe = habia.is_some();
     let bytes = match (disposicion, habia) {
@@ -132,12 +163,10 @@ extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32
     let escribe = acceso & GENERIC_WRITE != 0;
     // Crear (o vaciar) es escribir, aunque no se escriba nada despues.
     let sucio = escribe && matches!(disposicion, CREATE_ALWAYS | CREATE_NEW | TRUNCATE_EXISTING) || (disposicion == OPEN_ALWAYS && !existe);
-    let a = Abierto { ruta, bytes, pos: 0, lee: acceso & GENERIC_READ != 0, escribe, sucio };
+    let a = Abierto { ruta, bytes, pos: 0, lee: acceso & GENERIC_READ != 0, escribe, sucio, carpeta: false };
     // Como Windows: CREATE_ALWAYS y OPEN_ALWAYS sobre uno que ya estaba lo dicen.
     kernel32::poner_error(if existe && matches!(disposicion, CREATE_ALWAYS | OPEN_ALWAYS) { ERROR_ALREADY_EXISTS } else { 0 });
-    let v = &mut estado().abiertos;
-    v.push(Some(a));
-    FICHERO + (v.len() - 1) as u64
+    abrir(a)
 }
 
 /// `CreateFileA`: la misma, con la ruta en ASCII.
@@ -162,6 +191,10 @@ extern "win64" fn read_file(h: u64, b: *mut u8, n: u32, leidos: *mut u32, _solap
         kernel32::poner_error(ERROR_INVALID_HANDLE);
         return 0;
     };
+    if a.carpeta {
+        kernel32::poner_error(ERROR_INVALID_FUNCTION);
+        return 0;
+    }
     // SAFETY: `n` bytes del `.exe` donde escribir.
     let dst = unsafe { core::slice::from_raw_parts_mut(b, n as usize) };
     let k = a.leer(dst);
@@ -289,12 +322,17 @@ extern "win64" fn get_file_type(h: u64) -> u32 {
 }
 
 extern "win64" fn get_file_attributes_w(nombre: *const u16) -> u32 {
+    // P4f3: por la lista de su carpeta (sin leer el fichero entero), y las
+    // carpetas con FILE_ATTRIBUTE_DIRECTORY.
     match ruta_de(nombre) {
-        Ok(r) if (plataforma().leer_fichero)(r.as_bytes()).is_some() => FILE_ATTRIBUTE_NORMAL,
-        Ok(_) => {
-            kernel32::poner_error(ERROR_FILE_NOT_FOUND);
-            INVALID_FILE_ATTRIBUTES
-        }
+        Ok(r) => match crate::carpetas::entrada(&r) {
+            Some(e) => crate::carpetas::atributos(&e),
+            None => {
+                kernel32::poner_error(if crate::carpetas::padre_existe(&r) { ERROR_FILE_NOT_FOUND } else { ERROR_PATH_NOT_FOUND });
+                INVALID_FILE_ATTRIBUTES
+            }
+        },
+        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => crate::carpetas::DIRECTORIO,
         Err(e) => {
             kernel32::poner_error(e);
             INVALID_FILE_ATTRIBUTES

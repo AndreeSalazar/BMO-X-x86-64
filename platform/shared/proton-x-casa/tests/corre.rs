@@ -44,6 +44,7 @@ const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
 const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
 const TEXTO: &[u8] = include_bytes!("../../proton-x/prueba/texto.exe");
 const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
+const CARPETAS: &[u8] = include_bytes!("../../proton-x/prueba/carpetas.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -167,7 +168,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -222,6 +223,18 @@ fn memoria(bytes: usize) -> Option<u64> {
 /// La fecha del banco: la del anfitrion (P4f2).
 fn fecha() -> Option<u64> {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
+}
+
+/// Lo que hay en una carpeta del volumen del banco (P4f3).
+fn listar(ruta: &[u8]) -> Option<Vec<bmo_proton_x::ficheros::Entrada>> {
+    let r = volumen().join(std::str::from_utf8(ruta).ok()?);
+    let mut v = Vec::new();
+    for e in std::fs::read_dir(r).ok()? {
+        let e = e.ok()?;
+        let m = e.metadata().ok()?;
+        v.push(bmo_proton_x::ficheros::Entrada { nombre: e.file_name().to_string_lossy().into_owned(), carpeta: m.is_dir(), bytes: m.len() });
+    }
+    Some(v)
 }
 
 /// La hora del banco: la del anfitrion, desde que empezo el proceso.
@@ -585,4 +598,23 @@ fn esperas_exe_tiene_las_esperas_de_windows() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 24, "{texto}");
     assert!(texto.ends_with("esperas.exe: las esperas son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4f3 en el anfitrion**: `carpetas.exe` busca con comodines, abre su
+/// carpeta, pregunta a un handle, cambia una medida, copia, y oye los NO de
+/// Windows. Dos veces seguidas: lo que deja no le estorba a la segunda.
+#[test]
+fn carpetas_exe_tiene_las_carpetas_de_windows() {
+    let uno = uno_a_la_vez();
+    for vez in 0..2 {
+        *NOMBRE.lock().unwrap() = ("window/carpetas.exe", "");
+        let (salio, dicho, _) = correr_exe(&uno, CARPETAS, true, &[]);
+        *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+        let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+        assert!(!texto.contains("  MAL   "), "vuelta {vez}: {texto}");
+        assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+        assert_eq!(texto.matches("  bien  ").count(), 34, "{texto}");
+        assert!(texto.ends_with("carpetas.exe: las carpetas son las de Windows\r\n[salio 0x0]"), "{texto}");
+    }
+    assert_eq!(std::fs::read(volumen().join("window/pzc.txt")).unwrap(), b"abc");
 }

@@ -172,7 +172,8 @@ try {
     # Y `crt.exe` (P4e, 27-09): HeapAlloc, VirtualAlloc, su nombre, su linea y su entorno.
     # Y `texto.exe` (P4f, 27-09): UTF-8/UTF-16, WriteConsoleW, LoadLibrary y GetProcAddress.
     # Y `esperas.exe` (P4f2, 27-09): mutex, temporizadores, WaitOnAddress, FLS, la hora.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe')) {
+    # Y `carpetas.exe` (P4f3, 27-09): FindFirstFileW, rutas, una carpeta abierta, copiar.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
