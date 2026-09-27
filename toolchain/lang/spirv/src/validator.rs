@@ -8,11 +8,14 @@
 //!
 //! - el modulo: solo `Shader`, `Logical` + `GLSL450`, solo `GLSL.std.450`,
 //!   etapa `GLCompute` con `LocalSize`, y el punto de entrada es `void main()`;
+//!   o, si quien llama PIDE una etapa ([`validate_stage`]), esa etapa y no
+//!   otra: `Vertex`, `Fragment` (con `OriginUpperLeft`) o `GLCompute`;
 //! - cada instruccion es de la familia `Core` (el resto se niega NOMBRANDO la
 //!   familia: imagen, atomico, barrera...);
 //! - los tipos: enteros y flotantes de 32 bits, vectores de 2 a 4, clases de
 //!   almacenamiento del subconjunto, `BuiltIn` de computo, buffers con
-//!   `Binding` y `DescriptorSet`;
+//!   `Binding` y `DescriptorSet`; en vertices y fragmentos, ademas, `Output`,
+//!   y cada entrada o salida con su `Location` o con un `BuiltIn` de SU etapa;
 //! - los valores: definidos ANTES de usarse y en la misma funcion (salvo donde
 //!   SPIR-V deja ir hacia delante: `OpPhi`, los saltos, `OpFunctionCall`);
 //! - los tipos de cada instruccion cuadran;
@@ -43,11 +46,15 @@ const MEM_GLSL450: u32 = 1;
 
 const CLASE_INPUT: u32 = 1;
 const CLASE_UNIFORM: u32 = 2;
+const CLASE_OUTPUT: u32 = 3;
 const CLASE_PRIVATE: u32 = 6;
 const CLASE_FUNCTION: u32 = 7;
 const CLASE_STORAGE_BUFFER: u32 = 12;
 
 const DEC_BUILTIN: u32 = 11;
+const DEC_LOCATION: u32 = 30;
+/// `ExecutionMode OriginUpperLeft`: el que Vulkan exige a un fragmento.
+const MODO_ORIGIN_UPPER_LEFT: u32 = 7;
 const DEC_BINDING: u32 = 33;
 const DEC_DESCRIPTOR_SET: u32 = 34;
 
@@ -55,6 +62,63 @@ const DEC_DESCRIPTOR_SET: u32 = 34;
 /// `GlobalInvocationId`, `LocalInvocationIndex`: lo que una invocacion de
 /// computo puede preguntar de si misma.
 const BUILTINS_DE_COMPUTO: [u32; 6] = [24, 25, 26, 27, 28, 29];
+/// `VertexIndex`, `InstanceIndex`: lo que un vertice sabe de si mismo.
+const BUILTINS_DE_VERTICE_ENTRA: [u32; 2] = [42, 43];
+/// `Position`, `PointSize`, `ClipDistance`, `CullDistance`: los miembros de
+/// `gl_PerVertex`, lo que un vertice deja al rasterizador.
+const BUILTINS_DE_VERTICE_SALE: [u32; 4] = [0, 1, 3, 4];
+/// `FragCoord`, `FrontFacing`.
+const BUILTINS_DE_FRAGMENTO_ENTRA: [u32; 2] = [15, 17];
+/// `FragDepth`.
+const BUILTINS_DE_FRAGMENTO_SALE: [u32; 1] = [22];
+
+/// **La etapa que quien llama ESPERA** de un modulo (`ExecutionModel`).
+///
+/// ```text
+///    Vertex     0   cada vertice: entra su numero, sale su posicion
+///    Fragment   4   cada pixel: entra lo interpolado, sale el color
+///    GLCompute  5   cada invocacion de un grupo de trabajo
+/// ```
+///
+/// El juez no ADIVINA la etapa del modulo: la compara con la que se pide. Un
+/// programa de vertice entregado como el de pixel es un NO con nombre
+/// ([`Reason::WrongStage`]), no un pixel que nadie entiende.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Stage {
+    Vertex,
+    Fragment,
+    GLCompute,
+}
+
+impl Stage {
+    /// El numero de `ExecutionModel` de la especificacion.
+    pub const fn model(self) -> u32 {
+        match self {
+            Stage::Vertex => 0,
+            Stage::Fragment => 4,
+            Stage::GLCompute => GL_COMPUTE,
+        }
+    }
+
+    /// La etapa de un `ExecutionModel`, si es una de las tres.
+    pub const fn from_model(model: u32) -> Option<Stage> {
+        match model {
+            0 => Some(Stage::Vertex),
+            4 => Some(Stage::Fragment),
+            GL_COMPUTE => Some(Stage::GLCompute),
+            _ => None,
+        }
+    }
+
+    /// El nombre de la especificacion.
+    pub const fn name(self) -> &'static str {
+        match self {
+            Stage::Vertex => "Vertex",
+            Stage::Fragment => "Fragment",
+            Stage::GLCompute => "GLCompute",
+        }
+    }
+}
 
 /// Las extensiones que el subconjunto acepta. La unica: la que deja usar la
 /// clase `StorageBuffer` en SPIR-V 1.0-1.2 (la emite Naga).
@@ -126,6 +190,8 @@ struct Function {
 
 struct Juez<'m, 'a, 'b> {
     m: &'m Module<'a, 'b>,
+    /// La etapa pedida; `None` es el juez de S2 tal cual: solo computo.
+    etapa: Option<Stage>,
     glsl_id: Option<u32>,
     primera_funcion: usize,
     /// La palabra de la instruccion que se esta juzgando.
@@ -137,8 +203,21 @@ struct Juez<'m, 'a, 'b> {
 }
 
 /// **Juzga un modulo leido.** El primer motivo por el que no cabe, con la
-/// palabra donde se vio; o lo que se conto de el.
+/// palabra donde se vio; o lo que se conto de el. Es el juez de S2: solo
+/// computo, y otra etapa es [`Reason::UnsupportedStage`].
 pub fn validate(m: &Module) -> Result<Verdict, Error> {
+    juzgar(m, None)
+}
+
+/// **Juzga un modulo leido COMO la etapa `stage`.** Lo mismo que [`validate`],
+/// y ademas: todo punto de entrada es de esa etapa ([`Reason::WrongStage`] si
+/// es de otra de las tres), y las entradas y salidas son las de esa etapa.
+/// `validate_stage(m, Stage::GLCompute)` acepta lo mismo que `validate`.
+pub fn validate_stage(m: &Module, stage: Stage) -> Result<Verdict, Error> {
+    juzgar(m, Some(stage))
+}
+
+fn juzgar(m: &Module, etapa: Option<Stage>) -> Result<Verdict, Error> {
     let primera_funcion = m
         .instructions()
         .find(|i| i.opcode == op::OpFunction)
@@ -146,6 +225,7 @@ pub fn validate(m: &Module) -> Result<Verdict, Error> {
         .unwrap_or(usize::MAX);
     let mut j = Juez {
         m,
+        etapa,
         glsl_id: m.glsl450(),
         primera_funcion,
         cur: 0,
@@ -167,7 +247,7 @@ pub fn validate(m: &Module) -> Result<Verdict, Error> {
             .find(|i| i.opcode == op::OpEntryPoint && i.op(2) == e.id)
             .map(|i| i.offset)
             .unwrap_or(5);
-        if e.local_size.is_none() {
+        if j.computo() && e.local_size.is_none() {
             return Err(Error { reason: Reason::NoLocalSize, word: donde });
         }
         if !j.es_void_main(e.id) {
@@ -191,6 +271,21 @@ fn si(cond: bool, reason: Reason) -> Result<(), Reason> {
 }
 
 impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
+    /// Se juzga computo: el juez de S2 o la etapa `GLCompute` pedida.
+    fn computo(&self) -> bool {
+        matches!(self.etapa, None | Some(Stage::GLCompute))
+    }
+
+    /// La etapa de un `OpEntryPoint`, contra la pedida.
+    fn etapa_de(&self, model: u32) -> Result<(), Reason> {
+        match (self.etapa, Stage::from_model(model)) {
+            (None, _) | (_, None) => si(model == GL_COMPUTE && self.computo(), Reason::UnsupportedStage { model }),
+            (Some(pedida), Some(vista)) => {
+                si(pedida == vista, Reason::WrongStage { expected: pedida.model(), found: model })
+            }
+        }
+    }
+
     // ---- preguntas sobre ids -----------------------------------------------
 
     fn def(&self, id: u32) -> Result<Instruction<'a>, Reason> {
@@ -352,11 +447,18 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
                 ins.op(1) == DIR_LOGICAL && ins.op(2) == MEM_GLSL450,
                 Reason::UnsupportedMemoryModel { addressing: ins.op(1), memory: ins.op(2) },
             ),
-            Section::EntryPoint => si(ins.op(1) == GL_COMPUTE, Reason::UnsupportedStage { model: ins.op(1) }),
-            Section::ExecutionMode => si(
-                opcode == op::OpExecutionMode && ins.op(2) == MODO_LOCAL_SIZE,
-                Reason::UnsupportedMode { mode: ins.op(2) },
-            ),
+            Section::EntryPoint => self.etapa_de(ins.op(1)),
+            Section::ExecutionMode => {
+                let modo = match self.etapa {
+                    Some(Stage::Vertex) => None,
+                    Some(Stage::Fragment) => Some(MODO_ORIGIN_UPPER_LEFT),
+                    _ => Some(MODO_LOCAL_SIZE),
+                };
+                si(
+                    opcode == op::OpExecutionMode && Some(ins.op(2)) == modo,
+                    Reason::UnsupportedMode { mode: ins.op(2) },
+                )
+            }
             Section::Source | Section::Name | Section::ModuleProcessed => Ok(()),
             Section::Annotation => match opcode {
                 op::OpDecorationGroup | op::OpGroupDecorate | op::OpGroupMemberDecorate => {
@@ -376,10 +478,56 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
     }
 
     fn class(&self, class: u32) -> Result<(), Reason> {
+        let salida = class == CLASE_OUTPUT && !self.computo();
         si(
-            matches!(class, CLASE_INPUT | CLASE_UNIFORM | CLASE_PRIVATE | CLASE_FUNCTION | CLASE_STORAGE_BUFFER),
+            salida
+                || matches!(class, CLASE_INPUT | CLASE_UNIFORM | CLASE_PRIVATE | CLASE_FUNCTION | CLASE_STORAGE_BUFFER),
             Reason::UnsupportedStorageClass { class },
         )
+    }
+
+    /// Los `BuiltIn` de la etapa que se juzga: `(entran, salen)`.
+    fn builtins(&self) -> (&'static [u32], &'static [u32]) {
+        match self.etapa {
+            Some(Stage::Vertex) => (&BUILTINS_DE_VERTICE_ENTRA, &BUILTINS_DE_VERTICE_SALE),
+            Some(Stage::Fragment) => (&BUILTINS_DE_FRAGMENTO_ENTRA, &BUILTINS_DE_FRAGMENTO_SALE),
+            _ => (&BUILTINS_DE_COMPUTO, &[]),
+        }
+    }
+
+    /// El `BuiltIn` del miembro `k` del struct `s`, si lo lleva.
+    fn builtin_de_miembro(&self, s: u32, k: u32) -> Option<u32> {
+        self.m
+            .instructions()
+            .take_while(|i| op_info(i.opcode).map(|f| f.section <= Section::Annotation).unwrap_or(false))
+            .find(|i| i.opcode == op::OpMemberDecorate && i.op(1) == s && i.op(2) == k && i.op(3) == DEC_BUILTIN)
+            .map(|i| i.op(4))
+    }
+
+    /// Una entrada o salida de vertice o de fragmento: su `Location`, o un
+    /// `BuiltIn` de su etapa -- en la variable, o en CADA miembro de su
+    /// bloque (`gl_PerVertex`: glslang declara los cuatro aunque se use uno).
+    ///
+    /// ```text
+    ///    layout(location = 0) out vec4 color;     Location 0          si
+    ///    gl_VertexIndex                           BuiltIn 42          si
+    ///    gl_Position (en gl_PerVertex)            BuiltIn por miembro si
+    ///    out vec4 x;  (sin nada)                  NoLocation          NO
+    /// ```
+    fn interfaz_grafica(&self, id: u32, apuntado: u32, validos: &[u32]) -> Result<(), Reason> {
+        if let Some(b) = self.decoracion(id, DEC_BUILTIN) {
+            return si(validos.contains(&b), Reason::UnsupportedBuiltIn { builtin: b });
+        }
+        if self.decoracion(id, DEC_LOCATION).is_some() {
+            return Ok(());
+        }
+        let d = self.m.def(apuntado).ok_or(Reason::NoLocation { id })?;
+        si(d.opcode == op::OpTypeStruct && d.words > 2, Reason::NoLocation { id })?;
+        for k in 0..d.words as u32 - 2 {
+            let b = self.builtin_de_miembro(apuntado, k).ok_or(Reason::NoLocation { id })?;
+            si(validos.contains(&b), Reason::UnsupportedBuiltIn { builtin: b })?;
+        }
+        Ok(())
     }
 
     fn tipo_o_constante(&self, ins: &Instruction) -> Result<(), Reason> {
@@ -525,10 +673,13 @@ impl<'m, 'a, 'b> Juez<'m, 'a, 'b> {
         if ins.words > 4 {
             si(self.constante(ins.op(4))? == apuntado, no)?;
         }
+        let (entran, salen) = self.builtins();
         match class {
+            CLASE_INPUT if !self.computo() => self.interfaz_grafica(id, apuntado, entran),
+            CLASE_OUTPUT => self.interfaz_grafica(id, apuntado, salen),
             CLASE_INPUT => {
                 let b = self.decoracion(id, DEC_BUILTIN).ok_or(Reason::InputWithoutBuiltIn { id })?;
-                si(BUILTINS_DE_COMPUTO.contains(&b), Reason::UnsupportedBuiltIn { builtin: b })
+                si(entran.contains(&b), Reason::UnsupportedBuiltIn { builtin: b })
             }
             CLASE_UNIFORM | CLASE_STORAGE_BUFFER => si(
                 self.decoracion(id, DEC_BINDING).is_some() && self.decoracion(id, DEC_DESCRIPTOR_SET).is_some(),

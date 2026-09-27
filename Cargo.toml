@@ -236,6 +236,8 @@ members = [
     "toolchain/lang/spirv",
     # Su emisor, partido como los demas: el frontend no nombra maquinas.
     "toolchain/lang/spirv/emisor-x86_64",
+    # Y el de la RTX 3060 (PLAN_LA_LENGUA_DE_LA_3060): hoy, su subconjunto (E1).
+    "toolchain/lang/spirv/emisor-sm86",
     # El sobre de los sombreadores (S6): SPIR-V + su interfaz + el codigo ya
     # traducido. El lector corre tambien dentro de una app de Ring 3.
     "toolchain/lang/spirv/bsf",

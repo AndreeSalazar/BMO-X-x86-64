@@ -1,0 +1,17 @@
+[package]
+name = "bmo-spirv-sm86"
+version = "0.1.0"
+edition = "2021"
+authors = ["BMO Project"]
+description = "SPIR-V a SM86 (la RTX 3060): hoy el SUBCONJUNTO que el emisor promete traducir (E1 de PLAN_LA_LENGUA_DE_LA_3060). no_std, sin alloc."
+
+# `no_std` y sin `alloc`, como el frontend y como `emisor-x86_64`: lo que la
+# 3060 acepta se juzga igual en el anfitrion (el build) que dentro de BMO-X.
+# Depende SOLO del frontend: el lector y el juez neutro no saben que esto
+# existe (PLAN_LA_LENGUA_DE_LA_3060, seccion 2).
+[dependencies]
+bmo-spirv-front = { path = ".." }
+
+[lib]
+name = "bmo_spirv_sm86"
+path = "src/lib.rs"

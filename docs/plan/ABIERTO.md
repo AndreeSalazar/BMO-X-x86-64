@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   381 casillas ABIERTAS en 44 planes
-   318 hechas
+   380 casillas ABIERTAS en 44 planes
+   319 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -302,15 +302,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] 5 en la seccion 0x0B del .bex -> toolchain/tools/maqueta/pruebas/calc.dorado
 - ... y 2 mas
 
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 5 abiertas, 3 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
-- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
-- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
-- ... y 2 mas
-
 ## [`PLAN_LA_PILA_HUERFANA.md`](PLAN_LA_PILA_HUERFANA.md) -- 5 abiertas, 3 hechas
 
 *PLAN: LA PILA HUERFANA*
@@ -327,6 +318,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] commands/system.rs, 604 lineas de codigo y [!] MEZCLA. Los informes
 - [ ] commands/disco.rs y commands/red.rs, la misma forma y mas chica:
 - [ ] scene/consola.rs, 600 lineas de codigo y 39% de documentacion. Es el
+- ... y 1 mas
+
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 4 abiertas, 4 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
+- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
+- [ ] E4 -- LOS BITS DE CONTROL POR REGLA
 - ... y 1 mas
 
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas

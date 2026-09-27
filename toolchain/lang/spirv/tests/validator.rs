@@ -7,7 +7,7 @@
 //! 3. el juez tampoco entra en panico con bytes volteados que el lector acepta.
 
 use bmo_spirv_front::table::op;
-use bmo_spirv_front::{census, validate, read, Error, Family, Reason, Verdict, MAGIC};
+use bmo_spirv_front::{census, read, validate, validate_stage, Error, Family, Reason, Stage, Verdict, MAGIC};
 
 const SUMA: &[u8] = include_bytes!("../pruebas/suma.spv");
 const SAXPY: &[u8] = include_bytes!("../pruebas/saxpy.spv");
@@ -487,4 +487,120 @@ fn voltear_cada_byte_tampoco_tumba_al_juez() {
         }
         assert!(juzgados > 0, "ningun volteo paso el lector: el juez no se probo");
     }
+}
+
+// ---- 4. la etapa pedida (`validate_stage`, E1 de PLAN_LA_LENGUA_DE_LA_3060) --
+
+const CUBO_VERT: &[u8] = include_bytes!("../../../../platform/drivers/gpu/ga10x/sombreadores/cubo.vert.spv");
+const CUBO_FRAG: &[u8] = include_bytes!("../../../../platform/drivers/gpu/ga10x/sombreadores/cubo.frag.spv");
+
+fn juicio_como(stage: Stage, cambia: impl FnOnce(&mut Partes)) -> Result<Verdict, Error> {
+    let mut p = partes();
+    cambia(&mut p);
+    let b = armar(&p);
+    let mut ids = vec![0u32; 4096];
+    let m = read(&b, &mut ids).unwrap_or_else(|f| panic!("el lector no deberia negarlo: {}", f));
+    validate_stage(&m, stage)
+}
+
+fn razon_como(stage: Stage, cambia: impl FnOnce(&mut Partes)) -> Reason {
+    juicio_como(stage, cambia).err().expect("se esperaba un NO").reason
+}
+
+/// El minimo, de vertice: sin `LocalSize`.
+fn vertice(p: &mut Partes) {
+    p.entrada = ins(op::OpEntryPoint, &con(&[0, 4], cad("main")));
+    p.modos.clear();
+}
+
+/// El minimo, de fragmento: con `OriginUpperLeft`.
+fn fragmento(p: &mut Partes) {
+    p.entrada = ins(op::OpEntryPoint, &con(&[4, 4], cad("main")));
+    p.modos = ins(op::OpExecutionMode, &[4, 7]);
+}
+
+/// `%20` = puntero Output a vec2, `%21` = la variable.
+fn salida_vec2(p: &mut Partes) {
+    p.tipos.extend(ins(op::OpTypePointer, &[20, 3, 9]));
+    p.tipos.extend(ins(op::OpVariable, &[20, 21, 3]));
+}
+
+#[test]
+fn el_cubo_cabe_con_su_etapa_y_no_con_otra() {
+    let como = |bytes: &[u8], stage| {
+        let mut ids = vec![0u32; 4096];
+        validate_stage(&read(bytes, &mut ids).unwrap(), stage)
+    };
+    como(CUBO_VERT, Stage::Vertex).unwrap_or_else(|f| panic!("cubo.vert: {}", f));
+    como(CUBO_FRAG, Stage::Fragment).unwrap_or_else(|f| panic!("cubo.frag: {}", f));
+    assert_eq!(como(CUBO_VERT, Stage::Fragment).unwrap_err().reason, Reason::WrongStage { expected: 4, found: 0 });
+    assert_eq!(como(CUBO_FRAG, Stage::Vertex).unwrap_err().reason, Reason::WrongStage { expected: 0, found: 4 });
+    // El juez de S2 sin etapa sigue siendo de computo, y lo dice como antes.
+    let mut ids = vec![0u32; 4096];
+    assert_eq!(validate(&read(CUBO_VERT, &mut ids).unwrap()).unwrap_err().reason, Reason::UnsupportedStage { model: 0 });
+}
+
+#[test]
+fn el_minimo_en_cada_etapa() {
+    juicio_como(Stage::GLCompute, |_| {}).unwrap();
+    juicio_como(Stage::Vertex, vertice).unwrap();
+    juicio_como(Stage::Fragment, fragmento).unwrap();
+    assert_eq!(razon_como(Stage::Vertex, |_| {}), Reason::WrongStage { expected: 0, found: 5 });
+    assert_eq!(razon_como(Stage::GLCompute, vertice), Reason::WrongStage { expected: 5, found: 0 });
+    // Una etapa que el juez no conoce (Geometry, 3) no es "la equivocada".
+    assert_eq!(
+        razon_como(Stage::Vertex, |p| p.entrada = ins(op::OpEntryPoint, &con(&[3, 4], cad("main")))),
+        Reason::UnsupportedStage { model: 3 }
+    );
+}
+
+#[test]
+fn los_modos_de_cada_etapa() {
+    // `LocalSize` en un vertice, y `OriginUpperLeft` en computo.
+    assert_eq!(
+        razon_como(Stage::Vertex, |p| {
+            vertice(p);
+            p.modos = ins(op::OpExecutionMode, &[4, 17, 1, 1, 1]);
+        }),
+        Reason::UnsupportedMode { mode: 17 }
+    );
+    assert_eq!(
+        razon_como(Stage::GLCompute, |p| p.modos.extend(ins(op::OpExecutionMode, &[4, 7]))),
+        Reason::UnsupportedMode { mode: 7 }
+    );
+}
+
+#[test]
+fn las_salidas_con_location_o_builtin_de_su_etapa() {
+    assert_eq!(razon_como(Stage::GLCompute, salida_vec2), Reason::UnsupportedStorageClass { class: 3 });
+    assert_eq!(
+        razon_como(Stage::Vertex, |p| {
+            vertice(p);
+            salida_vec2(p);
+        }),
+        Reason::NoLocation { id: 21 }
+    );
+    juicio_como(Stage::Vertex, |p| {
+        vertice(p);
+        salida_vec2(p);
+        p.anot = ins(op::OpDecorate, &[21, 30, 0]);
+    })
+    .unwrap();
+    // `FragDepth` (22) es de fragmento, no de vertice.
+    assert_eq!(
+        razon_como(Stage::Vertex, |p| {
+            vertice(p);
+            salida_vec2(p);
+            p.anot = ins(op::OpDecorate, &[21, 11, 22]);
+        }),
+        Reason::UnsupportedBuiltIn { builtin: 22 }
+    );
+    // Y una entrada de fragmento sin nada, tampoco.
+    assert_eq!(
+        razon_como(Stage::Fragment, |p| {
+            fragmento(p);
+            entrada_uint(p);
+        }),
+        Reason::NoLocation { id: 21 }
+    );
 }

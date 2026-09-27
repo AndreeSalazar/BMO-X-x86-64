@@ -72,8 +72,16 @@ pub enum Reason {
     UnsupportedMemoryModel { addressing: u32, memory: u32 },
     /// Ningun punto de entrada.
     NoEntryPoint,
-    /// Una etapa que no es `GLCompute`.
+    /// Una etapa que no es `GLCompute` (o, con [`crate::validate_stage`], que no
+    /// es ninguna de las tres que el juez conoce).
     UnsupportedStage { model: u32 },
+    /// Una etapa que el juez conoce, pero no la que se pidio: el programa de
+    /// vertice entregado como el de pixel. `expected` y `found` son
+    /// `ExecutionModel`.
+    WrongStage { expected: u32, found: u32 },
+    /// Una entrada o salida de vertice o de fragmento sin `Location` y sin
+    /// `BuiltIn`: nadie sabria a donde va.
+    NoLocation { id: u32 },
     /// Un punto de entrada de computo sin `LocalSize`.
     NoLocalSize,
     /// Un modo de ejecucion que no es `LocalSize`.
@@ -91,7 +99,7 @@ pub enum Reason {
     UnsupportedStorageClass { class: u32 },
     /// Una variable de entrada que no es un `BuiltIn`.
     InputWithoutBuiltIn { id: u32 },
-    /// Un `BuiltIn` que el computo no tiene.
+    /// Un `BuiltIn` que la etapa que se juzga no tiene.
     UnsupportedBuiltIn { builtin: u32 },
     /// Un buffer sin `Binding` o sin `DescriptorSet`: nadie sabria cual es.
     NoBinding { id: u32 },
@@ -192,16 +200,18 @@ impl Reason {
             Reason::UnsupportedImport => "instrucciones extendidas que no son GLSL.std.450",
             Reason::UnsupportedMemoryModel { .. } => "modelo que no es Logical + GLSL450",
             Reason::NoEntryPoint => "ningun punto de entrada",
-            Reason::UnsupportedStage { .. } => "etapa que no es de computo (GLCompute)",
+            Reason::UnsupportedStage { .. } => "etapa fuera del subconjunto (GLCompute; Vertex o Fragment si se piden)",
+            Reason::WrongStage { .. } => "el punto de entrada no es de la etapa que se pidio",
+            Reason::NoLocation { .. } => "entrada o salida sin Location y sin BuiltIn",
             Reason::NoLocalSize => "punto de entrada de computo sin LocalSize",
-            Reason::UnsupportedMode { .. } => "modo de ejecucion que no es LocalSize",
+            Reason::UnsupportedMode { .. } => "modo de ejecucion fuera del subconjunto (LocalSize; OriginUpperLeft en fragmentos)",
             Reason::UnsupportedFamily { family, .. } => family.name(),
             Reason::UnsupportedInstruction { why, .. } => why,
             Reason::UnsupportedGlsl { .. } => "instruccion de GLSL.std.450 fuera del subconjunto",
             Reason::UnsupportedType { why } => why,
             Reason::UnsupportedStorageClass { .. } => "clase de almacenamiento fuera del subconjunto",
             Reason::InputWithoutBuiltIn { .. } => "variable de entrada que no es un BuiltIn",
-            Reason::UnsupportedBuiltIn { .. } => "BuiltIn que el computo no tiene",
+            Reason::UnsupportedBuiltIn { .. } => "BuiltIn que esta etapa no tiene",
             Reason::NoBinding { .. } => "buffer sin Binding o sin DescriptorSet",
             Reason::NotAType { .. } => "se esperaba un tipo",
             Reason::NotAValue { .. } => "se esperaba un valor",
@@ -281,6 +291,7 @@ impl fmt::Display for Error {
             | Reason::DuplicateId { id }
             | Reason::ModeWithoutEntryPoint { id }
             | Reason::InputWithoutBuiltIn { id }
+            | Reason::NoLocation { id }
             | Reason::NoBinding { id }
             | Reason::NotAType { id }
             | Reason::NotAValue { id }
@@ -301,6 +312,10 @@ impl fmt::Display for Error {
                 write!(f, " (direccionamiento {}, memoria {})", addressing, memory)
             }
             Reason::UnsupportedStage { model } => write!(f, " (modelo {})", model),
+            Reason::WrongStage { expected, found } => {
+                let nombre = |m| crate::Stage::from_model(m).map(|s| s.name()).unwrap_or("?");
+                write!(f, " (se pidio {}, es {})", nombre(expected), nombre(found))
+            }
             Reason::UnsupportedMode { mode } => write!(f, " (modo {})", mode),
             Reason::UnsupportedGlsl { number } => {
                 write!(f, " (numero {})", number)

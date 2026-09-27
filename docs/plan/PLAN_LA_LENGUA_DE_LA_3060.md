@@ -199,7 +199,7 @@ subir los programas, y un NO es un motivo nuevo en la ABI (con su guardian
   fabrica; el mismo programa enviado a mano al kernel vuelve con el motivo y
   la 3060 no llega a verlo.
 
-## [ ] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
+## [x] E1 -- EL SUBCONJUNTO DE SPIR-V PARA LA 3060
 
 El de vertice y el de pixel del cubo (`cubo.vert`, `cubo.frag`), y el de
 computo que ya entiende el lector (`GLCompute`): entradas por ubicacion,
@@ -210,6 +210,35 @@ que no entra se rechaza CON MOTIVO, como en S2.
 - **Bloquea:** nada (el lector y el juez de SPIR-V ya existen).
 - **Como se sabe:** el juez de SPIR-V acepta `cubo.vert.spv` y
   `cubo.frag.spv` con la etapa correcta, y rechaza con su nombre lo que falta.
+- **Hecho (27-09), en dos pisos:**
+  - el juez NEUTRO aprendio la etapa: `validate_stage(&Module, Stage)` en
+    `toolchain/lang/spirv/src/validator.rs`. `Vertex` y `Fragment` (con
+    `OriginUpperLeft`) ademas de `GLCompute`; `Output`; cada entrada o
+    salida con su `Location` o un `BuiltIn` de SU etapa (`gl_PerVertex`, por
+    miembro); otra etapa es `WrongStage` (`se pidio Fragment, es Vertex`), y
+    sin nada es `NoLocation`. `validate` sigue siendo el de S2, solo computo.
+  - el subconjunto de la 3060 en su crate, `emisor-sm86/` (`bmo-spirv-sm86`,
+    `no_std` sin `alloc`): `check(&Module, Stage) -> Fit` pasa primero por el
+    juez neutro y despues por el ABI `SM86_V1`: buffer en `DescriptorSet 0,
+    Binding k < 16` (`BufferOffSlot`), el vertice entra por `VertexIndex` y
+    sale por `Position` y el generico 0, el pixel lee el generico 0 y deja el
+    color 0 (`BuiltInOffAbi`, `VertexInputByLocation`, `LocationOffAbi`,
+    `AttributeNotFloat`), computo sin `NumWorkgroups`, un solo punto de
+    entrada, y **sin trascendentes** (`Transcendental`: la 3060 las da con
+    `MUFU` y el oraculo las define a un ULP; dos respuestas no). La FMA no se
+    RECHAZA -- en SPIR-V no se puede escribir una que nadie pidio -- sino que
+    se CUENTA: `Fit::fused` es el numero de `FFMA` que E3 puede poner.
+  - `cargo test -p bmo-spirv-sm86`: `cubo.vert.spv` cabe como `Vertex`
+    (ranura 0, generico 0), `cubo.frag.spv` como `Fragment`, y siete de
+    computo del banco del lector como `GLCompute`; con la etapa cambiada,
+    `WrongStage`; y una fila por regla sobre el MISMO modulo de verdad con
+    una palabra cambiada, que cae con ESA regla (y `trascendentes.spv`, de
+    verdad, cae en `Sin`).
+  - **Lo que NO prueba:** que el emisor cumpla (E3 y J1); que el computo con
+    `SM86_V1` corra en el metal -- el ABI se escribio para el cubo --; y `flat`
+    contra lo interpolado sigue como lo deja `tuberia.rs` (el cubo lo juzga).
+    Solo la Location 0 cabe porque el ABI solo nombra el generico 0 y el
+    color 0: un segundo atributo es una version nueva del ABI, no esta casilla.
 
 ## [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
 

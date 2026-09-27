@@ -44,7 +44,7 @@ mod reason;
 pub mod table;
 mod validator;
 
-pub use validator::{census, validate, Census, Verdict};
+pub use validator::{census, validate, validate_stage, Census, Stage, Verdict};
 pub use reader::{read, Header, EntryPoint, Import, Instruction, Instructions, Module};
 pub use interpreter::{workspace_words, Buffer, Interpreter, Stats, Trap};
 pub use reason::{Error, Reason};
