@@ -470,7 +470,9 @@ try {
     # en vez de hacer su trabajo.
     # ** Y `sombra` (2026-09-23): S5 del SOMBREADOR, SPIR-V traducido y
     # SELLADO dentro de BMO-X. Mismo motivo: si el build la exige, la construye.
-    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra `
+    # ** Y `proton-x` (2026-09-27): PROTON-X P1c, un .exe de Windows cargado,
+    # SELLADO y ejecutado en Ring 3.
+    $out = cargo +nightly build -p bmo-service-director -p bmo-medida-coste -p bmo-medida-sombra -p bmo-app-proton-x `
         --release --target x86_64-unknown-none 2>&1
     $out | ForEach-Object {
         if ($_ -match 'Compiling|Finished|error') { Write-Host ('    [userspace] ' + $_) -ForegroundColor DarkGray }

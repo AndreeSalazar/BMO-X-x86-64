@@ -38,7 +38,7 @@ extern crate alloc;
 pub mod cargar;
 pub mod pe;
 
-pub use cargar::{colocar, importaciones, resolver, Funcion, Importacion};
+pub use cargar::{colocar, importaciones, partir, resolver, Funcion, Importacion, Partes, PAGINA};
 pub use pe::{leer, Pe, Permiso, Seccion};
 
 use alloc::string::String;
@@ -65,6 +65,9 @@ pub enum Fallo {
     Relocalizacion { rva: u32, tipo: u16 },
     /// Pide TLS (el directorio 9): se da en P4, no antes.
     PideTls,
+    /// Una seccion que no es codigo cae en las paginas del codigo: con
+    /// bloques enteros no se sella una sin la otra.
+    NoSeParte(String),
     /// Lo que el `.exe` importa y la tabla de la casa NO tiene. Todas.
     Faltan(Vec<Importacion>),
 }
@@ -80,6 +83,7 @@ impl fmt::Display for Fallo {
             Fallo::SinRelocalizaciones => write!(f, "hay que moverlo de su base y no trae relocalizaciones (.reloc)"),
             Fallo::Relocalizacion { rva, tipo } => write!(f, "relocalizacion de tipo {tipo} en la RVA {rva:#x}: un PE32+ x86-64 solo trae DIR64"),
             Fallo::PideTls => write!(f, "pide TLS (el directorio 9): se da en P4"),
+            Fallo::NoSeParte(n) => write!(f, "la seccion {n} no es codigo y cae en las paginas del codigo: no se sella una sin la otra"),
             Fallo::Faltan(v) => {
                 write!(f, "no arranca: faltan {} funcion(es) en la tabla de la casa:", v.len())?;
                 for i in v {

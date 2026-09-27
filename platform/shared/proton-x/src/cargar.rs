@@ -8,13 +8,51 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt;
 
-use crate::pe::{u16_en, u32_en, u64_en, Pe};
+use crate::pe::{u16_en, u32_en, u64_en, Pe, Permiso};
 use crate::Fallo;
 
 /// Relocalizacion que no hace nada (relleno del bloque).
 const RELOC_NADA: u16 = 0;
 /// La unica que trae un PE32+ x86-64: sumar la distancia a un `u64`.
 const RELOC_DIR64: u16 = 10;
+
+/// La pagina de BMO-X: un bloque se pide, se sella y se suelta en paginas.
+pub const PAGINA: u32 = 4096;
+
+/// **Como se parte la imagen en DOS bloques seguidos**: `codigo` bytes desde
+/// la RVA 0 (cabeceras y secciones de codigo: se SELLA, R+X) y `datos` bytes
+/// detras (lo demas: R+W, sin X).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Partes {
+    pub codigo: u32,
+    pub datos: u32,
+}
+
+/// **Partir la imagen para BMO-X** (P1c, 27-09). El kernel sella BLOQUES
+/// enteros (`MEM_OP_SELLAR`) y pone los que se piden seguidos uno detras de
+/// otro; asi que la imagen va en dos: lo que se ejecuta delante, lo demas
+/// detras. Una seccion que NO es codigo y cae en las paginas del codigo no
+/// se puede separar de el: se dice, y no se carga ejecutable a medias.
+///
+/// Las cabeceras van en el bloque del codigo: quedan R+X, sin W. Como en
+/// Windows, nadie las escribe; a diferencia de Windows, se podrian ejecutar
+/// (no hay nada que ejecutar en ellas). `.rdata` va con los datos: R+W, no
+/// solo R. Las dos cosas son de tener dos bloques y no uno por permiso.
+pub fn partir(pe: &Pe) -> Result<Partes, Fallo> {
+    let arriba = |x: u32| x.div_ceil(PAGINA) * PAGINA;
+    let mut corte = arriba(pe.tam_cabeceras.max(1));
+    for s in pe.secciones.iter().filter(|s| s.permiso() == Permiso::Codigo) {
+        corte = corte.max(arriba(s.rva + s.tam_en_imagen()));
+    }
+    if let Some(s) = pe.secciones.iter().find(|s| s.permiso() != Permiso::Codigo && s.rva < corte) {
+        return Err(Fallo::NoSeParte(s.nombre.clone()));
+    }
+    let total = arriba(pe.tam_imagen);
+    if corte > total {
+        return Err(Fallo::Corto("la imagen: el codigo pasa de su medida"));
+    }
+    Ok(Partes { codigo: corte, datos: total - corte })
+}
 
 /// **La imagen, en su base**: cabeceras y secciones en su RVA, el resto a
 /// cero, y las relocalizaciones aplicadas si `base` no es la del enlazador.

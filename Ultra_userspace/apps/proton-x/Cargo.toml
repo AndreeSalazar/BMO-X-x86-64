@@ -1,0 +1,16 @@
+[package]
+name = "bmo-app-proton-x"
+version = "0.1.0"
+edition = "2021"
+description = "PROTON-X P1c: carga un .exe x86-64 de Windows en Ring 3 de BMO-X, sella su codigo y le da el kernel32 de la casa"
+
+[[bin]]
+name = "proton-x"
+path = "src/main.rs"
+
+[dependencies]
+bmo-userland = { path = "../../userland" }
+# El cargador es puro y se prueba en el anfitrion, donde `hola.exe` CORRE
+# (`tests/corre.rs` de alli). Aqui se pone lo que el no sabe: la memoria de
+# verdad, el sellado, la tabla de la casa y el salto.
+bmo-proton-x = { path = "../../../platform/shared/proton-x" }

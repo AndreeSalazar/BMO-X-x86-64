@@ -131,6 +131,30 @@ try {
     }
     if ($LASTEXITCODE -ne 0) { Fail 'no se pudo meter el BSF en sombra.bex' }
     Remove-Item -Force $sombraBsf -ErrorAction SilentlyContinue
+
+    # -- PROTON-X P1c: `sys/proton-x.bex` y `apps/hola.exe` -------------
+    #
+    # El cargador de un .exe x86-64 de Windows en Ring 3: lo lee, lo coloca en
+    # dos bloques seguidos, resuelve sus importaciones contra el kernel32 de
+    # la casa, SELLA su codigo y salta. `hola.exe` es el del banco del
+    # cargador (platform/shared/proton-x/prueba, reproducible byte a byte), y
+    # va a `apps\` porque viene de fuera: es un .exe de Windows.
+    #     run sys/proton-x.bex apps/hola.exe
+    $protonElf = Join-Path $usDir 'target\x86_64-unknown-none\release\proton-x'
+    if (-not (Test-Path $protonElf)) { Fail 'no salio el ELF de apps/proton-x' }
+    $protonBex = Join-Path $dataBase 'sys\proton-x.bex'
+    if (Test-Path $protonBex) { Remove-Item $protonBex -Force }
+    $out = & (Obrero bmo-bex-link) $protonElf $protonBex 2>&1
+    $out | ForEach-Object {
+        $linea = $_.ToString()
+        if ($linea -match '^\s+(\.text|->)|error|!!') {
+            Write-Host ('    [bex-link] ' + $linea.Trim()) -ForegroundColor DarkGray
+        }
+    }
+    if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/proton-x' }
+    if (-not (Test-Path $protonBex)) { Fail 'bex-link no produjo proton-x.bex' }
+    Copy-Item (Join-Path (Get-Location) 'platform\shared\proton-x\prueba\hola.exe') (Join-Path $dataBase 'apps\hola.exe') -Force
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\hola.exe (run sys/proton-x.bex apps/hola.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

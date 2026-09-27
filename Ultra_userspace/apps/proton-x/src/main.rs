@@ -1,0 +1,198 @@
+//! **PROTON-X en el Ryzen** (P1c, 27-09): un `.exe` de Windows en Ring 3.
+//!
+//! `run sys/proton-x.bex apps/hola.exe` (sin argumento, `apps/hola.exe`):
+//!
+//! ```text
+//!    1  leer el .exe del volumen, entero          un bloque, que se suelta
+//!    2  el veredicto y la forma (bmo-proton-x)    solo PE32+ x86-64
+//!    3  partir: codigo delante, datos detras      dos bloques SEGUIDOS
+//!    4  colocar en SU direccion, relocalizar      la base es la del bloque
+//!    5  resolver contra la tabla de la casa       kernel32.rs, o no arranca
+//!    6  SELLAR el codigo (MEM_OP_SELLAR)          R+X sin W; los datos, sin X
+//!    7  saltar a su entrada, como `extern "win64"`
+//! ```
+//!
+//! **Lo que el kernel pone y este fichero cuenta con ello** (ring0/obj/
+//! memory.rs): cada bloque que se pide cae JUSTO DETRAS del anterior en las
+//! direcciones del proceso (el cursor solo avanza), y un proceso tiene como
+//! mucho CUATRO bloques vivos. Por eso el orden: fichero (1) y monton (2); se
+//! suelta el fichero (1); codigo (2) y datos (3), seguidos. Que esten seguidos
+//! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
+//! dice y no salta.
+//!
+//! **Lo que NO hace todavia:** el GS de Windows (`gs:[0x30]`, el TEB) no
+//! existe. `hola.exe` no lo toca; el primer `.exe` que lo lea es P1d.
+
+#![no_std]
+#![no_main]
+
+extern crate alloc;
+
+mod kernel32;
+mod monton;
+
+use alloc::format;
+use alloc::vec::Vec;
+use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, Permiso};
+use bmo_userland as bmo;
+
+#[global_allocator]
+static MONTON: monton::Monton = monton::Monton::vacio();
+
+/// Lo mas grande que se lee hoy: un `.exe` de P1 son KiB.
+const TOPE_EXE: u64 = 16 << 20;
+
+fn di(s: &str) {
+    bmo::consola(s);
+}
+
+fn fin(motivo: &str) -> ! {
+    di(&format!("PROTON-X: NO -- {motivo}\n"));
+    bmo::salir();
+}
+
+/// El final del `.exe`, por `ExitProcess` o porque su entrada volvio.
+pub(crate) fn fin_del_exe(codigo: u32) -> ! {
+    // Sin `format!`: el `.exe` pudo gastar lo que quisiera del monton.
+    let mut b = [0u8; 48];
+    let pre = b"PROTON-X: el .exe salio con ";
+    b[..pre.len()].copy_from_slice(pre);
+    let mut n = pre.len();
+    let mut d = [0u8; 10];
+    let mut k = 0;
+    let mut v = codigo;
+    loop {
+        d[k] = b'0' + (v % 10) as u8;
+        k += 1;
+        v /= 10;
+        if v == 0 {
+            break;
+        }
+    }
+    while k > 0 {
+        k -= 1;
+        b[n] = d[k];
+        n += 1;
+    }
+    b[n] = b'\n';
+    di(core::str::from_utf8(&b[..n + 1]).unwrap_or("PROTON-X: el .exe salio\n"));
+    bmo::salir();
+}
+
+#[no_mangle]
+pub extern "C" fn _start() -> ! {
+    let mut arg = [0u8; 96];
+    let n = bmo::argumentos(&mut arg);
+    let ruta: &[u8] = if n == 0 { b"apps/hola.exe" } else { &arg[..n] };
+    let nombre = core::str::from_utf8(ruta).unwrap_or("?");
+
+    // -- 1. El fichero, entero.
+    let Ok(a) = bmo::Archivo::leer_de(ruta) else {
+        di("PROTON-X: NO -- no encuentro ");
+        di(nombre);
+        di(" en el volumen\n");
+        bmo::salir();
+    };
+    let mide = a.size();
+    if mide == 0 || mide > TOPE_EXE {
+        di("PROTON-X: NO -- el .exe esta vacio o pasa de 16 MiB\n");
+        bmo::salir();
+    }
+    let Some(fichero) = bmo::Memoria::request(mide) else {
+        di("PROTON-X: NO -- sin memoria para leer el .exe\n");
+        bmo::salir();
+    };
+    if a.leer_en(&fichero, 0, mide) != mide {
+        di("PROTON-X: NO -- el .exe no se leyo entero\n");
+        bmo::salir();
+    }
+    drop(a);
+
+    // El monton: el .exe copiado, la imagen y lo que el cargador anote.
+    let para_monton = (3 * mide + (1 << 20)).min(64 << 20);
+    let Some(bloque) = bmo::Memoria::request(para_monton) else {
+        di("PROTON-X: NO -- sin memoria para el monton del cargador\n");
+        bmo::salir();
+    };
+    // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
+    unsafe { MONTON.poner(bloque.base() as usize, para_monton as usize) };
+    core::mem::forget(bloque);
+    // SAFETY: `mide` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let exe: Vec<u8> = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, mide as usize) }.to_vec();
+    fichero.soltar();
+
+    // -- 2 y 3. El veredicto, la forma, y como se parte.
+    let pe = leer(&exe).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    let partes = partir(&pe).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+
+    // La entrada tiene que caer en lo que se va a sellar: saltar a los datos
+    // seria un #PF por NX, y saltar fuera, peor.
+    if pe.entrada == 0 || pe.entrada >= partes.codigo || !pe.secciones.iter().any(|s| s.permiso() == Permiso::Codigo && (s.rva..s.rva + s.tam_en_imagen()).contains(&pe.entrada)) {
+        fin(&format!("{nombre}: la entrada ({:#x}) no cae en una seccion de codigo", pe.entrada));
+    }
+
+    // -- Los dos bloques, SEGUIDOS (se comprueba).
+    let Some(codigo) = bmo::Memoria::request(partes.codigo as u64) else { fin("sin memoria para el codigo") };
+    let datos = if partes.datos > 0 {
+        let Some(d) = bmo::Memoria::request(partes.datos as u64) else { fin("sin memoria para los datos") };
+        Some(d)
+    } else {
+        None
+    };
+    let base = codigo.base() as u64;
+    if let Some(d) = datos.as_ref() {
+        if d.base() as u64 != base + partes.codigo as u64 {
+            fin(&format!("los bloques no quedaron seguidos ({:#x} y {:#x}): la imagen no se puede partir", base, d.base() as u64));
+        }
+    }
+
+    // -- 4 y 5. Colocar en SU direccion y resolver contra la casa.
+    let mut img = colocar(&pe, &exe, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    let imps = importaciones(&pe, &img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    resolver(&mut img, &imps, kernel32::buscar).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    let (delante, detras) = img.split_at(partes.codigo as usize);
+    // SAFETY: cada bloque mide lo que `partir` dijo, y es nuestro.
+    unsafe {
+        core::ptr::copy_nonoverlapping(delante.as_ptr(), codigo.base(), delante.len());
+        if let Some(d) = datos.as_ref() {
+            core::ptr::copy_nonoverlapping(detras.as_ptr(), d.base(), detras.len().min(partes.datos as usize));
+        }
+    }
+
+    // -- 6. SELLAR: de datos a codigo. Sin esto, saltar seria un #PF por NX.
+    if let Err(m) = codigo.sellar() {
+        fin(&format!("SELLAR dice NO (motivo {m}): el codigo del .exe no se ejecuta sin sellar"));
+    }
+    di(&format!(
+        "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} funcion(es) de la casa; codigo {} KiB SELLADO, datos {} KiB sin X; monton {} B\n",
+        exe.len(),
+        base,
+        pe.base,
+        imps.len(),
+        partes.codigo / 1024,
+        partes.datos / 1024,
+        MONTON.gastado()
+    ));
+    di("PROTON-X: salto a su entrada ----------------------------------\n");
+    // La imagen vive hasta que el proceso muera: sin `Drop`, que la soltaria.
+    core::mem::forget(codigo);
+    core::mem::forget(datos);
+
+    // -- 7. Saltar. `extern "win64"`: el compilador alinea la pila y deja la
+    // sombra de 32 bytes, como el cargador de Windows.
+    // SAFETY: la entrada cae en una seccion de codigo del bloque sellado
+    // (comprobado arriba) y la imagen esta colocada y resuelta.
+    let entrada: extern "win64" fn() -> u32 = unsafe { core::mem::transmute(base + pe.entrada as u64) };
+    let r = entrada();
+    fin_del_exe(r)
+}
+
+#[panic_handler]
+fn panico(info: &core::panic::PanicInfo) -> ! {
+    di("PROTON-X: panico en el cargador\n");
+    if let Some(s) = info.message().as_str() {
+        di(s);
+        di("\n");
+    }
+    bmo::salir();
+}

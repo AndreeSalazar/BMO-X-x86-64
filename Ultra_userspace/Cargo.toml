@@ -10,6 +10,8 @@ members = [
     "medida/coste",
     # S5 del SOMBREADOR: SPIR-V traducido aqui dentro, SELLADO y ejecutado.
     "medida/sombra",
+    # PROTON-X P1c: un .exe x86-64 de Windows cargado, sellado y ejecutado.
+    "apps/proton-x",
 ]
 resolver = "2"
 

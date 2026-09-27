@@ -7,6 +7,14 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-app-proton-x"
+version = "0.1.0"
+dependencies = [
+ "bmo-proton-x",
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-bsf"
 version = "0.1.0"
 dependencies = [
@@ -90,6 +98,10 @@ version = "0.1.0"
 dependencies = [
  "bmo-cripto",
 ]
+
+[[package]]
+name = "bmo-proton-x"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-puerta-red"

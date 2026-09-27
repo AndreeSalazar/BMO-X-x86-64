@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   383 casillas ABIERTAS en 44 planes
-   312 hechas
+   382 casillas ABIERTAS en 44 planes
+   313 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -131,15 +131,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 11 abiertas, 2 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P1b -- el kernel32 de la casa. Las tres de hola.exe
-- [ ] P1c -- hola.exe en el Ryzen. proton-x.bex en Ring 3: lee el
-- [ ] P1d -- la decision del GS (seccion 3). Con el primer .exe que SI
-- ... y 8 mas
-
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -147,6 +138,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 10 abiertas, 3 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P1c -- hola.exe en el Ryzen. El CODIGO esta (27-09):
+- [ ] P1d -- la decision del GS (seccion 3). Con el primer .exe que SI
+- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
 - ... y 7 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 9 abiertas, 7 hechas

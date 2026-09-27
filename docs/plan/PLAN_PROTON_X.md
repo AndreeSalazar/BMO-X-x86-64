@@ -232,19 +232,33 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       y las mutaciones (32 bits, ARM, PE32, .NET, W+X, otra relocalizacion,
       fichero cortado) salen cada una con su motivo. Compila tambien para
       `x86_64-unknown-none`, el blanco de BMO-X.
-- [ ] **P1b -- el `kernel32` de la casa.** Las tres de `hola.exe`
-      (`GetStdHandle`, `WriteFile`, `ExitProcess`) en Rust `no_std`, como
-      `extern "win64"`, sobre INVOKE: la consola y la salida del proceso. Es
-      la primera fila de LA TABLA DE LA CASA. **Como se sabe:** su banco las
-      llama con la convencion de Windows (rcx, rdx, r8, r9 y 32 bytes de
-      sombra) y la consola dice la frase.
-- [ ] **P1c -- `hola.exe` en el Ryzen.** `proton-x.bex` en Ring 3: lee el
-      `.exe` del volumen, pide los bloques, coloca con `bmo-proton-x`, SELLA
-      `.text` (`MEM_OP_SELLAR`), resuelve contra la tabla de P1b y salta a
-      la entrada. `hola.exe` no toca `gs:` (su codigo son 19 instrucciones,
-      desensambladas el 27-09), asi que P1c NO espera a la decision del GS.
-      **Como se sabe:** `run apps/proton-x.bex hola.exe` dice en BMO-X lo
-      mismo que `hola.exe` en Windows, y sale con 0.
+- [x] **P1b -- el `kernel32` de la casa.** HECHO el 27-09:
+      `Ultra_userspace/apps/proton-x/src/kernel32.rs`, las tres de
+      `hola.exe` (`GetStdHandle`, `WriteFile`, `ExitProcess`) en Rust
+      `no_std` como `extern "win64"`, sobre la consola y la salida del
+      proceso. `WriteFile` no manda el `\r` de un `\r\n` (la consola de
+      BMO-X es de lineas) y lo cuenta como escrito. Una que no esta en la
+      tabla no se rellena: el cargador dice cual falta. **Como se sabe:**
+      `hola.exe` CORRE en la CPU del anfitrion (`bmo-proton-x`,
+      `tests/corre.rs`): partido, colocado en una base que no es la suya,
+      resuelto contra tres `extern "win64"` de prueba, el codigo R+X y los
+      datos sin X, y saltado a su entrada con la convencion de Windows. Dice
+      `hola desde un .exe de Windows\r\n` y `ExitProcess(0)`, estable en
+      cinco corridas. Un fallo del cargador ahi no es un "distinto": es un
+      fallo de pagina.
+- [ ] **P1c -- `hola.exe` en el Ryzen.** El CODIGO esta (27-09):
+      `Ultra_userspace/apps/proton-x` -> `sys/proton-x.bex` (el build lo
+      enlaza y copia `hola.exe` a `apps/`). Lee el `.exe`, lo PARTE
+      (`bmo_proton_x::partir`: cabeceras y codigo delante, datos detras) en
+      dos bloques que el kernel pone SEGUIDOS -- se comprueba, no se supone
+      --, coloca en la base del bloque, resuelve contra P1b, SELLA el codigo
+      (`MEM_OP_SELLAR`) y salta. Cuenta con el tope del kernel de cuatro
+      bloques vivos: fichero y monton, se suelta el fichero, codigo y datos.
+      `hola.exe` no toca `gs:` (sus 19 instrucciones), asi que no espera a
+      P1d. `bex-link` lo enlaza y `bmo-bex-gate` lo ADMITE. **Como se
+      sabe:** `run sys/proton-x.bex apps/hola.exe` dice en BMO-X la frase
+      de `hola.exe` en Windows y `el .exe salio con 0` (falta verlo en el
+      metal).
 - [ ] **P1d -- la decision del GS (seccion 3).** Con el primer `.exe` que SI
       lea `gs:[0x30]` (el CRT de Microsoft lo hace), no antes. **Como se
       sabe:** la decision escrita aqui, con lo que cuesta en el cambio de
