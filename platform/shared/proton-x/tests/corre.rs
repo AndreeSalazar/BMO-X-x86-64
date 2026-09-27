@@ -1,4 +1,5 @@
-//! **`hola.exe` CORRE en esta CPU** (P1b, 27-09): el banco de verdad.
+//! **`hola.exe` y `teb.exe` CORREN en esta CPU** (P1b y P1d, 27-09): el banco
+//! de verdad.
 //!
 //! Las otras pruebas miran los bytes. Esta EJECUTA el `.exe` de Windows en el
 //! anfitrion (Linux, x86-64), como lo hara `proton-x.bex` en el Ryzen:
@@ -18,6 +19,11 @@
 //! La memoria se pide con `mmap`/`mprotect` por `syscall`, sin `libc`: el
 //! crate sigue sin dependencias.
 //!
+//! **P1d, el GS.** `teb.exe` lee su TEB en `gs:[0x30]` como el CRT de
+//! Microsoft. Aqui se lo pone `arch_prctl(ARCH_SET_GS)` --el GS de este hilo
+//! en Linux-- y en BMO-X `TASK_OP_PON_GS`: la misma pieza, dos kernels. El
+//! TEB y el PEB los escribe `bmo_proton_x::teb`, el mismo que usa la app.
+//!
 //! `ExitProcess` no vuelve (en BMO-X es `salir`). Aqui el proceso es el de las
 //! pruebas y no puede morir, asi que `ExitProcess` salta de vuelta a donde se
 //! llamo a la entrada, con la pila de entonces: [`correr`].
@@ -29,6 +35,10 @@ use std::sync::Mutex;
 use bmo_proton_x::*;
 
 const HOLA: &[u8] = include_bytes!("../prueba/hola.exe");
+const TEB: &[u8] = include_bytes!("../prueba/teb.exe");
+
+/// Los `.exe` comparten la vuelta y lo dicho (estaticos): uno a la vez.
+static UNO_A_LA_VEZ: Mutex<()> = Mutex::new(());
 
 const PROT_LEE: u64 = 1;
 const PROT_ESCRIBE: u64 = 2;
@@ -98,6 +108,29 @@ extern "win64" fn exit_process(codigo: u32) -> ! {
     }
 }
 
+fn gs_teb() -> u64 {
+    let v: u64;
+    unsafe { core::arch::asm!("mov {}, gs:[0x30]", out(reg) v, options(nostack, readonly)) };
+    v
+}
+
+/// Como en Windows: el ultimo error VIVE en el TEB, no en una variable nuestra.
+extern "win64" fn set_last_error(e: u32) {
+    unsafe { ((gs_teb() + teb::TEB_LAST_ERROR as u64) as *mut u32).write(e) };
+}
+
+extern "win64" fn get_last_error() -> u32 {
+    unsafe { ((gs_teb() + teb::TEB_LAST_ERROR as u64) as *const u32).read() }
+}
+
+extern "win64" fn get_current_process_id() -> u32 {
+    unsafe { ((gs_teb() + teb::TEB_PROCESS_ID as u64) as *const u64).read() as u32 }
+}
+
+extern "win64" fn get_current_thread_id() -> u32 {
+    unsafe { ((gs_teb() + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
+}
+
 fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     if !dll.eq_ignore_ascii_case("kernel32.dll") {
         return None;
@@ -106,6 +139,10 @@ fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         Funcion::Nombre(n) if n == "GetStdHandle" => Some(get_std_handle as *const () as usize as u64),
         Funcion::Nombre(n) if n == "WriteFile" => Some(write_file as *const () as usize as u64),
         Funcion::Nombre(n) if n == "ExitProcess" => Some(exit_process as *const () as usize as u64),
+        Funcion::Nombre(n) if n == "SetLastError" => Some(set_last_error as *const () as usize as u64),
+        Funcion::Nombre(n) if n == "GetLastError" => Some(get_last_error as *const () as usize as u64),
+        Funcion::Nombre(n) if n == "GetCurrentProcessId" => Some(get_current_process_id as *const () as usize as u64),
+        Funcion::Nombre(n) if n == "GetCurrentThreadId" => Some(get_current_thread_id as *const () as usize as u64),
         _ => None,
     }
 }
@@ -140,27 +177,84 @@ unsafe fn correr(entrada: u64) -> u32 {
     SALIO
 }
 
-#[test]
-fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
-    let pe = leer(HOLA).unwrap();
+/// `arch_prctl(ARCH_SET_GS)`: el GS de ESTE hilo de Linux.
+fn poner_gs(v: u64) {
+    let r = unsafe { syscall6(158, 0x1001, v, 0, 0, 0, 0) };
+    assert_eq!(r, 0, "arch_prctl(ARCH_SET_GS) dijo {r:#x}");
+}
+
+/// **Cargar y correr un `.exe`** como `proton-x.bex`: partir, colocar en una
+/// base que no es la suya, resolver, codigo R+X, datos sin X; y si `con_teb`,
+/// un TEB y un PEB en el GS. Devuelve (con que salio, lo que dijo, la base).
+fn correr_exe(exe: &[u8], con_teb: bool) -> (u32, Vec<u8>, u64) {
+    let _uno = UNO_A_LA_VEZ.lock().unwrap_or_else(|e| e.into_inner());
+    let pe = leer(exe).unwrap();
     let partes = partir(&pe).unwrap();
-    // hola.exe: cabeceras y .text en dos paginas; .rdata y .reloc en otras dos.
-    assert_eq!(partes, Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
     let total = (partes.codigo + partes.datos) as u64;
     let base = mmap(total);
-    // En una base que NO es la suya: las relocalizaciones tienen que trabajar.
-    assert_ne!(base, pe.base);
-    let mut img = colocar(&pe, HOLA, base).unwrap();
+    assert_ne!(base, pe.base, "en una base que NO es la suya");
+    let mut img = colocar(&pe, exe, base).unwrap();
     let imps = importaciones(&pe, &img).unwrap();
     resolver(&mut img, &imps, tabla).unwrap();
     unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
     mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);
-    // Los datos siguen R+W y SIN X: el W^X de la casa, tambien aqui.
+    let hilo_mem = (teb::TEB_BYTES + teb::PEB_BYTES) as u64;
+    let mem = mmap(hilo_mem);
+    if con_teb {
+        // La pila: la de este hilo de prueba, alrededor de donde estamos.
+        let rsp: u64;
+        unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp) };
+        let h = teb::Hilo {
+            teb: mem,
+            peb: mem + teb::TEB_BYTES as u64,
+            pila_tope: rsp + (64 << 10),
+            pila_fondo: rsp - (256 << 10),
+            proceso: 7,
+            hilo: 42,
+            base_imagen: base,
+        };
+        // SAFETY: `mem` son TEB_BYTES + PEB_BYTES recien pedidos, R+W.
+        let t = unsafe { core::slice::from_raw_parts_mut(mem as *mut u8, hilo_mem as usize) };
+        let (tb, pb) = t.split_at_mut(teb::TEB_BYTES);
+        teb::escribir_teb(tb, &h);
+        teb::escribir_peb(pb, &h);
+        poner_gs(mem);
+    }
     DICHO.lock().unwrap().clear();
     let salio = unsafe { correr(base + pe.entrada as u64) };
+    if con_teb {
+        poner_gs(0);
+    }
+    munmap(mem, hilo_mem);
     munmap(base, total);
+    let dicho = DICHO.lock().unwrap().clone();
+    (salio, dicho, base)
+}
+
+#[test]
+fn hola_exe_corre_en_esta_cpu_y_dice_su_frase() {
+    let pe = leer(HOLA).unwrap();
+    // hola.exe: cabeceras y .text en dos paginas; .rdata y .reloc en otras dos.
+    assert_eq!(partir(&pe).unwrap(), Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
+    let (salio, dicho, _) = correr_exe(HOLA, false);
     assert_eq!(salio, 0, "ExitProcess con 0: escribio la frase entera");
-    assert_eq!(DICHO.lock().unwrap().as_slice(), b"hola desde un .exe de Windows\r\n");
+    assert_eq!(dicho.as_slice(), b"hola desde un .exe de Windows\r\n");
+}
+
+/// **P1d en el anfitrion**: `teb.exe` lee su TEB, su PEB, su base, su pila y su
+/// LastError por `gs:`, y dice `bien` seis veces. Sin el GS puesto, el primer
+/// `gs:[0x30]` leeria de la direccion 0x30: un fallo de pagina, no un "MAL".
+#[test]
+fn teb_exe_encuentra_su_teb_y_su_peb_en_gs() {
+    let (salio, dicho, base) = correr_exe(TEB, true);
+    let texto = String::from_utf8(dicho).unwrap();
+    assert_eq!(texto.matches("  bien  ").count(), 6, "{texto}");
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert!(texto.contains(&format!("PEB+0x10 es la base de esta imagen 0x{base:016x}")), "{texto}");
+    assert!(texto.contains("SetLastError deja su valor en gs:[0x68] 0x0000000000001234"), "{texto}");
+    assert!(texto.contains("GetCurrent*Id son los del TEB 0x000000070000002a"), "{texto}");
+    assert!(texto.ends_with("teb.exe: el TEB y el PEB son los de Windows\r\n"), "{texto}");
+    assert_eq!(salio, 0, "ExitProcess con el numero de fallos: 0");
 }
 
 #[test]

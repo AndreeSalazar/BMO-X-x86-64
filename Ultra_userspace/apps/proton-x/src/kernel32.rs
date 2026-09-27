@@ -5,11 +5,13 @@
 //! r8, r9 y 32 bytes de sombra) sin una linea de ensamblador. Y debajo, la
 //! puerta de BMO-X: la consola y la salida del proceso.
 //!
-//! Hoy son las tres de `hola.exe`. Una funcion que no esta en [`buscar`] NO
-//! se rellena con un stub: el cargador dice TODAS las que faltan, con su DLL,
-//! y el `.exe` no arranca (PLAN_PROTON_X, seccion 5).
+//! Hoy son siete: las tres de `hola.exe` y, desde P1d, las cuatro que viven
+//! en el TEB (`SetLastError`, `GetLastError`, `GetCurrentProcessId`,
+//! `GetCurrentThreadId`), que lo leen por `gs:` como Windows. Una funcion que
+//! no esta en [`buscar`] NO se rellena con un stub: el cargador dice TODAS las
+//! que faltan, con su DLL, y el `.exe` no arranca (PLAN_PROTON_X, seccion 5).
 
-use bmo_proton_x::Funcion;
+use bmo_proton_x::{teb, Funcion};
 use bmo_userland as bmo;
 
 /// `GetStdHandle(STD_OUTPUT_HANDLE)` y `(STD_ERROR_HANDLE)`: los dos van a la
@@ -68,6 +70,40 @@ extern "win64" fn exit_process(codigo: u32) -> ! {
     super::fin_del_exe(codigo)
 }
 
+/// El TEB de este hilo: `gs:[0x30]`, como lo lee Windows. Lo puso
+/// `poner_teb` antes de saltar.
+fn teb() -> u64 {
+    let v: u64;
+    // SAFETY: el GS apunta a nuestro TEB desde antes de la entrada del `.exe`.
+    unsafe { core::arch::asm!("mov {}, gs:[0x30]", out(reg) v, options(nostack, readonly, preserves_flags)) };
+    v
+}
+
+/// `SetLastError` / `GetLastError`: el valor VIVE en el TEB (`+0x68`), no en
+/// una variable nuestra. Un `.exe` que lo lea por `gs:[0x68]` sin llamar a
+/// nadie --lo hace codigo de verdad-- ve lo mismo.
+extern "win64" fn set_last_error(e: u32) {
+    // SAFETY: el TEB es nuestro, R+W, y `+0x68` cae dentro.
+    unsafe { ((teb() + teb::TEB_LAST_ERROR as u64) as *mut u32).write(e) };
+}
+
+extern "win64" fn get_last_error() -> u32 {
+    // SAFETY: como arriba.
+    unsafe { ((teb() + teb::TEB_LAST_ERROR as u64) as *const u32).read() }
+}
+
+/// `GetCurrentProcessId` / `GetCurrentThreadId`: los del TEB (`ClientId`),
+/// que son el pid y el tid de BMO-X.
+extern "win64" fn get_current_process_id() -> u32 {
+    // SAFETY: como arriba.
+    unsafe { ((teb() + teb::TEB_PROCESS_ID as u64) as *const u64).read() as u32 }
+}
+
+extern "win64" fn get_current_thread_id() -> u32 {
+    // SAFETY: como arriba.
+    unsafe { ((teb() + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
+}
+
 /// **La tabla de la casa**: la direccion de cada funcion que existe.
 pub fn buscar(dll: &str, f: &Funcion) -> Option<u64> {
     if !dll.eq_ignore_ascii_case("kernel32.dll") {
@@ -78,6 +114,10 @@ pub fn buscar(dll: &str, f: &Funcion) -> Option<u64> {
         "GetStdHandle" => get_std_handle as *const () as usize as u64,
         "WriteFile" => write_file as *const () as usize as u64,
         "ExitProcess" => exit_process as *const () as usize as u64,
+        "SetLastError" => set_last_error as *const () as usize as u64,
+        "GetLastError" => get_last_error as *const () as usize as u64,
+        "GetCurrentProcessId" => get_current_process_id as *const () as usize as u64,
+        "GetCurrentThreadId" => get_current_thread_id as *const () as usize as u64,
         _ => return None,
     })
 }

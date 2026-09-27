@@ -3,3 +3,7 @@ EXPORTS
 GetStdHandle
 WriteFile
 ExitProcess
+SetLastError
+GetLastError
+GetCurrentProcessId
+GetCurrentThreadId

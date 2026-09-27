@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   381 casillas ABIERTAS en 44 planes
+   382 casillas ABIERTAS en 44 planes
    314 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -41,14 +41,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S1b -- la Biblioteca muestra lo de ESTRATOS. Hoy
 - ... y 43 mas
 
-## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 25 abiertas, 11 hechas
+## [`PLAN_LA_LUDOTECA.md`](PLAN_LA_LUDOTECA.md) -- 26 abiertas, 11 hechas
 
 *PLAN LA LUDOTECA -- los juegos que compraste, en BMO-X, y por donde NO*
 
 - [ ] J0 -- el formato, puro y con banco. platform/shared/bmo-ludoteca:
 - [ ] J1 -- la Biblioteca los muestra. La Biblioteca del escritorio
 - [ ] J2 -- la antena pide la lista a GOG. En toolchain/tools/antena/,
-- ... y 22 mas
+- ... y 23 mas
 
 ## [`PLAN_VERRANO.md`](PLAN_VERRANO.md) -- 23 abiertas, 10 hechas
 
@@ -162,7 +162,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 *PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
 
-- [ ] P1d -- la decision del GS (seccion 3). Con el primer .exe que SI
+- [ ] P1d -- la decision del GS. DECIDIDO y hecho en el codigo el 27-09:
 - [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
 - [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
 - ... y 6 mas

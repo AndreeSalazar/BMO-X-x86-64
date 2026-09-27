@@ -78,7 +78,10 @@ fn relocalizar(pe: &Pe, img: &mut [u8], base: u64) -> Result<(), Fallo> {
         return Ok(());
     }
     if pe.relocalizaciones.rva == 0 {
-        return Err(Fallo::SinRelocalizaciones);
+        // Sin tabla: no hay nada que corregir, y se mueve igual -- salvo que
+        // el enlazador diga que las QUITO (teb.exe no trae `.reloc` y no le
+        // hace falta: todo lo suyo es relativo a RIP).
+        return if pe.relocs_quitadas { Err(Fallo::SinRelocalizaciones) } else { Ok(()) };
     }
     let mut p = pe.relocalizaciones.rva as usize;
     let fin = p + pe.relocalizaciones.tam as usize;

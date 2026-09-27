@@ -42,7 +42,7 @@ pub use roja::{
     limpieza_de_ring3,
     compas_de, cpu_propio, declarar_compas, delante, exit_and_park, exit_current, expropiadas, init, init_idle,
     kill_current_and_pick, on_timer,
-    park_until, pilas_rotas, sello_de,
+    park_until, pilas_rotas, poner_gs_actual, sello_de,
     spawn_kernel, spawn_user, terminar, wait_current, wait_current_checked, wake_by_key,
     yield_current, Compas, Task,
 };

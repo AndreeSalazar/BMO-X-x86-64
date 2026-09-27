@@ -30,6 +30,9 @@ const DIR_TLS: usize = 9;
 const DIR_CLR: usize = 14;
 
 const SE_EJECUTA: u32 = 0x2000_0000;
+/// COFF `IMAGE_FILE_RELOCS_STRIPPED`: el enlazador le quito las
+/// relocalizaciones y el `.exe` SOLO corre en su base.
+const RELOCS_QUITADAS: u16 = 0x0001;
 const SE_ESCRIBE: u32 = 0x8000_0000;
 
 /// Una seccion del `.exe`: donde va en la imagen y de donde sale del fichero.
@@ -96,6 +99,10 @@ pub struct Pe {
     pub importaciones: Directorio,
     pub relocalizaciones: Directorio,
     pub tls: Directorio,
+    /// La cabecera COFF dice `RELOCS_STRIPPED`: no se puede mover de su base.
+    /// Sin esa bandera y sin `.reloc`, se mueve sin corregir nada (todo es
+    /// relativo a RIP), que es lo que hace el cargador de Windows.
+    pub relocs_quitadas: bool,
 }
 
 pub(crate) fn u16_en(d: &[u8], o: usize, que: &'static str) -> Result<u16, Fallo> {
@@ -193,5 +200,6 @@ pub fn leer(d: &[u8]) -> Result<Pe, Fallo> {
         importaciones: dir(DIR_IMPORTACIONES)?,
         relocalizaciones: dir(DIR_RELOCALIZACIONES)?,
         tls: dir(DIR_TLS)?,
+        relocs_quitadas: u16_en(d, e + 22, "las caracteristicas COFF")? & RELOCS_QUITADAS != 0,
     })
 }

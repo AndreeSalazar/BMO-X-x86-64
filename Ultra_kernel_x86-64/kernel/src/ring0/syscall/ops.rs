@@ -294,6 +294,11 @@ pub(crate) const TASK_OP_AUDIO_MANDO: u64 = 0x34;
 /// **ENCENDER O APAGAR LA IOMMU** (M0c, 2026-09-24). Solo quien tiene la
 /// pantalla. Espejo de `bmo_abi::...::TASK_OP_IOMMU`. Ver `plat/iommu.rs`.
 pub(crate) const TASK_OP_IOMMU: u64 = 0x35;
+/// **MI GS DE RING 3** (PROTON-X P1d, 2026-09-27): `arg0` = la base, de la
+/// mitad de usuario. Un `.exe` de Windows lee su TEB en `gs:[0x30]`. Contesta
+/// los ciclos del `wrmsr` (0 si ya estaba). Espejo de
+/// `bmo_abi::...::TASK_OP_PON_GS`. Ver `task/percpu.rs::poner_gs_usuario`.
+pub(crate) const TASK_OP_PON_GS: u64 = 0x36;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

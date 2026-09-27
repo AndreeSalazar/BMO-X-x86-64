@@ -218,6 +218,8 @@ pub const OP_AUDIO_MANDO: u32 = 0x34;
 /// Encender o apagar la IOMMU (M0c). Solo quien tiene la pantalla. Ver
 /// [`crate::sys::iommu_orden`].
 pub const OP_IOMMU: u32 = 0x35;
+/// **Mi GS de Ring 3** (PROTON-X P1d). Ver [`crate::sys::poner_gs`].
+pub const OP_PON_GS: u32 = 0x36;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 pub const IOMMU_OP_CEGAR_GPU: u64 = 0x03;

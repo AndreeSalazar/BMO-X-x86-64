@@ -37,6 +37,7 @@ extern crate alloc;
 
 pub mod cargar;
 pub mod pe;
+pub mod teb;
 
 pub use cargar::{colocar, importaciones, partir, resolver, Funcion, Importacion, Partes, PAGINA};
 pub use pe::{leer, Pe, Permiso, Seccion};
@@ -59,7 +60,8 @@ pub enum Fallo {
     Seccion { nombre: String, motivo: &'static str },
     /// Una seccion que se puede escribir Y ejecutar: el W^X de la casa.
     EscribeYEjecuta(String),
-    /// Hay que moverlo de su base y no trae relocalizaciones.
+    /// Hay que moverlo de su base y el enlazador le quito las relocalizaciones
+    /// (`RELOCS_STRIPPED` en la cabecera COFF).
     SinRelocalizaciones,
     /// Una relocalizacion de un tipo que un PE32+ x86-64 no deberia traer.
     Relocalizacion { rva: u32, tipo: u16 },
@@ -80,7 +82,7 @@ impl fmt::Display for Fallo {
             Fallo::Corto(que) => write!(f, "el fichero se acaba antes de {que}"),
             Fallo::Seccion { nombre, motivo } => write!(f, "la seccion {nombre}: {motivo}"),
             Fallo::EscribeYEjecuta(n) => write!(f, "la seccion {n} se puede escribir Y ejecutar: el W^X de la casa no lo deja"),
-            Fallo::SinRelocalizaciones => write!(f, "hay que moverlo de su base y no trae relocalizaciones (.reloc)"),
+            Fallo::SinRelocalizaciones => write!(f, "hay que moverlo de su base y el enlazador le quito las relocalizaciones (RELOCS_STRIPPED)"),
             Fallo::Relocalizacion { rva, tipo } => write!(f, "relocalizacion de tipo {tipo} en la RVA {rva:#x}: un PE32+ x86-64 solo trae DIR64"),
             Fallo::PideTls => write!(f, "pide TLS (el directorio 9): se da en P4"),
             Fallo::NoSeParte(n) => write!(f, "la seccion {n} no es codigo y cae en las paginas del codigo: no se sella una sin la otra"),

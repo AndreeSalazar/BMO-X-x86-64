@@ -748,6 +748,19 @@ superficie, y se pinta encima de todo, un juego a pantalla completa incluido.
 (minimo, media, maximo, 1 % y 0,1 % bajos) a `capturas/banNNNNN.csv`. Las
 capturas (Impr Pant, PNG propio) ya existian.
 
+- [ ] **F1 -- el 1 % bajo que no cuadra (27-09).** En Freedoom el contador
+      dice 70-71 FPS todo el rato y el banco da un 1 % bajo de ~22: el
+      propietario sospecha, y con razon hay que mirarlo. 22 FPS son ~45 ms, o
+      sea UNO de cada cien fotogramas tres veces mas lento. Dos lecturas, y
+      el banco tiene que decir cual: (a) tirones de verdad, que la media por
+      segundo esconde (DOOM cargando, el compositor esperando al rayo -- el
+      informe ya cuenta esperas de hasta 15 ms); (b) un artefacto de medida:
+      el hueco de la primera mirada, el de un `save` o de pulsar las teclas
+      del banco, o fotogramas que el director mira de dos en dos. **Como se
+      sabe:** el banco guarda los N fotogramas mas lentos con su momento y lo
+      que estaba pasando, y cada uno se explica; si es (b), el banco deja de
+      contarlo y el 1 % bajo sube a lo que el ojo ve.
+
 ### NVENC en la 3060: SI es razonable, y lo que cambio
 
 Lo que decia el 25-09 al principio del dia --*"su interfaz es cerrada"*-- era lo que

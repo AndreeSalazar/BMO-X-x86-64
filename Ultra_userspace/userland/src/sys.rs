@@ -172,6 +172,21 @@ pub fn ciclos() -> u64 {
     ((hi as u64) << 32) | lo as u64
 }
 
+/// **Poner el GS de Ring 3 de este hilo** (PROTON-X P1d, 2026-09-27).
+///
+/// Un `.exe` de Windows lee su TEB en `gs:[0x30]`; esto le da uno. `gs` tiene
+/// que ser de la mitad de usuario. `Ok` lleva los ciclos que le costo al
+/// kernel el `wrmsr` (0 si ya estaba puesto): lo mismo que paga un relevo
+/// entre dos hilos con distinto GS. `Err` lleva el codigo.
+pub fn poner_gs(gs: u64) -> Result<u64, u32> {
+    let st = invoke(CURRENT_TASK, crate::OP_PON_GS, gs, 0, 0);
+    if st.ok() {
+        Ok(st.value)
+    } else {
+        Err(st.code)
+    }
+}
+
 /// Terminar. No vuelve: el kernel revoca las capabilities del proceso y
 /// cambia de contexto en el propio borde del syscall.
 pub fn salir() -> ! {

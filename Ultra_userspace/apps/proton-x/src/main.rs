@@ -20,8 +20,10 @@
 //! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
 //! dice y no salta.
 //!
-//! **Lo que NO hace todavia:** el GS de Windows (`gs:[0x30]`, el TEB) no
-//! existe. `hola.exe` no lo toca; el primer `.exe` que lo lea es P1d.
+//! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
+//! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
+//! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
+//! (`run sys/proton-x.bex apps/teb.exe` lo comprueba).
 
 #![no_std]
 #![no_main]
@@ -33,7 +35,7 @@ mod monton;
 
 use alloc::format;
 use alloc::vec::Vec;
-use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, Permiso};
+use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, teb, Permiso};
 use bmo_userland as bmo;
 
 #[global_allocator]
@@ -173,6 +175,8 @@ pub extern "C" fn _start() -> ! {
         partes.datos / 1024,
         MONTON.gastado()
     ));
+    // -- 6b. P1d: el TEB y el PEB, y el GS del hilo apuntando al TEB.
+    poner_teb(base);
     di("PROTON-X: salto a su entrada ----------------------------------\n");
     // La imagen vive hasta que el proceso muera: sin `Drop`, que la soltaria.
     core::mem::forget(codigo);
@@ -185,6 +189,58 @@ pub extern "C" fn _start() -> ! {
     let entrada: extern "win64" fn() -> u32 = unsafe { core::mem::transmute(base + pe.entrada as u64) };
     let r = entrada();
     fin_del_exe(r)
+}
+
+/// La pila de Ring 3 de BMO-X. Espejo de `USER_STACK_TOP` y `USER_STACK_SIZE`
+/// (`Ultra_kernel_x86-64/kernel/src/ring0/mm/vmm/verde.rs`): no estan en el
+/// ABI, asi que [`poner_teb`] COMPRUEBA con su propio `rsp` que caen donde
+/// dicen, y si no, no salta.
+const PILA_TOPE: u64 = 0x8000_0000;
+const PILA_BYTES: u64 = 0x1_0000;
+
+/// **P1d: el TEB y el PEB, y el GS** (PLAN_PROTON_X, 3). Un `.exe` de Windows
+/// lee `gs:[0x30]` sin avisar --lo pone el compilador de Microsoft, y el CRT
+/// lo hace al arrancar--, asi que el GS se pone SIEMPRE, lo lea o no.
+///
+/// Van en el monton (R+W, sin X). Dice donde, y lo que le costo al kernel
+/// poner el GS: ese `wrmsr` es lo que paga un relevo entre este hilo y uno
+/// con otro GS. Y lo pide otra vez con el mismo valor: tiene que ser 0,
+/// porque el kernel solo escribe el MSR si CAMBIA.
+fn poner_teb(base: u64) {
+    let rsp: u64;
+    // SAFETY: leer un registro.
+    unsafe { core::arch::asm!("mov {}, rsp", out(reg) rsp, options(nomem, nostack, preserves_flags)) };
+    let fondo = PILA_TOPE - PILA_BYTES;
+    if !(fondo < rsp && rsp <= PILA_TOPE) {
+        fin(&format!("la pila no esta donde el kernel la pone ({rsp:#x} fuera de {fondo:#x}..{PILA_TOPE:#x}): el TEB mentiria"));
+    }
+    let bytes = teb::TEB_BYTES + teb::PEB_BYTES;
+    let Ok(forma) = core::alloc::Layout::from_size_align(bytes, 4096) else { fin("la forma del TEB") };
+    // SAFETY: `forma` no mide cero.
+    let mem = unsafe { alloc::alloc::alloc_zeroed(forma) };
+    if mem.is_null() {
+        fin("sin monton para el TEB y el PEB");
+    }
+    let h = teb::Hilo {
+        teb: mem as u64,
+        peb: mem as u64 + teb::TEB_BYTES as u64,
+        pila_tope: PILA_TOPE,
+        pila_fondo: fondo,
+        proceso: bmo::pid(),
+        hilo: bmo::tid(),
+        base_imagen: base,
+    };
+    // SAFETY: `bytes` recien pedidos al monton, nuestros y vivos para siempre.
+    let t = unsafe { core::slice::from_raw_parts_mut(mem, bytes) };
+    let (tb, pb) = t.split_at_mut(teb::TEB_BYTES);
+    teb::escribir_teb(tb, &h);
+    teb::escribir_peb(pb, &h);
+    let ciclos = bmo::poner_gs(h.teb).unwrap_or_else(|c| fin(&format!("el kernel no pone el GS (codigo {c}): un .exe de Windows no encontraria su TEB")));
+    let otra = bmo::poner_gs(h.teb).unwrap_or(u64::MAX);
+    di(&format!(
+        "PROTON-X: TEB en {:#x}, PEB en {:#x}; GS -> TEB: el wrmsr costo {} ciclos (el mismo otra vez: {}, no se toca)\n",
+        h.teb, h.peb, ciclos, otra
+    ));
 }
 
 #[panic_handler]

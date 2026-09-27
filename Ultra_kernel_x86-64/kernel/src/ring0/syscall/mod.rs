@@ -317,6 +317,11 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
         TASK_OP_AUDIO_CENSO => op_aparato::audio_censo(arg0, arg1),
         TASK_OP_AUDIO_MANDO => op_aparato::audio_mando(arg0, arg1),
         TASK_OP_IOMMU => op_maquina::iommu(arg0, arg1),
+        // ** PROTON-X P1d: el GS de Ring 3 de ESTE hilo. Solo el suyo, asi que
+        // no pide autoridad; lo unico que se exige es que sea de la mitad de
+        // usuario: un valor no canonico seria un #GP en el `wrmsr`, aqui dentro.
+        TASK_OP_PON_GS if arg0 >= percpu::GS_USUARIO_TOPE => BmoStatus::err(ERROR_INVALID_ARGUMENT),
+        TASK_OP_PON_GS => BmoStatus::ok_value(scheduler::poner_gs_actual(arg0)),
         TASK_OP_APARATO_TOMAR => op_aparato::aparato_tomar(arg0, arg1),
         TASK_OP_APARATO_SOLTAR => op_aparato::aparato_soltar(arg0, arg1),
         TASK_OP_LATIDO_TOMAR => op_aparato::latido_tomar(arg0, arg1),

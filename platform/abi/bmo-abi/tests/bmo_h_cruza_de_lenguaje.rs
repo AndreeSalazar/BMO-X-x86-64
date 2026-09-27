@@ -64,6 +64,8 @@ const PAREJAS: &[(&str, &str, u64)] = &[
     // La consola, en los dos sentidos.
     ("BMO_OP_CONSOLA_ESCRIBIR", "TASK_OP_CONSOLE_WRITE", 0x06),
     ("BMO_OP_CONSOLA_LEER", "TASK_OP_CONSOLE_READ", 0x0F),
+    // Lo que va detras de la ruta al lanzar.
+    ("BMO_OP_ARGUMENTOS", "TASK_OP_ARGUMENTOS", 0x33),
     // Lo que se reclama en exclusiva.
     ("BMO_OP_PANTALLA_RECLAMAR", "TASK_OP_FRAMEBUFFER_CLAIM", 0x09),
     ("BMO_OP_ENTRADA_RECLAMAR", "TASK_OP_INPUT_CLAIM", 0x0A),

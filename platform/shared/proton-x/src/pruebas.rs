@@ -2,6 +2,7 @@
 //! como se rehace, en `prueba/HACER.txt`) y sus mutaciones.
 
 use alloc::string::ToString;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use crate::*;
@@ -175,4 +176,52 @@ fn un_fichero_cortado_dice_donde() {
         let r = leer(&HOLA[..largo]);
         assert!(r.is_err(), "cortado en {largo:#x} no puede leerse entero");
     }
+}
+
+// ============================ P1d: teb.exe ============================
+
+const TEB_EXE: &[u8] = include_bytes!("../prueba/teb.exe");
+
+#[test]
+fn teb_exe_esta_dentro_pide_siete_y_no_trae_reloc() {
+    let pe = leer(TEB_EXE).unwrap();
+    assert_eq!(pe.relocalizaciones.rva, 0, "todo lo suyo es relativo a RIP");
+    assert!(!pe.relocs_quitadas);
+    // Se mueve de base sin nada que corregir: el cargador de Windows hace lo mismo.
+    let img = colocar(&pe, TEB_EXE, 0x7_0000_0000).unwrap();
+    let mut nombres: Vec<_> = importaciones(&pe, &img).unwrap().iter().map(|i| i.funcion.to_string()).collect();
+    nombres.sort();
+    assert_eq!(nombres, ["ExitProcess", "GetCurrentProcessId", "GetCurrentThreadId", "GetLastError", "GetStdHandle", "SetLastError", "WriteFile"]);
+    assert_eq!(partir(&pe).unwrap(), Partes { codigo: 2 * PAGINA, datos: 2 * PAGINA });
+}
+
+#[test]
+fn con_relocs_stripped_no_se_mueve() {
+    let mut d = TEB_EXE.to_vec();
+    let e = u32::from_le_bytes([d[0x3C], d[0x3D], d[0x3E], d[0x3F]]) as usize;
+    d[e + 22] |= 1;
+    let pe = leer(&d).unwrap();
+    assert!(pe.relocs_quitadas);
+    assert!(colocar(&pe, &d, pe.base).is_ok(), "en SU base si");
+    assert_eq!(colocar(&pe, &d, 0x7_0000_0000), Err(Fallo::SinRelocalizaciones));
+}
+
+#[test]
+fn el_teb_y_el_peb_tienen_la_forma_de_windows_x64() {
+    let h = teb::Hilo { teb: 0x5000, peb: 0x7000, pila_tope: 0x8000_0000, pila_fondo: 0x7FFF_0000, proceso: 3, hilo: 9, base_imagen: 0xE010_3000 };
+    let mut t = vec![0xAAu8; teb::TEB_BYTES];
+    let mut p = vec![0xAAu8; teb::PEB_BYTES];
+    teb::escribir_teb(&mut t, &h);
+    teb::escribir_peb(&mut p, &h);
+    let q = |b: &[u8], o: usize| u64::from_le_bytes(b[o..o + 8].try_into().unwrap());
+    assert_eq!(q(&t, 0x30), 0x5000, "Self");
+    assert_eq!(q(&t, 0x60), 0x7000, "el PEB");
+    assert_eq!((q(&t, 0x08), q(&t, 0x10)), (0x8000_0000, 0x7FFF_0000), "StackBase y StackLimit");
+    assert_eq!((q(&t, 0x40), q(&t, 0x48)), (3, 9), "ClientId");
+    assert_eq!(u32::from_le_bytes(t[0x68..0x6C].try_into().unwrap()), 0, "LastErrorValue empieza en 0");
+    assert_eq!(q(&p, 0x10), 0xE010_3000, "ImageBaseAddress");
+    assert_eq!(p[0x02], 0, "BeingDebugged");
+    // Todo lo demas, a cero: ni un byte de lo que habia.
+    assert_eq!(t.iter().filter(|&&b| b == 0xAA).count(), 0);
+    assert_eq!(p.iter().filter(|&&b| b == 0xAA).count(), 0);
 }

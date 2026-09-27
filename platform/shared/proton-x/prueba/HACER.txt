@@ -19,3 +19,21 @@ En Windows, con MSVC, sale un .exe distinto pero equivalente:
 
 Y corre en Windows tal cual: `hola.exe` imprime la frase y sale con 0. Ese es
 el juez de P1c: BMO-X tiene que decir LO MISMO.
+
+teb.exe -- el de P1d (27-09): lee gs: como el CRT de Microsoft
+
+Con las MISMAS herramientas y el mismo kernel32.def (que desde P1d exporta
+siete: las tres de hola y SetLastError, GetLastError, GetCurrentProcessId y
+GetCurrentThreadId; hola.exe sale IDENTICO con el, comprobado):
+
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -c teb.c -o teb.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro teb.obj kernel32.lib /out:teb.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   76540c578ced5f25d8097936499752b653ed55f57832fe17dca260822e574e53
+
+No trae .reloc: todo lo suyo es relativo a RIP. Sin RELOCS_STRIPPED en la
+cabecera COFF, el cargador de Windows lo mueve sin corregir nada, y el de
+PROTON-X tambien desde el 27-09. En Windows dice seis veces `bien` y sale con
+0: ese es el juez de P1d.

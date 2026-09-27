@@ -16,6 +16,7 @@
 //!   [gs:0x08] user_rsp_scratch    user RSP saved by the SYSCALL entry
 //!   [gs:0x10] trap_rsp            fxsave-base of the context on this CPU
 //!   [gs:0x18] cpu_id / apic_id
+//!   [gs:0x20] gs_usuario          el GS de Ring 3 que hay en KERNEL_GS_BASE
 //! ```
 
 use core::sync::atomic::{AtomicUsize, Ordering};
@@ -37,6 +38,9 @@ pub struct PerCpu {
     pub trap_rsp: u64,
     pub cpu_id: u32,
     pub apic_id: u32,
+    /// Lo que hay AHORA en `KERNEL_GS_BASE`: el GS de Ring 3 que el proximo
+    /// `swapgs` de salida carga. Ver [`poner_gs_usuario`].
+    pub gs_usuario: u64,
 }
 
 const PER_CPU_ZERO: PerCpu = PerCpu {
@@ -45,6 +49,7 @@ const PER_CPU_ZERO: PerCpu = PerCpu {
     trap_rsp: 0,
     cpu_id: 0,
     apic_id: 0,
+    gs_usuario: 0,
 };
 
 static mut PER_CPUS: [PerCpu; MAX_CPUS] = [PER_CPU_ZERO; MAX_CPUS];
@@ -79,9 +84,11 @@ pub fn init_bsp() {
     per_cpu.apic_id = 0; // BSP APIC id is published by smp support later.
     let base = per_cpu as *mut PerCpu as u64;
     wrmsr(MSR_GS_BASE, base);
-    // Ring 0 keeps GS_BASE on its PerCpu; the user GS is always 0, so the
-    // first swapgs on a Ring 3 entry loads PER_CPU and stashes 0 away.
+    // Ring 0 keeps GS_BASE on its PerCpu; the user GS starts at 0, so the
+    // first swapgs on a Ring 3 entry loads PER_CPU and stashes 0 away. Desde
+    // PROTON-X P1d (27-09) un hilo puede pedir otro: `poner_gs_usuario`.
     wrmsr(MSR_KERNEL_GS_BASE, 0);
+    per_cpu.gs_usuario = 0;
     ONLINE.store(1, Ordering::Release);
 }
 
@@ -129,6 +136,41 @@ pub fn set_syscall_stack_top(top: u64) {
     unsafe {
         core::arch::asm!("mov gs:[0x00], {}", in(reg) top, options(nostack));
     }
+}
+
+/// La mitad de usuario de las direcciones: un GS de Ring 3 va por DEBAJO. Por
+/// encima empieza lo no canonico (un #GP en el `wrmsr`) y despues el kernel.
+pub const GS_USUARIO_TOPE: u64 = 1 << 47;
+
+/// **EL GS DE RING 3, si cambia** (PROTON-X P1d, 2026-09-27).
+///
+/// Mientras el kernel corre, el GS de usuario vive en `KERNEL_GS_BASE`, y el
+/// `swapgs` de la salida lo carga. Hasta P1d valia 0 para todos y nadie lo
+/// tocaba; ahora un hilo puede tener el suyo (el TEB de un `.exe`). Lo llaman
+/// el relevo (al entrar un hilo de Ring 3) y `TASK_OP_PON_GS`.
+///
+/// ** Solo se escribe el MSR si el valor CAMBIA: con todos a 0, el relevo no
+/// paga nada nuevo. Devuelve los ciclos que costo el `wrmsr` (0 si no hizo
+/// falta), para que PROTON-X lo MIDA en el metal.
+///
+/// gs-relativo, como el resto de este fichero. Ring 3 solo corre en el BSP
+/// (`plat/smp/crew.rs`), asi que hay un valor que seguir, no uno por nucleo
+/// que cruzar.
+pub fn poner_gs_usuario(gs: u64) -> u64 {
+    let puesto: u64;
+    unsafe {
+        core::arch::asm!("mov {}, gs:[0x20]", out(reg) puesto, options(nostack, readonly, preserves_flags));
+    }
+    if puesto == gs {
+        return 0;
+    }
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    wrmsr(MSR_KERNEL_GS_BASE, gs);
+    let ciclos = crate::ring0::task::scheduler::rdtsc().wrapping_sub(desde);
+    unsafe {
+        core::arch::asm!("mov gs:[0x20], {}", in(reg) gs, options(nostack, preserves_flags));
+    }
+    ciclos.max(1)
 }
 
 /// Raw `(GS_BASE, KERNEL_GS_BASE, &PER_CPUS[0])` for diagnostics: the two

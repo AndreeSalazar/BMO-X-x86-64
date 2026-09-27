@@ -125,6 +125,33 @@ se decidio NO conceder.** Ninguna operacion de `KIND_MMIO` acepta una direccion
 fisica, porque un proceso que pudiera nombrarla estaria pidiendo ser el kernel.
 Esa renuncia es lo que hace que las seis filas de arriba signifiquen algo.
 
+## 4.2 -- La segunda trabajada: `TASK_OP_PON_GS`, una CONCESION a Windows (27-09)
+
+PROTON-X (`docs/plan/PLAN_PROTON_X.md`, seccion 3) decia que pediria UNA cosa
+al kernel: el GS de Ring 3. Un `.exe` de Windows x64 encuentra su TEB en
+`gs:[0x30]` sin llamar a nadie -- lo pone el compilador de Microsoft --, y el
+kernel daba por hecho que ese GS valia 0 para todos. No habia otra salida:
+reescribir los `gs:` del `.exe` es tocar el binario, y el binario no se toca.
+
+| peaje | como se pago |
+|---|---|
+| 1. cabe en su campo | `0x36`, la siguiente libre de `TASK_OP_*` |
+| 2. libre en las dos | libre en `syscall/ops.rs` y en `surface/tarea.rs` |
+| 3. un NO con nombre | un GS de la mitad del kernel o no canonico (`>= 2^47`) es `ERROR_INVALID_ARGUMENT`: sin ese NO, el `wrmsr` seria un #GP DENTRO del kernel |
+| 4. se suelta al morir | el GS es un campo de la TAREA: su ranura vuelve a 0 al reusarse, y el relevo pone el del siguiente hilo |
+| 5. una prueba que ve el fallo | `teb.exe` (`platform/shared/proton-x`): sin el GS puesto, su primer `gs:[0x30]` es un fallo de pagina, no un "MAL". Corre en el anfitrion (con `arch_prctl`) y en el Ryzen (con esto) |
+| 6. las tres tablas | `TASK_OP_PON_GS` en kernel y ABI, `OP_PON_GS` y `poner_gs` en userland |
+
+**La concesion, dicha entera:** el cambio de contexto aprende UNA cosa de
+Windows -- que un hilo puede tener su propio GS. El kernel no sabe que es un
+TEB ni lo mira; guarda un numero por hilo y lo pone en `KERNEL_GS_BASE`.
+
+**La compensacion:** solo se escribe el MSR cuando el hilo que entra tiene
+OTRO GS que el que ya esta puesto (`percpu::poner_gs_usuario`). Con todos a 0
+--todo lo que no es PROTON-X-- el relevo paga UNA comparacion y nada mas. Lo
+que cuesta cuando si cambia es un `wrmsr`, y la operacion devuelve sus ciclos:
+PROTON-X los dice en el metal al arrancar cada `.exe`.
+
 ---
 
 # 5. ⚠ LO QUE PASA CUANDO EL PEAJE NO SE PAGA -- dos casos REALES de hoy

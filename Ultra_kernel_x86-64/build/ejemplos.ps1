@@ -153,8 +153,12 @@ try {
     }
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/proton-x' }
     if (-not (Test-Path $protonBex)) { Fail 'bex-link no produjo proton-x.bex' }
-    Copy-Item (Join-Path (Get-Location) 'platform\shared\proton-x\prueba\hola.exe') (Join-Path $dataBase 'apps\hola.exe') -Force
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\hola.exe (run sys/proton-x.bex apps/hola.exe)' -ForegroundColor DarkGray
+    # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
+    # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
+    foreach ($exe in @('hola.exe', 'teb.exe')) {
+        Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
+    }
+    Write-Host '    [proton-x] sys\proton-x.bex, apps\hola.exe y apps\teb.exe (run sys/proton-x.bex apps/teb.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

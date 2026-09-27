@@ -130,6 +130,11 @@ pub struct Task {
     pub compas: Compas,
     /// Cuando entro al CPU esta vez. `0` = no esta corriendo.
     pub entro_en: u64,
+    /// **El GS de Ring 3 de este hilo** (PROTON-X P1d, 2026-09-27). `0` para
+    /// todos salvo quien lo pida con `TASK_OP_PON_GS`: un `.exe` de Windows
+    /// encuentra su TEB en `gs:[0x30]`. El relevo lo pone en
+    /// `KERNEL_GS_BASE` SOLO si cambia (ver `percpu::poner_gs_usuario`).
+    pub gs_usuario: u64,
 }
 
 
@@ -152,6 +157,7 @@ impl Task {
         cpu_ciclos: 0,
         entro_en: 0,
         compas: Compas::NINGUNO,
+        gs_usuario: 0,
     };
 }
 
@@ -544,6 +550,13 @@ fn schedule_locked(s: &mut Scheduler, saliente: Saliente) {
         crate::ring0::task::proc::set_tss_rsp0(next_task.kernel_stack_top);
         percpu::set_syscall_stack_top(next_task.kernel_stack_top);
     }
+    // ** EL GS DE RING 3 SIGUE AL HILO (PROTON-X P1d, 2026-09-27). Solo al
+    // entrar en uno de Ring 3: uno de Ring 0 no hace `swapgs` y no lo mira.
+    // Si es el mismo que ya esta puesto --todos a 0, el caso de siempre-- no
+    // se toca el MSR: el coste es esta comparacion.
+    if next_task.is_user {
+        percpu::poner_gs_usuario(next_task.gs_usuario);
+    }
     if next_task.is_user {
         // Debug capture for the Ring 3 #GP hunt: the context pointer we just
         // published and what its back-pointer slot reads RIGHT NOW, under
@@ -865,6 +878,7 @@ pub fn spawn_kernel(entry: u64, arg: u64, priority: u8) -> Option<u32> {
         cpu_ciclos: 0,
         entro_en: 0,
         compas: Compas::NINGUNO,
+        gs_usuario: 0,
     };
     Some(tid)
 }
@@ -975,6 +989,7 @@ pub fn spawn_user(
         cpu_ciclos: 0,
         entro_en: 0,
         compas: Compas::NINGUNO,
+        gs_usuario: 0,
     };
     Some(tid)
 }
@@ -1027,6 +1042,25 @@ pub fn cpu_propio() -> u64 {
         0
     };
     t.cpu_ciclos.wrapping_add(abierto)
+}
+
+
+/// **`TASK_OP_PON_GS`**: el GS de Ring 3 del hilo que llama (PROTON-X P1d).
+///
+/// Se apunta en su tarea --para que el relevo se lo devuelva cada vez que
+/// vuelva al CPU-- y se pone YA en `KERNEL_GS_BASE`: la llamada esta dentro
+/// de un syscall de este mismo hilo, y el `swapgs` de la salida lo carga.
+/// Devuelve los ciclos que costo ESE `wrmsr` (0 si ya estaba): es lo que paga
+/// un cambio de contexto entre dos hilos con distinto GS.
+///
+/// `gs` tiene que ser de la mitad de usuario (`< 2^47`): un valor no canonico
+/// seria un #GP en el `wrmsr`, dentro del kernel. Quien llama lo comprueba.
+pub fn poner_gs_actual(gs: u64) -> u64 {
+    let _g = SCHED_LOCK.lock();
+    let s = sched();
+    let i = s.current;
+    s.tasks[i].gs_usuario = gs;
+    percpu::poner_gs_usuario(gs)
 }
 
 

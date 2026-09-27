@@ -263,10 +263,26 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       SELLADO, datos 8 KiB sin X; monton 19472 B`, luego `hola desde un .exe
       de Windows` y `el .exe salio con 0`, sin un fallo de Ring 3. Movido de
       base (las relocalizaciones trabajaron) y con el W^X de la casa.
-- [ ] **P1d -- la decision del GS (seccion 3).** Con el primer `.exe` que SI
-      lea `gs:[0x30]` (el CRT de Microsoft lo hace), no antes. **Como se
-      sabe:** la decision escrita aqui, con lo que cuesta en el cambio de
-      contexto medido.
+- [ ] **P1d -- la decision del GS.** DECIDIDO y hecho en el codigo el 27-09:
+      la salida **a** de la seccion 3, escrita como concesion en
+      [`LA_COMPATIBILIDAD.md`](../identidad/LA_COMPATIBILIDAD.md) 4.2.
+      El kernel guarda un GS de Ring 3 POR HILO (`Task::gs_usuario`) y el
+      relevo lo pone en `KERNEL_GS_BASE` solo si CAMBIA: los hilos que no lo
+      piden pagan una comparacion. `TASK_OP_PON_GS` (0x36) lo pone y contesta
+      los ciclos del `wrmsr`. PROTON-X arma un TEB y un PEB de Windows x64
+      (`bmo_proton_x::teb`: Self, pila, ClientId, PEB, LastError; base de la
+      imagen en el PEB) y pone el GS antes de saltar. El `kernel32` de la casa
+      suma las cuatro que viven en el TEB (`SetLastError`, `GetLastError`,
+      `GetCurrentProcessId`, `GetCurrentThreadId`) y las lee por `gs:`, como
+      Windows. De paso el cargador aprendio la regla exacta de las
+      relocalizaciones: sin `.reloc` se mueve igual salvo `RELOCS_STRIPPED`.
+      El `.exe` del banco es `prueba/teb.exe` (3072 B, reproducible): lee
+      `gs:` como el CRT de Microsoft y dice `bien` o `MAL` en seis cosas.
+      **Como se sabe:** en el anfitrion `teb.exe` CORRE con su TEB en el GS
+      (`arch_prctl`, `tests/corre.rs`): seis `bien` y sale con 0, estable en
+      cinco corridas. Falta el metal: `run sys/proton-x.bex apps/teb.exe`
+      tiene que decir seis `bien`, `el .exe salio con 0` y los ciclos que
+      costo el `wrmsr`.
 - [ ] **P2 -- la ventana Win32.** Un `.exe` tuyo con `CreateWindowExW`, su
       bucle de mensajes y pixeles pintados por la CPU. La ventana es una
       superficie del director; las teclas llegan por su buzon. **Como se

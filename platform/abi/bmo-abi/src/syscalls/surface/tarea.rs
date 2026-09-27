@@ -617,6 +617,17 @@ pub const TASK_OP_AUDIO_MANDO: u64 = 0x34;
 /// `ERROR_NEGADO` con `IOMMU_NO_CONTESTA` en las banderas. `Ok` lleva
 /// `us | eventos << 32`.
 pub const TASK_OP_IOMMU: u64 = 0x35;
+
+/// **MI GS DE RING 3** (PROTON-X P1d, 2026-09-27). `arg0` = la base del GS de
+/// ESTE hilo, de la mitad de usuario (`< 2^47`; si no, `ERROR_INVALID_ARGUMENT`).
+///
+/// Un `.exe` de Windows x64 encuentra su TEB en `gs:[0x30]` y su PEB en
+/// `gs:[0x60]`: lo pone el compilador de Microsoft en cualquier funcion. Hasta
+/// P1d el GS de Ring 3 valia 0 para todos. El kernel lo guarda por hilo y el
+/// relevo lo pone en `KERNEL_GS_BASE` SOLO cuando cambia: los hilos que no lo
+/// piden no pagan nada. Contesta los ciclos del `wrmsr` (0 si ya estaba), que
+/// es lo que cuesta un relevo entre dos hilos con distinto GS.
+pub const TASK_OP_PON_GS: u64 = 0x36;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.
