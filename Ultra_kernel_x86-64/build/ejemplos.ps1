@@ -168,10 +168,11 @@ try {
     # Y `ficheros.exe` (P4d, 27-09): CreateFileW, ReadFile, SetFilePointerEx...
     # junto a si mismo (`apps/pxtest.txt`); dice `bien` dieciseis veces.
     # Y `crt.exe` (P4e, 27-09): HeapAlloc, VirtualAlloc, su nombre, su linea y su entorno.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe')) {
+    # Y `texto.exe` (P4f, 27-09): UTF-8/UTF-16, WriteConsoleW, LoadLibrary y GetProcAddress.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt}.exe (run sys/proton-x.bex apps/crt.exe)' -ForegroundColor DarkGray
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto}.exe (run sys/proton-x.bex apps/texto.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

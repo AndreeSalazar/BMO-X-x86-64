@@ -595,6 +595,49 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            pedido en marcha (PAGE_EXECUTE_*: W^X), READONLY/NOACCESS se
            apuntan pero la pagina sigue RW, VirtualQuery solo sabe de lo
            suyo, y una pedida de mas de 64 MiB de una vez no cabe.
+      P4f [MEDIDO el 27-09; P4f1 HECHO en el banco] LO QUE PIDE LA `std`
+           DE RUST PARA WINDOWS, que es lo que trae BMOX-12 (P3c). Medido sin
+           Windows: un programa de Rust con hilos, ficheros, entorno y hora,
+           compilado para `x86_64-pc-windows-msvc` y enlazado con bibliotecas
+           de importacion VACIAS -- `lld-link` dice cada nombre que falta. Son
+           157; la casa tenia 36. Los 121 que faltaban, en el orden en que los
+           toca un programa al arrancar:
+```text
+   P4f1  texto, consola      MultiByteToWideChar, WideCharToMultiByte,
+         y modulos           CompareStringOrdinal, lstrlenW, GetConsoleMode,
+                             WriteConsoleW, GetConsoleOutputCP, LoadLibraryA,
+                             GetModuleHandleA/ExW, GetProcAddress   [HECHO]
+   P4f2  hilos y esperas     WaitOnAddress, WakeByAddressSingle/All, Fls*,
+                             CreateMutexA, ReleaseMutex, IsThreadAFiber,
+                             SetThreadStackGuarantee, GetCurrentProcess,
+                             DuplicateHandle, SetHandleInformation, SleepEx,
+                             WaitForSingleObjectEx, los temporizadores
+                             esperables, GetSystemTimePreciseAsFileTime
+   P4f3  ficheros y          CreateDirectoryW, RemoveDirectoryW, DeleteFileW,
+         directorios         MoveFileExW, CopyFileExW, FindFirstFileExW,
+                             FindNextFileW, FindClose, GetFullPathNameW,
+                             Get/SetCurrentDirectoryW, GetFileInformation*,
+                             SetFileInformationByHandle, SetFileAttributesW,
+                             SetFileTime, LockFileEx, UnlockFile, GetTempPathW,
+                             GetFinalPathNameByHandleW, y los Nt*File de ntdll
+   P4f4  lo que existe y     CreateProcessW, CreatePipe, TerminateProcess, la
+         dice NO             red (ws2_32: WSAStartup, socket...), dbghelp:
+                             estar, para que el .exe CARGUE, y contestar el
+                             fallo de Windows si se llama
+   P4c   las excepciones     AddVectoredExceptionHandler, RtlCaptureContext,
+                             RtlLookupFunctionEntry, RtlVirtualUnwind
+   P4f5  el CRT de MSVC      vcruntime140.dll (memcpy, memset, memcmp,
+                             __CxxFrameHandler3, __C_specific_handler...) y
+                             los api-ms-win-crt-*.dll (el arranque del CRT)
+```
+           P4f1 **Como se sabe:** `prueba/texto.exe` dice `bien` veintiuna
+           veces en el anfitrion: UTF-8 <-> UTF-16 con el byte malo y el
+           bufer corto de Windows, WriteConsoleW escribe su linea, y
+           LoadLibraryW(d3d12.dll) + GetProcAddress(D3D12CreateDevice) sale de
+           la MISMA tabla que resolvio las importaciones. Lo que no es
+           Windows, dicho: una pagina de codigos (UTF-8), sin mayusculas que
+           cuenten solo en ASCII, sin ordinales en GetProcAddress, y ninguna
+           DLL de verdad del disco (P5).
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 
@@ -613,7 +656,8 @@ de arriba y de lo que cada una PIDE, no de gustos:
                              ordenes, el entorno. Falta: run sys/proton-x.bex
                              apps/crt.exe en el Ryzen (35 bien)
    5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar: pide
-                             P4c y P4e (su runtime de Rust para Windows)
+                             P4c, P4e y P4f (su runtime de Rust para
+                             Windows: 157 nombres, medidos el 27-09)
    6  VERRANO V2 a V4        PLAN_VERRANO: profundidad, constantes, y el
                              emisor SPIR-V a SM86. P3b4 los PIDE
    7  P3b4                   el lote de PROTON-X lo dibuja la 3060

@@ -66,6 +66,13 @@ pub fn poner_exe(ruta: &str, resto: &str) {
     e.linea_a = linea.bytes().chain([0]).collect();
 }
 
+/// El nombre del `.exe` sin su ruta (`crt.exe`), para GetModuleHandle.
+pub(crate) fn nombre_exe() -> alloc::string::String {
+    let e = &estado().exe_a;
+    let s = core::str::from_utf8(&e[..e.len() - 1]).unwrap_or("");
+    alloc::string::String::from(s.rsplit('\\').next().unwrap_or(""))
+}
+
 /// Una cadena UTF-16 del `.exe`, sin su 0 (hasta 32767, lo que da Windows).
 fn ancho(p: *const u16) -> Vec<u16> {
     let mut v = Vec::new();

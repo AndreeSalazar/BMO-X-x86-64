@@ -49,6 +49,7 @@ pub mod lote;
 pub mod monton;
 pub mod nativo;
 pub mod teb;
+pub mod texto;
 pub mod tls;
 pub mod trama;
 pub mod ventanas;

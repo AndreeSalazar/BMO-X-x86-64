@@ -57,8 +57,10 @@ pub mod gdi32;
 pub mod hilos;
 pub mod kernel32;
 pub mod memoria;
+pub mod modulos;
 pub mod nativo;
 pub mod proceso;
+pub mod texto;
 pub mod tuberia;
 pub mod user32;
 
@@ -217,7 +219,7 @@ pub fn aviso(texto: &str) {
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let Funcion::Nombre(n) = f else { return None };
     if dll.eq_ignore_ascii_case("kernel32.dll") {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

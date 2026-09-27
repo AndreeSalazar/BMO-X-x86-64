@@ -186,3 +186,22 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` treinta y cinco veces y sale con 0. En Windows, lo mismo. El
 numero de la derecha de cada linea es solo para mirar: C no fija en que
 orden se evaluan los argumentos, y a veces se calcula antes de la llamada.
+
+texto.exe -- el de P4f (27-09): el texto, la consola y los modulos
+
+kernel32.def suma SetLastError (ya lo servia la casa), MultiByteToWideChar,
+WideCharToMultiByte, CompareStringOrdinal, lstrlenW, GetConsoleMode,
+WriteConsoleW, GetConsoleOutputCP, LoadLibraryW, GetProcAddress y
+FreeLibrary; hola, teb, hilos, ficheros y crt salen IDENTICOS con el:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c texto.c -o texto.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro texto.obj kernel32.lib /out:texto.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   c0172879156587d71e6828a4fca93fe005e3d2cd4c4fdfab51b3847c4bc0ed0a
+
+Dice `bien` veintiuna veces (una la escribe WriteConsoleW) y sale con 0. Si
+la salida va a un fichero y no a una consola, esa linea cambia por la de
+ERROR_INVALID_HANDLE: tambien es Windows.

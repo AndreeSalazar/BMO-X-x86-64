@@ -42,6 +42,7 @@ const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
 const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
 const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
 const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
+const TEXTO: &[u8] = include_bytes!("../../proton-x/prueba/texto.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -547,4 +548,21 @@ fn crt_exe_tiene_la_memoria_y_el_proceso_de_windows() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 35, "{texto}");
     assert!(texto.ends_with("crt.exe: la memoria y el proceso son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4f en el anfitrion**: `texto.exe` pasa texto entre UTF-8 y UTF-16,
+/// escribe por WriteConsoleW, y carga d3d12.dll y sus funciones por
+/// LoadLibraryW + GetProcAddress, sobre la tabla de la casa.
+#[test]
+fn texto_exe_tiene_el_texto_la_consola_y_los_modulos_de_windows() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("apps/texto.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TEXTO, true, &[]);
+    *NOMBRE.lock().unwrap() = ("apps/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert!(texto.contains("  bien  WriteConsoleW escribe UTF-16 en la consola\r\n"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 21, "{texto}");
+    assert!(texto.ends_with("texto.exe: el texto y los modulos son los de Windows\r\n[salio 0x0]"), "{texto}");
 }

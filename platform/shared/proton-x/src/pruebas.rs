@@ -1049,3 +1049,22 @@ fn el_entorno_es_el_de_windows() {
     assert_eq!(e.leer(&w("PXPRUEBA")), None);
     assert_eq!(Entorno::vacio().bloque(), [0, 0]);
 }
+
+// -- P4f: el texto ------------------------------------------------------------------
+
+use crate::texto::{self, MalFormado};
+
+#[test]
+fn el_texto_pasa_entre_utf8_y_utf16_como_windows() {
+    let w = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+    assert_eq!(texto::a_ancho("a\u{F1}\u{20AC}\u{1F600}".as_bytes(), true), Ok(w("a\u{F1}\u{20AC}\u{1F600}")));
+    assert_eq!(texto::a_ancho(b"a\xFFb", false), Ok(vec![0x61, 0xFFFD, 0x62]), "un byte malo: un U+FFFD");
+    assert_eq!(texto::a_ancho(b"a\xFFb", true), Err(MalFormado), "MB_ERR_INVALID_CHARS: NO");
+    assert_eq!(texto::a_ancho(b"\xED\xA0\x80", true), Err(MalFormado), "un sustituto en UTF-8 no vale");
+    assert_eq!(texto::a_estrecho(&w("\u{F1}\u{1F600}"), true), Ok("\u{F1}\u{1F600}".as_bytes().to_vec()));
+    assert_eq!(texto::a_estrecho(&[0x41, 0xD800, 0x42], false), Ok(b"A\xEF\xBF\xBDB".to_vec()), "sustituto suelto: EF BF BD");
+    assert_eq!(texto::a_estrecho(&[0xD800], true), Err(MalFormado));
+    assert_eq!(texto::comparar(&w("abc"), &w("ABC"), false), 1);
+    assert_eq!(texto::comparar(&w("abc"), &w("ABC"), true), 0);
+    assert_eq!(texto::comparar(&w("ab"), &w("abc"), true), -1);
+}

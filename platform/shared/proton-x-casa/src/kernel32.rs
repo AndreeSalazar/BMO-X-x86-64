@@ -87,12 +87,15 @@ extern "win64" fn get_current_thread_id() -> u32 {
 }
 
 /// `GetModuleHandleW(NULL)`: el propio `.exe`, su base, leida del PEB como la
-/// lee Windows. Con un nombre, 0 y `ERROR_MOD_NOT_FOUND`: el unico modulo que
-/// hay es el `.exe` (las DLL de la casa no son PE que se puedan nombrar).
+/// lee Windows. Con un nombre (P4f), el del `.exe` o el de una DLL de la casa
+/// (`modulos.rs`); si no, 0 y `ERROR_MOD_NOT_FOUND`.
 extern "win64" fn get_module_handle_w(nombre: *const u16) -> u64 {
     if !nombre.is_null() {
-        set_last_error(ERROR_MOD_NOT_FOUND);
-        return 0;
+        // P4f: las DLL de la casa y el propio `.exe`, por su nombre.
+        return crate::modulos::por_nombre_w(nombre).unwrap_or_else(|| {
+            set_last_error(ERROR_MOD_NOT_FOUND);
+            0
+        });
     }
     base_imagen()
 }
@@ -104,6 +107,11 @@ pub(crate) fn base_imagen() -> u64 {
         let peb = ((teb() + teb::TEB_PEB as u64) as *const u64).read();
         ((peb + teb::PEB_IMAGE_BASE as u64) as *const u64).read()
     }
+}
+
+/// Si `h` es la consola (la salida o los errores).
+pub(crate) fn es_consola(h: u64) -> bool {
+    h == SALIDA || h == ERRORES
 }
 
 /// LastError del hilo actual (para las demas DLL de la casa).

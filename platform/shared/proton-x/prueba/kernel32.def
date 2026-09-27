@@ -67,3 +67,13 @@ GetEnvironmentVariableW
 SetEnvironmentVariableW
 GetEnvironmentStringsW
 FreeEnvironmentStringsW
+MultiByteToWideChar
+WideCharToMultiByte
+CompareStringOrdinal
+lstrlenW
+GetConsoleMode
+WriteConsoleW
+GetConsoleOutputCP
+LoadLibraryW
+GetProcAddress
+FreeLibrary
