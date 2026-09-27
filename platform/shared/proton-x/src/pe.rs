@@ -25,6 +25,7 @@ pub const MAGIA_PE32_MAS: u16 = 0x20B;
 
 /// Los directorios que mira el cargador (su indice en la tabla).
 const DIR_IMPORTACIONES: usize = 1;
+const DIR_EXCEPCIONES: usize = 3;
 const DIR_RELOCALIZACIONES: usize = 5;
 const DIR_TLS: usize = 9;
 const DIR_CLR: usize = 14;
@@ -99,6 +100,8 @@ pub struct Pe {
     pub importaciones: Directorio,
     pub relocalizaciones: Directorio,
     pub tls: Directorio,
+    /// `.pdata`: una RUNTIME_FUNCTION por funcion, para desenrollar (P4c).
+    pub excepciones: Directorio,
     /// La cabecera COFF dice `RELOCS_STRIPPED`: no se puede mover de su base.
     /// Sin esa bandera y sin `.reloc`, se mueve sin corregir nada (todo es
     /// relativo a RIP), que es lo que hace el cargador de Windows.
@@ -200,6 +203,7 @@ pub fn leer(d: &[u8]) -> Result<Pe, Fallo> {
         importaciones: dir(DIR_IMPORTACIONES)?,
         relocalizaciones: dir(DIR_RELOCALIZACIONES)?,
         tls: dir(DIR_TLS)?,
+        excepciones: dir(DIR_EXCEPCIONES)?,
         relocs_quitadas: u16_en(d, e + 22, "las caracteristicas COFF")? & RELOCS_QUITADAS != 0,
     })
 }

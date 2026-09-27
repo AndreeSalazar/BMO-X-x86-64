@@ -34,3 +34,8 @@ ReleaseSRWLockExclusive
 InitializeConditionVariable
 SleepConditionVariableSRW
 WakeConditionVariable
+RaiseException
+SetUnhandledExceptionFilter
+RtlCaptureContext
+RtlLookupFunctionEntry
+RtlVirtualUnwind
