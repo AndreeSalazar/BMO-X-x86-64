@@ -47,6 +47,7 @@ pub mod regiones;
 pub mod hilos;
 pub mod hora;
 pub mod lote;
+pub mod mensajes;
 pub mod monton;
 pub mod nativo;
 pub mod teb;

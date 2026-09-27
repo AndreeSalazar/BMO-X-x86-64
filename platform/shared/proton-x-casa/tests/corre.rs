@@ -45,6 +45,7 @@ const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
 const TEXTO: &[u8] = include_bytes!("../../proton-x/prueba/texto.exe");
 const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
 const CARPETAS: &[u8] = include_bytes!("../../proton-x/prueba/carpetas.exe");
+const SISTEMA: &[u8] = include_bytes!("../../proton-x/prueba/sistema.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -617,4 +618,18 @@ fn carpetas_exe_tiene_las_carpetas_de_windows() {
         assert!(texto.ends_with("carpetas.exe: las carpetas son las de Windows\r\n[salio 0x0]"), "{texto}");
     }
     assert_eq!(std::fs::read(volumen().join("window/pzc.txt")).unwrap(), b"abc");
+}
+
+/// **P4f4 en el anfitrion**: `sistema.exe` -- NtReadFile/NtWriteFile,
+/// ProcessPrng, OVERLAPPED, FormatMessageW, SetStdHandle, los nombres del
+/// sistema, la red que no esta y los procesos; sale con TerminateProcess.
+#[test]
+fn sistema_exe_tiene_lo_demas_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, SISTEMA, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 22, "{texto}");
+    assert!(texto.ends_with("sistema.exe: lo demas es lo de Windows\r\n[salio 0x0]"), "{texto}");
 }

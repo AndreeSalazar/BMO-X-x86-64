@@ -247,3 +247,28 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` treinta y cuatro veces y sale con 0. Deja pqa.txt, pqb.txt y
 pzc.txt en su directorio actual y se puede correr otra vez. En Windows, no
 desde la raiz de una unidad (SetCurrentDirectoryW("..") tiene que subir).
+
+sistema.exe -- el de P4f4 (27-09): ntdll, el azar, los mensajes, la red, procesos
+
+Importa de cinco DLL, como la std de Rust: kernel32.def suma SetStdHandle,
+GetOverlappedResult, FormatMessageW, LocalFree, GetWindowsDirectoryW,
+GetSystemDirectoryW, QueryDosDeviceW, GetProcessId, GetExitCodeProcess,
+TerminateProcess, CreateProcessW, InitializeProcThreadAttributeList y
+GetCurrentProcessId; ntdll.def suma NtWriteFile, NtReadFile y
+RtlNtStatusToDosError; y hay tres .def nuevos: bcrypt.def (ProcessPrng de
+bcryptprimitives.dll), userenv.def y ws2_32.def. Los otros ocho salen IDENTICOS:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d ntdll.def -l ntdll.lib
+   llvm-dlltool -m i386:x86-64 -d bcrypt.def -l bcrypt.lib
+   llvm-dlltool -m i386:x86-64 -d userenv.def -l userenv.lib
+   llvm-dlltool -m i386:x86-64 -d ws2_32.def -l ws2_32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c sistema.c -o sistema.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro sistema.obj kernel32.lib ntdll.lib bcrypt.lib userenv.lib ws2_32.lib /out:sistema.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   3955a3be69b64eaeec42aaea52af79bf9de2b8a0952584b010e7bfbf535daed2
+
+Dice `bien` veintidos veces y sale con 0 (por TerminateProcess). Con red en
+Windows, dos de las lineas de la red cambian de texto: tambien vale.

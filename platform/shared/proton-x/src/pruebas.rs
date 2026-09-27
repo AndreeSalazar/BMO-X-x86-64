@@ -1160,3 +1160,22 @@ fn partir_lo_que_se_busca() {
     assert_eq!(ruta_o_raiz(&w(""), "window"), Err(NoRuta::NoEsFichero), "vacia: nada");
     assert_eq!(ruta_o_raiz(&w("\\\\.\\CON"), "window"), Err(NoRuta::NoEsFichero), "un dispositivo: nada");
 }
+
+// -- P4f4: los codigos y sus mensajes ---------------------------------------------
+
+#[test]
+fn los_ntstatus_y_los_mensajes_de_windows() {
+    use crate::mensajes::{self, *};
+    assert_eq!(dos_de_status(STATUS_SUCCESS), 0);
+    assert_eq!(dos_de_status(STATUS_END_OF_FILE), 38, "ERROR_HANDLE_EOF");
+    assert_eq!(dos_de_status(STATUS_OBJECT_NAME_NOT_FOUND), 2);
+    assert_eq!(dos_de_status(STATUS_OBJECT_PATH_NOT_FOUND), 3);
+    assert_eq!(dos_de_status(0xC0DE_0001), ERROR_MR_MID_NOT_FOUND, "uno que no se sabe");
+    assert_eq!(mensajes::texto(2), Some("El sistema no puede encontrar el archivo especificado."));
+    assert!(mensajes::texto(87).unwrap().contains("par\u{e1}metro"));
+    assert_eq!(mensajes::texto(0xDEAD), None);
+    // Cada error que la casa pone tiene su mensaje.
+    for e in [0, 1, 2, 3, 5, 6, 8, 18, 38, 50, 80, 87, 122, 126, 127, 183, 203, 267, 1113, 1460] {
+        assert!(mensajes::texto(e).is_some_and(|t| t.ends_with('.')), "{e}");
+    }
+}

@@ -116,3 +116,15 @@ DeleteFileW
 RemoveDirectoryW
 MoveFileExW
 CreateDirectoryW
+SetStdHandle
+GetOverlappedResult
+FormatMessageW
+LocalFree
+GetWindowsDirectoryW
+GetSystemDirectoryW
+QueryDosDeviceW
+GetProcessId
+GetExitCodeProcess
+TerminateProcess
+CreateProcessW
+InitializeProcThreadAttributeList

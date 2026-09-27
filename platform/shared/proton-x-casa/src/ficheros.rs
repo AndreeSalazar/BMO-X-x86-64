@@ -185,39 +185,86 @@ extern "win64" fn create_file_a(nombre: *const u8, acceso: u32, compartir: u32, 
     create_file_w(w.as_ptr(), acceso, compartir, seg, disposicion, banderas, plantilla)
 }
 
-/// `ReadFile(h, bufer, n, *leidos, solapado)`.
-extern "win64" fn read_file(h: u64, b: *mut u8, n: u32, leidos: *mut u32, _solapado: u64) -> i32 {
-    let Some(a) = abierto(h).filter(|a| a.lee) else {
-        kernel32::poner_error(ERROR_INVALID_HANDLE);
-        return 0;
-    };
+/// P4f4: el desplazamiento de un OVERLAPPED (Offset en +16, OffsetHigh en
+/// +20). En un handle SINCRONO, Windows lee o escribe ahi y deja el cursor
+/// detras.
+fn desde_solapado(ov: u64) -> Option<u64> {
+    // SAFETY: un OVERLAPPED del `.exe` (32 bytes).
+    (ov != 0).then(|| unsafe { ((ov + 16) as *const u32).read_unaligned() as u64 | (((ov + 20) as *const u32).read_unaligned() as u64) << 32 })
+}
+
+/// Lo que queda en el OVERLAPPED al acabar: Internal (el NTSTATUS, +0) e
+/// InternalHigh (los bytes, +8). GetOverlappedResult lo lee de ahi.
+fn cumplir_solapado(ov: u64, status: u32, n: usize) {
+    if ov != 0 {
+        // SAFETY: como arriba.
+        unsafe {
+            (ov as *mut u64).write_unaligned(status as u64);
+            ((ov + 8) as *mut u64).write_unaligned(n as u64);
+        }
+    }
+}
+
+/// **Leer de un fichero de la casa** (ReadFile y NtReadFile): desde `desde`
+/// o desde el cursor. Los bytes, o el error de Win32.
+pub(crate) fn leer_de(h: u64, dst: &mut [u8], desde: Option<u64>) -> Result<usize, u32> {
+    let a = abierto(h).filter(|a| a.lee).ok_or(ERROR_INVALID_HANDLE)?;
     if a.carpeta {
-        kernel32::poner_error(ERROR_INVALID_FUNCTION);
-        return 0;
+        return Err(ERROR_INVALID_FUNCTION);
     }
+    if let Some(p) = desde {
+        a.pos = p;
+    }
+    Ok(a.leer(dst))
+}
+
+/// **Escribir en un fichero de la casa** (WriteFile y NtWriteFile).
+pub(crate) fn escribir_en(h: u64, src: &[u8], desde: Option<u64>) -> Result<usize, u32> {
+    let a = abierto(h).filter(|a| a.escribe).ok_or(ERROR_INVALID_HANDLE)?;
+    if let Some(p) = desde {
+        a.pos = p;
+    }
+    Ok(a.escribir(src))
+}
+
+/// `ReadFile(h, bufer, n, *leidos, solapado)`.
+extern "win64" fn read_file(h: u64, b: *mut u8, n: u32, leidos: *mut u32, solapado: u64) -> i32 {
     // SAFETY: `n` bytes del `.exe` donde escribir.
-    let dst = unsafe { core::slice::from_raw_parts_mut(b, n as usize) };
-    let k = a.leer(dst);
-    if !leidos.is_null() {
-        // SAFETY: un DWORD del `.exe`.
-        unsafe { *leidos = k as u32 };
+    let dst = if n == 0 { &mut [][..] } else { unsafe { core::slice::from_raw_parts_mut(b, n as usize) } };
+    match leer_de(h, dst, desde_solapado(solapado)) {
+        Ok(k) => {
+            if !leidos.is_null() {
+                // SAFETY: un DWORD del `.exe`.
+                unsafe { *leidos = k as u32 };
+            }
+            cumplir_solapado(solapado, 0, k);
+            1
+        }
+        Err(e) => {
+            kernel32::poner_error(e);
+            0
+        }
     }
-    1
 }
 
 /// `WriteFile` sobre un fichero (la consola la lleva `kernel32`).
-pub(crate) fn escribir(h: u64, b: *const u8, n: u32, escritos: *mut u32) -> i32 {
-    let Some(a) = abierto(h).filter(|a| a.escribe) else {
-        kernel32::poner_error(ERROR_INVALID_HANDLE);
-        return 0;
-    };
+pub(crate) fn escribir(h: u64, b: *const u8, n: u32, escritos: *mut u32, solapado: u64) -> i32 {
     // SAFETY: `n` bytes del `.exe`.
-    let k = a.escribir(unsafe { core::slice::from_raw_parts(b, n as usize) });
-    if !escritos.is_null() {
-        // SAFETY: un DWORD del `.exe`.
-        unsafe { *escritos = k as u32 };
+    let src = if n == 0 { &[][..] } else { unsafe { core::slice::from_raw_parts(b, n as usize) } };
+    match escribir_en(h, src, desde_solapado(solapado)) {
+        Ok(k) => {
+            if !escritos.is_null() {
+                // SAFETY: un DWORD del `.exe`.
+                unsafe { *escritos = k as u32 };
+            }
+            cumplir_solapado(solapado, 0, k);
+            1
+        }
+        Err(e) => {
+            kernel32::poner_error(e);
+            0
+        }
     }
-    1
 }
 
 /// Sacar un fichero escrito entero. `false` si la plataforma no pudo.

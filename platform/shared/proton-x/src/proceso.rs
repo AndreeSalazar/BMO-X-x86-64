@@ -16,7 +16,8 @@
 //! El entorno de partida es corto y verdadero: `OS=Windows_NT` (el ABI que se
 //! da), `PATH`, `TEMP` y `TMP` al directorio del `.exe` (el unico sitio que se
 //! sabe escribible), `NUMBER_OF_PROCESSORS=1` (los hilos de la casa son M:1,
-//! el mismo numero que `GetSystemInfo`), `PROCESSOR_ARCHITECTURE=AMD64` y
+//! el mismo numero que `GetSystemInfo`), `PROCESSOR_ARCHITECTURE=AMD64`,
+//! `USERPROFILE` al directorio del `.exe` (P4f4: su "casa" es su carpeta) y
 //! `PROTON_X=1` para quien quiera saber donde esta. No hay `SystemRoot`: no
 //! hay un Windows debajo.
 
@@ -154,6 +155,7 @@ impl Entorno {
             ("NUMBER_OF_PROCESSORS", "1"),
             ("PROCESSOR_ARCHITECTURE", "AMD64"),
             ("PROTON_X", "1"),
+            ("USERPROFILE", dir_exe),
         ] {
             let _ = e.poner(&w(n), Some(&w(val)));
         }

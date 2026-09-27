@@ -62,6 +62,8 @@ pub mod memoria;
 pub mod modulos;
 pub mod nativo;
 pub mod proceso;
+pub mod red;
+pub mod sistema;
 pub mod texto;
 pub mod tuberia;
 pub mod user32;
@@ -207,6 +209,7 @@ pub unsafe fn empezar(p: Plataforma) {
     proceso::reiniciar();
     esperas::reiniciar();
     carpetas::reiniciar();
+    kernel32::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -233,7 +236,14 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
     let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
     if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n))
+    } else if dll.eq_ignore_ascii_case("ntdll.dll") {
+        // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
+        sistema::buscar_ntdll(n)
+    } else if dll.eq_ignore_ascii_case("ws2_32.dll") {
+        red::buscar(n)
+    } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
+        sistema::buscar_otras(dll, n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

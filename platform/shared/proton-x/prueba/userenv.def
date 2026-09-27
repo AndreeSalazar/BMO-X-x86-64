@@ -1,0 +1,3 @@
+LIBRARY userenv.dll
+EXPORTS
+GetUserProfileDirectoryW

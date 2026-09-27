@@ -622,7 +622,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                              SetFileInformationByHandle, SetFileAttributesW,
                              SetFileTime, LockFileEx, UnlockFile, GetTempPathW,
                              GetFinalPathNameByHandleW, y los Nt*File de ntdll
-   P4f4  lo que existe y     CreateProcessW, CreatePipe, TerminateProcess, la
+   P4f4  lo que existe y     CreateProcessW, CreatePipe, TerminateProcess, la  [HECHO]
          dice NO             red (ws2_32: WSAStartup, socket...), dbghelp:
                              estar, para que el .exe CARGUE, y contestar el
                              fallo de Windows si se llama
@@ -679,6 +679,33 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            FAT32 en Ring 0, fuera de PROTON-X). Tampoco: las fechas de los
            ficheros (0), atributos que no sean NORMAL/DIRECTORY, SetFileTime,
            y la rutina de progreso de CopyFileExW.
+           P4f4 [HECHO en el banco 27-09] LO DEMAS. Dos cosas que la medida
+           no vio y leer la `std` si: `File::read`/`write` de Rust van por
+           **NtReadFile/NtWriteFile** de ntdll (hechas DE VERDAD, con su
+           IO_STATUS_BLOCK y STATUS_END_OF_FILE), y el azar de `HashMap` es
+           **ProcessPrng** de `bcryptprimitives.dll`, importada por
+           raw-dylib (no salia en la lista del enlazador; hecha con RDRAND).
+           Ademas: ReadFile/WriteFile con OVERLAPPED en un handle sincrono y
+           GetOverlappedResult, SetStdHandle, FormatMessageW (los mensajes de
+           sistema en castellano, `bmo_proton_x::mensajes`) y LocalFree,
+           RtlNtStatusToDosError, GetWindows/SystemDirectoryW,
+           GetUserProfileDirectoryW (USERPROFILE: la carpeta del `.exe`),
+           QueryDosDeviceW, y del propio proceso GetProcessId,
+           GetExitCodeProcess y TerminateProcess. Y lo que EXISTE y dice NO
+           como Windows sin eso: ws2_32 entera (WSAStartup da
+           WSASYSNOTREADY, cada socket WSANOTINITIALISED), CreateProcessW
+           (2 si el `.exe` no esta; si esta, dicho), CreatePipe,
+           Nt{Create,Open}File, NtCreateNamedPipeFile, NtSetInformationFile,
+           DeviceIoControl, ReadFileEx/WriteFileEx (sin APC), ReadConsoleW
+           (no hay entrada de consola) y los enlaces (el FAT32 no los
+           tiene). Las DLL `ntdll`, `kernelbase`, `ws2_32`, `userenv` y
+           `bcryptprimitives` se cargan por nombre (GetModuleHandle +
+           GetProcAddress). **Como se sabe:** `prueba/sistema.exe` dice `bien`
+           veintidos veces en el anfitrion y sale por TerminateProcess
+           (sabotear STATUS_END_OF_FILE da MAL, comprobado). **La cuenta:** de
+           los 157 nombres de la `std` de Rust (y ProcessPrng) faltan 18: los
+           4 de P4c y los 14 del CRT de MSVC (P4f5). `C:\Windows` es un
+           nombre que se da, no una carpeta del volumen.
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 
@@ -725,6 +752,18 @@ V4. Por eso, aunque P3b4 este antes en la lista de arriba, se hace despues.
       las unidades RT de la 3060. Es el escalon mas lejano de la escalera de
       VERRANO (Quake II RTX, `PLAN_VERRANO.md` 2d). **Como se sabe:** un
       `.exe` DXR tuyo dibuja igual que en Windows.
+**Donde instalar Cyberpunk (27-09, el propietario: "PERSONAL D ese podria
+entrar en mi Cyberpunk 2077").** `Personal (D:)` tiene 111 GB libres y el
+juego pide unos 70 GB (Ludoteca, seccion 9): cabe, con margen para Phantom
+Liberty y parches. Instalarlo ahi PARA WINDOWS (con GOG, en NTFS) es gratis y
+no estorba a nada. Lo que se dice para cuando llegue F: BMO-X no lee NTFS
+(Ludoteca, seccion 8), y su FAT32 busca por nombres 8.3 y no guarda ficheros
+de mas de 4 GiB -- Cyberpunk tiene nombres largos (`basegame_4_gamedata.archive`)
+y ficheros grandes. Para que BMO-X lo lea hara falta, entonces, copiarlo a
+un volumen que BMO-X entienda con nombres largos y ficheros grandes (ESTRATOS
+ya los guarda; le falta copiar una carpeta entera, E2 de la Ludoteca), o un
+lector de NTFS de solo lectura. No se decide hoy: F es el ultimo escalon.
+
 - [ ] **F -- Cyberpunk 2077 (GOG, sin DRM).** Lo que pide, medido el 25-09
       (Ludoteca, seccion 9): 663 funciones de 36 bibliotecas en la primera
       capa, D3D12 cargado en marcha, y detras PhysX, Bink, Oodle, ICU,

@@ -29,20 +29,62 @@ const NO_VALE: u64 = u64::MAX;
 /// `ERROR_MOD_NOT_FOUND`: lo que `GetModuleHandleW` deja en LastError.
 const ERROR_MOD_NOT_FOUND: u32 = 126;
 
+/// P4f4: los que el `.exe` cambio con SetStdHandle (entrada, salida, errores).
+struct Cambiados(core::cell::UnsafeCell<[u64; 3]>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Cambiados {}
+static CAMBIADOS: Cambiados = Cambiados(core::cell::UnsafeCell::new([0; 3]));
+
+fn cambiados() -> &'static mut [u64; 3] {
+    // SAFETY: ver `Cambiados`; nadie guarda la referencia.
+    unsafe { &mut *CAMBIADOS.0.get() }
+}
+
+pub(crate) fn reiniciar() {
+    *cambiados() = [0; 3];
+}
+
+fn indice_std(n: u32) -> Option<usize> {
+    match n as i32 {
+        -10 => Some(0),
+        -11 => Some(1),
+        -12 => Some(2),
+        _ => None,
+    }
+}
+
 extern "win64" fn get_std_handle(n: u32) -> u64 {
+    if let Some(h) = indice_std(n).map(|i| cambiados()[i]).filter(|&h| h != 0) {
+        return h;
+    }
     match n as i32 {
         -11 => SALIDA,
         -12 => ERRORES,
+        // No hay entrada estandar: el escritorio de BMO-X da teclas a una
+        // ventana, no a un proceso de consola.
         _ => NO_VALE,
+    }
+}
+
+extern "win64" fn set_std_handle(n: u32, h: u64) -> i32 {
+    match indice_std(n) {
+        Some(i) => {
+            cambiados()[i] = h;
+            1
+        }
+        None => {
+            set_last_error(87);
+            0
+        }
     }
 }
 
 /// `WriteFile` sobre la consola: los bytes tal cual. Quien pone la plataforma
 /// decide que hacer con el `\r` de Windows (la consola de BMO-X es de lineas).
-extern "win64" fn write_file(h: u64, b: *const u8, n: u32, escritos: *mut u32, _solapado: u64) -> i32 {
+pub(crate) extern "win64" fn write_file(h: u64, b: *const u8, n: u32, escritos: *mut u32, solapado: u64) -> i32 {
     if h != SALIDA && h != ERRORES {
         // P4d: un fichero de la casa.
-        return crate::ficheros::escribir(h, b, n, escritos);
+        return crate::ficheros::escribir(h, b, n, escritos, solapado);
     }
     // SAFETY: el `.exe` promete `n` bytes legibles en `b`, como en Windows.
     let bytes = unsafe { core::slice::from_raw_parts(b, n as usize) };
@@ -114,6 +156,16 @@ pub(crate) fn es_consola(h: u64) -> bool {
     h == SALIDA || h == ERRORES
 }
 
+/// El LastError del hilo actual (WSAGetLastError es el mismo).
+pub(crate) fn ultimo_error() -> u32 {
+    get_last_error()
+}
+
+/// El id del proceso, del TEB.
+pub(crate) fn id_del_proceso() -> u32 {
+    get_current_process_id()
+}
+
 /// LastError del hilo actual (para las demas DLL de la casa).
 pub(crate) fn poner_error(e: u32) {
     set_last_error(e);
@@ -122,6 +174,7 @@ pub(crate) fn poner_error(e: u32) {
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "GetStdHandle" => dir!(get_std_handle),
+        "SetStdHandle" => dir!(set_std_handle),
         "WriteFile" => dir!(write_file),
         "ExitProcess" => dir!(exit_process),
         "SetLastError" => dir!(set_last_error),
