@@ -51,6 +51,7 @@ extern crate alloc;
 
 pub mod carpetas;
 pub mod com;
+pub mod crt;
 pub mod d3d12;
 pub mod dxgi;
 pub mod esperas;
@@ -210,6 +211,7 @@ pub unsafe fn empezar(p: Plataforma) {
     esperas::reiniciar();
     carpetas::reiniciar();
     kernel32::reiniciar();
+    crt::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -237,6 +239,9 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
     if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
         kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n))
+    } else if crt::es_del_crt(dll) {
+        // P4f5: el CRT de MSVC (ucrtbase, vcruntime140 y sus API set).
+        crt::buscar(n)
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         sistema::buscar_ntdll(n)

@@ -174,7 +174,8 @@ try {
     # Y `esperas.exe` (P4f2, 27-09): mutex, temporizadores, WaitOnAddress, FLS, la hora.
     # Y `carpetas.exe` (P4f3, 27-09): FindFirstFileW, rutas, una carpeta abierta, copiar.
     # Y `sistema.exe` (P4f4, 27-09): NtReadFile, ProcessPrng, FormatMessageW, la red, procesos.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe')) {
+    # Y `ucrt.exe` (P4f5, 27-09): el CRT de MSVC de sus DLL (argv, _initterm, exit, malloc, memcpy).
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(

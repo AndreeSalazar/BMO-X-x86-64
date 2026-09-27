@@ -66,6 +66,18 @@ pub fn poner_exe(ruta: &str, resto: &str) {
     e.linea_a = linea.bytes().chain([0]).collect();
 }
 
+/// La linea de ordenes, sin su 0 (P4f5: los argv del CRT).
+pub(crate) fn linea() -> alloc::string::String {
+    let l = &estado().linea_w;
+    alloc::string::String::from_utf16_lossy(&l[..l.len().saturating_sub(1)])
+}
+
+/// El entorno como "N=V" (P4f5: el `environ` del CRT).
+pub(crate) fn pares_del_entorno() -> Vec<Vec<u16>> {
+    let b = estado().entorno.bloque();
+    b.split(|&c| c == 0).filter(|x| !x.is_empty()).map(|x| x.to_vec()).collect()
+}
+
 /// Una variable del entorno (P4f3: GetTempPathW lee TMP).
 pub(crate) fn variable(n: &str) -> Option<Vec<u16>> {
     let w: Vec<u16> = n.encode_utf16().collect();

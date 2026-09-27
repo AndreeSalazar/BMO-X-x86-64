@@ -1,0 +1,7 @@
+LIBRARY vcruntime140.dll
+EXPORTS
+memcpy
+memmove
+memset
+memcmp
+memchr

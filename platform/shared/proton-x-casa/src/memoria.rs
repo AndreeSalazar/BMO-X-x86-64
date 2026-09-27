@@ -117,6 +117,24 @@ pub(crate) fn pedir_del_proceso(tam: u64) -> Option<u64> {
     pedir(tam, 16, PROPIETARIO_PROCESO)
 }
 
+/// `realloc` sobre el monton del proceso (P4f5): en su sitio si se puede; si
+/// no, uno nuevo, la copia y el viejo suelto. `None` (y el viejo intacto) si
+/// no es de ese monton o no cabe.
+pub(crate) fn cambiar_del_proceso(p: u64, n: u64) -> Option<u64> {
+    let antes = match estado().monton.bloque(&Real, p) {
+        Some(b) if b.propietario == PROPIETARIO_PROCESO => b.pedido,
+        _ => return None,
+    };
+    if estado().monton.cambiar_en_sitio(&mut Real, p, n) {
+        return Some(p);
+    }
+    let q = pedir(n, 16, PROPIETARIO_PROCESO)?;
+    // SAFETY: dos bloques distintos del monton.
+    unsafe { core::ptr::copy_nonoverlapping(p as *const u8, q as *mut u8, antes.min(n) as usize) };
+    estado().monton.soltar(&mut Real, p);
+    Some(q)
+}
+
 pub(crate) fn soltar_del_proceso(p: u64) -> bool {
     let e = estado();
     matches!(e.monton.bloque(&Real, p), Some(b) if b.propietario == PROPIETARIO_PROCESO) && e.monton.soltar(&mut Real, p).is_some()

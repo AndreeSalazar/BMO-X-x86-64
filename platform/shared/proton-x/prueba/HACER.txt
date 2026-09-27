@@ -272,3 +272,25 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` veintidos veces y sale con 0 (por TerminateProcess). Con red en
 Windows, dos de las lineas de la red cambian de texto: tambien vale.
+
+ucrt.exe -- el de P4f5 (27-09): el CRT de MSVC, de sus propias DLL
+
+Importa como un .exe de Visual C++ con el CRT dinamico: de los API set del
+CRT (crt_runtime.def, crt_heap.def, crt_string.def) y de vcruntime140.dll
+(vcruntime140.def). Los otros .exe no cambian (no usan estos .def):
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d crt_runtime.def -l crt_runtime.lib
+   llvm-dlltool -m i386:x86-64 -d crt_heap.def -l crt_heap.lib
+   llvm-dlltool -m i386:x86-64 -d crt_string.def -l crt_string.lib
+   llvm-dlltool -m i386:x86-64 -d vcruntime140.def -l vcruntime140.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c ucrt.c -o ucrt.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro ucrt.obj kernel32.lib crt_runtime.lib crt_heap.lib crt_string.lib vcruntime140.lib /out:ucrt.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   dd4b35a65451fa3fa10cb29c35b5e4677e52184ed60c9a6ae784aaea926be059
+
+Dice `bien` diecinueve veces y la ultima linea la escribe una funcion
+registrada con _crt_atexit cuando exit() la llama; sale con 0. En Windows
+pide vcruntime140.dll (el redistribuible de Visual C++; lo traen los juegos).

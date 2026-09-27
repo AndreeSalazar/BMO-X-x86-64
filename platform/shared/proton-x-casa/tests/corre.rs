@@ -46,6 +46,7 @@ const TEXTO: &[u8] = include_bytes!("../../proton-x/prueba/texto.exe");
 const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
 const CARPETAS: &[u8] = include_bytes!("../../proton-x/prueba/carpetas.exe");
 const SISTEMA: &[u8] = include_bytes!("../../proton-x/prueba/sistema.exe");
+const UCRT: &[u8] = include_bytes!("../../proton-x/prueba/ucrt.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -632,4 +633,22 @@ fn sistema_exe_tiene_lo_demas_de_windows() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 22, "{texto}");
     assert!(texto.ends_with("sistema.exe: lo demas es lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4f5 en el anfitrion**: `ucrt.exe` -- el arranque del CRT de MSVC
+/// (argv, entorno, _initterm), sus tablas de salida, su monton, memoria y
+/// cadenas, importado de api-ms-win-crt-* y vcruntime140.dll; y su ultima
+/// linea la dice una funcion de _crt_atexit que corre exit().
+#[test]
+fn ucrt_exe_tiene_el_crt_de_msvc() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/ucrt.exe", "-nivel 3");
+    let (salio, dicho, _) = correr_exe(&uno, UCRT, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert!(texto.contains("__p___argc y __p___argv: argv[argc] es NULL 0x0000000000000003"), "tres argumentos: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 19, "{texto}");
+    assert!(texto.ends_with("ucrt.exe: el CRT es el de Windows (dicho desde _crt_atexit)\r\n[salio 0x0]"), "{texto}");
 }

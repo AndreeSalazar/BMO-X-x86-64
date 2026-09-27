@@ -1,0 +1,15 @@
+LIBRARY api-ms-win-crt-runtime-l1-1-0.dll
+EXPORTS
+_set_app_type
+_configure_narrow_argv
+__p___argc
+__p___argv
+_initialize_narrow_environment
+_get_initial_narrow_environment
+_initterm
+_initterm_e
+_crt_atexit
+_initialize_onexit_table
+_register_onexit_function
+_execute_onexit_table
+exit

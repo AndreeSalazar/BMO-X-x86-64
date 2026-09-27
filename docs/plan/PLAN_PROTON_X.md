@@ -628,7 +628,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                              fallo de Windows si se llama
    P4c   las excepciones     AddVectoredExceptionHandler, RtlCaptureContext,
                              RtlLookupFunctionEntry, RtlVirtualUnwind
-   P4f5  el CRT de MSVC      vcruntime140.dll (memcpy, memset, memcmp,
+   P4f5  el CRT de MSVC      vcruntime140.dll (memcpy, memset, memcmp,  [HECHO*]
                              __CxxFrameHandler3, __C_specific_handler...) y
                              los api-ms-win-crt-*.dll (el arranque del CRT)
 ```
@@ -701,11 +701,31 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            tiene). Las DLL `ntdll`, `kernelbase`, `ws2_32`, `userenv` y
            `bcryptprimitives` se cargan por nombre (GetModuleHandle +
            GetProcAddress). **Como se sabe:** `prueba/sistema.exe` dice `bien`
-           veintidos veces en el anfitrion y sale por TerminateProcess
+           veintidos veces en el anfitrion y sale por TerminateProcess -- y
+           en Windows (el propietario, 27-09) cumple igual --
            (sabotear STATUS_END_OF_FILE da MAL, comprobado). **La cuenta:** de
            los 157 nombres de la `std` de Rust (y ProcessPrng) faltan 18: los
            4 de P4c y los 14 del CRT de MSVC (P4f5). `C:\Windows` es un
            nombre que se da, no una carpeta del volumen.
+           P4f5 [HECHO en el banco 27-09, *sin lo de C++] EL CRT DE MSVC. La
+           casa (`crt.rs`) resuelve `ucrtbase.dll`, `vcruntime140.dll` y los
+           API set `api-ms-win-crt-*`, que es de donde importa un `.exe` de
+           Visual C++ con el CRT dinamico: el arranque (_configure_narrow/
+           wide_argv, __p___argc/argv/wargv con las reglas de argv del CRT,
+           el entorno, _initterm y _initterm_e), la salida (exit corre lo de
+           _crt_atexit al reves; _exit no; las tablas de onexit), el monton
+           (malloc, calloc, realloc, free: el de Windows del proceso, P4e) y
+           memoria y cadenas (memcpy, memmove, memset, memcmp, memchr,
+           strlen, wcslen, strcmp, strncmp). **Como se sabe:**
+           `prueba/ucrt.exe` dice `bien` diecinueve veces en el anfitrion, y
+           su ultima linea la escribe una funcion de _crt_atexit (quitar esa
+           llamada de exit la calla, comprobado). *Lo que falta, dicho: lo del
+           mecanismo de excepciones de C++ (__CxxFrameHandler3,
+           _CxxThrowException) va con P4c; el `printf` del CRT
+           (__stdio_common_*) no esta; y lo que un `.exe` de MSVC enlaza
+           ESTATICO (mainCRTStartup, __chkstk, _fltused, _tls_index, atexit)
+           va dentro de su imagen, pero sus objetos piden alguna funcion mas
+           del CRT -- la lista exacta la dara `rayosx` sobre BMOX-12 (P3c).
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 
