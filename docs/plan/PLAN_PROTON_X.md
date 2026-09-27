@@ -215,13 +215,40 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       ARM de 32 bits, PE32 o .NET). **Como se sabe:** `python
       toolchain/tools/rayosx/rayosx.py --prueba` en verde, con el PE de
       prueba DENTRO y sus seis mutaciones FUERA, cada una con su motivo.
-- [ ] **P1 -- `hola.exe` de consola en BMO-X.** Un `.exe` tuyo (escrito y
-      compilado en Windows, 64 bits, sin CRT: `GetStdHandle`, `WriteFile`,
-      `ExitProcess`) cargado por `proton-x.bex`: secciones, sellado,
-      relocalizaciones, importaciones contra la tabla de la casa, y la
-      decision del GS (seccion 3). **Como se sabe:** la consola de BMO-X dice
-      lo mismo que la de Windows, y el mismo `.exe` con una importacion que
-      no esta en la tabla NO arranca y dice cual.
+- [x] **P1a -- el cargador, puro y con un `.exe` de VERDAD.** HECHO el
+      27-09: `platform/shared/proton-x` (`bmo-proton-x`, `no_std`): lee el
+      PE con el veredicto de `rayosx`, coloca cabeceras y secciones, aplica
+      las relocalizaciones DIR64 si lo mueve de base, lista lo que importa
+      ranura a ranura y lo resuelve contra una tabla -- o devuelve TODAS las
+      que faltan y no escribe nada. Rechaza una seccion que escribe Y
+      ejecuta (W^X) y el TLS (hasta P4). El `.exe` del banco es REAL:
+      `prueba/hola.exe`, 2560 bytes, fabricado en la nube con clang y
+      lld-link (el enlazador de LLVM compatible con el de Microsoft), sin
+      CRT, REPRODUCIBLE byte a byte (`prueba/HACER.txt`, con su sha256).
+      **Como se sabe:** `cargo test -p bmo-proton-x`: 11 pruebas en verde --
+      cada `call [rip+x]` del codigo cae en una ranura de la IAT, movido a
+      otra base el puntero absoluto lo sigue y NADA mas cambia, sin
+      `WriteFile` en la tabla dice `kernel32.dll!WriteFile` y no arranca,
+      y las mutaciones (32 bits, ARM, PE32, .NET, W+X, otra relocalizacion,
+      fichero cortado) salen cada una con su motivo. Compila tambien para
+      `x86_64-unknown-none`, el blanco de BMO-X.
+- [ ] **P1b -- el `kernel32` de la casa.** Las tres de `hola.exe`
+      (`GetStdHandle`, `WriteFile`, `ExitProcess`) en Rust `no_std`, como
+      `extern "win64"`, sobre INVOKE: la consola y la salida del proceso. Es
+      la primera fila de LA TABLA DE LA CASA. **Como se sabe:** su banco las
+      llama con la convencion de Windows (rcx, rdx, r8, r9 y 32 bytes de
+      sombra) y la consola dice la frase.
+- [ ] **P1c -- `hola.exe` en el Ryzen.** `proton-x.bex` en Ring 3: lee el
+      `.exe` del volumen, pide los bloques, coloca con `bmo-proton-x`, SELLA
+      `.text` (`MEM_OP_SELLAR`), resuelve contra la tabla de P1b y salta a
+      la entrada. `hola.exe` no toca `gs:` (su codigo son 19 instrucciones,
+      desensambladas el 27-09), asi que P1c NO espera a la decision del GS.
+      **Como se sabe:** `run apps/proton-x.bex hola.exe` dice en BMO-X lo
+      mismo que `hola.exe` en Windows, y sale con 0.
+- [ ] **P1d -- la decision del GS (seccion 3).** Con el primer `.exe` que SI
+      lea `gs:[0x30]` (el CRT de Microsoft lo hace), no antes. **Como se
+      sabe:** la decision escrita aqui, con lo que cuesta en el cambio de
+      contexto medido.
 - [ ] **P2 -- la ventana Win32.** Un `.exe` tuyo con `CreateWindowExW`, su
       bucle de mensajes y pixeles pintados por la CPU. La ventana es una
       superficie del director; las teclas llegan por su buzon. **Como se
@@ -254,6 +281,65 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       GB de datos, copiados desde Windows (el NTFS no hace falta, Ludoteca
       seccion 8). **Como se sabe:** Night City en el Ryzen, y la imagen
       comparada con la de Windows como hizo CD Projekt Red con el Mac.
+
+## 4b. "La MAYORIA de los juegos?" -- lo que decide, medido y no a ojo
+
+El propietario (27-09), mirando su Steam, su GOG y su Epic: GTA V, Dying
+Light 2, Alien: Isolation, Control, Cyberpunk... *"se puede aplicar a la
+MAYORIA de juegos, no?"*.
+
+**Por la CPU, casi todos si.** Los juegos de PC de los ultimos quince anios
+son PE32+ x86-64: `rayosx` dira DENTRO de casi todos. **Pero la CPU nunca fue
+lo que decide.** Deciden cuatro cosas, y `rayosx` ya separa las dos primeras
+(familias `tienda` y `antitrampas`, 27-09):
+
+```text
+   1  LA TIENDA      un juego que le pregunta al cliente de su tienda si lo
+                     compraste (steam_api, EOSSDK de Epic, el lanzador de
+                     Rockstar) no arranca sin ese cliente, y PROTON-X no finge
+                     ser el cliente. GOG sin DRM, si: por eso va primero
+   2  ANTITRAMPAS    BattlEye, EasyAntiCheat...: vigilan el sistema y se
+                     disfrazan en marcha. FUERA en la practica, y el modo en
+                     linea de un juego asi, siempre
+   3  LA API GRAFICA D3D11 (DXVK) es mas cercana que D3D12 (vkd3d); D3D12 con
+                     rayos (DXR) es lo ultimo de la escalera (P6)
+   4  LO QUE PIDE    cientos de funciones (Cyberpunk: 663 en la primera capa)
+                     y las DLL que trae. Cada juego suma SU lista
+```
+
+Asi que la respuesta honesta: **la mayoria cabe por la CPU, y cada juego se
+decide por su tienda**. El orden sale solo: primero lo de GOG sin DRM (tus
+17: Cyberpunk entre ellos), despues lo que `rayosx` diga que no habla con su
+tienda. Lo de Steam, Epic y Rockstar que exija su cliente se queda en
+Windows (camino B de la Ludoteca, por streaming).
+
+- [ ] **P-censo -- TU biblioteca, medida.** `rayosx` por la carpeta de cada
+      juego instalado, en tu Windows, y la tabla aqui: DENTRO/FUERA, tienda,
+      antitrampas, API grafica y cuantas funciones. **Como se sabe:** la
+      tabla, juego a juego, con la fecha.
+
+## 4c. El banco contra Windows: fps Y vatios
+
+El propietario: *"si BMO-X consume pocos vatios y sin el parasito de
+Windows, podria comparar esos juegos contra Windows en benchmarks"*. Es la
+pregunta correcta, y la casa ya mide las dos mitades: FRAPS-X los fps y el
+HUD de la GPU los vatios de la 3060 (NVML en Windows, el GSP en BMO-X). La
+regla, para que la comparacion valga:
+
+```text
+   el MISMO .exe, los MISMOS ajustes, la MISMA escena repetible (la demo o
+   el banco del propio juego), en la MISMA maquina; y de cada lado: fps
+   medios, el 1 % mas lento, y los vatios de la 3060 durante la escena
+```
+
+Y dicho antes de medir: una capa de traduccion CUESTA (DXVK y vkd3d pagan
+la traduccion de sombreadores y de estados), y BMO-X no tiene hoy un driver
+de la madurez del de NVIDIA. Ganar a Windows no es lo esperable al
+principio; lo que se mide es CUANTO cuesta, y de donde sale cada vatio.
+
+- [ ] **P-banco -- la primera comparacion.** Con el primer juego que corra
+      (P5), la tabla de arriba de los dos lados. **Como se sabe:** fps y
+      vatios de Windows y de BMO-X, en la misma escena, con la fecha.
 
 ## 5. Lo que NO se hace
 
