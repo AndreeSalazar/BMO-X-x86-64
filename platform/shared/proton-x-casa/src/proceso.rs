@@ -1,7 +1,7 @@
 //! **Quien es el proceso, de la casa** (P4e, 27-09).
 //!
 //! ```text
-//!    GetModuleFileNameW/A     "C:\apps\juego.exe" (bmo_proton_x::proceso)
+//!    GetModuleFileNameW/A     "C:\window\juego.exe" (bmo_proton_x::proceso)
 //!    GetCommandLineW/A        el `.exe` entre comillas y lo escrito detras
 //!    GetEnvironmentVariableW, SetEnvironmentVariableW,
 //!    GetEnvironmentStringsW, FreeEnvironmentStringsW
@@ -52,7 +52,7 @@ pub(crate) fn reiniciar() {
     e.entorno = Entorno::de_bmo("C:\\");
 }
 
-/// **Quien es el `.exe`**: su ruta en el volumen (`apps/juego.exe`) y lo que
+/// **Quien es el `.exe`**: su ruta en el volumen (`window/juego.exe`) y lo que
 /// se escribio detras. Lo dice quien carga, antes de saltar.
 pub fn poner_exe(ruta: &str, resto: &str) {
     let e = estado();

@@ -43,7 +43,9 @@ $dataBase = Join-Path $root 'staging\BMO-DATA'
 # FAT32 sabe crear ficheros y no carpetas, y ensenarle seria codigo de Ring 0
 # para ahorrarse esta linea: la carpeta nace aqui, con un LEEME que dice que es.
 # `capturas\` es donde Impr Pant deja las suyas (2026-09-22), por lo mismo.
-foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe', 'capturas')) {
+# `window\` es donde van los .exe de WINDOWS que corre PROTON-X (2026-09-27, lo
+# pidio el propietario: "asi entran los .exe, organizado"). Seis letras: 8.3.
+foreach ($d in @('sys', 'cobol', 'c', 'ada', 'inti', 'datos', 'apps', 'informe', 'capturas', 'window')) {
     New-Item -ItemType Directory -Path (Join-Path $dataBase $d) -Force | Out-Null
 }
 # * Y dentro de cobol\, un nivel por carpeta. Ver el bloque de $cobolEjemplos
@@ -166,14 +168,25 @@ try {
     # Y `hilos.exe` (P4, 27-09): hilos, TLS y sincronizacion de Windows con
     # los hilos cooperativos de la casa; dice `bien` diecinueve veces.
     # Y `ficheros.exe` (P4d, 27-09): CreateFileW, ReadFile, SetFilePointerEx...
-    # junto a si mismo (`apps/pxtest.txt`); dice `bien` dieciseis veces.
+    # junto a si mismo (`window/pxtest.txt`); dice `bien` dieciseis veces.
     # Y `crt.exe` (P4e, 27-09): HeapAlloc, VirtualAlloc, su nombre, su linea y su entorno.
     # Y `texto.exe` (P4f, 27-09): UTF-8/UTF-16, WriteConsoleW, LoadLibrary y GetProcAddress.
     # Y `esperas.exe` (P4f2, 27-09): mutex, temporizadores, WaitOnAddress, FLS, la hora.
     foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe')) {
-        Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
+        Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto,esperas}.exe (run sys/proton-x.bex apps/esperas.exe)' -ForegroundColor DarkGray
+    $leemeWin = @(
+        'WINDOW -- los .exe de Windows (x86-64) que corre PROTON-X',
+        '',
+        '  run sys/proton-x.bex window/hola.exe           uno de aqui',
+        '  run sys/proton-x.bex window/crt.exe -nivel 3   lo de detras es su linea de ordenes',
+        '',
+        'Su directorio actual es ESTA carpeta: lo que un .exe escriba con una ruta',
+        'relativa (ficheros.exe deja pxtest.txt) cae aqui, y aqui lo encuentra.',
+        'Los de prueba los pone el build; los tuyos, copialos aqui (nombres 8.3).'
+    )
+    Set-Content -LiteralPath (Join-Path $dataBase 'window\LEEME.TXT') -Value $leemeWin -Encoding ascii
+    Write-Host '    [proton-x] sys\proton-x.bex y window\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto,esperas}.exe (run sys/proton-x.bex window/esperas.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

@@ -69,7 +69,7 @@ pub(crate) fn reiniciar() {
     e.dir.clear();
 }
 
-/// **El directorio actual del `.exe`** (el suyo, `apps` para `apps/x.exe`).
+/// **El directorio actual del `.exe`** (el suyo, `window` para `window/x.exe`).
 /// Lo dice quien carga, antes de saltar.
 pub fn poner_directorio(dir: &str) {
     estado().dir = String::from(dir.trim_matches('/'));

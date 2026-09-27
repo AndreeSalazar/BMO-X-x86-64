@@ -11,7 +11,7 @@
  *    GetFileSizeEx / GetFileSize / GetFileType / GetFileAttributesW
  *    CREATE_ALWAYS sobre uno que esta lo VACIA
  *
- * `pxtest.txt` va junto al .exe (su directorio actual: en BMO-X, `apps`). Sale
+ * `pxtest.txt` va junto al .exe (su directorio actual: en BMO-X, `window`). Sale
  * con el numero de fallos. En Windows dice lo mismo. */
 typedef void *HANDLE;
 typedef unsigned long DWORD;

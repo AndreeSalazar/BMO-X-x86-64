@@ -1,6 +1,7 @@
 //! **PROTON-X en el Ryzen** (P1c, 27-09): un `.exe` de Windows en Ring 3.
 //!
-//! `run sys/proton-x.bex apps/hola.exe` (sin argumento, `apps/hola.exe`):
+//! `run sys/proton-x.bex window/hola.exe` (sin argumento, `window/hola.exe`;
+//! los `.exe` de Windows viven en `window/` desde el 27-09):
 //!
 //! ```text
 //!    1  leer el .exe del volumen, entero          un bloque, que se suelta
@@ -88,8 +89,8 @@ pub(crate) fn fin_del_exe(codigo: u32) -> ! {
 pub extern "C" fn _start() -> ! {
     let mut arg = [0u8; 96];
     let n = bmo::argumentos(&mut arg);
-    let todo: &[u8] = if n == 0 { b"apps/hola.exe" } else { &arg[..n] };
-    // P4e: `apps/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
+    let todo: &[u8] = if n == 0 { b"window/hola.exe" } else { &arg[..n] };
+    // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
     // demas es la linea de ordenes del `.exe` (GetCommandLineW).
     let corte = todo.iter().position(|&c| c == b' ').unwrap_or(todo.len());
     let (ruta, resto) = todo.split_at(corte);
@@ -194,7 +195,7 @@ pub extern "C" fn _start() -> ! {
     // superficies del escritorio y su buzon).
     // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
-    // P4d: su directorio actual es el suyo (`apps` para `apps/x.exe`).
+    // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
     // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes.
     bmo_proton_x_casa::proceso::poner_exe(nombre, linea);

@@ -47,7 +47,7 @@ const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
-static NOMBRE: Mutex<(&str, &str)> = Mutex::new(("apps/prueba.exe", ""));
+static NOMBRE: Mutex<(&str, &str)> = Mutex::new(("window/prueba.exe", ""));
 const CUBO_DATOS_H: &str = include_str!("../../proton-x/prueba/cubo_datos.h");
 
 #[path = "../examples/cubo_datos.rs"]
@@ -195,7 +195,7 @@ fn volumen() -> std::path::PathBuf {
     static RAIZ: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
     RAIZ.get_or_init(|| {
         let r = std::env::temp_dir().join(format!("proton-x-volumen-{}", std::process::id()));
-        std::fs::create_dir_all(r.join("apps")).unwrap();
+        std::fs::create_dir_all(r.join("window")).unwrap();
         r
     })
     .clone()
@@ -315,9 +315,9 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     let t = tls::leer(&pe, &img, base).unwrap();
     // SAFETY: GS puesto (si hay TEB), `empezar` hecho, la imagen en su sitio.
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(t, base) };
-    // P4d: como `run sys/proton-x.bex apps/x.exe`, su directorio es `apps`.
-    bmo_proton_x_casa::ficheros::poner_directorio("apps");
+    // P4d: como `run sys/proton-x.bex window/x.exe`, su directorio es `window`.
     let (nombre, resto) = *NOMBRE.lock().unwrap();
+    bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map_or("", |(d, _)| d));
     bmo_proton_x_casa::proceso::poner_exe(nombre, resto);
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
@@ -527,7 +527,7 @@ fn hilos_exe_tiene_hilos_tls_y_sincronizacion_de_windows() {
 }
 
 /// **P4d en el anfitrion**: `ficheros.exe` crea, escribe, lee, se mueve y
-/// vuelve a crear un fichero junto al `.exe` (`apps/pxtest.txt` del volumen
+/// vuelve a crear un fichero junto al `.exe` (`window/pxtest.txt` del volumen
 /// del banco), con los errores de Windows donde tocan.
 #[test]
 fn ficheros_exe_lee_y_escribe_ficheros_como_windows() {
@@ -537,7 +537,7 @@ fn ficheros_exe_lee_y_escribe_ficheros_como_windows() {
     assert!(!texto.contains("MAL"), "{texto}");
     assert_eq!(texto.matches("  bien  ").count(), 16, "{texto}");
     assert!(texto.ends_with("ficheros.exe: los ficheros son los de Windows\r\n[salio 0x0]"), "{texto}");
-    assert_eq!(std::fs::read(volumen().join("apps/pxtest.txt")).unwrap(), b"corto", "y en el volumen queda lo ultimo que escribio");
+    assert_eq!(std::fs::read(volumen().join("window/pxtest.txt")).unwrap(), b"corto", "y en el volumen queda lo ultimo que escribio");
 }
 
 /// **P4e en el anfitrion**: `crt.exe` pide y suelta del monton de Windows
@@ -546,9 +546,9 @@ fn ficheros_exe_lee_y_escribe_ficheros_como_windows() {
 #[test]
 fn crt_exe_tiene_la_memoria_y_el_proceso_de_windows() {
     let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("apps/crt.exe", "-nivel 3");
+    *NOMBRE.lock().unwrap() = ("window/crt.exe", "-nivel 3");
     let (salio, dicho, _) = correr_exe(&uno, CRT, true, &[]);
-    *NOMBRE.lock().unwrap() = ("apps/prueba.exe", "");
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("MAL"), "{texto}");
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
@@ -562,9 +562,9 @@ fn crt_exe_tiene_la_memoria_y_el_proceso_de_windows() {
 #[test]
 fn texto_exe_tiene_el_texto_la_consola_y_los_modulos_de_windows() {
     let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("apps/texto.exe", "");
+    *NOMBRE.lock().unwrap() = ("window/texto.exe", "");
     let (salio, dicho, _) = correr_exe(&uno, TEXTO, true, &[]);
-    *NOMBRE.lock().unwrap() = ("apps/prueba.exe", "");
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("MAL"), "{texto}");
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");

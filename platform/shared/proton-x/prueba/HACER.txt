@@ -165,7 +165,7 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    9766647e24e2256781fdf264e1cbe97e2e032e065efeabd7522a3d09b348e129
 
 Escribe y lee `pxtest.txt` en su directorio actual (en Windows, donde se
-lance; en BMO-X, `apps`). Dice `bien` dieciseis veces y sale con 0.
+lance; en BMO-X, `window`). Dice `bien` dieciseis veces y sale con 0.
 
 crt.exe -- el de P4e (27-09): lo que pide un CRT de Windows
 

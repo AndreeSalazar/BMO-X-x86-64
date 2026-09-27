@@ -574,8 +574,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            MiB al primer HeapAlloc). `bmo_proton_x::regiones` cuenta las
            paginas de VirtualAlloc (reservar a 64 KiB, hacer a CERO las que
            toca un rango, deshacer, soltar, consultar, proteger) y
-           `bmo_proton_x::proceso` da el nombre (`C:\apps\x.exe`), la linea
-           de ordenes (`run sys/proton-x.bex apps/x.exe lo de detras`) y el
+           `bmo_proton_x::proceso` da el nombre (`C:\window\x.exe`), la linea
+           de ordenes (`run sys/proton-x.bex window/x.exe lo de detras`) y el
            entorno (OS, PATH, TEMP, TMP, NUMBER_OF_PROCESSORS=1...). El PEB
            dice su ProcessHeap (+0x30). La casa suma GetProcessHeap, Heap*
            (Alloc, Free, ReAlloc, Size, Validate, Create, Destroy,
@@ -670,7 +670,7 @@ de arriba y de lo que cada una PIDE, no de gustos:
    4  P4e                    [HECHO en el banco 27-09] HeapAlloc,
                              VirtualAlloc, GetModuleFileNameW, la linea de
                              ordenes, el entorno. Falta: run sys/proton-x.bex
-                             apps/crt.exe en el Ryzen (35 bien)
+                             window/crt.exe en el Ryzen (35 bien)
    5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar: pide
                              P4c, P4e y P4f (su runtime de Rust para
                              Windows: 157 nombres, medidos el 27-09)
@@ -679,6 +679,13 @@ de arriba y de lo que cada una PIDE, no de gustos:
    7  P3b4                   el lote de PROTON-X lo dibuja la 3060
    8  P5, P6, F              un juego de tu GOG, los rayos, Cyberpunk
 ```
+
+**La carpeta `window` (27-09, lo pidio el propietario):** desde hoy los `.exe`
+de Windows viven en `window/` del volumen de datos, no en `apps/` (que es de
+las aplicaciones de BMO-X). La crea el build (`ejemplos.ps1`) con su
+`LEEME.TXT`, y copia ahi los de prueba. Se lanzan con `run sys/proton-x.bex
+window/x.exe`, y su directorio actual es `window`. Lo de arriba que dice
+`apps/x.exe` es la historia de cuando se vio.
 
 P3b4 NO va antes que VERRANO V4: la 3060 de hoy corre los programas FIJOS
 del `.bsf` del cubo, no un DXIL cualquiera; traducir uno pide el emisor de
