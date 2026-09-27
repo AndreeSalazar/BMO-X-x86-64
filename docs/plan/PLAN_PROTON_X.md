@@ -585,7 +585,11 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            sueltas al azar sin pisar un byte y la arena entera al final
            (`Monton::comprobar` la recorre de punta a punta), y
            `prueba/crt.exe` dice `bien` treinta y cinco veces en el anfitrion
-           (sabotear HEAP_ZERO_MEMORY da MAL, comprobado). Lo que no es
+           (sabotear HEAP_ZERO_MEMORY da MAL, comprobado). **En Windows (el
+           propietario, 27-09):** 34 de 35; la MAL era de la PRUEBA -- miraba
+           que GetEnvironmentVariableW con bufer corto no lo tocara, y su
+           documentacion dice que lo de dentro queda indefinido (Windows lo
+           toca). Arreglada: solo se mira lo que devuelve. Lo que no es
            Windows, dicho: reservar ya gasta memoria (el kernel da bloques
            hechos), no se reserva en una direccion fija, no se ejecuta lo
            pedido en marcha (PAGE_EXECUTE_*: W^X), READONLY/NOACCESS se

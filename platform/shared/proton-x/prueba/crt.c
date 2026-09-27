@@ -270,8 +270,11 @@ static void el_proceso(void) {
     mira(SetEnvironmentVariableW(L"PXPRUEBA", L"hola"), "SetEnvironmentVariableW(PXPRUEBA=hola)", 1);
     n = GetEnvironmentVariableW(L"pxprueba", b, 64);
     mira(n == 4 && iguales(b, "hola"), "GetEnvironmentVariableW sin mayusculas que cuenten: 4, hola", n);
-    b[0] = 0x7777;
-    mira(GetEnvironmentVariableW(L"PXPRUEBA", b, 2) == 5 && b[0] == 0x7777, "bufer corto: lo que hace falta CON el 0, y el bufer sin tocar", 5);
+    /* Con el bufer corto Windows dice lo que hace falta; lo que queda DENTRO
+     * del bufer "no esta definido" (su documentacion) y Windows lo toca: no
+     * se mira (el 27-09 en Windows, esta linea decia MAL por mirarlo). */
+    n = GetEnvironmentVariableW(L"PXPRUEBA", b, 2);
+    mira(n == 5, "bufer corto: lo que hace falta CON el 0", n);
     e = GetEnvironmentStringsW();
     for (l = e, bien = 0; l && *l; l += i + 1) {
         for (i = 0; l[i]; i++) {

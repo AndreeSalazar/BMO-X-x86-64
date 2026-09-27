@@ -181,7 +181,7 @@ FreeEnvironmentStringsW; hola, teb, hilos y ficheros salen IDENTICOS con el:
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   d0b09886159af1cb0087dbae7c2d0c59dd86d556664e197b4ee47eca11d19389
+   2e9ad0fe25ddae49cdc63bfc69a97fc6ce98d5be9eb509ec3777bd41dfc80f46
 
 Dice `bien` treinta y cinco veces y sale con 0. En Windows, lo mismo. El
 numero de la derecha de cada linea es solo para mirar: C no fija en que
