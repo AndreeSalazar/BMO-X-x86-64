@@ -292,7 +292,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       entre un hilo de PROTON-X y otro con distinto GS, y nada mas; al lado
       de los ~720 de una puerta y los miles de un cambio con `xsave`, es
       ruido. Los que no lo piden pagan una comparacion.
-- [ ] **P2 -- la ventana Win32.** El CODIGO esta (27-09). Un `.exe` de
+- [x] **P2 -- la ventana Win32.** HECHO y VISTO obedecer en el metal (27-09). Un `.exe` de
       manual (`prueba/ventana.exe`, 4 KiB, reproducible): RegisterClassExW,
       CreateWindowExW, ShowWindow, UpdateWindow, el bucle de GetMessageW /
       TranslateMessage / DispatchMessageW, y WM_PAINT con StretchDIBits de un
@@ -328,13 +328,14 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       **Y en el Ryzen, con el arreglo (27-09, 06:13):** la ventana SALIO en
       el escritorio de BMO-X -- `[ventana] tid 7 322x229`, `App 1` en la
       barra, el degradado y el marco dorado de `ventana.exe`, pintados por su
-      StretchDIBits. Falta verla obedecer: `run sys/proton-x.bex apps/ventana.exe`
-      abre su ventana en el escritorio de BMO-X, las letras cambian el
-      tinte, el clic deja el cuadrado y `q` la cierra.
+      StretchDIBits. **Y obedecio (27-09, 11:23):** las letras cambian el
+      tinte, el clic deja el cuadrado y `q` la cierra; salio con 1793 (siete
+      letras y un clic) y en otra corrida con 41984 (164 letras) -- lo que
+      cuenta `ventana.exe`, igual que en Windows.
 - [ ] **P3 -- el cubo D3D12.** Partido en tres el 27-09, porque el `.exe`
       de X1 (`BMOX-12`, Rust con `std` de Windows) trae su runtime entero
       --~110 importaciones, hilos, TLS y excepciones--, que es P4:
-- [ ] **P3a -- D3D12 y DXGI limpian la ventana.** El CODIGO esta (27-09).
+- [x] **P3a -- D3D12 y DXGI limpian la ventana.** HECHO y VISTO obedecer en el metal (27-09).
       `prueba/limpia.exe` (4,5 KiB, reproducible): el esqueleto de todo
       programa D3D12 -- D3D12CreateDevice, CreateDXGIFactory2, la cola, la
       cadena de intercambio sobre la ventana de P2, el monton de RTV, el
@@ -354,8 +355,9 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       nombre y sale con 0xC0DE0010. **Y en el Ryzen (27-09, 06:30):** la
       ventana salio AZUL -- (0.0, 0.25, 0.75), R 0 G 64 B 191, el primer
       color de `limpia.exe`, limpiado por el ClearRenderTargetView de la casa
-      y puesto por su Present; el wrmsr del GS, 185 ciclos. Falta verla
-      cambiar de color con una letra y cerrarse con `q`.
+      y puesto por su Present; el wrmsr del GS, 185 ciclos. **Y obedecio
+      (27-09, 11:23):** cada letra cambia el color, `q` la cierra, y sale con
+      88: los Present que hizo, como en Windows.
 - [ ] **P3b -- el cubo con sus sombreadores.** Root signature, PSO,
       buferes de vertices, DrawInstanced, y lo dificil: los sombreadores.
       Decidido el 27-09: **DXIL, no DXBC**. DXBC (SM5, `fxc`) es mas facil
@@ -541,7 +543,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            (.pdata/.xdata, un marco como RtlVirtualUnwind) y `prueba/seh.c`.
            Falta el despachador de la casa (RaiseException,
            __C_specific_handler, RtlUnwindEx): pendiente.
-      P4d [HECHO el 27-09, en el banco; falta el metal] LOS FICHEROS. La
+      P4d [HECHO el 27-09, VISTO en el metal] LOS FICHEROS. La
            casa sirve CreateFileW/A, ReadFile, WriteFile, SetFilePointer(Ex),
            GetFileSize(Ex), GetFileType, FlushFileBuffers, GetFileAttributesW
            y CloseHandle PAGANDO UNA VEZ: al abrir, el fichero ENTERO a
@@ -558,6 +560,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            en el volumen queda lo ultimo que escribio. Lo que no hay, dicho:
            dos handles que escriben el mismo fichero (cada uno tiene su
            copia), y en BMO-X un fichero escrito es de hasta 4 KiB hoy.
+           En el Ryzen, el 27-09 11:23: `ficheros.exe` dijo `bien` dieciseis
+           veces y salio con 0.
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 
@@ -565,10 +569,8 @@ El propietario pidio un orden preciso, "para no chocar". Sale de las casillas
 de arriba y de lo que cada una PIDE, no de gustos:
 
 ```text
-   1  P2 y P3a en el metal   el codigo esta; falta VERLOS obedecer (una
-                             letra, un clic, q). Lo hace el propietario:
-                             un minuto cada uno
-   2  P4d en el metal        run sys/proton-x.bex apps/ficheros.exe
+   1  P2 y P3a en el metal   [HECHO 27-09 11:23] obedecen: letras, clic, q
+   2  P4d en el metal        [HECHO 27-09 11:23] ficheros.exe, 16 bien
    3  P4c, el despachador    SEH: RaiseException, __C_specific_handler,
                              RtlUnwindEx (la base ya esta)
    4  P4e                    lo que tira un CRT de verdad: HeapAlloc,

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   383 casillas ABIERTAS en 44 planes
-   316 hechas
+   381 casillas ABIERTAS en 44 planes
+   318 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -140,15 +140,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
 - ... y 7 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 10 abiertas, 6 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P2 -- la ventana Win32. El CODIGO esta (27-09). Un .exe de
-- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
-- [ ] P3a -- D3D12 y DXGI limpian la ventana. El CODIGO esta (27-09).
-- ... y 7 mas
-
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 9 abiertas, 7 hechas
 
 *DIRECTOR -- de compositor a administrador*
@@ -175,6 +166,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0a REFERENCIA, no suelo: Windows quieto 2 minutos, Package Power = ___ W
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 8 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
+- [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. Pide P4 (el
+- ... y 5 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
