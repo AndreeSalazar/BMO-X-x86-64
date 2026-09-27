@@ -263,7 +263,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       SELLADO, datos 8 KiB sin X; monton 19472 B`, luego `hola desde un .exe
       de Windows` y `el .exe salio con 0`, sin un fallo de Ring 3. Movido de
       base (las relocalizaciones trabajaron) y con el W^X de la casa.
-- [ ] **P1d -- la decision del GS.** DECIDIDO y hecho en el codigo el 27-09:
+- [x] **P1d -- la decision del GS.** HECHO EN EL METAL el 27-09:
       la salida **a** de la seccion 3, escrita como concesion en
       [`LA_COMPATIBILIDAD.md`](../identidad/LA_COMPATIBILIDAD.md) 4.2.
       El kernel guarda un GS de Ring 3 POR HILO (`Task::gs_usuario`) y el
@@ -280,9 +280,18 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       `gs:` como el CRT de Microsoft y dice `bien` o `MAL` en seis cosas.
       **Como se sabe:** en el anfitrion `teb.exe` CORRE con su TEB en el GS
       (`arch_prctl`, `tests/corre.rs`): seis `bien` y sale con 0, estable en
-      cinco corridas. Falta el metal: `run sys/proton-x.bex apps/teb.exe`
-      tiene que decir seis `bien`, `el .exe salio con 0` y los ciclos que
-      costo el `wrmsr`.
+      cinco corridas. **Y en el Ryzen el 27-09:** `run sys/proton-x.bex
+      apps/teb.exe` dijo los seis `bien` (TEB en 0xe0007000, PEB en
+      0xe0009000, imagen movida a 0xe0104000, pid 3 y tid 8 en el ClientId,
+      LastError 0x1234 en `gs:[0x68]`) y `el .exe salio con 0`, sin un fallo
+      de Ring 3; `hola.exe` sigue igual con el GS puesto.
+
+      **Lo que cuesta, medido:** el `wrmsr` de `KERNEL_GS_BASE` costo **148 y
+      185 ciclos** (dos corridas), unos 40-50 ns a 3,7 GHz; pedido otra vez
+      con el mismo valor, **0**: no se toca. Eso es lo que paga un relevo
+      entre un hilo de PROTON-X y otro con distinto GS, y nada mas; al lado
+      de los ~720 de una puerta y los miles de un cambio con `xsave`, es
+      ruido. Los que no lo piden pagan una comparacion.
 - [ ] **P2 -- la ventana Win32.** Un `.exe` tuyo con `CreateWindowExW`, su
       bucle de mensajes y pixeles pintados por la CPU. La ventana es una
       superficie del director; las teclas llegan por su buzon. **Como se

@@ -150,7 +150,8 @@ TEB ni lo mira; guarda un numero por hilo y lo pone en `KERNEL_GS_BASE`.
 OTRO GS que el que ya esta puesto (`percpu::poner_gs_usuario`). Con todos a 0
 --todo lo que no es PROTON-X-- el relevo paga UNA comparacion y nada mas. Lo
 que cuesta cuando si cambia es un `wrmsr`, y la operacion devuelve sus ciclos:
-PROTON-X los dice en el metal al arrancar cada `.exe`.
+PROTON-X los dice en el metal al arrancar cada `.exe`: en el Ryzen 5 5600X,
+**148 y 185 ciclos** (27-09), y 0 al pedir el mismo otra vez.
 
 ---
 

@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   381 casillas ABIERTAS en 44 planes
-   315 hechas
+   380 casillas ABIERTAS en 44 planes
+   316 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -167,15 +167,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] W0b BMO-X, shell de Ring 0, consumo dos veces seguidas: ___ W
 - ... y 6 mas
 
-## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 8 abiertas, 5 hechas
-
-*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
-
-- [ ] P1d -- la decision del GS. DECIDIDO y hecho en el codigo el 27-09:
-- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
-- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
-- ... y 5 mas
-
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas
 
 *PLAN EL BUS APARTE -- el USB en su propio nucleo, y lo que hay que pagar antes*
@@ -210,6 +201,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] A4 -- LAS SUPOSICIONES DE DISPOSICION
 - [ ] A5 -- LA TABLA DEL UB, que era el encargo original
 - [ ] A5a -- las cinco que ya se pueden decidir al compilar (contador,
+- ... y 4 mas
+
+## [`PLAN_PROTON_X.md`](PLAN_PROTON_X.md) -- 7 abiertas, 6 hechas
+
+*PLAN PROTON-X -- un .exe de Windows en BMO-X, SOLO x86-64, y medido*
+
+- [ ] P2 -- la ventana Win32. Un .exe tuyo con CreateWindowExW, su
+- [ ] P3 -- el cubo D3D12, EL MISMO .exe. El BMOX-12 de
+- [ ] P4 -- la semantica dificil, con banco. Hilos y TLS, excepciones
 - ... y 4 mas
 
 ## [`PLAN_EL_ENLAZADOR.md`](PLAN_EL_ENLAZADOR.md) -- 6 abiertas, 10 hechas
