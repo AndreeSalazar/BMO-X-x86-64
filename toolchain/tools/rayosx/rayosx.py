@@ -40,8 +40,21 @@ FAMILIAS = [
     ("fisica", ("physx", "pxfoundation", "pxpvd")),
     ("sonido", ("dsound", "xaudio", "winmm", "openal", "libasound", "libpulse", "fmod", "wwise")),
     ("entrada", ("xinput", "dinput", "hid", "libudev")),
-    ("red", ("ws2_32", "wininet", "winhttp", "libcurl", "libssl", "steam_api", "galaxy")),
+    # ** LA TIENDA y LOS ANTITRAMPAS (27-09): van ANTES que "red" porque son
+    # lo que decide si un juego puede ir por PROTON-X, mas que la CPU. Un
+    # juego que habla con el cliente de su tienda (Steam, Epic, Rockstar,
+    # Ubisoft) le pregunta si lo compraste: sin ese cliente, no arranca, y
+    # PROTON-X no finge ser el cliente (seccion 5 del plan). GOG sin DRM, si.
+    ("tienda", ("steam_api", "eossdk", "galaxy", "socialclub", "rockstar", "uplay", "upc_r", "orbit_api")),
+    ("antitrampas", ("beclient", "battleye", "easyanticheat", "eac_", "vgc", "vanguard", "xigncode", "nprotect")),
+    ("red", ("ws2_32", "wininet", "winhttp", "libcurl", "libssl")),
 ]
+
+# Lo que cada una de esas dos familias quiere decir para PROTON-X.
+AVISOS = {
+    "tienda": "habla con el cliente de SU TIENDA: por PROTON-X solo si el juego no lo exige (GOG sin DRM, si; Steam, Epic y Rockstar suelen exigirlo)",
+    "antitrampas": "trae ANTITRAMPAS: codigo que vigila el sistema y se disfraza en marcha; FUERA en la practica (seccion 5 del plan)",
+}
 
 # Las que abren MAS bibliotecas en marcha: lo que cargan asi NO esta en la
 # tabla (Cyberpunk 2077 es DirectX 12 y `d3d12.dll` no sale en la suya).
@@ -245,6 +258,9 @@ def informe(ruta, d, del_juego=frozenset()):
     if del_juego:
         print("  %d biblioteca(s) las TRAE el juego (%d funciones: codigo cerrado de terceros que tambien pide lo suyo);" % (trae, trae_f))
         print("  el resto las pone el sistema (Windows)")
+    for fam, aviso in AVISOS.items():
+        if cuenta.get(fam):
+            print("  [!] %s: %s" % (fam, aviso))
     carga = sorted({f for fs in imps.values() for f in fs if f in EN_MARCHA})
     if carga:
         print("  [!] usa " + ", ".join(carga) + ": abre MAS bibliotecas en marcha, y esas NO salen en la tabla")
@@ -297,6 +313,9 @@ def prueba():
     assert familia("libSDL2-2.0.so.0") == "graficos" and familia("kernel32.dll") == "sistema"
     assert familia("PhysX3_x64.dll") == "fisica" and familia("bink2w64.dll") == "video"
     assert familia("sl.interposer.dll") == "graficos" and familia("libxess.dll") == "graficos"
+    assert familia("steam_api64.dll") == "tienda" and familia("EOSSDK-Win64-Shipping.dll") == "tienda"
+    assert familia("Galaxy64.dll") == "tienda" and familia("ws2_32.dll") == "red"
+    assert familia("BEClient_x64.dll") == "antitrampas" and familia("EasyAntiCheat_EOS.dll") == "antitrampas"
     assert pe(b"MZ" + b"\0" * 62) is None and elf(b"nada") is None
     # PROTON-X: el PE de prueba esta DENTRO, y cada mutacion lo saca con SU motivo.
     bueno = pe_de_prueba()
