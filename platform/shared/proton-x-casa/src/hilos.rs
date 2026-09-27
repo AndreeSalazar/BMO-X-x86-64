@@ -317,6 +317,37 @@ pub unsafe fn preparar_tls(t: Option<Tls>, base: u64) {
 
 // -- Los objetos ----------------------------------------------------------------------
 
+// -- Lo que usan las esperas de P4f2 (`esperas.rs`) ------------------------------
+
+/// El hilo que tiene el turno.
+pub(crate) fn actual() -> usize {
+    casa().plan.actual
+}
+
+/// El planificador, un momento (sin ceder dentro).
+pub(crate) fn con_plan<R>(f: impl FnOnce(&mut Planificador) -> R) -> R {
+    f(&mut casa().plan)
+}
+
+/// Un objeto nuevo y su handle.
+pub(crate) fn nuevo_handle(o: Objeto) -> u64 {
+    handle(casa().plan.nuevo_objeto(o))
+}
+
+/// El objeto de un handle vivo.
+pub(crate) fn objeto(h: u64) -> Option<usize> {
+    objeto_de(h)
+}
+
+/// Dormir en la direccion `dir` (WaitOnAddress): `true` si la despertaron.
+pub(crate) fn esperar_en(dir: u64, ms: u32) -> bool {
+    dormir_en(dir, ms)
+}
+
+pub(crate) fn ahora_ns() -> u64 {
+    ahora()
+}
+
 fn objeto_de(h: u64) -> Option<usize> {
     let o = h.checked_sub(OBJETO)? as usize;
     matches!(casa().plan.objeto(o), Some(x) if x != Objeto::Cerrado).then_some(o)
@@ -373,6 +404,10 @@ extern "win64" fn release_semaphore(h: u64, n: i32, antes: *mut i32) -> i32 {
 /// `CloseHandle`: un objeto de la casa se cierra; la consola, que no es de
 /// nadie, dice que si.
 pub(crate) extern "win64" fn close_handle(h: u64) -> i32 {
+    // P4f2: un handle duplicado se cierra una vez por copia.
+    if crate::esperas::soltar_copia(h) {
+        return 1;
+    }
     if crate::ficheros::es_fichero(h) {
         return crate::ficheros::cerrar(h);
     }
@@ -519,6 +554,8 @@ extern "C" fn hilo_empieza(n: u64) -> ! {
 }
 
 extern "win64" fn exit_thread(codigo: u32) -> ! {
+    // P4f2: los callbacks de FLS de este hilo, y luego los del TLS.
+    crate::esperas::fls_al_salir();
     llamar_callbacks(DLL_THREAD_DETACH);
     let vivos = {
         let c = casa();

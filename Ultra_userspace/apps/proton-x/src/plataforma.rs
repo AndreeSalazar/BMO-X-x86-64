@@ -33,7 +33,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -86,6 +86,13 @@ fn memoria(bytes: usize) -> Option<u64> {
     let base = m.base() as u64;
     core::mem::forget(m);
     Some(base)
+}
+
+/// La fecha de la placa (el RTC, `INFO_FECHA`), en segundos desde 1970
+/// (P4f2). La placa no dice su zona: se toma como UTC.
+fn fecha() -> Option<u64> {
+    let f = bmo_rtc::desempaquetar(bmo::info(bmo::INFO_FECHA))?;
+    Some(bmo_proton_x::hora::segundos_unix(f.anio, f.mes, f.dia, f.hora, f.minuto, f.segundo))
 }
 
 fn soltar_codigo(base: u64, _bytes: usize) {

@@ -14,7 +14,8 @@
 //!
 //! ```text
 //!    objetos       eventos (manual o automatico), semaforos, hilos (se
-//!                  encienden al acabar)
+//!                  encienden al acabar), mutex (con abandono) y
+//!                  temporizadores esperables (P4f2)
 //!    cerrojos      secciones criticas y SRW, por la DIRECCION del .exe:
 //!                  propietario, recursion, lectores
 //!    condiciones   SleepConditionVariable*, Wake(All)ConditionVariable
@@ -33,6 +34,8 @@ pub type Id = usize;
 
 pub const WAIT_OBJECT_0: u32 = 0;
 pub const WAIT_TIMEOUT: u32 = 0x102;
+/// Un mutex cuyo propietario acabo sin soltarlo (P4f2).
+pub const WAIT_ABANDONED_0: u32 = 0x80;
 
 /// Un objeto que se puede esperar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,6 +44,13 @@ pub enum Objeto {
     Semaforo { cuenta: u32, max: u32 },
     /// Se enciende cuando el hilo acaba.
     Hilo(Id),
+    /// `CreateMutex` (P4f2): de un hilo, con recursion. Si su propietario
+    /// acaba sin soltarlo, queda ABANDONADO y el siguiente lo coge con
+    /// WAIT_ABANDONED_0 + i.
+    Mutex { propietario: Option<Id>, cuenta: u32, abandonado: bool },
+    /// `CreateWaitableTimer` (P4f2): se enciende al vencer (ns); con periodo,
+    /// vuelve a vencer. Manual: sigue encendido; si no, lo apaga quien lo coge.
+    Temporizador { manual: bool, encendido: bool, vence: Option<u64>, periodo: u64 },
     /// Cerrado (`CloseHandle`): su numero no se reusa.
     Cerrado,
 }
@@ -169,6 +179,75 @@ impl Planificador {
             x.estado = Estado::Terminado(codigo);
         }
         self.condiciones.retain(|&(_, q)| q != h);
+        // Sus mutex quedan abandonados, como en Windows.
+        for o in &mut self.objetos {
+            if let Objeto::Mutex { propietario, cuenta, abandonado } = o {
+                if *propietario == Some(h) {
+                    *propietario = None;
+                    *cuenta = 0;
+                    *abandonado = true;
+                }
+            }
+        }
+    }
+
+    /// `ReleaseMutex` del hilo `quien`: `false` si no es suyo (ERROR_NOT_OWNER).
+    pub fn soltar_mutex(&mut self, o: usize, quien: Id) -> bool {
+        match self.objetos.get_mut(o) {
+            Some(Objeto::Mutex { propietario, cuenta, .. }) if *propietario == Some(quien) => {
+                *cuenta -= 1;
+                if *cuenta == 0 {
+                    *propietario = None;
+                }
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// `SetWaitableTimer`: vence en `vence` (ns), y luego cada `periodo` (0,
+    /// una vez). Lo apaga mientras tanto, como Windows.
+    pub fn poner_temporizador(&mut self, o: usize, vence: u64, periodo: u64) -> bool {
+        match self.objetos.get_mut(o) {
+            Some(Objeto::Temporizador { encendido, vence: v, periodo: p, .. }) => {
+                *encendido = false;
+                *v = Some(vence);
+                *p = periodo;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// `CancelWaitableTimer`: deja de vencer (y lo que estaba, se queda).
+    pub fn cancelar_temporizador(&mut self, o: usize) -> bool {
+        match self.objetos.get_mut(o) {
+            Some(Objeto::Temporizador { vence, .. }) => {
+                *vence = None;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Los temporizadores que vencieron para `ahora`, encendidos.
+    fn vencer(&mut self, ahora: u64) {
+        for o in &mut self.objetos {
+            if let Objeto::Temporizador { encendido, vence: Some(v), periodo, .. } = o {
+                if *v <= ahora {
+                    *encendido = true;
+                    if *periodo == 0 {
+                        if let Objeto::Temporizador { vence, .. } = o {
+                            *vence = None;
+                        }
+                    } else {
+                        // Los periodos que se perdieron no se acumulan.
+                        let p = *periodo;
+                        *v += (ahora - *v) / p * p + p;
+                    }
+                }
+            }
+        }
     }
 
     /// El codigo de salida, o `None` si sigue vivo (STILL_ACTIVE).
@@ -212,8 +291,10 @@ impl Planificador {
         }
     }
 
-    fn marcado(&self, o: usize) -> bool {
+    fn marcado(&self, o: usize, quien: Id) -> bool {
         match self.objetos.get(o) {
+            Some(Objeto::Mutex { propietario, .. }) => propietario.is_none() || *propietario == Some(quien),
+            Some(Objeto::Temporizador { encendido, .. }) => *encendido,
             Some(Objeto::Evento { encendido, .. }) => *encendido,
             Some(Objeto::Semaforo { cuenta, .. }) => *cuenta > 0,
             Some(Objeto::Hilo(h)) => matches!(self.hilos.get(*h).map(|x| &x.estado), Some(Estado::Terminado(_))),
@@ -221,35 +302,47 @@ impl Planificador {
         }
     }
 
-    fn consumir(&mut self, o: usize) {
+    /// Coge `o` para `quien`; `true` si era un mutex abandonado.
+    fn consumir(&mut self, o: usize, quien: Id) -> bool {
         match self.objetos.get_mut(o) {
+            Some(Objeto::Mutex { propietario, cuenta, abandonado }) => {
+                *propietario = Some(quien);
+                *cuenta += 1;
+                return core::mem::take(abandonado);
+            }
+            Some(Objeto::Temporizador { manual: false, encendido, .. }) => *encendido = false,
             Some(Objeto::Evento { manual: false, encendido }) => *encendido = false,
             Some(Objeto::Semaforo { cuenta, .. }) => *cuenta -= 1,
             _ => {}
         }
+        false
     }
 
     /// Si la espera se cumple YA, la cumple (consumiendo) y da su resultado.
-    fn cumplir(&mut self, objetos: &[usize], todos: bool) -> Option<u32> {
+    fn cumplir(&mut self, quien: Id, objetos: &[usize], todos: bool, ahora: u64) -> Option<u32> {
+        self.vencer(ahora);
         if todos {
-            if objetos.iter().all(|&o| self.marcado(o)) {
-                for &o in objetos {
-                    self.consumir(o);
+            if objetos.iter().all(|&o| self.marcado(o, quien)) {
+                let mut abandonado = None;
+                for (i, &o) in objetos.iter().enumerate() {
+                    if self.consumir(o, quien) && abandonado.is_none() {
+                        abandonado = Some(i as u32);
+                    }
                 }
-                return Some(WAIT_OBJECT_0);
+                return Some(abandonado.map_or(WAIT_OBJECT_0, |i| WAIT_ABANDONED_0 + i));
             }
             return None;
         }
-        let i = objetos.iter().position(|&o| self.marcado(o))?;
-        self.consumir(objetos[i]);
-        Some(WAIT_OBJECT_0 + i as u32)
+        let i = objetos.iter().position(|&o| self.marcado(o, quien))?;
+        let base = if self.consumir(objetos[i], quien) { WAIT_ABANDONED_0 } else { WAIT_OBJECT_0 };
+        Some(base + i as u32)
     }
 
     /// **`WaitFor*Object(s)` del hilo actual.** `Some` si se contesta YA; si
     /// no, el hilo queda esperando y quien llama tiene que ceder el turno
     /// hasta que vuelva a tenerlo; entonces, [`Self::resultado`].
     pub fn esperar(&mut self, objetos: &[usize], todos: bool, plazo: Option<u64>, ahora: u64) -> Option<u32> {
-        if let Some(r) = self.cumplir(objetos, todos) {
+        if let Some(r) = self.cumplir(self.actual, objetos, todos, ahora) {
             return Some(r);
         }
         if plazo.is_some_and(|p| p <= ahora) {
@@ -394,7 +487,7 @@ impl Planificador {
         let estado = self.hilos[h].estado.clone();
         let (listo, resultado) = match estado {
             Estado::Listo => (true, None),
-            Estado::Espera { objetos, todos, plazo } => match self.cumplir(&objetos, todos) {
+            Estado::Espera { objetos, todos, plazo } => match self.cumplir(h, &objetos, todos, ahora) {
                 Some(r) => (true, Some(r)),
                 None if plazo.is_some_and(|p| p <= ahora) => (true, Some(WAIT_TIMEOUT)),
                 None => (false, None),
@@ -426,11 +519,20 @@ impl Planificador {
     fn primer_plazo(&self) -> Option<u64> {
         self.hilos
             .iter()
-            .filter_map(|x| match &x.estado {
-                Estado::Espera { plazo, .. } | Estado::Condicion { plazo, .. } => *plazo,
-                Estado::Dormido { hasta } => Some(*hasta),
-                _ => None,
+            .flat_map(|x| {
+                let (a, b) = match &x.estado {
+                    // Esperar a un temporizador tambien es esperar a su plazo.
+                    Estado::Espera { plazo, objetos, .. } => (*plazo, objetos.iter().filter_map(|&o| match self.objetos.get(o) {
+                        Some(Objeto::Temporizador { vence, .. }) => *vence,
+                        _ => None,
+                    }).min()),
+                    Estado::Condicion { plazo, .. } => (*plazo, None),
+                    Estado::Dormido { hasta } => (Some(*hasta), None),
+                    _ => (None, None),
+                };
+                [a, b]
             })
+            .flatten()
             .min()
     }
 

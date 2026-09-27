@@ -607,7 +607,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          y modulos           CompareStringOrdinal, lstrlenW, GetConsoleMode,
                              WriteConsoleW, GetConsoleOutputCP, LoadLibraryA,
                              GetModuleHandleA/ExW, GetProcAddress   [HECHO]
-   P4f2  hilos y esperas     WaitOnAddress, WakeByAddressSingle/All, Fls*,
+   P4f2  hilos y esperas     WaitOnAddress, WakeByAddressSingle/All, Fls*,  [HECHO]
                              CreateMutexA, ReleaseMutex, IsThreadAFiber,
                              SetThreadStackGuarantee, GetCurrentProcess,
                              DuplicateHandle, SetHandleInformation, SleepEx,
@@ -638,6 +638,22 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            Windows, dicho: una pagina de codigos (UTF-8), sin mayusculas que
            cuenten solo en ASCII, sin ordinales en GetProcAddress, y ninguna
            DLL de verdad del disco (P5).
+           P4f2 [HECHO en el banco 27-09] **Como se sabe:**
+           `prueba/esperas.exe` dice `bien` veinticuatro veces en el
+           anfitrion, estable en cinco corridas: mutex con recursion,
+           ERROR_NOT_OWNER y WAIT_ABANDONED de un hilo que acaba sin
+           soltarlo; un temporizador manual a 20 ms y uno automatico con
+           periodo; WaitOnAddress importado de su API set
+           (`api-ms-win-core-synch-l1-2-0.dll`, como la `std` de Rust -- la
+           casa resuelve los `api-ms-win-core-*` y `kernelbase.dll` con la
+           tabla de kernel32); FLS con su callback al acabar el hilo y en
+           FlsFree (quitarlo da MAL, comprobado); DuplicateHandle; y la hora
+           del dia de la placa (`INFO_FECHA`, `bmo_proton_x::hora`). El
+           planificador puro suma Objeto::Mutex y Objeto::Temporizador, y un
+           hilo que espera un temporizador ya no cuenta como bloqueo mutuo.
+           Lo que no es Windows, dicho: sin APC, un handle duplicado es el
+           mismo numero con una copia mas, un fichero no se duplica, y la
+           hora de la placa se toma como UTC.
 
 ## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
 

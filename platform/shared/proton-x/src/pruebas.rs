@@ -1068,3 +1068,60 @@ fn el_texto_pasa_entre_utf8_y_utf16_como_windows() {
     assert_eq!(texto::comparar(&w("abc"), &w("ABC"), true), 0);
     assert_eq!(texto::comparar(&w("ab"), &w("abc"), true), -1);
 }
+
+// -- P4f2: mutex y temporizadores ---------------------------------------------------
+
+use crate::hilos::WAIT_ABANDONED_0;
+
+#[test]
+fn un_mutex_es_de_un_hilo_con_recursion_y_se_abandona() {
+    let mut p = Planificador::nuevo();
+    let m = p.nuevo_objeto(Objeto::Mutex { propietario: None, cuenta: 0, abandonado: false });
+    let (h1, _) = p.crear(false);
+    // El principal lo coge dos veces (recursion).
+    assert_eq!(p.esperar(&[m], false, None, 0), Some(WAIT_OBJECT_0));
+    assert_eq!(p.esperar(&[m], false, None, 0), Some(WAIT_OBJECT_0));
+    assert!(!p.soltar_mutex(m, h1), "el 1 no lo tiene: ERROR_NOT_OWNER");
+    // El 1 lo espera y no puede.
+    p.actual = h1;
+    assert_eq!(p.esperar(&[m], false, None, 0), None);
+    p.actual = 0;
+    assert!(p.soltar_mutex(m, 0));
+    assert_eq!(p.siguiente(0), Turno::Hilo(0), "suelto una vez: sigue siendo del principal");
+    assert!(p.soltar_mutex(m, 0));
+    assert_eq!(p.siguiente(0), Turno::Hilo(h1), "suelto del todo: el 1 lo coge");
+    assert_eq!(p.resultado(h1), WAIT_OBJECT_0);
+    // El 1 acaba sin soltarlo: el principal lo coge ABANDONADO, y solo una vez.
+    p.terminar(h1, 0);
+    assert_eq!(p.esperar(&[m], false, None, 0), Some(WAIT_ABANDONED_0));
+    assert!(p.soltar_mutex(m, 0));
+    assert_eq!(p.esperar(&[m], false, None, 0), Some(WAIT_OBJECT_0));
+}
+
+#[test]
+fn un_temporizador_vence_a_su_hora_y_con_periodo_vuelve() {
+    let mut p = Planificador::nuevo();
+    let t = p.nuevo_objeto(Objeto::Temporizador { manual: false, encendido: false, vence: None, periodo: 0 });
+    assert!(p.poner_temporizador(t, 1000, 300));
+    assert_eq!(p.esperar(&[t], false, None, 0), None);
+    assert_eq!(p.siguiente(10), Turno::Esperar(1000), "esperar un temporizador no es un bloqueo: se duerme hasta el");
+    assert_eq!(p.siguiente(1000), Turno::Hilo(0));
+    assert_eq!(p.resultado(0), WAIT_OBJECT_0);
+    assert_eq!(p.esperar(&[t], false, None, 1100), None, "automatico: lo apago quien lo cogio");
+    assert_eq!(p.siguiente(1299), Turno::Esperar(1300));
+    assert_eq!(p.siguiente(1300), Turno::Hilo(0), "el periodo: 1000 + 300");
+    assert_eq!(p.resultado(0), WAIT_OBJECT_0);
+    assert!(p.cancelar_temporizador(t));
+    assert_eq!(p.esperar(&[t], false, None, 5000), None);
+    assert_eq!(p.siguiente(99_999), Turno::Bloqueo, "cancelado: ya no vence nunca");
+}
+
+#[test]
+fn la_hora_de_windows_cuenta_desde_1601() {
+    use crate::hora;
+    assert_eq!(hora::segundos_unix(1970, 1, 1, 0, 0, 0), 0);
+    assert_eq!(hora::segundos_unix(2000, 3, 1, 0, 0, 0), 951_868_800, "despues de un 29 de febrero");
+    assert_eq!(hora::segundos_unix(2026, 9, 27, 12, 34, 56), 1_790_512_496);
+    assert_eq!(hora::filetime(0, 0), 116_444_736_000_000_000);
+    assert_eq!(hora::filetime(1, 250), 116_444_736_010_000_002);
+}

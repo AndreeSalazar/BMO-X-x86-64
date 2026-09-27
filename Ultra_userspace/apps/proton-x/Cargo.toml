@@ -17,3 +17,5 @@ bmo-proton-x = { path = "../../../platform/shared/proton-x" }
 # Las DLL de la casa (kernel32, user32, gdi32): las mismas que corre el banco
 # del anfitrion. Aqui se les pone la plataforma de BMO-X (`src/plataforma.rs`).
 bmo-proton-x-casa = { path = "../../../platform/shared/proton-x-casa" }
+# La fecha de la placa (P4f2: GetSystemTimeAsFileTime). Puro, como en el DIRECTOR.
+bmo-rtc = { path = "../../../platform/drivers/rtc" }

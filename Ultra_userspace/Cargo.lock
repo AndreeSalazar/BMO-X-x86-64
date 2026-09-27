@@ -12,6 +12,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-proton-x",
  "bmo-proton-x-casa",
+ "bmo-rtc",
  "bmo-userland",
 ]
 

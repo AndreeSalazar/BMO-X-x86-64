@@ -43,6 +43,7 @@ const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
 const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
 const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
 const TEXTO: &[u8] = include_bytes!("../../proton-x/prueba/texto.exe");
+const ESPERAS: &[u8] = include_bytes!("../../proton-x/prueba/esperas.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -166,7 +167,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -216,6 +217,11 @@ fn memoria(bytes: usize) -> Option<u64> {
     // SAFETY: una forma de medida no nula.
     let p = unsafe { std::alloc::alloc_zeroed(forma) };
     (!p.is_null()).then_some(p as u64)
+}
+
+/// La fecha del banco: la del anfitrion (P4f2).
+fn fecha() -> Option<u64> {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok().map(|d| d.as_secs())
 }
 
 /// La hora del banco: la del anfitrion, desde que empezo el proceso.
@@ -565,4 +571,18 @@ fn texto_exe_tiene_el_texto_la_consola_y_los_modulos_de_windows() {
     assert!(texto.contains("  bien  WriteConsoleW escribe UTF-16 en la consola\r\n"), "{texto}");
     assert_eq!(texto.matches("  bien  ").count(), 21, "{texto}");
     assert!(texto.ends_with("texto.exe: el texto y los modulos son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4f2 en el anfitrion**: `esperas.exe` -- mutex (y abandonado),
+/// temporizadores, WaitOnAddress importado de un API set, FLS con sus
+/// callbacks, DuplicateHandle y la hora del dia.
+#[test]
+fn esperas_exe_tiene_las_esperas_de_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, ESPERAS, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 24, "{texto}");
+    assert!(texto.ends_with("esperas.exe: las esperas son las de Windows\r\n[salio 0x0]"), "{texto}");
 }

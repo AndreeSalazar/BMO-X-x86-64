@@ -52,6 +52,7 @@ extern crate alloc;
 pub mod com;
 pub mod d3d12;
 pub mod dxgi;
+pub mod esperas;
 pub mod ficheros;
 pub mod gdi32;
 pub mod hilos;
@@ -119,6 +120,9 @@ pub struct Plataforma {
     /// Un bloque NUEVO de estos bytes, R+W y a ceros, que vive lo que el
     /// proceso: una arena del monton de Windows (P4e). `None` si no hay.
     pub memoria: fn(usize) -> Option<u64>,
+    /// La fecha de la placa, en segundos desde 1970, o `None` si no se sabe
+    /// (P4f2: GetSystemTimeAsFileTime).
+    pub fecha: fn() -> Option<u64>,
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -197,6 +201,7 @@ pub unsafe fn empezar(p: Plataforma) {
     ficheros::reiniciar();
     memoria::reiniciar();
     proceso::reiniciar();
+    esperas::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -218,8 +223,12 @@ pub fn aviso(texto: &str) {
 /// **LA TABLA DE LA CASA**: la direccion de cada funcion que existe.
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let Funcion::Nombre(n) = f else { return None };
-    if dll.eq_ignore_ascii_case("kernel32.dll") {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n))
+    // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
+    // de donde la `std` de Rust importa WaitOnAddress) son nombres de
+    // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
+    let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
+    if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

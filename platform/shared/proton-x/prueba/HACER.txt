@@ -205,3 +205,24 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` veintiuna veces (una la escribe WriteConsoleW) y sale con 0. Si
 la salida va a un fichero y no a una consola, esa linea cambia por la de
 ERROR_INVALID_HANDLE: tambien es Windows.
+
+esperas.exe -- el de P4f2 (27-09): mutex, temporizadores, WaitOnAddress, FLS
+
+kernel32.def suma CreateMutexW, ReleaseMutex, CreateWaitableTimerW/ExW,
+SetWaitableTimer, CancelWaitableTimer, Fls*, GetCurrentProcess,
+GetCurrentThread, DuplicateHandle, IsThreadAFiber, SetThreadStackGuarantee,
+GetSystemTimePreciseAsFileTime y QueryPerformanceCounter/Frequency; y
+synch.def es el API set de donde la `std` de Rust importa WaitOnAddress
+(api-ms-win-core-synch-l1-2-0.dll). Los otros seis salen IDENTICOS:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d synch.def -l synch.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c esperas.c -o esperas.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro esperas.obj kernel32.lib synch.lib /out:esperas.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   ac6d67f9c217be8f5516238152ced41799d4187b6922b835714e58a79fc16883
+
+Dice `bien` veinticuatro veces y sale con 0 (tarda unos 150 ms: espera de
+verdad a sus temporizadores).

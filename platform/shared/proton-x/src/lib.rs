@@ -45,6 +45,7 @@ pub mod proceso;
 pub mod raiz;
 pub mod regiones;
 pub mod hilos;
+pub mod hora;
 pub mod lote;
 pub mod monton;
 pub mod nativo;
