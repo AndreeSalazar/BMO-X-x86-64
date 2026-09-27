@@ -52,6 +52,7 @@ extern crate alloc;
 pub mod com;
 pub mod d3d12;
 pub mod dxgi;
+pub mod ficheros;
 pub mod gdi32;
 pub mod hilos;
 pub mod kernel32;
@@ -107,6 +108,10 @@ pub struct Plataforma {
     pub sellar_codigo: fn(&[u8]) -> Option<u64>,
     /// Soltar un bloque de `sellar_codigo` (direccion y medida).
     pub soltar_codigo: fn(u64, usize),
+    /// Un fichero ENTERO, por su ruta del volumen; `None` si no esta (P4d).
+    pub leer_fichero: fn(&[u8]) -> Option<Vec<u8>>,
+    /// Escribir un fichero entero (crearlo o reemplazarlo). `false` si no salio.
+    pub escribir_fichero: fn(&[u8], &[u8]) -> bool,
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -182,6 +187,7 @@ pub unsafe fn empezar(p: Plataforma) {
     hilos::reiniciar();
     tuberia::reiniciar();
     nativo::reiniciar();
+    ficheros::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -204,7 +210,7 @@ pub fn aviso(texto: &str) {
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     let Funcion::Nombre(n) = f else { return None };
     if dll.eq_ignore_ascii_case("kernel32.dll") {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n))
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n)
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {

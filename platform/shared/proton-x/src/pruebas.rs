@@ -799,3 +799,44 @@ fn los_opcodes_nativos_son_los_de_las_filas_sse_de_inti() {
     assert!(m < a);
     assert!(!b.windows(2).any(|w| w == [0x0F, 0x38]), "ni una instruccion de FMA (0F 38 ..): FMad NO se funde");
 }
+
+// -- P4d: los ficheros -------------------------------------------------------------
+
+use crate::ficheros::{self, Abierto, NoRuta, DESDE_AQUI, DESDE_FIN, DESDE_INICIO};
+
+fn w(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(core::iter::once(0)).collect()
+}
+
+#[test]
+fn las_rutas_de_windows_son_rutas_del_volumen() {
+    let r = |s: &str| ficheros::ruta(&w(s), "apps");
+    assert_eq!(r("datos\\a.pak").as_deref(), Ok("apps/datos/a.pak"), "relativa: desde el directorio del .exe");
+    assert_eq!(r(".\\a.txt").as_deref(), Ok("apps/a.txt"));
+    assert_eq!(r("..\\sys\\x.bin").as_deref(), Ok("sys/x.bin"));
+    assert_eq!(r("C:\\juego\\datos\\a.pak").as_deref(), Ok("juego/datos/a.pak"), "la unidad se quita: el volumen es uno");
+    assert_eq!(r("\\juego\\a.pak").as_deref(), Ok("juego/a.pak"));
+    assert_eq!(r("\\\\?\\C:\\juego\\a.pak").as_deref(), Ok("juego/a.pak"));
+    assert_eq!(r("..\\..\\fuera.txt"), Err(NoRuta::FueraDelVolumen), "un .. que sale del volumen se RECHAZA");
+    assert_eq!(r("\\\\.\\PhysicalDrive0"), Err(NoRuta::NoEsFichero));
+    assert_eq!(ficheros::ruta(&[0x00F1, 0], "apps"), Err(NoRuta::NoAscii));
+}
+
+#[test]
+fn un_fichero_abierto_lee_escribe_y_se_mueve_como_windows() {
+    let mut a = Abierto { bytes: b"hola fichero 0123456789".to_vec(), lee: true, ..Abierto::default() };
+    let mut b = [0u8; 4];
+    assert_eq!((a.leer(&mut b), &b), (4, b"hola"));
+    assert_eq!(a.mover(-10, DESDE_FIN), Some(13));
+    let mut r = [0u8; 32];
+    assert_eq!(a.leer(&mut r), 10);
+    assert_eq!(&r[..10], b"0123456789");
+    assert_eq!(a.leer(&mut r), 0, "al final: exito con 0");
+    assert_eq!(a.mover(-100, DESDE_AQUI), None, "antes del principio: no");
+    assert_eq!(a.mover(30, DESDE_INICIO), Some(30), "pasado el final: si");
+    assert_eq!(a.escribir(b"!"), 1);
+    assert_eq!(a.bytes.len(), 31);
+    assert_eq!(&a.bytes[23..30], &[0u8; 7], "el hueco, a ceros");
+    assert!(a.sucio);
+    assert_eq!(a.mover(0, 7), None, "un metodo que no existe");
+}

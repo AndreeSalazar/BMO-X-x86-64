@@ -165,10 +165,12 @@ try {
     # P3b3 la casa lo DIBUJA: los DXIL corridos en la CPU y su trama.
     # Y `hilos.exe` (P4, 27-09): hilos, TLS y sincronizacion de Windows con
     # los hilos cooperativos de la casa; dice `bien` diecinueve veces.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe')) {
+    # Y `ficheros.exe` (P4d, 27-09): CreateFileW, ReadFile, SetFilePointerEx...
+    # junto a si mismo (`apps/pxtest.txt`); dice `bien` dieciseis veces.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('apps\' + $exe)) -Force
     }
-    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos}.exe (run sys/proton-x.bex apps/hilos.exe)' -ForegroundColor DarkGray
+    Write-Host '    [proton-x] sys\proton-x.bex y apps\{hola,teb,ventana,limpia,cubo,hilos,ficheros}.exe (run sys/proton-x.bex apps/ficheros.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 
 # -- Programas COBOL de ejemplo -----------------------------------

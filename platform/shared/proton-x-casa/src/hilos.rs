@@ -373,6 +373,9 @@ extern "win64" fn release_semaphore(h: u64, n: i32, antes: *mut i32) -> i32 {
 /// `CloseHandle`: un objeto de la casa se cierra; la consola, que no es de
 /// nadie, dice que si.
 pub(crate) extern "win64" fn close_handle(h: u64) -> i32 {
+    if crate::ficheros::es_fichero(h) {
+        return crate::ficheros::cerrar(h);
+    }
     match objeto_de(h) {
         Some(o) => casa().plan.cerrar(o) as i32,
         None => 1,

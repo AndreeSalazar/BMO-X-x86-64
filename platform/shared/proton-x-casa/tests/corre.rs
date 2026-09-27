@@ -40,6 +40,7 @@ const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
 const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
 const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
 const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
+const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
 const CUBO_DATOS_H: &str = include_str!("../../proton-x/prueba/cubo_datos.h");
 
 #[path = "../examples/cubo_datos.rs"]
@@ -159,7 +160,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -179,6 +180,27 @@ fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
 fn soltar_codigo(base: u64, bytes: usize) {
     munmap(base, bytes.div_ceil(4096) as u64 * 4096);
     SOLTADOS.fetch_add(1, Ordering::SeqCst);
+}
+
+/// El volumen del banco: un directorio del anfitrion, uno por proceso de
+/// pruebas (las rutas de la casa van relativas a el).
+fn volumen() -> std::path::PathBuf {
+    static RAIZ: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    RAIZ.get_or_init(|| {
+        let r = std::env::temp_dir().join(format!("proton-x-volumen-{}", std::process::id()));
+        std::fs::create_dir_all(r.join("apps")).unwrap();
+        r
+    })
+    .clone()
+}
+
+fn leer_fichero(ruta: &[u8]) -> Option<Vec<u8>> {
+    std::fs::read(volumen().join(std::str::from_utf8(ruta).ok()?)).ok()
+}
+
+fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
+    let Ok(r) = std::str::from_utf8(ruta) else { return false };
+    std::fs::write(volumen().join(r), bytes).is_ok()
 }
 
 /// La hora del banco: la del anfitrion, desde que empezo el proceso.
@@ -272,6 +294,8 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     let t = tls::leer(&pe, &img, base).unwrap();
     // SAFETY: GS puesto (si hay TEB), `empezar` hecho, la imagen en su sitio.
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(t, base) };
+    // P4d: como `run sys/proton-x.bex apps/x.exe`, su directorio es `apps`.
+    bmo_proton_x_casa::ficheros::poner_directorio("apps");
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
         poner_gs(0);
@@ -477,4 +501,18 @@ fn hilos_exe_tiene_hilos_tls_y_sincronizacion_de_windows() {
     assert_eq!(texto.matches("  bien  ").count(), 19, "{texto}");
     assert!(texto.ends_with("hilos.exe: los hilos son los de Windows\r\n[salio 0x0]"), "{texto}");
     assert_eq!(salio, 0, "{texto}");
+}
+
+/// **P4d en el anfitrion**: `ficheros.exe` crea, escribe, lee, se mueve y
+/// vuelve a crear un fichero junto al `.exe` (`apps/pxtest.txt` del volumen
+/// del banco), con los errores de Windows donde tocan.
+#[test]
+fn ficheros_exe_lee_y_escribe_ficheros_como_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, FICHEROS, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("MAL"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 16, "{texto}");
+    assert!(texto.ends_with("ficheros.exe: los ficheros son los de Windows\r\n[salio 0x0]"), "{texto}");
+    assert_eq!(std::fs::read(volumen().join("apps/pxtest.txt")).unwrap(), b"corto", "y en el volumen queda lo ultimo que escribio");
 }

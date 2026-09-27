@@ -39,3 +39,11 @@ SetUnhandledExceptionFilter
 RtlCaptureContext
 RtlLookupFunctionEntry
 RtlVirtualUnwind
+CreateFileW
+ReadFile
+GetFileSizeEx
+GetFileSize
+SetFilePointerEx
+SetFilePointer
+GetFileAttributesW
+GetFileType

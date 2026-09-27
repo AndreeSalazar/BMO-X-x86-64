@@ -537,6 +537,55 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            las huellas de la 3060, y el banco lo prueba EN la costura); con
            P3b4, el de VERRANO con la 3060, y `en_cpu` de juez. La casa no
            cambia para eso.
+      P4c [BASE el 27-09] LAS EXCEPCIONES (SEH): `bmo_proton_x::desenrollar`
+           (.pdata/.xdata, un marco como RtlVirtualUnwind) y `prueba/seh.c`.
+           Falta el despachador de la casa (RaiseException,
+           __C_specific_handler, RtlUnwindEx): pendiente.
+      P4d [HECHO el 27-09, en el banco; falta el metal] LOS FICHEROS. La
+           casa sirve CreateFileW/A, ReadFile, WriteFile, SetFilePointer(Ex),
+           GetFileSize(Ex), GetFileType, FlushFileBuffers, GetFileAttributesW
+           y CloseHandle PAGANDO UNA VEZ: al abrir, el fichero ENTERO a
+           memoria (en BMO-X `Archivo::leer_de` + un bloque + `leer_en`: un
+           viaje), cada ReadFile una copia, y al cerrar uno escrito sale
+           entero (`Archivo::create` + `write`). `bmo_proton_x::ficheros`
+           (puro) pasa la ruta de Windows a la del volumen: la unidad se
+           quita, las barras se enderezan, `..` se resuelve y uno que saldria
+           del volumen se RECHAZA; una relativa va desde el directorio del
+           `.exe` (su directorio actual: `apps`). **Como se sabe:**
+           `prueba/ficheros.exe` dice `bien` dieciseis veces en el anfitrion
+           (crear, escribir, leer, moverse desde el fin y el principio, los
+           errores 2, 80, 131 y 183 de Windows, y CREATE_ALWAYS vaciando), y
+           en el volumen queda lo ultimo que escribio. Lo que no hay, dicho:
+           dos handles que escriben el mismo fichero (cada uno tiene su
+           copia), y en BMO-X un fichero escrito es de hasta 4 KiB hoy.
+
+## 3b. EL ORDEN, escrito (27-09): lo que sigue y por que
+
+El propietario pidio un orden preciso, "para no chocar". Sale de las casillas
+de arriba y de lo que cada una PIDE, no de gustos:
+
+```text
+   1  P2 y P3a en el metal   el codigo esta; falta VERLOS obedecer (una
+                             letra, un clic, q). Lo hace el propietario:
+                             un minuto cada uno
+   2  P4d en el metal        run sys/proton-x.bex apps/ficheros.exe
+   3  P4c, el despachador    SEH: RaiseException, __C_specific_handler,
+                             RtlUnwindEx (la base ya esta)
+   4  P4e                    lo que tira un CRT de verdad: HeapAlloc,
+                             VirtualAlloc, GetModuleFileNameW, la linea de
+                             ordenes, el entorno
+   5  P3c                    el BMOX-12 de EPICX-FRAMEWORK sin tocar: pide
+                             P4c y P4e (su runtime de Rust para Windows)
+   6  VERRANO V2 a V4        PLAN_VERRANO: profundidad, constantes, y el
+                             emisor SPIR-V a SM86. P3b4 los PIDE
+   7  P3b4                   el lote de PROTON-X lo dibuja la 3060
+   8  P5, P6, F              un juego de tu GOG, los rayos, Cyberpunk
+```
+
+P3b4 NO va antes que VERRANO V4: la 3060 de hoy corre los programas FIJOS
+del `.bsf` del cubo, no un DXIL cualquiera; traducir uno pide el emisor de
+V4. Por eso, aunque P3b4 este antes en la lista de arriba, se hace despues.
+
 - [ ] **P5 -- un juego chico de verdad.** Uno de TU biblioteca de GOG, 64
       bits, D3D11 o D3D12, sin antitrampas, elegido por `rayosx` (el de
       MENOS importaciones que diga DENTRO). **Como se sabe:** su primer nivel

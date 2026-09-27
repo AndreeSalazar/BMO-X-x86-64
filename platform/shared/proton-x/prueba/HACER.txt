@@ -149,3 +149,20 @@ nombre) va definido en hilos.c, como en tlssup.c del CRT de Microsoft: con
 el, `__declspec(thread)` y los callbacks del TLS funcionan igual en Windows.
 En Windows dice `bien` diecinueve veces y sale con 0; lo que dice no depende
 del orden en que corran los hilos (alli, de verdad y en varios nucleos).
+
+ficheros.exe -- el de P4d (27-09): los ficheros de Windows
+
+kernel32.def suma CreateFileW, ReadFile, GetFileSizeEx, GetFileSize,
+SetFilePointerEx, SetFilePointer, GetFileAttributesW y GetFileType (y los
+cinco de las excepciones, para seh.c); hola, teb e hilos salen IDENTICOS:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c ficheros.c -o ficheros.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro ficheros.obj kernel32.lib /out:ficheros.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   9766647e24e2256781fdf264e1cbe97e2e032e065efeabd7522a3d09b348e129
+
+Escribe y lee `pxtest.txt` en su directorio actual (en Windows, donde se
+lance; en BMO-X, `apps`). Dice `bien` dieciseis veces y sale con 0.

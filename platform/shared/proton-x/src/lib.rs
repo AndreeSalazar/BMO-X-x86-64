@@ -39,6 +39,7 @@ pub mod cargar;
 pub mod desenrollar;
 pub mod dxbc;
 pub mod dxil;
+pub mod ficheros;
 pub mod pe;
 pub mod raiz;
 pub mod hilos;

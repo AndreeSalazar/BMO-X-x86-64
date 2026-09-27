@@ -188,6 +188,8 @@ pub extern "C" fn _start() -> ! {
     // superficies del escritorio y su buzon).
     // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
+    // P4d: su directorio actual es el suyo (`apps` para `apps/x.exe`).
+    bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
     // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
     // antes de la entrada, como el cargador de Windows. Corren YA en el
     // codigo sellado; la casa los llama con la pila alineada.

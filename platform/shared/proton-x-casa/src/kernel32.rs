@@ -38,7 +38,8 @@ extern "win64" fn get_std_handle(n: u32) -> u64 {
 /// decide que hacer con el `\r` de Windows (la consola de BMO-X es de lineas).
 extern "win64" fn write_file(h: u64, b: *const u8, n: u32, escritos: *mut u32, _solapado: u64) -> i32 {
     if h != SALIDA && h != ERRORES {
-        return 0;
+        // P4d: un fichero de la casa.
+        return crate::ficheros::escribir(h, b, n, escritos);
     }
     // SAFETY: el `.exe` promete `n` bytes legibles en `b`, como en Windows.
     let bytes = unsafe { core::slice::from_raw_parts(b, n as usize) };

@@ -18,6 +18,8 @@
 //!    dibujar      los lotes de D3D12: con los sombreadores NATIVOS de la casa
 //!    sellar_codigo  un bloque, los bytes y MEM_OP_SELLAR (W^X); soltarlo es
 //!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
+//!    leer_fichero   Archivo::leer_de + un bloque + leer_en: ENTERO, un viaje
+//!    escribir_fichero  Archivo::create + write (hoy, hasta 4 KiB)
 //! ```
 //!
 //! La superficie es la MISMA que pide una app de INTI o de C
@@ -31,7 +33,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el
@@ -51,6 +53,30 @@ fn sellar_codigo(bytes: &[u8]) -> Option<u64> {
     // SAFETY: ver `Codigo`.
     unsafe { (*CODIGO.0.get()).push(m) };
     Some(base)
+}
+
+/// Un fichero entero: se abre, se lee a un bloque de una vez, se copia y el
+/// bloque se suelta (el monton de la app se queda con los bytes).
+fn leer_fichero(ruta: &[u8]) -> Option<alloc::vec::Vec<u8>> {
+    let a = bmo::Archivo::leer_de(ruta).ok()?;
+    let n = a.size();
+    if n == 0 {
+        return Some(alloc::vec::Vec::new());
+    }
+    let b = bmo::Memoria::request(n)?;
+    if a.leer_en(&b, 0, n) != n {
+        return None;
+    }
+    // SAFETY: `n` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let v = unsafe { core::slice::from_raw_parts(b.base() as *const u8, n as usize) }.to_vec();
+    b.soltar();
+    Some(v)
+}
+
+fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
+    let Ok(a) = bmo::Archivo::create(ruta) else { return false };
+    let n = a.write(bytes);
+    a.close() && n == bytes.len()
 }
 
 fn soltar_codigo(base: u64, _bytes: usize) {
