@@ -69,7 +69,15 @@ pub(crate) const USER_STACK_PAGES: u64 = vmm::USER_STACK_SIZE / mm::PAGE;
 /// y para el build si no cabe con una pagina de margen. El coste de subirlo son
 /// 16 KiB mas por tarea de Ring 3 (con 64 tareas, 1 MiB); el coste de no
 /// subirlo esta contado arriba.
-pub(crate) const KERNEL_STACK_PAGES: u64 = 8;
+///
+/// *** 8 -> 10 (2026-09-28): EL NUMERO DE `pila.py` ESTABA MAL, y por debajo.
+/// Cogia el PRIMER `sub rsp` de cada prologo, y en un marco de mas de una
+/// pagina ese es el `$0x1000` de la sonda de pila: `admit_payload_desde`
+/// (11.104 B), `con_buffer` (6.816) o `en_anillo` (8.408) entraban como 4 KiB.
+/// Medido bien, `LANZAR` baja 23.879 y el tick encima 5.783: 29.662 contra
+/// 32.768, sin la pagina de margen. Diez paginas dejan esa pagina y otra
+/// mas. El coste: 8 KiB por tarea de Ring 3 (con 64, 512 KiB).
+pub(crate) const KERNEL_STACK_PAGES: u64 = 10;
 
 // Que quepa no es una esperanza: se comprueba al compilar. Si alguien sube
 // XSAVE_AREA sin tocar esto, el build se para aqui y no en el hardware.

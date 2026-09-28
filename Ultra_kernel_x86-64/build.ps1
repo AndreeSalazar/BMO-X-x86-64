@@ -482,6 +482,30 @@ try {
 
 $compositorElf = Join-Path $usDir 'target\x86_64-unknown-none\release\director'
 if (-not (Test-Path $compositorElf)) { Fail 'no salio el ELF del DIRECTOR' }
+
+# ** Y CUANTO BAJA CADA PROGRAMA POR SU PILA DE RING 3 (2026-09-28).
+#
+# El 28-09 `gpu verrano` tumbo la maquina: el `draw` del director pedia un
+# marco de 395.432 B contra una pila de Ring 3 de 64 KiB. `pila.py --ring3`
+# mide los cuatro programas de arriba como mide el kernel, y para el build si
+# el camino desde `_start` no cabe o si un marco solo pasa de media pila.
+Step 'Measuring how deep each Ring 3 program goes on its stack'
+$pila3Py = Join-Path (Split-Path -Parent $root) 'toolchain/tools/pila/pila.py'
+if (-not (Test-Path $pila3Py)) { Fail ('guardian MUERTO: falta ' + $pila3Py) }
+$pila3Python = (Get-Command python -ErrorAction SilentlyContinue)
+if ($pila3Python) {
+    $env:PYTHONIOENCODING = 'utf-8'
+    $pila3Salida = & $pila3Python.Source $pila3Py --check --ring3
+    if ($LASTEXITCODE -ne 0) {
+        $pila3Salida | ForEach-Object { Write-Host ('    ' + $_) -ForegroundColor Red }
+        Fail 'a Ring 3 program does not fit its 64 KiB stack (see toolchain/tools/pila/pila.py --ring3)'
+    }
+    $pila3Salida | Where-Object { $_ -match 'clean:' } | ForEach-Object {
+        Write-Host ('    ' + $_.Trim()) -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host '    [!] python no encontrado: no se mide la pila de Ring 3' -ForegroundColor Yellow
+}
 # El .bex sale a staging\BMO-DATA\apps\, que es el espejo de lo que hay que
 # copiar al volumen de datos. La ruta de dentro (sys\d.bex) tiene que cuadrar
 # con `RUTA_COMPOSITOR` de phase.rs: es el contrato entre el build y el arranque.

@@ -460,6 +460,11 @@ fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::V
 /// CUATRO por detras, se la espera), sus vertices a la RAM, la cola, la
 /// entrada, GP_PUT y el timbre. Sin releer, sin invalidar, sin esperar.
 #[allow(clippy::too_many_arguments)]
+// ** `inline(never)` (2026-09-28): enviar y armar son HERMANOS -- un
+// fotograma hace uno u otro --, y cada uno lleva sus ordenes (4 KiB) en la
+// pila. Metidos los dos dentro de `en_anillo`, el compilador los apilaba:
+// 28.183 B de syscall, mas el tick encima, contra 32 KiB (`pila.py`).
+#[inline(never)]
 fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, desde: u64, hz: u64, recorte: Option<(u32, u32)>) -> Result<u64, u32> {
     use bmo_gpu_ga10x::anillo as an;
     let numero = ANILLO_NUMERO.load(Ordering::Acquire).wrapping_add(1);
@@ -512,6 +517,11 @@ fn enviar_en_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga1
 /// cuatro ranuras, releidos; el timbre CON invalidacion de la MMU, y se
 /// espera a que se pague. Solo entonces queda armado.
 #[allow(clippy::too_many_arguments)]
+// ** `inline(never)` (2026-09-28): enviar y armar son HERMANOS -- un
+// fotograma hace uno u otro --, y cada uno lleva sus ordenes (4 KiB) en la
+// pila. Metidos los dos dentro de `en_anillo`, el compilador los apilaba:
+// 28.183 B de syscall, mas el tick encima, contra 32 KiB (`pila.py`).
+#[inline(never)]
 fn armar_anillo(r: &mut Bar0, e: u32, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, n: u32, huella: u64, desde: u64, hz: u64, coopera: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::anillo as an;
     vaciar(r)?;

@@ -77,6 +77,31 @@ CARGA_DECLARADA = 0x400000
 MM_MOD = "Ultra_kernel_x86-64/kernel/src/ring0/mm/mod.rs"
 
 
+# ** LOS PROGRAMAS DE RING 3 (2026-09-28). Todos se cargan en la misma base
+# (`USER_IMAGE_BASE`), asi que un `rip` de Ring 3 no dice de cual es: se busca
+# en todos y se dice en cual cae. El 28-09 el `rip` que importaba era del
+# director (`Aparato::draw`, la sonda de pila), y esta herramienta solo sabia
+# de kernel.
+RING3 = ("director", "proton-x", "coste", "sombra")
+RING3_DONDE = "Ultra_userspace/target/x86_64-unknown-none/release"
+IMAGEN_RING3 = (0x4000_0000, 0x8000_0000)
+
+
+def resolver_ring3(addr):
+    """`[(programa, ruta, dentro, antes)]` de los programas de Ring 3 compilados."""
+    hallados = []
+    for nombre in RING3:
+        ruta = os.path.join(RAIZ, RING3_DONDE.replace("/", os.sep), nombre)
+        if not os.path.isfile(ruta):
+            continue
+        simbolos = simbolos_de(ruta)
+        if not simbolos:
+            continue
+        dentro, antes, _despues = contexto(simbolos, addr)
+        hallados.append((nombre, ruta, dentro, antes))
+    return hallados
+
+
 def buscar_elf():
     """El `bmo-kernel` mas reciente de los sitios conocidos. `None` si no hay."""
     hallados = []
@@ -297,6 +322,21 @@ def main():
     for etiqueta, addr in objetivos:
         print("")
         print("== %s = 0x%X ==" % (etiqueta, addr))
+        if IMAGEN_RING3[0] <= addr < IMAGEN_RING3[1] and not (simbolos[0][0] <= addr <= simbolos[-1][0]):
+            # Imagen de Ring 3: no es del kernel, es de un programa.
+            hallados = resolver_ring3(addr)
+            if not hallados:
+                print("   es de Ring 3 (imagen 0x%X..0x%X) y no hay ningun programa compilado en %s"
+                      % (IMAGEN_RING3[0], IMAGEN_RING3[1], RING3_DONDE))
+                continue
+            print("   es de Ring 3: TODOS los programas cargan en 0x%X, asi que cuenta el que corria" % IMAGEN_RING3[0])
+            for nombre, ruta, dentro, antes in hallados:
+                sha = hashlib.sha256(open(ruta, "rb").read()).hexdigest()[:16]
+                for v, sz, n in dentro:
+                    print("   %-9s DENTRO DE  %s  +0x%X  (sha256:%s)" % (nombre, legible(n), addr - v, sha))
+                if not dentro:
+                    print("   %-9s ninguna funcion la contiene" % nombre)
+            continue
         if addr < simbolos[0][0] or addr > simbolos[-1][0] + max(simbolos[-1][1], 1):
             # Decirlo es lo que impide leer un vecino lejano como si fuera la
             # respuesta. Un `cr2` casi nunca cae en el codigo: cae en datos.

@@ -70,13 +70,16 @@ MARCO_CPU = 6 * 8
 
 RE_FUNC = re.compile(r"^([0-9a-f]{16}) <([^>]+)>:$", re.M)
 RE_SUB = re.compile(r"subq\s+\$0x([0-9a-f]+),\s*%rsp")
+RE_SUB_R11 = re.compile(r"subq\s+\$0x([0-9a-f]+),\s*%r11")
 RE_PUSH = re.compile(r"^\s*[0-9a-f]+:\s+pushq\s", re.M)
 RE_ALINEA = re.compile(r"andq\s+\$-0x40,\s*%rsp")
 RE_CALL = re.compile(r"callq\s+0x[0-9a-f]+\s+<([^>+]+)>")
 
 RE_KERNEL_PAGES = re.compile(r"pub\(crate\)\s+const\s+KERNEL_STACK_PAGES\s*:\s*u64\s*=\s*(\d+)\s*;")
 RE_TASK_PAGES = re.compile(r"pub\(super\)\s+const\s+TASK_STACK_PAGES\s*:\s*u64\s*=\s*(\d+)\s*;")
-RE_PUERTA = re.compile(r"_gate\(\s*(?:crate::)?([A-Za-z0-9_:]+)\s+as\s+")
+RE_PUERTA = re.compile(r"_gate\(\s*(?:crate::)?([A-Za-z0-9_:]+)\s+as\s+\*const\s*\(\)\s+as\s+u64\s*(?:,\s*(\d+))?\s*\)")
+# La pila IST1 (la de #UD #DF #GP #PF), en el TSS del BSP que monta s1_cpu.
+RE_IST1 = re.compile(r"pub\s+const\s+IST1_SIZE\s*:\s*usize\s*=\s*(\d+)\s*;")
 RE_HILO = re.compile(r"spawn_kernel\(\s*(?:crate::)?([A-Za-z0-9_:]+)\s+as\s+")
 
 
@@ -134,6 +137,33 @@ def desensamblar(objdump, elf):
     return r.stdout.decode("utf-8", "replace")
 
 
+def bajada(prologo):
+    """Cuanto baja `rsp` el prologo, CONTANDO LA SONDA DE PILA (2026-09-28).
+
+    Un marco de mas de una pagina no baja de golpe: LLVM lo baja de 4 KiB en
+    4 KiB tocando cada pagina, en bucle (`sub $N, %r11` y luego `sub $0x1000,
+    %rsp` hasta llegar) o desenrollado (`sub $0x1000, %rsp` k veces), y cierra
+    con `sub $R, %rsp`. Esto antes cogia el PRIMER `sub` a `rsp` -- que en un
+    marco con sonda es el `$0x1000` del paso: un marco de 384 KiB salia como 4.
+    Es el marco que el 28-09 tumbo la maquina desde Ring 3."""
+    r11 = RE_SUB_R11.search(prologo)
+    if r11:
+        # Bucle: N lo baja entero (el `$0x1000` del paso esta DENTRO de N).
+        # El resto es el `sub` que sigue al `jne` del bucle, si lo hay.
+        tras = prologo[r11.end():]
+        jne = re.search(r"\bjne\s[^\n]*\n([^\n]*)", tras)
+        resto = RE_SUB.search(jne.group(1)) if jne else None
+        return int(r11.group(1), 16) + (int(resto.group(1), 16) if resto else 0)
+    subs = [int(x, 16) for x in RE_SUB.findall(prologo)]
+    # Desenrollada: los pasos seguidos de 0x1000, y el primero que no lo es.
+    total = 0
+    for v in subs:
+        total += v
+        if v != 0x1000:
+            break
+    return total
+
+
 def medir(texto):
     """{simbolo: (marco, callees)}."""
     marcos = {}
@@ -142,8 +172,7 @@ def medir(texto):
         fin = pos[i + 1][0] if i + 1 < len(pos) else len(texto)
         cuerpo = texto[ini:fin]
         prologo = cuerpo[:6000]
-        subs = RE_SUB.findall(prologo)
-        marco = (int(subs[0], 16) if subs else 0) + 8 * len(RE_PUSH.findall(prologo)) + 8
+        marco = bajada(prologo) + 8 * len(RE_PUSH.findall(prologo)) + 8
         if RE_ALINEA.search(prologo):
             marco += 63
         marcos[nombre] = (marco, set(RE_CALL.findall(cuerpo)))
@@ -201,10 +230,22 @@ def leer_fuente(kernel_src):
             if m:
                 topes["TASK_STACK_PAGES"] = int(m.group(1))
             for m in RE_PUERTA.finditer(s):
-                puertas.add(m.group(1))
+                # (nombre, ist): una puerta con IST NO baja por la pila de la
+                # tarea -- el CPU cambia a la del TSS al entrar.
+                puertas.add((m.group(1), int(m.group(2) or 0)))
             for m in RE_HILO.finditer(s):
                 hilos.add(m.group(1))
     return topes, puertas, hilos
+
+
+def leer_ist1():
+    p = os.path.join(raiz(), "Ultra_kernel_x86-64", "faggin", "s1_cpu", "src", "descriptors.rs")
+    try:
+        with open(p, "rb") as fh:
+            m = RE_IST1.search(fh.read().decode("utf-8", "replace"))
+    except OSError:
+        return None
+    return int(m.group(1)) if m else None
 
 
 def cadena(camino, cuantos=6):
@@ -241,17 +282,29 @@ def comprobar(elf, objdump, kernel_src, hablar):
     d_sys = bajar(sys_sim, frozenset())
 
     # La puerta mas honda: lo que una interrupcion o un fault ponen encima.
-    d_puertas = []
-    for p in sorted(puertas):
+    #
+    # ** (2026-09-28) SOLO LAS QUE NO TIENEN IST. #UD #DF #GP #PF van por
+    # IST1 (`faults::roja::init`): el CPU salta a la pila del TSS y en la de
+    # la tarea no baja ni un byte. Contarlas encima de cada syscall ponia
+    # `fault_report` (4 KiB) donde no esta; se miden aparte, contra IST1.
+    d_puertas, d_ist = [], []
+    for p, ist in sorted(puertas):
         s = simbolo_de(marcos, p)
         if s:
-            d_puertas.append((bajar(s, frozenset()), p))
-    if not d_puertas:
-        print("guardian MUERTO: ninguna puerta de la IDT aparece en el binario")
+            (d_ist if ist else d_puertas).append((bajar(s, frozenset()), p))
+    if not d_puertas or not d_ist:
+        print("guardian MUERTO: faltan puertas de la IDT en el binario (sin IST %d, con IST %d)"
+              % (len(d_puertas), len(d_ist)))
         return 1
     d_puertas.sort(key=lambda x: -x[0][0])
     (hondo, camino_puerta), puerta = d_puertas[0]
     encima = MARCO_CPU + hondo
+    d_ist.sort(key=lambda x: -x[0][0])
+    (hondo_ist, camino_ist), puerta_ist = d_ist[0]
+    ist1 = leer_ist1()
+    if not ist1:
+        print("guardian MUERTO: no encuentro IST1_SIZE en faggin/s1_cpu/src/descriptors.rs")
+        return 1
 
     d_hilos = []
     for h in sorted(hilos):
@@ -274,6 +327,8 @@ def comprobar(elf, objdump, kernel_src, hablar):
         print("    " + cadena(d_sys[1], 9))
         print("puerta mas honda (%s): %d bytes + %d de la CPU" % (puerta, hondo, MARCO_CPU))
         print("    " + cadena(camino_puerta, 6))
+        print("fallo mas hondo en IST1 (%s): %d bytes de %d" % (puerta_ist, hondo_ist + MARCO_CPU, ist1))
+        print("    " + cadena(camino_ist, 6))
         print("hilo mas hondo (%s): %d bytes" % (hilo, hilo_hondo))
         print("    " + cadena(camino_hilo, 6))
         print("marcos mas gordos:")
@@ -287,6 +342,14 @@ def comprobar(elf, objdump, kernel_src, hablar):
                       % (d_sys[0], encima, total_sys, tope_sys, topes["KERNEL_STACK_PAGES"], MARGEN))
         fallos.append("    " + cadena(d_sys[1], 9))
         fallos.append("    encima: " + cadena(camino_puerta, 5))
+    # El informe de un fallo es TERMINAL (o mata una tarea y vuelve): no se
+    # anida sobre si mismo -- un segundo fallo reentra por ARRIBA de IST1 --,
+    # asi que el margen es un octavo de la pila (1 KiB), no una pagina entera.
+    total_ist = hondo_ist + MARCO_CPU
+    if total_ist > ist1 - ist1 // 8:
+        fallos.append("un fallo (%s) baja %d en IST1, que mide %d (IST1_SIZE) con %d de margen: "
+                      "el informe SE SALE de su pila" % (puerta_ist, total_ist, ist1, ist1 // 8))
+        fallos.append("    " + cadena(camino_ist, 6))
     if total_hilo > tope_hilo - MARGEN:
         fallos.append("el hilo %s baja %d + %d de interrupcion = %d, y la pila de hilo son %d "
                       "(TASK_STACK_PAGES=%d) con %d de margen: SE SALE POR EL FONDO"
@@ -298,10 +361,85 @@ def comprobar(elf, objdump, kernel_src, hablar):
             print(f)
         return 1
     print("clean: syscall %d + puerta %d = %d de %d (Ring 3, %d libres); hilo %d + puerta %d = %d de %d (%d libres); "
-          "%d funciones, %d puertas, %d hilos"
+          "fallo %d de %d en IST1; %d funciones, %d puertas, %d hilos"
           % (d_sys[0], encima, total_sys, tope_sys, tope_sys - total_sys,
              hilo_hondo, encima, total_hilo, tope_hilo, tope_hilo - total_hilo,
-             len(marcos), len(d_puertas), len(d_hilos)))
+             total_ist, ist1, len(marcos), len(d_puertas) + len(d_ist), len(d_hilos)))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# ** RING 3 (2026-09-28): la pila de cada programa, medida igual.
+#
+# El 28-09 `Aparato::draw` del director pedia 395.432 B de marco (un
+# `[Vertice; MAX_VERTICES]` que crecio con un numero de OTRO modulo) contra una
+# pila de Ring 3 de 64 KiB, y la maquina cayo. Nada lo miraba: este guardian
+# solo leia el kernel. Dos reglas, porque el grafo no ve las llamadas por
+# `dyn` -- y `draw` es justo una (`bmo_verrano::Backend`):
+#
+#   1. el camino ESTATICO mas hondo desde `_start` + una pagina <= la pila
+#   2. NINGUN marco suelto pasa de media pila, lo llame quien lo llame
+# ---------------------------------------------------------------------------
+
+RE_USER_STACK = re.compile(r"pub\s+const\s+USER_STACK_SIZE\s*:\s*u64\s*=\s*(0x[0-9A-Fa-f_]+|\d+)\s*;")
+RING3_POR_DEFECTO = ("director", "proton-x", "coste", "sombra")
+
+
+def leer_pila_ring3(kernel_src):
+    p = os.path.join(kernel_src, "ring0", "mm", "vmm", "verde.rs")
+    try:
+        with open(p, "rb") as fh:
+            m = RE_USER_STACK.search(fh.read().decode("utf-8", "replace"))
+    except OSError:
+        return None
+    return int(m.group(1).replace("_", ""), 0) if m else None
+
+
+def comprobar_ring3(elfs, objdump, kernel_src, hablar):
+    tope = leer_pila_ring3(kernel_src)
+    if not tope:
+        print("guardian MUERTO: no encuentro USER_STACK_SIZE en mm/vmm/verde.rs")
+        return 1
+    if not objdump or not os.path.exists(objdump):
+        print("guardian MUERTO: no hay llvm-objdump (rustup component add llvm-tools)")
+        return 1
+    fallos, limpios = [], []
+    for elf in elfs:
+        nombre = os.path.basename(elf)
+        if not os.path.exists(elf):
+            print("guardian MUERTO: no existe el programa a medir: " + elf)
+            return 1
+        texto = desensamblar(objdump, elf)
+        if not texto:
+            print("guardian MUERTO: llvm-objdump no pudo leer " + elf)
+            return 1
+        marcos = medir(texto)
+        inicio = simbolo_de(marcos, "_start")
+        if not inicio:
+            print("guardian MUERTO: %s no tiene `_start`" % nombre)
+            return 1
+        hondo, camino = profundidad(marcos)(inicio, frozenset())
+        gordo, gordo_marco = max(((n, m) for n, (m, _c) in marcos.items()), key=lambda x: x[1])
+        if hablar:
+            print("%s: camino mas hondo %d de %d" % (nombre, hondo, tope))
+            print("    " + cadena(camino, 9))
+            for n, (m, _c) in sorted(marcos.items(), key=lambda kv: -kv[1][0])[:6]:
+                print("    %6d  %s" % (m, legible(n)))
+        if hondo > tope - MARGEN:
+            fallos.append("%s: desde `_start` baja %d, y la pila de Ring 3 son %d (USER_STACK_SIZE) con %d "
+                          "de margen: SE SALE POR EL FONDO" % (nombre, hondo, tope, MARGEN))
+            fallos.append("    " + cadena(camino, 9))
+        for n, (m, _c) in sorted(marcos.items(), key=lambda kv: -kv[1][0]):
+            if m <= tope // 2:
+                break
+            fallos.append("%s: el marco de %s pide %d, mas de media pila de Ring 3 (%d): una llamada "
+                          "por `dyn` a el no sale en el grafo y se come la pila" % (nombre, legible(n), m, tope))
+        limpios.append("%s %d (marco mayor %d)" % (nombre, hondo, gordo_marco))
+    if fallos:
+        for f in fallos:
+            print(f)
+        return 1
+    print("clean: Ring 3, pila de %d: %s" % (tope, "; ".join(limpios)))
     return 0
 
 
@@ -312,7 +450,13 @@ def main():
     ap.add_argument("--objdump", default=objdump_por_defecto(), help="llvm-objdump")
     ap.add_argument("--fuente", default=os.path.join(raiz(), "Ultra_kernel_x86-64", "kernel", "src"),
                     help="el fuente del kernel, para leer los topes y las puertas")
+    ap.add_argument("--ring3", nargs="*", metavar="ELF",
+                    help="medir programas de Ring 3 en vez del kernel (sin nombres: los del build)")
     a = ap.parse_args()
+    if a.ring3 is not None:
+        base = os.path.join(raiz(), "Ultra_userspace", "target", "x86_64-unknown-none", "release")
+        elfs = a.ring3 or [os.path.join(base, n) for n in RING3_POR_DEFECTO]
+        sys.exit(comprobar_ring3(elfs, a.objdump, a.fuente, hablar=not a.check))
     sys.exit(comprobar(a.elf, a.objdump, a.fuente, hablar=not a.check))
 
 
