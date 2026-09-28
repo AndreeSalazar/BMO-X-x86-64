@@ -59,17 +59,13 @@ const BMOX12_PS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/..
 /// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
 pub(super) const CAJA: u64 = (tu::MAX_PAQUETE as u64).div_ceil(4096) * 4096;
 
-/// **Lo mas que dibuja un `draw` de V0**: la tanda (`anillo::MAX_VERTICES`,
-/// 24 vertices, 768 B), NO `tuberia::MAX_VERTICES`.
+/// **Lo mas que dibuja un `draw` de V0**: la tanda (`anillo::MAX_VERTICES`).
 ///
-/// *** La copia a `tuberia::Vertice` vive en la PILA, y la pila de Ring 3
-/// mide 64 KiB (`vmm::USER_STACK_SIZE`). El 28-09 `tuberia::MAX_VERTICES`
-/// subio a 3 * 4096 (el tope de VRN1) y este `draw` paso a pedir 384 KiB de
-/// pila: el primer `gpu verrano` se salio por el fondo (`cr2=0x7FFEF580`,
-/// 0xA80 bajo `USER_STACK_BOTTOM`). Por eso el tope es SUYO y esta acotado:
-/// no puede volver a crecer con un numero de otro.
+/// [!] Los vertices van al paquete AL VUELO (`tuberia::escribir_paquete_de`):
+/// ya no hay una copia en la pila. El 28-09 la habia --un `[Vertice;
+/// tuberia::MAX_VERTICES]`, 384 KiB contra la pila de Ring 3 de 64 KiB-- y el
+/// primer `gpu verrano` se salio por el fondo y tumbo la maquina.
 const V0_MAX: usize = bmo_gpu_ga10x::anillo::MAX_VERTICES;
-const _: () = assert!(V0_MAX * tu::BYTES_VERTICE <= 4096 && V0_MAX <= tu::MAX_VERTICES);
 
 /// Las opciones que son de ESTA tarjeta (las palabras que las piden).
 #[derive(Clone, Copy, Default)]
@@ -379,10 +375,6 @@ impl Backend for Aparato<'_> {
         if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
             return Err(Error::Image);
         }
-        let mut v = [tu::Vertice::default(); V0_MAX];
-        for (d, s) in v.iter_mut().zip(frame.vertices) {
-            *d = tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) };
-        }
         let limpiar = if self.coopera { self.recorte(frame) } else { None };
         let t1 = bmo::ciclos();
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
@@ -405,7 +397,8 @@ impl Backend for Aparato<'_> {
             let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte: tu::Descarte::Traseras, antihorario: self.antihorario, destino };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
-            tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
+            let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
+            tu::escribir_paquete_de(self.paquete, self.ficha as u32, vs, self.ps, v, limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
         }
         let t2 = bmo::ciclos();
         let modo = if self.coopera {

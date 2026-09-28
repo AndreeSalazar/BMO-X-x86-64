@@ -216,6 +216,36 @@ impl Tcp {
         Self { c: [LIBRE; CONEXIONES], secreto, contador_puertos: 0, retos: (0, 0), rst: None, turno: 0 }
     }
 
+    /// **La misma pila que [`Tcp::nueva`], construida EN SU SITIO** (2026-09-28).
+    ///
+    /// `nueva` devuelve la pila por valor: ~130 KB que el compilador arma en la
+    /// PILA de quien llama y luego copia. En el director eso fue un marco de
+    /// 131.976 B (`red_tcp::empezar`) sobre una pila de Ring 3 de 64 KiB: se
+    /// salia por el fondo en cuanto corria `red hola`. Esto escribe campo a
+    /// campo por puntero, y el marco no depende de lo que mida la pila TCP.
+    ///
+    /// Recibe `MaybeUninit` porque es donde vive la del director: un `static`
+    /// sin inicializar va a `.bss` y no pesa en el `.bex`.
+    pub fn nueva_en(sitio: &mut core::mem::MaybeUninit<Self>, secreto: [u8; 32]) -> &mut Self {
+        use core::ptr::addr_of_mut;
+        let p = sitio.as_mut_ptr();
+        // SAFETY: `p` es de `sitio`, alineado y exclusivo. Cada campo se
+        // escribe UNA vez con `write` (sin leer ni soltar lo que habia), y al
+        // salir estan escritos todos: los mismos que pone `nueva`.
+        unsafe {
+            let c = addr_of_mut!((*p).c) as *mut Conexion;
+            for i in 0..CONEXIONES {
+                c.add(i).write(LIBRE);
+            }
+            addr_of_mut!((*p).secreto).write(secreto);
+            addr_of_mut!((*p).contador_puertos).write(0);
+            addr_of_mut!((*p).retos).write((0, 0));
+            addr_of_mut!((*p).rst).write(None);
+            addr_of_mut!((*p).turno).write(0);
+            &mut *p
+        }
+    }
+
     fn con(&mut self, asa: usize) -> Result<&mut Conexion, Rechazo> {
         match self.c.get_mut(asa) {
             Some(c) if c.estado != Estado::Libre => Ok(c),

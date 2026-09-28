@@ -56,6 +56,31 @@ fn a_mano(c: &Tcp, k: usize, sec: u32, ack: u32, banderas: u8) -> Vec<u8> {
     b
 }
 
+/// `nueva_en`, sobre memoria llena de basura, da una pila que habla igual
+/// que la de `nueva`: el mismo saludo, el mismo ISN (el secreto llego).
+#[test]
+fn la_construida_en_su_sitio_es_la_misma() {
+    let mut sitio: Box<core::mem::MaybeUninit<Tcp>> = Box::new(core::mem::MaybeUninit::uninit());
+    // SAFETY: bytes a 0xA5 sobre un `MaybeUninit`: basura a proposito.
+    unsafe { core::ptr::write_bytes(sitio.as_mut_ptr() as *mut u8, 0xA5, core::mem::size_of::<Tcp>()) };
+    let c = Tcp::nueva_en(&mut sitio, [9; 32]);
+    let mut s = Box::new(Tcp::nueva([7; 32]));
+    let mut testigo = Box::new(Tcp::nueva([9; 32]));
+    let e = s.escuchar(SRV, 80).unwrap();
+    let k = c.conectar(CLI, SRV, 80, 0).unwrap();
+    assert_eq!(testigo.conectar(CLI, SRV, 80, 0).unwrap(), k);
+    assert_eq!(c.extremos(k), testigo.extremos(k));
+    bombear(c, &mut s, 0, |_, _| false);
+    let a = s.aceptar(e).expect("el servidor acepta");
+    assert_eq!(c.estado(k), Estado::Establecida);
+    assert_eq!(s.estado(a), Estado::Establecida);
+    for i in 0..CONEXIONES {
+        if i != k {
+            assert_eq!(c.estado(i), Estado::Libre);
+        }
+    }
+}
+
 #[test]
 fn tres_pasos() {
     let (c, s, k, a) = par();

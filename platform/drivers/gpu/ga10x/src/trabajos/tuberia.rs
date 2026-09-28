@@ -488,19 +488,36 @@ pub fn escribir_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertic
 
 /// Lo mismo, con el recorte de la limpieza (V1c).
 pub fn escribir_paquete_con(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: &[Vertice], limpiar: Option<(u32, u32)>) -> Option<usize> {
+    escribir_paquete_de(out, ficha, vs, ps, vertices.iter().copied(), limpiar)
+}
+
+/// **Lo mismo, con los vertices segun se sacan**: cada uno va derecho al
+/// paquete, sin un arreglo en medio (2026-09-28).
+///
+/// El director armaba un `[Vertice; MAX_VERTICES]` en SU pila para llamar a
+/// [`escribir_paquete_con`], y cuando `MAX_VERTICES` subio a 3 * 4096 ese
+/// arreglo paso a medir 384 KiB contra una pila de Ring 3 de 64 KiB. Con esto
+/// quien tiene los vertices en otra forma (`bmo_verrano::Vertex`) los
+/// convierte al vuelo y lo que ocupa su pila no depende de ningun tope.
+pub fn escribir_paquete_de<I>(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: I, limpiar: Option<(u32, u32)>) -> Option<usize>
+where
+    I: IntoIterator<Item = Vertice>,
+    I::IntoIter: ExactSizeIterator,
+{
+    let vertices = vertices.into_iter();
+    let n = vertices.len();
     let d = CABECERA + vs.len() + ps.len();
-    let total = d + vertices.len() * BYTES_VERTICE;
-    if out.len() < total {
+    if out.len() < d + n * BYTES_VERTICE {
         return None;
     }
     let mut i = d;
-    for v in vertices {
+    for v in vertices.take(n) {
         for w in v.palabras() {
             out[i..i + 4].copy_from_slice(&w.to_le_bytes());
             i += 4;
         }
     }
-    cerrar_paquete(out, ficha, vs, ps, vertices.len(), 0, vertices.len() * BYTES_VERTICE, limpiar)
+    cerrar_paquete(out, ficha, vs, ps, n, 0, n * BYTES_VERTICE, limpiar)
 }
 
 /// **E5**: un paquete con `n` vertices y los DATOS tal cual (el cbuffer y

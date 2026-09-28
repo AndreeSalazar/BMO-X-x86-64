@@ -161,7 +161,9 @@ fn tcp() -> Option<&'static mut Tcp> {
 
 fn tcp_nueva(secreto: [u8; 32]) {
     unsafe {
-        (*addr_of_mut!(TCP)).write(Tcp::nueva(secreto));
+        // EN SU SITIO: `Tcp::nueva` la armaba en esta pila (131.976 B de
+        // marco contra 64 KiB de pila de Ring 3) y luego la copiaba.
+        Tcp::nueva_en(&mut *addr_of_mut!(TCP), secreto);
         TCP_LISTA = true;
     }
 }
