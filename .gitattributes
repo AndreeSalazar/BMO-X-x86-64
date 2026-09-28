@@ -1,3 +1,9 @@
 # Los guiones de shell viajan al movil (Termux) y bash no traga CR: LF siempre,
 # sin importar el autocrlf de quien los saque del repo (2026-09-16).
 *.sh text eol=lf
+
+# Los pedidos de D3DCompile (P3c2): la casa busca cada .cso por la HUELLA de
+# los bytes del .hls y del .ent. Un autocrlf que los pase a CRLF cambia la
+# huella (d7e2992c en vez de f3ef42a0) y el test y el volumen no los
+# encuentran: se sacan tal cual, byte a byte (2026-09-28).
+platform/shared/proton-x/prueba/sombras/* -text
