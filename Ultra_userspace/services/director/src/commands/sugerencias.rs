@@ -1,5 +1,25 @@
 //! **LAS SUGERENCIAS DE LA CAJA** -- mientras se teclea, la linea de estado
-//! dice que ordenes empiezan asi, y TAB completa la orden (no solo rutas).
+//! dice que PALABRA puede ir ahora, en cualquier punto de la orden, y TAB,
+//! las flechas o un clic la escriben; Ctrl+clic la escribe y la CORRE.
+//!
+//! # Palabra a palabra (28-09)
+//!
+//! Peticion del propietario: *"las sugerencias tienen que aparecer en
+//! global"* y *"CONTROL + Click ... para ahorrar esfuerzo de escritura"*.
+//! Antes se sugerian ORDENES ENTERAS de la lista, y solo las que estaban en
+//! ella: `gpu verrano bmox12` no salia nunca, y `bmx12` corrio V0 callado.
+//! Ahora se sugiere la palabra SIGUIENTE:
+//!
+//! ```text
+//!    gp            gpu
+//!    gpu           init  estatica  objetos  salud ...      (sus subordenes)
+//!    gpu verrano   banco  0  30  60  bmox12  ligero ...    (sus opciones)
+//! ```
+//!
+//! Las subordenes salen de la lista de abajo; las OPCIONES que se combinan
+//! libres (`gpu verrano bmox12 30`), de quien las entiende
+//! (`gspcubo::palabras_verrano`): la misma lista con la que las lee, asi que
+//! no hay dos catalogos que se separen.
 //!
 //! [consumo] NADA      solo cuando cambia lo tecleado: una pasada por una
 //!                     lista de unas cuarenta lineas
@@ -22,8 +42,8 @@
 
 use super::{parse, Command};
 
-/// Cuantas se muestran a la vez.
-pub(crate) const MAX: usize = 4;
+/// Cuantas se muestran a la vez (las que caben en la linea, hasta estas).
+pub(crate) const MAX: usize = 8;
 
 /// `(linea, que hace)`, de lo que mas se usa a lo que menos.
 const LISTA: &[(&[u8], &[u8])] = &[
@@ -45,6 +65,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu volcado", b"la 3060 lleva tu escritorio a la pantalla, contra la CPU"),
     (b"gpu cubo", b"el cubo del estudio D3D, por la CPU, igual bit a bit que la 3060 bajo Windows"),
     (b"gpu cubo 3060", b"X5: el mismo cubo dibujado por la 3060 SIN Windows, y su huella contra D3D12"),
+    (b"gpu verrano bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X (0, 30 o 60)"),
     (b"gpu verrano", b"VERRANO V0: el cubo por la API de BMO-X, en la 3060 (programas del BSF) y en la CPU, comparados"),
     (b"gpu verrano banco", b"VERRANO V1: el cubo GIRANDO, 360 fotogramas seguidos por la 3060, con sus fps y el 30 juzgado contra D3D12"),
     (b"gpu verrano banco inti", b"VERRANO: los vertices los cuenta una app de INTI (run inti/cubo.ibx antes) y los publica en una lamina; la 3060 los dibuja sin esperarla"),
@@ -122,65 +143,157 @@ fn viva(linea: &[u8]) -> bool {
     !matches!(parse(linea), Command::Unknown)
 }
 
-/// Cuantas candidatas caben: la lista entera.
+/// Cuantas candidatas caben (las subordenes de `gpu` son ~50).
 const TODAS: usize = 64;
+/// Cuantas palabras se miran de una linea.
+const PALABRAS: usize = 12;
+/// Lo que cabe delante de la palabra (las palabras ya enteras).
+const DELANTE: usize = 64;
 
-/// Las que empiezan por lo tecleado, TODAS: sus indices en la lista.
+type Palabra = (&'static [u8], &'static [u8]);
+
+/// Las palabras de `t`, separadas por espacios (las vacias fuera).
+fn partir(t: &[u8]) -> ([&[u8]; PALABRAS], usize) {
+    let mut w: [&[u8]; PALABRAS] = [b""; PALABRAS];
+    let mut n = 0;
+    for p in t.split(|&c| c == b' ').filter(|p| !p.is_empty()) {
+        if n == PALABRAS {
+            break;
+        }
+        w[n] = p;
+        n += 1;
+    }
+    (w, n)
+}
+
+/// **Las candidatas**: la palabra que puede ir tras `completas`, que empiece
+/// por `parcial`, y que hace.
 #[derive(Clone, Copy)]
 pub(crate) struct Sugeridas {
-    pub i: [usize; TODAS],
+    pal: [Palabra; TODAS],
     pub total: usize,
+    /// Lo que se escribe delante de la elegida: las palabras enteras, cada
+    /// una con su espacio detras.
+    delante: [u8; DELANTE],
+    delante_n: usize,
 }
 
 impl Sugeridas {
-    /// La posicion de `linea` entre las candidatas, si es una de ellas.
-    pub(crate) fn donde(&self, linea: &[u8]) -> Option<usize> {
-        self.i[..self.total].iter().position(|&k| LISTA[k].0 == linea)
+    fn vacia() -> Self {
+        Sugeridas { pal: [(b"", b""); TODAS], total: 0, delante: [0; DELANTE], delante_n: 0 }
     }
-}
 
-fn sin_espacios(t: &[u8]) -> &[u8] {
-    let k = t.iter().take_while(|&&c| c == b' ').count();
-    &t[k..]
-}
-
-/// **Las sugerencias para lo tecleado.** Vacio no sugiere nada; lo que ya es
-/// una orden entera se sugiere igual si hay otras mas largas (`save` -> `save
-/// mode`), pero no sola: repetirle a alguien lo que acaba de escribir no ayuda.
-pub(crate) fn para(tecleado: &[u8]) -> Sugeridas {
-    let mut s = Sugeridas { i: [0; TODAS], total: 0 };
-    let t = sin_espacios(tecleado);
-    if t.is_empty() {
-        return s;
-    }
-    for (k, (linea, _)) in LISTA.iter().enumerate() {
-        if s.total < TODAS && empieza(linea, t) && viva(linea) {
-            s.i[s.total] = k;
-            s.total += 1;
+    fn poner(&mut self, w: &'static [u8], que: &'static [u8], exacta: bool) {
+        if let Some(k) = self.pal[..self.total].iter().position(|p| p.0 == w) {
+            // La descripcion de la orden que ACABA en esa palabra gana a la de
+            // una mas larga que solo pasa por ella.
+            if exacta {
+                self.pal[k].1 = que;
+            }
+            return;
+        }
+        if self.total < TODAS {
+            self.pal[self.total] = (w, que);
+            self.total += 1;
         }
     }
-    if s.total == 1 && LISTA[s.i[0]].0.len() == t.len() {
-        s.total = 0;
+
+    pub(crate) fn palabra(&self, k: usize) -> &'static [u8] {
+        self.pal[k].0
+    }
+
+    pub(crate) fn que(&self, k: usize) -> &'static [u8] {
+        self.pal[k].1
+    }
+
+    /// La linea entera que escribe la candidata `k` en `out`; cuanto mide.
+    fn linea(&self, k: usize, out: &mut [u8]) -> Option<usize> {
+        let w = self.pal.get(k)?.0;
+        let n = self.delante_n + w.len();
+        if k >= self.total || n > out.len() {
+            return None;
+        }
+        out[..self.delante_n].copy_from_slice(&self.delante[..self.delante_n]);
+        out[self.delante_n..n].copy_from_slice(w);
+        Some(n)
+    }
+
+    /// La posicion de `linea` entre las candidatas, si es una de ellas.
+    pub(crate) fn donde(&self, linea: &[u8]) -> Option<usize> {
+        let l = linea.trim_ascii_end();
+        let mut b = [0u8; DELANTE + 32];
+        (0..self.total).find(|&k| self.linea(k, &mut b).is_some_and(|n| n == l.len() && empieza(&b[..n], l)))
+    }
+}
+
+/// Las que siguen a `completas` y empiezan por `parcial`.
+fn siguientes(completas: &[&[u8]], parcial: &[u8]) -> Sugeridas {
+    let mut s = Sugeridas::vacia();
+    let k = completas.len();
+    // Las subordenes: la palabra k de cada orden de la lista cuyas k
+    // primeras son las tecleadas.
+    for &(linea, que) in LISTA {
+        let (w, n) = partir(linea);
+        if n > k && (0..k).all(|i| w[i].eq_ignore_ascii_case(completas[i])) && empieza(w[k], parcial) && viva(linea) {
+            // `w[k]` es un trozo de `linea`, que es 'static.
+            s.poner(w[k], que, n == k + 1);
+        }
+    }
+    // Y las opciones libres de quien las tenga, que no esten ya puestas.
+    if k >= 2 && completas[0].eq_ignore_ascii_case(b"gpu") && completas[1].eq_ignore_ascii_case(b"verrano") {
+        for lista in super::gspcubo::palabras_verrano(&completas[2..]) {
+            for &(w, que) in lista {
+                if empieza(w, parcial) && !completas[2..].iter().any(|c| c.eq_ignore_ascii_case(w)) && super::gspcubo::vale_verrano(&completas[2..], w) {
+                    s.poner(w, que, true);
+                }
+            }
+        }
     }
     s
 }
 
-pub(crate) fn linea(i: usize) -> &'static [u8] {
-    LISTA[i].0
+fn con_delante(mut s: Sugeridas, completas: &[&[u8]]) -> Sugeridas {
+    let mut n = 0;
+    for w in completas {
+        if n + w.len() + 1 > DELANTE {
+            s.total = 0;
+            return s;
+        }
+        for &c in w.iter() {
+            s.delante[n] = baja(c);
+            n += 1;
+        }
+        s.delante[n] = b' ';
+        n += 1;
+    }
+    s.delante_n = n;
+    s
 }
 
-pub(crate) fn que(i: usize) -> &'static [u8] {
-    LISTA[i].1
+/// **Las sugerencias para lo tecleado.** Vacio no sugiere nada. Si la ultima
+/// palabra ya es entera y es la unica que encaja (`gpu verrano`), se sugiere
+/// lo que puede ir DETRAS: repetirle a alguien lo que acaba de escribir no
+/// ayuda.
+pub(crate) fn para(tecleado: &[u8]) -> Sugeridas {
+    let t = tecleado.trim_ascii_start();
+    let (w, n) = partir(t);
+    if n == 0 {
+        return Sugeridas::vacia();
+    }
+    let abierta = !t.ends_with(b" ");
+    let (k, parcial): (usize, &[u8]) = if abierta { (n - 1, w[n - 1]) } else { (n, b"") };
+    let s = siguientes(&w[..k], parcial);
+    if abierta && s.total == 1 && s.pal[0].0.eq_ignore_ascii_case(parcial) {
+        return con_delante(siguientes(&w[..n], b""), &w[..n]);
+    }
+    con_delante(s, &w[..k])
 }
 
 /// **TAB sobre una orden** (24-09, *"la tab no aplica las sugerencias"*):
-/// escribe ENTERA la sugerencia resaltada, y cada TAB siguiente pasa a la
-/// otra (vuelve a la primera al acabar), como fish o zsh. `base` es lo que
-/// habia tecleado antes del primer TAB; `path[..n]`, lo que hay ahora.
-/// `Some(nueva n)` si escribio; `None` si no hay orden y el TAB es de rutas.
-///
-/// Antes completaba solo hasta donde TODAS coincidian: con `gp`, `gpu`, y ahi
-/// se quedaba -- la sugerencia pintada en el acento no llegaba nunca.
+/// escribe la sugerencia resaltada, y cada TAB siguiente pasa a la otra
+/// (vuelve a la primera al acabar), como fish o zsh. `base` es lo que habia
+/// tecleado antes del primer TAB; `path[..n]`, lo que hay ahora. `Some(nueva
+/// n)` si escribio; `None` si no hay palabra y el TAB es de rutas.
 pub(crate) fn tab(path: &mut [u8], n: usize, base: &[u8]) -> Option<usize> {
     mover(path, n, base, true)
 }
@@ -199,16 +312,11 @@ pub(crate) fn mover(path: &mut [u8], n: usize, base: &[u8], adelante: bool) -> O
         (None, true) => 0,
         (None, false) => s.total - 1,
     };
-    escribir(path, s.i[k])
+    s.linea(k, path)
 }
 
-/// **Escribir la sugerencia `i`** (su indice en la lista) en el campo, entera.
-/// Lo usa tambien el CLIC sobre la linea de sugerencias.
-pub(crate) fn escribir(path: &mut [u8], i: usize) -> Option<usize> {
-    let l = LISTA.get(i)?.0;
-    if l.len() > path.len() {
-        return None;
-    }
-    path[..l.len()].copy_from_slice(l);
-    Some(l.len())
+/// **Escribir la candidata `k`** de las sugerencias para `base`, con lo que
+/// va delante. Lo usa el CLIC sobre la linea de sugerencias.
+pub(crate) fn escribir(path: &mut [u8], base: &[u8], k: usize) -> Option<usize> {
+    para(base).linea(k, path)
 }

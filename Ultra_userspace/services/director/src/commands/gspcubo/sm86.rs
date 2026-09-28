@@ -90,6 +90,20 @@ pub(super) struct Opciones {
     pub fotograma: u32,
 }
 
+/// **Las palabras de ESTA tarjeta** y que hacen: las que entiende
+/// [`Opciones::de`], y las que la caja sugiere tras `gpu verrano` (una lista,
+/// la misma para las dos cosas: si una deja de entenderse, deja de sugerirse).
+pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
+    (b"bmox12", b"E5: la 3060 transforma e ilumina con los programas de BMOX-12 traducidos por PROTON-X"),
+    (b"ligero", b"sin la escalera de diagnostico: los fps de verdad"),
+    (b"anillo", b"la CPU envia el fotograma siguiente mientras la tarjeta dibuja este"),
+    (b"coopera", b"el anillo, y la CPU le dice a la tarjeta que limpiar"),
+    (b"maximo", b"coopera y los relojes de la tarjeta al maximo"),
+    (b"exige", b"los relojes de la tarjeta al maximo antes del banco"),
+    (b"reposo", b"sin gobernador: la tarjeta en reposo, a proposito"),
+    (b"sinldg", b"el de vertice SIN sus LDG (la prueba del 25-09): no dibuja el cubo"),
+];
+
 impl Opciones {
     pub(super) fn de(palabras: &[u8]) -> Self {
         let mut o = Opciones { fotograma: palabras.split(|&c| c == b' ').find_map(super::numero).unwrap_or(30).min(359), ..Opciones::default() };
@@ -124,7 +138,7 @@ impl Opciones {
 
     /// Si `w` es una palabra de ESTA tarjeta.
     pub(super) fn conoce(w: &[u8]) -> bool {
-        matches!(w, b"sinldg" | b"ligero" | b"anillo" | b"coopera" | b"exige" | b"reposo" | b"maximo" | b"bmox12")
+        PALABRAS.iter().any(|&(p, _)| p == w)
     }
 
     /// Como se dice el modo en el tablero.

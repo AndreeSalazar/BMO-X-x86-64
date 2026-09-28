@@ -186,7 +186,7 @@ pub(crate) struct Field {
     pub sug_base: [u8; 64],
     pub sug_base_n: usize,
     /// Las sugerencias PINTADAS ahora (sus indices en la lista), para el clic.
-    pub sug_vistas: [usize; 4],
+    pub sug_vistas: [usize; crate::commands::sugerencias::MAX],
     pub sug_vistas_n: usize,
 }
 
@@ -207,7 +207,7 @@ impl Field {
             sug_pintadas: false,
             sug_base: [0; 64],
             sug_base_n: 0,
-            sug_vistas: [0; 4],
+            sug_vistas: [0; crate::commands::sugerencias::MAX],
             sug_vistas_n: 0,
         }
     }

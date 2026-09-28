@@ -655,11 +655,11 @@ fn sugerencias(dsk: &mut Desktop, p: &bmo::Pantalla) {
     let n = (s.total - desde).min(sg::MAX);
     let mut lineas: [&[u8]; sg::MAX] = [b""; sg::MAX];
     for k in 0..n {
-        lineas[k] = sg::linea(s.i[desde + k]);
-        dsk.field.sug_vistas[k] = s.i[desde + k];
+        lineas[k] = s.palabra(desde + k);
+        dsk.field.sug_vistas[k] = desde + k;
     }
     dsk.field.sug_vistas_n = n;
-    scene::sugerir::pintar(p, &dsk.run_box, &lineas[..n], elegida - desde, s.total - n, sg::que(s.i[elegida]));
+    scene::sugerir::pintar(p, &dsk.run_box, &lineas[..n], elegida - desde, s.total - n, s.que(elegida));
     dsk.field.sug_pintadas = true;
 }
 
@@ -674,9 +674,11 @@ pub(crate) fn pista_consejero(dsk: &mut Desktop, p: &bmo::Pantalla) {
     dsk.field.sug_firma = 0;
 }
 
-/// **Un CLIC sobre la linea de sugerencias** (24-09): escribe la que se toco,
-/// entera, y deja seguir con TAB y las flechas desde ahi. `true` si habia una.
-pub(crate) fn clic_sugerencia(dsk: &mut Desktop, x: u32, y: u32) -> bool {
+/// **Un CLIC sobre la linea de sugerencias** (24-09): escribe la palabra que
+/// se toco, y la linea pasa a sugerir la SIGUIENTE (28-09: se va eligiendo
+/// la orden palabra a palabra, sin teclear). Con **Ctrl**, ademas la CORRE
+/// (un Enter inyectado, como el doble clic de un icono). `true` si habia una.
+pub(crate) fn clic_sugerencia(dsk: &mut Desktop, x: u32, y: u32, ctrl: bool) -> bool {
     use crate::commands::sugerencias as sg;
     if !dsk.field.sug_pintadas {
         return false;
@@ -685,16 +687,27 @@ pub(crate) fn clic_sugerencia(dsk: &mut Desktop, x: u32, y: u32) -> bool {
     if k >= dsk.field.sug_vistas_n {
         return false;
     }
-    // La base, si aun no se daban vueltas: lo tecleado ahora.
-    if dsk.field.sug_base_n == 0 {
-        let n = dsk.field.n.min(dsk.field.sug_base.len());
-        dsk.field.sug_base[..n].copy_from_slice(&dsk.field.path[..n]);
-        dsk.field.sug_base_n = n;
-    }
-    if let Some(n) = sg::escribir(&mut dsk.field.path, dsk.field.sug_vistas[k]) {
+    // Las pintadas son las de la base de las vueltas con TAB, o las de lo
+    // tecleado ahora.
+    let mut base = [0u8; 64];
+    let bn = if dsk.field.sug_base_n > 0 {
+        base[..dsk.field.sug_base_n].copy_from_slice(&dsk.field.sug_base[..dsk.field.sug_base_n]);
+        dsk.field.sug_base_n
+    } else {
+        let n = dsk.field.n.min(base.len());
+        base[..n].copy_from_slice(&dsk.field.path[..n]);
+        n
+    };
+    if let Some(n) = sg::escribir(&mut dsk.field.path, &base[..bn], dsk.field.sug_vistas[k]) {
         dsk.field.n = n;
         dsk.field.cur = n;
         dsk.tick.repaint_field = true;
+        // Sin base: lo escrito es la base nueva, y se sugiere lo que sigue.
+        dsk.field.sug_base_n = 0;
+        if ctrl && dsk.field.ni < dsk.field.injected.len() {
+            dsk.field.injected[dsk.field.ni] = b'\n';
+            dsk.field.ni += 1;
+        }
     }
     true
 }

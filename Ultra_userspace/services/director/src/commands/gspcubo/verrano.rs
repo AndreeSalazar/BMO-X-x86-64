@@ -34,6 +34,36 @@ use crate::scene::{paint_status, INK_DIM};
 /// Los vertices que caben en un fotograma de la escena (3 por triangulo).
 const MAX_VERTICES: usize = 3 * bmo_cubo::tanda::CABEN;
 
+/// **Las palabras de VERRANO** (las del aparato van en su puerta): lo que la
+/// caja sugiere tras `gpu verrano`. Sin `banco` los numeros son el
+/// fotograma; con el, cuantos.
+const PALABRAS: &[(&[u8], &[u8])] = &[
+    (b"banco", b"V1: el cubo GIRANDO, N fotogramas seguidos (360 si no se dice), con sus fps"),
+    (b"0", b"el fotograma 0, juzgado contra D3D12"),
+    (b"30", b"el fotograma 30, juzgado contra D3D12"),
+    (b"60", b"el fotograma 60, juzgado contra D3D12"),
+];
+const PALABRAS_BANCO: &[(&[u8], &[u8])] = &[
+    (b"inti", b"los vertices los cuenta una app de INTI (run inti/cubo.ibx antes)"),
+    (b"360", b"una vuelta entera"),
+    (b"3600", b"diez vueltas"),
+];
+
+/// Lo que la caja sugiere tras `gpu verrano ...` (`completas`, las palabras
+/// ya enteras despues de `verrano`): las de VERRANO y las del aparato.
+pub(crate) fn palabras(completas: &[&[u8]]) -> [&'static [(&'static [u8], &'static [u8])]; 2] {
+    let banco = completas.iter().any(|w| w.eq_ignore_ascii_case(b"banco"));
+    [if banco { PALABRAS_BANCO } else { PALABRAS }, destino::PALABRAS]
+}
+
+/// Si `w` puede ir tras `completas`: UN numero, y `bmox12` no va en el
+/// banco (se dice al correr; aqui ni se ofrece).
+pub(crate) fn vale(completas: &[&[u8]], w: &[u8]) -> bool {
+    let hay = |x: &[u8]| completas.iter().any(|c| c.eq_ignore_ascii_case(x));
+    let numero = |x: &[u8]| !x.is_empty() && x.iter().all(u8::is_ascii_digit);
+    !(numero(w) && completas.iter().any(|c| numero(c)) || w == b"banco" && hay(b"bmox12") || w == b"bmox12" && hay(b"banco"))
+}
+
 /// `gpu verrano [fotograma] | banco [N] [opciones del aparato]`.
 pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After {
     // [!] `gpu.rs` pasa el resto CON su espacio delante (" sinldg"): sin
@@ -44,7 +74,10 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // corrio V0 callado, y parecia E5).
     if let Some(w) = resto.split(|&c| c == b' ').find(|w| !w.is_empty() && numero(w).is_none() && !matches!(*w, b"banco" | b"inti") && !destino::Opciones::conoce(w)) {
         let mut t = Texto::nuevo();
-        t.t(b"  NO  no conozco la palabra `").t(w).t(b"`: no se dibuja nada");
+        t.t(b"  NO  no conozco la palabra `").t(w).t(b"`: no se dibuja nada. Las que hay:");
+        for &(p, _) in PALABRAS.iter().chain(PALABRAS_BANCO).chain(destino::PALABRAS).filter(|(p, _)| !p[0].is_ascii_digit()) {
+            t.t(b" ").t(p);
+        }
         return linea(dsk, t.s(), INK_ERR);
     }
     let banco_pedido = resto.strip_prefix(b"banco");
