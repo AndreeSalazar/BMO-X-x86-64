@@ -529,8 +529,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
 ```
       Lo que la tabla NO ve son los metodos COM (por vtabla). CRUZADOS el
       28-09: las llamadas de `estudio-d3d/d3d12/src/cubo_d3d12.rs` (EPICX,
-      solo lectura) contra las vtablas que la casa arma en `com.rs`. De 40
-      metodos, 29 estan; lo que falta es **P3c4**:
+      solo lectura) contra las vtablas que la casa arma en `com.rs`. De 45
+      metodos, 35 estan; lo que falta es **P3c4**:
 
 ```text
    P3c4  DXGI     IDXGIFactory6 (el cubo la pide a CreateDXGIFactory2):
