@@ -492,7 +492,12 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       Queda abierta hasta que el cubo lo dibuje la 3060 (P3b4). Desde ese
       dia EL REGISTRO: `bmo_proton_x::registro`, una linea por segundo
       (`[registro] N fps  fotograma min/medio/max ms  dibujar  presentar`) a
-      la consola, y con ella a datos/sysproto.txt] [DIBUJA en el banco 28-09
+      la consola, y con ella a datos/sysproto.txt. PRIMERA MEDIDA (28-09
+      07:01, el Ryzen, un nucleo, SSE2; datos/sysproto.txt): 36-38 fps,
+      fotograma 23..36 ms (medio 27), dibujar 25-26 ms, presentar 1 ms,
+      estable en 492 fotogramas. El banco da ~7 fps: esta en debug y calcula
+      la huella de cada fotograma dentro de presentar; la cifra de
+      referencia es la del metal] [DIBUJA en el banco 28-09
       LO QUE DIBUJO LA 3060] Con los .cso de su
       HLSL CRLF (d7e2992c y b50c1000, de sombras.exe en el Windows del
       propietario: bit a bit los mismos que los de LF), bmox12.exe en
