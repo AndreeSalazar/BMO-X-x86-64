@@ -963,6 +963,8 @@ FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
    3  P3c   BMOX-12 en el Ryzen, dibujado por la CPU (P3b4 despues)
    4  VERRANO V2..V4 y P3b4: la 3060 dibuja el lote (E2 pide las palabras
             de `ptxas`/`nvdisasm` de su Windows)
+            -- con EL REGISTRO de PLAN_VERRANO (2c): fps, tiempo por
+            fotograma y por parte, y los avisos, a consola y a fichero
    5  P5    UN JUEGO CHICO. Lo que un juego pide y un cubo no, medido de
             antemano con `rayosx` (Ludoteca 9):
             5a  cargar SUS DLL. [BANCO HECHO 28-09] `bmo_proton_x::dll`

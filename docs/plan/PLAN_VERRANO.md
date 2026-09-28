@@ -335,6 +335,23 @@ pero que la CPU EXPRIMA"*. Los tres carriles, en ESTE orden, y por que:
                          contra D3D12. Lo mas caro, y lo que menos cambia
 ```
 
+**EL REGISTRO, siempre (28-09, pedido del propietario: *"que VERRANO ponga
+LOG en FPS y todos los datos"*).** Todo lo que dibuje VERRANO -- el cubo de
+`gpu verrano`, y los lotes de PROTON-X cuando lleguen por P3b4 (BMOX-12, un
+juego) -- deja su registro, no solo una cifra en pantalla:
+
+```text
+   por segundo   fps, y el tiempo de cada fotograma (minimo, medio, maximo)
+   por parte     preparar (CPU), la 3060 (su reloj), presentar, esperar
+   por dibujo    lotes, triangulos, pixeles, sombreadores corridos
+   lo raro       cada aviso de la casa y cada fotograma que se salio de su
+                 plazo, con su numero de fotograma
+```
+
+Va a la consola Y a un fichero del volumen (como los METAL_*.md), para que
+una sesion se compare con otra y con la tabla de `estudio-d3d` en Windows.
+Una cifra sin registro no se acepta como "VISTO".
+
 **Que es VERRANO, en una linea (y la respuesta a "un BSF con cubo como
 Windows pero para jugar"):** SI. VERRANO es la API (lo que en Windows es
 D3D12), el BSF el sobre con los programas ya traducidos para ESTA tarjeta
