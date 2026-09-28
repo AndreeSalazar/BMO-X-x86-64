@@ -1053,6 +1053,16 @@ ffx_backend_dx12 4, redlexer_native 1. Graficos: DXGI, D3D12 (y
 D3D12SerializeVersionedRootSignature, D3D12GetDebugInterface) y
 D3D11CreateDeviceAndSwapChain. Y abre mas en marcha (LoadLibrary*,
 GetProcAddress): la tabla no es todo lo que pide.
+**Las 59 de "graficos" NO son dibujar (28-09):** rayosx cuenta asi a
+sl.interposer (Streamline, 19), libxess + libxess_fg + libxell (XeSS, 26),
+ffx_fsr3 + ffx_backend_dx12 (FSR 3, 8) y amd_ags (6): reescaladores y extras
+de fabricante, DLL del propio juego (P5a las carga; con el reescalado
+APAGADO casi no trabajan; AGS pregunta si la tarjeta es AMD y la 3060 dice
+que no). El propietario juega NATIVO (sin reescalar): se apagan en las
+opciones. Lo grueso de los graficos no esta en ninguna tabla: los metodos
+COM de D3D12 (BMOX-12 uso 45; los de Cyberpunk se MIDEN corriendolo, la casa
+dice cada hueco con su nombre), sus sombreadores DXIL en la 3060 (VERRANO
+E3..E5, P3b4) y DXR (P6, que tambien se apaga).
 
 **Donde instalar Cyberpunk (27-09, el propietario: "PERSONAL D ese podria
 entrar en mi Cyberpunk 2077").** `Personal (D:)` tiene 111 GB libres y el
