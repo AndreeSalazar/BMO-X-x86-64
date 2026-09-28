@@ -73,6 +73,13 @@ pub const MAX_VERTICES: usize = 3 * CABEN;
 /// Donde van los dos programas: el principio de las paginas de X5.
 pub const VS: u64 = SALIDA;
 pub const PS: u64 = PROGRAMA;
+/// Lo mas que mide cada uno: su SPH y 2 KiB de codigo (128 instrucciones,
+/// `juez::MAX_INSTRUCCIONES`). Cada uno tiene su pagina ENTERA (se pone a
+/// cero antes); desde E5 (28-09) ya no el hueco de 512 / 256 B del cubo X5.
+pub const HUECO: usize = 4 * SPH + 16 * crate::sass::juez::MAX_INSTRUCCIONES;
+/// Lo mas que mide un paquete entero (cabecera, dos programas y vertices):
+/// la caja que el escritorio tiene que reservar.
+pub const MAX_PAQUETE: usize = CABECERA + 2 * HUECO + MAX_VERTICES * BYTES_VERTICE;
 
 /// Un vertice: la posicion en coordenadas de recorte y el color, en bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -282,9 +289,9 @@ fn u32le(b: &[u8], i: usize) -> u32 {
 }
 
 /// Un programa que el kernel acepta subir: la SPH del tipo que toca y
-/// cabe en su hueco.
-fn programa_valido(p: &[u8], tipo: u32, hueco: u64) -> bool {
-    p.len() >= 4 * SPH + 16 && p.len() % 16 == 0 && p.len() as u64 <= hueco && u32le(p, 0) & 0x1F == if tipo == crate::raster::VERTICE { 1 } else { 2 } && u32le(p, 0) >> 10 & 0xF == tipo
+/// cabe en su [`HUECO`].
+fn programa_valido(p: &[u8], tipo: u32) -> bool {
+    p.len() >= 4 * SPH + 16 && p.len() % 16 == 0 && p.len() <= HUECO && u32le(p, 0) & 0x1F == if tipo == crate::raster::VERTICE { 1 } else { 2 } && u32le(p, 0) >> 10 & 0xF == tipo
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -297,7 +304,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
         return None;
     }
     let (n, vs, ps) = (u32le(cabecera, 8) as usize, u32le(cabecera, 12) as usize, u32le(cabecera, 16) as usize);
-    if n == 0 || n % 3 != 0 || n > MAX_VERTICES || vs > cu::PASO_VS as usize || ps > cu::PASO_PS as usize {
+    if n == 0 || n % 3 != 0 || n > MAX_VERTICES || vs > HUECO || ps > HUECO {
         return None;
     }
     Some(CABECERA + vs + ps + n * BYTES_VERTICE)
@@ -313,7 +320,7 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
     let (h, v) = (u32le(b, 20), u32le(b, 24));
     let limpiar = ((h, v) != (0, 0)).then_some((h, v));
     let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..], limpiar };
-    (programa_valido(p.vs, crate::raster::VERTICE, cu::PASO_VS) && programa_valido(p.ps, crate::raster::PIXEL, cu::PASO_PS)).then_some(p)
+    (programa_valido(p.vs, crate::raster::VERTICE) && programa_valido(p.ps, crate::raster::PIXEL)).then_some(p)
 }
 
 /// **Escribir** un paquete en `out`; devuelve cuanto mide.
@@ -470,6 +477,8 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
 
 const _: () = assert!(PALABRAS_VS * 4 <= cu::PASO_VS as usize && PALABRAS_PS * 4 <= cu::PASO_PS as usize);
 const _: () = assert!(VS == cu::vs(0) && PS == cu::ps(0));
+// Cada uno cabe en su pagina (VS en la 10, PS en la 11, que se ponen a cero).
+const _: () = assert!(HUECO <= 0x1000 && VS + 0x1000 == PS);
 const _: () = assert!(TABLA >= crate::video::PARAMETROS + 4 * crate::video::N_PARAMETROS as u64);
 const _: () = assert!(VERTICES >= TABLA + 8 && VERTICES + (MAX_VERTICES * BYTES_VERTICE) as u64 <= SEMAFOROS + 0x1000);
 

@@ -45,8 +45,9 @@
 //! Se emiten las instrucciones con lo que leen y escriben ([`planifica`]), y
 //! despues se calcula el control de cada una con la tabla de Ampere del juez:
 //! la espera justa y, para un MUFU, una de las 6 barreras que espera el
-//! primero que lee su resultado. Y para caber en la puerta del kernel (64
-//! instrucciones, `juez::MAX_INSTRUCCIONES`): los operandos de lo
+//! primero que lee su resultado. Y para que el cuerpo quepa en 64
+//! instrucciones (la puerta del kernel, `juez::MAX_INSTRUCCIONES`, es de 128
+//! desde E5, con el pegamento del driver alrededor): los operandos de lo
 //! conmutativo se ponen al reves si eso ahorra un MOV, un resultado que es
 //! una salida se calcula YA en su registro de salida, y el producto escalar
 //! se acumula en su destino.

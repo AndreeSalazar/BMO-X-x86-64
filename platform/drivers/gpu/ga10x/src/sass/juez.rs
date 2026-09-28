@@ -410,6 +410,13 @@ fn no(regla: Regla, instruccion: usize, que: u32, detalle: &'static str) -> Resu
 
 /// **JUZGAR** un programa. `Ok` = PERFECTO Y PRECISO; `Err` = TOMA TU BODRIO.
 pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio> {
+    juzgar_con(codigo.len(), |k| codigo[k], ctx)
+}
+
+/// `juzgar`, leyendo la palabra `k` con `palabra` (sin copiar el programa:
+/// el kernel juzga los bytes del paquete donde estan, sin 2 KiB en su pila).
+fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -> Result<Veredicto, Bodrio> {
+    let codigo = (0..n).map(&palabra);
     let mut regs = [LIMPIO; 256];
     let mut encendidas = 0u32;
     let mut ciclo = 0u32;
@@ -417,13 +424,13 @@ pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio
     // Un salto hacia atras ANTES del primer EXIT sin predicado: un bucle. El
     // `BRA .` de relleno que va detras del EXIT no cuenta (no se alcanza).
     let mut hay_bucle = false;
-    for i in codigo.iter().filter_map(|&(lo, hi)| decodificar(lo, hi)) {
+    for i in codigo.clone().filter_map(|(lo, hi)| decodificar(lo, hi)) {
         hay_bucle |= i.atras;
         if i.fin {
             break;
         }
     }
-    for (k, &(lo, hi)) in codigo.iter().enumerate() {
+    for (k, (lo, hi)) in codigo.enumerate() {
         let Some(i) = decodificar(lo, hi) else {
             return no(Regla::R0NoSe, k, (lo & 0xFFF) as u32, "el juez no conoce este opcode: primero se le da su regla, despues se aprueba");
         };
@@ -538,11 +545,11 @@ pub fn juzgar(codigo: &[(u64, u64)], ctx: &Contexto) -> Result<Veredicto, Bodrio
     Ok(v)
 }
 
-/// Cuantas instrucciones caben en un programa que se juzga en bytes. El
-/// hueco mas grande de la tuberia (`cubo::PASO_VS`, 512 B con su SPH) lleva
-/// 24; 64 deja margen sin pesar en la pila del kernel, que juzga aqui mismo
-/// en su puerta (1 KiB de copia).
-pub const MAX_INSTRUCCIONES: usize = 64;
+/// Cuantas instrucciones caben en un programa que se juzga en bytes: las de
+/// un hueco de VERRANO (`tuberia::HUECO`, 2 KiB de codigo tras su SPH). 128
+/// desde E5 (28-09, dicho que si): lo que PROTON-X emite para BMOX-12, con
+/// su pegamento, no cabia en 64. El kernel lo juzga donde esta, sin copia.
+pub const MAX_INSTRUCCIONES: usize = 128;
 
 /// **JUZGAR UN PROGRAMA TAL COMO VIAJA** -- la cabecera SPH (128 B) y
 /// detras las instrucciones, en bytes: lo que guarda el BSF (`kind` SM86) y lo
@@ -567,12 +574,7 @@ pub fn juzgar_programa(bytes: &[u8], registros: u32) -> Result<Veredicto, Bodrio
     for (k, w) in sph.iter_mut().enumerate() {
         *w = u32le(4 * k);
     }
-    let mut codigo = [(0u64, 0u64); MAX_INSTRUCCIONES];
-    for (k, c) in codigo[..n].iter_mut().enumerate() {
-        let b = cabecera + 16 * k;
-        *c = (u64le(b), u64le(b + 8));
-    }
-    juzgar(&codigo[..n], &Contexto { registros, sph: Some(&sph) })
+    juzgar_con(n, |k| (u64le(cabecera + 16 * k), u64le(cabecera + 16 * k + 8)), &Contexto { registros, sph: Some(&sph) })
 }
 
 #[cfg(test)]
@@ -609,6 +611,44 @@ mod pruebas {
                 assert!(v.is_ok(), "{f} {abi:?}: {}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
             }
         }
+    }
+
+    /// E5: la puerta del kernel acepta 128 instrucciones (un HUECO de
+    /// VERRANO entero) y ni una mas; y el paquete con los dos huecos llenos
+    /// se sostiene y cabe en la caja del escritorio.
+    #[test]
+    fn la_puerta_de_128_y_su_hueco() {
+        extern crate std;
+        use std::vec::Vec;
+        let bytes = |n: usize| -> Vec<u8> {
+            let mut b: Vec<u8> = tu::vertice().iter().flat_map(|w| w.to_le_bytes()).collect();
+            b.resize(4 * SPH + 16 * n, 0);
+            b
+        };
+        assert!(juzgar_programa(&bytes(MAX_INSTRUCCIONES), raster::REGISTROS).is_ok());
+        let b = juzgar_programa(&bytes(MAX_INSTRUCCIONES + 1), raster::REGISTROS).unwrap_err();
+        assert_eq!((b.regla, b.que), (Regla::R5CabeceraMiente, MAX_INSTRUCCIONES as u32 + 1));
+        assert_eq!(MAX_INSTRUCCIONES, 128);
+        assert_eq!(tu::HUECO, 128 + 2048);
+        let ps: Vec<u8> = {
+            let mut b: Vec<u8> = tu::pixel().iter().flat_map(|w| w.to_le_bytes()).collect();
+            b.resize(tu::HUECO, 0);
+            b
+        };
+        let vs = bytes(MAX_INSTRUCCIONES);
+        let v = std::vec![tu::Vertice::default(); tu::MAX_VERTICES];
+        let mut caja = std::vec![0u8; tu::MAX_PAQUETE];
+        let n = tu::escribir_paquete(&mut caja, 1, &vs, &ps, &v).unwrap();
+        assert_eq!(n, tu::MAX_PAQUETE);
+        let p = tu::leer(&caja).unwrap();
+        assert_eq!((p.vs.len(), p.ps.len()), (tu::HUECO, tu::HUECO));
+        // Uno mas, no: ni se escribe, ni se lee (la cabecera lo dice).
+        let mut grande = vs.clone();
+        grande.extend_from_slice(&[0; 16]);
+        let mut caja2 = std::vec![0u8; tu::MAX_PAQUETE + 16];
+        assert_eq!(tu::escribir_paquete(&mut caja2, 1, &grande, &ps, &v), None);
+        caja2[12..16].copy_from_slice(&(tu::HUECO as u32 + 16).to_le_bytes());
+        assert_eq!(tu::medida(&caja2), None);
     }
 
     /// J1 (a): TODO lo que ya corrio en el metal es PERFECTO Y PRECISO. Si no,

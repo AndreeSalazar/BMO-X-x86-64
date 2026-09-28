@@ -93,7 +93,8 @@ fn lo_emitido_es_corto_sin_fundir_y_cabe() {
         let e = emitir(&programa(d), TECHO).unwrap();
         assert!(e.codigo.iter().all(|&(lo, _)| lo & 0x1FF != 0x023), "{nombre}: una FFMA");
         assert!(e.registros <= 32, "{nombre}: {} registros", e.registros);
-        // E4: cabe en la puerta del kernel (`juez::MAX_INSTRUCCIONES`, 64) y
+        // E4: el cuerpo cabe en 64 (la puerta del kernel es de 128 desde E5:
+        // lo demas es para el pegamento del driver) y
         // tarda menos que si cada una esperara 6 ciclos (el control de E3).
         assert!(e.codigo.len() <= 64, "{nombre}: {} instrucciones", e.codigo.len());
         assert!(e.ciclos < (6 * (e.codigo.len() - 1) + 1) as u32 / 2, "{nombre}: {} ciclos", e.ciclos);

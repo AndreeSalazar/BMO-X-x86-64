@@ -47,8 +47,9 @@ pub(super) const ETIQUETA: &[u8] = b"LA 3060";
 /// (`ga10x/tests/bsf_sm86.rs`, que lo juzga antes), viaja dentro de `d.bex`.
 const SOBRE: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/cubo.bsf"));
 
-/// Lo que mide la caja del paquete que se le pasa a [`abrir`].
-pub(super) const CAJA: u64 = 4096;
+/// Lo que mide la caja del paquete que se le pasa a [`abrir`]: el paquete
+/// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
+pub(super) const CAJA: u64 = (tu::MAX_PAQUETE as u64).div_ceil(4096) * 4096;
 
 /// Las opciones que son de ESTA tarjeta (las palabras que las piden).
 #[derive(Clone, Copy, Default)]

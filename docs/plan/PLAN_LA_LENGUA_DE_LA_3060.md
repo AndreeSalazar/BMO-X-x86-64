@@ -339,6 +339,19 @@ dibuja el cubo con ese sobre.
   diga por que se colgaba.
 - **Como se sabe:** `IGUAL: VERRANO en la 3060 = VERRANO en la CPU = D3D12`
   en el 0, el 30 y el 60.
+- **Hecho (28-09), lo que no es el metal:**
+  - El emisor recibe entradas y cbuffer YA en registros (`Abi::Registros`,
+    los cargara el pegamento con LDG) y dice cuales y donde (`precargas`).
+    Los 4 sombreadores dan los bits de la casa con todo lo demas en NaN y
+    el banco vacio; el juez juzga los dos ABI. Vertice 44 instrucciones.
+  - La puerta del kernel (Ring 0, dicho que si): `MAX_INSTRUCCIONES` 64 ->
+    128, y cada programa de VERRANO de 512 / 256 B a `HUECO` = SPH + 2 KiB
+    (cada uno tiene su pagina entera). El juez ya no copia el programa a la
+    pila del kernel: lo lee donde esta. La caja del escritorio mide el
+    paquete mas grande (`MAX_PAQUETE`).
+- **Falta:** el pegamento (LDG de entradas y filas, AST/IPA, la SPH con
+  sus registros y el segundo atributo), `cubo.bsf` desde el emisor, y el
+  metal.
 
 ---
 
