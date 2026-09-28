@@ -15,6 +15,8 @@
 //!    List    ClearRenderTargetView   se APUNTA; se hace en ExecuteCommandLists
 //!            ClearDepthStencilView   (P3c4) igual; el float llega en xmm3
 //!    Resource GetDesc                (P3c4) lo que la casa sabe de el
+//!    GetCopyableFootprints, CopyTextureRegion  (P3c4) leer un render target
+//!                                    desde la CPU: lo que hace --fotograma
 //!            ResourceBarrier         nada: en la CPU no hay estado que cambiar
 //!            Close, Reset
 //!    Queue   ExecuteCommandLists, Signal
@@ -56,6 +58,8 @@ enum Orden {
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
     Dibujar { estado: Estado, cuantos: u32, instancias: u32, primero: u32, base: i32, indexado: bool },
+    /// Un render target entero a un bufer (CopyTextureRegion).
+    Copiar { rt: u64, bufer: u64, desde: u64, paso: u32 },
 }
 
 pub struct Lista {
@@ -117,6 +121,7 @@ fn dispositivo() -> u64 {
         (25, dir!(get_resource_allocation_info)),
         (27, dir!(tuberia::create_committed_resource)),
         (36, dir!(create_fence)),
+        (38, dir!(get_copyable_footprints)),
     ]);
     nuevo(com::DEVICE, vt, Dispositivo) as u64
 }
@@ -187,6 +192,7 @@ extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tipo: u32, _as
         (10, dir!(list_reset)),
         (12, dir!(draw_instanced)),
         (13, dir!(draw_indexed_instanced)),
+        (16, dir!(copy_texture_region)),
         (20, dir!(ia_set_primitive_topology)),
         (21, dir!(rs_set_viewports)),
         (22, dir!(rs_set_scissor_rects)),
@@ -528,6 +534,109 @@ extern "win64" fn get_resource_allocation_info(_this: u64, ret: *mut u64, _masca
     ret
 }
 
+// -- Leer un render target desde la CPU (P3c4, el --fotograma de BMOX-12) ---
+
+/// Lo que mide una fila de una textura en un bufer: D3D12 la alinea a 256
+/// (D3D12_TEXTURE_DATA_PITCH_ALIGNMENT).
+const PASO_DE_FILA: u32 = 256;
+
+/// `GetCopyableFootprints(this, desc, primero, n, desde, huellas, filas,
+/// bytes_fila, total)`: como queda una textura en un bufer. La casa sabe de
+/// un subrecurso 2D de 4 bytes por pixel (RGBA8, BGRA8, D32): cada fila a
+/// 256, y el total SIN el relleno de la ultima fila, como D3D12. Lo demas se
+/// dice y se da como un bufer de una fila.
+extern "win64" fn get_copyable_footprints(_this: u64, desc: *const u8, primero: u32, n: u32, desde: u64, huellas: *mut u8, filas: *mut u32, bytes_fila: *mut u64, total: *mut u64) {
+    if desc.is_null() {
+        return;
+    }
+    // SAFETY: un D3D12_RESOURCE_DESC del `.exe` (56 B).
+    let (dimension, ancho, alto, formato) = unsafe {
+        let u = |o: usize| (desc.add(o) as *const u32).read_unaligned();
+        (u(0), (desc.add(16) as *const u64).read_unaligned(), u(24), u(32))
+    };
+    let textura = dimension == 3 && matches!(formato, DXGI_FORMAT_R8G8B8A8_UNORM | DXGI_FORMAT_B8G8R8A8_UNORM | tuberia::FMT_D32_FLOAT);
+    if dimension == 3 && !textura {
+        aviso("GetCopyableFootprints de una textura que no es de 4 bytes por pixel: todavia no");
+    }
+    if n > 1 || primero != 0 {
+        aviso("GetCopyableFootprints de mas de un subrecurso: todavia solo el 0");
+    }
+    let (fila, n_filas, paso) = if textura {
+        let fila = ancho * 4;
+        (fila, alto, fila.div_ceil(PASO_DE_FILA as u64) * PASO_DE_FILA as u64)
+    } else {
+        (ancho, 1, ancho)
+    };
+    // SAFETY: los punteros del `.exe` que no son nulos (uno por subrecurso).
+    unsafe {
+        if !huellas.is_null() {
+            core::ptr::write_bytes(huellas, 0, 32);
+            (huellas as *mut u64).write_unaligned(desde);
+            let u = |o: usize, v: u32| (huellas.add(o) as *mut u32).write_unaligned(v);
+            u(8, formato);
+            u(12, ancho as u32);
+            u(16, n_filas);
+            u(20, 1);
+            u(24, paso as u32);
+        }
+        if !filas.is_null() {
+            filas.write_unaligned(n_filas);
+        }
+        if !bytes_fila.is_null() {
+            bytes_fila.write_unaligned(fila);
+        }
+        if !total.is_null() {
+            total.write_unaligned(paso * (n_filas as u64 - 1) + fila);
+        }
+    }
+}
+
+/// `CopyTextureRegion(this, destino, x, y, z, origen, caja)`: lo de BMOX-12,
+/// un render target entero (SUBRESOURCE_INDEX 0) a un bufer
+/// (PLACED_FOOTPRINT). D3D12_TEXTURE_COPY_LOCATION: pResource +0, Type +8, y
+/// +16 la huella (Offset, Format, Width, Height, Depth, RowPitch) o el
+/// indice. Se APUNTA; se hace en ExecuteCommandLists, como la GPU.
+extern "win64" fn copy_texture_region(this: u64, destino: *const u8, x: u32, y: u32, z: u32, origen: *const u8, caja: *const u8) {
+    if destino.is_null() || origen.is_null() {
+        return;
+    }
+    // SAFETY: dos D3D12_TEXTURE_COPY_LOCATION del `.exe` (48 B).
+    let (bufer, tipo_d, desde, paso, rt, tipo_o, sub) = unsafe {
+        let u64_ = |p: *const u8, o: usize| (p.add(o) as *const u64).read_unaligned();
+        let u32_ = |p: *const u8, o: usize| (p.add(o) as *const u32).read_unaligned();
+        (u64_(destino, 0), u32_(destino, 8), u64_(destino, 16), u32_(destino, 40), u64_(origen, 0), u32_(origen, 8), u32_(origen, 16))
+    };
+    if tipo_d != 1 || tipo_o != 0 || sub != 0 || !caja.is_null() || (x, y, z) != (0, 0, 0) {
+        aviso("CopyTextureRegion: todavia solo un render target entero (subrecurso 0) a un bufer, sin caja ni desplazamiento");
+        return;
+    }
+    // SAFETY: `this` es una Lista de la casa.
+    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Copiar { rt, bufer, desde, paso });
+}
+
+/// Hacer la copia apuntada: cada fila del render target (sus bytes tal como
+/// estan en memoria) en el bufer, a `paso` bytes una de otra.
+fn copiar(rt: u64, bufer: u64, desde: u64, paso: u32) {
+    // SAFETY: dos Recurso de la casa (lo que un `.exe` da a CopyTextureRegion).
+    let (r, b) = unsafe { (de::<Recurso>(rt), de::<Recurso>(bufer)) };
+    let Some(destino) = b.bufer.as_ref() else {
+        aviso("CopyTextureRegion a algo que no es un bufer");
+        return;
+    };
+    let fila = r.ancho as u64 * 4;
+    if r.bufer.is_some() || (paso as u64) < fila || desde + paso as u64 * (r.alto as u64).saturating_sub(1) + fila > destino.bytes as u64 {
+        aviso("CopyTextureRegion: la huella no cabe en el bufer (o el origen no es una imagen)");
+        return;
+    }
+    for (y, px) in r.pixeles.chunks_exact(r.ancho as usize).enumerate() {
+        let o = destino.base() + desde + y as u64 * paso as u64;
+        for (k, p) in px.iter().enumerate() {
+            // SAFETY: dentro del bufer de la casa: se comprobo arriba.
+            unsafe { ((o + 4 * k as u64) as *mut u32).write_unaligned(*p) };
+        }
+    }
+}
+
 // -- La cola, el asignador y la valla ---------------------------------------
 
 /// `ExecuteCommandLists(this, n, listas)`: en el acto, en orden.
@@ -548,6 +657,7 @@ extern "win64" fn execute_command_lists(_this: u64, n: u32, listas: *const u64) 
                 Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
                     tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);
                 }
+                Orden::Copiar { rt, bufer, desde, paso } => copiar(*rt, *bufer, *desde, *paso),
             }
         }
     }

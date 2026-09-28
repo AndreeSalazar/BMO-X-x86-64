@@ -549,8 +549,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                   trama (D32, LESS, borrar a 1.0): el PSO del cubo la
                   enciende. Es la V2 de VERRANO en la CPU
          recurso  GetDesc
-         --fotograma (la huella, opcional): GetCopyableFootprints,
-                  CopyTextureRegion a un bufer READBACK
+         --fotograma (la huella): GetCopyableFootprints,
+                  CopyTextureRegion a un bufer READBACK  [HECHO 28-09]
 ```
       P3c4 **Como se sabe:** `prueba/cubo12.exe` (cubo.c por el camino de
       BMOX-12: Factory6, EnumAdapterByGpuPreference, GetDesc1, el
@@ -567,8 +567,13 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       darla). Saboteado: borrar la profundidad a 0 no pinta nada; un indice
       de back buffer malo sale con 0xE230. Lo que no, dicho: el adaptador
       dice SOFTWARE (dibuja la CPU); GetResourceAllocationInfo da lo que
-      reserva la casa, no un driver; el stencil se avisa y no se usa; y
-      --fotograma (GetCopyableFootprints, CopyTextureRegion) sigue sin estar.
+      reserva la casa, no un driver; el stencil se avisa y no se usa.
+      --fotograma [HECHO 28-09]: GetCopyableFootprints (filas a 256, el total
+      sin el relleno de la ultima, como D3D12) y CopyTextureRegion (un render
+      target entero a un bufer; lo demas se dice). cubo12.exe lee cada
+      fotograma por READBACK, saca la huella y la compara con la de la 3060:
+      en el banco las tres cuadran; un bit cambiado en la copia da las tres
+      malas (sale con 0x303).
       VISTO en el Windows del propietario (28-09, la 3060): el cubo gira
       con sus caras de colores, el HLSL compilado por su d3dcompiler. Falta:
       en el Ryzen.

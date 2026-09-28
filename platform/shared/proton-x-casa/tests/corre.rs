@@ -586,7 +586,9 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
 /// (GetCurrentBackBufferIndex), D3DCompile del HLSL de BMOX-12 (los .cso que
 /// `sombras.exe` compilo en Windows), y la PROFUNDIDAD (D32, DSV,
 /// ClearDepthStencilView con su float en xmm3, PSO con LESS). Lo que se ve en
-/// cada Present es lo que dibujo la 3060.
+/// cada Present es lo que dibujo la 3060. Y su --fotograma: GetCopyableFootprints,
+/// un bufer READBACK y CopyTextureRegion; el .exe saca la huella de lo copiado
+/// y la compara con la de la 3060 (sale con 3 solo si las tres cuadran).
 #[test]
 fn cubo12_exe_va_por_el_camino_de_bmox12_y_se_ve_lo_de_la_3060() {
     let uno = uno_a_la_vez();
@@ -605,7 +607,7 @@ fn cubo12_exe_va_por_el_camino_de_bmox12_y_se_ve_lo_de_la_3060() {
     let vistas = VISTAS.lock().unwrap().clone();
     let huellas: Vec<u64> = bmo_cubo::referencia::HUELLAS.iter().map(|&(_, h)| h).collect();
     assert_eq!(vistas, huellas, "lo que se vio en cada Present es lo que dibujo la 3060 (fotogramas 0, 30, 60)");
-    assert_eq!(salio, 3, "tres Present (0xE1xx/0xE2xx seria un paso que fallo)");
+    assert_eq!(salio, 3, "tres Present y las tres huellas LEIDAS cuadran (+0x100 por huella mala; 0xE1xx/0xE2xx, un paso que fallo)");
     let dibujos = bmo_proton_x_casa::tuberia::dibujos();
     assert_eq!(dibujos.len(), 3);
     for d in &dibujos {

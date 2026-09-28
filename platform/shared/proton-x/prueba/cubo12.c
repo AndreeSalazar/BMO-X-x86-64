@@ -15,6 +15,13 @@
  *                                        GetResourceAllocationInfo), su DSV,
  *                                        ClearDepthStencilView a 1.0 y un PSO
  *                                        con DepthEnable, LESS
+ *    la CAPTURA (su --fotograma)         GetCopyableFootprints, un bufer
+ *                                        READBACK, y en cada fotograma
+ *                                        CopyTextureRegion del back buffer;
+ *                                        el .exe saca la HUELLA (FNV-1a de
+ *                                        B, G, R, 0: bmo_cubo::referencia)
+ *                                        y la compara con la de la 3060 en
+ *                                        los fotogramas 0, 30 y 60
  *
  * Todo lo demas es cubo.c (los datos de X1 en cubo_datos.h, y sus
  * sombreadores DXIL no se usan). En Windows dibuja el cubo con el d3dcompiler
@@ -23,7 +30,8 @@
  *
  *    una letra   30 fotogramas mas     q o ESC   cierra
  *
- * Sale con el numero de Present que se hicieron; un fallo, con 0xE1xx/0xE2xx. */
+ * Sale con el numero de Present que se hicieron, mas 0x100 por cada huella
+ * que NO es la de la 3060 (3 es todo bien); un fallo, con 0xE1xx/0xE2xx. */
 typedef unsigned short WCHAR;
 typedef unsigned int UINT;
 typedef unsigned long DWORD;
@@ -189,6 +197,16 @@ _Static_assert(sizeof(RESOURCE_DESC) == 56 && DESDE(RESOURCE_DESC, Format) == 32
 _Static_assert(sizeof(HEAP_PROPERTIES) == 20 && sizeof(VIEWPORT) == 24, "HEAP_PROPERTIES, VIEWPORT");
 _Static_assert(sizeof(VERTEX_BUFFER_VIEW) == 16 && sizeof(INDEX_BUFFER_VIEW) == 16, "vistas");
 
+/* D3D12_TEXTURE_COPY_LOCATION (48 B): el recurso, el tipo, y la huella de un
+ * subrecurso en un bufer (D3D12_PLACED_SUBRESOURCE_FOOTPRINT) o su indice. */
+typedef struct { U64 Offset; UINT Format, Width, Height, Depth, RowPitch; } HUELLA_EN_BUFER;
+typedef struct {
+    void *pResource;
+    int Type;
+    union { HUELLA_EN_BUFER Huella; UINT Indice; } u;
+} COPY_LOCATION;
+_Static_assert(sizeof(HUELLA_EN_BUFER) == 32 && sizeof(COPY_LOCATION) == 48 && DESDE(COPY_LOCATION, u) == 16, "COPY_LOCATION");
+
 #define WM_DESTROY 0x0002
 #define WM_KEYDOWN 0x0100
 #define WM_CHAR 0x0102
@@ -210,6 +228,10 @@ _Static_assert(sizeof(VERTEX_BUFFER_VIEW) == 16 && sizeof(INDEX_BUFFER_VIEW) == 
 #define DIMENSION_TEXTURE2D 3
 #define D32_FLOAT 40
 #define HEAP_TYPE_DEFAULT 1
+#define HEAP_TYPE_READBACK 3
+#define STATE_COPY_DEST 0x400
+#define STATE_COPY_SOURCE 0x800
+#define COPY_PLACED_FOOTPRINT 1
 #define STATE_DEPTH_WRITE 0x10
 #define ALLOW_DEPTH_STENCIL 2
 #define COMPARISON_LESS 2
@@ -309,6 +331,8 @@ typedef UINT(__stdcall *F_indice)(void *);
 typedef void(__stdcall *F_dsv)(void *, void *, const void *, U64);
 typedef void(__stdcall *F_limpiar_z)(void *, U64, int, float, unsigned char, UINT, const void *);
 typedef RESOURCE_DESC *(__stdcall *F_getdesc)(void *, RESOURCE_DESC *);
+typedef void(__stdcall *F_huellas)(void *, const RESOURCE_DESC *, UINT, UINT, U64, HUELLA_EN_BUFER *, UINT *, U64 *, U64 *);
+typedef void(__stdcall *F_copiar_region)(void *, const COPY_LOCATION *, UINT, UINT, UINT, const COPY_LOCATION *, const void *);
 typedef U64 *(__stdcall *F_asignacion)(void *, U64 *, UINT, UINT, const RESOURCE_DESC *);
 
 /*   ID3D12Device        8 CreateCommandQueue   9 CreateCommandAllocator
@@ -337,7 +361,9 @@ typedef U64 *(__stdcall *F_asignacion)(void *, U64 *, UINT, UINT, const RESOURCE
  *                       36 GetCurrentBackBufferIndex
  *   y lo de P3c4        device 21 CreateDepthStencilView
  *                       25 GetResourceAllocationInfo; resource 10 GetDesc;
- *                       lista 47 ClearDepthStencilView                    */
+ *                       lista 47 ClearDepthStencilView
+ *   la captura          device 38 GetCopyableFootprints; lista 16
+ *                       CopyTextureRegion                                 */
 
 #define BUFFERS 2
 
@@ -346,6 +372,14 @@ static void *raiz, *pso, *vb, *ib, *cb;
 static unsigned int *constantes;
 static U64 rtv[BUFFERS], dsv;
 static void *profundidad;
+/* La captura: el bufer READBACK (mapeado), su huella, y las cuentas. */
+static void *leido;
+static unsigned char *mapa_leido;
+static COPY_LOCATION copia_destino, copia_origen;
+static UINT huellas_malas, huellas_vistas;
+
+/* bmo_cubo::referencia::HUELLAS: lo que D3D12 dibujo en la 3060. */
+static const U64 HUELLA_3060[3] = {0xab7afc663a345885ULL, 0x2b3985e93e1a6574ULL, 0x8dc7ef10f691548eULL};
 static HANDLE evento;
 static U64 valor;
 static UINT presentados, fotograma_actual;
@@ -484,6 +518,27 @@ static void tuberia(void) {
     vista_ib.Format = R16_UINT;
 }
 
+/* La huella de lo copiado (la valla ya paso): FNV-1a sobre los 4 bytes de
+ * 0x00RRGGBB de cada pixel (B, G, R, 0), como bmo_cubo::referencia::huella. */
+static void comparar_huella(void) {
+    U64 h = 0xcbf29ce484222325ULL;
+    UINT x, y, k = fotograma_actual / PASO;
+    for (y = 0; y < CUBO_ALTO; y++) {
+        const unsigned char *fila = mapa_leido + (U64)y * copia_destino.u.Huella.RowPitch;
+        for (x = 0; x < CUBO_ANCHO; x++) {
+            const unsigned char *p = fila + 4 * x; /* R8G8B8A8: R, G, B, A */
+            h = (h ^ p[2]) * 0x100000001b3ULL;
+            h = (h ^ p[1]) * 0x100000001b3ULL;
+            h = (h ^ p[0]) * 0x100000001b3ULL;
+            h = h * 0x100000001b3ULL; /* el cuarto byte, el ?? de 0x??RRGGBB: 0 */
+        }
+    }
+    if (fotograma_actual % PASO == 0 && k < 3) {
+        huellas_vistas++;
+        if (h != HUELLA_3060[k]) huellas_malas++;
+    }
+}
+
 /* Un fotograma: el cubo en su angulo, presentado, y esperar a la valla. */
 static void fotograma(void) {
     UINT i = ((F_indice)HUECO(cadena, 36))(cadena);
@@ -503,7 +558,11 @@ static void fotograma(void) {
     ((F_vb)HUECO(lista, 44))(lista, 0, 1, &vista_vb);
     ((F_ib)HUECO(lista, 43))(lista, &vista_ib);
     ((F_dibujar)HUECO(lista, 13))(lista, 36, 1, 0, 0, 0);
-    barrera(buffers[i], STATE_RENDER_TARGET, STATE_PRESENT);
+    /* Como el --fotograma de BMOX-12: el back buffer al bufer READBACK. */
+    barrera(buffers[i], STATE_RENDER_TARGET, STATE_COPY_SOURCE);
+    copia_origen.pResource = buffers[i];
+    ((F_copiar_region)HUECO(lista, 16))(lista, &copia_destino, 0, 0, 0, &copia_origen, 0);
+    barrera(buffers[i], STATE_COPY_SOURCE, STATE_PRESENT);
     ((F_0)HUECO(lista, 9))(lista);
     ((F_ejecutar)HUECO(cola, 10))(cola, 1, &lista);
     ((F_present)HUECO(cadena, 8))(cadena, 1, 0);
@@ -514,6 +573,7 @@ static void fotograma(void) {
         ((F_evento)HUECO(valla, 9))(valla, valor, evento);
         WaitForSingleObject(evento, INFINITE);
     }
+    comparar_huella();
 }
 
 static I64 __stdcall proc(HANDLE h, UINT m, U64 w, I64 l) {
@@ -530,7 +590,7 @@ static I64 __stdcall proc(HANDLE h, UINT m, U64 w, I64 l) {
         if (w == VK_ESCAPE) DestroyWindow(h);
         return 0;
     case WM_DESTROY:
-        PostQuitMessage((int)presentados);
+        PostQuitMessage((int)(presentados + 0x100 * (huellas_malas + 3 - (huellas_vistas < 3 ? huellas_vistas : 3))));
         return 0;
     }
     return DefWindowProcW(h, m, w, l);
@@ -614,6 +674,33 @@ void inicio(void) {
         if (((F_buffer)HUECO(cadena, 9))(cadena, i, &IID_Resource, &buffers[i]) < 0) ExitProcess(0xE106);
         rtv[i] = base + i * paso;
         ((F_rtv)HUECO(disp, 20))(disp, buffers[i], 0, rtv[i]);
+    }
+    /* La captura: la huella del back buffer en un bufer, y el bufer READBACK. */
+    {
+        HEAP_PROPERTIES hp_l = {HEAP_TYPE_READBACK, 0, 0, 1, 1};
+        RESOURCE_DESC rl;
+        RANGE nada = {0, 0};
+        U64 total = 0;
+        ((F_getdesc)HUECO(buffers[0], 10))(buffers[0], &visto);
+        ((F_huellas)HUECO(disp, 38))(disp, &visto, 0, 1, 0, &copia_destino.u.Huella, 0, 0, &total);
+        if (total < (U64)CUBO_ANCHO * CUBO_ALTO * 4 || copia_destino.u.Huella.RowPitch < CUBO_ANCHO * 4) ExitProcess(0xE118);
+        rl.Dimension = DIMENSION_BUFFER;
+        rl.Alignment = 0;
+        rl.Width = total;
+        rl.Height = 1;
+        rl.DepthOrArraySize = 1;
+        rl.MipLevels = 1;
+        rl.Format = 0;
+        rl.SampleCount = 1;
+        rl.SampleQuality = 0;
+        rl.Layout = LAYOUT_ROW_MAJOR;
+        rl.Flags = 0;
+        if (((F_crear_recurso)HUECO(disp, 27))(disp, &hp_l, 0, &rl, STATE_COPY_DEST, 0, &IID_Resource, &leido) < 0) ExitProcess(0xE119);
+        if (((F_map)HUECO(leido, 8))(leido, 0, &nada, (void **)&mapa_leido) < 0) ExitProcess(0xE11A);
+        copia_destino.pResource = leido;
+        copia_destino.Type = COPY_PLACED_FOOTPRINT;
+        copia_origen.Type = 0; /* SUBRESOURCE_INDEX 0 */
+        copia_origen.u.Indice = 0;
     }
     /* La profundidad: D32 de la medida de la cadena, su monton DSV y su vista. */
     rz.Dimension = DIMENSION_TEXTURE2D;

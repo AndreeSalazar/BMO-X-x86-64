@@ -383,7 +383,10 @@ cubo.c con lo que estudio_d3d12 (EPICX) pide y cubo.c no: IDXGIFactory6,
 EnumAdapterByGpuPreference, GetDesc1, D3D12CreateDevice CON el adaptador,
 CheckFeatureSupport del tearing, la cadena como IDXGISwapChain3
 (GetCurrentBackBufferIndex), D3DCompile del HLSL de BMOX-12 (SM5) y la
-profundidad (D32, DSV, ClearDepthStencilView, PSO con LESS). cubo12_hlsl.h
+profundidad (D32, DSV, ClearDepthStencilView, PSO con LESS), y su --fotograma:
+GetCopyableFootprints, un bufer READBACK y CopyTextureRegion en cada
+fotograma; el .exe saca la huella de lo copiado y la compara con las de la
+3060 (bmo_cubo::referencia::HUELLAS). cubo12_hlsl.h
 son los bytes de sombras/f3ef42a0.hls (= 4d67f5e4.hls): la huella que la casa
 busca en window/sombras. Usa cubo_datos.h, d3dcompiler.def y los .def de
 cubo.exe. `_fltused` va en el .c (pasa un float: sin CRT, se define a mano).
@@ -394,10 +397,12 @@ cubo.exe. `_fltused` va en el .c (pasa un float: sin CRT, se define a mano).
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   00ee325b1c696c7e7ea62373d20ccb1ce0b0fc26ed6761cfbde16ca35b214a24
+   a24ae6bbea4238036484b97181ec5448778390623cb2f52f438637c866c32431
 
 En Windows abre la ventana con el cubo (su d3dcompiler compila el HLSL); una
-letra gira 30 fotogramas, q cierra, y sale con el numero de Present. Un
+letra gira 30 fotogramas, q cierra, y sale con el numero de Present MAS 0x100
+por cada huella de los fotogramas 0, 30 y 60 que no sea la de la 3060 (o que
+no se viera): con dos letras y q, 3 es todo bien. Un
 0xE1xx/0xE2xx es el paso que fallo (ver el .c). En el banco del anfitrion da
 las huellas de la 3060 en los fotogramas 0, 30 y 60 (tests/corre.rs).
 
