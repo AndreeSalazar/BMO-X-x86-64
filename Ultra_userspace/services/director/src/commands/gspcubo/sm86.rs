@@ -30,7 +30,7 @@
 
 use bmo_bsf::{abi, kind, Bsf, Given, ModuleView, READS};
 use bmo_gpu_ga10x::sass::juez;
-use bmo_gpu_ga10x::{cubo as cu, raster, tuberia as tu};
+use bmo_gpu_ga10x::{cubo as cu, tuberia as tu};
 use bmo_userland as bmo;
 use bmo_verrano::{check, Backend, Error, Frame, Image, Rect, Stats, VERTEX_BYTES, VERTEX_COLOR, VERTEX_POSITION};
 
@@ -46,6 +46,14 @@ pub(super) const ETIQUETA: &[u8] = b"LA 3060";
 /// El sobre de los programas: fabricado en el anfitrion
 /// (`ga10x/tests/bsf_sm86.rs`, que lo juzga antes), viaja dentro de `d.bex`.
 const SOBRE: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/cubo.bsf"));
+
+/// **E5: los programas de BMOX-12 para la 3060** -- los `.cso` de FXC por
+/// PROTON-X (su `Programa`, el emisor con las entradas en registros y el
+/// pegamento del driver), fabricados y juzgados en el anfitrion
+/// (`ga10x/tests/bmox12_sm86.rs`, que exige que sean ESTOS bytes). Aqui se
+/// vuelven a juzgar al abrir, y el kernel en su puerta.
+const BMOX12_VS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/bmox12_vs.sm86"));
+const BMOX12_PS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../platform/drivers/gpu/ga10x/sombreadores/bmox12_ps.sm86"));
 
 /// Lo que mide la caja del paquete que se le pasa a [`abrir`]: el paquete
 /// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
@@ -73,13 +81,21 @@ pub(super) struct Opciones {
     /// `reposo` (E1): sin gobernador -- la tarjeta a los relojes que tenga,
     /// para medirla a proposito en reposo.
     pub reposo: bool,
+    /// `bmox12` (E5): la tarjeta TRANSFORMA e ILUMINA ella con los
+    /// programas de BMOX-12 traducidos por PROTON-X; se le dan el cbuffer y
+    /// los vertices sin transformar del fotograma, no los de recorte. De
+    /// uno en uno (no en el banco).
+    pub bmox12: bool,
+    /// El fotograma (el primer numero de las palabras; 30 si no hay).
+    pub fotograma: u32,
 }
 
 impl Opciones {
     pub(super) fn de(palabras: &[u8]) -> Self {
-        let mut o = Opciones::default();
+        let mut o = Opciones { fotograma: palabras.split(|&c| c == b' ').find_map(super::numero).unwrap_or(30).min(359), ..Opciones::default() };
         for w in palabras.split(|&c| c == b' ') {
             match w {
+                b"bmox12" => o.bmox12 = true,
                 b"sinldg" => o.sin_ldg = true,
                 b"ligero" => o.ligero = true,
                 b"anillo" => {
@@ -162,6 +178,8 @@ pub(super) struct Aparato<'a> {
     gobierno: Gobierno,
     /// E2: el cronometro de cada fase de `draw`.
     fases: Fases,
+    /// E5: el fotograma de BMOX-12 que se dibuja (`Opciones::bmox12`).
+    bmox12: Option<u32>,
     /// El modulo de vertice del BSF: su tabla de buffers juzga cada `Frame`.
     vertice: ModuleView<'static>,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
@@ -252,13 +270,15 @@ fn contrato(m: &ModuleView) -> Result<(), &'static [u8]> {
 /// **Abrir la 3060 para VERRANO**: el sobre, el juez y la tarjeta. `Err` ya
 /// lo dijo en el panel.
 pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8], op: Opciones) -> Result<(Aparato<'a>, Abierto), After> {
-    let Some((vs, ps, modulo)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
+    let Some((vs_bsf, ps_bsf, modulo)) = Bsf::parse(SOBRE).ok().and_then(|b| programas(&b)) else {
         return Err(linea(dsk, b"  NO  el BSF no trae codigo SM86 (ABI SM86_V1) que se sostenga: no se dibuja nada", INK_ERR));
     };
     // El contrato, ANTES que nada: lo que el programa lee es lo que se le da.
     if let Err(que) = contrato(&modulo) {
         return Err(linea(dsk, que, INK_ERR));
     }
+    // E5: los de BMOX-12 en vez de los de V0.
+    let (vs, ps) = if op.bmox12 { (BMOX12_VS, BMOX12_PS) } else { (vs_bsf, ps_bsf) };
     // El juez, ANTES de que la 3060 vea nada.
     let r = tu::REGISTROS;
     let juicio = juez::juzgar_programa(vs, r).map_err(|b| ("vertice", b)).and_then(|a| juez::juzgar_programa(ps, r).map(|b| a.instrucciones + b.instrucciones).map_err(|b| ("pixel", b)));
@@ -279,7 +299,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), vertice: modulo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -300,7 +320,18 @@ impl Backend for Aparato<'_> {
         let limpiar = if self.coopera { self.recorte(frame) } else { None };
         let t1 = bmo::ciclos();
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
-        tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
+        if let Some(f) = self.bmox12 {
+            // E5: el cbuffer y los vertices SIN transformar de la misma
+            // tanda (los mismos triangulos que trae `frame`).
+            let mut datos = [0u8; tu::DATOS_MAX];
+            let (n, bytes) = bmo_cubo::tanda::datos(f, cu::ANCHO, cu::ALTO, &mut datos).ok_or(Error::Vertices)?;
+            if n != frame.vertices.len() {
+                return Err(Error::Vertices);
+            }
+            tu::escribir_paquete_datos(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes]).ok_or(Error::Vertices)?;
+        } else {
+            tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
+        }
         let t2 = bmo::ciclos();
         let modo = if self.coopera {
             bmo::CUBO_ANILLO | bmo::CUBO_COOPERA

@@ -53,6 +53,9 @@ pub struct Tri {
 pub struct Tanda {
     pub tris: [Tri; CABEN],
     pub n: usize,
+    /// De que triangulo de [`indices`] sale cada uno (`k`: los indices
+    /// `3k..3k+3`). Lo usa [`datos`]: la 3060 transforma ella (E5).
+    pub caras: [usize; CABEN],
 }
 
 impl Tanda {
@@ -91,7 +94,7 @@ pub fn de_fotograma(f: u32, ancho: u32, alto: u32) -> Option<Tanda> {
         sy[i] = redondear_par((-ny * medio_h + medio_h) * SUBPIXEL);
     }
     let vacio = Tri { clip: [[0.0; 4]; 3], color: [0.0; 4] };
-    let mut t = Tanda { tris: [vacio; CABEN], n: 0 };
+    let mut t = Tanda { tris: [vacio; CABEN], n: 0, caras: [0; CABEN] };
     for k in 0..NUM_INDICES / 3 {
         let i = [is[k * 3] as usize, is[k * 3 + 1] as usize, is[k * 3 + 2] as usize];
         if i.iter().any(|&j| detras[j]) {
@@ -104,10 +107,47 @@ pub fn de_fotograma(f: u32, ancho: u32, alto: u32) -> Option<Tanda> {
             return None;
         }
         let normal = transformar_dir(&c.world, vs[i[0]].normal);
+        t.caras[t.n] = k;
         t.tris[t.n] = Tri { clip: [clip[i[0]], clip[i[1]], clip[i[2]]], color: iluminar(vs[i[0]].color, normal, c.luz) };
         t.n += 1;
     }
     Some(t)
+}
+
+/// Los float que ocupa el cbuffer de BMOX-12 (`wvp`, `world`, `luz`): 9
+/// filas de 16 B.
+pub const FILAS_CB: usize = 9;
+/// Los float4 de un vertice para los programas de BMOX-12: la posicion
+/// (con w = 1), la normal (w = 0) y el color.
+pub const ENTRADAS: usize = 3;
+
+/// **Los DATOS del fotograma `f` para la 3060 que TRANSFORMA ella** (VERRANO
+/// E5): el cbuffer de BMOX-12 tal cual (`wvp`, `world`, `luz`) y detras los
+/// vertices SIN transformar de los triangulos de la tanda (los que miran a
+/// la camara, con la cuenta del juez), tres por triangulo, como los lee su
+/// programa de vertice. Devuelve `(vertices, bytes)`; `None` si no caben.
+pub fn datos(f: u32, ancho: u32, alto: u32, out: &mut [u8]) -> Option<(usize, usize)> {
+    let t = de_fotograma(f, ancho, alto)?;
+    let c = constantes(crate::angulo_de_fotograma(f), ancho as f32 / alto as f32);
+    let (vs, is) = (vertices(), indices());
+    let n = 3 * t.n;
+    let bytes = 16 * FILAS_CB + 16 * ENTRADAS * n;
+    if out.len() < bytes {
+        return None;
+    }
+    let mut i = 0;
+    let mut poner = |x: f32| {
+        out[i..i + 4].copy_from_slice(&x.to_le_bytes());
+        i += 4;
+    };
+    c.wvp.iter().chain(&c.world).chain(&c.luz).for_each(|&x| poner(x));
+    for &k in &t.caras[..t.n] {
+        for j in 0..3 {
+            let v = vs[is[3 * k + j] as usize];
+            [v.pos[0], v.pos[1], v.pos[2], 1.0, v.normal[0], v.normal[1], v.normal[2], 0.0].iter().chain(&v.color).for_each(|&x| poner(x));
+        }
+    }
+    Some((n, bytes))
 }
 
 #[cfg(test)]

@@ -7,3 +7,7 @@
 # huella (d7e2992c en vez de f3ef42a0) y el test y el volumen no los
 # encuentran: se sacan tal cual, byte a byte (2026-09-28).
 platform/shared/proton-x/prueba/sombras/* -text
+
+# Los programas de la 3060 (SPH y codigo tal como los sube el kernel, E5):
+# bytes, nunca texto (2026-09-28).
+*.sm86 -text

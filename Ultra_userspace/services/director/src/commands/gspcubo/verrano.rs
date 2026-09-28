@@ -40,10 +40,14 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // recortarlo, `sinldg` no se reconocia nunca y el 26-09 06:33 corrio el
     // programa normal con ese nombre. Se recorta aqui, una vez, para todos.
     let resto = resto.trim_ascii();
-    let f = numero(resto).unwrap_or(30).min(359);
     let banco_pedido = resto.strip_prefix(b"banco");
-    // Lo que no es de VERRANO (`ligero`, `sinldg`...) lo entiende el aparato.
+    // Lo que no es de VERRANO (`ligero`, `sinldg`, `bmox12`...) lo entiende
+    // el aparato; el fotograma, el primer numero (`gpu verrano bmox12 60`).
     let op = destino::Opciones::de(resto);
+    let f = if banco_pedido.is_some() { numero(resto).unwrap_or(30).min(359) } else { op.fotograma };
+    if banco_pedido.is_some() && op.bmox12 {
+        return linea(dsk, b"  NO  bmox12 va de un fotograma en un fotograma (gpu verrano bmox12 [N]), no en el banco", INK_ERR);
+    }
     paint_status(p, &dsk.run_box, "VERRANO: el cubo por la API de BMO-X, en el aparato y en la CPU", INK_DIM);
     let (w, h) = (rf::ANCHO, rf::ALTO);
     if p.ancho < w || p.alto < h {

@@ -349,9 +349,20 @@ dibuja el cubo con ese sobre.
     (cada uno tiene su pagina entera). El juez ya no copia el programa a la
     pila del kernel: lo lee donde esta. La caja del escritorio mide el
     paquete mas grande (`MAX_PAQUETE`).
-- **Falta:** el pegamento (LDG de entradas y filas, AST/IPA, la SPH con
-  sus registros y el segundo atributo), `cubo.bsf` desde el emisor, y el
-  metal.
+  - El paquete lleva DATOS (el cbuffer y los vertices sin transformar,
+    palabra 28 de la cabecera) y VERRANO da 64 registros a sus programas.
+  - El pegamento (`ga10x/src/trabajos/pegamento.rs`): ALD, la tabla, LDG de
+    cada entrada y cada fila, el cuerpo, AST de la posicion y de los dos
+    genericos; el de pixel, IPA y LDG de la luz. Juez: PERFECTO.
+  - Los programas de BMOX-12 (los `.cso` de FXC) viajan en
+    `ga10x/sombreadores/bmox12_{vs,ps}.sm86` (vertice 97 instrucciones,
+    pixel 39), fabricados y juzgados por `tests/bmox12_sm86.rs`, que prueba
+    con la casa que dan en 0, 30, 60 y 123 la MISMA posicion de recorte
+    (bit a bit) que la tanda de V0 y el mismo color en 8 bits.
+  - `gpu verrano bmox12 [N]`: la 3060 transforma e ilumina ella; la CPU
+    dibuja lo mismo por V0 y se comparan pixel a pixel y con D3D12.
+- **Falta:** el metal (`gpu verrano bmox12 0`, `30`, `60`, con la 3060 en
+  frio) y lo que diga; despues, `cubo.bsf` sin SASS a mano.
 
 ---
 

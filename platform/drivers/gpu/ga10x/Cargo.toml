@@ -26,3 +26,5 @@ bmo-proton-x-sm86 = { path = "../../../shared/proton-x-sm86" }
 bmo-bsf = { path = "../../../../toolchain/lang/spirv/bsf" }
 # Y la API: el BSF tiene que leer los `Vertex` que VERRANO (e INTI) escriben.
 bmo-verrano = { path = "../../../shared/verrano" }
+# E5: los DATOS del fotograma de BMOX-12 (el cbuffer y los vertices).
+bmo-cubo = { path = "../../../shared/bmo-cubo" }
