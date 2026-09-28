@@ -494,7 +494,21 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                banco: 39 lotes, UNA traduccion, y en cada lote su de vertice
                con los registros que el pegamento cargaria de los DATOS da los
                bits de la casa en los 24 vertices (936). DATOS de 1104 B.
-           4b  [ ] EL KERNEL (Ring 0, dicho que si el 28-09): (1) dibujar en
+           4b  [x] EL KERNEL -- HECHO Y VISTO EN EL METAL el 28-09 15:53, las
+               cuatro piezas: `gpu verrano` (tramo "16 paginas y 16 de DATOS:
+               36 de 36"), `gpu verrano bmox12 0/30/60` (12 triangulos en UN
+               dibujo, con indices y descarte por la 3060, IGUAL a D3D12:
+               0xab7afc663a345885, 0x2b3985e93e1a6574, 0x8dc7ef10f691548e),
+               `gpu verrano banco anillo` (1581 fps de pared, la 3060 48 us,
+               preparar 27 us, IGUAL) y `gpu verrano bmox12 30 enram` (la 3060
+               pinto en la RAM de la app; leido en 0 ms, IGUAL). Antes, el
+               mismo dia, el primer build cayo: el `draw` de V0 del director
+               pedia 384 KiB de pila de Ring 3 y la autopsia del kernel volvio
+               a fallar leyendola. Arreglado cambiando piezas (autopsia por la
+               fisica, fallo anidado dicho, marco de la sonda en la pantalla,
+               `pila.py` que ahora SI cuenta la sonda y mide Ring 3). El
+               detalle de cada pieza:
+               EL KERNEL (Ring 0, dicho que si el 28-09): (1) dibujar en
                la ventana de la app -- su memoria prestada a la 3060 por la
                IOMMU, como `lienzo` --, no en un recuadro fijo [HECHO en el
                banco 28-09: `destino` (VA 0x7_0000_0000, 4 PT, PTE de sistema
