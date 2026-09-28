@@ -533,6 +533,30 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
         if i.bar_lectura < 6 {
             encendidas |= 1 << i.bar_lectura;
         }
+        // ** R2 en el EXIT de un programa de PIXEL (28-09, metal): el EXIT
+        // LEE el color de cada destino que la SPH declara (`OmapTarget`, 4
+        // bits por destino desde el 576: R4t..R4t+3). `gpu verrano bmox12`
+        // lo escribia 2 ciclos antes de un EXIT que salia a los 5 de una FMUL:
+        // pixeles con el color a medio escribir, al azar por bloques. El juez
+        // no lo miraba.
+        if i.fin {
+            if let Some(h) = ctx.sph.filter(|h| h[0] & 0x1F == 2) {
+                for x in 0..32usize {
+                    let bit = 576 + x;
+                    if h[bit / 32] & 1 << (bit % 32) == 0 {
+                        continue;
+                    }
+                    let e = regs[x];
+                    v.lecturas += 1;
+                    if e.pendiente {
+                        return no(Regla::R1DatoAntesDeLlegar, k, x as u32, "EXIT de pixel: el color lo carga una desacoplada sin esperar su barrera");
+                    }
+                    if e.acoplado && ciclo.saturating_sub(e.ciclo) < latencia(e.clase, i.clase) {
+                        return no(Regla::R2EsperaCorta, k, x as u32, "EXIT de pixel: lee el color (R0..R3) antes de la latencia de quien lo escribio");
+                    }
+                }
+            }
+        }
         // R6: el final, con un AST aun leyendo.
         if i.fin {
             if let Some(x) = (0..256).find(|&x| regs[x].leido && regs[x].leido_ast) {

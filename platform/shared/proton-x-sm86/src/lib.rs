@@ -171,7 +171,7 @@ impl Emisor<'_> {
     /// Una instruccion (sin control: lo pone el planificador) y su meta.
     fn poner(&mut self, w: (u64, u64), clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) {
         self.codigo.push(w);
-        self.metas.push(Meta { clase, escribe, lee });
+        self.metas.push(Meta { clase, escribe, lee, lee_salidas: 0 });
     }
 
     fn pedir(&mut self) -> Result<u8, NoEmite> {
@@ -473,7 +473,12 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             }
         }
     }
+    // El EXIT LEE las salidas (R0..): lo que las escribe tiene que haber
+    // llegado (metal 28-09: el color de pixel salia a medio escribir).
     e.poner(c::exit(0), Clase::Nada, None, [None; 3]);
+    if let Some(m) = e.metas.last_mut() {
+        m.lee_salidas = reservados as u8;
+    }
     // El control, por regla.
     let (controles, ciclos) = planifica::planificar(&e.metas);
     let codigo = e.codigo.iter().zip(&controles).map(|(&(lo, hi), &k)| (lo, (hi & ((1 << 41) - 1)) | k << 41)).collect();

@@ -39,6 +39,9 @@ pub struct Meta {
     pub clase: Clase,
     pub escribe: Option<u8>,
     pub lee: [Option<u8>; 3],
+    /// Y ademas R0..R(n-1): el EXIT, que entrega las salidas (en un
+    /// programa de pixel, el color lo lee la 3060 AL SALIR; metal 28-09).
+    pub lee_salidas: u8,
 }
 
 /// El bit 4, que `ptxas` pone en todas (ver `bmo_sm86::codifica::ALU`).
@@ -59,7 +62,8 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
     for (j, m) in metas.iter().enumerate() {
         let mut listo = if j == 0 { 0 } else { t + 1 };
         let mut mascara = 0u64;
-        for &r in m.lee.iter().flatten().chain(m.escribe.iter()) {
+        let leidos = m.lee.iter().flatten().copied().chain(0..m.lee_salidas);
+        for r in leidos.clone().chain(m.escribe) {
             if let Some(b) = pendiente[r as usize].take() {
                 mascara |= 1 << b;
             }
@@ -75,7 +79,7 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
                 }
             }
         }
-        for &r in m.lee.iter().flatten() {
+        for r in leidos {
             if let Some((c, clase)) = escrito[r as usize] {
                 listo = listo.max(c + latencia(clase, m.clase));
             }
