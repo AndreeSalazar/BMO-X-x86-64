@@ -366,7 +366,7 @@ dibuja el cubo con ese sobre.
   Windows` en los tres (huellas 0xab7afc663a345885, 0x2b3985e93e1a6574,
   0x8dc7ef10f691548e), con los programas de BMOX-12 traducidos por PROTON-X
   (1696 + 768 B). La 3060 transforma e ilumina; la CPU solo juzga.
-- **Lo que el metal enseno (y el juez ya sabe):** dos carreras que el juez
+- **Lo que el metal mostro (y el juez ya sabe):** dos carreras que el juez
   no miraba. (1) El EXIT de un programa de pixel LEE el color (R0..R3): lo
   que lo escribe tiene que haber llegado. (2) Una barrera de escritura
   tarda UN ciclo en encenderse: quien la enciende espera 2 si el siguiente
