@@ -1039,6 +1039,20 @@ muestra su ayuda; hay que darle el `.exe` o la carpeta:
 
 El propietario borro Cyberpunk de C: y lo esta pasando a D:; la medida del
 25-09 (Ludoteca, seccion 9) sigue valiendo hasta repetirla alli.
+**REPETIDA el 28-09 en D:** (`D:\Cyberpunk 2077\bin\x64\Cyberpunk2077.exe`):
+DENTRO (PE32+ x86-64, codigo maquina), 663 funciones de 36 bibliotecas --
+la misma cifra --. De Windows: KERNEL32 209, USER32 66, WS2_32 33, ole32 12,
+HID 11, SETUPAPI 6, ADVAPI32 4, WINMM 4, OLEAUT32/SHELL32/VERSION 3, ntdll
+2, GDI32/SHLWAPI/POWRPROF/dbghelp/XINPUT9_1_0 1. Del JUEGO (van en su
+carpeta, las carga P5a, y cada una pide lo suyo de Windows: medirlas con
+rayosx una a una): icuuc 89, PhysX3 42, icuin 33, bink2w64 21,
+sl.interposer 19 (Streamline de NVIDIA), PxFoundation 16, libcurl 15,
+libxess_fg 11, REDGalaxy64 10 (la tienda: GOG sin DRM), libxess 9,
+PhysX3Common 8, amd_ags 6, oo2ext 6, libxell 6, ffx_fsr3 y
+ffx_backend_dx12 4, redlexer_native 1. Graficos: DXGI, D3D12 (y
+D3D12SerializeVersionedRootSignature, D3D12GetDebugInterface) y
+D3D11CreateDeviceAndSwapChain. Y abre mas en marcha (LoadLibrary*,
+GetProcAddress): la tabla no es todo lo que pide.
 
 **Donde instalar Cyberpunk (27-09, el propietario: "PERSONAL D ese podria
 entrar en mi Cyberpunk 2077").** `Personal (D:)` tiene 111 GB libres y el
