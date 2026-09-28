@@ -527,9 +527,29 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
    P4c   AddVectoredExceptionHandler, RtlCaptureContext,
          RtlLookupFunctionEntry, RtlVirtualUnwind, y lo de C++ del CRT
 ```
-      Lo que la tabla NO ve son los metodos COM (por vtabla): su
-      diccionario (DICCIONARIO de la rama estudio-d3d) los lista, y hay que cruzarlos con los huecos de
-      `com.rs` de la casa. P3c1 **Como se sabe:** `prueba/peek.exe` dice
+      Lo que la tabla NO ve son los metodos COM (por vtabla). CRUZADOS el
+      28-09: las llamadas de `estudio-d3d/d3d12/src/cubo_d3d12.rs` (EPICX,
+      solo lectura) contra las vtablas que la casa arma en `com.rs`. De 40
+      metodos, 29 estan; lo que falta es **P3c4**:
+
+```text
+   P3c4  DXGI     IDXGIFactory6 (el cubo la pide a CreateDXGIFactory2):
+                  la vtabla de Factory2 + GetCreationFlags (3),
+                  EnumAdapterByLuid, EnumWarpAdapter (4), CheckFeatureSupport
+                  (5: PRESENT_ALLOW_TEARING) y EnumAdapterByGpuPreference (6);
+                  un IDXGIAdapter1 con GetDesc1, que D3D12CreateDevice acepte;
+                  IDXGISwapChain3 (el .cast() del cubo) con
+                  GetCurrentBackBufferIndex
+         device   CreateDepthStencilView, GetResourceAllocationInfo (solo
+                  informa: sus cifras de la 3060 estan en el DICCIONARIO)
+         lista    ClearDepthStencilView; y la PROFUNDIDAD de verdad en la
+                  trama (D32, LESS, borrar a 1.0): el PSO del cubo la
+                  enciende. Es la V2 de VERRANO en la CPU
+         recurso  GetDesc
+         --fotograma (la huella, opcional): GetCopyableFootprints,
+                  CopyTextureRegion a un bufer READBACK
+```
+       P3c1 **Como se sabe:** `prueba/peek.exe` dice
       `bien` doce veces (poner `ceil` a redondear hacia abajo da MAL,
       comprobado). P3c2 **Como se sabe:** `bmo_proton_x::sombras` (la
       huella FNV-1a de 32 bits de fuente, entrada, perfil, banderas y macros,
