@@ -53,6 +53,7 @@ const PEEK: &[u8] = include_bytes!("../../proton-x/prueba/peek.exe");
 const COMPILA: &[u8] = include_bytes!("../../proton-x/prueba/compila.exe");
 const USADLL: &[u8] = include_bytes!("../../proton-x/prueba/usadll.exe");
 const SALUDO_DLL: &[u8] = include_bytes!("../../proton-x/prueba/saludo.dll");
+const SEH: &[u8] = include_bytes!("../../proton-x/prueba/seh.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -820,4 +821,21 @@ fn usadll_exe_carga_una_dll_propia() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
     assert!(texto.ends_with("usadll.exe: la DLL propia es como en Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P4c en el anfitrion**: `seh.exe`, las excepciones estructuradas de C con
+/// el despachador de la casa: __except con filtro y constante, __finally al
+/// desenrollar, CONTINUE_SEARCH y CONTINUE_EXECUTION, tres marcos arriba con
+/// sus registros, RtlVirtualUnwind, una en un hilo, y la ultima sin manejar
+/// llega a SetUnhandledExceptionFilter, que sale con ExitProcess(fallos).
+#[test]
+fn seh_exe_lanza_coge_y_desenrolla_como_windows() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, SEH, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 9, "{texto}");
+    assert!(texto.contains("una excepcion en un hilo, cogida en ese hilo 0x0000000000000007"), "{texto}");
+    assert!(texto.ends_with("seh.exe: las excepciones son las de Windows\r\n[salio 0x0]"), "{texto}");
 }

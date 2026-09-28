@@ -180,7 +180,7 @@ try {
     # Y `compila.exe` (P3c2, 28-09): D3DCompile pagando una vez, sobre window\sombras.
     # Y `usadll.exe` con su `saludo.dll` (P5a, 28-09): una DLL propia, como las de un juego.
     # Y `cubo12.exe` (P3c4, 28-09): el cubo por el camino de BMOX-12 (Factory6, SwapChain3, profundidad, SM5).
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe')) {
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(

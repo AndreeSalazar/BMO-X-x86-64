@@ -400,3 +400,29 @@ En Windows abre la ventana con el cubo (su d3dcompiler compila el HLSL); una
 letra gira 30 fotogramas, q cierra, y sale con el numero de Present. Un
 0xE1xx/0xE2xx es el paso que fallo (ver el .c). En el banco del anfitrion da
 las huellas de la 3060 en los fotogramas 0, 30 y 60 (tests/corre.rs).
+
+seh.exe -- el de P4c (28-09): las excepciones estructuradas de Windows x64
+
+seh.c con __try/__except/__finally de clang, sin CRT: el manejador de __try
+(__C_specific_handler) lo da ntdll.dll (ntdll.def), y kernel32.def ya traia
+RaiseException, RtlCaptureContext, RtlLookupFunctionEntry, RtlVirtualUnwind y
+SetUnhandledExceptionFilter. `-fasynchronous-unwind-tables` para que cada
+funcion lleve su .pdata/.xdata aunque sea de C.
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d ntdll.def -l ntdll.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -fasynchronous-unwind-tables -c seh.c -o seh.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro seh.obj kernel32.lib ntdll.lib /out:seh.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces), hecho en el
+Windows del propietario con clang 23.1.2:
+
+   5b3a965da8646829125dbb7ae63d33171f83d7903c7c736013ecb5470a070084
+
+[!] La MISMA receta con el clang 18 de la nube da otro .exe (el encargo de
+P4c lo cita: ca52b826146b6b3d2e76d80df9db968ea43ae68852ba8dbef32b799af20dfc2a,
+no comprobado aqui): el codigo de las excepciones cambio entre versiones de
+clang. hola.exe sale identico con las dos; ficheros.exe e hilos.exe, no.
+
+En Windows dice `bien` nueve veces y sale con 0 -- la ultima, desde el filtro
+de SetUnhandledExceptionFilter, que es el que llama a ExitProcess.

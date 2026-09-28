@@ -446,3 +446,47 @@ fn los_vectorizados_en_su_orden_y_se_quitan_por_su_asa() {
     assert!(!v.quitar(a), "dos veces no");
     assert_eq!(v.en_orden(), [0xB, 0xC]);
 }
+
+// -- seh.exe, el de verdad ------------------------------------------------------------
+
+/// **El `.pdata` y el `.xdata` que clang escribio para `seh.c`**: cada
+/// funcion se encuentra y se desenrolla, y las tablas de ambitos de las que
+/// llevan `__C_specific_handler` son las de sus `__try` -- siete `__except` y
+/// un `__finally` --, todas con el MISMO manejador (el salto a la importacion).
+#[test]
+fn el_pdata_de_seh_exe_se_desenrolla_entero_y_sus_ambitos_son_los_de_su_c() {
+    let d = include_bytes!("../prueba/seh.exe");
+    let pe = crate::leer(d).unwrap();
+    let img = crate::colocar(&pe, d, BASE).unwrap();
+    let p = vec![0u8; 0x10000];
+    let m = Dos(Trozo { base: BASE, bytes: &img }, Trozo { base: PILA, bytes: &p });
+    let im = seh::imagen_en(&m, BASE).unwrap();
+    assert!(im.pdata_tam >= 12 * 8, "una RUNTIME_FUNCTION por funcion con marco: {}", im.pdata_tam);
+    let (mut manejadores, mut excepts, mut finallys) = (Vec::new(), 0, 0);
+    for i in 0..im.pdata_tam / 12 {
+        let e = BASE + im.pdata as u64 + 12 * i as u64;
+        let (inicio, fin) = (m.u32_en(e).unwrap(), m.u32_en(e + 4).unwrap());
+        let f = seh::funcion_de(&m, &im, BASE + inicio as u64).unwrap();
+        assert_eq!((f.inicio, f.fin, f.dir), (inicio, fin, e));
+        assert_eq!(seh::funcion_de(&m, &im, BASE + fin as u64 - 1), Some(f));
+        // Desde lo ultimo de su cuerpo, con rsp y rbp en la pila de mentira.
+        let mut c = ctx(BASE + fin as u64 - 1, PILA + 0x8000);
+        c.gp[RBP] = PILA + 0x8000;
+        let marco = desenrollar::un_marco(&m, BASE, &f, &mut c, UNW_FLAG_EHANDLER).unwrap();
+        assert!(c.gp[RSP] > PILA + 0x8000 - 0x100, "sube: {:#x}", c.gp[RSP]);
+        if let Some(h) = marco.manejador {
+            manejadores.push(h);
+            for a in seh::ambitos(&m, marco.datos).unwrap() {
+                assert!(inicio <= a.inicio && a.fin <= fin, "el __try cae en su funcion");
+                if a.destino == 0 {
+                    finallys += 1;
+                } else {
+                    excepts += 1;
+                    assert!(a.destino >= inicio && a.destino < fin, "el bloque del __except, tambien");
+                }
+            }
+        }
+    }
+    assert_eq!((excepts, finallys), (7, 1));
+    assert!(manejadores.len() >= 3 && manejadores.iter().all(|&h| h == manejadores[0]));
+}
