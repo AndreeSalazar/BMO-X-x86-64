@@ -524,8 +524,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          360 fotogramas. Saboteado: sin la negacion, sin el _sat o sin el
          swizzle, cae. Lo que no es D3D11, dicho: los subnormales no se
          llevan a cero (tampoco en el DXIL de la casa)
-   P4c   AddVectoredExceptionHandler, RtlCaptureContext,
-         RtlLookupFunctionEntry, RtlVirtualUnwind, y lo de C++ del CRT
+   P4c   [HECHO en el banco 28-09; falta el metal] AddVectoredException-
+         Handler, RtlCaptureContext, RtlLookupFunctionEntry, RtlVirtualUnwind
+         (y RaiseException, __C_specific_handler, RtlUnwindEx). Lo de C++ del
+         CRT (__CxxFrameHandler3/4, _CxxThrowException) NO: sigue pendiente
 ```
       Lo que la tabla NO ve son los metodos COM (por vtabla). CRUZADOS el
       28-09: las llamadas de `estudio-d3d/d3d12/src/cubo_d3d12.rs` (EPICX,
@@ -640,10 +642,43 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            las huellas de la 3060, y el banco lo prueba EN la costura); con
            P3b4, el de VERRANO con la 3060, y `en_cpu` de juez. La casa no
            cambia para eso.
-      P4c [BASE el 27-09] LAS EXCEPCIONES (SEH): `bmo_proton_x::desenrollar`
-           (.pdata/.xdata, un marco como RtlVirtualUnwind) y `prueba/seh.c`.
-           Falta el despachador de la casa (RaiseException,
-           __C_specific_handler, RtlUnwindEx): pendiente.
+      P4c [HECHO en el banco 28-09, rama p4c-seh; falta el metal] LAS
+           EXCEPCIONES (SEH). Lo que se DECIDE es puro y tiene su banco:
+           `bmo_proton_x::desenrollar` (un marco, como RtlVirtualUnwind) y
+           `bmo_proton_x::seh` (las cabeceras de una imagen ya colocada y su
+           .pdata; subir un marco con su RUNTIME_FUNCTION o por la regla de
+           la hoja; la SCOPE_TABLE de __C_specific_handler y sus dos
+           pasadas -- que __except mirar, que __finally correr y donde
+           parar --; EXCEPTION_RECORD y DISPATCHER_CONTEXT; los
+           vectorizados). La casa (`excepciones.rs`) pone lo que no se puede
+           decir sin la maquina: la foto de los registros y el salto a un
+           CONTEXT, en ensamblador (es soft-float y Rust no nombra rbx ni
+           rbp), y las llamadas al `.exe`. Da RaiseException,
+           RtlCaptureContext, RtlLookupFunctionEntry, RtlVirtualUnwind,
+           RtlUnwindEx, SetUnhandledExceptionFilter y Add/Remove-
+           VectoredExceptionHandler (kernel32 y los Rtl* de ntdll), y
+           __C_specific_handler (ntdll y vcruntime140). Sin nadie que la
+           coja: el filtro de las no manejadas, o el proceso acaba con el
+           codigo de la excepcion. **Como se sabe:** `prueba/seh.exe` dice
+           `bien` nueve veces en Windows y sale con 0 (28-09). Con la casa:
+           en un arnes provisional de Windows (fuera del repo) ocho de nueve
+           y sale con 0 -- la del hilo no se puede correr alli: el relevo de
+           hilos de la casa es de System V --, y sin el rax del destino o sin
+           correr el __finally, cae (comprobado); `tests/corre.rs` lo corre
+           entero en el banco de Linux: FALTA verlo alli y en el Ryzen
+           (`run sys/proton-x.bex window/seh.exe`). `pruebas_seh.rs`:
+           dieciocho pruebas, con UNWIND_INFO escritas a mano y el .pdata de
+           verdad de seh.exe (siete __except y un __finally). Lo que NO hace,
+           dicho: solo excepciones de SOFTWARE -- un fallo de pagina o una
+           division por cero del `.exe` no llegan a Ring 3, eso es del
+           kernel --; un marco de la casa corta la pila (una excepcion en una
+           WndProc o dentro de un filtro queda sin manejar); ni anidadas ni
+           desenrollados que chocan (se dicen y se sigue); ni el desenrollado
+           de salida (RtlUnwindEx sin marco); ni las de C++;
+           ExceptionAddress es la vuelta de RaiseException; una excepcion
+           dentro de un EPILOGO no se detecta (con RaiseException no pasa).
+           La huella de seh.exe es la de clang 23 (HACER.txt): la del
+           encargo, de clang 18, no sale con el.
       P4d [HECHO el 27-09, VISTO en el metal] LOS FICHEROS. La
            casa sirve CreateFileW/A, ReadFile, WriteFile, SetFilePointer(Ex),
            GetFileSize(Ex), GetFileType, FlushFileBuffers, GetFileAttributesW
@@ -727,7 +762,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          dice NO             red (ws2_32: WSAStartup, socket...), dbghelp:
                              estar, para que el .exe CARGUE, y contestar el
                              fallo de Windows si se llama
-   P4c   las excepciones     AddVectoredExceptionHandler, RtlCaptureContext,
+   P4c   las excepciones     AddVectoredExceptionHandler, RtlCaptureContext,  [HECHO*]
                              RtlLookupFunctionEntry, RtlVirtualUnwind
    P4f5  el CRT de MSVC      vcruntime140.dll (memcpy, memset, memcmp,  [HECHO*]
                              __CxxFrameHandler3, __C_specific_handler...) y
@@ -810,7 +845,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            en Windows (el propietario, 27-09) cumple igual --
            (sabotear STATUS_END_OF_FILE da MAL, comprobado). **La cuenta:** de
            los 157 nombres de la `std` de Rust (y ProcessPrng) faltan 18: los
-           4 de P4c y los 14 del CRT de MSVC (P4f5). `C:\Windows` es un
+           4 de P4c (hechos el 28-09) y los 14 del CRT de MSVC (P4f5). `C:\Windows` es un
            nombre que se da, no una carpeta del volumen.
            P4f5 [HECHO en el banco 27-09, *sin lo de C++] EL CRT DE MSVC. La
            casa (`crt.rs`) resuelve `ucrtbase.dll`, `vcruntime140.dll` y los
@@ -844,7 +879,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            -2. `prueba/stdio.exe` dice `bien` quince veces (quitar las
            dos cifras del exponente de %e da MAL, comprobado). *Lo que falta, dicho: lo del
            mecanismo de excepciones de C++ (__CxxFrameHandler3,
-           _CxxThrowException) va con P4c; `fopen` y los FILE de ficheros
+           _CxxThrowException) no lo trae P4c (28-09: solo las de C) y sigue
+           pendiente; `fopen` y los FILE de ficheros
            no estan (los tres estandar si); y lo que un `.exe` de MSVC enlaza
            ESTATICO (mainCRTStartup, __chkstk, _fltused, _tls_index, atexit)
            va dentro de su imagen, pero sus objetos piden alguna funcion mas
@@ -858,10 +894,10 @@ de arriba y de lo que cada una PIDE, no de gustos:
 ```text
    1  P2 y P3a en el metal   [HECHO 27-09 11:23] obedecen: letras, clic, q
    2  P4d en el metal        [HECHO 27-09 11:23] ficheros.exe, 16 bien
-   3  P4c, el despachador    SEH: RaiseException, __C_specific_handler,
-                             RtlUnwindEx (la base ya esta). PENDIENTE: se
-                             salto el 27-09 para no parar el orden; P3c lo
-                             PIDE, asi que va antes que P3c
+   3  P4c, el despachador    [HECHO en el banco 28-09, rama p4c-seh] SEH:
+                             RaiseException, __C_specific_handler,
+                             RtlUnwindEx. Falta: tests/corre.rs en Linux y
+                             window/seh.exe en el Ryzen (nueve bien)
    4  P4e                    [HECHO en el banco 27-09] HeapAlloc,
                              VirtualAlloc, GetModuleFileNameW, la linea de
                              ordenes, el entorno. Falta: run sys/proton-x.bex
@@ -888,9 +924,8 @@ FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
    LUEGO, aqui:
    1  P3c3  [HECHO en el banco 28-09] el SM5 de FXC -> el mismo lote: los
             .cso de (b) dan las huellas de la 3060
-   2  P4c   las excepciones (SEH): pendiente; va en OTRA sesion (el
-            propietario le da el encargo a otra IA; se revisa aqui antes
-            de juntarlo)
+   2  P4c   las excepciones (SEH): [HECHO en el banco 28-09] en la rama
+            p4c-seh, de OTRA sesion; se revisa aqui antes de juntarlo
    3  P3c   BMOX-12 en el Ryzen, dibujado por la CPU (P3b4 despues)
    4  VERRANO V2..V4 y P3b4: la 3060 dibuja el lote (E2 pide las palabras
             de `ptxas`/`nvdisasm` de su Windows)
@@ -919,7 +954,8 @@ FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
 
 Lo que YA hay para un juego de verdad (27/28-09): hilos, TLS, esperas,
 ficheros y carpetas, memoria (monton y VirtualAlloc), texto y consola, el CRT
-de MSVC con su printf, la `std` de Rust para Windows salvo P4c, D3D12 y DXGI
+de MSVC con su printf, la `std` de Rust para Windows con sus excepciones de C (P4c; las de C++
+no), D3D12 y DXGI
 por la CPU, D3DCompile pagando una vez, y el guardian `proton-x`.
 
 **La carpeta `window` (27-09, lo pidio el propietario):** desde hoy los `.exe`
