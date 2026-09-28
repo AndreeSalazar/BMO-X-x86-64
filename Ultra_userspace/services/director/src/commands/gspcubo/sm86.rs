@@ -122,6 +122,11 @@ impl Opciones {
         o
     }
 
+    /// Si `w` es una palabra de ESTA tarjeta.
+    pub(super) fn conoce(w: &[u8]) -> bool {
+        matches!(w, b"sinldg" | b"ligero" | b"anillo" | b"coopera" | b"exige" | b"reposo" | b"maximo" | b"bmox12")
+    }
+
     /// Como se dice el modo en el tablero.
     pub(super) fn modo(&self) -> &'static [u8] {
         if self.exige {
@@ -153,6 +158,8 @@ pub(super) struct Abierto {
     pub instrucciones: usize,
     pub bytes_vs: usize,
     pub bytes_ps: usize,
+    /// De donde salen los programas (lo que se dice en la linea).
+    pub origen: &'static [u8],
 }
 
 /// **El backend**: el paquete (programas del BSF + vertices) al kernel, y la
@@ -298,7 +305,8 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
         return Err(After::Settle);
     }
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
-    let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len() };
+    let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
+    let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
     Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 

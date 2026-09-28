@@ -40,6 +40,13 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
     // recortarlo, `sinldg` no se reconocia nunca y el 26-09 06:33 corrio el
     // programa normal con ese nombre. Se recorta aqui, una vez, para todos.
     let resto = resto.trim_ascii();
+    // ** Una palabra que nadie conoce se DICE (28-09: `bmx12` por `bmox12`
+    // corrio V0 callado, y parecia E5).
+    if let Some(w) = resto.split(|&c| c == b' ').find(|w| !w.is_empty() && numero(w).is_none() && !matches!(*w, b"banco" | b"inti") && !destino::Opciones::conoce(w)) {
+        let mut t = Texto::nuevo();
+        t.t(b"  NO  no conozco la palabra `").t(w).t(b"`: no se dibuja nada");
+        return linea(dsk, t.s(), INK_ERR);
+    }
     let banco_pedido = resto.strip_prefix(b"banco");
     // Lo que no es de VERRANO (`ligero`, `sinldg`, `bmox12`...) lo entiende
     // el aparato; el fotograma, el primer numero (`gpu verrano bmox12 60`).
@@ -143,7 +150,7 @@ pub(crate) fn orden(dsk: &mut Desktop, p: &bmo::Pantalla, resto: &[u8]) -> After
         c.t(b"y ").d(sin_explicar as u64).t(b" pixel sin explicar (del silicio, como con X5 y en Windows)");
     }
     let mut d = Texto::nuevo();
-    d.t(destino::NOMBRE).t(b": programas del BSF ").d(abierto.bytes_vs as u64).t(b" + ").d(abierto.bytes_ps as u64).t(b" B; ").d(st.triangles as u64).t(b" triangulos en UN dibujo; juez: PERFECTO Y PRECISO (").d(abierto.instrucciones as u64).t(b")");
+    d.t(destino::NOMBRE).t(b": programas ").t(abierto.origen).t(b" ").d(abierto.bytes_vs as u64).t(b" + ").d(abierto.bytes_ps as u64).t(b" B; ").d(st.triangles as u64).t(b" triangulos en UN dibujo; juez: PERFECTO Y PRECISO (").d(abierto.instrucciones as u64).t(b")");
     let yt = p.alto.saturating_sub(144);
     p.texto_bytes(40, yt, a.s(), CLARO);
     p.texto_bytes(40, yt + 24, veredicto, color);
