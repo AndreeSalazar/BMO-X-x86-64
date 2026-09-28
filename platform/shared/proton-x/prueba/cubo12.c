@@ -615,7 +615,7 @@ void inicio(void) {
         rtv[i] = base + i * paso;
         ((F_rtv)HUECO(disp, 20))(disp, buffers[i], 0, rtv[i]);
     }
-    /* La profundidad: D32 del tamano de la cadena, su monton DSV y su vista. */
+    /* La profundidad: D32 de la medida de la cadena, su monton DSV y su vista. */
     rz.Dimension = DIMENSION_TEXTURE2D;
     rz.Alignment = 0;
     rz.Width = CUBO_ANCHO;

@@ -567,7 +567,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       dice SOFTWARE (dibuja la CPU); GetResourceAllocationInfo da lo que
       reserva la casa, no un driver; el stencil se avisa y no se usa; y
       --fotograma (GetCopyableFootprints, CopyTextureRegion) sigue sin estar.
-      Falta: cubo12.exe en el Windows del propietario (la misma imagen) y
+      VISTO en el Windows del propietario (28-09, la 3060): el cubo gira
+      con sus caras de colores, el HLSL compilado por su d3dcompiler. Falta:
       en el Ryzen.
        P3c1 **Como se sabe:** `prueba/peek.exe` dice
       `bien` doce veces (poner `ceil` a redondear hacia abajo da MAL,
