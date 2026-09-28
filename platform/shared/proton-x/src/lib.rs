@@ -37,6 +37,7 @@ extern crate alloc;
 
 pub mod cargar;
 pub mod desenrollar;
+pub mod dll;
 pub mod dxbc;
 pub mod dxil;
 pub mod ficheros;

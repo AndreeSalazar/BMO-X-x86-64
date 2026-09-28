@@ -178,7 +178,8 @@ try {
     # Y `stdio.exe` (P4f5, 27-09): el printf del CRT de MSVC, stdout y stderr en modo texto.
     # Y `peek.exe` (P3c1, 27-09): lo chico que le faltaba a BMOX-12 (PeekMessageW, ceil...).
     # Y `compila.exe` (P3c2, 28-09): D3DCompile pagando una vez, sobre window\sombras.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe')) {
+    # Y `usadll.exe` con su `saludo.dll` (P5a, 28-09): una DLL propia, como las de un juego.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(

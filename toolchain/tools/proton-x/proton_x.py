@@ -67,12 +67,12 @@ def px1_huellas(exes, hacer):
 
 def px2_volumen(nombres, ejemplos):
     m = re.search(r"foreach \(\$exe in @\(([^)]*)\)\)", ejemplos)
-    copiados = set(re.findall(r"'([^']+\.exe)'", m.group(1))) if m else set()
+    copiados = set(re.findall(r"'([^']+\.(?:exe|dll))'", m.group(1))) if m else set()
     return ["PX2 %s: ejemplos.ps1 no lo copia a window/" % n for n in sorted(nombres) if n not in copiados]
 
 
 def px3_banco(nombres, pruebas):
-    corridos = set(re.findall(r'include_bytes!\("[^"]*prueba/([^"/]+\.exe)"\)', pruebas))
+    corridos = set(re.findall(r'include_bytes!\("[^"]*prueba/([^"/]+\.(?:exe|dll))"\)', pruebas))
     return ["PX3 %s: ninguna prueba del anfitrion lo corre" % n for n in sorted(nombres) if n not in corridos]
 
 
@@ -151,7 +151,8 @@ def leer(r):
 
 
 def check():
-    exes = {n: open(os.path.join(PRUEBA, n), "rb").read() for n in os.listdir(PRUEBA) if n.endswith(".exe")}
+    # Los .exe y las .dll de prueba (P5a: una DLL propia tambien se prueba).
+    exes = {n: open(os.path.join(PRUEBA, n), "rb").read() for n in os.listdir(PRUEBA) if n.endswith((".exe", ".dll"))}
     hacer = leer(os.path.join(PRUEBA, "HACER.txt"))
     ejemplos = leer(EJEMPLOS)
     tests = os.path.join(CASA, "tests")
@@ -181,7 +182,7 @@ def check():
             print("  [X] " + m)
         print("proton-x: %d incumplimiento(s)" % len(malos))
         return 1
-    print("clean: PROTON-X cuadra -- %d .exe con su huella, en el volumen y en el banco; %d modulos en la cadena de kernel32 sin nombres repetidos; %d fuentes sin licencias ajenas"
+    print("clean: PROTON-X cuadra -- %d .exe y .dll con su huella, en el volumen y en el banco; %d modulos en la cadena de kernel32 sin nombres repetidos; %d fuentes sin licencias ajenas"
           % (len(exes), len(orden), len(fuentes)))
     return 0
 
@@ -192,6 +193,7 @@ def autoprueba():
     casos = [
         ("PX1", px1_huellas({"a.exe": b"x"}, "sha256: " + "0" * 64)),
         ("PX2", px2_volumen(["b.exe"], "foreach ($exe in @('a.exe')) {")),
+        ("PX2", px2_volumen(["b.dll"], "foreach ($exe in @('a.exe', 'c.dll')) {")),
         ("PX3", px3_banco(["b.exe"], 'include_bytes!("../../proton-x/prueba/a.exe")')),
         ("PX4", px4_sin_copia({"x.rs": "// Copyright 2018 Philip Rebohle (dxvk)\n"})),
         ("PX4", px4_sin_copia({"x.rs": "/* SPDX-License-Identifier: LGPL-2.1 */"})),

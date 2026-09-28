@@ -1,0 +1,5 @@
+LIBRARY saludo.dll
+EXPORTS
+  suma @7
+  frase @8
+  visto_attach @9
