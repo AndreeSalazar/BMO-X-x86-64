@@ -129,3 +129,5 @@ TerminateProcess
 CreateProcessW
 InitializeProcThreadAttributeList
 LoadLibraryExA
+GetModuleHandleA
+LoadLibraryA

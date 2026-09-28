@@ -212,6 +212,7 @@ pub unsafe fn empezar(p: Plataforma) {
     esperas::reiniciar();
     carpetas::reiniciar();
     kernel32::reiniciar();
+    modulos::reiniciar();
     crt::reiniciar();
 }
 
@@ -233,6 +234,10 @@ pub fn aviso(texto: &str) {
 
 /// **LA TABLA DE LA CASA**: la direccion de cada funcion que existe.
 pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
+    // P5a: lo que exporta una DLL PROPIA ya cargada (tambien por ordinal).
+    if let Some(d) = modulos::exportada(dll, f) {
+        return Some(d);
+    }
     let Funcion::Nombre(n) = f else { return None };
     // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
     // de donde la `std` de Rust importa WaitOnAddress) son nombres de
@@ -265,6 +270,12 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else {
         None
     }
+}
+
+/// Si `f` (un nombre de fichero en minusculas) es un API set o una DLL del
+/// CRT: tambien son de la casa (P5a: no se buscan en el disco).
+pub(crate) fn es_api_set_o_crt(f: &str) -> bool {
+    (f.len() > 16 && f.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-")) || crt::es_del_crt(f)
 }
 
 /// La direccion de una funcion, para la tabla.

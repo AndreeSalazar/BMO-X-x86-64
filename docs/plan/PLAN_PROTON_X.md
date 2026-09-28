@@ -838,8 +838,18 @@ FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
             de `ptxas`/`nvdisasm` de su Windows)
    5  P5    UN JUEGO CHICO. Lo que un juego pide y un cubo no, medido de
             antemano con `rayosx` (Ludoteca 9):
-            5a  cargar SUS DLL (un juego trae las suyas: el cargador de
-                PROTON-X hoy carga un .exe, no DLL)
+            5a  cargar SUS DLL. [BANCO HECHO 28-09] `bmo_proton_x::dll`
+                (las exportaciones: nombre, ordinal, reenvios), la casa
+                registra las DLL propias (su base es su HMODULE, GetProcAddress
+                por nombre y ordinal, DllMain una vez antes de la entrada) y el
+                banco las carga junto al .exe; usadll.exe + saludo.dll dicen
+                `bien` ocho veces (sin DllMain, MAL). FALTA EL METAL: el kernel
+                SELLA BLOQUES ENTEROS y da ocho por proceso -- cada imagen pide
+                su codigo sellado y sus datos RW, asi que un .exe y dos DLL ya
+                los agotan. Pide al kernel sellar un TRAMO de paginas dentro de
+                un bloque (MEM_OP_SELLAR con desplazamiento y medida): un bloque
+                grande para todas las imagenes, cada codigo sellado en su
+                tramo. Es Ring 0 y W^X: se decide con el propietario
             5b  D3D9/D3D11 (la mayoria de los chicos de GOG no son D3D12):
                 otra traduccion al MISMO lote
             5c  el sonido (XAudio2 / DirectSound) y el mando (XInput)

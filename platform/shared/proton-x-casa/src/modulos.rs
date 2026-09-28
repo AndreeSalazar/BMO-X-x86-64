@@ -38,6 +38,88 @@ const ERROR_INVALID_HANDLE: u32 = 6;
 const ERROR_INVALID_PARAMETER: u32 = 87;
 const GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS: u32 = 4;
 
+// -- P5a: las DLL PROPIAS del `.exe` (las que trae un juego) ------------------
+
+/// Una DLL propia ya cargada: su nombre de fichero (en minusculas), su BASE
+/// (que es su HMODULE, como en Windows), su DllMain y lo que exporta (ya en
+/// direcciones: los reenvios los resolvio quien cargo).
+struct Propia {
+    nombre: String,
+    base: u64,
+    entrada: u64,
+    exps: Vec<(Option<String>, u32, u64)>,
+    iniciada: bool,
+}
+
+struct Propias(core::cell::UnsafeCell<Vec<Propia>>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Propias {}
+static PROPIAS: Propias = Propias(core::cell::UnsafeCell::new(Vec::new()));
+
+fn propias() -> &'static mut Vec<Propia> {
+    // SAFETY: ver `Propias`; nadie guarda la referencia de un turno a otro.
+    unsafe { &mut *PROPIAS.0.get() }
+}
+
+pub(crate) fn reiniciar() {
+    propias().clear();
+}
+
+/// **Una DLL propia cargada** (lo dice quien carga, despues de colocarla,
+/// relocalizarla y resolver lo que ELLA pide). `exps`: (nombre, ordinal,
+/// direccion). Su DllMain corre en [`iniciar_dlls`].
+pub fn registrar_dll(nombre: &str, base: u64, entrada: u64, exps: Vec<(Option<String>, u32, u64)>) {
+    propias().push(Propia { nombre: bmo_proton_x::dll::fichero(nombre), base, entrada, exps, iniciada: false });
+}
+
+/// Si una DLL propia ya esta cargada (por su nombre de fichero).
+pub fn cargada(dll: &str) -> bool {
+    let n = bmo_proton_x::dll::fichero(dll);
+    propias().iter().any(|p| p.nombre == n)
+}
+
+/// Si `dll` es una de las de la casa (si no, hay que buscarla junto al `.exe`).
+pub fn es_de_la_casa(dll: &str) -> bool {
+    let f = bmo_proton_x::dll::fichero(dll);
+    DLL.iter().any(|d| d.eq_ignore_ascii_case(&f)) || crate::es_api_set_o_crt(&f)
+}
+
+/// Lo que exporta una DLL propia (para resolver importaciones contra ella).
+pub(crate) fn exportada(dll: &str, f: &Funcion) -> Option<u64> {
+    let n = bmo_proton_x::dll::fichero(dll);
+    let p = propias().iter().find(|p| p.nombre == n)?;
+    p.exps.iter().find(|(nombre, ord, _)| match f {
+        Funcion::Nombre(x) => nombre.as_deref() == Some(x.as_str()),
+        Funcion::Ordinal(o) => *ord == *o as u32,
+    }).map(|e| e.2)
+}
+
+/// **Los DllMain** de las DLL propias, con DLL_PROCESS_ATTACH, en el orden en
+/// que se cargaron (cada una despues de las que ella usa), una vez. Antes de
+/// la entrada del `.exe`, con el GS ya puesto (como el cargador de Windows).
+///
+/// # Safety
+/// Las entradas son codigo sellado de DLL cargadas por quien llama.
+pub unsafe fn iniciar_dlls() -> Result<(), String> {
+    let mut i = 0;
+    while i < propias().len() {
+        let (base, entrada, nombre, hecha) = {
+            let p = &propias()[i];
+            (p.base, p.entrada, p.nombre.clone(), p.iniciada)
+        };
+        propias()[i].iniciada = true;
+        if !hecha && entrada != 0 && crate::hilos::llamar_win64(entrada, base, 1, 0) as u32 == 0 {
+            return Err(alloc::format!("{nombre}: su DllMain dijo FALSE al PROCESS_ATTACH"));
+        }
+        i += 1;
+    }
+    Ok(())
+}
+
+fn propia_por_base(h: u64) -> Option<usize> {
+    propias().iter().position(|p| p.base == h)
+}
+
 /// El HANDLE de la DLL `i`: un numero que no es un puntero.
 const fn asa(i: usize) -> u64 {
     0x5A1D_D000_0000 + ((i as u64 + 1) << 16)
@@ -53,6 +135,9 @@ fn por_nombre(n: &str) -> Option<u64> {
     let con = if base.contains('.') { String::from(base) } else { alloc::format!("{base}.dll") };
     if let Some(i) = DLL.iter().position(|d| d.eq_ignore_ascii_case(&con)) {
         return Some(asa(i));
+    }
+    if let Some(p) = propias().iter().find(|p| p.nombre.eq_ignore_ascii_case(&con)) {
+        return Some(p.base);
     }
     let exe = crate::proceso::nombre_exe();
     (!exe.is_empty() && exe.eq_ignore_ascii_case(&con)).then(kernel32::base_imagen)
@@ -159,6 +244,26 @@ extern "win64" fn get_module_handle_ex_w(banderas: u32, n: *const u16, h: *mut u
 }
 
 extern "win64" fn get_proc_address(h: u64, n: *const u8) -> u64 {
+    // P5a: una DLL propia, por nombre o por ORDINAL (las suyas si los tienen).
+    if let Some(i) = propia_por_base(h) {
+        let f = if (n as u64) < 0x1_0000 {
+            Funcion::Ordinal(n as u64 as u16)
+        } else {
+            // SAFETY: lo que promete el `.exe`.
+            match unsafe { estrecha(n) } {
+                Some(x) => Funcion::Nombre(x),
+                None => {
+                    kernel32::poner_error(ERROR_PROC_NOT_FOUND);
+                    return 0;
+                }
+            }
+        };
+        let nombre = propias()[i].nombre.clone();
+        return exportada(&nombre, &f).unwrap_or_else(|| {
+            kernel32::poner_error(ERROR_PROC_NOT_FOUND);
+            0
+        });
+    }
     let Some(dll) = dll_de(h) else {
         if h == kernel32::base_imagen() {
             aviso("GetProcAddress sobre el propio .exe: sus exportaciones no se leen todavia");

@@ -50,6 +50,8 @@ const UCRT: &[u8] = include_bytes!("../../proton-x/prueba/ucrt.exe");
 const STDIO: &[u8] = include_bytes!("../../proton-x/prueba/stdio.exe");
 const PEEK: &[u8] = include_bytes!("../../proton-x/prueba/peek.exe");
 const COMPILA: &[u8] = include_bytes!("../../proton-x/prueba/compila.exe");
+const USADLL: &[u8] = include_bytes!("../../proton-x/prueba/usadll.exe");
+const SALUDO_DLL: &[u8] = include_bytes!("../../proton-x/prueba/saludo.dll");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -287,8 +289,57 @@ fn poner_gs(v: u64) {
 /// **Cargar y correr un `.exe`** como `proton-x.bex`: partir, colocar en una
 /// base que no es la suya, resolver, codigo R+X, datos sin X; y si `con_teb`,
 /// un TEB y un PEB en el GS. Devuelve (con que salio, lo que dijo, la base).
+/// **P5a: cargar una DLL propia** de la carpeta del `.exe` (y, antes, las que
+/// ELLA pide), como el cargador de Windows: colocar donde caiga, relocalizar,
+/// resolver, sellar el codigo y decir a la casa lo que exporta. Su DllMain
+/// corre luego, en `iniciar_dlls`.
+fn cargar_dll(dll: &str, dir: &str) {
+    use bmo_proton_x::dll::{self, Destino};
+    if bmo_proton_x_casa::modulos::es_de_la_casa(dll) || bmo_proton_x_casa::modulos::cargada(dll) {
+        return;
+    }
+    let f = dll::fichero(dll);
+    let d = std::fs::read(volumen().join(dir).join(&f)).unwrap_or_else(|_| panic!("{f}: no esta junto al .exe"));
+    let pe = leer(&d).unwrap();
+    assert!(pe.es_dll, "{f} no es una DLL");
+    let partes = partir(&pe).unwrap();
+    let base = mmap((partes.codigo + partes.datos) as u64);
+    let mut img = colocar(&pe, &d, base).unwrap();
+    let imps = importaciones(&pe, &img).unwrap();
+    for i in &imps {
+        cargar_dll(&i.dll, dir);
+    }
+    resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap();
+    let exps = dll::exportaciones(&pe, &img).unwrap();
+    unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
+    mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);
+    let dadas = exps
+        .into_iter()
+        .map(|e| {
+            let dir = match &e.destino {
+                Destino::Rva(r) => base + *r as u64,
+                Destino::Reenvio { dll, funcion } => bmo_proton_x_casa::tabla(dll, funcion).unwrap_or(0),
+            };
+            (e.nombre, e.ordinal, dir)
+        })
+        .collect();
+    let entrada = if pe.entrada != 0 { base + pe.entrada as u64 } else { 0 };
+    bmo_proton_x_casa::modulos::registrar_dll(&f, base, entrada, dadas);
+}
+
 fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: &[u64]) -> (u32, Vec<u8>, u64) {
     *GUION.lock().unwrap() = guion.iter().copied().collect();
+    DICHO.lock().unwrap().clear();
+    PANTALLA.lock().unwrap().clear();
+    VISTAS.lock().unwrap().clear();
+    for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS, &SELLADOS, &SOLTADOS] {
+        c.store(0, Ordering::SeqCst);
+    }
+    // SAFETY: un `.exe` a la vez (el cerrojo de arriba), antes de saltar. Va
+    // ANTES de cargar nada: reinicia lo que la casa sabe de las DLL propias.
+    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
+    let (nombre, resto) = *NOMBRE.lock().unwrap();
+    let dir_exe = nombre.rsplit_once('/').map_or("", |(d, _)| d);
     let pe = leer(exe).unwrap();
     let partes = partir(&pe).unwrap();
     let total = (partes.codigo + partes.datos) as u64;
@@ -296,6 +347,10 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     assert_ne!(base, pe.base, "en una base que NO es la suya");
     let mut img = colocar(&pe, exe, base).unwrap();
     let imps = importaciones(&pe, &img).unwrap();
+    // P5a: las DLL que la casa no tiene, de la carpeta del `.exe`.
+    for i in &imps {
+        cargar_dll(&i.dll, dir_exe);
+    }
     resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap();
     unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
     mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);
@@ -321,22 +376,15 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
         teb::escribir_peb(pb, &h);
         poner_gs(mem);
     }
-    DICHO.lock().unwrap().clear();
-    PANTALLA.lock().unwrap().clear();
-    VISTAS.lock().unwrap().clear();
-    for c in [&MOSTRADAS, &PRESENTADAS, &DORMIDAS, &SELLADOS, &SOLTADOS] {
-        c.store(0, Ordering::SeqCst);
-    }
-    // SAFETY: un `.exe` a la vez (el cerrojo de arriba), antes de saltar.
-    unsafe { bmo_proton_x_casa::empezar(plataforma()) };
     // P4: el TLS, como el cargador de Windows (y como `proton-x.bex`).
     let t = tls::leer(&pe, &img, base).unwrap();
     // SAFETY: GS puesto (si hay TEB), `empezar` hecho, la imagen en su sitio.
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(t, base) };
     // P4d: como `run sys/proton-x.bex window/x.exe`, su directorio es `window`.
-    let (nombre, resto) = *NOMBRE.lock().unwrap();
-    bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map_or("", |(d, _)| d));
+    bmo_proton_x_casa::ficheros::poner_directorio(dir_exe);
     bmo_proton_x_casa::proceso::poner_exe(nombre, resto);
+    // P5a: los DllMain de las DLL propias, con el GS ya puesto.
+    unsafe { bmo_proton_x_casa::modulos::iniciar_dlls() }.unwrap();
     let salio = unsafe { correr(base + pe.entrada as u64) };
     if con_teb {
         poner_gs(0);
@@ -718,4 +766,22 @@ fn compila_exe_paga_d3dcompile_una_vez() {
     assert!(texto.contains("D3DCompile(VSMain, vs_5_0): un DXBC 0x0000000000000040"), "{texto}");
     assert!(texto.contains("D3DCompile(PSMain, ps_5_0): un DXBC 0x0000000000000040"), "{texto}");
     assert!(texto.ends_with("compila.exe: D3DCompile dice la verdad\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P5a en el anfitrion**: `usadll.exe` con su `saludo.dll` al lado (una DLL
+/// que NO es de Windows ni de la casa): importaciones resueltas contra ella,
+/// su DllMain antes de la entrada, y LoadLibrary / GetModuleHandle /
+/// GetProcAddress (por nombre y por ordinal) sobre ella.
+#[test]
+fn usadll_exe_carga_una_dll_propia() {
+    let uno = uno_a_la_vez();
+    std::fs::write(volumen().join("window/saludo.dll"), SALUDO_DLL).unwrap();
+    *NOMBRE.lock().unwrap() = ("window/usadll.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, USADLL, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 8, "{texto}");
+    assert!(texto.ends_with("usadll.exe: la DLL propia es como en Windows\r\n[salio 0x0]"), "{texto}");
 }

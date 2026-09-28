@@ -97,6 +97,8 @@ pub struct Pe {
     pub tam_imagen: u32,
     pub tam_cabeceras: u32,
     pub secciones: Vec<Seccion>,
+    /// La tabla de EXPORTACIONES (directorio 0): lo que una DLL da (P5a).
+    pub exportaciones: Directorio,
     pub importaciones: Directorio,
     pub relocalizaciones: Directorio,
     pub tls: Directorio,
@@ -106,6 +108,9 @@ pub struct Pe {
     /// Sin esa bandera y sin `.reloc`, se mueve sin corregir nada (todo es
     /// relativo a RIP), que es lo que hace el cargador de Windows.
     pub relocs_quitadas: bool,
+    /// La cabecera COFF dice `IMAGE_FILE_DLL`: es una DLL, y su entrada es
+    /// `DllMain` (P5a).
+    pub es_dll: bool,
 }
 
 pub(crate) fn u16_en(d: &[u8], o: usize, que: &'static str) -> Result<u16, Fallo> {
@@ -200,10 +205,12 @@ pub fn leer(d: &[u8]) -> Result<Pe, Fallo> {
         tam_imagen,
         tam_cabeceras,
         secciones,
+        exportaciones: dir(0)?,
         importaciones: dir(DIR_IMPORTACIONES)?,
         relocalizaciones: dir(DIR_RELOCALIZACIONES)?,
         tls: dir(DIR_TLS)?,
         excepciones: dir(DIR_EXCEPCIONES)?,
         relocs_quitadas: u16_en(d, e + 22, "las caracteristicas COFF")? & RELOCS_QUITADAS != 0,
+        es_dll: u16_en(d, e + 22, "las caracteristicas COFF")? & 0x2000 != 0,
     })
 }

@@ -440,3 +440,28 @@ fn los_pendientes_del_cubo_de_bmox12_llevan_la_huella_de_la_casa() {
         assert_eq!(nombre(huella(fuente, &p)), h, "{}", String::from_utf8_lossy(&p.entrada));
     }
 }
+
+// -- P5a: lo que da una DLL ------------------------------------------------------------
+
+#[test]
+fn las_exportaciones_de_saludo_dll_con_sus_ordinales() {
+    use crate::cargar::Funcion;
+    use crate::dll::{self, Destino};
+    let d = include_bytes!("../prueba/saludo.dll");
+    let pe = crate::leer(d).unwrap();
+    assert!(pe.es_dll, "IMAGE_FILE_DLL");
+    assert!(!crate::leer(include_bytes!("../prueba/usadll.exe")).unwrap().es_dll);
+    let img = crate::colocar(&pe, d, pe.base).unwrap();
+    let e = dll::exportaciones(&pe, &img).unwrap();
+    let v: Vec<(u32, Option<&str>)> = e.iter().map(|x| (x.ordinal, x.nombre.as_deref())).collect();
+    assert_eq!(v, [(7, Some("suma")), (8, Some("frase")), (9, Some("visto_attach"))], "los ordinales del .def");
+    let por_nombre = dll::buscar(&e, &Funcion::Nombre("suma".into()));
+    assert!(matches!(por_nombre, Some(Destino::Rva(r)) if *r > 0));
+    assert_eq!(por_nombre, dll::buscar(&e, &Funcion::Ordinal(7)), "por nombre y por ordinal: lo mismo");
+    assert_eq!(dll::buscar(&e, &Funcion::Nombre("Suma".into())), None, "el nombre es exacto");
+    assert_eq!(dll::fichero("C:\\juego\\SALUDO"), "saludo.dll");
+    // Y lo que PIDE una DLL se lee igual que lo de un .exe.
+    let imps = crate::importaciones(&pe, &img).unwrap();
+    assert_eq!(imps.len(), 1);
+    assert_eq!(imps[0].dll.to_ascii_lowercase(), "kernel32.dll");
+}

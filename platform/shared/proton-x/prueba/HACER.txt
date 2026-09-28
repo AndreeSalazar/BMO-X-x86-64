@@ -353,3 +353,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 El compilador de verdad, en Windows, es el obrero ../obrero/sombras.exe (ver
 su HACER.txt).
+
+saludo.dll y usadll.exe -- los de P5a (28-09): una DLL propia, como las de un juego
+
+saludo.dll exporta suma, frase y visto_attach con ordinales FIJOS (saludo.def:
+7, 8, 9), importa GetCurrentProcessId de kernel32 y su DllMain (`entrada`)
+deja una marca. usadll.exe la importa y la usa en marcha. kernel32.def suma
+GetModuleHandleA, LoadLibraryA y GetCurrentProcessId (los demas no cambian).
+El nombre de salida va DENTRO de la DLL: se hace con su nombre de verdad.
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c saludo.c -o saludo.obj
+   lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:saludo.def /implib:saludo.lib saludo.obj kernel32.lib /out:saludo.dll
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c usadll.c -o usadll.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro usadll.obj kernel32.lib saludo.lib /out:usadll.exe
+
+sha256 de los que estan aqui (reproducibles, comprobado dos veces):
+
+   5e74d1c86c798e5e27ff0138d6887ffd2e5ce2661abea340f3225e65250c0ee6  saludo.dll
+   b0cde185430d6cc7b3e77b5cc5978b11f50a4937ed77dfa51581eaf16dbbce39  usadll.exe
+
+usadll.exe dice `bien` ocho veces y sale con 0, con saludo.dll en su misma
+carpeta. En BMO-X todavia NO: el kernel sella bloques enteros y da ocho por
+proceso (ver PLAN_PROTON_X, P5a).
