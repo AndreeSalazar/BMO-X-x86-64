@@ -1,0 +1,23 @@
+sombras.exe -- el OBRERO de P3c2 (28-09): corre en WINDOWS
+
+Compila el HLSL que un .exe pidio en BMO-X (lo que D3DCompile dejo en
+window\sombras como <huella>.hls y <huella>.ent) con el d3dcompiler_47 de ese
+Windows, y deja <huella>.cso al lado. Con el disco de datos de BMO-X puesto
+(en Windows sale como A:):
+
+   sombras.exe A:\window\sombras
+
+No importa d3dcompiler_47: lo carga en marcha (LoadLibraryA + GetProcAddress).
+Se hace asi, con su propio kernel32.def (solo lo que usa):
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c sombras.c -o sombras.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro sombras.obj kernel32.lib /out:sombras.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   38604638d6f199c038ab2f7b65a5e10caff84b9882b8c7993b282e60094966b7
+
+Dice `bien` por cada .hls que compila, y al final cuantos compilo, cuantos ya
+estaban y cuantos no. Sale con el numero de los que no. Un HLSL que no
+compila muestra los errores del compilador de Windows.

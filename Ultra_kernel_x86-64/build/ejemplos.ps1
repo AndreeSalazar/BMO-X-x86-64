@@ -177,7 +177,8 @@ try {
     # Y `ucrt.exe` (P4f5, 27-09): el CRT de MSVC de sus DLL (argv, _initterm, exit, malloc, memcpy).
     # Y `stdio.exe` (P4f5, 27-09): el printf del CRT de MSVC, stdout y stderr en modo texto.
     # Y `peek.exe` (P3c1, 27-09): lo chico que le faltaba a BMOX-12 (PeekMessageW, ceil...).
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe')) {
+    # Y `compila.exe` (P3c2, 28-09): D3DCompile pagando una vez, sobre window\sombras.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
@@ -191,6 +192,23 @@ try {
         'Los de prueba los pone el build; los tuyos, copialos aqui (nombres 8.3).'
     )
     Set-Content -LiteralPath (Join-Path $dataBase 'window\LEEME.TXT') -Value $leemeWin -Encoding ascii
+    # P3c2 (28-09): la carpeta del HLSL que se compila una vez en Windows. La
+    # crea el build porque el FAT32 de BMO-X no crea carpetas desde Ring 3.
+    New-Item -ItemType Directory -Path (Join-Path $dataBase 'window\sombras') -Force | Out-Null
+    $leemeSom = @(
+        'SOMBRAS -- el HLSL que un .exe de Windows compila en marcha (D3DCompile)',
+        '',
+        'En BMO-X no hay compilador de HLSL. La primera vez, PROTON-X deja aqui',
+        'cada pedido: <huella>.hls (la fuente) y <huella>.ent (entrada, perfil...).',
+        'En Windows, con este disco puesto:',
+        '',
+        '  platform\shared\proton-x\obrero\sombras.exe A:\window\sombras',
+        '',
+        'compila cada .hls pendiente con el d3dcompiler_47 de Windows y deja',
+        '<huella>.cso al lado. La proxima vez, en BMO-X, D3DCompile lo encuentra.',
+        'El despliegue NO borra esta carpeta: lo compilado se queda.'
+    )
+    Set-Content -LiteralPath (Join-Path $dataBase 'window\sombras\LEEME.TXT') -Value $leemeSom -Encoding ascii
     Write-Host '    [proton-x] sys\proton-x.bex y window\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto,esperas}.exe (run sys/proton-x.bex window/esperas.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 

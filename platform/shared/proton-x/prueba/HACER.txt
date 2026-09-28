@@ -335,3 +335,21 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` doce veces y sale con 0. En Windows AdjustWindowRect SI agranda
 el rectangulo (le suma el marco); la prueba solo mira que no lo achique.
+
+compila.exe -- el de P3c2 (28-09): D3DCompile, como lo llama el cubo de BMOX-12
+
+Importa D3DCompile de d3dcompiler_47.dll (d3dcompiler.def). En Windows compila
+de verdad y sale un DXBC; en BMO-X, sin el .cso, E_FAIL diciendo que falta.
+Las dos cosas dicen `bien`:
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d d3dcompiler.def -l d3dcompiler.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c compila.c -o compila.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro compila.obj kernel32.lib d3dcompiler.lib /out:compila.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   b4c59fac0570ac348021f389753f27bd91bcfe560dce4d74961b0b369320760c
+
+El compilador de verdad, en Windows, es el obrero ../obrero/sombras.exe (ver
+su HACER.txt).

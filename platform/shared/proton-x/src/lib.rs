@@ -45,6 +45,7 @@ pub mod pe;
 pub mod proceso;
 pub mod raiz;
 pub mod regiones;
+pub mod sombras;
 pub mod hilos;
 pub mod hora;
 pub mod lote;

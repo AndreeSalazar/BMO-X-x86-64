@@ -396,3 +396,35 @@ fn mirar_la_cola_no_saca_nada() {
     assert_eq!(c.sacar(), Some(q));
     assert_eq!(c.mirar(), None, "sacado, ya no esta");
 }
+
+// -- P3c2: D3DCompile pagando una vez -----------------------------------------------
+
+#[test]
+fn la_huella_de_una_compilacion_y_su_ent() {
+    use crate::sombras::{escribir_ent, huella, leer_ent, nombre, Pedido};
+    let p = Pedido { entrada: b"VSMain".to_vec(), perfil: b"vs_5_0".to_vec(), banderas1: 0x800, banderas2: 0, macros: vec![(b"LUZ".to_vec(), b"1".to_vec())] };
+    let h = huella(b"float4 f() { return 0; }", &p);
+    assert_eq!(nombre(h).len(), 8, "8.3: ocho cifras");
+    assert_eq!(h, huella(b"float4 f() { return 0; }", &p.clone()), "la misma, la misma huella");
+    // Cada cosa que cambia la salida cambia la huella.
+    let mut q = p.clone();
+    q.perfil = b"vs_4_0".to_vec();
+    assert_ne!(huella(b"float4 f() { return 0; }", &q), h);
+    q = p.clone();
+    q.banderas1 = 0;
+    assert_ne!(huella(b"float4 f() { return 0; }", &q), h);
+    q = p.clone();
+    q.macros.clear();
+    assert_ne!(huella(b"float4 f() { return 0; }", &q), h);
+    assert_ne!(huella(b"float4 f() { return 1; }", &p), h);
+    // El 0 entre trozos: "ab"+"c" no es "a"+"bc".
+    let a = Pedido { entrada: b"ab".to_vec(), perfil: b"c".to_vec(), ..Pedido::default() };
+    let b = Pedido { entrada: b"a".to_vec(), perfil: b"bc".to_vec(), ..Pedido::default() };
+    assert_ne!(huella(b"", &a), huella(b"", &b));
+    // El .ent va y vuelve (y acepta \r\n, por si pasa por Windows).
+    let e = escribir_ent(&p);
+    assert_eq!(e, b"VSMain\nvs_5_0\n800\n0\nLUZ=1\n");
+    assert_eq!(leer_ent(&e), Some(p.clone()));
+    assert_eq!(leer_ent(b"VSMain\r\nvs_5_0\r\n800\r\n0\r\nLUZ=1\r\n"), Some(p));
+    assert_eq!(leer_ent(b"solo una linea"), None);
+}

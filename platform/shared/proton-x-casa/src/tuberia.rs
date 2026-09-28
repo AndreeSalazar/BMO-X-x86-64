@@ -98,7 +98,7 @@ pub struct Blob {
     bytes: Vec<u8>,
 }
 
-fn blob(bytes: Vec<u8>) -> u64 {
+pub(crate) fn blob(bytes: Vec<u8>) -> u64 {
     let vt = vtabla::<{ com::BLOB }>(&[(3, dir!(get_buffer_pointer)), (4, dir!(get_buffer_size))]);
     nuevo(com::BLOB, vt, Blob { bytes }) as u64
 }

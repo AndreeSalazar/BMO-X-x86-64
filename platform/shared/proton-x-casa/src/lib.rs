@@ -51,6 +51,7 @@ extern crate alloc;
 
 pub mod carpetas;
 pub mod com;
+pub mod compilador;
 pub mod crt;
 pub mod d3d12;
 pub mod dxgi;
@@ -245,6 +246,8 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         sistema::buscar_ntdll(n)
+    } else if dll.eq_ignore_ascii_case("d3dcompiler_47.dll") {
+        compilador::buscar(n)
     } else if dll.eq_ignore_ascii_case("oleaut32.dll") {
         sistema::buscar_oleaut32(n)
     } else if dll.eq_ignore_ascii_case("ws2_32.dll") {

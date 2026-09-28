@@ -49,6 +49,7 @@ const SISTEMA: &[u8] = include_bytes!("../../proton-x/prueba/sistema.exe");
 const UCRT: &[u8] = include_bytes!("../../proton-x/prueba/ucrt.exe");
 const STDIO: &[u8] = include_bytes!("../../proton-x/prueba/stdio.exe");
 const PEEK: &[u8] = include_bytes!("../../proton-x/prueba/peek.exe");
+const COMPILA: &[u8] = include_bytes!("../../proton-x/prueba/compila.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -682,4 +683,39 @@ fn peek_exe_tiene_lo_chico_de_bmox12() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 12, "{texto}");
     assert!(texto.ends_with("peek.exe: lo chico de BMOX-12 es lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **P3c2 en el anfitrion**: `compila.exe` dos veces. La primera no hay
+/// compilador: E_FAIL, el blob de errores lo dice, y quedan la fuente y el
+/// pedido en `window/sombras/`. Luego se deja un `.cso` por cada uno (lo que
+/// haria `sombras.exe` en Windows) y la segunda D3DCompile da esos bytes.
+#[test]
+fn compila_exe_paga_d3dcompile_una_vez() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window/sombras");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    *NOMBRE.lock().unwrap() = ("window/compila.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, COMPILA, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert_eq!(texto.matches("sin compilador: E_FAIL").count(), 2, "{texto}");
+    let mut pendientes: Vec<String> = std::fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+    pendientes.sort();
+    assert_eq!(pendientes.len(), 4, "dos .hls y dos .ent: {pendientes:?}");
+    for p in pendientes.iter().filter(|p| p.ends_with(".ent")) {
+        let ent = std::fs::read(dir.join(p)).unwrap();
+        assert!(ent.starts_with(b"VSMain\nvs_5_0\n") || ent.starts_with(b"PSMain\nps_5_0\n"), "{:?}", String::from_utf8_lossy(&ent));
+        let mut cso = b"DXBC".to_vec();
+        cso.extend_from_slice(&[0x5A; 60]);
+        std::fs::write(dir.join(p.replace(".ent", ".cso")), cso).unwrap();
+    }
+    let (salio, dicho, _) = correr_exe(&uno, COMPILA, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "con los .cso, ni un aviso: {texto}");
+    assert!(texto.contains("D3DCompile(VSMain, vs_5_0): un DXBC 0x0000000000000040"), "{texto}");
+    assert!(texto.contains("D3DCompile(PSMain, ps_5_0): un DXBC 0x0000000000000040"), "{texto}");
+    assert!(texto.ends_with("compila.exe: D3DCompile dice la verdad\r\n[salio 0x0]"), "{texto}");
 }

@@ -499,7 +499,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          LoadLibraryExA, GetErrorInfo, SysStringLen, SysFreeString,
          RoOriginateErrorW (el crate `windows` para sus HRESULT), ceil,
          _register_thread_local_exe_atexit_callback, terminate  [HECHO 27-09]
-   P3c2  D3DCompile: el cubo COMPILA su HLSL en marcha (FXC, Shader Model
+   P3c2  [HECHO en el banco 28-09; falta Windows y el metal]
+         D3DCompile: el cubo COMPILA su HLSL en marcha (FXC, Shader Model
          5.0: vs_5_0 / ps_5_0). En BMO-X no hay compilador de HLSL; lo
          honesto es PAGAR UNA VEZ: compilarlo en Windows (d3dcompiler_47,
          el mismo) a un fichero por (fuente, entrada, perfil) y que la casa
@@ -514,7 +515,15 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       diccionario (DICCIONARIO de la rama estudio-d3d) los lista, y hay que cruzarlos con los huecos de
       `com.rs` de la casa. P3c1 **Como se sabe:** `prueba/peek.exe` dice
       `bien` doce veces (poner `ceil` a redondear hacia abajo da MAL,
-      comprobado). Para repetir la medida:
+      comprobado). P3c2 **Como se sabe:** `bmo_proton_x::sombras` (la
+      huella FNV-1a de 32 bits de fuente, entrada, perfil, banderas y macros,
+      y el `.ent`), `compilador.rs` de la casa (D3DCompile sobre
+      `window/sombras`, carpeta que crea el build) y el obrero de Windows
+      `obrero/sombras.exe`, que compila lo pendiente con el d3dcompiler_47 de
+      ese Windows. `prueba/compila.exe` en el anfitrion, dos veces: sin `.cso`
+      dice E_FAIL y deja la fuente y el pedido; con ellos, da sus bytes. En
+      Windows compila de verdad (tambien `bien`). Falta: correr `sombras.exe`
+      en Windows sobre lo que deje el Ryzen. Para repetir la medida:
 ```text
    cd estudio-d3d
    RUSTFLAGS="-C linker=lld-link -C link-arg=/force:unresolved -C link-arg=/entry:main"
