@@ -484,7 +484,24 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
-- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** Pide P4 (el
+- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [ARRANCA en el
+      banco 28-09, hasta D3DCompile] `prueba/bmox12.exe` es estudio_d3d12
+      compilado por el propietario en su Windows (rustc 1.97.1, `std` de Rust
+      y CRT de MSVC; ver HACER.txt). En la casa le faltaban 9 nombres: el
+      arranque del CRT estatico (InitializeSListHead, IsDebuggerPresent,
+      IsProcessorFeaturePresent -- SSE, SSE2 y NX si, FASTFAIL no --,
+      UnhandledExceptionFilter y _seh_filter_exe) y las excepciones de C++
+      por las que va el panic de Rust (_CxxThrowException,
+      __CxxFrameHandler3, __current_exception(_context)): esas cuatro, hoy,
+      dicen cual y terminan con 0xE06D7363 como en Windows; un programa que
+      no entra en panico no las llama. **Como se sabe:** en el banco arranca
+      entero -- imprime "GPU: PROTON-X (la CPU de BMO-X)", el tearing y sus
+      cifras de memoria -- y llega a D3DCompile: su HLSL va con CRLF (huella
+      d7e2992c), no hay .cso, la casa deja el pedido y el programa sale con
+      su error (1) sin romperse. Quitar un nombre de la casa: no carga.
+      Falta: los .cso de d7e2992c y b50c1000 (sombras.exe en Windows, una
+      vez), el cubo entero en el banco, y el Ryzen. Lo de C++ (el panic)
+      va aparte, con su banco. Pide P4 (el
       runtime de Rust para Windows). **Como se sabe:** `proton-x cubo.exe`
       dibuja IGUAL, bit a bit, que D3D12 en Windows -- el criterio de X5.
       **MEDIDO el 27-09, sin Windows.** BMOX-12 es `estudio_d3d12` de la rama

@@ -180,7 +180,8 @@ try {
     # Y `compila.exe` (P3c2, 28-09): D3DCompile pagando una vez, sobre window\sombras.
     # Y `usadll.exe` con su `saludo.dll` (P5a, 28-09): una DLL propia, como las de un juego.
     # Y `cubo12.exe` (P3c4, 28-09): el cubo por el camino de BMOX-12 (Factory6, SwapChain3, profundidad, SM5).
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe')) {
+    # Y `bmox12.exe` (P3c, 28-09): el BMOX-12 de EPICX sin tocar, compilado en el Windows del propietario.
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe', 'seh.exe', 'bmox12.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
@@ -212,7 +213,7 @@ try {
     )
     Set-Content -LiteralPath (Join-Path $dataBase 'window\sombras\LEEME.TXT') -Value $leemeSom -Encoding ascii
     # P3c4 (28-09): los .cso del cubo de BMOX-12 que sombras.exe ya compilo en
-    # Windows (prueba\sombras): cubo12.exe no espera a nadie.
+    # Windows (prueba\sombras): cubo12.exe (y bmox12.exe, con los suyos) no espera a nadie.
     Get-ChildItem (Join-Path (Get-Location) 'platform\shared\proton-x\prueba\sombras\*.cso') | ForEach-Object {
         Copy-Item $_.FullName (Join-Path $dataBase ('window\sombras\' + $_.Name)) -Force
     }

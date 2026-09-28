@@ -841,3 +841,36 @@ fn seh_exe_lanza_coge_y_desenrolla_como_windows() {
     assert!(texto.contains("una excepcion en un hilo, cogida en ese hilo 0x0000000000000007"), "{texto}");
     assert!(texto.ends_with("seh.exe: las excepciones son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
+
+const BMOX12: &[u8] = include_bytes!("../../proton-x/prueba/bmox12.exe");
+
+/// *** P3c en el anfitrion: `bmox12.exe`, el BMOX-12 de EPICX (estudio_d3d12)
+/// compilado por el propietario en SU Windows (rustc 1.97.1, la `std` de Rust
+/// y el CRT de MSVC), SIN TOCAR. Arranca en la casa entero: el CRT, la
+/// fabrica 6, el adaptador ("PROTON-X"), el dispositivo, la cadena, la
+/// profundidad y sus cifras de memoria, hasta D3DCompile. Su HLSL va con CRLF
+/// (el checkout de Windows): huella d7e2992c, sin .cso todavia; la casa deja
+/// el pedido, D3DCompile da E_FAIL y el programa sale con su error (1), sin
+/// romperse. Con los .cso de d7e2992c y b50c1000 (sombras.exe, una vez) este
+/// test pasa a pedir el cubo entero.
+#[test]
+fn bmox12_exe_arranca_entero_en_la_casa_hasta_d3dcompile() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window/sombras");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    *NOMBRE.lock().unwrap() = ("window/bmox12.exe", "");
+    let esc = 1 << 62 | 1 << 8 | 1 << 9 | 0x1B;
+    let (salio, dicho, _) = correr_exe(&uno, BMOX12, true, &[0, 0, 0, esc]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = String::from_utf8_lossy(&dicho);
+    assert!(texto.starts_with("[Estudio D3D12] GPU: PROTON-X (la CPU de BMO-X)\n"), "{texto}");
+    assert!(texto.contains("[Estudio D3D12] tearing (VSync apagado de verdad en flip model): no\n"), "{texto}");
+    assert!(texto.contains("[memoria] depth D32 (DEFAULT)          pedidos   3686400 B"), "{texto}");
+    assert!(texto.contains("D3DCompile(VSMain, vs_5_0) sin compilar todavia: dejado en window/sombras/d7e2992c.hls"), "{texto}");
+    assert!(texto.contains("HRESULT(0x80004005)"), "el error de D3DCompile, como lo imprime el crate windows: {texto}");
+    assert_eq!(salio, 1, "main devuelve Err: sale con 1, sin romperse");
+    let pedido = std::fs::read(dir.join("d7e2992c.ent")).unwrap();
+    assert_eq!(pedido, std::fs::read("../proton-x/prueba/sombras/d7e2992c.ent").unwrap());
+    assert_eq!(std::fs::read(dir.join("d7e2992c.hls")).unwrap(), std::fs::read("../proton-x/prueba/sombras/d7e2992c.hls").unwrap());
+}

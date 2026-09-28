@@ -459,6 +459,46 @@ extern "win64" fn ro_originate_error_w(_hr: i32, _n: u32, _texto: u64) -> i32 {
     0
 }
 
+// -- P3c: lo que el arranque del CRT estatico de MSVC pide (BMOX-12) --------
+
+/// `InitializeSListHead`: una lista enlazada atomica vacia (16 bytes a cero).
+extern "win64" fn initialize_slist_head(cabeza: *mut u8) {
+    if !cabeza.is_null() {
+        // SAFETY: un SLIST_HEADER del `.exe` (16 bytes).
+        unsafe { core::ptr::write_bytes(cabeza, 0, 16) };
+    }
+}
+
+/// `IsDebuggerPresent`: en BMO-X no hay depurador de Ring 3.
+extern "win64" fn is_debugger_present() -> i32 {
+    0
+}
+
+const PF_XMMI_INSTRUCTIONS_AVAILABLE: u32 = 6;
+const PF_XMMI64_INSTRUCTIONS_AVAILABLE: u32 = 10;
+const PF_NX_ENABLED: u32 = 12;
+
+/// `IsProcessorFeaturePresent`: lo que TODO x86-64 tiene (SSE, SSE2, NX), y
+/// nada mas. PF_FASTFAIL_AVAILABLE (23) es NO a proposito: `__fastfail` es
+/// `int 0x29`, y el kernel de BMO-X no la sirve; con NO, el CRT termina por
+/// su otro camino (TerminateProcess). Decir NO a lo demas solo le hace tomar
+/// caminos mas lentos, nunca uno roto.
+extern "win64" fn is_processor_feature_present(que: u32) -> i32 {
+    matches!(que, PF_XMMI_INSTRUCTIONS_AVAILABLE | PF_XMMI64_INSTRUCTIONS_AVAILABLE | PF_NX_ENABLED) as i32
+}
+
+const EXCEPTION_EXECUTE_HANDLER: i32 = 1;
+
+/// `UnhandledExceptionFilter`: lo llama el CRT cuando algo no tiene arreglo
+/// (`__report_gsfailure`, una excepcion que llega a su `__except` de arriba).
+/// Se dice, y EXECUTE_HANDLER: quien llama termina el proceso. Lo que no es
+/// Windows, dicho: no llama al filtro de SetUnhandledExceptionFilter ni
+/// ofrece depurar.
+extern "win64" fn unhandled_exception_filter(_punteros: u64) -> i32 {
+    aviso("UnhandledExceptionFilter: una excepcion sin arreglo, el proceso termina");
+    EXCEPTION_EXECUTE_HANDLER
+}
+
 /// Las de oleaut32.dll.
 pub(crate) fn buscar_oleaut32(n: &str) -> Option<u64> {
     Some(match n {
@@ -492,6 +532,10 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "InitializeProcThreadAttributeList" => dir!(initialize_proc_thread_attribute_list),
         "UpdateProcThreadAttribute" => dir!(update_proc_thread_attribute),
         "DeleteProcThreadAttributeList" => dir!(delete_proc_thread_attribute_list),
+        "InitializeSListHead" => dir!(initialize_slist_head),
+        "IsDebuggerPresent" => dir!(is_debugger_present),
+        "IsProcessorFeaturePresent" => dir!(is_processor_feature_present),
+        "UnhandledExceptionFilter" => dir!(unhandled_exception_filter),
         _ => return None,
     })
 }

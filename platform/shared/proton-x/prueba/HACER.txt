@@ -431,3 +431,27 @@ clang. hola.exe sale identico con las dos; ficheros.exe e hilos.exe, no.
 
 En Windows dice `bien` nueve veces y sale con 0 -- la ultima, desde el filtro
 de SetUnhandledExceptionFilter, que es el que llama a ExitProcess.
+
+bmox12.exe -- el BMOX-12 de EPICX, SIN TOCAR (P3c, 28-09)
+
+No se fabrica aqui: es `estudio_d3d12` de la rama estudio-d3d de
+EPICX-FRAMEWORK-DirectX12 (commit 412542e58def89b8e8779369a6f51135067c5a98),
+compilado por el propietario en SU Windows con rustc 1.97.1 (8bab26f4f
+2026-07-14) y el CRT de MSVC, sin su nombre dentro:
+
+   $env:RUSTFLAGS = "--remap-path-prefix=C:\Users\<usuario>=~"
+   cargo build --release -p estudio_d3d12
+   copy target\release\estudio_d3d12.exe bmox12.exe
+
+sha256 del que esta aqui:
+
+   7e65def585bd4cb619a293b259179f6c6ba189bc1c6cd513040a4b447e070d09
+
+En Windows dibuja el cubo en la 3060. Su HLSL va DENTRO con CRLF (el
+checkout de Windows), asi que su huella no es la de sombras/f3ef42a0: los
+pedidos son sombras/d7e2992c (VSMain) y b50c1000 (PSMain), ya escritos. En
+Windows, una vez:
+
+   platform\shared\proton-x\obrero\sombras.exe platform\shared\proton-x\prueba\sombras
+
+deja d7e2992c.cso y b50c1000.cso; se suben, y bmox12.exe dibuja en la casa.
