@@ -61,6 +61,24 @@ pub const TRAMO_VA: u64 = 0x2_0000_0000;
 /// Cuantas: 64 KiB (colas, USERD, instancia y datos de L1d).
 pub const TRAMO_PAGINAS: usize = 16;
 
+// -- P3b4b: LOS DATOS DE VERRANO (28-09) -----------------------------------
+//
+// El cbuffer y los vertices de un dibujo (`tuberia::Paquete::vertices`). Iban
+// en 1 KiB de la pagina de los semaforos; BMOX-12 ya pide 1104 B y un juego,
+// mucho mas. 64 KiB de VRAM justo DETRAS del tramo (libres hasta las tablas
+// de GR en 0x0430_0000), y la GPU los ve en su propio trozo de la PT: las
+// entradas 0..15 son del tramo, 16..303 de lienzo, blur y fractal, 304 del
+// anillo; estas, 320..335. Se mapean con el tramo (L1d1), en el mismo paso.
+
+/// Los datos, en VRAM.
+pub const DATOS: u64 = TRAMO + TRAMO_PAGINAS as u64 * 0x1000;
+/// Cuantas paginas: 64 KiB.
+pub const DATOS_PAGINAS: usize = 16;
+/// Su primera entrada en la PT del tramo.
+pub const DATOS_PT: usize = 320;
+/// Donde los ve la GPU.
+pub const DATOS_VA: u64 = TRAMO_VA + DATOS_PT as u64 * 0x1000;
+
 /// **La ventana para `dir`**: `(valor del registro, desplazamiento en ella)`.
 pub const fn ventana(dir: u64) -> (u32, u32) {
     let base = dir & !(VENTANA_MEDIDA - 1);
@@ -170,11 +188,15 @@ pub fn mapear_tramo<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
         a_cero(r, t);
     }
     let (e, n) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, TRAMO_VA, TRAMO, TRAMO_PAGINAS)?;
-    for &(d, v) in &e[..n] {
-        escribir64(r, d, v);
+    // Y los DATOS de VERRANO (P3b4b): sus PTE, en la misma PT (las PDE son
+    // las del tramo, que ya van en `e`).
+    let (d, _) = crate::mmu::mapear_tramo(DIRECTORIO, TABLAS, DATOS_VA, DATOS, DATOS_PAGINAS)?;
+    let todas = e[..n].iter().chain(&d[..DATOS_PAGINAS]);
+    for &(dir, v) in todas.clone() {
+        escribir64(r, dir, v);
     }
-    let bien = e[..n].iter().filter(|&&(d, v)| leer64(r, d) == v).count() as u32;
-    Some((n as u32, bien))
+    let bien = todas.clone().filter(|&&(dir, v)| leer64(r, dir) == v).count() as u32;
+    Some(((n + DATOS_PAGINAS) as u32, bien))
 }
 
 /// La prueba cabe en un `u64` para el escritorio: `buenas | devueltas << 16 |
@@ -186,6 +208,12 @@ pub const fn empaquetar(p: &Prueba) -> u64 {
 pub const fn desempaquetar(v: u64) -> (u32, u32, bool, u32) {
     ((v & 0xFFFF) as u32, ((v >> 16) & 0x7FFF) as u32, v >> 31 & 1 != 0, (v >> 32) as u32)
 }
+
+// Los datos no pisan el tramo ni las tablas de GR, y su trozo de la PT no
+// pisa el de nadie (el anillo acaba en la 305).
+const _: () = assert!(DATOS == TRAMO + 0x1_0000 && DATOS + DATOS_PAGINAS as u64 * 0x1000 <= 0x0430_0000);
+const _: () = assert!(DATOS_PT >= crate::anillo::PT_PRIMERA + crate::anillo::PAGINAS as usize && DATOS_PT + DATOS_PAGINAS <= 512);
+const _: () = assert!(DATOS_PT >= TRAMO_PAGINAS);
 
 #[cfg(test)]
 mod pruebas {
@@ -292,7 +320,12 @@ mod pruebas {
         let vram = std::boxed::Box::leak(std::vec![0u32; 1 << 19].into_boxed_slice());
         let mut g = Grande { ventana: 0xFFF0, vram };
         let (n, bien) = mapear_tramo(&mut g).unwrap();
-        assert_eq!((n, bien), (20, 20));
+        // 16 PTE del tramo + 4 PDE + 16 PTE de los DATOS (P3b4b).
+        assert_eq!((n, bien), (36, 36));
+        for k in 0..DATOS_PAGINAS as u64 {
+            assert_eq!(leer64(&mut g, TABLAS[3] + 8 * (DATOS_PT as u64 + k)), crate::mmu::pte_vram(DATOS + 4096 * k), "los DATOS, pagina {k}");
+        }
+        assert_eq!(crate::mmu::indices(DATOS_VA)[4], DATOS_PT);
         assert_eq!(g.ventana, 0xFFF0, "la ventana, como estaba");
         // La raiz apunta a la PD2 del tramo, en VRAM.
         assert_eq!(leer64(&mut g, DIRECTORIO), crate::mmu::pde_vram(TABLAS[0]));

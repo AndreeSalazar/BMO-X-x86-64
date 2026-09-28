@@ -376,6 +376,12 @@ fn a_la_ranura(k: u32, vertices: &[u8]) {
 /// anillo esta armado con lo mismo, el fotograma se ENVIA y se vuelve; si
 /// no, se ARMA en frio con este fotograma y se espera.
 fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, huella: u64, coopera: bool) -> Result<u64, u32> {
+    // P3b4b: VERRANO en frio acepta 64 KiB de DATOS; una ranura del anillo,
+    // 1 KiB. Lo que no cabe se dice aqui, ANTES de copiar nada a la ranura.
+    if !bmo_gpu_ga10x::anillo::cabe(paquete) {
+        crate::ring0::cabina::warn("gpu", "VERRANO: el paquete no cabe en una ranura del anillo; bytes", paquete.vertices.len() as u64);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
     let mut r = Bar0(bar0);
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let desde = crate::ring0::task::scheduler::rdtsc();

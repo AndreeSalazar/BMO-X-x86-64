@@ -497,7 +497,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            4b  [ ] EL KERNEL (Ring 0, dicho que si el 28-09): (1) dibujar en
                la ventana de la app -- su memoria prestada a la 3060 por la
                IOMMU, como `lienzo` --, no en un recuadro fijo; (2) DATOS en un
-               tramo propio de VRAM (64 KiB; hoy 1 KiB y BMOX-12 pide 1104 B);
+               tramo propio de VRAM (64 KiB; hoy 1 KiB y BMOX-12 pide 1104 B)
+               [HECHO en el banco 28-09: `vram::DATOS`, 16 paginas detras del
+               tramo, en las entradas 320..335 de su PT; el anillo, 1 KiB por
+               ranura (`anillo::cabe`). FALTA el metal];
                (3) el dibujo CON INDICES por el hardware; (4) el descarte de
                caras por el hardware (hoy lo hace la CPU con la tanda).
            4c  [ ] la puerta de la 3060 en la app `proton-x` (su ejecutor del

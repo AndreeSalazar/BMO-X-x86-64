@@ -65,7 +65,7 @@ use crate::lienzo::sombreador_va;
 use crate::raster::{ESCALONES, N_ESCALONES, SUSTITUTO};
 use crate::sombreador::{EMPUJE, PROGRAMA, SALIDA, SEMAFOROS};
 use crate::tresde as td;
-use crate::tuberia::{escribir_bytes, Paquete, BYTES_VERTICE, MAX_VERTICES, PS, TABLA, VS};
+use crate::tuberia::{escribir_bytes, Paquete, BYTES_VERTICE, PS, TABLA, VS};
 use crate::vram::{a_cero, escribir64, leer64, ventana, TRAMO_VA, VENTANA, VENTANA_REG};
 use crate::Registros;
 
@@ -73,6 +73,15 @@ use crate::Registros;
 pub const RANURAS: u32 = 4;
 /// Lo que mide la ranura de vertices en la pagina de RAM.
 pub const PASO: u64 = 1024;
+/// Lo mas que dibuja un fotograma del anillo (el de V0: la tanda).
+pub const MAX_VERTICES: usize = 3 * crate::cubo::CABEN;
+
+/// **Si un paquete cabe en el anillo**: sus DATOS en una ranura (1 KiB, no
+/// los 64 KiB de VERRANO en frio) y sus vertices. El kernel lo mira ANTES
+/// de copiar nada a la ranura.
+pub const fn cabe(p: &Paquete) -> bool {
+    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES
+}
 pub const PAGINAS: u64 = 1;
 /// Donde la ve la IOMMU: tras el MiB del fractal (y antes del booter).
 pub const IOVA: u64 = 0x3A20_0000;
@@ -194,7 +203,7 @@ pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
 /// ENTERA: lo que haya quedado de antes en ella no lo sabe nadie.
 pub fn armar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, numero: u32, coopera: bool) -> bool {
     let n = p.n;
-    if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
+    if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || !cabe(p) {
         return false;
     }
     let va = vertices_va(ranura(numero));
@@ -330,7 +339,7 @@ const _: () = assert!(MAX_VERTICES * BYTES_VERTICE <= PASO as usize && RANURAS a
 const _: () = assert!(RANURAS as usize * PALABRAS_RANURA * 4 <= 4096);
 // La direccion alta de los vertices no cambia de una ranura a otra (el
 // semaforo de la tabla solo escribe la baja) ni respecto de la de V0.
-const _: () = assert!(VA >> 32 == (VA + PAGINAS * 4096 - 1) >> 32 && VA >> 32 == sombreador_va(crate::tuberia::VERTICES) >> 32);
+const _: () = assert!(VA >> 32 == (VA + PAGINAS * 4096 - 1) >> 32 && VA >> 32 == crate::vram::DATOS_VA >> 32);
 // Tras el fractal, en la PT y en la IOVA; la valla, tras la del cubo.
 const _: () = assert!(PT_PRIMERA as u64 >= crate::fractal::PT_PRIMERA as u64 + crate::fractal::PAGINAS && PT_PRIMERA as u64 + PAGINAS <= 512);
 const _: () = assert!(IOVA >= crate::fractal::IOVA + crate::fractal::PAGINAS * 4096 && IOVA + PAGINAS * 4096 <= crate::volcado::IOVA);

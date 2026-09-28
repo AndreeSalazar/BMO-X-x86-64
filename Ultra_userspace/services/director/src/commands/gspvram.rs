@@ -287,7 +287,8 @@ pub(crate) const NO_TRAMO_MAL: u32 = 0x128;
 
 /// **Mapear el tramo** (L1d1): el kernel pone las tablas y relee.
 pub(crate) fn mapear_tramo() -> Result<u64, u32> {
-    let r = match super::gsprpc::usable(vram::TRAMO, 4096 * vram::TRAMO_PAGINAS as u64) {
+    // El tramo y, detras, los DATOS de VERRANO (P3b4b): se mapean juntos.
+    let r = match super::gsprpc::usable(vram::TRAMO, 4096 * (vram::TRAMO_PAGINAS + vram::DATOS_PAGINAS) as u64) {
         None => Err(NO_VRAM_SIN_REGIONES),
         Some(false) => Err(NO_VRAM_NO_USABLE),
         Some(true) => bmo::iommu_orden(bmo::IOMMU_OP_GPU_TRAMO),
@@ -343,7 +344,9 @@ pub(crate) fn fila_tramo(s: &mut Output) {
             s.hex(vram::TRAMO, 9);
             s.text(b", ");
             s.dec(vram::TRAMO_PAGINAS as u64);
-            s.text(b" paginas: ");
+            s.text(b" paginas y ");
+            s.dec(vram::DATOS_PAGINAS as u64);
+            s.text(b" de DATOS: ");
             s.dec((v >> 16) & 0xFFFF);
             s.text(b" de ");
             s.dec(v & 0xFFFF);

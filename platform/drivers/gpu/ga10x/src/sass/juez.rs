@@ -673,11 +673,16 @@ mod pruebas {
             b
         };
         let vs = bytes(MAX_INSTRUCCIONES);
-        let v = std::vec![tu::Vertice::default(); tu::MAX_VERTICES];
+        // V0: los vertices que caben en los DATOS (64 KiB de 32 B), y uno
+        // (tres) mas, no.
+        let v0 = tu::DATOS_MAX / tu::BYTES_VERTICE / 3 * 3;
+        let v = std::vec![tu::Vertice::default(); v0];
         let mut caja = std::vec![0u8; tu::MAX_PAQUETE];
         let n = tu::escribir_paquete(&mut caja, 1, &vs, &ps, &v).unwrap();
         let p = tu::leer(&caja[..n]).unwrap();
-        assert_eq!((p.vs.len(), p.ps.len(), p.n), (tu::HUECO, tu::HUECO, tu::MAX_VERTICES));
+        assert_eq!((p.vs.len(), p.ps.len(), p.n), (tu::HUECO, tu::HUECO, v0));
+        let mas = std::vec![tu::Vertice::default(); v0 + 3];
+        assert_eq!(tu::escribir_paquete(&mut std::vec![0u8; tu::MAX_PAQUETE + 128], 1, &vs, &ps, &mas), None);
         // E5: los datos mas grandes que caben, y los dos huecos llenos.
         let datos = std::vec![7u8; tu::DATOS_MAX];
         let n = tu::escribir_paquete_datos(&mut caja, 1, &vs, &ps, 18, &datos).unwrap();

@@ -57,7 +57,7 @@
 
 use crate::canal::GR;
 use crate::copia::{entrada, escribir};
-use crate::cubo::{self as cu, con_control, mov, Ventana, ALU, CABEN, SEMAFORO_FIN};
+use crate::cubo::{self as cu, con_control, mov, Ventana, ALU, SEMAFORO_FIN};
 use crate::lienzo::sombreador_va;
 use crate::raster::{programa, ESCALONES, N_ESCALONES, SPH, SUSTITUTO};
 use crate::sombreador::{EMPUJE, PROGRAMA, SALIDA, SEMAFOROS};
@@ -66,14 +66,17 @@ use crate::Registros;
 
 /// La tabla de buffers (`SM86_V1`): la ranura 0, la de los vertices.
 pub const TABLA: u64 = SEMAFOROS + 0x600;
-/// Los vertices: 8 floats cada uno (la posicion y el color), 32 B.
-pub const VERTICES: u64 = SEMAFOROS + 0x800;
+/// Los DATOS (P3b4b, 28-09): 64 KiB de VRAM propios (`vram::DATOS`), que
+/// la GPU ve en `vram::DATOS_VA`. Antes, 1 KiB en la pagina de los semaforos.
+pub const DATOS: u64 = crate::vram::DATOS;
+/// Un vertice de V0: 8 floats (la posicion y el color), 32 B.
 pub const BYTES_VERTICE: usize = 32;
-pub const MAX_VERTICES: usize = 3 * CABEN;
+/// Lo mas que se dibuja de una vez (los datos lo acotan antes: V0, 2048).
+pub const MAX_VERTICES: usize = 3 * 4096;
 /// Lo mas que miden los DATOS de un paquete (E5): los vertices de V0 o,
 /// con un programa emitido, el cbuffer y los vertices como el programa los
-/// lee. Lo que cabe en una ranura del anillo (`anillo::PASO`).
-pub const DATOS_MAX: usize = 1024;
+/// lee. 64 KiB (P3b4b); el anillo, lo de su ranura (`anillo::cabe`).
+pub const DATOS_MAX: usize = crate::vram::DATOS_PAGINAS * 4096;
 /// Donde van los dos programas: el principio de las paginas de X5.
 pub const VS: u64 = SALIDA;
 pub const PS: u64 = PROGRAMA;
@@ -330,7 +333,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// o los que diga (E5), enteros de 16 y hasta [`DATOS_MAX`].
 fn datos(cabecera: &[u8], n: usize) -> Option<usize> {
     match u32le(cabecera, 28) as usize {
-        0 => Some(n * BYTES_VERTICE),
+        0 => (n * BYTES_VERTICE <= DATOS_MAX).then_some(n * BYTES_VERTICE),
         d => (d % 16 == 0 && d <= DATOS_MAX).then_some(d),
     }
 }
@@ -441,7 +444,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, l
     }
     let o = ordenes_con(v, n / 3, ligero);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
-    let va = sombreador_va(VERTICES);
+    let va = crate::vram::DATOS_VA;
     escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
         && escribir(r, ESCALONES, &[0; N_ESCALONES as usize]) == N_ESCALONES as usize
         && a_cero(r, SALIDA) as usize == crate::vram::PALABRAS
@@ -450,7 +453,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, l
         && escribir_bytes(r, VS, p.vs)
         && escribir_bytes(r, PS, p.ps)
         && escribir(r, TABLA, &[va as u32, (va >> 32) as u32]) == 2
-        && escribir_bytes(r, VERTICES, p.vertices)
+        && escribir_bytes(r, DATOS, p.vertices)
         && escribir(r, EMPUJE, &o.o[..o.n]) == o.n && escribir(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]) == 2
 }
 
@@ -514,7 +517,7 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
         for (i, q) in trozo.chunks_exact(4).enumerate() {
             w[i] = u32le(q, 0);
         }
-        vol(r, VERTICES + 256 * k as u64, &w[..m]);
+        vol(r, DATOS + 256 * k as u64, &w[..m]);
     }
     vol(r, GR.gpfifo + 8 * e as u64, &[en as u32, (en >> 32) as u32]);
     true
@@ -525,8 +528,7 @@ const _: () = assert!(VS == cu::vs(0) && PS == cu::ps(0));
 // Cada uno cabe en su pagina (VS en la 10, PS en la 11, que se ponen a cero).
 const _: () = assert!(HUECO <= 0x1000 && VS + 0x1000 == PS);
 const _: () = assert!(TABLA >= crate::video::PARAMETROS + 4 * crate::video::N_PARAMETROS as u64);
-const _: () = assert!(VERTICES >= TABLA + 8 && VERTICES + DATOS_MAX as u64 <= SEMAFOROS + 0x1000);
-const _: () = assert!(MAX_VERTICES * BYTES_VERTICE <= DATOS_MAX && DATOS_MAX as u64 <= crate::anillo::PASO);
+const _: () = assert!(TABLA + 8 <= SEMAFOROS + 0x1000 && DATOS_MAX == 64 * 1024);
 
 #[cfg(test)]
 mod pruebas {
