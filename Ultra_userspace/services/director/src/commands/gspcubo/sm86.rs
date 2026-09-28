@@ -59,6 +59,18 @@ const BMOX12_PS: &[u8] = include_bytes!(concat!(env!("CARGO_MANIFEST_DIR"), "/..
 /// mas grande que el kernel acepta (`tuberia::MAX_PAQUETE`), en paginas.
 pub(super) const CAJA: u64 = (tu::MAX_PAQUETE as u64).div_ceil(4096) * 4096;
 
+/// **Lo mas que dibuja un `draw` de V0**: la tanda (`anillo::MAX_VERTICES`,
+/// 24 vertices, 768 B), NO `tuberia::MAX_VERTICES`.
+///
+/// *** La copia a `tuberia::Vertice` vive en la PILA, y la pila de Ring 3
+/// mide 64 KiB (`vmm::USER_STACK_SIZE`). El 28-09 `tuberia::MAX_VERTICES`
+/// subio a 3 * 4096 (el tope de VRN1) y este `draw` paso a pedir 384 KiB de
+/// pila: el primer `gpu verrano` se salio por el fondo (`cr2=0x7FFEF580`,
+/// 0xA80 bajo `USER_STACK_BOTTOM`). Por eso el tope es SUYO y esta acotado:
+/// no puede volver a crecer con un numero de otro.
+const V0_MAX: usize = bmo_gpu_ga10x::anillo::MAX_VERTICES;
+const _: () = assert!(V0_MAX * tu::BYTES_VERTICE <= 4096 && V0_MAX <= tu::MAX_VERTICES);
+
 /// Las opciones que son de ESTA tarjeta (las palabras que las piden).
 #[derive(Clone, Copy, Default)]
 pub(super) struct Opciones {
@@ -359,7 +371,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
 impl Backend for Aparato<'_> {
     fn draw(&mut self, frame: &Frame, out: &mut Image) -> Result<Stats, Error> {
         let t0 = bmo::ciclos();
-        check(frame, out, tu::MAX_VERTICES)?;
+        check(frame, out, V0_MAX)?;
         // Lo que se le da al programa, contra lo que el programa dice leer.
         let dado = Given { set: 0, binding: 0, addr: frame.vertices.as_ptr() as u64, bytes: (frame.vertices.len() * VERTEX_BYTES) as u64, writable: false };
         self.vertice.check(&[dado]).map_err(|_| Error::Vertices)?;
@@ -367,7 +379,7 @@ impl Backend for Aparato<'_> {
         if (frame.viewport.width, frame.viewport.height) != (cu::ANCHO, cu::ALTO) || frame.clear.map(f32::to_bits) != cu::FONDO {
             return Err(Error::Image);
         }
-        let mut v = [tu::Vertice::default(); tu::MAX_VERTICES];
+        let mut v = [tu::Vertice::default(); V0_MAX];
         for (d, s) in v.iter_mut().zip(frame.vertices) {
             *d = tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) };
         }
