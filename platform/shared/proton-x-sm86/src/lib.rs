@@ -59,6 +59,8 @@ extern crate alloc;
 
 pub mod planifica;
 pub mod simula;
+/// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
+pub mod pso;
 
 use alloc::vec;
 use alloc::vec::Vec;

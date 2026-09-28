@@ -18,3 +18,6 @@ name = "bmo_proton_x_casa"
 # comprueba lo que la tuberia de la casa captura.
 [dev-dependencies]
 bmo-cubo = { path = "../bmo-cubo" }
+# P3b4a: el banco traduce cada lote para la 3060 (su emisor, su pegamento y
+# su juez) y lo compara con la casa.
+bmo-proton-x-sm86 = { path = "../proton-x-sm86" }

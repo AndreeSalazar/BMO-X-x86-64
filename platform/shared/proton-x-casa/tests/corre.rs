@@ -185,7 +185,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de
@@ -854,6 +854,95 @@ fn seh_exe_lanza_coge_y_desenrolla_como_windows() {
     assert!(texto.ends_with("seh.exe: las excepciones son las de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **P3b4a en el banco**: mientras esto este puesto, cada lote que dibuja la
+/// casa se traduce TAMBIEN para la 3060 (una vez por PSO y paso) y su
+/// vertice se comprueba contra la casa.
+struct La3060 {
+    almacen: bmo_proton_x_sm86::pso::Almacen,
+    lotes: usize,
+    vertices: usize,
+    datos_max: usize,
+    fallos: Vec<String>,
+}
+static LA3060: Mutex<Option<La3060>> = Mutex::new(None);
+
+/// El ejecutor del banco: el de la casa, y lo de la 3060 si se pide.
+fn dibujar_y_la_3060(l: &lote::Lote, d: &mut trama::Destino) -> Result<trama::Cuenta, lote::NoDibuja> {
+    if let Some(b) = LA3060.lock().unwrap().as_mut() {
+        comprobar_la_3060(b, l);
+    }
+    bmo_proton_x_casa::nativo::dibujar(l, d)
+}
+
+/// Traduce el lote para la 3060 y, con el SIMULADOR, corre su cuerpo con los
+/// registros que el pegamento cargaria DE LOS DATOS (el cbuffer y el bufer de
+/// vertices del juego tal cual): cada salida, los bits de la casa.
+fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
+    use bmo_proton_x_sm86::simula::{correr, Maquina};
+    use bmo_proton_x_sm86::{emitir_con, Abi, Precarga};
+    b.lotes += 1;
+    let en = l.enlace;
+    let t = match b.almacen.dar(en, l.entradas, l.paso as u32) {
+        Ok(t) => t.clone(),
+        Err(e) => return b.fallos.push(format!("no va a la 3060: {e:?}")),
+    };
+    let mut datos = vec![0u8; 1 << 16];
+    let Some(n) = t.datos(l.cb, l.vertices, &mut datos) else { return b.fallos.push(String::from("los DATOS no se arman")) };
+    b.datos_max = b.datos_max.max(n);
+    let ev = emitir_con(&en.vs, 64, Abi::Registros).unwrap();
+    let els = bmo_proton_x_sm86::pso::elementos(en, l.entradas).unwrap();
+    let f32_de = |o: usize| u32::from_le_bytes([datos[o], datos[o + 1], datos[o + 2], datos[o + 3]]);
+    let mut ids: Vec<u32> = l.ids.to_vec();
+    ids.sort_unstable();
+    ids.dedup();
+    let (mut casa, mut regs) = (vec![[0f32; 4]; en.vs.salidas], Vec::new());
+    for id in ids {
+        let v = 16 * t.filas as usize + id as usize * l.paso;
+        let mut m = Maquina::nueva([&[]; 8]);
+        for (i, r) in m.r.iter_mut().enumerate() {
+            *r = 0x7FC0_0000 | i as u32;
+        }
+        for &p in &ev.precargas {
+            match p {
+                Precarga::Entrada { elemento, componente, reg } => {
+                    let el = els[elemento as usize];
+                    m.r[reg as usize] = if componente < el.componentes { f32_de(v + el.desde as usize + 4 * componente as usize) } else if componente == 3 { 0x3F80_0000 } else { 0 };
+                }
+                Precarga::Fila { fila, reg } => {
+                    for k in 0..4 {
+                        m.r[reg as usize + k] = f32_de(16 * fila as usize + 4 * k);
+                    }
+                }
+            }
+        }
+        correr(&ev.codigo, &mut m).unwrap();
+        // La casa, con SU lectura del input layout (la de `lote::en_cpu`).
+        let bytes = &l.vertices[id as usize * l.paso..(id as usize + 1) * l.paso];
+        let ent: Vec<[f32; 4]> = en
+            .desde_ia
+            .iter()
+            .map(|&ia| {
+                let el = &l.entradas[ia];
+                let mut x = [0.0, 0.0, 0.0, 1.0];
+                for c in 0..lote::componentes(el.formato) {
+                    let o = el.desde as usize + 4 * c;
+                    x[c] = f32::from_le_bytes(bytes[o..o + 4].try_into().unwrap());
+                }
+                x
+            })
+            .collect();
+        en.vs.correr(&ent, l.cb, &mut casa, &mut regs);
+        for (e, s) in casa.iter().enumerate() {
+            for k in 0..4 {
+                if m.r[4 * e + k] != s[k].to_bits() && !(f32::from_bits(m.r[4 * e + k]).is_nan() && s[k].is_nan()) && en.vs.ops.iter().any(|o| matches!(*o, bmo_proton_x::dxil::programa::Op::Salida { elemento, componente, .. } if elemento as usize == e && componente as usize == k)) {
+                    b.fallos.push(format!("vertice {id}, salida {e}.{k}: la 3060 {:08x}, la casa {:08x}", m.r[4 * e + k], s[k].to_bits()));
+                }
+            }
+        }
+        b.vertices += 1;
+    }
+}
+
 const BMOX12: &[u8] = include_bytes!("../../proton-x/prueba/bmox12.exe");
 
 /// Prepara `window/sombras` con los .cso del repo (o sin ellos) y corre
@@ -921,6 +1010,28 @@ fn bmox12_exe_con_sus_cso_dibuja_lo_de_la_3060() {
     for (f, esperada) in bmo_cubo::referencia::HUELLAS {
         assert_eq!(vistas[f as usize], esperada, "fotograma {f}");
     }
+}
+
+/// *** P3b4a: BMOX-12 SIN TOCAR y su PSO de verdad (el input layout, el
+/// paso y el cbuffer que pone EL JUEGO) traducidos para la 3060 UNA vez --
+/// emisor, pegamento y juez: PERFECTO --, y en cada lote de 31 fotogramas el
+/// cuerpo de su de vertice, con los registros que el pegamento cargaria de
+/// los DATOS, da los bits de la casa en cada vertice. La CPU solo copia.
+#[test]
+fn bmox12_exe_su_pso_va_a_la_3060_pagando_una_vez() {
+    let uno = uno_a_la_vez();
+    let esc = 1 << 8 | 1 << 9 | 0x01;
+    let mut guion = vec![0u64; 40];
+    guion.push(esc);
+    *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new() });
+    let (salio, texto) = correr_bmox12(&uno, true, "", &guion);
+    let b = LA3060.lock().unwrap().take().unwrap();
+    assert_eq!(salio, 0, "{texto}");
+    assert!(b.fallos.is_empty(), "{:?}", &b.fallos[..b.fallos.len().min(5)]);
+    assert!(b.lotes >= 30, "{} lotes", b.lotes);
+    assert_eq!(b.almacen.traducciones, 1, "UNA traduccion para todos los fotogramas");
+    assert_eq!(b.vertices, 24 * b.lotes, "los 24 vertices del cubo en cada lote");
+    eprintln!("bmox12 para la 3060: {} lotes, {} vertices comprobados, DATOS de {} B", b.lotes, b.vertices, b.datos_max);
 }
 
 /// *** P3c: `bmox12.exe --fotograma 30`, como se sacaron las huellas de la

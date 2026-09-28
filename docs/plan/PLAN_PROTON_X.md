@@ -481,9 +481,29 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            INTI (`intrinsics.toml`), con FMad como su `acumula` y ni una FMA.
            En el Ryzen, el 27-09 10:58: `cubo.exe` dibujo el mismo cubo con
            los sombreadores nativos en un bloque sellado, sin un aviso.
-      P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
-           en `.bsf` por la huella del sombreador; la segunda vez no se
-           traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
+      P3b4 LA 3060 DIBUJA EL LOTE (rehecho el 28-09, tras E5 en el metal:
+           ya no pasa por SPIR-V; el Programa de la casa va DIRECTO a SASS).
+           La CPU dirige -- traduce una vez, copia los datos, lanza --; la
+           3060 dibuja.
+           4a  [HECHO en el banco 28-09] PAGAR UNA VEZ:
+               `bmo_proton_x_sm86::pso` -- el Enlace del PSO y el input layout
+               del juego a los dos programas (emisor, pegamento, JUEZ), en un
+               Almacen por PSO y paso. El pegamento lee el vertice TAL CUAL
+               lo da el juego (cada elemento en su byte; lo que no trae, el
+               0/1 de D3D). **Como se sabe:** `bmox12.exe` sin tocar en el
+               banco: 39 lotes, UNA traduccion, y en cada lote su de vertice
+               con los registros que el pegamento cargaria de los DATOS da los
+               bits de la casa en los 24 vertices (936). DATOS de 1104 B.
+           4b  [ ] EL KERNEL (Ring 0, dicho que si el 28-09): (1) dibujar en
+               la ventana de la app -- su memoria prestada a la 3060 por la
+               IOMMU, como `lienzo` --, no en un recuadro fijo; (2) DATOS en un
+               tramo propio de VRAM (64 KiB; hoy 1 KiB y BMOX-12 pide 1104 B);
+               (3) el dibujo CON INDICES por el hardware; (4) el descarte de
+               caras por el hardware (hoy lo hace la CPU con la tanda).
+           4c  [ ] la puerta de la 3060 en la app `proton-x` (su ejecutor del
+               lote, `Plataforma::dibujar`), y en el Ryzen: `run
+               sys/proton-x.bex window/bmox12.exe` dibujado por la 3060, con
+               EL REGISTRO contra los 36-38 fps de la CPU.
 - [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [VISTO EN EL
       METAL el 28-09 06:41: `run sys/proton-x.bex window/bmox12.exe` en el
       Ryzen abre su ventana (1282x749) y el cubo GIRA, dibujado por la CPU;
