@@ -86,6 +86,30 @@ pub(super) extern "C" fn fault_report(vector: u64, error: u64, rip: u64, cr2: u6
     l.s("  err=0x"); l.hex(error, 8);
     inf.push(l);
 
+    // *** UN FALLO DENTRO DEL INFORME DE OTRO (2026-09-28): lo de abajo es
+    // del SEGUNDO, y la respuesta suele ser el PRIMERO. Va arriba del todo,
+    // con su veredicto, porque es lo que el 28-09 no salio y hubo que deducir.
+    if let Some((v0, e0, rip0, cr20, rsp0, tid0, r3)) = super::roja::el_de_debajo() {
+        let mut l = Line::new();
+        l.s("*** 2nd FAULT, INSIDE THE REPORT OF THE 1st. The 1st:");
+        inf.push(l);
+        let mut l = Line::new();
+        l.s("  1st vec=0x"); l.hex(v0, 2);
+        l.s(" err=0x"); l.hex(e0, 2);
+        l.s(" rip=0x"); l.hex(rip0, 10);
+        l.s(" cr2=0x"); l.hex(cr20, 10);
+        inf.push(l);
+        let mut l = Line::new();
+        l.s("  1st rsp=0x"); l.hex(rsp0, 10);
+        l.s(" tid="); l.hex(tid0, 2);
+        l.s(if r3 { " (Ring 3)" } else { " (Ring 0)" });
+        inf.push(l);
+        let mut l = Line::new();
+        l.s("  1st: ");
+        l.s(crate::ring0::core::autopsy::veredicto_corto(v0, e0, cr20, &crate::ring0::core::autopsy::Captura::VACIA));
+        inf.push(l);
+    }
+
     // *** `err` EN PALABRAS, Y NO SOLO EN HEXADECIMAL (2026-08-26).
     //
     // El volcado del Ryzen decia `err=0x00000002` y ese numero contesta TRES

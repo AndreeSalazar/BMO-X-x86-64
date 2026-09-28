@@ -149,6 +149,9 @@ pub struct Captura {
     /// que convierte "un marco de tabla se libero con alguien encima" en un
     /// fichero y una linea.
     solto: Option<&'static core::panic::Location<'static>>,
+    /// *** **Cuanto pide el marco de la funcion que fallo**, leido de su
+    /// SONDA DE PILA (`sonda_de_pila`). `None` = el `rip` no es una sonda.
+    marco: Option<u64>,
 }
 
 /// Cuantas palabras de pila se miran. Veinticuatro y no cuatro porque las
@@ -174,6 +177,7 @@ impl Captura {
         tabla_titular: "",
         pantalla_viva: false,
         solto: None,
+        marco: None,
     };
 
     /// **Se llama con el CR3 del proceso TODAVIA puesto.** Ver la cabecera.
@@ -187,6 +191,7 @@ impl Captura {
         c.traducida = crate::ring0::mm::vmm::translate(
             crate::ring0::mm::vmm::read_cr3(), cr2).is_some();
         c.medir_agujero(cr2);
+        c.marco = sonda_de_pila(rip);
         for k in 0..PILA_PALABRAS {
             c.pila[k] = leer_palabra_de_ring3(rsp.wrapping_add((k as u64) * 8));
             if c.pila[k].is_none() {
@@ -213,6 +218,12 @@ impl Captura {
     pub fn solto(&self) -> Option<(&'static str, u32)> {
         let l = self.solto?;
         Some((recortar_ruta(l.file()), l.line()))
+    }
+
+    /// Lo que pide el marco de la funcion que fallo, si fallo en su sonda de
+    /// pila (`sonda_de_pila`).
+    pub fn marco(&self) -> Option<u64> {
+        self.marco
     }
 
     /// Paginas del bloque del agujero. Cero si no se midio.
@@ -335,6 +346,86 @@ impl Captura {
     }
 }
 
+/// `sub $0x1000, %rsp`: el paso de la sonda de pila de LLVM.
+const SONDA_BAJA: [u8; 7] = [0x48, 0x81, 0xEC, 0x00, 0x10, 0x00, 0x00];
+/// `movq $0, (%rsp)`: el TOQUE de la sonda. Es la instruccion que falla.
+const SONDA_TOCA: [u8; 8] = [0x48, 0xC7, 0x04, 0x24, 0, 0, 0, 0];
+
+/// `n` bytes de la imagen desde `dir`, comparados con `patron`.
+fn es(dir: u64, patron: &[u8]) -> bool {
+    patron.iter().enumerate().all(|(k, &b)| leer_byte_de_ring3(dir.wrapping_add(k as u64)) == Some(b))
+}
+
+/// Un `imm32` de la imagen, en `dir`.
+fn imm32(dir: u64) -> Option<u64> {
+    let mut v = 0u64;
+    for k in 0..4 {
+        v |= (leer_byte_de_ring3(dir + k)? as u64) << (8 * k);
+    }
+    Some(v)
+}
+
+/// El `sub` que cierra el prologo, en `dir`: `sub $imm32, %rsp` o
+/// `sub $imm8, %rsp`. Cero si lo que sigue no es eso (un marco sin resto).
+fn resto_del_marco(dir: u64) -> u64 {
+    if es(dir, &[0x48, 0x81, 0xEC]) {
+        imm32(dir + 3).unwrap_or(0)
+    } else if es(dir, &[0x48, 0x83, 0xEC]) {
+        leer_byte_de_ring3(dir + 3).unwrap_or(0) as u64
+    } else {
+        0
+    }
+}
+
+/// *** **CUANTO PIDE EL MARCO que se salio de la pila**, leido del codigo que
+/// fallo (2026-09-28).
+///
+/// Un marco de mas de una pagina no baja `rsp` de golpe: LLVM lo baja de 4 KiB
+/// en 4 KiB y TOCA cada pagina (`movq $0, (%rsp)`), para que la de guarda no
+/// se salte. Por eso un desbordamiento de pila falla SIEMPRE en ese toque, y
+/// el tamanyo del marco esta escrito en las instrucciones de al lado:
+///
+/// ```text
+///   marco grande (bucle):   mov %rsp,%r11 ; sub $N,%r11        <- N
+///                           sub $0x1000,%rsp ; movq $0,(%rsp)  <- rip
+///                           cmp %r11,%rsp ; jne ; sub $R,%rsp  <- R
+///   marco mediano:          (sub $0x1000,%rsp ; movq $0,(%rsp)) x k
+///                           sub $R,%rsp
+/// ```
+///
+/// ** El 28-09 esto habria dicho *"pide 395432 B, la pila mide 65536"* en la
+/// misma pantalla, en vez de un `cr2` a interpretar. Antes el veredicto decia
+/// a proposito que el kernel NO podia saberlo: solo miraba el `cr2`, que es la
+/// primera pagina que falta y no el fondo del marco. El marco no estaba en el
+/// `cr2`; estaba en el codigo.
+///
+/// [!] Sin los `push` del prologo (unos 56 B como mucho): es lo que baja el
+/// `sub`, que es lo que un marco grande tiene de grande.
+fn sonda_de_pila(rip: u64) -> Option<u64> {
+    if !es(rip, &SONDA_TOCA) || !es(rip.wrapping_sub(7), &SONDA_BAJA) {
+        return None;
+    }
+    let despues = rip + SONDA_TOCA.len() as u64;
+    // El bucle: `sub $N, %r11` justo antes, `cmp %r11, %rsp ; jne` despues.
+    if es(rip - 14, &[0x49, 0x81, 0xEB]) && es(despues, &[0x4C, 0x39, 0xDC, 0x75]) {
+        return Some(imm32(rip - 11)? + resto_del_marco(despues + 5));
+    }
+    // Desenrollada: se cuentan las parejas hacia atras y hacia delante.
+    const PAR: u64 = 15;
+    let mut paginas = 1u64;
+    let mut p = rip - 7;
+    while paginas < 64 && es(p - PAR, &SONDA_BAJA) && es(p - SONDA_TOCA.len() as u64, &SONDA_TOCA) {
+        paginas += 1;
+        p -= PAR;
+    }
+    let mut q = despues;
+    while paginas < 128 && es(q, &SONDA_BAJA) && es(q + 7, &SONDA_TOCA) {
+        paginas += 1;
+        q += PAR;
+    }
+    Some(paginas * 0x1000 + resto_del_marco(q))
+}
+
 /// Un byte de la imagen de un proceso, con la misma guarda que la pila: dentro
 /// del rango de usuario y canonica, o nada.
 fn leer_byte_de_ring3(dir: u64) -> Option<u8> {
@@ -344,83 +435,61 @@ fn leer_byte_de_ring3(dir: u64) -> Option<u8> {
     if dir >= crate::ring0::mm::vmm::USER_STACK_BOTTOM {
         return None;
     }
-    Some(unsafe { con_permiso(|| core::ptr::read_volatile(dir as *const u8)) })
-}
-
-/// **Lee memoria de Ring 3 desde Ring 0, con permiso explicito.**
-///
-/// # *** POR QUE ESTO EXISTE, Y ES EL UNICO SITIO (2026-08-24)
-///
-/// `CR4.SMAP` le prohibe a Ring 0 tocar una pagina de Ring 3. Es una defensa
-/// contra el fallo mas caro de un kernel --seguir un puntero que el usuario
-/// controla sin darse cuenta-- y por eso se enciende.
-///
-/// ** Pero la autopsia SI tiene que leer memoria de usuario: su trabajo es
-/// contar que habia en la pila del proceso que acaba de romperse. Eso no es un
-/// descuido, es la funcion.
-///
-/// `stac` levanta la prohibicion para las instrucciones de dentro y `clac` la
-/// vuelve a poner. Que sea **un solo sitio con nombre** es lo que hace que la
-/// defensa siga valiendo: cualquier otro acceso a Ring 3 desde Ring 0 da fault,
-/// y el fault dice donde.
-///
-/// [!] Si el CPU no tiene SMAP, `stac`/`clac` son `#UD`. Por eso se pregunta
-/// primero -- y se pregunta UNA vez, no en cada palabra de la pila.
-#[inline]
-unsafe fn con_permiso<T>(f: impl FnOnce() -> T) -> T {
-    if smap_puesto() {
-        core::arch::asm!("stac", options(nomem, nostack));
-        let v = f();
-        core::arch::asm!("clac", options(nomem, nostack));
-        v
-    } else {
-        f()
-    }
-}
-
-/// `CR4.SMAP` esta encendido? Se mira una vez y se recuerda.
-fn smap_puesto() -> bool {
-    use core::sync::atomic::{AtomicU8, Ordering};
-    static ESTADO: AtomicU8 = AtomicU8::new(0);
-    match ESTADO.load(Ordering::Relaxed) {
-        1 => return true,
-        2 => return false,
-        _ => {}
-    }
-    let cr4: u64;
-    unsafe { core::arch::asm!("mov {}, cr4", out(reg) cr4, options(nomem, nostack)) };
-    let hay = cr4 & (1 << 21) != 0;
-    ESTADO.store(if hay { 1 } else { 2 }, Ordering::Relaxed);
-    hay
+    leer_de_ring3::<u8>(dir)
 }
 
 /// **Una palabra de la pila de un proceso muerto, o `None`.**
 ///
-/// === Por que esto NO es un `read_volatile` a pelo ===
-///
-/// Porque corre DENTRO del manejador de fallos, y la memoria que va a leer es
-/// la del proceso que acaba de romperse. Si su `rsp` era basura --que es
-/// exactamente el caso interesante-- leerlo sin comprobar produce un segundo
-/// fallo con el primero a medio informar, y entonces no hay informe.
-///
-/// Se comprueba lo unico que se puede comprobar sin caminar las tablas: que la
-/// direccion sea CANONICA y que caiga en el rango de una pila de Ring 3. Un
-/// hueco en el informe es una respuesta; un triple fault no.
+/// Corre DENTRO del manejador de fallos, y la memoria que va a leer es la del
+/// proceso que acaba de romperse. Si su `rsp` era basura --que es exactamente
+/// el caso interesante-- leerlo sin comprobar produce un segundo fallo con el
+/// primero a medio informar, y entonces no hay informe.
 fn leer_palabra_de_ring3(dir: u64) -> Option<u64> {
-    // Canonica: los 17 bits altos iguales. Una direccion de Ring 3 ademas vive
-    // por debajo de la mitad del espacio.
-    if dir >> 47 != 0 {
+    // Canonica y alineada, y en el rango de una pila de Ring 3 (por debajo de
+    // `0x8000_0000`); fuera de ahi no se lee, aunque fuera canonica.
+    if dir >> 47 != 0 || dir & 7 != 0 || dir < 0x1000 || dir >= 0x8000_0000 {
         return None;
     }
-    if dir & 7 != 0 {
+    leer_de_ring3::<u64>(dir)
+}
+
+/// **Lee memoria de Ring 3 desde Ring 0 SIN TOCAR la direccion de Ring 3**:
+/// camina la tabla del proceso (la del CR3 puesto, que al capturar es la suya)
+/// y lee la FISICA por el physmap. Una pagina que no esta da `None`.
+///
+/// # *** POR QUE ES ESTA PIEZA Y NO UNA GUARDA MAS (2026-09-28)
+///
+/// La anterior comprobaba "lo unico que se puede comprobar sin caminar las
+/// tablas": que la direccion fuera canonica y cayera en el rango de una pila.
+/// Y el caso para el que existe es justo el que eso no ve: el 28-09 el
+/// director se salio de su pila de 64 KiB (un marco de 384 KiB), su `rsp`
+/// quedo en `0x7FFEF580` --canonico, en rango, 0xA80 bajo el fondo, en la
+/// pagina de guarda que NO ESTA-- y la autopsia lo leyo con `stac`: segundo
+/// `#PF` dentro de `fault_dispatch`, pantalla roja, y el veredicto que ya
+/// sabia decir *"pila desbordada"* no llego a decirse. Un proceso roto tumbo
+/// la maquina entera, que es lo unico que el aislamiento de fallos prometia
+/// que no pasaria.
+///
+/// ** Leer por la fisica, ademas, quita el unico `stac` del kernel: con esto
+/// NINGUN camino de Ring 0 levanta SMAP, y cualquier toque a una VA de Ring 3
+/// desde Ring 0 da fault y dice donde (`cpu_vendor/features/usage.rs`).
+///
+/// [!] `T` no cruza de pagina: los que llaman piden un byte, o una palabra
+/// alineada a 8.
+fn leer_de_ring3<T: Copy>(dir: u64) -> Option<T> {
+    use crate::ring0::mm::{phys_to_virt, vmm, PAGE, PHYSMAP_SIZE};
+    let n = core::mem::size_of::<T>() as u64;
+    debug_assert!(dir % PAGE + n <= PAGE);
+    let f = vmm::translate(vmm::read_cr3(), dir)?;
+    // La fisica del paseo, con el desplazamiento dentro de la pagina (una
+    // enorme ya lo trae sumado; una de 4 KiB, no).
+    let f = if f & (PAGE - 1) == 0 { f | (dir & (PAGE - 1)) } else { f };
+    if f + n > PHYSMAP_SIZE {
         return None;
     }
-    // La pila de un proceso de Ring 3 se reserva por debajo de `0x8000_0000`;
-    // fuera de ahi no se lee, aunque fuera canonica.
-    if dir < 0x1000 || dir >= 0x8000_0000 {
-        return None;
-    }
-    Some(unsafe { con_permiso(|| core::ptr::read_volatile(dir as *const u64)) })
+    // SAFETY: `f` es RAM que la tabla del proceso mapea, y el physmap espeja
+    // `0..PHYSMAP_SIZE`: la lectura no puede fallar.
+    Some(unsafe { core::ptr::read_volatile(phys_to_virt(f) as *const T) })
 }
 /// Ancho de cada renglon. El de la ventana de datos, para que quepa sin cortar.
 const ANCHO: usize = 72;
@@ -872,15 +941,18 @@ fn veredicto(vector: u64, error: u64, cr2: u64, cap: &Captura, r: &mut Renglon) 
     // desbordamiento son LA respuesta: cuanto se paso y sobre cuanto.
     match c {
         Causa::PilaDesbordada => {
-            // [!] Se dice DONDE cayo el toque, no cuanto pedia el marco. El
-            // kernel no puede saber el medida del marco: solo ve la primera
-            // direccion que no estaba mapeada, que con la sonda de pila de LLVM
-            // es la primera pagina que falta y no el fondo del marco. Decir
-            // "pidio N" seria inventar un numero que nadie midio.
+            // Se dice DONDE cayo el toque (el `cr2` es la primera pagina que
+            // falta, no el fondo del marco) y, si el `rip` es la sonda de pila,
+            // CUANTO pide el marco: eso si se mide, del codigo
+            // (`sonda_de_pila`). Sin sonda no se dice: seria inventarlo.
             r.s(": ");
             r.dec(USER_STACK_BOTTOM - cr2);
             r.s(" B bajo el fondo, pila ");
             r.dec(USER_STACK_SIZE);
+            if let Some(m) = cap.marco {
+                r.s(", el marco del rip pide ");
+                r.dec(m);
+            }
         }
         Causa::PunteroNulo => {
             r.s(" en 0+");

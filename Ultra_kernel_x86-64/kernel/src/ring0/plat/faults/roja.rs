@@ -237,6 +237,37 @@ err_stub_terminal!(stub_df, 8); //    #DF double fault -> always terminal
 err_stub_isolating!(stub_gp, 13); //  #GP general protection -> kill if CPL3
 err_stub_isolating!(stub_pf, 14); //  #PF page fault -> kill if CPL3
 
+/// *** EL FALLO QUE SE ESTA INFORMANDO, para que otro encima no lo borre
+/// (2026-09-28).
+///
+/// El 28-09 el director se salio de su pila y la autopsia, leyendola, fallo
+/// OTRA VEZ dentro de este manejador. La pantalla roja dijo el segundo fallo
+/// --`rip` en `fault_dispatch`, `cr2` en la pagina de guarda, `rsp` en IST1--
+/// y del primero, que era la respuesta, no dijo nada: hubo que deducirlo de
+/// que el `cr2` caia 0xA80 bajo `USER_STACK_BOTTOM`.
+///
+/// Esto lo apunta al entrar: `[vector | VIVO, error, rip, cr2, rsp, tid |
+/// ring3 << 32]`. Si al entrar ya hay uno apuntado, el que llega es un fallo
+/// DENTRO del informe de otro, y `fault_report` pinta los dos. Lo borra la
+/// rama de Ring 3 al acabar (esa sigue viva); la de Ring 0 no vuelve.
+///
+/// [!] Solo el BSP: un obrero tiene su propia rama (su ficha) y no corre
+/// Ring 3, y dos CPUs en un mismo registro darian un "anidado" que no lo es.
+static EN_CURSO: [core::sync::atomic::AtomicU64; 6] = [const { core::sync::atomic::AtomicU64::new(0) }; 6];
+const VIVO: u64 = 1 << 63;
+
+/// El fallo que se estaba informando cuando llego este, si este es anidado:
+/// `(vector, error, rip, cr2, rsp, tid, ring3)`.
+pub(super) fn el_de_debajo() -> Option<(u64, u64, u64, u64, u64, u64, bool)> {
+    use core::sync::atomic::Ordering::Relaxed;
+    if !ANIDADO.load(Relaxed) {
+        return None;
+    }
+    let e = |i: usize| EN_CURSO[i].load(Relaxed);
+    Some((e(0) & !VIVO, e(1), e(2), e(3), e(4), e(5) & 0xFFFF_FFFF, e(5) >> 32 != 0))
+}
+static ANIDADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
 /// Triage: a CPL3 fault kills ONLY the faulting task -- revoke its
 /// capabilities, mark it Exited, pick the next runnable context and hand it
 /// back to the stub's shared epilogue. BMO keeps running. A Ring 0 fault is
@@ -249,6 +280,18 @@ extern "C" fn fault_dispatch(
     cs: u64,
     fault_rsp: u64,
 ) -> u64 {
+    if !crate::ring0::plat::smp::tramp::soy_ap() {
+        use core::sync::atomic::Ordering::Relaxed;
+        if EN_CURSO[0].load(Relaxed) & VIVO != 0 {
+            // Otro a medio informar: se queda el suyo, y este lo dira.
+            ANIDADO.store(true, Relaxed);
+        } else {
+            let tid = crate::ring0::task::scheduler::current_tid() as u64;
+            for (i, v) in [vector | VIVO, error, rip, cr2, fault_rsp, tid | ((cs & 3 == 3) as u64) << 32].into_iter().enumerate() {
+                EN_CURSO[i].store(v, Relaxed);
+            }
+        }
+    }
     if cs & 3 == 3 {
         let pid = crate::ring0::task::scheduler::current_pid();
         let tid = crate::ring0::task::scheduler::current_tid();
@@ -318,11 +361,32 @@ extern "C" fn fault_dispatch(
             let mut v = Line::new();
             v.s("    ");
             v.s(crate::ring0::core::autopsy::veredicto_corto(vector, error, cr2, &cap));
+            // *** Y CUANTO, en la misma linea (2026-09-28): el marco que pedia
+            // la funcion del `rip`, contra la pila que hay. Es el numero que
+            // nombra el arreglo -- el 28-09, 395432 contra 65536.
+            if let Some(m) = cap.marco() {
+                v.s(": el marco del rip pide ");
+                v.dec(m);
+                v.s(" B, la pila mide ");
+                v.dec(crate::ring0::mm::vmm::USER_STACK_SIZE);
+            }
             serial_write("[fault] ");
             serial_write(v.as_str());
             serial_write("\n");
             if crate::info::has_fb() {
                 crate::ring0::core::dashboard::dashboard_log(v.as_str());
+            }
+            // ** Y DE QUE FUNCION, sin tener que saberse la receta: la misma
+            // linea que la pantalla de Ring 0. `simbolo.py` busca el `rip` en
+            // los programas de Ring 3 compilados y dice en cual cae.
+            let mut w = Line::new();
+            w.s("    nombralo: py toolchain/tools/simbolo/simbolo.py 0x");
+            w.hex(rip, 0);
+            serial_write("[fault] ");
+            serial_write(w.as_str());
+            serial_write("\n");
+            if crate::info::has_fb() {
+                crate::ring0::core::dashboard::dashboard_log(w.as_str());
             }
         }
         // *** LA PILA DE KERNEL DE LA TAREA QUE MUERE (2026-09-21).
@@ -568,6 +632,8 @@ extern "C" fn fault_dispatch(
         }
         crate::ring0::core::autopsy::registrar(vector, error, rip, cr2, fault_rsp, pid, tid, &cap);
         let _ = fault_rsp;
+        // Informado entero: el siguiente fallo ya no es "dentro" de este.
+        EN_CURSO[0].store(0, core::sync::atomic::Ordering::Relaxed);
         // schedule() below loads the NEXT task's CR3 itself.
         return crate::ring0::task::scheduler::kill_current_and_pick();
     }

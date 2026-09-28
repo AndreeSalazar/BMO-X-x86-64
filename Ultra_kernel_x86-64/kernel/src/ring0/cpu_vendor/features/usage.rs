@@ -252,14 +252,15 @@ pub fn of(f: Feat) -> Use {
         //
         // Los dos pasan ahora por el physmap, que ademas es el camino rapido.
         //
-        // ** Y queda UN sitio que lee Ring 3 a proposito: la autopsia, cuyo
-        // trabajo es contar que habia en la pila del proceso roto. Lleva
-        // `stac`/`clac` con nombre propio en `autopsy::con_permiso`.
+        // ** Y la autopsia, que lee Ring 3 a proposito (la pila del proceso
+        // roto), tampoco toca ya la VA: camina la tabla del proceso y lee la
+        // fisica (`autopsy::leer_de_ring3`, 2026-09-28). Su `stac` leia la
+        // pagina de guarda de una pila desbordada y tumbaba la maquina.
         //
-        // *** Que sea UN SOLO sitio con permiso explicito es lo que hace que la
-        // prohibicion valga: cualquier otro acceso a Ring 3 desde Ring 0 da
-        // fault, y el fault dice donde.
-        Feat::Smap => Use::Yes("s1_cpu enciende CR4.SMAP; solo la autopsia levanta el permiso, con stac/clac"),
+        // *** Asi NINGUN sitio levanta el permiso, y la prohibicion vale
+        // entera: cualquier acceso a Ring 3 desde Ring 0 da fault, y el fault
+        // dice donde.
+        Feat::Smap => Use::Yes("s1_cpu enciende CR4.SMAP; ningun camino de Ring 0 lo levanta (ni la autopsia: lee por la fisica)"),
         // `s1_cpu/cpu/mod.rs`: `if umip { cr4 |= 1 << 11 }`. Ring 3 ya no puede
         // leer las bases de GDT/IDT/LDT/TR con SGDT y familia.
         Feat::Umip => Use::Yes("s1_cpu enciende CR4.UMIP: SGDT/SIDT/SLDT/STR ya no fugan del kernel"),
