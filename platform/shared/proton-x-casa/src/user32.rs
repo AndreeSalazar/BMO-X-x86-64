@@ -166,8 +166,17 @@ extern "win64" fn create_window_ex_w(
         destroy_window(hwnd);
         return 0;
     }
+    // Con WS_VISIBLE, Windows la muestra YA, dentro de CreateWindowEx (tras
+    // WM_CREATE), sin esperar a ShowWindow: es como la crea BMOX-12. Sin esto
+    // la ventana nunca se ofrece y sus teclas no le llegan.
+    if estilo & WS_VISIBLE != 0 {
+        show_window(hwnd, SW_SHOW);
+    }
     hwnd
 }
+
+const WS_VISIBLE: u32 = 0x1000_0000;
+const SW_SHOW: i32 = 5;
 
 /// `CREATESTRUCTW` de Windows x64 (80 bytes).
 #[repr(C)]

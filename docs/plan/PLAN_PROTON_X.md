@@ -484,7 +484,19 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
-- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [ARRANCA en el
+- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [DIBUJA en el
+      banco 28-09 LO QUE DIBUJO LA 3060; falta el Ryzen] Con los .cso de su
+      HLSL CRLF (d7e2992c y b50c1000, de sombras.exe en el Windows del
+      propietario: bit a bit los mismos que los de LF), bmox12.exe en
+      interactivo da en los Present 0, 30 y 60 las huellas de la 3060, sin
+      un aviso, y ESC sale con Ok; con `--fotograma 30` guarda por READBACK
+      y la `std::fs` de Rust un PNG cuyos pixeles (descomprimidos fuera del
+      banco) dan 0x2b3985e93e1a6574, la huella de la 3060. Para eso la casa
+      aprendio WS_VISIBLE: una ventana creada visible se muestra YA (sin
+      ShowWindow), como en Windows; sin eso sus teclas no le llegaban (el
+      banco lo cazo: mil Present sin salir, 0xF00D -- el tope nuevo del
+      banco, para que un bucle de juego no lo cuelgue). Saboteado: sin la
+      negacion de SM5, el fotograma 0 no cuadra. Antes: [ARRANCA en el
       banco 28-09, hasta D3DCompile] `prueba/bmox12.exe` es estudio_d3d12
       compilado por el propietario en su Windows (rustc 1.97.1, `std` de Rust
       y CRT de MSVC; ver HACER.txt). En la casa le faltaban 9 nombres: el

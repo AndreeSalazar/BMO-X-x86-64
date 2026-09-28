@@ -135,8 +135,13 @@ fn mostrar(_s: &Superficie) -> bool {
     true
 }
 
+/// Un `.exe` que presenta para siempre (un bucle de juego al que no le llega
+/// su tecla de salir) tampoco cuelga el banco: a los mil Present, fuera con
+/// 0xF00D.
 fn presentar(s: &Superficie) {
-    PRESENTADAS.fetch_add(1, Ordering::SeqCst);
+    if PRESENTADAS.fetch_add(1, Ordering::SeqCst) >= 1000 {
+        salir(0xF00D);
+    }
     // SAFETY: la superficie es un Vec de PANTALLA (ver `superficie`), vivo.
     let px = unsafe { core::slice::from_raw_parts(s.pixeles, (s.stride * s.alto) as usize) };
     VISTAS.lock().unwrap().push(bmo_cubo::referencia::huella(px));
@@ -844,33 +849,87 @@ fn seh_exe_lanza_coge_y_desenrolla_como_windows() {
 
 const BMOX12: &[u8] = include_bytes!("../../proton-x/prueba/bmox12.exe");
 
-/// *** P3c en el anfitrion: `bmox12.exe`, el BMOX-12 de EPICX (estudio_d3d12)
-/// compilado por el propietario en SU Windows (rustc 1.97.1, la `std` de Rust
-/// y el CRT de MSVC), SIN TOCAR. Arranca en la casa entero: el CRT, la
-/// fabrica 6, el adaptador ("PROTON-X"), el dispositivo, la cadena, la
-/// profundidad y sus cifras de memoria, hasta D3DCompile. Su HLSL va con CRLF
-/// (el checkout de Windows): huella d7e2992c, sin .cso todavia; la casa deja
-/// el pedido, D3DCompile da E_FAIL y el programa sale con su error (1), sin
-/// romperse. Con los .cso de d7e2992c y b50c1000 (sombras.exe, una vez) este
-/// test pasa a pedir el cubo entero.
-#[test]
-fn bmox12_exe_arranca_entero_en_la_casa_hasta_d3dcompile() {
-    let uno = uno_a_la_vez();
+/// Prepara `window/sombras` con los .cso del repo (o sin ellos) y corre
+/// `bmox12.exe` con esos argumentos y ese guion.
+fn correr_bmox12(uno: &MutexGuard<'static, ()>, con_cso: bool, resto: &'static str, guion: &[u64]) -> (u32, String) {
     let dir = volumen().join("window/sombras");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
-    *NOMBRE.lock().unwrap() = ("window/bmox12.exe", "");
-    let esc = 1 << 62 | 1 << 8 | 1 << 9 | 0x1B;
-    let (salio, dicho, _) = correr_exe(&uno, BMOX12, true, &[0, 0, 0, esc]);
+    if con_cso {
+        for h in ["d7e2992c", "b50c1000"] {
+            std::fs::copy(format!("../proton-x/prueba/sombras/{h}.cso"), dir.join(format!("{h}.cso"))).unwrap();
+        }
+    }
+    *NOMBRE.lock().unwrap() = ("window/bmox12.exe", resto);
+    let (salio, dicho, _) = correr_exe(uno, BMOX12, true, guion);
     *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = String::from_utf8_lossy(&dicho);
+    (salio, String::from_utf8_lossy(&dicho).into_owned())
+}
+
+/// *** P3c en el anfitrion: `bmox12.exe`, el BMOX-12 de EPICX (estudio_d3d12)
+/// compilado por el propietario en SU Windows (rustc 1.97.1, la `std` de Rust
+/// y el CRT de MSVC), SIN TOCAR. Sin los .cso de su HLSL (va con CRLF: huella
+/// d7e2992c) arranca entero -- el CRT, la fabrica 6, el adaptador, la
+/// cadena, la profundidad y sus cifras de memoria -- hasta D3DCompile: la casa
+/// deja el pedido, D3DCompile da E_FAIL y el programa sale con su error (1).
+#[test]
+fn bmox12_exe_sin_sus_cso_arranca_y_deja_el_pedido() {
+    let uno = uno_a_la_vez();
+    let esc = 1 << 8 | 1 << 9 | 0x01; // la tecla ESC (scancode 1): WM_KEYDOWN VK_ESCAPE
+    let (salio, texto) = correr_bmox12(&uno, false, "", &[0, 0, 0, esc]);
     assert!(texto.starts_with("[Estudio D3D12] GPU: PROTON-X (la CPU de BMO-X)\n"), "{texto}");
     assert!(texto.contains("[Estudio D3D12] tearing (VSync apagado de verdad en flip model): no\n"), "{texto}");
     assert!(texto.contains("[memoria] depth D32 (DEFAULT)          pedidos   3686400 B"), "{texto}");
     assert!(texto.contains("D3DCompile(VSMain, vs_5_0) sin compilar todavia: dejado en window/sombras/d7e2992c.hls"), "{texto}");
     assert!(texto.contains("HRESULT(0x80004005)"), "el error de D3DCompile, como lo imprime el crate windows: {texto}");
     assert_eq!(salio, 1, "main devuelve Err: sale con 1, sin romperse");
-    let pedido = std::fs::read(dir.join("d7e2992c.ent")).unwrap();
-    assert_eq!(pedido, std::fs::read("../proton-x/prueba/sombras/d7e2992c.ent").unwrap());
+    let dir = volumen().join("window/sombras");
+    assert_eq!(std::fs::read(dir.join("d7e2992c.ent")).unwrap(), std::fs::read("../proton-x/prueba/sombras/d7e2992c.ent").unwrap());
     assert_eq!(std::fs::read(dir.join("d7e2992c.hls")).unwrap(), std::fs::read("../proton-x/prueba/sombras/d7e2992c.hls").unwrap());
+}
+
+/// *** P3c: BMOX-12 SIN TOCAR, CON sus .cso (sombras.exe en el Windows del
+/// propietario), DIBUJA EN LA CASA LO QUE DIBUJO LA 3060. En interactivo
+/// (VSync, un paso por fotograma, ESC sale) se le dejan 61 fotogramas: los
+/// Present 0, 30 y 60 tienen las huellas de la 3060, sin un aviso.
+#[test]
+fn bmox12_exe_con_sus_cso_dibuja_lo_de_la_3060() {
+    let uno = uno_a_la_vez();
+    let esc = 1 << 8 | 1 << 9 | 0x01; // la tecla ESC (scancode 1): WM_KEYDOWN VK_ESCAPE
+    let mut guion = vec![0u64; 70]; // de sobra: cada PeekMessage vacio gasta uno
+    guion.push(esc);
+    let (salio, texto) = correr_bmox12(&uno, true, "", &guion);
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso de la casa: {texto}");
+    assert!(texto.ends_with("[Estudio D3D12] VSync s\u{ed}. ESC para salir.\n"), "{texto}");
+    assert_eq!(salio, 0, "ESC: main devuelve Ok");
+    let vistas = VISTAS.lock().unwrap().clone();
+    assert!(vistas.len() >= 61, "{} Present", vistas.len());
+    for (f, esperada) in bmo_cubo::referencia::HUELLAS {
+        assert_eq!(vistas[f as usize], esperada, "fotograma {f}");
+    }
+}
+
+/// *** P3c: `bmox12.exe --fotograma 30`, como se sacaron las huellas de la
+/// 3060: la ventana OCULTA, un solo dibujo capturado por READBACK
+/// (GetCopyableFootprints, CopyTextureRegion) y guardado como PNG con la
+/// `std::fs` de Rust -- CreateFileW, WriteFile -- junto al `.exe`. El PNG
+/// guarda la imagen que la 3060 dibujo: su huella, desempaquetado, es la de
+/// ese fotograma.
+#[test]
+fn bmox12_exe_fotograma_30_guarda_el_png_de_la_3060() {
+    let uno = uno_a_la_vez();
+    let png = volumen().join("window/cubo_f0030.png");
+    let _ = std::fs::remove_file(&png);
+    let (salio, texto) = correr_bmox12(&uno, true, "--fotograma 30", &[]);
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso de la casa: {texto}");
+    assert!(texto.ends_with("[Estudio D3D12] fotograma 30 -> cubo_f0030.png\n"), "{texto}");
+    assert_eq!(salio, 0);
+    let d = std::fs::read(&png).unwrap();
+    // Un PNG de 1280x720 RGB (IHDR); sus pixeles, descomprimidos fuera del
+    // banco (sin zlib aqui), dan 0x2b3985e93e1a6574: la huella de la 3060.
+    assert_eq!(&d[..8], b"\x89PNG\r\n\x1a\n");
+    assert_eq!(&d[12..24], b"IHDR\x00\x00\x05\x00\x00\x00\x02\xd0");
+    // Y lo que presento (el mismo dibujo) es el fotograma 30 de la 3060.
+    let vistas = VISTAS.lock().unwrap().clone();
+    assert_eq!(vistas.first().copied(), bmo_cubo::referencia::de_la_3060(30));
 }
