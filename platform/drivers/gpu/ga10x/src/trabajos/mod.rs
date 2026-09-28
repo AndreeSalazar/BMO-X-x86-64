@@ -29,3 +29,6 @@ pub mod tuberia;
 /// VERRANO V1b: el anillo -- la CPU prepara el fotograma N+1 mientras la
 /// 3060 dibuja el N (2026-09-26).
 pub mod anillo;
+/// VERRANO E5: el pegamento de los programas EMITIDOS (lo que rodea al
+/// cuerpo que sale de PROTON-X: cargas, salidas y su SPH; 2026-09-28).
+pub mod pegamento;
