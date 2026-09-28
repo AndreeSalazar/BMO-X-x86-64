@@ -83,6 +83,9 @@ pub enum Regla {
     R4FuentePisada,
     R5CabeceraMiente,
     R6FinalSucio,
+    /// P3b4c: el cuerpo que manda una APP toca lo que no es suyo -- memoria,
+    /// atributos, constantes, saltos o registros del pegamento.
+    R7CuerpoAjeno,
 }
 
 impl Regla {
@@ -96,6 +99,7 @@ impl Regla {
             Regla::R4FuentePisada => "R4 fuente pisada",
             Regla::R5CabeceraMiente => "R5 la cabecera miente",
             Regla::R6FinalSucio => "R6 final sucio",
+            Regla::R7CuerpoAjeno => "R7 cuerpo ajeno: una app toca lo que no es suyo",
         }
     }
 }
@@ -360,6 +364,69 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
         _ => return None,
     }
     Some(i)
+}
+
+// == R7: EL CUERPO DE UNA APP (P3b4c, 28-09) ================================
+
+/// **Lo que puede traer el cuerpo de un sombreador que manda una APP.**
+///
+/// El juez de R0..R6 dice si un programa esta BIEN HECHO (registros,
+/// barreras, esperas). No dice a QUE MEMORIA va: un `STG` bien cronometrado
+/// a una VA cualquiera de la 3060 --el lienzo del escritorio, el contexto del
+/// GR-- es PERFECTO Y PRECISO para R0..R6. Con programas del escritorio daba
+/// igual: los fabrica el anfitrion y viajan dentro de `d.bex`. Con la puerta
+/// de las apps (`CUBO_RECETA`) NO: el cuerpo lo fabrica la app.
+///
+/// Por eso la app manda solo el CUERPO y el kernel pone el pegamento (las
+/// lecturas de los DATOS, los atributos, la salida): todas las direcciones
+/// las decide el kernel. Y el cuerpo es una LISTA BLANCA, la de lo que emite
+/// PROTON-X (`bmo-proton-x-sm86`) y nada mas:
+///
+/// ```text
+///    FADD FMUL FFMA FMNMX MOV   con registros o inmediatos -- sin c[][]
+///    MUFU                       con un registro
+///    EXIT                       la ultima, y solo ella
+///    predicado                  PT siempre
+///    destino                    < registros: los del pegamento no se tocan
+/// ```
+///
+/// Nada de LDG/STG/ALD/AST/IPA, ni un banco de constantes, ni un salto.
+pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(), Bodrio> {
+    let ajeno = |k: usize, que: u32, detalle: &'static str| Err(Bodrio { regla: Regla::R7CuerpoAjeno, instruccion: k, que, detalle });
+    let Some(ultima) = codigo.len().checked_sub(1) else {
+        return ajeno(0, 0, "un cuerpo vacio: le falta su EXIT");
+    };
+    for (k, &(lo, hi)) in codigo.iter().enumerate() {
+        let op = (lo & 0x1FF) as u32;
+        let forma = (lo >> 9 & 7) as u32;
+        if lo >> 12 & 0xF != 7 {
+            return ajeno(k, op, "con predicado: el cuerpo de una app corre siempre (PT)");
+        }
+        let formas: &[u32] = match op {
+            // FADD: inmediato en la forma 2 (y c[][] en la 3).
+            0x021 => &[1, 2],
+            // FMUL, FFMA, FMNMX, MOV: inmediato en la 4 (y c[][] en la 5).
+            0x020 | 0x023 | 0x009 | 0x002 => &[1, 4],
+            0x108 => &[1],
+            0x14D if k == ultima => &[4],
+            0x14D => return ajeno(k, op, "un EXIT antes del final: el pegamento de detras no correria"),
+            _ => return ajeno(k, op, "fuera de la lista blanca de una app (memoria, atributos, saltos...)"),
+        };
+        if !formas.contains(&forma) {
+            return ajeno(k, forma, "una forma de operando fuera de la lista: c[][] es memoria");
+        }
+        if k == ultima && op != 0x14D {
+            return ajeno(k, op, "el cuerpo tiene que acabar en EXIT");
+        }
+        let Some(i) = decodificar(lo, hi) else {
+            return ajeno(k, op, "el juez no sabe leerla");
+        };
+        let (r, n) = i.escribe;
+        if n > 0 && r as u32 + n as u32 > registros {
+            return ajeno(k, r as u32, "escribe un registro que no es del cuerpo: los del pegamento son del kernel");
+        }
+    }
+    Ok(())
 }
 
 /// La latencia de lectura tras escritura (NAK `RegLatencySM80::read_after_write`,
@@ -648,6 +715,44 @@ mod pruebas {
                 assert!(v.is_ok(), "{f} {abi:?}: {}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
             }
         }
+    }
+
+    /// **R7 (P3b4c)**: los cuerpos que emite PROTON-X con el ABI de
+    /// registros (el de la puerta de las apps) pasan la lista blanca; lo que
+    /// toca memoria, constantes, atributos o registros del pegamento, NO.
+    #[test]
+    fn r7_el_cuerpo_de_una_app_no_toca_lo_ajeno() {
+        extern crate std;
+        use bmo_proton_x::dxil::{self, programa::compilar};
+        use bmo_sm86::codifica::{self as c, Fuente};
+        let raiz = "../../../shared/proton-x/prueba/";
+        for f in ["cubo_vs.dxil", "cubo_ps.dxil", "sombras/f3ef42a0.cso", "sombras/4d67f5e4.cso"] {
+            let d = std::fs::read(std::format!("{raiz}{f}")).unwrap();
+            let e = bmo_proton_x_sm86::emitir_con(&compilar(&dxil::leer(&d).unwrap()).unwrap(), 64, bmo_proton_x_sm86::Abi::Registros).unwrap();
+            assert_eq!(juzgar_cuerpo_de_app(&e.codigo, e.registros), Ok(()), "{f}");
+        }
+        let fin = c::exit(0);
+        let bueno = [c::mov(0, Fuente::Imm(0x3F80_0000), 1), c::fadd(1, c::r(0), c::r(0), false, 1), fin];
+        assert_eq!(juzgar_cuerpo_de_app(&bueno, 4), Ok(()));
+        let r7 = |codigo: &[(u64, u64)], registros: u32| juzgar_cuerpo_de_app(codigo, registros).unwrap_err();
+        // Un banco de constantes es memoria.
+        let b = r7(&[c::mov(0, Fuente::C { banco: 0, desp: 0x10 }, 1), fin], 4);
+        assert_eq!((b.regla, b.instruccion), (Regla::R7CuerpoAjeno, 0));
+        // Un LDG (lo que lee el pegamento), y un STG: fuera de la lista.
+        for op in [0x181u64, 0x186] {
+            let w = (op | 1 << 9 | 7 << 12, 0);
+            assert!(conoce(w.0, w.1));
+            assert_eq!(r7(&[w, fin], 64).que, op as u32);
+        }
+        // Un registro del pegamento (el cuerpo dice 4: R4 no es suyo).
+        assert_eq!(r7(&[c::mov(4, c::r(0), 1), fin], 4).que, 4);
+        // Sin EXIT, o con uno a medias, o vacio.
+        assert_eq!(r7(&[c::mov(0, c::r(1), 1)], 4).instruccion, 0);
+        assert_eq!(r7(&[fin, c::mov(0, c::r(1), 1), fin], 4).instruccion, 0);
+        assert_eq!(r7(&[], 4).regla, Regla::R7CuerpoAjeno);
+        // Con predicado (P0): no.
+        let (lo, hi) = c::mov(0, c::r(1), 1);
+        assert_eq!(r7(&[(lo & !(0xF << 12), hi), fin], 4).instruccion, 0);
     }
 
     /// E5: la puerta del kernel acepta 128 instrucciones (un HUECO de

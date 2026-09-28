@@ -536,7 +536,35 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            4c  [ ] la puerta de la 3060 en la app `proton-x` (su ejecutor del
                lote, `Plataforma::dibujar`), y en el Ryzen: `run
                sys/proton-x.bex window/bmox12.exe` dibujado por la 3060, con
-               EL REGISTRO contra los 36-38 fps de la CPU.
+               EL REGISTRO contra los 36-38 fps de la CPU. Partido en piezas
+               el 28-09 (el propietario eligio la PUERTA ESTRECHA, A):
+               4c.1 [HECHO banco] el juez R7: el CUERPO que manda una app es
+                    lista blanca (FADD FMUL FFMA FMNMX MOV MUFU, sin c[][],
+                    EXIT al final, registros suyos). R0..R6 dicen si un
+                    programa esta bien hecho; no a QUE memoria va: por eso la
+                    app manda el cuerpo y el pegamento lo pone el KERNEL.
+               4c.2 [ ] la RECETA (VRN2): los cuerpos, sus cargas, el input
+                    layout y los DATOS; el kernel pega, comprueba que cada
+                    lectura cae en los DATOS, juzga y dibuja.
+               4c.3 [HECHO banco, FALTA el metal] la PROFUNDIDAD por la 3060
+                    (`profundidad`: ZF32 bloque-lineal en VRAM 0x0A00_0000,
+                    kind GENERIC_MEMORY, VA 0x8_0000_0000; SET_ZT_*, la regla
+                    de D3D tal cual en SET_DEPTH_FUNC, la limpieza). BMOX-12
+                    dibuja con DepthEnable/LESS: sin esto su cubo solo sale
+                    bien por ser convexo. PRUEBA en el Ryzen:
+                    `gpu verrano bmox12 30 z` (sin descarte, con Z) tiene que
+                    dar IGUAL; `gpu verrano bmox12 30 ambas` (sin descarte ni
+                    Z), DISTINTO. [!] Lo que se prueba ademas: si la 3060
+                    acepta el color LINEAL (pitch) con la Z bloque-lineal. Si
+                    no, el color va a una sombra bloque-lineal en VRAM y el
+                    motor de copia la lleva a la RAM de la app.
+               4c.4 [ ] la puerta en el kernel (sin MAQUINA; solo recetas con
+                    destino propio; la ficha la pone el kernel).
+               4c.5 [ ] el ejecutor en la app y su banco.
+               De paso (28-09): el cerrojo del GR se quedaba TOMADO si un
+               destino malo salia por un `?` (`verrano` en el kernel): la 3060
+               decia "uno en marcha" hasta reiniciar. Ahora toda salida lo
+               suelta.
 - [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [VISTO EN EL
       METAL el 28-09 06:41: `run sys/proton-x.bex window/bmox12.exe` en el
       Ryzen abre su ventana (1282x749) y el cubo GIRA, dibujado por la CPU;

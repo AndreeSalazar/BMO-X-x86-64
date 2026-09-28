@@ -284,7 +284,9 @@ pub const CABECERA: usize = 32;
 /// ```text
 ///    +32  el byte de los INDICES en los datos (u32 cada uno), o SIN_INDICES
 ///    +36  bits 0..1 el descarte (0 ninguno, 1 las traseras, 2 las
-///         delanteras); bit 2 delante es ANTIHORARIO (D3D: horario)
+///         delanteras); bit 2 delante es ANTIHORARIO (D3D: horario);
+///         P3b4c: bit 3 hay Z, bits 4..7 su funcion (D3D, 1..8), bit 8 se
+///         escribe, bit 9 se limpia antes (a 1.0: VRN1 no lleva el valor)
 ///    +40  cuantos vertices hay en los datos: cada indice, menos
 ///    +44  el DESTINO (P3b4b 3), si el bit 31 de +60 esta puesto: la VA de
 ///         la app (+44 baja, +48 alta), +52 bytes por fila, +56 ancho |
@@ -319,6 +321,26 @@ pub struct Dibujo {
     /// Donde dibuja: la RAM de la app (su VA y como es), o `None`: la
     /// ventana de VERRANO en la pantalla, limpiandola antes.
     pub destino: Option<(u64, crate::destino::Destino)>,
+    /// P3b4c: la prueba de profundidad, por la 3060 (`profundidad`).
+    pub z: Option<crate::profundidad::Z>,
+}
+
+/// La Z de un `Dibujo` en los bits 3..9 del estado de VRN1.
+const fn estado_z(z: Option<crate::profundidad::Z>) -> u32 {
+    match z {
+        None => 0,
+        Some(z) => 1 << 3 | (z.funcion & 0xF) << 4 | (z.escribir as u32) << 8 | (z.limpiar.is_some() as u32) << 9,
+    }
+}
+
+/// La Z de los bits 3..9 del estado (la limpieza, a 1.0), o `Err` si no se
+/// sostiene.
+fn z_de(estado: u32) -> Result<Option<crate::profundidad::Z>, ()> {
+    if estado & 1 << 3 == 0 {
+        return if estado >> 4 & 0x3F == 0 { Ok(None) } else { Err(()) };
+    }
+    let z = crate::profundidad::Z { funcion: estado >> 4 & 0xF, escribir: estado & 1 << 8 != 0, limpiar: (estado & 1 << 9 != 0).then_some(crate::profundidad::UNO) };
+    if z.valida() { Ok(Some(z)) } else { Err(()) }
 }
 
 /// El bit de +60 que dice que hay destino.
@@ -395,7 +417,7 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
         return Some(Dibujo::default());
     }
     let (desde, estado, vertices) = (u32le(cabecera, 32), u32le(cabecera, 36), u32le(cabecera, 40));
-    if estado >> 3 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
+    if estado >> 10 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
         return None;
     }
     let bandera = u32le(cabecera, 60);
@@ -430,7 +452,8 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
         }
         Some(desde)
     };
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino })
+    let z = z_de(estado).ok()?;
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z })
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -545,7 +568,12 @@ pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8],
         Descarte::Ninguna => 0,
         Descarte::Traseras => 1,
         Descarte::Delanteras => 2,
-    } | (dibujo.antihorario as u32) << 2;
+    } | (dibujo.antihorario as u32) << 2
+        | estado_z(dibujo.z);
+    // VRN1 limpia la Z a 1.0 y no lleva otro valor (la receta, VRN2, si).
+    if dibujo.z.is_some_and(|z| z.limpiar.is_some_and(|v| v != crate::profundidad::UNO)) {
+        return None;
+    }
     let (va, dst) = dibujo.destino.unwrap_or_default();
     let bandera = if dibujo.destino.is_some() { HAY_DESTINO | dst.rgb as u32 } else { 0 };
     let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, 0, 0, datos.len() as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices, va as u32, (va >> 32) as u32, dst.fila, dst.ancho | dst.alto << 16, bandera];
@@ -614,6 +642,9 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
         e.m(OGL_SET_FRONT_FACE, &[if d.antihorario { DELANTE_ANTIHORARIO } else { DELANTE_HORARIO }]);
         e.m(OGL_SET_CULL_FACE, &[if d.descarte == Descarte::Traseras { CULL_TRASERAS } else { CULL_DELANTERAS }]);
         e.m(crate::raster::OGL_SET_CULL, &[1]);
+    }
+    if let Some(z) = d.z {
+        crate::profundidad::ordenes(&mut e, &z);
     }
     match d.indices {
         None => e.dibujo_de(3 * n as u32),
@@ -695,8 +726,9 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     mezclar(p.ps);
     let d = p.dibujo;
     let dibujo = d.indices.unwrap_or(SIN_INDICES) as u64 | (d.descarte as u64) << 32 | (d.antihorario as u64) << 34 | (d.vertices as u64) << 40;
+    let z = estado_z(d.z) as u64 | (d.z.and_then(|z| z.limpiar).unwrap_or(0) as u64) << 32;
     let (dva, dst) = d.destino.unwrap_or_default();
-    for x in [p.vertices.len() as u64, p.n as u64, dibujo, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -838,7 +870,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -886,7 +918,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)) };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

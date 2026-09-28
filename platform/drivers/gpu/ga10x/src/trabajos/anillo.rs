@@ -80,9 +80,9 @@ pub const MAX_VERTICES: usize = 3 * crate::cubo::CABEN;
 /// los 64 KiB de VERRANO en frio) y sus vertices. El kernel lo mira ANTES
 /// de copiar nada a la ranura.
 pub const fn cabe(p: &Paquete) -> bool {
-    // Y sin indices ni descarte: el anillo lleva sus propias ordenes (V1b),
-    // que hoy no los tienen.
-    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES && p.dibujo.indices.is_none() && matches!(p.dibujo.descarte, crate::tuberia::Descarte::Ninguna) && p.dibujo.destino.is_none()
+    // Y sin indices, descarte, destino ni Z: el anillo lleva sus propias
+    // ordenes (V1b), que hoy no los tienen.
+    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES && p.dibujo.indices.is_none() && matches!(p.dibujo.descarte, crate::tuberia::Descarte::Ninguna) && p.dibujo.destino.is_none() && p.dibujo.z.is_none()
 }
 pub const PAGINAS: u64 = 1;
 /// Donde la ve la IOMMU: tras el MiB del fractal (y antes del booter).

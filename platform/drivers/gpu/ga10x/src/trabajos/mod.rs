@@ -35,3 +35,6 @@ pub mod pegamento;
 /// P3b4b: el destino de la app -- la 3060 dibuja en la RAM de un proceso
 /// (su back buffer), prestada por la IOMMU (2026-09-28).
 pub mod destino;
+/// P3b4c: la PROFUNDIDAD en la 3060 -- la superficie ZF32 en VRAM y la
+/// regla de D3D12, la prueba la hace el hardware (2026-09-28).
+pub mod profundidad;

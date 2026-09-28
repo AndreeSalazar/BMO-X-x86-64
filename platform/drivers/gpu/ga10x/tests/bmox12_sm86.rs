@@ -149,8 +149,17 @@ fn con_indices_da_lo_mismo_que_v0() {
                 assert_eq!(sv[0].map(f32::to_bits), t.tris[j].clip[c].map(f32::to_bits), "fotograma {f}, cara {k}, vertice {c}");
             }
         }
-        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None };
+        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None, z: None };
         let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, dibujo).expect("el paquete VRN1 se sostiene");
         assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, dibujo);
+        // P3b4c: el mismo, SIN descarte y CON Z (LESS, se escribe, se limpia
+        // a 1.0): el de `gpu verrano bmox12 z`. Viaja y vuelve igual.
+        let z = bmo_gpu_ga10x::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(bmo_gpu_ga10x::profundidad::UNO) };
+        let con_z = tuberia::Dibujo { descarte: tuberia::Descarte::Ninguna, z: Some(z), ..dibujo };
+        let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, con_z).expect("con Z se sostiene");
+        assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, con_z);
+        // Otra limpieza que 1.0 no cabe en VRN1.
+        let otra = tuberia::Dibujo { z: Some(bmo_gpu_ga10x::profundidad::Z { limpiar: Some(0.5f32.to_bits()), ..z }), ..con_z };
+        assert_eq!(tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, otra), None);
     }
 }

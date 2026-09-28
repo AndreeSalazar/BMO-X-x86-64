@@ -224,9 +224,27 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     // ** P3b4b (3): con DESTINO, la 3060 dibuja en la RAM de la app -- un
     // bloque ESCRIBIBLE de quien lo pide (no sellado), entero, prestado a la
     // 3060 SOLO mientras dibuja y devuelto SIEMPRE, salga como salga.
+    //
+    // *** Y DESDE AQUI EL CERROJO DEL GR ESTA TOMADO (`gr_ocupado`): toda
+    // salida lo suelta. Hasta el 28-09 un destino malo salia por un `?` con
+    // el cerrojo puesto, y la 3060 contestaba "uno en marcha" a todo hasta
+    // reiniciar.
+    // ** P3b4c: la superficie de la Z, mapeada la primera vez que se pide.
+    if paquete.dibujo.z.is_some() {
+        if let Err(m) = mapear_z(bar0) {
+            BLUR_EN_MARCHA.store(false, Ordering::Release);
+            return Err(m);
+        }
+    }
     let prestado = match paquete.dibujo.destino {
         None => None,
-        Some((va_app, dst)) => Some(prestar_destino(bar0, pid, va_app, &dst)?),
+        Some((va_app, dst)) => match prestar_destino(bar0, pid, va_app, &dst) {
+            Ok(p) => Some(p),
+            Err(m) => {
+                BLUR_EN_MARCHA.store(false, Ordering::Release);
+                return Err(m);
+            }
+        },
     };
     let n = (paquete.n / 3) as u32;
     // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
@@ -267,6 +285,28 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
         }
     }
     r
+}
+
+/// Las tablas de la superficie de la Z, escritas (una vez por arranque).
+static Z_MAPEADA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **P3b4c: la superficie de la Z** en `profundidad::VA`, una vez: su VRAM
+/// no se mueve ni se presta (es de la 3060, no de una app).
+fn mapear_z(bar0: u64) -> Result<(), u32> {
+    if Z_MAPEADA.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    match bmo_gpu_ga10x::profundidad::mapear(&mut Bar0(bar0)) {
+        Some((n, bien)) if n == bien => {
+            Z_MAPEADA.store(true, Ordering::Release);
+            crate::ring0::cabina::count("gpu", "P3b4c: la Z de la 3060 MAPEADA (ZF32 bloque-lineal, kind generico); entradas", n as u64);
+            Ok(())
+        }
+        _ => {
+            crate::ring0::cabina::warn("gpu", "P3b4c: las tablas de la Z no se escribieron o no se releyeron", 0);
+            Err(IOMMU_NO_BLUR_PREPARAR)
+        }
+    }
 }
 
 /// Las tablas del destino de la app, escritas (una vez por arranque).

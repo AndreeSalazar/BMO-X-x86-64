@@ -104,6 +104,13 @@ pub(super) struct Opciones {
     /// escritorio -- como el back buffer de una app -- y la comparacion lee
     /// de ahi, no de la pantalla.
     pub enram: bool,
+    /// `z` (P3b4c): con `bmox12`, el cubo SIN descarte de caras y CON la
+    /// prueba de profundidad de la 3060 (LESS, se escribe, limpia a 1.0). Si
+    /// la Z funciona, las caras de atras quedan detras: IGUAL a D3D12.
+    pub z: bool,
+    /// `ambas` (P3b4c): con `bmox12`, SIN descarte y SIN Z -- el testigo de
+    /// `z`: las caras de atras se pintan encima y tiene que salir DISTINTO.
+    pub ambas: bool,
 }
 
 /// **Las palabras de ESTA tarjeta** y que hacen: las que entiende
@@ -120,6 +127,8 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"sinldg", b"el de vertice SIN sus LDG (la prueba del 25-09): no dibuja el cubo"),
     (b"antihorario", b"con bmox12: delante es ANTIHORARIO para el descarte de la 3060 (si el cubo sale del reves)"),
     (b"enram", b"con bmox12: la 3060 dibuja en RAM del escritorio (como en el back buffer de una app), no en la pantalla"),
+    (b"z", b"con bmox12: sin descarte y con la PROFUNDIDAD de la 3060; bien = IGUAL a D3D12"),
+    (b"ambas", b"con bmox12: sin descarte y SIN profundidad, el testigo de z: tiene que salir DISTINTO"),
 ];
 
 impl Opciones {
@@ -130,6 +139,8 @@ impl Opciones {
                 b"bmox12" => o.bmox12 = true,
                 b"antihorario" => o.antihorario = true,
                 b"enram" => o.enram = true,
+                b"z" => o.z = true,
+                b"ambas" => o.ambas = true,
                 b"sinldg" => o.sin_ldg = true,
                 b"ligero" => o.ligero = true,
                 b"anillo" => {
@@ -222,6 +233,9 @@ pub(super) struct Aparato<'a> {
     /// E5: el fotograma de BMOX-12 que se dibuja (`Opciones::bmox12`).
     bmox12: Option<u32>,
     antihorario: bool,
+    /// P3b4c: `z` y `ambas` (ver `Opciones`).
+    z: bool,
+    ambas: bool,
     /// `enram`: el bloque de RAM donde dibuja la 3060 y su medida en pixeles
     /// (1280x720). El BLOQUE mismo, no su direccion: vive lo que el aparato
     /// (un `Memoria` suelto se devuelve al salir de su alcance, y la 3060
@@ -337,6 +351,9 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
             return Err(linea(dsk, t.s(), INK_ERR));
         }
     };
+    if (op.z || op.ambas) && !op.bmox12 {
+        return Err(linea(dsk, b"  NO  z y ambas van con bmox12 (los paquetes VRN1 con indices)", INK_ERR));
+    }
     // `enram`: el destino, un bloque del escritorio de 1280x720 (como el
     // back buffer de una app). Solo con los programas de BMOX-12 (VRN1).
     let enram = if op.enram {
@@ -361,7 +378,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, enram, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, z: op.z, ambas: op.ambas, enram, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -394,7 +411,16 @@ impl Backend for Aparato<'_> {
                 unsafe { core::slice::from_raw_parts_mut(va as *mut u32, n) }.fill(cu::PIXEL_FONDO);
                 (va, bmo_gpu_ga10x::destino::Destino { fila: 4 * cu::ANCHO, ancho: cu::ANCHO, alto: cu::ALTO, rgb: false })
             });
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte: tu::Descarte::Traseras, antihorario: self.antihorario, destino };
+            // P3b4c: con `z` o `ambas`, sin descarte (las 12 caras a la 3060);
+            // con `z`, la Z de BMOX-12 (LESS, se escribe, limpia a 1.0).
+            let (descarte, z) = if self.z {
+                (tu::Descarte::Ninguna, Some(bmo_gpu_ga10x::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(bmo_gpu_ga10x::profundidad::UNO) }))
+            } else if self.ambas {
+                (tu::Descarte::Ninguna, None)
+            } else {
+                (tu::Descarte::Traseras, None)
+            };
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });
