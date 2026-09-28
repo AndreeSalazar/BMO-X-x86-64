@@ -301,7 +301,7 @@ CONSERVADORES (esperar siempre lo maximo).
   de los 16 de la tuberia de hoy (E4/E5 suben la cuenta o la bajan); el ABI
   es el del banco, no el de la tuberia (ALD/AST/IPA, E5).
 
-## [ ] E4 -- LOS BITS DE CONTROL POR REGLA
+## [x] E4 -- LOS BITS DE CONTROL POR REGLA
 
 Las esperas y las 6 barreras calculadas con la tabla de Ampere (J1 las
 juzga con la MISMA tabla), como `calc_instr_deps.rs`. Aqui deja de haber bits
@@ -310,6 +310,25 @@ de control escritos a mano en todo BMO-X.
 - **Bloquea:** E3.
 - **Como se sabe:** el juez sigue diciendo PERFECTO Y PRECISO, y el programa
   es mas corto en ciclos que el conservador de E3 (medido en el simulador).
+- **Hecho (28-09):** `proton-x-sm86/src/planifica.rs`: el emisor pone cada
+  instruccion con lo que lee y escribe (su clase: ALU, FMA, MUFU) y el
+  planificador calcula la espera JUSTA con la tabla de Ampere del juez
+  (`latencia`), y a cada MUFU una de las 6 barreras, que espera el primero
+  que lee (o pisa) su resultado. Y para caber en la puerta del kernel (64
+  instrucciones): un valor que se sube a un registro se queda en el hasta su
+  ultimo uso (la entrada que se leia 4 veces se carga UNA), los operandos de
+  lo conmutativo al reves si ahorra un MOV (y si ninguno esta en registro,
+  entra el que vive mas), el resultado que es una salida se calcula YA en su
+  registro de salida, y el producto escalar se acumula en su destino.
+  **Como se sabe:** vertice 72 -> 50 instrucciones y 385 -> 116-128 ciclos;
+  pixel 33 -> 28 y 163 -> 72-75 (la prueba exige <= 64 y menos de la MITAD
+  que E3); los bits siguen siendo los de la casa (las 4 pruebas de E3); el
+  juez dice PERFECTO Y PRECISO de los cuatro; `nvdisasm -b SM86` lee las 156
+  instrucciones sin un error. Saboteado: la latencia FMA->FMA a 2, el juez
+  dice R2; sin esperar la barrera del MUFU, R1. Lo que NO: 18-19 registros
+  en el de vertice (la tuberia de hoy da 16: E5 sube REGISTROS, que la SPH
+  permite); y la tabla es la del juez para estas clases, no la de NVIDIA
+  entera.
 
 ## [ ] E5 -- EN EL METAL: el cubo con programas EMITIDOS
 

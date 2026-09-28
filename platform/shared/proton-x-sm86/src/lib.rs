@@ -40,32 +40,49 @@
 //! - `Div` se RECHAZA hoy: la de la 3060 (MUFU.RCP y FMUL) no es la division
 //!   exacta de la casa, y ningun sombreador de los que corren la usa.
 //!
-//! # Los bits de control, CONSERVADORES (E3; las reglas son E4)
+//! # Los bits de control, POR REGLA (E4)
 //!
-//! Toda instruccion con el control de ALU del driver (6 ciclos); un MUFU
-//! enciende la barrera 0 y la SIGUIENTE instruccion la espera.
+//! Se emiten las instrucciones con lo que leen y escriben ([`planifica`]), y
+//! despues se calcula el control de cada una con la tabla de Ampere del juez:
+//! la espera justa y, para un MUFU, una de las 6 barreras que espera el
+//! primero que lee su resultado. Y para caber en la puerta del kernel (64
+//! instrucciones, `juez::MAX_INSTRUCCIONES`): los operandos de lo
+//! conmutativo se ponen al reves si eso ahorra un MOV, un resultado que es
+//! una salida se calcula YA en su registro de salida, y el producto escalar
+//! se acumula en su destino.
 
 #![no_std]
 #![forbid(unsafe_code)]
 
 extern crate alloc;
 
+pub mod planifica;
 pub mod simula;
 
 use alloc::vec;
 use alloc::vec::Vec;
 
 use bmo_proton_x::dxil::programa::{Op, Programa, Reg};
-use bmo_sm86::codifica::{self as c, Fuente, Mufu, ALU, RZ};
+use bmo_sm86::codifica::{self as c, Fuente, Mufu, RZ};
+
+use planifica::Meta;
 
 /// Los bancos de constantes del ABI de E3.
 pub const BANCO_ENTRADAS: u8 = 1;
 pub const BANCO_CB: u8 = 3;
 
-/// Control de un MUFU: 1 ciclo, el bit 4, ENCIENDE la barrera 0 al escribir.
-const MUFU_CONTROL: u64 = 1 | 1 << 4 | 7 << 8;
-/// El de la instruccion que va detras: espera la barrera 0.
-const ESPERA_0: u64 = ALU | 1 << 11;
+/// Como se cronometra una instruccion (las clases del juez que emite esto).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Clase {
+    /// Acoplada de ALU: MOV, FMNMX.
+    Alu,
+    /// Acoplada del FMA: FADD, FMUL.
+    Fma,
+    /// Desacoplada: MUFU (necesita barrera).
+    Mufu,
+    /// EXIT.
+    Nada,
+}
 
 /// Por que un programa no se emite.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +102,8 @@ pub struct Emitido {
     /// Cuantos registros usa (R0..R(n-1)): lo que va en la SPH o el QMD.
     pub registros: u32,
     pub mufus: usize,
+    /// Los ciclos hasta emitir la ultima (con las esperas calculadas).
+    pub ciclos: u32,
 }
 
 /// Donde vive un valor del Programa.
@@ -100,20 +119,29 @@ struct Emisor<'a> {
     valor: Vec<Option<Valor>>,
     ultimo: Vec<usize>,
     libres: Vec<bool>,
+    reservados: usize,
     maximo: u32,
+    /// El registro de salida que le toca a cada valor (su primera Salida).
+    salida_de: Vec<Option<u8>>,
+    salida_usada: Vec<bool>,
     codigo: Vec<(u64, u64)>,
-    control: u64,
+    metas: Vec<Meta>,
     mufus: usize,
 }
 
-impl Emisor<'_> {
-    fn poner(&mut self, w: (u64, u64)) {
-        self.codigo.push(w);
+/// El registro de una fuente, si lo es (para el planificador).
+fn reg_de(f: Fuente) -> Option<u8> {
+    match f {
+        Fuente::R { r, .. } if r != RZ => Some(r),
+        _ => None,
     }
+}
 
-    /// El control de la siguiente instruccion (y lo gasta).
-    fn ctl(&mut self) -> u64 {
-        core::mem::replace(&mut self.control, ALU)
+impl Emisor<'_> {
+    /// Una instruccion (sin control: lo pone el planificador) y su meta.
+    fn poner(&mut self, w: (u64, u64), clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) {
+        self.codigo.push(w);
+        self.metas.push(Meta { clase, escribe, lee });
     }
 
     fn pedir(&mut self) -> Result<u8, NoEmite> {
@@ -123,7 +151,11 @@ impl Emisor<'_> {
         Ok(i as u8)
     }
 
+    /// Devolver un registro. Los de salida NO se devuelven nunca.
     fn soltar(&mut self, r: u8) {
+        if (r as usize) < self.reservados {
+            return;
+        }
         if let Some(l) = self.libres.get_mut(r as usize) {
             *l = true;
         }
@@ -135,6 +167,10 @@ impl Emisor<'_> {
         *self.valor[r as usize].get_or_insert(Valor::Imm(self.p.iniciales.get(r as usize).copied().unwrap_or(0.0).to_bits()))
     }
 
+    fn es_reg(&mut self, r: Reg) -> bool {
+        matches!(self.valor(r), Valor::Reg(_))
+    }
+
     /// Una fuente cualquiera (registro, inmediato o constante).
     fn fuente(&mut self, r: Reg) -> Fuente {
         match self.valor(r) {
@@ -144,17 +180,17 @@ impl Emisor<'_> {
         }
     }
 
-    /// Una fuente que TIENE que ser registro: si no lo es, un MOV a uno de
-    /// paso (que se devuelve para soltarlo despues).
-    fn registro(&mut self, r: Reg, paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
+    /// Una fuente que TIENE que ser registro: si no lo es, un MOV a uno, y
+    /// el valor SE QUEDA en el hasta su ultimo uso (una entrada o una fila
+    /// del cbuffer que se lee cuatro veces se carga UNA).
+    fn registro(&mut self, r: Reg, _paso: &mut Vec<u8>) -> Result<u8, NoEmite> {
         match self.valor(r) {
             Valor::Reg(x) => Ok(x),
             _ => {
                 let f = self.fuente(r);
                 let t = self.pedir()?;
-                let k = self.ctl();
-                self.poner(c::mov(t, f, k));
-                paso.push(t);
+                self.poner(c::mov(t, f, 0), Clase::Alu, Some(t), [None; 3]);
+                self.valor[r as usize] = Some(Valor::Reg(t));
                 Ok(t)
             }
         }
@@ -169,13 +205,33 @@ impl Emisor<'_> {
         })
     }
 
+    /// El registro del resultado: el de su salida si es una y esta libre, o
+    /// uno nuevo.
     fn destino(&mut self, d: Reg, i: usize) -> Result<u8, NoEmite> {
         if self.valor[d as usize].is_some() {
             return Err(NoEmite::NoSsa(i));
         }
-        let x = self.pedir()?;
+        let x = match self.salida_de[d as usize] {
+            Some(o) if !self.salida_usada[o as usize] => {
+                self.salida_usada[o as usize] = true;
+                o
+            }
+            _ => self.pedir()?,
+        };
         self.valor[d as usize] = Some(Valor::Reg(x));
         Ok(x)
+    }
+
+    /// `op(x, a, b)` de dos fuentes, con `a` en registro. Si es conmutativa y
+    /// `a` no es registro pero `b` si, se ponen al reves (un MOV menos).
+    fn dos(&mut self, a: Reg, b: Reg, conmuta: bool, paso: &mut Vec<u8>) -> Result<(u8, Fuente), NoEmite> {
+        // Al reves si `b` ya esta en un registro y `a` no; y si ninguno lo
+        // esta, va al registro el que vive MAS (se reusara).
+        let vive = |e: &Self, r: Reg| e.ultimo.get(r as usize).copied().unwrap_or(0);
+        let al_reves = conmuta && !self.es_reg(a) && (self.es_reg(b) || vive(self, b) > vive(self, a));
+        let (a, b) = if al_reves { (b, a) } else { (a, b) };
+        let ra = self.registro(a, paso)?;
+        Ok((ra, self.fuente(b)))
     }
 }
 
@@ -187,12 +243,18 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
     if reservados as u32 > registros || registros > 255 {
         return Err(NoEmite::Registros);
     }
-    // El ultimo uso de cada registro del Programa (para devolverlo despues).
+    // El ultimo uso de cada registro del Programa, y su salida (la primera).
     let mut ultimo = vec![0usize; n];
+    let mut salida_de: Vec<Option<u8>> = vec![None; n];
     for (i, op) in p.ops.iter().enumerate() {
         for &r in leidos(op).iter().flatten() {
             if let Some(u) = ultimo.get_mut(r as usize) {
                 *u = i;
+            }
+        }
+        if let Op::Salida { s, elemento, componente } = *op {
+            if let Some(x) = salida_de.get_mut(s as usize) {
+                x.get_or_insert(4 * elemento + (componente & 3));
             }
         }
     }
@@ -200,7 +262,19 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
     for l in libres.iter_mut().take(reservados) {
         *l = false;
     }
-    let mut e = Emisor { p, valor: vec![None; n], ultimo, libres, maximo: reservados as u32, codigo: Vec::new(), control: ALU, mufus: 0 };
+    let mut e = Emisor {
+        p,
+        valor: vec![None; n],
+        ultimo,
+        libres,
+        reservados,
+        maximo: reservados as u32,
+        salida_de,
+        salida_usada: vec![false; reservados],
+        codigo: Vec::new(),
+        metas: Vec::new(),
+        mufus: 0,
+    };
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
         match *op {
@@ -222,73 +296,65 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
                 }
             }
             Op::Salida { s, elemento, componente } => {
-                let f = e.fuente(s);
-                let k = e.ctl();
-                e.poner(c::mov(4 * elemento + (componente & 3), f, k));
+                let o = 4 * elemento + (componente & 3);
+                // Ya calculado en su registro de salida: nada que mover.
+                if e.valor(s) != Valor::Reg(o) {
+                    let f = e.fuente(s);
+                    e.poner(c::mov(o, f, 0), Clase::Alu, Some(o), [reg_de(f), None, None]);
+                }
             }
-            Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Sub { d, a, b } | Op::Min { d, a, b } | Op::Max { d, a, b } => {
-                let ra = e.registro(a, &mut paso)?;
-                let fb = if matches!(op, Op::Sub { .. }) { e.negada(b, &mut paso)? } else { e.fuente(b) };
+            Op::Mul { d, a, b } | Op::Add { d, a, b } | Op::Min { d, a, b } | Op::Max { d, a, b } => {
+                let (ra, fb) = e.dos(a, b, true, &mut paso)?;
                 let x = e.destino(d, i)?;
-                let k = e.ctl();
-                let w = match op {
-                    Op::Mul { .. } => c::fmul(x, c::r(ra), fb, false, k),
-                    Op::Min { .. } => c::fmnmx(x, c::r(ra), fb, false, k),
-                    Op::Max { .. } => c::fmnmx(x, c::r(ra), fb, true, k),
-                    _ => c::fadd(x, c::r(ra), fb, false, k),
-                };
-                e.poner(w);
+                let lee = [Some(ra), reg_de(fb), None];
+                match op {
+                    Op::Mul { .. } => e.poner(c::fmul(x, c::r(ra), fb, false, 0), Clase::Fma, Some(x), lee),
+                    Op::Add { .. } => e.poner(c::fadd(x, c::r(ra), fb, false, 0), Clase::Fma, Some(x), lee),
+                    Op::Min { .. } => e.poner(c::fmnmx(x, c::r(ra), fb, false, 0), Clase::Alu, Some(x), lee),
+                    _ => e.poner(c::fmnmx(x, c::r(ra), fb, true, 0), Clase::Alu, Some(x), lee),
+                }
+            }
+            Op::Sub { d, a, b } => {
+                let ra = e.registro(a, &mut paso)?;
+                let fb = e.negada(b, &mut paso)?;
+                let x = e.destino(d, i)?;
+                e.poner(c::fadd(x, c::r(ra), fb, false, 0), Clase::Fma, Some(x), [Some(ra), reg_de(fb), None]);
             }
             Op::Mad { d, a, b, c: cc } => {
                 // a * b redondeado, y despues + c redondeado: sin fundir.
-                let ra = e.registro(a, &mut paso)?;
-                let fb = e.fuente(b);
+                let (ra, fb) = e.dos(a, b, true, &mut paso)?;
                 let t = e.pedir()?;
                 paso.push(t);
-                let k = e.ctl();
-                e.poner(c::fmul(t, c::r(ra), fb, false, k));
+                e.poner(c::fmul(t, c::r(ra), fb, false, 0), Clase::Fma, Some(t), [Some(ra), reg_de(fb), None]);
                 let fc = e.fuente(cc);
                 let x = e.destino(d, i)?;
-                let k = e.ctl();
-                e.poner(c::fadd(x, c::r(t), fc, false, k));
+                e.poner(c::fadd(x, c::r(t), fc, false, 0), Clase::Fma, Some(x), [Some(t), reg_de(fc), None]);
             }
             Op::Dot { d, n, a, b } => {
-                // De izquierda a derecha, sin fundir: t = a0 b0; t = t + ak bk.
-                let t = e.pedir()?;
-                paso.push(t);
-                let r0 = e.registro(a[0], &mut paso)?;
-                let f0 = e.fuente(b[0]);
-                let k = e.ctl();
-                e.poner(c::fmul(t, c::r(r0), f0, false, k));
+                // De izquierda a derecha, sin fundir, acumulando en el destino.
+                let x = e.destino(d, i)?;
+                let (r0, f0) = e.dos(a[0], b[0], true, &mut paso)?;
+                e.poner(c::fmul(x, c::r(r0), f0, false, 0), Clase::Fma, Some(x), [Some(r0), reg_de(f0), None]);
                 let u = e.pedir()?;
                 paso.push(u);
                 for j in 1..n as usize {
-                    let rj = e.registro(a[j], &mut paso)?;
-                    let fj = e.fuente(b[j]);
-                    let k = e.ctl();
-                    e.poner(c::fmul(u, c::r(rj), fj, false, k));
-                    let k = e.ctl();
-                    e.poner(c::fadd(t, c::r(t), c::r(u), false, k));
+                    let (rj, fj) = e.dos(a[j], b[j], true, &mut paso)?;
+                    e.poner(c::fmul(u, c::r(rj), fj, false, 0), Clase::Fma, Some(u), [Some(rj), reg_de(fj), None]);
+                    e.poner(c::fadd(x, c::r(x), c::r(u), false, 0), Clase::Fma, Some(x), [Some(x), Some(u), None]);
                 }
-                let x = e.destino(d, i)?;
-                let k = e.ctl();
-                e.poner(c::mov(x, c::r(t), k));
             }
             Op::Rsqrt { d, a } | Op::Sqrt { d, a } => {
                 let ra = e.registro(a, &mut paso)?;
                 let x = e.destino(d, i)?;
                 let f = if matches!(op, Op::Rsqrt { .. }) { Mufu::Rsq } else { Mufu::Sqrt };
-                e.ctl();
-                e.poner(c::mufu(x, f, ra, MUFU_CONTROL));
-                e.control = ESPERA_0;
+                e.poner(c::mufu(x, f, ra, 0), Clase::Mufu, Some(x), [Some(ra), None, None]);
                 e.mufus += 1;
             }
             Op::Saturate { d, a } | Op::Abs { d, a } => {
                 let ra = e.registro(a, &mut paso)?;
                 let x = e.destino(d, i)?;
-                let k = e.ctl();
                 let (fa, sat) = if matches!(op, Op::Abs { .. }) { (c::abs(ra), false) } else { (c::r(ra), true) };
-                e.poner(c::fadd(x, fa, c::neg(RZ), sat, k));
+                e.poner(c::fadd(x, fa, c::neg(RZ), sat, 0), Clase::Fma, Some(x), [Some(ra), None, None]);
             }
             Op::Div { .. } => return Err(NoEmite::Operacion(i)),
         }
@@ -304,9 +370,11 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
             }
         }
     }
-    let k = e.ctl();
-    e.poner(c::exit(k));
-    Ok(Emitido { codigo: e.codigo, registros: e.maximo, mufus: e.mufus })
+    e.poner(c::exit(0), Clase::Nada, None, [None; 3]);
+    // El control, por regla.
+    let (controles, ciclos) = planifica::planificar(&e.metas);
+    let codigo = e.codigo.iter().zip(&controles).map(|(&(lo, hi), &k)| (lo, (hi & ((1 << 41) - 1)) | k << 41)).collect();
+    Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos })
 }
 
 /// Los registros del Programa que lee una operacion.

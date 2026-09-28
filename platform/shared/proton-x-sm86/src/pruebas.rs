@@ -82,14 +82,21 @@ fn el_pixel_emitido_da_los_bits_de_la_casa() {
     }
 }
 
-/// Lo que se usa, dicho: cuantas instrucciones y registros salen, y que
-/// ninguna es una FFMA (sin fundir, como la casa).
+/// Lo que se usa, dicho: cuantas instrucciones y registros salen, que
+/// ninguna es una FFMA (sin fundir, como la casa), que cabe en la puerta del
+/// kernel y que el control por regla tarda menos de la MITAD que el de E3.
+/// Hoy: vertice 50 instrucciones (116-128 ciclos, 18-19 registros), pixel 28
+/// (72-75 ciclos, 9 registros).
 #[test]
 fn lo_emitido_es_corto_sin_fundir_y_cabe() {
     for (nombre, d) in [("vs dxil", DXIL_VS), ("ps dxil", DXIL_PS), ("vs sm5", SM5_VS), ("ps sm5", SM5_PS)] {
         let e = emitir(&programa(d), TECHO).unwrap();
         assert!(e.codigo.iter().all(|&(lo, _)| lo & 0x1FF != 0x023), "{nombre}: una FFMA");
         assert!(e.registros <= 32, "{nombre}: {} registros", e.registros);
+        // E4: cabe en la puerta del kernel (`juez::MAX_INSTRUCCIONES`, 64) y
+        // tarda menos que si cada una esperara 6 ciclos (el control de E3).
+        assert!(e.codigo.len() <= 64, "{nombre}: {} instrucciones", e.codigo.len());
+        assert!(e.ciclos < (6 * (e.codigo.len() - 1) + 1) as u32 / 2, "{nombre}: {} ciclos", e.ciclos);
         assert_eq!(e.codigo.last().map(|w| w.0 & 0x1FF), Some(0x14D), "{nombre}: acaba en EXIT");
     }
     // Y sin sitio, se dice.
