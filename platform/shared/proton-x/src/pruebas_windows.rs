@@ -428,3 +428,15 @@ fn la_huella_de_una_compilacion_y_su_ent() {
     assert_eq!(leer_ent(b"VSMain\r\nvs_5_0\r\n800\r\n0\r\nLUZ=1\r\n"), Some(p));
     assert_eq!(leer_ent(b"solo una linea"), None);
 }
+
+#[test]
+fn los_pendientes_del_cubo_de_bmox12_llevan_la_huella_de_la_casa() {
+    use crate::sombras::{huella, leer_ent, nombre};
+    // Lo que D3DCompile del cubo de BMOX-12 (estudio_d3d12) deja en BMO-X:
+    // su cubo.hlsl tal cual, VSMain/vs_5_0 y PSMain/ps_5_0, sin banderas.
+    let fuente = include_bytes!("../prueba/sombras/f3ef42a0.hls");
+    for (h, ent) in [("f3ef42a0", &include_bytes!("../prueba/sombras/f3ef42a0.ent")[..]), ("4d67f5e4", &include_bytes!("../prueba/sombras/4d67f5e4.ent")[..])] {
+        let p = leer_ent(ent).unwrap();
+        assert_eq!(nombre(huella(fuente, &p)), h, "{}", String::from_utf8_lossy(&p.entrada));
+    }
+}

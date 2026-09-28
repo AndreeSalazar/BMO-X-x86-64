@@ -819,6 +819,41 @@ de arriba y de lo que cada una PIDE, no de gustos:
    8  P5, P6, F              un juego de tu GOG, los rayos, Cyberpunk
 ```
 
+**LO QUE FALTA PARA JUGAR, en orden (28-09).** El propietario: *"VE HASTA EL
+FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
+
+```text
+   AHORA, en su Windows (el propietario, minutos):
+   a  correr hilos.exe, stdio.exe, peek.exe, compila.exe (arreglados/nuevos)
+   b  obrero\sombras.exe platform\shared\proton-x\prueba\sombras
+      -> dos .cso: el SM5 de VERDAD del cubo de BMOX-12, que P3c3 necesita
+
+   LUEGO, aqui:
+   1  P3c3  el bytecode de SM5 (DXBC: SHEX/ISGN/OSGN) -> el mismo lote
+            que ya dibuja la casa. Para el cubo bastan dp4, dp3, rsq, mul,
+            mad, add, mov (y _sat); se prueba contra los .cso de (b)
+   2  P4c   las excepciones (SEH): pendiente; no se escribe en esta sesion
+   3  P3c   BMOX-12 en el Ryzen, dibujado por la CPU (P3b4 despues)
+   4  VERRANO V2..V4 y P3b4: la 3060 dibuja el lote (E2 pide las palabras
+            de `ptxas`/`nvdisasm` de su Windows)
+   5  P5    UN JUEGO CHICO. Lo que un juego pide y un cubo no, medido de
+            antemano con `rayosx` (Ludoteca 9):
+            5a  cargar SUS DLL (un juego trae las suyas: el cargador de
+                PROTON-X hoy carga un .exe, no DLL)
+            5b  D3D9/D3D11 (la mayoria de los chicos de GOG no son D3D12):
+                otra traduccion al MISMO lote
+            5c  el sonido (XAudio2 / DirectSound) y el mando (XInput)
+            5d  borrar, renombrar y crear carpetas en el FAT32 desde Ring 3
+                (las partidas guardadas): codigo del KERNEL
+   6  P6, F los rayos (DXR) y Cyberpunk (D: y un volumen que BMO-X lea con
+            nombres largos y ficheros de mas de 4 GiB)
+```
+
+Lo que YA hay para un juego de verdad (27/28-09): hilos, TLS, esperas,
+ficheros y carpetas, memoria (monton y VirtualAlloc), texto y consola, el CRT
+de MSVC con su printf, la `std` de Rust para Windows salvo P4c, D3D12 y DXGI
+por la CPU, D3DCompile pagando una vez, y el guardian `proton-x`.
+
 **La carpeta `window` (27-09, lo pidio el propietario):** desde hoy los `.exe`
 de Windows viven en `window/` del volumen de datos, no en `apps/` (que es de
 las aplicaciones de BMO-X). La crea el build (`ejemplos.ps1`) con su
