@@ -221,6 +221,13 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
+    // ** P3b4b (3): con DESTINO, la 3060 dibuja en la RAM de la app -- un
+    // bloque ESCRIBIBLE de quien lo pide (no sellado), entero, prestado a la
+    // 3060 SOLO mientras dibuja y devuelto SIEMPRE, salga como salga.
+    let prestado = match paquete.dibujo.destino {
+        None => None,
+        Some((va_app, dst)) => Some(prestar_destino(bar0, pid, va_app, &dst)?),
+    };
     let n = (paquete.n / 3) as u32;
     // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
     // desde nuestro ultimo dibujo (la entrada sigue donde la dejamos) y fue
@@ -231,7 +238,9 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     let huella = tu::huella_fija(&v, &paquete, ligero);
     let tsc = crate::ring0::task::scheduler::tsc_freq().max(1);
     let ahora = crate::ring0::task::scheduler::rdtsc();
+    // Con destino, siempre en frio: cada dibujo presta y devuelve la RAM.
     let caliente = CALIENTE_HUELLA.swap(0, Ordering::AcqRel) == huella
+        && prestado.is_none()
         && CALIENTE_ENTRADA.load(Ordering::Acquire) == e
         && ahora.wrapping_sub(CALIENTE_TSC.load(Ordering::Acquire)) < tsc / 10;
     let mut preparar_ciclos = 0u64;
@@ -243,6 +252,11 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     };
     let r = super::volcado::quieto().and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar));
     BLUR_EN_MARCHA.store(false, Ordering::Release);
+    if let Some(paginas) = prestado {
+        if crate::ring0::plat::iommu::devolver_gpu(bmo_gpu_ga10x::destino::IOVA, paginas).is_err() {
+            crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app NO se pudo devolver (la invalidacion no contesto); paginas", paginas);
+        }
+    }
     let r = r.map(|x| cu::con_preparar(x, caliente, preparar_ciclos * 1_000_000 / tsc));
     if let Ok(x) = r {
         if cu::sano(x) {
@@ -253,6 +267,42 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
         }
     }
     r
+}
+
+/// Las tablas del destino de la app, escritas (una vez por arranque).
+static DESTINO_MAPEADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **Prestar la RAM de la app a la 3060** (P3b4b 3): un bloque escribible
+/// del proceso, entero y alineado, en `destino::IOVA`, con las tablas del
+/// destino puestas. `Ok(paginas prestadas)`.
+fn prestar_destino(bar0: u64, pid: u32, va_app: u64, dst: &bmo_gpu_ga10x::destino::Destino) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::destino as ds;
+    let bytes = dst.bytes();
+    let Some(fisica) = crate::ring0::obj::memory::fisica_para_escribir(pid, va_app, bytes) else {
+        crate::ring0::cabina::warn("gpu", "VERRANO: el destino no es un bloque ESCRIBIBLE de quien lo pide", va_app);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    if fisica % 4096 != 0 || fisica + bytes > crate::ring0::mm::PHYSMAP_SIZE {
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    if !DESTINO_MAPEADO.load(Ordering::Acquire) {
+        match ds::mapear(&mut Bar0(bar0)) {
+            Some((n, bien)) if n == bien => {
+                DESTINO_MAPEADO.store(true, Ordering::Release);
+                crate::ring0::cabina::count("gpu", "P3b4b: el destino de la app MAPEADO para la 3060 (PTE de sistema); entradas", n as u64);
+            }
+            _ => {
+                crate::ring0::cabina::warn("gpu", "P3b4b: las tablas del destino no se escribieron o no se releyeron", 0);
+                return Err(IOMMU_NO_BLUR_PREPARAR);
+            }
+        }
+    }
+    let paginas = dst.paginas();
+    if crate::ring0::plat::iommu::prestar_gpu(ds::IOVA, fisica, paginas, true).is_err() {
+        crate::ring0::cabina::warn("gpu", "VERRANO: la RAM de la app no se pudo prestar a la 3060; fisica", fisica);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    Ok(paginas)
 }
 
 /// Si este paquete PODRIA ir en caliente (sus programas son los del ultimo

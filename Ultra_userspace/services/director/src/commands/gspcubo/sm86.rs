@@ -92,6 +92,10 @@ pub(super) struct Opciones {
     /// descarte del hardware (por defecto, horario: el de D3D). Por si el
     /// metal dice que la 3060 cuenta el giro al reves.
     pub antihorario: bool,
+    /// `enram` (P3b4b 3): con `bmox12`, el destino es un bloque de RAM del
+    /// escritorio -- como el back buffer de una app -- y la comparacion lee
+    /// de ahi, no de la pantalla.
+    pub enram: bool,
 }
 
 /// **Las palabras de ESTA tarjeta** y que hacen: las que entiende
@@ -107,6 +111,7 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"reposo", b"sin gobernador: la tarjeta en reposo, a proposito"),
     (b"sinldg", b"el de vertice SIN sus LDG (la prueba del 25-09): no dibuja el cubo"),
     (b"antihorario", b"con bmox12: delante es ANTIHORARIO para el descarte de la 3060 (si el cubo sale del reves)"),
+    (b"enram", b"con bmox12: la 3060 dibuja en RAM del escritorio (como en el back buffer de una app), no en la pantalla"),
 ];
 
 impl Opciones {
@@ -116,6 +121,7 @@ impl Opciones {
             match w {
                 b"bmox12" => o.bmox12 = true,
                 b"antihorario" => o.antihorario = true,
+                b"enram" => o.enram = true,
                 b"sinldg" => o.sin_ldg = true,
                 b"ligero" => o.ligero = true,
                 b"anillo" => {
@@ -208,6 +214,11 @@ pub(super) struct Aparato<'a> {
     /// E5: el fotograma de BMOX-12 que se dibuja (`Opciones::bmox12`).
     bmox12: Option<u32>,
     antihorario: bool,
+    /// `enram`: el bloque de RAM donde dibuja la 3060 y su medida en pixeles
+    /// (1280x720). El BLOQUE mismo, no su direccion: vive lo que el aparato
+    /// (un `Memoria` suelto se devuelve al salir de su alcance, y la 3060
+    /// escribiria en RAM ya devuelta).
+    enram: Option<(bmo::Memoria, usize)>,
     /// El modulo de vertice del BSF: su tabla de buffers juzga cada `Frame`.
     vertice: ModuleView<'static>,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
@@ -318,6 +329,20 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
             return Err(linea(dsk, t.s(), INK_ERR));
         }
     };
+    // `enram`: el destino, un bloque del escritorio de 1280x720 (como el
+    // back buffer de una app). Solo con los programas de BMOX-12 (VRN1).
+    let enram = if op.enram {
+        if !op.bmox12 {
+            return Err(linea(dsk, b"  NO  enram va con bmox12 (el destino es de los paquetes VRN1)", INK_ERR));
+        }
+        let pixeles = (cu::ANCHO * cu::ALTO) as usize;
+        let Some(b) = bmo::Memoria::request(4 * pixeles as u64) else {
+            return Err(linea(dsk, b"  NO  sin memoria para el destino de 1280x720", INK_ERR));
+        };
+        Some((b, pixeles))
+    } else {
+        None
+    };
     let mut propio = [0u8; 4 * tu::PALABRAS_VS];
     let propio_n = if op.sin_ldg { tu::bytes(&tu::vertice_sin_ldg(), &mut propio) } else { 0 };
     // Lo que falte del motor grafico (con `init` por defecto, casi todo).
@@ -328,7 +353,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, enram, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -356,7 +381,16 @@ impl Backend for Aparato<'_> {
             // solo lo que dibuja el juez de la CPU.
             let mut datos = [0u8; 2048];
             let (n, bytes, desde) = bmo_cubo::tanda::datos_indexados(f, cu::ANCHO, cu::ALTO, &mut datos).ok_or(Error::Vertices)?;
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte: tu::Descarte::Traseras, antihorario: self.antihorario };
+            // `enram`: el destino, limpio con el FONDO (la app limpia su back
+            // buffer; con destino la 3060 no limpia).
+            let destino = self.enram.as_ref().map(|(b, n)| {
+                let (va, n) = (b.base() as u64, *n);
+                // SAFETY: el bloque de `abrir`, `n` pixeles de este proceso,
+                // solo se usa aqui; la 3060 no lo toca fuera de la llamada.
+                unsafe { core::slice::from_raw_parts_mut(va as *mut u32, n) }.fill(cu::PIXEL_FONDO);
+                (va, bmo_gpu_ga10x::destino::Destino { fila: 4 * cu::ANCHO, ancho: cu::ANCHO, alto: cu::ALTO, rgb: false })
+            });
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte: tu::Descarte::Traseras, antihorario: self.antihorario, destino };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
             tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
@@ -396,6 +430,18 @@ impl Backend for Aparato<'_> {
         let hz = bmo::info(bmo::INFO_TSC_HZ).max(1000);
         let desde = bmo::ciclos();
         let n = (out.width * out.height) as usize;
+        // `enram`: lo que pinto la 3060 esta en NUESTRA RAM: se lee de ahi.
+        if let Some((b, m)) = self.enram.as_ref() {
+            let (va, m) = (b.base() as u64, *m);
+            // SAFETY: el bloque de `abrir`; la 3060 acabo (el kernel espero
+            // su semaforo y devolvio el prestamo).
+            let d = unsafe { core::slice::from_raw_parts(va as *const u32, m) };
+            for (o, &x) in out.pixels[..n.min(m)].iter_mut().zip(d) {
+                *o = 0xFF00_0000 | x;
+            }
+            self.leer_ms = (bmo::ciclos() - desde) * 1000 / hz;
+            return Ok(st);
+        }
         for k in 0..n / 2 {
             let d = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_CUBO, bmo::CUBO_LEER | k as u64).map_err(Error::Device)?;
             out.pixels[2 * k] = 0xFF00_0000 | d as u32;

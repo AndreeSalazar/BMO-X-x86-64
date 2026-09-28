@@ -286,7 +286,9 @@ pub const CABECERA: usize = 32;
 ///    +36  bits 0..1 el descarte (0 ninguno, 1 las traseras, 2 las
 ///         delanteras); bit 2 delante es ANTIHORARIO (D3D: horario)
 ///    +40  cuantos vertices hay en los datos: cada indice, menos
-///    +44..64  ceros
+///    +44  el DESTINO (P3b4b 3), si el bit 31 de +60 esta puesto: la VA de
+///         la app (+44 baja, +48 alta), +52 bytes por fila, +56 ancho |
+///         alto << 16, +60 bit 0 rgb; si no, todo a cero (la pantalla)
 /// ```
 pub const MAGIA_1: u32 = u32::from_le_bytes(*b"VRN1");
 pub const CABECERA_1: usize = 64;
@@ -314,7 +316,13 @@ pub struct Dibujo {
     pub descarte: Descarte,
     /// Delante es antihorario (en D3D, `FrontCounterClockwise`).
     pub antihorario: bool,
+    /// Donde dibuja: la RAM de la app (su VA y como es), o `None`: la
+    /// ventana de VERRANO en la pantalla, limpiandola antes.
+    pub destino: Option<(u64, crate::destino::Destino)>,
 }
+
+/// El bit de +60 que dice que hay destino.
+const HAY_DESTINO: u32 = 1 << 31;
 
 /// `OGL_SET_FRONT_FACE` / `OGL_SET_CULL_FACE` (clc797.h de NVIDIA).
 pub const OGL_SET_FRONT_FACE: u32 = 0x191c;
@@ -387,9 +395,24 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
         return Some(Dibujo::default());
     }
     let (desde, estado, vertices) = (u32le(cabecera, 32), u32le(cabecera, 36), u32le(cabecera, 40));
-    if cabecera[44..CABECERA_1].iter().any(|&b| b != 0) || estado >> 3 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
+    if estado >> 3 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
         return None;
     }
+    let bandera = u32le(cabecera, 60);
+    let destino = if bandera & HAY_DESTINO == 0 {
+        if cabecera[44..CABECERA_1].iter().any(|&b| b != 0) {
+            return None;
+        }
+        None
+    } else {
+        let va = u32le(cabecera, 44) as u64 | (u32le(cabecera, 48) as u64) << 32;
+        let medidas = u32le(cabecera, 56);
+        let d = crate::destino::Destino { fila: u32le(cabecera, 52), ancho: medidas & 0xFFFF, alto: medidas >> 16, rgb: bandera & 1 != 0 };
+        if bandera & !(HAY_DESTINO | 1) != 0 || !d.valido() || va == 0 || va % 4096 != 0 {
+            return None;
+        }
+        Some((va, d))
+    };
     let descarte = match estado & 3 {
         0 => Descarte::Ninguna,
         1 => Descarte::Traseras,
@@ -407,7 +430,7 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
         }
         Some(desde)
     };
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0 })
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino })
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -506,7 +529,9 @@ pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8],
         Descarte::Traseras => 1,
         Descarte::Delanteras => 2,
     } | (dibujo.antihorario as u32) << 2;
-    let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, 0, 0, datos.len() as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices];
+    let (va, dst) = dibujo.destino.unwrap_or_default();
+    let bandera = if dibujo.destino.is_some() { HAY_DESTINO | dst.rgb as u32 } else { 0 };
+    let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, 0, 0, datos.len() as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices, va as u32, (va >> 32) as u32, dst.fila, dst.ancho | dst.alto << 16, bandera];
     for (k, w) in palabras.iter().enumerate() {
         out[4 * k..4 * k + 4].copy_from_slice(&w.to_le_bytes());
     }
@@ -561,7 +586,13 @@ pub fn ordenes_con(v: &Ventana, n: usize, ligero: bool) -> cu::Ordenes {
 /// **P3b4b**: las mismas, y el `Dibujo` -- el descarte de caras encendido
 /// en el hardware, y el dibujo CON INDICES (los de los datos, u32).
 pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ordenes {
-    let mut e = cu::hasta_el_dibujo_con(v, !ligero, REGISTROS);
+    // Con destino, la RAM de la app y SIN limpiar: el juego limpia su back
+    // buffer (ClearRenderTargetView) antes de dibujar en el.
+    let (v, limpiar) = match d.destino {
+        Some((_, dst)) => (dst.ventana(), false),
+        None => (*v, true),
+    };
+    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar, None, REGISTROS);
     if d.descarte != Descarte::Ninguna {
         e.m(OGL_SET_FRONT_FACE, &[if d.antihorario { DELANTE_ANTIHORARIO } else { DELANTE_HORARIO }]);
         e.m(OGL_SET_CULL_FACE, &[if d.descarte == Descarte::Traseras { CULL_TRASERAS } else { CULL_DELANTERAS }]);
@@ -647,7 +678,8 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     mezclar(p.ps);
     let d = p.dibujo;
     let dibujo = d.indices.unwrap_or(SIN_INDICES) as u64 | (d.descarte as u64) << 32 | (d.antihorario as u64) << 34 | (d.vertices as u64) << 40;
-    for x in [p.vertices.len() as u64, p.n as u64, dibujo, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    let (dva, dst) = d.destino.unwrap_or_default();
+    for x in [p.vertices.len() as u64, p.n as u64, dibujo, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -789,7 +821,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -825,6 +857,36 @@ mod pruebas {
         // Sin descarte ni indices, las de siempre.
         let (a, b) = (ordenes_con(&v, 2, true), ordenes_dibujo(&v, 2, true, Dibujo::default()));
         assert_eq!(&a.o[..a.n], &b.o[..b.n]);
+    }
+
+    /// P3b4b (3): con DESTINO, el paquete lleva la RAM de la app; sus ordenes
+    /// ponen el destino de color en `destino::VA` con su fila, y NO limpian
+    /// (el juego limpia su back buffer). Un destino que no vale, no pasa.
+    #[test]
+    fn vrn1_con_destino_en_la_ram_de_la_app() {
+        use crate::destino::{Destino, VA as DESTINO_VA};
+        use crate::tresde as td;
+        let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
+        let datos = std::vec![0u8; 96];
+        let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)) };
+        let mut caja = std::vec![0u8; MAX_PAQUETE];
+        let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
+        assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);
+        for malo in [Destino { ancho: 640, ..dst }, Destino { fila: 5124, ..dst }] {
+            assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5000, malo)), ..d }), None);
+        }
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, Dibujo { destino: Some((0x1234_5010, dst)), ..d }), None, "sin alinear a pagina");
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = ordenes_dibujo(&v, 1, true, d);
+        let w = &o.o[..o.n];
+        let i = w.iter().position(|&x| x == crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8)).unwrap();
+        assert_eq!(&w[i + 1..i + 4], &[(DESTINO_VA >> 32) as u32, DESTINO_VA as u32, 1280 * 4]);
+        assert!(!w.contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)), "no limpia");
+        // Sin destino, la pantalla y limpiando, como siempre.
+        let o = ordenes_dibujo(&v, 1, true, Dibujo::default());
+        assert!(o.o[..o.n].contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)));
     }
 
     fn programa_de<const N: usize>(p: &[u32; N]) -> std::vec::Vec<u8> {

@@ -82,7 +82,7 @@ pub const MAX_VERTICES: usize = 3 * crate::cubo::CABEN;
 pub const fn cabe(p: &Paquete) -> bool {
     // Y sin indices ni descarte: el anillo lleva sus propias ordenes (V1b),
     // que hoy no los tienen.
-    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES && p.dibujo.indices.is_none() && matches!(p.dibujo.descarte, crate::tuberia::Descarte::Ninguna)
+    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES && p.dibujo.indices.is_none() && matches!(p.dibujo.descarte, crate::tuberia::Descarte::Ninguna) && p.dibujo.destino.is_none()
 }
 pub const PAGINAS: u64 = 1;
 /// Donde la ve la IOMMU: tras el MiB del fractal (y antes del booter).

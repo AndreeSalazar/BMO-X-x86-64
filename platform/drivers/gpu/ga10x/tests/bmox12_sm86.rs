@@ -149,7 +149,7 @@ fn con_indices_da_lo_mismo_que_v0() {
                 assert_eq!(sv[0].map(f32::to_bits), t.tris[j].clip[c].map(f32::to_bits), "fotograma {f}, cara {k}, vertice {c}");
             }
         }
-        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false };
+        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None };
         let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, dibujo).expect("el paquete VRN1 se sostiene");
         assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, dibujo);
     }

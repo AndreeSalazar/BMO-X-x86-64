@@ -496,7 +496,15 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                bits de la casa en los 24 vertices (936). DATOS de 1104 B.
            4b  [ ] EL KERNEL (Ring 0, dicho que si el 28-09): (1) dibujar en
                la ventana de la app -- su memoria prestada a la 3060 por la
-               IOMMU, como `lienzo` --, no en un recuadro fijo; (2) DATOS en un
+               IOMMU, como `lienzo` --, no en un recuadro fijo [HECHO en el
+               banco 28-09: `destino` (VA 0x7_0000_0000, 4 PT, PTE de sistema
+               hacia la IOVA 0x5800_0000; el camino de `volcado`); VRN1 lleva
+               el destino (la VA de la app, fila, medida); el kernel exige un
+               bloque ESCRIBIBLE de quien pide, lo presta SOLO mientras dibuja
+               y lo devuelve siempre; sin limpiar (la app limpia su back
+               buffer). Prueba en el metal: `gpu verrano bmox12 30 enram`, la
+               3060 dibuja en RAM del escritorio y se compara leyendo de ahi.
+               Hoy solo 1280x720]; (2) DATOS en un
                tramo propio de VRAM (64 KiB; hoy 1 KiB y BMOX-12 pide 1104 B)
                [HECHO en el banco 28-09: `vram::DATOS`, 16 paginas detras del
                tramo, en las entradas 320..335 de su PT; el anillo, 1 KiB por
