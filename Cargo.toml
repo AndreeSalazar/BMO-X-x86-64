@@ -102,6 +102,9 @@ members = [
     "platform/shared/verrano",
     "platform/shared/proton-x",
     "platform/shared/proton-x-casa",
+    # LA LENGUA DE LA 3060, pura: el codificador de SASS (E2) fuera del driver,
+    # para que el emisor de PROTON-X (Ring 3) lo use sin enlazar un driver (L8).
+    "platform/shared/bmo-sm86",
     "platform/shared/bmo-pase-gpu",
     "platform/shared/bmo-puerta-red",
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de

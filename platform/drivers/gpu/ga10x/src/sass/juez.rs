@@ -225,8 +225,9 @@ fn por_tipo(t: u32) -> u8 {
     }
 }
 
-/// Si el juez sabe leer esta instruccion (si no, seria R0 "no se"). Lo usa
-/// el codificador (E2) para no fabricar nada que el juez no pueda juzgar.
+/// Si el juez sabe leer esta instruccion (si no, seria R0 "no se"). Con
+/// ella el banco comprueba que todo lo que fabrica el codificador (E2,
+/// `bmo-sm86`) el juez lo puede juzgar.
 pub fn conoce(lo: u64, hi: u64) -> bool {
     decodificar(lo, hi).is_some()
 }
@@ -579,6 +580,16 @@ mod pruebas {
     use super::*;
     use crate::sass::corpus::{ORO, SOSPECHOSOS};
     use crate::{color3d, cubo as cu, raster, tuberia as tu};
+
+    /// E2: el juez conoce TODO lo que fabrica el codificador (`bmo-sm86`):
+    /// las palabras de oro de `ptxas` y las leidas por `nvdisasm`. Ninguna es
+    /// R0 "no se".
+    #[test]
+    fn el_juez_conoce_lo_que_fabrica_el_codificador() {
+        for (texto, lo, hi) in bmo_sm86::codifica::ORO.iter().chain(bmo_sm86::codifica::LEIDAS) {
+            assert!(conoce(*lo, *hi), "{texto}");
+        }
+    }
 
     /// J1 (a): TODO lo que ya corrio en el metal es PERFECTO Y PRECISO. Si no,
     /// el que esta mal es el juez.

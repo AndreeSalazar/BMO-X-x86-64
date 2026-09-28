@@ -302,6 +302,7 @@ name = "bmo-gpu-ga10x"
 version = "0.1.0"
 dependencies = [
  "bmo-bsf",
+ "bmo-sm86",
  "bmo-verrano",
 ]
 
@@ -617,6 +618,10 @@ dependencies = [
  "serde",
  "toml",
 ]
+
+[[package]]
+name = "bmo-sm86"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-sonido"

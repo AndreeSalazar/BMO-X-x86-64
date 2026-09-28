@@ -1,0 +1,15 @@
+[package]
+name = "bmo-sm86"
+version = "0.1.0"
+edition = "2021"
+description = "La lengua de la RTX 3060 (SM86), pura: el codificador de SASS bit a bit contra ptxas (E2 de PLAN_LA_LENGUA_DE_LA_3060). Sin aparato, sin dependencias."
+license = "Apache-2.0"
+
+# Sin dependencias, a proposito: la usan el emisor de PROTON-X (Ring 3) y el
+# banco del driver (`bmo-gpu-ga10x`, solo en sus pruebas), y el driver que
+# enlaza el kernel sigue sin enlazar nada. Regla S de `la-3060`: lo de NVIDIA
+# vive en lo suyo; lo comun (PROTON-X, VERRANO) no lo nombra.
+[dependencies]
+
+[lib]
+name = "bmo_sm86"

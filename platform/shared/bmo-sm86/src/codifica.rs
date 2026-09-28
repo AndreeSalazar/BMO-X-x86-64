@@ -158,44 +158,66 @@ pub fn exit(control: u64) -> (u64, u64) {
     palabra(0x14D | 4 << 9 | SIEMPRE, 7 << 23, control)
 }
 
+/// El control de una de ALU (el de `ptxas` y del driver: 6 ciclos, el bit 4,
+/// sin barreras): el de las combinaciones leidas por `nvdisasm`.
+pub const ALU: u64 = 6 | 1 << 4 | 7 << 5 | 7 << 8;
+
 /// `NOP`.
 pub fn nop(control: u64) -> (u64, u64) {
     palabra(0x118 | 4 << 9 | SIEMPRE, 0, control)
 }
 
+/// Las PALABRAS DE ORO: `ptxas -arch=sm_86 -O3` (CUDA 12.9) sobre
+/// `ga10x/sombreadores/oro_codifica.ptx`, leido con `nvdisasm -hex` (13.4),
+/// 28-09. El texto es el de `nvdisasm`, tal cual. Publicas: el juez del
+/// driver (J1) las lee en sus pruebas.
+pub const ORO: &[(&str, u64, u64)] = &[
+    ("MOV R1, c[0x0][0x28]", 0x00000a0000017a02, 0x000fe40000000f00),
+    ("MOV R6, 0x4b800000", 0x4b80000000067802, 0x000fe40000000f00),
+    ("FMUL R15, R0.reuse, 16777216", 0x4b800000000f7820, 0x048fe20000400000),
+    ("FMUL R8, R9, R6", 0x0000000609087220, 0x000fe20000400000),
+    ("MUFU.RSQ R27, R15", 0x0000000f001b7308, 0x0000700000001400),
+    ("MUFU.SQRT R29, R4", 0x00000004001d7308, 0x000eb00000002000),
+    ("MUFU.RCP R31, R8", 0x00000008001f7308, 0x000ee20000001000),
+    ("FADD R11, R0.reuse, R7.reuse", 0x00000007000b7221, 0x140fe20000000000),
+    ("FADD R13, R0.reuse, -R7", 0x80000007000d7221, 0x040fe20000000000),
+    ("FMUL R5, R0.reuse, R7.reuse", 0x0000000700057220, 0x0c0fe20000400000),
+    ("FMUL.SAT R15, R0.reuse, R7.reuse", 0x00000007000f7220, 0x0c1fe20000402000),
+    ("FMNMX R23, R0.reuse, R7.reuse, PT", 0x0000000700177209, 0x0c0fe20003800000),
+    ("FMNMX R25, R0.reuse, R7, !PT", 0x0000000700197209, 0x040fe20007800000),
+    ("FADD R17, R0, 1", 0x3f80000000117421, 0x000fc40000000000),
+    ("FMUL R19, R0.reuse, 3.1415927410125732422", 0x40490fdb00137820, 0x040fe20000400000),
+    ("FADD R21, R0, c[0x0][0x170]", 0x00005c0000157621, 0x000fe40000000000),
+    ("FMUL R31, R6, R31", 0x0000001f061f7220, 0x008fe20000400000),
+    ("FFMA R11, R0.reuse, R7, R9.reuse", 0x00000007000b7223, 0x141fe20000000009),
+    ("FFMA R9, R0.reuse, c[0x0][0x170], R9", 0x00005c0000097a23, 0x040fe20000000009),
+    ("FADD.SAT R13, R0.reuse, R7.reuse", 0x00000007000d7221, 0x150fe20000002000),
+    ("FADD R5, |R0|, -R7", 0x8000000700057221, 0x020fe20000000200),
+    ("FMUL R7, R7, c[0x0][0x170]", 0x00005c0007077a20, 0x000fe20000400000),
+    ("EXIT", 0x000000000000794d, 0x000fea0003800000),
+    ("NOP", 0x0000000000007918, 0x000fc00000000000),
+];
+
+/// Combinaciones que `ptxas` NO dio (otras formas, otros modificadores, otros
+/// bancos): las fabrica ESTE codificador y `nvdisasm -b SM86` (13.4) las lee
+/// como dice el texto (28-09). Es el criterio de E2: lo que se fabrica,
+/// NVIDIA lo lee de vuelta.
+pub const LEIDAS: &[(&str, u64, u64)] = &[
+        ("FFMA R2, R3, 0.5, R4", 0x3f00000003027823, 0x000fec0000000004),
+        ("MOV R10, R11", 0x0000000b000a7202, 0x000fec0000000f00),
+        ("FFMA.SAT R5, -R6, R7, -R8", 0x0000000706057223, 0x000fec0000002908),
+        ("MUFU.RSQ R12, R13", 0x0000000d000c7308, 0x000fec0000001400),
+        ("FMNMX R1, |R2|, c[0x3][0x40], !PT", 0x00c0100002017a09, 0x000fec0007800200),
+        ("FADD.SAT R9, -R1, |R2|", 0x4000000201097221, 0x000fec0000002100),
+        ("FMUL R3, |R4|, -R5", 0x8000000504037220, 0x000fec0000400200),
+        ("FFMA R6, R7, c[0x0][0x1fc], |R8|", 0x00007f0007067a23, 0x000fec0000000408),
+        ("MOV R0, c[0x1][0x10]", 0x0040040000007a02, 0x000fec0000000f00),
+        ("EXIT", 0x000000000000794d, 0x000fec0003800000),
+];
+
 #[cfg(test)]
 mod pruebas {
     use super::*;
-
-    /// Las PALABRAS DE ORO: `ptxas -arch=sm_86 -O3` (CUDA 12.9) sobre un PTX
-    /// hecho para esto, leido con `nvdisasm -hex` (13.4), 28-09. El texto es
-    /// el de `nvdisasm`, tal cual.
-    const ORO: &[(&str, u64, u64)] = &[
-        ("MOV R1, c[0x0][0x28]", 0x00000a0000017a02, 0x000fe40000000f00),
-        ("MOV R6, 0x4b800000", 0x4b80000000067802, 0x000fe40000000f00),
-        ("FMUL R15, R0.reuse, 16777216", 0x4b800000000f7820, 0x048fe20000400000),
-        ("FMUL R8, R9, R6", 0x0000000609087220, 0x000fe20000400000),
-        ("MUFU.RSQ R27, R15", 0x0000000f001b7308, 0x0000700000001400),
-        ("MUFU.SQRT R29, R4", 0x00000004001d7308, 0x000eb00000002000),
-        ("MUFU.RCP R31, R8", 0x00000008001f7308, 0x000ee20000001000),
-        ("FADD R11, R0.reuse, R7.reuse", 0x00000007000b7221, 0x140fe20000000000),
-        ("FADD R13, R0.reuse, -R7", 0x80000007000d7221, 0x040fe20000000000),
-        ("FMUL R5, R0.reuse, R7.reuse", 0x0000000700057220, 0x0c0fe20000400000),
-        ("FMUL.SAT R15, R0.reuse, R7.reuse", 0x00000007000f7220, 0x0c1fe20000402000),
-        ("FMNMX R23, R0.reuse, R7.reuse, PT", 0x0000000700177209, 0x0c0fe20003800000),
-        ("FMNMX R25, R0.reuse, R7, !PT", 0x0000000700197209, 0x040fe20007800000),
-        ("FADD R17, R0, 1", 0x3f80000000117421, 0x000fc40000000000),
-        ("FMUL R19, R0.reuse, 3.1415927410125732422", 0x40490fdb00137820, 0x040fe20000400000),
-        ("FADD R21, R0, c[0x0][0x170]", 0x00005c0000157621, 0x000fe40000000000),
-        ("FMUL R31, R6, R31", 0x0000001f061f7220, 0x008fe20000400000),
-        ("FFMA R11, R0.reuse, R7, R9.reuse", 0x00000007000b7223, 0x141fe20000000009),
-        ("FFMA R9, R0.reuse, c[0x0][0x170], R9", 0x00005c0000097a23, 0x040fe20000000009),
-        ("FADD.SAT R13, R0.reuse, R7.reuse", 0x00000007000d7221, 0x150fe20000002000),
-        ("FADD R5, |R0|, -R7", 0x8000000700057221, 0x020fe20000000200),
-        ("FMUL R7, R7, c[0x0][0x170]", 0x00005c0007077a20, 0x000fe20000400000),
-        ("EXIT", 0x000000000000794d, 0x000fea0003800000),
-        ("NOP", 0x0000000000007918, 0x000fc00000000000),
-    ];
 
     fn c(banco: u8, desp: u16) -> Fuente {
         Fuente::C { banco, desp }
@@ -240,39 +262,9 @@ mod pruebas {
         }
     }
 
-    /// Y el juez (J1) las conoce todas: ninguna es "R0 no se".
-    #[test]
-    fn el_juez_las_conoce() {
-        use crate::sass::juez;
-        for (texto, lo, hi) in ORO {
-            assert!(juez::conoce(*lo, *hi), "{texto}");
-        }
-    }
-}
-#[cfg(test)]
-mod leidas_por_nvdisasm {
-    use super::*;
-
-    /// Combinaciones que `ptxas` NO dio (otras formas, otros modificadores,
-    /// otros bancos): las fabrica ESTE codificador y `nvdisasm -b SM86`
-    /// (13.4) las lee como dice el texto (28-09). Es el criterio de E2: lo
-    /// que se fabrica, NVIDIA lo lee de vuelta.
-    const LEIDAS: &[(&str, u64, u64)] = &[
-            ("FFMA R2, R3, 0.5, R4", 0x3f00000003027823, 0x000fec0000000004),
-            ("MOV R10, R11", 0x0000000b000a7202, 0x000fec0000000f00),
-            ("FFMA.SAT R5, -R6, R7, -R8", 0x0000000706057223, 0x000fec0000002908),
-            ("MUFU.RSQ R12, R13", 0x0000000d000c7308, 0x000fec0000001400),
-            ("FMNMX R1, |R2|, c[0x3][0x40], !PT", 0x00c0100002017a09, 0x000fec0007800200),
-            ("FADD.SAT R9, -R1, |R2|", 0x4000000201097221, 0x000fec0000002100),
-            ("FMUL R3, |R4|, -R5", 0x8000000504037220, 0x000fec0000400200),
-            ("FFMA R6, R7, c[0x0][0x1fc], |R8|", 0x00007f0007067a23, 0x000fec0000000408),
-            ("MOV R0, c[0x1][0x10]", 0x0040040000007a02, 0x000fec0000000f00),
-            ("EXIT", 0x000000000000794d, 0x000fec0003800000),
-    ];
-
     #[test]
     fn nvdisasm_lee_lo_que_fabrica_el_codificador() {
-        let k = crate::trabajos::cubo::ALU;
+        let k = ALU;
         let c = |banco, desp| Fuente::C { banco, desp };
         let hechas = [
             ffma(2, r(3), Fuente::Imm(0.5f32.to_bits()), r(4), false, k),
@@ -288,7 +280,6 @@ mod leidas_por_nvdisasm {
         ];
         for ((texto, lo, hi), h) in LEIDAS.iter().zip(hechas) {
             assert_eq!(h, (*lo, *hi), "{texto}");
-            assert!(crate::sass::juez::conoce(*lo, *hi), "{texto}");
         }
     }
 }
