@@ -330,7 +330,7 @@ de control escritos a mano en todo BMO-X.
   permite); y la tabla es la del juez para estas clases, no la de NVIDIA
   entera.
 
-## [ ] E5 -- EN EL METAL: el cubo con programas EMITIDOS
+## [x] E5 -- EN EL METAL: el cubo con programas EMITIDOS
 
 `cubo.bsf` deja de llevar SASS a mano: lo fabrica el emisor. `gpu verrano`
 dibuja el cubo con ese sobre.
@@ -361,8 +361,19 @@ dibuja el cubo con ese sobre.
     (bit a bit) que la tanda de V0 y el mismo color en 8 bits.
   - `gpu verrano bmox12 [N]`: la 3060 transforma e ilumina ella; la CPU
     dibuja lo mismo por V0 y se comparan pixel a pixel y con D3D12.
-- **Falta:** el metal (`gpu verrano bmox12 0`, `30`, `60`, con la 3060 en
-  frio) y lo que diga; despues, `cubo.bsf` sin SASS a mano.
+- **HECHO EN EL METAL (28-09 11:37):** `gpu verrano bmox12 0`, `30` y `60`:
+  `IGUAL: VERRANO en el aparato = VERRANO en la CPU = D3D12 en la 3060 bajo
+  Windows` en los tres (huellas 0xab7afc663a345885, 0x2b3985e93e1a6574,
+  0x8dc7ef10f691548e), con los programas de BMOX-12 traducidos por PROTON-X
+  (1696 + 768 B). La 3060 transforma e ilumina; la CPU solo juzga.
+- **Lo que el metal enseno (y el juez ya sabe):** dos carreras que el juez
+  no miraba. (1) El EXIT de un programa de pixel LEE el color (R0..R3): lo
+  que lo escribe tiene que haber llegado. (2) Una barrera de escritura
+  tarda UN ciclo en encenderse: quien la enciende espera 2 si el siguiente
+  la espera (`ptxas` lo hace). Las dos salian como puntos al azar por
+  bloques, solo con pocos warps.
+- **Queda (no bloquea):** `cubo.bsf` sin SASS a mano; la interpolacion con
+  perspectiva (hoy ScreenLinear, exacta en caras de un valor).
 
 ---
 
