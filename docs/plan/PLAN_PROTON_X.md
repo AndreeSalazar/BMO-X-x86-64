@@ -502,7 +502,15 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                tramo, en las entradas 320..335 de su PT; el anillo, 1 KiB por
                ranura (`anillo::cabe`). FALTA el metal];
                (3) el dibujo CON INDICES por el hardware; (4) el descarte de
-               caras por el hardware (hoy lo hace la CPU con la tanda).
+               caras por el hardware (hoy lo hace la CPU con la tanda)
+               [(3) y (4) HECHOS en el banco 28-09: el paquete VRN1 (cabecera
+               de 64 B: el byte de los indices, el descarte y el giro de
+               delante, cuantos vertices hay), cada indice validado; las
+               ordenes con OGL_SET_FRONT_FACE/CULL_FACE/CULL y el bufer de
+               indices (SET_INDEX_BUFFER_*, DRAW_INDEX_BUFFER), metodos de
+               clc797.h de NVIDIA. `gpu verrano bmox12` ya manda los 24
+               vertices y los 36 indices; la CPU no escoge caras. FALTA el
+               metal (y si el cubo sale del reves: `antihorario`)].
            4c  [ ] la puerta de la 3060 en la app `proton-x` (su ejecutor del
                lote, `Plataforma::dibujar`), y en el Ryzen: `run
                sys/proton-x.bex window/bmox12.exe` dibujado por la 3060, con

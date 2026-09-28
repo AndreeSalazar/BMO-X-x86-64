@@ -123,3 +123,34 @@ fn da_lo_mismo_que_v0() {
         assert_eq!((q.n, q.vertices), (n, d));
     }
 }
+
+/// *** P3b4b: los DATOS CON INDICES (los 24 vertices del cubo y sus 36
+/// indices; el descarte, del hardware): cada triangulo que la tanda de V0
+/// deja ver tiene, por sus indices, los MISMOS vertices de recorte (bit a
+/// bit) por la casa; y el paquete VRN1 con los dos programas se sostiene.
+#[test]
+fn con_indices_da_lo_mismo_que_v0() {
+    let pv = programa(VS);
+    let (v, p) = pegados();
+    let (bv, bp) = (bytes(&v), bytes(&p));
+    let mut b = vec![0u8; tuberia::DATOS_MAX];
+    let mut caja = vec![0u8; tuberia::MAX_PAQUETE];
+    for f in FOTOGRAMAS {
+        let (n, total, desde) = tanda::datos_indexados(f, 1280, 720, &mut b).expect("caben");
+        let d = &b[..total];
+        let cb = &d[..16 * tanda::FILAS_CB];
+        let indice = |k: usize| u32::from_le_bytes(d[desde + 4 * k..desde + 4 * k + 4].try_into().unwrap()) as usize;
+        let t = tanda::de_fotograma(f, 1280, 720).unwrap();
+        let (mut sv, mut regs) = (vec![[0f32; 4]; pv.salidas], Vec::new());
+        for (j, &k) in t.caras[..t.n].iter().enumerate() {
+            for c in 0..3 {
+                let base = 16 * tanda::FILAS_CB + 16 * tanda::ENTRADAS * indice(3 * k + c);
+                pv.correr(&[f4(d, base), f4(d, base + 16), f4(d, base + 32)], cb, &mut sv, &mut regs);
+                assert_eq!(sv[0].map(f32::to_bits), t.tris[j].clip[c].map(f32::to_bits), "fotograma {f}, cara {k}, vertice {c}");
+            }
+        }
+        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false };
+        let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, dibujo).expect("el paquete VRN1 se sostiene");
+        assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, dibujo);
+    }
+}

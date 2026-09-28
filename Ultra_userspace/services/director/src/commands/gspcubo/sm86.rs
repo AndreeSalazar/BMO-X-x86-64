@@ -88,6 +88,10 @@ pub(super) struct Opciones {
     pub bmox12: bool,
     /// El fotograma (el primer numero de las palabras; 30 si no hay).
     pub fotograma: u32,
+    /// `antihorario` (P3b4b): con `bmox12`, delante es antihorario para el
+    /// descarte del hardware (por defecto, horario: el de D3D). Por si el
+    /// metal dice que la 3060 cuenta el giro al reves.
+    pub antihorario: bool,
 }
 
 /// **Las palabras de ESTA tarjeta** y que hacen: las que entiende
@@ -102,6 +106,7 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"exige", b"los relojes de la tarjeta al maximo antes del banco"),
     (b"reposo", b"sin gobernador: la tarjeta en reposo, a proposito"),
     (b"sinldg", b"el de vertice SIN sus LDG (la prueba del 25-09): no dibuja el cubo"),
+    (b"antihorario", b"con bmox12: delante es ANTIHORARIO para el descarte de la 3060 (si el cubo sale del reves)"),
 ];
 
 impl Opciones {
@@ -110,6 +115,7 @@ impl Opciones {
         for w in palabras.split(|&c| c == b' ') {
             match w {
                 b"bmox12" => o.bmox12 = true,
+                b"antihorario" => o.antihorario = true,
                 b"sinldg" => o.sin_ldg = true,
                 b"ligero" => o.ligero = true,
                 b"anillo" => {
@@ -201,6 +207,7 @@ pub(super) struct Aparato<'a> {
     fases: Fases,
     /// E5: el fotograma de BMOX-12 que se dibuja (`Opciones::bmox12`).
     bmox12: Option<u32>,
+    antihorario: bool,
     /// El modulo de vertice del BSF: su tabla de buffers juzga cada `Frame`.
     vertice: ModuleView<'static>,
     /// Leer la imagen de vuelta (la comparacion la quiere); el banco no.
@@ -321,7 +328,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
     let ficha = super::super::gspcomputo::ficha_del_gr().map_err(|m| motivo(dsk, m))?;
     let origen: &'static [u8] = if op.bmox12 { b"de BMOX-12 por PROTON-X" } else { b"del BSF" };
     let abierto = Abierto { instrucciones, bytes_vs: vs.len(), bytes_ps: ps.len(), origen };
-    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), vertice: modulo, leer: true, leer_ms: 0 }, abierto))
+    Ok((Aparato { ficha, paquete: caja, vs, ps, propio, propio_n, ligero: op.ligero, anillo: op.anillo, coopera: op.coopera, antes: None, limpiados: 0, dibujos: 0, gobierno: Gobierno { activo: op.anillo && !op.reposo, ..Gobierno::default() }, fases: Fases::default(), bmox12: op.bmox12.then_some(op.fotograma), antihorario: op.antihorario, vertice: modulo, leer: true, leer_ms: 0 }, abierto))
 }
 
 impl Backend for Aparato<'_> {
@@ -343,14 +350,14 @@ impl Backend for Aparato<'_> {
         let t1 = bmo::ciclos();
         let vs = if self.propio_n > 0 { &self.propio[..self.propio_n] } else { self.vs };
         if let Some(f) = self.bmox12 {
-            // E5: el cbuffer y los vertices SIN transformar de la misma
-            // tanda (los mismos triangulos que trae `frame`).
-            let mut datos = [0u8; tu::DATOS_MAX];
-            let (n, bytes) = bmo_cubo::tanda::datos(f, cu::ANCHO, cu::ALTO, &mut datos).ok_or(Error::Vertices)?;
-            if n != frame.vertices.len() {
-                return Err(Error::Vertices);
-            }
-            tu::escribir_paquete_datos(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes]).ok_or(Error::Vertices)?;
+            // P3b4b: el cbuffer, los 24 vertices SIN transformar y sus 36
+            // INDICES; que caras miran a la camara lo decide la 3060 (el
+            // descarte de las traseras), no la CPU. `frame` (la tanda) es
+            // solo lo que dibuja el juez de la CPU.
+            let mut datos = [0u8; 2048];
+            let (n, bytes, desde) = bmo_cubo::tanda::datos_indexados(f, cu::ANCHO, cu::ALTO, &mut datos).ok_or(Error::Vertices)?;
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte: tu::Descarte::Traseras, antihorario: self.antihorario };
+            tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
             tu::escribir_paquete_con(self.paquete, self.ficha as u32, vs, self.ps, &v[..frame.vertices.len()], limpiar.map(|r| (r.x0 | r.x1 << 16, r.y0 | r.y1 << 16))).ok_or(Error::Vertices)?;
         }

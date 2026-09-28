@@ -277,6 +277,62 @@ pub const MAGIA: u32 = u32::from_le_bytes(*b"VRN0");
 /// vertice).
 pub const CABECERA: usize = 32;
 
+/// `"VRN1"` (P3b4b, 28-09): la de V0 y, en 32 B mas, COMO se dibuja -- con
+/// indices y con el descarte de caras por el hardware. La CPU deja de
+/// escoger que triangulos miran a la camara (la tanda): se lo dice a la 3060.
+///
+/// ```text
+///    +32  el byte de los INDICES en los datos (u32 cada uno), o SIN_INDICES
+///    +36  bits 0..1 el descarte (0 ninguno, 1 las traseras, 2 las
+///         delanteras); bit 2 delante es ANTIHORARIO (D3D: horario)
+///    +40  cuantos vertices hay en los datos: cada indice, menos
+///    +44..64  ceros
+/// ```
+pub const MAGIA_1: u32 = u32::from_le_bytes(*b"VRN1");
+pub const CABECERA_1: usize = 64;
+/// Lo que el kernel lee para MEDIR un paquete (la mas grande de las dos).
+pub const CABECERA_MAX: usize = CABECERA_1;
+/// Sin indices: los vertices seguidos, como V0.
+pub const SIN_INDICES: u32 = u32::MAX;
+
+/// Que caras descarta el hardware.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Descarte {
+    #[default]
+    Ninguna,
+    Traseras,
+    Delanteras,
+}
+
+/// **Como se dibuja** (VRN1). El de V0: sin indices, sin descarte.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct Dibujo {
+    /// El byte de los indices (u32) en los datos; `n` indices.
+    pub indices: Option<u32>,
+    /// Cuantos vertices hay en los datos (cada indice, menos).
+    pub vertices: u32,
+    pub descarte: Descarte,
+    /// Delante es antihorario (en D3D, `FrontCounterClockwise`).
+    pub antihorario: bool,
+}
+
+/// `OGL_SET_FRONT_FACE` / `OGL_SET_CULL_FACE` (clc797.h de NVIDIA).
+pub const OGL_SET_FRONT_FACE: u32 = 0x191c;
+pub const OGL_SET_CULL_FACE: u32 = 0x1920;
+pub const DELANTE_HORARIO: u32 = 0x900;
+pub const DELANTE_ANTIHORARIO: u32 = 0x901;
+pub const CULL_DELANTERAS: u32 = 0x404;
+pub const CULL_TRASERAS: u32 = 0x405;
+/// El bufer de indices: `SET_INDEX_BUFFER_A/B` (la direccion),
+/// `SET_INDEX_BUFFER_SIZE_A/B` (sus bytes), `SET_INDEX_BUFFER_E` (2 = u32),
+/// y el dibujo, `SET_INDEX_BUFFER_F` (el primero) y `DRAW_INDEX_BUFFER`
+/// (cuantos), entre BEGIN y END (clc797.h; el orden de NVK).
+pub const SET_INDEX_BUFFER_A: u32 = 0x17c8;
+pub const SET_INDEX_BUFFER_SIZE_A: u32 = 0x0238;
+pub const SET_INDEX_BUFFER_E: u32 = 0x17d8;
+pub const SET_INDEX_BUFFER_F: u32 = 0x17dc;
+pub const INDICES_U32: u32 = 2;
+
 /// **El paquete**: los dos programas (tomados del BSF por la app, con sus
 /// hashes comprobados) y los vertices, tal como llegan del escritorio.
 #[derive(Clone, Copy, Debug)]
@@ -295,6 +351,8 @@ pub struct Paquete<'a> {
     /// maximo fuera (`SET_CLEAR_RECT_*`). `None` = la ventana entera. Solo lo
     /// usa el anillo en modo `coopera`; los demas limpian siempre todo.
     pub limpiar: Option<(u32, u32)>,
+    /// VRN1: con indices y descarte. En V0, el de siempre.
+    pub dibujo: Dibujo,
 }
 
 /// Un recorte que cabe en la ventana y no es vacio.
@@ -313,11 +371,48 @@ fn programa_valido(p: &[u8], tipo: u32) -> bool {
     p.len() >= 4 * SPH + 16 && p.len() % 16 == 0 && p.len() <= HUECO && u32le(p, 0) & 0x1F == if tipo == crate::raster::VERTICE { 1 } else { 2 } && u32le(p, 0) >> 10 & 0xF == tipo
 }
 
-/// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
-pub fn medida(cabecera: &[u8]) -> Option<usize> {
-    if cabecera.len() < CABECERA || u32le(cabecera, 0) != MAGIA {
+/// Cuanto mide la cabecera que empieza asi (V0 o VRN1), o `None`.
+fn cabecera_de(cabecera: &[u8]) -> Option<usize> {
+    let c = match u32le(cabecera.get(..4)?, 0) {
+        MAGIA => CABECERA,
+        MAGIA_1 => CABECERA_1,
+        _ => return None,
+    };
+    (cabecera.len() >= c).then_some(c)
+}
+
+/// El `Dibujo` de una cabecera VRN1 ya medida (sin mirar los indices).
+fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
+    if cabecera_de(cabecera)? == CABECERA {
+        return Some(Dibujo::default());
+    }
+    let (desde, estado, vertices) = (u32le(cabecera, 32), u32le(cabecera, 36), u32le(cabecera, 40));
+    if cabecera[44..CABECERA_1].iter().any(|&b| b != 0) || estado >> 3 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
         return None;
     }
+    let descarte = match estado & 3 {
+        0 => Descarte::Ninguna,
+        1 => Descarte::Traseras,
+        2 => Descarte::Delanteras,
+        _ => return None,
+    };
+    let indices = if desde == SIN_INDICES {
+        if n > vertices as usize {
+            return None;
+        }
+        None
+    } else {
+        if desde % 4 != 0 || desde as usize + 4 * n > datos {
+            return None;
+        }
+        Some(desde)
+    };
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0 })
+}
+
+/// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
+pub fn medida(cabecera: &[u8]) -> Option<usize> {
+    let c = cabecera_de(cabecera)?;
     let (h, v) = (u32le(cabecera, 20), u32le(cabecera, 24));
     if (h, v) != (0, 0) && !recorte_valido(h, v) {
         return None;
@@ -326,7 +421,9 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
     if n == 0 || n % 3 != 0 || n > MAX_VERTICES || vs > HUECO || ps > HUECO {
         return None;
     }
-    Some(CABECERA + vs + ps + datos(cabecera, n)?)
+    let d = datos(cabecera, n)?;
+    dibujo_de(cabecera, n, d)?;
+    Some(c + vs + ps + d)
 }
 
 /// Los bytes de los datos que dice la cabecera: los de V0 (32 por vertice)
@@ -344,10 +441,20 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
     if b.len() != total {
         return None;
     }
+    let c = cabecera_de(b)?;
     let (vs, ps) = (u32le(b, 12) as usize, u32le(b, 16) as usize);
     let (h, v) = (u32le(b, 20), u32le(b, 24));
     let limpiar = ((h, v) != (0, 0)).then_some((h, v));
-    let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..], n: u32le(b, 8) as usize, limpiar };
+    let n = u32le(b, 8) as usize;
+    let vertices = &b[c + vs + ps..];
+    let dibujo = dibujo_de(b, n, vertices.len())?;
+    // Cada indice, de un vertice que ESTA en los datos: la 3060 no lee fuera.
+    if let Some(desde) = dibujo.indices {
+        if (0..n).any(|k| u32le(vertices, desde as usize + 4 * k) >= dibujo.vertices) {
+            return None;
+        }
+    }
+    let p = Paquete { ficha: u32le(b, 4), vs: &b[c..c + vs], ps: &b[c + vs..c + vs + ps], vertices, n, limpiar, dibujo };
     (programa_valido(p.vs, crate::raster::VERTICE) && programa_valido(p.ps, crate::raster::PIXEL)).then_some(p)
 }
 
@@ -382,6 +489,31 @@ pub fn escribir_paquete_datos(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], 
     }
     out[d..d + datos.len()].copy_from_slice(datos);
     cerrar_paquete(out, ficha, vs, ps, n, datos.len() as u32, datos.len(), None)
+}
+
+/// **P3b4b**: un paquete VRN1 -- `n` vertices (o `n` indices), los DATOS
+/// tal cual y COMO se dibujan. `None` si no se sostiene (un indice de un
+/// vertice que no esta, tambien).
+pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, datos: &[u8], dibujo: Dibujo) -> Option<usize> {
+    let d = CABECERA_1 + vs.len() + ps.len();
+    let total = d + datos.len();
+    if datos.is_empty() || out.len() < total {
+        return None;
+    }
+    out[..CABECERA_1].fill(0);
+    let estado = match dibujo.descarte {
+        Descarte::Ninguna => 0,
+        Descarte::Traseras => 1,
+        Descarte::Delanteras => 2,
+    } | (dibujo.antihorario as u32) << 2;
+    let palabras = [MAGIA_1, ficha, n as u32, vs.len() as u32, ps.len() as u32, 0, 0, datos.len() as u32, dibujo.indices.unwrap_or(SIN_INDICES), estado, dibujo.vertices];
+    for (k, w) in palabras.iter().enumerate() {
+        out[4 * k..4 * k + 4].copy_from_slice(&w.to_le_bytes());
+    }
+    out[CABECERA_1..CABECERA_1 + vs.len()].copy_from_slice(vs);
+    out[CABECERA_1 + vs.len()..d].copy_from_slice(ps);
+    out[d..total].copy_from_slice(datos);
+    leer(&out[..total]).map(|_| total)
 }
 
 /// La cabecera y los dos programas (los datos ya estan detras); `None` si el
@@ -423,8 +555,31 @@ pub fn ordenes(v: &Ventana, n: usize) -> cu::Ordenes {
 
 /// Las mismas, `ligero` = SIN la escalera de T1c (ver `cubo::Ordenes`).
 pub fn ordenes_con(v: &Ventana, n: usize, ligero: bool) -> cu::Ordenes {
+    ordenes_dibujo(v, n, ligero, Dibujo::default())
+}
+
+/// **P3b4b**: las mismas, y el `Dibujo` -- el descarte de caras encendido
+/// en el hardware, y el dibujo CON INDICES (los de los datos, u32).
+pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ordenes {
     let mut e = cu::hasta_el_dibujo_con(v, !ligero, REGISTROS);
-    e.dibujo_de(3 * n as u32);
+    if d.descarte != Descarte::Ninguna {
+        e.m(OGL_SET_FRONT_FACE, &[if d.antihorario { DELANTE_ANTIHORARIO } else { DELANTE_HORARIO }]);
+        e.m(OGL_SET_CULL_FACE, &[if d.descarte == Descarte::Traseras { CULL_TRASERAS } else { CULL_DELANTERAS }]);
+        e.m(crate::raster::OGL_SET_CULL, &[1]);
+    }
+    match d.indices {
+        None => e.dibujo_de(3 * n as u32),
+        Some(desde) => {
+            let va = crate::vram::DATOS_VA + desde as u64;
+            let bytes = 4 * 3 * n as u32;
+            e.m(SET_INDEX_BUFFER_A, &[(va >> 32) as u32, va as u32]);
+            e.m(SET_INDEX_BUFFER_SIZE_A, &[0, bytes]);
+            e.m(SET_INDEX_BUFFER_E, &[INDICES_U32]);
+            e.m(crate::raster::BEGIN, &[crate::raster::TRIANGULOS]);
+            e.m(SET_INDEX_BUFFER_F, &[0, 3 * n as u32]);
+            e.m(crate::raster::END, &[0]);
+        }
+    }
     e.cerrar();
     e
 }
@@ -442,7 +597,7 @@ pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, l
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return false;
     }
-    let o = ordenes_con(v, n / 3, ligero);
+    let o = ordenes_dibujo(v, n / 3, ligero, p.dibujo);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
     let va = crate::vram::DATOS_VA;
     escribir(r, SEMAFORO_FIN, &[0; 4]) == 4
@@ -490,7 +645,9 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     mezclar(p.vs);
     mezclar(&[0xA5]);
     mezclar(p.ps);
-    for x in [p.vertices.len() as u64, p.n as u64, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    let d = p.dibujo;
+    let dibujo = d.indices.unwrap_or(SIN_INDICES) as u64 | (d.descarte as u64) << 32 | (d.antihorario as u64) << 34 | (d.vertices as u64) << 40;
+    for x in [p.vertices.len() as u64, p.n as u64, dibujo, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -504,7 +661,7 @@ pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paque
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return false;
     }
-    let o = ordenes_con(v, n / 3, ligero);
+    let o = ordenes_dibujo(v, n / 3, ligero, p.dibujo);
     let en = entrada(sombreador_va(EMPUJE), o.n as u32);
     let vol = crate::volcado::escribir_sin_releer;
     vol(r, SEMAFORO_FIN, &[0; 4]);
@@ -621,6 +778,59 @@ mod pruebas {
         assert_eq!(sph_pixel()[6], 0b1111_1111, "X, Y, Z y W del generico 0, lineales");
     }
 
+    /// P3b4b: un paquete VRN1 -- 4 vertices, 6 indices, descarte de las
+    /// traseras -- va y vuelve; un indice de un vertice que no esta, o unos
+    /// indices que se salen de los datos, NO; y sus ordenes encienden el
+    /// descarte y dibujan CON INDICES desde los datos.
+    #[test]
+    fn vrn1_indices_y_descarte() {
+        let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
+        let mut datos = std::vec![0u8; 64 + 32]; // enteros de 16: 6 indices y relleno
+        for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
+            datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
+        }
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false };
+        let mut caja = std::vec![0u8; MAX_PAQUETE];
+        let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
+        assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
+        let p = leer(&caja[..n]).unwrap();
+        assert_eq!((p.n, p.dibujo, p.vertices.len()), (6, d, datos.len()));
+        // Un indice fuera (el 4 con 4 vertices), no.
+        let mut malo = datos.clone();
+        malo[64..68].copy_from_slice(&4u32.to_le_bytes());
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &malo, d), None);
+        // Indices que se salen de los datos, o desalineados, no.
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 9, &datos, d), None);
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, Dibujo { indices: Some(62), ..d }), None);
+        // Sin indices, no mas vertices de los que hay.
+        assert_eq!(escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, Dibujo { indices: None, ..d }), None);
+        // Las ordenes.
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let o = ordenes_dibujo(&v, 2, true, d);
+        let w = &o.o[..o.n];
+        let metodo = |m: u32, k: u32| crate::copia::cabecera_en(0, m, k);
+        let tras = |m: u32, k: u32| -> std::vec::Vec<u32> {
+            let i = w.iter().rposition(|&x| x == metodo(m, k)).unwrap_or_else(|| panic!("falta el metodo 0x{m:04x}"));
+            w[i + 1..i + 1 + k as usize].to_vec()
+        };
+        assert_eq!(tras(OGL_SET_FRONT_FACE, 1), [DELANTE_HORARIO]);
+        assert_eq!(tras(OGL_SET_CULL_FACE, 1), [CULL_TRASERAS]);
+        assert_eq!(tras(crate::raster::OGL_SET_CULL, 1), [1], "el ultimo: encendido (el estado lo pone a 0 antes)");
+        let va = crate::vram::DATOS_VA + 64;
+        assert_eq!(tras(SET_INDEX_BUFFER_A, 2), [(va >> 32) as u32, va as u32]);
+        assert_eq!(tras(SET_INDEX_BUFFER_SIZE_A, 2), [0, 24]);
+        assert_eq!(tras(SET_INDEX_BUFFER_E, 1), [INDICES_U32]);
+        assert_eq!(tras(SET_INDEX_BUFFER_F, 2), [0, 6], "desde el 0, 6 indices");
+        // Sin descarte ni indices, las de siempre.
+        let (a, b) = (ordenes_con(&v, 2, true), ordenes_dibujo(&v, 2, true, Dibujo::default()));
+        assert_eq!(&a.o[..a.n], &b.o[..b.n]);
+    }
+
+    fn programa_de<const N: usize>(p: &[u32; N]) -> std::vec::Vec<u8> {
+        p.iter().flat_map(|w| w.to_le_bytes()).collect()
+    }
+
     #[test]
     fn las_ordenes() {
         let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
@@ -685,7 +895,7 @@ mod pruebas {
         bytes(&vertice(), &mut vs);
         bytes(&pixel(), &mut ps);
         let (a, b) = ([7u8; 6 * BYTES_VERTICE], [9u8; 6 * BYTES_VERTICE]);
-        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x, n: x.len() / BYTES_VERTICE, limpiar: None };
+        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x, n: x.len() / BYTES_VERTICE, limpiar: None, dibujo: crate::tuberia::Dibujo::default() };
         let (vs, ps): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(vs)), std::boxed::Box::leak(std::boxed::Box::new(ps)));
         let (a, b): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(a)), std::boxed::Box::leak(std::boxed::Box::new(b)));
         let h = huella_fija(&v, &p(a, vs, ps), false);

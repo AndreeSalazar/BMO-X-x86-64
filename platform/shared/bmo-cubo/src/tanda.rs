@@ -150,6 +150,32 @@ pub fn datos(f: u32, ancho: u32, alto: u32, out: &mut [u8]) -> Option<(usize, us
     Some((n, bytes))
 }
 
+/// **Los DATOS del fotograma `f` con INDICES** (P3b4b): el cbuffer, los 24
+/// vertices del cubo SIN transformar y sus 36 indices (u32). La CPU no
+/// escoge que triangulos miran a la camara: lo hace la 3060 (el descarte de
+/// las traseras por el hardware). Devuelve `(indices, bytes, byte de los
+/// indices)`; `None` si no cabe.
+pub fn datos_indexados(f: u32, ancho: u32, alto: u32, out: &mut [u8]) -> Option<(usize, usize, usize)> {
+    let c = constantes(crate::angulo_de_fotograma(f), ancho as f32 / alto as f32);
+    let (vs, is) = (vertices(), indices());
+    let desde = 16 * FILAS_CB + 16 * ENTRADAS * NUM_VERTICES;
+    let bytes = desde + 4 * NUM_INDICES;
+    if out.len() < bytes {
+        return None;
+    }
+    let mut i = 0;
+    let mut poner = |b: [u8; 4]| {
+        out[i..i + 4].copy_from_slice(&b);
+        i += 4;
+    };
+    c.wvp.iter().chain(&c.world).chain(&c.luz).for_each(|&x| poner(x.to_le_bytes()));
+    for v in &vs {
+        [v.pos[0], v.pos[1], v.pos[2], 1.0, v.normal[0], v.normal[1], v.normal[2], 0.0].iter().chain(&v.color).for_each(|&x| poner(x.to_le_bytes()));
+    }
+    is.iter().for_each(|&k| poner((k as u32).to_le_bytes()));
+    Some((NUM_INDICES, bytes, desde))
+}
+
 #[cfg(test)]
 mod pruebas {
     use super::*;

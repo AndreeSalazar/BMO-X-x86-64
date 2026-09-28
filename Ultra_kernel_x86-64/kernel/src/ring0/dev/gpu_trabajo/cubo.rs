@@ -164,13 +164,15 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     // El paquete: un bloque de quien lo pide, entero, dentro del physmap.
     let pid = crate::ring0::task::scheduler::current_pid();
     let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
-    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, tu::CABECERA as u64).filter(|&f| dentro(f, tu::CABECERA as u64)) else {
+    // La cabecera MAS GRANDE (VRN1, 64 B): un paquete V0 mide mucho mas
+    // (sus dos programas), asi que leerla nunca se sale de un paquete bueno.
+    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, tu::CABECERA_MAX as u64).filter(|&f| dentro(f, tu::CABECERA_MAX as u64)) else {
         crate::ring0::cabina::warn("gpu", "VERRANO: el paquete no es un bloque de quien lo pide", va);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     };
     // SAFETY: `fisica_de` dio CABECERA bytes de un bloque del proceso, dentro
     // del physmap (comprobado); solo se leen.
-    let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, tu::CABECERA) };
+    let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, tu::CABECERA_MAX) };
     let Some(total) = tu::medida(cabecera) else { return Err(IOMMU_NO_BLUR_PREPARAR) };
     let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
         return Err(IOMMU_NO_BLUR_PREPARAR);

@@ -80,7 +80,9 @@ pub const MAX_VERTICES: usize = 3 * crate::cubo::CABEN;
 /// los 64 KiB de VERRANO en frio) y sus vertices. El kernel lo mira ANTES
 /// de copiar nada a la ranura.
 pub const fn cabe(p: &Paquete) -> bool {
-    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES
+    // Y sin indices ni descarte: el anillo lleva sus propias ordenes (V1b),
+    // que hoy no los tienen.
+    p.vertices.len() as u64 <= PASO && p.n <= MAX_VERTICES && p.dibujo.indices.is_none() && matches!(p.dibujo.descarte, crate::tuberia::Descarte::Ninguna)
 }
 pub const PAGINAS: u64 = 1;
 /// Donde la ve la IOMMU: tras el MiB del fractal (y antes del booter).
@@ -481,7 +483,7 @@ mod pruebas {
         let v = la_ventana();
         let (vs, ps) = programas();
         let vert = std::vec![3u8; 12 * BYTES_VERTICE].leak();
-        let p = Paquete { ficha: 7, vs, ps, vertices: vert, n: vert.len() / BYTES_VERTICE, limpiar: None };
+        let p = Paquete { ficha: 7, vs, ps, vertices: vert, n: vert.len() / BYTES_VERTICE, limpiar: None, dibujo: crate::tuberia::Dibujo::default() };
         let mut r = Placa::default();
         assert!(armar(&mut r, 10, &v, &p, 1, false));
         assert_eq!(r.palabras(SEMAFORO, 1), [0]);
@@ -517,9 +519,9 @@ mod pruebas {
         let (vs, ps) = programas();
         let mut r = Placa::default();
         let cuatro = std::vec![0u8; 4 * BYTES_VERTICE].leak();
-        assert!(!armar(&mut r, 0, &v, &Paquete { ficha: 1, vs, ps, vertices: cuatro, n: cuatro.len() / BYTES_VERTICE, limpiar: None }, 1, false));
+        assert!(!armar(&mut r, 0, &v, &Paquete { ficha: 1, vs, ps, vertices: cuatro, n: cuatro.len() / BYTES_VERTICE, limpiar: None, dibujo: crate::tuberia::Dibujo::default() }, 1, false));
         let seis = std::vec![0u8; 6 * BYTES_VERTICE].leak();
-        assert!(!armar(&mut r, crate::canal::GPFIFO_ENTRADAS, &v, &Paquete { ficha: 1, vs, ps, vertices: seis, n: seis.len() / BYTES_VERTICE, limpiar: None }, 1, false));
+        assert!(!armar(&mut r, crate::canal::GPFIFO_ENTRADAS, &v, &Paquete { ficha: 1, vs, ps, vertices: seis, n: seis.len() / BYTES_VERTICE, limpiar: None, dibujo: crate::tuberia::Dibujo::default() }, 1, false));
         assert!(!enviar(&mut r, crate::canal::GPFIFO_ENTRADAS, &v, 2, 1, 1, None));
     }
 
@@ -530,7 +532,7 @@ mod pruebas {
         let v = la_ventana();
         let (vs, ps) = programas();
         let (a, b) = (std::vec![1u8; 6 * BYTES_VERTICE].leak(), std::vec![2u8; 12 * BYTES_VERTICE].leak());
-        let pq = |vs, ps, vertices| Paquete { ficha: 1, vs, ps, vertices, n: vertices.len() / BYTES_VERTICE, limpiar: None };
+        let pq = |vs, ps, vertices| Paquete { ficha: 1, vs, ps, vertices, n: vertices.len() / BYTES_VERTICE, limpiar: None, dibujo: crate::tuberia::Dibujo::default() };
         let h = huella(&v, &pq(vs, ps, a), false);
         assert_eq!(h, huella(&v, &Paquete { ficha: 9, limpiar: Some(TODA), ..pq(vs, ps, b) }, false), "ni la ficha ni el recorte son lo fijo");
         assert_ne!(h, huella(&v, &pq(ps, vs, a), false));
@@ -573,7 +575,7 @@ mod pruebas {
         let v = la_ventana();
         let (vs, ps) = programas();
         let vert = std::vec![3u8; 12 * BYTES_VERTICE].leak();
-        let p = Paquete { ficha: 7, vs, ps, vertices: vert, n: vert.len() / BYTES_VERTICE, limpiar: Some((1 | 2 << 16, 1 | 2 << 16)) };
+        let p = Paquete { ficha: 7, vs, ps, vertices: vert, n: vert.len() / BYTES_VERTICE, limpiar: Some((1 | 2 << 16, 1 | 2 << 16)), dibujo: crate::tuberia::Dibujo::default() };
         let mut r = Placa::default();
         assert!(armar(&mut r, 10, &v, &p, 1, true));
         let (o1, _) = ordenes_con(&v, 1, 4, 1, Some(TODA)).unwrap();
