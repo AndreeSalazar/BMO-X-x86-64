@@ -484,8 +484,16 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       P3b4 PAGAR UNA VEZ (4a): DXIL -> SPIR-V -> SASS con su juez, guardado
            en `.bsf` por la huella del sombreador; la segunda vez no se
            traduce nada, y el cubo lo dibuja la 3060 (el criterio de X5).
-- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [DIBUJA en el
-      banco 28-09 LO QUE DIBUJO LA 3060; falta el Ryzen] Con los .cso de su
+- [ ] **P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar.** [VISTO EN EL
+      METAL el 28-09 06:41: `run sys/proton-x.bex window/bmox12.exe` en el
+      Ryzen abre su ventana (1282x749) y el cubo GIRA, dibujado por la CPU;
+      112 funciones de la casa, codigo 256 KiB sellado, TLS con 1 callback,
+      sus cifras de memoria impresas, y la autopsia: ningun fallo de Ring 3.
+      Queda abierta hasta que el cubo lo dibuje la 3060 (P3b4). Desde ese
+      dia EL REGISTRO: `bmo_proton_x::registro`, una linea por segundo
+      (`[registro] N fps  fotograma min/medio/max ms  dibujar  presentar`) a
+      la consola, y con ella a datos/sysproto.txt] [DIBUJA en el banco 28-09
+      LO QUE DIBUJO LA 3060] Con los .cso de su
       HLSL CRLF (d7e2992c y b50c1000, de sombras.exe en el Windows del
       propietario: bit a bit los mismos que los de LF), bmox12.exe en
       interactivo da en los Present 0, 30 y 60 las huellas de la 3060, sin

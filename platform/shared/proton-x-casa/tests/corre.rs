@@ -117,6 +117,9 @@ static VISTAS: Mutex<Vec<u64>> = Mutex::new(Vec::new());
 /// "ahora no hay nada", y se gasta. Asi se ve lo que hace `GetMessageW` cuando
 /// la cola se queda libre: pintar.
 static GUION: Mutex<VecDeque<u64>> = Mutex::new(VecDeque::new());
+/// Las lineas de EL REGISTRO (`[registro] ... fps ...`), apartadas de lo
+/// dicho: dependen del reloj, y lo dicho se compara letra a letra.
+static REGISTRO: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
 fn escribir(b: &[u8]) {
     DICHO.lock().unwrap().extend_from_slice(b);
@@ -398,7 +401,11 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     }
     munmap(mem, hilo_mem);
     munmap(base, total);
-    let dicho = DICHO.lock().unwrap().clone();
+    let todo = DICHO.lock().unwrap().clone();
+    let texto = String::from_utf8_lossy(&todo);
+    let (reg, resto): (Vec<&str>, Vec<&str>) = texto.split_inclusive('\n').partition(|l| l.starts_with("[registro] "));
+    *REGISTRO.lock().unwrap() = reg.iter().map(|l| l.to_string()).collect();
+    let dicho = if reg.is_empty() { todo } else { resto.concat().into_bytes() };
     (salio, dicho, base)
 }
 
@@ -904,6 +911,13 @@ fn bmox12_exe_con_sus_cso_dibuja_lo_de_la_3060() {
     assert_eq!(salio, 0, "ESC: main devuelve Ok");
     let vistas = VISTAS.lock().unwrap().clone();
     assert!(vistas.len() >= 61, "{} Present", vistas.len());
+    // EL REGISTRO: una linea por segundo, con los fps y los tiempos (en el
+    // banco, en debug, unos pocos fps: lo que se comprueba es que ESTA).
+    let reg = REGISTRO.lock().unwrap().clone();
+    assert!(!reg.is_empty(), "sin registro en {} fotogramas", vistas.len());
+    for l in &reg {
+        assert!(l.contains(" fps  fotograma ") && l.contains(" ms  dibujar ") && l.contains(" ms  presentar ") && l.ends_with(")\n"), "{l}");
+    }
     for (f, esperada) in bmo_cubo::referencia::HUELLAS {
         assert_eq!(vistas[f as usize], esperada, "fotograma {f}");
     }

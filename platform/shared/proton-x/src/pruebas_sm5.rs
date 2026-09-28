@@ -143,3 +143,27 @@ fn la_prueba_de_profundidad_compara_como_d3d12() {
     }
 }
 
+
+// -- El registro de lo que se dibuja ------------------------------------------
+
+/// Un segundo a 10 fps (cada fotograma 100 ms: 80 dibujando, 5 presentando)
+/// da UNA linea, con lo que paso; el siguiente segundo empieza de cero.
+#[test]
+fn el_registro_da_una_linea_por_segundo_con_lo_que_paso() {
+    use crate::registro::Registro;
+    let mut r = Registro::default();
+    let ms = 1_000_000u64;
+    assert_eq!(r.presente(0, 5 * ms), None, "el primero abre la cuenta");
+    let mut lineas = Vec::new();
+    for k in 1..=25u64 {
+        r.dibujo(80 * ms);
+        // el 5 tarda el doble: el maximo lo dice, y el medio (9 en 1000 ms) es 111
+        let t = k * 100 * ms + if k >= 5 { 100 * ms } else { 0 };
+        if let Some(l) = r.presente(t, 5 * ms) {
+            lineas.push(l);
+        }
+    }
+    assert_eq!(lineas.len(), 2, "{lineas:?}");
+    assert_eq!(lineas[0], "[registro] 9 fps  fotograma 100/111/200 ms  dibujar 80 ms  presentar 5 ms  (fotogramas 0..9)\n");
+    assert_eq!(lineas[1], "[registro] 10 fps  fotograma 100/100/100 ms  dibujar 80 ms  presentar 5 ms  (fotogramas 10..19)\n");
+}

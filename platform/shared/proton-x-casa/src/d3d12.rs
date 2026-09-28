@@ -641,6 +641,12 @@ fn copiar(rt: u64, bufer: u64, desde: u64, paso: u32) {
 
 /// `ExecuteCommandLists(this, n, listas)`: en el acto, en orden.
 extern "win64" fn execute_command_lists(_this: u64, n: u32, listas: *const u64) {
+    let empezo = (crate::plataforma().ahora_ns)();
+    ejecutar_listas(n, listas);
+    crate::dxgi::dibujado((crate::plataforma().ahora_ns)().saturating_sub(empezo));
+}
+
+fn ejecutar_listas(n: u32, listas: *const u64) {
     for i in 0..n as usize {
         // SAFETY: `n` punteros a listas de la casa.
         let l = unsafe { de::<Lista>(listas.add(i).read()) };

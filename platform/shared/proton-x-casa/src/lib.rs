@@ -206,6 +206,7 @@ pub unsafe fn empezar(p: Plataforma) {
     });
     hilos::reiniciar();
     tuberia::reiniciar();
+    dxgi::reiniciar();
     nativo::reiniciar();
     ficheros::reiniciar();
     memoria::reiniciar();

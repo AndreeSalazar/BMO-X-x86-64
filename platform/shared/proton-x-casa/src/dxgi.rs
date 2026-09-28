@@ -29,6 +29,32 @@ use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINT
 use crate::d3d12::{recurso, recurso_de, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
 use crate::{aviso, dir, plataforma, user32};
 
+use bmo_proton_x::registro::Registro;
+use core::cell::UnsafeCell;
+
+// -- EL REGISTRO (28-09): una linea por segundo con los fps y los tiempos ----
+
+struct Cuenta(UnsafeCell<Option<Registro>>);
+// SAFETY: un hilo dibuja (ver `Global` en lib.rs).
+unsafe impl Sync for Cuenta {}
+static REGISTRO: Cuenta = Cuenta(UnsafeCell::new(None));
+
+fn registro() -> &'static mut Registro {
+    // SAFETY: un hilo; nadie guarda la referencia.
+    unsafe { (*REGISTRO.0.get()).get_or_insert_with(Registro::default) }
+}
+
+/// Un `.exe` nuevo, un registro nuevo.
+pub(crate) fn reiniciar() {
+    // SAFETY: antes de saltar al `.exe` (ver `empezar`).
+    unsafe { *REGISTRO.0.get() = None };
+}
+
+/// Lo que tardo un ExecuteCommandLists (lo dibujado: sombreadores y trama).
+pub(crate) fn dibujado(ns: u64) {
+    registro().dibujo(ns);
+}
+
 pub struct Fabrica;
 
 pub struct Cadena {
@@ -106,6 +132,7 @@ extern "win64" fn get_buffer(this: u64, i: u32, riid: *const Guid, pp: *mut u64)
 /// `Present(this, intervalo, banderas)`: el back buffer actual a la ventana.
 /// Lo que no cabe se recorta; lo que sobra de la ventana no se toca.
 extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
+    let empezo = (plataforma().ahora_ns)();
     // SAFETY: `this` es una Cadena de la casa.
     let c = unsafe { de::<Cadena>(this) };
     let Some(sup) = user32::superficie_de(c.hwnd) else { return E_INVALIDARG };
@@ -124,6 +151,10 @@ extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
     }
     (plataforma().presentar)(&sup);
     c.actual = (c.actual + 1) % c.buffers.len();
+    let ahora = (plataforma().ahora_ns)();
+    if let Some(linea) = registro().presente(ahora, ahora.saturating_sub(empezo)) {
+        (plataforma().escribir)(linea.as_bytes());
+    }
     S_OK
 }
 

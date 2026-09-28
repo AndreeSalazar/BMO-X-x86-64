@@ -173,7 +173,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] P3 -- el cubo D3D12. Partido en tres el 27-09, porque el .exe
 - [ ] P3b -- el cubo con sus sombreadores. Root signature, PSO,
-- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [DIBUJA en el
+- [ ] P3c -- el BMOX-12 de EPICX-FRAMEWORK, sin tocar. [VISTO EN EL
 - ... y 5 mas
 
 ## [`PLAN_EL_BUS_APARTE.md`](PLAN_EL_BUS_APARTE.md) -- 7 abiertas, 12 hechas

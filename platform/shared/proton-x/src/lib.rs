@@ -46,6 +46,7 @@ pub mod pe;
 pub mod proceso;
 pub mod raiz;
 pub mod regiones;
+pub mod registro;
 pub mod seh;
 pub mod sm5;
 pub mod sombras;
