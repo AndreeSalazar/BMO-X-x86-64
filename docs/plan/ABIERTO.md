@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   380 casillas ABIERTAS en 44 planes
-   319 hechas
+   379 casillas ABIERTAS en 44 planes
+   320 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -320,15 +320,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] scene/consola.rs, 600 lineas de codigo y 39% de documentacion. Es el
 - ... y 1 mas
 
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 4 abiertas, 4 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
-- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
-- [ ] E4 -- LOS BITS DE CONTROL POR REGLA
-- ... y 1 mas
-
 ## [`PLAN_LA_RAM_SALE_DEL_KERNEL.md`](PLAN_LA_RAM_SALE_DEL_KERNEL.md) -- 4 abiertas, 3 hechas
 
 *LA RAM SALE DEL KERNEL -- que parte es agnostica, medido*
@@ -362,6 +353,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S5 -- EN EL RYZEN: el JIT, y el primer uso de verdad de SELLAR
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
+
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 5 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
+- [ ] E4 -- LOS BITS DE CONTROL POR REGLA
+- [ ] E5 -- EN EL METAL: el cubo con programas EMITIDOS
 
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 

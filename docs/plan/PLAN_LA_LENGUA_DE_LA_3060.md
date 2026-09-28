@@ -240,7 +240,7 @@ que no entra se rechaza CON MOTIVO, como en S2.
     Solo la Location 0 cabe porque el ABI solo nombra el generico 0 y el
     color 0: un segundo atributo es una version nueva del ABI, no esta casilla.
 
-## [ ] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
+## [x] E2 -- EL CODIFICADOR, bit a bit contra NVIDIA
 
 `sass/codifica.rs`: cada instruccion que el emisor use, con una prueba que
 compara la palabra de 128 bits con la que da `ptxas` y lee `nvdisasm` -- la
@@ -249,6 +249,20 @@ misma disciplina que `codifican_lo_que_ya_corrio` de hoy.
 - **Bloquea:** J1 (comparte el decodificador).
 - **Como se sabe:** cada codificacion tiene su palabra de oro; `nvdisasm`
   lee de vuelta el texto esperado.
+- **Hecho (28-09):** `ga10x/src/sass/codifica.rs`: FADD, FMUL, FFMA (con
+  registro, inmediato o constante; `-`, `|x|` y `.SAT`), FMNMX (menor y
+  mayor), MUFU (RCP, RSQ, SQRT), MOV (registro, inmediato, constante), EXIT y
+  NOP -- lo que pide el emisor para el cubo de VERRANO y para BMOX-12 (dp4,
+  dp3, mad, rsq, saturar). Las 24 PALABRAS DE ORO son de `ptxas -arch=sm_86`
+  (CUDA 12.9, de PyPI) sobre `sombreadores/oro_codifica.ptx`, leidas con
+  `nvdisasm -hex` (13.4): cada codificador da los 128 bits, control
+  incluido. Y 10 combinaciones que ptxas NO dio (FFMA con inmediato,
+  `FFMA.SAT R5, -R6, R7, -R8`, `FMNMX R1, |R2|, c[0x3][0x40], !PT`, MOV entre
+  registros...) fabricadas por el codificador: `nvdisasm -b SM86` las lee
+  como dice su texto. El juez (J1) conoce las 34 (`juez::conoce`).
+  Saboteado: el `.SAT` un bit mas arriba, cae. Lo que NO: la raiz de
+  `MUFU.RSQ` es la APROXIMADA de la 3060, no la exacta de la casa -- cuanto
+  se separa lo mide E3 --; y el control se recibe, no se calcula (E4).
 
 ## [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
 

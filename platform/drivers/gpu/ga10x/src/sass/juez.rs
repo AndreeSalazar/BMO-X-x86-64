@@ -225,6 +225,12 @@ fn por_tipo(t: u32) -> u8 {
     }
 }
 
+/// Si el juez sabe leer esta instruccion (si no, seria R0 "no se"). Lo usa
+/// el codificador (E2) para no fabricar nada que el juez no pueda juzgar.
+pub fn conoce(lo: u64, hi: u64) -> bool {
+    decodificar(lo, hi).is_some()
+}
+
 fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
     let op = (lo & 0x1FF) as u32;
     let forma = (lo >> 9 & 7) as u32;

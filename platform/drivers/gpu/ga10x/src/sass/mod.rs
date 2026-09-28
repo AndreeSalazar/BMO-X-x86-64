@@ -7,5 +7,6 @@
 //! ordenes -- lee programas de SM86 y dice SI o NO. Lo llaman el build (antes
 //! de fabricar un BSF) y el kernel (antes de subir un programa).
 
+pub mod codifica;
 pub mod juez;
 pub mod corpus;

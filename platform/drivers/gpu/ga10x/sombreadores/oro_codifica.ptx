@@ -1,0 +1,56 @@
+// oro_codifica.ptx -- el PTX de las PALABRAS DE ORO de sass/codifica.rs (E2).
+// Rehacerlas (CUDA 12.9 y nvdisasm 13.4, de PyPI):
+//   ptxas -arch=sm_86 -O3 oro_codifica.ptx -o oro.cubin
+//   nvdisasm -hex oro.cubin
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry oro(.param .u64 pin, .param .u64 pout, .param .f32 k)
+{
+  .reg .f32 %f<40>;
+  .reg .u64 %rd<4>;
+  .reg .u32 %r<4>;
+  ld.param.u64 %rd1, [pin];
+  ld.param.u64 %rd2, [pout];
+  ld.param.f32 %f30, [k];
+  ld.global.f32 %f1, [%rd1];
+  ld.global.f32 %f2, [%rd1+4];
+  ld.global.f32 %f3, [%rd1+8];
+  add.rn.f32 %f4, %f1, %f2;
+  sub.rn.f32 %f5, %f1, %f2;
+  mul.rn.f32 %f6, %f1, %f2;
+  fma.rn.f32 %f7, %f1, %f2, %f3;
+  add.rn.sat.f32 %f8, %f1, %f2;
+  mul.rn.sat.f32 %f9, %f1, %f2;
+  add.rn.f32 %f10, %f1, 0f3F800000;
+  mul.rn.f32 %f11, %f1, 0f40490FDB;
+  add.rn.f32 %f12, %f1, %f30;
+  mul.rn.f32 %f13, %f2, %f30;
+  fma.rn.f32 %f14, %f1, %f30, %f3;
+  min.f32 %f15, %f1, %f2;
+  max.f32 %f16, %f1, %f2;
+  rsqrt.approx.f32 %f17, %f1;
+  sqrt.approx.f32 %f18, %f2;
+  abs.f32 %f19, %f1;
+  neg.f32 %f20, %f2;
+  add.rn.f32 %f21, %f19, %f20;
+  rcp.approx.f32 %f22, %f3;
+  st.global.f32 [%rd2], %f4;
+  st.global.f32 [%rd2+4], %f5;
+  st.global.f32 [%rd2+8], %f6;
+  st.global.f32 [%rd2+12], %f7;
+  st.global.f32 [%rd2+16], %f8;
+  st.global.f32 [%rd2+20], %f9;
+  st.global.f32 [%rd2+24], %f10;
+  st.global.f32 [%rd2+28], %f11;
+  st.global.f32 [%rd2+32], %f12;
+  st.global.f32 [%rd2+36], %f13;
+  st.global.f32 [%rd2+40], %f14;
+  st.global.f32 [%rd2+44], %f15;
+  st.global.f32 [%rd2+48], %f16;
+  st.global.f32 [%rd2+52], %f17;
+  st.global.f32 [%rd2+56], %f18;
+  st.global.f32 [%rd2+60], %f21;
+  st.global.f32 [%rd2+64], %f22;
+  ret;
+}
