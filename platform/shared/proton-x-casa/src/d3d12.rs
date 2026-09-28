@@ -9,7 +9,12 @@
 //!            CreateDescriptorHeap    descriptores de 32 bytes en memoria nuestra
 //!            CreateRenderTargetView  el descriptor apunta al recurso
 //!            CreateFence
+//!            CreateDepthStencilView  (P3c4) como la de RTV: el recurso D32
+//!            GetResourceAllocationInfo  lo que la CASA reserva (alineado a
+//!                                    64 KiB), no lo que reserva un driver
 //!    List    ClearRenderTargetView   se APUNTA; se hace en ExecuteCommandLists
+//!            ClearDepthStencilView   (P3c4) igual; el float llega en xmm3
+//!    Resource GetDesc                (P3c4) lo que la casa sabe de el
 //!            ResourceBarrier         nada: en la CPU no hay estado que cambiar
 //!            Close, Reset
 //!    Queue   ExecuteCommandLists, Signal
@@ -45,7 +50,8 @@ pub struct Asignador;
 
 /// Una orden apuntada en la lista.
 enum Orden {
-    /// Limpiar un recurso con este pixel (ya en SU formato).
+    /// Limpiar un recurso con este pixel (ya en SU formato; en una
+    /// profundidad D32, los bits del float).
     Limpiar { recurso: u64, pixel: u32 },
     /// Un dibujo, con el estado de la lista TAL COMO ESTABA al pedirlo. Los
     /// buferes se leen al ejecutarse, como los lee la GPU.
@@ -107,6 +113,8 @@ fn dispositivo() -> u64 {
         (15, dir!(get_descriptor_handle_increment_size)),
         (16, dir!(tuberia::create_root_signature)),
         (20, dir!(create_render_target_view)),
+        (21, dir!(create_render_target_view)),
+        (25, dir!(get_resource_allocation_info)),
         (27, dir!(tuberia::create_committed_resource)),
         (36, dir!(create_fence)),
     ]);
@@ -116,7 +124,7 @@ fn dispositivo() -> u64 {
 /// La vtabla de todo recurso: Map y compania dicen por si mismos si el
 /// recurso es un bufer.
 fn vtabla_recurso() -> *const u64 {
-    vtabla::<{ com::RESOURCE }>(&[(8, dir!(tuberia::map)), (9, dir!(tuberia::unmap)), (11, dir!(tuberia::get_gpu_virtual_address))])
+    vtabla::<{ com::RESOURCE }>(&[(8, dir!(tuberia::map)), (9, dir!(tuberia::unmap)), (10, dir!(get_desc)), (11, dir!(tuberia::get_gpu_virtual_address))])
 }
 
 /// Un recurso nuevo (lo pide la cadena de intercambio de DXGI).
@@ -189,6 +197,7 @@ extern "win64" fn create_command_list(_this: u64, _mascara: u32, _tipo: u32, _as
         (43, dir!(ia_set_index_buffer)),
         (44, dir!(ia_set_vertex_buffers)),
         (46, dir!(om_set_render_targets)),
+        (47, dir!(proton_x_clear_depth_stencil_view)),
         (48, dir!(clear_render_target_view)),
     ]);
     let estado = Estado { pso, ..Estado::default() };
@@ -364,13 +373,12 @@ extern "win64" fn om_set_render_targets(this: u64, n: u32, handles: *const u64, 
     if n > 1 {
         aviso("OMSetRenderTargets con mas de un destino: todavia uno");
     }
-    if !dsv.is_null() {
-        aviso("OMSetRenderTargets con profundidad: se ignora todavia");
-    }
-    // SAFETY: `this` es una Lista de la casa; `handles`, descriptores del
-    // `.exe`, y cada uno una ranura de un monton de la casa.
+    // SAFETY: `this` es una Lista de la casa; `handles` y `dsv`, descriptores
+    // del `.exe` (o nulos), y cada uno una ranura de un monton de la casa.
     unsafe {
-        lista(this).estado.rtv = if n == 0 || handles.is_null() { 0 } else { (handles.read_unaligned() as *const u64).read() };
+        let e = &mut lista(this).estado;
+        e.rtv = if n == 0 || handles.is_null() { 0 } else { (handles.read_unaligned() as *const u64).read() };
+        e.dsv = if dsv.is_null() { 0 } else { (dsv.read_unaligned() as *const u64).read() };
     }
 }
 
@@ -430,6 +438,94 @@ extern "win64" fn clear_render_target_view(this: u64, handle: u64, color: *const
     // SAFETY: `this` es una Lista de la casa.
     let l = unsafe { de::<Lista>(this) };
     l.ordenes.push(Orden::Limpiar { recurso, pixel });
+}
+
+// -- La profundidad (P3c4) --------------------------------------------------
+
+// `ClearDepthStencilView(this, handle, banderas, float profundidad, u8
+// stencil, n, rects)`: el float llega en xmm3 (Windows x64) y la casa es
+// soft-float en Ring 3 (ver lib.rs): sus BITS pasan al cuarto registro
+// entero, r9, y se salta a la de verdad. La pila (stencil, n, rects) no se
+// toca.
+core::arch::global_asm!(
+    ".globl proton_x_clear_depth_stencil_view",
+    "proton_x_clear_depth_stencil_view:",
+    "movd r9d, xmm3",
+    "jmp {f}",
+    f = sym clear_depth_stencil_view,
+);
+extern "C" {
+    fn proton_x_clear_depth_stencil_view();
+}
+
+const CLEAR_FLAG_DEPTH: u32 = 1;
+
+extern "win64" fn clear_depth_stencil_view(this: u64, handle: u64, banderas: u32, bits: u32, _stencil: u8, n: u32, _rects: *const u8) {
+    if n != 0 {
+        aviso("ClearDepthStencilView con rectangulos: todavia limpia solo el recurso entero");
+        return;
+    }
+    if handle == 0 || banderas & CLEAR_FLAG_DEPTH == 0 {
+        return;
+    }
+    // SAFETY: el descriptor es una ranura de la casa (CreateDepthStencilView).
+    let recurso = unsafe { (handle as *const u64).read() };
+    if recurso == 0 {
+        aviso("ClearDepthStencilView sobre un descriptor sin CreateDepthStencilView");
+        return;
+    }
+    // SAFETY: `this` es una Lista de la casa.
+    unsafe { de::<Lista>(this) }.ordenes.push(Orden::Limpiar { recurso, pixel: bits });
+}
+
+/// `GetDesc(this, ret)`: el D3D12_RESOURCE_DESC (56 B) por el puntero oculto.
+extern "win64" fn get_desc(this: u64, ret: *mut u8) -> *mut u8 {
+    // SAFETY: `this` es un Recurso de la casa.
+    let r = unsafe { de::<Recurso>(this) };
+    let (dimension, layout, banderas, ancho) = match (&r.bufer, r.formato) {
+        (Some(b), _) => (1u32, 1u32, 0u32, b.bytes as u64),
+        (None, tuberia::FMT_D32_FLOAT) => (3, 0, 2, r.ancho as u64), // ALLOW_DEPTH_STENCIL
+        (None, _) => (3, 0, 1, r.ancho as u64),                      // ALLOW_RENDER_TARGET
+    };
+    // SAFETY: 56 bytes del `.exe`.
+    unsafe {
+        core::ptr::write_bytes(ret, 0, 56);
+        let u = |o: usize, v: u32| (ret.add(o) as *mut u32).write_unaligned(v);
+        u(0, dimension);
+        (ret.add(16) as *mut u64).write_unaligned(ancho);
+        u(24, r.alto);
+        (ret.add(28) as *mut u16).write_unaligned(1);
+        (ret.add(30) as *mut u16).write_unaligned(1);
+        u(32, r.formato);
+        u(36, 1);
+        u(44, layout);
+        u(48, banderas);
+    }
+    ret
+}
+
+/// `GetResourceAllocationInfo(this, ret, mascara, n, descs)`: lo que la CASA
+/// reserva (cada recurso a 64 KiB, 4 bytes por pixel en una textura), en el
+/// D3D12_RESOURCE_ALLOCATION_INFO (medida, alineacion) oculto. No son las
+/// cifras de un driver (la 3060 da otras: el DICCIONARIO de EPICX).
+extern "win64" fn get_resource_allocation_info(_this: u64, ret: *mut u64, _mascara: u32, n: u32, descs: *const u8) -> *mut u64 {
+    const ALINEACION: u64 = 65536;
+    let mut total = 0u64;
+    for i in 0..n as usize {
+        // SAFETY: `n` D3D12_RESOURCE_DESC del `.exe` (56 B cada uno).
+        let (dimension, ancho, alto) = unsafe {
+            let d = descs.add(56 * i);
+            ((d as *const u32).read_unaligned(), (d.add(16) as *const u64).read_unaligned(), (d.add(24) as *const u32).read_unaligned())
+        };
+        let bytes = if dimension == 1 { ancho } else { ancho * alto as u64 * 4 };
+        total += bytes.div_ceil(ALINEACION) * ALINEACION;
+    }
+    // SAFETY: 16 bytes del `.exe`.
+    unsafe {
+        ret.write_unaligned(total);
+        ret.add(1).write_unaligned(ALINEACION);
+    }
+    ret
 }
 
 // -- La cola, el asignador y la valla ---------------------------------------

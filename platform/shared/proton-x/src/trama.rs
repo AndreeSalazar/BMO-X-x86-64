@@ -14,6 +14,9 @@
 //!    +  descarte (ninguno, delante, detras) y que cara es la de delante
 //!    +  el rectangulo: viewport, tijera y destino
 //!    +  los atributos del sombreador, interpolados CON PERSPECTIVA
+//!    +  la PROFUNDIDAD (P3c4): z / w al rango del viewport, LINEAL en
+//!       pantalla (como D3D), la prueba antes del sombreador de pixeles, y
+//!       escrita si pasa y el PSO lo pide
 //! ```
 //!
 //! **Un atributo igual en los tres vertices es ESE valor**, sin cuentas: la
@@ -49,6 +52,33 @@ pub struct Reglas {
     pub descarte: u32,
     /// `FrontCounterClockwise`: la cara de delante es la antihoraria.
     pub antihorario: bool,
+    /// La prueba de profundidad del PSO (`DepthEnable`), o `None`.
+    pub profundidad: Option<Profundidad>,
+}
+
+/// La prueba de profundidad: `D3D12_COMPARISON_FUNC` (1 nunca, 2 menor,
+/// 3 igual, 4 menor o igual, 5 mayor, 6 distinto, 7 mayor o igual, 8
+/// siempre) y si se escribe (`DepthWriteMask` ALL).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Profundidad {
+    pub funcion: u32,
+    pub escribir: bool,
+}
+
+impl Profundidad {
+    /// Si `z` (el del pixel) pasa contra `guardado` (el del bufer).
+    pub fn pasa(&self, z: f32, guardado: f32) -> bool {
+        match self.funcion {
+            1 => false,
+            2 => z < guardado,
+            3 => z == guardado,
+            4 => z <= guardado,
+            5 => z > guardado,
+            6 => z != guardado,
+            7 => z >= guardado,
+            _ => true,
+        }
+    }
 }
 
 /// Donde se pinta: `ancho * alto` pixeles de 32 bits, fila 0 arriba, en el
@@ -59,6 +89,10 @@ pub struct Destino<'a> {
     pub alto: u32,
     /// `B8G8R8A8` (si no, `R8G8B8A8`).
     pub bgra: bool,
+    /// El bufer de profundidad (`D32_FLOAT`: los bits de cada `f32`, como
+    /// estan en memoria), del mismo `ancho * alto`, o `None`: sin el, la
+    /// prueba no se hace (como en D3D sin DSV).
+    pub z: Option<&'a mut [u32]>,
 }
 
 /// Lo que paso.
@@ -70,6 +104,8 @@ pub struct Cuenta {
     pub pixeles: u64,
     /// Cuantas veces corrio de verdad el sombreador de pixeles.
     pub sombreados: u64,
+    /// Pixeles cubiertos que la prueba de profundidad dejo sin pintar.
+    pub tapados: u64,
 }
 
 /// Redondeo con empates al PAR (el de `bmo_cubo::num::redondear_par`).
@@ -124,7 +160,8 @@ pub fn empaquetar(c: [f32; 4], bgra: bool) -> u32 {
 /// devuelve el color (r, g, b, a).
 pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], destino: &mut Destino, mut ps: impl FnMut(&[[f32; 4]]) -> [f32; 4]) -> Cuenta {
     let mut cuenta = Cuenta::default();
-    let [vx, vy, vw, vh, _, _] = reglas.viewport;
+    let [vx, vy, vw, vh, zmin, zmax] = reglas.viewport;
+    let prueba = reglas.profundidad.filter(|_| destino.z.as_ref().is_some_and(|z| z.len() >= destino.pixeles.len()));
     let (mw, mh) = (vw * 0.5, vh * 0.5);
     let (ox, oy) = (vx + mw, vy + mh);
     // El rectangulo donde se puede pintar: viewport, tijera y destino.
@@ -180,6 +217,8 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
             inv_w.swap(1, 2);
         }
         let v = [v[o[0]], v[o[1]], v[o[2]]];
+        // La profundidad de cada vertice, ya en el rango del viewport.
+        let zv: [f32; 3] = core::array::from_fn(|k| zmin + v[k].pos[2] * inv_w[k] * (zmax - zmin));
         cuenta.dibujados += 1;
         let n = v[0].atributos.len().min(v[1].atributos.len()).min(v[2].atributos.len());
         // Que componentes cambian dentro del triangulo.
@@ -208,6 +247,20 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                 if !(0..3).all(|k| e[k] > 0 || (e[k] == 0 && incluye[k])) {
                     continue;
                 }
+                let i = (py * ancho + px) as usize;
+                if let (Some(p), Some(zs)) = (prueba, destino.z.as_deref_mut()) {
+                    // Lineal en pantalla: los pesos de las aristas, sin w.
+                    let s = (e[0] + e[1] + e[2]) as f32;
+                    let (b1, b2) = (e[1] as f32 / s, e[2] as f32 / s);
+                    let z = (zv[0] + b1 * (zv[1] - zv[0]) + b2 * (zv[2] - zv[0])).clamp(zmin.min(zmax), zmin.max(zmax));
+                    if !p.pasa(z, f32::from_bits(zs[i])) {
+                        cuenta.tapados += 1;
+                        continue;
+                    }
+                    if p.escribir {
+                        zs[i] = z.to_bits();
+                    }
+                }
                 cuenta.pixeles += 1;
                 if !plano {
                     // Con perspectiva: los pesos de pantalla sobre w.
@@ -232,7 +285,7 @@ pub fn dibujar(reglas: &Reglas, vertices: &[Sombreado], tris: &[[usize; 3]], des
                         p
                     }
                 };
-                destino.pixeles[(py * ancho + px) as usize] = pixel;
+                destino.pixeles[i] = pixel;
             }
         }
     }

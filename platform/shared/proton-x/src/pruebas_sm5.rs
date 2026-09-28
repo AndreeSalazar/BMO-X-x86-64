@@ -80,7 +80,7 @@ fn el_sm5_de_pixeles_ilumina_como_el_juez() {
 #[test]
 fn el_sm5_de_fxc_y_la_trama_dan_las_huellas_de_d3d12() {
     for (f, esperada) in bmo_cubo::referencia::HUELLAS {
-        let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f);
+        let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f, false, 3);
         assert_eq!(bmo_cubo::referencia::huella(&px), esperada, "fotograma {f}: {cuenta:?}");
         assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.sin_recortar), (12, 0));
     }
@@ -101,3 +101,45 @@ fn una_instruccion_sm5_que_no_se_sabe_se_dice() {
     d[o + 12..o + 16].copy_from_slice(&0xFFFFu32.to_le_bytes());
     assert!(dxil::leer(&d).is_err());
 }
+
+// -- P3c4: la profundidad de BMOX-12 ----------------------------------------
+
+/// *** El cubo SIN descartar caras y CON la profundidad de BMOX-12 (D32
+/// borrado a 1.0, LESS, escrita): las caras de detras se tapan por z, no por
+/// su sentido, y sale la imagen de la 3060 -- salvo algun pixel de la
+/// SILUETA, donde una cara de delante y una de detras comparten arista y
+/// tienen la MISMA z: ahi decide el redondeo (tambien en una GPU; por eso el
+/// cubo descarta). Se cuentan: como mucho 2 por fotograma, y ni uno sin la
+/// arista compartida. Sin la profundidad, las de detras pintan encima.
+#[test]
+fn sin_descarte_la_profundidad_tapa_las_caras_de_detras() {
+    for (f, esperada) in bmo_cubo::referencia::HUELLAS {
+        let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f, true, 1);
+        let (juez, _) = cubo_con(SM5_VS, SM5_PS, f, false, 3);
+        assert_eq!(bmo_cubo::referencia::huella(&juez), esperada);
+        assert_eq!((cuenta.dibujados, cuenta.descartados), (12, 0), "sin descarte se dibujan los 12");
+        assert!(cuenta.tapados > 10_000, "{cuenta:?}");
+        let distintos = (0..px.len()).filter(|&i| px[i] != juez[i]).count();
+        assert!(distintos <= 2, "fotograma {f}: {distintos} pixeles distintos");
+        // Con descarte y profundidad: la huella exacta, y nada se tapa (convexo).
+        let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f, true, 3);
+        assert_eq!(bmo_cubo::referencia::huella(&px), esperada);
+        assert_eq!(cuenta.tapados, 0);
+    }
+    // Sin la profundidad ni el descarte, las de detras pintan encima: miles.
+    let f = bmo_cubo::referencia::HUELLAS[0].0;
+    let (a, b) = (cubo_con(SM5_VS, SM5_PS, f, false, 1).0, cubo_con(SM5_VS, SM5_PS, f, false, 3).0);
+    assert!((0..a.len()).filter(|&i| a[i] != b[i]).count() > 10_000);
+}
+
+/// Las funciones de comparacion, una a una.
+#[test]
+fn la_prueba_de_profundidad_compara_como_d3d12() {
+    use crate::trama::Profundidad;
+    let p = |funcion| Profundidad { funcion, escribir: true };
+    let casos = [(1, [false, false, false]), (2, [true, false, false]), (3, [false, true, false]), (4, [true, true, false]), (5, [false, false, true]), (6, [true, false, true]), (7, [false, true, true]), (8, [true, true, true])];
+    for (f, esperado) in casos {
+        assert_eq!([p(f).pasa(0.25, 0.5), p(f).pasa(0.5, 0.5), p(f).pasa(0.75, 0.5)], esperado, "funcion {f}");
+    }
+}
+

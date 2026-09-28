@@ -376,3 +376,27 @@ sha256 de los que estan aqui (reproducibles, comprobado dos veces):
 usadll.exe dice `bien` ocho veces y sale con 0, con saludo.dll en su misma
 carpeta. En BMO-X todavia NO: el kernel sella bloques enteros y da ocho por
 proceso (ver PLAN_PROTON_X, P5a).
+
+cubo12.exe -- el de P3c4 (28-09): el cubo por el CAMINO de BMOX-12
+
+cubo.c con lo que estudio_d3d12 (EPICX) pide y cubo.c no: IDXGIFactory6,
+EnumAdapterByGpuPreference, GetDesc1, D3D12CreateDevice CON el adaptador,
+CheckFeatureSupport del tearing, la cadena como IDXGISwapChain3
+(GetCurrentBackBufferIndex), D3DCompile del HLSL de BMOX-12 (SM5) y la
+profundidad (D32, DSV, ClearDepthStencilView, PSO con LESS). cubo12_hlsl.h
+son los bytes de sombras/f3ef42a0.hls (= 4d67f5e4.hls): la huella que la casa
+busca en window/sombras. Usa cubo_datos.h, d3dcompiler.def y los .def de
+cubo.exe. `_fltused` va en el .c (pasa un float: sin CRT, se define a mano).
+
+   llvm-dlltool -m i386:x86-64 -d d3dcompiler.def -l d3dcompiler.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c cubo12.c -o cubo12.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:windows /dynamicbase /brepro cubo12.obj user32.lib d3d12.lib dxgi.lib kernel32.lib d3dcompiler.lib /out:cubo12.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   00ee325b1c696c7e7ea62373d20ccb1ce0b0fc26ed6761cfbde16ca35b214a24
+
+En Windows abre la ventana con el cubo (su d3dcompiler compila el HLSL); una
+letra gira 30 fotogramas, q cierra, y sale con el numero de Present. Un
+0xE1xx/0xE2xx es el paso que fallo (ver el .c). En el banco del anfitrion da
+las huellas de la 3060 en los fotogramas 0, 30 y 60 (tests/corre.rs).

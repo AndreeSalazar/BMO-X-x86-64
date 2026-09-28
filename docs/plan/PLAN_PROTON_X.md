@@ -530,7 +530,8 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
       Lo que la tabla NO ve son los metodos COM (por vtabla). CRUZADOS el
       28-09: las llamadas de `estudio-d3d/d3d12/src/cubo_d3d12.rs` (EPICX,
       solo lectura) contra las vtablas que la casa arma en `com.rs`. De 45
-      metodos, 35 estan; lo que falta es **P3c4**:
+      metodos, 35 estan; lo que faltaba es **P3c4** [HECHO en el banco
+      28-09, salvo --fotograma]:
 
 ```text
    P3c4  DXGI     IDXGIFactory6 (el cubo la pide a CreateDXGIFactory2):
@@ -549,6 +550,25 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          --fotograma (la huella, opcional): GetCopyableFootprints,
                   CopyTextureRegion a un bufer READBACK
 ```
+      P3c4 **Como se sabe:** `prueba/cubo12.exe` (cubo.c por el camino de
+      BMOX-12: Factory6, EnumAdapterByGpuPreference, GetDesc1, el
+      dispositivo SOBRE el adaptador, CheckFeatureSupport, SwapChain3 y
+      GetCurrentBackBufferIndex, D3DCompile del HLSL de BMOX-12 con sus .cso,
+      y la profundidad D32 con LESS) da en el banco las huellas de la 3060 de
+      los fotogramas 0, 30 y 60, sin un aviso (`tests/corre.rs`). La trama
+      (`trama::Profundidad`, z lineal en pantalla, prueba antes del
+      sombreador) lo prueba sola: el cubo SIN descarte y con profundidad da
+      la imagen de la 3060 salvo empates de z en la silueta (como mucho 2
+      pixeles por fotograma, contados). El float de ClearDepthStencilView
+      llega en xmm3 y la casa es soft-float: un trampolin de dos
+      instrucciones lo pasa a r9 (el guardian PX7 ya sabe que `sym f` es
+      darla). Saboteado: borrar la profundidad a 0 no pinta nada; un indice
+      de back buffer malo sale con 0xE230. Lo que no, dicho: el adaptador
+      dice SOFTWARE (dibuja la CPU); GetResourceAllocationInfo da lo que
+      reserva la casa, no un driver; el stencil se avisa y no se usa; y
+      --fotograma (GetCopyableFootprints, CopyTextureRegion) sigue sin estar.
+      Falta: cubo12.exe en el Windows del propietario (la misma imagen) y
+      en el Ryzen.
        P3c1 **Como se sabe:** `prueba/peek.exe` dice
       `bien` doce veces (poner `ceil` a redondear hacia abajo da MAL,
       comprobado). P3c2 **Como se sabe:** `bmo_proton_x::sombras` (la

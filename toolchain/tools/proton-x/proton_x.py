@@ -135,8 +135,10 @@ def px7_lo_que_se_da(modulos):
     for mod, t in sorted(modulos.items()):
         for m in re.finditer(r'extern "win64" fn (\w+)', t):
             f = m.group(1)
-            # dir!(f), dir!(modulo::f), o f::<...> (una generica en una vtabla).
-            dado = re.search(r"dir!\(\s*(?:\w+::)*%s\s*\)|\b%s::<" % (re.escape(f), re.escape(f)), todo)
+            # dir!(f), dir!(modulo::f), f::<...> (una generica en una vtabla), o
+            # `sym f` (un trampolin en asm que la llama: el float de xmm3 de
+            # ClearDepthStencilView pasa a un registro entero y salta a `f`).
+            dado = re.search(r"dir!\(\s*(?:\w+::)*%s\s*\)|\b%s::<|=\s*sym\s+(?:\w+::)*%s\b" % (re.escape(f), re.escape(f), re.escape(f)), todo)
             llamado = len(re.findall(r"\b%s\s*\(" % re.escape(f), todo)) > 1
             if not dado and not llamado:
                 malos.append("PX7 %s.rs: `%s` es una funcion de Windows que ninguna tabla da ni nadie llama" % (mod, f))
@@ -201,6 +203,7 @@ def autoprueba():
                                 "b": 'pub(crate) fn buscar(n: &str) -> Option<u64> {\n    Some(match n {\n        "X" | "Sleep" => dir!(t),\n    })\n}'}, ["a", "b"])),
         ("PX6", px6_sin_numero_publico({"f": "pub(crate) const ERROR_FILE_NOT_FOUND: u32 = 2;"})),
         ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn olvidada(a: u64) -> u64 { a }'})),
+        ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn olvidada2() {}\n// un comentario que dice sym olvidada2'})),
     ]
     # Y lo bueno NO se rechaza: una regla que dice que no a todo tampoco protege.
     buenos = [
@@ -210,6 +213,7 @@ def autoprueba():
         ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn dada() {}\n"Dada" => dir!(dada),'})),
         ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn dada() {}', "g": "(16, dir!(f::dada)),"})),
         ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn falta<const I: usize>() {}\nfalta::<3> as usize'})),
+        ("PX7", px7_lo_que_se_da({"f": 'extern "win64" fn tras_asm(a: u32) {}\nglobal_asm!("jmp {f}", f = sym tras_asm);'})),
     ]
     fallos = [r for r, v in casos if not v] + ["%s (rechazo algo bueno)" % r for r, v in buenos if v]
     if fallos:

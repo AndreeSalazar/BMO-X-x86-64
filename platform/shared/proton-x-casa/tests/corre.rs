@@ -39,6 +39,7 @@ const TEB: &[u8] = include_bytes!("../../proton-x/prueba/teb.exe");
 const VENTANA: &[u8] = include_bytes!("../../proton-x/prueba/ventana.exe");
 const LIMPIA: &[u8] = include_bytes!("../../proton-x/prueba/limpia.exe");
 const CUBO: &[u8] = include_bytes!("../../proton-x/prueba/cubo.exe");
+const CUBO12: &[u8] = include_bytes!("../../proton-x/prueba/cubo12.exe");
 const HILOS: &[u8] = include_bytes!("../../proton-x/prueba/hilos.exe");
 const FICHEROS: &[u8] = include_bytes!("../../proton-x/prueba/ficheros.exe");
 const CRT: &[u8] = include_bytes!("../../proton-x/prueba/crt.exe");
@@ -576,6 +577,41 @@ fn cubo_exe_monta_la_tuberia_entera_y_cada_dibujo_ve_lo_de_x1() {
     let p = PANTALLA.lock().unwrap();
     assert_eq!((p[0].1, p[0].2), (1280, 720));
     assert_eq!(p[0].0[0], 0xFF10_1018);
+}
+
+/// **P3c4 en el anfitrion**: `cubo12.exe`, el cubo por el CAMINO de BMOX-12:
+/// IDXGIFactory6, EnumAdapterByGpuPreference, GetDesc1, D3D12CreateDevice
+/// con el adaptador, CheckFeatureSupport, la cadena como IDXGISwapChain3
+/// (GetCurrentBackBufferIndex), D3DCompile del HLSL de BMOX-12 (los .cso que
+/// `sombras.exe` compilo en Windows), y la PROFUNDIDAD (D32, DSV,
+/// ClearDepthStencilView con su float en xmm3, PSO con LESS). Lo que se ve en
+/// cada Present es lo que dibujo la 3060.
+#[test]
+fn cubo12_exe_va_por_el_camino_de_bmox12_y_se_ve_lo_de_la_3060() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window/sombras");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for h in ["f3ef42a0", "4d67f5e4"] {
+        let cso = std::fs::read(format!("../proton-x/prueba/sombras/{h}.cso")).unwrap();
+        std::fs::write(dir.join(format!("{h}.cso")), cso).unwrap();
+    }
+    *NOMBRE.lock().unwrap() = ("window/cubo12.exe", "");
+    let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
+    let (salio, dicho, _) = correr_exe(&uno, CUBO12, true, &[letra(b'b'), 0, letra(b'b'), 0, letra(b'q')]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    assert_eq!(String::from_utf8_lossy(&dicho), "", "ni un aviso ni un hueco que falte");
+    let vistas = VISTAS.lock().unwrap().clone();
+    let huellas: Vec<u64> = bmo_cubo::referencia::HUELLAS.iter().map(|&(_, h)| h).collect();
+    assert_eq!(vistas, huellas, "lo que se vio en cada Present es lo que dibujo la 3060 (fotogramas 0, 30, 60)");
+    assert_eq!(salio, 3, "tres Present (0xE1xx/0xE2xx seria un paso que fallo)");
+    let dibujos = bmo_proton_x_casa::tuberia::dibujos();
+    assert_eq!(dibujos.len(), 3);
+    for d in &dibujos {
+        // Un SM5 no guarda el nombre de su entrada (el DXIL si).
+        assert_eq!((d.vs.as_str(), d.ps.as_str()), ("", ""));
+        assert_eq!((d.descarte, d.cuantos), (3, 36));
+    }
 }
 
 /// **P4 en el anfitrion**: `hilos.exe`, hilos, TLS y sincronizacion de

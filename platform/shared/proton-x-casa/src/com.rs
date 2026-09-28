@@ -64,6 +64,7 @@ pub const SWAPCHAIN: usize = 8;
 pub const ROOTSIG: usize = 9;
 pub const PSO: usize = 10;
 pub const BLOB: usize = 11;
+pub const ADAPTER: usize = 12;
 
 const IID_OBJECT: Guid = guid(0xc4fec28f, 0x7966, 0x4e95, [0x9f, 0x94, 0xf4, 0x31, 0xcb, 0x56, 0xc3, 0xb8]);
 const IID_DEVICECHILD: Guid = guid(0x905db94b, 0xa00c, 0x4140, [0x9d, 0xf5, 0x2b, 0x64, 0xca, 0x9e, 0xa3, 0x57]);
@@ -81,9 +82,23 @@ pub const IID_FACTORY2: Guid = guid(0x50c83a1c, 0xe072, 0x4c48, [0x87, 0xb0, 0x3
 pub const IID_ROOTSIG: Guid = guid(0xc54a6b66, 0x72df, 0x4ee8, [0x8b, 0xe5, 0xa9, 0x46, 0xa1, 0x42, 0x92, 0x14]);
 pub const IID_PSO: Guid = guid(0x765a30f3, 0xf624, 0x4c6f, [0xa8, 0x28, 0xac, 0xe9, 0x48, 0x62, 0x24, 0x45]);
 pub const IID_BLOB: Guid = guid(0x8ba5fb08, 0x5195, 0x40e2, [0xac, 0x58, 0x0d, 0x98, 0x9c, 0x3a, 0x01, 0x02]);
+// P3c4: DXGI hasta Factory6 y SwapChain3, y el adaptador (comprobados con
+// las cabeceras de Windows del crate `windows` 0.58).
+const IID_DXGIOBJECT: Guid = guid(0xaec22fb8, 0x76f3, 0x4639, [0x9b, 0xe0, 0x28, 0xeb, 0x43, 0xa6, 0x7a, 0x2e]);
+const IID_DEVICESUBOBJECT: Guid = guid(0x3d3e0379, 0xf9de, 0x4d58, [0xbb, 0x6c, 0x18, 0xd6, 0x29, 0x92, 0xf1, 0xa6]);
+const IID_FACTORY: Guid = guid(0x7b7166ec, 0x21c7, 0x44ae, [0xb2, 0x1a, 0xc9, 0xae, 0x32, 0x1a, 0xe3, 0x69]);
+pub const IID_FACTORY3: Guid = guid(0x25483823, 0xcd46, 0x4c7d, [0x86, 0xca, 0x47, 0xaa, 0x95, 0xb8, 0x37, 0xbd]);
+pub const IID_FACTORY4: Guid = guid(0x1bc6ea02, 0xef36, 0x464f, [0xbf, 0x0c, 0x21, 0xca, 0x39, 0xe5, 0x16, 0x8a]);
+pub const IID_FACTORY5: Guid = guid(0x7632e1f5, 0xee65, 0x4dca, [0x87, 0xfd, 0x84, 0xcd, 0x75, 0xf8, 0x83, 0x8d]);
+pub const IID_FACTORY6: Guid = guid(0xc1b6694f, 0xff09, 0x44a9, [0xb0, 0x3c, 0x77, 0x90, 0x0a, 0x0a, 0x1d, 0x17]);
+pub const IID_ADAPTER: Guid = guid(0x2411e7e1, 0x12ac, 0x4ccf, [0xbd, 0x14, 0x97, 0x98, 0xe8, 0x53, 0x4d, 0xc0]);
+pub const IID_ADAPTER1: Guid = guid(0x29038f61, 0x3839, 0x4626, [0x91, 0xfd, 0x08, 0x68, 0x79, 0x01, 0x1a, 0x05]);
+const IID_SWAPCHAIN: Guid = guid(0x310d36a0, 0xd2e7, 0x4c0a, [0xaa, 0x04, 0x6a, 0x9d, 0x23, 0xb8, 0x88, 0x6a]);
+pub const IID_SWAPCHAIN2: Guid = guid(0xa8be2ac4, 0x199f, 0x4946, [0xb3, 0x31, 0x79, 0x59, 0x9f, 0xb9, 0x8d, 0xe7]);
+pub const IID_SWAPCHAIN3: Guid = guid(0x94d99bdb, 0xf1f8, 0x4ab0, [0xb2, 0x36, 0x7d, 0xa0, 0x17, 0x0e, 0xda, 0xb1]);
 pub const IID_SWAPCHAIN1: Guid = guid(0x790a45f7, 0x0d42, 0x4876, [0x98, 0x3a, 0x0a, 0x55, 0xcf, 0xe6, 0xf4, 0xaa]);
 
-pub static INTERFACES: [Interfaz; 12] = [
+pub static INTERFACES: [Interfaz; 13] = [
     Interfaz { nombre: "ID3D12Device", metodos: M_ID3D12DEVICE, iids: &[IID_DEVICE, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandQueue", metodos: M_ID3D12COMMANDQUEUE, iids: &[IID_QUEUE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12CommandAllocator", metodos: M_ID3D12COMMANDALLOCATOR, iids: &[IID_ALLOCATOR, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
@@ -91,11 +106,12 @@ pub static INTERFACES: [Interfaz; 12] = [
     Interfaz { nombre: "ID3D12DescriptorHeap", metodos: M_ID3D12DESCRIPTORHEAP, iids: &[IID_HEAP, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12Resource", metodos: M_ID3D12RESOURCE, iids: &[IID_RESOURCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12Fence", metodos: M_ID3D12FENCE, iids: &[IID_FENCE, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
-    Interfaz { nombre: "IDXGIFactory2", metodos: M_IDXGIFACTORY2, iids: &[IID_FACTORY2, IID_FACTORY1] },
-    Interfaz { nombre: "IDXGISwapChain1", metodos: M_IDXGISWAPCHAIN1, iids: &[IID_SWAPCHAIN1] },
+    Interfaz { nombre: "IDXGIFactory6", metodos: M_IDXGIFACTORY6, iids: &[IID_FACTORY6, IID_FACTORY5, IID_FACTORY4, IID_FACTORY3, IID_FACTORY2, IID_FACTORY1, IID_FACTORY, IID_DXGIOBJECT] },
+    Interfaz { nombre: "IDXGISwapChain3", metodos: M_IDXGISWAPCHAIN3, iids: &[IID_SWAPCHAIN3, IID_SWAPCHAIN2, IID_SWAPCHAIN1, IID_SWAPCHAIN, IID_DEVICESUBOBJECT, IID_DXGIOBJECT] },
     Interfaz { nombre: "ID3D12RootSignature", metodos: M_ID3D12ROOTSIGNATURE, iids: &[IID_ROOTSIG, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3D12PipelineState", metodos: M_ID3D12PIPELINESTATE, iids: &[IID_PSO, IID_PAGEABLE, IID_DEVICECHILD, IID_OBJECT] },
     Interfaz { nombre: "ID3DBlob", metodos: M_ID3D10BLOB, iids: &[IID_BLOB] },
+    Interfaz { nombre: "IDXGIAdapter1", metodos: M_IDXGIADAPTER1, iids: &[IID_ADAPTER1, IID_ADAPTER, IID_DXGIOBJECT] },
 ];
 
 /// **La cabecera de todo objeto de la casa.** `repr(C)` y delante: el `.exe`
@@ -168,10 +184,10 @@ extern "win64" fn release(this: *mut Cabecera) -> u32 {
     }
 }
 
-struct Vtablas(UnsafeCell<[*const u64; 12]>);
+struct Vtablas(UnsafeCell<[*const u64; 13]>);
 // SAFETY: un hilo (ver `Global` en lib.rs).
 unsafe impl Sync for Vtablas {}
-static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 12]));
+static VTABLAS: Vtablas = Vtablas(UnsafeCell::new([core::ptr::null(); 13]));
 
 /// **La vtabla de la interfaz `I`**: IUnknown, los `metodos` que la casa
 /// tiene (hueco, direccion), y un `falta` en todos los demas. Se arma una vez.
@@ -287,7 +303,7 @@ pub const M_ID3D12FENCE: &[&str] = &[
     "SetPrivateDataInterface", "SetName", "GetDevice", "GetCompletedValue",
     "SetEventOnCompletion", "Signal",
 ];
-pub const M_IDXGIFACTORY2: &[&str] = &[
+pub const M_IDXGIFACTORY6: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
     "GetPrivateData", "GetParent", "EnumAdapters", "MakeWindowAssociation",
     "GetWindowAssociation", "CreateSwapChain", "CreateSoftwareAdapter", "EnumAdapters1",
@@ -296,14 +312,25 @@ pub const M_IDXGIFACTORY2: &[&str] = &[
     "RegisterStereoStatusWindow", "RegisterStereoStatusEvent", "UnregisterStereoStatus",
     "RegisterOcclusionStatusWindow", "RegisterOcclusionStatusEvent",
     "UnregisterOcclusionStatus", "CreateSwapChainForComposition",
+    // IDXGIFactory3, 4, 5 y 6 (P3c4)
+    "GetCreationFlags", "EnumAdapterByLuid", "EnumWarpAdapter", "CheckFeatureSupport",
+    "EnumAdapterByGpuPreference",
 ];
-pub const M_IDXGISWAPCHAIN1: &[&str] = &[
+pub const M_IDXGIADAPTER1: &[&str] = &[
+    "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
+    "GetPrivateData", "GetParent", "EnumOutputs", "GetDesc", "CheckInterfaceSupport", "GetDesc1",
+];
+pub const M_IDXGISWAPCHAIN3: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "SetPrivateData", "SetPrivateDataInterface",
     "GetPrivateData", "GetParent", "GetDevice", "Present", "GetBuffer", "SetFullscreenState",
     "GetFullscreenState", "GetDesc", "ResizeBuffers", "ResizeTarget", "GetContainingOutput",
     "GetFrameStatistics", "GetLastPresentCount", "GetDesc1", "GetFullscreenDesc", "GetHwnd",
     "GetCoreWindow", "Present1", "IsTemporaryMonoSupported", "GetRestrictToOutput",
     "SetBackgroundColor", "GetBackgroundColor", "SetRotation", "GetRotation",
+    // IDXGISwapChain2 y 3 (P3c4)
+    "SetSourceSize", "GetSourceSize", "SetMaximumFrameLatency", "GetMaximumFrameLatency",
+    "GetFrameLatencyWaitableObject", "SetMatrixTransform", "GetMatrixTransform",
+    "GetCurrentBackBufferIndex", "CheckColorSpaceSupport", "SetColorSpace1", "ResizeBuffers1",
 ];
 pub const M_ID3D12ROOTSIGNATURE: &[&str] = &[
     "QueryInterface", "AddRef", "Release", "GetPrivateData", "SetPrivateData",

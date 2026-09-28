@@ -179,7 +179,8 @@ try {
     # Y `peek.exe` (P3c1, 27-09): lo chico que le faltaba a BMOX-12 (PeekMessageW, ceil...).
     # Y `compila.exe` (P3c2, 28-09): D3DCompile pagando una vez, sobre window\sombras.
     # Y `usadll.exe` con su `saludo.dll` (P5a, 28-09): una DLL propia, como las de un juego.
-    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll')) {
+    # Y `cubo12.exe` (P3c4, 28-09): el cubo por el camino de BMOX-12 (Factory6, SwapChain3, profundidad, SM5).
+    foreach ($exe in @('hola.exe', 'teb.exe', 'ventana.exe', 'limpia.exe', 'cubo.exe', 'hilos.exe', 'ficheros.exe', 'crt.exe', 'texto.exe', 'esperas.exe', 'carpetas.exe', 'sistema.exe', 'ucrt.exe', 'stdio.exe', 'peek.exe', 'compila.exe', 'usadll.exe', 'saludo.dll', 'cubo12.exe')) {
         Copy-Item (Join-Path (Get-Location) ('platform\shared\proton-x\prueba\' + $exe)) (Join-Path $dataBase ('window\' + $exe)) -Force
     }
     $leemeWin = @(
@@ -210,6 +211,11 @@ try {
         'El despliegue NO borra esta carpeta: lo compilado se queda.'
     )
     Set-Content -LiteralPath (Join-Path $dataBase 'window\sombras\LEEME.TXT') -Value $leemeSom -Encoding ascii
+    # P3c4 (28-09): los .cso del cubo de BMOX-12 que sombras.exe ya compilo en
+    # Windows (prueba\sombras): cubo12.exe no espera a nadie.
+    Get-ChildItem (Join-Path (Get-Location) 'platform\shared\proton-x\prueba\sombras\*.cso') | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $dataBase ('window\sombras\' + $_.Name)) -Force
+    }
     Write-Host '    [proton-x] sys\proton-x.bex y window\{hola,teb,ventana,limpia,cubo,hilos,ficheros,crt,texto,esperas}.exe (run sys/proton-x.bex window/esperas.exe)' -ForegroundColor DarkGray
 } finally { Pop-Location }
 

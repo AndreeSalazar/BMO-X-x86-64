@@ -52,6 +52,8 @@ use crate::{aviso, dir, plataforma};
 
 const RS_VERSION_1: u32 = 1;
 const DIMENSION_BUFFER: u32 = 1;
+const DIMENSION_TEXTURE2D: u32 = 3;
+pub const FMT_D32_FLOAT: u32 = 40;
 const FMT_R32G32B32A32_FLOAT: u32 = 2;
 const FMT_R32G32B32_FLOAT: u32 = 6;
 const FMT_R32G32_FLOAT: u32 = 16;
@@ -210,6 +212,8 @@ pub struct Pso {
     pub enlace: Result<Enlace, String>,
     /// Mezcla encendida o una mascara de escritura que no es RGBA: todavia no.
     pub mezcla: bool,
+    /// La prueba de profundidad (P3c4), si `DepthEnable`.
+    pub profundidad: Option<trama::Profundidad>,
 }
 
 
@@ -270,8 +274,11 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
     if n_rt != 1 {
         return Err("CreateGraphicsPipelineState con mas de un render target: todavia no");
     }
-    if u32_de(d, 496) != 0 {
-        aviso("CreateGraphicsPipelineState con profundidad: se apunta, y no se usa todavia");
+    // DepthStencilState (+496): DepthEnable +0, DepthWriteMask +4 (1 ALL),
+    // DepthFunc +8, StencilEnable +12.
+    let profundidad = (u32_de(d, 496) != 0).then(|| trama::Profundidad { funcion: u32_de(d, 504), escribir: u32_de(d, 500) == 1 });
+    if u32_de(d, 508) != 0 {
+        aviso("CreateGraphicsPipelineState con stencil: se apunta, y no se usa todavia");
     }
     // RenderTarget[0] de BlendState (+120): BlendEnable +8, LogicOpEnable
     // +12, la mascara de escritura +44.
@@ -287,6 +294,7 @@ unsafe fn pso_de(d: *const u8) -> Result<Pso, &'static str> {
         entradas,
         enlace,
         mezcla,
+        profundidad,
         descarte: u32_de(d, 452 + 4),
         antihorario: u32_de(d, 452 + 8) != 0,
         topologia: u32_de(d, 572),
@@ -378,9 +386,14 @@ pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const
         return E_INVALIDARG;
     }
     // SAFETY: un D3D12_RESOURCE_DESC del `.exe`.
-    let (dimension, ancho) = unsafe { (u32_de(desc, 0), u64_de(desc, 16)) };
+    let (dimension, ancho, alto, formato) = unsafe { (u32_de(desc, 0), u64_de(desc, 16), u32_de(desc, 24), u32_de(desc, 32)) };
+    if dimension == DIMENSION_TEXTURE2D && formato == FMT_D32_FLOAT && ancho > 0 && ancho <= 16384 && alto > 0 && alto <= 16384 {
+        // P3c4: una profundidad D32 (lo que el cubo de BMOX-12 pide). Su
+        // contenido es indefinido hasta ClearDepthStencilView, como en D3D12.
+        return dar(pp, crate::d3d12::recurso(ancho as u32, alto, FMT_D32_FLOAT));
+    }
     if dimension != DIMENSION_BUFFER {
-        aviso("CreateCommittedResource: solo buferes todavia (texturas, con los sombreadores que las lean)");
+        aviso("CreateCommittedResource: solo buferes y profundidades D32 todavia (texturas, con los sombreadores que las lean)");
         return E_INVALIDARG;
     }
     let bytes = ancho as usize;
@@ -429,6 +442,8 @@ pub struct Estado {
     pub viewport: [f32; 6],
     pub tijera: [i32; 4],
     pub rtv: u64,
+    /// El recurso de profundidad (OMSetRenderTargets), o 0.
+    pub dsv: u64,
 }
 
 /// **Lo que un dibujo ve**, ya leido de la memoria: lo que el banco compara.
@@ -666,10 +681,22 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         ids: &ids,
         topologia,
         cb,
-        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario },
+        reglas: trama::Reglas { viewport: e.viewport, tijera: e.tijera, descarte: pso.descarte, antihorario: pso.antihorario, profundidad: pso.profundidad },
     };
     let (ancho, alto) = (rt.ancho, rt.alto);
-    let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra };
+    // La profundidad: la del DSV, si el PSO la pide y mide lo mismo.
+    let z = match (pso.profundidad, e.dsv) {
+        (Some(_), 0) | (None, _) => None,
+        // SAFETY: el descriptor DSV guarda un Recurso de la casa, distinto del RT.
+        (Some(_), dsv) => match unsafe { de::<crate::d3d12::Recurso>(dsv) } {
+            r if r.formato == FMT_D32_FLOAT && (r.ancho, r.alto) == (ancho, alto) => Some(&mut r.pixeles[..]),
+            _ => {
+                aviso("Draw: la profundidad no es D32 o no mide lo que el render target: se dibuja sin ella");
+                None
+            }
+        },
+    };
+    let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra, z };
     match (plataforma().dibujar)(&lote, &mut destino) {
         Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
         Ok(_) => {}

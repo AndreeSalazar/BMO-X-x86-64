@@ -501,11 +501,12 @@ use crate::trama;
 /// la casa): los bytes de los vertices, los indices, las constantes, y los
 /// DXIL de dxc enlazados con el input layout de `cubo.c`.
 fn cubo_por_la_casa(f: u32) -> (Vec<u32>, trama::Cuenta) {
-    cubo_con(CUBO_VS, CUBO_PS, f)
+    cubo_con(CUBO_VS, CUBO_PS, f, false, 3)
 }
 
 /// Lo mismo con otros dos sombreadores (P3c3: los SM5 de FXC).
-pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32) -> (Vec<u32>, trama::Cuenta) {
+/// Con `z`, con la profundidad de BMOX-12 (D32 borrado a 1.0, LESS, escrita).
+pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> (Vec<u32>, trama::Cuenta) {
     use crate::lote::{self, ElementoIa, Lote, Topologia};
     let (vs, ps) = (dxil::leer(vs).unwrap(), dxil::leer(ps).unwrap());
     let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde };
@@ -515,10 +516,11 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32) -> (Vec<u32>, trama::Cuenta
     let ids: Vec<u32> = bmo_cubo::indices().iter().map(|&i| i as u32).collect();
     let cb = cb_de(f);
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte: 3, antihorario: false };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }) };
     let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true };
+    let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
+    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]) };
     let cuenta = lote::en_cpu(&l, &mut d).unwrap();
     (px, cuenta)
 }
@@ -554,8 +556,8 @@ fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<trama::Sombr
 
 fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>, trama::Cuenta) {
     let mut px = vec![0u32; 64];
-    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario };
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true };
+    let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None };
     let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| e[0]);
     (px, c)
 }
