@@ -70,16 +70,26 @@ pub const TABLA: u64 = SEMAFOROS + 0x600;
 pub const VERTICES: u64 = SEMAFOROS + 0x800;
 pub const BYTES_VERTICE: usize = 32;
 pub const MAX_VERTICES: usize = 3 * CABEN;
+/// Lo mas que miden los DATOS de un paquete (E5): los vertices de V0 o,
+/// con un programa emitido, el cbuffer y los vertices como el programa los
+/// lee. Lo que cabe en una ranura del anillo (`anillo::PASO`).
+pub const DATOS_MAX: usize = 1024;
 /// Donde van los dos programas: el principio de las paginas de X5.
 pub const VS: u64 = SALIDA;
 pub const PS: u64 = PROGRAMA;
+/// Los registros que se le dan a cada programa de VERRANO
+/// (`REGISTER_COUNT`; la 3060 se queda DOS, `juez::RESERVADOS`). 16 hasta
+/// E5, como X5; 64 desde E5 (28-09): un programa EMITIDO lleva sus
+/// entradas y su cbuffer precargados en registros (el de vertice de BMOX-12,
+/// ~52, y el pegamento). A un programa que usa menos no le cambia nada.
+pub const REGISTROS: u32 = 64;
 /// Lo mas que mide cada uno: su SPH y 2 KiB de codigo (128 instrucciones,
 /// `juez::MAX_INSTRUCCIONES`). Cada uno tiene su pagina ENTERA (se pone a
 /// cero antes); desde E5 (28-09) ya no el hueco de 512 / 256 B del cubo X5.
 pub const HUECO: usize = 4 * SPH + 16 * crate::sass::juez::MAX_INSTRUCCIONES;
 /// Lo mas que mide un paquete entero (cabecera, dos programas y vertices):
 /// la caja que el escritorio tiene que reservar.
-pub const MAX_PAQUETE: usize = CABECERA + 2 * HUECO + MAX_VERTICES * BYTES_VERTICE;
+pub const MAX_PAQUETE: usize = CABECERA + 2 * HUECO + DATOS_MAX;
 
 /// Un vertice: la posicion en coordenadas de recorte y el color, en bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -260,7 +270,8 @@ pub fn bytes<const N: usize>(palabras: &[u32; N], out: &mut [u8]) -> usize {
 pub const MAGIA: u32 = u32::from_le_bytes(*b"VRN0");
 /// La cabecera: magia, ficha de GR, vertices, bytes del de vertice, bytes
 /// del de pixel, el RECORTE de la limpieza (V1c: dos palabras, 0 = la
-/// ventana entera) y ceros hasta 32.
+/// ventana entera) y los bytes de los DATOS (E5; 0 = los de V0, 32 por
+/// vertice).
 pub const CABECERA: usize = 32;
 
 /// **El paquete**: los dos programas (tomados del BSF por la app, con sus
@@ -270,7 +281,12 @@ pub struct Paquete<'a> {
     pub ficha: u32,
     pub vs: &'a [u8],
     pub ps: &'a [u8],
+    /// Los DATOS que lee el programa por la ranura 0 de la tabla: en V0 los
+    /// vertices (`Vertice`, 32 B); con un programa emitido (E5), lo que su
+    /// pegamento diga (el cbuffer y detras los vertices).
     pub vertices: &'a [u8],
+    /// Cuantos vertices se dibujan (3 por triangulo).
+    pub n: usize,
     /// V1c: lo que HACE FALTA limpiar, si quien dibuja lo sabe --
     /// `(xmin | xmax << 16, ymin | ymax << 16)` en pixeles de la ventana, el
     /// maximo fuera (`SET_CLEAR_RECT_*`). `None` = la ventana entera. Solo lo
@@ -296,7 +312,7 @@ fn programa_valido(p: &[u8], tipo: u32) -> bool {
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
 pub fn medida(cabecera: &[u8]) -> Option<usize> {
-    if cabecera.len() < CABECERA || u32le(cabecera, 0) != MAGIA || cabecera[28..CABECERA].iter().any(|&b| b != 0) {
+    if cabecera.len() < CABECERA || u32le(cabecera, 0) != MAGIA {
         return None;
     }
     let (h, v) = (u32le(cabecera, 20), u32le(cabecera, 24));
@@ -307,7 +323,16 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
     if n == 0 || n % 3 != 0 || n > MAX_VERTICES || vs > HUECO || ps > HUECO {
         return None;
     }
-    Some(CABECERA + vs + ps + n * BYTES_VERTICE)
+    Some(CABECERA + vs + ps + datos(cabecera, n)?)
+}
+
+/// Los bytes de los datos que dice la cabecera: los de V0 (32 por vertice)
+/// o los que diga (E5), enteros de 16 y hasta [`DATOS_MAX`].
+fn datos(cabecera: &[u8], n: usize) -> Option<usize> {
+    match u32le(cabecera, 28) as usize {
+        0 => Some(n * BYTES_VERTICE),
+        d => (d % 16 == 0 && d <= DATOS_MAX).then_some(d),
+    }
 }
 
 /// **Leer** un paquete entero (ya medido).
@@ -319,7 +344,7 @@ pub fn leer(b: &[u8]) -> Option<Paquete<'_>> {
     let (vs, ps) = (u32le(b, 12) as usize, u32le(b, 16) as usize);
     let (h, v) = (u32le(b, 20), u32le(b, 24));
     let limpiar = ((h, v) != (0, 0)).then_some((h, v));
-    let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..], limpiar };
+    let p = Paquete { ficha: u32le(b, 4), vs: &b[CABECERA..CABECERA + vs], ps: &b[CABECERA + vs..CABECERA + vs + ps], vertices: &b[CABECERA + vs + ps..], n: u32le(b, 8) as usize, limpiar };
     (programa_valido(p.vs, crate::raster::VERTICE) && programa_valido(p.ps, crate::raster::PIXEL)).then_some(p)
 }
 
@@ -330,24 +355,44 @@ pub fn escribir_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertic
 
 /// Lo mismo, con el recorte de la limpieza (V1c).
 pub fn escribir_paquete_con(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], vertices: &[Vertice], limpiar: Option<(u32, u32)>) -> Option<usize> {
-    let total = CABECERA + vs.len() + ps.len() + vertices.len() * BYTES_VERTICE;
+    let d = CABECERA + vs.len() + ps.len();
+    let total = d + vertices.len() * BYTES_VERTICE;
     if out.len() < total {
         return None;
     }
-    out[..CABECERA].fill(0);
-    let (h, v) = limpiar.unwrap_or((0, 0));
-    for (k, v) in [MAGIA, ficha, vertices.len() as u32, vs.len() as u32, ps.len() as u32, h, v].iter().enumerate() {
-        out[4 * k..4 * k + 4].copy_from_slice(&v.to_le_bytes());
-    }
-    out[CABECERA..CABECERA + vs.len()].copy_from_slice(vs);
-    out[CABECERA + vs.len()..CABECERA + vs.len() + ps.len()].copy_from_slice(ps);
-    let mut i = CABECERA + vs.len() + ps.len();
+    let mut i = d;
     for v in vertices {
         for w in v.palabras() {
             out[i..i + 4].copy_from_slice(&w.to_le_bytes());
             i += 4;
         }
     }
+    cerrar_paquete(out, ficha, vs, ps, vertices.len(), 0, vertices.len() * BYTES_VERTICE, limpiar)
+}
+
+/// **E5**: un paquete con `n` vertices y los DATOS tal cual (el cbuffer y
+/// los vertices como los lee el pegamento de los programas emitidos).
+pub fn escribir_paquete_datos(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, datos: &[u8]) -> Option<usize> {
+    let d = CABECERA + vs.len() + ps.len();
+    if datos.is_empty() || out.len() < d + datos.len() {
+        return None;
+    }
+    out[d..d + datos.len()].copy_from_slice(datos);
+    cerrar_paquete(out, ficha, vs, ps, n, datos.len() as u32, datos.len(), None)
+}
+
+/// La cabecera y los dos programas (los datos ya estan detras); `None` si el
+/// paquete que queda no se sostiene.
+#[allow(clippy::too_many_arguments)]
+fn cerrar_paquete(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8], n: usize, palabra_datos: u32, datos: usize, limpiar: Option<(u32, u32)>) -> Option<usize> {
+    let total = CABECERA + vs.len() + ps.len() + datos;
+    out[..CABECERA].fill(0);
+    let (h, v) = limpiar.unwrap_or((0, 0));
+    for (k, v) in [MAGIA, ficha, n as u32, vs.len() as u32, ps.len() as u32, h, v, palabra_datos].iter().enumerate() {
+        out[4 * k..4 * k + 4].copy_from_slice(&v.to_le_bytes());
+    }
+    out[CABECERA..CABECERA + vs.len()].copy_from_slice(vs);
+    out[CABECERA + vs.len()..CABECERA + vs.len() + ps.len()].copy_from_slice(ps);
     (medida(&out[..total]) == Some(total)).then_some(total)
 }
 
@@ -375,7 +420,7 @@ pub fn ordenes(v: &Ventana, n: usize) -> cu::Ordenes {
 
 /// Las mismas, `ligero` = SIN la escalera de T1c (ver `cubo::Ordenes`).
 pub fn ordenes_con(v: &Ventana, n: usize, ligero: bool) -> cu::Ordenes {
-    let mut e = cu::hasta_el_dibujo_con(v, !ligero);
+    let mut e = cu::hasta_el_dibujo_con(v, !ligero, REGISTROS);
     e.dibujo_de(3 * n as u32);
     e.cerrar();
     e
@@ -390,7 +435,7 @@ pub fn preparar<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete) -> bo
 
 /// `preparar`, con las ordenes `ligero` o con su escalera.
 pub fn preparar_con<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
-    let n = p.vertices.len() / BYTES_VERTICE;
+    let n = p.n;
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return false;
     }
@@ -442,7 +487,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     mezclar(p.vs);
     mezclar(&[0xA5]);
     mezclar(p.ps);
-    for x in [p.vertices.len() as u64, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    for x in [p.vertices.len() as u64, p.n as u64, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -452,7 +497,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
 /// tabla y las ordenes tienen que estar ya donde los dejo un `preparar_con`
 /// con la misma [`huella_fija`] (eso lo comprueba el kernel, no esto).
 pub fn preparar_caliente<R: Registros>(r: &mut R, e: u32, v: &Ventana, p: &Paquete, ligero: bool) -> bool {
-    let n = p.vertices.len() / BYTES_VERTICE;
+    let n = p.n;
     if !crate::blur::entrada_valida(e) || n == 0 || n % 3 != 0 || n > MAX_VERTICES {
         return false;
     }
@@ -480,7 +525,8 @@ const _: () = assert!(VS == cu::vs(0) && PS == cu::ps(0));
 // Cada uno cabe en su pagina (VS en la 10, PS en la 11, que se ponen a cero).
 const _: () = assert!(HUECO <= 0x1000 && VS + 0x1000 == PS);
 const _: () = assert!(TABLA >= crate::video::PARAMETROS + 4 * crate::video::N_PARAMETROS as u64);
-const _: () = assert!(VERTICES >= TABLA + 8 && VERTICES + (MAX_VERTICES * BYTES_VERTICE) as u64 <= SEMAFOROS + 0x1000);
+const _: () = assert!(VERTICES >= TABLA + 8 && VERTICES + DATOS_MAX as u64 <= SEMAFOROS + 0x1000);
+const _: () = assert!(MAX_VERTICES * BYTES_VERTICE <= DATOS_MAX && DATOS_MAX as u64 <= crate::anillo::PASO);
 
 #[cfg(test)]
 mod pruebas {
@@ -582,10 +628,16 @@ mod pruebas {
         // UN dibujo con el rasterizador, de 18 vertices, y el de 3 sin el.
         let starts: std::vec::Vec<u32> = w.windows(3).filter(|q| q[0] == crate::copia::cabecera_en(0, crate::raster::SET_VERTEX_ARRAY_START, 2)).map(|q| q[2]).collect();
         assert_eq!(starts, [3, 18]);
-        // Con UN triangulo las ordenes son EXACTAMENTE las de X5: lo unico
-        // que cambia son los programas que hay en las dos paginas.
+        // Con UN triangulo las ordenes son EXACTAMENTE las de X5 salvo los
+        // REGISTROS de cada programa (E5: 64, no 16): lo demas que cambia son
+        // los programas que hay en las dos paginas.
         let (x5, uno) = (crate::cubo::ordenes(&v, 1), ordenes(&v, 1));
-        assert_eq!(&uno.o[..uno.n], &x5.o[..x5.n]);
+        assert_eq!(uno.n, x5.n);
+        let distintas: std::vec::Vec<usize> = (0..x5.n).filter(|&i| uno.o[i] != x5.o[i]).collect();
+        assert_eq!(distintas.len(), 2, "los dos REGISTER_COUNT");
+        for i in distintas {
+            assert_eq!((x5.o[i], uno.o[i]), (crate::raster::REGISTROS, REGISTROS));
+        }
     }
 
     /// V1 `ligero`: el MISMO estado y el MISMO dibujo, sin la escalera --
@@ -631,7 +683,7 @@ mod pruebas {
         bytes(&vertice(), &mut vs);
         bytes(&pixel(), &mut ps);
         let (a, b) = ([7u8; 6 * BYTES_VERTICE], [9u8; 6 * BYTES_VERTICE]);
-        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x, limpiar: None };
+        let p = |x: &'static [u8], vv: &'static [u8], pp: &'static [u8]| Paquete { ficha: 1, vs: vv, ps: pp, vertices: x, n: x.len() / BYTES_VERTICE, limpiar: None };
         let (vs, ps): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(vs)), std::boxed::Box::leak(std::boxed::Box::new(ps)));
         let (a, b): (&'static [u8], &'static [u8]) = (std::boxed::Box::leak(std::boxed::Box::new(a)), std::boxed::Box::leak(std::boxed::Box::new(b)));
         let h = huella_fija(&v, &p(a, vs, ps), false);

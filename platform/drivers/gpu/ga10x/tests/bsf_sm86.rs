@@ -41,7 +41,7 @@ fn bytes<const N: usize>(p: &[u32; N]) -> Vec<u8> {
 /// fabrica -- y se dice.
 fn juzgar_antes() {
     let (sv, sp) = (tuberia::sph_vertice(), tuberia::sph_pixel());
-    let registros = bmo_gpu_ga10x::raster::REGISTROS;
+    let registros = tuberia::REGISTROS;
     for (nombre, codigo, sph) in [("cubo_vertice", &tuberia::codigo_vs()[..], &sv), ("cubo_pixel", &tuberia::codigo_ps()[..], &sp)] {
         match juez::juzgar(codigo, &juez::Contexto { registros, sph: Some(sph) }) {
             Ok(v) => eprintln!("cubo.bsf {nombre}: {v}"),

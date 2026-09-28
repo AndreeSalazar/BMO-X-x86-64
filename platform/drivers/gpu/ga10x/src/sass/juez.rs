@@ -639,9 +639,18 @@ mod pruebas {
         let v = std::vec![tu::Vertice::default(); tu::MAX_VERTICES];
         let mut caja = std::vec![0u8; tu::MAX_PAQUETE];
         let n = tu::escribir_paquete(&mut caja, 1, &vs, &ps, &v).unwrap();
+        let p = tu::leer(&caja[..n]).unwrap();
+        assert_eq!((p.vs.len(), p.ps.len(), p.n), (tu::HUECO, tu::HUECO, tu::MAX_VERTICES));
+        // E5: los datos mas grandes que caben, y los dos huecos llenos.
+        let datos = std::vec![7u8; tu::DATOS_MAX];
+        let n = tu::escribir_paquete_datos(&mut caja, 1, &vs, &ps, 18, &datos).unwrap();
         assert_eq!(n, tu::MAX_PAQUETE);
         let p = tu::leer(&caja).unwrap();
-        assert_eq!((p.vs.len(), p.ps.len()), (tu::HUECO, tu::HUECO));
+        assert_eq!((p.vertices.len(), p.n), (tu::DATOS_MAX, 18));
+        // Datos de mas, o que no son enteros de 16: no.
+        let mut caja3 = std::vec![0u8; tu::MAX_PAQUETE + 16];
+        assert_eq!(tu::escribir_paquete_datos(&mut caja3, 1, &vs, &ps, 18, &std::vec![0u8; tu::DATOS_MAX + 16]), None);
+        assert_eq!(tu::escribir_paquete_datos(&mut caja3, 1, &vs, &ps, 18, &[0u8; 40]), None);
         // Uno mas, no: ni se escribe, ni se lee (la cabecera lo dice).
         let mut grande = vs.clone();
         grande.extend_from_slice(&[0; 16]);

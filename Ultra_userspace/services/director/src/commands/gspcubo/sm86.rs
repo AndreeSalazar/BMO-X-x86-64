@@ -260,7 +260,7 @@ pub(super) fn abrir<'a>(dsk: &mut Desktop, p: &bmo::Pantalla, caja: &'a mut [u8]
         return Err(linea(dsk, que, INK_ERR));
     }
     // El juez, ANTES de que la 3060 vea nada.
-    let r = raster::REGISTROS;
+    let r = tu::REGISTROS;
     let juicio = juez::juzgar_programa(vs, r).map_err(|b| ("vertice", b)).and_then(|a| juez::juzgar_programa(ps, r).map(|b| a.instrucciones + b.instrucciones).map_err(|b| ("pixel", b)));
     let instrucciones = match juicio {
         Ok(n) => n,

@@ -330,14 +330,17 @@ impl Ordenes {
 /// Lo comparten X5 (un par de programas por triangulo) y la tuberia fija de
 /// VERRANO (`tuberia`: un par para todos).
 pub(crate) fn hasta_el_dibujo(v: &Ventana) -> Ordenes {
-    hasta_el_dibujo_con(v, true)
+    hasta_el_dibujo_con(v, true, ra::REGISTROS)
 }
 
 /// Lo mismo, con la escalera o sin ella (VERRANO `ligero`). Sin escalera
 /// no hay semaforos de ESTADO ni de VERTICES: de la escalera de etapas solo
 /// se paga el bit 2 (el dibujo entero), que es el que pide `sano`.
-pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
-    hasta_el_dibujo_de(v, escalera, true, None)
+///
+/// `registros`: los que se le dan a cada programa (`REGISTER_COUNT`): los de
+/// X5 ([`ra::REGISTROS`]) o los de VERRANO (`tuberia::REGISTROS`).
+pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool, registros: u32) -> Ordenes {
+    hasta_el_dibujo_de(v, escalera, true, None, registros)
 }
 
 /// Lo mismo, y `limpiar` = con la limpieza de la ventana al principio. Sin
@@ -345,7 +348,7 @@ pub(crate) fn hasta_el_dibujo_con(v: &Ventana, escalera: bool) -> Ordenes {
 /// la cola de cada fotograma, recortada: el color de limpieza SI se pone
 /// aqui. Con `marca` (V1c), justo tras la clase, un informe de cuatro
 /// palabras en esa direccion: el RELOJ de la 3060 al empezar el fotograma.
-pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, marca: Option<u64>) -> Ordenes {
+pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, marca: Option<u64>, registros: u32) -> Ordenes {
     let mut e = Ordenes { o: [0; MAX_ORDENES], n: 0, k: 1, escalera };
     // T1a con este destino: la ventana, del FONDO.
     e.m(td::SET_OBJECT, &[crate::gr::AMPERE_B]);
@@ -404,7 +407,7 @@ pub(crate) fn hasta_el_dibujo_de(v: &Ventana, escalera: bool, limpiar: bool, mar
             let d = sombreador_va(dir);
             e.m(set_pipeline_shader(j), &[j << 4 | 1]);
             e.m(set_pipeline_shader(j) + 0x14, &[(d >> 32) as u32, d as u32]);
-            e.paso(set_pipeline_shader(j) + 0x0c, &[ra::REGISTROS, grupo]);
+            e.paso(set_pipeline_shader(j) + 0x0c, &[registros, grupo]);
         } else {
             e.paso(set_pipeline_shader(j), &[j << 4]);
         }

@@ -187,14 +187,14 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     }
     // ** EL JUEZ EN LA PUERTA (J2, 26-09): lo que el escritorio diga haber
     // juzgado no cuenta; aqui se juzga otra vez, con los registros que las
-    // ordenes le dan (`raster::REGISTROS`), y un BODRIO no llega a la 3060.
+    // ordenes le dan (`tuberia::REGISTROS`), y un BODRIO no llega a la 3060.
     // En caliente no hace falta: la huella de lo fijo lleva los programas,
     // y los de un dibujo pagado ya pasaron por aqui. En el anillo, igual:
     // los de un anillo ARMADO ya pasaron por aqui al armarlo.
     let huella_anillo = if anillo { bmo_gpu_ga10x::anillo::huella(&v, &paquete, coopera) } else { 0 };
     let ya_juzgados = if anillo { ANILLO_HUELLA.load(Ordering::Acquire) == huella_anillo } else { caliente_posible(&paquete) };
     if !ya_juzgados {
-        let r = bmo_gpu_ga10x::raster::REGISTROS;
+        let r = bmo_gpu_ga10x::tuberia::REGISTROS;
         for (cual, prog) in [("vertice", paquete.vs), ("pixel", paquete.ps)] {
             if let Err(b) = bmo_gpu_ga10x::sass::juez::juzgar_programa(prog, r) {
                 crate::ring0::cabina::warn("gpu", cual, b.instruccion as u64);
@@ -219,7 +219,7 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
-    let n = (paquete.vertices.len() / tu::BYTES_VERTICE / 3) as u32;
+    let n = (paquete.n / 3) as u32;
     // En caliente, o no: lo fijo es lo mismo, nadie lanzo nada por el GR
     // desde nuestro ultimo dibujo (la entrada sigue donde la dejamos) y fue
     // hace menos de 100 ms (entre dos fotogramas de un banco, no entre dos
@@ -379,7 +379,7 @@ fn en_anillo(bar0: u64, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::V
     let mut r = Bar0(bar0);
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let desde = crate::ring0::task::scheduler::rdtsc();
-    let n = (paquete.vertices.len() / bmo_gpu_ga10x::tuberia::BYTES_VERTICE / 3) as u32;
+    let n = (paquete.n / 3) as u32;
     let mapa_nuevo = asegurar_mapa(&mut r, p)?;
     // Armado con lo mismo, nadie por el GR desde el ultimo envio (la
     // entrada sigue donde la dejo; `gr_ocupado` ademas lo olvida) y hace
