@@ -5,7 +5,8 @@
 //!    D3D12SerializeRootSignature  la estructura del .exe -> RTS0 (los MISMOS
 //!                                 bytes que Microsoft: bmo_proton_x::raiz)
 //!    CreateRootSignature          RTS0 -> la firma, leida
-//!    CreateGraphicsPipelineState  los dos DXIL leidos (bmo_proton_x::dxil),
+//!    CreateGraphicsPipelineState  los dos DXIL (o SM5 de FXC: P3c3) leidos
+//!                                 (bmo_proton_x::dxil),
 //!                                 y el input layout CRUZADO con la firma de
 //!                                 entrada del vertice: una semantica que el
 //!                                 sombreador no tiene es E_INVALIDARG
@@ -218,7 +219,7 @@ fn sombreador(bytecode: *const u8, tam: usize, etapa: Etapa, que: &'static str) 
     }
     // SAFETY: `tam` bytes del `.exe` (D3D12_SHADER_BYTECODE).
     let d = unsafe { core::slice::from_raw_parts(bytecode, tam) };
-    let s = dxil::leer(d).map_err(|_| "CreateGraphicsPipelineState: un sombreador que no es DXIL (o no se lee)")?;
+    let s = dxil::leer(d).map_err(|_| "CreateGraphicsPipelineState: un sombreador que no es DXIL ni SM5 (o no se lee)")?;
     if s.etapa != etapa {
         return Err("CreateGraphicsPipelineState: un sombreador de otra etapa en su hueco");
     }

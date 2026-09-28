@@ -1,0 +1,103 @@
+//! Las pruebas de P3c3: el SM5 de FXC (los `.cso` del cubo de BMOX-12, que
+//! `sombras.exe` compilo en el Windows del propietario) por el MISMO lote.
+
+use alloc::vec::Vec;
+
+use crate::dxil::programa::{compilar, NoPrograma, Op};
+use crate::dxil::{self, Etapa};
+use crate::pruebas::{cb_de, cubo_con};
+
+const SM5_VS: &[u8] = include_bytes!("../prueba/sombras/f3ef42a0.cso");
+const SM5_PS: &[u8] = include_bytes!("../prueba/sombras/4d67f5e4.cso");
+
+/// Los `.cso` son los que la casa BUSCA: su nombre es la huella del pedido del
+/// cubo (lo comprueba `pruebas_windows`), y dentro va un SM 5.0 de FXC.
+#[test]
+fn los_cso_del_cubo_se_leen_como_sm5() {
+    let vs = dxil::leer(SM5_VS).unwrap();
+    assert_eq!((vs.etapa, vs.modelo), (Etapa::Vertice, (5, 0)));
+    assert_eq!(vs.partes, [*b"RDEF", *b"ISGN", *b"OSGN", *b"SHEX", *b"STAT"]);
+    let nombres = |v: &[dxil::Elemento]| v.iter().map(|e| (e.semantica.clone(), e.registro, e.mascara)).collect::<Vec<_>>();
+    assert_eq!(nombres(&vs.entradas), [("POSITION".into(), 0, 7), ("NORMAL".into(), 1, 7), ("COLOR".into(), 2, 15)]);
+    assert_eq!(nombres(&vs.salidas), [("SV_POSITION".into(), 0, 15), ("NORMAL".into(), 1, 7), ("COLOR".into(), 2, 15)]);
+    assert_eq!(vs.salidas[0].sistema, 1);
+    let ps = dxil::leer(SM5_PS).unwrap();
+    assert_eq!((ps.etapa, ps.modelo), (Etapa::Pixel, (5, 0)));
+    assert_eq!(ps.salidas.len(), 1);
+    assert_eq!(ps.sm5.as_ref().map(|t| t.len()), Some(308 / 4));
+}
+
+/// **El de vertices de FXC, corrido, da BIT A BIT las cuentas del juez** --
+/// como el DXIL de dxc: FXC ordena distinto (`y*c1` primero, luego `x*c0 +`)
+/// pero una suma de dos es la misma en los dos ordenes.
+#[test]
+fn el_sm5_de_vertices_da_las_cuentas_del_juez() {
+    let p = compilar(&dxil::leer(SM5_VS).unwrap()).unwrap();
+    assert_eq!((p.entradas, p.salidas, p.filas_cb), (3, 3, 7));
+    // 9 instrucciones de FXC (STAT): 4 mul, 4 mad, 1 add sobre vectores.
+    assert_eq!(p.ops.iter().filter(|o| matches!(o, Op::Mad { .. })).count(), 4 * 2 + 3 * 2);
+    let mut regs = Vec::new();
+    for f in [0u32, 30, 60, 123] {
+        let cb = cb_de(f);
+        let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+        for v in bmo_cubo::vertices() {
+            let e = [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color];
+            let mut s = [[0.0f32; 4]; 3];
+            p.correr(&e, &cb, &mut s, &mut regs);
+            let bits = |x: &[f32]| x.iter().map(|f| f.to_bits()).collect::<Vec<_>>();
+            assert_eq!(bits(&s[0]), bits(&bmo_cubo::mat::transformar(&c.wvp, [v.pos[0], v.pos[1], v.pos[2], 1.0])), "SV_Position, fotograma {f}");
+            assert_eq!(bits(&s[1][..3]), bits(&bmo_cubo::mat::transformar_dir(&c.world, v.normal)), "NORMAL, fotograma {f}");
+            assert_eq!(s[2], v.color);
+        }
+    }
+}
+
+/// **El de pixeles de FXC ilumina como el juez**: `dp3`, `rsq`, el `dp3_sat`,
+/// y el `1 - Luz.w` que FXC escribe con una fuente NEGADA (`-cb0[8].w`).
+#[test]
+fn el_sm5_de_pixeles_ilumina_como_el_juez() {
+    let p = compilar(&dxil::leer(SM5_PS).unwrap()).unwrap();
+    assert_eq!((p.salidas, p.filas_cb, p.lee), (1, 9, 0b110), "NORMAL y COLOR; SV_Position no");
+    assert_eq!(p.ops.iter().filter(|o| matches!(o, Op::Saturate { .. })).count(), 1, "el _sat del dp3");
+    let mut regs = Vec::new();
+    for f in [0u32, 30, 60] {
+        let cb = cb_de(f);
+        let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+        for v in bmo_cubo::vertices() {
+            let n = bmo_cubo::mat::transformar_dir(&c.world, v.normal);
+            let e = [[0.0; 4], [n[0], n[1], n[2], 0.0], v.color];
+            let mut s = [[0.0f32; 4]; 1];
+            p.correr(&e, &cb, &mut s, &mut regs);
+            let juez = bmo_cubo::iluminar(v.color, n, c.luz);
+            assert_eq!(bmo_cubo::empaquetar(s[0]), bmo_cubo::empaquetar(juez), "fotograma {f}");
+        }
+    }
+}
+
+/// *** P3c3: EL SM5 QUE FXC COMPILO PARA BMOX-12, CORRIDO EN LA CPU POR EL
+/// MISMO LOTE, DIBUJA LO QUE D3D12 DIBUJO EN LA 3060: las huellas de los
+/// fotogramas 0, 30 y 60, bit a bit.
+#[test]
+fn el_sm5_de_fxc_y_la_trama_dan_las_huellas_de_d3d12() {
+    for (f, esperada) in bmo_cubo::referencia::HUELLAS {
+        let (px, cuenta) = cubo_con(SM5_VS, SM5_PS, f);
+        assert_eq!(bmo_cubo::referencia::huella(&px), esperada, "fotograma {f}: {cuenta:?}");
+        assert_eq!((cuenta.dibujados + cuenta.descartados, cuenta.sin_recortar), (12, 0));
+    }
+}
+
+/// Lo que no se sabe se DICE, con su numero: una instruccion cambiada por un
+/// `movc` (55) no se salta callada.
+#[test]
+fn una_instruccion_sm5_que_no_se_sabe_se_dice() {
+    let mut d = SM5_PS.to_vec();
+    // El `rsq` (0x44, 5 palabras) -> `movc` (0x37).
+    let o = d.windows(4).position(|w| w == [0x44, 0, 0, 0x05]).unwrap();
+    d[o] = 0x37;
+    assert_eq!(compilar(&dxil::leer(&d).unwrap()), Err(NoPrograma::Sm5(55)));
+    // Un SHEX cortado tampoco se lee.
+    let mut d = SM5_VS.to_vec();
+    let o = d.windows(4).position(|w| w == b"SHEX").unwrap();
+    d[o + 12..o + 16].copy_from_slice(&0xFFFFu32.to_le_bytes());
+    assert!(dxil::leer(&d).is_err());
+}

@@ -428,7 +428,7 @@ fn una_root_signature_con_tabla_constantes_y_sampler_va_y_vuelve() {
 
 use crate::dxil::programa::{self, compilar, Op};
 
-fn cb_de(f: u32) -> Vec<u8> {
+pub(crate) fn cb_de(f: u32) -> Vec<u8> {
     let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
     c.wvp.iter().chain(&c.world).chain(&c.luz).flat_map(|x| x.to_le_bytes()).collect()
 }
@@ -501,8 +501,13 @@ use crate::trama;
 /// la casa): los bytes de los vertices, los indices, las constantes, y los
 /// DXIL de dxc enlazados con el input layout de `cubo.c`.
 fn cubo_por_la_casa(f: u32) -> (Vec<u32>, trama::Cuenta) {
+    cubo_con(CUBO_VS, CUBO_PS, f)
+}
+
+/// Lo mismo con otros dos sombreadores (P3c3: los SM5 de FXC).
+pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32) -> (Vec<u32>, trama::Cuenta) {
     use crate::lote::{self, ElementoIa, Lote, Topologia};
-    let (vs, ps) = (dxil::leer(CUBO_VS).unwrap(), dxil::leer(CUBO_PS).unwrap());
+    let (vs, ps) = (dxil::leer(vs).unwrap(), dxil::leer(ps).unwrap());
     let e = |s: &str, formato, desde| ElementoIa { semantica: s.into(), indice: 0, formato, ranura: 0, desde };
     let entradas = [e("POSITION", 6, 0), e("NORMAL", 6, 12), e("COLOR", 2, 24)];
     let enlace = lote::enlazar(&vs, &ps, &entradas).unwrap();

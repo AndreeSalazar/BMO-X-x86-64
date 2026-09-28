@@ -505,9 +505,25 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
          honesto es PAGAR UNA VEZ: compilarlo en Windows (d3dcompiler_47,
          el mismo) a un fichero por (fuente, entrada, perfil) y que la casa
          lo devuelva, y si no esta, que lo diga con su huella
-   P3c3  el bytecode de SM5 (DXBC con SHEX): la casa ejecuta DXIL (SM6, el
-         de dxc); SM5 es OTRO lenguaje de maquina virtual (registros r#, v#,
-         o#, cb#[]) y pide su lector y su interprete hacia el mismo lote
+   P3c3  [HECHO en el banco 28-09] el bytecode de SM5 (DXBC con SHEX): la
+         casa ejecutaba DXIL (SM6, el de dxc); SM5 es OTRO lenguaje de
+         maquina virtual (registros r#, v#, o#, cb#[]). `bmo_proton_x::sm5`
+         lo TRADUCE al mismo `Programa` escalar que sale del DXIL (sin otro
+         interprete): el lote, la trama y `nativo` no cambian, y
+         `dxil::leer` acepta SHEX/SHDR, asi que CreateGraphicsPipelineState
+         de la casa lo toma sin tocarla. Sabe add mul mad div dp2/3/4 rsq
+         sqrt min max mov ret, _sat y -x |x| -|x|, sobre r# v# o# l() y
+         cb0[n]; lo demas (saltos, texturas, otro cbuffer, indices
+         relativos, x#) se DICE con su numero. **Como se sabe:** los dos
+         .cso que `sombras.exe` compilo en el Windows del propietario
+         (`prueba/sombras/f3ef42a0.cso` y `4d67f5e4.cso`, commit 20ac1b4),
+         corridos por el lote de la casa, dan las HUELLAS de la 3060 de los
+         fotogramas 0, 30 y 60 bit a bit (`pruebas_sm5.rs`); el vertice da
+         los bits del juez, el pixel su color a 8 bits, y traducidos a
+         x86-64 (`tests/nativo.rs` de la casa) los bits del interprete en
+         360 fotogramas. Saboteado: sin la negacion, sin el _sat o sin el
+         swizzle, cae. Lo que no es D3D11, dicho: los subnormales no se
+         llevan a cero (tampoco en el DXIL de la casa)
    P4c   AddVectoredExceptionHandler, RtlCaptureContext,
          RtlLookupFunctionEntry, RtlVirtualUnwind, y lo de C++ del CRT
 ```
@@ -829,10 +845,11 @@ FINAL QUE PUEDA JUGAR"*. Escrito entero, para que nadie choque:
       -> dos .cso: el SM5 de VERDAD del cubo de BMOX-12, que P3c3 necesita
 
    LUEGO, aqui:
-   1  P3c3  el bytecode de SM5 (DXBC: SHEX/ISGN/OSGN) -> el mismo lote
-            que ya dibuja la casa. Para el cubo bastan dp4, dp3, rsq, mul,
-            mad, add, mov (y _sat); se prueba contra los .cso de (b)
-   2  P4c   las excepciones (SEH): pendiente; no se escribe en esta sesion
+   1  P3c3  [HECHO en el banco 28-09] el SM5 de FXC -> el mismo lote: los
+            .cso de (b) dan las huellas de la 3060
+   2  P4c   las excepciones (SEH): pendiente; va en OTRA sesion (el
+            propietario le da el encargo a otra IA; se revisa aqui antes
+            de juntarlo)
    3  P3c   BMOX-12 en el Ryzen, dibujado por la CPU (P3b4 despues)
    4  VERRANO V2..V4 y P3b4: la 3060 dibuja el lote (E2 pide las palabras
             de `ptxas`/`nvdisasm` de su Windows)

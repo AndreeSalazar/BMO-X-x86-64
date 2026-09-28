@@ -46,6 +46,7 @@ pub mod pe;
 pub mod proceso;
 pub mod raiz;
 pub mod regiones;
+pub mod sm5;
 pub mod sombras;
 pub mod hilos;
 pub mod hora;
@@ -121,3 +122,5 @@ impl fmt::Display for Fallo {
 mod pruebas;
 #[cfg(test)]
 mod pruebas_windows;
+#[cfg(test)]
+mod pruebas_sm5;

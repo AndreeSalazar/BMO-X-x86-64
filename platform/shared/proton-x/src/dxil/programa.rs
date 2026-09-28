@@ -99,6 +99,8 @@ pub enum NoPrograma {
     OperacionD3d(i64),
     /// Una llamada a algo que no es `dx.op.*`.
     Llamada(String),
+    /// Una instruccion de SM5 (`SHEX`) que no se sabe correr (su codigo).
+    Sm5(u32),
 }
 
 /// Un registro del programa: un `f32`.
@@ -416,6 +418,9 @@ fn tipos_float(m: &Bloque) -> Vec<bool> {
 
 /// **Compilar el punto de entrada** de un sombreador leido.
 pub fn compilar(s: &Sombreador) -> Result<Programa, NoPrograma> {
+    if let Some(t) = &s.sm5 {
+        return crate::sm5::compilar(t, &s.entradas, &s.salidas);
+    }
     let m = s.modulo.bloques.iter().find(|b| b.id == MODULE).ok_or(NoPrograma::Forma("sin MODULE_BLOCK"))?;
     let relativos = m.registros.iter().find(|r| r.codigo == MODULE_CODE_VERSION).and_then(|r| r.ops.first()).copied().unwrap_or(0) >= 1;
     let tipos = tipos(m);

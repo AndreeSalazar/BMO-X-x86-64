@@ -15,6 +15,9 @@ use bmo_proton_x::{dxil, nativo};
 
 const VS: &[u8] = include_bytes!("../../proton-x/prueba/cubo_vs.dxil");
 const PS: &[u8] = include_bytes!("../../proton-x/prueba/cubo_ps.dxil");
+/// Los SM5 de FXC del cubo de BMOX-12 (P3c3).
+const SM5_VS: &[u8] = include_bytes!("../../proton-x/prueba/sombras/f3ef42a0.cso");
+const SM5_PS: &[u8] = include_bytes!("../../proton-x/prueba/sombras/4d67f5e4.cso");
 
 type Sombreador = extern "sysv64" fn(*mut f32, *const [f32; 4], *const u8, *mut [f32; 4]);
 
@@ -68,7 +71,18 @@ fn cb_de(f: u32) -> Vec<u8> {
 /// los 360 fotogramas.
 #[test]
 fn los_sombreadores_del_cubo_nativos_dan_los_bits_del_interprete() {
-    let (vs, ps) = (dxil::programa::compilar(&dxil::leer(VS).unwrap()).unwrap(), dxil::programa::compilar(&dxil::leer(PS).unwrap()).unwrap());
+    cubo_nativo(VS, PS);
+}
+
+/// Lo mismo con los SM5 de FXC (P3c3): el traductor a x86-64 no sabe de
+/// donde vino el programa.
+#[test]
+fn los_sm5_de_fxc_nativos_dan_los_bits_del_interprete() {
+    cubo_nativo(SM5_VS, SM5_PS);
+}
+
+fn cubo_nativo(vs: &[u8], ps: &[u8]) {
+    let (vs, ps) = (dxil::programa::compilar(&dxil::leer(vs).unwrap()).unwrap(), dxil::programa::compilar(&dxil::leer(ps).unwrap()).unwrap());
     let (fv, fp) = (sellar(&nativo::compilar(&vs)), sellar(&nativo::compilar(&ps)));
     for f in 0..360 {
         let cb = cb_de(f);

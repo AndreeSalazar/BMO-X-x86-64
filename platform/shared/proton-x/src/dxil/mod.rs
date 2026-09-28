@@ -38,7 +38,7 @@ pub use bits::{Bloque, NoLee, Registro};
 pub enum NoSombreador {
     /// Ni `DXBC` ni un contenedor que cuadre.
     Contenedor(&'static str),
-    /// No trae la parte `DXIL` (un DXBC de SM5 viejo, que no es de P3).
+    /// No trae programa: ni `DXIL` ni `SHEX`/`SHDR`.
     SinDxil,
     /// El bitcode no se lee: donde y por que.
     Bitcode(NoLee),
@@ -113,7 +113,11 @@ pub struct Sombreador {
     pub salidas: Vec<Elemento>,
     /// Las partes del contenedor, por su FourCC, en orden.
     pub partes: Vec<[u8; 4]>,
+    /// El modulo de LLVM (vacio en un SM5).
     pub modulo: Modulo,
+    /// Un sombreador de SM4/SM5 (FXC): las palabras de su `SHEX`/`SHDR`, que
+    /// corre `crate::sm5` (P3c3). `None` en un DXIL.
+    pub sm5: Option<Vec<u32>>,
 }
 
 fn u32_en(d: &[u8], o: usize) -> Option<u32> {
@@ -263,6 +267,19 @@ fn modulo(bloques: Vec<Bloque>) -> Result<Modulo, NoSombreador> {
     Ok(Modulo { productor, funciones, bloques })
 }
 
+/// La etapa, de la version (igual en DXIL y en SM4/SM5).
+fn etapa(version: u32) -> Etapa {
+    match version >> 16 {
+        0 => Etapa::Pixel,
+        1 => Etapa::Vertice,
+        2 => Etapa::Geometria,
+        3 => Etapa::Casco,
+        4 => Etapa::Dominio,
+        5 => Etapa::Computo,
+        e => Etapa::Otra(e),
+    }
+}
+
 /// **Leer un sombreador** de D3D12: el contenedor entero, sus firmas y su
 /// programa.
 pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
@@ -275,7 +292,7 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
     }
     let n = u32_en(d, 28).ok_or(NoSombreador::Contenedor("sin numero de partes"))? as usize;
     let mut partes = Vec::with_capacity(n);
-    let (mut entradas, mut salidas, mut programa) = (Vec::new(), Vec::new(), None);
+    let (mut entradas, mut salidas, mut programa, mut shex) = (Vec::new(), Vec::new(), None, None);
     for i in 0..n {
         let o = u32_en(d, 32 + 4 * i).ok_or(NoSombreador::Contenedor("una parte sin desplazamiento"))? as usize;
         let cc: [u8; 4] = d.get(o..o + 4).and_then(|b| b.try_into().ok()).ok_or(NoSombreador::Contenedor("una parte fuera"))?;
@@ -287,9 +304,21 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
             b"ISGN" => entradas = firma(p, false)?,
             b"OSGN" => salidas = firma(p, false)?,
             b"DXIL" => programa = Some(p),
+            b"SHEX" | b"SHDR" => shex = Some(p),
             _ => {}
         }
         partes.push(cc);
+    }
+    if let (None, Some(p)) = (programa, shex) {
+        // SM4/SM5 (P3c3): la misma version que DXIL, y el programa entero en
+        // palabras.
+        let t: Vec<u32> = p.chunks_exact(4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]])).collect();
+        let version = *t.first().ok_or(NoSombreador::Contenedor("SHEX sin version"))?;
+        if t.get(1).map_or(true, |&n| n as usize > t.len() || n < 2) {
+            return Err(NoSombreador::Contenedor("SHEX con una medida que no cuadra"));
+        }
+        let modulo = Modulo { productor: String::new(), funciones: Vec::new(), bloques: Vec::new() };
+        return Ok(Sombreador { etapa: etapa(version), modelo: ((version >> 4) & 0xF, version & 0xF), entradas, salidas, partes, modulo, sm5: Some(t) });
     }
     let p = programa.ok_or(NoSombreador::SinDxil)?;
     // Cabecera del programa: version (etapa << 16 | mayor << 4 | menor), medida
@@ -301,22 +330,14 @@ pub fn leer(d: &[u8]) -> Result<Sombreador, NoSombreador> {
     let desde = u32_en(p, 16).ok_or(NoSombreador::Contenedor("DXIL sin cabecera"))? as usize;
     let tam = u32_en(p, 20).ok_or(NoSombreador::Contenedor("DXIL sin cabecera"))? as usize;
     let bc = p.get(8 + desde..8 + desde + tam).ok_or(NoSombreador::Contenedor("el bitcode pasa del final"))?;
-    let etapa = match version >> 16 {
-        0 => Etapa::Pixel,
-        1 => Etapa::Vertice,
-        2 => Etapa::Geometria,
-        3 => Etapa::Casco,
-        4 => Etapa::Dominio,
-        5 => Etapa::Computo,
-        e => Etapa::Otra(e),
-    };
     let bloques = bits::leer(bc).map_err(NoSombreador::Bitcode)?;
     Ok(Sombreador {
-        etapa,
+        etapa: etapa(version),
         modelo: ((version >> 4) & 0xF, version & 0xF),
         entradas,
         salidas,
         partes,
         modulo: modulo(bloques)?,
+        sm5: None,
     })
 }
