@@ -13,9 +13,14 @@
 //!
 //! ```text
 //!    byte 0                 el cbuffer: `filas` filas de 16 B
-//!    byte 16 * filas        los vertices: `entradas` float4 cada uno
-//!                           (16 * entradas bytes por vertice), en orden
+//!    byte 16 * filas        los vertices TAL CUAL los da el juego: `paso`
+//!                           bytes cada uno, y cada elemento de entrada en su
+//!                           `desde`, con sus `componentes` float
 //! ```
+//!
+//! Un componente que el elemento no trae es el de D3D: 0 en x, y, z y 1 en w
+//! (un MOV, no una carga). Asi la CPU solo COPIA el bufer del juego: no
+//! reempaqueta nada (P3b4a, 28-09).
 //!
 //! # El de vertice
 //!
@@ -25,7 +30,8 @@
 //!    LDG   D, D+1 <- la ranura 0 (los DATOS)    barrera 2
 //!    V = vid * paso (IMAD.SHL por cada bit del paso, IADD3)
 //!    V:V+1 = D:D+1 + 16 * filas + V (IADD3 con acarreo, IMAD.X)
-//!    LDG   cada entrada  <- [V + 16 * elemento + 4 * componente]   barrera 3
+//!    LDG   cada entrada  <- [V + desde + 4 * componente]   barrera 3
+//!          (o MOV 0 / 1 si el elemento no trae ese componente)
 //!    LDG   cada fila     <- [D + 16 * fila + 4 * k]                barrera 3
 //!    el cuerpo (su primera instruccion espera la 3; sin su EXIT)
 //!    AST.128 de cada salida: la posicion a a[0x70], las demas a los
@@ -40,6 +46,8 @@
 //!
 //! ```text
 //!    IPA   cada entrada <- el generico que la lleva (ScreenLinear)  barrera 0
+//!          (`genericos`: el de cada entrada; [`generico`] da el que le
+//!          puso el de vertice a cada salida)
 //!    y si lee el cbuffer: MOV A, LDG D (barrera 2), LDG cada fila  barrera 3
 //!    el cuerpo (su primera instruccion espera la 0 y la 3), con su EXIT ; BRA .
 //! ```
@@ -66,24 +74,62 @@ pub enum Carga {
     Fila { fila: u16, reg: u8 },
 }
 
-/// Como estan los DATOS (ver el principio).
+/// Donde esta un elemento de entrada dentro de un vertice (del input layout
+/// del juego).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Datos {
-    /// Filas del cbuffer delante de los vertices.
-    pub filas: u32,
-    /// float4 por vertice.
-    pub entradas: u32,
+pub struct Elemento {
+    /// Su byte dentro del vertice.
+    pub desde: u32,
+    /// Cuantos float trae (1..4).
+    pub componentes: u8,
 }
 
-impl Datos {
-    /// Bytes de un vertice.
-    pub const fn paso(&self) -> u32 {
-        16 * self.entradas
+/// float4 seguidos: el vertice de E5 (`bmo_cubo::tanda::datos`).
+const FLOAT4: [Elemento; 8] = {
+    let mut e = [Elemento { desde: 0, componentes: 4 }; 8];
+    let mut k = 0;
+    while k < 8 {
+        e[k].desde = 16 * k as u32;
+        k += 1;
     }
+    e
+};
 
+/// Como estan los DATOS (ver el principio).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Datos<'a> {
+    /// Filas del cbuffer delante de los vertices.
+    pub filas: u32,
+    /// Bytes de un vertice.
+    pub paso: u32,
+    /// Cada elemento de entrada del de vertice, por su numero.
+    pub elementos: &'a [Elemento],
+}
+
+impl Datos<'static> {
+    /// `entradas` float4 seguidos por vertice (el de E5).
+    pub const fn float4(filas: u32, entradas: u32) -> Self {
+        let n = if entradas > 8 { 8 } else { entradas as usize };
+        Datos { filas, paso: 16 * entradas, elementos: FLOAT4.split_at(n).0 }
+    }
+}
+
+impl Datos<'_> {
     /// Bytes de los datos con `n` vertices.
     pub const fn bytes(&self, n: usize) -> usize {
-        16 * self.filas as usize + n * self.paso() as usize
+        16 * self.filas as usize + n * self.paso as usize
+    }
+}
+
+/// El generico que el de VERTICE le da a su salida `salida` (la `posicion`
+/// no es generico): el de pixel recibe asi cada entrada.
+pub const fn generico(salida: u32, posicion: u32) -> Option<u8> {
+    if salida == posicion {
+        None
+    } else if salida < posicion {
+        Some(salida as u8)
+    } else {
+        Some(salida as u8 - 1)
     }
 }
 
@@ -255,7 +301,7 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
     la_tabla(&mut o, a, d);
     // V = vid * paso: un IMAD.SHL por cada bit del paso (48 = 32 + 16), en
     // V y V+1, y sumados. El primero espera el ALD.
-    let paso = datos.paso();
+    let paso = datos.paso;
     if paso == 0 {
         return Err(NoPega::Carga);
     }
@@ -283,10 +329,16 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
     o.p(imad_x(v + 1, d + 1, 0xFF, 0, ALU));
     for c in cargas {
         if let Carga::Entrada { elemento, componente, reg } = *c {
-            if elemento as u32 >= datos.entradas || componente > 3 {
+            let Some(el) = datos.elementos.get(elemento as usize) else { return Err(NoPega::Carga) };
+            if componente > 3 || el.componentes == 0 || el.componentes > 4 || el.desde + 4 * el.componentes as u32 > paso {
                 return Err(NoPega::Carga);
             }
-            o.p(ldg(reg as u64, v, 16 * elemento as u32 + 4 * componente as u32, carga(B_CARGAS)));
+            if componente < el.componentes {
+                o.p(ldg(reg as u64, v, el.desde + 4 * componente as u32, carga(B_CARGAS)));
+            } else {
+                // El que no trae: 0, y 1 en w (D3D).
+                o.p(mov(reg as u64, if componente == 3 { 0x3F80_0000 } else { 0 }));
+            }
         }
     }
     las_filas(&mut o, cargas, datos, d, false)?;
@@ -314,10 +366,9 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
 }
 
 /// **El de PIXEL**: `cuerpo` (con su EXIT, que se queda: el color sale en
-/// R0..R3) usa `registros` y espera `cargas`. La entrada `posicion` no se
-/// puede recibir (hoy); la entrada `e` es el generico que le toca en el de
-/// vertice.
-pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, posicion: u32) -> Result<Pegado, NoPega> {
+/// R0..R3) usa `registros` y espera `cargas`. `genericos[e]` es el generico
+/// que lleva su entrada `e` (`None`: la posicion, que hoy no se recibe).
+pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>]) -> Result<Pegado, NoPega> {
     partir(cuerpo)?;
     let (a, d, _, _, total) = propios(registros)?;
     let mut o = Poner { codigo: [(0, 0); MAX_INSTRUCCIONES], n: 0, lleno: false };
@@ -327,11 +378,9 @@ pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Dat
     let mut k = 0;
     for c in cargas {
         if let Carga::Entrada { elemento, componente, reg } = *c {
-            if elemento as u32 == posicion || componente > 3 {
-                return Err(NoPega::Carga);
-            }
-            let g = if (elemento as u32) < posicion { elemento as u32 } else { elemento as u32 - 1 };
-            if g >= 8 {
+            let Some(&Some(g)) = genericos.get(elemento as usize) else { return Err(NoPega::Carga) };
+            let g = g as u32;
+            if componente > 3 || g >= 8 {
                 return Err(NoPega::Carga);
             }
             k += 1;
@@ -403,7 +452,10 @@ mod pruebas {
         (p, e)
     }
 
-    const DATOS: Datos = Datos { filas: 9, entradas: 3 };
+    const DATOS: Datos = Datos::float4(9, 3);
+    /// Las entradas del de pixel del cubo: la posicion, la normal (generico
+    /// 0) y el color (1).
+    const GENERICOS: [Option<u8>; 3] = [None, Some(0), Some(1)];
 
     /// Los de BMOX-12 (SM5 de FXC) y los del cubo de dxc, pegados: PERFECTO
     /// Y PRECISO para el juez, con los registros de VERRANO y su SPH.
@@ -415,7 +467,7 @@ mod pruebas {
             let r = juzgar(v.codigo(), &Contexto { registros: REGISTROS, sph: Some(&v.sph) });
             assert!(r.is_ok(), "{vs}: {}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
             let (_, ep) = emitido(ps);
-            let p = pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, 0).unwrap();
+            let p = pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, &GENERICOS).unwrap();
             let r = juzgar(p.codigo(), &Contexto { registros: REGISTROS, sph: Some(&p.sph) });
             assert!(r.is_ok(), "{ps}: {}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
             std::eprintln!("{vs}: {} instrucciones, {} registros; {ps}: {} y {}", v.n, v.registros, p.n, p.registros);
@@ -458,7 +510,7 @@ mod pruebas {
     fn el_pixel_recibe_sus_genericos() {
         let (_, ep) = emitido("sombras/4d67f5e4.cso");
         let cs = cargas(&ep);
-        let p = pixel(&ep.codigo, ep.registros, &cs, DATOS, 0).unwrap();
+        let p = pixel(&ep.codigo, ep.registros, &cs, DATOS, &GENERICOS).unwrap();
         let ipas: std::vec::Vec<(u64, u64)> = p.codigo().iter().filter(|w| w.0 & 0xFFFF == 0x7326).map(|w| (w.0 >> 16 & 0xFF, w.1 & 0x3FF)).collect();
         let mut esperado = std::vec::Vec::new();
         for c in &cs {
@@ -472,16 +524,54 @@ mod pruebas {
         assert_ne!(p.sph[0] & crate::raster::LEE_O_ESCRIBE, 0, "lee la luz con LDG");
     }
 
+    /// P3b4a: el vertice TAL CUAL lo da un juego -- la posicion float3 en
+    /// el 0, la normal float3 en el 12, el color float4 en el 24, 40 B cada
+    /// uno --: cada componente que trae se carga de su byte, y el que no
+    /// trae es el de D3D (w de la posicion = 1, un MOV). Y el juez: PERFECTO.
+    #[test]
+    fn el_vertice_del_juego_tal_cual() {
+        const JUEGO: [Elemento; 3] = [Elemento { desde: 0, componentes: 3 }, Elemento { desde: 12, componentes: 3 }, Elemento { desde: 24, componentes: 4 }];
+        let datos = Datos { filas: 9, paso: 40, elementos: &JUEGO };
+        let (pv, ev) = emitido("sombras/f3ef42a0.cso");
+        let cs = cargas(&ev);
+        let v = vertice(&ev.codigo, ev.registros, &cs, datos, pv.salidas as u32, 0).unwrap();
+        let r = juzgar(v.codigo(), &Contexto { registros: REGISTROS, sph: Some(&v.sph) });
+        assert!(r.is_ok(), "{}", r.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+        let (_, _, vv, _, _) = propios(ev.registros).unwrap();
+        for c in &cs {
+            if let Carga::Entrada { elemento, componente, reg } = *c {
+                let el = JUEGO[elemento as usize];
+                let w = v.codigo().iter().find(|w| w.0 >> 16 & 0xFF == reg as u64 && matches!(w.0 & 0xFFFF, 0x7981 | 0x7424)).unwrap();
+                if componente < el.componentes {
+                    assert_eq!((w.0 & 0xFFFF, w.0 >> 24 & 0xFF, w.0 >> 40 & 0xFF_FFFF), (0x7981, vv, (el.desde + 4 * componente as u32) as u64), "{c:?}");
+                } else {
+                    assert_eq!((w.0 & 0xFFFF, w.0 >> 32), (0x7424, if componente == 3 { 0x3F80_0000 } else { 0 }), "{c:?}: el de D3D");
+                }
+            }
+        }
+        // El paso 40 = 32 + 8: dos IMAD.SHL.
+        assert_eq!(v.codigo().iter().filter(|w| w.0 & 0xFFFF == 0x7824 && w.1 & 0xFFFF_FFFF == 0x078E_00FF).count(), 2);
+        // Un elemento que se sale del vertice, no.
+        let malo = [Elemento { desde: 0, componentes: 3 }, Elemento { desde: 12, componentes: 3 }, Elemento { desde: 32, componentes: 4 }];
+        assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos { filas: 9, paso: 40, elementos: &malo }, pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
+    }
+
+    #[test]
+    fn el_generico_de_cada_salida() {
+        assert_eq!([generico(0, 0), generico(1, 0), generico(2, 0)], [None, Some(0), Some(1)]);
+        assert_eq!([generico(0, 1), generico(1, 1), generico(2, 1)], [Some(0), None, Some(1)]);
+    }
+
     /// Lo que no se puede, se dice.
     #[test]
     fn lo_que_no_se_pega() {
         let (pv, ev) = emitido("sombras/f3ef42a0.cso");
         let cs = cargas(&ev);
-        assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos { filas: 3, entradas: 3 }, pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
+        assert_eq!(vertice(&ev.codigo, ev.registros, &cs, Datos::float4(3, 3), pv.salidas as u32, 0).unwrap_err(), NoPega::Carga);
         assert_eq!(vertice(&ev.codigo, 60, &cs, DATOS, pv.salidas as u32, 0).unwrap_err(), NoPega::Registros);
         assert_eq!(vertice(&ev.codigo[..3], ev.registros, &cs, DATOS, 3, 0).unwrap_err(), NoPega::Cuerpo);
         assert_eq!(vertice(&ev.codigo, ev.registros, &cs, DATOS, 3, 3).unwrap_err(), NoPega::Salidas);
         let (_, ep) = emitido("sombras/4d67f5e4.cso");
-        assert_eq!(pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, 1).unwrap_err(), NoPega::Carga);
+        assert_eq!(pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, &[None, None, Some(1)]).unwrap_err(), NoPega::Carga);
     }
 }

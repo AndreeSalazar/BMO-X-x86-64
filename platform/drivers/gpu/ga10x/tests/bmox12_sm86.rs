@@ -24,7 +24,7 @@ use bmo_proton_x_sm86::{emitir_con, Abi, Precarga};
 const VS: &[u8] = include_bytes!("../../../../shared/proton-x/prueba/sombras/f3ef42a0.cso");
 const PS: &[u8] = include_bytes!("../../../../shared/proton-x/prueba/sombras/4d67f5e4.cso");
 const DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/sombreadores/");
-const DATOS: Datos = Datos { filas: tanda::FILAS_CB as u32, entradas: tanda::ENTRADAS as u32 };
+const DATOS: Datos = Datos::float4(tanda::FILAS_CB as u32, tanda::ENTRADAS as u32);
 const FOTOGRAMAS: [u32; 4] = [0, 30, 60, 123];
 
 fn programa(d: &[u8]) -> Programa {
@@ -45,7 +45,7 @@ fn pegados() -> (Pegado, Pegado) {
     let (ev, ep) = (emitir_con(&pv, 64, Abi::Registros).unwrap(), emitir_con(&pp, 64, Abi::Registros).unwrap());
     // La posicion es la salida 0 del de vertice y la entrada 0 del de pixel.
     let v = vertice(&ev.codigo, ev.registros, &cargas(&ev), DATOS, pv.salidas as u32, 0).unwrap();
-    let p = pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, 0).unwrap();
+    let p = pixel(&ep.codigo, ep.registros, &cargas(&ep), DATOS, &[None, Some(0), Some(1)]).unwrap();
     (v, p)
 }
 
