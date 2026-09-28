@@ -264,7 +264,7 @@ misma disciplina que `codifican_lo_que_ya_corrio` de hoy.
   `MUFU.RSQ` es la APROXIMADA de la 3060, no la exacta de la casa -- cuanto
   se separa lo mide E3 --; y el control se recibe, no se calcula (E4).
 
-## [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
+## [x] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
 
 Traducir el modulo del lector a instrucciones de SM86 con registros
 asignados, sin optimizar: primero correcto. Los bits de control, aun
@@ -274,6 +274,32 @@ CONSERVADORES (esperar siempre lo maximo).
 - **Como se sabe:** el oraculo (S3) ejecuta el SPIR-V y un simulador de SASS
   en el anfitrion ejecuta lo emitido: mismos resultados en los vertices del
   cubo; y el juez dice PERFECTO Y PRECISO.
+- **Hecho (28-09), con una decision del propietario:** la entrada NO es
+  SPIR-V sino el `Programa` de la casa de PROTON-X -- el que ya sale de los
+  DXIL de dxc y de los SM5 de FXC y que la CPU ya corre --: un emisor para
+  BMOX-12 y lo que venga, con el interprete de la casa de oraculo. Para que
+  Ring 3 lo pueda usar sin enlazar un driver (L8), el codificador de E2 salio
+  a `platform/shared/bmo-sm86` (puro, sin dependencias) y el emisor vive en
+  `platform/shared/proton-x-sm86` (regla S de `la-3060`: lo de NVIDIA en lo
+  suyo). `emitir(&Programa, registros)`: FMUL/FADD sin fundir (Mad, Dot),
+  FADD.SAT y FADD |x| con -0, FMNMX, MUFU.RSQ/SQRT, MOV desde constantes e
+  inmediatos, EXIT; registros asignados y devueltos tras su ultimo uso;
+  control CONSERVADOR (ALU; un MUFU enciende la barrera 0 y la siguiente la
+  espera). ABI del banco (`V0`): entradas en c[1], cbuffer b0 en c[3],
+  salidas en R(4e+k). `simula` corre ese SASS leyendo los mismos bits.
+  **Como se sabe:** los 4 sombreadores del cubo (DXIL y SM5) dan en el
+  simulador los BITS de `Programa::correr` (24 vertices x 4 fotogramas, 24
+  pixeles x 3); un programa a mano con CADA operacion y los valores que
+  muerden (NaN, infinitos, -0, subnormales) da los bits de la casa en 2873
+  comparaciones; el juez (J1) dice PERFECTO Y PRECISO de los cuatro (en el
+  banco del driver). Saboteado: la resta sin negar, sin `.SAT`, el simulador
+  leyendo mal el destino, min por max, `|x|` sin abs, el inmediato sin
+  negar: caen; un MUFU sin su barrera: el juez dice R3. Cifras: el de
+  vertice 72 instrucciones y 22 registros, el de pixel 33 y 10 (1 MUFU).
+  **Lo que NO:** `Div` se rechaza (la de la 3060 no es la exacta); MUFU esta
+  MODELADO como la casa, la 3060 aproxima (lo mide E5); 22 registros pasan
+  de los 16 de la tuberia de hoy (E4/E5 suben la cuenta o la bajan); el ABI
+  es el del banco, no el de la tuberia (ALD/AST/IPA, E5).
 
 ## [ ] E4 -- LOS BITS DE CONTROL POR REGLA
 

@@ -1,0 +1,18 @@
+[package]
+name = "bmo-proton-x-sm86"
+version = "0.1.0"
+edition = "2021"
+description = "El EMISOR de PROTON-X para la RTX 3060 (E3 de PLAN_LA_LENGUA_DE_LA_3060): el Programa de la casa (de DXIL o de SM5) a SASS de SM86, y un simulador para comprobarlo en el anfitrion. Puro."
+license = "Apache-2.0"
+
+# Regla S de `la-3060`: cada GPU trae SU emisor. PROTON-X (lo comun) no
+# nombra la 3060; esto es lo de la 3060 que lee lo de PROTON-X.
+[dependencies]
+bmo-proton-x = { path = "../proton-x" }
+bmo-sm86 = { path = "../bmo-sm86" }
+
+[dev-dependencies]
+bmo-cubo = { path = "../bmo-cubo" }
+
+[lib]
+name = "bmo_proton_x_sm86"

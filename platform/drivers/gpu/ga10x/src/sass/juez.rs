@@ -591,6 +591,23 @@ mod pruebas {
         }
     }
 
+    /// E3: lo que EMITE el emisor de PROTON-X para los cuatro sombreadores
+    /// del cubo (los DXIL de dxc y los SM5 de BMOX-12) es PERFECTO Y PRECISO,
+    /// con los registros que dice que usa (mas los DOS de Volta).
+    #[test]
+    fn lo_emitido_por_el_emisor_de_proton_x_es_perfecto() {
+        extern crate std;
+        use bmo_proton_x::dxil::{self, programa::compilar};
+        let raiz = "../../../shared/proton-x/prueba/";
+        for f in ["cubo_vs.dxil", "cubo_ps.dxil", "sombras/f3ef42a0.cso", "sombras/4d67f5e4.cso"] {
+            let d = std::fs::read(std::format!("{raiz}{f}")).unwrap();
+            let e = bmo_proton_x_sm86::emitir(&compilar(&dxil::leer(&d).unwrap()).unwrap(), 64).unwrap();
+            let ctx = Contexto { registros: e.registros + RESERVADOS, sph: None };
+            let v = juzgar(&e.codigo, &ctx);
+            assert!(v.is_ok(), "{f}: {}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+        }
+    }
+
     /// J1 (a): TODO lo que ya corrio en el metal es PERFECTO Y PRECISO. Si no,
     /// el que esta mal es el juez.
     #[test]

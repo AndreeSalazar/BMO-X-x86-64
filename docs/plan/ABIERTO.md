@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   379 casillas ABIERTAS en 44 planes
-   320 hechas
+   378 casillas ABIERTAS en 44 planes
+   321 hechas
      0 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -25,6 +25,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [`PLAN_EL_AISLAMIENTO.md`](PLAN_EL_AISLAMIENTO.md) -- 4 de 5 hechas, faltan 1
 - [`PLAN_MAQUETA.md`](PLAN_MAQUETA.md) -- 8 de 9 hechas, faltan 1
 - [`PLAN_AUDIO.md`](PLAN_AUDIO.md) -- 15 de 17 hechas, faltan 2
+- [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 6 de 8 hechas, faltan 2
 - [`PLAN_REX.md`](PLAN_REX.md) -- 15 de 17 hechas, faltan 2
 - [`PLAN_SEGURIDAD.md`](PLAN_SEGURIDAD.md) -- 26 de 32 hechas, faltan 6
 
@@ -354,14 +355,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] S6 -- EL SOBRE: el codigo ya hecho viaja dentro del .bex
 - [ ] S7 -- LOS CARRILES: 4 u 8 invocaciones por instruccion
 
-## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 3 abiertas, 5 hechas
-
-*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
-
-- [ ] E3 -- EL EMISOR: SPIR-V a SASS, en linea recta
-- [ ] E4 -- LOS BITS DE CONTROL POR REGLA
-- [ ] E5 -- EN EL METAL: el cubo con programas EMITIDOS
-
 ## [`PLAN_NAVEGAR.md`](PLAN_NAVEGAR.md) -- 3 abiertas, 7 hechas
 
 *PLAN NAVEGAR -- la propuesta maestra de la app que navega sin ser navegador*
@@ -383,6 +376,13 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 - [ ] X5b -- el depth buffer. Para lo que NO es convexo (dos objetos que
 - [ ] X6 -- mas huellas. Las 360 de la vuelta, generadas en Windows por
+
+## [`PLAN_LA_LENGUA_DE_LA_3060.md`](PLAN_LA_LENGUA_DE_LA_3060.md) -- 2 abiertas, 6 hechas
+
+*PLAN LA LENGUA DE LA 3060 -- SPIR-V a SM86, con un juez que no calla*
+
+- [ ] E4 -- LOS BITS DE CONTROL POR REGLA
+- [ ] E5 -- EN EL METAL: el cubo con programas EMITIDOS
 
 ## [`PLAN_REX.md`](PLAN_REX.md) -- 2 abiertas, 15 hechas
 
