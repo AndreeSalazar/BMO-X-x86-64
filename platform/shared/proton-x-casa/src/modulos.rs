@@ -72,6 +72,11 @@ pub fn registrar_dll(nombre: &str, base: u64, entrada: u64, exps: Vec<(Option<St
     propias().push(Propia { nombre: bmo_proton_x::dll::fichero(nombre), base, entrada, exps, iniciada: false });
 }
 
+/// Las bases de las DLL propias cargadas (P4c: donde buscar su `.pdata`).
+pub(crate) fn bases() -> Vec<u64> {
+    propias().iter().map(|p| p.base).collect()
+}
+
 /// Si una DLL propia ya esta cargada (por su nombre de fichero).
 pub fn cargada(dll: &str) -> bool {
     let n = bmo_proton_x::dll::fichero(dll);

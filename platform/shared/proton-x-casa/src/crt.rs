@@ -667,6 +667,8 @@ pub(crate) fn es_del_crt(dll: &str) -> bool {
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "_configure_narrow_argv" | "_configure_wide_argv" => dir!(configure_argv),
+        // P4c: el manejador de `__try` de C tambien lo da vcruntime140.
+        "__C_specific_handler" => dir!(crate::excepciones::c_specific_handler),
         "__p___argc" => dir!(p_argc),
         "__p___argv" => dir!(p_argv),
         "__p___wargv" => dir!(p_wargv),
