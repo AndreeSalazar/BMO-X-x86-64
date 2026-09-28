@@ -9,7 +9,7 @@ use alloc::vec::Vec;
 use bmo_proton_x::dxil::{self, programa::compilar, programa::Programa};
 
 use crate::simula::{correr, Maquina};
-use crate::{emitir, NoEmite};
+use crate::{emitir, emitir_con, Abi, Emitido, NoEmite, Precarga};
 
 const DXIL_VS: &[u8] = include_bytes!("../../proton-x/prueba/cubo_vs.dxil");
 const DXIL_PS: &[u8] = include_bytes!("../../proton-x/prueba/cubo_ps.dxil");
@@ -165,4 +165,71 @@ fn cada_operacion_emitida_da_los_bits_de_la_casa() {
         }
     }
     assert_eq!(n, 13 * 13 * 17);
+}
+
+/// E5: con [`Abi::Registros`] las entradas y las filas del cbuffer llegan YA
+/// en los registros que dice `precargas` (como las dejara el LDG del
+/// pegamento); el banco va VACIO, y los bits tienen que ser los de la casa.
+fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8]) {
+    let mut casa = std::vec![[0.0f32; 4]; p.salidas];
+    let mut regs = Vec::new();
+    p.correr(entradas, cb, &mut casa, &mut regs);
+    let mut m = Maquina::nueva([&[]; 8]);
+    // Basura en todo lo demas: nadie puede leer un registro sin escribirlo.
+    for (i, r) in m.r.iter_mut().enumerate() {
+        *r = 0x7FC0_0000 | i as u32;
+    }
+    for &q in &e.precargas {
+        match q {
+            Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
+            Precarga::Fila { fila, reg } => {
+                for k in 0..4 {
+                    let o = 16 * fila as usize + 4 * k;
+                    m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+                }
+            }
+        }
+    }
+    correr(&e.codigo, &mut m).unwrap();
+    // Solo lo que el programa ESCRIBE (lo demas no se exporta: la SPH dice
+    // que componentes salen).
+    use bmo_proton_x::dxil::programa::Op;
+    let escritas: Vec<(usize, usize)> = p.ops.iter().filter_map(|o| if let Op::Salida { elemento, componente, .. } = *o { Some((elemento as usize, componente as usize & 3)) } else { None }).collect();
+    for (el, s) in casa.iter().enumerate() {
+        for k in (0..4).filter(|&k| escritas.contains(&(el, k))) {
+            assert_eq!(m.r[4 * el + k], s[k].to_bits(), "salida {el}.{k}: la 3060 {} y la casa {}", f32::from_bits(m.r[4 * el + k]), s[k]);
+        }
+    }
+}
+
+#[test]
+fn con_las_entradas_en_registros_da_los_bits_de_la_casa() {
+    for (d, vertice) in [(DXIL_VS, true), (SM5_VS, true), (DXIL_PS, false), (SM5_PS, false)] {
+        let p = programa(d);
+        let e = emitir_con(&p, TECHO, Abi::Registros).unwrap();
+        // Nada lee un banco de constantes: todo llega en registros.
+        assert!(e.codigo.iter().all(|&(lo, _)| !matches!(lo >> 9 & 7, 3 | 5)), "lee un banco");
+        // Sin repetidos, y las filas alineadas a 4 (un LDG.128 cada una).
+        for (i, a) in e.precargas.iter().enumerate() {
+            if let Precarga::Fila { reg, .. } = a {
+                assert_eq!(reg % 4, 0);
+            }
+            assert!(e.precargas[..i].iter().all(|b| core::mem::discriminant(a) != core::mem::discriminant(b) || a != b));
+        }
+        std::eprintln!("{} instrucciones, {} registros, {} precargas", e.codigo.len(), e.registros, e.precargas.len());
+        assert!(e.codigo.len() <= 64 && e.registros <= TECHO, "{} instrucciones, {} registros", e.codigo.len(), e.registros);
+        for f in [0u32, 30, 60, 123] {
+            let cb = cb_de(f);
+            let c = bmo_cubo::constantes(bmo_cubo::angulo_de_fotograma(f), 1280.0 / 720.0);
+            for v in bmo_cubo::vertices() {
+                let ent = if vertice {
+                    [[v.pos[0], v.pos[1], v.pos[2], 1.0], [v.normal[0], v.normal[1], v.normal[2], 0.0], v.color]
+                } else {
+                    let n = bmo_cubo::mat::transformar_dir(&c.world, v.normal);
+                    [[0.0; 4], [n[0], n[1], n[2], 0.0], v.color]
+                };
+                igual_en_registros(&p, &e, &ent, &cb);
+            }
+        }
+    }
 }

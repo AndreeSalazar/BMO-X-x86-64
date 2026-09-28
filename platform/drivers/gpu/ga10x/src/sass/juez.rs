@@ -601,10 +601,13 @@ mod pruebas {
         let raiz = "../../../shared/proton-x/prueba/";
         for f in ["cubo_vs.dxil", "cubo_ps.dxil", "sombras/f3ef42a0.cso", "sombras/4d67f5e4.cso"] {
             let d = std::fs::read(std::format!("{raiz}{f}")).unwrap();
-            let e = bmo_proton_x_sm86::emitir(&compilar(&dxil::leer(&d).unwrap()).unwrap(), 64).unwrap();
-            let ctx = Contexto { registros: e.registros + RESERVADOS, sph: None };
-            let v = juzgar(&e.codigo, &ctx);
-            assert!(v.is_ok(), "{f}: {}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+            // Los dos ABI: el del banco (E3) y el de registros precargados (E5).
+            for abi in [bmo_proton_x_sm86::Abi::Banco, bmo_proton_x_sm86::Abi::Registros] {
+                let e = bmo_proton_x_sm86::emitir_con(&compilar(&dxil::leer(&d).unwrap()).unwrap(), 64, abi).unwrap();
+                let ctx = Contexto { registros: e.registros + RESERVADOS, sph: None };
+                let v = juzgar(&e.codigo, &ctx);
+                assert!(v.is_ok(), "{f} {abi:?}: {}", v.map(|_| std::string::String::new()).unwrap_or_else(|b| std::format!("{b}")));
+            }
         }
     }
 

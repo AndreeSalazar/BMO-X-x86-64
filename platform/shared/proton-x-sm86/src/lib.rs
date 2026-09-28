@@ -71,6 +71,28 @@ use planifica::Meta;
 pub const BANCO_ENTRADAS: u8 = 1;
 pub const BANCO_CB: u8 = 3;
 
+/// De donde leen las entradas y el cbuffer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Abi {
+    /// El del banco de E3: entradas en c[1], el cbuffer en c[3].
+    Banco,
+    /// El de la 3060 (E5): las entradas y las filas del cbuffer que el
+    /// programa usa llegan YA en registros -- las carga el pegamento del
+    /// driver con LDG, lo que ya corrio en el metal --, y el emisor dice
+    /// cuales y donde ([`Emitido::precargas`]).
+    Registros,
+}
+
+/// Lo que el pegamento tiene que cargar antes del cuerpo (modo
+/// [`Abi::Registros`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Precarga {
+    /// El componente `componente` de la entrada `elemento`, en `reg`.
+    Entrada { elemento: u8, componente: u8, reg: u8 },
+    /// La fila `fila` del cbuffer (16 bytes), en `reg`..`reg + 3`.
+    Fila { fila: u16, reg: u8 },
+}
+
 /// Como se cronometra una instruccion (las clases del juez que emite esto).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Clase {
@@ -104,6 +126,8 @@ pub struct Emitido {
     pub mufus: usize,
     /// Los ciclos hasta emitir la ultima (con las esperas calculadas).
     pub ciclos: u32,
+    /// Lo que va cargado antes (vacio con [`Abi::Banco`]).
+    pub precargas: Vec<Precarga>,
 }
 
 /// Donde vive un valor del Programa.
@@ -120,6 +144,11 @@ struct Emisor<'a> {
     ultimo: Vec<usize>,
     libres: Vec<bool>,
     reservados: usize,
+    /// Los precargados: no se devuelven (dos registros del Programa pueden
+    /// ser la misma entrada o la misma fila).
+    fijos: Vec<bool>,
+    abi: Abi,
+    precargas: Vec<Precarga>,
     maximo: u32,
     /// El registro de salida que le toca a cada valor (su primera Salida).
     salida_de: Vec<Option<u8>>,
@@ -153,7 +182,7 @@ impl Emisor<'_> {
 
     /// Devolver un registro. Los de salida NO se devuelven nunca.
     fn soltar(&mut self, r: u8) {
-        if (r as usize) < self.reservados {
+        if (r as usize) < self.reservados || self.fijos.get(r as usize) == Some(&true) {
             return;
         }
         if let Some(l) = self.libres.get_mut(r as usize) {
@@ -222,6 +251,39 @@ impl Emisor<'_> {
         Ok(x)
     }
 
+    /// El registro de una precarga (la misma entrada o fila, el mismo): la
+    /// primera vez se pide y se apunta.
+    fn precarga(&mut self, pedida: Precarga) -> Result<u8, NoEmite> {
+        for &p in &self.precargas {
+            match (p, pedida) {
+                (Precarga::Entrada { elemento, componente, reg }, Precarga::Entrada { elemento: e2, componente: c2, .. }) if (elemento, componente) == (e2, c2) => return Ok(reg),
+                (Precarga::Fila { fila, reg }, Precarga::Fila { fila: f2, .. }) if fila == f2 => return Ok(reg),
+                _ => {}
+            }
+        }
+        let n = if matches!(pedida, Precarga::Fila { .. }) { 4 } else { 1 };
+        // n seguidos (una fila va con un LDG.128: alineada a 4 registros).
+        let paso = if n == 4 { 4 } else { 1 };
+        let mut i = self.reservados.div_ceil(paso) * paso;
+        while i + n <= self.libres.len() && !(i..i + n).all(|k| self.libres[k]) {
+            i += paso;
+        }
+        if i + n > self.libres.len() {
+            return Err(NoEmite::Registros);
+        }
+        for k in i..i + n {
+            self.libres[k] = false;
+            self.fijos[k] = true;
+        }
+        self.maximo = self.maximo.max((i + n) as u32);
+        let reg = i as u8;
+        self.precargas.push(match pedida {
+            Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
+            Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
+        });
+        Ok(reg)
+    }
+
     /// `op(x, a, b)` de dos fuentes, con `a` en registro. Si es conmutativa y
     /// `a` no es registro pero `b` si, se ponen al reves (un MOV menos).
     fn dos(&mut self, a: Reg, b: Reg, conmuta: bool, paso: &mut Vec<u8>) -> Result<(u8, Fuente), NoEmite> {
@@ -238,6 +300,11 @@ impl Emisor<'_> {
 /// **Emitir** un [`Programa`] a SASS de SM86, con `registros` para usar
 /// (R0..R(registros-1)). Las salidas van a R0..R(4 * salidas - 1).
 pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
+    emitir_con(p, registros, Abi::Banco)
+}
+
+/// **Emitir** con el [`Abi`] que se pida.
+pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoEmite> {
     let n = p.iniciales.len();
     let reservados = 4 * p.salidas;
     if reservados as u32 > registros || registros > 255 {
@@ -268,6 +335,9 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
         ultimo,
         libres,
         reservados,
+        fijos: vec![false; registros as usize],
+        abi,
+        precargas: Vec::new(),
         maximo: reservados as u32,
         salida_de,
         salida_usada: vec![false; reservados],
@@ -275,6 +345,24 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
         metas: Vec::new(),
         mufus: 0,
     };
+    // Con `Abi::Registros` TODO lo precargado se pide ANTES del cuerpo: el
+    // pegamento lo carga al empezar, asi que su registro no puede servir de
+    // temporal antes. Cada uno se suelta tras su ultimo uso (`fin`).
+    let mut fin = vec![None::<usize>; registros as usize];
+    if abi == Abi::Registros {
+        for op in &p.ops {
+            let (base, d, k) = match *op {
+                Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
+                Op::Constantes { d, fila } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
+                _ => continue,
+            };
+            for j in 0..k {
+                let u = e.ultimo.get(d as usize + j).copied().unwrap_or(0);
+                let f = &mut fin[base as usize + j];
+                *f = Some(f.map_or(u, |x| x.max(u)));
+            }
+        }
+    }
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
         match *op {
@@ -282,7 +370,11 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
                 if e.valor[d as usize].is_some() {
                     return Err(NoEmite::NoSsa(i));
                 }
-                e.valor[d as usize] = Some(Valor::C(BANCO_ENTRADAS, 16 * elemento as u16 + 4 * (componente as u16 & 3)));
+                let v = match e.abi {
+                    Abi::Banco => Valor::C(BANCO_ENTRADAS, 16 * elemento as u16 + 4 * (componente as u16 & 3)),
+                    Abi::Registros => Valor::Reg(e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?),
+                };
+                e.valor[d as usize] = Some(v);
             }
             Op::Constantes { d, fila } => {
                 for k in 0..4u16 {
@@ -290,8 +382,12 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
                     if e.valor.get(r).is_some_and(|v| v.is_some()) {
                         return Err(NoEmite::NoSsa(i));
                     }
-                    if let Some(v) = e.valor.get_mut(r) {
-                        *v = Some(Valor::C(BANCO_CB, 16 * fila + 4 * k));
+                    let v = match e.abi {
+                        Abi::Banco => Valor::C(BANCO_CB, 16 * fila + 4 * k),
+                        Abi::Registros => Valor::Reg(e.precarga(Precarga::Fila { fila, reg: 0 })? + k as u8),
+                    };
+                    if let Some(x) = e.valor.get_mut(r) {
+                        *x = Some(v);
                     }
                 }
             }
@@ -369,12 +465,18 @@ pub fn emitir(p: &Programa, registros: u32) -> Result<Emitido, NoEmite> {
                 }
             }
         }
+        for (r, f) in fin.iter().enumerate() {
+            if *f == Some(i) {
+                e.libres[r] = true;
+                e.fijos[r] = false;
+            }
+        }
     }
     e.poner(c::exit(0), Clase::Nada, None, [None; 3]);
     // El control, por regla.
     let (controles, ciclos) = planifica::planificar(&e.metas);
     let codigo = e.codigo.iter().zip(&controles).map(|(&(lo, hi), &k)| (lo, (hi & ((1 << 41) - 1)) | k << 41)).collect();
-    Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos })
+    Ok(Emitido { codigo, registros: e.maximo, mufus: e.mufus, ciclos, precargas: e.precargas })
 }
 
 /// Los registros del Programa que lee una operacion.
