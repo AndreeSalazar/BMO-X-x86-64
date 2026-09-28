@@ -419,6 +419,10 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
     let codigo = (0..n).map(&palabra);
     let mut regs = [LIMPIO; 256];
     let mut encendidas = 0u32;
+    // El ciclo en que se emitio quien encendio cada barrera de ESCRITURA la
+    // ultima vez (las de lectura no: el AST de NAK con su EXIT detras, a 1
+    // ciclo, corrio en el metal).
+    let mut encendida_en = [None::<u32>; 6];
     let mut ciclo = 0u32;
     let mut v = Veredicto::default();
     // Un salto hacia atras ANTES del primer EXIT sin predicado: un bucle. El
@@ -443,6 +447,14 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
             v.esperas += 1;
             if encendidas & 1 << b == 0 && !hay_bucle {
                 return no(Regla::R3BarreraFantasma, k, b, "espera una barrera que ninguna instruccion anterior enciende");
+            }
+            // ** Una barrera tarda UN ciclo en encenderse (metal 28-09, y
+            // `ptxas` lo respeta: su MUFU que alguien espera sale con espera
+            // 2). Esperarla al ciclo siguiente no espera nada: se lee lo
+            // viejo cuando no hay otros warps que metan ciclos por medio --
+            // los pixeles de `gpu verrano bmox12` mal al azar por bloques.
+            if encendida_en[b as usize].is_some_and(|c| ciclo.saturating_sub(c) < 2) {
+                return no(Regla::R3BarreraFantasma, k, b, "espera una barrera de escritura encendida el ciclo anterior: aun no esta encendida (quien la enciende necesita espera 2)");
             }
             for r in regs.iter_mut() {
                 if r.pendiente && r.escribe_bar as u32 == b {
@@ -529,6 +541,7 @@ fn juzgar_con(n: usize, palabra: impl Fn(usize) -> (u64, u64), ctx: &Contexto) -
         }
         if i.bar_escritura < 6 {
             encendidas |= 1 << i.bar_escritura;
+            encendida_en[i.bar_escritura as usize] = Some(ciclo);
         }
         if i.bar_lectura < 6 {
             encendidas |= 1 << i.bar_lectura;

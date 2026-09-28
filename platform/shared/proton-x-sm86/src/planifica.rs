@@ -101,7 +101,14 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
     }
     let controles = (0..n)
         .map(|j| {
-            let espera = if j + 1 < n { (ciclo[j + 1] - ciclo[j]).clamp(1, 15) } else { 5 } as u64;
+            let mut espera = if j + 1 < n { (ciclo[j + 1] - ciclo[j]).clamp(1, 15) } else { 5 } as u64;
+            // ** Una barrera tarda UN ciclo en encenderse: quien la enciende
+            // espera 2, o el que la espera justo detras no espera nada (metal
+            // 28-09: el MUFU.RSQ con espera 1 y su lector leyendo lo viejo,
+            // al azar segun cuantos warps hubiera; `ptxas` pone 2).
+            if barrera_de[j] != 7 {
+                espera = espera.max(2);
+            }
             espera | BIT4 | barrera_de[j] << 5 | 7 << 8 | espera_mascara[j] << 11
         })
         .collect();
