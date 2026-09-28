@@ -302,6 +302,7 @@ name = "bmo-gpu-ga10x"
 version = "0.1.0"
 dependencies = [
  "bmo-bsf",
+ "bmo-cubo",
  "bmo-proton-x",
  "bmo-proton-x-sm86",
  "bmo-sm86",
