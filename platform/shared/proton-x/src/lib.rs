@@ -1,6 +1,6 @@
 //! # PROTON-X -- el cargador de un `.exe` x86-64 de Windows (P1a)
 //!
-//! generacion: hija -- lee, coloca, relocaliza y resuelve; no sabe de
+//! generacion: hijo -- lee, coloca, relocaliza y resuelve; no sabe de
 //! memoria de verdad ni de saltos
 //! capa: puro -- bytes que entran y bytes que salen, probado en el anfitrion
 //!
@@ -117,3 +117,5 @@ impl fmt::Display for Fallo {
 
 #[cfg(test)]
 mod pruebas;
+#[cfg(test)]
+mod pruebas_windows;

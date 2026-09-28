@@ -688,6 +688,10 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
            del dia de la placa (`INFO_FECHA`, `bmo_proton_x::hora`). El
            planificador puro suma Objeto::Mutex y Objeto::Temporizador, y un
            hilo que espera un temporizador ya no cuenta como bloqueo mutuo.
+           **hilos.exe en Windows (28-09):** se callaba tras la seccion
+           critica: la prueba leia el TEB de un hilo que YA habia acabado, y
+           Windows lo libera (la casa no, y por eso aqui pasaba). Cada hilo
+           mira ahora su TEB estando vivo. Falta verlo otra vez en Windows.
            Lo que no es Windows, dicho: sin APC, un handle duplicado es el
            mismo numero con una copia mas, un fichero no se duplica, y la
            hora de la placa se toma como UTC.

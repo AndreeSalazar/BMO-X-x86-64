@@ -33,7 +33,7 @@ use core::cell::UnsafeCell;
 use bmo_proton_x::ficheros::{self, Entrada};
 use bmo_proton_x::proceso;
 
-use crate::ficheros::{abierto, directorio, ruta_de, ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND};
+use crate::ficheros::{abierto, directorio, ruta_de};
 use crate::{aviso, dir, kernel32, plataforma};
 
 pub(crate) const DIRECTORIO: u32 = 0x10;
@@ -44,6 +44,10 @@ const NO_VALE: u64 = u64::MAX;
 /// Los handles de busqueda: `BUSQUEDA + indice`.
 const BUSQUEDA: u64 = 0x5F80_0000;
 
+// Privados, como en ficheros.rs: el guardian del contrato (R23, L6j) no deja
+// que un numero publico signifique dos cosas en la casa y en el kernel.
+const ERROR_FILE_NOT_FOUND: u32 = 2;
+const ERROR_PATH_NOT_FOUND: u32 = 3;
 const ERROR_ACCESS_DENIED: u32 = 5;
 const ERROR_INVALID_HANDLE: u32 = 6;
 const ERROR_NO_MORE_FILES: u32 = 18;

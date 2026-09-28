@@ -1,6 +1,6 @@
 //! # PROTON-X -- las DLL de la casa (P1b, P1d, P2, P3 y P4)
 //!
-//! generacion: hija -- da lo que un `.exe` importa; no sabe cargarlo ni que
+//! generacion: hijo -- da lo que un `.exe` importa; no sabe cargarlo ni que
 //! maquina hay debajo
 //!
 //! Lo que un `.exe` de Windows importa de `kernel32.dll`, `user32.dll`,

@@ -37,6 +37,7 @@ decoracion**, y un obrero que juzga es un obrero que un dia se niega a trabajar.
 | [`perfil`](perfil/) | un perfil expone a un fichero que no existe |
 | [`perfil-campos`](perfil-campos/) | un campo de un perfil dice un numero y el codigo dice otro |
 | [`relevo`](relevo/) | una bandera del traspaso se pierde entre una etapa y la siguiente |
+| [`proton-x`](proton-x/) | un `.exe` de prueba de PROTON-X sin su huella, sin copiar al volumen o sin prueba en el banco; una licencia ajena en su codigo; un nombre de Windows servido por dos modulos; un codigo de error publico en la casa; una funcion de Windows escrita y nunca conectada (28-09, 7 reglas con autoprueba) |
 | [`contrato`](contrato/) | cualquiera de sus **20 reglas**, y las 20 estan probadas con 90 casos. Es el mayor de todos |
 | [`medida`](medida/) | un ejecutable cambia de medida sin que nadie lo acepte |
 | [`esperable`](esperable/) | un objeto se concede con `RIGHT_WAIT` y `wait()` **no tiene brazo** para su `KIND_`: una promesa escrita contra un mecanismo que no existe (nacio el 21-09 de `KIND_ARCHIVO`) |

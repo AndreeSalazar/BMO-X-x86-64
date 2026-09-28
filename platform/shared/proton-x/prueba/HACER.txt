@@ -142,7 +142,7 @@ los otros cinco .exe salen IDENTICOS con el, comprobado:
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   9ac5cbd63ab09b6f1dbc408e5e28b08b5f54ef40a2b94554707a3f9c60625cbd
+   c008c5bf97fb67100777ea6060097625d4502bc886e22f83a36a1a0af214f003
 
 Sin CRT, `_tls_used` (el directorio de TLS que el enlazador busca por su
 nombre) va definido en hilos.c, como en tlssup.c del CRT de Microsoft: con

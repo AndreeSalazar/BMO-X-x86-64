@@ -130,6 +130,25 @@ if ($py) {
     Write-Host '   [!] python no encontrado: el contrato NO se comprueba' -ForegroundColor Yellow
 }
 
+# -- 0b. PROTON-X: QUE LO QUE SE PRUEBA SEA LO QUE SE DA -------------------
+#
+# Tambien medio segundo, y por eso aqui y no en `build.ps1` (el mismo motivo
+# que el contrato: aquel fichero pide partirse antes de sumar guardianes).
+# Nacio el 28-09 de dos tropiezos: dos codigos de error publicos pararon ESTE
+# guion en el contrato, y cada `.exe` de prueba tenia que entrar a mano en
+# tres sitios (HACER.txt, ejemplos.ps1, el banco). Ver su cabecera.
+$protonx = Join-Path $raiz 'toolchain\tools\proton-x\proton_x.py'
+if (-not (Test-Path $protonx)) { Muere 'guardian MUERTO: falta toolchain\tools\proton-x\proton_x.py' }
+if ($py) {
+    Titulo 'PROTON-X: lo que se prueba es lo que se da'
+    $salida = & $py.Source $protonx --autoprueba
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" }; Muere 'las reglas de PROTON-X no saben decir que NO' }
+    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+    $salida = & $py.Source $protonx --check
+    if ($LASTEXITCODE -ne 0) { $salida | ForEach-Object { Write-Host "   $_" -ForegroundColor Red }; Muere 'PROTON-X: un .exe, un nombre o un numero no esta donde tiene que estar' }
+    $salida | Where-Object { $_ -match 'clean:' } | ForEach-Object { Bien ($_ -replace '^clean: ','') }
+}
+
 # -- 1. EL BANCO, ANTES QUE NADA ----------------------------------------
 #
 # Se corre primero porque es lo mas barato que puede decir que no. El banco de

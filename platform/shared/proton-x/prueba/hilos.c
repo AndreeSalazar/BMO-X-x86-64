@@ -156,7 +156,7 @@ static CRITICAL_SECTION cs;
 static volatile long contador;
 static struct {
     U64 teb, tid;
-    int propia_pila, marca_inicial, marca_final, vio_attach, tls_ok;
+    int propia_pila, marca_inicial, marca_final, vio_attach, tls_ok, teb_propio;
 } visto[HILOS];
 
 static DWORD WINAPI trabajador(void *arg) {
@@ -165,6 +165,10 @@ static DWORD WINAPI trabajador(void *arg) {
     visto[i].teb = teb;
     visto[i].tid = GetCurrentThreadId();
     visto[i].propia_pila = *(U64 *)(teb + 0x10) < local && local < *(U64 *)(teb + 0x08);
+    /* El TEB se mira AQUI, con el hilo vivo: en Windows el TEB de un hilo
+     * que acabo se libera, y leerlo despues tumba el proceso (el 28-09, en
+     * Windows, hilos.exe se callaba justo ahi). */
+    visto[i].teb_propio = *(U64 *)(teb + 0x30) == teb;
     visto[i].marca_inicial = t_marca;
     visto[i].vio_attach = t_vio_attach;
     t_marca = 100 + i;
@@ -297,7 +301,7 @@ void inicio(void) {
     todo_bien = 1;
     distintos = 1;
     for (i = 0; i < HILOS; i++) {
-        todo_bien &= visto[i].teb != gs64(0x30) && *(U64 *)(visto[i].teb + 0x30) == visto[i].teb && visto[i].propia_pila;
+        todo_bien &= visto[i].teb != gs64(0x30) && visto[i].teb_propio && visto[i].propia_pila;
         distintos &= visto[i].tid != GetCurrentThreadId() && (i == 0 || visto[i].tid != visto[i - 1].tid);
     }
     mira(todo_bien, "cada hilo tiene su TEB en gs:[0x30] y su pila entre StackLimit y StackBase", HILOS);

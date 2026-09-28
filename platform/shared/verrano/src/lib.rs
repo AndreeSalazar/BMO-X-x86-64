@@ -1,6 +1,6 @@
 //! # VERRANO -- la API de dibujo de BMO-X (V0)
 //!
-//! generacion: hija -- el fotograma, la imagen y los backends; no sabe que
+//! generacion: hijo -- el fotograma, la imagen y los backends; no sabe que
 //! GPU hay debajo
 //! capa: puro -- ni un `unsafe`, ni un aparato: aritmetica sobre buferes
 //!
