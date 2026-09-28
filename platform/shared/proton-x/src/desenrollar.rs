@@ -41,7 +41,11 @@ pub struct Contexto {
 }
 
 pub const RAX: usize = 0;
+pub const RBX: usize = 3;
 pub const RSP: usize = 4;
+pub const RBP: usize = 5;
+pub const RSI: usize = 6;
+pub const RDI: usize = 7;
 
 /// El CONTEXT de Windows x64 (0x4D0 bytes): donde va cada cosa.
 pub const CONTEXT_BYTES: usize = 0x4D0;
@@ -59,6 +63,13 @@ impl Contexto {
     pub fn a_context(&self, c: &mut [u8]) {
         c[..CONTEXT_BYTES].fill(0);
         c[CTX_FLAGS..CTX_FLAGS + 4].copy_from_slice(&CONTEXT_FULL.to_le_bytes());
+        self.sobre_context(c);
+    }
+
+    /// Escribir SOLO lo que este contexto sabe (los enteros, rip, los xmm y el
+    /// MXCSR) sobre un CONTEXT que ya existe: las banderas, los segmentos y
+    /// lo demas de quien lo dio se quedan como estaban (RtlVirtualUnwind).
+    pub fn sobre_context(&self, c: &mut [u8]) {
         c[CTX_MXCSR..CTX_MXCSR + 4].copy_from_slice(&self.mxcsr.to_le_bytes());
         c[CTX_FLTSAVE_MXCSR..CTX_FLTSAVE_MXCSR + 4].copy_from_slice(&self.mxcsr.to_le_bytes());
         for (i, r) in self.gp.iter().enumerate() {
@@ -173,6 +184,9 @@ pub enum NoDesenrolla {
     Version(u8),
     /// Un codigo de desenrollado que no existe.
     Codigo(u8),
+    /// La pila no sube: el marco de quien llamo no queda por encima del de
+    /// ahora (un contexto roto; seguir seria dar vueltas).
+    NoSube(u64),
 }
 
 /// Lo que se sabe del marco al desenrollarlo.

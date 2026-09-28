@@ -46,6 +46,7 @@ pub mod pe;
 pub mod proceso;
 pub mod raiz;
 pub mod regiones;
+pub mod seh;
 pub mod sm5;
 pub mod sombras;
 pub mod hilos;
@@ -124,3 +125,5 @@ mod pruebas;
 mod pruebas_windows;
 #[cfg(test)]
 mod pruebas_sm5;
+#[cfg(test)]
+mod pruebas_seh;
