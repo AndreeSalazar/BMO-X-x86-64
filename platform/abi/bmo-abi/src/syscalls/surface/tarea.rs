@@ -931,6 +931,17 @@ pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// a la app de la tarea `arg1` (su tid; 0 = a nadie): sus recetas con un back buffer de
 /// la cadena dibujan en la ventana de la pantalla, sin tocar su RAM.
 pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
+/// EL REINTENTO LIMPIO DEL GSP (29-09), tras un booter parado con error
+/// (0x15) y el GSP-RM sin arrancar: CERRAR = FWSEC-SB, DESCARGAR = el booter
+/// de descarga (baja la WPR2), SUBIR = con la WPR2 abajo, el despertar a cero
+/// y FWSEC-FRTS otra vez (el escritorio sigue EN SEGUIDA con despertar y el
+/// booter). REINTENTO = como va, en vivo: 0 SB arrancado, 1 su falcon parado,
+/// 2 descargador arrancado, 3 SEC2 parado, 4 la WPR2 abajo, 5 FRTS otra vez;
+/// 8..15 intentos; 32..63 MAILBOX0 del falcon que toque.
+pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
+pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
+pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
+pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.
@@ -1150,6 +1161,9 @@ pub const IOMMU_NO_IMAGEN: u32 = 88;
 /// P3b4c: el canal de GR tomo una excepcion (un Xid; el GSP-RM lo mato): todo
 /// trabajo del GR dice NO al instante hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
+/// El reintento limpio del GSP: no hay un booter parado con error que
+/// deshacer, un paso fuera de orden, o la WPR2 no bajo.
+pub const IOMMU_NO_REINTENTO: u32 = 91;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

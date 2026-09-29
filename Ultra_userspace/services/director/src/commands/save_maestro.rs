@@ -244,6 +244,8 @@ pub(crate) fn maestro(dsk: &mut Desktop, dest: &[u8], rayo: bmo::CuentasRayo) ->
     super::gspsalud::al_llegar(g);
     super::gspsalud::cargador(g);
     super::gsp::fila_despierto(g);
+    // Y el reintento limpio, si se probo (29-09).
+    super::gspreintento::fila(g);
     let r = bmo::info(bmo::INFO_METICHE);
     super::tabla::campo(g, b"metiche");
     g.dec(r >> 32 & 0xFFFF);

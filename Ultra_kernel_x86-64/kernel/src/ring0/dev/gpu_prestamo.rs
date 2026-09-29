@@ -562,6 +562,8 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         Err(m) => return no(m),
     };
     apuntar(|v| v | FWSEC_ARRANCADO);
+    FRTS_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
+    FWSEC_AUTOPSIA.store(false, Ordering::Release);
     crate::ring0::cabina::count("gpu", "L0b: FWSEC-FRTS ARRANCADO en el falcon del GSP; firma", idx as u64);
     Ok(frts.desde)
 }
@@ -676,6 +678,15 @@ pub fn info_fwsec() -> u64 {
         v |= FWSEC_WPR2;
     }
     v
+}
+
+/// Cuando arranco FWSEC-FRTS por ultima vez (TSC). Lo mira la autopsia del
+/// booter: EL MOMENTO, cuanto paso de FRTS al booter (29-09).
+static FRTS_TSC: AtomicU64 = AtomicU64::new(0);
+
+/// El TSC del ultimo arranque de FWSEC-FRTS; 0 si no arranco.
+pub fn frts_tsc() -> u64 {
+    FRTS_TSC.load(Ordering::Acquire)
 }
 
 /// Lo que ahora dice el falcon del GSP de FWSEC: PARADO y su codigo de FRTS.
