@@ -12,9 +12,9 @@ members = [
     "medida/sombra",
     # PROTON-X P1c: un .exe x86-64 de Windows cargado, sellado y ejecutado.
     "apps/proton-x",
-    # ESTRUCTURA (F1): el taller como editor de nodos de TITAN++, con el
-    # comprobador animado. PLAN_ESTRUCTURA seccion 8, B1-B3.
-    "apps/estructura",
+    # El TALLER (F1): editor de nodos de TITAN++, con el comprobador
+    # animado. PLAN_TALLER seccion 8, B1-B3.
+    "apps/taller",
 ]
 resolver = "2"
 

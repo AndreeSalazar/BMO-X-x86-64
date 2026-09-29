@@ -1,11 +1,11 @@
 [package]
-name = "bmo-app-estructura"
+name = "bmo-app-taller"
 version = "0.1.0"
 edition = "2021"
-description = "ESTRUCTURA (F1): the workshop as a node editor for TITAN++, with the borrow checker animated. B1-B3 of PLAN_ESTRUCTURA section 8."
+description = "TALLER (F1): the workshop as a node editor for TITAN++, with the borrow checker animated. B1-B3 of PLAN_TALLER section 8."
 
 [[bin]]
-name = "estructura"
+name = "taller"
 path = "src/main.rs"
 
 [dependencies]

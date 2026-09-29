@@ -1,6 +1,6 @@
 //! **The five window toggles**: F7 cpu, F8 memory, F10 sound, F11 CABINA,
 //! F12 data -- and the ESC that closes each one. And F1, which since
-//! 2026-09-29 LAUNCHES ESTRUCTURA (`sys/taller.bex`) instead of toggling a
+//! 2026-09-29 LAUNCHES the TALLER (`sys/taller.bex`) instead of toggling a
 //! window of the DIRECTOR.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
@@ -225,7 +225,7 @@ if let Some(open) = toggle_data {
     return Key::Taken;
 }
 
-// -- F1: ESTRUCTURA, el taller --
+// -- F1: el TALLER (se llamo ESTRUCTURA hasta el 29-09) --
 //
 // Calcada de F12 y por los mismos motivos: se atiende ANTES de
 // preguntar por el foco, porque un atajo que solo funciona si ya
@@ -243,11 +243,11 @@ if let Some(open) = toggle_data {
 // colas distintas, y esta es la cocida.
 //
 // ** DESDE EL 29-09 F1 LANZA UNA APP, no abre una ventana del
-// DIRECTOR. `docs/plan/PLAN_ESTRUCTURA.md` seccion 8: el taller es
+// DIRECTOR. `docs/plan/PLAN_TALLER.md` seccion 8: el taller es
 // un editor de nodos para TITAN++ con el comprobador animado, y eso
 // dentro del compositor seria el monolito que prohibe MODULAR. La
 // ventana de antes (escalon 1, vista en el metal el 06-09) se retiro:
-// su sitio es `sys/taller.bex` (`Ultra_userspace/apps/estructura`).
+// su sitio es `sys/taller.bex` (`Ultra_userspace/apps/taller`).
 //
 // Se pide por `scene::abrir`, el MISMO camino que un `run` tecleado o
 // un icono: consola, prestamo de pantalla y vigilante. Se cierra

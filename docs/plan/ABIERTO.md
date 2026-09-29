@@ -131,15 +131,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
 
-## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 10 abiertas, 3 hechas
-
-*PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
-
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
-- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
-- ... y 7 mas
-
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 
 *PLAN LA DEUDA -- lo que el arbol debe, medido el 2026-09-17*
@@ -147,6 +138,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D2a -- un TRINQUETE. static mut declarados en
 - [ ] D2b -- el reparto, por fichero, cuando SMP se retome. No antes: sin
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
+- ... y 7 mas
+
+## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 3 hechas
+
+*PLAN DEL TALLER -- F1 de BMO-X*
+
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
+- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 7 mas
 
 ## [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) -- 9 abiertas, 7 hechas
@@ -409,7 +409,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 esta herramienta lo copia. Sus casillas sueltas no son deuda: o
 ya no aplican, o esperan a alguien que no es el codigo.
 
-- **APARCADO** [`en_pausa/PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_ESTRUCTURA.md es su mitad visible). Se retoma cuando ESTRUCTURA abra una ventana.  *(1 hechas, 7 sueltas)*
+- **APARCADO** [`en_pausa/PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) -- no bloquea nada de la hoja de ruta (banca + Ada + las apps basicas), y pide primero que Ada sea no_std y que Ring 3 tenga monton y ficheros maduros (PLAN_TALLER.md es su mitad visible). Se retoma cuando el TALLER abra una ventana.  *(1 hechas, 7 sueltas)*
 - **APARCADO** [`en_pausa/PLAN_EL_ASISTENTE.md`](en_pausa/PLAN_EL_ASISTENTE.md) -- decision del propietario (2026-09-10, EL_ORDEN.md): *"el asistente de IA NO es prioridad, es el ultimo"*. Lo que arrastraba (exp en INTI, ancho de memoria) baja con el salvo lo que sirva a otra cosa.  *(3 hechas, 16 sueltas)*
 - **CERRADO** [`terminado/PLAN_ALMACENAMIENTO.md`](terminado/PLAN_ALMACENAMIENTO.md) -- cumplido: sus cinco pasos estan hechos (la pila de disco repartida en dev/disk/).  *(5 hechas, 0 sueltas)*
 - **CERRADO** [`terminado/PLAN_DOOM.md`](terminado/PLAN_DOOM.md) -- hecho el 2026-09-20: DOOM se juega en el Ryzen sobre BEF2 y el emisor de C de septiembre. Lo que queda son numeros de la hoja del metal (docs/metal/METAL_2026-09-18.md, 3b), no casillas de DOOM.  *(8 hechas, 9 sueltas)*

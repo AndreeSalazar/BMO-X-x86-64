@@ -97,7 +97,7 @@ seccion 6.
 | fundirlo con INTI | **NO** ("ni merga") | dos lenguajes, dos trabajos |
 | las apps que ya estan en INTI | **se quedan** (NAVEGAR y las demas) | no hay que migrar nada |
 | la herramienta | **tipo cargo**: `titan run`, `Titan.toml`, `mod` | "todo organizado" |
-| el taller (F1) | **un editor de NODOS**: el prototipo es Ultra-Omega, del propietario | seccion 4.5 y `docs/plan/PLAN_ESTRUCTURA.md` seccion 8 |
+| el taller (F1) | **un editor de NODOS**: el prototipo es Ultra-Omega, del propietario | seccion 4.5 y `docs/plan/PLAN_TALLER.md` seccion 8 |
 
 ** Y lo que esto REABRE: `docs/METAS.md` tenia "La lista de lenguajes"
 **CERRADA** desde el 17/18-09 por decision del propietario; el 29-09 la reabre
@@ -342,7 +342,7 @@ formato BEF puede llevar el fuente que produjo el `.bex`. En TITAN++, con
 ```
 
 [!] **`titan run` choca con una regla de F1**, y hay que decirlo ahora:
-`PLAN_ESTRUCTURA.md` seccion 3 -- un `.bex` **no puede lanzar otro** (`EJECUTAR`
+`PLAN_TALLER.md` seccion 3 -- un `.bex` **no puede lanzar otro** (`EJECUTAR`
 se fija al nacer y solo desde Ring 0). Dentro de F1, `titan run` construye y le
 pide al ESCRITORIO que lo lance; el que da el clic es el propietario. En el
 anfitrion (Windows), `titan run` no existe: alli solo hay `build`.
@@ -457,17 +457,17 @@ estructura: **dibuja la que el compilador ya comprueba**.
    el EXPLORER (nodes/)           src/ y el Titan.toml
    F5 Run                         titan build (y pedir al ESCRITORIO lanzar)
    Tab Templates                  titan new con plantillas
-   Ctrl+Shift+P Commands          la consola del taller (ESTRUCTURA)
+   Ctrl+Shift+P Commands          la consola del TALLER
 ```
 
-El plan del taller es de `docs/plan/PLAN_ESTRUCTURA.md`, seccion 8, con sus reglas
+El plan del taller es de `docs/plan/PLAN_TALLER.md`, seccion 8, con sus reglas
 (la verdad es el texto, las aristas son dependencias y no flujo, F1 es opcional).
 
 ---
 
 ## 5. Por que un compilador PROPIO: por F1
 
-`docs/plan/PLAN_ESTRUCTURA.md`: se pulsa **F1** en el escritorio y se abre **el
+`docs/plan/PLAN_TALLER.md`: se pulsa **F1** en el escritorio y se abre **el
 taller**, una app que es terminal Y compilador en UN `.bex`.
 
 Si TITAN++ se tiene que compilar DENTRO de F1, **rustc no puede ser su
@@ -487,7 +487,7 @@ medida no.
 **Lo que F1 pide antes**, y hoy no esta:
 
 ```text
-   la ventana de F1               PLAN_ESTRUCTURA, casilla 1 (ABIERTA)
+   la ventana de F1               PLAN_TALLER, casilla 1 (ABIERTA)
    el autohospedaje               PLAN_AUTOHOSPEDAJE (APARCADO)
    memoria dinamica en Ring 3     un asignador compartido en bmo-userland:
                                   hoy solo PROTON-X tiene #[global_allocator]
@@ -753,7 +753,7 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
 |---|---|---|
 | **crecer como C++** | C++ agrego durante cuatro decadas y nunca quito | el TECHO de 30 palabras (4.4): un guardian cuenta la tabla de la gramatica, como el techo de no-ASCII. Una palabra nueva entra solo si quita una confusion |
 | **ABC**: "facil" ya fracaso | no se podia extender y obligaba a vivir en su entorno (`INTI_MAESTRO` seccion 2) | enlaza con C, INTI y REX desde el primer dia; F1 es opcional, no una jaula |
-| **el editor de nodos se vuelve la jaula** | si el grafo es la verdad, el codigo solo se puede leer con F1 | la verdad es el TEXTO (`.titan` + `Titan.toml`); el grafo es una vista (PLAN_ESTRUCTURA 8) |
+| **el editor de nodos se vuelve la jaula** | si el grafo es la verdad, el codigo solo se puede leer con F1 | la verdad es el TEXTO (`.titan` + `Titan.toml`); el grafo es una vista (PLAN_TALLER 8) |
 | un TERCER lenguaje propio | Rust base + INTI + TITAN++, una persona | la frontera de la seccion 1: si cabe en INTI, va en INTI |
 | el comprobador crece sin control | el de Rust mide 1,5 MB (6.8) | el modelo 2 quita las regiones; cada regla entra con su programa roto |
 | los juegos piden velocidad | "facil y lento" no sirve para juegos | el metro del emisor mide TITAN++ igual que a C e INTI; la exclusividad da la velocidad de FORTRAN (2b.2) |
@@ -778,7 +778,7 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
                                    pide: lanzar computo en ga10x
    T6  el compilador DENTRO de F1, el grafo de nodos, `titan run`, y el .bex
        con su fuente (U4)
-                                   pide: ESTRUCTURA, el asignador de Ring 3 y el
+                                   pide: TALLER, el asignador de Ring 3 y el
                                    autohospedaje
 ```
 
@@ -796,4 +796,4 @@ estimacion de otro proyecto (LEY 24).
 4. **El primer programa**: un juego chico, una app con ventana, o un calculo
    en la 3060? Decide que se construye primero en T3.
 5. **El editor de nodos**: donde se guardan las POSICIONES de los nodos --
-   dentro del `Titan.toml` o en un fichero aparte (PLAN_ESTRUCTURA 8)?
+   dentro del `Titan.toml` o en un fichero aparte (PLAN_TALLER 8)?

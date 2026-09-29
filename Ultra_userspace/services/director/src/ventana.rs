@@ -98,8 +98,8 @@ pub(crate) enum Ventana {
     /// mete una nueva--. La unica salida era F10 dos veces.
     Sound,
     // ** F1 -- ESTRUCTURA -- fue aqui la ultima (id 6) hasta el 29-09, y se
-    // quito ENTERA porque ahora es una app (`Ultra_userspace/apps/estructura`,
-    // PLAN_ESTRUCTURA seccion 8). Era la ultima a proposito --un id nuevo cae
+    // quito ENTERA porque ahora es una app (`Ultra_userspace/apps/taller`,
+    // PLAN_TALLER seccion 8). Era la ultima a proposito --un id nuevo cae
     // en el hueco libre mas alto--, y por eso quitarla no corre el id de
     // NINGUNA otra ventana fija: solo el de la primera app, que sale de
     // `TODAS.len()` y se corre sola.

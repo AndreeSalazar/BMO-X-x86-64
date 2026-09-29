@@ -280,7 +280,7 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.text(b"      ver           F2 info   F3 consumo  F4 apps\n");
     dsk.out.grid.text(b"      la maquina    F5 red    F6 smp     F7 banda    F8 ext\n");
     dsk.out.grid.text(b"      cuando falla  F9 fallo  F10 disco\n");
-    dsk.out.grid.text(b"      abren         F1 ESTRUCTURA (el taller)   F11 CABINA   F12 ESTRATOS\n");
+    dsk.out.grid.text(b"      abren         F1 TALLER   F11 CABINA   F12 ESTRATOS\n");
     dsk.out.grid.text(b"    Impr Pant CAPTURA la pantalla (con Alt, la ventana de delante).\n");
     dsk.out.grid.text(b"    Ctrl+Shift+S RECORTA con el raton: arrastra y suelta. ESC cancela.\n");
     dsk.out.grid.text(b"    Ctrl ORDENA las ventanas: flechas encajan, Q cierra, Enter trae\n");

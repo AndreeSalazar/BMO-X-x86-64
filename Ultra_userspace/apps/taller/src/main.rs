@@ -1,11 +1,11 @@
-//! **ESTRUCTURA** -- F1, the workshop, as its own app (`sys/taller.bex`).
+//! **TALLER** -- F1, the workshop, as its own app (`sys/taller.bex`).
 //!
 //! [consumo] LATIDO    while something moves (an animation, a drag) it wakes
 //!                     every 16 ms; when still, every 100 ms to read the
 //!                     mailbox; and it does not draw at all if nobody sees it
 //!                     (the VIEW byte, R-APP8)
 //!
-//! `docs/plan/PLAN_ESTRUCTURA.md` section 8 and `docs/maestro/TITAN_MAESTRO.md`:
+//! `docs/plan/PLAN_TALLER.md` section 8 and `docs/maestro/TITAN_MAESTRO.md`:
 //! F1 is a node editor for TITAN++, where the manifest is the main node,
 //! EVERYTHING is a node, and the borrow checker is ANIMATED (the owner,
 //! 29-09). This is B1-B3 of that base:
@@ -74,11 +74,11 @@ pub extern "C" fn _start() -> ! {
     // The contract's own judge, before a single pixel: F1 does not animate a
     // script that lends what nobody has or walks a `use` that is not there.
     if script.check(&graph).is_err() {
-        say("ESTRUCTURA: NO -- el guion del ejemplo no cuadra con su grafo\n");
+        say("TALLER: NO -- el guion del ejemplo no cuadra con su grafo\n");
         bmo::salir();
     }
     let Some(win) = Window::open(WIDTH, HEIGHT) else {
-        say("ESTRUCTURA: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
+        say("TALLER: NO -- sin ventana (no hay memoria, o nadie me lanzo)\n");
         bmo::salir();
     };
     let mut canvas = Canvas::new(win.px, win.w, win.h);
@@ -89,7 +89,7 @@ pub extern "C" fn _start() -> ! {
     let mut last = clock.now_ms();
     let mut dirty = true;
     let mut last_view = u8::MAX;
-    say("ESTRUCTURA: F1 abierto -- asteroids (ejemplo) con el comprobador animado\n");
+    say("TALLER: F1 abierto -- asteroids (ejemplo) con el comprobador animado\n");
 
     loop {
         let now = clock.now_ms();
@@ -185,7 +185,7 @@ fn key(c: u8, p: &mut Player, cam: &mut Camera, g: &bmo_titan_contrato::Graph, s
         }
         b'0' => *cam = Camera::fit(g, WIDTH as i32, HEIGHT as i32),
         0x1B => {
-            say("ESTRUCTURA: cerrado con Esc\n");
+            say("TALLER: cerrado con Esc\n");
             bmo::salir();
         }
         _ => return false,
@@ -195,7 +195,7 @@ fn key(c: u8, p: &mut Player, cam: &mut Camera, g: &bmo_titan_contrato::Graph, s
 
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    say("ESTRUCTURA: panico\n");
+    say("TALLER: panico\n");
     if let Some(s) = info.message().as_str() {
         say(s);
         say("\n");

@@ -39,7 +39,7 @@
 //! one package by hand so F1 can be seen working in the Ryzen first.
 //!
 //! See `docs/maestro/TITAN_MAESTRO.md` (U1, U3, 6.9) and
-//! `docs/plan/PLAN_ESTRUCTURA.md` section 8.
+//! `docs/plan/PLAN_TALLER.md` section 8.
 
 #![no_std]
 #![forbid(unsafe_code)]

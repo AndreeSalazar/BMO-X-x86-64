@@ -237,7 +237,7 @@ pub(crate) struct Windows {
     pub sound: crate::scene::sound::SoundWindow,
     pub sound_open: bool,
     // (F1 -- ESTRUCTURA -- vivio aqui como ventana del DIRECTOR hasta el
-    // 29-09. Ahora es una app: `Ultra_userspace/apps/estructura`.)
+    // 29-09. Ahora es una app: `Ultra_userspace/apps/taller`.)
     /// Who gets the keys. The policy lives in `bmo_input` and is tested THERE;
     /// here it is only asked, and what it decided is painted.
     pub focus: Focus,

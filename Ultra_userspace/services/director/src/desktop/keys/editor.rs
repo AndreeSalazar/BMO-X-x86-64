@@ -428,7 +428,7 @@ match c {
     // ```text
     //    VER            F2 info    F3 consumo   F4 apps
     //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
-    //    lanza ESTRUCTURA -- y aqui ya no llegaba. Se quito el 29-09.)
+    //    lanza el TALLER -- y aqui ya no llegaba. Se quito el 29-09.)
     //    LA MAQUINA     F5 red     F6 smp     F7 banda     F8 ext
     //    CUANDO FALLA   F9 fallo   F10 disco
     //    VENTANAS       F11 CABINA           F12 ESTRATOS

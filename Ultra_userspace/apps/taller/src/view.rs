@@ -1,5 +1,5 @@
 //! **THE VIEW** -- the package as nodes and cables, and the checker's events
-//! played on top of it (`PLAN_ESTRUCTURA` section 8).
+//! played on top of it (`PLAN_TALLER` section 8).
 //!
 //! ```text
 //!    a node      a header with its language (or TITAN.TOML, GPU, SISTEMA),
@@ -431,7 +431,7 @@ fn title_bar(c: &mut Canvas, s: &Script, p: &Player) {
     let w = c.w;
     c.rect(0, 0, w, TOP, BAR);
     c.rect(0, TOP - 1, w, 1, EDGE);
-    c.text(10, 6, b"F1  ESTRUCTURA  --  TITAN++  --  asteroids (ejemplo)", TITLE, 1);
+    c.text(10, 6, b"F1  TALLER  --  TITAN++  --  asteroids (ejemplo)", TITLE, 1);
     let mut t = Buf::new();
     let total = s.events().len() as u32;
     if p.finished(s) {

@@ -1,5 +1,11 @@
-# PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1
+# PLAN DEL TALLER -- F1 de BMO-X
 
+> ** **Se llamaba ESTRUCTURA** (y este fichero, PLAN_ESTRUCTURA) hasta el
+> 29-09. El propietario: *"reemplazar el nombre ESTRUCTURA a taller = y ya"*. La
+> app, su fichero (`sys/taller.bex`), su carpeta (`Ultra_userspace/apps/taller`)
+> y este plan se llaman igual desde entonces; lo que se cuenta con fecha
+> anterior conserva el nombre que tenia.
+>
 > **Lo que afirma**: que se pulsa `F1` en el escritorio, se abre una ventana con
 > historial, se teclea `compilar hola.ada`, y aparece un `.bex` en el disco de
 > BMO-X. Sin instalar nada, porque no hay nada que instalar.
@@ -16,11 +22,11 @@
 
 ```text
    VALKYRIE-ABI   JUZGA      no ejecuta jamas. No tiene anillo
-   ESTRUCTURA     FABRICA    un `.bex` de Ring 3, y apunta a V-ABI
+   TALLER         FABRICA    un `.bex` de Ring 3, y apunta a V-ABI
 ```
 
 ** No son dos capas de lo mismo: son el estandar y una herramienta que lo
-cumple. `gcc` apunta a POSIX y no es POSIX. Si algun dia ESTRUCTURA se
+cumple. `gcc` apunta a POSIX y no es POSIX. Si algun dia TALLER se
 llamara VALKYRIE, la frase de `VALKYRIE-ABI/README.md` --*"no tiene anillo
 porque no tiene ni una instruccion en la maquina de destino"*-- seria falsa el
 mismo dia.
@@ -84,8 +90,8 @@ Y las lecturas ya estan publicadas: `bmo/verde.h` de REX trae **49 constantes
 por `OP_INFO`.
 
 ```text
-   ESTRUCTURA SI PUEDE    cpu  mem  disco  red        (las LECTURAS, por OP_INFO)
-   ESTRUCTURA NO PUEDE    cabina  klog  autopsia      (las ORDENES de panel)
+   TALLER SI PUEDE    cpu  mem  disco  red        (las LECTURAS, por OP_INFO)
+   TALLER NO PUEDE    cabina  klog  autopsia      (las ORDENES de panel)
                           usb  syscall  maq  es
 ```
 
@@ -98,7 +104,7 @@ ese formato cambia cada vez que se depura algo.
 
 ```text
    la consola del DIRECTOR   el panel de INSTRUMENTOS   cpu, mem, red, cabina
-   ESTRUCTURA (F1)           el TALLER                  compilar, leer, escribir
+   el TALLER (F1)            el taller                  compilar, leer, escribir
 ```
 
 Y eso **no es una limitacion que rodear**: es el primer caso en el que la
@@ -120,13 +126,14 @@ correcto:
 ```text
    taller.bex       el terminal Y el compilador, en el MISMO fichero,
                     con sus tablas en la seccion 0x0B
-   el ESCRITORIO    lanza lo que ESTRUCTURA compilo, cuando el propietario hace clic
+   el ESCRITORIO    lanza lo que TALLER compilo, cuando el propietario hace clic
 ```
 
 [!] Se llamaba `estructura.bex` en este plan, y ese nombre NO PUEDE EXISTIR en
 el disco de BMO-X: el FAT32 busca por nombre 8.3 (8 letras). Se descubrio el
 29-09 en el Ryzen --F1 dio "un nombre no cabe en 8.3" en CABINA-- y paso a
-`sys/taller.bex`. La app sigue llamandose ESTRUCTURA; el fichero, taller.
+`sys/taller.bex`. Ese mismo dia la app tambien paso a llamarse TALLER (ver
+la cabecera).
 
 ** Y eso convierte "sin instalar" en algo literal en vez de en un eslogan: **un
 fichero que trae dentro lo que necesita**, y que se lee con `paquete.h` sin
@@ -137,9 +144,9 @@ copiar nada. La cabecera ya cita al propietario diciendo la idea:
 
 ---
 
-## 4. ★★ ESTRUCTURA Y EL AUTOHOSPEDAJE SON EL MISMO TRABAJO
+## 4. ★★ TALLER Y EL AUTOHOSPEDAJE SON EL MISMO TRABAJO
 
-El frontend de Ada es **Rust**. Si ESTRUCTURA tiene que contenerlo, ESTRUCTURA es
+El frontend de Ada es **Rust**. Si TALLER tiene que contenerlo, TALLER es
 un `.bex` de Rust -- y la pregunta es que tiene ya la cara de Rust.
 
 ### ** CORREGIDO EL 06-09: SE MIDIO CONTRA LA CRATE EQUIVOCADA
@@ -161,7 +168,7 @@ pantalla"*. Son **3.901 lineas** y es lo que enlaza el DIRECTOR.
 
 ### El hueco de verdad, medido contra la crate correcta
 
-| lo que necesita ESTRUCTURA | REX (C) | `bmo-userland` (Rust) |
+| lo que necesita TALLER | REX (C) | `bmo-userland` (Rust) |
 |---|---|---|
 | `archivo` -- leer el fuente, escribir el `.bex` | si | **ya estaba** (344 lineas) |
 | `pantalla` -- dibujar | si | **ya estaba** (623) |
@@ -303,7 +310,7 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
 
 ## 6. LO QUE **NO** ENTRA, Y SE DICE PARA QUE NO CREZCA SOLO
 
-* ~~**Un editor.** ESTRUCTURA compila lo que hay en el disco. Editar es otra app
+* ~~**Un editor.** TALLER compila lo que hay en el disco. Editar es otra app
   y otro plan.~~ **DEROGADO el 29-09 por el propietario**: F1 sera un editor de
   NODOS para TITAN++ (seccion 8). Lo que sobrevive de la regla vieja es el
   ORDEN: el editor va DESPUES del escalon 7, no antes.
@@ -321,7 +328,7 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
 * **Sacar los 5.761 de `commands/` del DIRECTOR para "reaprovecharlos".** La
   mayoria no puede cruzar la frontera, asi que lo que se moveria es codigo que
   despues hay que devolver.
-* **Darle autoridad a ESTRUCTURA** para que lance lo que compila. Es el tercer
+* **Darle autoridad a TALLER** para que lance lo que compila. Es el tercer
   bit, y `autoridad.rs` ya dejo escrita la pregunta que va antes.
 * **Llamarlo VALKYRIE.** Seccion 0.
 * **Empezar por el escalon 6** porque es el que se ve. Sin el 2, no hay ventana
@@ -420,7 +427,7 @@ de ejemplo escrito a mano (`asteroids`):
                                3060, el DIRECTOR), los eventos del comprobador
                                y el mensaje de 4 partes. Sin unsafe, sin
                                monton. 20 pruebas en el anfitrion, verdes
-   [~] B1  sys/taller.bex      Ultra_userspace/apps/estructura: F1 LANZA la
+   [~] B1  sys/taller.bex      Ultra_userspace/apps/taller: F1 LANZA la
                                app (keys/windows.rs); la ventana interna del
                                DIRECTOR se retiro entera. Compila sin avisos y
                                bex-link da 70.992 B. Falta VERLA en el Ryzen
@@ -440,7 +447,7 @@ de ejemplo escrito a mano (`asteroids`):
 | se hace | si esta bien | si falla |
 |---|---|---|
 | F1 en el escritorio | sale una ventana de 1280x760 con 8 nodos y sus cables, y la animacion empieza sola | nada: falta `sys/taller.bex` en el disco, o `run` dice por que |
-| esperar ~10 s | el pulso ambar va de `main` a `ship`, vuelve; `bullet` pasa a `rock`; el cable a la 3060 se enciende en verde y se apaga; `ship` y `physics` parpadean en rojo con QUE/DONDE/POR QUE/COMO abajo; `net: no` destella | la animacion se para a medias: mirar la consola (`ESTRUCTURA:`) |
+| esperar ~10 s | el pulso ambar va de `main` a `ship`, vuelve; `bullet` pasa a `rock`; el cable a la 3060 se enciende en verde y se apaga; `ship` y `physics` parpadean en rojo con QUE/DONDE/POR QUE/COMO abajo; `net: no` destella | la animacion se para a medias: mirar la consola (`TALLER:`) |
 | arrastrar un nodo | el nodo sigue al raton y sus cables con el | el nodo no se mueve: el estado del puntero del buzon no llega (+8/+12) |
 | arrastrar el fondo, `+`, `-`, `0` | el lienzo se mueve, acerca, aleja, encuadra | las letras no llegan al buzon |
 | espacio, `n`, `r` | pausa, un paso, repite | igual |

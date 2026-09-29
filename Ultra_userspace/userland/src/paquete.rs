@@ -15,7 +15,7 @@
 //!
 //! Porque **una app de Rust no podia abrir su propia caja**, y eso es justo lo
 //! que necesita ESTRUCTURA para ser *"como gcc pero sin instalar"*: un fichero
-//! que trae dentro lo que necesita. Ver `docs/plan/PLAN_ESTRUCTURA.md` escalon
+//! que trae dentro lo que necesita. Ver `docs/plan/PLAN_TALLER.md` escalon
 //! 2 y `docs/plan/en_pausa/PLAN_AUTOHOSPEDAJE.md`.
 //!
 //! ## ** Y ES MAS CORTO QUE EL DE C, POR DOS MOTIVOS QUE NO SON EL LENGUAJE

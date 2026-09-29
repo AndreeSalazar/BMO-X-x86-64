@@ -1051,7 +1051,7 @@ se nota en los numeros.
       banco en cada `bmo.ps1`; ver `docs/plan/PLAN_LA_DEUDA.md`, D4.
 - [ ] **C8h -- los compiladores con fuente hostil.** Un `.c` o un `.inti` malo
       que tumba al compilador no tumba la maquina, y por eso va al final. Pero el
-      dia que ESTRUCTURA compile DENTRO de BMO-X (`docs/plan/PLAN_ESTRUCTURA.md`),
+      dia que el TALLER compile DENTRO de BMO-X (`docs/plan/PLAN_TALLER.md`),
       el compilador pasa a ser Ring 3 leyendo ficheros de cualquiera.
 
 ## 5.6 El patron, otra vez
