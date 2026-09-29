@@ -486,6 +486,10 @@ mod pruebas {
             assert!(crate::sass::juez::conoce(l, h), "el juez lo sabe leer");
         }
         assert_eq!(asa(3, 1), 3 | 1 << 20);
+        // El del emisor de PROTON-X (`bmo_sm86::codifica::tex`) es el mismo.
+        for (rd, ra, rb) in [(4, 4, 0), (0, 2, 4), (60, 58, 57)] {
+            assert_eq!(bmo_sm86::codifica::tex(rd as u8, ra as u8, rb as u8, control), tex(rd, ra, rb, control));
+        }
     }
 
     #[test]

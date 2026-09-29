@@ -692,9 +692,20 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                          bloque de quien manda la receta, `fisica_de`),
                          escribe y relee los TIC/TSC, dibuja y DEVUELVE
                          siempre. Pila 29662 de 40960; sin giros nuevos.
-                       FALTA T2b (la app): que el emisor de PROTON-X saque
-                       `Op::Muestra` como TEX y la puerta meta las texturas
-                       del lote en la receta.
+                    T2b [HECHO banco, 29-09] LA APP: el emisor saca
+                       `Op::Muestra` como un TEX (2D, nivel 0): las
+                       coordenadas en un par alineado que no se devuelve, los
+                       cuatro canales en un bloque alineado con UNA barrera
+                       (`Clase::Tex`, el planificador la espera en cualquiera
+                       de los cuatro) y el asa como precarga `Asa { tN, sM }`
+                       fija todo el programa. La pareja (tN, sM) es la
+                       textura k de la receta (`pso::texturas_de`); la
+                       puerta la saca de los recursos del lote (su RAM, su
+                       muestreador) o dice por que no. El simulador corre el
+                       TEX con el muestreo de la casa (que iguala a la 3060):
+                       el pixel de HelloTexture da los bits del interprete,
+                       punto y lineal. `tests/textura.rs`: su PSO es UN TEX
+                       de t0/s0 que el juez R7 aprueba con el asa del kernel.
                     T3 [ ] el metal: `gpu verrano textura` IGUAL a
                        `tests/textura.rs`, y HelloTexture por PROTON-X.
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture

@@ -137,6 +137,25 @@ fn texel(x: u32, y: u32) -> u32 {
     0xFF00_0000 | (x * 30) | (y * 30) << 8 | ((x + y) % 2 * 255) << 16
 }
 
+/// Lo que el PSO de HelloTexture es para la 3060 (P3b4c.8 T2b): sus
+/// texturas en la receta, y si el cuerpo de pixel pasa el juez R7 con el asa
+/// del kernel.
+static PARA_LA_3060: Mutex<Vec<(Vec<(u8, u8)>, bool, usize)>> = Mutex::new(Vec::new());
+
+/// El ejecutor: la CPU dibuja (el juez de la imagen), y de paso se mira lo
+/// que la puerta de la 3060 haria con el PSO.
+fn dibujar_y_su_tex(l: &bmo_proton_x::lote::Lote, d: &mut bmo_proton_x::trama::Destino) -> Result<bmo_proton_x::trama::Cuenta, bmo_proton_x::lote::NoDibuja> {
+    use bmo_gpu_ga10x::pegamento::{asas, Carga};
+    if let Ok(c) = bmo_proton_x_sm86::puerta::cuerpos(l.enlace, l.entradas) {
+        let cuerpo: Vec<(u64, u64)> = c.ps.chunks(16).map(|w| (u64::from_le_bytes(w[..8].try_into().unwrap()), u64::from_le_bytes(w[8..].try_into().unwrap()))).collect();
+        let juzgado = bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con_asas(&cuerpo, c.registros_ps, asas(&c.cargas_ps)).is_ok();
+        let texs = cuerpo.iter().filter(|w| w.0 & 0xFFF == 0x361).count();
+        assert!(c.cargas_ps.iter().any(|x| matches!(x, Carga::Asa { textura: 0, .. })));
+        PARA_LA_3060.lock().unwrap().push((c.texturas.clone(), juzgado, texs));
+    }
+    bmo_proton_x::lote::en_cpu(l, d)
+}
+
 /// **HelloTexture por la casa.** `version_1_1`: la firma como la manda
 /// d3dx12 cuando el dispositivo dice 1.1 (la casa dice 1.0, y d3dx12 la
 /// convierte; aqui se prueban los dos caminos).
@@ -144,7 +163,7 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; esta prueba no corre en paralelo con otra
     // que empiece la casa (es la unica de este fichero).
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x::lote::en_cpu, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_su_tex, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }) };
     type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
     // SAFETY: la direccion de `D3D12CreateDevice` de la casa.
     let crear: CrearDisp = unsafe { core::mem::transmute(funcion("d3d12.dll", "D3D12CreateDevice")) };
@@ -341,5 +360,12 @@ fn hellotexture_dibuja_su_textura() {
             }
         }
         assert_eq!(malos, 0, "firma 1.1: {version_1_1}");
+    }
+    // P3b4c.8 T2b: su PSO, para la 3060, es UN TEX de t0 con s0 (la
+    // textura 0 de la receta), con el asa que pone el kernel.
+    let vistos = PARA_LA_3060.lock().unwrap();
+    assert!(!vistos.is_empty(), "el PSO de HelloTexture tiene cuerpos para la 3060");
+    for (texturas, juzgado, texs) in vistos.iter() {
+        assert_eq!((texturas.as_slice(), *juzgado, *texs), (&[(0u8, 0u8)][..], true, 1));
     }
 }

@@ -99,6 +99,10 @@ pub enum Precarga {
     Entrada { elemento: u8, componente: u8, reg: u8 },
     /// La fila `fila` del cbuffer (16 bytes), en `reg`..`reg + 3`.
     Fila { fila: u16, reg: u8 },
+    /// P3b4c.8 T2b: el ASA de la textura `textura` (tN) con el muestreador
+    /// `muestreador` (sM), en `reg`. La pone el pegamento del KERNEL: la
+    /// pareja (tN, sM) sera la textura k de la receta.
+    Asa { textura: u8, muestreador: u8, reg: u8 },
 }
 
 /// Como se cronometra una instruccion (las clases del juez que emite esto).
@@ -110,6 +114,8 @@ pub enum Clase {
     Fma,
     /// Desacoplada: MUFU (necesita barrera).
     Mufu,
+    /// El TEX: desacoplado, escribe CUATRO registros con una barrera.
+    Tex,
     /// EXIT.
     Nada,
 }
@@ -178,7 +184,7 @@ impl Emisor<'_> {
     /// Una instruccion (sin control: lo pone el planificador) y su meta.
     fn poner(&mut self, w: (u64, u64), clase: Clase, escribe: Option<u8>, lee: [Option<u8>; 3]) {
         self.codigo.push(w);
-        self.metas.push(Meta { clase, escribe, lee, lee_salidas: 0 });
+        self.metas.push(Meta { clase, escribe, lee, lee_salidas: 0, escribe_n: 1 });
     }
 
     fn pedir(&mut self) -> Result<u8, NoEmite> {
@@ -266,6 +272,7 @@ impl Emisor<'_> {
             match (p, pedida) {
                 (Precarga::Entrada { elemento, componente, reg }, Precarga::Entrada { elemento: e2, componente: c2, .. }) if (elemento, componente) == (e2, c2) => return Ok(reg),
                 (Precarga::Fila { fila, reg }, Precarga::Fila { fila: f2, .. }) if fila == f2 => return Ok(reg),
+                (Precarga::Asa { textura, muestreador, reg }, Precarga::Asa { textura: t2, muestreador: s2, .. }) if (textura, muestreador) == (t2, s2) => return Ok(reg),
                 _ => {}
             }
         }
@@ -288,12 +295,32 @@ impl Emisor<'_> {
         self.precargas.push(match pedida {
             Precarga::Entrada { elemento, componente, .. } => Precarga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, .. } => Precarga::Fila { fila, reg },
+            Precarga::Asa { textura, muestreador, .. } => Precarga::Asa { textura, muestreador, reg },
         });
         Ok(reg)
     }
 
     /// `op(x, a, b)` de dos fuentes, con `a` en registro. Si es conmutativa y
     /// `a` no es registro pero `b` si, se ponen al reves (un MOV menos).
+    /// `n` registros seguidos y alineados a `n` (las coordenadas de un TEX,
+    /// su resultado). Con `para_siempre` no se devuelven nunca: las fuentes
+    /// de una desacoplada no se pisan mientras la 3060 aun pueda leerlas.
+    fn bloque(&mut self, n: usize, para_siempre: bool) -> Result<u8, NoEmite> {
+        let mut i = self.reservados.div_ceil(n) * n;
+        while i + n <= self.libres.len() && !(i..i + n).all(|k| self.libres[k]) {
+            i += n;
+        }
+        if i + n > self.libres.len() {
+            return Err(NoEmite::Registros);
+        }
+        for k in i..i + n {
+            self.libres[k] = false;
+            self.fijos[k] = para_siempre;
+        }
+        self.maximo = self.maximo.max((i + n) as u32);
+        Ok(i as u8)
+    }
+
     fn dos(&mut self, a: Reg, b: Reg, conmuta: bool, paso: &mut Vec<u8>) -> Result<(u8, Fuente), NoEmite> {
         // Al reves si `b` ya esta en un registro y `a` no; y si ninguno lo
         // esta, va al registro el que vive MAS (se reusara).
@@ -362,6 +389,11 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
             let (base, d, k) = match *op {
                 Op::Entrada { d, elemento, componente } => (e.precarga(Precarga::Entrada { elemento, componente, reg: 0 })?, d, 1),
                 Op::Constantes { d, fila } => (e.precarga(Precarga::Fila { fila, reg: 0 })?, d, 4),
+                // El asa: fija TODO el programa (la lee un TEX desacoplado).
+                Op::Muestra { t, s, .. } => {
+                    e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                    continue;
+                }
                 _ => continue,
             };
             for j in 0..k {
@@ -374,9 +406,34 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
         match *op {
-            // El muestreo de texturas (TEX, sus descriptores TIC/TSC) no lo
-            // emite todavia: ese PSO se dibuja en la CPU, y se dice.
-            Op::Muestra { .. } => return Err(NoEmite::Operacion(i)),
+            // ** P3b4c.8 T2b: el muestreo, un TEX (2D, nivel 0) con el asa
+            // que pone el KERNEL. Solo con el ABI de registros (el del
+            // pegamento); con el del banco, no hay asa: se dice.
+            Op::Muestra { d, t, s, u, v } => {
+                if e.abi != Abi::Registros {
+                    return Err(NoEmite::Operacion(i));
+                }
+                if (0..4).any(|k| e.valor.get(d as usize + k).is_none_or(|x| x.is_some())) {
+                    return Err(NoEmite::NoSsa(i));
+                }
+                let asa = e.precarga(Precarga::Asa { textura: t, muestreador: s, reg: 0 })?;
+                // Las coordenadas, en un par alineado que no se devuelve.
+                let par = e.bloque(2, true)?;
+                for (k, r) in [u, v].into_iter().enumerate() {
+                    let f = e.fuente(r);
+                    e.poner(c::mov(par + k as u8, f, 0), Clase::Alu, Some(par + k as u8), [reg_de(f), None, None]);
+                }
+                // Los cuatro canales, seguidos y alineados; cada uno se
+                // devuelve tras su ultimo uso, como cualquier valor.
+                let q = e.bloque(4, false)?;
+                e.poner(c::tex(q, par, asa, 0), Clase::Tex, Some(q), [Some(par), Some(par + 1), Some(asa)]);
+                if let Some(m) = e.metas.last_mut() {
+                    m.escribe_n = 4;
+                }
+                for k in 0..4u8 {
+                    e.valor[d as usize + k as usize] = Some(Valor::Reg(q + k));
+                }
+            }
             Op::Entrada { d, elemento, componente } => {
                 if e.valor[d as usize].is_some() {
                     return Err(NoEmite::NoSsa(i));

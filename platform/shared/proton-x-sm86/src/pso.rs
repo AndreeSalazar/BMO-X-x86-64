@@ -70,11 +70,26 @@ impl ParaLa3060 {
 }
 
 pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
+    let pares = texturas_de(e);
     e.precargas
         .iter()
         .map(|p| match *p {
             Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
             Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
+            // La pareja (tN, sM) es la textura k de la receta: su puesto.
+            Precarga::Asa { textura, muestreador, reg } => Carga::Asa { textura: pares.iter().position(|&x| x == (textura, muestreador)).unwrap_or(0) as u8, reg },
+        })
+        .collect()
+}
+
+/// **Las texturas de un programa emitido**, en el orden de la receta: la
+/// textura k es la pareja `(tN, sM)` de su k-esima asa.
+pub fn texturas_de(e: &Emitido) -> Vec<(u8, u8)> {
+    e.precargas
+        .iter()
+        .filter_map(|p| match *p {
+            Precarga::Asa { textura, muestreador, .. } => Some((textura, muestreador)),
+            _ => None,
         })
         .collect()
 }

@@ -153,6 +153,15 @@ pub fn mov(rd: u8, f: Fuente, control: u64) -> (u64, u64) {
     palabra(0x002 | SIEMPRE | (rd as u64) << 16 | lo_f, 0xF << 8, control)
 }
 
+/// **`TEX.SCR.B.LZ Rd, Ra, Rb, 2D`** (P3b4c.8): los cuatro canales en
+/// `rd..rd+3`, las coordenadas en `ra, ra+1`, el asa en `rb`. Los bits los dio
+/// `ptxas -arch=sm_86` y cada campo se releyo con `nvdisasm` (el mismo que
+/// `bmo_gpu_ga10x::texturas::tex`, que lo comprueba).
+pub fn tex(rd: u8, ra: u8, rb: u8, control: u64) -> (u64, u64) {
+    let lo = 0x361 | SIEMPRE | (rd as u64) << 16 | (ra as u64) << 24 | (rb as u64) << 32 | 0x38 << 56;
+    palabra(lo, (rd as u64 + 2) | 0xF << 8 | 7 << 17 | 1 << 20 | 1 << 23, control)
+}
+
 /// `EXIT` (con su predicado PT en 87..90, como lo pone `ptxas`).
 pub fn exit(control: u64) -> (u64, u64) {
     palabra(0x14D | 4 << 9 | SIEMPRE, 7 << 23, control)

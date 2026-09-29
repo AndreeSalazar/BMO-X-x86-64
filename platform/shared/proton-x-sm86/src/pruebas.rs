@@ -189,6 +189,7 @@ fn igual_en_registros(p: &Programa, e: &Emitido, entradas: &[[f32; 4]], cb: &[u8
                     m.r[reg as usize + k] = cb.get(o..o + 4).map_or(0, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]));
                 }
             }
+            Precarga::Asa { .. } => panic!("un programa sin texturas no pide asas"),
         }
     }
     correr(&e.codigo, &mut m).unwrap();
@@ -230,6 +231,57 @@ fn con_las_entradas_en_registros_da_los_bits_de_la_casa() {
                     [[0.0; 4], [n[0], n[1], n[2], 0.0], v.color]
                 };
                 igual_en_registros(&p, &e, &ent, &cb);
+            }
+        }
+    }
+}
+
+/// ** P3b4c.8 T2b: el pixel de HelloTexture (`textura.hlsl`: `imagen.Sample(
+/// muestreo, uv)`) sale como UN TEX con el asa que pone el kernel; y
+/// simulado -- el TEX muestreando con la casa, que iguala a la 3060 -- da
+/// los MISMOS bits que el interprete, con punto y con lineal.
+#[test]
+fn el_pixel_de_hellotexture_es_un_tex() {
+    use bmo_proton_x::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
+    let p = programa(include_bytes!("../../proton-x/prueba/textura_ps.dxil"));
+    let e = emitir_con(&p, TECHO, Abi::Registros).unwrap();
+    let texs = e.codigo.iter().filter(|w| w.0 & 0xFFF == 0x361).count();
+    assert_eq!(texs, 1, "un Sample, un TEX");
+    let asas: Vec<Precarga> = e.precargas.iter().copied().filter(|q| matches!(q, Precarga::Asa { .. })).collect();
+    assert!(matches!(asas[..], [Precarga::Asa { textura: 0, muestreador: 0, .. }]), "{asas:?}");
+    assert_eq!(crate::pso::texturas_de(&e), std::vec![(0u8, 0u8)]);
+    // Lo que el juez del kernel dira del cuerpo: R7 con el asa del kernel.
+    let asa_reg = match asas[0] { Precarga::Asa { reg, .. } => reg, _ => unreachable!() };
+    assert_eq!(bmo_gpu_ga10x::sass::juez::juzgar_cuerpo_con_asas(&e.codigo, e.registros, 1 << asa_reg), Ok(()));
+    let t: Vec<u32> = (0..64u32).map(|k| (k * 37 & 0xFF) | (k * 91 & 0xFF) << 8 | (255 - k * 3) << 16 | 0xFF << 24).collect();
+    let tx = [Some(Textura { texeles: &t, ancho: 8, alto: 8, bgra: false })];
+    for filtro in [Filtro::Punto, Filtro::Lineal] {
+        let ms = [Some(Muestreador { filtro, u: Direccion::Repetir, v: Direccion::Espejo, borde: [0.0; 4] })];
+        let rec = Recursos { texturas: &tx, muestreadores: &ms };
+        let mu = |asa: u32, u: f32, v: f32| {
+            assert_eq!(asa, bmo_gpu_ga10x::texturas::asa(0, 0), "el asa de la textura 0");
+            rec.muestrear(0, 0, u, v)
+        };
+        for &(u, v) in &[(0.1f32, 0.2f32), (0.5, 0.5), (0.93, 0.07), (1.3, -0.4), (0.0625, 0.9375)] {
+            let entradas = [[0.0f32; 4], [u, v, 0.0, 0.0]];
+            let mut casa = std::vec![[0.0f32; 4]; p.salidas];
+            let mut regs = Vec::new();
+            p.correr_con(&entradas, &[], &rec, &mut casa, &mut regs);
+            let mut m = Maquina::nueva([&[]; 8]);
+            m.muestrear = Some(&mu);
+            for (i, r) in m.r.iter_mut().enumerate() {
+                *r = 0x7FC0_0000 | i as u32;
+            }
+            for &q in &e.precargas {
+                match q {
+                    Precarga::Entrada { elemento, componente, reg } => m.r[reg as usize] = entradas[elemento as usize][componente as usize & 3].to_bits(),
+                    Precarga::Asa { reg, .. } => m.r[reg as usize] = bmo_gpu_ga10x::texturas::asa(0, 0),
+                    Precarga::Fila { .. } => panic!("no lee cbuffer"),
+                }
+            }
+            correr(&e.codigo, &mut m).unwrap();
+            for k in 0..4 {
+                assert_eq!(m.r[k], casa[0][k].to_bits(), "{filtro:?} ({u}, {v}) canal {k}");
             }
         }
     }

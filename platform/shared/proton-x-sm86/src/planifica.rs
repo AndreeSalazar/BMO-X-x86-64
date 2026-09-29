@@ -29,6 +29,8 @@ pub fn latencia(escritor: Clase, lector: Clase) -> u32 {
         (Fma, Alu) => 5,
         (Fma, Fma) => 4,
         (Mufu, _) => 4,
+        // El TEX lee sus fuentes como las de memoria del juez (Agu): 5.
+        (Tex, _) => 5,
         _ => 1,
     }
 }
@@ -42,6 +44,8 @@ pub struct Meta {
     /// Y ademas R0..R(n-1): el EXIT, que entrega las salidas (en un
     /// programa de pixel, el color lo lee la 3060 AL SALIR; metal 28-09).
     pub lee_salidas: u8,
+    /// Cuantos registros escribe desde `escribe` (el TEX, cuatro).
+    pub escribe_n: u8,
 }
 
 /// El bit 4, que `ptxas` pone en todas (ver `bmo_sm86::codifica::ALU`).
@@ -63,7 +67,8 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
         let mut listo = if j == 0 { 0 } else { t + 1 };
         let mut mascara = 0u64;
         let leidos = m.lee.iter().flatten().copied().chain(0..m.lee_salidas);
-        for r in leidos.clone().chain(m.escribe) {
+        let escritos = m.escribe.into_iter().flat_map(|r| r..r.saturating_add(m.escribe_n.max(1)));
+        for r in leidos.clone().chain(escritos.clone()) {
             if let Some(b) = pendiente[r as usize].take() {
                 mascara |= 1 << b;
             }
@@ -87,15 +92,19 @@ pub fn planificar(metas: &[Meta]) -> (alloc::vec::Vec<u64>, u32) {
         ciclo[j] = listo;
         t = listo;
         espera_mascara[j] = mascara;
-        if let Some(r) = m.escribe {
-            if m.clase == Clase::Mufu {
+        if m.escribe.is_some() {
+            if matches!(m.clase, Clase::Mufu | Clase::Tex) {
                 let b = libres.iter().position(|&l| l).unwrap_or(0);
                 libres[b] = false;
-                pendiente[r as usize] = Some(b as u8);
                 barrera_de[j] = b as u64;
-                escrito[r as usize] = None;
+                for r in escritos {
+                    pendiente[r as usize] = Some(b as u8);
+                    escrito[r as usize] = None;
+                }
             } else {
-                escrito[r as usize] = Some((listo, m.clase));
+                for r in escritos {
+                    escrito[r as usize] = Some((listo, m.clase));
+                }
             }
         }
     }

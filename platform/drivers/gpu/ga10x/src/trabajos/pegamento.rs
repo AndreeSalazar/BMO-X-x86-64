@@ -516,6 +516,8 @@ mod pruebas {
             .map(|p| match *p {
                 Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
                 Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
+                // Los cubos no muestrean: la unica textura seria la 0.
+                Precarga::Asa { reg, .. } => Carga::Asa { textura: 0, reg },
             })
             .collect()
     }

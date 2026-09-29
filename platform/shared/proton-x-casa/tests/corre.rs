@@ -920,6 +920,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
                         m.r[reg as usize + k] = f32_de(16 * fila as usize + 4 * k);
                     }
                 }
+                Precarga::Asa { .. } => panic!("un de vertice no muestrea"),
             }
         }
         correr(&ev.codigo, &mut m).unwrap();

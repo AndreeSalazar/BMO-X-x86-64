@@ -32,6 +32,8 @@ use alloc::vec::Vec;
 use bmo_gpu_ga10x::destino::Destino;
 use bmo_gpu_ga10x::pegamento::{Carga, Elemento};
 use bmo_gpu_ga10x::profundidad::Z;
+use bmo_gpu_ga10x::texturas::{DeApp, Muestreo, MAX_TEXTURAS};
+use bmo_proton_x::textura::{Direccion, Filtro};
 use bmo_gpu_ga10x::receta::{self, Receta, Taller, MAX_CARGAS, MAX_ELEMENTOS, MAX_GENERICOS, NINGUNA, NINGUNO};
 use bmo_gpu_ga10x::tuberia::{Descarte, Dibujo, DATOS_MAX};
 use bmo_proton_x::lote::{ElementoIa, Enlace, Lote, Topologia};
@@ -73,6 +75,9 @@ pub struct Cuerpos {
     pub cargas_vs: Vec<Carga>,
     pub cargas_ps: Vec<Carga>,
     pub genericos: Vec<Option<u8>>,
+    /// P3b4c.8 T2b: las texturas del de pixel, en el orden de la receta: la
+    /// k es la pareja (tN, sM) de su k-esima asa.
+    pub texturas: Vec<(u8, u8)>,
 }
 
 fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
@@ -82,6 +87,9 @@ fn bytes(codigo: &[(u64, u64)]) -> Vec<u8> {
 /// **Los cuerpos de un PSO**: el emisor, con el ABI de registros.
 pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
     let ev = emitir_con(&en.vs, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("vertice", e))?;
+    if ev.precargas.iter().any(|q| matches!(q, crate::Precarga::Asa { .. })) {
+        return Err(NoVa::Emisor("vertice", crate::NoEmite::Operacion(0)));
+    }
     let ep = emitir_con(&en.ps, REGISTROS, Abi::Registros).map_err(|e| NoVa::Emisor("pixel", e))?;
     let posicion = en.posicion as u32;
     let genericos = en.desde_vs.iter().map(|o| o.and_then(|o| bmo_gpu_ga10x::pegamento::generico(o as u32, posicion))).collect();
@@ -97,7 +105,19 @@ pub fn cuerpos(en: &Enlace, ia: &[ElementoIa]) -> Result<Cuerpos, NoVa> {
         cargas_vs: cargas(&ev),
         cargas_ps: cargas(&ep),
         genericos,
+        texturas: crate::pso::texturas_de(&ep),
     })
+}
+
+/// El modo de la casa con su numero de D3D12.
+const fn d3d(d: Direccion) -> u32 {
+    match d {
+        Direccion::Repetir => 1,
+        Direccion::Espejo => 2,
+        Direccion::Sujetar => 3,
+        Direccion::Borde => 4,
+        Direccion::EspejoUnaVez => 5,
+    }
 }
 
 /// Lo que se sabe del destino (el render target de la casa).
@@ -171,6 +191,27 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
     if c.elementos.len() > MAX_ELEMENTOS || c.cargas_vs.len() > MAX_CARGAS || c.cargas_ps.len() > MAX_CARGAS || c.genericos.len() > MAX_GENERICOS {
         return Err(String::from("el PSO trae mas entradas o cargas de las que caben en una receta"));
     }
+    // P3b4c.8 T2b: cada textura del de pixel -- la imagen tN con el
+    // muestreador sM de este lote --, tal como esta en la RAM de la app: el
+    // kernel la presta SOLO LECTURA mientras dibuja.
+    if c.texturas.len() > MAX_TEXTURAS {
+        return Err(format!("{} texturas: la receta lleva {MAX_TEXTURAS}", c.texturas.len()));
+    }
+    let mut texturas = [DeApp::NINGUNA; MAX_TEXTURAS];
+    for (k, &(tn, sm)) in c.texturas.iter().enumerate() {
+        let (Some(Some(t)), Some(Some(m))) = (l.recursos.texturas.get(tn as usize), l.recursos.muestreadores.get(sm as usize)) else {
+            return Err(format!("el sombreador muestrea t{tn} con s{sm} y el lote no los tiene atados"));
+        };
+        let muestreo = Muestreo { lineal: m.filtro == Filtro::Lineal, u: d3d(m.u), v: d3d(m.v), borde: m.borde };
+        let d = DeApp { va: t.texeles.as_ptr() as u64, ancho: t.ancho, alto: t.alto, fila: 4 * t.ancho, bgra: t.bgra, muestreo };
+        if t.texeles.len() < (t.ancho * t.alto) as usize || !d.valida() {
+            return Err(format!(
+                "la textura t{tn} ({}x{}, VA {:#x}): la 3060 la lee con filas de 32 B, desde 32 B y en 1 MiB; esta no",
+                t.ancho, t.alto, d.va
+            ));
+        }
+        texturas[k] = d;
+    }
     let mut rec = Receta {
         n,
         vs: &c.vs,
@@ -190,8 +231,8 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: 0 },
-        texturas: [bmo_gpu_ga10x::texturas::DeApp::NINGUNA; bmo_gpu_ga10x::texturas::MAX_TEXTURAS],
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8 },
+        texturas,
     };
     rec.elementos[..c.elementos.len()].copy_from_slice(&c.elementos);
     rec.cargas_vs[..c.cargas_vs.len()].copy_from_slice(&c.cargas_vs);

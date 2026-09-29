@@ -4,7 +4,7 @@
 //! (`Programa::correr`) dan los mismos bits, el emisor tradujo bien.
 //!
 //! Lo que sabe ejecutar es lo que el emisor pone -- FADD, FMUL, FMNMX, MUFU,
-//! MOV, EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
+//! MOV, TEX (P3b4c.8: el asa, a [`Maquina::muestrear`]), EXIT y NOP, con registros, inmediatos y constantes, `-`, `|x|` y
 //! `.SAT` --; cualquier otra palabra es [`NoSimula::Instruccion`], nunca un
 //! "seguramente".
 //!
@@ -38,11 +38,15 @@ pub enum NoSimula {
 pub struct Maquina<'a> {
     pub r: [u32; 256],
     pub bancos: [&'a [u8]; 8],
+    /// Lo que un TEX lee: `(asa, u, v)` -> los cuatro canales. Es el
+    /// muestreo de la casa (`bmo_proton_x::textura`), que iguala a la 3060
+    /// bit a bit en las 96 muestras medidas (`tests/metal_textura.rs`).
+    pub muestrear: Option<&'a dyn Fn(u32, f32, f32) -> [f32; 4]>,
 }
 
 impl<'a> Maquina<'a> {
     pub fn nueva(bancos: [&'a [u8]; 8]) -> Self {
-        Maquina { r: [0; 256], bancos }
+        Maquina { r: [0; 256], bancos, muestrear: None }
     }
 
     fn reg(&self, i: usize) -> u32 {
@@ -123,6 +127,21 @@ pub fn correr(codigo: &[(u64, u64)], m: &mut Maquina) -> Result<usize, NoSimula>
                 5 => m.constante(lo),
                 _ => return Err(NoSimula::Instruccion(n)),
             },
+            // TEX.SCR.B.LZ 2D (0x361): R y G en rd, rd+1; B y A en rd2, rd2+1.
+            0x161 if forma == 1 => {
+                let Some(mu) = m.muestrear else { return Err(NoSimula::Instruccion(n)) };
+                let (u, v) = (f(m.reg(ra)), f(m.reg(ra + 1)));
+                let c = mu(m.reg((lo >> 32 & 0xFF) as usize), u, v);
+                let rd2 = (hi & 0xFF) as usize;
+                if rd == RZ || rd2 == RZ || hi >> 8 & 0xF != 0xF {
+                    return Err(NoSimula::Instruccion(n));
+                }
+                m.r[rd] = c[0].to_bits();
+                m.r[rd + 1] = c[1].to_bits();
+                m.r[rd2] = c[2].to_bits();
+                m.r[rd2 + 1] = c[3].to_bits();
+                continue;
+            }
             0x14D => return Ok(n + 1),
             0x118 => continue,
             _ => return Err(NoSimula::Instruccion(n)),
