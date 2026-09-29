@@ -274,6 +274,19 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     AUTOPSIA[0].store(crate::ring0::dev::gpu::info_bsi(), Ordering::Release);
     AUTOPSIA[8].store(bus_3060(), Ordering::Release);
     AUTOPSIA[10].store(crate::ring0::dev::gpu_prestamo::eventos(), Ordering::Release);
+    // ** H3, LA PRUEBA DE LA CACHE (29-09, `PLAN_LA_3060.md`). El metal de
+    // hoy dio el 0x15 con `GSP MAILBOX0 0xBADF1002` tres veces de cuatro, y
+    // dos de ellas tras APAGAR con ErP: no es la tarjeta caliente. Lo que el
+    // booter y el GSP leen de la RAM (la WPR meta, los argumentos de LIBOS,
+    // la radix3 de 60 MiB) lo acaba de escribir la CPU, y el L3 son 32 MiB:
+    // si la 3060 lee sin espiar la cache (no-snoop), puede leer lo VIEJO. Un
+    // `wbinvd` escribe TODA la cache a la RAM antes de soltar al booter.
+    // Es UN cambio, solo en este camino, y la fila `despierto` dira si el
+    // 0x15 se va. Cuesta unos ms una vez por arranque.
+    // SAFETY: Ring 0; `wbinvd` solo escribe y vacia caches, no toca memoria
+    // que no sea suya ni registros.
+    unsafe { core::arch::asm!("wbinvd", options(nostack, preserves_flags)) };
+    crate::ring0::cabina::info("gpu", "L0c3b: H3, la cache de la CPU escrita a la RAM (wbinvd) antes del booter", 0);
     BOOTER_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);

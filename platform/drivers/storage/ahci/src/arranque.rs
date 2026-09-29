@@ -345,34 +345,54 @@ unsafe fn port_start(mmio: u64, port: u8) -> bool {
     true
 }
 
-/// **Una segunda oportunidad para UN puerto** (N1a, 29-09): el censo del
-/// arranque lo dejo con un aparato PRESENTE pero sin enlace (DET 1) o con el
-/// PHY fuera (DET 4). Lo mismo que el censo --arrancar el disco si hay SSS,
-/// COMRESET y hasta 1,5 s de espera-- en ese puerto solo, y su ficha al dia.
-/// `true` si ahora el enlace esta vivo (DET 3). Un puerto que es de un disco
-/// ya en uso no se toca: se pide para uno SIN enlace, que no tiene nada en
-/// marcha que romper.
-pub unsafe fn reanimar(port_idx: u8) -> bool {
+/// **Una segunda oportunidad para los puertos de `mascara`** (N1a, 29-09):
+/// los que el censo del arranque dejo sin enlace. Lo mismo que el censo
+/// --arrancar el disco si hay SSS, COMRESET a todos y UNA espera de hasta
+/// 1,5 s para todos juntos-- y la ficha de cada uno al dia. Devuelve la
+/// mascara de los que ahora tienen enlace (DET 3). Un puerto ya activo no se
+/// toca: tiene un disco en marcha.
+///
+/// ** Por que tambien los que el HBA NO declara en `PI`: el metal (29-09
+/// 11:06) dio `PI 0x33` (puertos 0, 1, 4, 5) con el disco de BMO-X en el 2.
+/// En esta placa `PI` no dice que puertos hay; `NP` si (ver `census`).
+pub unsafe fn reanimar(mascara: u32) -> u32 {
     #[allow(static_mut_refs)]
-    let ctrl = match CONTROLLER.as_mut() { Some(c) => c, None => return false };
-    if port_idx >= ctrl.port_count.min(32) { return false; }
+    let ctrl = match CONTROLLER.as_mut() { Some(c) => c, None => return 0 };
+    let np = ctrl.port_count.min(32);
     let mmio = ctrl.mmio_base;
-    if ctrl.ports[port_idx as usize].state == PortState::Active { return true; }
     let sss = ctrl.cap & (1 << 27) != 0;
-    if port_kick(mmio, port_idx, sss) {
-        esperar_enlaces(mmio, 1 << port_idx, ctrl.port_count.min(32));
+    let mut esperando = 0u32;
+    for i in 0..np {
+        if mascara & (1 << i) == 0 || ctrl.ports[i as usize].state == PortState::Active {
+            continue;
+        }
+        if port_kick(mmio, i, sss) {
+            esperando |= 1 << i;
+        }
     }
-    port_write(mmio, port_idx, PORT_SERR, port_read(mmio, port_idx, PORT_SERR));
-    let ssts = port_read(mmio, port_idx, PORT_SSTS);
-    let p = &mut ctrl.ports[port_idx as usize];
-    p.ssts = ssts;
-    p.signature = port_read(mmio, port_idx, PORT_SIG);
-    p.state = match ssts & SSTS_DET {
-        0x03 => PortState::Active,
-        0x01 => PortState::Present,
-        _ => PortState::Empty,
-    };
-    p.state == PortState::Active
+    if esperando != 0 {
+        esperar_enlaces(mmio, esperando, np);
+    }
+    let mut vivos = 0u32;
+    for i in 0..np {
+        if mascara & (1 << i) == 0 {
+            continue;
+        }
+        port_write(mmio, i, PORT_SERR, port_read(mmio, i, PORT_SERR));
+        let ssts = port_read(mmio, i, PORT_SSTS);
+        let p = &mut ctrl.ports[i as usize];
+        p.ssts = ssts;
+        p.signature = port_read(mmio, i, PORT_SIG);
+        p.state = match ssts & SSTS_DET {
+            0x03 => PortState::Active,
+            0x01 => PortState::Present,
+            _ => PortState::Empty,
+        };
+        if p.state == PortState::Active {
+            vivos |= 1 << i;
+        }
+    }
+    vivos
 }
 
 /// Reserva las estructuras DMA del puerto y lo deja listo para comandos.

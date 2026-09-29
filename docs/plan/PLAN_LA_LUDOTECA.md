@@ -446,6 +446,12 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         esta ANTES de la tabla (encontrar o leer el disco). Desde hoy el
         informe lo dice solo, en la fila `personal` del capitulo 6: montado
         con su medida, o la etapa en que se paro N1a.
+      - **Lo que dijo esa fila (29-09 11:06): `sin otro disco; enlace
+        p2=3*  PI 0x33`.** El HBA declara los puertos 0, 1, 4 y 5 y el disco
+        de BMO-X vive en el 2: en esta placa `PI` no dice que puertos hay, y
+        todos los demas daban DET 0 (ni presencia). Arreglo: si no hay otro
+        disco, `bmo_ahci::reanimar` a TODOS los puertos de `NP` menos el de
+        BMO-X, juntos y con una espera (spin-up, COMRESET, hasta 1,5 s).
       - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
         escritorio; N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows

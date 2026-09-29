@@ -2581,6 +2581,15 @@ peticion MAS elegante"*.
   corriente que dan es el reinicio por el bus (SBR), que en BMO-X rompe
   FWSEC-FRTS (fila 5) mientras R2 no se resuelva.
 
+**W2 medido (29-09 10:54 y 11:06): NO basta.** Con `ErP Ready` puesto y
+APAGANDO, dos arranques seguidos otra vez `0x15` con `GSP MAILBOX0
+0xBADF1002`. Cae la idea de "tarjeta caliente" para ESTE fallo: pasa en
+frio. Queda H3 (la cache), y se prueba sola: **un `wbinvd` justo antes de
+soltar al booter** (`gpu_despertar.rs`), porque lo que el booter lee de la
+RAM (WPR meta, argumentos de LIBOS, la radix3 de 60 MiB con un L3 de 32)
+acaba de escribirlo la CPU. **Como se sabe:** la fila `despierto` de varios
+arranques con este build; `cabina` dice `H3, la cache ... (wbinvd)`.
+
 **W2 [por probar, sin codigo]: que APAGAR desde Windows sea apagar de
 verdad.** (1) Windows: desactivar el inicio rapido (`powercfg /h off`, como
 administrador; quita tambien la hibernacion, y ademas deja el NTFS de D:

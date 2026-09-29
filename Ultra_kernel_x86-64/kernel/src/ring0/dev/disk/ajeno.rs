@@ -160,25 +160,32 @@ static mut SERIE: [u8; 20] = [0; 20];
 /// tenga la serie del de BMO-X. Luego, su NTFS.
 pub(super) fn buscar(suyo: u8) {
     let Some(ctrl) = bmo_ahci::controller() else { return };
-    // ** EL METAL (29-09 10:54): "sin otro disco SATA; con disco: 2", y en
-    // Windows el SSD de D: SI esta en este controlador. Dos cosas:
+    // ** EL METAL (29-09): a las 10:54 "sin otro disco SATA; con disco: 2",
+    // y a las 11:06 `PI 0x33` (0, 1, 4, 5) con el disco de BMO-X en el 2 y
+    // TODOS los demas con DET 0. En Windows el SSD de D: SI esta en este
+    // controlador ("Port 4" el de BMO-X, "Port 5" el de D:). En esta placa
+    // `PI` no dice que puertos hay, y un puerto que el firmware no encendio
+    // dice DET 0 aunque tenga un disco detras. Asi que:
     //
-    // 1. SEGUNDA OPORTUNIDAD a los puertos con un aparato PRESENTE sin enlace
-    //    (DET 1) o con el PHY fuera (DET 4): el mismo COMRESET del censo, en
-    //    ese puerto solo (`bmo_ahci::reanimar`). Uno vacio (DET 0) no, que
-    //    cuesta 1,5 s de espera por nada.
-    // 2. El detalle de "no hay otro" dice lo que vio CADA puerto: los que el
-    //    HBA declara (PI, 8 bits), el DET de los 8 primeros (4 bits cada uno) y
-    //    cuales traen firma de disco SATA. Asi se sabe si D: esta en un puerto
-    //    sin enlace o en otro controlador, sin adivinar.
+    // 1. Si ningun otro puerto tiene disco, SEGUNDA OPORTUNIDAD a todos los
+    //    de `NP` menos el de BMO-X, juntos y con UNA espera (hasta 1,5 s, y
+    //    solo el arranque que no lo encuentra): arrancar el disco (SSS),
+    //    COMRESET, esperar (`bmo_ahci::reanimar`). Un puerto con enlace no se
+    //    toca, y el de BMO-X tampoco.
+    // 2. El detalle de "no hay otro" dice lo que vio CADA puerto DESPUES: los
+    //    que el HBA declara (PI, 8 bits), el DET de los 8 primeros (4 bits
+    //    cada uno) y cuales traen firma de disco SATA.
     let n = (ctrl.port_count as usize).min(8);
-    for i in 0..n {
-        let det = ctrl.ports[i].ssts & 0xF;
-        if i as u8 != suyo && (det == 1 || det == 4) {
-            // SAFETY: un puerto sin enlace: no tiene nada en marcha que romper.
-            let vivo = unsafe { bmo_ahci::reanimar(i as u8) };
-            crate::ring0::cabina::info("disk", if vivo { "N1a: puerto REANIMADO; puerto" } else { "N1a: puerto sin enlace tras reintentar; puerto" }, i as u64);
-        }
+    let otro = (0..n).any(|i| {
+        let pt = &ctrl.ports[i];
+        i as u8 != suyo && pt.state == bmo_ahci::PortState::Active && pt.signature == bmo_ahci::SIG_SATA_DISK
+    });
+    if !otro {
+        let mascara = ((1u32 << n) - 1) & !(1u32 << suyo);
+        // SAFETY: puertos SIN enlace (los activos se saltan dentro): no tienen
+        // nada en marcha que romper, y el de BMO-X queda fuera de la mascara.
+        let vivos = unsafe { bmo_ahci::reanimar(mascara) };
+        crate::ring0::cabina::info("disk", "N1a: segunda oportunidad a los puertos sin enlace; ahora vivos (mascara)", vivos as u64);
     }
     let Some(ctrl) = bmo_ahci::controller() else { return };
     let mut det = 0u64;
