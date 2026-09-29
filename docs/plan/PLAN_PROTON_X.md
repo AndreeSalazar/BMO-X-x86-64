@@ -618,7 +618,18 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     copia (C7B5) EN el canal GR, tras un semaforo; y que el
                     kernel, al oir un RC_TRIGGERED, marque el canal muerto y
                     diga NO al instante (y el juez niegue Z sin sombra).
-               4c.6c [HECHO banco, FALTA el metal] LA SOMBRA (29-09, Ring 0
+               4c.6c [VISTO EN EL METAL 28-09 22:36] `gpu verrano bmox12 30
+                    z`: IGUAL (huella 0x2b3985e93e1a6574, la de D3D12), la
+                    3060 en 1176 us; `ambas`: DISTINTO (74648 pixeles), como
+                    tocaba. `run sys/proton-x.bex window/bmox12.exe`: "la 3060
+                    dibuja los lotes", 59-90 fps (dibujar 10-15 ms) contra
+                    34-36 de la CPU. El cuello NO es la 3060 (1 ms por
+                    fotograma): es el camino -- un syscall que ESPERA cada
+                    lote, el prestamo del back buffer (900 paginas) y su
+                    devolucion, la sombra (3,6 MB) copiada por un PCIe en
+                    Gen1 (lo que el GSP-RM deja al arrancar) y el RM en P5.
+                    Lo siguiente es MEDIRLO por partes.
+               4c.6c [HECHO banco] LA SOMBRA (29-09, Ring 0
                     dicho que si por el propietario): `bmo_gpu_ga10x::sombra`
                     -- el color A8R8G8B8 BLOQUE-LINEAL en VRAM 0x0A40_0000
                     (tras la Z), VA 0x9_0000_0000, kind generico 0x06, el
