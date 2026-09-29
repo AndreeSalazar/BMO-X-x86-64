@@ -38,6 +38,9 @@ pub mod destino;
 /// P3b4c: la PROFUNDIDAD en la 3060 -- la superficie ZF32 en VRAM y la
 /// regla de D3D12, la prueba la hace el hardware (2026-09-28).
 pub mod profundidad;
+/// P3b4c.6b: la SOMBRA del color -- con Z, el color va en bloque a la VRAM
+/// y el motor de copia lo lleva al destino pitch (2026-09-29).
+pub mod sombra;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;

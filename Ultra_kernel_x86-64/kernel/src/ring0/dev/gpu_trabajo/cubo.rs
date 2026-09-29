@@ -344,6 +344,17 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
             return Err(m);
         }
     }
+    // ** P3b4c.6b: con Z, el color va a la SOMBRA en bloque (la 3060 no
+    // dibuja con Z sobre un color pitch: Xid 69 en el metal, 28-09) y el
+    // motor de copia la lleva al destino. `sombra` = la ventana pitch donde
+    // acaba y si hay que cargar la sombra antes.
+    let sombra = bmo_gpu_ga10x::sombra::plan(&v, &paquete.dibujo);
+    if sombra.is_some() {
+        if let Err(m) = mapear_sombra(bar0) {
+            BLUR_EN_MARCHA.store(false, Ordering::Release);
+            return Err(m);
+        }
+    }
     let prestado = match paquete.dibujo.destino {
         None => None,
         Some((va_app, dst)) => match prestar_destino(bar0, pid, va_app, &dst) {
@@ -376,7 +387,22 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
         preparar_ciclos = crate::ring0::task::scheduler::rdtsc() - desde;
         bien
     };
-    let r = super::volcado::quieto().and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar));
+    let r = super::volcado::quieto()
+        .and_then(|()| match sombra {
+            // Lo que la app ya pinto en su back buffer, DEBAJO del dibujo.
+            Some((w, true)) => super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, true).map(|_| ()),
+            _ => Ok(()),
+        })
+        .and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar))
+        .map(|x| match sombra {
+            // Pagado el dibujo, la sombra al destino; si la copia no se paga,
+            // el destino NO tiene el dibujo: se dice como un dibujo no pagado.
+            Some((w, _)) if cu::sano(x) => match super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, false) {
+                Ok(_) => x,
+                Err(_) => cu::sin_dibujo(x),
+            },
+            _ => x,
+        });
     BLUR_EN_MARCHA.store(false, Ordering::Release);
     if let Some(paginas) = prestado {
         if crate::ring0::plat::iommu::devolver_gpu(bmo_gpu_ga10x::destino::IOVA, paginas).is_err() {
@@ -412,6 +438,28 @@ fn mapear_z(bar0: u64) -> Result<(), u32> {
         }
         _ => {
             crate::ring0::cabina::warn("gpu", "P3b4c: las tablas de la Z no se escribieron o no se releyeron", 0);
+            Err(IOMMU_NO_BLUR_PREPARAR)
+        }
+    }
+}
+
+/// Las tablas de la sombra del color, escritas (una vez por arranque).
+static SOMBRA_MAPEADA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **P3b4c.6b: la sombra del color** en `sombra::VA`, una vez: como la Z,
+/// VRAM de la 3060 que no se mueve ni se presta.
+fn mapear_sombra(bar0: u64) -> Result<(), u32> {
+    if SOMBRA_MAPEADA.load(Ordering::Acquire) {
+        return Ok(());
+    }
+    match bmo_gpu_ga10x::sombra::mapear(&mut Bar0(bar0)) {
+        Some((n, bien)) if n == bien => {
+            SOMBRA_MAPEADA.store(true, Ordering::Release);
+            crate::ring0::cabina::count("gpu", "P3b4c.6b: la SOMBRA del color MAPEADA (A8R8G8B8 bloque-lineal junto a la Z); entradas", n as u64);
+            Ok(())
+        }
+        _ => {
+            crate::ring0::cabina::warn("gpu", "P3b4c.6b: las tablas de la sombra no se escribieron o no se releyeron", 0);
             Err(IOMMU_NO_BLUR_PREPARAR)
         }
     }

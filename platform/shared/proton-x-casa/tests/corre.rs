@@ -868,8 +868,8 @@ struct La3060 {
     recetas: usize,
     z_limpias: usize,
     rt_limpios: usize,
-    /// Lotes con Z que la puerta de la app NO mando (y dijo por que).
-    z_negadas: usize,
+    /// Lotes con Z que la puerta de la app SI manda (la sombra del kernel).
+    z_mandadas: usize,
 }
 static LA3060: Mutex<Option<La3060>> = Mutex::new(None);
 
@@ -955,12 +955,16 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
     let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true };
     b.z_limpias += l.limpiar_z.is_some() as usize;
     b.rt_limpios += l.limpiar_rt.is_some() as usize;
-    // La puerta de la APP (la de siempre) NO manda un lote con Z: con el
-    // back buffer pitch la 3060 da Xid 69 (el metal, 28-09). Lo dice.
+    // La puerta de la APP (la de siempre) SI manda un lote con Z: el kernel
+    // lo dibuja en su SOMBRA en bloque y la copia al back buffer (P3b4c.6b;
+    // sin ella fue Xid 69 en el metal, 28-09). Apagada, lo niega y dice por que.
     if l.reglas.profundidad.is_some() {
-        match bmo_proton_x_sm86::puerta::Puerta::nueva().preparar(l, blanco) {
-            Err(e) if e.contains("Z sobre un color PITCH") && e.contains("Xid 69") => b.z_negadas += 1,
-            otro => b.fallos.push(format!("la puerta de la app manda un lote con Z a un color pitch: {otro:?}")),
+        b.z_mandadas += b.puerta.z_a_la_3060 as usize;
+        let mut sin_sombra = bmo_proton_x_sm86::puerta::Puerta::nueva();
+        sin_sombra.z_a_la_3060 = false;
+        match sin_sombra.preparar(l, blanco) {
+            Err(e) if e.contains("Z sobre un color PITCH") && e.contains("Xid 69") => {}
+            otro => b.fallos.push(format!("sin la sombra, un lote con Z iria a un color pitch: {otro:?}")),
         }
     }
     match b.puerta.preparar(l, blanco) {
@@ -986,14 +990,6 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
         }
         Err(e) => b.fallos.push(format!("la puerta dice que no: {e}")),
     }
-}
-
-/// La puerta del banco: manda la Z, para comprobar la receta que el kernel
-/// recibira cuando dibuje en su sombra en bloque.
-fn con_z_en_pitch() -> bmo_proton_x_sm86::puerta::Puerta {
-    let mut p = bmo_proton_x_sm86::puerta::Puerta::nueva();
-    p.z_en_pitch = true;
-    p
 }
 
 const BMOX12: &[u8] = include_bytes!("../../proton-x/prueba/bmox12.exe");
@@ -1076,7 +1072,7 @@ fn bmox12_exe_su_pso_va_a_la_3060_pagando_una_vez() {
     let esc = 1 << 8 | 1 << 9 | 0x01;
     let mut guion = vec![0u64; 40];
     guion.push(esc);
-    *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new(), puerta: con_z_en_pitch(), recetas: 0, z_limpias: 0, rt_limpios: 0, z_negadas: 0 });
+    *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new(), puerta: bmo_proton_x_sm86::puerta::Puerta::nueva(), recetas: 0, z_limpias: 0, rt_limpios: 0, z_mandadas: 0 });
     let (salio, texto) = correr_bmox12(&uno, true, "", &guion);
     let b = LA3060.lock().unwrap().take().unwrap();
     assert_eq!(salio, 0, "{texto}");
@@ -1087,7 +1083,7 @@ fn bmox12_exe_su_pso_va_a_la_3060_pagando_una_vez() {
     assert_eq!(b.recetas, b.lotes, "cada lote, por la puerta, con los mismos programas");
     assert_eq!(b.z_limpias, b.lotes, "BMOX-12 limpia la Z antes de cada fotograma: la 3060 la limpia con el");
     assert_eq!(b.rt_limpios, b.lotes, "y el back buffer: lo limpia la 3060, no la CPU");
-    assert_eq!(b.z_negadas, b.lotes, "la puerta de la app no manda la Z a un color pitch (Xid 69), y lo dice");
+    assert_eq!(b.z_mandadas, b.lotes, "la puerta de la app manda la Z: el kernel la dibuja en su sombra");
     eprintln!("bmox12 para la 3060: {} lotes, {} vertices comprobados, DATOS de {} B", b.lotes, b.vertices, b.datos_max);
 }
 

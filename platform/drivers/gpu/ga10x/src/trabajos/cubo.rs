@@ -462,6 +462,13 @@ pub const fn empaquetar(us: u32, n: u32, etapas: u32, lanzado: bool) -> u64 {
     us as u64 | (n as u64 & 0xFF) << 32 | (etapas as u64 & 0x7) << 40 | (lanzado as u64) << 43
 }
 
+/// El mismo `Ok` con el escalon del DIBUJO caido (P3b4c.6b: la 3060 dibujo
+/// en la sombra, pero la copia al destino no se pago: el destino no tiene el
+/// dibujo, y quien lo pidio tiene que saberlo).
+pub const fn sin_dibujo(v: u64) -> u64 {
+    v & !(0b100 << 40)
+}
+
 /// `(us, triangulos, etapas, lanzado)`.
 pub const fn desempaquetar(v: u64) -> (u32, u32, u32, bool) {
     (v as u32, (v >> 32) as u32 & 0xFF, (v >> 40) as u32 & 0x7, v >> 43 & 1 != 0)

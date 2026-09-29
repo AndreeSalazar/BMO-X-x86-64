@@ -430,6 +430,56 @@ pub(super) fn quieto() -> Result<(), u32> {
     Ok(())
 }
 
+/// **P3b4c.6b: una copia de la SOMBRA del color** por el canal de copia
+/// (`bmo_gpu_ga10x::sombra`): de la ventana pitch a la sombra en bloque
+/// (`a_la_sombra`) o al reves. Comparte con el volcado su canal y su GPFIFO:
+/// va con su cerrojo, la ultima tanda del escritorio PAGADA antes (esta pisa
+/// la entrada siguiente), y se espera a que la 3060 pague la copia -- quien
+/// la pide lee o dibuja sobre lo copiado justo despues. `Ok(us)`.
+pub(super) fn copia_de_sombra(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana, a_la_sombra: bool) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::sombra as so;
+    let Some(ficha) = crate::ring0::dev::gpu_libos::timbre_de_copia() else {
+        crate::ring0::cabina::warn("gpu", "P3b4c.6b: sin el canal de copia (L1d3) no hay sombra que copiar", 0);
+        return Err(IOMMU_NO_VOLCADO);
+    };
+    if EN_MARCHA.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_VOLCADO);
+    }
+    let hecho = (|| {
+        let n = NUMERO.load(Ordering::Acquire);
+        if ARMADO.load(Ordering::Acquire) && n != 0 && !vl::pagada(r, n) {
+            esperar(r, n)?;
+        }
+        let e = ENTRADA.load(Ordering::Acquire);
+        if !so::preparar(r, e, &so::copia(v, a_la_sombra)) {
+            crate::ring0::cabina::warn("gpu", "P3b4c.6b: la copia de la sombra no quedo preparada; entrada", e as u64);
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        core::sync::atomic::fence(Ordering::SeqCst);
+        let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+        let desde = crate::ring0::task::scheduler::rdtsc();
+        if !vl::lanzar(r, ficha, e) {
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        ENTRADA.store(vl::siguiente(e), Ordering::Release);
+        loop {
+            let us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+            if so::pagada(r, a_la_sombra) {
+                return Ok(us);
+            }
+            if us >= COPIA_ESPERA_US {
+                crate::ring0::cabina::warn("gpu", "P3b4c.6b: la 3060 no pago la copia de la sombra (1 = a la sombra); sentido", a_la_sombra as u64);
+                return Err(IOMMU_NO_VOLCADO);
+            }
+            // Sin un giro nuevo (el trinquete E de `la-3060`): la espera de
+            // la 3060 de siempre, que cede el CPU pasados 20 ms.
+            super::esperando(us);
+        }
+    })();
+    EN_MARCHA.store(false, Ordering::Release);
+    hecho
+}
+
 /// La ultima tanda del volcado que `quieto` vio pagada.
 static QUIETO_VISTO: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
 

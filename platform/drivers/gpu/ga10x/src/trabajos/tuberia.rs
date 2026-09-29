@@ -657,7 +657,19 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
         Some((_, dst)) => (dst.ventana(), false),
         None => (*v, true),
     };
-    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar, None, REGISTROS);
+    // P3b4c.6b: con Z, el color va a la SOMBRA en bloque (la 3060 no dibuja
+    // con Z sobre un color pitch: Xid 69 en el metal). La limpieza de la
+    // ventana, entonces, en la sombra; y el motor de copia la lleva despues
+    // a `v` (el kernel, `sombra::copia`).
+    let mut e = cu::hasta_el_dibujo_de(&v, !ligero, limpiar && d.z.is_none(), None, REGISTROS);
+    if d.z.is_some() {
+        crate::sombra::al_color(&mut e, &v);
+        if limpiar {
+            e.m(crate::tresde::SET_CLEAR_SURFACE_CONTROL, &[0]);
+            e.m(crate::tresde::CLEAR_SURFACE, &[crate::tresde::LIMPIAR_RGBA]);
+            e.m(crate::tresde::WAIT_FOR_IDLE, &[0]);
+        }
+    }
     if d.descarte != Descarte::Ninguna {
         e.m(OGL_SET_FRONT_FACE, &[if d.antihorario { DELANTE_ANTIHORARIO } else { DELANTE_HORARIO }]);
         e.m(OGL_SET_CULL_FACE, &[if d.descarte == Descarte::Traseras { CULL_TRASERAS } else { CULL_DELANTERAS }]);
@@ -964,6 +976,38 @@ mod pruebas {
         // Sin destino, la pantalla y limpiando, como siempre.
         let o = ordenes_dibujo(&v, 1, true, Dibujo::default());
         assert!(o.o[..o.n].contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)));
+    }
+
+    /// P3b4c.6b: con Z, el color NO se queda en el pitch (Xid 69 en el
+    /// metal): el ultimo destino de color antes de la Z es la SOMBRA en
+    /// bloque, y lo que se limpia se limpia en ella, nunca en el pitch.
+    #[test]
+    fn con_z_el_color_va_a_la_sombra() {
+        use crate::tresde as td;
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let z = Some(crate::profundidad::Z { funcion: 2, escribir: true, limpiar: Some(crate::profundidad::UNO) });
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let ct = crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8);
+        let limpia = crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1);
+        let zt = crate::copia::cabecera_en(0, crate::profundidad::SET_ZT_A, 5);
+        for (d, limpias) in [
+            (Dibujo { vertices: 3, z, ..Dibujo::default() }, 2),
+            (Dibujo { vertices: 3, z, destino: Some((0x1000_0000, dst)), color: Some(0xFF00_0000), ..Dibujo::default() }, 2),
+            (Dibujo { vertices: 3, z, destino: Some((0x1000_0000, dst)), ..Dibujo::default() }, 1),
+        ] {
+            let o = ordenes_dibujo(&v, 1, true, d);
+            let w = &o.o[..o.n];
+            let ultimo = w.iter().rposition(|&x| x == ct).unwrap();
+            let i_zt = w.iter().position(|&x| x == zt).unwrap();
+            assert!(ultimo < i_zt, "el color cambia ANTES de encender la Z");
+            let s = crate::sombra::VA;
+            let formato = if d.destino.is_some() { crate::cubo::FORMATO_RGB } else { td::FORMATO };
+            assert_eq!(&w[ultimo + 1..ultimo + 9], &[(s >> 32) as u32, s as u32, 1280, 720, formato, crate::sombra::MEMORIA_BLOQUE, 1, (crate::sombra::BYTES >> 2) as u32]);
+            let limpiezas: std::vec::Vec<usize> = w.iter().enumerate().filter(|&(_, &x)| x == limpia).map(|(k, _)| k).collect();
+            assert_eq!(limpiezas.len(), limpias, "{d:?}");
+            assert!(limpiezas.iter().all(|&k| k > ultimo), "nada se limpia en el pitch: {d:?}");
+        }
     }
 
     fn programa_de<const N: usize>(p: &[u32; N]) -> std::vec::Vec<u8> {

@@ -618,6 +618,30 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     copia (C7B5) EN el canal GR, tras un semaforo; y que el
                     kernel, al oir un RC_TRIGGERED, marque el canal muerto y
                     diga NO al instante (y el juez niegue Z sin sombra).
+               4c.6c [HECHO banco, FALTA el metal] LA SOMBRA (29-09, Ring 0
+                    dicho que si por el propietario): `bmo_gpu_ga10x::sombra`
+                    -- el color A8R8G8B8 BLOQUE-LINEAL en VRAM 0x0A40_0000
+                    (tras la Z), VA 0x9_0000_0000, kind generico 0x06, el
+                    mismo bloque que la Z (16 GOBs). Con Z, `ordenes_dibujo`
+                    pone el destino de color en la sombra ANTES de encender
+                    la Z, y toda limpieza va a ella, nunca al pitch. El
+                    kernel (`en_frio`): (1) si nadie limpia el color, el
+                    destino -> la sombra; (2) el dibujo; (3) pagado, la
+                    sombra -> el destino (la ventana de la pantalla o el back
+                    buffer de la app). Las copias van por el canal de COPIA
+                    (COPY2, el del volcado: `volcado::copia_de_sombra`, con
+                    su cerrojo y su GPFIFO, ordenes en +0xC00 y semaforo en
+                    +0x200), `SET_SRC/DST_BLOCK_SIZE` 0x1040 y el ORIGIN X/Y
+                    de Pascal+. Si la copia final no se paga, el dibujo se
+                    dice NO pagado (`cubo::sin_dibujo`). La puerta de la app
+                    manda ya la Z (`puerta::Z_EN_LA_SOMBRA`). Sin un giro
+                    nuevo (trinquete E: 11); pila 29662 de 40960.
+                    EN EL RYZEN, en este orden: `gpu verrano bmox12 30 z`
+                    tiene que dar IGUAL (y `ambas`, DISTINTO); luego `run
+                    sys/proton-x.bex window/bmox12.exe`, sin la linea "este
+                    lote va por la CPU" y con EL REGISTRO contra los 34-36
+                    fps de la CPU. Si la copia falla, la cabina dice
+                    "P3b4c.6b: la 3060 no pago la copia de la sombra".
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture
                     (29-09): `bmo_proton_x::textura` muestrea (punto y
                     bilineal con fraccion de 8 bits, los cinco modos de
