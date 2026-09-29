@@ -19,7 +19,7 @@ use super::Edit;
 use crate::commands::complete::complete;
 use crate::commands::{dispatch, parse, After, Command};
 use crate::desktop::Desktop;
-use crate::scene::output::{INK_ECHO, INK_PLAIN};
+use crate::scene::output::{INK_ECHO, INK_ERR, INK_PLAIN};
 use crate::scene::{paint_status, INK_DIM};
 use crate::PATH_MAX;
 
@@ -137,6 +137,25 @@ match c {
                 let tn = target.len().min(PATH_MAX);
                 buf[..tn].copy_from_slice(&target[..tn]);
                 return Edit::Launch(buf, tn);
+            }
+            // ** `personal censo <ruta>` (29-09) ES un `run` de PROTON-X: se
+            // lanza aqui mismo, como si se hubiera tecleado su linea. (Escribirla
+            // en el campo con un Enter inyectado no corria hasta la tecla
+            // siguiente: lo inyectado solo entra con entrada nueva.)
+            Command::PersonalCenso(ruta) => {
+                let mut buf = [0u8; PATH_MAX];
+                match crate::commands::files::linea_censo(ruta, &mut buf) {
+                    Some(tn) => {
+                        antes_de_proton_x(dsk, p, &buf[..tn]);
+                        return Edit::Launch(buf, tn);
+                    }
+                    None => {
+                        dsk.out.grid.with_ink(INK_ERR);
+                        dsk.out.grid.text(b"  la ruta es demasiado larga para los argumentos de PROTON-X (96 bytes)\n");
+                        dsk.out.grid.with_ink(INK_PLAIN);
+                        dsk.field.n = 0;
+                    }
+                }
             }
             // `run` NO baja a `commands/`: es la unica orden
             // que se lleva la pantalla y la entrada POR VALOR, y
