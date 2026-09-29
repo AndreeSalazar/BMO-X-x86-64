@@ -14,6 +14,11 @@
 > inventa** formato de ejecutable. El cargador, la firma y el DIRECTOR no se
 > enteran de en que lenguaje se escribio (es lo que `PYTHON_MAESTRO` llama "BEF
 > enmascara el lenguaje").
+>
+> **Las palabras: en INGLES, ultra simplificadas** (decidido el 29-09): el
+> lenguaje, las ordenes de `titan` y las claves del `Titan.toml`. La PROSA de
+> este documento y lo que sale en pantalla siguen en castellano sin tilde, como
+> el resto de BMO-X.
 
 Escrito el **2026-09-29**, antes de una sola linea de codigo, con el mismo
 criterio que `INTI_MAESTRO.md` y `PYTHON_MAESTRO.md`: que esta conversacion no
@@ -31,16 +36,21 @@ Lo que pidio el propietario, en sus palabras:
 > hacer MAS que C++ ... es con 'cargo run' pero el toml tomar inspiracion con
 > mod, y todo organizado"*
 
+> *"TITAN++ podria llevar herencias de COBOL tambien debido robustez en
+> matematicas y FORTRAN con RUST en borrow checker"*
+
 ---
 
 ## 0. La respuesta corta
 
 ```text
-   el ALCANCE de C++        hace TODO: juegos, apps, herramientas, calculo
-   la SUPERFICIE de Python  pocas palabras, se lee de corrido
-   la SEGURIDAD de Rust     un comprobador de prestamos, sin recolector
-   y lo que SOLO BMO-X da   el comprobador conoce los prestamos del KERNEL
-                            y de la 3060, y los permisos del programa
+   el ALCANCE de C++          hace TODO: juegos, apps, herramientas, calculo
+   la SUPERFICIE de Python    pocas palabras (25), se lee de corrido
+   la SEGURIDAD de Rust       un comprobador de prestamos, sin recolector
+   los NUMEROS de COBOL       decimales exactos: el dinero no se redondea solo
+   las TABLAS de FORTRAN      arreglos enteros como valores, y su velocidad
+   y lo que SOLO BMO-X da     el comprobador conoce los prestamos del KERNEL
+                              y de la 3060, y los permisos del programa
 ```
 
 La ultima fila es la respuesta a *"puede hacer MAS que C++"*: C++ no sabe
@@ -48,7 +58,8 @@ nada del sistema en el que corre; TITAN++ nace sabiendo el de BMO-X (seccion 3).
 
 ```text
    TITAN++      lo que se CONSTRUYE: juegos, apps, herramientas, computo en la
-      |         3060. `titan run`, `Titan.toml`, modulos ordenados
+      |         3060. `titan run`, `Titan.toml`, modulos ordenados, y F1 lo
+      |         muestra como un GRAFO (4.5)
       v  llama a
    INTI         el lenguaje de la CPU y del sistema ("el C de BMO-X")
    VERRANO      dibujar con la 3060 (Ring 3)
@@ -78,13 +89,15 @@ seccion 6.
 |---|---|---|
 | el nombre | **TITAN++**, no "Rust++" | nombre propio, como INTI. "Rust" es marca de la Rust Foundation y su politica limita usarla en el nombre de otros lenguajes |
 | la extension | **`.titan`** | decidido |
+| las palabras | **ingles ultra simplificado**; la lista de 25 (4.4), ACEPTADA | decidido |
 | que es | un **lenguaje nuevo** | ni una libreria sobre rustc ni un traductor a Rust |
-| inspiracion | **C++ TOTAL en el alcance**; Python solo en el espiritu; Rust en el comprobador | "hace TODO", y con pocas palabras (seccion 2 reconcilia las dos cosas) |
+| inspiracion | **C++ TOTAL en el alcance**; Python solo en el espiritu; Rust en el comprobador; **COBOL** en los numeros; **FORTRAN** en las tablas | "hace TODO", con pocas palabras (secciones 2 y 2b) |
 | para que | apps con ventana, juegos, trabajo en la 3060, servicios, guiones, e IA | "TODO E TODO" |
 | la frontera con INTI | **A**: INTI = CPU / kernel / sistema; TITAN++ = lo que INTI no hace | cada uno con su motivo |
 | fundirlo con INTI | **NO** ("ni merga") | dos lenguajes, dos trabajos |
 | las apps que ya estan en INTI | **se quedan** (NAVEGAR y las demas) | no hay que migrar nada |
 | la herramienta | **tipo cargo**: `titan run`, `Titan.toml`, `mod` | "todo organizado" |
+| el taller (F1) | **un editor de NODOS**: el prototipo es Ultra-Omega, del propietario | seccion 4.5 y `plan/PLAN_ESTRUCTURA.md` seccion 8 |
 
 ** Y lo que esto REABRE: `docs/METAS.md` tenia "La lista de lenguajes"
 **CERRADA** desde el 17/18-09 por decision del propietario; el 29-09 la reabre
@@ -160,11 +173,77 @@ excepciones ni RTTI a proposito**. TITAN++ sigue la misma linea:
                                   INTI_MAESTRO)
    preprocesador y cabeceras      NO: modulos desde el primer dia (C++ tardo
                                   hasta C++20 en tenerlos y sigue con cabeceras)
-   herencia y jerarquias          NO: composicion + interfaces
+   herencia y jerarquias          NO: composicion + interfaces (`trait`)
    excepciones                    NO: los errores son datos, como en INTI
    cinco formas de inicializar    NO: una
    muros de errores de plantilla  NO: un generico dice que le falta, en una frase
 ```
+
+---
+
+## 2b. COBOL y FORTRAN: lo que se HEREDA (ideas, no sintaxis)
+
+El propietario, el 29-09: *"herencias de COBOL tambien debido robustez en
+matematicas y FORTRAN con RUST en borrow checker"*.
+
+Tiene sentido, y por una razon precisa: cada uno de los dos lleva DECADAS
+resolviendo UN problema mejor que nadie. Se hereda la **solucion**, no la
+sintaxis (COBOL tiene cientos de palabras reservadas; el techo de TITAN++ es 30).
+Y ninguno de los dos cuesta una palabra nueva: los dos entran como **TIPOS**.
+
+### 2b.1 De COBOL: el numero que no miente
+
+```text
+   el problema     0.1 + 0.2 = 0.30000000000000004 en coma flotante binaria.
+                   Con dinero eso es un error, no un redondeo
+   lo que COBOL    decimales de PUNTO FIJO: PIC 9(7)V99 son 7 enteros y 2
+   resolvio        decimales EXACTOS; y ON SIZE ERROR cuando no cabe
+   en TITAN++      un tipo `dec(9, 2)`: 9 digitos, 2 decimales, exacto
+                   desbordar NO trunca: es un error (como INTI y Ada)
+                   redondear es una llamada con NOMBRE: round(x, 2, half_even)
+```
+
+** Y esto ya lo pago INTI: `INTI_MAESTRO` 10.3 *"un solo `numero`, y exacto
+por defecto"*, con la ley de los 64 bits (10.3b). **TITAN++ usa la MISMA
+aritmetica decimal que INTI**, no otra: un `dec` que pasa de un lenguaje al
+otro vale lo mismo en los dos. La banca sigue siendo COBOL (`PLAN_BANCA.md`, el
+lenguaje extranjero se queda); lo que TITAN++ hereda es que sus apps (una
+tienda, una hoja de cuentas) no pierdan un centimo.
+
+### 2b.2 De FORTRAN: la tabla entera como valor, y su velocidad
+
+```text
+   el problema     calcular sobre millones de numeros sin escribir el bucle
+                   a mano, y que vaya a la velocidad del silicio
+   lo que FORTRAN  1. arreglos de VARIAS dimensiones como valores:
+   resolvio           A = B + C * 2.0 suma tablas enteras
+                   2. funciones ELEMENTALES: sqrt(A) se aplica a cada celda
+                   3. la regla de oro: los argumentos de una funcion NO SE
+                      SOLAPAN en memoria. Por eso el compilador puede ir
+                      mas rapido que en C, donde dos punteros pueden ser
+                      el mismo
+   en TITAN++      [f32; 1024] y [f32; n, m] como valores; A = B + C * 2.0;
+                   una funcion sin permisos (U2) y sin `mut` es ELEMENTAL
+                   sola: nadie la marca
+```
+
+*** **La conexion que hace buena la idea del propietario: la regla de oro de
+FORTRAN ES la ley de exclusividad del borrow checker.** FORTRAN la tiene como
+PROMESA del programador (si la rompe, el resultado es indefinido); TITAN++ la
+tiene DEMOSTRADA por el compilador (seccion 6). Un parametro `mut` no se solapa
+con nada: el emisor puede tratar el bucle como FORTRAN lo trata, y no hace
+falta ninguna palabra `restrict` de C. "FORTRAN con Rust en borrow checker" es
+exactamente eso: **la velocidad de FORTRAN, con la prueba de Rust**.
+
+Y la segunda conexion: una funcion ELEMENTAL sobre una tabla es justo lo que
+corre en la 3060. `gpu fn` aplicada a `[f32; n]` es un trabajo de computo de
+`n` hilos (seccion 8).
+
+[!] Lo que NO se hereda de FORTRAN: `GOTO`, los `COMMON` (memoria global
+compartida), `EQUIVALENCE` (dos nombres para la misma memoria: rompe la
+exclusividad) y la columna fija. Y la vectorizacion SIMD no es automatica
+(`INTI_MAESTRO` 13.7): `A = B + C` baja a un bucle explicito o a la 3060, y el
+metro dice cuanto cuesta.
 
 ---
 
@@ -191,11 +270,11 @@ TITAN++ puede ser **el unico lenguaje cuyo comprobador conoce las tres**.
 Boceto (NO gramatica):
 
 ```text
-   buf = gpu.bufer(1024)
-   trabajo = gpu.lanza(sumar, cambia buf)   el bufer queda PRESTADO a la 3060
-   imprime(buf[0])                          NO compila: la 3060 aun lo tiene
-   espera(trabajo)
-   imprime(buf[0])                          bien
+   buf = gpu.buffer(1024)
+   job = gpu.launch(add, mut buf)     el bufer queda PRESTADO a la 3060
+   print(buf[0])                      NO compila: la 3060 aun lo tiene
+   wait(job)
+   print(buf[0])                      bien
 ```
 
 En C++ con CUDA ese error sale en ejecucion, a veces, con basura en pantalla.
@@ -210,14 +289,15 @@ En TITAN++ los permisos del `Titan.toml` (seccion 4) van a DOS sitios:
 ```text
    al .bex         el kernel concede o niega al lanzarlo   (como hoy)
    al compilador   una funcion que toca la red en un paquete que no pidio
-                   `red` NO COMPILA
+                   `net` NO COMPILA
 ```
 
 Antes de ejecutar un juego se sabe **exactamente** que puede tocar: si no pidio
-`red`, no hay una linea en el que pueda hablar con la red, y eso lo demostro el
+`net`, no hay una linea en el que pueda hablar con la red, y eso lo demostro el
 compilador, no una promesa. C++ no puede: no sabe que es un permiso. Hay
 lenguajes de investigacion con capacidades; ninguno tiene debajo un kernel que
-las haga cumplir.
+las haga cumplir. (Y de regalo: una funcion que no usa NINGUN permiso ni `mut`
+es pura, que es lo que la hace elemental en 2b.2.)
 
 ### U3. MODULAR dentro del compilador
 
@@ -227,19 +307,19 @@ el compilador:
 
 ```text
    cada modulo dice en UNA linea que hace          sin ella, no compila
-   cada modulo dice con que conecta (`usa`)        y el compilador lo compara
+   cada modulo dice con que conecta (`use`)        y el compilador lo compara
                                                    con lo que de verdad llama
    las capas solo bajan                            un ciclo es un error
 ```
 
 Un juego de TITAN++ **no se puede volver un monolito sin que el compilador lo
-diga**.
+diga**. Y ese mismo grafo de `use` es el que F1 dibuja (4.5).
 
 ### U4. El `.bex` lleva su fuente, y F1 lo abre
 
 La idea ya estaba en `INTI_MAESTRO` 13g.5: la seccion `Resources` (0x0B) del
 formato BEF puede llevar el fuente que produjo el `.bex`. En TITAN++, con
-`fuente = true` en el manifiesto:
+`source = true` en el manifiesto:
 
 ```text
    lo que corre es lo que puedes leer    y esta firmado
@@ -249,20 +329,17 @@ formato BEF puede llevar el fuente que produjo el `.bex`. En TITAN++, con
 
 ---
 
-## 4. La herramienta: `titan`, `Titan.toml` y los modulos
+## 4. La herramienta: `titan`, `Titan.toml`, los modulos, las palabras y F1
 
 ### 4.1 Las ordenes (como cargo)
 
 ```text
-   titan new asteroides    un paquete nuevo, con su Titan.toml y su src/
+   titan new asteroids     un paquete nuevo, con su Titan.toml y su src/
    titan check             tipos + comprobador, sin emitir nada (rapido)
    titan build             el .bex
    titan run               construir y lanzar
    titan test              las pruebas del paquete
 ```
-
-Los nombres en ingles como cargo, o en castellano como INTI: lo decide el
-propietario (seccion 13). Uno solo, no los dos.
 
 [!] **`titan run` choca con una regla de F1**, y hay que decirlo ahora:
 `PLAN_ESTRUCTURA.md` seccion 3 -- un `.bex` **no puede lanzar otro** (`EJECUTAR`
@@ -272,29 +349,29 @@ anfitrion (Windows), `titan run` no existe: alli solo hay `build`.
 
 ### 4.2 El manifiesto: `Titan.toml`
 
-Boceto; las CLAVES las decide el propietario con las palabras (seccion 13):
+Boceto (las claves en ingles, como el lenguaje):
 
 ```toml
-[paquete]
-nombre  = "asteroides"
+[package]
+name    = "asteroids"
 version = "0.1.0"
-edicion = "2026"
-fuente  = true            # U4: el .bex lleva su fuente
+edition = "2026"
+source  = true            # U4: el .bex lleva su fuente
 
-[permisos]                # U2: al .bex Y al compilador
-pantalla = true
-entrada  = true
-sonido   = true
-gpu      = "dibujo"       # "dibujo" | "computo"
-disco    = "lectura"      # solo su carpeta
-red      = false
+[permissions]             # U2: al .bex Y al compilador
+screen = true
+input  = true
+sound  = true
+gpu    = "draw"           # "draw" | "compute"
+disk   = "read"           # solo su carpeta
+net    = false
 
-[dependencias]
-fisica = { ruta = "../fisica" }
-motor  = { ruta = "../motor", huella = "sha256:..." }   # si cambia, no compila
+[dependencies]
+physics = { path = "../physics" }
+engine  = { path = "../engine", hash = "sha256:..." }   # si cambia, no compila
 
-[perfil.rapido]
-optimizar = 3
+[profile.fast]
+opt = 3
 ```
 
 ** **Sin registro de internet**, a proposito. Las dependencias van por RUTA, y
@@ -308,23 +385,83 @@ Rust tiene dos formas de poner un modulo en carpetas (`mod.rs` o `nombre.rs`
 junto a `nombre/`), y confunde. TITAN++ tiene UNA:
 
 ```text
-   asteroides/
+   asteroids/
       Titan.toml
       src/
-         main.titan        mod nave, roca, fisica
-         nave.titan
-         roca.titan
-         fisica.titan      mod choque          (fisica es carpeta Y fichero)
-         fisica/
-            choque.titan
+         main.titan        mod ship, rock, physics
+         ship.titan
+         rock.titan
+         physics.titan     mod collide         (physics es carpeta Y fichero)
+         physics/
+            collide.titan
 ```
 
 Y cada fichero empieza diciendo que es y con que conecta (U3):
 
 ```text
-   mod fisica "mueve los cuerpos y resuelve los choques"
-   usa nave, roca
+   mod physics "moves bodies and resolves collisions"
+   use ship, rock
 ```
+
+### 4.4 Las 25 palabras (ACEPTADAS el 29-09)
+
+```text
+   funciones y valores    fn  let  mut  take  return
+   decidir y repetir      if  else  match  for  in  while  break  continue
+   formas                 type  enum  trait
+   modulos                mod  use  pub
+   la 3060                gpu
+   logica                 true  false  and  or  not
+```
+
+| palabra | que hace |
+|---|---|
+| `fn` | una funcion |
+| `let` | nombra un valor; no cambia salvo que diga `mut` |
+| `mut` | se puede cambiar: un nombre (`let mut x`) o un parametro prestado para cambiarlo (seccion 6) |
+| `take` | el parametro SE QUEDA el valor: el que llama ya no lo tiene |
+| `return` | devuelve |
+| `if` `else` `match` | decidir; `match` exige cubrir todos los casos |
+| `for` `in` `while` `break` `continue` | repetir |
+| `type` | un registro con campos (y, si se pide, su forma exacta en bytes) |
+| `enum` | uno de varios casos, cada uno con sus datos |
+| `trait` | lo que una forma sabe hacer (sustituye a la herencia) |
+| `mod` `use` `pub` | modulos: cual es, con que conecta, que se ve desde fuera |
+| `gpu` | la funcion corre en la 3060 (seccion 8) |
+| `true` `false` `and` `or` `not` | logica, con palabras y no con `&&` `||` `!` |
+
+**El techo: 30.** Quedan 5 libres a proposito. Una palabra nueva entra solo si
+quita una confusion, y un guardian las cuenta (seccion 11). `dec`, `f32`,
+`[f32; n, m]` y demas son TIPOS, no palabras: no gastan techo. `wait`, `print`
+y `round` son funciones de la biblioteca.
+
+### 4.5 F1: el taller como GRAFO de nodos
+
+El propietario, el 29-09, con una captura de **Ultra-Omega** -- un editor de
+nodos suyo, en Rust y Vulkan, en Windows: *"ESTE ES EL F1 que voy a implementar
+en mi ESTRUCTURA ... asi tienen que ir para facilitar en TITAN++ con todo y
+organizar"*.
+
+Tiene sentido, y encaja mejor de lo que parece, por U3: **un programa TITAN++
+YA ES un grafo** -- sus modulos son los nodos y sus `use` son las aristas, y el
+compilador exige que las aristas solo bajen. El editor de nodos no inventa una
+estructura: **dibuja la que el compilador ya comprueba**.
+
+```text
+   en la captura                  en TITAN++
+   un nodo con cabecera RUST      un MODULO; la cabecera dice el lenguaje
+                                  (TITAN, INTI, C...): mezclar se ve
+   el titulo "Hola Mundo"         la linea que dice que hace (U3)
+   `source` dentro del nodo       el texto del .titan
+   los puertos in / out           out = sus `use`; in = quien lo usa
+   el EXPLORER (nodes/)           src/ y el Titan.toml
+   F5 Run                         titan build (y pedir al ESCRITORIO lanzar)
+   Tab Templates                  titan new con plantillas
+   Ctrl+Shift+P Commands          la consola del taller (ESTRUCTURA)
+```
+
+El plan del taller es de `plan/PLAN_ESTRUCTURA.md`, seccion 8, con sus reglas
+(la verdad es el texto, las aristas son dependencias y no flujo, F1 es opcional).
 
 ---
 
@@ -344,8 +481,7 @@ compilador**:
 ```
 
 No es una preferencia: es lo que F1 obliga. **rustc y cargo SI sirven de
-inspiracion**: la arquitectura (texto -> arbol -> tipos -> comprobador ->
-codigo) y la experiencia (`run`, el manifiesto, los modulos) se imitan; su
+inspiracion** (seccion 6.8): la arquitectura y la experiencia se imitan; su
 medida no.
 
 **Lo que F1 pide antes**, y hoy no esta:
@@ -377,10 +513,9 @@ seria otro C con otra ropa.
 
 ### 6.2 Por que el de Rust es pesado
 
-Razona sobre **tiempos de vida** (`'a`) que cruzan de una funcion a otra. Es de
-lo mas dificil de rustc (decenas de miles de lineas, y mucho tiempo de gente que
-no hacia otra cosa), y los tiempos de vida **se ven en la sintaxis**: `&'a mut
-T`. Lo contrario de "pocas palabras".
+Razona sobre **tiempos de vida** (`'a`) que cruzan de una funcion a otra, y los
+tiempos de vida **se ven en la sintaxis**: `&'a mut T`. Lo contrario de "pocas
+palabras". La medida exacta esta en 6.8.
 
 **Lo dificil de Rust no son sus palabras, son sus reglas.** Las reglas se
 pueden esconder; no se pueden borrar:
@@ -395,7 +530,7 @@ pueden esconder; no se pueden borrar:
 | | modelo | lo que escribe el programador | el comprobador |
 |---|---|---|---|
 | 1 | Rust tal cual: prestamos con tiempos de vida | `&`, `&mut`, `'a` | enorme; razona entre funciones |
-| **2** | **valores mutables** (Swift, Hylo) | cada parametro dice si **lee**, **cambia** o **se queda** el valor | **local, funcion a funcion** |
+| **2** | **valores mutables** (Swift, Hylo) | cada parametro dice si **lee**, **cambia** (`mut`) o **se queda** (`take`) el valor | **local, funcion a funcion** |
 | 3 | solo mover y copiar | nada | el mas chico: "no uses lo que ya entregaste" |
 
 ### 6.4 La eleccion: el modelo 2, construido desde el 3
@@ -409,27 +544,28 @@ pueden esconder; no se pueden borrar:
                        de la 3060
 ```
 
-Los modos de un parametro (las PALABRAS las elige el propietario):
+Los modos de un parametro:
 
 ```text
-   lee       el que llama sigue siendo el propietario            (por defecto)
-   cambia    se presta para cambiarlo; nadie mas lo toca mientras dura
-   se queda  el valor pasa a ser de la funcion
+   (nada)   LEE: el que llama sigue siendo el propietario      (por defecto)
+   mut      CAMBIA: se presta para cambiarlo; nadie mas lo toca mientras dura
+   take     SE QUEDA: el valor pasa a ser de la funcion
 ```
 
 Boceto (NO gramatica):
 
 ```text
-   fun mover(cambia jugador, lee mapa)
-       jugador.x = jugador.x + 1
-       si mapa.solido(jugador.x, jugador.y)
-           jugador.x = jugador.x - 1
+   fn step(mut player, map)
+       player.x = player.x + 1
+       if map.solid(player.x, player.y)
+           player.x = player.x - 1
 
-   mover(heroe, nivel)       bien
-   mover(heroe, heroe.mapa)  NO: `heroe` se CAMBIA y a la vez se LEE su mapa
+   step(hero, level)       bien
+   step(hero, hero.map)    NO: `hero` se CAMBIA y a la vez se LEE su mapa
 ```
 
-Sin un `&`, sin un `'a`.
+Sin un `&`, sin un `'a`: dos palabras (`mut`, `take`) hacen el trabajo de
+`&`, `&mut`, `'a` y `move`.
 
 ### 6.5 Lo que se pierde, dicho ahora
 
@@ -443,16 +579,105 @@ ya se escriben asi.
 Un comprobador que dice "no" sin porque es el que hace odiar a Rust. TITAN++
 hereda de INTI el **formato de cuatro partes**: que paso, donde, por que es un
 error, y como se arregla. Cada regla del comprobador entra con su programa roto
-de prueba, como el juez del SASS.
+de prueba, como el juez del SASS. (6.8 dice por que esto es la mitad del
+trabajo, medido.)
 
 ### 6.7 Los precedentes
 
 ```text
-   Swift   inout + la ley de exclusividad, en produccion desde hace una decada
+   Swift   inout + la ley de exclusividad (SE-0176), en produccion desde hace
+           casi una decada
    Hylo    "mutable value semantics": el modelo 2 llevado al extremo
    Mojo    sintaxis tipo Python + propiedad + GPU, pero con muchas palabras
    Rust    el origen de todo. Modelo 1
 ```
+
+### 6.8 Como se hizo el de rustc (investigado el 29-09)
+
+**1. Primero sobre el arbol, y fallo durante mucho tiempo.**
+Hasta la edicion 2018, un prestamo duraba lo que el bloque `{ }` que lo
+contenia (tiempos de vida "lexicos"). Eso rechazaba programas correctos: la RFC
+2094 (NLL, agosto de 2017) enumera los casos -- una referencia guardada en una
+variable, un prestamo en una rama de un `match` que bloqueaba las demas, un
+prestamo devuelto en una sola rama, y reasignar un `&mut`.
+
+**2. La solucion fue una representacion intermedia nueva: MIR.** Un grafo de
+bloques basicos, *"far less complex than the HIR"* (la guia de rustc). Con NLL,
+un tiempo de vida paso a ser **un conjunto de puntos del grafo**, calculado con
+restricciones de "sigue vivo aqui" y "este dura mas que aquel", iterando hasta
+que nada cambia.
+
+**3. Los siete pasos de hoy** (guia de rustc, `mir_borrowck`):
+
+```text
+   1  copia local del MIR
+   2  regiones nuevas en todo el MIR (replace_regions_in_mir)
+   3  flujo de datos: que se movio y cuando
+   4  segundo chequeo de tipos, que genera restricciones entre regiones
+   5  inferencia de regiones: donde tiene que valer cada tiempo de vida
+   6  que prestamos estan vivos en cada punto
+   7  recorrido final: cada accion contra los prestamos vivos, y los errores
+```
+
+**4. El caso dificil tardo de 2018 a 2026.** Devolver
+un prestamo en UNA sola rama (el "caso 3", un `get_mut` o valor por defecto en
+un `HashMap`) no lo resolvio NLL. Lo resuelve **Polonius alfa**, activado en
+nightly el 04-08-2026: sensible al flujo, acepta todo lo de NLL y mas, cuesta
+10-20 % de compilacion en algunos casos (el peor, 2-3x), y quieren
+estabilizarlo antes de fin de 2026.
+
+**5. Lo que mide, contado el 29-09** en `compiler/rustc_borrowck/src` por la API
+de GitHub:
+
+```text
+   63 ficheros, 1.533.464 bytes
+   diagnostics     640 KB   42 %   <- EXPLICAR el error
+   (raiz)          345 KB   22 %
+   type_check      262 KB   17 %   \
+   region_infer    168 KB   11 %    > las REGIONES: 36 %
+   polonius        107 KB    7 %   /
+   constraints      12 KB    1 %
+```
+
+*** **Casi la mitad del borrow checker de Rust es explicar por que dice NO. Y
+un tercio existe solo porque hay referencias guardadas con tiempos de vida.**
+
+**6. Lo que TITAN++ saca de ahi:**
+
+```text
+   L1  comprobar sobre una IR PROPIA con grafo de bloques, no sobre el arbol
+       (la leccion de rustc). La casa prohibe una IR compartida entre lenguajes
+       (toolchain/lang/cobol/cobol.md: "un cerebro compartido"): TITAN++ tiene
+       la suya, como INTI tiene su ir/
+   L2  con el modelo 2 DESAPARECE el 36 % de regiones: sin referencias
+       guardadas no hay tiempos de vida que deducir. Quedan el flujo de "ya lo
+       entregaste" y el choque de accesos, funcion por funcion
+   L3  el caso 3 que tardo de 2018 a 2026 NO EXISTE: una funcion no puede
+       devolver un prestamo; devuelve un valor o un indice
+   L4  los mensajes son el 42 %: el formato de cuatro partes va desde T1, y
+       cada regla con su programa roto
+   L5  una regla de ORDEN escrita: lo que solo se LEE se evalua antes de que
+       empiece un `mut`. Es `v.push(v.len())`, que Rust tuvo que parchear con
+       los "prestamos en dos fases"
+```
+
+### 6.9 Los esteroides: el comprobador que protege a BMO-X
+
+El mismo mecanismo -- en la IR, un acceso EMPIEZA y ACABA -- es el que Swift usa
+para la exclusividad local. TITAN++ lo lleva mas lejos, porque sabe de BMO-X:
+
+```text
+   acceso local        empieza en la llamada con `mut`, acaba al volver
+   prestamo al kernel  empieza en `offer`, acaba al devolver     (U1)
+   prestamo a la 3060  empieza en `gpu.launch`, acaba en `wait`  (U1)
+   un permiso          se comprueba en cada llamada a la puerta  (U2)
+   un asa del kernel   (una ventana, un fichero) es un valor con propietario:
+                       se devuelve UNA vez, al acabar su propietario, y no
+                       se puede usar despues
+```
+
+Lo que BMO-X hoy protege en ejecucion (el kernel dice NO con motivo), TITAN++
+lo protege ANTES: el programa que lo romperia no llega a compilarse.
 
 ---
 
@@ -481,18 +706,20 @@ TITAN++, falta esa palabra.
            platform/drivers/gpu/ga10x/COMO_LE_HABLA_NVIDIA.md, 3d)
 ```
 
-Las funciones de GPU de TITAN++ **bajan al subconjunto de SPIR-V** que la casa
-ya lleva a SASS: se reutilizan emisor y juez enteros. Y el prestamo de un bufer
-a la GPU es la U1.
+Las funciones `gpu fn` de TITAN++ **bajan al subconjunto de SPIR-V** que la casa
+ya lleva a SASS: se reutilizan emisor y juez enteros. Una `gpu fn` elemental
+(2b.2) aplicada a una tabla de `n` celdas es un trabajo de `n` hilos. Y el
+prestamo del bufer es la U1.
 
 ---
 
 ## 9. IA: los dos sentidos
 
 ```text
-   que una IA ESCRIBA TITAN++   pocas palabras + mensajes exactos + UNA forma de
+   que una IA ESCRIBA TITAN++   25 palabras + mensajes exactos + UNA forma de
                                 hacer cada cosa = menos errores al generarlo
-   cargas de IA EN la 3060      tensores: la seccion 8, y depende de lo mismo
+   cargas de IA EN la 3060      tensores: tablas de FORTRAN (2b.2) en la 3060
+                                (seccion 8), y depende de lanzar computo
 ```
 
 El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
@@ -505,6 +732,7 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
    NO es Python          no corre programas de Python (eso es PYTHON_MAESTRO)
    NO es Rust            no compila crates de crates.io ni usa rustc
    NO es C++             no lee C++ (para eso esta el frontend de C++)
+   NO es COBOL ni FORTRAN  hereda sus soluciones, no su sintaxis (2b)
    NO reemplaza al .bex  .titan es el fuente; lo que corre es un .bex (BEF2)
    NO escribe el kernel  el kernel y los drivers son la Rust base; el metal, INTI
    NO sustituye a INTI   INTI y sus apps se quedan
@@ -514,6 +742,7 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
                          no puede ver
    NO baja de internet   dependencias por ruta y con huella (4.2)
    NO es multiarquitectura  x86-64 en la CPU y sm_86 en la 3060
+   NO depende de F1      `titan build` funciona sin el editor de nodos
 ```
 
 ---
@@ -522,30 +751,33 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
 
 | riesgo | por que existe | que lo vigila |
 |---|---|---|
-| **crecer como C++** | C++ agrego durante cuatro decadas y nunca quito | un TECHO de palabras: la tabla de la gramatica tiene un maximo y un guardian lo cuenta, como el techo de no-ASCII. Una palabra nueva entra solo si quita una confusion |
+| **crecer como C++** | C++ agrego durante cuatro decadas y nunca quito | el TECHO de 30 palabras (4.4): un guardian cuenta la tabla de la gramatica, como el techo de no-ASCII. Una palabra nueva entra solo si quita una confusion |
 | **ABC**: "facil" ya fracaso | no se podia extender y obligaba a vivir en su entorno (`INTI_MAESTRO` seccion 2) | enlaza con C, INTI y REX desde el primer dia; F1 es opcional, no una jaula |
+| **el editor de nodos se vuelve la jaula** | si el grafo es la verdad, el codigo solo se puede leer con F1 | la verdad es el TEXTO (`.titan` + `Titan.toml`); el grafo es una vista (PLAN_ESTRUCTURA 8) |
 | un TERCER lenguaje propio | Rust base + INTI + TITAN++, una persona | la frontera de la seccion 1: si cabe en INTI, va en INTI |
-| el comprobador crece sin control | el de Rust es de lo mas grande de rustc | el modelo 2 es LOCAL por funcion; cada regla entra con su programa roto |
-| los juegos piden velocidad | "facil y lento" no sirve para juegos | el metro del emisor mide TITAN++ igual que a C e INTI |
-| las palabras cambian a mitad | una gramatica que se mueve rompe todo lo escrito | la gramatica la escribe el propietario ANTES del lexer (T0) |
+| el comprobador crece sin control | el de Rust mide 1,5 MB (6.8) | el modelo 2 quita las regiones; cada regla entra con su programa roto |
+| los juegos piden velocidad | "facil y lento" no sirve para juegos | el metro del emisor mide TITAN++ igual que a C e INTI; la exclusividad da la velocidad de FORTRAN (2b.2) |
+| las palabras cambian a mitad | una gramatica que se mueve rompe todo lo escrito | la lista de 25 se acepto el 29-09 y la gramatica se escribe ANTES del lexer (T0) |
 
 ---
 
 ## 12. El orden, un escalon cada vez
 
 ```text
-   T0  este documento + la GRAMATICA escrita por el propietario (las palabras,
-       las ordenes, las claves del Titan.toml)
+   T0  este documento + la GRAMATICA escrita por el propietario sobre las 25
+       palabras, las ordenes y las claves del Titan.toml
    T1  texto -> arbol, en el anfitrion; `titan check` lee Titan.toml y los
        modulos. Los mensajes ya en cuatro partes
-   T2  tipos + "ya lo entregaste" (paso A) + la linea de cada modulo y sus
-       `usa` (U3)
-   T3  `titan build`: un .bo por el emisor-x86_64, enlazado con bmo-enlazar, con
-       los [permisos] en el .bex (U2). Un "hola" en una ventana, visto en el Ryzen
+   T2  tipos (con `dec` y las tablas de 2b) + "ya lo entregaste" (paso A) + la
+       linea de cada modulo y sus `use` (U3)
+   T3  la IR propia (6.8, L1) y `titan build`: un .bo por el emisor-x86_64,
+       enlazado con bmo-enlazar, con los [permissions] en el .bex (U2). Un
+       "hola" en una ventana, visto en el Ryzen
    T4  la ley de exclusividad (paso B): el modelo 2 entero
-   T5  funciones de GPU -> SPIR-V -> SASS, y el prestamo a la 3060 (U1)
+   T5  `gpu fn` -> SPIR-V -> SASS, y el prestamo a la 3060 (U1)
                                    pide: lanzar computo en ga10x
-   T6  el compilador DENTRO de F1, `titan run`, y el .bex con su fuente (U4)
+   T6  el compilador DENTRO de F1, el grafo de nodos, `titan run`, y el .bex
+       con su fuente (U4)
                                    pide: ESTRUCTURA, el asignador de Ring 3 y el
                                    autohospedaje
 ```
@@ -558,11 +790,10 @@ estimacion de otro proyecto (LEY 24).
 ## 13. Lo que decide el propietario antes de T1
 
 1. ~~La extension~~ -> **`.titan`**, decidida el 29-09.
-2. **Las palabras**: castellano en ASCII como INTI, o ingles como cargo? Vale
-   para el lenguaje, las ordenes (`run` o `corre`) y las claves del
-   `Titan.toml`. Una sola eleccion para las tres.
+2. ~~Las palabras~~ -> **ingles ultra simplificado**, y la lista de 25 aceptada
+   el 29-09 (4.4). Techo propuesto: 30.
 3. **El modelo 2** (sin referencias guardadas, sin un `'a`): confirmado?
-4. **El techo de palabras**: cuantas como maximo? (Python tiene unas 35
-   palabras reservadas; C++ pasa de 90.)
-5. **El primer programa**: un juego chico, una app con ventana, o un calculo
+4. **El primer programa**: un juego chico, una app con ventana, o un calculo
    en la 3060? Decide que se construye primero en T3.
+5. **El editor de nodos**: donde se guardan las POSICIONES de los nodos --
+   dentro del `Titan.toml` o en un fichero aparte (PLAN_ESTRUCTURA 8)?

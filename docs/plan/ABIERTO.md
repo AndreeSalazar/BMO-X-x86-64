@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   379 casillas ABIERTAS en 43 planes
+   383 casillas ABIERTAS en 43 planes
    324 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -113,6 +113,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
+## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 11 abiertas, 1 hechas
+
+*PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
+
+- [ ] 1 F1 abre una ventana VACIA en `Ultra_userspace/services/director/
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
+- ... y 8 mas
+
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 2 hechas
 
 *PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
@@ -183,15 +192,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] pendiente [~] a medias, y se dice cuanto [x] hecho, con fecha
 - [ ] A1.3 -- el AP con reloj: un LAPIC timer propio, o el MWAITX con plazo
 - [ ] A2.1 -- bmo-orquesta: una clase de parte nueva, RESIDENTE, que no
-- ... y 4 mas
-
-## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 7 abiertas, 1 hechas
-
-*PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
-
-- [ ] 1 F1 abre una ventana VACIA en `Ultra_userspace/services/director/
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
 - ... y 4 mas
 
 ## [`PLAN_LA_MESA.md`](PLAN_LA_MESA.md) -- 7 abiertas, 2 hechas

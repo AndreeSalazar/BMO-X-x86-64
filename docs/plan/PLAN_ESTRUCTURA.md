@@ -298,8 +298,10 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
 
 ## 6. LO QUE **NO** ENTRA, Y SE DICE PARA QUE NO CREZCA SOLO
 
-* **Un editor.** ESTRUCTURA compila lo que hay en el disco. Editar es otra app
-  y otro plan.
+* ~~**Un editor.** ESTRUCTURA compila lo que hay en el disco. Editar es otra app
+  y otro plan.~~ **DEROGADO el 29-09 por el propietario**: F1 sera un editor de
+  NODOS para TITAN++ (seccion 8). Lo que sobrevive de la regla vieja es el
+  ORDEN: el editor va DESPUES del escalon 7, no antes.
 * **Los comandos de instrumentos.** Seccion 2. Si algun dia uno hace falta de
   verdad, se borra su prefijo de `VALKYRIE-ABI/FRONTERA.txt` **y se escribe por
   que** -- que es el momento en que la decision se toma a la vista.
@@ -319,6 +321,86 @@ desconocido"* deja al que lo teclea creyendo que falta trabajo.
 * **Llamarlo VALKYRIE.** Seccion 0.
 * **Empezar por el escalon 6** porque es el que se ve. Sin el 2, no hay ventana
   que lo muestre.
+
+---
+
+## 8. ** EL TALLER COMO GRAFO DE NODOS (29-09)
+
+> El propietario, con una captura de **Ultra-Omega** -- un editor de nodos suyo,
+> en Rust y Vulkan, en Windows: *"ESTE ES EL F1 que voy a implementar en mi
+> ESTRUCTURA el F1 asi tienen que ir para facilitar en TITAN++ con todo y
+> organizar"*. El lenguaje: [`docs/maestro/TITAN_MAESTRO.md`](../maestro/TITAN_MAESTRO.md).
+
+### 8.1 Lo que muestra la captura
+
+```text
+   arriba        File  Edit  View  Run
+   izquierda     EXPLORER: el espacio de trabajo y su carpeta nodes/
+   el lienzo     nodos con cabecera de color y el lenguaje (RUST), un titulo
+                 ("Hola Mundo", "Rust Node 2"), un puerto `in` y uno `out`, y
+                 dentro el `source` del nodo
+   abajo         F5 Run, Del Delete, Tab Templates, O Open,
+                 Ctrl+Shift+P Commands; cuantos nodos y enlaces; el zoom
+```
+
+### 8.2 Por que encaja: un programa TITAN++ YA ES un grafo
+
+`TITAN_MAESTRO` U3: cada modulo dice que hace y con que conecta (`use`), y el
+compilador exige que las dependencias solo bajen. **Los modulos son los nodos y
+los `use` son las aristas.** El editor no inventa una estructura: dibuja la que
+el compilador ya comprueba.
+
+```text
+   en Ultra-Omega                 en F1 con TITAN++
+   un nodo con cabecera RUST      un MODULO; la cabecera dice su lenguaje
+                                  (TITAN, INTI, C...)
+   el titulo del nodo             la linea que dice que hace el modulo
+   `source` dentro del nodo       el texto del .titan
+   out / in                       out = sus `use`; in = quien lo usa
+   EXPLORER / nodes/              src/ y el Titan.toml
+   F5 Run                         `titan build`, y pedir al ESCRITORIO lanzar
+   Tab Templates                  `titan new` con plantillas
+   Ctrl+Shift+P Commands          la consola del taller (los escalones 4-5)
+```
+
+### 8.3 Las reglas, para que el grafo no se vuelva una jaula
+
+1. **La verdad es el TEXTO.** Los `.titan` y el `Titan.toml` son lo que se
+   compila, se versiona y se lee sin F1. El grafo es una VISTA: las posiciones
+   de los nodos van aparte (donde, lo decide el propietario: `TITAN_MAESTRO`
+   13.5). Motivo: ABC murio por obligar a vivir en su entorno
+   (`INTI_MAESTRO` seccion 2), y `titan build` tiene que funcionar sin F1.
+2. **Una arista es una DEPENDENCIA, no un flujo de ejecucion.** Los editores
+   de nodos donde el cable es "lo que pasa despues" (los de programacion
+   visual) se vuelven un plato de espaguetis en cuanto el programa crece. Aqui
+   el cable es un `use`, y dibujar uno HACIA ARRIBA (un ciclo) el editor lo
+   rechaza con la misma regla y el mismo mensaje que el compilador.
+3. **F1 es un `.bex` de Ring 3.** Dibuja con REX y VERRANO, no con Vulkan:
+   Ultra-Omega en Windows es el PROTOTIPO del esquema, no el binario. Y la
+   frontera de la seccion 2 y el celo de la seccion 3 siguen igual: F5 no
+   lanza nada, se lo pide al ESCRITORIO.
+4. **Un grafo de FLUJO si tiene sitio, pero aparte y despues:** donde el
+   cable ES el dato -- la tuberia de la 3060, el sonido de LA MESA. Queda
+   anotado; no entra en estos escalones.
+
+### 8.4 Los escalones del editor (detras del 7)
+
+```text
+   [ ] 8  el lienzo: los modulos de un paquete como nodos, leidos de src/ y de
+          sus `use`, sin editar nada. Pide: el escalon 3 (dibujar) y el
+          frontend de TITAN++ hasta T2 (sabe leer `mod` y `use`)
+   [ ] 9  el texto del nodo se EDITA y se guarda en su .titan; `titan check`
+          marca el nodo que no compila
+   [ ] 10 dibujar un cable escribe un `use`; uno hacia arriba se rechaza
+   [ ] 11 F5: `titan build`, y el .bex se le ofrece al ESCRITORIO
+```
+
+| escalon | si esta bien | si falla |
+|---|---|---|
+| 8 | los nodos y cables son los mismos que dice `titan check` | el grafo miente: dibuja un `use` que no esta |
+| 9 | el .titan en disco cambia y compila | se edita el nodo y el fichero no cambia |
+| 10 | el cable y el `use` aparecen y desaparecen juntos | un ciclo se dibuja sin error |
+| 11 | el .bex aparece y el ESCRITORIO lo lanza con un clic | F1 intenta lanzarlo y el celo dice NO |
 
 ---
 
