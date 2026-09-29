@@ -208,6 +208,9 @@ pub fn copia(v: &Ventana, a_la_sombra: bool) -> [u32; ORDENES] {
 pub fn plan(v: &Ventana, d: &crate::tuberia::Dibujo) -> Option<(Ventana, bool)> {
     d.z?;
     Some(match d.destino {
+        // Z1: acaba en la pantalla; si la app no limpia, lo de debajo es lo
+        // que ya se ve.
+        Some(_) if d.pantalla => (*v, d.color.is_none()),
         Some((_, dst)) => (dst.ventana(), d.color.is_none()),
         None => (*v, false),
     })
@@ -290,6 +293,11 @@ mod pruebas {
         let con_destino = Dibujo { z, destino: Some((0x1000_0000, dst)), ..Dibujo::default() };
         assert_eq!(plan(&pantalla, &con_destino), Some((dst.ventana(), true)), "el back buffer sin limpiar: se CARGA");
         assert_eq!(plan(&pantalla, &Dibujo { color: Some(0), ..con_destino }), Some((dst.ventana(), false)));
+        // Z1: el back buffer va a la PANTALLA; si la app no limpia, se carga
+        // lo que ya se ve (no la RAM de la app, que no se presta).
+        let a_pantalla = Dibujo { cadena: true, pantalla: true, ..con_destino };
+        assert_eq!(plan(&pantalla, &a_pantalla), Some((pantalla, true)));
+        assert_eq!(plan(&pantalla, &Dibujo { color: Some(0), ..a_pantalla }), Some((pantalla, false)));
     }
 
     #[test]

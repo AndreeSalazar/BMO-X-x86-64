@@ -26,7 +26,7 @@
 use alloc::vec::Vec;
 
 use crate::com::{self, dar, de, nuevo, pide, vtabla, Guid, E_INVALIDARG, E_NOINTERFACE, S_OK};
-use crate::d3d12::{recurso, recurso_de, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
+use crate::d3d12::{recurso, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_FORMAT_R8G8B8A8_UNORM};
 use crate::{aviso, dir, plataforma, user32};
 
 use bmo_proton_x::registro::Registro;
@@ -112,7 +112,11 @@ extern "win64" fn create_swap_chain_for_hwnd(_this: u64, _cola: u64, hwnd: u64, 
         return E_INVALIDARG;
     }
     let (w, h) = (if w == 0 { sup.ancho } else { w }, if h == 0 { sup.alto } else { h });
-    let buffers = (0..n.clamp(1, 4)).map(|_| recurso(w, h, formato)).collect();
+    let buffers: Vec<u64> = (0..n.clamp(1, 4)).map(|_| recurso(w, h, formato)).collect();
+    for &b in &buffers {
+        // SAFETY: un Recurso de la casa, recien hecho.
+        unsafe { de::<crate::d3d12::Recurso>(b).cadena = true };
+    }
     let vt = vtabla::<{ com::SWAPCHAIN }>(&[(8, dir!(present)), (9, dir!(get_buffer)), (36, dir!(get_current_back_buffer_index))]);
     dar(pp, nuevo(com::SWAPCHAIN, vt, Cadena { hwnd, buffers, actual: 0 }) as u64)
 }
@@ -139,10 +143,14 @@ extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
     // Lo que se limpio y nadie dibujo encima, antes de mirarlo (P3b4c).
     crate::tuberia::aplicar_limpieza(c.buffers[c.actual]);
     // SAFETY: un Recurso de la casa.
-    let r = unsafe { recurso_de(c.buffers[c.actual]) };
+    let r = unsafe { de::<crate::d3d12::Recurso>(c.buffers[c.actual]) };
+    // ** P3b4c.9 Z1: si la 3060 lo puso YA en la pantalla, no hay nada que
+    // copiar: su RAM no tiene el fotograma, y la superficie no la compone
+    // nadie. Se olvida aqui: el siguiente fotograma lo vuelve a decir.
+    let en_pantalla = core::mem::take(&mut r.en_pantalla);
     // SAFETY: la superficie mide `stride * alto` pixeles y es de este proceso.
     let destino = unsafe { core::slice::from_raw_parts_mut(sup.pixeles, sup.stride as usize * sup.alto as usize) };
-    let (w, h) = (r.ancho.min(sup.ancho) as usize, r.alto.min(sup.alto) as usize);
+    let (w, h) = if en_pantalla { (0, 0) } else { (r.ancho.min(sup.ancho) as usize, r.alto.min(sup.alto) as usize) };
     for y in 0..h {
         let fila = &r.pixeles[y * r.ancho as usize..][..w];
         let dst = &mut destino[y * sup.stride as usize..][..w];

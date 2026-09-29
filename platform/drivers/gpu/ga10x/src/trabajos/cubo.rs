@@ -492,16 +492,31 @@ pub const fn copia_us(v: u64) -> u32 {
 }
 
 /// VERRANO (V1) le pone al `Ok` lo que costo PREPARAR: el bit 44 si fue EN
-/// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..63
-/// (hasta ~0,26 s; mas, satura). X5 los deja a cero.
+/// CALIENTE (`tuberia::preparar_caliente`) y los us de preparar en 45..61
+/// (hasta ~0,13 s; mas, satura: en caliente son ~11 us). X5 los deja a cero.
 pub const fn con_preparar(v: u64, caliente: bool, us: u64) -> u64 {
-    let us = if us > 0x3_FFFF { 0x3_FFFF } else { us };
-    v & ((1 << 44) - 1 | EN_VUELO) | (caliente as u64) << 44 | us << 45
+    let us = if us > 0x1_FFFF { 0x1_FFFF } else { us };
+    v & ((1 << 44) - 1 | EN_VUELO | A_PANTALLA) | (caliente as u64) << 44 | us << 45
 }
 
 /// `(en caliente, us de preparar)` de un `Ok` de VERRANO.
 pub const fn preparado(v: u64) -> (bool, u32) {
-    (v >> 44 & 1 != 0, (v >> 45) as u32 & 0x3_FFFF)
+    (v >> 44 & 1 != 0, (v >> 45) as u32 & 0x1_FFFF)
+}
+
+/// **P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA** (bit 62): la 3060 lo puso
+/// en la ventana que el escritorio le dio a la app, y la RAM de la app (su
+/// back buffer) NO se toco. Lo pone el kernel.
+pub const A_PANTALLA: u64 = 1 << 62;
+
+/// El `Ok` de un dibujo que quedo en la pantalla.
+pub const fn en_pantalla(v: u64) -> u64 {
+    v | A_PANTALLA
+}
+
+/// Si el dibujo quedo en la pantalla (y no en la RAM de la app).
+pub const fn a_pantalla(v: u64) -> bool {
+    v & A_PANTALLA != 0 && v & EN_VUELO == 0
 }
 
 /// **V1b, EL ANILLO (`anillo`)**: el bit 63 del `Ok` dice que el fotograma
@@ -571,7 +586,12 @@ mod pruebas {
         assert!(sano(v) && !es_en_vuelo(v));
         let w = con_preparar(en_vuelo(3, 97, 12), true, 1 << 30);
         assert!(es_en_vuelo(w) && sano(w));
-        assert_eq!(preparado(w), (true, 0x3_FFFF), "satura sin tocar el bit 63");
+        assert_eq!(preparado(w), (true, 0x1_FFFF), "satura sin tocar los bits 62 y 63");
+        // Z1: el bit 62 no pisa ni lo pisan.
+        let p = en_pantalla(con_copia(v, 40));
+        assert!(a_pantalla(p) && sano(p) && !a_pantalla(v));
+        assert_eq!((desempaquetar(p), preparado(p), copia_us(p)), (desempaquetar(v), preparado(v), 40));
+        assert!(a_pantalla(con_preparar(p, true, 1 << 30)), "preparar no lo borra");
         assert_eq!(desempaquetar(w), (3 | 97 << 16, 12, 0, true));
         assert_eq!(vuelo(w), (3, 97));
         assert_eq!(vuelo(en_vuelo(70_000, 1 << 20, 1)), (0xFFFF, 0xFFFF), "saturan");

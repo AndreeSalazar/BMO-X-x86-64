@@ -449,6 +449,11 @@ pub(crate) const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
 /// (VRN2) de un bloque suyo y la 3060 dibuja en SU RAM. `arg1` = la VA de la
 /// receta. Ver `dev/gpu_trabajo/cubo.rs::receta` y `op_maquina::iommu`.
 pub(crate) const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
+/// P3b4c.9 Z1: el ESCRITORIO le da la pantalla a una app (`arg1` = el tid
+/// de su tarea; 0 = a nadie): sus recetas con un back buffer de la cadena dibujan en la
+/// ventana de la pantalla y no en su RAM. Pasa por las dos llaves de
+/// `iommu_`. Ver `dev/gpu_trabajo/cubo.rs::pantalla_para`.
+pub(crate) const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -991,6 +996,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_IMAGEN_FORMATO => "GPU_IMAGEN_FORMATO",
         IOMMU_OP_GPU_IMAGEN => "GPU_IMAGEN",
         IOMMU_OP_GPU_DIBUJAR => "GPU_DIBUJAR",
+        IOMMU_OP_GPU_PANTALLA_PARA => "GPU_PANTALLA_PARA",
         _ => "?",
     }
 }

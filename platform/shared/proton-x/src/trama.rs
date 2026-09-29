@@ -93,6 +93,10 @@ pub struct Destino<'a> {
     /// estan en memoria), del mismo `ancho * alto`, o `None`: sin el, la
     /// prueba no se hace (como en D3D sin DSV).
     pub z: Option<&'a mut [u32]>,
+    /// P3b4c.9 Z1: es un back buffer de la cadena de intercambio (lo que
+    /// muestra `Present`, y nada mas lo lee): el ejecutor puede ponerlo
+    /// directo en la pantalla y NO en `pixeles` (lo dice `Cuenta::en_pantalla`).
+    pub cadena: bool,
 }
 
 /// Lo que paso.
@@ -106,6 +110,9 @@ pub struct Cuenta {
     pub sombreados: u64,
     /// Pixeles cubiertos que la prueba de profundidad dejo sin pintar.
     pub tapados: u64,
+    /// P3b4c.9 Z1: el dibujo quedo EN LA PANTALLA (la 3060, directo), no en
+    /// `Destino::pixeles`: `Present` no tiene nada que copiar.
+    pub en_pantalla: bool,
 }
 
 /// Redondeo con empates al PAR (el de `bmo_cubo::num::redondear_par`).

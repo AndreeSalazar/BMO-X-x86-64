@@ -359,6 +359,10 @@ fn presentar(va: u64, ancho: u32, alto: u32, ficha: u64, nuevo: bool) -> Result<
 pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla) -> bool {
     let mut manda = false;
     for i in 0..CAJAS {
+        if directa(t, i, p) {
+            manda = true;
+            continue;
+        }
         let Some((va, ancho, alto, seq)) = t.get(i).and_then(|s| s.para_la_3060()) else { continue };
         let Some(ficha) = la_3060_lista() else { continue };
         manda = true;
@@ -407,6 +411,55 @@ pub(crate) fn presentar_apps(t: &mut Table, p: &bmo::Pantalla) -> bool {
         }
     }
     manda
+}
+
+/// **P3b4c.9 Z1: una app que dibuja DIRECTO en la pantalla** (PROTON-X,
+/// `SUP_LA_3060_DIRECTA`). La primera vuelta: pantalla completa, en negro, y
+/// que `compose` no la pegue; la siguiente, el kernel le da la pantalla a su
+/// tid. Desde ahi sus recetas dibujan en la ventana de la pantalla y NADA
+/// pasa por la CPU ni por la RAM: el escritorio solo se aparta (sin cursor,
+/// sin volcar). Si la app deja de pedirlo, o el kernel dice que no, se le
+/// quita y vuelve a la CPU. `true` si esta app manda en la pantalla.
+fn directa(t: &mut Table, i: usize, p: &bmo::Pantalla) -> bool {
+    let Some(s) = t.get(i) else { return false };
+    let (pide, dada, tid) = (s.directa(), s.pantalla_dada, s.tid);
+    if !pide || la_3060_lista().is_none() {
+        if dada {
+            let _ = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA_PARA, 0);
+            if let Some(s) = t.get_mut(i) {
+                s.pantalla_dada = false;
+                s.sin_la_3060();
+            }
+            bmo::consola("[3060] la app deja la pantalla: vuelve a la CPU\n");
+        }
+        return false;
+    }
+    if !s.a_pantalla_completa() {
+        t.pantalla_completa(i, p);
+        p.rect(0, 0, p.ancho, p.alto, 0);
+        if let Some(s) = t.get_mut(i) {
+            s.reservada_para_la_3060();
+        }
+        return true;
+    }
+    if !dada {
+        let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA_PARA, tid as u64);
+        let Some(s) = t.get_mut(i) else { return false };
+        match r {
+            Ok(_) => {
+                s.pantalla_dada = true;
+                bmo::consola("[3060] la app dibuja DIRECTO en la pantalla (Z1): el fotograma no sale de la VRAM\n");
+            }
+            Err(m) => {
+                s.sin_la_3060();
+                bmo::consola("[3060] la pantalla no se le pudo dar a la app: ");
+                bmo::consola(core::str::from_utf8(super::super::iommu::motivo(m)).unwrap_or("?"));
+                bmo::consola("\n");
+                return false;
+            }
+        }
+    }
+    true
 }
 
 /// **`gpu doom`**: DOOM por la 3060. Lanza `apps/doom.bex 3060` por la misma

@@ -301,6 +301,9 @@ pub const IMAGEN_PRESTADO: u64 = 1 << 62;
 /// P3b4c: la puerta de las apps -- una RECETA (VRN2) a la 3060, que dibuja en
 /// la RAM de quien la manda. Sin la autoridad `MAQUINA`.
 pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
+/// P3b4c.9 Z1: el escritorio le da la pantalla a la app de la tarea `arg1`
+/// (su tid; 0 = a nadie). Solo el escritorio (las dos llaves de la IOMMU).
+pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;
@@ -754,6 +757,9 @@ pub const SUP_MAGIC: u64 = 0x5055_5342;
 pub const SUP_CABECERA: u64 = 32;
 pub const SUP_BGRA32: u64 = 0;
 pub const SUP_A_LA_3060: u64 = 1;
+/// P3b4c.9 Z1: la app dibuja directo en la pantalla por la 3060 (PROTON-X):
+/// el escritorio la pone a pantalla completa y le da la pantalla.
+pub const SUP_LA_3060_DIRECTA: u64 = 2;
 pub const SUP_CAMPO_SECUENCIA: u64 = 5;
 pub const SUP_BUZON_CABECERA: u64 = 16;
 pub const SUP_BUZON_RANURA: u64 = 8;

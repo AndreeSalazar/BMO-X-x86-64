@@ -331,6 +331,15 @@ pub struct Dibujo {
     /// P3b4c.8 T2: cuantas texturas lee el de pixel (sus TIC y TSC, en las
     /// piscinas de `texturas`, los escribe el kernel). Solo la receta.
     pub texturas: u8,
+    /// P3b4c.9 Z1: el destino es un BACK BUFFER de la cadena de intercambio
+    /// (la receta, +88 bit 0): lo que la app muestra en `Present`, y nada mas
+    /// lo lee. Solo eso puede ir directo a la pantalla.
+    pub cadena: bool,
+    /// P3b4c.9 Z1: lo decide el KERNEL, nunca la app (la receta no lo
+    /// lleva): el dibujo va a la ventana de la pantalla que el ESCRITORIO le
+    /// dio (`gpu_trabajo::pantalla_para`), no a la RAM de la app; el destino
+    /// queda para sus medidas y su formato (el de `color`), sin prestarlo.
+    pub pantalla: bool,
 }
 
 /// Los cuatro canales (R, G, B, A) de un pixel de 8 bits como floats de
@@ -475,7 +484,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0 })
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None, texturas: 0, cadena: false, pantalla: false })
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -657,6 +666,8 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
     // Con destino, la RAM de la app y SIN limpiar: el juego limpia su back
     // buffer (ClearRenderTargetView) antes de dibujar en el.
     let (v, limpiar) = match d.destino {
+        // Z1: en la pantalla, y SIN la limpieza de VERRANO: limpia la app.
+        Some(_) if d.pantalla => (*v, false),
         Some((_, dst)) => (dst.ventana(), false),
         None => (*v, true),
     };
@@ -786,7 +797,7 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let z = estado_z(d.z) as u64 | (d.z.and_then(|z| z.limpiar).unwrap_or(0) as u64) << 32;
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
     let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
-    let hay_destino = d.destino.is_some() as u64;
+    let hay_destino = d.destino.is_some() as u64 | (d.cadena as u64) << 1 | (d.pantalla as u64) << 2;
     for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
@@ -929,7 +940,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0 };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None, texturas: 0, cadena: false, pantalla: false };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -977,7 +988,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0 };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None, texturas: 0, cadena: false, pantalla: false };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);
@@ -995,6 +1006,35 @@ mod pruebas {
         // Sin destino, la pantalla y limpiando, como siempre.
         let o = ordenes_dibujo(&v, 1, true, Dibujo::default());
         assert!(o.o[..o.n].contains(&crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1)));
+    }
+
+    /// P3b4c.9 Z1: con `pantalla`, el color va a la ventana de la pantalla
+    /// (su VA y el formato del GOP), SIN la limpieza de VERRANO; la de la
+    /// app si, leida con el formato de SU back buffer (el destino).
+    #[test]
+    fn z1_el_back_buffer_va_a_la_pantalla() {
+        use crate::tresde as td;
+        let gop = crate::pantalla::Pantalla { vram: 0x100_0000, pitch: 1920, ancho: 1920, alto: 1080, rgb: false };
+        let v = crate::cubo::ventana(&gop).unwrap();
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let ct = crate::copia::cabecera_en(0, td::SET_COLOR_TARGET_A0, 8);
+        let limpia = crate::copia::cabecera_en(0, td::CLEAR_SURFACE, 1);
+        let valor = crate::copia::cabecera_en(0, td::SET_COLOR_CLEAR_VALUE0, 4);
+        let d = Dibujo { vertices: 3, destino: Some((0x1000_0000, dst)), cadena: true, pantalla: true, ..Dibujo::default() };
+        let o = ordenes_dibujo(&v, 1, true, d);
+        let w = &o.o[..o.n];
+        let i = w.iter().position(|&x| x == ct).unwrap();
+        assert_eq!(&w[i + 1..i + 3], &[(v.va >> 32) as u32, v.va as u32], "la ventana de la pantalla, no la RAM");
+        assert!(!w.contains(&limpia), "sin la limpieza de VERRANO");
+        // La limpieza de la app: un pixel R8G8B8A8 (rojo) con su formato.
+        let o = ordenes_dibujo(&v, 1, true, Dibujo { color: Some(0xFF00_00FF), ..d });
+        let w = &o.o[..o.n];
+        let k = w.iter().rposition(|&x| x == valor).unwrap();
+        assert_eq!(&w[k + 1..k + 5], &color_de_limpieza(0xFF00_00FF, true), "leido como R8G8B8A8");
+        assert_eq!(w.iter().filter(|&&x| x == limpia).count(), 1);
+        // La huella: ir a la pantalla son OTRAS ordenes.
+        let p = Paquete { ficha: 1, vs: &[], ps: &[], vertices: &[], n: 3, limpiar: None, dibujo: d };
+        assert_ne!(huella_fija(&v, &p, true), huella_fija(&v, &Paquete { dibujo: Dibujo { pantalla: false, ..d }, ..p }, true));
     }
 
     /// P3b4c.6b: con Z, el color NO se queda en el pitch (Xid 69 en el

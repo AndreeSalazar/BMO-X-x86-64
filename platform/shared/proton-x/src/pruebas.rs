@@ -520,7 +520,7 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
-    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]) };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]), cadena: false };
     let cuenta = lote::en_cpu(&l, &mut d).unwrap();
     (px, cuenta)
 }
@@ -557,7 +557,7 @@ fn triangulo(w: [f32; 3], atributo: [f32; 3], horario: bool) -> Vec<trama::Sombr
 fn pinta(v: &[trama::Sombreado], descarte: u32, antihorario: bool) -> (Vec<u32>, trama::Cuenta) {
     let mut px = vec![0u32; 64];
     let reglas = trama::Reglas { viewport: [0.0, 0.0, 8.0, 8.0, 0.0, 1.0], tijera: [0, 0, 8, 8], descarte, antihorario, profundidad: None };
-    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None };
+    let mut d = trama::Destino { pixeles: &mut px, ancho: 8, alto: 8, bgra: true, z: None, cadena: false };
     let c = trama::dibujar(&reglas, v, &[[0, 1, 2]], &mut d, |e| e[0]);
     (px, c)
 }

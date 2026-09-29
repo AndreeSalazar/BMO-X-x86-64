@@ -35,7 +35,7 @@ mod imagen;
 pub use imagen::{imagen, imagen_formato, IOMMU_NO_IMAGEN};
 /// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
 mod cubo;
-pub use cubo::{cubo, receta};
+pub use cubo::{cubo, pantalla_para, receta};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //

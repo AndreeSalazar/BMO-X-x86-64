@@ -781,8 +781,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
             }
         },
     };
-    let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra, z };
-    match (plataforma().dibujar)(&lote, &mut destino) {
+    let cadena = rt.cadena;
+    let mut destino = trama::Destino { pixeles: &mut rt.pixeles, ancho, alto, bgra, z, cadena };
+    let r = (plataforma().dibujar)(&lote, &mut destino);
+    // P3b4c.9 Z1: donde quedo este dibujo (la pantalla o la RAM) es donde
+    // queda el fotograma: lo lee `Present`.
+    rt.en_pantalla = r.as_ref().is_ok_and(|c| c.en_pantalla);
+    match r {
         Ok(c) if c.sin_recortar > 0 => aviso("Draw: triangulos que cruzan el plano cercano o salen de la profundidad: sin recortar todavia, no se pintan"),
         Ok(_) => {}
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),

@@ -64,6 +64,9 @@ const BGRA32: u32 = bmo::SUP_BGRA32 as u32;
 /// Los mismos pixeles, pero la app pide que los presente la 3060 (D2c): no
 /// hay conversion, solo quien los mueve. Ver [`Surface::para_la_3060`].
 const A_LA_3060: u32 = bmo::SUP_A_LA_3060 as u32;
+/// P3b4c.9 Z1: la app dibuja DIRECTO en la pantalla por la 3060 (PROTON-X):
+/// ni la CPU ni `imagen` mueven sus pixeles. Ver [`Surface::directa`].
+const LA_3060_DIRECTA: u32 = bmo::SUP_LA_3060_DIRECTA as u32;
 
 /// Lo que ocupa el buzon antes de la primera ranura: cabeza, cola y el estado
 /// del puntero.
@@ -97,6 +100,8 @@ pub(crate) struct Header {
     ranuras: u32,
     /// La app pidio que la presente la 3060 (`SUP_A_LA_3060`).
     a_la_3060: bool,
+    /// La app dibuja directo en la pantalla (`SUP_LA_3060_DIRECTA`).
+    directa: bool,
 }
 
 /// Un `u32` de la cabecera. `volatile` porque **lo escribe otro proceso**: sin
@@ -113,7 +118,7 @@ impl Header {
     /// aqui en el que se puede confiar: todo lo demas lo escribio la app.
     pub(crate) fn read(base: u64, bytes: u64) -> Option<Header> {
         let formato = campo(base, 4);
-        if bytes < HEADER_TAG || campo(base, 0) != MAGIC || (formato != BGRA32 && formato != A_LA_3060) {
+        if bytes < HEADER_TAG || campo(base, 0) != MAGIC || (formato != BGRA32 && formato != A_LA_3060 && formato != LA_3060_DIRECTA) {
             return None;
         }
         let (width, height, stride) = (campo(base, 1), campo(base, 2), campo(base, 3));
@@ -147,7 +152,7 @@ impl Header {
             buzon = 0;
             ranuras = 0;
         }
-        Some(Header { width, height, stride, sequence: campo(base, 5), buzon, ranuras, a_la_3060: formato == A_LA_3060 })
+        Some(Header { width, height, stride, sequence: campo(base, 5), buzon, ranuras, a_la_3060: formato == A_LA_3060, directa: formato == LA_3060_DIRECTA })
     }
 }
 
@@ -198,6 +203,10 @@ pub(crate) struct Surface {
     /// La 3060 dijo que NO una vez: se compone con la CPU hasta que la app
     /// muera. Un NO que se reintenta en cada vuelta es un escritorio atascado.
     sin_3060: bool,
+    /// P3b4c.9 Z1: el kernel ya le dio la pantalla a esta app
+    /// (`IOMMU_OP_GPU_PANTALLA_PARA` con su tid). Se le quita al irse ella o
+    /// al dejar de pedirla.
+    pub(crate) pantalla_dada: bool,
 }
 
 impl Surface {
@@ -235,6 +244,7 @@ impl Surface {
             ritmo: bmo_ritmo::Ritmo::nuevo(),
             por_3060: false,
             sin_3060: false,
+            pantalla_dada: false,
         };
         s.marcar_tomada(&cab);
         Some(s)
@@ -356,6 +366,13 @@ impl Surface {
         }
         let cab = Header::read(self.base, self.bytes)?;
         (cab.a_la_3060 && cab.stride == cab.width).then_some((self.base + HEADER_TAG, cab.width, cab.height, cab.sequence))
+    }
+
+    /// **P3b4c.9 Z1: la app pide dibujar DIRECTO en la pantalla** y se
+    /// puede (no minimizada, la 3060 no dijo ya que no). Lo relee cada
+    /// vuelta: la app lo quita volviendo a `SUP_BGRA32`.
+    pub(crate) fn directa(&self) -> bool {
+        !self.chrome.minimized && !self.sin_3060 && Header::read(self.base, self.bytes).is_some_and(|c| c.directa)
     }
 
     /// Desde ya la presenta la 3060 (la vuelta de entrada, en negro): que
@@ -1103,6 +1120,10 @@ impl Table {
             let dead_one = match gap.as_ref() {
                 Some(s) if !s.alive() => {
                     cajas[n] = (s.chrome.x, s.chrome.y, s.chrome.width, s.chrome.height);
+                    // Z1: la pantalla que tenia, de vuelta al escritorio.
+                    if s.pantalla_dada {
+                        let _ = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_PANTALLA_PARA, 0);
+                    }
                     s.soltar();
                     true
                 }

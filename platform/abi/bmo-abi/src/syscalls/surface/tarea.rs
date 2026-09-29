@@ -922,9 +922,15 @@ pub const IMAGEN_PRESTADO: u64 = 1 << 62;
 /// P3b4c: LA PUERTA ESTRECHA, la unica orden de la 3060 para una app SIN la
 /// autoridad `MAQUINA`: `arg1` = la VA de una RECETA (VRN2,
 /// `bmo_gpu_ga10x::receta`) en un bloque del que llama. La 3060 dibuja en el
-/// DESTINO de la receta -- un bloque ESCRIBIBLE del que llama, nunca la
-/// pantalla -- con el pegamento del kernel. `Ok` = lo de `cubo::empaquetar`.
+/// DESTINO de la receta -- un bloque ESCRIBIBLE del que llama -- con el
+/// pegamento del kernel; la pantalla SOLO si el escritorio se la dio
+/// (`IOMMU_OP_GPU_PANTALLA_PARA`) y el destino es un back buffer de la
+/// cadena. `Ok` = lo de `cubo::empaquetar` (bit 62: quedo en la pantalla).
 pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
+/// P3b4c.9 Z1: el ESCRITORIO (con `MAQUINA` y la pantalla) le da la pantalla
+/// a la app de la tarea `arg1` (su tid; 0 = a nadie): sus recetas con un back buffer de
+/// la cadena dibujan en la ventana de la pantalla, sin tocar su RAM.
+pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

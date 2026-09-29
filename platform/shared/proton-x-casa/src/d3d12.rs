@@ -85,6 +85,11 @@ pub struct Recurso {
     pub pixeles: Vec<u32>,
     /// Si es un bufer (CreateCommittedResource), sus bytes; una imagen no.
     pub bufer: Option<Bufer>,
+    /// P3b4c.9 Z1: un back buffer de la cadena de intercambio (lo pone DXGI).
+    pub cadena: bool,
+    /// Z1: lo ultimo que se dibujo en el quedo en la PANTALLA, no en
+    /// `pixeles`: su `Present` no copia nada.
+    pub en_pantalla: bool,
 }
 
 pub struct Valla {
@@ -140,7 +145,7 @@ fn vtabla_recurso() -> *const u64 {
 
 /// Un recurso nuevo (lo pide la cadena de intercambio de DXGI).
 pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32) -> u64 {
-    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles: vec![0; (ancho * alto) as usize], bufer: None }) as u64;
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles: vec![0; (ancho * alto) as usize], bufer: None, cadena: false, en_pantalla: false }) as u64;
     // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
     tuberia::olvidar_limpieza(r);
     r
@@ -148,7 +153,7 @@ pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32) -> u64 {
 
 /// Un recurso que es un bufer (CreateCommittedResource).
 pub(crate) fn recurso_bufer(b: Bufer) -> u64 {
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Vec::new(), bufer: Some(b) }) as u64
+    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho: b.bytes as u32, alto: 1, formato: 0, pixeles: Vec::new(), bufer: Some(b), cadena: false, en_pantalla: false }) as u64
 }
 
 /// El inicio de un bufer de la casa, o `None` si `this` es una imagen.

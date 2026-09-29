@@ -42,7 +42,7 @@ use crate::pso::{cargas, elementos, NoVa};
 
 /// Lo que contesta el kernel (`cubo::empaquetar`): `sano` = la 3060 pago el
 /// dibujo entero; `desempaquetar` = `(us, triangulos, etapas, ..)`.
-pub use bmo_gpu_ga10x::cubo::{copia_us, desempaquetar, preparado, sano};
+pub use bmo_gpu_ga10x::cubo::{a_pantalla, copia_us, desempaquetar, preparado, sano};
 use crate::{emitir_con, Abi};
 
 /// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
@@ -129,6 +129,10 @@ pub struct Blanco {
     pub alto: u32,
     /// `B8G8R8A8` (si no, `R8G8B8A8`).
     pub bgra: bool,
+    /// P3b4c.9 Z1: es un back buffer de la cadena de intercambio (lo que se
+    /// muestra en `Present`): el kernel puede ponerlo directo en la pantalla
+    /// si el escritorio se la dio a esta app.
+    pub cadena: bool,
 }
 
 /// **Escribir la receta de un lote** en `caja` (con `datos` de apoyo).
@@ -231,7 +235,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8 },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt, texturas: c.texturas.len() as u8, cadena: b.cadena, pantalla: false },
         texturas,
     };
     rec.elementos[..c.elementos.len()].copy_from_slice(&c.elementos);

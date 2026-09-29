@@ -191,6 +191,21 @@ fn campo(base: u64, i: u64) -> u32 {
     unsafe { core::ptr::read_volatile((base + 4 * i) as *const u32) }
 }
 
+/// P3b4c.9 Z1: la cabecera de la ultima superficie (0 = ninguna), para
+/// pedirle al escritorio la pantalla directa.
+static SUP_BASE: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// **P3b4c.9 Z1: pedirle al escritorio que la 3060 dibuje DIRECTO en la
+/// pantalla** (`si`), o volver a que la componga (`SUP_BGRA32`). El
+/// escritorio relee la cabecera cada vuelta; quien decide si se da es el, y
+/// quien dibuja alli, el kernel.
+pub(crate) fn pedir_pantalla(si: bool) {
+    let base = SUP_BASE.load(core::sync::atomic::Ordering::Acquire);
+    if base != 0 {
+        pon(base, 4, if si { bmo::SUP_LA_3060_DIRECTA } else { bmo::SUP_BGRA32 } as u32);
+    }
+}
+
 fn base_de(s: &Superficie) -> u64 {
     s.pixeles as u64 - bmo::SUP_CABECERA
 }
@@ -214,6 +229,7 @@ fn superficie(ancho: u32, alto: u32) -> Option<Superficie> {
         pon(buzon + base, i, 0);
     }
     let s = Superficie { pixeles: (base + bmo::SUP_CABECERA) as *mut u32, ancho, alto, stride: ancho, dato: bloque.handle() };
+    SUP_BASE.store(base, core::sync::atomic::Ordering::Release);
     // Vive hasta que el proceso muera: el escritorio la esta leyendo.
     core::mem::forget(bloque);
     Some(s)

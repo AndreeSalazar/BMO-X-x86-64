@@ -29,7 +29,7 @@
 use std::sync::{Mutex, MutexGuard};
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use bmo_proton_x::*;
 use bmo_proton_x_casa::{Plataforma, Superficie};
@@ -629,6 +629,37 @@ fn cubo12_exe_va_por_el_camino_de_bmox12_y_se_ve_lo_de_la_3060() {
     }
 }
 
+/// **P3b4c.9 Z1: un fotograma que ya esta en la pantalla no se copia.**
+/// El mismo `cubo12.exe`, con un ejecutor que dice `en_pantalla` en cada
+/// dibujo de su back buffer: el `.exe` no nota nada (sus lecturas cuadran
+/// igual) y `Present` NO toca la superficie -- sigue a cero, fotograma a
+/// fotograma. Con el ejecutor de siempre, la prueba de arriba ve lo de la
+/// 3060: la diferencia es Z1 y nada mas.
+#[test]
+fn z1_un_fotograma_en_la_pantalla_no_se_copia_a_la_superficie() {
+    let uno = uno_a_la_vez();
+    let dir = volumen().join("window/sombras");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for h in ["f3ef42a0", "4d67f5e4"] {
+        let cso = std::fs::read(format!("../proton-x/prueba/sombras/{h}.cso")).unwrap();
+        std::fs::write(dir.join(format!("{h}.cso")), cso).unwrap();
+    }
+    *NOMBRE.lock().unwrap() = ("window/cubo12.exe", "");
+    EN_PANTALLA.store(true, Ordering::SeqCst);
+    let letra = |c: u8| 1 << 62 | 1 << 8 | 1 << 9 | c as u64;
+    let (salio, dicho, _) = correr_exe(&uno, CUBO12, true, &[letra(b'b'), 0, letra(b'b'), 0, letra(b'q')]);
+    EN_PANTALLA.store(false, Ordering::SeqCst);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    assert_eq!(String::from_utf8_lossy(&dicho), "", "ni un aviso ni un hueco que falte");
+    assert_eq!(salio, 3, "el .exe no nota nada: sus tres huellas leidas cuadran");
+    let p = PANTALLA.lock().unwrap();
+    let cero = bmo_cubo::referencia::huella(&vec![0u32; (p[0].1 * p[0].2) as usize]);
+    let vistas = VISTAS.lock().unwrap().clone();
+    assert_eq!(vistas.len(), 3);
+    assert!(vistas.iter().all(|&h| h == cero), "Present no copio nada: la superficie sigue a cero");
+}
+
 /// **P4 en el anfitrion**: `hilos.exe`, hilos, TLS y sincronizacion de
 /// Windows con los hilos COOPERATIVOS de la casa. Lo que dice no depende del
 /// orden en que corran los hilos: es lo mismo que dice en Windows.
@@ -873,12 +904,17 @@ struct La3060 {
 }
 static LA3060: Mutex<Option<La3060>> = Mutex::new(None);
 
+/// P3b4c.9 Z1: el ejecutor dice que cada dibujo en un back buffer de la
+/// cadena quedo EN LA PANTALLA (como la 3060 con la pantalla dada).
+static EN_PANTALLA: AtomicBool = AtomicBool::new(false);
+
 /// El ejecutor del banco: el de la casa, y lo de la 3060 si se pide.
 fn dibujar_y_la_3060(l: &lote::Lote, d: &mut trama::Destino) -> Result<trama::Cuenta, lote::NoDibuja> {
     if let Some(b) = LA3060.lock().unwrap().as_mut() {
         comprobar_la_3060(b, l);
     }
-    bmo_proton_x_casa::nativo::dibujar(l, d)
+    let cadena = d.cadena;
+    bmo_proton_x_casa::nativo::dibujar(l, d).map(|c| trama::Cuenta { en_pantalla: cadena && EN_PANTALLA.load(Ordering::SeqCst), ..c })
 }
 
 /// Traduce el lote para la 3060 y, con el SIMULADOR, corre su cuerpo con los
@@ -953,7 +989,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
     // leida y pegada como la pega el kernel, sube a la 3060 los MISMOS dos
     // programas (byte a byte) que `pso::traducir` -- los del metal.
     use bmo_gpu_ga10x::receta;
-    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true };
+    let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true, cadena: true };
     b.z_limpias += l.limpiar_z.is_some() as usize;
     b.rt_limpios += l.limpiar_rt.is_some() as usize;
     // La puerta de la APP (la de siempre) SI manda un lote con Z: el kernel

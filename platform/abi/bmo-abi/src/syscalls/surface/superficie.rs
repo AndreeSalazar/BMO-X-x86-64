@@ -70,6 +70,13 @@ pub const SUP_BGRA32: u64 = 0;
 /// completa y le pide a la 3060 cada fotograma nuevo (`IOMMU_OP_GPU_IMAGEN`
 /// con `IMAGEN_PRESTADO`). Si no lo esta, se compone como `SUP_BGRA32`.
 pub const SUP_A_LA_3060: u64 = 1;
+/// **La app dibuja DIRECTO en la pantalla por la 3060** (P3b4c.9 Z1,
+/// 29-09): PROTON-X, cuando sus lotes ya los dibuja la 3060. El DIRECTOR, con
+/// la 3060 lista, la pone a pantalla completa, deja de componerla y le da la
+/// pantalla (`IOMMU_OP_GPU_PANTALLA_PARA`): sus back buffers no bajan a la
+/// RAM. Sin la 3060, o si la app vuelve a `SUP_BGRA32`, se compone como
+/// siempre.
+pub const SUP_LA_3060_DIRECTA: u64 = 2;
 /// Indice (en `u32`) del campo `secuencia` dentro de la cabecera.
 pub const SUP_CAMPO_SECUENCIA: u64 = 5;
 

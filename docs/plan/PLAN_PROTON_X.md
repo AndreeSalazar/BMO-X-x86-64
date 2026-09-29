@@ -743,6 +743,42 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        O sea: el cuello NO era la copia (Z1) sino la
                        BUROCRACIA de preparar: releer cada palabra para
                        saber que llego. Por eso Z2 va ANTES que Z1.
+                    Z1 [HECHO en codigo 29-09, falta el metal] Asi quedo,
+                       pieza a pieza:
+                       - la receta: +88 bit 0 = "el destino es un back
+                         buffer de la cadena" (`Dibujo::cadena`, lo pone la
+                         casa de DXGI). La receta NUNCA dice "a la
+                         pantalla": eso lo decide el kernel
+                       - el escritorio: una superficie con el formato
+                         `SUP_LA_3060_DIRECTA` (2) se pone a pantalla
+                         completa, en negro, no se compone y le da la
+                         pantalla al tid de su app con la orden nueva
+                         `IOMMU_OP_GPU_PANTALLA_PARA` (0x49), que pasa por
+                         las dos llaves de la IOMMU: SOLO el escritorio.
+                         Al morir la app, o si deja de pedirla, se le quita
+                       - el kernel (`cubo::receta`): si el pid es el que el
+                         escritorio dijo, el destino es de la cadena y mide
+                         1280x720, `Dibujo::pantalla` -- las ordenes van a
+                         la ventana de la pantalla (sin la limpieza de
+                         VERRANO, con la de la app), la sombra se copia a
+                         la pantalla VRAM a VRAM, y el back buffer NO se
+                         presta. El `Ok` lleva el bit 62 (`cu::A_PANTALLA`)
+                       - PROTON-X: tras el primer lote por la 3060 pide la
+                         pantalla (formato 2 en su cabecera); con el bit 62
+                         la casa marca el back buffer `en_pantalla` y su
+                         `Present` NO copia nada. Un lote que vaya por la
+                         CPU con la pantalla pedida la SUELTA (formato 0):
+                         nunca se muestra un fotograma a medias entre la
+                         pantalla y la RAM
+                       - la linea `[3060]` dice `en la pantalla P de N`
+                       Bancos: la huella con y sin pantalla, las ordenes a
+                       la ventana (`z1_el_back_buffer_va_a_la_pantalla`),
+                       el plan de la sombra, la receta con +88 (y que la
+                       app no se pone en la pantalla sola), el bit 62 del
+                       `Ok`, y la casa: `cubo12.exe` con un ejecutor que
+                       dice `en_pantalla` deja la superficie a CERO
+                       (`z1_un_fotograma_en_la_pantalla_no_se_copia_a_la_superficie`).
+                       Pila 29662 de 40960, igual. La idea de antes:
                     Z1 PRESENTAR POR LA 3060, A PANTALLA COMPLETA (como D2c
                        de `PLAN_VERRANO.md` con DOOM, y un juego va a
                        pantalla completa igual): los lotes dibujan en la
@@ -780,8 +816,16 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        del GR (nadie lanzo nada entre medias), menos de 100
                        ms desde el ultimo, y que ese ultimo se PAGO entero;
                        si algo falla, el siguiente va en frio. La linea
-                       `[3060]` dice `en caliente H de N`. Lo esperado:
-                       `preparar` de ~5,4 ms a decimas de ms
+                       `[3060]` dice `en caliente H de N`. **VISTO EN EL
+                       METAL 29-09 07:21:** en caliente 235 de 236 y luego
+                       TODOS; `preparar` de ~5,4 ms a **11 us**; el lote
+                       de ~10,3 a ~4,6 ms (3060 ~1,2 + sombra ~1,16 +
+                       resto ~2,2); **130-250 fps** (antes 83-98). Lo que
+                       queda es camino: la sombra por el PCIe y el
+                       prestamo del back buffer, que es Z1. (Los primeros
+                       segundos la 3060 y la sombra iban al DOBLE de
+                       rapido, ~0,6 ms cada una, y luego bajaron: la 3060
+                       arranca en P8, reposo; subirla es otro escalon)
                     Z3 PEGAR Y JUZGAR POR HUELLA (el paso 3): los programas
                        ya juzgados y ya en la VRAM se reusan si su huella
                        no cambia; la 3060 corre la copia de la VRAM, que

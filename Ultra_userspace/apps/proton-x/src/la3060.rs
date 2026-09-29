@@ -60,6 +60,11 @@ struct Estado {
     por_la_3060: u64,
     /// Lo medido desde la ultima linea `[3060]` (ver POR PARTES).
     partes: Partes,
+    /// P3b4c.9 Z1: ya se le pidio al escritorio la pantalla directa.
+    pantalla_pedida: bool,
+    /// Z1: un lote fue por la CPU con la pantalla pedida: no se vuelve a
+    /// pedir (un fotograma a medias entre la pantalla y la RAM no se muestra).
+    sin_pantalla: bool,
 }
 
 /// Las sumas de un segundo: lotes y ns/us de cada parte.
@@ -74,6 +79,8 @@ struct Partes {
     sombra_us: u64,
     /// Los lotes que el kernel preparo EN CALIENTE (sin releer la VRAM).
     calientes: u64,
+    /// P3b4c.9 Z1: los lotes que quedaron EN LA PANTALLA (sin bajar a la RAM).
+    en_pantalla: u64,
 }
 
 impl Partes {
@@ -90,17 +97,19 @@ impl Partes {
         let (caliente, preparar) = puerta::preparado(r);
         self.preparar_us += preparar as u64;
         self.calientes += caliente as u64;
+        self.en_pantalla += puerta::a_pantalla(r) as u64;
         self.sombra_us += puerta::copia_us(r) as u64;
         let pasado = ahora.saturating_sub(self.desde_ns);
         if pasado >= 1_000_000_000 {
             let n = self.lotes.max(1);
             let (k, a, b, c) = (self.kernel_ns / 1000 / n, self.tarjeta_us / n, self.preparar_us / n, self.sombra_us / n);
             bmo::consola(&alloc::format!(
-                "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}; en caliente {} de {n}\n",
+                "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}; en caliente {} de {n}, en la pantalla {}\n",
                 self.lotes * 1_000_000_000 / pasado.max(1),
                 self.puerta_ns / 1000 / n,
                 k.saturating_sub(a + b + c),
                 self.calientes,
+                self.en_pantalla,
             ));
             *self = Partes { desde_ns: ahora, ..Partes::default() };
         }
@@ -110,7 +119,19 @@ impl Partes {
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Celda {}
-static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0 } }));
+static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0, en_pantalla: 0 }, pantalla_pedida: false, sin_pantalla: false }));
+
+/// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
+/// pedirla: lo que venga va por la RAM y lo compone el escritorio. Un lote
+/// por la CPU ANTES de pedirla no la cierra (aun no hay nada en la pantalla).
+fn soltar_pantalla(e: &mut Estado) {
+    if e.pantalla_pedida {
+        crate::plataforma::pedir_pantalla(false);
+        e.pantalla_pedida = false;
+        e.sin_pantalla = true;
+        bmo::consola("PROTON-X: la pantalla directa se suelta (Z1): el escritorio vuelve a componer la ventana\n");
+    }
+}
 
 fn decir(e: &mut Estado, motivo: String) {
     if e.dichos.iter().any(|d| *d == motivo) {
@@ -148,7 +169,7 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
     let e = unsafe { &mut *ESTADO.0.get() };
     if !e.apagada {
-        let blanco = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra };
+        let blanco = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra, cadena: d.cadena };
         let p = e.puerta.get_or_insert_with(Puerta::nueva);
         let t0 = crate::plataforma::ahora_ns();
         match p.preparar(l, blanco) {
@@ -166,8 +187,16 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                             bmo::consola("PROTON-X: la 3060 dibuja los lotes (P3b4c: la puerta estrecha, la receta VRN2)\n");
                         }
                         e.por_la_3060 += 1;
+                        // ** P3b4c.9 Z1: con el back buffer de la cadena ya por
+                        // la 3060, se le pide al escritorio la pantalla directa;
+                        // si la da, el kernel dibuja alli y el `Ok` lo dice.
+                        if d.cadena && !e.pantalla_pedida && !e.sin_pantalla && (d.ancho, d.alto) == (1280, 720) {
+                            crate::plataforma::pedir_pantalla(true);
+                            e.pantalla_pedida = true;
+                            bmo::consola("PROTON-X: pido la pantalla directa (Z1): si el escritorio la da, el fotograma no sale de la VRAM\n");
+                        }
                         let (_, tris, _, _) = puerta::desempaquetar(r);
-                        return Ok(Cuenta { dibujados: tris, ..Cuenta::default() });
+                        return Ok(Cuenta { dibujados: tris, en_pantalla: puerta::a_pantalla(r), ..Cuenta::default() });
                     }
                     Ok(r) => {
                         // El metal (28-09): cada NO pagado costo 1 s entero
@@ -200,6 +229,12 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                 decir(e, motivo);
             }
         }
+    }
+    // Z1: un lote por la CPU con la pantalla pedida -- lo de la 3060 esta en
+    // la pantalla y esto en la RAM: la pantalla se suelta, y lo compone el
+    // escritorio.
+    if d.cadena {
+        soltar_pantalla(e);
     }
     bmo_proton_x_casa::nativo::dibujar(l, d)
 }

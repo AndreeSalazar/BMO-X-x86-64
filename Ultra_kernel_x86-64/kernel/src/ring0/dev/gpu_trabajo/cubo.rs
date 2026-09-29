@@ -298,8 +298,15 @@ pub fn receta(va: u64) -> Result<u64, u32> {
         // devueltas SIEMPRE, salga como salga el dibujo.
         Ok(()) => match prestar_texturas(bar0, pid, r.texturas()) {
             Ok(prestadas) => {
-                let paquete = rc::paquete(&r, t, ficha);
-                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true);
+                let mut paquete = rc::paquete(&r, t, ficha);
+                // ** P3b4c.9 Z1: a la PANTALLA, si el escritorio se la dio a
+                // ESTA app y el destino es un back buffer de la cadena que
+                // mide la ventana. Lo decide el kernel; la receta solo dice
+                // "es de la cadena".
+                let pantalla = a_la_pantalla(pid, &paquete.dibujo);
+                paquete.dibujo.pantalla = pantalla;
+                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true)
+                    .map(|x| if pantalla && cu::sano(x) { cu::en_pantalla(x) } else { x });
                 devolver_texturas(&prestadas);
                 x
             }
@@ -320,6 +327,44 @@ static TEXTURAS_MAPEADAS: AtomicBool = AtomicBool::new(false);
 
 /// Las paginas prestadas de cada ranura de textura (0 = nada).
 type Prestadas = [u64; bmo_gpu_ga10x::texturas::MAX_TEXTURAS];
+
+/// **P3b4c.9 Z1: la app a la que el ESCRITORIO le dio la pantalla** (0 =
+/// a ninguna). Lo pone `pantalla_para`, detras de las dos llaves de la
+/// IOMMU: solo el escritorio. Los pid no se reusan (`proc::next_pid`), y
+/// el escritorio la quita al irse la app.
+static PANTALLA_PID: AtomicU32 = AtomicU32::new(0);
+
+/// **`IOMMU_OP_GPU_PANTALLA_PARA`**: el escritorio le da la pantalla a la
+/// app de la tarea `tid` (0 = a nadie; Ring 3 solo conoce tids, y aqui se
+/// guarda su pid, que no cambia). Desde ahora sus recetas con un back buffer de la
+/// cadena que mida la ventana (`cu::ANCHO` x `cu::ALTO`) dibujan en la
+/// ventana de la pantalla y NO en su RAM: el fotograma no sale de la VRAM
+/// (el metal del 29-09 07:21: por lote, la sombra por el PCIe ~1,16 ms y el
+/// prestamo del back buffer dentro del resto ~2,2 ms).
+pub fn pantalla_para(tid: u64) -> Result<u64, u32> {
+    let pid = if tid == 0 {
+        0
+    } else {
+        match crate::ring0::task::scheduler::pid_de(tid as u32) {
+            Some(pid) => pid,
+            None => return Err(IOMMU_NO_PANTALLA),
+        }
+    };
+    let antes = PANTALLA_PID.swap(pid, Ordering::AcqRel);
+    if antes != pid {
+        crate::ring0::cabina::count("gpu", "P3b4c.9 Z1: la pantalla, a la app (0 = a ninguna); pid", pid as u64);
+    }
+    Ok(antes as u64)
+}
+
+/// Si ESTE dibujo va a la pantalla: la app es la que el escritorio dijo, el
+/// destino es de la cadena y mide la ventana.
+fn a_la_pantalla(pid: u32, d: &bmo_gpu_ga10x::tuberia::Dibujo) -> bool {
+    pid != 0
+        && d.cadena
+        && PANTALLA_PID.load(Ordering::Acquire) == pid
+        && d.destino.is_some_and(|(_, dst)| dst.ancho == cu::ANCHO && dst.alto == cu::ALTO)
+}
 
 /// **P3b4c.8 T2: prestar las texturas de una receta a la 3060**: cada una
 /// es un bloque de QUIEN la manda (lo dice `fisica_de`), prestado SOLO
@@ -431,6 +476,8 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     }
     let prestado = match paquete.dibujo.destino {
         None => None,
+        // Z1: a la pantalla, la RAM de la app no se presta ni se toca.
+        Some(_) if paquete.dibujo.pantalla => None,
         Some((va_app, dst)) => match prestar_destino(bar0, pid, va_app, &dst) {
             Ok(p) => Some(p),
             Err(m) => {

@@ -46,7 +46,9 @@
 //!    +80  con la limpieza de la Z (bit 9 del estado): su valor (f32)
 //!    +84  cuantas TEXTURAS lee el de pixel (P3b4c.8 T2; hasta
 //!         `texturas::MAX_TEXTURAS`)
-//!    +88..+96  0
+//!    +88  bit 0: el destino es un BACK BUFFER de la cadena (P3b4c.9 Z1: solo
+//!         eso puede ir directo a la pantalla, si el escritorio la dio)
+//!    +92..+96  0
 //! ```
 //!
 //! Y detras, seguidos: el cuerpo de vertice, el de pixel, los elementos (8 B:
@@ -193,7 +195,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || b[88..CABECERA_2].iter().any(|&x| x != 0) {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || u32le(b, 84) as usize > MAX_TEXTURAS || u32le(b, 88) > 1 || b[92..CABECERA_2].iter().any(|&x| x != 0) {
         return None;
     }
     let n_texturas = u32le(b, 84) as usize;
@@ -261,6 +263,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     }
     dibujo.color = (u32le(b, 20) == 1).then(|| u32le(b, 24));
     dibujo.texturas = n_texturas as u8;
+    dibujo.cadena = u32le(b, 88) == 1;
     if let Some(z) = dibujo.z.as_mut() {
         if z.limpiar.is_some() {
             z.limpiar = Some(u32le(b, 80));
@@ -348,6 +351,7 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n_cargas_vs as u32 | (r.n_cargas_ps as u32) << 16,
         d.z.and_then(|z| z.limpiar).unwrap_or(0),
         d.texturas as u32,
+        d.cadena as u32,
     ];
     out[..total].fill(0);
     for (k, w) in cabecera.iter().enumerate() {
@@ -523,5 +527,19 @@ mod pruebas {
         let n = escribir(&mut caja, &sin).unwrap();
         assert_eq!(u32le(&caja, 84), 0);
         assert!(leer(&caja[..n]).unwrap().texturas().is_empty());
+
+        // P3b4c.9 Z1: +88 bit 0 dice "back buffer de la cadena", y va y
+        // vuelve; `pantalla` NUNCA la trae la receta (la pone el kernel).
+        assert_eq!((u32le(&caja, 88), leer(&caja[..n]).unwrap().dibujo.cadena), (0, false));
+        let cadena = Receta { dibujo: Dibujo { cadena: true, pantalla: true, ..sin.dibujo }, ..sin };
+        let n = escribir(&mut caja, &cadena).unwrap();
+        assert_eq!(u32le(&caja, 88), 1);
+        let l = leer(&caja[..n]).unwrap();
+        assert!(l.dibujo.cadena && !l.dibujo.pantalla, "la app no se pone en la pantalla sola");
+        caja[88] = 2;
+        assert!(leer(&caja[..n]).is_none(), "+88 solo lleva el bit 0");
+        caja[88] = 1;
+        caja[92] = 1;
+        assert!(leer(&caja[..n]).is_none(), "+92..+96 a cero");
     }
 }
