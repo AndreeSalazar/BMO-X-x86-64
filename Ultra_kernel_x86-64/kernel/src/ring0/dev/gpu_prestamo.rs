@@ -534,9 +534,14 @@ pub fn fwsec_correr() -> Result<u64, u32> {
     let ucode = &mut bufer()[..t];
 
     // La orden: FRTS en su region.
-    if bmo_gpu_ga10x::fwsec::parchear(ucode, &d, frts.desde, frts.hasta - frts.desde).is_err() {
+    let Ok(parche) = bmo_gpu_ga10x::fwsec::parchear(ucode, &d, frts.desde, frts.hasta - frts.desde) else {
         return no(IOMMU_NO_FWSEC_PARCHE);
-    }
+    };
+    // Para la autopsia: donde quedan, en la DMEM del falcon, la DMEMMAPPER
+    // y la orden (el falcon las ve desde `dmem_phys_base`), y la region.
+    FWSEC_DMEM.store((d.dmem_phys_base + parche.dmemmapper) as u64 | ((d.dmem_phys_base + parche.orden_en) as u64) << 32, Ordering::Release);
+    FWSEC_REGION.store(frts.desde >> 12 | (frts.hasta >> 12) << 32, Ordering::Release);
+    FWSEC_AUTOPSIA.store(false, Ordering::Release);
     apuntar(|v| v | FWSEC_PARCHEADO);
     let idx = match firmar_cargar_arrancar(&mut r, &d, ucode, "L0b: FWSEC-FRTS al falcon del GSP") {
         Ok(i) => i,
@@ -662,6 +667,44 @@ pub fn info_fwsec() -> u64 {
 /// Lo que ahora dice el falcon del GSP de FWSEC: PARADO y su codigo de FRTS.
 static FWSEC_FOTO: AtomicU64 = AtomicU64::new(0);
 
+/// ** LA AUTOPSIA DE FWSEC-FRTS (29-09). El metal (28-09 23:09), tras el
+/// reinicio por el bus del cargador (`siempre`): FWSEC se paro con MAILBOX0 0
+/// y su codigo de FRTS (`0x1438 >> 16`) a 0 -- "bien" -- y la WPR2 SIN montar.
+/// Nada de lo que se miraba dice por que. Esto mira lo que FWSEC DEJA ESCRITO
+/// al pararse, SOLO LEYENDO, una vez por arranque y en los buenos tambien (un
+/// fallo se entiende comparando): el registro `0x1438` entero, la WPR2 cruda,
+/// la region que se le pidio, y la DMEM de su DMEMMAPPER (la cabecera, con
+/// `init_cmd` en +44 y los buferes de entrada y SALIDA) y de su orden. Va a
+/// CABINA (`cabina fallos` si fue sin WPR2; `cabina` si fue bien).
+///
+/// Donde quedan en la DMEM la DMEMMAPPER (0..31) y la orden (32..63).
+static FWSEC_DMEM: AtomicU64 = AtomicU64::new(0);
+/// La region de FRTS pedida, en paginas: desde (0..31), hasta (32..63).
+static FWSEC_REGION: AtomicU64 = AtomicU64::new(0);
+static FWSEC_AUTOPSIA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **La autopsia**: con el falcon del GSP PARADO tras FWSEC-FRTS.
+fn autopsiar_fwsec(r: &mut Bar0) {
+    if FWSEC_AUTOPSIA.swap(true, Ordering::AcqRel) {
+        return;
+    }
+    let w = crate::ring0::dev::gpu::info_wpr2();
+    let montada = (w >> 32) as u32 >> 4 != 0;
+    let decir = |msg: &str, v: u64| if montada { crate::ring0::cabina::info("gpu", msg, v) } else { crate::ring0::cabina::warn("gpu", msg, v) };
+    decir(if montada { "L0b autopsia FWSEC (BUENA, con WPR2): 0x1438 entero" } else { "L0b autopsia FWSEC SIN WPR2: 0x1438 entero" }, bmo_gpu_ga10x::Registros::leer(r, 0x0000_1438) as u64);
+    decir("L0b autopsia FWSEC: la WPR2 cruda (lo | hi << 32)", w);
+    decir("L0b autopsia FWSEC: la region de FRTS pedida, paginas (desde | hasta << 32)", FWSEC_REGION.load(Ordering::Acquire));
+    let donde = FWSEC_DMEM.load(Ordering::Acquire);
+    let mut palabras = [0u32; 16];
+    for (que, dmem) in [("L0b autopsia FWSEC: DMEMMAPPER", donde as u32), ("L0b autopsia FWSEC: la ORDEN", (donde >> 32) as u32)] {
+        bmo_gpu_ga10x::falcon::leer_dmem(r, fa::GSP, dmem, &mut palabras);
+        decir(que, dmem as u64);
+        for par in palabras.chunks(2) {
+            decir("   dos palabras (la de abajo | la de arriba << 32)", par[0] as u64 | (par[1] as u64) << 32);
+        }
+    }
+}
+
 /// **La foto de FWSEC**, antes de que L0c3b le quite el falcon del GSP.
 pub fn fotografiar_fwsec() {
     let v = FWSEC_ESTADO.load(Ordering::Acquire);
@@ -678,6 +721,7 @@ fn fwsec_en_vivo(estado: u64) -> u64 {
         if let Ok((parado, _, _)) = fa::como_va(&mut r, fa::GSP) {
             if parado {
                 v |= FWSEC_PARADO;
+                autopsiar_fwsec(&mut r);
             }
         }
         let e = bmo_gpu_ga10x::Registros::leer(&mut r, 0x0000_1438);
