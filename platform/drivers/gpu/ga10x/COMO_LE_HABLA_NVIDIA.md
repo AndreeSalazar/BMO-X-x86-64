@@ -259,6 +259,15 @@ muestreadores viven en **heaps separados** y un sombreador combina cualquiera
 con cualquiera: PROTON-X necesita el modo independiente, que es el de T1. Los
 dos modos existen en la misma tarjeta; lo que no vale es mezclarlos.
 
+**Y lo que hizo T2 (`888c59460`, el mismo 28-09):** la textura `k` usa el TIC
+`k` y el TSC `k`, con `asa(k, k)`. Con el mismo indice en las dos piscinas,
+**los dos modos leen lo mismo**: T2 funciona se elija el que se elija. Pero
+ningun fichero de BMO-X escribe `SET_SAMPLER_BINDING`, asi que el modo es el
+que la clase 3D traiga de fabrica -- y ese valor no esta medido. El dia que
+PROTON-X combine la imagen `i` con el muestreador `j != i`, el modo decide si
+sale el muestreador `j` o el `i`. FUENTE a comprobar: nouveau lo escribe a mano
+al iniciar (`LINKED_TSC`) en vez de fiarse del valor de arranque.
+
 Y el `TEX` cambia de forma segun de donde venga el asa (MEDIDO, dos binarios):
 
 ```text
@@ -341,7 +350,7 @@ el GSP-RM. Lo que no cambia es el final: GPFIFO, metodos de `AMPERE_B`, SASS.
 | copiar | 1 motor visible | COPY2 | hecho |
 | 3D | `nvwgf2umx` -> `AMPERE_B` | `motores/tresde.rs` + VERRANO | hecho (el cubo, bit a bit con D3D12) |
 | computo | QMD + el banco 0 de la seccion 3d | `motores/computo.rs` S1-S3, **sin QMD** | FALTA |
-| texturas | un indice para TIC y TSC | `trabajos/texturas.rs` T0-T1, modo independiente | T2-T3 pendientes |
+| texturas | un indice para TIC y TSC | `trabajos/texturas.rs` T0-T2: TIC `k` + TSC `k`, `asa(k, k)` | T2b y T3 (metal) pendientes; `SET_SAMPLER_BINDING` sin escribir |
 | relojes | el RM los sube solo | PERF_BOOST pedido al GSP-RM | hecho a mano |
 | interrupciones | MSI, 1 mensaje | MSI (E2 VBLANK visto) | parcial |
 | vigilante | TDR de WDDM | juez + plazos | otro esquema a proposito |
@@ -353,10 +362,12 @@ el GSP-RM. Lo que no cambia es el final: GPFIFO, metodos de `AMPERE_B`, SASS.
 1. **T3 ya tiene juez.** `docs/metal/tex_cuda/SALIDA.TXT` es la 3060 misma
    muestreando, y pitch = array bit a bit: `gpu verrano textura` tiene que dar
    esos 96 grupos de bits, no "algo parecido".
-2. **El modo del muestreador se decide y se escribe.** PROTON-X pide
+2. **El modo del muestreador se decide y se ESCRIBE.** PROTON-X pide
    independiente (heaps separados de D3D12); CUDA usa indice compartido. Los
-   dos corren en esta tarjeta: el que se elija va en `SET_SAMPLER_BINDING` (3D)
-   o en `SAMPLER_INDEX` (QMD), y el asa se empaqueta de acuerdo con el.
+   dos corren en esta tarjeta. Hoy T2 no lo nota (TIC `k` con TSC `k`), pero
+   nadie escribe `SET_SAMPLER_BINDING`: va en la inicializacion de la clase 3D
+   (y `SAMPLER_INDEX` en la QMD), ANTES de que un TSC y un TIC dejen de ir por
+   parejas.
 3. **El juez del SASS tiene que conocer `TEX.SCR.LZ` con el asa en el banco
    constante**, o decir NO a proposito: es la forma que emite `nvcc` en cuanto
    el asa es un argumento.
