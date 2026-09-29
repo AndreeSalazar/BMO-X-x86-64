@@ -832,7 +832,7 @@ fn tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp() {
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 12, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 13, "{texto}");
     assert!(texto.ends_with("tanda2.exe: los hilos de la biblioteca de C++ son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
 

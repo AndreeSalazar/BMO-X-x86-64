@@ -284,7 +284,8 @@ void inicio(void) {
     }
     /* -- caracteres */
     mira(isalpha('x') && !isalpha('1') && isdigit('7') && isspace('\t') && tolower('K') == 'k', "isalpha isdigit isspace tolower");
-    mira((__pctype_func()['A'] & 0x101) == 0x101 && (__pctype_func()['7'] & 0x4), "__pctype_func: 'A' mayuscula y letra, '7' digito");
+    /* La tabla del locale "C": sin el bit 0x100 (C1_ALPHA) en las ASCII. */
+    mira(__pctype_func()['A'] == 0x81 && __pctype_func()['z'] == 0x02 && __pctype_func()['7'] == 0x84 && __pctype_func()[' '] == 0x48, "__pctype_func: 'A' 0x81, 'z' 0x02, '7' 0x84, ' ' 0x48");
     mira(__pctype_func()[-1] == 0, "__pctype_func: la entrada de EOF (-1) a cero");
     /* -- numeros */
     {
@@ -365,15 +366,14 @@ void inicio(void) {
         U64 req = 1;
         char *p = 0;
         mira(t > 1700000000 && tm && tm[5] >= 123 && tm[4] < 12 && tm[3] >= 1, "_time64 _gmtime64");
-        /* El CRT tiene su COPIA del entorno, que hace su arranque: sin
-         * arranque del CRT (este .exe no lo tiene), se pide aqui. */
+        /* El CRT tiene su COPIA del entorno, hecha al cargarse (antes que
+         * nada del .exe): lo que se ponga despues con
+         * SetEnvironmentVariableW no la cambia. OS=Windows_NT esta desde el
+         * arranque, en Windows y en la casa. */
         SetEnvironmentVariableW(L"BMO_TANDA", L"uno");
-        _initialize_narrow_environment();
-        _initialize_wide_environment();
-        mira(getenv("BMO_TANDA") && igual(getenv("BMO_TANDA"), "uno") && getenv("NO_HAY_TAL") == 0, "getenv");
-        SetEnvironmentVariableW(L"BMO_TANDA", L"dos");
-        mira(getenv("BMO_TANDA") && igual(getenv("BMO_TANDA"), "uno"), "getenv lee la copia del CRT: SetEnvironmentVariableW de despues no la cambia");
-        mira(_wgetenv_s(&req, w, 64, L"BMO_TANDA") == 0 && req == 4 && igual_w(w, L"uno") && _dupenv_s(&p, &req, "BMO_TANDA") == 0 && p && igual(p, "uno"), "_wgetenv_s _dupenv_s");
+        mira(getenv("OS") && igual(getenv("OS"), "Windows_NT") && getenv("NO_HAY_TAL") == 0, "getenv de una del arranque");
+        mira(getenv("BMO_TANDA") == 0, "getenv lee la copia del CRT: SetEnvironmentVariableW de despues no la cambia");
+        mira(_wgetenv_s(&req, w, 64, L"OS") == 0 && req == 11 && igual_w(w, L"Windows_NT") && _dupenv_s(&p, &req, "OS") == 0 && p && igual(p, "Windows_NT"), "_wgetenv_s _dupenv_s");
         free(p);
         /* "" es el del usuario (en tu Windows, el tuyo). */
         mira(setlocale(0, "") != 0 && setlocale(0, "klingon") == 0 && igual(setlocale(0, "C"), "C") && localeconv()[0][0] == '.', "setlocale (\"\", uno que no hay, \"C\") y localeconv");

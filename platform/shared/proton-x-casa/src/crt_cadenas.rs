@@ -584,15 +584,19 @@ const PUNCT: u16 = 0x10;
 const CONTROL: u16 = 0x20;
 const BLANK: u16 = 0x40;
 const HEX: u16 = 0x80;
+/// `C1_ALPHA`: el bit de las letras que NO son ASCII (en otros locales).
+/// En la tabla del locale "C" del UCRT las ASCII no lo llevan (el metal lo
+/// dijo el 29-09: 'A' es 0x81); `isalpha` mira las tres.
 const ALPHA: u16 = 0x100;
+const LETRA: u16 = ALPHA | UPPER | LOWER;
 
 const fn clase(c: u8) -> u16 {
     let mut f = 0;
     if c.is_ascii_uppercase() {
-        f |= UPPER | ALPHA;
+        f |= UPPER;
     }
     if c.is_ascii_lowercase() {
-        f |= LOWER | ALPHA;
+        f |= LOWER;
     }
     if c.is_ascii_digit() {
         f |= DIGIT;
@@ -640,7 +644,7 @@ fn es(c: i32, f: u16) -> i32 {
 }
 
 extern "win64" fn isalpha(c: i32) -> i32 {
-    es(c, ALPHA)
+    es(c, LETRA)
 }
 
 extern "win64" fn isdigit(c: i32) -> i32 {

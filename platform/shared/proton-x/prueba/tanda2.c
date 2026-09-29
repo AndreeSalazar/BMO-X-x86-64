@@ -153,7 +153,9 @@ void inicio(void) {
     cvt.pagina = 0;
     cvt.maximo = 1;
     cvt.es_c = 1;
-    mira(_Mbrtowc(&w, "Z", 1, &estado, &cvt) == 1 && w == 'Z' && _Mbrtowc(&w, "Z", 0, &estado, &cvt) == -2, "_Mbrtowc");
+    mira(_Mbrtowc(&w, "Z", 1, &estado, &cvt) == 1 && w == 'Z', "_Mbrtowc de un caracter");
+    /* msvcp140 no tiene estados: con 0 bytes da 0 (el mbrtowc de C, -2). */
+    mira(_Mbrtowc(&w, "Z", 0, &estado, &cvt) == 0, "_Mbrtowc de 0 bytes: 0");
     mira(winerror_map(2) == 2 && winerror_map(5) == 13 && winerror_map(12345) == 0 && igual(syserror_map(2), "no such file or directory"), "_Winerror_map y _Syserror_map");
 
     _Cnd_destroy_in_situ(&cnd);
