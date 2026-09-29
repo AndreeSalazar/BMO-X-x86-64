@@ -8,7 +8,7 @@
 
 ```text
    382 casillas ABIERTAS en 43 planes
-   328 hechas
+   332 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -140,7 +140,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] D3a -- el codegen de COBOL. Es el mayor, y es el que va a crecer con
 - ... y 7 mas
 
-## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 5 hechas
+## [`PLAN_TALLER.md`](PLAN_TALLER.md) -- 10 abiertas, 9 hechas
 
 *PLAN DEL TALLER -- F1 de BMO-X*
 

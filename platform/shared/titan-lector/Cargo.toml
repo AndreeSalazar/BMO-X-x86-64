@@ -1,0 +1,12 @@
+[package]
+name = "bmo-titan-lector"
+version = "0.1.0"
+edition = "2021"
+description = "TITAN++: reads a package (Titan.toml + the header of each .titan) into the contract's graph, following `mod` like cargo. Pure, tested on the host."
+license = "Apache-2.0"
+
+# Only the contract. It does not know where files live: whoever uses it gives a
+# `Source` (ESTRATOS in F1, a table in memory in the tests). See
+# docs/plan/PLAN_TALLER.md section 8.6.
+[dependencies]
+bmo-titan-contrato = { path = "../titan-contrato" }

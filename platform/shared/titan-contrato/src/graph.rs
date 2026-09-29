@@ -262,6 +262,12 @@ impl Graph {
         false
     }
 
+    /// The node with this name, if any. Names are unique inside a package
+    /// (the reader refuses a second module with the same name).
+    pub fn find(&self, name: &[u8]) -> Option<NodeId> {
+        self.nodes().iter().position(|n| n.name.as_bytes() == name).map(|i| NodeId(i as u8))
+    }
+
     /// The manifest node, if the package has one.
     pub fn root(&self) -> Option<NodeId> {
         self.nodes().iter().position(|n| n.kind == NodeKind::Root).map(|i| NodeId(i as u8))

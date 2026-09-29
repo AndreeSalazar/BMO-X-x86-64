@@ -113,6 +113,9 @@ members = [
     # errores de 4 partes y los eventos del comprobador). Ver TITAN_MAESTRO y
     # PLAN_TALLER seccion 8.
     "platform/shared/titan-contrato",
+    # Y quien las LEE de disco: Titan.toml + la cabecera de cada .titan, siguiendo
+    # los `mod` como cargo. PLAN_TALLER seccion 8.6.
+    "platform/shared/titan-lector",
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de
     # antena. Ver PLAN_CLOUD_LOCAL, S2.
     "platform/shared/bmo-antena",

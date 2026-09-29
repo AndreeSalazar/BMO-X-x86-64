@@ -23,6 +23,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-dibujo",
  "bmo-titan-contrato",
+ "bmo-titan-lector",
  "bmo-userland",
 ]
 
@@ -192,6 +193,13 @@ dependencies = [
 [[package]]
 name = "bmo-titan-contrato"
 version = "0.1.0"
+
+[[package]]
+name = "bmo-titan-lector"
+version = "0.1.0"
+dependencies = [
+ "bmo-titan-contrato",
+]
 
 [[package]]
 name = "bmo-userland"

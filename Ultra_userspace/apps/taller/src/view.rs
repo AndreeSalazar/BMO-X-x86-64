@@ -20,28 +20,31 @@ use bmo_titan_contrato::{EventKind, Graph, Lang, Mode, Node, NodeId, NodeKind, P
 /// A node, in world pixels.
 pub const NODE_W: i32 = 240;
 pub const NODE_H: i32 = 104;
-/// The title bar and the bottom panel, in screen pixels.
+/// The title bar, the EXPLORER column and the bottom panel, in screen pixels.
 pub const TOP: i32 = 28;
+pub const LEFT: i32 = 250;
 pub const PANEL: i32 = 132;
 /// Zoom levels, in thousandths.
 pub const LEVELS: [i32; 6] = [500, 750, 1000, 1250, 1500, 2000];
 
-const BG: Color = 0x0010_0C14;
+// The house colours of the workshop, shared with the EXPLORER.
+pub(crate) const BG: Color = 0x0010_0C14;
 const DOT: Color = 0x0030_2640;
 const BODY: Color = 0x001A_1422;
-const EDGE: Color = 0x0044_2E60;
-const BAR: Color = 0x0020_1630;
-const TITLE: Color = 0x00C0_7FD8;
-const INK: Color = 0x00E8_E0F0;
-const DIM: Color = 0x0090_88A0;
+pub(crate) const EDGE: Color = 0x0044_2E60;
+pub(crate) const BAR: Color = 0x0020_1630;
+pub(crate) const TITLE: Color = 0x00C0_7FD8;
+pub(crate) const INK: Color = 0x00E8_E0F0;
+pub(crate) const DIM: Color = 0x0090_88A0;
 const CABLE: Color = 0x0050_4866;
-const ACCENT: Color = 0x005E_F2E6;
+pub(crate) const ACCENT: Color = 0x005E_F2E6;
 const MUT: Color = 0x00F2_B84B;
-const BAD: Color = 0x00E0_4848;
-const GOOD: Color = 0x0056_C46A;
+pub(crate) const BAD: Color = 0x00E0_4848;
+pub(crate) const GOOD: Color = 0x0056_C46A;
 const GREY: Color = 0x0060_5A6A;
 
-/// World -> screen: `(world - cam) * zoom / 1000`, below the title bar.
+/// World -> screen: `(world - cam) * zoom / 1000`, right of the EXPLORER and
+/// below the title bar.
 #[derive(Clone, Copy)]
 pub struct Camera {
     pub x: i32,
@@ -49,13 +52,18 @@ pub struct Camera {
     pub zoom: i32,
 }
 
+/// The middle of the canvas (the part that is not EXPLORER, title or panel).
+pub fn canvas_center(w: i32, h: i32) -> Vertice {
+    (LEFT + (w - LEFT) / 2, TOP + (h - TOP - PANEL) / 2)
+}
+
 impl Camera {
     pub fn to_screen(&self, wx: i32, wy: i32) -> Vertice {
-        ((wx - self.x) * self.zoom / 1000, (wy - self.y) * self.zoom / 1000 + TOP)
+        ((wx - self.x) * self.zoom / 1000 + LEFT, (wy - self.y) * self.zoom / 1000 + TOP)
     }
 
     pub fn to_world(&self, sx: i32, sy: i32) -> Vertice {
-        (sx * 1000 / self.zoom + self.x, (sy - TOP) * 1000 / self.zoom + self.y)
+        ((sx - LEFT) * 1000 / self.zoom + self.x, (sy - TOP) * 1000 / self.zoom + self.y)
     }
 
     /// The biggest level that shows the whole graph, centered.
@@ -70,7 +78,7 @@ impl Camera {
         if x0 > x1 {
             return Camera { x: 0, y: 0, zoom: 1000 };
         }
-        let (area_w, area_h) = (w - 40, h - TOP - PANEL - 40);
+        let (area_w, area_h) = (w - LEFT - 40, h - TOP - PANEL - 40);
         let mut zoom = LEVELS[0];
         for &z in LEVELS.iter() {
             if (x1 - x0) * z / 1000 <= area_w && (y1 - y0) * z / 1000 <= area_h {
@@ -80,10 +88,10 @@ impl Camera {
         Camera::centered(zoom, (x0 + x1) / 2, (y0 + y1) / 2, w, h)
     }
 
-    /// A camera at `zoom` whose screen center shows the world point (cx, cy).
+    /// A camera at `zoom` whose canvas center shows the world point (cx, cy).
     pub fn centered(zoom: i32, cx: i32, cy: i32, w: i32, h: i32) -> Camera {
-        let mid_y = TOP + (h - TOP - PANEL) / 2;
-        Camera { x: cx - (w / 2) * 1000 / zoom, y: cy - (mid_y - TOP) * 1000 / zoom, zoom }
+        let (mx, my) = canvas_center(w, h);
+        Camera { x: cx - (mx - LEFT) * 1000 / zoom, y: cy - (my - TOP) * 1000 / zoom, zoom }
     }
 }
 
@@ -102,17 +110,17 @@ pub fn hit(g: &Graph, cam: &Camera, sx: i32, sy: i32) -> Option<NodeId> {
 }
 
 /// A short line of text without an allocator.
-struct Buf {
+pub(crate) struct Buf {
     b: [u8; 160],
     n: usize,
 }
 
 impl Buf {
-    fn new() -> Buf {
+    pub(crate) fn new() -> Buf {
         Buf { b: [0; 160], n: 0 }
     }
 
-    fn b(&mut self, t: &[u8]) -> &mut Buf {
+    pub(crate) fn b(&mut self, t: &[u8]) -> &mut Buf {
         for &c in t {
             if self.n < self.b.len() {
                 self.b[self.n] = c;
@@ -122,11 +130,11 @@ impl Buf {
         self
     }
 
-    fn s(&mut self, t: &str) -> &mut Buf {
+    pub(crate) fn s(&mut self, t: &str) -> &mut Buf {
         self.b(t.as_bytes())
     }
 
-    fn num(&mut self, v: u32) -> &mut Buf {
+    pub(crate) fn num(&mut self, v: u32) -> &mut Buf {
         let mut d = [0u8; 10];
         let (mut k, mut v) = (0, v);
         loop {
@@ -144,7 +152,7 @@ impl Buf {
         self
     }
 
-    fn get(&self) -> &[u8] {
+    pub(crate) fn get(&self) -> &[u8] {
         &self.b[..self.n]
     }
 }
@@ -209,25 +217,52 @@ fn blink(now_ms: u32) -> bool {
     (now_ms / 250) % 2 == 0
 }
 
-/// One whole frame.
-pub fn draw(c: &mut Canvas, g: &Graph, s: &Script, p: &Player, cam: &Camera, now_ms: u32) {
+/// Everything one frame of the canvas needs.
+pub struct Scene<'a> {
+    pub graph: &'a Graph,
+    /// The checker's events, if this package has them (today: only the
+    /// `asteroids` modules; the real checker is T2-T4).
+    pub script: Option<&'a Script>,
+    pub player: &'a Player,
+    pub cam: &'a Camera,
+    pub now_ms: u32,
+    /// The node picked in the EXPLORER.
+    pub selected: Option<NodeId>,
+    /// Where the package came from, for the title bar.
+    pub origin: &'a [u8],
+}
+
+/// One whole frame of the canvas. The EXPLORER is drawn after, on its own.
+pub fn draw(c: &mut Canvas, sc: &Scene) {
+    let none = Script::new();
+    let (g, p, cam) = (sc.graph, sc.player, sc.cam);
+    let s = sc.script.unwrap_or(&none);
     c.clear(BG);
     grid(c, cam);
     let current = s.events().get(p.index).map(|e| e.kind);
     cables(c, g, p, cam, current);
     for (i, n) in g.nodes().iter().enumerate() {
-        node(c, g, cam, NodeId(i as u8), n, current, now_ms);
+        let id = NodeId(i as u8);
+        node(c, g, cam, id, n, current, sc.now_ms);
+        if sc.selected == Some(id) {
+            let (x, y, w, h) = node_rect(cam, n);
+            c.frame(x - 3, y - 3, w + 6, h + 6, 2, ACCENT);
+        }
     }
     chips(c, g, p, cam);
-    overlay(c, g, s, p, cam, now_ms);
-    title_bar(c, s, p);
-    panel(c, g, s, p);
+    overlay(c, g, s, p, cam, sc.now_ms);
+    title_bar(c, s, p, sc.script.is_some(), sc.origin);
+    if sc.script.is_some() {
+        panel(c, g, s, p);
+    } else {
+        quiet_panel(c);
+    }
 }
 
 fn grid(c: &mut Canvas, cam: &Camera) {
     let step = (40 * cam.zoom / 1000).max(8);
     let (ox, oy) = cam.to_screen(0, 0);
-    let (sx, sy) = (ox.rem_euclid(step), (oy - TOP).rem_euclid(step) + TOP);
+    let (sx, sy) = (LEFT + (ox - LEFT).rem_euclid(step), (oy - TOP).rem_euclid(step) + TOP);
     let mut y = sy;
     while y < c.h - PANEL {
         let mut x = sx;
@@ -438,32 +473,41 @@ fn overlay(c: &mut Canvas, g: &Graph, s: &Script, p: &Player, cam: &Camera, now_
     }
 }
 
-fn title_bar(c: &mut Canvas, s: &Script, p: &Player) {
+fn title_bar(c: &mut Canvas, s: &Script, p: &Player, has_script: bool, origin: &[u8]) {
     let w = c.w;
     c.rect(0, 0, w, TOP, BAR);
     c.rect(0, TOP - 1, w, 1, EDGE);
-    c.text(10, 6, b"F1  TALLER  --  TITAN++  --  asteroids (ejemplo)", TITLE, 1);
+    let mut t = Buf::new();
+    t.s("F1  TALLER  --  TITAN++  --  ").b(origin);
+    let used = c.text_fit(10, 6, t.get(), TITLE, w / 2);
     let mut t = Buf::new();
     let total = s.events().len() as u32;
-    if p.finished(s) {
+    if !has_script {
+        t.s("sin comprobador todavia");
+    } else if p.finished(s) {
         t.s("fin: ").num(total).s(" eventos  [r] repite");
     } else {
         t.s("evento ").num(p.index as u32 + 1).s("/").num(total);
         t.s(if p.playing { "  reproduciendo" } else { "  en pausa" });
     }
     let tw = t.get().len() as i32 * 8;
-    c.text(w - tw - 10, 6, t.get(), DIM, 1);
+    c.text_fit((w - tw - 10).max(used + 20), 6, t.get(), DIM, tw);
+}
+
+/// The bottom panel's box: right of the EXPLORER.
+fn panel_box(c: &mut Canvas) -> (i32, i32, i32) {
+    let (x, top, w) = (LEFT, c.h - PANEL, c.w - LEFT);
+    c.rect(x, top, w, PANEL, BAR);
+    c.rect(x, top, w, 1, EDGE);
+    (x + 12, top, w - 24)
 }
 
 fn panel(c: &mut Canvas, g: &Graph, s: &Script, p: &Player) {
-    let (w, top) = (c.w, c.h - PANEL);
-    c.rect(0, top, w, PANEL, BAR);
-    c.rect(0, top, w, 1, EDGE);
-    let x = 12;
+    let (x, top, w) = panel_box(c);
     let mut y = top + 8;
     let Some(e) = s.events().get(p.index) else {
-        c.text(x, y, b"El comprobador termino: los prestamos volvieron, y los dos NO quedaron dichos.", INK, 1);
-        help(c, top);
+        c.text_fit(x, y, b"El comprobador termino: los prestamos volvieron, y los dos NO quedaron dichos.", INK, w);
+        help(c, x, top);
         return;
     };
     let diag = match e.kind {
@@ -484,7 +528,7 @@ fn panel(c: &mut Canvas, g: &Graph, s: &Script, p: &Player) {
                 t.b(name_of(g, d.place.node)).s(", linea ").num(d.place.line as u32);
                 c.text(lx, y, t.get(), color, 1);
             } else {
-                c.text_fit(lx, y, text, color, w - lx - 12);
+                c.text_fit(lx, y, text, color, x + w - lx);
             }
             y += 20;
         }
@@ -506,17 +550,25 @@ fn panel(c: &mut Canvas, g: &Graph, s: &Script, p: &Player) {
             }
             EventKind::Conflict { .. } | EventKind::Denied { .. } => {}
         }
-        c.text_fit(x, y, t.get(), INK, w - 24);
+        c.text_fit(x, y, t.get(), INK, w);
         let mut d = Buf::new();
         d.s("dura ").num(duration(&e.kind)).s(" ms");
         c.text(x, y + 22, d.get(), DIM, 1);
     }
-    help(c, top);
+    help(c, x, top);
 }
 
-fn help(c: &mut Canvas, top: i32) {
+/// A package with no events: say why, instead of animating something invented.
+fn quiet_panel(c: &mut Canvas) {
+    let (x, top, w) = panel_box(c);
+    c.text_fit(x, top + 8, b"Este paquete no trae eventos: el grafo sale de sus ficheros de ESTRATOS.", INK, w);
+    c.text_fit(x, top + 30, b"Los prestamos animados llegan con el comprobador de verdad (TITAN_MAESTRO, T2-T4).", DIM, w);
+    help(c, x, top);
+}
+
+fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
-        12,
+        x,
         top + PANEL - 22,
         b"[espacio] pausa  [n] paso  [r] repite  [+ -] zoom  [0] encuadra  arrastrar: mueve  [Esc] cierra",
         DIM,

@@ -470,6 +470,87 @@ Lo que la captura del Ryzen dejo ver, y queda por hacer:
 son los mismos dibujos alimentados por `titan check` de un paquete `.titan` de
 verdad -- y eso espera a T0 (la gramatica, del propietario).
 
+### 8.6 L1: la BIBLIOTECA en ESTRATOS, en tiempo real (29-09)
+
+El propietario: *"en F1 se sincroniza en tiempo real con biblioteca en ESTRATOS
+para organizar carpetas, nombres"*, con el Explorer de Windows como inspiracion
+y no como plantilla. Eligio las tres cosas que siguen.
+
+**Lo que se decidio:**
+
+- **Se sigue `mod`, como cargo.** El grafo NO es un listado de carpetas: es lo
+  que el codigo declara. Un `.titan` que nadie nombra no es un nodo, y un `mod`
+  sin fichero es un PROBLEMA dicho, no un hueco.
+- **La cabecera es la del boceto.** La primera linea de cada `.titan` es
+  `mod nombre "que hace"`; debajo, `use a, b` (cables hacia abajo) y `mod a, b`
+  (los hijos). El resto del fichero es del lenguaje y el lector no lo mira.
+- **Un indice, `titan/biblioteca.toml`** (`[packages] nombre = "ruta"`), y
+  ningun cambio en Ring 0.
+
+```text
+   titan/biblioteca.toml          [packages] asteroids = "titan/asteroids"
+   titan/asteroids/Titan.toml     [package] name, [permissions], [layout]
+   titan/asteroids/src/main.titan mod main "..."  / use director / mod ship, rock, physics
+                   src/physics.titan              use ship, gpu / mod collide
+                   src/physics/collide.titan      (los hijos de un modulo, en su carpeta)
+```
+
+**Las piezas:**
+
+```text
+   [x] titan-lector    platform/shared/titan-lector: el TOML minimo, la
+                       cabecera, el indice, y `read_package`, que anda en
+                       anchura desde src/main.titan. No conoce el kernel: lee
+                       por un `Source`. Dice 12 clases de problema en
+                       castellano (falta el mod, nombre que no casa, `use` de
+                       nadie, permiso no pedido -- el U2 --, ciclo, ...).
+                       24 pruebas; la semilla se DEMUESTRA igual al ejemplo
+                       escrito a mano
+   [x] store.rs        la biblioteca en ESTRATOS. La primera vez la SIEMBRA
+                       (carpetas, ficheros, el indice el ULTIMO: una siembra
+                       cortada se termina la vez siguiente). Sin ESTRATOS
+                       montado, el ejemplo en memoria, y lo dice
+   [x] explorer.rs     la columna izquierda: EXPLORER, de donde viene y en que
+                       generacion, BIBLIOTECA (clic: abre otro paquete),
+                       ARCHIVOS como arbol (clic: ese nodo se enciende y el
+                       lienzo lo centra) y PROBLEMAS. Un clic en un nodo del
+                       lienzo enciende su fichero: van en las dos direcciones
+   [x] el guion        `sample::script_for(grafo)` busca los nodos por NOMBRE:
+                       si al paquete le falta uno de los que nombra el guion,
+                       no hay animacion -- nunca un prestamo hacia un nodo que
+                       no esta
+```
+
+**El tiempo real es un numero.** En ESTRATOS escribir ES commitear, y cada
+commit sube `INFO_ES_GENERACION`. F1 lo pregunta en cada latido (una llamada) y
+solo relee los ficheros si se movio. Un `renombra` en F12, un `vuelve`, otra
+app que guarda: F1 lo muestra en el latido siguiente (100 ms quieto, 16 moviendose).
+
+**Lo que NO hace, a proposito:** no recorre ESTRATOS con el cursor del kernel.
+Ese cursor es UNO y es del panel F12; moverlo desde aqui cambiaria lo que F12
+muestra. Por eso sigue `mod` (rutas conocidas, `Archivo::leer_de`) en vez de
+listar carpetas -- y es tambien lo que el propietario eligio.
+
+**Lo medido:** la pila de Ring 3 son 64 KiB y el camino mas hondo de
+`taller.bex` son **42.032 B** (`_start` 27.928). Iba en 48.736: el ejemplo en
+memoria construia un guion para tirarlo; `sample::asteroids_graph()` lo quito.
+
+**Como se mira en el Ryzen** (despues de `build.ps1` y desplegar, con ESTRATOS
+montado):
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 la primera vez | la consola dice `TALLER: sembre titan/asteroids en ESTRATOS`; a la izquierda `ESTRATOS gen N`, `> asteroids` y 6 ficheros en arbol | `no se pudo sembrar`: la consola dice que ruta |
+| clic en `collide.titan` | el nodo `collide` se enmarca en cian y el lienzo lo centra | nada: el clic no llega a x < 250 |
+| clic en el nodo `ship` | `ship.titan` se enciende en la columna | igual, al reves |
+| F12: `renombra titan/asteroids/src/rock.titan roca.titan` | sin tocar F1, `rock` desaparece, sale en PROBLEMAS `main declara mod rock y su fichero no esta`, la animacion se va y el panel dice por que; la generacion sube | F1 no cambia: el latido no pregunta la generacion |
+| F12: `vuelve 1` | `rock` vuelve, la animacion vuelve a empezar | igual |
+| F1 sin ESTRATOS montado | `ESTRATOS no esta montado: ejemplo en memoria`, y todo lo de 8.5 sigue igual | la app se cierra |
+
+**Lo siguiente (L2+), sin hacer:** crear, renombrar y borrar DESDE la columna
+(hoy se hace en F12 y F1 lo ve); abrir un `.titan` en el editor; que un cable
+dibujado escriba el `use` (escalon 10). Y los que siguen abiertos de 8.5.
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

@@ -2,7 +2,7 @@
 name = "bmo-app-taller"
 version = "0.1.0"
 edition = "2021"
-description = "TALLER (F1): the workshop as a node editor for TITAN++, with the borrow checker animated. B1-B3 of PLAN_TALLER section 8."
+description = "TALLER (F1): the workshop as a node editor for TITAN++, with the borrow checker animated. B1-B3 and L1 of PLAN_TALLER section 8."
 
 [[bin]]
 name = "taller"
@@ -14,3 +14,6 @@ bmo-userland = { path = "../../userland" }
 bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
 # Clipping, lines and curves: the same rasterizer as the kernel and the desktop.
 bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }
+# Reads a package following `mod` (section 8.6). Knows no kernel: the store
+# hands it ESTRATOS through a `Source`.
+bmo-titan-lector = { path = "../../../platform/shared/titan-lector" }
