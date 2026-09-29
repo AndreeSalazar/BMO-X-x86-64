@@ -1846,6 +1846,22 @@ pub const UNIDAD_EFI: u64 = 1;
 pub const UNIDAD_PERSONAL: u64 = 2;
 pub const UNIDAD_NO_SE: u64 = u64::MAX;
 
+/// # `INFO_RECETA`: el tiempo de la receta de la 3060, por piezas (2026-09-29)
+///
+/// Con selector: `INFO_RECETA | k << 8`. Acumulado desde el arranque (quien
+/// lee resta dos lecturas): `k = 0` los lotes; el resto, ns.
+///
+/// ```text
+///   1 leer (validar, traducir, `rc::leer`)   2 pegar y juzgar (o reusar)
+///   3 prestar las texturas                   4 el paquete y la pantalla
+///   5 `en_frio` entero (la 3060, preparar y la sombra DENTRO)
+///   6 devolver las texturas                  7 la receta ENTERA
+/// ```
+///
+/// El metal (29-09 08:18) dio `resto 105` us de 247 por lote sin saber de
+/// quien: esto lo parte. Solo lee contadores.
+pub const INFO_RECETA: u64 = 0xC5;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

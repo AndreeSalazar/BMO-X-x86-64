@@ -938,6 +938,12 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                           invalidacion), las dos `fisica_de`, `rc::leer`
                           de la receta entera y la comparacion de
                           `ya_pegada`. Sin el reparto no se toca nada.
+                          **Z6 [HECHO en codigo 29-09, falta el metal]:**
+                          el kernel suma los ciclos de cada pieza de
+                          `cubo::receta` (`INFO_RECETA`) y PROTON-X pone
+                          debajo de cada `[3060]` su linea `[resto]`: leer,
+                          pegar, texturas, paquete, devolver, `en_frio` sin
+                          la 3060 y lo de fuera de la receta.
                        2. **Z5 [idea, por probar]: el RESOLVE por el GR y no
                           por la copia.** Un segundo pase en el MISMO canal:
                           un triangulo que cubre la ventana, sin Z, que

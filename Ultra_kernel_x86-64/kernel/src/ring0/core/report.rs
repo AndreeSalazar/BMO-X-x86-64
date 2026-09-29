@@ -462,6 +462,9 @@ const INFO_METICHE: u64 = 0xC3;
 /// Lo que mide cada unidad y lo que le queda (29-09). Espejo de
 /// `bmo_abi::...::INFO_UNIDAD`; el selector se documenta alli.
 const INFO_UNIDAD: u64 = 0xC4;
+/// El resto de la receta, partido (29-09, Z6). Espejo de
+/// `bmo_abi::...::INFO_RECETA`; las piezas, en `gpu_trabajo::cubo`.
+const INFO_RECETA: u64 = 0xC5;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -918,6 +921,7 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_GSP_MEM => crate::ring0::dev::gpu_libos::info_gsp_mem(c),
         c if c & 0xFF == INFO_GPU_SALUD => crate::ring0::dev::gpu::info_salud(c),
         c if c & 0xFF == INFO_METICHE => crate::ring0::dev::metiche::info(c),
+        c if c & 0xFF == INFO_RECETA => crate::ring0::dev::gpu_trabajo::info_receta(c),
         c if c & 0xFF == INFO_UNIDAD => {
             let (unidad, que) = ((c >> 8) & 0xFF, (c >> 16) & 3);
             // `que 2`: el testigo del FSInfo (DATOS, EFI) o donde se paro N1a

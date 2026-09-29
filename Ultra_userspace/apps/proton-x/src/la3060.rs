@@ -41,6 +41,15 @@
 //! 5,4 + sombra 1,15 + resto 2,6, y la puerta 1 us. Preparar era la mitad,
 //! siempre en frio: desde ese dia el destino tambien va en caliente
 //! (`gpu_trabajo/cubo.rs`, `tuberia::huella_fija`).
+//!
+//! ** Z6 (29-09): con el lote en 247 us, `resto` eran 105 sin saber de quien. Debajo
+//! de cada `[3060]` va su reparto, de los contadores del kernel
+//! (`INFO_RECETA`):
+//!
+//! ```text
+//!    [resto] por lote: leer L + pegar G + texturas T + paquete Q + devolver D
+//!            + en_frio sin la 3060 F + fuera de la receta O us
+//! ```
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -81,6 +90,13 @@ struct Partes {
     calientes: u64,
     /// P3b4c.9 Z1: los lotes que quedaron EN LA PANTALLA (sin bajar a la RAM).
     en_pantalla: u64,
+    /// Z6: los contadores de `INFO_RECETA` al empezar el segundo.
+    receta: [u64; 8],
+}
+
+/// Los contadores de la receta del kernel, por piezas (`INFO_RECETA`).
+fn leer_receta() -> [u64; 8] {
+    core::array::from_fn(|k| bmo::info(bmo::INFO_RECETA | (k as u64) << 8))
 }
 
 impl Partes {
@@ -88,6 +104,7 @@ impl Partes {
     fn sumar(&mut self, puerta_ns: u64, kernel_ns: u64, r: u64, ahora: u64) {
         if self.desde_ns == 0 {
             self.desde_ns = ahora;
+            self.receta = leer_receta();
         }
         let (us, _, _, _) = puerta::desempaquetar(r);
         self.lotes += 1;
@@ -111,7 +128,25 @@ impl Partes {
                 self.calientes,
                 self.en_pantalla,
             ));
-            *self = Partes { desde_ns: ahora, ..Partes::default() };
+            // ** Z6: EL RESTO, PARTIDO. Lo que el kernel sumo por pieza en
+            // este segundo, por lote; `en_frio` sin lo que ya dice la linea
+            // de arriba (3060, preparar, sombra), y lo que el syscall costo
+            // fuera de la receta (la puerta del kernel, el despacho).
+            let ahora_r = leer_receta();
+            let d: [u64; 8] = core::array::from_fn(|i| ahora_r[i].wrapping_sub(self.receta[i]));
+            let nr = d[0].max(1);
+            let us = |i: usize| d[i] / nr / 1000;
+            bmo::consola(&alloc::format!(
+                "[resto] por lote: leer {} + pegar {} + texturas {} + paquete {} + devolver {} + en_frio sin la 3060 {} + fuera de la receta {} us\n",
+                us(1),
+                us(2),
+                us(3),
+                us(4),
+                us(6),
+                us(5).saturating_sub(a + b + c),
+                k.saturating_sub(us(7)),
+            ));
+            *self = Partes { desde_ns: ahora, receta: ahora_r, ..Partes::default() };
         }
     }
 }
@@ -119,7 +154,7 @@ impl Partes {
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Celda {}
-static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0, en_pantalla: 0 }, pantalla_pedida: false, sin_pantalla: false }));
+static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0, en_pantalla: 0, receta: [0; 8] }, pantalla_pedida: false, sin_pantalla: false }));
 
 /// **P3b4c.9 Z1: soltar la pantalla directa** si se pidio, y no volver a
 /// pedirla: lo que venga va por la RAM y lo compone el escritorio. Un lote

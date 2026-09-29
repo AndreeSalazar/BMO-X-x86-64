@@ -248,8 +248,53 @@ static TALLER_EN_USO: AtomicBool = AtomicBool::new(false);
 ///    el cerrojo     el del GR, como `gpu verrano`: si esta ocupado, NO (la
 ///                   app dibuja ese lote en la CPU y lo dice)
 /// ```
+/// **P3b4c.9 Z6: el RESTO, partido** (29-09). El metal de las 08:18 dio
+/// `resto 105` us de 247 por lote sin saber de quien. Cada pieza de
+/// [`receta`] suma aqui sus ciclos (y `[0]` los lotes); `INFO_RECETA` los
+/// da en ns y PROTON-X los parte por segundo en su linea `[resto]`:
+///
+/// ```text
+///    0 lotes       1 leer (validar, las dos `fisica_de`, `rc::leer`)
+///    2 pegar (`ya_pegada` o `pegar`)   3 prestar las texturas
+///    4 el paquete y la pantalla        5 `en_frio` entero (dentro van la
+///    3060, preparar y la sombra: los resta quien lee)
+///    6 devolver las texturas           7 la receta ENTERA
+/// ```
+pub static RECETA_PARTES: [AtomicU64; 8] = [const { AtomicU64::new(0) }; 8];
+
+/// Suma a la pieza `k` lo que va de `desde` a ahora, y devuelve ahora.
+fn pieza(k: usize, desde: u64) -> u64 {
+    let ahora = crate::ring0::task::scheduler::rdtsc();
+    RECETA_PARTES[k].fetch_add(ahora.wrapping_sub(desde), Ordering::Relaxed);
+    ahora
+}
+
+/// `INFO_RECETA | k << 8`: la pieza `k` en ns acumulados (`k = 0`: lotes).
+pub fn info_receta(c: u64) -> u64 {
+    let k = ((c >> 8) & 7) as usize;
+    let v = RECETA_PARTES[k].load(Ordering::Relaxed);
+    if k == 0 {
+        return v;
+    }
+    let mhz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    v.saturating_mul(1000) / mhz
+}
+
+/// La pieza 7 (la receta entera), sumada al SALIR por donde sea: las
+/// salidas tempranas tambien cuestan y tambien cuentan.
+struct Entera(u64);
+
+impl Drop for Entera {
+    fn drop(&mut self) {
+        pieza(7, self.0);
+    }
+}
+
 pub fn receta(va: u64) -> Result<u64, u32> {
     use bmo_gpu_ga10x::receta as rc;
+    let inicio = crate::ring0::task::scheduler::rdtsc();
+    RECETA_PARTES[0].fetch_add(1, Ordering::Relaxed);
+    let _entera = Entera(inicio);
     let bar0 = crate::ring0::dev::gpu::bar0();
     let Some(ficha) = super::ficha_del_gr() else {
         crate::ring0::cabina::warn("gpu", "P3b4c: una app pide la 3060 y el escritorio no la preparo (`gpu verrano`, hasta `lienzo`)", va);
@@ -287,6 +332,7 @@ pub fn receta(va: u64) -> Result<u64, u32> {
         crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene (medidas, destino, cargas, datos o indices); bytes", total as u64);
         return Err(IOMMU_NO_BLUR_PREPARAR);
     };
+    let t0 = pieza(1, inicio);
     if TALLER_EN_USO.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_BLUR);
     }
@@ -298,12 +344,14 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     // por lote, casi todo esto). Cualquier diferencia, o un pegado que fallo
     // antes, y se pega y se juzga entero.
     let pegada = if rc::ya_pegada(&r, t) { Ok(()) } else { rc::pegar(&r, t) };
+    let t0 = pieza(2, t0);
     let salida = match pegada {
         // ** P3b4c.8 T2: las texturas de la app, prestadas a la 3060 SOLO
         // LECTURA y solo mientras dibuja, con sus TIC y TSC en las piscinas;
         // devueltas SIEMPRE, salga como salga el dibujo.
         Ok(()) => match prestar_texturas(bar0, pid, r.texturas()) {
             Ok(prestadas) => {
+                let t0 = pieza(3, t0);
                 let mut paquete = rc::paquete(&r, t, ficha);
                 // ** P3b4c.9 Z1: a la PANTALLA, si el escritorio se la dio a
                 // ESTA app y el destino es un back buffer de la cadena que
@@ -311,9 +359,12 @@ pub fn receta(va: u64) -> Result<u64, u32> {
                 // "es de la cadena".
                 let pantalla = a_la_pantalla(pid, &paquete.dibujo);
                 paquete.dibujo.pantalla = pantalla;
+                let t0 = pieza(4, t0);
                 let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true)
                     .map(|x| if pantalla && cu::sano(x) { cu::en_pantalla(x) } else { x });
+                let t0 = pieza(5, t0);
                 devolver_texturas(&prestadas);
+                pieza(6, t0);
                 x
             }
             Err(m) => Err(m),

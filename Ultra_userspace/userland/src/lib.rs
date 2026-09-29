@@ -1169,6 +1169,8 @@ pub const UNIDAD_DATOS: u64 = 0;
 pub const UNIDAD_EFI: u64 = 1;
 pub const UNIDAD_PERSONAL: u64 = 2;
 pub const UNIDAD_NO_SE: u64 = u64::MAX;
+/// El tiempo de la receta de la 3060, por piezas. Ver el ABI (`INFO_RECETA`).
+pub const INFO_RECETA: u64 = 0xC5;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.
