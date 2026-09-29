@@ -95,6 +95,51 @@ impl Mensaje {
     }
 }
 
+/// `RC_TRIGGERED`: el GSP-RM cuenta que un canal tomo una excepcion (y lo
+/// mata: el canal queda MUERTO hasta reiniciar).
+pub const RC_TRIGGERED: u32 = 0x1004;
+
+/// Los numeros "Xid" de NVIDIA que se reconocen (los que nombra el director).
+pub const fn xid_conocido(t: u32) -> bool {
+    matches!(t, 13 | 31 | 43 | 69 | 109)
+}
+
+/// **P3b4c (29-09): el canal que el GSP-RM mato.** Recorre los mensajes de
+/// la cola del GSP SIN moverla -- de `leido` (el `readPtr` de la CPU) a
+/// `escrito` (el `writePtr` del GSP), en una cola de `paginas` -- y da el
+/// Xid del primer `RC_TRIGGERED` del canal `chid` (0 si no es uno conocido).
+/// `leer(pagina, desde)`: 4 bytes del mensaje que empieza en `pagina`,
+/// contando desde su cabecera y dando la vuelta a la cola.
+///
+/// La r570 trae mas campos entre el canal y el tipo que la v17_02 (metal
+/// 24-09 18:27): el Xid es la primera palabra de la 2 a la 7 que sea uno
+/// conocido, como lo lee el director (`gspcola::aviso`). El metal del 28-09
+/// dio `00000001 00000002 00000000 00000002 00000045 ...`: motor GR, canal
+/// 2, Xid 0x45 = 69.
+pub fn rc_del_canal(leer: &mut impl FnMut(u64, usize) -> u32, leido: u64, escrito: u64, paginas: u64, chid: u32) -> Option<u32> {
+    if paginas == 0 {
+        return None;
+    }
+    let (fin, mut p) = (escrito % paginas, leido % paginas);
+    let mut vueltas = 0;
+    while p != fin && vueltas < paginas {
+        let mut h = [0u8; CABECERA];
+        for k in 0..CABECERA / 4 {
+            h[4 * k..4 * k + 4].copy_from_slice(&leer(p, 4 * k).to_le_bytes());
+        }
+        let m = Mensaje::de(&h);
+        if !m.bien_formado() {
+            return None;
+        }
+        if m.funcion == RC_TRIGGERED && m.datos() >= 32 && leer(p, CABECERA + 4) == chid {
+            return Some((2..8).map(|k| leer(p, CABECERA + 4 * k)).find(|&t| xid_conocido(t)).unwrap_or(0));
+        }
+        p = (p + m.paginas as u64) % paginas;
+        vueltas += m.paginas as u64;
+    }
+    None
+}
+
 /// **La suma de comprobacion de nova-core** (`calculate_checksum`), por
 /// trozos: cada byte rotado 8 x (su posicion mod 8) en un u64, todo con XOR, y
 /// las dos mitades con XOR al final. Un mensaje entero, con su `checkSum`
@@ -239,6 +284,28 @@ mod pruebas {
         s.mas(&m[..80 + datos.len()]);
         m[32..36].copy_from_slice(&s.valor().to_le_bytes());
         m
+    }
+
+    /// El RC_TRIGGERED del metal del 28-09 (canal 2, Xid 69), en una cola de
+    /// 4 paginas con otro mensaje delante; y lo que NO es ese canal.
+    #[test]
+    fn el_canal_que_el_gsp_mato() {
+        let palabras = |w: &[u32]| w.iter().flat_map(|x| x.to_le_bytes()).collect::<std::vec::Vec<u8>>();
+        let rc = palabras(&[1, 2, 0, 2, 0x45, 1, 0xE9, 0]);
+        let mut cola = vec![0u8; 4 * 4096];
+        cola[..4096].copy_from_slice(&mensaje(SECUENCIADOR, b"otra cosa"));
+        cola[4096..8192].copy_from_slice(&mensaje(RC_TRIGGERED, &rc));
+        let mut leer = |p: u64, o: usize| {
+            let d = (p as usize * 4096 + o) % cola.len();
+            u32::from_le_bytes(cola[d..d + 4].try_into().unwrap())
+        };
+        assert_eq!(rc_del_canal(&mut leer, 0, 2, 4, 2), Some(69));
+        assert_eq!(rc_del_canal(&mut leer, 0, 2, 4, 1), None, "el canal de copia, vivo");
+        assert_eq!(rc_del_canal(&mut leer, 0, 1, 4, 2), None, "el GSP aun no lo escribio");
+        // Dando la vuelta: leido en la 3, escrito en la 2.
+        assert_eq!(rc_del_canal(&mut leer, 3, 2, 4, 2), None, "la 3 esta vacia: se para");
+        let mut basura = |_: u64, _: usize| 0xFFFF_FFFFu32;
+        assert_eq!(rc_del_canal(&mut basura, 0, 3, 4, 2), None, "sin forma de mensaje, nada");
     }
 
     #[test]

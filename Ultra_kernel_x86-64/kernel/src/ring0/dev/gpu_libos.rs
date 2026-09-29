@@ -511,6 +511,27 @@ fn rpc_lista() -> bool {
     GSPMEM_F.load(Ordering::Acquire) != 0 && crate::ring0::dev::gpu::bar0() != 0 && d::info_secuencia() >> 24 & d::SEC_HECHO != 0
 }
 
+/// **P3b4c (29-09): el Xid con el que el GSP-RM mato el canal `chid`**, si
+/// su `RC_TRIGGERED` sigue en la cola del GSP (sin moverla: la lee, no la
+/// consume; como `gpu` en el director). `Some(0)` = muerto, Xid desconocido.
+pub(super) fn rc_del_canal(chid: u32) -> Option<u32> {
+    let f = GSPMEM_F.load(Ordering::Acquire);
+    if f == 0 {
+        return None;
+    }
+    let u32_en = |fisica: u64| {
+        // SAFETY: dentro de GspMem (marcos NEUTRO de este fichero), que el
+        // GSP escribe; volatile, y solo se lee.
+        unsafe { (crate::ring0::mm::phys_to_virt(fisica) as *const u32).read_volatile() }
+    };
+    let escrito = u32_en(f + lb::COLA_GSP + 16) as u64;
+    let leido = u32_en(f + lb::COLA_CPU + lb::RX_HDR_OFF as u64) as u64;
+    let datos = f + lb::COLA_GSP + PAGINA;
+    let bytes = lb::MSGQ_PAGINAS * PAGINA;
+    let mut leer = |p: u64, o: usize| u32_en(datos + (p * PAGINA + o as u64) % bytes);
+    bmo_gpu_ga10x::rpc::rc_del_canal(&mut leer, leido, escrito, lb::MSGQ_PAGINAS, chid)
+}
+
 /// **Una pregunta a la cola de la CPU**: la arma `armar` en la pagina
 /// siguiente, mueve el `writePtr` y toca el timbre. `Ok(pagina | numero << 32)`.
 pub(super) fn enviar(armar: impl FnOnce(&mut [u8], u32) -> Option<usize>) -> Result<u64, u32> {

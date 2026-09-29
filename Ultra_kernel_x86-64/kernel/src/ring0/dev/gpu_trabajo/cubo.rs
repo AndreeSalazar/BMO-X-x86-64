@@ -396,6 +396,10 @@ fn decir_no_receta(e: bmo_gpu_ga10x::receta::NoReceta) {
 fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, ligero: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::tuberia as tu;
     let (p, v, paquete) = (*p, *v, *paquete);
+    // P3b4c (29-09): un canal MUERTO dice NO al instante, con SU motivo.
+    if super::gr_muerto().is_some() {
+        return Err(super::IOMMU_NO_CANAL_MUERTO);
+    }
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
@@ -890,6 +894,9 @@ fn dibujar(bar0: u64, ficha: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla,
         diagnostico(&mut r);
     }
     let v = cu::empaquetar(us as u32, n, etapas, lanzado);
+    if lanzado {
+        super::tras_esperar(cu::sano(v));
+    }
     if cu::sano(v) {
         DIBUJADO.store(true, Ordering::Release);
         let n = VECES.fetch_add(1, Ordering::AcqRel) + 1;

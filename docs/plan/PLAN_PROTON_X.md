@@ -618,6 +618,14 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     copia (C7B5) EN el canal GR, tras un semaforo; y que el
                     kernel, al oir un RC_TRIGGERED, marque el canal muerto y
                     diga NO al instante (y el juez niegue Z sin sombra).
+               4c.6d [HECHO banco, Ring 0 aprobado 29-09] EL CANAL MUERTO:
+                    el kernel lee la cola del GSP sin moverla
+                    (`rpc::rc_del_canal`); un RC_TRIGGERED del canal de GR --
+                    o dos dibujos seguidos esperados sin pagar -- lo marca
+                    MUERTO, la cabina dice su Xid UNA vez, y todo trabajo del
+                    GR dice NO al instante (`IOMMU_NO_CANAL_MUERTO` 90): ni un
+                    segundo mas por lote (el metal del 28-09: 1041 ms por
+                    fotograma). La app, al oirlo, deja la 3060 y lo dice.
                4c.6c [VISTO EN EL METAL 28-09 22:36] `gpu verrano bmox12 30
                     z`: IGUAL (huella 0x2b3985e93e1a6574, la de D3D12), la
                     3060 en 1176 us; `ambas`: DISTINTO (74648 pixeles), como
