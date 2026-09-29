@@ -142,21 +142,56 @@ linea (su licencia no es la de esta casa). Lo que dice, fichero a fichero
                   - inflar zlib y comprobar md5 / sha256 de cada trozo
                   - banco: respuestas de GOG GRABADAS (sin fichas ni
                     tokens), mutadas byte a byte
-   la antena      el PC o el movil, un binario Rust de host: pone la
-                  red, el TLS y la sesion; llama al crate para todo lo
-                  demas. El token vive SOLO ahi (seccion 5)
+   la antena      el PC o el movil, un binario Rust de host: pone el
+                  socket y la sesion; el TLS, el HTTP y el JSON son de la
+                  casa (ver abajo). El token vive SOLO ahi (seccion 5)
    BMO-X          recibe las lineas (J1) y, para el camino A, los ficheros
                   con su suma (J3): nunca ve un token
 ```
 
-**Lo que falta decidir (no se adivina):** con que se hace el HTTPS de la
-antena en Rust. La casa no trae crates de fuera hoy (ni un `ureq`, ni un
-`rustls`, ni un `serde_json` en ningun `Cargo.toml`); escribir TLS a mano
-es el muro de la criptografia. Las salidas honestas: (a) aceptar UN crate
-de TLS solo en la antena, que no es BMO-X; (b) que la antena llame al
-`curl` del sistema para el transporte y Rust haga todo lo demas. Lo decide
-el propietario. El JSON y el zlib SI se escriben en casa (el crate los
-necesita en no_std y son chicos).
+**DECIDIDO (29-09, el propietario): INDEPENDENCIA EXTREMA.** *"En
+ludoteca TODO independencia extrema"*. Ni un crate de fuera, ni en la
+antena; ni el `curl` del sistema; ni Python. Todo lo que la charla con GOG
+pide se escribe en Rust en esta casa. Lo que YA hay y lo que falta, medido
+en el arbol (no de memoria):
+
+```text
+   pieza                    hoy                                   para GOG
+   -----------------------  ------------------------------------  ----------
+   SHA-256, SHA-512         bmo-cripto (sha256.rs, sha512.rs)     HAY
+   HMAC                     bmo-cripto (hmac.rs)                  HAY
+   AES y GCM                bmo-cripto (aes.rs, gcm.rs)           HAY
+   X25519, Ed25519          bmo-cripto (x25519.rs, ed25519.rs)    HAY
+   azar                     bmo-cripto (azar.rs)                  HAY
+   inflar (zlib/deflate)    bmo-imagen (deflar.rs, el del PNG)    HAY: sacarlo
+                                                                  a un crate
+                                                                  propio
+   MD5                      no                                    FALTA (los
+                                                                  trozos de
+                                                                  GOG)
+   HKDF                     no (sale de HMAC en pocas lineas)     FALTA
+   TLS 1.3, el apreton      no                                    FALTA
+   X.509 / ASN.1 (DER)      no                                    FALTA
+   RSA y ECDSA P-256        no (los certificados de los hosts     FALTA
+   (solo VERIFICAR)         de GOG firman con uno de los dos)
+   las raices de confianza  no: una lista CHICA y fija, las       FALTA
+                            que firman los hosts de GOG, puesta
+                            a mano y con su suma
+   HTTP/1.1 (cliente)       no                                    FALTA
+   JSON (leer)              no                                    FALTA
+```
+
+O sea: lo mas duro de la criptografia (AES-GCM, X25519, las sumas) ya esta
+en casa; lo que falta es el TLS 1.3 encima (un cliente, una suite: AES-GCM
++ X25519), verificar certificados, y el HTTP y el JSON, que son chicos. Y
+como todo es Rust no_std y con banco, **el mismo TLS sirve despues a BMO-X
+entero**: es el muro de la criptografia del README, derribado por el lado
+de GOG.
+
+**EN PAUSA (29-09, el propietario): "no vayamos por alli todavia, prioriza
+Cyberpunk 2077".** Queda escrito para cuando se retome: J0 (el formato y el
+crate), luego MD5/HKDF/HTTP/JSON, luego el TLS. Nada de esto se toca hasta
+que el propietario lo reabra.
 
 ## 4. Lo que NO se hace
 

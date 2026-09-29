@@ -666,6 +666,102 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                       syscall vuelve con el timbre y el siguiente espera
                       al anterior (doble buffer; esconde `3060`); (5) el
                       PCIe en Gen1 (va en `sombra`).
+               4c.9 [INVESTIGADO 29-09, pedido por el propietario: "que
+                    podemos hacer CERO COPIAS por completo, que solo sea
+                    verificado automatico por algo"] **EL CAMINO DE UN
+                    FOTOGRAMA, COPIA A COPIA** (BMOX-12, 1280x720, con Z;
+                    leido en el codigo, no adivinado):
+                    ```text
+   paso                          quien        bytes / fotograma   donde en el codigo
+   ----------------------------  -----------  ------------------  ---------------------------
+   1 la receta a la caja         CPU (app)    KiB (vertices,      puerta::preparar
+                                              constantes)
+   2 leerla                      nadie: SE LEE EN SU SITIO (physmap)  cubo::receta, rc::leer
+   3 pegar + el juez             CPU (kernel) KiB, CADA lote      rc::pegar (sin huella)
+   4 prestar el back buffer      IOMMU        ~900 paginas y su   prestar_destino /
+     y devolverlo                             invalidacion, CADA  devolver_gpu
+                                              lote
+   5 ordenes y datos a la VRAM   CPU -> PCIe  KiB, TODO el estado  preparar_con: "con
+                                              fijo cada vez       destino, siempre en frio"
+   6 DIBUJAR                     la 3060      en la VRAM (sombra)  ~1 ms (medido 28-09)
+   7 sombra -> back buffer       copia GPU    3,6 MB por el PCIe   volcado::copia_de_sombra
+                                              en Gen1, BAJANDO
+   8 Present: back buffer ->     CPU (app)    3,6 MB, pixel a      dxgi::present
+     superficie                               pixel (y R<->B si
+                                              es RGBA)
+   9 el escritorio: superficie   CPU          3,6 MB, pixel a      director scene/surface.rs
+     -> pantalla                 (director)   pixel con            `compose`
+                                              read_volatile, y la
+                                              pantalla esta en la
+                                              VRAM: SUBIENDO por
+                                              el PCIe otra vez
+                    ```
+                    O sea: el fotograma NACE en la VRAM (6), BAJA a la RAM
+                    (7), la CPU lo copia DOS veces (8, 9) y SUBE a la VRAM
+                    otra vez (9), donde ya estaba. Lo que la 3060 hace en 1
+                    ms, el camino lo paga en 3 viajes de 3,6 MB. Y el
+                    "siempre en frio" (5) viene del prestamo (4): con
+                    destino, la receta caliente esta apagada.
+
+                    **CERO COPIAS DE VERDAD = el fotograma NO SALE de la
+                    VRAM.** La pantalla del GOP YA esta en la VRAM de la
+                    3060 (la BAR1), y el kernel YA sabe copiar la sombra a
+                    "la ventana de la pantalla" (lo hace `gpu verrano`). Lo
+                    que falta es que PROTON-X lo pida. Los escalones, cada
+                    uno con lo que lo VERIFICA SOLO (sin que nadie mire):
+                    Z0 [por hacer, solo lectura] MEDIR lo que ya se dice:
+                       las lineas `[3060]` (pasos 1-7) y `[registro]` (el
+                       fotograma, `dibujar` y `presentar`: el 8) de `run
+                       sys/proton-x.bex window/bmox12.exe`. El paso 9 no
+                       tiene linea: su `ritmo` del escritorio. Sin esto no
+                       se sabe cuanto da cada Z; el ORDEN de abajo no
+                       depende de ello, la medida de la ganancia si.
+                    Z1 PRESENTAR POR LA 3060, A PANTALLA COMPLETA (como D2c
+                       de `PLAN_VERRANO.md` con DOOM, y un juego va a
+                       pantalla completa igual): los lotes dibujan en la
+                       SOMBRA y NADA baja a la RAM; `Present` pide al
+                       kernel "sombra -> pantalla" por el motor de copia,
+                       VRAM a VRAM (~15 us para 1080p, contra los 3 viajes).
+                       Se van los pasos 4, 7, 8 y 9 enteros. Lo que lo
+                       verifica solo:
+                       - el KERNEL, no la app, sabe si el fotograma esta
+                         entero: cuenta los lotes pagados por la 3060 desde
+                         el ultimo Present; si UNO fue por la CPU, ese
+                         fotograma vuelve al camino de hoy (nunca se ve un
+                         fotograma a medias)
+                       - el rectangulo de la pantalla lo pone el
+                         ESCRITORIO (su tabla), no el `.exe`: una app no
+                         puede escribir fuera de lo que se le dio
+                       - el escritorio NO pinta encima (como D2c: sin
+                         cursor, sin volcar) mientras la 3060 manda
+                       - el banco del metal, como `gpu verrano bmox12 z`:
+                         el primer fotograma se relee de la pantalla y su
+                         huella tiene que ser la de la CPU (IGUAL), y
+                         despues uno cada N segundos; si da DISTINTO, la
+                         app vuelve a la CPU y se dice por que
+                    Z2 LA RECETA CALIENTE otra vez: sin destino (Z1) no hay
+                       prestamo, asi que `preparar_caliente` vuelve a valer
+                       (el paso 5 solo sube vertices y constantes). Lo
+                       verifica la huella de lo fijo, la MISMA que ya usa
+                       el anillo (`tuberia::huella_fija`)
+                    Z3 PEGAR Y JUZGAR POR HUELLA (el paso 3): los programas
+                       ya juzgados y ya en la VRAM se reusan si su huella
+                       no cambia; la 3060 corre la copia de la VRAM, que
+                       es la juzgada, asi que lo que la app toque despues
+                       no llega. Lo verifica: la huella de los bytes de la
+                       app en cada lote (leer, no copiar), y el juez la
+                       primera vez
+                    Z4 NO ESPERAR en el syscall (el paso 6): el timbre y
+                       volver; el siguiente lote espera al anterior. Lo
+                       verifica el semaforo, que ya se lee
+                    Lo que NO se hace: que el `.exe` lea su back buffer
+                    (casi ningun juego lo hace; si uno lo hace, ese
+                    fotograma baja a la RAM, dicho), ni cambiar la
+                    pantalla de la UEFI (modeset): la pantalla sigue siendo
+                    la del GOP, y el fotograma se COPIA dentro de la VRAM.
+                    Ir de "copia en la VRAM" a "cero bytes" pediria que la
+                    pantalla lea la sombra (flip), y eso es modeset propio:
+                    otro escalon, mas adelante.
                4c.6c [HECHO banco] LA SOMBRA (29-09, Ring 0
                     dicho que si por el propietario): `bmo_gpu_ga10x::sombra`
                     -- el color A8R8G8B8 BLOQUE-LINEAL en VRAM 0x0A40_0000
