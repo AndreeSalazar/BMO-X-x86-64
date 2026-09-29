@@ -2400,6 +2400,22 @@ DESDE Windows y mirar la fila `cargador` de `gpu salud` y `gpu init`. Si con
 pista de "caliente de Windows" (se buscara comparando `al llegar` en frio y
 tras Windows, SIN adivinarla). Si el monitor queda negro: 15 s sin corriente.
 
+**LO QUE DIJO EL METAL con `siempre` (28-09 23:09).** El reinicio por el
+bus SI se hizo y la tarjeta volvio entera: `cargador: fria, pero siempre:
+REINICIADA por el bus en 392 ms; volvio, su firmware arranco, la pantalla
+volvio`. Pero despues **FWSEC-FRTS no monto la WPR2**: `frts: se paro, pero
+NO dejo la WPR2 bien, MAILBOX0 0x00000000, codigo FRTS 0x0000` (acabo "bien"
+y sin WPR2), y sin ella `despertar` dio el motivo 37 y el GSP no arranco.
+Ademas: E2 armado sin un solo VBLANK por MSI, y dos `maestro-abortado`
+NUEVOS, en la 3060 (29:00.0) y en su puerto raiz (00:03.1). **Conclusion
+medida: con el reinicio por el bus tal como esta, la cadena se rompe en
+FWSEC-FRTS.** `siempre` NO se deja puesto. Lo que no se sabe (y no se
+adivina): por que FWSEC acaba sin error y sin WPR2 tras el reinicio (algo
+del dominio AON que sobrevive al reinicio del bus, o la BAR1 redimensionada
+que el cargador no puede restaurar por 0xCF8). Y la pregunta de partida
+sigue abierta: hace falta un arranque DESDE Windows con el build normal
+(sin `siempre`) y su bloque PARA PEGAR.
+
 ## 4. Lo que NO se hace nunca
 
 - Cargar el GSP sin la IOMMU encendida.
