@@ -261,12 +261,17 @@ void inicio(void) {
         s0 = GetClipboardSequenceNumber();
         bien = OpenClipboard(h) && EmptyClipboard() && SetClipboardData(13, g) == g;
         s1 = GetClipboardSequenceNumber();
-        mira(bien && s1 != s0 && IsClipboardFormatAvailable(13) && IsClipboardFormatAvailable(1), "SetClipboardData de CF_UNICODETEXT: CF_TEXT tambien esta");
+        mira(bien, "OpenClipboard, EmptyClipboard y SetClipboardData de CF_UNICODETEXT");
+        mira(s1 != s0, "GetClipboardSequenceNumber cambia");
+        mira(IsClipboardFormatAvailable(13), "abierto: CF_UNICODETEXT esta");
+        mira(CloseClipboard() && IsClipboardFormatAvailable(13) && IsClipboardFormatAvailable(1), "cerrado: CF_UNICODETEXT, y CF_TEXT sacado de el");
+        OpenClipboard(h);
         {
             HANDLE u = GetClipboardData(13), a = GetClipboardData(1);
             WCHAR *pu = u ? (WCHAR *)GlobalLock(u) : 0;
             char *pa = a ? (char *)GlobalLock(a) : 0;
-            mira(pu && igual_w(pu, "BMO tanda7") && pa && igual_a(pa, "BMO tanda7"), "GetClipboardData: el texto, y en bytes");
+            mira(pu && igual_w(pu, "BMO tanda7"), "GetClipboardData de CF_UNICODETEXT: el texto");
+            mira(pa && igual_a(pa, "BMO tanda7"), "GetClipboardData de CF_TEXT: el texto en bytes");
             if (pu)
                 GlobalUnlock(u);
             if (pa)

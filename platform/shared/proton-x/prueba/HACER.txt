@@ -640,9 +640,9 @@ El teclado, el cursor, la captura, el raw input y el portapapeles
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   ef36b43116e572caec0a7aa151cf0c6adafd1fcace38fb53dcd68d4c94278983
+   a2408dab5509639513835eca5e29fe133df1d8ad2684a110a3de36d7882a2986
 
-Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo. Toca
+Dice `bien` veintinueve veces y sale con 0. En Windows dice lo mismo. Toca
 cosas tuyas, y las deja como estaban: pone el cursor donde ya estaba,
 suelta el ClipCursor (si otro programa lo tenia puesto, se va) y usa el
 portapapeles con "BMO tanda7", devolviendole al final el texto que tenia

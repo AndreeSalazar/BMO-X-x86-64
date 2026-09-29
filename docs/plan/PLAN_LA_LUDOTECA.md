@@ -589,7 +589,7 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         inventada (SendInput), el RAW INPUT (WM_INPUT con el raton RELATIVO,
         RIDEV_NOLEGACY: lo que usa Cyberpunk para mirar) y el portapapeles
         del proceso (CF_TEXT y CF_UNICODETEXT, el uno por el otro).
-        **Como se sabe:** `tanda7.exe` dice `bien` 25 veces en el banco
+        **Como se sabe:** `tanda7.exe` dice `bien` 29 veces en el banco
         (`tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles`); lo que
         llega del escritorio (teclas, raton, WM_INPUT) no se puede probar
         igual en Windows sin tocar su raton: lo prueban las pruebas de

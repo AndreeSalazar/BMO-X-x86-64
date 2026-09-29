@@ -12,8 +12,10 @@
 //!
 //! Es el portapapeles DEL PROCESO: todavia no hay uno del escritorio de
 //! BMO-X que compartir. Como Windows, CF_TEXT (1) y CF_UNICODETEXT (13) se
-//! dan el uno por el otro: quien pone uno puede leer el otro. Los datos son
-//! del portapapeles al darlos (EmptyClipboard los suelta).
+//! dan el uno por el otro: quien pone uno puede leer el otro, pero solo
+//! despues de CloseClipboard (con el portapapeles aun abierto por quien lo
+//! puso, Windows no lo da: lo dijo tanda7.exe en Windows). Los datos son del
+//! portapapeles al darlos (EmptyClipboard los suelta).
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -31,12 +33,14 @@ struct Estado {
     datos: Vec<(u32, u64, bool)>,
     secuencia: u32,
     nombres: Vec<(u32, Vec<u16>)>,
+    /// Se cerro despues de poner algo: el otro texto ya se puede sacar.
+    sintesis: bool,
 }
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea, hilos cooperativos; se lee y escribe en el acto.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { abierto: None, datos: Vec::new(), secuencia: 1, nombres: Vec::new() }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { abierto: None, datos: Vec::new(), secuencia: 1, nombres: Vec::new(), sintesis: false }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -49,6 +53,7 @@ pub(crate) fn reiniciar() {
     e.datos.clear();
     e.secuencia = 1;
     e.nombres.clear();
+    e.sintesis = false;
 }
 
 fn abierto() -> bool {
@@ -68,7 +73,9 @@ extern "win64" fn close_clipboard() -> i32 {
     if !abierto() {
         return 0;
     }
-    estado().abierto = None;
+    let e = estado();
+    e.abierto = None;
+    e.sintesis = true;
     1
 }
 
@@ -84,6 +91,7 @@ extern "win64" fn empty_clipboard() -> i32 {
     }
     soltar_todo();
     estado().secuencia += 1;
+    estado().sintesis = false;
     1
 }
 
@@ -103,6 +111,7 @@ extern "win64" fn set_clipboard_data(f: u32, h: u64) -> u64 {
     }
     e.datos.push((f, h, false));
     e.secuencia += 1;
+    e.sintesis = false;
     h
 }
 
@@ -138,6 +147,9 @@ extern "win64" fn get_clipboard_data(f: u32) -> u64 {
         return d.1;
     }
     // El otro texto, si lo hay: se hace una vez y se queda.
+    if !e.sintesis {
+        return 0;
+    }
     let otro = match f {
         CF_TEXT => CF_UNICODETEXT,
         CF_UNICODETEXT => CF_TEXT,
@@ -156,7 +168,7 @@ extern "win64" fn get_clipboard_data(f: u32) -> u64 {
 
 fn hay(f: u32) -> bool {
     let d = &estado().datos;
-    d.iter().any(|x| x.0 == f) || ((f == CF_TEXT || f == CF_UNICODETEXT) && d.iter().any(|x| x.0 == CF_TEXT || x.0 == CF_UNICODETEXT))
+    d.iter().any(|x| x.0 == f) || (estado().sintesis && (f == CF_TEXT || f == CF_UNICODETEXT) && d.iter().any(|x| x.0 == CF_TEXT || x.0 == CF_UNICODETEXT))
 }
 
 extern "win64" fn is_clipboard_format_available(f: u32) -> i32 {

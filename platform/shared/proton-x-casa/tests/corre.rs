@@ -950,7 +950,7 @@ fn tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles() {
     let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
     assert!(!texto.contains("  MAL   "), "{texto}");
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 29, "{texto}");
     assert!(texto.ends_with("tanda7.exe: el teclado, el raton y el portapapeles dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
