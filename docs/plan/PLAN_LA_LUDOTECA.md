@@ -499,6 +499,15 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         DLL cuantas funciones tiene ya la casa, cuales son DEL JUEGO (viven
         junto al `.exe`) y la lista de lo que falta en `informe/censo.txt`.
         **Como se sabe:** `personal censo Cyberpunk 2077/bin/x64/Cyberpunk2077.exe`.
+        Metal 29-09: 57 MiB, 36 DLL, 663 funciones; la casa tiene 144 (21%).
+      - **EL CENSO COMPLETO** (29-09, *"LISTAR por completo lo que exige"*):
+        el censo ya no mira solo el `.exe`: sigue, recursivo, cada DLL DEL
+        JUEGO que exista junto a el (y las que esas piden), junta las
+        funciones de Windows DISTINTAS de todos, y busca en cada fichero los
+        nombres `*.dll` (ASCII y UTF-16) que NO importa: las que se cargan EN
+        VIVO con `LoadLibrary` (d3d12, dxgi, ...). `informe/censo.txt` sale
+        en cuatro partes: FALTAN (por DLL de Windows), LA CASA YA LAS TIENE,
+        EN VIVO y FICHEROS DEL JUEGO.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
