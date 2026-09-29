@@ -1,0 +1,5 @@
+LIBRARY api-ms-win-crt-environment-l1-1-0.dll
+EXPORTS
+getenv
+_wgetenv_s
+_dupenv_s

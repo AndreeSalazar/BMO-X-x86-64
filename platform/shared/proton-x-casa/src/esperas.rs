@@ -340,7 +340,7 @@ extern "win64" fn set_thread_stack_guarantee(antes: *mut u32) -> i32 {
 // -- La hora del dia -----------------------------------------------------------------------------
 
 /// El FILETIME de ahora: la fecha de la placa una vez, y el reloj despues.
-fn filetime_ahora() -> u64 {
+pub(crate) fn filetime_ahora() -> u64 {
     let ns = hilos::ahora_ns();
     let e = estado();
     let (base, desde) = *e.origen.get_or_insert_with(|| {

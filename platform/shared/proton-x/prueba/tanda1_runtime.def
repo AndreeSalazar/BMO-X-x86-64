@@ -1,0 +1,5 @@
+LIBRARY api-ms-win-crt-runtime-l1-1-0.dll
+EXPORTS
+_errno
+_beginthreadex
+strerror

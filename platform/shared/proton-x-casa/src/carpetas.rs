@@ -289,7 +289,7 @@ extern "win64" fn get_file_attributes_ex_w(nombre: *const u16, nivel: u32, datos
 
 /// `GetFullPathNameW(nombre, n, bufer, *parte)`: la ruta ENTERA, sin mirar
 /// si existe (como Windows), y `*parte` en el ultimo trozo.
-extern "win64" fn get_full_path_name_w(nombre: *const u16, n: u32, buf: *mut u16, parte: *mut *mut u16) -> u32 {
+pub(crate) extern "win64" fn get_full_path_name_w(nombre: *const u16, n: u32, buf: *mut u16, parte: *mut *mut u16) -> u32 {
     let r = match ruta(nombre) {
         Ok(r) => r,
         Err(e) => {

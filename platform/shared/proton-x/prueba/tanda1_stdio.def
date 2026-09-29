@@ -1,0 +1,22 @@
+LIBRARY api-ms-win-crt-stdio-l1-1-0.dll
+EXPORTS
+__acrt_iob_func
+__stdio_common_vfprintf
+__stdio_common_vsprintf_s
+__stdio_common_vsnprintf_s
+__stdio_common_vsscanf
+fopen
+fclose
+fputs
+fread
+fgets
+fgetc
+ungetc
+fseek
+ftell
+feof
+_open
+_read
+_lseeki64
+_close
+_filelengthi64

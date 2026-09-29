@@ -1,0 +1,21 @@
+LIBRARY api-ms-win-crt-math-l1-1-0.dll
+EXPORTS
+sqrt
+sin
+cos
+tan
+asin
+acos
+atan
+atan2
+log
+pow
+fmod
+modf
+frexp
+trunc
+round
+roundf
+ceilf
+floorf
+_dclass

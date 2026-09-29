@@ -455,3 +455,29 @@ Windows, una vez:
    platform\shared\proton-x\obrero\sombras.exe platform\shared\proton-x\prueba\sombras
 
 deja d7e2992c.cso y b50c1000.cso; se suben, y bmox12.exe dibuja en la casa.
+
+tanda1.exe -- la TANDA 1 de Cyberpunk (29-09): el C runtime que pide
+
+Lo que el censo de Cyberpunk2077.exe y sus DLL pide del CRT, importado de las
+MISMAS DLL: los API set del UCRT (tanda1_*.def: string, convert, math,
+utility, stdio, filesystem, runtime, time, environment, locale, heap y
+private, la de los `_o_`), msvcrt.dll (swprintf_s y swscanf_s variadicas,
+_vsnwprintf) y vcruntime140.dll. Los otros .exe no cambian (no usan estos
+.def):
+
+   for d in kernel32 tanda1_string tanda1_convert tanda1_math tanda1_utility \
+            tanda1_stdio tanda1_filesystem tanda1_runtime tanda1_time \
+            tanda1_environment tanda1_locale tanda1_heap tanda1_private \
+            tanda1_msvcrt tanda1_vcruntime; do
+      llvm-dlltool -m i386:x86-64 -d $d.def -l $d.lib
+   done
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda1.c -o tanda1.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda1.obj kernel32.lib tanda1_*.lib /out:tanda1.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   8b95be71b2c44321bd144fdec4dc92d2809dbd9d9e3887f78604954afaabab57
+
+Dice `bien` cincuenta y una veces y sale con 0; deja window/tanda1.txt con
+"uno\r\ndos\r\n" (modo texto de Windows). En Windows dice lo mismo (pide el
+redistribuible de Visual C++ por vcruntime140.dll, como los juegos).

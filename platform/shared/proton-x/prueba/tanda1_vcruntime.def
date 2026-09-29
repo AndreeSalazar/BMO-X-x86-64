@@ -1,0 +1,5 @@
+LIBRARY vcruntime140.dll
+EXPORTS
+__std_exception_copy
+__std_exception_destroy
+memcmp

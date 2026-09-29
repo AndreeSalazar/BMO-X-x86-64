@@ -54,6 +54,7 @@ const COMPILA: &[u8] = include_bytes!("../../proton-x/prueba/compila.exe");
 const USADLL: &[u8] = include_bytes!("../../proton-x/prueba/usadll.exe");
 const SALUDO_DLL: &[u8] = include_bytes!("../../proton-x/prueba/saludo.dll");
 const SEH: &[u8] = include_bytes!("../../proton-x/prueba/seh.exe");
+const TANDA1: &[u8] = include_bytes!("../../proton-x/prueba/tanda1.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -799,6 +800,23 @@ fn stdio_exe_tiene_el_printf_de_msvc() {
     assert!(!texto.replace("\r\n", "").contains('\n'), "modo texto: cada \\n sale \\r\\n: {texto:?}");
     assert_eq!(texto.matches("  bien  ").count(), 15, "{texto}");
     assert!(texto.ends_with("stdio.exe: el printf es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 1 de Cyberpunk en el anfitrion** (29-09): `tanda1.exe` -- el C
+/// runtime que piden Cyberpunk2077.exe y sus DLL (cadenas, numeros, mates
+/// con el double en xmm0, qsort, printf y scanf _s, FILE y descriptores en
+/// modo texto, rutas, la hora, el entorno, un hilo y lo de C++), importado
+/// de sus DLL de verdad: los api-ms-win-crt-*, msvcrt.dll y vcruntime140.dll.
+#[test]
+fn tanda1_exe_tiene_el_c_runtime_de_cyberpunk() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA1, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 51, "{texto}");
+    assert!(texto.ends_with("tanda1.exe: el C runtime de Cyberpunk es el de Windows\r\n[salio 0x0]"), "{texto}");
+    assert_eq!(std::fs::read(volumen().join("window/tanda1.txt")).unwrap(), b"uno\r\ndos\r\n", "el fichero, en modo texto de Windows");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

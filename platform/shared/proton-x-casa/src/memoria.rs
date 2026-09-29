@@ -135,6 +135,15 @@ pub(crate) fn cambiar_del_proceso(p: u64, n: u64) -> Option<u64> {
     Some(q)
 }
 
+/// Lo que se pidio para el bloque `p` del monton del proceso (`_recalloc`
+/// sabe asi que parte es nueva).
+pub(crate) fn medida_del_proceso(p: u64) -> Option<u64> {
+    match estado().monton.bloque(&Real, p) {
+        Some(b) if b.propietario == PROPIETARIO_PROCESO => Some(b.pedido),
+        _ => None,
+    }
+}
+
 pub(crate) fn soltar_del_proceso(p: u64) -> bool {
     let e = estado();
     matches!(e.monton.bloque(&Real, p), Some(b) if b.propietario == PROPIETARIO_PROCESO) && e.monton.soltar(&mut Real, p).is_some()

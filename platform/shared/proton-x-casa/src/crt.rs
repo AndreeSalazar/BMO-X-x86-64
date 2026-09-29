@@ -232,7 +232,7 @@ fn correr_al_salir() {
     }
 }
 
-extern "win64" fn crt_atexit(f: u64) -> i32 {
+pub(crate) extern "win64" fn crt_atexit(f: u64) -> i32 {
     if f == 0 {
         return -1;
     }
@@ -332,11 +332,11 @@ extern "win64" fn execute_onexit_table(t: *mut Tabla) -> i32 {
 
 // -- El monton ----------------------------------------------------------------------------
 
-extern "win64" fn malloc(n: usize) -> u64 {
+pub(crate) extern "win64" fn malloc(n: usize) -> u64 {
     memoria::pedir_del_proceso(n as u64).unwrap_or(0)
 }
 
-extern "win64" fn calloc(n: usize, m: usize) -> u64 {
+pub(crate) extern "win64" fn calloc(n: usize, m: usize) -> u64 {
     let Some(t) = n.checked_mul(m) else { return 0 };
     let p = malloc(t);
     if p != 0 {
@@ -346,13 +346,13 @@ extern "win64" fn calloc(n: usize, m: usize) -> u64 {
     p
 }
 
-extern "win64" fn free(p: u64) {
+pub(crate) extern "win64" fn free(p: u64) {
     if p != 0 {
         memoria::soltar_del_proceso(p);
     }
 }
 
-extern "win64" fn realloc(p: u64, n: usize) -> u64 {
+pub(crate) extern "win64" fn realloc(p: u64, n: usize) -> u64 {
     if p == 0 {
         return malloc(n);
     }
@@ -447,21 +447,23 @@ struct Files(UnsafeCell<[u64; 3]>);
 unsafe impl Sync for Files {}
 static FILES: Files = Files(UnsafeCell::new([0; 3]));
 
-extern "win64" fn acrt_iob_func(i: u32) -> u64 {
+pub(crate) extern "win64" fn acrt_iob_func(i: u32) -> u64 {
     FILES.0.get() as u64 + 8 * (i.min(2) as u64)
 }
 
 /// El numero (0, 1, 2) de un FILE estandar.
-fn cual(f: u64) -> Option<u64> {
+pub(crate) fn cual(f: u64) -> Option<u64> {
     let base = FILES.0.get() as u64;
     (f >= base && f < base + 24 && (f - base) % 8 == 0).then(|| (f - base) / 8)
 }
 
 /// Escribir en un FILE estandar, en modo texto. Los bytes, o -1.
-fn a_stream(f: u64, b: &[u8]) -> i32 {
+pub(crate) fn a_stream(f: u64, b: &[u8]) -> i32 {
     let h = match cual(f) {
         Some(1) => crate::kernel32::estandar(-11),
         Some(2) => crate::kernel32::estandar(-12),
+        // Tanda 1 de Cyberpunk: un FILE de fopen.
+        None if crate::crt_ficheros::es_flujo(f) => return crate::crt_ficheros::escribir_flujo(f, b),
         _ => return -1,
     };
     let mut t = Vec::with_capacity(b.len() + 8);
@@ -481,7 +483,7 @@ fn a_stream(f: u64, b: &[u8]) -> i32 {
 /// Un `va_list` de Windows x64: ranuras de 8 bytes seguidas.
 struct Va(*const u64);
 
-fn cadena_c(p: u64) -> Vec<u8> {
+pub(crate) fn cadena_c(p: u64) -> Vec<u8> {
     let mut v = Vec::new();
     // SAFETY: una cadena del `.exe` acabada en 0.
     unsafe {
@@ -492,7 +494,7 @@ fn cadena_c(p: u64) -> Vec<u8> {
     v
 }
 
-fn cadena_w(p: u64) -> Vec<u16> {
+pub(crate) fn cadena_w(p: u64) -> Vec<u16> {
     let mut v = Vec::new();
     // SAFETY: una cadena UTF-16 del `.exe` acabada en 0.
     unsafe {
@@ -521,15 +523,15 @@ impl Argumentos for Va {
 
 /// `_CRT_INTERNAL_PRINTF_LEGACY_VSPRINTF_NULL_TERMINATION`,
 /// `..._STANDARD_SNPRINTF_BEHAVIOR` y `..._LEGACY_WIDE_SPECIFIERS`.
-const NULO_LEGADO: u64 = 1;
-const SNPRINTF_ESTANDAR: u64 = 2;
-const ANCHOS_LEGADOS: u64 = 4;
+pub(crate) const NULO_LEGADO: u64 = 1;
+pub(crate) const SNPRINTF_ESTANDAR: u64 = 2;
+pub(crate) const ANCHOS_LEGADOS: u64 = 4;
 
-fn formatear_a(fmt: *const u8, va: u64) -> Vec<u8> {
+pub(crate) fn formatear_a(fmt: *const u8, va: u64) -> Vec<u8> {
     formato::formatear(&cadena_c(fmt as u64), &mut Va(va as *const u64), false)
 }
 
-fn formatear_w(opciones: u64, fmt: *const u16, va: u64) -> Vec<u8> {
+pub(crate) fn formatear_w(opciones: u64, fmt: *const u16, va: u64) -> Vec<u8> {
     let f = bmo_proton_x::texto::a_estrecho(&cadena_w(fmt as u64), false).unwrap_or_default();
     formato::formatear(&f, &mut Va(va as *const u64), opciones & ANCHOS_LEGADOS != 0)
 }
@@ -546,7 +548,7 @@ extern "win64" fn stdio_vfwprintf(op: u64, f: u64, fmt: *const u16, _loc: u64, v
 /// UCRT: cabe con su 0, el largo; `buf` NULL y `n` 0, el largo que haria
 /// falta; no cabe: estandar (snprintf) corta con su 0 y da el largo entero;
 /// legado (lo de _vsnprintf) da -2 y solo pone el 0 si se pidio.
-fn a_bufer<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, opciones: u64) -> i32 {
+pub(crate) fn a_bufer<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, opciones: u64) -> i32 {
     if buf.is_null() && n == 0 {
         return r.len() as i32;
     }
@@ -627,7 +629,7 @@ extern "win64" fn fwrite(p: *const u8, medida: usize, n: usize, f: u64) -> usize
 
 extern "win64" fn fflush(f: u64) -> i32 {
     // Nada en un bufer: cada escritura salio ya. NULL (todos) tambien vale.
-    if f == 0 || cual(f).is_some() {
+    if f == 0 || cual(f).is_some() || crate::crt_ficheros::es_flujo(f) {
         0
     } else {
         -1
@@ -654,7 +656,7 @@ extern "win64" fn register_tl_atexit(cb: u64) {
 }
 
 /// `terminate()`: como `abort` del UCRT, sale con 3.
-extern "win64" fn terminate() -> ! {
+pub(crate) extern "win64" fn terminate() -> ! {
     crate::aviso("terminate(): el .exe se termina (como abort, codigo 3)");
     (plataforma().salir)(3)
 }
@@ -665,13 +667,13 @@ const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
 /// `main` de un `.exe` de MSVC. El del UCRT atiende lo que se puso con
 /// `signal()` de C; en la casa no hay ninguna puesta, asi que ninguna
 /// excepcion es suya: CONTINUE_SEARCH, como el UCRT sin ninguna.
-extern "win64" fn seh_filter_exe(_codigo: u32, _punteros: u64) -> i32 {
+pub(crate) extern "win64" fn seh_filter_exe(_codigo: u32, _punteros: u64) -> i32 {
     EXCEPTION_CONTINUE_SEARCH
 }
 
 /// El codigo con que Windows termina un proceso por una excepcion de C++
 /// que nadie coge ('msc' | 0xE0000000).
-const EXCEPCION_CXX: u32 = 0xE06D_7363;
+pub(crate) const EXCEPCION_CXX: u32 = 0xE06D_7363;
 
 /// Las excepciones de C++ (`_CxxThrowException`, `__CxxFrameHandler3`,
 /// `__current_exception`, `__current_exception_context`): el `panic` de Rust
@@ -686,10 +688,20 @@ extern "win64" fn cxx_todavia_no<const N: usize>() -> ! {
 
 /// Si `dll` es del CRT: la suya, `vcruntime140.dll` o un API set `api-ms-win-crt-*`.
 pub(crate) fn es_del_crt(dll: &str) -> bool {
-    dll.eq_ignore_ascii_case("ucrtbase.dll") || dll.eq_ignore_ascii_case("vcruntime140.dll") || (dll.len() > 15 && dll.as_bytes()[..15].eq_ignore_ascii_case(b"api-ms-win-crt-"))
+    // Tanda 1 de Cyberpunk: tambien msvcrt.dll (el CRT de Windows, que piden
+    // las DLL de terceros) y vcruntime140_1.dll.
+    dll.eq_ignore_ascii_case("ucrtbase.dll") || dll.eq_ignore_ascii_case("vcruntime140.dll") || dll.eq_ignore_ascii_case("vcruntime140_1.dll") || dll.eq_ignore_ascii_case("msvcrt.dll") || (dll.len() > 15 && dll.as_bytes()[..15].eq_ignore_ascii_case(b"api-ms-win-crt-"))
 }
 
 pub(crate) fn buscar(n: &str) -> Option<u64> {
+    // `api-ms-win-crt-private` exporta las mismas con `_o_` delante.
+    if let Some(r) = n.strip_prefix("_o_") {
+        return buscar(r);
+    }
+    esta(n).or_else(|| crate::crt_cadenas::buscar(n)).or_else(|| crate::crt_mates::buscar(n)).or_else(|| crate::crt_ficheros::buscar(n))
+}
+
+fn esta(n: &str) -> Option<u64> {
     Some(match n {
         "_configure_narrow_argv" | "_configure_wide_argv" => dir!(configure_argv),
         // P4c: el manejador de `__try` de C tambien lo da vcruntime140.
@@ -732,7 +744,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_register_thread_local_exe_atexit_callback" => dir!(register_tl_atexit),
         "terminate" => dir!(terminate),
         "__acrt_iob_func" => dir!(acrt_iob_func),
-        "__stdio_common_vfprintf" => dir!(stdio_vfprintf),
+        "__stdio_common_vfprintf" | "__stdio_common_vfprintf_s" => dir!(stdio_vfprintf),
         "__stdio_common_vfwprintf" => dir!(stdio_vfwprintf),
         "__stdio_common_vsprintf" => dir!(stdio_vsprintf),
         "__stdio_common_vswprintf" => dir!(stdio_vswprintf),
