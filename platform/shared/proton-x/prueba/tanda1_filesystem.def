@@ -1,0 +1,7 @@
+LIBRARY api-ms-win-crt-filesystem-l1-1-0.dll
+EXPORTS
+_stat64
+_access
+_fullpath
+_splitpath_s
+_wmakepath_s

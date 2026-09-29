@@ -484,7 +484,7 @@ extern "win64" fn switch_to_thread() -> i32 {
 // -- Los hilos --------------------------------------------------------------------------
 
 /// `CreateThread(attr, pila, funcion, arg, banderas, *id)`.
-extern "win64" fn create_thread(_attr: u64, pila: usize, funcion: u64, arg: u64, banderas: u32, id: *mut u32) -> u64 {
+pub(crate) extern "win64" fn create_thread(_attr: u64, pila: usize, funcion: u64, arg: u64, banderas: u32, id: *mut u32) -> u64 {
     if funcion == 0 {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;

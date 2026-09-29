@@ -507,7 +507,20 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         nombres `*.dll` (ASCII y UTF-16) que NO importa: las que se cargan EN
         VIVO con `LoadLibrary` (d3d12, dxgi, ...). `informe/censo.txt` sale
         en cuatro partes: FALTAN (por DLL de Windows), LA CASA YA LAS TIENE,
-        EN VIVO y FICHEROS DEL JUEGO.
+        EN VIVO y FICHEROS DEL JUEGO. Metal 29-09: 1619 funciones de
+        Windows distintas, la casa tenia 342; FALTAN 1277.
+      - **LA TANDA 1: EL C RUNTIME** (29-09): de las 1277, las ~290 del
+        CRT (`msvcrt.dll`, `api-ms-win-crt-*`, `vcruntime140.dll`):
+        cadenas, numeros, mates (con el double en xmm0, por el x87), qsort,
+        printf y scanf `_s`, FILE y descriptores en modo texto, rutas, la
+        hora, el entorno y lo de C++ que es de C (`crt_cadenas.rs`,
+        `crt_mates.rs`, `crt_ficheros.rs` de la casa). **Como se sabe:**
+        `tanda1.exe` dice `bien` 51 veces en el banco
+        (`tanda1_exe_tiene_el_c_runtime_de_cyberpunk`), y contra el
+        `informe/censo.txt` del metal la casa da 290 de las 1277 que
+        faltaban. Quedan del CRT 12, todas de C++ (la clase `exception` de
+        msvcrt, `__RTDynamicCast`, `__RTtypeid`, `__unDName(Ex)`,
+        `__CxxFrameHandler4`): van con la tanda de MSVCP140.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A

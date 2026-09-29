@@ -117,7 +117,7 @@ pub(crate) fn ruta_de(nombre: *const u16) -> Result<String, u32> {
 }
 
 /// `CreateFileW(nombre, acceso, compartir, seguridad, disposicion, banderas, plantilla)`.
-extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, banderas: u32, _plantilla: u64) -> u64 {
+pub(crate) extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, banderas: u32, _plantilla: u64) -> u64 {
     let ruta = match ruta_de(nombre) {
         Ok(r) => r,
         // P4f3: la raiz del volumen es una carpeta ("C:\\", "\\"); N2, y la de D:.
@@ -376,7 +376,7 @@ extern "win64" fn get_file_type(h: u64) -> u32 {
     }
 }
 
-extern "win64" fn get_file_attributes_w(nombre: *const u16) -> u32 {
+pub(crate) extern "win64" fn get_file_attributes_w(nombre: *const u16) -> u32 {
     // P4f3: por la lista de su carpeta (sin leer el fichero entero), y las
     // carpetas con FILE_ATTRIBUTE_DIRECTORY.
     match ruta_de(nombre) {
