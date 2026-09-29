@@ -280,42 +280,26 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
     After::Settle
 }
 
-/// **`personal censo <fichero.exe>`** (29-09): la orden entera de PROTON-X
-/// --`sys/proton-x.bex --censo "d:<ruta>"`-- escrita en el campo y corrida,
-/// como si se hubiera tecleado. El censo lo hace PROTON-X y lo dice en la
-/// salida; la lista entera queda en `informe/censo.txt`.
-pub(crate) fn personal_censo(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> After {
+/// **La linea de PROTON-X para `personal censo <ruta>`** (29-09):
+/// `sys/proton-x.bex --censo "d:<ruta>"`, en `buf`. `None` si no cabe en los
+/// 96 bytes de argumentos de un programa. La lanza el editor (`Edit::Launch`).
+pub(crate) fn linea_censo(ruta: &[u8], buf: &mut [u8; crate::PATH_MAX]) -> Option<usize> {
     let ruta = match ruta {
         [a, b':', resto @ ..] if *a | 0x20 == b'd' => resto,
         _ => ruta,
     };
-    let mut linea = [0u8; 128];
-    let partes: [&[u8]; 3] = [b"sys/proton-x.bex --censo \"d:", ruta, b"\""];
+    const PROGRAMA: &[u8] = b"sys/proton-x.bex ";
+    let partes: [&[u8]; 4] = [PROGRAMA, b"--censo \"d:", ruta, b"\""];
     let n: usize = partes.iter().map(|x| x.len()).sum();
-    // Los argumentos de un programa caben en 96 bytes (`bmo::argumentos` de
-    // PROTON-X): la ruta de D: no puede pasar de ahi.
-    if n > linea.len() || n - b"sys/proton-x.bex ".len() > 96 {
-        dsk.out.grid.with_ink(INK_ERR);
-        dsk.out.grid.text(b"  la ruta es demasiado larga para los argumentos de PROTON-X (96 bytes)\n");
-        dsk.out.grid.with_ink(INK_PLAIN);
-        paint_status(&p, &dsk.run_box, "ruta larga", INK_BAD);
-        dsk.field.n = 0;
-        return After::Settle;
+    if n > buf.len() || n - PROGRAMA.len() > 96 {
+        return None;
     }
     let mut k = 0;
     for x in partes {
-        linea[k..k + x.len()].copy_from_slice(x);
+        buf[k..k + x.len()].copy_from_slice(x);
         k += x.len();
     }
-    dsk.field.path[..n].copy_from_slice(&linea[..n]);
-    dsk.field.n = n;
-    dsk.field.cur = n;
-    dsk.tick.repaint_field = true;
-    if dsk.field.ni < dsk.field.injected.len() {
-        dsk.field.injected[dsk.field.ni] = b'\n';
-        dsk.field.ni += 1;
-    }
-    After::Settle
+    Some(n)
 }
 
 /// `personal lee <fichero>`: la medida, los primeros 64 bytes en hex y, si
