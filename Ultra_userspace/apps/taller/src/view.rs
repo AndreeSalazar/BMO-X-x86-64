@@ -558,11 +558,13 @@ fn panel(c: &mut Canvas, g: &Graph, s: &Script, p: &Player) {
     help(c, x, top);
 }
 
-/// A package with no events: say why, instead of animating something invented.
+/// A graph the sample's events do not fit (a module or a cable they name is
+/// not there -- after a hang, for one): say so, instead of animating
+/// something invented.
 fn quiet_panel(c: &mut Canvas) {
     let (x, top, w) = panel_box(c);
-    c.text_fit(x, top + 8, b"Este paquete no trae eventos: el grafo sale de sus ficheros de ESTRATOS.", INK, w);
-    c.text_fit(x, top + 30, b"Los prestamos animados llegan con el comprobador de verdad (TITAN_MAESTRO, T2-T4).", DIM, w);
+    c.text_fit(x, top + 8, b"Sin animacion: el guion de ejemplo pide modulos y cables que este grafo no tiene.", INK, w);
+    c.text_fit(x, top + 30, b"No se anima nada inventado. Los prestamos de verdad llegan con el comprobador (TITAN_MAESTRO, T2-T4).", DIM, w);
     help(c, x, top);
 }
 
@@ -570,7 +572,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa  [n] paso  [r] repite  [+ -] zoom  [0] encuadra  arrastrar: mueve  [Esc] cierra",
+        b"[espacio] pausa  [n] paso  [r] repite  [+ -] zoom  [0] encuadra  arrastra: mueve  fichero sobre otro: cuelga  [Esc] cierra",
         DIM,
         1,
     );

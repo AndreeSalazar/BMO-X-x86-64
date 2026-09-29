@@ -531,9 +531,20 @@ Ese cursor es UNO y es del panel F12; moverlo desde aqui cambiaria lo que F12
 muestra. Por eso sigue `mod` (rutas conocidas, `Archivo::leer_de`) en vez de
 listar carpetas -- y es tambien lo que el propietario eligio.
 
-**Lo medido:** la pila de Ring 3 son 64 KiB y el camino mas hondo de
-`taller.bex` son **42.032 B** (`_start` 27.928). Iba en 48.736: el ejemplo en
-memoria construia un guion para tirarlo; `sample::asteroids_graph()` lo quito.
+**Lo medido -- CORREGIDO el mismo 29-09.** Aqui ponia que el camino mas hondo
+de `taller.bex` eran 42.032 B. **Era falso**: lo saco un script propio que
+sumaba los `subq ..., %rsp` y no veia los marcos grandes, que se reservan en
+BUCLE (la sonda de pila). `pila.py --ring3`, que mide como el kernel, dijo
+**79.152 B contra 64 KiB**: el L1 tal como se commiteo (`6399200cc`) se habria
+caido al abrir con ESTRATOS montado. Nadie lo vio porque el guardian solo
+media cuatro programas (`director`, `proton-x`, `coste`, `sombra`).
+
+Arreglado en 8.7: `taller` entra en la lista del guardian (el build para si no
+cabe), `read_package_into` llena el `Loaded` EN SU SITIO (~8 KiB que se
+copiaban al volver) y los `use` van en una tabla plana (13 KiB de filas casi
+vacias -> 1,7 KiB). Queda en **54.448 B de 65.536** (`_start` 28.368,
+`read_all` 18.752). [!] La leccion es la de siempre: la medida de un guardian
+vale lo que vale su lista.
 
 **Como se mira en el Ryzen** (despues de `build.ps1` y desplegar, con ESTRATOS
 montado):
@@ -547,9 +558,98 @@ montado):
 | F12: `vuelve 1` | `rock` vuelve, la animacion vuelve a empezar | igual |
 | F1 sin ESTRATOS montado | `ESTRATOS no esta montado: ejemplo en memoria`, y todo lo de 8.5 sigue igual | la app se cierra |
 
-**Lo siguiente (L2+), sin hacer:** crear, renombrar y borrar DESDE la columna
-(hoy se hace en F12 y F1 lo ve); abrir un `.titan` en el editor; que un cable
-dibujado escriba el `use` (escalon 10). Y los que siguen abiertos de 8.5.
+**Lo siguiente:** 8.7 (colgar arrastrando). Despues, sin hacer: crear,
+renombrar y borrar DESDE la columna (hoy se hace en F12 y F1 lo ve); abrir un
+`.titan` en el editor; que un cable dibujado escriba el `use` (escalon 10). Y
+los que siguen abiertos de 8.5.
+
+### 8.7 L2: el PADRE dice donde vive su hijo, y colgar es arrastrar (29-09)
+
+El propietario: *"en ESTRATOS no importa si se ve desordenado, la idea es que
+el archivo jerarquia dominante en F1"* -- y *"en window pense porque no poner
+archivo encima"*. En Windows solo una carpeta tiene hijos. En BMO-X el `mod`
+ya lo hacia: `main.titan` esta ENCIMA de `ship.titan` porque lo declara. Se
+eligio la opcion 1 de las dos que se discutieron:
+
+```text
+   1  la jerarquia la DECLARA el fichero (`mod`)   ELEGIDA: cero Ring 0, viaja
+                                                   con el fichero, `vuelve` la trae
+   2  un nodo de ESTRATOS con `:datos` Y           NO: cambio de formato en Ring 0
+      `:entradas` (objects.rs ya dice que un       (~25 sitios miran el `tipo`),
+      directorio es "un nodo con :entradas")       4 atributos por nodo, y FAT32
+                                                   la pierde al copiar
+```
+
+**La ruta la dice el padre, y es ABSOLUTA dentro del paquete:**
+
+```text
+   mod ship in "naves/ship.titan"     desde la carpeta de Titan.toml, SIEMPRE
+   mod collide                        sin `in`: donde la pondria cargo
+                                      (src/x.titan, o src/<padre>/x.titan)
+```
+
+- `in` ya era una de las 25 palabras: **no se agrega ninguna**.
+- Absoluta y no relativa al padre, a proposito: las mismas palabras son el
+  mismo fichero lo declare quien lo declare. Por eso cambiar de padre **no
+  mueve ni un byte** en el disco: solo cambian dos cabeceras.
+- Nunca fuera del paquete: sin `/` delante, sin `.` ni `..`, termina en
+  `.titan` (`text::is_package_path`). Lo que no cumple es `BadLine` con su
+  numero de linea.
+
+**Colgar es arrastrar** (`titan-lector::hang`, `explorer::draw_drag`):
+
+```text
+   arrastrar rock.titan sobre ship.titan (o sobre el NODO ship del lienzo)
+
+   naves/ship.titan   + mod rock in "src/rock.titan"    (no esta donde cargo
+   src/main.titan     - rock  (de `mod rock, physics`)   la buscaria bajo ship)
+   src/rock.titan       intacto
+```
+
+- **Primero se comprueba sin tocar el disco** (`plan`): el destino se pinta en
+  VERDE si se puede y en ROJO con el porque si no -- *"physics ya depende de
+  ship: seria un ciclo"*. Tambien NO a mover `main`, a colgar de `Titan.toml`,
+  de la 3060 o del DIRECTOR, y a donde ya esta.
+- **Se escribe primero el padre NUEVO.** Si la segunda escritura falla, el hijo
+  queda declarado dos veces (un problema que se DICE: *"hay dos nodos rock"*)
+  y no por nadie (un fichero que desaparece de la vista). Hay prueba de eso.
+- La ruta se escribe solo si hace falta: devolverlo a su sitio escribe otra
+  vez un `mod collide` a secas (prueba: vuelve byte a byte a la semilla).
+- Un clic torpe NUNCA reescribe nada: solo cuenta como soltar si el raton se
+  movio mas de 4 px.
+- F1 no relee por su cuenta: la generacion se movio y el latido siguiente lo
+  lee, como veria el cambio cualquier otro. La seleccion sobrevive por NOMBRE.
+- Los dos buffers (leer y reescribir una cabecera) son las dos mitades de UN
+  bloque prestado: lo reescrito ya esta donde `guardar_desde` lo toma, y
+  guardar no copia nada. El bloque vuelve solo al acabar (`Drop`).
+
+**La columna muestra el arbol DECLARADO, no el de carpetas** (`FileEntry` lleva
+su `parent` y su `depth`; `tree_order` los pone en profundidad, en su sitio):
+guias verticales por nivel, y abajo **EN DISCO**, la ruta de verdad del fichero
+seleccionado -- el orden de la pantalla no esconde el del disco.
+
+**Lo que NO hace, a proposito:** no recoloca el nodo en el lienzo. Las
+posiciones son del `[layout]` de `Titan.toml`, y moverlas sin que nadie lo pida
+seria el programa decidiendo por el propietario. Tras colgar, el cable nuevo se
+ve, pero el nodo sigue donde estaba (y los cables de la misma fila se enredan:
+lo de 8.5 sigue abierto). Y el guion de ejemplo deja de animarse si le falta un
+cable que nombra: el panel lo DICE en vez de animar algo inventado.
+
+**Visto sin el metal: la CAMARA.** Un binario del PC que compila los MISMOS
+`canvas.rs`, `view.rs`, `explorer.rs` y `player.rs` (por `#[path]`) con un
+disco en memoria, y saca PNG. Cazo tres fallos antes del Ryzen: el pie de la
+columna se salia por abajo, el panel decia "este paquete no trae eventos"
+cuando lo que faltaba era un cable, y la `/` de una ruta partida caia al
+principio de la linea siguiente.
+
+**Como se mira en el Ryzen** (despues de `build.ps1` y desplegar):
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| arrastrar `rock.titan` sobre `ship.titan` | `ship.titan` se enmarca en VERDE mientras se arrastra; al soltar, `rock.titan` sale DEBAJO de `ship.titan`, abajo *"rock cuelga ahora de ship; su fichero no se movio"* y `EN DISCO .../src/rock.titan`; la generacion sube 2 | el marco no sale: el puntero del buzon no llega mientras se arrastra |
+| arrastrar `physics.titan` sobre el NODO `ship` | el nodo se enmarca en ROJO con *"physics ya depende de ship: seria un ciclo"*; al soltar, nada cambia en el disco | se escribe algo: `plan` no se esta mirando |
+| F12: `vuelve 2` | `rock` vuelve bajo `main` (las dos escrituras eran dos versiones) | solo una vuelve: `vuelve 1` deshizo media operacion |
+| un clic sin mover sobre un fichero | lo selecciona y centra su nodo; el disco no cambia | la generacion sube con un clic |
 
 ---
 

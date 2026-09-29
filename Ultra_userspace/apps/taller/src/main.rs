@@ -19,6 +19,8 @@
 //!    L1  the graph READ from a package in ESTRATOS (`store.rs`, following
 //!        `mod`), listed on the left (`explorer.rs`), and live: a commit from
 //!        anywhere -- a `renombra` in F12, a `vuelve` -- is on screen in a beat
+//!    L2  drag a file of the EXPLORER onto another file (or its node): it
+//!        hangs there. Two headers are rewritten; the file does not move
 //! ```
 //!
 //! The checker's events still come from `bmo-titan-contrato::sample`, and only
@@ -63,6 +65,29 @@ enum Drag {
     Node(NodeId, i32, i32),
     /// The canvas itself, grabbed at this screen point with this camera.
     Canvas(i32, i32, Camera),
+    /// A file of the EXPLORER, grabbed at this screen point.
+    File(NodeId, i32, i32),
+}
+
+/// Far enough from where the button went down to be a drag and not a click:
+/// a sloppy click must never rewrite a file.
+fn dragged(x0: i32, y0: i32, x: i32, y: i32) -> bool {
+    (x - x0).abs() + (y - y0).abs() > 4
+}
+
+/// A file let go at (x, y): it hangs under the file or node there, if any.
+fn drop_file(store: &mut Store, cam: &Camera, grab: Drag, x: i32, y: i32) -> bool {
+    let Drag::File(id, x0, y0) = grab else { return false };
+    if !dragged(x0, y0, x, y) {
+        return false;
+    }
+    match explorer::drop_target(store, cam, x, y) {
+        Some(t) if t != id => {
+            store.hang(id, t);
+            true
+        }
+        _ => false,
+    }
 }
 
 /// Milliseconds since boot, from the TSC.
@@ -126,8 +151,12 @@ pub extern "C" fn _start() -> ! {
         last = now;
 
         // REAL TIME: one number per beat, and the files only when it moved.
+        // The selection survives by NAME: node ids of the old graph mean
+        // nothing in the new one, names do.
+        let keep = shown.selected.and_then(|id| store.loaded.graph.node(id)).map(|n| n.name);
         if store.refresh() {
             shown = Shown::of(&store.loaded.graph);
+            shown.selected = keep.and_then(|n| store.loaded.graph.find(n.as_bytes()));
             drag = Drag::None;
             dirty = true;
         }
@@ -136,7 +165,7 @@ pub extern "C" fn _start() -> ! {
             match input {
                 Input::Mouse { x, y, buttons, down: true } if buttons & BUTTON != 0 => {
                     if x < view::LEFT {
-                        // The EXPLORER: it never starts a drag.
+                        // The EXPLORER: a file can be dragged, nothing else.
                         drag = Drag::None;
                         match explorer::click(&store, x, y) {
                             Some(Click::Package(i)) => {
@@ -147,6 +176,7 @@ pub extern "C" fn _start() -> ! {
                             Some(Click::File(id)) => {
                                 shown.selected = Some(id);
                                 cam = look_at(&store.loaded.graph, id, cam.zoom).unwrap_or(cam);
+                                drag = Drag::File(id, x, y);
                             }
                             None => continue,
                         }
@@ -166,7 +196,10 @@ pub extern "C" fn _start() -> ! {
                         None => Drag::Canvas(x, y, cam),
                     };
                 }
-                Input::Mouse { down: false, .. } => drag = Drag::None,
+                Input::Mouse { x, y, down: false, .. } => {
+                    dirty |= drop_file(&mut store, &cam, drag, x, y) || matches!(drag, Drag::File(..));
+                    drag = Drag::None;
+                }
                 Input::Mouse { .. } => {}
                 Input::Char(c) => {
                     dirty |= key(c, &mut shown, &mut cam, &store.loaded.graph);
@@ -176,7 +209,12 @@ pub extern "C" fn _start() -> ! {
 
         let ptr = win.pointer();
         if ptr.buttons & BUTTON == 0 {
-            // Released outside the window: the release event never came.
+            // The release event never came: let go where the pointer is (if
+            // it is still ours), or nowhere.
+            if ptr.inside {
+                dirty |= drop_file(&mut store, &cam, drag, ptr.x, ptr.y);
+            }
+            dirty |= matches!(drag, Drag::File(..));
             drag = Drag::None;
         }
         if ptr.inside {
@@ -194,6 +232,8 @@ pub extern "C" fn _start() -> ! {
                     cam.y = from.y - (ptr.y - sy) * 1000 / from.zoom;
                     dirty = true;
                 }
+                // The ghost follows the pointer.
+                Drag::File(..) => dirty = true,
                 Drag::None => {}
             }
         }
@@ -219,6 +259,11 @@ pub extern "C" fn _start() -> ! {
             };
             view::draw(&mut canvas, &scene);
             explorer::draw(&mut canvas, &store, shown.selected);
+            if let Drag::File(id, x0, y0) = drag {
+                if ptr.inside && dragged(x0, y0, ptr.x, ptr.y) {
+                    explorer::draw_drag(&mut canvas, &store, &cam, id, ptr.x, ptr.y);
+                }
+            }
             win.present();
             dirty = false;
         }

@@ -9,8 +9,13 @@
 //!      mod ship, rock, physics      ->   src/ship.titan, src/rock.titan ...
 //!    src/physics.titan
 //!      mod collide                  ->   src/physics/collide.titan
+//!      mod rules in "x/r.titan"     ->   x/r.titan: the PARENT says where
 //!    use gpu / use director         ->   the 3060 and the DIRECTOR nodes
 //! ```
+//!
+//! The files come out in the order of the DECLARED tree (each one under the
+//! module that says `mod` of it), not of the folders: the disk may be in any
+//! order, F1 shows the hierarchy the code declares (the owner, 29-09).
 //!
 //! An edge is a `mod` (the parent depends on its children) or a `use`. Both
 //! go through `Graph::connect`, which refuses a cycle.
@@ -19,11 +24,11 @@
 //! still shows everything else, and the missing piece is a PROBLEM with its
 //! name -- the same idea as the 4-part message: say what and where.
 
-use crate::header::{self, HeaderError, MAX_USES};
+use crate::header::{self, HeaderError};
 use crate::manifest::{self, ManifestError};
-use crate::text::Path;
+use crate::text::{default_place, Path};
 use bmo_titan_contrato::sample::{DIRECTOR_NAME, DIRECTOR_PURPOSE, GPU_NAME, GPU_PURPOSE, ROOT_PURPOSE};
-use bmo_titan_contrato::{Graph, GraphError, Lang, Line, Name, Node, NodeId, NodeKind, Permission, Text, MAX_NODES};
+use bmo_titan_contrato::{Graph, GraphError, Lang, Line, Name, Node, NodeId, NodeKind, Permission, Text, MAX_EDGES, MAX_NODES};
 
 /// What a source answers when asked for a file.
 pub enum Fetch {
@@ -74,13 +79,17 @@ pub struct Problem {
 }
 
 /// A small writer into one line of text.
-struct Say {
+pub(crate) struct Say {
     b: [u8; 72],
     n: usize,
 }
 
 impl Say {
-    fn t(mut self, s: &[u8]) -> Say {
+    pub(crate) fn new() -> Say {
+        Say { b: [0; 72], n: 0 }
+    }
+
+    pub(crate) fn t(mut self, s: &[u8]) -> Say {
         for &c in s {
             if self.n < self.b.len() {
                 self.b[self.n] = c;
@@ -90,7 +99,7 @@ impl Say {
         self
     }
 
-    fn num(self, v: usize) -> Say {
+    pub(crate) fn num(self, v: usize) -> Say {
         let mut d = [0u8; 20];
         let (mut k, mut v) = (0, v);
         loop {
@@ -105,7 +114,7 @@ impl Say {
         self.t(&d[..k])
     }
 
-    fn done(self) -> Line {
+    pub(crate) fn done(self) -> Line {
         Text::new(core::str::from_utf8(&self.b[..self.n]).unwrap_or("?"))
     }
 }
@@ -114,7 +123,7 @@ impl Problem {
     /// What the owner reads in the EXPLORER. Spanish, ASCII, no tilde.
     pub fn describe(&self) -> Line {
         let (a, b) = (self.a.as_bytes(), self.b.as_bytes());
-        let s = Say { b: [0; 72], n: 0 };
+        let s = Say::new();
         match self.kind {
             ProblemKind::NoManifest => s.t(b"no hay Titan.toml en el paquete"),
             ProblemKind::BadManifest(ManifestError::BadLine(l)) => s.t(b"Titan.toml no se entiende en la linea ").num(l),
@@ -142,6 +151,15 @@ impl Problem {
 pub struct FileEntry {
     pub path: Path,
     pub node: NodeId,
+    /// Who declared it: the module whose `mod` names it (the root, for
+    /// `Titan.toml` itself and for `main`).
+    pub parent: NodeId,
+    /// Steps under `Titan.toml` in the declared tree: 0 for it, 1 for main.
+    pub depth: u8,
+}
+
+impl FileEntry {
+    const EMPTY: FileEntry = FileEntry { path: Path::EMPTY, node: NodeId(0), parent: NodeId(0), depth: 0 };
 }
 
 pub struct Loaded {
@@ -155,16 +173,33 @@ pub struct Loaded {
 }
 
 impl Loaded {
-    fn new() -> Loaded {
+    /// Nothing read yet. `const`, so a program can put one in place without a
+    /// second copy on its stack.
+    pub const fn new() -> Loaded {
         let none = Problem { kind: ProblemKind::Full, a: Text::new(""), b: Text::new("") };
         Loaded {
             graph: Graph::new(),
-            files: [FileEntry { path: Path::EMPTY, node: NodeId(0) }; MAX_NODES],
+            files: [FileEntry::EMPTY; MAX_NODES],
             n_files: 0,
             problems: [none; MAX_PROBLEMS],
             n_problems: 0,
             more_problems: 0,
         }
+    }
+
+    /// Empties it for a new read, in place.
+    fn clear(&mut self) {
+        self.graph = Graph::new();
+        self.n_files = 0;
+        self.n_problems = 0;
+        self.more_problems = 0;
+    }
+
+    /// Shows a graph that did not come from files, in place: no files, no
+    /// problems.
+    pub fn show(&mut self, graph: Graph) {
+        self.clear();
+        self.graph = graph;
     }
 
     /// A package that did not come from files (the hand-written sample, when
@@ -177,6 +212,11 @@ impl Loaded {
 
     pub fn files(&self) -> &[FileEntry] {
         &self.files[..self.n_files]
+    }
+
+    /// The file a node came from.
+    pub fn file_of(&self, node: NodeId) -> Option<&FileEntry> {
+        self.files().iter().find(|f| f.node == node)
     }
 
     pub fn problems(&self) -> &[Problem] {
@@ -193,11 +233,51 @@ impl Loaded {
         }
     }
 
-    fn file(&mut self, path: Path, node: NodeId) {
+    fn file(&mut self, path: Path, node: NodeId, parent: NodeId, depth: usize) {
         if self.n_files < MAX_NODES {
-            self.files[self.n_files] = FileEntry { path, node };
+            self.files[self.n_files] = FileEntry { path, node, parent, depth: depth as u8 };
             self.n_files += 1;
         }
+    }
+
+    /// Puts the files in the order of the declared tree: each one right under
+    /// its parent, brothers in the order they were declared (the reader went
+    /// breadth-first, so brothers are already in that order). In place: two
+    /// small index arrays, no second table of paths.
+    fn tree_order(&mut self) {
+        let n = self.n_files;
+        let mut seq = [0u8; MAX_NODES];
+        let mut k = 0;
+        let mut stack = [0u8; MAX_NODES];
+        let mut top = 0;
+        for i in (0..n).rev().filter(|&i| self.files[i].depth == 0) {
+            stack[top] = i as u8;
+            top += 1;
+        }
+        while top > 0 {
+            top -= 1;
+            let i = stack[top] as usize;
+            seq[k] = i as u8;
+            k += 1;
+            let f = self.files[i];
+            for j in (0..n).rev() {
+                let c = &self.files[j];
+                if j != i && c.parent == f.node && c.depth == f.depth + 1 && top < MAX_NODES {
+                    stack[top] = j as u8;
+                    top += 1;
+                }
+            }
+        }
+        // new[i] = old[seq[i]], applied with swaps: what an earlier step moved
+        // away is found by following `seq` until it points at or after `i`.
+        for i in 0..k {
+            let mut j = seq[i] as usize;
+            while j < i {
+                j = seq[j] as usize;
+            }
+            self.files.swap(i, j);
+        }
+        self.n_files = k;
     }
 }
 
@@ -215,10 +295,10 @@ impl AutoLayout {
     }
 }
 
-/// A module waiting to be read: its path under `src/` without `.titan`.
+/// A module waiting to be read: its file, from the folder of `Titan.toml`.
 #[derive(Clone, Copy)]
 struct Pending {
-    stem: Path,
+    file: Path,
     declared: Name,
     parent: NodeId,
     depth: usize,
@@ -226,27 +306,36 @@ struct Pending {
 
 pub fn read_package<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8]) -> Loaded {
     let mut out = Loaded::new();
+    read_package_into(src, root, buf, &mut out);
+    out
+}
+
+/// The same, into a `Loaded` that already exists. What a program with a
+/// small stack calls: a `Loaded` is ~8 KiB, and returning one by value costs
+/// a second copy of it on the way out (F1 measured it: `pila.py --ring3`).
+pub fn read_package_into<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8], out: &mut Loaded) {
+    out.clear();
     let mut auto = AutoLayout { per_depth: [0; MAX_NODES] };
 
     // -- the manifest: the root node --------------------------------------
     let Some(path) = Path::new(&[root, b"/Titan.toml"]) else {
         out.problem(ProblemKind::Full, root, b"");
-        return out;
+        return;
     };
     let manifest = match src.fetch(path.as_bytes(), buf) {
         Fetch::Missing => {
             out.problem(ProblemKind::NoManifest, b"", b"");
-            return out;
+            return;
         }
         Fetch::TooBig => {
             out.problem(ProblemKind::TooBig, b"Titan.toml", b"");
-            return out;
+            return;
         }
         Fetch::Found(n) => match manifest::parse(&buf[..n.min(buf.len())]) {
             Ok(m) => m,
             Err(e) => {
                 out.problem(ProblemKind::BadManifest(e), b"", b"");
-                return out;
+                return;
             }
         },
     };
@@ -256,28 +345,27 @@ pub fn read_package<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8]) -> Load
     let root_name = core::str::from_utf8(manifest.name.as_bytes()).unwrap_or("?");
     let Ok(root_id) = out.graph.add(Node::new(NodeKind::Root, Lang::None, root_name, ROOT_PURPOSE, x, y)) else {
         out.problem(ProblemKind::Full, b"", b"");
-        return out;
+        return;
     };
-    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id);
+    out.file(Path::new(&[b"Titan.toml"]).unwrap_or(Path::EMPTY), root_id, root_id, 0);
 
     // -- the modules, following `mod` from src/main.titan ------------------
     let empty = Text::new("");
-    let mut queue = [Pending { stem: Path::EMPTY, declared: empty, parent: root_id, depth: 0 }; MAX_NODES];
+    let mut queue = [Pending { file: Path::EMPTY, declared: empty, parent: root_id, depth: 0 }; MAX_NODES];
     let (mut head, mut tail) = (0, 0);
-    queue[tail] = Pending { stem: Path::new(&[b"main"]).unwrap_or(Path::EMPTY), declared: Text::new("main"), parent: root_id, depth: 1 };
+    queue[tail] = Pending { file: Path::new(&[MAIN]).unwrap_or(Path::EMPTY), declared: Text::new("main"), parent: root_id, depth: 1 };
     tail += 1;
-    // What each module uses, resolved once every module exists.
-    let mut uses: [(NodeId, [Name; MAX_USES], usize); MAX_NODES] = [(root_id, [empty; MAX_USES], 0); MAX_NODES];
+    // What each module uses, resolved once every module exists. Flat: one
+    // row per `use`, as many as there can be edges (a table per module was
+    // 13 KiB of stack for rows that are mostly empty).
+    let mut uses: [(NodeId, Name); MAX_EDGES] = [(root_id, empty); MAX_EDGES];
     let mut n_uses = 0;
     let mut max_depth = 1;
 
     while head < tail {
         let p = queue[head];
         head += 1;
-        let Some(file) = Path::new(&[b"src/", p.stem.as_bytes(), b".titan"]) else {
-            out.problem(ProblemKind::Full, p.declared.as_bytes(), b"");
-            continue;
-        };
+        let file = p.file;
         let Some(full) = Path::new(&[root, b"/", file.as_bytes()]) else {
             out.problem(ProblemKind::Full, p.declared.as_bytes(), b"");
             continue;
@@ -320,69 +408,73 @@ pub fn read_package<S: Source>(src: &mut S, root: &[u8], buf: &mut [u8]) -> Load
             out.problem(ProblemKind::Full, h.name.as_bytes(), b"");
             continue;
         };
-        out.file(file, id);
+        out.file(file, id, p.parent, p.depth);
         max_depth = max_depth.max(p.depth);
-        edge(&mut out, p.parent, id);
+        edge(out, p.parent, id);
 
         for child in h.children() {
-            // main's children live next to it; anyone else's, in its folder.
-            let stem = if p.depth == 1 {
-                Path::new(&[child.as_bytes()])
-            } else {
-                Path::new(&[p.stem.as_bytes(), b"/", child.as_bytes()])
+            // Where the parent says, or where cargo would put it.
+            let place = match child.path(&buf[..n]) {
+                Some(path) => Path::new(&[path]),
+                None => default_place(file.as_bytes(), child.name.as_bytes()),
             };
-            match stem {
-                Some(stem) if tail < MAX_NODES => {
-                    queue[tail] = Pending { stem, declared: *child, parent: id, depth: p.depth + 1 };
+            match place {
+                Some(file) if tail < MAX_NODES => {
+                    queue[tail] = Pending { file, declared: child.name, parent: id, depth: p.depth + 1 };
                     tail += 1;
                 }
-                _ => out.problem(ProblemKind::Full, child.as_bytes(), b""),
+                _ => out.problem(ProblemKind::Full, child.name.as_bytes(), b""),
             }
         }
-        if !h.uses().is_empty() && n_uses < MAX_NODES {
-            let mut list = [empty; MAX_USES];
-            list[..h.uses().len()].copy_from_slice(h.uses());
-            uses[n_uses] = (id, list, h.uses().len());
-            n_uses += 1;
+        for used in h.uses() {
+            if n_uses < MAX_EDGES {
+                uses[n_uses] = (id, *used);
+                n_uses += 1;
+            } else {
+                out.problem(ProblemKind::Full, used.as_bytes(), b"");
+            }
         }
     }
 
     // -- the uses, now that every module exists -----------------------------
-    for &(user, list, count) in &uses[..n_uses] {
+    for &(user, used) in &uses[..n_uses] {
         let user_name = out.graph.node(user).map(|n| n.name).unwrap_or(empty);
-        for used in &list[..count] {
-            let special = match used.as_bytes() {
-                b"gpu" => Some((NodeKind::Gpu, GPU_NAME, GPU_PURPOSE, Permission::Gpu)),
-                b"director" => Some((NodeKind::Director, DIRECTOR_NAME, DIRECTOR_PURPOSE, Permission::Screen)),
-                _ => None,
-            };
-            let target = match special {
-                Some((kind, name, purpose, perm)) => {
-                    // U2 in its smallest form: using the 3060 or the screen
-                    // needs the manifest to have asked for it.
-                    if !out.graph.permissions.allows(perm) {
-                        out.problem(ProblemKind::NoPermission(perm), user_name.as_bytes(), used.as_bytes());
-                        continue;
-                    }
-                    match out.graph.find(name.as_bytes()) {
-                        Some(id) => Some(id),
-                        None => {
-                            let (x, y) = place(&mut auto, used.as_bytes(), max_depth + 1);
-                            out.graph.add(Node::new(kind, Lang::None, name, purpose, x, y)).ok()
-                        }
+        let special = match used.as_bytes() {
+            b"gpu" => Some((NodeKind::Gpu, GPU_NAME, GPU_PURPOSE, Permission::Gpu)),
+            b"director" => Some((NodeKind::Director, DIRECTOR_NAME, DIRECTOR_PURPOSE, Permission::Screen)),
+            _ => None,
+        };
+        let target = match special {
+            Some((kind, name, purpose, perm)) => {
+                // U2 in its smallest form: using the 3060 or the screen
+                // needs the manifest to have asked for it.
+                if !out.graph.permissions.allows(perm) {
+                    out.problem(ProblemKind::NoPermission(perm), user_name.as_bytes(), used.as_bytes());
+                    continue;
+                }
+                match out.graph.find(name.as_bytes()) {
+                    Some(id) => Some(id),
+                    None => {
+                        let (x, y) = place(&mut auto, used.as_bytes(), max_depth + 1);
+                        out.graph.add(Node::new(kind, Lang::None, name, purpose, x, y)).ok()
                     }
                 }
-                None => out.graph.find(used.as_bytes()),
-            };
-            match target {
-                Some(t) => edge(&mut out, user, t),
-                None if special.is_some() => out.problem(ProblemKind::Full, used.as_bytes(), b""),
-                None => out.problem(ProblemKind::UnknownUse, user_name.as_bytes(), used.as_bytes()),
             }
+            None => out.graph.find(used.as_bytes()),
+        };
+        match target {
+            Some(t) => edge(out, user, t),
+            None if special.is_some() => out.problem(ProblemKind::Full, used.as_bytes(), b""),
+            None => out.problem(ProblemKind::UnknownUse, user_name.as_bytes(), used.as_bytes()),
         }
     }
-    out
+    out.tree_order();
 }
+
+/// Where every package starts.
+pub const MAIN: &[u8] = b"src/main.titan";
+
+const _: () = assert!(MAX_NODES <= u8::MAX as usize, "tree_order keeps indices in u8");
 
 /// A `mod` or a `use`. The same edge twice is fine (a child that is also
 /// used); a cycle is a problem with both names.
@@ -477,6 +569,72 @@ pub(crate) mod tests {
         assert!(paths.contains(&&b"Titan.toml"[..]));
         assert!(paths.contains(&&b"src/physics/collide.titan"[..]));
         assert_eq!(got.files().len(), 6);
+    }
+
+    #[test]
+    fn the_files_come_in_the_order_of_the_declared_tree() {
+        let got = read(&mut Table::seed());
+        let rows: Vec<(u8, &[u8])> = got.files().iter().map(|f| (f.depth, f.path.as_bytes())).collect();
+        assert_eq!(
+            rows,
+            [
+                (0, &b"Titan.toml"[..]),
+                (1, b"src/main.titan"),
+                (2, b"src/ship.titan"),
+                (2, b"src/rock.titan"),
+                (2, b"src/physics.titan"),
+                (3, b"src/physics/collide.titan"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_deep_tree_is_listed_depth_first_not_in_reading_order() {
+        // Read breadth-first: main a b c d e f. Listed as the tree: a c f d b e.
+        let mut t = Table {
+            files: std::vec![
+                ("p/Titan.toml", "[package]\nname = \"p\"\n"),
+                ("p/src/main.titan", "mod main \"m\"\nmod a, b\n"),
+                ("p/src/a.titan", "mod a \"a\"\nmod c, d\n"),
+                ("p/src/b.titan", "mod b \"b\"\nmod e\n"),
+                ("p/src/a/c.titan", "mod c \"c\"\nmod f\n"),
+                ("p/src/a/d.titan", "mod d \"d\"\n"),
+                ("p/src/b/e.titan", "mod e \"e\"\n"),
+                ("p/src/a/c/f.titan", "mod f \"f\"\n"),
+            ],
+        };
+        let mut buf = [0u8; 4096];
+        let got = read_package(&mut t, b"p", &mut buf);
+        assert!(got.problems().is_empty(), "{:?}", kinds(&got));
+        let names: Vec<&[u8]> = got.files().iter().map(|f| got.graph.node(f.node).unwrap().name.as_bytes()).collect();
+        assert_eq!(names, [&b"p"[..], b"main", b"a", b"c", b"f", b"d", b"b", b"e"]);
+        let depths: Vec<u8> = got.files().iter().map(|f| f.depth).collect();
+        assert_eq!(depths, [0, 1, 2, 3, 4, 3, 2, 3]);
+    }
+
+    #[test]
+    fn the_disk_can_be_in_any_order_the_parent_says_where() {
+        // collide lives far from physics, and ship under a folder of its own:
+        // the graph and the tree are the same as the seed's.
+        let t = Table::seed()
+            .remove("titan/asteroids/src/physics/collide.titan")
+            .remove("titan/asteroids/src/ship.titan")
+            .put("titan/asteroids/cosas/choques.titan", "mod collide \"quien toca a quien\"\n")
+            .put("titan/asteroids/naves/ship.titan", "mod ship \"la nave: se mueve y dispara\"\n")
+            .put(
+                "titan/asteroids/src/main.titan",
+                "mod main \"arranca el juego y el bucle del fotograma\"\nuse director\nmod ship in \"naves/ship.titan\"\nmod rock, physics\n",
+            )
+            .put(
+                "titan/asteroids/src/physics.titan",
+                "mod physics \"mueve los cuerpos y resuelve los choques\"\nuse ship, gpu\nmod collide in \"cosas/choques.titan\"\n",
+            );
+        let got = read(&mut { t });
+        assert!(got.problems().is_empty(), "{:?}", kinds(&got));
+        assert!(sample::script_for(&got.graph).is_some());
+        let collide = got.file_of(got.graph.find(b"collide").unwrap()).unwrap();
+        assert_eq!((collide.path.as_bytes(), collide.depth), (&b"cosas/choques.titan"[..], 3));
+        assert_eq!(got.files()[2].path.as_bytes(), b"naves/ship.titan");
     }
 
     #[test]

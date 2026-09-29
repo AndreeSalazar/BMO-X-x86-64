@@ -55,6 +55,30 @@ pub fn number(s: &[u8]) -> Option<i32> {
     Some(if neg { -v } else { v })
 }
 
+/// A file of the package, as a `mod ... in "..."` writes it: from the folder
+/// of `Titan.toml`, ending in `.titan`, and never out of the package (no
+/// leading `/`, no `.` or `..`, no empty step). Absolute INSIDE the package on
+/// purpose: the same words mean the same file whoever declares it, so moving a
+/// declaration to another parent never moves a byte on disk.
+pub fn is_package_path(s: &[u8]) -> bool {
+    s.len() > b".titan".len()
+        && s.len() <= 96
+        && s.ends_with(b".titan")
+        && s.iter().all(|&c| c.is_ascii_graphic() && c != b'"' && c != b'\\')
+        && s.split(|&c| c == b'/').all(|step| !step.is_empty() && step != b"." && step != b"..")
+}
+
+/// Where a child lives when its `mod` does not say: like cargo, main's
+/// children sit next to it (`src/x.titan`), anyone else's in a folder named
+/// after the parent (`src/physics.titan` -> `src/physics/x.titan`).
+pub fn default_place(parent_file: &[u8], child: &[u8]) -> Option<Path> {
+    if parent_file == b"src/main.titan" {
+        return Path::new(&[b"src/", child, b".titan"]);
+    }
+    let stem = parent_file.strip_suffix(b".titan")?;
+    Path::new(&[stem, b"/", child, b".titan"])
+}
+
 /// A path in a fixed buffer: `titan/asteroids/src/physics/collide.titan` fits.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct Path {
@@ -128,5 +152,20 @@ mod tests {
         let long = [b'a'; 200];
         assert!(Path::new(&[&long]).is_none());
         assert_eq!(Path::new(&[b"titan/", b"asteroids"]).unwrap().as_bytes(), b"titan/asteroids");
+    }
+
+    #[test]
+    fn a_package_path_stays_inside_the_package() {
+        assert!(is_package_path(b"src/ship.titan") && is_package_path(b"cosas/nave.titan"));
+        for bad in [&b"/src/ship.titan"[..], b"../x.titan", b"src/../x.titan", b"src//x.titan", b"x.txt", b".titan", b"a b.titan", b"a\\b.titan"] {
+            assert!(!is_package_path(bad), "{:?}", core::str::from_utf8(bad));
+        }
+    }
+
+    #[test]
+    fn main_keeps_its_children_next_to_it_and_the_rest_in_a_folder() {
+        assert_eq!(default_place(b"src/main.titan", b"ship").unwrap().as_bytes(), b"src/ship.titan");
+        assert_eq!(default_place(b"src/physics.titan", b"collide").unwrap().as_bytes(), b"src/physics/collide.titan");
+        assert_eq!(default_place(b"cosas/fis.titan", b"collide").unwrap().as_bytes(), b"cosas/fis/collide.titan");
     }
 }

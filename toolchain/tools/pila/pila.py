@@ -382,7 +382,9 @@ def comprobar(elf, objdump, kernel_src, hablar):
 # ---------------------------------------------------------------------------
 
 RE_USER_STACK = re.compile(r"pub\s+const\s+USER_STACK_SIZE\s*:\s*u64\s*=\s*(0x[0-9A-Fa-f_]+|\d+)\s*;")
-RING3_POR_DEFECTO = ("director", "proton-x", "coste", "sombra")
+# `taller` (F1) desde el 29-09: su L1 bajaba 79.152 B y nadie lo miraba -- un
+# script propio sumaba los `subq` y no veia los marcos que se reservan en bucle.
+RING3_POR_DEFECTO = ("director", "proton-x", "coste", "sombra", "taller")
 
 
 def leer_pila_ring3(kernel_src):

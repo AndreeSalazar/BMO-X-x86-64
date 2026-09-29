@@ -9,6 +9,8 @@
 //!    package    follow `mod` from src/main.titan, like cargo: the Graph,
 //!               the files it read and the PROBLEMS, each with its names
 //!    library    titan/biblioteca.toml: which packages exist
+//!    edit       one `mod` line in or out of a header, the rest untouched
+//!    hang       a file under another parent: two headers, no file moves
 //!    seed       `asteroids` as files, for F1 to write the first time
 //! ```
 //!
@@ -22,6 +24,8 @@
 #[cfg(test)]
 extern crate std;
 
+pub mod edit;
+pub mod hang;
 pub mod header;
 pub mod library;
 pub mod manifest;
@@ -29,5 +33,6 @@ pub mod package;
 pub mod seed;
 pub mod text;
 
-pub use package::{read_package, Fetch, FileEntry, Loaded, Problem, ProblemKind, Source};
+pub use hang::{HangError, Plan, Sink};
+pub use package::{read_package, read_package_into, Fetch, FileEntry, Loaded, Problem, ProblemKind, Source};
 pub use text::Path;

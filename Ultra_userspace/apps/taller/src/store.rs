@@ -16,10 +16,16 @@
 //!
 //! It never walks ESTRATOS with the kernel's cursor: that cursor is ONE and it
 //! is the F12 panel's; walking it from here would move what F12 shows.
+//!
+//! ** WRITING (8.7): hanging a file under another rewrites two headers
+//! (`titan-lector::hang`) and saves them as new versions. It does not read
+//! the package again itself: the generation moved, so the next beat does,
+//! and F1 sees its own change exactly as anyone else's.
 
-use bmo_titan_contrato::sample;
+use bmo_titan_contrato::{sample, Line, NodeId};
+use bmo_titan_lector::hang::{self, HangError, Plan, Sink};
 use bmo_titan_lector::library::{self, Library};
-use bmo_titan_lector::{read_package, seed, Fetch, Loaded, Source};
+use bmo_titan_lector::{read_package_into, seed, Fetch, Loaded, Source};
 use bmo_userland as bmo;
 
 /// Big enough for any manifest or header F1 reads; lives only while reading.
@@ -40,6 +46,33 @@ impl Source for Estratos {
     }
 }
 
+/// ESTRATOS with a borrowed block behind it: the two halves a hang reads a
+/// header into and rewrites it into. The rewritten header is already where
+/// `guardar_desde` takes it from, so saving copies nothing.
+struct Disk<'m> {
+    block: &'m bmo::Memoria,
+}
+
+impl Source for Disk<'_> {
+    fn fetch(&mut self, path: &[u8], buf: &mut [u8]) -> Fetch {
+        Estratos.fetch(path, buf)
+    }
+}
+
+impl Sink for Disk<'_> {
+    fn store(&mut self, path: &[u8], bytes: &[u8]) -> bool {
+        let at = (bytes.as_ptr() as usize).wrapping_sub(self.block.base() as usize);
+        if at + bytes.len() > HANG_BUF {
+            // Not in the block: refused, never copied from somewhere unknown.
+            return false;
+        }
+        bmo::estratos::guardar_desde(path, self.block.handle(), at as u64, bytes.len() as u64) != 0
+    }
+}
+
+/// A header read in, and rewritten: two halves of one block.
+const HANG_BUF: usize = 2 * READ_BUF;
+
 /// Where the package on screen came from.
 #[derive(Clone, Copy, PartialEq)]
 pub enum Origin {
@@ -55,11 +88,15 @@ pub struct Store {
     /// Which package of the library is on screen.
     pub chosen: usize,
     pub loaded: Loaded,
+    /// What the last drop did, or why not: one line for the EXPLORER, and
+    /// whether it was done.
+    pub note: Option<(Line, bool)>,
 }
 
 impl Store {
     pub fn open() -> Store {
-        let mut s = Store { origin: Origin::Memory(""), library: None, chosen: 0, loaded: Loaded::from_graph(sample::asteroids_graph()) };
+        let mut s = Store { origin: Origin::Memory(""), library: None, chosen: 0, loaded: Loaded::new(), note: None };
+        s.loaded.show(sample::asteroids_graph());
         if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
             s.origin = Origin::Memory("ESTRATOS no esta montado: ejemplo en memoria");
             return s;
@@ -93,8 +130,35 @@ impl Store {
     pub fn choose(&mut self, i: usize) {
         if i < self.packages().len() && i != self.chosen {
             self.chosen = i;
+            self.note = None;
             self.read_all();
         }
+    }
+
+    /// Could `child` hang under `parent`? Touches no disk: the EXPLORER asks
+    /// it while the button is still down, to colour the target.
+    pub fn plan(&self, child: NodeId, parent: NodeId) -> Result<Plan, HangError> {
+        hang::plan(&self.loaded, child, parent)
+    }
+
+    /// Hangs `child` under `parent` in ESTRATOS, and says how it went.
+    pub fn hang(&mut self, child: NodeId, parent: NodeId) {
+        let r = self.plan(child, parent).and_then(|p| self.write(&p));
+        let name = |id| self.loaded.graph.node(id).map(|n| n.name).unwrap_or(bmo_titan_contrato::Text::new("?"));
+        let done = r.is_ok();
+        self.note = hang::note(r, name(child).as_bytes(), name(parent).as_bytes()).map(|l| (l, done));
+    }
+
+    fn write(&self, p: &Plan) -> Result<(), HangError> {
+        let root = self.packages().get(self.chosen).map(|x| x.1).ok_or(HangError::Write)?;
+        let block = bmo::Memoria::request(HANG_BUF as u64).ok_or(HangError::Write)?;
+        // SAFETY: `block` is ours, mapped and HANG_BUF bytes long, and it
+        // outlives both halves (it drops at the end of this function); the
+        // halves do not overlap, and the only other user of these bytes is
+        // the kernel, reading them inside `guardar_desde`.
+        let all = unsafe { core::slice::from_raw_parts_mut(block.base(), HANG_BUF) };
+        let (text, out) = all.split_at_mut(READ_BUF);
+        hang::hang(&mut Disk { block: &block }, root.as_bytes(), &self.loaded, p, text, out)
     }
 
     pub fn packages(&self) -> &[(bmo_titan_contrato::Name, bmo_titan_lector::Path)] {
@@ -109,11 +173,12 @@ impl Store {
         self.chosen = self.chosen.min(self.packages().len().saturating_sub(1));
         match self.packages().get(self.chosen).map(|p| p.1) {
             Some(path) => {
-                self.loaded = read_package(&mut Estratos, path.as_bytes(), &mut buf);
+                // In place: a `Loaded` is ~8 KiB, and a copy of it is stack.
+                read_package_into(&mut Estratos, path.as_bytes(), &mut buf, &mut self.loaded);
                 self.origin = Origin::Estratos(g);
             }
             None => {
-                self.loaded = Loaded::from_graph(sample::asteroids_graph());
+                self.loaded.show(sample::asteroids_graph());
                 self.origin = Origin::Memory("titan/biblioteca.toml no lista ningun paquete");
             }
         }
