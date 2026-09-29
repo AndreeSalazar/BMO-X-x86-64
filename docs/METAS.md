@@ -58,7 +58,7 @@ guardianes del build). Lo que sigue son las metas por categoria.
 | meta | estado | motivo / lo que falta |
 |---|---|---|
 | Cinco compiladores propios, sin LLVM ni GCC | **HECHA** | C, C++, COBOL, Ada, INTI: frontend agnostico + `emisor-x86_64/` cada uno |
-| La lista de lenguajes | **CERRADA** 17/18-09 | decision de Eddi. Python: solo interprete (AOT quitado, es INTI). Java: analizado el 20-09 y NO entra por el lenguaje sino por la GPU y el GC; solo cabria "LLANO" para banca, y es decision suya |
+| La lista de lenguajes | ABIERTA 29-09 | decision de Eddi: la reabre para **TITAN++**, el lenguaje para CONSTRUIR (apps, juegos, computo en la 3060) con la seguridad de Rust y pocas palabras; INTI se queda con la CPU y el sistema. `maestro/TITAN_MAESTRO.md`, T0: la gramatica la escribe el propietario. Lo de antes sigue: Python solo interprete (AOT quitado, es INTI); Java analizado el 20-09 y NO entra por el lenguaje sino por la GPU y el GC |
 | Compilacion separada: `.bo` + `bmo-enlazar` | **HECHA** para C, C++ e INTI | `plan/PLAN_EL_ENLAZADOR.md` E2, E5e, E8 (20-09). `42 42 7`: un `main` de C, INTI y C++ en un `.bex` |
 | COBOL y Ada emiten objetos (E6, E7) | ABIERTA | codegen propio, 0 relocs hoy; es trabajo, no bloquea la banca |
 | INTI declara funciones AJENAS (`externo`) | **ESPERA** | INTI es hoy biblioteca de C, no al reves: falta una palabra en su gramatica, y la gramatica es de Eddi |
