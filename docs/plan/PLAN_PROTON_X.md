@@ -743,8 +743,24 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        O sea: el cuello NO era la copia (Z1) sino la
                        BUROCRACIA de preparar: releer cada palabra para
                        saber que llego. Por eso Z2 va ANTES que Z1.
-                    Z1 [HECHO en codigo 29-09, falta el metal] Asi quedo,
-                       pieza a pieza:
+                    Z1 [VISTO EN EL METAL 29-09 07:50] BMOX-12: **3749
+                       fps** (antes de Z2, 83-98; con Z2, 130-250), en la
+                       pantalla 3750 de 3750 y en caliente todos; por lote
+                       la puerta 1 us y el kernel **264 us** = 3060 36 +
+                       preparar 12 + sombra 92 (VRAM a VRAM) + resto 124;
+                       `presentar` 0 ms. El PCIe salio en Gen3 x16 en esa
+                       sesion; la 3060, en P8. Lo que queda: `resto`
+                       (pegar y el juez en cada lote: Z3), la espera
+                       sincrona (Z4) y los relojes (P8 -> P0). Visto por el
+                       propietario: "se pinto ENCIMA de mi escritorio" --
+                       el cubo sale en la ventana fija del centro de la
+                       pantalla, no donde esta la ventana de la app: falta
+                       confirmar si el resto quedo en negro (pantalla
+                       completa) o si el escritorio siguio asomando. Y al
+                       cortar con ^C, `cabina`: "mem no devuelto: sigue
+                       PRESTADO a otro =3690496" (la superficie, que el
+                       escritorio aun tenia tomada; por mirar si pasaba
+                       tambien antes de Z1). Asi quedo, pieza a pieza:
                        - la receta: +88 bit 0 = "el destino es un back
                          buffer de la cadena" (`Dibujo::cadena`, lo pone la
                          casa de DXGI). La receta NUNCA dice "a la
