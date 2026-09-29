@@ -476,9 +476,9 @@ _vsnwprintf) y vcruntime140.dll. Los otros .exe no cambian (no usan estos
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   b7a21cf41073dd6f871a51dcefa87b0e3bed7840e79c4b0900a45148088ecc5d
+   ddd2da1f7204c4119553c348908d44f130adc3f6da97836a950233a6867b78fd
 
-Dice `bien` cincuenta y dos veces y sale con 0 (la ultima: su manejador de
+Dice `bien` cincuenta y cinco veces y sale con 0 (la ultima: su manejador de
 parametros invalidos se llamo 4 veces; SIN el, Windows mata el proceso en el
 primer strcpy_s corto -- lo vio el metal el 29-09); deja window/tanda1.txt con
 "uno\r\ndos\r\n" (modo texto de Windows). En Windows dice lo mismo (pide el
@@ -497,7 +497,7 @@ C++ se importan por su nombre decorado con `__asm__`):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   a164f0609d41c03d09a994702a66616e2f5cc0a47722982ff98968ef553ad671
+   773d861212f54d45dd733fa749f334efa3bea869f2f5b238b12831480b512d12
 
 Dice `bien` doce veces y sale con 0. En Windows dice lo mismo (pide
 msvcp140.dll, el redistribuible de Visual C++, como los juegos).

@@ -329,7 +329,9 @@ extern "win64" fn execute_once(bandera: *mut u64, f: UnaVez, pv: u64) -> i32 {
     // SAFETY: como arriba.
     unsafe { bandera.write_volatile(1) };
     let mut ctx = 0u64;
-    let ok = f(pv, 0, &mut ctx) != 0;
+    // Como InitOnceExecuteOnce: (la bandera, el parametro, el contexto). El
+    // metal lo dijo el 29-09 (tanda2.exe): el parametro va SEGUNDO.
+    let ok = f(bandera as u64, pv, &mut ctx) != 0;
     // SAFETY: como arriba.
     unsafe { bandera.write_volatile(if ok { 2 } else { 0 }) };
     ok as i32
@@ -475,8 +477,33 @@ extern "win64" fn mbrtowc(pwc: *mut u16, s: *const u8, n: usize, _st: u64, _cvt:
     (c != 0) as isize
 }
 
+/// `_Syserror_map`: el texto de `std::generic_category().message()`, de la
+/// tabla de msvcp140 (en minusculas: no es el de `strerror`).
 extern "win64" fn syserror_map(e: i32) -> *const u8 {
-    crate::crt_cadenas::texto_de_errno(e)
+    let t: &'static [u8] = match e {
+        1 => b"operation not permitted\0",
+        2 => b"no such file or directory\0",
+        3 => b"no such process\0",
+        4 => b"interrupted\0",
+        5 => b"io error\0",
+        9 => b"bad file descriptor\0",
+        11 => b"resource unavailable try again\0",
+        12 => b"not enough memory\0",
+        13 => b"permission denied\0",
+        16 => b"device or resource busy\0",
+        17 => b"file exists\0",
+        20 => b"not a directory\0",
+        21 => b"is a directory\0",
+        22 => b"invalid argument\0",
+        24 => b"too many files open\0",
+        28 => b"no space on device\0",
+        36 => b"resource deadlock would occur\0",
+        38 => b"filename too long\0",
+        41 => b"directory not empty\0",
+        138 => b"timed out\0",
+        _ => b"unknown error\0",
+    };
+    t.as_ptr()
 }
 
 /// `_Winerror_map`: el `errc` de un error de Win32 (0 si no tiene).

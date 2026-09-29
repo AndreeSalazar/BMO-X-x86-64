@@ -4,3 +4,5 @@ _errno
 _beginthreadex
 strerror
 _set_invalid_parameter_handler
+_initialize_narrow_environment
+_initialize_wide_environment

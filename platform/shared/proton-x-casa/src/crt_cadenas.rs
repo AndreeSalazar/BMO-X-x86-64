@@ -393,11 +393,6 @@ extern "win64" fn wcsupr(s: *mut u16) -> *mut u16 {
     s
 }
 
-/// El texto de un `errno` (el de `strerror`, para `std::generic_category`).
-pub(crate) fn texto_de_errno(e: i32) -> *const u8 {
-    strerror(e)
-}
-
 extern "win64" fn strerror(e: i32) -> *const u8 {
     let t: &'static [u8] = match e {
         0 => b"No error\0",
@@ -689,13 +684,35 @@ extern "win64" fn iswprint(c: u16) -> i32 {
 
 static C: [u8; 2] = *b"C\0";
 
+/// El locale del usuario de la casa (en-US con la pagina UTF-8), con el
+/// nombre que le da el UCRT.
+static USUARIO: [u8; 27] = *b"English_United States.utf8\0";
+
+struct Actual(UnsafeCell<bool>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Actual {}
+/// Si el locale puesto es el del usuario (si no, "C").
+static DEL_USUARIO: Actual = Actual(UnsafeCell::new(false));
+
+/// `setlocale(categoria, nombre)`: NULL consulta; "C" pone el de C; "" (el
+/// del usuario, como en Windows: el metal lo dijo el 29-09), su nombre o
+/// "en-US" ponen el del usuario de la casa. Otro, NULL (como Windows con uno
+/// que no conoce). Los dos tienen el punto decimal y las mismas clases de
+/// caracteres ASCII: lo que cambia es el nombre.
 extern "win64" fn setlocale(_categoria: i32, nombre: *const u8) -> *const u8 {
-    // Consultar, "C" y "" (el del sistema: aqui tambien "C") dan "C"; otro
-    // nombre, NULL: Windows hace lo mismo con uno que no conoce.
-    if nombre.is_null() || matches!(trozo(nombre), b"C" | b"") {
-        C.as_ptr()
+    // SAFETY: ver `Actual`.
+    let del_usuario = unsafe { &mut *DEL_USUARIO.0.get() };
+    if !nombre.is_null() {
+        match trozo(nombre) {
+            b"C" => *del_usuario = false,
+            b"" | b"en-US" | b"English_United States.utf8" | b".utf8" | b".UTF-8" => *del_usuario = true,
+            _ => return core::ptr::null(),
+        }
+    }
+    if *del_usuario {
+        USUARIO.as_ptr()
     } else {
-        core::ptr::null()
+        C.as_ptr()
     }
 }
 
