@@ -109,6 +109,8 @@ fn partir_ruta(todo: &[u8]) -> (&[u8], &[u8]) {
 const TOPE_SECCION: u64 = 64 << 20;
 /// Donde queda la lista entera.
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
+/// Lo que se lee de D: entre dos cesiones del turno.
+const TROZO: u64 = 2 << 20;
 
 /// Lo que se sabe de UN fichero (el `.exe` o una DLL): lo que importa, y
 /// los nombres de DLL que aparecen en sus datos (candidatas a `LoadLibrary`).
@@ -140,9 +142,19 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
         return Err(format!("la seccion {} pasa de 64 MiB", sec.nombre));
     }
     let b = bmo::Memoria::request(tam).ok_or("sin memoria para la seccion de importaciones")?;
-    if a.saltar(sec.desde as u64) != sec.desde as u64 || a.leer_en(&b, 0, tam) != tam {
-        b.soltar();
-        return Err(format!("la seccion {} no se leyo entera", sec.nombre));
+    // A TROZOS, cediendo el turno entre uno y otro: de una vez, 64 MiB de D:
+    // tuvieron el CPU 1112 ms y el bus USB llego 1107 ms tarde (metal 29-09
+    // 15:04, `latido tarde`: el raton y el teclado, congelados).
+    let mut hecho = 0u64;
+    while hecho < tam {
+        let k = TROZO.min(tam - hecho);
+        let pos = sec.desde as u64 + hecho;
+        if a.saltar(pos) != pos || a.leer_en(&b, hecho, k) != k {
+            b.soltar();
+            return Err(format!("la seccion {} no se leyo entera", sec.nombre));
+        }
+        hecho += k;
+        bmo::yield_screen();
     }
     // SAFETY: `tam` bytes que el kernel acaba de escribir en un bloque nuestro.
     let trozo = unsafe { core::slice::from_raw_parts(b.base() as *const u8, tam as usize) };
@@ -167,6 +179,9 @@ fn nombres_de_dll(d: &[u8]) -> Vec<alloc::string::String> {
     // ASCII: ".dll" y hacia atras mientras sea un nombre.
     let mut i = 0;
     while i + 4 <= d.len() {
+        if i & 0xF_FFFF == 0 {
+            bmo::yield_screen();
+        }
         if d[i..i + 4].eq_ignore_ascii_case(b".dll") && d.get(i + 4).is_none_or(|&c| !vale(c)) {
             let mut a = i;
             while a > 0 && vale(d[a - 1]) && i - a < 64 {
@@ -183,6 +198,9 @@ fn nombres_de_dll(d: &[u8]) -> Vec<alloc::string::String> {
     // UTF-16: ".\0d\0l\0l\0".
     let mut i = 0;
     while i + 8 <= d.len() {
+        if i & 0xF_FFFE == 0 {
+            bmo::yield_screen();
+        }
         let w = &d[i..i + 8];
         if w[1] == 0 && w[3] == 0 && w[5] == 0 && w[7] == 0 && w[0] == b'.' && w[2] | 0x20 == b'd' && w[4] | 0x20 == b'l' && w[6] | 0x20 == b'l' {
             let mut a = i;
@@ -199,6 +217,55 @@ fn nombres_de_dll(d: &[u8]) -> Vec<alloc::string::String> {
         }
     }
     v
+}
+
+/// Una linea a la consola, y el turno al escritorio para que la drene: el
+/// anillo de la consola hija son 2048 bytes y pierde lo MAS VIEJO.
+fn linea(s: &str) {
+    di(s);
+    for _ in 0..4 {
+        bmo::yield_screen();
+    }
+}
+
+fn recortar(s: &str, n: usize) -> &str {
+    &s[..s.len().min(n)]
+}
+
+/// Nombres de Windows que un byte suelto delante no puede volver nuevos.
+const COMO_WINDOWS: &[&str] = &["kernel32.dll", "user32.dll", "gdi32.dll", "ntdll.dll", "advapi32.dll", "shell32.dll"];
+
+/// Las clases de lo que se carga EN VIVO: (nombre, que significa, listar los
+/// nombres en la consola).
+type Clase = (&'static str, &'static str, bool);
+const GRAFICOS: Clase = ("graficos", "", true);
+const SONIDO: Clase = ("sonido", "", true);
+const NVIDIA: Clase = ("driver nvidia", "", true);
+const AMD: Clase = ("de AMD", "no hacen falta con la 3060", false);
+const HERRAMIENTAS: Clase = ("herramientas", "depurar, capturar, perifericos: opcionales", false);
+const API_SETS: Clase = ("api-ms", "alias de kernelbase/kernel32: la casa los resuelve alli", false);
+const WINDOWS: Clase = ("de Windows", "", true);
+const CLASES: &[Clase] = &[GRAFICOS, SONIDO, NVIDIA, WINDOWS, API_SETS, AMD, HERRAMIENTAS];
+
+/// **La clase** de una DLL que se carga en vivo, por su nombre.
+fn clase(d: &str) -> Clase {
+    let n = d.to_ascii_lowercase();
+    let empieza = |p: &[&str]| p.iter().any(|x| n.starts_with(x));
+    if empieza(&["api-ms-", "ext-ms-"]) {
+        API_SETS
+    } else if empieza(&["d3d", "dxgi", "vulkan", "opengl"]) {
+        GRAFICOS
+    } else if empieza(&["xaudio", "dsound", "mss", "x3daudio", "xapofx", "mmdevapi"]) {
+        SONIDO
+    } else if empieza(&["nv", "gfn_", "physx3gpu", "cudart", "nvcuda"]) {
+        NVIDIA
+    } else if empieza(&["ati", "amd", "llvm_"]) {
+        AMD
+    } else if empieza(&["renderdoc", "msdia", "srcsrv", "symaudit", "dbghelp", "rzchroma", "physxupdate", "gameoverlay", "steam_api", "bink"]) {
+        HERRAMIENTAS
+    } else {
+        WINDOWS
+    }
 }
 
 /// **EL CENSO COMPLETO** (29-09; refinado: *"LISTAR por completo lo que
@@ -286,7 +353,24 @@ fn censo(ruta: &[u8]) -> ! {
         }
     }
 
-    // -- El resumen.
+    // -- Lo EN VIVO, limpio: fuera lo que ya se importa en algun sitio, los
+    // nombres de menos de 3 letras (`s.dll`) y los que son otro con una letra
+    // de mas delante (`Wkernel32.dll`: el byte de antes de la cadena).
+    let importadas = |d: &str| windows.iter().any(|w| w.0.eq_ignore_ascii_case(d));
+    let limpios: Vec<(String, String)> = en_vivo
+        .iter()
+        .filter(|(d, _)| {
+            let raiz = d.len() - 4;
+            let otro = en_vivo.iter().any(|(x, _)| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x))
+                || COMO_WINDOWS.iter().any(|x| d.len() == x.len() + 1 && d[1..].eq_ignore_ascii_case(x));
+            raiz >= 3 && d.as_bytes()[0].is_ascii_alphabetic() && !otro && !importadas(d)
+        })
+        .cloned()
+        .collect();
+
+    // -- El resumen: CORTO (el anillo de la consola hija son 2048 bytes: el
+    // primer censo completo perdio su cabecera) y linea a linea, cediendo el
+    // turno para que el escritorio lo drene.
     let total = windows.len();
     let tiene = windows.iter().filter(|w| w.2).count();
     let mut dlls: Vec<(String, u32, u32)> = Vec::new();
@@ -301,34 +385,64 @@ fn censo(ruta: &[u8]) -> ! {
     }
     dlls.sort_by(|a, b| (b.1 - b.2).cmp(&(a.1 - a.2)));
     let fallidos = juego.iter().filter(|j| j.3.is_some()).count();
-    di(&format!(
-        "CENSO COMPLETO de {nombre}: {} ficheros del juego mirados ({} MiB), {} DLL de Windows, {total} funciones de Windows distintas; la casa tiene {tiene} ({}%), FALTAN {}\n",
+    linea(&format!(
+        "CENSO COMPLETO de {nombre}: {} ficheros del juego ({} MiB); de Windows pide {total} funciones distintas de {} DLL; la casa tiene {tiene} ({}%), FALTAN {}\n",
         juego.len() - fallidos,
         juego.iter().map(|j| j.1).sum::<u64>(),
         dlls.len(),
         tiene * 100 / total.max(1),
         total - tiene
     ));
-    di("  de Windows, por lo que falta:\n");
-    for (d, n, si) in &dlls {
-        di(&format!("  {d:<24} faltan {:>4} de {n:<4}\n", n - si));
-    }
-    if !en_vivo.is_empty() {
-        di("  se cargan EN VIVO (LoadLibrary; su nombre en los datos):\n   ");
-        for (d, _) in &en_vivo {
-            di(&format!(" {d}"));
+    let completas = dlls.iter().filter(|d| d.1 == d.2).count();
+    linea(&format!("  las DLL de Windows con mas que faltan ({completas} ya completas):\n"));
+    for par in dlls.iter().filter(|d| d.1 > d.2).take(16).collect::<Vec<_>>().chunks(2) {
+        let mut l = String::new();
+        for (d, n, si) in par {
+            l.push_str(&format!("  {:<22} {:>4} de {:<4}", recortar(d, 22), n - si, n));
         }
-        di("\n");
+        l.push('\n');
+        linea(&l);
+    }
+    let resto = dlls.iter().filter(|d| d.1 > d.2).count().saturating_sub(16);
+    if resto > 0 {
+        linea(&format!("  ... y {resto} DLL mas con algo que falta\n"));
+    }
+    linea(&format!("  EN VIVO (LoadLibrary, sin importarse): {} DLL\n", limpios.len()));
+    for c in CLASES {
+        let de: Vec<&(String, String)> = limpios.iter().filter(|(d, _)| clase(d) == *c).collect();
+        if de.is_empty() {
+            continue;
+        }
+        let mut l = format!("    {:<14} {:>3}", c.0, de.len());
+        if c.2 {
+            l.push(' ');
+            for (d, _) in de.iter().take(10) {
+                l.push(' ');
+                l.push_str(&d[..d.len() - 4]);
+            }
+            if de.len() > 10 {
+                l.push_str(" ...");
+            }
+        } else {
+            l.push_str("  ");
+            l.push_str(c.1);
+        }
+        l.push('\n');
+        linea(&l);
     }
     if fallidos > 0 {
-        di(&format!("  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"));
+        linea(&format!("  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"));
     }
-    di(&format!("  la lista entera, funcion a funcion: {}\n", core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
+    linea(&format!("  la lista entera, funcion a funcion: {}\n", core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
 
     // -- La lista entera.
     let mut t = String::new();
     t.push_str(&format!("# CENSO COMPLETO de {nombre}\n# {total} funciones de Windows distintas; la casa tiene {tiene}; FALTAN {}\n\n", total - tiene));
-    t.push_str("## FALTAN (dll funcion)\n");
+    t.push_str("## POR DLL DE WINDOWS (faltan, de, dll)\n");
+    for (d, n, si) in &dlls {
+        t.push_str(&format!("{:>5} {:>5} {d}\n", n - si, n));
+    }
+    t.push_str("\n## FALTAN (dll funcion)\n");
     for (d, _, _) in &dlls {
         for (e, f, hay) in &windows {
             if !hay && e.eq_ignore_ascii_case(d) {
@@ -342,8 +456,14 @@ fn censo(ruta: &[u8]) -> ! {
             t.push_str(&format!("{e} {f}\n"));
         }
     }
-    t.push_str("\n## EN VIVO (LoadLibrary; nombre visto en los datos de)\n");
-    for (d, quien) in &en_vivo {
+    t.push_str("\n## EN VIVO (clase dll <- nombre visto en los datos de)\n");
+    for c in CLASES {
+        for (d, quien) in limpios.iter().filter(|(d, _)| clase(d) == *c) {
+            t.push_str(&format!("{} {d} <- {quien}\n", c.0));
+        }
+    }
+    t.push_str("\n## EN VIVO DESCARTADOS (ya importados, o ruido)\n");
+    for (d, quien) in en_vivo.iter().filter(|x| !limpios.contains(x)) {
         t.push_str(&format!("{d} <- {quien}\n"));
     }
     t.push_str("\n## FICHEROS DEL JUEGO (MiB, funciones importadas)\n");
