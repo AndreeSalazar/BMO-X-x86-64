@@ -3,3 +3,4 @@ EXPORTS
 _errno
 _beginthreadex
 strerror
+_set_invalid_parameter_handler

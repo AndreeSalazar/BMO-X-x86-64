@@ -476,9 +476,11 @@ _vsnwprintf) y vcruntime140.dll. Los otros .exe no cambian (no usan estos
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   8b95be71b2c44321bd144fdec4dc92d2809dbd9d9e3887f78604954afaabab57
+   b7a21cf41073dd6f871a51dcefa87b0e3bed7840e79c4b0900a45148088ecc5d
 
-Dice `bien` cincuenta y una veces y sale con 0; deja window/tanda1.txt con
+Dice `bien` cincuenta y dos veces y sale con 0 (la ultima: su manejador de
+parametros invalidos se llamo 4 veces; SIN el, Windows mata el proceso en el
+primer strcpy_s corto -- lo vio el metal el 29-09); deja window/tanda1.txt con
 "uno\r\ndos\r\n" (modo texto de Windows). En Windows dice lo mismo (pide el
 redistribuible de Visual C++ por vcruntime140.dll, como los juegos).
 
@@ -495,7 +497,7 @@ C++ se importan por su nombre decorado con `__asm__`):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   8e040d5ffdd375630e6c102f15d190e0b2a284b67675f4b8ff3596873324b8f3
+   a164f0609d41c03d09a994702a66616e2f5cc0a47722982ff98968ef553ad671
 
 Dice `bien` doce veces y sale con 0. En Windows dice lo mismo (pide
 msvcp140.dll, el redistribuible de Visual C++, como los juegos).
@@ -512,7 +514,8 @@ de kernel32.dll (tanda3_kernel32.def, su propia lista):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   b5d196cf39664051cadaaf6a3f6995a0a2e7f58924dd022b67e18791e5f82fc5
+   8b65fc920042f228051855f228cd4b0ef2b669e311cfb21a0d62147dc6f6ace7
 
-Dice `bien` veinticuatro veces y sale con 0; deja tanda3_a.txt y
+Dice `bien` veinticinco veces y sale con 0 (la version, 10 en la casa o 6.2
+en un Windows sin manifiesto; el locale, el de la maquina); deja tanda3_a.txt y
 tanda3_b.txt (vacios) en su carpeta. En Windows dice lo mismo.

@@ -16,7 +16,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 
 use crate::crt;
-use crate::crt_cadenas::{poner_errno, trozo, trozo_w, EINVAL, ERANGE, TRUNCATE};
+use crate::crt_cadenas::{invalido, poner_errno, trozo, trozo_w, EINVAL, ERANGE, TRUNCATE};
 use crate::dir;
 
 // -- Numeros ---------------------------------------------------------------------------------
@@ -303,13 +303,13 @@ fn a_texto(v: i32, base: u32) -> Vec<u8> {
 
 extern "win64" fn itoa_s(v: i32, buf: *mut u8, n: usize, base: i32) -> i32 {
     if buf.is_null() || n == 0 || !(2..=36).contains(&base) {
-        return EINVAL;
+        return invalido(EINVAL);
     }
     let t = a_texto(v, base as u32);
     if t.len() + 1 > n {
         // SAFETY: `n` > 0 bytes en `buf`.
         unsafe { *buf = 0 };
-        return ERANGE;
+        return invalido(ERANGE);
     }
     // SAFETY: cabe con su 0.
     unsafe {
@@ -336,13 +336,13 @@ extern "win64" fn ltoa(v: i32, buf: *mut u8, base: i32) -> *mut u8 {
 /// Las `_s`: cabe con su 0, el largo; no cabe, `buf[0] = 0`, ERANGE y -1.
 fn a_bufer_s<T: Copy + Default>(r: &[T], buf: *mut T, n: usize) -> i32 {
     if buf.is_null() || n == 0 {
-        poner_errno(EINVAL);
+        invalido(EINVAL);
         return -1;
     }
     if r.len() >= n {
         // SAFETY: `n` > 0 elementos en `buf`.
         unsafe { *buf = T::default() };
-        poner_errno(ERANGE);
+        invalido(ERANGE);
         return -1;
     }
     // SAFETY: cabe con su 0.
@@ -357,7 +357,7 @@ fn a_bufer_s<T: Copy + Default>(r: &[T], buf: *mut T, n: usize) -> i32 {
 /// corta, -1.
 fn a_bufer_ns<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, cuenta: usize) -> i32 {
     if buf.is_null() || n == 0 {
-        poner_errno(EINVAL);
+        invalido(EINVAL);
         return -1;
     }
     let tope = if cuenta == TRUNCATE { n - 1 } else { cuenta };
@@ -367,7 +367,7 @@ fn a_bufer_ns<T: Copy + Default>(r: &[T], buf: *mut T, n: usize, cuenta: usize) 
     if tope >= n {
         // SAFETY: `n` > 0 elementos en `buf`.
         unsafe { *buf = T::default() };
-        poner_errno(ERANGE);
+        invalido(ERANGE);
         return -1;
     }
     // SAFETY: `tope < n`: cabe `tope` y su 0.

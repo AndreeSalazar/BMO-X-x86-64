@@ -474,13 +474,13 @@ extern "win64" fn purecall() -> i32 {
     (plataforma().salir)(3)
 }
 
+/// Como el UCRT: el manejador del programa, o (sin el) terminar.
 extern "win64" fn invalid_parameter_noinfo() {
-    // El UCRT llamaria al manejador; el de por defecto termina. Aqui se
-    // dice y se sigue: la funcion ya devolvio su EINVAL.
-    aviso("_invalid_parameter_noinfo: una funcion del CRT recibio un parametro invalido");
+    crate::crt_cadenas::parametro_invalido();
 }
 
 extern "win64" fn invalid_parameter_noinfo_noreturn() -> ! {
+    crate::crt_cadenas::parametro_invalido();
     aviso("_invalid_parameter_noinfo_noreturn: parametro invalido; el proceso termina");
     (plataforma().salir)(0xC000_0417)
 }

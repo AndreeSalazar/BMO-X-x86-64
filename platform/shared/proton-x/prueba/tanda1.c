@@ -19,6 +19,8 @@
  *    y mas       _time64 _gmtime64 getenv _wgetenv_s _dupenv_s setlocale
  *                localeconv _beginthreadex strerror __std_exception_copy
  *                _o__stricmp (api-ms-win-crt-private)
+ *    invalidos   con _set_invalid_parameter_handler, las _s cortas vuelven
+ *                con su error (sin el, Windows mata el proceso)
  *
  * Sale con el numero de fallos. En Windows dice lo mismo. */
 #include <stdarg.h>
@@ -132,6 +134,8 @@ IMPORTA int __cdecl _splitpath_s(const char *p, char *u, U64 un, char *d, U64 dn
 IMPORTA int __cdecl _wmakepath_s(WCHAR *b, U64 n, const WCHAR *u, const WCHAR *d, const WCHAR *f, const WCHAR *e);
 /* runtime, time, environment, locale, heap, private */
 IMPORTA int *__cdecl _errno(void);
+typedef void(__cdecl *INVALIDO)(const WCHAR *, const WCHAR *, const WCHAR *, unsigned, U64);
+IMPORTA INVALIDO __cdecl _set_invalid_parameter_handler(INVALIDO h);
 IMPORTA U64 __cdecl _beginthreadex(void *s, unsigned p, unsigned(__stdcall *f)(void *), void *a, unsigned fl, unsigned *id);
 IMPORTA char *__cdecl strerror(int e);
 IMPORTA I64 __cdecl _time64(I64 *t);
@@ -228,6 +232,15 @@ static int vw(WCHAR *b, U64 n, const WCHAR *fmt, ...) {
 }
 
 static volatile int del_hilo;
+
+/* Una funcion `_s` con un bufer corto llama al manejador de parametros
+ * invalidos; el de serie MATA el proceso. Los juegos ponen el suyo, y con el
+ * la funcion vuelve con su error: es lo que se prueba aqui. */
+static volatile int invalidos;
+static void __cdecl manejador(const WCHAR *e, const WCHAR *f, const WCHAR *fi, unsigned l, U64 r) {
+    (void)e, (void)f, (void)fi, (void)l, (void)r;
+    invalidos++;
+}
 static unsigned __stdcall hilo(void *a) {
     del_hilo = (int)(U64)a;
     return 7;
@@ -239,6 +252,7 @@ void inicio(void) {
     int i, e;
     double x;
 
+    _set_invalid_parameter_handler(manejador);
     /* -- cadenas */
     {
         const char *s = "cyberpunk 2077";
@@ -364,6 +378,8 @@ void inicio(void) {
         __std_exception_destroy(&a);
         mira(a.que == 0 && !a.soltar, "__std_exception_destroy");
     }
+    /* strcpy_s, memcpy_s, _itoa_s y __stdio_common_vsprintf_s cortos. */
+    mira(invalidos == 4, "el manejador de parametros invalidos, 4 veces");
     di("tanda1.exe: el C runtime de Cyberpunk es el de Windows\n");
     ExitProcess(fallos);
 }
