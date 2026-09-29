@@ -408,6 +408,7 @@ dependencies = [
  "bmo-iommu-amdvi",
  "bmo-mmio-juicio",
  "bmo-net",
+ "bmo-ntfs",
  "bmo-orquesta",
  "bmo-particiones",
  "bmo-pase-gpu",

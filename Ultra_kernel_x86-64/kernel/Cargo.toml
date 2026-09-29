@@ -20,6 +20,9 @@ bmo-ahci = { path = "../../platform/drivers/storage/ahci" }
 # Sistema de ficheros: lee FAT32/exFAT sobre el contrato de bloques, sin
 # saber que hay debajo.
 bmo-fat32 = { path = "../../platform/drivers/storage/fat32" }
+# NTFS de SOLO LECTURA (N1a, 29-09): el `Personal (D:)` del propietario, en el
+# OTRO disco SATA (`dev/disk/ajeno.rs`). El crate no escribe nunca.
+bmo-ntfs = { path = "../../platform/drivers/storage/ntfs" }
 # ESTRATOS: el formato propio. Solo lectura por ahora -- el modulo del kernel
 # (ring0/estratos.rs) no llama a `write` en ningun sitio.
 bmo-estratos = { path = "../../platform/drivers/storage/estratos" }

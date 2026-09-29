@@ -428,96 +428,169 @@ fn mismo_nombre(n16: &[u8], nombre: &str) -> bool {
     }
 }
 
-/// **Un volumen NTFS montado, para LEER.**
-pub struct Volumen<'d> {
+/// El disco, la particion y el bloque: lo que hace falta para leer.
+#[derive(Clone, Copy)]
+struct Disco<'d> {
     dev: &'d dyn BlockDevice,
     /// Donde empieza la particion, en bloques del dispositivo.
     part_lba: u64,
     /// Bytes por bloque del dispositivo.
     bloque: u64,
+}
+
+/// Lee `dst.len()` bytes desde el byte `off` del VOLUMEN (`puente`: un
+/// bloque para lo que no va alineado).
+fn leer_disco(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u8]) -> R<()> {
+    let b = d.bloque;
+    let (mut off, mut hecho) = (off, 0usize);
+    while hecho < dst.len() {
+        let lba = d.part_lba + off / b;
+        let dentro = (off % b) as usize;
+        let quedan = dst.len() - hecho;
+        if dentro == 0 && quedan >= b as usize {
+            // Alineado: directo al destino, hasta 128 bloques de una vez.
+            let n = (quedan / b as usize).min(128);
+            match d.dev.read(lba, n as u16, &mut dst[hecho..hecho + n * b as usize]) {
+                Ok(k) if k as usize == n => {}
+                _ => return Err(NoNtfs::Leer),
+            }
+            hecho += n * b as usize;
+            off += n as u64 * b;
+        } else {
+            let p = &mut puente[..b as usize];
+            match d.dev.read(lba, 1, p) {
+                Ok(1) => {}
+                _ => return Err(NoNtfs::Leer),
+            }
+            let n = (b as usize - dentro).min(quedan);
+            dst[hecho..hecho + n].copy_from_slice(&p[dentro..dentro + n]);
+            hecho += n;
+            off += n as u64;
+        }
+    }
+    Ok(())
+}
+
+/// Lee `dst` desde el byte `off` (del valor entero) de lo que describe una
+/// lista de tramos que empieza en `vcn0`; los huecos, a cero.
+fn leer_tramos(d: &Disco, puente: &mut [u8; MAX_REGISTRO], bpc: u64, tramos: &[u8], vcn0: u64, off: u64, dst: &mut [u8]) -> R<()> {
+    let mut hecho = 0usize;
+    while hecho < dst.len() {
+        let p = off + hecho as u64;
+        let (vcn, dentro) = (p / bpc, p % bpc);
+        let Some((lcn, quedan)) = mapear(tramos, vcn0, vcn)? else { return Err(NoNtfs::Forma("un tramo que no cubre lo que se pide")) };
+        let n = ((quedan * bpc - dentro).min((dst.len() - hecho) as u64)) as usize;
+        match lcn {
+            Some(l) => leer_disco(d, puente, l * bpc + dentro, &mut dst[hecho..hecho + n])?,
+            None => dst[hecho..hecho + n].fill(0),
+        }
+        hecho += n;
+    }
+    Ok(())
+}
+
+/// **Un volumen NTFS montado, para LEER.**
+///
+/// Todos sus buferes van DENTRO (unos 28 KiB): nada grande en la pila, que
+/// en el kernel va justa (`toolchain/tools/pila`). Para el kernel: un
+/// `static` hecho con [`Volumen::vacio`] y montado en su sitio con
+/// [`Volumen::montar_aqui`].
+pub struct Volumen<'d> {
+    d: Disco<'d>,
     pub forma: Forma,
     /// El registro 0 ($MFT), arreglado: sus tramos dicen donde esta cada
     /// registro.
     mft: [u8; MAX_REGISTRO],
+    /// El registro que se esta mirando.
     reg: [u8; MAX_REGISTRO],
     /// Un segundo registro, para las extensiones de `$ATTRIBUTE_LIST`.
     ext: [u8; MAX_REGISTRO],
-    idx: [u8; MAX_INDICE],
-    /// Un bloque del dispositivo, para las lecturas que no van alineadas.
+    /// La `$ATTRIBUTE_LIST` del registro que se mira.
+    lista: [u8; MAX_INDICE],
+    /// Un bloque INDX.
+    blq: [u8; MAX_INDICE],
+    /// El mapa de bloques de indice en uso.
+    bits: [u8; 512],
     puente: [u8; MAX_REGISTRO],
+    montado: bool,
 }
 
 impl<'d> Volumen<'d> {
+    /// Un volumen SIN montar sobre `dev` (para un `static`).
+    pub const fn vacio(dev: &'d dyn BlockDevice) -> Self {
+        Volumen {
+            d: Disco { dev, part_lba: 0, bloque: 512 },
+            forma: Forma { bytes_por_sector: 512, bytes_por_cluster: 4096, sectores: 0, mft_lcn: 0, registro: 1024, indice: 4096 },
+            mft: [0; MAX_REGISTRO],
+            reg: [0; MAX_REGISTRO],
+            ext: [0; MAX_REGISTRO],
+            lista: [0; MAX_INDICE],
+            blq: [0; MAX_INDICE],
+            bits: [0; 512],
+            puente: [0; MAX_REGISTRO],
+            montado: false,
+        }
+    }
+
     /// **Montar**: el sector de arranque en `part_lba` y el registro 0.
     pub fn montar(dev: &'d dyn BlockDevice, part_lba: u64) -> R<Self> {
-        let bloque = dev.block_size() as u64;
-        if !(512..=MAX_REGISTRO as u64).contains(&bloque) || !bloque.is_power_of_two() {
-            return Err(NoNtfs::Grande("bloques del dispositivo de mas de 4 KiB"));
-        }
-        let mut v = Volumen { dev, part_lba, bloque, forma: Forma { bytes_por_sector: 512, bytes_por_cluster: 4096, sectores: 0, mft_lcn: 0, registro: 1024, indice: 4096 }, mft: [0; MAX_REGISTRO], reg: [0; MAX_REGISTRO], ext: [0; MAX_REGISTRO], idx: [0; MAX_INDICE], puente: [0; MAX_REGISTRO] };
-        let mut s = [0u8; 512];
-        v.leer_disco(0, &mut s)?;
-        v.forma = forma(&s).ok_or(NoNtfs::NoEsNtfs)?;
-        if v.forma.registro as usize > MAX_REGISTRO {
-            return Err(NoNtfs::Grande("registros del MFT de mas de 4 KiB"));
-        }
-        if v.forma.indice as usize > MAX_INDICE {
-            return Err(NoNtfs::Grande("bloques de indice de mas de 4 KiB"));
-        }
-        let n = v.forma.registro as usize;
-        let mut m = [0u8; MAX_REGISTRO];
-        v.leer_disco(v.forma.mft_lcn * v.forma.bytes_por_cluster, &mut m[..n])?;
-        arreglar(&mut m[..n], b"FILE")?;
-        v.mft = m;
+        let mut v = Self::vacio(dev);
+        v.montar_aqui(part_lba)?;
         Ok(v)
     }
 
-    /// Lee `dst.len()` bytes desde el byte `off` del VOLUMEN.
-    fn leer_disco(&mut self, off: u64, dst: &mut [u8]) -> R<()> {
-        let b = self.bloque;
-        let (mut off, mut hecho) = (off, 0usize);
-        while hecho < dst.len() {
-            let lba = self.part_lba + off / b;
-            let dentro = (off % b) as usize;
-            let quedan = dst.len() - hecho;
-            if dentro == 0 && quedan >= b as usize {
-                // Alineado: directo al destino, hasta 128 bloques de una vez.
-                let n = (quedan / b as usize).min(128);
-                let tramo = &mut dst[hecho..hecho + n * b as usize];
-                match self.dev.read(lba, n as u16, tramo) {
-                    Ok(k) if k as usize == n => {}
-                    _ => return Err(NoNtfs::Leer),
-                }
-                hecho += n * b as usize;
-                off += n as u64 * b;
-            } else {
-                let p = &mut self.puente[..b as usize];
-                match self.dev.read(lba, 1, p) {
-                    Ok(1) => {}
-                    _ => return Err(NoNtfs::Leer),
-                }
-                let n = (b as usize - dentro).min(quedan);
-                dst[hecho..hecho + n].copy_from_slice(&p[dentro..dentro + n]);
-                hecho += n;
-                off += n as u64;
-            }
+    /// **Montar EN SU SITIO** (sin mover los 28 KiB por la pila).
+    pub fn montar_aqui(&mut self, part_lba: u64) -> R<()> {
+        self.montado = false;
+        let bloque = self.d.dev.block_size() as u64;
+        if !(512..=MAX_REGISTRO as u64).contains(&bloque) || !bloque.is_power_of_two() {
+            return Err(NoNtfs::Grande("bloques del dispositivo de mas de 4 KiB"));
         }
+        self.d.part_lba = part_lba;
+        self.d.bloque = bloque;
+        let Volumen { d, puente, mft, .. } = self;
+        leer_disco(d, puente, 0, &mut mft[..512])?;
+        let f = forma(&mft[..512]).ok_or(NoNtfs::NoEsNtfs)?;
+        if f.registro as usize > MAX_REGISTRO {
+            return Err(NoNtfs::Grande("registros del MFT de mas de 4 KiB"));
+        }
+        if f.indice as usize > MAX_INDICE {
+            return Err(NoNtfs::Grande("bloques de indice de mas de 4 KiB"));
+        }
+        let n = f.registro as usize;
+        leer_disco(d, puente, f.mft_lcn * f.bytes_por_cluster, &mut mft[..n])?;
+        arreglar(&mut mft[..n], b"FILE")?;
+        self.forma = f;
+        self.montado = true;
         Ok(())
     }
 
+    /// Si esta montado.
+    pub fn montado(&self) -> bool {
+        self.montado
+    }
+
+    fn rm(&self) -> usize {
+        self.forma.registro as usize
+    }
+
     /// **El registro `n` del MFT**, arreglado, en `self.reg` (o en `self.ext`
-    /// con `ext`).
-    fn registro(&mut self, n: u64, ext: bool) -> R<()> {
+    /// con `en_ext`).
+    fn registro(&mut self, n: u64, en_ext: bool) -> R<()> {
+        if !self.montado {
+            return Err(NoNtfs::NoEsNtfs);
+        }
         let rm = self.forma.registro as u64;
         let bpc = self.forma.bytes_por_cluster;
         let byte = n.checked_mul(rm).ok_or(NoNtfs::Forma("un registro fuera del MFT"))?;
-        // El $DATA del propio MFT (sin $ATTRIBUTE_LIST: ver la cabecera).
-        let mut destino = [0u8; MAX_REGISTRO];
+        let Volumen { d, mft, reg, ext, puente, .. } = self;
+        let destino = if en_ext { &mut ext[..rm as usize] } else { &mut reg[..rm as usize] };
+        let mft = &mft[..rm as usize];
         let mut hecho = 0u64;
         while hecho < rm {
             let vcn = (byte + hecho) / bpc;
             let dentro = (byte + hecho) % bpc;
-            let mft = &self.mft[..rm as usize];
+            // El $DATA del propio MFT (sin $ATTRIBUTE_LIST: ver la cabecera).
             let mut sitio = None;
             for a in atributos(mft) {
                 let a = a?;
@@ -527,57 +600,46 @@ impl<'d> Volumen<'d> {
                 }
             }
             let Some((Some(lcn), quedan)) = sitio else { return Err(NoNtfs::Forma("un registro que el $DATA del MFT no cubre")) };
-            let n = (quedan * bpc - dentro).min(rm - hecho);
-            self.leer_disco(lcn * bpc + dentro, &mut destino[hecho as usize..(hecho + n) as usize])?;
-            hecho += n;
+            let k = (quedan * bpc - dentro).min(rm - hecho);
+            leer_disco(d, puente, lcn * bpc + dentro, &mut destino[hecho as usize..(hecho + k) as usize])?;
+            hecho += k;
         }
-        arreglar(&mut destino[..rm as usize], b"FILE")?;
-        if le16(&destino, 0x16) & 1 == 0 {
+        arreglar(destino, b"FILE")?;
+        if le16(destino, 0x16) & 1 == 0 {
             return Err(NoNtfs::NoEsta);
         }
-        if ext {
-            self.ext = destino;
-        } else {
-            self.reg = destino;
-        }
         Ok(())
-    }
-
-    fn rm(&self) -> usize {
-        self.forma.registro as usize
     }
 
     /// **Abrir por su registro**: si es carpeta y lo que mide su `$DATA`.
     pub fn nodo(&mut self, n: u64) -> R<Nodo> {
         self.registro(n, false)?;
         let carpeta = le16(&self.reg, 0x16) & 2 != 0;
-        let mut medida = 0;
-        if !carpeta {
-            medida = self.datos_base()?.1;
-        }
+        let medida = if carpeta { 0 } else { self.datos_base()?.1 };
         Ok(Nodo { registro: n, carpeta, medida })
     }
 
-    /// El `$DATA` sin nombre del registro en `self.reg` (el que lleva la
-    /// medida: el de VCN 0): `(banderas, medida)`, o lo que dice la lista.
+    /// El `$DATA` sin nombre de VCN 0 del registro en `self.reg` (el que
+    /// lleva la medida): `(banderas, medida)`, en el o donde diga la lista.
     fn datos_base(&mut self) -> R<(u16, u64)> {
         let rm = self.rm();
-        let reg = &self.reg[..rm];
         let mut lista = false;
-        for a in atributos(reg) {
-            let a = a?;
-            if a.tipo == AT_DATOS && a.sin_nombre {
-                if a.residente {
-                    return Ok((a.banderas, a.valor(reg)?.len() as u64));
+        {
+            let reg = &self.reg[..rm];
+            for a in atributos(reg) {
+                let a = a?;
+                if a.tipo == AT_DATOS && a.sin_nombre {
+                    if a.residente {
+                        return Ok((a.banderas, a.valor(reg)?.len() as u64));
+                    }
+                    if a.vcn_inicial(reg) == 0 {
+                        return Ok((a.banderas, a.medida(reg)));
+                    }
                 }
-                if a.vcn_inicial(reg) == 0 {
-                    return Ok((a.banderas, a.medida(reg)));
-                }
+                lista |= a.tipo == AT_LISTA;
             }
-            lista |= a.tipo == AT_LISTA;
         }
         if lista {
-            // El $DATA de VCN 0 en OTRO registro: la lista dice cual.
             if let Some(r) = self.extension(0)? {
                 self.registro(r, true)?;
                 let ext = &self.ext[..rm];
@@ -592,77 +654,51 @@ impl<'d> Volumen<'d> {
         Err(NoNtfs::Forma("un fichero sin $DATA"))
     }
 
-    /// **`$ATTRIBUTE_LIST`**: el registro que tiene el `$DATA` sin nombre que
-    /// cubre `vcn` (el de mayor VCN inicial que no lo pasa). `None` sin lista.
+    /// **`$ATTRIBUTE_LIST`** del registro en `self.reg`: el registro que tiene
+    /// el `$DATA` sin nombre que cubre `vcn` (el de mayor VCN inicial que no
+    /// lo pasa). `None` sin lista.
     fn extension(&mut self, vcn: u64) -> R<Option<u64>> {
         let rm = self.rm();
-        // La lista, en `idx` (un bufer que aqui no se usa para otra cosa).
-        let mut n = None;
-        {
-            let reg = &self.reg[..rm];
-            for a in atributos(reg) {
-                let a = a?;
-                if a.tipo == AT_LISTA {
-                    n = Some(a);
-                    break;
-                }
+        let bpc = self.forma.bytes_por_cluster;
+        let Volumen { d, reg, lista, puente, .. } = self;
+        let reg = &reg[..rm];
+        let mut hallada = None;
+        for a in atributos(reg) {
+            let a = a?;
+            if a.tipo == AT_LISTA {
+                hallada = Some(a);
+                break;
             }
         }
-        let Some(a) = n else { return Ok(None) };
+        let Some(a) = hallada else { return Ok(None) };
         let largo = if a.residente {
-            let v = a.valor(&self.reg[..rm])?;
+            let v = a.valor(reg)?;
             if v.len() > MAX_INDICE {
                 return Err(NoNtfs::Grande("una $ATTRIBUTE_LIST de mas de 4 KiB"));
             }
-            let l = v.len();
-            let copia: [u8; MAX_REGISTRO] = self.reg;
-            let o = a.desde + le16(&copia, a.desde + 0x14) as usize;
-            self.idx[..l].copy_from_slice(&copia[o..o + l]);
-            l
+            lista[..v.len()].copy_from_slice(v);
+            v.len()
         } else {
-            let m = a.medida(&self.reg[..rm]);
+            let m = a.medida(reg);
             if m > MAX_INDICE as u64 {
                 return Err(NoNtfs::Grande("una $ATTRIBUTE_LIST de mas de 4 KiB"));
             }
-            let tramos_copia: [u8; MAX_REGISTRO] = self.reg;
-            let tramos = a.tramos(&tramos_copia[..rm])?;
-            let mut buf = [0u8; MAX_INDICE];
-            self.leer_tramos(tramos, 0, 0, &mut buf[..m as usize])?;
-            self.idx[..m as usize].copy_from_slice(&buf[..m as usize]);
+            leer_tramos(d, puente, bpc, a.tramos(reg)?, a.vcn_inicial(reg), 0, &mut lista[..m as usize])?;
             m as usize
         };
         let (mut o, mut mejor) = (0usize, None);
         while o + 0x1A <= largo {
-            let l = le16(&self.idx, o + 4) as usize;
+            let l = le16(lista, o + 4) as usize;
             if l < 0x1A || o + l > largo {
                 return Err(NoNtfs::Forma("una entrada de $ATTRIBUTE_LIST que no cabe"));
             }
-            let (tipo, nombre, inicio, reg) = (le32(&self.idx, o), self.idx[o + 6], le64(&self.idx, o + 8), le64(&self.idx, o + 0x10) & 0xFFFF_FFFF_FFFF);
+            let (tipo, nombre, inicio, r) = (le32(lista, o), lista[o + 6], le64(lista, o + 8), le64(lista, o + 0x10) & 0xFFFF_FFFF_FFFF);
             if tipo == AT_DATOS && nombre == 0 && inicio <= vcn && mejor.is_none_or(|(i, _)| inicio >= i) {
-                mejor = Some((inicio, reg));
+                mejor = Some((inicio, r));
             }
             o += l;
         }
         Ok(mejor.map(|(_, r)| r))
-    }
-
-    /// Lee `dst` desde el byte `off` de lo que describe una lista de tramos
-    /// (que empieza en `vcn0`); los huecos, a cero.
-    fn leer_tramos(&mut self, tramos: &[u8], vcn0: u64, off: u64, dst: &mut [u8]) -> R<()> {
-        let bpc = self.forma.bytes_por_cluster;
-        let mut hecho = 0usize;
-        while hecho < dst.len() {
-            let p = off + hecho as u64;
-            let (vcn, dentro) = (p / bpc, p % bpc);
-            let Some((lcn, quedan)) = mapear(tramos, vcn0, vcn)? else { return Err(NoNtfs::Forma("un tramo que no cubre lo que se pide")) };
-            let n = ((quedan * bpc - dentro) as usize).min(dst.len() - hecho);
-            match lcn {
-                Some(l) => self.leer_disco(l * bpc + dentro, &mut dst[hecho..hecho + n])?,
-                None => dst[hecho..hecho + n].fill(0),
-            }
-            hecho += n;
-        }
-        Ok(())
     }
 
     /// **Leer un fichero**: `dst` desde el byte `off`. Devuelve cuantos se
@@ -682,32 +718,58 @@ impl<'d> Volumen<'d> {
         if off >= medida {
             return Ok(0);
         }
-        let total = ((medida - off) as usize).min(dst.len());
-        let rm = self.rm();
+        let total = ((medida - off).min(dst.len() as u64)) as usize;
         let bpc = self.forma.bytes_por_cluster;
         let mut hecho = 0usize;
         while hecho < total {
             let p = off + hecho as u64;
             let vcn = p / bpc;
-            // El atributo $DATA que cubre `vcn`: en este registro, o en la
-            // extension que diga la lista.
-            let mut copia = [0u8; MAX_REGISTRO];
-            copia[..rm].copy_from_slice(&self.reg[..rm]);
-            let mut hallado = self.tramo_de(&copia[..rm], vcn, total - hecho, p, &mut dst[hecho..total])?;
-            if hallado.is_none() {
+            // El $DATA que cubre `vcn`: en el registro base, o en la
+            // extension que diga la lista (`self.reg` sigue siendo el base).
+            let mut k = self.tramo_de(false, vcn, p, &mut dst[hecho..total])?;
+            if k.is_none() {
                 if let Some(r) = self.extension(vcn)? {
                     self.registro(r, true)?;
-                    copia[..rm].copy_from_slice(&self.ext[..rm]);
-                    hallado = self.tramo_de(&copia[..rm], vcn, total - hecho, p, &mut dst[hecho..total])?;
-                    // `self.reg` sigue siendo el registro base.
+                    k = self.tramo_de(true, vcn, p, &mut dst[hecho..total])?;
                 }
             }
-            match hallado {
+            match k {
+                Some(0) | None => return Err(NoNtfs::Forma("un trozo del fichero que ningun $DATA cubre")),
                 Some(k) => hecho += k,
-                None => return Err(NoNtfs::Forma("un trozo del fichero que ningun $DATA cubre")),
             }
         }
         Ok(total)
+    }
+
+    /// En el registro base (o la extension): si un `$DATA` sin nombre cubre
+    /// `vcn`, lee de el (hasta el final de ese atributo) y dice cuantos bytes.
+    fn tramo_de(&mut self, en_ext: bool, vcn: u64, p: u64, dst: &mut [u8]) -> R<Option<usize>> {
+        let rm = self.rm();
+        let bpc = self.forma.bytes_por_cluster;
+        let Volumen { d, reg, ext, puente, .. } = self;
+        let r = if en_ext { &ext[..rm] } else { &reg[..rm] };
+        for a in atributos(r) {
+            let a = a?;
+            if a.tipo != AT_DATOS || !a.sin_nombre {
+                continue;
+            }
+            if a.residente {
+                let v = a.valor(r)?;
+                let desde = p as usize;
+                let n = v.len().saturating_sub(desde).min(dst.len());
+                dst[..n].copy_from_slice(&v[desde..desde + n]);
+                return Ok(Some(n));
+            }
+            let (i, f) = (a.vcn_inicial(r), a.vcn_final(r));
+            if vcn < i || vcn > f {
+                continue;
+            }
+            let hasta = (f + 1) * bpc;
+            let n = ((hasta - p).min(dst.len() as u64)) as usize;
+            leer_tramos(d, puente, bpc, a.tramos(r)?, i, p, &mut dst[..n])?;
+            return Ok(Some(n));
+        }
+        Ok(None)
     }
 
     // == Las carpetas ==========================================================
@@ -723,9 +785,10 @@ impl<'d> Volumen<'d> {
             return Err(NoNtfs::NoEsCarpeta);
         }
         let rm = self.rm();
-        let mut base = [0u8; MAX_REGISTRO];
-        base[..rm].copy_from_slice(&self.reg[..rm]);
-        let base = &base[..rm];
+        let bpc = self.forma.bytes_por_cluster;
+        let ib = self.forma.indice as usize;
+        let Volumen { d, reg, blq, bits, puente, .. } = self;
+        let base = &reg[..rm];
         let (mut raiz, mut asig, mut mapa) = (None, None, None);
         for a in atributos(base) {
             let a = a?;
@@ -749,7 +812,6 @@ impl<'d> Volumen<'d> {
         }
         let Some(asig) = asig else { return Ok(false) };
         // El mapa de bloques en uso.
-        let mut bits = [0u8; 512];
         let nbits = match mapa {
             Some(m) if m.residente => {
                 let mv = m.valor(base)?;
@@ -759,19 +821,17 @@ impl<'d> Volumen<'d> {
             }
             Some(m) => {
                 let n = (m.medida(base) as usize).min(bits.len());
-                self.leer_tramos(m.tramos(base)?, m.vcn_inicial(base), 0, &mut bits[..n])?;
+                leer_tramos(d, puente, bpc, m.tramos(base)?, m.vcn_inicial(base), 0, &mut bits[..n])?;
                 n
             }
             None => return Err(NoNtfs::Forma("una carpeta con $INDEX_ALLOCATION y sin $BITMAP")),
         };
-        let ib = self.forma.indice as usize;
         let bloques = (asig.medida(base) / ib as u64).min(8 * nbits as u64);
         for k in 0..bloques {
             if bits[(k / 8) as usize] >> (k % 8) & 1 == 0 {
                 continue;
             }
-            let mut blq = [0u8; MAX_INDICE];
-            self.leer_tramos(asig.tramos(base)?, asig.vcn_inicial(base), k * ib as u64, &mut blq[..ib])?;
+            leer_tramos(d, puente, bpc, asig.tramos(base)?, asig.vcn_inicial(base), k * ib as u64, &mut blq[..ib])?;
             arreglar(&mut blq[..ib], b"INDX")?;
             if entradas(&blq[0x18..ib], f)? {
                 return Ok(true);
@@ -794,7 +854,7 @@ impl<'d> Volumen<'d> {
         self.nodo(hallado.ok_or(NoNtfs::NoEsta)?)
     }
 
-    /// **Abrir por su ruta** desde la raiz: `/` o `\\` separan, sin
+    /// **Abrir por su ruta** desde la raiz: `/` o `\` separan, sin
     /// mayusculas (`bin/x64/Cyberpunk2077.exe`).
     pub fn abrir(&mut self, ruta: &str) -> R<Nodo> {
         let mut n = self.nodo(RAIZ)?;
@@ -805,36 +865,5 @@ impl<'d> Volumen<'d> {
             n = self.en_carpeta(n.registro, parte)?;
         }
         Ok(n)
-    }
-
-    /// En el registro `reg`: si un `$DATA` sin nombre cubre `vcn`, lee de el
-    /// (hasta el final de ese atributo) y devuelve cuantos bytes.
-    fn tramo_de(&mut self, reg: &[u8], vcn: u64, quiero: usize, p: u64, dst: &mut [u8]) -> R<Option<usize>> {
-        for a in atributos(reg) {
-            let a = a?;
-            if a.tipo != AT_DATOS || !a.sin_nombre {
-                continue;
-            }
-            if a.residente {
-                let v = a.valor(reg)?;
-                let desde = p as usize;
-                let n = v.len().saturating_sub(desde).min(quiero);
-                dst[..n].copy_from_slice(&v[desde..desde + n]);
-                return Ok(Some(n));
-            }
-            let (i, f) = (a.vcn_inicial(reg), a.vcn_final(reg));
-            if vcn < i || vcn > f {
-                continue;
-            }
-            let bpc = self.forma.bytes_por_cluster;
-            let hasta = (f + 1) * bpc;
-            let n = ((hasta - p) as usize).min(quiero);
-            let mut t = [0u8; MAX_REGISTRO];
-            let tr = a.tramos(reg)?;
-            t[..tr.len()].copy_from_slice(tr);
-            self.leer_tramos(&t[..tr.len()], i, p, &mut dst[..n])?;
-            return Ok(Some(n));
-        }
-        Ok(None)
     }
 }

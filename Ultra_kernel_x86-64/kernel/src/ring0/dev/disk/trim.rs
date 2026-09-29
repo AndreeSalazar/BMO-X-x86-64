@@ -192,6 +192,10 @@ pub fn recortar(lba: u64, sectores: u64) -> Recorte {
         let techo = perfil::trim_bloques_max();
 
         while let Some(tanda) = rango.siguiente(buf, techo) {
+            // CERROJO 2 (N1a): nunca al puerto del disco ajeno.
+            if !super::ajeno::escribible(unsafe { PORT }) {
+                break;
+            }
             if let Err(e) = unsafe { bmo_ahci::trim_phys(unsafe { PORT }, dma, tanda.bloques) } {
                 // ** TRES LINEAS Y NO UNA, y cada una contesta otra pregunta.
                 //

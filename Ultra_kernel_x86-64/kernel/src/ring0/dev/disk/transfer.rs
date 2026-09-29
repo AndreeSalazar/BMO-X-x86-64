@@ -350,6 +350,10 @@ pub(super) fn mandar_escritura(lba: u64, count: u16, phys: u64) -> Option<u16> {
     if !juzgar_el_dma(phys, bytes, true) {
         return None;
     }
+    // CERROJO 2 (N1a): nunca al puerto del disco ajeno.
+    if !super::ajeno::escribible(unsafe { PORT }) {
+        return None;
+    }
     marcar_el_tramo(phys, bytes, true, crate::ring0::task::scheduler::rdtsc());
     let r = unsafe { bmo_ahci::write_sectors_phys(PORT, lba, count, phys) };
     marcar_el_tramo(phys, bytes, false, crate::ring0::task::scheduler::rdtsc());

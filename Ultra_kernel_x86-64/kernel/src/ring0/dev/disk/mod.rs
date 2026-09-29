@@ -66,6 +66,9 @@ pub use centinela::cuentas as cuentas_centinela;
 use owner::tomar_disco;
 /// MOVING THE BYTES: read, DMA, and the bounce buffer -- both paths counted.
 mod transfer;
+// ** N1a (29-09): el OTRO disco SATA del controlador, SOLO LECTURA (el
+// `Personal (D:)` del propietario, NTFS). Sus dos cerrojos, en su cabecera.
+pub mod ajeno;
 pub use transfer::{cuentas_dma, motivos_dma, read};
 /// ONE COMMAND IN FLIGHT that nobody holds the disk for (D1): whoever takes
 /// the disk next reaps it first.
@@ -429,6 +432,10 @@ pub fn init() {
     // escribiendo en el disco del vecino.
     bmo_block::register(&AHCI_DISK);
     crate::ring0::cabina::info("disk", "contrato de bloques registrado", unsafe { TOTAL_SECTORS });
+
+    // ** N1a: el otro disco del MISMO controlador, si lo hay: SOLO LECTURA y
+    // nunca registrado como el de BMO-X (ver `ajeno.rs`).
+    ajeno::buscar(chosen);
 }
 
 /// Extrae una cadena del buffer de IDENTIFY, de la palabra `first` a `last`.
@@ -672,6 +679,10 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
         // llevar. Se pone porque **el reloj del guardian solo corre para lo
         // que esta marcado**, y un aparato medio vigilado no esta vigilado.
         let t0 = crate::ring0::task::scheduler::rdtsc();
+        // CERROJO 2 (N1a): nunca al puerto del disco ajeno.
+        if !ajeno::escribible(unsafe { PORT }) {
+            return done;
+        }
         phys::en_vuelo(dma, phys::APARATO_AHCI, t0);
         let put = match unsafe { bmo_ahci::write_sectors_phys(unsafe { PORT }, lba + done as u64, batch, dma) } {
             Ok(n) => n,
@@ -701,6 +712,10 @@ pub fn write(lba: u64, count: u16, data: &[u8]) -> u16 {
 pub fn flush() -> bool {
     if !is_ready() || !write_armed() { return false; }
     let _testigo = tomar_disco();
+    // CERROJO 2 (N1a): nunca al puerto del disco ajeno.
+    if !ajeno::escribible(unsafe { PORT }) {
+        return false;
+    }
     match unsafe { bmo_ahci::flush_cache(unsafe { PORT }) } {
         Ok(()) => true,
         Err(e) => {

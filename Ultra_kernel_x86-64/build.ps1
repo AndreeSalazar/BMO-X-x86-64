@@ -334,6 +334,13 @@ Guardian 'Validating every USB static says who writes it' `
 Guardian 'Validating the 3060 stays fenced' `
     'toolchain\tools\la-3060\la_3060.py' 'la puerta y el cerco de la 3060' `
     'la-3060: la 3060 se aflojo (ver arriba)'
+# ** EL DISCO PERSONAL (29-09, N1a): el kernel lee el NTFS del OTRO SSD SATA
+# (Personal D:, donde esta Cyberpunk 2077) y NUNCA lo escribe; C: (el NVMe)
+# ni se mira. El propietario: "pon guardianes tambien". Dos cerrojos y un
+# solo propietario. Ver toolchain/tools/ajeno/ajeno.py
+Guardian 'Validating the foreign disk stays read-only' `
+    'toolchain\tools\ajeno\ajeno.py' 'el disco PERSONAL solo lectura' `
+    'ajeno: el disco PERSONAL o C: quedaron al alcance de una escritura (ver arriba)'
 Guardian 'Validating compiler warnings do not grow' `
     'toolchain\tools\avisos\avisos.py' 'los avisos del compilador' `
     'avisos: los avisos del compilador SUBIERON (ver arriba)'

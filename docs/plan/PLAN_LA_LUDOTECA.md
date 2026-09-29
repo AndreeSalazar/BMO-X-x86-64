@@ -421,6 +421,16 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         `writable` = false) y nunca se registra como el disco de BMO-X.
       - Cerrojo 2: la escritura del disco de BMO-X comprueba que su puerto es
         el SUYO; si algun dia llegara el del ajeno, se niega y lo dice.
+      - **HECHO en el codigo (29-09), falta verlo en el metal:** N1a y los
+        dos cerrojos en `Ultra_kernel_x86-64/kernel/src/ring0/dev/disk/ajeno.rs`
+        (cerrojo 2 delante de cada escritura, TRIM y FLUSH en `mod.rs`,
+        `transfer.rs` y `trim.rs`). El propietario: *"pon guardianes
+        tambien"*: `toolchain/tools/ajeno/ajeno.py` corre en cada build (A1
+        cada escritura AHCI mira `ajeno::escribible`; A2 el ajeno no sabe
+        escribir; A3 solo `AHCI_DISK` se registra; A4 `bmo-ntfs` no escribe;
+        A5 el NVMe, `C:`, ni se nombra). **Como se sabe:** en la `cabina`
+        del arranque, `N1a: disco AJENO`, `NTFS MONTADO`, la raiz de D: y
+        `Cyberpunk2077.exe` con sus dos primeros bytes `MZ`.
       - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
         escritorio; N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
