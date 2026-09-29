@@ -1,0 +1,135 @@
+HERRAMIENTAS -- con que se compilo y se corrio tex3060.cu (2026-09-28)
+
+El CUDA Toolkit no estaba instalado en esta maquina. nvcc, cuobjdump y
+nvdisasm salieron de los paquetes de NVIDIA en PyPI, todos 13.4.92:
+nvidia-cuda-nvcc, nvidia-cuda-crt, nvidia-nvvm, nvidia-cuda-runtime,
+nvidia-cuda-cuobjdump, nvidia-cuda-nvdisasm (el wheel de Windows de
+nvidia-cuda-nvcc-cu12 12.9 solo trae ptxas, sin nvcc.exe).
+Compilador de host: MSVC 14.44.35207 (Visual Studio 2022 Community),
+Windows SDK 10.0.26100.0, con PATH/INCLUDE/LIB puestos a mano.
+
+Orden:  nvcc -arch=sm_86 -O2 -o tex3060.exe tex3060.cu   (sin avisos)
+
+==== nvcc --version ====
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Sun_Sep_01_02:23:07_Pacific_Standard_Time_2026
+Cuda compilation tools, release 13.4, V13.4.92
+Build cuda_13.4.r13.4/compiler.38855100_0
+
+==== nvidia-smi (primeras 15 lineas) ====
+Mon Sep 28 21:47:36 2026
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 610.74                 KMD Version: 610.74        CUDA UMD Version: 13.3     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                  Driver-Model | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 3060      WDDM  |   00000000:29:00.0  On |                  N/A |
+|  0%   51C    P8             15W /  170W |    2365MiB /  12288MiB |      2%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+
+==== cuobjdump -sass -fun muestrear tex3060.exe ====
+
+Fatbin elf code:
+================
+arch = sm_86
+code version = [1,8]
+host = windows
+compile_size = 64bit
+cuobjdump warning : Function listed in --function 'muestrear' not found
+
+	code for sm_86
+
+Fatbin elf code:
+================
+arch = sm_86
+code version = [1,8]
+host = windows
+compile_size = 64bit
+
+	code for sm_86
+		Function : muestrear
+	.headerflags	@"EF_CUDA_64BIT_ADDRESS EF_CUDA_SM86 EF_CUDA_VIRTUAL_SM(EF_CUDA_SM86)"
+	.headerflags	@"EF_CUDA_64BIT_ADDRESS EF_CUDA_SM86 EF_CUDA_VIRTUAL_SM(EF_CUDA_SM86)"
+        /*0000*/                   MOV R1, c[0x0][0x28] ;                        /* 0x00000a0000017a02 */
+                                                                                 /* 0x000fe40000000f00 */
+        /*0010*/                   S2R R6, SR_CTAID.X ;                          /* 0x0000000000067919 */
+                                                                                 /* 0x000e280000002500 */
+        /*0020*/                   S2R R3, SR_TID.X ;                            /* 0x0000000000037919 */
+                                                                                 /* 0x000e240000002100 */
+        /*0030*/                   IMAD R6, R6, c[0x0][0x0], R3 ;                /* 0x0000000006067a24 */
+                                                                                 /* 0x001fca00078e0203 */
+        /*0040*/                   ISETP.GE.AND P0, PT, R6, c[0x0][0x180], PT ;  /* 0x0000600006007a0c */
+                                                                                 /* 0x000fda0003f06270 */
+        /*0050*/               @P0 EXIT ;                                        /* 0x000000000000094d */
+                                                                                 /* 0x000fea0003800000 */
+        /*0060*/                   MOV R5, 0x4 ;                                 /* 0x0000000400057802 */
+                                                                                 /* 0x000fe20000000f00 */
+        /*0070*/                   ULDC.64 UR4, c[0x0][0x118] ;                  /* 0x0000460000047ab9 */
+                                                                                 /* 0x000fc80000000a00 */
+        /*0080*/                   IMAD.WIDE R2, R6, R5, c[0x0][0x168] ;         /* 0x00005a0006027625 */
+                                                                                 /* 0x000fc800078e0205 */
+        /*0090*/                   IMAD.WIDE R4, R6, R5, c[0x0][0x170] ;         /* 0x00005c0006047625 */
+                                                                                 /* 0x000fe400078e0205 */
+        /*00a0*/                   LDG.E R2, [R2.64] ;                           /* 0x0000000402027981 */
+                                                                                 /* 0x000ea8000c1e1900 */
+        /*00b0*/                   LDG.E R5, [R4.64] ;                           /* 0x0000000404057981 */
+                                                                                 /* 0x000ea4000c1e1900 */
+        /*00c0*/                   TEX.SCR.LZ R10, R8, R2, R5, 0x0, 0x58, 2D ;   /* 0x3000580502087b60 */
+                                                                                 /* 0x004f4200009e0f0a */
+        /*00d0*/                   MOV R7, 0x10 ;                                /* 0x0000001000077802 */
+                                                                                 /* 0x000fca0000000f00 */
+        /*00e0*/                   IMAD.WIDE R6, R6, R7, c[0x0][0x178] ;         /* 0x00005e0006067625 */
+                                                                                 /* 0x000fca00078e0207 */
+        /*00f0*/                   STG.E.128 [R6.64], R8 ;                       /* 0x0000000806007986 */
+                                                                                 /* 0x020fe2000c101d04 */
+        /*0100*/                   EXIT ;                                        /* 0x000000000000794d */
+                                                                                 /* 0x000fea0003800000 */
+        /*0110*/                   BRA 0x110;                                    /* 0xfffffff000007947 */
+                                                                                 /* 0x000fc0000383ffff */
+        /*0120*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0130*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0140*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0150*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0160*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0170*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0180*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*0190*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01a0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01b0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01c0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01d0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01e0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+        /*01f0*/                   NOP;                                          /* 0x0000000000007918 */
+                                                                                 /* 0x000fc00000000000 */
+		..........
+
+
+
+Fatbin ptx code:
+================
+arch = sm_86
+code version = [9,4]
+host = windows
+compile_size = 64bit
+compressed
+ptxasOptions =
