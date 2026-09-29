@@ -531,6 +531,20 @@ pub fn fwsec_correr() -> Result<u64, u32> {
         fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0,
     );
     let mut r = Bar0(bar0);
+    // ** EL MAPA DE LA 3060 TERCA (29-09, PLAN_LA_3060): lo que se sabia
+    // JUSTO ANTES de FRTS, solo leido, para comparar el arranque bueno con
+    // el malo: si el falcon del GSP ya estaba PARADO (NVIDIA lo espera antes
+    // de mirar el GFW, `gpuWaitForGfwBootComplete_TU102`; aqui no), el
+    // espacio VGA crudo del que sale la region, si hay pantalla y si la 3060
+    // anuncia FLR. No cambia ningun paso.
+    let antes = match fa::como_va(&mut r, fa::GSP) {
+        Ok((parado, _, _)) => ANTES_LEIDO | parado as u64,
+        Err(_) => 0,
+    };
+    FWSEC_ANTES.store(
+        antes | ((fb & crate::ring0::dev::gpu::GPU_FB_SIN_PANTALLA == 0) as u64) << 2 | anuncia_flr() << 3 | (crate::ring0::dev::gpu::info_vga() & 0xFFFF_FFFF) << 32,
+        Ordering::Release,
+    );
     let ucode = &mut bufer()[..t];
 
     // La orden: FRTS en su region.
@@ -682,6 +696,45 @@ static FWSEC_DMEM: AtomicU64 = AtomicU64::new(0);
 /// La region de FRTS pedida, en paginas: desde (0..31), hasta (32..63).
 static FWSEC_REGION: AtomicU64 = AtomicU64::new(0);
 static FWSEC_AUTOPSIA: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// Lo de justo ANTES de FRTS (ver `fwsec_correr`): bit 0 el falcon del GSP
+/// parado, 1 se pudo leer, 2 hay pantalla, 3 la 3060 anuncia FLR, 4 su
+/// capacidad PCIe se hallo; arriba, `0x625F04` crudo.
+static FWSEC_ANTES: AtomicU64 = AtomicU64::new(0);
+const ANTES_LEIDO: u64 = 1 << 1;
+
+/// **Si la 3060 anuncia Function Level Reset** (R4 del mapa, solo lectura):
+/// bit 1 = la capacidad PCIe se hallo (el 4 de `FWSEC_ANTES`), bit 0 =
+/// DevCap bit 28. Anunciarlo NO dice que limpie la WPR2.
+fn anuncia_flr() -> u64 {
+    use crate::ring0::dev::pci::cfg_read32;
+    let Some((b, d, f)) = crate::ring0::dev::gpu::bdf() else { return 0 };
+    if cfg_read32(b, d, f, 0x04) >> 16 & 0x10 == 0 {
+        return 0;
+    }
+    let mut p = (cfg_read32(b, d, f, 0x34) & 0xFC) as u8;
+    // Una cadena que da el aparato: con tope, aunque mienta.
+    for _ in 0..48 {
+        if p < 0x40 {
+            break;
+        }
+        let c = cfg_read32(b, d, f, p);
+        if c & 0xFF == 0x10 {
+            return 2 | (cfg_read32(b, d, f, p + 4) >> 28 & 1) as u64;
+        }
+        p = (c >> 8 & 0xFC) as u8;
+    }
+    0
+}
+
+/// Las capacidades extendidas de la 3060 como mascara (bit = id, las de id
+/// < 64; `0x15` = Resizable BAR): lo que el cargador NO restaura tras un
+/// reinicio por el bus (solo los 256 bytes de 0xCF8).
+fn capacidades_extendidas() -> u64 {
+    let Some((b, d, f)) = crate::ring0::dev::gpu::bdf() else { return 0 };
+    let mut caps = [crate::ring0::dev::pci::CapExt { id: 0, version: 0, offset: 0 }; 32];
+    let n = crate::ring0::dev::pci::caps_extendidas(b, d, f, &mut caps);
+    caps[..n].iter().filter(|c| c.id < 64).fold(0, |m, c| m | 1 << c.id)
+}
 
 /// **La autopsia**: con el falcon del GSP PARADO tras FWSEC-FRTS.
 fn autopsiar_fwsec(r: &mut Bar0) {
@@ -694,6 +747,11 @@ fn autopsiar_fwsec(r: &mut Bar0) {
     decir(if montada { "L0b autopsia FWSEC (BUENA, con WPR2): 0x1438 entero" } else { "L0b autopsia FWSEC SIN WPR2: 0x1438 entero" }, bmo_gpu_ga10x::Registros::leer(r, 0x0000_1438) as u64);
     decir("L0b autopsia FWSEC: la WPR2 cruda (lo | hi << 32)", w);
     decir("L0b autopsia FWSEC: la region de FRTS pedida, paginas (desde | hasta << 32)", FWSEC_REGION.load(Ordering::Acquire));
+    decir(
+        "L0b autopsia FWSEC: ANTES de FRTS -- bit 0 el falcon del GSP PARADO, 1 leido, 2 pantalla, 3 FLR anunciado, 4 su capacidad PCIe; arriba 0x625F04 crudo",
+        FWSEC_ANTES.load(Ordering::Acquire),
+    );
+    decir("L0b autopsia FWSEC: capacidades extendidas de la 3060 (bit = id; 0x15 Resizable BAR), las que el cargador NO restaura", capacidades_extendidas());
     let donde = FWSEC_DMEM.load(Ordering::Acquire);
     let mut palabras = [0u32; 16];
     for (que, dmem) in [("L0b autopsia FWSEC: DMEMMAPPER", donde as u32), ("L0b autopsia FWSEC: la ORDEN", (donde >> 32) as u32)] {

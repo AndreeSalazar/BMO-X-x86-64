@@ -2499,6 +2499,50 @@ vuelta que nunca fallo, y por eso sigue siendo la regla entre pruebas.
   el SBR (solo la funcion, no el puente). Que lo anuncie NO dice que limpie
   la WPR2: se mide antes de usarlo.
 
+**LO QUE LA AUTOPSIA DE FWSEC DICE DESDE EL 29-09 (solo lecturas, ningun
+paso cambia).** Dos lineas nuevas en `cabina`, en los arranques buenos
+(`info`) y en los malos (`warn`):
+
+```text
+   L0b autopsia FWSEC: ANTES de FRTS -- bit 0 el falcon del GSP PARADO,
+       1 leido, 2 pantalla, 3 FLR anunciado, 4 su capacidad PCIe;
+       arriba 0x625F04 crudo
+   L0b autopsia FWSEC: capacidades extendidas de la 3060 (bit = id;
+       0x15 Resizable BAR), las que el cargador NO restaura
+```
+
+Con UN arranque bueno y UN malo (`siempre`) se decide sin adivinar: si el
+bit 0 cae en el malo, es R1 (el GFW aun no habia soltado el falcon); si el
+espacio VGA crudo cambia, es la fila 6 (la region de FRTS se calcula de el);
+si nada de eso cambia, las dos hipotesis caen y queda lo que el cargador no
+restaura (la mascara). **Una correccion honrada a R1:** tras el SBR pasan
+SEGUNDOS entre que el GFW acaba y que el kernel corre FRTS (la UEFI vuelve a
+encender la pantalla en medio), asi que R1 es poco probable; por eso se
+MIDE antes de cambiar el orden. El bit 3 responde R4.
+
+**Y DESDE WINDOWS: que el driver de NVIDIA limpie su casa (W1, 29-09).**
+Pregunta del propietario: *"en Windows puede servir de algo para que mi
+GPU se limpie?"*. Si: el RM de NVIDIA, al DESCARGARSE, hace su teardown
+(el de `kernel_gsp_tu102.c` en Linux: FWSEC-SB y el booter de descarga
+antes de Hopper). En Windows se descarga al DESHABILITAR el aparato. La
+prueba, sin tocar codigo:
+
+```text
+   1  en Windows: Administrador de dispositivos -> Adaptadores de pantalla
+      -> NVIDIA GeForce RTX 3060 -> Deshabilitar el dispositivo
+      (la pantalla sigue, con el "Adaptador de pantalla basico de Microsoft")
+   2  Reiniciar (NO Apagar) y entrar a BMO-X con el build NORMAL
+   3  mirar `gpu salud` (fila cargador) y `gpu init`; guardar la SALIDA
+   4  de vuelta en Windows: Habilitar el dispositivo otra vez
+      (Windows lo RECUERDA deshabilitado hasta que se habilite)
+```
+
+Si con el paso 1 `gpu init` sale y sin el no, lo que ensucia la 3060 es el
+driver de Windows VIVO al reiniciar, y la "tercera pista" de R3 se puede
+buscar comparando estos dos arranques. "Apagar" y esperar 15-30 s sigue
+siendo lo que nunca fallo; "Reiniciar" no corta la corriente de la tarjeta.
+
+
 ## 4. Lo que NO se hace nunca
 
 - Cargar el GSP sin la IOMMU encendida.
