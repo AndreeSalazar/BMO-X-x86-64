@@ -427,20 +427,32 @@ de ejemplo escrito a mano (`asteroids`):
                                3060, el DIRECTOR), los eventos del comprobador
                                y el mensaje de 4 partes. Sin unsafe, sin
                                monton. 20 pruebas en el anfitrion, verdes
-   [~] B1  sys/taller.bex      Ultra_userspace/apps/taller: F1 LANZA la
+   [x] B1  sys/taller.bex      Ultra_userspace/apps/taller: F1 LANZA la
                                app (keys/windows.rs); la ventana interna del
-                               DIRECTOR se retiro entera. Compila sin avisos y
-                               bex-link da 70.992 B. Falta VERLA en el Ryzen
-   [~] B2  el lienzo           los 8 nodos y sus cables (curvas de bmo-dibujo),
-                               arrastrar un nodo o el lienzo, zoom con + y -,
-                               0 encuadra. Falta el Ryzen
-   [~] B3  la animacion        los 11 eventos del ejemplo: el pulso del `mut`
+                               DIRECTOR se retiro entera. VISTO EN EL RYZEN el
+                               29-09 13:57 (tras el renombre a taller.bex)
+   [~] B2  el lienzo           los 8 nodos y sus cables (curvas de bmo-dibujo)
+                               VISTOS en el Ryzen el 29-09 13:57. Arrastrar,
+                               + / - y 0: sin confirmar en el metal
+   [x] B3  la animacion        los 11 eventos del ejemplo: el pulso del `mut`
                                que va y vuelve, el `take` que se mueve y deja
                                el origen en gris, el cable a la 3060 encendido
                                hasta que vuelve, el CHOQUE en rojo con su
                                mensaje de 4 partes, y el NO del permiso `net`
-                               en el nodo principal. Falta el Ryzen
+                               en el nodo principal. VISTA en el Ryzen el 29-09
+                               13:57: evento 5/11, `buf` hacia la 3060, las
+                               fichas `world mut`, `bullet entregado/suyo`
 ```
+
+Lo que la captura del Ryzen dejo ver, y queda por hacer:
+
+- **Maximizar no agranda el lienzo.** El marco crece y la superficie se queda en
+  1280x760 con un hueco vacio: la app ignora `SUP_EV_CONFIGURE`.
+- **El titulo dice `tid 7`.** El DIRECTOR no sabe el nombre de una app (lo sabe
+  quien la lanzo, no quien la compone): es de `scene/surface.rs`, no de aqui.
+- **Los cables entre nodos de la MISMA fila** (`physics -> ship`) salen por
+  abajo y entran por arriba, y cruzan por detras de `rock`. Visto primero en la
+  vista previa en HTML y confirmado en el metal.
 
 **Como se mira en el Ryzen** (despues de `build.ps1` y desplegar):
 
