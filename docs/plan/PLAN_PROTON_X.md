@@ -669,10 +669,32 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        alineados): una desacoplada con su barrera (R1 si se
                        lee antes); cualquier otra, R0. FALTA la regla R8: en
                        el cuerpo de una APP el asa la pone el kernel.
-                    T2 [ ] el kernel: las piscinas en VRAM, los texeles
-                       prestados por la IOMMU (como el destino) o copiados a
-                       VRAM por el motor de copia, y la receta VRN3 con sus
-                       texturas y muestreadores.
+                    T2 [HECHO banco, 29-09, Ring 0 pedido por el
+                       propietario] EL KERNEL DE LAS TEXTURAS:
+                       - donde viven (`texturas`): los texeles son la RAM de
+                         la APP, prestada SOLO LECTURA y solo mientras dibuja
+                         (IOVA 0x5900_0000, una ranura de 1 MiB por textura,
+                         hasta 4); VA 0xA_0000_0000 con PTE de sistema, y
+                         detras la pagina de las PISCINAS en VRAM 0x04A0_4000
+                         (TIC en +0, TSC en +0x800; la textura k usa los k)
+                       - la receta VRN2 lleva sus texturas: +84 cuantas, 48 B
+                         cada una detras de los genericos (`DeApp`: su VA,
+                         medidas, fila, BGRA y el muestreador), y una carga
+                         nueva, el ASA (`2, textura, 0, reg`), solo en el de
+                         pixel. `receta` + 0 texturas = la de siempre.
+                       - el pegamento pone el asa con un MOV; el juez R7
+                         (`juzgar_cuerpo_con_asas`) deja un TEX en el cuerpo
+                         SOLO con un asa del kernel y sin pisarla: la app
+                         elige coordenadas y registros, NO que TIC ni TSC
+                       - las ordenes: SET_TEX_HEADER_POOL / SAMPLER_POOL y
+                         las invalidaciones, si el dibujo tiene texturas
+                       - el kernel (`receta`): presta cada textura (un
+                         bloque de quien manda la receta, `fisica_de`),
+                         escribe y relee los TIC/TSC, dibuja y DEVUELVE
+                         siempre. Pila 29662 de 40960; sin giros nuevos.
+                       FALTA T2b (la app): que el emisor de PROTON-X saque
+                       `Op::Muestra` como TEX y la puerta meta las texturas
+                       del lote en la receta.
                     T3 [ ] el metal: `gpu verrano textura` IGUAL a
                        `tests/textura.rs`, y HelloTexture por PROTON-X.
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture

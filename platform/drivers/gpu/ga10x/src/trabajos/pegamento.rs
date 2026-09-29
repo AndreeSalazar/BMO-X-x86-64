@@ -72,6 +72,18 @@ pub enum Carga {
     Entrada { elemento: u8, componente: u8, reg: u8 },
     /// La fila `fila` del cbuffer, en `reg`..`reg + 3`.
     Fila { fila: u16, reg: u8 },
+    /// P3b4c.8 T2: el ASA de la textura `textura` (`texturas::asa(k, k)`),
+    /// en `reg`. La pone el pegamento con un MOV: la app no elige que TIC ni
+    /// que TSC lee la 3060. Solo en el de pixel.
+    Asa { textura: u8, reg: u8 },
+}
+
+/// Los registros que llevan un asa (la mascara que pide el juez R7).
+pub fn asas(cargas: &[Carga]) -> u64 {
+    cargas.iter().fold(0, |m, c| match *c {
+        Carga::Asa { reg, .. } if reg < 64 => m | 1 << reg,
+        _ => m,
+    })
 }
 
 /// Donde esta un elemento de entrada dentro de un vertice (del input layout
@@ -235,6 +247,12 @@ fn cargas_propias(cargas: &[Carga], registros: u32) -> Result<(), NoPega> {
         let (reg, n) = match *c {
             Carga::Entrada { reg, .. } => (reg as u32, 1),
             Carga::Fila { reg, .. } => (reg as u32, 4),
+            Carga::Asa { textura, reg } => {
+                if textura as usize >= crate::texturas::MAX_TEXTURAS {
+                    return Err(NoPega::Carga);
+                }
+                (reg as u32, 1)
+            }
         };
         if reg + n > registros {
             return Err(NoPega::Carga);
@@ -329,6 +347,10 @@ pub fn vertice_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas:
     g.n = 0;
     let (resto, _) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
+    // Las texturas, hoy, solo en el de pixel.
+    if asas(cargas) != 0 {
+        return Err(NoPega::Carga);
+    }
     if posicion >= salidas || salidas > 8 {
         return Err(NoPega::Salidas);
     }
@@ -419,6 +441,13 @@ pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &
     let (a, d, _, _, total) = propios(registros)?;
     let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
+    // Las asas de las texturas: un MOV cada una (acoplado: su latencia la
+    // cubre su propia espera de 6 ciclos, `mov`).
+    for c in cargas {
+        if let Carga::Asa { textura, reg } = *c {
+            o.p(mov(reg as u64, crate::texturas::asa(textura as u32, textura as u32)));
+        }
+    }
     // Los IPA; el ultimo con el control largo de T2a.
     let entradas = cargas.iter().filter(|c| matches!(c, Carga::Entrada { .. })).count();
     let mut k = 0;

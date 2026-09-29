@@ -420,6 +420,17 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
 ///
 /// Nada de LDG/STG/ALD/AST/IPA, ni un banco de constantes, ni un salto.
 pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(), Bodrio> {
+    juzgar_cuerpo_con_asas(codigo, registros, 0)
+}
+
+/// **R7 con TEXTURAS** (P3b4c.8 T2, 29-09): lo mismo, y un `TEX` (la unica
+/// forma que el juez sabe, `texturas::tex`) SOLO si su asa esta en un
+/// registro de `asas` (mascara de bits: los que carga el PEGAMENTO del
+/// kernel con `asa(k, k)`), y ninguna instruccion del cuerpo escribe en
+/// ellos. Asi la app elige las coordenadas y a donde van los cuatro
+/// canales, pero NO que TIC ni que TSC lee la 3060: un asa suya podria
+/// apuntar a una piscina entera de descriptores que no son suyos.
+pub fn juzgar_cuerpo_con_asas(codigo: &[(u64, u64)], registros: u32, asas: u64) -> Result<(), Bodrio> {
     let ajeno = |k: usize, que: u32, detalle: &'static str| Err(Bodrio { regla: Regla::R7CuerpoAjeno, instruccion: k, que, detalle });
     let Some(ultima) = codigo.len().checked_sub(1) else {
         return ajeno(0, 0, "un cuerpo vacio: le falta su EXIT");
@@ -436,6 +447,8 @@ pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(),
             // FMUL, FFMA, FMNMX, MOV: inmediato en la 4 (y c[][] en la 5).
             0x020 | 0x023 | 0x009 | 0x002 => &[1, 4],
             0x108 => &[1],
+            // TEX: con un asa que puso el kernel (abajo).
+            0x161 if asas != 0 => &[1],
             0x14D if k == ultima => &[4],
             0x14D => return ajeno(k, op, "un EXIT antes del final: el pegamento de detras no correria"),
             _ => return ajeno(k, op, "fuera de la lista blanca de una app (memoria, atributos, saltos...)"),
@@ -452,6 +465,15 @@ pub fn juzgar_cuerpo_de_app(codigo: &[(u64, u64)], registros: u32) -> Result<(),
         let (r, n) = i.escribe;
         if n > 0 && r as u32 + n as u32 > registros {
             return ajeno(k, r as u32, "escribe un registro que no es del cuerpo: los del pegamento son del kernel");
+        }
+        if n > 0 && (r as u32..r as u32 + n as u32).any(|x| x < 64 && asas >> x & 1 == 1) {
+            return ajeno(k, r as u32, "pisa el registro del ASA de una textura: el asa la pone el kernel");
+        }
+        if op == 0x161 {
+            let asa = (lo >> 32 & 0xFF) as u32;
+            if asa >= 64 || asas >> asa & 1 == 0 {
+                return ajeno(k, asa, "un TEX con un asa que no puso el kernel");
+            }
         }
     }
     Ok(())
@@ -886,6 +908,22 @@ mod pruebas {
         }
         // Un par sin alinear, tampoco.
         assert_eq!(regla(&[tex(5, 0, 2, carga(0)), cu::EXIT], &ctx), Regla::R0NoSe);
+    }
+
+    /// P3b4c.8 T2: el TEX en el cuerpo de una app, solo con el asa del
+    /// kernel, y sin pisarla.
+    #[test]
+    fn r7_el_tex_con_el_asa_del_kernel() {
+        use crate::texturas::tex;
+        use crate::tuberia::carga;
+        // R0..R3 el color; las coordenadas en R4, R5; el asa en R6.
+        let cuerpo = [tex(0, 4, 6, carga(0)), control(cu::EXIT, 1 | 1 << 4 | 7 << 5 | 7 << 8 | 1 << 11)];
+        assert_eq!(juzgar_cuerpo_con_asas(&cuerpo, 8, 1 << 6), Ok(()));
+        let r7 = |c: &[(u64, u64)], asas: u64| juzgar_cuerpo_con_asas(c, 8, asas).unwrap_err().regla;
+        assert_eq!(r7(&cuerpo, 0), Regla::R7CuerpoAjeno, "sin asas del kernel, un TEX no");
+        assert_eq!(r7(&cuerpo, 1 << 7), Regla::R7CuerpoAjeno, "el asa en otro registro");
+        assert_eq!(r7(&[tex(4, 0, 6, carga(0)), cu::EXIT], 1 << 6), Regla::R7CuerpoAjeno, "los canales encima del asa");
+        assert_eq!(juzgar_cuerpo_de_app(&cuerpo, 8).unwrap_err().regla, Regla::R7CuerpoAjeno, "la de siempre, sin texturas");
     }
 
     /// J1 (b): cada regla tiene su programa roto a proposito, y el juez lo

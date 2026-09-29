@@ -293,10 +293,18 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     // SAFETY: `TALLER_EN_USO` recien tomado: nadie mas lo toca hasta soltarlo.
     let t = unsafe { &mut *TALLER.0.get() };
     let salida = match rc::pegar(&r, t) {
-        Ok(()) => {
-            let paquete = rc::paquete(&r, t, ficha);
-            en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true)
-        }
+        // ** P3b4c.8 T2: las texturas de la app, prestadas a la 3060 SOLO
+        // LECTURA y solo mientras dibuja, con sus TIC y TSC en las piscinas;
+        // devueltas SIEMPRE, salga como salga el dibujo.
+        Ok(()) => match prestar_texturas(bar0, pid, r.texturas()) {
+            Ok(prestadas) => {
+                let paquete = rc::paquete(&r, t, ficha);
+                let x = en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true);
+                devolver_texturas(&prestadas);
+                x
+            }
+            Err(m) => Err(m),
+        },
         Err(e) => {
             decir_no_receta(e);
             Err(IOMMU_NO_BODRIO)
@@ -304,6 +312,68 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     };
     TALLER_EN_USO.store(false, Ordering::Release);
     salida
+}
+
+/// Las tablas de las texturas y su pagina de piscinas, escritas (una vez
+/// por arranque).
+static TEXTURAS_MAPEADAS: AtomicBool = AtomicBool::new(false);
+
+/// Las paginas prestadas de cada ranura de textura (0 = nada).
+type Prestadas = [u64; bmo_gpu_ga10x::texturas::MAX_TEXTURAS];
+
+/// **P3b4c.8 T2: prestar las texturas de una receta a la 3060**: cada una
+/// es un bloque de QUIEN la manda (lo dice `fisica_de`), prestado SOLO
+/// LECTURA en su ranura de `texturas::IOVA`; y sus TIC y TSC, escritos y
+/// releidos en las piscinas. Lo que salga mal devuelve lo ya prestado.
+fn prestar_texturas(bar0: u64, pid: u32, texturas: &[bmo_gpu_ga10x::texturas::DeApp]) -> Result<Prestadas, u32> {
+    use bmo_gpu_ga10x::texturas as tx;
+    let mut prestadas: Prestadas = [0; tx::MAX_TEXTURAS];
+    if texturas.is_empty() {
+        return Ok(prestadas);
+    }
+    if !TEXTURAS_MAPEADAS.load(Ordering::Acquire) {
+        match tx::mapear(&mut Bar0(bar0)) {
+            Some((n, bien)) if n == bien => {
+                TEXTURAS_MAPEADAS.store(true, Ordering::Release);
+                crate::ring0::cabina::count("gpu", "P3b4c.8: las ranuras de las texturas y sus piscinas MAPEADAS para la 3060; entradas", n as u64);
+            }
+            _ => {
+                crate::ring0::cabina::warn("gpu", "P3b4c.8: las tablas de las texturas no se escribieron o no se releyeron", 0);
+                return Err(IOMMU_NO_BLUR_PREPARAR);
+            }
+        }
+    }
+    for (k, t) in texturas.iter().enumerate().take(tx::MAX_TEXTURAS) {
+        let fisica = crate::ring0::obj::memory::fisica_de(pid, t.va, t.bytes()).filter(|&f| f.checked_add(t.bytes()).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE));
+        let Some(fisica) = fisica.filter(|&f| f % 4096 == t.va % 4096) else {
+            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no es un bloque de quien manda la receta", t.va);
+            devolver_texturas(&prestadas);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        };
+        let paginas = t.paginas();
+        if crate::ring0::plat::iommu::prestar_gpu(tx::IOVA + k as u64 * tx::RANURA, fisica & !0xFFF, paginas, false).is_err() {
+            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura no se pudo prestar a la 3060; fisica", fisica);
+            devolver_texturas(&prestadas);
+            return Err(IOMMU_NO_BLUR_PREPARAR);
+        }
+        prestadas[k] = paginas;
+    }
+    if !tx::escribir_piscinas(&mut Bar0(bar0), texturas) {
+        crate::ring0::cabina::warn("gpu", "P3b4c.8: los TIC y TSC no quedaron en las piscinas; texturas", texturas.len() as u64);
+        devolver_texturas(&prestadas);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    }
+    Ok(prestadas)
+}
+
+/// Devolver lo que [`prestar_texturas`] presto, ranura a ranura.
+fn devolver_texturas(prestadas: &Prestadas) {
+    use bmo_gpu_ga10x::texturas as tx;
+    for (k, &paginas) in prestadas.iter().enumerate() {
+        if paginas != 0 && crate::ring0::plat::iommu::devolver_gpu(tx::IOVA + k as u64 * tx::RANURA, paginas).is_err() {
+            crate::ring0::cabina::warn("gpu", "P3b4c.8: una textura NO se pudo devolver (la invalidacion no contesto); paginas", paginas);
+        }
+    }
 }
 
 /// POR QUE una receta no se pego, en CABINA: la regla, la instruccion y que.

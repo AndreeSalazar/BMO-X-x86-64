@@ -56,6 +56,9 @@
 //! ```
 
 use crate::cubo::Ordenes;
+use crate::mmu::{indices, pde_vram, pte_sistema, pte_vram};
+use crate::vram::{a_cero, escribir64, leer64};
+use crate::Registros;
 
 /// Bytes de un descriptor (TIC o TSC): ocho palabras.
 pub const BYTES: usize = 32;
@@ -218,6 +221,156 @@ pub const fn asa(tic: u32, tsc: u32) -> u32 {
     (tic & 0xF_FFFF) | tsc << 20
 }
 
+// == T2: donde viven (el kernel) ==============================================
+//
+// ```text
+//    TEXELES  la RAM de la APP (sus texturas, como las guarda la casa: pitch,
+//             filas de 4 x ancho), prestada a la 3060 SOLO LECTURA y solo
+//             mientras dibuja, como el destino: IOVA 0x5900_0000, una RANURA
+//             de 1 MiB por textura (hasta [`MAX_TEXTURAS`])
+//    VA       0xA_0000_0000 (la PD1 del tramo; tras la sombra, 0x9): las
+//             ranuras con PTE de SISTEMA hacia su IOVA, y detras la pagina
+//             de las PISCINAS
+//    PISCINAS una pagina de VRAM (0x04A0_4000): los TIC en +0, los TSC en
+//             +0x800; la textura k usa el TIC k y el TSC k (su asa, `asa(k, k)`)
+//    TABLAS   la PD0 y las 3 PT en VRAM 0x04A0_0000 (tras las de la sombra)
+// ```
+
+/// Donde ve la 3060 los texeles y las piscinas.
+pub const VA: u64 = 0xA_0000_0000;
+/// Donde los ve por la IOMMU.
+pub const IOVA: u64 = 0x5900_0000;
+/// La PD0 y las PT, en VRAM.
+pub const TABLAS: u64 = 0x04A0_0000;
+/// Las texturas de un dibujo, y lo que mide la ranura de cada una.
+pub const MAX_TEXTURAS: usize = 4;
+pub const RANURA: u64 = 1 << 20;
+/// Las PT: dos para las ranuras (4 MiB) y una para la pagina de las piscinas.
+pub const PTS: usize = 3;
+/// La pagina de las piscinas: en VRAM, y donde la ve la 3060.
+pub const PISCINAS: u64 = TABLAS + (1 + PTS as u64) * 0x1000;
+pub const PISCINAS_VA: u64 = VA + 2 * (2 << 20);
+/// Los TSC, detras de los TIC.
+pub const TSC_DESDE: u64 = 0x800;
+const PAGINA: u64 = 0x1000;
+
+/// **Una textura que manda una app** en su receta: donde esta en SU memoria,
+/// como es y con que se muestrea.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct DeApp {
+    /// Su VA en la app (la de sus texeles).
+    pub va: u64,
+    pub ancho: u32,
+    pub alto: u32,
+    pub fila: u32,
+    pub bgra: bool,
+    pub muestreo: Muestreo,
+}
+
+/// Bytes de una textura en la receta.
+pub const BYTES_DE_APP: usize = 48;
+
+impl DeApp {
+    pub const NINGUNA: DeApp = DeApp { va: 0, ancho: 0, alto: 0, fila: 0, bgra: false, muestreo: Muestreo { lineal: false, u: 1, v: 1, borde: [0.0; 4] } };
+
+    /// Lo que ocupan sus texeles.
+    pub const fn bytes(&self) -> u64 {
+        self.fila as u64 * self.alto as u64
+    }
+
+    /// Cabe y se puede decir: su TIC (con la VA de la ranura, que guarda el
+    /// desplazamiento en la pagina) y su TSC, y los texeles en UNA ranura.
+    pub fn valida(&self) -> bool {
+        let en_ranura = Imagen { va: VA + self.va % PAGINA, ancho: self.ancho, alto: self.alto, fila: self.fila, bgra: self.bgra };
+        self.va != 0 && self.va % 32 == 0 && en_ranura.valida() && self.va % PAGINA + self.bytes() <= RANURA && tsc(&self.muestreo).is_some()
+    }
+
+    /// Las paginas que se prestan (desde la de su primer texel).
+    pub const fn paginas(&self) -> u64 {
+        (self.va % PAGINA + self.bytes()).div_ceil(PAGINA)
+    }
+
+    /// El TIC que la 3060 lee para la textura `k` (en su ranura).
+    pub const fn tic(&self, k: usize) -> Option<[u32; 8]> {
+        tic(&Imagen { va: VA + k as u64 * RANURA + self.va % PAGINA, ancho: self.ancho, alto: self.alto, fila: self.fila, bgra: self.bgra })
+    }
+
+    /// Como viaja: la VA, las medidas, la bandera (bit 0 BGRA, bit 1
+    /// lineal, U en 4..7 y V en 8..11, los numeros de D3D12), el borde y
+    /// ceros hasta 48.
+    pub fn escribir(&self, out: &mut [u8]) {
+        let m = &self.muestreo;
+        let bandera = self.bgra as u32 | (m.lineal as u32) << 1 | (m.u & 0xF) << 4 | (m.v & 0xF) << 8;
+        let w = [self.va as u32, (self.va >> 32) as u32, self.ancho, self.alto, self.fila, bandera, m.borde[0].to_bits(), m.borde[1].to_bits(), m.borde[2].to_bits(), m.borde[3].to_bits(), 0, 0];
+        for (k, x) in w.iter().enumerate() {
+            out[4 * k..4 * k + 4].copy_from_slice(&x.to_le_bytes());
+        }
+    }
+
+    /// Leida de sus 48 bytes, o `None` si algo no se sostiene.
+    pub fn leer(b: &[u8]) -> Option<DeApp> {
+        let w = |k: usize| u32::from_le_bytes([b[4 * k], b[4 * k + 1], b[4 * k + 2], b[4 * k + 3]]);
+        if b.len() < BYTES_DE_APP || w(5) >> 12 != 0 || w(10) != 0 || w(11) != 0 {
+            return None;
+        }
+        let bandera = w(5);
+        let borde = [f32::from_bits(w(6)), f32::from_bits(w(7)), f32::from_bits(w(8)), f32::from_bits(w(9))];
+        let t = DeApp { va: w(0) as u64 | (w(1) as u64) << 32, ancho: w(2), alto: w(3), fila: w(4), bgra: bandera & 1 != 0, muestreo: Muestreo { lineal: bandera & 2 != 0, u: bandera >> 4 & 0xF, v: bandera >> 8 & 0xF, borde } };
+        t.valida().then_some(t)
+    }
+}
+
+/// La entrada de la PD1 del tramo que cuelga [`VA`].
+pub const fn entrada_pd1() -> u64 {
+    crate::vram::TABLAS[1] + 8 * indices(VA)[2] as u64
+}
+
+/// **Mapear** las ranuras (PTE de SISTEMA hacia [`IOVA`]: a que RAM va cada
+/// una lo pone la IOMMU en cada dibujo) y la pagina de las piscinas (VRAM),
+/// una vez por arranque, de la hoja a la raiz y todo RELEIDO; como
+/// `destino::mapear`. `None` si la entrada de la PD1 ya es de otro.
+pub fn mapear<R: Registros>(r: &mut R) -> Option<(u32, u32)> {
+    let pd1 = leer64(r, entrada_pd1());
+    if pd1 != 0 && pd1 != pde_vram(TABLAS) {
+        return None;
+    }
+    let pt = |k: usize| TABLAS + PAGINA * (1 + k as u64);
+    for k in 0..=PTS {
+        a_cero(r, TABLAS + PAGINA * k as u64);
+    }
+    a_cero(r, PISCINAS);
+    let (mut n, mut bien) = (0u32, 0u32);
+    let mut poner = |r: &mut R, dir: u64, v: u64| {
+        escribir64(r, dir, v);
+        n += 1;
+        bien += (leer64(r, dir) == v) as u32;
+    };
+    for q in 0..MAX_TEXTURAS as u64 * RANURA / PAGINA {
+        poner(r, pt((q / 512) as usize) + 8 * (q % 512), pte_sistema(IOVA + q * PAGINA));
+    }
+    poner(r, pt(2), pte_vram(PISCINAS));
+    let i0 = indices(VA)[3] as u64;
+    for k in 0..PTS {
+        poner(r, TABLAS + 16 * (i0 + k as u64) + 8, pde_vram(pt(k)));
+    }
+    poner(r, entrada_pd1(), pde_vram(TABLAS));
+    Some((n, bien))
+}
+
+/// **Escribir las piscinas** de un dibujo: el TIC y el TSC de cada textura,
+/// en su sitio, RELEIDOS. `false` si una no se puede decir o no quedo.
+pub fn escribir_piscinas<R: Registros>(r: &mut R, texturas: &[DeApp]) -> bool {
+    if texturas.len() > MAX_TEXTURAS {
+        return false;
+    }
+    texturas.iter().enumerate().all(|(k, t)| match (t.tic(k), tsc(&t.muestreo)) {
+        (Some(ti), Some(ts)) => {
+            crate::copia::escribir(r, PISCINAS + (BYTES * k) as u64, &ti) == 8 && crate::copia::escribir(r, PISCINAS + TSC_DESDE + (BYTES * k) as u64, &ts) == 8
+        }
+        _ => false,
+    })
+}
+
 // == Las piscinas ============================================================
 
 /// `SET_TEX_SAMPLER_POOL_A/B/C` y `SET_TEX_HEADER_POOL_A/B/C` (`clc797.h`;
@@ -246,6 +399,13 @@ pub fn ordenes(e: &mut Ordenes, tics: u64, n_tic: u32, tscs: u64, n_tsc: u32) ->
     e.m(INVALIDAR_B, &[0]);
     true
 }
+
+// Nada se pisa: su entrada de la PD1, su IOVA, sus tablas y su pagina.
+const _: () = assert!(VA % (2 << 20) == 0 && indices(VA)[2] != indices(crate::sombra::VA)[2] && indices(VA)[2] != indices(crate::destino::VA)[2]);
+const _: () = assert!(IOVA >= crate::destino::IOVA + crate::destino::MAX_BYTES && MAX_TEXTURAS as u64 * RANURA == 2 * (2 << 20));
+const _: () = assert!(TABLAS >= crate::sombra::TABLAS + (1 + crate::sombra::PTS as u64) * PAGINA && PISCINAS + PAGINA <= 0x0800_0000);
+const _: () = assert!(TSC_DESDE >= (MAX_TEXTURAS * BYTES) as u64 && TSC_DESDE + (MAX_TEXTURAS * BYTES) as u64 <= PAGINA);
+const _: () = assert!(indices(PISCINAS_VA)[3] == indices(VA)[3] + 2 && indices(PISCINAS_VA)[4] == 0);
 
 #[cfg(test)]
 mod pruebas {
