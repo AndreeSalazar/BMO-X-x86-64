@@ -60,6 +60,7 @@ const TANDA3: &[u8] = include_bytes!("../../proton-x/prueba/tanda3.exe");
 const TANDA3B: &[u8] = include_bytes!("../../proton-x/prueba/tanda3b.exe");
 const TANDA4: &[u8] = include_bytes!("../../proton-x/prueba/tanda4.exe");
 const TANDA3C: &[u8] = include_bytes!("../../proton-x/prueba/tanda3c.exe");
+const TANDA5: &[u8] = include_bytes!("../../proton-x/prueba/tanda5.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -902,6 +903,22 @@ fn tanda4_exe_tiene_las_excepciones_de_cpp() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 11, "{texto}");
     assert!(texto.ends_with("tanda4.exe: las excepciones de C++ son las de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 5 de Cyberpunk** (29-09): `tanda5.exe` -- user32, grupo 1:
+/// los rectangulos, las medidas, el DPI, los monitores y la geometria de
+/// una ventana.
+#[test]
+fn tanda5_exe_tiene_las_medidas_de_user32() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/tanda5.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA5, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 22, "{texto}");
+    assert!(texto.ends_with("tanda5.exe: las medidas de user32 dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

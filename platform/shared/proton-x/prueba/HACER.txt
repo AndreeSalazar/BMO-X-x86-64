@@ -587,3 +587,23 @@ En la "x64 Native Tools Command Prompt" de Visual Studio, en esta carpeta:
 
 Tiene que decir `bien` once veces y salir con 0 en Windows. Si `dumpbin
 /imports tanda4m.exe` muestra __CxxFrameHandler4, es el que hace falta.
+
+tanda5.exe -- la TANDA 5 de Cyberpunk (29-09): user32, grupo 1
+
+Los rectangulos (exactos), las medidas del sistema, el DPI, los monitores
+y la geometria de una ventana oculta (tanda5_kernel32.def y
+tanda5_user32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda5_kernel32.def -l tanda5_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda5_user32.def -l tanda5_user32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda5.c -o tanda5.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda5.obj tanda5_kernel32.lib tanda5_user32.lib /out:tanda5.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   a61dc148c22ade0ea284d7930a013a9972e2b1092e5df2ab4b669071bd64faa1
+
+Dice `bien` veintidos veces y sale con 0. La pantalla de la casa es fija
+(1920x1080); la de tu Windows, la tuya: de las medidas se miran las
+relaciones que Windows cumple siempre, no los numeros. En Windows dice lo
+mismo.

@@ -560,6 +560,13 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         (`tanda4_exe_tiene_las_excepciones_de_cpp`). Falta
         `__CxxFrameHandler4` (el formato comprimido de MSVC 2019+, el de
         Cyberpunk): pide un `.exe` compilado con `cl` de MSVC para probarlo.
+      - **LA TANDA 5: USER32, GRUPO 1** (29-09): `user32_medidas.rs` -- los
+        rectangulos, GetSystemMetrics(ForDpi), SystemParametersInfo, el DPI,
+        los monitores (GetMonitorInfo, EnumDisplayMonitors/Settings/Devices)
+        y la geometria de una ventana. La casa tiene UN monitor fijo
+        (`PANTALLA`, 1920x1080 a 96 DPI): la plataforma todavia no dice la
+        medida de la pantalla de BMO-X. **Como se sabe:** `tanda5.exe` dice
+        `bien` 22 veces en el banco (`tanda5_exe_tiene_las_medidas_de_user32`).
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
