@@ -936,7 +936,8 @@ pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
 /// de descarga (baja la WPR2), SUBIR = con la WPR2 abajo, el despertar a cero
 /// y FWSEC-FRTS otra vez (el escritorio sigue EN SEGUIDA con despertar y el
 /// booter). REINTENTO = como va, en vivo: 0 SB arrancado, 1 su falcon parado,
-/// 2 descargador arrancado, 3 SEC2 parado, 4 la WPR2 abajo, 5 FRTS otra vez;
+/// 2 descargador arrancado, 3 SEC2 parado, 4 la WPR2 abajo, 5 FRTS otra vez,
+/// 6 SB SALTADO (tras el 0x15 el falcon del GSP queda cerrado y no carga);
 /// 8..15 intentos; 32..63 MAILBOX0 del falcon que toque.
 pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
 pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
