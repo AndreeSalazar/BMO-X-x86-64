@@ -276,6 +276,11 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
     // enterrado bajo la rejilla y, al quitarlo, devolveria pixeles viejos
     // encima de lo recien escrito. `dirty` se queda puesto y la vuelta
     // siguiente ya empieza sabiendo que hay que pintar.
+    // LA ENTRADA de Ejecutar (29-09): si acabo en este fotograma, la salida
+    // se repinta ya, en este mismo, y la entrada se va sin dejar rastro.
+    if dsk.tick.will_paint && crate::desktop::entrada::acabo(dsk.out.grid.mark()) {
+        dsk.out.grid.dirty = true;
+    }
     if dsk.out.grid.dirty && dsk.tick.will_paint && !fs {
         // Se pinta solo si se ve; el contenido sigue acumulandose oculto,
         // asi que al invocar la ventana esta todo lo que paso mientras.
@@ -295,6 +300,17 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
         } else if !dsk.win.visible {
             dsk.out.grid.dirty = false;
         }
+    }
+    // Y encima de la salida, mientras vive; solo con Ejecutar ARRIBA, que la
+    // entrada no pinte sobre una ventana que la tapa.
+    if dsk.tick.will_paint
+        && !fs
+        && dsk.win.visible
+        && dsk.win.top_before == Ventana::Run
+        && !dsk.win.switcher_painted
+        && !dsk.win.nya_painted
+    {
+        crate::desktop::entrada::pintar(&p, &dsk.run_box);
     }
 
     // -- Las FICHAS del panel --
@@ -588,6 +604,13 @@ pub(crate) fn compose(dsk: &mut Desktop, p: &bmo::Pantalla, dead: usize) {
             scene::cursor::Shape::Hand
         } else if dsk.win.visible && dsk.win.top_before == Ventana::Run && dsk.run_box.on_field(dsk.tick.ax, dsk.tick.ay) {
             scene::cursor::Shape::Beam
+        } else if dsk.win.visible
+            && dsk.win.top_before == Ventana::Run
+            && crate::desktop::tocable::bajo(dsk, dsk.tick.ax, dsk.tick.ay).is_some()
+        {
+            // Una fila de la salida que se toca (29-09): clic la escribe,
+            // Ctrl+clic la corre.
+            scene::cursor::Shape::Hand
         } else {
             scene::cursor::Shape::Arrow
         };

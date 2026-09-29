@@ -297,7 +297,11 @@ pub(crate) fn edges(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Gathered) {
             // las ordenes, y la caja parecia "MAS mezclada" (el propietario).
             uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
             crate::desktop::paint::pista_consejero(dsk, &p);
+            // ** LA ENTRADA (29-09): el titulo en ASCII sobre la salida, un
+            // segundo. Ver `desktop::entrada`.
+            crate::desktop::entrada::empezar(dsk.out.grid.mark());
         } else {
+            crate::desktop::entrada::cancelar();
             dsk.win.focus.close(Ventana::Run);
             erase_box(&p, &dsk.run_box);
         }

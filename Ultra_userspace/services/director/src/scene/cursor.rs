@@ -11,14 +11,58 @@ use bmo_userland as bmo;
 
 // -- El cursor -----------------------------------------------------------
 
-pub(crate) const CUR_W: usize = 10;
-pub(crate) const CUR_H: usize = 16;
-/// 0 = transparente, 1 = relleno, 2 = borde.
+/// La caja del puntero: la de la mano de neon (29-09), que es la mas grande.
+/// La flecha y la barra siguen siendo de 10x16 y se rellenan con transparente.
+pub(crate) const CUR_W: usize = 16;
+pub(crate) const CUR_H: usize = 22;
+/// Lo que se dibujo en 10x16 antes de la mano grande.
+const VIEJO_W: usize = 10;
+const VIEJO_H: usize = 16;
+
+/// Una forma de 10x16, en la caja de ahora.
+const fn en_caja(m: [[u8; VIEJO_W]; VIEJO_H]) -> [[u8; CUR_W]; CUR_H] {
+    let mut r = [[0u8; CUR_W]; CUR_H];
+    let mut y = 0;
+    while y < VIEJO_H {
+        let mut x = 0;
+        while x < VIEJO_W {
+            r[y][x] = m[y][x];
+            x += 1;
+        }
+        y += 1;
+    }
+    r
+}
+
+/// Una forma dibujada con letras: `.` nada, `#` borde, `Y` relleno amarillo,
+/// `s` su sombra, `c` neon cian.
+const fn dibujo(filas: [&[u8; CUR_W]; CUR_H]) -> [[u8; CUR_W]; CUR_H] {
+    let mut r = [[0u8; CUR_W]; CUR_H];
+    let mut y = 0;
+    while y < CUR_H {
+        let mut x = 0;
+        while x < CUR_W {
+            r[y][x] = match filas[y][x] {
+                b'#' => 2,
+                b'c' => 3,
+                b'Y' => 4,
+                b's' => 5,
+                _ => 0,
+            };
+            x += 1;
+        }
+        y += 1;
+    }
+    r
+}
+
+/// 0 = transparente, 1 = relleno, 2 = borde, 3 = neon, 4 = amarillo, 5 = su
+/// sombra.
 ///
 /// Borde oscuro alrededor del relleno claro: es lo que hace que una flecha se
 /// vea igual de bien sobre un fondo claro que sobre uno oscuro. No es adorno,
 /// es la razon de que todos los cursores del mundo tengan contorno.
-pub(crate) const ARROW: [[u8; CUR_W]; CUR_H] = [
+pub(crate) const ARROW: [[u8; CUR_W]; CUR_H] = en_caja([
     [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [2, 2, 0, 0, 0, 0, 0, 0, 0, 0],
     [2, 1, 2, 0, 0, 0, 0, 0, 0, 0],
@@ -35,13 +79,13 @@ pub(crate) const ARROW: [[u8; CUR_W]; CUR_H] = [
     [2, 0, 0, 0, 0, 2, 1, 1, 2, 0],
     [0, 0, 0, 0, 0, 2, 1, 2, 0, 0],
     [0, 0, 0, 0, 0, 0, 2, 2, 0, 0],
-];
+]);
 /// **La barra de texto.** Donde se puede escribir.
 ///
 /// No es adorno: es la unica forma que tiene el escritorio de decir "aqui
 /// dentro el clic coloca el cursor de escritura" **antes** de que lo intentes.
 /// Un campo de texto que se ve igual que el fondo obliga a probar.
-pub(crate) const IBEAM: [[u8; CUR_W]; CUR_H] = [
+pub(crate) const IBEAM: [[u8; CUR_W]; CUR_H] = en_caja([
     [0, 0, 2, 2, 2, 2, 2, 2, 0, 0],
     [0, 0, 2, 1, 1, 1, 1, 2, 0, 0],
     [0, 0, 2, 2, 1, 1, 2, 2, 0, 0],
@@ -58,31 +102,43 @@ pub(crate) const IBEAM: [[u8; CUR_W]; CUR_H] = [
     [0, 0, 2, 2, 1, 1, 2, 2, 0, 0],
     [0, 0, 2, 1, 1, 1, 1, 2, 0, 0],
     [0, 0, 2, 2, 2, 2, 2, 2, 0, 0],
-];
+]);
 
 /// **La mano.** Esto se pulsa.
 ///
 /// La usa lo que reacciona a un clic y no lo parece: los botones de la
-/// calculadora. Un boton dibujado es una promesa; la mano es la que la
-/// confirma sin gastar un clic en comprobarlo.
-pub(crate) const HAND: [[u8; CUR_W]; CUR_H] = [
-    [0, 0, 0, 2, 2, 0, 0, 0, 0, 0],
-    [0, 0, 2, 1, 1, 2, 0, 0, 0, 0],
-    [0, 0, 2, 1, 1, 2, 0, 0, 0, 0],
-    [0, 0, 2, 1, 1, 2, 0, 0, 0, 0],
-    [0, 0, 2, 1, 1, 2, 2, 2, 0, 0],
-    [0, 0, 2, 1, 1, 1, 1, 1, 2, 0],
-    [0, 2, 2, 1, 1, 1, 1, 1, 1, 2],
-    [2, 1, 2, 1, 1, 1, 1, 1, 1, 2],
-    [2, 1, 1, 1, 1, 1, 1, 1, 1, 2],
-    [0, 2, 1, 1, 1, 1, 1, 1, 1, 2],
-    [0, 2, 1, 1, 1, 1, 1, 1, 1, 2],
-    [0, 0, 2, 1, 1, 1, 1, 1, 1, 2],
-    [0, 0, 2, 1, 1, 1, 1, 1, 2, 0],
-    [0, 0, 0, 2, 1, 1, 1, 1, 2, 0],
-    [0, 0, 0, 2, 1, 1, 1, 1, 2, 0],
-    [0, 0, 0, 0, 2, 2, 2, 2, 0, 0],
-];
+/// calculadora y las filas de la salida que se tocan. Un boton dibujado es una
+/// promesa; la mano es la que la confirma sin gastar un clic en comprobarlo.
+///
+/// ** DE NEON (29-09, *"el puntero con dedos estilo cyberpunk 2077 epico"*):
+/// amarillo con su sombra, contorno negro y un halo cian por fuera, con un
+/// circuito en la palma. El contorno sigue haciendo lo de siempre --que se vea
+/// igual sobre claro y sobre oscuro--; el halo es lo que la hace de aqui.
+/// Salio de una silueta, y el borde y el halo se calcularon a partir de ella.
+pub(crate) const HAND: [[u8; CUR_W]; CUR_H] = dibujo([
+    b"....cccc........",
+    b"...cc##cc.......",
+    b"...c#YY#c.......",
+    b"...c#Ys#c.......",
+    b"...c#Ys#c.......",
+    b"...c#Ys#ccc.....",
+    b"...c#Ys###cccc..",
+    b"...c#Ys#YY###cc.",
+    b"...c#Ys#Ys#YY#c.",
+    b".ccc#Ys#Ys#Ys#c.",
+    b"cc###Ys#Ys#Ys#c.",
+    b"c#YYYYY#Ys#Ys#c.",
+    b"c#YYYYYYYYYYY#c.",
+    b"c#YYYYYYcYYYY#c.",
+    b"cc#YYccccYYYY#c.",
+    b".c#YYcYYYYYYY#c.",
+    b".c#YssssssssY#c.",
+    b".cc#YYYYYYYY#cc.",
+    b"..cc#YYYYYYY#c..",
+    b"...c#YYYYYYY#c..",
+    b"...cc#######cc..",
+    b"....ccccccccc...",
+]);
 
 /// Que esta diciendo el puntero ahora mismo.
 ///
@@ -112,10 +168,24 @@ impl Shape {
             Shape::Hand => &HAND,
         }
     }
+
+    /// **Donde pincha**: el pixel de la forma que cae sobre el raton. La
+    /// flecha, en su punta; la mano, en la yema del indice -- no en la esquina
+    /// de su caja, que con la mano grande quedaria cinco pixeles al lado.
+    fn punta(self) -> (u32, u32) {
+        match self {
+            Shape::Arrow | Shape::Beam => (0, 0),
+            Shape::Hand => (5, 1),
+        }
+    }
 }
 
 pub(crate) const CUR_FILL: u32 = 0x00FF_FFFF;
 pub(crate) const CUR_EDGE: u32 = 0x0000_0000;
+/// La mano de neon: el cian, el amarillo de Night City y su sombra.
+const CUR_NEON: u32 = 0x0000_F0FF;
+const CUR_AMARILLO: u32 = 0x00FC_EE0A;
+const CUR_SOMBRA: u32 = 0x00C8_B400;
 
 fn draw_cursor(p: &bmo::Pantalla, x: u32, y: u32, shape: Shape) {
     for (row, line) in shape.mapa().iter().enumerate() {
@@ -123,7 +193,13 @@ fn draw_cursor(p: &bmo::Pantalla, x: u32, y: u32, shape: Shape) {
             if v == 0 {
                 continue;
             }
-            let color = if v == 1 { CUR_FILL } else { CUR_EDGE };
+            let color = match v {
+                1 => CUR_FILL,
+                3 => CUR_NEON,
+                4 => CUR_AMARILLO,
+                5 => CUR_SOMBRA,
+                _ => CUR_EDGE,
+            };
             p.punto(x + col as u32, y + row as u32, color);
         }
     }
@@ -207,6 +283,9 @@ impl SaveUnder {
     /// sentidos, y va aqui dentro y no en quien llama: la invariante es de la
     /// lectura, no del sitio desde donde se pide.
     pub(crate) fn place(&mut self, p: &bmo::Pantalla, x: u32, y: u32, shape: Shape) {
+        // La caja se pone para que la PUNTA caiga sobre el raton.
+        let (px, py) = shape.punta();
+        let (x, y) = (x.saturating_sub(px), y.saturating_sub(py));
         if self.placed_one {
             // * Y si la FORMA cambio, hay que redibujar aunque no se haya
             // movido: pasar del raton quieto sobre el escritorio al campo de
