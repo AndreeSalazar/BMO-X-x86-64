@@ -167,6 +167,11 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         e.apagada = true;
                         bmo::consola(&no_pagado(r));
                     }
+                    Err(m) if m == bmo::IOMMU_NO_CANAL_MUERTO => {
+                        p.despues(l, false);
+                        e.apagada = true;
+                        bmo::consola("PROTON-X: el kernel dice que el canal de GR de la 3060 esta MUERTO (tomo un Xid; el numero, en `cabina`): la 3060 se deja YA; el resto, por la CPU. Reinicia para recuperarla\n");
+                    }
                     Err(m) => {
                         p.despues(l, false);
                         e.negados += 1;

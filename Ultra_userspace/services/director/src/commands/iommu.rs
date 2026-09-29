@@ -192,6 +192,7 @@ pub(crate) fn motivo(m: u32) -> &'static [u8] {
         super::gspcomputo::NO_IMAGEN_SIN_MEMORIA => b"no hubo un bloque de memoria para un fotograma de `gpu imagen`",
         bmo::IOMMU_NO_IMAGEN => b"la 3060 no puede poner la imagen: sin el canal de GR (`gpu lienzo` antes), sin la pantalla en modo fisico, un formato mas grande que la pantalla, o una ya en marcha",
         bmo::IOMMU_NO_BODRIO => b"[BMO-X Juez V3b]: TOMA TU BODRIO! el juez del SASS, en la puerta del kernel, no dejo subir un programa del BSF a la 3060 (la regla y la instruccion, en la cabina). UN FRACASADO! UN FRACASADO!!!",
+        bmo::IOMMU_NO_CANAL_MUERTO => b"el canal de GR de la 3060 esta MUERTO: tomo una excepcion (el Xid, en la cabina y en `gsp aviso`) y el GSP-RM lo mato; hasta reiniciar, todo trabajo del GR dice NO al instante",
         bmo::IOMMU_NO_PASE => b"el pase de la GPU no se abrio: `gpu pase` dice el por que (pantalla, IOMMU, VBLANK, lienzo u ocupado)",
         super::gspcomputo::NO_PANTALLA_MAL => b"un fotograma a pantalla completa no salio igual que la cuenta de la CPU: la fila `pantalla`",
         super::gspcomputo::NO_GIRO_MAL => b"un fotograma de la esfera que gira no salio igual que la cuenta de la CPU: la fila `giro`",

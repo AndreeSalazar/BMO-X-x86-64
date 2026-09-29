@@ -1141,6 +1141,9 @@ pub const IOMMU_NO_BODRIO: u32 = 87;
 /// sin el canal de GR, sin la pantalla en modo fisico, un formato que no cabe,
 /// un fotograma que no es un bloque del que llama, o uno ya en marcha.
 pub const IOMMU_NO_IMAGEN: u32 = 88;
+/// P3b4c: el canal de GR tomo una excepcion (un Xid; el GSP-RM lo mato): todo
+/// trabajo del GR dice NO al instante hasta reiniciar.
+pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
 /// L0c3b: la WPR2 ya EXTENDIDA antes de nuestro booter (otro booter corrio).
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// El fader, en 1/256 dB con signo (`arg1` como `i64`). El kernel lo recorta a

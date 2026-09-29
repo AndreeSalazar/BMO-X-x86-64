@@ -322,6 +322,11 @@ static BLUR_EN_MARCHA: core::sync::atomic::AtomicBool = core::sync::atomic::Atom
 /// esperarlos y olvidarlo -- comparten el tramo (programas, tabla, ordenes)
 /// y este va a escribir en el. `true` = ocupado, como el `swap` de antes.
 fn gr_ocupado() -> bool {
+    // P3b4c: un canal MUERTO no se toma: cada trabajo esperaria su segundo
+    // entero para nada (el metal del 28-09: 1041 ms por fotograma, 0 fps).
+    if gr_muerto().is_some() {
+        return true;
+    }
     if BLUR_EN_MARCHA.swap(true, Ordering::AcqRel) {
         return true;
     }
@@ -331,6 +336,58 @@ fn gr_ocupado() -> bool {
     }
     false
 }
+// == P3b4c: EL CANAL DE GR MUERTO (2026-09-29) =================================
+//
+// El metal (28-09 20:31): tras un Xid 69 el GSP-RM MATA el canal de GR y todo
+// lo que va despues por el espera su segundo y no se paga -- `bmox12.exe` a
+// 1041 ms por fotograma. No se recupera sin reiniciar. En cuanto se sabe,
+// se dice UNA vez con su Xid y todo trabajo del GR dice NO al instante.
+//
+// Como se sabe: el `RC_TRIGGERED` del canal en la cola del GSP (leida sin
+// moverla), o dos dibujos seguidos sin pagar (por si alguien ya consumio ese
+// mensaje de la cola).
+
+/// 0 = vivo; si no, el Xid + 1 (1 = muerto sin Xid conocido).
+static GR_MUERTO: AtomicU64 = AtomicU64::new(0);
+/// Dibujos seguidos que se esperaron enteros sin pagarse.
+static SIN_PAGAR: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+/// El canal de GR tomo una excepcion y el GSP-RM lo mato: hasta reiniciar.
+pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
+
+fn marcar_muerto(xid: u32, por: &str) {
+    if GR_MUERTO.compare_exchange(0, xid as u64 + 1, Ordering::AcqRel, Ordering::Acquire).is_ok() {
+        crate::ring0::cabina::warn("gpu", por, xid as u64);
+        crate::ring0::cabina::warn("gpu", "P3b4c: el canal de GR queda MUERTO hasta reiniciar: todo trabajo del GR dice NO al instante (sin esperar su segundo)", bmo_gpu_ga10x::canal::GR.chid as u64);
+    }
+}
+
+/// **El canal de GR, muerto**: `Some(xid)` (0 = sin Xid conocido). Mira la
+/// cola del GSP si aun no se sabia.
+pub(super) fn gr_muerto() -> Option<u32> {
+    let m = GR_MUERTO.load(Ordering::Acquire);
+    if m != 0 {
+        return Some(m as u32 - 1);
+    }
+    let xid = super::gpu_libos::rc_del_canal(bmo_gpu_ga10x::canal::GR.chid)?;
+    marcar_muerto(xid, "P3b4c: el GSP-RM MATO el canal de GR (RC_TRIGGERED en su cola); Xid");
+    Some(xid)
+}
+
+/// Lo que paso con un dibujo del GR que se espero: pagado o no. Dos seguidos
+/// sin pagar, sin un aviso del GSP que lo diga, tambien lo dan por muerto.
+pub(super) fn tras_esperar(pagado: bool) {
+    if pagado {
+        SIN_PAGAR.store(0, Ordering::Release);
+        return;
+    }
+    if gr_muerto().is_some() {
+        return;
+    }
+    if SIN_PAGAR.fetch_add(1, Ordering::AcqRel) + 1 >= 2 {
+        marcar_muerto(0, "P3b4c: dos dibujos seguidos del GR esperados enteros SIN pagarse (y sin RC_TRIGGERED en la cola); Xid");
+    }
+}
+
 /// B: sin el lienzo, una ficha ajena, el GPFIFO gastado, o uno en marcha.
 pub const IOMMU_NO_BLUR: u32 = 78;
 /// B: la salida no se presto, sus PTE no estaban vacias, o el tramo no se
