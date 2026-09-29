@@ -629,6 +629,35 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     devolucion, la sombra (3,6 MB) copiada por un PCIe en
                     Gen1 (lo que el GSP-RM deja al arrancar) y el RM en P5.
                     Lo siguiente es MEDIRLO por partes.
+               4c.6d [ANALISIS 29-09, por medir] EL CUELLO: ~90 fps por
+                    la receta contra los ~28000 del cubo con la GPU al
+                    maximo. NO es la misma carrera:
+                    - los 28000 son el ANILLO (`en_anillo`): las ordenes se
+                      arman UNA vez, el juez juzga UNA vez (huella), no hay
+                      prestamo por fotograma y la 3060 se come el anillo
+                      sola; la CPU casi no entra
+                    - la receta de una app (`cubo::receta`) va SIEMPRE por
+                      `en_frio`, un syscall que ESPERA el dibujo, y cada
+                      lote paga: leer y validar la receta, `pegar` (juntar
+                      programas) y el juez otra vez, prestar el back buffer
+                      (~900 paginas por la IOMMU) y devolverlo (con su
+                      invalidacion), escribir las ordenes en la VRAM, la
+                      copia de la sombra (3,6 MB) si hay Z, y esperar el
+                      semaforo. La 3060 dibuja en ~1 ms; lo demas es camino
+                    - LA MEDIDA: la linea `[3060]` de `la3060.rs` (una por
+                      segundo en `run sys/proton-x.bex window/bmox12.exe`)
+                      parte el lote en puerta / 3060 / preparar / sombra /
+                      resto. SIN esa linea del metal no se toca nada.
+                    - los arreglos, en orden de lo que se espera que pese
+                      (por confirmar con la linea): (1) prestar el back
+                      buffer UNA vez y dejarlo prestado mientras la app viva
+                      (va en `resto`); (2) pegado y juez por huella, como
+                      el anillo (va en `resto`); (3) la receta caliente: si
+                      la huella de lo fijo no cambia, solo vertices y
+                      constantes (va en `preparar`); (4) no esperar: el
+                      syscall vuelve con el timbre y el siguiente espera
+                      al anterior (doble buffer; esconde `3060`); (5) el
+                      PCIe en Gen1 (va en `sombra`).
                4c.6c [HECHO banco] LA SOMBRA (29-09, Ring 0
                     dicho que si por el propietario): `bmo_gpu_ga10x::sombra`
                     -- el color A8R8G8B8 BLOQUE-LINEAL en VRAM 0x0A40_0000
@@ -717,8 +746,29 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        el pixel de HelloTexture da los bits del interprete,
                        punto y lineal. `tests/textura.rs`: su PSO es UN TEX
                        de t0/s0 que el juez R7 aprueba con el asa del kernel.
-                    T3 [ ] el metal: `gpu verrano textura` IGUAL a
-                       `tests/textura.rs`, y HelloTexture por PROTON-X.
+                    T3 [EN CURSO, metal 28/29-09] el metal: `gpu verrano
+                       textura` IGUAL a `tests/textura.rs`, y HelloTexture
+                       por PROTON-X. Lo que dijo el metal:
+                       - el TEX CORRE: 8 recetas por la 3060 sin Xid, el
+                         juez R7 y el kernel las aceptan, los TIC/TSC se
+                         releen bien (T0..T2b valen en el metal)
+                       - pero 0/96: TODAS las muestras corridas +1 texel en
+                         x y en y (nearest y linear por igual). El barrido
+                         (m=8) lo dejo claro: la 3060 dio
+                         `11 11 11 22 22 22 33 33 33 -- -- --` donde la
+                         casa espera `00 00 00 11 11 11 22 22 22 33 33 33`
+                       - la causa: el TIC palabra 4, BORDER_SIZE (31:29) en
+                         0 = BORDER_SIZE_ONE: la 3060 cree que la imagen
+                         trae un texel de borde GUARDADO en memoria y se lo
+                         salta. Arreglo (29-09): `texturas::
+                         BORDE_DEL_MUESTREADOR` = 7 << 29
+                         (BORDER_SIZE_SAMPLER_COLOR, lo de nouveau): el borde
+                         lo da el TSC. Falta el metal: 96/96 esperado.
+                       - el muestreo de la casa YA iguala al hardware bit a
+                         bit (`tests/metal_textura.rs`, 96/96 contra CUDA en
+                         `docs/metal/tex_cuda/SALIDA.TXT`): si el metal da
+                         otra cosa tras el arreglo, es el TIC/TSC, no la
+                         cuenta.
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture
                     (29-09): `bmo_proton_x::textura` muestrea (punto y
                     bilineal con fraccion de 8 bits, los cinco modos de

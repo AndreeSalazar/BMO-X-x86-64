@@ -40,6 +40,7 @@
 //!    2   la direccion, bits 47..32 | HEADER_VERSION PITCH (2 en 23:21)
 //!    3   el paso de fila >> 5 (filas alineadas a 32 B)
 //!    4   ancho - 1 | TEXTURE_TYPE TWO_D_NO_MIPMAP (7 en 26:23)
+//!        | BORDER_SIZE SAMPLER_COLOR (7 en 31:29): el borde lo da el TSC
 //!    5   alto - 1 | NORMALIZED_COORDS (bit 31): D3D muestrea en 0..1
 //!    6   0
 //!    7   0: el nivel 0 y nada mas (sin mipmaps, como `textura`)
@@ -78,6 +79,13 @@ pub const DE_A: u32 = 5;
 pub const VERSION_PITCH: u32 = 2;
 /// `GM107_TIC2_4_TEXTURE_TYPE_TWO_D_NO_MIPMAP` (en 26:23).
 pub const DOS_D_SIN_MIPMAP: u32 = 7;
+/// `GM107_TIC2_4_BORDER_SIZE_SAMPLER_COLOR` (7 en 31:29). Con 0
+/// (`BORDER_SIZE_ONE`) la 3060 cree que la imagen trae un texel de borde
+/// guardado en memoria y la lee corrida uno en x y en y: el barrido del
+/// metal del 28-09 dio `11 11 11 22 22 22 33 33 33 -- -- --` donde la casa
+/// espera `00 00 00 11 11 11 22 22 22 33 33 33`, las 96 muestras corridas
+/// igual (nearest y linear). Nouveau pone esto mismo.
+pub const BORDE_DEL_MUESTREADOR: u32 = 7 << 29;
 /// `GM107_TIC2_5_NORMALIZED_COORDS`.
 pub const NORMALIZADAS: u32 = 1 << 31;
 
@@ -123,7 +131,7 @@ pub const fn tic(i: &Imagen) -> Option<[u32; 8]> {
         i.va as u32,
         (i.va >> 32) as u32 & 0xFFFF | VERSION_PITCH << 21,
         i.fila >> 5,
-        (i.ancho - 1) | DOS_D_SIN_MIPMAP << 23,
+        (i.ancho - 1) | DOS_D_SIN_MIPMAP << 23 | BORDE_DEL_MUESTREADOR,
         (i.alto - 1) | NORMALIZADAS,
         0,
         0,
@@ -439,6 +447,7 @@ mod pruebas {
         assert_eq!(t[2] >> 21 & 7, VERSION_PITCH);
         assert_eq!(t[3], 1024 >> 5);
         assert_eq!((t[4] & 0xFFFF, t[4] >> 23 & 0xF), (255, DOS_D_SIN_MIPMAP));
+        assert_eq!(t[4] >> 29, 7, "el borde lo da el TSC, no la memoria");
         assert_eq!((t[5] & 0xFFFF, t[5] & NORMALIZADAS), (255, NORMALIZADAS));
         assert_eq!((t[6], t[7]), (0, 0), "el nivel 0, nada mas");
     }
