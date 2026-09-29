@@ -1,6 +1,6 @@
 //! **The five window toggles**: F7 cpu, F8 memory, F10 sound, F11 CABINA,
 //! F12 data -- and the ESC that closes each one. And F1, which since
-//! 2026-09-29 LAUNCHES ESTRUCTURA (`sys/estructura.bex`) instead of toggling a
+//! 2026-09-29 LAUNCHES ESTRUCTURA (`sys/taller.bex`) instead of toggling a
 //! window of the DIRECTOR.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
@@ -247,13 +247,16 @@ if let Some(open) = toggle_data {
 // un editor de nodos para TITAN++ con el comprobador animado, y eso
 // dentro del compositor seria el monolito que prohibe MODULAR. La
 // ventana de antes (escalon 1, vista en el metal el 06-09) se retiro:
-// su sitio es `sys/estructura.bex` (`Ultra_userspace/apps/estructura`).
+// su sitio es `sys/taller.bex` (`Ultra_userspace/apps/estructura`).
 //
 // Se pide por `scene::abrir`, el MISMO camino que un `run` tecleado o
 // un icono: consola, prestamo de pantalla y vigilante. Se cierra
 // desde dentro: Esc lo lee la app, y Alt+F4 sigue valiendo.
 if c == 0x89 {
-    scene::abrir::pedir(&[b"sys/estructura.bex"]);
+    // `taller` y no `estructura`: el FAT32 de BMO-X busca por nombre 8.3, y el
+    // 29-09 en el Ryzen `estructura.bex` dio "un nombre no cabe en 8.3" en
+    // CABINA y F1 no abrio nada. El build ya lo comprueba (`ejemplos.ps1`).
+    scene::abrir::pedir(&[b"sys/taller.bex"]);
     return Key::Taken;
 }
 

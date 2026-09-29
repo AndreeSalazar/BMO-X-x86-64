@@ -274,13 +274,13 @@ pub(crate) fn help(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     dsk.out.grid.with_ink(INK_ECHO);
     dsk.out.grid.text(b"  LAS TECLAS --------------------------------------------------\n");
     dsk.out.grid.with_ink(INK_PLAIN);
-    dsk.out.grid.text(b"    F1..F10 ESCRIBEN la orden y la ejecutan, asi que queda en\n");
+    dsk.out.grid.text(b"    F2..F10 ESCRIBEN la orden y la ejecutan, asi que queda en\n");
     dsk.out.grid.text(b"    el historial: la flecha arriba te muestra como se llama.\n");
-    dsk.out.grid.text(b"    F11 y F12 no escriben nada -- ABREN UNA VENTANA.\n");
-    dsk.out.grid.text(b"      ver           F1 help   F2 info    F3 consumo  F4 apps\n");
+    dsk.out.grid.text(b"    F1, F11 y F12 no escriben nada -- ABREN.\n");
+    dsk.out.grid.text(b"      ver           F2 info   F3 consumo  F4 apps\n");
     dsk.out.grid.text(b"      la maquina    F5 red    F6 smp     F7 banda    F8 ext\n");
     dsk.out.grid.text(b"      cuando falla  F9 fallo  F10 disco\n");
-    dsk.out.grid.text(b"      ventanas      F11 CABINA (el kernel)   F12 ESTRATOS\n");
+    dsk.out.grid.text(b"      abren         F1 ESTRUCTURA (el taller)   F11 CABINA   F12 ESTRATOS\n");
     dsk.out.grid.text(b"    Impr Pant CAPTURA la pantalla (con Alt, la ventana de delante).\n");
     dsk.out.grid.text(b"    Ctrl+Shift+S RECORTA con el raton: arrastra y suelta. ESC cancela.\n");
     dsk.out.grid.text(b"    Ctrl ORDENA las ventanas: flechas encajan, Q cierra, Enter trae\n");

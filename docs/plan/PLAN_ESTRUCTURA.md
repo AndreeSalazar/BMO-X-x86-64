@@ -118,10 +118,15 @@ Eso descarta el esquema obvio --un terminal que invoca al compilador-- y deja el
 correcto:
 
 ```text
-   estructura.bex   el terminal Y el compilador, en el MISMO fichero,
+   taller.bex       el terminal Y el compilador, en el MISMO fichero,
                     con sus tablas en la seccion 0x0B
    el ESCRITORIO    lanza lo que ESTRUCTURA compilo, cuando el propietario hace clic
 ```
+
+[!] Se llamaba `estructura.bex` en este plan, y ese nombre NO PUEDE EXISTIR en
+el disco de BMO-X: el FAT32 busca por nombre 8.3 (8 letras). Se descubrio el
+29-09 en el Ryzen --F1 dio "un nombre no cabe en 8.3" en CABINA-- y paso a
+`sys/taller.bex`. La app sigue llamandose ESTRUCTURA; el fichero, taller.
 
 ** Y eso convierte "sin instalar" en algo literal en vez de en un eslogan: **un
 fichero que trae dentro lo que necesita**, y que se lee con `paquete.h` sin
@@ -244,7 +249,7 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
 ```text
    [x] 1  F1 abre una ventana VACIA   HECHO y visto en el metal el 06-09 (una
                                       ventana del DIRECTOR). Desde el 29-09 F1
-                                      ya no la abre: LANZA `sys/estructura.bex`
+                                      ya no la abre: LANZA `sys/taller.bex`
                                       (seccion 8.5, B1), y esa ventana se retiro
 
    [x] 2  PAQUETE en Rust            HECHO 06-09 --
@@ -256,7 +261,7 @@ Ordenados por la regla de la casa: **lo que no toca nada va primero.**
    [ ] 2b la ventana con REJILLA      `scroll` como modulo reutilizable, de la
                                       forma que ya tiene `scene/historial.rs`
 
-   [ ] 3  estructura.bex DIBUJA       una ventana con su rejilla y su cursor,
+   [ ] 3  taller.bex DIBUJA           una ventana con su rejilla y su cursor,
                                       sin leer una tecla. Se compara contra
                                       `scene/consola.rs`, que ya lo hace
 
@@ -415,7 +420,7 @@ de ejemplo escrito a mano (`asteroids`):
                                3060, el DIRECTOR), los eventos del comprobador
                                y el mensaje de 4 partes. Sin unsafe, sin
                                monton. 20 pruebas en el anfitrion, verdes
-   [~] B1  estructura.bex      Ultra_userspace/apps/estructura: F1 LANZA la
+   [~] B1  sys/taller.bex      Ultra_userspace/apps/estructura: F1 LANZA la
                                app (keys/windows.rs); la ventana interna del
                                DIRECTOR se retiro entera. Compila sin avisos y
                                bex-link da 70.992 B. Falta VERLA en el Ryzen
@@ -434,7 +439,7 @@ de ejemplo escrito a mano (`asteroids`):
 
 | se hace | si esta bien | si falla |
 |---|---|---|
-| F1 en el escritorio | sale una ventana de 1280x760 con 8 nodos y sus cables, y la animacion empieza sola | nada: falta `sys/estructura.bex` en el disco, o `run` dice por que |
+| F1 en el escritorio | sale una ventana de 1280x760 con 8 nodos y sus cables, y la animacion empieza sola | nada: falta `sys/taller.bex` en el disco, o `run` dice por que |
 | esperar ~10 s | el pulso ambar va de `main` a `ship`, vuelve; `bullet` pasa a `rock`; el cable a la 3060 se enciende en verde y se apaga; `ship` y `physics` parpadean en rojo con QUE/DONDE/POR QUE/COMO abajo; `net: no` destella | la animacion se para a medias: mirar la consola (`ESTRUCTURA:`) |
 | arrastrar un nodo | el nodo sigue al raton y sus cables con el | el nodo no se mueve: el estado del puntero del buzon no llega (+8/+12) |
 | arrastrar el fondo, `+`, `-`, `0` | el lienzo se mueve, acerca, aleja, encuadra | las letras no llegan al buzon |

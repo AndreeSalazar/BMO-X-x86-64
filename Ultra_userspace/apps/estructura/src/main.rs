@@ -1,4 +1,4 @@
-//! **ESTRUCTURA** -- F1, the workshop, as its own app (`sys/estructura.bex`).
+//! **ESTRUCTURA** -- F1, the workshop, as its own app (`sys/taller.bex`).
 //!
 //! [consumo] LATIDO    while something moves (an animation, a drag) it wakes
 //!                     every 16 ms; when still, every 100 ms to read the

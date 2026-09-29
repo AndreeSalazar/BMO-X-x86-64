@@ -15,7 +15,7 @@
 //!                                                      Script of events and
 //!                                                      Diagnostics
 //!    titan-back    own IR -> emisor-x86_64 / SPIR-V    (does not need this)
-//!    F1            the node editor (estructura.bex)    READS them: draws the
+//!    F1            the node editor (sys/taller.bex)    READS them: draws the
 //!                                                      graph, PLAYS the events
 //! ```
 //!

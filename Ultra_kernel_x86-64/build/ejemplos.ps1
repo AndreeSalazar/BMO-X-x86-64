@@ -156,14 +156,20 @@ try {
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/proton-x' }
     if (-not (Test-Path $protonBex)) { Fail 'bex-link no produjo proton-x.bex' }
 
-    # -- ESTRUCTURA (F1): `sys/estructura.bex` ---------------------------
+    # -- ESTRUCTURA (F1): `sys/taller.bex` -------------------------------
     #
     # El taller como editor de nodos de TITAN++, con el comprobador animado
     # (PLAN_ESTRUCTURA seccion 8, B1-B3). F1 en el escritorio lo LANZA: si no
     # esta en el disco, F1 no abre nada. Mismo camino que proton-x.
+    #
+    # ** `taller` y no `estructura`: el 29-09 se desplego `estructura.bex` y en
+    # el Ryzen F1 dio "un nombre no cabe en 8.3". Windows lo copia con nombre
+    # largo y el FAT32 de BMO-X busca por el corto. Este bloque iba aparte y se
+    # salto la comprobacion de `Construir-Ejemplos`: ahora la hace el tambien.
     $estElf = Join-Path $usDir 'target\x86_64-unknown-none\release\estructura'
     if (-not (Test-Path $estElf)) { Fail 'no salio el ELF de apps/estructura' }
-    $estBex = Join-Path $dataBase 'sys\estructura.bex'
+    $estBex = Join-Path $dataBase 'sys\taller.bex'
+    if ([System.IO.Path]::GetFileNameWithoutExtension($estBex).Length -gt 8) { Fail ($estBex + ': el tallo no cabe en 8.3') }
     if (Test-Path $estBex) { Remove-Item $estBex -Force }
     $out = & (Obrero bmo-bex-link) $estElf $estBex 2>&1
     $out | ForEach-Object {
@@ -173,7 +179,7 @@ try {
         }
     }
     if ($LASTEXITCODE -ne 0) { Fail 'bex-link fallo con apps/estructura' }
-    if (-not (Test-Path $estBex)) { Fail 'bex-link no produjo estructura.bex' }
+    if (-not (Test-Path $estBex)) { Fail 'bex-link no produjo taller.bex' }
     # Y `teb.exe` (P1d, 27-09): lee su TEB y su PEB por `gs:` como el CRT de
     # Microsoft, y dice `bien` seis veces si el GS de la casa es el de Windows.
     # Y `ventana.exe` (P2, 27-09): una ventana Win32 de manual, con el user32 y

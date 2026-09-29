@@ -136,7 +136,7 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 *PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
 
 - [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
+- [ ] 3 taller.bex DIBUJA una ventana con su rejilla y su cursor,
 - [ ] 4 y LEE TECLAS por el buzon de entrada, con el
 - ... y 7 mas
 

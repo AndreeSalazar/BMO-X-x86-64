@@ -426,7 +426,9 @@ match c {
     // # Y agrupadas por LA PREGUNTA, no por el orden en que se anadieron
     //
     // ```text
-    //    VER            F1 help    F2 info    F3 consumo   F4 apps
+    //    VER            F2 info    F3 consumo   F4 apps
+    //    (F1 era `help`; desde el 06-09 la coge ANTES `keys::windows` -- hoy
+    //    lanza ESTRUCTURA -- y aqui ya no llegaba. Se quito el 29-09.)
     //    LA MAQUINA     F5 red     F6 smp     F7 banda     F8 ext
     //    CUANDO FALLA   F9 fallo   F10 disco
     //    VENTANAS       F11 CABINA           F12 ESTRATOS
@@ -445,9 +447,8 @@ match c {
     // Ese camino hace el eco, empuja al historial, copia la linea y despacha; un
     // atajo que hiciera "casi lo mismo" seria una segunda version de la orden
     // mas usada del escritorio, y las dos versiones se separan.
-    f @ 0x89..=0x92 => {
+    f @ 0x8A..=0x92 => {
         let orden: &[u8] = match f {
-            0x89 => b"help",
             0x8A => b"info",
             0x8B => b"consumo",
             0x8C => b"apps",
