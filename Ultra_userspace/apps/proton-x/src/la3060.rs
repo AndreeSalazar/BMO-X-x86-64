@@ -27,13 +27,20 @@
 //!
 //! ```text
 //!    [3060] N lotes/s; por lote: puerta P us (la receta, en esta app),
-//!           kernel K us = 3060 A + preparar B + sombra C + resto R
+//!           kernel K us = 3060 A + preparar B + sombra C + resto R;
+//!           en caliente H de N
 //! ```
 //!
 //! `A` es la espera del semaforo tras el timbre (el dibujo); `B`, escribir
 //! ordenes y datos en la VRAM; `C`, las copias de la sombra por el motor de
 //! copia; `R`, todo lo demas del syscall: prestar y devolver el back buffer y
-//! las texturas por la IOMMU, pegar y juzgar los programas, las tablas.
+//! las texturas por la IOMMU, pegar y juzgar los programas, las tablas. `H`,
+//! los lotes que el kernel preparo EN CALIENTE (sin releer la VRAM).
+//!
+//! El metal (29-09 07:02) lo partio: kernel ~10,3 ms = 3060 1,1 + preparar
+//! 5,4 + sombra 1,15 + resto 2,6, y la puerta 1 us. Preparar era la mitad,
+//! siempre en frio: desde ese dia el destino tambien va en caliente
+//! (`gpu_trabajo/cubo.rs`, `tuberia::huella_fija`).
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -65,6 +72,8 @@ struct Partes {
     tarjeta_us: u64,
     preparar_us: u64,
     sombra_us: u64,
+    /// Los lotes que el kernel preparo EN CALIENTE (sin releer la VRAM).
+    calientes: u64,
 }
 
 impl Partes {
@@ -78,17 +87,20 @@ impl Partes {
         self.puerta_ns += puerta_ns;
         self.kernel_ns += kernel_ns;
         self.tarjeta_us += us as u64;
-        self.preparar_us += puerta::preparado(r).1 as u64;
+        let (caliente, preparar) = puerta::preparado(r);
+        self.preparar_us += preparar as u64;
+        self.calientes += caliente as u64;
         self.sombra_us += puerta::copia_us(r) as u64;
         let pasado = ahora.saturating_sub(self.desde_ns);
         if pasado >= 1_000_000_000 {
             let n = self.lotes.max(1);
             let (k, a, b, c) = (self.kernel_ns / 1000 / n, self.tarjeta_us / n, self.preparar_us / n, self.sombra_us / n);
             bmo::consola(&alloc::format!(
-                "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}\n",
+                "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}; en caliente {} de {n}\n",
                 self.lotes * 1_000_000_000 / pasado.max(1),
                 self.puerta_ns / 1000 / n,
                 k.saturating_sub(a + b + c),
+                self.calientes,
             ));
             *self = Partes { desde_ns: ahora, ..Partes::default() };
         }
@@ -98,7 +110,7 @@ impl Partes {
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Celda {}
-static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0 } }));
+static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0, calientes: 0 } }));
 
 fn decir(e: &mut Estado, motivo: String) {
     if e.dichos.iter().any(|d| *d == motivo) {

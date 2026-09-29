@@ -449,9 +449,15 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
     let huella = tu::huella_fija(&v, &paquete, ligero);
     let tsc = crate::ring0::task::scheduler::tsc_freq().max(1);
     let ahora = crate::ring0::task::scheduler::rdtsc();
-    // Con destino, siempre en frio: cada dibujo presta y devuelve la RAM.
+    // ** Con destino TAMBIEN en caliente (29-09). Hasta hoy, "con destino,
+    // siempre en frio": y el metal de las 07:02 (BMOX-12) dio `preparar` 5,4
+    // ms de los 10,3 del lote, releyendo tres paginas por el PCIe en cada
+    // fotograma. El prestamo de la RAM de la app NO toca la VRAM: las ordenes
+    // apuntan a `destino::VA`, fija, y lo que cambia es la IOMMU detras, que
+    // se presta arriba en cada dibujo. Lo que el caliente da por escrito (los
+    // programas juzgados, la tabla, las ordenes) lo dice la huella, que lleva
+    // las MEDIDAS del destino y no su direccion (`tuberia::huella_fija`).
     let caliente = CALIENTE_HUELLA.swap(0, Ordering::AcqRel) == huella
-        && prestado.is_none()
         && CALIENTE_ENTRADA.load(Ordering::Acquire) == e
         && ahora.wrapping_sub(CALIENTE_TSC.load(Ordering::Acquire)) < tsc / 10;
     let mut preparar_ciclos = 0u64;

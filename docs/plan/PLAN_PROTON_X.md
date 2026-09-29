@@ -726,8 +726,23 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        el techo de la CPU, no el de la 3060. Arreglo
                        (director, `editor.rs`): `run` de `proton-x.bex` da
                        solo lo que falte hasta `lienzo` si el GSP-RM ya
-                       corre (`init`), y si no corre lo dice. Hay que
-                       repetir la medida.
+                       corre (`init`), y si no corre lo dice.
+                       **Metal 29-09 07:02, LA MEDIDA DE VERDAD** (dos
+                       corridas, ~30 lineas, BMOX-12 por la 3060): 83-98
+                       fps, fotograma ~11 ms, `presentar` 1 ms; por lote la
+                       puerta 1 us y el kernel ~10,3 ms =
+                       ```text
+   3060      ~1,1 ms   11 %   el dibujo de verdad
+   preparar  ~5,4 ms   52 %   SIEMPRE en frio: tres paginas a cero y
+                              RELEIDAS por el PCIe, y los programas, la
+                              tabla, los vertices y las ordenes releidos
+   sombra    ~1,15 ms  11 %   3,6 MB por el PCIe en Gen1 (~3,2 GB/s)
+   resto     ~2,6 ms   25 %   prestar/devolver el back buffer, pegar y el
+                              juez, la receta
+                       ```
+                       O sea: el cuello NO era la copia (Z1) sino la
+                       BUROCRACIA de preparar: releer cada palabra para
+                       saber que llego. Por eso Z2 va ANTES que Z1.
                     Z1 PRESENTAR POR LA 3060, A PANTALLA COMPLETA (como D2c
                        de `PLAN_VERRANO.md` con DOOM, y un juego va a
                        pantalla completa igual): los lotes dibujan en la
@@ -751,11 +766,22 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                          huella tiene que ser la de la CPU (IGUAL), y
                          despues uno cada N segundos; si da DISTINTO, la
                          app vuelve a la CPU y se dice por que
-                    Z2 LA RECETA CALIENTE otra vez: sin destino (Z1) no hay
-                       prestamo, asi que `preparar_caliente` vuelve a valer
-                       (el paso 5 solo sube vertices y constantes). Lo
-                       verifica la huella de lo fijo, la MISMA que ya usa
-                       el anillo (`tuberia::huella_fija`)
+                    Z2 [HECHO en codigo 29-09, falta el metal] LA RECETA
+                       CALIENTE CON DESTINO. No hacia falta esperar a Z1:
+                       el prestamo del back buffer no toca la VRAM (las
+                       ordenes apuntan a `destino::VA`, fija; cambia la
+                       IOMMU detras). Lo que lo apagaba era la huella:
+                       llevaba la DIRECCION del destino, y los dos back
+                       buffers de un juego daban dos huellas alternas. Ahora
+                       lleva sus MEDIDAS (`tuberia::huella_fija`, con su
+                       banco) y el kernel ya no exige "sin destino". Lo
+                       verifica SOLO, sin releer: la huella (los mismos
+                       programas juzgados, las mismas ordenes), la entrada
+                       del GR (nadie lanzo nada entre medias), menos de 100
+                       ms desde el ultimo, y que ese ultimo se PAGO entero;
+                       si algo falla, el siguiente va en frio. La linea
+                       `[3060]` dice `en caliente H de N`. Lo esperado:
+                       `preparar` de ~5,4 ms a decimas de ms
                     Z3 PEGAR Y JUZGAR POR HUELLA (el paso 3): los programas
                        ya juzgados y ya en la VRAM se reusan si su huella
                        no cambia; la 3060 corre la copia de la VRAM, que

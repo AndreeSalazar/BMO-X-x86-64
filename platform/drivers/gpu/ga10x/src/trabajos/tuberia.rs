@@ -763,6 +763,14 @@ pub use crate::cubo::{empaquetar, lanzar, mirar, sano};
 /// **La huella de lo FIJO** de un dibujo de VERRANO: los dos programas, los
 /// triangulos, la ventana y si va `ligero` -- todo lo que `preparar` escribe
 /// y el caliente NO vuelve a escribir. FNV-1a de 64 bits.
+///
+/// **El destino entra por sus MEDIDAS, no por su direccion** (29-09): las
+/// ordenes apuntan a `destino::VA` (fija) y lo que cambia de un back buffer
+/// a otro es el prestamo de la IOMMU detras de esa VA, que el kernel hace en
+/// cada dibujo. Con la direccion dentro, los dos back buffers de un juego
+/// daban dos huellas alternas y el caliente no acertaba nunca: el metal del
+/// 29-09 07:02 (BMOX-12) dio `preparar` 5,4 ms de 10,3 por lote, siempre en
+/// frio, releyendo tres paginas por el PCIe.
 pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let mut h = 0xcbf2_9ce4_8422_2325u64;
     let mut mezclar = |b: &[u8]| {
@@ -777,8 +785,9 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let dibujo = d.indices.unwrap_or(SIN_INDICES) as u64 | (d.descarte as u64) << 32 | (d.antihorario as u64) << 34 | (d.vertices as u64) << 40;
     let z = estado_z(d.z) as u64 | (d.z.and_then(|z| z.limpiar).unwrap_or(0) as u64) << 32;
     let color = d.color.map_or(0, |c| 1 << 32 | c as u64) | (d.texturas as u64) << 40;
-    let (dva, dst) = d.destino.unwrap_or_default();
-    for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, color, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    let dst = d.destino.map_or(Default::default(), |(_, dst)| dst);
+    let hay_destino = d.destino.is_some() as u64;
+    for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, color, hay_destino, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -1096,6 +1105,14 @@ mod pruebas {
         assert_ne!(h, huella_fija(&v, &p(a, vs, ps), true), "ligero cambia las ordenes");
         assert_ne!(h, huella_fija(&v, &p(a, ps, vs), false), "otros programas");
         assert_ne!(h, huella_fija(&v, &p(&a[..3 * BYTES_VERTICE], vs, ps), false), "otros triangulos, otras ordenes");
+        // El destino: sus medidas SI (otras ordenes), su direccion NO (los
+        // dos back buffers de un juego son la misma receta caliente).
+        let dst = crate::destino::Destino { fila: 5120, ancho: 1280, alto: 720, rgb: true };
+        let con = |va: u64, d: crate::destino::Destino| Paquete { dibujo: crate::tuberia::Dibujo { destino: Some((va, d)), ..Default::default() }, ..p(a, vs, ps) };
+        let hd = huella_fija(&v, &con(0x1000_0000, dst), false);
+        assert_ne!(h, hd, "con destino no es sin destino");
+        assert_eq!(hd, huella_fija(&v, &con(0x2000_0000, dst), false), "el otro back buffer, la misma huella");
+        assert_ne!(hd, huella_fija(&v, &con(0x1000_0000, crate::destino::Destino { alto: 719, ..dst }), false), "otras medidas, otras ordenes");
     }
 
     #[test]
