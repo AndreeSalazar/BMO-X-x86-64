@@ -234,6 +234,9 @@ pub(crate) enum Command<'a> {
     Smp(&'a [u8]),
     /// **`banda`**: el ancho de banda de la memoria, por barrido.
     Banda,
+    /// **`ram prueba`** -- el kernel escribe patrones en la RAM libre, vacia la
+    /// cache y la relee. Ver `system::ram_prueba`.
+    RamPrueba,
     /// **`audio`** -- le pregunta al aparato de audio como quiere las muestras.
     ///
     /// [!] Existia solo en el shell de Ring 0 y el propietario la escribio AQUI, que
@@ -604,6 +607,8 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         b"apps" | b"programas" => Command::Apps,
         // La otra mitad de la sonda de la ventana: lo que el DIRECTOR lee.
         b"ventanas" => Command::Ventanas,
+        // `ram prueba`: la RAM probada por el propio BMO-X (29-09).
+        b"ram" if rest == b"prueba" || rest == b"test" => Command::RamPrueba,
         b"mem" | b"ram" | b"memoria" => Command::Memoria,
         b"reboot" | b"reinicia" | b"reiniciar" => Command::Reboot,
         // `smp` a secas CENSA y no toca nada; `smp all` despierta a todos;

@@ -1748,7 +1748,13 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             us que el GSP espero parado antes del booter |
 ///                             las entradas del vector del disco al soltarlo
 ///                             << 32 | al verlo parado << 48 (16 bits cada
-///                             una) (bit 63 de 4 y 5: se tomo)
+///                             una); 16 y 17 (29-09, EL VIGIA) los 8 primeros
+///                             bytes del BLAKE3 de lo que la 3060 solo lee (el
+///                             GSP-RM, su radix3, el bootloader, la firma y el
+///                             ucode del booter) ANTES del booter y al verlo
+///                             parado, con el bit 0 a 1 (0 = no se tomo); 18
+///                             y 19 lo mismo de los argumentos de LIBOS y
+///                             `rmargs` (bit 63 de 4 y 5: se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

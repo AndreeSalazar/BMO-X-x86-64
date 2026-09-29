@@ -437,6 +437,29 @@ pub fn prestar() -> Result<u64, u32> {
     Ok(total)
 }
 
+/// **La HUELLA de todo lo que la 3060 solo LEE de aqui** (29-09, el vigia
+/// del booter): el bootloader y la firma (lo auxiliar menos la WPR meta, que
+/// el booter SI escribe), la radix3 y la imagen entera, por sus fisicas.
+/// `false` si aun no se presto. Son ~61 MB: un BLAKE3 de decenas de ms.
+///
+/// Lo pidio el propietario: *"no sera que la RAM altera?"*. Tomada antes de
+/// soltar el booter y otra vez al verlo parado: si difieren, algo escribio
+/// en lo que solo se lee -- la respuesta, medida, a esa pregunta.
+pub fn huella_prestada(h: &mut bmo_hash::Hasher) -> bool {
+    let Some(p) = plan() else { return false };
+    if ESTADO.load(Ordering::Acquire) & GSP_PRESTADO == 0 {
+        return false;
+    }
+    h.update(memoria(AUX.load(Ordering::Acquire), AUX_META * PAGINA));
+    h.update(memoria(RADIX.load(Ordering::Acquire), wpr::Radix3::de(p.imagen.bytes).paginas_tabla() * PAGINA));
+    let paginas = paginas_de(p.imagen.bytes);
+    for b in 0..paginas.div_ceil(BLOQUE_PAGINAS) {
+        let n = (paginas - b * BLOQUE_PAGINAS).min(BLOQUE_PAGINAS);
+        h.update(memoria(BLOQUES[b as usize].load(Ordering::Acquire), n * PAGINA));
+    }
+    true
+}
+
 // == LA WPR META DESPUES DEL BOOTER (26-09) ===================================
 //
 // La pagina de la WPR meta es la UNICA que la 3060 puede escribir (el prestamo

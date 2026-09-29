@@ -736,6 +736,27 @@ pub fn banda_punto(i: u32) -> u64 {
     invoke(CURRENT_TASK, OP_SMP_DESPERTAR, i as u64, 5, 0).value
 }
 
+/// **Una tanda de la PRUEBA DE LA RAM** (`ram prueba`, 29-09): 16 MiB de la
+/// RAM libre, tres patrones, releidos tras vaciar la cache. `primera` empieza
+/// una prueba nueva. `Some(paginas probadas | errores << 40 | acabo << 63)`, o
+/// `None` si el kernel la nego (otra tanda en curso).
+pub fn ram_tanda(primera: bool) -> Option<u64> {
+    let st = invoke(CURRENT_TASK, OP_SMP_DESPERTAR, if primera { 0 } else { 1 }, 6, 0);
+    if st.code == 0 { Some(st.value) } else { None }
+}
+
+/// Devuelve ya todo lo que la prueba de la RAM tenia pedido.
+pub fn ram_cancelar() {
+    let _ = invoke(CURRENT_TASK, OP_SMP_DESPERTAR, 0, 7, 0);
+}
+
+/// Un campo del detalle de la prueba de la RAM (ver `prueba_ram::detalle` en
+/// el kernel): 0 errores, 1 la primera fisica mala, 2 lo escrito, 3 lo leido,
+/// 4 los bits que fallaron, 5 la ultima mala, 6 us, 7 trozos, 8 paginas.
+pub fn ram_detalle(campo: u32) -> u64 {
+    invoke(CURRENT_TASK, OP_SMP_DESPERTAR, campo as u64, 8, 0).value
+}
+
 /// **Cierra una transaccion vacia en ESTRATOS.** Devuelve la generacion nueva,
 /// o **0** si no se pudo.
 ///

@@ -286,6 +286,12 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     // 0x15 se va. Cuesta unos ms una vez por arranque.
     // SAFETY: Ring 0; `wbinvd` solo escribe y vacia caches, no toca memoria
     // que no sea suya ni registros.
+    // EL VIGIA (29-09): la huella de lo que la 3060 solo lee, ANTES. Va
+    // antes del `wbinvd` y del reloj: no retrasa al booter respecto a ellos.
+    let (inmutable, libos) = huellas();
+    AUTOPSIA[12].store(inmutable, Ordering::Release);
+    AUTOPSIA[14].store(libos, Ordering::Release);
+    crate::ring0::cabina::info("gpu", "L0c3b: el vigia: huella de lo que la 3060 solo lee, antes del booter", inmutable);
     unsafe { core::arch::asm!("wbinvd", options(nostack, preserves_flags)) };
     crate::ring0::cabina::info("gpu", "L0c3b: H3, la cache de la CPU escrita a la RAM (wbinvd) antes del booter", 0);
     let ahora = crate::ring0::task::scheduler::rdtsc();
@@ -356,7 +362,33 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 // las 10:54 malos, con `al llegar` y `cargador` IGUALES. Lo que si cambia de
 // un arranque a otro es el tiempo y el trafico de alrededor.
 
-static AUTOPSIA: [AtomicU64; 12] = [const { AtomicU64::new(0) }; 12];
+//    [12] y [13] (29-09, EL VIGIA) los 8 primeros bytes del BLAKE3 de TODO lo
+//         que la 3060 solo lee -- el GSP-RM, su radix3, el bootloader, la
+//         firma y el ucode del booter -- justo ANTES de soltar el booter, y
+//         al verlo parado. [14] y [15], lo mismo de los argumentos de LIBOS
+//         y `rmargs`. Iguales = la RAM no se movio mientras el booter
+//         trabajaba; distintos = algo escribio donde nadie debia.
+
+static AUTOPSIA: [AtomicU64; 16] = [const { AtomicU64::new(0) }; 16];
+
+/// **El vigia**: `(huella de lo que solo se lee, huella de LIBOS)`, los 8
+/// primeros bytes de cada BLAKE3; 0 si esa parte aun no existe.
+fn huellas() -> (u64, u64) {
+    let ocho = |h: bmo_hash::Hasher| {
+        let d = h.finalize();
+        u64::from_le_bytes([d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7]]) | 1
+    };
+    let mut h = bmo_hash::Hasher::new();
+    let gsp = gpu_gsp::huella_prestada(&mut h);
+    let base = BOOTER_F.load(Ordering::Acquire);
+    if base != 0 {
+        h.update(memoria(base, UCODE_BYTES));
+    }
+    let a = if gsp { ocho(h) } else { 0 };
+    let mut h = bmo_hash::Hasher::new();
+    let b = if gpu_libos::huella_argumentos(&mut h) { ocho(h) } else { 0 };
+    (a, b)
+}
 /// Cuando arranco el falcon del GSP en `despertar` (TSC).
 static GSP_TSC: AtomicU64 = AtomicU64::new(0);
 
@@ -396,6 +428,16 @@ fn autopsiar(r: &mut Bar0) {
     let h = AUTOPSIA[11].load(Ordering::Acquire) & 0xFFFF_FFFF_FFFF;
     AUTOPSIA[11].store(h | (crate::ring0::dev::disk::entradas_irq() as u64 & 0xFFFF) << 48, Ordering::Release);
     c("  ...us del GSP parado antes del booter | disco al soltar << 32 | al pararse << 48", AUTOPSIA[11].load(Ordering::Acquire));
+    // EL VIGIA, DESPUES: la misma huella, al ver el booter parado.
+    let (inmutable, libos) = huellas();
+    AUTOPSIA[13].store(inmutable, Ordering::Release);
+    AUTOPSIA[15].store(libos, Ordering::Release);
+    let igual = inmutable == AUTOPSIA[12].load(Ordering::Acquire) && libos == AUTOPSIA[14].load(Ordering::Acquire);
+    if igual {
+        c("  ...el vigia: lo que la 3060 solo lee sigue IGUAL que antes del booter", inmutable);
+    } else {
+        crate::ring0::cabina::fault("gpu", "L0c3b: el vigia: la RAM que lee el booter CAMBIO mientras trabajaba", inmutable);
+    }
     let ev = AUTOPSIA[10].load(Ordering::Acquire) & 0xFFFF_FFFF;
     AUTOPSIA[10].store(ev | crate::ring0::dev::gpu_prestamo::eventos() << 32, Ordering::Release);
     c("  ...el bus de la 3060 antes del booter (metiche::una)", AUTOPSIA[8].load(Ordering::Acquire));
@@ -559,7 +601,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=15).contains(&(sel >> 8)) {
+    if (4..=19).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

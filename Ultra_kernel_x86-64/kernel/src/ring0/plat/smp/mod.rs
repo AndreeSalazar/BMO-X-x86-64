@@ -44,6 +44,8 @@ pub mod lapic;
 pub mod map;
 /// El reparto de trabajo. Sin esto, los nucleos despiertos no sirven de nada.
 pub mod banda;
+/// LA PRUEBA DE LA RAM (`ram prueba`): patrones en la RAM libre, releidos.
+pub mod prueba_ram;
 /// LA FICHA DE CADA OBRERO: quien es --nucleo y hilo-- y que lleva hecho
 /// ahora mismo. Es lo que separa "doce partes iguales" de un reparto que
 /// sabe que dos hilos comparten un nucleo.

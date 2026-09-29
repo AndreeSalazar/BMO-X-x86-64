@@ -508,6 +508,94 @@ pub(crate) fn memory(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     After::Settle
 }
 
+/// **`ram prueba`: BMO-X prueba su propia RAM** (29-09).
+///
+/// El kernel toma la RAM LIBRE por tandas de 16 MiB, escribe tres patrones
+/// (la propia direccion, su inversa y pseudoaleatorio), vacia la cache y la
+/// relee. Deja siempre 1 GiB libre y lo devuelve todo al acabar. Lo pidio el
+/// propietario tras el 0x15: *"no sera que la RAM altera?"* -- medido, no
+/// contado. Ver `plat/smp/prueba_ram.rs` en el kernel.
+pub(crate) fn ram_prueba(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    let s = &mut dsk.out.grid;
+    s.with_ink(INK_ECHO);
+    s.text(b"  RAM PRUEBA -------------------------------------------------\n");
+    s.text(b"    la RAM libre, de 16 MiB en 16 MiB: escribir, vaciar la cache, releer\n");
+    s.with_ink(INK_PLAIN);
+    paint_output(&p, &dsk.run_box, &dsk.out.grid);
+    p.volcar();
+    let mut primera = true;
+    let mut ultimo = 0u64;
+    let mut vueltas = 0u32;
+    let v = loop {
+        let Some(v) = bmo::ram_tanda(primera) else {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"    el kernel dice que ya hay otra prueba en curso\n");
+            dsk.out.grid.with_ink(INK_PLAIN);
+            paint_status(&p, &dsk.run_box, "ram prueba: ocupada", INK_DIM);
+            dsk.field.n = 0;
+            return After::Settle;
+        };
+        primera = false;
+        vueltas += 1;
+        if v >> 63 != 0 {
+            break v;
+        }
+        // El avance, cada GiB.
+        let gib = (v & ((1 << 40) - 1)) * 4096 >> 30;
+        if gib != ultimo {
+            ultimo = gib;
+            paint_status(&p, &dsk.run_box, "ram prueba: probando...", INK_DIM);
+            bmo::yield_screen();
+        }
+        if vueltas > 20_000 {
+            // Una red: 20.000 tandas son 300 GiB. No pasa; si pasa, se para.
+            bmo::ram_cancelar();
+            break v | 1 << 63;
+        }
+    };
+    let mut d = [0u8; 10];
+    let s = &mut dsk.out.grid;
+    let paginas = v & ((1 << 40) - 1);
+    let errores = bmo::ram_detalle(0);
+    s.text(b"    probados   ");
+    let k = decimal(paginas * 4096 >> 20, &mut d);
+    s.text(&d[..k]);
+    s.text(b" MiB en ");
+    let k = decimal(bmo::ram_detalle(6) / 1000, &mut d);
+    s.text(&d[..k]);
+    s.text(b" ms (el ultimo GiB libre no se toca, y lo que ya es de alguien tampoco)\n");
+    if errores == 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"    errores    0: cada palabra se leyo como se escribio, en los 3 patrones\n");
+        s.with_ink(INK_PLAIN);
+        s.text(b"    la RAM libre no altera. Una pasada de segundos es un dato, no un certificado.\n");
+    } else {
+        s.with_ink(INK_ERR);
+        s.text(b"    errores    ");
+        let k = decimal(errores, &mut d);
+        s.text(&d[..k]);
+        s.text(b" palabras NO se leyeron como se escribieron\n");
+        s.text(b"    la primera en 0x");
+        s.hex(bmo::ram_detalle(1), 12);
+        s.text(b": escrito 0x");
+        s.hex(bmo::ram_detalle(2), 16);
+        s.text(b", leido 0x");
+        s.hex(bmo::ram_detalle(3), 16);
+        s.text(b"\n    la ultima en 0x");
+        s.hex(bmo::ram_detalle(5), 12);
+        s.text(b"; bits que fallaron: 0x");
+        s.hex(bmo::ram_detalle(4), 16);
+        s.byte(b'\n');
+        s.with_ink(INK_PLAIN);
+        s.text(b"    siempre el mismo sitio = un chip; sueltos = el perfil de memoria (EXPO/XMP)\n");
+    }
+    super::datos::anotar(b"ram prueba mib", paginas * 4096 >> 20, b"MiB");
+    super::datos::anotar(b"ram prueba errores", errores, b"");
+    paint_status(&p, &dsk.run_box, if errores == 0 { "ram prueba: 0 errores" } else { "ram prueba: HAY ERRORES" }, if errores == 0 { INK } else { INK_DIM });
+    dsk.field.n = 0;
+    After::Settle
+}
+
 /// * El aviso va ANTES y se VUELCA antes, porque la
 /// llamada bloquea hasta un segundo entero mientras
 /// el kernel manda INIT+SIPI a cada nucleo. Un

@@ -105,6 +105,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"consumo", b"nucleos, MHz, vatios y RAM en tabla"),
     (b"cpu", b"el procesador y su reloj"),
     (b"mem", b"la memoria"),
+    (b"ram prueba", b"BMO-X prueba su propia RAM libre: escribe, vacia la cache y relee"),
     (b"apps", b"que programa tiene RAM pedida"),
     (b"disco", b"el aparato, lo que queda y lo devuelto"),
     (b"ls", b"que hay en el disco"),

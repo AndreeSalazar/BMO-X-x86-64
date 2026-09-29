@@ -818,6 +818,29 @@ fn fila_autopsia(s: &mut Output) {
             super::datos::anotar(b"gpu booter hueco gsp", h & 0xFFFF_FFFF, b"us");
             super::datos::anotar(b"gpu booter disco durante", disco, b"");
         }
+        // EL VIGIA (29-09): lo que la 3060 solo lee, antes y al pararse. Si
+        // cambio, algo escribio en la RAM del booter mientras trabajaba.
+        let (ia, ip) = (bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 16 << 8), bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 17 << 8));
+        let (la, lp) = (bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 18 << 8), bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 19 << 8));
+        if ia != 0 && ip != 0 {
+            s.text(b"; el vigia: la RAM que solo lee el booter (61 MB) ");
+            s.text(if ia == ip { b"IGUAL antes y despues" as &[u8] } else { b"CAMBIO MIENTRAS TRABAJABA" });
+            s.text(b" (0x");
+            s.hex(ia, 16);
+            if ia != ip {
+                s.text(b" -> 0x");
+                s.hex(ip, 16);
+            }
+            s.text(b")");
+            if la != 0 && lp != 0 {
+                s.text(b", LIBOS ");
+                // En un arranque BUENO el GSP ya corrio y puede haberla tocado.
+                s.text(if la == lp { b"igual" as &[u8] } else { b"cambio (normal solo si el GSP arranco)" });
+            }
+            super::datos::anotar(b"gpu booter vigia antes", ia, b"");
+            super::datos::anotar(b"gpu booter vigia despues", ip, b"");
+            super::datos::anotar(b"gpu booter vigia libos igual", (la == lp) as u64, b"");
+        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");
