@@ -917,6 +917,46 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        (dibujo + copia), el techo es ~7800 fps en BMOX-12;
                        en un juego de verdad lo que gana es que la CPU del
                        juego y la 3060 trabajen A LA VEZ
+                    **EL COMBO CPU+3060, analizado (29-09).** El propietario:
+                       *"mi GPU logro hasta 28 mil FPS ... que la CPU
+                       coordine mejor AMBOS"*. Los 28 mil son el DIBUJO solo
+                       (`3060 36 us` -> 1e6/36 = 27.700). El lote medido son
+                       247 us y va EN FILA, sin solaparse nada:
+                       ```text
+                          CPU  resto 105 + preparar 12          = 117 us
+                          3060 dibujo 36                         =  36 us
+                          COPIA sombra -> pantalla (la espera)   =  93 us
+                          en fila: 247 us = 4.000 fps
+                       ```
+                       La copia (3,7 MB de 1280x720 en ~93 us, unos 40
+                       GB/s) la hace el MOTOR DE COPIA pasando de bloque a
+                       pitch, cuando la VRAM da ~360 GB/s. Tres palancas,
+                       en este orden, cada una con su medida antes:
+                       1. **MEDIR el `resto`** (105 us que no se sabe de
+                          quien son): candidatos, prestar y devolver las
+                          texturas por la IOMMU en CADA lote (con su
+                          invalidacion), las dos `fisica_de`, `rc::leer`
+                          de la receta entera y la comparacion de
+                          `ya_pegada`. Sin el reparto no se toca nada.
+                       2. **Z5 [idea, por probar]: el RESOLVE por el GR y no
+                          por la copia.** Un segundo pase en el MISMO canal:
+                          un triangulo que cubre la ventana, sin Z, que
+                          muestrea la sombra (en bloque, como textura: las
+                          texturas ya van, 96/96) y escribe el color PITCH
+                          de la pantalla (color pitch SIN Z es lo que la
+                          3060 si acepta; el Xid 69 era pitch CON Z). Quita
+                          la copia y, de paso, la sincronizacion entre dos
+                          motores que pide Z4b: todo va en un canal, en
+                          orden, con un solo semaforo al final.
+                       3. **Z4b, el anillo en la receta** (arriba): la CPU
+                          escribe el lote N+1 mientras la 3060 dibuja el N.
+                          Con 1 y 2 hechos, el techo pasa a ser el mayor de
+                          los dos, no la suma.
+                       Y lo que Cyberpunk pedira antes que nada de esto:
+                       **los hilos de Ring 3 en los otros nucleos.** Hoy
+                       los 11 obreros (`plat/smp/obrero.rs`) solo corren
+                       faenas del kernel; un juego y PROTON-X corren en UN
+                       hilo del Ryzen de 12
                     Lo que NO se hace: que el `.exe` lea su back buffer
                     (casi ningun juego lo hace; si uno lo hace, ese
                     fotograma baja a la RAM, dicho), ni cambiar la
