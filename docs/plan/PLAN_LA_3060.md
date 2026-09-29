@@ -2590,6 +2590,12 @@ RAM (WPR meta, argumentos de LIBOS, la radix3 de 60 MiB con un L3 de 32)
 acaba de escribirlo la CPU. **Como se sabe:** la fila `despierto` de varios
 arranques con este build; `cabina` dice `H3, la cache ... (wbinvd)`.
 
+**H3 medido (29-09 12:07): primer arranque con el `wbinvd`, `0x15` igual**
+(`GSP MAILBOX0 0xBADF1002`). Un arranque no tumba una hipotesis de un fallo
+que ya salia siempre, pero tampoco la apoya: si el siguiente sale igual, H3
+cae y el `wbinvd` se queda (no cuesta nada y no estorba). Lo siguiente se
+decide con lo que falte por mirar de la autopsia, no a ciegas.
+
 **W2 [por probar, sin codigo]: que APAGAR desde Windows sea apagar de
 verdad.** (1) Windows: desactivar el inicio rapido (`powercfg /h off`, como
 administrador; quita tambien la hibernacion, y ademas deja el NTFS de D:

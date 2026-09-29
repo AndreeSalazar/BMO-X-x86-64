@@ -109,6 +109,8 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"disco", b"el aparato, lo que queda y lo devuelto"),
     (b"ls", b"que hay en el disco"),
     (b"lee", b"que hay DENTRO de un fichero"),
+    (b"personal ls", b"que hay en tu disco Personal (D:), solo para mirar"),
+    (b"personal lee", b"la medida y los primeros bytes de un fichero de D:"),
     (b"cabina", b"lo que el kernel apunto"),
     (b"cabina fallos", b"solo los fallos"),
     (b"fallo", b"la ultima autopsia de Ring 3"),

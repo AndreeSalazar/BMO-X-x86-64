@@ -96,6 +96,35 @@ impl Directorio {
         }
         Some(EntradaDir { name, es_dir, bytes })
     }
+
+    /// **La siguiente entrada con su nombre ENTERO** (UTF-8 en `nombre`):
+    /// `(bytes del nombre, carpeta, medida)`, o `None` cuando se acaba.
+    ///
+    /// Para el disco Personal (`d:`, N1b): un nombre NTFS no es un 8.3 de 11
+    /// bytes y una medida de Cyberpunk no cabe en 32 bits. El nombre se pide
+    /// de 7 en 7 hasta que un trozo llega corto.
+    pub fn siguiente_largo(&self, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+        let v = invoke(self.cap, DIR_OP_SIGUIENTE, 0, 0, 0).value;
+        if v >> 63 == 0 {
+            return None;
+        }
+        let mut puesto = 0usize;
+        loop {
+            let w = invoke(self.cap, DIR_OP_NOMBRE, puesto as u64, 0, 0).value;
+            let n = ((w >> 56) as usize).min(7);
+            let b = w.to_le_bytes();
+            for k in 0..n {
+                if puesto < nombre.len() {
+                    nombre[puesto] = b[k];
+                }
+                puesto += 1;
+            }
+            if n < 7 || puesto >= nombre.len() {
+                break;
+            }
+        }
+        Some((puesto.min(nombre.len()), (v >> 62) & 1 != 0, v & ((1 << 62) - 1)))
+    }
 }
 
 /// **Cerrar es del `Drop`, no de quien llama.**

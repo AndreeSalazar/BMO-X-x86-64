@@ -100,14 +100,30 @@ static mut ARRANQUE: [bool; MAX_ABIERTOS] = [false; MAX_ABIERTOS];
 static mut INDICE: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 static mut NAME: [[u8; 11]; MAX_ABIERTOS] = [[b' '; 11]; MAX_ABIERTOS];
 static mut OWNER: [u32; MAX_ABIERTOS] = [NO_OWNER; MAX_ABIERTOS];
+/// ** N1b (29-09): la carpeta es del disco Personal (`d:`): su registro del
+/// MFT; `u64::MAX` = no, es de FAT. Su nombre ya no es un 8.3 de 11 bytes:
+/// va entero en UTF-8 en `LARGO` y lo cuenta `NLEN`.
+static mut PERSONAL: [u64; MAX_ABIERTOS] = [u64::MAX; MAX_ABIERTOS];
+static mut LARGO: [[u8; 256]; MAX_ABIERTOS] = [[0; 256]; MAX_ABIERTOS];
+static mut NLEN: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 
 /// Abre un directorio y entrega su handle a `pid`. Ruta vacia = la raiz de
 /// DATOS; `efi:` delante = la particion de arranque, solo para mirar (ver
 /// `fs::sin_volumen`). Listar no escribe, asi que aqui no hace falta mas.
 pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
-    let (arranque, cluster) = match crate::ring0::fsys::fs::dir_de(ruta) {
-        Some(c) => c,
-        None => return Err(ERROR_DIR_NO_ESTA),
+    // ** `d:` es el disco Personal, en NTFS y solo para leer (N1b).
+    let mut personal = u64::MAX;
+    let (arranque, cluster) = if let Some(resto) = crate::ring0::dev::disk::ajeno::ruta_personal(ruta) {
+        match crate::ring0::dev::disk::ajeno::abrir(resto) {
+            Some(Ok(n)) if n.carpeta => personal = n.registro,
+            _ => return Err(ERROR_DIR_NO_ESTA),
+        }
+        (false, 0)
+    } else {
+        match crate::ring0::fsys::fs::dir_de(ruta) {
+            Some(c) => c,
+            None => return Err(ERROR_DIR_NO_ESTA),
+        }
     };
     unsafe {
         let libre = (0..MAX_ABIERTOS).find(|&i| OWNER[i] == NO_OWNER);
@@ -123,6 +139,8 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         // de un cursor que ya apunta a algo antes de que le pidan avanzar.
         INDICE[i] = usize::MAX;
         NAME[i] = [b' '; 11];
+        PERSONAL[i] = personal;
+        NLEN[i] = 0;
         OWNER[i] = pid;
         match cap::grant(pid, cap::KIND_DIRECTORIO, cap::RIGHT_READ, i as u64) {
             Some(h) => {
@@ -140,6 +158,18 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
 fn next(i: usize) -> u64 {
     unsafe {
         let n = INDICE[i].wrapping_add(1);
+        if PERSONAL[i] != u64::MAX {
+            let nombre = &mut *core::ptr::addr_of_mut!(LARGO[i]);
+            return match crate::ring0::dev::disk::ajeno::entrada(PERSONAL[i], n, nombre) {
+                // La medida en 62 bits: un fichero de Cyberpunk pasa de 4 GiB.
+                Some((largo, carpeta, medida)) => {
+                    INDICE[i] = n;
+                    NLEN[i] = largo;
+                    (1u64 << 63) | ((carpeta as u64) << 62) | (medida & ((1 << 62) - 1))
+                }
+                None => 0,
+            };
+        }
         match crate::ring0::fsys::fs::entrada_de(ARRANQUE[i], CLUSTER[i], n) {
             Some((name, es_dir, tam)) => {
                 INDICE[i] = n;
@@ -153,7 +183,7 @@ fn next(i: usize) -> u64 {
 
 fn name(i: usize, desde: usize) -> u64 {
     unsafe {
-        let n = &NAME[i];
+        let n: &[u8] = if PERSONAL[i] != u64::MAX { &LARGO[i][..NLEN[i]] } else { &NAME[i] };
         let mut w = [0u8; 8];
         let mut k = 0usize;
         while k < 7 && desde + k < n.len() {
@@ -177,6 +207,7 @@ pub fn operation(idx: u64, op: u64, arg0: u64) -> Option<u64> {
                 OWNER[i] = NO_OWNER;
                 CLUSTER[i] = 0;
                 INDICE[i] = usize::MAX;
+                PERSONAL[i] = u64::MAX;
             }
             Some(1)
         }
@@ -212,6 +243,7 @@ pub fn process_died(pid: u32) {
                 OWNER[i] = NO_OWNER;
                 CLUSTER[i] = 0;
                 INDICE[i] = usize::MAX;
+                PERSONAL[i] = u64::MAX;
             }
         }
     }

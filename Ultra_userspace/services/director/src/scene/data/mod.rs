@@ -510,7 +510,7 @@ impl DataWindow {
                 self.view = View::Obra;
             }
             None => {
-                self.aviso = Some("Personal (D:) solo se mide hoy: explorarlo llega con N1b (`personal ls`)");
+                self.aviso = Some("Personal (D:) se explora desde Ejecutar: `personal ls [carpeta]` y `personal lee <fichero>`, solo lectura");
             }
         }
     }

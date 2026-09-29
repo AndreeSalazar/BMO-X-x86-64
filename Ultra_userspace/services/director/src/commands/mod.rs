@@ -147,6 +147,13 @@ pub(crate) enum Command<'a> {
     /// `lee <path>` -- muestra lo que hay DENTRO de un archivo. Es el hermano
     /// de `ls`: aquel dice que archivos hay, este los abre.
     Read(&'a [u8]),
+    /// `personal ls [ruta]` -- que hay en el disco Personal (D:, NTFS, solo
+    /// leer). N1b: la primera vez que Ring 3 mira dentro de un disco que no es
+    /// de BMO-X.
+    PersonalLs(&'a [u8]),
+    /// `personal lee <fichero>` -- su medida y sus primeros bytes. No lo trae
+    /// entero: lo mira por la ventana de 64 KiB del kernel.
+    PersonalLee(&'a [u8]),
     /// `escribe <path> <text>` -- crea un archivo con ese texto.
     ///
     /// Es la primera vez que Ring 3 GUARDA algo. Hasta ahora todo lo que
@@ -489,6 +496,20 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         }
         b"clear" | b"cls" | b"limpia" => Command::Clear,
         b"ls" | b"dir" | b"lista" => Command::List(rest),
+        // `personal ls [ruta]` / `personal lee <fichero>`: el disco D:, SOLO
+        // para mirar (N1b). No hay `personal escribe`, y no es un olvido.
+        b"personal" | b"d:" => {
+            let k = rest.iter().position(|&c| c == b' ').unwrap_or(rest.len());
+            let (sub, arg) = rest.split_at(k);
+            let mut j = 0;
+            while j < arg.len() && arg[j] == b' ' { j += 1; }
+            let arg = &arg[j..];
+            match sub {
+                b"" | b"ls" | b"dir" => Command::PersonalLs(arg),
+                b"lee" | b"cat" if !arg.is_empty() => Command::PersonalLee(arg),
+                _ => Command::Help,
+            }
+        }
         b"cat" | b"lee" => {
             if rest.is_empty() { Command::Help } else { Command::Read(rest) }
         }
