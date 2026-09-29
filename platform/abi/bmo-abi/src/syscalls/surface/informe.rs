@@ -1831,7 +1831,9 @@ pub const INFO_METICHE: u64 = 0xC3;
 ///             el FSInfo (bytes; `UNIDAD_NO_SE` si no hay). PERSONAL: donde
 ///             se paro N1a, `etapa | detalle << 8`:
 ///               0 no se busco            1 no hay otro disco SATA (detalle:
-///               2 su puerto no se preparo  mascara de puertos con disco)
+///               2 su puerto no se preparo  PI | DET de los puertos 0..7,
+///                                          4 bits cada uno, << 8 | firma
+///                                          SATA de cada uno << 40)
 ///               3 no contesto a IDENTIFY 4 es el MISMO disco de BMO-X
 ///               5 ni GPT ni MBR que leer 6 ninguna particion NTFS (detalle:
 ///               7 el NTFS no monto          cuantas particiones vio)

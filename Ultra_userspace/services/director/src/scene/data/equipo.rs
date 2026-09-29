@@ -147,7 +147,17 @@ fn unidad_info(u: u64) -> Medida {
 pub(crate) enum Detalle {
     Nada,
     Numero(u64),
-    Puertos(u64),
+    /// Etapa 1: `PI` (8 bits) | el DET de los 8 primeros puertos (4 bits
+    /// cada uno) << 8 | los que traen firma de disco SATA << 40.
+    Enlaces(u64),
+}
+
+/// Los puertos con algo (DET distinto de 0) de un `Detalle::Enlaces`:
+/// `(puerto, DET, firma SATA)`.
+pub(crate) fn enlaces(d: u64) -> impl Iterator<Item = (u64, u64, bool)> {
+    (0..8u64)
+        .map(move |k| (k, (d >> (8 + 4 * k)) & 0xF, (d >> (40 + k)) & 1 == 1))
+        .filter(|&(_, det, _)| det != 0)
 }
 
 /// **Por que el disco Personal no esta montado**, de la etapa en que se paro
@@ -156,7 +166,7 @@ pub(crate) enum Detalle {
 pub(crate) fn motivo_n1a(etapa: u64) -> (&'static str, Detalle) {
     let (e, d) = (etapa & 0xFF, etapa >> 8);
     match e {
-        1 => ("sin otro disco SATA; con disco:", Detalle::Puertos(d)),
+        1 => ("sin otro disco; enlace", Detalle::Enlaces(d)),
         2 => ("su puerto no se preparo: ", Detalle::Numero(d)),
         3 => ("no contesto a IDENTIFY; puerto ", Detalle::Numero(d)),
         4 => ("es el MISMO disco de BMO-X", Detalle::Nada),
@@ -190,11 +200,16 @@ fn por_que_no(p: &bmo::Pantalla, x: u32, y: u32, etapa: u64) -> u32 {
     match detalle {
         Detalle::Nada => {}
         Detalle::Numero(v) => x = num(x, v),
-        Detalle::Puertos(m) => {
-            for k in 0..32 {
-                if m >> k & 1 == 1 {
-                    x = p.texto(x, y, " ", AMBAR);
-                    x = num(x, k);
+        Detalle::Enlaces(d) => {
+            // ` p2=3* p3=1`: el puerto, su DET (3 = enlace vivo, 1 = hay
+            // aparato y no habla) y `*` si trae firma de disco SATA.
+            for (k, det, sata) in enlaces(d) {
+                x = p.texto(x, y, " p", AMBAR);
+                x = num(x, k);
+                x = p.texto(x, y, "=", AMBAR);
+                x = num(x, det);
+                if sata {
+                    x = p.texto(x, y, "*", AMBAR);
                 }
             }
         }

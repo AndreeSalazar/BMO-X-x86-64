@@ -36,3 +36,5 @@ pub use controller::{atender, aviso_crudo, habilitar_irq, AJENOS, AVISOS};
 /// **El perfil del puerto**, leido del cable y no supuesto: `PxSSTS` dice a
 /// que generacion negocio el HBA. El `CAP` viaja en [`AhciController::cap`].
 pub use controller::port_ssts;
+/// N1a (29-09): una segunda oportunidad para un puerto sin enlace.
+pub use controller::reanimar;

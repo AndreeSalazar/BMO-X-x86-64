@@ -345,6 +345,36 @@ unsafe fn port_start(mmio: u64, port: u8) -> bool {
     true
 }
 
+/// **Una segunda oportunidad para UN puerto** (N1a, 29-09): el censo del
+/// arranque lo dejo con un aparato PRESENTE pero sin enlace (DET 1) o con el
+/// PHY fuera (DET 4). Lo mismo que el censo --arrancar el disco si hay SSS,
+/// COMRESET y hasta 1,5 s de espera-- en ese puerto solo, y su ficha al dia.
+/// `true` si ahora el enlace esta vivo (DET 3). Un puerto que es de un disco
+/// ya en uso no se toca: se pide para uno SIN enlace, que no tiene nada en
+/// marcha que romper.
+pub unsafe fn reanimar(port_idx: u8) -> bool {
+    #[allow(static_mut_refs)]
+    let ctrl = match CONTROLLER.as_mut() { Some(c) => c, None => return false };
+    if port_idx >= ctrl.port_count.min(32) { return false; }
+    let mmio = ctrl.mmio_base;
+    if ctrl.ports[port_idx as usize].state == PortState::Active { return true; }
+    let sss = ctrl.cap & (1 << 27) != 0;
+    if port_kick(mmio, port_idx, sss) {
+        esperar_enlaces(mmio, 1 << port_idx, ctrl.port_count.min(32));
+    }
+    port_write(mmio, port_idx, PORT_SERR, port_read(mmio, port_idx, PORT_SERR));
+    let ssts = port_read(mmio, port_idx, PORT_SSTS);
+    let p = &mut ctrl.ports[port_idx as usize];
+    p.ssts = ssts;
+    p.signature = port_read(mmio, port_idx, PORT_SIG);
+    p.state = match ssts & SSTS_DET {
+        0x03 => PortState::Active,
+        0x01 => PortState::Present,
+        _ => PortState::Empty,
+    };
+    p.state == PortState::Active
+}
+
 /// Reserva las estructuras DMA del puerto y lo deja listo para comandos.
 pub unsafe fn init_port_dma(port_idx: u8) -> bool {
     #[allow(static_mut_refs)]

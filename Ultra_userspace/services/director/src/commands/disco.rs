@@ -370,7 +370,7 @@ pub(crate) fn report_disco(s: &mut Output) {
 /// en el informe y no solo en la tarjeta de F12 (el anillo de la cabina se
 /// lleva las lineas del arranque). El mismo texto que la tarjeta.
 fn personal(s: &mut Output) {
-    use crate::scene::data::equipo::{motivo_n1a, Detalle};
+    use crate::scene::data::equipo::{enlaces, motivo_n1a, Detalle};
     let u = bmo::UNIDAD_PERSONAL << 8;
     let bytes = bmo::info(bmo::INFO_UNIDAD | u);
     campo(s, b"personal");
@@ -397,13 +397,23 @@ fn personal(s: &mut Output) {
     match detalle {
         Detalle::Nada => {}
         Detalle::Numero(v) => s.dec(v),
-        Detalle::Puertos(m) => {
-            for k in 0..32 {
-                if m >> k & 1 == 1 {
-                    s.text(b" ");
-                    s.dec(k);
+        Detalle::Enlaces(d) => {
+            for (k, det, sata) in enlaces(d) {
+                s.text(b" p");
+                s.dec(k);
+                s.text(b"=");
+                s.dec(det);
+                if sata {
+                    s.text(b"*");
                 }
             }
+            s.text(b"   PI 0x");
+            s.hex(d & 0xFF, 2);
+            s.with_ink(INK_PLAIN);
+            s.text(b"\n");
+            campo(s, b"");
+            s.text(b"DET 3 = enlace vivo, 1 = hay aparato y no habla, 4 = PHY fuera; * = firma de disco SATA\n");
+            return;
         }
     }
     s.with_ink(INK_PLAIN);

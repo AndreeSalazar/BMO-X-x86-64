@@ -160,16 +160,37 @@ static mut SERIE: [u8; 20] = [0; 20];
 /// tenga la serie del de BMO-X. Luego, su NTFS.
 pub(super) fn buscar(suyo: u8) {
     let Some(ctrl) = bmo_ahci::controller() else { return };
-    // Los puertos con un disco SATA vivo (el de BMO-X incluido): el detalle
-    // de "no hay otro".
-    let mut vistos = 0u64;
-    for i in 0..(ctrl.port_count as usize).min(32) {
-        let pt = &ctrl.ports[i];
-        if pt.state == bmo_ahci::PortState::Active && pt.signature == bmo_ahci::SIG_SATA_DISK {
-            vistos |= 1 << i;
+    // ** EL METAL (29-09 10:54): "sin otro disco SATA; con disco: 2", y en
+    // Windows el SSD de D: SI esta en este controlador. Dos cosas:
+    //
+    // 1. SEGUNDA OPORTUNIDAD a los puertos con un aparato PRESENTE sin enlace
+    //    (DET 1) o con el PHY fuera (DET 4): el mismo COMRESET del censo, en
+    //    ese puerto solo (`bmo_ahci::reanimar`). Uno vacio (DET 0) no, que
+    //    cuesta 1,5 s de espera por nada.
+    // 2. El detalle de "no hay otro" dice lo que vio CADA puerto: los que el
+    //    HBA declara (PI, 8 bits), el DET de los 8 primeros (4 bits cada uno) y
+    //    cuales traen firma de disco SATA. Asi se sabe si D: esta en un puerto
+    //    sin enlace o en otro controlador, sin adivinar.
+    let n = (ctrl.port_count as usize).min(8);
+    for i in 0..n {
+        let det = ctrl.ports[i].ssts & 0xF;
+        if i as u8 != suyo && (det == 1 || det == 4) {
+            // SAFETY: un puerto sin enlace: no tiene nada en marcha que romper.
+            let vivo = unsafe { bmo_ahci::reanimar(i as u8) };
+            crate::ring0::cabina::info("disk", if vivo { "N1a: puerto REANIMADO; puerto" } else { "N1a: puerto sin enlace tras reintentar; puerto" }, i as u64);
         }
     }
-    etapa(ETAPA_SIN_OTRO, vistos);
+    let Some(ctrl) = bmo_ahci::controller() else { return };
+    let mut det = 0u64;
+    let mut sata = 0u64;
+    for i in 0..n {
+        let pt = &ctrl.ports[i];
+        det |= ((pt.ssts & 0xF) as u64) << (4 * i);
+        if pt.signature == bmo_ahci::SIG_SATA_DISK {
+            sata |= 1 << i;
+        }
+    }
+    etapa(ETAPA_SIN_OTRO, (ctrl.ports_implemented as u64 & 0xFF) | det << 8 | sata << 40);
     for i in 0..(ctrl.port_count as usize).min(32) {
         let pt = &ctrl.ports[i];
         if i as u8 == suyo || pt.state != bmo_ahci::PortState::Active || pt.signature != bmo_ahci::SIG_SATA_DISK {
