@@ -147,7 +147,7 @@ fn de_la_3060(e: &mut Estado, turno: u32) -> bool {
     let titulo: &[u8] = if !crate::commands::gsp::despierto() && crate::commands::gsp::caliente() {
         // [!] 64 letras caben en la linea (`LETRAS`): la de antes media 86 y
         // el consejo se leia CORTADO, justo el que importa.
-        l.t(b"viene CALIENTE: 15 s sin corriente, y luego `save mode init`");
+        l.t(b"CALIENTE: de Windows APAGAR, no Reiniciar (o 15 s sin luz)");
         b"cuidado"
     } else if !crate::commands::gsp::despierto() {
         l.t(b"dormida: `save mode init` la despierta en orden, paso a paso");

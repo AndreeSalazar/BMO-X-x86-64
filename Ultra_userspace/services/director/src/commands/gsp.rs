@@ -672,7 +672,12 @@ pub(crate) fn caliente() -> bool {
 }
 
 /// Lo que se dice cuando viene caliente: que es y que hacer.
-pub(crate) const CALIENTE: &[u8] = b"la 3060 viene CALIENTE: no perdio la corriente desde que Windows (o un reinicio sin `gpu apagar`) arranco su GSP. Apaga 15 s sin corriente y vuelve";
+///
+/// ** Corregido el 29-09 (W2 de `PLAN_LA_3060.md`): decia que Windows
+/// "arranco su GSP", y el RM de Windows corre en la CPU. Lo que la deja
+/// tocada es no perder la corriente: el inicio rapido de Windows no apaga
+/// los aparatos, y Reiniciar tampoco. El remedio sin cable va primero.
+pub(crate) const CALIENTE: &[u8] = b"la 3060 viene CALIENTE: trae el estado de Windows (o de un reinicio sin `gpu apagar`). Desde Windows: APAGAR, no Reiniciar, con el inicio rapido fuera (`powercfg /h off`); si no basta, 15 s sin corriente";
 
 /// Lo pregunta `save mode`: el RISC-V del GSP se vio activo.
 pub(crate) fn despierto() -> bool {
