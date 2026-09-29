@@ -469,9 +469,26 @@ pub const fn sin_dibujo(v: u64) -> u64 {
     v & !(0b100 << 40)
 }
 
-/// `(us, triangulos, etapas, lanzado)`.
+/// `(us, triangulos, etapas, lanzado)`. Los us de un dibujo en frio son los
+/// bits 0..19 (la espera acaba en 1 s: caben); los 20..31 son los de la copia
+/// de la sombra ([`con_copia`]). En el anillo ([`EN_VUELO`]) los 32 bits son
+/// los suyos ([`en_vuelo`]).
 pub const fn desempaquetar(v: u64) -> (u32, u32, u32, bool) {
-    (v as u32, (v >> 32) as u32 & 0xFF, (v >> 40) as u32 & 0x7, v >> 43 & 1 != 0)
+    let us = if v & EN_VUELO != 0 { v as u32 } else { v as u32 & 0xF_FFFF };
+    (us, (v >> 32) as u32 & 0xFF, (v >> 40) as u32 & 0x7, v >> 43 & 1 != 0)
+}
+
+/// **P3b4c.6c: lo que costo la sombra** -- los us de sus copias (cargarla y
+/// llevarla al destino) en los bits 20..31, en pasos de 4 us (hasta 16 ms;
+/// mas, satura). Solo en frio: el anillo no dibuja con sombra.
+pub const fn con_copia(v: u64, us: u64) -> u64 {
+    let q = if us / 4 > 0xFFF { 0xFFF } else { us / 4 };
+    (v & !(0xFFF << 20)) | q << 20
+}
+
+/// Los us de la copia de la sombra de un `Ok` en frio (0 sin sombra).
+pub const fn copia_us(v: u64) -> u32 {
+    if v & EN_VUELO != 0 { 0 } else { (v >> 20 & 0xFFF) as u32 * 4 }
 }
 
 /// VERRANO (V1) le pone al `Ok` lo que costo PREPARAR: el bit 44 si fue EN
@@ -532,6 +549,18 @@ mod pruebas {
 
     use super::*;
     use crate::raster::CODIGO_VS as T1C;
+
+    /// P3b4c.6c: la copia de la sombra va en bits libres del `Ok`.
+    #[test]
+    fn la_copia_de_la_sombra_no_toca_lo_demas() {
+        let v = con_preparar(empaquetar(1176, 12, 0b111, true), false, 300);
+        let c = con_copia(v, 1500);
+        assert_eq!(desempaquetar(c), desempaquetar(v), "los us de la 3060 y lo demas, igual");
+        assert_eq!((copia_us(c), preparado(c)), (1500, preparado(v)));
+        assert!(sano(c));
+        assert_eq!(copia_us(con_copia(v, 1 << 30)), 0xFFF * 4, "satura");
+        assert_eq!(copia_us(en_vuelo(3, 900, 12)), 0);
+    }
 
     /// El `Ok` de VERRANO: caliente, preparar y en vuelo no se pisan.
     #[test]

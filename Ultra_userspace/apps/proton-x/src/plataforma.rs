@@ -142,7 +142,7 @@ fn poner_gs(teb: u64) {
 /// La frecuencia del TSC, pedida una vez (0 = todavia no).
 static TSC_HZ: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
 
-fn ahora_ns() -> u64 {
+pub(crate) fn ahora_ns() -> u64 {
     use core::sync::atomic::Ordering;
     let mut hz = TSC_HZ.load(Ordering::Relaxed);
     if hz == 0 {

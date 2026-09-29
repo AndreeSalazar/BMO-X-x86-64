@@ -509,3 +509,192 @@ mod pruebas {
         assert!(!ordenes(&mut e, 0x2_0001_4004, 1, 0x2_0001_5000, 1), "sin alinear a 32");
     }
 }
+
+// == T3: la prueba del metal (`gpu verrano textura`) =========================
+
+/// **La prueba de las texturas en el metal** -- la MISMA que el propietario
+/// corrio con CUDA en su Windows (`docs/metal/tex_cuda/`): una 4x4 RGBA8 con
+/// texeles `(x*60, y*60, (x+y)*20, 255)`, los 12 puntos y los 8 muestreadores
+/// (Point/Linear x Wrap/Mirror/Clamp/Border, borde (0, 0.5, 1, 1)). Aqui la
+/// dibuja la 3060 por la PUERTA DE LAS APPS (una receta VRN2 con una
+/// textura): cada punto es un cuadro de 64x64 pixeles con el MISMO uv en sus
+/// seis vertices (el IPA de un valor constante es exacto), y el pixel de su
+/// centro tiene que ser lo que dio la 3060 bajo CUDA, en 8 bits.
+pub mod prueba {
+    use super::{tex, DeApp, Muestreo};
+    use crate::destino::Destino;
+    use crate::pegamento::{Carga, Elemento};
+    use crate::receta::{self, Receta, MAX_CARGAS, MAX_ELEMENTOS, MAX_GENERICOS, NINGUNA, NINGUNO};
+    use crate::tuberia::{carga, espera, Dibujo};
+
+    /// Los 12 puntos (u, v) de la prueba de CUDA, en su orden.
+    pub const PUNTOS: [(f32, f32); 12] = [(0.1, 0.1), (0.5, 0.5), (0.375, 0.625), (0.9, 0.2), (1.3, 0.4), (-0.2, 0.7), (0.125, 0.125), (0.13, 0.13), (0.2, 0.9), (0.99, 0.99), (1.0, 1.0), (2.6, -1.4)];
+    /// Los 8 muestreadores, en el orden de `SALIDA.TXT`: (lineal, modo D3D12).
+    pub const MUESTREADORES: [(bool, u32); 8] = [(false, 1), (false, 2), (false, 3), (false, 4), (true, 1), (true, 2), (true, 3), (true, 4)];
+    pub const NOMBRES: [&str; 8] = ["Point Wrap", "Point Mirror", "Point Clamp", "Point Border", "Linear Wrap", "Linear Mirror", "Linear Clamp", "Linear Border"];
+    /// El borde de la prueba de CUDA.
+    pub const BORDE: [f32; 4] = [0.0, 0.5, 1.0, 1.0];
+
+    /// **Lo que dio la 3060 bajo CUDA** (`docs/metal/tex_cuda/SALIDA.TXT`),
+    /// en 8 bits (`round(x * 255)`, ninguno cae en un empate): R | G << 8 |
+    /// B << 16 | A << 24. El banco de `bmo-proton-x-sm86` comprueba que el
+    /// muestreador de la casa da EXACTAMENTE esto.
+    pub const ESPERADO: [[u32; 12]; 8] = [
+        [0xFF000000, 0xFF507878, 0xFF3C783C, 0xFF3C00B4, 0xFF283C3C, 0xFF6478B4, 0xFF000000, 0xFF000000, 0xFF3CB400, 0xFF78B4B4, 0xFF000000, 0xFF507878],
+        [0xFF000000, 0xFF507878, 0xFF3C783C, 0xFF3C00B4, 0xFF3C3C78, 0xFF287800, 0xFF000000, 0xFF000000, 0xFF3CB400, 0xFF78B4B4, 0xFF78B4B4, 0xFF507878],
+        [0xFF000000, 0xFF507878, 0xFF3C783C, 0xFF3C00B4, 0xFF503CB4, 0xFF287800, 0xFF000000, 0xFF000000, 0xFF3CB400, 0xFF78B4B4, 0xFF78B4B4, 0xFF3C00B4],
+        [0xFF000000, 0xFF507878, 0xFF3C783C, 0xFF3C00B4, 0xFFFF7F00, 0xFFFF7F00, 0xFF000000, 0xFF000000, 0xFF3CB400, 0xFF78B4B4, 0xFFFF7F00, 0xFFFF7F00],
+        [0xFF0C1212, 0xFF3C5A5A, 0xFF3C783C, 0xFF3C12A2, 0xFF24422A, 0xFF648AA2, 0xFF000000, 0xFF010101, 0xFF3CA212, 0xFF416161, 0xFF3C5A5A, 0xFF4C7272],
+        [0xFF000000, 0xFF3C5A5A, 0xFF3C783C, 0xFF4212B4, 0xFF44428A, 0xFF348A12, 0xFF000000, 0xFF010101, 0xFF42B412, 0xFF78B4B4, 0xFF78B4B4, 0xFF4C7272],
+        [0xFF000000, 0xFF3C5A5A, 0xFF3C783C, 0xFF4212B4, 0xFF5242B4, 0xFF2E8A00, 0xFF000000, 0xFF010101, 0xFF42B412, 0xFF78B4B4, 0xFF78B4B4, 0xFF3C00B4],
+        [0xFF311800, 0xFF3C5A5A, 0xFF3C783C, 0xFF551DA2, 0xFFFF7F00, 0xFFFF7F00, 0xFF000000, 0xFF010101, 0xFF55AF10, 0xFFD88E34, 0xFFDD8C2D, 0xFFFF7F00],
+    ];
+
+    /// La textura: 4x4, filas de 32 B (el TIC pide pasos de 32; se rellena).
+    pub const ANCHO: u32 = 4;
+    pub const FILA: u32 = 32;
+    pub const TEXELES: usize = (FILA / 4 * ANCHO) as usize;
+
+    /// Sus texeles como van en memoria (R en el byte 0), con el relleno a 0.
+    pub fn texeles() -> [u32; TEXELES] {
+        let mut t = [0u32; TEXELES];
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                t[(y * FILA / 4 + x) as usize] = x * 60 | (y * 60) << 8 | ((x + y) * 20) << 16 | 255 << 24;
+            }
+        }
+        t
+    }
+
+    /// El cuadro del punto `k`: su esquina en pixeles (una rejilla de 4 x 3
+    /// cuadros de 64, con 64 de hueco) y su centro.
+    pub const LADO: u32 = 64;
+    pub const fn esquina(k: usize) -> (u32, u32) {
+        (128 + 256 * (k as u32 % 4), 104 + 192 * (k as u32 / 4))
+    }
+    pub const fn centro(k: usize) -> (u32, u32) {
+        let (x, y) = esquina(k);
+        (x + LADO / 2, y + LADO / 2)
+    }
+
+    /// El fondo con el que se limpia el destino (ningun esperado lo es).
+    pub const FONDO: u32 = 0xFF20_1810;
+
+    /// `MOV Rd, Rs` (0x002 forma 1, la de la lista blanca de R7; la mascara
+    /// 0xF en 72..76 como `ptxas`).
+    const fn mov_r(rd: u64, rs: u64) -> (u64, u64) {
+        (0x202 | 7 << 12 | rd << 16 | rs << 32, crate::cubo::con_control(0xF << 8, crate::cubo::ALU))
+    }
+
+    /// `EXIT` esperando las barreras de `mascara`.
+    const fn exit(mascara: u64) -> (u64, u64) {
+        (crate::cubo::EXIT.0, crate::cubo::con_control(crate::cubo::EXIT.1, espera(mascara)))
+    }
+
+    fn bytes(w: &[(u64, u64)], out: &mut [u8]) -> usize {
+        for (k, &(lo, hi)) in w.iter().enumerate() {
+            out[16 * k..16 * k + 8].copy_from_slice(&lo.to_le_bytes());
+            out[16 * k + 8..16 * k + 16].copy_from_slice(&hi.to_le_bytes());
+        }
+        16 * w.len()
+    }
+
+    /// Los DATOS: 12 cuadros de 6 vertices; cada vertice, la posicion en
+    /// recorte y (u, v, 0, 0).
+    pub const VERTICES: usize = 6 * PUNTOS.len();
+    pub const BYTES_DATOS: usize = 32 * VERTICES;
+
+    /// **La receta del muestreador `m`** (0..8): la textura en `va_textura`
+    /// (un bloque de quien la manda, alineado a 32), el destino de 1280x720
+    /// RGBA8 en `va_destino`. En `caja`; devuelve cuanto mide.
+    pub fn receta(m: usize, va_textura: u64, va_destino: u64, datos: &mut [u8; BYTES_DATOS], caja: &mut [u8]) -> Option<usize> {
+        let (lineal, modo) = *MUESTREADORES.get(m)?;
+        for (k, &(u, v)) in PUNTOS.iter().enumerate() {
+            let (x0, y0) = esquina(k);
+            let (x1, y1) = (x0 + LADO, y0 + LADO);
+            let cx = |x: u32| x as f32 / 640.0 - 1.0;
+            let cy = |y: u32| 1.0 - y as f32 / 360.0;
+            let esquinas = [(x0, y0), (x1, y0), (x0, y1), (x1, y0), (x1, y1), (x0, y1)];
+            for (j, &(x, y)) in esquinas.iter().enumerate() {
+                let w = [cx(x), cy(y), 0.5, 1.0, u, v, 0.0, 0.0];
+                for (i, f) in w.iter().enumerate() {
+                    let o = 32 * (6 * k + j) + 4 * i;
+                    datos[o..o + 4].copy_from_slice(&f.to_le_bytes());
+                }
+            }
+        }
+        let mut vs = [0u8; 32];
+        let mut ps = [0u8; 32];
+        // El de vertice deja todo como llega: la posicion en R0..R3 y el uv
+        // en R4..R7 (el generico 0). El de pixel: TEX R0..R3 <- (R4, R5) con
+        // el asa en R6 (la barrera 1), y el EXIT la espera.
+        let nv = bytes(&[mov_r(0, 0), exit(0)], &mut vs);
+        let np = bytes(&[tex(0, 4, 6, carga(1)), exit(1 << 1)], &mut ps);
+        let dst = Destino { fila: 4 * 1280, ancho: 1280, alto: 720, rgb: true };
+        let t = DeApp { va: va_textura, ancho: ANCHO, alto: 4, fila: FILA, bgra: false, muestreo: Muestreo { lineal, u: modo, v: modo, borde: BORDE } };
+        let mut r = Receta {
+            n: VERTICES,
+            vs: &vs[..nv],
+            ps: &ps[..np],
+            registros_vs: 8,
+            registros_ps: 8,
+            salidas: 2,
+            posicion: 0,
+            filas: 0,
+            paso: 32,
+            elementos: [NINGUNO; MAX_ELEMENTOS],
+            n_elementos: 2,
+            cargas_vs: [NINGUNA; MAX_CARGAS],
+            n_cargas_vs: 8,
+            cargas_ps: [NINGUNA; MAX_CARGAS],
+            n_cargas_ps: 3,
+            genericos: [None; MAX_GENERICOS],
+            n_genericos: 1,
+            datos: &datos[..],
+            dibujo: Dibujo { indices: None, vertices: VERTICES as u32, destino: Some((va_destino, dst)), color: Some(FONDO), texturas: 1, ..Dibujo::default() },
+            texturas: [DeApp::NINGUNA; super::MAX_TEXTURAS],
+        };
+        r.elementos[0] = Elemento { desde: 0, componentes: 4 };
+        r.elementos[1] = Elemento { desde: 16, componentes: 4 };
+        for k in 0..8u8 {
+            r.cargas_vs[k as usize] = Carga::Entrada { elemento: k / 4, componente: k % 4, reg: k };
+        }
+        r.cargas_ps[0] = Carga::Entrada { elemento: 0, componente: 0, reg: 4 };
+        r.cargas_ps[1] = Carga::Entrada { elemento: 0, componente: 1, reg: 5 };
+        r.cargas_ps[2] = Carga::Asa { textura: 0, reg: 6 };
+        r.genericos[0] = Some(0);
+        r.texturas[0] = t;
+        receta::escribir(caja, &r)
+    }
+
+    #[cfg(test)]
+    mod pruebas {
+        extern crate std;
+        use super::*;
+
+        /// Las 8 recetas se escriben, se releen, se PEGAN como en el kernel y
+        /// el juez las aprueba; los cuadros caben y no se tocan.
+        #[test]
+        fn las_ocho_recetas_pasan_el_kernel() {
+            let mut datos = [0u8; BYTES_DATOS];
+            let mut caja = std::vec![0u8; receta::MAX_RECETA];
+            let mut taller = std::boxed::Box::new(receta::Taller::nuevo());
+            for m in 0..8 {
+                let n = receta(m, 0x4000_0000, 0x1000_0000, &mut datos, &mut caja).expect("se escribe");
+                let r = receta::leer(&caja[..n]).expect("se relee");
+                assert_eq!((r.texturas()[0].muestreo.lineal, r.texturas()[0].muestreo.u), MUESTREADORES[m]);
+                receta::pegar(&r, &mut taller).unwrap_or_else(|e| panic!("{}: {e:?}", NOMBRES[m]));
+            }
+            for k in 0..12 {
+                let (x, y) = esquina(k);
+                assert!(x + LADO <= 1280 && y + LADO <= 720);
+                for j in 0..k {
+                    let (a, b) = esquina(j);
+                    assert!(a.abs_diff(x) >= LADO || b.abs_diff(y) >= LADO);
+                }
+            }
+            assert!(ESPERADO.iter().flatten().all(|&p| p != FONDO));
+            assert_eq!(texeles()[(FILA / 4 + 1) as usize], 60 | 60 << 8 | 40 << 16 | 255 << 24, "el texel (1, 1)");
+        }
+    }
+}

@@ -2386,6 +2386,20 @@ se alcanza por los puertos 0xCF8.
 
 ---
 
+**Y DESDE WINDOWS (29-09): el reinicio puede NO saltar.** El cargador
+decide "caliente" por dos pistas: el RISC-V del GSP activo o la WPR2
+arriba. Las dos las pone un GSP-RM. Pero en Windows el RM de NVIDIA corre en
+la CPU (`nvlddmkm.sys`) y NO en el GSP de la 3060 (`nvidia-smi`: `GSP
+Firmware Version: N/A`, medido en `platform/drivers/gpu/ga10x/COMO_LE_HABLA_NVIDIA.md`). O sea:
+tras reiniciar desde Windows la 3060 viene tocada por su driver y el
+cargador la ve FRIA, y no la reinicia. Encaja con "`gpu init` al arrancar no
+contesta cuando vengo de Windows". **Lo que se prueba primero, sin tocar
+codigo:** construir con `$env:BMO_GPU_REINICIO = 'siempre'`, reiniciar
+DESDE Windows y mirar la fila `cargador` de `gpu salud` y `gpu init`. Si con
+`siempre` sale y sin el no, la causa es esa, y lo que falta es una tercera
+pista de "caliente de Windows" (se buscara comparando `al llegar` en frio y
+tras Windows, SIN adivinarla). Si el monitor queda negro: 15 s sin corriente.
+
 ## 4. Lo que NO se hace nunca
 
 - Cargar el GSP sin la IOMMU encendida.

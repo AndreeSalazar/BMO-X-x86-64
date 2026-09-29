@@ -457,10 +457,13 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
         preparar_ciclos = crate::ring0::task::scheduler::rdtsc() - desde;
         bien
     };
+    // Los us de las copias de la sombra (P3b4c.6c: van en el `Ok`, para
+    // que la app sepa cuanto de su fotograma es copiar).
+    let mut copia_us = 0u64;
     let r = super::volcado::quieto()
         .and_then(|()| match sombra {
             // Lo que la app ya pinto en su back buffer, DEBAJO del dibujo.
-            Some((w, true)) => super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, true).map(|_| ()),
+            Some((w, true)) => super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, true).map(|us| copia_us += us),
             _ => Ok(()),
         })
         .and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar))
@@ -468,7 +471,7 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
             // Pagado el dibujo, la sombra al destino; si la copia no se paga,
             // el destino NO tiene el dibujo: se dice como un dibujo no pagado.
             Some((w, _)) if cu::sano(x) => match super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, false) {
-                Ok(_) => x,
+                Ok(us) => cu::con_copia(x, copia_us + us),
                 Err(_) => cu::sin_dibujo(x),
             },
             _ => x,

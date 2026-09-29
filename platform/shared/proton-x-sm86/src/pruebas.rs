@@ -286,3 +286,22 @@ fn el_pixel_de_hellotexture_es_un_tex() {
         }
     }
 }
+
+/// ** P3b4c.8 T3: la tabla contra la que `gpu verrano textura` juzga a la
+/// 3060 (`texturas::prueba::ESPERADO`, la 3060 bajo CUDA en 8 bits) es
+/// EXACTAMENTE lo que da el muestreador de la casa en esos 96 puntos.
+#[test]
+fn la_tabla_del_metal_es_la_de_la_casa() {
+    use bmo_gpu_ga10x::texturas::prueba as pr;
+    use bmo_proton_x::textura::{Direccion, Filtro, Muestreador, Textura};
+    let t: Vec<u32> = (0..16u32).map(|i| (i % 4) * 60 | (i / 4 * 60) << 8 | ((i % 4 + i / 4) * 20) << 16 | 255 << 24).collect();
+    let tx = Textura { texeles: &t, ancho: 4, alto: 4, bgra: false };
+    for (m, &(lineal, modo)) in pr::MUESTREADORES.iter().enumerate() {
+        let d = [Direccion::Repetir, Direccion::Espejo, Direccion::Sujetar, Direccion::Borde][modo as usize - 1];
+        let mu = Muestreador { filtro: if lineal { Filtro::Lineal } else { Filtro::Punto }, u: d, v: d, borde: pr::BORDE };
+        for (k, &(u, v)) in pr::PUNTOS.iter().enumerate() {
+            let c = tx.muestrear(&mu, u, v).map(|x| (x * 255.0 + 0.5) as u32);
+            assert_eq!(c[0] | c[1] << 8 | c[2] << 16 | c[3] << 24, pr::ESPERADO[m][k], "{} ({u}, {v})", pr::NOMBRES[m]);
+        }
+    }
+}

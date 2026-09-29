@@ -18,6 +18,22 @@
 //!                         muerto hasta reiniciar; insistir costo 1 s por
 //!                         lote en el metal (28-09). Se dice la escalera
 //! ```
+//!
+//! # POR PARTES (29-09)
+//!
+//! El metal (28-09 22:36): BMOX-12 por la 3060 a 59-90 fps con `dibujar`
+//! 10-15 ms, y la 3060 dibujando en ~1 ms. Para saber DONDE se va el resto,
+//! una linea por segundo:
+//!
+//! ```text
+//!    [3060] N lotes/s; por lote: puerta P us (la receta, en esta app),
+//!           kernel K us = 3060 A + preparar B + sombra C + resto R
+//! ```
+//!
+//! `A` es la espera del semaforo tras el timbre (el dibujo); `B`, escribir
+//! ordenes y datos en la VRAM; `C`, las copias de la sombra por el motor de
+//! copia; `R`, todo lo demas del syscall: prestar y devolver el back buffer y
+//! las texturas por la IOMMU, pegar y juzgar los programas, las tablas.
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -35,12 +51,54 @@ struct Estado {
     apagada: bool,
     /// Lotes dibujados por la 3060 (para decir el primero).
     por_la_3060: u64,
+    /// Lo medido desde la ultima linea `[3060]` (ver POR PARTES).
+    partes: Partes,
+}
+
+/// Las sumas de un segundo: lotes y ns/us de cada parte.
+#[derive(Clone, Copy, Default)]
+struct Partes {
+    desde_ns: u64,
+    lotes: u64,
+    puerta_ns: u64,
+    kernel_ns: u64,
+    tarjeta_us: u64,
+    preparar_us: u64,
+    sombra_us: u64,
+}
+
+impl Partes {
+    /// Suma un lote; pasado un segundo, dice la linea y empieza otra.
+    fn sumar(&mut self, puerta_ns: u64, kernel_ns: u64, r: u64, ahora: u64) {
+        if self.desde_ns == 0 {
+            self.desde_ns = ahora;
+        }
+        let (us, _, _, _) = puerta::desempaquetar(r);
+        self.lotes += 1;
+        self.puerta_ns += puerta_ns;
+        self.kernel_ns += kernel_ns;
+        self.tarjeta_us += us as u64;
+        self.preparar_us += puerta::preparado(r).1 as u64;
+        self.sombra_us += puerta::copia_us(r) as u64;
+        let pasado = ahora.saturating_sub(self.desde_ns);
+        if pasado >= 1_000_000_000 {
+            let n = self.lotes.max(1);
+            let (k, a, b, c) = (self.kernel_ns / 1000 / n, self.tarjeta_us / n, self.preparar_us / n, self.sombra_us / n);
+            bmo::consola(&alloc::format!(
+                "[3060] {} lotes/s; por lote: puerta {} us, kernel {k} us = 3060 {a} + preparar {b} + sombra {c} + resto {}\n",
+                self.lotes * 1_000_000_000 / pasado.max(1),
+                self.puerta_ns / 1000 / n,
+                k.saturating_sub(a + b + c),
+            ));
+            *self = Partes { desde_ns: ahora, ..Partes::default() };
+        }
+    }
 }
 
 struct Celda(core::cell::UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
 unsafe impl Sync for Celda {}
-static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0 }));
+static ESTADO: Celda = Celda(core::cell::UnsafeCell::new(Estado { puerta: None, dichos: Vec::new(), negados: 0, apagada: false, por_la_3060: 0, partes: Partes { desde_ns: 0, lotes: 0, puerta_ns: 0, kernel_ns: 0, tarjeta_us: 0, preparar_us: 0, sombra_us: 0 } }));
 
 fn decir(e: &mut Estado, motivo: String) {
     if e.dichos.iter().any(|d| *d == motivo) {
@@ -80,11 +138,16 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     if !e.apagada {
         let blanco = Blanco { va: d.pixeles.as_ptr() as u64, ancho: d.ancho, alto: d.alto, bgra: d.bgra };
         let p = e.puerta.get_or_insert_with(Puerta::nueva);
+        let t0 = crate::plataforma::ahora_ns();
         match p.preparar(l, blanco) {
             Ok(_) => {
                 let caja = p.caja.as_ptr() as u64;
-                match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIBUJAR, caja) {
+                let t1 = crate::plataforma::ahora_ns();
+                let r = bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIBUJAR, caja);
+                let t2 = crate::plataforma::ahora_ns();
+                match r {
                     Ok(r) if puerta::sano(r) => {
+                        e.partes.sumar(t1 - t0, t2 - t1, r, t2);
                         p.despues(l, true);
                         e.negados = 0;
                         if e.por_la_3060 == 0 {

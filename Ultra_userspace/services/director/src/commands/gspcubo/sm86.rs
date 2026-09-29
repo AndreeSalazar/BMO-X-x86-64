@@ -129,6 +129,7 @@ pub(super) const PALABRAS: &[(&[u8], &[u8])] = &[
     (b"enram", b"con bmox12: la 3060 dibuja en RAM del escritorio (como en el back buffer de una app), no en la pantalla"),
     (b"z", b"con bmox12: sin descarte y con la PROFUNDIDAD de la 3060; bien = IGUAL a D3D12"),
     (b"ambas", b"con bmox12: sin descarte y SIN profundidad, el testigo de z: tiene que salir DISTINTO"),
+    (b"textura", b"T3: la 3060 MUESTREA por la puerta de las apps los 96 puntos de la prueba de CUDA; bien = IGUAL a la 3060 bajo Windows"),
 ];
 
 impl Opciones {
@@ -695,6 +696,115 @@ pub(super) fn fallo(dsk: &mut Desktop, e: Error, en: Option<u32>, op: Opciones) 
         Error::Device(m) => motivo(dsk, m),
         _ => linea(dsk, b"  NO  el fotograma no es valido para la tuberia fija de la 3060 (1280x720, el fondo del estudio)", INK_ERR),
     }
+}
+
+/// **`gpu verrano textura` (P3b4c.8 T3)**: la prueba de CUDA del propietario
+/// (`docs/metal/tex_cuda/`), por la 3060 en BMO-X. Una textura 4x4 en RAM del
+/// escritorio, 8 recetas VRN2 por la PUERTA DE LAS APPS
+/// (`IOMMU_OP_GPU_DIBUJAR`: el kernel presta la textura solo lectura, pone
+/// sus TIC/TSC y el asa), cada una con 12 cuadros de uv constante; el pixel
+/// del centro de cada cuadro contra `texturas::prueba::ESPERADO` -- lo que la
+/// 3060 dio bajo CUDA, que el muestreador de la casa iguala en el banco.
+pub(super) fn textura(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
+    use bmo_gpu_ga10x::receta;
+    use bmo_gpu_ga10x::texturas::prueba as pr;
+    let (w, h) = (cu::ANCHO, cu::ALTO);
+    if p.ancho < w || p.alto < h {
+        return linea(dsk, b"  NO  la pantalla es mas chica que 1280x720", INK_ERR);
+    }
+    // El GR preparado (su ficha la pone el kernel en la receta).
+    if super::super::verificar::preparar_hasta(dsk, p, b"lienzo").is_err() {
+        dsk.field.n = 0;
+        return After::Settle;
+    }
+    if let Err(m) = super::super::gspcomputo::ficha_del_gr() {
+        return motivo(dsk, m);
+    }
+    let pixeles = (w * h) as usize;
+    let (Some(destino), Some(texturab), Some(cajab)) = (bmo::Memoria::request(4 * pixeles as u64), bmo::Memoria::request(4096), bmo::Memoria::request((receta::MAX_RECETA as u64).div_ceil(4096) * 4096)) else {
+        return linea(dsk, b"  NO  sin memoria para el destino, la textura y la receta", INK_ERR);
+    };
+    // SAFETY: tres bloques de este proceso, alineados a pagina, de las
+    // medidas pedidas, que solo se usan aqui y no se pisan.
+    let (dst, tex, caja) = unsafe {
+        (
+            core::slice::from_raw_parts_mut(destino.base() as *mut u32, pixeles),
+            core::slice::from_raw_parts_mut(texturab.base() as *mut u32, pr::TEXELES),
+            core::slice::from_raw_parts_mut(cajab.base(), receta::MAX_RECETA),
+        )
+    };
+    tex.copy_from_slice(&pr::texeles());
+    let mut datos = [0u8; pr::BYTES_DATOS];
+    let (mut buenas, mut us) = (0u32, 0u64);
+    let mut por_modo = [0u32; 8];
+    let mut primera: Option<(usize, usize, u32)> = None;
+    for m in 0..8 {
+        let Some(n) = pr::receta(m, texturab.base() as u64, destino.base() as u64, &mut datos, caja) else {
+            return linea(dsk, b"  NO  la receta de la prueba no se sostiene (el banco la escribe: esto no deberia pasar)", INK_ERR);
+        };
+        let _ = n;
+        match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIBUJAR, caja.as_ptr() as u64) {
+            Ok(v) if cu::sano(v) => {
+                us += cu::desempaquetar(v).0 as u64;
+                for k in 0..pr::PUNTOS.len() {
+                    let (x, y) = pr::centro(k);
+                    // SAFETY: dentro del destino (1280x720); lo escribio la
+                    // 3060 por DMA: se lee con `read_volatile`.
+                    let dado = unsafe { core::ptr::read_volatile(&dst[(y * w + x) as usize]) };
+                    if dado == pr::ESPERADO[m][k] {
+                        buenas += 1;
+                        por_modo[m] += 1;
+                    } else if primera.is_none() {
+                        primera = Some((m, k, dado));
+                    }
+                }
+            }
+            Ok(v) => {
+                let (us, tris, etapas, lanzado) = cu::desempaquetar(v);
+                let mut t = Texto::nuevo();
+                t.t(b"  NO  la 3060 no pago la receta de ").t(pr::NOMBRES[m].as_bytes()).t(b": lanzado ").d(lanzado as u64).t(b", escalera ").d(etapas as u64).t(b", ").d(tris as u64).t(b" triangulos, ").d(us as u64).t(b" us (el `gsp aviso` de `gpu` dira si fue un Xid)");
+                return linea(dsk, t.s(), INK_ERR);
+            }
+            Err(mo) => return motivo(dsk, mo),
+        }
+    }
+    // Lo ultimo que pinto (Linear Border), en la ventana.
+    let (x0, y0) = ventana(p);
+    p.marcar(x0, y0, w, h);
+    for y in 0..h {
+        for x in 0..w {
+            let c = dst[(y * w + x) as usize];
+            p.punto_ya_marcado(x0 + x, y0 + y, (c & 0xFF) << 16 | (c & 0xFF00) | (c >> 16 & 0xFF));
+        }
+    }
+    p.vaciar();
+    let g = &mut dsk.out.grid;
+    g.with_ink(if buenas == 96 { INK_GOOD } else { INK_ERR });
+    g.text(b"  textura: ");
+    g.dec(buenas as u64);
+    g.text(if buenas == 96 { b" de 96: IGUAL a la 3060 bajo CUDA (Windows), bit a bit en 8 bits; la 3060 dibujo en " as &[u8] } else { b" de 96 como la 3060 bajo CUDA: DISTINTO; la 3060 dibujo en " });
+    g.dec(us);
+    g.text(b" us las 8
+");
+    g.with_ink(INK_PLAIN);
+    g.text(b"           ");
+    for (m, &k) in por_modo.iter().enumerate() {
+        g.text(pr::NOMBRES[m].as_bytes());
+        g.text(b" ");
+        g.dec(k as u64);
+        g.text(if m + 1 < 8 { b"/12, " as &[u8] } else { b"/12
+" });
+    }
+    if let Some((m, k, dado)) = primera {
+        let (u, v) = pr::PUNTOS[k];
+        let mut t = Texto::nuevo();
+        let _ = core::fmt::write(&mut t, format_args!("           el primero: {} en ({u}, {v}): la 3060 {dado:#010x}, CUDA {:#010x} (R en el byte bajo)
+", pr::NOMBRES[m], pr::ESPERADO[m][k]));
+        g.text(t.s());
+    }
+    super::super::datos::anotar(b"gpu verrano textura", buenas as u64, b"de 96");
+    dsk.field.n = 0;
+    After::Settle
 }
 
 /// `sinldg` salio bien: lo que eso quiere decir.

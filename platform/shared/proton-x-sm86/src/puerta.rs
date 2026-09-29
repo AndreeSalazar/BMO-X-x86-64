@@ -42,7 +42,7 @@ use crate::pso::{cargas, elementos, NoVa};
 
 /// Lo que contesta el kernel (`cubo::empaquetar`): `sano` = la 3060 pago el
 /// dibujo entero; `desempaquetar` = `(us, triangulos, etapas, ..)`.
-pub use bmo_gpu_ga10x::cubo::{desempaquetar, sano};
+pub use bmo_gpu_ga10x::cubo::{copia_us, desempaquetar, preparado, sano};
 use crate::{emitir_con, Abi};
 
 /// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
