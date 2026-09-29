@@ -314,14 +314,25 @@ fn permissions(c: &mut Canvas, g: &Graph, x: i32, y: i32, w: i32, current: Optio
         }
     }
     c.text_fit(x, y, asked.get(), GOOD, w);
-    let mut refused = Buf::new();
+    // Only the permission the event names flashes: flashing the whole line
+    // said "disk" was denied too (seen in the browser preview, 29-09).
+    let denied = match current {
+        Some(EventKind::Denied { permission, .. }) if blink(now_ms) => Some(permission),
+        _ => None,
+    };
+    let mut px = x;
     for perm in Permission::ALL {
-        if !g.permissions.allows(perm) {
-            refused.s(perm.key()).s(": no ");
+        if g.permissions.allows(perm) {
+            continue;
         }
+        let mut t = Buf::new();
+        t.s(perm.key()).s(": no ");
+        let left = x + w - px;
+        if left <= 0 {
+            break;
+        }
+        px += c.text_fit(px, y + 16, t.get(), if denied == Some(perm) { BAD } else { DIM }, left);
     }
-    let flash = matches!(current, Some(EventKind::Denied { .. })) && blink(now_ms);
-    c.text_fit(x, y + 16, refused.get(), if flash { BAD } else { DIM }, w);
 }
 
 fn chip(c: &mut Canvas, x: i32, y: i32, text: &[u8], color: Color) {
