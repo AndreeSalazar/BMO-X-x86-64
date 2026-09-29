@@ -711,7 +711,9 @@ habria mirado el final del rango.** Se ensancho el contador, no la ventana.
 ## 13. EL PRECIO
 
 De C6 en la ley, y sigue siendo el mejor resumen de por que este componente no
-se razona: `PI` declaraba los puertos 0,1,4,5 y el disco estaba en el 2. Y la
+se razona: `PI` declaraba los puertos 0,1,4,5 y el disco "estaba en el 2" (el
+29-09 se supo que el que mentia era el driver, con el paso entre puertos a
+0x100 en vez de 0x80: el "2" era el 4, que `PI` si declaraba). Y la
 suma `+ part_lba` faltaba en los tres sitios del camino rapido, asi que un `.bex`
 se leia de dentro de la ESP -- codigo x86-64 real y ajeno. Dos dias, y la firma
 era *"el directorio se lee bien y el contenido no"*.

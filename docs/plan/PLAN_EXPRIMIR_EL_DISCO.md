@@ -220,6 +220,14 @@ de su `IS` entero: un bit de OTRO puerto puesto lo deja a 1 y el disco no vuelve
 a avisar. La escalera no lo podia ver: miraba solo el bit del puerto 2, y el
 peldano `entradas > 0` tapaba al de "sin consumir".
 
+**Correccion (29-09): el disco NUNCA estuvo en el puerto 2.** El paso entre
+puertos del driver era 0x100 y la especificacion dice 0x80
+(`bmo_ahci::PORT_STRIDE`): el "puerto 2" leia los registros del 4 de verdad
+(el que Windows llama "Port 4" y `PI = 0x33` declara). El HBA avisaba por el
+bit 4 de `IS` y el driver miraba el 2: por eso "armada y NO LLEGA". Con el
+paso bueno, el aviso deberia llegar; se sabe en la fila `thread` (los
+despertares por la IRQ, que suben de 0).
+
 En codigo, sin metal: `habilitar_irq` apaga PxIE y limpia PxIS de los otros
 puertos implementados (`PI`); `consumir_aviso` limpia tambien los bits ajenos
 del `IS` y los cuenta (`bmo_ahci::AJENOS`); la escalera gana el bit 19

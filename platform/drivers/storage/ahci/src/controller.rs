@@ -67,7 +67,15 @@ pub(crate) const HBA_GHC: usize = 0x04;
 pub(crate) const HBA_IS:  usize = 0x08;
 pub(crate) const HBA_PI:  usize = 0x0C;
 
-pub(crate) const PORT_STRIDE: usize = 0x100;
+/// ** Cada puerto mide 0x80 bytes (AHCI 1.3.1, 3.3: `PxCLB` en `100h +
+/// (x * 80h)`). Fue 0x100 hasta el 29-09, y en esta placa (PI = 0x33: puertos
+/// 0, 1, 4 y 5) el "puerto 2" de BMO-X era el 4 de verdad -- el disco se
+/// encontraba por casualidad --, el 5 (el SSD de `Personal (D:)`) no se leia
+/// NUNCA, el aviso del disco llegaba por el bit 4 de `IS` y se miraba el 2
+/// ("SIN IRQ: vive de la red de 2 ms"), y el censo mandaba COMRESET a
+/// 0x600..0x800, que no son puertos. Lo destapo Windows diciendo "Port 4" y
+/// "Port 5" para los dos discos.
+pub(crate) const PORT_STRIDE: usize = 0x80;
 pub(crate) const PORT_CLB:  usize = 0x00;
 pub(crate) const PORT_CLBU: usize = 0x04;
 pub(crate) const PORT_FB:   usize = 0x08;

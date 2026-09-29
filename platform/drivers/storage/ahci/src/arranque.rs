@@ -137,15 +137,17 @@ pub unsafe fn probe(mmio_base: u64) -> bool {
 /// Levanta el enlace de cada puerto y anota su estado. Devuelve cuantos
 /// quedaron con enlace vivo.
 ///
-/// * NO SE CONFIA EN `PI`. El registro de puertos implementados lo escribe el
-/// firmware, y el firmware se equivoca: hay un caso conocido en Linux (Acer
-/// Switch Alpha 12) donde la BIOS reporta un mapa que hace al driver SALTARSE
-/// justo el puerto donde esta el disco, y el arreglo del kernel es ignorar el
-/// registro y forzar el valor bueno a mano. Aqui se recorren TODOS los puertos
-/// que `CAP.NP` dice que existen y se anota si `PI` los declaraba o no:
-/// saltarse el puerto del disco es peor que mirar uno de mas. En esta maquina
-/// eso se gana el pan -- el disco aparece en el puerto 2, que `PI=0x33` no
-/// declara.
+/// * SE MIRAN TODOS, SE TOCAN LOS DE `PI`. El registro de puertos
+/// implementados lo escribe el firmware, y hay un caso conocido en Linux
+/// (Acer Switch Alpha 12) donde miente. Por eso se LEEN todos los puertos que
+/// `CAP.NP` dice que existen y se anota si `PI` los declaraba: un disco en un
+/// puerto no declarado se ve y se usa. Pero el COMRESET (que ESCRIBE) va solo
+/// a los declarados.
+///
+/// [!] Una correccion (29-09): aqui ponia que en esta maquina "el disco
+/// aparece en el puerto 2, que `PI=0x33` no declara". Era FALSO: el paso entre
+/// puertos estaba mal (0x100 y no 0x80, ver `PORT_STRIDE`) y el "2" era el 4,
+/// que `PI` SI declara. El firmware tenia razon.
 ///
 /// * PERO EL LIMITE ES `CAP.NP`, Y ES UN LIMITE DURO. Lo que si es danino es
 /// pasarse de ahi: el espacio de puertos alias-ea, asi que un puerto que no
@@ -179,7 +181,8 @@ unsafe fn census(ctrl: &mut AhciController, pi: u32, sss: bool) -> u32 {
     // es QUIEN espera: antes cada puerto, ahora todos juntos.
     let mut esperando = 0u32;
     for i in 0..np {
-        if port_kick(mmio_base, i, sss) {
+        // Solo los que `PI` declara: el COMRESET escribe (ver arriba).
+        if pi & (1 << i) != 0 && port_kick(mmio_base, i, sss) {
             esperando |= 1 << i;
         }
     }
@@ -191,7 +194,9 @@ unsafe fn census(ctrl: &mut AhciController, pi: u32, sss: bool) -> u32 {
         let declared = pi & (1 << i) != 0;
         // La negociacion deja errores de estreno en PxSERR: se limpian, o el
         // primer comando nacera con un error que no es suyo.
-        port_write(mmio_base, i, PORT_SERR, port_read(mmio_base, i, PORT_SERR));
+        if declared {
+            port_write(mmio_base, i, PORT_SERR, port_read(mmio_base, i, PORT_SERR));
+        }
         let ssts = port_read(mmio_base, i, PORT_SSTS);
         // Cada puerto dice su estado CRUDO aqui, en el driver, que es quien lo
         // tiene delante. El `!` marca los que `PI` NO declaraba: si uno de
@@ -352,9 +357,7 @@ unsafe fn port_start(mmio: u64, port: u8) -> bool {
 /// mascara de los que ahora tienen enlace (DET 3). Un puerto ya activo no se
 /// toca: tiene un disco en marcha.
 ///
-/// ** Por que tambien los que el HBA NO declara en `PI`: el metal (29-09
-/// 11:06) dio `PI 0x33` (puertos 0, 1, 4, 5) con el disco de BMO-X en el 2.
-/// En esta placa `PI` no dice que puertos hay; `NP` si (ver `census`).
+/// Como el censo, el COMRESET solo va a los puertos que `PI` declara.
 pub unsafe fn reanimar(mascara: u32) -> u32 {
     #[allow(static_mut_refs)]
     let ctrl = match CONTROLLER.as_mut() { Some(c) => c, None => return 0 };
@@ -363,7 +366,7 @@ pub unsafe fn reanimar(mascara: u32) -> u32 {
     let sss = ctrl.cap & (1 << 27) != 0;
     let mut esperando = 0u32;
     for i in 0..np {
-        if mascara & (1 << i) == 0 || ctrl.ports[i as usize].state == PortState::Active {
+        if mascara & (1 << i) == 0 || ctrl.ports_implemented & (1 << i) == 0 || ctrl.ports[i as usize].state == PortState::Active {
             continue;
         }
         if port_kick(mmio, i, sss) {
@@ -375,7 +378,7 @@ pub unsafe fn reanimar(mascara: u32) -> u32 {
     }
     let mut vivos = 0u32;
     for i in 0..np {
-        if mascara & (1 << i) == 0 {
+        if mascara & (1 << i) == 0 || ctrl.ports_implemented & (1 << i) == 0 {
             continue;
         }
         port_write(mmio, i, PORT_SERR, port_read(mmio, i, PORT_SERR));
