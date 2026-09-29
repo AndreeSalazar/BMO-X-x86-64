@@ -1,5 +1,8 @@
 //! **EL DISCO AJENO, SOLO LECTURA** (N1a, 29-09).
 //!
+//! [carril]  ROJO      lee por DMA de OTRO disco: equivocarse aqui escribe donde vive el propietario
+//! [consumo] NADA      corre una vez al arrancar y cuando alguien lee el disco Personal
+//!
 //! El propietario (29-09): *"que mi BMO-X aprenda a LEER NTFS"*: su
 //! Cyberpunk 2077 vive en `Personal (D:)`, en OTRO disco. Medido en su Windows
 //! (solo lectura, `PLAN_LA_LUDOTECA.md`, N1): los dos SSD SATA cuelgan del

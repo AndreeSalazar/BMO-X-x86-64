@@ -3,6 +3,8 @@
 // `iconos::vector`; el porque de las reglas, en la cabecera de
 // `platform/shared/bmo-dibujo/src/icono.rs`.
 //
+// [consumo] NADA      solo datos: no corre, lo lee quien pinta
+//
 // Los papeles de la paleta (los pone quien pinta, ver `iconos::paleta`):
 //
 //    0 cuerpo    el color de la clase o de la unidad
