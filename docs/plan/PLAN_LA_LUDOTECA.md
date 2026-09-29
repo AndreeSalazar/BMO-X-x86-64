@@ -439,6 +439,13 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         fallo); y si no hay GPT se mira la MBR (Ventoy vive en ese disco y
         formatea en MBR). **Como se sabe:** la tercera linea de la tarjeta
         de D: en el proximo arranque.
+      - **Medido en Windows (29-09, solo lectura, `C:\discos_bmo2.txt`):
+        el Disco 1 es GPT** (MBR protector 0xEE desde el LBA 1, "EFI PART"
+        en el LBA 1), D: en el LBA 2048 con 119.999.500.288 B, y detras
+        la de Ventoy (32 MiB, sin letra). La MBR no hacia falta: el fallo
+        esta ANTES de la tabla (encontrar o leer el disco). Desde hoy el
+        informe lo dice solo, en la fila `personal` del capitulo 6: montado
+        con su medida, o la etapa en que se paro N1a.
       - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
         escritorio; N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows

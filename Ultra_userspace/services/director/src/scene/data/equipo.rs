@@ -142,55 +142,64 @@ fn unidad_info(u: u64) -> Medida {
     Medida { bytes, libres: (l != bmo::UNIDAD_NO_SE).then_some(l), extra }
 }
 
+/// Lo que acompana al motivo de N1a: nada, un numero, o los puertos de una
+/// mascara.
+pub(crate) enum Detalle {
+    Nada,
+    Numero(u64),
+    Puertos(u64),
+}
+
 /// **Por que el disco Personal no esta montado**, de la etapa en que se paro
-/// N1a (`etapa | detalle << 8`, ver el ABI). Escribe el motivo y devuelve la x.
-fn por_que_no(p: &bmo::Pantalla, x: u32, y: u32, etapa: u64) -> u32 {
+/// N1a (`etapa | detalle << 8`, ver el ABI). Lo usan la tarjeta y la fila
+/// `personal` del informe (`commands/disco.rs`): un solo texto por etapa.
+pub(crate) fn motivo_n1a(etapa: u64) -> (&'static str, Detalle) {
     let (e, d) = (etapa & 0xFF, etapa >> 8);
+    match e {
+        1 => ("sin otro disco SATA; con disco:", Detalle::Puertos(d)),
+        2 => ("su puerto no se preparo: ", Detalle::Numero(d)),
+        3 => ("no contesto a IDENTIFY; puerto ", Detalle::Numero(d)),
+        4 => ("es el MISMO disco de BMO-X", Detalle::Nada),
+        5 if d == 1 => ("su tabla GPT no se pudo leer", Detalle::Nada),
+        5 => ("no tiene ni GPT ni MBR", Detalle::Nada),
+        6 => ("sin particion NTFS; vio ", Detalle::Numero(d)),
+        7 => (
+            match d {
+                1 => "NTFS no monta: el disco no contesto",
+                2 => "NTFS no monta: no es NTFS",
+                3 => "NTFS no monta: volumen raro",
+                4 => "NTFS no monta: demasiado grande",
+                _ => "NTFS no monta: otro motivo",
+            },
+            Detalle::Nada,
+        ),
+        8 => ("montado", Detalle::Nada),
+        _ => ("N1a no corrio: sin controlador AHCI", Detalle::Nada),
+    }
+}
+
+/// Escribe el motivo de N1a en la tarjeta y devuelve la x.
+fn por_que_no(p: &bmo::Pantalla, x: u32, y: u32, etapa: u64) -> u32 {
+    let (texto, detalle) = motivo_n1a(etapa);
+    let mut x = p.texto(x, y, texto, AMBAR);
     let mut b = [0u8; 10];
-    let num = |p: &bmo::Pantalla, x: u32, v: u64, b: &mut [u8; 10]| {
-        let n = decimal(v, b);
+    let mut num = |x: u32, v: u64| {
+        let n = decimal(v, &mut b);
         p.texto_bytes(x, y, &b[..n], AMBAR)
     };
-    match e {
-        1 => {
-            // Los puertos con disco que se vieron, para saber si el otro se ve.
-            let mut x = p.texto(x, y, "sin otro disco SATA; con disco:", AMBAR);
+    match detalle {
+        Detalle::Nada => {}
+        Detalle::Numero(v) => x = num(x, v),
+        Detalle::Puertos(m) => {
             for k in 0..32 {
-                if d >> k & 1 == 1 {
+                if m >> k & 1 == 1 {
                     x = p.texto(x, y, " ", AMBAR);
-                    x = num(p, x, k, &mut b);
+                    x = num(x, k);
                 }
             }
-            x
         }
-        2 => {
-            let x = p.texto(x, y, "su puerto no se preparo: ", AMBAR);
-            num(p, x, d, &mut b)
-        }
-        3 => {
-            let x = p.texto(x, y, "no contesto a IDENTIFY; puerto ", AMBAR);
-            num(p, x, d, &mut b)
-        }
-        4 => p.texto(x, y, "es el MISMO disco de BMO-X", AMBAR),
-        5 if d == 1 => p.texto(x, y, "su tabla GPT no se pudo leer", AMBAR),
-        5 => p.texto(x, y, "no tiene ni GPT ni MBR", AMBAR),
-        6 => {
-            let x = p.texto(x, y, "sin particion NTFS (vio ", AMBAR);
-            let x = num(p, x, d, &mut b);
-            p.texto(x, y, ")", AMBAR)
-        }
-        7 => {
-            let x = p.texto(x, y, "NTFS no monta: ", AMBAR);
-            p.texto(x, y, match d {
-                1 => "el disco no contesto",
-                2 => "no es NTFS",
-                3 => "volumen raro",
-                4 => "demasiado grande",
-                _ => "otro motivo",
-            }, AMBAR)
-        }
-        _ => p.texto(x, y, "N1a no corrio: sin controlador AHCI", AMBAR),
     }
+    x
 }
 
 /// **Mide todas las unidades.** Al entrar en la vista y con `R`; contar la FAT

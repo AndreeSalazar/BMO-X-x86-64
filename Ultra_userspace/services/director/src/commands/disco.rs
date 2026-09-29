@@ -363,6 +363,51 @@ pub(crate) fn report_disco(s: &mut Output) {
     } else {
         detalle_banda(s);
     }
+    personal(s);
+}
+
+/// ** EL DISCO PERSONAL (N1a, 29-09): montado y cuanto mide, o POR QUE NO,
+/// en el informe y no solo en la tarjeta de F12 (el anillo de la cabina se
+/// lleva las lineas del arranque). El mismo texto que la tarjeta.
+fn personal(s: &mut Output) {
+    use crate::scene::data::equipo::{motivo_n1a, Detalle};
+    let u = bmo::UNIDAD_PERSONAL << 8;
+    let bytes = bmo::info(bmo::INFO_UNIDAD | u);
+    campo(s, b"personal");
+    if bytes != 0 {
+        s.with_ink(INK_GOOD);
+        s.text(b"NTFS MONTADO, solo lectura");
+        s.with_ink(INK_PLAIN);
+        s.text(b"   ");
+        s.dec(bytes >> 20);
+        s.text(b" MiB");
+        let libres = bmo::info(bmo::INFO_UNIDAD | u | 1 << 16);
+        if libres != bmo::UNIDAD_NO_SE {
+            s.text(b", libres ");
+            s.dec(libres >> 20);
+            s.text(b" MiB");
+        }
+        s.text(b"\n");
+        return;
+    }
+    let (texto, detalle) = motivo_n1a(bmo::info(bmo::INFO_UNIDAD | u | 2 << 16));
+    s.with_ink(INK_ECHO);
+    s.text(b"NO montado: ");
+    s.text(texto.as_bytes());
+    match detalle {
+        Detalle::Nada => {}
+        Detalle::Numero(v) => s.dec(v),
+        Detalle::Puertos(m) => {
+            for k in 0..32 {
+                if m >> k & 1 == 1 {
+                    s.text(b" ");
+                    s.dec(k);
+                }
+            }
+        }
+    }
+    s.with_ink(INK_PLAIN);
+    s.text(b"\n");
 }
 
 /// ** LA ESCALERA DEL AVISO (23-09, 06:57). El Ryzen dijo `armada y NO LLEGA`,
