@@ -29,7 +29,8 @@
 //! `--censo <ruta>` NO ejecuta: dice que DLL y funciones de Windows pide el
 //! `.exe` y cuantas tiene ya la casa, leyendo solo sus cabeceras y la seccion
 //! de sus importaciones (un `.exe` de 60 MB no se trae entero). En el
-//! escritorio, `personal censo <ruta>`.
+//! escritorio, `personal censo <ruta>`. El censo es COMPLETO: sigue tambien
+//! las DLL del juego junto al `.exe` y lista las que se cargan en vivo.
 //!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
@@ -109,12 +110,107 @@ const TOPE_SECCION: u64 = 64 << 20;
 /// Donde queda la lista entera.
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
 
-/// **EL CENSO de un `.exe`** (29-09, *"lo del Cyberpunk que faltan MAS para
-/// completar?"*): sin ejecutarlo y sin traerlo entero -- las cabeceras y la
-/// seccion de sus importaciones --, cada funcion de Windows que pide contra
-/// la tabla de la casa. Las DLL que viven junto al `.exe` son DEL JUEGO: esas
-/// no las pone la casa, se cargan (P5a) y piden lo suyo. Resumen por la
-/// consola; la lista entera, en `informe/censo.txt`.
+/// Lo que se sabe de UN fichero (el `.exe` o una DLL): lo que importa, y
+/// los nombres de DLL que aparecen en sus datos (candidatas a `LoadLibrary`).
+struct Mirado {
+    imps: Vec<bmo_proton_x::Importacion>,
+    en_vivo: Vec<alloc::string::String>,
+    mide: u64,
+}
+
+/// **Mirar un fichero PE** sin traerlo entero: las cabeceras y la seccion de
+/// sus importaciones, cada una en su bloque, que se suelta al acabar (un
+/// proceso tiene OCHO bloques vivos como mucho).
+fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
+    let a = bmo::Archivo::reflejar(ruta).map_err(|_| alloc::string::String::from("no esta"))?;
+    let mide = a.size();
+    let n = (64u64 << 10).min(mide);
+    let hb = bmo::Memoria::request(n.max(1)).ok_or("sin memoria para las cabeceras")?;
+    let k = a.leer_en(&hb, 0, n);
+    // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
+    hb.soltar();
+    let pe = bmo_proton_x::leer_cabeceras(&cab, mide).map_err(|f| format!("{f}"))?;
+    let rva = pe.importaciones.rva;
+    let Some(sec) = pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva)) else {
+        return Ok(Mirado { imps: Vec::new(), en_vivo: Vec::new(), mide });
+    };
+    let tam = sec.tam_en_fichero as u64;
+    if tam > TOPE_SECCION {
+        return Err(format!("la seccion {} pasa de 64 MiB", sec.nombre));
+    }
+    let b = bmo::Memoria::request(tam).ok_or("sin memoria para la seccion de importaciones")?;
+    if a.saltar(sec.desde as u64) != sec.desde as u64 || a.leer_en(&b, 0, tam) != tam {
+        b.soltar();
+        return Err(format!("la seccion {} no se leyo entera", sec.nombre));
+    }
+    // SAFETY: `tam` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let trozo = unsafe { core::slice::from_raw_parts(b.base() as *const u8, tam as usize) };
+    let r = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"));
+    let en_vivo = nombres_de_dll(trozo);
+    b.soltar();
+    Ok(Mirado { imps: r?, en_vivo, mide })
+}
+
+/// **Los nombres de DLL escritos en unos datos** (`"d3d12.dll"`, en ASCII o
+/// en UTF-16): lo que el programa puede cargar EN VIVO con `LoadLibrary`, que
+/// su tabla de importaciones no dice. Sin repetir, sin mayusculas que cuenten.
+fn nombres_de_dll(d: &[u8]) -> Vec<alloc::string::String> {
+    use alloc::string::String;
+    let vale = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'-' || c == b'.';
+    let mut v: Vec<String> = Vec::new();
+    let mut poner = |n: String| {
+        if n.len() > 4 && !v.iter().any(|x| x.eq_ignore_ascii_case(&n)) {
+            v.push(n);
+        }
+    };
+    // ASCII: ".dll" y hacia atras mientras sea un nombre.
+    let mut i = 0;
+    while i + 4 <= d.len() {
+        if d[i..i + 4].eq_ignore_ascii_case(b".dll") && d.get(i + 4).is_none_or(|&c| !vale(c)) {
+            let mut a = i;
+            while a > 0 && vale(d[a - 1]) && i - a < 64 {
+                a -= 1;
+            }
+            if a < i {
+                poner(String::from_utf8_lossy(&d[a..i + 4]).into_owned());
+            }
+            i += 4;
+        } else {
+            i += 1;
+        }
+    }
+    // UTF-16: ".\0d\0l\0l\0".
+    let mut i = 0;
+    while i + 8 <= d.len() {
+        let w = &d[i..i + 8];
+        if w[1] == 0 && w[3] == 0 && w[5] == 0 && w[7] == 0 && w[0] == b'.' && w[2] | 0x20 == b'd' && w[4] | 0x20 == b'l' && w[6] | 0x20 == b'l' {
+            let mut a = i;
+            while a >= 2 && d[a - 1] == 0 && vale(d[a - 2]) && (i - a) / 2 < 64 {
+                a -= 2;
+            }
+            if a < i {
+                let n: String = (a..i + 8).step_by(2).map(|k| d[k] as char).collect();
+                poner(n);
+            }
+            i += 8;
+        } else {
+            i += 2;
+        }
+    }
+    v
+}
+
+/// **EL CENSO COMPLETO** (29-09; refinado: *"LISTAR por completo lo que
+/// exige"*). Sin ejecutar nada:
+///
+/// ```text
+///    el .exe y, RECURSIVAMENTE, cada DLL del juego que vive junto a el
+///    todas las funciones de Windows que piden, SIN REPETIR, contra la casa
+///    las DLL que se cargan EN VIVO (sus nombres en los datos: d3d12, dxgi...)
+/// ```
+///
+/// Resumen por la consola; la lista entera, en `informe/censo.txt`.
 fn censo(ruta: &[u8]) -> ! {
     use alloc::string::String;
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
@@ -122,77 +218,142 @@ fn censo(ruta: &[u8]) -> ! {
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
     unsafe { MONTON.poner(bloque.base() as usize, 16 << 20) };
     core::mem::forget(bloque);
-    let Ok(a) = bmo::Archivo::reflejar(ruta) else { fin(&format!("censo: no encuentro {nombre}")) };
-    let mide = a.size();
-    // Las cabeceras: los primeros 64 KiB bastan (un PE las pide en 4). De una
-    // llamada a un bloque (`read` va de siete en siete bytes).
-    let n = (64u64 << 10).min(mide);
-    let Some(hb) = bmo::Memoria::request(n.max(1)) else { fin("sin memoria para las cabeceras") };
-    let k = a.leer_en(&hb, 0, n);
-    // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
-    hb.soltar();
-    let pe = bmo_proton_x::leer_cabeceras(&cab, mide).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    let rva = pe.importaciones.rva;
-    let Some(sec) = pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva)) else {
-        fin(&format!("{nombre}: no pide nada, o sus importaciones no caen en una seccion"));
-    };
-    let tam = sec.tam_en_fichero as u64;
-    if tam > TOPE_SECCION {
-        fin(&format!("{nombre}: la seccion {} mide {} MiB, pasa del tope de un bloque", sec.nombre, tam >> 20));
-    }
-    let Some(b) = bmo::Memoria::request(tam) else { fin("sin memoria para la seccion de importaciones") };
-    if a.saltar(sec.desde as u64) != sec.desde as u64 || a.leer_en(&b, 0, tam) != tam {
-        fin(&format!("{nombre}: la seccion {} no se leyo entera", sec.nombre));
-    }
-    // SAFETY: `tam` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let trozo = unsafe { core::slice::from_raw_parts(b.base() as *const u8, tam as usize) };
-    let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    drop(a);
     // La carpeta del `.exe`: donde viven las DLL del juego.
-    let dir = match ruta.iter().rposition(|&c| c == b'/') {
-        Some(k) => &ruta[..k + 1],
-        None => &ruta[..0],
+    let dir: Vec<u8> = match ruta.iter().rposition(|&c| c == b'/') {
+        Some(k) => ruta[..k + 1].to_vec(),
+        None => Vec::new(),
     };
-    // Por DLL, en el orden en que las pide: (nombre, cuantas, las tiene la casa).
-    let mut dlls: Vec<(String, u32, u32)> = Vec::new();
-    let mut lista = String::new();
-    for i in &imps {
-        let hay = bmo_proton_x_casa::tabla(&i.dll, &i.funcion).is_some();
-        match dlls.iter_mut().find(|d| d.0.eq_ignore_ascii_case(&i.dll)) {
-            Some(d) => {
-                d.1 += 1;
-                d.2 += hay as u32;
+    let junto = |dll: &str| -> Vec<u8> {
+        let mut r = dir.clone();
+        r.extend_from_slice(dll.as_bytes());
+        r
+    };
+    let existe = |dll: &str| bmo::Archivo::reflejar(&junto(dll)).is_ok();
+
+    // Por mirar (nombre del fichero) y ya mirados, sin mayusculas.
+    let mut cola: Vec<String> = Vec::new();
+    let mut vistos: Vec<String> = Vec::new();
+    // Las de Windows: (dll, funcion, la tiene la casa); sin repetir.
+    let mut windows: Vec<(String, String, bool)> = Vec::new();
+    // Lo del juego: (fichero, MiB, funciones importadas, fallo).
+    let mut juego: Vec<(String, u64, usize, Option<String>)> = Vec::new();
+    // Las que se cargan en vivo y no son del juego.
+    let mut en_vivo: Vec<(String, String)> = Vec::new();
+
+    let exe = match mirar(ruta) {
+        Ok(m) => m,
+        Err(f) => fin(&format!("censo: {nombre}: {f}")),
+    };
+    let mut pendiente: Vec<(String, Mirado)> = alloc::vec![(String::from(nombre.rsplit('/').next().unwrap_or(nombre)), exe)];
+    loop {
+        let Some((quien, m)) = pendiente.pop() else {
+            // Lo siguiente de la cola, mirado ahora.
+            let Some(dll) = cola.pop() else { break };
+            match mirar(&junto(&dll)) {
+                Ok(m) => pendiente.push((dll, m)),
+                Err(f) => juego.push((dll, 0, 0, Some(f))),
             }
-            None => dlls.push((i.dll.clone(), 1, hay as u32)),
-        }
-        if !hay {
-            lista.push_str(&format!("{} {}\n", i.dll, i.funcion));
-        }
-    }
-    let total = imps.len() as u32;
-    let tiene: u32 = dlls.iter().map(|d| d.2).sum();
-    di(&format!("CENSO de {nombre}: {} MiB, {} DLL, {total} funciones importadas; la casa ya tiene {tiene} ({}%)\n", mide >> 20, dlls.len(), tiene * 100 / total.max(1)));
-    let mut del_juego = 0u32;
-    for (dll, n, si) in &dlls {
-        let mut junto: Vec<u8> = dir.to_vec();
-        junto.extend_from_slice(dll.as_bytes());
-        let es_del_juego = bmo::Archivo::reflejar(&junto).is_ok();
-        del_juego += es_del_juego as u32;
-        let que = if es_del_juego {
-            "DEL JUEGO: vive junto al .exe, se carga como DLL (P5a)"
-        } else if si == n {
-            "la casa la tiene ENTERA"
-        } else if *si == 0 {
-            "la casa NO la tiene"
-        } else {
-            "a medias"
+            continue;
         };
-        di(&format!("  {dll:<28} {si:>4} de {n:<4} {que}\n"));
-        lista.push_str(&format!("# {dll}: {si} de {n}; {que}\n"));
+        vistos.push(quien.to_ascii_lowercase());
+        juego.push((quien.clone(), m.mide >> 20, m.imps.len(), None));
+        for i in &m.imps {
+            let dll_min = i.dll.to_ascii_lowercase();
+            if vistos.contains(&dll_min) || cola.iter().any(|c| c.eq_ignore_ascii_case(&i.dll)) {
+                continue;
+            }
+            if existe(&i.dll) {
+                cola.push(i.dll.clone());
+                continue;
+            }
+            let f = format!("{}", i.funcion);
+            if !windows.iter().any(|(d, g, _)| d.eq_ignore_ascii_case(&i.dll) && *g == f) {
+                let hay = bmo_proton_x_casa::tabla(&i.dll, &i.funcion).is_some();
+                windows.push((i.dll.clone(), f, hay));
+            }
+        }
+        for d in &m.en_vivo {
+            let d_min = d.to_ascii_lowercase();
+            let importada = m.imps.iter().any(|i| i.dll.eq_ignore_ascii_case(d));
+            if importada || vistos.contains(&d_min) || cola.iter().any(|c| c.eq_ignore_ascii_case(d)) {
+                continue;
+            }
+            if existe(d) {
+                cola.push(d.clone());
+            } else if !en_vivo.iter().any(|(x, _)| x.eq_ignore_ascii_case(d)) {
+                en_vivo.push((d.clone(), quien.clone()));
+            }
+        }
     }
-    di(&format!("  {} DLL del juego; lo que falta, funcion a funcion: {}\n", del_juego, core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
-    guardar_censo(lista.as_bytes());
+
+    // -- El resumen.
+    let total = windows.len();
+    let tiene = windows.iter().filter(|w| w.2).count();
+    let mut dlls: Vec<(String, u32, u32)> = Vec::new();
+    for (d, _, hay) in &windows {
+        match dlls.iter_mut().find(|x| x.0.eq_ignore_ascii_case(d)) {
+            Some(x) => {
+                x.1 += 1;
+                x.2 += *hay as u32;
+            }
+            None => dlls.push((d.clone(), 1, *hay as u32)),
+        }
+    }
+    dlls.sort_by(|a, b| (b.1 - b.2).cmp(&(a.1 - a.2)));
+    let fallidos = juego.iter().filter(|j| j.3.is_some()).count();
+    di(&format!(
+        "CENSO COMPLETO de {nombre}: {} ficheros del juego mirados ({} MiB), {} DLL de Windows, {total} funciones de Windows distintas; la casa tiene {tiene} ({}%), FALTAN {}\n",
+        juego.len() - fallidos,
+        juego.iter().map(|j| j.1).sum::<u64>(),
+        dlls.len(),
+        tiene * 100 / total.max(1),
+        total - tiene
+    ));
+    di("  de Windows, por lo que falta:\n");
+    for (d, n, si) in &dlls {
+        di(&format!("  {d:<24} faltan {:>4} de {n:<4}\n", n - si));
+    }
+    if !en_vivo.is_empty() {
+        di("  se cargan EN VIVO (LoadLibrary; su nombre en los datos):\n   ");
+        for (d, _) in &en_vivo {
+            di(&format!(" {d}"));
+        }
+        di("\n");
+    }
+    if fallidos > 0 {
+        di(&format!("  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"));
+    }
+    di(&format!("  la lista entera, funcion a funcion: {}\n", core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
+
+    // -- La lista entera.
+    let mut t = String::new();
+    t.push_str(&format!("# CENSO COMPLETO de {nombre}\n# {total} funciones de Windows distintas; la casa tiene {tiene}; FALTAN {}\n\n", total - tiene));
+    t.push_str("## FALTAN (dll funcion)\n");
+    for (d, _, _) in &dlls {
+        for (e, f, hay) in &windows {
+            if !hay && e.eq_ignore_ascii_case(d) {
+                t.push_str(&format!("{e} {f}\n"));
+            }
+        }
+    }
+    t.push_str("\n## LA CASA YA LAS TIENE\n");
+    for (e, f, hay) in &windows {
+        if *hay {
+            t.push_str(&format!("{e} {f}\n"));
+        }
+    }
+    t.push_str("\n## EN VIVO (LoadLibrary; nombre visto en los datos de)\n");
+    for (d, quien) in &en_vivo {
+        t.push_str(&format!("{d} <- {quien}\n"));
+    }
+    t.push_str("\n## FICHEROS DEL JUEGO (MiB, funciones importadas)\n");
+    for (f, mib, n, fallo) in &juego {
+        match fallo {
+            None => t.push_str(&format!("{f} {mib} {n}\n")),
+            Some(e) => t.push_str(&format!("{f} NO SE PUDO MIRAR: {e}\n")),
+        }
+    }
+    guardar_censo(t.as_bytes());
     bmo::salir();
 }
 
