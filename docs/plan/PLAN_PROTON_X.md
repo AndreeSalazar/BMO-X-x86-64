@@ -642,6 +642,33 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     lote va por la CPU" y con EL REGISTRO contra los 34-36
                     fps de la CPU. Si la copia falla, la cabina dice
                     "P3b4c.6b: la 3060 no pago la copia de la sombra".
+               4c.8 LAS TEXTURAS POR LA 3060 (TIC/TSC), en escalones
+                    (29-09, pedido por el propietario):
+                    T0 [HECHO banco] los DESCRIPTORES: `bmo_gpu_ga10x::
+                       texturas` -- el TIC de una textura 2D pitch de 8 bits
+                       (A8B8G8R8 UNORM, BGRA cruzando X y Z, TWO_D_NO_MIPMAP,
+                       coordenadas normalizadas), el TSC de un muestreador
+                       de D3D12 (punto/lineal, los cinco modos, borde) y las
+                       ordenes de las piscinas (SET_TEX_HEADER_POOL 0x1574,
+                       SET_TEX_SAMPLER_POOL 0x155c, y las dos invalidaciones
+                       0x1330/0x1334). `proton-x-sm86::muestreo` lleva el
+                       Muestreador y la textura de la casa a ellos. [!] Los
+                       campos son los de `gm107_texture.xml.h` de nouveau; el
+                       banco comprueba sus bits, NO que la 3060 los entienda.
+                    T1 [ ] el `TEX` en SASS: su codificacion de sm_86 NO esta
+                       en el arbol y no se escribe de memoria (un bit mal y
+                       es otro Xid 69 con el canal muerto). Se saca de un
+                       binario que YA corre: en el Windows del propietario,
+                       `nvcc -arch=sm_86 -cubin` de un kernel de CUDA con
+                       `tex2D` y `cuobjdump -sass` -> sus 128 bits, al
+                       corpus. Y el juez R8: el asa de la textura (su indice
+                       en las piscinas) la pone el KERNEL, nunca la app.
+                    T2 [ ] el kernel: las piscinas en VRAM, los texeles
+                       prestados por la IOMMU (como el destino) o copiados a
+                       VRAM por el motor de copia, y la receta VRN3 con sus
+                       texturas y muestreadores.
+                    T3 [ ] el metal: `gpu verrano textura` IGUAL a
+                       `tests/textura.rs`, y HelloTexture por PROTON-X.
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture
                     (29-09): `bmo_proton_x::textura` muestrea (punto y
                     bilineal con fraccion de 8 bits, los cinco modos de

@@ -41,6 +41,9 @@ pub mod profundidad;
 /// P3b4c.6b: la SOMBRA del color -- con Z, el color va en bloque a la VRAM
 /// y el motor de copia lo lleva al destino pitch (2026-09-29).
 pub mod sombra;
+/// P3b4c.8 T0: las TEXTURAS de la 3060 -- sus descriptores (TIC y TSC) y
+/// las piscinas; el `TEX` y el kernel, despues (2026-09-29).
+pub mod texturas;
 /// P3b4c: la RECETA (VRN2) -- lo que manda una APP: los cuerpos y como se
 /// cargan; el pegamento lo pone el kernel (2026-09-28).
 pub mod receta;

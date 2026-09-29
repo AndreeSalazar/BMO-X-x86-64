@@ -63,6 +63,9 @@ pub mod simula;
 pub mod pso;
 /// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
 pub mod puerta;
+/// P3b4c.8 T0: el muestreador y la textura de la casa en el TSC y el TIC de
+/// la 3060 (29-09).
+pub mod muestreo;
 
 use alloc::vec;
 use alloc::vec::Vec;
