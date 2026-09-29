@@ -92,6 +92,42 @@ el mismo propietario para que entre TITAN++. La fila de METAS lo dice.
 
 ---
 
+## 1b. Por que un lenguaje PROPIO: los extranjeros no se tocan
+
+El propietario, el 29-09: *"el C, C++ y otros mas no tengo control y no puedo
+modificar del TODO ... son lenguajes extranjeros para facilitar ... si quiero
+Apps famosos no puedo usar esas bases"*.
+
+Es el motivo de fondo, y lo explica todo lo demas:
+
+```text
+   un lenguaje EXTRANJERO   esta en BMO-X para recibir codigo de FUERA tal cual
+                            (DOOM compila sin tocarlo; la banca, en COBOL)
+                            -> si se le agregan las reglas de BMO-X, el codigo
+                               de fuera deja de compilar, y se pierde justo
+                               lo que daba. NO SE TOCA
+   un lenguaje PROPIO       esta para crear codigo AQUI
+                            -> puede saber de BMO-X: los prestamos, los
+                               permisos, la 3060 (seccion 3). Solo se puede
+                               porque es de la casa
+```
+
+`INTI_MAESTRO` ya lo decia de los cuatro frontends: *"estan ahi porque son de
+otros"*. El reparto completo:
+
+```text
+   codigo de FUERA, para correr aqui    C, C++, COBOL, Ada, PROTON-X  (no se tocan)
+   codigo de AQUI, para el sistema      INTI
+   codigo de AQUI, para construir       TITAN++
+```
+
+[!] Y lo que esto NO promete: **las apps famosas de fuera** (juegos de
+Windows, programas conocidos) no llegan por TITAN++; llegan por PROTON-X o
+portando su fuente con C y C++. TITAN++ es para las **propias**: las que se
+escriben para BMO-X y pueden llegar a ser las famosas de la casa.
+
+---
+
 ## 2. C++ TOTAL: lo que se toma, lo que no, y como caben las dos cosas
 
 "Inspirado en C++ TOTAL" y "pocas palabras" parecen chocar: C++ es de los
