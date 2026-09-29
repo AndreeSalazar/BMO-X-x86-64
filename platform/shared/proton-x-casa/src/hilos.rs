@@ -452,7 +452,7 @@ extern "win64" fn wait_for_single_object_ex(h: u64, ms: u32, _alertable: i32) ->
     esperar(&[h], false, ms)
 }
 
-extern "win64" fn wait_for_multiple_objects(n: u32, hs: *const u64, todos: i32, ms: u32) -> u32 {
+pub(crate) extern "win64" fn wait_for_multiple_objects(n: u32, hs: *const u64, todos: i32, ms: u32) -> u32 {
     if n == 0 || n > 64 || hs.is_null() {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return WAIT_FAILED;

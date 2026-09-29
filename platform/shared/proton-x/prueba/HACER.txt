@@ -519,3 +519,20 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` veinticinco veces y sale con 0 (la version, 10 en la casa o 6.2
 en un Windows sin manifiesto; el locale, el de la maquina); deja tanda3_a.txt y
 tanda3_b.txt (vacios) en su carpeta. En Windows dice lo mismo.
+
+tanda3b.exe -- la TANDA 3 de Cyberpunk, paso 4a (29-09): el pool de hilos
+
+InitOnce (ExecuteOnce, Begin/Complete), las SList, y el pool de hilos de
+kernel32: trabajos, relojes (uno y periodico), esperas (se cumple y vence) y
+RegisterWaitForSingleObject / UnregisterWait(Ex) (tanda3b_kernel32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda3b_kernel32.def -l tanda3b_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda3b.c -o tanda3b.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda3b.obj tanda3b_kernel32.lib /out:tanda3b.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   e5902f286e35a1cc5d86fb0163cab19c54e87b2b047ba12c62b7e75443aa3b1e
+
+Dice `bien` dieciocho veces y sale con 0. Los callbacks corren en otros
+hilos: lo que se espera se mira con un tope de 2 s. En Windows dice lo mismo.

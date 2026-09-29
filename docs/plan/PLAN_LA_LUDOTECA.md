@@ -532,6 +532,13 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         MSVCP140 los iostreams y el locale (clases con su ABI de MSVC) y los
         que LANZAN excepciones de C++ (`_Xbad_alloc`, `_Xlength_error`...),
         que esperan a que la casa tenga `throw`/`catch` de C++.
+      - **LA TANDA 3, PASO 4a: EL POOL DE HILOS** (29-09): de kernel32,
+        InitOnce, las SList y el pool (`kernel32_pool.rs`): trabajos,
+        relojes, esperas y RegisterWaitForSingleObject. Cada objeto del pool
+        tiene SU hilo de la casa mientras vive (no uno por envio: la pila de
+        un hilo de la casa no se devuelve) y una GENERACION para cancelar.
+        **Como se sabe:** `tanda3b.exe` dice `bien` 18 veces en el banco
+        (`tanda3b_exe_tiene_el_pool_de_hilos`).
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
