@@ -140,6 +140,9 @@ pub struct FatVolume {
     /// [`FatVolume::libres`] vuelve a contar: no se lleva la cuenta a mano en
     /// cada camino que escribe la FAT (son varios, y uno olvidado mentiria).
     libres_contados: Option<(u32, u64)>,
+    /// El sector del FSInfo (FAT32; 0 = no hay): donde Windows apunta su
+    /// cuenta de libres. Es una PISTA, y se lee solo como testigo.
+    fsinfo: u16,
 }
 
 /// No hay ningun sector cargado en `fat_cache`. No es un LBA posible.
@@ -232,7 +235,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     // PRIMERA operacion que se haga con el volumen.
     if bpb.root_cluster < 2 || bpb.root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::Fat32, bytes_per_sector: bpb.bytes_per_sector, sectors_per_cluster: spc,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: bpb.fs_info })
 }
 
 fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, buf: &[u8; 512]) -> Option<FatVolume> {
@@ -268,7 +271,7 @@ fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, b
     let max_cluster = epb.cluster_count.checked_add(1)?;
     if root_cluster < 2 || root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::ExFat, bytes_per_sector, sectors_per_cluster,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None, fsinfo: 0 })
 }
 
 /// **UN CURSOR DENTRO DE UN ARCHIVO.** Sabe por que cluster va y en que byte del
@@ -370,9 +373,16 @@ impl FatVolume {
         while s < sectores {
             let n = (sectores - s).min(por_vez);
             let b = &mut tmp[..n as usize * 512];
-            if !self.leer_directo((self.fat_start + s) as u64, n as u16, b) {
-                return None;
-            }
+            // ** Lo que DICE el disco que llego, no lo que se pidio: una
+            // lectura corta es legal (`transfer::read` para en `got < batch`),
+            // y contar los sectores que no llegaron es contar lo que quedo de
+            // la vuelta anterior. Visto en el metal el 29-09: A: salia con 31,7
+            // GB libres y Windows dice 30,3.
+            let k = match self.dev.read(self.abs((self.fat_start + s) as u64), n as u16, b) {
+                Ok(k) if k > 0 => (k as u32).min(n),
+                _ => return None,
+            };
+            let b = &b[..k as usize * 512];
             for (i, e) in b.chunks_exact(4).enumerate() {
                 let c = s * 128 + i as u32;
                 if c < 2 {
@@ -385,10 +395,29 @@ impl FatVolume {
                     libres += 1;
                 }
             }
-            s += n;
+            s += k;
         }
         self.libres_contados = Some((libres, self.escrituras));
         Some(libres)
+    }
+
+    /// **Lo que Windows APUNTO como libre** en el FSInfo (FAT32), sin creerlo:
+    /// es el TESTIGO de [`FatVolume::libres`]. Si los dos no cuadran, uno de
+    /// los dos miente, y la solapa `equipo` lo dice. `None` sin FSInfo, con
+    /// sus firmas mal, o con la cuenta a `0xFFFFFFFF` ("no se sabe").
+    pub fn libres_segun_fsinfo(&mut self) -> Option<u32> {
+        if self.fs_type != FsType::Fat32 || self.fsinfo == 0 || self.fsinfo == 0xFFFF {
+            return None;
+        }
+        if !self.read_sector(self.fsinfo as u64, Buf::buf) {
+            return None;
+        }
+        let le = |o: usize| u32::from_le_bytes([self.buf[o], self.buf[o + 1], self.buf[o + 2], self.buf[o + 3]]);
+        if le(0) != 0x4161_5252 || le(484) != 0x6141_7272 {
+            return None;
+        }
+        let n = le(488);
+        (n != u32::MAX && n <= self.clusteres()).then_some(n)
     }
 
     /// Fallos del dispositivo que no cambiaron ningun codigo de retorno.
@@ -430,8 +459,13 @@ impl FatVolume {
     /// pagina de rebote-- y existe como metodo, y no como una llamada suelta a
     /// `self.read`, por una sola razon: **para que pase por `abs`**. Un puntero
     /// a funcion invocado a mano se salta la traduccion sin que nada avise.
+    ///
+    /// ** Y TIENEN QUE LLEGAR TODOS (29-09). Era `.is_ok()`, y el contrato de
+    /// bloques permite una lectura CORTA (`Ok(k)` con `k < count`): el resto
+    /// del buffer se quedaba con lo que hubiera, y el fichero salia con basura
+    /// y un "bien". Ahora una lectura corta es un fallo, que se ve.
     fn leer_directo(&self, lba: u64, count: u16, dst: &mut [u8]) -> bool {
-        self.dev.read(self.abs(lba), count, dst).is_ok()
+        matches!(self.dev.read(self.abs(lba), count, dst), Ok(k) if k == count)
     }
 
     /// Lee un sector del VOLUMEN a uno de los buffers internos.

@@ -1347,3 +1347,27 @@ fn el_espacio_libre_sigue_a_la_fat() {
     assert_eq!(v.libres(&mut tmp), Some(503), "y sin escribir, la misma");
     assert_eq!(v.libres(&mut [0u8; 100]), None, "sin sitio para un sector, no se inventa");
 }
+
+/// El testigo: lo que Windows deja en el FSInfo se lee con sus firmas, y sin
+/// firmas (o con "no se sabe") no se contesta.
+#[test]
+fn el_fsinfo_es_un_testigo_con_firmas() {
+    let (_turno, mut v) = volumen();
+    assert_eq!(v.libres_segun_fsinfo(), None, "el volumen de prueba no tiene FSInfo");
+    let mut s = [0u8; 512];
+    s[0..4].copy_from_slice(&0x4161_5252u32.to_le_bytes());
+    s[484..488].copy_from_slice(&0x6141_7272u32.to_le_bytes());
+    s[488..492].copy_from_slice(&321u32.to_le_bytes());
+    // Un sector cualquiera del banco hace de FSInfo (el 3 cae en la FAT, que
+    // esta prueba no usa).
+    v.fsinfo = 3;
+    assert!(write(3, 1, &s));
+    assert_eq!(v.libres_segun_fsinfo(), Some(321));
+    s[488..492].copy_from_slice(&u32::MAX.to_le_bytes());
+    assert!(write(3, 1, &s));
+    assert_eq!(v.libres_segun_fsinfo(), None, "0xFFFFFFFF = no se sabe");
+    s[0] = 0;
+    s[488..492].copy_from_slice(&5u32.to_le_bytes());
+    assert!(write(3, 1, &s));
+    assert_eq!(v.libres_segun_fsinfo(), None, "sin su firma no vale");
+}

@@ -129,14 +129,17 @@ fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, Bl
         // pagina `dma` es nuestra (contigua, Neutro) y cabe `n` sectores.
         let r = unsafe { bmo_ahci::read_sectors_phys(p, lba + hecho as u64, n, dma) };
         super::transfer::marcar_el_tramo(dma, bytes, false, crate::ring0::task::scheduler::rdtsc());
-        match r {
-            Ok(k) if k == n => {}
+        // Una lectura CORTA es legal (el disco dijo basta antes): se copia lo
+        // que llego y se sigue desde ahi. Cero es un fallo.
+        let n = match r {
+            Ok(k) if k > 0 => k.min(n),
             Ok(_) => return Err(BlockError::Device),
             Err(e) => {
                 crate::ring0::cabina::warn("disk", e.name(), lba + hecho as u64);
                 return Err(BlockError::Device);
             }
-        }
+        };
+        let bytes = n as u64 * SECTOR as u64;
         let desde = hecho as usize * SECTOR;
         // SAFETY: la pagina de rebote mide `LOTE` sectores, por el physmap.
         let src = unsafe { core::slice::from_raw_parts(mm::phys_to_virt(dma) as *const u8, bytes as usize) };
@@ -157,6 +160,16 @@ static mut SERIE: [u8; 20] = [0; 20];
 /// tenga la serie del de BMO-X. Luego, su NTFS.
 pub(super) fn buscar(suyo: u8) {
     let Some(ctrl) = bmo_ahci::controller() else { return };
+    // Los puertos con un disco SATA vivo (el de BMO-X incluido): el detalle
+    // de "no hay otro".
+    let mut vistos = 0u64;
+    for i in 0..(ctrl.port_count as usize).min(32) {
+        let pt = &ctrl.ports[i];
+        if pt.state == bmo_ahci::PortState::Active && pt.signature == bmo_ahci::SIG_SATA_DISK {
+            vistos |= 1 << i;
+        }
+    }
+    etapa(ETAPA_SIN_OTRO, vistos);
     for i in 0..(ctrl.port_count as usize).min(32) {
         let pt = &ctrl.ports[i];
         if i as u8 == suyo || pt.state != bmo_ahci::PortState::Active || pt.signature != bmo_ahci::SIG_SATA_DISK {
@@ -167,6 +180,7 @@ pub(super) fn buscar(suyo: u8) {
         // estructuras (lista, FIS, tabla), no las del disco de BMO-X.
         if !unsafe { bmo_ahci::init_port_dma(i as u8) } {
             crate::ring0::cabina::warn("disk", "N1a: el puerto del disco ajeno no se preparo", i as u64);
+            etapa(ETAPA_PUERTO, i as u64);
             continue;
         }
         let Some(dma) = phys::alloc_frames_contig_de(1, phys::Titular::Neutro) else {
@@ -176,6 +190,7 @@ pub(super) fn buscar(suyo: u8) {
         // SAFETY: el puerto `i` quedo preparado arriba; la pagina es nuestra.
         if let Err(e) = unsafe { bmo_ahci::identify_phys(i as u8, dma) } {
             crate::ring0::cabina::warn("disk", e.name(), i as u64);
+            etapa(ETAPA_IDENTIFY, i as u64);
             continue;
         }
         let src = mm::phys_to_virt(dma) as *const u8;
@@ -194,6 +209,7 @@ pub(super) fn buscar(suyo: u8) {
             // Mismo disco que el de BMO-X (la misma serie): no es ajeno.
             if ns > 0 && super::serial().as_bytes() == &serie[..ns] {
                 crate::ring0::cabina::warn("disk", "N1a: ese puerto es el MISMO disco de BMO-X (misma serie): no se toca", i as u64);
+                etapa(ETAPA_MISMO, i as u64);
                 continue;
             }
             let mut id = DeviceId { blocks: total, ..DeviceId::EMPTY };
@@ -222,6 +238,29 @@ static MONTADO: AtomicBool = AtomicBool::new(false);
 /// su `$Bitmap`): el disco es de solo lectura, desde aqui no cambia.
 /// `LIBRES = u64::MAX`: no se pudo contar.
 static BYTES: AtomicU64 = AtomicU64::new(0);
+/// **Donde se paro N1a**, para que la solapa `equipo` diga POR QUE el disco
+/// Personal no esta montado (el anillo de la cabina guarda 48 eventos y los
+/// del arranque se van). `etapa | detalle << 8`; las etapas, en el ABI
+/// (`INFO_UNIDAD`, `que 2`). Visto en el metal el 29-09: "no montada" sin
+/// mas, y sin forma de saber en que paso.
+static ETAPA: AtomicU64 = AtomicU64::new(0);
+pub const ETAPA_SIN_OTRO: u64 = 1;
+pub const ETAPA_PUERTO: u64 = 2;
+pub const ETAPA_IDENTIFY: u64 = 3;
+pub const ETAPA_MISMO: u64 = 4;
+pub const ETAPA_TABLA: u64 = 5;
+pub const ETAPA_SIN_NTFS: u64 = 6;
+pub const ETAPA_NO_MONTA: u64 = 7;
+pub const ETAPA_MONTADO: u64 = 8;
+
+fn etapa(e: u64, detalle: u64) {
+    ETAPA.store(e | detalle << 8, Ordering::Relaxed);
+}
+
+/// Donde se paro N1a (ver [`ETAPA`]). 0 = no se busco.
+pub fn etapa_n1a() -> u64 {
+    ETAPA.load(Ordering::Relaxed)
+}
 static LIBRES: AtomicU64 = AtomicU64::new(u64::MAX);
 
 /// **`(bytes, libres)` del disco PERSONAL**, si esta montado. Para
@@ -241,67 +280,102 @@ pub fn volumen() -> Option<&'static mut bmo_ntfs::Volumen<'static>> {
     MONTADO.load(Ordering::Acquire).then(|| unsafe { &mut *core::ptr::addr_of_mut!(VOLUMEN) })
 }
 
-/// **Su GPT, su particion NTFS, montada, y la raiz a la cabina.**
+/// **Su tabla de particiones, su particion NTFS, montada, y la raiz a la
+/// cabina.** GPT primero; si no hay GPT, la MBR (Ventoy, que vive en este
+/// disco, formatea en MBR por defecto: tipo 0x07 es NTFS).
 fn montar_ntfs() {
     let mut s = [0u8; SECTOR];
-    if AJENO.read(1, 1, &mut s).is_err() {
-        crate::ring0::cabina::warn("ntfs", "N1a: no se pudo leer la GPT del disco ajeno", 0);
-        return;
-    }
-    let gpt = match bmo_particiones::cabecera(&s) {
-        Ok(g) => g,
-        Err(e) => {
-            crate::ring0::cabina::warn("ntfs", e.name(), 0);
-            return;
-        }
-    };
-    let por = gpt.por_sector();
-    let sectores = (gpt.entry_count.min(128) as usize).div_ceil(por.max(1));
-    for k in 0..sectores {
-        if AJENO.read(gpt.entries_lba + k as u64, 1, &mut s).is_err() {
-            return;
-        }
-        let mut parts = [bmo_particiones::Partition::VACIA; 4];
-        let mut n = 0;
-        for j in 0..por.min(4) {
-            if let Some(p) = bmo_particiones::entrada(&s, j * gpt.entry_size as usize, (k * por + j) as u32) {
-                parts[n] = p;
-                n += 1;
+    let mut vistas = 0u64;
+    let gpt = if AJENO.read(1, 1, &mut s).is_ok() { bmo_particiones::cabecera(&s).ok() } else { None };
+    if let Some(gpt) = gpt {
+        let por = gpt.por_sector();
+        let sectores = (gpt.entry_count.min(128) as usize).div_ceil(por.max(1));
+        for k in 0..sectores {
+            if AJENO.read(gpt.entries_lba + k as u64, 1, &mut s).is_err() {
+                crate::ring0::cabina::warn("ntfs", "N1a: no se pudo leer la tabla GPT del disco ajeno", k as u64);
+                etapa(ETAPA_TABLA, 1);
+                return;
             }
-        }
-        for p in &parts[..n] {
-            crate::ring0::cabina::info("ntfs", "N1a: particion del disco ajeno; empieza en la LBA", p.first_lba);
-            if !p.is_basic_data() {
-                continue;
-            }
-            let mut arranque = [0u8; SECTOR];
-            if AJENO.read(p.first_lba, 1, &mut arranque).is_err() || bmo_ntfs::forma(&arranque).is_none() {
-                continue;
-            }
-            // SAFETY: al arrancar, un solo hilo; ver `volumen`.
-            let v = unsafe { &mut *core::ptr::addr_of_mut!(VOLUMEN) };
-            match v.montar_aqui(p.first_lba) {
-                Ok(()) => {
-                    crate::ring0::cabina::info("ntfs", "N1a: NTFS MONTADO, solo lectura; bytes por cluster", v.forma.bytes_por_cluster);
-                    let bpc = v.forma.bytes_por_cluster;
-                    BYTES.store(v.clusteres() * bpc, Ordering::Relaxed);
-                    match v.libres() {
-                        Ok(l) => {
-                            LIBRES.store(l * bpc, Ordering::Relaxed);
-                            crate::ring0::cabina::info("ntfs", "N1a: libres (MiB), contados en su $Bitmap", l * bpc >> 20);
-                        }
-                        Err(e) => crate::ring0::cabina::warn("ntfs", e.nombre(), 0),
-                    }
-                    // Montado DESPUES de las cuentas: quien lo vea montado ve los numeros.
-                    MONTADO.store(true, Ordering::Release);
-                    decir_la_raiz(v);
+            for j in 0..por.min(4) {
+                let Some(p) = bmo_particiones::entrada(&s, j * gpt.entry_size as usize, (k * por + j) as u32) else { continue };
+                vistas += 1;
+                crate::ring0::cabina::info("ntfs", "N1a: particion GPT del disco ajeno; empieza en la LBA", p.first_lba);
+                if p.is_basic_data() && intentar(p.first_lba) {
                     return;
                 }
-                Err(e) => crate::ring0::cabina::warn("ntfs", e.nombre(), p.first_lba),
+            }
+        }
+    } else {
+        // La MBR: la firma 0x55AA y cuatro entradas de 16 B desde el 446.
+        if AJENO.read(0, 1, &mut s).is_err() || s[510] != 0x55 || s[511] != 0xAA {
+            crate::ring0::cabina::warn("ntfs", "N1a: el disco ajeno no tiene ni GPT ni MBR", 0);
+            etapa(ETAPA_TABLA, 2);
+            return;
+        }
+        for j in 0..4usize {
+            let e = &s[446 + j * 16..446 + j * 16 + 16];
+            let lba = u32::from_le_bytes([e[8], e[9], e[10], e[11]]) as u64;
+            if e[4] == 0 || lba == 0 {
+                continue;
+            }
+            vistas += 1;
+            crate::ring0::cabina::info("ntfs", "N1a: particion MBR del disco ajeno; tipo", e[4] as u64);
+            if e[4] == 0x07 && intentar(lba) {
+                return;
             }
         }
     }
-    crate::ring0::cabina::warn("ntfs", "N1a: el disco ajeno no tiene una particion NTFS que se monte", 0);
+    if etapa_n1a() & 0xFF != ETAPA_NO_MONTA {
+        etapa(ETAPA_SIN_NTFS, vistas);
+    }
+    crate::ring0::cabina::warn("ntfs", "N1a: el disco ajeno no tiene una particion NTFS que se monte", vistas);
+}
+
+/// Monta el NTFS de la particion que empieza en `lba`, si lo es. `true` si
+/// quedo montado.
+fn intentar(lba: u64) -> bool {
+    let mut arranque = [0u8; SECTOR];
+    if AJENO.read(lba, 1, &mut arranque).is_err() || bmo_ntfs::forma(&arranque).is_none() {
+        return false;
+    }
+    // SAFETY: al arrancar, un solo hilo; ver `volumen`.
+    let v = unsafe { &mut *core::ptr::addr_of_mut!(VOLUMEN) };
+    match v.montar_aqui(lba) {
+        Ok(()) => {
+            crate::ring0::cabina::info("ntfs", "N1a: NTFS MONTADO, solo lectura; bytes por cluster", v.forma.bytes_por_cluster);
+            let bpc = v.forma.bytes_por_cluster;
+            BYTES.store(v.clusteres() * bpc, Ordering::Relaxed);
+            match v.libres() {
+                Ok(l) => {
+                    LIBRES.store(l * bpc, Ordering::Relaxed);
+                    crate::ring0::cabina::info("ntfs", "N1a: libres (MiB), contados en su $Bitmap", l * bpc >> 20);
+                }
+                Err(e) => crate::ring0::cabina::warn("ntfs", e.nombre(), 0),
+            }
+            etapa(ETAPA_MONTADO, 0);
+            // Montado DESPUES de las cuentas: quien lo vea montado ve los numeros.
+            MONTADO.store(true, Ordering::Release);
+            decir_la_raiz(v);
+            true
+        }
+        Err(e) => {
+            crate::ring0::cabina::warn("ntfs", e.nombre(), lba);
+            etapa(ETAPA_NO_MONTA, codigo(e));
+            false
+        }
+    }
+}
+
+/// El numero de cada motivo de `bmo_ntfs::NoNtfs`, para el detalle de la etapa.
+fn codigo(e: bmo_ntfs::NoNtfs) -> u64 {
+    use bmo_ntfs::NoNtfs as N;
+    match e {
+        N::Leer => 1,
+        N::NoEsNtfs => 2,
+        N::Forma(_) => 3,
+        N::Grande(_) => 4,
+        _ => 5,
+    }
 }
 
 /// Las primeras entradas de la raiz a la cabina (valor: 1 si es carpeta), y

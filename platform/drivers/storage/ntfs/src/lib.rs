@@ -452,12 +452,13 @@ fn leer_disco(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u
         if dentro == 0 && quedan >= b as usize {
             // Alineado: directo al destino, hasta 128 bloques de una vez.
             let n = (quedan / b as usize).min(128);
-            match d.dev.read(lba, n as u16, &mut dst[hecho..hecho + n * b as usize]) {
-                Ok(k) if k as usize == n => {}
+            // Una lectura CORTA es legal: se sigue desde donde llego.
+            let k = match d.dev.read(lba, n as u16, &mut dst[hecho..hecho + n * b as usize]) {
+                Ok(k) if k > 0 => (k as usize).min(n),
                 _ => return Err(NoNtfs::Leer),
-            }
-            hecho += n * b as usize;
-            off += n as u64 * b;
+            };
+            hecho += k * b as usize;
+            off += k as u64 * b;
         } else {
             let p = &mut puente[..b as usize];
             match d.dev.read(lba, 1, p) {

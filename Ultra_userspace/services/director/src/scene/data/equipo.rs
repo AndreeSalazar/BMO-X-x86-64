@@ -119,9 +119,12 @@ impl Unidad {
 struct Medida {
     bytes: u64,
     libres: Option<u64>,
+    /// `INFO_UNIDAD`, `que 2`: el testigo del FSInfo (DATOS, EFI) o donde se
+    /// paro N1a (PERSONAL). Ver el ABI.
+    extra: u64,
 }
 
-const SIN_MEDIR: Medida = Medida { bytes: 0, libres: None };
+const SIN_MEDIR: Medida = Medida { bytes: 0, libres: None, extra: 0 };
 static mut MEDIDAS: [Medida; 4] = [SIN_MEDIR; 4];
 
 fn medidas() -> &'static mut [Medida; 4] {
@@ -130,12 +133,64 @@ fn medidas() -> &'static mut [Medida; 4] {
 }
 
 fn unidad_info(u: u64) -> Medida {
+    let extra = bmo::info(bmo::INFO_UNIDAD | u << 8 | 2 << 16);
     let bytes = bmo::info(bmo::INFO_UNIDAD | u << 8);
     if bytes == 0 {
-        return SIN_MEDIR;
+        return Medida { extra, ..SIN_MEDIR };
     }
     let l = bmo::info(bmo::INFO_UNIDAD | u << 8 | 1 << 16);
-    Medida { bytes, libres: (l != bmo::UNIDAD_NO_SE).then_some(l) }
+    Medida { bytes, libres: (l != bmo::UNIDAD_NO_SE).then_some(l), extra }
+}
+
+/// **Por que el disco Personal no esta montado**, de la etapa en que se paro
+/// N1a (`etapa | detalle << 8`, ver el ABI). Escribe el motivo y devuelve la x.
+fn por_que_no(p: &bmo::Pantalla, x: u32, y: u32, etapa: u64) -> u32 {
+    let (e, d) = (etapa & 0xFF, etapa >> 8);
+    let mut b = [0u8; 10];
+    let num = |p: &bmo::Pantalla, x: u32, v: u64, b: &mut [u8; 10]| {
+        let n = decimal(v, b);
+        p.texto_bytes(x, y, &b[..n], AMBAR)
+    };
+    match e {
+        1 => {
+            // Los puertos con disco que se vieron, para saber si el otro se ve.
+            let mut x = p.texto(x, y, "sin otro disco SATA; con disco:", AMBAR);
+            for k in 0..32 {
+                if d >> k & 1 == 1 {
+                    x = p.texto(x, y, " ", AMBAR);
+                    x = num(p, x, k, &mut b);
+                }
+            }
+            x
+        }
+        2 => {
+            let x = p.texto(x, y, "su puerto no se preparo: ", AMBAR);
+            num(p, x, d, &mut b)
+        }
+        3 => {
+            let x = p.texto(x, y, "no contesto a IDENTIFY; puerto ", AMBAR);
+            num(p, x, d, &mut b)
+        }
+        4 => p.texto(x, y, "es el MISMO disco de BMO-X", AMBAR),
+        5 if d == 1 => p.texto(x, y, "su tabla GPT no se pudo leer", AMBAR),
+        5 => p.texto(x, y, "no tiene ni GPT ni MBR", AMBAR),
+        6 => {
+            let x = p.texto(x, y, "sin particion NTFS (vio ", AMBAR);
+            let x = num(p, x, d, &mut b);
+            p.texto(x, y, ")", AMBAR)
+        }
+        7 => {
+            let x = p.texto(x, y, "NTFS no monta: ", AMBAR);
+            p.texto(x, y, match d {
+                1 => "el disco no contesto",
+                2 => "no es NTFS",
+                3 => "volumen raro",
+                4 => "demasiado grande",
+                _ => "otro motivo",
+            }, AMBAR)
+        }
+        _ => p.texto(x, y, "N1a no corrio: sin controlador AHCI", AMBAR),
+    }
 }
 
 /// **Mide todas las unidades.** Al entrar en la vista y con `R`; contar la FAT
@@ -154,7 +209,7 @@ pub(crate) fn releer() {
                     let tam = bmo::info(bmo::INFO_ES_BLOQUE_TAM);
                     let bloques = bmo::info(bmo::INFO_ES_BLOQUES);
                     let usados = bmo::info(bmo::INFO_ES_USADOS);
-                    Medida { bytes: bloques * tam, libres: Some(bloques.saturating_sub(usados) * tam) }
+                    Medida { bytes: bloques * tam, libres: Some(bloques.saturating_sub(usados) * tam), extra: 0 }
                 }
             }
         };
@@ -180,7 +235,8 @@ const TEXTO: u32 = 12 + ICONO + 12;
 /// cabe de sobra. Con 280 se salia de la tarjeta (visto en la vista previa).
 const TARJETA_MIN: u32 = 356;
 const TARJETA_MAX: u32 = 420;
-const TARJETA_H: u32 = 78;
+/// Tres lineas: nombre, barra y cifras, y la de los avisos.
+const TARJETA_H: u32 = 96;
 const RADIO: u32 = 10;
 
 /// Cuantas tarjetas caben por fila.
@@ -312,9 +368,26 @@ fn pinta_tarjeta(p: &bmo::Pantalla, r: (u32, u32, u32, u32), u: Unidad, m: Medid
     let bh = 10;
     borde::relleno_r(p, tx, by, bw, bh, 3, CARRIL);
     let ly = by + bh + 6;
+    // La tercera linea: lo que hay que saber y no cabe arriba.
+    let ny = ly + bmo::GLIFO_ALTO + 2;
     if !montada {
         p.texto(tx, ly, "no montada", INK_DIM);
+        if u == Unidad::Personal {
+            por_que_no(p, tx, ny, m.extra);
+        }
         return;
+    }
+    // ** EL TESTIGO (A: y EFI): lo que Windows apunto en el FSInfo. Si no
+    // cuadra con la cuenta de la FAT por mas del 1%, se dice -- visto el
+    // 29-09: A: con 31,7 GB libres y Windows diciendo 30,3.
+    if matches!(u, Unidad::Datos | Unidad::Efi) && m.extra != bmo::UNIDAD_NO_SE {
+        if let Some(l) = m.libres {
+            if l.abs_diff(m.extra) * 100 > m.bytes {
+                let x = p.texto(tx, ny, "Windows apunto ", AMBAR);
+                let x = medida(p, x, ny, m.extra, AMBAR);
+                p.texto(x, ny, " libres (FSInfo)", AMBAR);
+            }
+        }
     }
     match m.libres {
         Some(l) => {

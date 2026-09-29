@@ -1827,6 +1827,16 @@ pub const INFO_METICHE: u64 = 0xC3;
 ///   que 0     los bytes del volumen (0 = no hay volumen montado)
 ///   que 1     los bytes LIBRES, contados en su mapa (la FAT, `$Bitmap`);
 ///             `UNIDAD_NO_SE` si no se pudieron contar
+///   que 2     DATOS y EFI: el TESTIGO, lo que Windows apunto como libre en
+///             el FSInfo (bytes; `UNIDAD_NO_SE` si no hay). PERSONAL: donde
+///             se paro N1a, `etapa | detalle << 8`:
+///               0 no se busco            1 no hay otro disco SATA (detalle:
+///               2 su puerto no se preparo  mascara de puertos con disco)
+///               3 no contesto a IDENTIFY 4 es el MISMO disco de BMO-X
+///               5 ni GPT ni MBR que leer 6 ninguna particion NTFS (detalle:
+///               7 el NTFS no monto          cuantas particiones vio)
+///                 (detalle: 1 leer, 2 no es NTFS, 3 forma, 4 grande)
+///               8 montado
 /// ```
 ///
 /// ESTRATOS no va aqui: tiene sus propias filas (`INFO_ES_*`).

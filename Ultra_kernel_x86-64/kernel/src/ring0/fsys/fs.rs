@@ -44,6 +44,12 @@ static mut CUENTA: [u8; 4096] = [0; 4096];
 /// DATOS. `None` si ese volumen no esta montado. La cuenta la guarda el
 /// volumen y solo se repite si escribio algo (`FatVolume::libres`).
 pub fn espacio(arranque: bool) -> Option<(u64, Option<u64>)> {
+    espacio_y_testigo(arranque).map(|(b, l, _)| (b, l))
+}
+
+/// [`espacio`] y el TESTIGO: lo que Windows apunto como libre en el FSInfo
+/// (`None` si no hay o no vale). Si no cuadran, la solapa `equipo` lo dice.
+pub fn espacio_y_testigo(arranque: bool) -> Option<(u64, Option<u64>, Option<u64>)> {
     unsafe {
         let v = if arranque {
             (*core::ptr::addr_of_mut!(VOLUME)).as_mut()?
@@ -52,7 +58,8 @@ pub fn espacio(arranque: bool) -> Option<(u64, Option<u64>)> {
         };
         let bpc = v.bytes_por_cluster();
         let libres = v.libres(&mut *core::ptr::addr_of_mut!(CUENTA)).map(|l| l as u64 * bpc);
-        Some((v.clusteres() as u64 * bpc, libres))
+        let testigo = v.libres_segun_fsinfo().map(|l| l as u64 * bpc);
+        Some((v.clusteres() as u64 * bpc, libres, testigo))
     }
 }
 

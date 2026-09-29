@@ -919,16 +919,28 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_SALUD => crate::ring0::dev::gpu::info_salud(c),
         c if c & 0xFF == INFO_METICHE => crate::ring0::dev::metiche::info(c),
         c if c & 0xFF == INFO_UNIDAD => {
-            let (unidad, libres) = ((c >> 8) & 0xFF, (c >> 16) & 1 == 1);
-            let e = match unidad {
-                0 => crate::ring0::fsys::fs::espacio(false),
-                1 => crate::ring0::fsys::fs::espacio(true),
-                2 => crate::ring0::dev::disk::ajeno::espacio(),
-                _ => None,
-            };
-            match e {
-                None => 0,
-                Some((bytes, l)) => if libres { l.unwrap_or(u64::MAX) } else { bytes },
+            let (unidad, que) = ((c >> 8) & 0xFF, (c >> 16) & 3);
+            // `que 2`: el testigo del FSInfo (DATOS, EFI) o donde se paro N1a
+            // (PERSONAL). Ver el ABI.
+            if que == 2 {
+                match unidad {
+                    0 | 1 => crate::ring0::fsys::fs::espacio_y_testigo(unidad == 1)
+                        .and_then(|(_, _, t)| t)
+                        .unwrap_or(u64::MAX),
+                    2 => crate::ring0::dev::disk::ajeno::etapa_n1a(),
+                    _ => 0,
+                }
+            } else {
+                let e = match unidad {
+                    0 => crate::ring0::fsys::fs::espacio(false),
+                    1 => crate::ring0::fsys::fs::espacio(true),
+                    2 => crate::ring0::dev::disk::ajeno::espacio(),
+                    _ => None,
+                };
+                match e {
+                    None => 0,
+                    Some((bytes, l)) => if que == 1 { l.unwrap_or(u64::MAX) } else { bytes },
+                }
             }
         }
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),

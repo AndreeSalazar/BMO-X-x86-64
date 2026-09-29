@@ -431,6 +431,14 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         A5 el NVMe, `C:`, ni se nombra). **Como se sabe:** en la `cabina`
         del arranque, `N1a: disco AJENO`, `NTFS MONTADO`, la raiz de D: y
         `Cyberpunk2077.exe` con sus dos primeros bytes `MZ`.
+      - **Primer metal (29-09 10:09): la tarjeta de D: dijo "no montada"** y
+        la cabina no guardaba por que (48 eventos en el anillo). Se arreglo
+        lo que se pudo sin adivinar: N1a apunta la ETAPA en que se para y la
+        tarjeta la escribe (`INFO_UNIDAD`, `que 2`); se tolera la lectura
+        CORTA (el contrato de bloques la permite y el lector la trataba como
+        fallo); y si no hay GPT se mira la MBR (Ventoy vive en ese disco y
+        formatea en MBR). **Como se sabe:** la tercera linea de la tarjeta
+        de D: en el proximo arranque.
       - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
         escritorio; N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
