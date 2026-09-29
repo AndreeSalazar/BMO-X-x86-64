@@ -805,6 +805,19 @@ fn fila_autopsia(s: &mut Output) {
             super::datos::anotar(b"gpu booter bus parado", bp, b"");
             super::datos::anotar(b"gpu booter iommu eventos", ev, b"");
         }
+        // H4 y H5 (29-09): el GSP parado esperando al booter, y el disco
+        // mientras el booter corria. Lo que cambia de un arranque a otro.
+        let h = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 15 << 8);
+        if h != 0 {
+            let disco = (h >> 48 & 0xFFFF).wrapping_sub(h >> 32 & 0xFFFF) & 0xFFFF;
+            s.text(b"; el GSP espero parado ");
+            s.dec((h & 0xFFFF_FFFF) / 1000);
+            s.text(b" ms al booter, y el disco aviso ");
+            s.dec(disco);
+            s.text(b" veces mientras corria");
+            super::datos::anotar(b"gpu booter hueco gsp", h & 0xFFFF_FFFF, b"us");
+            super::datos::anotar(b"gpu booter disco durante", disco, b"");
+        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");

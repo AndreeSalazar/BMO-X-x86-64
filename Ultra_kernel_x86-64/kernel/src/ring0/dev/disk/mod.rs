@@ -210,7 +210,7 @@ static mut TOTAL_SECTORS: u64 = 0;
 // es como se cuelga una maquina sin dejar rastro.
 //
 // Se re-exporta con los nombres de antes: el reparto no toca a los llamantes.
-pub use irq::CLAVE_ESPERA;
+pub use irq::{entradas as entradas_irq, CLAVE_ESPERA};
 
 /// Avisa el disco por su cuenta, y cuantas veces lo ha hecho.
 pub fn irq_estado() -> (bool, u64) { irq::estado() }

@@ -18,3 +18,10 @@ fecha,hora,booter,sec2_mailbox0,al_llegar,fuego_frontera_antes,build_autopsia,gs
 2026-09-25,22:33,bien,0x00000000,frio,NO (save mode init: ya no son pasos),si (bus e IOMMU),0x00000000,0xBADF5720,0x00000000,0x11000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen1 x16,arranque POR DEFECTO (init); GSP_INIT_DONE en 186 ms
 2026-09-26,05:07,bien,0x00000000,frio (corriente desconectada),NO (init por defecto: modo.txt no estaba),si (bus e IOMMU),0x00000000,0xBADF5720,0x00000000,0x11000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen1 x16,GSP_INIT_DONE en 187 ms; despues VERRANO preparo 24 pasos
 2026-09-26,06:46,bien,0x00000000,fria tras REINICIO sin cortar la corriente (apagado ordenado L0c5),NO (init por defecto),si (bus e IOMMU),0x00000000,0xBADF5720,0x00000000,0x11000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen3 x16,reinicio en caliente: la tarjeta llego limpia; VERRANO V0 IGUAL
+2026-09-29,06:25,bien,0x00000000,frio,NO (init por defecto),si (bus e IOMMU),,,,,,,,,GSP_INIT_DONE a los 184 ms; GR computo lienzo y texturas 96/96
+2026-09-29,10:09,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,0x15 NUEVO (sin fuego ni frontera); primer build con N1a
+2026-09-29,10:24,bien,0x00000000,frio,NO (init por defecto),si (bus e IOMMU),0x00000000,,0x00000000,0x11000000,,,,,al llegar y cargador IGUALES al de las 10:09
+2026-09-29,10:54,0x15,0x00000015,frio (ErP Ready + APAGAR),NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,W2: no basta
+2026-09-29,11:06,0x15,0x00000015,frio (ErP Ready + APAGAR),NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,W2: segundo seguido
+2026-09-29,12:07,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,H3 (wbinvd antes del booter): igual; build con N1a que reanima todos los puertos
+2026-09-29,12:42,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen3 x16,H3 cae; el bus con el mismo CORREGIBLE que traia al arrancar

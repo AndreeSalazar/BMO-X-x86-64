@@ -195,6 +195,7 @@ pub fn despertar() -> Result<u64, u32> {
         return no(IOMMU_NO_GSP_FALCON);
     }
     apuntar(|x| x | DESPIERTO_GSP_ARRANCADO);
+    GSP_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
     Ok(l)
 }
 
@@ -287,7 +288,12 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     // que no sea suya ni registros.
     unsafe { core::arch::asm!("wbinvd", options(nostack, preserves_flags)) };
     crate::ring0::cabina::info("gpu", "L0c3b: H3, la cache de la CPU escrita a la RAM (wbinvd) antes del booter", 0);
-    BOOTER_TSC.store(crate::ring0::task::scheduler::rdtsc(), Ordering::Release);
+    let ahora = crate::ring0::task::scheduler::rdtsc();
+    BOOTER_TSC.store(ahora, Ordering::Release);
+    // [11] H4 y H5: cuanto espero el GSP parado, y el disco al soltarlo.
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let hueco = ahora.saturating_sub(GSP_TSC.load(Ordering::Acquire)) / hz;
+    AUTOPSIA[11].store(hueco.min(0xFFFF_FFFF) | (crate::ring0::dev::disk::entradas_irq() as u64 & 0xFFFF) << 32, Ordering::Release);
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -338,7 +344,21 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 // estado que sobrevive al reinicio, y el arreglo es exigirlo abajo (o
 // reiniciar la tarjeta) antes de gastar el booter.
 
-static AUTOPSIA: [AtomicU64; 11] = [const { AtomicU64::new(0) }; 11];
+//    [11] (29-09) `hueco | disco << 32 | disco al pararse << 48`: los us que
+//         el GSP espero PARADO entre `despertar` y el booter (H4: el hueco
+//         lo pone Ring 3 y cambia de un arranque a otro, con un `save` en
+//         medio), y las entradas del vector del DISCO al soltar el booter y
+//         al verlo parado, 16 bits cada una (H5: el DMA del disco, por la
+//         misma IOMMU, mientras el booter lee 60 MiB). Solo lecturas.
+//
+// ** Por que (29-09): H3 cayo y el 0x15 volvio SIN `fuego` ni `frontera`,
+// con la tarjeta fria: 06:25 y 10:24 buenos, 10:09 y cuatro seguidos desde
+// las 10:54 malos, con `al llegar` y `cargador` IGUALES. Lo que si cambia de
+// un arranque a otro es el tiempo y el trafico de alrededor.
+
+static AUTOPSIA: [AtomicU64; 12] = [const { AtomicU64::new(0) }; 12];
+/// Cuando arranco el falcon del GSP en `despertar` (TSC).
+static GSP_TSC: AtomicU64 = AtomicU64::new(0);
 
 /// El bus de la 3060 (`metiche::una`), 0 si no hay BDF.
 fn bus_3060() -> u64 {
@@ -373,6 +393,9 @@ fn autopsiar(r: &mut Bar0) {
     c("  ...la WPR meta: palabras que cambio el booter (mascara)", AUTOPSIA[5].load(Ordering::Acquire) & 0xFFFF_FFFF);
     c("  ...su verified", AUTOPSIA[6].load(Ordering::Acquire));
     AUTOPSIA[9].store(bus_3060(), Ordering::Release);
+    let h = AUTOPSIA[11].load(Ordering::Acquire) & 0xFFFF_FFFF_FFFF;
+    AUTOPSIA[11].store(h | (crate::ring0::dev::disk::entradas_irq() as u64 & 0xFFFF) << 48, Ordering::Release);
+    c("  ...us del GSP parado antes del booter | disco al soltar << 32 | al pararse << 48", AUTOPSIA[11].load(Ordering::Acquire));
     let ev = AUTOPSIA[10].load(Ordering::Acquire) & 0xFFFF_FFFF;
     AUTOPSIA[10].store(ev | crate::ring0::dev::gpu_prestamo::eventos() << 32, Ordering::Release);
     c("  ...el bus de la 3060 antes del booter (metiche::una)", AUTOPSIA[8].load(Ordering::Acquire));
@@ -536,7 +559,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=14).contains(&(sel >> 8)) {
+    if (4..=15).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

@@ -1744,8 +1744,11 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             (`status | devsta << 16 | aer corregible << 20 |
 ///                             aer no corregible << 36`, bit 63 se leyo); 13
 ///                             los mismos al pararse; 14 los eventos de la
-///                             IOMMU antes | al pararse << 32 (bit 63 de 4 y 5:
-///                             se tomo)
+///                             IOMMU antes | al pararse << 32; 15 (29-09) los
+///                             us que el GSP espero parado antes del booter |
+///                             las entradas del vector del disco al soltarlo
+///                             << 32 | al verlo parado << 48 (16 bits cada
+///                             una) (bit 63 de 4 y 5: se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem
