@@ -99,6 +99,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"gpu bar1", b"devolverle a BAR1 la del GOP"),
     (b"gpu vbios", b"la VBIOS y su FWSEC, solo lectura"),
     (b"gpu gsp", b"el firmware del GSP y su reparto de la VRAM"),
+    (b"gpu reintentar", b"tras un 0x15: deshacer el booter y volver a subir, SIN reiniciar"),
     (b"iommu", b"la frontera del DMA de todo aparato"),
     (b"metiche", b"lo que el hardware apunto solo: los errores del bus, preguntados a todos"),
     (b"info", b"RAM, CPU, tareas y disco"),

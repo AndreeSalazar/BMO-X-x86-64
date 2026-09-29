@@ -841,6 +841,17 @@ fn fila_autopsia(s: &mut Output) {
             super::datos::anotar(b"gpu booter vigia despues", ip, b"");
             super::datos::anotar(b"gpu booter vigia libos igual", (la == lp) as u64, b"");
         }
+        // EL MOMENTO (29-09): de FWSEC-FRTS al booter. En nova-core, ms.
+        let m = bmo::info(bmo::INFO_GPU_DESPIERTO_BUZON | 20 << 8);
+        if m >> 63 != 0 {
+            s.text(b"; de FRTS al booter ");
+            s.dec(m & 0xFFFF_FFFF);
+            s.text(b" ms");
+            super::datos::anotar(b"gpu booter desde frts", m & 0xFFFF_FFFF, b"ms");
+        }
+        if (bmo::info(bmo::INFO_GPU_DESPIERTO) >> bmo::DESPIERTO_BUZON_SHIFT) & 0xFFFF_FFFF != 0 && !despierto() {
+            s.text(b" -- prueba `gpu reintentar` (sin reiniciar)");
+        }
         super::datos::anotar(b"gpu booter bsi parado", parado as u32 as u64, b"");
         super::datos::anotar(b"gpu booter us", us, b"us");
         super::datos::anotar(b"gpu booter gsp mailbox0", gsp as u32 as u64, b"");

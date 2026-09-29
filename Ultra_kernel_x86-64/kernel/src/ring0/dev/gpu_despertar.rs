@@ -245,8 +245,11 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     if booter::firmar(fichero, &b, idx, ucode).is_err() {
         return no(IOMMU_NO_BOOTER_FIRMA);
     }
-    if e & DESPIERTO_BOOTER == 0 {
+    // Prestado UNA vez por arranque: el reintento (`gpu_reintento`) vuelve a
+    // cargar el booter en el mismo bufer, y prestar encima se negaria.
+    if !BOOTER_PRESTADO.swap(true, Ordering::AcqRel) {
         if let Err(m) = io::prestar_gpu(IOVA_BOOTER, base, UCODE_BYTES / PAGINA, false) {
+            BOOTER_PRESTADO.store(false, Ordering::Release);
             return no(m);
         }
     }
@@ -300,6 +303,14 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
     let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
     let hueco = ahora.saturating_sub(GSP_TSC.load(Ordering::Acquire)) / hz;
     AUTOPSIA[11].store(hueco.min(0xFFFF_FFFF) | (crate::ring0::dev::disk::entradas_irq() as u64 & 0xFFFF) << 32, Ordering::Release);
+    // [16] EL MOMENTO (29-09, el propietario: *"en que momento pide GSP para
+    // arrancar?"*): los ms desde que arranco FWSEC-FRTS hasta soltar el
+    // booter. En nova-core, milisegundos; en `save mode`, la copia de los 60
+    // MB y un `save` por paso en medio.
+    let frts = crate::ring0::dev::gpu_prestamo::frts_tsc();
+    if frts != 0 {
+        AUTOPSIA[16].store(ahora.saturating_sub(frts) / hz / 1000 | 1 << 63, Ordering::Release);
+    }
     if fa::arrancar_con(&mut r, fa::SEC2, Some(b.arranque()), Some(m as u32), Some((m >> 32) as u32)).is_err() {
         return no(IOMMU_NO_SEC2);
     }
@@ -369,7 +380,39 @@ pub fn booter(booter_fichero: Option<&mut dyn Fichero>) -> Result<u64, u32> {
 //         y `rmargs`. Iguales = la RAM no se movio mientras el booter
 //         trabajaba; distintos = algo escribio donde nadie debia.
 
-static AUTOPSIA: [AtomicU64; 16] = [const { AtomicU64::new(0) }; 16];
+//    [16] (29-09) los ms desde que arranco FWSEC-FRTS hasta soltar el
+//         booter, bit 63 = se tomo. EL MOMENTO.
+
+static AUTOPSIA: [AtomicU64; 17] = [const { AtomicU64::new(0) }; 17];
+/// El ucode del booter ya prestado a la 3060 en este arranque.
+static BOOTER_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+
+/// **El booter se paro con ERROR** y el GSP-RM no arranco: lo unico que el
+/// reintento limpio (`gpu_reintento`) acepta deshacer.
+pub fn booter_fallo() -> bool {
+    let e = ESTADO.load(Ordering::Acquire);
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    if e & DESPIERTO_SEC2_ARRANCADO == 0 || e & DESPIERTO_VISTO != 0 || bar0 == 0 {
+        return false;
+    }
+    let mut r = Bar0(bar0);
+    let sec2_mal = matches!(fa::como_va(&mut r, fa::SEC2), Ok((true, m0, _)) if m0 != 0);
+    let riscv_quieto = !matches!(fa::riscv(&mut r, fa::GSP), Ok((true, _)));
+    sec2_mal && riscv_quieto
+}
+
+/// **A cero** para volver a despertar (el reintento, con la WPR2 ya abajo):
+/// los pasos, la autopsia y los relojes. El bufer del booter y su prestamo se
+/// quedan: son del arranque, no del intento.
+pub fn rearmar() {
+    ESTADO.store(0, Ordering::Release);
+    for a in &AUTOPSIA {
+        a.store(0, Ordering::Release);
+    }
+    BOOTER_TSC.store(0, Ordering::Release);
+    GSP_TSC.store(0, Ordering::Release);
+    crate::ring0::cabina::info("gpu", "L0c3b: el despertar a cero para el REINTENTO (la autopsia de antes queda en cabina)", 0);
+}
 
 /// **El vigia**: `(huella de lo que solo se lee, huella de LIBOS)`, los 8
 /// primeros bytes de cada BLAKE3; 0 si esa parte aun no existe.
@@ -601,7 +644,7 @@ pub fn info_despierto_buzon(sel: u64) -> u64 {
     if sel >> 8 == 3 {
         return info_bar1();
     }
-    if (4..=19).contains(&(sel >> 8)) {
+    if (4..=20).contains(&(sel >> 8)) {
         return AUTOPSIA[(sel >> 8) as usize - 4].load(Ordering::Acquire);
     }
     let bar0 = crate::ring0::dev::gpu::bar0();

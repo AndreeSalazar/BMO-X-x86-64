@@ -80,6 +80,13 @@ pub(super) fn descargador() -> Result<u64, u32> {
     crate::ring0::dev::gpu_apagar::descargar(b.as_mut().map(|f| f as &mut dyn Fichero))
 }
 
+/// **DESCARGADOR del REINTENTO** (29-09): el mismo `boot_ul.bin`, para
+/// deshacer un booter que se paro con error.
+pub(super) fn descargador_reintento() -> Result<u64, u32> {
+    let mut b = Fat::abrir(crate::ring0::dev::gpu_despertar::RUTA_DESCARGADOR);
+    crate::ring0::dev::gpu_reintento::descargar(b.as_mut().map(|f| f as &mut dyn Fichero))
+}
+
 /// **TROZO k**, con el mismo `gsp.bin` y su cursor.
 pub(super) fn trozo(k: u64) -> Result<u64, u32> {
     // SAFETY: ver `GSP`.

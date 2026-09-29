@@ -1754,7 +1754,9 @@ pub const LIBOS_VALIDO: u64 = 1 << 63;
 ///                             ucode del booter) ANTES del booter y al verlo
 ///                             parado, con el bit 0 a 1 (0 = no se tomo); 18
 ///                             y 19 lo mismo de los argumentos de LIBOS y
-///                             `rmargs` (bit 63 de 4 y 5: se tomo)
+///                             `rmargs`; 20 los ms desde que arranco FWSEC-FRTS
+///                             hasta soltar el booter, bit 63 = se tomo (bit
+///                             63 de 4 y 5: se tomo)
 ///   INFO_GPU_GSP_MEM          (con selector: el byte << 8) 8 bytes de lo que el
 ///                             GSP escribe: 0..0x30000 LOGINIT, LOGINTR y
 ///                             LOGRM; detras, GspMem

@@ -233,6 +233,8 @@ pub mod dev {
     pub mod gpu_despertar;
     /// L0c5: el GSP apagado en orden, para que el siguiente arranque la encuentre limpia (2026-09-25).
     pub mod gpu_apagar;
+    /// El reintento limpio del GSP tras un 0x15 del booter, sin reiniciar (2026-09-29).
+    pub mod gpu_reintento;
     /// P1 (2026-09-25): EL PASE de la GPU -- NEUTRO: el lienzo prestado una vez y
     /// el buzon; lo de cada tarjeta lo pone su `Motor`.
     pub mod pase_gpu;

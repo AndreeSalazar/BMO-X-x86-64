@@ -182,6 +182,9 @@ pub(crate) fn gpu(dsk: &mut Desktop, p: &bmo::Pantalla, arg: &[u8]) -> After {
     if arg == b"pantalla" {
         return super::gspcomputo::orden_pantalla(dsk, p);
     }
+    if arg == b"reintentar" || arg == b"reintento" {
+        return super::gspreintento::orden(dsk, p);
+    }
     if arg == b"apagar" {
         return super::gspapagar::orden(dsk, p);
     }
@@ -639,6 +642,7 @@ pub(crate) fn report_gpu(s: &mut Output, rayo: Option<bmo::CuentasRayo>) {
     super::gspcanalgr::fila(s);
     super::gspcomputo::fila(s);
     super::gspapagar::fila(s);
+    super::gspreintento::fila(s);
     super::gspaguante::fila(s);
     if medido {
         veredicto(s, true, b"la linea da la vuelta: el VBLANK se espera por MMIO, SIN firmware");

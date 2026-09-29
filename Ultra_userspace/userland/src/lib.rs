@@ -304,6 +304,11 @@ pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// P3b4c.9 Z1: el escritorio le da la pantalla a la app de la tarea `arg1`
 /// (su tid; 0 = a nadie). Solo el escritorio (las dos llaves de la IOMMU).
 pub const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
+/// El reintento limpio del GSP tras un 0x15 (29-09). Ver el ABI.
+pub const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
+pub const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
+pub const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
+pub const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 pub const CUBO_LEER: u64 = 1 << 63;
 pub const CUBO_VERRANO: u64 = 1 << 62;
 pub const CUBO_LIGERO: u64 = 1 << 61;
@@ -400,6 +405,7 @@ pub const IOMMU_NO_BODRIO: u32 = 87;
 pub const IOMMU_NO_IMAGEN: u32 = 88;
 /// P3b4c: el canal de GR tomo una excepcion (Xid): MUERTO hasta reiniciar.
 pub const IOMMU_NO_CANAL_MUERTO: u32 = 90;
+pub const IOMMU_NO_REINTENTO: u32 = 91;
 pub const IOMMU_NO_GPU_CALIENTE: u32 = 67;
 /// Mover el fader (1/256 dB con signo).
 pub const AUDIO_MANDO_FADER: u64 = 1;

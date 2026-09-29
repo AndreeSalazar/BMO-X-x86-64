@@ -869,6 +869,19 @@ fn iommu_(arg0: u64, arg1: u64) -> BmoStatus {
             }
         }
         IOMMU_OP_GSP_APAGADO => Ok(crate::ring0::dev::gpu_apagar::info()),
+        // ** EL REINTENTO LIMPIO (29-09): firmware firmado en dos falcons,
+        // como apagar y despertar. El FLUSH, igual.
+        IOMMU_OP_GSP_REINTENTO_CERRAR | IOMMU_OP_GSP_REINTENTO_DESCARGAR | IOMMU_OP_GSP_REINTENTO_SUBIR => {
+            if !crate::ring0::dev::disk::flush() {
+                crate::ring0::cabina::warn("gpu", "el FLUSH del disco antes del reintento del GSP no se pudo: se sigue", 0);
+            }
+            match arg0 {
+                IOMMU_OP_GSP_REINTENTO_CERRAR => crate::ring0::dev::gpu_reintento::cerrar(),
+                IOMMU_OP_GSP_REINTENTO_DESCARGAR => super::op_gsp::descargador_reintento(),
+                _ => crate::ring0::dev::gpu_reintento::subir(),
+            }
+        }
+        IOMMU_OP_GSP_REINTENTO => Ok(crate::ring0::dev::gpu_reintento::info()),
         IOMMU_OP_GSP_LEIDO => crate::ring0::dev::gpu_libos::mover_lectura(arg1),
         IOMMU_OP_GSP_SISTEMA => crate::ring0::dev::gpu_libos::escribir_sistema(),
         IOMMU_OP_GSP_SECUENCIAR => crate::ring0::dev::gpu_despertar::secuenciar(),

@@ -454,6 +454,15 @@ pub(crate) const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// ventana de la pantalla y no en su RAM. Pasa por las dos llaves de
 /// `iommu_`. Ver `dev/gpu_trabajo/cubo.rs::pantalla_para`.
 pub(crate) const IOMMU_OP_GPU_PANTALLA_PARA: u64 = 0x49;
+/// El REINTENTO LIMPIO del GSP (29-09), tras un 0x15 del booter: FWSEC-SB.
+/// Ver `dev/gpu_reintento.rs`.
+pub(crate) const IOMMU_OP_GSP_REINTENTO_CERRAR: u64 = 0x4A;
+/// El reintento: tras FWSEC-SB, el booter de descarga baja la WPR2.
+pub(crate) const IOMMU_OP_GSP_REINTENTO_DESCARGAR: u64 = 0x4B;
+/// El reintento: con la WPR2 abajo, el despertar a cero y FWSEC-FRTS otra vez.
+pub(crate) const IOMMU_OP_GSP_REINTENTO_SUBIR: u64 = 0x4C;
+/// El reintento: como va, leido en vivo.
+pub(crate) const IOMMU_OP_GSP_REINTENTO: u64 = 0x4D;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -997,6 +1006,10 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_IMAGEN => "GPU_IMAGEN",
         IOMMU_OP_GPU_DIBUJAR => "GPU_DIBUJAR",
         IOMMU_OP_GPU_PANTALLA_PARA => "GPU_PANTALLA_PARA",
+        IOMMU_OP_GSP_REINTENTO_CERRAR => "GSP_REINTENTO_CERRAR",
+        IOMMU_OP_GSP_REINTENTO_DESCARGAR => "GSP_REINTENTO_DESCARGAR",
+        IOMMU_OP_GSP_REINTENTO_SUBIR => "GSP_REINTENTO_SUBIR",
+        IOMMU_OP_GSP_REINTENTO => "GSP_REINTENTO",
         _ => "?",
     }
 }
