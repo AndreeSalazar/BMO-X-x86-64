@@ -83,6 +83,8 @@ pub mod texto;
 pub mod tuberia;
 pub mod user32;
 pub mod user32_medidas;
+pub mod user32_mensajes;
+pub mod user32_ventanas;
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -152,6 +154,8 @@ struct Clase {
     nombre: Vec<u16>,
     atomo: u16,
     wndproc: u64,
+    /// Lo demas del `WNDCLASSEXW` (tanda 6: GetClassLongPtr, GetClassInfoEx).
+    datos: user32_ventanas::DatosClase,
 }
 
 /// Una ventana (`CreateWindowExW`).
@@ -161,6 +165,8 @@ struct Ventana {
     sup: Superficie,
     viva: bool,
     mostrada: bool,
+    /// Estilos, titulo, USERDATA, bytes de mas... (tanda 6).
+    datos: user32_ventanas::DatosVentana,
 }
 
 struct Estado {
@@ -237,6 +243,8 @@ pub unsafe fn empezar(p: Plataforma) {
     cxx::reiniciar();
     kernel32_mapeo::reiniciar();
     user32_medidas::reiniciar();
+    user32_ventanas::reiniciar();
+    user32_mensajes::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -287,7 +295,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
         sistema::buscar_otras(dll, n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
-        user32::buscar(n).or_else(|| user32_medidas::buscar(n))
+        user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n)
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {

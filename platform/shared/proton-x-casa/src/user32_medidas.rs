@@ -25,7 +25,8 @@
 //! bordes, titulo) son las de Windows 10 a 96 DPI.
 //!
 //! **Las ventanas, dicho:** el marco lo pinta el escritorio de BMO-X, asi que
-//! la ventana ES su area de cliente, en el (0, 0) de la pantalla.
+//! la ventana ES su area de cliente, en su posicion (la de CreateWindowEx, o
+//! la de SetWindowPos/MoveWindow: tanda 6).
 
 use crate::{dir, kernel32, user32};
 
@@ -39,7 +40,7 @@ const HERCIOS: u32 = 60;
 const BARRA: i32 = 40;
 /// El HMONITOR del unico monitor y el HWND del escritorio.
 const MONITOR: u64 = 0x5B00_0001;
-const ESCRITORIO: u64 = 0x0001_0000;
+pub(crate) const ESCRITORIO: u64 = 0x0001_0000;
 
 // -- Los rectangulos (RECT: left, top, right, bottom; i32) ----------------------------
 
@@ -518,20 +519,67 @@ extern "win64" fn get_client_rect(h: u64, r: *mut i32) -> i32 {
     }
 }
 
-/// `GetWindowRect`: la ventana ES su cliente, en el (0, 0).
+/// Donde esta el cliente (0, 0) de una ventana en la pantalla.
+fn origen(h: u64) -> Option<(i32, i32)> {
+    if h == ESCRITORIO || h == 0 {
+        return Some((0, 0));
+    }
+    crate::user32_ventanas::posicion(h)
+}
+
+/// `GetWindowRect`: la ventana ES su cliente (el marco lo pinta el
+/// escritorio), en su posicion (SetWindowPos/MoveWindow).
 extern "win64" fn get_window_rect(h: u64, r: *mut i32) -> i32 {
-    get_client_rect(h, r)
+    match (cliente(h), origen(h)) {
+        (Some(c), Some((x, y))) => poner(r, [x, y, x + c[2], y + c[3]]) as i32,
+        _ => {
+            kernel32::poner_error(ERROR_INVALID_WINDOW_HANDLE);
+            0
+        }
+    }
 }
 
-/// `ClientToScreen` y `ScreenToClient`: el cliente esta en el (0, 0).
+/// Sumar (`signo` 1) o restar (-1) el origen de `h` a un punto.
+fn trasladar(h: u64, p: *mut i32, signo: i32) -> i32 {
+    let Some((x, y)) = origen(h).filter(|_| cliente(h).is_some()) else { return 0 };
+    if p.is_null() {
+        return 0;
+    }
+    // SAFETY: un POINT suyo.
+    unsafe {
+        p.write(p.read() + signo * x);
+        p.add(1).write(p.add(1).read() + signo * y);
+    }
+    1
+}
+
+/// `ClientToScreen` y `ScreenToClient`: el cliente empieza donde la ventana.
 extern "win64" fn client_to_screen(h: u64, p: *mut i32) -> i32 {
-    (cliente(h).is_some() && !p.is_null()) as i32
+    trasladar(h, p, 1)
 }
 
-/// `MapWindowPoints(de, a, puntos, n)`: todo en el mismo origen: nada se
-/// mueve. Devuelve el desplazamiento (0).
-extern "win64" fn map_window_points(_de: u64, _a: u64, _p: *mut i32, _n: u32) -> i32 {
-    0
+extern "win64" fn screen_to_client(h: u64, p: *mut i32) -> i32 {
+    trasladar(h, p, -1)
+}
+
+/// `MapWindowPoints(de, a, puntos, n)`: de un cliente al otro (0: la
+/// pantalla). Devuelve el desplazamiento, x en la palabra baja e y en la alta.
+extern "win64" fn map_window_points(de: u64, a: u64, p: *mut i32, n: u32) -> i32 {
+    let (Some(o), Some(d)) = (origen(de), origen(a)) else {
+        kernel32::poner_error(ERROR_INVALID_WINDOW_HANDLE);
+        return 0;
+    };
+    let (dx, dy) = (o.0 - d.0, o.1 - d.1);
+    if !p.is_null() {
+        for k in 0..n as usize {
+            // SAFETY: `n` POINT suyos.
+            unsafe {
+                p.add(2 * k).write(p.add(2 * k).read() + dx);
+                p.add(2 * k + 1).write(p.add(2 * k + 1).read() + dy);
+            }
+        }
+    }
+    (dx & 0xFFFF) | dy << 16
 }
 
 extern "win64" fn get_desktop_window() -> u64 {
@@ -574,7 +622,8 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "EnumDisplayDevicesA" => dir!(enum_display_devices_a),
         "GetClientRect" => dir!(get_client_rect),
         "GetWindowRect" => dir!(get_window_rect),
-        "ClientToScreen" | "ScreenToClient" => dir!(client_to_screen),
+        "ClientToScreen" => dir!(client_to_screen),
+        "ScreenToClient" => dir!(screen_to_client),
         "MapWindowPoints" => dir!(map_window_points),
         "GetDesktopWindow" => dir!(get_desktop_window),
         _ => return None,

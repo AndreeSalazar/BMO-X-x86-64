@@ -192,6 +192,87 @@ impl Cola {
         self.invalidas.first().map(|&hwnd| Msg { hwnd, mensaje: WM_PAINT, wparam: 0, lparam: 0 })
     }
 
+    /// **El siguiente que pasa el filtro de GetMessage/PeekMessage**, en el
+    /// orden de Windows, SIN sacarlo: `h` 0 = cualquiera, `u64::MAX` (el -1
+    /// de Windows) = solo los del hilo (sin ventana), si no esa ventana;
+    /// `min`..=`max` (los dos a 0: todos).
+    pub fn mirar_filtrado(&self, h: u64, min: u32, max: u32) -> Option<Msg> {
+        self.buscar_filtrado(h, min, max).map(|(m, _)| m)
+    }
+
+    /// Lo mismo, SACANDOLO (el WM_PAINT no valida, como en [`Self::sacar`]).
+    pub fn sacar_filtrado(&mut self, h: u64, min: u32, max: u32) -> Option<Msg> {
+        let (m, de_donde) = self.buscar_filtrado(h, min, max)?;
+        match de_donde {
+            Donde::Llegados(i) => {
+                self.llegados.remove(i);
+            }
+            Donde::Salir => self.salir = None,
+            Donde::Pintar => {}
+        }
+        Some(m)
+    }
+
+    /// Si hay algo (lo que sea) en la cola.
+    pub fn hay_algo(&self) -> bool {
+        !self.llegados.is_empty() || self.salir.is_some() || !self.invalidas.is_empty()
+    }
+
+    /// Los `QS_*` de lo que hay en la cola (GetQueueStatus): teclas 0x1,
+    /// raton que se mueve 0x2, botones 0x4, publicados 0x8, WM_TIMER 0x10,
+    /// WM_PAINT 0x20.
+    pub fn tipos(&self) -> u32 {
+        let mut t = 0;
+        for m in &self.llegados {
+            t |= match m.mensaje {
+                0x0100..=0x0109 => 0x1,
+                0x0200 => 0x2,
+                0x0201..=0x020E => 0x4,
+                0x0113 => 0x10,
+                _ => 0x8,
+            };
+        }
+        if self.salir.is_some() {
+            t |= 0x8;
+        }
+        if !self.invalidas.is_empty() {
+            t |= 0x20;
+        }
+        t
+    }
+
+    /// Si ya espera un mensaje de esta ventana con este numero y wParam (un
+    /// WM_TIMER no se repite en la cola: Windows los junta).
+    pub fn espera(&self, hwnd: u64, mensaje: u32, wparam: u64) -> bool {
+        self.llegados.iter().any(|m| m.hwnd == hwnd && m.mensaje == mensaje && m.wparam == wparam)
+    }
+
+    /// Quitar lo que espere de esta ventana con este numero y wParam
+    /// (KillTimer se lleva su WM_TIMER).
+    pub fn quitar(&mut self, hwnd: u64, mensaje: u32, wparam: u64) {
+        self.llegados.retain(|m| !(m.hwnd == hwnd && m.mensaje == mensaje && m.wparam == wparam));
+    }
+
+    fn buscar_filtrado(&self, h: u64, min: u32, max: u32) -> Option<(Msg, Donde)> {
+        let pasa = |m: &Msg| {
+            let ventana = match h {
+                0 => true,
+                u64::MAX => m.hwnd == 0,
+                _ => m.hwnd == h,
+            };
+            let numero = (min == 0 && max == 0) || (m.mensaje >= min && m.mensaje <= max);
+            ventana && numero
+        };
+        if let Some(i) = self.llegados.iter().position(pasa) {
+            return Some((self.llegados[i], Donde::Llegados(i)));
+        }
+        // WM_QUIT pasa cualquier filtro (lo dice PeekMessage en MSDN).
+        if let Some(c) = self.salir {
+            return Some((Msg { hwnd: 0, mensaje: WM_QUIT, wparam: c as u32 as u64, lparam: 0 }, Donde::Salir));
+        }
+        self.invalidas.iter().map(|&hwnd| Msg { hwnd, mensaje: WM_PAINT, wparam: 0, lparam: 0 }).find(pasa).map(|m| (m, Donde::Pintar))
+    }
+
     /// **El siguiente**, en el orden de Windows. `None` si no hay nada (y
     /// `GetMessage` duerme).
     pub fn sacar(&mut self) -> Option<Msg> {
@@ -205,6 +286,14 @@ impl Cola {
         // como en Windows. Un WndProc que no pinte lo recibe otra vez.
         self.invalidas.first().map(|&hwnd| Msg { hwnd, mensaje: WM_PAINT, wparam: 0, lparam: 0 })
     }
+}
+
+/// De donde sale un mensaje filtrado.
+#[derive(Debug, Clone, Copy)]
+enum Donde {
+    Llegados(usize),
+    Salir,
+    Pintar,
 }
 
 // -- Los DIB: lo que StretchDIBits pone en una superficie -------------------

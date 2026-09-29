@@ -607,3 +607,23 @@ Dice `bien` veintidos veces y sale con 0. La pantalla de la casa es fija
 (1920x1080); la de tu Windows, la tuya: de las medidas se miran las
 relaciones que Windows cumple siempre, no los numeros. En Windows dice lo
 mismo.
+
+tanda6.exe -- la TANDA 6 de Cyberpunk (29-09): user32, grupo 2
+
+Las ventanas (ocultas) y sus mensajes: los longs, subclasificar, la cola
+filtrada, los mensajes del hilo, los temporizadores, MsgWaitFor..., los
+nombres, la familia, la posicion y las A (tanda6_kernel32.def y
+tanda6_user32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda6_kernel32.def -l tanda6_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda6_user32.def -l tanda6_user32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda6.c -o tanda6.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda6.obj tanda6_kernel32.lib tanda6_user32.lib /out:tanda6.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   a12f9e0bff51a14b88bb30c644cade6f083462651ba1e23ed3d49d4591c878ed
+
+Dice `bien` veintinueve veces y sale con 0. Tarda unas decimas: espera a
+dos temporizadores de 10 ms y a un MsgWaitForMultipleObjects de 30 ms. En
+Windows dice lo mismo.

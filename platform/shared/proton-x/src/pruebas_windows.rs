@@ -397,6 +397,30 @@ fn mirar_la_cola_no_saca_nada() {
     assert_eq!(c.mirar(), None, "sacado, ya no esta");
 }
 
+#[test]
+fn la_cola_filtrada_de_la_tanda_6() {
+    use crate::ventanas::{Cola, Msg, WM_PAINT, WM_QUIT};
+    let m = |hwnd, mensaje| Msg { hwnd, mensaje, wparam: 0, lparam: 0 };
+    let mut c = Cola::nueva();
+    c.publicar(m(0x10, 0x100));
+    c.publicar(m(0, 0x8001));
+    c.publicar(m(0x20, 0x113));
+    c.invalidar(0x20);
+    assert_eq!(c.tipos(), 0x1 | 0x8 | 0x10 | 0x20);
+    assert_eq!(c.mirar_filtrado(0x20, 0, 0), Some(m(0x20, 0x113)), "solo esa ventana");
+    assert_eq!(c.mirar_filtrado(u64::MAX, 0, 0), Some(m(0, 0x8001)), "-1: solo los del hilo");
+    assert_eq!(c.sacar_filtrado(0, 0x8000, 0xBFFF), Some(m(0, 0x8001)), "por numero");
+    assert_eq!(c.sacar_filtrado(0, 0x8000, 0xBFFF), None);
+    assert!(c.espera(0x20, 0x113, 0) && !c.espera(0x20, 0x113, 1));
+    assert_eq!(c.sacar_filtrado(0x20, WM_PAINT, WM_PAINT), Some(m(0x20, WM_PAINT)), "el WM_PAINT se sintetiza...");
+    assert!(c.por_pintar(0x20), "...y no valida");
+    c.salir(3);
+    let q = Msg { hwnd: 0, mensaje: WM_QUIT, wparam: 3, lparam: 0 };
+    assert_eq!(c.sacar_filtrado(0x20, 0x300, 0x301), Some(q), "WM_QUIT pasa cualquier filtro");
+    assert_eq!(c.sacar(), Some(m(0x10, 0x100)), "lo demas sigue en su orden");
+    assert!(c.hay_algo());
+}
+
 // -- P3c2: D3DCompile pagando una vez -----------------------------------------------
 
 #[test]

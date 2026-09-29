@@ -567,6 +567,18 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         (`PANTALLA`, 1920x1080 a 96 DPI): la plataforma todavia no dice la
         medida de la pantalla de BMO-X. **Como se sabe:** `tanda5.exe` dice
         `bien` 22 veces en el banco (`tanda5_exe_tiene_las_medidas_de_user32`).
+      - **LA TANDA 6: USER32, GRUPO 2** (29-09): las ventanas y sus
+        mensajes (`user32_ventanas.rs` y `user32_mensajes.rs`): los "longs"
+        (USERDATA, cbWndExtra, estilo, subclasificar con GWLP_WNDPROC), las
+        clases (RegisterClass W/A, Unregister, GetClassInfoEx, GetClassLong),
+        la cola FILTRADA de Get/PeekMessage (por ventana, -1 = del hilo, por
+        numero), Send/Post/PostThreadMessage, SetTimer/KillTimer (WM_TIMER
+        juntados, TIMERPROC por DispatchMessage), MsgWaitForMultipleObjects,
+        RegisterWindowMessage, los nombres (titulo, clase, FindWindow,
+        EnumWindows), la familia, la posicion (SetWindowPos/MoveWindow: se
+        mueve; la MEDIDA todavia no cambia) y las variantes A.
+        **Como se sabe:** `tanda6.exe` dice `bien` 29 veces en el banco
+        (`tanda6_exe_tiene_las_ventanas_y_sus_mensajes`).
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
