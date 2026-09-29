@@ -51,6 +51,11 @@ pub const REINTENTO_DESCARGADOR: u64 = 1 << 2;
 pub const REINTENTO_SEC2_PARADO: u64 = 1 << 3;
 pub const REINTENTO_WPR2_ABAJO: u64 = 1 << 4;
 pub const REINTENTO_FRTS: u64 = 1 << 5;
+/// FWSEC-SB no se pudo cargar: tras el 0x15 el falcon del GSP queda CERRADO
+/// (sus registros leen 0xBADF1002) y no deja resetearse (metal 29-09 14:23).
+/// Como nouveau cuando SB falla, se sigue con el booter de descarga, que
+/// corre en el SEC2.
+pub const REINTENTO_SB_SALTADO: u64 = 1 << 6;
 pub const REINTENTO_VECES_SHIFT: u64 = 8;
 pub const REINTENTO_BUZON_SHIFT: u64 = 32;
 
@@ -85,9 +90,17 @@ pub fn cerrar() -> Result<u64, u32> {
     let veces = ((e >> REINTENTO_VECES_SHIFT) & 0xFF) + 1;
     ESTADO.store(veces.min(0xFF) << REINTENTO_VECES_SHIFT, Ordering::Release);
     crate::ring0::cabina::info("gpu", "REINTENTO LIMPIO del GSP: FWSEC-SB, intento", veces);
-    let firma = pr::fwsec_sb()?;
-    ESTADO.fetch_or(REINTENTO_SB, Ordering::AcqRel);
-    Ok(firma)
+    match pr::fwsec_sb() {
+        Ok(firma) => {
+            ESTADO.fetch_or(REINTENTO_SB, Ordering::AcqRel);
+            Ok(firma)
+        }
+        Err(m) => {
+            crate::ring0::cabina::warn("gpu", "REINTENTO: FWSEC-SB no cargo (el falcon del GSP quedo cerrado tras el 0x15): se sigue con el booter de descarga, en el SEC2; motivo", m as u64);
+            ESTADO.fetch_or(REINTENTO_SB | REINTENTO_SB_SALTADO, Ordering::AcqRel);
+            Ok(0)
+        }
+    }
 }
 
 /// **2. DESCARGAR**: el booter de descarga, con el fichero ya abierto.
@@ -121,11 +134,15 @@ pub fn subir() -> Result<u64, u32> {
 
 /// `REINTENTO`: 0 SB arrancado | 1 su falcon PARADO (vivo) | 2 descargador
 /// arrancado | 3 SEC2 PARADO (vivo) | 4 la WPR2 ABAJO (vivo) | 5 FRTS otra vez
-/// | `8..15` intentos | `32..63` MAILBOX0 del falcon que toque.
+/// | 6 SB SALTADO (el falcon del GSP cerrado) | `8..15` intentos | `32..63`
+/// MAILBOX0 del falcon que toque.
 pub fn info() -> u64 {
     let mut v = ESTADO.load(Ordering::Acquire);
     let Ok(mut r) = bar0() else { return v };
-    if v & REINTENTO_SB != 0 && v & REINTENTO_DESCARGADOR == 0 {
+    if v & REINTENTO_SB_SALTADO != 0 {
+        // Sin SB no hay nada que esperar en el falcon del GSP.
+        v |= REINTENTO_SB_PARADO;
+    } else if v & REINTENTO_SB != 0 && v & REINTENTO_DESCARGADOR == 0 {
         if let Ok((parado, m0, _)) = fa::como_va(&mut r, fa::GSP) {
             v |= if parado { REINTENTO_SB_PARADO } else { 0 } | (m0 as u64) << REINTENTO_BUZON_SHIFT;
         }

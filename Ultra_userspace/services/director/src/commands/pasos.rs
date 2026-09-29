@@ -146,16 +146,7 @@ pub(crate) const PASOS: &[Paso] = &[
         hecho: super::vbios::lista,
         dar: super::vbios::paso,
         pide: None,
-        consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- lo siguiente es L0b, correr FWSEC-FRTS",
-        repinta: false,
-    },
-    Paso {
-        nombre: b"fwsec",
-        que: b"CORRER FWSEC-FRTS: el firmware firmado de la VBIOS monta la WPR2 (L0b)",
-        hecho: super::vbios::hay_wpr2,
-        dar: super::vbios::correr_fwsec,
-        pide: Some(b"vbios"),
-        consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
+        consejo: b"`gpu`: filas `vbios`, `fwsec`, `fusible`, `vram` y `wpr2`; la ROM queda en datos/vbios.rom -- FWSEC-FRTS corre mas tarde, justo antes de `despertar` (29-09, EL MOMENTO)",
         repinta: false,
     },
     Paso {
@@ -192,6 +183,20 @@ pub(crate) const PASOS: &[Paso] = &[
         dar: super::gspsistema::mandar,
         pide: Some(b"libos"),
         consejo: b"`gpu`: la fila `sistema` dice los dos con suma 0, `sysinfo` las BAR y el PCI de tu 3060, y `leyo` que el GSP LOS LEYO (su puntero en 2) tras `despertar`",
+        repinta: false,
+    },
+    // ** EL MOMENTO (29-09, H6 de EL_0x15.md): FWSEC-FRTS va JUSTO ANTES de
+    // `despertar`, despues de copiar y comprobar el GSP-RM. Iba detras de
+    // `vbios`, y entre FRTS y el booter pasaban 2,7-2,8 s (la autopsia lo
+    // midio en tres 0x15 seguidos); en nova-core van seguidos. Nada de
+    // `gsp`, `radix`, `libos` ni `sistema` necesita la WPR2 montada.
+    Paso {
+        nombre: b"fwsec",
+        que: b"CORRER FWSEC-FRTS: el firmware firmado de la VBIOS monta la WPR2 (L0b)",
+        hecho: super::vbios::hay_wpr2,
+        dar: super::vbios::correr_fwsec,
+        pide: Some(b"sistema"),
+        consejo: b"`gpu`: la fila `wpr2` dice YA montada donde se pidio, y `frts` CORRIO -- la puerta del booter y del GSP",
         repinta: false,
     },
     Paso {

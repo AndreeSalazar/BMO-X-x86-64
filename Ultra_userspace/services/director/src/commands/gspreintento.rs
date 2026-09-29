@@ -8,7 +8,9 @@
 //! # El orden
 //!
 //! ```text
-//!    cerrar      FWSEC-SB en el falcon del GSP; se espera que pare (5 s)
+//!    cerrar      FWSEC-SB en el falcon del GSP; se espera que pare (5 s).
+//!                Si no carga (metal 29-09: tras el 0x15 ese falcon queda
+//!                cerrado), se salta, como nouveau cuando SB falla
 //!    descargar   el booter de descarga en el SEC2; se espera que pare (5 s)
 //!                y la WPR2 tiene que quedar ABAJO -- si no, se para aqui
 //!    subir       el despertar a cero y FWSEC-FRTS otra vez; se espera la
@@ -39,6 +41,7 @@ const DESCARGADOR: u64 = 1 << 2;
 const SEC2_PARADO: u64 = 1 << 3;
 const WPR2_ABAJO: u64 = 1 << 4;
 const FRTS: u64 = 1 << 5;
+const SB_SALTADO: u64 = 1 << 6;
 const VECES_SHIFT: u64 = 8;
 const BUZON_SHIFT: u64 = 32;
 
@@ -160,7 +163,12 @@ pub(crate) fn fila(s: &mut Output) {
     s.with_ink(INK_ECHO);
     s.text(b"intento ");
     s.dec(veces);
-    paso(s, v & (SB_PARADO | DESCARGADOR) != 0, b"sb");
+    if v & SB_SALTADO != 0 {
+        s.with_ink(INK_ECHO);
+        s.text(b" ~sb(saltado: el falcon del GSP cerrado)");
+    } else {
+        paso(s, v & (SB_PARADO | DESCARGADOR) != 0, b"sb");
+    }
     paso(s, v & (SEC2_PARADO | FRTS) != 0, b"descarga");
     paso(s, v & (WPR2_ABAJO | FRTS) != 0, b"wpr2-abajo");
     paso(s, v & FRTS != 0, b"frts");
