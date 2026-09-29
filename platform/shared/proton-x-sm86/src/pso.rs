@@ -69,7 +69,7 @@ impl ParaLa3060 {
     }
 }
 
-fn cargas(e: &Emitido) -> Vec<Carga> {
+pub(crate) fn cargas(e: &Emitido) -> Vec<Carga> {
     e.precargas
         .iter()
         .map(|p| match *p {

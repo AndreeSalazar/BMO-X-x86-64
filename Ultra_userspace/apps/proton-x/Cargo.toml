@@ -19,3 +19,6 @@ bmo-proton-x = { path = "../../../platform/shared/proton-x" }
 bmo-proton-x-casa = { path = "../../../platform/shared/proton-x-casa" }
 # La fecha de la placa (P4f2: GetSystemTimeAsFileTime). Puro, como en el DIRECTOR.
 bmo-rtc = { path = "../../../platform/drivers/rtc" }
+# P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2; puro: la llamada la
+# hace `src/la3060.rs`).
+bmo-proton-x-sm86 = { path = "../../../platform/shared/proton-x-sm86" }

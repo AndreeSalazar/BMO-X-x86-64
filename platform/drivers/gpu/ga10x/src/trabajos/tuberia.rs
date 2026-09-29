@@ -391,7 +391,7 @@ pub const fn recorte_valido(h: u32, v: u32) -> bool {
     x0 < x1 && x1 <= cu::ANCHO && y0 < y1 && y1 <= cu::ALTO
 }
 
-fn u32le(b: &[u8], i: usize) -> u32 {
+pub(crate) fn u32le(b: &[u8], i: usize) -> u32 {
     u32::from_le_bytes([b[i], b[i + 1], b[i + 2], b[i + 3]])
 }
 
@@ -416,6 +416,12 @@ fn dibujo_de(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
     if cabecera_de(cabecera)? == CABECERA {
         return Some(Dibujo::default());
     }
+    dibujo_de_campos(cabecera, n, datos)
+}
+
+/// El `Dibujo` de los campos +28..+64 (los de VRN1, que la RECETA VRN2
+/// repite en el mismo sitio), sin mirar la magia.
+pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Option<Dibujo> {
     let (desde, estado, vertices) = (u32le(cabecera, 32), u32le(cabecera, 36), u32le(cabecera, 40));
     if estado >> 10 != 0 || u32le(cabecera, 28) == 0 || vertices == 0 {
         return None;

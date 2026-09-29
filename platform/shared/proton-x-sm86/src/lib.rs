@@ -61,6 +61,8 @@ pub mod planifica;
 pub mod simula;
 /// P3b4a: un PSO de la casa, listo y juzgado para la 3060.
 pub mod pso;
+/// P3b4c: el lote a la PUERTA de la 3060 (la receta VRN2 que manda la app).
+pub mod puerta;
 
 use alloc::vec;
 use alloc::vec::Vec;

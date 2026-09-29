@@ -43,7 +43,13 @@ impl Monton {
 unsafe impl GlobalAlloc for Monton {
     unsafe fn alloc(&self, l: Layout) -> *mut u8 {
         let e = &mut *self.estado.get();
-        let dir = (e.1 + l.align() - 1) & !(l.align() - 1);
+        // ** Lo GRANDE (64 KiB o mas) empieza en PAGINA (P3b4c, 28-09): el
+        // back buffer de la casa es un `Vec<u32>` de aqui, y la 3060 solo
+        // dibuja en un destino que empieza en pagina (el kernel lo presta
+        // por la IOMMU de pagina en pagina). Cuesta como mucho 4 KiB por
+        // cosa grande; lo chico sigue con su alineacion.
+        let alinea = if l.size() >= 1 << 16 { l.align().max(4096) } else { l.align() };
+        let dir = (e.1 + alinea - 1) & !(alinea - 1);
         match dir.checked_add(l.size()) {
             Some(fin) if e.0 != 0 && fin <= e.2 => {
                 e.1 = fin;

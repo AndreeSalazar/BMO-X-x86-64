@@ -919,6 +919,12 @@ pub const IMAGEN_CARGAR: u64 = 1 << 63;
 /// que llama TOMO (el fotograma de otra app, p. ej. DOOM), no de un bloque
 /// suyo. El kernel exige que sea suyo y que sus marcos vayan seguidos.
 pub const IMAGEN_PRESTADO: u64 = 1 << 62;
+/// P3b4c: LA PUERTA ESTRECHA, la unica orden de la 3060 para una app SIN la
+/// autoridad `MAQUINA`: `arg1` = la VA de una RECETA (VRN2,
+/// `bmo_gpu_ga10x::receta`) en un bloque del que llama. La 3060 dibuja en el
+/// DESTINO de la receta -- un bloque ESCRIBIBLE del que llama, nunca la
+/// pantalla -- con el pegamento del kernel. `Ok` = lo de `cubo::empaquetar`.
+pub const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 /// P1: EL PASE de la GPU, neutro (`bmo_pase_gpu::orden`): ABRIR con la VA del
 /// lienzo (el lienzo prestado para quedarse, `Ok` = la VA del buzon), CERRAR
 /// o ESTADO en los bits 63..60 de `arg1`.

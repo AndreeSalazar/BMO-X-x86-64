@@ -35,7 +35,7 @@ mod imagen;
 pub use imagen::{imagen, imagen_formato, IOMMU_NO_IMAGEN};
 /// X5: el cubo del estudio D3D por la 3060, en una ventana de la pantalla.
 mod cubo;
-pub use cubo::cubo;
+pub use cubo::{cubo, receta};
 
 // == M5d S1 y S3: EL COMPUTO Y EL PRIMER TRABAJO DEL GR (2026-09-24) ==========
 //
@@ -187,6 +187,17 @@ pub fn sombrear(ficha: u64) -> Result<u64, u32> {
 static LIENZO_F: AtomicU64 = AtomicU64::new(0);
 static LIENZO_PRESTADO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
 static LIENZO_HECHO: core::sync::atomic::AtomicBool = core::sync::atomic::AtomicBool::new(false);
+/// ** P3b4c: la ficha del GR con la que el ESCRITORIO pinto el lienzo (ya
+/// validada), para la puerta de las apps: una app no tiene ficha -- la da el
+/// GSP-RM al escritorio -- y no se la pide a nadie: la pone el kernel.
+static FICHA_GR: AtomicU64 = AtomicU64::new(0);
+
+/// La ficha del GR para la puerta de las apps: la del lienzo, si el
+/// escritorio ya preparo la 3060 hasta ahi.
+pub(super) fn ficha_del_gr() -> Option<u32> {
+    let f = FICHA_GR.load(Ordering::Acquire);
+    (LIENZO_HECHO.load(Ordering::Acquire) && f != 0).then_some(f as u32)
+}
 /// L: sin el primer sombreador, una ficha ajena, o ya se pinto.
 pub const IOMMU_NO_LIENZO: u32 = 76;
 /// L: el lienzo no se presto, sus PTE no estaban vacias, o el tramo no se
@@ -216,6 +227,7 @@ pub fn pintar_lienzo(ficha: u64) -> Result<u64, u32> {
     if LIENZO_HECHO.swap(true, Ordering::AcqRel) {
         return Err(IOMMU_NO_LIENZO);
     }
+    FICHA_GR.store(ficha, Ordering::Release);
     let fallo = |m: u32, que: &str, v: u64| {
         LIENZO_HECHO.store(false, Ordering::Release);
         crate::ring0::cabina::warn("gpu", que, v);

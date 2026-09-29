@@ -12,6 +12,7 @@ version = "0.1.0"
 dependencies = [
  "bmo-proton-x",
  "bmo-proton-x-casa",
+ "bmo-proton-x-sm86",
  "bmo-rtc",
  "bmo-userland",
 ]
@@ -113,6 +114,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bmo-proton-x-sm86"
+version = "0.1.0"
+dependencies = [
+ "bmo-gpu-ga10x",
+ "bmo-proton-x",
+ "bmo-sm86",
+]
+
+[[package]]
 name = "bmo-puerta-red"
 version = "0.1.0"
 
@@ -154,6 +164,10 @@ version = "0.1.0"
 dependencies = [
  "bmo-userland",
 ]
+
+[[package]]
+name = "bmo-sm86"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-spirv-front"

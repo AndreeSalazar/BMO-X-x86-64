@@ -217,6 +217,26 @@ const B_ALD: u64 = 0;
 const B_TABLA: u64 = 2;
 const B_CARGAS: u64 = 3;
 
+/// *** Que cada carga caiga en registros DEL CUERPO (P3b4c, 28-09): los del
+/// pegamento (la tabla `A`, el puntero de los datos `D`, `V`, el vertice)
+/// van detras de `registros` (`propios`). Una carga con su destino en `D`
+/// cambiaria el puntero con un valor de los DATOS -- que da la app -- y el
+/// LDG de las filas de detras leeria donde ella quisiera. Con programas de
+/// la casa no pasaba (el emisor no lo hace); con la RECETA de una app, esto
+/// es la valla.
+fn cargas_propias(cargas: &[Carga], registros: u32) -> Result<(), NoPega> {
+    for c in cargas {
+        let (reg, n) = match *c {
+            Carga::Entrada { reg, .. } => (reg as u32, 1),
+            Carga::Fila { reg, .. } => (reg as u32, 4),
+        };
+        if reg + n > registros {
+            return Err(NoPega::Carga);
+        }
+    }
+    Ok(())
+}
+
 /// El cuerpo sin su EXIT final (y su EXIT, aparte).
 fn partir(cuerpo: &[(u64, u64)]) -> Result<(&[(u64, u64)], (u64, u64)), NoPega> {
     match cuerpo.split_last() {
@@ -292,6 +312,7 @@ fn cerrar(o: Poner, sph: [u32; SPH], registros: u32) -> Result<Pegado, NoPega> {
 /// la posicion; las demas, los genericos 0, 1... en orden).
 pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, salidas: u32, posicion: u32) -> Result<Pegado, NoPega> {
     let (resto, _) = partir(cuerpo)?;
+    cargas_propias(cargas, registros)?;
     if posicion >= salidas || salidas > 8 {
         return Err(NoPega::Salidas);
     }
@@ -370,6 +391,7 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
 /// que lleva su entrada `e` (`None`: la posicion, que hoy no se recibe).
 pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>]) -> Result<Pegado, NoPega> {
     partir(cuerpo)?;
+    cargas_propias(cargas, registros)?;
     let (a, d, _, _, total) = propios(registros)?;
     let mut o = Poner { codigo: [(0, 0); MAX_INSTRUCCIONES], n: 0, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();

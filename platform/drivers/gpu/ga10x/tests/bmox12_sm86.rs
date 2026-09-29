@@ -163,3 +163,109 @@ fn con_indices_da_lo_mismo_que_v0() {
         assert_eq!(tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, otra), None);
     }
 }
+
+/// *** P3b4c: LA RECETA (VRN2) de BMOX-12 -- los CUERPOS que emite PROTON-X,
+/// sus cargas, el input layout y los DATOS con indices --, leida y PEGADA
+/// como la pega el kernel, da los MISMOS dos programas (byte a byte) que
+/// los que ya dibujaron en el metal; el paquete, los mismos DATOS y el
+/// mismo dibujo. Y lo que no es de la app, no pasa.
+#[test]
+fn la_receta_pega_lo_mismo_que_el_metal() {
+    use bmo_gpu_ga10x::destino::Destino;
+    use bmo_gpu_ga10x::profundidad::{Z, UNO};
+    use bmo_gpu_ga10x::receta::{self, NoReceta, Receta, Taller, MAX_CARGAS, MAX_ELEMENTOS, MAX_GENERICOS, NINGUNA, NINGUNO};
+    let (pv, pp) = (programa(VS), programa(PS));
+    let (ev, ep) = (emitir_con(&pv, 64, Abi::Registros).unwrap(), emitir_con(&pp, 64, Abi::Registros).unwrap());
+    let cuerpo = |e: &bmo_proton_x_sm86::Emitido| -> Vec<u8> { e.codigo.iter().flat_map(|&(lo, hi)| lo.to_le_bytes().into_iter().chain(hi.to_le_bytes())).collect() };
+    let carga = |p: &Precarga| match *p {
+        Precarga::Entrada { elemento, componente, reg } => Carga::Entrada { elemento, componente, reg },
+        Precarga::Fila { fila, reg } => Carga::Fila { fila, reg },
+    };
+    let (cv, cp) = (cuerpo(&ev), cuerpo(&ep));
+    let mut b = vec![0u8; tuberia::DATOS_MAX];
+    let (n, total, desde) = tanda::datos_indexados(30, 1280, 720, &mut b).expect("caben");
+    let dst = Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false };
+    let z = Z { funcion: 2, escribir: true, limpiar: Some(UNO) };
+    let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Ninguna, antihorario: false, destino: Some((0x1000_0000, dst)), z: Some(z) };
+    let mut r = Receta {
+        n,
+        vs: &cv,
+        ps: &cp,
+        registros_vs: ev.registros,
+        registros_ps: ep.registros,
+        salidas: pv.salidas as u32,
+        posicion: 0,
+        filas: DATOS.filas,
+        paso: DATOS.paso,
+        elementos: [NINGUNO; MAX_ELEMENTOS],
+        n_elementos: DATOS.elementos.len(),
+        cargas_vs: [NINGUNA; MAX_CARGAS],
+        n_cargas_vs: ev.precargas.len(),
+        cargas_ps: [NINGUNA; MAX_CARGAS],
+        n_cargas_ps: ep.precargas.len(),
+        genericos: [None; MAX_GENERICOS],
+        n_genericos: 3,
+        datos: &b[..total],
+        dibujo,
+    };
+    r.elementos[..DATOS.elementos.len()].copy_from_slice(DATOS.elementos);
+    for (d, p) in r.cargas_vs.iter_mut().zip(&ev.precargas) {
+        *d = carga(p);
+    }
+    for (d, p) in r.cargas_ps.iter_mut().zip(&ep.precargas) {
+        *d = carga(p);
+    }
+    r.genericos[..3].copy_from_slice(&[None, Some(0), Some(1)]);
+    let mut caja = vec![0u8; receta::MAX_RECETA];
+    let m = receta::escribir(&mut caja, &r).expect("la receta se sostiene");
+    assert_eq!(receta::medida(&caja[..receta::CABECERA_2]), Some(m), "la medida sale de la cabecera sola");
+    let leida = receta::leer(&caja[..m]).unwrap();
+    assert_eq!((leida.n, leida.vs, leida.ps, leida.datos, leida.dibujo), (r.n, r.vs, r.ps, r.datos, r.dibujo));
+    let mut t = Box::new(Taller::nuevo());
+    receta::pegar(&leida, &mut t).expect("el kernel la pega");
+    let (v, p) = pegados();
+    assert_eq!(&t.vs[..t.bytes_vs], &bytes(&v)[..], "el de vertice: el MISMO que dibujo en el metal");
+    assert_eq!(&t.ps[..t.bytes_ps], &bytes(&p)[..], "el de pixel: el MISMO");
+    let q = receta::paquete(&leida, &t, 7);
+    assert_eq!((q.ficha, q.n, q.vertices, q.dibujo), (7, n, &b[..total], dibujo));
+    // Una limpieza de Z que no es 1.0 SI viaja en la receta (VRN1 no).
+    let medio = Receta { dibujo: tuberia::Dibujo { z: Some(Z { limpiar: Some(0.5f32.to_bits()), ..z }), ..dibujo }, ..r };
+    let m2 = receta::escribir(&mut caja, &medio).unwrap();
+    assert_eq!(receta::leer(&caja[..m2]).unwrap().dibujo.z.unwrap().limpiar, Some(0.5f32.to_bits()));
+
+    // *** Lo que NO pasa.
+    let no_se_lee = |x: &Receta| receta::escribir(&mut vec![0u8; receta::MAX_RECETA], x);
+    // Sin destino: una receta nunca dibuja en la pantalla.
+    assert_eq!(no_se_lee(&Receta { dibujo: tuberia::Dibujo { destino: None, ..dibujo }, ..r }), None);
+    // Mas vertices de los que caben en los DATOS: el pegamento leeria fuera.
+    // (Detras de los 24 van los indices: hasta ahi se lee DENTRO.)
+    let caben = (total - 16 * DATOS.filas as usize) / DATOS.paso as usize;
+    assert!(no_se_lee(&Receta { dibujo: tuberia::Dibujo { vertices: caben as u32, ..dibujo }, ..r }).is_some());
+    assert_eq!(no_se_lee(&Receta { dibujo: tuberia::Dibujo { vertices: caben as u32 + 1, ..dibujo }, ..r }), None);
+    // Un paso que se come el final de los datos.
+    assert_eq!(no_se_lee(&Receta { paso: DATOS.paso + 16, ..r }), None);
+    // Una carga de una fila que no hay.
+    let mut fuera = r;
+    fuera.cargas_vs[0] = Carga::Fila { fila: DATOS.filas as u16, reg: 0 };
+    assert_eq!(no_se_lee(&fuera), None);
+    // La receta a medias, o con la ficha puesta: no.
+    assert!(receta::leer(&caja[..m2 - 16]).is_none());
+    let mut con_ficha = caja[..m2].to_vec();
+    con_ficha[4] = 1;
+    assert!(receta::leer(&con_ficha).is_none());
+    // Un STG en el cuerpo: R7, no sube.
+    let stg = (0x186u64 | 1 << 9 | 7 << 12, 0u64);
+    let mut malo = cv.clone();
+    malo[..8].copy_from_slice(&stg.0.to_le_bytes());
+    malo[8..16].copy_from_slice(&stg.1.to_le_bytes());
+    let m3 = receta::escribir(&mut caja, &Receta { vs: &malo, ..r }).unwrap();
+    let e = receta::pegar(&receta::leer(&caja[..m3]).unwrap(), &mut t).unwrap_err();
+    assert!(matches!(e, NoReceta::Cuerpo("vertice", b) if b.instruccion == 0), "{e:?}");
+    // Una carga a un registro del PEGAMENTO (el puntero de los datos va
+    // detras de los del cuerpo): el pegamento la para.
+    let mut ajena = r;
+    ajena.cargas_vs[0] = Carga::Entrada { elemento: 0, componente: 0, reg: ev.registros as u8 + 2 };
+    let m4 = receta::escribir(&mut caja, &ajena).unwrap();
+    let e = receta::pegar(&receta::leer(&caja[..m4]).unwrap(), &mut t).unwrap_err();
+    assert!(matches!(e, NoReceta::Pegamento("vertice", bmo_gpu_ga10x::pegamento::NoPega::Carga)), "{e:?}");
+}

@@ -677,7 +677,20 @@ pub(super) fn red(arg0: u64, _arg1: u64) -> BmoStatus {
 pub(super) fn iommu(arg0: u64, arg1: u64) -> BmoStatus {
     use crate::ring0::plat::iommu::en_curso;
     en_curso(Some((arg0, arg1, super::ops::nombre_iommu(arg0))));
-    let r = iommu_(arg0, arg1);
+    // *** LA PUERTA ESTRECHA (P3b4c, 28-09) -- la UNICA orden que no pasa por
+    // las dos llaves de `iommu_` (la autoridad MAQUINA y la pantalla): una
+    // app dibuja en SU RAM con una RECETA, y lo que la hace segura esta
+    // entero en `gpu_trabajo::receta` (el cuerpo es lista blanca, las
+    // lecturas las pone el kernel, el destino es suyo y obligatorio). El
+    // guardian `la-3060` (regla P2) exige que sea esta orden y solo esta.
+    let r = if arg0 == IOMMU_OP_GPU_DIBUJAR {
+        match crate::ring0::dev::gpu_trabajo::receta(arg1) {
+            Ok(v) => BmoStatus::ok_value(v),
+            Err(m) => BmoStatus::negado(m, 0),
+        }
+    } else {
+        iommu_(arg0, arg1)
+    };
     en_curso(None);
     r
 }

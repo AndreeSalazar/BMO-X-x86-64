@@ -126,6 +126,11 @@ pub struct Lote<'a> {
     /// Los bytes del cbuffer b0 que leen los sombreadores.
     pub cb: &'a [u8],
     pub reglas: trama::Reglas,
+    /// P3b4c: la profundidad se LIMPIO desde el ultimo dibujo en ella
+    /// (`ClearDepthStencilView`), con estos bits (un f32). La CPU ya la limpio
+    /// en su bufer; quien dibuja con OTRA Z (la de la 3060, en VRAM) lo
+    /// necesita saber para limpiar la suya.
+    pub limpiar_z: Option<u32>,
 }
 
 /// Por que un ejecutor no dibujo un lote.

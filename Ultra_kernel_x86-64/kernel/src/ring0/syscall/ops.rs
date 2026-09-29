@@ -445,6 +445,10 @@ pub(crate) const IOMMU_OP_GPU_CUBO: u64 = 0x45;
 pub(crate) const IOMMU_OP_GPU_IMAGEN_FORMATO: u64 = 0x46;
 /// D2: una imagen `0x00RRGGBB` de un bloque del escritorio, a la pantalla por la 3060.
 pub(crate) const IOMMU_OP_GPU_IMAGEN: u64 = 0x47;
+/// P3b4c: LA PUERTA ESTRECHA -- una APP (sin `MAQUINA`) manda una RECETA
+/// (VRN2) de un bloque suyo y la 3060 dibuja en SU RAM. `arg1` = la VA de la
+/// receta. Ver `dev/gpu_trabajo/cubo.rs::receta` y `op_maquina::iommu`.
+pub(crate) const IOMMU_OP_GPU_DIBUJAR: u64 = 0x48;
 
 /// **ARMAR Y SONDEAR LA RED desde donde vive el propietario.** `arg0` = `RED_OP_*`.
 ///
@@ -986,6 +990,7 @@ pub(crate) fn nombre_iommu(op: u64) -> &'static str {
         IOMMU_OP_GPU_CUBO => "GPU_CUBO",
         IOMMU_OP_GPU_IMAGEN_FORMATO => "GPU_IMAGEN_FORMATO",
         IOMMU_OP_GPU_IMAGEN => "GPU_IMAGEN",
+        IOMMU_OP_GPU_DIBUJAR => "GPU_DIBUJAR",
         _ => "?",
     }
 }

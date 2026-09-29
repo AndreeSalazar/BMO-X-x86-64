@@ -36,6 +36,7 @@ extern crate alloc;
 
 mod monton;
 mod plataforma;
+mod la3060;
 
 use alloc::format;
 use alloc::vec::Vec;

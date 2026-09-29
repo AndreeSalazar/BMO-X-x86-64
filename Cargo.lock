@@ -582,6 +582,7 @@ name = "bmo-proton-x-casa"
 version = "0.1.0"
 dependencies = [
  "bmo-cubo",
+ "bmo-gpu-ga10x",
  "bmo-proton-x",
  "bmo-proton-x-sm86",
 ]

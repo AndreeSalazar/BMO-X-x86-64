@@ -673,7 +673,10 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     };
     // Hasta aqui, D3D12. Lo que sigue es un LOTE, y lo dibuja quien la
     // plataforma diga (hoy la CPU; luego VERRANO con la 3060).
+    // P3b4c: si SU profundidad se limpio desde el ultimo dibujo, con que.
+    let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 { z_pendiente(e.dsv) } else { None };
     let lote = Lote {
+        limpiar_z,
         enlace: en,
         entradas: &pso.entradas,
         vertices: vb,
@@ -702,6 +705,32 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Ok(_) => {}
         Err(NoDibuja::IndiceFuera(_)) => aviso("Draw: un indice que pasa del bufer de vertices"),
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
+    }
+}
+
+/// **La ultima profundidad limpiada y aun sin dibujar**: `(recurso, bits)`.
+/// La apunta `ExecuteCommandLists` al limpiar un D32; la toma el primer
+/// dibujo que usa ESE recurso. Una tarea, hilos cooperativos: basta una celda.
+struct ZLimpia(UnsafeCell<Option<(u64, u32)>>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for ZLimpia {}
+static Z_LIMPIA: ZLimpia = ZLimpia(UnsafeCell::new(None));
+
+pub(crate) fn z_limpiada(recurso: u64, bits: u32) {
+    // SAFETY: ver `ZLimpia`.
+    unsafe { *Z_LIMPIA.0.get() = Some((recurso, bits)) };
+}
+
+/// Los bits de la limpieza pendiente de `recurso`, gastandola.
+fn z_pendiente(recurso: u64) -> Option<u32> {
+    // SAFETY: ver `ZLimpia`.
+    let z = unsafe { &mut *Z_LIMPIA.0.get() };
+    match *z {
+        Some((r, bits)) if r == recurso => {
+            *z = None;
+            Some(bits)
+        }
+        _ => None,
     }
 }
 

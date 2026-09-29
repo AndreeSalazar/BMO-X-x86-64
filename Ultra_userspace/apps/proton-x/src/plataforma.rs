@@ -15,7 +15,8 @@
 //!    poner_gs     el TEB del hilo de Windows que va a correr (P4):
 //!                 TASK_OP_PON_GS, que no toca el MSR si no cambia
 //!    ahora_ns     `rdtsc` y la frecuencia que publica el kernel (INFO_TSC_HZ)
-//!    dibujar      los lotes de D3D12: con los sombreadores NATIVOS de la casa
+//!    dibujar      los lotes de D3D12: por la 3060 (la puerta, P3b4c), o con
+//!                 los sombreadores NATIVOS de la casa si no se puede
 //!    sellar_codigo  un bloque, los bytes y MEM_OP_SELLAR (W^X); soltarlo es
 //!                 MEM_OP_SOLTAR: de los ocho bloques vivos, el codigo gasta uno
 //!    leer_fichero   Archivo::leer_de + un bloque + leer_en: ENTERO, un viaje
@@ -33,7 +34,7 @@ use bmo_userland as bmo;
 const RANURAS: u64 = 64;
 
 pub fn de_bmo() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: bmo_proton_x_casa::nativo::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: super::la3060::dibujar, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
 }
 
 /// Los bloques de codigo sellados (uno vivo, casi siempre: la casa suelta el

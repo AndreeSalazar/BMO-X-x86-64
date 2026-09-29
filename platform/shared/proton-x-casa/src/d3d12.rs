@@ -658,7 +658,13 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
             match o {
                 Orden::Limpiar { recurso, pixel } => {
                     // SAFETY: un Recurso de la casa.
-                    unsafe { de::<Recurso>(*recurso).pixeles.fill(*pixel) };
+                    let r = unsafe { de::<Recurso>(*recurso) };
+                    r.pixeles.fill(*pixel);
+                    // P3b4c: una profundidad limpiada se apunta, para quien
+                    // dibuje con OTRA Z (la de la 3060).
+                    if r.formato == tuberia::FMT_D32_FLOAT {
+                        tuberia::z_limpiada(*recurso, *pixel);
+                    }
                 }
                 Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
                     tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);

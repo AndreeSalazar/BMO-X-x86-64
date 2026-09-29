@@ -543,9 +543,14 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     EXIT al final, registros suyos). R0..R6 dicen si un
                     programa esta bien hecho; no a QUE memoria va: por eso la
                     app manda el cuerpo y el pegamento lo pone el KERNEL.
-               4c.2 [ ] la RECETA (VRN2): los cuerpos, sus cargas, el input
-                    layout y los DATOS; el kernel pega, comprueba que cada
-                    lectura cae en los DATOS, juzga y dibuja.
+               4c.2 [HECHO banco] la RECETA (VRN2, `receta`): los cuerpos,
+                    sus cargas, el input layout y los DATOS; el kernel pega
+                    (su pegamento), comprueba que cada lectura cae en los
+                    DATOS, juzga y dibuja. PEGADA DA LOS MISMOS DOS PROGRAMAS,
+                    byte a byte, que los del metal. De paso: el pegamento no
+                    comprobaba que el destino de una carga fuera del cuerpo
+                    (una carga en `D` cambiaria el puntero de los datos por
+                    un valor de la app): ahora si (`cargas_propias`).
                4c.3 [HECHO banco, FALTA el metal] la PROFUNDIDAD por la 3060
                     (`profundidad`: ZF32 bloque-lineal en VRAM 0x0A00_0000,
                     kind GENERIC_MEMORY, VA 0x8_0000_0000; SET_ZT_*, la regla
@@ -558,9 +563,27 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     acepta el color LINEAL (pitch) con la Z bloque-lineal. Si
                     no, el color va a una sombra bloque-lineal en VRAM y el
                     motor de copia la lleva a la RAM de la app.
-               4c.4 [ ] la puerta en el kernel (sin MAQUINA; solo recetas con
-                    destino propio; la ficha la pone el kernel).
-               4c.5 [ ] el ejecutor en la app y su banco.
+               4c.4 [HECHO, FALTA el metal] la puerta en el kernel:
+                    `IOMMU_OP_GPU_DIBUJAR` (0x48), desviada en
+                    `op_maquina::iommu` ANTES de las dos llaves y solo hacia
+                    `gpu_trabajo::receta` (regla P2 de `la-3060`, probada
+                    ensanchandola: la para). La ficha del GR la pone el
+                    kernel (la del lienzo del escritorio: sin `gpu verrano`
+                    antes, NO). El taller del pegado, estatico.
+               4c.5 [HECHO banco, FALTA el metal] el ejecutor en la app
+                    (`apps/proton-x/src/la3060.rs`) y `proton-x-sm86::puerta`
+                    (cuerpos por PSO, pegado de prueba una vez, la receta de
+                    cada lote, la Z coherente). El banco: los 39 lotes de
+                    `bmox12.exe` sin tocar pasan por la puerta con los
+                    programas del metal y la Z limpiada en cada fotograma. El
+                    monton de la app alinea a pagina lo de 64 KiB o mas (el
+                    back buffer es el destino).
+                    EN EL RYZEN, en este orden: `gpu verrano bmox12 30 z`
+                    (IGUAL) y `... ambas` (DISTINTO); luego `run
+                    sys/proton-x.bex window/bmox12.exe`: tiene que decir
+                    "PROTON-X: la 3060 dibuja los lotes" y EL REGISTRO sus
+                    fps (contra los 36-38 de la CPU). Si dice "este lote va
+                    por la CPU: ...", el porque viene en la misma linea.
                De paso (28-09): el cerrojo del GR se quedaba TOMADO si un
                destino malo salia por un `?` (`verrano` en el kernel): la 3060
                decia "uno en marcha" hasta reiniciar. Ahora toda salida lo

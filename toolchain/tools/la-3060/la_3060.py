@@ -23,6 +23,11 @@ las esperas, que es la deuda que se quiere bajar):
                    `autoridad::MAQUINA` antes de mirar la orden
     R  REGISTROS   solo dev/gpu*, dev/gpu_trabajo/ y dev/vblank.rs tocan
                    los registros de la 3060 (`Bar0(`, `gpu::bar0()`)
+    P2 LA PUERTA ESTRECHA (P3b4c, 28-09): `fn iommu` (la envoltura) desvia
+                   UNA orden antes de las llaves, `IOMMU_OP_GPU_DIBUJAR`, y
+                   solo a `gpu_trabajo::receta`; y esa pega con
+                   `receta::pegar` (juez R7 del cuerpo y R0..R6 del programa)
+                   y dibuja con `en_frio` (el destino, obligatorio y suyo)
     O  ORDENES     cada `IOMMU_OP_*` vale lo mismo en el kernel, el ABI y
                    userland; ninguna repite valor; cada una tiene nombre
                    (`nombre_iommu`, lo que dice la pantalla amarilla) y
@@ -137,6 +142,27 @@ def puerta(fallos):
     orden = cuerpo.find('match arg0')
     if llave < 0 or (orden >= 0 and llave > orden):
         fallos.append('P: `fn iommu_` ya no pide `autoridad::MAQUINA` antes de la orden: una app con la pantalla prestada volveria a mandar en la 3060')
+
+
+def puerta_estrecha(fallos):
+    t = sin_comentarios(leer(os.path.join(RING0, 'syscall', 'op_maquina.rs')))
+    i = t.find('fn iommu(')
+    j = t.find('fn iommu_(')
+    if i < 0 or j < 0:
+        fallos.append('P2: no se encuentran `fn iommu(` y `fn iommu_(` en syscall/op_maquina.rs')
+        return
+    envoltura = t[i:t.find('\n}\n', i)]
+    ordenes = set(re.findall(r'IOMMU_OP_[A-Z0-9_]+', envoltura))
+    if ordenes - {'IOMMU_OP_GPU_DIBUJAR'}:
+        fallos.append('P2: `fn iommu` desvia antes de las llaves ordenes que no son la puerta estrecha: %s' % ', '.join(sorted(ordenes - {'IOMMU_OP_GPU_DIBUJAR'})))
+    if ordenes and 'gpu_trabajo::receta(' not in envoltura:
+        fallos.append('P2: `IOMMU_OP_GPU_DIBUJAR` no va a `gpu_trabajo::receta`: una app mandaria en otra cosa de la 3060 sin MAQUINA')
+    c = sin_comentarios(leer(os.path.join(RING0, 'dev', 'gpu_trabajo', 'cubo.rs')))
+    k = c.find('pub fn receta(')
+    cuerpo = c[k:c.find('\n}\n', k)] if k >= 0 else ''
+    for hace, porque in (('rc::pegar(', 'pega con el pegamento del kernel y juzga (R7 y R0..R6)'), ('rc::leer(', 'lee la receta entera (el destino obligatorio, las lecturas dentro de los datos)'), ('en_frio(', 'dibuja por el camino que suelta el cerrojo y presta el destino suyo')):
+        if hace not in cuerpo:
+            fallos.append('P2: `cubo::receta` ya no llama a `%s`: es lo que %s' % (hace, porque))
 
 
 def registros(fallos):
@@ -411,6 +437,7 @@ def sobre(fallos):
 def main():
     fallos = []
     puerta(fallos)
+    puerta_estrecha(fallos)
     registros(fallos)
     n_ordenes = ordenes(fallos)
     n_motivos = motivos(fallos)

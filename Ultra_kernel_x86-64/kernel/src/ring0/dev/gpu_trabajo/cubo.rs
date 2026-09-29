@@ -218,6 +218,114 @@ fn verrano(va: u64, ligero: bool, anillo: bool, coopera: bool) -> Result<u64, u3
         BLUR_EN_MARCHA.store(false, Ordering::Release);
         return r;
     }
+    en_frio(bar0, pid, e, &p, &v, &paquete, ligero)
+}
+
+// == P3b4c: LA PUERTA DE LAS APPS =============================================
+
+/// El taller donde el kernel pega los programas de una receta: ~6 KiB,
+/// ESTATICO (fuera de la pila del syscall). Lo guarda [`TALLER_EN_USO`].
+struct TallerFijo(core::cell::UnsafeCell<bmo_gpu_ga10x::receta::Taller>);
+// SAFETY: solo se toca con `TALLER_EN_USO` tomado (ver `receta`).
+unsafe impl Sync for TallerFijo {}
+static TALLER: TallerFijo = TallerFijo(core::cell::UnsafeCell::new(bmo_gpu_ga10x::receta::Taller::nuevo()));
+static TALLER_EN_USO: AtomicBool = AtomicBool::new(false);
+
+/// **`IOMMU_OP_GPU_DIBUJAR`: la PUERTA ESTRECHA** (P3b4c, 28-09) -- la unica
+/// orden de la 3060 que no pide la autoridad `MAQUINA` (la desvia
+/// `syscall::op_maquina::iommu` antes de sus dos llaves). Lo que la hace
+/// estrecha, todo aqui y todo comprobado:
+///
+/// ```text
+///    lo que manda   una RECETA (VRN2) en un bloque suyo: los CUERPOS, nunca
+///                   un programa entero (`receta`: juez R7, lista blanca)
+///    las lecturas   las pone el KERNEL (el pegamento): cada una dentro de
+///                   los DATOS de la receta (`receta::leer`)
+///    donde pinta    en SU RAM (el destino es obligatorio y tiene que ser un
+///                   bloque ESCRIBIBLE suyo), nunca en la pantalla
+///    la ficha       la del GR que preparo el escritorio (`ficha_del_gr`):
+///                   sin escritorio que la haya preparado, NO
+///    el cerrojo     el del GR, como `gpu verrano`: si esta ocupado, NO (la
+///                   app dibuja ese lote en la CPU y lo dice)
+/// ```
+pub fn receta(va: u64) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::receta as rc;
+    let bar0 = crate::ring0::dev::gpu::bar0();
+    let Some(ficha) = super::ficha_del_gr() else {
+        crate::ring0::cabina::warn("gpu", "P3b4c: una app pide la 3060 y el escritorio no la preparo (`gpu verrano`, hasta `lienzo`)", va);
+        return Err(IOMMU_NO_BLUR);
+    };
+    if bar0 == 0 || crate::ring0::dev::gpu_apagar::despedido() {
+        return Err(IOMMU_NO_BLUR);
+    }
+    let Some(p) = la_pantalla() else { return Err(IOMMU_NO_PANTALLA) };
+    let Some(v) = cu::ventana(&p) else { return Err(IOMMU_NO_PANTALLA) };
+    if !crate::ring0::dev::gpu_despertar::bar1_fisica() {
+        return Err(IOMMU_NO_PANTALLA);
+    }
+    // La receta: un bloque de QUIEN la manda, entero, dentro del physmap.
+    let pid = crate::ring0::task::scheduler::current_pid();
+    let dentro = |fisica: u64, bytes: u64| fisica.checked_add(bytes).is_some_and(|fin| fin <= crate::ring0::mm::PHYSMAP_SIZE);
+    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, rc::CABECERA_2 as u64).filter(|&f| dentro(f, rc::CABECERA_2 as u64)) else {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la receta no es un bloque de quien la manda", va);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    // SAFETY: `fisica_de` dio la cabecera en un bloque del proceso, dentro
+    // del physmap (comprobado); solo se lee.
+    let cabecera = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, rc::CABECERA_2) };
+    let Some(total) = rc::medida(cabecera) else {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la cabecera de la receta no se sostiene (VRN2)", va);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    let Some(f) = crate::ring0::obj::memory::fisica_de(pid, va, total as u64).filter(|&f| dentro(f, total as u64)) else {
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    // SAFETY: como arriba, con `total` bytes; la app esta dentro de esta
+    // llamada (un hilo por tarea) y no los toca mientras.
+    let bytes = unsafe { core::slice::from_raw_parts(crate::ring0::mm::phys_to_virt(f) as *const u8, total) };
+    let Some(r) = rc::leer(bytes) else {
+        crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene (medidas, destino, cargas, datos o indices); bytes", total as u64);
+        return Err(IOMMU_NO_BLUR_PREPARAR);
+    };
+    if TALLER_EN_USO.swap(true, Ordering::AcqRel) {
+        return Err(IOMMU_NO_BLUR);
+    }
+    // SAFETY: `TALLER_EN_USO` recien tomado: nadie mas lo toca hasta soltarlo.
+    let t = unsafe { &mut *TALLER.0.get() };
+    let salida = match rc::pegar(&r, t) {
+        Ok(()) => {
+            let paquete = rc::paquete(&r, t, ficha);
+            en_frio(bar0, pid, BLUR_ENTRADA.load(Ordering::Acquire), &p, &v, &paquete, true)
+        }
+        Err(e) => {
+            decir_no_receta(e);
+            Err(IOMMU_NO_BODRIO)
+        }
+    };
+    TALLER_EN_USO.store(false, Ordering::Release);
+    salida
+}
+
+/// POR QUE una receta no se pego, en CABINA: la regla, la instruccion y que.
+fn decir_no_receta(e: bmo_gpu_ga10x::receta::NoReceta) {
+    use bmo_gpu_ga10x::receta::NoReceta;
+    match e {
+        NoReceta::Cuerpo(cual, b) | NoReceta::Juez(cual, b) => {
+            crate::ring0::cabina::warn("gpu", cual, b.instruccion as u64);
+            crate::ring0::cabina::warn("gpu", b.regla.nombre(), b.que as u64);
+            crate::ring0::cabina::warn("gpu", "[BMO-X Juez V3b]: TOMA TU BODRIO! la receta de una app no sube a la 3060; instruccion", b.instruccion as u64);
+        }
+        NoReceta::Pegamento(cual, _) => crate::ring0::cabina::warn("gpu", "P3b4c: el pegamento del kernel no puede con esta receta (cargas, registros o salidas)", (cual == "pixel") as u64),
+        NoReceta::Forma => crate::ring0::cabina::warn("gpu", "P3b4c: la receta no se sostiene", 0),
+    }
+}
+
+/// **Un dibujo EN FRIO (o en caliente) por la tuberia fija**, con el cerrojo
+/// del GR tomado aqui y soltado en TODA salida: el de `gpu verrano` y el de
+/// la puerta de las apps (`receta`). `paquete` ya esta leido y juzgado.
+fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v: &cu::Ventana, paquete: &bmo_gpu_ga10x::tuberia::Paquete, ligero: bool) -> Result<u64, u32> {
+    use bmo_gpu_ga10x::tuberia as tu;
+    let (p, v, paquete) = (*p, *v, *paquete);
     if !bmo_gpu_ga10x::blur::entrada_valida(e) || gr_ocupado() {
         return Err(IOMMU_NO_BLUR);
     }
