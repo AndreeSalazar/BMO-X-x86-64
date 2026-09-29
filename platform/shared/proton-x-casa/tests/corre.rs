@@ -56,6 +56,7 @@ const SALUDO_DLL: &[u8] = include_bytes!("../../proton-x/prueba/saludo.dll");
 const SEH: &[u8] = include_bytes!("../../proton-x/prueba/seh.exe");
 const TANDA1: &[u8] = include_bytes!("../../proton-x/prueba/tanda1.exe");
 const TANDA2: &[u8] = include_bytes!("../../proton-x/prueba/tanda2.exe");
+const TANDA3: &[u8] = include_bytes!("../../proton-x/prueba/tanda3.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -833,6 +834,22 @@ fn tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 12, "{texto}");
     assert!(texto.ends_with("tanda2.exe: los hilos de la biblioteca de C++ son los de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 3 de Cyberpunk en el anfitrion** (29-09): `tanda3.exe` --
+/// kernel32, pasos 1 a 3: la hora, lo que dice del sistema y las "A"
+/// (entorno, rutas, buscar ficheros, modulos, eventos, consola).
+#[test]
+fn tanda3_exe_tiene_lo_de_kernel32() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/tanda3.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA3, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 24, "{texto}");
+    assert!(texto.ends_with("tanda3.exe: kernel32 dice lo de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

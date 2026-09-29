@@ -499,3 +499,20 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` doce veces y sale con 0. En Windows dice lo mismo (pide
 msvcp140.dll, el redistribuible de Visual C++, como los juegos).
+
+tanda3.exe -- la TANDA 3 de Cyberpunk (29-09): kernel32, pasos 1 a 3
+
+La hora (SYSTEMTIME y FILETIME), lo que kernel32 dice del sistema y las
+funciones "A" (entorno, rutas, buscar ficheros, modulos, eventos, consola),
+de kernel32.dll (tanda3_kernel32.def, su propia lista):
+
+   llvm-dlltool -m i386:x86-64 -d tanda3_kernel32.def -l tanda3_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda3.c -o tanda3.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda3.obj tanda3_kernel32.lib /out:tanda3.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   b5d196cf39664051cadaaf6a3f6995a0a2e7f58924dd022b67e18791e5f82fc5
+
+Dice `bien` veinticuatro veces y sale con 0; deja tanda3_a.txt y
+tanda3_b.txt (vacios) en su carpeta. En Windows dice lo mismo.
