@@ -555,3 +555,15 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` once veces y sale con 0. En Windows dice lo mismo (pide
 vcruntime140.dll, el redistribuible de Visual C++).
+
+tanda4m.exe -- la MISMA tanda4.cpp, compilada con `cl` de MSVC (FALTA: la
+hace el propietario en su Windows). MSVC 2019 y despues usa por defecto
+__CxxFrameHandler4 (de vcruntime140_1.dll), el formato comprimido que usa
+Cyberpunk y que clang no emite: con este .exe se escribe y se prueba FH4.
+En la "x64 Native Tools Command Prompt" de Visual Studio, en esta carpeta:
+
+   cl /nologo /c /O1 /EHsc /GS- /Zc:threadSafeInit- tanda4.cpp /Fotanda4m.obj
+   link /nologo /NODEFAULTLIB /ENTRY:inicio /SUBSYSTEM:CONSOLE /DYNAMICBASE tanda4m.obj kernel32.lib vcruntime.lib /OUT:tanda4m.exe
+
+Tiene que decir `bien` once veces y salir con 0 en Windows. Si `dumpbin
+/imports tanda4m.exe` muestra __CxxFrameHandler4, es el que hace falta.
