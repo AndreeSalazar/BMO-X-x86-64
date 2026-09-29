@@ -292,7 +292,13 @@ pub fn receta(va: u64) -> Result<u64, u32> {
     }
     // SAFETY: `TALLER_EN_USO` recien tomado: nadie mas lo toca hasta soltarlo.
     let t = unsafe { &mut *TALLER.0.get() };
-    let salida = match rc::pegar(&r, t) {
+    // ** P3b4c.9 Z3: si lo que `pegar` leeria es IGUAL, byte a byte, a lo de
+    // la ultima receta que el juez aprobo, el taller ya tiene esos programas
+    // pegados y juzgados: no se repite (el metal de las 07:50: "resto" 124 us
+    // por lote, casi todo esto). Cualquier diferencia, o un pegado que fallo
+    // antes, y se pega y se juzga entero.
+    let pegada = if rc::ya_pegada(&r, t) { Ok(()) } else { rc::pegar(&r, t) };
+    let salida = match pegada {
         // ** P3b4c.8 T2: las texturas de la app, prestadas a la 3060 SOLO
         // LECTURA y solo mientras dibuja, con sus TIC y TSC en las piscinas;
         // devueltas SIEMPRE, salga como salga el dibujo.

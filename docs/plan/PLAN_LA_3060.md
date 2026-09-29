@@ -2537,6 +2537,14 @@ prueba, sin tocar codigo:
       (Windows lo RECUERDA deshabilitado hasta que se habilite)
 ```
 
+**RESULTADO de W1 (29-09, el propietario): NO ayudo.** *"GSP no funciono en
+Windows, reinicie hasta apague y mi GPU sigue terca"*. Deshabilitar la 3060
+en Windows antes de reiniciar no la dejo limpia. Falta el dato que decide:
+las lineas `L0b autopsia FWSEC` de `cabina` y la fila `cargador` de `gpu
+salud` de ESE arranque malo, para compararlas con las de un arranque bueno
+(las dos lineas nuevas: el falcon antes de FRTS, el espacio VGA, el FLR y
+las capacidades extendidas). Sin eso no se toca nada.
+
 Si con el paso 1 `gpu init` sale y sin el no, lo que ensucia la 3060 es el
 driver de Windows VIVO al reiniciar, y la "tercera pista" de R3 se puede
 buscar comparando estos dos arranques. "Apagar" y esperar 15-30 s sigue

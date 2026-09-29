@@ -396,12 +396,75 @@ pub struct Taller {
     pub bytes_ps: usize,
     /// Instrucciones que el juez miro, las dos (con el pegamento).
     pub instrucciones: usize,
+    /// P3b4c.9 Z3: TODO lo que `pegar` leyo de la ultima receta que el juez
+    /// aprobo ([`clave`]), byte a byte; `clave_n` 0 = nada aprobado.
+    clave: [u8; MAX_CLAVE],
+    clave_n: usize,
+    /// Donde se arma la de la receta nueva para compararla (aqui y no en la
+    /// pila del syscall, que va justa).
+    nueva: [u8; MAX_CLAVE],
 }
 
 impl Taller {
     pub const fn nuevo() -> Self {
-        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0 }
+        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0, clave: [0; MAX_CLAVE], clave_n: 0, nueva: [0; MAX_CLAVE] }
     }
+}
+
+// == Z3: PEGAR UNA VEZ (29-09) ================================================
+//
+// El metal (29-09 07:50, BMOX-12 con Z1): 264 us por lote, y 124 de ellos
+// "resto" -- sobre todo pegar y juzgar los MISMOS dos programas en cada
+// fotograma. `pegar` es una funcion pura de lo que lee de la receta: con la
+// misma entrada da los mismos programas y el mismo veredicto. Asi que si la
+// entrada es IGUAL a la de la ultima receta aprobada, el taller ya tiene lo
+// que saldria, juzgado.
+//
+// [!] IGUAL byte a byte, NO una huella: con una huella de 64 bits una app
+// podria fabricar una colision y colar un cuerpo sin juzgar. Comparar ~4 KiB
+// cuesta menos de un microsegundo y no tiene colisiones.
+
+/// Lo mas que mide una [`clave`]: 12 numeros, los dos cuerpos, los
+/// elementos, las cargas y los genericos.
+pub const MAX_CLAVE: usize = 4 * 12 + 2 * MAX_CUERPO + 8 * MAX_ELEMENTOS + 4 * 2 * MAX_CARGAS + 2 * MAX_GENERICOS;
+
+/// **Todo lo que `pegar` lee de `r`**, en bytes y sin ambiguedad (cada
+/// trozo lleva su medida delante): dos recetas con la misma clave se pegan
+/// y se juzgan igual. Los DATOS, el destino y las texturas no entran (no los
+/// lee `pegar`). Devuelve cuanto mide.
+pub fn clave(r: &Receta, out: &mut [u8; MAX_CLAVE]) -> usize {
+    let mut i = 0;
+    let mut poner = |b: &[u8]| {
+        out[i..i + b.len()].copy_from_slice(b);
+        i += b.len();
+    };
+    for x in [r.registros_vs, r.registros_ps, r.salidas, r.posicion, r.filas, r.paso, r.vs.len() as u32, r.ps.len() as u32, r.n_elementos as u32, r.n_cargas_vs as u32, r.n_cargas_ps as u32, r.n_genericos as u32] {
+        poner(&x.to_le_bytes());
+    }
+    poner(r.vs);
+    poner(r.ps);
+    for e in r.elementos() {
+        poner(&e.desde.to_le_bytes());
+        poner(&(e.componentes as u32).to_le_bytes());
+    }
+    for c in r.cargas_vs().iter().chain(r.cargas_ps()) {
+        poner(&carga_a(*c));
+    }
+    for g in r.genericos() {
+        poner(&[g.is_some() as u8, g.unwrap_or(0)]);
+    }
+    i
+}
+
+/// **Z3: el taller ya tiene esta receta pegada y juzgada** -- su [`clave`]
+/// es IGUAL, byte a byte, a la de la ultima que `pegar` aprobo. Entonces
+/// `t.vs`/`t.ps` son exactamente lo que `pegar` volveria a dar.
+pub fn ya_pegada(r: &Receta, t: &mut Taller) -> bool {
+    if t.clave_n == 0 || r.vs.len() > MAX_CUERPO || r.ps.len() > MAX_CUERPO {
+        return false;
+    }
+    let n = clave(r, &mut t.nueva);
+    n == t.clave_n && t.nueva[..n] == t.clave[..n]
 }
 
 /// Los bytes de un cuerpo a sus instrucciones, en el taller.
@@ -418,6 +481,11 @@ fn instrucciones<'t>(cuerpo: &'t mut [(u64, u64); MAX_INSTRUCCIONES], b: &[u8]) 
 /// KERNEL lo rodea con las lecturas de los DATOS y las salidas, y el
 /// programa entero pasa R0..R6. Los dos programas quedan en el taller.
 pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
+    // Z3: lo aprobado se olvida ANTES; solo un pegado entero lo vuelve a poner.
+    t.clave_n = 0;
+    if r.vs.len() > MAX_CUERPO || r.ps.len() > MAX_CUERPO {
+        return Err(NoReceta::Forma);
+    }
     let datos = Datos { filas: r.filas, paso: r.paso, elementos: r.elementos() };
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
     juez::juzgar_cuerpo_de_app(cuerpo, r.registros_vs).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
@@ -430,6 +498,7 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
     let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;
     t.instrucciones = jv.instrucciones + jp.instrucciones;
+    t.clave_n = clave(r, &mut t.clave);
     Ok(())
 }
 
@@ -501,7 +570,19 @@ mod pruebas {
         let l = leer(&caja[..n]).unwrap();
         assert_eq!((l.texturas(), l.dibujo.texturas, l.cargas_ps()[2]), (&[t][..], 1, Carga::Asa { textura: 0, reg: 6 }));
         let mut taller = std::boxed::Box::new(Taller::nuevo());
+        assert!(!ya_pegada(&l, &mut taller), "un taller nuevo no tiene nada aprobado");
         pegar(&l, &mut taller).expect("se pega y el juez la aprueba");
+        // Z3: la MISMA receta ya esta pegada; con un solo bit distinto en un
+        // cuerpo, o en una carga, no.
+        assert!(ya_pegada(&l, &mut taller), "la misma: ya pegada y juzgada");
+        let mut ps_bit = ps.clone();
+        ps_bit[3] ^= 0x10;
+        assert!(!ya_pegada(&Receta { ps: &ps_bit, ..l }, &mut taller), "un bit del cuerpo de pixel");
+        let mut otra = l;
+        otra.cargas_ps[2] = Carga::Asa { textura: 0, reg: 7 };
+        assert!(!ya_pegada(&otra, &mut taller), "otra carga");
+        assert!(!ya_pegada(&Receta { registros_ps: l.registros_ps + 1, ..l }, &mut taller), "otros registros");
+        assert!(ya_pegada(&Receta { datos: &[], ..l }, &mut taller), "los DATOS no los lee pegar");
         // En el de pixel: el MOV del asa (0 = el TIC 0 y el TSC 0) y el TEX.
         let codigo: std::vec::Vec<(u64, u64)> = taller.ps[4 * crate::raster::SPH..taller.bytes_ps].chunks(16).map(|w| (u64::from_le_bytes(w[..8].try_into().unwrap()), u64::from_le_bytes(w[8..].try_into().unwrap()))).collect();
         assert!(codigo.contains(&crate::cubo::mov(6, crate::texturas::asa(0, 0))), "el asa la pone el pegamento");
@@ -522,6 +603,7 @@ mod pruebas {
         let mala = Receta { ps: &ps_malo, ..r };
         let n = escribir(&mut caja, &mala).unwrap();
         assert!(matches!(pegar(&leer(&caja[..n]).unwrap(), &mut taller), Err(NoReceta::Cuerpo("pixel", b)) if b.regla == juez::Regla::R7CuerpoAjeno));
+        assert!(!ya_pegada(&r, &mut taller), "un pegado que falla olvida lo aprobado");
         // Sin texturas, la de siempre: +84 a cero.
         let sin = Receta { dibujo: Dibujo { texturas: 0, ..r.dibujo }, n_cargas_ps: 2, ..r };
         let n = escribir(&mut caja, &sin).unwrap();

@@ -842,6 +842,22 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        segundos la 3060 y la sombra iban al DOBLE de
                        rapido, ~0,6 ms cada una, y luego bajaron: la 3060
                        arranca en P8, reposo; subirla es otro escalon)
+                    Z3 [HECHO en codigo 29-09, falta el metal] PEGAR UNA
+                       VEZ. NO por huella (una app podria fabricar una
+                       colision de 64 bits y colar un cuerpo sin juzgar):
+                       `receta::clave` pone en bytes TODO lo que `pegar`
+                       lee (los dos cuerpos, cargas, elementos, genericos
+                       y los numeros, cada trozo con su medida delante) y
+                       `receta::ya_pegada` la compara BYTE A BYTE con la de
+                       la ultima receta que el juez aprobo, guardada en el
+                       taller del kernel (no en la pila). Igual: el taller
+                       ya tiene esos programas pegados y juzgados. Un solo
+                       bit distinto, u otro pegado que fallo, y se pega y
+                       se juzga entero. Bancos: la misma se reusa; un bit
+                       del cuerpo, otra carga u otros registros, no; los
+                       DATOS no cuentan; un pegado fallido olvida lo
+                       aprobado. Lo esperado: `resto` de ~124 us a unas
+                       decenas. La idea de antes:
                     Z3 PEGAR Y JUZGAR POR HUELLA (el paso 3): los programas
                        ya juzgados y ya en la VRAM se reusan si su huella
                        no cambia; la 3060 corre la copia de la VRAM, que
@@ -851,7 +867,26 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        primera vez
                     Z4 NO ESPERAR en el syscall (el paso 6): el timbre y
                        volver; el siguiente lote espera al anterior. Lo
-                       verifica el semaforo, que ya se lee
+                       verifica el semaforo, que ya se lee.
+                       **El esquema, escrito (29-09), para cuando Z3 este
+                       medido.** El propietario: *"que se pague una vez y
+                       el cocinero tenga todas las mesas listas"*. Es el
+                       ANILLO de VERRANO (V1b, `en_anillo`) llevado a la
+                       receta: (1) el kernel escribe el lote, toca el
+                       timbre y VUELVE con `cu::EN_VUELO`; (2) la copia de
+                       la sombra a la pantalla la encadena la PROPIA 3060
+                       (el canal de copia espera el semaforo del GR con un
+                       SEMAPHORE_ACQUIRE en sus ordenes), no la CPU; (3) el
+                       lote siguiente, antes de pisar DATOS y la entrada del
+                       GPFIFO, espera la valla del anterior (dos ranuras de
+                       DATOS: mientras la 3060 lee una, la CPU escribe la
+                       otra); (4) las texturas prestadas se devuelven al
+                       pagarse su valla, no al volver; (5) un Xid se sabe en
+                       la valla siguiente (el canal muerto ya dice NO al
+                       instante). Con la 3060 a ~128 us por fotograma
+                       (dibujo + copia), el techo es ~7800 fps en BMOX-12;
+                       en un juego de verdad lo que gana es que la CPU del
+                       juego y la 3060 trabajen A LA VEZ
                     Lo que NO se hace: que el `.exe` lea su back buffer
                     (casi ningun juego lo hace; si uno lo hace, ese
                     fotograma baja a la RAM, dicho), ni cambiar la
