@@ -131,6 +131,11 @@ pub struct Lote<'a> {
     /// en su bufer; quien dibuja con OTRA Z (la de la 3060, en VRAM) lo
     /// necesita saber para limpiar la suya.
     pub limpiar_z: Option<u32>,
+    /// P3b4c: el render target se LIMPIO (`ClearRenderTargetView`) y la casa
+    /// NO lo hizo todavia: lo hace quien dibuje, con este pixel tal como va
+    /// en memoria. La 3060 lo limpia ella; la CPU, al empezar
+    /// ([`en_cpu_con`]). Igual con `limpiar_z`: la CPU la aplica a su bufer.
+    pub limpiar_rt: Option<u32>,
 }
 
 /// Por que un ejecutor no dibujo un lote.
@@ -170,6 +175,13 @@ pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, N
 /// el interprete, o su traduccion a x86-64). La trama y el orden no cambian:
 /// lo unico que cambia es QUIEN hace las cuentas de cada sombreador.
 pub fn en_cpu_con(l: &Lote, destino: &mut trama::Destino, vs: Corre, ps: Corre) -> Result<trama::Cuenta, NoDibuja> {
+    // Las limpiezas que la casa dejo a quien dibuje: aqui, la CPU.
+    if let Some(p) = l.limpiar_rt {
+        destino.pixeles.fill(p);
+    }
+    if let (Some(b), Some(z)) = (l.limpiar_z, destino.z.as_mut()) {
+        z.fill(b);
+    }
     if l.paso == 0 {
         return Err(NoDibuja::SinVertices);
     }

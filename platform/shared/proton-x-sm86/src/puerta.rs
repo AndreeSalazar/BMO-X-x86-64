@@ -177,7 +177,7 @@ pub fn escribir(c: &Cuerpos, l: &Lote, b: Blanco, limpiar_z: Option<u32>, datos:
         genericos: [None; MAX_GENERICOS],
         n_genericos: c.genericos.len(),
         datos,
-        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z },
+        dibujo: Dibujo { indices: Some(desde as u32), vertices: vertices as u32, descarte, antihorario: r.antihorario, destino: Some((b.va, dst)), z, color: l.limpiar_rt },
     };
     rec.elementos[..c.elementos.len()].copy_from_slice(&c.elementos);
     rec.cargas_vs[..c.cargas_vs.len()].copy_from_slice(&c.cargas_vs);

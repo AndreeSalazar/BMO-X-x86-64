@@ -867,6 +867,7 @@ struct La3060 {
     puerta: bmo_proton_x_sm86::puerta::Puerta,
     recetas: usize,
     z_limpias: usize,
+    rt_limpios: usize,
 }
 static LA3060: Mutex<Option<La3060>> = Mutex::new(None);
 
@@ -951,6 +952,7 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
     use bmo_gpu_ga10x::receta;
     let blanco = bmo_proton_x_sm86::puerta::Blanco { va: 0x7000_0000, ancho: 1280, alto: 720, bgra: true };
     b.z_limpias += l.limpiar_z.is_some() as usize;
+    b.rt_limpios += l.limpiar_rt.is_some() as usize;
     match b.puerta.preparar(l, blanco) {
         Ok(n) => {
             let r = receta::leer(&b.puerta.caja[..n]).expect("la receta se relee");
@@ -959,6 +961,9 @@ fn comprobar_la_3060(b: &mut La3060, l: &lote::Lote) {
                 Ok(()) => {
                     if (&taller.vs[..taller.bytes_vs], &taller.ps[..taller.bytes_ps]) != (&t.vs[..], &t.ps[..]) {
                         b.fallos.push(String::from("la puerta pega OTROS programas que pso::traducir"));
+                    }
+                    if r.dibujo.color != l.limpiar_rt {
+                        b.fallos.push(format!("la limpieza del color no viaja en la receta: {:?}", r.dibujo.color));
                     }
                     if r.dibujo.z.is_none() || r.dibujo.descarte != bmo_gpu_ga10x::tuberia::Descarte::Traseras {
                         b.fallos.push(format!("el dibujo de la receta no es el de BMOX-12: {:?}", r.dibujo));
@@ -1053,7 +1058,7 @@ fn bmox12_exe_su_pso_va_a_la_3060_pagando_una_vez() {
     let esc = 1 << 8 | 1 << 9 | 0x01;
     let mut guion = vec![0u64; 40];
     guion.push(esc);
-    *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new(), puerta: bmo_proton_x_sm86::puerta::Puerta::nueva(), recetas: 0, z_limpias: 0 });
+    *LA3060.lock().unwrap() = Some(La3060 { almacen: bmo_proton_x_sm86::pso::Almacen::nuevo(), lotes: 0, vertices: 0, datos_max: 0, fallos: Vec::new(), puerta: bmo_proton_x_sm86::puerta::Puerta::nueva(), recetas: 0, z_limpias: 0, rt_limpios: 0 });
     let (salio, texto) = correr_bmox12(&uno, true, "", &guion);
     let b = LA3060.lock().unwrap().take().unwrap();
     assert_eq!(salio, 0, "{texto}");
@@ -1063,6 +1068,7 @@ fn bmox12_exe_su_pso_va_a_la_3060_pagando_una_vez() {
     assert_eq!(b.vertices, 24 * b.lotes, "los 24 vertices del cubo en cada lote");
     assert_eq!(b.recetas, b.lotes, "cada lote, por la puerta, con los mismos programas");
     assert_eq!(b.z_limpias, b.lotes, "BMOX-12 limpia la Z antes de cada fotograma: la 3060 la limpia con el");
+    assert_eq!(b.rt_limpios, b.lotes, "y el back buffer: lo limpia la 3060, no la CPU");
     eprintln!("bmox12 para la 3060: {} lotes, {} vertices comprobados, DATOS de {} B", b.lotes, b.vertices, b.datos_max);
 }
 

@@ -420,7 +420,7 @@ impl Backend for Aparato<'_> {
             } else {
                 (tu::Descarte::Traseras, None)
             };
-            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z };
+            let dibujo = tu::Dibujo { indices: Some(desde as u32), vertices: bmo_cubo::NUM_VERTICES as u32, descarte, antihorario: self.antihorario, destino, z, color: None };
             tu::escribir_paquete_dibujo(self.paquete, self.ficha as u32, vs, self.ps, n, &datos[..bytes], dibujo).ok_or(Error::Vertices)?;
         } else {
             let v = frame.vertices.iter().map(|s| tu::Vertice { posicion: s.position.map(f32::to_bits), color: s.color.map(f32::to_bits) });

@@ -160,6 +160,9 @@ pub struct Pegado {
 }
 
 impl Pegado {
+    /// Uno vacio, para pegar en el ([`vertice_en`], [`pixel_en`]).
+    pub const VACIO: Pegado = Pegado { sph: [0; SPH], codigo: [(0, 0); MAX_INSTRUCCIONES], n: 0, registros: 0 };
+
     pub fn codigo(&self) -> &[(u64, u64)] {
         &self.codigo[..self.n]
     }
@@ -179,20 +182,23 @@ impl Pegado {
     }
 }
 
-struct Poner {
-    codigo: [(u64, u64); MAX_INSTRUCCIONES],
-    n: usize,
+/// ** Pone las instrucciones DIRECTAMENTE en el `Pegado` de quien pega
+/// (28-09): antes se armaban en un arreglo propio y se devolvia el `Pegado`
+/// por valor -- dos copias de 2 KiB por programa, y el pegado de una receta
+/// en el kernel se comia 13 KiB de la pila del syscall.
+struct Poner<'a> {
+    g: &'a mut Pegado,
     lleno: bool,
 }
 
-impl Poner {
+impl Poner<'_> {
     fn p(&mut self, w: (u64, u64)) {
-        if self.n == MAX_INSTRUCCIONES {
+        if self.g.n == MAX_INSTRUCCIONES {
             self.lleno = true;
             return;
         }
-        self.codigo[self.n] = w;
-        self.n += 1;
+        self.g.codigo[self.g.n] = w;
+        self.g.n += 1;
     }
 }
 
@@ -300,24 +306,34 @@ fn las_filas(o: &mut Poner, cargas: &[Carga], datos: Datos, d: u64, mut esperar_
     Ok(())
 }
 
-fn cerrar(o: Poner, sph: [u32; SPH], registros: u32) -> Result<Pegado, NoPega> {
+fn cerrar(o: Poner, sph: [u32; SPH], registros: u32) -> Result<(), NoPega> {
     if o.lleno {
         return Err(NoPega::Instrucciones);
     }
-    Ok(Pegado { sph, codigo: o.codigo, n: o.n, registros })
+    o.g.sph = sph;
+    o.g.registros = registros;
+    Ok(())
 }
 
 /// **El de VERTICE**: `cuerpo` (con su EXIT al final) usa `registros` y
 /// espera `cargas`; deja `salidas` float4 en R0.. (la `posicion`-esima es
 /// la posicion; las demas, los genericos 0, 1... en orden).
 pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, salidas: u32, posicion: u32) -> Result<Pegado, NoPega> {
+    let mut g = Pegado::VACIO;
+    vertice_en(&mut g, cuerpo, registros, cargas, datos, salidas, posicion)?;
+    Ok(g)
+}
+
+/// [`vertice`], pegando en `g` (sin copias: el kernel pega asi).
+pub fn vertice_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, salidas: u32, posicion: u32) -> Result<(), NoPega> {
+    g.n = 0;
     let (resto, _) = partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
     if posicion >= salidas || salidas > 8 {
         return Err(NoPega::Salidas);
     }
     let (a, d, v, vid, total) = propios(registros)?;
-    let mut o = Poner { codigo: [(0, 0); MAX_INSTRUCCIONES], n: 0, lleno: false };
+    let mut o = Poner { g, lleno: false };
     o.p(ald_vertice(vid));
     la_tabla(&mut o, a, d);
     // V = vid * paso: un IMAD.SHL por cada bit del paso (48 = 32 + 16), en
@@ -390,10 +406,18 @@ pub fn vertice(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: D
 /// R0..R3) usa `registros` y espera `cargas`. `genericos[e]` es el generico
 /// que lleva su entrada `e` (`None`: la posicion, que hoy no se recibe).
 pub fn pixel(cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>]) -> Result<Pegado, NoPega> {
+    let mut g = Pegado::VACIO;
+    pixel_en(&mut g, cuerpo, registros, cargas, datos, genericos)?;
+    Ok(g)
+}
+
+/// [`pixel`], pegando en `g`.
+pub fn pixel_en(g: &mut Pegado, cuerpo: &[(u64, u64)], registros: u32, cargas: &[Carga], datos: Datos, genericos: &[Option<u8>]) -> Result<(), NoPega> {
+    g.n = 0;
     partir(cuerpo)?;
     cargas_propias(cargas, registros)?;
     let (a, d, _, _, total) = propios(registros)?;
-    let mut o = Poner { codigo: [(0, 0); MAX_INSTRUCCIONES], n: 0, lleno: false };
+    let mut o = Poner { g, lleno: false };
     let mut sph = sph_pixel_v0_sin_generico();
     // Los IPA; el ultimo con el control largo de T2a.
     let entradas = cargas.iter().filter(|c| matches!(c, Carga::Entrada { .. })).count();

@@ -134,7 +134,10 @@ fn vtabla_recurso() -> *const u64 {
 
 /// Un recurso nuevo (lo pide la cadena de intercambio de DXGI).
 pub(crate) fn recurso(ancho: u32, alto: u32, formato: u32) -> u64 {
-    nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles: vec![0; (ancho * alto) as usize], bufer: None }) as u64
+    let r = nuevo(com::RESOURCE, vtabla_recurso(), Recurso { ancho, alto, formato, pixeles: vec![0; (ancho * alto) as usize], bufer: None }) as u64;
+    // Uno nuevo en la direccion de uno que se fue no hereda su limpieza.
+    tuberia::olvidar_limpieza(r);
+    r
 }
 
 /// Un recurso que es un bufer (CreateCommittedResource).
@@ -628,6 +631,7 @@ fn copiar(rt: u64, bufer: u64, desde: u64, paso: u32) {
         aviso("CopyTextureRegion: la huella no cabe en el bufer (o el origen no es una imagen)");
         return;
     }
+    tuberia::aplicar_limpieza(rt);
     for (y, px) in r.pixeles.chunks_exact(r.ancho as usize).enumerate() {
         let o = destino.base() + desde + y as u64 * paso as u64;
         for (k, p) in px.iter().enumerate() {
@@ -656,16 +660,12 @@ fn ejecutar_listas(n: u32, listas: *const u64) {
         }
         for o in &l.ordenes {
             match o {
-                Orden::Limpiar { recurso, pixel } => {
-                    // SAFETY: un Recurso de la casa.
-                    let r = unsafe { de::<Recurso>(*recurso) };
-                    r.pixeles.fill(*pixel);
-                    // P3b4c: una profundidad limpiada se apunta, para quien
-                    // dibuje con OTRA Z (la de la 3060).
-                    if r.formato == tuberia::FMT_D32_FLOAT {
-                        tuberia::z_limpiada(*recurso, *pixel);
-                    }
-                }
+                // ** P3b4c: la limpieza se APUNTA, no se hace: la hace quien
+                // dibuje (la 3060 en su dibujo; la CPU al empezar el suyo), o
+                // quien lea los pixeles antes (Present, CopyTextureRegion).
+                // Asi, con la 3060 dibujando, la CPU no llena 3,6 MB por
+                // limpieza y por fotograma.
+                Orden::Limpiar { recurso, pixel } => tuberia::limpieza_pendiente(*recurso, *pixel),
                 Orden::Dibujar { estado, cuantos, instancias, primero, base, indexado } => {
                     tuberia::ejecutar_dibujo(estado, *cuantos, *instancias, *primero, *base, *indexado);
                 }

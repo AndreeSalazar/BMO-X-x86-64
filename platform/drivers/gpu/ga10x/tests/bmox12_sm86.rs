@@ -149,7 +149,7 @@ fn con_indices_da_lo_mismo_que_v0() {
                 assert_eq!(sv[0].map(f32::to_bits), t.tris[j].clip[c].map(f32::to_bits), "fotograma {f}, cara {k}, vertice {c}");
             }
         }
-        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None, z: None };
+        let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Traseras, antihorario: false, destino: None, z: None, color: None };
         let m = tuberia::escribir_paquete_dibujo(&mut caja, 1, &bv, &bp, n, d, dibujo).expect("el paquete VRN1 se sostiene");
         assert_eq!(tuberia::leer(&caja[..m]).unwrap().dibujo, dibujo);
         // P3b4c: el mismo, SIN descarte y CON Z (LESS, se escribe, se limpia
@@ -186,7 +186,7 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
     let (n, total, desde) = tanda::datos_indexados(30, 1280, 720, &mut b).expect("caben");
     let dst = Destino { fila: 5120, ancho: 1280, alto: 720, rgb: false };
     let z = Z { funcion: 2, escribir: true, limpiar: Some(UNO) };
-    let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Ninguna, antihorario: false, destino: Some((0x1000_0000, dst)), z: Some(z) };
+    let dibujo = tuberia::Dibujo { indices: Some(desde as u32), vertices: 24, descarte: tuberia::Descarte::Ninguna, antihorario: false, destino: Some((0x1000_0000, dst)), z: Some(z), color: None };
     let mut r = Receta {
         n,
         vs: &cv,
@@ -228,6 +228,20 @@ fn la_receta_pega_lo_mismo_que_el_metal() {
     assert_eq!(&t.ps[..t.bytes_ps], &bytes(&p)[..], "el de pixel: el MISMO");
     let q = receta::paquete(&leida, &t, 7);
     assert_eq!((q.ficha, q.n, q.vertices, q.dibujo), (7, n, &b[..total], dibujo));
+    // La limpieza del destino (el ClearRenderTargetView) viaja en la receta,
+    // y VRN1 no la lleva.
+    let limpia = Receta { dibujo: tuberia::Dibujo { color: Some(0xFF10_1018), ..dibujo }, ..r };
+    let mc = receta::escribir(&mut caja, &limpia).unwrap();
+    assert_eq!(receta::leer(&caja[..mc]).unwrap().dibujo.color, Some(0xFF10_1018));
+    assert_eq!(tuberia::escribir_paquete_dibujo(&mut vec![0u8; tuberia::MAX_PAQUETE], 1, &bytes(&pegados().0), &bytes(&pegados().1), n, &b[..total], tuberia::Dibujo { destino: None, color: Some(1), ..dibujo }), None);
+    // El color de limpieza: los floats que la 3060 vuelve a redondear al
+    // MISMO byte, en el orden de cada formato.
+    assert_eq!(tuberia::color_de_limpieza(0xFF10_1018, false), [16.0f32 / 255.0, 16.0 / 255.0, 24.0 / 255.0, 1.0].map(f32::to_bits));
+    assert_eq!(tuberia::color_de_limpieza(0xFF10_1018, true), [24.0f32 / 255.0, 16.0 / 255.0, 16.0 / 255.0, 1.0].map(f32::to_bits));
+    for byte in 0..=255u32 {
+        let x = f32::from_bits(tuberia::color_de_limpieza(byte, true)[0]);
+        assert_eq!((x * 255.0).round() as u32, byte, "el byte {byte} vuelve a ser el mismo");
+    }
     // Una limpieza de Z que no es 1.0 SI viaja en la receta (VRN1 no).
     let medio = Receta { dibujo: tuberia::Dibujo { z: Some(Z { limpiar: Some(0.5f32.to_bits()), ..z }), ..dibujo }, ..r };
     let m2 = receta::escribir(&mut caja, &medio).unwrap();

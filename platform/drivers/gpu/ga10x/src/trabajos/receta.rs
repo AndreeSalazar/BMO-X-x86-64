@@ -32,7 +32,8 @@
 //!    +8   n (indices, o vertices seguidos)
 //!    +12  bytes del cuerpo de vertice   +16 los del de pixel (16 por
 //!         instruccion, con su EXIT)
-//!    +20  0   +24  0
+//!    +20  bit 0: limpiar el destino antes (el `ClearRenderTargetView` de la
+//!         app, por la 3060)   +24  con que pixel, como va en memoria
 //!    +28  bytes de los DATOS
 //!    +32..+64  los campos de VRN1: los indices, el estado (descarte, giro,
 //!         la Z), los vertices y el DESTINO -- OBLIGATORIO: una receta
@@ -179,7 +180,7 @@ pub fn medida(cabecera: &[u8]) -> Option<usize> {
 /// cada carga dentro de lo que hay, los DATOS con todos los vertices dentro
 /// y cada indice de un vertice que esta. `None` si algo no se sostiene.
 pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
-    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) != 0 || u32le(b, 24) != 0 || b[84..CABECERA_2].iter().any(|&x| x != 0) {
+    if b.len() < CABECERA_2 || u32le(b, 0) != MAGIA_2 || u32le(b, 4) != 0 || u32le(b, 20) > 1 || (u32le(b, 20) == 0 && u32le(b, 24) != 0) || b[84..CABECERA_2].iter().any(|&x| x != 0) {
         return None;
     }
     let n = u32le(b, 8) as usize;
@@ -239,6 +240,7 @@ pub fn leer(b: &[u8]) -> Option<Receta<'_>> {
     if dibujo.destino.is_none() {
         return None;
     }
+    dibujo.color = (u32le(b, 20) == 1).then(|| u32le(b, 24));
     if let Some(z) = dibujo.z.as_mut() {
         if z.limpiar.is_some() {
             z.limpiar = Some(u32le(b, 80));
@@ -307,8 +309,8 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
         r.n as u32,
         r.vs.len() as u32,
         r.ps.len() as u32,
-        0,
-        0,
+        d.color.is_some() as u32,
+        d.color.unwrap_or(0),
         r.datos.len() as u32,
         d.indices.unwrap_or(SIN_INDICES),
         estado,
@@ -350,10 +352,12 @@ pub fn escribir(out: &mut [u8], r: &Receta) -> Option<usize> {
     leer(&out[..total]).map(|_| total)
 }
 
-/// **El taller**: donde el kernel pega los dos programas. ~6 KiB: el kernel
+/// **El taller**: donde el kernel pega los dos programas. ~8 KiB: el kernel
 /// lo tiene ESTATICO (bajo el cerrojo del GR), no en su pila.
 pub struct Taller {
     cuerpo: [(u64, u64); MAX_INSTRUCCIONES],
+    /// Donde pega el pegamento, un programa y luego el otro.
+    pegado: pegamento::Pegado,
     pub vs: [u8; HUECO],
     pub ps: [u8; HUECO],
     pub bytes_vs: usize,
@@ -364,7 +368,7 @@ pub struct Taller {
 
 impl Taller {
     pub const fn nuevo() -> Self {
-        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0 }
+        Taller { cuerpo: [(0, 0); MAX_INSTRUCCIONES], pegado: pegamento::Pegado::VACIO, vs: [0; HUECO], ps: [0; HUECO], bytes_vs: 0, bytes_ps: 0, instrucciones: 0 }
     }
 }
 
@@ -385,12 +389,12 @@ pub fn pegar(r: &Receta, t: &mut Taller) -> Result<(), NoReceta> {
     let datos = Datos { filas: r.filas, paso: r.paso, elementos: r.elementos() };
     let cuerpo = instrucciones(&mut t.cuerpo, r.vs);
     juez::juzgar_cuerpo_de_app(cuerpo, r.registros_vs).map_err(|b| NoReceta::Cuerpo("vertice", b))?;
-    let v = pegamento::vertice(cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion).map_err(|e| NoReceta::Pegamento("vertice", e))?;
-    t.bytes_vs = v.bytes(&mut t.vs);
+    pegamento::vertice_en(&mut t.pegado, cuerpo, r.registros_vs, r.cargas_vs(), datos, r.salidas, r.posicion).map_err(|e| NoReceta::Pegamento("vertice", e))?;
+    t.bytes_vs = t.pegado.bytes(&mut t.vs);
     let cuerpo = instrucciones(&mut t.cuerpo, r.ps);
     juez::juzgar_cuerpo_de_app(cuerpo, r.registros_ps).map_err(|b| NoReceta::Cuerpo("pixel", b))?;
-    let p = pegamento::pixel(cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
-    t.bytes_ps = p.bytes(&mut t.ps);
+    pegamento::pixel_en(&mut t.pegado, cuerpo, r.registros_ps, r.cargas_ps(), datos, r.genericos()).map_err(|e| NoReceta::Pegamento("pixel", e))?;
+    t.bytes_ps = t.pegado.bytes(&mut t.ps);
     let jv = juez::juzgar_programa(&t.vs[..t.bytes_vs], tu::REGISTROS).map_err(|b| NoReceta::Juez("vertice", b))?;
     let jp = juez::juzgar_programa(&t.ps[..t.bytes_ps], tu::REGISTROS).map_err(|b| NoReceta::Juez("pixel", b))?;
     t.instrucciones = jv.instrucciones + jp.instrucciones;

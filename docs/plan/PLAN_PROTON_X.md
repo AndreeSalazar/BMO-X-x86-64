@@ -584,6 +584,16 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     "PROTON-X: la 3060 dibuja los lotes" y EL REGISTRO sus
                     fps (contra los 36-38 de la CPU). Si dice "este lote va
                     por la CPU: ...", el porque viene en la misma linea.
+               4c.6 [HECHO banco] la CPU DEJA DE LIMPIAR (29-09): la casa
+                    APUNTA el ClearRenderTargetView y el de la Z en vez de
+                    llenar 3,6 MB cada uno por fotograma; los hace quien
+                    dibuje (la 3060 en su dibujo: `Dibujo.color`, +20/+24 de
+                    la receta, floats byte/255 que la 3060 redondea al mismo
+                    byte; la CPU al empezar el suyo), o quien lea antes
+                    (Present, CopyTextureRegion). Las huellas de la casa, las
+                    mismas. Y el pegado ya no copia programas por valor: el
+                    kernel pega en su taller (`vertice_en`/`pixel_en`), 336 B
+                    de marco en vez de 13.056.
                De paso (28-09): el cerrojo del GR se quedaba TOMADO si un
                destino malo salia por un `?` (`verrano` en el kernel): la 3060
                decia "uno en marcha" hasta reiniciar. Ahora toda salida lo

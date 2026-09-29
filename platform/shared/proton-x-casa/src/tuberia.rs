@@ -673,10 +673,13 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     };
     // Hasta aqui, D3D12. Lo que sigue es un LOTE, y lo dibuja quien la
     // plataforma diga (hoy la CPU; luego VERRANO con la 3060).
-    // P3b4c: si SU profundidad se limpio desde el ultimo dibujo, con que.
-    let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 { z_pendiente(e.dsv) } else { None };
+    // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
+    // hace quien dibuje este lote.
+    let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 { tomar_limpieza(e.dsv) } else { None };
+    let limpiar_rt = tomar_limpieza(e.rtv);
     let lote = Lote {
         limpiar_z,
+        limpiar_rt,
         enlace: en,
         entradas: &pso.entradas,
         vertices: vb,
@@ -708,29 +711,44 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     }
 }
 
-/// **La ultima profundidad limpiada y aun sin dibujar**: `(recurso, bits)`.
-/// La apunta `ExecuteCommandLists` al limpiar un D32; la toma el primer
-/// dibujo que usa ESE recurso. Una tarea, hilos cooperativos: basta una celda.
-struct ZLimpia(UnsafeCell<Option<(u64, u32)>>);
+/// **Las limpiezas APUNTADAS y aun sin hacer** (P3b4c): `(recurso, pixel)`,
+/// una por recurso (la ultima gana). Las apunta `ExecuteCommandLists`; las
+/// toma el dibujo que pinta en ese recurso (o su Z), o las aplica quien lea
+/// los pixeles antes. Una tarea, hilos cooperativos: basta una celda.
+struct Limpiezas(UnsafeCell<Vec<(u64, u32)>>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos.
-unsafe impl Sync for ZLimpia {}
-static Z_LIMPIA: ZLimpia = ZLimpia(UnsafeCell::new(None));
+unsafe impl Sync for Limpiezas {}
+static LIMPIEZAS: Limpiezas = Limpiezas(UnsafeCell::new(Vec::new()));
 
-pub(crate) fn z_limpiada(recurso: u64, bits: u32) {
-    // SAFETY: ver `ZLimpia`.
-    unsafe { *Z_LIMPIA.0.get() = Some((recurso, bits)) };
+fn limpiezas() -> &'static mut Vec<(u64, u32)> {
+    // SAFETY: ver `Limpiezas`.
+    unsafe { &mut *LIMPIEZAS.0.get() }
 }
 
-/// Los bits de la limpieza pendiente de `recurso`, gastandola.
-fn z_pendiente(recurso: u64) -> Option<u32> {
-    // SAFETY: ver `ZLimpia`.
-    let z = unsafe { &mut *Z_LIMPIA.0.get() };
-    match *z {
-        Some((r, bits)) if r == recurso => {
-            *z = None;
-            Some(bits)
-        }
-        _ => None,
+pub(crate) fn limpieza_pendiente(recurso: u64, pixel: u32) {
+    let l = limpiezas();
+    match l.iter_mut().find(|x| x.0 == recurso) {
+        Some(x) => x.1 = pixel,
+        None => l.push((recurso, pixel)),
+    }
+}
+
+/// La limpieza pendiente de `recurso`, gastandola.
+fn tomar_limpieza(recurso: u64) -> Option<u32> {
+    let l = limpiezas();
+    let i = l.iter().position(|x| x.0 == recurso)?;
+    Some(l.swap_remove(i).1)
+}
+
+pub(crate) fn olvidar_limpieza(recurso: u64) {
+    let _ = tomar_limpieza(recurso);
+}
+
+/// **Hacerla ya**, si la hay: alguien va a LEER los pixeles.
+pub(crate) fn aplicar_limpieza(recurso: u64) {
+    if let Some(p) = tomar_limpieza(recurso) {
+        // SAFETY: las limpiezas son de Recursos de la casa.
+        unsafe { de::<crate::d3d12::Recurso>(recurso) }.pixeles.fill(p);
     }
 }
 

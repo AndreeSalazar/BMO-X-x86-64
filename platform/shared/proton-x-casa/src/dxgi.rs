@@ -136,6 +136,8 @@ extern "win64" fn present(this: u64, _intervalo: u32, _banderas: u32) -> i32 {
     // SAFETY: `this` es una Cadena de la casa.
     let c = unsafe { de::<Cadena>(this) };
     let Some(sup) = user32::superficie_de(c.hwnd) else { return E_INVALIDARG };
+    // Lo que se limpio y nadie dibujo encima, antes de mirarlo (P3b4c).
+    crate::tuberia::aplicar_limpieza(c.buffers[c.actual]);
     // SAFETY: un Recurso de la casa.
     let r = unsafe { recurso_de(c.buffers[c.actual]) };
     // SAFETY: la superficie mide `stride * alto` pixeles y es de este proceso.

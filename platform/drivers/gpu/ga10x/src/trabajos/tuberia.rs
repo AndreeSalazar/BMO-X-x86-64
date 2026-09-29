@@ -323,6 +323,19 @@ pub struct Dibujo {
     pub destino: Option<(u64, crate::destino::Destino)>,
     /// P3b4c: la prueba de profundidad, por la 3060 (`profundidad`).
     pub z: Option<crate::profundidad::Z>,
+    /// P3b4c: limpiar el DESTINO antes de dibujar, con este pixel tal como
+    /// va en memoria (`B8G8R8A8` o, con `rgb`, `R8G8B8A8`): el
+    /// `ClearRenderTargetView` de la app, hecho por la 3060 y no por la CPU.
+    /// Solo con destino (la receta; VRN1 no lo lleva).
+    pub color: Option<u32>,
+}
+
+/// Los cuatro canales (R, G, B, A) de un pixel de 8 bits como floats de
+/// `SET_COLOR_CLEAR_VALUE`: `byte / 255`, que la 3060 vuelve a redondear al
+/// MISMO byte (`round(x * 255)`).
+pub fn color_de_limpieza(pixel: u32, rgb: bool) -> [u32; 4] {
+    let c = |k: u32| (((pixel >> (8 * k)) & 0xFF) as f32 / 255.0).to_bits();
+    if rgb { [c(0), c(1), c(2), c(3)] } else { [c(2), c(1), c(0), c(3)] }
 }
 
 /// La Z de un `Dibujo` en los bits 3..9 del estado de VRN1.
@@ -459,7 +472,7 @@ pub(crate) fn dibujo_de_campos(cabecera: &[u8], n: usize, datos: usize) -> Optio
         Some(desde)
     };
     let z = z_de(estado).ok()?;
-    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z })
+    Some(Dibujo { indices, vertices, descarte, antihorario: estado & 4 != 0, destino, z, color: None })
 }
 
 /// Cuanto mide el paquete que dice esta cabecera (o `None` si no lo es).
@@ -576,8 +589,9 @@ pub fn escribir_paquete_dibujo(out: &mut [u8], ficha: u32, vs: &[u8], ps: &[u8],
         Descarte::Delanteras => 2,
     } | (dibujo.antihorario as u32) << 2
         | estado_z(dibujo.z);
-    // VRN1 limpia la Z a 1.0 y no lleva otro valor (la receta, VRN2, si).
-    if dibujo.z.is_some_and(|z| z.limpiar.is_some_and(|v| v != crate::profundidad::UNO)) {
+    // VRN1 limpia la Z a 1.0 y no lleva otro valor, ni la limpieza del
+    // color (la receta, VRN2, si).
+    if dibujo.color.is_some() || dibujo.z.is_some_and(|z| z.limpiar.is_some_and(|v| v != crate::profundidad::UNO)) {
         return None;
     }
     let (va, dst) = dibujo.destino.unwrap_or_default();
@@ -648,6 +662,13 @@ pub fn ordenes_dibujo(v: &Ventana, n: usize, ligero: bool, d: Dibujo) -> cu::Ord
         e.m(OGL_SET_FRONT_FACE, &[if d.antihorario { DELANTE_ANTIHORARIO } else { DELANTE_HORARIO }]);
         e.m(OGL_SET_CULL_FACE, &[if d.descarte == Descarte::Traseras { CULL_TRASERAS } else { CULL_DELANTERAS }]);
         e.m(crate::raster::OGL_SET_CULL, &[1]);
+    }
+    // P3b4c: la limpieza del destino que pidio la app, por la 3060.
+    if let (Some(pixel), Some((_, dst))) = (d.color, d.destino) {
+        e.m(crate::tresde::SET_COLOR_CLEAR_VALUE0, &color_de_limpieza(pixel, dst.rgb));
+        e.m(crate::tresde::SET_CLEAR_SURFACE_CONTROL, &[0]);
+        e.m(crate::tresde::CLEAR_SURFACE, &[crate::tresde::LIMPIAR_RGBA]);
+        e.m(crate::tresde::WAIT_FOR_IDLE, &[0]);
     }
     if let Some(z) = d.z {
         crate::profundidad::ordenes(&mut e, &z);
@@ -733,8 +754,9 @@ pub fn huella_fija(v: &Ventana, p: &Paquete, ligero: bool) -> u64 {
     let d = p.dibujo;
     let dibujo = d.indices.unwrap_or(SIN_INDICES) as u64 | (d.descarte as u64) << 32 | (d.antihorario as u64) << 34 | (d.vertices as u64) << 40;
     let z = estado_z(d.z) as u64 | (d.z.and_then(|z| z.limpiar).unwrap_or(0) as u64) << 32;
+    let color = d.color.map_or(0, |c| 1 << 32 | c as u64);
     let (dva, dst) = d.destino.unwrap_or_default();
-    for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
+    for x in [p.vertices.len() as u64, p.n as u64, dibujo, z, color, dva, dst.fila as u64 | (dst.ancho as u64) << 32, dst.alto as u64 | (dst.rgb as u64) << 32, v.x0 as u64, v.y0 as u64, v.va, v.fila as u64, v.rgb as u64, ligero as u64] {
         mezclar(&x.to_le_bytes());
     }
     h
@@ -876,7 +898,7 @@ mod pruebas {
         for (k, i) in [0u32, 1, 2, 0, 2, 3].iter().enumerate() {
             datos[64 + 4 * k..68 + 4 * k].copy_from_slice(&i.to_le_bytes());
         }
-        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None };
+        let d = Dibujo { indices: Some(64), vertices: 4, descarte: Descarte::Traseras, antihorario: false, destino: None, z: None, color: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 6, &datos, d).unwrap();
         assert_eq!(medida(&caja[..CABECERA_MAX]), Some(n));
@@ -924,7 +946,7 @@ mod pruebas {
         let (vs, ps) = (programa_de(&vertice()), programa_de(&pixel()));
         let datos = std::vec![0u8; 96];
         let dst = Destino { fila: 1280 * 4, ancho: 1280, alto: 720, rgb: false };
-        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None };
+        let d = Dibujo { indices: None, vertices: 3, descarte: Descarte::Ninguna, antihorario: false, destino: Some((0x1234_5000, dst)), z: None, color: None };
         let mut caja = std::vec![0u8; MAX_PAQUETE];
         let n = escribir_paquete_dibujo(&mut caja, 7, &vs, &ps, 3, &datos, d).unwrap();
         assert_eq!(leer(&caja[..n]).unwrap().dibujo, d);

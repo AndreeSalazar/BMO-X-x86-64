@@ -517,7 +517,7 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let cb = cb_de(f);
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
     let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }) };
-    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None };
+    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
     let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]) };
