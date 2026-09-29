@@ -196,6 +196,11 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
     let mut buf = [0u8; 128];
     let d = match ruta_d(ruta, &mut buf).map(bmo::Directorio::open) {
         Some(Ok(d)) => d,
+        // `personal <ruta>` con la ruta de un FICHERO (metal, 29-09 13:18:
+        // `personal Cyberpunk 2077/REDprelauncher.exe`): es un `lee`.
+        Some(Err(26)) if ruta_d(ruta, &mut [0u8; 128]).map(bmo::Archivo::reflejar).is_some_and(|a| a.is_ok_and(|a| a.close())) => {
+            return personal_lee(dsk, p, ruta);
+        }
         otro => {
             let (line, estado): (&[u8], &str) = match otro {
                 None => (b"  esa ruta es demasiado larga (128 bytes con el d:).\n", "ruta larga"),
