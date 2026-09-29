@@ -1,0 +1,859 @@
+HERRAMIENTAS -- lo que se uso para sonda3060.cu y lo que Windows y el driver dicen (2026-09-28)
+
+Compilador: nvcc 13.4.92 de los paquetes de NVIDIA en PyPI (el CUDA Toolkit no esta
+instalado; ver docs/metal/tex_cuda/HERRAMIENTAS.TXT en la rama metal/tex-cuda).
+Host: MSVC 14.44.35207 + Windows SDK 10.0.26100.0.
+Orden:  python atributos.py <cu13>/include/cuda.h > atributos.h
+        nvcc -arch=sm_86 -O2 -std=c++17 -o sonda3060.exe sonda3060.cu -lcuda -lpsapi
+
+Quitado a proposito de todo lo de abajo: el UUID, el 'GPU PDI' y los numeros de serie
+(identifican ESTA tarjeta, no su modelo) y la lista de procesos de nvidia-smi.
+
+==== nvcc --version ====
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2026 NVIDIA Corporation
+Built on Sun_Sep_01_02:23:07_Pacific_Standard_Time_2026
+Cuda compilation tools, release 13.4, V13.4.92
+Build cuda_13.4.r13.4/compiler.38855100_0
+
+==== nvidia-smi -q (sin UUID, PDI, series ni procesos) ====
+
+==============NVSMI LOG==============
+
+Timestamp                                              : Mon Sep 28 22:00:41 2026
+Driver Version                                         : 610.74 [Deprecated; will be removed in CUDA 14.0. Use KMD Version instead]
+CUDA Version                                           : 13.3 [Deprecated; will be removed in CUDA 14.0. Use CUDA UMD Version instead]
+KMD Version                                            : 610.74
+CUDA UMD Version                                       : 13.3
+
+Attached GPUs                                          : 1
+GPU 00000000:29:00.0
+    Product Name                                       : NVIDIA GeForce RTX 3060
+    Product Brand                                      : GeForce
+    Product Architecture                               : Ampere
+    Display Mode                                       : Requested functionality has been deprecated
+    Display Attached                                   : Yes
+    Display Active                                     : Enabled
+    Persistence Mode                                   : N/A
+    Addressing Mode                                    : N/A
+    MIG Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    Accounting Mode                                    : Disabled
+    Accounting Mode Buffer Size                        : 4000
+    Driver Model
+        Current                                        : WDDM
+        Pending                                        : WDDM
+    Minor Number                                       : N/A
+    VBIOS Version                                      : 94.06.2f.00.9a
+    MultiGPU Board                                     : No
+    Board ID                                           : 0x2900
+    Board Part Number                                  : N/A
+    GPU Part Number                                    : 2504-302-A1
+    FRU Part Number                                    : N/A
+    Platform Info
+        Slot Number                                    : N/A
+        Tray Index                                     : N/A
+        Host ID                                        : N/A
+        Peer Type                                      : N/A
+        Module Id                                      : 1
+        GPU Fabric GUID                                : N/A
+    Inforom Version
+        Image Version                                  : G001.0000.03.03
+        OEM Object                                     : 2.0
+        ECC Object                                     : N/A
+        Power Management Object                        : N/A
+    Inforom BBX Object Flush
+        Latest Timestamp                               : N/A
+        Latest Duration                                : N/A
+    Inforom Time Data
+        Time Run                                       : N/A
+    GPU Operation Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    GPU C2C Mode                                       : N/A
+    GPU Virtualization Mode
+        Virtualization Mode                            : None
+        Host VGPU Mode                                 : N/A
+        vGPU Heterogeneous Mode                        : N/A
+    GPU Recovery Action                                : None
+    GSP Firmware Version                               : N/A
+    IBMNPU
+        Relaxed Ordering Mode                          : N/A
+    PCI
+        Bus                                            : 0x29
+        Device                                         : 0x00
+        Domain                                         : 0x0000
+        Device Id                                      : 0x250410DE
+        Bus Id                                         : 00000000:29:00.0
+        Sub System Id                                  : 0x397D1462
+        GPU Link Info
+            PCIe Generation
+                Max                                    : 3
+                Current                                : 1
+                Device Current                         : 1
+                Device Max                             : 4
+                Host Max                               : 3
+            Link Width
+                Max                                    : 16x
+                Current                                : 16x
+        Bridge Chip
+            Type                                       : N/A
+            Firmware                                   : N/A
+        Replays Since Reset                            : 0
+        Replay Number Rollovers                        : 0
+        Tx Throughput                                  : 781 KB/s
+        Rx Throughput                                  : 732 KB/s
+        Atomic Caps Outbound                           : N/A
+        Atomic Caps Inbound                            : N/A
+    Fan Speed                                          : 0 %
+    Performance State                                  : P8
+    Clocks Event Reasons
+        Idle                                           : Active
+        Applications Clocks Setting                    : Not Active
+        SW Power Cap                                   : Not Active
+        HW Slowdown                                    : Not Active
+            HW Thermal Slowdown                        : Not Active
+            HW Power Brake Slowdown                    : Not Active
+        Sync Boost                                     : Not Active
+        SW Thermal Slowdown                            : Not Active
+        Display Clock Setting                          : Not Active
+    Clocks Event Reasons Counters
+        SW Power Capping                               : 2475603793 us
+        Sync Boost                                     : 0 us
+        SW Thermal Slowdown                            : 0 us
+        HW Thermal Slowdown                            : 0 us
+        HW Power Braking                               : 0 us
+    Sparse Operation Mode                              : N/A
+    FB Memory Usage
+        Total                                          : 12288 MiB
+        Reserved                                       : 173 MiB
+        Used                                           : 2363 MiB
+        Free                                           : 9753 MiB
+    BAR1 Memory Usage
+        Total                                          : 256 MiB
+        Used                                           : 227 MiB
+        Free                                           : 29 MiB
+    Conf Compute Protected Memory Usage
+        Total                                          : N/A
+        Used                                           : N/A
+        Free                                           : N/A
+    Compute Mode                                       : Default
+    Utilization
+        GPU                                            : 2 %
+        Memory                                         : 8 %
+        Encoder                                        : 0 %
+        Decoder                                        : 29 %
+        JPEG                                           : 0 %
+        OFA                                            : 0 %
+    Encoder Stats
+        Active Sessions                                : 0
+        Average FPS                                    : 0
+        Average Latency                                : 0
+    FBC Stats
+        Active Sessions                                : 0
+        Average FPS                                    : 0
+        Average Latency                                : 0
+    DRAM Encryption Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    ECC Mode
+        Current                                        : N/A
+        Pending                                        : N/A
+    ECC Errors
+        Volatile
+            SRAM Correctable                           : N/A
+            SRAM Uncorrectable Parity                  : N/A
+            SRAM Uncorrectable SEC-DED                 : N/A
+            DRAM Correctable                           : N/A
+            DRAM Uncorrectable                         : N/A
+        Aggregate
+            SRAM Correctable                           : N/A
+            SRAM Uncorrectable Parity                  : N/A
+            SRAM Uncorrectable SEC-DED                 : N/A
+            DRAM Correctable                           : N/A
+            DRAM Uncorrectable                         : N/A
+            SRAM Threshold Exceeded                    : N/A
+        Aggregate Uncorrectable SRAM Sources
+            SRAM L2                                    : N/A
+            SRAM SM                                    : N/A
+            SRAM Microcontroller                       : N/A
+            SRAM PCIE                                  : N/A
+            SRAM Other                                 : N/A
+        Channel Repair Pending                         : No
+        TPC Repair Pending                             : No
+        Unrepairable Memory                            : N/A
+    Retired Pages
+        Single Bit ECC                                 : N/A
+        Double Bit ECC                                 : N/A
+        Pending Page Blacklist                         : N/A
+    Remapped Rows                                      : N/A
+    Temperature
+        GPU Current Temp                               : 51 C
+        GPU Current T.Limit Temp                       : N/A
+        GPU Shutdown Temp                              : 98 C
+        GPU Slowdown Temp                              : 95 C
+        GPU Max Operating Temp                         : 93 C
+        GPU Target Temperature Specification           : 83 C
+        Memory Current Temp                            : N/A
+        Memory Max Operating Temp                      : N/A
+    GPU Power Readings
+        Average Power Draw                             : 16.02 W
+        Instantaneous Power Draw                       : 16.12 W
+        GPU Ceiling Power Limit
+            Current Power Limit                        : 170.00 W
+            Requested Power Limit                      : 170.00 W
+            Default Power Limit                        : 170.00 W
+        GPU Base Power
+            Current Base Power                         : N/A
+            Requested Base Power                       : N/A
+            Default Base Power                         : N/A
+        Min Power Limit                                : 100.00 W
+        Max Power Limit                                : 170.00 W
+    GPU Memory Power Readings
+        Average Power Draw                             : N/A
+        Instantaneous Power Draw                       : N/A
+    Module Power Readings
+        Average Power Draw                             : N/A
+        Instantaneous Power Draw                       : N/A
+        Current Power Limit                            : N/A
+        Requested Power Limit                          : N/A
+        Default Power Limit                            : N/A
+        Min Power Limit                                : N/A
+        Max Power Limit                                : N/A
+    Power Smoothing                                    : N/A
+    Workload Power Profiles
+        Requested Profiles                             : N/A
+        Enforced Profiles                              : N/A
+    EDPp Multiplier                                    : N/A
+    Clocks
+        Graphics                                       : 210 MHz
+        SM                                             : 210 MHz
+        Memory                                         : 405 MHz
+        Video                                          : 555 MHz
+    Applications Clocks
+        Graphics                                       : Requested functionality has been deprecated
+        Memory                                         : Requested functionality has been deprecated
+    Default Applications Clocks
+        Graphics                                       : Requested functionality has been deprecated
+        Memory                                         : Requested functionality has been deprecated
+    Deferred Clocks
+        Memory                                         : N/A
+    Max Clocks
+        Graphics                                       : 2130 MHz
+        SM                                             : 2130 MHz
+        Memory                                         : 7501 MHz
+        Video                                          : 1950 MHz
+    Max Customer Boost Clocks
+        Graphics                                       : N/A
+    Clock Policy
+        Auto Boost                                     : N/A
+        Auto Boost Default                             : N/A
+    Fabric
+        State                                          : N/A
+        Status                                         : N/A
+        CliqueId                                       : N/A
+        Health
+            Summary                                    : N/A
+            Bandwidth                                  : N/A
+            Route Recovery in progress                 : N/A
+            Route Unhealthy                            : N/A
+            Access Timeout Recovery                    : N/A
+            Incorrect Configuration                    : N/A
+            Partition Assigned                         : N/A
+
+==== el driver en Windows ====
+dispositivo: NVIDIA GeForce RTX 3060   version: 32.0.16.1074   inf: oem16.inf
+PnP: PCI\VEN_10DE&DEV_2504&SUBSYS_397D1462&REV_A1\(instancia)
+carpeta: DriverStore\FileRepository\nvmdi.inf_amd64_27e8d1d0ddce6875
+HwSchMode (planificacion por hardware de la GPU, HAGS): 2   (2 = encendida)
+MSISupported: 1   MessageNumberLimit: 1
+
+Ficheros del driver que importan aqui (bytes):
+  gsp_ga10x.bin                84,293,784
+  gsp_tu10x.bin                29,365,120
+  libcuda.so.1.1               27,803,920
+  nvapi64_impl.dll              5,514,512
+  nvcuda_loader64.dll           4,714,728
+  nvcuda64.dll                 32,173,800
+  nvcudart_hybrid64.dll         1,146,088
+  nvd3dumx.dll                 43,802,216
+  nvdxgdmal64.dll                 712,424
+  nvlddmkm.sys                120,313,064
+  nvobjectloader64.dll         14,654,184
+  nvoglv64.dll                 48,488,680
+  nvptxJitCompiler64.dll       29,973,224
+  nvwgf2umx.dll                90,502,104
+  System32\nvcuda.dll            4,714,728   (la misma medida que nvcuda_loader64.dll: es el cargador)
+
+==== cadenas D3DKMT* dentro de nvcuda64.dll (25) ====
+D3DKMTCloseAdapter D3DKMTCreateAllocation D3DKMTCreateAllocation2 D3DKMTCreateDevice D3DKMTCreatePagingQueue D3DKMTDestroyAllocation D3DKMTDestroyDevice D3DKMTEnumAdapters2 D3DKMTEnumAdapters3 D3DKMTEscape D3DKMTGetSharedPrimaryHandle D3DKMTLock D3DKMTLock2 D3DKMTMakeResident D3DKMTOpenAdapterFromDeviceName D3DKMTOpenAdapterFromHdc D3DKMTOpenResource D3DKMTQueryAdapterInfo D3DKMTQueryAllocationResidency D3DKMTQueryResourceInfo D3DKMTRender D3DKMTSetAllocationPriority D3DKMTUnlock D3DKMTUnlock2 D3DKMTWaitForSynchronizationObjectFromCpu
+
+==== cadenas D3DKMT* dentro de nvwgf2umx.dll (28) ====
+D3DKMTAcquireKeyedMutex D3DKMTAcquireKeyedMutex2 D3DKMTCloseAdapter D3DKMTCreateSynchronizationObject2 D3DKMTDestroyAllocation D3DKMTDestroyAllocation2 D3DKMTDestroyKeyedMutex D3DKMTDestroySynchronizationObject D3DKMTEnumAdapters2 D3DKMTEnumAdapters3 D3DKMTEscape D3DKMTGetDeviceState D3DKMTOpenAdapterFromDeviceName D3DKMTOpenAdapterFromLuid D3DKMTOpenKeyedMutex D3DKMTOpenResource D3DKMTOpenSynchronizationObject D3DKMTQueryAdapterInfo D3DKMTQueryClockCalibration D3DKMTQueryResourceInfo D3DKMTQueryVideoMemoryInfo D3DKMTReleaseKeyedMutex D3DKMTReleaseKeyedMutex2 D3DKMTSetQueuedLimit D3DKMTSignalSynchronizationObject D3DKMTSignalSynchronizationObject2 D3DKMTSignalSynchronizationObjectFromGpu2 D3DKMTWaitForSynchronizationObject2
+
+==== cadenas D3DKMT* dentro de nvd3dumx.dll (25) ====
+D3DKMTAcquireKeyedMutex D3DKMTAcquireKeyedMutex2 D3DKMTCloseAdapter D3DKMTCreateSynchronizationObject2 D3DKMTDestroyAllocation D3DKMTDestroyAllocation2 D3DKMTDestroyKeyedMutex D3DKMTDestroySynchronizationObject D3DKMTEnumAdapters2 D3DKMTEnumAdapters3 D3DKMTGetDeviceState D3DKMTOpenAdapterFromLuid D3DKMTOpenKeyedMutex D3DKMTOpenResource D3DKMTOpenSynchronizationObject D3DKMTQueryAdapterInfo D3DKMTQueryClockCalibration D3DKMTQueryResourceInfo D3DKMTReleaseKeyedMutex D3DKMTReleaseKeyedMutex2 D3DKMTSetQueuedLimit D3DKMTSignalSynchronizationObject D3DKMTSignalSynchronizationObject2 D3DKMTSignalSynchronizationObjectFromGpu2 D3DKMTWaitForSynchronizationObject2
+
+==== importaciones de nvcuda64.dll (dumpbin /imports: DLL y funciones) ====
+VERSION.dll
+8 GetFileVersionInfoW
+F VerQueryValueA
+7 GetFileVersionInfoSizeW
+KERNEL32.dll
+1C8 GetFileAttributesW
+14A FreeLibraryAndExitThread
+256 GetSystemDirectoryW
+4A5 UnmapViewOfFile
+1F6 GetModuleHandleA
+483 Sleep
+1C9 GetFileInformationByHandle
+1F7 GetModuleHandleExA
+1E2 GetLastError
+42D SetFileInformationByHandle
+326 LoadLibraryA
+3C CloseHandle
+99 CreateThread
+226 GetProcAddress
+4B1 VerSetConditionMask
+1F9 GetModuleHandleW
+149 FreeLibrary
+4B4 VerifyVersionInfoW
+25F GetSystemTimeAsFileTime
+76 CreateFileMappingW
+33E MapViewOfFileEx
+2BB HeapCreate
+2BD HeapFree
+2B9 HeapAlloc
+2BC HeapDestroy
+249 GetStdHandle
+CF DuplicateHandle
+13D FlushFileBuffers
+206 GetNumaHighestNodeNumber
+484 SleepConditionVariableCS
+79 CreateFileW
+45B SetThreadAffinityMask
+1F4 GetModuleFileNameA
+2D5 InitializeSRWLock
+1BC GetEnvironmentVariableA
+49D TryEnterCriticalSection
+74 CreateFileMappingNumaA
+119 FindFirstFileA
+498 TlsSetValue
+4BB VirtualProtect
+D5 EnterCriticalSection
+4B8 VirtualFree
+3CC ReleaseSemaphore
+49B TryAcquireSRWLockExclusive
+4B5 VirtualAlloc
+227 GetProcessAffinityMask
+4CE WakeAllConditionVariable
+4CF WakeConditionVariable
+4C4 WaitForMultipleObjects
+127 FindNextFileA
+322 LeaveCriticalSection
+2CF InitializeCriticalSection
+2CC InitializeConditionVariable
+49C TryAcquireSRWLockShared
+4A4 UnlockFileEx
+1E0 GetLargePageMinimum
+1BD GetEnvironmentVariableW
+115 FindClose
+4C6 WaitForSingleObject
+1A6 GetCurrentThreadId
+358 OpenFileMappingW
+19A GetCurrentDirectoryA
+360 OpenProcess
+3CA ReleaseSRWLockExclusive
+425 SetEvent
+207 GetNumaNodeProcessorMask
+1A5 GetCurrentThread
+0 AcquireSRWLockExclusive
+494 TlsAlloc
+397 QueryPerformanceFrequency
+B9 DeleteFileA
+2C0 HeapReAlloc
+3CB ReleaseSRWLockShared
+203 GetNativeSystemInfo
+259 GetSystemInfo
+3DA ResetEvent
+1E3 GetLocalTime
+48B SwitchToThread
+1F5 GetModuleFileNameW
+72 CreateFileMappingA
+33A LockFileEx
+1 AcquireSRWLockShared
+3D2 RemoveDirectoryW
+B5 DeleteCriticalSection
+422 SetEnvironmentVariableA
+1A2 GetCurrentProcessId
+2B1 GlobalMemoryStatusEx
+496 TlsGetValue
+495 TlsFree
+63 CreateDirectoryA
+91 CreateSemaphoreA
+286 GetTimeZoneInformation
+33D MapViewOfFile
+396 QueryPerformanceCounter
+4BD VirtualQuery
+171 GetComputerNameA
+C6 DeviceIoControl
+71 CreateFileA
+1F8 GetModuleHandleExW
+4FB WriteFile
+43B SetLastError
+32C LocalAlloc
+330 LocalFree
+8D CreateProcessW
+8C CreateProcessA
+328 LoadLibraryExW
+1A1 GetCurrentProcess
+1DB GetFullPathNameW
+16D GetCommandLineW
+144 FormatMessageA
+41A SetCurrentDirectoryW
+329 LoadLibraryW
+1C4 GetFileAttributesExA
+1CF GetFileSizeEx
+3B0 ReadFile
+10C FileTimeToSystemTime
+19B GetCurrentDirectoryW
+1C5 GetFileAttributesExW
+BB DeleteFileW
+327 LoadLibraryExA
+29E GetWindowsDirectoryA
+3E4 RtlCaptureContext
+3EB RtlLookupFunctionEntry
+3F2 RtlVirtualUnwind
+4A2 UnhandledExceptionFilter
+476 SetUnhandledExceptionFilter
+490 TerminateProcess
+2EB IsProcessorFeaturePresent
+2E5 IsDebuggerPresent
+248 GetStartupInfoW
+2D4 InitializeSListHead
+368 OutputDebugStringW
+3F1 RtlUnwindEx
+2DA InterlockedPushEntrySList
+2D8 InterlockedFlushSList
+D1 EncodePointer
+3A2 RaiseException
+2D0 InitializeCriticalSectionAndSpinCount
+3ED RtlPcToFileHeader
+18B GetConsoleOutputCP
+188 GetConsoleMode
+452 SetStdHandle
+1D1 GetFileType
+103 ExitThread
+3E2 ResumeThread
+102 ExitProcess
+26E GetTempPathW
+137 FlsAlloc
+139 FlsGetValue
+13B FlsSetValue
+138 FlsFree
+1AB GetDateFormatW
+285 GetTimeFormatW
+4D CompareStringW
+316 LCMapStringW
+1E6 GetLocaleInfoW
+2F2 IsValidLocale
+28C GetUserDefaultLCID
+F8 EnumSystemLocalesW
+24E GetStringTypeW
+430 SetFilePointerEx
+3AD ReadConsoleW
+408 SetConsoleCtrlHandler
+4EA WideCharToMultiByte
+2C2 HeapSize
+2BF HeapQueryInformation
+34C MultiByteToWideChar
+11B FindFirstFileExW
+129 FindNextFileW
+2F0 IsValidCodePage
+150 GetACP
+211 GetOEMCP
+15E GetCPInfo
+16C GetCommandLineA
+1BB GetEnvironmentStringsW
+148 FreeEnvironmentStringsW
+423 SetEnvironmentVariableW
+22C GetProcessHeap
+4FA WriteConsoleW
+41F SetEndOfFile
+48D SystemTimeToTzSpecificLocalTime
+3D0 RemoveDirectoryA
+69 CreateEventA
+371 PeekNamedPipe
+1B5 GetDriveTypeW
+491 TerminateThread
+A5 CreateWaitableTimerA
+42F SetFilePointer
+1BF GetExitCodeProcess
+485 SleepConditionVariableSRW
+3F0 RtlUnwind
+ADVAPI32.dll
+209 RegQueryValueExA
+1FE RegOpenKeyExW
+1F3 RegGetValueW
+60 ConvertStringSecurityDescriptorToSecurityDescriptorA
+D9 EventWriteTransfer
+D3 EventRegister
+D5 EventUnregister
+1CF RegCloseKey
+105 GetTokenInformation
+1FD RegOpenKeyExA
+FB GetSecurityInfo
+18B OpenProcessToken
+CC EqualSid
+GDI32.dll
+2C DeleteDC
+12 CreateDCA
+SHLWAPI.dll
+55 PathIsRelativeW
+USER32.dll
+98 EnumDisplayDevicesA
+
+==== recursos PCI que Windows asigno (Win32_PNPAllocatedResource) ====
+  memoria 0xFB000000..0xFC0FFFFF   memoria 0xD0000000..0xE1FFFFFF   memoria 0xE0000000..0xE1FFFFFF
+  puertos 0xE000..0xEFFF           IRQ con numero negativo (= por mensaje, MSI)
+  [!] WMI junta ventanas: los BAR exactos son los de BMO-X (fila sysinfo de PLAN_LA_3060.md)
+
+==== cuobjdump -sass -fun especiales sonda3060.exe ====
+        /*0000*/                   IMAD.MOV.U32 R1, RZ, RZ, c[0x0][0x28] ;
+        /*0010*/                   S2R R5, SR_VIRTUALSMID ;
+        /*0020*/                   MOV R2, c[0x0][0x160] ;
+        /*0030*/                   IMAD.MOV.U32 R3, RZ, RZ, c[0x0][0x164] ;
+        /*0040*/                   MOV R11, c[0x0][0x4] ;
+        /*0050*/                   S2R R7, SR_LANEID ;
+        /*0060*/                   ULDC.64 UR4, c[0x0][0x118] ;
+        /*0070*/                   IMAD.MOV.U32 R9, RZ, RZ, c[0x0][0x0] ;
+        /*0080*/                   MOV R15, c[0x0][0xc] ;
+        /*0090*/                   STG.E [R2.64+0x4], R11 ;
+        /*00a0*/                   IMAD.MOV.U32 R13, RZ, RZ, c[0x0][0x8] ;
+        /*00b0*/                   MOV R19, c[0x0][0x14] ;
+        /*00c0*/                   IMAD.MOV.U32 R17, RZ, RZ, c[0x0][0x10] ;
+        /*00d0*/                   S2R R0, SR_VIRTID ;
+        /*00e0*/                   IMAD.MOV.U32 R21, RZ, RZ, c[0x0][0x10c] ;
+        /*00f0*/                   MOV R23, 0x30 ;
+        /*0100*/                   IMAD.MOV.U32 R27, RZ, RZ, c[0x0][0xfc] ;
+        /*0110*/                   STG.E [R2.64], R9 ;
+        /*0120*/                   MOV R25, c[0x0][0xf8] ;
+        /*0130*/                   MOV R4, c[0x0][0x168] ;
+        /*0140*/                   STG.E [R2.64+0x8], R13 ;
+        /*0150*/                   MOV R11, c[0x0][0x88] ;
+        /*0160*/                   MOV R6, c[0x0][0x30] ;
+        /*0170*/                   STG.E [R2.64+0xc], R15 ;
+        /*0180*/                   STG.E [R2.64+0x40], R11 ;
+        /*0190*/                   IMAD.MOV.U32 R9, RZ, RZ, c[0x0][0x2c] ;
+        /*01a0*/                   STG.E [R2.64+0x10], R17 ;
+        /*01b0*/                   IMAD.MOV.U32 R13, RZ, RZ, c[0x0][0x8c] ;
+        /*01c0*/                   STG.E [R2.64+0x1c], R5 ;
+        /*01d0*/                   MOV R15, c[0x0][0x90] ;
+        /*01e0*/                   SHF.R.U32.HI R0, RZ, 0x8, R0 ;
+        /*01f0*/                   IMAD.MOV.U32 R11, RZ, RZ, c[0x0][0xac] ;
+        /*0200*/                   STG.E [R2.64+0x28], R7 ;
+        /*0210*/                   IMAD.MOV.U32 R17, RZ, RZ, c[0x0][0x94] ;
+        /*0220*/                   STG.E [R2.64+0x64], R11 ;
+        /*0230*/                   IMAD.MOV.U32 R5, RZ, RZ, c[0x0][0x9c] ;
+        /*0240*/                   STG.E [R2.64+0x14], R19 ;
+        /*0250*/                   MOV R7, c[0x0][0xa0] ;
+        /*0260*/                   STG.E [R2.64+0x18], R21 ;
+        /*0270*/                   S2R R11, SR_SMEMSZ ;
+        /*0280*/                   MOV R19, c[0x0][0x98] ;
+        /*0290*/                   STG.E [R2.64+0x2c], R9 ;
+        /*02a0*/                   STG.E [R2.64+0x44], R13 ;
+        /*02b0*/                   MOV R21, c[0x0][0xa8] ;
+        /*02c0*/                   STG.E [R2.64+0x48], R15 ;
+        /*02d0*/                   STG.E [R2.64+0x4c], R17 ;
+        /*02e0*/                   IMAD.MOV.U32 R9, RZ, RZ, c[0x0][0xa4] ;
+        /*02f0*/                   STG.E [R2.64+0x54], R5 ;
+        /*0300*/                   MOV R13, c[0x0][0xb0] ;
+        /*0310*/                   STG.E [R2.64+0x58], R7 ;
+        /*0320*/                   IMAD.MOV.U32 R15, RZ, RZ, c[0x0][0xb4] ;
+        /*0330*/                   IADD3 R11, R11, -c[0x0][0x114], RZ ;
+        /*0340*/                   MOV R17, c[0x0][0xb8] ;
+        /*0350*/                   STG.E [R2.64+0x20], R23 ;
+        /*0360*/                   MOV R5, c[0x0][0xc0] ;
+        /*0370*/                   STG.E [R2.64+0x50], R19 ;
+        /*0380*/                   IMAD.MOV.U32 R7, RZ, RZ, c[0x0][0xc4] ;
+        /*0390*/                   STG.E [R2.64+0x5c], R9 ;
+        /*03a0*/                   STG.E [R2.64+0x60], R21 ;
+        /*03b0*/                   MOV R23, c[0x0][0xd0] ;
+        /*03c0*/                   STG.E [R2.64+0x68], R13 ;
+        /*03d0*/                   IMAD.MOV.U32 R19, RZ, RZ, c[0x0][0xbc] ;
+        /*03e0*/                   STG.E [R2.64+0x6c], R15 ;
+        /*03f0*/                   MOV R9, c[0x0][0xc8] ;
+        /*0400*/                   STG.E [R2.64+0x70], R17 ;
+        /*0410*/                   IMAD.MOV.U32 R21, RZ, RZ, c[0x0][0xcc] ;
+        /*0420*/                   STG.E [R2.64+0x78], R5 ;
+        /*0430*/                   IMAD.MOV.U32 R13, RZ, RZ, c[0x0][0xd4] ;
+        /*0440*/                   STG.E [R2.64+0x7c], R7 ;
+        /*0450*/                   IMAD.MOV.U32 R15, RZ, RZ, c[0x0][0xdc] ;
+        /*0460*/                   MOV R17, c[0x0][0xe0] ;
+        /*0470*/                   STG.E [R2.64+0x74], R19 ;
+        /*0480*/                   MOV R5, c[0x0][0xd8] ;
+        /*0490*/                   STG.E [R2.64+0x80], R9 ;
+        /*04a0*/                   IMAD.MOV.U32 R7, RZ, RZ, c[0x0][0xe4] ;
+        /*04b0*/                   STG.E [R2.64+0x84], R21 ;
+        /*04c0*/                   STG.E [R2.64+0x88], R23 ;
+        /*04d0*/                   MOV R19, c[0x0][0xe8] ;
+        /*04e0*/                   STG.E [R2.64+0x8c], R13 ;
+        /*04f0*/                   SGXT.U32 R9, R0, 0x7 ;
+        /*0500*/                   STG.E [R2.64+0x94], R15 ;
+        /*0510*/                   MOV R21, c[0x0][0xf0] ;
+        /*0520*/                   STG.E [R2.64+0x98], R17 ;
+        /*0530*/                   IMAD.MOV.U32 R23, RZ, RZ, c[0x0][0xf4] ;
+        /*0540*/                   STG.E [R2.64+0x90], R5 ;
+        /*0550*/                   IMAD.MOV.U32 R13, RZ, RZ, c[0x0][0xec] ;
+        /*0560*/                   STG.E [R2.64+0x9c], R7 ;
+        /*0570*/                   MOV R15, c[0x0][0x100] ;
+        /*0580*/                   IMAD.MOV.U32 R17, RZ, RZ, c[0x0][0x104] ;
+        /*0590*/                   STG.E [R2.64+0xa0], R19 ;
+        /*05a0*/                   IMAD.MOV.U32 R5, RZ, RZ, c[0x0][0x16c] ;
+        /*05b0*/                   STG.E [R2.64+0xa4], R13 ;
+        /*05c0*/                   IMAD.MOV.U32 R7, RZ, RZ, c[0x0][0x34] ;
+        /*05d0*/                   STG.E [R2.64+0xa8], R21 ;
+        /*05e0*/                   STG.E [R2.64+0xac], R23 ;
+        /*05f0*/                   STG.E [R2.64+0xb0], R25 ;
+        /*0600*/                   STG.E [R2.64+0xb4], R27 ;
+        /*0610*/                   STG.E [R2.64+0xb8], R15 ;
+        /*0620*/                   STG.E [R2.64+0xbc], R17 ;
+        /*0630*/                   STG.E [R2.64+0x30], R11 ;
+        /*0640*/                   STG.E [R2.64+0x24], R9 ;
+        /*0650*/                   STG.E.64 [R4.64], R6 ;
+        /*0660*/                   CS2R R2, SR_CLOCKLO ;
+        /*0670*/                   STG.E.64 [R4.64+0x8], R2 ;
+        /*0680*/                   CS2R R2, SR_GLOBALTIMERLO ;
+        /*0690*/                   STG.E.64 [R4.64+0x10], R2 ;
+        /*06a0*/                   EXIT ;
+        /*06b0*/                   BRA 0x6b0;
+
+==== cuobjdump -elf del cubin de tex3060 (docs/metal/tex_cuda), sin el codigo ====
+
+64-bit ELF: type=ET_EXEC, ABI=8, sm=86, toolkit=13.4, flags=0x6005604
+Sections:
+Index Offset   Size ES Align                      Type    Flags Link     Info Name
+    1     40    119  0  1                       STRTAB        0    0        0 .shstrtab
+    2    159    123  0  1                       STRTAB        0    0        0 .strtab
+    3    280     d8 18  8                       SYMTAB        0    2        8 .symtab
+    4    358     70  0  1                     PROGBITS        0    0        0 .debug_frame
+    5    3c8     a4  0  4                         NOTE  2000000    0        0 .note.nv.tkinfo
+    6    46c     20  0  4                         NOTE  1000000    5        0 .note.nv.cuinfo
+    7    48c     24  0  4                    CUDA_INFO        0    3        0 .nv.info
+    8    4b0     88  0  4                    CUDA_INFO       40    3        d .nv.info.muestrear
+    9    538     20  8  4               CUDA_CALLGRAPH        0    3        0 .nv.callgraph
+    a    558     10  8  8               CUDA_RELOCINFO        0    0        0 .nv.rel.action
+    b    568     10 10  8                          REL       40    3        4 .rel.debug_frame
+    c    578    184  0  4                     PROGBITS       42    0        d .nv.constant0.muestrear
+    d    700    200  0 80                     PROGBITS        6    3  e000008 .text.muestrear
+
+.section .strtab
+
+.section .shstrtab
+
+.section .symtab
+ index           value           size      info    other  shndx    name
+   0               0               0        0        0      0     (null)
+ 0x1               0               0      0x3        0    0x5     .note.nv.tkinfo
+ 0x2               0               0      0x3        0    0x6     .note.nv.cuinfo
+ 0x3               0               0      0x3        0    0xd     .text.muestrear
+ 0x4               0               0      0x3        0    0xc     .nv.constant0.muestrear
+ 0x5               0               0      0x3        0    0x4     .debug_frame
+ 0x6               0               0      0x3        0    0x9     .nv.callgraph
+ 0x7               0               0      0x3        0    0xa     .nv.rel.action
+ 0x8               0           0x200     0x12     0x10    0xd     muestrear
+
+
+.nv.constant0.muestrear
+0x00000000
+
+
+.section .note.nv.tkinfo
+Entry: 1
+  Owner                  Data size        Description
+  NVIDIA Corp            140              NVIDIA CUDA Toolkit Information
+	Note Version: 2
+	Tool Name: ptxas
+	Tool Version: Cuda compilation tools, release 13.4, V13.4.92
+	Tool Branch: Build cuda_13.4.r13.4/compiler.38855100_0
+	Tool Command Line Arguments: -arch sm_86 -m 64
+
+
+.section .note.nv.cuinfo
+Entry: 1
+  Owner                  Data size        Description
+  NVIDIA Corp            8                NVIDIA CUDA Information
+	Note Version: 2
+	CUDA Virtual SM: sm_86
+	CUDA Tool Kit Version: 13.4
+
+
+.nv.info
+	<0x1>
+	Attribute:	EIATTR_REGCOUNT
+	Format:	EIFMT_SVAL
+	Value:	function: muestrear(0x8)	register count: 14
+	<0x2>
+	Attribute:	EIATTR_FRAME_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: muestrear(0x8)	frame size: 0x0
+	<0x3>
+	Attribute:	EIATTR_MIN_STACK_SIZE
+	Format:	EIFMT_SVAL
+	Value:	function: muestrear(0x8)	min stack size: 0x0
+
+
+.nv.info.muestrear
+	<0x1>
+	Attribute:	EIATTR_LANGUAGE
+	Format:	EIFMT_SVAL
+	Value:	Language:	 PTX
+
+	<0x2>
+	Attribute:	EIATTR_CUDA_API_VERSION
+	Format:	EIFMT_SVAL
+	Value:	0x86
+	<0x3>
+	Attribute:	unknown Attribute
+	Format:	EIFMT_NVAL
+	<0x4>
+	Attribute:	EIATTR_PARAM_CBANK
+	Format:	EIFMT_SVAL
+	Value:	0x4 0x240160
+	<0x5>
+	Attribute:	EIATTR_CBANK_PARAM_SIZE
+	Format:	EIFMT_HVAL
+	Value:	0x24
+	<0x6>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x4	Offset  : 0x20	Size    : 0x4
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK
+	<0x7>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x3	Offset  : 0x18	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK
+	<0x8>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x2	Offset  : 0x10	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK
+	<0x9>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x1	Offset  : 0x8	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK
+	<0x10>
+	Attribute:	EIATTR_KPARAM_INFO
+	Format:	EIFMT_SVAL
+	Value:	Index : 0x0	Ordinal : 0x0	Offset  : 0x0	Size    : 0x8
+		Pointee's logAlignment : 0x0	Space : 0x0	cbank : 0x1f	Parameter Space : CBANK
+	<0x11>
+	Attribute:	EIATTR_MAXREG_COUNT
+	Format:	EIFMT_HVAL
+	Value:	0xff
+	<0x12>
+	Attribute:	unknown Attribute
+	Format:	EIFMT_HVAL
+	Value:	0x0
+	<0x13>
+	Attribute:	EIATTR_EXIT_INSTR_OFFSETS
+	Format:	EIFMT_SVAL
+	Value:	0x50 0x100
+
+
+.nv.callgraph
+ <0,-1>
+ <0,-2>
+ <0,-3>
+ <0,-4>
+
+
+.nv.rel.action
+Header : Base Relocation : R_CUDA_CONST_FIELD22_37
+Reloc type : Symbol Kind,Addend Shift,Source Position1,length1,Destination Position1,Source Position2,length2,Destination Position2
+R_CUDA_CONST_FIELD22_37 : EIVALUE_SYM_KIND_ADDR,0,0,17,37,0,5,54
+
+
+.text.muestrear
+lmem=0	smem=0
+0x00017a02 0x00000a00 0x00000f00 0x000fe400
+0x00067919 0x00000000 0x00002500 0x000e2800
+0x00037919 0x00000000 0x00002100 0x000e2400
+0x06067a24 0x00000000 0x078e0203 0x001fca00
+0x06007a0c 0x00006000 0x03f06270 0x000fda00
+0x0000094d 0x00000000 0x03800000 0x000fea00
+0x00057802 0x00000004 0x00000f00 0x000fe200
+0x00047ab9 0x00004600 0x00000a00 0x000fc800
+0x06027625 0x00005a00 0x078e0205 0x000fc800
+0x06047625 0x00005c00 0x078e0205 0x000fe400
+0x02027981 0x00000004 0x0c1e1900 0x000ea800
+0x04057981 0x00000004 0x0c1e1900 0x000ea400
+0x02087b60 0x30005805 0x009e0f0a 0x004f4200
+0x00077802 0x00000010 0x00000f00 0x000fca00
+0x06067625 0x00005e00 0x078e0207 0x000fca00
+0x06007986 0x00000008 0x0c101d04 0x020fe200
+0x0000794d 0x00000000 0x03800000 0x000fea00
+0x00007947 0xfffffff0 0x0383ffff 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+0x00007918 0x00000000 0x00000000 0x000fc000
+
+
+.section .debug_frame
+decodeDebugFrame, frameBuf 0xffffffff, total_length 112
+CIE length 36, cie_id -1
+version 3
+augmentation slen 1
+augmentation
+code_align_factor slen 1
+data_align_factor slen 1
+ Debug Frame Common Information Entry
+  length:                 36
+  CIE_id :                -1
+  version:                3
+  augmentation:
+  code align factor:      4
+  data align factor:      -4
+  return address register 0xffffffff
+  initial instructions: 19 bytes, ptr = 0x8080810c, frameBuf = 0xffffffff
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_same_value R255
+  DW_CFA_same_value R1
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+ Debug Frame Description Entry
+  length:                 52
+  CIE_pointer:            0
+  initial_location:       0x0
+  address_range:          0x200
+  function:               muestrear
+  instructions: 28 bytes
+  DW_CFA_advance_loc4 delta 4
+  DW_CFA_advance_loc4 delta 20
+  DW_CFA_def_cfa register R1, offset 0
+  DW_CFA_advance_loc4 delta 40
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+  DW_CFA_nop
+
+.section .rel.debug_frame	REL
+0x44    muestrear    R_CUDA_64

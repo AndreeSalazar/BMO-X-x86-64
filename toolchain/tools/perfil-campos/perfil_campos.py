@@ -31,6 +31,12 @@ Lo que se puede comparar, y lo que NO
             que lo primero: en cuanto alguien meta una SKU ahi sin tarjeta
             delante, `claims()` dira que si a algo que nadie ha visto
 
+    GPU_3060  (desde el 2026-09-28) `pci_vendor` y `chipset` contra
+            `lectura/identidad.rs` del crate ga10x, y que `pci_device` este
+            en su lista `DISPOSITIVOS`. ** Los relojes, la banda y el resto
+            NO: se MIDEN con docs/metal/sonda_cuda, y un numero medido no se
+            compara con codigo
+
     RED     `pci_vendor` SI, contra `VENDOR_REALTEK` del driver
             ** `pci_device` NO: el driver no lo declara como constante. Se
                comprueba contra el PCI en el arranque, no aqui
@@ -68,6 +74,14 @@ COMPARABLES = {
     "GPU.txt": [
         ("pci_vendor", os.path.join(RAIZ, "platform", "drivers", "gpu", "rdna4", "src", "lib.rs"),
          r"pci_vendor:\s*(0x[0-9A-Fa-f]+)", "numero"),
+    ],
+    # The card that IS in the box. `pci_device` is checked apart (below): the
+    # code keeps a LIST of accepted devices, not one constant.
+    "GPU_3060.txt": [
+        ("pci_vendor", os.path.join(RAIZ, "platform", "drivers", "gpu", "ga10x", "src", "lectura", "identidad.rs"),
+         r"pub const NVIDIA:\s*u16\s*=\s*(0x[0-9A-Fa-f]+)", "numero"),
+        ("chipset", os.path.join(RAIZ, "platform", "drivers", "gpu", "ga10x", "src", "lectura", "identidad.rs"),
+         r"pub const CHIPSET:\s*u16\s*=\s*(0x[0-9A-Fa-f]+)", "numero"),
     ],
     "ENTRADA.txt": [
         ("latido_ms", os.path.join(K, "dev", "usb", "bus.rs"),
@@ -324,6 +338,32 @@ def main():
                     "la hay, `claims()` esta reclamando hardware que nadie ha visto")
             else:
                 comparados += 1
+
+    # -- GPU_3060: the profiled device must be one the crate accepts -------
+    #
+    # identidad.rs keeps `DISPOSITIVOS: [u16; N] = [..]`. A profile naming a
+    # device outside that list describes a card the crate would refuse.
+    profile_3060 = os.path.join(PERFIL, "GPU_3060.txt")
+    identity_rs = os.path.join(RAIZ, "platform", "drivers", "gpu", "ga10x", "src", "lectura", "identidad.rs")
+    if os.path.exists(profile_3060):
+        with open(profile_3060, "r", encoding="utf-8", errors="replace") as fh:
+            said = campo(fh.read(), "pci_device")
+        accepted = None
+        if os.path.exists(identity_rs):
+            with open(identity_rs, "r", encoding="utf-8", errors="replace") as fh:
+                m = re.search(r"pub const DISPOSITIVOS:\s*\[u16;\s*\d+\]\s*=\s*\[([^\]]*)\]", fh.read())
+            if m:
+                accepted = [int(x.strip(), 16) for x in m.group(1).split(",") if x.strip()]
+        if said is None:
+            quejas.append("GPU_3060.txt no declara `pci_device`")
+        elif accepted is None:
+            quejas.append("GPU_3060: en lectura/identidad.rs ya no esta `DISPOSITIVOS` -- "
+                          "o se renombro, o se quito")
+        elif int(said.split()[0], 16) not in accepted:
+            quejas.append("GPU_3060: `pci_device` dice %s y `DISPOSITIVOS` solo acepta %s"
+                          % (said, ", ".join("0x%04X" % d for d in accepted)))
+        else:
+            comparados += 1
 
     # -- DISCO: los tres cierres, y es lo mas importante de aqui -----------
     if not os.path.exists(DISCOS):

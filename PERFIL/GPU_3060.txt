@@ -1,0 +1,140 @@
+EL PERFIL DE LA RTX 3060 12G -- la grafica que HAY, y solo ella
+=================================================================
+
+  Pedido por el propietario el 28-09: "UN PERFIL ESPECIFICO RTX 3060 12G".
+  GPU.txt mezclaba dos tarjetas (esta y la RDNA 4 que el plan supone); desde
+  hoy la 3060 tiene el suyo y GPU.txt se queda con la que no esta.
+
+  La mitad OPERATIVA vive en platform/drivers/gpu/ga10x/ (el crate
+  `bmo-gpu-ga10x`) y en Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu*.
+  La anatomia larga, con el porque de cada capa:
+      platform/drivers/gpu/ga10x/ANATOMIA.md            (como la ve BMO-X)
+      platform/drivers/gpu/ga10x/COMO_LE_HABLA_NVIDIA.md (como le habla NVIDIA)
+
+  ** Guardian: `perfil-campos` compara pci_vendor, pci_device y chipset con
+  lectura/identidad.rs. El resto se MIDE, no se compara -- y por eso cada
+  numero dice cuando y con que se midio.
+
+
+QUIEN ES (se le pregunta; se escribe para que se note si cambia)
+-----------------------------------------------------------------
+
+  fabricante: NVIDIA
+  modelo: GeForce RTX 3060 12GB de MSI (el modelo comercial exacto NO sale
+      del subsistema: no se afirma)
+  pci_vendor: 0x10DE
+  pci_device: 0x2504
+  subsistema: 1462:397D
+  chipset: 0x176
+  boot_0: 0xB76000A1 (GA106, revision A1)
+  pieza: 2504-302-A1
+  vbios: 94.06.2f.00.9a
+  vram: 12288 MiB GDDR6, bus de 192 bits
+  capacidad: sm_86 (Ampere)
+
+
+LO QUE NO DICE, MEDIDO (el motivo de que esto sea un perfil)
+-------------------------------------------------------------
+
+  La regla de la carpeta: lo que no se le puede preguntar se mide y se
+  escribe. Medido en el Windows del propietario el 28-09 con CUDA 13.4 y el
+  driver 610.74 (docs/metal/sonda_cuda/), salvo donde dice otra cosa.
+
+  el cable
+    pcie_real: Gen3 x16 (la tarjeta sabe Gen4; la A320 no). En reposo baja a Gen1
+    pcie_banda: 13,05 GB/s hacia la VRAM y 13,18 desde ella, con RAM fijada
+    bar1: 256 MiB, sin Resizable BAR. BAR0 16 MiB, BAR3 32 MiB
+    interrupcion: MSI, un solo mensaje
+
+  la memoria
+    vram_banda: 331 GB/s de bus copiando VRAM a VRAM (360 teoricos)
+    vram_reservada_por_windows: 173 MiB
+
+  el reloj
+    reposo: P8, SM a 210 MHz, memoria a 405 MHz
+    maximos: SM 2130 MHz, memoria 7501 MHz, video 1950 MHz
+    con_carga_en_windows: 1782-1802 MHz al crear el contexto, 1935-1971 MHz
+        tras 1,5 s (clock64 contra globaltimer)
+    con_carga_en_bmo_x: NO sube sola. Hay que pedir PERF_BOOST al GSP-RM y
+        renovarlo antes de 60 s (x5,7 medido el 26-09, ver GPU.txt)
+    globaltimer: avanza de 1024 en 1024 ns
+
+  el silicio
+    sm: 28, con 1536 hilos (48 warps) y 16 bloques cada uno
+    registros: 65536 por SM
+    memoria_compartida: 100 KiB por SM; 48 KiB por bloque (99 KiB pidiendola)
+    l2: 2359296 B segun CUDA
+    motores: GR0, COPY0..COPY4, NVDEC0, NVENC0, OFA0, SEC2 (GET_ENGINES_V2);
+        CUDA en Windows solo ve UN motor de copia -- es politica, no silicio
+
+  las texturas
+    alineacion: 512 B la imagen, 32 B el paso de fila
+    borde: se CUANTIZA al formato (0,5 en RGBA8 sale 127/255)
+    pitch_contra_bloques: iguales bit a bit en 96 muestras
+
+  la energia
+    potencia: 170 W de tope (100 W minimo); 17-18 W en reposo en Windows
+    temperatura: objetivo 83 C, maxima 93 C, frena en 95 C, se apaga en 98 C
+
+  el firmware
+    en_windows: el RM corre en la CPU (nvlddmkm.sys); GSP "N/A"
+    en_bmo_x: el GSP-RM 570.144 corre en la tarjeta, arrancado por BMO-X
+
+  [!] Un perfil de UNA tarde con UN driver. La temperatura, la fuente, la
+  BIOS de la placa y la version del driver o del GSP-RM lo pueden mover: el dia
+  que cambien, se mide otra vez con la misma sonda.
+
+
+A QUIEN EXPONE
+---------------
+
+expone: platform/drivers/gpu/ga10x/src/lectura/identidad.rs
+   "la 3060 12G, y SOLO ella": vendor, dispositivos y chipset. Si este perfil
+   y ese fichero no dicen lo mismo, el build para
+
+expone: platform/drivers/gpu/ga10x/src/arranque/wpr.rs
+   el mapa de la WPR se calcula desde los 12 GiB de VRAM. Otra VRAM, otro mapa
+
+expone: Ultra_kernel_x86-64/kernel/src/ring0/dev/gpu.rs
+   las BAR y el BDF que lee el kernel. Cambiar la BIOS de la placa los mueve
+
+expone: toolchain/tools/la-3060
+   el guardian de la regla I: "la 3060 12G y SOLO ella"
+
+expone: docs/metal/sonda_cuda
+   de donde sale cada numero de la seccion de arriba, y como repetirlo
+
+expone: NEUTRO/CENSO.txt
+   la 3060 es el neutro mas grande de la maquina: lee RAM del PC por DMA
+
+
+SI ESTE PERFIL ESTA MAL, ASI SE NOTA
+-------------------------------------
+
+  pci_device o chipset de otra tarjeta
+      ** EL BUENO DE LOS FALLOS: `es_la_3060_12g` dice NO y el crate no toca
+      nada. Se nota como "hay una grafica NVIDIA y BMO-X no la maneja". Lo que
+      NO debe pasar nunca es agregar el numero sin tarjeta delante
+
+  la VRAM no es de 12288 MiB (otra 3060, o el GFW no acabo)
+      el mapa de la WPR cae en otro sitio. El booter dice NO (un 0x15) o, peor,
+      se escribe VRAM de mas. `vram_es_la_suya` lo para antes; la fila `GFW`
+      del informe dice si el firmware de arranque acabo
+
+  se da por hecho el reloj de Windows
+      en BMO-X la 3060 arranca en P8 y se queda ahi: todo va 10-20 veces mas
+      lento que la misma cuenta en Windows y parece un fallo del codigo. Se
+      caza mirando el P-state (el GSP-RM lo dice) ANTES que el codigo
+
+  se enciende Resizable BAR o "Above 4G" en la BIOS
+      BAR1 cambia de sitio y de medida (hoy 256 MiB en 0xD0000000). Lo que
+      pinte por BAR1 pinta en el vacio. Se caza con la fila `sysinfo`
+
+  se cambia de placa a una con Gen4
+      no rompe nada: los numeros del cable se quedan viejos y cortos. Medir
+      otra vez
+
+  se compara el muestreo con otra cosa que la 3060
+      el borde cuantizado (127/255) y los casos de (1,0; 1,0) no salen en un
+      emulador en coma flotante. El juez de las texturas son los bits de
+      docs/metal/tex_cuda/SALIDA.TXT (rama metal/tex-cuda), no una formula

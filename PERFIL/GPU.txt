@@ -1,8 +1,13 @@
-EL PERFIL DE LA GPU -- dos tarjetas, y ninguna perfilada todavia
-==================================================================
+EL PERFIL DE LA GPU -- dos tarjetas: la que hay y la que el plan supone
+=========================================================================
 
-  La mitad OPERATIVA vive en platform/drivers/gpu/rdna4/ (el crate
-  `bmo-gpu-rdna4`, con la maquina de estados del PSP y sus nueve pruebas).
+  ** Desde el 28-09 la 3060 tiene perfil PROPIO: GPU_3060.txt (lo que no
+  dice, medido, y su guardian contra identidad.rs). Este fichero se queda
+  con la historia de las dos y con la RDNA 4.
+
+  La mitad OPERATIVA de la RDNA 4 vive en platform/drivers/gpu/rdna4/ (el
+  crate `bmo-gpu-rdna4`, con la maquina de estados del PSP y sus nueve
+  pruebas). La de la 3060, en platform/drivers/gpu/ga10x/.
 
   [!] Este fichero no tiene guardian. Ver README.md, seccion 5.
 

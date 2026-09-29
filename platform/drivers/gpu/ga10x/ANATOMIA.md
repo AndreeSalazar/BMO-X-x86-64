@@ -8,6 +8,10 @@
 > Regla de este documento: **solo lo MEDIDO por BMO-X en esta tarjeta, o lo
 > que dicen fuentes publicas citadas**. Lo que no se sabe dice "sin medir".
 > No se inventa nada: la tarjeta ya nos sorprendio cinco veces por suponer.
+>
+> La otra mitad -- como le habla el driver de NVIDIA a esta misma tarjeta, medido
+> en Windows el 28-09 -- esta en [`COMO_LE_HABLA_NVIDIA.md`](COMO_LE_HABLA_NVIDIA.md),
+> y el perfil declarativo en `PERFIL/GPU_3060.txt`.
 
 ---
 

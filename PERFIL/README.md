@@ -142,6 +142,7 @@ es justo lo que hacen ya `perfil-placa` y `censo-neutro`.
 | [`CPU.txt`](CPU.txt) | aqui | `cpu_vendor/ryzen_5_5600x/` (1.072 lineas) | -- |
 | [`RAM.txt`](RAM.txt) | aqui | `core/shell/banda.rs` (la MIDE) | -- |
 | [`GPU.txt`](GPU.txt) | aqui | `platform/drivers/gpu/rdna4/` | -- |
+| [`GPU_3060.txt`](GPU_3060.txt) | aqui (28-09) | `platform/drivers/gpu/ga10x/` | `perfil-campos`: vendor, device y chipset |
 | [`ENTRADA.txt`](ENTRADA.txt) | aqui | `uhid/` + `dev/usb/` | -- |
 | disco | falta | `dev/disk/` | -- |
 | red | falta | `red/` | -- |
