@@ -1,0 +1,12 @@
+[package]
+name = "bmo-ntfs"
+version = "0.1.0"
+edition = "2021"
+description = "BMO NTFS reader -- SOLO LECTURA: el MFT, las carpetas con nombres largos y los ficheros grandes, sobre el contrato de bloques"
+
+[lib]
+
+[dependencies]
+# UNA, la misma que FAT32: el contrato de bloques. NTFS no sabe si debajo hay
+# SATA o NVMe, y no escribe nunca (no hay `write` en este crate).
+bmo-block = { path = "../block" }

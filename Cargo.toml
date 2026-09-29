@@ -156,6 +156,10 @@ members = [
     "platform/drivers/storage/particiones",
     "platform/drivers/storage/ahci",
     "platform/drivers/storage/fat32",
+    # NTFS de SOLO LECTURA (29-09): el disco `Personal (D:)` de Windows, donde
+    # vive Cyberpunk 2077, leido sin copiarlo. Mismo contrato de bloques que
+    # FAT32 y ni una escritura.
+    "platform/drivers/storage/ntfs",
     # ESTRATOS: el formato en disco del FS propio. Solo el FORMATO -- sin E/S,
     # para poder probarlo entero en el anfitrion antes de tocar un sector.
     "platform/drivers/storage/estratos",

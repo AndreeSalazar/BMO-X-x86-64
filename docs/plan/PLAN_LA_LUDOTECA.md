@@ -358,7 +358,28 @@ Lo que dicen, leido:
   El camino A no es el facil: es el HONESTO -- solo promete lo que se puede
   verificar entero.
 
-**Y el NTFS no hace falta (25-09).** Los juegos de GOG viven en el volumen
+**CAMBIADO EL 29-09 por el propietario: BMO-X LEE NTFS.** *"Cyberpunk 2077
+lo tengo instalado en PERSONAL: que mi BMO-X aprenda a LEER NTFS; migrar a
+ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
+
+- [x] **N0 [HECHO banco 29-09] el lector, puro.** `platform/drivers/storage/ntfs`
+      (`bmo-ntfs`, sin `alloc`, sobre `bmo-block` como FAT32, sin una sola
+      escritura): el sector de arranque, el MFT con sus arreglos, atributos
+      residentes y por tramos (huecos, saltos atras, todo en u64: mas de 4
+      GiB), carpetas por `$I30` (la raiz y los bloques INDX que su `$BITMAP`
+      marca VIVOS: lo borrado no sale), nombres largos UTF-16 sin
+      mayusculas, sin el alias 8.3, y `$ATTRIBUTE_LIST`. Comprimido y
+      cifrado: lo dice, no lee basura. **Como se sabe:** 11 pruebas contra
+      DOS discos hechos por `mkntfs`/`ntfs-3g` (no a mano):
+      `platform/drivers/storage/ntfs/prueba/COMO.md`.
+- [ ] **N1 -- en el metal.** El kernel monta la particion NTFS y el
+      escritorio lista y lee (`personal ls <ruta>`). PIDE saber en QUE DISCO
+      esta `Personal (D:)`: BMO-X maneja SU disco (el SSD SATA del informe);
+      si D: esta en otro (un NVMe), hace falta ese disco primero.
+- [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
+      con `D:\...` va al volumen NTFS, solo lectura.
+
+**Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
 basta con COPIAR, desde Windows, el fichero de datos (`doom2.wad`, `pak0.pak`)
 a la particion de datos de BMO-X, como ya se hace con `doom1.wad`; y un juego
@@ -434,6 +455,9 @@ datos?
    Garry's Mod, L4D2, CS2,   legal. Camino B (streaming)
    Dota 2
    Cyberpunk 2077 (GOG)      NO por A: REDengine 4 cerrado. Camino B
+   Resident Evil 4 (Steam,   NO por PROTON-X (29-09): Steam y su antimanipulacion
+   el remake, RE Engine)     (Denuvo) vigilan el sistema; D3D12, 57 GB. Solo
+                             sirve para MEDIR con `rayosx` lo que importa
    Warframe, Zenless Zone    NO: servicios en linea con antitrampas; ni por A
    Zero, Apex, Call of Duty  ni por B tiene sentido en BMO-X
    el resto de la lista      motores cerrados (Unreal, Unity, RE Engine...):

@@ -842,8 +842,13 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        segundos la 3060 y la sombra iban al DOBLE de
                        rapido, ~0,6 ms cada una, y luego bajaron: la 3060
                        arranca en P8, reposo; subirla es otro escalon)
-                    Z3 [HECHO en codigo 29-09, falta el metal] PEGAR UNA
-                       VEZ. NO por huella (una app podria fabricar una
+                    Z3 [VISTO EN EL METAL 29-09 08:18] PEGAR UNA VEZ:
+                       ~4000 fps (antes 3749), el lote de 264 a 247 us,
+                       `resto` de 124 a 105 us. Pegar y juzgar costaban
+                       ~20 us, no los 124: el resto de `resto` es otra cosa
+                       (leer la receta, la huella de lo fijo, las lecturas
+                       por el PCIe al esperar) y hay que partirlo antes de
+                       tocarlo. NO por huella (una app podria fabricar una
                        colision de 64 bits y colar un cuerpo sin juzgar):
                        `receta::clave` pone en bytes TODO lo que `pegar`
                        lee (los dos cuerpos, cargas, elementos, genericos
