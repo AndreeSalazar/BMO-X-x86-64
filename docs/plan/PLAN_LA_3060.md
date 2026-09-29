@@ -2545,6 +2545,50 @@ salud` de ESE arranque malo, para compararlas con las de un arranque bueno
 (las dos lineas nuevas: el falcon antes de FRTS, el espacio VGA, el FLR y
 las capacidades extendidas). Sin eso no se toca nada.
 
+**LO QUE DICE FUERA (29-09, investigado en nova-core de Linux y los
+informes de NVIDIA), y el par bueno/malo del mismo dia.** El propietario:
+*"siempre se repetia ... investigar MAS ... que mi GPU reciba notificacion,
+peticion MAS elegante"*.
+
+```text
+   10:09 MALO   autopsia al pararse: GSP MAILBOX0 = MAILBOX1 = 0xBADF1002
+   10:24 BUENO  autopsia al pararse: GSP MAILBOX0 0, BSI 0x11000000
+                (los dos: `al llegar` y `cargador` IGUALES, fria)
+```
+
+- `0xBADF1002` no es un valor: es la LECTURA DENEGADA por privilegio (el
+  registro existe y la CPU no puede leerlo; el mismo patron que dan los
+  registros fusionados de una GeForce). O sea: en el malo el booter dejo el
+  falcon del GSP con su PLM CERRADO y se paro (0x15) antes de soltarlo. En
+  nova-core, `0xbadf41xx` en el MAILBOX0 es otra cosa (el lockdown de
+  Hopper/Blackwell) y no aplica a Ampere.
+- nova-core (`gsp/hal/tu102.rs`, que GA102 reusa sin el bootloader de
+  FWSEC) hace lo MISMO que BMO-X: se NIEGA a arrancar con la WPR2 arriba
+  ("GPU needs to be reset"), resetea los falcons igual (`falcon/hal/ga102.rs`:
+  `reset_ready`, ENGINE reset, borrado de memoria en 20 ms, BCR a FALCON) y
+  al descargar manda `UNLOADING_GUEST_DRIVER`, espera el bit 31 del MAILBOX0
+  (suspendido), FWSEC-SB y el booter de descarga con los buzones a 0xFF, y
+  comprueba que la WPR2 cae. BMO-X ya lo hace en `reboot` (`gpu_apagar.rs`).
+- La "peticion elegante" existe y ya se usa: es esa RPC. Lo que queda sin
+  ella es VENIR DE WINDOWS: su RM corre en la CPU y no hay GSP-RM al que
+  despedir (W1: deshabilitarla no ayudo).
+- Los informes de NVIDIA y de Linux coinciden en dos cosas de fuera: (1) el
+  arranque rapido de Windows ("inicio rapido", hibernacion hibrida) NO
+  apaga los aparatos: la tarjeta sigue con el estado de su driver; y dual
+  boot con NVIDIA falla tras REINICIAR desde Windows y no tras APAGAR; (2)
+  sin la fuente cortada, la placa deja energia de reposo en S5; el ErP de la
+  BIOS (MSI: `ErP Ready`) la quita. La unica recuperacion SIN cortar la
+  corriente que dan es el reinicio por el bus (SBR), que en BMO-X rompe
+  FWSEC-FRTS (fila 5) mientras R2 no se resuelva.
+
+**W2 [por probar, sin codigo]: que APAGAR desde Windows sea apagar de
+verdad.** (1) Windows: desactivar el inicio rapido (`powercfg /h off`, como
+administrador; quita tambien la hibernacion, y ademas deja el NTFS de D:
+cerrado en limpio para N1a). (2) BIOS: `ErP Ready` en `Enabled`. (3) De
+Windows a BMO-X: APAGAR y encender, no Reiniciar. Se mide con la fila
+`despierto` de varios arranques seguidos viniendo de Windows. Si sale
+siempre, el cable deja de hacer falta.
+
 Si con el paso 1 `gpu init` sale y sin el no, lo que ensucia la 3060 es el
 driver de Windows VIVO al reiniciar, y la "tercera pista" de R3 se puede
 buscar comparando estos dos arranques. "Apagar" y esperar 15-30 s sigue
