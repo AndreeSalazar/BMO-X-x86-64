@@ -698,7 +698,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
     if let Some(r) = n.strip_prefix("_o_") {
         return buscar(r);
     }
-    esta(n).or_else(|| crate::crt_cadenas::buscar(n)).or_else(|| crate::crt_mates::buscar(n)).or_else(|| crate::crt_ficheros::buscar(n))
+    esta(n).or_else(|| crate::crt_cadenas::buscar(n)).or_else(|| crate::crt_numeros::buscar(n)).or_else(|| crate::crt_entorno::buscar(n)).or_else(|| crate::crt_mates::buscar(n)).or_else(|| crate::crt_ficheros::buscar(n))
 }
 
 fn esta(n: &str) -> Option<u64> {

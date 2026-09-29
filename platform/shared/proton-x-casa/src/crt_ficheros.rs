@@ -327,7 +327,7 @@ fn poner_stat(st: *mut u8, carpeta: bool, medida: u64, solo_lectura: bool, exe: 
     }
     // El CRT copia los permisos del propietario al grupo y a los demas.
     m |= (m & 0x1C0) >> 3 | (m & 0x1C0) >> 6;
-    let t = crate::crt_cadenas::unix_ahora();
+    let t = crate::crt_entorno::unix_ahora();
     // SAFETY: los 56 bytes del `_stat64` del `.exe`.
     unsafe {
         core::ptr::write_bytes(st, 0, 56);
