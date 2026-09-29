@@ -609,7 +609,53 @@ pub mod prueba {
     /// RGBA8 en `va_destino`. En `caja`; devuelve cuanto mide.
     pub fn receta(m: usize, va_textura: u64, va_destino: u64, datos: &mut [u8; BYTES_DATOS], caja: &mut [u8]) -> Option<usize> {
         let (lineal, modo) = *MUESTREADORES.get(m)?;
-        for (k, &(u, v)) in PUNTOS.iter().enumerate() {
+        receta_con(lineal, modo, &PUNTOS, va_textura, va_destino, datos, caja)
+    }
+
+    /// **EL BARRIDO** (metal 28-09 23:16: los 96 salieron DISTINTOS, y el
+    /// primero, `Point Wrap (0.1, 0.1)`, dio el texel (1, 1) en vez del
+    /// (0, 0)): Point Clamp en la diagonal, en el CENTRO de 12 franjas
+    /// iguales de 0..1 (`(k + 0.5) / 12`). Con la textura de 4 como se cree,
+    /// los texeles son 0 0 0 1 1 1 2 2 2 3 3 3; cualquier otra escala (o un
+    /// desplazamiento) sale en ese patron y se lee directo.
+    pub const BARRIDO: [(f32, f32); 12] = {
+        let mut p = [(0.0f32, 0.0f32); 12];
+        let mut k = 0;
+        while k < 12 {
+            let x = (2 * k + 1) as f32 / 24.0;
+            p[k] = (x, x);
+            k += 1;
+        }
+        p
+    };
+    /// Lo que sale del barrido con la textura de 4 (el texel de la diagonal).
+    pub const BARRIDO_BIEN: [u32; 12] = [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
+
+    /// **Que texel es** un pixel leido: `Some(x + 4 y)` si es uno de los 16
+    /// (todos distintos), `Some(16)` si es el borde, `Some(17)` si es 0 (el
+    /// relleno o memoria vacia); `None` si no es ninguno (mezcla o basura).
+    pub fn que_texel(pixel: u32) -> Option<u32> {
+        let t = texeles();
+        for y in 0..4u32 {
+            for x in 0..4u32 {
+                if t[(y * FILA / 4 + x) as usize] == pixel {
+                    return Some(x + 4 * y);
+                }
+            }
+        }
+        match pixel {
+            0xFFFF_7F00 => Some(16),
+            // El relleno o memoria vacia: TODO a cero, alfa incluido (el texel
+            // (0, 0) es negro OPACO, 0xFF000000, y ya salio arriba).
+            0 => Some(17),
+            _ => None,
+        }
+    }
+
+    /// La receta con `lineal`, el modo `modo` (D3D12) y los 12 puntos que se
+    /// pidan.
+    pub fn receta_con(lineal: bool, modo: u32, puntos: &[(f32, f32); 12], va_textura: u64, va_destino: u64, datos: &mut [u8; BYTES_DATOS], caja: &mut [u8]) -> Option<usize> {
+        for (k, &(u, v)) in puntos.iter().enumerate() {
             let (x0, y0) = esquina(k);
             let (x1, y1) = (x0 + LADO, y0 + LADO);
             let cx = |x: u32| x as f32 / 640.0 - 1.0;
@@ -695,6 +741,14 @@ pub mod prueba {
             }
             assert!(ESPERADO.iter().flatten().all(|&p| p != FONDO));
             assert_eq!(texeles()[(FILA / 4 + 1) as usize], 60 | 60 << 8 | 40 << 16 | 255 << 24, "el texel (1, 1)");
+            // El barrido: los centros de 12 franjas y lo que dan con 4 texeles.
+            for (k, &(u, _)) in BARRIDO.iter().enumerate() {
+                assert_eq!((u * 4.0) as u32, BARRIDO_BIEN[k]);
+            }
+            assert!(receta_con(false, 3, &BARRIDO, 0x4000_0000, 0x1000_0000, &mut datos, &mut caja).is_some());
+            // Lo que dio el metal (28-09 23:16) es el texel (1, 1).
+            assert_eq!(que_texel(0xFF28_3C3C), Some(1 + 4));
+            assert_eq!((que_texel(0xFFFF_7F00), que_texel(0), que_texel(0xFF00_0000), que_texel(0xFF12_3456)), (Some(16), Some(17), Some(0), None));
         }
     }
 }

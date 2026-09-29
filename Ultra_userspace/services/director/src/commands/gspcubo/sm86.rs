@@ -738,11 +738,17 @@ pub(super) fn textura(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
     let (mut buenas, mut us) = (0u32, 0u64);
     let mut por_modo = [0u32; 8];
     let mut primera: Option<(usize, usize, u32)> = None;
-    for m in 0..8 {
-        let Some(n) = pr::receta(m, texturab.base() as u64, destino.base() as u64, &mut datos, caja) else {
-            return linea(dsk, b"  NO  la receta de la prueba no se sostiene (el banco la escribe: esto no deberia pasar)", INK_ERR);
+    // Los 96 leidos, y los 12 del BARRIDO (el noveno dibujo, `m == 8`).
+    let mut dados = [[0u32; 12]; 9];
+    for m in 0..9 {
+        let n = if m < 8 {
+            pr::receta(m, texturab.base() as u64, destino.base() as u64, &mut datos, caja)
+        } else {
+            pr::receta_con(false, 3, &pr::BARRIDO, texturab.base() as u64, destino.base() as u64, &mut datos, caja)
         };
-        let _ = n;
+        if n.is_none() {
+            return linea(dsk, b"  NO  la receta de la prueba no se sostiene (el banco la escribe: esto no deberia pasar)", INK_ERR);
+        }
         match bmo::iommu_orden_con(bmo::IOMMU_OP_GPU_DIBUJAR, caja.as_ptr() as u64) {
             Ok(v) if cu::sano(v) => {
                 us += cu::desempaquetar(v).0 as u64;
@@ -751,6 +757,10 @@ pub(super) fn textura(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
                     // SAFETY: dentro del destino (1280x720); lo escribio la
                     // 3060 por DMA: se lee con `read_volatile`.
                     let dado = unsafe { core::ptr::read_volatile(&dst[(y * w + x) as usize]) };
+                    dados[m][k] = dado;
+                    if m == 8 {
+                        continue;
+                    }
                     if dado == pr::ESPERADO[m][k] {
                         buenas += 1;
                         por_modo[m] += 1;
@@ -800,6 +810,39 @@ pub(super) fn textura(dsk: &mut Desktop, p: &bmo::Pantalla) -> After {
         let mut t = Texto::nuevo();
         let _ = core::fmt::write(&mut t, format_args!("           el primero: {} en ({u}, {v}): la 3060 {dado:#010x}, CUDA {:#010x} (R en el byte bajo)
 ", pr::NOMBRES[m], pr::ESPERADO[m][k]));
+        g.text(t.s());
+    }
+    // ** TODO lo leido, para ver el patron y no adivinar: en los de PUNTO,
+    // que texel salio (`xy`: columna y fila; BB el borde; -- vacio; ?? otra
+    // cosa); en los LINEALES, el pixel (RRGGBB). Y debajo lo que dijo CUDA.
+    let etiqueta = |t: &mut Texto, p: u32, punto: bool| {
+        if !punto {
+            let _ = core::fmt::write(t, format_args!(" {:02X}{:02X}{:02X}", p & 0xFF, p >> 8 & 0xFF, p >> 16 & 0xFF));
+            return;
+        }
+        match pr::que_texel(p) {
+            Some(16) => t.t(b" BB"),
+            Some(17) => t.t(b" --"),
+            Some(i) => t.t(b" ").d((i % 4) as u64).d((i / 4) as u64),
+            None => t.t(b" ??"),
+        };
+    };
+    for m in 0..9 {
+        let punto = m < 4 || m == 8;
+        let mut t = Texto::nuevo();
+        t.t(b"           ").t(if m < 8 { pr::NOMBRES[m].as_bytes() } else { b"BARRIDO Point Clamp" }).t(b": 3060");
+        for k in 0..12 {
+            etiqueta(&mut t, dados[m][k], punto);
+        }
+        t.t(b"\n           ").t(if m < 8 { b"             CUDA" as &[u8] } else { b"         si 4 texeles" });
+        for k in 0..12 {
+            if m < 8 {
+                etiqueta(&mut t, pr::ESPERADO[m][k], punto);
+            } else {
+                t.t(b" ").d(pr::BARRIDO_BIEN[k] as u64).d(pr::BARRIDO_BIEN[k] as u64);
+            }
+        }
+        t.t(b"\n");
         g.text(t.s());
     }
     super::super::datos::anotar(b"gpu verrano textura", buenas as u64, b"de 96");
