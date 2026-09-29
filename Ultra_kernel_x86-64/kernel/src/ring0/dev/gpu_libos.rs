@@ -101,6 +101,19 @@ pub(super) fn memoria(fisica: u64, bytes: u64) -> &'static mut [u8] {
     unsafe { core::slice::from_raw_parts_mut(crate::ring0::mm::phys_to_virt(fisica) as *mut u8, bytes as usize) }
 }
 
+/// **La huella de los argumentos de LIBOS y de `rmargs`** (29-09, el vigia
+/// del booter): las dos paginas que el GSP LEE al arrancar. En un arranque
+/// malo el GSP no llega a correr, asi que no deberian moverse. `false` si aun
+/// no se pidieron. La de vaciado no entra: la escribe la 3060.
+pub fn huella_argumentos(h: &mut bmo_hash::Hasher) -> bool {
+    let f = CHICAS_F.load(Ordering::Acquire);
+    if f == 0 {
+        return false;
+    }
+    h.update(memoria(f, 2 * PAGINA));
+    true
+}
+
 /// Un grupo de marcos, pedido una vez.
 pub(super) fn grupo(celda: &AtomicU64, paginas: u64) -> Option<u64> {
     let f = celda.load(Ordering::Acquire);

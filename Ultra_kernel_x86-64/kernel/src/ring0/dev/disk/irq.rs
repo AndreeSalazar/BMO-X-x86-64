@@ -70,6 +70,12 @@ pub const DISCO_AVISO_CPU_SHIFT: u64 = 36;
 pub const DISCO_AVISO_ARMADA: u64 = 1 << 62;
 pub const DISCO_AVISO_VALIDO: u64 = 1 << 63;
 
+/// Cuantas veces entro el vector del disco desde el arranque. Lo mira la
+/// autopsia del booter de la 3060: el trafico del disco MIENTRAS corre.
+pub fn entradas() -> u32 {
+    ENTRADAS.load(core::sync::atomic::Ordering::Relaxed)
+}
+
 /// **`INFO_DISCO_AVISO`: la escalera del aviso, leida AHORA.** Cada peldano es
 /// un sitio donde el aviso se puede perder, preguntado a quien lo tiene: el
 /// aparato (su MSI), el HBA (sus registros), el LAPIC (su IRR) y el vector

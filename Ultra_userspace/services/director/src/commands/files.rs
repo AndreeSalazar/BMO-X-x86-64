@@ -223,6 +223,8 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
         // Los ficheros del propio NTFS (`$MFT`, `$Bitmap`...): Windows
         // tampoco los muestra.
         if nom.first() == Some(&b'$') { ocultas += 1; continue; }
+        // `.`: la raiz de NTFS se tiene a si misma en su indice.
+        if is_dot_entry(nom) { todas -= 1; continue; }
         if vistas >= 256 { continue; }
         dsk.out.grid.text(b"  ");
         let mut k = nombre_ascii(dsk, nom);

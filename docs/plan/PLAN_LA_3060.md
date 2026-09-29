@@ -2596,6 +2596,12 @@ que ya salia siempre, pero tampoco la apoya: si el siguiente sale igual, H3
 cae y el `wbinvd` se queda (no cuesta nada y no estorba). Lo siguiente se
 decide con lo que falte por mirar de la autopsia, no a ciegas.
 
+**H3 CAE (29-09 12:42): segundo arranque con el `wbinvd`, `0x15` igual**, con
+la misma autopsia al detalle: `GSP MAILBOX0/1 0xBADF1002`, `CPUCTL GSP
+0xBADF5620`, WPR2 extendida a `0x2F4000000..0x2FFEE0000`, BSI 0 y GFW 0xFF
+antes y despues, la IOMMU sin eventos y el bus con el mismo CORREGIBLE que
+ya traia al arrancar. Ni caliente (W2) ni cache (H3). El `wbinvd` se queda.
+
 **W2 [por probar, sin codigo]: que APAGAR desde Windows sea apagar de
 verdad.** (1) Windows: desactivar el inicio rapido (`powercfg /h off`, como
 administrador; quita tambien la hibernacion, y ademas deja el NTFS de D:

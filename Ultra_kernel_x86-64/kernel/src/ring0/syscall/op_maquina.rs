@@ -136,6 +136,23 @@ pub(super) fn smp_despertar(arg0: u64, arg1: u64) -> BmoStatus {
                     _ => BmoStatus::ok_value(0),
                 }
             }
+            // *** 6, 7 y 8: LA PRUEBA DE LA RAM (`ram prueba`, 29-09). Una
+            // tanda por llamada --16 MiB, tres patrones, ~10 ms-- para que el
+            // escritorio pinte entre medias. `arg0 == 0` empieza una nueva.
+            // Ver `plat/smp/prueba_ram.rs`.
+            6 => {
+                let r = crate::ring0::plat::smp::prueba_ram::tanda(arg0 == 0);
+                crate::ring0::dev::usb::rescatar_el_bus();
+                match r {
+                    Ok(v) => BmoStatus::ok_value(v),
+                    Err(m) => BmoStatus::negado(m, 0),
+                }
+            }
+            7 => match crate::ring0::plat::smp::prueba_ram::cancelar() {
+                Ok(v) => BmoStatus::ok_value(v),
+                Err(m) => BmoStatus::negado(m, 0),
+            },
+            8 => BmoStatus::ok_value(crate::ring0::plat::smp::prueba_ram::detalle(arg0)),
             // Desactivar: los obreros vuelven a `hlt` y ahi se quedan.
             1 => {
                 crew::parar();
