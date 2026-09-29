@@ -367,7 +367,13 @@ el GSP-RM. Lo que no cambia es el final: GPFIFO, metodos de `AMPERE_B`, SASS.
    dos corren en esta tarjeta. Hoy T2 no lo nota (TIC `k` con TSC `k`), pero
    nadie escribe `SET_SAMPLER_BINDING`: va en la inicializacion de la clase 3D
    (y `SAMPLER_INDEX` en la QMD), ANTES de que un TSC y un TIC dejen de ir por
-   parejas.
+   parejas. [HECHO 29-09 para la 3D: `texturas::ordenes` escribe
+   `SET_SAMPLER_BINDING` (0x1234) = INDEPENDIENTES delante de las piscinas.
+   Falta `SAMPLER_INDEX` en la QMD, cuando haya QMD.]
+   Y con `SALIDA.TXT` se saco COMO filtra la 3060 (pesos de esquina de 8
+   bits, texeles de 16, el borde cuantizado a 8, `round(suma/256)/65535`):
+   `bmo_proton_x::textura` da ya las 96 muestras bit a bit
+   (`platform/shared/proton-x/tests/metal_textura.rs`).
 3. **El juez del SASS tiene que conocer `TEX.SCR.LZ` con el asa en el banco
    constante**, o decir NO a proposito: es la forma que emite `nvcc` en cuanto
    el asa es un argumento.

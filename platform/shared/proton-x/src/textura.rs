@@ -8,10 +8,29 @@
 //! ```text
 //!    PUNTO     el texel de floor(u * ancho), floor(v * alto)
 //!    LINEAL    los cuatro de alrededor de (u * ancho - 0.5, v * alto - 0.5),
-//!              con la fraccion en 8 bits (lo que la especificacion pide y
-//!              lo que hacen las tarjetas; la 3060 lo dira en el metal)
+//!              COMO LA 3060 (abajo)
 //!    fuera     REPETIR, ESPEJO, SUJETAR, BORDE (su color) y ESPEJO UNA VEZ
 //! ```
+//!
+//! # Como filtra la 3060, MEDIDO (29-09)
+//!
+//! `docs/metal/tex_cuda/SALIDA.TXT`: 96 muestras de la 3060 misma (CUDA,
+//! Point/Linear x Wrap/Mirror/Clamp/Border x 12 puntos de una 4x4 RGBA8). La
+//! version de antes (la fraccion truncada a 8 bits y el filtro en float)
+//! igualaba 60; esta, las 96 BIT A BIT (`tests/metal_textura.rs`):
+//!
+//! ```text
+//!    la coordenada   (u * ancho - 0.5) en punto fijo con 8 bits de fraccion,
+//!                    REDONDEADA (no truncada): i = parte entera, a = fraccion
+//!    los pesos       cada esquina, round(wu * wv / 256), en 1/256: el
+//!                    producto tambien se cuantiza a 8 bits
+//!    los texeles     en 16 bits (byte * 257); el borde, cuantizado ANTES al
+//!                    formato: floor(c * 255) (0,5 pedido -> 127/255)
+//!    el resultado    round(suma / 256) / 65535
+//! ```
+//!
+//! [!] El borde: con 0, 0,5 y 1 se sabe que 0,5 va a 127 (no a 128); si la
+//! 3060 trunca o redondea hacia abajo en otros valores, lo dira otra medida.
 //!
 //! Sin mipmaps (un nivel, el 0), sin anisotropia, sin comparacion: se dicen
 //! al leer el muestreador y el lote va igual, con lo de aqui.
@@ -139,24 +158,39 @@ fn dentro(i: i64, n: i64, d: Direccion) -> Option<i64> {
     }
 }
 
-/// Un canal de 8 bits a float (`UNORM`: `b / 255`).
-fn canal(b: u32) -> f32 {
-    (b & 0xFF) as f32 / 255.0
+/// Un canal de 8 bits en 16 (`byte * 257`: 255 -> 65535), como filtra la 3060.
+fn canal16(b: u32) -> u32 {
+    (b & 0xFF) * 257
+}
+
+/// El color del borde en 16 bits, CUANTIZADO al formato de 8 (la 3060:
+/// 0,5 -> 127/255, medido).
+fn borde16(c: f32) -> u32 {
+    let c = if c.is_nan() { 0.0 } else { c.clamp(0.0, 1.0) };
+    suelo(c * 255.0) as u32 * 257
+}
+
+/// **La coordenada en punto fijo**, 8 bits de fraccion y REDONDEADA:
+/// `(i, a)` con `a` en 0..256.
+fn fijo(x: f32) -> (i64, u32) {
+    let f = suelo(x * 256.0 + 0.5) as i64;
+    (f.div_euclid(256), f.rem_euclid(256) as u32)
 }
 
 impl Textura<'_> {
-    /// El texel `(x, y)` ya dentro, como (R, G, B, A).
-    fn texel(&self, x: i64, y: i64) -> [f32; 4] {
+    /// El texel `(x, y)` ya dentro, como (R, G, B, A) en 16 bits.
+    fn texel(&self, x: i64, y: i64) -> [u32; 4] {
         let p = self.texeles.get((y * self.ancho as i64 + x) as usize).copied().unwrap_or(0);
         let (r, g, b, a) = if self.bgra { (p >> 16, p >> 8, p, p >> 24) } else { (p, p >> 8, p >> 16, p >> 24) };
-        [canal(r), canal(g), canal(b), canal(a)]
+        [canal16(r), canal16(g), canal16(b), canal16(a)]
     }
 
-    /// El texel `(i, j)` con las direcciones del muestreador (o su borde).
-    fn leer(&self, m: &Muestreador, i: i64, j: i64) -> [f32; 4] {
+    /// El texel `(i, j)` con las direcciones del muestreador (o su borde),
+    /// en 16 bits.
+    fn leer(&self, m: &Muestreador, i: i64, j: i64) -> [u32; 4] {
         match (dentro(i, self.ancho as i64, m.u), dentro(j, self.alto as i64, m.v)) {
             (Some(x), Some(y)) => self.texel(x, y),
-            _ => m.borde,
+            _ => m.borde.map(borde16),
         }
     }
 
@@ -166,21 +200,19 @@ impl Textura<'_> {
             return [0.0; 4];
         }
         let (su, sv) = (u * self.ancho as f32, v * self.alto as f32);
+        let a_float = |c: [u32; 4]| c.map(|x| x as f32 / 65535.0);
         match m.filtro {
-            Filtro::Punto => self.leer(m, suelo(su) as i64, suelo(sv) as i64),
+            Filtro::Punto => a_float(self.leer(m, suelo(su) as i64, suelo(sv) as i64)),
             Filtro::Lineal => {
-                let (tu, tv) = (su - 0.5, sv - 0.5);
-                let (i0, j0) = (suelo(tu), suelo(tv));
-                // La fraccion, en 8 bits (1/256).
-                let fu = suelo((tu - i0) * 256.0) / 256.0;
-                let fv = suelo((tv - j0) * 256.0) / 256.0;
-                let (i0, j0) = (i0 as i64, j0 as i64);
-                let (a, b, c, d) = (self.leer(m, i0, j0), self.leer(m, i0 + 1, j0), self.leer(m, i0, j0 + 1), self.leer(m, i0 + 1, j0 + 1));
-                core::array::from_fn(|k| {
-                    let arriba = a[k] + (b[k] - a[k]) * fu;
-                    let abajo = c[k] + (d[k] - c[k]) * fu;
-                    arriba + (abajo - arriba) * fv
-                })
+                let ((i0, a), (j0, b)) = (fijo(su - 0.5), fijo(sv - 0.5));
+                // Los pesos de las cuatro esquinas, cuantizados a 1/256.
+                let w = |x: u32| (x + 128) / 256;
+                let pesos = [w((256 - a) * (256 - b)), w(a * (256 - b)), w((256 - a) * b), w(a * b)];
+                let esquinas = [self.leer(m, i0, j0), self.leer(m, i0 + 1, j0), self.leer(m, i0, j0 + 1), self.leer(m, i0 + 1, j0 + 1)];
+                a_float(core::array::from_fn(|k| {
+                    let suma: u32 = (0..4).map(|q| esquinas[q][k] * pesos[q]).sum();
+                    (suma + 128) / 256
+                }))
             }
         }
     }
@@ -247,8 +279,9 @@ mod pruebas {
         let t = [0xFF00_0000, 0xFFFF_FFFF, 0xFF00_0000, 0xFFFF_FFFF];
         let tx = Textura { texeles: &t, ancho: 2, alto: 2, bgra: false };
         let m = Muestreador { filtro: Filtro::Lineal, u: Direccion::Sujetar, v: Direccion::Sujetar, borde: [0.0; 4] };
-        // Justo entre los dos centros: la mitad.
-        assert_eq!(tx.muestrear(&m, 0.5, 0.5)[0], 0.5);
+        // Justo entre los dos centros: la mitad, como la da la 3060 (en 16
+        // bits, redondeada: 32768/65535, no 0,5 exacto).
+        assert_eq!(tx.muestrear(&m, 0.5, 0.5)[0], 32768.0 / 65535.0);
         // En el centro de un texel: el texel.
         assert_eq!(tx.muestrear(&m, 0.25, 0.25)[0], 0.0);
         assert_eq!(tx.muestrear(&m, 0.75, 0.75)[0], 1.0);

@@ -34,7 +34,7 @@
 //! # El TIC de una textura PITCH (lo que hace nouveau, `gm107_create_texture_view`)
 //!
 //! ```text
-//!    0   formato: tamanos A8B8G8R8 (0x08), los cuatro UNORM (2), de donde
+//!    0   formato: medidas A8B8G8R8 (0x08), los cuatro UNORM (2), de donde
 //!        sale cada canal (X Y Z W); con BGRA en memoria, X y Z se cruzan
 //!    1   la direccion, bits 31..0
 //!    2   la direccion, bits 47..32 | HEADER_VERSION PITCH (2 en 23:21)
@@ -384,6 +384,18 @@ pub const SET_TEX_HEADER_POOL_A: u32 = 0x1574;
 /// DOS, con 0 = todo, y el orden de los nombres deja de importar).
 pub const INVALIDAR_A: u32 = 0x1330;
 pub const INVALIDAR_B: u32 = 0x1334;
+/// `SET_SAMPLER_BINDING` (`clc797.h`; en nouveau `LINKED_TSC`, que lo
+/// escribe a mano al iniciar en vez de fiarse del valor de arranque): de
+/// donde saca la 3060 el TSC de un asa. [`INDEPENDIENTES`] = de sus bits
+/// 20..31 (el de D3D12: imagenes y muestreadores en heaps SEPARADOS, que un
+/// sombreador combina como quiere); el otro modo (1, VIA_HEADER_BINDING) usa
+/// el MISMO indice que el TIC -- el de CUDA, MEDIDO en
+/// `COMO_LE_HABLA_NVIDIA.md` 3e: sus asas son 1, 2, 3... con los bits 20..39
+/// a cero. Con `asa(k, k)` los dos leen lo mismo; se escribe igual, para que
+/// el dia que PROTON-X combine la imagen `i` con el muestreador `j` no mande
+/// el valor de fabrica.
+pub const SET_SAMPLER_BINDING: u32 = 0x1234;
+pub const INDEPENDIENTES: u32 = 0;
 /// Lo mas que lleva cada piscina (una pagina de 4 KiB: 128 descriptores).
 pub const MAX: u32 = 4096 / BYTES as u32;
 
@@ -393,6 +405,7 @@ pub fn ordenes(e: &mut Ordenes, tics: u64, n_tic: u32, tscs: u64, n_tsc: u32) ->
     if n_tic == 0 || n_tsc == 0 || n_tic > MAX || n_tsc > MAX || tics % BYTES as u64 != 0 || tscs % BYTES as u64 != 0 {
         return false;
     }
+    e.m(SET_SAMPLER_BINDING, &[INDEPENDIENTES]);
     e.m(SET_TEX_HEADER_POOL_A, &[(tics >> 32) as u32, tics as u32, n_tic - 1]);
     e.m(SET_TEX_SAMPLER_POOL_A, &[(tscs >> 32) as u32, tscs as u32, n_tsc - 1]);
     e.m(INVALIDAR_A, &[0]);
@@ -483,9 +496,10 @@ mod pruebas {
         assert!(ordenes(&mut e, 0x2_0001_4000, 1, 0x2_0001_5000, 1));
         let o = &e.o[antes..e.n];
         let c = |m, n| cabecera_en(crate::tresde::SUBCANAL, m, n);
-        assert_eq!(&o[..4], &[c(SET_TEX_HEADER_POOL_A, 3), 2, 0x0001_4000, 0]);
-        assert_eq!(&o[4..8], &[c(SET_TEX_SAMPLER_POOL_A, 3), 2, 0x0001_5000, 0]);
-        assert_eq!(&o[8..], &[c(INVALIDAR_A, 1), 0, c(INVALIDAR_B, 1), 0]);
+        assert_eq!(&o[..2], &[c(SET_SAMPLER_BINDING, 1), INDEPENDIENTES], "el modo del muestreador, escrito");
+        assert_eq!(&o[2..6], &[c(SET_TEX_HEADER_POOL_A, 3), 2, 0x0001_4000, 0]);
+        assert_eq!(&o[6..10], &[c(SET_TEX_SAMPLER_POOL_A, 3), 2, 0x0001_5000, 0]);
+        assert_eq!(&o[10..], &[c(INVALIDAR_A, 1), 0, c(INVALIDAR_B, 1), 0]);
         assert!(!ordenes(&mut e, 0x2_0001_4000, 0, 0x2_0001_5000, 1), "sin descriptores, nada");
         assert!(!ordenes(&mut e, 0x2_0001_4000, MAX + 1, 0x2_0001_5000, 1), "mas de una pagina");
         assert!(!ordenes(&mut e, 0x2_0001_4004, 1, 0x2_0001_5000, 1), "sin alinear a 32");
