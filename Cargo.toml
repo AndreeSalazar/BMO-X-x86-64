@@ -109,6 +109,10 @@ members = [
     "platform/shared/proton-x-sm86",
     "platform/shared/bmo-pase-gpu",
     "platform/shared/bmo-puerta-red",
+    # TITAN++: las FORMAS que comparten el compilador y F1 (el grafo, los
+    # errores de 4 partes y los eventos del comprobador). Ver TITAN_MAESTRO y
+    # PLAN_ESTRUCTURA seccion 8.
+    "platform/shared/titan-contrato",
     # EL CLOUD LOCAL: el protocolo ANTENA/1 entre BMO-X y el movil que hace de
     # antena. Ver PLAN_CLOUD_LOCAL, S2.
     "platform/shared/bmo-antena",

@@ -7,6 +7,15 @@ name = "bmo-antena"
 version = "0.1.0"
 
 [[package]]
+name = "bmo-app-estructura"
+version = "0.1.0"
+dependencies = [
+ "bmo-dibujo",
+ "bmo-titan-contrato",
+ "bmo-userland",
+]
+
+[[package]]
 name = "bmo-app-proton-x"
 version = "0.1.0"
 dependencies = [
@@ -179,6 +188,10 @@ version = "0.1.0"
 dependencies = [
  "bmo-spirv-front",
 ]
+
+[[package]]
+name = "bmo-titan-contrato"
+version = "0.1.0"
 
 [[package]]
 name = "bmo-userland"

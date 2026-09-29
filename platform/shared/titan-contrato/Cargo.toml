@@ -1,0 +1,12 @@
+[package]
+name = "bmo-titan-contrato"
+version = "0.1.0"
+edition = "2021"
+description = "TITAN++: the shapes the compiler and F1 share -- the graph, the 4-part diagnostics and the borrow checker's events. Pure, tested on the host."
+license = "Apache-2.0"
+
+# No dependencies, on purpose. The compiler front (toolchain) WRITES these
+# shapes and F1 (Ring 3) READS them; neither links the other. Same argument as
+# `bmo-puerta-red`: a shared FORM, not a shared brain.
+# See docs/maestro/TITAN_MAESTRO.md and docs/plan/PLAN_ESTRUCTURA.md section 8.
+[dependencies]

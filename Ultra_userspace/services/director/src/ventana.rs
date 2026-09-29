@@ -97,16 +97,12 @@ pub(crate) enum Ventana {
     /// tampoco la rescataba --`clic_en` mueve una ventana que ENCUENTRA, no
     /// mete una nueva--. La unica salida era F10 dos veces.
     Sound,
-    /// F1 -- ESTRUCTURA, el taller. Ver `crate::scene::estructura`.
-    ///
-    /// ** VA LA ULTIMA DEL ENUM Y LA ULTIMA EN `id()`, y no es orden alfabetico:
-    /// un id nuevo tiene que caer en el hueco LIBRE mas alto, nunca entre los
-    /// que ya existen. Meterla en el 3 habria corrido a `Cpu`, `Mem` y `Sound`
-    /// un numero, y `Foco` guarda las ventanas POR ID -- o sea que el sonido
-    /// habria pasado a ser la memoria para la politica del foco, en silencio.
-    /// Es exactamente el fallo que este fichero cuenta arriba, y cuesta lo
-    /// mismo evitarlo que cometerlo.
-    Estructura,
+    // ** F1 -- ESTRUCTURA -- fue aqui la ultima (id 6) hasta el 29-09, y se
+    // quito ENTERA porque ahora es una app (`Ultra_userspace/apps/estructura`,
+    // PLAN_ESTRUCTURA seccion 8). Era la ultima a proposito --un id nuevo cae
+    // en el hueco libre mas alto--, y por eso quitarla no corre el id de
+    // NINGUNA otra ventana fija: solo el de la primera app, que sale de
+    // `TODAS.len()` y se corre sola.
 }
 
 impl Ventana {
@@ -117,14 +113,13 @@ impl Ventana {
     /// cuatro: las vitales no estaban, y lo unico que las salvaba de no verse
     /// era que se repintan solas cada 15 fotogramas. Aqui no se puede olvidar
     /// una, porque el medida del array lo cuenta el compilador.
-    pub(crate) const TODAS: [Ventana; 7] = [
+    pub(crate) const TODAS: [Ventana; 6] = [
         Ventana::Run,
         Ventana::Data,
         Ventana::Cabina,
         Ventana::Sound,
         Ventana::Cpu,
         Ventana::Mem,
-        Ventana::Estructura,
     ];
 
     /// El numero que entiende `bmo_foco::Foco`.
@@ -136,6 +131,13 @@ impl Ventana {
     /// es `TODAS.len()`, o sea que agregar una ventana fija los corre solos.
     pub(crate) const PRIMERA_APP: u8 = Ventana::TODAS.len() as u8;
 
+    /// Cuantas apps caben a la vez: las cajas de `scene::surface::MAX`. Se
+    /// declara AQUI y no se lee de alli, porque `scene` ya depende de este
+    /// fichero y leerlo al reves seria una dependencia en los dos sentidos
+    /// (L8, `capas`). Que los dos numeros coincidan lo comprueba el
+    /// compilador en `scene/surface.rs`.
+    pub(crate) const CAJAS: u8 = 4;
+
     pub(crate) fn id(self) -> u8 {
         match self {
             Ventana::Run => 0,
@@ -144,7 +146,6 @@ impl Ventana {
             Ventana::Cpu => 3,
             Ventana::Mem => 4,
             Ventana::Sound => 5,
-            Ventana::Estructura => 6,
             Ventana::App(i) => Ventana::PRIMERA_APP + i,
         }
     }
@@ -159,11 +160,14 @@ impl Ventana {
             3 => Ventana::Cpu,
             4 => Ventana::Mem,
             5 => Ventana::Sound,
-            6 => Ventana::Estructura,
             // Las cuatro cajas de `scene::surface::MAX`. Un id mas alto no es
             // de nadie: se contesta `None` en vez de inventar una app numero
-            // cinco que no tiene donde vivir.
-            7..=10 => Ventana::App(id - Ventana::PRIMERA_APP),
+            // cinco que no tiene donde vivir. El rango sale de `PRIMERA_APP`
+            // y no de dos numeros escritos: eran `7..=10` hasta el 29-09, y
+            // quitar ESTRUCTURA los habria dejado apuntando a nada.
+            n if n >= Ventana::PRIMERA_APP && n < Ventana::PRIMERA_APP + Ventana::CAJAS => {
+                Ventana::App(n - Ventana::PRIMERA_APP)
+            }
             _ => return None,
         })
     }
@@ -186,7 +190,6 @@ impl Ventana {
             Ventana::Cpu => "CPU",
             Ventana::Mem => "Memoria",
             Ventana::Sound => "Sonido",
-            Ventana::Estructura => "ESTRUCTURA (taller)",
             // Sin el numero seria imposible saber cual de las cuatro conmuta.
             // El nombre de verdad --el del programa-- lo sabe la superficie, no
             // este enum: aqui solo hay un hueco de mesa.

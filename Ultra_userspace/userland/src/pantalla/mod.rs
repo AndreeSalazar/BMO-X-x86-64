@@ -44,7 +44,7 @@ mod verde;
 
 pub use amarilla::{Volcado, Volcador};
 pub use roja::{volcador_caja, VOLCADOR_ARMAR, VOLCADOR_CAJA, VOLCADOR_COMO_VA, VOLCADOR_ESPERAR, VOLCADOR_SOLTAR};
-pub use verde::{GLIFO_ALTO, GLIFO_ANCHO};
+pub use verde::{glyph_bits, GLIFO_ALTO, GLIFO_ANCHO};
 
 // -- La pantalla ---------------------------------------------------------
 

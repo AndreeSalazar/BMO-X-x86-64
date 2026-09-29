@@ -77,7 +77,6 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
             Ventana::Data => dsk.win.data_open && caja(&dsk.win.data.chrome),
             Ventana::Cabina => dsk.win.cabina_open && caja(&dsk.win.cabina.chrome),
             Ventana::Sound => dsk.win.sound_open && caja(&dsk.win.sound.chrome),
-            Ventana::Estructura => dsk.win.estructura_open && caja(&dsk.win.estructura.chrome),
             Ventana::Run => {
                 dsk.win.visible
                     && scene::dirty::toca(dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())
@@ -90,7 +89,6 @@ fn devolver(dsk: &mut Desktop, p: &bmo::Pantalla) {
         Ventana::Data => scene::data::paint(p, &dsk.win.data),
         Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
         Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),
-        Ventana::Estructura => scene::estructura::paint(p, &dsk.win.estructura),
         // ** La CAJA y no `uncover`: `uncover` pinta tambien los iconos, que
         // son la capa de abajo, y aqui se esta pintando de atras hacia delante
         // -- los iconos saldrian encima de las ventanas ya devueltas.
@@ -134,7 +132,6 @@ pub(crate) fn pintar_ventana(dsk: &mut Desktop, p: &bmo::Pantalla, v: Ventana) {
         Ventana::App(_) => {}
         Ventana::Cabina => scene::cabina::paint(p, &dsk.win.cabina),
         Ventana::Data => scene::data::paint(p, &dsk.win.data),
-        Ventana::Estructura => scene::estructura::paint(p, &dsk.win.estructura),
         Ventana::Cpu => scene::vitals::paint(p, &dsk.win.cpu, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
         Ventana::Mem => scene::vitals::paint(p, &dsk.win.mem, dsk.tick.loops_per_second, dsk.tick.consumo.ultimo),
         Ventana::Sound => scene::sound::paint(p, &dsk.win.sound, &dsk.snd.panel),

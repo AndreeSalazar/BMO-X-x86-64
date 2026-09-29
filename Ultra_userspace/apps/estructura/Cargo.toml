@@ -1,0 +1,16 @@
+[package]
+name = "bmo-app-estructura"
+version = "0.1.0"
+edition = "2021"
+description = "ESTRUCTURA (F1): the workshop as a node editor for TITAN++, with the borrow checker animated. B1-B3 of PLAN_ESTRUCTURA section 8."
+
+[[bin]]
+name = "estructura"
+path = "src/main.rs"
+
+[dependencies]
+bmo-userland = { path = "../../userland" }
+# The shapes the compiler and F1 share. F1 only READS them.
+bmo-titan-contrato = { path = "../../../platform/shared/titan-contrato" }
+# Clipping, lines and curves: the same rasterizer as the kernel and the desktop.
+bmo-dibujo = { path = "../../../platform/shared/bmo-dibujo" }

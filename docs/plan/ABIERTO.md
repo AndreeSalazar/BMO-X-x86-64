@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   383 casillas ABIERTAS en 43 planes
-   324 hechas
+   382 casillas ABIERTAS en 43 planes
+   326 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -113,15 +113,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E2 -- (C,T) DECLARADOS Y EL AFORO. Cada tarea trae su compas; el kernel
 - ... y 9 mas
 
-## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 11 abiertas, 1 hechas
-
-*PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
-
-- [ ] 1 F1 abre una ventana VACIA en `Ultra_userspace/services/director/
-- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
-- [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
-- ... y 8 mas
-
 ## [`PLAN_LA_3060.md`](PLAN_LA_3060.md) -- 11 abiertas, 2 hechas
 
 *PLAN LA 3060 -- la grafica que ya hay, de la sonda al GSP*
@@ -139,6 +130,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] M0c -- los 112 ticks del match de INFO. El rechazo por campo
 - [ ] M1b -- CUANTO CUESTA REVOCAR UNA PAGINA, y va ANTES de M1. La seccion
 - ... y 8 mas
+
+## [`PLAN_ESTRUCTURA.md`](PLAN_ESTRUCTURA.md) -- 10 abiertas, 3 hechas
+
+*PLAN DE ESTRUCTURA -- el taller de BMO-X, en F1*
+
+- [ ] 2b la ventana con REJILLA scroll como modulo reutilizable, de la
+- [ ] 3 estructura.bex DIBUJA una ventana con su rejilla y su cursor,
+- [ ] 4 y LEE TECLAS por el buzon de entrada, con el
+- ... y 7 mas
 
 ## [`PLAN_LA_DEUDA.md`](PLAN_LA_DEUDA.md) -- 10 abiertas, 7 hechas
 

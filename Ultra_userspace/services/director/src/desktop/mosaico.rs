@@ -148,7 +148,6 @@ fn marco(dsk: &mut Desktop, v: Ventana) -> Option<&mut Chrome> {
         Ventana::Run => Some(&mut dsk.run_box.chrome),
         Ventana::Data => Some(&mut dsk.win.data.chrome),
         Ventana::Cabina => Some(&mut dsk.win.cabina.chrome),
-        Ventana::Estructura => Some(&mut dsk.win.estructura.chrome),
         Ventana::Cpu => Some(&mut dsk.win.cpu.chrome),
         Ventana::Mem => Some(&mut dsk.win.mem.chrome),
         Ventana::Sound => Some(&mut dsk.win.sound.chrome),

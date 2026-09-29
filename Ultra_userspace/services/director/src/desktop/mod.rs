@@ -85,7 +85,6 @@ pub(crate) fn lateral_cambio(dsk: &mut Desktop, p: &bmo_userland::Pantalla, esta
     dsk.win.data.chrome.fit(p);
     dsk.win.data.relayout();
     dsk.win.cabina.chrome.fit(p);
-    dsk.win.estructura.chrome.fit(p);
     dsk.win.cpu.chrome.fit(p);
     dsk.win.mem.chrome.fit(p);
     dsk.win.sound.chrome.fit(p);
@@ -237,9 +236,8 @@ pub(crate) struct Windows {
     pub mem_open: bool,
     pub sound: crate::scene::sound::SoundWindow,
     pub sound_open: bool,
-    /// F1 -- ESTRUCTURA, el taller. Escalon 1 de `PLAN_ESTRUCTURA.md`.
-    pub estructura: crate::scene::estructura::EstructuraWindow,
-    pub estructura_open: bool,
+    // (F1 -- ESTRUCTURA -- vivio aqui como ventana del DIRECTOR hasta el
+    // 29-09. Ahora es una app: `Ultra_userspace/apps/estructura`.)
     /// Who gets the keys. The policy lives in `bmo_input` and is tested THERE;
     /// here it is only asked, and what it decided is painted.
     pub focus: Focus,
@@ -275,8 +273,6 @@ impl Windows {
             mem_open: false,
             sound: crate::scene::sound::SoundWindow::new(p),
             sound_open: false,
-            estructura: crate::scene::estructura::EstructuraWindow::new(p),
-            estructura_open: false,
             focus,
             top_before: Ventana::Run,
             foco_pintado: None,
@@ -310,7 +306,6 @@ impl Windows {
             Ventana::Cpu => self.cpu_open,
             Ventana::Mem => self.mem_open,
             Ventana::Sound => self.sound_open,
-            Ventana::Estructura => self.estructura_open,
             // ** UNA APP ESTA ABIERTA SI EL FOCO LA CONOCE, y eso no es
             // una suposicion: un `Ventana::App` solo entra en la lista
             // cuando `table.collect` da a luz su caja, y sale cuando se

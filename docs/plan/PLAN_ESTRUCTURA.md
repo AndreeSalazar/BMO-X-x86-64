@@ -242,10 +242,10 @@ misma deuda que todo lo demas de esta semana.
 Ordenados por la regla de la casa: **lo que no toca nada va primero.**
 
 ```text
-   [ ] 1  F1 abre una ventana VACIA   en `Ultra_userspace/services/director/
-                                      src/desktop/keys/app.rs`, donde ya se
-                                      deciden F11 y F12. Sin compilador y sin
-                                      terminal: solo que la tecla llegue
+   [x] 1  F1 abre una ventana VACIA   HECHO y visto en el metal el 06-09 (una
+                                      ventana del DIRECTOR). Desde el 29-09 F1
+                                      ya no la abre: LANZA `sys/estructura.bex`
+                                      (seccion 8.5, B1), y esa ventana se retiro
 
    [x] 2  PAQUETE en Rust            HECHO 06-09 --
                                       `Ultra_userspace/userland/src/paquete.rs`
@@ -401,6 +401,50 @@ el compilador ya comprueba.
 | 9 | el .titan en disco cambia y compila | se edita el nodo y el fichero no cambia |
 | 10 | el cable y el `use` aparecen y desaparecen juntos | un ciclo se dibuja sin error |
 | 11 | el .bex aparece y el ESCRITORIO lo lanza con un clic | F1 intenta lanzarlo y el celo dice NO |
+
+### 8.5 La BASE, antes de los escalones 8-11 (29-09): B0-B3
+
+El propietario eligio empezar por aqui (*"la base con borrow checker todo y
+nodos grafos"*). El comprobador de verdad espera a la gramatica de TITAN++ (T0),
+asi que la base construye todo lo que el comprobador ALIMENTA, con un paquete
+de ejemplo escrito a mano (`asteroids`):
+
+```text
+   [x] B0  titan-contrato      platform/shared/titan-contrato: el grafo (todo
+                               es un nodo: el Titan.toml, los modulos, la
+                               3060, el DIRECTOR), los eventos del comprobador
+                               y el mensaje de 4 partes. Sin unsafe, sin
+                               monton. 20 pruebas en el anfitrion, verdes
+   [~] B1  estructura.bex      Ultra_userspace/apps/estructura: F1 LANZA la
+                               app (keys/windows.rs); la ventana interna del
+                               DIRECTOR se retiro entera. Compila sin avisos y
+                               bex-link da 70.992 B. Falta VERLA en el Ryzen
+   [~] B2  el lienzo           los 8 nodos y sus cables (curvas de bmo-dibujo),
+                               arrastrar un nodo o el lienzo, zoom con + y -,
+                               0 encuadra. Falta el Ryzen
+   [~] B3  la animacion        los 11 eventos del ejemplo: el pulso del `mut`
+                               que va y vuelve, el `take` que se mueve y deja
+                               el origen en gris, el cable a la 3060 encendido
+                               hasta que vuelve, el CHOQUE en rojo con su
+                               mensaje de 4 partes, y el NO del permiso `net`
+                               en el nodo principal. Falta el Ryzen
+```
+
+**Como se mira en el Ryzen** (despues de `build.ps1` y desplegar):
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 en el escritorio | sale una ventana de 1280x760 con 8 nodos y sus cables, y la animacion empieza sola | nada: falta `sys/estructura.bex` en el disco, o `run` dice por que |
+| esperar ~10 s | el pulso ambar va de `main` a `ship`, vuelve; `bullet` pasa a `rock`; el cable a la 3060 se enciende en verde y se apaga; `ship` y `physics` parpadean en rojo con QUE/DONDE/POR QUE/COMO abajo; `net: no` destella | la animacion se para a medias: mirar la consola (`ESTRUCTURA:`) |
+| arrastrar un nodo | el nodo sigue al raton y sus cables con el | el nodo no se mueve: el estado del puntero del buzon no llega (+8/+12) |
+| arrastrar el fondo, `+`, `-`, `0` | el lienzo se mueve, acerca, aleja, encuadra | las letras no llegan al buzon |
+| espacio, `n`, `r` | pausa, un paso, repite | igual |
+| minimizar la ventana | la app deja de pintar (R-APP8) y al volver repinta | se queda en negro al volver |
+| Esc | la app se cierra y lo dice en la consola | no se cierra: Esc no llega como letra |
+
+[!] Lo que la base NO es: el ejemplo esta escrito a mano. Los escalones 8-11
+son los mismos dibujos alimentados por `titan check` de un paquete `.titan` de
+verdad -- y eso espera a T0 (la gramatica, del propietario).
 
 ---
 

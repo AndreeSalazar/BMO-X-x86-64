@@ -98,6 +98,14 @@ fn indice_glifo(c: u8) -> Option<usize> {
     None
 }
 
+/// The 16 rows of a glyph (bit 7 = leftmost pixel), for drawing text into a
+/// buffer that is NOT the screen: an app's own surface (F1, 2026-09-29). The
+/// same table and the same lookup as [`Pantalla::glifo`], so an app and the
+/// desktop cannot draw two different letters. `None` if the font has no glyph.
+pub fn glyph_bits(c: u8) -> Option<&'static [u8; 16]> {
+    indice_glifo(c).map(|i| &FONT16[i])
+}
+
 impl Pantalla {
     /// Un caracter. Solo pinta los pixeles encendidos: el fondo se respeta,
     /// que es lo que permite escribir encima de lo que ya hay sin recuadros.

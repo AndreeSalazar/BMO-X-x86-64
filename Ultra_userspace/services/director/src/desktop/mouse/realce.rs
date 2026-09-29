@@ -58,12 +58,6 @@ pub(crate) fn actualizar(dsk: &mut Desktop, p: &bmo::Pantalla, bajo: Option<Vent
     ventana!(Ventana::Data, dsk.win.data_open, dsk.win.data.chrome, scene::data::DATA_TITLE_BG);
     ventana!(Ventana::Cabina, dsk.win.cabina_open, dsk.win.cabina.chrome, scene::cabina::CAB_TITLE_BG);
     ventana!(Ventana::Sound, dsk.win.sound_open, dsk.win.sound.chrome, scene::sound::SND_TITLE_BG);
-    ventana!(
-        Ventana::Estructura,
-        dsk.win.estructura_open,
-        dsk.win.estructura.chrome,
-        scene::estructura::EST_TITLE_BG
-    );
 
     // Las apps: solo la de debajo del puntero, y las demas se apagan.
     let (fichas, n) = dsk.table.fichas();

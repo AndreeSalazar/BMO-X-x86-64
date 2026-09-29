@@ -1,5 +1,7 @@
-//! **The six window toggles**: F1 ESTRUCTURA, F7 cpu, F8 memory, F10 sound,
-//! F11 CABINA, F12 data -- and the ESC that closes each one.
+//! **The five window toggles**: F7 cpu, F8 memory, F10 sound, F11 CABINA,
+//! F12 data -- and the ESC that closes each one. And F1, which since
+//! 2026-09-29 LAUNCHES ESTRUCTURA (`sys/estructura.bex`) instead of toggling a
+//! window of the DIRECTOR.
 //!
 //! [consumo] NADA      no corre en reposo: lo llama el bucle SOLO si hubo una
 //!                     tecla o el raton se movio. Sin entrada, no se entra
@@ -240,40 +242,18 @@ if let Some(open) = toggle_data {
 // Escribir aqui el 0x3B compilaria y no abriria nada -- son dos
 // colas distintas, y esta es la cocida.
 //
-// Escalon 1 de `docs/plan/PLAN_ESTRUCTURA.md`: la ventana abre y
-// dice en que escalon esta. Todavia no lee una tecla.
-let toggle_est = if c == 0x89 {
-    Some(!dsk.win.estructura_open)
-} else if c == 0x1B && dsk.win.estructura_open && dsk.win.focus.es_para(Ventana::Estructura) {
-    Some(false)
-} else {
-    None
-};
-if let Some(open) = toggle_est {
-    dsk.win.estructura_open = open;
-    if open {
-        dsk.win.focus.open(Ventana::Estructura);
-        scene::estructura::paint(&p, &dsk.win.estructura);
-        dsk.win.top_before = if dsk.win.focus.es_para(Ventana::Estructura) {
-            Ventana::Estructura
-        } else {
-            Ventana::Run
-        };
-        // En `Fijo` se ha pintado encima de una caja que sigue
-        // teniendo el teclado: hay que devolverla arriba.
-        if dsk.win.top_before == Ventana::Run {
-            uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-        }
-    } else {
-        // Al cerrarla, devolver el fondo Y repintar lo que tapaba.
-        dsk.win.focus.close(Ventana::Estructura);
-        let ch = &dsk.win.estructura.chrome;
-        erase_window(
-            &p, &dsk.run_box, ch.x, ch.y, ch.width, ch.height, dsk.win.visible,
-        );
-        dsk.win.top_before = Ventana::Run;
-        uncover(&p, &dsk.run_box, &dsk.launcher, dsk.win.visible, &mut dsk.out.grid, &mut dsk.tick.repaint_field);
-    }
+// ** DESDE EL 29-09 F1 LANZA UNA APP, no abre una ventana del
+// DIRECTOR. `docs/plan/PLAN_ESTRUCTURA.md` seccion 8: el taller es
+// un editor de nodos para TITAN++ con el comprobador animado, y eso
+// dentro del compositor seria el monolito que prohibe MODULAR. La
+// ventana de antes (escalon 1, vista en el metal el 06-09) se retiro:
+// su sitio es `sys/estructura.bex` (`Ultra_userspace/apps/estructura`).
+//
+// Se pide por `scene::abrir`, el MISMO camino que un `run` tecleado o
+// un icono: consola, prestamo de pantalla y vigilante. Se cierra
+// desde dentro: Esc lo lee la app, y Alt+F4 sigue valiendo.
+if c == 0x89 {
+    scene::abrir::pedir(&[b"sys/estructura.bex"]);
     return Key::Taken;
 }
 

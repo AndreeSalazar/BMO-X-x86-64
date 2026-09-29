@@ -82,6 +82,9 @@ const BUZON_RANURA: u64 = bmo::SUP_BUZON_RANURA;
 /// una superficie que no entra no se toma, y su app se queda esperando en vez de
 /// tumbar a otra.
 pub(crate) const MAX: usize = 4;
+// `Ventana` lleva su copia (`CAJAS`) para no depender de este fichero (L8); el
+// compilador no deja que las dos se separen.
+const _: () = assert!(MAX == crate::ventana::Ventana::CAJAS as usize);
 
 /// Lo que la app declara de si misma, **ya comprobado contra el prestamo**.
 #[derive(Clone, Copy)]

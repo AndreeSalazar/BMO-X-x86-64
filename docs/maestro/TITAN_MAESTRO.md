@@ -97,7 +97,7 @@ seccion 6.
 | fundirlo con INTI | **NO** ("ni merga") | dos lenguajes, dos trabajos |
 | las apps que ya estan en INTI | **se quedan** (NAVEGAR y las demas) | no hay que migrar nada |
 | la herramienta | **tipo cargo**: `titan run`, `Titan.toml`, `mod` | "todo organizado" |
-| el taller (F1) | **un editor de NODOS**: el prototipo es Ultra-Omega, del propietario | seccion 4.5 y `plan/PLAN_ESTRUCTURA.md` seccion 8 |
+| el taller (F1) | **un editor de NODOS**: el prototipo es Ultra-Omega, del propietario | seccion 4.5 y `docs/plan/PLAN_ESTRUCTURA.md` seccion 8 |
 
 ** Y lo que esto REABRE: `docs/METAS.md` tenia "La lista de lenguajes"
 **CERRADA** desde el 17/18-09 por decision del propietario; el 29-09 la reabre
@@ -460,14 +460,14 @@ estructura: **dibuja la que el compilador ya comprueba**.
    Ctrl+Shift+P Commands          la consola del taller (ESTRUCTURA)
 ```
 
-El plan del taller es de `plan/PLAN_ESTRUCTURA.md`, seccion 8, con sus reglas
+El plan del taller es de `docs/plan/PLAN_ESTRUCTURA.md`, seccion 8, con sus reglas
 (la verdad es el texto, las aristas son dependencias y no flujo, F1 es opcional).
 
 ---
 
 ## 5. Por que un compilador PROPIO: por F1
 
-`plan/PLAN_ESTRUCTURA.md`: se pulsa **F1** en el escritorio y se abre **el
+`docs/plan/PLAN_ESTRUCTURA.md`: se pulsa **F1** en el escritorio y se abre **el
 taller**, una app que es terminal Y compilador en UN `.bex`.
 
 Si TITAN++ se tiene que compilar DENTRO de F1, **rustc no puede ser su

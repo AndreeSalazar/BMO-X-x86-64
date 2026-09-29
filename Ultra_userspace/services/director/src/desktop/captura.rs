@@ -404,7 +404,6 @@ fn caja(dsk: &mut Desktop, v: Ventana) -> Option<(u32, u32, u32, u32)> {
             .then_some((dsk.run_box.x, dsk.run_box.y, dsk.run_box.w(), dsk.run_box.h())),
         Ventana::Data if dsk.win.data_open => de(&dsk.win.data.chrome),
         Ventana::Cabina if dsk.win.cabina_open => de(&dsk.win.cabina.chrome),
-        Ventana::Estructura if dsk.win.estructura_open => de(&dsk.win.estructura.chrome),
         Ventana::Cpu if dsk.win.cpu_open => de(&dsk.win.cpu.chrome),
         Ventana::Mem if dsk.win.mem_open => de(&dsk.win.mem.chrome),
         Ventana::Sound if dsk.win.sound_open => de(&dsk.win.sound.chrome),

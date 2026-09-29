@@ -100,9 +100,6 @@ pub(crate) mod entrada;
 /// con quien este sonando. Ver la cabecera del modulo.
 pub(crate) mod sound;
 
-/// **ESTRUCTURA, el taller (F1).** Escalon 1 de
-/// `docs/plan/PLAN_ESTRUCTURA.md`: la ventana y su confesion, sin terminal.
-pub(crate) mod estructura;
 /// **LA BARRA LATERAL EN VIVO** (HUD 3): lo que la maquina hace ahora, con su
 /// historia, en una columna que ninguna ventana pisa.
 pub(crate) mod lateral;
