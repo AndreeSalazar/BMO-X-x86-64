@@ -661,7 +661,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        registro -> `TEX.SCR.B.LZ R6, R4, R4, R0, 2D`
                        (0x3800000004047361 / 0x004f4400009e0f06), y cada
                        campo movido y releido con `nvdisasm -b SM86` 13.4
-                       (`sombreadores/tex_bindless.md`). `texturas::tex` da
+                       (`platform/drivers/gpu/ga10x/sombreadores/tex_bindless.md`). `texturas::tex` da
                        esos bits y cinco combinaciones mas que nvdisasm leyo
                        como se pidieron; `texturas::asa` = tic | tsc << 20
                        (NVK; por comprobar). El juez conoce SOLO esa forma
