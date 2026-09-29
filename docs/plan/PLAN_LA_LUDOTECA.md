@@ -484,6 +484,21 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
       - N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
       con `D:\...` va al volumen NTFS, solo lectura.
+      - **HECHO en el codigo (29-09), falta verlo en el metal:**
+        `bmo_proton_x::ficheros::ruta` lleva `D:\...` (y lo relativo a un
+        `.exe` que vive en D:) a `d:...`, en UTF-8 (NTFS no es 8.3), sin que
+        un `..` salga de D:; la vuelta (`ruta_windows`) da `D:\...`. La casa:
+        la raiz de D: es una carpeta, `CreateFileW` con escritura o que crea
+        en D: es ACCESO DENEGADO al abrir, y `listar` de una carpeta de D: da
+        los nombres enteros (`siguiente_largo`). PROTON-X acepta la ruta del
+        `.exe` entre comillas (las de D: llevan espacios). Tests: la ruta de
+        D: (`d_es_el_disco_personal_y_no_se_sale_de_el`) y los 27 de la casa.
+      - **EL CENSO:** `personal censo <ruta>` (o `run sys/proton-x.bex
+        --censo "d:..."`) mira un `.exe` de D: SIN ejecutarlo ni traerlo
+        entero -- cabeceras y la seccion de sus importaciones -- y dice por
+        DLL cuantas funciones tiene ya la casa, cuales son DEL JUEGO (viven
+        junto al `.exe`) y la lista de lo que falta en `informe/censo.txt`.
+        **Como se sabe:** `personal censo Cyberpunk 2077/bin/x64/Cyberpunk2077.exe`.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A

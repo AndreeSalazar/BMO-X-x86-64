@@ -30,7 +30,11 @@ fn w(s: &str) -> Vec<u16> {
 
 /// **La ruta de Windows** de una ruta del volumen: `C:\` y barras al reves.
 pub fn ruta_windows(vol: &str) -> String {
-    let mut s = String::from("C:\\");
+    // N2: lo de `d:` es del disco Personal, `D:\\` en Windows.
+    let (mut s, vol) = match crate::ficheros::en_personal(vol) {
+        Some(resto) => (String::from("D:\\"), resto),
+        None => (String::from("C:\\"), vol),
+    };
     s.push_str(&vol.trim_start_matches('/').replace('/', "\\"));
     s
 }

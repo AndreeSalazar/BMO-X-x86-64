@@ -120,8 +120,8 @@ pub(crate) fn ruta_de(nombre: *const u16) -> Result<String, u32> {
 extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32, _seg: u64, disposicion: u32, banderas: u32, _plantilla: u64) -> u64 {
     let ruta = match ruta_de(nombre) {
         Ok(r) => r,
-        // P4f3: la raiz del volumen es una carpeta ("C:\\", "\\").
-        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => String::new(),
+        // P4f3: la raiz del volumen es una carpeta ("C:\\", "\\"); N2, y la de D:.
+        Err(ERROR_FILE_NOT_FOUND) if crate::carpetas::es_raiz(nombre) => crate::carpetas::raiz_de(nombre).unwrap_or_default(),
         Err(e) => {
             kernel32::poner_error(e);
             return NO_VALE;
@@ -129,7 +129,15 @@ extern "win64" fn create_file_w(nombre: *const u16, acceso: u32, _compartir: u32
     };
     // P4f3: una CARPETA se abre solo con FILE_FLAG_BACKUP_SEMANTICS, como en
     // Windows (la `std` de Rust lo hace para `metadata`); si no, acceso denegado.
-    if ruta.is_empty() || crate::carpetas::entrada(&ruta).is_some_and(|e| e.carpeta) {
+    // ** N2: D: es el disco Personal y se abre SOLO PARA LEER. Crear, vaciar o
+    // pedir escritura ahi es acceso denegado -- el kernel lo niega igual,
+    // pero el .exe tiene que oirlo al abrir, no al cerrar.
+    let personal = ficheros::en_personal(&ruta).is_some();
+    if personal && (acceso & GENERIC_WRITE != 0 || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS)) {
+        kernel32::poner_error(ERROR_ACCESS_DENIED);
+        return NO_VALE;
+    }
+    if ruta.is_empty() || ruta == ficheros::PERSONAL || crate::carpetas::entrada(&ruta).is_some_and(|e| e.carpeta) {
         if banderas & FILE_FLAG_BACKUP_SEMANTICS == 0 || !matches!(disposicion, OPEN_EXISTING | OPEN_ALWAYS) {
             kernel32::poner_error(ERROR_ACCESS_DENIED);
             return NO_VALE;

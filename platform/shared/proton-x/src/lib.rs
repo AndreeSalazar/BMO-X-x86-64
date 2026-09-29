@@ -63,8 +63,8 @@ pub mod tls;
 pub mod trama;
 pub mod ventanas;
 
-pub use cargar::{colocar, importaciones, partir, resolver, Funcion, Importacion, Partes, PAGINA};
-pub use pe::{leer, Pe, Permiso, Seccion};
+pub use cargar::{colocar, importaciones, importaciones_de_seccion, partir, resolver, Funcion, Importacion, Partes, PAGINA};
+pub use pe::{leer, leer_cabeceras, Pe, Permiso, Seccion};
 
 use alloc::string::String;
 use alloc::vec::Vec;

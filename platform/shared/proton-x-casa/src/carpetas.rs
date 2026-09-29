@@ -98,17 +98,32 @@ fn ancho(p: *const u16) -> Vec<u16> {
 
 /// Si `p` nombra la raiz del volumen (`C:\\`, `\\`, `..` desde `window`).
 pub(crate) fn es_raiz(p: *const u16) -> bool {
-    ficheros::ruta_o_raiz(&ancho(p), &directorio()).is_ok_and(|r| r.is_empty())
+    raiz_de(p).is_some()
+}
+
+/// **La raiz que nombra `p`**, si nombra una: `""` la del volumen de BMO-X,
+/// `d:` la del disco Personal (N2).
+pub(crate) fn raiz_de(p: *const u16) -> Option<String> {
+    ficheros::ruta_o_raiz(&ancho(p), &directorio()).ok().filter(|r| es_una_raiz(r))
+}
+
+fn es_una_raiz(r: &str) -> bool {
+    r.is_empty() || r == ficheros::PERSONAL
 }
 
 /// Carpeta y nombre de una ruta del volumen.
 fn partir(ruta: &str) -> (&str, &str) {
-    ruta.rsplit_once('/').unwrap_or(("", ruta))
+    match ruta.rsplit_once('/') {
+        Some(p) => p,
+        // `d:x`: la carpeta es la raiz de D:, no la del volumen.
+        None if ficheros::en_personal(ruta).is_some() => ruta.split_at(ficheros::PERSONAL.len()),
+        None => ("", ruta),
+    }
 }
 
 /// **Lo que hay en `ruta`**, por la lista de su carpeta (sin leer nada).
 pub(crate) fn entrada(ruta: &str) -> Option<Entrada> {
-    if ruta.is_empty() {
+    if es_una_raiz(ruta) {
         return Some(Entrada { nombre: String::new(), carpeta: true, bytes: 0 });
     }
     let (padre, nombre) = partir(ruta);
@@ -118,7 +133,7 @@ pub(crate) fn entrada(ruta: &str) -> Option<Entrada> {
 /// Si la carpeta de `ruta` existe (para distinguir el 2 del 3).
 pub(crate) fn padre_existe(ruta: &str) -> bool {
     let (padre, _) = partir(ruta);
-    padre.is_empty() || entrada(padre).is_some_and(|e| e.carpeta)
+    es_una_raiz(padre) || entrada(padre).is_some_and(|e| e.carpeta)
 }
 
 pub(crate) fn atributos(e: &Entrada) -> u32 {
@@ -151,7 +166,7 @@ fn dar(s: &[u16], buf: *mut u16, n: u32) -> u32 {
 /// La ruta del volumen de un nombre del `.exe`, o el error de Windows.
 fn ruta(p: *const u16) -> Result<String, u32> {
     match ruta_de(p) {
-        Err(ERROR_FILE_NOT_FOUND) if es_raiz(p) => Ok(String::new()),
+        Err(ERROR_FILE_NOT_FOUND) => raiz_de(p).ok_or(ERROR_FILE_NOT_FOUND),
         r => r,
     }
 }

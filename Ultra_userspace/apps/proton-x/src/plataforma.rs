@@ -98,6 +98,20 @@ fn escribir_fichero(ruta: &[u8], bytes: &[u8]) -> bool {
 fn listar(ruta: &[u8]) -> Option<alloc::vec::Vec<bmo_proton_x::ficheros::Entrada>> {
     let d = bmo::Directorio::open(ruta).ok()?;
     let mut v = alloc::vec::Vec::new();
+    // ** N2 (29-09): una carpeta del disco Personal (`d:`) trae nombres NTFS
+    // ENTEROS en UTF-8 y medidas de 64 bits, no 8.3: se piden asi.
+    if ruta.len() >= 2 && ruta[0] | 0x20 == b'd' && ruta[1] == b':' {
+        let mut n = [0u8; 256];
+        while let Some((k, carpeta, bytes)) = d.siguiente_largo(&mut n) {
+            let nombre = alloc::string::String::from_utf8_lossy(&n[..k]).into_owned();
+            // `.` y los ficheros del propio NTFS (`$MFT`...) no son del juego.
+            if nombre == "." || nombre == ".." || nombre.starts_with('$') {
+                continue;
+            }
+            v.push(bmo_proton_x::ficheros::Entrada { nombre, carpeta, bytes });
+        }
+        return Some(v);
+    }
     while let Some(e) = d.next() {
         let mut n = [0u8; 12];
         let k = e.legible(&mut n);

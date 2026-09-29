@@ -47,6 +47,24 @@ fn lo_que_pide_son_tres_funciones_de_kernel32() {
     assert_eq!(nombres, [("kernel32.dll", "ExitProcess".to_string()), ("kernel32.dll", "GetStdHandle".to_string()), ("kernel32.dll", "WriteFile".to_string())]);
 }
 
+/// **El censo** (29-09): las importaciones leidas de UNA seccion del FICHERO,
+/// con solo las cabeceras juzgadas, son las mismas que las de la imagen
+/// colocada. Es lo que deja mirar un `.exe` de 60 MB sin traerlo entero.
+#[test]
+fn el_censo_lee_lo_mismo_sin_colocar_el_exe() {
+    let pe = leer(HOLA).unwrap();
+    let img = colocar(&pe, HOLA, pe.base).unwrap();
+    let de_imagen = importaciones(&pe, &img).unwrap();
+    // Solo las cabeceras, y la medida entera del fichero.
+    let cab = leer_cabeceras(&HOLA[..pe.tam_cabeceras as usize], HOLA.len() as u64).unwrap();
+    let rva = cab.importaciones.rva;
+    let sec = cab.secciones.iter().find(|s| (s.rva..s.rva + s.tam_en_fichero).contains(&rva)).unwrap();
+    let trozo = &HOLA[sec.desde as usize..(sec.desde + sec.tam_en_fichero) as usize];
+    assert_eq!(importaciones_de_seccion(&cab, trozo, sec.rva).unwrap(), de_imagen);
+    // Unas cabeceras que prometen mas fichero del que hay, se dicen.
+    assert!(leer_cabeceras(&HOLA[..pe.tam_cabeceras as usize], 100).is_err());
+}
+
 /// Cada `call [rip+x]` del codigo (`FF 15 disp32`) cae en una ranura de la
 /// IAT: las ranuras que se rellenan son las que el codigo usa de verdad.
 #[test]
@@ -828,6 +846,24 @@ fn las_rutas_de_windows_son_rutas_del_volumen() {
     assert_eq!(r("..\\..\\fuera.txt"), Err(NoRuta::FueraDelVolumen), "un .. que sale del volumen se RECHAZA");
     assert_eq!(r("\\\\.\\PhysicalDrive0"), Err(NoRuta::NoEsFichero));
     assert_eq!(ficheros::ruta(&[0x00F1, 0], "apps"), Err(NoRuta::NoAscii));
+}
+
+#[test]
+fn d_es_el_disco_personal_y_no_se_sale_de_el() {
+    let r = |s: &str, dir: &str| ficheros::ruta(&w(s), dir);
+    assert_eq!(r("D:\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe", "apps").as_deref(), Ok("d:Cyberpunk 2077/bin/x64/Cyberpunk2077.exe"));
+    assert_eq!(r("d:/r6/config", "apps").as_deref(), Ok("d:r6/config"), "la letra, sin mayusculas");
+    assert_eq!(r("E:\\x.txt", "apps").as_deref(), Ok("x.txt"), "otra letra: el volumen de BMO-X");
+    // El directorio actual en D: (un .exe que vive alli).
+    let dir = "d:Cyberpunk 2077/bin/x64";
+    assert_eq!(r("..\\..\\archive\\pc\\content\\basegame_1_engine.archive", dir).as_deref(), Ok("d:Cyberpunk 2077/archive/pc/content/basegame_1_engine.archive"));
+    assert_eq!(r("\\engine\\config", dir).as_deref(), Ok("d:engine/config"), "la raiz de D:, no la de BMO-X");
+    assert_eq!(r("..\\..\\..\\..\\fuera.txt", dir), Err(NoRuta::FueraDelVolumen), "un .. no sale de D:");
+    // D: es NTFS: nombres de fuera del ASCII valen; en BMO-X no.
+    assert_eq!(r("D:\\cancion\u{00F1}.ogg", "apps").as_deref(), Ok("d:cancion\u{00F1}.ogg"));
+    assert_eq!(ficheros::ruta_o_raiz(&w("D:\\"), "apps").as_deref(), Ok("d:"), "la raiz de D: es una carpeta");
+    assert_eq!(crate::proceso::ruta_windows("d:Cyberpunk 2077/bin"), "D:\\Cyberpunk 2077\\bin");
+    assert_eq!(crate::proceso::ruta_windows("window/x.exe"), "C:\\window\\x.exe");
 }
 
 #[test]

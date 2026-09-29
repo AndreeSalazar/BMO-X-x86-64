@@ -139,23 +139,35 @@ fn cadena(img: &[u8], o: usize) -> Result<String, Fallo> {
 
 /// **Lo que pide**, leido de la imagen ya colocada (las RVA son offsets).
 pub fn importaciones(pe: &Pe, img: &[u8]) -> Result<Vec<Importacion>, Fallo> {
+    importaciones_con(pe, img, Some)
+}
+
+/// **Lo que pide, SIN colocarlo** (el censo, 29-09): `trozo` son los bytes de
+/// la seccion del fichero que empieza en la RVA `desde` (la que lleva las
+/// importaciones). Un nombre que caiga fuera de ella se dice, no se inventa.
+pub fn importaciones_de_seccion(pe: &Pe, trozo: &[u8], desde: u32) -> Result<Vec<Importacion>, Fallo> {
+    importaciones_con(pe, trozo, |rva| rva.checked_sub(desde as usize).filter(|&o| o < trozo.len()))
+}
+
+fn importaciones_con(pe: &Pe, img: &[u8], ver: impl Fn(usize) -> Option<usize>) -> Result<Vec<Importacion>, Fallo> {
     let mut v = Vec::new();
     if pe.importaciones.rva == 0 {
         return Ok(v);
     }
+    let en = |rva: usize, que: &'static str| ver(rva).ok_or(Fallo::Corto(que));
     let mut p = pe.importaciones.rva as usize;
     loop {
-        let nombres = u32_en(img, p, "un descriptor de importacion")?;
-        let nombre_dll = u32_en(img, p + 12, "un descriptor de importacion")?;
-        let iat = u32_en(img, p + 16, "un descriptor de importacion")?;
+        let nombres = u32_en(img, en(p, "un descriptor de importacion")?, "un descriptor de importacion")?;
+        let nombre_dll = u32_en(img, en(p + 12, "un descriptor de importacion")?, "un descriptor de importacion")?;
+        let iat = u32_en(img, en(p + 16, "un descriptor de importacion")?, "un descriptor de importacion")?;
         if nombres == 0 && nombre_dll == 0 && iat == 0 {
             break;
         }
-        let dll = cadena(img, nombre_dll as usize)?;
+        let dll = cadena(img, en(nombre_dll as usize, "el nombre de una DLL")?)?;
         let mut lista = if nombres != 0 { nombres } else { iat } as usize;
         let mut ranura = iat;
         loop {
-            let e = u64_en(img, lista, "una entrada importada")?;
+            let e = u64_en(img, en(lista, "una entrada importada")?, "una entrada importada")?;
             if e == 0 {
                 break;
             }
@@ -163,7 +175,7 @@ pub fn importaciones(pe: &Pe, img: &[u8]) -> Result<Vec<Importacion>, Fallo> {
                 Funcion::Ordinal(e as u16)
             } else {
                 // +2: el `hint` va delante del nombre.
-                Funcion::Nombre(cadena(img, (e & 0x7FFF_FFFF) as usize + 2)?)
+                Funcion::Nombre(cadena(img, en((e & 0x7FFF_FFFF) as usize + 2, "un nombre importado")?)?)
             };
             v.push(Importacion { dll: dll.clone(), funcion, ranura });
             lista += 8;
