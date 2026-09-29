@@ -539,6 +539,15 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         un hilo de la casa no se devuelve) y una GENERACION para cancelar.
         **Como se sabe:** `tanda3b.exe` dice `bien` 18 veces en el banco
         (`tanda3b_exe_tiene_el_pool_de_hilos`).
+      - **LA TANDA 3, PASO 4b: EL MAPEO Y LOS PUERTOS** (29-09):
+        `kernel32_mapeo.rs` -- CreateFileMapping (del fichero de paginacion y
+        de un fichero: una memoria de respaldo por mapeo, escrita de vuelta
+        al desmapear), los puertos de finalizacion (una cola y un semaforo de
+        la casa), los Open* por nombre (sin nombres: ERROR_FILE_NOT_FOUND),
+        OpenProcess/OpenThread/ReadProcessMemory del propio proceso,
+        WaitForMultipleObjectsEx, GetOverlappedResultEx, CancelIoEx y
+        FormatMessageA. **Como se sabe:** `tanda3c.exe` dice `bien` 16 veces
+        en el banco (`tanda3c_exe_tiene_el_mapeo_y_los_puertos`).
       - **LA TANDA 4: LAS EXCEPCIONES DE C++** (29-09): `throw`/`catch` de
         MSVC en la casa (`cxx.rs`), sobre el SEH que ya habia:
         `_CxxThrowException` y `__CxxFrameHandler3` (el de clang, el de Rust

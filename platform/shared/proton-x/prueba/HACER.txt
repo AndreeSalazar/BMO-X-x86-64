@@ -537,6 +537,26 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` dieciocho veces y sale con 0. Los callbacks corren en otros
 hilos: lo que se espera se mira con un tope de 2 s. En Windows dice lo mismo.
 
+tanda3c.exe -- la TANDA 3 de Cyberpunk, paso 4b (29-09): el mapeo y los puertos
+
+El mapeo de ficheros (del fichero de paginacion y de un fichero, con lo
+escrito en la vista de vuelta en el fichero), los puertos de finalizacion,
+los Open* por nombre, OpenProcess/OpenThread/ReadProcessMemory del propio
+proceso, WaitForMultipleObjectsEx, GetOverlappedResultEx, CancelIoEx y
+FormatMessageA (tanda3c_kernel32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda3c_kernel32.def -l tanda3c_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda3c.c -o tanda3c.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda3c.obj tanda3c_kernel32.lib /out:tanda3c.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   2992b7b417f25dc6979da8698c5d5ad904127e09f93d8198920c6244d7a845d8
+
+Dice `bien` dieciseis veces y sale con 0; deja tanda3c.txt ("Hola mapeo") en
+su carpeta. En Windows dice lo mismo (el texto de FormatMessageA en el
+idioma de la maquina: solo se mira que lo haya).
+
 tanda4.exe -- la TANDA 4 de Cyberpunk (29-09): las excepciones de C++
 
 throw y catch de MSVC (_CxxThrowException y __CxxFrameHandler3, de

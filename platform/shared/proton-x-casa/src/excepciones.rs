@@ -290,7 +290,7 @@ pub(crate) struct Viva {
 }
 
 impl Viva {
-    fn deja(&self, d: u64, n: u64) -> bool {
+    pub(crate) fn deja(&self, d: u64, n: u64) -> bool {
         self.rangos.iter().any(|&(a, b)| d >= a && d.checked_add(n).is_some_and(|e| e <= b))
     }
 

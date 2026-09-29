@@ -353,6 +353,21 @@ extern "win64" fn virtual_free(dir: u64, n: usize, tipo: u32) -> i32 {
     }
 }
 
+/// **Se puede leer** `n` bytes desde `dir`: todo dentro de regiones de
+/// VirtualAlloc comprometidas y no PAGE_NOACCESS (ReadProcessMemory).
+pub(crate) fn legible(dir: u64, n: u64) -> bool {
+    let mut d = dir;
+    let fin = dir.saturating_add(n);
+    while d < fin {
+        let Some(c) = estado().regiones.consultar(d) else { return false };
+        if c.estado != MEM_COMMIT || c.prot == 0x01 || c.tam == 0 {
+            return false;
+        }
+        d = c.base.saturating_add(c.tam);
+    }
+    true
+}
+
 extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
     if n < 48 {
         kernel32::poner_error(ERROR_BAD_LENGTH);

@@ -59,6 +59,7 @@ const TANDA2: &[u8] = include_bytes!("../../proton-x/prueba/tanda2.exe");
 const TANDA3: &[u8] = include_bytes!("../../proton-x/prueba/tanda3.exe");
 const TANDA3B: &[u8] = include_bytes!("../../proton-x/prueba/tanda3b.exe");
 const TANDA4: &[u8] = include_bytes!("../../proton-x/prueba/tanda4.exe");
+const TANDA3C: &[u8] = include_bytes!("../../proton-x/prueba/tanda3c.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -868,6 +869,23 @@ fn tanda3b_exe_tiene_el_pool_de_hilos() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
     assert!(texto.ends_with("tanda3b.exe: el pool de hilos dice lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 3 de Cyberpunk, paso 4b** (29-09): `tanda3c.exe` -- el mapeo
+/// de ficheros, los puertos de finalizacion, los Open* por nombre,
+/// OpenProcess/OpenThread/ReadProcessMemory, WaitForMultipleObjectsEx,
+/// GetOverlappedResultEx, CancelIoEx y FormatMessageA.
+#[test]
+fn tanda3c_exe_tiene_el_mapeo_y_los_puertos() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/tanda3c.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA3C, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 16, "{texto}");
+    assert!(texto.ends_with("tanda3c.exe: el mapeo y los puertos dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **La tanda 4 de Cyberpunk** (29-09): `tanda4.exe` -- las excepciones de

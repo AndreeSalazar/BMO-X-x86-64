@@ -411,6 +411,10 @@ pub(crate) extern "win64" fn close_handle(h: u64) -> i32 {
     if crate::ficheros::es_fichero(h) {
         return crate::ficheros::cerrar(h);
     }
+    // Tanda 3, paso 4b: los mapeos y los puertos de finalizacion.
+    if crate::kernel32_mapeo::es_suyo(h) {
+        return crate::kernel32_mapeo::cerrar(h);
+    }
     match objeto_de(h) {
         Some(o) => casa().plan.cerrar(o) as i32,
         None => 1,
