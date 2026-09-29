@@ -300,6 +300,10 @@ static mut CUR: [bmo_fat32::Cursor; MAX_ABIERTOS] =
 /// obligaria a volver a recorrer el arbol de directorios.
 static mut START: [bmo_fat32::Cursor; MAX_ABIERTOS] =
     [bmo_fat32::Cursor::vacio(); MAX_ABIERTOS];
+/// ** N1b (29-09): el fichero es del disco Personal (`d:`, NTFS, solo leer):
+/// su registro del MFT; `u64::MAX` = no. Va por el REFLEJO (la ventana de
+/// [`WINDOW`]), y `reflejar` la llena desde el NTFS en vez de desde FAT32.
+static mut PERSONAL: [u64; MAX_ABIERTOS] = [u64::MAX; MAX_ABIERTOS];
 /// En que byte del archivo empieza lo que hay ahora en el buffer.
 static mut WINDOW_OFF: [usize; MAX_ABIERTOS] = [0; MAX_ABIERTOS];
 /// Cuantos bytes validos hay en la ventana. `0` = no hay nada leido.
@@ -433,6 +437,11 @@ unsafe fn reflejar(i: usize, offset: usize, dst: &mut [u8]) -> usize {
     if dst.is_empty() || offset >= LARGO[i] {
         return 0;
     }
+    if PERSONAL[i] != u64::MAX {
+        let n = crate::ring0::dev::disk::ajeno::leer_fichero(PERSONAL[i], LARGO[i] as u64, offset as u64, dst);
+        BYTES_REFLEJADOS += n as u64;
+        return n;
+    }
     let cur = &mut *core::ptr::addr_of_mut!(CUR[i]);
     if offset < cur.base() {
         // Volver al principio. `fs::leer_rango` contestaria `0` y lo diria a
@@ -507,6 +516,47 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
         Some(i) => i,
         None => return Err(ERROR_ARCH_SIN_HUECO),
     };
+    // ** `d:` ES EL DISCO PERSONAL (N1b, 29-09): NTFS, solo leer, y por la
+    // ventana como un fichero reflejado de FAT32 -- un fichero de 15 GiB de
+    // Cyberpunk cuesta lo mismo que uno de 16 bytes: 64 KiB de ventana.
+    if let Some(resto) = crate::ring0::dev::disk::ajeno::ruta_personal(ruta) {
+        let n = match crate::ring0::dev::disk::ajeno::abrir(resto) {
+            Some(Ok(n)) => n,
+            Some(Err(bmo_ntfs::NoNtfs::NoEsFichero)) => return Err(ERROR_ARCH_ES_CARPETA),
+            _ => return Err(ERROR_ARCH_NO_ESTA),
+        };
+        if n.carpeta {
+            return Err(ERROR_ARCH_ES_CARPETA);
+        }
+        unsafe {
+            if !reserve(i, (n.medida as usize).clamp(1, WINDOW)) {
+                crate::ring0::cabina::warn("arch", "sin RAM para la ventana del fichero de D:", n.medida);
+                return Err(ERROR_ARCH_GRANDE);
+            }
+            REFLEJO[i] = true;
+            PERSONAL[i] = n.registro;
+            REF_AL_ABRIR[i] = BYTES_REFLEJADOS;
+            RET_AL_ABRIR[i] = RETROCESOS;
+            WINDOW_OFF[i] = 0;
+            WINDOW_LEN[i] = 0;
+            super::cargando::LOAD_CLUSTER[i] = 0;
+            LARGO[i] = n.medida as usize;
+            CURSOR[i] = 0;
+            WRITES[i] = false;
+            DESBORDO[i] = false;
+            OWNER[i] = pid;
+            return match cap::grant(pid, cap::KIND_ARCHIVO, cap::RIGHT_READ, i as u64) {
+                Some(h) => {
+                    crate::ring0::cabina::bytes("arch", "fichero de D: (Personal, NTFS) abierto para leer", n.medida);
+                    Ok(h)
+                }
+                None => {
+                    release(i);
+                    Err(cap::ERROR_PERMISSION_DENIED)
+                }
+            };
+        }
+    }
     // Cada motivo manda a hacer algo distinto, y por eso no se aplanan todos a
     // "no esta": quien escribe `lee apps/` tiene que enterarse de que eso es
     // una carpeta, no ponerse a buscar un archivo que nunca existio.
@@ -627,6 +677,10 @@ pub fn open(pid: u32, ruta: &str) -> Result<u64, u32> {
 /// `toolchain/tools/esperable/esperable.py` es el que exige que las dos cosas
 /// lleguen juntas.
 pub fn abrir_asinc(pid: u32, ruta: &str) -> Result<u64, u32> {
+    // `d:` no tiene carga a trozos por el hilo del disco: se abre con `open`.
+    if crate::ring0::dev::disk::ajeno::ruta_personal(ruta).is_some() {
+        return open(pid, ruta);
+    }
     let i = match free_slot() {
         Some(i) => i,
         None => return Err(ERROR_ARCH_SIN_HUECO),
@@ -688,6 +742,11 @@ pub fn abrir_asinc(pid: u32, ruta: &str) -> Result<u64, u32> {
 /// escriba nada hasta cerrar. Descubrir al final que la carpeta no existia
 /// significaria haber dejado a un programa acumulando bytes para nada.
 pub fn create(pid: u32, ruta: &str) -> Result<u64, u32> {
+    // ** El disco Personal NO se escribe (N1a, cerrojos 1 y 2): ni un fichero
+    // nuevo, ni por equivocacion de una ruta.
+    if crate::ring0::dev::disk::ajeno::ruta_personal(ruta).is_some() {
+        return Err(ERROR_ARCH_SOLO_LECTURA);
+    }
     if !crate::ring0::fsys::fs::data_mounted() {
         return Err(ERROR_ARCH_SOLO_LECTURA);
     }
@@ -902,6 +961,7 @@ fn release(i: usize) {
         // demas: una ranura que se reutiliza con `REFLEJO` puesto y un cursor
         // del archivo anterior leeria **otro fichero** sin que nada avise.
         REFLEJO[i] = false;
+        PERSONAL[i] = u64::MAX;
         CUR[i] = bmo_fat32::Cursor::vacio();
         START[i] = bmo_fat32::Cursor::vacio();
         WINDOW_OFF[i] = 0;

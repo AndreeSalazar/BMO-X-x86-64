@@ -452,8 +452,29 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         todos los demas daban DET 0 (ni presencia). Arreglo: si no hay otro
         disco, `bmo_ahci::reanimar` a TODOS los puertos de `NP` menos el de
         BMO-X, juntos y con una espera (spin-up, COMRESET, hasta 1,5 s).
-      - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
-        escritorio; N2, PROTON-X abre `D:\...` por ahi.
+      - **Y no era la placa: era el PASO entre puertos (29-09 12:07).**
+        AHCI 1.3.1 (3.3) pone PxCLB en `100h + x*80h`; el driver usaba
+        `0x100`, asi que el "puerto 2" leia el 4 de verdad y el 5 (el SSD de
+        D:) no se leia nunca. Con `0x80`, en el metal: `personal: NTFS
+        MONTADO, solo lectura 114440 MiB, libres 27208 MiB`, y el aviso del
+        disco llega por fin por IRQ (antes vivia de la red de 2 ms).
+      - **N1b HECHO en el codigo (29-09), falta verlo en el metal:**
+        `personal ls [carpeta]` y `personal lee <fichero>` en Ejecutar. Van
+        por las puertas de siempre (`Directorio` y `Archivo`) con `d:`
+        delante de la ruta: `obj/directory.rs` y `obj/file.rs` ven el prefijo
+        y contestan desde `ajeno.rs` (`abrir`, `entrada`, `leer_fichero`).
+        El nombre va entero en UTF-8 (`DIR_OP_NOMBRE` de 7 en 7 hasta un
+        trozo corto, `Directorio::siguiente_largo`) y la medida en 62 bits.
+        Un fichero de D: se lee por la ventana de 64 KiB del reflejo: uno de
+        15 GiB cuesta lo mismo que uno de 16 bytes. `create` con `d:` se
+        niega (`ERROR_ARCH_SOLO_LECTURA`), el handle solo lleva
+        `RIGHT_READ`, y no existe `personal escribe`. `personal lee` dice si
+        el fichero es un PE de verdad (`MZ` + `PE\0\0` en `e_lfanew`) y
+        para que maquina. **Como se sabe:** `personal ls` lista la raiz de
+        D: (los `$` del NTFS se cuentan pero no se muestran) y `personal lee
+        <ruta del .exe>` dice `MZ + PE ... x86-64`; la ruta es todo lo que va
+        detras de `lee`, espacios incluidos y sin comillas.
+      - N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
       con `D:\...` va al volumen NTFS, solo lectura.
 

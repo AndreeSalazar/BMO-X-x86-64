@@ -79,6 +79,8 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::Unknown => shell::unknown(dsk, p),
         Command::List(dir_path) => files::list(dsk, p, dir_path),
         Command::Read(file_path) => files::read(dsk, p, file_path),
+        Command::PersonalLs(ruta) => files::personal_ls(dsk, p, ruta),
+        Command::PersonalLee(ruta) => files::personal_lee(dsk, p, ruta),
         Command::Write(file_path, text) => files::write(dsk, p, file_path, text),
         Command::Save(arg) => files::save(dsk, p, arg),
         Command::SealMoved => system::seal_moved(dsk, p),

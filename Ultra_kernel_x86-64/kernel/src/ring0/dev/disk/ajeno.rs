@@ -308,6 +308,63 @@ pub fn volumen() -> Option<&'static mut bmo_ntfs::Volumen<'static>> {
     MONTADO.load(Ordering::Acquire).then(|| unsafe { &mut *core::ptr::addr_of_mut!(VOLUMEN) })
 }
 
+// == N1b: lo que Ring 3 puede pedir del disco Personal (SOLO LEER) ============
+//
+// La puerta es `d:` en las rutas de siempre (`obj/directory.rs` y
+// `obj/file.rs`): `d:Cyberpunk 2077/bin`, `D:\\Cyberpunk 2077\\bin`. Lo de
+// aqui LEE: recorrer una carpeta, medir un nodo y leer bytes de un fichero.
+// Crear o escribir en `d:` se niega en `obj/file.rs`, y este fichero no sabe
+// escribir (cerrojo 1).
+
+/// **`d:resto` -> `resto`**, la ruta dentro del disco Personal (sin la
+/// letra ni la barra de delante). `None` si la ruta no es de `d:`.
+pub fn ruta_personal(ruta: &str) -> Option<&str> {
+    let b = ruta.as_bytes();
+    if b.len() >= 2 && (b[0] | 0x20) == b'd' && b[1] == b':' {
+        Some(ruta[2..].trim_start_matches(['/', '\\']))
+    } else {
+        None
+    }
+}
+
+/// **Abrir una ruta del disco Personal.** `None` si no esta montado.
+pub fn abrir(ruta: &str) -> Option<Result<bmo_ntfs::Nodo, bmo_ntfs::NoNtfs>> {
+    Some(volumen()?.abrir(ruta))
+}
+
+/// **Leer** `dst` desde `off` del fichero del registro `registro` (que mide
+/// `medida`). Devuelve cuantos bytes llegaron; 0 si se acabo o fallo.
+pub fn leer_fichero(registro: u64, medida: u64, off: u64, dst: &mut [u8]) -> usize {
+    let Some(v) = volumen() else { return 0 };
+    let n = bmo_ntfs::Nodo { registro, carpeta: false, medida };
+    v.leer(&n, off, dst).unwrap_or(0)
+}
+
+/// **La entrada `n` (desde 0) de la carpeta `dir`**: su nombre en UTF-8 en
+/// `nombre` y `(bytes del nombre, carpeta, medida)`. `None` cuando se acaban.
+///
+/// [!] Recorre la carpeta desde el principio en cada llamada: pedir las N es
+/// cuadratico. Una carpeta de Cyberpunk tiene cientos, no millones; el dia
+/// que pese se guarda por donde iba.
+pub fn entrada(dir: u64, n: usize, nombre: &mut [u8]) -> Option<(usize, bool, u64)> {
+    let v = volumen()?;
+    let mut k = 0usize;
+    let mut hallada = None;
+    let r = v.recorrer(dir, &mut |e| {
+        if k == n {
+            let largo = e.nombre_utf8(nombre);
+            hallada = Some((largo, e.carpeta, e.medida));
+            return true;
+        }
+        k += 1;
+        false
+    });
+    if r.is_err() {
+        return None;
+    }
+    hallada
+}
+
 /// **Su tabla de particiones, su particion NTFS, montada, y la raiz a la
 /// cabina.** GPT primero; si no hay GPT, la MBR (Ventoy, que vive en este
 /// disco, formatea en MBR por defecto: tipo 0x07 es NTFS).

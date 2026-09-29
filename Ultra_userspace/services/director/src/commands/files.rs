@@ -115,8 +115,8 @@ pub(crate) fn read(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8]) -> Af
                 let got = a.read(&mut chunk);
                 if got == 0 { break; }
                 dsk.out.grid.text(&chunk[..got]);
-                last = chunk[dsk.field.n - 1];
-                total += dsk.field.n;
+                last = chunk[got - 1];
+                total += got;
                 if total >= 2048 {
                     dsk.out.grid.text(b"\n  ...(cortado)\n");
                     last = b'\n';
@@ -142,6 +142,188 @@ pub(crate) fn read(dsk: &mut Desktop, p: &bmo::Pantalla, file_path: &[u8]) -> Af
             paint_status(&p, &dsk.run_box, "no se pudo leer", INK_BAD);
         }
     }
+    dsk.field.n = 0;
+    After::Settle
+}
+
+// == EL DISCO PERSONAL (D:), SOLO PARA MIRAR (N1b, 2026-09-29) =================
+//
+// `personal ls` y `personal lee` van por las MISMAS puertas que `ls` y `lee`
+// --`Directorio` y `Archivo`-- con `d:` delante de la ruta: el kernel ve el
+// prefijo y contesta desde el NTFS. Escribir no existe en esta orden, y el
+// kernel lo niega igual si alguien lo intentara por la puerta de `escribe`.
+
+/// `d:` + la ruta, en `buf`. `None` si no cabe en el renglon del kernel (128).
+fn ruta_d<'b>(ruta: &[u8], buf: &'b mut [u8; 128]) -> Option<&'b [u8]> {
+    let ruta = match ruta {
+        [a, b':', resto @ ..] if *a | 0x20 == b'd' => resto,
+        _ => ruta,
+    };
+    if ruta.len() + 2 > buf.len() { return None; }
+    buf[0] = b'd';
+    buf[1] = b':';
+    buf[2..2 + ruta.len()].copy_from_slice(ruta);
+    Some(&buf[..2 + ruta.len()])
+}
+
+/// Un nombre UTF-8 a la rejilla, que solo sabe ASCII: cada letra que no lo
+/// es sale como `?` (una por letra, no una por byte).
+fn nombre_ascii(dsk: &mut Desktop, nombre: &[u8]) -> usize {
+    let mut n = 0;
+    for &c in nombre {
+        if c < 0x80 {
+            dsk.out.grid.byte(if c < 0x20 { b'?' } else { c });
+            n += 1;
+        } else if c & 0xC0 != 0x80 {
+            dsk.out.grid.byte(b'?');
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Una medida que se lee: bytes hasta 1 MiB, y de ahi MiB (un `.archive` de
+/// Cyberpunk pasa de los diez digitos que caben en `decimal`).
+fn medida(dsk: &mut Desktop, bytes: u64) {
+    let mut d10 = [0u8; 10];
+    let (v, u): (u64, &[u8]) = if bytes < 1 << 20 { (bytes, b" B") } else { (bytes >> 20, b" MiB") };
+    let n = decimal(v, &mut d10);
+    dsk.out.grid.text(&d10[..n]);
+    dsk.out.grid.text(u);
+}
+
+pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> After {
+    let mut buf = [0u8; 128];
+    let d = match ruta_d(ruta, &mut buf).map(bmo::Directorio::open) {
+        Some(Ok(d)) => d,
+        otro => {
+            let (line, estado): (&[u8], &str) = match otro {
+                None => (b"  esa ruta es demasiado larga (128 bytes con el d:).\n", "ruta larga"),
+                Some(Err(25)) => (b"  no queda slot de directorio en el kernel.\n", "sin ranura libre"),
+                _ => (
+                    b"  D: no esta montado, o esa carpeta no existe (mira `disco`: la fila personal).\n",
+                    "carpeta no encontrada",
+                ),
+            };
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(line);
+            dsk.out.grid.with_ink(INK_PLAIN);
+            paint_status(&p, &dsk.run_box, estado, INK_BAD);
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+    };
+    let mut nombre = [0u8; 256];
+    let (mut vistas, mut ocultas, mut todas) = (0u32, 0u32, 0u32);
+    // Tope por si una carpeta enorme se comiera el fotograma; y `todas` sigue
+    // contando para decir cuantas quedaron sin pintar.
+    while let Some((largo, carpeta, bytes)) = d.siguiente_largo(&mut nombre) {
+        todas += 1;
+        let nom = &nombre[..largo];
+        // Los ficheros del propio NTFS (`$MFT`, `$Bitmap`...): Windows
+        // tampoco los muestra.
+        if nom.first() == Some(&b'$') { ocultas += 1; continue; }
+        if vistas >= 256 { continue; }
+        dsk.out.grid.text(b"  ");
+        let mut k = nombre_ascii(dsk, nom);
+        while k < 40 { dsk.out.grid.byte(b' '); k += 1; }
+        if carpeta { dsk.out.grid.text(b"<DIR>"); } else { medida(dsk, bytes); }
+        dsk.out.grid.byte(b'\n');
+        vistas += 1;
+    }
+    drop(d);
+    let mut d10 = [0u8; 10];
+    dsk.out.grid.with_ink(INK_ECHO);
+    if vistas == 0 && ocultas == 0 {
+        dsk.out.grid.text(b"  (vacio)\n");
+    }
+    let visibles = todas - ocultas;
+    if visibles > vistas {
+        dsk.out.grid.text(b"  ...y ");
+        let n = decimal((visibles - vistas) as u64, &mut d10);
+        dsk.out.grid.text(&d10[..n]);
+        dsk.out.grid.text(b" mas sin pintar\n");
+    }
+    if ocultas > 0 {
+        dsk.out.grid.text(b"  (");
+        let n = decimal(ocultas as u64, &mut d10);
+        dsk.out.grid.text(&d10[..n]);
+        dsk.out.grid.text(b" del propio NTFS, con $ delante, sin mostrar)\n");
+    }
+    dsk.out.grid.text(b"  D: es SOLO LECTURA: BMO-X no escribe ahi.\n");
+    dsk.out.grid.with_ink(INK_PLAIN);
+    paint_status(&p, &dsk.run_box, "listo", INK_DIM);
+    dsk.field.n = 0;
+    After::Settle
+}
+
+/// `personal lee <fichero>`: la medida, los primeros 64 bytes en hex y, si
+/// empieza por `MZ`, si es un PE de verdad (su firma `PE\0\0` donde dice
+/// `e_lfanew`). Es lo que PROTON-X mirara primero de un `.exe` de D:.
+pub(crate) fn personal_lee(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> After {
+    let mut buf = [0u8; 128];
+    let a = match ruta_d(ruta, &mut buf) {
+        Some(r) => bmo::Archivo::reflejar(r),
+        None => Err(bmo::ERROR_ARCH_NO_ESTA),
+    };
+    let a = match a {
+        Ok(a) => a,
+        Err(e) => {
+            dsk.out.grid.with_ink(INK_ERR);
+            dsk.out.grid.text(b"  ");
+            dsk.out.grid.text(file_error_reason(e));
+            dsk.out.grid.byte(b'\n');
+            dsk.out.grid.with_ink(INK_PLAIN);
+            paint_status(&p, &dsk.run_box, "no se pudo leer", INK_BAD);
+            dsk.field.n = 0;
+            return After::Settle;
+        }
+    };
+    let total = a.size();
+    dsk.out.grid.text(b"  medida: ");
+    medida(dsk, total);
+    dsk.out.grid.byte(b'\n');
+    let mut cab = [0u8; 64];
+    let n = a.read(&mut cab);
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for fila in cab[..n].chunks(16) {
+        dsk.out.grid.text(b"  ");
+        for &c in fila {
+            dsk.out.grid.byte(HEX[(c >> 4) as usize]);
+            dsk.out.grid.byte(HEX[(c & 15) as usize]);
+            dsk.out.grid.byte(b' ');
+        }
+        for _ in fila.len()..16 { dsk.out.grid.text(b"   "); }
+        dsk.out.grid.byte(b' ');
+        for &c in fila {
+            dsk.out.grid.byte(if (0x20..0x7F).contains(&c) { c } else { b'.' });
+        }
+        dsk.out.grid.byte(b'\n');
+    }
+    if n >= 0x40 && cab[0] == b'M' && cab[1] == b'Z' {
+        let pe = u32::from_le_bytes([cab[0x3C], cab[0x3D], cab[0x3E], cab[0x3F]]) as u64;
+        let mut firma = [0u8; 6];
+        let ok = pe + 6 <= total && a.saltar(pe) == pe && a.read(&mut firma) == 6 && firma[..4] == *b"PE\0\0";
+        if ok {
+            let maquina = u16::from_le_bytes([firma[4], firma[5]]);
+            dsk.out.grid.with_ink(INK_GOOD);
+            dsk.out.grid.text(match maquina {
+                0x8664 => b"  MZ + PE: un ejecutable de Windows para x86-64.\n" as &[u8],
+                0x014C => b"  MZ + PE: un ejecutable de Windows de 32 bits (x86).\n",
+                _ => b"  MZ + PE: un ejecutable de Windows (otra maquina).\n",
+            });
+        } else {
+            dsk.out.grid.with_ink(INK_ECHO);
+            dsk.out.grid.text(b"  empieza por MZ pero sin firma PE: un ejecutable de DOS.\n");
+        }
+        dsk.out.grid.with_ink(INK_PLAIN);
+    } else if n == 0 && total > 0 {
+        dsk.out.grid.with_ink(INK_ERR);
+        dsk.out.grid.text(b"  no llego ni un byte del disco.\n");
+        dsk.out.grid.with_ink(INK_PLAIN);
+    }
+    a.close();
+    paint_status(&p, &dsk.run_box, "listo", INK_DIM);
     dsk.field.n = 0;
     After::Settle
 }

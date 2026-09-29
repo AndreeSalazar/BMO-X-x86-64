@@ -108,7 +108,7 @@ impl Unidad {
             Unidad::Datos => Some(fuente::Volumen::Datos),
             Unidad::Estratos => Some(fuente::Volumen::Estratos),
             Unidad::Efi => Some(fuente::Volumen::Efi),
-            // N1b: `personal ls` todavia no existe; hoy solo se mide.
+            // N1b: D: se mira con `personal ls`; la ventana aun no lo recorre.
             Unidad::Personal => None,
         }
     }
