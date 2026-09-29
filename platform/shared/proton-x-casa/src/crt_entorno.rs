@@ -26,7 +26,7 @@ use core::cell::UnsafeCell;
 use crate::crt;
 use crate::crt_cadenas::{largo, largo_w, poner_errno, strdup, trozo, trozo_w, EINVAL, ENOENT, ERANGE};
 use crate::crt_numeros::entrada_de;
-use crate::{aviso, dir, kernel32, memoria, plataforma, proceso};
+use crate::{aviso, dir, kernel32, memoria, plataforma};
 
 struct Estado {
     /// Las copias que dan getenv/_wgetenv: viven hasta que la casa se reinicia.
@@ -63,15 +63,16 @@ pub(crate) fn reiniciar() {
 
 // -- El entorno ------------------------------------------------------------------------------
 
+/// La del entorno del CRT (su copia del arranque), como en Windows.
 fn variable_w(nombre: &[u16]) -> Option<Vec<u16>> {
-    proceso::variable(&String::from_utf16_lossy(nombre))
+    crt::variable_del_crt(nombre)
 }
 
 extern "win64" fn getenv(n: *const u8) -> *const u8 {
     if n.is_null() {
         return core::ptr::null();
     }
-    let Some(v) = proceso::variable(&String::from_utf8_lossy(trozo(n))) else { return core::ptr::null() };
+    let Some(v) = variable_w(&String::from_utf8_lossy(trozo(n)).encode_utf16().collect::<Vec<u16>>()) else { return core::ptr::null() };
     let mut a: Vec<u8> = String::from_utf16_lossy(&v).into_bytes();
     a.push(0);
     let e = estado();
@@ -125,7 +126,7 @@ extern "win64" fn dupenv_s(buf: *mut *mut u8, largo_: *mut usize, nombre: *const
             *largo_ = 0;
         }
     }
-    let Some(v) = proceso::variable(&String::from_utf8_lossy(trozo(nombre))) else { return 0 };
+    let Some(v) = variable_w(&String::from_utf8_lossy(trozo(nombre)).encode_utf16().collect::<Vec<u16>>()) else { return 0 };
     let a = String::from_utf16_lossy(&v).into_bytes();
     let p = crt::malloc(a.len() + 1) as *mut u8;
     if p.is_null() {

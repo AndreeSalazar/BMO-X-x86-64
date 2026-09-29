@@ -131,6 +131,24 @@ fn preparar_entorno() {
     e.env_w = e.entorno_w.iter().map(|v| v.as_ptr() as u64).chain([0]).collect();
 }
 
+/// **Una variable del entorno DEL CRT** (getenv y los suyos): la copia que
+/// hizo `_initialize_*_environment` al arrancar, no el del sistema; `None`
+/// si todavia no se hizo. Asi es en Windows (el metal, 29-09: tanda1.exe sin
+/// el arranque del CRT ve getenv NULL, y un SetEnvironmentVariable de
+/// despues no cambia lo que dice getenv).
+pub(crate) fn variable_del_crt(nombre: &[u16]) -> Option<Vec<u16>> {
+    let e = estado();
+    if e.env_w.is_empty() {
+        return None;
+    }
+    let igual = |a: &[u16], b: &[u16]| a.len() == b.len() && a.iter().zip(b).all(|(&x, &y)| (x < 0x80 && y < 0x80 && (x as u8).eq_ignore_ascii_case(&(y as u8))) || x == y);
+    e.entorno_w.iter().find_map(|p| {
+        let p = &p[..p.len() - 1];
+        let k = p.iter().skip(1).position(|&c| c == b'=' as u16)? + 1;
+        igual(&p[..k], nombre).then(|| p[k + 1..].to_vec())
+    })
+}
+
 extern "win64" fn configure_argv(_modo: i32) -> i32 {
     preparar_argv();
     0

@@ -76,6 +76,9 @@ static int igual(const char *a, const char *b) {
 }
 
 static const char A[] = "abc", B[] = "abd", H[] = "hola";
+/* El _Cvtvec de msvcp140 y un mbstate_t. */
+static struct { unsigned pagina, maximo; int es_c; unsigned char lider[32]; } cvt;
+static U64 estado;
 static MTX mtx, rec;
 static CND cnd;
 static volatile int suma, listo, tomado, veces;
@@ -102,8 +105,9 @@ static int consumidor(void *a) {
     return 0;
 }
 
-static int __cdecl una_vez(void *pv, void *p, void **ctx) {
-    (void)p, (void)ctx;
+/* Como InitOnceExecuteOnce: (la bandera, el parametro, el contexto). */
+static int __cdecl una_vez(void *bandera, void *pv, void **ctx) {
+    (void)bandera, (void)ctx;
     veces += (int)(U64)pv;
     return 1;
 }
@@ -141,11 +145,16 @@ void inicio(void) {
     _Mtx_unlock(&mtx);
 
     mira(execute_once(&flag, una_vez, (void *)5) && execute_once(&flag, una_vez, (void *)5) && veces == 5, "_Execute_once: una sola vez");
-    mira(_Xtime_get_ticks() > 17000000000000000ll && _Query_perf_frequency() == 1000000000 && _Query_perf_counter() > 0, "_Xtime_get_ticks y los contadores");
+    /* La frecuencia es la de la maquina (la casa cuenta ns). */
+    mira(_Xtime_get_ticks() > 17000000000000000ll && _Query_perf_frequency() > 0 && _Query_perf_counter() > 0, "_Xtime_get_ticks y los contadores");
     mira(_Strcoll(A, A + 3, B, B + 3, 0) < 0 && _Strcoll(A, A + 2, B, B + 2, 0) == 0, "_Strcoll");
     mira(_Strxfrm(buf, buf + 8, H, H + 4, 0) == 4 && buf[0] == 'h' && buf[3] == 'a', "_Strxfrm");
-    mira(_Mbrtowc(&w, "Z", 1, 0, 0) == 1 && w == 'Z' && _Mbrtowc(&w, "Z", 0, 0, 0) == -2, "_Mbrtowc");
-    mira(winerror_map(2) == 2 && winerror_map(5) == 13 && winerror_map(12345) == 0 && igual(syserror_map(2), "No such file or directory"), "_Winerror_map y _Syserror_map");
+    /* msvcp140 lee la tabla de conversion: la del locale "C". */
+    cvt.pagina = 0;
+    cvt.maximo = 1;
+    cvt.es_c = 1;
+    mira(_Mbrtowc(&w, "Z", 1, &estado, &cvt) == 1 && w == 'Z' && _Mbrtowc(&w, "Z", 0, &estado, &cvt) == -2, "_Mbrtowc");
+    mira(winerror_map(2) == 2 && winerror_map(5) == 13 && winerror_map(12345) == 0 && igual(syserror_map(2), "no such file or directory"), "_Winerror_map y _Syserror_map");
 
     _Cnd_destroy_in_situ(&cnd);
     _Mtx_destroy_in_situ(&mtx);

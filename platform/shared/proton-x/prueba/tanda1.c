@@ -134,6 +134,8 @@ IMPORTA int __cdecl _splitpath_s(const char *p, char *u, U64 un, char *d, U64 dn
 IMPORTA int __cdecl _wmakepath_s(WCHAR *b, U64 n, const WCHAR *u, const WCHAR *d, const WCHAR *f, const WCHAR *e);
 /* runtime, time, environment, locale, heap, private */
 IMPORTA int *__cdecl _errno(void);
+IMPORTA int __cdecl _initialize_narrow_environment(void);
+IMPORTA int __cdecl _initialize_wide_environment(void);
 typedef void(__cdecl *INVALIDO)(const WCHAR *, const WCHAR *, const WCHAR *, unsigned, U64);
 IMPORTA INVALIDO __cdecl _set_invalid_parameter_handler(INVALIDO h);
 IMPORTA U64 __cdecl _beginthreadex(void *s, unsigned p, unsigned(__stdcall *f)(void *), void *a, unsigned fl, unsigned *id);
@@ -281,7 +283,9 @@ void inicio(void) {
         mira(wcscpy_s(w, 64, L"V MERC") == 0 && _wcslwr_s(w, 64) == 0 && igual_w(w, L"v merc") && towlower(L'Q') == L'q', "wcscpy_s _wcslwr_s towlower");
     }
     /* -- caracteres */
-    mira(isalpha('x') && !isalpha('1') && isdigit('7') && isspace('\t') && tolower('K') == 'k' && (__pctype_func()['A'] & 0x101) == 0x101 && __pctype_func()[-1] == 0, "isalpha isdigit isspace tolower __pctype_func");
+    mira(isalpha('x') && !isalpha('1') && isdigit('7') && isspace('\t') && tolower('K') == 'k', "isalpha isdigit isspace tolower");
+    mira((__pctype_func()['A'] & 0x101) == 0x101 && (__pctype_func()['7'] & 0x4), "__pctype_func: 'A' mayuscula y letra, '7' digito");
+    mira(__pctype_func()[-1] == 0, "__pctype_func: la entrada de EOF (-1) a cero");
     /* -- numeros */
     {
         long v = strtol("  -0x1Fz", &fin, 0);
@@ -361,11 +365,18 @@ void inicio(void) {
         U64 req = 1;
         char *p = 0;
         mira(t > 1700000000 && tm && tm[5] >= 123 && tm[4] < 12 && tm[3] >= 1, "_time64 _gmtime64");
+        /* El CRT tiene su COPIA del entorno, que hace su arranque: sin
+         * arranque del CRT (este .exe no lo tiene), se pide aqui. */
         SetEnvironmentVariableW(L"BMO_TANDA", L"uno");
+        _initialize_narrow_environment();
+        _initialize_wide_environment();
         mira(getenv("BMO_TANDA") && igual(getenv("BMO_TANDA"), "uno") && getenv("NO_HAY_TAL") == 0, "getenv");
+        SetEnvironmentVariableW(L"BMO_TANDA", L"dos");
+        mira(getenv("BMO_TANDA") && igual(getenv("BMO_TANDA"), "uno"), "getenv lee la copia del CRT: SetEnvironmentVariableW de despues no la cambia");
         mira(_wgetenv_s(&req, w, 64, L"BMO_TANDA") == 0 && req == 4 && igual_w(w, L"uno") && _dupenv_s(&p, &req, "BMO_TANDA") == 0 && p && igual(p, "uno"), "_wgetenv_s _dupenv_s");
         free(p);
-        mira(igual(setlocale(0, ""), "C") && setlocale(0, "klingon") == 0 && localeconv()[0][0] == '.', "setlocale localeconv");
+        /* "" es el del usuario (en tu Windows, el tuyo). */
+        mira(setlocale(0, "") != 0 && setlocale(0, "klingon") == 0 && igual(setlocale(0, "C"), "C") && localeconv()[0][0] == '.', "setlocale (\"\", uno que no hay, \"C\") y localeconv");
     }
     /* -- un hilo y lo de C++ */
     {
