@@ -594,6 +594,30 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     mismas. Y el pegado ya no copia programas por valor: el
                     kernel pega en su taller (`vertice_en`/`pixel_en`), 336 B
                     de marco en vez de 13.056.
+               4c.6b [EL METAL DIJO NO, 28-09 20:31] `gpu verrano bmox12
+                    30 z`: el estado entero (34 de 34) y los vertices
+                    pagados, el dibujo NO: Xid 69 (error de clase del motor
+                    grafico) y el canal GR MUERTO hasta reiniciar; `ambas`
+                    despues, 0 de 34 (ya muerto). Y `bmox12.exe` esperaba
+                    1 s ENTERO por lote (el tope del kernel): 0 fps. **Por
+                    que:** la 3060 no dibuja con una Z en bloque sobre un
+                    color PITCH -- nouveau apaga la Z si el color es lineal
+                    (`nvc0_validate_fb`: `zsbuf && !cbuf_is_linear`) y NVK
+                    dibuja en una SOMBRA en bloque y la copia
+                    (`nvk_rendering_linear`: "Depth and stencil are never
+                    linear"; `nvk_linear_render_copy`, con el motor de
+                    copia). Nuestro destino es el back buffer de la app, en
+                    su RAM: pitch. **Lo hecho (Ring 3):** la puerta de la
+                    app no manda un lote con Z (`puerta::Z_CON_COLOR_PITCH`)
+                    y dice por que; un dibujo NO pagado apaga la 3060 a la
+                    PRIMERA con la escalera dicha (no un segundo por lote).
+                    El banco sigue comprobando la receta con Z (la que el
+                    kernel recibira). **Lo que falta (Ring 0, por aprobar):**
+                    la SOMBRA -- el color en VRAM en bloque, junto a la Z, y
+                    una copia bloque->pitch al back buffer con un objeto de
+                    copia (C7B5) EN el canal GR, tras un semaforo; y que el
+                    kernel, al oir un RC_TRIGGERED, marque el canal muerto y
+                    diga NO al instante (y el juez niegue Z sin sombra).
                4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture
                     (29-09): `bmo_proton_x::textura` muestrea (punto y
                     bilineal con fraccion de 8 bits, los cinco modos de

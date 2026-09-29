@@ -46,6 +46,18 @@ use crate::{emitir_con, Abi};
 /// Los registros que se le dan al emisor (los de VERRANO, `tuberia::REGISTROS`).
 const REGISTROS: u32 = 64;
 
+/// **La Z sobre un color PITCH: NO** (el metal, 28-09 20:31). `gpu verrano
+/// bmox12 30 z` dio Xid 69 (error de clase del motor grafico) AL DIBUJAR: el
+/// estado entero paso, los vertices tambien, y el rasterizador rechazo la
+/// pareja ZT en bloque + color pitch. Es del hardware, no un valor nuestro:
+/// nouveau apaga la Z si el color es lineal (`nvc0_validate_fb`, `zsbuf &&
+/// !cbuf_is_linear`) y NVK dibuja en una SOMBRA en bloque y la copia
+/// (`nvk_rendering_linear`: "Depth and stencil are never linear"). El destino
+/// de la receta es el back buffer de la app, pitch: mandar un lote con Z MATA
+/// el canal GR hasta reiniciar. Hasta que el kernel dibuje en su sombra y
+/// copie, un lote con Z va por la CPU, y se dice.
+pub const Z_CON_COLOR_PITCH: bool = false;
+
 /// **Lo de un PSO para la puerta**: los cuerpos y como se cargan.
 #[derive(Debug, Clone)]
 pub struct Cuerpos {
@@ -198,6 +210,10 @@ pub struct Puerta {
     taller: Box<Taller>,
     /// La Z de la 3060 tiene lo ultimo (ver la cabecera).
     pub z_viva: bool,
+    /// Mandar lotes con Z a la 3060: [`Z_CON_COLOR_PITCH`]. El banco lo
+    /// enciende para comprobar la receta que el kernel recibira con su
+    /// sombra; la app, nunca.
+    pub z_en_pitch: bool,
 }
 
 impl Default for Puerta {
@@ -208,12 +224,17 @@ impl Default for Puerta {
 
 impl Puerta {
     pub fn nueva() -> Self {
-        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false }
+        Puerta { cuerpos: Vec::new(), probados: Vec::new(), caja: alloc::vec![0; receta::MAX_RECETA], datos: Vec::new(), taller: Box::new(Taller::nuevo()), z_viva: false, z_en_pitch: Z_CON_COLOR_PITCH }
     }
 
     /// **La receta de este lote**, en `self.caja[..n]`: `Ok(n)`, o por que
     /// no va a la 3060.
     pub fn preparar(&mut self, l: &Lote, b: Blanco) -> Result<usize, String> {
+        if l.reglas.profundidad.is_some() && !self.z_en_pitch {
+            return Err(String::from(
+                "el lote usa Z y la 3060 no dibuja con Z sobre un color PITCH (el back buffer en tu RAM): en el metal fue Xid 69 y el canal GR MUERTO hasta reiniciar; falta la sombra en bloque del kernel",
+            ));
+        }
         if l.reglas.profundidad.is_some() && l.limpiar_z.is_none() && !self.z_viva {
             return Err(String::from("la Z de la 3060 no tiene lo ultimo (un dibujo anterior fue por la CPU) y este no la limpia"));
         }

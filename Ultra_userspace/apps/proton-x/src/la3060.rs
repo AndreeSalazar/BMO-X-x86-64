@@ -14,6 +14,9 @@
 //!    el kernel dice NO    tres seguidos: la 3060 se deja para el resto de
 //!                         la vida del proceso (sin escritorio que la haya
 //!                         preparado no va a cambiar), y se dice
+//!    la 3060 no paga      A LA PRIMERA: el canal GR tomo un Xid y esta
+//!                         muerto hasta reiniciar; insistir costo 1 s por
+//!                         lote en el metal (28-09). Se dice la escalera
 //! ```
 
 use alloc::string::String;
@@ -49,6 +52,27 @@ fn decir(e: &mut Estado, motivo: String) {
     e.dichos.push(motivo);
 }
 
+/// **Un dibujo que la 3060 no pago**, dicho entero: cuanto espero el kernel,
+/// hasta que escalon llego, y lo que se hace.
+fn no_pagado(r: u64) -> String {
+    let (us, tris, etapas, lanzado) = puerta::desempaquetar(r);
+    let si = |b: u32| if etapas & b != 0 { "SI" } else { "NO" };
+    let donde = match (lanzado, etapas) {
+        (false, _) => "no se lanzo: el kernel no pudo poner la receta en el canal",
+        (true, 0) => "no pago NI el estado: el canal GR ya estaba muerto (un Xid anterior; el `gsp aviso` de `gpu verrano` lo dice)",
+        (true, 1) => "el estado SI, los vertices NO: se paro en el programa de VERTICES",
+        (true, _) => "los vertices SI, el dibujo NO: se paro al RASTERIZAR o en el programa de PIXEL (un Xid 69 = un metodo o un valor que el motor no acepta)",
+    };
+    alloc::format!(
+        "PROTON-X: la 3060 NO PAGO un lote de {tris} triangulo(s): el kernel espero {} ms; escalera: estado {} vertices {} dibujo {} -> {donde}.\n\
+         PROTON-X: un canal GR que no paga queda MUERTO hasta reiniciar: la 3060 se deja YA (cada lote mas costaria otro segundo); el resto, por la CPU (contesto {r:#x})\n",
+        us / 1000,
+        si(1),
+        si(2),
+        si(4),
+    )
+}
+
 /// **El ejecutor** (`Plataforma::dibujar`).
 pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
     // SAFETY: ver `Celda`.
@@ -71,8 +95,14 @@ pub fn dibujar(l: &Lote, d: &mut Destino) -> Result<Cuenta, NoDibuja> {
                         return Ok(Cuenta { dibujados: tris, ..Cuenta::default() });
                     }
                     Ok(r) => {
+                        // El metal (28-09): cada NO pagado costo 1 s entero
+                        // (el tope del kernel) y 0 fps. Un canal GR que no
+                        // paga tomo una excepcion (Xid): esta MUERTO hasta
+                        // reiniciar y cada lote mas esperaria otro segundo.
+                        // Se deja a la PRIMERA.
                         p.despues(l, false);
-                        decir(e, alloc::format!("la 3060 no pago el dibujo entero (contesto {r:#x})"));
+                        e.apagada = true;
+                        bmo::consola(&no_pagado(r));
                     }
                     Err(m) => {
                         p.despues(l, false);
