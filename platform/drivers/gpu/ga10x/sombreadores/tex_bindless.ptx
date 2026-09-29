@@ -1,0 +1,16 @@
+.version 8.0
+.target sm_86
+.address_size 64
+.visible .entry k(.param .u64 o)
+{
+  .reg .b64 %rd<6>;
+  .reg .f32 %f<16>;
+  ld.param.u64 %rd2, [o];
+  cvta.to.global.u64 %rd3, %rd2;
+  ld.global.u64 %rd1, [%rd3];
+  ld.global.v2.f32 {%f1, %f2}, [%rd3+8];
+  mov.f32 %f11, 0f00000000;
+  tex.level.2d.v4.f32.f32 {%f7, %f8, %f9, %f10}, [%rd1, {%f1, %f2}], %f11;
+  st.global.v4.f32 [%rd3+16], {%f7, %f8, %f9, %f10};
+  ret;
+}

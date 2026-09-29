@@ -655,14 +655,20 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        Muestreador y la textura de la casa a ellos. [!] Los
                        campos son los de `gm107_texture.xml.h` de nouveau; el
                        banco comprueba sus bits, NO que la 3060 los entienda.
-                    T1 [ ] el `TEX` en SASS: su codificacion de sm_86 NO esta
-                       en el arbol y no se escribe de memoria (un bit mal y
-                       es otro Xid 69 con el canal muerto). Se saca de un
-                       binario que YA corre: en el Windows del propietario,
-                       `nvcc -arch=sm_86 -cubin` de un kernel de CUDA con
-                       `tex2D` y `cuobjdump -sass` -> sus 128 bits, al
-                       corpus. Y el juez R8: el asa de la textura (su indice
-                       en las piscinas) la pone el KERNEL, nunca la app.
+                    T1 [HECHO banco, 29-09] el `TEX` en SASS, SACADO de un
+                       binario y no de memoria: `ptxas -arch=sm_86` (CUDA
+                       12.9, de PyPI) de un `tex.level.2d` con el asa en un
+                       registro -> `TEX.SCR.B.LZ R6, R4, R4, R0, 2D`
+                       (0x3800000004047361 / 0x004f4400009e0f06), y cada
+                       campo movido y releido con `nvdisasm -b SM86` 13.4
+                       (`sombreadores/tex_bindless.md`). `texturas::tex` da
+                       esos bits y cinco combinaciones mas que nvdisasm leyo
+                       como se pidieron; `texturas::asa` = tic | tsc << 20
+                       (NVK; por comprobar). El juez conoce SOLO esa forma
+                       (2D, .LZ, los cuatro canales seguidos, pares
+                       alineados): una desacoplada con su barrera (R1 si se
+                       lee antes); cualquier otra, R0. FALTA la regla R8: en
+                       el cuerpo de una APP el asa la pone el kernel.
                     T2 [ ] el kernel: las piscinas en VRAM, los texeles
                        prestados por la IOMMU (como el destino) o copiados a
                        VRAM por el motor de copia, y la receta VRN3 con sus

@@ -349,6 +349,34 @@ fn decodificar(lo: u64, hi: u64) -> Option<Instr> {
             i.escribe = reg(rd, 1);
             i.lee = [reg(s0, 1), reg(s1, 1), NADA, NADA];
         }
+        // TEX con el asa en un registro (0x361: op 0x161, forma 1; P3b4c.8
+        // T1, `texturas::tex`). SOLO la forma que se sabe: 2D, .LZ, los
+        // cuatro canales seguidos (Rd2 = Rd + 2, mascara 0xF), sin
+        // desplazamientos, comparacion, F16 ni predicado de salida, pares
+        // alineados y un asa. Lo demas es otra instruccion para el juez: R0.
+        0x161 if forma == 1 => {
+            let forma_sabida = r(12, 4) == 7
+                && r(59, 5) == 0b00111
+                && r(64, 8) == rd + 2
+                && r(72, 4) == 0xF
+                && r(76, 5) == 0
+                && r(81, 3) == 7
+                && r(84, 3) == 1
+                && r(87, 4) == 1
+                && r(40, 19) == 0
+                && r(91, 14) == 0
+                && rd % 2 == 0
+                && s0 % 2 == 0
+                && rd as u8 != RZ
+                && s0 as u8 != RZ
+                && s1 as u8 != RZ;
+            if !forma_sabida {
+                return None;
+            }
+            i.clase = Clase::Agu;
+            i.escribe = reg(rd, 4);
+            i.lee = [reg(s0, 2), reg(s1, 1), NADA, NADA];
+        }
         // Sin registros: NOP, BSSY, BSYNC, EXIT, BRA; y los UNIFORMES.
         0x118 | 0x145 | 0x141 | 0x82 | 0x90 | 0x99 | 0x1C3 => i.clase = Clase::Nada,
         0x14D => {
@@ -833,6 +861,31 @@ mod pruebas {
     /// Cambia los bits de control de una instruccion (desde el bit 105).
     fn control(i: (u64, u64), c: u64) -> (u64, u64) {
         (i.0, cu::con_control(i.1, c))
+    }
+
+    /// P3b4c.8 T1: el TEX es una desacoplada -- sus cuatro canales llegan
+    /// con su barrera, y leerlos antes es R1. Y solo la forma que se sabe.
+    #[test]
+    fn el_tex_se_espera() {
+        use crate::texturas::tex;
+        use crate::tuberia::{carga, espera, iadd3_acarreo};
+        let ctx = Contexto { registros: 64, sph: None };
+        let bien = [tex(4, 0, 2, carga(0)), iadd3_acarreo(8, 0, 4, 7, espera(1)), cu::EXIT];
+        // R4..R7 los escribe el TEX; R10 y R11, no.
+        assert!(juzgar(&bien, &ctx).is_ok(), "{:?}", juzgar(&bien, &ctx));
+        let mut mal = bien;
+        mal[1] = iadd3_acarreo(8, 0, 10, 11, cu::ALU);
+        assert!(juzgar(&mal, &ctx).is_ok(), "lo que no es del TEX no espera");
+        mal[1] = iadd3_acarreo(8, 0, 6, 9, cu::ALU);
+        assert_eq!(regla(&mal, &ctx), Regla::R1DatoAntesDeLlegar, "el canal B antes de llegar");
+        // Otra forma (sin .LZ, mascara 0x7, 1D, desplazamientos): R0.
+        for (bit, hi) in [(87, true), (72, true), (61, false), (76, true)] {
+            let mut t = bien;
+            if hi { t[0].1 ^= 1 << (bit - 64) } else { t[0].0 ^= 1 << bit }
+            assert_eq!(regla(&t, &ctx), Regla::R0NoSe, "bit {bit}");
+        }
+        // Un par sin alinear, tampoco.
+        assert_eq!(regla(&[tex(5, 0, 2, carga(0)), cu::EXIT], &ctx), Regla::R0NoSe);
     }
 
     /// J1 (b): cada regla tiene su programa roto a proposito, y el juez lo

@@ -175,6 +175,49 @@ pub fn tsc(m: &Muestreo) -> Option<[u32; 8]> {
     Some([u | v << 3 | u << 6, filtro | filtro << 4 | SIN_MIP << 6, 0, 0, m.borde[0].to_bits(), m.borde[1].to_bits(), m.borde[2].to_bits(), m.borde[3].to_bits()])
 }
 
+// == T1: el TEX ==============================================================
+//
+// De donde sale (29-09): NO de memoria. `ptxas -arch=sm_86` (CUDA 12.9, de
+// PyPI) compilo un `tex.level.2d` con el asa en un REGISTRO (cargada con un
+// LDG: el asa "bindless") y `nvdisasm` 13.4 dijo:
+//
+//    TEX.SCR.B.LZ R6, R4, R4, R0, 2D ;   0x3800000004047361 / 0x004f4400009e0f06
+//
+// Y cada campo se movio a mano y se volvio a desensamblar:
+//
+//    0..11    0x361: TEX con el asa en un registro (.B)
+//    12..15   el predicado (7 = PT)
+//    16..23   Rd: el primer par del resultado (R y G)
+//    24..31   Ra: las coordenadas (u en Ra, v en Ra+1)
+//    32..39   Rb: el ASA (tic | tsc << 20)
+//    59..60   .SCR (los dos a 1, como ptxas)
+//    61..63   la dimension: 1 = 2D
+//    64..71   Rd2: el segundo par (B y A)
+//    72..75   la mascara de canales (0xF = los cuatro)
+//    81..83   el predicado de salida (7 = ninguno)
+//    84..86   la cache (1 = la de siempre)
+//    87..89   el nivel: 1 = .LZ (el 0, sin derivadas: sin mipmaps no hacen
+//             falta, y el programa de pixel no las pide)
+//    105..    el control, como todas (`con_control`)
+//
+// Con Rd2 = Rd + 2 los cuatro canales caen SEGUIDOS en Rd..Rd+3: es la unica
+// forma que el juez acepta (`sass::juez`).
+
+/// **`TEX.SCR.B.LZ Rd, Ra, Rb, 2D`**: los cuatro canales en `rd..rd+3`, las
+/// coordenadas en `ra, ra+1`, el asa en `rb`.
+pub const fn tex(rd: u64, ra: u64, rb: u64, control: u64) -> (u64, u64) {
+    let lo = 0x361 | 7 << 12 | rd << 16 | ra << 24 | rb << 32 | 0x38 << 56;
+    let hi = (rd + 2) | 0xF << 8 | 7 << 17 | 1 << 20 | 1 << 23;
+    (lo, crate::cubo::con_control(hi, control))
+}
+
+/// **El asa de una textura**: su TIC y su TSC en las piscinas (20 bits el
+/// TIC, 12 el TSC, como el descriptor de NVK: `image_index | sampler_index
+/// << 20`). [!] Por comprobar en el metal (T3).
+pub const fn asa(tic: u32, tsc: u32) -> u32 {
+    (tic & 0xF_FFFF) | tsc << 20
+}
+
 // == Las piscinas ============================================================
 
 /// `SET_TEX_SAMPLER_POOL_A/B/C` y `SET_TEX_HEADER_POOL_A/B/C` (`clc797.h`;
@@ -256,6 +299,20 @@ mod pruebas {
         assert_eq!((p[1] & 3, p[1] >> 4 & 3), (PUNTO, PUNTO));
         assert_eq!([1, 2, 3, 4, 5].map(|d| direccion(d).unwrap()), [REPETIR, ESPEJO, SUJETAR, BORDE, ESPEJO_UNA_VEZ]);
         assert!(tsc(&Muestreo { u: 0, ..m }).is_none() && tsc(&Muestreo { v: 6, ..m }).is_none());
+    }
+
+    /// Lo que dijo `ptxas`, y cinco mas que `nvdisasm` 13.4 leyo como se
+    /// pidieron (29-09): `TEX.SCR.B.LZ R(rd+2), Rrd, Rra, Rrb, 2D`.
+    #[test]
+    fn el_tex_de_ptxas_y_nvdisasm() {
+        let control = 0x004f_4400_009e_0f06u64 >> 41;
+        assert_eq!(tex(4, 4, 0, control), (0x3800_0000_0404_7361, 0x004f_4400_009e_0f06), "el de ptxas, bit a bit");
+        for ((rd, ra, rb), lo) in [((0, 2, 4), 0x3800_0004_0200_7361u64), ((8, 0, 10), 0x3800_000a_0008_7361), ((12, 14, 1), 0x3800_0001_0e0c_7361), ((20, 10, 30), 0x3800_001e_0a14_7361), ((60, 58, 57), 0x3800_0039_3a3c_7361)] {
+            let (l, h) = tex(rd, ra, rb, control);
+            assert_eq!((l, h & 0xFF), (lo, rd + 2));
+            assert!(crate::sass::juez::conoce(l, h), "el juez lo sabe leer");
+        }
+        assert_eq!(asa(3, 1), 3 | 1 << 20);
     }
 
     #[test]
