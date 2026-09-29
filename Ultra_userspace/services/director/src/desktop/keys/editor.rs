@@ -130,6 +130,7 @@ match c {
             // `Desktop`, asi que el editor DECIDE y `_start` EJECUTA. La ruta
             // se copia porque `target` toma prestada la linea local.
             Command::Launch(target) => {
+                antes_de_proton_x(dsk, p, target);
                 let mut buf = [0u8; PATH_MAX];
                 let tn = target.len().min(PATH_MAX);
                 buf[..tn].copy_from_slice(&target[..tn]);
@@ -492,6 +493,30 @@ match c {
     _ => {}
 }
     Edit::Taken
+}
+
+/// **PROTON-X pide la 3060 lista** (29-09). El metal de las 06:40: `run
+/// sys/proton-x.bex window/bmox12.exe` con el GSP-RM ARRANCADO pero sin los
+/// pasos del motor grafico: el kernel contesto el motivo 78 ("el escritorio
+/// no la preparo") tres veces y el cubo fue por la CPU, a 22-35 fps y la CPU
+/// al 100 %. `gpu verrano` si los daba, `run` no. Ahora `run` de PROTON-X da
+/// lo que falte hasta `lienzo`, pero SOLO si el GSP-RM ya corre (`init`): un
+/// `.exe` no arranca el firmware de la 3060 por su cuenta. Sin `init`, se
+/// dice por que va por la CPU. Un NO al preparar lo dice `preparar_hasta` y
+/// el `.exe` se lanza igual (por la CPU).
+fn antes_de_proton_x(dsk: &mut Desktop, p: &bmo::Pantalla, target: &[u8]) {
+    let programa = target.split(|&c| c == b' ').next().unwrap_or(target);
+    if !programa.ends_with(b"proton-x.bex") {
+        return;
+    }
+    if !crate::commands::verificar::hecho(b"init") {
+        let g = &mut dsk.out.grid;
+        g.with_ink(INK_ECHO);
+        g.text(b"  la 3060 no esta arrancada (`save mode` o `gpu init`): PROTON-X dibujara con la CPU\n");
+        g.with_ink(INK_PLAIN);
+        return;
+    }
+    let _ = crate::commands::verificar::preparar_hasta(dsk, p, b"lienzo");
 }
 
 /// La linea es una busqueda (`buscar x`, `busca x`, `find x`).

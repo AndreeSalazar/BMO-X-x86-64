@@ -716,6 +716,18 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        tiene linea: su `ritmo` del escritorio. Sin esto no
                        se sabe cuanto da cada Z; el ORDEN de abajo no
                        depende de ello, la medida de la ganancia si.
+                       **Metal 29-09 06:40:** la primera medida NO midio
+                       la 3060: el GSP-RM estaba arrancado (`save mode
+                       init`) pero nadie dio los pasos del motor grafico
+                       hasta `lienzo`; el kernel contesto el motivo 78
+                       ("el escritorio no la preparo") tres veces y
+                       PROTON-X se paso a la CPU: 22-35 fps, `dibujar`
+                       27-42 ms, `presentar` 1-2 ms, la CPU al 100 %. Es
+                       el techo de la CPU, no el de la 3060. Arreglo
+                       (director, `editor.rs`): `run` de `proton-x.bex` da
+                       solo lo que falte hasta `lienzo` si el GSP-RM ya
+                       corre (`init`), y si no corre lo dice. Hay que
+                       repetir la medida.
                     Z1 PRESENTAR POR LA 3060, A PANTALLA COMPLETA (como D2c
                        de `PLAN_VERRANO.md` con DOOM, y un juego va a
                        pantalla completa igual): los lotes dibujan en la

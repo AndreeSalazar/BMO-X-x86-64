@@ -132,6 +132,11 @@ fn paso_por_nombre(nombre: &[u8]) -> Option<usize> {
     PASOS.iter().position(|p| p.nombre == nombre)
 }
 
+/// Si el paso `nombre` ya esta dado (sin dar nada). `false` si no existe.
+pub(crate) fn hecho(nombre: &[u8]) -> bool {
+    paso_por_nombre(nombre).is_some_and(|i| (PASOS[i].hecho)())
+}
+
 /// **La receta armada**, para el informe: los argumentos de `save mode` en
 /// `datos/modo.txt` (`None` = desarmado). Los `-paso` quitados van aqui.
 pub(crate) fn receta(buf: &mut [u8; 64]) -> Option<usize> {
