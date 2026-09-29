@@ -2416,6 +2416,89 @@ que el cargador no puede restaurar por 0xCF8). Y la pregunta de partida
 sigue abierta: hace falta un arranque DESDE Windows con el build normal
 (sin `siempre`) y su bloque PARA PEGAR.
 
+**EL MAPA: QUE HACE QUE LA 3060 PIDA UN REINICIO, Y POR QUE (29-09).**
+Pedido por el propietario ("investigar en general que la GPU tenga
+influencias de que se reinicie, con motivos"). Aqui no se adivina: cada fila
+dice de DONDE sale (medido en el metal, o leido en el codigo de NVIDIA
+570.144, `open-gpu-kernel-modules`, o en nova-core) y lo que falta medir.
+
+El metal de hoy (29-09 06:25, arranque en frio, build normal): `cargador:
+fria al llegar`, FWSEC-FRTS monto la WPR2, `GSP_INIT_DONE` a los 184 ms,
+GR, computo, lienzo y **las texturas 96/96**. La cadena entera funciona
+cuando la tarjeta llega limpia; lo terco es lo que la tarjeta RECUERDA.
+
+```text
+   que la deja "tocada"        de donde se sabe                     que hace BMO-X
+   --------------------------  -----------------------------------  ------------------------
+1  un GSP-RM que no se         NVIDIA (kernel_gsp.c): si la WPR2    el cargador reinicia por
+   descargo: la WPR2 sigue     esta arriba al cargar, "unexpected   el bus si la ve (o el
+   arriba y el RISC-V vivo     WPR2 already up ... may need to be   RISC-V activo); `gpu
+                               reset" y NO arranca. Medido: 25-09   apagar` (L0c5) la baja
+                               05:31 (`gsp NO desperto`)            al salir
+2  apagar SIN descargar: el    NVIDIA (kernel_gsp_tu102.c): al      `gpu apagar` hace lo
+   driver de antes no corrio   descargar, antes de Hopper, corre    mismo: FWSEC-SB y el
+   FWSEC-SB ni el booter de    FWSEC-SB (devuelve las apps de       booter de descarga
+   descarga                    antes del SO) y el BOOTER UNLOAD
+                               (tira la WPR2). Sin eso, la WPR2
+                               queda para el siguiente
+3  WINDOWS: su RM corre en la  medido: `nvidia-smi` dice `GSP       NADA todavia: las dos
+   CPU, no en el GSP; deja     Firmware Version: N/A` (COMO_LE_     pistas del cargador son
+   motores, falcons y la       HABLA_NVIDIA.md). La tarjeta llega   de un GSP-RM y Windows
+   pantalla a SU manera        tocada y el cargador la ve FRIA      no pone ninguna
+4  el GFW (la VBIOS que se     NVIDIA (kern_gpu_tu102.c) espera     el cargador y el kernel
+   corre sola tras un          DOS cosas, en este orden: que el     miran SOLO lo segundo
+   reinicio) no ha acabado     falcon del GSP se PARE (hasta        (PLM y progreso 0xFF):
+                               2,05 s) y luego PLM + progreso       falta la parada del
+                               0xFF. Si no: "the GPU may be in a    falcon (ver abajo)
+                               bad state"
+5  el reinicio por el bus      medido 28-09 23:09 con `siempre`:    `siempre` NO se deja
+   (SBR) en si                la tarjeta VUELVE (392 ms, GFW,      puesto; la autopsia de
+                               pantalla) pero FWSEC-FRTS acaba      FWSEC espera un
+                               "bien" SIN WPR2, y dos maestro-      arranque malo
+                               abortado NUEVOS (29:00.0 y 00:03.1)
+6  la region de FRTS depende   nova-core: FRTS va debajo del        la autopsia guarda la
+   de la PANTALLA: la calcula  espacio VGA (0x625F04) si la         region pedida: bueno
+   BMO-X con la VRAM y el      pantalla esta encendida, si no al    contra malo lo dira
+   espacio VGA                 final de la VRAM - 1 MiB. Tras un
+                               SBR la UEFI vuelve a encender la
+                               pantalla: el espacio VGA puede ser
+                               OTRO
+7  la BAR1 redimensionada      DESCARTADA en esta maquina, por los  nada
+   (Resizable BAR) que 0xCF8   datos: `sysinfo` BAR1 0xD0000000 y
+   no puede restaurar          BAR3 0xE0000000 = la BAR1 mide 256
+                               MiB, la de fabrica
+8  el calor, la energia        medido hoy: P0, 48 grados. No        nada
+                               entra en la cadena de arranque
+9  los errores del bus de      medido: `peticion-no-soportada`      nada: no son de la 3060
+   siempre                     CORREGIBLE en 10 funciones AMD y
+                               NVIDIA, "ya estaba al arrancar",
+                               en arranques buenos y malos
+```
+
+**Lo que NO recuerda nada: cortar la corriente 15-30 s.** Es la unica
+vuelta que nunca fallo, y por eso sigue siendo la regla entre pruebas.
+
+**Lo que se hace, en orden, sin cambiar dos cosas a la vez:**
+
+- R1 [por hacer, barato, es lo de NVIDIA] **esperar a que el falcon del GSP
+  se pare** (CPUCTL, el bit de HALTED) antes de mirar el progreso del GFW,
+  en el cargador tras el SBR y en `fwsec_correr`, con el plazo de NVIDIA
+  (50 ms + 2 s). En frio no cambia nada (hace segundos que se paro); tras
+  un SBR es justo la ventana en la que FWSEC-FRTS acabo sin WPR2.
+- R2 [esperando datos] **la autopsia de FWSEC, buena contra mala**: la
+  region FRTS pedida, la DMEMMAPPER y el 0x1438. Hace falta UN arranque con
+  `siempre` y las lineas `L0b autopsia FWSEC` de `cabina` (las del bueno
+  ya se pueden sacar de hoy con `cabina`). Si la region cambia, es la fila
+  6 y el arreglo es recalcularla tras el SBR.
+- R3 [esperando datos] **la tercera pista de Windows** (fila 3): comparar
+  la fila `al llegar` de un arranque en frio con la de un reinicio DESDE
+  Windows, build normal. Lo que cambie entre las dos es la pista; lo que
+  no, no se usa.
+- R4 [por mirar, solo lectura] **el FLR**: si la 3060 anuncia Function
+  Level Reset (capacidad PCIe, DevCap bit 28), es un reinicio mas fino que
+  el SBR (solo la funcion, no el puente). Que lo anuncie NO dice que limpie
+  la WPR2: se mide antes de usarlo.
+
 ## 4. Lo que NO se hace nunca
 
 - Cargar el GSP sin la IOMMU encendida.

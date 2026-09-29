@@ -76,17 +76,87 @@ lineas y una tabla:
       en `datos/`, con su camino (A nativo, B streaming). Sin red: el fichero
       se copia a mano. **Como se sabe:** DOOM sale como "nativo" y lanza el
       `.bex` de siempre.
-- [ ] **J2 -- la antena pide la lista a GOG.** En `toolchain/tools/antena/`,
-      con la sesion del propietario, como hacen Heroic y gogdl (su API no
-      es publica: lo que la tienda permite es cosa del propietario de la cuenta,
-      como el video en `PLAN_CLOUD_LOCAL`). **Como se sabe:** `LUDOTECA` a
-      la antena devuelve las lineas de tus juegos.
+- [ ] **J2 -- la antena pide la lista a GOG, EN RUST.** Cambiado el 29-09
+      por el propietario: *"Heroic usa la API de GOG, perfecto, pero no
+      quiero su launcher: usa su Python, yo usare Rust como el nuevo
+      Python"*. O sea: el Python de Heroic (`heroic-gogdl`) es la
+      REFERENCIA de como se habla con GOG; lo que corre es Rust. Ver la
+      seccion 3b. **Como se sabe:** `LUDOTECA` a la antena devuelve las
+      lineas `JUEGO` de tus juegos, y el banco del crate pasa con
+      respuestas de GOG grabadas.
 - [ ] **J3 -- traer los DATOS de un juego nativo.** El WAD o PAK de un juego
       del camino A, por la antena, a ESTRATOS, con su suma. Pide TCP en el
       metal (G5). **Como se sabe:** DOOM II arranca con el `doom2.wad` que
       trajo la antena.
 - [ ] **J4 -- el camino B.** Un juego de Windows lanzado en el PC y visto en
       BMO-X: es S6 (ESPEJO) con un fotograma por `gpu video`.
+
+## 3b. GOG por dentro, leido en `heroic-gogdl` (29-09)
+
+`heroic-gogdl` (Heroic Games Launcher, **GPL-3**) es el Python con el que
+Heroic habla con GOG. Se LEE para saber el protocolo; no se copia ni una
+linea (su licencia no es la de esta casa). Lo que dice, fichero a fichero
+(`gogdl/constants.py`, `auth.py`, `api.py`, `dl/dl_utils.py`,
+`dl/managers/manager.py`, `dl/managers/v2.py`, `dl/workers/task_executor.py`):
+
+```text
+   hosts        auth.gog.com  api.gog.com  embed.gog.com
+                content-system.gog.com  gog-cdn-fastly.gog.com
+   ENTRAR       el propietario entra en SU navegador; GOG redirige a
+                embed.gog.com/on_login_success?origin=client&code=...
+                y ese CODE se cambia en auth.gog.com/token
+                (grant_type=authorization_code) por access_token,
+                refresh_token y expires_in. El client_id/secret son los
+                publicos del cliente Galaxy (estan en auth.py; aqui no se
+                repiten)
+   RENOVAR      auth.gog.com/token, grant_type=refresh_token, cuando
+                ahora >= loginTime + expires_in
+   CADA PETICION  cabecera `Authorization: Bearer <access_token>`
+   LOS TUYOS    GET embed.gog.com/user/data/games -> {"owned": [ids]}
+   UN JUEGO     GET api.gog.com/products/<id>  (titulo, imagenes...)
+                GET embed.gog.com/account/gameDetails/<id>.json
+   SUS BUILDS   GET content-system.gog.com/products/<id>/os/windows/builds
+                    ?generation=2  -> items[]: link, version_name, branch
+   EL META      GET <link del build> -> JSON COMPRIMIDO CON ZLIB: depots
+                (idioma, manifiesto), installDirectory
+   UN DEPOT     GET gog-cdn-fastly.gog.com/content-system/v2/meta/aa/bb/<hash>
+                (aa y bb = los 4 primeros caracteres del hash) -> zlib ->
+                ficheros: path, chunks[] con md5, compressedMd5 y medidas;
+                a veces md5 o sha256 del fichero entero
+   PERMISO      GET content-system.gog.com/products/<id>/secure_link
+                    ?_version=2&generation=2&path=/  -> urls[]:
+                url_format + parameters (caduca: se vuelve a pedir)
+   UN TROZO     url_format con path += /aa/bb/<compressedMd5>; se baja,
+                su md5 comprimido tiene que cuadrar, se infla con zlib y
+                el md5 del trozo inflado tambien
+```
+
+**Como se reparte en BMO-X (Rust en los dos lados, sin Python):**
+
+```text
+   bmo-ludoteca   platform/shared, no_std, SIN red y SIN TLS (J0):
+                  - las lineas JUEGO / FICHERO / MOTOR y su juez
+                  - leer lo que GOG contesta: owned, products, builds,
+                    el meta y el manifiesto de un depot (JSON), a las lineas
+                  - galaxy_path (aa/bb/hash) y las URLs de cada paso
+                  - inflar zlib y comprobar md5 / sha256 de cada trozo
+                  - banco: respuestas de GOG GRABADAS (sin fichas ni
+                    tokens), mutadas byte a byte
+   la antena      el PC o el movil, un binario Rust de host: pone la
+                  red, el TLS y la sesion; llama al crate para todo lo
+                  demas. El token vive SOLO ahi (seccion 5)
+   BMO-X          recibe las lineas (J1) y, para el camino A, los ficheros
+                  con su suma (J3): nunca ve un token
+```
+
+**Lo que falta decidir (no se adivina):** con que se hace el HTTPS de la
+antena en Rust. La casa no trae crates de fuera hoy (ni un `ureq`, ni un
+`rustls`, ni un `serde_json` en ningun `Cargo.toml`); escribir TLS a mano
+es el muro de la criptografia. Las salidas honestas: (a) aceptar UN crate
+de TLS solo en la antena, que no es BMO-X; (b) que la antena llame al
+`curl` del sistema para el transporte y Rust haga todo lo demas. Lo decide
+el propietario. El JSON y el zlib SI se escriben en casa (el crate los
+necesita en no_std y son chicos).
 
 ## 4. Lo que NO se hace
 

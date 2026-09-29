@@ -754,9 +754,13 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                        el pixel de HelloTexture da los bits del interprete,
                        punto y lineal. `tests/textura.rs`: su PSO es UN TEX
                        de t0/s0 que el juez R7 aprueba con el asa del kernel.
-                    T3 [EN CURSO, metal 28/29-09] el metal: `gpu verrano
-                       textura` IGUAL a `tests/textura.rs`, y HelloTexture
-                       por PROTON-X. Lo que dijo el metal:
+                    T3 [HECHO EN EL METAL 29-09 06:25] `gpu verrano
+                       textura`: **96 de 96, IGUAL a la 3060 bajo CUDA
+                       (Windows), bit a bit**, los ocho muestreadores 12/12
+                       (Point y Linear x Wrap, Mirror, Clamp, Border), las 8
+                       en 18586 us, y el barrido Point Clamp `00 00 00 11 11
+                       11 22 22 22 33 33 33` como la casa. FALTA: HelloTexture
+                       por PROTON-X en la 3060 (T4). La historia:
                        - el TEX CORRE: 8 recetas por la 3060 sin Xid, el
                          juez R7 y el kernel las aceptan, los TIC/TSC se
                          releen bien (T0..T2b valen en el metal)
@@ -771,7 +775,7 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                          salta. Arreglo (29-09): `texturas::
                          BORDE_DEL_MUESTREADOR` = 7 << 29
                          (BORDER_SIZE_SAMPLER_COLOR, lo de nouveau): el borde
-                         lo da el TSC. Falta el metal: 96/96 esperado.
+                         lo da el TSC. El metal: 96/96 (arriba).
                        - el muestreo de la casa YA iguala al hardware bit a
                          bit (`tests/metal_textura.rs`, 96/96 contra CUDA en
                          `docs/metal/tex_cuda/SALIDA.TXT`): si el metal da
