@@ -28,43 +28,44 @@ use crate::dir;
 //    i_f   int f(float)                -> f_bits(bits32) -> int
 
 macro_rules! trampolin {
-    ($nombre:literal, $bits:literal, d_d) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", concat!("call ", $bits), "movq xmm0, rax", "add rsp, 40", "ret");
+    (d_d, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", "call {f}", "movq xmm0, rax", "add rsp, 40", "ret", $($f)*);
     };
-    ($nombre:literal, $bits:literal, d_dd) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", "movq rdx, xmm1", concat!("call ", $bits), "movq xmm0, rax", "add rsp, 40", "ret");
+    (d_dd, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", "movq rdx, xmm1", "call {f}", "movq xmm0, rax", "add rsp, 40", "ret", $($f)*);
     };
-    ($nombre:literal, $bits:literal, d_dp) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", concat!("call ", $bits), "movq xmm0, rax", "add rsp, 40", "ret");
+    // El segundo argumento (un puntero) ya esta en rdx.
+    (d_dp, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movq rcx, xmm0", "call {f}", "movq xmm0, rax", "add rsp, 40", "ret", $($f)*);
     };
-    ($nombre:literal, $bits:literal, i_d) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "movq rcx, xmm0", concat!("jmp ", $bits));
+    (i_d, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "movq rcx, xmm0", "jmp {f}", $($f)*);
     };
-    ($nombre:literal, $bits:literal, f_f) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movd ecx, xmm0", concat!("call ", $bits), "movd xmm0, eax", "add rsp, 40", "ret");
+    (f_f, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "sub rsp, 40", "movd ecx, xmm0", "call {f}", "movd xmm0, eax", "add rsp, 40", "ret", $($f)*);
     };
-    ($nombre:literal, $bits:literal, i_f) => {
-        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "movd ecx, xmm0", concat!("jmp ", $bits));
+    (i_f, $nombre:literal, $($f:tt)*) => {
+        core::arch::global_asm!(concat!(".globl ", $nombre), concat!($nombre, ":"), "movd ecx, xmm0", "jmp {f}", $($f)*);
     };
 }
 
-trampolin!("proton_x_sin", "proton_x_sin_bits", d_d);
-trampolin!("proton_x_cos", "proton_x_cos_bits", d_d);
-trampolin!("proton_x_tan", "proton_x_tan_bits", d_d);
-trampolin!("proton_x_asin", "proton_x_asin_bits", d_d);
-trampolin!("proton_x_acos", "proton_x_acos_bits", d_d);
-trampolin!("proton_x_atan", "proton_x_atan_bits", d_d);
-trampolin!("proton_x_atan2", "proton_x_atan2_bits", d_dd);
-trampolin!("proton_x_log", "proton_x_log_bits", d_d);
-trampolin!("proton_x_pow", "proton_x_pow_bits", d_dd);
-trampolin!("proton_x_fmod", "proton_x_fmod_bits", d_dd);
-trampolin!("proton_x_modf", "proton_x_modf_bits", d_dp);
-trampolin!("proton_x_frexp", "proton_x_frexp_bits", d_dp);
-trampolin!("proton_x_round", "proton_x_round_bits", d_d);
-trampolin!("proton_x_dclass", "proton_x_dclass_bits", i_d);
-trampolin!("proton_x_dsign", "proton_x_dsign_bits", i_d);
-trampolin!("proton_x_fdclass", "proton_x_fdclass_bits", i_f);
-trampolin!("proton_x_roundf", "proton_x_roundf_bits", f_f);
+trampolin!(d_d, "proton_x_sin", f = sym proton_x_sin_bits);
+trampolin!(d_d, "proton_x_cos", f = sym proton_x_cos_bits);
+trampolin!(d_d, "proton_x_tan", f = sym proton_x_tan_bits);
+trampolin!(d_d, "proton_x_asin", f = sym proton_x_asin_bits);
+trampolin!(d_d, "proton_x_acos", f = sym proton_x_acos_bits);
+trampolin!(d_d, "proton_x_atan", f = sym proton_x_atan_bits);
+trampolin!(d_dd, "proton_x_atan2", f = sym proton_x_atan2_bits);
+trampolin!(d_d, "proton_x_log", f = sym proton_x_log_bits);
+trampolin!(d_dd, "proton_x_pow", f = sym proton_x_pow_bits);
+trampolin!(d_dd, "proton_x_fmod", f = sym proton_x_fmod_bits);
+trampolin!(d_dp, "proton_x_modf", f = sym proton_x_modf_bits);
+trampolin!(d_dp, "proton_x_frexp", f = sym proton_x_frexp_bits);
+trampolin!(d_d, "proton_x_round", f = sym proton_x_round_bits);
+trampolin!(i_d, "proton_x_dclass", f = sym proton_x_dclass_bits);
+trampolin!(i_d, "proton_x_dsign", f = sym proton_x_dsign_bits);
+trampolin!(i_f, "proton_x_fdclass", f = sym proton_x_fdclass_bits);
+trampolin!(f_f, "proton_x_roundf", f = sym proton_x_roundf_bits);
 
 // Las de una instruccion, sin pasar por Rust: SSE2 y SSE4.1 (ROUNDSD/SS con
 // modo 1 hacia -inf, 2 hacia +inf, 3 hacia cero).
@@ -126,7 +127,6 @@ fn es_inf(b: u64) -> bool {
     b & !SIGNO == INF
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_sin_bits(x: u64) -> u64 {
     // FSIN solo reduce |x| < 2^63; mas alla (o inf) Windows da NaN.
     if es_nan(x) || (x & !SIGNO) >= 0x43E0_0000_0000_0000 {
@@ -135,7 +135,6 @@ extern "win64" fn proton_x_sin_bits(x: u64) -> u64 {
     x87_1!(x, "fsin")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_cos_bits(x: u64) -> u64 {
     if es_nan(x) || (x & !SIGNO) >= 0x43E0_0000_0000_0000 {
         return NAN;
@@ -143,7 +142,6 @@ extern "win64" fn proton_x_cos_bits(x: u64) -> u64 {
     x87_1!(x, "fcos")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_tan_bits(x: u64) -> u64 {
     if es_nan(x) || (x & !SIGNO) >= 0x43E0_0000_0000_0000 {
         return NAN;
@@ -152,12 +150,10 @@ extern "win64" fn proton_x_tan_bits(x: u64) -> u64 {
     x87_1!(x, "fptan", "fstp st(0)")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_atan_bits(x: u64) -> u64 {
     x87_1!(x, "fld1", "fpatan")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_asin_bits(x: u64) -> u64 {
     if es_nan(x) || (x & !SIGNO) > UNO {
         return NAN;
@@ -166,7 +162,6 @@ extern "win64" fn proton_x_asin_bits(x: u64) -> u64 {
     x87_1!(x, "fld st(0)", "fmul st(0), st(0)", "fld1", "fsubrp st(1), st(0)", "fsqrt", "fpatan")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_acos_bits(x: u64) -> u64 {
     if es_nan(x) || (x & !SIGNO) > UNO {
         return NAN;
@@ -175,7 +170,6 @@ extern "win64" fn proton_x_acos_bits(x: u64) -> u64 {
     x87_1!(x, "fld st(0)", "fmul st(0), st(0)", "fld1", "fsubrp st(1), st(0)", "fsqrt", "fxch st(1)", "fpatan")
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_atan2_bits(y: u64, x: u64) -> u64 {
     let mut v = [y, x];
     // SAFETY: como `x87_1!`; FPATAN da atan(ST1/ST0) con el cuadrante bueno.
@@ -186,7 +180,6 @@ extern "win64" fn proton_x_atan2_bits(y: u64, x: u64) -> u64 {
     v[0]
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_log_bits(x: u64) -> u64 {
     if es_nan(x) {
         return x;
@@ -250,7 +243,6 @@ fn entero_impar(y: u64) -> Option<bool> {
     (fraccion == 0).then(|| (m >> (52 - e)) & 1 == 1)
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_pow_bits(x: u64, y: u64) -> u64 {
     // Las reglas de C99 (F.9.4.4), en el orden en que ganan.
     if y & !SIGNO == 0 || x == UNO {
@@ -286,7 +278,6 @@ extern "win64" fn proton_x_pow_bits(x: u64, y: u64) -> u64 {
     pow_positivo(x, y)
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_fmod_bits(x: u64, y: u64) -> u64 {
     if es_nan(x) || es_nan(y) || es_inf(x) || y & !SIGNO == 0 {
         return NAN;
@@ -327,7 +318,6 @@ fn truncar(x: u64) -> u64 {
     x & !((1u64 << (52 - e)) - 1)
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_modf_bits(x: u64, entera: *mut u64) -> u64 {
     let t = truncar(x);
     if !entera.is_null() {
@@ -345,7 +335,6 @@ extern "win64" fn proton_x_modf_bits(x: u64, entera: *mut u64) -> u64 {
     (r & !SIGNO) | (x & SIGNO)
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_frexp_bits(x: u64, exp: *mut i32) -> u64 {
     let pon = |e: i32| {
         if !exp.is_null() {
@@ -369,7 +358,6 @@ extern "win64" fn proton_x_frexp_bits(x: u64, exp: *mut i32) -> u64 {
     (b & !(0x7FF << 52)) | (1022 << 52)
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_round_bits(x: u64) -> u64 {
     // La mitad, lejos del cero: trunc(x + 0.5 con el signo de x), salvo
     // cuando x ya es entero (sumar 0.5 a 2^52 - 1 se pasaria).
@@ -386,7 +374,6 @@ extern "win64" fn proton_x_round_bits(x: u64) -> u64 {
     }
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_roundf_bits(x: u32) -> u32 {
     let e = ((x >> 23) & 0xFF) as i32 - 127;
     if e >= 23 || (x & 0x7FFF_FFFF) > 0x7F80_0000 {
@@ -426,7 +413,6 @@ const FP_NORMAL: i32 = -1;
 const FP_SUBNORMAL: i32 = -2;
 const FP_ZERO: i32 = 0;
 
-#[no_mangle]
 extern "win64" fn proton_x_dclass_bits(x: u64) -> i32 {
     match ((x >> 52) & 0x7FF, x & ((1 << 52) - 1)) {
         (0x7FF, 0) => FP_INFINITE,
@@ -437,7 +423,6 @@ extern "win64" fn proton_x_dclass_bits(x: u64) -> i32 {
     }
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_dsign_bits(x: u64) -> i32 {
     // El UCRT da el bit de signo en su sitio (0x8000 de la palabra alta).
     ((x >> 48) & 0x8000) as i32
@@ -449,7 +434,6 @@ extern "win64" fn dtest(p: *const u64) -> i32 {
     proton_x_dclass_bits(unsafe { p.read_unaligned() })
 }
 
-#[no_mangle]
 extern "win64" fn proton_x_fdclass_bits(x: u32) -> i32 {
     match ((x >> 23) & 0xFF, x & 0x7F_FFFF) {
         (0xFF, 0) => FP_INFINITE,

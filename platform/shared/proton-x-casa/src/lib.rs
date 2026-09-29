@@ -54,8 +54,10 @@ pub mod com;
 pub mod compilador;
 pub mod crt;
 pub mod crt_cadenas;
+pub mod crt_entorno;
 pub mod crt_ficheros;
 pub mod crt_mates;
+pub mod crt_numeros;
 pub mod d3d12;
 pub mod dxgi;
 pub mod esperas;
@@ -220,6 +222,7 @@ pub unsafe fn empezar(p: Plataforma) {
     modulos::reiniciar();
     crt::reiniciar();
     crt_cadenas::reiniciar();
+    crt_entorno::reiniciar();
     crt_ficheros::reiniciar();
     excepciones::reiniciar();
 }

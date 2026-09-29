@@ -514,7 +514,8 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         cadenas, numeros, mates (con el double en xmm0, por el x87), qsort,
         printf y scanf `_s`, FILE y descriptores en modo texto, rutas, la
         hora, el entorno y lo de C++ que es de C (`crt_cadenas.rs`,
-        `crt_mates.rs`, `crt_ficheros.rs` de la casa). **Como se sabe:**
+        `crt_numeros.rs`, `crt_entorno.rs`, `crt_mates.rs` y
+        `crt_ficheros.rs` de la casa). **Como se sabe:**
         `tanda1.exe` dice `bien` 51 veces en el banco
         (`tanda1_exe_tiene_el_c_runtime_de_cyberpunk`), y contra el
         `informe/censo.txt` del metal la casa da 290 de las 1277 que
