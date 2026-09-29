@@ -539,6 +539,18 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         un hilo de la casa no se devuelve) y una GENERACION para cancelar.
         **Como se sabe:** `tanda3b.exe` dice `bien` 18 veces en el banco
         (`tanda3b_exe_tiene_el_pool_de_hilos`).
+      - **LA TANDA 4: LAS EXCEPCIONES DE C++** (29-09): `throw`/`catch` de
+        MSVC en la casa (`cxx.rs`), sobre el SEH que ya habia:
+        `_CxxThrowException` y `__CxxFrameHandler3` (el de clang, el de Rust
+        y el de MSVC antiguo) leen las tablas de MSVC (FuncInfo, mapa de
+        estados, try/catch, tipos cogibles), corren los destructores al
+        desenrollar y el funclet del catch AL LLEGAR al marco (el
+        "consolidate" de Windows: `excepciones::desenrollar_y`); un `throw;`
+        sube por el marco de la funcion (`excepciones::poner_salto`).
+        **Como se sabe:** `tanda4.exe` dice `bien` 11 veces en el banco
+        (`tanda4_exe_tiene_las_excepciones_de_cpp`). Falta
+        `__CxxFrameHandler4` (el formato comprimido de MSVC 2019+, el de
+        Cyberpunk): pide un `.exe` compilado con `cl` de MSVC para probarlo.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A

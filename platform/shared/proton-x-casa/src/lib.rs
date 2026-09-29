@@ -58,6 +58,7 @@ pub mod crt_entorno;
 pub mod crt_ficheros;
 pub mod crt_mates;
 pub mod crt_numeros;
+pub mod cxx;
 pub mod d3d12;
 pub mod dxgi;
 pub mod esperas;
@@ -231,6 +232,7 @@ pub unsafe fn empezar(p: Plataforma) {
     crt_ficheros::reiniciar();
     excepciones::reiniciar();
     kernel32_pool::reiniciar();
+    cxx::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:

@@ -536,3 +536,22 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` dieciocho veces y sale con 0. Los callbacks corren en otros
 hilos: lo que se espera se mira con un tope de 2 s. En Windows dice lo mismo.
+
+tanda4.exe -- la TANDA 4 de Cyberpunk (29-09): las excepciones de C++
+
+throw y catch de MSVC (_CxxThrowException y __CxxFrameHandler3, de
+vcruntime140.dll): por valor, por referencia y por puntero, a una base (con
+herencia multiple), catch(...), throw; y un throw dentro de un catch. En C++
+sin su biblioteca (tanda4_kernel32.def y tanda4_vcruntime.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda4_kernel32.def -l tanda4_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda4_vcruntime.def -l tanda4_vcruntime.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fexceptions -fcxx-exceptions -ffreestanding -fno-stack-protector -fno-builtin -c tanda4.cpp -o tanda4.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda4.obj tanda4_kernel32.lib tanda4_vcruntime.lib /out:tanda4.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   1ac38c0c9af6d419910572a74745c93770881b9cfa1c1552a1289c66ab05128b
+
+Dice `bien` once veces y sale con 0. En Windows dice lo mismo (pide
+vcruntime140.dll, el redistribuible de Visual C++).

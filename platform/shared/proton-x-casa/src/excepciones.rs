@@ -31,7 +31,8 @@
 //! - ni excepciones anidadas ni desenrollados que chocan (Nested/Collided): se
 //!   dicen y se sigue buscando;
 //! - RtlUnwindEx sin marco destino (el desenrollado de salida) se dice y acaba;
-//! - las de C++ (__CxxFrameHandler3/4, _CxxThrowException) no estan;
+//! - las de C++ van aparte (`cxx.rs`), sobre esto: su `catch` se corre al
+//!   llegar al marco destino (`desenrollar_y`, el "consolidate" de Windows);
 //! - ExceptionAddress es la vuelta de RaiseException (Windows da una
 //!   direccion dentro de ella); de 15 parametros en adelante no caben y se
 //!   dejan fuera.
@@ -41,7 +42,7 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use bmo_proton_x::desenrollar::{self, Contexto, Funcion, Memoria, CONTEXT_BYTES, RAX, UNW_FLAG_EHANDLER, UNW_FLAG_UHANDLER};
+use bmo_proton_x::desenrollar::{self, Contexto, Funcion, Memoria, CONTEXT_BYTES, RAX, RSP, UNW_FLAG_EHANDLER, UNW_FLAG_UHANDLER};
 use bmo_proton_x::seh::{self, AlDesenrollar, Despacho, Imagen, Registro, Subida, Vectores, DESPACHO_BYTES, DESPACHO_INDICE, REGISTRO_BANDERAS, REGISTRO_BYTES};
 use bmo_proton_x::teb;
 
@@ -237,13 +238,15 @@ struct Estado {
     /// Los despachos en marcha: (TEB del hilo, su CONTEXT). RtlUnwindEx sigue
     /// por ahi cuando la pila se le acaba en un marco de la casa.
     activos: Vec<(u64, u64)>,
+    /// Los saltos de catch: (TEB, marca de su pila, el CONTEXT del marco).
+    saltos: Vec<(u64, u64, u64)>,
 }
 
 struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna
 // referencia al estado cruza una llamada al `.exe`.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { filtro: 0, vectores: Vectores::nuevos(), activos: Vec::new() }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { filtro: 0, vectores: Vectores::nuevos(), activos: Vec::new(), saltos: Vec::new() }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`.
@@ -255,6 +258,7 @@ pub(crate) fn reiniciar() {
     e.filtro = 0;
     e.vectores = Vectores::nuevos();
     e.activos.clear();
+    e.saltos.clear();
 }
 
 fn rsp_ahora() -> u64 {
@@ -281,7 +285,7 @@ fn activo_de_este_hilo() -> Option<u64> {
 
 /// La memoria que se deja leer: la pila de este hilo (del TEB) y las imagenes
 /// (el `.exe` y sus DLL propias). Lo de fuera es un contexto roto: `None`.
-struct Viva {
+pub(crate) struct Viva {
     rangos: Vec<(u64, u64)>,
 }
 
@@ -297,7 +301,7 @@ impl Viva {
     }
 
     /// La pila de este hilo y las imagenes, con su `.pdata`.
-    fn de_ahora() -> (Viva, Vec<Imagen>) {
+    pub(crate) fn de_ahora() -> (Viva, Vec<Imagen>) {
         let t = kernel32::teb();
         // SAFETY: el TEB de este hilo, R+W; StackBase y StackLimit caen dentro.
         let (tope, fondo) = unsafe { (((t + teb::TEB_STACK_BASE as u64) as *const u64).read(), ((t + teb::TEB_STACK_LIMIT as u64) as *const u64).read()) };
@@ -382,7 +386,10 @@ fn despachar_registro(rec: *mut u8, ctx: *mut u8) -> ! {
     let mut c = Contexto::de_context(bytes(ctx, CONTEXT_BYTES));
     loop {
         match seh::subir(&m, &imagenes, &mut c, UNW_FLAG_EHANDLER) {
-            Ok(Subida::Fuera) => break,
+            Ok(Subida::Fuera) => match salto_para(c.gp[RSP]) {
+                Some(s) => c = s,
+                None => break,
+            },
             Ok(Subida::Hoja) => {}
             Ok(Subida::Marco { pc, imagen, funcion: f, marco }) => {
                 let Some(h) = marco.manejador else { continue };
@@ -499,7 +506,51 @@ extern "win64" fn rtl_unwind_ex(marco: u64, destino: u64, rec: *mut u8, valor: u
 /// `destino` con `valor` en rax. `puede_saltar`: si la pila se acaba en un
 /// marco de la casa (quien llamo es un manejador del `.exe` en pleno
 /// despacho), se sigue por la excepcion de este hilo.
-fn desenrollar_hacia(objetivo: u64, destino: u64, rec: *mut u8, valor: u64, mut c: Contexto, mut puede_saltar: bool) -> ! {
+fn desenrollar_hacia(objetivo: u64, destino: u64, rec: *mut u8, valor: u64, c: Contexto, puede_saltar: bool) -> ! {
+    desenrollar_con(objetivo, destino, rec, c, puede_saltar, &mut |fin: &mut Contexto| {
+        fin.rip = destino;
+        fin.gp[RAX] = valor;
+    })
+}
+
+/// **Para las de C++** (`cxx.rs`): desenrollar hasta el marco `objetivo` y,
+/// al llegar, `llegar` con SU contexto (ahi se corre el `catch`, en esta
+/// pila de debajo, que ya no es de nadie) y seguir donde `llegar` lo deje.
+/// Es el STATUS_UNWIND_CONSOLIDATE de Windows. Salta por encima de los
+/// marcos de la casa como RtlUnwindEx.
+pub(crate) fn desenrollar_y(objetivo: u64, rec: *mut u8, c: Contexto, llegar: &mut dyn FnMut(&mut Contexto)) -> ! {
+    desenrollar_con(objetivo, 0, rec, c, true, llegar)
+}
+
+/// **Un salto de catch** (`cxx.rs`): mientras corre el funclet de un catch,
+/// la pila del `.exe` sube hasta la casa (quien llamo al funclet, por debajo
+/// de `marca`) y ahi se acaba. Un despacho o un desenrollado que llegue ahi
+/// sigue por `ctx`: el marco de la funcion que tiene el catch. Asi un
+/// `throw;` sube por donde subiria en Windows.
+pub(crate) fn poner_salto(marca: u64, ctx: u64) {
+    estado().saltos.push((kernel32::teb(), marca, ctx));
+}
+
+pub(crate) fn soltar_salto(ctx: u64) {
+    estado().saltos.retain(|&(_, _, c)| c != ctx);
+}
+
+/// Los saltos de ESTE hilo cuya marca queda por debajo de `rsp` (un catch
+/// que se abandono: su pila ya es de otro): fuera.
+pub(crate) fn podar_saltos(rsp: u64) {
+    let t = kernel32::teb();
+    estado().saltos.retain(|&(h, m, _)| h != t || m > rsp);
+}
+
+/// El salto de catch para una pila que se acabo en la casa con `rsp`: el
+/// de la marca mas cercana por encima.
+fn salto_para(rsp: u64) -> Option<Contexto> {
+    let t = kernel32::teb();
+    let s = estado().saltos.iter().filter(|&&(h, m, _)| h == t && m > rsp).min_by_key(|&&(_, m, _)| m).map(|&(_, _, c)| c)?;
+    Some(Contexto::de_context(bytes(s as *mut u8, CONTEXT_BYTES)))
+}
+
+fn desenrollar_con(objetivo: u64, destino: u64, rec: *mut u8, mut c: Contexto, mut puede_saltar: bool, llegar: &mut dyn FnMut(&mut Contexto)) -> ! {
     let mut propio = Bytes([0u8; REGISTRO_BYTES]);
     let rec = if rec.is_null() {
         Registro { codigo: STATUS_UNWIND, ..Registro::default() }.a_bytes(&mut propio.0);
@@ -513,6 +564,7 @@ fn desenrollar_hacia(objetivo: u64, destino: u64, rec: *mut u8, valor: u64, mut 
     loop {
         let antes = c;
         match seh::subir(&m, &imagenes, &mut c, UNW_FLAG_UHANDLER) {
+            Ok(Subida::Fuera) if salto_para(c.gp[RSP]).is_some() => c = salto_para(c.gp[RSP]).expect("recien mirado"),
             Ok(Subida::Fuera) => match activo_de_este_hilo().filter(|_| puede_saltar) {
                 Some(a) => {
                     c = Contexto::de_context(bytes(a as *mut u8, CONTEXT_BYTES));
@@ -544,8 +596,7 @@ fn desenrollar_hacia(objetivo: u64, destino: u64, rec: *mut u8, valor: u64, mut 
                 }
                 if es_destino {
                     let mut fin = antes;
-                    fin.rip = destino;
-                    fin.gp[RAX] = valor;
+                    llegar(&mut fin);
                     fin.a_context(&mut foto.0);
                     // SAFETY: el contexto del marco destino, completo; la pila
                     // de debajo (esta) ya no es de nadie.

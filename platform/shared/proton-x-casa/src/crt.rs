@@ -691,20 +691,6 @@ pub(crate) extern "win64" fn seh_filter_exe(_codigo: u32, _punteros: u64) -> i32
     EXCEPTION_CONTINUE_SEARCH
 }
 
-/// El codigo con que Windows termina un proceso por una excepcion de C++
-/// que nadie coge ('msc' | 0xE0000000).
-pub(crate) const EXCEPCION_CXX: u32 = 0xE06D_7363;
-
-/// Las excepciones de C++ (`_CxxThrowException`, `__CxxFrameHandler3`,
-/// `__current_exception`, `__current_exception_context`): el `panic` de Rust
-/// en Windows va por ellas. La casa todavia no las tiene: si se llega a una,
-/// se dice CUAL y el proceso termina como en Windows con una excepcion de C++
-/// sin coger. Un programa que no entra en panico no las llama nunca.
-extern "win64" fn cxx_todavia_no<const N: usize>() -> ! {
-    const NOMBRES: [&str; 4] = ["_CxxThrowException", "__CxxFrameHandler3", "__current_exception", "__current_exception_context"];
-    crate::aviso(&alloc::format!("{}: las excepciones de C++ (el panic de Rust) no estan en la casa todavia; el proceso termina", NOMBRES[N]));
-    (plataforma().salir)(EXCEPCION_CXX)
-}
 
 /// Si `dll` es del CRT: la suya, `vcruntime140.dll` o un API set `api-ms-win-crt-*`.
 pub(crate) fn es_del_crt(dll: &str) -> bool {
@@ -718,7 +704,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
     if let Some(r) = n.strip_prefix("_o_") {
         return buscar(r);
     }
-    esta(n).or_else(|| crate::crt_cadenas::buscar(n)).or_else(|| crate::crt_numeros::buscar(n)).or_else(|| crate::crt_entorno::buscar(n)).or_else(|| crate::crt_mates::buscar(n)).or_else(|| crate::crt_ficheros::buscar(n))
+    esta(n).or_else(|| crate::cxx::buscar(n)).or_else(|| crate::crt_cadenas::buscar(n)).or_else(|| crate::crt_numeros::buscar(n)).or_else(|| crate::crt_entorno::buscar(n)).or_else(|| crate::crt_mates::buscar(n)).or_else(|| crate::crt_ficheros::buscar(n))
 }
 
 fn esta(n: &str) -> Option<u64> {
@@ -776,10 +762,6 @@ fn esta(n: &str) -> Option<u64> {
         "fflush" => dir!(fflush),
         // P3c (BMOX-12): el filtro de `main` y lo de C++ (el panic de Rust).
         "_seh_filter_exe" => dir!(seh_filter_exe),
-        "_CxxThrowException" => dir!(cxx_todavia_no::<0>),
-        "__CxxFrameHandler3" => dir!(cxx_todavia_no::<1>),
-        "__current_exception" => dir!(cxx_todavia_no::<2>),
-        "__current_exception_context" => dir!(cxx_todavia_no::<3>),
         _ => return None,
     })
 }
