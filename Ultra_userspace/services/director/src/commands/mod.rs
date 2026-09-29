@@ -499,15 +499,18 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
         // `personal ls [ruta]` / `personal lee <fichero>`: el disco D:, SOLO
         // para mirar (N1b). No hay `personal escribe`, y no es un olvido.
         b"personal" | b"d:" => {
-            let k = rest.iter().position(|&c| c == b' ').unwrap_or(rest.len());
-            let (sub, arg) = rest.split_at(k);
-            let mut j = 0;
-            while j < arg.len() && arg[j] == b' ' { j += 1; }
-            let arg = &arg[j..];
-            match sub {
-                b"" | b"ls" | b"dir" => Command::PersonalLs(arg),
-                b"lee" | b"cat" if !arg.is_empty() => Command::PersonalLee(arg),
-                _ => Command::Help,
+            // `personal lee <fichero>` lee; lo demas es MIRAR una carpeta:
+            // `personal`, `personal ls <ruta>` y tambien `personal <ruta>`
+            // a secas, que es lo que se teclea sin pensar (metal, 29-09).
+            fn quita<'r>(r: &'r [u8], sub: &[u8]) -> Option<&'r [u8]> {
+                if r == sub { return Some(&r[r.len()..]); }
+                let t = r.strip_prefix(sub)?.strip_prefix(b" ")?;
+                Some(&t[t.iter().position(|&c| c != b' ').unwrap_or(t.len())..])
+            }
+            if let Some(f) = quita(rest, b"lee").or_else(|| quita(rest, b"cat")) {
+                if f.is_empty() { Command::Help } else { Command::PersonalLee(f) }
+            } else {
+                Command::PersonalLs(quita(rest, b"ls").or_else(|| quita(rest, b"dir")).unwrap_or(rest))
             }
         }
         b"cat" | b"lee" => {

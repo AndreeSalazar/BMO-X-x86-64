@@ -474,6 +474,13 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         D: (los `$` del NTFS se cuentan pero no se muestran) y `personal lee
         <ruta del .exe>` dice `MZ + PE ... x86-64`; la ruta es todo lo que va
         detras de `lee`, espacios incluidos y sin comillas.
+      - **N1b en el metal (29-09 12:42): `personal ls` lista la raiz de D:**
+        (`Cyberpunk 2077`, `System Volume Information` y 12 `$` del NTFS
+        contados). Dos arreglos de lo que se tecleo: `personal Cyberpunk`
+        daba la ayuda (ahora `personal <ruta>` a secas es un `ls`), y el TAB
+        tras `personal ls ` completaba en DATOS (salian `c/ capturas/
+        cobol/`) y cortaba en el ultimo espacio: ahora completa en D: con la
+        ruta entera, espacios incluidos. Y el `.` de la raiz ya no sale.
       - N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
       con `D:\...` va al volumen NTFS, solo lectura.
