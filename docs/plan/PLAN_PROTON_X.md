@@ -868,6 +868,31 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     Z4 NO ESPERAR en el syscall (el paso 6): el timbre y
                        volver; el siguiente lote espera al anterior. Lo
                        verifica el semaforo, que ya se lee.
+                       **Z4a [HECHO en codigo 29-09, falta el metal]: la
+                       copia a la pantalla, lanzada y NO esperada.** Sin
+                       nada nuevo de la 3060 (el mismo canal, las mismas
+                       ordenes, el mismo semaforo): con `pantalla`, la
+                       sombra -> la pantalla se lanza y queda EN VUELO
+                       (`volcado::lanzar_copia_de_sombra`); la espera quien
+                       vaya a tocar la sombra (`esperar_copia_en_vuelo`,
+                       antes del dibujo siguiente o de otra copia). La
+                       parte `sombra` de `[3060]` pasa a ser lo que la CPU
+                       ESPERO, no lo que tardo la copia. A la RAM de la app
+                       (sin pantalla) se sigue esperando: la app la lee.
+                       **Z4b [por hacer, con su prueba en el metal ANTES]:
+                       que la 3060 encadene sola** el dibujo y la copia con
+                       los semaforos del HOST (clase C56F, sacados de
+                       `clc56f.h` de NVIDIA 570.144, no de memoria):
+                       SEM_ADDR_LO 0x5c (bits 31:2), SEM_ADDR_HI 0x60 (7:0),
+                       SEM_PAYLOAD_LO 0x64, SEM_PAYLOAD_HI 0x68, SEM_EXECUTE
+                       0x6c con OPERATION (2:0) ACQUIRE 0, RELEASE 1,
+                       ACQ_STRICT_GEQ 2, ACQ_CIRC_GEQ 3; ACQUIRE_SWITCH_TSG
+                       bit 12; RELEASE_WFI bit 20; PAYLOAD_SIZE bit 24 (0 =
+                       32 bits). La prueba primero (`gpu verrano espera`): el
+                       canal de COPIA hace ACQUIRE sobre un semaforo que
+                       suelta el GR, y la copia sale DESPUES del dibujo sin
+                       que la CPU mire. Solo con eso visto, el dibujo tambien
+                       se lanza sin esperar.
                        **El esquema, escrito (29-09), para cuando Z3 este
                        medido.** El propietario: *"que se pague una vez y
                        el cocinero tenga todas las mesas listas"*. Es el

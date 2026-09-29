@@ -437,6 +437,58 @@ pub(super) fn quieto() -> Result<(), u32> {
 /// la entrada siguiente), y se espera a que la 3060 pague la copia -- quien
 /// la pide lee o dibuja sobre lo copiado justo despues. `Ok(us)`.
 pub(super) fn copia_de_sombra(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana, a_la_sombra: bool) -> Result<u64, u32> {
+    copia(r, v, a_la_sombra, true)
+}
+
+// == Z4a: LA COPIA A LA PANTALLA, LANZADA Y NO ESPERADA (29-09) ==============
+//
+// Con Z1 el fotograma acaba con la sombra -> la pantalla, VRAM a VRAM (~92
+// us medidos a las 07:50), y la CPU la esperaba ENTERA dentro del syscall.
+// Nadie lee la pantalla despues: basta con que la copia acabe antes de que
+// algo vuelva a tocar la SOMBRA (el dibujo siguiente, otra copia). Asi que
+// se lanza, se apunta EN VUELO y se vuelve; quien vaya a tocar la sombra
+// espera antes ([`esperar_copia_en_vuelo`]). Mientras, la CPU prepara el
+// lote siguiente: el cocinero no espera a que el camarero vuelva.
+//
+// Sin nada nuevo de la 3060: el mismo canal, las mismas ordenes y el mismo
+// semaforo que la copia de siempre; solo cambia CUANDO se mira.
+
+/// Una copia sombra -> pantalla lanzada y aun no vista pagada.
+static COPIA_EN_VUELO: AtomicBool = AtomicBool::new(false);
+
+/// **Z4a: la sombra a la pantalla, sin esperar.** `Ok(())` en cuanto se
+/// lanza; la paga la vera quien la espere.
+pub(super) fn lanzar_copia_de_sombra(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana) -> Result<(), u32> {
+    copia(r, v, false, false).map(|_| ())
+}
+
+/// **Z4a: esperar la copia en vuelo**, si la hay, ANTES de tocar la sombra.
+/// `Ok(us esperados)` (0 si ya estaba pagada o no habia); si no se paga en
+/// `COPIA_ESPERA_US`, `Err` -- el lote que la espera no se dibuja.
+pub(super) fn esperar_copia_en_vuelo(r: &mut Bar0) -> Result<u64, u32> {
+    if !COPIA_EN_VUELO.load(Ordering::Acquire) {
+        return Ok(0);
+    }
+    let hz = (crate::ring0::task::scheduler::tsc_freq() / 1_000_000).max(1);
+    let desde = crate::ring0::task::scheduler::rdtsc();
+    loop {
+        let us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
+        if bmo_gpu_ga10x::sombra::pagada(r, false) {
+            COPIA_EN_VUELO.store(false, Ordering::Release);
+            return Ok(us);
+        }
+        if us >= COPIA_ESPERA_US {
+            COPIA_EN_VUELO.store(false, Ordering::Release);
+            crate::ring0::cabina::warn("gpu", "P3b4c.9 Z4a: la 3060 no pago la copia EN VUELO de la sombra a la pantalla; us", us);
+            return Err(IOMMU_NO_VOLCADO);
+        }
+        super::esperando(us);
+    }
+}
+
+/// La copia de la sombra en un sentido; con `esperar`, hasta que se pague
+/// (`Ok(us)`); sin el, lanzada y EN VUELO (`Ok(0)`).
+fn copia(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana, a_la_sombra: bool, esperar_pago: bool) -> Result<u64, u32> {
     use bmo_gpu_ga10x::sombra as so;
     let Some(ficha) = crate::ring0::dev::gpu_libos::timbre_de_copia() else {
         crate::ring0::cabina::warn("gpu", "P3b4c.6b: sin el canal de copia (L1d3) no hay sombra que copiar", 0);
@@ -446,6 +498,9 @@ pub(super) fn copia_de_sombra(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana, a_
         return Err(IOMMU_NO_VOLCADO);
     }
     let hecho = (|| {
+        // Z4a: una copia en vuelo usa el MISMO semaforo que esta va a poner
+        // a cero: primero, que acabe.
+        let mut us_antes = esperar_copia_en_vuelo(r)?;
         let n = NUMERO.load(Ordering::Acquire);
         if ARMADO.load(Ordering::Acquire) && n != 0 && !vl::pagada(r, n) {
             esperar(r, n)?;
@@ -462,10 +517,15 @@ pub(super) fn copia_de_sombra(r: &mut Bar0, v: &bmo_gpu_ga10x::cubo::Ventana, a_
             return Err(IOMMU_NO_VOLCADO);
         }
         ENTRADA.store(vl::siguiente(e), Ordering::Release);
+        if !esperar_pago {
+            COPIA_EN_VUELO.store(true, Ordering::Release);
+            return Ok(us_antes);
+        }
         loop {
             let us = (crate::ring0::task::scheduler::rdtsc() - desde) / hz;
             if so::pagada(r, a_la_sombra) {
-                return Ok(us);
+                us_antes += us;
+                return Ok(us_antes);
             }
             if us >= COPIA_ESPERA_US {
                 crate::ring0::cabina::warn("gpu", "P3b4c.6b: la 3060 no pago la copia de la sombra (1 = a la sombra); sentido", a_la_sombra as u64);

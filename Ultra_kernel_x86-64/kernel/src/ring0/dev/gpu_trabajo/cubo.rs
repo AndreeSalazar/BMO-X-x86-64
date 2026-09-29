@@ -527,12 +527,21 @@ fn en_frio(bar0: u64, pid: u32, e: u32, p: &bmo_gpu_ga10x::pantalla::Pantalla, v
         .and_then(|()| match sombra {
             // Lo que la app ya pinto en su back buffer, DEBAJO del dibujo.
             Some((w, true)) => super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, true).map(|us| copia_us += us),
-            _ => Ok(()),
+            // Z4a: la copia del fotograma anterior aun leyendo la sombra:
+            // que acabe antes de dibujar encima.
+            _ => super::volcado::esperar_copia_en_vuelo(&mut Bar0(bar0)).map(|us| copia_us += us),
         })
         .and_then(|()| dibujar(bar0, paquete.ficha, e, &p, n, !ligero, preparar))
         .map(|x| match sombra {
             // Pagado el dibujo, la sombra al destino; si la copia no se paga,
             // el destino NO tiene el dibujo: se dice como un dibujo no pagado.
+            // ** Z4a: a la PANTALLA, la copia se lanza y no se espera (nadie lee
+            // la pantalla; la espera el siguiente que toque la sombra). A la
+            // RAM de la app, se espera: la app la lee al volver.
+            Some((w, _)) if cu::sano(x) && paquete.dibujo.pantalla => match super::volcado::lanzar_copia_de_sombra(&mut Bar0(bar0), &w) {
+                Ok(()) => cu::con_copia(x, copia_us),
+                Err(_) => cu::sin_dibujo(x),
+            },
             Some((w, _)) if cu::sano(x) => match super::volcado::copia_de_sombra(&mut Bar0(bar0), &w, false) {
                 Ok(us) => cu::con_copia(x, copia_us + us),
                 Err(_) => cu::sin_dibujo(x),
