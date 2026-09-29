@@ -334,6 +334,11 @@ extern "win64" fn wcsupr(s: *mut u16) -> *mut u16 {
     s
 }
 
+/// El texto de un `errno` (el de `strerror`, para `std::generic_category`).
+pub(crate) fn texto_de_errno(e: i32) -> *const u8 {
+    strerror(e)
+}
+
 extern "win64" fn strerror(e: i32) -> *const u8 {
     let t: &'static [u8] = match e {
         0 => b"No error\0",

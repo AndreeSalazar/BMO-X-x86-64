@@ -1,0 +1,27 @@
+LIBRARY msvcp140.dll
+EXPORTS
+_Mtx_init_in_situ
+_Mtx_destroy_in_situ
+_Mtx_lock
+_Mtx_trylock
+_Mtx_unlock
+_Mtx_current_owns
+_Cnd_init_in_situ
+_Cnd_destroy_in_situ
+_Cnd_wait
+_Cnd_timedwait
+_Cnd_signal
+_Cnd_broadcast
+_Thrd_start
+_Thrd_join
+_Thrd_id
+_Thrd_yield
+_Xtime_get_ticks
+_Query_perf_counter
+_Query_perf_frequency
+_Strcoll
+_Strxfrm
+_Mbrtowc
+?_Execute_once@std@@YAHAEAUonce_flag@1@P6AHPEAX1PEAPEAX@Z1@Z
+?_Winerror_map@std@@YAHH@Z
+?_Syserror_map@std@@YAPEBDH@Z

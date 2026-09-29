@@ -128,7 +128,7 @@ extern "win64" fn get_current_process_id() -> u32 {
     unsafe { ((teb() + teb::TEB_PROCESS_ID as u64) as *const u64).read() as u32 }
 }
 
-extern "win64" fn get_current_thread_id() -> u32 {
+pub(crate) extern "win64" fn get_current_thread_id() -> u32 {
     // SAFETY: como arriba.
     unsafe { ((teb() + teb::TEB_THREAD_ID as u64) as *const u64).read() as u32 }
 }

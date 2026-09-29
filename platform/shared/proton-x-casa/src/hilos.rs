@@ -444,7 +444,7 @@ fn esperar(hs: &[u64], todos: bool, ms: u32) -> u32 {
     c.plan.resultado(c.plan.actual)
 }
 
-extern "win64" fn wait_for_single_object(h: u64, ms: u32) -> u32 {
+pub(crate) extern "win64" fn wait_for_single_object(h: u64, ms: u32) -> u32 {
     esperar(&[h], false, ms)
 }
 
@@ -462,7 +462,7 @@ extern "win64" fn wait_for_multiple_objects(n: u32, hs: *const u64, todos: i32, 
     esperar(&v, todos != 0, ms)
 }
 
-extern "win64" fn sleep(ms: u32) {
+pub(crate) extern "win64" fn sleep(ms: u32) {
     if ms == 0 {
         ceder();
         return;
@@ -477,7 +477,7 @@ extern "win64" fn sleep_ex(ms: u32, _alertable: i32) -> u32 {
     0
 }
 
-extern "win64" fn switch_to_thread() -> i32 {
+pub(crate) extern "win64" fn switch_to_thread() -> i32 {
     ceder() as i32
 }
 
@@ -582,7 +582,7 @@ fn hilo_de(h: u64) -> Option<usize> {
     }
 }
 
-extern "win64" fn get_exit_code_thread(h: u64, codigo: *mut u32) -> i32 {
+pub(crate) extern "win64" fn get_exit_code_thread(h: u64, codigo: *mut u32) -> i32 {
     let Some(n) = hilo_de(h) else {
         kernel32::poner_error(ERROR_INVALID_PARAMETER);
         return 0;
@@ -675,15 +675,15 @@ extern "win64" fn initialize_critical_section_ex(_cs: u64, _vueltas: u32, _bande
     1
 }
 
-extern "win64" fn enter_critical_section(cs: u64) {
+pub(crate) extern "win64" fn enter_critical_section(cs: u64) {
     entrar(cs, true, true);
 }
 
-extern "win64" fn try_enter_critical_section(cs: u64) -> i32 {
+pub(crate) extern "win64" fn try_enter_critical_section(cs: u64) -> i32 {
     casa().plan.probar(cs, true, true) as i32
 }
 
-extern "win64" fn leave_critical_section(cs: u64) {
+pub(crate) extern "win64" fn leave_critical_section(cs: u64) {
     salir(cs, true);
 }
 
@@ -727,7 +727,7 @@ fn dormir_en(cv: u64, ms: u32) -> bool {
     c.plan.resultado(c.plan.actual) == WAIT_OBJECT_0
 }
 
-extern "win64" fn sleep_condition_variable_cs(cv: u64, cs: u64, ms: u32) -> i32 {
+pub(crate) extern "win64" fn sleep_condition_variable_cs(cv: u64, cs: u64, ms: u32) -> i32 {
     let r = casa().plan.soltar_todo(cs);
     let despierto = dormir_en(cv, ms);
     entrar(cs, true, true);
@@ -752,11 +752,11 @@ extern "win64" fn sleep_condition_variable_srw(cv: u64, l: u64, ms: u32, bandera
     despierto as i32
 }
 
-extern "win64" fn wake_condition_variable(cv: u64) {
+pub(crate) extern "win64" fn wake_condition_variable(cv: u64) {
     casa().plan.despertar(cv, false);
 }
 
-extern "win64" fn wake_all_condition_variable(cv: u64) {
+pub(crate) extern "win64" fn wake_all_condition_variable(cv: u64) {
     casa().plan.despertar(cv, true);
 }
 
@@ -771,7 +771,7 @@ extern "win64" fn get_tick_count64() -> u64 {
 }
 
 /// El contador de rendimiento de la casa cuenta NANOSEGUNDOS.
-extern "win64" fn query_performance_counter(v: *mut i64) -> i32 {
+pub(crate) extern "win64" fn query_performance_counter(v: *mut i64) -> i32 {
     if v.is_null() {
         return 0;
     }

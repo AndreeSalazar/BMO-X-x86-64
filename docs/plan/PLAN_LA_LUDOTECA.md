@@ -522,6 +522,16 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         faltaban. Quedan del CRT 12, todas de C++ (la clase `exception` de
         msvcrt, `__RTDynamicCast`, `__RTtypeid`, `__unDName(Ex)`,
         `__CxxFrameHandler4`): van con la tanda de MSVCP140.
+      - **LA TANDA 2, PRIMERA PARTE: LOS HILOS DE C++** (29-09): de
+        `msvcp140.dll`, lo que hay debajo de `std::mutex`,
+        `std::condition_variable`, `std::thread`, `std::call_once`,
+        `<chrono>` y las tareas de PPL (`msvcp_hilos.rs`): 49 de sus 170.
+        **Como se sabe:** `tanda2.exe` dice `bien` 12 veces en el banco
+        (`tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp`); contra el
+        censo del metal la casa da ya 682 de 1619 (42%). Quedan de
+        MSVCP140 los iostreams y el locale (clases con su ABI de MSVC) y los
+        que LANZAN excepciones de C++ (`_Xbad_alloc`, `_Xlength_error`...),
+        que esperan a que la casa tenga `throw`/`catch` de C++.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A
