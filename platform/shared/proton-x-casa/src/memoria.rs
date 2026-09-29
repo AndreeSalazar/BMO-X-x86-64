@@ -433,6 +433,86 @@ extern "win64" fn get_system_info(si: *mut u8) {
     unsafe { core::ptr::copy_nonoverlapping(b.as_ptr(), si, 48) };
 }
 
+// -- GlobalAlloc y LocalAlloc (tanda 7: el portapapeles los usa) ------------
+
+/// `GlobalAlloc`/`LocalAlloc`: del monton del proceso, a cero. El HGLOBAL es
+/// el puntero mismo (lo que Windows da con GMEM_FIXED); con GMEM_MOVEABLE
+/// tambien: `GlobalLock` lo devuelve tal cual, y nadie puede saber que no se
+/// mueve.
+extern "win64" fn global_alloc(_banderas: u32, n: u64) -> u64 {
+    match pedir_del_proceso(n.max(1)) {
+        Some(p) => {
+            a_cero(p, n.max(1));
+            p
+        }
+        None => {
+            kernel32::poner_error(8); // ERROR_NOT_ENOUGH_MEMORY
+            0
+        }
+    }
+}
+
+/// `GlobalLock`/`LocalLock`: el puntero (0 si no es un bloque suyo).
+extern "win64" fn global_lock(h: u64) -> u64 {
+    if medida_del_proceso(h).is_none() {
+        kernel32::poner_error(6); // ERROR_INVALID_HANDLE
+        return 0;
+    }
+    h
+}
+
+/// `GlobalUnlock`: 0 con NO_ERROR: ya no esta bloqueado.
+extern "win64" fn global_unlock(h: u64) -> i32 {
+    kernel32::poner_error(if medida_del_proceso(h).is_some() { 0 } else { 6 });
+    0
+}
+
+extern "win64" fn global_size(h: u64) -> u64 {
+    medida_del_proceso(h).unwrap_or(0)
+}
+
+/// `GlobalFree`: 0 si salio; si no, el handle.
+extern "win64" fn global_free(h: u64) -> u64 {
+    if h == 0 || soltar_del_proceso(h) {
+        return 0;
+    }
+    kernel32::poner_error(6);
+    h
+}
+
+/// `GlobalReAlloc(h, n, banderas)`: lo nuevo, a cero.
+extern "win64" fn global_realloc(h: u64, n: u64, _banderas: u32) -> u64 {
+    let Some(antes) = medida_del_proceso(h) else {
+        kernel32::poner_error(6);
+        return 0;
+    };
+    match cambiar_del_proceso(h, n.max(1)) {
+        Some(q) => {
+            if n > antes {
+                a_cero(q + antes, n - antes);
+            }
+            q
+        }
+        None => {
+            kernel32::poner_error(8);
+            0
+        }
+    }
+}
+
+/// `GlobalHandle(p)`: el handle de un puntero bloqueado: el mismo.
+extern "win64" fn global_handle(p: u64) -> u64 {
+    medida_del_proceso(p).map_or(0, |_| p)
+}
+
+extern "win64" fn global_flags(h: u64) -> u32 {
+    if medida_del_proceso(h).is_some() {
+        0
+    } else {
+        0x8000 // GMEM_INVALID_HANDLE
+    }
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "GetProcessHeap" => dir!(get_process_heap),
@@ -450,6 +530,14 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "VirtualProtect" => dir!(virtual_protect),
         "GetSystemInfo" => dir!(get_system_info),
         "GetNativeSystemInfo" => dir!(get_system_info),
+        "GlobalAlloc" | "LocalAlloc" => dir!(global_alloc),
+        "GlobalLock" | "LocalLock" => dir!(global_lock),
+        "GlobalUnlock" | "LocalUnlock" => dir!(global_unlock),
+        "GlobalSize" | "LocalSize" => dir!(global_size),
+        "GlobalFree" => dir!(global_free),
+        "GlobalReAlloc" | "LocalReAlloc" => dir!(global_realloc),
+        "GlobalHandle" | "LocalHandle" => dir!(global_handle),
+        "GlobalFlags" | "LocalFlags" => dir!(global_flags),
         _ => return None,
     })
 }

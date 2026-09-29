@@ -579,6 +579,21 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         mueve; la MEDIDA todavia no cambia) y las variantes A.
         **Como se sabe:** `tanda6.exe` dice `bien` 29 veces en el banco
         (`tanda6_exe_tiene_las_ventanas_y_sus_mensajes`).
+      - **LA TANDA 7: USER32, GRUPO 3** (29-09): el teclado, el raton y el
+        portapapeles (`user32_entrada.rs` y `user32_portapapeles.rs`, y
+        Global/LocalAlloc en `memoria.rs`): el estado de las teclas del hilo
+        (cambia al SACAR el mensaje) y el de ahora (GetAsyncKeyState, al
+        llegar), las tablas del teclado de EE. UU. (MapVirtualKey,
+        VkKeyScan, ToUnicode, GetKeyNameText), el cursor (Get/SetCursorPos,
+        ShowCursor, ClipCursor, la captura), WM_MOUSEMOVE, la entrada
+        inventada (SendInput), el RAW INPUT (WM_INPUT con el raton RELATIVO,
+        RIDEV_NOLEGACY: lo que usa Cyberpunk para mirar) y el portapapeles
+        del proceso (CF_TEXT y CF_UNICODETEXT, el uno por el otro).
+        **Como se sabe:** `tanda7.exe` dice `bien` 25 veces en el banco
+        (`tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles`); lo que
+        llega del escritorio (teclas, raton, WM_INPUT) no se puede probar
+        igual en Windows sin tocar su raton: lo prueban las pruebas de
+        `user32_entrada.rs`.
 
 **Y el NTFS no hace falta (25-09, YA NO VALE: ver arriba).** Los juegos de GOG viven en el volumen
 NTFS de Windows 11, y BMO-X lee FAT32 y ESTRATOS, no NTFS. Para el camino A

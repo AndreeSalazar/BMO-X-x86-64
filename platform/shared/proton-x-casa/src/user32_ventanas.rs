@@ -593,6 +593,16 @@ extern "win64" fn get_focus() -> u64 {
     estado().foco
 }
 
+/// La del foco, o si no la de delante (a quien va la entrada inventada).
+pub(crate) fn foco() -> u64 {
+    let e = estado();
+    if e.foco != 0 {
+        e.foco
+    } else {
+        e.frente
+    }
+}
+
 /// `SetFocus`: WM_KILLFOCUS a la que lo tenia y WM_SETFOCUS a la nueva.
 /// Devuelve la que lo tenia.
 extern "win64" fn set_focus(h: u64) -> u64 {

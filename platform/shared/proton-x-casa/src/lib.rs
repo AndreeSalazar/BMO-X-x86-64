@@ -82,8 +82,10 @@ pub mod sistema;
 pub mod texto;
 pub mod tuberia;
 pub mod user32;
+pub mod user32_entrada;
 pub mod user32_medidas;
 pub mod user32_mensajes;
+pub mod user32_portapapeles;
 pub mod user32_ventanas;
 
 use alloc::vec::Vec;
@@ -245,6 +247,8 @@ pub unsafe fn empezar(p: Plataforma) {
     user32_medidas::reiniciar();
     user32_ventanas::reiniciar();
     user32_mensajes::reiniciar();
+    user32_entrada::reiniciar();
+    user32_portapapeles::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
@@ -295,7 +299,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
         sistema::buscar_otras(dll, n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
-        user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n))
+        user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n)).or_else(|| user32_entrada::buscar(n)).or_else(|| user32_portapapeles::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n)
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {

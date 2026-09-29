@@ -62,6 +62,7 @@ const TANDA4: &[u8] = include_bytes!("../../proton-x/prueba/tanda4.exe");
 const TANDA3C: &[u8] = include_bytes!("../../proton-x/prueba/tanda3c.exe");
 const TANDA5: &[u8] = include_bytes!("../../proton-x/prueba/tanda5.exe");
 const TANDA6: &[u8] = include_bytes!("../../proton-x/prueba/tanda6.exe");
+const TANDA7: &[u8] = include_bytes!("../../proton-x/prueba/tanda7.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -936,6 +937,21 @@ fn tanda6_exe_tiene_las_ventanas_y_sus_mensajes() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 29, "{texto}");
     assert!(texto.ends_with("tanda6.exe: las ventanas y sus mensajes dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 7 de Cyberpunk** (29-09): `tanda7.exe` -- user32, grupo 3:
+/// el teclado, el cursor, la captura, el raw input y el portapapeles.
+#[test]
+fn tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/tanda7.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA7, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
+    assert!(texto.ends_with("tanda7.exe: el teclado, el raton y el portapapeles dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

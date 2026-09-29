@@ -627,3 +627,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` veintinueve veces y sale con 0. Tarda unas decimas: espera a
 dos temporizadores de 10 ms y a un MsgWaitForMultipleObjects de 30 ms. En
 Windows dice lo mismo.
+
+tanda7.exe -- la TANDA 7 de Cyberpunk (29-09): user32, grupo 3
+
+El teclado, el cursor, la captura, el raw input y el portapapeles
+(tanda7_kernel32.def y tanda7_user32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda7_kernel32.def -l tanda7_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda7_user32.def -l tanda7_user32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda7.c -o tanda7.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda7.obj tanda7_kernel32.lib tanda7_user32.lib /out:tanda7.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   ef36b43116e572caec0a7aa151cf0c6adafd1fcace38fb53dcd68d4c94278983
+
+Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo. Toca
+cosas tuyas, y las deja como estaban: pone el cursor donde ya estaba,
+suelta el ClipCursor (si otro programa lo tenia puesto, se va) y usa el
+portapapeles con "BMO tanda7", devolviendole al final el texto que tenia
+(el historial de Win+V se queda con una linea mas).

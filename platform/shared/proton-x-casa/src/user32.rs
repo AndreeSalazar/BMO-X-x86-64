@@ -29,7 +29,7 @@
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use bmo_proton_x::ventanas::{de_evento, Msg, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_PAINT, WM_QUIT};
+use bmo_proton_x::ventanas::{Msg, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_PAINT, WM_QUIT};
 
 use crate::{aviso, con, dir, plataforma, Clase, Superficie, Ventana};
 
@@ -303,9 +303,9 @@ pub(crate) fn bombear() {
             if ev == 0 {
                 break;
             }
-            if let Some(m) = de_evento(hwnd, ev) {
-                con(|e| e.cola.publicar(m));
-            }
+            // La tecla o el raton a la cola, y todo lo que cambia con ella
+            // (el estado de las teclas, el cursor, el raw input: tanda 7).
+            crate::user32_entrada::evento(hwnd, ev);
         }
     }
 }
@@ -322,6 +322,7 @@ pub(crate) extern "win64" fn get_message_w(msg: *mut u8, h: u64, min: u32, max: 
     loop {
         bombear();
         if let Some(m) = con(|e| e.cola.sacar_filtrado(h, min, max)) {
+            crate::user32_entrada::leido(&m);
             escribir_msg(msg, &m);
             return if m.mensaje == WM_QUIT { 0 } else { 1 };
         }
@@ -344,6 +345,9 @@ pub(crate) extern "win64" fn peek_message_w(msg: *mut u8, h: u64, min: u32, max:
     }
     bombear();
     let m = if quitar & PM_REMOVE != 0 { con(|e| e.cola.sacar_filtrado(h, min, max)) } else { con(|e| e.cola.mirar_filtrado(h, min, max)) };
+    if let (Some(m), true) = (&m, quitar & PM_REMOVE != 0) {
+        crate::user32_entrada::leido(m);
+    }
     match m {
         Some(m) => {
             escribir_msg(msg, &m);
