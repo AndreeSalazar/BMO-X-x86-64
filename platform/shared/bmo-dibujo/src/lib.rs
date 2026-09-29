@@ -122,12 +122,14 @@
 #![cfg_attr(not(test), no_std)]
 
 mod curva;
+mod icono;
 mod lienzo;
 mod linea;
 mod recorte;
 mod triangulo;
 
 pub use curva::{curva, direccion};
+pub use icono::{icono, Capa, Figura, Tinta, VISTA};
 pub use lienzo::Lienzo;
 pub use linea::linea;
 pub use recorte::{recortar_segmento, Recorte};

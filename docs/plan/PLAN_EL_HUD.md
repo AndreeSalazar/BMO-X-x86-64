@@ -232,6 +232,16 @@ aire entre ellas y esquinas suavizadas. `C:` no sale: BMO-X ni lo mira.
   mira lo medido. ENTRAR (o doble clic) explora la unidad; en Personal (D:)
   dice que explorar llega con N1b.
 * Ver `Ultra_userspace/services/director/src/scene/data/equipo.rs`.
+* **Los iconos, VECTORIALES** (el mismo dia; el propietario: *"investigar
+  los mejores iconos y eso en svg ... porque se ven feo"*). Los de 16 px
+  agrandados eran cuadros de 2x2. Ahora son FORMAS --cajas redondeadas,
+  circulos, poligonos, trazos-- sobre la rejilla de 24 que usan Fluent (Windows
+  11) y Lucide, rasterizadas a la medida con 4x4 muestras y en degradado:
+  `bmo_dibujo::icono` (8 pruebas en el anfitrion). Un disco para A: y D:, tres
+  capas para ESTRATOS, un chip para EFI y un candado ambar encima de lo que es
+  de solo lectura; y la carpeta y la hoja del explorador. Los dibujos son de
+  BMO-X (`scene/dibujos.rs`): de esos juegos se tomaron las reglas, no los
+  trazados.
 
 | que | afirma | como se cae |
 |---|---|---|

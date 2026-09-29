@@ -342,7 +342,8 @@ fn paint_folders(p: &bmo::Pantalla, c: &DataWindow, z: &Zona) {
         // en vez de competir. Y el color sigue siendo el de su caja en el
         // grafo de al lado: mirar el mismo nodo en los dos paneles no puede
         // darle dos colores.
-        super::iconos::pintar(p, z.x + 2, ty + (ROW_H - iconos::LADO) / 2, kind, color, 1);
+        let fondo = if i == c.sel { SEL_FONDO } else { DATA_BG };
+        super::iconos::pintar(p, z.x + 2, ty + (ROW_H - iconos::LADO) / 2, kind, color, 1, fondo);
 
         let mut nom = [0u8; 64];
         let n = fuente::hijo_nombre(i as u64, &mut nom);

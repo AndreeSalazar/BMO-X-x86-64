@@ -15,13 +15,16 @@
 //! rejilla se queda con un cuadrito de color -- que dice la clase pero no se
 //! reconoce de un vistazo, que es justo lo unico que un icono tiene que hacer.
 //!
-//! === Escritos como DIBUJO, y eso no es capricho ===
+//! === Escritos como DIBUJO, y desde el 29-09 como FORMAS ===
 //!
-//! Es la misma decision que ya esta escrita en `build.ps1` para el formato
-//! `BICO`, y en `ring0/core/gato.rs`:
-//!
-//! > una rejilla de dieciseis lineas se lee, se corrige y **se ve mal cuando
-//! > esta mal**; un array de 256 enteros no.
+//! Primero fueron rejillas de 16 lineas (`o`, `#`, `+`, `-`), por la misma
+//! razon que el formato `BICO`: *"una rejilla se lee, se corrige y se ve mal
+//! cuando esta mal"*. Y se veia mal de verdad agrandada: 16 pixeles a 32 son
+//! cuadros de 2x2. El propietario: *"investigar los mejores iconos y eso en
+//! svg ... porque se ven feo"*. Ahora son FORMAS sobre la rejilla de 24 de
+//! Fluent y Lucide (`dibujos.rs`), que `bmo_dibujo::icono` rasteriza a la
+//! medida justa, suavizadas y en degradado. Siguen leyendose como dibujo: una
+//! caja, un circulo, un trazo, con sus numeros.
 //!
 //! === Un dibujo por FORMA, un color por CLASE ===
 //!
@@ -50,182 +53,62 @@ use bmo_userland as bmo;
 /// chico y se agranda si hace falta.
 pub(crate) const LADO: u32 = 16;
 
-/// Los papeles, no los colores:
-///
-/// ```text
-///   .  transparente -- se ve lo que haya debajo
-///   o  contorno     -- oscuro fijo, para que la silueta se recorte
-///   +  brillo       -- el color de la clase, aclarado
-///   #  cuerpo       -- el color de la clase
-///   -  sombra       -- el color de la clase, oscurecido
-/// ```
-///
 /// El contorno es FIJO y no sale de la clase: un contorno tenido del mismo
 /// color que el cuerpo deja de recortar la silueta y el icono se convierte en
 /// una mancha.
 const CONTORNO: u32 = 0x0010_141B;
 
-/// **La carpeta.** La solapa arriba a la izquierda, que es lo que la hace
-/// reconocible en cualquier sistema desde hace cuarenta anios.
-pub(crate) const CARPETA: [&str; LADO as usize] = [
-    "................",
-    "................",
-    "..oooo..........",
-    ".o++++o.........",
-    ".o++++oooooooo..",
-    ".o############o.",
-    ".o############o.",
-    ".o############o.",
-    ".o############o.",
-    ".o############o.",
-    ".o############o.",
-    ".o------------o.",
-    "..oooooooooooo..",
-    "................",
-    "................",
-    "................",
-];
-
-/// **El fichero.** Una hoja con renglones. Sin la esquina doblada: a 16 pixeles
-/// el doblez son tres pixeles que se leen como suciedad, no como un doblez.
-pub(crate) const FICHERO: [&str; LADO as usize] = [
-    "................",
-    "...ooooooooooo..",
-    "...o+++++++++o..",
-    "...o+++++++++o..",
-    "...o#########o..",
-    "...o##-----##o..",
-    "...o#########o..",
-    "...o##-----##o..",
-    "...o#########o..",
-    "...o##-----##o..",
-    "...o#########o..",
-    "...o##---####o..",
-    "...o#########o..",
-    "...ooooooooooo..",
-    "................",
-    "................",
-];
-
-/// **La unidad** (29-09, la solapa `equipo`): la caja plana de un disco con
-/// su luz, que es como la dibuja `Este equipo` de Windows. La luz (`L`) no
-/// sale de la clase: la pone quien pinta (verde montada, rojo sin montar).
-pub(crate) const DISCO: [&str; LADO as usize] = [
-    "................",
-    "................",
-    "................",
-    "................",
-    "..oooooooooooo..",
-    ".o++++++++++++o.",
-    "o++++++++++++++o",
-    "o##############o",
-    "o##############o",
-    "o#LL###########o",
-    "o#LL###--------o",
-    "o--------------o",
-    ".oooooooooooooo.",
-    "................",
-    "................",
-    "................",
-];
-
-/// Pinta [`DISCO`] del color `color` con la luz `luz`.
-pub(crate) fn pintar_disco(p: &bmo::Pantalla, x: u32, y: u32, color: u32, luz: u32, escala: u32) {
-    pintar_arte(p, x, y, &DISCO, color, luz, escala);
+/// Los dibujos: datos en `dibujos.rs`, que el banco del anfitrion tambien
+/// incluye (por eso no traen su propio `use`).
+pub(crate) mod dibujos {
+    use bmo_dibujo::{Capa, Figura, Tinta};
+    include!("dibujos.rs");
 }
 
-/// El dibujo que le toca a una clase de nodo.
-///
-/// `None` es **lo que no se pudo leer**, y no lleva dibujo a proposito: no se
-/// sabe que es, asi que dibujarle una hoja o una carpeta seria contestar por el
-/// disco. Lo pinta [`pintar`] como una caja con interrogacion.
-pub(crate) fn para(kind: u64) -> Option<&'static [&'static str; LADO as usize]> {
-    match kind {
-        bmo::estratos::DIRECTORIO => Some(&CARPETA),
-        bmo::estratos::ARCHIVO => Some(&FICHERO),
-        _ => None,
-    }
+fn aclarar_pct(c: u32, k: u32) -> u32 {
+    let f = |s: u32| {
+        let v = (c >> s) & 0xFF;
+        (v + (255 - v) * k / 100) << s
+    };
+    f(16) | f(8) | f(0)
 }
 
-/// **Pinta el icono de `kind` en `(x, y)`, del color de su clase.**
+fn oscurecer_pct(c: u32, k: u32) -> u32 {
+    let f = |s: u32| (((c >> s) & 0xFF) * (100 - k) / 100) << s;
+    f(16) | f(8) | f(0)
+}
+
+/// Los siete papeles de `dibujos.rs` para un `color` (y la `luz` del piloto).
+pub(crate) fn paleta(color: u32, luz: u32) -> [u32; 7] {
+    [color, aclarar_pct(color, 35), oscurecer_pct(color, 40), CONTORNO, luz, aclarar_pct(color, 75), 0x00F0_B84A]
+}
+
+/// **Pinta un dibujo vectorial** de `lado` pixeles en `(x, y)`, mezclado contra
+/// `fondo` (el color que hay debajo: el framebuffer no se lee).
+pub(crate) fn vector(p: &bmo::Pantalla, x: u32, y: u32, lado: u32, capas: &[bmo_dibujo::Capa], paleta: &[u32], fondo: u32) {
+    p.marcar(x, y, lado, lado);
+    bmo_dibujo::icono(capas, lado, paleta, fondo, |i, j, c| p.punto_ya_marcado(x + i, y + j, c & 0x00FF_FFFF));
+}
+
+/// **Pinta el icono de `kind` en `(x, y)`, del color de su clase**, sobre
+/// `fondo`.
 ///
 /// `escala` multiplica el lado: a 1 son 16 pixeles, que es lo que cabe en una
 /// fila de la rejilla; a 2 son 32, que es lo que usa el lanzador.
-pub(crate) fn pintar(p: &bmo::Pantalla, x: u32, y: u32, kind: u64, color: u32, escala: u32) {
-    let Some(arte) = para(kind) else {
-        // Lo ilegible: una caja del color de su clase con una interrogacion.
-        // Se reutiliza el glifo de la fuente en vez de dibujar un signo a mano
-        // -- un `?` de 16 pixeles dibujado a base de `o` sale sucio, y ademas
-        // seria un signo mas que mantener.
-        let lado = LADO * escala;
-        p.rect(x, y, lado, lado, color);
-        p.glifo_escala(
-            x + lado / 2 - 4 * escala,
-            y + lado / 2 - 8 * escala / 2,
-            b'?',
-            CONTORNO,
-            escala,
-        );
-        return;
+pub(crate) fn pintar(p: &bmo::Pantalla, x: u32, y: u32, kind: u64, color: u32, escala: u32, fondo: u32) {
+    let dibujo: Option<&[bmo_dibujo::Capa]> = match kind {
+        bmo::estratos::DIRECTORIO => Some(&dibujos::CARPETA),
+        bmo::estratos::ARCHIVO => Some(&dibujos::HOJA),
+        _ => None,
     };
-    pintar_arte(p, x, y, arte, color, color, escala);
-}
-
-/// Un dibujo de [`LADO`] con los papeles de la cabecera, y `L` = `luz`.
-fn pintar_arte(p: &bmo::Pantalla, x: u32, y: u32, arte: &[&str; LADO as usize], color: u32, luz: u32, escala: u32) {
-    let claro = aclarar(color);
-    let oscuro = oscurecer(color);
-    for (fy, fila) in arte.iter().enumerate() {
-        for (fx, ch) in fila.bytes().enumerate() {
-            let c = match ch {
-                // El transparente se SALTA, no se pinta de negro. Sin esto, un
-                // icono redondo se pinta dentro de su cuadro y la lista se
-                // llena de sellos -- es la misma nota que ya tiene el lanzador.
-                b'.' => continue,
-                b'o' => CONTORNO,
-                b'+' => claro,
-                b'-' => oscuro,
-                b'L' => luz,
-                _ => color,
-            };
-            p.rect(
-                x + fx as u32 * escala,
-                y + fy as u32 * escala,
-                escala,
-                escala,
-                c,
-            );
-        }
+    if let Some(d) = dibujo {
+        vector(p, x, y, LADO * escala, d, &paleta(color, color), fondo);
+        return;
     }
+    // Lo que no se pudo leer NO lleva dibujo, a proposito: no se sabe que
+    // es, y dibujarle una hoja o una carpeta seria contestar por el disco. Una
+    // caja del color de su clase con el `?` de la fuente.
+    let lado = LADO * escala;
+    p.rect(x, y, lado, lado, color);
+    p.glifo_escala(x + lado / 2 - 4 * escala, y + lado / 2 - 8 * escala / 2, b'?', CONTORNO, escala);
 }
-
-fn aclarar(c: u32) -> u32 {
-    let r = (((c >> 16) & 0xFF) + 0x28).min(0xFF);
-    let g = (((c >> 8) & 0xFF) + 0x28).min(0xFF);
-    let b = ((c & 0xFF) + 0x28).min(0xFF);
-    (r << 16) | (g << 8) | b
-}
-
-fn oscurecer(c: u32) -> u32 {
-    let r = ((c >> 16) & 0xFF) * 6 / 10;
-    let g = ((c >> 8) & 0xFF) * 6 / 10;
-    let b = (c & 0xFF) * 6 / 10;
-    (r << 16) | (g << 8) | b
-}
-
-/// [!] Los dibujos miden lo que dicen que miden, y esto lo comprueba EL
-/// COMPILADOR.
-///
-/// Una fila de quince caracteres no da un error: da un icono con una columna
-/// menos que se nota mirandolo de cerca y nadie mira de cerca. `build.ps1` hace
-/// esta misma comprobacion para los `BICO` **en tiempo de construccion**; aqui
-/// sale mas barata todavia, porque no llega ni a compilar.
-const _: () = {
-    let mut i = 0;
-    while i < LADO as usize {
-        assert!(CARPETA[i].len() == LADO as usize, "una fila de la carpeta no mide 16");
-        assert!(FICHERO[i].len() == LADO as usize, "una fila del fichero no mide 16");
-        assert!(DISCO[i].len() == LADO as usize, "una fila del disco no mide 16");
-        i += 1;
-    }
-};

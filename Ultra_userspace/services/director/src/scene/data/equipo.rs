@@ -92,6 +92,16 @@ impl Unidad {
         }
     }
 
+    /// Su dibujo vectorial: la losa de un disco, las capas de ESTRATOS o el
+    /// chip del arranque.
+    fn dibujo(self) -> &'static [bmo_dibujo::Capa] {
+        match self {
+            Unidad::Datos | Unidad::Personal => &iconos::dibujos::DISCO,
+            Unidad::Estratos => &iconos::dibujos::ESTRATOS,
+            Unidad::Efi => &iconos::dibujos::CHIP,
+        }
+    }
+
     /// Donde se explora, si se puede.
     pub(crate) fn volumen(self) -> Option<fuente::Volumen> {
         match self {
@@ -162,10 +172,13 @@ pub(crate) fn montada(k: usize) -> bool {
 const CABECERA: u32 = bmo::GLIFO_ALTO + 14;
 /// El aire entre tarjetas: los `gaps` de Hyprland.
 const HUECO: u32 = 12;
-/// Lo que pide la linea mas larga: el icono (58) + `111.0 GB disponibles de
-/// 111.0 GB` (31 letras) + el margen (16), y `Personal (D:) NTFS [solo
-/// lectura]`. Con 280 se salia de la tarjeta (visto en la vista previa, 29-09).
-const TARJETA_MIN: u32 = 340;
+/// El icono, y donde empieza el texto a su derecha.
+const ICONO: u32 = 48;
+const TEXTO: u32 = 12 + ICONO + 12;
+/// Lo que pide la linea mas larga: el icono (`TEXTO`) + `Personal (D:) NTFS
+/// [solo lectura]` (332 px) y su margen; `111.0 GB disponibles de 111.0 GB`
+/// cabe de sobra. Con 280 se salia de la tarjeta (visto en la vista previa).
+const TARJETA_MIN: u32 = 356;
 const TARJETA_MAX: u32 = 420;
 const TARJETA_H: u32 = 78;
 const RADIO: u32 = 10;
@@ -269,10 +282,18 @@ fn pinta_tarjeta(p: &bmo::Pantalla, r: (u32, u32, u32, u32), u: Unidad, m: Medid
     }
     let montada = m.bytes != 0;
     let luz = if montada { INK_OK } else { INK_BAD };
-    // El disco, a 32 px, centrado en el alto.
-    iconos::pintar_disco(p, x + 14, y + (h - 2 * iconos::LADO) / 2, u.color(), luz, 2);
+    // El icono VECTORIAL (`iconos::dibujos`), a 48 px y centrado en el alto,
+    // mezclado contra el cuerpo de la tarjeta; el candado encima si no se
+    // escribe.
+    let fondo = if elegida { TARJETA_ELEGIDA } else { TARJETA_FONDO };
+    let (ix, iy) = (x + 12, y + (h - ICONO) / 2);
+    let paleta = iconos::paleta(u.color(), luz);
+    iconos::vector(p, ix, iy, ICONO, u.dibujo(), &paleta, fondo);
+    if u.solo_lectura() {
+        iconos::vector(p, ix, iy, ICONO, &iconos::dibujos::CANDADO, &paleta, fondo);
+    }
 
-    let tx = x + 58;
+    let tx = x + TEXTO;
     let ty = y + 10;
     let fin = p.texto(tx, ty, u.nombre(), INK);
     let fin = p.texto(fin + bmo::GLIFO_ANCHO, ty, u.sistema(), INK_DIM);
@@ -281,14 +302,13 @@ fn pinta_tarjeta(p: &bmo::Pantalla, r: (u32, u32, u32, u32), u: Unidad, m: Medid
         let ew = e.len() as u32 * bmo::GLIFO_ANCHO + 12;
         if fin + bmo::GLIFO_ANCHO + ew + 12 <= x + w {
             let bx = fin + bmo::GLIFO_ANCHO;
-            let fondo = if elegida { TARJETA_ELEGIDA } else { TARJETA_FONDO };
             borde::pastilla(p, (bx, ty - 1, ew, bmo::GLIFO_ALTO + 2), 4, fondo, AMBAR, fondo);
             p.texto(bx + 6, ty, e, AMBAR);
         }
     }
 
     let by = ty + bmo::GLIFO_ALTO + 6;
-    let bw = w.saturating_sub(58 + 16);
+    let bw = w.saturating_sub(TEXTO + 16);
     let bh = 10;
     borde::relleno_r(p, tx, by, bw, bh, 3, CARRIL);
     let ly = by + bh + 6;
