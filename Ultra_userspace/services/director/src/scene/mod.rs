@@ -614,6 +614,7 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     // Enter ... ayuda: la lista entera") vive ahora en el campo vacio, y los
     // atajos del pie en la barra de estado. Ver `caja`.
     caja::pintar(p, c);
+    esquinas_hud(p, c);
 
     // 5. El campo. **El acento va SOLO en la linea de abajo**, no rodeandolo.
     //
@@ -627,6 +628,34 @@ pub(crate) fn paint_run_box(p: &bmo::Pantalla, c: &RunBox) {
     // rectangulos, y el borde cuadrado junto al buscador redondo no cuadraba.
     borde::pastilla(p, (c.field_x, c.field_y, c.field_w, c.field_h), 5, FIELD_BG, BOX_EDGE, caja::BANDA);
     p.rect(c.field_x + 4, c.field_y + c.field_h - 2, c.field_w - 8, 2, acento());
+}
+
+/// **Las esquinas de mira** alrededor de la salida (29-09, *"que se vea
+/// mucho mejor MAS EPICO"*): cuatro escuadras de un HUD de Night City, dos en
+/// amarillo y dos en el acento, en el aire que ya hay entre la salida y el
+/// marco. Fuera del rectangulo que repinta `paint_output`, asi que no se
+/// borran al escribir; las repinta quien repinta la ventana.
+fn esquinas_hud(p: &bmo::Pantalla, c: &RunBox) {
+    const LARGO: u32 = 12;
+    const GRUESO: u32 = 2;
+    const AMARILLO: u32 = 0x00FC_EE0A;
+    let (izq, der) = (c.x + 6, (c.x + c.w()).saturating_sub(8));
+    let arriba = c.out_y.saturating_sub(6);
+    let tope = (c.y + c.h()).saturating_sub(caja::PIE_H + 3);
+    let abajo = (c.out_y + c.out_h() + 4).min(tope);
+    if der < izq + 3 * LARGO || abajo < arriba + 3 * LARGO {
+        return;
+    }
+    let esc = |x: u32, y: u32, hacia_der: bool, hacia_abajo: bool, color: u32| {
+        let hx = if hacia_der { x } else { x + GRUESO - LARGO };
+        let vy = if hacia_abajo { y } else { y + GRUESO - LARGO };
+        p.rect(hx, y, LARGO, GRUESO, color);
+        p.rect(x, vy, GRUESO, LARGO, color);
+    };
+    esc(izq, arriba, true, true, AMARILLO);
+    esc(der - GRUESO, arriba, false, true, acento());
+    esc(izq, abajo - GRUESO, true, false, acento());
+    esc(der - GRUESO, abajo - GRUESO, false, false, AMARILLO);
 }
 
 /// El contenido del campo: la ruta y el cursor de escritura.

@@ -25,3 +25,4 @@ fecha,hora,booter,sec2_mailbox0,al_llegar,fuego_frontera_antes,build_autopsia,gs
 2026-09-29,11:06,0x15,0x00000015,frio (ErP Ready + APAGAR),NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,W2: segundo seguido
 2026-09-29,12:07,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,,0x00000000,,,,,,H3 (wbinvd antes del booter): igual; build con N1a que reanima todos los puertos
 2026-09-29,12:42,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen3 x16,H3 cae; el bus con el mismo CORREGIBLE que traia al arrancar
+2026-09-29,13:17,0x15,0x00000015,frio,NO (init por defecto),si (bus e IOMMU),0xBADF1002,0xBADF5620,0x00000000,0x00000000,0x02F40000/0x02FFEE00,0,0 -> 0,Gen3 x16,vigia IGUAL (0x908311CBC2BAB6E7) y LIBOS igual; GSP parado 119 ms antes del booter; disco 1 aviso durante; ram prueba 14052 MiB 0 errores

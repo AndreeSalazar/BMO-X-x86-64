@@ -66,6 +66,8 @@ match c {
             dsk.out.grid.sin_busqueda();
             dsk.out.grid.separar();
             dsk.out.grid.with_ink(INK_ECHO);
+            // El eco se toca: clic lo vuelve a escribir, Ctrl+clic lo repite.
+            crate::desktop::tocable::apuntar(dsk.out.grid.mark(), dsk.field.line());
             dsk.out.grid.byte(0xB7);
             dsk.out.grid.byte(b' ');
             dsk.out.grid.text(dsk.field.line());

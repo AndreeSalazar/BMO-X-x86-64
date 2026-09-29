@@ -71,6 +71,10 @@ pub(crate) mod transicion;
 pub(crate) mod caja;
 /// **EL ARRANQUE ORQUESTADO**: la CPU prepara, la 3060 toma el control (2026-09-25).
 pub(crate) mod arranque;
+/// **LO QUE SE TOCA EN LA SALIDA**: clic escribe la orden, Ctrl+clic la corre (29-09).
+pub(crate) mod tocable;
+/// **LA ENTRADA DE EJECUTAR**: el titulo en ASCII al invocarla con Ctrl+Alt (29-09).
+pub(crate) mod entrada;
 
 /// **El panel aparecio, se fue o cambio de medida** (Ctrl+B, la tira, el
 /// editor de aspecto; HUD 3 y 5): el area util y la

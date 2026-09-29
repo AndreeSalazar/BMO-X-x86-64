@@ -35,7 +35,19 @@ pub(crate) fn list(dsk: &mut Desktop, p: &bmo::Pantalla, dir_path: &[u8]) -> Aft
                 // `.` y `..` no se muestran: aqui
                 // no hay carpeta actual a la que
                 // volver, asi que son ruido.
-                if is_dot_entry(&nom[..length]) { return After::NextKey; }
+                // (29-09: aqui habia un `return`, y el `.` que abre toda
+                // subcarpeta de FAT cortaba el listado antes de empezar.)
+                if is_dot_entry(&nom[..length]) { continue; }
+                // La fila se toca (29-09): clic escribe `ls` o `lee` de esa
+                // entrada, Ctrl+clic lo corre. Un `.bex` se lanza por su ruta.
+                let prefijo: &[u8] = if e.es_dir {
+                    b"ls "
+                } else if nom[..length].ends_with(b".bex") {
+                    b""
+                } else {
+                    b"lee "
+                };
+                crate::desktop::tocable::apuntar_entrada(dsk.out.grid.mark(), prefijo, dir_path, &nom[..length], e.es_dir);
                 dsk.out.grid.text(b"  ");
                 dsk.out.grid.text(&nom[..length]);
                 // Alinear la columna del medida.
@@ -196,6 +208,11 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
     let mut buf = [0u8; 128];
     let d = match ruta_d(ruta, &mut buf).map(bmo::Directorio::open) {
         Some(Ok(d)) => d,
+        // `personal <ruta>` con la ruta de un FICHERO (metal, 29-09 13:18:
+        // `personal Cyberpunk 2077/REDprelauncher.exe`): es un `lee`.
+        Some(Err(26)) if ruta_d(ruta, &mut [0u8; 128]).map(bmo::Archivo::reflejar).is_some_and(|a| a.is_ok_and(|a| a.close())) => {
+            return personal_lee(dsk, p, ruta);
+        }
         otro => {
             let (line, estado): (&[u8], &str) = match otro {
                 None => (b"  esa ruta es demasiado larga (128 bytes con el d:).\n", "ruta larga"),
@@ -226,6 +243,10 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
         // `.`: la raiz de NTFS se tiene a si misma en su indice.
         if is_dot_entry(nom) { todas -= 1; continue; }
         if vistas >= 256 { continue; }
+        // La fila se toca (29-09): con el nombre ENTERO, aunque en pantalla
+        // salga cortado o con `?` (ver `desktop::tocable`).
+        let prefijo: &[u8] = if carpeta { b"personal ls " } else { b"personal lee " };
+        crate::desktop::tocable::apuntar_entrada(dsk.out.grid.mark(), prefijo, ruta, nom, carpeta);
         dsk.out.grid.text(b"  ");
         let mut k = nombre_ascii(dsk, nom);
         while k < 40 { dsk.out.grid.byte(b' '); k += 1; }
