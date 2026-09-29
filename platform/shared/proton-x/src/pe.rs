@@ -140,6 +140,17 @@ fn maquina_fuera(m: u16) -> Option<&'static str> {
 
 /// **Leer un `.exe`**: el veredicto de PROTON-X primero, la forma despues.
 pub fn leer(d: &[u8]) -> Result<Pe, Fallo> {
+    leer_con_medida(d, d.len() as u64)
+}
+
+/// **Solo las CABECERAS** (el censo, 29-09): `d` es el principio del fichero
+/// y `medida` lo que mide entero. Un `.exe` de 60 MB se juzga sin traerlo:
+/// las secciones se comprueban contra `medida`, no contra lo leido.
+pub fn leer_cabeceras(d: &[u8], medida: u64) -> Result<Pe, Fallo> {
+    leer_con_medida(d, medida)
+}
+
+fn leer_con_medida(d: &[u8], medida: u64) -> Result<Pe, Fallo> {
     if d.get(..2) != Some(b"MZ") {
         return Err(Fallo::NoEsPe);
     }
@@ -194,7 +205,7 @@ pub fn leer(d: &[u8]) -> Result<Pe, Fallo> {
             return Err(Fallo::Seccion { nombre: sec.nombre, motivo: "no cabe en la imagen" });
         }
         let fin_fichero = sec.desde as u64 + sec.tam_en_fichero.min(sec.tam_en_imagen()) as u64;
-        if fin_fichero > d.len() as u64 {
+        if fin_fichero > medida {
             return Err(Fallo::Seccion { nombre: sec.nombre, motivo: "sus datos pasan del final del fichero" });
         }
         secciones.push(sec);

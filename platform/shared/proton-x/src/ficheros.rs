@@ -32,15 +32,23 @@ pub enum NoRuta {
     NoEsFichero,
 }
 
-/// **Una ruta de Windows (UTF-16) como ruta de BMO-X**, relativa a la raiz
-/// del volumen. `dir` es el directorio actual (el del `.exe`).
-pub fn ruta(w: &[u16], dir: &str) -> Result<String, NoRuta> {
-    let mut s = String::with_capacity(w.len());
-    for &c in w.iter().take_while(|&&c| c != 0) {
-        if c >= 0x80 {
-            return Err(NoRuta::NoAscii);
-        }
-        s.push(if c == b'\\' as u16 { '/' } else { c as u8 as char });
+/// **El disco Personal** (N2, 29-09): `D:\...` de Windows es `d:...` en
+/// BMO-X -- el NTFS de Windows, montado SOLO PARA LEER (`dev/disk/ajeno.rs`).
+/// Toda otra letra sigue siendo el volumen de BMO-X.
+pub const PERSONAL: &str = "d:";
+
+/// Lo de dentro de D: si `vol` es una ruta del disco Personal.
+pub fn en_personal(vol: &str) -> Option<&str> {
+    vol.strip_prefix(PERSONAL)
+}
+
+/// La ruta de Windows ya resuelta: si es de D: y sus trozos.
+fn resolver(w: &[u16], dir: &str) -> Result<(bool, Vec<String>), NoRuta> {
+    let fin = w.iter().position(|&c| c == 0).unwrap_or(w.len());
+    let mut s = String::with_capacity(fin);
+    for c in char::decode_utf16(w[..fin].iter().copied()) {
+        let c = c.map_err(|_| NoRuta::NoAscii)?;
+        s.push(if c == '\\' { '/' } else { c });
     }
     let mut t = s.as_str();
     if let Some(r) = t.strip_prefix("//?/") {
@@ -49,40 +57,67 @@ pub fn ruta(w: &[u16], dir: &str) -> Result<String, NoRuta> {
     if t.starts_with("//") || t.is_empty() {
         return Err(NoRuta::NoEsFichero);
     }
-    // "X:/..." o "/...": desde la raiz del volumen. Lo demas, desde `dir`.
-    let (absoluta, resto) = match t.as_bytes() {
-        [l, b':', rest @ ..] if l.is_ascii_alphabetic() => (true, core::str::from_utf8(rest).unwrap_or("")),
-        [b'/', ..] => (true, t),
-        _ => (false, t),
+    // El directorio actual puede ser de D: (un `.exe` que vive alli).
+    let (dir_personal, dir) = match en_personal(dir) {
+        Some(d) => (true, d),
+        None => (false, dir),
     };
-    let mut partes: Vec<&str> = if absoluta { Vec::new() } else { dir.split('/').filter(|p| !p.is_empty()).collect() };
+    // "X:/..." o "/...": desde la raiz (la de D:, o la del volumen). Lo demas,
+    // desde `dir`.
+    let (personal, absoluta, resto) = match t.as_bytes() {
+        [l, b':', rest @ ..] if l.is_ascii_alphabetic() => (l.eq_ignore_ascii_case(&b'd'), true, core::str::from_utf8(rest).unwrap_or("")),
+        [b'/', ..] => (dir_personal, true, t),
+        _ => (dir_personal, false, t),
+    };
+    // El volumen de BMO-X es FAT32 8.3: alli, solo ASCII. D: es NTFS: UTF-8.
+    if !personal && !t.is_ascii() {
+        return Err(NoRuta::NoAscii);
+    }
+    let mut partes: Vec<String> =
+        if absoluta { Vec::new() } else { dir.split('/').filter(|p| !p.is_empty()).map(String::from).collect() };
     for p in resto.split('/') {
         match p {
             "" | "." => {}
+            // Un `..` no sale de su volumen: ni de BMO-X, ni de D:.
             ".." => {
                 if partes.pop().is_none() {
                     return Err(NoRuta::FueraDelVolumen);
                 }
             }
-            x => partes.push(x),
+            x => partes.push(String::from(x)),
         }
     }
+    Ok((personal, partes))
+}
+
+fn unir(personal: bool, partes: &[String]) -> String {
+    let mut r = String::from(if personal { PERSONAL } else { "" });
+    r.push_str(&partes.join("/"));
+    r
+}
+
+/// **Una ruta de Windows (UTF-16) como ruta de BMO-X**, relativa a la raiz
+/// del volumen (o `d:...`, del disco Personal). `dir` es el directorio actual
+/// (el del `.exe`).
+pub fn ruta(w: &[u16], dir: &str) -> Result<String, NoRuta> {
+    let (personal, partes) = resolver(w, dir)?;
     if partes.is_empty() {
         return Err(NoRuta::NoEsFichero);
     }
-    Ok(partes.join("/"))
+    Ok(unir(personal, &partes))
 }
 
-/// **Como [`ruta`], pero la RAIZ del volumen es una ruta** (`""`): para lo
-/// que nombra carpetas (`C:\\`, `..` desde `window`, `.` en la raiz). Vacia o
-/// un dispositivo (`\\\\.\\`) sigue sin ser nada.
+/// **Como [`ruta`], pero la RAIZ del volumen es una ruta** (`""`, o `d:` la
+/// de D:): para lo que nombra carpetas (`C:\\`, `..` desde `window`, `.` en
+/// la raiz). Vacia o un dispositivo (`\\\\.\\`) sigue sin ser nada.
 pub fn ruta_o_raiz(w: &[u16], dir: &str) -> Result<String, NoRuta> {
     let fin = w.iter().position(|&c| c == 0).unwrap_or(w.len());
     let dispositivo = w.len() >= 2 && fin >= 2 && [w[0], w[1]].iter().all(|&c| c == b'\\' as u16 || c == b'/' as u16) && !(fin >= 4 && w[2] == b'?' as u16);
-    match ruta(w, dir) {
-        Err(NoRuta::NoEsFichero) if fin > 0 && !dispositivo => Ok(String::new()),
-        r => r,
+    if fin == 0 || dispositivo {
+        return Err(NoRuta::NoEsFichero);
     }
+    let (personal, partes) = resolver(w, dir)?;
+    Ok(unir(personal, &partes))
 }
 
 /// `FILE_BEGIN`, `FILE_CURRENT`, `FILE_END`.
@@ -203,22 +238,22 @@ pub fn partir_patron(w: &[u16], dir: &str) -> Result<(String, String), NoRuta> {
         Some(k) => (&w[..k + 1], &w[k + 1..]),
         None => (&w[..0], w),
     };
-    if patron.is_empty() || patron.iter().any(|&c| c >= 0x80) {
+    if patron.is_empty() {
         return Err(NoRuta::NoEsFichero);
     }
-    let patron: String = patron.iter().map(|&c| c as u8 as char).collect();
-    // La carpeta: "" es el directorio actual; "X:\\" o "\\" la raiz.
+    let patron: String = char::decode_utf16(patron.iter().copied()).collect::<Result<String, _>>().map_err(|_| NoRuta::NoEsFichero)?;
+    // La carpeta: "" es el directorio actual; "X:\\" o "\\" la raiz (la de
+    // D:, `d:`, si es de alli).
     let carpeta = if carpeta.is_empty() {
         String::from(dir.trim_matches('/'))
     } else {
         let mut c: Vec<u16> = carpeta.to_vec();
         c.push(b'.' as u16);
-        match ruta(&c, dir) {
-            Ok(r) => r,
-            // Todo se resolvio a la raiz del volumen.
-            Err(NoRuta::NoEsFichero) => String::new(),
-            Err(e) => return Err(e),
-        }
+        ruta_o_raiz(&c, dir)?
     };
+    // Fuera de D:, el patron sigue siendo ASCII (FAT32 8.3).
+    if en_personal(&carpeta).is_none() && !patron.is_ascii() {
+        return Err(NoRuta::NoEsFichero);
+    }
     Ok((carpeta, patron))
 }

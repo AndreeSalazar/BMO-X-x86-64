@@ -24,6 +24,13 @@
 //! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
 //! dice y no salta.
 //!
+//! **N2 y el CENSO** (29-09): una ruta de D: va entre comillas (lleva
+//! espacios): `run sys/proton-x.bex "d:Cyberpunk 2077/bin/x64/x.exe"`. Y
+//! `--censo <ruta>` NO ejecuta: dice que DLL y funciones de Windows pide el
+//! `.exe` y cuantas tiene ya la casa, leyendo solo sus cabeceras y la seccion
+//! de sus importaciones (un `.exe` de 60 MB no se trae entero). En el
+//! escritorio, `personal censo <ruta>`.
+//!
 //! **El GS de Windows** (P1d, 27-09): antes de saltar, un TEB y un PEB en el
 //! monton y el GS del hilo apuntando al TEB (`TASK_OP_PON_GS`). Un `.exe`
 //! encuentra ahi su pila, su base, su LastError y sus ids, como en Windows
@@ -86,15 +93,142 @@ pub(crate) fn fin_del_exe(codigo: u32) -> ! {
     bmo::salir();
 }
 
+/// **La ruta y lo de detras**: hasta el primer espacio, o entre comillas.
+fn partir_ruta(todo: &[u8]) -> (&[u8], &[u8]) {
+    if let Some(r) = todo.strip_prefix(b"\"") {
+        let k = r.iter().position(|&c| c == b'"').unwrap_or(r.len());
+        return (&r[..k], r.get(k + 1..).unwrap_or(&[]));
+    }
+    let corte = todo.iter().position(|&c| c == b' ').unwrap_or(todo.len());
+    todo.split_at(corte)
+}
+
+/// Lo mas grande que el censo lee de golpe: la seccion de las importaciones
+/// (el tope de un bloque del kernel, `obj/memory.rs`).
+const TOPE_SECCION: u64 = 64 << 20;
+/// Donde queda la lista entera.
+const RUTA_CENSO: &[u8] = b"informe/censo.txt";
+
+/// **EL CENSO de un `.exe`** (29-09, *"lo del Cyberpunk que faltan MAS para
+/// completar?"*): sin ejecutarlo y sin traerlo entero -- las cabeceras y la
+/// seccion de sus importaciones --, cada funcion de Windows que pide contra
+/// la tabla de la casa. Las DLL que viven junto al `.exe` son DEL JUEGO: esas
+/// no las pone la casa, se cargan (P5a) y piden lo suyo. Resumen por la
+/// consola; la lista entera, en `informe/censo.txt`.
+fn censo(ruta: &[u8]) -> ! {
+    use alloc::string::String;
+    let nombre = core::str::from_utf8(ruta).unwrap_or("?");
+    let Some(bloque) = bmo::Memoria::request(16 << 20) else { fin("sin memoria para el censo") };
+    // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
+    unsafe { MONTON.poner(bloque.base() as usize, 16 << 20) };
+    core::mem::forget(bloque);
+    let Ok(a) = bmo::Archivo::reflejar(ruta) else { fin(&format!("censo: no encuentro {nombre}")) };
+    let mide = a.size();
+    // Las cabeceras: los primeros 64 KiB bastan (un PE las pide en 4). De una
+    // llamada a un bloque (`read` va de siete en siete bytes).
+    let n = (64u64 << 10).min(mide);
+    let Some(hb) = bmo::Memoria::request(n.max(1)) else { fin("sin memoria para las cabeceras") };
+    let k = a.leer_en(&hb, 0, n);
+    // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
+    hb.soltar();
+    let pe = bmo_proton_x::leer_cabeceras(&cab, mide).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    let rva = pe.importaciones.rva;
+    let Some(sec) = pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva)) else {
+        fin(&format!("{nombre}: no pide nada, o sus importaciones no caen en una seccion"));
+    };
+    let tam = sec.tam_en_fichero as u64;
+    if tam > TOPE_SECCION {
+        fin(&format!("{nombre}: la seccion {} mide {} MiB, pasa del tope de un bloque", sec.nombre, tam >> 20));
+    }
+    let Some(b) = bmo::Memoria::request(tam) else { fin("sin memoria para la seccion de importaciones") };
+    if a.saltar(sec.desde as u64) != sec.desde as u64 || a.leer_en(&b, 0, tam) != tam {
+        fin(&format!("{nombre}: la seccion {} no se leyo entera", sec.nombre));
+    }
+    // SAFETY: `tam` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let trozo = unsafe { core::slice::from_raw_parts(b.base() as *const u8, tam as usize) };
+    let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    drop(a);
+    // La carpeta del `.exe`: donde viven las DLL del juego.
+    let dir = match ruta.iter().rposition(|&c| c == b'/') {
+        Some(k) => &ruta[..k + 1],
+        None => &ruta[..0],
+    };
+    // Por DLL, en el orden en que las pide: (nombre, cuantas, las tiene la casa).
+    let mut dlls: Vec<(String, u32, u32)> = Vec::new();
+    let mut lista = String::new();
+    for i in &imps {
+        let hay = bmo_proton_x_casa::tabla(&i.dll, &i.funcion).is_some();
+        match dlls.iter_mut().find(|d| d.0.eq_ignore_ascii_case(&i.dll)) {
+            Some(d) => {
+                d.1 += 1;
+                d.2 += hay as u32;
+            }
+            None => dlls.push((i.dll.clone(), 1, hay as u32)),
+        }
+        if !hay {
+            lista.push_str(&format!("{} {}\n", i.dll, i.funcion));
+        }
+    }
+    let total = imps.len() as u32;
+    let tiene: u32 = dlls.iter().map(|d| d.2).sum();
+    di(&format!("CENSO de {nombre}: {} MiB, {} DLL, {total} funciones importadas; la casa ya tiene {tiene} ({}%)\n", mide >> 20, dlls.len(), tiene * 100 / total.max(1)));
+    let mut del_juego = 0u32;
+    for (dll, n, si) in &dlls {
+        let mut junto: Vec<u8> = dir.to_vec();
+        junto.extend_from_slice(dll.as_bytes());
+        let es_del_juego = bmo::Archivo::reflejar(&junto).is_ok();
+        del_juego += es_del_juego as u32;
+        let que = if es_del_juego {
+            "DEL JUEGO: vive junto al .exe, se carga como DLL (P5a)"
+        } else if si == n {
+            "la casa la tiene ENTERA"
+        } else if *si == 0 {
+            "la casa NO la tiene"
+        } else {
+            "a medias"
+        };
+        di(&format!("  {dll:<28} {si:>4} de {n:<4} {que}\n"));
+        lista.push_str(&format!("# {dll}: {si} de {n}; {que}\n"));
+    }
+    di(&format!("  {} DLL del juego; lo que falta, funcion a funcion: {}\n", del_juego, core::str::from_utf8(RUTA_CENSO).unwrap_or("")));
+    guardar_censo(lista.as_bytes());
+    bmo::salir();
+}
+
+/// La lista entera a `informe/censo.txt`, de una llamada.
+fn guardar_censo(bytes: &[u8]) {
+    let Ok(f) = bmo::Archivo::create(RUTA_CENSO) else {
+        di("  (no se pudo crear informe/censo.txt)\n");
+        return;
+    };
+    let escritos = match bmo::Memoria::request(bytes.len().max(1) as u64) {
+        Some(b) => {
+            // SAFETY: un bloque nuestro de al menos `bytes.len()` bytes.
+            unsafe { core::ptr::copy_nonoverlapping(bytes.as_ptr(), b.base(), bytes.len()) };
+            f.escribir_de(&b, 0, bytes.len() as u64) as usize
+        }
+        None => f.write(bytes),
+    };
+    if escritos != bytes.len() || !f.close() {
+        di("  (informe/censo.txt no salio entero)\n");
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     let mut arg = [0u8; 96];
     let n = bmo::argumentos(&mut arg);
     let todo: &[u8] = if n == 0 { b"window/hola.exe" } else { &arg[..n] };
+    // ** EL CENSO (29-09): `--censo <ruta>` no ejecuta nada: dice que DLL y que
+    // funciones de Windows pide el `.exe` y cuantas tiene ya la casa.
+    if let Some(r) = todo.strip_prefix(b"--censo ") {
+        censo(partir_ruta(r).0);
+    }
     // P4e: `window/x.exe lo de detras` -- la ruta hasta el primer espacio; lo
-    // demas es la linea de ordenes del `.exe` (GetCommandLineW).
-    let corte = todo.iter().position(|&c| c == b' ').unwrap_or(todo.len());
-    let (ruta, resto) = todo.split_at(corte);
+    // demas es la linea de ordenes del `.exe` (GetCommandLineW). N2: o entre
+    // comillas, que las rutas de D: llevan espacios (`"d:Cyberpunk 2077/..."`).
+    let (ruta, resto) = partir_ruta(todo);
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
     let linea = core::str::from_utf8(resto).unwrap_or("");
 

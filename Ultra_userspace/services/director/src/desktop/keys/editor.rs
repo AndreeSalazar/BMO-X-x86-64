@@ -512,6 +512,10 @@ fn antes_de_proton_x(dsk: &mut Desktop, p: &bmo::Pantalla, target: &[u8]) {
     if !programa.ends_with(b"proton-x.bex") {
         return;
     }
+    // El censo (29-09) no ejecuta nada ni dibuja: la 3060 no hace falta.
+    if target.windows(8).any(|w| w == b"--censo ") {
+        return;
+    }
     if !crate::commands::verificar::hecho(b"init") {
         let g = &mut dsk.out.grid;
         g.with_ink(INK_ECHO);
