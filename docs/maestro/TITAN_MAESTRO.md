@@ -8,6 +8,12 @@
 > **Extension: `.titan`** (decidida el 29-09). La herramienta: `titan`. El
 > manifiesto: `Titan.toml`. En rutas se escribe `TITAN` (los `+` dan guerra en
 > un nombre de fichero).
+>
+> ** `.titan` es el **FUENTE**. Lo que sale es un **`.bex`** (BEF2), el mismo
+> ejecutable que sale de C, C++, COBOL, Ada e INTI: TITAN++ **no reemplaza ni
+> inventa** formato de ejecutable. El cargador, la firma y el DIRECTOR no se
+> enteran de en que lenguaje se escribio (es lo que `PYTHON_MAESTRO` llama "BEF
+> enmascara el lenguaje").
 
 Escrito el **2026-09-29**, antes de una sola linea de codigo, con el mismo
 criterio que `INTI_MAESTRO.md` y `PYTHON_MAESTRO.md`: que esta conversacion no
@@ -463,6 +469,7 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
    NO es Python          no corre programas de Python (eso es PYTHON_MAESTRO)
    NO es Rust            no compila crates de crates.io ni usa rustc
    NO es C++             no lee C++ (para eso esta el frontend de C++)
+   NO reemplaza al .bex  .titan es el fuente; lo que corre es un .bex (BEF2)
    NO escribe el kernel  el kernel y los drivers son la Rust base; el metal, INTI
    NO sustituye a INTI   INTI y sus apps se quedan
    NO tiene recolector   la memoria se libera cuando su propietario acaba
