@@ -192,7 +192,13 @@ if ($Data) {
     foreach ($f in Get-ChildItem -Path $dataSrc -Recurse -File) {
         $rel = $f.FullName.Substring($dataSrc.Length).TrimStart([char]'\')
         $dst = Join-Path $dataRoot $rel
-        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
+        # Solo si falta: la carpeta de un fichero de la RAIZ (`default.cfg`) es
+        # `A:\`, y PowerShell 5 no deja "crear" la raiz de una unidad (29-09:
+        # un error rojo en cada deploy, sin consecuencias pero asustando).
+        $padre = Split-Path -Parent $dst
+        if (-not (Test-Path -LiteralPath $padre)) {
+            New-Item -ItemType Directory -Path $padre -Force | Out-Null
+        }
         Copy-Item -LiteralPath $f.FullName -Destination $dst -Force
         # Verificado por hash, como Ring 0. Un .bex a medio copiar no falla al
         # arrancar: falla en la admision BEX, y ese mensaje manda a buscar el
