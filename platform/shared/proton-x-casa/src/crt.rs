@@ -118,7 +118,9 @@ fn preparar_argv() {
     e.wargv = e.punteros_w.as_ptr() as u64;
 }
 
-fn preparar_entorno() {
+/// La copia del entorno del CRT: una vez, al empezar el proceso (como la del
+/// UCRT al cargarse, antes que nada del `.exe`).
+pub(crate) fn preparar_entorno() {
     let e = estado();
     if !e.env_a.is_empty() {
         return;

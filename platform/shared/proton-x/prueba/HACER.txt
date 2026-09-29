@@ -476,7 +476,7 @@ _vsnwprintf) y vcruntime140.dll. Los otros .exe no cambian (no usan estos
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   ddd2da1f7204c4119553c348908d44f130adc3f6da97836a950233a6867b78fd
+   e3aff2c93a6ac14abd50ff16007d649e78d32eb12677f22fdd91da1b15f9c02c
 
 Dice `bien` cincuenta y cinco veces y sale con 0 (la ultima: su manejador de
 parametros invalidos se llamo 4 veces; SIN el, Windows mata el proceso en el
@@ -497,9 +497,9 @@ C++ se importan por su nombre decorado con `__asm__`):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   773d861212f54d45dd733fa749f334efa3bea869f2f5b238b12831480b512d12
+   848abda5cace4da055d3112966adf7ec95c3bbd701d564e5043b4d5d38d7e6bc
 
-Dice `bien` doce veces y sale con 0. En Windows dice lo mismo (pide
+Dice `bien` trece veces y sale con 0. En Windows dice lo mismo (pide
 msvcp140.dll, el redistribuible de Visual C++, como los juegos).
 
 tanda3.exe -- la TANDA 3 de Cyberpunk (29-09): kernel32, pasos 1 a 3

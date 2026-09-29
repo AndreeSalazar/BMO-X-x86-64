@@ -64,6 +64,10 @@ pub fn poner_exe(ruta: &str, resto: &str) {
     e.exe_a = exe.bytes().chain([0]).collect();
     e.linea_w = linea.encode_utf16().chain([0]).collect();
     e.linea_a = linea.bytes().chain([0]).collect();
+    // El CRT hace su copia del entorno al cargarse, antes que nada del
+    // `.exe`: un SetEnvironmentVariable de despues no la cambia (Windows,
+    // tanda1.exe, 29-09).
+    crate::crt::preparar_entorno();
 }
 
 /// La linea de ordenes, sin su 0 (P4f5: los argv del CRT).

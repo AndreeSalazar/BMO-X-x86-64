@@ -465,8 +465,9 @@ extern "win64" fn mbrtowc(pwc: *mut u16, s: *const u8, n: usize, _st: u64, _cvt:
     if s.is_null() {
         return 0;
     }
+    // Como msvcp140 (no el mbrtowc de C, que da -2): sin estados, 0.
     if n == 0 {
-        return -2;
+        return 0;
     }
     // SAFETY: al menos un byte del `.exe`.
     let c = unsafe { *s };
