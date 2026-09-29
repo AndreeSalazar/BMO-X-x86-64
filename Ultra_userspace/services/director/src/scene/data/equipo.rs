@@ -1,0 +1,332 @@
+//! **EL EQUIPO** -- "Dispositivos y unidades", la primera solapa de ESTRATOS
+//! (2026-09-29).
+//!
+//! [consumo] NADA      mide los volumenes al ENTRAR en la vista o con `R`;
+//!                     pintar solo mira lo ya medido (L6h)
+//!
+//! ## Por que existe
+//!
+//! El propietario, con la captura de `Este equipo` de su Windows delante:
+//! *"que ESTRATOS cambie en apariencia asi, me gusta eso ... porque en ESTRATOS
+//! se ve como basico ... al estilo hyprland"*. La solapa `numeros` contesta
+//! *como esta ESTRATOS*; esta contesta la pregunta de antes, **que discos
+//! tengo y cuanto les queda**, de un vistazo y todos juntos.
+//!
+//! ```text
+//!    v Dispositivos y unidades
+//!    +--------------------------------+  +--------------------------------+
+//!    | [==]  BMO (A:)          FAT32  |  | [==]  Personal (D:)      NTFS  |
+//!    |  .    [#####-------------]     |  |  .    [###############----]    |
+//!    |       30.3 GB disponibles de.. |  |       26.5 GB disponibles de.. |
+//!    +--------------------------------+  +--------------------------------+
+//! ```
+//!
+//! ## Lo de Hyprland, y lo que cuesta
+//!
+//! Tarjetas con aire entre ellas (sus `gaps`), esquinas redondeadas y
+//! suavizadas, y la ELEGIDA con el borde en DEGRADADO, que es el
+//! `col.active_border` de Hyprland (`rgba(33ccffee) rgba(00ff99ee)`). Sin alfa
+//! ni GPU: el degradado son columnas de un pixel, unas trescientas por
+//! tarjeta, y solo se pinta al cambiar algo.
+//!
+//! ## Los numeros son MEDIDOS, no leidos de una pista
+//!
+//! Lo libre sale del MAPA de cada volumen, contado entero: la FAT en DATOS y
+//! EFI (`bmo_fat32::FatVolume::libres`, que no se fia del `FSInfo`), el
+//! `$Bitmap` en el disco Personal (`bmo_ntfs::Volumen::libres`, contado una vez
+//! al montar) y el mapa de bloques en ESTRATOS. Lo que no se pudo contar se
+//! DICE, no se pinta como lleno ni como vacio.
+//!
+//! [!] El disco Personal y EFI son SOLO LECTURA y la tarjeta lo lleva escrito.
+//! `C:` (el NVMe de Windows) no aparece: BMO-X ni lo mira (guardian `ajeno`).
+
+use bmo_userland as bmo;
+use core::ptr::addr_of_mut;
+
+use super::*;
+use crate::scene::borde;
+use crate::scene::zonas::Zona;
+use crate::text::decimal;
+
+/// Las unidades, en el orden de `Este equipo` (por letra).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Unidad {
+    Datos,
+    Personal,
+    Estratos,
+    Efi,
+}
+
+pub(crate) const TODAS: [Unidad; 4] = [Unidad::Datos, Unidad::Personal, Unidad::Estratos, Unidad::Efi];
+
+impl Unidad {
+    pub(crate) fn nombre(self) -> &'static str {
+        match self {
+            Unidad::Datos => "BMO (A:)",
+            Unidad::Personal => "Personal (D:)",
+            Unidad::Estratos => "ESTRATOS (F:)",
+            Unidad::Efi => "EFI (arranque)",
+        }
+    }
+
+    fn sistema(self) -> &'static str {
+        match self {
+            Unidad::Datos | Unidad::Efi => "FAT32",
+            Unidad::Personal => "NTFS",
+            Unidad::Estratos => "ESTRATOS",
+        }
+    }
+
+    fn solo_lectura(self) -> bool {
+        matches!(self, Unidad::Personal | Unidad::Efi)
+    }
+
+    /// El color del disco: el de su ventana donde lo tiene (ESTRATOS es
+    /// verde), y uno propio y distinto en las demas.
+    fn color(self) -> u32 {
+        match self {
+            Unidad::Datos => 0x0060_A5FA,
+            Unidad::Personal => 0x00F0_B060,
+            Unidad::Estratos => DATA_TITLE,
+            Unidad::Efi => 0x00A7_8BFA,
+        }
+    }
+
+    /// Donde se explora, si se puede.
+    pub(crate) fn volumen(self) -> Option<fuente::Volumen> {
+        match self {
+            Unidad::Datos => Some(fuente::Volumen::Datos),
+            Unidad::Estratos => Some(fuente::Volumen::Estratos),
+            Unidad::Efi => Some(fuente::Volumen::Efi),
+            // N1b: `personal ls` todavia no existe; hoy solo se mide.
+            Unidad::Personal => None,
+        }
+    }
+}
+
+/// Lo medido de una unidad. `bytes == 0`: no esta montada.
+#[derive(Clone, Copy)]
+struct Medida {
+    bytes: u64,
+    libres: Option<u64>,
+}
+
+const SIN_MEDIR: Medida = Medida { bytes: 0, libres: None };
+static mut MEDIDAS: [Medida; 4] = [SIN_MEDIR; 4];
+
+fn medidas() -> &'static mut [Medida; 4] {
+    // SAFETY: solo el hilo del director, como el resto de la ventana.
+    unsafe { &mut *addr_of_mut!(MEDIDAS) }
+}
+
+fn unidad_info(u: u64) -> Medida {
+    let bytes = bmo::info(bmo::INFO_UNIDAD | u << 8);
+    if bytes == 0 {
+        return SIN_MEDIR;
+    }
+    let l = bmo::info(bmo::INFO_UNIDAD | u << 8 | 1 << 16);
+    Medida { bytes, libres: (l != bmo::UNIDAD_NO_SE).then_some(l) }
+}
+
+/// **Mide todas las unidades.** Al entrar en la vista y con `R`; contar la FAT
+/// de DATOS la primera vez son unos megas de lectura, y pintar no los paga.
+pub(crate) fn releer() {
+    let m = medidas();
+    for (k, u) in TODAS.iter().enumerate() {
+        m[k] = match u {
+            Unidad::Datos => unidad_info(bmo::UNIDAD_DATOS),
+            Unidad::Efi => unidad_info(bmo::UNIDAD_EFI),
+            Unidad::Personal => unidad_info(bmo::UNIDAD_PERSONAL),
+            Unidad::Estratos => {
+                if bmo::info(bmo::INFO_ES_MONTADO) == 0 {
+                    SIN_MEDIR
+                } else {
+                    let tam = bmo::info(bmo::INFO_ES_BLOQUE_TAM);
+                    let bloques = bmo::info(bmo::INFO_ES_BLOQUES);
+                    let usados = bmo::info(bmo::INFO_ES_USADOS);
+                    Medida { bytes: bloques * tam, libres: Some(bloques.saturating_sub(usados) * tam) }
+                }
+            }
+        };
+    }
+}
+
+/// Esta montada? (Para decir por que no se abre.)
+pub(crate) fn montada(k: usize) -> bool {
+    medidas()[k].bytes != 0
+}
+
+// == La geometria: la comparten quien pinta y quien acierta ===================
+
+/// Alto de la cabecera "Dispositivos y unidades" y su raya.
+const CABECERA: u32 = bmo::GLIFO_ALTO + 14;
+/// El aire entre tarjetas: los `gaps` de Hyprland.
+const HUECO: u32 = 12;
+/// Lo que pide la linea mas larga: el icono (58) + `111.0 GB disponibles de
+/// 111.0 GB` (31 letras) + el margen (16), y `Personal (D:) NTFS [solo
+/// lectura]`. Con 280 se salia de la tarjeta (visto en la vista previa, 29-09).
+const TARJETA_MIN: u32 = 340;
+const TARJETA_MAX: u32 = 420;
+const TARJETA_H: u32 = 78;
+const RADIO: u32 = 10;
+
+/// Cuantas tarjetas caben por fila.
+pub(crate) fn columnas(z: &Zona) -> usize {
+    (((z.w + HUECO) / (TARJETA_MIN + HUECO)).max(1) as usize).min(TODAS.len())
+}
+
+/// El rectangulo de la tarjeta `k`.
+fn tarjeta(z: &Zona, k: usize) -> (u32, u32, u32, u32) {
+    let cols = columnas(z) as u32;
+    let w = ((z.w.saturating_sub((cols - 1) * HUECO)) / cols).min(TARJETA_MAX);
+    let (c, f) = (k as u32 % cols, k as u32 / cols);
+    (z.x + c * (w + HUECO), z.y + CABECERA + f * (TARJETA_H + HUECO), w, TARJETA_H)
+}
+
+/// **Sobre que tarjeta esta el puntero**, si sobre alguna.
+pub(crate) fn en(z: &Zona, px: u32, py: u32) -> Option<usize> {
+    (0..TODAS.len()).find(|&k| {
+        let (x, y, w, h) = tarjeta(z, k);
+        px >= x && px < x + w && py >= y && py < y + h && y + h <= z.y + z.h
+    })
+}
+
+// == El pintado ===============================================================
+
+/// El cuerpo de una tarjeta: un peldano sobre la ventana.
+const TARJETA_FONDO: u32 = 0x001A_2520;
+const TARJETA_BORDE: u32 = 0x002C_4038;
+/// La elegida: un peldano mas, y el borde en degradado.
+const TARJETA_ELEGIDA: u32 = 0x0020_2E28;
+/// El `col.active_border` de Hyprland, de un extremo al otro.
+const DEGRADADO: (u32, u32) = (0x0033_CCFF, 0x0000_FF99);
+/// La barra: el carril y lo usado (azul como Windows; rojo pasado el 90%).
+const CARRIL: u32 = 0x0026_332E;
+const USADO: u32 = 0x0037_8BF0;
+const LLENO: u32 = INK_BAD;
+const AMBAR: u32 = 0x00F0_D070;
+
+fn mezcla(a: u32, b: u32, t: u32, de: u32) -> u32 {
+    let de = de.max(1);
+    let canal = |s: u32| {
+        let (x, y) = ((a >> s) & 0xFF, (b >> s) & 0xFF);
+        ((x * (de - t) + y * t) / de) & 0xFF
+    };
+    canal(16) << 16 | canal(8) << 8 | canal(0)
+}
+
+/// Lo que falta arriba y abajo en la columna `c` de un redondeado de radio `r`.
+fn sangria_col(c: u32, w: u32, r: u32) -> u32 {
+    if c < r {
+        borde::sangria(r, c)
+    } else if c + r >= w {
+        borde::sangria(r, w - 1 - c)
+    } else {
+        0
+    }
+}
+
+/// **El borde de la elegida**: 2 px de degradado, columna a columna.
+fn borde_degradado(p: &bmo::Pantalla, (x, y, w, h): (u32, u32, u32, u32), cuerpo: u32) {
+    for c in 0..w {
+        let s = sangria_col(c, w, RADIO);
+        p.rect(x + c, y + s, 1, h - 2 * s, mezcla(DEGRADADO.0, DEGRADADO.1, c, w));
+    }
+    borde::relleno_r(p, x + 2, y + 2, w - 4, h - 4, RADIO - 2, cuerpo);
+}
+
+/// Bytes como los dice Windows: `30.3 GB`, `434 GB`, `600 MB` (en potencias
+/// de 1024, que es lo que Windows llama GB). Devuelve la x donde acabo.
+fn medida(p: &bmo::Pantalla, x: u32, y: u32, bytes: u64, color: u32) -> u32 {
+    const MB: u64 = 1 << 20;
+    const GB: u64 = 1 << 30;
+    let mut b = [0u8; 10];
+    if bytes >= GB {
+        let decimas = bytes * 10 / GB;
+        let n = decimal(decimas / 10, &mut b);
+        let mut x = p.texto_bytes(x, y, &b[..n], color);
+        if decimas < 1000 {
+            x = p.texto(x, y, ".", color);
+            let n = decimal(decimas % 10, &mut b);
+            x = p.texto_bytes(x, y, &b[..n], color);
+        }
+        p.texto(x, y, " GB", color)
+    } else {
+        let n = decimal(bytes / MB, &mut b);
+        let x = p.texto_bytes(x, y, &b[..n], color);
+        p.texto(x, y, " MB", color)
+    }
+}
+
+fn pinta_tarjeta(p: &bmo::Pantalla, r: (u32, u32, u32, u32), u: Unidad, m: Medida, elegida: bool) {
+    let (x, y, w, h) = r;
+    // La sombra, un peldano por debajo del fondo de la ventana.
+    borde::relleno_r(p, x + 2, y + 3, w, h, RADIO, 0x000B_100E);
+    if elegida {
+        borde_degradado(p, r, TARJETA_ELEGIDA);
+    } else {
+        borde::pastilla(p, r, RADIO, TARJETA_FONDO, TARJETA_BORDE, DATA_BG);
+    }
+    let montada = m.bytes != 0;
+    let luz = if montada { INK_OK } else { INK_BAD };
+    // El disco, a 32 px, centrado en el alto.
+    iconos::pintar_disco(p, x + 14, y + (h - 2 * iconos::LADO) / 2, u.color(), luz, 2);
+
+    let tx = x + 58;
+    let ty = y + 10;
+    let fin = p.texto(tx, ty, u.nombre(), INK);
+    let fin = p.texto(fin + bmo::GLIFO_ANCHO, ty, u.sistema(), INK_DIM);
+    if u.solo_lectura() {
+        let e = "solo lectura";
+        let ew = e.len() as u32 * bmo::GLIFO_ANCHO + 12;
+        if fin + bmo::GLIFO_ANCHO + ew + 12 <= x + w {
+            let bx = fin + bmo::GLIFO_ANCHO;
+            let fondo = if elegida { TARJETA_ELEGIDA } else { TARJETA_FONDO };
+            borde::pastilla(p, (bx, ty - 1, ew, bmo::GLIFO_ALTO + 2), 4, fondo, AMBAR, fondo);
+            p.texto(bx + 6, ty, e, AMBAR);
+        }
+    }
+
+    let by = ty + bmo::GLIFO_ALTO + 6;
+    let bw = w.saturating_sub(58 + 16);
+    let bh = 10;
+    borde::relleno_r(p, tx, by, bw, bh, 3, CARRIL);
+    let ly = by + bh + 6;
+    if !montada {
+        p.texto(tx, ly, "no montada", INK_DIM);
+        return;
+    }
+    match m.libres {
+        Some(l) => {
+            let usado = m.bytes.saturating_sub(l);
+            let lleno = usado * bw as u64 / m.bytes;
+            let color = if usado * 10 > m.bytes * 9 { LLENO } else { USADO };
+            if lleno > 0 {
+                borde::relleno_r(p, tx, by, (lleno as u32).max(6), bh, 3, color);
+            }
+            let x = medida(p, tx, ly, l, INK);
+            let x = p.texto(x, ly, " disponibles de ", INK_DIM);
+            medida(p, x, ly, m.bytes, INK);
+        }
+        None => {
+            let x = medida(p, tx, ly, m.bytes, INK);
+            p.texto(x, ly, "; lo libre no se pudo contar", INK_DIM);
+        }
+    }
+}
+
+/// **Pinta la vista**: la cabecera y una tarjeta por unidad.
+pub(crate) fn paint(p: &bmo::Pantalla, z: &Zona, sel: usize) {
+    let fin = p.texto(z.x, z.y + 2, "v ", INK_DIM);
+    p.texto(fin, z.y + 2, "Dispositivos y unidades", INK);
+    p.rect(z.x, z.y + bmo::GLIFO_ALTO + 7, z.w, 1, TARJETA_BORDE);
+    let m = medidas();
+    for (k, &u) in TODAS.iter().enumerate() {
+        let r = tarjeta(z, k);
+        // Lo que no cabe entero no se pinta a medias: se sale de la ventana.
+        if r.1 + r.3 > z.y + z.h {
+            break;
+        }
+        pinta_tarjeta(p, r, u, m[k], k == sel);
+    }
+}

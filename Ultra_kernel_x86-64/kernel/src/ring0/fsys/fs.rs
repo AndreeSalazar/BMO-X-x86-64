@@ -35,6 +35,27 @@ static mut MOUNTED_LBA: u64 = 0;
 static mut DATA_VOLUME: Option<FatVolume> = None;
 static mut DATA_LBA: u64 = 0;
 
+/// Donde se cuenta la FAT para [`espacio`]: 8 sectores de una vez, fuera de
+/// la pila (que en una llamada al sistema va justa, `toolchain/tools/pila`).
+static mut CUENTA: [u8; 4096] = [0; 4096];
+
+/// **Lo que mide un volumen y lo que le queda**: `(bytes, libres)`, con
+/// `libres = None` si la FAT no se pudo contar. `arranque` = la ESP; si no,
+/// DATOS. `None` si ese volumen no esta montado. La cuenta la guarda el
+/// volumen y solo se repite si escribio algo (`FatVolume::libres`).
+pub fn espacio(arranque: bool) -> Option<(u64, Option<u64>)> {
+    unsafe {
+        let v = if arranque {
+            (*core::ptr::addr_of_mut!(VOLUME)).as_mut()?
+        } else {
+            (*core::ptr::addr_of_mut!(DATA_VOLUME)).as_mut()?
+        };
+        let bpc = v.bytes_por_cluster();
+        let libres = v.libres(&mut *core::ptr::addr_of_mut!(CUENTA)).map(|l| l as u64 * bpc);
+        Some((v.clusteres() as u64 * bpc, libres))
+    }
+}
+
 /// Hay un volumen montado?
 pub fn is_mounted() -> bool { unsafe { (*core::ptr::addr_of!(VOLUME)).is_some() } }
 

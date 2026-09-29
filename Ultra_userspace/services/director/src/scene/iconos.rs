@@ -107,6 +107,33 @@ pub(crate) const FICHERO: [&str; LADO as usize] = [
     "................",
 ];
 
+/// **La unidad** (29-09, la solapa `equipo`): la caja plana de un disco con
+/// su luz, que es como la dibuja `Este equipo` de Windows. La luz (`L`) no
+/// sale de la clase: la pone quien pinta (verde montada, rojo sin montar).
+pub(crate) const DISCO: [&str; LADO as usize] = [
+    "................",
+    "................",
+    "................",
+    "................",
+    "..oooooooooooo..",
+    ".o++++++++++++o.",
+    "o++++++++++++++o",
+    "o##############o",
+    "o##############o",
+    "o#LL###########o",
+    "o#LL###--------o",
+    "o--------------o",
+    ".oooooooooooooo.",
+    "................",
+    "................",
+    "................",
+];
+
+/// Pinta [`DISCO`] del color `color` con la luz `luz`.
+pub(crate) fn pintar_disco(p: &bmo::Pantalla, x: u32, y: u32, color: u32, luz: u32, escala: u32) {
+    pintar_arte(p, x, y, &DISCO, color, luz, escala);
+}
+
 /// El dibujo que le toca a una clase de nodo.
 ///
 /// `None` es **lo que no se pudo leer**, y no lleva dibujo a proposito: no se
@@ -141,6 +168,11 @@ pub(crate) fn pintar(p: &bmo::Pantalla, x: u32, y: u32, kind: u64, color: u32, e
         );
         return;
     };
+    pintar_arte(p, x, y, arte, color, color, escala);
+}
+
+/// Un dibujo de [`LADO`] con los papeles de la cabecera, y `L` = `luz`.
+fn pintar_arte(p: &bmo::Pantalla, x: u32, y: u32, arte: &[&str; LADO as usize], color: u32, luz: u32, escala: u32) {
     let claro = aclarar(color);
     let oscuro = oscurecer(color);
     for (fy, fila) in arte.iter().enumerate() {
@@ -153,6 +185,7 @@ pub(crate) fn pintar(p: &bmo::Pantalla, x: u32, y: u32, kind: u64, color: u32, e
                 b'o' => CONTORNO,
                 b'+' => claro,
                 b'-' => oscuro,
+                b'L' => luz,
                 _ => color,
             };
             p.rect(
@@ -192,6 +225,7 @@ const _: () = {
     while i < LADO as usize {
         assert!(CARPETA[i].len() == LADO as usize, "una fila de la carpeta no mide 16");
         assert!(FICHERO[i].len() == LADO as usize, "una fila del fichero no mide 16");
+        assert!(DISCO[i].len() == LADO as usize, "una fila del disco no mide 16");
         i += 1;
     }
 };

@@ -197,6 +197,11 @@ if let Some(open) = toggle_data {
         // ventana aparece y NO se lleva el teclado, y quien
         // decide eso es la politica, no esta tecla.
         dsk.win.focus.open(Ventana::Data);
+        // El equipo se MIDE al abrir: los numeros son de ahora, no de la
+        // ultima vez que alguien miro.
+        if dsk.win.data.view == scene::data::View::Equipo {
+            dsk.win.data.eq_entrar();
+        }
         scene::data::paint(&p, &dsk.win.data);
         dsk.win.top_before = if dsk.win.focus.es_para(Ventana::Data) { Ventana::Data } else { Ventana::Run };
         // En `Fijo` se ha pintado encima de una caja que sigue

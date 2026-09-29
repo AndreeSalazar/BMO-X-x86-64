@@ -1330,3 +1330,20 @@ fn el_hilo_no_se_queda_pidiendo_dos_ventanas_para_siempre() {
     assert_eq!(leido, datos);
     assert_eq!(ventanas, 1);
 }
+
+
+/// ** EL ESPACIO LIBRE (29-09, la solapa `equipo` de ESTRATOS): la FAT dice
+/// cuantos clusteres quedan, sin contar el relleno de despues del ultimo que
+/// existe, y la cuenta sigue a las escrituras.
+#[test]
+fn el_espacio_libre_sigue_a_la_fat() {
+    let (_turno, mut v) = volumen();
+    let mut tmp = [0u8; 1024];
+    // 512 sectores - 1 reservado - 4 de FAT = 507 clusteres; la raiz ocupa uno.
+    assert_eq!(v.clusteres(), 507);
+    assert_eq!(v.libres(&mut tmp), Some(506), "el relleno de la FAT (hasta 512 entradas) no cuenta");
+    v.save_file_in_dir(2, &name("TRES    BIN"), &[7u8; 1200]).expect("guardar");
+    assert_eq!(v.libres(&mut tmp), Some(503), "tres clusteres menos: se recuenta tras escribir");
+    assert_eq!(v.libres(&mut tmp), Some(503), "y sin escribir, la misma");
+    assert_eq!(v.libres(&mut [0u8; 100]), None, "sin sitio para un sector, no se inventa");
+}

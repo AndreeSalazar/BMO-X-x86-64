@@ -1163,6 +1163,12 @@ pub const SEC_SEC2: u64 = 5;
 pub const INFO_GPU_GSP_MEM: u64 = 0xC1;
 pub const INFO_GPU_SALUD: u64 = 0xC2;
 pub const INFO_METICHE: u64 = 0xC3;
+/// Lo que mide cada unidad y lo que le queda. Ver el ABI (`INFO_UNIDAD`).
+pub const INFO_UNIDAD: u64 = 0xC4;
+pub const UNIDAD_DATOS: u64 = 0;
+pub const UNIDAD_EFI: u64 = 1;
+pub const UNIDAD_PERSONAL: u64 = 2;
+pub const UNIDAD_NO_SE: u64 = u64::MAX;
 pub const SERIE_COLA: u64 = 1 << 63;
 
 /// ** LA ESCALERA DEL AVISO DEL DISCO: donde se pierde la IRQ. Ver el ABI.

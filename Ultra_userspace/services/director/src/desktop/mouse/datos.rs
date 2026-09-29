@@ -173,7 +173,18 @@ pub(crate) fn on_pointer(dsk: &mut Desktop, p: &bmo::Pantalla, g: &Golpe) -> boo
                         dsk.win.top_before = Ventana::Data;
                         servido = true;
                     }
-                    if dsk.win.data.view == scene::data::View::Obra {
+                    // ** EL EQUIPO: un clic elige la unidad y dos la exploran.
+                    if let Some(k) = dsk.win.data.eq_en(pos.x, pos.y) {
+                        if dsk.win.data.eq_clic(k) {
+                            dsk.win.data.eq_abrir();
+                        }
+                        scene::data::paint(&p, &dsk.win.data);
+                        dsk.win.top_before = Ventana::Data;
+                        servido = true;
+                    }
+                    // `!servido`: el doble clic del equipo acaba de abrir el
+                    // explorador, y ese mismo clic no es de su arbol.
+                    if !servido && dsk.win.data.view == scene::data::View::Obra {
                         // ** LAS SOLAPAS DE VOLUMEN, antes que nada: estan en
                         // la miga, que no es de ningun otro panel.
                         if let Some(v) = dsk.win.data.solapa_en(pos.x, pos.y) {

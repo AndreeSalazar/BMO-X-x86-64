@@ -7,7 +7,7 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   378 casillas ABIERTAS en 43 planes
+   379 casillas ABIERTAS en 43 planes
    324 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
@@ -221,6 +221,15 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] E5d -- EL bss NO SE SABE NOMBRAR. Salio al hacer E5b: una reloc del
 - ... y 3 mas
 
+## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 6 abiertas, 0 hechas
+
+*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
+
+- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
+- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
+- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
+- ... y 3 mas
+
 ## [`PLAN_EL_NEUTRO_VIGILADO.md`](PLAN_EL_NEUTRO_VIGILADO.md) -- 6 abiertas, 12 hechas
 
 *PLAN EL NEUTRO VIGILADO -- que algo procese el DMA aunque la CPU no mire*
@@ -264,15 +273,6 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 - [ ] emit_program son 357 lineas dentro de mod.rs, y hace TRES cosas:
 - [ ] emit_stmt son 175 lineas y un match de sentencias. Es hermano de
 - [ ] parser/preprocessor.rs son 1.204 lineas y es el otro monolito.
-- ... y 2 mas
-
-## [`PLAN_EL_HUD.md`](PLAN_EL_HUD.md) -- 5 abiertas, 0 hechas
-
-*PLAN EL HUD -- el escritorio como Hyprland, con UN motivo por pieza*
-
-- [ ] H1 -- LA TECLA DEL GESTOR: CTRL (2026-09-22)
-- [ ] H2 -- EL BORDE DE FOCO Y LOS HUECOS (2026-09-22)
-- [ ] H3 -- LA BARRA LATERAL EN VIVO (2026-09-22)
 - ... y 2 mas
 
 ## [`PLAN_EL_SEMAFORO_COMPLETO.md`](PLAN_EL_SEMAFORO_COMPLETO.md) -- 5 abiertas, 4 hechas

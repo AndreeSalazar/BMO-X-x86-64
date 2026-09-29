@@ -225,3 +225,16 @@ fn un_fichero_en_cinco_registros_por_su_attribute_list_y_con_huecos() {
     assert_eq!(v.leer(&n, off as u64, &mut t).unwrap(), 3000);
     assert_eq!(t, esperado[off..off + 3000]);
 }
+
+#[test]
+fn el_espacio_libre_como_lo_cuenta_ntfsinfo() {
+    // `ntfsinfo -m` de ntfs-3g sobre los dos discos: "Volume Size in
+    // Clusters" y "Free Clusters". El numero de verdad lo pone otra herramienta.
+    let mut v = volumen();
+    assert_eq!((v.clusteres(), v.libres().unwrap()), (1023, 194));
+    static L: Imagen = Imagen(LISTA);
+    let mut l = Box::new(Volumen::montar(&L, 0).unwrap());
+    assert_eq!((l.clusteres(), l.libres().unwrap()), (8191, 4374));
+    // Y leer despues sigue leyendo: `libres` no deja el registro cambiado mal.
+    assert_eq!(entero(&mut v, "hola.txt"), b"hola desde NTFS\n");
+}

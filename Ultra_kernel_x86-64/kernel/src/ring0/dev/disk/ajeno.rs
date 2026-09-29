@@ -28,7 +28,7 @@
 //! disco de siempre (`transfer::juzgar_el_dma`, `marcar_el_tramo`), por una
 //! pagina de rebote propia, de 8 sectores en 8.
 
-use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 
 use bmo_block::{BlockDevice, BlockError, DeviceId, SECTOR};
 
@@ -215,6 +215,21 @@ pub(super) fn buscar(suyo: u8) {
 /// El volumen NTFS del disco ajeno (`bmo-ntfs`, ~28 KiB aqui y no en la pila).
 static mut VOLUMEN: bmo_ntfs::Volumen<'static> = bmo_ntfs::Volumen::vacio(&AJENO);
 static MONTADO: AtomicBool = AtomicBool::new(false);
+/// Lo que mide el volumen y lo que le queda, contado UNA vez al montar (en
+/// su `$Bitmap`): el disco es de solo lectura, desde aqui no cambia.
+/// `LIBRES = u64::MAX`: no se pudo contar.
+static BYTES: AtomicU64 = AtomicU64::new(0);
+static LIBRES: AtomicU64 = AtomicU64::new(u64::MAX);
+
+/// **`(bytes, libres)` del disco PERSONAL**, si esta montado. Para
+/// `INFO_UNIDAD` (la solapa `equipo` de ESTRATOS).
+pub fn espacio() -> Option<(u64, Option<u64>)> {
+    if !MONTADO.load(Ordering::Acquire) {
+        return None;
+    }
+    let l = LIBRES.load(Ordering::Relaxed);
+    Some((BYTES.load(Ordering::Relaxed), (l != u64::MAX).then_some(l)))
+}
 
 /// El volumen NTFS del disco ajeno, si esta montado. Un llamante a la vez
 /// (el kernel de hoy: el arranque; N1b lo pondra detras de su cerrojo).
@@ -264,8 +279,18 @@ fn montar_ntfs() {
             let v = unsafe { &mut *core::ptr::addr_of_mut!(VOLUMEN) };
             match v.montar_aqui(p.first_lba) {
                 Ok(()) => {
-                    MONTADO.store(true, Ordering::Release);
                     crate::ring0::cabina::info("ntfs", "N1a: NTFS MONTADO, solo lectura; bytes por cluster", v.forma.bytes_por_cluster);
+                    let bpc = v.forma.bytes_por_cluster;
+                    BYTES.store(v.clusteres() * bpc, Ordering::Relaxed);
+                    match v.libres() {
+                        Ok(l) => {
+                            LIBRES.store(l * bpc, Ordering::Relaxed);
+                            crate::ring0::cabina::info("ntfs", "N1a: libres (MiB), contados en su $Bitmap", l * bpc >> 20);
+                        }
+                        Err(e) => crate::ring0::cabina::warn("ntfs", e.nombre(), 0),
+                    }
+                    // Montado DESPUES de las cuentas: quien lo vea montado ve los numeros.
+                    MONTADO.store(true, Ordering::Release);
                     decir_la_raiz(v);
                     return;
                 }

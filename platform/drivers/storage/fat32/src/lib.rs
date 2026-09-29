@@ -135,6 +135,11 @@ pub struct FatVolume {
     /// mas se vuelve a traer; una servida vieja es un fichero con los clusters
     /// de otro.
     escrituras: u64,
+    /// **Los clusteres libres, y cuantas escrituras llevaba el volumen al
+    /// contarlos.** Si el numero de escrituras cambio, la cuenta es vieja y
+    /// [`FatVolume::libres`] vuelve a contar: no se lleva la cuenta a mano en
+    /// cada camino que escribe la FAT (son varios, y uno olvidado mentiria).
+    libres_contados: Option<(u32, u64)>,
 }
 
 /// No hay ningun sector cargado en `fat_cache`. No es un LBA posible.
@@ -227,7 +232,7 @@ pub fn mount(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64) -> 
     // PRIMERA operacion que se haga con el volumen.
     if bpb.root_cluster < 2 || bpb.root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::Fat32, bytes_per_sector: bpb.bytes_per_sector, sectors_per_cluster: spc,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0 })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster: bpb.root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None })
 }
 
 fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, buf: &[u8; 512]) -> Option<FatVolume> {
@@ -263,7 +268,7 @@ fn mount_exfat(dev: &'static dyn BlockDevice, escribible: bool, part_lba: u64, b
     let max_cluster = epb.cluster_count.checked_add(1)?;
     if root_cluster < 2 || root_cluster > max_cluster { return None; }
     Some(FatVolume { dev, escribible, part_lba, fs_type: FsType::ExFat, bytes_per_sector, sectors_per_cluster,
-        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0 })
+        num_fats, fat_start, fat_size_sectors, data_start, root_cluster, max_cluster, fallos_mudos: 0, buf: [0; 512], fat_cache: [0; 512], fat_cache_lba: SIN_CACHE, escrituras: 0, libres_contados: None })
 }
 
 /// **UN CURSOR DENTRO DE UN ARCHIVO.** Sabe por que cluster va y en que byte del
@@ -334,6 +339,58 @@ impl Cursor {
 }
 
 impl FatVolume {
+    /// **Los clusteres de datos que EXISTEN** (del 2 a `max_cluster`).
+    pub fn clusteres(&self) -> u32 {
+        self.max_cluster.saturating_sub(1)
+    }
+
+    /// Bytes por cluster.
+    pub fn bytes_por_cluster(&self) -> u64 {
+        self.sectors_per_cluster as u64 * 512
+    }
+
+    /// **Los clusteres LIBRES**, contados en la FAT (una entrada a cero es un
+    /// cluster libre), solo los que existen. No se fia del `FSInfo`: es una
+    /// pista que Windows deja y este driver no actualiza. `tmp` es de quien
+    /// llama (en el kernel, un `static`: nada grande en la pila) y se lee de
+    /// tantos sectores como quepan. `None` en exFAT (su mapa es otro) o si el
+    /// disco no contesta. Solo se recuenta si el volumen escribio algo.
+    pub fn libres(&mut self, tmp: &mut [u8]) -> Option<u32> {
+        if self.fs_type != FsType::Fat32 || tmp.len() < 512 {
+            return None;
+        }
+        if let Some((n, e)) = self.libres_contados {
+            if e == self.escrituras {
+                return Some(n);
+            }
+        }
+        let por_vez = (tmp.len() / 512).min(u16::MAX as usize) as u32;
+        let sectores = ((self.max_cluster as u64 + 1) * 4).div_ceil(512).min(self.fat_size_sectors as u64) as u32;
+        let (mut s, mut libres) = (0u32, 0u32);
+        while s < sectores {
+            let n = (sectores - s).min(por_vez);
+            let b = &mut tmp[..n as usize * 512];
+            if !self.leer_directo((self.fat_start + s) as u64, n as u16, b) {
+                return None;
+            }
+            for (i, e) in b.chunks_exact(4).enumerate() {
+                let c = s * 128 + i as u32;
+                if c < 2 {
+                    continue;
+                }
+                if c > self.max_cluster {
+                    break;
+                }
+                if u32::from_le_bytes([e[0], e[1], e[2], e[3]]) & 0x0FFF_FFFF == 0 {
+                    libres += 1;
+                }
+            }
+            s += n;
+        }
+        self.libres_contados = Some((libres, self.escrituras));
+        Some(libres)
+    }
+
     /// Fallos del dispositivo que no cambiaron ningun codigo de retorno.
     ///
     /// **Tiene que ser cero.** Si no lo es, el volumen ha fallado en sitios

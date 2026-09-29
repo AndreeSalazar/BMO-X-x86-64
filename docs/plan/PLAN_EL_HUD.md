@@ -207,6 +207,39 @@ llenado de instrumentos de los dias de cazar averias (~1.100 px de numeros).
 | CABINA delante | una linea `latido .../s pinta .. cuerpo .. puerta ..  volcado ..  entrada ..` encima del pie | vacia: `instrumentos` no corre o no cabe en el ancho |
 | la aguja del pulso | gira cuatro veces por segundo | quieta: `dictamen` no se llama o no gira |
 
+## [ ] H6 -- ESTRATOS ABRE EN "ESTE EQUIPO": LAS UNIDADES EN TARJETAS (2026-09-29)
+
+> Codigo hecho; se cierra cuando el metal diga la tabla.
+
+**Motivo:** que discos hay y cuanto les queda, de un vistazo y todos juntos.
+
+El propietario, con la captura de `Este equipo` de su Windows delante:
+*"que ESTRATOS cambie en apariencia asi, me gusta eso ... en ESTRATOS se ve
+como basico ... al estilo hyprland"*. La ventana del F12 abre ahora en la
+solapa `equipo` (antes de `numeros`): una tarjeta por unidad --BMO (A:),
+Personal (D:), ESTRATOS (F:) y EFI-- con el disco, su sistema, la barra de lo
+usado (azul; roja pasado el 90%) y "X GB disponibles de Y GB". La elegida
+lleva el borde en DEGRADADO, el `col.active_border` de Hyprland; las tarjetas,
+aire entre ellas y esquinas suavizadas. `C:` no sale: BMO-X ni lo mira.
+
+* Lo libre es MEDIDO en el mapa de cada volumen, no leido de una pista:
+  `bmo_fat32::FatVolume::libres` cuenta la FAT (no se fia del `FSInfo`, que
+  este driver no actualiza) y `bmo_ntfs::Volumen::libres` el `$Bitmap` (una
+  vez, al montar el disco Personal). Llega a Ring 3 por `INFO_UNIDAD` (0xC4).
+  Los dos tienen prueba: la FAT de juguete y los discos de `mkntfs`, contra lo
+  que dice `ntfsinfo`.
+* Se mide al abrir la ventana, al volver a la solapa y con `R`; pintar solo
+  mira lo medido. ENTRAR (o doble clic) explora la unidad; en Personal (D:)
+  dice que explorar llega con N1b.
+* Ver `Ultra_userspace/services/director/src/scene/data/equipo.rs`.
+
+| que | afirma | como se cae |
+|---|---|---|
+| F12 | abre en `equipo` con cuatro tarjetas; A:, D: y F: con barra y "disponibles de" | `numeros` como siempre: la vista por defecto no cambio |
+| la tarjeta de A: | lo libre cuadra con lo que dice Windows de BMO (A:) (30,3 GB de 31,9 el 29-09) | otra cifra: la cuenta de la FAT no salta el relleno |
+| la tarjeta de D: | 26,5 GB de 111 GB y `solo lectura` | "no montada": N1a no monto el NTFS (la cabina dice por que) |
+| flechas y ENTRAR sobre ESTRATOS | el explorador en ESTRATOS | no se mueve: las teclas no llegan a `eq_mover` |
+
 ---
 
 Ver [`PLAN_DIRECTOR.md`](PLAN_DIRECTOR.md) (el compositor) y

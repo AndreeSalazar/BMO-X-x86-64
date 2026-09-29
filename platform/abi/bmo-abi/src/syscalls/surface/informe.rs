@@ -1815,6 +1815,27 @@ pub const INFO_GPU_SALUD: u64 = 0xC2;
 /// Solo lee: esos bits se borran ESCRIBIENDO, y BMO-X no los borra.
 pub const INFO_METICHE: u64 = 0xC3;
 
+/// # `INFO_UNIDAD`: lo que mide cada unidad y lo que le queda (2026-09-29)
+///
+/// Para la solapa `equipo` de ESTRATOS ("Dispositivos y unidades"). Con
+/// selector: `INFO_UNIDAD | unidad << 8 | que << 16`.
+///
+/// ```text
+///   unidad 0  DATOS     la FAT32 de las apps (A: en Windows)
+///   unidad 1  EFI       la particion de arranque, solo lectura
+///   unidad 2  PERSONAL  el NTFS del otro disco (D:), solo lectura (N1a)
+///   que 0     los bytes del volumen (0 = no hay volumen montado)
+///   que 1     los bytes LIBRES, contados en su mapa (la FAT, `$Bitmap`);
+///             `UNIDAD_NO_SE` si no se pudieron contar
+/// ```
+///
+/// ESTRATOS no va aqui: tiene sus propias filas (`INFO_ES_*`).
+pub const INFO_UNIDAD: u64 = 0xC4;
+pub const UNIDAD_DATOS: u64 = 0;
+pub const UNIDAD_EFI: u64 = 1;
+pub const UNIDAD_PERSONAL: u64 = 2;
+pub const UNIDAD_NO_SE: u64 = u64::MAX;
+
 /// # `INFO_DISCO_AVISO`: la ESCALERA del aviso del disco (2026-09-23)
 ///
 /// ```text

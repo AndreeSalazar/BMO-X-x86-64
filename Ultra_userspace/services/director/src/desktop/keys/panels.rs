@@ -189,6 +189,7 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
         // de solapa en todas partes.
         b'\t' => {
             dsk.win.data.view = match dsk.win.data.view {
+                View::Equipo => View::Numbers,
                 View::Numbers => {
                     // ** AQUI Y SOLO AQUI SE VA A LA RAIZ.
                     //
@@ -232,7 +233,11 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                     dsk.win.data.hist_sel = 0;
                     View::Historial
                 }
-                View::Historial => View::Numbers,
+                // Y de vuelta al equipo, que se MIDE al entrar.
+                View::Historial => {
+                    dsk.win.data.eq_entrar();
+                    View::Equipo
+                }
             };
             dsk.win.data.seal = Seal::Idle;
         }
@@ -302,6 +307,19 @@ if dsk.win.data_open && dsk.win.focus.es_para(Ventana::Data) {
                     Some(&k) => dsk.win.data.bib_filtrar(Some(k)),
                     None => served = false,
                 },
+            }
+        }
+        // ** EL EQUIPO: las flechas por las tarjetas, ENTRAR explora, R mide.
+        _ if dsk.win.data.view == View::Equipo => {
+            let cols = dsk.win.data.eq_columnas() as isize;
+            match c {
+                0x82 => dsk.win.data.eq_mover(-1),
+                0x83 => dsk.win.data.eq_mover(1),
+                0x80 => dsk.win.data.eq_mover(-cols),
+                0x81 => dsk.win.data.eq_mover(cols),
+                b'\r' | b'\n' => dsk.win.data.eq_abrir(),
+                b'r' | b'R' => dsk.win.data.eq_entrar(),
+                _ => served = false,
             }
         }
         _ if dsk.win.data.view == View::Numbers => served = false,

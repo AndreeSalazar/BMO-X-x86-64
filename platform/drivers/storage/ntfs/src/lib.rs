@@ -44,6 +44,8 @@ pub const MAX_REGISTRO: usize = 4096;
 pub const MAX_INDICE: usize = 4096;
 /// El registro de la carpeta raiz.
 pub const RAIZ: u64 = 5;
+/// El registro de `$Bitmap`: un bit por cluster.
+const BITMAP: u64 = 6;
 /// Los arreglos de NTFS van cada 512 bytes, sea cual sea el sector.
 const PASO_ARREGLO: usize = 512;
 /// Tipos de atributo.
@@ -770,6 +772,61 @@ impl<'d> Volumen<'d> {
             return Ok(Some(n));
         }
         Ok(None)
+    }
+
+    // == El espacio ==============================================================
+
+    /// **Los clusteres del volumen**: los sectores del arranque en clusteres.
+    pub fn clusteres(&self) -> u64 {
+        self.forma.sectores * self.forma.bytes_por_sector as u64 / self.forma.bytes_por_cluster
+    }
+
+    /// **Los clusteres LIBRES**, contados en `$Bitmap` (el registro 6): un bit
+    /// por cluster, 1 = en uso. Solo lee: de 4 KiB en 4 KiB por `blq`, sin
+    /// nada en la pila. Los bits de despues del ultimo cluster no cuentan (el
+    /// mapa se redondea a 8 bytes y ahi NTFS pone lo que quiere).
+    pub fn libres(&mut self) -> R<u64> {
+        self.registro(BITMAP, false)?;
+        let total = self.clusteres();
+        let bytes = total.div_ceil(8);
+        let rm = self.rm();
+        let bpc = self.forma.bytes_por_cluster;
+        let Volumen { d, reg, blq, puente, .. } = self;
+        let reg = &reg[..rm];
+        let mut dato = None;
+        for a in atributos(reg) {
+            let a = a?;
+            if a.tipo == AT_DATOS && a.sin_nombre {
+                dato = Some(a);
+                break;
+            }
+        }
+        let Some(a) = dato else { return Err(NoNtfs::Forma("un $Bitmap sin $DATA en su registro")) };
+        if !a.residente && a.vcn_inicial(reg) != 0 {
+            return Err(NoNtfs::Forma("un $Bitmap repartido en extensiones"));
+        }
+        let medida = if a.residente { a.valor(reg)?.len() as u64 } else { a.medida(reg) };
+        if medida < bytes {
+            return Err(NoNtfs::Forma("un $Bitmap mas corto que el volumen"));
+        }
+        let (mut off, mut usados) = (0u64, 0u64);
+        while off < bytes {
+            let n = ((bytes - off) as usize).min(MAX_INDICE);
+            let b = &mut blq[..n];
+            if a.residente {
+                b.copy_from_slice(&a.valor(reg)?[off as usize..off as usize + n]);
+            } else {
+                leer_tramos(d, puente, bpc, a.tramos(reg)?, 0, off, b)?;
+            }
+            // El ultimo byte puede tener bits de mas: fuera.
+            let fin = off + n as u64 == bytes && total % 8 != 0;
+            if fin {
+                b[n - 1] &= (1u8 << (total % 8)) - 1;
+            }
+            usados += b.iter().map(|x| x.count_ones() as u64).sum::<u64>();
+            off += n as u64;
+        }
+        Ok(total - usados)
     }
 
     // == Las carpetas ==========================================================

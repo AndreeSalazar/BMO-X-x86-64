@@ -163,6 +163,8 @@ pub(crate) struct DataWindow {
     /// La tarjeta elegida de la biblioteca, y su primera fila visible.
     pub(crate) bib_sel: usize,
     pub(crate) bib_from: usize,
+    /// La unidad elegida en la solapa `equipo`.
+    pub(crate) eq_sel: usize,
 }
 
 /// **El estado del sellado, que es lo unico de esta ventana que ESCRIBE.**
@@ -211,6 +213,10 @@ const DATA_PCT_H: u32 = 44;
 /// meter un arbol entre la generacion y la ocupacion deja las dos ilegibles.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum View {
+    /// ** EL EQUIPO (2026-09-29): "Dispositivos y unidades", todos los discos
+    /// y lo que les queda, como `Este equipo` de Windows y con el aire de
+    /// Hyprland. Es la solapa con la que se abre. Ver [`equipo`].
+    Equipo,
     Numbers,
     /// ** LAS DOS LECTURAS A LA VEZ: el arbol, la rejilla y el grafo.
     ///
@@ -255,7 +261,7 @@ impl DataWindow {
                 DATA_MIN_W,
                 DATA_MIN_H,
             ),
-            view: View::Numbers,
+            view: View::Equipo,
             sel: 0,
             from: 0,
             arbol_from: 0,
@@ -270,6 +276,7 @@ impl DataWindow {
             aviso: None,
             bib_sel: 0,
             bib_from: 0,
+            eq_sel: 0,
         }
     }
 
@@ -454,6 +461,58 @@ impl DataWindow {
             self.aviso = Some("la ruta no cabe en una linea de lanzar (128 bytes)");
         }
         true
+    }
+
+    // -- El equipo: la eleccion vive aqui, lo medido en `equipo` -------------
+
+    /// Al ENTRAR en la vista: se miden los discos. Pintar no los toca.
+    pub(crate) fn eq_entrar(&mut self) {
+        equipo::releer();
+        self.aviso = None;
+    }
+
+    /// Cuantas tarjetas van por fila: lo que saltan arriba y abajo.
+    pub(crate) fn eq_columnas(&self) -> usize {
+        equipo::columnas(&self.bib_zona())
+    }
+
+    pub(crate) fn eq_mover(&mut self, delta: isize) {
+        self.aviso = None;
+        let n = equipo::TODAS.len() as isize;
+        self.eq_sel = (self.eq_sel as isize + delta).clamp(0, n - 1) as usize;
+    }
+
+    pub(crate) fn eq_en(&self, px: u32, py: u32) -> Option<usize> {
+        if self.view != View::Equipo || self.chrome.minimized {
+            return None;
+        }
+        equipo::en(&self.bib_zona(), px, py)
+    }
+
+    /// Un clic en la tarjeta `k`. `true` si es el SEGUNDO de un doble clic.
+    pub(crate) fn eq_clic(&mut self, k: usize) -> bool {
+        self.eq_sel = k;
+        self.aviso = None;
+        self.doble.hit(k)
+    }
+
+    /// **Abre la unidad elegida en el explorador**, si se puede; si no, dice
+    /// por que en el pie.
+    pub(crate) fn eq_abrir(&mut self) {
+        let k = self.eq_sel.min(equipo::TODAS.len() - 1);
+        if !equipo::montada(k) {
+            self.aviso = Some("esa unidad no esta montada: no hay nada que explorar");
+            return;
+        }
+        match equipo::TODAS[k].volumen() {
+            Some(v) => {
+                self.cambiar_volumen(v);
+                self.view = View::Obra;
+            }
+            None => {
+                self.aviso = Some("Personal (D:) solo se mide hoy: explorarlo llega con N1b (`personal ls`)");
+            }
+        }
     }
 
     // -- La biblioteca: su estado vive aqui, lo leido en `biblioteca` --------
@@ -832,6 +891,9 @@ pub(crate) mod fuente;
 /// **La BIBLIOTECA**: lo que hay en DATOS, por clase y en tarjetas (2026-09-13).
 pub(crate) mod biblioteca;
 
+/// **El EQUIPO**: los discos y lo que les queda, en tarjetas (2026-09-29).
+pub(crate) mod equipo;
+
 /// **Repinta SOLO la consola del pie.**
 ///
 /// El hermano barato de [`paint`], y existe por un numero: teclear una letra
@@ -868,12 +930,16 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     let px = px + 2 * bmo::GLIFO_ANCHO;
     // Las solapas: la activa lleva su subrayado. Un corchete pintado de otro
     // color se pierde en una foto; una linea debajo no.
-    let (c1, c2, c3, c4) = match c.view {
-        View::Numbers => (INK, INK_DIM, INK_DIM, INK_DIM),
-        View::Obra => (INK_DIM, INK, INK_DIM, INK_DIM),
-        View::Biblioteca => (INK_DIM, INK_DIM, INK, INK_DIM),
-        View::Historial => (INK_DIM, INK_DIM, INK_DIM, INK),
+    let (c0, c1, c2, c3, c4) = match c.view {
+        View::Equipo => (INK, INK_DIM, INK_DIM, INK_DIM, INK_DIM),
+        View::Numbers => (INK_DIM, INK, INK_DIM, INK_DIM, INK_DIM),
+        View::Obra => (INK_DIM, INK_DIM, INK, INK_DIM, INK_DIM),
+        View::Biblioteca => (INK_DIM, INK_DIM, INK_DIM, INK, INK_DIM),
+        View::Historial => (INK_DIM, INK_DIM, INK_DIM, INK_DIM, INK),
     };
+    let px0 = px;
+    let fin0 = p.texto(px0, c.chrome.y + 8, "equipo", c0);
+    let px = fin0 + 2 * bmo::GLIFO_ANCHO;
     let fin1 = p.texto(px, c.chrome.y + 8, "numeros", c1);
     let px2 = fin1 + 2 * bmo::GLIFO_ANCHO;
     let fin2 = p.texto(px2, c.chrome.y + 8, "explorador", c2);
@@ -882,6 +948,7 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
     let px4 = fin3 + 2 * bmo::GLIFO_ANCHO;
     let fin4 = p.texto(px4, c.chrome.y + 8, "historial", c4);
     let (sx, sw) = match c.view {
+        View::Equipo => (px0, fin0 - px0),
         View::Numbers => (px, fin1 - px),
         View::Obra => (px2, fin2 - px2),
         View::Biblioteca => (px3, fin3 - px3),
@@ -891,6 +958,19 @@ pub(crate) fn paint(p: &bmo::Pantalla, c: &DataWindow) {
 
     if c.view == View::Obra {
         obra(p, c);
+        return;
+    }
+    if c.view == View::Equipo {
+        equipo::paint(p, &c.bib_zona(), c.eq_sel);
+        let y = c.chrome.y + c.chrome.height - bmo::GLIFO_ALTO - 8;
+        match c.aviso {
+            Some(a) => p.texto(tx, y, a, 0x00F0_D070),
+            None => p.texto(
+                tx, y,
+                "flechas eligen  ENTRAR explora  R vuelve a medir  TAB sigue  F12 cierra",
+                INK_DIM,
+            ),
+        };
         return;
     }
     if c.view == View::Biblioteca {

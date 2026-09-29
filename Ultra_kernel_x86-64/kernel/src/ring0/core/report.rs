@@ -459,6 +459,9 @@ const INFO_GPU_GSP_MEM: u64 = 0xC1;
 const INFO_GPU_SALUD: u64 = 0xC2;
 /// El METICHE: los errores que el hardware apunto solo (26-09).
 const INFO_METICHE: u64 = 0xC3;
+/// Lo que mide cada unidad y lo que le queda (29-09). Espejo de
+/// `bmo_abi::...::INFO_UNIDAD`; el selector se documenta alli.
+const INFO_UNIDAD: u64 = 0xC4;
 /// La fecha de la placa, empaquetada. Espejo de `bmo_abi::...::INFO_FECHA`.
 const INFO_FECHA: u64 = 0x1F;
 
@@ -915,6 +918,19 @@ pub fn campo(n: u64) -> Option<u64> {
         c if c & 0xFF == INFO_GPU_GSP_MEM => crate::ring0::dev::gpu_libos::info_gsp_mem(c),
         c if c & 0xFF == INFO_GPU_SALUD => crate::ring0::dev::gpu::info_salud(c),
         c if c & 0xFF == INFO_METICHE => crate::ring0::dev::metiche::info(c),
+        c if c & 0xFF == INFO_UNIDAD => {
+            let (unidad, libres) = ((c >> 8) & 0xFF, (c >> 16) & 1 == 1);
+            let e = match unidad {
+                0 => crate::ring0::fsys::fs::espacio(false),
+                1 => crate::ring0::fsys::fs::espacio(true),
+                2 => crate::ring0::dev::disk::ajeno::espacio(),
+                _ => None,
+            };
+            match e {
+                None => 0,
+                Some((bytes, l)) => if libres { l.unwrap_or(u64::MAX) } else { bytes },
+            }
+        }
         c if c & 0xFF == INFO_IOMMU_ESPECIAL => crate::ring0::plat::iommu::info_especial(c),
         c if c & 0xFF == INFO_IOMMU_IVMD => crate::ring0::plat::iommu::info_ivmd(c),
         c if c & 0xFF == INFO_COMPAS => match crate::ring0::task::scheduler::compas_de((c >> 8) as usize) {
