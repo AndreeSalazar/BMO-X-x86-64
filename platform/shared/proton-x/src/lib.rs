@@ -58,6 +58,7 @@ pub mod monton;
 pub mod nativo;
 pub mod teb;
 pub mod texto;
+pub mod textura;
 pub mod tls;
 pub mod trama;
 pub mod ventanas;

@@ -115,9 +115,35 @@ extern "win64" fn d3d_compile(
     E_FAIL
 }
 
+/// `D3DCompileFromFile(fichero, macros, include, entrada, perfil, f1, f2,
+/// **codigo, **errores)` (29-09, HelloTexture): el fichero se lee ENTERO y
+/// va por el mismo camino que [`d3d_compile`] -- la misma huella, asi que el
+/// `.cso` que deja `sombras.exe` sirve igual.
+extern "win64" fn d3d_compile_from_file(fichero: *const u16, defs: *const u64, include: u64, entrada: *const u8, perfil: *const u8, f1: u32, f2: u32, codigo: *mut u64, errores: *mut u64) -> i32 {
+    /// HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND).
+    const NO_ESTA: i32 = 0x8007_0002_u32 as i32;
+    dar(codigo, 0);
+    dar(errores, 0);
+    let fuente = match ficheros::ruta_de(fichero) {
+        Ok(r) => (plataforma().leer_fichero)(r.as_bytes()).map(|b| (r, b)),
+        Err(_) => None,
+    };
+    let Some((ruta, src)) = fuente else {
+        aviso("D3DCompileFromFile: el fichero del sombreador no se pudo leer");
+        dar(errores, tuberia::blob(b"PROTON-X: D3DCompileFromFile: el fichero no esta".to_vec()));
+        return NO_ESTA;
+    };
+    if src.is_empty() {
+        aviso(&alloc::format!("D3DCompileFromFile: {ruta} esta vacio"));
+        return E_INVALIDARG;
+    }
+    d3d_compile(src.as_ptr(), src.len(), core::ptr::null(), defs, include, entrada, perfil, f1, f2, codigo, errores)
+}
+
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "D3DCompile" => dir!(d3d_compile),
+        "D3DCompileFromFile" => dir!(d3d_compile_from_file),
         _ => return None,
     })
 }

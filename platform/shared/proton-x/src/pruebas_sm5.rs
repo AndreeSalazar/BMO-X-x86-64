@@ -167,3 +167,49 @@ fn el_registro_da_una_linea_por_segundo_con_lo_que_paso() {
     assert_eq!(lineas[0], "[registro] 9 fps  fotograma 100/111/200 ms  dibujar 80 ms  presentar 5 ms  (fotogramas 0..9)\n");
     assert_eq!(lineas[1], "[registro] 10 fps  fotograma 100/100/100 ms  dibujar 80 ms  presentar 5 ms  (fotogramas 10..19)\n");
 }
+
+/// *** SM5 con TEXTURA (29-09): `sample o0.xyzw, v1.xyxx, t0.xyzw, s0`, como
+/// lo pone FXC para `imagen.Sample(muestreo, uv)` en `ps_5_0`, armado token
+/// a token: una `Muestra` de t0 con s0 en (v1.x, v1.y), y el swizzle del
+/// recurso reparte los canales (`t0.zyxw`: R y B cambiados).
+#[test]
+fn sample_de_sm5_muestrea() {
+    use alloc::vec;
+    use crate::dxil::Elemento;
+    use crate::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
+    let el = |registro: u32, mascara: u8| Elemento { semantica: alloc::string::String::new(), indice: 0, sistema: 0, tipo: 3, registro, mascara };
+    let entradas = [el(0, 0xF), el(1, 0x3)];
+    let salidas = [el(0, 0xF)];
+    // Un operando de 4 componentes, de tipo `tipo`, registro `r`.
+    let mascara = |tipo: u32| 2 | 0xF << 4 | tipo << 12 | 1 << 20;
+    let swz = |tipo: u32, s: [u32; 4]| 2 | 1 << 2 | s[0] << 4 | s[1] << 6 | s[2] << 8 | s[3] << 10 | tipo << 12 | 1 << 20;
+    let programa = |sel_t0: [u32; 4]| -> Vec<u32> {
+        let mut t = vec![0x50, 0];
+        t.extend([88 | 3 << 11 | 4 << 24, 7 << 12 | 1 << 20, 0, 0x5555]); // dcl_resource_texture2d t0
+        t.extend([90 | 3 << 24, 6 << 12 | 1 << 20, 0]); // dcl_sampler s0
+        t.extend([69 | 9 << 24, mascara(2), 0, swz(1, [0, 1, 0, 0]), 1, swz(7, sel_t0), 0, 6 << 12 | 1 << 20, 0]);
+        t.push(62 | 1 << 24); // ret
+        t[1] = t.len() as u32;
+        t
+    };
+    let tx: Vec<u32> = vec![0xFF30_2010, 0xFF60_5040, 0xFF90_8070, 0xFFC0_B0A0];
+    let tex = [Some(Textura { texeles: &tx, ancho: 2, alto: 2, bgra: false })];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Repetir, v: Direccion::Repetir, borde: [0.0; 4] })];
+    let rec = Recursos { texturas: &tex, muestreadores: &m };
+    let p = crate::sm5::compilar(&programa([0, 1, 2, 3]), &entradas, &salidas).unwrap();
+    assert_eq!(p.ops.iter().filter(|o| matches!(o, Op::Muestra { t: 0, s: 0, .. })).count(), 1);
+    let (mut sal, mut regs) = (vec![[0f32; 4]; 1], Vec::new());
+    p.correr_con(&[[0.0; 4], [0.75, 0.25, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
+    let esperado = tex[0].unwrap().muestrear(&m[0].unwrap(), 0.75, 0.25);
+    assert_eq!(sal[0], esperado);
+    let q = crate::sm5::compilar(&programa([2, 1, 0, 3]), &entradas, &salidas).unwrap();
+    q.correr_con(&[[0.0; 4], [0.75, 0.25, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
+    assert_eq!(sal[0], [esperado[2], esperado[1], esperado[0], esperado[3]], "t0.zyxw");
+    // Una textura 3D, o un muestreador de comparacion: se dice.
+    let mut malo = programa([0, 1, 2, 3]);
+    malo[2] = 88 | 4 << 11 | 4 << 24;
+    assert!(matches!(crate::sm5::compilar(&malo, &entradas, &salidas), Err(NoPrograma::Forma(_))));
+    let mut comp = programa([0, 1, 2, 3]);
+    comp[6] = 90 | 1 << 11 | 3 << 24;
+    assert!(matches!(crate::sm5::compilar(&comp, &entradas, &salidas), Err(NoPrograma::Forma(_))));
+}

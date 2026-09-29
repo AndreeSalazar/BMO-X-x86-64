@@ -170,6 +170,66 @@ extern "win64" fn d3d12_serialize_root_signature(desc: *const u8, version: u32, 
     }
 }
 
+/// **Una firma 1.1** (`D3D12_ROOT_SIGNATURE_DESC1`, la misma forma que la
+/// 1.0): los rangos miden 24 B (con sus Flags en +16 y el desplazamiento en
+/// +20) y los descriptores de la raiz llevan Flags en +16. Los Flags de 1.1
+/// son pistas de rendimiento (DATA_STATIC, DESCRIPTORS_VOLATILE...): la casa
+/// lee sus datos siempre al dibujar, asi que no cambian lo que se ve.
+unsafe fn firma_de_1_1(desc: *const u8) -> Result<Firma, &'static str> {
+    let (n, pars, ns, samps, banderas) = (u32_de(desc, 0), u64_de(desc, 8) as *const u8, u32_de(desc, 16), u64_de(desc, 24) as *const u8, u32_de(desc, 32));
+    let mut parametros = Vec::with_capacity(n as usize);
+    for i in 0..n as usize {
+        let p = pars.add(32 * i);
+        let tipo = u32_de(p, 0);
+        let carga = match tipo {
+            raiz::TABLA => {
+                let (nr, rangos) = (u32_de(p, 8), u64_de(p, 16) as *const u8);
+                Carga::Tabla((0..nr as usize).map(|k| {
+                    let r = rangos.add(24 * k);
+                    Rango { tipo: u32_de(r, 0), cuantos: u32_de(r, 4), registro: u32_de(r, 8), espacio: u32_de(r, 12), desde: u32_de(r, 20) }
+                }).collect())
+            }
+            raiz::CONSTANTES => Carga::Constantes { registro: u32_de(p, 8), espacio: u32_de(p, 12), cuantas: u32_de(p, 16) },
+            raiz::CBV | raiz::SRV | raiz::UAV => Carga::Descriptor { registro: u32_de(p, 8), espacio: u32_de(p, 12) },
+            _ => return Err("un parametro de un tipo que D3D12 no tiene"),
+        };
+        parametros.push(Parametro { tipo, visibilidad: u32_de(p, 24), carga });
+    }
+    let samplers = (0..ns as usize).map(|k| core::array::from_fn(|j| u32_de(samps, 52 * k + 4 * j))).collect();
+    Ok(Firma { parametros, samplers, banderas })
+}
+
+/// `D3D12SerializeVersionedRootSignature(desc, ppBlob, ppError)`:
+/// `D3D12_VERSIONED_ROOT_SIGNATURE_DESC` = Version +0 y la firma en +8
+/// (1.0 o 1.1). Sale el mismo blob que la 1.0 (lo que la casa lee luego).
+extern "win64" fn d3d12_serialize_versioned_root_signature(desc: *const u8, pp: *mut u64, pp_error: *mut u64) -> i32 {
+    const VERSION_1_1: u32 = 2;
+    if !pp_error.is_null() {
+        // SAFETY: un puntero del `.exe` a donde dejar el blob de errores.
+        unsafe { *pp_error = 0 };
+    }
+    if desc.is_null() {
+        return E_INVALIDARG;
+    }
+    // SAFETY: un D3D12_VERSIONED_ROOT_SIGNATURE_DESC del `.exe`.
+    let version = unsafe { u32_de(desc, 0) };
+    // SAFETY: la firma de dentro, y lo que apunta.
+    let f = unsafe {
+        match version {
+            RS_VERSION_1 => firma_de(desc.add(8)),
+            VERSION_1_1 => firma_de_1_1(desc.add(8)),
+            _ => Err("una version de root signature que no es 1.0 ni 1.1"),
+        }
+    };
+    match f {
+        Ok(f) => dar(pp, blob(raiz::serializar(&f))),
+        Err(m) => {
+            aviso(m);
+            E_INVALIDARG
+        }
+    }
+}
+
 /// `CreateRootSignature(this, nodo, bytes, medida, riid, pp)`.
 pub(crate) extern "win64" fn create_root_signature(_this: u64, _nodo: u32, bytes: *const u8, tam: usize, riid: *const Guid, pp: *mut u64) -> i32 {
     if !pide(riid, com::ROOTSIG) {
@@ -387,13 +447,24 @@ pub(crate) extern "win64" fn create_committed_resource(_this: u64, _heap: *const
     }
     // SAFETY: un D3D12_RESOURCE_DESC del `.exe`.
     let (dimension, ancho, alto, formato) = unsafe { (u32_de(desc, 0), u64_de(desc, 16), u32_de(desc, 24), u32_de(desc, 32)) };
-    if dimension == DIMENSION_TEXTURE2D && formato == FMT_D32_FLOAT && ancho > 0 && ancho <= 16384 && alto > 0 && alto <= 16384 {
+    let medida_ok = ancho > 0 && ancho <= 16384 && alto > 0 && alto <= 16384;
+    if dimension == DIMENSION_TEXTURE2D && formato == FMT_D32_FLOAT && medida_ok {
         // P3c4: una profundidad D32 (lo que el cubo de BMOX-12 pide). Su
         // contenido es indefinido hasta ClearDepthStencilView, como en D3D12.
         return dar(pp, crate::d3d12::recurso(ancho as u32, alto, FMT_D32_FLOAT));
     }
+    if dimension == DIMENSION_TEXTURE2D && matches!(formato, FMT_R8G8B8A8_UNORM | FMT_B8G8R8A8_UNORM) && medida_ok {
+        // ** Una TEXTURA 2D de 8 bits por canal (29-09, HelloTexture): un
+        // nivel y una capa (lo demas se dice). Se llena con CopyTextureRegion.
+        // SAFETY: el mismo D3D12_RESOURCE_DESC: DepthOrArraySize +28, MipLevels +30.
+        let (capas, niveles) = unsafe { ((desc.add(28) as *const u16).read_unaligned(), (desc.add(30) as *const u16).read_unaligned()) };
+        if capas > 1 || niveles > 1 {
+            aviso("CreateCommittedResource: una textura con mipmaps o capas: se usa el nivel 0 de la capa 0");
+        }
+        return dar(pp, crate::d3d12::recurso(ancho as u32, alto, formato));
+    }
     if dimension != DIMENSION_BUFFER {
-        aviso("CreateCommittedResource: solo buferes y profundidades D32 todavia (texturas, con los sombreadores que las lean)");
+        aviso("CreateCommittedResource: buferes, profundidades D32 y texturas 2D RGBA/BGRA de 8 bits, todavia");
         return E_INVALIDARG;
     }
     let bytes = ancho as usize;
@@ -444,6 +515,9 @@ pub struct Estado {
     pub rtv: u64,
     /// El recurso de profundidad (OMSetRenderTargets), o 0.
     pub dsv: u64,
+    /// El identificador de GPU dado a cada tabla de la raiz, por su indice
+    /// (SetGraphicsRootDescriptorTable): la direccion de su primera ranura.
+    pub tablas: [u64; 16],
 }
 
 /// **Lo que un dibujo ve**, ya leido de la memoria: lo que el banco compara.
@@ -673,11 +747,16 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
     };
     // Hasta aqui, D3D12. Lo que sigue es un LOTE, y lo dibuja quien la
     // plataforma diga (hoy la CPU; luego VERRANO con la 3060).
+    // ** Las TEXTURAS y los muestreadores (29-09): de las tablas de la raiz
+    // (sus SRV y samplers, en las ranuras a las que apuntan) y de los
+    // samplers estaticos de la firma. Por registro: tN y sN.
+    let (texturas, muestreadores) = recursos_del_dibujo(firma, &e.tablas);
     // P3b4c: las limpiezas apuntadas de SU render target y de SU Z: las
     // hace quien dibuje este lote.
     let limpiar_z = if pso.profundidad.is_some() && e.dsv != 0 { tomar_limpieza(e.dsv) } else { None };
     let limpiar_rt = tomar_limpieza(e.rtv);
     let lote = Lote {
+        recursos: bmo_proton_x::textura::Recursos { texturas: &texturas, muestreadores: &muestreadores },
         limpiar_z,
         limpiar_rt,
         enlace: en,
@@ -710,6 +789,82 @@ fn pintar(e: &Estado, pso: &Pso, cuantos: u32, instancias: u32, primero: u32, ba
         Err(NoDibuja::SinVertices) => aviso("Draw sin vertices que leer"),
     }
 }
+
+/// **Las texturas y los muestreadores que ve un dibujo**, por registro.
+///
+/// Una tabla de la raiz es una direccion de ranura (`SetGraphicsRootDescriptorTable`)
+/// y sus rangos dicen que hay en cada una: `desde` es la ranura del rango en
+/// la tabla (0xFFFFFFFF = justo tras el anterior). Cada ranura son 4
+/// palabras: el recurso y la marca (`d3d12::DESC_SRV`, `DESC_MUESTREADOR`).
+fn recursos_del_dibujo(firma: &Firma, tablas: &[u64; 16]) -> (Vec<Option<bmo_proton_x::textura::Textura<'static>>>, Vec<Option<bmo_proton_x::textura::Muestreador>>) {
+    use bmo_proton_x::textura::{Muestreador, Textura};
+    const RANGO_SRV: u32 = 0;
+    const RANGO_SAMPLER: u32 = 3;
+    const A_CONTINUACION: u32 = 0xFFFF_FFFF;
+    let (mut tex, mut mue): (Vec<Option<Textura<'static>>>, Vec<Option<Muestreador>>) = (Vec::new(), Vec::new());
+    for (k, p) in firma.parametros.iter().enumerate() {
+        let (Carga::Tabla(rangos), Some(&base)) = (&p.carga, tablas.get(k)) else { continue };
+        if base == 0 {
+            continue;
+        }
+        let mut siguiente = 0u64;
+        for r in rangos {
+            let desde = if r.desde == A_CONTINUACION { siguiente } else { r.desde as u64 };
+            siguiente = desde + r.cuantos as u64;
+            if r.espacio != 0 || r.cuantos > 32 {
+                aviso("una tabla con un espacio de registros que no es el 0, o de mas de 32: se salta");
+                continue;
+            }
+            for i in 0..r.cuantos as u64 {
+                // SAFETY: la ranura `desde + i` de un monton de la casa (la
+                // tabla la puso el `.exe` con un identificador de la casa).
+                let ranura = unsafe { core::slice::from_raw_parts((base + (desde + i) * DESCRIPTOR_BYTES) as *const u64, 4) };
+                let registro = (r.registro as u64 + i) as usize;
+                match (r.tipo, ranura[1]) {
+                    (RANGO_SRV, crate::d3d12::DESC_SRV) if ranura[0] != 0 => {
+                        aplicar_limpieza(ranura[0]);
+                        // SAFETY: el SRV guarda un Recurso de la casa.
+                        let t = unsafe { de::<crate::d3d12::Recurso>(ranura[0]) };
+                        match t.formato {
+                            FMT_R8G8B8A8_UNORM | FMT_B8G8R8A8_UNORM => poner(&mut tex, registro, Textura { texeles: &t.pixeles, ancho: t.ancho, alto: t.alto, bgra: t.formato == FMT_B8G8R8A8_UNORM }),
+                            _ => aviso("un SRV de un recurso que no es una textura RGBA/BGRA de 8 bits: se lee como nulo"),
+                        }
+                    }
+                    (RANGO_SAMPLER, crate::d3d12::DESC_MUESTREADOR) => {
+                        let (f, u, v, b) = (ranura[2] as u32, (ranura[2] >> 32) as u32, ranura[3] as u32, (ranura[3] >> 32) as u32);
+                        let borde = core::array::from_fn(|c| ((b >> (8 * c)) & 0xFF) as f32 / 255.0);
+                        match Muestreador::de_descriptor(f, u, v, borde) {
+                            Ok(m) => poner(&mut mue, registro, m),
+                            Err(e) => aviso(e),
+                        }
+                    }
+                    (RANGO_SRV | RANGO_SAMPLER, _) => {}
+                    _ => {}
+                }
+            }
+        }
+    }
+    for s in &firma.samplers {
+        match Muestreador::de_estatico(s) {
+            Ok(m) => poner(&mut mue, s[10] as usize, m),
+            Err(e) => aviso(e),
+        }
+    }
+    (tex, mue)
+}
+
+/// `v[i] = Some(x)`, creciendo `v` (hasta el registro 31).
+fn poner<T: Clone>(v: &mut Vec<Option<T>>, i: usize, x: T) {
+    if i < 32 {
+        if v.len() <= i {
+            v.resize(i + 1, None);
+        }
+        v[i] = Some(x);
+    }
+}
+
+/// Lo que mide una ranura de un monton de descriptores de la casa.
+const DESCRIPTOR_BYTES: u64 = 32;
 
 /// **Las limpiezas APUNTADAS y aun sin hacer** (P3b4c): `(recurso, pixel)`,
 /// una por recurso (la ultima gana). Las apunta `ExecuteCommandLists`; las
@@ -755,6 +910,7 @@ pub(crate) fn aplicar_limpieza(recurso: u64) {
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "D3D12SerializeRootSignature" => dir!(d3d12_serialize_root_signature),
+        "D3D12SerializeVersionedRootSignature" => dir!(d3d12_serialize_versioned_root_signature),
         _ => return None,
     })
 }

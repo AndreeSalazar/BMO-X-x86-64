@@ -78,8 +78,14 @@ pub(crate) fn registrar(en: &Enlace) {
         e.codigo.extend_from_slice(&c);
         desde
     };
-    let vs = agregar(nativo::compilar(&en.vs));
-    let ps = agregar(nativo::compilar(&en.ps));
+    // Un sombreador que MUESTREA una textura no se traduce todavia: el PSO
+    // entero va por el interprete (el muestreo, `bmo_proton_x::textura`).
+    let (Some(cv), Some(cp)) = (nativo::compilar(&en.vs), nativo::compilar(&en.ps)) else {
+        aviso("un PSO con texturas: sus sombreadores se interpretan (el codigo nativo aun no muestrea)");
+        return;
+    };
+    let vs = agregar(cv);
+    let ps = agregar(cp);
     e.traducidos.push(Traducido { enlace: en as *const Enlace as usize, vs, ps });
     let p = plataforma();
     match (p.sellar_codigo)(&e.codigo) {

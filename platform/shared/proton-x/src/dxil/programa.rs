@@ -87,6 +87,7 @@ const DX_LOAD_INPUT: i64 = 4;
 const DX_STORE_OUTPUT: i64 = 5;
 const DX_CREATE_HANDLE: i64 = 57;
 const DX_CBUFFER_LOAD_LEGACY: i64 = 59;
+const DX_SAMPLE: i64 = 60;
 
 /// Por que un sombreador no se deja correr. El texto dice CUAL cosa.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,6 +130,9 @@ pub enum Op {
     Abs { d: Reg, a: Reg },
     Min { d: Reg, a: Reg, b: Reg },
     Max { d: Reg, a: Reg, b: Reg },
+    /// `Sample`: la textura `t` (el registro tN) con el muestreador `s` (sN)
+    /// en `(u, v)`; los cuatro canales (R, G, B, A) en `d..d+4`.
+    Muestra { d: Reg, t: u8, s: u8, u: Reg, v: Reg },
 }
 
 /// **Un sombreador listo para correr.**
@@ -151,6 +155,18 @@ impl Programa {
     /// elemento en su firma; `cb`, los bytes del cbuffer (lo que falte se lee
     /// como 0). `regs` es memoria de trabajo (se reusa entre llamadas).
     pub fn correr(&self, entradas: &[[f32; 4]], cb: &[u8], salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
+        self.correr_con(entradas, cb, &crate::textura::Recursos::NINGUNO, salidas, regs)
+    }
+
+    /// Si el programa lee alguna textura (`Sample`).
+    pub fn muestrea(&self) -> bool {
+        self.ops.iter().any(|o| matches!(o, Op::Muestra { .. }))
+    }
+
+    /// [`Programa::correr`] con las texturas y los muestreadores del dibujo.
+    /// Una textura o un muestreador que no esta da (0, 0, 0, 0), como un SRV
+    /// nulo en D3D12.
+    pub fn correr_con(&self, entradas: &[[f32; 4]], cb: &[u8], rec: &crate::textura::Recursos, salidas: &mut [[f32; 4]], regs: &mut Vec<f32>) {
         regs.clear();
         regs.extend_from_slice(&self.iniciales);
         for op in &self.ops {
@@ -196,6 +212,10 @@ impl Programa {
                 Op::Max { d, a, b } => {
                     let (x, y) = (regs[a as usize], regs[b as usize]);
                     regs[d as usize] = if x.is_nan() || y > x { y } else { x };
+                }
+                Op::Muestra { d, t, s, u, v } => {
+                    let c = rec.muestrear(t, s, regs[u as usize], regs[v as usize]);
+                    regs[d as usize..d as usize + 4].copy_from_slice(&c);
                 }
             }
         }
@@ -298,6 +318,9 @@ enum Valor {
     Cuatro(Reg),
     /// El handle de un cbuffer.
     Cbuffer,
+    /// El handle de una textura (su registro tN) o de un muestreador (sN).
+    Textura(u8),
+    Muestreador(u8),
     /// Una funcion del modulo (su indice en `funciones`).
     Funcion(usize),
     Indefinido,
@@ -547,7 +570,7 @@ fn instruccion(c: &mut Compilador, r: &Registro, relativos: bool, tipos: &[Tipo]
             let k = o.crudo()?;
             let v = match (c.valores.get(a), k) {
                 (Some(Valor::Cuatro(base)), 0..=3) => Valor::Float(base + k as Reg),
-                _ => return Err(NoPrograma::Forma("extractvalue de algo que no es un CBufRet")),
+                _ => return Err(NoPrograma::Forma("extractvalue de algo que no es un CBufRet ni un ResRet")),
             };
             c.valores.push(v);
         }
@@ -618,12 +641,17 @@ fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
             }
         }
         DX_CREATE_HANDLE => {
-            // (clase, rango, indice, no uniforme): clase 2 es CBuffer.
+            // (clase, rango, indice, no uniforme): 0 SRV, 1 UAV, 2 CBuffer, 3
+            // Sampler. El indice es el REGISTRO (la base del rango incluida).
             let (clase, rango, indice) = (c.entero(arg(1)?)?, c.entero(arg(2)?)?, c.entero(arg(3)?)?);
-            if clase != 2 || rango != 0 || indice != 0 {
-                return Err(NoPrograma::Forma("un recurso que no es el cbuffer b0 (texturas, UAV...): todavia no"));
+            match clase {
+                2 if rango == 0 && indice == 0 => Valor::Cbuffer,
+                2 => return Err(NoPrograma::Forma("un cbuffer que no es el b0: todavia no")),
+                0 if (0..32).contains(&indice) => Valor::Textura(indice as u8),
+                3 if (0..16).contains(&indice) => Valor::Muestreador(indice as u8),
+                1 => return Err(NoPrograma::Forma("un UAV (RWTexture, RWBuffer...): todavia no")),
+                _ => return Err(NoPrograma::Forma("un recurso fuera de t0..t31 o s0..s15")),
             }
-            Valor::Cbuffer
         }
         DX_CBUFFER_LOAD_LEGACY => {
             if c.valores.get(arg(1)?) != Some(&Valor::Cbuffer) {
@@ -639,6 +667,26 @@ fn llamada(c: &mut Compilador, args: &[usize]) -> Result<Valor, NoPrograma> {
             }
             c.filas_cb = c.filas_cb.max(fila as u16 + 1);
             c.ops.push(Op::Constantes { d, fila: fila as u16 });
+            Valor::Cuatro(d)
+        }
+        DX_SAMPLE => {
+            // (srv, sampler, coord0..3, offset0..2, clamp): 2D, sin desplazar.
+            let (Some(Valor::Textura(t)), Some(Valor::Muestreador(sm))) = (c.valores.get(arg(1)?).copied(), c.valores.get(arg(2)?).copied()) else {
+                return Err(NoPrograma::Forma("Sample sin el handle de una textura y el de un muestreador"));
+            };
+            for k in [7, 8] {
+                if let Some(Valor::Entero(o)) = args.get(k).and_then(|&a| c.valores.get(a)) {
+                    if *o != 0 {
+                        return Err(NoPrograma::Forma("Sample con desplazamiento (offset): todavia no"));
+                    }
+                }
+            }
+            let (u, v) = (c.float(arg(3)?)?, c.float(arg(4)?)?);
+            let d = c.registro(0.0)?;
+            for _ in 0..3 {
+                c.registro(0.0)?;
+            }
+            c.ops.push(Op::Muestra { d, t, s: sm, u, v });
             Valor::Cuatro(d)
         }
         DX_FMAD => {

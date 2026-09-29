@@ -594,6 +594,25 @@ por la 3060) estan HECHOS en la seccion 16 de la Ludoteca. Lo que sigue:
                     mismas. Y el pegado ya no copia programas por valor: el
                     kernel pega en su taller (`vertice_en`/`pixel_en`), 336 B
                     de marco en vez de 13.056.
+               4c.7 [HECHO banco] TEXTURAS, el camino de D3D12HelloTexture
+                    (29-09): `bmo_proton_x::textura` muestrea (punto y
+                    bilineal con fraccion de 8 bits, los cinco modos de
+                    direccion de D3D12, color de borde); `Op::Muestra` lo
+                    corre el interprete; DXIL (dx.op.sample, handles SRV y
+                    sampler) y SM5 (`sample`, dcl_resource texture2d,
+                    dcl_sampler) lo traducen. La casa: texturas 2D
+                    RGBA/BGRA comprometidas, subida buffer->textura por
+                    CopyTextureRegion, CreateShaderResourceView,
+                    CreateSampler, samplers estaticos de la firma (1.0 y
+                    1.1), SetGraphicsRootDescriptorTable,
+                    CheckFeatureSupport(ROOT_SIGNATURE),
+                    D3DCompileFromFile. **Como se sabe:**
+                    `tests/textura.rs` hace lo que hace HelloTexture por las
+                    vtables de la casa y los 4096 pixeles del quad son los
+                    texeles esperados, con firma 1.0 y 1.1. Lo que FALTA,
+                    dicho: la 3060 aun no muestrea (TEX, descriptores
+                    TIC/TSC): un PSO con texturas no va a nativo ni a la
+                    3060, se interpreta en la CPU y la casa lo avisa.
                De paso (28-09): el cerrojo del GR se quedaba TOMADO si un
                destino malo salia por un `?` (`verrano` en el kernel): la 3060
                decia "uno en marcha" hasta reiniciar. Ahora toda salida lo

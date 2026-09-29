@@ -83,7 +83,7 @@ fn los_sm5_de_fxc_nativos_dan_los_bits_del_interprete() {
 
 fn cubo_nativo(vs: &[u8], ps: &[u8]) {
     let (vs, ps) = (dxil::programa::compilar(&dxil::leer(vs).unwrap()).unwrap(), dxil::programa::compilar(&dxil::leer(ps).unwrap()).unwrap());
-    let (fv, fp) = (sellar(&nativo::compilar(&vs)), sellar(&nativo::compilar(&ps)));
+    let (fv, fp) = (sellar(&nativo::compilar(&vs).unwrap()), sellar(&nativo::compilar(&ps).unwrap()));
     for f in 0..360 {
         let cb = cb_de(f);
         for v in bmo_cubo::vertices() {
@@ -122,7 +122,7 @@ fn cada_operacion_nativa_da_los_bits_del_interprete_con_nan_infinitos_y_ceros() 
         ops2.push(Op::Salida { s: r, elemento: (k / 4) as u8, componente: (k % 4) as u8 });
     }
     let p = Programa { ops: ops2, iniciales: vec![0.0; 18], entradas: 1, salidas: 4, lee: 1, filas_cb: 2 };
-    let f = sellar(&nativo::compilar(&p));
+    let f = sellar(&nativo::compilar(&p).unwrap());
     let raros = [
         0.0f32, -0.0, 1.0, -1.0, 0.5, 1.5, 3.0, -2.5, 1e-40, -1e-40, f32::MIN_POSITIVE, f32::MAX, f32::MIN, f32::INFINITY,
         f32::NEG_INFINITY, f32::NAN, -f32::NAN, 0.1, 1.0 / 3.0, 16777217.0, 1e30, 1e-30,
@@ -162,7 +162,7 @@ fn el_mxcsr_de_quien_llama_no_cuenta_y_se_devuelve() {
         lee: 1,
         filas_cb: 0,
     };
-    let f = sellar(&nativo::compilar(&p));
+    let f = sellar(&nativo::compilar(&p).unwrap());
     let mut regs = p.iniciales.clone();
     let mut s = [[0.0f32; 4]];
     let hacia_cero: u32 = 0x7F80;

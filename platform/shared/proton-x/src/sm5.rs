@@ -57,6 +57,8 @@ const MOV: u32 = 54;
 const MUL: u32 = 56;
 const RET: u32 = 62;
 const RSQ: u32 = 68;
+/// `sample dest, direccion, tN, sM` (D3D10_SB_OPCODE_SAMPLE).
+const SAMPLE: u32 = 69;
 const SQRT: u32 = 75;
 // Las declaraciones que se miran (las demas se saltan por su medida).
 const DCL_CONSTANT_BUFFER: u32 = 89;
@@ -76,6 +78,10 @@ const INPUT: u32 = 1;
 const OUTPUT: u32 = 2;
 const IMMEDIATE32: u32 = 4;
 const CONSTANT_BUFFER: u32 = 8;
+const SAMPLER: u32 = 6;
+const RESOURCE: u32 = 7;
+/// La dimension de `dcl_resource` (bits 11..15): 3 es TEXTURE2D.
+const TEXTURA_2D: u32 = 3;
 
 // Los modificadores de una fuente.
 const NEG: u32 = 1;
@@ -312,7 +318,12 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                     return Err(NoPrograma::Forma("un cbuffer que no es b0: todavia no"));
                 }
             }
-            DCL_RESOURCE | DCL_SAMPLER => return Err(NoPrograma::Forma("un sombreador SM5 con texturas: todavia no")),
+            // ** Texturas (29-09): 2D y ya. El muestreador se declara con su
+            // modo (default o comparacion): la comparacion, todavia no.
+            DCL_RESOURCE if (w >> 11) & 0x1F != TEXTURA_2D => return Err(NoPrograma::Forma("una textura SM5 que no es 2D (1D, 3D, cubo, array, buffer...): todavia no")),
+            DCL_RESOURCE => {}
+            DCL_SAMPLER if (w >> 11) & 0xF != 0 => return Err(NoPrograma::Forma("un muestreador SM5 de comparacion: todavia no")),
+            DCL_SAMPLER => {}
             DCL_INDEXABLE_TEMP => return Err(NoPrograma::Forma("un sombreador SM5 con x# (registros indexables): todavia no")),
             c if es_declaracion(c) => {}
             RET => acabado = true,
@@ -380,6 +391,40 @@ pub fn compilar(t: &[u32], entradas: &[Elemento], salidas: &[Elemento]) -> Resul
                     for (k, x) in hechos {
                         tr.escribir(&d, k, x, saturar)?;
                     }
+                }
+            }
+            SAMPLE => {
+                if w >> 31 != 0 {
+                    // Un token extendido: los desplazamientos (aoffimmi).
+                    let e = palabra(t, i + 1)?;
+                    if e & 0x3F == 1 && (e >> 9) & 0xFFF != 0 {
+                        return Err(NoPrograma::Forma("un sample SM5 con desplazamiento (aoffimmi): todavia no"));
+                    }
+                }
+                let saturar = w & 0x2000 != 0;
+                let mut j = i + 1;
+                while t[j - 1] >> 31 != 0 && j < fin {
+                    j += 1;
+                }
+                let d = operando(t, &mut j)?;
+                let dir = operando(t, &mut j)?;
+                let res = operando(t, &mut j)?;
+                let smp = operando(t, &mut j)?;
+                if j != fin || res.tipo != RESOURCE || smp.tipo != SAMPLER {
+                    return Err(NoPrograma::Forma("un sample SM5 que no es (destino, direccion, tN, sM)"));
+                }
+                let (Ok(tn), Ok(sn)) = (u8::try_from(res.indices[0]), u8::try_from(smp.indices[0])) else {
+                    return Err(NoPrograma::Forma("un sample SM5 con un registro imposible"));
+                };
+                let (u, v) = (tr.fuente(&dir, 0)?, tr.fuente(&dir, 1)?);
+                let x = tr.nuevo()?;
+                for _ in 0..3 {
+                    tr.nuevo()?;
+                }
+                tr.p.ops.push(Op::Muestra { d: x, t: tn, s: sn, u, v });
+                // El swizzle del recurso dice que canal va a cada componente.
+                for k in (0..4).filter(|k| d.mascara & (1 << k) != 0) {
+                    tr.escribir(&d, k, x + res.sel[k] as Reg, saturar)?;
                 }
             }
             c => return Err(NoPrograma::Sm5(c)),

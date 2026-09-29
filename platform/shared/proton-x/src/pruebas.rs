@@ -517,7 +517,7 @@ pub(crate) fn cubo_con(vs: &[u8], ps: &[u8], f: u32, z: bool, descarte: u32) -> 
     let cb = cb_de(f);
     let (w, h) = (bmo_cubo::referencia::ANCHO, bmo_cubo::referencia::ALTO);
     let reglas = trama::Reglas { viewport: [0.0, 0.0, w as f32, h as f32, 0.0, 1.0], tijera: [0, 0, w as i32, h as i32], descarte, antihorario: false, profundidad: z.then_some(trama::Profundidad { funcion: 2, escribir: true }) };
-    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None };
+    let l = Lote { enlace: &enlace, entradas: &entradas, vertices: &vertices, paso: 40, ids: &ids, topologia: Topologia::Lista, cb: &cb, reglas, limpiar_z: None, limpiar_rt: None, recursos: crate::textura::Recursos::NINGUNO };
     let mut px = vec![bmo_cubo::FONDO; (w * h) as usize];
     let mut zs = vec![1.0f32.to_bits(); (w * h) as usize];
     let mut d = trama::Destino { pixeles: &mut px, ancho: w, alto: h, bgra: true, z: z.then_some(&mut zs[..]) };
@@ -802,7 +802,7 @@ fn los_opcodes_nativos_son_los_de_las_filas_sse_de_inti() {
         lee: 0,
         filas_cb: 0,
     };
-    let b = crate::nativo::compilar(&p);
+    let b = crate::nativo::compilar(&p).expect("sin texturas: se traduce");
     let (m, a) = (b.windows(3).position(|w| w == [0xF3, 0x0F, MULSS]).unwrap(), b.windows(3).position(|w| w == [0xF3, 0x0F, ADDSS]).unwrap());
     assert!(m < a);
     assert!(!b.windows(2).any(|w| w == [0x0F, 0x38]), "ni una instruccion de FMA (0F 38 ..): FMad NO se funde");
@@ -847,4 +847,37 @@ fn un_fichero_abierto_lee_escribe_y_se_mueve_como_windows() {
     assert_eq!(&a.bytes[23..30], &[0u8; 7], "el hueco, a ceros");
     assert!(a.sucio);
     assert_eq!(a.mover(0, 7), None, "un metodo que no existe");
+}
+
+// ======================== TEXTURAS (29-09) ========================
+
+const TEXTURA_VS: &[u8] = include_bytes!("../prueba/textura_vs.dxil");
+const TEXTURA_PS: &[u8] = include_bytes!("../prueba/textura_ps.dxil");
+
+/// *** Un sombreador de pixel de `dxc` que MUESTREA (`textura.hlsl`, el de
+/// la forma de HelloTexture: `imagen.Sample(muestreo, uv)`): se traduce a UNA
+/// `Muestra` de t0 con s0, y corrido da lo mismo que muestrear a mano -- con
+/// punto y borde, dentro y fuera, y sin textura (un SRV nulo), ceros.
+#[test]
+fn un_pixel_de_dxc_muestrea_la_textura() {
+    use crate::dxil::programa::{compilar, Op};
+    use crate::textura::{Direccion, Filtro, Muestreador, Recursos, Textura};
+    let ps = compilar(&dxil::leer(TEXTURA_PS).unwrap()).unwrap();
+    assert!(ps.muestrea());
+    assert_eq!(ps.ops.iter().filter(|o| matches!(o, Op::Muestra { t: 0, s: 0, .. })).count(), 1, "{:?}", ps.ops);
+    let vs = compilar(&dxil::leer(TEXTURA_VS).unwrap()).unwrap();
+    assert!(!vs.muestrea());
+    // Un tablero de 4x4: blanco y negro alternos (RGBA).
+    let t: Vec<u32> = (0..16).map(|i| if (i % 4 + i / 4) % 2 == 0 { 0xFFFF_FFFF } else { 0xFF00_0000 }).collect();
+    let tex = [Some(Textura { texeles: &t, ancho: 4, alto: 4, bgra: false })];
+    let m = [Some(Muestreador { filtro: Filtro::Punto, u: Direccion::Borde, v: Direccion::Borde, borde: [0.0; 4] })];
+    let rec = Recursos { texturas: &tex, muestreadores: &m };
+    let (mut sal, mut regs) = (vec![[0f32; 4]; ps.salidas], Vec::new());
+    for (u, v) in [(0.1f32, 0.1f32), (0.3, 0.1), (0.9, 0.6), (1.2, 0.5), (-0.1, 0.5)] {
+        // La entrada 1 del de pixel es TEXCOORD (la 0, la posicion).
+        ps.correr_con(&[[0.0; 4], [u, v, 0.0, 0.0]], &[], &rec, &mut sal, &mut regs);
+        assert_eq!(sal[0], tex[0].unwrap().muestrear(&m[0].unwrap(), u, v), "uv ({u}, {v})");
+    }
+    ps.correr(&[[0.0; 4], [0.1, 0.1, 0.0, 0.0]], &[], &mut sal, &mut regs);
+    assert_eq!(sal[0], [0.0; 4], "sin textura: ceros, como un SRV nulo");
 }

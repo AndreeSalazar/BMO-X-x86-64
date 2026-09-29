@@ -108,7 +108,12 @@ pub const MAXSS: u8 = 0x5F;
 
 /// **Traducir un programa a x86-64.** Una funcion entera, independiente de
 /// donde caiga (solo usa sus cuatro punteros): se puede copiar a otro bloque.
-pub fn compilar(p: &Programa) -> Vec<u8> {
+pub fn compilar(p: &Programa) -> Option<Vec<u8>> {
+    // Un programa que MUESTREA una textura no se traduce todavia: el
+    // muestreo (filtros, direcciones) va por el interprete (`textura`).
+    if p.muestrea() {
+        return None;
+    }
     let mut e = Emisor { b: Vec::with_capacity(16 * p.ops.len() + 64) };
     // Prologo: el MXCSR de quien llama, a la pila; el de D3D, puesto.
     e.b.extend_from_slice(&[0x48, 0x83, 0xEC, 0x08]); // sub rsp, 8
@@ -187,11 +192,12 @@ pub fn compilar(p: &Programa) -> Vec<u8> {
             }
             Op::Min { d, a, b } => e.min_max(MINSS, d, a, b),
             Op::Max { d, a, b } => e.min_max(MAXSS, d, a, b),
+            Op::Muestra { .. } => unreachable!("mirado arriba: `muestrea`"),
         }
     }
     // Epilogo: el MXCSR de quien llamo, de vuelta.
     e.b.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
     e.b.extend_from_slice(&[0x48, 0x83, 0xC4, 0x08]); // add rsp, 8
     e.b.push(0xC3); // ret
-    e.b
+    Some(e.b)
 }

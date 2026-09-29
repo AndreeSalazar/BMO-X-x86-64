@@ -371,6 +371,9 @@ pub fn emitir_con(p: &Programa, registros: u32, abi: Abi) -> Result<Emitido, NoE
     for (i, op) in p.ops.iter().enumerate() {
         let mut paso: Vec<u8> = Vec::new();
         match *op {
+            // El muestreo de texturas (TEX, sus descriptores TIC/TSC) no lo
+            // emite todavia: ese PSO se dibuja en la CPU, y se dice.
+            Op::Muestra { .. } => return Err(NoEmite::Operacion(i)),
             Op::Entrada { d, elemento, componente } => {
                 if e.valor[d as usize].is_some() {
                     return Err(NoEmite::NoSsa(i));
@@ -510,6 +513,10 @@ fn leidos(op: &Op) -> [Option<Reg>; 8] {
             }
         }
         Op::Rsqrt { a, .. } | Op::Sqrt { a, .. } | Op::Saturate { a, .. } | Op::Abs { a, .. } => v[0] = Some(a),
+        Op::Muestra { u, v: vv, .. } => {
+            v[0] = Some(u);
+            v[1] = Some(vv);
+        }
         Op::Entrada { .. } | Op::Constantes { .. } => {}
     }
     v

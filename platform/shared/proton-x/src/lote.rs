@@ -136,6 +136,8 @@ pub struct Lote<'a> {
     /// en memoria. La 3060 lo limpia ella; la CPU, al empezar
     /// ([`en_cpu_con`]). Igual con `limpiar_z`: la CPU la aplica a su bufer.
     pub limpiar_rt: Option<u32>,
+    /// Las texturas y los muestreadores que ven sus sombreadores.
+    pub recursos: crate::textura::Recursos<'a>,
 }
 
 /// Por que un ejecutor no dibujo un lote.
@@ -168,7 +170,7 @@ pub type Corre<'a> = &'a mut dyn FnMut(&[[f32; 4]], &mut [[f32; 4]]);
 pub fn en_cpu(l: &Lote, destino: &mut trama::Destino) -> Result<trama::Cuenta, NoDibuja> {
     let (mut rv, mut rp) = (Vec::new(), Vec::new());
     let en = l.enlace;
-    en_cpu_con(l, destino, &mut |e, s| en.vs.correr(e, l.cb, s, &mut rv), &mut |e, s| en.ps.correr(e, l.cb, s, &mut rp))
+    en_cpu_con(l, destino, &mut |e, s| en.vs.correr_con(e, l.cb, &l.recursos, s, &mut rv), &mut |e, s| en.ps.correr_con(e, l.cb, &l.recursos, s, &mut rp))
 }
 
 /// **Lo mismo, con quien corre los sombreadores puesto desde fuera** (P3b3b:
