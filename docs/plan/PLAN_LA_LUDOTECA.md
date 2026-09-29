@@ -391,9 +391,38 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
         uno solo)
       - si es USB (Ventoy suele ir en USB): almacenamiento masivo por USB,
         que BMO-X no tiene (su xHCI adopta teclado, raton y audio)
-      El dato: `cabina` (las lineas `ahci` y `disk`: "puerto con enlace
-      vivo", "puertos SATA con disco enlazado") y, en Windows, Propiedades
-      del Disco 1 -> "Tipo de bus" / "Ubicacion".
+      **MEDIDO en Windows (29-09 08:40, solo lectura, `C:\discos_bmo.txt`):
+      es el PRIMER camino, el bueno.** Los dos SATA cuelgan del MISMO
+      controlador AHCI (PCI 1022:43B8, bus 3, disp. 0, func. 1):
+      ```text
+         Disco 0  KINGSTON SA400S37480G   serie 50026B76846C2058  480 GB
+                  "Port 4" en Windows   -> BMO-X: arranque, A:, F: (ESTRATOS)
+         Disco 1  KINGSTON SA400S37120GB  serie YS2021030366      120 GB
+                  "Port 5" en Windows   -> Personal (D:) NTFS y VTOYEFI
+         Disco 2  KINGSTON SNV2S1000G     NVMe (bus 1), 1 TB  -> C: Windows
+      ```
+      D: empieza en el byte 1.048.576 (LBA 2048, GPT); NTFS 3.1, cluster de
+      4096 B, registro del MFT de 1024 B (MFT en LCN 0xC0000), sin nombres
+      8.3. `D:\Cyberpunk 2077`: 4991 ficheros en 955 carpetas, 91 GB, NADA
+      comprimido, cifrado ni disperso; el nombre mas largo, 57 caracteres; el
+      fichero mas grande (`archive\pc\ep1\ep1_2_gamedata.archive`, 15,5 GB)
+      en UN solo tramo. Todo cabe en lo que `bmo-ntfs` ya lee (N0).
+      [!] El numero de puerto de Windows NO es el del AHCI: BMO-X ve su disco
+      en el puerto AHCI 2 (el informe). Por eso el disco ajeno se reconoce por
+      su SERIE (IDENTIFY), nunca por un numero de puerto.
+      **Lo que se hace (N1), con dos cerrojos:**
+      - N1a: el kernel, tras elegir SU disco, mira los otros puertos SATA del
+        mismo controlador, les pide IDENTIFY y, si uno es otro disco, lo abre
+        como dispositivo de SOLO LECTURA (su propia pagina de rebote, el
+        mismo juez de DMA y el mismo registro de vuelos que el disco de
+        siempre). Lee su GPT, encuentra la particion NTFS y la monta con
+        `bmo-ntfs`. La cabina dice modelo, serie, particiones y la raiz.
+      - Cerrojo 1: ese dispositivo NO TIENE escritura (`write` = `ReadOnly`,
+        `writable` = false) y nunca se registra como el disco de BMO-X.
+      - Cerrojo 2: la escritura del disco de BMO-X comprueba que su puerto es
+        el SUYO; si algun dia llegara el del ajeno, se niega y lo dice.
+      - N1b: `personal ls <ruta>` y `personal lee <fichero>` en el
+        escritorio; N2, PROTON-X abre `D:\...` por ahi.
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
       con `D:\...` va al volumen NTFS, solo lectura.
 
