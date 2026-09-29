@@ -6,7 +6,8 @@
 //! ```text
 //!    _Mtx_*         init(_in_situ) destroy(_in_situ) lock trylock unlock
 //!                   current_owns: una seccion critica de la casa, con su
-//!                   propietario y su cuenta (recursivo o no, como lo pida el tipo)
+//!                   propietario y su cuenta (como msvcp140: el mismo hilo
+//!                   vuelve a entrar aunque no sea recursivo)
 //!    _Cnd_*         init(_in_situ) destroy(_in_situ) wait timedwait signal
 //!                   broadcast y los "at_thread_exit"
 //!    _Thrd_*        start join detach id sleep yield
@@ -31,7 +32,6 @@ const THRD_TIMEDOUT: i32 = 2;
 const THRD_BUSY: i32 = 3;
 const THRD_ERROR: i32 = 4;
 
-const MTX_RECURSIVE: i32 = 0x100;
 const INFINITE: u32 = u32::MAX;
 
 /// Lo que MSVC reserva para un `_Mtx_internal_imp_t` y un
@@ -82,32 +82,35 @@ extern "win64" fn mtx_destroy(m: u64) {
 
 extern "win64" fn mtx_destroy_in_situ(_m: u64) {}
 
+/// `_Mtx_lock`: como el `msvcp140` de verdad, si el hilo YA lo tiene (sea
+/// recursivo o no) solo sube la cuenta y dice que si. (El metal lo dijo el
+/// 29-09: tanda2.exe en Windows; la casa decia "ocupado" y el mutex se
+/// quedaba cogido.)
 extern "win64" fn mtx_lock(m: u64) -> i32 {
     let x = mutex(m);
-    if x.tipo & MTX_RECURSIVE == 0 && x.cuenta > 0 && x.propietario == yo() {
-        // std::mutex cogido dos veces por el mismo hilo: en Windows,
-        // resource_deadlock_would_occur. Aqui no se cuelga: se dice.
-        aviso("_Mtx_lock: un std::mutex (no recursivo) cogido otra vez por el mismo hilo");
-        return THRD_BUSY;
+    if x.cuenta > 0 && x.propietario == yo() {
+        x.cuenta += 1;
+        return THRD_SUCCESS;
     }
     hilos::enter_critical_section(m);
     let x = mutex(m);
     x.propietario = yo();
-    x.cuenta += 1;
+    x.cuenta = 1;
     THRD_SUCCESS
 }
 
 extern "win64" fn mtx_trylock(m: u64) -> i32 {
     let x = mutex(m);
-    if x.tipo & MTX_RECURSIVE == 0 && x.cuenta > 0 && x.propietario == yo() {
-        return THRD_BUSY;
+    if x.cuenta > 0 && x.propietario == yo() {
+        x.cuenta += 1;
+        return THRD_SUCCESS;
     }
     if hilos::try_enter_critical_section(m) == 0 {
         return THRD_BUSY;
     }
     let x = mutex(m);
     x.propietario = yo();
-    x.cuenta += 1;
+    x.cuenta = 1;
     THRD_SUCCESS
 }
 
@@ -120,8 +123,8 @@ extern "win64" fn mtx_unlock(m: u64) -> i32 {
     x.cuenta -= 1;
     if x.cuenta == 0 {
         x.propietario = 0;
+        hilos::leave_critical_section(m);
     }
-    hilos::leave_critical_section(m);
     THRD_SUCCESS
 }
 

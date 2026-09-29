@@ -63,6 +63,65 @@ pub(crate) fn poner_errno(v: i32) {
     estado().errno = v;
 }
 
+// -- El manejador de parametros invalidos ---------------------------------------
+//
+// El metal lo dijo el 29-09 (tanda1.exe en Windows): una funcion `_s` que
+// recibe un bufer corto NO devuelve ERANGE y sigue: llama al manejador de
+// parametros invalidos, y el de serie MATA el proceso (0xC0000417). Solo si
+// el programa puso el suyo (`_set_invalid_parameter_handler`, lo que hacen los
+// juegos) se vuelve con el error.
+
+struct Manejadores(UnsafeCell<[u64; 2]>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Manejadores {}
+/// El del proceso y el "del hilo" (uno para todos: la casa no los separa).
+static MANEJADORES: Manejadores = Manejadores(UnsafeCell::new([0, 0]));
+
+fn manejadores() -> &'static mut [u64; 2] {
+    // SAFETY: ver `Manejadores`.
+    unsafe { &mut *MANEJADORES.0.get() }
+}
+
+type ManejadorInvalido = extern "win64" fn(u64, u64, u64, u32, u64);
+
+/// **Un parametro invalido**, como el UCRT: el manejador del hilo o el del
+/// proceso; sin ninguno, el proceso termina como en Windows.
+pub(crate) fn parametro_invalido() {
+    let [proceso, hilo] = *manejadores();
+    let h = if hilo != 0 { hilo } else { proceso };
+    if h == 0 {
+        crate::aviso("parametro invalido en el CRT y sin manejador: el proceso termina, como en Windows (0xC0000417)");
+        (crate::plataforma().salir)(0xC000_0417);
+    }
+    // SAFETY: lo puso el `.exe`: void f(expr, funcion, fichero, linea, reservado);
+    // el CRT de Windows (el de las tiendas) los da NULL.
+    let f: ManejadorInvalido = unsafe { core::mem::transmute::<u64, ManejadorInvalido>(h) };
+    f(0, 0, 0, 0, 0);
+}
+
+/// El error `e` de una funcion `_s`: errno, el manejador, y el error.
+pub(crate) fn invalido(e: i32) -> i32 {
+    poner_errno(e);
+    parametro_invalido();
+    e
+}
+
+extern "win64" fn set_invalid_parameter_handler(nuevo: u64) -> u64 {
+    core::mem::replace(&mut manejadores()[0], nuevo)
+}
+
+extern "win64" fn get_invalid_parameter_handler() -> u64 {
+    manejadores()[0]
+}
+
+extern "win64" fn set_thread_local_invalid_parameter_handler(nuevo: u64) -> u64 {
+    core::mem::replace(&mut manejadores()[1], nuevo)
+}
+
+extern "win64" fn get_thread_local_invalid_parameter_handler() -> u64 {
+    manejadores()[1]
+}
+
 /// El `errno` de ahora.
 pub(crate) fn errno_actual() -> i32 {
     estado().errno
@@ -319,11 +378,11 @@ extern "win64" fn wcslwr(s: *mut u16) -> *mut u16 {
 
 extern "win64" fn wcslwr_s(s: *mut u16, n: usize) -> i32 {
     if s.is_null() {
-        return EINVAL;
+        return invalido(EINVAL);
     }
     let k = wcsnlen(s, n);
     if k == n {
-        return EINVAL;
+        return invalido(EINVAL);
     }
     cambiar_w(s, k, false);
     0
@@ -416,14 +475,13 @@ extern "win64" fn wcsncmp(a: *const u16, b: *const u16, n: usize) -> i32 {
 /// `TRUNCATE`.
 fn copiar_s<T: Copy + Default + PartialEq>(dst: *mut T, n: usize, src: *const T, cuenta: usize, juntar: bool) -> i32 {
     if dst.is_null() || n == 0 {
-        return EINVAL;
+        return invalido(EINVAL);
     }
     let cero = T::default();
     let vacio = |e: i32| {
         // SAFETY: `n` > 0 elementos en `dst`.
         unsafe { *dst = cero };
-        poner_errno(e);
-        e
+        invalido(e)
     };
     // Donde empieza: al final de lo que ya hay (juntar) o al principio.
     let mut desde = 0;
@@ -501,14 +559,12 @@ fn memcpy_s_de<T>(d: *mut T, n: usize, s: *const T, c: usize) -> i32 {
         return 0;
     }
     if d.is_null() {
-        return EINVAL;
+        return invalido(EINVAL);
     }
     if s.is_null() || c > n {
         // SAFETY: `n` elementos en `d`: se borra, como el UCRT.
         unsafe { core::ptr::write_bytes(d, 0, n) };
-        let e = if s.is_null() { EINVAL } else { ERANGE };
-        poner_errno(e);
-        return e;
+        return invalido(if s.is_null() { EINVAL } else { ERANGE });
     }
     // SAFETY: `c <= n` elementos en los dos lados.
     unsafe { core::ptr::copy(s, d, c) };
@@ -689,6 +745,10 @@ extern "win64" fn lc_locale_name() -> *const u64 {
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "_errno" => dir!(errno),
+        "_set_invalid_parameter_handler" => dir!(set_invalid_parameter_handler),
+        "_get_invalid_parameter_handler" => dir!(get_invalid_parameter_handler),
+        "_set_thread_local_invalid_parameter_handler" => dir!(set_thread_local_invalid_parameter_handler),
+        "_get_thread_local_invalid_parameter_handler" => dir!(get_thread_local_invalid_parameter_handler),
         "__doserrno" => dir!(doserrno),
         "__sys_nerr" => dir!(sys_nerr),
         "strchr" => dir!(strchr),
@@ -754,6 +814,8 @@ mod pruebas {
 
     #[test]
     fn copiar_s_corta_o_se_niega() {
+        extern "win64" fn manejador(_a: u64, _b: u64, _c: u64, _d: u32, _e: u64) {}
+        set_invalid_parameter_handler(dir!(manejador));
         let mut d = [1u8; 4];
         assert_eq!(copiar_s(d.as_mut_ptr(), 4, b"abc\0".as_ptr(), usize::MAX - 1, false), 0);
         assert_eq!(&d, b"abc\0");

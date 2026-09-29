@@ -3,7 +3,7 @@
  * <chrono> en la biblioteca de C++ de MSVC, importado de msvcp140.dll.
  *
  *    _Mtx_*    un mutex recursivo: lock dos veces, current_owns, unlock;
- *              uno normal: trylock desde el mismo hilo dice busy
+ *              uno normal: el mismo hilo vuelve a entrar (msvcp140 lo deja)
  *    _Thrd_*   dos hilos que suman con el mutex, y join con su resultado
  *    _Cnd_*    productor y consumidor; timedwait que vence
  *    y mas     _Execute_once una sola vez, los relojes, _Strcoll,
@@ -121,7 +121,7 @@ void inicio(void) {
     _Cnd_init_in_situ(&cnd);
 
     mira(_Mtx_lock(&rec) == 0 && _Mtx_lock(&rec) == 0 && _Mtx_current_owns(&rec) && _Mtx_unlock(&rec) == 0 && _Mtx_current_owns(&rec) && _Mtx_unlock(&rec) == 0 && !_Mtx_current_owns(&rec), "_Mtx recursivo: dos veces, y suelta a la segunda");
-    mira(_Mtx_lock(&mtx) == 0 && _Mtx_trylock(&mtx) == 3 && _Mtx_unlock(&mtx) == 0, "_Mtx normal: trylock del mismo hilo dice busy");
+    mira(_Mtx_lock(&mtx) == 0 && _Mtx_trylock(&mtx) == 0 && _Mtx_unlock(&mtx) == 0 && _Mtx_current_owns(&mtx) && _Mtx_unlock(&mtx) == 0 && !_Mtx_current_owns(&mtx), "_Mtx normal: el mismo hilo vuelve a entrar (como msvcp140) y suelta a la segunda");
 
     mira(_Thrd_start(&a, sumador, (void *)1) == 0 && _Thrd_start(&b, sumador, (void *)2) == 0 && a.id != b.id && a.id != _Thrd_id(), "_Thrd_start: dos hilos, cada uno con su id");
     mira(_Thrd_join(a, &r1) == 0 && _Thrd_join(b, &r2) == 0 && r1 == 10 && r2 == 20 && suma == 3000, "_Thrd_join con su resultado, y el mutex no perdio ni una suma");

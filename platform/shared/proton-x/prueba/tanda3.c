@@ -123,10 +123,14 @@ void inicio(void) {
         m[0] = 64;
         v[0] = 284;
         mira(GlobalMemoryStatusEx(m) && m[1] > 0 && m[2] <= m[1], "GlobalMemoryStatusEx");
-        mira(GetVersionExW(v) && v[1] == 10 && v[4] == 2, "GetVersionExW: Windows 10");
+        /* Windows da 6.2 a un .exe SIN manifiesto (este); la casa, 10 (lo que ve
+         * un juego con el suyo). */
+        mira(GetVersionExW(v) && (v[1] == 10 || (v[1] == 6 && v[2] == 2)) && v[4] == 2, "GetVersionExW: 10, o 6.2 sin manifiesto");
         v[1] = 6;
         mira(VerifyVersionInfoW(v, 2, mask), "VerifyVersionInfoW: 10 >= 6");
-        mira(GetUserDefaultLocaleName(wb, 64) == 6 && igual_w(wb, L"en-US"), "GetUserDefaultLocaleName");
+        /* El de la maquina: en-US en la casa, el tuyo en tu Windows. */
+        n = GetUserDefaultLocaleName(wb, 64);
+        mira(n >= 3 && (wb[2] == '-' || wb[3] == '-'), "GetUserDefaultLocaleName: idioma-PAIS");
         mira(GetCPInfo(65001, cp) && cp[0] == 4 && GetStringTypeW(1, s, 2, t) && (t[0] & 0x101) == 0x101 && (t[1] & 4), "GetCPInfo y GetStringTypeW");
     }
     /* -- paso 3: las "A" */
@@ -146,7 +150,9 @@ void inicio(void) {
     }
     n = ExpandEnvironmentStringsA("[%BMO_TANDA3%] %NO_HAY%", b, 300);
     mira(n == 17 && igual(b, "[cyber] %NO_HAY%"), "ExpandEnvironmentStringsA");
-    mira(ExpandEnvironmentStringsW(L"%BMO_TANDA3%!", wb, 64) == 7 && igual_w(wb, L"cyber!") && ExpandEnvironmentStringsA("%BMO_TANDA3%", b, 2) == 6, "ExpandEnvironmentStringsW, y la A que no cabe");
+    /* La A que no cabe: Windows puede pedir MAS de lo justo (6). */
+    mira(ExpandEnvironmentStringsW(L"%BMO_TANDA3%!", wb, 64) == 7 && igual_w(wb, L"cyber!"), "ExpandEnvironmentStringsW");
+    mira(ExpandEnvironmentStringsA("%BMO_TANDA3%", b, 2) >= 6, "ExpandEnvironmentStringsA que no cabe: pide al menos lo justo");
     {
         HANDLE f = CreateFileA("tanda3_a.txt", 0x40000000, 0, 0, 2, 0x80, 0);
         HANDLE g = CreateFileA("tanda3_b.txt", 0x40000000, 0, 0, 2, 0x80, 0);

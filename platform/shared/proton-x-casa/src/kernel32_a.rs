@@ -33,7 +33,7 @@ const ERROR_INVALID_PARAMETER: u32 = 87;
 const TOPE: usize = 32_768;
 
 /// La "W" de la casa que se llama `n` (de kernel32 o sus API set).
-fn w<F: Copy>(n: &str) -> F {
+pub(crate) fn w<F: Copy>(n: &str) -> F {
     let d = crate::tabla("kernel32.dll", &Funcion::Nombre(n.into())).unwrap_or_else(|| panic!("PROTON-X: la casa no tiene {n}"));
     // SAFETY: `n` es una funcion de la casa con la firma `F` (8 bytes).
     unsafe { core::mem::transmute_copy(&d) }
