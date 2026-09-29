@@ -373,9 +373,27 @@ ESTRATOS da flojera"*. SOLO LECTURA. Los escalones:
       DOS discos hechos por `mkntfs`/`ntfs-3g` (no a mano):
       `platform/drivers/storage/ntfs/prueba/COMO.md`.
 - [ ] **N1 -- en el metal.** El kernel monta la particion NTFS y el
-      escritorio lista y lee (`personal ls <ruta>`). PIDE saber en QUE DISCO
-      esta `Personal (D:)`: BMO-X maneja SU disco (el SSD SATA del informe);
-      si D: esta en otro (un NVMe), hace falta ese disco primero.
+      escritorio lista y lee (`personal ls <ruta>`). **Lo que dijo la
+      Administracion de discos de Windows (29-09):** `Personal (D:)` NO esta
+      en el disco de BMO-X. Disco 0 (447 GB) = el de BMO-X: la particion de
+      arranque (600 MB), `BMO (A:)` FAT32 y `F:` "RAW" (ESTRATOS: Windows no
+      lo entiende). Disco 1 (111,79 GB) = `Personal (D:)` NTFS y `VTOYEFI`
+      (32 MB, la de Ventoy). `C:` en un tercero. O sea, N1 es PRIMERO leer
+      OTRO DISCO, y hoy el kernel maneja UNO a proposito ("uno solo, los
+      otros son ajenos", `dev/disk/mod.rs`). Como se hace depende de donde
+      cuelga el Disco 1, y se MIDE antes:
+      - si es SATA en el MISMO controlador AHCI (otro puerto): el driver ya
+        es por puerto (`read_sectors_phys(puerto, ...)`, `init_port_dma`);
+        falta un segundo dispositivo de bloques de SOLO LECTURA (`write` =
+        `ReadOnly`, nunca registrado como el de BMO-X), con su pagina de
+        rebote y su vuelo de DMA apuntado como el del disco de siempre
+      - si es SATA en OTRO controlador: un segundo HBA (hoy `bmo_ahci` tiene
+        uno solo)
+      - si es USB (Ventoy suele ir en USB): almacenamiento masivo por USB,
+        que BMO-X no tiene (su xHCI adopta teclado, raton y audio)
+      El dato: `cabina` (las lineas `ahci` y `disk`: "puerto con enlace
+      vivo", "puertos SATA con disco enlazado") y, en Windows, Propiedades
+      del Disco 1 -> "Tipo de bus" / "Ubicacion".
 - [ ] **N2 -- PROTON-X lee de ahi.** `CreateFileW` de un `.exe` de Windows
       con `D:\...` va al volumen NTFS, solo lectura.
 
