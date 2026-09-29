@@ -68,6 +68,7 @@ pub mod hilos;
 pub mod kernel32;
 pub mod memoria;
 pub mod modulos;
+pub mod msvcp_hilos;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -259,6 +260,9 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else if crt::es_del_crt(dll) {
         // P4f5: el CRT de MSVC (ucrtbase, vcruntime140 y sus API set).
         crt::buscar(n)
+    } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
+        // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
+        msvcp_hilos::buscar(n)
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.

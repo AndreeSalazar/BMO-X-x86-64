@@ -55,6 +55,7 @@ const USADLL: &[u8] = include_bytes!("../../proton-x/prueba/usadll.exe");
 const SALUDO_DLL: &[u8] = include_bytes!("../../proton-x/prueba/saludo.dll");
 const SEH: &[u8] = include_bytes!("../../proton-x/prueba/seh.exe");
 const TANDA1: &[u8] = include_bytes!("../../proton-x/prueba/tanda1.exe");
+const TANDA2: &[u8] = include_bytes!("../../proton-x/prueba/tanda2.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -817,6 +818,21 @@ fn tanda1_exe_tiene_el_c_runtime_de_cyberpunk() {
     assert_eq!(texto.matches("  bien  ").count(), 51, "{texto}");
     assert!(texto.ends_with("tanda1.exe: el C runtime de Cyberpunk es el de Windows\r\n[salio 0x0]"), "{texto}");
     assert_eq!(std::fs::read(volumen().join("window/tanda1.txt")).unwrap(), b"uno\r\ndos\r\n", "el fichero, en modo texto de Windows");
+}
+
+/// **La tanda 2 de Cyberpunk en el anfitrion** (29-09): `tanda2.exe` -- lo
+/// que hay debajo de std::mutex, std::condition_variable, std::thread,
+/// std::call_once y <chrono>, importado de msvcp140.dll: dos hilos que
+/// suman con un mutex, productor y consumidor, y un timedwait que vence.
+#[test]
+fn tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA2, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 12, "{texto}");
+    assert!(texto.ends_with("tanda2.exe: los hilos de la biblioteca de C++ son los de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

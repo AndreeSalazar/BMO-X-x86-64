@@ -481,3 +481,21 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` cincuenta y una veces y sale con 0; deja window/tanda1.txt con
 "uno\r\ndos\r\n" (modo texto de Windows). En Windows dice lo mismo (pide el
 redistribuible de Visual C++ por vcruntime140.dll, como los juegos).
+
+tanda2.exe -- la TANDA 2 de Cyberpunk (29-09): los hilos de la biblioteca de C++
+
+Lo que hay debajo de std::mutex, std::condition_variable, std::thread,
+std::call_once y <chrono> en msvcp140.dll (tanda2_msvcp.def; los nombres de
+C++ se importan por su nombre decorado con `__asm__`):
+
+   llvm-dlltool -m i386:x86-64 -d kernel32.def -l kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda2_msvcp.def -l tanda2_msvcp.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda2.c -o tanda2.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda2.obj kernel32.lib tanda2_msvcp.lib /out:tanda2.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   8e040d5ffdd375630e6c102f15d190e0b2a284b67675f4b8ff3596873324b8f3
+
+Dice `bien` doce veces y sale con 0. En Windows dice lo mismo (pide
+msvcp140.dll, el redistribuible de Visual C++, como los juegos).
