@@ -31,6 +31,9 @@
 //! - ni excepciones anidadas ni desenrollados que chocan (Nested/Collided): se
 //!   dicen y se sigue buscando;
 //! - RtlUnwindEx sin marco destino (el desenrollado de salida) se dice y acaba;
+//! - STATUS_UNWIND_CONSOLIDATE (tanda 28): al llegar al marco destino se
+//!   llama a `ExceptionInformation[0](registro)` y se sigue donde devuelva
+//!   (el catch del CRT de MSVC enlazado dentro de un modulo);
 //! - las de C++ van aparte (`cxx.rs`), sobre esto: su `catch` se corre al
 //!   llegar al marco destino (`desenrollar_y`, el "consolidate" de Windows);
 //! - ExceptionAddress es la vuelta de RaiseException (Windows da una
@@ -60,6 +63,10 @@ const STATUS_NONCONTINUABLE_EXCEPTION: u32 = 0xC000_0025;
 const STATUS_UNWIND: u32 = 0xC000_0027;
 const STATUS_BAD_STACK: u32 = 0xC000_0028;
 const STATUS_INVALID_UNWIND_TARGET: u32 = 0xC000_0029;
+/// El desenrollado que CONSOLIDA (el `catch` de C++ del CRT de MSVC): al
+/// llegar al marco destino se llama a `ExceptionInformation[0](registro)` y
+/// se sigue donde devuelva.
+const STATUS_UNWIND_CONSOLIDATE: u32 = 0x8000_0029;
 
 // -- La foto y el salto, en ensamblador ---------------------------------------------
 
@@ -500,6 +507,23 @@ extern "win64" fn rtl_unwind_ex(marco: u64, destino: u64, rec: *mut u8, valor: u
         (plataforma().salir)(STATUS_INVALID_UNWIND_TARGET);
     }
     let c = Contexto::de_context(bytes(ctx, CONTEXT_BYTES));
+    // Tanda 28: el CRT de MSVC enlazado DENTRO de un modulo (REDGalaxy64.dll,
+    // el .exe) coge sus excepciones de C++ con su propio
+    // __CxxFrameHandler4, que llama aqui con STATUS_UNWIND_CONSOLIDATE: la
+    // casa volvia a `destino` (la vuelta del call que lanzo) con rax = 0 en
+    // vez de correr el catch.
+    let r = if rec.is_null() { None } else { Some(Registro::de_bytes(bytes(rec, REGISTRO_BYTES))) };
+    if let Some(llamada) = r.filter(|r| r.codigo == STATUS_UNWIND_CONSOLIDATE).and_then(|r| r.parametros.first().copied()).filter(|&f| f != 0) {
+        desenrollar_con(marco, destino, rec, c, true, &mut |fin: &mut Contexto| {
+            fin.gp[RAX] = valor;
+            // En la pila de debajo del marco destino (ya no es de nadie),
+            // como Windows: la llamada corre el funclet del catch y devuelve
+            // donde sigue la funcion.
+            // SAFETY: la funcion que el CRT del `.exe` puso en el registro:
+            // PVOID f(EXCEPTION_RECORD*).
+            fin.rip = unsafe { crate::hilos::llamar_win64(llamada, rec as u64, 0, 0) };
+        })
+    }
     desenrollar_hacia(marco, destino, rec, valor, c, true)
 }
 

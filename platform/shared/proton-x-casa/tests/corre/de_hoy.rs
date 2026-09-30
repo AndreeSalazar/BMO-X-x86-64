@@ -276,3 +276,11 @@ fn tanda26_exe_el_modulo_de_una_direccion() {
 fn tanda27_exe_los_parametros_del_proceso() {
     tanda(TANDA27, None, 8, "tanda27.exe: PEB->ProcessParameters es el de Windows");
 }
+
+/// **La tanda 28 de Cyberpunk** (30-09): `tanda28.exe` -- RtlUnwindEx con
+/// STATUS_UNWIND_CONSOLIDATE (el catch de C++ del CRT enlazado DENTRO de
+/// REDGalaxy64.dll). La casa volvia a TargetIp con rax = 0.
+#[test]
+fn tanda28_exe_desenrollar_consolidando() {
+    tanda(TANDA28, None, 6, "tanda28.exe: RtlUnwindEx CONSOLIDA como Windows (el catch de C++)");
+}
