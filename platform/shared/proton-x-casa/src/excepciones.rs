@@ -312,6 +312,8 @@ impl Viva {
         let imagenes: Vec<Imagen> = bases.iter().filter_map(|&b| seh::imagen_en(&cabeceras, b)).collect();
         let mut rangos = vec![(fondo, tope)];
         rangos.extend(imagenes.iter().map(|i| (i.base, i.base + i.tam as u64)));
+        // Las tablas de C++ que hace la casa (msvcp_errores), si las hay.
+        rangos.extend(crate::cxx::rango_casa());
         (Viva { rangos }, imagenes)
     }
 }

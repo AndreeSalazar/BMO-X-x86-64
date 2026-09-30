@@ -1,0 +1,20 @@
+LIBRARY msvcp140.dll
+EXPORTS
+??0_Lockit@std@@QEAA@H@Z
+??1_Lockit@std@@QEAA@XZ
+?_Throw_C_error@std@@YAXH@Z
+?_Throw_Cpp_error@std@@YAXH@Z
+?_Throw_future_error@std@@YAXAEBVerror_code@1@@Z
+?_Xbad_alloc@std@@YAXXZ
+?_Xbad_function_call@std@@YAXXZ
+?_Xinvalid_argument@std@@YAXPEBD@Z
+?_Xlength_error@std@@YAXPEBD@Z
+?_Xout_of_range@std@@YAXPEBD@Z
+?__ExceptionPtrCopy@@YAXPEAXPEBX@Z
+?__ExceptionPtrCreate@@YAXPEAX@Z
+?__ExceptionPtrCurrentException@@YAXPEAX@Z
+?__ExceptionPtrDestroy@@YAXPEAX@Z
+?__ExceptionPtrRethrow@@YAXPEBX@Z
+?__ExceptionPtrToBool@@YA_NPEBX@Z
+?uncaught_exception@std@@YA_NXZ
+?uncaught_exceptions@std@@YAHXZ

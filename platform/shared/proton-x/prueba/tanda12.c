@@ -123,10 +123,10 @@ void inicio(void) {
     /* -- ws2_32: lo puro */
     mira(htons(0x1234) == 0x3412 && ntohs(0x3412) == 0x1234 && htonl(0x01020304) == 0x04030201, "htons, ntohs y htonl (por ordinal)");
     mira(inet_addr("192.0.2.10") == htonl(0xC000020A) && inet_addr("banana") == 0xFFFFFFFF, "inet_addr, y INADDR_NONE si no es una IP");
-    mira(inet_pton(2, "10.0.0.1", a4) == 1 && a4[0] == 10 && a4[3] == 1 && inet_pton(2, "256.1.1.1", a4) == 0, "inet_pton IPv4, y 0 si no lo es");
+    mira(inet_pton(2, "192.0.2.1", a4) == 1 && a4[0] == 192 && a4[3] == 1 && inet_pton(2, "256.1.1.1", a4) == 0, "inet_pton IPv4, y 0 si no lo es");
     mira(inet_pton(23, "2001:db8::1", a6) == 1 && bytes_iguales(a6, V6, 16) && inet_ntop(23, a6, t, sizeof t) == t && igual(t, "2001:db8::1"), "inet_pton e inet_ntop IPv6, ida y vuelta");
     mira(inet_pton(23, "1:0:0:2:0:0:0:3", a6) == 1 && inet_ntop(23, a6, t, sizeof t) && igual(t, "1:0:0:2::3"), "inet_ntop: la racha de ceros mas larga es la que se abrevia");
-    mira(inet_pton(23, "::1", a6) == 1 && inet_ntop(23, a6, t, sizeof t) && igual(t, "::1") && inet_pton(2, "10.0.0.1", a4) == 1 && inet_ntop(2, a4, t, sizeof t) && igual(t, "10.0.0.1"), "inet_ntop ::1 y una IPv4");
+    mira(inet_pton(23, "::1", a6) == 1 && inet_ntop(23, a6, t, sizeof t) && igual(t, "::1") && inet_pton(2, "192.0.2.1", a4) == 1 && inet_ntop(2, a4, t, sizeof t) && igual(t, "192.0.2.1"), "inet_ntop ::1 y una IPv4");
     *(DWORD *)set = 2;
     *(U64 *)(set + 8) = 5, *(U64 *)(set + 16) = 7;
     mira(__WSAFDIsSet(7, set) && !__WSAFDIsSet(9, set), "__WSAFDIsSet");

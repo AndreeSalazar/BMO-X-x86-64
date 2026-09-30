@@ -480,7 +480,7 @@ extern "win64" fn mbrtowc(pwc: *mut u16, s: *const u8, n: usize, _st: u64, _cvt:
 
 /// `_Syserror_map`: el texto de `std::generic_category().message()`, de la
 /// tabla de msvcp140 (en minusculas: no es el de `strerror`).
-extern "win64" fn syserror_map(e: i32) -> *const u8 {
+pub(crate) extern "win64" fn syserror_map(e: i32) -> *const u8 {
     let t: &'static [u8] = match e {
         1 => b"operation not permitted\0",
         2 => b"no such file or directory\0",

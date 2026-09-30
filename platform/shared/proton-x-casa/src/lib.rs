@@ -79,6 +79,7 @@ pub mod kernel32_sistema;
 pub mod memoria;
 pub mod modulos;
 pub mod msvcp_hilos;
+pub mod msvcp_errores;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -302,7 +303,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         crt::buscar(n)
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
-        msvcp_hilos::buscar(n)
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.
