@@ -949,3 +949,15 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 
 Dice `bien` diecinueve veces (con una linea de cerr y las de paso) y sale con 0. En Windows
 dice lo mismo.
+
+tanda19m.exe -- la TANDA 19 compilada por MSVC con SUS cabeceras (30-09)
+
+tanda19.exe (clang) no sirve de oraculo para la base virtual de ostream ni
+para el locale que vuelve por valor: en el Windows del propietario clang y
+msvcp140 no coincidieron ahi. Este usa <sstream>, <fstream>, <iomanip> y
+<locale> de verdad, como el juego. Se hace en Windows, en la consola "x64
+Native Tools Command Prompt for VS":
+
+   cl /nologo /EHsc /MD /O1 /std:c++17 tanda19m.cpp /Fe:tanda19m.exe
+
+Dice `bien` quince veces (y una linea de cerr) y sale con 0.
