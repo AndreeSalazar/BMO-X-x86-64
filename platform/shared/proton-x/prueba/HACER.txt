@@ -929,3 +929,23 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    62c05028bc99d27644e8dcb56bc2d5ed4bd3901f68dcdb7f96d442fb15877178
 
 Dice `bien` dieciseis veces y sale con 0. En Windows dice lo mismo.
+
+tanda19.exe -- la TANDA 19 de Cyberpunk (30-09): los FLUJOS de msvcp140
+
+Un streambuf propio sobre basic_streambuf (como los del juego), ostream y
+sus numeros (base, signo, prefijo, setw, relleno), istream e iostream (con
+su BASE VIRTUAL: vbptr y vbtable), cerr (DATO importado), _Fiopen (abre su
+propio .exe) y time_put (tanda19_*.def; el de msvcp140 lleva DATA en cerr):
+
+   llvm-dlltool -m i386:x86-64 -d tanda19_kernel32.def -l tanda19_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda19_crt.def -l tanda19_crt.lib
+   llvm-dlltool -m i386:x86-64 -d tanda19_msvcp140.def -l tanda19_msvcp140.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fno-exceptions -fno-rtti -ffreestanding -fno-stack-protector -fno-builtin -Wno-undefined-var-template -c tanda19.cpp -o tanda19.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda19.obj tanda19_kernel32.lib tanda19_crt.lib tanda19_msvcp140.lib /out:tanda19.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   cf6983d231bab193fc374c1140f3f741ad1cb22d196a85457947b6c410df62cd
+
+Dice `bien` dieciseis veces (y una linea de cerr) y sale con 0. En Windows
+dice lo mismo.

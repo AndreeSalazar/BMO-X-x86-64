@@ -41,8 +41,8 @@ use crate::{aviso, crt, dir};
 /// `locale::facet`: la vtabla y la cuenta de referencias.
 #[repr(C)]
 pub(crate) struct Faceta {
-    vt: *const u64,
-    refs: AtomicU32,
+    pub(crate) vt: *const u64,
+    pub(crate) refs: AtomicU32,
 }
 
 /// `_Yarn<char>` (y `<wchar_t>`: la misma forma): la cadena, suya.
@@ -191,7 +191,7 @@ fn vtabla(k: usize) -> *const u64 {
 ///
 /// # Safety
 /// `this` es un objeto con vptr y la vtabla tiene ese hueco.
-unsafe fn virtual_de(this: *const Faceta, h: usize) -> u64 {
+pub(crate) unsafe fn virtual_de(this: *const Faceta, h: usize) -> u64 {
     // SAFETY: lo de arriba.
     unsafe { *(*this).vt.add(h) }
 }
@@ -207,12 +207,12 @@ extern "win64" fn faceta_nueva(this: *mut Faceta, refs: usize) -> *mut Faceta {
 
 extern "win64" fn faceta_fin(_this: *mut Faceta) {}
 
-extern "win64" fn incref(this: *const Faceta) {
+pub(crate) extern "win64" fn incref(this: *const Faceta) {
     // SAFETY: una faceta.
     unsafe { (*this).refs.fetch_add(1, Ordering::AcqRel) };
 }
 
-extern "win64" fn decref(this: *mut Faceta) -> *mut Faceta {
+pub(crate) extern "win64" fn decref(this: *mut Faceta) -> *mut Faceta {
     // SAFETY: una faceta.
     if unsafe { (*this).refs.fetch_sub(1, Ordering::AcqRel) } == 1 {
         this
@@ -222,7 +222,7 @@ extern "win64" fn decref(this: *mut Faceta) -> *mut Faceta {
 }
 
 /// El destructor "que borra" (hueco 0): `flags & 1`, liberar.
-extern "win64" fn borrar_faceta(this: *mut Faceta, flags: u32) -> *mut Faceta {
+pub(crate) extern "win64" fn borrar_faceta(this: *mut Faceta, flags: u32) -> *mut Faceta {
     if flags & 1 != 0 {
         crt::free(this as u64);
     }
@@ -376,6 +376,84 @@ extern "win64" fn borrar_locimp(this: *mut Locimp, flags: u32) -> *mut Locimp {
         crt::free(this as u64);
     }
     this
+}
+
+/// Un `locale` (8 bytes: su `_Locimp`), pedido al monton: el de un
+/// streambuf (`_Plocale`) o el de un ios_base (`_Ploc`). Es el global.
+pub(crate) fn locale_nuevo() -> *mut *mut Locimp {
+    let p = pedir::<*mut Locimp>();
+    if !p.is_null() {
+        // SAFETY: un bloque recien pedido de 8 bytes.
+        unsafe { p.write(locale_init(true)) };
+    }
+    p
+}
+
+/// `delete` de un locale de [`locale_nuevo`]: suelta su `_Locimp`.
+pub(crate) fn locale_soltar(p: *mut *mut Locimp) {
+    if p.is_null() {
+        return;
+    }
+    // SAFETY: un locale de la casa.
+    let l = unsafe { *p };
+    if !l.is_null() {
+        soltar(l as *mut Faceta);
+    }
+    crt::free(p as u64);
+}
+
+/// Una copia de `*de` en `a` (el `locale` que se devuelve por valor):
+/// el mismo `_Locimp`, con una referencia mas.
+pub(crate) fn locale_copiar(de: *const *mut Locimp, a: *mut *mut Locimp) {
+    // SAFETY: dos locales, del `.exe` o de la casa.
+    unsafe {
+        let l = if de.is_null() { locale_init(false) } else { *de };
+        incref(l as *const Faceta);
+        a.write(l);
+    }
+}
+
+/// La faceta `ctype<char>` de un locale (`use_facet`): la suya, o la de la
+/// casa (una, hecha la primera vez).
+pub(crate) fn ctype_de(loc: *const *mut Locimp) -> *const Faceta {
+    let id = id_numero(&IDS[0]) as usize;
+    // SAFETY: un locale; su _Locimp y su vector.
+    unsafe {
+        let l = if loc.is_null() { locale_init(false) } else { *loc };
+        if let Some(l) = l.as_ref() {
+            if id < l.cuenta && !(*l.vec.add(id)).is_null() {
+                return *l.vec.add(id);
+            }
+        }
+    }
+    static CASA: Global = Global(UnsafeCell::new(core::ptr::null_mut()));
+    // SAFETY: ver `Vtablas`.
+    let c = unsafe { &mut *CASA.0.get() };
+    if c.is_null() {
+        let mut f: *mut Faceta = core::ptr::null_mut();
+        ctype_getcat(&mut f, 0);
+        incref(f);
+        *c = f as *mut Locimp;
+    }
+    *c as *const Faceta
+}
+
+/// `ctype<char>::widen` y `narrow` de una faceta, por su vtabla (huecos 8
+/// y 10).
+pub(crate) fn ensanchar(f: *const Faceta, c: u8) -> u8 {
+    // SAFETY: una ctype<char>.
+    unsafe {
+        let g: extern "win64" fn(*const Faceta, u8) -> u8 = core::mem::transmute(virtual_de(f, 8));
+        g(f, c)
+    }
+}
+
+pub(crate) fn estrechar(f: *const Faceta, c: u8, defecto: u8) -> u8 {
+    // SAFETY: una ctype<char>.
+    unsafe {
+        let g: extern "win64" fn(*const Faceta, u8, u8) -> u8 = core::mem::transmute(virtual_de(f, 10));
+        g(f, c, defecto)
+    }
 }
 
 // -- _Yarn ----------------------------------------------------------------------------------
