@@ -176,6 +176,19 @@ pub unsafe fn iniciar_dlls_con(mut antes: impl FnMut(&str)) -> Result<(), String
     Ok(())
 }
 
+/// **De que modulo es `dir`**: su nombre y la RVA (el `.exe` o una DLL
+/// del juego: el de base mas alta que no pase de `dir`).
+pub(crate) fn nombre_de(dir: u64) -> Option<(String, u64)> {
+    let exe = (crate::proceso::nombre_exe(), kernel32::base_imagen());
+    propias()
+        .iter()
+        .map(|p| (p.nombre.clone(), p.base))
+        .chain(core::iter::once(exe))
+        .filter(|(n, b)| *b != 0 && *b <= dir && !n.is_empty())
+        .max_by_key(|(_, b)| *b)
+        .map(|(n, b)| (n, dir - b))
+}
+
 fn propia_por_base(h: u64) -> Option<usize> {
     propias().iter().position(|p| p.base == h)
 }
