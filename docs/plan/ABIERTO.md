@@ -7,8 +7,8 @@
 > envejecer sin que algo se ponga rojo.
 
 ```text
-   461 casillas ABIERTAS en 44 planes
-   333 hechas
+   460 casillas ABIERTAS en 44 planes
+   334 hechas
      1 planes CUMPLIDOS (ni una casilla pendiente)
      9 planes CERRADOS, SUPERADOS, APARCADOS o EN ESPERA, con motivo
        (sus 68 casillas sueltas NO cuentan como abiertas)
@@ -32,14 +32,14 @@ Por categoria y con el motivo de cada cierre: [`../METAS.md`](../METAS.md).
 
 # Los planes VIVOS, el que mas debe primero
 
-## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 79 abiertas, 1 hechas
+## [`PLAN_LAS_TRES_GRANDES.md`](PLAN_LAS_TRES_GRANDES.md) -- 78 abiertas, 2 hechas
 
 *PLAN LAS TRES GRANDES -- D3D12 de juego, el sonido del juego y varios nucleos*
 
-- [ ] P0.1 -- personal censo en el metal con el censo maduro: cuantas DURAS
-- [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda mas, si hace falta).
+- [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
 - [ ] P0.3b -- Cada QueryInterface con un IID que la casa no conoce, al
-- ... y 76 mas
+- [ ] P0.4a -- El tope del .exe en la app (TOPE_EXE, 16 MiB): el de
+- ... y 75 mas
 
 ## [`PLAN_CLOUD_LOCAL.md`](PLAN_CLOUD_LOCAL.md) -- 46 abiertas, 16 hechas
 

@@ -35,9 +35,33 @@
 Sin el, las tres listas de abajo son opiniones. Con el, el juego dice que
 pide y en que orden.
 
-- [ ] P0.1 -- `personal censo` en el metal con el censo maduro: cuantas DURAS
-  faltan. **Como se sabe:** la linea `PARA ARRANCAR (DURAS)` del informe.
-- [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda mas, si hace falta).
+- [x] P0.1 -- `personal censo` en el metal con el censo maduro: cuantas DURAS
+  faltan. **HECHO el 30-09** (el `CENSO.TXT` del metal): 1601 funciones de
+  Windows distintas; **DURAS 1120, la casa tiene 950, FALTAN 170**;
+  retrasadas 5 (faltan 5); en vivo 476 (faltan 325; 225 de ellas son de
+  `mfc140u.dll`); no aportan 0. Dos DLL del juego (`libxess.dll`,
+  `libxess_fg.dll`) no se pudieron mirar por sus retrasadas: arreglado el
+  30-09 (una ventana con todas las secciones de datos, y el resto cuenta
+  aunque las retrasadas fallen); su numero sale en el censo siguiente.
+
+  Las 170 DURAS, por grupos (cada grupo, una tanda):
+
+  ```text
+      79  MSVCP140        iostreams y locale (con DATOS importados: cerr y
+                          los `id` de las facetas; el diario NO debe envolver
+                          un dato con un trampolin)
+      18  WLDAP32         por ordinal (LDAP, de libcurl): contestar "no hay"
+      15  ole32 + OLEAUT32  COM lo justo (CoInitializeEx, CoCreateInstance,
+                          CoTaskMem*, PropVariantClear; SysAllocString...)
+      23  HID + SETUPAPI + CFGMGR32   enumerar aparatos: "no hay ninguno"
+       4  VCRUNTIME140 + crt-private  RTTI: __RTDynamicCast, __RTtypeid,
+                          __unDName(Ex)
+       1  VCRUNTIME140_1  __CxxFrameHandler4 (pide tanda4m.exe)
+      30  los chicos      SHELL32 4, ntdll 4, WINMM 4, seguridad 4, VERSION
+                          3, SHLWAPI 2, IPHLPAPI 2, MSWSOCK 2, XInput 1,
+                          GDI32 1, POWRPROF 1, WININET 1, Normaliz 1
+  ```
+- [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
   **Como se sabe:** el censo dice `NO FALTA NINGUNA DURA`.
 - [x] P0.3a -- El DIARIO de la casa: cada funcion de Windows llamada por
   primera vez, en orden, a `informe/diario.txt` (orden, hilo, DLL, nombre).
@@ -48,7 +72,8 @@ pide y en que orden.
 - [ ] P0.3b -- Cada `QueryInterface` con un IID que la casa no conoce, al
   diario, con el IID entero (los metodos de COM no pasan por trampolines).
 - [ ] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
-  Cyberpunk pasa de el. Leerlo por secciones, como ya hace el censo.
+  Cyberpunk mide 57 MiB (el censo del metal). Leerlo por secciones, como ya
+  hace el censo.
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.
