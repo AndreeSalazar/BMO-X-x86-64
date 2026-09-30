@@ -68,6 +68,7 @@ const TANDA9: &[u8] = include_bytes!("../../proton-x/prueba/tanda9.exe");
 const TANDA10: &[u8] = include_bytes!("../../proton-x/prueba/tanda10.exe");
 const TANDA11: &[u8] = include_bytes!("../../proton-x/prueba/tanda11.exe");
 const TANDA12: &[u8] = include_bytes!("../../proton-x/prueba/tanda12.exe");
+const TANDA13: &[u8] = include_bytes!("../../proton-x/prueba/tanda13.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1303,4 +1304,12 @@ fn tanda11_exe_tiene_advapi32() {
 #[test]
 fn tanda12_exe_tiene_la_red_y_la_cripto_sin_red() {
     tanda(TANDA12, None, 24, "tanda12.exe: la red y la cripto sin red son lo de Windows");
+}
+
+/// **La tanda 13 de Cyberpunk** (30-09): `tanda13.exe` -- lo que lanza
+/// msvcp140 (las _X..., system_error, future_error), cogido por el nombre de
+/// su clase; exception_ptr, uncaught_exceptions y _Lockit.
+#[test]
+fn tanda13_exe_tiene_lo_que_lanza_msvcp140() {
+    tanda(TANDA13, None, 13, "tanda13.exe: lo que lanza msvcp140 es lo de Windows");
 }

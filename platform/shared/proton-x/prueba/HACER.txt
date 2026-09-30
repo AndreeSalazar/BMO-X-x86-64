@@ -754,6 +754,30 @@ bcrypt: SHA-256, MD5, SHA-1, HMAC-SHA256, la medida mal y el azar:
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   72b75544554574a1ef979247662959c62f5fff58afa4501be5641b1b97e8f704
+   2e648b4ce4418c5bbcb8bd1b5ee2d89a66b6621b899ea6c31ccadc85918cb694
 
 Dice `bien` veinticuatro veces y sale con 0. En Windows dice lo mismo.
+
+tanda13.exe -- la TANDA 13 de Cyberpunk (30-09): lo que lanza msvcp140
+
+_Xlength_error, _Xout_of_range, _Xinvalid_argument, _Xbad_alloc,
+_Xbad_function_call, _Throw_Cpp_error, _Throw_C_error y _Throw_future_error,
+cogidos por el NOMBRE de su clase de MSVC (como los coge el juego), con su
+what() y, en system_error y future_error, su error_code (la categoria
+"generic", _Addr 3); uncaught_exceptions mientras se desenrolla;
+exception_ptr (guardar, copiar, soltar y relanzar: una de msvcp y una
+propia con su constructor de copia) y _Lockit. En C++ sin su biblioteca:
+las clases se declaran, y sus miembros donde MSVC los pone
+(tanda13_*.def; pide vcruntime140.dll y msvcp140.dll, el redistribuible):
+
+   llvm-dlltool -m i386:x86-64 -d tanda13_kernel32.def -l tanda13_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda13_vcruntime.def -l tanda13_vcruntime.lib
+   llvm-dlltool -m i386:x86-64 -d tanda13_msvcp140.def -l tanda13_msvcp140.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fexceptions -fcxx-exceptions -ffreestanding -fno-stack-protector -fno-builtin -c tanda13.cpp -o tanda13.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda13.obj tanda13_kernel32.lib tanda13_vcruntime.lib tanda13_msvcp140.lib /out:tanda13.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   0cca92cb3684fc62ec9a39838de4d7a62a203587268fa1c878c5e3c7493b7f1a
+
+Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.

@@ -342,8 +342,30 @@ impl Tirada {
 /// cooperativos).
 static mut PARAMETROS: [u64; 4] = [0; 4];
 
+/// Las tablas de C++ que hace la casa (msvcp_errores: los ThrowInfo de
+/// std::length_error...): la base de sus RVAs (por debajo de ellas Y del
+/// codigo que nombran: las RVAs no tienen signo), y donde estan.
+static mut TABLAS_CASA: (u64, u64, u64) = (0, 0, 0);
+
+pub(crate) fn tablas_de_la_casa(base: u64, desde: u64, hasta: u64) {
+    // SAFETY: una tarea, hilos cooperativos; se pone una vez.
+    unsafe { TABLAS_CASA = (base, desde, hasta) };
+}
+
+/// Donde estan esas tablas, para leerlas (`Viva`).
+pub(crate) fn rango_casa() -> Option<(u64, u64)> {
+    // SAFETY: ver TABLAS_CASA.
+    let (_, d, h) = unsafe { TABLAS_CASA };
+    (d != 0).then_some((d, h))
+}
+
 /// La base de la imagen donde cae `d` (el ThrowInfo), o 0.
-fn base_de(d: u64) -> u64 {
+pub(crate) fn base_de(d: u64) -> u64 {
+    // SAFETY: ver TABLAS_CASA.
+    let (b, desde, hasta) = unsafe { TABLAS_CASA };
+    if d >= desde && d < hasta {
+        return b;
+    }
     let (_, imagenes) = Viva::de_ahora();
     seh::imagen_de(&imagenes, d).map_or(0, |i| i.base)
 }
@@ -391,7 +413,7 @@ core::arch::global_asm!(
 );
 
 extern "C" {
-    fn proton_x_cxx_throw();
+    pub(crate) fn proton_x_cxx_throw();
 }
 
 // -- El manejador ---------------------------------------------------------------------
@@ -602,7 +624,7 @@ fn coger(rec: *mut u8, fin: &Contexto, padre: u64, funcion: u64, intento: u32, c
 // -- Lo demas que se exporta ----------------------------------------------------------
 
 /// `__current_exception`: donde esta el EXCEPTION_RECORD* de la que se coge.
-extern "win64" fn current_exception() -> u64 {
+pub(crate) extern "win64" fn current_exception() -> u64 {
     con(|e| core::ptr::addr_of_mut!(e.registro) as u64)
 }
 
@@ -613,7 +635,7 @@ extern "win64" fn current_exception_context() -> u64 {
 
 /// `__uncaught_exceptions`: las lanzadas que aun no ha cogido nadie (las que
 /// se estan cogiendo no cuentan).
-extern "win64" fn uncaught_exceptions() -> i32 {
+pub(crate) extern "win64" fn uncaught_exceptions() -> i32 {
     let t = kernel32::teb();
     con(|e| e.en_curso.iter().filter(|x| x.teb == t && !e.capturas.iter().any(|c| c.teb == t && c.objeto == x.objeto)).count() as i32)
 }
