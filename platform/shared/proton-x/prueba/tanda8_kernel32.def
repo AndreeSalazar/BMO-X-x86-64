@@ -1,0 +1,21 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetStdHandle
+WriteFile
+ExitProcess
+GetLastError
+CompareStringEx
+CompareStringW
+LCMapStringEx
+LCMapStringW
+LCMapStringA
+GetLocaleInfoEx
+GetLocaleInfoW
+GetLocaleInfoA
+GetGeoInfoW
+GetDateFormatEx
+GetDateFormatW
+GetTimeFormatEx
+GetTimeFormatW
+GetNumberFormatEx
+GetCurrencyFormatEx

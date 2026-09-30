@@ -69,6 +69,7 @@ pub mod hilos;
 pub mod kernel32;
 pub mod kernel32_a;
 pub mod kernel32_hora;
+pub mod kernel32_locale;
 pub mod kernel32_mapeo;
 pub mod kernel32_pool;
 pub mod kernel32_sistema;
@@ -279,7 +280,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
     let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
     if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n)).or_else(|| excepciones::buscar(n)).or_else(|| kernel32_hora::buscar(n)).or_else(|| kernel32_sistema::buscar(n)).or_else(|| kernel32_a::buscar(n)).or_else(|| kernel32_pool::buscar(n)).or_else(|| kernel32_mapeo::buscar(n))
+        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n)).or_else(|| excepciones::buscar(n)).or_else(|| kernel32_hora::buscar(n)).or_else(|| kernel32_sistema::buscar(n)).or_else(|| kernel32_a::buscar(n)).or_else(|| kernel32_pool::buscar(n)).or_else(|| kernel32_mapeo::buscar(n)).or_else(|| kernel32_locale::buscar(n))
     } else if crt::es_del_crt(dll) {
         // P4f5: el CRT de MSVC (ucrtbase, vcruntime140 y sus API set).
         crt::buscar(n)

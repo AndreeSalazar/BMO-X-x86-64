@@ -63,6 +63,7 @@ const TANDA3C: &[u8] = include_bytes!("../../proton-x/prueba/tanda3c.exe");
 const TANDA5: &[u8] = include_bytes!("../../proton-x/prueba/tanda5.exe");
 const TANDA6: &[u8] = include_bytes!("../../proton-x/prueba/tanda6.exe");
 const TANDA7: &[u8] = include_bytes!("../../proton-x/prueba/tanda7.exe");
+const TANDA8: &[u8] = include_bytes!("../../proton-x/prueba/tanda8.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -952,6 +953,20 @@ fn tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 29, "{texto}");
     assert!(texto.ends_with("tanda7.exe: el teclado, el raton y el portapapeles dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 8 de Cyberpunk** (30-09): `tanda8.exe` -- el locale de
+/// kernel32: comparar y cambiar texto, lo que sabe en-US y los formatos de
+/// fecha, hora, numero y moneda (siempre en-US: cualquier Windows lo dice).
+#[test]
+fn tanda8_exe_tiene_el_locale_de_kernel32() {
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA8, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
+    assert!(texto.ends_with("tanda8.exe: el locale de kernel32 es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a

@@ -647,3 +647,20 @@ cosas tuyas, y las deja como estaban: pone el cursor donde ya estaba,
 suelta el ClipCursor (si otro programa lo tenia puesto, se va) y usa el
 portapapeles con "BMO tanda7", devolviendole al final el texto que tenia
 (el historial de Win+V se queda con una linea mas).
+
+tanda8.exe -- la TANDA 8 de Cyberpunk (30-09): el locale de kernel32
+
+Comparar y cambiar texto (CompareString, LCMapString), lo que sabe un
+locale (GetLocaleInfo, GetGeoInfoW) y los formatos de fecha, hora, numero y
+moneda, siempre con "en-US" o 0x409: cualquier Windows dice lo mismo, sea
+cual sea el idioma de su usuario (tanda8_kernel32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda8_kernel32.def -l tanda8_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda8.c -o tanda8.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda8.obj tanda8_kernel32.lib /out:tanda8.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   94ecdd366c1d06e6ff38540a18ae58669954aad3250537d157228ccb5faa7bd6
+
+Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo.
