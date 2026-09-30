@@ -127,7 +127,9 @@ pide y en que orden.
     (0x37-0x39) y el peaje en `LA_COMPATIBILIDAD.md` 4.3. La pila del
     syscall mas hondo sigue cabiendo (29.662 de 40.960). Falta verlo en el
     metal (P0.4b.5).
-  - [ ] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3.
+  - [x] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3. **HECHO el 30-09**
+    (`userland/src/imagen.rs`: declarar, parte, sellar; el NO con su frase
+    y sus MiB).
   - [ ] P0.4b.4 -- La app: del censo a la declaracion, y cargar el `.exe` y
     las DLL del juego en sus partes (lo que hace el banco con `cargar_dll` y
     `registrar_dll`).

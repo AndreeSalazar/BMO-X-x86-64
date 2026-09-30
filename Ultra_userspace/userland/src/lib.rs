@@ -1474,6 +1474,7 @@ mod dibujo;
 /// ORDEN al aparato en vez de preguntarle algo. Ver su cabecera.
 mod disco;
 mod entrada;
+mod imagen;
 mod memoria;
 /// ** LA RED desde donde vive el propietario: armar el receptor y sondearlo.
 ///
@@ -1509,6 +1510,7 @@ pub use archivo::*;
 pub use dibujo::*;
 pub use disco::*;
 pub use entrada::*;
+pub use imagen::*;
 pub use memoria::*;
 pub use pantalla::*;
 pub use sin_gpu::rayo::CuentasRayo;
