@@ -558,6 +558,30 @@ montado):
 | F12: `vuelve 1` | `rock` vuelve, la animacion vuelve a empezar | igual |
 | F1 sin ESTRATOS montado | `ESTRATOS no esta montado: ejemplo en memoria`, y todo lo de 8.5 sigue igual | la app se cierra |
 
+**[!] VISTO EN EL RYZEN el 29-09 noche: F1 PARO LA MAQUINA.** Pantalla azul
+de Ring 0: `#PF`, `err=0x1` (proteccion leyendo desde el KERNEL), `rip` en
+`memcpy`, `cr2=0xE07AD000`, corria `tid=07` (el taller). La cuenta de los
+bloques de F1 desde `MEMORIA_VA_BASE` (superficie 0x3B6000 + buzon 0x1000 +
+logo 0x40000 + cielo 0x3B6000 = 0xE07AD000) dice que es la primera pagina del
+bloque de 4 KiB con el que F1 SIEMBRA la biblioteca.
+
+No era F1: era el kernel. `guardar_desde` entregaba a `copiar::traer` la VA
+de Ring 3 del bloque, y con CR4.SMAP encendido Ring 0 no puede leerla; y el
+limite se media contra la suma de TODOS los bloques del proceso. Es el fallo
+que `LEER_EN` y `ESCRIBIR_DE` corrigieron el 24-08 y que este camino (otro
+verbo, el mismo renglon) no recibio. F1 fue el primero en guardar desde un
+bloque despues de SMAP. Arreglado en `367cedfb0` (`syscall/gesto.rs`,
+`origen_tomar`: `fisica_de` + el espejo), y comprobado sin metal que NO quita
+nada: los bloques son contiguos (`alloc_frames_contig`), el asignador no pasa
+del espejo (16 GiB), y las cuatro llamadas de Ring 3 (dos de F1, `nuevo` y
+`guarda` de F12) caen dentro de su bloque. `guarda` de F12 tenia el mismo
+fallo sin que nadie lo hubiera pisado.
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 con el kernel de `367cedfb0` | el logo, y la consola dice `sembre titan/asteroids en ESTRATOS` | pantalla azul otra vez: foto de `rip`/`cr2` |
+| F12: `guarda prueba.txt` | sale la generacion nueva | pantalla azul en `memcpy`: el kernel desplegado es el viejo |
+
 **Lo siguiente:** 8.7 (colgar arrastrando). Despues, sin hacer: crear,
 renombrar y borrar DESDE la columna (hoy se hace en F12 y F1 lo ve); abrir un
 `.titan` en el editor; que un cable dibujado escriba el `use` (escalon 10). Y
