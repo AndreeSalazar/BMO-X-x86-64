@@ -146,8 +146,9 @@ extern "C" void inicio() {
         ok = igual(e.what(), "bad function call");
     }
     mira(ok, "_Xbad_function_call: \"bad function call\"");
-    // Cuatro cosas, cada una en su linea, y el what() de verdad a la vista
-    // (el juez dijo MAL cuando iban juntas).
+    // Cuatro cosas, cada una en su linea (el juez dijo MAL cuando iban
+    // juntas). El what() de un system_error es "<mensaje>: <message()>", y
+    // msvcp140 da el mismo texto en los dos: sale repetido (lo dijo Windows).
     bool cogido = false, v1 = false, texto = false, generica = false, addr3 = false;
     try {
         std::_Throw_Cpp_error(4);
@@ -156,15 +157,12 @@ extern "C" void inicio() {
         Nombre nombre = (*(Nombre *const *)c)[1];
         cogido = true;
         v1 = valor(e) == 1;
-        texto = igual(e.what(), "operation not permitted");
+        texto = igual(e.what(), "operation not permitted: operation not permitted");
         generica = igual(nombre(c), "generic");
         addr3 = *(const unsigned long long *)((const char *)c + 8) == 3;
-        di("        what() = \"");
-        di(e.what());
-        di("\"\r\n");
     }
     mira(cogido && v1, "_Throw_Cpp_error(4): un system_error de errc 1 (operation_not_permitted)");
-    mira(texto, "_Throw_Cpp_error: su what() es \"operation not permitted\"");
+    mira(texto, "_Throw_Cpp_error: su what() es \"operation not permitted: operation not permitted\"");
     mira(generica, "_Throw_Cpp_error: la categoria se llama \"generic\"");
     mira(addr3, "_Throw_Cpp_error: la categoria generica tiene _Addr 3");
     ok = false;
