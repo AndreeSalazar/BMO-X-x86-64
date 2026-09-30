@@ -1178,3 +1178,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    087691dfbc78a3dc41d0aeb838b4f2c02650015c4178e836838ed4862ae43b63
 
 Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda28.exe -- la TANDA 28 de Cyberpunk (30-09): RtlUnwindEx CONSOLIDANDO
+
+En el metal REDGalaxy64.dll (el SDK de GOG Galaxy) lanzo una excepcion de
+C++ dentro de un try: sin red, ioctlsocket falla, como en Windows sin red.
+Su CRT de MSVC, enlazado DENTRO de la DLL, la cogio con su propio
+__CxxFrameHandler4, que llama a RtlUnwindEx con STATUS_UNWIND_CONSOLIDATE
+y ExceptionInformation[0] = la funcion que corre el catch. La casa volvia
+a TargetIp con rax = ReturnValue (0) en vez de llamarla, y la DLL leyo un
+puntero nulo. Aqui se hace a mano: `medio` llama a `lanzar`, que encuentra
+el marco de `medio` y desenrolla hasta el CONSOLIDANDO; Windows llama a la
+funcion en la pila de debajo y sigue donde devuelve.
+
+Lleva -funwind-tables: sin .pdata nadie (ni Windows) sube por su pila.
+
+   llvm-dlltool -m i386:x86-64 -d tanda28_kernel32.def -l tanda28_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -funwind-tables -c tanda28.c -o tanda28.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda28.obj tanda28_kernel32.lib /out:tanda28.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   effb9e10d6559bb0b846ccf92962c8372600ec2c6c519e21b2c5a8c430c51add
+
+Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
