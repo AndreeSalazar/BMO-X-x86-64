@@ -1331,3 +1331,31 @@ que llama a Windows.
       el truncado a 12 bits es del silicio o de como el driver lo configura).
       **Como se sabe:** la fila dice los pixeles contra el juez con
       `Reglas::D3D10` y con `unorm8 = truncar_12`.
+
+## 17. Los `.exe` de Windows en el escritorio: su icono y sus propiedades (30-09)
+
+Lo pidio el propietario con dos capturas de Windows (el acceso directo de
+Cyberpunk con su icono y la flechita, y la ventana de propiedades): *"que se
+noten iconos predeterminados y que muestre propiedades tipicas"*; y el
+encargo: *"es para facilitar ubicacion, pero que sea ELEGANTE, con NEON
+UNICOS"*. **Va DESPUES del primer contacto** (P0.4 de
+`PLAN_LAS_TRES_GRANDES.md`): lo primero es que el juego cargue.
+
+Casi todo ya existe en la casa: los recursos de un PE se leen desde la tanda
+10 (LoadString) y el de VERSION desde la 14b.
+
+- [ ] **I1 -- el icono del `.exe`.** Su recurso RT_GROUP_ICON (14) elige la
+  imagen mas grande de sus RT_ICON (3); casi siempre es un PNG (lo demas, un
+  BMP de 32 bits). Se decodifica en Ring 3 y se pinta en el escritorio y en
+  el explorador. Solo lectura: el `.exe` no se toca (D: es de solo lectura).
+- [ ] **I2 -- el acceso directo.** El icono con su marca de "lleva a otro
+  sitio" -- no la flecha de Windows copiada: una propia de BMO-X, con el neon
+  del escritorio.
+- [ ] **I3 -- las propiedades.** Tipo (aplicacion de Windows x86-64, o DLL),
+  ubicacion, medida en el disco y en memoria (lo que ya dice el censo), y lo
+  que el `.exe` dice de si mismo en su VERSION (descripcion, compania,
+  version del producto y del fichero, copyright). Y lo de BMO-X: si PROTON-X
+  lo puede correr (las DURAS del censo) y su ultima autopsia.
+- [ ] **I4 -- elegante, con neon UNICO.** Cada programa con su color de
+  acento sacado de su propio icono (el tono dominante), para que se
+  encuentre de un vistazo. Lo decide el propietario viendolo en el metal.
