@@ -980,8 +980,12 @@ extern "win64" fn open_process_token(_proceso: u64, _acceso: u32, token: *mut u6
     1
 }
 
-/// `OpenThreadToken`: los hilos de la casa no se hacen pasar por nadie.
-extern "win64" fn open_thread_token(_hilo: u64, _acceso: u32, _propio: i32, _token: *mut u64) -> i32 {
+/// `OpenThreadToken`: el token del proceso si el hilo se hace pasar por si
+/// mismo (ImpersonateSelf); si no, no hay (ERROR_NO_TOKEN).
+extern "win64" fn open_thread_token(_hilo: u64, acceso: u32, _propio: i32, token: *mut u64) -> i32 {
+    if crate::version_y_seguridad::suplantando() {
+        return open_process_token(0, acceso, token);
+    }
     no(ERROR_NO_TOKEN)
 }
 

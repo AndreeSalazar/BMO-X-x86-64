@@ -30,9 +30,14 @@
 //! marco de la funcion (`excepciones::poner_salto`) al acabarse la pila en
 //! la casa.
 //!
-//! **Lo que NO hace, dicho:** `__CxxFrameHandler4` (el formato comprimido de
-//! MSVC 2019 y despues, el de Cyberpunk: va detras, con un `.exe` de MSVC de
-//! prueba); las especificaciones `throw()` y `noexcept` no llaman a
+//! **`__CxxFrameHandler4`** (30-09): el formato comprimido de MSVC 2019 y
+//! despues, el de Cyberpunk. Sus tablas las lee `cxx4` a la misma forma
+//! plana (`Tablas`), y el manejador es este mismo; lo suyo: destructores
+//! directos en el mapa de estados, funclets de catch con sus propias tablas,
+//! y continuaciones en la tabla (el funclet devuelve el indice).
+//!
+//! **Lo que NO hace, dicho:** el FH4 de codigo separado en trozos (/hotpatch,
+//! BBT); las especificaciones `throw()` y `noexcept` no llaman a
 //! `std::terminate` (la excepcion sigue subiendo); /EHa (un catch(...) que
 //! coge excepciones de SEH) tampoco.
 
@@ -195,10 +200,10 @@ impl FuncInfo {
     }
 
     /// UnwindMap[s]: (toState, action).
-    fn desenrollar(&self, m: &Viva, s: i32) -> Option<(i32, u64)> {
+    fn desenrollar(&self, m: &Viva, s: i32) -> Option<(i32, Accion)> {
         let d = self.mapa + 8 * s as u64;
         let accion = u32_en(m, d + 4)?;
-        Some((i32_en(m, d)?, if accion == 0 { 0 } else { self.base + accion as u64 }))
+        Some((i32_en(m, d)?, if accion == 0 { Accion::Nada } else { Accion::Funclet(self.base + accion as u64) }))
     }
 
     fn intento(&self, m: &Viva, k: u32) -> Option<Intento> {
@@ -216,6 +221,8 @@ impl FuncInfo {
             objeto: i32_en(m, d + 8)?,
             funclet: self.base + u32_en(m, d + 12)? as u64,
             marco: u32_en(m, d + 16)?,
+            seguir: [0; 2],
+            cuantas_seguir: 0,
         })
     }
 }
@@ -229,15 +236,85 @@ struct Intento {
 }
 
 #[derive(Clone, Copy)]
-struct Catch {
-    adjetivos: u32,
+pub(crate) struct Catch {
+    pub(crate) adjetivos: u32,
     /// El TypeDescriptor, o 0 (catch(...)).
-    tipo: u64,
+    pub(crate) tipo: u64,
     /// Donde va el objeto del catch, desde el marco de la funcion (0: sin).
-    objeto: i32,
-    funclet: u64,
-    /// Donde guarda el funclet el marco de su funcion, desde el suyo.
-    marco: u32,
+    pub(crate) objeto: i32,
+    pub(crate) funclet: u64,
+    /// Donde guarda el funclet el marco de su funcion, desde el suyo (FH3;
+    /// en FH4 lo dice el FuncInfo4 del funclet).
+    pub(crate) marco: u32,
+    /// FH4: las continuaciones de la tabla (el funclet devuelve el indice);
+    /// sin ellas (FH3), el funclet devuelve la direccion.
+    pub(crate) seguir: [u64; 2],
+    pub(crate) cuantas_seguir: u8,
+}
+
+/// Lo que hace una fila del mapa de estados al desenrollar.
+#[derive(Clone, Copy)]
+pub(crate) enum Accion {
+    Nada,
+    /// Un funclet de limpieza: rdx = el marco de la funcion.
+    Funclet(u64),
+    /// FH4: el destructor (this = el marco + el desplazamiento).
+    Destructor(u64, u32),
+    /// FH4: el destructor de lo que apunta el puntero de (el marco + el
+    /// desplazamiento).
+    DestructorDePuntero(u64, u32),
+}
+
+/// **Las tablas de una funcion**, de FH3 (en la memoria, tal cual) o de FH4
+/// (leidas y descomprimidas: `cxx4`).
+enum Tablas {
+    Fh3(FuncInfo),
+    Fh4(crate::cxx4::Fh4, u64),
+}
+
+impl Tablas {
+    fn clave(&self) -> u64 {
+        match self {
+            Tablas::Fh3(f) => f.mapa,
+            Tablas::Fh4(f, _) => f.clave,
+        }
+    }
+
+    fn estado(&self, m: &Viva, pc: u64) -> i32 {
+        match self {
+            Tablas::Fh3(f) => f.estado(m, pc),
+            Tablas::Fh4(f, inicio) => f.estado(pc, *inicio),
+        }
+    }
+
+    fn desenrollar(&self, m: &Viva, s: i32) -> Option<(i32, Accion)> {
+        match self {
+            Tablas::Fh3(f) => f.desenrollar(m, s),
+            Tablas::Fh4(f, _) => f.mapa.get(usize::try_from(s).ok()?).copied(),
+        }
+    }
+
+    fn n_intentos(&self) -> u32 {
+        match self {
+            Tablas::Fh3(f) => f.n_intentos,
+            Tablas::Fh4(f, _) => f.intentos.len() as u32,
+        }
+    }
+
+    /// El try `k` (en FH4, `catches` es su indice).
+    fn intento(&self, m: &Viva, k: u32) -> Option<Intento> {
+        match self {
+            Tablas::Fh3(f) => f.intento(m, k),
+            Tablas::Fh4(f, _) => f.intentos.get(k as usize).map(|t| Intento { bajo: t.bajo, alto: t.alto, n_catches: t.catches.len() as u32, catches: k as u64 }),
+        }
+    }
+
+    fn catch(&self, m: &Viva, t: &Intento, j: u32) -> Option<Catch> {
+        match self {
+            Tablas::Fh3(f) => f.catch(m, t, j),
+            Tablas::Fh4(f, _) => f.intentos.get(t.catches as usize)?.catches.get(j as usize).copied(),
+        }
+    }
 }
 
 /// El nombre decorado de un TypeDescriptor (tras vftable y spare).
@@ -420,7 +497,7 @@ extern "C" {
 
 /// Lo que se sabe de un marco al manejarlo.
 struct Marco {
-    fi: FuncInfo,
+    fi: Tablas,
     /// El marco de la funcion (el del padre si este es un funclet de catch).
     padre: u64,
     /// El estado efectivo.
@@ -431,22 +508,37 @@ struct Marco {
     captura: Option<Captura>,
 }
 
-fn marco(m: &Viva, d: &Despacho) -> Option<Marco> {
-    let fi = FuncInfo::leer(m, d.base_imagen, d.base_imagen + u32_en(m, d.datos)? as u64)?;
+fn marco(m: &Viva, d: &Despacho, cuatro: bool) -> Option<Marco> {
+    let datos = d.base_imagen + u32_en(m, d.datos)? as u64;
     let inicio = u32_en(m, d.funcion)? as u64 + d.base_imagen;
-    // Es el funclet de un catch si empieza donde el handler de alguno.
-    for k in 0..fi.n_intentos.min(4096) {
-        let t = fi.intento(m, k)?;
-        for j in 0..t.n_catches.min(64) {
-            let c = fi.catch(m, &t, j)?;
-            if c.funclet == inicio {
-                let padre = m.u64_en(d.establecido + c.marco as u64)?;
-                return Some(Marco { fi, padre, estado: fi.estado(m, d.pc), funclet_de: Some(k), captura: None });
+    let fi = if cuatro {
+        let f = crate::cxx4::Fh4::leer(m, d.base_imagen, datos, inicio)?;
+        // FH4: el funclet de un catch tiene SUS tablas y dice donde guardo
+        // el marco de su funcion.
+        if let Some(desp) = f.marco_del_padre {
+            let padre = m.u64_en(d.establecido + desp as u64)?;
+            let estado = f.estado(d.pc, inicio);
+            return Some(Marco { fi: Tablas::Fh4(f, inicio), padre, estado, funclet_de: Some(0), captura: None });
+        }
+        Tablas::Fh4(f, inicio)
+    } else {
+        let fi = FuncInfo::leer(m, d.base_imagen, datos)?;
+        // FH3: es el funclet de un catch si empieza donde el handler de alguno.
+        for k in 0..fi.n_intentos.min(4096) {
+            let t = fi.intento(m, k)?;
+            for j in 0..t.n_catches.min(64) {
+                let c = fi.catch(m, &t, j)?;
+                if c.funclet == inicio {
+                    let padre = m.u64_en(d.establecido + c.marco as u64)?;
+                    return Some(Marco { fi: Tablas::Fh3(fi), padre, estado: fi.estado(m, d.pc), funclet_de: Some(k), captura: None });
+                }
             }
         }
-    }
+        Tablas::Fh3(fi)
+    };
     let t = kernel32::teb();
-    let captura = con(|e| e.capturas.iter().rev().find(|c| c.teb == t && c.padre == d.establecido && c.funcion == fi.mapa).copied());
+    let clave = fi.clave();
+    let captura = con(|e| e.capturas.iter().rev().find(|c| c.teb == t && c.padre == d.establecido && c.funcion == clave).copied());
     let estado = match captura {
         // Esta en el catch de su try: fuera de el (el estado de antes del try).
         Some(c) => fi.intento(m, c.intento).and_then(|t| fi.desenrollar(m, t.bajo)).map_or(-1, |(a, _)| a),
@@ -461,13 +553,23 @@ fn destructores(m: &Viva, mc: &Marco, desde: i32, hasta: i32) {
     let mut vueltas = 0;
     while s > hasta && s >= 0 && vueltas < 100_000 {
         let Some((siguiente, accion)) = mc.fi.desenrollar(m, s) else {
-            aviso("__CxxFrameHandler3: el mapa de estados no se deja leer");
+            aviso("__CxxFrameHandler: el mapa de estados no se deja leer");
             return;
         };
-        if accion != 0 {
-            // SAFETY: el funclet de limpieza del `.exe`: rdx = el marco.
-            unsafe { hilos::llamar_win64(accion, 0, mc.padre, 0) };
-        }
+        // SAFETY: lo que el mapa de estados del `.exe` dice que se corra.
+        unsafe {
+            match accion {
+                Accion::Nada => 0,
+                // El funclet de limpieza: rdx = el marco.
+                Accion::Funclet(f) => hilos::llamar_win64(f, 0, mc.padre, 0),
+                // El destructor de un objeto del marco: this = su sitio.
+                Accion::Destructor(f, o) => hilos::llamar_win64(f, mc.padre + o as u64, 0, 0),
+                Accion::DestructorDePuntero(f, o) => match m.u64_en(mc.padre + o as u64) {
+                    Some(p) => hilos::llamar_win64(f, p, 0, 0),
+                    None => 0,
+                },
+            }
+        };
         s = siguiente;
         vueltas += 1;
     }
@@ -493,12 +595,21 @@ fn acabar_con(objeto: u64) {
 
 /// **`__CxxFrameHandler3`** (rec, marco, contexto, DISPATCHER_CONTEXT).
 pub(crate) extern "win64" fn cxx_frame_handler3(rec: *mut u8, establecido: u64, ctx: *mut u8, dc: *mut u8) -> u32 {
+    manejar(rec, establecido, ctx, dc, false)
+}
+
+/// **`__CxxFrameHandler4`**: el mismo, con las tablas comprimidas (`cxx4`).
+pub(crate) extern "win64" fn cxx_frame_handler4(rec: *mut u8, establecido: u64, ctx: *mut u8, dc: *mut u8) -> u32 {
+    manejar(rec, establecido, ctx, dc, true)
+}
+
+fn manejar(rec: *mut u8, establecido: u64, ctx: *mut u8, dc: *mut u8, cuatro: bool) -> u32 {
     // SAFETY: los del despachador de la casa, con sus medidas.
     let r = Registro::de_bytes(unsafe { core::slice::from_raw_parts(rec, REGISTRO_BYTES) });
     let d = Despacho::de_bytes(unsafe { core::slice::from_raw_parts(dc, DESPACHO_BYTES) });
     let (m, _) = Viva::de_ahora();
-    let Some(mc) = marco(&m, &d) else {
-        aviso("__CxxFrameHandler3: el FuncInfo no se entiende");
+    let Some(mc) = marco(&m, &d, cuatro) else {
+        aviso(if cuatro { "__CxxFrameHandler4: el FuncInfo4 no se entiende" } else { "__CxxFrameHandler3: el FuncInfo no se entiende" });
         return DISPOSICION_BUSCAR;
     };
     let t = kernel32::teb();
@@ -534,7 +645,7 @@ pub(crate) extern "win64" fn cxx_frame_handler3(rec: *mut u8, establecido: u64, 
         aviso("_CxxThrowException: el ThrowInfo no se deja leer");
         return DISPOSICION_BUSCAR;
     };
-    for k in 0..mc.fi.n_intentos.min(4096) {
+    for k in 0..mc.fi.n_intentos().min(4096) {
         let Some(it) = mc.fi.intento(&m, k) else { break };
         if mc.estado < it.bajo || mc.estado > it.alto {
             continue;
@@ -551,7 +662,7 @@ pub(crate) extern "win64" fn cxx_frame_handler3(rec: *mut u8, establecido: u64, 
             con(|e| e.pendientes.push(Pendiente { teb: t, marco: establecido, estado: hasta }));
             // SAFETY: el CONTEXT de la excepcion (la foto de RaiseException).
             let inicio = Contexto::de_context(unsafe { core::slice::from_raw_parts(ctx, CONTEXT_BYTES) });
-            let (padre, funcion, intento) = (mc.padre, mc.fi.mapa, k);
+            let (padre, funcion, intento) = (mc.padre, mc.fi.clave(), k);
             excepciones::desenrollar_y(establecido, rec, inicio, &mut |fin: &mut Contexto| {
                 con(|e| e.pendientes.retain(|p| !(p.teb == t && p.marco == establecido)));
                 fin.rip = coger(rec, fin, padre, funcion, intento, &c, cogible, objeto);
@@ -610,7 +721,16 @@ fn coger(rec: *mut u8, fin: &Contexto, padre: u64, funcion: u64, intento: u32, c
     excepciones::poner_salto(marca, foto.0.as_ptr() as u64);
     // SAFETY: el funclet del catch: rdx = el marco de su funcion; devuelve
     // donde seguir.
-    let seguir = unsafe { hilos::llamar_win64(c.funclet, 0, padre, 0) };
+    let devuelto = unsafe { hilos::llamar_win64(c.funclet, 0, padre, 0) };
+    // FH4 con continuaciones en la tabla: el funclet dice CUAL (0 o 1).
+    let seguir = match c.cuantas_seguir {
+        0 => devuelto,
+        n if devuelto < n as u64 => c.seguir[devuelto as usize],
+        _ => {
+            aviso("__CxxFrameHandler4: el funclet del catch devolvio una continuacion que no hay");
+            c.seguir[0]
+        }
+    };
     excepciones::soltar_salto(foto.0.as_ptr() as u64);
     con(|e| {
         e.capturas.retain(|x| x.marca != marca);
@@ -644,6 +764,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
     Some(match n {
         "_CxxThrowException" => dir!(proton_x_cxx_throw),
         "__CxxFrameHandler3" => dir!(cxx_frame_handler3),
+        "__CxxFrameHandler4" => dir!(cxx_frame_handler4),
         "__current_exception" => dir!(current_exception),
         "__current_exception_context" => dir!(current_exception_context),
         "__uncaught_exceptions" => dir!(uncaught_exceptions),

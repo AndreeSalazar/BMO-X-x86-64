@@ -4,10 +4,10 @@
 //! los `.exe` de Windows viven en `window/` desde el 27-09):
 //!
 //! ```text
-//!    1  leer el .exe del volumen, entero          un bloque, que se suelta
+//!    1  las cabeceras del .exe, sin traerlo       un bloque, que se suelta
 //!    2  el veredicto y la forma (bmo-proton-x)    solo PE32+ x86-64
 //!    3  partir: codigo delante, datos detras      dos bloques SEGUIDOS
-//!    4  colocar en SU direccion, relocalizar      la base es la del bloque
+//!    4  colocar, del disco a su RVA; relocalizar la base es la del bloque
 //!    5  resolver contra la tabla de la casa       bmo-proton-x-casa, o no arranca
 //!    6  SELLAR el codigo (MEM_OP_SELLAR)          R+X sin W; los datos, sin X
 //!    7  saltar a su entrada, como `extern "win64"`
@@ -17,8 +17,8 @@
 //! memory.rs): cada bloque que se pide cae JUSTO DETRAS del anterior en las
 //! direcciones del proceso (el cursor solo avanza), y un proceso tiene como
 //! mucho OCHO bloques vivos (`MAX_PETICIONES`; eran cuatro hasta el 20-09,
-//! cuando llego `MEM_OP_SOLTAR`). Por eso el orden: fichero (1) y monton (2);
-//! se suelta el fichero (1); codigo (2) y datos (3), seguidos. Despues, la
+//! cuando llego `MEM_OP_SOLTAR`). Por eso el orden: monton (1); cabeceras
+//! (2), que se sueltan; codigo (3) y datos (4), seguidos. Despues, la
 //! superficie de la ventana, el codigo de los sombreadores (P3b3b) y la arena del
 //! monton de Windows (P4e, 64 MiB, al primer HeapAlloc). Que esten seguidos
 //! se COMPRUEBA, no se supone: si un dia el kernel dejara un hueco, esto lo
@@ -52,14 +52,16 @@ mod la3060;
 
 use alloc::format;
 use alloc::vec::Vec;
-use bmo_proton_x::{colocar, importaciones, leer, partir, resolver, teb, tls, Permiso};
+use bmo_proton_x::{colocar_en, importaciones, leer_cabeceras, partir, resolver, teb, tls, Permiso};
 use bmo_userland as bmo;
 
 #[global_allocator]
 static MONTON: monton::Monton = monton::Monton::vacio();
 
-/// Lo mas grande que se lee hoy: un `.exe` de P1 son KiB.
-const TOPE_EXE: u64 = 16 << 20;
+/// El monton del cargador y de la casa (P0.4a: el `.exe` ya no pasa por el).
+const PARA_MONTON: u64 = 48 << 20;
+/// Lo que se lee del principio del `.exe` para juzgarlo: sus cabeceras.
+const CABECERAS: u64 = 64 << 10;
 
 fn di(s: &str) {
     bmo::consola(s);
@@ -129,6 +131,9 @@ struct Mirado {
     fallo_retrasadas: Option<alloc::string::String>,
     en_vivo: Vec<alloc::string::String>,
     mide: u64,
+    /// Como se parte su imagen (`partir`): lo que el cargador le pide al
+    /// kernel, cada parte en UN bloque de 64 MiB como mucho (P0.4a).
+    partes: Result<bmo_proton_x::Partes, alloc::string::String>,
 }
 
 /// **Mirar un fichero PE** sin traerlo entero: las cabeceras y la seccion de
@@ -144,10 +149,11 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
     hb.soltar();
     let pe = bmo_proton_x::leer_cabeceras(&cab, mide).map_err(|f| format!("{f}"))?;
+    let partes = partir(&pe).map_err(|f| format!("{f}"));
     let rva = pe.importaciones.rva;
     let seccion_de = |rva: u32| pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva));
     let Some(sec) = seccion_de(rva) else {
-        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide });
+        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide, partes });
     };
     let (imps, retrasadas, en_vivo) = con_seccion(&a, sec, |trozo| {
         let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?;
@@ -167,7 +173,7 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
             Err(f) => (Vec::new(), Some(f)),
         },
     };
-    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide })
+    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide, partes })
 }
 
 /// **Todas las secciones de DATOS en un bloque**, cada una en su RVA (lo de
@@ -417,6 +423,7 @@ fn censo(ruta: &[u8]) -> ! {
         Ok(m) => m,
         Err(f) => fin(&format!("censo: {nombre}: {f}")),
     };
+    let la_imagen = imagen(&exe);
     let mut pendiente: Option<(String, Mirado, Nivel)> = Some((String::from(nombre.rsplit('/').next().unwrap_or(nombre)), exe, Nivel::Dura));
     loop {
         let Some((quien, m, nivel)) = pendiente.take() else {
@@ -523,6 +530,7 @@ fn censo(ruta: &[u8]) -> ! {
         juego.iter().map(|j| j.1).sum::<u64>(),
         windows.len()
     ));
+    linea(&la_imagen);
     let (de, si) = cuenta(Nivel::Dura);
     linea(&format!("  PARA ARRANCAR (DURAS): {de}; la casa tiene {si} ({}%), FALTAN {}\n", si * 100 / de.max(1), de - si));
     for nv in [Nivel::Retrasada, Nivel::Vivo] {
@@ -585,6 +593,7 @@ fn censo(ruta: &[u8]) -> ! {
     let mut t = String::new();
     let (de, si) = cuenta(Nivel::Dura);
     t.push_str(&format!("# CENSO de {nombre}\n# {} funciones de Windows distintas; PARA ARRANCAR (DURAS) {de}, la casa tiene {si}, FALTAN {}\n", windows.len(), de - si));
+    t.push_str(&format!("#{}", &la_imagen[1..]));
     for nv in NIVELES {
         let (de, si) = cuenta(nv);
         t.push_str(&format!("#   {:<11} {de:>5}  faltan {:>5}\n", nv.nombre(), de - si));
@@ -630,6 +639,27 @@ fn censo(ruta: &[u8]) -> ! {
     }
     guardar_censo(t.as_bytes());
     bmo::salir();
+}
+
+/// **Si la imagen del `.exe` cabe** (P0.4a): lo que el cargador le pide al
+/// kernel son DOS bloques (codigo y datos), y un bloque es de 64 MiB como
+/// mucho (`MAX_BYTES`, `obj/memory.rs`). El censo lo mide para que el primer
+/// contacto no lo descubra.
+fn imagen(m: &Mirado) -> alloc::string::String {
+    let mib = |x: u64| x.div_ceil(1 << 20);
+    match &m.partes {
+        Err(f) => format!("  LA IMAGEN: no se puede partir ({f})\n"),
+        Ok(p) => {
+            let (c, d) = (p.codigo as u64, p.datos as u64);
+            let grandes: Vec<&str> = [("el codigo", c), ("los datos", d)].iter().filter(|x| x.1 > TOPE_SECCION).map(|x| x.0).collect();
+            let veredicto = if grandes.is_empty() {
+                alloc::string::String::from("cada parte cabe en un bloque")
+            } else {
+                format!("NO CABE: {} pasa(n) de un bloque de 64 MiB", grandes.join(" y "))
+            };
+            format!("  LA IMAGEN: {} MiB en el disco; en memoria {} MiB = codigo {} + datos {}; {veredicto}\n", mib(m.mide), mib(c + d), mib(c), mib(d))
+        }
+    }
 }
 
 /// La lista entera a `informe/censo.txt`, de una llamada.
@@ -678,45 +708,42 @@ pub extern "C" fn _start() -> ! {
     let nombre = core::str::from_utf8(ruta).unwrap_or("?");
     let linea = core::str::from_utf8(resto).unwrap_or("");
 
-    // -- 1. El fichero, entero.
-    let Ok(a) = bmo::Archivo::leer_de(ruta) else {
+    // -- 1. El fichero, SIN traerlo (P0.4a, 30-09): el de Cyberpunk son 57
+    // MiB, y antes se leia entero, se copiaba al monton y se colocaba en una
+    // tercera copia. Ahora solo las cabeceras pasan por el monton; cada
+    // seccion va del disco a su sitio en los bloques de la imagen.
+    let Ok(a) = bmo::Archivo::reflejar(ruta) else {
         di("PROTON-X: NO -- no encuentro ");
         di(nombre);
         di(" en el volumen\n");
         bmo::salir();
     };
     let mide = a.size();
-    if mide == 0 || mide > TOPE_EXE {
-        di("PROTON-X: NO -- el .exe esta vacio o pasa de 16 MiB\n");
+    if mide == 0 {
+        di("PROTON-X: NO -- el .exe esta vacio\n");
         bmo::salir();
     }
-    let Some(fichero) = bmo::Memoria::request(mide) else {
-        di("PROTON-X: NO -- sin memoria para leer el .exe\n");
-        bmo::salir();
-    };
-    if a.leer_en(&fichero, 0, mide) != mide {
-        di("PROTON-X: NO -- el .exe no se leyo entero\n");
-        bmo::salir();
-    }
-    drop(a);
 
-    // El monton: el .exe copiado, la imagen y lo que el cargador anote; y lo
-    // que piden las DLL de la casa, que desde P3b2 son back buffers de
-    // 1280x720 (3.5 MiB cada uno) y los buferes del `.exe`. 32 MiB de mas.
-    let para_monton = (3 * mide + (32 << 20)).min(64 << 20);
-    let Some(bloque) = bmo::Memoria::request(para_monton) else {
+    // El monton: lo que el cargador anote, y lo que piden las DLL de la
+    // casa, que desde P3b2 son back buffers de 1280x720 (3.5 MiB cada uno) y
+    // los buferes del `.exe`.
+    let Some(bloque) = bmo::Memoria::request(PARA_MONTON) else {
         di("PROTON-X: NO -- sin memoria para el monton del cargador\n");
         bmo::salir();
     };
     // SAFETY: el bloque es de este proceso y no se suelta nunca (forget).
-    unsafe { MONTON.poner(bloque.base() as usize, para_monton as usize) };
+    unsafe { MONTON.poner(bloque.base() as usize, PARA_MONTON as usize) };
     core::mem::forget(bloque);
-    // SAFETY: `mide` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let exe: Vec<u8> = unsafe { core::slice::from_raw_parts(fichero.base() as *const u8, mide as usize) }.to_vec();
-    fichero.soltar();
 
-    // -- 2 y 3. El veredicto, la forma, y como se parte.
-    let pe = leer(&exe).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    // -- 2 y 3. El veredicto, la forma, y como se parte: de las cabeceras.
+    let n = CABECERAS.min(mide);
+    let Some(hb) = bmo::Memoria::request(n) else { fin("sin memoria para las cabeceras") };
+    let k = a.leer_en(&hb, 0, n);
+    // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
+    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
+    hb.soltar();
+    let pe = leer_cabeceras(&cab, mide).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    drop(cab);
     let partes = partir(&pe).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
 
     // La entrada tiene que caer en lo que se va a sellar: saltar a los datos
@@ -725,36 +752,57 @@ pub extern "C" fn _start() -> ! {
         fin(&format!("{nombre}: la entrada ({:#x}) no cae en una seccion de codigo", pe.entrada));
     }
 
-    // -- Los dos bloques, SEGUIDOS (se comprueba).
-    let Some(codigo) = bmo::Memoria::request(partes.codigo as u64) else { fin("sin memoria para el codigo") };
-    let datos = if partes.datos > 0 {
-        let Some(d) = bmo::Memoria::request(partes.datos as u64) else { fin("sin memoria para los datos") };
-        Some(d)
-    } else {
-        None
+    // -- Los dos bloques, SEGUIDOS (se comprueba). Cada uno, de 64 MiB como
+    // mucho (`MAX_BYTES` del kernel): si no, se dice cual y cuanto.
+    let pedir = |que: &str, tam: u32| {
+        bmo::Memoria::request(tam as u64).unwrap_or_else(|| fin(&format!("sin memoria para {que} ({} MiB; un bloque del kernel es de 64 MiB como mucho)", (tam as u64).div_ceil(1 << 20))))
     };
+    let codigo = pedir("el codigo", partes.codigo);
+    let datos = if partes.datos > 0 { Some(pedir("los datos", partes.datos)) } else { None };
     let base = codigo.base() as u64;
     if let Some(d) = datos.as_ref() {
         if d.base() as u64 != base + partes.codigo as u64 {
             fin(&format!("los bloques no quedaron seguidos ({:#x} y {:#x}): la imagen no se puede partir", base, d.base() as u64));
         }
     }
+    let total = partes.codigo as usize + partes.datos as usize;
+    // SAFETY: los dos bloques son nuestros y estan SEGUIDOS (comprobado): una
+    // imagen de `total` bytes desde `base`. A cero lo que ninguna seccion
+    // llena (el .bss).
+    let img: &mut [u8] = unsafe {
+        core::ptr::write_bytes(base as *mut u8, 0, total);
+        core::slice::from_raw_parts_mut(base as *mut u8, total)
+    };
 
-    // -- 4 y 5. Colocar en SU direccion y resolver contra la casa.
-    let mut img = colocar(&pe, &exe, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    let imps = importaciones(&pe, &img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    // -- 4 y 5. Colocar en SU direccion y resolver contra la casa. Del
+    // fichero a la imagen A TROZOS, cediendo el turno (el raton y el teclado
+    // no se congelan: metal 29-09).
+    colocar_en(&pe, img, base, |desde, destino| {
+        let d = destino.as_ptr() as u64;
+        let (bloque, off) = match datos.as_ref() {
+            Some(b) if d >= b.base() as u64 => (b, d - b.base() as u64),
+            _ => (&codigo, d - base),
+        };
+        let tam = destino.len() as u64;
+        let mut hecho = 0u64;
+        while hecho < tam {
+            let k = TROZO.min(tam - hecho);
+            let pos = desde + hecho;
+            if a.saltar(pos) != pos || a.leer_en(bloque, off + hecho, k) != k {
+                return false;
+            }
+            hecho += k;
+            bmo::yield_screen();
+        }
+        true
+    })
+    .unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    drop(a);
+    let imps = importaciones(&pe, img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
     // P4: su TLS (`__declspec(thread)` y los callbacks), leido de la imagen
     // YA relocalizada: sus direcciones son las de aqui.
-    let tls_del_exe = tls::leer(&pe, &img, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    let (delante, detras) = img.split_at(partes.codigo as usize);
-    // SAFETY: cada bloque mide lo que `partir` dijo, y es nuestro.
-    unsafe {
-        core::ptr::copy_nonoverlapping(delante.as_ptr(), codigo.base(), delante.len());
-        if let Some(d) = datos.as_ref() {
-            core::ptr::copy_nonoverlapping(detras.as_ptr(), d.base(), detras.len().min(partes.datos as usize));
-        }
-    }
+    let tls_del_exe = tls::leer(&pe, img, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    resolver(img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
 
     // -- 6. SELLAR: de datos a codigo. Sin esto, saltar seria un #PF por NX.
     if let Err(m) = codigo.sellar() {
@@ -762,7 +810,7 @@ pub extern "C" fn _start() -> ! {
     }
     di(&format!(
         "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} funcion(es) de la casa; codigo {} KiB SELLADO, datos {} KiB sin X; monton {} B\n",
-        exe.len(),
+        mide,
         base,
         pe.base,
         imps.len(),

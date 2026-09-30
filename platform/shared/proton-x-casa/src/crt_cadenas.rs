@@ -630,6 +630,11 @@ static PCTYPE: [u16; 257] = {
     t
 };
 
+/// La tabla de clases de "C" (la de `__pctype_func`): la de `ctype<char>`.
+pub(crate) fn tabla_ctype() -> *const u16 {
+    pctype_func()
+}
+
 extern "win64" fn pctype_func() -> *const u16 {
     // SAFETY: la entrada de la c = 0; la de -1 queda justo antes.
     unsafe { PCTYPE.as_ptr().add(1) }

@@ -576,8 +576,10 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
 Dice `bien` once veces y sale con 0. En Windows dice lo mismo (pide
 vcruntime140.dll, el redistribuible de Visual C++).
 
-tanda4m.exe -- la MISMA tanda4.cpp, compilada con `cl` de MSVC (FALTA: la
-hace el propietario en su Windows). MSVC 2019 y despues usa por defecto
+tanda4m.exe -- la MISMA tanda4.cpp, compilada con `cl` de MSVC (la hizo el
+propietario en su Windows el 30-09, MSVC 19.44.35228; sha256
+20e7dc245189a3d73f11397e601adcc142352a3629c9b98c971ddd461c610083: 11 bien
+en Windows, y en el banco desde que la casa tiene __CxxFrameHandler4). MSVC 2019 y despues usa por defecto
 __CxxFrameHandler4 (de vcruntime140_1.dll), el formato comprimido que usa
 Cyberpunk y que clang no emite: con este .exe se escribe y se prueba FH4.
 En la "x64 Native Tools Command Prompt" de Visual Studio, en esta carpeta:
@@ -833,3 +835,97 @@ carpeta. Tus carpetas no son las de la casa: se miran las relaciones
 (SHGetFolderPathW da lo del entorno; las carpetas conocidas, lo de las
 CSIDL). Si tienes CUATRO mandos de Xbox enchufados, el del XInput dira MAL
 (mira el cuarto). En Windows dice lo mismo.
+
+tanda14b.exe -- la TANDA 14b de Cyberpunk (30-09): VERSION y la seguridad
+
+Lee SU PROPIO recurso de version (tanda14b.rc, compilado con llvm-rc) y la
+seguridad de un fichero que crea (tanda14b_kernel32.def, tanda14b_version.def
+y tanda14b_advapi32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda14b_kernel32.def -l tanda14b_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda14b_version.def -l tanda14b_version.lib
+   llvm-dlltool -m i386:x86-64 -d tanda14b_advapi32.def -l tanda14b_advapi32.lib
+   llvm-rc /nologo /fo tanda14b.res tanda14b.rc
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda14b.c -o tanda14b.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda14b.obj tanda14b.res tanda14b_kernel32.lib tanda14b_version.lib tanda14b_advapi32.lib /out:tanda14b.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   e756ab1f087b3ba5d5a91ed09a775d460658d52a183da131d228281f193eb759
+
+Dice `bien` doce veces y sale con 0. Deja tanda14b.txt en su carpeta. En
+Windows dice lo mismo.
+
+tanda15.exe -- la TANDA 15 de Cyberpunk (30-09): COM lo justo
+
+ole32 (CoInitializeEx, CoInitializeSecurity, CoCreateInstance,
+PropVariantClear, ReleaseStgMedium, CoUninitialize) y OLEAUT32 importada
+por ORDINAL, como la importa el juego (tanda15_oleaut32.def: `@2 NONAME`...):
+
+   llvm-dlltool -m i386:x86-64 -d tanda15_kernel32.def -l tanda15_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda15_ole32.def -l tanda15_ole32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda15_oleaut32.def -l tanda15_oleaut32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda15.c -o tanda15.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda15.obj tanda15_kernel32.lib tanda15_ole32.lib tanda15_oleaut32.lib /out:tanda15.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   5ea8ed735681055dfb3ed782f39252286eeb82856d848bcf8e5b9e1f6cc2a723
+
+Dice `bien` once veces y sale con 0. En la casa dice ademas, por la
+consola, que CoCreateInstance pidio una clase que no tiene (es lo que un
+juego tiene que contar). En Windows dice lo mismo, sin esa linea.
+
+tanda16.exe -- la TANDA 16 de Cyberpunk (30-09): los aparatos que no hay
+
+HID, SETUPAPI y CFGMGR32 sobre una clase de aparatos que no existe en ningun
+Windows, y los 18 ordinales de WLDAP32 del juego, cargados sin llamarlos
+(tanda16_*.def, uno por DLL; los de WLDAP32 con `@n NONAME`):
+
+   for %f in (tanda16_*.def) do llvm-dlltool -m i386:x86-64 -d %f -l %~nf.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda16.c -o tanda16.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda16.obj tanda16_*.lib /out:tanda16.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   3c8566af4c157fc2e18a6042abefecc7ec5d20b2bf7cb552081b48cf9f2e57bb
+
+Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda17.exe -- la TANDA 17 de Cyberpunk (30-09): el RTTI de C++
+
+dynamic_cast (__RTDynamicCast: hacia abajo, cruzado en una herencia
+multiple, fallido, y a una referencia, que lanza bad_cast), typeid
+(__RTtypeid, tambien de un nulo: bad_typeid) y __unDName (tanda17_*.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda17_kernel32.def -l tanda17_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda17_vcruntime.def -l tanda17_vcruntime.lib
+   llvm-dlltool -m i386:x86-64 -d tanda17_crt.def -l tanda17_crt.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fexceptions -fcxx-exceptions -ffreestanding -fno-stack-protector -fno-builtin -c tanda17.cpp -o tanda17.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda17.obj tanda17_kernel32.lib tanda17_vcruntime.lib tanda17_crt.lib /out:tanda17.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   41b426d917430d78594deb895df439bdad2871e235f4f1e2725ab70114ac70da
+
+Dice `bien` once veces y sale con 0. En Windows dice lo mismo.
+
+tanda18.exe -- la TANDA 18 de Cyberpunk (30-09): el LOCALE de msvcp140
+
+Como lo usa el codigo inline de las cabeceras de MSVC: los id de las
+facetas (DATOS importados), el locale global (_Init, _Getgloballocale),
+_Locimp (_New_Locimp, _Addfac, _Locimp_Addfac), facet, _Locinfo, _Yarn,
+ctype<char> y los dos codecvt (tanda18_*.def; el de msvcp140 lleva DATA en
+los id):
+
+   llvm-dlltool -m i386:x86-64 -d tanda18_kernel32.def -l tanda18_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda18_crt.def -l tanda18_crt.lib
+   llvm-dlltool -m i386:x86-64 -d tanda18_msvcp140.def -l tanda18_msvcp140.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fno-exceptions -fno-rtti -ffreestanding -fno-stack-protector -fno-builtin -Wno-undefined-var-template -c tanda18.cpp -o tanda18.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda18.obj tanda18_kernel32.lib tanda18_crt.lib tanda18_msvcp140.lib /out:tanda18.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   62c05028bc99d27644e8dcb56bc2d5ed4bd3901f68dcdb7f96d442fb15877178
+
+Dice `bien` dieciseis veces y sale con 0. En Windows dice lo mismo.

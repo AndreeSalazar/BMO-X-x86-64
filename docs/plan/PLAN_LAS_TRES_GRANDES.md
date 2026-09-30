@@ -67,14 +67,32 @@ pide y en que orden.
     `tanda14.exe` dice `bien` 27 veces en el banco. (Y las 5 RETRASADAS:
     el ETW y UuidCreate. Y, de las 15 de COM, las cinco faciles:
     CoTaskMem* y CoCreateGuid, StringFromGUID2.)
-  - [ ] P0.2b -- VERSION (GetFileVersionInfo* y VerQueryValueA, leyendo el
+  - [x] P0.2b -- VERSION (GetFileVersionInfo* y VerQueryValueA, leyendo el
     recurso de version del fichero) y la seguridad (GetFileSecurityW,
-    ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b.
-  - [ ] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15.
-  - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
-    ordinal: tanda 16.
-  - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.
+    ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b, HECHA el 30-09
+    (`version_y_seguridad.rs`; `tanda14b.exe`, 12 bien en el banco).
+  - [x] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15,
+    HECHA el 30-09 (`com_basico.rs`; `tanda15.exe`, 11 bien en el banco).
+    Sin clases de COM: CoCreateInstance dice REGDB_E_CLASSNOTREG y el CLSID
+    por la consola.
+  - [x] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
+    ordinal: tanda 16, HECHA el 30-09 (`aparatos.rs`; `tanda16.exe`, 8 bien
+    en el banco). WLDAP32: sus ordinales no se adivinan; todos van a una
+    funcion que dice "la casa no tiene LDAP" (libcurl solo la usa con
+    ldap://).
+  - [x] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17,
+    HECHA el 30-09 (`rtti.rs`, y bad_cast/bad_typeid en `msvcp_errores`;
+    `tanda17.exe`, 11 bien en el banco). __unDName: tipos y nombres de
+    funciones (UNDNAME_NAME_ONLY); la firma entera de una funcion, todavia
+    no (da su nombre).
+  - [x] P0.2i -- `__CxxFrameHandler4` (30-09): `cxx4.rs` lee las tablas
+    comprimidas (medidas en `tanda4m.exe`, hecho con `cl` 19.44 en el
+    Windows del propietario) y el manejador de FH3 las usa; `tanda4m.exe`
+    dice `bien` 11 veces en el banco, como en Windows.
   - [ ] P0.2f -- iostreams y locale de MSVCP140, con sus DATOS: tandas 18-19.
+    Tanda 18 (30-09): el locale, 36 de las 79 (msvcp_locale.rs, tanda18.exe).
+    Falta la 19: streambuf, ios, istream/ostream/iostream, cerr, setw,
+    _Fiopen y time_put.
 
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
   LOCALAPPDATA y "Saved Games") es la carpeta del `.exe`, y la del juego esta
@@ -91,9 +109,12 @@ pide y en que orden.
   su fichero: diez funciones, una vez cada una, en orden.
 - [ ] P0.3b -- Cada `QueryInterface` con un IID que la casa no conoce, al
   diario, con el IID entero (los metodos de COM no pasan por trampolines).
-- [ ] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
+- [x] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
   Cyberpunk mide 57 MiB (el censo del metal). Leerlo por secciones, como ya
-  hace el censo.
+  hace el censo. **Hecho (30-09):** sin tope; solo las cabeceras pasan por el
+  monton y cada seccion va del disco a su RVA (`colocar_en`). Queda UN techo,
+  el del kernel: codigo y datos, cada uno en un bloque de 64 MiB. El censo
+  dice ahora `LA IMAGEN: ... cabe / NO CABE`; si no cabe, es ring 0.
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.

@@ -58,15 +58,37 @@ pub fn partir(pe: &Pe) -> Result<Partes, Fallo> {
 /// cero, y las relocalizaciones aplicadas si `base` no es la del enlazador.
 pub fn colocar(pe: &Pe, d: &[u8], base: u64) -> Result<Vec<u8>, Fallo> {
     let mut img = vec![0u8; pe.tam_imagen as usize];
-    let h = (pe.tam_cabeceras as usize).min(d.len()).min(img.len());
-    img[..h].copy_from_slice(&d[..h]);
+    colocar_en(pe, &mut img, base, |desde, destino| match d.get(desde as usize..desde as usize + destino.len()) {
+        Some(x) => {
+            destino.copy_from_slice(x);
+            true
+        }
+        None => false,
+    })?;
+    Ok(img)
+}
+
+/// **Colocar sin tener el fichero entero** (P0.4a, 30-09): `img` es la
+/// imagen YA en su sitio (los bloques del kernel, a cero) y `leer(desde,
+/// destino)` trae del fichero lo que cabe en `destino`. Un `.exe` de 57 MiB
+/// no pasa por el monton: cada seccion va del disco a su RVA.
+pub fn colocar_en(pe: &Pe, img: &mut [u8], base: u64, mut leer: impl FnMut(u64, &mut [u8]) -> bool) -> Result<(), Fallo> {
+    if img.len() < pe.tam_imagen as usize {
+        return Err(Fallo::Corto("la imagen: el bloque es mas chico que ella"));
+    }
+    let h = (pe.tam_cabeceras as usize).min(img.len());
+    if !leer(0, &mut img[..h]) {
+        return Err(Fallo::Corto("las cabeceras"));
+    }
     for s in &pe.secciones {
         let n = s.tam_en_fichero.min(s.tam_en_imagen()) as usize;
-        let (desde, rva) = (s.desde as usize, s.rva as usize);
-        img[rva..rva + n].copy_from_slice(&d[desde..desde + n]);
+        let rva = s.rva as usize;
+        let destino = img.get_mut(rva..rva + n).ok_or(Fallo::Corto("una seccion: cae fuera de la imagen"))?;
+        if !leer(s.desde as u64, destino) {
+            return Err(Fallo::Corto("una seccion del fichero"));
+        }
     }
-    relocalizar(pe, &mut img, base)?;
-    Ok(img)
+    relocalizar(pe, img, base)
 }
 
 fn relocalizar(pe: &Pe, img: &mut [u8], base: u64) -> Result<(), Fallo> {

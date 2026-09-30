@@ -1,0 +1,11 @@
+LIBRARY oleaut32.dll
+EXPORTS
+SysAllocString @2 NONAME
+SysReAllocString @3 NONAME
+SysAllocStringLen @4 NONAME
+SysFreeString @6 NONAME
+SysStringLen @7 NONAME
+VariantInit @8 NONAME
+VariantClear @9 NONAME
+SysStringByteLen @149 NONAME
+SysAllocStringByteLen @150 NONAME

@@ -51,6 +51,7 @@ extern crate alloc;
 
 pub mod carpetas;
 pub mod com;
+pub mod com_basico;
 pub mod compilador;
 pub mod crt;
 pub mod crt_cadenas;
@@ -59,6 +60,7 @@ pub mod crt_ficheros;
 pub mod crt_mates;
 pub mod crt_numeros;
 pub mod cxx;
+pub mod cxx4;
 pub mod d3d12;
 pub mod diario;
 pub mod dll_chicas;
@@ -75,6 +77,7 @@ pub mod kernel32_locale;
 pub mod kernel32_mapeo;
 pub mod kernel32_procesos;
 pub mod advapi32;
+pub mod aparatos;
 pub mod advapi32_registro;
 pub mod kernel32_pool;
 pub mod kernel32_sistema;
@@ -82,9 +85,11 @@ pub mod memoria;
 pub mod modulos;
 pub mod msvcp_hilos;
 pub mod msvcp_errores;
+pub mod msvcp_locale;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
+pub mod rtti;
 pub mod red_puro;
 pub mod cripto;
 pub mod sistema;
@@ -97,6 +102,7 @@ pub mod user32_mensajes;
 pub mod user32_portapapeles;
 pub mod user32_dialogos;
 pub mod user32_ventanas;
+pub mod version_y_seguridad;
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
@@ -263,6 +269,8 @@ pub unsafe fn empezar(p: Plataforma) {
     user32_mensajes::reiniciar();
     user32_entrada::reiniciar();
     user32_portapapeles::reiniciar();
+    version_y_seguridad::reiniciar();
+    com_basico::reiniciar();
     user32_dialogos::reiniciar();
 }
 
@@ -291,6 +299,10 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     if modulos::exportada(dll, f).is_some() {
         return Some(d);
     }
+    // Tanda 18: los `id` de msvcp140 tambien son DATOS.
+    if matches!(f, Funcion::Nombre(n) if dll.eq_ignore_ascii_case("msvcp140.dll") && msvcp_locale::es_dato(n)) {
+        return Some(d);
+    }
     Some(diario::envolver(dll, &alloc::format!("{f}"), d))
 }
 
@@ -305,6 +317,10 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         Funcion::Nombre(n) => n,
         // Tanda 12: ws2_32 se importa por ordinal.
         Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("ws2_32.dll") => return red::por_ordinal(*o),
+        // Tanda 15: OLEAUT32 tambien (SysAllocString es el 2...).
+        // Tanda 16: WLDAP32 tambien, y la casa no tiene LDAP.
+        Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("wldap32.dll") => return aparatos::ldap_por_ordinal(*o),
+        Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("oleaut32.dll") => return tabla_casa(dll, &Funcion::Nombre(com_basico::por_ordinal(*o)?.into())),
         _ => return None,
     };
     // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
@@ -318,7 +334,8 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         crt::buscar(n)
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
-        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n))
+        // Tanda 18: su locale.
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.
@@ -326,7 +343,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("d3dcompiler_47.dll") {
         compilador::buscar(n)
     } else if dll.eq_ignore_ascii_case("oleaut32.dll") {
-        sistema::buscar_oleaut32(n)
+        sistema::buscar_oleaut32(n).or_else(|| com_basico::buscar(n))
     } else if dll.eq_ignore_ascii_case("ws2_32.dll") {
         red::buscar(n)
     } else if dll.eq_ignore_ascii_case("bcryptprimitives.dll") || dll.eq_ignore_ascii_case("userenv.dll") {
@@ -340,12 +357,12 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("advapi32.dll") || es_api_set_de(dll, &["api-ms-win-security-", "api-ms-win-eventing-"]) {
         // Tanda 11: lo suyo, y el registro y los tokens (de kernelbase).
         // Tanda 14a: sus API set (seguridad, ETW) y lo de ETW.
-        advapi32::buscar(n).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
+        advapi32::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
-        dll_chicas::buscar(n)
+        dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n)).or_else(|| aparatos::buscar(n))
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
         d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
@@ -372,6 +389,11 @@ const CHICAS: &[&str] = &[
     "xinput1_4.dll",
     "rpcrt4.dll",
     "ole32.dll",
+    "version.dll",
+    "hid.dll",
+    "setupapi.dll",
+    "cfgmgr32.dll",
+    "wldap32.dll",
 ];
 
 /// Si `dll` es un API set que empieza por alguno de `prefijos`.
