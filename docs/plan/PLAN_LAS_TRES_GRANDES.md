@@ -130,9 +130,14 @@ pide y en que orden.
   - [x] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3. **HECHO el 30-09**
     (`userland/src/imagen.rs`: declarar, parte, sellar; el NO con su frase
     y sus MiB).
-  - [ ] P0.4b.4 -- La app: del censo a la declaracion, y cargar el `.exe` y
+  - [x] P0.4b.4 -- La app: del censo a la declaracion, y cargar el `.exe` y
     las DLL del juego en sus partes (lo que hace el banco con `cargar_dll` y
-    `registrar_dll`).
+    `registrar_dll`). **HECHO el 30-09** (`apps/proton-x/src/cargador.rs`):
+    las DLL del juego junto al `.exe` (importadas y RETRASADAS), dependencias
+    primero; una declaracion; cada seccion por un bloque de paso de 2 MiB;
+    registrar, resolver, sellar y los DllMain. Las retrasadas se cargan (y su
+    DllMain corre) al arrancar, no en su primera llamada: dicho. Las que el
+    juego abre EN VIVO (LoadLibrary de un nombre en sus datos), todavia no.
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN

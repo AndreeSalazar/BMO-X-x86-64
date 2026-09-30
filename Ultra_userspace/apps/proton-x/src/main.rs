@@ -6,12 +6,17 @@
 //! ```text
 //!    1  las cabeceras del .exe, sin traerlo       un bloque, que se suelta
 //!    2  el veredicto y la forma (bmo-proton-x)    solo PE32+ x86-64
-//!    3  partir: codigo delante, datos detras      dos bloques SEGUIDOS
-//!    4  colocar, del disco a su RVA; relocalizar la base es la del bloque
-//!    5  resolver contra la tabla de la casa       bmo-proton-x-casa, o no arranca
-//!    6  SELLAR el codigo (MEM_OP_SELLAR)          R+X sin W; los datos, sin X
-//!    7  saltar a su entrada, como `extern "win64"`
+//!    3  partir, y las DLL del juego junto a el    una IMAGEN DECLARADA (P0.4b)
+//!    4  colocar, del disco a su RVA; relocalizar la base es la de su parte
+//!    5  registrar las DLL y resolver              la casa y las DLL del juego
+//!    6  SELLAR el codigo de cada uno              R+X sin W; los datos, sin X
+//!    7  los DllMain, y saltar a su entrada, como `extern "win64"`
 //! ```
+//!
+//! **La imagen declarada** (P0.4b, 30-09; ver `cargador.rs`): el `.exe` y sus
+//! DLL van en partes que el kernel juzga UNA vez contra la RAM libre de ese
+//! momento (`bmo::Imagen`), no en bloques de 64 MiB. Lo de abajo sobre los
+//! bloques sigue valiendo para el monton, las cabeceras y el censo.
 //!
 //! **Lo que el kernel pone y este fichero cuenta con ello** (ring0/obj/
 //! memory.rs): cada bloque que se pide cae JUSTO DETRAS del anterior en las
@@ -46,13 +51,14 @@
 
 extern crate alloc;
 
+mod cargador;
 mod monton;
 mod plataforma;
 mod la3060;
 
 use alloc::format;
 use alloc::vec::Vec;
-use bmo_proton_x::{colocar_en, importaciones, leer_cabeceras, partir, resolver, teb, tls, Permiso};
+use bmo_proton_x::{importaciones, leer_cabeceras, partir, resolver, teb, tls, Permiso};
 use bmo_userland as bmo;
 
 #[global_allocator]
@@ -641,22 +647,16 @@ fn censo(ruta: &[u8]) -> ! {
     bmo::salir();
 }
 
-/// **Si la imagen del `.exe` cabe** (P0.4a): lo que el cargador le pide al
-/// kernel son DOS bloques (codigo y datos), y un bloque es de 64 MiB como
-/// mucho (`MAX_BYTES`, `obj/memory.rs`). El censo lo mide para que el primer
-/// contacto no lo descubra.
+/// **Lo que mide la imagen del `.exe`** (P0.4a). Desde P0.4b va en una
+/// imagen DECLARADA (`bmo::Imagen`): ya no hay tope de 64 MiB por parte, y lo
+/// que decide es la RAM libre cuando se declara.
 fn imagen(m: &Mirado) -> alloc::string::String {
     let mib = |x: u64| x.div_ceil(1 << 20);
     match &m.partes {
         Err(f) => format!("  LA IMAGEN: no se puede partir ({f})\n"),
         Ok(p) => {
             let (c, d) = (p.codigo as u64, p.datos as u64);
-            let grandes: Vec<&str> = [("el codigo", c), ("los datos", d)].iter().filter(|x| x.1 > TOPE_SECCION).map(|x| x.0).collect();
-            let veredicto = if grandes.is_empty() {
-                alloc::string::String::from("cada parte cabe en un bloque")
-            } else {
-                format!("NO CABE: {} pasa(n) de un bloque de 64 MiB", grandes.join(" y "))
-            };
+            let veredicto = "va en la imagen declarada (la juzga el kernel contra la RAM libre)";
             format!("  LA IMAGEN: {} MiB en el disco; en memoria {} MiB = codigo {} + datos {}; {veredicto}\n", mib(m.mide), mib(c + d), mib(c), mib(d))
         }
     }
@@ -752,94 +752,89 @@ pub extern "C" fn _start() -> ! {
         fin(&format!("{nombre}: la entrada ({:#x}) no cae en una seccion de codigo", pe.entrada));
     }
 
-    // -- Los dos bloques, SEGUIDOS (se comprueba). Cada uno, de 64 MiB como
-    // mucho (`MAX_BYTES` del kernel): si no, se dice cual y cuanto.
-    let pedir = |que: &str, tam: u32| {
-        bmo::Memoria::request(tam as u64).unwrap_or_else(|| fin(&format!("sin memoria para {que} ({} MiB; un bloque del kernel es de 64 MiB como mucho)", (tam as u64).div_ceil(1 << 20))))
-    };
-    let codigo = pedir("el codigo", partes.codigo);
-    let datos = if partes.datos > 0 { Some(pedir("los datos", partes.datos)) } else { None };
-    let base = codigo.base() as u64;
-    if let Some(d) = datos.as_ref() {
-        if d.base() as u64 != base + partes.codigo as u64 {
-            fin(&format!("los bloques no quedaron seguidos ({:#x} y {:#x}): la imagen no se puede partir", base, d.base() as u64));
-        }
-    }
-    let total = partes.codigo as usize + partes.datos as usize;
-    // SAFETY: los dos bloques son nuestros y estan SEGUIDOS (comprobado): una
-    // imagen de `total` bytes desde `base`. A cero lo que ninguna seccion
-    // llena (el .bss).
-    let img: &mut [u8] = unsafe {
-        core::ptr::write_bytes(base as *mut u8, 0, total);
-        core::slice::from_raw_parts_mut(base as *mut u8, total)
-    };
-
-    // -- 4 y 5. Colocar en SU direccion y resolver contra la casa. Del
-    // fichero a la imagen A TROZOS, cediendo el turno (el raton y el teclado
-    // no se congelan: metal 29-09).
-    colocar_en(&pe, img, base, |desde, destino| {
-        let d = destino.as_ptr() as u64;
-        let (bloque, off) = match datos.as_ref() {
-            Some(b) if d >= b.base() as u64 => (b, d - b.base() as u64),
-            _ => (&codigo, d - base),
-        };
-        let tam = destino.len() as u64;
-        let mut hecho = 0u64;
-        while hecho < tam {
-            let k = TROZO.min(tam - hecho);
-            let pos = desde + hecho;
-            if a.saltar(pos) != pos || a.leer_en(bloque, off + hecho, k) != k {
-                return false;
-            }
-            hecho += k;
-            bmo::yield_screen();
-        }
-        true
-    })
-    .unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    // -- 3b y 4. P0.4b: el `.exe` Y SUS DLL, en UNA imagen declarada al
+    // kernel (ver `cargador.rs`): se juzga una vez contra la RAM libre, y cada
+    // seccion va del disco a su sitio. Sin topes de bloque.
     drop(a);
-    let imps = importaciones(&pe, img).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    // P4: su TLS (`__declspec(thread)` y los callbacks), leido de la imagen
-    // YA relocalizada: sus direcciones son las de aqui.
-    let tls_del_exe = tls::leer(&pe, img, base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
-    resolver(img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+    let (imagen, modulos) = cargador::declarar_y_colocar(ruta, pe, partes);
+    let exe = &modulos[0];
+    let base = exe.base;
 
-    // -- 6. SELLAR: de datos a codigo. Sin esto, saltar seria un #PF por NX.
-    if let Err(m) = codigo.sellar() {
-        fin(&format!("SELLAR dice NO (motivo {m}): el codigo del .exe no se ejecuta sin sellar"));
-    }
-    di(&format!(
-        "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} funcion(es) de la casa; codigo {} KiB SELLADO, datos {} KiB sin X; monton {} B\n",
-        mide,
-        base,
-        pe.base,
-        imps.len(),
-        partes.codigo / 1024,
-        partes.datos / 1024,
-        MONTON.gastado()
-    ));
-    // -- 6b. P1d: el TEB y el PEB, y el GS del hilo apuntando al TEB.
+    // -- 5. La casa lista (antes de registrar nada en ella), el TEB y el GS.
     poner_teb(base);
-    // -- 6c. P2: las DLL de la casa, con BMO-X debajo (la consola, las
-    // superficies del escritorio y su buzon).
     // SAFETY: un solo `.exe` por proceso, y todavia no se ha saltado.
     unsafe { bmo_proton_x_casa::empezar(plataforma::de_bmo()) };
+    // Las DLL del juego, registradas (sus exportaciones) en el orden en que se
+    // cargaron: dependencias primero. Asi el `.exe` y ellas se resuelven
+    // contra la casa Y contra las otras.
+    for m in &modulos[1..] {
+        use bmo_proton_x::dll::{self, Destino};
+        let exps = dll::exportaciones(&m.pe, m.imagen()).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
+        let dadas = exps
+            .into_iter()
+            .map(|e| {
+                let d = match &e.destino {
+                    Destino::Rva(r) => m.base + *r as u64,
+                    Destino::Reenvio { dll, funcion } => bmo_proton_x_casa::tabla(dll, funcion).unwrap_or(0),
+                };
+                (e.nombre, e.ordinal, d)
+            })
+            .collect();
+        let entrada = if m.pe.entrada != 0 { m.base + m.pe.entrada as u64 } else { 0 };
+        bmo_proton_x_casa::modulos::registrar_dll(&m.nombre, m.base, entrada, dadas);
+    }
+    // Resolver cada uno; el TLS del `.exe`, leido de su imagen ya relocalizada.
+    let mut funciones = 0usize;
+    let mut tls_del_exe = None;
+    for (k, m) in modulos.iter().enumerate() {
+        let img = m.imagen();
+        let imps = importaciones(&m.pe, img).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
+        if k == 0 {
+            tls_del_exe = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+        }
+        resolver(img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
+        funciones += imps.len();
+    }
+
+    // -- 6. SELLAR el codigo de cada uno: sin esto, saltar seria un #PF por NX.
+    for m in &modulos {
+        if let Err(no) = imagen.sellar(m.parte_codigo) {
+            fin(&format!("{}: SELLAR dice NO ({}): su codigo no se ejecuta sin sellar", m.nombre, no.frase()));
+        }
+    }
+    di(&format!(
+        "PROTON-X: {nombre}: {} B, PE32+ x86-64; en {:#x} (el enlazador queria {:#x}); {} DLL del juego; {} funcion(es) resueltas; codigo SELLADO, datos sin X; monton {} B\n",
+        mide,
+        base,
+        exe.pe.base,
+        modulos.len() - 1,
+        funciones,
+        MONTON.gastado()
+    ));
     // P4d: su directorio actual es el suyo (`window` para `window/x.exe`).
     bmo_proton_x_casa::ficheros::poner_directorio(nombre.rsplit_once('/').map(|(d, _)| d).unwrap_or(""));
     // P4e: su nombre (GetModuleFileNameW) y su linea de ordenes.
     bmo_proton_x_casa::proceso::poner_exe(nombre, linea);
     // -- 6d. P4: el TLS del hilo principal y los callbacks con PROCESS_ATTACH,
-    // antes de la entrada, como el cargador de Windows. Corren YA en el
-    // codigo sellado; la casa los llama con la pila alineada.
+    // antes de la entrada, como el cargador de Windows.
     if let Some(t) = &tls_del_exe {
         di(&format!("PROTON-X: TLS: {} B por hilo, {} callback(s)\n", t.bytes(), t.callbacks.len()));
     }
     // SAFETY: el GS ya esta en el TEB, `empezar` hecho, la imagen sellada.
     unsafe { bmo_proton_x_casa::hilos::preparar_tls(tls_del_exe, base) };
+    // -- 6e. P5a: los DllMain de las DLL del juego, con el GS puesto, en su
+    // orden (dependencias primero).
+    if modulos.len() > 1 {
+        di(&format!("PROTON-X: los DllMain de {} DLL del juego\n", modulos.len() - 1));
+        // SAFETY: sus entradas son codigo sellado de DLL que acabamos de cargar.
+        if let Err(f) = unsafe { bmo_proton_x_casa::modulos::iniciar_dlls() } {
+            fin(&f);
+        }
+    }
+    let entrada = base + exe.pe.entrada as u64;
     di("PROTON-X: salto a su entrada ----------------------------------\n");
-    // La imagen vive hasta que el proceso muera: sin `Drop`, que la soltaria.
-    core::mem::forget(codigo);
-    core::mem::forget(datos);
+    // La imagen vive hasta que el proceso muera (no hay soltar).
+    core::mem::forget(imagen);
 
     // -- 7. Saltar, con la pila COMO LA DEJA WINDOWS: alineada a 16 antes del
     // `call` y con la sombra de 32 bytes.
@@ -865,7 +860,7 @@ pub extern "C" fn _start() -> ! {
             "sub rsp, 32",
             "call {entrada}",
             "mov rsp, r12",
-            entrada = in(reg) base + pe.entrada as u64,
+            entrada = in(reg) entrada,
             out("r12") _,
             lateout("rax") r,
             clobber_abi("win64"),
