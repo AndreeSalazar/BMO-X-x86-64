@@ -1159,5 +1159,5 @@ problema dicho). El resto espera al compilador.
 - Los simbolos (14.2): son del propietario, en T0.
 - El primer programa (13.4): decide que se construye en T3.
 - El modelo 2 (13.3): confirmado o no.
-- Que queria decir *"aprende de todo"* (30-09): se pregunto y queda abierto;
-  si es IA, es la seccion 9.
+- ~~Que queria decir *"aprende de todo"*~~ -> aclarado el 30-09: que BMO-X
+  va reuniendo lo que hace falta; no es una pieza del lenguaje.
