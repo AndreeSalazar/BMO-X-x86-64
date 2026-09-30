@@ -822,20 +822,23 @@ static CERR: Crudo<104> = Crudo(UnsafeCell::new([0; 104]));
 static CERR_SB: Crudo<104> = Crudo(UnsafeCell::new([0; 104]));
 
 /// `std::cerr`: un ostream sobre un streambuf que escribe en stderr, sin
-/// bufer (`unitbuf`), hecho la primera vez que alguien lo pide.
+/// bufer (`unitbuf`). La tabla da su DIRECCION sin tocarlo (el censo y el
+/// cargador la piden antes de que la casa arranque: construirlo ahi pedia
+/// memoria sin plataforma, metal 30-09); se construye en `reiniciar`, al
+/// arrancar la casa, antes de saltar al `.exe`.
 fn cerr() -> u64 {
+    CERR.0.get() as u64
+}
+
+pub(crate) fn reiniciar() {
     let os = CERR.0.get() as *mut u8;
-    // SAFETY: los 104 bytes de aqui.
-    if unsafe { *(os as *const u64) } == 0 {
-        let sb = CERR_SB.0.get() as *mut Sb;
-        sb_nuevo(sb);
-        // SAFETY: recien hecho.
-        unsafe { (*sb).vt = vtabla(VT_SB_ERR) };
-        os_nuevo(os, sb, true, 1);
-        // SAFETY: su ios.
-        unsafe { (*ios_de(os)).banderas |= UNITBUF };
-    }
-    os as u64
+    let sb = CERR_SB.0.get() as *mut Sb;
+    sb_nuevo(sb);
+    // SAFETY: recien hecho; los 104 bytes de aqui.
+    unsafe { (*sb).vt = vtabla(VT_SB_ERR) };
+    os_nuevo(os, sb, true, 1);
+    // SAFETY: su ios.
+    unsafe { (*ios_de(os)).banderas |= UNITBUF };
 }
 
 /// `cerr` es un DATO: la tabla da su direccion y el diario no la envuelve.
@@ -902,4 +905,14 @@ pub(crate) fn sputc(sb: u64, c: u8) -> i32 {
 pub(crate) fn locale_de_ios(ios: u64) -> *const Locale {
     // SAFETY: un ios_base del `.exe`.
     unsafe { (*(ios as *const Ios)).ploc }
+}
+
+#[cfg(test)]
+mod pruebas {
+    /// El censo y el cargador buscan `cerr` ANTES de que la casa arranque
+    /// (sin plataforma): buscarlo no puede pedir memoria (metal 30-09).
+    #[test]
+    fn cerr_se_busca_sin_plataforma() {
+        assert_eq!(super::buscar(super::CERR_N), Some(super::CERR.0.get() as u64));
+    }
 }
