@@ -158,6 +158,9 @@ pub(crate) enum Command<'a> {
     /// `personal censo <fichero.exe>` -- PROTON-X mira el `.exe` de D: SIN
     /// ejecutarlo: que DLL y funciones de Windows pide y cuantas tiene la casa.
     PersonalCenso(&'a [u8]),
+    /// `personal diario <fichero.exe>` (30-09) -- el PRIMER CONTACTO: PROTON-X
+    /// arranca el `.exe` de D: con su diario (`informe/diario.txt`).
+    PersonalDiario(&'a [u8]),
     /// `escribe <path> <text>` -- crea un archivo con ese texto.
     ///
     /// Es la primera vez que Ring 3 GUARDA algo. Hasta ahora todo lo que
@@ -516,6 +519,8 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
             }
             if let Some(f) = quita(rest, b"censo") {
                 if f.is_empty() { Command::Help } else { Command::PersonalCenso(f) }
+            } else if let Some(f) = quita(rest, b"diario") {
+                if f.is_empty() { Command::Help } else { Command::PersonalDiario(f) }
             } else if let Some(f) = quita(rest, b"lee").or_else(|| quita(rest, b"cat")) {
                 if f.is_empty() { Command::Help } else { Command::PersonalLee(f) }
             } else {

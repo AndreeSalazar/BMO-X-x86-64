@@ -82,7 +82,7 @@ pub(crate) fn dispatch(dsk: &mut Desktop, p: &bmo::Pantalla, cmd: Command) -> Af
         Command::PersonalLs(ruta) => files::personal_ls(dsk, p, ruta),
         Command::PersonalLee(ruta) => files::personal_lee(dsk, p, ruta),
         // `personal censo` lo lanza el editor (es un `run`): aqui no llega.
-        Command::PersonalCenso(_) => After::Settle,
+        Command::PersonalCenso(_) | Command::PersonalDiario(_) => After::Settle,
         Command::Write(file_path, text) => files::write(dsk, p, file_path, text),
         Command::Save(arg) => files::save(dsk, p, arg),
         Command::SealMoved => system::seal_moved(dsk, p),

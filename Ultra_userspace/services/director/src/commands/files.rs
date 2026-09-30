@@ -283,13 +283,16 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
 /// **La linea de PROTON-X para `personal censo <ruta>`** (29-09):
 /// `sys/proton-x.bex --censo "d:<ruta>"`, en `buf`. `None` si no cabe en los
 /// 96 bytes de argumentos de un programa. La lanza el editor (`Edit::Launch`).
-pub(crate) fn linea_censo(ruta: &[u8], buf: &mut [u8; crate::PATH_MAX]) -> Option<usize> {
+/// Con `diario`, `personal diario <ruta>` (30-09): el primer contacto,
+/// `--diario` en vez de `--censo`.
+pub(crate) fn linea_censo(ruta: &[u8], diario: bool, buf: &mut [u8; crate::PATH_MAX]) -> Option<usize> {
     let ruta = match ruta {
         [a, b':', resto @ ..] if *a | 0x20 == b'd' => resto,
         _ => ruta,
     };
     const PROGRAMA: &[u8] = b"sys/proton-x.bex ";
-    let partes: [&[u8]; 4] = [PROGRAMA, b"--censo \"d:", ruta, b"\""];
+    let bandera: &[u8] = if diario { b"--diario \"d:" } else { b"--censo \"d:" };
+    let partes: [&[u8]; 4] = [PROGRAMA, bandera, ruta, b"\""];
     let n: usize = partes.iter().map(|x| x.len()).sum();
     if n > buf.len() || n - PROGRAMA.len() > 96 {
         return None;
