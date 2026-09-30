@@ -1049,14 +1049,23 @@ mismo. Windows IGNORO el TLS de tanda22d.dll entero. libxess_fg.dll (MSVC)
 si lo tiene y en Windows va: a la de clang sin CRT le falta algo que el
 cargador exige. La prueba que manda es la gemela de MSVC:
 
-tanda22m.exe y tanda22md.dll -- la TANDA 22 compilada por MSVC (FALTA: la hace
-el propietario en su Windows). En la "x64 Native Tools Command Prompt":
+tanda22m.exe y tanda22md.dll -- la TANDA 22 compilada por MSVC (HECHA en el
+Windows del propietario, cl 19.44.35228: 9 de 9, sale con 0). En la "x64
+Native Tools Command Prompt":
 
    cl /nologo /MD /O1 /LD tanda22md.c /Fe:tanda22md.dll
    cl /nologo /MD /O1 tanda22m.c tanda22md.lib /Fe:tanda22m.exe
 
 Tiene que decir `bien` nueve veces y salir con 0; los `dato`, la DLL con su
 propio indice (no el del .exe), 1 callback, 42 y los bloques distintos.
+
+Lo que dijo Windows: indice del .exe 0, de la DLL **2** (el 1 se lo llevo
+otro modulo con TLS, probablemente el runtime de /MD: no comprobado), 1
+callback antes del DllMain, 42, bloques distintos. El TLS de una DLL de
+MSVC va, y es lo que la casa hace desde P0.4b.9. El indice no es fijo: la
+casa escribe el de cada modulo en su _tls_index y cada uno lee el suyo.
+tanda22.exe (clang sin CRT) queda como prueba del ANFITRION: Windows no le
+da TLS a su DLL, la casa si (mas permisiva: dicho).
 
    llvm-dlltool -m i386:x86-64 -d tanda22_kernel32.def -l tanda22_kernel32.lib
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22d.c -o tanda22d.obj
