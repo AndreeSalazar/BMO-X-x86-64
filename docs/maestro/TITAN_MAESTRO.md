@@ -845,6 +845,47 @@ Cooperan porque cada uno hace lo que al otro le sale caro: el comprobador,
 lo de dentro, antes y una vez; el kernel, lo de fuera, siempre y barato. Y
 los dos acaban en el mismo sitio cuando dicen que no: el nodo en F1 (6b.4).
 
+### 6b.8 El proceso, paso a paso (30-09)
+
+El propietario pregunto como iria el borrow checker hasta el kernel: *"es un
+archivo fantasma o algo? ... seria mejor JIT para que mi kernel sepa y luego
+sorpresa verifique?"*
+
+```text
+   titan build  (en el PC o dentro de F1)
+     texto -> arbol -> tipos -> IR -> BORROW CHECKER
+        |  NO -> se para: mensaje de 4 partes, el nodo en rojo en F1.
+        |        No sale ningun .bex: ese error no llega NUNCA al kernel
+        |  SI -> el emisor x86-64 escribe el codigo
+        v
+   el .bex = codigo + [permissions] + CERTIFICADO + fuente (U4), FIRMADO
+        |
+   al CARGAR: la puerta BEF2 (Ring 0) lee el certificado y lo compara con
+        |     el Titan.toml y con lo que concede -- una resta cada cosa
+        v
+   al CORRER: cada puerta pide su capability, como hoy, a TODO programa
+```
+
+- **El "archivo fantasma" existe, pero va DENTRO.** El certificado es un anexo
+  del `.bex`, firmado con el codigo. Fuera seria un fichero que se pierde, se
+  queda viejo o se cambia por otro; dentro y firmado, codigo y certificado
+  viajan juntos y no se separan. Nadie lo ve ni lo toca: por eso "fantasma".
+- **JIT para la CPU: NO**, y ya estaba dicho (seccion 10): codigo que se
+  escribe en marcha es codigo que el juez no puede ver. Y no le daria nada al
+  kernel: con JIT sigue viendo puertas, no habitaciones; el JIT cambia
+  CUANDO se compila, no QUE ve el kernel.
+- **La "sorpresa" ya existe**: el kernel comprueba TODAS las puertas, en cada
+  llamada. El programa no puede saber cual se mira, porque se miran todas.
+- **El numero ya esta medido en la casa**: el sombreador abre un formato ya
+  traducido y comprobado (BSF, hash al TOMAR) en 4,5 us, y el JIT tarda 17,2
+  us. Compilar antes y comprobar al tomar gano 4x. El certificado es lo mismo
+  llevado al `.bex` entero.
+- **La unica excepcion posible es la 3060**: una `gpu fn` puede viajar en el
+  `.bex` como SPIR-V y terminarse en SASS con el PERFIL de la 3060 que la va a
+  correr (LEY 24). Si se hace, es por el camino del sombreador (formato
+  comprobado, hash al tomar), no un JIT del programa. Hoy el plan es que SASS
+  salga al construir (T5).
+
 ---
 
 ## 7. A quien llama TITAN++, y como
@@ -908,6 +949,11 @@ El asistente de IA dentro de BMO-X sigue **APARCADO** (METAS cat. 2).
                          no puede ver
    NO baja de internet   dependencias por ruta y con huella (4.2)
    NO es multiarquitectura  x86-64 en la CPU y sm_86 en la 3060
+   NO sale de BMO-X      EXCLUSIVO a proposito (decidido el 30-09): fuera no
+                         hay segundo juez -- en Windows o Linux quedaria solo
+                         el compilador, y seria un lenguaje mas. Ni Windows,
+                         ni Linux, ni consolas (esas solo corren codigo que
+                         firma su fabricante). Seccion 14
    NO depende de F1      `titan build` funciona sin el editor de nodos
 ```
 
@@ -964,5 +1010,154 @@ T3, la puerta que lo compara (J2) y el NO que llega al nodo (J3-J4) con T6.
 3. **El modelo 2** (sin referencias guardadas, sin un `'a`): confirmado?
 4. **El primer programa**: un juego chico, una app con ventana, o un calculo
    en la 3060? Decide que se construye primero en T3.
-5. **El editor de nodos**: donde se guardan las POSICIONES de los nodos --
-   dentro del `Titan.toml` o en un fichero aparte (PLAN_TALLER 8)?
+5. ~~El editor de nodos: donde van las posiciones~~ -> **en `[layout]`
+   dentro de `Titan.toml`**, hecho en L1 (PLAN_TALLER 8.6, 29-09).
+6. **Los simbolos** (14.2): la propuesta minima de abajo, o cual.
+
+---
+
+## 14. LA ANATOMIA DE TITAN++, punto por punto (30-09)
+
+Pedida por el propietario para madurarlo: *"que anatomia seria mi TITAN++ y
+todos esos elementos, todo en puntos"*. Cada pieza dice si YA EXISTE, si esta
+DECIDIDA o si FALTA -- lo que no existe no se escribe como si existiera.
+
+### 14.1 Lo que se escribe
+
+```text
+   Titan.toml             el nodo principal: [package], [permissions],
+                          [layout] (las posiciones de F1)        EXISTE (L1)
+   titan/biblioteca.toml  que paquetes hay                       EXISTE (L1)
+   un .titan              1a linea `mod x "que hace"`; debajo `use a, b`,
+                          `mod a, b` y `mod x in "ruta"`         EXISTE (L1-L2)
+                          y el CUERPO, que es la gramatica        FALTA (T0)
+```
+
+### 14.2 La sintaxis: MUY POCAS piezas
+
+Si. Esa es la decision desde el 29-09, y se sostiene con numeros:
+
+```text
+   palabras      25 aceptadas (4.4), techo 30 con guardian   DECIDIDO
+   tipos         int, dec, f32, tablas [f32; n, m], texto...
+                 son TIPOS, no palabras: no gastan techo      DECIDIDO
+   logica        and / or / not con palabras, sin && || !     DECIDIDO
+   simbolos      la propuesta de abajo                        FALTA (T0)
+```
+
+**PROPUESTA de simbolos para T0 -- NO es gramatica**, es lo minimo que casi
+cualquier lenguaje necesita, para que el propietario diga si, no o cual:
+
+```text
+   agrupar       ( )  { }  [ ]
+   separar       ,  :  .
+   asignar       =
+   comparar      ==  !=  <  <=  >  >=
+   calcular      +  -  *  /  %
+   devolver      ->          (el tipo que sale de una fn)
+   texto         "..."
+   comentario    #  hasta el final de la linea
+
+   y lo que se EVITA a proposito:
+   && || !       ya son palabras
+   & y * de punteros   no hay referencias guardadas (6.5): `mut` y `take`
+                       dicen lo que & y * decian en C
+   ::            un solo separador de caminos: el punto
+   <T>           los genericos, si llegan, por otro camino que no parezca
+                 una comparacion
+```
+
+Unos veinte simbolos y 25 palabras: se aprende en una tarde, y una IA lo
+escribe con menos errores (seccion 9).
+
+### 14.3 El modelo: valores, no punteros
+
+```text
+   un valor tiene UN propietario; al acabar el propietario, se libera
+   `mut`   se presta para cambiarlo, y nadie mas lo toca mientras dure
+   `take`  se entrega: el que lo tenia ya no lo tiene
+   sin recolector, sin referencias guardadas en estructuras (6.4, 6.5)
+```
+
+DECIDIDO como plan (modelo 2, seccion 6); el propietario lo confirma en 13.3.
+
+### 14.4 Lo que SOLO BMO-X le da (seccion 3)
+
+```text
+   U1  el prestamo conoce al KERNEL (ofrecer/tomar) y a la 3060 (hasta el wait)
+   U2  los permisos son parte del tipo: usar la 3060 sin pedirla no compila
+   U3  MODULAR dentro del compilador: cada modulo dice su linea y sus `use`
+   U4  el .bex lleva su fuente, y F1 lo abre
+```
+
+U2 en su forma minima YA EXISTE en el lector (L1: `use gpu` sin permiso es un
+problema dicho). El resto espera al compilador.
+
+### 14.5 El compilador por dentro
+
+```text
+   lector de cabeceras   titan-lector: Titan.toml + mod/use         EXISTE
+   el contrato           titan-contrato: grafo, eventos, 4 partes   EXISTE
+   T1  texto -> arbol    `titan check`, mensajes de 4 partes        FALTA
+   T2  tipos             `dec`, tablas, "ya lo entregaste"          FALTA
+   T3  IR + emisor       un .bo por emisor-x86_64, bmo-enlazar      FALTA
+                         (la casa ya enlaza C, C++ e INTI asi)
+   T4  borrow checker    la ley de exclusividad (el modelo 2)       FALTA
+   T5  gpu fn            SPIR-V -> SASS, el prestamo a la 3060      FALTA
+   T6  dentro de F1      el compilador en el taller, `titan run`    FALTA
+```
+
+### 14.6 Lo que sale: el `.bex`
+
+```text
+   codigo x86-64            el mismo BEF2 que C, C++, COBOL, Ada, INTI
+   [permissions]            lo que pidio el Titan.toml (U2)          T3
+   el CERTIFICADO           permisos, prestamos del kernel y su linea
+                            (6b.3 y 6b.8)                            J1
+   la fuente                para que F1 lo abra (U4)                 T6
+   la firma                 bmo-firmar, sobre todo lo anterior       EXISTE
+```
+
+### 14.7 Los dos jueces (6b)
+
+```text
+   el COMPILADOR   dentro, antes, una vez: su NO es final
+   el KERNEL       entre programas, siempre, barato: su SI es el ultimo
+   el puente       el certificado NOMBRA, la capability CONCEDE
+```
+
+### 14.8 Donde se ve
+
+```text
+   F1 (TALLER)   el grafo, el comprobador animado, los errores en rojo que
+                 guian (ERROR 1/n + el camino), [e] al siguiente      EXISTE
+                 (L1-L4; el comprobador es el del ejemplo hasta T4)
+   CABINA        el NO del kernel, para quien mira la maquina entera  EXISTE
+   el puente     el NO del kernel llevado a su nodo en F1             J3-J4
+   `titan`       new / check / build / run / test (4.1)               FALTA
+```
+
+### 14.9 A quien llama (seccion 7)
+
+```text
+   INTI      la CPU y el sistema
+   VERRANO   dibujar con la 3060
+   REX       ventana, entrada, disco, sonido, red -- por las DOS puertas
+```
+
+### 14.10 Lo que CONSTRUIRA, y lo que no
+
+| que | como lo ve la casa |
+|---|---|
+| JSON, formatos, herramientas | SI: dias de trabajo, y un buen primer programa de verdad |
+| motores graficos, juegos | SI: su razon de ser (VERRANO, la 3060, U1). Meses |
+| **un navegador PROPIO** | SI como meta, y **no de Google** (el propietario, 30-09: *"Chromium fue solo inspiracion para tener navegador mio"*). Pero el de la casa: NAVEGAR (hoy en INTI) + la ANTENA (el movil mastica la web y BMO-X pinta) + MAQUETA con el subconjunto que elige L7. TITAN++ puede ser el lenguaje de sus piezas nuevas; un Chromium son decenas de millones de lineas, y L7 ya dice que BMO-X no es un navegador generalista |
+| correr fuera de BMO-X | NO, decidido: exclusivo (seccion 10) |
+
+### 14.11 Lo que todavia no se sabe
+
+- Los simbolos (14.2): son del propietario, en T0.
+- El primer programa (13.4): decide que se construye en T3.
+- El modelo 2 (13.3): confirmado o no.
+- Que queria decir *"aprende de todo"* (30-09): se pregunto y queda abierto;
+  si es IA, es la seccion 9.
