@@ -124,6 +124,9 @@ struct Mirado {
     imps: Vec<bmo_proton_x::Importacion>,
     /// Las RETRASADAS (`/DELAYLOAD`): se resuelven en su primera llamada.
     retrasadas: Vec<bmo_proton_x::Importacion>,
+    /// Por que no se pudieron leer las retrasadas (el resto del fichero SI
+    /// cuenta: antes, un fallo aqui se llevaba el fichero entero).
+    fallo_retrasadas: Option<alloc::string::String>,
     en_vivo: Vec<alloc::string::String>,
     mide: u64,
 }
@@ -144,25 +147,63 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let rva = pe.importaciones.rva;
     let seccion_de = |rva: u32| pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva));
     let Some(sec) = seccion_de(rva) else {
-        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), en_vivo: Vec::new(), mide });
+        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide });
     };
     let (imps, retrasadas, en_vivo) = con_seccion(&a, sec, |trozo| {
         let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?;
         // Las retrasadas suelen vivir en la misma seccion (.rdata).
-        let ret = if seccion_de(pe.retrasadas.rva).is_some_and(|s| s.rva == sec.rva) {
-            Some(bmo_proton_x::retrasadas_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?)
-        } else {
-            None
-        };
+        let ret = seccion_de(pe.retrasadas.rva).filter(|s| s.rva == sec.rva).map(|_| bmo_proton_x::retrasadas_de_seccion(&pe, trozo, sec.rva));
         Ok((imps, ret, nombres_de_dll(trozo)))
     })?;
-    // Si no, se lee la suya.
-    let retrasadas = match (retrasadas, seccion_de(pe.retrasadas.rva)) {
-        (Some(r), _) => r,
-        (None, Some(s2)) => con_seccion(&a, s2, |trozo| bmo_proton_x::retrasadas_de_seccion(&pe, trozo, s2.rva).map_err(|f| format!("{f}")))?,
-        (None, None) => Vec::new(),
+    // Si no estaban ahi, o sus nombres caen en otra seccion (libxess.dll,
+    // metal 30-09): sobre una VENTANA con todas las secciones de datos, cada
+    // una en su RVA. Y si tampoco, el fallo se apunta y el resto cuenta.
+    let (retrasadas, fallo_retrasadas) = match retrasadas {
+        Some(Ok(r)) => (r, None),
+        _ if pe.retrasadas.rva == 0 => (Vec::new(), None),
+        _ => match con_ventana(&a, &pe, |v, desde| Ok(bmo_proton_x::retrasadas_de_seccion(&pe, v, desde))) {
+            Ok(Ok(r)) => (r, None),
+            Ok(Err(f)) => (Vec::new(), Some(format!("{f}"))),
+            Err(f) => (Vec::new(), Some(f)),
+        },
     };
-    Ok(Mirado { imps, retrasadas, en_vivo, mide })
+    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide })
+}
+
+/// **Todas las secciones de DATOS en un bloque**, cada una en su RVA (lo de
+/// en medio, a cero), y `f` sobre el bloque y la RVA donde empieza. Para las
+/// tablas que apuntan de una seccion a otra.
+fn con_ventana<R>(a: &bmo::Archivo, pe: &bmo_proton_x::Pe, f: impl FnOnce(&[u8], u32) -> Result<R, alloc::string::String>) -> Result<R, alloc::string::String> {
+    let datos: Vec<&bmo_proton_x::Seccion> = pe.secciones.iter().filter(|s| s.permiso() != bmo_proton_x::Permiso::Codigo && s.tam_en_fichero > 0).collect();
+    let (Some(desde), Some(hasta)) = (datos.iter().map(|s| s.rva).min(), datos.iter().map(|s| s.rva + s.tam_en_fichero).max()) else {
+        return Err(alloc::string::String::from("sin secciones de datos"));
+    };
+    let tam = (hasta - desde) as u64;
+    if tam > TOPE_SECCION {
+        return Err(format!("las secciones de datos pasan de 64 MiB ({} MiB)", tam >> 20));
+    }
+    let b = bmo::Memoria::request(tam.max(1)).ok_or("sin memoria para la ventana de datos")?;
+    // SAFETY: un bloque nuestro de `tam` bytes: a cero lo que ninguna llena.
+    unsafe { core::ptr::write_bytes(b.base(), 0, tam as usize) };
+    for s in &datos {
+        let mut hecho = 0u64;
+        let n = s.tam_en_fichero as u64;
+        while hecho < n {
+            let k = TROZO.min(n - hecho);
+            let pos = s.desde as u64 + hecho;
+            if a.saltar(pos) != pos || a.leer_en(&b, (s.rva - desde) as u64 + hecho, k) != k {
+                b.soltar();
+                return Err(format!("la seccion {} no se leyo entera", s.nombre));
+            }
+            hecho += k;
+            bmo::yield_screen();
+        }
+    }
+    // SAFETY: `tam` bytes de un bloque nuestro, ya escritos.
+    let v = unsafe { core::slice::from_raw_parts(b.base() as *const u8, tam as usize) };
+    let r = f(v, desde);
+    b.soltar();
+    r
 }
 
 /// **Una seccion del fichero en un bloque**, a trozos (cediendo el turno), y
@@ -391,7 +432,7 @@ fn censo(ruta: &[u8]) -> ! {
             continue;
         };
         vistos.push(quien.to_ascii_lowercase());
-        juego.push((quien.clone(), m.mide >> 20, m.imps.len(), m.retrasadas.len(), nivel, None));
+        juego.push((quien.clone(), m.mide >> 20, m.imps.len(), m.retrasadas.len(), nivel, m.fallo_retrasadas.as_ref().map(|f| format!("solo las retrasadas: {f}"))));
         let mut encolar = |dll: &str, nv: Nivel| {
             if vistos.contains(&dll.to_ascii_lowercase()) {
                 return;
@@ -472,7 +513,10 @@ fn censo(ruta: &[u8]) -> ! {
     // -- El resumen: CORTO (el anillo de la consola hija son 2048 bytes: el
     // primer censo completo perdio su cabecera) y linea a linea, cediendo el
     // turno para que el escritorio lo drene.
-    let fallidos = juego.iter().filter(|j| j.5.is_some()).count();
+    // Un fichero con solo sus retrasadas sin leer SI se miro (cuenta lo demas).
+    let parcial = |f: &Option<String>| f.as_ref().is_some_and(|f| f.starts_with("solo las retrasadas"));
+    let fallidos = juego.iter().filter(|j| j.5.is_some() && !parcial(&j.5)).count();
+    let a_medias = juego.iter().filter(|j| parcial(&j.5)).count();
     linea(&format!(
         "CENSO de {nombre}: {} ficheros del juego ({} MiB); {} funciones de Windows distintas\n",
         juego.len() - fallidos,
@@ -529,6 +573,9 @@ fn censo(ruta: &[u8]) -> ! {
         l.push('\n');
         linea(&l);
     }
+    if a_medias > 0 {
+        linea(&format!("  {a_medias} ficheros del juego sin sus retrasadas (lo demas cuenta; en informe/censo.txt)\n"));
+    }
     if fallidos > 0 {
         linea(&format!("  {fallidos} ficheros del juego no se pudieron mirar (en informe/censo.txt)\n"));
     }
@@ -577,6 +624,7 @@ fn censo(ruta: &[u8]) -> ! {
     for (f, mib, n, r, nv, fallo) in &juego {
         match fallo {
             None => t.push_str(&format!("{} {f} {mib} {n} {r}\n", nv.nombre())),
+            Some(e) if parcial(fallo) => t.push_str(&format!("{} {f} {mib} {n} {r} ({e})\n", nv.nombre())),
             Some(e) => t.push_str(&format!("{} {f} NO SE PUDO MIRAR: {e}\n", nv.nombre())),
         }
     }
