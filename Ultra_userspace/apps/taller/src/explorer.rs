@@ -42,6 +42,35 @@ const STEP: i32 = 12;
 /// Characters that fit in the column.
 const CHARS: usize = ((LEFT - 2 * PAD) / 8) as usize;
 
+// -- The icons: 8x10, bit 7 the leftmost pixel. Drawn with the same `rect` as
+// everything else; no image, no font.
+
+/// A page with its corner folded: the outline of every file.
+const PAGE: [u8; 10] = [0xF8, 0x8C, 0x8E, 0x82, 0x82, 0x82, 0x82, 0x82, 0x82, 0xFE];
+/// A `T` inside the page: a `.titan`.
+const TEE: [u8; 10] = [0, 0, 0, 0, 0x38, 0x10, 0x10, 0x10, 0, 0];
+/// Lines inside the page: `Titan.toml`, the manifest.
+const LINES: [u8; 10] = [0, 0, 0, 0, 0x38, 0, 0x38, 0, 0x30, 0];
+/// A box: a package of the library.
+const BOX: [u8; 10] = [0x38, 0x44, 0x82, 0xC6, 0xBA, 0x92, 0x92, 0x92, 0x54, 0x38];
+/// A warning: a problem.
+const WARN: [u8; 10] = [0x10, 0x28, 0x38, 0x54, 0x54, 0x92, 0x82, 0x92, 0xFE, 0];
+/// A disk: where the bytes are.
+const DISK: [u8; 10] = [0x7C, 0x82, 0x7C, 0x82, 0x82, 0x82, 0x82, 0x82, 0x7C, 0];
+
+fn icon(c: &mut Canvas, x: i32, y: i32, bits: &[u8; 10], color: Color) {
+    for (row, &b) in bits.iter().enumerate() {
+        for col in 0..8 {
+            if b & (0x80 >> col) != 0 {
+                c.rect(x + col, y + 3 + row as i32, 1, 1, color);
+            }
+        }
+    }
+}
+
+/// Where the text of a row starts, after its icon.
+const ICON_W: i32 = 12;
+
 /// What a click in the column asks for.
 pub enum Click {
     Package(usize),
@@ -150,6 +179,8 @@ pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
         c.put(LEFT - 1, y, mezclar(VIOLET, BLUE, (y - TOP) as u32, tall));
     }
     let files = store.loaded.files();
+    // The persistent faults (the reader's), the same the canvas marks.
+    let faults = crate::faults::collect(&store.loaded, None);
     rows(store, |y, _h, row| match row {
         Row::Heading("EXPLORER") => {
             c.text(PAD, y, b"EXPLORER", TITLE, 1);
@@ -168,9 +199,9 @@ pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
             if chosen {
                 picked_row(c, 0, y - 1, LEFT - 1, ROW);
             }
-            let mut t = Buf::new();
-            t.s(if chosen { "> " } else { "  " }).b(store.packages()[i].0.as_bytes());
-            c.text_fit(PAD, y, t.get(), if chosen { ACCENT } else { INK }, LEFT - 2 * PAD);
+            icon(c, PAD, y, &BOX, if chosen { ACCENT } else { VIOLET });
+            let x = PAD + ICON_W;
+            c.text_fit(x, y, store.packages()[i].0.as_bytes(), if chosen { ACCENT } else { INK }, LEFT - x - PAD);
         }
         Row::File(i) => {
             let f = &files[i];
@@ -185,12 +216,20 @@ pub fn draw(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
             let path = f.path.as_bytes();
             let name = path.rsplit(|&b| b == b'/').next().unwrap_or(path);
             let x = indent(f.depth);
-            c.text_fit(x, y, name, if lit { ACCENT } else { INK }, LEFT - x - PAD);
+            // The manifest in violet with its lines; a module in blue with its T.
+            let (outline, inside) = if f.depth == 0 { (VIOLET, &LINES) } else { (BLUE, &TEE) };
+            icon(c, x, y, &PAGE, if lit { ACCENT } else { outline });
+            icon(c, x, y, inside, if lit { ACCENT } else { INK });
+            let ink = if faults.get().contains(&f.node) { BAD } else if lit { ACCENT } else { INK };
+            c.text_fit(x + ICON_W, y, name, ink, LEFT - x - ICON_W - PAD);
         }
         Row::Problem(i, part) => {
             let text = store.loaded.problems()[i].describe();
+            if part == 0 {
+                icon(c, PAD, y, &WARN, BAD);
+            }
             if let Some(line) = pieces(text.as_bytes()).nth(part) {
-                c.text(PAD + if part == 0 { 0 } else { 8 }, y, line, BAD, 1);
+                c.text(PAD + ICON_W, y, line, BAD, 1);
             };
         }
         Row::More => {
@@ -231,7 +270,8 @@ fn footer(c: &mut Canvas, store: &Store, selected: Option<NodeId>) {
         }
     }
     if disk_lines > 0 {
-        c.text(PAD, y, b"EN DISCO", DIM, 1);
+        icon(c, PAD, y, &DISK, DIM);
+        c.text(PAD + ICON_W, y, b"EN DISCO", DIM, 1);
         y += ROW;
         for line in pieces(disk.get()).take(2) {
             c.text(PAD, y, line, INK, 1);

@@ -742,6 +742,61 @@ por eso es de 512.
 | el lienzo | estrellas de colores y dos nebulosas suaves (azul abajo a la izquierda, violeta arriba a la derecha); ningun dibujo detras de los nodos | negro liso: no hubo bloque para el cielo |
 | arrastrar el lienzo | los nodos se mueven sobre el cielo, que se queda quieto | el cielo tiembla o se rompe: la copia no cubre la ventana |
 
+### 8.9 L4: los cables LATEN, y un error se VE y GUIA (30-09)
+
+El propietario: *"los cables tengan animacion de color blanco"*, *"en la parte
+de Explorer mejores con iconos y algo simple"*, y para los fallos *"rojo
+grueso y que diga error... animacion divertida... y si hay multiples, por algo
+son nodos, para guiar"* -- inspirado en los nodos de Houdini y Blender, pero
+con animacion propia.
+
+```text
+   el pulso        una cometa BLANCA baja por cada cable, del que usa al usado
+                   (la direccion de todo `mod` y `use`), cada cable con su fase.
+                   No sobre un cable ocupado por un prestamo: ese ya habla
+   los iconos      8x10, dibujados con `rect`: un paquete, una hoja con T (un
+                   .titan), una hoja con lineas (Titan.toml), un aviso (un
+                   problema), un disco (EN DISCO)
+   un ERROR        borde rojo grueso, halo rojo que RESPIRA, una onda que sale
+                   del nodo, y la etiqueta ERROR montada en la esquina de su
+                   cabecera (flota dos pixeles)
+   varios          ERROR 1/3, 2/3... en el orden en que se lee un grafo (de
+                   arriba abajo, de izquierda a derecha), unidos por un camino
+                   rojo de trazos EN MARCHA hacia el siguiente. [e] lleva la
+                   camara al siguiente y lo selecciona
+```
+
+**De donde sale un error, y en que nodo cae** (`faults.rs`): de los problemas
+del lector -- falta un `mod` (el padre que lo declara), un `use` de nadie o un
+permiso no pedido (el que usa), dos con el mismo nombre, un ciclo (los dos
+extremos), sin Titan.toml o sin main (la raiz) -- y del NO del comprobador que
+este en pantalla (Conflict: los dos nodos; Denied: ese). Un problema que no
+nombra un nodo que exista (una cabecera que no se entiende, un fichero cuyo
+nombre no casa) se queda en PROBLEMAS: inventarle un nodo seria apuntar al
+sitio equivocado. El EXPLORER pinta en rojo el fichero de cada nodo en falta.
+
+**Lo que cuesta, y la regla de la casa.** Lo que se mueve obliga a repintar la
+ventana entera. Por eso el pulso y la respiracion del rojo corren a ~30 fps
+**solo mientras la ventana se ve y alguien la toco en los ultimos 20 s**; en
+reposo el rojo se QUEDA, quieto, y F1 vuelve a dormir 100 ms sin pintar (*si no
+hace nada, no consume*). El primer toque lo despierta.
+
+**Visto con la CAMARA**: la primera etiqueta iba 24 px encima del nodo y
+tapaba la ultima linea del de arriba (los nodos estan a ~20 px); ahora va a
+caballo de la esquina de su propia cabecera. El pulso de un pixel no se veia:
+ahora la cabeza son cinco. Y `core` no tiene `sqrt` sin `std`: el largo de un
+trazo sale de una raiz entera.
+
+**Como se mira en el Ryzen:**
+
+| se hace | si esta bien | si falla |
+|---|---|---|
+| F1 y esperar | puntos blancos bajan por los cables sin parar | cables quietos: el latido de 33 ms no llega |
+| no tocar nada 20 s | los pulsos se paran; al mover el raton vuelven | siguen para siempre: F1 no descansa |
+| F12: `renombra titan/asteroids/src/rock.titan roca.titan` | `main` en rojo con ERROR, su onda, `main.titan` en rojo | el problema sale en la lista pero ningun nodo se enciende |
+| ademas un `use ufo` en physics | ERROR 1/2 en main y 2/2 en physics, y el camino rojo entre los dos | sin camino, o numeros al reves |
+| `e` | la camara salta al siguiente error y lo selecciona | no pasa nada: la `e` no llega como letra |
+
 ---
 
 Ver [`PLAN_AUTOHOSPEDAJE.md`](en_pausa/PLAN_AUTOHOSPEDAJE.md) (el mismo trabajo desde el

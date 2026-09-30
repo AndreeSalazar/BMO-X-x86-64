@@ -1,7 +1,9 @@
 //! **TALLER** -- F1, the workshop, as its own app (`sys/taller.bex`).
 //!
 //! [consumo] LATIDO    while something moves (an animation, a drag) it wakes
-//!                     every 16 ms; when still, every 100 ms to read the
+//!                     every 16 ms; the white pulse on the cables every 33 ms,
+//!                     and ONLY while the window is seen and someone touched it
+//!                     in the last 20 s; when still, every 100 ms to read the
 //!                     mailbox and ESTRATOS's generation (one number); it
 //!                     reads files only when that number moved, and it does
 //!                     not draw at all if nobody sees it (the VIEW byte, R-APP8)
@@ -36,6 +38,7 @@
 mod art;
 mod canvas;
 mod explorer;
+mod faults;
 mod player;
 mod store;
 mod view;
@@ -55,6 +58,11 @@ const HEIGHT: u32 = 760;
 
 /// Left mouse button, in the event's and the pointer's button byte.
 const BUTTON: u8 = 1;
+
+/// The pulse on the cables stops this long after the last touch: at rest, F1
+/// goes back to sleeping (the house's rule -- if it does nothing, it spends
+/// nothing).
+const FLOW_REST_MS: u32 = 20_000;
 
 fn say(s: &str) {
     bmo::consola(s);
@@ -161,6 +169,7 @@ pub extern "C" fn _start() -> ! {
     let clock = Clock { hz: bmo::info(bmo::INFO_TSC_HZ) };
     let mut last = clock.now_ms();
     let opened = last;
+    let mut touched = last;
     // The splash runs until its time is up or the owner touches anything.
     let mut splash = logo.is_some();
     let mut dirty = true;
@@ -191,6 +200,7 @@ pub extern "C" fn _start() -> ! {
         dirty |= splash;
 
         while let Some(input) = win.next() {
+            touched = now;
             if splash {
                 // The first touch only ends the splash: it must not also pick
                 // a node the owner has not seen yet.
@@ -237,6 +247,16 @@ pub extern "C" fn _start() -> ! {
                     drag = Drag::None;
                 }
                 Input::Mouse { .. } => {}
+                Input::Char(b'e' | b'E') => {
+                    // The next fault of the path: select it and go there.
+                    let current = shown.script.as_ref().and_then(|s| s.events().get(shown.player.index)).map(|e| e.kind);
+                    let marks = faults::collect(&store.loaded, current);
+                    if let Some(id) = marks.next_after(shown.selected) {
+                        shown.selected = Some(id);
+                        cam = look_at(&store.loaded.graph, id, cam.zoom).unwrap_or(cam);
+                        dirty = true;
+                    }
+                }
                 Input::Char(c) => {
                     dirty |= key(c, &mut shown, &mut cam, &store.loaded.graph);
                 }
@@ -282,8 +302,12 @@ pub extern "C" fn _start() -> ! {
             dirty = true;
         }
         let seen = ptr.view as u64 == bmo::SUP_VISTA_SE_VE;
+        let flowing = seen && !splash && now.wrapping_sub(touched) < FLOW_REST_MS;
+        dirty |= flowing;
         if dirty && seen {
             let name = store.packages().get(store.chosen).map(|p| p.0.as_bytes());
+            let current = shown.script.as_ref().and_then(|s| s.events().get(shown.player.index)).map(|e| e.kind);
+            let marks = faults::collect(&store.loaded, current);
             let scene = Scene {
                 graph: &store.loaded.graph,
                 script: shown.script.as_ref(),
@@ -293,6 +317,8 @@ pub extern "C" fn _start() -> ! {
                 selected: shown.selected,
                 origin: name.unwrap_or(b"ejemplo en memoria"),
                 sky,
+                flow_ms: flowing.then_some(now),
+                faults: &marks,
             };
             let covered = splash && veil == Some(1000);
             if !covered {
@@ -311,7 +337,13 @@ pub extern "C" fn _start() -> ! {
             dirty = false;
         }
         let moving = splash || shown.player.playing || !matches!(drag, Drag::None);
-        let nap_ms: u64 = if moving && seen { 16 } else { 100 };
+        let nap_ms: u64 = if moving && seen {
+            16
+        } else if flowing {
+            33
+        } else {
+            100
+        };
         bmo::wait(0, 0, nap_ms * 1_000_000);
     }
 }

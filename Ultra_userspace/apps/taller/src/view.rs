@@ -256,6 +256,11 @@ pub struct Scene<'a> {
     pub origin: &'a [u8],
     /// The sky, built once (`art::backdrop`); `None`: a plain night colour.
     pub sky: Option<&'a [u32]>,
+    /// The clock of the white pulse on the cables; `None`: the cables are
+    /// still (F1 at rest, see `main.rs`). The faults breathe on the same clock.
+    pub flow_ms: Option<u32>,
+    /// The nodes in fault (`faults.rs`), in the order of their path.
+    pub faults: &'a crate::faults::Marks,
 }
 
 /// One whole frame of the canvas. The EXPLORER is drawn after, on its own.
@@ -269,7 +274,9 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
     }
     grid(c, cam);
     let current = s.events().get(p.index).map(|e| e.kind);
-    cables(c, g, p, cam, current);
+    cables(c, g, p, cam, current, sc.flow_ms);
+    let (clock, lively) = (sc.flow_ms.unwrap_or(sc.now_ms), sc.flow_ms.is_some());
+    crate::faults::draw_under(c, g, cam, sc.faults, clock, lively);
     for (i, n) in g.nodes().iter().enumerate() {
         let id = NodeId(i as u8);
         if sc.selected == Some(id) {
@@ -280,6 +287,7 @@ pub fn draw(c: &mut Canvas, sc: &Scene) {
         node(c, g, cam, id, n, current, sc.now_ms);
     }
     chips(c, g, p, cam);
+    crate::faults::draw_over(c, g, cam, sc.faults, clock, lively);
     overlay(c, g, s, p, cam, sc.now_ms);
     title_bar(c, s, p, sc.script.is_some(), sc.origin);
     if sc.script.is_some() {
@@ -304,8 +312,13 @@ fn grid(c: &mut Canvas, cam: &Camera) {
     }
 }
 
-fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<EventKind>) {
-    for e in g.edges() {
+/// How long a pulse takes to go down a cable, and how far behind it its tail
+/// reaches (thousandths of the cable).
+const FLOW_MS: u32 = 1800;
+const TAIL: u32 = 220;
+
+fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<EventKind>, flow_ms: Option<u32>) {
+    for (i, e) in g.edges().iter().enumerate() {
         let Some(k) = cable(g, cam, e.from, e.to) else { continue };
         let lent = p.loans.iter().flatten().find(|l| l.from == e.from && l.to == e.to);
         let to_gpu = g.node(e.to).map(|n| n.kind == NodeKind::Gpu).unwrap_or(false);
@@ -327,6 +340,41 @@ fn cables(c: &mut Canvas, g: &Graph, p: &Player, cam: &Camera, current: Option<E
         c.curve_glow(k, halo, color, thick, 3);
         // The arrow head: the used node is below.
         c.disc(k[3].0, k[3].1, 3, color);
+        // The pulse: white light going DOWN the cable, from the one that
+        // uses to the one used -- the direction of every `mod` and `use`.
+        // Not on a cable that is busy with a loan: that one already speaks.
+        if let (Some(t), false) = (flow_ms, lent.is_some() || travelling) {
+            // Each cable on its own phase, so they do not beat together.
+            let u = (t.wrapping_add(i as u32 * 397) % FLOW_MS) * 1000 / FLOW_MS;
+            pulse(c, &k, u);
+        }
+    }
+}
+
+/// A comet at `u` thousandths along a cable: a bright head five pixels wide
+/// and a tail that thins and fades behind it, added as light (white over the
+/// blue cable reads as white).
+fn pulse(c: &mut Canvas, k: &[Vertice; 4], u: u32) {
+    const STEPS: u32 = 12;
+    for s in (0..STEPS).rev() {
+        let back = TAIL * s / STEPS;
+        if back > u {
+            continue;
+        }
+        let (x, y) = along(k, u - back);
+        let fade = 255 * (STEPS - s) / STEPS;
+        // Two pixels of radius at the head, one in the first half of the tail.
+        let r: i32 = if s < 2 { 2 } else if s < STEPS / 2 { 1 } else { 0 };
+        for dy in -r..=r {
+            for dx in -r..=r {
+                let d = dx.abs() + dy.abs();
+                if d > r {
+                    continue;
+                }
+                let v = fade * (r + 1 - d) as u32 / (r + 1) as u32;
+                c.light(x + dx, y + dy, v << 16 | v << 8 | v);
+            }
+        }
     }
 }
 
@@ -633,7 +681,7 @@ fn help(c: &mut Canvas, x: i32, top: i32) {
     c.text(
         x,
         top + PANEL - 22,
-        b"[espacio] pausa  [n] paso  [r] repite  [+ -] zoom  [0] encuadra  arrastra: mueve  fichero sobre otro: cuelga  [Esc] cierra",
+        b"[espacio] pausa [n] paso [r] repite [+-] zoom [0] encuadra [e] error  arrastra: mueve  fichero sobre otro: cuelga  [Esc] sale",
         DIM,
         1,
     );
