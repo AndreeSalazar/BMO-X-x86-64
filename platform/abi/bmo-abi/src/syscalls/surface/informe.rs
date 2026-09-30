@@ -1848,6 +1848,9 @@ pub const INFO_METICHE: u64 = 0xC3;
 ///               3 no contesto a IDENTIFY 4 es el MISMO disco de BMO-X
 ///               5 ni GPT ni MBR que leer 6 ninguna particion NTFS (detalle:
 ///               7 el NTFS no monto          cuantas particiones vio)
+///   que 3     PERSONAL (30-09): lo leido desde el arranque, en MiB,
+///             `directos << 32 | rebotados` (DIRECTO: el disco escribio en el
+///             bufer de quien leia; REBOTADO: por el rebote del disco ajeno)
 ///                 (detalle: 1 leer, 2 no es NTFS, 3 forma, 4 grande)
 ///               8 montado
 /// ```

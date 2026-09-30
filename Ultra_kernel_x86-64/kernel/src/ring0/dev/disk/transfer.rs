@@ -422,7 +422,7 @@ fn leer_rebotando(lba: u64, batch: u16, dma: u64, buf: &mut [u8], done: u16) -> 
 /// dentro de un syscall de Ring 3, donde CR3 es el del proceso. El buffer del
 /// cargador existe igual en ese espacio porque la mitad alta se comparte, pero
 /// preguntarselo al espacio equivocado seria confiar en esa coincidencia.
-fn tramo_dma(va: u64, max: u64) -> Option<(u64, u64)> {
+pub(super) fn tramo_dma(va: u64, max: u64) -> Option<(u64, u64)> {
     // [!] AQUI HABIA UN `if max < SECTOR { return None }` Y SE FUE ABAJO.
     //
     // No cambiaba la decision --`elegir` contesta lo mismo-- pero se saltaba la

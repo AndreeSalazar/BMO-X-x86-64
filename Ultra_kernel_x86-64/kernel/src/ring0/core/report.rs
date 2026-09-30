@@ -926,7 +926,16 @@ pub fn campo(n: u64) -> Option<u64> {
             let (unidad, que) = ((c >> 8) & 0xFF, (c >> 16) & 3);
             // `que 2`: el testigo del FSInfo (DATOS, EFI) o donde se paro N1a
             // (PERSONAL). Ver el ABI.
-            if que == 2 {
+            if que == 3 {
+                // PERSONAL: lo leido DIRECTO al bufer y lo REBOTADO, en MiB.
+                match unidad {
+                    2 => {
+                        let (d, r) = crate::ring0::dev::disk::ajeno::cuentas();
+                        (d >> 20) << 32 | (r >> 20).min(0xFFFF_FFFF)
+                    }
+                    _ => 0,
+                }
+            } else if que == 2 {
                 match unidad {
                     0 | 1 => crate::ring0::fsys::fs::espacio_y_testigo(unidad == 1)
                         .and_then(|(_, _, t)| t)

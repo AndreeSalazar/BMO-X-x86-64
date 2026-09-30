@@ -121,10 +121,52 @@ impl BlockDevice for Ajeno {
 }
 
 /// Lee de 8 sectores en 8 por la pagina de rebote, con el juez y el vuelo.
+/// Lo mas que pide UN comando directo: una entrada de PRDT (22 bits), 4 MiB.
+const MAX_DIRECTO: u16 = 8192;
+
+/// Bytes que llegaron a su sitio sin rebote, y los que rebotaron (CABINA).
+static DIRECTOS: AtomicU64 = AtomicU64::new(0);
+static REBOTADOS: AtomicU64 = AtomicU64::new(0);
+
+/// `(directos, rebotados)` en bytes desde el arranque.
+pub fn cuentas() -> (u64, u64) {
+    (DIRECTOS.load(Ordering::Relaxed), REBOTADOS.load(Ordering::Relaxed))
+}
+
 fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, BlockError> {
     let lote = LOTE.load(Ordering::Acquire).max(1);
     let mut hecho = 0u16;
     while hecho < count {
+        // ** DIRECTO, como el disco de BMO-X (`transfer::read`): si el trozo
+        // que toca es contiguo en el physmap -- el bloque de una app al que
+        // escribe `ARCH_OP_LEER_EN` lo es --, el HBA escribe AHI, sin rebote
+        // ni copia y hasta 4 MiB por comando. Mismo juez (`prestando`: el
+        // bufer es del que llama, no del aparato) y mismo bit en vuelo.
+        let va = buf.as_ptr() as u64 + hecho as u64 * SECTOR as u64;
+        let resto = (count - hecho) as u64 * SECTOR as u64;
+        if let Some((fisica, bytes)) = super::transfer::tramo_dma(va, resto) {
+            let n = ((bytes / SECTOR as u64) as u16).min(count - hecho).min(MAX_DIRECTO);
+            if n > 0 && super::transfer::juzgar_el_dma(fisica, n as u64 * SECTOR as u64, true) {
+                let b = n as u64 * SECTOR as u64;
+                super::transfer::marcar_el_tramo(fisica, b, true, crate::ring0::task::scheduler::rdtsc());
+                // SAFETY: el puerto `p` lo preparo `init_port_dma`; `fisica`
+                // son `b` bytes contiguos del bufer de quien llama (el
+                // physmap es lineal), juzgados arriba.
+                let r = unsafe { bmo_ahci::read_sectors_phys(p, lba + hecho as u64, n, fisica) };
+                super::transfer::marcar_el_tramo(fisica, b, false, crate::ring0::task::scheduler::rdtsc());
+                let k = match r {
+                    Ok(k) if k > 0 => k.min(n),
+                    Ok(_) => return Err(BlockError::Device),
+                    Err(e) => {
+                        crate::ring0::cabina::warn("disk", e.name(), lba + hecho as u64);
+                        return Err(BlockError::Device);
+                    }
+                };
+                DIRECTOS.fetch_add(k as u64 * SECTOR as u64, Ordering::Relaxed);
+                hecho += k;
+                continue;
+            }
+        }
         let n = (count - hecho).min(lote);
         let bytes = n as u64 * SECTOR as u64;
         if !super::transfer::juzgar_el_dma(dma, bytes, false) {
@@ -150,6 +192,7 @@ fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, Bl
         // SAFETY: el rebote mide `LOTE` sectores, contiguo, por el physmap.
         let src = unsafe { core::slice::from_raw_parts(mm::phys_to_virt(dma) as *const u8, bytes as usize) };
         buf[desde..desde + bytes as usize].copy_from_slice(src);
+        REBOTADOS.fetch_add(bytes, Ordering::Relaxed);
         hecho += n;
     }
     Ok(count)

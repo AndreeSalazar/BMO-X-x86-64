@@ -1783,7 +1783,17 @@ primera carga entera (25 modulos, 238 MiB, Ryzen 5 5600X, SSD SATA):
 UNA pagina de rebote, 8 sectores por comando: 216 MiB eran ~55.000
 comandos sincronos de ~0,37 ms. Ahora el rebote es 1 MiB contiguo (2048
 sectores por comando, 256 veces menos comandos) y NTFS pide hasta 2 MiB de
-una vez (antes 64 KiB). Lo que de: la proxima linea `tiempos:` del metal.
+una vez (antes 64 KiB). Lo que dio en el metal (13:04): **290 MiB/s**
+(0,74 s para 216 MiB; cabeceras 0,55 s).
+
+**Y la segunda vuelta (30-09, "optimizas MAS fuerte en mi SSD?"):** el
+disco ajeno lee DIRECTO al bufer de quien lee cuando es contiguo en el
+physmap (el bloque de `ARCH_OP_LEER_EN` lo es), como el disco de BMO-X:
+sin rebote ni copia y hasta 4 MiB por comando; NTFS pide hasta 4 MiB y
+PROTON-X lee a trozos de 8 MiB. El informe dice en `personal:` cuantos MiB
+fueron directos y cuantos rebotaron. Lo que queda despues: NCQ (varios
+comandos en vuelo; hoy uno), y leer directo a la IMAGEN sin el bloque de
+paso (una copia menos).
 
 Y las reglas que salen de ahi, para cada pieza de PROTON-X:
 
