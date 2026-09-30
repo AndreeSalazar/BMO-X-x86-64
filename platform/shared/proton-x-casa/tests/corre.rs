@@ -65,6 +65,7 @@ const TANDA6: &[u8] = include_bytes!("../../proton-x/prueba/tanda6.exe");
 const TANDA7: &[u8] = include_bytes!("../../proton-x/prueba/tanda7.exe");
 const TANDA8: &[u8] = include_bytes!("../../proton-x/prueba/tanda8.exe");
 const TANDA9: &[u8] = include_bytes!("../../proton-x/prueba/tanda9.exe");
+const TANDA10: &[u8] = include_bytes!("../../proton-x/prueba/tanda10.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1331,4 +1332,21 @@ fn tanda9_exe_tiene_lo_que_quedaba_de_kernel32() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 30, "{texto}");
     assert!(texto.ends_with("tanda9.exe: lo que quedaba de kernel32 es lo de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 10 de Cyberpunk** (30-09): `tanda10.exe` -- lo que quedaba de
+/// user32: un dialogo de una plantilla en memoria, el HDC de una ventana,
+/// DrawText midiendo, LoadString del STRINGTABLE propio, la estacion de
+/// ventanas y los avisos de dispositivos.
+#[test]
+fn tanda10_exe_tiene_lo_que_quedaba_de_user32() {
+    let uno = uno_a_la_vez();
+    *NOMBRE.lock().unwrap() = ("window/tanda10.exe", "");
+    let (salio, dicho, _) = correr_exe(&uno, TANDA10, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
+    assert!(texto.ends_with("tanda10.exe: lo que quedaba de user32 es lo de Windows\r\n[salio 0x0]"), "{texto}");
 }

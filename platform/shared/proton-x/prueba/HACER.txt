@@ -687,3 +687,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    9f8af83ce66d9fd96d1d51a833eea1850f528602567e11350705208823b5b5eb
 
 Dice `bien` treinta veces y sale con 0. En Windows dice lo mismo.
+
+tanda10.exe -- la TANDA 10 de Cyberpunk (30-09): lo que quedaba de user32
+
+Un dialogo de una plantilla en memoria (CreateDialogIndirectParamW: el
+#32770, sus controles Button y Static, WM_INITDIALOG, GetDlgItem,
+GetTopWindow, EndDialog), el HDC de una ventana oculta (GetDC, FillRect,
+DrawFocusRect, DrawTextW/ExW midiendo con DT_CALCRECT, ReleaseDC),
+ValidateRect, GetSysColor, GetDialogBaseUnits, LoadStringW/A del
+STRINGTABLE propio (tanda10.rc), la estacion de ventanas
+(GetUserObjectInformationW) y RegisterDeviceNotificationW. Ninguna ventana
+se ve, y lo de las letras son relaciones (mas letras, mas ancho; dos
+lineas, el doble de alto): no depende de la fuente de esta maquina.
+
+   llvm-dlltool -m i386:x86-64 -d tanda10_kernel32.def -l tanda10_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda10_user32.def -l tanda10_user32.lib
+   llvm-rc /fo tanda10.res tanda10.rc
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda10.c -o tanda10.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda10.obj tanda10.res tanda10_kernel32.lib tanda10_user32.lib /out:tanda10.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   241dc3a79004cf1e45948cb83b843d10a7f66233649282ece4c417e8d01d36b7
+
+Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo.
