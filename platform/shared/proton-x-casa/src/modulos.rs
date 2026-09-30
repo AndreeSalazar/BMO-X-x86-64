@@ -145,6 +145,15 @@ pub(crate) fn exportada(dll: &str, f: &Funcion) -> Option<u64> {
 /// # Safety
 /// Las entradas son codigo sellado de DLL cargadas por quien llama.
 pub unsafe fn iniciar_dlls() -> Result<(), String> {
+    iniciar_dlls_con(|_| {})
+}
+
+/// [`iniciar_dlls`], diciendo antes de cada DllMain de quien es (P0.4b.9:
+/// si uno se cae, la ultima linea dice cual).
+///
+/// # Safety
+/// Como [`iniciar_dlls`].
+pub unsafe fn iniciar_dlls_con(mut antes: impl FnMut(&str)) -> Result<(), String> {
     let mut i = 0;
     while i < propias().len() {
         let (base, entrada, nombre, hecha) = {
@@ -152,6 +161,9 @@ pub unsafe fn iniciar_dlls() -> Result<(), String> {
             (p.base, p.entrada, p.nombre.clone(), p.iniciada)
         };
         propias()[i].iniciada = true;
+        if !hecha && entrada != 0 {
+            antes(&nombre);
+        }
         if !hecha && entrada != 0 && crate::hilos::llamar_win64(entrada, base, 1, 0) as u32 == 0 {
             return Err(alloc::format!("{nombre}: su DllMain dijo FALSE al PROCESS_ATTACH"));
         }

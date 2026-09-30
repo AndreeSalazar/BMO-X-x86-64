@@ -22,6 +22,7 @@ use alloc::vec::Vec;
 use bmo_proton_x::{colocar_en, leer_cabeceras, tramos, Pe, Tramo};
 use bmo_userland as bmo;
 
+use crate::plataforma::ahora_ns;
 use crate::{di, fin, CABECERAS, TROZO};
 
 /// Un PE de la imagen: el `.exe` (el primero) o una DLL del juego.
@@ -110,7 +111,9 @@ fn visitar(dll: &str, dir: &[u8], lista: &mut Vec<Modulo>, vistos: &mut Vec<Stri
 
 /// **Declarar y colocar** el `.exe` de `ruta` y sus DLL. El primero de la
 /// lista es el `.exe`.
-pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bmo::Imagen, Vec<Modulo>) {
+pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bmo::Imagen, Vec<Modulo>, Tiempos) {
+    let mut tiempos = Tiempos::default();
+    let t0 = ahora_ns();
     let dir: Vec<u8> = match ruta.iter().rposition(|&c| c == b'/') {
         Some(k) => ruta[..k + 1].to_vec(),
         None => Vec::new(),
@@ -122,6 +125,7 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
         visitar(&d, &dir, &mut modulos, &mut vistos);
     }
 
+    tiempos.cabeceras = ahora_ns() - t0;
     // -- 2. La declaracion: de cada PE, sus tramos en orden.
     let mut decl: Vec<bmo::ParteImagen> = Vec::new();
     let (mut c, mut d) = (0u64, 0u64);
@@ -138,6 +142,7 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
     di(&format!("PROTON-X: imagen DECLARADA y concedida: {} modulo(s) (el .exe y {} DLL del juego), {} partes, codigo {} MiB + datos {} MiB\n", modulos.len(), modulos.len() - 1, decl.len(), c >> 20, d >> 20));
 
     // -- 3. Colocar, por un bloque de paso.
+    let t1 = ahora_ns();
     let Some(paso) = bmo::Memoria::request(TROZO) else { fin("sin memoria para el bloque de paso") };
     for m in modulos.iter_mut() {
         m.base = imagen.parte(m.primera).unwrap_or_else(|| fin(&format!("{}: el kernel no dice donde quedo", m.nombre))) as u64;
@@ -149,9 +154,12 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
             while hecho < tam {
                 let k = TROZO.min(tam - hecho);
                 let pos = desde + hecho;
+                let d0 = ahora_ns();
                 if a.saltar(pos) != pos || a.leer_en(&paso, 0, k) != k {
                     return false;
                 }
+                tiempos.disco += ahora_ns() - d0;
+                tiempos.bytes += k;
                 // SAFETY: `k` bytes que el kernel acaba de escribir en el
                 // bloque de paso, que es nuestro.
                 let de = unsafe { core::slice::from_raw_parts(paso.base() as *const u8, k as usize) };
@@ -164,5 +172,19 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
         .unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
     }
     paso.soltar();
-    (imagen, modulos)
+    tiempos.colocar = ahora_ns() - t1;
+    (imagen, modulos, tiempos)
+}
+
+/// **Lo que tardo cada fase de la carga** (P0.4b.9), en ns: medir antes de
+/// hacer la cache (P0.4d), para saber QUE se ahorra.
+#[derive(Default)]
+pub(crate) struct Tiempos {
+    /// Las cabeceras y los cierres de importaciones de todos.
+    pub cabeceras: u64,
+    /// Colocar entero (disco + copiar + relocalizar + ceder el turno).
+    pub colocar: u64,
+    /// De eso, lo que fue leer del disco, y cuantos bytes.
+    pub disco: u64,
+    pub bytes: u64,
 }
