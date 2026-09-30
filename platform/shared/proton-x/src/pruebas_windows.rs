@@ -528,3 +528,34 @@ fn las_exportaciones_de_saludo_dll_con_sus_ordinales() {
     assert_eq!(imps.len(), 1);
     assert_eq!(imps[0].dll.to_ascii_lowercase(), "kernel32.dll");
 }
+
+#[test]
+fn regiones_de_64_gib_no_gastan_cuenta() {
+    // El metal (30-09): Cyberpunk reservo 64 GiB de golpe, y con un u32 por
+    // pagina la cuenta eran 64 MiB. Por tiradas, crece con lo HECHO.
+    use crate::regiones::*;
+    let mut r = Regiones::nuevas();
+    let base = 0x20_0000_0000u64;
+    let gib = 1u64 << 30;
+    r.nueva(base, 64 * gib, 4, false);
+    assert_eq!(r.consultar(base + 10 * gib).map(|c| (c.estado, c.tam)), Some((MEM_RESERVE, 64 * gib - 10 * gib)));
+    for k in 0..1000u64 {
+        r.hacer(base + k * (64 << 20), 0x3000, 4, |_, _| {}).unwrap();
+    }
+    let c = r.consultar(base + 999 * (64 << 20)).unwrap();
+    assert_eq!((c.estado, c.tam, c.prot), (MEM_COMMIT, 0x3000, 4));
+    let c = r.consultar(base + 500 * (64 << 20) + 0x3000).unwrap();
+    assert_eq!((c.estado, c.tam), (MEM_RESERVE, (64 << 20) - 0x3000), "hasta la siguiente tirada");
+    // Proteger en medio de una tirada la parte en tres; la VirtualQuery lo ve.
+    assert_eq!(r.proteger(base + 0x1000, 0x1000, 2), Ok(4));
+    assert_eq!(r.consultar(base).unwrap().tam, 0x1000);
+    assert_eq!(r.consultar(base + 0x1000).map(|c| (c.tam, c.prot)), Some((0x1000, 2)));
+    assert_eq!(r.consultar(base + 0x2000).map(|c| (c.tam, c.prot)), Some((0x1000, 4)));
+    // Y volver a la misma proteccion las junta otra vez.
+    assert_eq!(r.proteger(base + 0x1000, 0x1000, 4), Ok(2));
+    assert_eq!(r.consultar(base).unwrap().tam, 0x3000);
+    let mut devueltas = 0u64;
+    r.deshacer_con(base, 0, |_, n| devueltas += n).unwrap();
+    assert_eq!(devueltas, 1000 * 0x3000);
+    assert_eq!(r.soltar(base, 0), Ok(64 * gib));
+}

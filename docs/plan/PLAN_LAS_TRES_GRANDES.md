@@ -178,10 +178,12 @@ pide y en que orden.
     GlobalMemoryStatus dice la RAM del kernel. tanda23 (16 bien); PROTON-X
     la usa en BMO-X.
   - [ ] P0.4c.5 -- En el metal: el juego pasa de su primer VirtualAlloc.
-  - Anotado para exprimir: `Regiones` lleva un u32 POR PAGINA (una reserva
-    de 8 GiB son 8 MiB de cuenta): a tiradas cuando el juego reserve mucho;
-    y el monton hace cada arena entera al pedirla (64 MiB de RAM de golpe),
-    podria hacerla a medida que crece.
+  - [x] P0.4c.6 -- El metal (30-09, 13:04): la carga en ~4 s (disco a 290
+    MiB/s, cabeceras 0,55 s), el juego salto y RESERVO 64 GiB de golpe; la
+    cuenta de `Regiones` era un u32 POR PAGINA (64 MiB) y el monton del
+    cargador dijo que no. Ahora va por TIRADAS: crece con lo hecho.
+  - Anotado para exprimir: el monton hace cada arena entera al pedirla (64
+    MiB de RAM de golpe), podria hacerla a medida que crece.
 
 ### P0.4b -- el esquema
 
