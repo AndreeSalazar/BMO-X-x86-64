@@ -124,7 +124,13 @@ match c {
         let mut line = [0u8; PATH_MAX];
         let ln = dsk.field.n;
         line[..ln].copy_from_slice(&dsk.field.path[..ln]);
-        match parse(&line[..ln]) {
+        let orden = parse(&line[..ln]);
+        // `personal diario` es `personal censo` con --diario (30-09).
+        let (orden, diario) = match orden {
+            Command::PersonalDiario(r) => (Command::PersonalCenso(r), true),
+            o => (o, false),
+        };
+        match orden {
             // ** `run` SE DEVUELVE, no se ejecuta aqui.
             //
             // `lend_screen` se lleva la pantalla y la entrada POR VALOR y las
@@ -142,9 +148,10 @@ match c {
             // lanza aqui mismo, como si se hubiera tecleado su linea. (Escribirla
             // en el campo con un Enter inyectado no corria hasta la tecla
             // siguiente: lo inyectado solo entra con entrada nueva.)
+            // `personal diario <ruta>` (30-09), igual: el primer contacto.
             Command::PersonalCenso(ruta) => {
                 let mut buf = [0u8; PATH_MAX];
-                match crate::commands::files::linea_censo(ruta, &mut buf) {
+                match crate::commands::files::linea_censo(ruta, diario, &mut buf) {
                     Some(tn) => {
                         antes_de_proton_x(dsk, p, &buf[..tn]);
                         return Edit::Launch(buf, tn);

@@ -15,6 +15,11 @@ pub(crate) fn complete(path: &mut [u8; PATH_MAX], n: usize, output: &mut Output)
     if let Some(desde) = ruta_personal(&path[..n]) {
         return complete_personal(path, n, desde, output);
     }
+    // `run ... "d:<ruta>` (30-09): tras unas comillas abiertas con `d:`, la
+    // ruta es de D: y lleva espacios; se completa igual que la de `personal`.
+    if let Some(desde) = ruta_entre_comillas(&path[..n]) {
+        return complete_personal(path, n, desde, output);
+    }
     // El ultimo token: lo que hay tras el ultimo espacio. Asi `corre app<TAB>`
     // completa la ruta y no el verbo.
     let start = path[..n].iter().rposition(|&c| c == b' ').map_or(0, |i| i + 1);
@@ -140,13 +145,27 @@ pub(crate) fn complete(path: &mut [u8; PATH_MAX], n: usize, output: &mut Output)
 fn ruta_personal(linea: &[u8]) -> Option<usize> {
     let resto = linea.strip_prefix(b"personal ")?;
     let mut desde = linea.len() - resto.len();
-    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo "] {
+    for sub in [&b"ls "[..], b"dir ", b"lee ", b"cat ", b"censo ", b"diario "] {
         if resto.starts_with(sub) {
             desde += sub.len();
             break;
         }
     }
     Some(desde)
+}
+
+/// Donde empieza la ruta tras las ULTIMAS comillas abiertas si van seguidas
+/// de `d:` (sin cerrar): `run sys/proton-x.bex --censo "d:Cyber<TAB>`.
+fn ruta_entre_comillas(linea: &[u8]) -> Option<usize> {
+    let comillas = linea.iter().filter(|&&c| c == b'"').count();
+    if comillas % 2 == 0 {
+        return None;
+    }
+    let k = linea.iter().rposition(|&c| c == b'"')? + 1;
+    match linea.get(k..k + 2) {
+        Some([d, b':']) if *d | 0x20 == b'd' => Some(k + 2),
+        _ => None,
+    }
 }
 
 /// **El TAB dentro de D: (N1b).** Todo lo que va detras de `personal ls` es
