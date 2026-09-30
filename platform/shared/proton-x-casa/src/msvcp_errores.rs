@@ -327,7 +327,15 @@ extern "win64" fn construir(k: u32, arg: u64, info: *mut u64) -> u64 {
                     _ => 22,
                 }
             };
-            (Clase::SystemError, objeto(Clase::SystemError, &texto_de_sistema(errc), Some((errc, categoria(false)))))
+            // msvcp140 lanza system_error(errc, generic_category(), _Msgs[..])
+            // y su what() es "<_Msgs>: <message()>": los dos textos son el
+            // mismo, asi que sale dos veces. Lo dijo tanda13.exe en Windows:
+            // "operation not permitted: operation not permitted".
+            let t = texto_de_sistema(errc);
+            let mut w = t.clone();
+            w.extend_from_slice(b": ");
+            w.extend_from_slice(&t);
+            (Clase::SystemError, objeto(Clase::SystemError, &w, Some((errc, categoria(false)))))
         }
         K_LAST_ERROR => {
             let e = kernel32::ultimo_error() as i32;

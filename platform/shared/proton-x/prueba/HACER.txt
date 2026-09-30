@@ -778,9 +778,11 @@ las clases se declaran, y sus miembros donde MSVC los pone
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   337b95c6c9e390e8b650afd77db2e8597dfe516381e41d9762d8c8eb9eb63e42
+   feeec802158519b6f1d8c9306b34bb7ed25da760416df992acd6ea91c35878b1
 
-Dice `bien` dieciseis veces y sale con 0, y muestra el what() de
-_Throw_Cpp_error: el juez dijo MAL cuando iban juntas cuatro cosas (su
-valor, su what(), el nombre y el _Addr de la categoria), y ahora cada una
-va en su linea.
+Dice `bien` dieciseis veces y sale con 0. El juez dijo MAL cuando iban
+juntas cuatro cosas del _Throw_Cpp_error (su valor, su what(), el nombre y
+el _Addr de la categoria): ahora cada una va en su linea. Y el what() lo
+dijo Windows: "operation not permitted: operation not permitted" (un
+system_error hecho con un mensaje junta "<mensaje>: <message()>", y
+msvcp140 da el mismo texto en los dos).
