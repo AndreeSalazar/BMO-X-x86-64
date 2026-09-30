@@ -138,6 +138,12 @@ pide y en que orden.
     registrar, resolver, sellar y los DllMain. Las retrasadas se cargan (y su
     DllMain corre) al arrancar, no en su primera llamada: dicho. Las que el
     juego abre EN VIVO (LoadLibrary de un nombre en sus datos), todavia no.
+  - [x] P0.4b.6 -- TRAMOS (30-09): el primer golpe del metal fue
+    `bink2w64.dll`, con `.rdata` ENTRE dos secciones de codigo. Cada PE se
+    declara ahora por tramos de paginas del mismo permiso (codigo, datos,
+    codigo...: `bmo_proton_x::tramos`), el juez acepta que alternen, y se
+    sellan todos los de codigo. `.rdata` queda R+W (Windows: solo R); una
+    seccion escribible en una pagina de codigo sigue siendo un NO.
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN

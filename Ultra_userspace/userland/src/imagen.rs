@@ -18,7 +18,8 @@
 use crate::*;
 
 /// Una parte que se declara: de que PE (0, 1, 2... en orden), si es su
-/// codigo, y cuantos bytes mide en memoria. De cada PE, el codigo primero.
+/// codigo, y cuantos bytes mide en memoria. De cada PE, sus tramos en orden
+/// (codigo, datos, codigo...: dos seguidos del mismo permiso serian uno).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParteImagen {
     pub pe: u16,
@@ -42,7 +43,7 @@ impl NoImagen {
             2 => "la tabla de partes no esta en un bloque propio",
             3 => "de mas partes, o ninguna (valor: cuantas)",
             4 => "una parte mide 0 bytes (valor: cual)",
-            5 => "una parte fuera de orden: de cada PE, codigo y luego datos (valor: cual)",
+            5 => "una parte fuera de orden: PE 0, 1, 2... y sus tramos alternan codigo y datos (valor: cual)",
             6 => "no hay RAM: pide / hay, en MiB (lo libre menos el margen del kernel)",
             7 => "no cabe en la ventana de imagenes: pide / hay, en MiB",
             8 => "ya hay imagenes declaradas en todas las ranuras del kernel",

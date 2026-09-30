@@ -237,6 +237,29 @@ fn teb_exe_esta_dentro_pide_siete_y_no_trae_reloc() {
 }
 
 #[test]
+fn tramos_como_bink2w64_rdata_entre_dos_codigos() {
+    // P0.4b.6: `partir` no puede con `.rdata` entre dos codigos; `tramos` si.
+    use crate::pe::Seccion;
+    let sec = |nombre: &str, rva: u32, tam: u32, car: u32| Seccion { nombre: nombre.into(), rva, tam_virtual: tam, desde: 0, tam_en_fichero: 0, caracteristicas: car };
+    let (x, w, r) = (0x6000_0020, 0xC000_0040, 0x4000_0040);
+    let mut pe = leer(TEB_EXE).unwrap();
+    assert_eq!(tramos(&pe).unwrap(), [Tramo { codigo: true, bytes: 2 * PAGINA }, Tramo { codigo: false, bytes: 2 * PAGINA }], "lo de siempre: lo mismo que `partir`");
+    pe.tam_cabeceras = 0x400;
+    pe.tam_imagen = 6 * PAGINA;
+    pe.secciones = vec![sec(".text", 0x1000, 0x1800, x), sec(".rdata", 0x3000, 0x10, r), sec(".bink", 0x4000, 0x20, x), sec(".data", 0x5000, 0x30, w)];
+    assert_eq!(partir(&pe), Err(Fallo::NoSeParte(".rdata".into())));
+    let t = tramos(&pe).unwrap();
+    assert_eq!(t, [Tramo { codigo: true, bytes: 3 * PAGINA }, Tramo { codigo: false, bytes: PAGINA }, Tramo { codigo: true, bytes: PAGINA }, Tramo { codigo: false, bytes: PAGINA }]);
+    assert_eq!(t.iter().map(|t| t.bytes).sum::<u32>(), pe.tam_imagen);
+    // Escribible en una pagina de codigo: eso NO (W y X a la vez).
+    pe.secciones[1] = sec(".rdata", 0x2800, 0x10, w);
+    assert_eq!(tramos(&pe), Err(Fallo::NoSeParte(".rdata".into())));
+    // Solo-R en una pagina de codigo: va con el codigo.
+    pe.secciones[1] = sec(".rdata", 0x2800, 0x10, r);
+    assert_eq!(tramos(&pe).unwrap()[0], Tramo { codigo: true, bytes: 3 * PAGINA });
+}
+
+#[test]
 fn con_relocs_stripped_no_se_mueve() {
     let mut d = TEB_EXE.to_vec();
     let e = u32::from_le_bytes([d[0x3C], d[0x3D], d[0x3E], d[0x3F]]) as usize;

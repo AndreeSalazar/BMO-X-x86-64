@@ -24,9 +24,9 @@
 //!                   kernel: DINAMICO, no un tope escrito -> no, con los dos
 //!                   numeros
 //!    la ventana     lo que ocupa en VA, contra la ventana de imagenes -> no
-//!    y si cabe      donde va cada parte: cada PE empieza alineado, y su
-//!                   codigo y sus datos van SEGUIDOS (lo que el cargador de
-//!                   la app exige)
+//!    y si cabe      donde va cada parte: cada PE empieza alineado, y sus
+//!                   tramos (codigo, datos, codigo...) van SEGUIDOS (lo que
+//!                   el cargador de la app exige)
 //! ```
 //!
 //! **Sin una constante de medida**: los limites los pone el kernel. Un juez
@@ -71,8 +71,9 @@ pub enum Motivo {
     DeMas { partes: usize, max: usize },
     /// La parte `i` mide 0.
     ParteVacia { i: usize },
-    /// La parte `i` rompe el orden: los PE van 0, 1, 2... y de cada uno, su
-    /// codigo (si lo tiene) antes que sus datos, uno de cada.
+    /// La parte `i` rompe el orden: los PE van 0, 1, 2... y, dentro de cada
+    /// uno, sus tramos alternan codigo y datos (dos seguidos del mismo
+    /// permiso serian uno solo).
     Desordenada { i: usize },
     /// No hay RAM: pide `pide` bytes y hay `hay` (lo libre menos el margen).
     SinRam { pide: u64, hay: u64 },
@@ -128,8 +129,9 @@ pub fn juzgar(partes: &[Parte], l: &Limites) -> Veredicto {
     if partes.len() > l.max_partes {
         return Veredicto::Negada(DeMas { partes: partes.len(), max: l.max_partes });
     }
-    // El orden: PE que no bajan ni saltan; de cada uno, a lo sumo un codigo
-    // y unos datos, el codigo primero.
+    // El orden: PE que no bajan ni saltan; dentro de cada uno, tramos que
+    // alternan codigo y datos (P0.4b.6: `bink2w64.dll` trae `.rdata` entre
+    // dos codigos, y su imagen es codigo, datos, codigo, datos).
     let mut antes: Option<Parte> = None;
     for (i, p) in partes.iter().enumerate() {
         if p.bytes == 0 {
@@ -137,7 +139,7 @@ pub fn juzgar(partes: &[Parte], l: &Limites) -> Veredicto {
         }
         let bien = match antes {
             None => p.pe == 0,
-            Some(a) if a.pe == p.pe => a.codigo && !p.codigo,
+            Some(a) if a.pe == p.pe => a.codigo != p.codigo,
             Some(a) => a.pe.checked_add(1) == Some(p.pe),
         };
         if !bien {
