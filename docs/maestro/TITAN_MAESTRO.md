@@ -1012,7 +1012,9 @@ T3, la puerta que lo compara (J2) y el NO que llega al nodo (J3-J4) con T6.
    en la 3060? Decide que se construye primero en T3.
 5. ~~El editor de nodos: donde van las posiciones~~ -> **en `[layout]`
    dentro de `Titan.toml`**, hecho en L1 (PLAN_TALLER 8.6, 29-09).
-6. **Los simbolos** (14.2): la propuesta minima de abajo, o cual.
+6. **Los simbolos** (14.2): la propuesta minima de abajo, o cual. Y **llaves
+   o sangria** (14.12): los bocetos de 6.4 van con sangria, los de 14.12 con
+   llaves, y las dos no pueden convivir.
 
 ---
 
@@ -1161,3 +1163,279 @@ problema dicho). El resto espera al compilador.
 - El modelo 2 (13.3): confirmado o no.
 - ~~Que queria decir *"aprende de todo"*~~ -> aclarado el 30-09: que BMO-X
   va reuniendo lo que hace falta; no es una pieza del lenguaje.
+
+### 14.12 BOCETOS: como quedaria (30-09) -- NO es gramatica
+
+Cuatro programas con SOLO las 25 palabras y los simbolos propuestos en 14.2,
+para ver el lenguaje entero de un vistazo. La gramatica es del propietario (T0);
+esto es un punto de partida, no una decision.
+
+[!] **Llaves o sangria, que decidir en T0**: el boceto de 6.4 va con sangria (al
+estilo Python); estos, con llaves (al estilo JavaScript). Las dos no pueden
+convivir: una sola forma de hacer cada cosa (4.4).
+
+**1. Prestar (`mut`) y entregar (`take`), y el error que no deja compilar**
+
+```text
+type Ship {
+    x: f32
+    fuel: dec
+}
+
+fn push(mut s: Ship, dx: f32) {     # se presta para cambiarlo
+    s.x = s.x + dx
+}
+
+fn scrap(take s: Ship) -> dec {     # se lo queda: el que llama ya no lo tiene
+    return s.fuel
+}
+
+fn main() {
+    let mut ship = Ship { x: 0.0, fuel: 12.50 }
+    push(mut ship, 3.0)
+    let left = scrap(take ship)
+    print(ship.x)                   # NO compila
+}
+```
+
+```text
+QUE      `ship` se usa despues de entregarlo
+DONDE    main, linea 16
+POR QUE  `scrap(take ship)` en la linea 15 se lo quedo
+COMO     usa `left`, o presta con `mut` en vez de entregar con `take`
+```
+
+Y en F1, el nodo `main` en rojo con su ERROR (PLAN_TALLER 8.9).
+
+**2. Un JSON con `enum` y `match`**
+
+```text
+enum Json {
+    Null
+    Bool(bool)
+    Num(dec)
+    Text(text)
+    List([Json])
+}
+
+fn show(v: Json) -> text {
+    match v {
+        Null -> "null"
+        Bool(b) -> if b { "true" } else { "false" }
+        Num(n) -> n.to_text()
+        Text(t) -> "\"" + t + "\""
+        List(items) -> "[" + join(items, ",") + "]"
+    }
+}
+```
+
+`match` obliga a cubrir TODOS los casos: un caso nuevo en `Json` sin su rama
+aqui no compila.
+
+**3. La 3060, con permiso y prestamo (U1 y U2)**
+
+```text
+# Titan.toml ->  [permissions]  gpu = "compute"
+
+gpu fn add(a: [f32; 1024], mut out: [f32; 1024]) {
+    for i in range(1024) {
+        out[i] = out[i] + a[i]
+    }
+}
+
+fn main() {
+    let a = [1.0; 1024]
+    let mut b = [0.0; 1024]
+    let job = gpu.launch(add, a, mut b)
+    print(b[0])          # NO compila: la 3060 todavia tiene `b`
+    wait(job)
+    print(b[0])          # bien: ya volvio
+}
+```
+
+Sin `gpu = "compute"` en el `Titan.toml`, ni siquiera `gpu fn` compila (U2).
+
+**4. Un bucle de juego**
+
+```text
+fn main() {
+    let mut ship = Ship { x: 100.0, fuel: 50.00 }
+    while true {
+        let keys = input.read()
+        if keys.left and ship.fuel > 0.00 {
+            push(mut ship, -2.0)
+        }
+        draw(ship)
+        wait(frame)          # duerme hasta el siguiente fotograma: no gira
+    }
+}
+```
+
+### 14.13 LA LISTA MAESTRA DEL FRONTEND: lo que se toma y lo que NO (30-09)
+
+Pedida por el propietario para construir el frontend: lo que se toma, FUERTE;
+lo que no, en ROJO y de TODAS las inspiraciones. Se lee asi:
+
+```diff
++ VERDE: SE TOMA
+- ROJO:  NO SE TOMA, y el motivo
+```
+
+(Los bloques `diff` salen en color en GitHub y en VS Code; en texto plano, el
+`+` y el `-` dicen lo mismo.)
+
+**Python -- la SUPERFICIE: que se lea de corrido**
+
+```diff
++ pocas palabras, en ingles, que se leen como frases
++ and / or / not con palabras
++ # para comentar, hasta el final de la linea
++ for x in ..., y range(n)
++ una sola forma obvia de hacer cada cosa
+- tipos que cambian solos (x = 5 y luego x = "hola"): el comprobador necesita
+-   saber que es cada cosa
+- None: un enum con su caso vacio dice lo mismo, y match obliga a mirarlo
+- recolector de basura: se libera cuando el propietario acaba
+- correr sin compilar: los errores saldrian en casa del usuario, no del autor
+```
+
+**JavaScript -- la FORMA: bloques y literales que ya conoce todo el mundo**
+
+```diff
++ bloques con { } (si T0 elige llaves y no sangria)
++ literales de registro: Ship { x: 0.0, fuel: 12.50 }
++ la flecha -> (el tipo que sale de una fn, las ramas de match)
++ texto que se suma: "a" + b
+- == que convierte tipos ("1" == 1 es true): la fuente de fallos mas famosa
+- null Y undefined: dos formas de "no hay nada"
+- this, prototipos y clases que cambian en marcha
+- todo es un objeto que cualquiera puede tocar: aqui cada valor tiene UN propietario
+- el modelo de un solo hilo con callbacks: aqui se espera con wait
+```
+
+**C++ -- el ALCANCE: llega a todo, y no paga lo que no usa (seccion 2)**
+
+```diff
++ hace TODO: del motor al juego y a la herramienta
++ abstracciones sin coste: lo que no usas no lo pagas
++ RAII: se libera al salir del bloque (lo hace el propietario)
++ genericos y calculo al compilar, con mensajes que se leen
++ sobrecarga de operadores: a + b con vectores y matrices
+- comportamiento indefinido: cero UB, las reglas de INTI
+- preprocesador y cabeceras: modulos desde el primer dia
+- herencia y jerarquias: composicion + trait
+- excepciones: los errores son datos
+- cinco formas de inicializar: una
+- muros de errores de plantilla: un generico dice que le falta, en una frase
+```
+
+**Rust -- la SEGURIDAD: el comprobador, sin su peso (seccion 6)**
+
+```diff
++ el borrow checker: nadie cambia lo que otro esta usando
++ memoria sin recolector y segura
++ enum con datos y match que obliga a cubrir todos los casos
++ los errores como valores
+- & , &mut y los tiempos de vida 'a: mut y take hacen su trabajo
+- referencias guardadas dentro de estructuras (6.5)
+- unsafe como salida de emergencia: lo que el comprobador no ve, no existe
+- la medida de rustc: 1,53 MB de comprobador (6.8); TITAN++ razona funcion a funcion
+- crates.io: dependencias por ruta y con huella, sin bajar de internet
+```
+
+**Swift y Hylo -- el MODELO: valores mutables (6.3)**
+
+```diff
++ cada parametro dice si lee, cambia (mut) o se queda (take)
++ la ley de exclusividad, comprobada funcion a funcion
+- clases con referencias compartidas y su cuenta de referencias
+```
+
+**COBOL -- los NUMEROS: el dinero no se redondea solo (2b.1)**
+
+```diff
++ decimales exactos: dec(9, 2), el MISMO de INTI
++ desbordar es un error, no un truncado
++ redondear es una llamada con nombre: round(x, 2, half_even)
+- la sintaxis de frases largas (ADD A TO B GIVING C)
+- las divisiones y la columna fija
+```
+
+**FORTRAN -- las TABLAS: la velocidad del silicio (2b.2)**
+
+```diff
++ tablas de varias dimensiones como valores: A = B + C * 2.0
++ funciones elementales: se aplican a cada celda (y corren en la 3060)
++ la regla de oro, ahora DEMOSTRADA: los argumentos no se solapan
+- GOTO
+- COMMON: memoria global compartida
+- EQUIVALENCE: dos nombres para la misma memoria (rompe la exclusividad)
+- la columna fija
+```
+
+**Lo que SOLO da BMO-X -- y por eso TITAN++ no sale de aqui (3, 6b, 10)**
+
+```diff
++ el comprobador conoce los prestamos del KERNEL y de la 3060 (U1)
++ los permisos son parte del tipo (U2)
++ MODULAR dentro del compilador (U3)
++ el .bex lleva su fuente y F1 lo abre (U4)
++ dos jueces: el compilador PREPARA, el kernel DECIDE
+- JIT en la CPU: codigo que se escribe en marcha es codigo que el juez no ve
+- correr fuera de BMO-X: sin el kernel, queda un juez solo
+```
+
+### 14.14 LA ESCALERA: hasta donde llega, y con cuantas palabras (30-09)
+
+El propietario: *"no vamos a empezar directo... hasta que tan ULTRA
+SIMPLIFICADO es capaz?"*. El frontend no se construye de golpe: se sube
+NIVEL A NIVEL, y cada nivel agrega pocas palabras y ya sirve para algo.
+
+| nivel | palabras nuevas | total | lo que ya se puede escribir |
+|---|---|---|---|
+| 0 | `fn` | 1 | un programa que saluda: `fn main() { print("hola") }` |
+| 1 | `let` | 2 | calcular: `let area = 3 * 4` |
+| 2 | `mut` | 3 | contar, acumular: `let mut n = 0` y `n = n + 1` |
+| 3 | `if else true false and or not` | 10 | DECIDIR: una calculadora, un semaforo, reglas |
+| 4 | `for in while break continue` | 15 | REPETIR: tablas de multiplicar, buscar, ordenar |
+| 5 | `return` | 16 | funciones con resultado: **ya se escribe cualquier algoritmo** |
+| 6 | `type` | 17 | registros: un jugador, una nave, una factura |
+| 7 | `take` | 18 | el borrow checker entero: prestar y entregar |
+| 8 | `enum match` | 20 | casos con datos: **un JSON**, un menu, estados de un juego |
+| 9 | `mod use pub` | 23 | varios ficheros: **una app o un juego de verdad**, y F1 los muestra como grafo |
+| 10 | `trait` | 24 | comportamientos compartidos: un motor con piezas que se cambian |
+| 11 | `gpu` | 25 | **computo en la 3060** |
+
+**La respuesta corta: con 16 palabras ya se escribe cualquier algoritmo; con
+20, un JSON; con 23, una app; con 25, la 3060.** Lo que va de 16 a 25 no da
+potencia de calculo: da ORDEN (tipos, casos, modulos) y SEGURIDAD (prestamos,
+permisos).
+
+**Cuantas listas de ejemplos: una por nivel, doce en total, y cada una con
+DOS clases de programa**:
+
+```text
+   BIEN   compila y dice exactamente lo esperado (su salida escrita al lado)
+   NO     NO compila, y su mensaje de 4 partes esta escrito al lado
+```
+
+Asi cada nivel es un BANCO, como el de `bmo-c-front`, que ejecuta los
+programas y no solo los compila: el frontend sube un nivel cuando su lista
+pasa entera, y ninguno se da por hecho sin ella. Con 2-4 programas por
+nivel salen unos 30-40 ejemplos para todo el lenguaje.
+
+**Y los niveles, cosidos a los escalones del compilador (seccion 12):**
+
+```text
+   T1  texto -> arbol      niveles 0-5    (el primero, solo el 0: `print("hola")`)
+   T2  tipos               niveles 6 y 8
+   T3  IR + emisor         el nivel 0 CORRE en el Ryzen, en una ventana
+   T4  borrow checker      nivel 7 (paso A: "ya lo entregaste"; paso B: la ley)
+   U3  modulos             nivel 9
+   T5  la 3060             nivel 11
+```
+
+El primer paso de verdad, cuando la gramatica exista, es el nivel 0: que
+`fn main() { print("hola") }` se lea, se compile y salga en una ventana del
+Ryzen. Todo lo demas se sube desde ahi.
+
