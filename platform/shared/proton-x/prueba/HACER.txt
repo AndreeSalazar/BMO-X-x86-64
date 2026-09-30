@@ -1001,3 +1001,26 @@ C y ya lo mira tanda20.exe). En la "x64 Native Tools Command Prompt":
    cl /nologo /EHsc /MD /O1 /std:c++17 tanda20m.cpp /Fe:tanda20m.exe
 
 Tiene que decir `bien` trece veces y salir con 0.
+
+tanda21.exe -- la TANDA 21 de Cyberpunk (30-09): LoadLibrary de un API set
+
+El CRT de MSVC del juego, al arrancar en el metal, hizo
+LoadLibraryExW("api-ms-win-core-synch-l1-2-0", 0, LOAD_LIBRARY_SEARCH_SYSTEM32)
+para buscar funciones con GetProcAddress, y la casa dijo NULL. En Windows un
+API set no es un fichero: LoadLibrary devuelve el modulo que lo implementa
+(kernelbase para los core, ucrtbase para los del CRT), con o sin .dll y en
+mayusculas o no; uno que no existe da NULL y ERROR_MOD_NOT_FOUND.
+
+Y VirtualProtect sobre la PROPIA imagen (el juego lo hizo dos veces al
+arrancar y la casa dijo FALSE): .data a RW, el codigo a R+X, .rdata a RW,
+escribir en ella y volver a lo de antes. Todo "si", como en Windows.
+
+   llvm-dlltool -m i386:x86-64 -d tanda21_kernel32.def -l tanda21_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda21.c -o tanda21.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda21.obj tanda21_kernel32.lib /out:tanda21.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   3a1dd22bc90a3ae92125ed29f258f38c28348c9174ac95cd2aab29e2a0824cd4
+
+Dice `bien` diecisiete veces y sale con 0. En Windows dice lo mismo.

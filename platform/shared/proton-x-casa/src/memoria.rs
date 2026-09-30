@@ -70,6 +70,7 @@ pub(crate) fn reiniciar() {
     e.monton = Monton::nuevo();
     e.regiones = Regiones::nuevas();
     e.creados.clear();
+    tramos().clear();
     e.siguiente = 2;
 }
 
@@ -392,15 +393,83 @@ extern "win64" fn virtual_query(dir: u64, mbi: *mut u8, n: usize) -> usize {
     48
 }
 
-extern "win64" fn virtual_protect(dir: u64, n: usize, prot: u32, antes: *mut u32) -> i32 {
-    let r = proteccion(prot).and_then(|p| {
-        estado().regiones.proteger(dir, n as u64, p).map_err(|x| {
-            if estado().regiones.consultar(dir).is_none() {
-                aviso("VirtualProtect fuera de VirtualAlloc: la imagen del .exe se sella al cargar y no se cambia");
+// -- VirtualProtect sobre la IMAGEN (P0.4b.8, 30-09) ----------------------
+
+/// Los tramos de la imagen cargada: `(desde, hasta, codigo)`. Los pone el
+/// cargador ([`registrar_tramos`]) al sellar.
+struct Tramos(core::cell::UnsafeCell<Vec<(u64, u64, bool)>>);
+// SAFETY: una tarea; los hilos de la casa son cooperativos.
+unsafe impl Sync for Tramos {}
+static TRAMOS: Tramos = Tramos(core::cell::UnsafeCell::new(Vec::new()));
+
+fn tramos() -> &'static mut Vec<(u64, u64, bool)> {
+    // SAFETY: ver `Tramos`; nadie guarda la referencia de un turno a otro.
+    unsafe { &mut *TRAMOS.0.get() }
+}
+
+/// **Los tramos de un modulo cargado** (su base, y cada tramo: bytes y si es
+/// codigo), para que `VirtualProtect` sobre la imagen conteste como Windows.
+pub fn registrar_tramos(base: u64, t: &[(u64, bool)]) {
+    let mut d = base;
+    for &(bytes, codigo) in t {
+        tramos().push((d, d + bytes, codigo));
+        d += bytes;
+    }
+}
+
+/// `VirtualProtect` sobre la imagen. En Windows se puede todo; aqui la
+/// imagen ya esta sellada (codigo R+X, datos R+W) y NO cambia: lo que no
+/// pide lo imposible se contesta que si, con la proteccion de ahora en
+/// `antes` (el juego suele hacer "RW y luego lo de antes"). Lo que pediria
+/// W y X a la vez sobre una pagina, NO: el W^X de la casa.
+///
+/// ```text
+///    codigo (R+X)   pide R, X o R+X    si; antes = PAGE_EXECUTE_READ
+///                   pide W             NO (sellado)
+///    datos  (R+W)   pide NOACCESS, R, RW o WRITECOPY
+///                                      si, y sigue RW (Windows lo cambiaria)
+///                   pide X             NO
+/// ```
+fn proteger_imagen(dir: u64, n: u64, prot: u32) -> Option<Result<u32, u32>> {
+    let desde = dir & !(PAGINA - 1);
+    let hasta = dir.checked_add(n.max(1))?.checked_add(PAGINA - 1)? & !(PAGINA - 1);
+    let t = tramos().iter().find(|t| t.0 <= desde && desde < t.1)?;
+    let codigo = t.2;
+    // Todo el rango, del mismo permiso.
+    let mut d = desde;
+    while d < hasta {
+        match tramos().iter().find(|t| t.0 <= d && d < t.1) {
+            Some(t) if t.2 == codigo => d = t.1,
+            _ => {
+                aviso("VirtualProtect sobre la imagen: el rango mezcla codigo y datos, o se sale");
+                return Some(Err(ERROR_INVALID_PARAMETER));
             }
-            x.error()
-        })
-    });
+        }
+    }
+    let ok = match (codigo, prot & 0xFF) {
+        (true, 0x02 | 0x10 | 0x20) => true,
+        (false, 0x01 | 0x02 | 0x04 | 0x08) => true,
+        _ => false,
+    };
+    if !ok {
+        aviso(if codigo { "VirtualProtect pide ESCRIBIR codigo de la imagen: esta sellado (W^X)" } else { "VirtualProtect pide EJECUTAR datos de la imagen: W^X" });
+        return Some(Err(ERROR_INVALID_PARAMETER));
+    }
+    Some(Ok(if codigo { 0x20 } else { 0x04 }))
+}
+
+extern "win64" fn virtual_protect(dir: u64, n: usize, prot: u32, antes: *mut u32) -> i32 {
+    let r = match proteger_imagen(dir, n as u64, prot) {
+        Some(r) => r,
+        None => proteccion(prot).and_then(|p| {
+            estado().regiones.proteger(dir, n as u64, p).map_err(|x| {
+                if estado().regiones.consultar(dir).is_none() {
+                    aviso("VirtualProtect fuera de VirtualAlloc y de la imagen");
+                }
+                x.error()
+            })
+        }),
+    };
     match r {
         Ok(a) => {
             if !antes.is_null() {

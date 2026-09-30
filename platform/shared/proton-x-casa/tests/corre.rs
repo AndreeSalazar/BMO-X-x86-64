@@ -80,6 +80,7 @@ const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
 const TANDA19: &[u8] = include_bytes!("../../proton-x/prueba/tanda19.exe");
 const TANDA19M: &[u8] = include_bytes!("../../proton-x/prueba/tanda19m.exe");
 const TANDA20: &[u8] = include_bytes!("../../proton-x/prueba/tanda20.exe");
+const TANDA21: &[u8] = include_bytes!("../../proton-x/prueba/tanda21.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -390,6 +391,7 @@ fn correr_exe(_uno: &MutexGuard<'static, ()>, exe: &[u8], con_teb: bool, guion: 
     resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap();
     unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
     mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);
+    bmo_proton_x_casa::memoria::registrar_tramos(base, &[(partes.codigo as u64, true), (partes.datos as u64, false)]);
     let hilo_mem = (teb::TEB_BYTES + teb::PEB_BYTES) as u64;
     let mem = mmap(hilo_mem);
     if con_teb {

@@ -159,3 +159,22 @@ fn los_api_set_downlevel_son_su_dll() {
     assert!(bmo_proton_x_casa::tabla("API-MS-WIN-DOWNLEVEL-ADVAPI32-L1-1-0.dll", &f("RegOpenKeyExW")).is_some());
     assert_eq!(bmo_proton_x_casa::tabla("api-ms-win-downlevel-", &f("LocalFree")), None, "sin DLL detras, nada");
 }
+
+/// **La tanda 21 de Cyberpunk** (30-09): `tanda21.exe` -- LoadLibrary de un
+/// API set. El CRT del juego, en el metal, pidio
+/// `LoadLibraryExW("api-ms-win-core-synch-l1-2-0")` y la casa dijo NULL; en
+/// Windows es su anfitrion (kernelbase, ucrtbase) y GetProcAddress busca ahi.
+/// Y VirtualProtect sobre la propia imagen, que el juego hizo dos veces.
+#[test]
+fn tanda21_exe_carga_los_api_set() {
+    // Un aviso, y ese: el API set que no existe (la casa lo dice, Windows no).
+    let uno = uno_a_la_vez();
+    let (salio, dicho, _) = correr_exe(&uno, TANDA21, true, &[]);
+    let texto = String::from_utf8(dicho).unwrap();
+    assert_eq!(salio, 0, "{texto}");
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert_eq!(texto.matches("PROTON-X:").count(), 1, "{texto}");
+    assert!(texto.contains("PROTON-X: LoadLibrary(\"api-ms-win-nadie-l1-1-0\"): no es una DLL de la casa"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 17, "{texto}");
+    assert!(texto.ends_with("tanda21.exe: LoadLibrary de un API set es lo de Windows\r\n"), "{texto}");
+}
