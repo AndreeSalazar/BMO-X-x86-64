@@ -1043,6 +1043,21 @@ _tls_index, callbacks, relocalizaciones): no se sabe por que. Esta version
 dice los indices y lo que se vio en lineas `dato`, para que Windows diga
 por que. Mientras, la casa hace lo del cargador de Windows documentado.
 
+EN WINDOWS (30-09, con los `dato`): indice del .exe 0, indice de la DLL 0,
+ni un callback, el DllMain vio el 5 del .exe, y los dos bloques son el
+mismo. Windows IGNORO el TLS de tanda22d.dll entero. libxess_fg.dll (MSVC)
+si lo tiene y en Windows va: a la de clang sin CRT le falta algo que el
+cargador exige. La prueba que manda es la gemela de MSVC:
+
+tanda22m.exe y tanda22md.dll -- la TANDA 22 compilada por MSVC (FALTA: la hace
+el propietario en su Windows). En la "x64 Native Tools Command Prompt":
+
+   cl /nologo /MD /O1 /LD tanda22md.c /Fe:tanda22md.dll
+   cl /nologo /MD /O1 tanda22m.c tanda22md.lib /Fe:tanda22m.exe
+
+Tiene que decir `bien` nueve veces y salir con 0; los `dato`, la DLL con su
+propio indice (no el del .exe), 1 callback, 42 y los bloques distintos.
+
    llvm-dlltool -m i386:x86-64 -d tanda22_kernel32.def -l tanda22_kernel32.lib
    clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda22d.c -o tanda22d.obj
    lld-link /dll /nodefaultlib /entry:entrada /dynamicbase /brepro /def:tanda22d.def /implib:tanda22d.lib tanda22d.obj /out:tanda22d.dll
