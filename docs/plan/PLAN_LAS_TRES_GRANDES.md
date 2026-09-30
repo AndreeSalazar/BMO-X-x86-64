@@ -115,6 +115,99 @@ pide y en que orden.
   monton y cada seccion va del disco a su RVA (`colocar_en`). Queda UN techo,
   el del kernel: codigo y datos, cada uno en un bloque de 64 MiB. El censo
   dice ahora `LA IMAGEN: ... cabe / NO CABE`; si no cabe, es ring 0.
+- [ ] P0.4b -- **LA DECLARACION DE IMAGEN `[RING 0]`** (permiso del propietario
+  el 30-09: "si al kernel"). Esquema escrito ANTES del codigo; abajo.
+  - [ ] P0.4b.1 -- `bmo-imagen-juicio` (puro, como `bmo-carga-juicio`): el
+    juez, con sus pruebas en el anfitrion.
+  - [ ] P0.4b.2 -- El kernel: la operacion de declarar, la ventana de
+    imagenes, sellar cada parte y devolverlo todo al morir.
+  - [ ] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3.
+  - [ ] P0.4b.4 -- La app: del censo a la declaracion, y cargar el `.exe` y
+    las DLL del juego en sus partes (lo que hace el banco con `cargar_dll` y
+    `registrar_dll`).
+  - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
+    llega a su entrada (o el diario dice donde se paro).
+- [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN
+  MARCHA (VirtualAlloc, HeapAlloc: varios GiB). Hoy la casa tiene UN monton
+  de un bloque de 64 MiB. Misma idea que P0.4b (dinamica, declarada y
+  juzgada, devuelta al morir); se traza cuando P0.4b corra y el diario diga
+  cuanto pide de verdad.
+
+### P0.4b -- el esquema
+
+**POR QUE HACE FALTA EL KERNEL** (lo pregunto el propietario). Hoy un proceso
+de BMO-X tiene, como mucho, **8 bloques vivos de 64 MiB**, cada uno
+contiguo en fisico, dentro de una ventana de VA de **512 MiB** que no se
+reusa (`obj/memory.rs`: `MAX_PETICIONES`, `MAX_BYTES`, `MEMORIA_VA_TOPE`).
+Eso sobra para DOOM y el escritorio, y no llega para Cyberpunk:
+
+```text
+   el .exe          79 MiB = 43 de codigo + 37 de datos     2 partes
+   sus 26 DLL       unos 52 partes (codigo y datos de cada una)
+   libxess.dll      70 MiB de datos: UNA parte ya no cabe en un bloque
+   la casa          su monton y su codigo sellado           2-3 bloques
+```
+
+Son ~55 partes contra 8 bloques, una parte mayor que el bloque maximo, y
+mas que los 512 MiB de VA. Ninguna de las tres cosas se arregla desde Ring
+3: son los topes del kernel. Y **no se suben para todos**: DOOM no tiene que
+poder pedir 500 MiB por accidente. Lo que cambia es que un proceso que SABE
+lo que necesita lo DECLARA, y el kernel lo juzga.
+
+**LA IDEA (OM: nada se concede sin declararse).**
+
+```text
+   la app      DECLARA la imagen entera, UNA vez: la lista de partes
+               (de que PE, codigo o datos, cuantos bytes), sacada del censo
+   el juez     (puro, sin constantes) la mira contra lo que el kernel le da:
+               cuantas partes, la mayor, el total, la RAM libre AHORA menos
+               el margen del kernel, y la VA de la ventana
+   el kernel   CONCEDE (y dice donde queda cada parte) o NIEGA con el motivo
+               y los dos numeros ("pide 612 MiB, hay 540 libres")
+```
+
+**DINAMICO, NO UN TOPE FIJO** (el propietario, 30-09: "me sobra RAM; si el
+juego pide mas, que el kernel sea dinamico"). El techo de una declaracion es
+**la RAM libre en ese momento menos `MARGEN_DEL_KERNEL`** (los 64 MiB que ya
+guarda la admision en `task/admitir.rs`), no un numero escrito. Con la RAM
+de la maquina del propietario, el juego recibe lo que pida mientras la
+maquina lo tenga; si no lo tiene, se le dice que no y por que, ANTES de
+cargar nada.
+
+**LAS REGLAS.**
+
+- **Una declaracion por proceso**, juzgada una vez. Una segunda se niega
+  ("ya declaro"). Lo concedido solo vale para ESA declaracion: una parte no
+  crece ni se agrega despues.
+- **Cada parte se sella como hoy**: nace escribible y SIN ejecucion; la de
+  codigo se sella (R+X, sin escritura, irreversible), igual que
+  `MEM_OP_SELLAR`. W^X no cambia.
+- **Sin fisica contigua**: las partes de imagen no las ve ningun aparato
+  (no hay DMA), asi que se mapean pagina a pagina con marcos sueltos. Asi
+  400 MiB no dependen de encontrar un hueco seguido en la RAM.
+- **Su propia ventana de VA**, lejos de los bloques y de los prestamos (que
+  acaban en `0x1_4000_0000`): una ventana de imagenes arriba, con cada `.exe`
+  y DLL en su sitio y su codigo y sus datos SEGUIDOS (lo que ya exige el
+  cargador de la app).
+- **Los demas no cambian**: `MAX_PETICIONES` (8), `MAX_BYTES` (64 MiB) y la
+  ventana de bloques siguen igual para DOOM, el escritorio y cualquier app
+  que no declare.
+- **Al morir el proceso**, las partes se ponen a cero y se devuelven, como
+  los bloques (`process_died`).
+- **Todo queda en el informe**: la declaracion (partes, MiB de codigo y de
+  datos), el veredicto, y si se niega, el motivo con sus numeros. `run` lo
+  pinta, como ya pinta `RECHAZO_MOTIVO`.
+
+**EL JUEZ, puro** (`platform/shared/bmo-imagen-juicio`, como
+`bmo-carga-juicio` y `bmo-prestamo-juicio`): recibe las partes y los limites
+que le da el kernel (partes maximas, RAM libre, margen, la ventana) y
+devuelve `Concedida { donde va cada parte }` o `Negada { motivo, pide,
+hay }`. No tiene ni una constante de medida: un juez que no puede
+inventarse el techo no puede equivocarse en el techo. Sus pruebas corren en
+el anfitrion (una declaracion como la de Cyberpunk; una de mas; una parte
+de 0 bytes; una que no cabe en la ventana; codigo y datos que deben quedar
+seguidos).
+
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.
