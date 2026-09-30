@@ -275,6 +275,8 @@ pub unsafe fn empezar(p: Plataforma) {
     version_y_seguridad::reiniciar();
     com_basico::reiniciar();
     user32_dialogos::reiniciar();
+    // Tanda 19: cerr, con la plataforma ya puesta (pide memoria).
+    msvcp_flujos::reiniciar();
 }
 
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
