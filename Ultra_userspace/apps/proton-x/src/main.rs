@@ -123,8 +123,9 @@ const TOPE_SECCION: u64 = 64 << 20;
 const RUTA_CENSO: &[u8] = b"informe/censo.txt";
 /// Donde queda el diario (`--diario`).
 const RUTA_DIARIO: &[u8] = b"informe/diario.txt";
-/// Lo que se lee de D: entre dos cesiones del turno.
-const TROZO: u64 = 2 << 20;
+/// Lo que se lee de D: entre dos cesiones del turno (8 MiB: ~16 ms a la
+/// velocidad del SSD; con 2 MiB eran cuatro veces mas llamadas).
+const TROZO: u64 = 8 << 20;
 
 /// Lo que se sabe de UN fichero (el `.exe` o una DLL): lo que importa, y
 /// los nombres de DLL que aparecen en sus datos (candidatas a `LoadLibrary`).

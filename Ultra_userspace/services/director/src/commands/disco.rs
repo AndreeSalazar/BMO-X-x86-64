@@ -387,6 +387,15 @@ fn personal(s: &mut Output) {
             s.dec(libres >> 20);
             s.text(b" MiB");
         }
+        // Lo que se leyo: directo al bufer, o por el rebote (30-09).
+        let leido = bmo::info(bmo::INFO_UNIDAD | u | 3 << 16);
+        if leido != 0 {
+            s.text(b"; leido ");
+            s.dec(leido >> 32);
+            s.text(b" MiB directo, ");
+            s.dec(leido & 0xFFFF_FFFF);
+            s.text(b" MiB rebotado");
+        }
         s.text(b"\n");
         return;
     }
