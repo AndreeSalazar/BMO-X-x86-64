@@ -778,6 +778,9 @@ las clases se declaran, y sus miembros donde MSVC los pone
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   0cca92cb3684fc62ec9a39838de4d7a62a203587268fa1c878c5e3c7493b7f1a
+   337b95c6c9e390e8b650afd77db2e8597dfe516381e41d9762d8c8eb9eb63e42
 
-Dice `bien` trece veces y sale con 0. En Windows dice lo mismo.
+Dice `bien` dieciseis veces y sale con 0, y muestra el what() de
+_Throw_Cpp_error: el juez dijo MAL cuando iban juntas cuatro cosas (su
+valor, su what(), el nombre y el _Addr de la categoria), y ahora cada una
+va en su linea.
