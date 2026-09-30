@@ -1,0 +1,5 @@
+LIBRARY ntdll.dll
+EXPORTS
+NtQueryInformationProcess
+RtlRunOnceExecuteOnce
+RtlUTF8ToUnicodeN

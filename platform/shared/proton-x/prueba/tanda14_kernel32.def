@@ -1,0 +1,11 @@
+LIBRARY kernel32.dll
+EXPORTS
+GetStdHandle
+WriteFile
+ExitProcess
+GetTickCount
+GetEnvironmentVariableW
+CreateFileW
+CloseHandle
+GetCurrentProcessId
+GetSystemInfo

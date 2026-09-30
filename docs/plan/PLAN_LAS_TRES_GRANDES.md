@@ -63,6 +63,26 @@ pide y en que orden.
   ```
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda por grupo de arriba).
   **Como se sabe:** el censo dice `NO FALTA NINGUNA DURA`.
+  - [x] P0.2a -- Las 30 chicas (tanda 14a, 30-09): `dll_chicas.rs`;
+    `tanda14.exe` dice `bien` 27 veces en el banco. (Y las 5 RETRASADAS:
+    el ETW y UuidCreate. Y, de las 15 de COM, las cinco faciles:
+    CoTaskMem* y CoCreateGuid, StringFromGUID2.)
+  - [ ] P0.2b -- VERSION (GetFileVersionInfo* y VerQueryValueA, leyendo el
+    recurso de version del fichero) y la seguridad (GetFileSecurityW,
+    ImpersonateSelf, AccessCheck, RevertToSelf): tanda 14b.
+  - [ ] P0.2c -- COM lo justo (ole32 y OLEAUT32 por ordinal): tanda 15.
+  - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
+    ordinal: tanda 16.
+  - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.
+  - [ ] P0.2f -- iostreams y locale de MSVCP140, con sus DATOS: tandas 18-19.
+
+- [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
+  LOCALAPPDATA y "Saved Games") es la carpeta del `.exe`, y la del juego esta
+  en D:, de solo lectura. Hace falta un perfil en la particion de datos de
+  BMO-X, y que la casa sepa crear carpetas (CreateDirectoryW dice NO hoy).
+- [ ] P0.2h -- El globo de `run` recomienda `smp all` para un juego SOLO
+  cuando sirva: con H2.2 (cada hilo de Windows, un hilo del kernel). Hoy los
+  hilos del juego se turnan en una tarea y los nucleos de mas no los ven.
 - [x] P0.3a -- El DIARIO de la casa: cada funcion de Windows llamada por
   primera vez, en orden, a `informe/diario.txt` (orden, hilo, DLL, nombre).
   `run sys/proton-x.bex --diario <ruta>`. **HECHO el 30-09:** trampolines

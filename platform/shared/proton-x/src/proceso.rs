@@ -163,6 +163,11 @@ impl Entorno {
         ] {
             let _ = e.poner(&w(n), Some(&w(val)));
         }
+        // Tanda 14a: las dos de AppData, bajo el perfil, como en cualquier
+        // Windows (SHGetFolderPathW las contesta de aqui).
+        let base = dir_exe.trim_end_matches('\\');
+        let _ = e.poner(&w("APPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Roaming"))));
+        let _ = e.poner(&w("LOCALAPPDATA"), Some(&w(&alloc::format!("{base}\\AppData\\Local"))));
         e
     }
 

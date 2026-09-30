@@ -61,6 +61,7 @@ pub mod crt_numeros;
 pub mod cxx;
 pub mod d3d12;
 pub mod diario;
+pub mod dll_chicas;
 pub mod dxgi;
 pub mod esperas;
 pub mod excepciones;
@@ -321,7 +322,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.
-        sistema::buscar_ntdll(n).or_else(|| excepciones::buscar_ntdll(n))
+        sistema::buscar_ntdll(n).or_else(|| excepciones::buscar_ntdll(n)).or_else(|| dll_chicas::buscar_ntdll(n))
     } else if dll.eq_ignore_ascii_case("d3dcompiler_47.dll") {
         compilador::buscar(n)
     } else if dll.eq_ignore_ascii_case("oleaut32.dll") {
@@ -336,11 +337,15 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         cripto::buscar_crypt32(n)
     } else if dll.eq_ignore_ascii_case("bcrypt.dll") {
         cripto::buscar_bcrypt(n)
-    } else if dll.eq_ignore_ascii_case("advapi32.dll") {
+    } else if dll.eq_ignore_ascii_case("advapi32.dll") || es_api_set_de(dll, &["api-ms-win-security-", "api-ms-win-eventing-"]) {
         // Tanda 11: lo suyo, y el registro y los tokens (de kernelbase).
-        advapi32::buscar(n).or_else(|| de_kernel32(n))
+        // Tanda 14a: sus API set (seguridad, ETW) y lo de ETW.
+        advapi32::buscar(n).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
-        gdi32::buscar(n)
+        gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
+    } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
+        // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
+        dll_chicas::buscar(n)
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
         d3d12::buscar(n).or_else(|| tuberia::buscar(n))
     } else if dll.eq_ignore_ascii_case("dxgi.dll") {
@@ -352,6 +357,28 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
 
 /// La cadena de kernel32 (kernelbase y sus API set): ningun nombre esta en
 /// dos modulos (PX5).
+/// Las DLL chicas del censo (tanda 14a): todo lo suyo esta en `dll_chicas`.
+const CHICAS: &[&str] = &[
+    "winmm.dll",
+    "shlwapi.dll",
+    "shell32.dll",
+    "powrprof.dll",
+    "wininet.dll",
+    "normaliz.dll",
+    "iphlpapi.dll",
+    "mswsock.dll",
+    "xinput9_1_0.dll",
+    "xinput1_3.dll",
+    "xinput1_4.dll",
+    "rpcrt4.dll",
+    "ole32.dll",
+];
+
+/// Si `dll` es un API set que empieza por alguno de `prefijos`.
+fn es_api_set_de(dll: &str, prefijos: &[&str]) -> bool {
+    prefijos.iter().any(|p| dll.len() > p.len() && dll.as_bytes()[..p.len()].eq_ignore_ascii_case(p.as_bytes()))
+}
+
 fn de_kernel32(n: &str) -> Option<u64> {
     kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n)).or_else(|| excepciones::buscar(n)).or_else(|| kernel32_hora::buscar(n)).or_else(|| kernel32_sistema::buscar(n)).or_else(|| kernel32_a::buscar(n)).or_else(|| kernel32_pool::buscar(n)).or_else(|| kernel32_mapeo::buscar(n)).or_else(|| kernel32_locale::buscar(n)).or_else(|| kernel32_procesos::buscar(n)).or_else(|| advapi32_registro::buscar(n))
 }
