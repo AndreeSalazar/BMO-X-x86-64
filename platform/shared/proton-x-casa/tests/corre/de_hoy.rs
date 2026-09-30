@@ -268,3 +268,11 @@ fn tanda25_exe_el_azar_de_rand_s() {
 fn tanda26_exe_el_modulo_de_una_direccion() {
     tanda(TANDA26, None, 6, "tanda26.exe: GetModuleHandleExW desde una direccion es el de Windows");
 }
+
+/// **La tanda 27 de Cyberpunk** (30-09): `tanda27.exe` --
+/// PEB->ProcessParameters y su Flags, desde el principal y desde un hilo. El
+/// primer hilo del juego moria en la UCRT leyendo ese puntero a cero.
+#[test]
+fn tanda27_exe_los_parametros_del_proceso() {
+    tanda(TANDA27, None, 8, "tanda27.exe: PEB->ProcessParameters es el de Windows");
+}

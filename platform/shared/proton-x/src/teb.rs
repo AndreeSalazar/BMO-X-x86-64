@@ -17,9 +17,18 @@
 //!    0x030  Self         el TEB                                    del .exe
 //!    0x040  ClientId.UniqueProcess
 //!    0x048  ClientId.UniqueThread      0x030  ProcessHeap         (P4e)
-//!    0x060  ProcessEnvironmentBlock
-//!    0x068  LastErrorValue (u32)
+//!    0x060  ProcessEnvironmentBlock   0x020  ProcessParameters   en la
+//!    0x068  LastErrorValue (u32)                                  misma pagina
+//!                                                                 (+0x800)
 //! ```
+//!
+//! **ProcessParameters** (tanda 27 de Cyberpunk, 30-09): la UCRT, al empezar
+//! un hilo de `_beginthreadex`, lee `PEB->ProcessParameters->Flags` (el bit
+//! 31, RTL_USER_PROC_SECURE_PROCESS) para decidir si llama a RoInitialize.
+//! Con el puntero a cero, el primer hilo del juego murio leyendo 0x8. Hoy
+//! lleva su medida y `Flags` (NORMALIZED: los punteros de dentro son
+//! direcciones, no desplazamientos); sus cadenas (ImagePathName, CommandLine,
+//! Environment) quedan a cero: la casa las da por GetCommandLineW y compania.
 //!
 //! Los desplazamientos son los de `winternl.h` / `ntddk` para x64, los mismos
 //! que usa Wine: estan fijos desde Windows XP x64 porque el codigo compilado
@@ -43,6 +52,17 @@ pub const PEB_IMAGE_BASE: usize = 0x10;
 /// `ProcessHeap` (P4e): el HANDLE de `GetProcessHeap`, leido de aqui por
 /// quien no llama a nadie.
 pub const PEB_PROCESS_HEAP: usize = 0x30;
+/// `ProcessParameters`: un RTL_USER_PROCESS_PARAMETERS, que vive en la misma
+/// pagina del PEB, en [`PARAMETROS_EN`].
+pub const PEB_PROCESS_PARAMETERS: usize = 0x20;
+/// Donde va el RTL_USER_PROCESS_PARAMETERS dentro de la pagina del PEB (el
+/// PEB de x64 acaba antes de 0x7D0).
+pub const PARAMETROS_EN: usize = 0x800;
+/// Lo que mide en Windows 10/11 x64 (MaximumLength y Length).
+pub const PARAMETROS_BYTES: usize = 0x440;
+/// `Flags` (+0x08): RTL_USER_PROC_PARAMS_NORMALIZED. El bit 31 (proceso
+/// seguro) a 0.
+pub const PARAMETROS_NORMALIZADOS: u32 = 1;
 
 /// Lo que se sabe de ESTE hilo y de ESTE proceso al arrancar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,4 +104,9 @@ pub fn escribir_peb(peb: &mut [u8], h: &Hilo) {
     peb[..PEB_BYTES].fill(0);
     pon(peb, PEB_IMAGE_BASE, h.base_imagen);
     pon(peb, PEB_PROCESS_HEAP, crate::monton::asa(crate::monton::PROPIETARIO_PROCESO));
+    pon(peb, PEB_PROCESS_PARAMETERS, h.peb + PARAMETROS_EN as u64);
+    let q = &mut peb[PARAMETROS_EN..PARAMETROS_EN + PARAMETROS_BYTES];
+    q[0..4].copy_from_slice(&(PARAMETROS_BYTES as u32).to_le_bytes());
+    q[4..8].copy_from_slice(&(PARAMETROS_BYTES as u32).to_le_bytes());
+    q[8..12].copy_from_slice(&PARAMETROS_NORMALIZADOS.to_le_bytes());
 }
