@@ -260,3 +260,11 @@ fn tanda24_exe_las_capacidades_del_procesador() {
 fn tanda25_exe_el_azar_de_rand_s() {
     tanda(TANDA25, None, 9, "tanda25.exe: SystemFunction036 (el azar de rand_s) es el de Windows");
 }
+
+/// **La tanda 26 de Cyberpunk** (30-09): `tanda26.exe` -- GetModuleHandleExW
+/// con FROM_ADDRESS. El juego lo pidio dos veces antes de su primer hilo y
+/// la casa no sabia que modulo tenia la direccion.
+#[test]
+fn tanda26_exe_el_modulo_de_una_direccion() {
+    tanda(TANDA26, None, 6, "tanda26.exe: GetModuleHandleExW desde una direccion es el de Windows");
+}
