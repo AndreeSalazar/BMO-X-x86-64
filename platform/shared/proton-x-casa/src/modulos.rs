@@ -30,8 +30,8 @@ use crate::{aviso, dir, kernel32};
 /// Las DLL de la casa, en el orden de sus HANDLE.
 /// (P4f4: tambien las de la `std` de Rust -- ntdll, kernelbase, ws2_32,
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress;
-/// y advapi32, desde la tanda 11.)
-const DLL: [&str; 14] = ["kernel32.dll", "user32.dll", "gdi32.dll", "d3d12.dll", "dxgi.dll", "ntdll.dll", "kernelbase.dll", "ws2_32.dll", "userenv.dll", "bcryptprimitives.dll", "oleaut32.dll", "d3dcompiler_47.dll", "msvcp140.dll", "advapi32.dll"];
+/// y advapi32, desde la tanda 11; crypt32 y bcrypt, desde la 12.)
+const DLL: [&str; 16] = ["kernel32.dll", "user32.dll", "gdi32.dll", "d3d12.dll", "dxgi.dll", "ntdll.dll", "kernelbase.dll", "ws2_32.dll", "userenv.dll", "bcryptprimitives.dll", "oleaut32.dll", "d3dcompiler_47.dll", "msvcp140.dll", "advapi32.dll", "crypt32.dll", "bcrypt.dll"];
 
 const ERROR_MOD_NOT_FOUND: u32 = 126;
 const ERROR_PROC_NOT_FOUND: u32 = 127;

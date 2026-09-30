@@ -143,3 +143,14 @@ pub fn sha256(datos: &[u8]) -> [u8; 32] {
     }
     r
 }
+
+/// **HMAC** (RFC 2104) con uno de estos resumenes, de bloque de 64 bytes.
+pub fn hmac(resumen: fn(&[u8]) -> Vec<u8>, clave: &[u8], datos: &[u8]) -> Vec<u8> {
+    let mut k = if clave.len() > 64 { resumen(clave) } else { clave.to_vec() };
+    k.resize(64, 0);
+    let mut dentro: Vec<u8> = k.iter().map(|b| b ^ 0x36).collect();
+    dentro.extend_from_slice(datos);
+    let mut fuera: Vec<u8> = k.iter().map(|b| b ^ 0x5c).collect();
+    fuera.extend_from_slice(&resumen(&dentro));
+    resumen(&fuera)
+}

@@ -1,0 +1,15 @@
+LIBRARY ws2_32.dll
+EXPORTS
+closesocket @3 NONAME
+htonl @8 NONAME
+htons @9 NONAME
+inet_addr @11 NONAME
+ntohs @15 NONAME
+socket @23 NONAME
+gethostname @57 NONAME
+WSAGetLastError @111 NONAME
+WSASetLastError @112 NONAME
+__WSAFDIsSet @151 NONAME
+inet_pton
+inet_ntop
+getaddrinfo

@@ -964,3 +964,46 @@ fn resumenes_md5_sha1_sha256_de_sus_normas() {
     assert_eq!(hex(&sha256(b"abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
     assert_eq!(hex(&sha256(dos)), "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
 }
+
+/// La RFC 4231 (caso 2) y el zorro de siempre.
+#[test]
+fn hmac_sha256_de_la_rfc() {
+    use crate::resumen::{hmac, sha256};
+    let s = |d: &[u8]| sha256(d).to_vec();
+    assert_eq!(hex(&hmac(s, b"Jefe", b"what do ya want for nothing?")), "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843");
+    assert_eq!(hex(&hmac(s, b"key", b"The quick brown fox jumps over the lazy dog")), "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
+}
+
+#[test]
+fn direcciones_como_inet_pton_y_inet_ntop() {
+    use crate::direcciones::*;
+    assert_eq!(ipv4("192.0.2.10"), Some([192, 0, 2, 10]));
+    for mal in ["256.1.1.1", "1.2.3", "1.2.3.4.5", "01.2.3.4", "a.b.c.d", ""] {
+        assert_eq!(ipv4(mal), None, "{mal}");
+    }
+    let v = ipv6("2001:db8::1").unwrap();
+    assert_eq!(ipv6_texto(v), "2001:db8::1");
+    assert_eq!(ipv6_texto(ipv6("::1").unwrap()), "::1");
+    assert_eq!(ipv6_texto(ipv6("::").unwrap()), "::");
+    assert_eq!(ipv6_texto(ipv6("1:0:0:2:0:0:0:3").unwrap()), "1:0:0:2::3");
+    assert_eq!(ipv6_texto(ipv6("1:0:0:2:0:0:3:4").unwrap()), "1::2:0:0:3:4");
+    assert_eq!(ipv6_texto(ipv6("1:2:3:4:5:6:0:8").unwrap()), "1:2:3:4:5:6:0:8");
+    assert_eq!(ipv6_texto(ipv6("::ffff:1.2.3.4").unwrap()), "::ffff:1.2.3.4");
+    assert_eq!(ipv6_texto(ipv6("FE80::ABCD").unwrap()), "fe80::abcd");
+    for mal in ["1::2::3", "12345::", "1:2:3:4:5:6:7", ":::", "g::1"] {
+        assert_eq!(ipv6(mal), None, "{mal}");
+    }
+}
+
+#[test]
+fn base64_de_la_rfc_4648() {
+    use crate::direcciones::{base64, de_base64};
+    for (d, t) in [(&b""[..], ""), (b"f", "Zg=="), (b"fo", "Zm8="), (b"foo", "Zm9v"), (b"foob", "Zm9vYg=="), (b"fooba", "Zm9vYmE="), (b"foobar", "Zm9vYmFy")] {
+        assert_eq!(base64(d), t);
+        assert_eq!(de_base64(t.as_bytes()).unwrap(), d);
+    }
+    assert_eq!(de_base64(b"Zm9v\r\nYmFy\r\n").unwrap(), b"foobar");
+    assert_eq!(de_base64(b"Zm9"), None);
+    assert_eq!(de_base64(b"Zm=v"), None);
+    assert_eq!(de_base64(b"!!!!"), None);
+}
