@@ -944,3 +944,23 @@ fn un_pixel_de_dxc_muestrea_la_textura() {
     ps.correr(&[[0.0; 4], [0.1, 0.1, 0.0, 0.0]], &[], &mut sal, &mut regs);
     assert_eq!(sal[0], [0.0; 4], "sin textura: ceros, como un SRV nulo");
 }
+
+fn hex(b: &[u8]) -> alloc::string::String {
+    b.iter().map(|x| alloc::format!("{x:02x}")).collect()
+}
+
+/// Los vectores de FIPS 180 y RFC 1321: vacio, "abc" y el de dos bloques.
+#[test]
+fn resumenes_md5_sha1_sha256_de_sus_normas() {
+    use crate::resumen::{md5, sha1, sha256};
+    let dos = b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    assert_eq!(hex(&md5(b"")), "d41d8cd98f00b204e9800998ecf8427e");
+    assert_eq!(hex(&md5(b"abc")), "900150983cd24fb0d6963f7d28e17f72");
+    assert_eq!(hex(&md5(b"12345678901234567890123456789012345678901234567890123456789012345678901234567890")), "57edf4a22be3c955ac49da2e2107b67a");
+    assert_eq!(hex(&sha1(b"")), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+    assert_eq!(hex(&sha1(b"abc")), "a9993e364706816aba3e25717850c26c9cd0d89d");
+    assert_eq!(hex(&sha1(dos)), "84983e441c3bd26ebaae4aa1f95129e5e54670f1");
+    assert_eq!(hex(&sha256(b"")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+    assert_eq!(hex(&sha256(b"abc")), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+    assert_eq!(hex(&sha256(dos)), "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1");
+}
