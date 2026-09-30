@@ -45,7 +45,12 @@ class _Facet_base {
     virtual _Facet_base *_Decref() noexcept = 0;
 };
 
-class locale {
+// Como en MSVC: dos bases vacias, y solo la primera no ocupa. std::locale
+// mide 16 bytes y su _Locimp esta en el +8.
+template <class T> class _Locbase {};
+struct _Crt_new_delete {};
+
+class locale : public _Locbase<int>, public _Crt_new_delete {
   public:
     class facet : public _Facet_base {
       public:
@@ -241,6 +246,7 @@ template <class E, class It> class time_put : public locale::facet {
   public:
     void *_Tnames;
 };
+static_assert(sizeof(locale) == 16, "std::locale de MSVC: 16 bytes");
 } // namespace std
 
 using namespace std;
@@ -310,24 +316,24 @@ static void hex64(unsigned long long v) {
 }
 
 // getloc devuelve un locale POR VALOR. Se llama en crudo (this y un bufer
-// con marca) y se mira donde queda: en el bufer (y rax lo apunta) o en rax.
+// con marca) y se mira donde queda: su _Locimp, en el +8 del bufer.
 extern "C" unsigned long long __cdecl crudo_sb_getloc(const void *, void *) __asm__("?getloc@?$basic_streambuf@DU?$char_traits@D@std@@@std@@QEBA?AVlocale@2@XZ");
 extern "C" unsigned long long __cdecl crudo_ios_getloc(const void *, void *) __asm__("?getloc@ios_base@std@@QEBA?AVlocale@2@XZ");
 
 static bool mirar_getloc(const char *que, unsigned long long (*f)(const void *, void *), const void *este) {
-    unsigned long long marca = 0x4242424242424242ull;
-    unsigned long long rax = f(este, &marca);
+    unsigned long long marca[2] = {0x4242424242424242ull, 0x4242424242424242ull};
+    unsigned long long rax = f(este, marca);
     unsigned long long g = (unsigned long long)Amiga::global();
-    bool ok = rax == (unsigned long long)&marca && marca == g;
+    bool ok = rax == (unsigned long long)marca && marca[1] == g;
     if (!ok) {
         di("        ");
         di(que);
         di(": rax ");
         hex64(rax);
         di(", bufer ");
-        hex64(marca);
+        hex64(marca[1]);
         di(" (en ");
-        hex64((unsigned long long)&marca);
+        hex64((unsigned long long)&marca[1]);
         di("), global ");
         hex64(g);
         di("\r\n");

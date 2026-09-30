@@ -29,7 +29,7 @@
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
 
-use crate::msvcp_locale::{self, Locimp};
+use crate::msvcp_locale::{self, Locale};
 use crate::{aviso, crt, crt_ficheros, dir, kernel32};
 
 const EOF: i32 = -1;
@@ -37,49 +37,48 @@ const BADBIT: i32 = 4;
 const UNITBUF: i32 = 0x2;
 const SKIPWS_DEC: i32 = 0x201;
 
-type Loc = *mut Locimp;
 
 /// `basic_streambuf<char>`.
 #[repr(C)]
-struct Sb {
-    vt: *const u64,
-    gfirst: *mut u8,
-    pfirst: *mut u8,
-    igfirst: *mut *mut u8,
-    ipfirst: *mut *mut u8,
-    gnext: *mut u8,
-    pnext: *mut u8,
-    ignext: *mut *mut u8,
-    ipnext: *mut *mut u8,
-    gcount: i32,
-    pcount: i32,
-    igcount: *mut i32,
-    ipcount: *mut i32,
-    ploc: *mut Loc,
+pub(crate) struct Sb {
+    pub(crate) vt: *const u64,
+    pub(crate) gfirst: *mut u8,
+    pub(crate) pfirst: *mut u8,
+    pub(crate) igfirst: *mut *mut u8,
+    pub(crate) ipfirst: *mut *mut u8,
+    pub(crate) gnext: *mut u8,
+    pub(crate) pnext: *mut u8,
+    pub(crate) ignext: *mut *mut u8,
+    pub(crate) ipnext: *mut *mut u8,
+    pub(crate) gcount: i32,
+    pub(crate) pcount: i32,
+    pub(crate) igcount: *mut i32,
+    pub(crate) ipcount: *mut i32,
+    pub(crate) ploc: *mut Locale,
 }
 
 /// `basic_ios<char>` (con su `ios_base` delante).
 #[repr(C)]
-struct Ios {
-    vt: *const u64,
-    stdstr: usize,
-    estado: i32,
-    excepciones: i32,
-    banderas: i32,
-    prec: i64,
-    ancho: i64,
-    arr: u64,
-    calls: u64,
-    ploc: *mut Loc,
-    sb: *mut Sb,
-    tie: *mut u8,
-    relleno: u8,
+pub(crate) struct Ios {
+    pub(crate) vt: *const u64,
+    pub(crate) stdstr: usize,
+    pub(crate) estado: i32,
+    pub(crate) excepciones: i32,
+    pub(crate) banderas: i32,
+    pub(crate) prec: i64,
+    pub(crate) ancho: i64,
+    pub(crate) arr: u64,
+    pub(crate) calls: u64,
+    pub(crate) ploc: *mut Locale,
+    pub(crate) sb: *mut Sb,
+    pub(crate) tie: *mut u8,
+    pub(crate) relleno: u8,
 }
 
 // -- Por la vtabla ----------------------------------------------------------------------------
 
 /// El hueco `h` de la vtabla de un streambuf (de la casa o del `.exe`).
-fn hueco(sb: *const Sb, h: usize) -> u64 {
+pub(crate) fn hueco(sb: *const Sb, h: usize) -> u64 {
     // SAFETY: un streambuf con su vtabla de 15.
     unsafe { *(*sb).vt.add(h) }
 }
@@ -188,7 +187,7 @@ extern "win64" fn sb_seek(_this: u64, r: *mut [i64; 3], _a: u64, _b: u64, _c: u6
     r
 }
 
-fn gnavail(s: &Sb) -> i64 {
+pub(crate) fn gnavail(s: &Sb) -> i64 {
     // SAFETY: los punteros de `_Init`, o los del `.exe`.
     unsafe {
         if (*s.ignext).is_null() {
@@ -199,7 +198,7 @@ fn gnavail(s: &Sb) -> i64 {
     }
 }
 
-fn pnavail(s: &Sb) -> i64 {
+pub(crate) fn pnavail(s: &Sb) -> i64 {
     // SAFETY: como `gnavail`.
     unsafe {
         if (*s.ipnext).is_null() {
@@ -211,7 +210,7 @@ fn pnavail(s: &Sb) -> i64 {
 }
 
 /// `_Gninc()`: el de ahora, y un paso.
-fn gninc(s: &mut Sb) -> *mut u8 {
+pub(crate) fn gninc(s: &mut Sb) -> *mut u8 {
     // SAFETY: como `gnavail`, con uno disponible.
     unsafe {
         *s.igcount -= 1;
@@ -326,7 +325,7 @@ extern "win64" fn sb_xsputn(this: *mut Sb, mut p: *const u8, n: i64) -> i64 {
 }
 
 /// `getloc() const`: una copia de su locale (vuelve por puntero).
-extern "win64" fn sb_getloc(this: *const Sb, r: *mut Loc) -> *mut Loc {
+extern "win64" fn sb_getloc(this: *const Sb, r: *mut Locale) -> *mut Locale {
     // SAFETY: un streambuf.
     msvcp_locale::locale_copiar(unsafe { (*this).ploc }, r);
     r
@@ -423,7 +422,7 @@ static VBT_IOSTREAM_IS: [i32; 2] = [0, 24];
 static VBT_IOSTREAM_OS: [i32; 2] = [0, 8];
 
 /// El ios de un flujo con base virtual (`this` apunta a su vbptr).
-fn ios_de(this: *mut u8) -> *mut Ios {
+pub(crate) fn ios_de(this: *mut u8) -> *mut Ios {
     // SAFETY: un flujo con su vbptr puesto.
     unsafe {
         let vbt = *(this as *const *const i32);
@@ -467,7 +466,7 @@ fn ios_init(ios: *mut Ios, sb: *mut Sb, isstd: bool) {
 
 /// `~basic_ios()` (y el `~ios_base` que lleva dentro): suelta su locale,
 /// salvo en los estandar.
-extern "win64" fn ios_fin(this: *mut Ios) {
+pub(crate) extern "win64" fn ios_fin(this: *mut Ios) {
     // SAFETY: un ios.
     let i = unsafe { &mut *this };
     if i.stdstr == 0 {
@@ -532,7 +531,7 @@ extern "win64" fn ios_widen(this: *const Ios, c: u8) -> u8 {
 }
 
 /// `ios_base::getloc() const`.
-extern "win64" fn ios_getloc(this: *const Ios, r: *mut Loc) -> *mut Loc {
+extern "win64" fn ios_getloc(this: *const Ios, r: *mut Locale) -> *mut Locale {
     // SAFETY: un ios.
     msvcp_locale::locale_copiar(unsafe { (*this).ploc }, r);
     r
@@ -900,7 +899,7 @@ pub(crate) fn sputc(sb: u64, c: u8) -> i32 {
 }
 
 /// El locale de un `ios_base&`.
-pub(crate) fn locale_de_ios(ios: u64) -> *const Loc {
+pub(crate) fn locale_de_ios(ios: u64) -> *const Locale {
     // SAFETY: un ios_base del `.exe`.
     unsafe { (*(ios as *const Ios)).ploc }
 }

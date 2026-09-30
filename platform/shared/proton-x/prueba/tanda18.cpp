@@ -70,7 +70,12 @@ class _Facet_base {
     virtual _Facet_base *_Decref() noexcept = 0;
 };
 
-class locale {
+// Como en MSVC: dos bases vacias, y solo la primera no ocupa. std::locale
+// mide 16 bytes y su _Locimp esta en el +8.
+template <class T> class _Locbase {};
+struct _Crt_new_delete {};
+
+class locale : public _Locbase<int>, public _Crt_new_delete {
   public:
     class id {
       public:
@@ -208,6 +213,7 @@ template <class E> class collate {
   public:
     __declspec(dllimport) static locale::id id;
 };
+static_assert(sizeof(locale) == 16, "std::locale de MSVC: 16 bytes");
 } // namespace std
 
 using namespace std;
