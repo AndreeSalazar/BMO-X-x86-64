@@ -221,6 +221,23 @@ el anfitrion (una declaracion como la de Cyberpunk; una de mas; una parte
 de 0 bytes; una que no cabe en la ventana; codigo y datos que deben quedar
 seguidos).
 
+- [ ] P0.4d -- **LA CACHE DE LA IMAGEN VERIFICADA** (idea del propietario,
+  30-09: *"la primera vez tarda, es normal; pero el cache se acuerda, y la
+  segunda vez se verifica solo lo sospechoso: si todo es lo mismo, pasa; si
+  no, lo rebota"*). La primera carga de Cyberpunk lee ~80 MiB del `.exe` y sus
+  26 DLL de D: (NTFS, solo lectura), y cada vez son los mismos bytes. La idea:
+  - la PRIMERA vez se lee todo, y se apunta la HUELLA de cada fichero (medida,
+    fecha y un resumen por seccion) junto a la imagen ya colocada, en la
+    particion de datos de BMO-X (D: no se toca);
+  - la SEGUNDA vez se mira solo la huella (lo "sospechoso": lo que pudo
+    cambiar, p. ej. un parche del juego): si cuadra, la imagen sale de la
+    cache y no se vuelve a leer ni a relocalizar; si NO cuadra, se rebota y
+    se carga de cero (y se dice cual cambio);
+  - la cache tambien depende de `proton-x.bex` (las direcciones de la casa
+    estan resueltas dentro): otra version, otra cache;
+  - la ventana de imagenes y el orden de la declaracion son deterministas
+    (`bmo-imagen-juicio`), asi que las bases salen iguales cada vez.
+  Va DESPUES de que el juego cargue una vez entero: primero, que funcione.
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.
