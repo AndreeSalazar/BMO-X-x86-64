@@ -417,7 +417,10 @@ fn de_kernel32(n: &str) -> Option<u64> {
 /// Si `f` (un nombre de fichero en minusculas) es un API set o una DLL del
 /// CRT: tambien son de la casa (P5a: no se buscan en el disco).
 pub(crate) fn es_api_set_o_crt(f: &str) -> bool {
-    (f.len() > 16 && f.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-")) || crt::es_del_crt(f)
+    // Tanda 20: TODOS los api-ms-win-* (core, crt, security, eventing,
+    // devices-config...): en Windows ninguno es un fichero de verdad, y uno
+    // que la casa no conozca carga igual (lo que falte avisa al llamarse).
+    es_api_set_de(f, &["api-ms-win-"]) || crt::es_del_crt(f)
 }
 
 /// La direccion de una funcion, para la tabla.
