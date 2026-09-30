@@ -1779,6 +1779,12 @@ primera carga entera (25 modulos, 238 MiB, Ryzen 5 5600X, SSD SATA):
    copiar y relocalizar   ~0.3 s       (colocar - disco)                   poco que ganar
 ```
 
+**La causa del 10 MiB/s, encontrada (30-09):** el disco ajeno (D:) leia por
+UNA pagina de rebote, 8 sectores por comando: 216 MiB eran ~55.000
+comandos sincronos de ~0,37 ms. Ahora el rebote es 1 MiB contiguo (2048
+sectores por comando, 256 veces menos comandos) y NTFS pide hasta 2 MiB de
+una vez (antes 64 KiB). Lo que de: la proxima linea `tiempos:` del metal.
+
 Y las reglas que salen de ahi, para cada pieza de PROTON-X:
 
 - **El disco primero, la cache despues.** Una cache de la imagen (P0.4d) en

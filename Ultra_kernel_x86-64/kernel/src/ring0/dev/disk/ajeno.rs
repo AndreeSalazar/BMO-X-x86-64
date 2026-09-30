@@ -28,10 +28,13 @@
 //! solo busca controladores SATA/AHCI.
 //!
 //! Las lecturas usan el MISMO juez de DMA y el MISMO registro de vuelos que el
-//! disco de siempre (`transfer::juzgar_el_dma`, `marcar_el_tramo`), por una
-//! pagina de rebote propia, de 8 sectores en 8.
+//! disco de siempre (`transfer::juzgar_el_dma`, `marcar_el_tramo`), por un
+//! rebote propio: 1 MiB contiguo, 2048 sectores por comando (P0.4d, 30-09:
+//! con una pagina, 8 sectores por comando, Cyberpunk se leia a 10 MiB/s --
+//! 55.000 comandos de ~0,37 ms --; si al arrancar no hay 1 MiB seguido, se
+//! prueba con menos, hasta la pagina de antes).
 
-use core::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicU16, AtomicU64, AtomicU8, Ordering};
 
 use bmo_block::{BlockDevice, BlockError, DeviceId, SECTOR};
 
@@ -40,14 +43,16 @@ use crate::ring0::mm::{self, phys};
 /// El puerto AHCI del disco ajeno (`NINGUNO` = no hay).
 static PUERTO: AtomicU8 = AtomicU8::new(NINGUNO);
 const NINGUNO: u8 = 0xFF;
-/// Su pagina de rebote (fisica). La escribe `buscar`, una vez, al arrancar.
+/// Su rebote (fisico, contiguo). Lo escribe `buscar`, una vez, al arrancar.
 static mut DMA: u64 = 0;
+/// Cuantos sectores caben en el rebote: los de un comando.
+static LOTE: AtomicU16 = AtomicU16::new(0);
+/// Lo que se intenta para el rebote, en paginas: 1 MiB, y si no, menos.
+const REBOTES: [u64; 4] = [256, 64, 16, 1];
 /// Quien es, segun su IDENTIFY. La escribe `buscar`, una vez.
 static mut ID: DeviceId = DeviceId::EMPTY;
 /// La ranura 0 del puerto es UNA: un comando a la vez.
 static EN_USO: AtomicBool = AtomicBool::new(false);
-/// Sectores por comando: la pagina de rebote entera.
-const LOTE: u16 = (mm::PAGE as usize / SECTOR) as u16;
 
 /// El puerto del disco ajeno, si lo hay.
 pub fn puerto() -> Option<u8> {
@@ -117,9 +122,10 @@ impl BlockDevice for Ajeno {
 
 /// Lee de 8 sectores en 8 por la pagina de rebote, con el juez y el vuelo.
 fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, BlockError> {
+    let lote = LOTE.load(Ordering::Acquire).max(1);
     let mut hecho = 0u16;
     while hecho < count {
-        let n = (count - hecho).min(LOTE);
+        let n = (count - hecho).min(lote);
         let bytes = n as u64 * SECTOR as u64;
         if !super::transfer::juzgar_el_dma(dma, bytes, false) {
             return Err(BlockError::Device);
@@ -141,7 +147,7 @@ fn leer(p: u8, dma: u64, lba: u64, count: u16, buf: &mut [u8]) -> Result<u16, Bl
         };
         let bytes = n as u64 * SECTOR as u64;
         let desde = hecho as usize * SECTOR;
-        // SAFETY: la pagina de rebote mide `LOTE` sectores, por el physmap.
+        // SAFETY: el rebote mide `LOTE` sectores, contiguo, por el physmap.
         let src = unsafe { core::slice::from_raw_parts(mm::phys_to_virt(dma) as *const u8, bytes as usize) };
         buf[desde..desde + bytes as usize].copy_from_slice(src);
         hecho += n;
@@ -211,14 +217,21 @@ pub(super) fn buscar(suyo: u8) {
             etapa(ETAPA_PUERTO, i as u64);
             continue;
         }
-        let Some(dma) = phys::alloc_frames_contig_de(1, phys::Titular::Neutro) else {
+        let Some((dma, paginas)) = REBOTES.iter().find_map(|&k| phys::alloc_frames_contig_de(k, phys::Titular::Neutro).map(|d| (d, k))) else {
             crate::ring0::cabina::warn("disk", "N1a: sin memoria para el rebote del disco ajeno", 0);
             return;
+        };
+        // Un puerto que se descarta devuelve su rebote (ahora es 1 MiB).
+        let soltar = || {
+            for k in 0..paginas {
+                phys::free_frame_de(dma + k * mm::PAGE, phys::Titular::Neutro);
+            }
         };
         // SAFETY: el puerto `i` quedo preparado arriba; la pagina es nuestra.
         if let Err(e) = unsafe { bmo_ahci::identify_phys(i as u8, dma) } {
             crate::ring0::cabina::warn("disk", e.name(), i as u64);
             etapa(ETAPA_IDENTIFY, i as u64);
+            soltar();
             continue;
         }
         let src = mm::phys_to_virt(dma) as *const u8;
@@ -238,6 +251,7 @@ pub(super) fn buscar(suyo: u8) {
             if ns > 0 && super::serial().as_bytes() == &serie[..ns] {
                 crate::ring0::cabina::warn("disk", "N1a: ese puerto es el MISMO disco de BMO-X (misma serie): no se toca", i as u64);
                 etapa(ETAPA_MISMO, i as u64);
+                soltar();
                 continue;
             }
             let mut id = DeviceId { blocks: total, ..DeviceId::EMPTY };
@@ -247,6 +261,8 @@ pub(super) fn buscar(suyo: u8) {
             id.serial_len = ns;
             *core::ptr::addr_of_mut!(ID) = id;
             DMA = dma;
+            LOTE.store((paginas * mm::PAGE / SECTOR as u64) as u16, Ordering::Release);
+            crate::ring0::cabina::bytes("disk", "N1a: rebote del disco ajeno (un comando lee esto)", paginas * mm::PAGE);
             crate::ring0::cabina::info("disk", "N1a: disco AJENO, SOLO LECTURA; modelo", nm as u64);
             crate::ring0::cabina::info("disk", core::str::from_utf8(&modelo[..nm]).unwrap_or("?"), total);
             crate::ring0::cabina::info("disk", core::str::from_utf8(&serie[..ns]).unwrap_or("?"), i as u64);
