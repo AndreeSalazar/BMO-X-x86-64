@@ -16,15 +16,22 @@ IMPORTA void __stdcall ExitProcess(unsigned c);
 
 // Lo que la biblioteca de C++ pondria y aqui no hay: el vftable de
 // type_info (solo se mira el NOMBRE del tipo) y operator delete (el
-// destructor virtual lo nombra; aqui nada se reserva con new).
-// Con `cl` de MSVC (tanda4m.exe, el de __CxxFrameHandler4) los da
-// vcruntime.lib y no se ponen aqui.
+// destructor virtual lo nombra; aqui nada se reserva con new). Con `cl` de
+// MSVC tampoco los da vcruntime.lib (estan en msvcrt.lib, que tira de todo
+// el CRT: medido en el Windows del propietario el 30-09), asi que se ponen
+// aqui con los dos compiladores. El nombre decorado del vftable: con clang,
+// una etiqueta de asm; con cl, /alternatename del enlazador.
+extern "C" const void *const vftable_type_info
 #if defined(__clang__)
-extern const void *const vftable_type_info __asm__("??_7type_info@@6B@");
-const void *const vftable_type_info = nullptr;
+    __asm__("??_7type_info@@6B@")
+#endif
+    ;
+extern "C" const void *const vftable_type_info = nullptr;
+#if !defined(__clang__)
+#pragma comment(linker, "/alternatename:??_7type_info@@6B@=vftable_type_info")
+#endif
 void operator delete(void *) noexcept {}
 void operator delete(void *, unsigned long long) noexcept {}
-#endif
 
 static unsigned fallos;
 
