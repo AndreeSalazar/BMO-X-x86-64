@@ -96,7 +96,7 @@ fn pedir(tam: u64, alin: u64, propietario: u16) -> Option<u64> {
     }
     let hace_falta = tam.checked_add(alin + 256)?;
     if hace_falta > ARENA {
-        aviso("una pedida de mas de 64 MiB de una vez: el kernel de BMO-X da bloques de hasta 64 MiB");
+        aviso(&alloc::format!("una pedida de {} MiB de una vez: el kernel de BMO-X da bloques de hasta 64 MiB (P0.4c)", tam.div_ceil(1 << 20)));
         return None;
     }
     let base = (plataforma().memoria)(ARENA as usize)?;
