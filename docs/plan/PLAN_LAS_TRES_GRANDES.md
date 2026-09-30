@@ -177,7 +177,18 @@ pide y en que orden.
     salen de ahi y de la medida que haga falta (hasta 64 arenas);
     GlobalMemoryStatus dice la RAM del kernel. tanda23 (16 bien); PROTON-X
     la usa en BMO-X.
-  - [ ] P0.4c.5 -- En el metal: el juego pasa de su primer VirtualAlloc.
+  - [x] P0.4c.5 -- En el metal (13:37): el juego pasa su VirtualAlloc
+    grande, crea semaforos y eventos, y SE RINDE: IsProcessorFeaturePresent,
+    RtlCaptureContext/LookupFunctionEntry/VirtualUnwind y
+    UnhandledExceptionFilter (la forma de __report_gsfailure o de un
+    abort/terminate del CRT). La casa tiraba el registro de la excepcion:
+    ahora dice codigo, direccion y parametros; e IsProcessorFeaturePresent
+    dice la verdad del Ryzen (antes: SSE, SSE2 y NX). tanda24 (12 bien).
+  - Anotado: `XCR0_PRESERVADO` del BEF2 dice x87+SSE, pero `plat/trap.rs`
+    guarda con XSAVE todo lo de XCR0 (0x7: AVX incluido) en cada trap y el
+    syscall usa `xsaveopt64`. Hay que comprobar que TODOS los caminos que
+    cambian de tarea guardan los YMM antes de subir la constante (el juego
+    usa AVX si CPUID lo dice, y CPUID lo dice).
   - [x] P0.4c.6 -- El metal (30-09, 13:04): la carga en ~4 s (disco a 290
     MiB/s, cabeceras 0,55 s), el juego salto y RESERVO 64 GiB de golpe; la
     cuenta de `Regiones` era un u32 POR PAGINA (64 MiB) y el monton del
