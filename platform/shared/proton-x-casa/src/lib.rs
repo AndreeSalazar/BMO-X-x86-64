@@ -88,6 +88,7 @@ pub mod msvcp_errores;
 pub mod msvcp_locale;
 pub mod msvcp_flujos;
 pub mod msvcp_tiempo;
+pub mod msvcp_accesos;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -337,7 +338,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
         // Tanda 18: su locale.
-        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n))
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n)).or_else(|| msvcp_accesos::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.

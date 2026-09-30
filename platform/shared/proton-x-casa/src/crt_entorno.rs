@@ -465,6 +465,13 @@ extern "win64" fn abort() -> ! {
     (plataforma().salir)(3)
 }
 
+/// `_invoke_watson`: un parametro invalido sin manejador; Windows acaba el
+/// proceso con STATUS_INVALID_CRUNTIME_PARAMETER.
+extern "win64" fn invoke_watson(_e: u64, _f: u64, _fi: u64, _l: u32, _r: u64) -> ! {
+    aviso("_invoke_watson: un parametro invalido para el CRT; el proceso acaba");
+    (plataforma().salir)(0xC000_0417)
+}
+
 extern "win64" fn amsg_exit(n: i32) -> ! {
     aviso(&alloc::format!("_amsg_exit({n}): error de arranque del CRT"));
     (plataforma().salir)(255)
@@ -628,6 +635,7 @@ pub(crate) fn buscar(n: &str) -> Option<u64> {
         "_getpid" => dir!(getpid),
         "_beginthreadex" => dir!(beginthreadex),
         "abort" => dir!(abort),
+        "_invoke_watson" => dir!(invoke_watson),
         "_amsg_exit" => dir!(amsg_exit),
         "_purecall" => dir!(purecall),
         "_invalid_parameter_noinfo" => dir!(invalid_parameter_noinfo),

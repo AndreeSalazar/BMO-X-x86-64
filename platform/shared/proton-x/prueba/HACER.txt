@@ -926,7 +926,7 @@ los id):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   62c05028bc99d27644e8dcb56bc2d5ed4bd3901f68dcdb7f96d442fb15877178
+   128a986eb0733813b1ca22318ffc05645a029b2259c6296d460491432d8a455d
 
 Dice `bien` dieciseis veces y sale con 0. En Windows dice lo mismo.
 
@@ -945,7 +945,7 @@ propio .exe) y time_put (tanda19_*.def; el de msvcp140 lleva DATA en cerr):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   cb5617c29c1c1fc1bd784a1fd152765282f5c8030548d3269cc50e67c2fda9d4
+   79b1a0869d66163b0a07b0a8c6b08e327127681d20fb028a1960174759cd011b
 
 Dice `bien` diecinueve veces (con una linea de cerr y las de paso) y sale con 0. En Windows
 dice lo mismo.
@@ -960,4 +960,12 @@ Native Tools Command Prompt for VS":
 
    cl /nologo /EHsc /MD /O1 /std:c++17 tanda19m.cpp /Fe:tanda19m.exe
 
-Dice `bien` quince veces (y una linea de cerr) y sale con 0.
+El que esta aqui lo hizo cl 19.44.35228 en el Windows del propietario
+(no es reproducible fuera de alli: el sha256 es el de ese):
+
+   388fac4b1525a34f7a5eeab852fd3a9ddd189def70727754d82337bde256b4f4
+
+Dice `bien` quince veces (y una linea de cerr) y sale con 0. Con /O1 IMPORTA
+los accesores que el juego (/O2) lleva dentro (msvcp_accesos.rs) y el
+contador de los id (`_Id_cnt`, un DATO). Y mostro lo que clang no: en MSVC
+`std::locale` mide 16 BYTES y su _Locimp esta en el +8 (dos bases vacias).

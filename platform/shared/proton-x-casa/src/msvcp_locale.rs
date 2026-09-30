@@ -32,7 +32,7 @@
 
 use alloc::vec::Vec;
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicI32, AtomicU32, AtomicU64, Ordering};
 
 use crate::{aviso, crt, dir};
 
@@ -232,12 +232,16 @@ pub(crate) extern "win64" fn borrar_faceta(this: *mut Faceta, flags: u32) -> *mu
 // -- locale::id ------------------------------------------------------------------------------
 
 /// `id::operator size_t`: el numero, dado la primera vez.
+/// `locale::id::_Id_cnt`: la cuenta de los `id`. Es un DATO: el
+/// `_Get_index` inline de las cabeceras nuevas la sube el mismo (tanda19m,
+/// de cl 19.44), asi que la casa usa la misma.
+static ID_CNT: AtomicI32 = AtomicI32::new(0);
+
 extern "win64" fn id_numero(this: *const AtomicU64) -> u64 {
-    static CUENTA: AtomicU64 = AtomicU64::new(0);
     // SAFETY: un `id` (8 bytes) del `.exe` o de la casa.
     let id = unsafe { &*this };
     if id.load(Ordering::Acquire) == 0 {
-        let n = CUENTA.fetch_add(1, Ordering::AcqRel) + 1;
+        let n = (ID_CNT.fetch_add(1, Ordering::AcqRel) + 1) as u64;
         let _ = id.compare_exchange(0, n, Ordering::AcqRel, Ordering::Acquire);
     }
     id.load(Ordering::Acquire)
@@ -258,8 +262,10 @@ const NOMBRES_ID: [&str; 5] = [
 
 /// Si `n` es un DATO de msvcp140 (la tabla da su direccion: no se envuelve).
 pub(crate) fn es_dato(n: &str) -> bool {
-    NOMBRES_ID.contains(&n)
+    NOMBRES_ID.contains(&n) || n == ID_CNT_N
 }
+
+const ID_CNT_N: &str = "?_Id_cnt@id@locale@std@@0HA";
 
 // -- _Locimp ---------------------------------------------------------------------------------
 
@@ -378,24 +384,35 @@ extern "win64" fn borrar_locimp(this: *mut Locimp, flags: u32) -> *mut Locimp {
     this
 }
 
-/// Un `locale` (8 bytes: su `_Locimp`), pedido al monton: el de un
-/// streambuf (`_Plocale`) o el de un ios_base (`_Ploc`). Es el global.
-pub(crate) fn locale_nuevo() -> *mut *mut Locimp {
-    let p = pedir::<*mut Locimp>();
+/// **`std::locale` de MSVC: 16 bytes, y su `_Locimp` en el +8.** Hereda de
+/// dos clases vacias (`_Locbase<int>` y `_Crt_new_delete`) y MSVC solo
+/// aprovecha el hueco de la primera: la cabecera lo dice ("TRANSITION, ABI,
+/// affects sizeof(locale)") y el `use_facet` de cl 19.44 lee `[loc+8]`
+/// (tanda19m, 30-09). Con 8 bytes, getloc escribia donde no era.
+#[repr(C)]
+pub(crate) struct Locale {
+    vacio: u64,
+    pub(crate) ptr: *mut Locimp,
+}
+
+/// Un `locale` pedido al monton: el de un streambuf (`_Plocale`) o el de
+/// un ios_base (`_Ploc`). Es el global.
+pub(crate) fn locale_nuevo() -> *mut Locale {
+    let p = pedir::<Locale>();
     if !p.is_null() {
-        // SAFETY: un bloque recien pedido de 8 bytes.
-        unsafe { p.write(locale_init(true)) };
+        // SAFETY: un bloque recien pedido de su medida.
+        unsafe { p.write(Locale { vacio: 0, ptr: locale_init(true) }) };
     }
     p
 }
 
 /// `delete` de un locale de [`locale_nuevo`]: suelta su `_Locimp`.
-pub(crate) fn locale_soltar(p: *mut *mut Locimp) {
+pub(crate) fn locale_soltar(p: *mut Locale) {
     if p.is_null() {
         return;
     }
     // SAFETY: un locale de la casa.
-    let l = unsafe { *p };
+    let l = unsafe { (*p).ptr };
     if !l.is_null() {
         soltar(l as *mut Faceta);
     }
@@ -404,22 +421,22 @@ pub(crate) fn locale_soltar(p: *mut *mut Locimp) {
 
 /// Una copia de `*de` en `a` (el `locale` que se devuelve por valor):
 /// el mismo `_Locimp`, con una referencia mas.
-pub(crate) fn locale_copiar(de: *const *mut Locimp, a: *mut *mut Locimp) {
+pub(crate) fn locale_copiar(de: *const Locale, a: *mut Locale) {
     // SAFETY: dos locales, del `.exe` o de la casa.
     unsafe {
-        let l = if de.is_null() { locale_init(false) } else { *de };
+        let l = if de.is_null() { locale_init(false) } else { (*de).ptr };
         incref(l as *const Faceta);
-        a.write(l);
+        a.write(Locale { vacio: 0, ptr: l });
     }
 }
 
 /// La faceta `ctype<char>` de un locale (`use_facet`): la suya, o la de la
 /// casa (una, hecha la primera vez).
-pub(crate) fn ctype_de(loc: *const *mut Locimp) -> *const Faceta {
+pub(crate) fn ctype_de(loc: *const Locale) -> *const Faceta {
     let id = id_numero(&IDS[0]) as usize;
     // SAFETY: un locale; su _Locimp y su vector.
     unsafe {
-        let l = if loc.is_null() { locale_init(false) } else { *loc };
+        let l = if loc.is_null() { locale_init(false) } else { (*loc).ptr };
         if let Some(l) = l.as_ref() {
             if id < l.cuenta && !(*l.vec.add(id)).is_null() {
                 return *l.vec.add(id);
@@ -817,6 +834,9 @@ extern "win64" fn ancho_do_length(this: u64, st: u64, a: u64, b: u64, n: usize) 
 pub(crate) fn buscar(n: &str) -> Option<u64> {
     if let Some(i) = NOMBRES_ID.iter().position(|x| *x == n) {
         return Some(&IDS[i] as *const AtomicU64 as u64);
+    }
+    if n == ID_CNT_N {
+        return Some(&ID_CNT as *const AtomicI32 as u64);
     }
     Some(match n {
         "??Bid@locale@std@@QEAA_KXZ" => dir!(id_numero),
