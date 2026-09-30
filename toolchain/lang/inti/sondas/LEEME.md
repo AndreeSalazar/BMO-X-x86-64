@@ -2,7 +2,7 @@
 
 ## `cpu.inti` -- que le cuenta este procesador a un programa de usuario
 
-Es la sonda del **peldano 3** de [`PLAN_DE_PRUEBAS.md`](../PLAN_DE_PRUEBAS.md):
+Es la sonda del **nivel 3** de [`PLAN_DE_PRUEBAS.md`](../PLAN_DE_PRUEBAS.md):
 la primera vez que una linea de INTI corre en un procesador de verdad.
 
 **El `.bex` lo produce `build.ps1`**, en `staging\BMO-DATA\inti\cpu.ibx` -- el

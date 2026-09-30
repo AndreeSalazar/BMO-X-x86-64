@@ -155,7 +155,7 @@ abrir el aparato -- y por eso S0 hace que el `save` los liste TODOS.
    TUBO ISOCRONO   una trama cada milisegundo               (HECHO)
 ```
 
-Cada peldano de esa escalera es una casilla de la seccion 3. **Lo que esta
+Cada nivel de esa escalera es una casilla de la seccion 3. **Lo que esta
 HECHO es de la mitad para abajo**; lo que falta es de la mitad para arriba, y es
 todo aritmetica entera en Ring 3.
 

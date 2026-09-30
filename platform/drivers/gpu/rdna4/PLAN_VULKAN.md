@@ -800,7 +800,7 @@ alcanzable, es ademas la primera pieza de la meta B.**
 
 El propietario lo dijo asi -- *"Vulkan 1.0 hasta la ultima por eso"*. Como ORDEN es
 correcto y este documento ya lo llamaba la estrategia buena. Como PLAN hay que
-decir lo que cuesta cada peldano:
+decir lo que cuesta cada nivel:
 
 ```text
    1.0 -> 1.1   barato: son extensiones encima de lo mismo
@@ -809,7 +809,7 @@ decir lo que cuesta cada peldano:
    1.2 -> 1.3   medio: dynamic rendering simplifica, no agrega capacidad
 ```
 
-★ **El peldano caro es el 1.2, y da la casualidad de que es el que mas abre.**
+★ **El nivel caro es el 1.2, y da la casualidad de que es el que mas abre.**
 Escrito aqui para que el dia que se llegue a el nadie lo confunda con "una
 extension mas".
 

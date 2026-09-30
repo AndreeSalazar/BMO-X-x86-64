@@ -116,7 +116,7 @@
 
 > Eddi, con la primera foto del GATE RED delante: *"eso significa que PODEMOS
 > IR A GEMINI para navegar?"*. Todavia no. Esta es la escalera, en orden, y
-> cada peldano dice donde se mira.
+> cada nivel dice donde se mira.
 
 La primera foto (2026-09-13): pase ABIERTO, `salieron 1`, 56 tramas en el
 buzon, y el ARP a la IP elegida sin respuesta. Salir del grifo no probaba salir al

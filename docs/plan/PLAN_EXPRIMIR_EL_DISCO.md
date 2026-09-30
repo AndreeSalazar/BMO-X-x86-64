@@ -205,7 +205,7 @@ vector (sus entradas).
 | Mirar | Lo bueno | Lo que diria que no |
 |---|---|---|
 | `retenido` | ya no es `disco` en `hilo.rs` | `disco` en `hilo.rs` otra vez: queda algo sincrono en el paso |
-| `irq` | `LLEGA: el vector 49 despierta al hilo` | la frase dice el peldano que falla |
+| `irq` | `LLEGA: el vector 49 despierta al hilo` | la frase dice el nivel que falla |
 | `thread` | los despertares suben con las ordenes | `SIN IRQ` |
 
 **07:54, el metal otra vez, y el VECINO.** El save dijo `thread 9 ordenes en
@@ -218,7 +218,7 @@ Lo que encaja con todo: este HBA tiene **ocho puertos** (`CAP` NP=7) y el driver
 solo apagaba y limpiaba el suyo. Con MSI de un mensaje el HBA avisa en el FLANCO
 de su `IS` entero: un bit de OTRO puerto puesto lo deja a 1 y el disco no vuelve
 a avisar. La escalera no lo podia ver: miraba solo el bit del puerto 2, y el
-peldano `entradas > 0` tapaba al de "sin consumir".
+nivel `entradas > 0` tapaba al de "sin consumir".
 
 **Correccion (29-09): el disco NUNCA estuvo en el puerto 2.** El paso entre
 puertos del driver era 0x100 y la especificacion dice 0x80

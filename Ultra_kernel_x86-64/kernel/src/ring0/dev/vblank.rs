@@ -72,7 +72,7 @@ pub const E2_ENTRADAS_SHIFT: u64 = 32;
 pub const E2_CALLADA: u64 = 1 << 62;
 pub const E2_ARMADO: u64 = 1 << 63;
 
-/// `INFO_GPU_E2`: la ESCALERA, leida al preguntar. Cada peldano es un sitio
+/// `INFO_GPU_E2`: la ESCALERA, leida al preguntar. Cada nivel es un sitio
 /// donde el aviso se puede quedar; en el metal, el primero que falte dice donde.
 pub const E2_MSI: u64 = 1 << 0;
 pub const E2_MSI_MASCARA: u64 = 1 << 1;

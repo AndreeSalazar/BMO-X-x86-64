@@ -580,7 +580,7 @@ fn lo_que_inti_dice_que_emite_es_lo_que_emite() {
             // ** El fuente es `pleno` a proposito: un `lista de T` no cabe en
             // `llano` --crece, pide monton-- asi que la unica forma de escribir
             // esta regla es en el perfil que la admite. `emitido` no pasa por el
-            // gate de `[bytes] llegan`, que es otro peldano.
+            // gate de `[bytes] llegan`, que es otro nivel.
             //
             // Y es un PARAMETRO y no un literal: `[1, 2]` todavia no baja a
             // `lista_nueva`, y una prueba que dependiera de eso estaria midiendo

@@ -166,7 +166,7 @@ detras dandole la razon.
 > un corte.** El samurai no susurra.
 
 El propio emisor lo dice: *"cuando haya errores como datos de verdad, esto
-construira el valor de error"*. **Es el peldano P4 de la seccion 5, y es el mas
+construira el valor de error"*. **Es el nivel P4 de la seccion 5, y es el mas
 importante de todo el documento.**
 
 ### 2.4 LA KATANA QUE EL SILICIO YA BLANDE Y NADIE SABE QUE EXISTE
@@ -282,11 +282,11 @@ identificacion, y esa bandera vive en otro.
 
 ---
 
-## 5. EL PLAN, PELDANO A PELDANO
+## 5. EL PLAN, NIVEL A NIVEL
 
 > La ley de EL FUERO: **una regla solo existe si trae su componente y su
-> numero.** Cada peldano de abajo tiene criterio de aprobado ejecutable. Un
-> peldano sin criterio es una intencion, y las intenciones van en el maestro.
+> numero.** Cada nivel de abajo tiene criterio de aprobado ejecutable. Un
+> nivel sin criterio es una intencion, y las intenciones van en el maestro.
 
 ### P0 -- LA COSTURA. HECHO (2026-08-22)
 
@@ -391,11 +391,11 @@ Siete son de la propia sonda --`cuantas_hojas`, `firma_del_cpu`, `una_medida`,
 vienen dentro de las piezas del monton.
 
 ★★ **Y el fallo vale mas que el acierto**, porque es exactamente lo que este
-peldano existe para arreglar: yo, que acababa de leer ese fichero entero, dije
+nivel existe para arreglar: yo, que acababa de leer ese fichero entero, dije
 un numero equivocado sobre el. **El medidor no dice cuantas ventanas abriste:
 dice cuantas trae el binario.** Nadie lo sabia de memoria porque hasta hoy no se
 podia leer sin abrir el fuente -- que es la frase con la que empieza este
-peldano.
+nivel.
 
 ★ Y una cosa que no se buscaba: el `.bex` **ya trae una seccion
 `Requisitos = 0x15`** de 93 bytes, escrita sola por el constructor. Es el sitio
@@ -444,7 +444,7 @@ perfil de una**.
 
 ★ Y el `pleno` que trae `llano` es el caso NORMAL, no la excepcion. Hoy compila
 sin una queja de perfil; lo unico que queda delante es el gate de
-`[bytes] llegan`, que es otro peldano y esta ahi a proposito.
+`[bytes] llegan`, que es otro nivel y esta ahi a proposito.
 
 ### Por que el mas PERMISIVO, y no el mas estricto
 
@@ -483,7 +483,7 @@ algo comprobable **al cargar**.
 
 ### P4 -- EL CAMINO DE VUELTA: atrapar deja de ser devolver un numero
 
-**El peldano que sostiene todo lo demas.** Tres mitades, y la tercera es la que
+**El nivel que sostiene todo lo demas.** Tres mitades, y la tercera es la que
 importa:
 
 **(a) La mesa de aterrizaje.** El binario declara, por regla, **su codigo y la
@@ -609,7 +609,7 @@ Con P4 puesto, en `pleno`:
    poner    `ldmxcsr` con `IE` desenmascarada al arrancar la tarea   1 vez
 ```
 
-En `llano` **no se toca nada**, y esa es la mitad importante del peldano.
+En `llano` **no se toca nada**, y esa es la mitad importante del nivel.
 
 ```text
    aprobado:  el mismo fuente compilado en los dos perfiles da el mismo
@@ -619,14 +619,14 @@ En `llano` **no se toca nada**, y esa es la mitad importante del peldano.
 
 ### P6 -- LA MEDIDA, contra el umbral que ya existe
 
-Sin esto el peldano 5 es una opinion. El instrumento ya esta calibrado y el
+Sin esto el nivel 5 es una opinion. El instrumento ya esta calibrado y el
 umbral ya esta puesto: **una mejora tiene que mover el minimo mas de ~1%** (mejor
 de ocho, con la dispersion al lado; establecido el 22-08 en el Ryzen).
 
 Y la prediccion honrada, escrita por delante: **puede que no se note.** Las
 reglas cuestan ~1% entero y este trabajo se lleva una parte de ese 1%. La razon
 para hacerlo **no es la velocidad**: es 2.3, que atrapar deje de ser ambiguo. Si
-al final el numero no se mueve, el peldano sigue valiendo y el numero se publica
+al final el numero no se mueve, el nivel sigue valiendo y el numero se publica
 igual.
 
 ```text
@@ -813,7 +813,7 @@ hay una deuda concreta que sale de aqui, porque es de la misma familia:
    arreglara luego: es la definicion del perfil (seccion 3). Codigo que puede ser
    el manejador no puede delegar en el manejador.
 
-3. **Puede que el peldano 6 no mida nada.** Esta escrito arriba y se acepta antes
+3. **Puede que el nivel 6 no mida nada.** Esta escrito arriba y se acepta antes
    de empezar, para que el resultado no se pueda reinterpretar despues.
 
 4. **Nada de esto arregla el `#DE` de 2.4 por si solo.** Ese es un agujero de HOY,

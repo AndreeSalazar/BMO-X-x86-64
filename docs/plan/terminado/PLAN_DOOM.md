@@ -1145,7 +1145,7 @@ campo del offset 0 es `size`.
 > **Y si no**, tambien vale: querra decir que el destrozo del monton es otra
 > cosa, y habra costado un arranque saberlo en vez de una semana.
 
-## 5 -- EL ORDEN, con lo que aprueba cada peldano
+## 5 -- EL ORDEN, con lo que aprueba cada nivel
 
 ```text
    [x] 1  localizar                sonda que dice `1 0`, no solo ROJA
@@ -1158,6 +1158,6 @@ campo del offset 0 es `size`.
           una respuesta            sitios del arbol vivian de la casualidad
 ```
 
-[!] El peldano 3 no puede llegar al disco mientras L6a pare el build. **No es
+[!] El nivel 3 no puede llegar al disco mientras L6a pare el build. **No es
 una dependencia de DOOM: es la puerta de al lado**, y esta escrita en la seccion
 0 de `../../metal/METAL_2026-08-23.md`.

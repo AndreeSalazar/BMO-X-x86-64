@@ -112,7 +112,7 @@ fn una_suma_que_no_cabe_atrapa_con_la_regla_1() {
 ///
 /// *** Y ESTO YA ESTABA EN EL PLAN, con nombre y con la frase justa:
 /// `PLAN_EL_SILICIO.md`, **P4 -- EL CAMINO DE VUELTA: atrapar deja de ser
-/// devolver un numero**, descrito como *"el peldano que sostiene todo lo
+/// devolver un numero**, descrito como *"el nivel que sostiene todo lo
 /// demas"*. Lo que agrega esta prueba es que deja de ser una prevision: es un
 /// caso, con su numero.
 ///

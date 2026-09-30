@@ -6,7 +6,7 @@
 //! [consumo] NADA      corre cuando el propietario lo teclea, o en `save mode`:
 //!                     una pregunta de hasta 5 s
 //!
-//! Es el primer peldano del contexto de oro (G0..G4, en `bmo_gpu_ga10x::gr`):
+//! Es el primer nivel del contexto de oro (G0..G4, en `bmo_gpu_ga10x::gr`):
 //! no cambia nada en la 3060. Con estas medidas G2 buscara sitio en la VRAM.
 
 use bmo_gpu_ga10x::control::{self, CABECERA_CONTROL, GSP_RM_CONTROL};

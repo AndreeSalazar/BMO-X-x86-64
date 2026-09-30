@@ -115,7 +115,7 @@ Master por `pci::enable_mem_bus_master` (el portero la adopta), y desde la
 interrupcion solo MMIO: mas de 1.000 avisos en un segundo es una TORMENTA y la
 cima se calla sola. `INFO_GPU_VBLANK` (0xAC) cuenta, `INFO_GPU_E2` (0xAD) es la
 ESCALERA (vector, ciega, MSI, BME, aviso, evento, hoja, cima): en el metal, el
-primer peldano en `-` dice donde se quedo el aviso.
+primer nivel en `-` dice donde se quedo el aviso.
 
 ```text
    gpu vblank        encender (save antes, FLUSH del disco) y contar 500 ms
@@ -253,7 +253,7 @@ ciegas seria un bucle de caidas; con la memoria, cada caida quita un paso.
 (11 pruebas): directorio `PR|IR|IW|nivel<<9|tabla`, hoja de 4 KiB
 `PR|FC|IR|IW|fisica`, 3 niveles (512 GiB de espacio del aparato), prestar todo o
 nada, quitar, y el ORACULO que recorre la tabla como la IOMMU (los permisos son
-el AND de los peldanos). Y `INVALIDATE_IOMMU_PAGES` del dominio entero. En el
+el AND de los niveles). Y `INVALIDATE_IOMMU_PAGES` del dominio entero. En el
 kernel (`plat/iommu.rs`): un area NEUTRO de 128 paginas para las tablas (fila
 IOMMU del censo, x3), el dominio 3 de la 3060, y la entrada TRADUCIDA con las
 palabras de interrupcion conservadas -- E2 sigue, y su candado acepta ciega o
