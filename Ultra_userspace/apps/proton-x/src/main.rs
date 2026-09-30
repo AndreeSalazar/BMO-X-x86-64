@@ -792,14 +792,28 @@ pub extern "C" fn _start() -> ! {
     // Resolver cada uno; el TLS del `.exe`, leido de su imagen ya relocalizada.
     let mut funciones = 0usize;
     let mut tls_del_exe = None;
+    let mut faltan: Vec<(alloc::string::String, bmo_proton_x::Importacion)> = Vec::new();
     for (k, m) in modulos.iter().enumerate() {
         let img = m.imagen();
         let imps = importaciones(&m.pe, img).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
         if k == 0 {
             tls_del_exe = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
         }
-        resolver(img, &imps, bmo_proton_x_casa::tabla).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
+        // P0.4b.7: lo que falta se APUNTA y se sigue con el siguiente: un
+        // viaje al metal dice TODO lo que falta, no solo lo de la primera DLL.
+        match resolver(img, &imps, bmo_proton_x_casa::tabla) {
+            Ok(()) => {}
+            Err(bmo_proton_x::Fallo::Faltan(v)) => faltan.extend(v.into_iter().map(|i| (m.nombre.clone(), i))),
+            Err(f) => fin(&format!("{}: {f}", m.nombre)),
+        }
         funciones += imps.len();
+    }
+    if !faltan.is_empty() {
+        let mut t = format!("no arranca: faltan {} funcion(es) en la tabla de la casa:", faltan.len());
+        for (quien, i) in &faltan {
+            t.push_str(&format!("\n  {quien} pide {}!{}", i.dll, i.funcion));
+        }
+        fin(&t);
     }
 
     // -- 6. SELLAR el codigo de cada uno: sin esto, saltar seria un #PF por NX.

@@ -329,6 +329,12 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("oleaut32.dll") => return tabla_casa(dll, &Funcion::Nombre(com_basico::por_ordinal(*o)?.into())),
         _ => return None,
     };
+    // P0.4b.7: los API set "downlevel" (`api-ms-win-downlevel-kernel32-l2-1-0`,
+    // de dbghelp.dll) son el nombre de una DLL de verdad con otro traje: la
+    // casa los resuelve como esa DLL (kernel32, advapi32, user32...).
+    if let Some(de) = dll.get(..21).filter(|p| p.eq_ignore_ascii_case("api-ms-win-downlevel-")).and_then(|_| dll[21..].split('-').next()) {
+        return tabla_casa(&alloc::format!("{de}.dll"), f);
+    }
     // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
     // de donde la `std` de Rust importa WaitOnAddress) son nombres de
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.

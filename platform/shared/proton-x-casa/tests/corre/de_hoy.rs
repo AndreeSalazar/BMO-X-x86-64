@@ -143,3 +143,19 @@ fn tanda20_exe_tiene_las_ultimas_duras() {
     std::fs::write(volumen().join("window").join("tanda20.exe"), TANDA20).unwrap();
     tanda(TANDA20, Some("window/tanda20.exe"), 15, "tanda20.exe: las ultimas DURAS son las de Windows");
 }
+
+/// **Los API set "downlevel"** (P0.4b.7, 30-09): `dbghelp.dll` de Cyberpunk
+/// importa de `api-ms-win-downlevel-kernel32-l2-1-0.dll`; en el metal
+/// faltaron CreateFileMappingA y LocalFree. Son kernel32 con otro traje.
+#[test]
+fn los_api_set_downlevel_son_su_dll() {
+    use bmo_proton_x::Funcion;
+    let f = |n: &str| Funcion::Nombre(n.into());
+    for n in ["CreateFileMappingA", "LocalFree"] {
+        let de = bmo_proton_x_casa::tabla("api-ms-win-downlevel-kernel32-l2-1-0.dll", &f(n));
+        assert!(de.is_some(), "{n}: la casa no lo resuelve por el API set downlevel");
+        assert_eq!(de, bmo_proton_x_casa::tabla("kernel32.dll", &f(n)), "{n}: el mismo que kernel32");
+    }
+    assert!(bmo_proton_x_casa::tabla("API-MS-WIN-DOWNLEVEL-ADVAPI32-L1-1-0.dll", &f("RegOpenKeyExW")).is_some());
+    assert_eq!(bmo_proton_x_casa::tabla("api-ms-win-downlevel-", &f("LocalFree")), None, "sin DLL detras, nada");
+}
