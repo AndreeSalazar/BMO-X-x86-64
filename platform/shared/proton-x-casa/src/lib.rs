@@ -86,6 +86,8 @@ pub mod modulos;
 pub mod msvcp_hilos;
 pub mod msvcp_errores;
 pub mod msvcp_locale;
+pub mod msvcp_flujos;
+pub mod msvcp_tiempo;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -300,7 +302,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         return Some(d);
     }
     // Tanda 18: los `id` de msvcp140 tambien son DATOS.
-    if matches!(f, Funcion::Nombre(n) if dll.eq_ignore_ascii_case("msvcp140.dll") && msvcp_locale::es_dato(n)) {
+    if matches!(f, Funcion::Nombre(n) if dll.eq_ignore_ascii_case("msvcp140.dll") && (msvcp_locale::es_dato(n) || msvcp_flujos::es_dato(n))) {
         return Some(d);
     }
     Some(diario::envolver(dll, &alloc::format!("{f}"), d))
@@ -335,7 +337,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
         // Tanda 18: su locale.
-        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n))
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.

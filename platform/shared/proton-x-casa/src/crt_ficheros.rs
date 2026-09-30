@@ -487,7 +487,7 @@ fn abrir_flujo(ruta: &[u16], modo: &[u8]) -> u64 {
     p
 }
 
-extern "win64" fn fopen(ruta: *const u8, modo: *const u8) -> u64 {
+pub(crate) extern "win64" fn fopen(ruta: *const u8, modo: *const u8) -> u64 {
     if ruta.is_null() || modo.is_null() {
         poner_errno(EINVAL);
         return 0;
@@ -522,7 +522,7 @@ extern "win64" fn fopen_s(f: *mut u64, ruta: *const u8, modo: *const u8) -> i32 
     0
 }
 
-extern "win64" fn fclose(f: u64) -> i32 {
+pub(crate) extern "win64" fn fclose(f: u64) -> i32 {
     if crt::cual(f).is_some() {
         return 0;
     }
@@ -663,7 +663,7 @@ extern "win64" fn fseek(f: u64, off: i32, desde: i32) -> i32 {
     buscar_en_flujo(f, off as i64, desde)
 }
 
-extern "win64" fn fseeki64(f: u64, off: i64, desde: i32) -> i32 {
+pub(crate) extern "win64" fn fseeki64(f: u64, off: i64, desde: i32) -> i32 {
     buscar_en_flujo(f, off, desde)
 }
 

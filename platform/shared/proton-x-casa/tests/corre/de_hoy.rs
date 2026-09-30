@@ -113,3 +113,14 @@ fn tanda17_exe_tiene_el_rtti_de_cpp() {
 fn tanda18_exe_tiene_el_locale_de_msvcp() {
     tanda(TANDA18, None, 16, "tanda18.exe: el locale de msvcp140 es el de Windows");
 }
+
+/// **La tanda 19 de Cyberpunk** (30-09): `tanda19.exe` -- los flujos de
+/// msvcp140: un streambuf propio sobre basic_streambuf, ostream y sus
+/// numeros, istream e iostream (con su base virtual), cerr, setw, _Fiopen
+/// y time_put (su _Fiopen abre su PROPIO `.exe`: tiene que estar en el
+/// volumen, con su nombre).
+#[test]
+fn tanda19_exe_tiene_los_flujos_de_msvcp() {
+    std::fs::write(volumen().join("window").join("tanda19.exe"), TANDA19).unwrap();
+    tanda(TANDA19, Some("window/tanda19.exe"), 16, "tanda19.exe: los flujos de msvcp140 son los de Windows");
+}

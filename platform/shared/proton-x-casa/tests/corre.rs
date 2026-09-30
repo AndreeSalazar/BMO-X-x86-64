@@ -77,6 +77,7 @@ const TANDA15: &[u8] = include_bytes!("../../proton-x/prueba/tanda15.exe");
 const TANDA16: &[u8] = include_bytes!("../../proton-x/prueba/tanda16.exe");
 const TANDA17: &[u8] = include_bytes!("../../proton-x/prueba/tanda17.exe");
 const TANDA18: &[u8] = include_bytes!("../../proton-x/prueba/tanda18.exe");
+const TANDA19: &[u8] = include_bytes!("../../proton-x/prueba/tanda19.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
