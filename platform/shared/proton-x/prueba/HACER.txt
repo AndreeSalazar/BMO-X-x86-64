@@ -711,3 +711,25 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    241dc3a79004cf1e45948cb83b843d10a7f66233649282ece4c417e8d01d36b7
 
 Dice `bien` veinticinco veces y sale con 0. En Windows dice lo mismo.
+
+tanda11.exe -- la TANDA 11 de Cyberpunk (30-09): ADVAPI32
+
+El registro (RegOpenKeyEx W y A, RegQueryValueExW, RegGetValue W y A,
+RegEnumKeyEx, RegEnumValueW, RegQueryInfoKey, RegCloseKey), GetUserName W y
+A, CryptoAPI (el proveedor de AES, MD5/SHA-1/SHA-256 de "abc", el azar,
+CryptEnumProvidersW, CryptGetUserKey sin claves), OpenServiceA de uno que
+no esta, el visor de eventos, ETW y EventActivityIdControl. Solo claves que
+tiene cualquier Windows 10/11, y relaciones: el VendorIdentifier es el
+fabricante de CPUID, hay tantos CentralProcessor como procesadores dice
+GetSystemInfo (tanda11_advapi32.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda11_kernel32.def -l tanda11_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda11_advapi32.def -l tanda11_advapi32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda11.c -o tanda11.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda11.obj tanda11_kernel32.lib tanda11_advapi32.lib /out:tanda11.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   ad218953b4ba71fc8f5be9149f5d436fd10d0b21bb7658fec515a721cb5eac59
+
+Dice `bien` treinta y cinco veces y sale con 0. En Windows dice lo mismo.

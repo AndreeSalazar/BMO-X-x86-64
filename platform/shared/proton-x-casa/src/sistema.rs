@@ -132,7 +132,7 @@ fn rdrand() -> Option<u64> {
 }
 
 /// `ProcessPrng(bufer, n)`: siempre TRUE, como Windows.
-extern "win64" fn process_prng(b: *mut u8, n: usize) -> i32 {
+pub(crate) extern "win64" fn process_prng(b: *mut u8, n: usize) -> i32 {
     let mut mezcla = (plataforma().ahora_ns)() ^ 0x9E37_79B9_7F4A_7C15;
     let mut i = 0;
     while i < n {

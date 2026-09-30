@@ -66,6 +66,7 @@ const TANDA7: &[u8] = include_bytes!("../../proton-x/prueba/tanda7.exe");
 const TANDA8: &[u8] = include_bytes!("../../proton-x/prueba/tanda8.exe");
 const TANDA9: &[u8] = include_bytes!("../../proton-x/prueba/tanda9.exe");
 const TANDA10: &[u8] = include_bytes!("../../proton-x/prueba/tanda10.exe");
+const TANDA11: &[u8] = include_bytes!("../../proton-x/prueba/tanda11.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -813,6 +814,28 @@ fn stdio_exe_tiene_el_printf_de_msvc() {
     assert!(texto.ends_with("stdio.exe: el printf es el de Windows\r\n[salio 0x0]"), "{texto}");
 }
 
+/// **Una tanda de Cyberpunk**: corre `exe` (con ese nombre, si lo dice) y
+/// exige `bien` lineas bien, ninguna MAL, ni un aviso, y su ultima linea.
+fn tanda(exe: &[u8], nombre: Option<&'static str>, bien: usize, fin: &str) {
+    tanda_y(exe, nombre, bien, fin, || ());
+}
+
+/// [`tanda`], y luego `despues`, con la vuelta cogida todavia.
+fn tanda_y(exe: &[u8], nombre: Option<&'static str>, bien: usize, fin: &str, despues: impl FnOnce()) {
+    let uno = uno_a_la_vez();
+    if let Some(n) = nombre {
+        *NOMBRE.lock().unwrap() = (n, "");
+    }
+    let (salio, dicho, _) = correr_exe(&uno, exe, true, &[]);
+    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   "), "{texto}");
+    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
+    assert_eq!(texto.matches("  bien  ").count(), bien, "{texto}");
+    assert!(texto.ends_with(&format!("{fin}\r\n[salio 0x0]")), "{texto}");
+    despues();
+}
+
 /// **La tanda 1 de Cyberpunk en el anfitrion** (29-09): `tanda1.exe` -- el C
 /// runtime que piden Cyberpunk2077.exe y sus DLL (cadenas, numeros, mates
 /// con el double en xmm0, qsort, printf y scanf _s, FILE y descriptores en
@@ -820,14 +843,9 @@ fn stdio_exe_tiene_el_printf_de_msvc() {
 /// de sus DLL de verdad: los api-ms-win-crt-*, msvcrt.dll y vcruntime140.dll.
 #[test]
 fn tanda1_exe_tiene_el_c_runtime_de_cyberpunk() {
-    let uno = uno_a_la_vez();
-    let (salio, dicho, _) = correr_exe(&uno, TANDA1, true, &[]);
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 55, "{texto}");
-    assert!(texto.ends_with("tanda1.exe: el C runtime de Cyberpunk es el de Windows\r\n[salio 0x0]"), "{texto}");
-    assert_eq!(std::fs::read(volumen().join("window/tanda1.txt")).unwrap(), b"uno\r\ndos\r\n", "el fichero, en modo texto de Windows");
+    tanda_y(TANDA1, None, 55, "tanda1.exe: el C runtime de Cyberpunk es el de Windows", || {
+        assert_eq!(std::fs::read(volumen().join("window/tanda1.txt")).unwrap(), b"uno\r\ndos\r\n", "el fichero, en modo texto de Windows");
+    });
 }
 
 /// **La tanda 2 de Cyberpunk en el anfitrion** (29-09): `tanda2.exe` -- lo
@@ -836,13 +854,7 @@ fn tanda1_exe_tiene_el_c_runtime_de_cyberpunk() {
 /// suman con un mutex, productor y consumidor, y un timedwait que vence.
 #[test]
 fn tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp() {
-    let uno = uno_a_la_vez();
-    let (salio, dicho, _) = correr_exe(&uno, TANDA2, true, &[]);
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 13, "{texto}");
-    assert!(texto.ends_with("tanda2.exe: los hilos de la biblioteca de C++ son los de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA2, None, 13, "tanda2.exe: los hilos de la biblioteca de C++ son los de Windows");
 }
 
 /// **La tanda 3 de Cyberpunk en el anfitrion** (29-09): `tanda3.exe` --
@@ -850,15 +862,7 @@ fn tanda2_exe_tiene_los_hilos_de_la_biblioteca_de_cpp() {
 /// (entorno, rutas, buscar ficheros, modulos, eventos, consola).
 #[test]
 fn tanda3_exe_tiene_lo_de_kernel32() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda3.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA3, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
-    assert!(texto.ends_with("tanda3.exe: kernel32 dice lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA3, Some("window/tanda3.exe"), 25, "tanda3.exe: kernel32 dice lo de Windows");
 }
 
 /// **La tanda 3 de Cyberpunk, paso 4a** (29-09): `tanda3b.exe` -- el pool
@@ -866,15 +870,7 @@ fn tanda3_exe_tiene_lo_de_kernel32() {
 /// InitOnce y las SList; los callbacks en hilos de la casa.
 #[test]
 fn tanda3b_exe_tiene_el_pool_de_hilos() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda3b.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA3B, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 18, "{texto}");
-    assert!(texto.ends_with("tanda3b.exe: el pool de hilos dice lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA3B, Some("window/tanda3b.exe"), 18, "tanda3b.exe: el pool de hilos dice lo de Windows");
 }
 
 /// **La tanda 3 de Cyberpunk, paso 4b** (29-09): `tanda3c.exe` -- el mapeo
@@ -883,15 +879,7 @@ fn tanda3b_exe_tiene_el_pool_de_hilos() {
 /// GetOverlappedResultEx, CancelIoEx y FormatMessageA.
 #[test]
 fn tanda3c_exe_tiene_el_mapeo_y_los_puertos() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda3c.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA3C, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 16, "{texto}");
-    assert!(texto.ends_with("tanda3c.exe: el mapeo y los puertos dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA3C, Some("window/tanda3c.exe"), 16, "tanda3c.exe: el mapeo y los puertos dicen lo de Windows");
 }
 
 /// **La tanda 4 de Cyberpunk** (29-09): `tanda4.exe` -- las excepciones de
@@ -899,15 +887,7 @@ fn tanda3c_exe_tiene_el_mapeo_y_los_puertos() {
 /// herencia multiple, catch(...), throw; y un throw dentro de un catch).
 #[test]
 fn tanda4_exe_tiene_las_excepciones_de_cpp() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda4.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA4, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 11, "{texto}");
-    assert!(texto.ends_with("tanda4.exe: las excepciones de C++ son las de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA4, Some("window/tanda4.exe"), 11, "tanda4.exe: las excepciones de C++ son las de Windows");
 }
 
 /// **La tanda 5 de Cyberpunk** (29-09): `tanda5.exe` -- user32, grupo 1:
@@ -915,15 +895,7 @@ fn tanda4_exe_tiene_las_excepciones_de_cpp() {
 /// una ventana.
 #[test]
 fn tanda5_exe_tiene_las_medidas_de_user32() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda5.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA5, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 22, "{texto}");
-    assert!(texto.ends_with("tanda5.exe: las medidas de user32 dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA5, Some("window/tanda5.exe"), 22, "tanda5.exe: las medidas de user32 dicen lo de Windows");
 }
 
 /// **La tanda 6 de Cyberpunk** (29-09): `tanda6.exe` -- user32, grupo 2:
@@ -931,30 +903,14 @@ fn tanda5_exe_tiene_las_medidas_de_user32() {
 /// los temporizadores, MsgWaitFor..., los nombres, la posicion, las A).
 #[test]
 fn tanda6_exe_tiene_las_ventanas_y_sus_mensajes() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda6.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA6, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 29, "{texto}");
-    assert!(texto.ends_with("tanda6.exe: las ventanas y sus mensajes dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA6, Some("window/tanda6.exe"), 29, "tanda6.exe: las ventanas y sus mensajes dicen lo de Windows");
 }
 
 /// **La tanda 7 de Cyberpunk** (29-09): `tanda7.exe` -- user32, grupo 3:
 /// el teclado, el cursor, la captura, el raw input y el portapapeles.
 #[test]
 fn tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda7.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA7, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 29, "{texto}");
-    assert!(texto.ends_with("tanda7.exe: el teclado, el raton y el portapapeles dicen lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA7, Some("window/tanda7.exe"), 29, "tanda7.exe: el teclado, el raton y el portapapeles dicen lo de Windows");
 }
 
 /// **La tanda 8 de Cyberpunk** (30-09): `tanda8.exe` -- el locale de
@@ -962,13 +918,7 @@ fn tanda7_exe_tiene_el_teclado_el_raton_y_el_portapapeles() {
 /// fecha, hora, numero y moneda (siempre en-US: cualquier Windows lo dice).
 #[test]
 fn tanda8_exe_tiene_el_locale_de_kernel32() {
-    let uno = uno_a_la_vez();
-    let (salio, dicho, _) = correr_exe(&uno, TANDA8, true, &[]);
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
-    assert!(texto.ends_with("tanda8.exe: el locale de kernel32 es el de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA8, None, 25, "tanda8.exe: el locale de kernel32 es el de Windows");
 }
 
 /// **P3c1 en el anfitrion**: `peek.exe` -- lo chico que le faltaba a
@@ -1325,13 +1275,7 @@ fn bmox12_exe_fotograma_30_guarda_el_png_de_la_3060() {
 /// Windows lo dice).
 #[test]
 fn tanda9_exe_tiene_lo_que_quedaba_de_kernel32() {
-    let uno = uno_a_la_vez();
-    let (salio, dicho, _) = correr_exe(&uno, TANDA9, true, &[]);
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 30, "{texto}");
-    assert!(texto.ends_with("tanda9.exe: lo que quedaba de kernel32 es lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA9, None, 30, "tanda9.exe: lo que quedaba de kernel32 es lo de Windows");
 }
 
 /// **La tanda 10 de Cyberpunk** (30-09): `tanda10.exe` -- lo que quedaba de
@@ -1340,13 +1284,13 @@ fn tanda9_exe_tiene_lo_que_quedaba_de_kernel32() {
 /// ventanas y los avisos de dispositivos.
 #[test]
 fn tanda10_exe_tiene_lo_que_quedaba_de_user32() {
-    let uno = uno_a_la_vez();
-    *NOMBRE.lock().unwrap() = ("window/tanda10.exe", "");
-    let (salio, dicho, _) = correr_exe(&uno, TANDA10, true, &[]);
-    *NOMBRE.lock().unwrap() = ("window/prueba.exe", "");
-    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
-    assert!(!texto.contains("  MAL   "), "{texto}");
-    assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
-    assert_eq!(texto.matches("  bien  ").count(), 25, "{texto}");
-    assert!(texto.ends_with("tanda10.exe: lo que quedaba de user32 es lo de Windows\r\n[salio 0x0]"), "{texto}");
+    tanda(TANDA10, Some("window/tanda10.exe"), 25, "tanda10.exe: lo que quedaba de user32 es lo de Windows");
+}
+
+/// **La tanda 11 de Cyberpunk** (30-09): `tanda11.exe` -- ADVAPI32: el
+/// registro, GetUserName, CryptoAPI (MD5, SHA-1 y SHA-256 de verdad), el
+/// visor de eventos, ETW y los servicios.
+#[test]
+fn tanda11_exe_tiene_advapi32() {
+    tanda(TANDA11, None, 35, "tanda11.exe: ADVAPI32 es lo de Windows");
 }

@@ -72,6 +72,8 @@ pub mod kernel32_hora;
 pub mod kernel32_locale;
 pub mod kernel32_mapeo;
 pub mod kernel32_procesos;
+pub mod advapi32;
+pub mod advapi32_registro;
 pub mod kernel32_pool;
 pub mod kernel32_sistema;
 pub mod memoria;
@@ -248,6 +250,8 @@ pub unsafe fn empezar(p: Plataforma) {
     cxx::reiniciar();
     kernel32_mapeo::reiniciar();
     kernel32_procesos::reiniciar();
+    advapi32::reiniciar();
+    advapi32_registro::reiniciar();
     user32_medidas::reiniciar();
     user32_ventanas::reiniciar();
     user32_mensajes::reiniciar();
@@ -284,7 +288,7 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
     let api_set = dll.len() > 16 && dll.as_bytes()[..16].eq_ignore_ascii_case(b"api-ms-win-core-");
     if dll.eq_ignore_ascii_case("kernel32.dll") || dll.eq_ignore_ascii_case("kernelbase.dll") || api_set {
-        kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n)).or_else(|| excepciones::buscar(n)).or_else(|| kernel32_hora::buscar(n)).or_else(|| kernel32_sistema::buscar(n)).or_else(|| kernel32_a::buscar(n)).or_else(|| kernel32_pool::buscar(n)).or_else(|| kernel32_mapeo::buscar(n)).or_else(|| kernel32_locale::buscar(n)).or_else(|| kernel32_procesos::buscar(n))
+        de_kernel32(n)
     } else if crt::es_del_crt(dll) {
         // P4f5: el CRT de MSVC (ucrtbase, vcruntime140 y sus API set).
         crt::buscar(n)
@@ -305,6 +309,9 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         sistema::buscar_otras(dll, n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n)).or_else(|| user32_entrada::buscar(n)).or_else(|| user32_portapapeles::buscar(n)).or_else(|| user32_dialogos::buscar(n))
+    } else if dll.eq_ignore_ascii_case("advapi32.dll") {
+        // Tanda 11: lo suyo, y el registro y los tokens (de kernelbase).
+        advapi32::buscar(n).or_else(|| de_kernel32(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n)
     } else if dll.eq_ignore_ascii_case("d3d12.dll") {
@@ -314,6 +321,12 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     } else {
         None
     }
+}
+
+/// La cadena de kernel32 (kernelbase y sus API set): ningun nombre esta en
+/// dos modulos (PX5).
+fn de_kernel32(n: &str) -> Option<u64> {
+    kernel32::buscar(n).or_else(|| hilos::buscar(n)).or_else(|| ficheros::buscar(n)).or_else(|| memoria::buscar(n)).or_else(|| proceso::buscar(n)).or_else(|| texto::buscar(n)).or_else(|| modulos::buscar(n)).or_else(|| esperas::buscar(n)).or_else(|| carpetas::buscar(n)).or_else(|| sistema::buscar(n)).or_else(|| excepciones::buscar(n)).or_else(|| kernel32_hora::buscar(n)).or_else(|| kernel32_sistema::buscar(n)).or_else(|| kernel32_a::buscar(n)).or_else(|| kernel32_pool::buscar(n)).or_else(|| kernel32_mapeo::buscar(n)).or_else(|| kernel32_locale::buscar(n)).or_else(|| kernel32_procesos::buscar(n)).or_else(|| advapi32_registro::buscar(n))
 }
 
 /// Si `f` (un nombre de fichero en minusculas) es un API set o una DLL del
