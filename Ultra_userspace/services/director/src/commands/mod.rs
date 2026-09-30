@@ -517,10 +517,11 @@ pub(crate) fn parse(line: &[u8]) -> Command<'_> {
                 let t = r.strip_prefix(sub)?.strip_prefix(b" ")?;
                 Some(&t[t.iter().position(|&c| c != b' ').unwrap_or(t.len())..])
             }
+            // Sin ruta, la ULTIMA (30-09): `linea_censo` la recuerda.
             if let Some(f) = quita(rest, b"censo") {
-                if f.is_empty() { Command::Help } else { Command::PersonalCenso(f) }
+                Command::PersonalCenso(f)
             } else if let Some(f) = quita(rest, b"diario") {
-                if f.is_empty() { Command::Help } else { Command::PersonalDiario(f) }
+                Command::PersonalDiario(f)
             } else if let Some(f) = quita(rest, b"lee").or_else(|| quita(rest, b"cat")) {
                 if f.is_empty() { Command::Help } else { Command::PersonalLee(f) }
             } else {

@@ -152,13 +152,15 @@ match c {
             Command::PersonalCenso(ruta) => {
                 let mut buf = [0u8; PATH_MAX];
                 match crate::commands::files::linea_censo(ruta, diario, &mut buf) {
-                    Some(tn) => {
+                    Ok(tn) => {
                         antes_de_proton_x(dsk, p, &buf[..tn]);
                         return Edit::Launch(buf, tn);
                     }
-                    None => {
+                    Err(frase) => {
                         dsk.out.grid.with_ink(INK_ERR);
-                        dsk.out.grid.text(b"  la ruta es demasiado larga para los argumentos de PROTON-X (96 bytes)\n");
+                        dsk.out.grid.text(b"  ");
+                        dsk.out.grid.text(frase);
+                        dsk.out.grid.text(b"\n");
                         dsk.out.grid.with_ink(INK_PLAIN);
                         dsk.field.n = 0;
                     }

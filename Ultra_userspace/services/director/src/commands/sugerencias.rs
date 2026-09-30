@@ -114,7 +114,7 @@ const LISTA: &[(&[u8], &[u8])] = &[
     (b"personal ls", b"que hay en tu disco Personal (D:), solo para mirar"),
     (b"personal lee", b"la medida y los primeros bytes de un fichero de D:"),
     (b"personal censo", b"que DLL y funciones de Windows pide un .exe de D:, y cuantas tiene PROTON-X"),
-    (b"personal diario", b"arranca un .exe de D: con PROTON-X y apunta cada funcion que llama (informe/diario.txt)"),
+    (b"personal diario", b"arranca un .exe de D: con PROTON-X y apunta cada funcion que llama (informe/diario.txt); sin ruta, repite la ultima"),
     (b"cabina", b"lo que el kernel apunto"),
     (b"cabina fallos", b"solo los fallos"),
     (b"fallo", b"la ultima autopsia de Ring 3"),
