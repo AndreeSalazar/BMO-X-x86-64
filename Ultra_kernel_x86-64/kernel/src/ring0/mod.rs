@@ -58,6 +58,10 @@ pub mod obj {
     /// declaran todas sus partes de una vez y se juzgan UNA vez contra la RAM
     /// libre de ahora. Ver la cabecera del modulo.
     pub mod imagen;
+    /// LA RESERVA (P0.4c, 30-09): la memoria que un juego pide en marcha,
+    /// pagina a pagina en una ventana propia, juzgada contra la RAM libre de
+    /// ahora. Ver la cabecera del modulo.
+    pub mod reserva;
     /// `KIND_PRESTADO`: un proceso cede un trozo de SU memoria a otro. El
     /// kernel mueve paginas y **no sabe para que** -- el lienzo, el audio y los
     /// bloques grandes entre procesos salen todos de aqui.

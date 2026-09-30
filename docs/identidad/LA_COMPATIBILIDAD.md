@@ -194,6 +194,30 @@ siguen con sus ocho bloques.
 
 # 5. ⚠ LO QUE PASA CUANDO EL PEAJE NO SE PAGA -- dos casos REALES de hoy
 
+## 4.4 -- La cuarta: la RESERVA, la memoria del juego en marcha (30-09)
+
+Cyberpunk salto a su entrada en el metal, pregunto `GlobalMemoryStatus` y
+pidio con `VirtualAlloc` mas de 64 MiB de una vez. Los bloques de
+`KIND_MEMORIA` (ocho de 64 MiB) no se suben para todos: se abre la puerta
+mas chica que sirve (P0.4c; permiso del propietario: "completar TODO").
+
+| peaje | como se pago |
+|---|---|
+| 1. cabe en su campo | `0x3A` y `0x3B`, las siguientes libres de `TASK_OP_*` |
+| 2. libre en las dos | libres en `syscall/ops.rs` y en `surface/tarea.rs` |
+| 3. un NO con nombre | **seis** `RESERVA_*`; el de RAM lleva lo que pide y lo que hay, en MiB; el de "sin marcos a mitad", cuanto SI se hizo |
+| 4. se suelta al morir | cada pagina va marcada `PTE_NUESTRA`: `destroy_address_space` la pone a cero y la devuelve; `reserva::process_died` borra la cuenta |
+| 5. una prueba que ve el fallo | `bmo-imagen-juicio::reserva`, 2 pruebas: rango (alineado, en la ventana, de una vez) y RAM de lo que falta |
+| 6. las tres tablas | `TASK_OP_RESERVA_*` en kernel y ABI, `OP_RESERVA_*` en userland |
+
+**La concesion, dicha entera:** una ventana de 128 GiB de VA desde
+`0x20_0000_0000` y paginas a cero, R+W, sin ejecucion, hechas y deshechas a
+peticion, hasta 64 MiB por llamada. RESERVAR (elegir direcciones) es cuenta
+de la casa en Ring 3 y no le cuesta nada al kernel; cada HACER se juzga
+contra la RAM libre de ese momento menos el margen. Lo que no es Windows:
+si el asignador se queda sin marcos A MITAD de un HACER, lo hecho se queda
+hecho (y se dice cuanto), no "todo o nada".
+
 ## 5.1 -- El menor del ABI que decia ser aditivo y se comprobaba exacto
 
 `bmo-abi` declaraba *"minor versions are additive"*. El cargador --que es quien

@@ -668,6 +668,32 @@ pub const IMAGEN_NO_ES_CODIGO: u32 = 12;
 pub const IMAGEN_YA_SELLADA: u32 = 13;
 pub const IMAGEN_SIN_NX: u32 = 14;
 pub const IMAGEN_NO_REMAPEA: u32 = 15;
+
+/// **LA RESERVA** (PROTON-X P0.4c, 2026-09-30): la memoria que un juego pide
+/// EN MARCHA. En la ventana de reserva ([`RESERVA_VENTANA_BASE`],
+/// [`RESERVA_VENTANA_BYTES`]) HACER las paginas de `[arg0, arg0+arg1)` que
+/// faltan: a cero, R+W, sin ejecucion; alineado a pagina y como mucho
+/// [`RESERVA_MAX_POR_VEZ`]. Se juzga cada vez contra la RAM libre de ese
+/// momento menos el margen del kernel. `Ok` lleva los bytes nuevos; el NO,
+/// `ERROR_NEGADO` con el motivo (`RESERVA_*`) y su valor. Reservar (elegir
+/// direcciones) no pasa por aqui: es cuenta de Ring 3. Al morir, todo vuelve.
+pub const TASK_OP_RESERVA_HACER: u64 = 0x3A;
+/// DESHACER las paginas de `[arg0, arg0+arg1)`: `Ok` lleva los bytes devueltos.
+pub const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
+/// La ventana de reserva: 128 GiB desde `0x20_0000_0000`.
+pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
+pub const RESERVA_VENTANA_BYTES: u64 = 128 << 30;
+/// Lo mas que se hace o deshace en una llamada.
+pub const RESERVA_MAX_POR_VEZ: u64 = 64 << 20;
+/// Los NO de la reserva. Espejo de `ring0::obj::reserva`.
+pub const RESERVA_RANGO_MALO: u32 = 1;
+pub const RESERVA_FUERA: u32 = 2;
+pub const RESERVA_DE_MAS: u32 = 3;
+/// El valor lleva lo que pide y lo que hay, en MiB: `pide << 32 | hay`.
+pub const RESERVA_SIN_RAM: u32 = 4;
+/// El valor: cuantos bytes SI se hicieron (y se quedan hechos).
+pub const RESERVA_SIN_MARCOS: u32 = 5;
+pub const RESERVA_NO_MAPEA: u32 = 6;
 pub const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su DMA no alcanza la RAM; sus interrupciones si pasan.

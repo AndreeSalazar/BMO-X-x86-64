@@ -316,6 +316,20 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
                 motivo => BmoStatus::negado(motivo, 0),
             }
         }
+        // ** LA RESERVA (P0.4c, 30-09): paginas en marcha, juzgadas cada vez
+        // contra la RAM libre; el NO trae su motivo y su valor (L6i).
+        TASK_OP_RESERVA_HACER => {
+            match crate::ring0::obj::reserva::hacer(scheduler::current_pid(), crate::ring0::mm::vmm::read_cr3(), arg0, arg1) {
+                Ok(bytes) => BmoStatus::ok_value(bytes),
+                Err((motivo, valor)) => BmoStatus::negado(motivo, valor),
+            }
+        }
+        TASK_OP_RESERVA_DESHACER => {
+            match crate::ring0::obj::reserva::deshacer(scheduler::current_pid(), crate::ring0::mm::vmm::read_cr3(), arg0, arg1) {
+                Ok(bytes) => BmoStatus::ok_value(bytes),
+                Err((motivo, valor)) => BmoStatus::negado(motivo, valor),
+            }
+        }
         // * TOMAR lo que otro me ofrecio. El mapeo ocurre AQUI, en el espacio
         // del que llama -- por eso se toma y no se empuja: mapear en el espacio
         // de otro exigiria el `CR3` de un proceso que no esta corriendo, y esa
