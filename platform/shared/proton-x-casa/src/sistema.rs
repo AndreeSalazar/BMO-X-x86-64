@@ -554,8 +554,27 @@ extern "win64" fn unhandled_exception_filter(punteros: u64) -> i32 {
             let (codigo, dir, n) = unsafe { ((r as *const u32).read_unaligned(), ((r + 0x10) as *const u64).read_unaligned(), ((r + 0x18) as *const u32).read_unaligned()) };
             let p = |k: u64| if (k as u32) < n.min(15) { leer(r + 0x20 + 8 * k).unwrap_or(0) } else { 0 };
             let rip = ctx.filter(|&c| c >= 0x1_0000).and_then(|c| leer(c + 0xF8)).unwrap_or(0);
+            // 0x40000015 STATUS_FATAL_APP_EXIT: abort() del CRT (un assert, un
+            // terminate); 0xC0000409 la galleta de pila; 0xE06D7363 C++.
+            let que = match codigo {
+                0x4000_0015 => " (STATUS_FATAL_APP_EXIT: abort)",
+                0xC000_0409 => " (STATUS_STACK_BUFFER_OVERRUN / __fastfail)",
+                0xE06D_7363 => " (una excepcion de C++ sin catch)",
+                _ => "",
+            };
+            // Y DESDE DONDE: la pila del contexto, como modulo + RVA (el
+            // mapa de PROTON-X, o `cyberpunk2077_addresses.json`, las nombra).
+            let mut pila = alloc::string::String::new();
+            if let Some(c) = ctx.filter(|&c| c >= 0x1_0000) {
+                for d in crate::excepciones::pila_de(c, 12) {
+                    match crate::modulos::nombre_de(d) {
+                        Some((m, rva)) => pila.push_str(&alloc::format!(" {m}+{rva:#x}")),
+                        None => pila.push_str(&alloc::format!(" {d:#x}")),
+                    }
+                }
+            }
             aviso(&alloc::format!(
-                "UnhandledExceptionFilter: el .exe se rinde: codigo {codigo:#010x}, en {dir:#x} (rip del contexto {rip:#x}), {n} parametro(s): {:#x} {:#x} {:#x}; el proceso termina",
+                "UnhandledExceptionFilter: el .exe se rinde: codigo {codigo:#010x}{que}, en {dir:#x} (rip del contexto {rip:#x}), {n} parametro(s): {:#x} {:#x} {:#x}; pila:{pila}; el proceso termina",
                 p(0),
                 p(1),
                 p(2)

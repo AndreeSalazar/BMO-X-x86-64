@@ -634,6 +634,37 @@ pub(crate) fn pcs_desde(ctx: *mut u8, max: usize) -> Vec<u64> {
     v
 }
 
+/// **La pila de un CONTEXT**, marco a marco con el `.pdata` de cada imagen
+/// (las hojas, sin entrada, suben por `[rsp]`): hasta `max` direcciones, la
+/// primera la del propio contexto. Para decir DESDE DONDE se rindio el
+/// `.exe` (UnhandledExceptionFilter), no solo donde.
+pub(crate) fn pila_de(ctx: u64, max: usize) -> Vec<u64> {
+    let mut c = Contexto::de_context(bytes(ctx as *mut u8, CONTEXT_BYTES));
+    let (m, imagenes) = Viva::de_ahora();
+    let mut v = vec![c.rip];
+    while v.len() < max {
+        let Some(im) = seh::imagen_de(&imagenes, c.rip) else { break };
+        match seh::funcion_de(&m, &im, c.rip) {
+            Some(f) => {
+                if desenrollar::un_marco(&m, im.base, &f, &mut c, 0).is_err() {
+                    break;
+                }
+            }
+            None => {
+                let rsp = c.gp[RSP];
+                let Some(r) = m.u64_en(rsp) else { break };
+                c.rip = r;
+                c.gp[RSP] = rsp + 8;
+            }
+        }
+        if c.rip == 0 {
+            break;
+        }
+        v.push(c.rip);
+    }
+    v
+}
+
 // -- Lo demas que se exporta ----------------------------------------------------------
 
 /// `RtlLookupFunctionEntry(pc, *base, historia)`: la RUNTIME_FUNCTION de `pc`,
