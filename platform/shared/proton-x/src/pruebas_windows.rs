@@ -178,6 +178,45 @@ fn las_regiones_de_virtualalloc_cuentan_paginas_como_windows() {
     assert_eq!(r.soltar(base, 0), Ok(1 << 20));
     assert_eq!(r.consultar(base), None);
     assert_eq!(NoVirtual::Direccion.error(), 487);
+    assert_eq!(NoVirtual::SinMemoria.error(), 8);
+}
+
+#[test]
+fn regiones_piden_y_devuelven_las_paginas() {
+    // P0.4c: quien tiene las paginas (el kernel) las da y las recibe por
+    // tiradas; si no puede darlas, esa tirada no se marca.
+    use crate::regiones::*;
+    let mut r = Regiones::nuevas();
+    let base = 0x20_0000_0000u64;
+    r.nueva(base, 0x10_0000, 0, false);
+    let mut dadas = Vec::new();
+    r.hacer_con(base + 0x1000, 0x2000, 4, |d, n| {
+        dadas.push((d, n));
+        true
+    })
+    .unwrap();
+    r.hacer_con(base + 0x5000, 0x1000, 4, |d, n| {
+        dadas.push((d, n));
+        true
+    })
+    .unwrap();
+    // Del 0 al 0x8000: las dos hechas no se piden otra vez; los huecos si.
+    let mut pedidas = Vec::new();
+    r.hacer_con(base, 0x8000, 4, |d, n| {
+        pedidas.push((d, n));
+        true
+    })
+    .unwrap();
+    assert_eq!(pedidas, [(base, 0x1000), (base + 0x3000, 0x2000), (base + 0x6000, 0x2000)]);
+    // Sin RAM: la tirada no se marca, y se dice 8.
+    assert_eq!(r.hacer_con(base + 0x8000, 0x1000, 4, |_, _| false), Err(NoVirtual::SinMemoria));
+    assert_eq!(r.consultar(base + 0x8000).unwrap().estado, MEM_RESERVE, "la que no se dio sigue solo reservada");
+    // Deshacer devuelve solo lo que estaba hecho, por tiradas.
+    r.deshacer(base + 0x2000, 0x1000).unwrap();
+    let mut devueltas = Vec::new();
+    r.deshacer_con(base, 0, |d, n| devueltas.push((d, n))).unwrap();
+    assert_eq!(devueltas, [(base, 0x2000), (base + 0x3000, 0x5000)]);
+    assert_eq!(r.consultar(base).unwrap().tam, 0x10_0000, "toda la region, solo reservada");
     assert_eq!(regiones::paginas(0x1FFF, 2), (0x1000, 0x3000));
 }
 
