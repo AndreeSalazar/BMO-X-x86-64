@@ -90,6 +90,9 @@ pide y en que orden.
     Windows del propietario) y el manejador de FH3 las usa; `tanda4m.exe`
     dice `bien` 11 veces en el banco, como en Windows.
   - [ ] P0.2f -- iostreams y locale de MSVCP140, con sus DATOS: tandas 18-19.
+    Tanda 18 (30-09): el locale, 36 de las 79 (msvcp_locale.rs, tanda18.exe).
+    Falta la 19: streambuf, ios, istream/ostream/iostream, cerr, setw,
+    _Fiopen y time_put.
 
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,
   LOCALAPPDATA y "Saved Games") es la carpeta del `.exe`, y la del juego esta

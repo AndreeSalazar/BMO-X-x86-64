@@ -104,3 +104,12 @@ fn tanda16_exe_tiene_los_aparatos_que_no_hay() {
 fn tanda17_exe_tiene_el_rtti_de_cpp() {
     tanda(TANDA17, None, 11, "tanda17.exe: el RTTI de C++ es el de Windows");
 }
+
+/// **La tanda 18 de Cyberpunk** (30-09): `tanda18.exe` -- el locale de
+/// msvcp140 como lo usa el codigo inline de MSVC: los `id` (DATOS), el
+/// locale global, _Locimp, facet, _Locinfo, _Yarn, ctype<char> y los dos
+/// codecvt.
+#[test]
+fn tanda18_exe_tiene_el_locale_de_msvcp() {
+    tanda(TANDA18, None, 16, "tanda18.exe: el locale de msvcp140 es el de Windows");
+}

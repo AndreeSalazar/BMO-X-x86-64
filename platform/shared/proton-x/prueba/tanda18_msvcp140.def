@@ -1,0 +1,36 @@
+LIBRARY msvcp140.dll
+EXPORTS
+??0?$codecvt@_WDU_Mbstatet@@@std@@QEAA@_K@Z
+??0_Locinfo@std@@QEAA@PEBD@Z
+??0facet@locale@std@@IEAA@_K@Z
+??1?$codecvt@_WDU_Mbstatet@@@std@@MEAA@XZ
+??1_Locinfo@std@@QEAA@XZ
+??1facet@locale@std@@MEAA@XZ
+??4?$_Yarn@D@std@@QEAAAEAV01@PEBD@Z
+??Bid@locale@std@@QEAA_KXZ
+?_Addfac@_Locimp@locale@std@@AEAAXPEAVfacet@23@_K@Z
+?_Decref@facet@locale@std@@UEAAPEAV_Facet_base@3@XZ
+?_Getcat@?$codecvt@DDU_Mbstatet@@@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z
+?_Getcat@?$ctype@D@std@@SA_KPEAPEBVfacet@locale@2@PEBV42@@Z
+?_Getcoll@_Locinfo@std@@QEBA?AU_Collvec@@XZ
+?_Getcvt@_Locinfo@std@@QEBA?AU_Cvtvec@@XZ
+?_Getgloballocale@locale@std@@CAPEAV_Locimp@12@XZ
+?_Incref@facet@locale@std@@UEAAXXZ
+?_Init@locale@std@@CAPEAV_Locimp@12@_N@Z
+?_Locimp_Addfac@_Locimp@locale@std@@CAXPEAV123@PEAVfacet@23@_K@Z
+?_New_Locimp@_Locimp@locale@std@@CAPEAV123@AEBV123@@Z
+?_W_Getdays@_Locinfo@std@@QEBAPEBGXZ
+?_W_Getmonths@_Locinfo@std@@QEBAPEBGXZ
+?always_noconv@codecvt_base@std@@QEBA_NXZ
+?c_str@?$_Yarn@D@std@@QEBAPEBDXZ
+?id@?$codecvt@DDU_Mbstatet@@@std@@2V0locale@2@A DATA
+?id@?$codecvt@_WDU_Mbstatet@@@std@@2V0locale@2@A DATA
+?id@?$collate@D@std@@2V0locale@2@A DATA
+?id@?$ctype@D@std@@2V0locale@2@A DATA
+?in@?$codecvt@DDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEAD3AEAPEAD@Z
+?in@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEA_W3AEAPEA_W@Z
+?out@?$codecvt@DDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEBD1AEAPEBDPEAD3AEAPEAD@Z
+?out@?$codecvt@_WDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEB_W1AEAPEB_WPEAD3AEAPEAD@Z
+?tolower@?$ctype@D@std@@QEBADD@Z
+?tolower@?$ctype@D@std@@QEBAPEBDPEADPEBD@Z
+?unshift@?$codecvt@DDU_Mbstatet@@@std@@QEBAHAEAU_Mbstatet@@PEAD1AEAPEAD@Z
