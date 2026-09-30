@@ -97,7 +97,13 @@ static void con_contexto() {
     unsigned char en_linea;
     memcpy(&primero, &c, 8);
     memcpy(&en_linea, (const char *)&c + 8, 1);
-    mira(sizeof(c) == 16 && primero == 1 && en_linea == 0, "task_continuation_context::use_default: captura diferida (1) y sin correr en linea");
+    bool ok = sizeof(c) == 16 && primero == 0 && en_linea == 0;
+    mira(ok, "task_continuation_context::use_default: captura ya, sin contexto (0), y sin correr en linea");
+    if (!ok) {
+        char t[80];
+        wsprintfA(t, "        contexto %I64X, en linea %u\r\n", primero, (unsigned)en_linea);
+        di(t);
+    }
 }
 
 int main() {

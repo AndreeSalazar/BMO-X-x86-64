@@ -158,7 +158,10 @@ static mut REQUISITOS_BUF: [u8; REQUISITOS_MAX] = [0; REQUISITOS_MAX];
 /// [!] El numero vive AQUI y no dentro del juez, a proposito: `bmo-carga-juicio`
 /// no tiene ni una constante de medida, igual que `bmo-fisica-juicio`. Un juez
 /// que no puede inventarse el techo no puede equivocarse en el techo.
-const MARGEN_DEL_KERNEL: u64 = 64 * 1024 * 1024;
+///
+/// Lo usa tambien la declaracion de imagen (`obj/imagen.rs`, P0.4b): el mismo
+/// margen para admitir un `.bex` y para concederle a un juego su imagen.
+pub(crate) const MARGEN_DEL_KERNEL: u64 = 64 * 1024 * 1024;
 
 /// Lo ultimo que un `.bex` declaro, y por que se rechazo el ultimo. Lo pinta
 /// `run`: un "no" que no se puede leer es un "no" que no se puede contestar.

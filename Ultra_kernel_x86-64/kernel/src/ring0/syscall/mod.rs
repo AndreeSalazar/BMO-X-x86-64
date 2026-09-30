@@ -293,6 +293,29 @@ fn invoke_current_task(operation: u64, arg0: u64, arg1: u64) -> BmoStatus {
                 Err(code) => BmoStatus::err(code),
             }
         }
+        // ** LA DECLARACION DE IMAGEN (P0.4b, 30-09): se juzga UNA vez; el NO
+        // trae su motivo y su valor (L6i). Mismo CR3 que pedir memoria.
+        TASK_OP_IMAGEN_DECLARAR => {
+            match crate::ring0::obj::imagen::declarar(
+                scheduler::current_pid(),
+                crate::ring0::mm::vmm::read_cr3(),
+                arg0,
+                arg1,
+            ) {
+                Ok(base) => BmoStatus::ok_value(base),
+                Err((motivo, valor)) => BmoStatus::negado(motivo, valor),
+            }
+        }
+        TASK_OP_IMAGEN_PARTE => match crate::ring0::obj::imagen::parte(scheduler::current_pid(), arg0) {
+            Some(va) => BmoStatus::ok_value(va),
+            None => BmoStatus::negado(crate::ring0::obj::imagen::IMAGEN_NO_HAY_PARTE, 0),
+        },
+        TASK_OP_IMAGEN_SELLAR => {
+            match crate::ring0::obj::imagen::sellar(scheduler::current_pid(), crate::ring0::mm::vmm::read_cr3(), arg0) {
+                0 => BmoStatus::ok_value(1),
+                motivo => BmoStatus::negado(motivo, 0),
+            }
+        }
         // * TOMAR lo que otro me ofrecio. El mapeo ocurre AQUI, en el espacio
         // del que llama -- por eso se toma y no se empuja: mapear en el espacio
         // de otro exigiria el `CR3` de un proceso que no esta corriendo, y esa

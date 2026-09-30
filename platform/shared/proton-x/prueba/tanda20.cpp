@@ -481,7 +481,15 @@ static void con_contexto() {
         x = 0x42;
     Amiga::contexto(sitio);
     Concurrency::task_continuation_context *t = (Concurrency::task_continuation_context *)sitio;
-    mira((unsigned long long)t->_M_context == 1 && !t->_M_RunInline, "task_continuation_context(): captura diferida (1) y sin correr en linea");
+    bool ok = (unsigned long long)t->_M_context == 0 && !t->_M_RunInline;
+    mira(ok, "task_continuation_context(): captura ya, sin contexto (0), y sin correr en linea");
+    if (!ok) {
+        di("        contexto ");
+        hex64((unsigned long long)t->_M_context);
+        di(", en linea ");
+        hex64(sitio[8]);
+        di("\r\n");
+    }
 }
 
 static void con_aparatos() {

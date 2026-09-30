@@ -114,6 +114,10 @@ bmo-mmio-juicio = { path = "../../platform/shared/bmo-mmio-juicio" }
 # una pagina. Sin el, la ventana de una app se leia unos bytes antes de su
 # cabecera y el DIRECTOR contestaba "NO es BSUP".
 bmo-prestamo-juicio = { path = "../../platform/shared/bmo-prestamo-juicio" }
+# El juez de la DECLARACION DE IMAGEN (P0.4b, 30-09): un `.exe` de Windows y
+# sus DLL declaran todas sus partes de una vez; si caben en la RAM libre de
+# ahora, y donde va cada una. Ver `ring0/obj/imagen.rs`.
+bmo-imagen-juicio = { path = "../../platform/shared/bmo-imagen-juicio" }
 # El juez del physmap. Ver `ring0/critic/amarilla.rs`: nacio de dos pantallas
 # azules seguidas por el mismo techo escrito a mano en el sitio equivocado.
 bmo-carga-juicio = { path = "../../platform/shared/bmo-carga-juicio" }

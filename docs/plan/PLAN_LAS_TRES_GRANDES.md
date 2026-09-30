@@ -121,8 +121,12 @@ pide y en que orden.
     juez, con sus pruebas en el anfitrion. **HECHO el 30-09**: 8 pruebas
     (la de Cyberpunk cabe; sin RAM dice cuanta pide y cuanta hay; codigo y
     datos seguidos; lo desordenado, lo vacio y lo absurdo, no).
-  - [ ] P0.4b.2 -- El kernel: la operacion de declarar, la ventana de
-    imagenes, sellar cada parte y devolverlo todo al morir.
+  - [x] P0.4b.2 -- El kernel: la operacion de declarar, la ventana de
+    imagenes, sellar cada parte y devolverlo todo al morir. **HECHO el
+    30-09**: `obj/imagen.rs`, `TASK_OP_IMAGEN_DECLARAR/PARTE/SELLAR`
+    (0x37-0x39) y el peaje en `LA_COMPATIBILIDAD.md` 4.3. La pila del
+    syscall mas hondo sigue cabiendo (29.662 de 40.960). Falta verlo en el
+    metal (P0.4b.5).
   - [ ] P0.4b.3 -- `bmo-abi` y `bmo::Imagen` en Ring 3.
   - [ ] P0.4b.4 -- La app: del censo a la declaracion, y cargar el `.exe` y
     las DLL del juego en sus partes (lo que hace el banco con `cargar_dll` y
