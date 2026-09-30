@@ -28,6 +28,7 @@ const DIR_IMPORTACIONES: usize = 1;
 const DIR_EXCEPCIONES: usize = 3;
 const DIR_RELOCALIZACIONES: usize = 5;
 const DIR_TLS: usize = 9;
+const DIR_RETRASADAS: usize = 13;
 const DIR_CLR: usize = 14;
 
 const SE_EJECUTA: u32 = 0x2000_0000;
@@ -104,6 +105,9 @@ pub struct Pe {
     pub tls: Directorio,
     /// `.pdata`: una RUNTIME_FUNCTION por funcion, para desenrollar (P4c).
     pub excepciones: Directorio,
+    /// Las importaciones RETRASADAS (directorio 13, `/DELAYLOAD`): se
+    /// resuelven en la primera llamada, no al cargar (el censo, 30-09).
+    pub retrasadas: Directorio,
     /// La cabecera COFF dice `RELOCS_STRIPPED`: no se puede mover de su base.
     /// Sin esa bandera y sin `.reloc`, se mueve sin corregir nada (todo es
     /// relativo a RIP), que es lo que hace el cargador de Windows.
@@ -221,6 +225,7 @@ fn leer_con_medida(d: &[u8], medida: u64) -> Result<Pe, Fallo> {
         relocalizaciones: dir(DIR_RELOCALIZACIONES)?,
         tls: dir(DIR_TLS)?,
         excepciones: dir(DIR_EXCEPCIONES)?,
+        retrasadas: dir(DIR_RETRASADAS)?,
         relocs_quitadas: u16_en(d, e + 22, "las caracteristicas COFF")? & RELOCS_QUITADAS != 0,
         es_dll: u16_en(d, e + 22, "las caracteristicas COFF")? & 0x2000 != 0,
     })
