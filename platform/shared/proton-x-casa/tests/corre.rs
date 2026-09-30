@@ -69,6 +69,7 @@ const TANDA10: &[u8] = include_bytes!("../../proton-x/prueba/tanda10.exe");
 const TANDA11: &[u8] = include_bytes!("../../proton-x/prueba/tanda11.exe");
 const TANDA12: &[u8] = include_bytes!("../../proton-x/prueba/tanda12.exe");
 const TANDA13: &[u8] = include_bytes!("../../proton-x/prueba/tanda13.exe");
+const DIARIO: &[u8] = include_bytes!("../../proton-x/prueba/diario.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1312,4 +1313,46 @@ fn tanda12_exe_tiene_la_red_y_la_cripto_sin_red() {
 #[test]
 fn tanda13_exe_tiene_lo_que_lanza_msvcp140() {
     tanda(TANDA13, None, 16, "tanda13.exe: lo que lanza msvcp140 es lo de Windows");
+}
+
+/// **El diario, apagado** (P0.3, 30-09): `diario.exe` dice lo de Windows
+/// sin trampolines por medio.
+#[test]
+fn diario_exe_sin_diario_dice_lo_de_windows() {
+    tanda(DIARIO, None, 4, "diario.exe: los trampolines no se notan");
+}
+
+/// **El diario, encendido**: los trampolines no se notan (el mismo `bien`:
+/// doubles en xmm, argumentos en la pila, GetProcAddress), y el fichero
+/// tiene cada funcion UNA vez, en el orden de su primera llamada.
+#[test]
+fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
+    /// Apagar el diario pase lo que pase: las demas pruebas no lo quieren.
+    struct Apagar;
+    impl Drop for Apagar {
+        fn drop(&mut self) {
+            bmo_proton_x_casa::diario::diario(None);
+        }
+    }
+    // Primero la vuelta (un .exe a la vez) y DESPUES el diario: encendido
+    // antes, las pruebas de al lado resolverian con trampolines.
+    let uno = uno_a_la_vez();
+    let _apagar = Apagar;
+    let ruta = volumen().join("diario.txt");
+    let _ = std::fs::remove_file(&ruta);
+    bmo_proton_x_casa::diario::diario(Some(b"diario.txt"));
+    let (salio, dicho, _) = correr_exe(&uno, DIARIO, true, &[]);
+    let texto = format!("{}[salio {salio:#x}]", String::from_utf8(dicho).unwrap());
+    assert!(!texto.contains("  MAL   ") && !texto.contains("PROTON-X:"), "{texto}");
+    assert_eq!(texto.matches("  bien  ").count(), 4, "{texto}");
+    assert!(texto.ends_with("diario.exe: los trampolines no se notan\r\n[salio 0x0]"), "{texto}");
+    let texto = std::fs::read_to_string(&ruta).unwrap();
+    let funciones: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#')).map(|l| l.rsplit(' ').next().unwrap()).collect();
+    assert_eq!(
+        funciones,
+        ["pow", "GetStdHandle", "WriteFile", "GetModuleHandleW", "GetProcAddress", "GetTickCount", "GetCurrentProcessId", "CreateFileA", "GetLastError", "ExitProcess"],
+        "{texto}"
+    );
+    let numeros: Vec<&str> = texto.lines().filter(|l| !l.starts_with('#')).map(|l| l.split_whitespace().next().unwrap()).collect();
+    assert_eq!(numeros, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "{texto}");
 }

@@ -39,10 +39,16 @@ pide y en que orden.
   faltan. **Como se sabe:** la linea `PARA ARRANCAR (DURAS)` del informe.
 - [ ] P0.2 -- Las DURAS que falten, a CERO (una tanda mas, si hace falta).
   **Como se sabe:** el censo dice `NO FALTA NINGUNA DURA`.
-- [ ] P0.3 -- El DIARIO de la casa: cada funcion de Windows llamada por
-  primera vez, en orden, a `informe/diario.txt` (nombre, DLL, hilo). Y cada
-  `QueryInterface` con un IID que la casa no conoce, con el IID entero.
-  **Como se sabe:** un `.exe` de prueba deja su diario y el banco lo lee.
+- [x] P0.3a -- El DIARIO de la casa: cada funcion de Windows llamada por
+  primera vez, en orden, a `informe/diario.txt` (orden, hilo, DLL, nombre).
+  `run sys/proton-x.bex --diario <ruta>`. **HECHO el 30-09:** trampolines
+  hechos de antemano en `diario.rs`; `diario.exe` dice lo mismo con y sin
+  diario (doubles en xmm, siete argumentos, GetProcAddress) y el banco lee
+  su fichero: diez funciones, una vez cada una, en orden.
+- [ ] P0.3b -- Cada `QueryInterface` con un IID que la casa no conoce, al
+  diario, con el IID entero (los metodos de COM no pasan por trampolines).
+- [ ] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
+  Cyberpunk pasa de el. Leerlo por secciones, como ya hace el censo.
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.

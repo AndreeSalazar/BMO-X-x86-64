@@ -786,3 +786,23 @@ el _Addr de la categoria): ahora cada una va en su linea. Y el what() lo
 dijo Windows: "operation not permitted: operation not permitted" (un
 system_error hecho con un mensaje junta "<mensaje>: <message()>", y
 msvcp140 da el mismo texto en los dos).
+
+diario.exe -- el DIARIO (P0.3 de PLAN_LAS_TRES_GRANDES, 30-09)
+
+Llama a funciones en un orden conocido con lo que un trampolin podria romper:
+doubles en xmm0 y xmm1 (pow), siete argumentos con tres en la pila
+(CreateFileA), GetProcAddress dos veces y funciones repetidas
+(diario_kernel32.def y diario_math.def):
+
+   llvm-dlltool -m i386:x86-64 -d diario_kernel32.def -l diario_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d diario_math.def -l diario_math.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c diario.c -o diario.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro diario.obj diario_kernel32.lib diario_math.lib /out:diario.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   1283a9750685d2b02a80c3eb9a990dcafd12c401ad0d8acf771ad4b61c4e0b28
+
+Dice `bien` cuatro veces y sale con 0, en Windows y en la casa, con el
+diario y sin el. En el metal: run sys/proton-x.bex --diario window/diario.exe
+y luego mirar informe/diario.txt (diez funciones, una vez cada una).
