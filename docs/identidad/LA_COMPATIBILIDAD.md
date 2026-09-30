@@ -210,8 +210,9 @@ mas chica que sirve (P0.4c; permiso del propietario: "completar TODO").
 | 5. una prueba que ve el fallo | `bmo-imagen-juicio::reserva`, 2 pruebas: rango (alineado, en la ventana, de una vez) y RAM de lo que falta |
 | 6. las tres tablas | `TASK_OP_RESERVA_*` en kernel y ABI, `OP_RESERVA_*` en userland |
 
-**La concesion, dicha entera:** una ventana de 128 GiB de VA desde
-`0x20_0000_0000` y paginas a cero, R+W, sin ejecucion, hechas y deshechas a
+**La concesion, dicha entera:** una ventana de 384 GiB de VA desde
+`0x20_0000_0000` (hasta el final de `PML4[0]`; era de 128 y Cyberpunk
+aparta mas de 130 al arrancar) y paginas a cero, R+W, sin ejecucion, hechas y deshechas a
 peticion, hasta 64 MiB por llamada. RESERVAR (elegir direcciones) es cuenta
 de la casa en Ring 3 y no le cuesta nada al kernel; cada HACER se juzga
 contra la RAM libre de ese momento menos el margen. Lo que no es Windows:

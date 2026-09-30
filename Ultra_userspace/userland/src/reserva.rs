@@ -15,7 +15,7 @@ use crate::*;
 
 /// La ventana de reserva (espejo de `bmo_abi::...::RESERVA_VENTANA_*`).
 pub const VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
-pub const VENTANA_BYTES: u64 = 128 << 30;
+pub const VENTANA_BYTES: u64 = 384 << 30;
 /// Lo mas que se hace o deshace en una llamada.
 pub const MAX_POR_VEZ: u64 = 64 << 20;
 

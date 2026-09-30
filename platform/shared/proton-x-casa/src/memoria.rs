@@ -16,7 +16,7 @@
 //! nada (el monton del cargador, el que solo avanza, no se toca).
 //!
 //! **Con la RESERVA** (P0.4c, 30-09: `Plataforma::reserva`, en BMO-X la
-//! ventana de 128 GiB de `TASK_OP_RESERVA_*`) es como Windows: `VirtualAlloc`
+//! ventana de 384 GiB de `TASK_OP_RESERVA_*`) es como Windows: `VirtualAlloc`
 //! RESERVA direcciones de la ventana sin gastar nada, y cada MEM_COMMIT pide
 //! al kernel solo esas paginas (a cero), juzgadas contra la RAM libre; cada
 //! DECOMMIT o RELEASE las devuelve. Las arenas del monton tambien salen de

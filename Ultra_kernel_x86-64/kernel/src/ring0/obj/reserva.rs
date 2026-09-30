@@ -49,11 +49,18 @@
 use crate::ring0::mm::{self, vmm};
 use bmo_imagen_juicio::reserva::{self as juicio, LimitesReserva, NoReserva};
 
-/// **La ventana de reserva**: 128 GiB desde `0x20_0000_0000`, detras de la
-/// de imagenes (`0x10_0000_0000`, 16 GiB) y dentro de `PML4[0]`, que es lo
-/// que `destroy_address_space` recorre al morir.
+/// **La ventana de reserva**: 384 GiB desde `0x20_0000_0000`, detras de la
+/// de imagenes (`0x10_0000_0000`, 16 GiB) y hasta el final de `PML4[0]`
+/// (`0x80_0000_0000`), que es lo que `destroy_address_space` recorre al
+/// morir: mas alla haria falta caminar otra entrada del PML4.
+///
+/// Era de 128 GiB. Cyberpunk, en el metal (30-09), aparto de una vez 16 +
+/// 64 + 32 GiB y luego pools de 1 y 4 GiB, y el noveno (4 GiB) ya no cupo:
+/// su redMemory se rindio con "Out of Memory!". Apartar es solo direcciones
+/// (ni una pagina hasta HACER, y cada pagina la juzga la RAM libre), asi que
+/// agrandar la ventana no da a nadie un byte mas de RAM.
 pub const VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
-pub const VENTANA_BYTES: u64 = 128 << 30;
+pub const VENTANA_BYTES: u64 = 384 << 30;
 
 /// Lo mas que se hace o deshace en una llamada.
 pub const MAX_POR_VEZ: u64 = 64 << 20;
