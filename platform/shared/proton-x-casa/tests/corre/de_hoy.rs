@@ -96,3 +96,11 @@ fn tanda15_exe_tiene_com_lo_justo() {
 fn tanda16_exe_tiene_los_aparatos_que_no_hay() {
     tanda(TANDA16, None, 8, "tanda16.exe: los aparatos que no hay dicen lo de Windows");
 }
+
+/// **La tanda 17 de Cyberpunk** (30-09): `tanda17.exe` -- el RTTI de C++:
+/// dynamic_cast (tambien cruzado y a una referencia), typeid (tambien de un
+/// nulo) y __unDName.
+#[test]
+fn tanda17_exe_tiene_el_rtti_de_cpp() {
+    tanda(TANDA17, None, 11, "tanda17.exe: el RTTI de C++ es el de Windows");
+}

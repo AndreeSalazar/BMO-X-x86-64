@@ -46,9 +46,23 @@ enum Clase {
     RegexError,
     SystemError,
     FutureError,
+    /// Tanda 17: lo que lanza el RTTI (__RTDynamicCast, __RTtypeid).
+    BadCast,
+    BadTypeid,
 }
 
-const CLASES: [Clase; 8] = [Clase::LengthError, Clase::OutOfRange, Clase::InvalidArgument, Clase::BadAlloc, Clase::BadFunctionCall, Clase::RegexError, Clase::SystemError, Clase::FutureError];
+const CLASES: [Clase; 10] = [
+    Clase::LengthError,
+    Clase::OutOfRange,
+    Clase::InvalidArgument,
+    Clase::BadAlloc,
+    Clase::BadFunctionCall,
+    Clase::RegexError,
+    Clase::SystemError,
+    Clase::FutureError,
+    Clase::BadCast,
+    Clase::BadTypeid,
+];
 
 impl Clase {
     /// Sus nombres decorados, de la mas derivada a std::exception.
@@ -62,6 +76,8 @@ impl Clase {
             Clase::RegexError => &[".?AVregex_error@std@@", ".?AVruntime_error@std@@", ".?AVexception@std@@"],
             Clase::SystemError => &[".?AVsystem_error@std@@", ".?AV_System_error@std@@", ".?AVruntime_error@std@@", ".?AVexception@std@@"],
             Clase::FutureError => &[".?AVfuture_error@std@@", ".?AVlogic_error@std@@", ".?AVexception@std@@"],
+            Clase::BadCast => &[".?AVbad_cast@std@@", ".?AVexception@std@@"],
+            Clase::BadTypeid => &[".?AVbad_typeid@std@@", ".?AVexception@std@@"],
         }
     }
 
@@ -83,7 +99,7 @@ struct Tablas {
     bytes: UnsafeCell<[u8; MEDIDA_TABLAS]>,
     /// El ThrowInfo de cada clase (en el orden de CLASES) y el vptr de sus
     /// objetos; 0 hasta que se hacen.
-    hechas: UnsafeCell<([u64; 8], [u64; 8])>,
+    hechas: UnsafeCell<([u64; 10], [u64; 10])>,
     /// Las dos categorias: vptr y _Addr.
     generica: UnsafeCell<[u64; 2]>,
     sistema: UnsafeCell<[u64; 2]>,
@@ -92,7 +108,7 @@ struct Tablas {
 // SAFETY: una tarea, hilos cooperativos; se escriben una vez, al principio.
 unsafe impl Sync for Tablas {}
 
-static TABLAS: Tablas = Tablas { bytes: UnsafeCell::new([0; MEDIDA_TABLAS]), hechas: UnsafeCell::new(([0; 8], [0; 8])), generica: UnsafeCell::new([0; 2]), sistema: UnsafeCell::new([0; 2]) };
+static TABLAS: Tablas = Tablas { bytes: UnsafeCell::new([0; MEDIDA_TABLAS]), hechas: UnsafeCell::new(([0; 10], [0; 10])), generica: UnsafeCell::new([0; 2]), sistema: UnsafeCell::new([0; 2]) };
 
 /// Quien escribe las tablas: el sitio y lo que va.
 struct Escritor {
@@ -130,7 +146,7 @@ impl Escritor {
 }
 
 /// Las tablas, hechas la primera vez: (ThrowInfo, vptr) de cada clase.
-fn tablas() -> (&'static [u64; 8], &'static [u64; 8]) {
+fn tablas() -> (&'static [u64; 10], &'static [u64; 10]) {
     // SAFETY: ver `Tablas`.
     let hechas = unsafe { &mut *TABLAS.hechas.get() };
     if hechas.0[0] == 0 {
@@ -139,7 +155,7 @@ fn tablas() -> (&'static [u64; 8], &'static [u64; 8]) {
     (&hechas.0, &hechas.1)
 }
 
-fn hacer(hechas: &mut ([u64; 8], [u64; 8])) {
+fn hacer(hechas: &mut ([u64; 10], [u64; 10])) {
     let tablas = TABLAS.bytes.get() as u64;
     // La base de las RVAs: por debajo de las tablas y del codigo que
     // nombran (las RVAs de un ThrowInfo no tienen signo).
@@ -296,6 +312,8 @@ const K_C: u32 = 7;
 const K_LAST_ERROR: u32 = 8;
 const K_FUTURE: u32 = 9;
 const K_RELANZAR: u32 = 10;
+const K_BAD_CAST: u32 = 11;
+const K_BAD_TYPEID: u32 = 12;
 
 /// **Lo que se lanza**: el objeto (y en `*info`, su ThrowInfo), segun lo
 /// que se pidio (`k`) y su argumento.
@@ -352,6 +370,8 @@ extern "win64" fn construir(k: u32, arg: u64, info: *mut u64) -> u64 {
             };
             (Clase::FutureError, objeto(Clase::FutureError, t, Some((v, cat))))
         }
+        K_BAD_CAST => (Clase::BadCast, objeto(Clase::BadCast, b"Bad dynamic_cast!", None)),
+        K_BAD_TYPEID => (Clase::BadTypeid, objeto(Clase::BadTypeid, b"Attempted a typeid of nullptr pointer!", None)),
         K_RELANZAR => {
             // Una copia nueva de lo guardado en el exception_ptr.
             // SAFETY: el exception_ptr del `.exe` (su primer puntero).
@@ -390,6 +410,19 @@ core::arch::global_asm!(
     ".globl proton_x_xget_last_error", "proton_x_xget_last_error:", "mov ecx, 8", "jmp proton_x_lanzar_std",
     ".globl proton_x_throw_future_error", "proton_x_throw_future_error:", "mov rdx, rcx", "mov ecx, 9", "jmp proton_x_lanzar_std",
     ".globl proton_x_exception_ptr_rethrow", "proton_x_exception_ptr_rethrow:", "mov rdx, rcx", "mov ecx, 10", "jmp proton_x_lanzar_std",
+    // Tanda 17: __RTDynamicCast(objeto, delta, desde, hacia, es_referencia):
+    // el calculo es de `rtti`; si da NULL y era una referencia, bad_cast
+    // (el quinto argumento esta en [rsp + 0x28] al entrar).
+    ".globl proton_x_rt_dynamic_cast", "proton_x_rt_dynamic_cast:",
+    "sub rsp, 0x28", "call {dcast}", "add rsp, 0x28",
+    "test rax, rax", "jnz 1f",
+    "cmp dword ptr [rsp + 0x28], 0", "je 1f",
+    "mov ecx, 11", "jmp proton_x_lanzar_std",
+    "1:", "ret",
+    // __RTtypeid(objeto): de un NULL, bad_typeid.
+    ".globl proton_x_rt_typeid", "proton_x_rt_typeid:",
+    "test rcx, rcx", "jz 2f", "jmp {typeid}",
+    "2:", "mov ecx, 12", "jmp proton_x_lanzar_std",
     // construir(k, arg, &info) y SALTAR a _CxxThrowException(objeto, info):
     // la pila queda como la dejo el `.exe` al llamar.
     "proton_x_lanzar_std:",
@@ -402,6 +435,8 @@ core::arch::global_asm!(
     "jmp {tirar}",
     construir = sym construir,
     tirar = sym cxx::proton_x_cxx_throw,
+    dcast = sym crate::rtti::rt_dynamic_cast,
+    typeid = sym crate::rtti::rt_typeid,
 );
 
 extern "C" {
@@ -416,6 +451,17 @@ extern "C" {
     fn proton_x_xget_last_error();
     fn proton_x_throw_future_error();
     fn proton_x_exception_ptr_rethrow();
+    fn proton_x_rt_dynamic_cast();
+    fn proton_x_rt_typeid();
+}
+
+/// El RTTI de vcruntime140 (tanda 17): sus trozos de asm, que lanzan.
+pub(crate) fn buscar_rtti(n: &str) -> Option<u64> {
+    Some(match n {
+        "__RTDynamicCast" => dir!(proton_x_rt_dynamic_cast),
+        "__RTtypeid" => dir!(proton_x_rt_typeid),
+        _ => return None,
+    })
 }
 
 // -- Las categorias ------------------------------------------------------------------------------

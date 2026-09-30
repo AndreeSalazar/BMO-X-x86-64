@@ -891,3 +891,21 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    13a87bb03546f4e6bbabb50079c2a371372349afefcd688fec1aaba613d45980
 
 Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
+
+tanda17.exe -- la TANDA 17 de Cyberpunk (30-09): el RTTI de C++
+
+dynamic_cast (__RTDynamicCast: hacia abajo, cruzado en una herencia
+multiple, fallido, y a una referencia, que lanza bad_cast), typeid
+(__RTtypeid, tambien de un nulo: bad_typeid) y __unDName (tanda17_*.def):
+
+   llvm-dlltool -m i386:x86-64 -d tanda17_kernel32.def -l tanda17_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda17_vcruntime.def -l tanda17_vcruntime.lib
+   llvm-dlltool -m i386:x86-64 -d tanda17_crt.def -l tanda17_crt.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -fexceptions -fcxx-exceptions -ffreestanding -fno-stack-protector -fno-builtin -c tanda17.cpp -o tanda17.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda17.obj tanda17_kernel32.lib tanda17_vcruntime.lib tanda17_crt.lib /out:tanda17.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   8b337bce9efac755c8fdf037468c86ca9761a24b4c200b9609bc59dba870a0ce
+
+Dice `bien` once veces y sale con 0. En Windows dice lo mismo.

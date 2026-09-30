@@ -88,6 +88,7 @@ pub mod msvcp_errores;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
+pub mod rtti;
 pub mod red_puro;
 pub mod cripto;
 pub mod sistema;

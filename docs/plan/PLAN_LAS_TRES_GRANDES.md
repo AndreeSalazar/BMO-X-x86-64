@@ -80,7 +80,11 @@ pide y en que orden.
     en el banco). WLDAP32: sus ordinales no se adivinan; todos van a una
     funcion que dice "la casa no tiene LDAP" (libcurl solo la usa con
     ldap://).
-  - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.
+  - [x] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17,
+    HECHA el 30-09 (`rtti.rs`, y bad_cast/bad_typeid en `msvcp_errores`;
+    `tanda17.exe`, 11 bien en el banco). __unDName: tipos y nombres de
+    funciones (UNDNAME_NAME_ONLY); la firma entera de una funcion, todavia
+    no (da su nombre).
   - [x] P0.2i -- `__CxxFrameHandler4` (30-09): `cxx4.rs` lee las tablas
     comprimidas (medidas en `tanda4m.exe`, hecho con `cl` 19.44 en el
     Windows del propietario) y el manejador de FH3 las usa; `tanda4m.exe`
