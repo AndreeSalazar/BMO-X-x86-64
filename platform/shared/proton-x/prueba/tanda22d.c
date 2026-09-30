@@ -8,6 +8,11 @@ typedef unsigned long DWORD;
 typedef void *HANDLE;
 #define W __stdcall
 typedef void(W *CB)(void *, DWORD, void *);
+/* Una importacion de kernel32 (30-09): la DLL de MSVC importa y la de
+ * clang sin CRT no importaba NADA, y Windows ignoro su TLS. Se prueba si
+ * era eso. */
+__declspec(dllimport) DWORD W GetCurrentThreadId(void);
+static DWORD hilo_de_main;
 
 #pragma section(".tls", read, write)
 #pragma section(".tls$ZZZ", read, write)
@@ -44,6 +49,7 @@ int W entrada(HANDLE h, DWORD motivo, void *r) {
     (void)h;
     (void)r;
     if (motivo == 1) {
+        hilo_de_main = GetCurrentThreadId();
         visto_en_main = por_hilo;
         callbacks_antes_de_main = cb_proceso;
         por_hilo = 7;
