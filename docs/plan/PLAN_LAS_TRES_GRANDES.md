@@ -106,9 +106,12 @@ pide y en que orden.
   su fichero: diez funciones, una vez cada una, en orden.
 - [ ] P0.3b -- Cada `QueryInterface` con un IID que la casa no conoce, al
   diario, con el IID entero (los metodos de COM no pasan por trampolines).
-- [ ] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
+- [x] P0.4a -- El tope del `.exe` en la app (`TOPE_EXE`, 16 MiB): el de
   Cyberpunk mide 57 MiB (el censo del metal). Leerlo por secciones, como ya
-  hace el censo.
+  hace el censo. **Hecho (30-09):** sin tope; solo las cabeceras pasan por el
+  monton y cada seccion va del disco a su RVA (`colocar_en`). Queda UN techo,
+  el del kernel: codigo y datos, cada uno en un bloque de 64 MiB. El censo
+  dice ahora `LA IMAGEN: ... cabe / NO CABE`; si no cabe, es ring 0.
 - [ ] P0.4 -- `run window/.../Cyberpunk2077.exe` desde D: (solo lectura) en
   el metal. Llega hasta donde llegue. **Como se sabe:** la autopsia o el
   aviso de la casa dicen DONDE se paro, y el diario, POR QUE CAMINO.

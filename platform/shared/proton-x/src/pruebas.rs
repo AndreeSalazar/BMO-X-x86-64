@@ -110,6 +110,29 @@ fn movido_a_otra_base_la_relocalizacion_lo_sigue() {
     assert!(distintos <= 8, "{distintos} bytes distintos entre las dos bases");
 }
 
+/// P0.4a: colocar SIN el fichero entero (de las cabeceras, a trozos) da la
+/// misma imagen que con el; y un fichero corto se dice, no revienta.
+#[test]
+fn colocar_a_trozos_es_colocar_entero() {
+    let pe = leer_cabeceras(&HOLA[..1024], HOLA.len() as u64).unwrap();
+    let otra = 0x5000_0000u64;
+    let mut img = vec![0u8; pe.tam_imagen as usize];
+    let mut lecturas = 0;
+    colocar_en(&pe, &mut img, otra, |desde, destino| {
+        lecturas += 1;
+        destino.copy_from_slice(&HOLA[desde as usize..desde as usize + destino.len()]);
+        true
+    })
+    .unwrap();
+    assert_eq!(img, colocar(&pe, HOLA, otra).unwrap());
+    assert_eq!(lecturas, 1 + pe.secciones.len());
+    let hasta = pe.secciones.iter().map(|s| (s.desde + s.tam_en_fichero.min(s.tam_en_imagen())) as usize).max().unwrap();
+    let corto = &HOLA[..hasta - 1];
+    assert!(colocar_en(&pe, &mut img, otra, |d, x| corto.get(d as usize..d as usize + x.len()).map(|y| x.copy_from_slice(y)).is_some()).is_err());
+    let mut chica = vec![0u8; 16];
+    assert!(colocar_en(&pe, &mut chica, otra, |_, _| true).is_err());
+}
+
 #[test]
 fn con_la_tabla_entera_cada_ranura_recibe_su_funcion() {
     let pe = leer(HOLA).unwrap();
