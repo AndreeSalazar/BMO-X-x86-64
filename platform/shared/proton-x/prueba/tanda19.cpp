@@ -341,6 +341,16 @@ static bool mirar_getloc(const char *que, unsigned long long (*f)(const void *, 
     return ok;
 }
 
+// Los flujos (con base virtual) NO se destruyen aqui: clang arma su
+// destruccion llamando a ??1 con un `this` que el de msvcp140 no espera, y
+// en Windows revienta. MSVC llama a ??_D (tanda19m.exe, 15/15 en Windows):
+// ese es el oraculo de los destructores. Cada flujo vive en su sitio.
+template <class F, class A> static F &sin_destruir(A a) {
+    alignas(16) static unsigned char sitio[4][sizeof(F)];
+    static int n;
+    return *new (sitio[n++ & 3]) F(a);
+}
+
 static void paso(const char *que) {
     di("  (paso) ");
     di(que);
@@ -388,7 +398,7 @@ static void con_streambuf() {
 
 static void con_ostream() {
     Cuerda c;
-    ostream o(&c);
+    ostream &o = sin_destruir<ostream>(static_cast<streambuf *>(&c));
     mira(o.rdbuf() == &c && o.good() && o.flags() == 0x201 && o.fill() == ' ' && o.width() == 0 && o.tie() == nullptr && o._Prec == 6, "basic_ostream(sb): su ios por el vbptr (skipws|dec, relleno ' ', precision 6)");
     o << 42;
     o.put(' ');
@@ -441,11 +451,11 @@ static void con_ostream() {
     o.clear();
     mira(fallo && o.rdstate() == 0 && igual(c.texto(), ""), "setstate(failbit): no escribe; clear() lo quita");
     {
-        ostream nada(nullptr);
+        ostream &nada = sin_destruir<ostream>(static_cast<streambuf *>(nullptr));
         nada.clear();
         mira(nada.rdstate() == 4, "sin streambuf, badbit (y clear no lo quita)");
     }
-    paso("un ostream sin streambuf, destruido");
+    paso("un ostream sin streambuf, fuera");
     mira(o.widen('z') == 'z', "basic_ios::widen");
     mira(mirar_getloc("ios_base::getloc", crudo_ios_getloc, static_cast<ios_base *>(&o)), "ios_base::getloc: el locale global, por valor");
     paso("fin del cuerpo de con_ostream");
@@ -454,11 +464,11 @@ static void con_ostream() {
 static void con_istream() {
     Cuerda c;
     {
-        istream i(&c);
+        istream &i = sin_destruir<istream>(static_cast<streambuf *>(&c));
         mira(i.gcount() == 0 && i.rdbuf() == &c && i.good() && i.flags() == 0x201, "basic_istream(sb): _Chcount y su ios por el vbptr");
     }
-    paso("un istream, destruido");
-    iostream io(&c);
+    paso("un istream, fuera");
+    iostream &io = sin_destruir<iostream>(static_cast<streambuf *>(&c));
     istream &ie = io;
     ostream &os = io;
     os << 12;
@@ -489,7 +499,7 @@ typedef time_put<char, ostreambuf_iterator<char, char_traits<char>>> TimePut;
 
 static void con_time_put() {
     Cuerda c;
-    ostream o(&c);
+    ostream &o = sin_destruir<ostream>(static_cast<streambuf *>(&c));
     const locale::facet *f = nullptr;
     size_t cat = TimePut::_Getcat(&f, nullptr);
     const TimePut *tp = static_cast<const TimePut *>(f);
