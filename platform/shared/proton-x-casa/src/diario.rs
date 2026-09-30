@@ -141,6 +141,12 @@ pub fn diario(ruta: Option<&[u8]>) {
     }
 }
 
+/// Si el diario esta encendido (`personal diario ...`): lo que solo se
+/// cuenta al investigar (los NO de la memoria) sale solo entonces.
+pub(crate) fn encendido() -> bool {
+    estado().ruta.is_some()
+}
+
 /// **Lo que `tabla` da al `.exe`**: la funcion `d` de la casa, o su
 /// trampolin si el diario esta encendido. La misma funcion, el mismo
 /// trampolin (GetProcAddress dos veces da lo mismo, como en Windows).

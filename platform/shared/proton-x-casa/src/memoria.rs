@@ -60,6 +60,11 @@ struct Estado {
     /// ya se tomo la ventana de la plataforma.
     huecos: Vec<(u64, u64)>,
     ventana: bool,
+    /// Cuantas veces se ha dicho NO a una pedida de memoria (se cuentan
+    /// todas; se dicen las `MAX_NOES` primeras).
+    noes: u32,
+    /// Las pedidas grandes que SI se dieron (se dicen las `MAX_NOES` primeras).
+    grandes: u32,
     /// Los montones de `HeapCreate` vivos (el del proceso no esta: siempre vive).
     creados: Vec<u16>,
     siguiente: u16,
@@ -69,7 +74,7 @@ struct Global(UnsafeCell<Estado>);
 // SAFETY: una tarea; los hilos de la casa son cooperativos y ninguna funcion
 // de aqui cede el turno.
 unsafe impl Sync for Global {}
-static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, creados: Vec::new(), siguiente: 2 }));
+static ESTADO: Global = Global(UnsafeCell::new(Estado { monton: Monton::nuevo(), regiones: Regiones::nuevas(), huecos: Vec::new(), ventana: false, noes: 0, grandes: 0, creados: Vec::new(), siguiente: 2 }));
 
 fn estado() -> &'static mut Estado {
     // SAFETY: ver `Global`; nadie guarda la referencia.
@@ -83,6 +88,8 @@ pub(crate) fn reiniciar() {
     e.creados.clear();
     e.huecos.clear();
     e.ventana = false;
+    e.noes = 0;
+    e.grandes = 0;
     tramos().clear();
     e.siguiente = 2;
 }
@@ -98,6 +105,46 @@ impl Palabras for Real {
     fn poner(&mut self, d: u64, v: u64) {
         // SAFETY: como arriba.
         unsafe { (d as *mut u64).write(v) }
+    }
+}
+
+// -- Decir los NO (tanda 26 de Cyberpunk) --------------------------------
+
+/// Cuantos NO (y cuantas pedidas grandes) se dicen por la consola.
+const MAX_NOES: u32 = 12;
+/// Desde cuanto una pedida de VirtualAlloc se dice aunque salga bien.
+const GRANDE: u64 = 1 << 30;
+
+/// Lo tomado de la ventana de reserva y lo que mide, en MiB.
+fn ventana_mib() -> (u64, u64) {
+    let Some(r) = reserva() else { return (0, 0) };
+    let e = estado();
+    let libre: u64 = if e.ventana { e.huecos.iter().map(|h| h.1).sum() } else { r.bytes };
+    ((r.bytes - libre.min(r.bytes)) >> 20, r.bytes >> 20)
+}
+
+/// **Un NO a una pedida de memoria, dicho con sus numeros.** En el metal,
+/// Cyberpunk se rindio con "Out of Memory! Failed to allocate %llu bytes"
+/// (su redMemory, un `int3` a proposito) y la consola no decia a que
+/// funcion de la casa se le habia dicho que no: ahora lo dice (con el
+/// diario encendido: un NO es parte de Windows, y las tandas lo piden).
+fn decir_no(que: &str) {
+    let e = estado();
+    e.noes += 1;
+    if e.noes <= MAX_NOES && crate::diario::encendido() {
+        let (usado, total) = ventana_mib();
+        crate::decir(&alloc::format!("memoria NEGADA: {que}; ventana de reserva: {usado} de {total} MiB tomados; RAM libre {} MiB", ram().map_or(0, |r| r.1 >> 20)));
+    }
+}
+
+/// Una pedida grande que salio bien: para saber, si luego falta, quien se
+/// llevo la ventana.
+fn decir_grande(dir: u64, n: u64, tipo: u32) {
+    let e = estado();
+    e.grandes += 1;
+    if e.grandes <= MAX_NOES && crate::diario::encendido() {
+        let (usado, total) = ventana_mib();
+        crate::decir(&alloc::format!("VirtualAlloc grande: {} MiB en {dir:#x} (tipo {tipo:#x}); ventana: {usado} de {total} MiB tomados", n >> 20));
     }
 }
 
@@ -181,7 +228,10 @@ fn pedir(tam: u64, alin: u64, propietario: u16) -> Option<u64> {
     // Con la reserva, la arena sale de la ventana y mide lo que haga falta.
     if let Some(r) = reserva() {
         let n = hace_falta.max(ARENA).checked_add(GRANO - 1)? & !(GRANO - 1);
-        let base = tomar_va(n)?;
+        let Some(base) = tomar_va(n) else {
+            decir_no(&alloc::format!("una arena de {} MiB para el monton (pedida de {tam} B, alineada a {alin}): no queda hueco en la ventana", n >> 20));
+            return None;
+        };
         if !(r.hacer)(base, n) {
             soltar_va(base, n);
             aviso(&alloc::format!("el monton de Windows pide una arena de {} MiB y el kernel dice que no hay RAM", n >> 20));
@@ -443,10 +493,19 @@ extern "win64" fn virtual_alloc(dir: u64, n: usize, tipo: u32, prot: u32) -> u64
         }
         estado().regiones.hacer_con(dir, n as u64, prot, dar).map_err(|x| x.error())
     })();
-    r.unwrap_or_else(|err| {
-        kernel32::poner_error(err);
-        0
-    })
+    match r {
+        Ok(p) => {
+            if n as u64 >= GRANDE {
+                decir_grande(p, n as u64, tipo);
+            }
+            p
+        }
+        Err(err) => {
+            decir_no(&alloc::format!("VirtualAlloc({dir:#x}, {} MiB = {n} B, tipo {tipo:#x}, prot {prot:#x}) = NULL, error {err}", (n as u64) >> 20));
+            kernel32::poner_error(err);
+            0
+        }
+    }
 }
 
 extern "win64" fn virtual_free(dir: u64, n: usize, tipo: u32) -> i32 {

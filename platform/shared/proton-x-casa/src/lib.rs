@@ -302,6 +302,16 @@ pub unsafe fn empezar(p: Plataforma) {
     msvcp_flujos::reiniciar();
 }
 
+/// **Decir una linea por la consola**, sin el tope de `aviso` (quien llama
+/// pone el suyo).
+pub(crate) fn decir(texto: &str) {
+    if let Some(p) = con(|e| e.plataforma) {
+        (p.escribir)(b"PROTON-X: ");
+        (p.escribir)(texto.as_bytes());
+        (p.escribir)(b"\n");
+    }
+}
+
 /// **Decir algo que la casa no sabe hacer**, por la consola. Los ocho primeros:
 /// un `.exe` que repita lo mismo en cada fotograma no puede ahogar la consola.
 pub fn aviso(texto: &str) {
