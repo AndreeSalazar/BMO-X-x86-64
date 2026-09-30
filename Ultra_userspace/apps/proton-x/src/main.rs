@@ -809,6 +809,12 @@ pub extern "C" fn _start() -> ! {
         let imps = importaciones(&m.pe, img).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre)));
         if k == 0 {
             tls_del_exe = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{nombre}: {f}")));
+        } else if let Some(t) = tls::leer(&m.pe, img, m.base).unwrap_or_else(|f| fin(&format!("{}: {f}", m.nombre))) {
+            // P0.4b.9: el TLS de las DLL del juego (libxess_fg.dll lo tiene).
+            if con_diario {
+                di(&format!("PROTON-X: TLS de {}: {} B por hilo, {} callback(s)\n", m.nombre, t.bytes(), t.callbacks.len()));
+            }
+            bmo_proton_x_casa::hilos::registrar_tls_dll(t, m.base);
         }
         // P0.4b.7: lo que falta se APUNTA y se sigue con el siguiente: un
         // viaje al metal dice TODO lo que falta, no solo lo de la primera DLL.

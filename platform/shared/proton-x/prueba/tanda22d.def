@@ -1,0 +1,7 @@
+LIBRARY tanda22d.dll
+EXPORTS
+leer
+poner
+en_main
+antes_de_main
+callbacks_hilo

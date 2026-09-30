@@ -155,6 +155,11 @@ pide y en que orden.
     (kernelbase, ucrtbase) y `VirtualProtect` sobre la imagen contesta como
     Windows sin romper W^X (tanda 21). Y un MAPA de modulos con el diario,
     para leer el `rip` de la autopsia como modulo + RVA.
+  - [x] P0.4b.9 -- El mapa cazo el golpe (30-09): `rip 0x10061bbad9` es
+    `libxess_fg.dll` + 0x22bad9, en su DllMain. Tiene TLS propio y la casa
+    solo daba TLS al `.exe`: ahora cada modulo con TLS tiene su indice (el
+    `.exe` el 0), su bloque en cada hilo y sus callbacks antes de su
+    DllMain (tanda 22). Y tiempos por fase, para decidir la cache.
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN
@@ -244,8 +249,9 @@ seguidos).
   no, lo rebota"*). La primera carga de Cyberpunk lee ~80 MiB del `.exe` y sus
   26 DLL de D: (NTFS, solo lectura), y cada vez son los mismos bytes. La idea:
   - la PRIMERA vez se lee todo, y se apunta la HUELLA de cada fichero (medida,
-    fecha y un resumen por seccion) junto a la imagen ya colocada, en la
-    particion de datos de BMO-X (D: no se toca);
+    fecha y un resumen por seccion) junto a la imagen ya colocada, en
+    ESTRATOS (el disco de BMO-X); PERSONAL (D:, NTFS) es de solo lectura y no
+    se toca, tampoco para la cache (el propietario lo confirmo, 30-09);
   - la SEGUNDA vez se mira solo la huella (lo "sospechoso": lo que pudo
     cambiar, p. ej. un parche del juego): si cuadra, la imagen sale de la
     cache y no se vuelve a leer ni a relocalizar; si NO cuadra, se rebota y

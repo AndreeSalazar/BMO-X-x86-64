@@ -81,6 +81,8 @@ const TANDA19: &[u8] = include_bytes!("../../proton-x/prueba/tanda19.exe");
 const TANDA19M: &[u8] = include_bytes!("../../proton-x/prueba/tanda19m.exe");
 const TANDA20: &[u8] = include_bytes!("../../proton-x/prueba/tanda20.exe");
 const TANDA21: &[u8] = include_bytes!("../../proton-x/prueba/tanda21.exe");
+const TANDA22: &[u8] = include_bytes!("../../proton-x/prueba/tanda22.exe");
+const TANDA22D: &[u8] = include_bytes!("../../proton-x/prueba/tanda22d.dll");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -347,6 +349,10 @@ fn cargar_dll(dll: &str, dir: &str) {
         cargar_dll(&i.dll, dir);
     }
     resolver(&mut img, &imps, bmo_proton_x_casa::tabla).unwrap();
+    // P0.4b.9: su TLS, como `proton-x.bex` (libxess_fg.dll lo tiene).
+    if let Some(t) = tls::leer(&pe, &img, base).unwrap() {
+        bmo_proton_x_casa::hilos::registrar_tls_dll(t, base);
+    }
     let exps = dll::exportaciones(&pe, &img).unwrap();
     unsafe { core::ptr::copy_nonoverlapping(img.as_ptr(), base as *mut u8, img.len()) };
     mprotect(base, partes.codigo as u64, PROT_LEE | PROT_EJECUTA);

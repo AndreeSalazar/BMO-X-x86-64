@@ -164,6 +164,10 @@ pub unsafe fn iniciar_dlls_con(mut antes: impl FnMut(&str)) -> Result<(), String
         if !hecha && entrada != 0 {
             antes(&nombre);
         }
+        if !hecha {
+            // Como Windows: sus callbacks de TLS, justo antes de su DllMain.
+            crate::hilos::tls_de_dll_attach(base);
+        }
         if !hecha && entrada != 0 && crate::hilos::llamar_win64(entrada, base, 1, 0) as u32 == 0 {
             return Err(alloc::format!("{nombre}: su DllMain dijo FALSE al PROCESS_ATTACH"));
         }
