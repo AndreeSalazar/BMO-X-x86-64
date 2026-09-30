@@ -817,6 +817,34 @@ presta, a quien, hasta cuando. Las patas no ven lo que llevan las manos, y el
 torso no decide el terreno. Por eso ninguno sustituye al otro, y por eso
 corren juntos.
 
+### 6b.7 El reparto en una frase (30-09)
+
+> *"TITAN++ sera la preparacion de Borrow checker con BMO-X ... el borrow
+> checker hace checkeo rapido y el kernel le dice si o no"* -- el propietario.
+
+Asi es, con UNA precision para que no haya sorpresas:
+
+```text
+   el borrow checker PREPARA      comprueba ANTES, una vez: no cuesta nada
+                                  mientras corre. Y empaqueta lo que vio (el
+                                  certificado, 6b.3)
+   el kernel DECIDE               en cada puerta, SI o NO: una resta contra
+                                  lo concedido. Su SI es el ULTIMO
+```
+
+La precision: **los dos NO valen solos, y ningun SI obliga al otro.**
+
+- Un NO del borrow checker (dos `mut` a la vez dentro del programa) es
+  FINAL: el programa no llega a existir, y el kernel no podria anularlo
+  aunque quisiera -- no lo ve.
+- Un SI del borrow checker es NECESARIO pero no SUFICIENTE: el kernel sigue
+  diciendo NO si la puerta no esta concedida, con certificado o sin el. Un
+  `.bex` que dice "soy bueno" no abre ninguna puerta; la abre la capability.
+
+Cooperan porque cada uno hace lo que al otro le sale caro: el comprobador,
+lo de dentro, antes y una vez; el kernel, lo de fuera, siempre y barato. Y
+los dos acaban en el mismo sitio cuando dicen que no: el nodo en F1 (6b.4).
+
 ---
 
 ## 7. A quien llama TITAN++, y como
