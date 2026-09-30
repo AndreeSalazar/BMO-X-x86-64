@@ -89,6 +89,7 @@ pub mod msvcp_locale;
 pub mod msvcp_flujos;
 pub mod msvcp_tiempo;
 pub mod msvcp_accesos;
+pub mod msvcp_ultimas;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
@@ -340,7 +341,7 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
     } else if dll.eq_ignore_ascii_case("msvcp140.dll") {
         // Tanda 2 de Cyberpunk: la biblioteca de C++ de MSVC.
         // Tanda 18: su locale.
-        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n)).or_else(|| msvcp_accesos::buscar(n))
+        msvcp_hilos::buscar(n).or_else(|| msvcp_errores::buscar(n)).or_else(|| msvcp_locale::buscar(n)).or_else(|| msvcp_flujos::buscar(n)).or_else(|| msvcp_tiempo::buscar(n)).or_else(|| msvcp_accesos::buscar(n)).or_else(|| msvcp_ultimas::buscar(n))
     } else if dll.eq_ignore_ascii_case("ntdll.dll") {
         // P4f4: NtReadFile/NtWriteFile de verdad; lo demas de ntdll, dicho.
         // P4c: __C_specific_handler y los Rtl* de las excepciones.
@@ -365,6 +366,9 @@ pub(crate) fn tabla_casa(dll: &str, f: &Funcion) -> Option<u64> {
         advapi32::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| de_kernel32(n)).or_else(|| dll_chicas::buscar(n))
     } else if dll.eq_ignore_ascii_case("gdi32.dll") {
         gdi32::buscar(n).or_else(|| dll_chicas::buscar(n))
+    } else if es_api_set_de(dll, &["api-ms-win-devices-config-"]) {
+        // Tanda 20: el API set de CFGMGR32 (lo pide una DLL del juego).
+        aparatos::buscar(n)
     } else if CHICAS.iter().any(|c| dll.eq_ignore_ascii_case(c)) {
         // Tanda 14a: las DLL de las que el juego pide una, dos o cuatro.
         dll_chicas::buscar(n).or_else(|| version_y_seguridad::buscar(n)).or_else(|| com_basico::buscar(n)).or_else(|| aparatos::buscar(n))

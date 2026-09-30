@@ -108,7 +108,7 @@ fn v_sync(sb: *mut Sb) -> i32 {
     unsafe { core::mem::transmute::<u64, extern "win64" fn(*mut Sb) -> i32>(hueco(sb, 13))(sb) }
 }
 
-fn v_lock(sb: *mut Sb, abrir: bool) {
+pub(crate) fn v_lock(sb: *mut Sb, abrir: bool) {
     // SAFETY: los huecos 1 y 2.
     unsafe { core::mem::transmute::<u64, extern "win64" fn(*mut Sb)>(hueco(sb, if abrir { 2 } else { 1 }))(sb) }
 }
@@ -518,7 +518,7 @@ extern "win64" fn ios_clear(this: *mut Ios, estado: i32, _relanzar: bool) {
     }
 }
 
-extern "win64" fn ios_setstate(this: *mut Ios, estado: i32, relanzar: bool) {
+pub(crate) extern "win64" fn ios_setstate(this: *mut Ios, estado: i32, relanzar: bool) {
     // SAFETY: un ios.
     let e = unsafe { (*this).estado };
     ios_clear(this, e | estado, relanzar);
@@ -631,7 +631,7 @@ extern "win64" fn os_osfx(os: *mut u8) {
     }
 }
 
-extern "win64" fn os_flush(os: *mut u8) -> *mut u8 {
+pub(crate) extern "win64" fn os_flush(os: *mut u8) -> *mut u8 {
     let ios = ios_de(os);
     // SAFETY: un ios.
     let sb = unsafe { (*ios).sb };
@@ -645,7 +645,7 @@ extern "win64" fn os_flush(os: *mut u8) -> *mut u8 {
 }
 
 /// Escribir `b` con el centinela; si no entra entero, badbit.
-fn escribir(os: *mut u8, b: &[u8]) -> *mut u8 {
+pub(crate) fn escribir(os: *mut u8, b: &[u8]) -> *mut u8 {
     let ios = ios_de(os);
     let mut mal = !centinela(os);
     if !mal && !b.is_empty() {
@@ -676,7 +676,7 @@ extern "win64" fn os_write(os: *mut u8, p: *const u8, n: i64) -> *mut u8 {
 
 /// Un entero como `num_put` en "C": `neg` y la magnitud; `con_signo` dice
 /// si `showpos` cuenta. El ancho se gasta.
-fn numero(os: *mut u8, neg: bool, v: u64, con_signo: bool) -> *mut u8 {
+pub(crate) fn numero(os: *mut u8, neg: bool, v: u64, con_signo: bool) -> *mut u8 {
     // SAFETY: un ios.
     let i = unsafe { &mut *ios_de(os) };
     let f = i.banderas;
@@ -728,7 +728,7 @@ fn numero(os: *mut u8, neg: bool, v: u64, con_signo: bool) -> *mut u8 {
 }
 
 /// En octal y hexadecimal, un `int` negativo sale como su `unsigned`.
-fn con_signo(os: *mut u8, v: i64, bits: u32) -> *mut u8 {
+pub(crate) fn con_signo(os: *mut u8, v: i64, bits: u32) -> *mut u8 {
     // SAFETY: un ios.
     let base10 = unsafe { (*ios_de(os)).banderas } & 0x0C00 == 0;
     if base10 || v >= 0 {
@@ -778,7 +778,7 @@ extern "win64" fn setw(r: *mut [u64; 2], n: i64) -> *mut [u64; 2] {
 
 /// `_Fiopen(ruta, modo, proteccion)`: el FILE de un basic_filebuf. El modo
 /// de ios_base a uno de fopen, como la tabla de MSVC; `ate`, al final.
-extern "win64" fn fiopen(ruta: *const u8, modo: i32, _prot: i32) -> u64 {
+pub(crate) extern "win64" fn fiopen(ruta: *const u8, modo: i32, _prot: i32) -> u64 {
     const IN: i32 = 1;
     const OUT: i32 = 2;
     const ATE: i32 = 4;
