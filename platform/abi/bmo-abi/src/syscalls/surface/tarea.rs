@@ -680,9 +680,10 @@ pub const IMAGEN_NO_REMAPEA: u32 = 15;
 pub const TASK_OP_RESERVA_HACER: u64 = 0x3A;
 /// DESHACER las paginas de `[arg0, arg0+arg1)`: `Ok` lleva los bytes devueltos.
 pub const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
-/// La ventana de reserva: 128 GiB desde `0x20_0000_0000`.
+/// La ventana de reserva: 384 GiB desde `0x20_0000_0000`, hasta el final
+/// de `PML4[0]` (era de 128: Cyberpunk aparta mas de 130 GiB al arrancar).
 pub const RESERVA_VENTANA_BASE: u64 = 0x0000_0020_0000_0000;
-pub const RESERVA_VENTANA_BYTES: u64 = 128 << 30;
+pub const RESERVA_VENTANA_BYTES: u64 = 384 << 30;
 /// Lo mas que se hace o deshace en una llamada.
 pub const RESERVA_MAX_POR_VEZ: u64 = 64 << 20;
 /// Los NO de la reserva. Espejo de `ring0::obj::reserva`.

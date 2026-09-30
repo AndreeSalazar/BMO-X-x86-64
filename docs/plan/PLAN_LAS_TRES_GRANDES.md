@@ -168,7 +168,7 @@ pide y en que orden.
   de 64 MiB, y la casa solo daba bloques de 64 MiB (8 por proceso).
   - [x] P0.4c.1 -- El juez puro: `bmo-imagen-juicio::reserva` (rango y RAM).
   - [x] P0.4c.2 -- El kernel: `TASK_OP_RESERVA_HACER/DESHACER` (0x3A, 0x3B),
-    una ventana de 128 GiB en `0x20_0000_0000`, paginas a cero R+W sin X,
+    una ventana de 128 GiB (hoy 384: P0.4c.8) en `0x20_0000_0000`, paginas a cero R+W sin X,
     juzgadas contra la RAM libre de ahora; al morir las devuelve el espacio
     (`PTE_NUESTRA`). Userland: `bmo::reserva`.
   - [x] P0.4c.3 -- `Regiones` piden y devuelven las paginas por tiradas.
@@ -193,6 +193,18 @@ pide y en que orden.
     MiB/s, cabeceras 0,55 s), el juego salto y RESERVO 64 GiB de golpe; la
     cuenta de `Regiones` era un u32 POR PAGINA (64 MiB) y el monton del
     cargador dijo que no. Ahora va por TIRADAS: crece con lo hecho.
+  - [x] P0.4c.7 -- El metal (30-09): el azar de `rand_s`. Un constructor
+    global crea un `std::random_device`, que acaba en SystemFunction036
+    (RtlGenRandom, por su API set o por ADVAPI32); la casa no la tenia y el
+    CRT hacia abort(). tanda25 (9 bien, Windows igual).
+  - [x] P0.4c.8 -- El metal (30-09): pasado el azar, su redMemory se rindio
+    con "Out of Memory!" (un `int3` a proposito). La casa ahora dice cada NO
+    de memoria con el diario encendido, y el metal lo dijo: 16 + 64 + 32 GiB
+    y pools de 1 y 4 GiB, y el noveno no cupo en la ventana de 128 GiB. La
+    ventana pasa a 384 GiB, hasta el final de `PML4[0]` (lo que
+    `destroy_address_space` recorre): solo direcciones, cada pagina la
+    sigue juzgando la RAM libre. Si pide mas, lo siguiente es caminar mas
+    entradas del PML4 al morir.
   - Anotado para exprimir: el monton hace cada arena entera al pedirla (64
     MiB de RAM de golpe), podria hacerla a medida que crece.
 
