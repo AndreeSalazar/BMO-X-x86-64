@@ -74,6 +74,10 @@ pide y en que orden.
   - [ ] P0.2d -- Aparatos que no hay (HID, SETUPAPI, CFGMGR32) y WLDAP32 por
     ordinal: tanda 16.
   - [ ] P0.2e -- RTTI (__RTDynamicCast, __RTtypeid, __unDName): tanda 17.
+  - [x] P0.2i -- `__CxxFrameHandler4` (30-09): `cxx4.rs` lee las tablas
+    comprimidas (medidas en `tanda4m.exe`, hecho con `cl` 19.44 en el
+    Windows del propietario) y el manejador de FH3 las usa; `tanda4m.exe`
+    dice `bien` 11 veces en el banco, como en Windows.
   - [ ] P0.2f -- iostreams y locale de MSVCP140, con sus DATOS: tandas 18-19.
 
 - [ ] P0.2g -- DONDE GUARDA EL JUEGO: hoy USERPROFILE (y con el APPDATA,

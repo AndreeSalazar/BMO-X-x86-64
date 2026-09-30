@@ -71,6 +71,7 @@ const TANDA12: &[u8] = include_bytes!("../../proton-x/prueba/tanda12.exe");
 const TANDA13: &[u8] = include_bytes!("../../proton-x/prueba/tanda13.exe");
 const DIARIO: &[u8] = include_bytes!("../../proton-x/prueba/diario.exe");
 const TANDA14: &[u8] = include_bytes!("../../proton-x/prueba/tanda14.exe");
+const TANDA4M: &[u8] = include_bytes!("../../proton-x/prueba/tanda4m.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1364,4 +1365,13 @@ fn diario_exe_con_diario_apunta_cada_funcion_una_vez_y_en_orden() {
 #[test]
 fn tanda14_exe_tiene_las_dll_chicas_del_censo() {
     tanda(TANDA14, None, 27, "tanda14.exe: las DLL chicas del censo dicen lo de Windows");
+}
+
+/// **`__CxxFrameHandler4`** (30-09): `tanda4m.exe` -- la MISMA tanda4.cpp,
+/// compilada con `cl` de MSVC 19.44 en el Windows del propietario: sus
+/// tablas son las comprimidas de FH4 (las de Cyberpunk). Dice lo mismo que
+/// la de clang (FH3).
+#[test]
+fn tanda4m_exe_tiene_las_excepciones_de_cpp_de_fh4() {
+    tanda(TANDA4M, None, 11, "tanda4.exe: las excepciones de C++ son las de Windows");
 }
