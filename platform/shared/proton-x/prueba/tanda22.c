@@ -6,6 +6,8 @@
  * DllMain. Este .exe tiene TLS propio (asi la DLL es el indice 1, como en
  * el juego) e importa tanda22d.dll, que va en su misma carpeta.
  *
+ * Las lineas `dato` dicen los indices y lo que se vio, en numeros.
+ *
  * Sale con el numero de fallos. En Windows dice lo mismo. */
 typedef unsigned long long U64;
 typedef unsigned long DWORD;
@@ -24,6 +26,8 @@ IMPORTA void poner(int v);
 IMPORTA int en_main(void);
 IMPORTA int antes_de_main(void);
 IMPORTA int callbacks_hilo(void);
+IMPORTA unsigned indice(void);
+IMPORTA U64 su_bloque(void);
 
 #pragma section(".tls", read, write)
 #pragma section(".tls$ZZZ", read, write)
@@ -59,6 +63,27 @@ static void mira(int bien, const char *que) {
     di("\r\n");
 }
 
+/* Una linea "  dato" con un numero (no cuenta como bien ni MAL). */
+static void dato(const char *que, U64 v) {
+    char b[24];
+    int i = 23;
+    b[i] = 0;
+    do {
+        b[--i] = (char)('0' + v % 10);
+        v /= 10;
+    } while (v && i > 0);
+    di("  dato  ");
+    di(que);
+    di(&b[i]);
+    di("\r\n");
+}
+
+static U64 bloque_del_exe(void) {
+    U64 t;
+    __asm__("movq %%gs:0x58, %0" : "=r"(t));
+    return t ? ((U64 *)t)[_tls_index] : 0;
+}
+
 static volatile int en_hilo_dll = -1, en_hilo_exe = -1;
 
 static DWORD W hilo(void *p) {
@@ -74,6 +99,12 @@ void inicio(void);
 
 void inicio(void) {
     HANDLE h;
+    /* Lo que dice Windows, en numeros: si algo sale MAL, esto dice por que. */
+    dato("indice del .exe: ", _tls_index);
+    dato("indice de la DLL: ", indice());
+    dato("callbacks antes de su DllMain: ", (U64)antes_de_main());
+    dato("lo que vio su DllMain: ", (U64)(unsigned)en_main());
+    dato("bloque del .exe == bloque de la DLL (1 si): ", bloque_del_exe() == su_bloque());
     mira(antes_de_main() == 1, "el callback de TLS de la DLL corre ANTES de su DllMain");
     mira(en_main() == 42, "su DllMain ve su variable de hilo con su valor inicial");
     mira(leer() == 7, "lo que su DllMain escribio, lo ve el hilo principal");
