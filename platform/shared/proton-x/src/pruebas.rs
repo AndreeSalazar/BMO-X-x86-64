@@ -286,6 +286,12 @@ fn el_teb_y_el_peb_tienen_la_forma_de_windows_x64() {
     assert_eq!(q(&p, 0x10), 0xE010_3000, "ImageBaseAddress");
     assert_eq!(p[0x02], 0, "BeingDebugged");
     assert_eq!(q(&p, 0x30), monton::asa(monton::PROPIETARIO_PROCESO), "ProcessHeap: el de GetProcessHeap");
+    // Tanda 27: ProcessParameters, en la misma pagina; su Flags con el bit 31
+    // a 0 (la UCRT lo lee al empezar cada hilo de _beginthreadex).
+    assert_eq!(q(&p, 0x20), 0x7000 + 0x800, "ProcessParameters");
+    let d = |o: usize| u32::from_le_bytes(p[0x800 + o..0x800 + o + 4].try_into().unwrap());
+    assert_eq!((d(0), d(4)), (0x440, 0x440), "MaximumLength y Length");
+    assert_eq!(d(8), 1, "Flags: NORMALIZED, y el bit 31 a 0");
     // Todo lo demas, a cero: ni un byte de lo que habia.
     assert_eq!(t.iter().filter(|&&b| b == 0xAA).count(), 0);
     assert_eq!(p.iter().filter(|&&b| b == 0xAA).count(), 0);

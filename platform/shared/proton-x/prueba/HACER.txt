@@ -1160,3 +1160,21 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    16571e8f7efc1ea75730cfc785ad153d82bc9e0b3e9dcf34672ee56bebbc8866
 
 Dice `bien` seis veces y sale con 0. En Windows dice lo mismo.
+
+tanda27.exe -- la TANDA 27 de Cyberpunk (30-09): PEB->ProcessParameters
+
+En el metal el primer hilo del juego (de _beginthreadex) murio nada mas
+empezar leyendo 0x8: la UCRT, en __acrt_get_begin_thread_init_policy, lee
+gs:[0x60] (el PEB), +0x20 (ProcessParameters) y su Flags (+0x08, el bit 31)
+para decidir si llama a RoInitialize, y la casa tenia ese puntero a cero.
+Aqui se lee igual, desde el principal y desde un hilo de CreateThread.
+
+   llvm-dlltool -m i386:x86-64 -d tanda27_kernel32.def -l tanda27_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda27.c -o tanda27.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda27.obj tanda27_kernel32.lib /out:tanda27.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   087691dfbc78a3dc41d0aeb838b4f2c02650015c4178e836838ed4862ae43b63
+
+Dice `bien` ocho veces y sale con 0. En Windows dice lo mismo.
