@@ -129,6 +129,9 @@ struct Mirado {
     fallo_retrasadas: Option<alloc::string::String>,
     en_vivo: Vec<alloc::string::String>,
     mide: u64,
+    /// Como se parte su imagen (`partir`): lo que el cargador le pide al
+    /// kernel, cada parte en UN bloque de 64 MiB como mucho (P0.4a).
+    partes: Result<bmo_proton_x::Partes, alloc::string::String>,
 }
 
 /// **Mirar un fichero PE** sin traerlo entero: las cabeceras y la seccion de
@@ -144,10 +147,11 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
     hb.soltar();
     let pe = bmo_proton_x::leer_cabeceras(&cab, mide).map_err(|f| format!("{f}"))?;
+    let partes = partir(&pe).map_err(|f| format!("{f}"));
     let rva = pe.importaciones.rva;
     let seccion_de = |rva: u32| pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva));
     let Some(sec) = seccion_de(rva) else {
-        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide });
+        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide, partes });
     };
     let (imps, retrasadas, en_vivo) = con_seccion(&a, sec, |trozo| {
         let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?;
@@ -167,7 +171,7 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
             Err(f) => (Vec::new(), Some(f)),
         },
     };
-    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide })
+    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide, partes })
 }
 
 /// **Todas las secciones de DATOS en un bloque**, cada una en su RVA (lo de
@@ -417,6 +421,7 @@ fn censo(ruta: &[u8]) -> ! {
         Ok(m) => m,
         Err(f) => fin(&format!("censo: {nombre}: {f}")),
     };
+    let la_imagen = imagen(&exe);
     let mut pendiente: Option<(String, Mirado, Nivel)> = Some((String::from(nombre.rsplit('/').next().unwrap_or(nombre)), exe, Nivel::Dura));
     loop {
         let Some((quien, m, nivel)) = pendiente.take() else {
@@ -523,6 +528,7 @@ fn censo(ruta: &[u8]) -> ! {
         juego.iter().map(|j| j.1).sum::<u64>(),
         windows.len()
     ));
+    linea(&la_imagen);
     let (de, si) = cuenta(Nivel::Dura);
     linea(&format!("  PARA ARRANCAR (DURAS): {de}; la casa tiene {si} ({}%), FALTAN {}\n", si * 100 / de.max(1), de - si));
     for nv in [Nivel::Retrasada, Nivel::Vivo] {
@@ -585,6 +591,7 @@ fn censo(ruta: &[u8]) -> ! {
     let mut t = String::new();
     let (de, si) = cuenta(Nivel::Dura);
     t.push_str(&format!("# CENSO de {nombre}\n# {} funciones de Windows distintas; PARA ARRANCAR (DURAS) {de}, la casa tiene {si}, FALTAN {}\n", windows.len(), de - si));
+    t.push_str(&format!("#{}", &la_imagen[1..]));
     for nv in NIVELES {
         let (de, si) = cuenta(nv);
         t.push_str(&format!("#   {:<11} {de:>5}  faltan {:>5}\n", nv.nombre(), de - si));
@@ -630,6 +637,27 @@ fn censo(ruta: &[u8]) -> ! {
     }
     guardar_censo(t.as_bytes());
     bmo::salir();
+}
+
+/// **Si la imagen del `.exe` cabe** (P0.4a): lo que el cargador le pide al
+/// kernel son DOS bloques (codigo y datos), y un bloque es de 64 MiB como
+/// mucho (`MAX_BYTES`, `obj/memory.rs`). El censo lo mide para que el primer
+/// contacto no lo descubra.
+fn imagen(m: &Mirado) -> alloc::string::String {
+    let mib = |x: u64| x.div_ceil(1 << 20);
+    match &m.partes {
+        Err(f) => format!("  LA IMAGEN: no se puede partir ({f})\n"),
+        Ok(p) => {
+            let (c, d) = (p.codigo as u64, p.datos as u64);
+            let grandes: Vec<&str> = [("el codigo", c), ("los datos", d)].iter().filter(|x| x.1 > TOPE_SECCION).map(|x| x.0).collect();
+            let veredicto = if grandes.is_empty() {
+                alloc::string::String::from("cada parte cabe en un bloque")
+            } else {
+                format!("NO CABE: {} pasa(n) de un bloque de 64 MiB", grandes.join(" y "))
+            };
+            format!("  LA IMAGEN: {} MiB en el disco; en memoria {} MiB = codigo {} + datos {}; {veredicto}\n", mib(m.mide), mib(c + d), mib(c), mib(d))
+        }
+    }
 }
 
 /// La lista entera a `informe/censo.txt`, de una llamada.
