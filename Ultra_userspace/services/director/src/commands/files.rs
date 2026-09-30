@@ -280,29 +280,64 @@ pub(crate) fn personal_ls(dsk: &mut Desktop, p: &bmo::Pantalla, ruta: &[u8]) -> 
     After::Settle
 }
 
+/// La ultima ruta de `personal censo` / `personal diario` (30-09): sin ruta,
+/// se repite. Lo pidio el propietario: *"al escribir `"d:` ya da flojera"*.
+/// Un solo hilo (el del escritorio) la lee y la escribe, y solo al dar Enter.
+static mut ULTIMA: ([u8; 96], usize) = ([0; 96], 0);
+
 /// **La linea de PROTON-X para `personal censo <ruta>`** (29-09):
-/// `sys/proton-x.bex --censo "d:<ruta>"`, en `buf`. `None` si no cabe en los
-/// 96 bytes de argumentos de un programa. La lanza el editor (`Edit::Launch`).
-/// Con `diario`, `personal diario <ruta>` (30-09): el primer contacto,
-/// `--diario` en vez de `--censo`.
-pub(crate) fn linea_censo(ruta: &[u8], diario: bool, buf: &mut [u8; crate::PATH_MAX]) -> Option<usize> {
-    let ruta = match ruta {
-        [a, b':', resto @ ..] if *a | 0x20 == b'd' => resto,
-        _ => ruta,
+/// `sys/proton-x.bex --censo "d:<ruta>"`, en `buf`. La lanza el editor
+/// (`Edit::Launch`). Con `diario`, `personal diario <ruta>` (30-09): el
+/// primer contacto, `--diario` en vez de `--censo`.
+///
+/// La ruta se LIMPIA (30-09): sin espacios a los lados, sin comillas, sin
+/// `d:`/`D:` delante y con `\` como `/` (lo que se copia de Windows). Sin
+/// ruta, la ultima. El `Err` es la frase que se le dice al propietario.
+pub(crate) fn linea_censo(ruta: &[u8], diario: bool, buf: &mut [u8; crate::PATH_MAX]) -> Result<usize, &'static [u8]> {
+    let mut r = ruta;
+    while let [b' ' | b'"', resto @ ..] = r {
+        r = resto;
+    }
+    while let [resto @ .., b' ' | b'"'] = r {
+        r = resto;
+    }
+    if let [a, b':', resto @ ..] = r {
+        if *a | 0x20 == b'd' {
+            r = resto;
+        }
+    }
+    let mut limpia = [0u8; 96];
+    if r.len() > limpia.len() {
+        return Err(b"la ruta es demasiado larga para los argumentos de PROTON-X (96 bytes)");
+    }
+    for (k, &c) in r.iter().enumerate() {
+        limpia[k] = if c == b'\\' { b'/' } else { c };
+    }
+    // SAFETY: ver `ULTIMA`: el hilo del escritorio, al dar Enter.
+    let ultima = unsafe { &mut *core::ptr::addr_of_mut!(ULTIMA) };
+    let ruta: &[u8] = if r.is_empty() {
+        if ultima.1 == 0 {
+            return Err(b"sin ruta, y todavia no hay una ultima: personal diario <ruta> (TAB completa)");
+        }
+        &ultima.0[..ultima.1]
+    } else {
+        ultima.0[..r.len()].copy_from_slice(&limpia[..r.len()]);
+        ultima.1 = r.len();
+        &limpia[..r.len()]
     };
     const PROGRAMA: &[u8] = b"sys/proton-x.bex ";
     let bandera: &[u8] = if diario { b"--diario \"d:" } else { b"--censo \"d:" };
     let partes: [&[u8]; 4] = [PROGRAMA, bandera, ruta, b"\""];
     let n: usize = partes.iter().map(|x| x.len()).sum();
     if n > buf.len() || n - PROGRAMA.len() > 96 {
-        return None;
+        return Err(b"la ruta es demasiado larga para los argumentos de PROTON-X (96 bytes)");
     }
     let mut k = 0;
     for x in partes {
         buf[k..k + x.len()].copy_from_slice(x);
         k += x.len();
     }
-    Some(n)
+    Ok(n)
 }
 
 /// `personal lee <fichero>`: la medida, los primeros 64 bytes en hex y, si
