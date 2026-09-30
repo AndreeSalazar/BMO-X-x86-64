@@ -91,7 +91,7 @@ pub(crate) fn variable(n: &str) -> Option<Vec<u16>> {
 /// El nombre del `.exe` sin su ruta (`crt.exe`), para GetModuleHandle.
 pub(crate) fn nombre_exe() -> alloc::string::String {
     let e = &estado().exe_a;
-    let s = core::str::from_utf8(&e[..e.len() - 1]).unwrap_or("");
+    let s = core::str::from_utf8(&e[..e.len().saturating_sub(1)]).unwrap_or("");
     alloc::string::String::from(s.rsplit('\\').next().unwrap_or(""))
 }
 

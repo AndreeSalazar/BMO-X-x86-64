@@ -765,6 +765,16 @@ pub extern "C" fn _start() -> ! {
     let (imagen, modulos) = cargador::declarar_y_colocar(ruta, pe, partes);
     let exe = &modulos[0];
     let base = exe.base;
+    // P0.4b.8: el MAPA, con el diario: un `rip` de la autopsia (que solo
+    // conoce el .bex) se lee aqui como modulo + RVA.
+    if con_diario {
+        let mut t = alloc::string::String::from("PROTON-X: mapa:");
+        for m in &modulos {
+            let nombre = m.nombre.rsplit('/').next().unwrap_or(&m.nombre);
+            t.push_str(&format!(" {nombre} {:#x}+{:#x};", m.base, m.imagen().len()));
+        }
+        di(&format!("{t}\n"));
+    }
 
     // -- 5. La casa lista (antes de registrar nada en ella), el TEB y el GS.
     poner_teb(base);
@@ -818,6 +828,8 @@ pub extern "C" fn _start() -> ! {
 
     // -- 6. SELLAR el codigo de cada uno: sin esto, saltar seria un #PF por NX.
     for m in &modulos {
+        let t: Vec<(u64, bool)> = m.tramos.iter().map(|t| (t.bytes as u64, t.codigo)).collect();
+        bmo_proton_x_casa::memoria::registrar_tramos(m.base, &t);
         for i in m.de_codigo() {
             if let Err(no) = imagen.sellar(i) {
                 fin(&format!("{}: SELLAR dice NO ({}): su codigo no se ejecuta sin sellar", m.nombre, no.frase()));

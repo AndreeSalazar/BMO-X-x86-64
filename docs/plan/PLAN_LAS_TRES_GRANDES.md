@@ -149,6 +149,12 @@ pide y en que orden.
     `dbghelp.dll` pide a `api-ms-win-downlevel-kernel32-l2-1-0.dll`. Los API
     set "downlevel" se resuelven como su DLL; y el cargador APUNTA lo que
     falta de TODAS las DLL antes de decir NO (un viaje, la lista entera).
+  - [x] P0.4b.8 -- EL JUEGO CORRIO (30-09): 4793 funciones resueltas, los 24
+    DllMain, y el `.exe` hizo 59 llamadas (el diario) antes de un #PF en 0+0x8.
+    Lo que el metal mostro: `LoadLibrary` de un API set es su anfitrion
+    (kernelbase, ucrtbase) y `VirtualProtect` sobre la imagen contesta como
+    Windows sin romper W^X (tanda 21). Y un MAPA de modulos con el diario,
+    para leer el `rip` de la autopsia como modulo + RVA.
   - [ ] P0.4b.5 -- En el metal: los DllMain de las 26 corren y el `.exe`
     llega a su entrada (o el diario dice donde se paro).
 - [ ] P0.4c -- **LA MEMORIA DEL JUEGO `[RING 0]`**: lo que el juego pide EN

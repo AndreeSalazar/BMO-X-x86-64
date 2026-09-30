@@ -32,7 +32,7 @@ use crate::{aviso, dir, kernel32};
 /// userenv, bcryptprimitives -- que pide por GetModuleHandle + GetProcAddress;
 /// y advapi32, desde la tanda 11; crypt32 y bcrypt, desde la 12; y las
 /// chicas del censo, desde la 14a, al final: los HANDLE de antes no cambian.)
-const DLL: [&str; 34] = [
+const DLL: [&str; 35] = [
     "kernel32.dll",
     "user32.dll",
     "gdi32.dll",
@@ -67,6 +67,8 @@ const DLL: [&str; 34] = [
     "setupapi.dll",
     "cfgmgr32.dll",
     "wldap32.dll",
+    // P0.4b.8: el anfitrion de los API set del CRT (`api-ms-win-crt-*`).
+    "ucrtbase.dll",
 ];
 
 const ERROR_MOD_NOT_FOUND: u32 = 126;
@@ -171,10 +173,34 @@ fn dll_de(h: u64) -> Option<&'static str> {
     DLL.iter().enumerate().find(|&(i, _)| asa(i) == h).map(|(_, d)| *d)
 }
 
+/// **La DLL de verdad detras de un API set** (P0.4b.8, 30-09): en Windows,
+/// `LoadLibrary("api-ms-win-core-synch-l1-2-0")` no abre un fichero: devuelve
+/// el modulo que lo implementa (kernelbase). El CRT de MSVC lo hace al
+/// arrancar para buscar funciones con `GetProcAddress`, y el juego tambien.
+fn anfitrion(dll: &str) -> Option<String> {
+    let d = dll.to_ascii_lowercase();
+    let r = d.strip_prefix("api-ms-win-")?;
+    let host = if r.starts_with("core-") {
+        "kernelbase.dll".into()
+    } else if r.starts_with("crt-") {
+        "ucrtbase.dll".into()
+    } else if r.starts_with("security-") || r.starts_with("eventing-") {
+        "advapi32.dll".into()
+    } else if r.starts_with("devices-config-") {
+        "cfgmgr32.dll".into()
+    } else if let Some(x) = r.strip_prefix("downlevel-") {
+        alloc::format!("{}.dll", x.split('-').next()?)
+    } else {
+        return None;
+    };
+    DLL.iter().any(|h| h.eq_ignore_ascii_case(&host)).then_some(host)
+}
+
 /// **Un modulo por su nombre**: una DLL de la casa, o el propio `.exe`.
 fn por_nombre(n: &str) -> Option<u64> {
     let base = n.rsplit(['\\', '/']).next().unwrap_or(n);
     let con = if base.contains('.') { String::from(base) } else { alloc::format!("{base}.dll") };
+    let con = anfitrion(&con).unwrap_or(con);
     if let Some(i) = DLL.iter().position(|d| d.eq_ignore_ascii_case(&con)) {
         return Some(asa(i));
     }
