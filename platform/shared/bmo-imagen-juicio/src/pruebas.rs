@@ -132,3 +132,39 @@ fn tramos_que_alternan_van_seguidos() {
     assert_eq!(va(4) % l.alineacion, 0, "el PE siguiente, alineado");
     assert_eq!(va(5), va(4) + 4096);
 }
+
+// -- P0.4c: la reserva ------------------------------------------------------
+
+use crate::reserva::{self, LimitesReserva, NoReserva};
+
+fn lr(libre: u64) -> LimitesReserva {
+    LimitesReserva { ventana_base: 0x20_0000_0000, ventana_bytes: 128 * GIB, pagina: 4096, max_por_vez: 64 * MIB, libre, margen: 64 * MIB }
+}
+
+#[test]
+fn la_reserva_juzga_el_rango() {
+    let l = lr(8 * GIB);
+    let b = l.ventana_base;
+    assert_eq!(reserva::rango(b, 4096, &l), Ok(1));
+    assert_eq!(reserva::rango(b + 64 * MIB, 64 * MIB, &l), Ok(16384));
+    assert_eq!(reserva::rango(b, 0, &l), Err(NoReserva::Vacia));
+    assert_eq!(reserva::rango(b + 1, 4096, &l), Err(NoReserva::Desalineada));
+    assert_eq!(reserva::rango(b, 100, &l), Err(NoReserva::Desalineada));
+    assert_eq!(reserva::rango(b - 4096, 4096, &l), Err(NoReserva::FueraDeVentana), "antes de la ventana");
+    assert_eq!(reserva::rango(b + 128 * GIB - 4096, 8192, &l), Err(NoReserva::FueraDeVentana), "se sale por arriba");
+    assert_eq!(reserva::rango(u64::MAX & !4095, 4096, &l), Err(NoReserva::FueraDeVentana), "da la vuelta");
+    assert_eq!(reserva::rango(b, 65 * MIB, &l), Err(NoReserva::DeMasDeUnaVez { pide: 65 * MIB, max: 64 * MIB }));
+    let mut malo = l;
+    malo.pagina = 3000;
+    assert_eq!(reserva::rango(b, 4096, &malo), Err(NoReserva::LimitesMalos));
+}
+
+#[test]
+fn la_reserva_juzga_la_ram_de_lo_que_falta() {
+    // 8 GiB libres, 64 MiB de margen: caben 8 GiB - 64 MiB.
+    let l = lr(8 * GIB);
+    assert_eq!(reserva::ram(0, &l), Ok(()), "todo ya hecho: no pide nada");
+    assert_eq!(reserva::ram((8 * GIB - 64 * MIB) / 4096, &l), Ok(()));
+    assert_eq!(reserva::ram((8 * GIB - 64 * MIB) / 4096 + 1, &l), Err(NoReserva::SinRam { pide: 8 * GIB - 64 * MIB + 4096, hay: 8 * GIB - 64 * MIB }));
+    assert_eq!(reserva::ram(1, &lr(32 * MIB)), Err(NoReserva::SinRam { pide: 4096, hay: 0 }), "menos libre que el margen: nada");
+}
