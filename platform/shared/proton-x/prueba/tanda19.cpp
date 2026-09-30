@@ -501,7 +501,8 @@ static void con_time_put() {
     Cuerda c;
     ostream &o = sin_destruir<ostream>(static_cast<streambuf *>(&c));
     const locale::facet *f = nullptr;
-    size_t cat = TimePut::_Getcat(&f, nullptr);
+    // Como use_facet: con el locale (el de Windows lee su nombre).
+    size_t cat = TimePut::_Getcat(&f, static_cast<ios_base &>(o)._Ploc);
     const TimePut *tp = static_cast<const TimePut *>(f);
     tm t = {9, 5, 13, 30, 8, 126, 3, 272, 0};
     const char *p = "%Y-%m-%d %H:%M:%S %a %b %j %p %x %% %#m %q %A %B %I";

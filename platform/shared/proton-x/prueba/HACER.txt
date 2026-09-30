@@ -945,7 +945,7 @@ propio .exe) y time_put (tanda19_*.def; el de msvcp140 lleva DATA en cerr):
 
 sha256 del que esta aqui (reproducible, comprobado dos veces):
 
-   0fdd354835fd24f911357fb81ac745f4bbd19378ae1e9edbd4c84190e137b0fb
+   e6e929d9a8799bd28eae596c4914b4fa85f1d33ef797074ed06c5c844530f1bb
 
 Dice `bien` diecinueve veces (con una linea de cerr y las de paso) y sale con 0. En Windows
 dice lo mismo.
