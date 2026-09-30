@@ -450,8 +450,10 @@ fn leer_disco(d: &Disco, puente: &mut [u8; MAX_REGISTRO], off: u64, dst: &mut [u
         let dentro = (off % b) as usize;
         let quedan = dst.len() - hecho;
         if dentro == 0 && quedan >= b as usize {
-            // Alineado: directo al destino, hasta 128 bloques de una vez.
-            let n = (quedan / b as usize).min(128);
+            // Alineado: directo al destino, hasta 4096 bloques (2 MiB) de una
+            // vez: el aparato lo parte en lo que le quepa por comando (P0.4d:
+            // con 128, un fichero grande eran miles de lecturas).
+            let n = (quedan / b as usize).min(4096);
             // Una lectura CORTA es legal: se sigue desde donde llego.
             let k = match d.dev.read(lba, n as u16, &mut dst[hecho..hecho + n * b as usize]) {
                 Ok(k) if k > 0 => (k as usize).min(n),

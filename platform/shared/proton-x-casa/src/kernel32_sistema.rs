@@ -19,9 +19,9 @@
 //!                 AreFileApisANSI; OutputDebugStringA/W (sin depurador: nada)
 //! ```
 //!
-//! Lo que no, dicho: la memoria que se dice es una cifra FIJA (16 GiB, la del
-//! Ryzen del propietario; 12 libres): la plataforma de la casa todavia no
-//! la pregunta al kernel. Un procesador, como `GetSystemInfo`: los hilos de
+//! La memoria que se dice: con la reserva (P0.4c), la del kernel (total y
+//! libre de ahora); sin ella, una cifra FIJA (16 GiB, la del Ryzen del
+//! propietario; 12 libres). Un procesador, como `GetSystemInfo`: los hilos de
 //! la casa se turnan en uno.
 
 use crate::{dir, kernel32};
@@ -38,6 +38,12 @@ const ERROR_OLD_WIN_VERSION: u32 = 1150;
 
 // -- Memoria -----------------------------------------------------------------------------------
 
+/// (total, libre): lo del kernel si la plataforma lo sabe (P0.4c); si no,
+/// la cifra fija de siempre.
+fn memoria() -> (u64, u64) {
+    crate::memoria::ram().unwrap_or((MEMORIA_TOTAL, MEMORIA_LIBRE))
+}
+
 /// `GlobalMemoryStatusEx(MEMORYSTATUSEX*)`: 64 bytes, con dwLength puesto.
 extern "win64" fn global_memory_status_ex(p: *mut u8) -> i32 {
     if p.is_null() {
@@ -49,9 +55,10 @@ extern "win64" fn global_memory_status_ex(p: *mut u8) -> i32 {
             kernel32::poner_error(ERROR_INVALID_PARAMETER);
             return 0;
         }
-        let carga = (100 - MEMORIA_LIBRE * 100 / MEMORIA_TOTAL) as u32;
+        let (total, libre) = memoria();
+        let carga = (100 - libre * 100 / total.max(1)) as u32;
         (p.add(4) as *mut u32).write_unaligned(carga);
-        for (i, v) in [MEMORIA_TOTAL, MEMORIA_LIBRE, 2 * MEMORIA_TOTAL, MEMORIA_TOTAL + MEMORIA_LIBRE, VIRTUAL, VIRTUAL, 0].into_iter().enumerate() {
+        for (i, v) in [total, libre, 2 * total, total + libre, VIRTUAL, VIRTUAL, 0].into_iter().enumerate() {
             (p.add(8 + 8 * i) as *mut u64).write_unaligned(v);
         }
     }
@@ -66,8 +73,9 @@ extern "win64" fn global_memory_status(p: *mut u8) {
     // SAFETY: el MEMORYSTATUS del `.exe` (56 bytes).
     unsafe {
         (p as *mut u32).write_unaligned(56);
-        (p.add(4) as *mut u32).write_unaligned((100 - MEMORIA_LIBRE * 100 / MEMORIA_TOTAL) as u32);
-        for (i, v) in [MEMORIA_TOTAL, MEMORIA_LIBRE, 2 * MEMORIA_TOTAL, MEMORIA_TOTAL + MEMORIA_LIBRE, VIRTUAL, VIRTUAL].into_iter().enumerate() {
+        let (total, libre) = memoria();
+        (p.add(4) as *mut u32).write_unaligned((100 - libre * 100 / total.max(1)) as u32);
+        for (i, v) in [total, libre, 2 * total, total + libre, VIRTUAL, VIRTUAL].into_iter().enumerate() {
             (p.add(8 + 8 * i) as *mut u64).write_unaligned(v);
         }
     }
@@ -79,7 +87,7 @@ extern "win64" fn get_physically_installed_system_memory(kb: *mut u64) -> i32 {
         return 0;
     }
     // SAFETY: el ULONGLONG del `.exe`.
-    unsafe { kb.write_unaligned(MEMORIA_TOTAL / 1024) };
+    unsafe { kb.write_unaligned(memoria().0 / 1024) };
     1
 }
 

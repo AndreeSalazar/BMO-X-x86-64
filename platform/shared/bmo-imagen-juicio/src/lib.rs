@@ -178,5 +178,7 @@ pub fn donde(partes: &[Parte], l: &Limites, i: usize) -> Option<(u64, u64)> {
     Some((l.ventana_base.checked_add(ini)?, n))
 }
 
+pub mod reserva;
+
 #[cfg(test)]
 mod pruebas;

@@ -1079,3 +1079,22 @@ sha256 de los que estan aqui (reproducibles, comprobado dos veces):
    0183b62efbf7634bd5f6e9660795663421d2e7b23a7766761f747247f2ab2864  tanda22.exe
 
 Dice `bien` nueve veces y sale con 0. En Windows dice lo mismo.
+
+tanda23.exe -- la TANDA 23 de Cyberpunk (30-09): la memoria EN MARCHA
+
+El juego, recien saltado a su entrada en el metal, pregunto
+GlobalMemoryStatus y pidio con VirtualAlloc mas de 64 MiB de una vez; la
+casa solo sabia dar bloques de 64 MiB. Con la RESERVA del kernel (P0.4c):
+reservar 256 MiB sin gastar, hacer 1 MiB en medio (a cero), deshacer y
+rehacer (a cero otra vez), soltar; 200 MiB hechos de una vez; un HeapAlloc
+de 100 MiB; reservar 1 GiB. Solo RELACIONES.
+
+   llvm-dlltool -m i386:x86-64 -d tanda23_kernel32.def -l tanda23_kernel32.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda23.c -o tanda23.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda23.obj tanda23_kernel32.lib /out:tanda23.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   e77c8b6bcd55ff3dd31829567f9e4ad8ccf02b200c4f6d3229ac223aa88b73df
+
+Dice `bien` dieciseis veces y sale con 0. En Windows dice lo mismo.

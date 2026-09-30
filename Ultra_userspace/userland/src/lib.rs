@@ -116,6 +116,9 @@ pub const OP_IMAGEN_DECLARAR: u32 = 0x37;
 pub const OP_IMAGEN_PARTE: u32 = 0x38;
 /// Sellar una parte de codigo (W^X).
 pub const OP_IMAGEN_SELLAR: u32 = 0x39;
+/// **La RESERVA** (P0.4c): hacer y deshacer paginas en marcha. Ver `reserva.rs`.
+pub const OP_RESERVA_HACER: u32 = 0x3A;
+pub const OP_RESERVA_DESHACER: u32 = 0x3B;
 /// El log del kernel, leido desde Ring 3. Ver `klog_lineas`/`klog_texto`.
 pub const OP_KLOG_INFO: u32 = 0x16;
 pub const OP_KLOG_TEXTO: u32 = 0x17;
@@ -1475,6 +1478,7 @@ mod dibujo;
 mod disco;
 mod entrada;
 mod imagen;
+pub mod reserva;
 mod memoria;
 /// ** LA RED desde donde vive el propietario: armar el receptor y sondearlo.
 ///

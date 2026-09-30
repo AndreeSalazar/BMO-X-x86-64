@@ -83,6 +83,7 @@ const TANDA20: &[u8] = include_bytes!("../../proton-x/prueba/tanda20.exe");
 const TANDA21: &[u8] = include_bytes!("../../proton-x/prueba/tanda21.exe");
 const TANDA22: &[u8] = include_bytes!("../../proton-x/prueba/tanda22.exe");
 const TANDA22D: &[u8] = include_bytes!("../../proton-x/prueba/tanda22d.dll");
+const TANDA23: &[u8] = include_bytes!("../../proton-x/prueba/tanda23.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -214,7 +215,7 @@ fn salir(codigo: u32) -> ! {
 }
 
 fn plataforma() -> Plataforma {
-    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }
+    Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_la_3060, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, reserva: Some(de_hoy::reserva_del_banco()) }
 }
 
 /// Codigo SELLADO, como `MEM_OP_SELLAR`: memoria nueva, los bytes, y de

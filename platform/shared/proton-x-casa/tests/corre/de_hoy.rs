@@ -4,6 +4,42 @@
 //! `include_bytes` siguen en `corre.rs`: ahi los busca el guardian PX3).
 
 use super::*;
+use std::sync::atomic::AtomicU64;
+
+// -- P0.4c: la RESERVA del banco, como la del kernel -----------------------
+
+/// 8 GiB de direcciones sin RAM (PROT_NONE, MAP_NORESERVE): HACER es
+/// `mprotect` a R+W (Linux da ceros al tocar), DESHACER es `madvise
+/// (DONTNEED)` y otra vez PROT_NONE (la proxima vez, ceros otra vez).
+pub(super) fn reserva_del_banco() -> bmo_proton_x_casa::Reserva {
+    static BASE: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    const BYTES: u64 = 8 << 30;
+    let base = *BASE.get_or_init(|| {
+        // MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, PROT_NONE, alineada a 64 KiB.
+        let r = unsafe { syscall6(9, 0, BYTES + (1 << 16), 0, 0x4022, u64::MAX, 0) };
+        assert!(r < (-4096i64) as u64, "mmap de la reserva dijo {r:#x}");
+        (r + 0xFFFF) & !0xFFFF
+    });
+    fn hacer(va: u64, n: u64) -> bool {
+        mprotect(va, n, PROT_LEE | PROT_ESCRIBE);
+        HECHOS.fetch_add(n, Ordering::SeqCst);
+        true
+    }
+    fn deshacer(va: u64, n: u64) {
+        // MADV_DONTNEED: la proxima vez que se haga, a cero.
+        unsafe { syscall6(28, va, n, 4, 0, 0, 0) };
+        mprotect(va, n, 0);
+        DESHECHOS.fetch_add(n, Ordering::SeqCst);
+    }
+    fn ram() -> (u64, u64) {
+        (16 << 30, 12 << 30)
+    }
+    bmo_proton_x_casa::Reserva { base, bytes: BYTES, hacer, deshacer, ram }
+}
+
+/// Lo que el banco hizo y deshizo de la reserva (para las pruebas).
+pub(super) static HECHOS: AtomicU64 = AtomicU64::new(0);
+pub(super) static DESHECHOS: AtomicU64 = AtomicU64::new(0);
 
 
 /// **El diario, apagado** (P0.3, 30-09): `diario.exe` dice lo de Windows
@@ -194,4 +230,17 @@ fn tanda22_exe_el_tls_de_una_dll() {
     assert!(!texto.contains("PROTON-X:"), "ni un aviso: {texto}");
     assert_eq!(texto.matches("  bien  ").count(), 9, "{texto}");
     assert!(texto.ends_with("tanda22.exe: el TLS de una DLL es el de Windows\r\n[salio 0x0]"), "{texto}");
+}
+
+/// **La tanda 23 de Cyberpunk** (30-09): `tanda23.exe` -- la memoria EN
+/// MARCHA. En el metal el juego pidio con VirtualAlloc mas de 64 MiB de una
+/// vez; con la reserva (P0.4c), reservar no gasta y cada COMMIT pide sus
+/// paginas. Y el banco ve que las paginas fueron y volvieron.
+#[test]
+fn tanda23_exe_la_memoria_en_marcha() {
+    let (h0, d0) = (HECHOS.load(Ordering::SeqCst), DESHECHOS.load(Ordering::SeqCst));
+    tanda(TANDA23, None, 16, "tanda23.exe: la memoria en marcha es la de Windows");
+    let (h, d) = (HECHOS.load(Ordering::SeqCst) - h0, DESHECHOS.load(Ordering::SeqCst) - d0);
+    assert!(h >= 200 << 20, "se hicieron los 200 MiB por la reserva: {h}");
+    assert!(d >= 200 << 20, "y volvieron: {d}");
 }

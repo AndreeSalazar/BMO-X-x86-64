@@ -169,6 +169,26 @@ pub struct Plataforma {
     /// Lo que hay en una carpeta del volumen (P4f3: FindFirstFileW), o
     /// `None` si no es una carpeta. `""` es la raiz.
     pub listar: fn(&[u8]) -> Option<Vec<bmo_proton_x::ficheros::Entrada>>,
+    /// La RESERVA (P0.4c): una ventana de direcciones donde se hacen y
+    /// deshacen paginas a peticion. `None`: solo las arenas de `memoria`.
+    pub reserva: Option<Reserva>,
+}
+
+/// **La reserva de la plataforma** (P0.4c, 30-09): en BMO-X, la ventana de
+/// `TASK_OP_RESERVA_*`. La casa elige las direcciones (reservar no cuesta
+/// nada) y pide o devuelve paginas.
+#[derive(Clone, Copy)]
+pub struct Reserva {
+    /// La ventana: `[base, base + bytes)`, a 64 KiB.
+    pub base: u64,
+    pub bytes: u64,
+    /// Hacer las paginas que falten de `[va, va + bytes)`, a cero y R+W (lo
+    /// grande lo parte la plataforma). `false` si no hay RAM.
+    pub hacer: fn(u64, u64) -> bool,
+    /// Devolverlas.
+    pub deshacer: fn(u64, u64),
+    /// La RAM de la maquina: (total, libre ahora), para GlobalMemoryStatus.
+    pub ram: fn() -> (u64, u64),
 }
 
 /// Una clase registrada (`RegisterClassExW`).
@@ -276,6 +296,8 @@ pub unsafe fn empezar(p: Plataforma) {
     version_y_seguridad::reiniciar();
     com_basico::reiniciar();
     user32_dialogos::reiniciar();
+    // Lo del locale apunta al monton de antes: fuera (P0.4c).
+    msvcp_locale::reiniciar();
     // Tanda 19: cerr, con la plataforma ya puesta (pide memoria).
     msvcp_flujos::reiniciar();
 }

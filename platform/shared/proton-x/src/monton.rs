@@ -74,8 +74,10 @@ pub fn propietario_de(asa: u64) -> Option<u16> {
     (asa & !0xFFFF_0000 == 0x5A1D_0000_0000 && d != 0 && d != PROPIETARIO_VIRTUAL).then_some(d)
 }
 
-/// Las arenas que caben: una por bloque del kernel, que da ocho por proceso.
-pub const MAX_ARENAS: usize = 8;
+/// Las arenas que caben. Con bloques del kernel son ocho (da ocho por
+/// proceso); con la RESERVA (P0.4c) no hay ese tope: 64 arenas de 64 MiB son
+/// 4 GiB de monton.
+pub const MAX_ARENAS: usize = 64;
 
 /// Lo que se sabia de un bloque al soltarlo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

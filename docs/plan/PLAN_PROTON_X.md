@@ -1755,6 +1755,54 @@ gana:
                       su resolucion entra en la misma cuenta
 ```
 
+### 4a.1 Lo que el metal MIDIO al cargar Cyberpunk (30-09) -- donde exprimir
+
+El propietario: *"no olvides anotar en algunos puntos que optimizar [...]
+en cada elemento y reglas de PROTON, para EXPRIMIR CON TODO el hardware"*.
+La regla es la de siempre: **medir, y luego exprimir lo que el numero
+marca** (la linea `tiempos:` de PROTON-X, desde P0.4b.9). Lo que dijo la
+primera carga entera (25 modulos, 238 MiB, Ryzen 5 5600X, SSD SATA):
+
+```text
+   fase                   medido       lo que dice                         donde se exprime
+   ---------------------  -----------  ----------------------------------  -------------------------------
+   leer de D: (PERSONAL)  20.7 s,      un SATA Gen3 da ~550 MiB/s: se      PLAN_EXPRIMIR_EL_DISCO D1-D3
+                          10 MiB/s     usa el 2 % del disco. Trozos de     (asincrono, NCQ, DMA directo al
+                                       2 MiB, uno a uno, y ceder el turno  bloque, PRD multiples) y NTFS
+                                       en cada uno                         leyendo tramos enteros
+   las cabeceras          6.7 s        cada DLL se abre y se lee 2-3       leer UNA vez las cabeceras y las
+                                       veces (mirar, pedidas, cabeceras)   importaciones de cada fichero y
+                                                                           guardarlas; y el coste de abrir
+   los DllMain            2.1 s        24 DLL; sin medir cual pesa         medir cada uno (el diario ya las
+                                                                           nombra); luego se ve
+   resolver               10 ms        4793 importaciones: ya es barato    nada
+   copiar y relocalizar   ~0.3 s       (colocar - disco)                   poco que ganar
+```
+
+**La causa del 10 MiB/s, encontrada (30-09):** el disco ajeno (D:) leia por
+UNA pagina de rebote, 8 sectores por comando: 216 MiB eran ~55.000
+comandos sincronos de ~0,37 ms. Ahora el rebote es 1 MiB contiguo (2048
+sectores por comando, 256 veces menos comandos) y NTFS pide hasta 2 MiB de
+una vez (antes 64 KiB). Lo que de: la proxima linea `tiempos:` del metal.
+
+Y las reglas que salen de ahi, para cada pieza de PROTON-X:
+
+- **El disco primero, la cache despues.** Una cache de la imagen (P0.4d) en
+  ESTRATOS tambien lee 238 MiB: si el camino de lectura va a 10 MiB/s, la
+  cache ahorra solo relocalizar y resolver (~0.3 s). Con el disco a su
+  velocidad (~0.5 s para 238 MiB), la cache queda para lo que SI cuesta: los
+  sombreadores (DXIL -> SASS) y el censo de las cabeceras.
+- **Un fichero se abre y se lee una vez por carga.** Lo que se mira dos
+  veces (cabeceras, importaciones) se guarda la primera.
+- **Todo lo que tarda, se dice.** Cada fase nueva de PROTON-X entra en la
+  linea `tiempos:`; lo que no se mide no se optimiza (ni se presume).
+- **Anotado para despues:** el TLS de cada hilo se pide y no se devuelve al
+  morir el hilo (un bloque por modulo con TLS, ~11 KiB en Cyberpunk); se
+  suelta en ExitThread cuando los hilos del juego empiecen a nacer y morir.
+- **W^X no se negocia por velocidad:** `.rdata` queda R+W (no solo R) por
+  tener dos permisos por tramo, no por ahorrar; si algun dia sobra un
+  permiso de verdad (R), se pone.
+
 ## 4b. "La MAYORIA de los juegos?" -- lo que decide, medido y no a ojo
 
 El propietario (27-09), mirando su Steam, su GOG y su Epic: GTA V, Dying

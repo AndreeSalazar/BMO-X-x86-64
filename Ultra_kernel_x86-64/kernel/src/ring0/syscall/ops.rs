@@ -310,6 +310,14 @@ pub(crate) const TASK_OP_IMAGEN_PARTE: u64 = 0x38;
 /// Sellar la parte de codigo `arg0` (W^X). Espejo de
 /// `bmo_abi::...::TASK_OP_IMAGEN_SELLAR`.
 pub(crate) const TASK_OP_IMAGEN_SELLAR: u64 = 0x39;
+/// **LA RESERVA** (P0.4c, 30-09): HACER las paginas de `[arg0, arg0+arg1)`
+/// que faltan en la ventana de reserva (a cero, R+W, sin X), juzgado contra
+/// la RAM libre. Contesta los bytes nuevos, o el NO (`RESERVA_*`). Espejo de
+/// `bmo_abi::...::TASK_OP_RESERVA_HACER`. Ver `obj/reserva.rs`.
+pub(crate) const TASK_OP_RESERVA_HACER: u64 = 0x3A;
+/// DESHACER las paginas de `[arg0, arg0+arg1)`: contesta los bytes devueltos.
+/// Espejo de `bmo_abi::...::TASK_OP_RESERVA_DESHACER`.
+pub(crate) const TASK_OP_RESERVA_DESHACER: u64 = 0x3B;
 pub(crate) const IOMMU_OP_ENCENDER: u64 = 0x01;
 pub(crate) const IOMMU_OP_APAGAR: u64 = 0x02;
 /// Cegar la 3060 (M0e): su entrada, bloqueada.

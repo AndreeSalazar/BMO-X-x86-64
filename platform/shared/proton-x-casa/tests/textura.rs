@@ -58,8 +58,13 @@ fn leer_fichero(_: &[u8]) -> Option<Vec<u8>> {
 fn escribir_fichero(_: &[u8], _: &[u8]) -> bool {
     false
 }
-fn memoria(_: usize) -> Option<u64> {
-    None
+/// Bloques a cero de la plataforma: desde la tanda 19, `empezar` crea
+/// `cerr` y el locale, y piden memoria (sin ella, la casa lo dice).
+fn memoria(n: usize) -> Option<u64> {
+    let forma = std::alloc::Layout::from_size_align(n.max(1), 4096).ok()?;
+    // SAFETY: una forma que no mide cero; el bloque vive lo que la prueba.
+    let p = unsafe { std::alloc::alloc_zeroed(forma) };
+    (!p.is_null()).then_some(p as u64)
 }
 fn fecha() -> Option<u64> {
     None
@@ -163,7 +168,7 @@ fn hello_texture(version_1_1: bool) -> Vec<u32> {
     DICHO.lock().unwrap().clear();
     // SAFETY: ningun `.exe` corre; esta prueba no corre en paralelo con otra
     // que empiece la casa (es la unica de este fichero).
-    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_su_tex, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar }) };
+    unsafe { bmo_proton_x_casa::empezar(Plataforma { escribir, salir, superficie, mostrar, presentar, evento, dormir, poner_gs, ahora_ns, dibujar: dibujar_y_su_tex, sellar_codigo, soltar_codigo, leer_fichero, escribir_fichero, memoria, fecha, listar, reserva: None }) };
     type CrearDisp = extern "win64" fn(u64, u32, *const Guid, *mut u64) -> i32;
     // SAFETY: la direccion de `D3D12CreateDevice` de la casa.
     let crear: CrearDisp = unsafe { core::mem::transmute(funcion("d3d12.dll", "D3D12CreateDevice")) };

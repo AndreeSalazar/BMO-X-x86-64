@@ -19,11 +19,11 @@
 use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
-use bmo_proton_x::{colocar_en, leer_cabeceras, tramos, Pe, Tramo};
+use bmo_proton_x::{colocar_en, tramos, Pe, Tramo};
 use bmo_userland as bmo;
 
 use crate::plataforma::ahora_ns;
-use crate::{di, fin, CABECERAS, TROZO};
+use crate::{di, fin, TROZO};
 
 /// Un PE de la imagen: el `.exe` (el primero) o una DLL del juego.
 pub(crate) struct Modulo {
@@ -55,19 +55,6 @@ impl Modulo {
     }
 }
 
-/// Las cabeceras de un PE, sin traerlo.
-fn cabeceras(ruta: &[u8]) -> Result<Pe, String> {
-    let a = bmo::Archivo::reflejar(ruta).map_err(|_| String::from("no esta"))?;
-    let mide = a.size();
-    let n = CABECERAS.min(mide).max(1);
-    let hb = bmo::Memoria::request(n).ok_or("sin memoria para las cabeceras")?;
-    let k = a.leer_en(&hb, 0, n);
-    // SAFETY: `k` bytes que el kernel acaba de escribir en un bloque nuestro.
-    let cab: Vec<u8> = unsafe { core::slice::from_raw_parts(hb.base() as *const u8, k as usize) }.to_vec();
-    hb.soltar();
-    leer_cabeceras(&cab, mide).map_err(|f| format!("{f}"))
-}
-
 fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
     let mut r = dir.to_vec();
     r.extend_from_slice(dll.as_bytes());
@@ -75,8 +62,8 @@ fn junto(dir: &[u8], dll: &str) -> Vec<u8> {
 }
 
 /// Las DLL del juego que pide `ruta` (importadas y retrasadas), en el orden
-/// en que las nombra.
-fn pedidas(ruta: &[u8], dir: &[u8]) -> Vec<String> {
+/// en que las nombra, y sus cabeceras (se lee UNA vez: P0.4d).
+fn pedidas(ruta: &[u8], dir: &[u8]) -> (Vec<String>, Pe) {
     let m = crate::mirar(ruta).unwrap_or_else(|f| fin(&format!("{}: {f}", String::from_utf8_lossy(ruta))));
     let mut v: Vec<String> = Vec::new();
     for i in m.imps.iter().chain(&m.retrasadas) {
@@ -88,7 +75,7 @@ fn pedidas(ruta: &[u8], dir: &[u8]) -> Vec<String> {
             v.push(d.clone());
         }
     }
-    v
+    (v, m.pe)
 }
 
 /// Una DLL y, antes, las suyas (post-orden).
@@ -98,10 +85,10 @@ fn visitar(dll: &str, dir: &[u8], lista: &mut Vec<Modulo>, vistos: &mut Vec<Stri
     }
     vistos.push(String::from(dll));
     let ruta = junto(dir, dll);
-    for d in pedidas(&ruta, dir) {
+    let (suyas, pe) = pedidas(&ruta, dir);
+    for d in suyas {
         visitar(&d, dir, lista, vistos);
     }
-    let pe = cabeceras(&ruta).unwrap_or_else(|f| fin(&format!("{dll}: {f}")));
     if !pe.es_dll {
         fin(&format!("{dll}: esta junto al .exe pero no es una DLL"));
     }
@@ -121,7 +108,7 @@ pub(crate) fn declarar_y_colocar(ruta: &[u8], pe: Pe, tramos: Vec<Tramo>) -> (bm
     let nombre = String::from_utf8_lossy(ruta).into_owned();
     let mut modulos = alloc::vec![Modulo { nombre: nombre.clone(), ruta: ruta.to_vec(), pe, tramos, primera: 0, base: 0 }];
     let mut vistos: Vec<String> = alloc::vec![String::from(nombre.rsplit('/').next().unwrap_or(&nombre))];
-    for d in pedidas(ruta, &dir) {
+    for d in pedidas(ruta, &dir).0 {
         visitar(&d, &dir, &mut modulos, &mut vistos);
     }
 

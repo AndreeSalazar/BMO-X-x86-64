@@ -41,6 +41,9 @@ pub const MEM_PRIVATE: u32 = 0x2_0000;
 pub enum NoVirtual {
     Direccion,
     Parametro,
+    /// Quien tiene las paginas no pudo darlas (P0.4c: el kernel dijo que no
+    /// hay RAM). ERROR_NOT_ENOUGH_MEMORY.
+    SinMemoria,
 }
 
 impl NoVirtual {
@@ -48,6 +51,7 @@ impl NoVirtual {
         match self {
             NoVirtual::Direccion => 487,
             NoVirtual::Parametro => 87,
+            NoVirtual::SinMemoria => 8,
         }
     }
 }
@@ -104,6 +108,18 @@ impl Regiones {
     /// lo estaban pasan por `a_cero` (principio, bytes) y toman `prot`; las
     /// que ya estaban se quedan como estan. La primera pagina.
     pub fn hacer(&mut self, dir: u64, tam: u64, prot: u32, mut a_cero: impl FnMut(u64, u64)) -> Result<u64, NoVirtual> {
+        self.hacer_con(dir, tam, prot, |d, n| {
+            a_cero(d, n);
+            true
+        })
+    }
+
+    /// **Hacer, pidiendo las paginas** (P0.4c): como [`Regiones::hacer`],
+    /// pero `dar(principio, bytes)` puede decir que no (el kernel no tiene
+    /// RAM): esa tirada NO se marca y se contesta `SinMemoria`. Las tiradas
+    /// de antes SI quedaron hechas (las dio quien las tiene): no es "todo o
+    /// nada" como Windows, pero la cuenta y las paginas dicen lo mismo.
+    pub fn hacer_con(&mut self, dir: u64, tam: u64, prot: u32, mut dar: impl FnMut(u64, u64) -> bool) -> Result<u64, NoVirtual> {
         if tam == 0 {
             return Err(NoVirtual::Parametro);
         }
@@ -119,16 +135,24 @@ impl Regiones {
             }
             let desde = k;
             while k < b && r.paginas[k] == 0 {
-                r.paginas[k] = prot;
                 k += 1;
             }
-            a_cero(r.base + desde as u64 * PAGINA, (k - desde) as u64 * PAGINA);
+            if !dar(r.base + desde as u64 * PAGINA, (k - desde) as u64 * PAGINA) {
+                return Err(NoVirtual::SinMemoria);
+            }
+            r.paginas[desde..k].fill(prot);
         }
         Ok(ini)
     }
 
     /// **Deshacer** (MEM_DECOMMIT). `tam` 0 desde la base: la region entera.
     pub fn deshacer(&mut self, dir: u64, tam: u64) -> Result<(), NoVirtual> {
+        self.deshacer_con(dir, tam, |_, _| {})
+    }
+
+    /// **Deshacer, devolviendo las paginas** (P0.4c): `devolver(principio,
+    /// bytes)` por cada tirada que SI estaba hecha, antes de marcarla.
+    pub fn deshacer_con(&mut self, dir: u64, tam: u64, mut devolver: impl FnMut(u64, u64)) -> Result<(), NoVirtual> {
         let (ini, fin) = if tam == 0 {
             let r = self.v.iter().find(|r| r.base == dir).ok_or(NoVirtual::Parametro)?;
             (r.base, r.base + r.tam)
@@ -138,6 +162,18 @@ impl Regiones {
         let i = self.donde(ini, fin).ok_or(NoVirtual::Direccion)?;
         let r = &mut self.v[i];
         let (a, b) = (((ini - r.base) / PAGINA) as usize, ((fin - r.base) / PAGINA) as usize);
+        let mut k = a;
+        while k < b {
+            if r.paginas[k] == 0 {
+                k += 1;
+                continue;
+            }
+            let desde = k;
+            while k < b && r.paginas[k] != 0 {
+                k += 1;
+            }
+            devolver(r.base + desde as u64 * PAGINA, (k - desde) as u64 * PAGINA);
+        }
         r.paginas[a..b].fill(0);
         Ok(())
     }

@@ -129,6 +129,9 @@ const TROZO: u64 = 2 << 20;
 /// Lo que se sabe de UN fichero (el `.exe` o una DLL): lo que importa, y
 /// los nombres de DLL que aparecen en sus datos (candidatas a `LoadLibrary`).
 struct Mirado {
+    /// Sus cabeceras: quien las mira no las vuelve a leer (P0.4d, cada
+    /// fichero se abre una vez por carga).
+    pub(crate) pe: bmo_proton_x::Pe,
     imps: Vec<bmo_proton_x::Importacion>,
     /// Las RETRASADAS (`/DELAYLOAD`): se resuelven en su primera llamada.
     retrasadas: Vec<bmo_proton_x::Importacion>,
@@ -159,7 +162,7 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
     let rva = pe.importaciones.rva;
     let seccion_de = |rva: u32| pe.secciones.iter().find(|s| rva != 0 && (s.rva..s.rva + s.tam_en_fichero).contains(&rva));
     let Some(sec) = seccion_de(rva) else {
-        return Ok(Mirado { imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide, partes });
+        return Ok(Mirado { pe: pe.clone(), imps: Vec::new(), retrasadas: Vec::new(), fallo_retrasadas: None, en_vivo: Vec::new(), mide, partes });
     };
     let (imps, retrasadas, en_vivo) = con_seccion(&a, sec, |trozo| {
         let imps = bmo_proton_x::importaciones_de_seccion(&pe, trozo, sec.rva).map_err(|f| format!("{f}"))?;
@@ -179,7 +182,7 @@ fn mirar(ruta: &[u8]) -> Result<Mirado, alloc::string::String> {
             Err(f) => (Vec::new(), Some(f)),
         },
     };
-    Ok(Mirado { imps, retrasadas, fallo_retrasadas, en_vivo, mide, partes })
+    Ok(Mirado { pe, imps, retrasadas, fallo_retrasadas, en_vivo, mide, partes })
 }
 
 /// **Todas las secciones de DATOS en un bloque**, cada una en su RVA (lo de
