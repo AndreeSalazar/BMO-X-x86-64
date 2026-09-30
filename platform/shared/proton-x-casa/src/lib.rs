@@ -82,6 +82,8 @@ pub mod msvcp_hilos;
 pub mod nativo;
 pub mod proceso;
 pub mod red;
+pub mod red_puro;
+pub mod cripto;
 pub mod sistema;
 pub mod texto;
 pub mod tuberia;
@@ -252,6 +254,7 @@ pub unsafe fn empezar(p: Plataforma) {
     kernel32_procesos::reiniciar();
     advapi32::reiniciar();
     advapi32_registro::reiniciar();
+    cripto::reiniciar();
     user32_medidas::reiniciar();
     user32_ventanas::reiniciar();
     user32_mensajes::reiniciar();
@@ -282,7 +285,12 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
     if let Some(d) = modulos::exportada(dll, f) {
         return Some(d);
     }
-    let Funcion::Nombre(n) = f else { return None };
+    let n = match f {
+        Funcion::Nombre(n) => n,
+        // Tanda 12: ws2_32 se importa por ordinal.
+        Funcion::Ordinal(o) if dll.eq_ignore_ascii_case("ws2_32.dll") => return red::por_ordinal(*o),
+        _ => return None,
+    };
     // P4f2: los "API set" de Windows (`api-ms-win-core-synch-l1-2-0.dll`,
     // de donde la `std` de Rust importa WaitOnAddress) son nombres de
     // kernel32/kernelbase: Windows los resuelve ahi, y la casa tambien.
@@ -309,6 +317,10 @@ pub fn tabla(dll: &str, f: &Funcion) -> Option<u64> {
         sistema::buscar_otras(dll, n)
     } else if dll.eq_ignore_ascii_case("user32.dll") {
         user32::buscar(n).or_else(|| user32_medidas::buscar(n)).or_else(|| user32_ventanas::buscar(n)).or_else(|| user32_mensajes::buscar(n)).or_else(|| user32_entrada::buscar(n)).or_else(|| user32_portapapeles::buscar(n)).or_else(|| user32_dialogos::buscar(n))
+    } else if dll.eq_ignore_ascii_case("crypt32.dll") {
+        cripto::buscar_crypt32(n)
+    } else if dll.eq_ignore_ascii_case("bcrypt.dll") {
+        cripto::buscar_bcrypt(n)
     } else if dll.eq_ignore_ascii_case("advapi32.dll") {
         // Tanda 11: lo suyo, y el registro y los tokens (de kernelbase).
         advapi32::buscar(n).or_else(|| de_kernel32(n))

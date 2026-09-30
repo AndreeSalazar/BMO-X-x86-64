@@ -1,0 +1,8 @@
+LIBRARY crypt32.dll
+EXPORTS
+CryptBinaryToStringW
+CryptStringToBinaryA
+CryptStringToBinaryW
+CertOpenStore
+CertCloseStore
+CertEnumCertificatesInStore

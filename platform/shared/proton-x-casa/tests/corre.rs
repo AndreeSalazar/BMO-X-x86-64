@@ -67,6 +67,7 @@ const TANDA8: &[u8] = include_bytes!("../../proton-x/prueba/tanda8.exe");
 const TANDA9: &[u8] = include_bytes!("../../proton-x/prueba/tanda9.exe");
 const TANDA10: &[u8] = include_bytes!("../../proton-x/prueba/tanda10.exe");
 const TANDA11: &[u8] = include_bytes!("../../proton-x/prueba/tanda11.exe");
+const TANDA12: &[u8] = include_bytes!("../../proton-x/prueba/tanda12.exe");
 
 /// Como se llama el `.exe` que corre y lo que se escribio detras (P4e: su
 /// GetModuleFileNameW y su GetCommandLineW).
@@ -1293,4 +1294,13 @@ fn tanda10_exe_tiene_lo_que_quedaba_de_user32() {
 #[test]
 fn tanda11_exe_tiene_advapi32() {
     tanda(TANDA11, None, 35, "tanda11.exe: ADVAPI32 es lo de Windows");
+}
+
+/// **La tanda 12 de Cyberpunk** (30-09): `tanda12.exe` -- la red y la cripto
+/// sin red: ws2_32 POR ORDINAL (lo puro de verdad; lo de red, antes de
+/// WSAStartup), crypt32 (Base64, hex, un almacen vacio) y bcrypt (MD5,
+/// SHA-1, SHA-256, HMAC y el azar).
+#[test]
+fn tanda12_exe_tiene_la_red_y_la_cripto_sin_red() {
+    tanda(TANDA12, None, 24, "tanda12.exe: la red y la cripto sin red son lo de Windows");
 }

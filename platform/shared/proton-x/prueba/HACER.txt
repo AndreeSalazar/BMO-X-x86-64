@@ -733,3 +733,27 @@ sha256 del que esta aqui (reproducible, comprobado dos veces):
    ad218953b4ba71fc8f5be9149f5d436fd10d0b21bb7658fec515a721cb5eac59
 
 Dice `bien` treinta y cinco veces y sale con 0. En Windows dice lo mismo.
+
+tanda12.exe -- la TANDA 12 de Cyberpunk (30-09): la red y la cripto, SIN red
+
+ws2_32 importado POR ORDINAL (como Cyberpunk: #3 closesocket, #111
+WSAGetLastError...): lo puro de verdad (htons, htonl, inet_addr,
+inet_pton/ntop en IPv4 e IPv6, __WSAFDIsSet, WSASetLastError) y lo de red
+ANTES de WSAStartup (socket, closesocket, gethostname, getaddrinfo:
+WSANOTINITIALISED). La prueba no llama NUNCA a WSAStartup: Windows tiene
+red y la casa no, y asi dicen lo mismo. crypt32: Base64 y HEXRAW,
+CryptStringToBinary con y sin cabecera, un almacen en memoria vacio.
+bcrypt: SHA-256, MD5, SHA-1, HMAC-SHA256, la medida mal y el azar:
+
+   llvm-dlltool -m i386:x86-64 -d tanda12_kernel32.def -l tanda12_kernel32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda12_ws2_32.def -l tanda12_ws2_32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda12_crypt32.def -l tanda12_crypt32.lib
+   llvm-dlltool -m i386:x86-64 -d tanda12_bcrypt.def -l tanda12_bcrypt.lib
+   clang --target=x86_64-pc-windows-msvc -O1 -ffreestanding -fno-stack-protector -fno-builtin -c tanda12.c -o tanda12.obj
+   lld-link /nodefaultlib /entry:inicio /subsystem:console /dynamicbase /brepro tanda12.obj tanda12_kernel32.lib tanda12_ws2_32.lib tanda12_crypt32.lib tanda12_bcrypt.lib /out:tanda12.exe
+
+sha256 del que esta aqui (reproducible, comprobado dos veces):
+
+   72b75544554574a1ef979247662959c62f5fff58afa4501be5641b1b97e8f704
+
+Dice `bien` veinticuatro veces y sale con 0. En Windows dice lo mismo.
